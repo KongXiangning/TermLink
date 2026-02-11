@@ -387,4 +387,52 @@ document.querySelectorAll('.key').forEach(btn => {
 });
 
 // Start
+// Start
 connect();
+checkHealth();
+
+// Health Check
+async function checkHealth() {
+    try {
+        const res = await fetch('/health');
+        const data = await res.json();
+        updateCodexStatus(data.codex, data.mode);
+    } catch (e) {
+        console.error('Health Check Failed:', e);
+    }
+}
+
+function updateCodexStatus(status, mode) {
+    const bar = document.getElementById('codex-status-bar');
+    const text = document.getElementById('codex-status-text');
+    const btn = document.getElementById('btn-copy-login');
+
+    if (!bar) return;
+
+    bar.classList.remove('hidden');
+
+    if (mode === 'mock') {
+        text.textContent = 'Codex: Mock Mode (Simulated)';
+        btn.classList.add('hidden');
+        return;
+    }
+
+    // Real or Auto
+    if (!status.installed) {
+        text.textContent = 'Codex: Not Installed (Using Mock)';
+        text.style.color = '#ffaa00';
+        btn.classList.add('hidden');
+    } else if (!status.loggedIn) {
+        text.textContent = 'Codex: Not Logged In';
+        text.style.color = '#ff4444';
+        btn.classList.remove('hidden');
+        btn.onclick = () => {
+            navigator.clipboard.writeText('codex login --device-auth');
+            alert('Command copied: codex login --device-auth');
+        };
+    } else {
+        text.textContent = 'Codex: Ready';
+        text.style.color = '#00ff00';
+        btn.classList.add('hidden');
+    }
+}

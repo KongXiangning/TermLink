@@ -10,7 +10,21 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
+const CodexFactory = require('./services/codex/codexFactory');
+const RuntimeValidator = require('./services/codexRuntimeValidator');
+let codexService; // Will be initialized async
+
 const PORT = process.env.PORT || 3000;
+
+// Initialize Codex Service Async
+(async () => {
+    try {
+        codexService = await CodexFactory.create();
+        console.log('[Server] Codex Service Initialized:', codexService.constructor.name);
+    } catch (e) {
+        console.error('[Server] Failed to init Codex:', e);
+    }
+})();
 
 app.use(basicAuth);
 app.use(express.static(path.join(__dirname, '../public')));
@@ -21,12 +35,22 @@ app.get('/api/sessions', (req, res) => {
 });
 
 // API: Create Session
-app.post('/api/sessions', (req, res) => {
-    const session = sessionManager.createSession();
+app.post('/api/sessions', async (req, res) => {
+    const session = await sessionManager.createSession();
     res.json({ id: session.id, name: session.name });
 });
 
-wss.on('connection', (ws, req) => {
+// Health Endpoint
+app.get('/health', async (req, res) => {
+    const codexStatus = await RuntimeValidator.validate();
+    res.json({
+        status: 'ok',
+        codex: codexStatus,
+        mode: process.env.CODEX_MODE || 'auto'
+    });
+});
+
+wss.on('connection', async (ws, req) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const sessionId = url.searchParams.get('sessionId');
 
@@ -36,7 +60,7 @@ wss.on('connection', (ws, req) => {
     }
 
     if (!session) {
-        session = sessionManager.createSession('Default Session');
+        session = await sessionManager.createSession('Default Session');
         console.log(`Created new session: ${session.id}`);
     } else {
         console.log(`Client attached to session: ${session.id}`);
@@ -102,19 +126,15 @@ wss.on('connection', (ws, req) => {
                 } else if (result.error) {
                     console.error('Approval Error:', result.error);
                 }
+            } else if (type === 'signal') {
+                const { signal } = envelope.payload || envelope;
+                console.log(`Sending signal ${signal} to session ${session.id}`);
+                if (pty) pty.kill(signal);
             }
-        } else if (type === 'signal') {
-            const { signal } = envelope.payload || envelope;
-            console.log(`Sending signal ${signal} to session ${session.id}`);
-            // Forward to session process via SessionManager or direct?
-            // SessionManager wrapper is cleaner but direct access exists here.
-            // Let's use direct ptyService for now as per plan.
-            if (pty) pty.kill(signal);
+        } catch (e) {
+            console.error('Failed to parse message:', e.message);
         }
     });
-
-    // Note: We removed the direct `pty.onData` listener here.
-    // SessionManager now handles broadcasting PTY data to all active connections.
 
     ws.on('close', () => {
         console.log('Client disconnected');

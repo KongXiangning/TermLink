@@ -1,6 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const PtyService = require('./ptyService');
-const CodexService = require('./codexService');
+const CodexFactory = require('./codex/codexFactory');
 
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -12,7 +12,7 @@ class SessionManager {
         setInterval(() => this.cleanupIdleSessions(), 60000);
     }
 
-    createSession(name = 'New Session') {
+    async createSession(name = 'New Session') {
         const id = uuidv4();
         const session = {
             id,
@@ -22,7 +22,7 @@ class SessionManager {
             status: 'IDLE', // IDLE, ACTIVE
             connections: [], // WebSocket connections
             ptyService: new PtyService(),
-            codexService: new CodexService(),
+            codexService: await CodexFactory.create(),
             threads: new Map() // threadId -> { messages: [] }
         };
 
