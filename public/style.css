@@ -1,0 +1,192 @@
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+    touch-action: none;
+}
+
+#terminal-container {
+    width: 100%;
+    height: calc(100% - 140px);
+    /* Leave space for toolbar */
+    overflow: hidden;
+    background: #000;
+}
+
+#toolbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 140px;
+    background: #1a1a1a;
+    display: flex;
+    flex-direction: column;
+    padding: 5px;
+    box-sizing: border-box;
+    z-index: 100;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.key-row {
+    display: flex;
+    flex: 1;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+
+.key {
+    flex: 1;
+    background: #333;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    /* Optimizes tap events */
+    cursor: pointer;
+}
+
+.key:active {
+    background: #555;
+}
+
+.key.active {
+    background: #007bff;
+    /* Active modifier color */
+    color: white;
+}
+
+
+.xterm-viewport {
+    /* Fix for mobile scrolling if needed */
+    overflow-y: auto;
+}
+
+#status-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: monospace;
+    font-size: 24px;
+    z-index: 200;
+    display: none;
+    /* Hidden by default */
+}
+
+#input-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Cover full screen */
+    background: rgba(30, 30, 30, 0.95);
+    z-index: 150;
+    display: none;
+    flex-direction: column;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+#input-buffer {
+    flex: 1;
+    background: #111;
+    color: #fff;
+    border: 1px solid #444;
+    padding: 10px;
+    font-family: monospace;
+    font-size: 16px;
+    resize: none;
+    margin-bottom: 20px;
+}
+
+.input-controls {
+    display: flex;
+    gap: 10px;
+    height: 50px;
+}
+
+.input-controls button {
+    flex: 1;
+    background: #333;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.input-controls button#btn-send {
+    background: #007bff;
+    flex: 2;
+}
+
+.input-controls button:active {
+    opacity: 0.8;
+}
+
+/* Light Theme */
+body.light-theme {
+    background: #f0f0f0;
+}
+
+body.light-theme #terminal-container {
+    background: #ffffff;
+}
+
+body.light-theme #toolbar {
+    background: #e0e0e0;
+    border-top: 1px solid #ccc;
+}
+
+body.light-theme .key {
+    background: #ddd;
+    color: #000;
+    border: 1px solid #bbb;
+}
+
+body.light-theme .key:active {
+    background: #ccc;
+}
+
+body.light-theme .key.active {
+    background: #007bff;
+    color: white;
+}
+
+body.light-theme #input-overlay {
+    background: rgba(240, 240, 240, 0.95);
+}
+
+body.light-theme #input-buffer {
+    background: #fff;
+    color: #000;
+    border: 1px solid #ccc;
+}
+
+body.light-theme .input-controls button {
+    background: #ddd;
+    color: #000;
+}
+
+body.light-theme .input-controls button#btn-send {
+    background: #007bff;
+    color: white;
+}

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TermLink</title>
+    <link rel="stylesheet" href="lib/xterm.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="status-overlay"></div>
+    <div id="input-overlay">
+        <textarea id="input-buffer" placeholder="Type command here..."></textarea>
+        <div class="input-controls">
+            <button id="btn-clear">Clear</button>
+            <button id="btn-close">Close</button>
+            <button id="btn-send">Send</button>
+        </div>
+    </div>
+    <div id="terminal-container"></div>
+    <div id="toolbar">
+        <div class="key-row">
+            <button class="key" id="btn-toggle-input" title="Input Mode">📝</button>
+            <button class="key" id="btn-paste" title="Paste from Clipboard">📋</button>
+            <button class="key" id="btn-theme" title="Toggle Theme">🌓</button>
+            <button class="key" data-key="Esc">Esc</button>
+            <button class="key" data-key="Tab">Tab</button>
+            <button class="key modifier" data-key="Ctrl">Ctrl</button>
+            <button class="key modifier" data-key="Alt">Alt</button>
+            <button class="key" data-key="-">-</button>
+            <button class="key" data-key="/">/</button>
+            <button class="key" data-key="|">|</button>
+        </div>
+        <div class="key-row">
+            <button class="key" data-key="Home">Home</button>
+            <button class="key" data-key="Up">↑</button>
+            <button class="key" data-key="End">End</button>
+            <button class="key" data-key="PgUp">PgUp</button>
+        </div>
+        <div class="key-row">
+            <button class="key" data-key="Left">←</button>
+            <button class="key" data-key="Down">↓</button>
+            <button class="key" data-key="Right">→</button>
+            <button class="key" data-key="PgDn">PgDn</button>
+        </div>
+    </div>
+    <script src="lib/xterm.js"></script>
+    <script src="lib/xterm-addon-fit.js"></script>
+    <script src="client.js"></script>
+</body>
+
+</html>
