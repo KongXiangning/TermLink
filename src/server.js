@@ -3,8 +3,8 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
-const PtyService = require('./services/ptyService');
 const basicAuth = require('./auth/basicAuth');
+const sessionManager = require('./services/sessionManager');
 
 const app = express();
 const server = http.createServer(app);
@@ -12,92 +12,127 @@ const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 3000;
 
-// Security: Basic Auth
 app.use(basicAuth);
-
-// Serve static files
 app.use(express.static(path.join(__dirname, '../public')));
 
-// WebSocket connection handling
-wss.on('connection', (ws) => {
-    console.log('Client connected');
+// API: List Sessions
+app.get('/api/sessions', (req, res) => {
+    res.json(sessionManager.listSessions());
+});
 
-    // Spawn PTY on connection (or reuse/attach logic could go here)
-    // For now, spawn a new attached tmux session per connection logic in ptyService
-    // In a real multi-user scenario, we might want to manage sessions differently,
-    // but for a single-user personal server, one shared session is the goal.
-    // Note: ptyService is currently a singleton.
+// API: Create Session
+app.post('/api/sessions', (req, res) => {
+    const session = sessionManager.createSession();
+    res.json({ id: session.id, name: session.name });
+});
 
-    // If ptyProcess doesn't exist, spawn it.
-    // If it exists, we just attach listeners.
-    // BUT ptyService provided is simple. Let's make sure we handle multiple WS 
-    // attached to the SAME pty process if possible, or spawn new per connection?
-    // PRD says: "Mobile Browser ... -> Backend -> PTY -> tmux"
-    // If we want to support persistent session, tmux handles the persistence.
-    // We can spawn a `tmux attach` for every websocket connection.
-    // Each WS connection gets its own PTY process, which runs `tmux attach`.
-    // This allows multiple browser tabs to see the same tmux session.
+wss.on('connection', (ws, req) => {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const sessionId = url.searchParams.get('sessionId');
 
-    // Let's modify usage of PtyService to be instantiated per connection
-    // OR keep it singleton if we only expect strictly one connection.
-    // PRD says "Suitable for long-term expansion (multi-machine, multi-session)".
-    // For "Phase 1", let's spawn a PTY for this connection.
+    let session;
+    if (sessionId) {
+        session = sessionManager.getSession(sessionId);
+    }
 
-    // Re-instantiate service logic or change service to export class?
-    // Let's stick to the current plan: instantiate pty for this connection.
-    // The ptyService I wrote exports a 'new PtyService()'. 
-    // Let's fix ptyService to export the class instead to allow multiple instances.
-    // I will update ptyService in the next step.
-    // For now, I will write the server assuming ptyService exports a class or factory.
+    if (!session) {
+        session = sessionManager.createSession('Default Session');
+        console.log(`Created new session: ${session.id}`);
+    } else {
+        console.log(`Client attached to session: ${session.id}`);
+    }
 
-    // Wait, I already wrote ptyService exporting a singleton instance. 
-    // If I use a singleton PTY, then multiple browser tabs will fight over the same PTY process.
-    // But `tmux` allows multiple clients.
-    // The correct architectural pattern for tmux integration is:
-    // Browser 1 connects -> Node spawns PTY 1 running `tmux attach -t main`
-    // Browser 2 connects -> Node spawns PTY 2 running `tmux attach -t main`
-    // Tmux syncs the state.
+    sessionManager.addConnection(session, ws);
+    const pty = session.ptyService;
+    const codex = session.codexService;
 
-    // So I should modify ptyService to export the Class, not an instance.
-    // And `server.js` should instantiate it per connection.
+    // Send Handshake / Session Info
+    ws.send(JSON.stringify({
+        type: 'session_info',
+        sessionId: session.id,
+        name: session.name,
+        // Send basic thread history for 'main'
+        history: session.threads.get('main')?.messages || [],
+        // Send pending approvals
+        pendingApprovals: Array.from(codex.approvals.values()).filter(a => a.status === 'pending')
+    }));
 
-    const pty = new PtyService();
+    ws.isAlive = true;
+    ws.on('pong', () => { ws.isAlive = true; });
 
-    // Default size
-    pty.spawn(80, 30);
-
-    // Handle incoming messages from client
+    // Handle Messages (Protocol v2)
     ws.on('message', (message) => {
         try {
-            // Expecting JSON or string? Phase 1 says "Dual data flow". 
-            // Plan: "Protocol: WebSocket (JSON or raw text)".
-            // Let's support simple JSON for resize, string for input?
-            // Or just text for input if it doesn't start with specific marker?
-            // Let's start with JSON for everything to be safe and extensible.
+            const envelope = JSON.parse(message);
+            // Expected: { type, sessionId, threadId, requestId, payload }
+            const type = envelope.type;
+            const payload = envelope.payload || {};
 
-            const msg = JSON.parse(message);
-            if (msg.type === 'input') {
-                pty.write(msg.data);
-            } else if (msg.type === 'resize') {
-                pty.resize(msg.cols, msg.rows);
+            if (type === 'input') {
+                // Direct PTY Input (Terminal Drawer)
+                pty.write(envelope.data || payload.data);
+            } else if (type === 'resize') {
+                pty.resize(envelope.cols, envelope.rows);
+            } else if (type === 'chat') {
+                // NL Input
+                codex.sendMessage(envelope.content || payload.content, envelope.threadId || 'main');
+            } else if (type === 'approval_response') {
+                // { type: 'approval_response', payload: { approvalId, decision: 'approved'|'rejected' } }
+                const { approvalId, decision } = envelope.payload || envelope;
+                const result = codex.handleApprovalDecision(approvalId, decision);
+
+                if (result.success && result.command) {
+                    process.stdout.write(`Executing approved command: ${result.command}\n`);
+                    // Logic: Execute on PTY
+                    pty.write(`${result.command}\r`);
+
+                    // Add system log to chat
+                    session.threads.get('main').messages.push({
+                        role: 'system',
+                        content: `Executed: ${result.command}`,
+                        timestamp: Date.now()
+                    });
+                    // Broadcast update
+                    sessionManager.broadcast(session, {
+                        type: 'chat_message',
+                        sessionId: session.id,
+                        threadId: 'main',
+                        payload: { role: 'system', content: `Executed: ${result.command}` }
+                    });
+                } else if (result.error) {
+                    console.error('Approval Error:', result.error);
+                }
             }
-        } catch (e) {
-            // Fallback: if not JSON, treat as raw input (or ignore)
-            console.error('Failed to parse message:', e.message);
+        } else if (type === 'signal') {
+            const { signal } = envelope.payload || envelope;
+            console.log(`Sending signal ${signal} to session ${session.id}`);
+            // Forward to session process via SessionManager or direct?
+            // SessionManager wrapper is cleaner but direct access exists here.
+            // Let's use direct ptyService for now as per plan.
+            if (pty) pty.kill(signal);
         }
     });
 
-    // Handle PTY output
-    pty.onData((data) => {
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'output', data: data }));
-        }
-    });
+    // Note: We removed the direct `pty.onData` listener here.
+    // SessionManager now handles broadcasting PTY data to all active connections.
 
     ws.on('close', () => {
         console.log('Client disconnected');
-        pty.kill();
+        sessionManager.removeConnection(session, ws);
     });
+});
+
+// Heartbeat
+const interval = setInterval(() => {
+    wss.clients.forEach((ws) => {
+        if (ws.isAlive === false) return ws.terminate();
+        ws.isAlive = false;
+        ws.ping();
+    });
+}, 30000);
+
+wss.on('close', () => {
+    clearInterval(interval);
 });
 
 server.listen(PORT, () => {

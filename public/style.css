@@ -1,192 +1,372 @@
-html,
-body {
+:root {
+    --bg-color: #121212;
+    --text-color: #e0e0e0;
+    --primary-color: #007bff;
+    --secondary-color: #2c2c2c;
+    --accent-color: #03dac6;
+    --drawer-height: 40vh;
+    --navbar-height: 50px;
+    --input-height: 60px;
+    --sidebar-width: 250px;
+}
+
+body.light-theme {
+    --bg-color: #f5f5f5;
+    --text-color: #121212;
+    --primary-color: #007bff;
+    --secondary-color: #ffffff;
+}
+
+* {
+    box-sizing: border-box;
     margin: 0;
     padding: 0;
-    width: 100%;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    overflow: hidden;
+    /* Prevent body scroll */
+    height: 100vh;
+    width: 100vw;
+}
+
+#app-container {
+    display: flex;
     height: 100%;
-    background: #000;
+    width: 100%;
+    position: relative;
     overflow: hidden;
-    touch-action: none;
 }
 
-#terminal-container {
-    width: 100%;
-    height: calc(100% - 140px);
-    /* Leave space for toolbar */
-    overflow: hidden;
-    background: #000;
-}
-
-#toolbar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 140px;
-    background: #1a1a1a;
+/* Sidebar */
+#sidebar {
+    width: var(--sidebar-width);
+    background-color: var(--secondary-color);
+    border-right: 1px solid #333;
     display: flex;
     flex-direction: column;
-    padding: 5px;
-    box-sizing: border-box;
-    z-index: 100;
-    user-select: none;
-    -webkit-user-select: none;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+    /* Hidden by default */
+    transition: transform 0.3s ease;
+    z-index: 1000;
 }
 
-.key-row {
-    display: flex;
-    flex: 1;
-    gap: 5px;
-    margin-bottom: 5px;
+#sidebar.open {
+    transform: translateX(0);
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
 }
 
-.key {
-    flex: 1;
-    background: #333;
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    font-size: 14px;
-    font-family: monospace;
+.sidebar-header {
+    padding: 15px;
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    justify-content: center;
-    touch-action: manipulation;
-    /* Optimizes tap events */
+    border-bottom: 1px solid #333;
+}
+
+#session-list {
+    list-style: none;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.session-item {
+    padding: 15px;
+    border-bottom: 1px solid #333;
     cursor: pointer;
 }
 
-.key:active {
-    background: #555;
+.session-item:hover,
+.session-item.active {
+    background-color: rgba(255, 255, 255, 0.05);
 }
 
-.key.active {
-    background: #007bff;
-    /* Active modifier color */
+/* Main Content */
+#main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    position: relative;
+    background-color: var(--bg-color);
+    transition: margin-left 0.3s ease;
+}
+
+/* Navbar */
+#navbar {
+    height: var(--navbar-height);
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    background-color: var(--secondary-color);
+    border-bottom: 1px solid #333;
+    z-index: 100;
+}
+
+#navbar h1 {
+    flex: 1;
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+#btn-menu,
+#btn-theme,
+#btn-toggle-drawer {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 5px;
+}
+
+/* Chat View */
+#chat-view {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    padding-bottom: 80px;
+    /* Space for input area */
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.message {
+    display: flex;
+    flex-direction: column;
+    max-width: 85%;
+}
+
+.message.user {
+    align-self: flex-end;
+    align-items: flex-end;
+}
+
+.message.assistant,
+.message.system {
+    align-self: flex-start;
+    align-items: flex-start;
+}
+
+.bubble {
+    padding: 10px 15px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+.message.user .bubble {
+    background-color: var(--primary-color);
+    color: white;
+    border-radius: 12px 12px 0 12px;
+}
+
+.message.assistant .bubble {
+    background-color: var(--secondary-color);
+    color: var(--text-color);
+    border-radius: 12px 12px 12px 0;
+}
+
+.message.system .bubble {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #888;
+    font-size: 0.85rem;
+    font-style: italic;
+    border: 1px solid #333;
+}
+
+/* Approval Card */
+.approval-card {
+    background-color: var(--secondary-color);
+    border: 1px solid #444;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 5px;
+    width: 100%;
+}
+
+.approval-card.risk-dangerous {
+    border-color: #ff4444;
+    background-color: rgba(255, 68, 68, 0.1);
+}
+
+.approval-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.btn-approve,
+.btn-reject {
+    flex: 1;
+    padding: 8px;
+    border-radius: 4px;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.btn-approve {
+    background-color: #28a745;
     color: white;
 }
 
-
-.xterm-viewport {
-    /* Fix for mobile scrolling if needed */
-    overflow-y: auto;
+.btn-reject {
+    background-color: #dc3545;
+    color: white;
 }
 
+/* Terminal Drawer */
+#terminal-drawer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--drawer-height);
+    background-color: #000;
+    border-top: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    /* Hidden initially */
+    transition: transform 0.3s ease-out;
+    z-index: 200;
+}
+
+#terminal-drawer.open {
+    transform: translateY(0);
+}
+
+/* Handle for resizing/dragging (future) or just visual */
+.drawer-handle {
+    height: 20px;
+    background-color: #222;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}
+
+.handle-bar {
+    width: 40px;
+    height: 4px;
+    background-color: #555;
+    border-radius: 2px;
+}
+
+#terminal-container {
+    flex: 1;
+    padding: 5px;
+    overflow: hidden;
+}
+
+/* Toolbar in Drawer */
+#toolbar {
+    height: 50px;
+    background-color: #222;
+    display: flex;
+    overflow-x: auto;
+    align-items: center;
+    padding: 0 5px;
+    gap: 5px;
+    border-top: 1px solid #333;
+}
+
+.key {
+    min-width: 40px;
+    height: 36px;
+    background-color: #444;
+    color: #fff;
+    border-radius: 4px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.9rem;
+    cursor: pointer;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.key:active,
+.key.active {
+    background-color: var(--primary-color);
+}
+
+/* Input Area */
+#input-area {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--input-height);
+    background-color: var(--secondary-color);
+    display: flex;
+    align-items: center;
+    padding: 5px 10px;
+    gap: 10px;
+    border-top: 1px solid #333;
+    z-index: 300;
+    /* Above drawer when drawer is closed? No layer above drawer */
+}
+
+/* When drawer is open, input area should move up? 
+   Or input area stays and drawer covers it? 
+   Ideally Input Area is the main way to interact. 
+   When Drawer is Open, Input Area might type into PTY? 
+   Let's keep it simple: Drawer covers Input Area when open?
+   Or Input Area sits ABOVE Drawer? 
+   Let's make Drawer sit ON TOP of everything except maybe a "Close Drawer" button?
+   Actually, standard pattern is Drawer comes up from bottom. 
+   Let's make Input Area stay at logic bottom of Chat View.
+   When Drawer opens, it covers the Input Area.
+   BUT we need a way to close Drawer -> The Handle.
+*/
+
+#chat-input {
+    flex: 1;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid #444;
+    border-radius: 20px;
+    color: var(--text-color);
+    padding: 10px 15px;
+    font-size: 1rem;
+    resize: none;
+    outline: none;
+    max-height: 100px;
+}
+
+#btn-send-chat {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+/* Status Overlay */
 #status-overlay {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.7);
+    right: 0;
+    background-color: rgba(0, 0, 0, 0.8);
     color: white;
+    padding: 5px;
+    text-align: center;
+    font-size: 0.8rem;
+    z-index: 9999;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-family: monospace;
-    font-size: 24px;
-    z-index: 200;
-    display: none;
-    /* Hidden by default */
-}
-
-#input-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    /* Cover full screen */
-    background: rgba(30, 30, 30, 0.95);
-    z-index: 150;
-    display: none;
-    flex-direction: column;
-    padding: 20px;
-    box-sizing: border-box;
-}
-
-#input-buffer {
-    flex: 1;
-    background: #111;
-    color: #fff;
-    border: 1px solid #444;
-    padding: 10px;
-    font-family: monospace;
-    font-size: 16px;
-    resize: none;
-    margin-bottom: 20px;
-}
-
-.input-controls {
-    display: flex;
-    gap: 10px;
-    height: 50px;
-}
-
-.input-controls button {
-    flex: 1;
-    background: #333;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-size: 16px;
-    cursor: pointer;
-}
-
-.input-controls button#btn-send {
-    background: #007bff;
-    flex: 2;
-}
-
-.input-controls button:active {
-    opacity: 0.8;
-}
-
-/* Light Theme */
-body.light-theme {
-    background: #f0f0f0;
-}
-
-body.light-theme #terminal-container {
-    background: #ffffff;
-}
-
-body.light-theme #toolbar {
-    background: #e0e0e0;
-    border-top: 1px solid #ccc;
-}
-
-body.light-theme .key {
-    background: #ddd;
-    color: #000;
-    border: 1px solid #bbb;
-}
-
-body.light-theme .key:active {
-    background: #ccc;
-}
-
-body.light-theme .key.active {
-    background: #007bff;
-    color: white;
-}
-
-body.light-theme #input-overlay {
-    background: rgba(240, 240, 240, 0.95);
-}
-
-body.light-theme #input-buffer {
-    background: #fff;
-    color: #000;
-    border: 1px solid #ccc;
-}
-
-body.light-theme .input-controls button {
-    background: #ddd;
-    color: #000;
-}
-
-body.light-theme .input-controls button#btn-send {
-    background: #007bff;
-    color: white;
 }

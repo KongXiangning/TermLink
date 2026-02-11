@@ -48,10 +48,12 @@ class PtyService {
         }
     }
 
-    kill() {
+    kill(signal) {
         if (this.ptyProcess) {
-            this.ptyProcess.kill();
-            this.ptyProcess = null;
+            this.ptyProcess.kill(signal);
+            if (signal === 'SIGKILL') {
+                this.ptyProcess = null;
+            }
         }
     }
 }

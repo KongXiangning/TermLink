@@ -3,52 +3,83 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TermLink</title>
-    <link rel="stylesheet" href="lib/xterm.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TermLink Mobile</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
 </head>
 
 <body>
-    <div id="status-overlay"></div>
-    <div id="input-overlay">
-        <textarea id="input-buffer" placeholder="Type command here..."></textarea>
-        <div class="input-controls">
-            <button id="btn-clear">Clear</button>
-            <button id="btn-close">Close</button>
-            <button id="btn-send">Send</button>
+    <div id="app-container">
+        <!-- Sidebar Navigation (Hidden by default on mobile) -->
+        <div id="sidebar">
+            <div class="sidebar-header">
+                <h2>Sessions</h2>
+                <button id="btn-new-session">+</button>
+            </div>
+            <ul id="session-list">
+                <!-- Session items will be injected here -->
+            </ul>
         </div>
+
+        <!-- Main Content Area -->
+        <div id="main-content">
+            <!-- Header / Navbar -->
+            <header id="navbar">
+                <button id="btn-menu">☰</button>
+                <h1 id="session-title">TermLink</h1>
+                <div class="nav-actions">
+                    <button id="btn-theme">🌓</button>
+                    <!-- Connection Status Indicator -->
+                    <div id="connection-status" class="status-indicator"></div>
+                </div>
+            </header>
+
+            <!-- Chat View (Primary Interface) -->
+            <div id="chat-view">
+                <div id="chat-history">
+                    <div class="message system">
+                        <div class="bubble">Welcome to TermLink AI. Type a command or ask a question.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Terminal Drawer (Collapsible) -->
+            <div id="terminal-drawer">
+                <div class="drawer-handle">
+                    <span class="handle-bar"></span>
+                </div>
+                <!-- Xterm Container -->
+                <div id="terminal-container"></div>
+                <!-- Mobile Toolbar (Persistent in Drawer Mode) -->
+                <div id="toolbar">
+                    <div class="key" data-key="Esc">Esc</div>
+                    <div class="key" data-key="Tab">Tab</div>
+                    <div class="key" data-key="Ctrl">Ctrl</div>
+                    <div class="key" data-key="Alt">Alt</div>
+                    <div class="key" data-key="Up">↑</div>
+                    <div class="key" data-key="Down">↓</div>
+                    <div class="key" data-key="Left">←</div>
+                    <div class="key" data-key="Right">→</div>
+                    <!-- Extra keys could be a secondary row or toggle -->
+                </div>
+            </div>
+
+            <!-- Input Area (Fixed at bottom of Main Content) -->
+            <div id="input-area">
+                <button id="btn-stop" style="color: #ff4444;">🛑</button>
+                <button id="btn-toggle-drawer">💻</button>
+                <textarea id="chat-input" placeholder="Ask AI or type command..." rows="1"></textarea>
+                <button id="btn-send-chat">➤</button>
+            </div>
+        </div>
+
+        <!-- Overlay for Status Messages -->
+        <div id="status-overlay" style="display: none;"></div>
     </div>
-    <div id="terminal-container"></div>
-    <div id="toolbar">
-        <div class="key-row">
-            <button class="key" id="btn-toggle-input" title="Input Mode">📝</button>
-            <button class="key" id="btn-paste" title="Paste from Clipboard">📋</button>
-            <button class="key" id="btn-theme" title="Toggle Theme">🌓</button>
-            <button class="key" data-key="Esc">Esc</button>
-            <button class="key" data-key="Tab">Tab</button>
-            <button class="key modifier" data-key="Ctrl">Ctrl</button>
-            <button class="key modifier" data-key="Alt">Alt</button>
-            <button class="key" data-key="-">-</button>
-            <button class="key" data-key="/">/</button>
-            <button class="key" data-key="|">|</button>
-        </div>
-        <div class="key-row">
-            <button class="key" data-key="Home">Home</button>
-            <button class="key" data-key="Up">↑</button>
-            <button class="key" data-key="End">End</button>
-            <button class="key" data-key="PgUp">PgUp</button>
-        </div>
-        <div class="key-row">
-            <button class="key" data-key="Left">←</button>
-            <button class="key" data-key="Down">↓</button>
-            <button class="key" data-key="Right">→</button>
-            <button class="key" data-key="PgDn">PgDn</button>
-        </div>
-    </div>
-    <script src="lib/xterm.js"></script>
-    <script src="lib/xterm-addon-fit.js"></script>
+
     <script src="client.js"></script>
 </body>
 
