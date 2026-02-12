@@ -497,6 +497,16 @@ if (btnClipboardPaste) {
     });
 }
 
+// Ctrl+C Shortcut
+const btnCtrlC = document.getElementById('btn-ctrl-c');
+if (btnCtrlC) {
+    btnCtrlC.addEventListener('click', () => {
+        sendMessage({ type: 'input', data: '\x03' }); // \x03 is Ctrl+C
+        showStatus('Sent Ctrl+C');
+        setTimeout(hideStatus, 1000);
+    });
+}
+
 // Start
 // Start
 connect();
