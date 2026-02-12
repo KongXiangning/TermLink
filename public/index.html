@@ -61,30 +61,59 @@
                 <!-- Xterm Container -->
                 <div id="terminal-container"></div>
                 <!-- Mobile Toolbar (Persistent in Drawer Mode) -->
+                <!-- Mobile Toolbar (Persistent in Drawer Mode) -->
                 <div id="toolbar">
-                    <div class="key" data-key="Esc">Esc</div>
-                    <div class="key" data-key="Tab">Tab</div>
-                    <div class="key" data-key="Ctrl">Ctrl</div>
-                    <div class="key" data-key="Alt">Alt</div>
-                    <div class="key" data-key="Up">↑</div>
-                    <div class="key" data-key="Down">↓</div>
-                    <div class="key" data-key="Left">←</div>
-                    <div class="key" data-key="Right">→</div>
-                    <!-- Extra keys could be a secondary row or toggle -->
+                    <!-- Row 1: Tools & Special Chars -->
+                    <div class="toolbar-row">
+                        <div class="key action-key" id="btn-input-overlay" title="Long Text Input">✏️</div>
+                        <div class="key action-key" id="btn-clipboard-paste" title="Paste Clipboard">📋</div>
+                        <div class="key" data-key="Esc">Esc</div>
+                        <div class="key" data-key="Tab">Tab</div>
+                        <div class="key" data-key="Ctrl">Ctrl</div>
+                        <div class="key" data-key="Alt">Alt</div>
+                        <div class="key" data-key="-">-</div>
+                        <div class="key" data-key="/">/</div>
+                        <div class="key" data-key="|">|</div>
+                    </div>
+                    <!-- Row 2: Navigation -->
+                    <div class="toolbar-row">
+                        <div class="key" data-key="Home">Home</div>
+                        <div class="key" data-key="Up">↑</div>
+                        <div class="key" data-key="End">End</div>
+                        <div class="key" data-key="PgUp">PgUp</div>
+                    </div>
+                    <!-- Row 3: Navigation -->
+                    <div class="toolbar-row">
+                        <div class="key" data-key="Left">←</div>
+                        <div class="key" data-key="Down">↓</div>
+                        <div class="key" data-key="Right">→</div>
+                        <div class="key" data-key="PgDn">PgDn</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Input Area (Fixed at bottom of Main Content) -->
-            <div id="input-area">
-                <button id="btn-stop" style="color: #ff4444;">🛑</button>
-                <button id="btn-toggle-drawer">💻</button>
-                <textarea id="chat-input" placeholder="Ask AI or type command..." rows="1"></textarea>
-                <button id="btn-send-chat">➤</button>
+            <!-- Input Overlay (Long Text Entry) -->
+            <div id="input-overlay-modal" class="hidden">
+                <div class="overlay-header">
+                    <h3>Input Text</h3>
+                    <button id="btn-close-overlay">✖</button>
+                </div>
+                <textarea id="overlay-textarea" placeholder="Type or paste text here..."></textarea>
+                <button id="btn-send-overlay">Send to Terminal</button>
             </div>
         </div>
 
-        <!-- Overlay for Status Messages -->
-        <div id="status-overlay" style="display: none;"></div>
+        <!-- Input Area (Fixed at bottom of Main Content) -->
+        <div id="input-area">
+            <button id="btn-stop" style="color: #ff4444;">🛑</button>
+            <button id="btn-toggle-drawer">💻</button>
+            <textarea id="chat-input" placeholder="Ask AI or type command..." rows="1"></textarea>
+            <button id="btn-send-chat">➤</button>
+        </div>
+    </div>
+
+    <!-- Overlay for Status Messages -->
+    <div id="status-overlay" style="display: none;"></div>
     </div>
 
     <script src="client.js"></script>

@@ -392,7 +392,7 @@ if (localStorage.getItem('terminalMode') === 'true') {
     setTerminalMode(false);
 }
 
-// Toolbar Logic (Phase 2)
+// Toolbar Logic (Phase 2 & 8)
 const modifiers = { Ctrl: false, Alt: false };
 
 function toggleModifier(key, forceState) {
@@ -402,9 +402,13 @@ function toggleModifier(key, forceState) {
     if (btn) btn.classList.toggle('active', modifiers[key]);
 }
 
-const keyMap = { 'Esc': '\x1b', 'Tab': '\t', 'Up': '\x1b[A', 'Down': '\x1b[B', 'Right': '\x1b[C', 'Left': '\x1b[D' };
+const keyMap = {
+    'Esc': '\x1b', 'Tab': '\t',
+    'Up': '\x1b[A', 'Down': '\x1b[B', 'Right': '\x1b[C', 'Left': '\x1b[D',
+    'Home': '\x1b[H', 'End': '\x1b[F', 'PgUp': '\x1b[5~', 'PgDn': '\x1b[6~'
+};
 
-document.querySelectorAll('.key').forEach(btn => {
+document.querySelectorAll('.key[data-key]').forEach(btn => {
     const handler = (e) => {
         e.preventDefault();
         const key = btn.dataset.key;
@@ -414,20 +418,84 @@ document.querySelectorAll('.key').forEach(btn => {
         }
         let data = keyMap[key] || key;
 
+        // Modifier Logic
         if (modifiers.Ctrl) {
+            // Arrow Keys with Ctrl
             if (key === 'Up') data = '\x1b[1;5A';
             else if (key === 'Down') data = '\x1b[1;5B';
             else if (key === 'Right') data = '\x1b[1;5C';
             else if (key === 'Left') data = '\x1b[1;5D';
+            // Simple Char Ctrl (a-z)
+            else if (data.length === 1) {
+                const code = data.toUpperCase().charCodeAt(0);
+                if (code >= 65 && code <= 90) {
+                    data = String.fromCharCode(code - 64);
+                }
+            }
             toggleModifier('Ctrl', false);
         }
+
         sendMessage({ type: 'input', data });
-        btn.classList.add('pressed');
-        setTimeout(() => btn.classList.remove('pressed'), 100);
+
+        // Visual Feedback
+        btn.classList.add('active');
+        setTimeout(() => btn.classList.remove('active'), 100);
     };
-    btn.addEventListener('touchstart', handler);
+    btn.addEventListener('touchstart', handler, { passive: false });
     btn.addEventListener('mousedown', handler);
 });
+
+// Input Overlay Logic
+const btnInputOverlay = document.getElementById('btn-input-overlay');
+const inputOverlayModal = document.getElementById('input-overlay-modal');
+const btnCloseOverlay = document.getElementById('btn-close-overlay');
+const btnSendOverlay = document.getElementById('btn-send-overlay');
+const overlayTextarea = document.getElementById('overlay-textarea');
+
+if (btnInputOverlay) {
+    btnInputOverlay.addEventListener('click', () => {
+        inputOverlayModal.classList.remove('hidden');
+        overlayTextarea.focus();
+    });
+}
+
+function closeOverlay() {
+    inputOverlayModal.classList.add('hidden');
+    overlayTextarea.value = '';
+    term.focus();
+}
+
+if (btnCloseOverlay) btnCloseOverlay.addEventListener('click', closeOverlay);
+
+if (btnSendOverlay) {
+    btnSendOverlay.addEventListener('click', () => {
+        const text = overlayTextarea.value;
+        if (text) {
+            sendMessage({ type: 'input', data: text });
+        }
+        closeOverlay();
+    });
+}
+
+// Clipboard Paste Logic
+const btnClipboardPaste = document.getElementById('btn-clipboard-paste');
+if (btnClipboardPaste) {
+    btnClipboardPaste.addEventListener('click', async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            if (text) {
+                sendMessage({ type: 'input', data: text });
+                showStatus('Pasted from Clipboard');
+                setTimeout(hideStatus, 1500);
+            }
+        } catch (err) {
+            console.error('Clipboard Read Failed:', err);
+            // Fallback: Open Overlay?
+            showStatus('Clipboard Access Denied');
+            setTimeout(hideStatus, 2000);
+        }
+    });
+}
 
 // Start
 // Start
