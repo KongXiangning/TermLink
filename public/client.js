@@ -347,7 +347,50 @@ btnTheme.addEventListener('click', () => {
     const isLight = document.body.classList.contains('light-theme');
     term.options.theme = isLight ? { background: '#ffffff', foreground: '#000000', cursor: '#000000', selectionBackground: 'rgba(0,0,0,0.3)' }
         : { background: '#000000', foreground: '#ffffff', cursor: '#ffffff', selectionBackground: 'rgba(255,255,255,0.3)' };
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
 });
+
+// Restore Theme
+if (localStorage.getItem('theme') === 'light') {
+    document.body.classList.add('light-theme');
+    term.options.theme = { background: '#ffffff', foreground: '#000000', cursor: '#000000', selectionBackground: 'rgba(0,0,0,0.3)' };
+}
+
+// --- Terminal Mode Switch ---
+const btnModeSwitch = document.getElementById('btn-mode-switch');
+let isTerminalMode = false;
+
+function setTerminalMode(enabled) {
+    isTerminalMode = enabled;
+    if (enabled) {
+        document.body.classList.add('terminal-mode');
+        btnModeSwitch.textContent = '💬'; // Icon to switch back to chat
+        // Ensure terminal is visible and fit
+        setTimeout(() => {
+            fitAddon.fit();
+            term.focus();
+        }, 300); // Wait for layout transition if any
+    } else {
+        document.body.classList.remove('terminal-mode');
+        btnModeSwitch.textContent = '💻'; // Icon to switch to terminal
+        // Reset drawer state? Keep it closed by default when switching back
+        terminalDrawer.classList.remove('open');
+    }
+    localStorage.setItem('terminalMode', enabled);
+    sendResize();
+}
+
+btnModeSwitch.addEventListener('click', () => {
+    setTerminalMode(!isTerminalMode);
+});
+
+// Restore Mode
+if (localStorage.getItem('terminalMode') === 'true') {
+    setTerminalMode(true);
+} else {
+    // Default: Chat Mode
+    setTerminalMode(false);
+}
 
 // Toolbar Logic (Phase 2)
 const modifiers = { Ctrl: false, Alt: false };
