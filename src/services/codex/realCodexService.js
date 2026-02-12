@@ -1,88 +1,88 @@
-const BaseCodexService = require('./baseCodexService');
 const { spawn } = require('child_process');
+const EventEmitter = require('events');
+const ProtocolParser = require('./protocolParser');
 
-class RealCodexService extends BaseCodexService {
+class RealCodexService extends EventEmitter {
     constructor() {
         super();
-        this.processes = new Map(); // sessionId -> process
+        this.process = null;
+        this.parser = new ProtocolParser();
+        this._setupParserEvents();
     }
 
-    startSession(session) {
-        if (this.processes.has(session.id)) return;
+    _setupParserEvents() {
+        // Relay parser events
+        this.parser.on('assistant', (evt) => this.emit('assistant', evt));
+        this.parser.on('proposal', (evt) => this.emit('proposal', evt));
+        this.parser.on('status', (evt) => this.emit('status', evt));
+        this.parser.on('done', (evt) => this.emit('done', evt));
+        this.parser.on('raw', (data) => this.emit('raw', data));
+        this.parser.on('error', (evt) => this.emit('error', evt.error));
+    }
 
-        console.log(`[RealCodex] Starting process for session ${session.id}`);
+    start() {
+        this._spawn();
+    }
 
-        // Spawn Codex Process
-        // Assuming 'codex session' starts an interactive session
-        // Adjust arguments based on actual CLI
-        const codex = spawn('codex', ['session'], {
-            env: { ...process.env },
-            cwd: process.env.HOME // or session cwd if tracked
+    _spawn() {
+        console.log('[RealCodexService] Spawning codex session...');
+        // Use 'stdbuf -i0 -o0 -e0' to force unbuffered output if available, else just spawn
+        // But codex CLI might handle it.
+        // Assuming 'codex session' is the command.
+        this.process = spawn('codex', ['session'], {
+            env: { ...process.env, FORCE_COLOR: '1' }, // Maybe color?
+            stdio: ['pipe', 'pipe', 'pipe']
         });
 
-        const procData = {
-            process: codex,
-            buffer: ''
-        };
-        this.processes.set(session.id, procData);
-
-        // Handle Output (Stdout) -> AI Response
-        codex.stdout.on('data', (data) => {
-            const str = data.toString();
-            console.log(`[Codex-${session.id}] Stdout: ${str}`);
-            // Simple Parsing: Emit everything as a message for now
-            // Enhancement: Buffer and look for complete messages or streaming
-            this.emit('message', {
-                sessionId: session.id,
-                role: 'assistant',
-                content: str
-            });
-
-            // TODO: Extract Commands for Approval (7.4)
-            this.parseCommands(session.id, str);
+        this.process.stdout.on('data', (chunk) => {
+            this.parser.feed(chunk.toString());
         });
 
-        codex.stderr.on('data', (data) => {
-            console.error(`[Codex-${session.id}] Stderr: ${data}`);
+        this.process.stderr.on('data', (chunk) => {
+            this.emit('raw_error', chunk.toString());
         });
 
-        codex.on('close', (code) => {
-            console.log(`[Codex-${session.id}] Exited with code ${code}`);
-            this.processes.delete(session.id);
-            this.emit('status', { sessionId: session.id, status: 'exited', code });
+        this.process.on('close', (code) => {
+            console.warn(`[RealCodexService] Process exited with code ${code}`);
+            this.emit('exit', code);
+            this.process = null;
         });
     }
 
-    send(session, message) {
-        const proc = this.processes.get(session.id);
-        if (!proc) {
-            this.startSession(session);
-            // Wait slightly or queue? For now just try again
-            setTimeout(() => this.send(session, message), 100);
-            return;
+    sendTurn(turn) {
+        if (!this.process) {
+            console.error('[RealCodexService] Process not running, restarting...');
+            this._spawn();
         }
 
-        // Write to Stdin
-        // Protocol: Assuming newline terminated text
-        proc.process.stdin.write(message.content + '\n');
+        const { systemPrompt, userMessage } = turn;
+
+        // Construct Guardrailed Input
+        // 1. System Prompt (Guardrail)
+        // 2. User Message
+        // Format depends on how 'codex session' expects input. 
+        // Assuming standard chat format or just clear text if it's a simple session.
+        // If 'codex session' accepts lines as user input:
+
+        if (systemPrompt) {
+            this.process.stdin.write(`SYSTEM:\n${systemPrompt}\n`);
+        }
+
+        this.process.stdin.write(`USER:\n${userMessage}\n`);
     }
 
-    parseCommands(sessionId, text) {
-        // 7.4 Logic: Parse Commands for Approval
-        // Simple Regex for ```bash blocks
-        const bashBlockRegex = /```bash\s+([\s\S]*?)\s+```/g;
-        let match;
+    killAndRestart() {
+        console.warn('[RealCodexService] Force killing process...');
+        if (this.process) {
+            this.process.kill('SIGKILL');
+            this.process = null;
+        }
+        setTimeout(() => this._spawn(), 500);
+    }
 
-        while ((match = bashBlockRegex.exec(text)) !== null) {
-            const command = match[1].trim();
-            if (command) {
-                console.log(`[RealCodex] Detected command: ${command}`);
-                this.createApproval(
-                    'main', // threadId (assuming main for now)
-                    command,
-                    'dangerous' // Assume all real codex commands are dangerous
-                );
-            }
+    stop() {
+        if (this.process) {
+            this.process.kill();
         }
     }
 }

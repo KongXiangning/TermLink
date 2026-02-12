@@ -1,6 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const PtyService = require('./ptyService');
 const CodexFactory = require('./codex/codexFactory');
+const TurnQueue = require('./codex/turnQueue');
 
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -14,6 +15,12 @@ class SessionManager {
 
     async createSession(name = 'New Session') {
         const id = uuidv4();
+        // Create Codex Service (Factory returns Real/Mock)
+        const codexService = await CodexFactory.create();
+
+        // Wrap in TurnQueue
+        const turnQueue = new TurnQueue(codexService);
+
         const session = {
             id,
             name,
@@ -22,7 +29,10 @@ class SessionManager {
             status: 'IDLE', // IDLE, ACTIVE
             connections: [], // WebSocket connections
             ptyService: new PtyService(),
-            codexService: await CodexFactory.create(),
+            codexService: codexService,
+            turnQueue: turnQueue, // Store queue
+            // Approvals need to be tracked here or in CodexService?
+            // CodexService (Base) has approvals map.
             threads: new Map() // threadId -> { messages: [] }
         };
 
@@ -49,44 +59,95 @@ class SessionManager {
     }
 
     bindCodexEvents(session) {
-        const { codexService, id } = session;
+        const { codexService, turnQueue, id } = session;
 
-        codexService.on('message', (msg) => {
-            // Persist to thread history
-            const thread = session.threads.get(msg.threadId);
+        // Protocol Parser Events from RealCodexService
+        codexService.on('assistant', (evt) => {
+            const threadId = 'main'; // Protocol v1 doesn't have threadId in JSON yet
+            const msg = { role: 'assistant', content: evt.content };
+
+            // Persist
+            const thread = session.threads.get(threadId);
             if (thread) thread.messages.push(msg);
 
             this.broadcast(session, {
                 type: 'chat_message',
                 sessionId: id,
-                threadId: msg.threadId,
+                threadId: threadId,
                 payload: msg
             });
         });
 
-        codexService.on('thinking', (evt) => {
-            this.broadcast(session, {
-                type: 'status',
-                sessionId: id,
-                threadId: evt.threadId,
-                payload: { state: evt.state ? 'THINKING' : 'IDLE' }
-            });
-        });
+        codexService.on('proposal', (evt) => {
+            // evt: { type: 'proposal', command: '...', risk: '...', summary: '...' }
+            // Generate Approval ID
+            const approvalId = uuidv4();
+            const approval = {
+                id: approvalId,
+                command: evt.command,
+                risk: evt.risk || 'high',
+                reason: evt.summary || 'Codex Proposal',
+                status: 'pending',
+                createdAt: Date.now(),
+                expiresAt: Date.now() + 5 * 60 * 1000 // 5m TTL
+            };
 
-        codexService.on('approval_request', (approval) => {
+            // Store in Codex Service (approvals map) - Assuming BaseCodexService has it
+            // If RealCodexService doesn't extend Base, we need to add it or store in Session
+            if (codexService.approvals) {
+                codexService.approvals.set(approvalId, approval);
+            } else {
+                // Fallback store in session if service doesn't have it
+                if (!session.approvals) session.approvals = new Map();
+                session.approvals.set(approvalId, approval);
+            }
+
             this.broadcast(session, {
                 type: 'approval_request',
                 sessionId: id,
-                threadId: approval.threadId,
+                threadId: 'main',
                 payload: approval
             });
         });
 
-        codexService.on('approval_update', (update) => {
+        codexService.on('status', (evt) => {
+            // evt: { status: 'thinking' }
+            // UI expects { state: true/false } or text
+            // Let's map it
             this.broadcast(session, {
-                type: 'approval_update',
+                type: 'status',
                 sessionId: id,
-                payload: update
+                threadId: 'main',
+                payload: { state: evt.status === 'thinking' ? 'THINKING' : 'IDLE', text: evt.status }
+            });
+        });
+
+        // TurnQueue Events
+        turnQueue.on('turn_end', () => {
+            // Maybe notify UI?
+        });
+
+        turnQueue.on('turn_timeout', () => {
+            this.broadcast(session, {
+                type: 'chat_message',
+                sessionId: id,
+                threadId: 'main',
+                payload: { role: 'system', content: '⚠️ Codex request timed out. Process restarted.' }
+            });
+        });
+
+        // Mock Compatibility (OLD EVENTS) - If MockCodexService is used
+        // It might still emit 'message' instead of 'assistant'
+        // We should ensure MockCodexService also follows new pattern or we support both
+        codexService.on('message', (msg) => {
+            // Legacy/Mock support
+            const thread = session.threads.get(msg.threadId || 'main');
+            if (thread) thread.messages.push({ role: 'assistant', content: msg.content });
+            this.broadcast(session, {
+                type: 'chat_message',
+                sessionId: id,
+                threadId: msg.threadId || 'main',
+                payload: { role: 'assistant', content: msg.content }
             });
         });
     }
@@ -138,7 +199,8 @@ class SessionManager {
         const session = this.sessions.get(id);
         if (session) {
             try {
-                session.ptyService.kill();
+                if (session.ptyService) session.ptyService.kill();
+                if (session.codexService) session.codexService.stop();
             } catch (e) {
                 console.error(`Failed to kill PTY for session ${id}`, e);
             }

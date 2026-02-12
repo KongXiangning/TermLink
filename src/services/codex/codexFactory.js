@@ -28,7 +28,18 @@ class CodexFactory {
         // Auto Mode
         if (status.installed && status.loggedIn) {
             console.log('[CodexFactory] Auto: Using REAL Codex');
-            return new RealCodexService();
+            // Wrap in TurnQueue?
+            // Ideally, the factory returns the Service.
+            // The Queue Logic might be better placed in SessionManager or as a wrapper.
+            // Let's modify the return type conceptualy or return the TurnQueue as the 'Service' interface
+            // For now, let's keep Factory returning the raw service, and SessionManager wraps it.
+            // OR: Factory returns TurnQueue(new RealCodexService())
+            // Given the plan: "CodexProcService" is the real one.
+
+            const service = new RealCodexService();
+            // Start it
+            service.start();
+            return service;
         } else {
             console.log('[CodexFactory] Auto: Using MOCK Codex (Not installed/logged in)');
             return new MockCodexService();

@@ -98,12 +98,53 @@ wss.on('connection', async (ws, req) => {
             } else if (type === 'resize') {
                 pty.resize(envelope.cols, envelope.rows);
             } else if (type === 'chat') {
-                // NL Input
-                codex.sendMessage(envelope.content || payload.content, envelope.threadId || 'main');
+                // NL Input -> Enqueue to TurnQueue
+                const content = envelope.content || payload.content;
+                const threadId = envelope.threadId || 'main';
+
+                // Add USER message to history immediately (Optimistic)
+                session.threads.get(threadId).messages.push({
+                    role: 'user', content: content, timestamp: Date.now()
+                });
+
+                // Protocol v1 System Prompt (Defined in document)
+                const systemPrompt =
+                    `SYSTEM:\nYou are TermLink agent. Output ONLY lines that start with '@@TERM_LINK/1 ' followed by a JSON object.\n` +
+                    `Never output markdown. Never output extra text.\n` +
+                    `If you want to propose a command, output type="proposal" with fields command,risk,summary.\n` +
+                    `If you want to answer user, output type="assistant" with field content.\n` +
+                    `After finishing, output type="done".`;
+
+                session.turnQueue.enqueue({
+                    id: Date.now(),
+                    systemPrompt: systemPrompt,
+                    userMessage: content
+                });
             } else if (type === 'approval_response') {
                 // { type: 'approval_response', payload: { approvalId, decision: 'approved'|'rejected' } }
                 const { approvalId, decision } = envelope.payload || envelope;
-                const result = codex.handleApprovalDecision(approvalId, decision);
+
+                // Lookup Approval
+                let approval;
+                if (codex.approvals && codex.approvals.has(approvalId)) {
+                    approval = codex.approvals.get(approvalId);
+                } else if (session.approvals && session.approvals.has(approvalId)) {
+                    approval = session.approvals.get(approvalId);
+                }
+
+                if (!approval) {
+                    console.error('Approval not found:', approvalId);
+                    return;
+                }
+
+                if (approval.status !== 'pending') {
+                    console.warn('Approval already processed:', approvalId);
+                    return;
+                }
+
+                approval.status = decision; // 'approved' | 'rejected'
+
+                const result = { success: true, command: decision === 'approved' ? approval.command : null };
 
                 if (result.success && result.command) {
                     process.stdout.write(`Executing approved command: ${result.command}\n`);
@@ -123,8 +164,19 @@ wss.on('connection', async (ws, req) => {
                         threadId: 'main',
                         payload: { role: 'system', content: `Executed: ${result.command}` }
                     });
-                } else if (result.error) {
-                    console.error('Approval Error:', result.error);
+                } else {
+                    // Rejected
+                    session.threads.get('main').messages.push({
+                        role: 'system',
+                        content: `Command Rejected: ${approval.command}`,
+                        timestamp: Date.now()
+                    });
+                    sessionManager.broadcast(session, {
+                        type: 'chat_message',
+                        sessionId: session.id,
+                        threadId: 'main',
+                        payload: { role: 'system', content: `Command Rejected` }
+                    });
                 }
             } else if (type === 'signal') {
                 const { signal } = envelope.payload || envelope;

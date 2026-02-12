@@ -14,16 +14,36 @@ class MockCodexService extends BaseCodexService {
     }
 
     /**
+     * Send a user message to Codex (TurnQueue Interface).
+     * @param {object} turn - { id, systemPrompt, userMessage }
+     */
+    sendTurn(turn) {
+        const { userMessage, id } = turn;
+        // Map to legacy sendMessage logic
+        this.sendMessage(userMessage, 'main');
+    }
+
+    killAndRestart() {
+        console.log('[MockCodexService] "Restarting"...');
+        this.emit('status', { status: 'restarted' });
+    }
+
+    stop() {
+        console.log('[MockCodexService] Stopped.');
+    }
+
+    /**
      * Send a user message to Codex.
      * @param {string} content - The user's input.
      * @param {string} threadId - Context thread.
      */
     async sendMessage(content, threadId = 'main') {
         const userMsg = { role: 'user', content, timestamp: Date.now() };
-        this.emit('message', { threadId, ...userMsg });
+        // In new architecture, user message is already added by Server/SessionManager
+        // But for Mock self-containment, we leave it or just emit response.
 
         this.thinking = true;
-        this.emit('thinking', { threadId, state: true });
+        this.emit('status', { status: 'thinking' }); // Logic mapping
 
         // Simulate processing delay
         setTimeout(() => {
@@ -33,7 +53,7 @@ class MockCodexService extends BaseCodexService {
 
     handleResponse(userInput, threadId) {
         this.thinking = false;
-        this.emit('thinking', { threadId, state: false });
+        this.emit('status', { status: 'idle' });
 
         const lowerMsg = userInput.toLowerCase();
         let analysis = { response: '', command: null, risk: 'safe' };
@@ -60,11 +80,28 @@ class MockCodexService extends BaseCodexService {
         }
 
         const asstMsg = { role: 'assistant', content: analysis.response, timestamp: Date.now() };
+
+        // Emit 'assistant' event for new handler
+        this.emit('assistant', { content: analysis.response });
+
+        // Emit 'message' for legacy handler (if any)
         this.emit('message', { threadId, ...asstMsg });
 
         if (analysis.command) {
+            // Emit 'proposal' event for new handler
+            this.emit('proposal', {
+                type: 'proposal',
+                command: analysis.command,
+                risk: analysis.risk,
+                summary: analysis.response
+            });
+
+            // Legacy
             this.createApproval(threadId, analysis.command, analysis.risk);
         }
+
+        // Turn Complete
+        this.emit('done', { type: 'done' });
     }
 
     // createApproval and handleApprovalDecision are inherited from BaseCodexService
