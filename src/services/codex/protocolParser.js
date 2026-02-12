@@ -8,7 +8,8 @@ class ProtocolParser extends EventEmitter {
     }
 
     feed(chunk) {
-        this.buffer += chunk;
+        // Normalize newlines: treat \r as \n to handle interactive progress bars/spinners
+        this.buffer += chunk.replace(/\r/g, '\n');
         this._processBuffer();
     }
 
@@ -24,14 +25,18 @@ class ProtocolParser extends EventEmitter {
     _parseLine(line) {
         if (!line) return; // Skip empty lines
 
-        if (line.startsWith(this.PROTOCOL_PREFIX)) {
-            const jsonPart = line.slice(this.PROTOCOL_PREFIX.length);
+        // Strip ANSI codes for parsing
+        // eslint-disable-next-line no-control-regex
+        const cleanLine = line.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+
+        if (cleanLine.startsWith(this.PROTOCOL_PREFIX)) {
+            const jsonPart = cleanLine.slice(this.PROTOCOL_PREFIX.length);
             try {
                 const event = JSON.parse(jsonPart);
                 this._emitStructuredEvent(event);
             } catch (e) {
-                console.error('[ProtocolParser] JSON Parse Error:', e.message, 'Line:', line);
-                this.emit('error', { type: 'parse_error', raw: line, error: e.message });
+                console.error('[ProtocolParser] JSON Parse Error:', e.message, 'Line:', cleanLine);
+                this.emit('error', { type: 'parse_error', raw: cleanLine, error: e.message });
                 // Fallback: treat as raw text if JSON fails? Or just error.
                 // Document says: "JSON parse failed: treat as raw"
                 this.emit('raw', line + '\n');

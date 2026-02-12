@@ -52,6 +52,17 @@ function hideStatus() {
 }
 
 function appendMessage(role, content) {
+    const lastMsg = chatHistory.lastElementChild;
+    // If last message is same role, append to it (Streaming support)
+    if (lastMsg && lastMsg.classList.contains(role) && lastMsg.classList.contains('message')) {
+        const bubble = lastMsg.querySelector('.bubble');
+        if (bubble) {
+            bubble.textContent += content;
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+            return;
+        }
+    }
+
     const msgDiv = document.createElement('div');
     msgDiv.className = `message ${role}`;
 
@@ -153,6 +164,10 @@ function connect() {
 
                 sessionTitle.textContent = envelope.name || 'TermLink';
 
+                // Update Provider Status
+                currentProvider = envelope.provider || 'codex';
+                updateStatusDisplay();
+
                 // Restore History
                 // Clear default Welcome?
                 if (envelope.history && envelope.history.length > 0) {
@@ -227,6 +242,30 @@ term.onData(data => {
 window.addEventListener('resize', sendResize);
 
 // Drawer Toggle
+// --- Viewport Height Handling (Mobile Keyboard Fix) ---
+function setAppHeight() {
+    // visualViewport.height handles virtual keyboard better than innerHeight
+    const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    document.documentElement.style.setProperty('--app-height', `${vh}px`);
+
+    // Ensure active element (input) is visible
+    if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+        setTimeout(() => {
+            document.activeElement.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }, 100);
+    }
+}
+
+// Initial Set
+setAppHeight();
+
+// Listeners
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', setAppHeight);
+    window.visualViewport.addEventListener('scroll', setAppHeight); // On scroll too
+}
+window.addEventListener('resize', setAppHeight);
+
 function toggleDrawer(force) {
     const isOpen = terminalDrawer.classList.contains('open');
     const shouldOpen = force !== undefined ? force : !isOpen;
@@ -311,7 +350,14 @@ if (btnStop) {
 // New Session
 btnNewSession.addEventListener('click', async () => {
     try {
-        const res = await fetch('/api/sessions', { method: 'POST' });
+        const providerSelect = document.getElementById('select-provider');
+        const provider = providerSelect ? providerSelect.value : 'codex';
+
+        const res = await fetch('/api/sessions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'standard', provider })
+        });
         const data = await res.json();
         // Redirect to new session
         window.location.href = `/?sessionId=${data.id}`;
@@ -325,195 +371,129 @@ async function loadSessions() {
     try {
         const res = await fetch('/api/sessions');
         const sessions = await res.json();
+        const currentSessionId = sessionId;
+
         sessionList.innerHTML = '';
         sessions.forEach(s => {
             const li = document.createElement('li');
             li.className = 'session-item';
-            if (s.id === sessionId) li.classList.add('active');
-            li.textContent = `${s.name} (${new Date(s.lastActiveAt).toLocaleTimeString()})`;
-            li.onclick = () => {
-                window.location.href = `/?sessionId=${s.id}`;
-            };
+            if (s.id === currentSessionId) li.classList.add('active');
+
+            // Provider icon
+            const icon = s.provider === 'gemini' ? '✨ ' : '🤖 ';
+
+            // Session name label
+            const label = document.createElement('span');
+            label.className = 'session-label';
+            label.textContent = icon + s.name;
+            label.style.flex = '1';
+            label.style.cursor = 'pointer';
+            label.style.overflow = 'hidden';
+            label.style.textOverflow = 'ellipsis';
+            label.style.whiteSpace = 'nowrap';
+            label.addEventListener('click', function () {
+                window.location.href = '/?sessionId=' + s.id;
+            });
+
+            // Delete button
+            const del = document.createElement('button');
+            del.textContent = '✕';
+            del.className = 'btn-delete-session';
+            del.style.pointerEvents = 'auto';
+            del.addEventListener('click', function (e) {
+                e.stopPropagation();
+                e.preventDefault();
+                // Delete without confirm - just do it
+                fetch('/api/sessions/' + s.id, { method: 'DELETE' })
+                    .then(function (resp) {
+                        if (resp.ok) {
+                            // Force full page reload
+                            if (s.id === currentSessionId) {
+                                window.location.href = '/';
+                            } else {
+                                loadSessions();
+                            }
+                        } else {
+                            alert('Delete failed: ' + resp.status);
+                        }
+                    })
+                    .catch(function (err) {
+                        alert('Delete error: ' + err.message);
+                    });
+            });
+
+            li.appendChild(label);
+            li.appendChild(del);
             sessionList.appendChild(li);
         });
     } catch (e) {
-        console.error(e);
+        console.error('Failed to load sessions', e);
     }
 }
 
-// Theme Toggle
-btnTheme.addEventListener('click', () => {
-    document.body.classList.toggle('light-theme');
-    const isLight = document.body.classList.contains('light-theme');
-    term.options.theme = isLight ? { background: '#ffffff', foreground: '#000000', cursor: '#000000', selectionBackground: 'rgba(0,0,0,0.3)' }
-        : { background: '#000000', foreground: '#ffffff', cursor: '#ffffff', selectionBackground: 'rgba(255,255,255,0.3)' };
-    localStorage.setItem('theme', isLight ? 'light' : 'dark');
-});
+async function deleteSession(id) {
+    console.log('[Client] deleteSession called for:', id);
+    try {
+        const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
+        console.log('[Client] Delete response:', res.status, res.statusText);
 
-// Restore Theme
-if (localStorage.getItem('theme') === 'light') {
-    document.body.classList.add('light-theme');
-    term.options.theme = { background: '#ffffff', foreground: '#000000', cursor: '#000000', selectionBackground: 'rgba(0,0,0,0.3)' };
+        if (res.ok) {
+            // Reload list
+            await loadSessions();
+            // If current session, redirect
+            if (id === sessionId) {
+                window.location.href = '/';
+            }
+        } else {
+            const errText = await res.text();
+            alert('Failed to delete session: ' + (errText || res.statusText));
+            console.error('[Client] Delete failed:', errText);
+        }
+    } catch (e) {
+        console.error('[Client] Delete error:', e);
+        alert('Network error deleting session: ' + e.message);
+    }
 }
 
-// --- Terminal Mode Switch ---
-const btnModeSwitch = document.getElementById('btn-mode-switch');
-let isTerminalMode = false;
+// ... existing code ...
 
-function setTerminalMode(enabled) {
-    isTerminalMode = enabled;
-    if (enabled) {
-        document.body.classList.add('terminal-mode');
-        btnModeSwitch.textContent = '💬'; // Icon to switch back to chat
-        // Ensure terminal is visible and fit
-        setTimeout(() => {
-            fitAddon.fit();
-            term.focus();
-        }, 300); // Wait for layout transition if any
+let currentProvider = 'codex'; // Default
+
+// WS Message Handler Update (Requires modifying ws.onmessage elsewhere, 
+// but here we can add the helper function)
+
+function updateStatusDisplay() {
+    const text = document.getElementById('codex-status-text');
+    const btn = document.getElementById('btn-copy-login');
+    const bar = document.getElementById('codex-status-bar');
+
+    if (!bar) return;
+    bar.classList.remove('hidden');
+
+    if (currentProvider === 'gemini') {
+        text.textContent = 'Gemini: Ready';
+        text.style.color = '#00ff00'; // Green
+        btn.classList.add('hidden');
     } else {
-        document.body.classList.remove('terminal-mode');
-        btnModeSwitch.textContent = '💻'; // Icon to switch to terminal
-        // Reset drawer state? Keep it closed by default when switching back
-        terminalDrawer.classList.remove('open');
+        // Fallback to Polling Codex Status if current session is Codex
+        checkHealth();
     }
-    localStorage.setItem('terminalMode', enabled);
-    sendResize();
 }
 
-btnModeSwitch.addEventListener('click', () => {
-    setTerminalMode(!isTerminalMode);
-});
-
-// Restore Mode
-if (localStorage.getItem('terminalMode') === 'true') {
-    setTerminalMode(true);
-} else {
-    // Default: Chat Mode
-    setTerminalMode(false);
-}
-
-// Toolbar Logic (Phase 2 & 8)
-const modifiers = { Ctrl: false, Alt: false };
-
-function toggleModifier(key, forceState) {
-    if (forceState !== undefined) modifiers[key] = forceState;
-    else modifiers[key] = !modifiers[key];
-    const btn = document.querySelector(`.key[data-key="${key}"]`);
-    if (btn) btn.classList.toggle('active', modifiers[key]);
-}
-
-const keyMap = {
-    'Esc': '\x1b', 'Tab': '\t',
-    'Up': '\x1b[A', 'Down': '\x1b[B', 'Right': '\x1b[C', 'Left': '\x1b[D',
-    'Home': '\x1b[H', 'End': '\x1b[F', 'PgUp': '\x1b[5~', 'PgDn': '\x1b[6~'
-};
-
-document.querySelectorAll('.key[data-key]').forEach(btn => {
-    const handler = (e) => {
-        e.preventDefault();
-        const key = btn.dataset.key;
-        if (['Ctrl', 'Alt'].includes(key)) {
-            toggleModifier(key);
-            return;
-        }
-        let data = keyMap[key] || key;
-
-        // Modifier Logic
-        if (modifiers.Ctrl) {
-            // Arrow Keys with Ctrl
-            if (key === 'Up') data = '\x1b[1;5A';
-            else if (key === 'Down') data = '\x1b[1;5B';
-            else if (key === 'Right') data = '\x1b[1;5C';
-            else if (key === 'Left') data = '\x1b[1;5D';
-            // Simple Char Ctrl (a-z)
-            else if (data.length === 1) {
-                const code = data.toUpperCase().charCodeAt(0);
-                if (code >= 65 && code <= 90) {
-                    data = String.fromCharCode(code - 64);
-                }
-            }
-            toggleModifier('Ctrl', false);
-        }
-
-        sendMessage({ type: 'input', data });
-
-        // Visual Feedback
-        btn.classList.add('active');
-        setTimeout(() => btn.classList.remove('active'), 100);
-    };
-    btn.addEventListener('touchstart', handler, { passive: false });
-    btn.addEventListener('mousedown', handler);
-});
-
-// Input Overlay Logic
-const btnInputOverlay = document.getElementById('btn-input-overlay');
-const inputOverlayModal = document.getElementById('input-overlay-modal');
-const btnCloseOverlay = document.getElementById('btn-close-overlay');
-const btnSendOverlay = document.getElementById('btn-send-overlay');
-const overlayTextarea = document.getElementById('overlay-textarea');
-
-if (btnInputOverlay) {
-    btnInputOverlay.addEventListener('click', () => {
-        inputOverlayModal.classList.remove('hidden');
-        overlayTextarea.focus();
-    });
-}
-
-function closeOverlay() {
-    inputOverlayModal.classList.add('hidden');
-    overlayTextarea.value = '';
-    term.focus();
-}
-
-if (btnCloseOverlay) btnCloseOverlay.addEventListener('click', closeOverlay);
-
-if (btnSendOverlay) {
-    btnSendOverlay.addEventListener('click', () => {
-        const text = overlayTextarea.value;
-        if (text) {
-            sendMessage({ type: 'input', data: text });
-        }
-        closeOverlay();
-    });
-}
-
-// Clipboard Paste Logic
-const btnClipboardPaste = document.getElementById('btn-clipboard-paste');
-if (btnClipboardPaste) {
-    btnClipboardPaste.addEventListener('click', async () => {
-        try {
-            const text = await navigator.clipboard.readText();
-            if (text) {
-                sendMessage({ type: 'input', data: text });
-                showStatus('Pasted from Clipboard');
-                setTimeout(hideStatus, 1500);
-            }
-        } catch (err) {
-            console.error('Clipboard Read Failed:', err);
-            // Fallback: Open Overlay?
-            showStatus('Clipboard Access Denied');
-            setTimeout(hideStatus, 2000);
-        }
-    });
-}
-
-// Ctrl+C Shortcut
-const btnCtrlC = document.getElementById('btn-ctrl-c');
-if (btnCtrlC) {
-    btnCtrlC.addEventListener('click', () => {
-        sendMessage({ type: 'input', data: '\x03' }); // \x03 is Ctrl+C
-        showStatus('Sent Ctrl+C');
-        setTimeout(hideStatus, 1000);
-    });
-}
-
-// Start
 // Start
 connect();
+// Polling for health check
+setInterval(() => {
+    if (currentProvider === 'codex') checkHealth();
+}, 5000);
+
+// Initial Check
 checkHealth();
 
 // Health Check
 async function checkHealth() {
+    if (currentProvider !== 'codex') return;
+
     try {
         const res = await fetch('/health');
         const data = await res.json();
@@ -529,7 +509,6 @@ function updateCodexStatus(status, mode) {
     const btn = document.getElementById('btn-copy-login');
 
     if (!bar) return;
-
     bar.classList.remove('hidden');
 
     if (mode === 'mock') {

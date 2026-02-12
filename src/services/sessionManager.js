@@ -13,17 +13,32 @@ class SessionManager {
         setInterval(() => this.cleanupIdleSessions(), 60000);
     }
 
-    async createSession(name = 'New Session') {
+    async createSession(options = {}) {
         const id = uuidv4();
-        // Create Codex Service (Factory returns Real/Mock)
-        const codexService = await CodexFactory.create();
+        const type = options.type || 'standard'; // 'standard' or 'interactive' (legacy)
 
-        // Wrap in TurnQueue
+        let provider = options.provider || 'codex'; // 'codex' or 'gemini'
+        let codexService;
+
+        if (provider === 'gemini') {
+            console.log(`[SessionManager] Creating Gemini Session ${id}`);
+            const GeminiService = require('./gemini/geminiService');
+            codexService = new GeminiService();
+            // Start it (async)
+            codexService.start();
+        } else {
+            // Default to Codex
+            console.log(`[SessionManager] Creating Codex Session ${id}`);
+            codexService = await CodexFactory.create();
+        }
+
         const turnQueue = new TurnQueue(codexService);
 
         const session = {
             id,
-            name,
+            name: options.name || 'New Session',
+            type,
+            provider,
             createdAt: Date.now(),
             lastActiveAt: Date.now(),
             status: 'IDLE', // IDLE, ACTIVE
@@ -164,6 +179,7 @@ class SessionManager {
         return Array.from(this.sessions.values()).map(s => ({
             id: s.id,
             name: s.name,
+            provider: s.provider, // Expose provider
             status: s.status,
             activeConnections: s.connections.length,
             createdAt: s.createdAt,

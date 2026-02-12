@@ -31,6 +31,11 @@ body {
     overflow: hidden;
     /* Prevent body scroll */
     height: 100vh;
+    /* Fallback */
+    height: 100dvh;
+    /* Modern mobile browsers */
+    height: var(--app-height, 100dvh);
+    /* JS Polyfill override */
     width: 100vw;
 }
 
@@ -87,6 +92,34 @@ body {
 .session-item:hover,
 .session-item.active {
     background-color: rgba(255, 255, 255, 0.05);
+}
+
+.session-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.btn-delete-session {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 1.5rem;
+    /* Larger */
+    cursor: pointer;
+    padding: 0 10px;
+    opacity: 1;
+    /* Always visible for now */
+    transition: color 0.2s;
+    z-index: 10;
+    /* Ensure on top */
+}
+
+.btn-delete-session:hover {
+    color: #ff4444;
+    background-color: rgba(255, 68, 68, 0.1);
+    /* Touch feedback */
+    border-radius: 4px;
 }
 
 /* Main Content */
@@ -229,7 +262,8 @@ body {
 
 /* Terminal Drawer */
 #terminal-drawer {
-    position: fixed;
+    position: absolute;
+    /* Changed from fixed to respect app-container height */
     bottom: 0;
     left: 0;
     right: 0;

@@ -37,8 +37,7 @@ class CodexFactory {
             // Given the plan: "CodexProcService" is the real one.
 
             const service = new RealCodexService();
-            // Start it
-            service.start();
+            // service.start() is not needed for new architecture (spawn on demand)
             return service;
         } else {
             console.log('[CodexFactory] Auto: Using MOCK Codex (Not installed/logged in)');

@@ -6,7 +6,7 @@ class TurnQueue extends EventEmitter {
         this.processService = processService;
         this.queue = [];
         this.activeTurn = null;
-        this.turnTimeoutMs = 60000; // 60s timeout
+        this.turnTimeoutMs = 120000; // 120s timeout
         this.timer = null;
     }
 

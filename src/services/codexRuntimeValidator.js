@@ -23,18 +23,21 @@ class CodexRuntimeValidator {
         // 2. Check Auth (Priority: Login Status > API Key)
         // Check Login Status
         try {
-            // Assuming 'codex login status' exits with 0 if logged in, non-zero if not.
-            // Adjust based on actual CLI behavior.
-            // If CLI prints "Not logged in" to stdout but exit code 0, we need to parse.
-            const { stdout } = await execAsync('codex login status');
-            if (stdout.toLowerCase().includes('logged in')) {
+            console.log('[CodexRuntimeValidator] Checking login status...');
+            const { stdout, stderr } = await execAsync('codex login status');
+            console.log('[CodexRuntimeValidator] stdout:', stdout);
+            console.log('[CodexRuntimeValidator] stderr:', stderr);
+
+            if (stdout.toLowerCase().includes('logged in') || stderr.toLowerCase().includes('logged in')) {
                 result.loggedIn = true;
                 result.authMode = 'oauth';
                 result.details = 'Logged in via Device Auth.';
             } else {
+                console.log('[CodexRuntimeValidator] Not logged in (output mismatch)');
                 result.details = 'Codex installed but not logged in.';
             }
         } catch (e) {
+            console.error('[CodexRuntimeValidator] Validation Error:', e.message);
             // Check API Key Fallback
             if (process.env.OPENAI_API_KEY) {
                 result.loggedIn = true; // Treated as logged in for usage

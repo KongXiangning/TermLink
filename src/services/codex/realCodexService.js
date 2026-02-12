@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+const pty = require('node-pty');
 const EventEmitter = require('events');
 const ProtocolParser = require('./protocolParser');
 
@@ -7,83 +7,123 @@ class RealCodexService extends EventEmitter {
         super();
         this.process = null;
         this.parser = new ProtocolParser();
+        this.sessionId = null;
+        this.cwd = '/root/code/project/TermLink';
+
+        // Internal State
+        this.state = 'IDLE'; // IDLE, BOOTING, READY, BUSY
+        this.pendingTurn = null; // Buffer for turn during boot
+        this.rawAccumulator = '';
+        this.hasEmittedDone = false;
+
         this._setupParserEvents();
     }
 
     _setupParserEvents() {
-        // Relay parser events
         this.parser.on('assistant', (evt) => this.emit('assistant', evt));
         this.parser.on('proposal', (evt) => this.emit('proposal', evt));
         this.parser.on('status', (evt) => this.emit('status', evt));
-        this.parser.on('done', (evt) => this.emit('done', evt));
-        this.parser.on('raw', (data) => this.emit('raw', data));
-        this.parser.on('error', (evt) => this.emit('error', evt.error));
-    }
 
-    start() {
-        this._spawn();
+        this.parser.on('done', (evt) => {
+            this._handleTurnComplete(evt);
+        });
+
+        this.parser.on('error', (evt) => {
+            // Suppress
+        });
+
+        this.parser.on('raw', (data) => {
+            if (this.state === 'BUSY') {
+                // Forward raw data as debug or potential fallback accumulation
+                // But don't emit 'assistant' unless parser says so?
+                // Actually, persistent TUI is noisy. 
+                // We might want to filter?
+                // For now, emit raw for debug.
+                this.emit('raw', data);
+            }
+        });
     }
 
     _spawn() {
-        console.log('[RealCodexService] Spawning codex session...');
-        // Use 'stdbuf -i0 -o0 -e0' to force unbuffered output if available, else just spawn
-        // But codex CLI might handle it.
-        // Assuming 'codex session' is the command.
-        this.process = spawn('codex', ['session'], {
-            env: { ...process.env, FORCE_COLOR: '1' }, // Maybe color?
-            stdio: ['pipe', 'pipe', 'pipe']
+        if (this.process) return;
+
+        console.log('[RealCodexService] Spawning persistent process...');
+        this.state = 'BOOTING';
+
+        const args = ['-s', 'workspace-write', '--no-alt-screen'];
+
+        this.process = pty.spawn('codex', args, {
+            name: 'xterm-mono', // Avoid color codes
+            cols: 80,
+            rows: 30,
+            cwd: this.cwd,
+            env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' } // Try to suppress colors
         });
 
-        this.process.stdout.on('data', (chunk) => {
-            this.parser.feed(chunk.toString());
+        this.process.onData((data) => {
+            const str = data.toString();
+            // console.log('[RAW PTY]', JSON.stringify(str)); // Debug
+
+            // Only feed logic if not purely echo
+            // But implementing echo suppression is hard without knowing exactly what we sent.
+            // Simplified: Just feed everything, but Parser needs to be robust.
+            this.parser.feed(str);
+
+            // 3. Prompt Detection (Boot Only)
+            if (this.state === 'BOOTING' && this._detectPrompt(str)) {
+                console.log('[RealCodexService] Boot Complete (Prompt Detected).');
+                this.state = 'READY';
+
+                // If we have a pending turn, execute it now
+                if (this.pendingTurn) {
+                    this._executeTurn(this.pendingTurn);
+                    this.pendingTurn = null;
+                }
+            }
         });
 
-        this.process.stderr.on('data', (chunk) => {
-            this.emit('raw_error', chunk.toString());
-        });
-
-        this.process.on('close', (code) => {
-            console.warn(`[RealCodexService] Process exited with code ${code}`);
-            this.emit('exit', code);
+        // ... exit handler ...
+        this.process.onExit(({ exitCode, signal }) => {
+            console.log(`[RealCodexService] Process exited: ${exitCode} (${signal})`);
             this.process = null;
+            this.state = 'IDLE';
+            if (this.state === 'BUSY') {
+                this.emit('error', new Error('Codex crashed during turn'));
+            }
         });
     }
 
-    sendTurn(turn) {
-        if (!this.process) {
-            console.error('[RealCodexService] Process not running, restarting...');
-            this._spawn();
-        }
+    _executeTurn(turn) {
+        this.state = 'BUSY';
+        this.hasEmittedDone = false;
 
         const { systemPrompt, userMessage } = turn;
+        // Minimal Protocol Instruction to avoid confusing the model or PTY
+        const protocolInstruction = `(Output JSON wrapped in @@TERM_LINK/1 tags)`;
 
-        // Construct Guardrailed Input
-        // 1. System Prompt (Guardrail)
-        // 2. User Message
-        // Format depends on how 'codex session' expects input. 
-        // Assuming standard chat format or just clear text if it's a simple session.
-        // If 'codex session' accepts lines as user input:
+        // For "Interactive Mode", we usually just type the user message.
+        // Injecting "SYSTEM:" might be confusing the CLI unless it supports it explicitly.
+        // Let's try just sending the user message + instruction.
+        // The system prompt is usually for the "session context", which CLI manages.
 
-        if (systemPrompt) {
-            this.process.stdin.write(`SYSTEM:\n${systemPrompt}\n`);
-        }
+        const message = `${userMessage} ${protocolInstruction}`;
 
-        this.process.stdin.write(`USER:\n${userMessage}\n`);
+        console.log('[RealCodexService] Sending Turn...');
+        // Send with newline, wait a bit?
+        this.process.write(message + '\r');
     }
 
     killAndRestart() {
-        console.warn('[RealCodexService] Force killing process...');
+        console.warn('[RealCodexService] Killing... ');
         if (this.process) {
-            this.process.kill('SIGKILL');
+            this.process.kill();
             this.process = null;
+            this.state = 'IDLE';
         }
-        setTimeout(() => this._spawn(), 500);
     }
 
     stop() {
-        if (this.process) {
-            this.process.kill();
-        }
+        this.killAndRestart();
     }
 }
 

@@ -26,6 +26,7 @@ const PORT = process.env.PORT || 3000;
     }
 })();
 
+app.use(express.json());
 app.use(basicAuth);
 app.use(express.static(path.join(__dirname, '../public')));
 
@@ -36,8 +37,24 @@ app.get('/api/sessions', (req, res) => {
 
 // API: Create Session
 app.post('/api/sessions', async (req, res) => {
-    const session = await sessionManager.createSession();
-    res.json({ id: session.id, name: session.name });
+    // const type = req.body.type; 
+    const { type, provider } = req.body;
+    const session = await sessionManager.createSession({ type, provider });
+    res.json({ id: session.id, name: `Session ${session.id.substring(0, 8)}` });
+});
+
+// API: Delete Session
+app.delete('/api/sessions/:id', (req, res) => {
+    const { id } = req.params;
+    console.log(`[Server] Request to delete session: ${id}`);
+    const success = sessionManager.deleteSession(id);
+    if (success) {
+        console.log(`[Server] Session deleted: ${id}`);
+        res.json({ status: 'ok' });
+    } else {
+        console.error(`[Server] Session not found for deletion: ${id}`);
+        res.status(404).json({ error: 'Session not found' });
+    }
 });
 
 // Health Endpoint
@@ -75,10 +92,14 @@ wss.on('connection', async (ws, req) => {
         type: 'session_info',
         sessionId: session.id,
         name: session.name,
+        provider: session.provider, // Add Provider Info
         // Send basic thread history for 'main'
         history: session.threads.get('main')?.messages || [],
-        // Send pending approvals
-        pendingApprovals: Array.from(codex.approvals.values()).filter(a => a.status === 'pending')
+        // Send pending approvals (Check both service and session storage)
+        pendingApprovals: [
+            ...(codex.approvals ? Array.from(codex.approvals.values()) : []),
+            ...(session.approvals ? Array.from(session.approvals.values()) : [])
+        ].filter(a => a.status === 'pending')
     }));
 
     ws.isAlive = true;
