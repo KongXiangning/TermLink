@@ -273,25 +273,7 @@ btnSend.addEventListener('click', () => {
 });
 
 // Theme Logic
-const btnTheme = document.getElementById('btn-theme');
-btnTheme.addEventListener('click', () => {
-    document.body.classList.toggle('light-theme');
-    const isLight = document.body.classList.contains('light-theme');
-
-    term.options.theme = isLight ? {
-        background: '#ffffff',
-        foreground: '#000000',
-        cursor: '#000000',
-        selectionBackground: 'rgba(0, 0, 0, 0.3)'
-    } : {
-        background: '#000000',
-        foreground: '#ffffff',
-        cursor: '#ffffff',
-        selectionBackground: 'rgba(255, 255, 255, 0.3)'
-    };
-
-    // Save preference? For now, just ephemeral.
-});
+// Theme Logic Removed (Button Deleted)
 
 // Clipboard Logic
 const btnPaste = document.getElementById('btn-paste');
