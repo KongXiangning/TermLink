@@ -1,27 +1,34 @@
-// Initialize Terminal
+// --- DOM Elements ---
+const terminalContainer = document.getElementById('terminal-container');
+const sidebar = document.getElementById('sidebar');
+const btnMenu = document.getElementById('btn-menu');
+const inputOverlay = document.getElementById('input-overlay');
+const inputBuffer = document.getElementById('input-buffer');
+const btnToggleInput = document.getElementById('btn-toggle-input');
+const btnClear = document.getElementById('btn-clear');
+const btnClose = document.getElementById('btn-close');
+const btnSend = document.getElementById('btn-send');
+const statusOverlay = document.getElementById('status-overlay');
+const sessionList = document.getElementById('session-list');
+const btnNewSession = document.getElementById('btn-new-session');
+const btnCtrlC = document.getElementById('btn-ctrl-c');
+
+// --- Terminal Setup ---
 const term = new Terminal({
     cursorBlink: true,
     macOptionIsMeta: true,
     scrollback: 1000,
     fontSize: 14,
     fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-    theme: {
-        background: '#000000',
-    }
+    theme: { background: '#000000', foreground: '#ffffff' }
 });
 
-// Initialize Fit Addon
-// Note: xterm-addon-fit UMD exports to window.FitAddon.FitAddon 
-// or maybe just window.FitAddon?
-// Usually it's window.FitAddon.FitAddon for the class.
 const fitAddon = new FitAddon.FitAddon();
 term.loadAddon(fitAddon);
-
-const terminalContainer = document.getElementById('terminal-container');
 term.open(terminalContainer);
 fitAddon.fit();
 
-// Connect to WebSocket
+// --- State ---
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const host = window.location.host;
 let ws;
@@ -30,37 +37,56 @@ let maxReconnectInterval = 30000;
 let reconnectTimer;
 let isConnecting = false;
 
-const statusOverlay = document.getElementById('status-overlay');
+const urlParams = new URLSearchParams(window.location.search);
+let sessionId = urlParams.get('sessionId') || localStorage.getItem('lastSessionId');
 
+// --- Helpers ---
 function showStatus(msg) {
     statusOverlay.textContent = msg;
-    statusOverlay.style.display = 'flex';
+    statusOverlay.style.display = 'block';
 }
 
 function hideStatus() {
     statusOverlay.style.display = 'none';
 }
 
+// --- WebSocket Logic ---
 function connect() {
     if (isConnecting) return;
     isConnecting = true;
 
-    ws = new WebSocket(`${protocol}//${host}`);
+    let wsUrl = `${protocol}//${host}`;
+    if (sessionId) {
+        wsUrl += `?sessionId=${sessionId}`;
+    }
+
+    ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
         isConnecting = false;
-        term.write('\r\n\x1b[32m[TermLink] Connected to backend...\x1b[0m\r\n');
         hideStatus();
         fitAddon.fit();
         sendResize();
-        reconnectInterval = 1000; // Reset backoff
+        reconnectInterval = 1000;
+        loadSessions(); // Refresh list on connect
     };
 
     ws.onmessage = event => {
         try {
-            const msg = JSON.parse(event.data);
-            if (msg.type === 'output') {
-                term.write(msg.data);
+            const envelope = JSON.parse(event.data);
+            const type = envelope.type;
+
+            if (type === 'output') {
+                term.write(envelope.data);
+            } else if (type === 'session_info') {
+                sessionId = envelope.sessionId;
+                const newUrl = new URL(window.location);
+                newUrl.searchParams.set('sessionId', sessionId);
+                window.history.replaceState({}, '', newUrl);
+                localStorage.setItem('lastSessionId', sessionId);
+
+                document.title = `TermLink - ${envelope.name}`;
+                loadSessions(); // Highlight active
             }
         } catch (e) {
             console.error('Error parsing message', e);
@@ -69,13 +95,9 @@ function connect() {
 
     ws.onclose = () => {
         isConnecting = false;
-        term.write('\r\n\x1b[31m[TermLink] Disconnected. Reconnecting...\x1b[0m\r\n');
         showStatus('Disconnected. Reconnecting...');
-
-        // Exponential backoff
         clearTimeout(reconnectTimer);
         reconnectTimer = setTimeout(() => {
-            console.log(`Reconnecting in ${reconnectInterval}ms...`);
             connect();
             reconnectInterval = Math.min(reconnectInterval * 1.5, maxReconnectInterval);
         }, reconnectInterval);
@@ -83,212 +105,212 @@ function connect() {
 
     ws.onerror = (err) => {
         console.error('WebSocket error:', err);
-        ws.close(); // Ensure clean close to trigger reconnect logic
+        ws.close();
     };
 }
 
-// Initial connection
-connect();
-
-// Handle Input
-term.onData(data => {
-    if (ws.readyState === WebSocket.OPEN) {
-        // If modifiers are active, we might need to transform this data
-        // But xterm handles keyboard events -> term.onData
-        // If we want visual modifiers to affect physical keyboard, we need to intercept
-        // interactions OR rely on the virtual buttons.
-        // For virtual buttons -> we send data directly.
-        // For physical keyboard + virtual modifier -> tough without interception.
-        // For Phase 1/2, let's assume modifiers mainly affect virtual keys or we send explicit sequences.
-        // Actually, let's try to wrap data for physical keyboard if modifiers are active.
-
-        let sendData = data;
-
-        // Handle Ctrl modifier for single char inputs
-        if (modifiers.Ctrl && data.length === 1) {
-            const code = data.charCodeAt(0);
-            // Convert to control char: 'a' (97) -> 1, 'c' (99) -> 3
-            if (code >= 97 && code <= 122) {
-                sendData = String.fromCharCode(code - 96);
-                toggleModifier('Ctrl', false); // Auto-release
-            } else if (code >= 65 && code <= 90) { // Uppercase
-                sendData = String.fromCharCode(code - 64);
-                toggleModifier('Ctrl', false);
-            }
-        }
-
-        ws.send(JSON.stringify({ type: 'input', data: sendData }));
-    }
-});
-
-// Toolbar Logic
-const modifiers = {
-    Ctrl: false,
-    Alt: false
-};
-
-function toggleModifier(key, forceState) {
-    if (forceState !== undefined) {
-        modifiers[key] = forceState;
-    } else {
-        modifiers[key] = !modifiers[key];
-    }
-
-    // Update UI
-    const btn = document.querySelector(`.key[data-key="${key}"]`);
-    if (btn) {
-        if (modifiers[key]) btn.classList.add('active');
-        else btn.classList.remove('active');
+function sendMessage(msg) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(msg));
     }
 }
 
-// Special Key mappings
-const keyMap = {
-    'Ctrl-C': '\x03',
-    'Esc': '\x1b',
-    'Tab': '\t',
-    'Up': '\x1b[A',
-    'Down': '\x1b[B',
-    'Right': '\x1b[C',
-    'Left': '\x1b[D',
-    'Home': '\x1b[H',
-    'End': '\x1b[F',
-    'PgUp': '\x1b[5~',
-    'PgDn': '\x1b[6~',
-    '-': '-',
-    '/': '/',
-    '|': '|'
-};
-
-document.querySelectorAll('.key').forEach(btn => {
-    btn.addEventListener('touchstart', (e) => {
-        e.preventDefault(); // Prevent focus loss from terminal
-        const key = btn.dataset.key;
-
-        if (key === 'Ctrl' || key === 'Alt') {
-            toggleModifier(key);
-            return;
-        }
-
-        // Send key
-        if (ws.readyState === WebSocket.OPEN) {
-            let data = keyMap[key] || key;
-
-            // Handle Control sequences for arrow keys if needed (e.g. Ctrl+Up)
-            // xterm default: Ctrl+Up -> \x1b[1;5A
-            if (modifiers.Ctrl) {
-                if (key === 'Up') data = '\x1b[1;5A';
-                else if (key === 'Down') data = '\x1b[1;5B';
-                else if (key === 'Right') data = '\x1b[1;5C';
-                else if (key === 'Left') data = '\x1b[1;5D';
-                // For other keys, typical CLI implementation implies we might not support all combos yet
-                // But let's handle the basics.
-
-                toggleModifier('Ctrl', false); // Release after usage
-            }
-
-            ws.send(JSON.stringify({ type: 'input', data: data }));
-        }
-
-        // Visual feedback (optional since :active handles it, but touchstart needs help sometimes)
-        btn.classList.add('pressed');
-        setTimeout(() => btn.classList.remove('pressed'), 100);
-    });
-
-    // Fallback for mouse users
-    btn.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        // TRIGGER modifiers logic same as touchstart...
-        // For simplicity, let's call the same handler or just relying on touchstart for mobile
-        // But for dev testing on desktop:
-        const key = btn.dataset.key;
-        if (key === 'Ctrl' || key === 'Alt') {
-            toggleModifier(key);
-            return;
-        }
-        if (ws.readyState === WebSocket.OPEN) {
-            let data = keyMap[key] || key;
-            if (modifiers.Ctrl) {
-                if (key === 'Up') data = '\x1b[1;5A';
-                else if (key === 'Down') data = '\x1b[1;5B';
-                else if (key === 'Right') data = '\x1b[1;5C';
-                else if (key === 'Left') data = '\x1b[1;5D';
-                toggleModifier('Ctrl', false);
-            }
-            ws.send(JSON.stringify({ type: 'input', data: data }));
-        }
-    });
-});
-
-
-// Handle Resize
 function sendResize() {
     fitAddon.fit();
     const dims = fitAddon.proposeDimensions();
-    if (dims && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-            type: 'resize',
-            cols: dims.cols,
-            rows: dims.rows
-        }));
+    if (dims) {
+        sendMessage({ type: 'resize', cols: dims.cols, rows: dims.rows });
     }
 }
 
+// --- Interaction Logic ---
+term.onData(data => {
+    sendMessage({ type: 'input', data: data });
+});
+
 window.addEventListener('resize', sendResize);
 
+// Sidebar Toggle
+if (btnMenu) {
+    btnMenu.addEventListener('click', () => sidebar.classList.toggle('open'));
+}
+document.addEventListener('click', (e) => {
+    if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== btnMenu) {
+        sidebar.classList.remove('open');
+    }
+});
+
+// New Session
+if (btnNewSession) {
+    btnNewSession.addEventListener('click', async () => {
+        try {
+            const res = await fetch('/api/sessions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: `Terminal ${new Date().toLocaleTimeString()}` })
+            });
+            const data = await res.json();
+            // Switch to new session
+            switchSession(data.id);
+        } catch (e) {
+            console.error(e);
+        }
+    });
+}
+
+function switchSession(id) {
+    if (sessionId === id) return;
+    sessionId = id;
+
+    // Close old connection
+    if (ws) {
+        ws.onclose = null; // Prevent reconnect loop logic from firing
+        ws.close();
+        ws = null;
+    }
+
+    term.reset();
+    connect();
+
+    // URL Update
+    const newUrl = new URL(window.location);
+    newUrl.searchParams.set('sessionId', id);
+    window.history.replaceState({}, '', newUrl);
+
+    // Close sidebar on mobile
+    if (window.innerWidth < 768) {
+        sidebar.classList.remove('open');
+    }
+}
+
+// Load Sessions
+async function loadSessions() {
+    try {
+        const res = await fetch('/api/sessions');
+        const sessions = await res.json();
+
+        sessionList.innerHTML = '';
+        if (sessions.length === 0 && !sessionId) {
+            // No sessions? Create one.
+            btnNewSession.click();
+            return;
+        }
+
+        sessions.forEach(s => {
+            const li = document.createElement('li');
+            li.className = 'session-item';
+            if (s.id === sessionId) li.classList.add('active');
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'session-name';
+            nameSpan.textContent = s.name;
+
+            li.addEventListener('click', () => switchSession(s.id));
+
+            // Delete button
+            const del = document.createElement('button');
+            del.textContent = '×';
+            del.className = 'btn-delete-session';
+            del.title = 'Delete Session';
+            del.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (confirm('Delete this session?')) {
+                    await deleteSession(s.id);
+                }
+            });
+
+            li.appendChild(nameSpan);
+            li.appendChild(del);
+            sessionList.appendChild(li);
+        });
+
+        // If current sessionId invalid (deleted), switch to first available?
+        if (sessionId && !sessions.find(s => s.id === sessionId)) {
+            if (sessions.length > 0) switchSession(sessions[0].id);
+            else {
+                sessionId = null;
+                btnNewSession.click();
+            }
+        }
+
+    } catch (e) {
+        console.error('Failed to load sessions', e);
+    }
+}
+
+async function deleteSession(id) {
+    try {
+        const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            if (id === sessionId) {
+                sessionId = null; // Forces switch to another or pull new
+            }
+            loadSessions();
+        } else {
+            alert('Failed to delete session');
+        }
+    } catch (e) {
+        console.error('Delete error:', e);
+    }
+}
+
+// --- Virtual Keys ---
+document.querySelectorAll('.key').forEach(btn => {
+    const handler = (e) => {
+        if (e.type === 'touchstart') e.preventDefault();
+
+        const key = btn.dataset.key;
+        if (!key && btn.id === 'btn-toggle-input') {
+            inputOverlay.style.display = 'flex';
+            inputBuffer.focus();
+            return;
+        }
+
+        let sent = false;
+        if (key && ws && ws.readyState === WebSocket.OPEN) {
+            let data = key;
+            // Key mapping (basic)
+            if (key === 'Enter') data = '\r';
+            if (key === 'Tab') data = '\t';
+            if (key === 'Esc') data = '\x1b';
+            if (key === 'Up') data = '\x1b[A';
+            if (key === 'Down') data = '\x1b[B';
+            if (key === 'Ctrl-C') data = '\x03';
+
+            if (data.length > 0) {
+                sendMessage({ type: 'input', data: data });
+                sent = true;
+            }
+        }
+
+        btn.classList.add('active');
+        setTimeout(() => btn.classList.remove('active'), 100);
+
+        // Prevent focus loss from terminal if applicable, 
+        // though typically buttons steal focus. 
+        // We can refocus terminal after.
+        if (sent) term.focus();
+    };
+
+    btn.addEventListener('touchstart', handler);
+    btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        handler(e);
+    });
+});
+
 // Input Overlay Logic
-const inputOverlay = document.getElementById('input-overlay');
-const inputBuffer = document.getElementById('input-buffer');
-const btnToggleInput = document.getElementById('btn-toggle-input');
-const btnClear = document.getElementById('btn-clear');
-const btnClose = document.getElementById('btn-close');
-const btnSend = document.getElementById('btn-send');
-
-btnToggleInput.addEventListener('click', () => {
-    inputOverlay.style.display = 'flex';
-    inputBuffer.focus();
-});
-
-btnClose.addEventListener('click', () => {
-    inputOverlay.style.display = 'none';
-    term.focus();
-});
-
-btnClear.addEventListener('click', () => {
-    inputBuffer.value = '';
-    inputBuffer.focus();
-});
-
-btnSend.addEventListener('click', () => {
+if (btnClose) btnClose.addEventListener('click', () => { inputOverlay.style.display = 'none'; term.focus(); });
+if (btnClear) btnClear.addEventListener('click', () => { inputBuffer.value = ''; inputBuffer.focus(); });
+if (btnSend) btnSend.addEventListener('click', () => {
     const text = inputBuffer.value;
     if (text) {
-        if (ws.readyState === WebSocket.OPEN) {
-            // Send text followed by Enter
-            ws.send(JSON.stringify({ type: 'input', data: text + '\r' }));
-        }
-        inputBuffer.value = ''; // Clear after send
-        inputOverlay.style.display = 'none'; // Close logic
+        sendMessage({ type: 'input', data: text + '\r' });
+        inputBuffer.value = '';
+        inputOverlay.style.display = 'none';
         term.focus();
     }
 });
 
-// Theme Logic
-// Theme Logic Removed (Button Deleted)
-
-// Clipboard Logic
-const btnPaste = document.getElementById('btn-paste');
-btnPaste.addEventListener('click', async () => {
-    try {
-        const text = await navigator.clipboard.readText();
-        if (text && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'input', data: text }));
-            term.focus();
-            showStatus('Pasted from clipboard');
-            setTimeout(hideStatus, 1000);
-        }
-    } catch (err) {
-        console.error('Clipboard error:', err);
-        showStatus('Clipboard permission denied');
-        setTimeout(hideStatus, 2000);
-    }
-});
+// Start
+connect();
