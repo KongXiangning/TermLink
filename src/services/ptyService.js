@@ -3,7 +3,7 @@ const pty = require('node-pty');
 
 class PtyService {
     constructor() {
-        this.shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
+        this.shell = os.platform() === 'win32' ? 'powershell.exe' : (process.env.SHELL || 'bash');
         this.ptyProcess = null;
     }
 

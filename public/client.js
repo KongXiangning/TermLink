@@ -144,6 +144,7 @@ function toggleModifier(key, forceState) {
 
 // Special Key mappings
 const keyMap = {
+    'Ctrl-C': '\x03',
     'Esc': '\x1b',
     'Tab': '\t',
     'Up': '\x1b[A',

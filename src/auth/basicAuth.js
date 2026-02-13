@@ -6,6 +6,7 @@ const adminUser = {
 };
 
 module.exports = function (req, res, next) {
+    if (process.env.AUTH_ENABLED === 'false') return next();
     const user = auth(req);
 
     if (!user || user.name !== adminUser.name || user.pass !== adminUser.pass) {
