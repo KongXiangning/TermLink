@@ -274,11 +274,17 @@ document.querySelectorAll('.key').forEach(btn => {
             let data = key;
             // Key mapping (basic)
             if (key === 'Enter') data = '\r';
-            if (key === 'Tab') data = '\t';
-            if (key === 'Esc') data = '\x1b';
-            if (key === 'Up') data = '\x1b[A';
-            if (key === 'Down') data = '\x1b[B';
-            if (key === 'Ctrl-C') data = '\x03';
+            else if (key === 'Tab') data = '\t';
+            else if (key === 'Esc') data = '\x1b';
+            else if (key === 'Home') data = '\x1b[H';
+            else if (key === 'End') data = '\x1b[F';
+            else if (key === 'PgUp') data = '\x1b[5~';
+            else if (key === 'PgDn') data = '\x1b[6~';
+            else if (key === 'Up') data = '\x1b[A';
+            else if (key === 'Down') data = '\x1b[B';
+            else if (key === 'Right') data = '\x1b[C';
+            else if (key === 'Left') data = '\x1b[D';
+            else if (key === 'Ctrl-C') data = '\x03';
 
             if (data.length > 0) {
                 sendMessage({ type: 'input', data: data });

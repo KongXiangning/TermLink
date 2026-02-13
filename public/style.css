@@ -192,7 +192,8 @@ body {
     margin-bottom: 0;
 }
 
-.key {
+.key,
+.nav-btn {
     background-color: #383838;
     color: #fff;
     border: none;
@@ -211,7 +212,8 @@ body {
 }
 
 .key:active,
-.key.active {
+.key.active,
+.nav-btn:active {
     background-color: var(--primary-color);
 }
 
