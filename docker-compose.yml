@@ -1,0 +1,12 @@
+services:
+  termlink:
+    build: .
+    container_name: termlink
+    ports:
+      - "3000:3000"
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    volumes:
+      - ./.env:/app/.env # Allow overriding env vars from host
