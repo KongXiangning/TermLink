@@ -154,14 +154,15 @@ body {
     width: 100%;
 }
 
-/* Desktop Sidebar Visible */
-@media (min-width: 768px) {
+/* Desktop Sidebar - Optional: Keep it toggleable */
+/* @media (min-width: 768px) {
     #sidebar {
         position: relative;
         transform: none;
         box-shadow: none;
     }
-}
+} */
+
 
 /* Terminal Container */
 #terminal-container {

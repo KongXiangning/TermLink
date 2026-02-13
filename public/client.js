@@ -212,11 +212,11 @@ async function loadSessions() {
             del.textContent = '×';
             del.className = 'btn-delete-session';
             del.title = 'Delete Session';
+            del.dataset.id = s.id; // Add ID to button too
             del.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                if (confirm('Delete this session?')) {
-                    await deleteSession(s.id);
-                }
+                // Removing confirm for smoother UX/Testing
+                await deleteSession(s.id);
             });
 
             li.appendChild(nameSpan);
