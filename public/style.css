@@ -183,18 +183,31 @@ body {
     display: flex;
     gap: 5px;
     overflow-x: auto;
+    margin-bottom: 5px;
+    justify-content: center;
+    /* Center keys if they don't fill row */
+}
+
+.key-row:last-child {
+    margin-bottom: 0;
 }
 
 .key {
     background-color: #383838;
     color: #fff;
     border: none;
-    padding: 10px 15px;
+    padding: 12px 10px;
+    /* Slightly larger vertical padding */
     border-radius: 4px;
     font-family: monospace;
     cursor: pointer;
     white-space: nowrap;
-    flex-shrink: 0;
+    flex: 1;
+    /* Buttons grow to fill space */
+    min-width: 40px;
+    /* Minimum width for touch */
+    text-align: center;
+    font-size: 14px;
 }
 
 .key:active,

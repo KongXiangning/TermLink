@@ -132,7 +132,10 @@ window.addEventListener('resize', sendResize);
 
 // Sidebar Toggle
 if (btnMenu) {
-    btnMenu.addEventListener('click', () => sidebar.classList.toggle('open'));
+    btnMenu.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sidebar.classList.toggle('open');
+    });
 }
 document.addEventListener('click', (e) => {
     if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== btnMenu) {
