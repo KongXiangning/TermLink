@@ -280,6 +280,20 @@ function toggleDrawer(force) {
 btnToggleDrawer.addEventListener('click', () => toggleDrawer());
 drawerHandle.addEventListener('click', () => toggleDrawer(false));
 
+// Mode Switch (Pure Terminal vs Chat)
+const btnModeSwitch = document.getElementById('btn-mode-switch');
+if (btnModeSwitch) {
+    btnModeSwitch.addEventListener('click', () => {
+        document.body.classList.toggle('terminal-mode');
+        // Allow transition to finish/layout to update
+        setTimeout(() => {
+            fitAddon.fit();
+            sendResize();
+            term.focus();
+        }, 300);
+    });
+}
+
 // Sidebar Toggle
 btnMenu.addEventListener('click', () => sidebar.classList.toggle('open'));
 document.addEventListener('click', (e) => {
