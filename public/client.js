@@ -268,6 +268,17 @@ document.querySelectorAll('.key').forEach(btn => {
             inputBuffer.focus();
             return;
         }
+        if (!key && btn.id === 'btn-paste') {
+            navigator.clipboard.readText().then(text => {
+                if (text && ws && ws.readyState === WebSocket.OPEN) {
+                    sendMessage({ type: 'input', data: text });
+                }
+            }).catch(err => {
+                console.error('Failed to read clipboard', err);
+                alert('Clipboard access denied or not supported.');
+            });
+            return;
+        }
 
         let sent = false;
         if (key && ws && ws.readyState === WebSocket.OPEN) {
