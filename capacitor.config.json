@@ -1,5 +1,9 @@
 {
   "appId": "com.termlink.app",
   "appName": "TermLink",
-  "webDir": "public"
+  "webDir": "public",
+  "server": {
+    "cleartext": true,
+    "androidScheme": "http"
+  }
 }

@@ -29,18 +29,60 @@ term.open(terminalContainer);
 fitAddon.fit();
 
 // --- State ---
-const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const host = window.location.host;
+// --- State ---
+// If we are strictly in a browser (not file://), use window location. 
+// Otherwise check localStorage.
+const isFileProtocol = window.location.protocol === 'file:';
+let savedHost = localStorage.getItem('serverUrl') || (isFileProtocol ? '' : window.location.origin);
+
+// Ensure it doesn't have trailing slash
+if (savedHost && savedHost.endsWith('/')) savedHost = savedHost.slice(0, -1);
+
 let ws;
 let reconnectInterval = 1000;
 let maxReconnectInterval = 30000;
 let reconnectTimer;
 let isConnecting = false;
+let retryCount = 0;
+const MAX_RETRIES = 3;
 
 const urlParams = new URLSearchParams(window.location.search);
 let sessionId = urlParams.get('sessionId') || localStorage.getItem('lastSessionId');
 
+// --- Helper: Get API URL ---
+function getBaseUrl() {
+    return savedHost;
+}
+
 // --- Helpers ---
+const connectionOverlay = document.getElementById('connection-overlay');
+const serverUrlInput = document.getElementById('server-url-input');
+const btnSaveConnection = document.getElementById('btn-save-connection');
+
+function showConnectionSettings() {
+    connectionOverlay.style.display = 'flex';
+    if (savedHost) serverUrlInput.value = savedHost;
+}
+
+if (btnSaveConnection) {
+    btnSaveConnection.addEventListener('click', () => {
+        let inputVal = serverUrlInput.value.trim();
+        if (!inputVal) return;
+        if (!inputVal.startsWith('http')) inputVal = 'http://' + inputVal;
+
+        while (inputVal.endsWith('/')) inputVal = inputVal.slice(0, -1);
+
+        savedHost = inputVal;
+        localStorage.setItem('serverUrl', savedHost);
+        connectionOverlay.style.display = 'none';
+
+        // Reset retry logic
+        retryCount = 0;
+        isConnecting = false;
+        connect();
+    });
+}
+
 function showStatus(msg) {
     statusOverlay.textContent = msg;
     statusOverlay.style.display = 'block';
@@ -53,17 +95,42 @@ function hideStatus() {
 // --- WebSocket Logic ---
 function connect() {
     if (isConnecting) return;
-    isConnecting = true;
 
-    let wsUrl = `${protocol}//${host}`;
+    if (!savedHost) {
+        showConnectionSettings();
+        return;
+    }
+
+    isConnecting = true;
+    showStatus(`Connecting to ${savedHost}...`);
+
+    let wsUrl = savedHost.replace('http', 'ws'); // http->ws, https->wss
     if (sessionId) {
         wsUrl += `?sessionId=${sessionId}`;
     }
 
-    ws = new WebSocket(wsUrl);
+    // URL Construction Verification
+    if (wsUrl.startsWith('ws://') === false && wsUrl.startsWith('wss://') === false) {
+        alert('Internal Error: Invalid WS URL: ' + wsUrl);
+        isConnecting = false;
+        showConnectionSettings();
+        return;
+    }
+
+    try {
+        ws = new WebSocket(wsUrl);
+    } catch (e) {
+        console.error("URL Error", e);
+        alert("WebSocket Construction Error: " + e.message); // DEBUG
+        isConnecting = false;
+        showConnectionSettings();
+        return;
+    }
 
     ws.onopen = () => {
+        // alert(`Connected to ${wsUrl}`); // DEBUG Success
         isConnecting = false;
+        retryCount = 0;
         hideStatus();
         fitAddon.fit();
         sendResize();
@@ -82,7 +149,9 @@ function connect() {
                 sessionId = envelope.sessionId;
                 const newUrl = new URL(window.location);
                 newUrl.searchParams.set('sessionId', sessionId);
-                window.history.replaceState({}, '', newUrl);
+                if (!isFileProtocol) {
+                    window.history.replaceState({}, '', newUrl);
+                }
                 localStorage.setItem('lastSessionId', sessionId);
 
                 document.title = `TermLink - ${envelope.name}`;
@@ -93,19 +162,28 @@ function connect() {
         }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
         isConnecting = false;
-        showStatus('Disconnected. Reconnecting...');
-        clearTimeout(reconnectTimer);
-        reconnectTimer = setTimeout(() => {
-            connect();
-            reconnectInterval = Math.min(reconnectInterval * 1.5, maxReconnectInterval);
-        }, reconnectInterval);
+        // alert(`WS Closed: Code=${event.code}, Reason=${event.reason || 'None'}`); // DEBUG
+        if (retryCount >= MAX_RETRIES) {
+            showStatus('Connection failed.');
+            alert(`Connection Failed to ${wsUrl}\nCode: ${event.code}`); // DEBUG
+            showConnectionSettings();
+        } else {
+            showStatus('Disconnected. Reconnecting...');
+            retryCount++;
+            clearTimeout(reconnectTimer);
+            reconnectTimer = setTimeout(() => {
+                connect();
+                reconnectInterval = Math.min(reconnectInterval * 1.5, maxReconnectInterval);
+            }, reconnectInterval);
+        }
     };
 
     ws.onerror = (err) => {
         console.error('WebSocket error:', err);
-        ws.close();
+        // alert("WebSocket Error (Check console if possible)"); // DEBUG
+        // ws.close() will trigger onclose
     };
 }
 
@@ -147,7 +225,10 @@ document.addEventListener('click', (e) => {
 if (btnNewSession) {
     btnNewSession.addEventListener('click', async () => {
         try {
-            const res = await fetch('/api/sessions', {
+            const baseUrl = getBaseUrl();
+            if (!baseUrl) return; // Should connect first
+
+            const res = await fetch(`${baseUrl}/api/sessions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: `Terminal ${new Date().toLocaleTimeString()}` })
@@ -178,7 +259,7 @@ function switchSession(id) {
     // URL Update
     const newUrl = new URL(window.location);
     newUrl.searchParams.set('sessionId', id);
-    window.history.replaceState({}, '', newUrl);
+    if (!isFileProtocol) window.history.replaceState({}, '', newUrl);
 
     // Close sidebar on mobile
     if (window.innerWidth < 768) {
@@ -189,7 +270,10 @@ function switchSession(id) {
 // Load Sessions
 async function loadSessions() {
     try {
-        const res = await fetch('/api/sessions');
+        const baseUrl = getBaseUrl();
+        if (!baseUrl) return;
+
+        const res = await fetch(`${baseUrl}/api/sessions`);
         const sessions = await res.json();
 
         sessionList.innerHTML = '';
@@ -243,7 +327,10 @@ async function loadSessions() {
 
 async function deleteSession(id) {
     try {
-        const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
+        const baseUrl = getBaseUrl();
+        if (!baseUrl) return;
+
+        const res = await fetch(`${baseUrl}/api/sessions/${id}`, { method: 'DELETE' });
         if (res.ok) {
             if (id === sessionId) {
                 sessionId = null; // Forces switch to another or pull new

@@ -30,6 +30,17 @@
         <!-- Main Content Area -->
         <div id="main-content">
             <div id="status-overlay"></div>
+            
+            <!-- Server Connection Overlay -->
+            <div id="connection-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:2000; flex-direction:column; justify-content:center; align-items:center; color:white;">
+                <h2>Server Settings</h2>
+                <div style="margin: 20px 0; width: 80%; max-width: 300px;">
+                    <label style="display:block; margin-bottom:5px;">Server URL:</label>
+                    <input type="text" id="server-url-input" placeholder="http://192.168.1.100:3000" style="width:100%; padding:10px; border-radius:5px; border:none;">
+                </div>
+                <button id="btn-save-connection" style="padding:10px 20px; background:#4CAF50; color:white; border:none; border-radius:5px; cursor:pointer;">Connect</button>
+            </div>
+
             <div id="input-overlay">
                 <textarea id="input-buffer" placeholder="Type command here..."></textarea>
                 <div class="input-controls">
