@@ -108,8 +108,11 @@ const btnAddServer = document.getElementById('btn-add-server');
 const inputNewServerName = document.getElementById('new-server-name');
 const inputNewServerUrl = document.getElementById('new-server-url');
 
+const sidebarServerListEl = document.getElementById('sidebar-server-list');
+
 // --- Server Manager Logic ---
 function renderServerList() {
+    // 1. Render for Modal (Manager)
     serverListEl.innerHTML = '';
     serverState.servers.forEach(server => {
         const li = document.createElement('li');
@@ -131,7 +134,44 @@ function renderServerList() {
         serverListEl.appendChild(li);
     });
 
-    // Event Listeners for generated buttons
+    // 2. Render for Sidebar (Quick Switch)
+    if (sidebarServerListEl) {
+        sidebarServerListEl.innerHTML = '';
+        serverState.servers.forEach(server => {
+            const li = document.createElement('li');
+            li.className = 'sidebar-server-item';
+            if (server.id === serverState.activeServerId) {
+                li.classList.add('active');
+            }
+
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = server.name;
+
+            // Status indicator (simple dot if active)
+            if (server.id === serverState.activeServerId) {
+                const statusDot = document.createElement('span');
+                statusDot.textContent = '●';
+                statusDot.style.color = 'var(--primary-color)';
+                statusDot.style.marginRight = '8px';
+                li.prepend(statusDot);
+            }
+
+            li.appendChild(nameSpan);
+
+            // Switch on click
+            li.addEventListener('click', () => {
+                if (server.id !== serverState.activeServerId) {
+                    setActiveServer(server.id);
+                    // Close sidebar on mobile after switch? Maybe keep open to see sessions load?
+                    // Let's keep it open.
+                }
+            });
+
+            sidebarServerListEl.appendChild(li);
+        });
+    }
+
+    // Event Listeners for generated buttons (Modal)
     document.querySelectorAll('.btn-connect').forEach(btn => {
         btn.addEventListener('click', (e) => {
             setActiveServer(e.target.dataset.id);
@@ -207,6 +247,12 @@ function setActiveServer(id) {
     // Reconnect
     sessionId = null; // Clear session ID as it belongs to old server
     localStorage.removeItem('lastSessionId');
+
+    // Reset Connection State (Fix for hanging)
+    clearTimeout(reconnectTimer);
+    isConnecting = false;
+    retryCount = 0;
+
     if (ws) {
         ws.onclose = null;
         ws.close();
@@ -267,6 +313,16 @@ if (btnCloseServerManager) {
 if (btnAddServer) {
     btnAddServer.addEventListener('click', () => {
         addServer(inputNewServerName.value.trim(), inputNewServerUrl.value.trim());
+    });
+}
+
+// Sidebar Add Server Button
+const btnSidebarAddServer = document.getElementById('btn-sidebar-add-server');
+if (btnSidebarAddServer) {
+    btnSidebarAddServer.addEventListener('click', () => {
+        // Open the manager modal directly
+        renderServerList();
+        serverManagerModal.classList.add('open');
     });
 }
 
@@ -462,40 +518,135 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// New Session
-if (btnNewSession) {
-    btnNewSession.addEventListener('click', async () => {
-        try {
-            const baseUrl = getBaseUrl();
-            if (!baseUrl) return; // Should connect first
+// --- DOM Elements (New Session) ---
+const newSessionModal = document.getElementById('new-session-modal');
+const btnCloseNewSession = document.getElementById('btn-close-new-session');
+const btnCreateSession = document.getElementById('btn-create-session');
+const sessionNameInput = document.getElementById('session-name-input');
+const serverSelectInput = document.getElementById('server-select-input');
 
-            const res = await fetch(`${baseUrl}/api/sessions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: `Terminal ${new Date().toLocaleTimeString()}` })
-            });
-            const data = await res.json();
-            // Switch to new session
-            switchSession(data.id);
-        } catch (e) {
-            console.error(e);
+// --- Session & Server Logic ---
+
+// Open New Session Modal
+if (btnNewSession) {
+    btnNewSession.addEventListener('click', () => {
+        // Populate server select
+        serverSelectInput.innerHTML = '';
+        if (serverState.servers.length === 0) {
+            alert("No servers configured. Please add a server first.");
+            renderServerList();
+            serverManagerModal.classList.add('open');
+            return;
         }
+
+        serverState.servers.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = s.name + (s.id === serverState.activeServerId ? ' (Active)' : '');
+            if (s.id === serverState.activeServerId) opt.selected = true;
+            serverSelectInput.appendChild(opt);
+        });
+
+        sessionNameInput.value = `Terminal ${new Date().toLocaleTimeString()}`;
+        newSessionModal.classList.add('open');
+        sessionNameInput.focus();
     });
 }
 
+// Close Modal
+if (btnCloseNewSession) {
+    btnCloseNewSession.addEventListener('click', () => {
+        newSessionModal.classList.remove('open');
+    });
+}
+
+// Create Session Action
+if (btnCreateSession) {
+    btnCreateSession.addEventListener('click', async () => {
+        const name = sessionNameInput.value.trim() || 'Untitled Session';
+        const targetServerId = serverSelectInput.value;
+        const targetServer = serverState.servers.find(s => s.id === targetServerId);
+
+        if (!targetServer) {
+            alert('Invalid server selection');
+            return;
+        }
+
+        // If target is different from active, switch first
+        if (targetServerId !== serverState.activeServerId) {
+            // We switch active server physically in state
+            serverState.activeServerId = targetServerId;
+            saveServerState();
+            renderServerList(); // Update manager UI if open (it's not)
+
+            // Disconnect current
+            if (ws) {
+                ws.onclose = null;
+                ws.close();
+                ws = null;
+            }
+            term.reset();
+            term.write(`\r\n\x1b[33mSwitching to server: ${targetServer.name}...\x1b[0m\r\n`);
+        }
+
+        // Now creating session on (potentially new) active server
+        newSessionModal.classList.remove('open');
+        await createSessionOnActive(name);
+    });
+}
+
+// Helper: Create Session on (assumed) active server
+async function createSessionOnActive(name) {
+    try {
+        const baseUrl = getBaseUrl();
+        if (!baseUrl) {
+            showConnectionSettings();
+            return;
+        }
+
+        // If not connected yet, connect() will happen in switchSession or manual connect
+        // But to create a session we need HTTP access to the server.
+        // We assume HTTP is reachable if we are trying to create a session.
+
+        const res = await fetch(`${baseUrl}/api/sessions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+        // Switch to new session (triggers connect if needed)
+        switchSession(data.id);
+
+    } catch (e) {
+        console.error(e);
+        alert(`Failed to create session: ${e.message}\nCheck server connection.`);
+        // If failed, maybe we are not connected?
+        connect();
+    }
+}
+
 function switchSession(id) {
-    if (sessionId === id) return;
+    if (sessionId === id && ws && ws.readyState === WebSocket.OPEN) return;
+
     sessionId = id;
 
-    // Close old connection
+    // Reset Connection State
+    clearTimeout(reconnectTimer);
+    isConnecting = false;
+    retryCount = 0;
+
+    // Close old connection if open
     if (ws) {
-        ws.onclose = null; // Prevent reconnect loop logic from firing
+        ws.onclose = null;
         ws.close();
         ws = null;
     }
 
     term.reset();
-    connect();
+    connect(); // This will use activeServer + new sessionId
 
     // URL Update
     const newUrl = new URL(window.location);
@@ -512,15 +663,20 @@ function switchSession(id) {
 async function loadSessions() {
     try {
         const baseUrl = getBaseUrl();
-        if (!baseUrl) return;
+        if (!baseUrl) {
+            sessionList.innerHTML = '<li style="padding:15px; color:#666">No Server Selected</li>';
+            return;
+        }
 
         const res = await fetch(`${baseUrl}/api/sessions`);
+        if (!res.ok) throw new Error('Network response was not ok');
+
         const sessions = await res.json();
 
         sessionList.innerHTML = '';
-        if (sessions.length === 0 && !sessionId) {
-            // No sessions? Create one.
-            btnNewSession.click();
+        if (sessions.length === 0) {
+            sessionList.innerHTML = '<li style="padding:15px; color:#666">No Active Sessions</li>';
+            // Don't auto-create here to avoid loops if server is empty
             return;
         }
 
@@ -540,10 +696,9 @@ async function loadSessions() {
             del.textContent = '×';
             del.className = 'btn-delete-session';
             del.title = 'Delete Session';
-            del.dataset.id = s.id; // Add ID to button too
+            del.dataset.id = s.id;
             del.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                // Removing confirm for smoother UX/Testing
                 await deleteSession(s.id);
             });
 
@@ -552,17 +707,17 @@ async function loadSessions() {
             sessionList.appendChild(li);
         });
 
-        // If current sessionId invalid (deleted), switch to first available?
+        // Auto-switch safety
         if (sessionId && !sessions.find(s => s.id === sessionId)) {
+            // Current session gone?
             if (sessions.length > 0) switchSession(sessions[0].id);
-            else {
-                sessionId = null;
-                btnNewSession.click();
-            }
+            else sessionId = null;
         }
 
     } catch (e) {
         console.error('Failed to load sessions', e);
+        sessionList.innerHTML = '<li style="padding:15px; color:#f55">Connection Failed</li>';
+        // Do NOT block UI or throw
     }
 }
 

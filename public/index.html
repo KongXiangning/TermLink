@@ -13,18 +13,38 @@
 
 <body>
     <div id="app-container">
-        <!-- Sidebar Navigation (Hidden by default on mobile) -->
+        <!-- Title Bar -->
+        <div id="title-bar">
+            <div class="left-controls">
+                <button id="btn-menu" class="nav-btn" title="Menu">☰</button>
+                <span id="app-title">TermLink</span>
+            </div>
+            <div class="right-controls">
+                <button id="btn-server-manager" class="nav-btn" title="Manage Servers">⚙️</button>
+                <button id="btn-new-session" class="nav-btn" title="New Session">+</button>
+            </div>
+        </div>
+
+        <!-- Sidebar Navigation -->
         <div id="sidebar">
             <div class="sidebar-header">
-                <h2>Sessions</h2>
-                <div class="session-controls">
-                    <button id="btn-server-manager" title="Manage Servers">⚙️</button>
-                    <button id="btn-new-session" title="New Session">+</button>
-                </div>
+                <h2>TermLink</h2>
             </div>
-            <ul id="session-list">
-                <!-- Session items will be injected here -->
-            </ul>
+
+            <div class="sidebar-section">
+                <h3>Servers</h3>
+                <ul id="sidebar-server-list">
+                    <!-- Servers injected here -->
+                </ul>
+                <button id="btn-sidebar-add-server" class="btn-sidebar-action">+ Add Server</button>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Sessions</h3>
+                <ul id="session-list">
+                    <!-- Session items will be injected here -->
+                </ul>
+            </div>
         </div>
 
         <!-- Main Content Area -->
@@ -62,6 +82,30 @@
                 </div>
             </div>
 
+            <!-- New Session Modal -->
+            <div id="new-session-modal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>New Session</h3>
+                        <button id="btn-close-new-session" class="btn-close">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group" style="width:100%">
+                            <label>Session Name</label>
+                            <input type="text" id="session-name-input" placeholder="My Terminal">
+                        </div>
+                        <div class="form-group" style="width:100%">
+                            <label>Target Server</label>
+                            <select id="server-select-input"
+                                style="width:100%; padding:10px; background:#1e1e1e; color:white; border:1px solid #444; border-radius:4px;">
+                                <!-- Options injected via JS -->
+                            </select>
+                        </div>
+                        <button id="btn-create-session" class="btn-primary" style="width:100%">Create</button>
+                    </div>
+                </div>
+            </div>
+
             <div id="input-overlay">
                 <textarea id="input-buffer" placeholder="Type command here..."></textarea>
                 <div class="input-controls">
@@ -74,9 +118,7 @@
             <div id="toolbar">
                 <!-- Row 1: System & Modifiers -->
                 <div class="key-row">
-                    <button class="nav-btn" id="btn-menu" title="Menu">☰</button>
-                    <!-- DEBUG: Backup Settings Button -->
-                    <button class="nav-btn" id="btn-settings-toolbar" title="Settings">⚙️</button>
+                    <!-- Nav moved to top -->
                     <button class="key" id="btn-paste" title="Paste">📋</button>
                     <button class="key" data-key="Esc">Esc</button>
                     <button class="key" data-key="Tab">Tab</button>
