@@ -505,6 +505,73 @@ term.onData(data => {
 
 window.addEventListener('resize', sendResize);
 
+// Mobile: single tap opens keyboard, double tap or long press closes it
+const isTouchDevice = (
+    (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ||
+    ('ontouchstart' in window) ||
+    (navigator.maxTouchPoints > 0)
+);
+if (terminalContainer && isTouchDevice) {
+    let longPressTimer = null;
+    let lastTapAt = 0;
+    let suppressNextClickFocus = false;
+
+    const closeSoftKeyboard = () => {
+        const activeEl = document.activeElement;
+        term.blur();
+        if (activeEl && typeof activeEl.blur === 'function') {
+            activeEl.blur();
+        }
+    };
+
+    const clearLongPressTimer = () => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    };
+
+    terminalContainer.addEventListener('touchstart', () => {
+        clearLongPressTimer();
+        longPressTimer = setTimeout(() => {
+            closeSoftKeyboard();
+            suppressNextClickFocus = true;
+            longPressTimer = null;
+        }, 550);
+    }, { passive: true });
+
+    terminalContainer.addEventListener('touchmove', clearLongPressTimer, { passive: true });
+    terminalContainer.addEventListener('touchcancel', clearLongPressTimer, { passive: true });
+    terminalContainer.addEventListener('touchend', () => {
+        clearLongPressTimer();
+        const now = Date.now();
+        if (now - lastTapAt < 320) {
+            closeSoftKeyboard();
+            suppressNextClickFocus = true;
+            lastTapAt = 0;
+            return;
+        }
+        lastTapAt = now;
+    }, { passive: true });
+
+    terminalContainer.addEventListener('dblclick', () => {
+        closeSoftKeyboard();
+        suppressNextClickFocus = true;
+    });
+
+    terminalContainer.addEventListener('click', () => {
+        const termTextarea = term && term.textarea;
+        if (!termTextarea) return;
+
+        if (suppressNextClickFocus) {
+            suppressNextClickFocus = false;
+            return;
+        }
+
+        term.focus();
+    });
+}
+
 // Sidebar Toggle
 if (btnMenu) {
     btnMenu.addEventListener('click', (e) => {
