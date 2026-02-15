@@ -14,29 +14,268 @@ const btnNewSession = document.getElementById('btn-new-session');
 const btnCtrlC = document.getElementById('btn-ctrl-c');
 
 // --- Terminal Setup ---
-const term = new Terminal({
-    cursorBlink: true,
-    macOptionIsMeta: true,
-    scrollback: 1000,
-    fontSize: 14,
-    fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-    theme: { background: '#000000', foreground: '#ffffff' }
-});
+// --- Terminal Setup ---
+let term, fitAddon;
+try {
+    if (typeof Terminal === 'undefined') {
+        throw new Error('xterm.js library not loaded');
+    }
 
-const fitAddon = new FitAddon.FitAddon();
+    term = new Terminal({
+        cursorBlink: true,
+        macOptionIsMeta: true,
+        scrollback: 1000,
+        fontSize: 14,
+        fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+        theme: { background: '#000000', foreground: '#ffffff' }
+    });
+} catch (e) {
+    alert("CRITICAL ERROR: Failed to initialize Terminal.\n" + e.message);
+    throw e; // Stop execution
+}
+
+fitAddon = new FitAddon.FitAddon();
 term.loadAddon(fitAddon);
 term.open(terminalContainer);
 fitAddon.fit();
 
-// --- State ---
-// --- State ---
-// If we are strictly in a browser (not file://), use window location. 
-// Otherwise check localStorage.
-const isFileProtocol = window.location.protocol === 'file:';
-let savedHost = localStorage.getItem('serverUrl') || (isFileProtocol ? '' : window.location.origin);
+// DEBUG: Verify script update
+// alert('TermLink v3 Config Loaded'); 
 
-// Ensure it doesn't have trailing slash
-if (savedHost && savedHost.endsWith('/')) savedHost = savedHost.slice(0, -1);
+// Global Error Handler for Mobile Debugging
+window.onerror = function (msg, source, lineno, colno, error) {
+    // alert(`Runtime Error: ${msg}\nLine: ${lineno}`); // Uncomment for extreme debugging
+    console.error(msg, error);
+};
+
+// --- State & Server Manager ---
+const isFileProtocol = window.location.protocol === 'file:';
+
+// Default State Structure
+const defaultServerState = {
+    servers: [],
+    activeServerId: null
+};
+
+// Load State
+let serverState = defaultServerState;
+try {
+    const stored = localStorage.getItem('termLinkServerState');
+    if (stored) {
+        serverState = JSON.parse(stored);
+    }
+} catch (e) {
+    console.error('Failed to parse server state', e);
+    // serverState remains default
+}
+
+// Ensure servers is array (migration safety)
+if (!Array.isArray(serverState.servers)) {
+    serverState.servers = [];
+}
+
+// Migration: If we have old 'serverUrl' but no servers, add it
+const oldServerUrl = localStorage.getItem('serverUrl');
+if (serverState.servers.length === 0 && oldServerUrl) {
+    const newId = Date.now().toString();
+    serverState.servers.push({ id: newId, name: 'Default Server', url: oldServerUrl });
+    serverState.activeServerId = newId;
+    localStorage.removeItem('serverUrl'); // Cleanup
+    saveServerState();
+}
+// Migration: If purely local dev (browser) and empty, add localhost
+else if (serverState.servers.length === 0 && !isFileProtocol) {
+    const newId = Date.now().toString();
+    serverState.servers.push({ id: newId, name: 'Localhost', url: window.location.origin });
+    serverState.activeServerId = newId;
+    saveServerState();
+}
+
+function saveServerState() {
+    localStorage.setItem('termLinkServerState', JSON.stringify(serverState));
+}
+
+function getActiveServer() {
+    return serverState.servers.find(s => s.id === serverState.activeServerId);
+}
+
+// --- DOM Elements (Server Manager) ---
+const btnServerManager = document.getElementById('btn-server-manager');
+const serverManagerModal = document.getElementById('server-manager-modal');
+const btnCloseServerManager = document.getElementById('btn-close-server-manager');
+const serverListEl = document.getElementById('server-list');
+const btnAddServer = document.getElementById('btn-add-server');
+const inputNewServerName = document.getElementById('new-server-name');
+const inputNewServerUrl = document.getElementById('new-server-url');
+
+// --- Server Manager Logic ---
+function renderServerList() {
+    serverListEl.innerHTML = '';
+    serverState.servers.forEach(server => {
+        const li = document.createElement('li');
+        li.className = 'server-item';
+        if (server.id === serverState.activeServerId) {
+            li.classList.add('active-server');
+        }
+
+        li.innerHTML = `
+            <div class="server-info">
+                <span class="server-name">${server.name}</span>
+                <span class="server-url">${server.url}</span>
+            </div>
+            <div class="server-actions">
+                ${server.id !== serverState.activeServerId ? `<button class="btn-connect" data-id="${server.id}">Connect</button>` : '<span>Active</span>'}
+                <button class="btn-delete" data-id="${server.id}">🗑️</button>
+            </div>
+        `;
+        serverListEl.appendChild(li);
+    });
+
+    // Event Listeners for generated buttons
+    document.querySelectorAll('.btn-connect').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            setActiveServer(e.target.dataset.id);
+        });
+    });
+
+    document.querySelectorAll('.server-actions .btn-delete').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            deleteServer(e.target.dataset.id);
+        });
+    });
+}
+
+function addServer(name, url) {
+    if (!name || !url) return alert('Name and URL are required');
+
+    // Normalize URL
+    if (!url.startsWith('http')) url = 'http://' + url;
+    while (url.endsWith('/')) url = url.slice(0, -1);
+
+    const newId = Date.now().toString();
+    const newServer = { id: newId, name, url };
+
+    serverState.servers.push(newServer);
+
+    // If it's the first one, make it active
+    if (serverState.servers.length === 1) {
+        serverState.activeServerId = newId;
+    }
+
+    saveServerState();
+    renderServerList();
+
+    inputNewServerName.value = '';
+    inputNewServerUrl.value = '';
+
+    // If we just added the first/active server, try connecting
+    if (serverState.servers.length === 1) {
+        connect();
+    }
+}
+
+function deleteServer(id) {
+    if (!confirm('Delete this server configuration?')) return;
+
+    serverState.servers = serverState.servers.filter(s => s.id !== id);
+    if (serverState.activeServerId === id) {
+        serverState.activeServerId = null;
+        // If we have other servers, maybe switch to first?
+        if (serverState.servers.length > 0) {
+            serverState.activeServerId = serverState.servers[0].id;
+        } else {
+            // No servers left
+            if (ws) ws.close();
+            term.reset();
+            showConnectionSettings(); // Fallback
+        }
+    }
+    saveServerState();
+    renderServerList();
+
+    // If active changed (or verified same), reconnection might be needed 
+    if (serverState.activeServerId && id === serverState.activeServerId) {
+        connect();
+    }
+}
+
+function setActiveServer(id) {
+    serverState.activeServerId = id;
+    saveServerState();
+    renderServerList(); // Update UI to show new active
+
+    // Reconnect
+    sessionId = null; // Clear session ID as it belongs to old server
+    localStorage.removeItem('lastSessionId');
+    if (ws) {
+        ws.onclose = null;
+        ws.close();
+        ws = null;
+    }
+    term.reset();
+    connect();
+    serverManagerModal.classList.remove('open');
+}
+
+// --- UI Event Listeners ---
+// DEBUG: DOM Check
+if (!btnServerManager) console.error('Error: Sidebar Config Button NOT found');
+
+const btnSettingsToolbar = document.getElementById('btn-settings-toolbar');
+if (btnSettingsToolbar) {
+    const openToolbarSettings = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+            renderServerList();
+            serverManagerModal.classList.add('open');
+            serverManagerModal.style.display = ''; // Clear any inline style
+        } catch (err) {
+            alert("Error in Toolbar Settings: " + err.message);
+        }
+    };
+    btnSettingsToolbar.addEventListener('click', openToolbarSettings);
+    btnSettingsToolbar.addEventListener('touchstart', openToolbarSettings);
+}
+
+if (btnServerManager) {
+    const openManager = (e) => {
+        e.stopPropagation();
+        try {
+            renderServerList();
+            serverManagerModal.classList.add('open');
+            serverManagerModal.style.display = ''; // Clear any inline style
+        } catch (err) {
+            alert("Error opening manager: " + err.message);
+        }
+    };
+
+    // Add both click and touchstart to ensure it captures
+    btnServerManager.addEventListener('click', openManager);
+    btnServerManager.addEventListener('touchstart', (e) => {
+        e.preventDefault(); // Prevent double-fire on some devices if click follows
+        openManager(e);
+    });
+}
+
+if (btnCloseServerManager) {
+    btnCloseServerManager.addEventListener('click', () => {
+        serverManagerModal.classList.remove('open');
+    });
+}
+
+if (btnAddServer) {
+    btnAddServer.addEventListener('click', () => {
+        addServer(inputNewServerName.value.trim(), inputNewServerUrl.value.trim());
+    });
+}
+
+// Close modal when clicking outside
+window.addEventListener('click', (e) => {
+    if (e.target === serverManagerModal) {
+        serverManagerModal.classList.remove('open');
+    }
+});
 
 let ws;
 let reconnectInterval = 1000;
@@ -51,7 +290,8 @@ let sessionId = urlParams.get('sessionId') || localStorage.getItem('lastSessionI
 
 // --- Helper: Get API URL ---
 function getBaseUrl() {
-    return savedHost;
+    const active = getActiveServer();
+    return active ? active.url : null;
 }
 
 // --- Helpers ---
@@ -60,26 +300,24 @@ const serverUrlInput = document.getElementById('server-url-input');
 const btnSaveConnection = document.getElementById('btn-save-connection');
 
 function showConnectionSettings() {
-    connectionOverlay.style.display = 'flex';
-    if (savedHost) serverUrlInput.value = savedHost;
+    // ALWAYS open the manager if connection fails or is requested
+    // The previous check (length === 0) prevented functionality when corrupted/wrong server was present
+    try {
+        renderServerList();
+        serverManagerModal.classList.add('open');
+    } catch (e) {
+        alert("Error showing settings: " + e.message);
+    }
 }
 
+// Legacy "Quick Connect" Support (mapped to adding a server)
 if (btnSaveConnection) {
     btnSaveConnection.addEventListener('click', () => {
         let inputVal = serverUrlInput.value.trim();
         if (!inputVal) return;
-        if (!inputVal.startsWith('http')) inputVal = 'http://' + inputVal;
-
-        while (inputVal.endsWith('/')) inputVal = inputVal.slice(0, -1);
-
-        savedHost = inputVal;
-        localStorage.setItem('serverUrl', savedHost);
+        addServer('Quick Server', inputVal);
         connectionOverlay.style.display = 'none';
-
-        // Reset retry logic
-        retryCount = 0;
-        isConnecting = false;
-        connect();
+        serverManagerModal.classList.remove('open');
     });
 }
 
@@ -96,15 +334,18 @@ function hideStatus() {
 function connect() {
     if (isConnecting) return;
 
-    if (!savedHost) {
+    const activeServer = getActiveServer();
+    if (!activeServer) {
         showConnectionSettings();
         return;
     }
 
-    isConnecting = true;
-    showStatus(`Connecting to ${savedHost}...`);
+    const hostUrl = activeServer.url;
 
-    let wsUrl = savedHost.replace('http', 'ws'); // http->ws, https->wss
+    isConnecting = true;
+    showStatus(`Connecting to ${activeServer.name}...`);
+
+    let wsUrl = hostUrl.replace('http', 'ws'); // http->ws, https->wss
     if (sessionId) {
         wsUrl += `?sessionId=${sessionId}`;
     }

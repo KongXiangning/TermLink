@@ -71,10 +71,28 @@ body {
 
 .sidebar-header {
     padding: 15px;
+    padding-top: 45px;
+    /* SAFE AREA for Status Bar */
     display: flex;
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid #333;
+}
+
+/* ... existing styles ... */
+
+#status-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    background-color: rgba(255, 0, 0, 0.8);
+    color: white;
+    padding: 5px;
+    text-align: center;
+    display: none;
+    z-index: 500;
+    /* Below Sidebar (1000) */
 }
 
 .sidebar-header h2 {
@@ -263,16 +281,174 @@ body {
     background: var(--primary-color);
 }
 
-/* Status Overlay */
-#status-overlay {
-    position: absolute;
+/* Old status overlay removed */
+
+/* Modals */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.8);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.open {
+    display: flex;
+}
+
+.modal-content {
+    background-color: var(--secondary-color);
+    margin: auto;
+    padding: 20px;
+    border: 1px solid #444;
+    width: 90%;
+    max-width: 400px;
+    border-radius: 8px;
+    color: var(--text-color);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #444;
+    padding-bottom: 10px;
+}
+
+.btn-close {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 28px;
+    cursor: pointer;
+}
+
+.server-list {
+    list-style: none;
+    margin-bottom: 20px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.server-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #444;
+}
+
+.server-item.active-server {
+    background-color: rgba(0, 123, 255, 0.2);
+    border-left: 3px solid var(--primary-color);
+}
+
+.server-info {
+    flex: 1;
+}
+
+.server-name {
+    font-weight: bold;
+    display: block;
+}
+
+.server-url {
+    font-size: 0.8em;
+    color: #aaa;
+}
+
+.server-actions button {
+    background: none;
+    border: 1px solid #555;
+    color: var(--text-color);
+    padding: 5px 10px;
+    border-radius: 4px;
+    margin-left: 5px;
+    cursor: pointer;
+}
+
+.server-actions .btn-connect {
+    background-color: var(--primary-color);
+    border: none;
+}
+
+.add-server-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.add-server-form input {
+    padding: 10px;
+    background: #1e1e1e;
+    border: 1px solid #444;
+    color: white;
+    border-radius: 4px;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+/* Sidebar Controls */
+#btn-server-manager {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    font-size: 1.2rem;
+    cursor: pointer;
+    line-height: 1;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+#btn-server-manager:hover {
+    opacity: 1;
+}
+
+/* Connection Overlay fallback styles */
+#connection-overlay {
+    position: fixed;
     top: 0;
     left: 0;
-    right: 0;
-    background-color: rgba(255, 0, 0, 0.8);
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
     color: white;
-    padding: 5px;
-    text-align: center;
-    display: none;
-    z-index: 9999;
+}
+
+.form-group {
+    margin: 20px 0;
+    width: 80%;
+    max-width: 300px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px;
+    border-radius: 5px;
+    border: none;
 }

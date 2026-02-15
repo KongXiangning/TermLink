@@ -6,9 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TermLink Mobile</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <link rel="stylesheet" href="lib/xterm.css">
+    <script src="lib/xterm.js"></script>
+    <script src="lib/xterm-addon-fit.js"></script>
 </head>
 
 <body>
@@ -18,8 +18,8 @@
             <div class="sidebar-header">
                 <h2>Sessions</h2>
                 <div class="session-controls">
-                    <!-- Provider select removed for Codex-Free version -->
-                    <button id="btn-new-session" title="New Session" style="margin-left: auto;">+</button>
+                    <button id="btn-server-manager" title="Manage Servers">⚙️</button>
+                    <button id="btn-new-session" title="New Session">+</button>
                 </div>
             </div>
             <ul id="session-list">
@@ -30,15 +30,36 @@
         <!-- Main Content Area -->
         <div id="main-content">
             <div id="status-overlay"></div>
-            
-            <!-- Server Connection Overlay -->
-            <div id="connection-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:2000; flex-direction:column; justify-content:center; align-items:center; color:white;">
-                <h2>Server Settings</h2>
-                <div style="margin: 20px 0; width: 80%; max-width: 300px;">
-                    <label style="display:block; margin-bottom:5px;">Server URL:</label>
-                    <input type="text" id="server-url-input" placeholder="http://192.168.1.100:3000" style="width:100%; padding:10px; border-radius:5px; border:none;">
+
+            <!-- Server Connection Overlay (Initial/Fallback) -->
+            <div id="connection-overlay" style="display:none;">
+                <h2>Connect to Server</h2>
+                <div class="form-group">
+                    <label>Server URL</label>
+                    <input type="text" id="server-url-input" placeholder="http://192.168.1.100:3000">
                 </div>
-                <button id="btn-save-connection" style="padding:10px 20px; background:#4CAF50; color:white; border:none; border-radius:5px; cursor:pointer;">Connect</button>
+                <button id="btn-save-connection" class="btn-primary">Connect</button>
+            </div>
+
+            <!-- Server Manager Modal -->
+            <div id="server-manager-modal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Server Management</h3>
+                        <button id="btn-close-server-manager" class="btn-close">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <ul id="server-list" class="server-list">
+                            <!-- Server items injected here -->
+                        </ul>
+                        <div class="add-server-form">
+                            <h4>Add New Server</h4>
+                            <input type="text" id="new-server-name" placeholder="Name (e.g. Home PC)">
+                            <input type="text" id="new-server-url" placeholder="URL (http://...)">
+                            <button id="btn-add-server" class="btn-primary" style="width:100%">Add Server</button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div id="input-overlay">
@@ -54,6 +75,8 @@
                 <!-- Row 1: System & Modifiers -->
                 <div class="key-row">
                     <button class="nav-btn" id="btn-menu" title="Menu">☰</button>
+                    <!-- DEBUG: Backup Settings Button -->
+                    <button class="nav-btn" id="btn-settings-toolbar" title="Settings">⚙️</button>
                     <button class="key" id="btn-paste" title="Paste">📋</button>
                     <button class="key" data-key="Esc">Esc</button>
                     <button class="key" data-key="Tab">Tab</button>
@@ -82,7 +105,8 @@
             </div>
         </div>
     </div>
-    <script src="client.js"></script>
+    </div>
+    <script src="client.js?v=3"></script>
 </body>
 
 </html>
