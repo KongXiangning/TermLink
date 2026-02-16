@@ -26,6 +26,17 @@ This project supports building a native Android app using **Capacitor**.
     npm run android:open
     ```
 
+## Phase 2 App Shell (Current)
+
+- Launcher activity is now `MainShellActivity` (Kotlin, native shell).
+- Shell tabs:
+  - `Sessions` (placeholder)
+  - `Terminal` (real terminal WebView host)
+  - `Settings` (placeholder)
+- Terminal rendering still uses existing `public/index.html` via `file:///android_asset/public/index.html`.
+- A single WebView instance is cached at Activity level and re-attached by `TerminalFragment` to preserve terminal state across tab switches.
+- Old `MainActivity` (`BridgeActivity`) is retained as non-launcher fallback for migration safety.
+
 ## Configuration (Crucial!)
 
 Since TermLink is a client-server application, the Android app needs to know **where your server is running**.
@@ -78,6 +89,7 @@ Notes:
 - `TERMLINK_MTLS_ALLOWED_HOSTS` is comma-separated. Leave empty to allow all hosts.
 - Keep `.p12` and password out of Git (the default `.gitignore` already ignores `assets/mtls/*.p12` and `*.pfx`).
 - The server certificate still needs to be trusted by Android (public CA or installed CA).
+- Phase 2 native shell uses `MtlsWebViewClient.kt` for client-cert handling. Legacy `MainActivity` keeps `MtlsBridgeWebViewClient.java`.
 
 ## Release Security Guard (Important)
 

@@ -2,6 +2,12 @@
 <resources>
     <string name="app_name">TermLink</string>
     <string name="title_activity_main">TermLink</string>
+    <string name="title_activity_shell">TermLink</string>
     <string name="package_name">com.termlink.app</string>
     <string name="custom_url_scheme">com.termlink.app</string>
+    <string name="tab_sessions">Sessions</string>
+    <string name="tab_terminal">Terminal</string>
+    <string name="tab_settings">Settings</string>
+    <string name="sessions_placeholder">Sessions tab placeholder (Phase 2)</string>
+    <string name="settings_placeholder">Settings tab placeholder (Phase 2)</string>
 </resources>
