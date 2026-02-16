@@ -7,3 +7,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .idea/
+android/app/src/main/assets/mtls/*.p12
+android/app/src/main/assets/mtls/*.pfx
+data/sessions.json
+data/sessions.json.tmp
+data/*.json
+data/*.json.tmp

@@ -33,3 +33,12 @@
 在部署前，请确保 `.env` 文件配置正确，特别是：
 - `PORT`: 服务运行端口（默认 3000）。
 - `AUTH_ENABLED`: 是否开启登录鉴权。
+- `SESSION_PERSIST_ENABLED`: 是否启用 session 元数据持久化（默认 `true`）。
+- `SESSION_PERSIST_PATH`: session 持久化文件路径（默认 `./data/sessions.json`）。
+
+## Session 持久化目录
+
+启用持久化时，请确保服务进程对 `SESSION_PERSIST_PATH` 的目录有写权限。
+
+- Docker 推荐挂载：`./data:/app/data`
+- Systemd 部署请确认工作目录下 `data/` 可写
