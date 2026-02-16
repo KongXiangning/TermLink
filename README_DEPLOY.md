@@ -32,7 +32,9 @@
 
 在部署前，请确保 `.env` 文件配置正确，特别是：
 - `PORT`: 服务运行端口（默认 3000）。
-- `AUTH_ENABLED`: 是否开启登录鉴权。
+- `AUTH_ENABLED`: 是否开启登录鉴权（默认开启；仅 `false` 关闭）。
+- `AUTH_USER`: BasicAuth 用户名（默认 `admin`，生产必须修改）。
+- `AUTH_PASS`: BasicAuth 密码（默认 `admin`，生产必须修改）。
 - `SESSION_PERSIST_ENABLED`: 是否启用 session 元数据持久化（默认 `true`）。
 - `SESSION_PERSIST_PATH`: session 持久化文件路径（默认 `./data/sessions.json`）。
 
@@ -42,3 +44,8 @@
 
 - Docker 推荐挂载：`./data:/app/data`
 - Systemd 部署请确认工作目录下 `data/` 可写
+
+## 认证策略说明
+
+当前服务端默认启用 BasicAuth（除非显式设置 `AUTH_ENABLED=false`）。  
+生产环境请务必设置强密码凭据，避免使用默认 `admin/admin`。

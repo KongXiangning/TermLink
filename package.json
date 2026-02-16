@@ -8,7 +8,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "android:sync": "npx cap sync",
-    "android:open": "npx cap open android"
+    "android:open": "npx cap open android",
+    "android:check-release-config": "node scripts/check-android-release-config.js --release"
   },
   "keywords": [],
   "author": "",

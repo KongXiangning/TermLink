@@ -13,25 +13,33 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
+const authEnabled = process.env.AUTH_ENABLED === undefined
+    ? true
+    : process.env.AUTH_ENABLED.toLowerCase() !== 'false';
+const authUser = process.env.AUTH_USER || 'admin';
+const authPass = process.env.AUTH_PASS || 'admin';
 
 app.use(express.json());
 
 // Enable CORS for Mobile App Access (file:// origin)
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
     res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
     if (req.method === 'OPTIONS') return res.sendStatus(200);
     next();
 });
 
-// app.use(basicAuth); // Disabled for mobile app testing without login UI
+app.use(basicAuth);
 app.use(express.static(path.join(__dirname, '../public')));
 app.use('/api', createSessionsRouter(sessionManager));
 app.use('/api', createHealthRouter());
 registerTerminalGateway(wss, { sessionManager, heartbeatMs: 30000 });
 
 server.listen(PORT, () => {
+    if (authEnabled && authUser === 'admin' && authPass === 'admin') {
+        console.warn('[Security] AUTH is enabled but default credentials (admin/admin) are in use. Set AUTH_USER and AUTH_PASS for non-dev deployments.');
+    }
     console.log(`Server started on http://localhost:${PORT}`);
 });

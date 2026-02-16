@@ -79,6 +79,33 @@ Notes:
 - Keep `.p12` and password out of Git (the default `.gitignore` already ignores `assets/mtls/*.p12` and `*.pfx`).
 - The server certificate still needs to be trusted by Android (public CA or installed CA).
 
+## Release Security Guard (Important)
+
+Current `capacitor.config.json` is intentionally permissive for development:
+- `server.cleartext: true`
+- `server.androidScheme: "http"`
+
+Do not ship release builds with these values.
+
+### Release requirements
+- Use HTTPS/WSS endpoints only.
+- Set `server.cleartext` to `false`.
+- Set `server.androidScheme` to `"https"`.
+- If `server.url` is configured, it must start with `https://`.
+
+### Automated check
+Run this before release packaging:
+```bash
+npm run android:check-release-config
+```
+
+If config is insecure, the command exits with non-zero status and prints violations.
+
+### Minimal release checklist
+1. `npm run android:check-release-config` passes.
+2. No hardcoded HTTP server URL in `capacitor.config.json`.
+3. Server endpoint is reachable via HTTPS and WSS.
+
 ## Building APK
 Inside Android Studio:
 1.  Go to **Build** > **Build Bundle(s) / APK(s)** > **Build APK(s)**.
