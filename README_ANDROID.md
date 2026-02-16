@@ -33,9 +33,13 @@ This project supports building a native Android app using **Capacitor**.
   - `Sessions` (placeholder)
   - `Terminal` (real terminal WebView host)
   - `Settings` (placeholder)
-- Terminal rendering still uses existing `public/index.html` via `file:///android_asset/public/index.html`.
+- Terminal rendering now uses `public/terminal.html` via `file:///android_asset/public/terminal.html`.
+- `public/index.html` remains as browser-compatible legacy entry and loads `terminal.js` through `client.js`.
 - A single WebView instance is cached at Activity level and re-attached by `TerminalFragment` to preserve terminal state across tab switches.
 - Old `MainActivity` (`BridgeActivity`) is retained as non-launcher fallback for migration safety.
+- Web -> Native status callbacks are handled through `TerminalEventBridge` (`onConnectionState`, `onTerminalError`, `onSessionInfo`).
+- Terminal output history is cached in `sessionStorage` by key `termLinkHistory:<sessionId|default>` and enabled by default.
+- Native side callback logs use tag `TermLinkShell` (check Logcat while debugging bridge events).
 
 ## Configuration (Crucial!)
 
@@ -90,6 +94,15 @@ Notes:
 - Keep `.p12` and password out of Git (the default `.gitignore` already ignores `assets/mtls/*.p12` and `*.pfx`).
 - The server certificate still needs to be trusted by Android (public CA or installed CA).
 - Phase 2 native shell uses `MtlsWebViewClient.kt` for client-cert handling. Legacy `MainActivity` keeps `MtlsBridgeWebViewClient.java`.
+
+## Terminal History Cache
+
+- Default: enabled.
+- Storage: browser `sessionStorage` in WebView.
+- Toggle key: `localStorage.termLinkTerminalHistoryEnabled`.
+  - set to `"false"` to disable
+  - unset or any other value means enabled
+- Native can also inject `window.__TERMLINK_CONFIG__.historyEnabled` to force behavior.
 
 ## Release Security Guard (Important)
 

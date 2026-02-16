@@ -11,7 +11,7 @@ import java.security.PrivateKey
 import java.security.cert.X509Certificate
 import java.util.Locale
 
-class MtlsWebViewClient(private val appContext: Context) : WebViewClient() {
+open class MtlsWebViewClient(private val appContext: Context) : WebViewClient() {
 
     private val allowedHosts: Set<String> = parseAllowedHosts(BuildConfig.MTLS_ALLOWED_HOSTS)
     private val credentialLock = Any()

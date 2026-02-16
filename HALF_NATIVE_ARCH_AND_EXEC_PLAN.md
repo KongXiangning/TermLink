@@ -215,7 +215,7 @@ src/
 2. 原 `MainActivity(BridgeActivity)` 保留为迁移期兼容入口，统一在 Phase 7 删除。
 
 ### T02-3 终端容器 Fragment
-1. `TerminalFragment` 先放占位 WebView，加载本地 `file:///android_asset/public/index.html`。
+1. `TerminalFragment` 先放占位 WebView，加载本地 `file:///android_asset/public/terminal.html`。
 2. 验证导航切换不会崩溃。
 
 ### T02-4 WebView 生命周期托管（新增）
@@ -244,6 +244,7 @@ src/
    - `window.__TERMLINK_CONFIG__.sessionId`
    - `window.__TERMLINK_CONFIG__.activeProfile`
 2. `terminal.js` 优先读注入配置，缺省回退原逻辑。
+3. Phase 3 允许 `serverUrl` 为空（阶段性），Phase 4 接入 active profile 后改为注入真实 URL。
 
 ### T03-3 Web -> Native 反向事件通道（新增）
 1. 新增 `TerminalEventBridge`（`addJavascriptInterface`）并限制暴露方法：
@@ -289,10 +290,16 @@ src/
 
 ### T04-3 配置联动
 1. TerminalFragment 进入时读取 active profile 注入 WebView。
+2. 将 `buildTerminalConfigJson().serverUrl` 从空字符串升级为 active profile 的真实 URL。
+3. 注入优先级锁定：`Injected Config > URL Query > localStorage`。
+4. 注入字段与 active profile 同步：
+   - `serverUrl`
+   - `activeProfile`
 
 验收：
 1. 设置后重启 app 仍保留。
 2. 切 profile 后 terminal 连接目标随之变化。
+3. 切 profile 后重进 Terminal，Web 层优先使用注入 URL，不回退旧本地值。
 
 ---
 
@@ -358,10 +365,18 @@ src/
 2. 清理 Manifest 中遗留声明与迁移注释。
 3. 更新 `README_ANDROID.md`：明确 fallback 已移除，唯一入口为 `MainShellActivity`。
 
+### T07-5 终端页面去重与兼容重定向（新增）
+1. 固定采用“兼容入口重定向”方案，不引入模板构建系统。
+2. `public/index.html` 保留最小壳并重定向到 `public/terminal.html`。
+3. 重定向时保留 query 参数与 hash（如 `sessionId` 透传）。
+4. `client.js` 保留 legacy 兼容定位，不再承载终端业务逻辑。
+
 验收：
 1. 有可安装包。
 2. 有可复现测试报告。
 3. 旧 Bridge fallback 已下线，mTLS 行为与 Phase 2 保持一致。
+4. 访问 `public/index.html?sessionId=abc` 可进入 `terminal.html` 并保留 `sessionId=abc`。
+5. 终端页面结构修改仅需维护 `terminal.html` 一处。
 
 ---
 
@@ -382,6 +397,8 @@ src/
 11. 冷启动默认页：App 首次启动默认进入 `Terminal` tab。
 12. Phase 4 后状态保持：`Terminal -> Sessions -> Settings -> Sessions` 不丢失原生页状态。
 13. Phase 7 清理后：移除 Bridge 路径不影响 mTLS 与终端连接能力。
+14. Phase 7 后：`index.html -> terminal.html` 重定向兼容旧链接，query/hash 不丢失。
+15. 历史缓存策略保持：开关持久（localStorage），内容会话级（sessionStorage）。
 
 ---
 
@@ -401,6 +418,8 @@ src/
    - 应对：默认启用 BasicAuth，明确 `AUTH_ENABLED/AUTH_USER/AUTH_PASS` 发布要求，并在默认凭据下输出启动告警。
 7. 风险：Session 持久化仅保存元数据，不保存 PTY 运行态。
    - 应对：文档明确“重启后按需懒启动 PTY”，并将该行为纳入验收用例。
+8. 风险：Phase 7 页面重定向可能影响外部旧链接行为。
+   - 应对：保留 query/hash 透传，保持标题与基础 meta，纳入兼容回归测试。
 
 ---
 
@@ -414,6 +433,8 @@ src/
 6. 默认首屏 tab 统一为 `Terminal`。
 7. tab 策略采用分阶段实现：Phase 2-3 使用 `replace`，Phase 4 切换到 `add/show/hide`。
 8. `MainActivity` 与 `MtlsBridgeWebViewClient` 仅作迁移期兼容，Phase 7 统一移除。
+9. `serverUrl` 在 Phase 3 可为空，Phase 4 起必须由 active profile 注入真实值。
+10. HTML 去重策略锁定：Phase 7 采用 `index.html` 兼容重定向到 `terminal.html`。
 
 ---
 

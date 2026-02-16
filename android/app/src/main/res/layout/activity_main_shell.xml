@@ -5,6 +5,17 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
+    <TextView
+        android:id="@+id/shell_status_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#1F1F1F"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="6dp"
+        android:text="@string/terminal_state_idle"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp" />
+
     <FrameLayout
         android:id="@+id/shell_fragment_container"
         android:layout_width="match_parent"
