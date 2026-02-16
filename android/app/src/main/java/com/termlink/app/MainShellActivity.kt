@@ -1,15 +1,19 @@
 package com.termlink.app
 
 import android.os.Bundle
-import android.view.ViewGroup
 import android.util.Log
+import android.view.ViewGroup
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.termlink.app.data.ServerConfigState
+import com.termlink.app.data.ServerConfigStore
+import com.termlink.app.data.ServerProfile
 import com.termlink.app.ui.sessions.SessionsFragment
 import com.termlink.app.ui.settings.SettingsFragment
 import com.termlink.app.ui.terminal.TerminalFragment
@@ -19,18 +23,25 @@ import com.termlink.app.web.TerminalWebViewHost
 import org.json.JSONObject
 import java.util.Locale
 
-class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEventBridge.Listener {
+class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEventBridge.Listener,
+    SettingsFragment.Callbacks {
 
     private var terminalWebView: WebView? = null
     private var terminalPageLoaded = false
     private var statusTextView: TextView? = null
     private lateinit var terminalEventBridge: TerminalEventBridge
+    private lateinit var serverConfigStore: ServerConfigStore
+    private var serverConfigState: ServerConfigState? = null
+    private var activeProfile: ServerProfile? = null
     private var lastSessionId: String = ""
+    private var currentTabTag: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main_shell)
         statusTextView = findViewById(R.id.shell_status_text)
+        serverConfigStore = ServerConfigStore(applicationContext)
+        syncProfileState(serverConfigStore.loadState(), inject = false)
         lastSessionId = resolveInitialSessionId()
         updateStatus(getString(R.string.terminal_state_idle))
 
@@ -41,10 +52,11 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         }
 
         if (savedInstanceState == null) {
+            currentTabTag = null
             bottomNav.selectedItemId = R.id.nav_terminal
         } else {
-            val currentTag = supportFragmentManager.findFragmentById(R.id.shell_fragment_container)?.tag
-            bottomNav.selectedItemId = when (currentTag) {
+            currentTabTag = resolveVisibleTabTag()
+            bottomNav.selectedItemId = when (currentTabTag) {
                 TAG_SESSIONS -> R.id.nav_sessions
                 TAG_SETTINGS -> R.id.nav_settings
                 else -> R.id.nav_terminal
@@ -113,21 +125,49 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     private fun switchTab(itemId: Int) {
-        val (tag, fragment) = when (itemId) {
-            R.id.nav_sessions -> TAG_SESSIONS to SessionsFragment()
-            R.id.nav_settings -> TAG_SETTINGS to SettingsFragment()
-            else -> TAG_TERMINAL to TerminalFragment()
+        val targetTag = when (itemId) {
+            R.id.nav_sessions -> TAG_SESSIONS
+            R.id.nav_settings -> TAG_SETTINGS
+            else -> TAG_TERMINAL
         }
-
-        val currentTag = supportFragmentManager.findFragmentById(R.id.shell_fragment_container)?.tag
-        if (currentTag == tag) {
+        val fragmentManager = supportFragmentManager
+        val existingTarget = fragmentManager.findFragmentByTag(targetTag)
+        if (currentTabTag == targetTag && existingTarget?.isAdded == true) {
             return
         }
+        val targetFragment = existingTarget ?: createFragmentForTag(targetTag)
+        val currentFragment = currentTabTag?.let { fragmentManager.findFragmentByTag(it) }
 
-        supportFragmentManager.commit {
+        fragmentManager.commit {
             setReorderingAllowed(true)
-            replace(R.id.shell_fragment_container, fragment, tag)
+            if (currentFragment != null && currentFragment.isAdded) {
+                hide(currentFragment)
+            }
+            if (targetFragment.isAdded) {
+                show(targetFragment)
+            } else {
+                add(R.id.shell_fragment_container, targetFragment, targetTag)
+            }
         }
+
+        currentTabTag = targetTag
+        if (targetTag == TAG_TERMINAL) {
+            terminalWebView?.let { injectTerminalConfig(it) }
+        }
+    }
+
+    private fun createFragmentForTag(tag: String): Fragment {
+        return when (tag) {
+            TAG_SESSIONS -> SessionsFragment()
+            TAG_SETTINGS -> SettingsFragment()
+            else -> TerminalFragment()
+        }
+    }
+
+    private fun resolveVisibleTabTag(): String {
+        val current = supportFragmentManager.fragments
+            .firstOrNull { it.id == R.id.shell_fragment_container && it.isAdded && !it.isHidden }
+        return current?.tag ?: TAG_TERMINAL
     }
 
     override fun onConnectionState(state: String, detail: String?) {
@@ -157,6 +197,39 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         Log.i(TAG, "Terminal session info sessionId=$sessionId name=${name ?: ""}")
     }
 
+    override fun getServerConfigState(): ServerConfigState {
+        val state = serverConfigStore.loadState()
+        syncProfileState(state, inject = false)
+        return state
+    }
+
+    override fun onUpsertProfile(profile: ServerProfile): ServerConfigState {
+        val state = serverConfigStore.upsertProfile(profile)
+        syncProfileState(state, inject = true)
+        return state
+    }
+
+    override fun onDeleteProfile(profileId: String): ServerConfigState {
+        val state = serverConfigStore.deleteProfile(profileId)
+        syncProfileState(state, inject = true)
+        return state
+    }
+
+    override fun onSetActiveProfile(profileId: String): ServerConfigState {
+        val state = serverConfigStore.setActiveProfile(profileId)
+        syncProfileState(state, inject = true)
+        return state
+    }
+
+    private fun syncProfileState(state: ServerConfigState, inject: Boolean) {
+        serverConfigState = state
+        activeProfile = state.profiles.firstOrNull { it.id == state.activeProfileId }
+            ?: state.profiles.firstOrNull()
+        if (inject) {
+            terminalWebView?.let { injectTerminalConfig(it) }
+        }
+    }
+
     private fun injectTerminalConfig(webView: WebView) {
         val configJson = buildTerminalConfigJson()
         val script = """
@@ -172,9 +245,21 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     private fun buildTerminalConfigJson(): String {
         val json = JSONObject()
-        json.put("serverUrl", "")
+        val profile = activeProfile
+        val activeProfileJson = if (profile == null) {
+            JSONObject.NULL
+        } else {
+            JSONObject()
+                .put("id", profile.id)
+                .put("name", profile.name)
+                .put("baseUrl", profile.baseUrl)
+                .put("authType", profile.authType.name)
+                .put("mtlsEnabled", profile.mtlsEnabled)
+                .put("allowedHosts", profile.allowedHosts)
+        }
+        json.put("serverUrl", profile?.baseUrl ?: "")
         json.put("sessionId", lastSessionId)
-        json.put("activeProfile", JSONObject.NULL)
+        json.put("activeProfile", activeProfileJson)
         json.put("historyEnabled", true)
         return json.toString()
     }

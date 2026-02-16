@@ -41,6 +41,22 @@ This project supports building a native Android app using **Capacitor**.
 - Terminal output history is cached in `sessionStorage` by key `termLinkHistory:<sessionId|default>` and enabled by default.
 - Native side callback logs use tag `TermLinkShell` (check Logcat while debugging bridge events).
 
+## Phase 4 Settings (Current)
+
+- Settings tab now manages server profiles natively with local persistence.
+- Profile model fields:
+  - `name`
+  - `baseUrl`
+  - `authType` (`NONE` / `BASIC`)
+  - `mtlsEnabled`
+  - `allowedHosts`
+- Active profile is persisted and injected into terminal config.
+- Terminal config injection priority remains:
+  - Injected config (`window.__TERMLINK_CONFIG__`)
+  - URL query
+  - localStorage fallback
+- `serverUrl` is now injected from active profile (can be empty to allow fallback behavior).
+
 ## Configuration (Crucial!)
 
 Since TermLink is a client-server application, the Android app needs to know **where your server is running**.

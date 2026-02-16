@@ -371,12 +371,18 @@ src/
 3. 重定向时保留 query 参数与 hash（如 `sessionId` 透传）。
 4. `client.js` 保留 legacy 兼容定位，不再承载终端业务逻辑。
 
+### T07-6 Settings 空 URL UX 告警（新增）
+1. 当 active profile 的 `baseUrl` 为空时，在 Settings 页显示显式告警文案。
+2. 保持“允许空值保存”的兼容行为，但提示“Terminal 将回退到 Web 侧配置，可能连接失败”。
+3. 将该告警纳入回归测试，确保不影响现有 CRUD 与注入逻辑。
+
 验收：
 1. 有可安装包。
 2. 有可复现测试报告。
 3. 旧 Bridge fallback 已下线，mTLS 行为与 Phase 2 保持一致。
 4. 访问 `public/index.html?sessionId=abc` 可进入 `terminal.html` 并保留 `sessionId=abc`。
 5. 终端页面结构修改仅需维护 `terminal.html` 一处。
+6. active profile 为空 URL 时，Settings 会给出明确风险提示且不阻断保存。
 
 ---
 

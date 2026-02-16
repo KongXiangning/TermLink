@@ -9,7 +9,6 @@
     <string name="tab_terminal">Terminal</string>
     <string name="tab_settings">Settings</string>
     <string name="sessions_placeholder">Sessions tab placeholder (Phase 2)</string>
-    <string name="settings_placeholder">Settings tab placeholder (Phase 2)</string>
     <string name="terminal_state_idle">Terminal: idle</string>
     <string name="terminal_state_connecting">Terminal: connecting...</string>
     <string name="terminal_state_connected">Terminal: connected</string>
@@ -17,4 +16,28 @@
     <string name="terminal_state_error">Terminal: error (%1$s)</string>
     <string name="terminal_state_unknown">Terminal: %1$s</string>
     <string name="terminal_error_toast">Terminal error: %1$s</string>
+    <string name="settings_profiles_title">Server Profiles</string>
+    <string name="settings_add_profile">Add Profile</string>
+    <string name="settings_edit_profile">Edit</string>
+    <string name="settings_delete_profile">Delete</string>
+    <string name="settings_set_active">Set Active</string>
+    <string name="settings_profiles_empty">No profiles configured.</string>
+    <string name="settings_profile_name_active">%1$s (Active)</string>
+    <string name="settings_profile_url_empty">(empty, will fallback in terminal)</string>
+    <string name="settings_profile_meta">Auth=%1$s | mTLS=%2$s | hosts=%3$s</string>
+    <string name="settings_profile_name_label">Profile Name</string>
+    <string name="settings_profile_name_hint">e.g. Home Server</string>
+    <string name="settings_profile_url_label">Base URL</string>
+    <string name="settings_profile_url_hint">https://example.com</string>
+    <string name="settings_profile_auth_type_label">Auth Type</string>
+    <string name="settings_profile_mtls_enabled">Enable mTLS for this profile</string>
+    <string name="settings_profile_allowed_hosts_label">Allowed Hosts (comma separated)</string>
+    <string name="settings_profile_allowed_hosts_hint">code.kongxn.com,192.168.50.3</string>
+    <string name="settings_name_invalid">Name is required (1..64 chars).</string>
+    <string name="settings_base_url_invalid">Base URL must be http:// or https://</string>
+    <string name="settings_delete_profile_confirm">Delete profile \"%1$s\"?</string>
+    <string name="settings_mtls_status_placeholder">mTLS status loading...</string>
+    <string name="settings_mtls_status_enabled">mTLS build: ENABLED (asset=%1$s, hosts=%2$s)</string>
+    <string name="settings_mtls_status_disabled">mTLS build: DISABLED</string>
+    <string name="settings_mtls_any_hosts">*</string>
 </resources>
