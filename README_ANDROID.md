@@ -4,7 +4,7 @@ This project supports building a native Android app using **Capacitor**.
 
 ## Prerequisites
 - **Node.js** (v18+)
-- **Java JDK** (v17+)
+- **Java JDK** (v21 recommended)
 - **Android Studio** (for final build/APK generation)
 
 ## Quick Start
@@ -50,6 +50,34 @@ This makes the app load your existing deployed TermLink instance directly. Use t
 
 ### Option B: Local Bundled (Advanced)
 If you want the app to be standalone (bundled `public` folder), you must modify `public/client.js` to allow configuring the API URL, because strictly local files cannot make relative requests to an unknown server. (Currently, Option A is strongly recommended).
+
+## mTLS Client Certificate (for Nginx mutual TLS)
+If your Nginx server requires client certificates, Android WebView can now load a bundled PKCS#12 (`.p12`/`.pfx`) client certificate.
+
+1. Put your client cert file here:
+   ```
+   android/app/src/main/assets/mtls/client.p12
+   ```
+2. Configure mTLS build values (recommended via env vars before build):
+   ```bash
+   TERMLINK_MTLS_ENABLED=true
+   TERMLINK_MTLS_P12_ASSET=mtls/client.p12
+   TERMLINK_MTLS_P12_PASSWORD=your_p12_password
+   TERMLINK_MTLS_ALLOWED_HOSTS=termlink.example.com,api.example.com
+   ```
+
+PowerShell example:
+```powershell
+$env:TERMLINK_MTLS_ENABLED='true'
+$env:TERMLINK_MTLS_P12_ASSET='mtls/client.p12'
+$env:TERMLINK_MTLS_P12_PASSWORD='your_p12_password'
+$env:TERMLINK_MTLS_ALLOWED_HOSTS='termlink.example.com'
+```
+
+Notes:
+- `TERMLINK_MTLS_ALLOWED_HOSTS` is comma-separated. Leave empty to allow all hosts.
+- Keep `.p12` and password out of Git (the default `.gitignore` already ignores `assets/mtls/*.p12` and `*.pfx`).
+- The server certificate still needs to be trusted by Android (public CA or installed CA).
 
 ## Building APK
 Inside Android Studio:
