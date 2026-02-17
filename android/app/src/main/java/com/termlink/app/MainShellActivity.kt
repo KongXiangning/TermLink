@@ -24,11 +24,12 @@ import org.json.JSONObject
 import java.util.Locale
 
 class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEventBridge.Listener,
-    SettingsFragment.Callbacks {
+    SettingsFragment.Callbacks, SessionsFragment.Callbacks {
 
     private var terminalWebView: WebView? = null
     private var terminalPageLoaded = false
     private var statusTextView: TextView? = null
+    private var bottomNav: BottomNavigationView? = null
     private lateinit var terminalEventBridge: TerminalEventBridge
     private lateinit var serverConfigStore: ServerConfigStore
     private var serverConfigState: ServerConfigState? = null
@@ -45,18 +46,18 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         lastSessionId = resolveInitialSessionId()
         updateStatus(getString(R.string.terminal_state_idle))
 
-        val bottomNav = findViewById<BottomNavigationView>(R.id.shell_bottom_nav)
-        bottomNav.setOnItemSelectedListener { item ->
+        bottomNav = findViewById<BottomNavigationView>(R.id.shell_bottom_nav)
+        bottomNav?.setOnItemSelectedListener { item ->
             switchTab(item.itemId)
             true
         }
 
         if (savedInstanceState == null) {
             currentTabTag = null
-            bottomNav.selectedItemId = R.id.nav_terminal
+            bottomNav?.selectedItemId = R.id.nav_terminal
         } else {
             currentTabTag = resolveVisibleTabTag()
-            bottomNav.selectedItemId = when (currentTabTag) {
+            bottomNav?.selectedItemId = when (currentTabTag) {
                 TAG_SESSIONS -> R.id.nav_sessions
                 TAG_SETTINGS -> R.id.nav_settings
                 else -> R.id.nav_terminal
@@ -221,6 +222,22 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         return state
     }
 
+    override fun getActiveProfile(): ServerProfile? {
+        return activeProfile
+    }
+
+    override fun getCurrentSessionId(): String {
+        return lastSessionId
+    }
+
+    override fun onOpenSession(sessionId: String) {
+        openSessionInTerminal(sessionId)
+    }
+
+    override fun onUpdateSessionSelection(sessionId: String) {
+        updateSessionSelection(sessionId)
+    }
+
     private fun syncProfileState(state: ServerConfigState, inject: Boolean) {
         serverConfigState = state
         activeProfile = state.profiles.firstOrNull { it.id == state.activeProfileId }
@@ -284,6 +301,18 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             .edit()
             .putString(PREF_LAST_SESSION_ID, sessionId)
             .apply()
+    }
+
+    private fun openSessionInTerminal(sessionId: String) {
+        updateSessionSelection(sessionId)
+        bottomNav?.selectedItemId = R.id.nav_terminal
+    }
+
+    private fun updateSessionSelection(sessionId: String) {
+        persistLastSessionId(sessionId)
+        if (currentTabTag == TAG_TERMINAL) {
+            terminalWebView?.let { injectTerminalConfig(it) }
+        }
     }
 
     private fun updateStatus(text: String) {

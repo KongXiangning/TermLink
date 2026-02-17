@@ -30,9 +30,9 @@ This project supports building a native Android app using **Capacitor**.
 
 - Launcher activity is now `MainShellActivity` (Kotlin, native shell).
 - Shell tabs:
-  - `Sessions` (placeholder)
+  - `Sessions` (native CRUD + refresh)
   - `Terminal` (real terminal WebView host)
-  - `Settings` (placeholder)
+  - `Settings` (native profile manager)
 - Terminal rendering now uses `public/terminal.html` via `file:///android_asset/public/terminal.html`.
 - `public/index.html` remains as browser-compatible legacy entry and loads `terminal.js` through `client.js`.
 - A single WebView instance is cached at Activity level and re-attached by `TerminalFragment` to preserve terminal state across tab switches.
@@ -56,6 +56,23 @@ This project supports building a native Android app using **Capacitor**.
   - URL query
   - localStorage fallback
 - `serverUrl` is now injected from active profile (can be empty to allow fallback behavior).
+
+## Phase 5 Sessions (Current)
+
+- Sessions tab now uses native API calls for:
+  - list
+  - create
+  - rename
+  - delete
+- Create success behavior: automatically switches to `Terminal` with the new `sessionId`.
+- Auto refresh policy:
+  - visible Sessions tab polls every 10s
+  - pull-to-refresh is always available
+  - refresh pauses when Sessions tab is hidden
+- BasicAuth rule in native client:
+  - if profile `authType=BASIC`, `baseUrl` must include `user:pass@host`
+  - example: `https://admin:admin@example.com`
+- Native Sessions API now supports mTLS when enabled via `TERMLINK_MTLS_*`, with host allowlist checks matching WebView mTLS behavior.
 
 ## Configuration (Crucial!)
 

@@ -303,7 +303,13 @@ src/
 
 ---
 
-## Phase 5 - 原生会话页（2-4 天）
+## Phase 5 - 原生会话页（已实现）
+
+当前落地策略（锁定）：
+1. BasicAuth 凭据来源固定为 `baseUrl` userinfo（`http(s)://user:pass@host[:port]`）。
+2. 自动刷新频率固定为 10 秒，仅在 Sessions tab 可见时启用。
+3. 创建会话后自动跳转 `Terminal` 并注入新 `sessionId`。
+4. 原生 Session API 调用链路已接入 mTLS（受 BuildConfig 与 allowlist 约束）。
 
 ### T05-1 Session API Client
 1. 封装：`list/create/delete/rename`。
