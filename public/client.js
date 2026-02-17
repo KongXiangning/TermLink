@@ -1,7 +1,3 @@
-(function bootstrapLegacyIndex() {
-    // Keep index.html backward compatible while terminal logic lives in terminal.js.
-    var script = document.createElement('script');
-    script.src = 'terminal.js?v=1';
-    script.defer = true;
-    document.head.appendChild(script);
-})();
+// Legacy placeholder:
+// index.html is now a compatibility redirect to terminal.html.
+// Terminal runtime logic lives only in terminal.js loaded by terminal.html.

@@ -16,11 +16,10 @@
 
 ### 2.1 安卓端
 1. 当前 launcher 为 `MainShellActivity`（原生底部导航壳，Kotlin）。
-2. `MainActivity(BridgeActivity)` 仍保留为迁移期 fallback（非 launcher，计划在 Phase 7 清理）。
+2. Bridge fallback 已下线：`MainActivity(BridgeActivity)` 与 `MtlsBridgeWebViewClient` 已删除。
 3. Web 资源来自 `public/`，通过 `npm run android:sync` 同步到 `android/app/src/main/assets/public`。
 4. 已支持 Android mTLS 客户端证书（`PKCS#12`）加载：
    - 原生壳路径：`android/app/src/main/java/com/termlink/app/web/MtlsWebViewClient.kt`
-   - 迁移兼容路径：`android/app/src/main/java/com/termlink/app/MtlsBridgeWebViewClient.java`
    - 通过 BuildConfig 读取 `TERMLINK_MTLS_*` 配置。
 
 ### 2.2 服务端
@@ -53,7 +52,7 @@
    - `TerminalWebBridge`：Native -> Web 参数注入（serverUrl/sessionId/token）。
    - `TerminalEventBridge`：Web -> Native 回传（连接状态、错误、关键事件）。
 4. 安全层
-   - mTLS：`MainShellActivity` 使用 `MtlsWebViewClient`；迁移期保留 `MtlsBridgeWebViewClient`（Phase 7 移除）。
+   - mTLS：`MainShellActivity` 使用 `MtlsWebViewClient`（Bridge 路径已在 Phase 7 移除）。
    - Host allowlist：由设置页配置并写入本地。
 
 ### 3.1.2 导航结构
@@ -111,12 +110,11 @@
 
 ---
 
-## 4. 目录目标（阶段完成态，含迁移期兼容项）
+## 4. 目录目标（阶段完成态）
 
 ```text
 android/app/src/main/java/com/termlink/app/
   MainShellActivity.kt
-  MainActivity.java
   ui/
     sessions/SessionsFragment.kt
     terminal/TerminalFragment.kt
@@ -126,7 +124,6 @@ android/app/src/main/java/com/termlink/app/
     SessionApiClient.kt
   web/
     MtlsWebViewClient.kt
-    MtlsBridgeWebViewClient.java
     TerminalEventBridge.kt
 
 public/
@@ -212,7 +209,7 @@ src/
 
 ### T02-2 启动流程切换
 1. `AndroidManifest.xml` 启动 Activity 切换到 `MainShellActivity`。
-2. 原 `MainActivity(BridgeActivity)` 保留为迁移期兼容入口，统一在 Phase 7 删除。
+2. Phase 7 已完成 Bridge 兼容入口移除（仅保留 `MainShellActivity`）。
 
 ### T02-3 终端容器 Fragment
 1. `TerminalFragment` 先放占位 WebView，加载本地 `file:///android_asset/public/terminal.html`。
@@ -262,11 +259,11 @@ src/
 3. 提供设置项可关闭本地缓存（安全场景）。
 
 ### T03-5 保持旧页面可运行
-1. `public/index.html` 仍可用于浏览器直连调试。
+1. `public/index.html` 保留兼容入口并重定向到 `terminal.html`（保留 query/hash）。
 
 验收：
 1. terminal.html 独立可用。
-2. 旧 index.html 不回归。
+2. 旧 index 链接不回归（通过重定向兼容）。
 3. Native 页可实时显示 terminal 连接状态与错误文案。
 4. 强制重建 WebView 后，最近终端输出可回放。
 
@@ -338,7 +335,7 @@ src/
 3. mTLS host 规则：优先使用 profile 的 `allowedHosts`，为空时回退 `BuildConfig.MTLS_ALLOWED_HOSTS`。
 4. `terminal.js` 连接链路移除连接类 `alert()`，统一走状态栏 + `TerminalEventBridge` 错误上报 + 日志。
 5. ws 地址生成统一收敛到单函数（`http->ws`, `https->wss`），减少散落拼接差异。
-6. `MainActivity`/`MtlsBridgeWebViewClient` 继续保留到 Phase 7，不在本阶段删除。
+6. 该阶段完成后在 Phase 7 已清理 Bridge 路径，当前仅保留 MainShellActivity。
 
 验收：
 1. mTLS 环境可稳定连接（WebView + Native Session API）。
@@ -346,7 +343,14 @@ src/
 
 ---
 
-## Phase 7 - 收尾与发布（1-2 天）
+## Phase 7 - 收尾与发布（已实现）
+
+执行结果（已落地）：
+1. Bridge 路径下线：`MainActivity` 与 `MtlsBridgeWebViewClient` 已删除，Manifest 仅保留 `MainShellActivity`。
+2. 页面去重完成：`index.html` 仅作兼容重定向到 `terminal.html`，透传 query/hash。
+3. Settings 增加 active profile 空 URL 风险提示（非阻断），并保留 `http://` 风险提示。
+4. `terminal.js` 非致命 `alert()` 已替换为非阻断提示（状态区 + 日志），仅保留致命初始化失败 `alert()`。
+5. 发布产物锁定为 debug APK（本阶段不做 release 签名链路）。
 
 ### T07-1 文档
 1. 更新 `README_ANDROID.md`（半原生结构、调试命令、打包步骤）。
@@ -358,7 +362,7 @@ src/
 3. 证书：正确/错误密码/不匹配 host。
 
 ### T07-3 发布包
-1. 产出 debug/release APK。
+1. 产出 debug APK（本阶段不做 release 签名链路）。
 2. 输出 changelog 与已知限制。
 
 ### T07-4 迁移清理（新增）
@@ -439,7 +443,7 @@ src/
 5. mTLS 继续使用 `PKCS#12` 资产加载方案。
 6. 默认首屏 tab 统一为 `Terminal`。
 7. tab 策略采用分阶段实现：Phase 2-3 使用 `replace`，Phase 4 切换到 `add/show/hide`。
-8. `MainActivity` 与 `MtlsBridgeWebViewClient` 仅作迁移期兼容，Phase 7 统一移除。
+8. Bridge fallback 已完成移除，唯一入口为 `MainShellActivity`。
 9. `serverUrl` 在 Phase 3 可为空，Phase 4 起必须由 active profile 注入真实值。
 10. HTML 去重策略锁定：Phase 7 采用 `index.html` 兼容重定向到 `terminal.html`。
 

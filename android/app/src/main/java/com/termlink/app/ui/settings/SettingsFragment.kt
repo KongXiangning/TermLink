@@ -67,7 +67,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
 
     private fun renderState(state: ServerConfigState) {
         currentState = state
-        renderInsecureTransportWarning(state)
+        renderProfileWarning(state)
         renderProfiles(state)
     }
 
@@ -139,19 +139,24 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         }
     }
 
-    private fun renderInsecureTransportWarning(state: ServerConfigState) {
+    private fun renderProfileWarning(state: ServerConfigState) {
         val active = state.profiles.firstOrNull { it.id == state.activeProfileId }
         if (active == null) {
             insecureTransportWarningText.visibility = View.GONE
             return
         }
 
-        val normalized = active.baseUrl.trim().lowercase(Locale.ROOT)
-        if (normalized.startsWith("http://")) {
+        val normalized = active.baseUrl.trim()
+        if (normalized.isBlank()) {
+            insecureTransportWarningText.visibility = View.VISIBLE
+            insecureTransportWarningText.text = getString(R.string.settings_empty_base_url_warning)
+            return
+        }
+        if (normalized.lowercase(Locale.ROOT).startsWith("http://")) {
             insecureTransportWarningText.visibility = View.VISIBLE
             insecureTransportWarningText.text = getString(
                 R.string.settings_insecure_transport_warning,
-                active.baseUrl
+                normalized
             )
         } else {
             insecureTransportWarningText.visibility = View.GONE

@@ -39,12 +39,8 @@ term.loadAddon(fitAddon);
 term.open(terminalContainer);
 fitAddon.fit();
 
-// DEBUG: Verify script update
-// alert('TermLink v3 Config Loaded'); 
-
 // Global Error Handler for Mobile Debugging
 window.onerror = function (msg, source, lineno, colno, error) {
-    // alert(`Runtime Error: ${msg}\nLine: ${lineno}`); // Uncomment for extreme debugging
     console.error(msg, error);
 };
 
@@ -402,7 +398,10 @@ function renderServerList() {
 }
 
 function addServer(name, url) {
-    if (!name || !url) return alert('Name and URL are required');
+    if (!name || !url) {
+        showNonBlockingNotice('Name and URL are required', 'error');
+        return;
+    }
 
     // Normalize URL
     if (!url.startsWith('http')) url = 'http://' + url;
@@ -493,7 +492,7 @@ if (btnSettingsToolbar) {
             serverManagerModal.classList.add('open');
             serverManagerModal.style.display = ''; // Clear any inline style
         } catch (err) {
-            alert("Error in Toolbar Settings: " + err.message);
+            showNonBlockingNotice("Error in toolbar settings: " + err.message, 'error');
         }
     };
     btnSettingsToolbar.addEventListener('click', openToolbarSettings);
@@ -508,7 +507,7 @@ if (btnServerManager) {
             serverManagerModal.classList.add('open');
             serverManagerModal.style.display = ''; // Clear any inline style
         } catch (err) {
-            alert("Error opening manager: " + err.message);
+            showNonBlockingNotice("Error opening manager: " + err.message, 'error');
         }
     };
 
@@ -609,7 +608,7 @@ function showConnectionSettings() {
         renderServerList();
         serverManagerModal.classList.add('open');
     } catch (e) {
-        alert("Error showing settings: " + e.message);
+        showNonBlockingNotice("Error showing settings: " + e.message, 'error');
     }
 }
 
@@ -631,6 +630,25 @@ function showStatus(msg) {
 
 function hideStatus() {
     statusOverlay.style.display = 'none';
+}
+
+let noticeTimer = null;
+function showNonBlockingNotice(message, level = 'info') {
+    if (!message) return;
+    const normalizedLevel = String(level || 'info').toUpperCase();
+    if (normalizedLevel === 'ERROR') {
+        console.error(message);
+    } else {
+        console.warn(message);
+    }
+    showStatus(message);
+    if (noticeTimer) {
+        clearTimeout(noticeTimer);
+    }
+    noticeTimer = setTimeout(() => {
+        hideStatus();
+        noticeTimer = null;
+    }, normalizedLevel === 'ERROR' ? 4500 : 2500);
 }
 
 // --- WebSocket Logic ---
@@ -676,7 +694,6 @@ function connect() {
     }
 
     ws.onopen = () => {
-        // alert(`Connected to ${wsUrl}`); // DEBUG Success
         isConnecting = false;
         retryCount = 0;
         hideStatus();
@@ -864,7 +881,7 @@ if (btnNewSession) {
         // Populate server select
         serverSelectInput.innerHTML = '';
         if (serverState.servers.length === 0) {
-            alert("No servers configured. Please add a server first.");
+            showNonBlockingNotice("No servers configured. Please add a server first.", 'error');
             renderServerList();
             serverManagerModal.classList.add('open');
             return;
@@ -899,7 +916,7 @@ if (btnCreateSession) {
         const targetServer = serverState.servers.find(s => s.id === targetServerId);
 
         if (!targetServer) {
-            alert('Invalid server selection');
+            showNonBlockingNotice('Invalid server selection', 'error');
             return;
         }
 
@@ -953,7 +970,7 @@ async function createSessionOnActive(name) {
 
     } catch (e) {
         console.error(e);
-        alert(`Failed to create session: ${e.message}\nCheck server connection.`);
+        showNonBlockingNotice(`Failed to create session: ${e.message}. Check server connection.`, 'error');
         // If failed, maybe we are not connected?
         connect();
     }
@@ -1065,7 +1082,7 @@ async function deleteSession(id) {
             }
             loadSessions();
         } else {
-            alert('Failed to delete session');
+            showNonBlockingNotice('Failed to delete session', 'error');
         }
     } catch (e) {
         console.error('Delete error:', e);
@@ -1090,7 +1107,7 @@ document.querySelectorAll('.key').forEach(btn => {
                 }
             }).catch(err => {
                 console.error('Failed to read clipboard', err);
-                alert('Clipboard access denied or not supported.');
+                showNonBlockingNotice('Clipboard access denied or not supported.', 'error');
             });
             return;
         }

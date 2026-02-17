@@ -34,9 +34,8 @@ This project supports building a native Android app using **Capacitor**.
   - `Terminal` (real terminal WebView host)
   - `Settings` (native profile manager)
 - Terminal rendering now uses `public/terminal.html` via `file:///android_asset/public/terminal.html`.
-- `public/index.html` remains as browser-compatible legacy entry and loads `terminal.js` through `client.js`.
+- `public/index.html` is now a compatibility redirect entry that forwards to `terminal.html` and preserves `query/hash`.
 - A single WebView instance is cached at Activity level and re-attached by `TerminalFragment` to preserve terminal state across tab switches.
-- Old `MainActivity` (`BridgeActivity`) is retained as non-launcher fallback for migration safety.
 - Web -> Native status callbacks are handled through `TerminalEventBridge` (`onConnectionState`, `onTerminalError`, `onSessionInfo`).
 - Terminal output history is cached in `sessionStorage` by key `termLinkHistory:<sessionId|default>` and enabled by default.
 - Native side callback logs use tag `TermLinkShell` (check Logcat while debugging bridge events).
@@ -86,6 +85,18 @@ This project supports building a native Android app using **Capacitor**.
 - Terminal WebSocket URL generation is unified in one function (`http->ws`, `https->wss`).
 - Connection-related `alert()` popups were removed from `terminal.js`; connection failures now rely on status bar, bridge error events, and logs.
 
+## Phase 7 Finalization (Current)
+
+- Legacy Bridge fallback path has been removed:
+  - `MainActivity` deleted
+  - `MtlsBridgeWebViewClient` deleted
+  - `AndroidManifest.xml` keeps only `MainShellActivity` app entry
+- `public/terminal.html` is the only maintained terminal UI page.
+- `public/index.html` remains only as compatibility redirect.
+- Non-fatal frontend errors use non-blocking notices (status/console) instead of blocking `alert()` popups.
+- Settings now warns when active profile `baseUrl` is empty and when using insecure `http://` transport.
+- Phase 7 deliverable is `debug APK` only (no release signing pipeline in this phase).
+
 ## Configuration (Crucial!)
 
 Since TermLink is a client-server application, the Android app needs to know **where your server is running**.
@@ -109,7 +120,7 @@ This makes the app load your existing deployed TermLink instance directly. Use t
     *Note: `cleartext: true` is required if you are using HTTP instead of HTTPS.*
 
 ### Option B: Local Bundled (Advanced)
-If you want the app to be standalone (bundled `public` folder), you must modify `public/client.js` to allow configuring the API URL, because strictly local files cannot make relative requests to an unknown server. (Currently, Option A is strongly recommended).
+If you want the app to be standalone (bundled `public` folder), configure server profiles from the native `Settings` tab. Terminal runtime reads injected config first and falls back to local settings when needed.
 
 ## mTLS Client Certificate (for Nginx mutual TLS)
 If your Nginx server requires client certificates, Android WebView can now load a bundled PKCS#12 (`.p12`/`.pfx`) client certificate.
@@ -138,7 +149,7 @@ Notes:
 - `TERMLINK_MTLS_ALLOWED_HOSTS` is comma-separated. Leave empty to allow all hosts.
 - Keep `.p12` and password out of Git (the default `.gitignore` already ignores `assets/mtls/*.p12` and `*.pfx`).
 - The server certificate still needs to be trusted by Android (public CA or installed CA).
-- Phase 2 native shell uses `MtlsWebViewClient.kt` for client-cert handling. Legacy `MainActivity` keeps `MtlsBridgeWebViewClient.java`.
+- Native shell uses `MtlsWebViewClient.kt` for client-cert handling.
 
 ## Terminal History Cache
 
@@ -180,3 +191,9 @@ If config is insecure, the command exits with non-zero status and prints violati
 Inside Android Studio:
 1.  Go to **Build** > **Build Bundle(s) / APK(s)** > **Build APK(s)**.
 2.  The APK will be generated in `android/app/build/outputs/apk/debug/`.
+
+Phase 7 output target:
+- `debug` APK only (`android/app/build/outputs/apk/debug/app-debug.apk`).
+
+Ops/deploy checklist:
+- See `docs/ops.md` for mTLS deployment checks, build checks, and release safety checks.

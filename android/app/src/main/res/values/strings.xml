@@ -1,7 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">TermLink</string>
-    <string name="title_activity_main">TermLink</string>
     <string name="title_activity_shell">TermLink</string>
     <string name="package_name">com.termlink.app</string>
     <string name="custom_url_scheme">com.termlink.app</string>
@@ -74,5 +73,6 @@
     <string name="settings_mtls_status_enabled">mTLS build: ENABLED (asset=%1$s, hosts=%2$s)</string>
     <string name="settings_mtls_status_disabled">mTLS build: DISABLED</string>
     <string name="settings_mtls_any_hosts">*</string>
+    <string name="settings_empty_base_url_warning">Warning: active profile has empty baseUrl. Terminal may fallback to stale local config or fail to connect.</string>
     <string name="settings_insecure_transport_warning">Warning: active profile uses insecure transport: %1$s</string>
 </resources>
