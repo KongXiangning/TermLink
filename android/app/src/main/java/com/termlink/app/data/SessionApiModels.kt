@@ -41,3 +41,14 @@ data class SessionRef(
     val id: String,
     val name: String
 )
+
+data class SessionSelection(
+    val profileId: String,
+    val sessionId: String
+)
+
+data class ProfileSessionSummary(
+    val profileId: String,
+    val profileName: String,
+    val session: SessionSummary
+)

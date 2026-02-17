@@ -3,14 +3,19 @@ package com.termlink.app.data
 import android.content.Context
 import android.util.Log
 import org.json.JSONObject
+import java.net.URI
 import java.util.UUID
 
 class ServerConfigStore(context: Context) {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val basicCredentialStore = BasicCredentialStore(context.applicationContext)
     private var state: ServerConfigState = normalizeState(loadRawState())
 
     fun loadState(): ServerConfigState {
+        // Intentionally not a pure read:
+        // normalizeState() may perform one-time legacy BASIC credential migration
+        // (baseUrl userinfo -> encrypted credential store + sanitized baseUrl).
         state = normalizeState(loadRawState())
         persistState(state)
         return state
@@ -30,11 +35,14 @@ class ServerConfigStore(context: Context) {
 
     fun upsertProfile(profile: ServerProfile): ServerConfigState {
         val current = loadState()
-        val normalizedProfile = profile.copy(
-            id = profile.id.ifBlank { UUID.randomUUID().toString() },
-            name = profile.name.trim().ifBlank { DEFAULT_PROFILE_NAME },
-            baseUrl = profile.baseUrl.trim(),
-            allowedHosts = profile.allowedHosts.trim()
+        val normalizedProfile = normalizeProfile(
+            profile.copy(
+                id = profile.id.ifBlank { UUID.randomUUID().toString() },
+                name = profile.name.trim().ifBlank { DEFAULT_PROFILE_NAME },
+                baseUrl = profile.baseUrl.trim(),
+                basicUsername = profile.basicUsername.trim(),
+                allowedHosts = profile.allowedHosts.trim()
+            )
         )
         val updatedProfiles = current.profiles.toMutableList()
         val index = updatedProfiles.indexOfFirst { it.id == normalizedProfile.id }
@@ -42,6 +50,9 @@ class ServerConfigStore(context: Context) {
             updatedProfiles[index] = normalizedProfile
         } else {
             updatedProfiles.add(normalizedProfile)
+        }
+        if (normalizedProfile.authType != AuthType.BASIC) {
+            basicCredentialStore.removePassword(normalizedProfile.id)
         }
         val nextActiveId = if (current.activeProfileId.isBlank()) {
             normalizedProfile.id
@@ -59,6 +70,7 @@ class ServerConfigStore(context: Context) {
     fun deleteProfile(profileId: String): ServerConfigState {
         val current = loadState()
         val updatedProfiles = current.profiles.filter { it.id != profileId }
+        basicCredentialStore.removePassword(profileId)
         if (updatedProfiles.isEmpty()) {
             return saveState(
                 ServerConfigState(
@@ -109,11 +121,14 @@ class ServerConfigStore(context: Context) {
     private fun normalizeState(input: ServerConfigState): ServerConfigState {
         val profiles = input.profiles
             .map { profile ->
-                profile.copy(
-                    id = profile.id.ifBlank { UUID.randomUUID().toString() },
-                    name = profile.name.trim().ifBlank { DEFAULT_PROFILE_NAME },
-                    baseUrl = profile.baseUrl.trim(),
-                    allowedHosts = profile.allowedHosts.trim()
+                normalizeProfile(
+                    profile.copy(
+                        id = profile.id.ifBlank { UUID.randomUUID().toString() },
+                        name = profile.name.trim().ifBlank { DEFAULT_PROFILE_NAME },
+                        baseUrl = profile.baseUrl.trim(),
+                        basicUsername = profile.basicUsername.trim(),
+                        allowedHosts = profile.allowedHosts.trim()
+                    )
                 )
             }
             .distinctBy { it.id }
@@ -130,6 +145,62 @@ class ServerConfigStore(context: Context) {
         }
 
         return ServerConfigState(profiles = profiles, activeProfileId = activeId)
+    }
+
+    private fun normalizeProfile(profile: ServerProfile): ServerProfile {
+        if (profile.authType != AuthType.BASIC) {
+            basicCredentialStore.removePassword(profile.id)
+            return profile.copy(basicUsername = "")
+        }
+        val legacy = extractLegacyBasicCredentials(profile.baseUrl)
+        if (legacy == null) {
+            return profile.copy(
+                baseUrl = profile.baseUrl.trimEnd('/'),
+                basicUsername = profile.basicUsername.trim()
+            )
+        }
+
+        val resolvedUsername = profile.basicUsername.trim().ifBlank { legacy.username }
+        if (legacy.password.isNotBlank() && basicCredentialStore.getPassword(profile.id).isNullOrBlank()) {
+            basicCredentialStore.putPassword(profile.id, legacy.password)
+        }
+
+        return profile.copy(
+            baseUrl = legacy.sanitizedBaseUrl,
+            basicUsername = resolvedUsername
+        )
+    }
+
+    private fun extractLegacyBasicCredentials(rawBaseUrl: String): LegacyBasicCredentials? {
+        if (rawBaseUrl.isBlank()) return null
+        return try {
+            val uri = URI(rawBaseUrl)
+            val userInfo = uri.userInfo.orEmpty()
+            if (userInfo.isBlank() || !userInfo.contains(":")) {
+                null
+            } else {
+                val separator = userInfo.indexOf(':')
+                val username = userInfo.substring(0, separator).trim()
+                val password = userInfo.substring(separator + 1)
+                val sanitizedUrl = URI(
+                    uri.scheme,
+                    null,
+                    uri.host,
+                    uri.port,
+                    uri.path,
+                    uri.query,
+                    uri.fragment
+                ).toString().trimEnd('/')
+                LegacyBasicCredentials(
+                    sanitizedBaseUrl = sanitizedUrl,
+                    username = username,
+                    password = password
+                )
+            }
+        } catch (ex: Exception) {
+            Log.w(TAG, "Failed to parse legacy basic credentials from baseUrl.", ex)
+            null
+        }
     }
 
     private fun persistState(state: ServerConfigState) {
@@ -150,10 +221,17 @@ class ServerConfigStore(context: Context) {
             name = DEFAULT_PROFILE_NAME,
             baseUrl = "",
             authType = AuthType.NONE,
+            basicUsername = "",
             mtlsEnabled = false,
             allowedHosts = ""
         )
     }
+
+    private data class LegacyBasicCredentials(
+        val sanitizedBaseUrl: String,
+        val username: String,
+        val password: String
+    )
 
     companion object {
         private const val TAG = "ServerConfigStore"

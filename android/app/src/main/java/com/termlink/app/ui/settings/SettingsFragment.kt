@@ -1,9 +1,7 @@
 package com.termlink.app.ui.settings
 
 import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
@@ -11,6 +9,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
+import android.widget.AdapterView
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import com.termlink.app.BuildConfig
@@ -27,7 +26,9 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         fun getServerConfigState(): ServerConfigState
         fun onUpsertProfile(profile: ServerProfile): ServerConfigState
         fun onDeleteProfile(profileId: String): ServerConfigState
-        fun onSetActiveProfile(profileId: String): ServerConfigState
+        fun getBasicPassword(profileId: String): String?
+        fun putBasicPassword(profileId: String, password: String)
+        fun removeBasicPassword(profileId: String)
     }
 
     private var callbacks: Callbacks? = null
@@ -103,29 +104,28 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
                 profilesContainer,
                 false
             )
-            val isActive = profile.id == state.activeProfileId
+            val isDefault = profile.id == state.activeProfileId
             itemView.findViewById<TextView>(R.id.profile_name).text =
-                if (isActive) {
+                if (isDefault) {
                     getString(R.string.settings_profile_name_active, profile.name)
                 } else {
                     profile.name
                 }
             itemView.findViewById<TextView>(R.id.profile_base_url).text =
                 profile.baseUrl.ifBlank { getString(R.string.settings_profile_url_empty) }
+
+            val basicMeta = if (profile.authType == AuthType.BASIC && profile.basicUsername.isNotBlank()) {
+                getString(R.string.settings_profile_basic_username_meta, profile.basicUsername)
+            } else {
+                "-"
+            }
             itemView.findViewById<TextView>(R.id.profile_meta).text = getString(
                 R.string.settings_profile_meta,
                 profile.authType.name,
+                basicMeta,
                 profile.mtlsEnabled.toString().uppercase(Locale.ROOT),
                 profile.allowedHosts.ifBlank { "-" }
             )
-
-            val btnSetActive = itemView.findViewById<Button>(R.id.btn_set_active_profile)
-            btnSetActive.isEnabled = !isActive
-            btnSetActive.setOnClickListener {
-                callbacks?.onSetActiveProfile(profile.id)?.let { updated ->
-                    renderState(updated)
-                }
-            }
 
             itemView.findViewById<Button>(R.id.btn_edit_profile).setOnClickListener {
                 showProfileDialog(profile)
@@ -169,6 +169,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
             .setMessage(getString(R.string.settings_delete_profile_confirm, profile.name))
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(R.string.settings_delete_profile) { _, _ ->
+                callbacks?.removeBasicPassword(profile.id)
                 callbacks?.onDeleteProfile(profile.id)?.let { updated ->
                     renderState(updated)
                 }
@@ -183,6 +184,9 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         val inputAllowedHosts = dialogView.findViewById<EditText>(R.id.input_profile_allowed_hosts)
         val mtlsCheck = dialogView.findViewById<CheckBox>(R.id.checkbox_profile_mtls)
         val authSpinner = dialogView.findViewById<Spinner>(R.id.spinner_profile_auth_type)
+        val basicContainer = dialogView.findViewById<LinearLayout>(R.id.basic_auth_container)
+        val inputBasicUsername = dialogView.findViewById<EditText>(R.id.input_profile_basic_username)
+        val inputBasicPassword = dialogView.findViewById<EditText>(R.id.input_profile_basic_password)
 
         val authOptions = AuthType.entries.map { it.name }
         val authAdapter = ArrayAdapter(
@@ -198,12 +202,29 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
             inputBaseUrl.setText(existing.baseUrl)
             inputAllowedHosts.setText(existing.allowedHosts)
             mtlsCheck.isChecked = existing.mtlsEnabled
+            inputBasicUsername.setText(existing.basicUsername)
+            inputBasicPassword.setText(callbacks?.getBasicPassword(existing.id).orEmpty())
             val index = authOptions.indexOf(existing.authType.name).coerceAtLeast(0)
             authSpinner.setSelection(index)
         } else {
             mtlsCheck.isChecked = BuildConfig.MTLS_ENABLED
             authSpinner.setSelection(authOptions.indexOf(AuthType.NONE.name).coerceAtLeast(0))
         }
+
+        val updateBasicVisibility = {
+            val authType = AuthType.fromString(authSpinner.selectedItem?.toString())
+            basicContainer.visibility = if (authType == AuthType.BASIC) View.VISIBLE else View.GONE
+        }
+        authSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                updateBasicVisibility()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                updateBasicVisibility()
+            }
+        }
+        updateBasicVisibility()
 
         val dialog = AlertDialog.Builder(requireContext())
             .setTitle(
@@ -232,15 +253,39 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
                 }
 
                 val authType = AuthType.fromString(authSpinner.selectedItem?.toString())
+                val profileId = existing?.id ?: UUID.randomUUID().toString()
+                val basicUsername = inputBasicUsername.text.toString().trim()
+                val inputPassword = inputBasicPassword.text.toString()
+                val resolvedPassword = when {
+                    authType != AuthType.BASIC -> ""
+                    inputPassword.isNotBlank() -> inputPassword
+                    else -> callbacks?.getBasicPassword(profileId).orEmpty()
+                }
+
+                if (authType == AuthType.BASIC && basicUsername.isBlank()) {
+                    inputBasicUsername.error = getString(R.string.settings_basic_username_required)
+                    return@setOnClickListener
+                }
+                if (authType == AuthType.BASIC && resolvedPassword.isBlank()) {
+                    inputBasicPassword.error = getString(R.string.settings_basic_password_required)
+                    return@setOnClickListener
+                }
+
                 val updatedProfile = ServerProfile(
-                    id = existing?.id ?: UUID.randomUUID().toString(),
+                    id = profileId,
                     name = name,
                     baseUrl = normalizedUrl,
                     authType = authType,
+                    basicUsername = if (authType == AuthType.BASIC) basicUsername else "",
                     mtlsEnabled = mtlsCheck.isChecked,
                     allowedHosts = inputAllowedHosts.text.toString().trim()
                 )
 
+                if (authType == AuthType.BASIC) {
+                    callbacks?.putBasicPassword(updatedProfile.id, resolvedPassword)
+                } else {
+                    callbacks?.removeBasicPassword(updatedProfile.id)
+                }
                 callbacks?.onUpsertProfile(updatedProfile)?.let { updated ->
                     renderState(updated)
                     dialog.dismiss()

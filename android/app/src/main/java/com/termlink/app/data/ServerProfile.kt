@@ -22,6 +22,7 @@ data class ServerProfile(
     val name: String,
     val baseUrl: String,
     val authType: AuthType,
+    val basicUsername: String,
     val mtlsEnabled: Boolean,
     val allowedHosts: String
 ) {
@@ -31,6 +32,7 @@ data class ServerProfile(
             .put("name", name)
             .put("baseUrl", baseUrl)
             .put("authType", authType.name)
+            .put("basicUsername", basicUsername)
             .put("mtlsEnabled", mtlsEnabled)
             .put("allowedHosts", allowedHosts)
     }
@@ -42,6 +44,7 @@ data class ServerProfile(
                 name = json.optString("name", ""),
                 baseUrl = json.optString("baseUrl", ""),
                 authType = AuthType.fromString(json.optString("authType", AuthType.NONE.name)),
+                basicUsername = json.optString("basicUsername", ""),
                 mtlsEnabled = json.optBoolean("mtlsEnabled", false),
                 allowedHosts = json.optString("allowedHosts", "")
             )

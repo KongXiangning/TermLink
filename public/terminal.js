@@ -56,6 +56,7 @@ let runtimeConfig = initialInjectedConfig;
 let historyEnabled = resolveHistoryEnabled(initialInjectedConfig);
 let historyState = { lines: [], tail: '' };
 let activeHistoryKey = '';
+const runtimeServerUrlOverrides = Object.create(null);
 
 function readInjectedConfig() {
     if (!window.__TERMLINK_CONFIG__ || typeof window.__TERMLINK_CONFIG__ !== 'object') {
@@ -108,6 +109,29 @@ function normalizeServerUrl(rawUrl) {
         normalized = normalized.slice(0, -1);
     }
     return normalized;
+}
+
+function hasUrlCredentials(rawUrl) {
+    try {
+        const parsed = new URL(rawUrl);
+        return Boolean(parsed.username || parsed.password);
+    } catch (err) {
+        return false;
+    }
+}
+
+function stripUrlCredentials(rawUrl) {
+    try {
+        const parsed = new URL(rawUrl);
+        if (!parsed.username && !parsed.password) {
+            return rawUrl;
+        }
+        parsed.username = '';
+        parsed.password = '';
+        return parsed.toString().replace(/\/$/, '');
+    } catch (err) {
+        return rawUrl;
+    }
 }
 
 function getInitialSessionId() {
@@ -198,6 +222,12 @@ try {
 if (!Array.isArray(serverState.servers)) {
     serverState.servers = [];
 }
+serverState.servers = serverState.servers.map((server) => {
+    if (!server || server.id !== CONFIG_SERVER_ID || typeof server.url !== 'string') {
+        return server;
+    }
+    return { ...server, url: stripUrlCredentials(server.url) };
+});
 
 // Migration: If we have old 'serverUrl' but no servers, add it
 const oldServerUrl = localStorage.getItem('serverUrl');
@@ -225,13 +255,18 @@ function getActiveServer() {
 }
 
 function applyInjectedServerConfig(config) {
-    const normalizedUrl = normalizeServerUrl(config.serverUrl);
-    if (!normalizedUrl) {
+    const normalizedInjectedUrl = normalizeServerUrl(config.serverUrl);
+    if (!normalizedInjectedUrl) {
         return false;
     }
+    const injectedHasCredentials = hasUrlCredentials(normalizedInjectedUrl);
+    const persistedInjectedUrl = stripUrlCredentials(normalizedInjectedUrl);
+    runtimeServerUrlOverrides[CONFIG_SERVER_ID] = normalizedInjectedUrl;
 
-    const existing = serverState.servers.find((server) => server.url === normalizedUrl);
-    if (existing) {
+    const existing = injectedHasCredentials
+        ? null
+        : serverState.servers.find((server) => server.url === persistedInjectedUrl);
+    if (existing && existing.id !== CONFIG_SERVER_ID) {
         serverState.activeServerId = existing.id;
         saveServerState();
         return true;
@@ -248,7 +283,7 @@ function applyInjectedServerConfig(config) {
             ? config.activeProfile.name.trim()
             : 'Injected Server';
         serverState.servers[existingInjectedIndex].name = profileName;
-        serverState.servers[existingInjectedIndex].url = normalizedUrl;
+        serverState.servers[existingInjectedIndex].url = persistedInjectedUrl;
         serverState.activeServerId = CONFIG_SERVER_ID;
         saveServerState();
         return true;
@@ -266,7 +301,7 @@ function applyInjectedServerConfig(config) {
     serverState.servers.push({
         id: CONFIG_SERVER_ID,
         name: profileName,
-        url: normalizedUrl
+        url: persistedInjectedUrl
     });
     serverState.activeServerId = CONFIG_SERVER_ID;
     saveServerState();
@@ -563,7 +598,11 @@ applyRuntimeConfig(initialInjectedConfig, false);
 // --- Helper: Get API URL ---
 function getBaseUrl() {
     const active = getActiveServer();
-    return active ? active.url : null;
+    if (!active) return null;
+    if (active.id === CONFIG_SERVER_ID && runtimeServerUrlOverrides[CONFIG_SERVER_ID]) {
+        return runtimeServerUrlOverrides[CONFIG_SERVER_ID];
+    }
+    return active.url;
 }
 
 function buildWsUrl(baseUrl, targetSessionId) {

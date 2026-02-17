@@ -303,9 +303,9 @@ src/
 ## Phase 5 - 原生会话页（已实现）
 
 当前落地策略（锁定）：
-1. BasicAuth 凭据来源固定为 `baseUrl` userinfo（`http(s)://user:pass@host[:port]`）。
+1. BasicAuth 凭据升级为独立字段：`basicUsername + encrypted password`（不再要求 `baseUrl` userinfo）。
 2. 自动刷新频率固定为 10 秒，仅在 Sessions tab 可见时启用。
-3. 创建会话后自动跳转 `Terminal` 并注入新 `sessionId`。
+3. 创建会话后自动跳转 `Terminal` 并注入目标 `profileId + sessionId`。
 4. 原生 Session API 调用链路已接入 mTLS（受 BuildConfig 与 allowlist 约束）。
 
 ### T05-1 Session API Client
@@ -313,9 +313,9 @@ src/
 2. 错误映射：超时、网络错误、4xx/5xx。
 
 ### T05-2 Sessions UI
-1. 列表展示在线状态/最近活跃时间。
+1. 列表按 profile 分组聚合展示在线状态/最近活跃时间（跨配置）。
 2. 支持创建、删除、重命名。
-3. 点击条目进入 Terminal tab 并打开对应 `sessionId`。
+3. 点击条目进入 Terminal tab 并打开对应 `profileId + sessionId`。
 
 ### T05-3 刷新策略
 1. 前台自动刷新（例如 10-15s 轮询）。
@@ -324,6 +324,24 @@ src/
 验收：
 1. 原生页可完成完整会话管理。
 2. 点击会话后 terminal 正确进入对应 session。
+
+---
+
+## Phase 8 - BASIC 凭据与会话聚合（已实现）
+
+当前落地策略（锁定）：
+1. BASIC 使用独立账号密码输入；密码存入 `EncryptedSharedPreferences`。
+2. `ServerConfigStore` 启动时自动迁移 legacy `baseUrl userinfo` 到独立凭据存储，并清理 `baseUrl` 中明文 userinfo。
+3. Sessions 页改为跨 profile 聚合展示与操作，支持部分 profile 失败不阻断其它分组。
+4. `activeProfile` 降级为内部默认值：由会话打开/创建动作自动更新，不再要求用户先手动激活。
+5. `MainShellActivity` 注入终端配置时基于“当前终端 profile”而非手动 active profile。
+6. Web 端注入 URL 中的 BASIC 凭据仅内存使用，不落地保存到 localStorage。
+7. `loadState()` 明确允许迁移副作用（legacy BASIC 凭据搬迁与 `baseUrl` 清洗），属于一次性兼容设计。
+
+验收：
+1. `Auth Type=BASIC` 可填写 username/password，重启后凭据可用且密码不落在 profile JSON。
+2. A/B profile 同时可见会话分组；单分组失败不影响其它分组。
+3. 从任意 profile 打开会话可直接进入 Terminal 并连接目标 profile。
 
 ---
 

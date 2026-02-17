@@ -14,6 +14,9 @@ import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.termlink.app.data.ServerConfigState
 import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
+import com.termlink.app.data.BasicCredentialStore
+import com.termlink.app.data.AuthType
+import com.termlink.app.data.SessionSelection
 import com.termlink.app.ui.sessions.SessionsFragment
 import com.termlink.app.ui.settings.SettingsFragment
 import com.termlink.app.ui.terminal.TerminalFragment
@@ -21,6 +24,7 @@ import com.termlink.app.web.MtlsWebViewClient
 import com.termlink.app.web.TerminalEventBridge
 import com.termlink.app.web.TerminalWebViewHost
 import org.json.JSONObject
+import java.net.URI
 import java.util.Locale
 
 class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEventBridge.Listener,
@@ -32,8 +36,10 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var bottomNav: BottomNavigationView? = null
     private lateinit var terminalEventBridge: TerminalEventBridge
     private lateinit var serverConfigStore: ServerConfigStore
+    private lateinit var basicCredentialStore: BasicCredentialStore
     private var serverConfigState: ServerConfigState? = null
     private var activeProfile: ServerProfile? = null
+    private var currentTerminalProfileId: String = ""
     private var lastSessionId: String = ""
     private var currentTabTag: String? = null
     private var lastConnectionState: String = "idle"
@@ -45,7 +51,9 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         setContentView(R.layout.activity_main_shell)
         statusTextView = findViewById(R.id.shell_status_text)
         serverConfigStore = ServerConfigStore(applicationContext)
+        basicCredentialStore = BasicCredentialStore(applicationContext)
         syncProfileState(serverConfigStore.loadState(), inject = false)
+        currentTerminalProfileId = resolveInitialProfileId()
         lastSessionId = resolveInitialSessionId()
         updateStatus(getString(R.string.terminal_state_idle))
 
@@ -99,7 +107,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         webView.addJavascriptInterface(terminalEventBridge, JS_BRIDGE_NAME)
         webView.webViewClient = object : MtlsWebViewClient(
             appContext = applicationContext,
-            profileProvider = { activeProfile },
+            profileProvider = { resolveTerminalProfile() },
             eventListener = object : MtlsWebViewClient.MtlsEventListener {
                 override fun onMtlsError(code: String, message: String) {
                     runOnUiThread {
@@ -226,37 +234,50 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     override fun onDeleteProfile(profileId: String): ServerConfigState {
+        basicCredentialStore.removePassword(profileId)
         val state = serverConfigStore.deleteProfile(profileId)
         syncProfileState(state, inject = true)
         return state
     }
 
-    override fun onSetActiveProfile(profileId: String): ServerConfigState {
-        val state = serverConfigStore.setActiveProfile(profileId)
-        syncProfileState(state, inject = true)
-        return state
+    override fun getBasicPassword(profileId: String): String? {
+        return basicCredentialStore.getPassword(profileId)
     }
 
-    override fun getActiveProfile(): ServerProfile? {
-        return activeProfile
+    override fun putBasicPassword(profileId: String, password: String) {
+        basicCredentialStore.putPassword(profileId, password)
     }
 
-    override fun getCurrentSessionId(): String {
-        return lastSessionId
+    override fun removeBasicPassword(profileId: String) {
+        basicCredentialStore.removePassword(profileId)
     }
 
-    override fun onOpenSession(sessionId: String) {
-        openSessionInTerminal(sessionId)
+    override fun getProfiles(): List<ServerProfile> {
+        val state = serverConfigStore.loadState()
+        syncProfileState(state, inject = false)
+        return state.profiles
     }
 
-    override fun onUpdateSessionSelection(sessionId: String) {
-        updateSessionSelection(sessionId)
+    override fun getCurrentSelection(): SessionSelection {
+        return SessionSelection(profileId = currentTerminalProfileId, sessionId = lastSessionId)
+    }
+
+    override fun onOpenSession(profileId: String, sessionId: String) {
+        openSessionInTerminal(profileId, sessionId)
+    }
+
+    override fun onUpdateSessionSelection(profileId: String, sessionId: String) {
+        updateSessionSelection(profileId, sessionId)
     }
 
     private fun syncProfileState(state: ServerConfigState, inject: Boolean) {
         serverConfigState = state
         activeProfile = state.profiles.firstOrNull { it.id == state.activeProfileId }
             ?: state.profiles.firstOrNull()
+        if (currentTerminalProfileId.isBlank() || state.profiles.none { it.id == currentTerminalProfileId }) {
+            currentTerminalProfileId = activeProfile?.id.orEmpty()
+            persistLastProfileId(currentTerminalProfileId)
+        }
         if (inject) {
             terminalWebView?.let { injectTerminalConfig(it) }
         }
@@ -277,7 +298,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     private fun buildTerminalConfigJson(): String {
         val json = JSONObject()
-        val profile = activeProfile
+        val profile = resolveTerminalProfile()
         val activeProfileJson = if (profile == null) {
             JSONObject.NULL
         } else {
@@ -286,14 +307,66 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
                 .put("name", profile.name)
                 .put("baseUrl", profile.baseUrl)
                 .put("authType", profile.authType.name)
+                .put("basicUsername", profile.basicUsername)
                 .put("mtlsEnabled", profile.mtlsEnabled)
                 .put("allowedHosts", profile.allowedHosts)
         }
-        json.put("serverUrl", profile?.baseUrl ?: "")
+        json.put("serverUrl", resolveInjectedServerUrl(profile))
         json.put("sessionId", lastSessionId)
         json.put("activeProfile", activeProfileJson)
         json.put("historyEnabled", true)
         return json.toString()
+    }
+
+    private fun resolveInjectedServerUrl(profile: ServerProfile?): String {
+        if (profile == null) return ""
+        if (profile.authType != AuthType.BASIC) {
+            return profile.baseUrl
+        }
+        val username = profile.basicUsername.trim()
+        val password = basicCredentialStore.getPassword(profile.id).orEmpty()
+        if (username.isBlank() || password.isBlank()) {
+            return profile.baseUrl
+        }
+        return try {
+            val uri = URI(profile.baseUrl)
+            URI(
+                uri.scheme,
+                "$username:$password",
+                uri.host,
+                uri.port,
+                uri.path,
+                uri.query,
+                uri.fragment
+            ).toString().trimEnd('/')
+        } catch (_: Exception) {
+            profile.baseUrl
+        }
+    }
+
+    private fun resolveTerminalProfile(): ServerProfile? {
+        val state = serverConfigState ?: serverConfigStore.loadState()
+        return state.profiles.firstOrNull { it.id == currentTerminalProfileId }
+            ?: state.profiles.firstOrNull { it.id == state.activeProfileId }
+            ?: state.profiles.firstOrNull()
+    }
+
+    private fun resolveInitialProfileId(): String {
+        val fromUri = intent?.data?.getQueryParameter("profileId")
+        if (!fromUri.isNullOrBlank()) {
+            return fromUri
+        }
+        val fromExtra = intent?.getStringExtra("profileId")
+        if (!fromExtra.isNullOrBlank()) {
+            return fromExtra
+        }
+        val fromPrefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .getString(PREF_LAST_PROFILE_ID, "")
+            .orEmpty()
+        if (fromPrefs.isNotBlank()) {
+            return fromPrefs
+        }
+        return activeProfile?.id.orEmpty()
     }
 
     private fun resolveInitialSessionId(): String {
@@ -318,12 +391,27 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             .apply()
     }
 
-    private fun openSessionInTerminal(sessionId: String) {
-        updateSessionSelection(sessionId)
+    private fun persistLastProfileId(profileId: String) {
+        currentTerminalProfileId = profileId
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .putString(PREF_LAST_PROFILE_ID, profileId)
+            .apply()
+    }
+
+    private fun openSessionInTerminal(profileId: String, sessionId: String) {
+        updateSessionSelection(profileId, sessionId)
         bottomNav?.selectedItemId = R.id.nav_terminal
     }
 
-    private fun updateSessionSelection(sessionId: String) {
+    private fun updateSessionSelection(profileId: String, sessionId: String) {
+        if (profileId.isNotBlank()) {
+            persistLastProfileId(profileId)
+            val state = serverConfigState ?: serverConfigStore.loadState()
+            if (state.activeProfileId != profileId && state.profiles.any { it.id == profileId }) {
+                syncProfileState(serverConfigStore.setActiveProfile(profileId), inject = false)
+            }
+        }
         persistLastSessionId(sessionId)
         if (currentTabTag == TAG_TERMINAL) {
             terminalWebView?.let { injectTerminalConfig(it) }
@@ -335,7 +423,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     private fun isInsecureActiveProfileTransport(): Boolean {
-        val baseUrl = activeProfile?.baseUrl?.trim()?.lowercase(Locale.ROOT).orEmpty()
+        val baseUrl = resolveTerminalProfile()?.baseUrl?.trim()?.lowercase(Locale.ROOT).orEmpty()
         return baseUrl.startsWith("http://")
     }
 
@@ -385,6 +473,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         private const val JS_BRIDGE_NAME = "TerminalEventBridge"
         private const val PREFS_NAME = "termlink_shell"
         private const val PREF_LAST_SESSION_ID = "last_session_id"
+        private const val PREF_LAST_PROFILE_ID = "last_profile_id"
         private const val TAG_SESSIONS = "sessions"
         private const val TAG_TERMINAL = "terminal"
         private const val TAG_SETTINGS = "settings"

@@ -45,6 +45,40 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
 
+        <LinearLayout
+            android:id="@+id/basic_auth_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/settings_profile_basic_username_label" />
+
+            <EditText
+                android:id="@+id/input_profile_basic_username"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/settings_profile_basic_username_hint"
+                android:inputType="textEmailAddress|textNoSuggestions" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/settings_profile_basic_password_label" />
+
+            <EditText
+                android:id="@+id/input_profile_basic_password"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/settings_profile_basic_password_hint"
+                android:inputType="textPassword" />
+        </LinearLayout>
+
         <CheckBox
             android:id="@+id/checkbox_profile_mtls"
             android:layout_width="match_parent"

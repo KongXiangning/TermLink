@@ -47,31 +47,48 @@ This project supports building a native Android app using **Capacitor**.
   - `name`
   - `baseUrl`
   - `authType` (`NONE` / `BASIC`)
+  - `basicUsername`
   - `mtlsEnabled`
   - `allowedHosts`
-- Active profile is persisted and injected into terminal config.
+- Basic password is stored in encrypted local storage (`EncryptedSharedPreferences`), not in profile JSON.
+- Internal default profile (`activeProfile`) is still persisted, but it is now auto-updated by session open/create actions and no longer a required manual step.
 - Terminal config injection priority remains:
   - Injected config (`window.__TERMLINK_CONFIG__`)
   - URL query
   - localStorage fallback
-- `serverUrl` is now injected from active profile (can be empty to allow fallback behavior).
+- `serverUrl` is injected from the currently selected terminal profile.
 
 ## Phase 5 Sessions (Current)
 
-- Sessions tab now uses native API calls for:
+- Sessions tab now uses native API calls for (per-profile execution):
   - list
   - create
   - rename
   - delete
-- Create success behavior: automatically switches to `Terminal` with the new `sessionId`.
+- Sessions view is now cross-profile aggregated (grouped by profile), so manual pre-switch of profile is no longer required.
+- Create Session now requires selecting a target profile in the dialog.
+- Create success behavior: automatically switches to `Terminal` with the target `profileId + sessionId`.
 - Auto refresh policy:
-  - visible Sessions tab polls every 10s
+  - visible Sessions tab polls every 10s (all profiles in parallel)
   - pull-to-refresh is always available
   - refresh pauses when Sessions tab is hidden
 - BasicAuth rule in native client:
-  - if profile `authType=BASIC`, `baseUrl` must include `user:pass@host`
-  - example: `https://admin:admin@example.com`
+  - if profile `authType=BASIC`, configure `basicUsername` + password in Settings
+  - `baseUrl` no longer requires `user:pass@host`
 - Native Sessions API now supports mTLS when enabled via `TERMLINK_MTLS_*`, with host allowlist checks matching WebView mTLS behavior.
+
+## Phase 8 Credentials + Aggregated Sessions (Current)
+
+- BASIC auth now has dedicated username/password inputs in Settings.
+- Legacy BASIC URLs with `user:pass@host` are auto-migrated:
+  - username moved into profile field
+  - password moved into encrypted credential store
+  - `baseUrl` sanitized to host form without userinfo
+- Web terminal injection no longer persists BASIC credentials to WebView localStorage:
+  - injected URL with credentials is used in-memory only
+  - persisted server records are sanitized to credential-free URL
+- Opening a session from any profile automatically updates internal default profile for terminal injection and mTLS strategy.
+- Note: `ServerConfigStore.loadState()` intentionally has migration side effects (legacy BASIC credential migration + baseUrl sanitize) by design.
 
 ## Phase 6 Security & Stability (Current)
 

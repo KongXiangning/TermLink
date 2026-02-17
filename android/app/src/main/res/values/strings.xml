@@ -8,14 +8,20 @@
     <string name="tab_terminal">Terminal</string>
     <string name="tab_settings">Settings</string>
     <string name="sessions_title">Sessions</string>
-    <string name="sessions_profile_none">No active profile selected</string>
-    <string name="sessions_profile_active">Active profile: %1$s (%2$s)</string>
+    <string name="sessions_profile_none">No profiles configured.</string>
+    <string name="sessions_profile_active">Profiles loaded: %1$d | Current: %2$s</string>
     <string name="sessions_profile_url_empty">baseUrl empty</string>
     <string name="sessions_create_button">Create Session</string>
     <string name="sessions_empty">No sessions found.</string>
     <string name="sessions_error_template">[%1$s] %2$s</string>
     <string name="sessions_error_no_active_profile">No active profile configured.</string>
     <string name="sessions_error_empty_base_url">Active profile baseUrl is empty.</string>
+    <string name="sessions_error_all_profiles_unavailable">No profiles available for sessions.</string>
+    <string name="sessions_group_error">[%1$s] %2$s</string>
+    <string name="sessions_group_empty">No sessions under this profile.</string>
+    <string name="sessions_group_header">%1$s (%2$s)</string>
+    <string name="sessions_create_profile_label">Target Profile</string>
+    <string name="sessions_create_profile_required">Please select a profile.</string>
     <string name="sessions_name_invalid">Name is required (1..64 chars).</string>
     <string name="sessions_name_label">Session Name</string>
     <string name="sessions_name_hint">e.g. Build Debug</string>
@@ -27,6 +33,7 @@
     <string name="sessions_rename">Rename</string>
     <string name="sessions_delete">Delete</string>
     <string name="sessions_item_name_selected">%1$s (Selected)</string>
+    <string name="sessions_item_profile">Profile: %1$s</string>
     <string name="sessions_item_meta">Status=%1$s | Conn=%2$d | Active %3$s</string>
     <string name="sessions_time_unknown">unknown</string>
     <string name="sessions_time_just_now">just now</string>
@@ -53,21 +60,27 @@
     <string name="settings_add_profile">Add Profile</string>
     <string name="settings_edit_profile">Edit</string>
     <string name="settings_delete_profile">Delete</string>
-    <string name="settings_set_active">Set Active</string>
     <string name="settings_profiles_empty">No profiles configured.</string>
-    <string name="settings_profile_name_active">%1$s (Active)</string>
+    <string name="settings_profile_name_active">%1$s (Default)</string>
     <string name="settings_profile_url_empty">(empty, will fallback in terminal)</string>
-    <string name="settings_profile_meta">Auth=%1$s | mTLS=%2$s | hosts=%3$s</string>
+    <string name="settings_profile_meta">Auth=%1$s | User=%2$s | mTLS=%3$s | hosts=%4$s</string>
+    <string name="settings_profile_basic_username_meta">%1$s</string>
     <string name="settings_profile_name_label">Profile Name</string>
     <string name="settings_profile_name_hint">e.g. Home Server</string>
     <string name="settings_profile_url_label">Base URL</string>
     <string name="settings_profile_url_hint">https://example.com</string>
     <string name="settings_profile_auth_type_label">Auth Type</string>
+    <string name="settings_profile_basic_username_label">Basic Username</string>
+    <string name="settings_profile_basic_username_hint">e.g. admin</string>
+    <string name="settings_profile_basic_password_label">Basic Password</string>
+    <string name="settings_profile_basic_password_hint">Input password (stored encrypted)</string>
     <string name="settings_profile_mtls_enabled">Enable mTLS for this profile</string>
     <string name="settings_profile_allowed_hosts_label">Allowed Hosts (comma separated)</string>
     <string name="settings_profile_allowed_hosts_hint">code.kongxn.com,192.168.50.3</string>
     <string name="settings_name_invalid">Name is required (1..64 chars).</string>
     <string name="settings_base_url_invalid">Base URL must be http:// or https://</string>
+    <string name="settings_basic_username_required">Basic username is required.</string>
+    <string name="settings_basic_password_required">Basic password is required.</string>
     <string name="settings_delete_profile_confirm">Delete profile \"%1$s\"?</string>
     <string name="settings_mtls_status_placeholder">mTLS status loading...</string>
     <string name="settings_mtls_status_enabled">mTLS build: ENABLED (asset=%1$s, hosts=%2$s)</string>

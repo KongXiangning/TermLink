@@ -14,6 +14,7 @@ import java.net.URL
 class SessionApiClient(context: Context) {
 
     private val mtlsHttpSupport = MtlsHttpSupport(context.applicationContext)
+    private val basicCredentialStore = BasicCredentialStore(context.applicationContext)
 
     fun listSessions(profile: ServerProfile): ApiResult<List<SessionSummary>> {
         val response = request(
@@ -276,17 +277,18 @@ class SessionApiClient(context: Context) {
         val authorizationHeader = when (profile.authType) {
             AuthType.NONE -> null
             AuthType.BASIC -> {
-                val userInfo = uri.userInfo?.trim().orEmpty()
-                if (userInfo.isBlank() || !userInfo.contains(":")) {
+                val username = profile.basicUsername.trim()
+                val password = basicCredentialStore.getPassword(profile.id).orEmpty()
+                if (username.isBlank() || password.isBlank()) {
                     return ApiResult.Failure(
                         SessionApiError(
                             code = SessionApiErrorCode.AUTH_MISSING_CREDENTIALS,
-                            message = "Basic auth requires user:pass in baseUrl (e.g. https://user:pass@host)."
+                            message = "Basic auth requires username/password in Settings for this profile."
                         )
                     )
                 }
                 val encoded = Base64.encodeToString(
-                    userInfo.toByteArray(Charsets.UTF_8),
+                    "$username:$password".toByteArray(Charsets.UTF_8),
                     Base64.NO_WRAP
                 )
                 "Basic $encoded"
