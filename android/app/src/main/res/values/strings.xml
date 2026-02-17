@@ -37,10 +37,19 @@
     <string name="terminal_state_idle">Terminal: idle</string>
     <string name="terminal_state_connecting">Terminal: connecting...</string>
     <string name="terminal_state_connected">Terminal: connected</string>
+    <string name="terminal_state_connected_insecure">Terminal: connected (insecure transport)</string>
     <string name="terminal_state_reconnecting">Terminal: reconnecting...</string>
     <string name="terminal_state_error">Terminal: error (%1$s)</string>
     <string name="terminal_state_unknown">Terminal: %1$s</string>
     <string name="terminal_error_toast">Terminal error: %1$s</string>
+    <string name="terminal_error_no_active_server">No active server configured.</string>
+    <string name="terminal_error_invalid_ws_url">Invalid websocket URL.</string>
+    <string name="terminal_error_ws_construction">Failed to create websocket connection.</string>
+    <string name="terminal_error_ws_closed">Connection closed by remote endpoint.</string>
+    <string name="terminal_error_ws_transport">Websocket transport error.</string>
+    <string name="terminal_error_mtls_host_not_allowed">mTLS host is not allowed.</string>
+    <string name="terminal_error_mtls_credentials">Failed to load mTLS credentials.</string>
+    <string name="terminal_error_mtls_apply">Failed to apply mTLS credentials.</string>
     <string name="settings_profiles_title">Server Profiles</string>
     <string name="settings_add_profile">Add Profile</string>
     <string name="settings_edit_profile">Edit</string>
@@ -65,4 +74,5 @@
     <string name="settings_mtls_status_enabled">mTLS build: ENABLED (asset=%1$s, hosts=%2$s)</string>
     <string name="settings_mtls_status_disabled">mTLS build: DISABLED</string>
     <string name="settings_mtls_any_hosts">*</string>
+    <string name="settings_insecure_transport_warning">Warning: active profile uses insecure transport: %1$s</string>
 </resources>

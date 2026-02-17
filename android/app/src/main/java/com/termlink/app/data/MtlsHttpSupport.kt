@@ -6,7 +6,6 @@ import com.termlink.app.BuildConfig
 import java.net.HttpURLConnection
 import java.security.KeyStore
 import java.security.SecureRandom
-import java.util.Locale
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
@@ -14,14 +13,14 @@ import javax.net.ssl.SSLSocketFactory
 
 class MtlsHttpSupport(private val appContext: Context) {
 
-    private val allowedHosts: Set<String> = parseAllowedHosts(BuildConfig.MTLS_ALLOWED_HOSTS)
     private val credentialLock = Any()
 
     @Volatile
     private var socketFactory: SSLSocketFactory? = null
 
-    fun applyIfNeeded(connection: HttpURLConnection): ApiResult<Unit> {
-        if (!BuildConfig.MTLS_ENABLED) {
+    fun applyIfNeeded(connection: HttpURLConnection, profile: ServerProfile?): ApiResult<Unit> {
+        val policy = MtlsPolicyResolver.resolve(profile)
+        if (!policy.effectiveEnabled) {
             return ApiResult.Success(Unit)
         }
 
@@ -30,7 +29,7 @@ class MtlsHttpSupport(private val appContext: Context) {
         }
 
         val host = connection.url.host.orEmpty()
-        if (!isAllowedHost(host)) {
+        if (!MtlsPolicyResolver.isHostAllowed(host, policy.effectiveAllowedHosts)) {
             return ApiResult.Failure(
                 SessionApiError(
                     code = SessionApiErrorCode.MTLS_HOST_NOT_ALLOWED,
@@ -96,24 +95,6 @@ class MtlsHttpSupport(private val appContext: Context) {
         }
 
         return socketFactory
-    }
-
-    private fun parseAllowedHosts(rawHosts: String?): Set<String> {
-        if (rawHosts.isNullOrBlank()) {
-            return emptySet()
-        }
-        return rawHosts
-            .split(",")
-            .map { it.trim().lowercase(Locale.ROOT) }
-            .filter { it.isNotEmpty() }
-            .toSet()
-    }
-
-    private fun isAllowedHost(host: String): Boolean {
-        if (allowedHosts.isEmpty()) {
-            return true
-        }
-        return allowedHosts.contains(host.lowercase(Locale.ROOT))
     }
 
     companion object {

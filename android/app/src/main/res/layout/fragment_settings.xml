@@ -21,6 +21,15 @@
         android:text="@string/settings_mtls_status_placeholder"
         android:textSize="13sp" />
 
+    <TextView
+        android:id="@+id/settings_insecure_transport_warning"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textColor="#C62828"
+        android:textSize="12sp"
+        android:visibility="gone" />
+
     <Button
         android:id="@+id/btn_add_profile"
         android:layout_width="match_parent"

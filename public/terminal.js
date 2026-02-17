@@ -567,6 +567,36 @@ function getBaseUrl() {
     return active ? active.url : null;
 }
 
+function buildWsUrl(baseUrl, targetSessionId) {
+    const normalizedBaseUrl = normalizeServerUrl(baseUrl);
+    if (!normalizedBaseUrl) {
+        throw new Error('Missing base URL');
+    }
+
+    let parsed;
+    try {
+        parsed = new URL(normalizedBaseUrl);
+    } catch (error) {
+        throw new Error('Invalid base URL');
+    }
+
+    if (parsed.protocol === 'http:') {
+        parsed.protocol = 'ws:';
+    } else if (parsed.protocol === 'https:') {
+        parsed.protocol = 'wss:';
+    } else {
+        throw new Error(`Unsupported URL protocol: ${parsed.protocol}`);
+    }
+
+    if (targetSessionId && String(targetSessionId).trim()) {
+        parsed.searchParams.set('sessionId', String(targetSessionId).trim());
+    } else {
+        parsed.searchParams.delete('sessionId');
+    }
+
+    return parsed.toString();
+}
+
 // --- Helpers ---
 const connectionOverlay = document.getElementById('connection-overlay');
 const serverUrlInput = document.getElementById('server-url-input');
@@ -616,32 +646,28 @@ function connect() {
     }
 
     const hostUrl = activeServer.url;
-
-    isConnecting = true;
-    const connectingMessage = `Connecting to ${activeServer.name}...`;
-    showStatus(connectingMessage);
-    notifyNativeConnectionState('connecting', connectingMessage);
-
-    let wsUrl = hostUrl.replace(/^http/i, 'ws'); // http->ws, https->wss
-    if (sessionId) {
-        wsUrl += `?sessionId=${encodeURIComponent(sessionId)}`;
-    }
-
-    // URL Construction Verification
-    if (wsUrl.startsWith('ws://') === false && wsUrl.startsWith('wss://') === false) {
-        alert('Internal Error: Invalid WS URL: ' + wsUrl);
+    let wsUrl;
+    try {
+        wsUrl = buildWsUrl(hostUrl, sessionId);
+    } catch (error) {
         isConnecting = false;
-        notifyNativeConnectionState('error', 'Invalid websocket URL');
-        notifyNativeError('INVALID_WS_URL', wsUrl);
+        const detail = error && error.message ? error.message : 'Invalid websocket URL';
+        notifyNativeConnectionState('error', detail);
+        notifyNativeError('INVALID_WS_URL', `${hostUrl || ''} (${detail})`);
         showConnectionSettings();
         return;
     }
+    const transportLabel = wsUrl.startsWith('wss://') ? 'wss' : 'ws';
+
+    isConnecting = true;
+    const connectingMessage = `Connecting to ${activeServer.name} (${transportLabel})...`;
+    showStatus(connectingMessage);
+    notifyNativeConnectionState('connecting', connectingMessage);
 
     try {
         ws = new WebSocket(wsUrl);
     } catch (e) {
         console.error("URL Error", e);
-        alert("WebSocket Construction Error: " + e.message); // DEBUG
         isConnecting = false;
         notifyNativeConnectionState('error', 'WebSocket construction failed');
         notifyNativeError('WS_CONSTRUCTION_ERROR', e.message || 'unknown');
@@ -657,7 +683,7 @@ function connect() {
         fitAddon.fit();
         sendResize();
         reconnectInterval = 1000;
-        notifyNativeConnectionState('connected', `Connected to ${activeServer.name}`);
+        notifyNativeConnectionState('connected', `Connected to ${activeServer.name} via ${transportLabel}`);
         loadSessions(); // Refresh list on connect
     };
 
@@ -698,12 +724,11 @@ function connect() {
 
     ws.onclose = (event) => {
         isConnecting = false;
-        // alert(`WS Closed: Code=${event.code}, Reason=${event.reason || 'None'}`); // DEBUG
         if (retryCount >= MAX_RETRIES) {
             showStatus('Connection failed.');
-            notifyNativeConnectionState('error', `Closed code=${event.code}`);
-            notifyNativeError('WS_CLOSED', `code=${event.code} reason=${event.reason || ''}`);
-            alert(`Connection Failed to ${wsUrl}\nCode: ${event.code}`); // DEBUG
+            const closeDetail = `code=${event.code} reason=${event.reason || 'none'}`;
+            notifyNativeConnectionState('error', `Connection closed (${closeDetail})`);
+            notifyNativeError('WS_CLOSED', closeDetail);
             showConnectionSettings();
         } else {
             showStatus('Disconnected. Reconnecting...');
@@ -719,9 +744,7 @@ function connect() {
 
     ws.onerror = (err) => {
         console.error('WebSocket error:', err);
-        notifyNativeError('WS_ERROR', 'WebSocket transport error');
-        // alert("WebSocket Error (Check console if possible)"); // DEBUG
-        // ws.close() will trigger onclose
+        notifyNativeError('WS_ERROR', `WebSocket transport error to ${activeServer.name}`);
     };
 }
 

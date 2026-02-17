@@ -36,6 +36,9 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var activeProfile: ServerProfile? = null
     private var lastSessionId: String = ""
     private var currentTabTag: String? = null
+    private var lastConnectionState: String = "idle"
+    private var lastToastSignature: String = ""
+    private var lastToastAtMs: Long = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -94,7 +97,17 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         }
         terminalEventBridge = TerminalEventBridge(this)
         webView.addJavascriptInterface(terminalEventBridge, JS_BRIDGE_NAME)
-        webView.webViewClient = object : MtlsWebViewClient(applicationContext) {
+        webView.webViewClient = object : MtlsWebViewClient(
+            appContext = applicationContext,
+            profileProvider = { activeProfile },
+            eventListener = object : MtlsWebViewClient.MtlsEventListener {
+                override fun onMtlsError(code: String, message: String) {
+                    runOnUiThread {
+                        handleTerminalError(code, message)
+                    }
+                }
+            }
+        ) {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 if (view != null) {
@@ -173,9 +186,14 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     override fun onConnectionState(state: String, detail: String?) {
         val normalizedState = state.lowercase(Locale.ROOT)
+        lastConnectionState = normalizedState
         val statusText = when (normalizedState) {
             "connecting" -> getString(R.string.terminal_state_connecting)
-            "connected" -> getString(R.string.terminal_state_connected)
+            "connected" -> if (isInsecureActiveProfileTransport()) {
+                getString(R.string.terminal_state_connected_insecure)
+            } else {
+                getString(R.string.terminal_state_connected)
+            }
             "reconnecting" -> getString(R.string.terminal_state_reconnecting)
             "error" -> getString(R.string.terminal_state_error, detail ?: "")
             else -> getString(R.string.terminal_state_unknown, state)
@@ -185,10 +203,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     override fun onTerminalError(code: String, message: String?) {
-        val detail = if (message.isNullOrBlank()) code else "$code: $message"
-        updateStatus(getString(R.string.terminal_state_error, detail))
-        Toast.makeText(this, getString(R.string.terminal_error_toast, detail), Toast.LENGTH_SHORT).show()
-        Log.e(TAG, "Terminal error $detail")
+        handleTerminalError(code, message)
     }
 
     override fun onSessionInfo(sessionId: String, name: String?) {
@@ -317,6 +332,52 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     private fun updateStatus(text: String) {
         statusTextView?.text = text
+    }
+
+    private fun isInsecureActiveProfileTransport(): Boolean {
+        val baseUrl = activeProfile?.baseUrl?.trim()?.lowercase(Locale.ROOT).orEmpty()
+        return baseUrl.startsWith("http://")
+    }
+
+    private fun handleTerminalError(code: String, message: String?) {
+        val resolvedCode = code.trim().uppercase(Locale.ROOT).ifBlank { "UNKNOWN" }
+        val readable = mapTerminalErrorMessage(resolvedCode, message)
+        updateStatus(getString(R.string.terminal_state_error, readable))
+        if (shouldShowErrorToast(resolvedCode, readable)) {
+            Toast.makeText(this, getString(R.string.terminal_error_toast, readable), Toast.LENGTH_SHORT).show()
+        }
+        Log.e(TAG, "Terminal error [$resolvedCode] ${message.orEmpty()}")
+    }
+
+    private fun shouldShowErrorToast(code: String, detail: String): Boolean {
+        if (code == "WS_ERROR" && lastConnectionState == "reconnecting") {
+            return false
+        }
+        val now = System.currentTimeMillis()
+        val signature = "$code|$detail"
+        if (signature == lastToastSignature && (now - lastToastAtMs) < 4000L) {
+            return false
+        }
+        lastToastSignature = signature
+        lastToastAtMs = now
+        return true
+    }
+
+    private fun mapTerminalErrorMessage(code: String, message: String?): String {
+        return when (code) {
+            "NO_ACTIVE_SERVER" -> getString(R.string.terminal_error_no_active_server)
+            "INVALID_WS_URL" -> getString(R.string.terminal_error_invalid_ws_url)
+            "WS_CONSTRUCTION_ERROR" -> getString(R.string.terminal_error_ws_construction)
+            "WS_CLOSED" -> getString(R.string.terminal_error_ws_closed)
+            "WS_ERROR" -> getString(R.string.terminal_error_ws_transport)
+            "MTLS_HOST_NOT_ALLOWED" -> getString(R.string.terminal_error_mtls_host_not_allowed)
+            "MTLS_CREDENTIAL_LOAD_FAILED" -> getString(R.string.terminal_error_mtls_credentials)
+            "MTLS_APPLY_FAILED" -> getString(R.string.terminal_error_mtls_apply)
+            else -> {
+                val suffix = message?.trim().orEmpty()
+                if (suffix.isBlank()) code else "$code: $suffix"
+            }
+        }
     }
 
     companion object {

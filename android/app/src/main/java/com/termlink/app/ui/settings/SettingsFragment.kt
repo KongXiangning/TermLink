@@ -34,6 +34,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
     private var currentState: ServerConfigState? = null
     private lateinit var profilesContainer: LinearLayout
     private lateinit var mtlsStatusText: TextView
+    private lateinit var insecureTransportWarningText: TextView
 
     override fun onAttach(context: android.content.Context) {
         super.onAttach(context)
@@ -50,6 +51,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         super.onViewCreated(view, savedInstanceState)
         profilesContainer = view.findViewById(R.id.profiles_container)
         mtlsStatusText = view.findViewById(R.id.settings_mtls_status)
+        insecureTransportWarningText = view.findViewById(R.id.settings_insecure_transport_warning)
         view.findViewById<Button>(R.id.btn_add_profile).setOnClickListener {
             showProfileDialog(null)
         }
@@ -65,6 +67,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
 
     private fun renderState(state: ServerConfigState) {
         currentState = state
+        renderInsecureTransportWarning(state)
         renderProfiles(state)
     }
 
@@ -133,6 +136,25 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
             }
 
             profilesContainer.addView(itemView)
+        }
+    }
+
+    private fun renderInsecureTransportWarning(state: ServerConfigState) {
+        val active = state.profiles.firstOrNull { it.id == state.activeProfileId }
+        if (active == null) {
+            insecureTransportWarningText.visibility = View.GONE
+            return
+        }
+
+        val normalized = active.baseUrl.trim().lowercase(Locale.ROOT)
+        if (normalized.startsWith("http://")) {
+            insecureTransportWarningText.visibility = View.VISIBLE
+            insecureTransportWarningText.text = getString(
+                R.string.settings_insecure_transport_warning,
+                active.baseUrl
+            )
+        } else {
+            insecureTransportWarningText.visibility = View.GONE
         }
     }
 

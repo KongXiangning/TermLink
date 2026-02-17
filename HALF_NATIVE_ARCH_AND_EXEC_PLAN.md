@@ -330,24 +330,19 @@ src/
 
 ---
 
-## Phase 6 - 安全与连接稳定性（2-3 天）
+## Phase 6 - 安全与连接稳定性（已实现）
 
-### T06-1 mTLS 流程固化
-1. 检查并完善 `MtlsWebViewClient` 的异常日志与 host 过滤。
-2. 迁移期校验 `MtlsBridgeWebViewClient` 与 `MtlsWebViewClient` 行为一致，避免双实现分叉。
-3. 当证书缺失时提供 UI 级错误提示（不是静默失败）。
-
-### T06-2 HTTPS/WSS 统一
-1. Settings 校验 URL scheme。
-2. ws 地址生成逻辑统一到一个函数并覆盖测试。
-
-### T06-3 连接观测
-1. 新增连接状态栏：`connecting/connected/reconnecting/error`。
-2. 将关键错误映射到可读提示。
+当前落地策略（锁定）：
+1. `http/ws` 保持可用，不做保存/连接拦截；UI 仅做非阻断风险提示。
+2. mTLS 采用双重控制：`BuildConfig.MTLS_ENABLED && activeProfile.mtlsEnabled`。
+3. mTLS host 规则：优先使用 profile 的 `allowedHosts`，为空时回退 `BuildConfig.MTLS_ALLOWED_HOSTS`。
+4. `terminal.js` 连接链路移除连接类 `alert()`，统一走状态栏 + `TerminalEventBridge` 错误上报 + 日志。
+5. ws 地址生成统一收敛到单函数（`http->ws`, `https->wss`），减少散落拼接差异。
+6. `MainActivity`/`MtlsBridgeWebViewClient` 继续保留到 Phase 7，不在本阶段删除。
 
 验收：
-1. mTLS 环境可稳定连接。
-2. 网络波动后可自动重连并恢复。
+1. mTLS 环境可稳定连接（WebView + Native Session API）。
+2. 网络波动后可自动重连并恢复，重连过程中无阻断弹窗。
 
 ---
 

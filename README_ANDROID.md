@@ -74,6 +74,18 @@ This project supports building a native Android app using **Capacitor**.
   - example: `https://admin:admin@example.com`
 - Native Sessions API now supports mTLS when enabled via `TERMLINK_MTLS_*`, with host allowlist checks matching WebView mTLS behavior.
 
+## Phase 6 Security & Stability (Current)
+
+- mTLS now uses dual control:
+  - build capability: `TERMLINK_MTLS_ENABLED` -> `BuildConfig.MTLS_ENABLED`
+  - runtime profile switch: `activeProfile.mtlsEnabled`
+- Effective mTLS host allowlist resolution:
+  - use `activeProfile.allowedHosts` first
+  - fallback to `TERMLINK_MTLS_ALLOWED_HOSTS` when profile hosts are empty
+- `http/ws` remains allowed in this phase (for development/internal networks), but the app surfaces non-blocking insecure transport warnings.
+- Terminal WebSocket URL generation is unified in one function (`http->ws`, `https->wss`).
+- Connection-related `alert()` popups were removed from `terminal.js`; connection failures now rely on status bar, bridge error events, and logs.
+
 ## Configuration (Crucial!)
 
 Since TermLink is a client-server application, the Android app needs to know **where your server is running**.

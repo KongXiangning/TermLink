@@ -168,7 +168,7 @@ class SessionApiClient(context: Context) {
             connection.setRequestProperty("Content-Type", "application/json")
         }
 
-        when (val mtlsResult = mtlsHttpSupport.applyIfNeeded(connection)) {
+        when (val mtlsResult = mtlsHttpSupport.applyIfNeeded(connection, profile)) {
             is ApiResult.Failure -> {
                 connection.disconnect()
                 return mtlsResult

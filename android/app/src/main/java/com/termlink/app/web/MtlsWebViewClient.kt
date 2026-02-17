@@ -6,14 +6,18 @@ import android.webkit.ClientCertRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.termlink.app.BuildConfig
+import com.termlink.app.data.MtlsPolicyResolver
+import com.termlink.app.data.ServerProfile
 import java.security.KeyStore
 import java.security.PrivateKey
 import java.security.cert.X509Certificate
-import java.util.Locale
 
-open class MtlsWebViewClient(private val appContext: Context) : WebViewClient() {
+open class MtlsWebViewClient(
+    private val appContext: Context,
+    private val profileProvider: (() -> ServerProfile?)? = null,
+    private val eventListener: MtlsEventListener? = null
+) : WebViewClient() {
 
-    private val allowedHosts: Set<String> = parseAllowedHosts(BuildConfig.MTLS_ALLOWED_HOSTS)
     private val credentialLock = Any()
 
     @Volatile
@@ -22,19 +26,31 @@ open class MtlsWebViewClient(private val appContext: Context) : WebViewClient() 
     @Volatile
     private var certChain: Array<X509Certificate>? = null
 
+    interface MtlsEventListener {
+        fun onMtlsError(code: String, message: String)
+    }
+
     override fun onReceivedClientCertRequest(view: WebView, request: ClientCertRequest) {
-        if (!BuildConfig.MTLS_ENABLED) {
+        val policy = MtlsPolicyResolver.resolve(profileProvider?.invoke())
+        if (!policy.effectiveEnabled) {
             request.ignore()
             return
         }
 
-        if (!isAllowedHost(request.host)) {
-            request.ignore()
+        if (!MtlsPolicyResolver.isHostAllowed(request.host, policy.effectiveAllowedHosts)) {
+            notifyMtlsError(
+                code = "MTLS_HOST_NOT_ALLOWED",
+                message = "Client cert rejected: host '${request.host}' is not allowed."
+            )
+            request.cancel()
             return
         }
 
         if (!ensureCredentialsLoaded()) {
-            Log.e(TAG, "mTLS client credentials are not available.")
+            notifyMtlsError(
+                code = "MTLS_CREDENTIAL_LOAD_FAILED",
+                message = "mTLS client credentials are not available."
+            )
             request.cancel()
             return
         }
@@ -112,26 +128,9 @@ open class MtlsWebViewClient(private val appContext: Context) : WebViewClient() 
         return null
     }
 
-    private fun parseAllowedHosts(rawHosts: String?): Set<String> {
-        if (rawHosts.isNullOrBlank()) {
-            return emptySet()
-        }
-
-        return rawHosts
-            .split(",")
-            .map { it.trim().lowercase(Locale.ROOT) }
-            .filter { it.isNotEmpty() }
-            .toSet()
-    }
-
-    private fun isAllowedHost(host: String?): Boolean {
-        if (allowedHosts.isEmpty()) {
-            return true
-        }
-        if (host.isNullOrBlank()) {
-            return false
-        }
-        return allowedHosts.contains(host.lowercase(Locale.ROOT))
+    private fun notifyMtlsError(code: String, message: String) {
+        Log.e(TAG, "[$code] $message")
+        eventListener?.onMtlsError(code, message)
     }
 
     companion object {
