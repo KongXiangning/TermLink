@@ -19,7 +19,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
-import com.google.android.material.button.MaterialButton
 import com.termlink.app.data.BasicCredentialStore
 import com.termlink.app.data.ServerConfigState
 import com.termlink.app.data.ServerConfigStore
@@ -48,7 +47,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var topBarView: View? = null
     private var fragmentContainerView: View? = null
     private var drawerLayout: DrawerLayout? = null
-    private var sessionsDrawerButton: MaterialButton? = null
+    private var sessionsDrawerButton: ImageButton? = null
     private var backButton: ImageButton? = null
     private var settingsButton: ImageButton? = null
     private lateinit var terminalEventBridge: TerminalEventBridge
@@ -615,7 +614,6 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         backButton?.visibility = View.GONE
         sessionsDrawerButton?.visibility = if (isTerminalChromeCompact) View.GONE else View.VISIBLE
         settingsButton?.visibility = View.VISIBLE
-        sessionsDrawerButton?.text = getString(R.string.sessions_panel_button)
         sessionsDrawerButton?.contentDescription = getString(R.string.sessions_panel_button)
         statusTextView?.text = terminalStatusText
     }
