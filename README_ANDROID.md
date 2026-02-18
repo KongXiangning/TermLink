@@ -33,8 +33,8 @@ This project supports building a native Android app using **Capacitor**.
   - `Sessions` (native CRUD + refresh)
   - `Terminal` (real terminal WebView host)
   - `Settings` (native profile manager)
-- Terminal rendering now uses `public/terminal.html` via `file:///android_asset/public/terminal.html`.
-- `public/index.html` is now a compatibility redirect entry that forwards to `terminal.html` and preserves `query/hash`.
+- Android terminal rendering now uses `public/terminal_client.html` via `file:///android_asset/public/terminal_client.html` (client-only pure terminal page).
+- Browser entry remains `public/terminal.html`; `public/index.html` remains a compatibility redirect entry that forwards to `terminal.html` and preserves `query/hash`.
 - A single WebView instance is cached at Activity level and re-attached by `TerminalFragment` to preserve terminal state across tab switches.
 - Web -> Native status callbacks are handled through `TerminalEventBridge` (`onConnectionState`, `onTerminalError`, `onSessionInfo`).
 - Terminal output history is cached in `sessionStorage` by key `termLinkHistory:<sessionId|default>` and enabled by default.
@@ -77,6 +77,16 @@ This project supports building a native Android app using **Capacitor**.
   - `baseUrl` no longer requires `user:pass@host`
 - Native Sessions API now supports mTLS when enabled via `TERMLINK_MTLS_*`, with host allowlist checks matching WebView mTLS behavior.
 
+### Sessions 401 Troubleshooting
+
+- If Terminal still shows output but Sessions shows `[AUTH_FAILED] HTTP 401`, the profile BASIC credentials used by `/api/sessions` are incorrect or missing.
+- Fix path:
+  1. `Settings`
+  2. `Edit` target profile
+  3. set `Auth Type = BASIC`
+  4. update `Basic Username` and `Basic Password`
+- App behavior now preserves current terminal selection when Sessions fetch fails (for example 401), so switching `Sessions -> Terminal` will not clear session context.
+
 ## Phase 8 Credentials + Aggregated Sessions (Current)
 
 - BASIC auth now has dedicated username/password inputs in Settings.
@@ -108,10 +118,12 @@ This project supports building a native Android app using **Capacitor**.
   - `MainActivity` deleted
   - `MtlsBridgeWebViewClient` deleted
   - `AndroidManifest.xml` keeps only `MainShellActivity` app entry
-- `public/terminal.html` is the only maintained terminal UI page.
+- Android-maintained terminal UI page is `public/terminal_client.html` (client-only).
+- Browser-maintained terminal UI page remains `public/terminal.html`.
 - `public/index.html` remains only as compatibility redirect.
 - Non-fatal frontend errors use non-blocking notices (status/console) instead of blocking `alert()` popups.
 - Settings now warns when active profile `baseUrl` is empty and when using insecure `http://` transport.
+- Terminal config injection is deduplicated by config signature; tab switching alone does not force reconnect unless profile/session actually changed.
 - Phase 7 deliverable is `debug APK` only (no release signing pipeline in this phase).
 
 ## Configuration (Crucial!)

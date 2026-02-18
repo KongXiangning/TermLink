@@ -56,10 +56,11 @@ object MtlsPolicyResolver {
         if (allowedHosts.isEmpty()) {
             return true
         }
-        if (host.isNullOrBlank()) {
+        val normalizedHost = normalizeHostToken(host)
+        if (normalizedHost.isBlank()) {
             return false
         }
-        return allowedHosts.contains(host.lowercase(Locale.ROOT))
+        return allowedHosts.contains(normalizedHost)
     }
 
     fun parseAllowedHosts(rawHosts: String?): Set<String> {
@@ -68,9 +69,29 @@ object MtlsPolicyResolver {
         }
         return rawHosts
             .split(",")
-            .map { it.trim().lowercase(Locale.ROOT) }
+            .map { normalizeHostToken(it) }
             .filter { it.isNotEmpty() }
             .toSet()
+    }
+
+    private fun normalizeHostToken(raw: String?): String {
+        if (raw.isNullOrBlank()) return ""
+        var token = raw.trim().lowercase(Locale.ROOT)
+        if (token.contains("://")) {
+            token = token.substringAfter("://")
+        }
+        token = token.substringBefore("/")
+
+        // IPv6 literal with brackets, optional port: [::1]:442
+        if (token.startsWith("[") && token.contains("]")) {
+            return token.substringAfter("[").substringBefore("]")
+        }
+
+        // host:port -> host
+        if (token.count { it == ':' } == 1) {
+            token = token.substringBefore(":")
+        }
+        return token.trim()
     }
 
     private fun resolveAllowedHostsRaw(profile: ServerProfile?): String {

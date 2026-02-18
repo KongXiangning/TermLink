@@ -37,6 +37,23 @@
 - `AUTH_PASS`: BasicAuth 密码（默认 `admin`，生产必须修改）。
 - `SESSION_PERSIST_ENABLED`: 是否启用 session 元数据持久化（默认 `true`）。
 - `SESSION_PERSIST_PATH`: session 持久化文件路径（默认 `./data/sessions.json`）。
+- `PTY_SHELL`: 强制指定 PTY 启动 shell（跨平台最高优先级）。
+- `PTY_WINDOWS_SHELL`: 仅 Windows 生效的 shell（如 `pwsh.exe`）。
+- `PTY_UNIX_SHELL`: 仅 Linux/WSL 生效的 shell（如 `/usr/bin/zsh`）。
+- `PTY_SHELL_ARGS`: 启动 shell 参数（空格分隔，如 `-l`）。
+
+## 终端默认 Shell 说明（Windows / WSL）
+
+当前服务端策略：
+- Windows：优先 `PTY_SHELL` -> `PTY_WINDOWS_SHELL` -> 自动探测 `pwsh` -> 回退 `powershell.exe`。
+- Linux/WSL：优先 `PTY_SHELL` -> `PTY_UNIX_SHELL` -> `/etc/passwd` 登录 shell -> `SHELL` -> 回退 `bash`。
+
+建议配置示例：
+- Windows（强制 PowerShell 7）：
+  - `.env` 中设置 `PTY_WINDOWS_SHELL=pwsh.exe`
+- WSL（强制 zsh）：
+  - `.env` 中设置 `PTY_UNIX_SHELL=/usr/bin/zsh`
+  - 如需登录模式可再加 `PTY_SHELL_ARGS=-l`
 
 ## Session 持久化目录
 

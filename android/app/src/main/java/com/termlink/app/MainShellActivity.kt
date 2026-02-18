@@ -1,21 +1,29 @@
 package com.termlink.app
 
 import android.os.Bundle
+import android.text.TextUtils
 import android.util.Log
+import android.util.TypedValue
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebSettings
 import android.webkit.WebView
+import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.Insets
+import androidx.core.view.GravityCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
-import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.google.android.material.button.MaterialButton
+import com.termlink.app.data.BasicCredentialStore
 import com.termlink.app.data.ServerConfigState
 import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
-import com.termlink.app.data.BasicCredentialStore
-import com.termlink.app.data.AuthType
 import com.termlink.app.data.SessionSelection
 import com.termlink.app.ui.sessions.SessionsFragment
 import com.termlink.app.ui.settings.SettingsFragment
@@ -24,16 +32,25 @@ import com.termlink.app.web.MtlsWebViewClient
 import com.termlink.app.web.TerminalEventBridge
 import com.termlink.app.web.TerminalWebViewHost
 import org.json.JSONObject
-import java.net.URI
 import java.util.Locale
 
 class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEventBridge.Listener,
     SettingsFragment.Callbacks, SessionsFragment.Callbacks {
 
+    private enum class ScreenMode {
+        TERMINAL,
+        SETTINGS
+    }
+
     private var terminalWebView: WebView? = null
     private var terminalPageLoaded = false
     private var statusTextView: TextView? = null
-    private var bottomNav: BottomNavigationView? = null
+    private var topBarView: View? = null
+    private var fragmentContainerView: View? = null
+    private var drawerLayout: DrawerLayout? = null
+    private var sessionsDrawerButton: MaterialButton? = null
+    private var backButton: ImageButton? = null
+    private var settingsButton: ImageButton? = null
     private lateinit var terminalEventBridge: TerminalEventBridge
     private lateinit var serverConfigStore: ServerConfigStore
     private lateinit var basicCredentialStore: BasicCredentialStore
@@ -41,47 +58,101 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var activeProfile: ServerProfile? = null
     private var currentTerminalProfileId: String = ""
     private var lastSessionId: String = ""
-    private var currentTabTag: String? = null
+    private var currentScreen: ScreenMode = ScreenMode.TERMINAL
     private var lastConnectionState: String = "idle"
     private var lastToastSignature: String = ""
     private var lastToastAtMs: Long = 0L
+    private var lastInjectedConfigSignature: String? = null
+    private var terminalStatusText: String = ""
+    private var systemBarInsets: Insets = Insets.NONE
+    private var imeInsets: Insets = Insets.NONE
+    private var isImeVisible: Boolean = false
+    private var isTerminalChromeCompact: Boolean = false
+    private var topBarBasePaddingLeft: Int = 0
+    private var topBarBasePaddingTop: Int = 0
+    private var topBarBasePaddingRight: Int = 0
+    private var topBarBasePaddingBottom: Int = 0
+    private var statusTextDefaultSizePx: Float = 0f
+    private var fragmentContainerBasePaddingLeft: Int = 0
+    private var fragmentContainerBasePaddingTop: Int = 0
+    private var fragmentContainerBasePaddingRight: Int = 0
+    private var fragmentContainerBasePaddingBottom: Int = 0
+    private val drawerListener = object : DrawerLayout.SimpleDrawerListener() {
+        override fun onDrawerOpened(drawerView: View) {
+            if (drawerView.id == R.id.shell_sessions_drawer_container) {
+                setDrawerSessionsFragmentVisible(true)
+            }
+        }
+
+        override fun onDrawerClosed(drawerView: View) {
+            if (drawerView.id == R.id.shell_sessions_drawer_container) {
+                setDrawerSessionsFragmentVisible(false)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main_shell)
+        drawerLayout = findViewById(R.id.shell_root_drawer)
+        topBarView = findViewById(R.id.shell_top_bar)
+        fragmentContainerView = findViewById(R.id.shell_fragment_container)
+        sessionsDrawerButton = findViewById(R.id.btn_open_sessions_drawer)
+        backButton = findViewById(R.id.btn_back_terminal)
+        settingsButton = findViewById(R.id.btn_open_settings)
         statusTextView = findViewById(R.id.shell_status_text)
+
+        topBarView?.let { topBar ->
+            topBarBasePaddingLeft = topBar.paddingLeft
+            topBarBasePaddingTop = topBar.paddingTop
+            topBarBasePaddingRight = topBar.paddingRight
+            topBarBasePaddingBottom = topBar.paddingBottom
+        }
+        fragmentContainerView?.let { container ->
+            fragmentContainerBasePaddingLeft = container.paddingLeft
+            fragmentContainerBasePaddingTop = container.paddingTop
+            fragmentContainerBasePaddingRight = container.paddingRight
+            fragmentContainerBasePaddingBottom = container.paddingBottom
+        }
+        statusTextDefaultSizePx = statusTextView?.textSize ?: 0f
+
         serverConfigStore = ServerConfigStore(applicationContext)
         basicCredentialStore = BasicCredentialStore(applicationContext)
         syncProfileState(serverConfigStore.loadState(), inject = false)
         currentTerminalProfileId = resolveInitialProfileId()
         lastSessionId = resolveInitialSessionId()
-        updateStatus(getString(R.string.terminal_state_idle))
+        terminalStatusText = getString(R.string.terminal_state_idle)
+        updateStatus(terminalStatusText)
 
-        bottomNav = findViewById<BottomNavigationView>(R.id.shell_bottom_nav)
-        bottomNav?.setOnItemSelectedListener { item ->
-            switchTab(item.itemId)
-            true
-        }
+        drawerLayout?.addDrawerListener(drawerListener)
+        sessionsDrawerButton?.setOnClickListener { openSessionsDrawer() }
+        backButton?.setOnClickListener { showTerminalScreen() }
+        settingsButton?.setOnClickListener { showSettingsScreen() }
+
+        applySystemBarInsets()
+        ensureDrawerSessionsFragment()
+        setDrawerSessionsFragmentVisible(false)
 
         if (savedInstanceState == null) {
-            currentTabTag = null
-            bottomNav?.selectedItemId = R.id.nav_terminal
+            showTerminalScreen(injectConfig = false)
         } else {
-            currentTabTag = resolveVisibleTabTag()
-            bottomNav?.selectedItemId = when (currentTabTag) {
-                TAG_SESSIONS -> R.id.nav_sessions
-                TAG_SETTINGS -> R.id.nav_settings
-                else -> R.id.nav_terminal
+            currentScreen = if (resolveVisibleMainTag() == TAG_SETTINGS) {
+                ScreenMode.SETTINGS
+            } else {
+                ScreenMode.TERMINAL
             }
+            applyTerminalChromeMode()
         }
     }
 
     override fun onDestroy() {
+        drawerLayout?.removeDrawerListener(drawerListener)
         if (isFinishing) {
             detachTerminalWebView()
             terminalWebView?.destroy()
             terminalWebView = null
             terminalPageLoaded = false
+            lastInjectedConfigSignature = null
         }
         super.onDestroy()
     }
@@ -103,11 +174,15 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             allowFileAccess = true
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         }
+        if (BuildConfig.DEBUG && DEBUG_CLEAR_TERMINAL_CACHE_ON_LOAD) {
+            webView.clearCache(true)
+        }
         terminalEventBridge = TerminalEventBridge(this)
         webView.addJavascriptInterface(terminalEventBridge, JS_BRIDGE_NAME)
         webView.webViewClient = object : MtlsWebViewClient(
             appContext = applicationContext,
             profileProvider = { resolveTerminalProfile() },
+            basicPasswordProvider = { profileId -> basicCredentialStore.getPassword(profileId) },
             eventListener = object : MtlsWebViewClient.MtlsEventListener {
                 override fun onMtlsError(code: String, message: String) {
                     runOnUiThread {
@@ -119,7 +194,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 if (view != null) {
-                    injectTerminalConfig(view)
+                    injectTerminalConfigIfChanged(view, force = true)
                 }
             }
         }
@@ -144,52 +219,6 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     override fun detachTerminalWebView() {
         val webView = terminalWebView ?: return
         (webView.parent as? ViewGroup)?.removeView(webView)
-    }
-
-    private fun switchTab(itemId: Int) {
-        val targetTag = when (itemId) {
-            R.id.nav_sessions -> TAG_SESSIONS
-            R.id.nav_settings -> TAG_SETTINGS
-            else -> TAG_TERMINAL
-        }
-        val fragmentManager = supportFragmentManager
-        val existingTarget = fragmentManager.findFragmentByTag(targetTag)
-        if (currentTabTag == targetTag && existingTarget?.isAdded == true) {
-            return
-        }
-        val targetFragment = existingTarget ?: createFragmentForTag(targetTag)
-        val currentFragment = currentTabTag?.let { fragmentManager.findFragmentByTag(it) }
-
-        fragmentManager.commit {
-            setReorderingAllowed(true)
-            if (currentFragment != null && currentFragment.isAdded) {
-                hide(currentFragment)
-            }
-            if (targetFragment.isAdded) {
-                show(targetFragment)
-            } else {
-                add(R.id.shell_fragment_container, targetFragment, targetTag)
-            }
-        }
-
-        currentTabTag = targetTag
-        if (targetTag == TAG_TERMINAL) {
-            terminalWebView?.let { injectTerminalConfig(it) }
-        }
-    }
-
-    private fun createFragmentForTag(tag: String): Fragment {
-        return when (tag) {
-            TAG_SESSIONS -> SessionsFragment()
-            TAG_SETTINGS -> SettingsFragment()
-            else -> TerminalFragment()
-        }
-    }
-
-    private fun resolveVisibleTabTag(): String {
-        val current = supportFragmentManager.fragments
-            .firstOrNull { it.id == R.id.shell_fragment_container && it.isAdded && !it.isHidden }
-        return current?.tag ?: TAG_TERMINAL
     }
 
     override fun onConnectionState(state: String, detail: String?) {
@@ -270,6 +299,64 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         updateSessionSelection(profileId, sessionId)
     }
 
+    private fun showTerminalScreen(injectConfig: Boolean = true) {
+        showMainFragment(TAG_TERMINAL)
+        currentScreen = ScreenMode.TERMINAL
+        applyTerminalChromeMode()
+        if (injectConfig) {
+            terminalWebView?.let { injectTerminalConfigIfChanged(it) }
+        }
+    }
+
+    private fun showSettingsScreen() {
+        closeSessionsDrawerIfOpen()
+        showMainFragment(TAG_SETTINGS)
+        currentScreen = ScreenMode.SETTINGS
+        applyTerminalChromeMode()
+    }
+
+    private fun showMainFragment(tag: String) {
+        val fm = supportFragmentManager
+        val target = fm.findFragmentByTag(tag) ?: createMainFragmentForTag(tag)
+        val current = resolveVisibleMainFragment()
+        if (current != null && current.tag == tag) {
+            return
+        }
+
+        fm.commit {
+            setReorderingAllowed(true)
+            if (current != null && current.isAdded) {
+                hide(current)
+            }
+            if (target.isAdded) {
+                show(target)
+            } else {
+                add(R.id.shell_fragment_container, target, tag)
+            }
+        }
+    }
+
+    private fun resolveVisibleMainTag(): String {
+        return resolveVisibleMainFragment()?.tag ?: TAG_TERMINAL
+    }
+
+    private fun resolveVisibleMainFragment(): Fragment? {
+        return supportFragmentManager.fragments
+            .firstOrNull {
+                it.id == R.id.shell_fragment_container &&
+                    it.isAdded &&
+                    !it.isHidden &&
+                    (it.tag == TAG_TERMINAL || it.tag == TAG_SETTINGS)
+            }
+    }
+
+    private fun createMainFragmentForTag(tag: String): Fragment {
+        return when (tag) {
+            TAG_SETTINGS -> SettingsFragment()
+            else -> TerminalFragment()
+        }
+    }
+
     private fun syncProfileState(state: ServerConfigState, inject: Boolean) {
         serverConfigState = state
         activeProfile = state.profiles.firstOrNull { it.id == state.activeProfileId }
@@ -279,12 +366,17 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             persistLastProfileId(currentTerminalProfileId)
         }
         if (inject) {
-            terminalWebView?.let { injectTerminalConfig(it) }
+            terminalWebView?.let { injectTerminalConfigIfChanged(it) }
         }
     }
 
-    private fun injectTerminalConfig(webView: WebView) {
+    private fun injectTerminalConfigIfChanged(webView: WebView, force: Boolean = false) {
         val configJson = buildTerminalConfigJson()
+        val signature = buildTerminalConfigSignature()
+        if (!force && signature == lastInjectedConfigSignature) {
+            return
+        }
+        lastInjectedConfigSignature = signature
         val script = """
             (function() {
                 window.__TERMLINK_CONFIG__ = $configJson;
@@ -294,6 +386,20 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             })();
         """.trimIndent()
         webView.evaluateJavascript(script, null)
+    }
+
+    private fun buildTerminalConfigSignature(): String {
+        val profile = resolveTerminalProfile()
+        return listOf(
+            profile?.id.orEmpty(),
+            profile?.baseUrl.orEmpty(),
+            profile?.authType?.name.orEmpty(),
+            profile?.basicUsername.orEmpty(),
+            profile?.mtlsEnabled?.toString().orEmpty(),
+            profile?.allowedHosts.orEmpty(),
+            lastSessionId,
+            "true"
+        ).joinToString("|")
     }
 
     private fun buildTerminalConfigJson(): String {
@@ -320,28 +426,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     private fun resolveInjectedServerUrl(profile: ServerProfile?): String {
         if (profile == null) return ""
-        if (profile.authType != AuthType.BASIC) {
-            return profile.baseUrl
-        }
-        val username = profile.basicUsername.trim()
-        val password = basicCredentialStore.getPassword(profile.id).orEmpty()
-        if (username.isBlank() || password.isBlank()) {
-            return profile.baseUrl
-        }
-        return try {
-            val uri = URI(profile.baseUrl)
-            URI(
-                uri.scheme,
-                "$username:$password",
-                uri.host,
-                uri.port,
-                uri.path,
-                uri.query,
-                uri.fragment
-            ).toString().trimEnd('/')
-        } catch (_: Exception) {
-            profile.baseUrl
-        }
+        return profile.baseUrl
     }
 
     private fun resolveTerminalProfile(): ServerProfile? {
@@ -401,25 +486,164 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     private fun openSessionInTerminal(profileId: String, sessionId: String) {
         updateSessionSelection(profileId, sessionId)
-        bottomNav?.selectedItemId = R.id.nav_terminal
+        closeSessionsDrawerIfOpen()
+        showTerminalScreen(injectConfig = true)
     }
 
     private fun updateSessionSelection(profileId: String, sessionId: String) {
+        var selectionChanged = false
+
         if (profileId.isNotBlank()) {
-            persistLastProfileId(profileId)
+            if (profileId != currentTerminalProfileId) {
+                persistLastProfileId(profileId)
+                selectionChanged = true
+            }
             val state = serverConfigState ?: serverConfigStore.loadState()
             if (state.activeProfileId != profileId && state.profiles.any { it.id == profileId }) {
                 syncProfileState(serverConfigStore.setActiveProfile(profileId), inject = false)
+                selectionChanged = true
             }
         }
-        persistLastSessionId(sessionId)
-        if (currentTabTag == TAG_TERMINAL) {
-            terminalWebView?.let { injectTerminalConfig(it) }
+
+        if (sessionId != lastSessionId) {
+            persistLastSessionId(sessionId)
+            selectionChanged = true
+        }
+
+        if (selectionChanged && currentScreen == ScreenMode.TERMINAL) {
+            terminalWebView?.let { injectTerminalConfigIfChanged(it) }
         }
     }
 
     private fun updateStatus(text: String) {
-        statusTextView?.text = text
+        terminalStatusText = text
+        if (currentScreen == ScreenMode.TERMINAL) {
+            statusTextView?.text = text
+        }
+    }
+
+    private fun openSessionsDrawer() {
+        if (currentScreen != ScreenMode.TERMINAL || isTerminalChromeCompact) {
+            return
+        }
+        ensureDrawerSessionsFragment()
+        setDrawerSessionsFragmentVisible(true)
+        drawerLayout?.openDrawer(GravityCompat.END)
+    }
+
+    private fun closeSessionsDrawerIfOpen() {
+        val layout = drawerLayout ?: return
+        if (layout.isDrawerOpen(GravityCompat.END)) {
+            layout.closeDrawer(GravityCompat.END)
+        }
+    }
+
+    private fun ensureDrawerSessionsFragment() {
+        if (supportFragmentManager.findFragmentByTag(TAG_SESSIONS_DRAWER) != null) {
+            return
+        }
+        val fragment = SessionsFragment()
+        supportFragmentManager.commit {
+            setReorderingAllowed(true)
+            add(R.id.shell_sessions_drawer_container, fragment, TAG_SESSIONS_DRAWER)
+            hide(fragment)
+        }
+    }
+
+    private fun setDrawerSessionsFragmentVisible(visible: Boolean) {
+        val fragment = supportFragmentManager.findFragmentByTag(TAG_SESSIONS_DRAWER) ?: return
+        if (!fragment.isAdded) return
+        if (visible && fragment.isHidden) {
+            supportFragmentManager.commit {
+                setReorderingAllowed(true)
+                show(fragment)
+            }
+        } else if (!visible && !fragment.isHidden) {
+            supportFragmentManager.commit {
+                setReorderingAllowed(true)
+                hide(fragment)
+            }
+        }
+    }
+
+    private fun applySystemBarInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.shell_root_drawer)) { _, insets ->
+            systemBarInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
+            isImeVisible = imeInsets.bottom > 0
+            applyTerminalChromeMode()
+            insets
+        }
+    }
+
+    private fun applyTerminalChromeMode() {
+        val shouldCompact = currentScreen == ScreenMode.TERMINAL && isImeVisible
+        if (shouldCompact != isTerminalChromeCompact) {
+            isTerminalChromeCompact = shouldCompact
+            if (isTerminalChromeCompact) {
+                closeSessionsDrawerIfOpen()
+                statusTextView?.apply {
+                    setSingleLine(true)
+                    ellipsize = TextUtils.TruncateAt.END
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                }
+            } else {
+                statusTextView?.apply {
+                    setSingleLine(false)
+                    maxLines = 2
+                    ellipsize = null
+                    if (statusTextDefaultSizePx > 0f) {
+                        setTextSize(TypedValue.COMPLEX_UNIT_PX, statusTextDefaultSizePx)
+                    }
+                }
+            }
+        }
+        updateTopBarForScreen()
+        applyInsetsForCurrentChromeMode()
+    }
+
+    private fun updateTopBarForScreen() {
+        if (currentScreen == ScreenMode.SETTINGS) {
+            sessionsDrawerButton?.visibility = View.GONE
+            backButton?.visibility = View.VISIBLE
+            settingsButton?.visibility = View.GONE
+            statusTextView?.text = getString(R.string.settings_screen_title)
+            backButton?.contentDescription = getString(R.string.settings_back_button)
+            return
+        }
+
+        backButton?.visibility = View.GONE
+        sessionsDrawerButton?.visibility = if (isTerminalChromeCompact) View.GONE else View.VISIBLE
+        settingsButton?.visibility = View.VISIBLE
+        sessionsDrawerButton?.text = getString(R.string.sessions_panel_button)
+        sessionsDrawerButton?.contentDescription = getString(R.string.sessions_panel_button)
+        statusTextView?.text = terminalStatusText
+    }
+
+    private fun applyInsetsForCurrentChromeMode() {
+        val topBar = topBarView ?: return
+        topBar.setPadding(
+            topBarBasePaddingLeft,
+            (if (isTerminalChromeCompact) 0 else topBarBasePaddingTop) + systemBarInsets.top,
+            topBarBasePaddingRight,
+            if (isTerminalChromeCompact) dpToPx(2) else topBarBasePaddingBottom
+        )
+
+        val container = fragmentContainerView ?: return
+        val contentBottomInset = when (currentScreen) {
+            ScreenMode.SETTINGS -> systemBarInsets.bottom
+            ScreenMode.TERMINAL -> if (isImeVisible) imeInsets.bottom else 0
+        }
+        container.setPadding(
+            fragmentContainerBasePaddingLeft,
+            fragmentContainerBasePaddingTop,
+            fragmentContainerBasePaddingRight,
+            fragmentContainerBasePaddingBottom + contentBottomInset
+        )
+    }
+
+    private fun dpToPx(dp: Int): Int {
+        return (dp * resources.displayMetrics.density).toInt()
     }
 
     private fun isInsecureActiveProfileTransport(): Boolean {
@@ -458,9 +682,18 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             "WS_CONSTRUCTION_ERROR" -> getString(R.string.terminal_error_ws_construction)
             "WS_CLOSED" -> getString(R.string.terminal_error_ws_closed)
             "WS_ERROR" -> getString(R.string.terminal_error_ws_transport)
+            "HTTPS_WARMUP_FAILED" -> {
+                val suffix = message?.trim().orEmpty()
+                if (suffix.isBlank()) {
+                    getString(R.string.terminal_error_https_warmup_failed)
+                } else {
+                    "${getString(R.string.terminal_error_https_warmup_failed)} $suffix"
+                }
+            }
             "MTLS_HOST_NOT_ALLOWED" -> getString(R.string.terminal_error_mtls_host_not_allowed)
             "MTLS_CREDENTIAL_LOAD_FAILED" -> getString(R.string.terminal_error_mtls_credentials)
             "MTLS_APPLY_FAILED" -> getString(R.string.terminal_error_mtls_apply)
+            "AUTH_MISSING_CREDENTIALS" -> getString(R.string.terminal_error_auth_missing_credentials)
             else -> {
                 val suffix = message?.trim().orEmpty()
                 if (suffix.isBlank()) code else "$code: $suffix"
@@ -469,12 +702,13 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     companion object {
-        private const val TERMINAL_URL = "file:///android_asset/public/terminal.html"
+        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=6"
+        private const val DEBUG_CLEAR_TERMINAL_CACHE_ON_LOAD = false
         private const val JS_BRIDGE_NAME = "TerminalEventBridge"
         private const val PREFS_NAME = "termlink_shell"
         private const val PREF_LAST_SESSION_ID = "last_session_id"
         private const val PREF_LAST_PROFILE_ID = "last_profile_id"
-        private const val TAG_SESSIONS = "sessions"
+        private const val TAG_SESSIONS_DRAWER = "sessions_drawer"
         private const val TAG_TERMINAL = "terminal"
         private const val TAG_SETTINGS = "settings"
         private const val TAG = "TermLinkShell"

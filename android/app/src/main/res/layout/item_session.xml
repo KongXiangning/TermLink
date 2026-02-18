@@ -1,60 +1,78 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/session_card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="8dp"
-    android:background="#F2F4F7"
-    android:orientation="vertical"
-    android:padding="10dp">
-
-    <TextView
-        android:id="@+id/session_name"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="16sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/session_profile"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:textSize="12sp" />
-
-    <TextView
-        android:id="@+id/session_meta"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:textSize="12sp" />
+    android:layout_marginTop="8dp"
+    app:cardBackgroundColor="@color/sessions_card_bg"
+    app:cardCornerRadius="10dp"
+    app:strokeColor="@color/sessions_card_stroke"
+    app:strokeWidth="1dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:orientation="horizontal">
+        android:orientation="vertical"
+        android:padding="11dp">
 
-        <Button
-            android:id="@+id/btn_open_session"
-            android:layout_width="0dp"
+        <TextView
+            android:id="@+id/session_name"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/sessions_open" />
+            android:textColor="@color/sessions_text_primary"
+            android:textSize="15sp"
+            android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/btn_rename_session"
-            android:layout_width="0dp"
+        <TextView
+            android:id="@+id/session_meta_primary"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:layout_weight="1"
-            android:text="@string/sessions_rename" />
+            android:layout_marginTop="4dp"
+            android:textColor="@color/sessions_text_secondary"
+            android:textSize="12sp" />
 
-        <Button
-            android:id="@+id/btn_delete_session"
-            android:layout_width="0dp"
+        <TextView
+            android:id="@+id/session_meta_secondary"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:layout_weight="1"
-            android:text="@string/sessions_delete" />
+            android:layout_marginTop="2dp"
+            android:textColor="@color/sessions_text_muted"
+            android:textSize="12sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_open_session"
+                style="@style/Widget.TermLink.SessionButton.OpenOutlined"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:text="@string/sessions_open"
+                android:textColor="@color/sessions_primary"
+                app:rippleColor="@color/sessions_primary"
+                app:strokeColor="@color/sessions_primary"
+                app:strokeWidth="1dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_rename_session"
+                style="@style/Widget.TermLink.SessionButton.SecondaryText"
+                android:layout_width="0dp"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:text="@string/sessions_rename"
+                android:textColor="@color/sessions_text_secondary" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_delete_session"
+                style="@style/Widget.TermLink.SessionButton.DangerText"
+                android:layout_width="0dp"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:text="@string/sessions_delete" />
+        </LinearLayout>
     </LinearLayout>
-</LinearLayout>
+</com.google.android.material.card.MaterialCardView>

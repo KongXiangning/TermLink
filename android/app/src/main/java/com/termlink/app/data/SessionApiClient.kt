@@ -2,6 +2,7 @@ package com.termlink.app.data
 
 import android.content.Context
 import android.util.Base64
+import android.util.Log
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -142,76 +143,126 @@ class SessionApiClient(context: Context) {
             is ApiResult.Success -> contextResult.value
         }
 
-        val url = buildApiUrl(requestContext.apiBaseUri, endpointPath)
-        val connection = try {
-            (url.openConnection() as HttpURLConnection).apply {
-                setRequestMethodCompat(this, method)
-                connectTimeout = 5000
-                readTimeout = 10000
-                setRequestProperty("Accept", "application/json")
-            }
-        } catch (ex: IOException) {
-            return ApiResult.Failure(
-                SessionApiError(
-                    code = SessionApiErrorCode.NETWORK_ERROR,
-                    message = "Failed to open connection.",
-                    cause = ex
+        var currentUrl = buildApiUrl(requestContext.apiBaseUri, endpointPath)
+        Log.d(TAG, "Request $method $currentUrl auth=${requestContext.authorizationHeader != null}")
+        var currentMethod = method
+        var currentBody = body
+        var redirectCount = 0
+
+        while (redirectCount <= MAX_REDIRECTS) {
+            val connection = try {
+                (currentUrl.openConnection() as HttpURLConnection).apply {
+                    instanceFollowRedirects = false
+                    setRequestMethodCompat(this, currentMethod)
+                    connectTimeout = 5000
+                    readTimeout = 10000
+                    setRequestProperty("Accept", "application/json")
+                }
+            } catch (ex: IOException) {
+                return ApiResult.Failure(
+                    SessionApiError(
+                        code = SessionApiErrorCode.NETWORK_ERROR,
+                        message = "Failed to open connection.",
+                        cause = ex
+                    )
                 )
-            )
-        }
-
-        requestContext.authorizationHeader?.let { authHeader ->
-            connection.setRequestProperty("Authorization", authHeader)
-        }
-
-        if (body != null) {
-            connection.doOutput = true
-            connection.setRequestProperty("Content-Type", "application/json")
-        }
-
-        when (val mtlsResult = mtlsHttpSupport.applyIfNeeded(connection, profile)) {
-            is ApiResult.Failure -> {
-                connection.disconnect()
-                return mtlsResult
             }
-            is ApiResult.Success -> {
-                // no-op
-            }
-        }
 
-        return try {
-            if (body != null) {
-                connection.outputStream.bufferedWriter().use { writer ->
-                    writer.write(body)
+            requestContext.authorizationHeader?.let { authHeader ->
+                connection.setRequestProperty("Authorization", authHeader)
+            }
+
+            if (currentBody != null) {
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json")
+            }
+
+            when (val mtlsResult = mtlsHttpSupport.applyIfNeeded(connection, profile)) {
+                is ApiResult.Failure -> {
+                    connection.disconnect()
+                    return mtlsResult
+                }
+                is ApiResult.Success -> {
+                    // no-op
                 }
             }
 
-            val statusCode = connection.responseCode
-            val responseBody = readResponseBody(connection, statusCode)
-            if (statusCode in 200..299) {
-                ApiResult.Success(responseBody)
-            } else {
-                ApiResult.Failure(mapHttpError(statusCode, responseBody))
+            try {
+                if (currentBody != null) {
+                    connection.outputStream.bufferedWriter().use { writer ->
+                        writer.write(currentBody!!)
+                    }
+                }
+
+                val statusCode = connection.responseCode
+
+                if (statusCode in REDIRECT_STATUS_CODES) {
+                    val location = connection.getHeaderField("Location")
+                    Log.d(TAG, "Redirect $statusCode -> $location")
+                    connection.disconnect()
+                    if (location.isNullOrBlank()) {
+                        return ApiResult.Failure(
+                            SessionApiError(
+                                code = SessionApiErrorCode.NETWORK_ERROR,
+                                message = "Redirect without Location header."
+                            )
+                        )
+                    }
+                    currentUrl = try {
+                        currentUrl.toURI().resolve(location).toURL()
+                    } catch (ex: Exception) {
+                        return ApiResult.Failure(
+                            SessionApiError(
+                                code = SessionApiErrorCode.NETWORK_ERROR,
+                                message = "Invalid redirect Location: $location",
+                                cause = ex
+                            )
+                        )
+                    }
+                    // 301/302/303 change method to GET and drop body; 307/308 preserve method
+                    if (statusCode == 301 || statusCode == 302 || statusCode == 303) {
+                        currentMethod = "GET"
+                        currentBody = null
+                    }
+                    redirectCount++
+                    continue
+                }
+
+                Log.d(TAG, "Response $statusCode from $currentUrl")
+                val responseBody = readResponseBody(connection, statusCode)
+                return if (statusCode in 200..299) {
+                    ApiResult.Success(responseBody)
+                } else {
+                    val wwwAuthenticate = connection.getHeaderField("WWW-Authenticate").orEmpty()
+                    ApiResult.Failure(mapHttpError(statusCode, responseBody, wwwAuthenticate, profile))
+                }
+            } catch (ex: IOException) {
+                return ApiResult.Failure(
+                    SessionApiError(
+                        code = SessionApiErrorCode.NETWORK_ERROR,
+                        message = "Network request failed.",
+                        cause = ex
+                    )
+                )
+            } catch (ex: Exception) {
+                return ApiResult.Failure(
+                    SessionApiError(
+                        code = SessionApiErrorCode.UNKNOWN,
+                        message = "Unexpected request failure.",
+                        cause = ex
+                    )
+                )
+            } finally {
+                connection.disconnect()
             }
-        } catch (ex: IOException) {
-            ApiResult.Failure(
-                SessionApiError(
-                    code = SessionApiErrorCode.NETWORK_ERROR,
-                    message = "Network request failed.",
-                    cause = ex
-                )
-            )
-        } catch (ex: Exception) {
-            ApiResult.Failure(
-                SessionApiError(
-                    code = SessionApiErrorCode.UNKNOWN,
-                    message = "Unexpected request failure.",
-                    cause = ex
-                )
-            )
-        } finally {
-            connection.disconnect()
         }
+
+        return ApiResult.Failure(
+            SessionApiError(
+                code = SessionApiErrorCode.NETWORK_ERROR,
+                message = "Too many redirects (max $MAX_REDIRECTS)."
+            )
+        )
     }
 
     private fun setRequestMethodCompat(connection: HttpURLConnection, method: String) {
@@ -309,7 +360,12 @@ class SessionApiClient(context: Context) {
         return stream.bufferedReader().use { it.readText() }
     }
 
-    private fun mapHttpError(statusCode: Int, responseBody: String): SessionApiError {
+    private fun mapHttpError(
+        statusCode: Int,
+        responseBody: String,
+        wwwAuthenticate: String = "",
+        profile: ServerProfile? = null
+    ): SessionApiError {
         val serverMessage = extractErrorMessage(responseBody)
         val code = when {
             statusCode == 401 || statusCode == 403 -> SessionApiErrorCode.AUTH_FAILED
@@ -317,11 +373,20 @@ class SessionApiClient(context: Context) {
             statusCode >= 500 -> SessionApiErrorCode.SERVER_ERROR
             else -> SessionApiErrorCode.HTTP_ERROR
         }
-        val message = if (serverMessage.isNullOrBlank()) {
-            "HTTP $statusCode"
-        } else {
-            "HTTP $statusCode: $serverMessage"
+        val message = buildString {
+            append("HTTP $statusCode")
+            if (!serverMessage.isNullOrBlank()) {
+                append(": $serverMessage")
+            }
+            // Provide actionable hint when server wants BASIC auth but profile has auth disabled
+            if (statusCode == 401
+                && wwwAuthenticate.contains("Basic", ignoreCase = true)
+                && profile?.authType != AuthType.BASIC
+            ) {
+                append(" — Server requires BASIC auth. Enable it in Settings for this profile.")
+            }
         }
+        Log.w(TAG, "HTTP error $statusCode authType=${profile?.authType} wwwAuth=$wwwAuthenticate")
         return SessionApiError(
             code = code,
             message = message,
@@ -347,4 +412,10 @@ class SessionApiClient(context: Context) {
         val apiBaseUri: URI,
         val authorizationHeader: String?
     )
+
+    companion object {
+        private const val TAG = "TermLink-SessionApi"
+        private const val MAX_REDIRECTS = 5
+        private val REDIRECT_STATUS_CODES = setOf(301, 302, 303, 307, 308)
+    }
 }

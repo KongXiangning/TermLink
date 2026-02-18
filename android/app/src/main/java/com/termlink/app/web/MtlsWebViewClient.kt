@@ -3,9 +3,11 @@ package com.termlink.app.web
 import android.content.Context
 import android.util.Log
 import android.webkit.ClientCertRequest
+import android.webkit.HttpAuthHandler
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.termlink.app.BuildConfig
+import com.termlink.app.data.AuthType
 import com.termlink.app.data.MtlsPolicyResolver
 import com.termlink.app.data.ServerProfile
 import java.security.KeyStore
@@ -15,6 +17,7 @@ import java.security.cert.X509Certificate
 open class MtlsWebViewClient(
     private val appContext: Context,
     private val profileProvider: (() -> ServerProfile?)? = null,
+    private val basicPasswordProvider: ((profileId: String) -> String?)? = null,
     private val eventListener: MtlsEventListener? = null
 ) : WebViewClient() {
 
@@ -31,6 +34,7 @@ open class MtlsWebViewClient(
     }
 
     override fun onReceivedClientCertRequest(view: WebView, request: ClientCertRequest) {
+        Log.i(TAG, "Client cert request host=${request.host} port=${request.port}")
         val policy = MtlsPolicyResolver.resolve(profileProvider?.invoke())
         if (!policy.effectiveEnabled) {
             request.ignore()
@@ -56,6 +60,37 @@ open class MtlsWebViewClient(
         }
 
         request.proceed(privateKey, certChain)
+    }
+
+    override fun onReceivedHttpAuthRequest(
+        view: WebView,
+        handler: HttpAuthHandler,
+        host: String,
+        realm: String
+    ) {
+        val profile = profileProvider?.invoke()
+        if (profile == null || profile.authType != AuthType.BASIC) {
+            notifyMtlsError(
+                code = "AUTH_MISSING_CREDENTIALS",
+                message = "HTTP auth challenge for $host/$realm but BASIC credentials are not configured."
+            )
+            handler.cancel()
+            return
+        }
+
+        val username = profile.basicUsername.trim()
+        val password = basicPasswordProvider?.invoke(profile.id).orEmpty()
+        if (username.isBlank() || password.isBlank()) {
+            notifyMtlsError(
+                code = "AUTH_MISSING_CREDENTIALS",
+                message = "HTTP auth challenge for $host/$realm but BASIC credentials are empty."
+            )
+            handler.cancel()
+            return
+        }
+
+        Log.i(TAG, "Handling HTTP auth challenge for host=$host realm=$realm")
+        handler.proceed(username, password)
     }
 
     private fun ensureCredentialsLoaded(): Boolean {

@@ -626,6 +626,11 @@ function buildWsUrl(baseUrl, targetSessionId) {
         throw new Error(`Unsupported URL protocol: ${parsed.protocol}`);
     }
 
+    // For reverse-proxy prefix routes like /wsl or /win, avoid websocket 301 redirects.
+    if (parsed.pathname && parsed.pathname !== '/' && !parsed.pathname.endsWith('/')) {
+        parsed.pathname = `${parsed.pathname}/`;
+    }
+
     if (targetSessionId && String(targetSessionId).trim()) {
         parsed.searchParams.set('sessionId', String(targetSessionId).trim());
     } else {
@@ -825,14 +830,13 @@ term.onData(data => {
 
 window.addEventListener('resize', sendResize);
 
-// Mobile: single tap opens keyboard, double tap or long press closes it
+// Mobile: single tap opens keyboard, double tap closes it
 const isTouchDevice = (
     (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ||
     ('ontouchstart' in window) ||
     (navigator.maxTouchPoints > 0)
 );
 if (terminalContainer && isTouchDevice) {
-    let longPressTimer = null;
     let lastTapAt = 0;
     let suppressNextClickFocus = false;
 
@@ -844,26 +848,7 @@ if (terminalContainer && isTouchDevice) {
         }
     };
 
-    const clearLongPressTimer = () => {
-        if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-        }
-    };
-
-    terminalContainer.addEventListener('touchstart', () => {
-        clearLongPressTimer();
-        longPressTimer = setTimeout(() => {
-            closeSoftKeyboard();
-            suppressNextClickFocus = true;
-            longPressTimer = null;
-        }, 550);
-    }, { passive: true });
-
-    terminalContainer.addEventListener('touchmove', clearLongPressTimer, { passive: true });
-    terminalContainer.addEventListener('touchcancel', clearLongPressTimer, { passive: true });
     terminalContainer.addEventListener('touchend', () => {
-        clearLongPressTimer();
         const now = Date.now();
         if (now - lastTapAt < 320) {
             closeSoftKeyboard();

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sessions_bg">#0E1117</color>
+    <color name="sessions_surface">#171B22</color>
+    <color name="sessions_surface_alt">#1D2330</color>
+    <color name="sessions_card_bg">#1B202A</color>
+    <color name="sessions_card_bg_selected">#222C3F</color>
+    <color name="sessions_card_stroke">#2A3140</color>
+    <color name="sessions_selected_stroke">#5B8CFF</color>
+    <color name="sessions_primary">#4D74FF</color>
+    <color name="sessions_text_primary">#F2F5FB</color>
+    <color name="sessions_text_secondary">#A9B4C7</color>
+    <color name="sessions_text_muted">#7D889C</color>
+    <color name="sessions_error">#FF7B7B</color>
+</resources>

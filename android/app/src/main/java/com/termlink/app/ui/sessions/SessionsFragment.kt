@@ -13,8 +13,10 @@ import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.google.android.material.card.MaterialCardView
 import com.termlink.app.R
 import com.termlink.app.data.ApiResult
 import com.termlink.app.data.ServerProfile
@@ -238,59 +240,86 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         val availableSelections = groups.flatMap { group ->
             group.sessions.map { SessionSelection(group.profile.id, it.id) }
         }
+        val hasGroupErrors = groups.any { it.error != null }
+        val selectionFallbackAllowed = groups.isNotEmpty() && !hasGroupErrors
         val selectionExists = availableSelections.any {
             it.profileId == currentSelection.profileId && it.sessionId == currentSelection.sessionId
         }
-        if (currentSelection.sessionId.isNotBlank() && !selectionExists) {
+        if (selectionFallbackAllowed && currentSelection.sessionId.isNotBlank() && !selectionExists) {
             val fallback = availableSelections.firstOrNull() ?: SessionSelection(currentSelection.profileId, "")
             currentSelection = fallback
             callbacks?.onUpdateSessionSelection(fallback.profileId, fallback.sessionId)
         }
 
+        val selectedStrokeColor = ContextCompat.getColor(requireContext(), R.color.sessions_selected_stroke)
+        val normalStrokeColor = ContextCompat.getColor(requireContext(), R.color.sessions_card_stroke)
+        val selectedBackgroundColor = ContextCompat.getColor(requireContext(), R.color.sessions_card_bg_selected)
+        val normalBackgroundColor = ContextCompat.getColor(requireContext(), R.color.sessions_card_bg)
+
         var totalSessions = 0
         groups.forEach { group ->
-            val header = TextView(requireContext()).apply {
-                text = getString(
-                    R.string.sessions_group_header,
-                    group.profile.name,
-                    group.profile.baseUrl.ifBlank { getString(R.string.sessions_profile_url_empty) }
-                )
-                textSize = 14f
-                setPadding(0, 12, 0, 6)
-            }
-            listContainer.addView(header)
+            val groupView = layoutInflater.inflate(
+                R.layout.item_profile_group_card,
+                listContainer,
+                false
+            )
+            val groupName = groupView.findViewById<TextView>(R.id.group_profile_name)
+            val groupCount = groupView.findViewById<TextView>(R.id.group_session_count)
+            val groupUrl = groupView.findViewById<TextView>(R.id.group_profile_url)
+            val groupError = groupView.findViewById<TextView>(R.id.group_error_text)
+            val groupEmpty = groupView.findViewById<TextView>(R.id.group_empty_text)
+            val groupSessionsContainer = groupView.findViewById<LinearLayout>(R.id.group_sessions_container)
 
-            val groupError = group.error
-            if (groupError != null) {
-                val errorView = TextView(requireContext()).apply {
-                    text = getString(R.string.sessions_group_error, groupError.code.name, groupError.message)
-                    textSize = 13f
-                    setTextColor(0xFFB00020.toInt())
-                    setPadding(0, 0, 0, 8)
-                }
-                listContainer.addView(errorView)
+            groupName.text = group.profile.name
+            groupUrl.text = getString(
+                R.string.sessions_group_url,
+                group.profile.baseUrl.ifBlank { getString(R.string.sessions_profile_url_empty) }
+            )
+
+            val groupLoadError = group.error
+            if (groupLoadError != null) {
+                groupCount.text = getString(R.string.sessions_group_count, 0)
+                groupError.text = getString(
+                    R.string.sessions_group_error,
+                    groupLoadError.code.name,
+                    toDisplayErrorMessage(groupLoadError)
+                )
+                groupError.visibility = View.VISIBLE
+                groupEmpty.visibility = View.GONE
+                groupSessionsContainer.visibility = View.GONE
+                listContainer.addView(groupView)
                 return@forEach
             }
 
             if (group.sessions.isEmpty()) {
-                val emptyGroup = TextView(requireContext()).apply {
-                    text = getString(R.string.sessions_group_empty)
-                    textSize = 13f
-                    setPadding(0, 0, 0, 8)
-                }
-                listContainer.addView(emptyGroup)
+                groupCount.text = getString(R.string.sessions_group_count, 0)
+                groupError.visibility = View.GONE
+                groupEmpty.visibility = View.VISIBLE
+                groupEmpty.text = getString(R.string.sessions_group_empty)
+                groupSessionsContainer.visibility = View.GONE
+                listContainer.addView(groupView)
                 return@forEach
             }
 
+            groupCount.text = getString(R.string.sessions_group_count, group.sessions.size)
+            groupError.visibility = View.GONE
+            groupEmpty.visibility = View.GONE
+            groupSessionsContainer.visibility = View.VISIBLE
+
             group.sessions.forEach { session ->
                 totalSessions += 1
-                val itemView = layoutInflater.inflate(R.layout.item_session, listContainer, false)
+                val itemView = layoutInflater.inflate(
+                    R.layout.item_session,
+                    groupSessionsContainer,
+                    false
+                )
                 val isSelected = session.id == currentSelection.sessionId &&
                     group.profile.id == currentSelection.profileId
 
+                val sessionCard = itemView.findViewById<MaterialCardView>(R.id.session_card)
                 val nameText = itemView.findViewById<TextView>(R.id.session_name)
-                val profileNameText = itemView.findViewById<TextView>(R.id.session_profile)
-                val metaText = itemView.findViewById<TextView>(R.id.session_meta)
+                val primaryMetaText = itemView.findViewById<TextView>(R.id.session_meta_primary)
+                val secondaryMetaText = itemView.findViewById<TextView>(R.id.session_meta_secondary)
                 val openButton = itemView.findViewById<Button>(R.id.btn_open_session)
                 val renameButton = itemView.findViewById<Button>(R.id.btn_rename_session)
                 val deleteButton = itemView.findViewById<Button>(R.id.btn_delete_session)
@@ -300,12 +329,19 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                 } else {
                     session.name
                 }
-                profileNameText.text = getString(R.string.sessions_item_profile, group.profile.name)
-                metaText.text = getString(
-                    R.string.sessions_item_meta,
+                primaryMetaText.text = getString(
+                    R.string.sessions_item_meta_primary,
                     session.status,
-                    session.activeConnections,
+                    session.activeConnections
+                )
+                secondaryMetaText.text = getString(
+                    R.string.sessions_item_last_active,
                     formatRelativeTime(session.lastActiveAt)
+                )
+                sessionCard.strokeColor = if (isSelected) selectedStrokeColor else normalStrokeColor
+                sessionCard.strokeWidth = if (isSelected) dpToPx(2) else dpToPx(1)
+                sessionCard.setCardBackgroundColor(
+                    if (isSelected) selectedBackgroundColor else normalBackgroundColor
                 )
 
                 itemView.setOnClickListener {
@@ -321,8 +357,10 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                     showDeleteDialog(group.profile, session)
                 }
 
-                listContainer.addView(itemView)
+                groupSessionsContainer.addView(itemView)
             }
+
+            listContainer.addView(groupView)
         }
 
         emptyText.visibility = if (totalSessions == 0) View.VISIBLE else View.GONE
@@ -333,9 +371,31 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         listContainer.removeAllViews()
         emptyText.visibility = View.GONE
         errorText.visibility = View.VISIBLE
-        errorText.text = getString(R.string.sessions_error_template, error.code.name, error.message)
+        errorText.text = getString(
+            R.string.sessions_error_template,
+            error.code.name,
+            toDisplayErrorMessage(error)
+        )
         swipeRefresh.isRefreshing = false
         isLoading = false
+    }
+
+    private fun toDisplayErrorMessage(error: SessionApiError): String {
+        return when (error.code) {
+            SessionApiErrorCode.AUTH_FAILED -> {
+                getString(
+                    R.string.sessions_error_auth_failed_hint,
+                    error.message
+                )
+            }
+            SessionApiErrorCode.AUTH_MISSING_CREDENTIALS -> {
+                getString(
+                    R.string.sessions_error_auth_missing_hint,
+                    error.message
+                )
+            }
+            else -> error.message
+        }
     }
 
     private fun showCreateDialog() {
@@ -528,6 +588,10 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             deltaSec < 86400L -> getString(R.string.sessions_time_hours_ago, deltaSec / 3600L)
             else -> getString(R.string.sessions_time_days_ago, deltaSec / 86400L)
         }
+    }
+
+    private fun dpToPx(dp: Int): Int {
+        return (dp * resources.displayMetrics.density).toInt()
     }
 
     private data class ProfileGroupResult(

@@ -44,7 +44,8 @@
    - `SettingsFragment`：原生服务器配置、安全配置、调试项。
    - `TerminalFragment`：仅负责挂载/卸载已缓存 WebView。
 2. 终端层（WebView）
-   - 加载 `public/terminal.html`（从现有 `index.html` 拆分终端区域）。
+   - Android 端加载 `public/terminal_client.html`（客户端专用纯终端页）。
+   - 浏览器端继续使用 `public/terminal.html`（保留现有网页版能力）。
    - 保留 xterm 与虚拟按键核心逻辑。
 3. 原生服务层
    - `ServerConfigStore`：本地持久化 server profile（SharedPreferences）。
@@ -127,6 +128,9 @@ android/app/src/main/java/com/termlink/app/
     TerminalEventBridge.kt
 
 public/
+  terminal_client.html
+  terminal_client.js
+  terminal_client.css
   terminal.html
   terminal.js
   terminal.css
@@ -212,7 +216,7 @@ src/
 2. Phase 7 已完成 Bridge 兼容入口移除（仅保留 `MainShellActivity`）。
 
 ### T02-3 终端容器 Fragment
-1. `TerminalFragment` 先放占位 WebView，加载本地 `file:///android_asset/public/terminal.html`。
+1. `TerminalFragment` 先放占位 WebView，加载本地 `file:///android_asset/public/terminal_client.html`。
 2. 验证导航切换不会崩溃。
 
 ### T02-4 WebView 生命周期托管（新增）

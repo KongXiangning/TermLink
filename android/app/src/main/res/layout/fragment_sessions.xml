@@ -1,32 +1,56 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/sessions_bg"
     android:orientation="vertical"
     android:padding="12dp">
 
-    <TextView
-        android:id="@+id/sessions_title"
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/sessions_title"
-        android:textSize="18sp"
-        android:textStyle="bold" />
+        app:cardBackgroundColor="@color/sessions_surface"
+        app:cardCornerRadius="12dp"
+        app:strokeColor="@color/sessions_card_stroke"
+        app:strokeWidth="1dp">
 
-    <TextView
-        android:id="@+id/sessions_active_profile"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/sessions_profile_none"
-        android:textSize="13sp" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <TextView
+                android:id="@+id/sessions_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/sessions_title"
+                android:textColor="@color/sessions_text_primary"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/sessions_active_profile"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="@string/sessions_profile_none"
+                android:textColor="@color/sessions_text_secondary"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
 
     <Button
         android:id="@+id/btn_create_session"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="@string/sessions_create_button" />
+        android:layout_height="46dp"
+        android:layout_marginTop="10dp"
+        android:backgroundTint="@color/sessions_primary"
+        android:text="@string/sessions_create_button"
+        android:textAllCaps="true"
+        android:textColor="@android:color/white"
+        android:textStyle="bold" />
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/sessions_swipe_refresh"
@@ -44,14 +68,18 @@
                 android:id="@+id/sessions_content"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:paddingBottom="10dp">
 
                 <TextView
                     android:id="@+id/sessions_error_text"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingVertical="8dp"
-                    android:textColor="#B00020"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginBottom="8dp"
+                    android:background="@color/sessions_surface_alt"
+                    android:padding="10dp"
+                    android:textColor="@color/sessions_error"
                     android:textSize="13sp"
                     android:visibility="gone" />
 
@@ -59,8 +87,11 @@
                     android:id="@+id/sessions_empty_text"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:paddingVertical="8dp"
-                    android:text="@string/sessions_empty"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center_horizontal"
+                    android:paddingVertical="14dp"
+                    android:text="@string/sessions_empty_state_rich"
+                    android:textColor="@color/sessions_text_muted"
                     android:textSize="14sp"
                     android:visibility="gone" />
 
