@@ -11,11 +11,13 @@ import android.webkit.WebView
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
+import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.Insets
 import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
@@ -76,6 +78,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var fragmentContainerBasePaddingTop: Int = 0
     private var fragmentContainerBasePaddingRight: Int = 0
     private var fragmentContainerBasePaddingBottom: Int = 0
+    private var rootInsetsView: View? = null
     private val drawerListener = object : DrawerLayout.SimpleDrawerListener() {
         override fun onDrawerOpened(drawerView: View) {
             if (drawerView.id == R.id.shell_sessions_drawer_container) {
@@ -92,8 +95,11 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         setContentView(R.layout.activity_main_shell)
         drawerLayout = findViewById(R.id.shell_root_drawer)
+        rootInsetsView = drawerLayout
         topBarView = findViewById(R.id.shell_top_bar)
         fragmentContainerView = findViewById(R.id.shell_fragment_container)
         sessionsDrawerButton = findViewById(R.id.btn_open_sessions_drawer)
@@ -156,6 +162,15 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         super.onDestroy()
     }
 
+    override fun onResume() {
+        super.onResume()
+        val insetsView = rootInsetsView ?: return
+        insetsView.post {
+            ViewCompat.requestApplyInsets(insetsView)
+            applyTerminalChromeMode()
+        }
+    }
+
     override fun getOrCreateTerminalWebView(): WebView {
         val existing = terminalWebView
         if (existing != null) {
@@ -208,11 +223,13 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     override fun attachTerminalWebView(container: ViewGroup) {
         val webView = getOrCreateTerminalWebView()
         if (webView.parent === container) {
+            applyTerminalChromeMode()
             return
         }
         (webView.parent as? ViewGroup)?.removeView(webView)
         container.removeAllViews()
         container.addView(webView)
+        applyTerminalChromeMode()
     }
 
     override fun detachTerminalWebView() {
@@ -420,6 +437,20 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         json.put("sessionId", lastSessionId)
         json.put("activeProfile", activeProfileJson)
         json.put("historyEnabled", true)
+
+        // Inject auth header so WebView JS can authenticate fetch() calls
+        if (profile != null && profile.authType == com.termlink.app.data.AuthType.BASIC) {
+            val username = profile.basicUsername.trim()
+            val password = basicCredentialStore.getPassword(profile.id).orEmpty()
+            if (username.isNotBlank() && password.isNotBlank()) {
+                val encoded = android.util.Base64.encodeToString(
+                    "$username:$password".toByteArray(Charsets.UTF_8),
+                    android.util.Base64.NO_WRAP
+                )
+                json.put("authHeader", "Basic $encoded")
+            }
+        }
+
         return json.toString()
     }
 
@@ -571,6 +602,12 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             isImeVisible = imeInsets.bottom > 0
             applyTerminalChromeMode()
+            if (BuildConfig.DEBUG) {
+                Log.d(
+                    TAG,
+                    "Insets updated: ime=${imeInsets.bottom}, screen=$currentScreen"
+                )
+            }
             insets
         }
     }
@@ -630,7 +667,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         val container = fragmentContainerView ?: return
         val contentBottomInset = when (currentScreen) {
             ScreenMode.SETTINGS -> systemBarInsets.bottom
-            ScreenMode.TERMINAL -> if (isImeVisible) imeInsets.bottom else 0
+            ScreenMode.TERMINAL -> imeInsets.bottom
         }
         container.setPadding(
             fragmentContainerBasePaddingLeft,
@@ -638,6 +675,24 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             fragmentContainerBasePaddingRight,
             fragmentContainerBasePaddingBottom + contentBottomInset
         )
+
+        if (currentScreen == ScreenMode.TERMINAL) {
+            notifyTerminalViewportChanged()
+        }
+    }
+
+    private fun notifyTerminalViewportChanged() {
+        val webView = terminalWebView ?: return
+        val script = """
+            (function() {
+                if (typeof window.__onNativeViewportChanged === 'function') {
+                    window.__onNativeViewportChanged();
+                } else {
+                    window.dispatchEvent(new Event('resize'));
+                }
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(script, null)
     }
 
     private fun dpToPx(dp: Int): Int {
@@ -700,7 +755,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     companion object {
-        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=6"
+        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=14"
         private const val DEBUG_CLEAR_TERMINAL_CACHE_ON_LOAD = false
         private const val JS_BRIDGE_NAME = "TerminalEventBridge"
         private const val PREFS_NAME = "termlink_shell"

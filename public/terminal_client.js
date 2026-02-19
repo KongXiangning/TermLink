@@ -42,6 +42,7 @@ const HISTORY_MAX_LINES = 1000;
 let runtimeConfig = readInjectedConfig();
 let serverUrl = '';
 let sessionId = '';
+let authHeader = '';
 let historyEnabled = true;
 let historyState = { lines: [], tail: '' };
 let activeHistoryKey = '';
@@ -226,6 +227,7 @@ function applyRuntimeConfig(config, forceReconnect) {
 
     serverUrl = normalizeServerUrl(config.serverUrl || '');
     sessionId = typeof config.sessionId === 'string' ? config.sessionId.trim() : '';
+    authHeader = typeof config.authHeader === 'string' ? config.authHeader : '';
     historyEnabled = resolveHistoryEnabled(config);
 
     if (previousHistoryEnabled !== historyEnabled || previousSessionId !== sessionId) {
@@ -309,14 +311,17 @@ function connect() {
         showStatus(detail);
         return;
     }
-    const transportLabel = wsUrl.startsWith('wss://') ? 'wss' : 'ws';
 
     isConnecting = true;
+    const transportLabel = wsUrl.startsWith('wss://') ? 'wss' : 'ws';
     showStatus(`Connecting (${transportLabel})...`);
     notifyNativeConnectionState('connecting', `Connecting via ${transportLabel}`);
-    const beginWebSocket = () => {
+
+    // define websocket setup logic
+    const beginWebSocket = function (finalWsUrl) {
         try {
-            ws = new WebSocket(wsUrl);
+            console.log('[JS] Opening WebSocket to:', finalWsUrl);
+            ws = new WebSocket(finalWsUrl);
         } catch (error) {
             isConnecting = false;
             notifyNativeConnectionState('error', 'WebSocket construction failed');
@@ -325,7 +330,8 @@ function connect() {
             return;
         }
 
-        ws.onopen = () => {
+        ws.onopen = function () {
+            console.log('[JS] WebSocket OPEN');
             isConnecting = false;
             retryCount = 0;
             reconnectInterval = 1000;
@@ -334,7 +340,7 @@ function connect() {
             notifyNativeConnectionState('connected', `Connected via ${transportLabel}`);
         };
 
-        ws.onmessage = (event) => {
+        ws.onmessage = function (event) {
             try {
                 const envelope = JSON.parse(event.data);
                 if (envelope.type === 'output') {
@@ -361,7 +367,8 @@ function connect() {
             }
         };
 
-        ws.onclose = (event) => {
+        ws.onclose = function (event) {
+            console.log('[JS] WebSocket CLOSED:', event.code, event.reason);
             isConnecting = false;
             if (retryCount >= MAX_RETRIES) {
                 const detail = `code=${event.code} reason=${event.reason || 'none'}`;
@@ -374,32 +381,65 @@ function connect() {
             notifyNativeConnectionState('reconnecting', `attempt=${retryCount + 1}`);
             retryCount += 1;
             clearTimeout(reconnectTimer);
-            reconnectTimer = setTimeout(() => {
+            reconnectTimer = setTimeout(function () {
                 connect();
                 reconnectInterval = Math.min(reconnectInterval * 1.5, maxReconnectInterval);
             }, reconnectInterval);
         };
 
-        ws.onerror = () => {
+        ws.onerror = function () {
+            console.error('[JS] WebSocket ERROR');
             notifyNativeError('WS_ERROR', 'WebSocket transport error');
         };
     };
 
+    // 1. Warmup HTTPS
+    // 2. Fetch Ticket (if authHeader exists)
+    // 3. Connect Protocol
     warmupHttpsForWs(normalizedBaseUrl)
-        .then((result) => {
+        .then(function (result) {
             if (result && result.handshakeOk === false) {
                 const detail = result.detail || `status=${result.status || 'unknown'}`;
                 notifyNativeError('HTTPS_WARMUP_FAILED', detail);
                 console.warn('HTTPS warmup failed before websocket connect', detail);
             }
+
+            // Ticket Fetching Logic
+            const ticketUrl = normalizedBaseUrl.replace(/\/+$/, '') + '/api/ws-ticket';
+            const fetchOpts = {};
+            if (authHeader) {
+                fetchOpts.headers = { 'Authorization': authHeader };
+            }
+
+            console.log('[JS] Fetching WS ticket from:', ticketUrl);
+            return fetch(ticketUrl, fetchOpts)
+                .then(function (resp) {
+                    if (resp.ok) {
+                        return resp.json().then(function (json) {
+                            if (json && json.ticket) {
+                                console.log('[JS] Ticket received');
+                                const parsed = new URL(wsUrl);
+                                parsed.searchParams.set('ticket', json.ticket);
+                                return parsed.toString();
+                            }
+                            return wsUrl;
+                        });
+                    }
+                    console.warn('[JS] Ticket fetch failed status:', resp.status);
+                    return wsUrl;
+                })
+                .catch(function (err) {
+                    console.warn('[JS] Ticket fetch error:', err.message);
+                    return wsUrl;
+                });
         })
-        .catch((error) => {
-            const detail = error && error.message ? error.message : 'unknown warmup error';
-            notifyNativeError('HTTPS_WARMUP_FAILED', detail);
-            console.warn('HTTPS warmup exception before websocket connect', error);
+        .then(function (finalUrl) {
+            beginWebSocket(finalUrl);
         })
-        .finally(() => {
-            beginWebSocket();
+        .catch(function (error) {
+            // Fallback if anything in chain fails (though catches above should handle it)
+            console.error('[JS] Connect chain error:', error);
+            beginWebSocket(wsUrl);
         });
 }
 
@@ -473,6 +513,15 @@ function warmupHttpsForWs(normalizedBaseUrl) {
 term.onData((data) => {
     sendMessage({ type: 'input', data: data });
 });
+
+// ── Keyboard / viewport resize handling ─────────────────
+window.addEventListener('resize', sendResize);
+
+window.__onNativeViewportChanged = function () {
+    sendResize();
+};
+
+sendResize();
 
 document.querySelectorAll('.key').forEach((btn) => {
     const handler = async (event) => {

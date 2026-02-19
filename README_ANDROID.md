@@ -87,6 +87,23 @@ This project supports building a native Android app using **Capacitor**.
   4. update `Basic Username` and `Basic Password`
 - App behavior now preserves current terminal selection when Sessions fetch fails (for example 401), so switching `Sessions -> Terminal` will not clear session context.
 
+### IME Keyboard Overlay Postmortem (Android)
+
+- Symptom:
+  - Soft keyboard opens, but terminal toolbar is still covered.
+  - User has to manually drag page upward.
+  - Sometimes works once, then fails again after restart (non-deterministic).
+- Root cause:
+  - `terminal_client.js` previously forced terminal shell height with JS (`window.innerHeight` / custom viewport handling).
+  - On some Android WebView + IME combinations, `innerHeight` does not shrink consistently when keyboard opens.
+  - This conflicted with Android `adjustResize`, causing layout race and intermittent behavior.
+- Final stable strategy:
+  - Rely on Android `SOFT_INPUT_ADJUST_RESIZE` + system insets for window resizing.
+  - Do not force terminal shell height in JS.
+  - Keep terminal side behavior as `window.resize -> fitAddon.fit()` only.
+- Practical rule:
+  - For IME compatibility, avoid JS-driven keyboard lift logic unless absolutely required; prefer native resize path first.
+
 ## Phase 8 Credentials + Aggregated Sessions (Current)
 
 - BASIC auth now has dedicated username/password inputs in Settings.
