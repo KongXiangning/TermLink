@@ -1,5 +1,13 @@
+const { verifyWsUpgrade } = require('../auth/basicAuth');
+
 function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000 }) {
     const handleConnection = async (ws, req) => {
+        // ── Auth gate: reject unauthenticated WebSocket connections ──
+        if (!verifyWsUpgrade(req)) {
+            ws.close(4401, 'Unauthorized');
+            return;
+        }
+
         const url = new URL(req.url, `http://${req.headers.host}`);
         const sessionId = url.searchParams.get('sessionId');
 

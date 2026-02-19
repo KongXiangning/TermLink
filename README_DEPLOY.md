@@ -1,68 +1,113 @@
-# TermLink 部署与开机启动指南
+# TermLink 部署指南
 
-本项目提供了两种主要的部署方式，均支持开机自动启动。
+## Windows 独立部署（Win 端推荐）
 
-## 方案一：使用 Docker (推荐)
+> **完整操作手册**见 `skills/win-server-deploy/SKILL.md`
 
-这是最简单、最安全的方式。
+适用于需要 Windows 原生 PTY（PowerShell / CMD）的场景。  
+Docker 不适用——`node-pty` 需要 Windows conpty 内核接口。
 
-1. **安装 Docker 和 Docker Compose**。
-2. **启动服务**：
-   ```bash
-   docker-compose up -d --build
-   ```
-   * `-d` 参数会让容器在后台运行。
-   * `restart: always` 配置已在 `docker-compose.yml` 中设置，确保系统重启后容器自动启动。
+### 前置要求
 
-## 方案二：使用 Systemd (原生 Linux 服务)
+| 角色 | 需要 |
+|------|------|
+| **打包机**（开发机） | Node.js 20+，已 `npm install` |
+| **目标部署机** | 仅需 Node.js 20 LTS |
 
-如果你不想使用 Docker，可以直接在主机上运行。
+### 一键打包
 
-1. **赋予脚本执行权限**：
-   ```bash
-   chmod +x setup-service.sh
-   ```
-2. **运行设置脚本**：
-   ```bash
-   ./setup-service.sh
-   ```
-   该脚本会自动创建 `/etc/systemd/system/termlink.service` 文件，并设置开机自启。
+```powershell
+powershell -ExecutionPolicy Bypass -File .\skills\win-server-deploy\scripts\pack-win-server.ps1
+```
 
-## 环境变量配置
+输出 `dist/termlink-win-<timestamp>.zip`（约 22 MB），包含：
 
-在部署前，请确保 `.env` 文件配置正确，特别是：
-- `PORT`: 服务运行端口（默认 3000）。
-- `AUTH_ENABLED`: 是否开启登录鉴权（默认开启；仅 `false` 关闭）。
-- `AUTH_USER`: BasicAuth 用户名（默认 `admin`，生产必须修改）。
-- `AUTH_PASS`: BasicAuth 密码（默认 `admin`，生产必须修改）。
-- `SESSION_PERSIST_ENABLED`: 是否启用 session 元数据持久化（默认 `true`）。
-- `SESSION_PERSIST_PATH`: session 持久化文件路径（默认 `./data/sessions.json`）。
-- `PTY_SHELL`: 强制指定 PTY 启动 shell（跨平台最高优先级）。
-- `PTY_WINDOWS_SHELL`: 仅 Windows 生效的 shell（如 `pwsh.exe`）。
-- `PTY_UNIX_SHELL`: 仅 Linux/WSL 生效的 shell（如 `/usr/bin/zsh`）。
-- `PTY_SHELL_ARGS`: 启动 shell 参数（空格分隔，如 `-l`）。
+```
+termlink-win-<timestamp>/
+├── src/                  # 服务端源码
+├── public/               # Web 前端
+├── node_modules/         # 裁剪后的依赖（含预编译 node-pty）
+├── ecosystem.config.js   # pm2 进程配置
+├── .env.example          # 环境变量模板
+├── deploy-scripts/       # 安装/卸载/启动脚本
+│   ├── install-service.ps1
+│   ├── uninstall-service.ps1
+│   └── start.ps1
+├── data/                 # session 持久化（空）
+└── logs/                 # 日志目录（空）
+```
 
-## 终端默认 Shell 说明（Windows / WSL）
+### 部署到目标 Windows 机器
 
-当前服务端策略：
-- Windows：优先 `PTY_SHELL` -> `PTY_WINDOWS_SHELL` -> 自动探测 `pwsh` -> 回退 `powershell.exe`。
-- Linux/WSL：优先 `PTY_SHELL` -> `PTY_UNIX_SHELL` -> `/etc/passwd` 登录 shell -> `SHELL` -> 回退 `bash`。
+```powershell
+# 1. 解压
+#    右键 zip → 全部提取，或：
+Expand-Archive termlink-win-*.zip -DestinationPath C:\TermLink
 
-建议配置示例：
-- Windows（强制 PowerShell 7）：
-  - `.env` 中设置 `PTY_WINDOWS_SHELL=pwsh.exe`
-- WSL（强制 zsh）：
-  - `.env` 中设置 `PTY_UNIX_SHELL=/usr/bin/zsh`
-  - 如需登录模式可再加 `PTY_SHELL_ARGS=-l`
+# 2. 配置
+cd C:\TermLink
+Copy-Item .env.example .env
+notepad .env     # 必须改 AUTH_USER / AUTH_PASS
 
-## Session 持久化目录
+# 3. 安装服务（以管理员运行 PowerShell）
+powershell -ExecutionPolicy Bypass -File .\deploy-scripts\install-service.ps1
+```
 
-启用持久化时，请确保服务进程对 `SESSION_PERSIST_PATH` 的目录有写权限。
+### 日常管理
 
-- Docker 推荐挂载：`./data:/app/data`
-- Systemd 部署请确认工作目录下 `data/` 可写
+```powershell
+pm2 status              # 查看状态
+pm2 logs termlink       # 查看日志
+pm2 restart termlink    # 重启
+pm2 stop termlink       # 停止
+pm2 monit               # 实时监控面板
+```
 
-## 认证策略说明
+### 卸载
 
-当前服务端默认启用 BasicAuth（除非显式设置 `AUTH_ENABLED=false`）。  
-生产环境请务必设置强密码凭据，避免使用默认 `admin/admin`。
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy-scripts\uninstall-service.ps1
+```
+
+---
+
+## Docker 部署（适用于 Linux / WSL 端）
+
+```bash
+docker-compose up -d --build
+```
+
+- `restart: always` 保证开机自启
+- `.env` 和 `data/` 通过 volume 挂载
+
+## Systemd 部署（Linux 原生）
+
+```bash
+chmod +x setup-service.sh && ./setup-service.sh
+```
+
+---
+
+## 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `PORT` | `3000` | 监听端口 |
+| `AUTH_ENABLED` | `true` | 是否开启 BasicAuth |
+| `AUTH_USER` | `admin` | 用户名（生产必须改） |
+| `AUTH_PASS` | `admin` | 密码（生产必须改） |
+| `SESSION_PERSIST_ENABLED` | `true` | 是否持久化 session |
+| `SESSION_PERSIST_PATH` | `./data/sessions.json` | 持久化路径 |
+| `PTY_SHELL` | *自动探测* | 强制 shell（最高优先级） |
+| `PTY_WINDOWS_SHELL` | *自动探测* | 仅 Windows |
+| `PTY_UNIX_SHELL` | *自动探测* | 仅 Linux/WSL |
+| `PTY_SHELL_ARGS` | 空 | shell 参数 |
+
+## Nginx 反向代理
+
+参考 `ops-local/nginx/code.kongxn.com-442.conf`：
+
+- WebSocket：需 `Upgrade` / `Connection` 头透传
+- 超时：`proxy_read_timeout 3600s`
+- 路由：`/win` → Win 后端，`/wsl` → WSL 后端
+- mTLS：可选（`ssl_verify_client on`）

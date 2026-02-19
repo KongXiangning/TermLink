@@ -35,6 +35,13 @@ app.use(basicAuth);
 app.use(express.static(path.join(__dirname, '../public')));
 app.use('/api', createSessionsRouter(sessionManager));
 app.use('/api', createHealthRouter());
+
+// WebSocket ticket endpoint — must be AFTER basicAuth middleware
+const { issueWsTicket } = require('./auth/basicAuth');
+app.get('/api/ws-ticket', (req, res) => {
+    res.json({ ticket: issueWsTicket() });
+});
+
 registerTerminalGateway(wss, { sessionManager, heartbeatMs: 30000 });
 
 server.listen(PORT, () => {

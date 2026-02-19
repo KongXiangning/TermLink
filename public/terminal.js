@@ -696,7 +696,7 @@ function showNonBlockingNotice(message, level = 'info') {
 }
 
 // --- WebSocket Logic ---
-function connect() {
+async function connect() {
     if (isConnecting) return;
 
     const activeServer = getActiveServer();
@@ -719,6 +719,24 @@ function connect() {
         showConnectionSettings();
         return;
     }
+
+    // Fetch a one-time WebSocket auth ticket (HTTP request carries Basic Auth)
+    try {
+        const normalizedBase = normalizeServerUrl(hostUrl);
+        const ticketUrl = normalizedBase.replace(/\/+$/, '') + '/api/ws-ticket';
+        const resp = await fetch(ticketUrl);
+        if (resp.ok) {
+            const { ticket } = await resp.json();
+            if (ticket) {
+                const parsed = new URL(wsUrl);
+                parsed.searchParams.set('ticket', ticket);
+                wsUrl = parsed.toString();
+            }
+        }
+    } catch (ticketErr) {
+        console.warn('Failed to fetch ws-ticket, connecting without ticket:', ticketErr.message);
+    }
+
     const transportLabel = wsUrl.startsWith('wss://') ? 'wss' : 'ws';
 
     isConnecting = true;
