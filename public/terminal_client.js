@@ -597,36 +597,71 @@ const isTouchDevice = (
 if (terminalContainer && isTouchDevice) {
     let lastTapAt = 0;
     let suppressNextClickFocus = false;
-    const closeKeyboard = () => {
-        term.blur();
-        if (document.activeElement && typeof document.activeElement.blur === 'function') {
-            document.activeElement.blur();
+    let suppressFocusUntil = 0;
+
+    const closeSoftKeyboard = () => {
+        const activeEl = document.activeElement;
+        const termTextarea = term && term.textarea;
+
+        if (termTextarea) {
+            try {
+                termTextarea.blur();
+                const prevReadOnly = termTextarea.readOnly;
+                termTextarea.readOnly = true;
+                setTimeout(() => {
+                    termTextarea.readOnly = prevReadOnly;
+                }, 120);
+            } catch (_) {
+                // no-op
+            }
         }
+
+        term.blur();
+        if (activeEl && typeof activeEl.blur === 'function') {
+            activeEl.blur();
+        }
+
+        const currentActiveEl = document.activeElement;
+        if (currentActiveEl && typeof currentActiveEl.blur === 'function') {
+            currentActiveEl.blur();
+        }
+
+        callNativeBridge('requestHideKeyboard', []);
     };
 
-    terminalContainer.addEventListener('touchend', () => {
+    terminalContainer.addEventListener('touchend', (e) => {
         const now = Date.now();
-        if (now - lastTapAt < 320) {
-            closeKeyboard();
+        if (now - lastTapAt < 450) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeSoftKeyboard();
             suppressNextClickFocus = true;
+            suppressFocusUntil = now + 420;
             lastTapAt = 0;
             return;
         }
         lastTapAt = now;
-        focusTerminal();
-    }, { passive: true });
+    }, { passive: false });
+
+    terminalContainer.addEventListener('dblclick', () => {
+        const now = Date.now();
+        closeSoftKeyboard();
+        suppressNextClickFocus = true;
+        suppressFocusUntil = now + 420;
+    });
 
     terminalContainer.addEventListener('click', () => {
+        const now = Date.now();
+        const termTextarea = term && term.textarea;
+        if (!termTextarea) return;
         if (suppressNextClickFocus) {
             suppressNextClickFocus = false;
             return;
         }
-        focusTerminal();
-    });
-
-    terminalContainer.addEventListener('dblclick', () => {
-        closeKeyboard();
-        suppressNextClickFocus = true;
+        if (now < suppressFocusUntil) {
+            return;
+        }
+        term.focus();
     });
 } else if (terminalContainer) {
     terminalContainer.addEventListener('click', () => term.focus());

@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebSettings
 import android.webkit.WebView
+import android.view.inputmethod.InputMethodManager
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
@@ -264,6 +265,13 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             persistLastSessionId(sessionId)
         }
         Log.i(TAG, "Terminal session info sessionId=$sessionId name=${name ?: ""}")
+    }
+
+    override fun onRequestHideKeyboard() {
+        val webView = terminalWebView ?: return
+        webView.clearFocus()
+        val imm = getSystemService(InputMethodManager::class.java)
+        imm?.hideSoftInputFromWindow(webView.windowToken, 0)
     }
 
     override fun getServerConfigState(): ServerConfigState {
@@ -755,7 +763,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     companion object {
-        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=14"
+        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=18"
         private const val DEBUG_CLEAR_TERMINAL_CACHE_ON_LOAD = false
         private const val JS_BRIDGE_NAME = "TerminalEventBridge"
         private const val PREFS_NAME = "termlink_shell"
