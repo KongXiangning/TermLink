@@ -1,4 +1,5 @@
-html, body {
+html,
+body {
     margin: 0;
     padding: 0;
     width: 100%;
@@ -23,6 +24,11 @@ html, body {
 #terminal-container {
     width: 100%;
     height: 100%;
+    touch-action: pan-y;
+}
+
+body .xterm .xterm-viewport {
+    -webkit-overflow-scrolling: touch !important;
 }
 
 #status-overlay {
