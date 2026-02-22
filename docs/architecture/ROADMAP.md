@@ -15,6 +15,7 @@ related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BAC
 1. 完成文档治理与需求流程标准化。
 2. 固化 Android 客户端终端交互稳定性（IME、快捷键栏、连接态可视化）。
 3. 整理会话管理与配置管理的验收基线。
+4. 推进会话生命周期与保留策略升级（6 小时 idle 保留 + 断联续接 + 容量治理）。
 
 ## 2026-Q2
 

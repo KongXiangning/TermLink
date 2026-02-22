@@ -25,4 +25,5 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/R
 | id | title | priority | status | owner | target_release | links |
 |---|---|---|---|---|---|---|
 | REQ-20260222-doc-governance | 文档统一管理与需求流程标准化 | P0 | planned | @maintainer | 2026-Q1 | `docs/product/requirements/REQ-20260222-document-governance.md` |
+| REQ-20260222-session-retention-reconnect | 服务端会话长时保留与断联续接 | P0 | planned | @maintainer | 2026-Q1 | `docs/product/requirements/REQ-20260222-session-retention-reconnect.md` |
 | REQ-20260222-codex-approval | Codex 命令审批链路（session/thread/approval） | P1 | proposed | @maintainer | TBD | `docs/archive/product/prdv2.md` |

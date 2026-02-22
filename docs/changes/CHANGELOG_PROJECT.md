@@ -20,3 +20,4 @@ related_docs: [docs/README.md]
 4. 新增需求池与需求模板：`REQUIREMENTS_BACKLOG.md` + `REQ-TEMPLATE.md`。
 5. 历史计划迁移到 `docs/archive/` 并标记不再作为主线规范。
 6. 根目录历史入口文件改为跳转说明页，保持兼容链接。
+7. 新增需求卡 `REQ-20260222-session-retention-reconnect`，定义服务端会话长时保留与断联续接的实施规范。
