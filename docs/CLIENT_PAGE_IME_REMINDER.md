@@ -1,17 +1,16 @@
-# Client Page IME Reminder
+---
+title: CLIENT_PAGE_IME_REMINDER 兼容入口
+status: superseded
+owner: @maintainer
+last_updated: 2026-02-22
+source_of_truth: ops
+related_code: []
+related_docs: [docs/ops/incidents/client-ime-reminder.md]
+---
 
-This project has two terminal pages with different touch behaviors:
+# CLIENT_PAGE_IME_REMINDER 兼容入口
 
-- Web page (browser): `public/terminal.html` + `public/terminal.js`
-- Android client page (WebView): `public/terminal_client.html` + `public/terminal_client.js`
+该路径已迁移，请使用：
 
-If `terminal.html` is normal but `terminal_client.html` is not, treat it as a
-`terminal_client.js` gesture/event conflict first.
-
-Key rule:
-
-- In this scenario, do not change server API/WS logic first; fix `terminal_client.*` behavior first.
-
-Related tracking log:
-
-- `docs/CLIENT_IME_ISSUE_TRACKING.md`
+- `docs/ops/incidents/client-ime-reminder.md`
+- 迁移日期：2026-02-22
