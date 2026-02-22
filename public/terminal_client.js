@@ -538,6 +538,7 @@ window.__setQuickToolbarVisible = function(visible) {
     setQuickToolbarVisible(!!visible);
 };
 
+setQuickToolbarVisible(true);
 sendResize();
 
 document.querySelectorAll('.key').forEach((btn) => {
@@ -697,3 +698,4 @@ if (serverUrl) {
 } else {
     showStatus('Waiting for server config...');
 }
+

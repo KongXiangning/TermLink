@@ -214,6 +214,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
                 super.onPageFinished(view, url)
                 if (view != null) {
                     injectTerminalConfigIfChanged(view, force = true)
+                    applyQuickToolbarToWebView()
                 }
             }
         }
@@ -795,3 +796,4 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         private const val TAG = "TermLinkShell"
     }
 }
+
