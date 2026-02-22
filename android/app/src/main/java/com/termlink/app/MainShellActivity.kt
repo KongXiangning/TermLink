@@ -763,7 +763,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     companion object {
-        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=18"
+        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=19"
         private const val DEBUG_CLEAR_TERMINAL_CACHE_ON_LOAD = false
         private const val JS_BRIDGE_NAME = "TerminalEventBridge"
         private const val PREFS_NAME = "termlink_shell"
