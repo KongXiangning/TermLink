@@ -23,6 +23,7 @@ related_docs: [docs/README.md]
 7. 新增需求卡 `REQ-20260222-session-retention-reconnect`，定义服务端会话长时保留与断联续接的实施规范。
 8. 建立 `docs/changes/records/` 固化变更记录机制（CR），用于 compact 风格的回放、恢复与后续修改。
 9. 新增 `docs-requirement-sync` skill，并引入 REQ + CR 的门禁校验脚本。
+10. 新增需求卡 `REQ-20260222-server-admin-privilege-mode`，定义服务端管理员权限模式的安全边界、启用条件、审计与回滚要求。
 
 ## 2026-02-22 (records)
 

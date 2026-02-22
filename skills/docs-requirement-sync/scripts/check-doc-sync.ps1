@@ -24,7 +24,7 @@ function Resolve-InputPath([string]$PathValue, [string]$Root) {
 }
 
 function Get-FrontMatterMap([string]$FilePath) {
-    $lines = Get-Content $FilePath
+    $lines = Get-Content -Path $FilePath -Encoding UTF8
     $map = @{}
     if ($lines.Length -lt 3 -or $lines[0].Trim() -ne '---') { return $map }
     $end = -1
@@ -38,6 +38,24 @@ function Get-FrontMatterMap([string]$FilePath) {
         }
     }
     return $map
+}
+
+function Get-MetaMap([string]$FilePath) {
+    $lines = Get-Content -Path $FilePath -Encoding UTF8
+    $meta = @{}
+    $metaStart = -1
+    for ($i = 0; $i -lt $lines.Length; $i++) {
+        if ($lines[$i] -match '^##\s+Meta\s*$') { $metaStart = $i; break }
+    }
+    if ($metaStart -lt 0) { return $meta }
+
+    for ($j = $metaStart + 1; $j -lt $lines.Length; $j++) {
+        if ($lines[$j] -match '^##\s+') { break }
+        if ($lines[$j] -match '^\s*-\s*([A-Za-z0-9_]+)\s*:\s*(.*)\s*$') {
+            $meta[$Matches[1].ToLowerInvariant()] = $Matches[2].Trim()
+        }
+    }
+    return $meta
 }
 
 function Test-GitCommitExists([string]$Root, [string]$CommitRef) {
@@ -70,6 +88,14 @@ if (-not $resolvedReq) {
     $errors.Add("REQ file not found for id: $ReqId")
 } else {
     $passes.Add("REQ file found: $resolvedReq")
+}
+
+$reqMeta = @{}
+$reqStatus = ''
+if ($resolvedReq) {
+    $reqMeta = Get-MetaMap -FilePath $resolvedReq
+    $reqStatus = ($reqMeta['status'] | ForEach-Object { $_.ToLowerInvariant() })
+    if (-not $reqStatus) { $reqStatus = '' }
 }
 
 if (Select-String -Path $backlog -Pattern ([regex]::Escape($ReqId)) -Quiet) {
@@ -112,7 +138,11 @@ if (Test-Path $recordsDir) {
 }
 
 if ($activeRecords.Count -eq 0) {
-    $errors.Add("No active CR found for req id: $ReqId")
+    if ($reqStatus -in @('in_progress', 'done')) {
+        $errors.Add("No active CR found for req id: $ReqId (required for status=$reqStatus)")
+    } else {
+        $passes.Add("Active CR not required for status='$reqStatus' (recommended when implementation starts).")
+    }
 } else {
     $passes.Add("Active CR count: $($activeRecords.Count)")
 }

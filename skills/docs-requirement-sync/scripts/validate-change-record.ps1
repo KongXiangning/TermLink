@@ -23,7 +23,7 @@ function Resolve-InputPath([string]$PathValue, [string]$Root) {
 }
 
 function Get-FrontMatterMap([string]$FilePath) {
-    $lines = Get-Content $FilePath
+    $lines = Get-Content -Path $FilePath -Encoding UTF8
     $map = @{}
     if ($lines.Length -lt 3 -or $lines[0].Trim() -ne '---') { return $map }
     $end = -1
@@ -56,7 +56,7 @@ function Test-GitCommitExists([string]$Root, [string]$CommitRef) {
 $root = Resolve-ProjectRoot -ExplicitRoot $ProjectRoot
 $recordFile = Resolve-InputPath -PathValue $RecordPath -Root $root
 $front = Get-FrontMatterMap -FilePath $recordFile
-$raw = Get-Content -Raw $recordFile
+$raw = Get-Content -Path $recordFile -Raw -Encoding UTF8
 $errors = New-Object System.Collections.Generic.List[string]
 $warnings = New-Object System.Collections.Generic.List[string]
 

@@ -23,7 +23,7 @@ function Resolve-InputPath([string]$PathValue, [string]$Root) {
 }
 
 function Get-FrontMatterMap([string]$FilePath) {
-    $lines = Get-Content $FilePath
+    $lines = Get-Content -Path $FilePath -Encoding UTF8
     $map = @{}
     if ($lines.Length -lt 3 -or $lines[0].Trim() -ne '---') {
         return $map
@@ -53,7 +53,7 @@ function Parse-InlineArray([string]$Value) {
 }
 
 function Get-MetaMap([string]$FilePath) {
-    $lines = Get-Content $FilePath
+    $lines = Get-Content -Path $FilePath -Encoding UTF8
     $meta = @{}
     $metaStart = -1
     for ($i = 0; $i -lt $lines.Length; $i++) {
@@ -78,7 +78,7 @@ $warnings = New-Object System.Collections.Generic.List[string]
 
 $front = Get-FrontMatterMap -FilePath $reqFile
 $meta = Get-MetaMap -FilePath $reqFile
-$raw = Get-Content -Raw $reqFile
+$raw = Get-Content -Path $reqFile -Raw -Encoding UTF8
 
 $requiredFront = @('title', 'status', 'owner', 'last_updated', 'source_of_truth', 'related_code', 'related_docs')
 foreach ($k in $requiredFront) {
