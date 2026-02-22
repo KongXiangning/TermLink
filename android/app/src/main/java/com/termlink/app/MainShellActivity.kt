@@ -53,6 +53,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var sessionsDrawerButton: ImageButton? = null
     private var backButton: ImageButton? = null
     private var settingsButton: ImageButton? = null
+    private var quickToolbarButton: ImageButton? = null
+    private var quickToolbarVisible: Boolean = true
     private lateinit var terminalEventBridge: TerminalEventBridge
     private lateinit var serverConfigStore: ServerConfigStore
     private lateinit var basicCredentialStore: BasicCredentialStore
@@ -106,6 +108,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         sessionsDrawerButton = findViewById(R.id.btn_open_sessions_drawer)
         backButton = findViewById(R.id.btn_back_terminal)
         settingsButton = findViewById(R.id.btn_open_settings)
+        quickToolbarButton = findViewById(R.id.btn_toggle_quick_toolbar)
         statusTextView = findViewById(R.id.shell_status_text)
 
         topBarView?.let { topBar ->
@@ -134,6 +137,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         sessionsDrawerButton?.setOnClickListener { openSessionsDrawer() }
         backButton?.setOnClickListener { showTerminalScreen() }
         settingsButton?.setOnClickListener { showSettingsScreen() }
+        quickToolbarButton?.setOnClickListener { toggleQuickToolbar() }
 
         applySystemBarInsets()
         ensureDrawerSessionsFragment()
@@ -651,6 +655,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             sessionsDrawerButton?.visibility = View.GONE
             backButton?.visibility = View.VISIBLE
             settingsButton?.visibility = View.GONE
+            quickToolbarButton?.visibility = View.GONE
             statusTextView?.text = getString(R.string.settings_screen_title)
             backButton?.contentDescription = getString(R.string.settings_back_button)
             return
@@ -659,8 +664,23 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         backButton?.visibility = View.GONE
         sessionsDrawerButton?.visibility = if (isTerminalChromeCompact) View.GONE else View.VISIBLE
         settingsButton?.visibility = View.VISIBLE
+        quickToolbarButton?.visibility = View.VISIBLE
         sessionsDrawerButton?.contentDescription = getString(R.string.sessions_panel_button)
         statusTextView?.text = terminalStatusText
+    }
+
+    private fun toggleQuickToolbar() {
+        quickToolbarVisible = !quickToolbarVisible
+        applyQuickToolbarToWebView()
+    }
+
+    private fun applyQuickToolbarToWebView() {
+        val webView = terminalWebView ?: return
+        val visible = quickToolbarVisible
+        webView.evaluateJavascript(
+            "window.__setQuickToolbarVisible($visible)",
+            null
+        )
     }
 
     private fun applyInsetsForCurrentChromeMode() {
@@ -763,7 +783,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     companion object {
-        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=19"
+        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=20"
         private const val DEBUG_CLEAR_TERMINAL_CACHE_ON_LOAD = false
         private const val JS_BRIDGE_NAME = "TerminalEventBridge"
         private const val PREFS_NAME = "termlink_shell"

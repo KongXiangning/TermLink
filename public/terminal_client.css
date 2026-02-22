@@ -54,6 +54,10 @@ body .xterm .xterm-viewport {
     padding-bottom: 6px;
 }
 
+#toolbar.hidden {
+    display: none;
+}
+
 .key-row {
     display: flex;
     gap: 6px;

@@ -55,6 +55,17 @@
                 android:textSize="12sp" />
 
             <ImageButton
+                android:id="@+id/btn_toggle_quick_toolbar"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:layout_marginStart="6dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/quick_toolbar_toggle_button"
+                android:padding="6dp"
+                android:src="@drawable/ic_keyboard_24"
+                android:tint="@android:color/white" />
+
+            <ImageButton
                 android:id="@+id/btn_open_settings"
                 android:layout_width="38dp"
                 android:layout_height="38dp"

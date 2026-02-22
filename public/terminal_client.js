@@ -56,6 +56,7 @@ let isConnecting = false;
 let retryCount = 0;
 const MAX_RETRIES = 3;
 const warmupDoneHosts = new Set();
+let quickToolbarVisible = true;
 
 function readInjectedConfig() {
     if (!window.__TERMLINK_CONFIG__ || typeof window.__TERMLINK_CONFIG__ !== 'object') {
@@ -519,6 +520,22 @@ window.addEventListener('resize', sendResize);
 
 window.__onNativeViewportChanged = function () {
     sendResize();
+};
+
+function setQuickToolbarVisible(visible) {
+    const toolbar = document.getElementById('toolbar');
+    if (!toolbar) return;
+    quickToolbarVisible = visible;
+    if (visible) {
+        toolbar.classList.remove('hidden');
+    } else {
+        toolbar.classList.add('hidden');
+    }
+    sendResize();
+}
+
+window.__setQuickToolbarVisible = function(visible) {
+    setQuickToolbarVisible(!!visible);
 };
 
 sendResize();
