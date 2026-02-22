@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -9,6 +10,7 @@
     <script src="lib/xterm.js"></script>
     <script src="lib/xterm-addon-fit.js"></script>
 </head>
+
 <body>
     <div id="terminal-shell">
         <div id="terminal-main">
@@ -33,24 +35,25 @@
                 <button class="key" id="btn-toggle-input" title="Input Mode">📝</button>
             </div>
             <div class="key-row">
+                <button class="key" data-key="Home">Home</button>
+                <button class="key" data-key="Up">↑</button>
+                <button class="key" data-key="End">End</button>
+                <button class="key" data-key="PgUp">PgUp</button>
                 <button class="key" data-key="-">-</button>
                 <button class="key" data-key="/">/</button>
                 <button class="key" data-key="|">|</button>
-                <button class="key" data-key="Home">Home</button>
-                <button class="key" data-key="End">End</button>
-                <button class="key" data-key="PgUp">PgUp</button>
-                <button class="key" data-key="PgDn">PgDn</button>
             </div>
             <div class="key-row">
                 <button class="key" data-key="Left">←</button>
                 <button class="key" data-key="Down">↓</button>
-                <button class="key" data-key="Up">↑</button>
                 <button class="key" data-key="Right">→</button>
+                <button class="key" data-key="PgDn">PgDn</button>
                 <button class="key" id="btn-ctrl-c" data-key="Ctrl-C" style="color:red;">🛑</button>
-                <button class="key" data-key="Enter">Enter</button>
+                <button class="key" data-key="Enter" style="flex: 2;">Enter ↵</button>
             </div>
         </div>
     </div>
     <script src="terminal_client.js?v=18"></script>
 </body>
+
 </html>
