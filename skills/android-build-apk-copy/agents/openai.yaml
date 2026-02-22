@@ -1,0 +1,4 @@
+interface:
+  display_name: "Android Build APK Copy"
+  short_description: "Build debug APK and copy to E:\\project\\TermLink"
+  default_prompt: "Use $android-build-apk-copy to build a debug APK and copy it to E:\\project\\TermLink."

@@ -18,3 +18,4 @@ skills/android-local-build-debug/local-config.ps1
 dist/
 screenshot*.png
 *.apk
+.codex/

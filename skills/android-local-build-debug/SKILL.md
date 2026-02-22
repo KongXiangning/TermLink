@@ -7,6 +7,9 @@ description: Build, install, and debug TermLink on real Android devices with adb
 
 Use this skill for repeatable local Android build + install + real-device debugging.
 
+Run commands from repository root:
+`E:\coding\TermLink`
+
 ## Target Devices
 
 Use this priority by default:
@@ -19,45 +22,45 @@ If multiple devices are online, always pass `-Serial`.
 
 1. Build debug APK:
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./scripts/build-debug-apk.ps1
+powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/build-debug-apk.ps1
 ```
 
 2. Install and launch:
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./scripts/install-debug-apk.ps1
+powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/install-debug-apk.ps1
 ```
 
 3. Stream logs:
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./scripts/logcat-termlink.ps1
+powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/logcat-termlink.ps1
 ```
 
 4. Validate local server config:
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./scripts/validate-server-config.ps1
+powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/validate-server-config.ps1
 ```
 
 ## Standard Debug Loop
 
 1. Run doctor:
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./scripts/adb-doctor.ps1
+powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/adb-doctor.ps1
 ```
 
 2. Rebuild and reinstall:
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./scripts/build-debug-apk.ps1
-powershell -ExecutionPolicy Bypass -File ./scripts/install-debug-apk.ps1 -Serial da34332c
+powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/build-debug-apk.ps1
+powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/install-debug-apk.ps1 -Serial da34332c
 ```
 
 3. Launch app:
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./scripts/launch-termlink.ps1 -Serial da34332c
+powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/launch-termlink.ps1 -Serial da34332c
 ```
 
 4. Reproduce issue and collect logs:
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./scripts/logcat-termlink.ps1 -Serial da34332c
+powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/logcat-termlink.ps1 -Serial da34332c
 ```
 
 ## Rules

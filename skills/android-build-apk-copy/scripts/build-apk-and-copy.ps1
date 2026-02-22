@@ -1,11 +1,15 @@
 param(
     [string]$ProjectRoot,
-    [string]$JdkHome
+    [string]$JdkHome,
+    [string]$OutDir = 'E:\project\TermLink',
+    [string]$OutName = 'app-debug.apk'
 )
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ErrorActionPreference = 'Stop'
+$scriptDir = Split-Path -Parent $PSCommandPath
+
 if (-not $ProjectRoot) {
-    $ProjectRoot = Resolve-Path (Join-Path $scriptDir '..\..\..')
+    $ProjectRoot = (Resolve-Path (Join-Path $scriptDir '..\..\..')).Path
 }
 
 if (-not (Test-Path $ProjectRoot)) {
@@ -27,15 +31,16 @@ if (-not $JdkHome) {
     }
 }
 
-if ($JdkHome) {
-    $env:JAVA_HOME = $JdkHome
-    $env:Path = "$($env:JAVA_HOME)\bin;$($env:Path)"
-} else {
-    Write-Warning 'JDK path not provided and JAVA_HOME not set. Build may fail if Java is unavailable in PATH.'
+if (-not $JdkHome) {
+    throw 'JDK path not found. Set JAVA_HOME or pass -JdkHome (JDK 21 required).'
 }
+
+$env:JAVA_HOME = $JdkHome
+$env:Path = "$($env:JAVA_HOME)\bin;$($env:Path)"
 
 Push-Location $ProjectRoot
 try {
+    Write-Host "Running android sync..."
     npm run android:sync
     if ($LASTEXITCODE -ne 0) {
         throw 'android:sync failed'
@@ -43,6 +48,7 @@ try {
 
     Push-Location $androidDir
     try {
+        Write-Host "Building debug APK..."
         .\gradlew.bat :app:assembleDebug
         if ($LASTEXITCODE -ne 0) {
             throw 'assembleDebug failed'
@@ -54,4 +60,14 @@ try {
     Pop-Location
 }
 
-Write-Host "APK: $ProjectRoot\android\app\build\outputs\apk\debug\app-debug.apk"
+$apkPath = Join-Path $ProjectRoot 'android\app\build\outputs\apk\debug\app-debug.apk'
+if (-not (Test-Path $apkPath)) {
+    throw "APK not found: $apkPath"
+}
+
+New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+$target = Join-Path $OutDir $OutName
+Copy-Item -Path $apkPath -Destination $target -Force
+
+Write-Host "APK built: $apkPath"
+Write-Host "APK copied: $target"

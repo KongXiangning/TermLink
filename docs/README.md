@@ -5,7 +5,7 @@ owner: @maintainer
 last_updated: 2026-02-22
 source_of_truth: product
 related_code: []
-related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/CURRENT_STATE.md]
+related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/CURRENT_STATE.md, docs/changes/records/INDEX.md]
 ---
 
 # TermLink 文档中心
@@ -17,6 +17,8 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/CURRENT_S
 3. 与代码冲突时，以代码与当前可运行行为为准。
 4. 新增需求只能先进入 `docs/product/REQUIREMENTS_BACKLOG.md`。
 5. 历史文档进入 `docs/archive/`，不得继续作为主线规范。
+6. 每次实施/提交必须新增一条 CR（Change Record）文件到 `docs/changes/records/`。
+7. 需求状态进入 `done` 前，必须至少存在一条 `active` CR 且具备真实 `commit_ref`。
 
 状态机：`proposed -> triaged -> planned -> in_progress -> done -> archived`
 
@@ -48,6 +50,7 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/CURRENT_S
 ### Changes
 
 - 项目变更日志：`docs/changes/CHANGELOG_PROJECT.md`
+- 变更记录索引（CR）：`docs/changes/records/INDEX.md`
 - 快捷键盘按钮记录：`docs/changes/2026-02-quick-toolbar.md`
 
 ### Archive
@@ -60,3 +63,10 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/CURRENT_S
 2. 复制 `docs/product/requirements/REQ-TEMPLATE.md`，新建 `REQ-YYYYMMDD-<slug>.md`。
 3. 在需求池中把 `links` 指向该需求卡。
 4. 需求状态至少流转到 `planned` 后再进入实现。
+
+## 4. CR 记录流程（强制）
+
+1. 开发前或开发中创建 CR 草稿（`draft`，允许 `commit_ref: TBD`）。
+2. 提交后更新 CR 为 `active` 并写入真实 commit hash。
+3. 所有恢复/回滚步骤必须写入 CR 的“回滚方案（命令级）”。
+4. `CHANGELOG_PROJECT.md` 只保留摘要，详细信息统一查 `docs/changes/records/INDEX.md`。

@@ -1,10 +1,18 @@
 param(
     [string]$Serial,
-    [string]$ApkPath = 'E:\coding\TermLink\android\app\build\outputs\apk\debug\app-debug.apk',
+    [string]$ProjectRoot,
+    [string]$ApkPath,
     [switch]$SkipLaunch
 )
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+if (-not $ProjectRoot) {
+    $ProjectRoot = Resolve-Path (Join-Path $scriptDir '..\..\..')
+}
+if (-not $ApkPath) {
+    $ApkPath = Join-Path $ProjectRoot 'android\app\build\outputs\apk\debug\app-debug.apk'
+}
+
 $target = & "$scriptDir\select-adb-device.ps1" -Serial $Serial
 
 if (-not (Test-Path $ApkPath)) {
@@ -22,4 +30,3 @@ if (-not $SkipLaunch) {
 }
 
 Write-Host "Done on $target"
-
