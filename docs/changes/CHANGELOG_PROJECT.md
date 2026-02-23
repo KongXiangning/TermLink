@@ -2,13 +2,19 @@
 title: TermLink 项目变更日志
 status: active
 owner: @maintainer
-last_updated: 2026-02-22
+last_updated: 2026-02-23
 source_of_truth: product
 related_code: []
 related_docs: [docs/README.md]
 ---
 
 # CHANGELOG_PROJECT
+
+## 2026-02-23
+
+### server
+
+1. 落地 `REQ-20260222-session-retention-reconnect` 第一阶段实现：会话默认 idle TTL 提升至 6 小时，新增会话容量上限与 IDLE-LRU 回收，`WS` 无效 `sessionId` 返回明确错误（详情见 `CR-20260223-2114-session-retention-impl-phase1`）。
 
 ## 2026-02-22
 

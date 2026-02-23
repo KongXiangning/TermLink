@@ -2,13 +2,48 @@ const { v4: uuidv4 } = require('uuid');
 const SessionStore = require('../repositories/sessionStore');
 const PtyService = require('./ptyService');
 
-const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const DEFAULT_IDLE_TIMEOUT_MS = 6 * 60 * 60 * 1000; // 6 hours
+const DEFAULT_CLEANUP_INTERVAL_MS = 60 * 1000;
+const DEFAULT_MAX_SESSION_COUNT = 50;
+const MIN_IDLE_TIMEOUT_MS = 60 * 1000;
+const MIN_CLEANUP_INTERVAL_MS = 1000;
 const PERSIST_DEBOUNCE_MS = 500;
+const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
+
+function parsePositiveIntEnv(name, defaultValue, minValue) {
+    const raw = process.env[name];
+    if (raw === undefined || raw === null || String(raw).trim() === '') {
+        return defaultValue;
+    }
+
+    const parsed = Number.parseInt(String(raw), 10);
+    if (!Number.isFinite(parsed) || parsed < minValue) {
+        console.warn(`[SessionManager] Invalid ${name}=${raw}, fallback to ${defaultValue}.`);
+        return defaultValue;
+    }
+
+    return parsed;
+}
 
 class SessionManager {
     constructor() {
         this.sessions = new Map();
         this.persistTimer = null;
+        this.idleTimeoutMs = parsePositiveIntEnv(
+            'SESSION_IDLE_TTL_MS',
+            DEFAULT_IDLE_TIMEOUT_MS,
+            MIN_IDLE_TIMEOUT_MS
+        );
+        this.cleanupIntervalMs = parsePositiveIntEnv(
+            'SESSION_CLEANUP_INTERVAL_MS',
+            DEFAULT_CLEANUP_INTERVAL_MS,
+            MIN_CLEANUP_INTERVAL_MS
+        );
+        this.maxSessionCount = parsePositiveIntEnv(
+            'SESSION_MAX_COUNT',
+            DEFAULT_MAX_SESSION_COUNT,
+            1
+        );
         this.sessionStore = new SessionStore({
             enabled: process.env.SESSION_PERSIST_ENABLED !== 'false',
             filePath: process.env.SESSION_PERSIST_PATH || './data/sessions.json',
@@ -18,11 +53,13 @@ class SessionManager {
         this.restorePersistedSessions();
 
         // Clean up idle sessions periodically
-        setInterval(() => this.cleanupIdleSessions(), 60000);
+        setInterval(() => this.cleanupIdleSessions(), this.cleanupIntervalMs);
         this.registerShutdownHooks();
     }
 
     async createSession(options = {}) {
+        this.ensureCapacityForNewSession();
+
         const id = uuidv4();
         const now = Date.now();
         const session = this.buildSession({
@@ -113,11 +150,50 @@ class SessionManager {
     cleanupIdleSessions() {
         const now = Date.now();
         for (const [id, session] of this.sessions.entries()) {
-            if (session.connections.length === 0 && (now - session.lastActiveAt > IDLE_TIMEOUT_MS)) {
+            if (session.connections.length === 0 && (now - session.lastActiveAt > this.idleTimeoutMs)) {
                 console.log(`Cleaning up idle session: ${id}`);
                 this.deleteSession(id);
             }
         }
+    }
+
+    ensureCapacityForNewSession() {
+        if (this.sessions.size < this.maxSessionCount) {
+            return;
+        }
+
+        const evictedSessionId = this.evictOldestIdleSession();
+        if (evictedSessionId) {
+            return;
+        }
+
+        const error = new Error(`Session capacity exceeded: max ${this.maxSessionCount}`);
+        error.code = SESSION_CAPACITY_ERROR_CODE;
+        error.maxSessionCount = this.maxSessionCount;
+        throw error;
+    }
+
+    evictOldestIdleSession() {
+        let oldestIdleSession = null;
+
+        for (const session of this.sessions.values()) {
+            if (session.connections.length > 0) {
+                continue;
+            }
+            if (!oldestIdleSession || session.lastActiveAt < oldestIdleSession.lastActiveAt) {
+                oldestIdleSession = session;
+            }
+        }
+
+        if (!oldestIdleSession) {
+            return null;
+        }
+
+        console.warn(
+            `[SessionManager] Evicting idle session due to capacity limit: ${oldestIdleSession.id}`
+        );
+        this.deleteSession(oldestIdleSession.id);
+        return oldestIdleSession.id;
     }
 
     restorePersistedSessions() {
@@ -231,4 +307,7 @@ class SessionManager {
     }
 }
 
-module.exports = new SessionManager();
+const sessionManager = new SessionManager();
+sessionManager.SESSION_CAPACITY_ERROR_CODE = SESSION_CAPACITY_ERROR_CODE;
+
+module.exports = sessionManager;

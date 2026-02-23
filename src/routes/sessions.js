@@ -1,4 +1,5 @@
 const express = require('express');
+const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
 
 function createSessionsRouter(sessionManager) {
     const router = express.Router();
@@ -8,9 +9,21 @@ function createSessionsRouter(sessionManager) {
     });
 
     router.post('/sessions', async (req, res) => {
-        const { name } = req.body || {};
-        const session = await sessionManager.createSession({ name });
-        res.json({ id: session.id, name: session.name });
+        try {
+            const { name } = req.body || {};
+            const session = await sessionManager.createSession({ name });
+            res.json({ id: session.id, name: session.name });
+        } catch (e) {
+            if (e && e.code === SESSION_CAPACITY_ERROR_CODE) {
+                return res.status(409).json({
+                    error: 'Session capacity exceeded',
+                    code: SESSION_CAPACITY_ERROR_CODE,
+                    maxSessionCount: e.maxSessionCount
+                });
+            }
+            console.error('Failed to create session:', e);
+            return res.status(500).json({ error: 'Failed to create session' });
+        }
     });
 
     router.patch('/sessions/:id', (req, res) => {
