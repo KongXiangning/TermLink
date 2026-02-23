@@ -2,13 +2,19 @@
 title: TermLink 项目变更日志
 status: active
 owner: @maintainer
-last_updated: 2026-02-23
+last_updated: 2026-02-24
 source_of_truth: product
 related_code: []
 related_docs: [docs/README.md]
 ---
 
 # CHANGELOG_PROJECT
+
+## 2026-02-24
+
+### server
+
+1. 修复 `REQ-20260222-session-retention-reconnect` 的 WS 参数语义回归：`?sessionId=` 现在返回 `4404` 且不再静默新建会话，并新增关键自动化回归测试（见 `CR-20260224-0023-session-retention-reconnect-ws-param-fix`）。
 
 ## 2026-02-23
 
