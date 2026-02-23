@@ -2,7 +2,7 @@
 title: TermLink 文档中心
 status: active
 owner: @maintainer
-last_updated: 2026-02-22
+last_updated: 2026-02-23
 source_of_truth: product
 related_code: []
 related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/CURRENT_STATE.md, docs/changes/records/INDEX.md]
@@ -47,6 +47,7 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/CURRENT_S
 - 运维清单：`docs/ops/ops-checklist.md`
 - IME 事件追踪：`docs/ops/incidents/client-ime-issue-tracking.md`
 - IME 快速提醒：`docs/ops/incidents/client-ime-reminder.md`
+- 快捷键盘控制键问题追踪：`docs/ops/incidents/client-shortcut-keyboard-modifier-issue.md`
 
 ### Changes
 

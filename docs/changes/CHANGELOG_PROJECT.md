@@ -26,6 +26,11 @@ related_docs: [docs/README.md]
 
 1. 落地 `REQ-20260222-session-retention-reconnect` 第一阶段实现：会话默认 idle TTL 提升至 6 小时，新增会话容量上限与 IDLE-LRU 回收，`WS` 无效 `sessionId` 返回明确错误（详情见 `CR-20260223-2114-session-retention-impl-phase1`）。
 
+### docs
+
+1. 新增快捷键盘输入问题追踪：`Ctrl/Alt` 当前未生效为控制键语义，且终端文字区拖动滚动明显困难（见 `docs/ops/incidents/client-shortcut-keyboard-modifier-issue.md`）。
+2. 更新需求卡 `REQ-20260223-shortcut-keyboard-modifier-newline`，范围扩展为“修复 `Ctrl/Alt` + 增加换行按钮 + 优化文字区拖动滚动体验”。
+
 ## 2026-02-22
 
 ### docs

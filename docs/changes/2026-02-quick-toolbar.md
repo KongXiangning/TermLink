@@ -2,7 +2,7 @@
 title: 2026-02 快捷键盘按钮变更记录
 status: active
 owner: @maintainer
-last_updated: 2026-02-22
+last_updated: 2026-02-23
 source_of_truth: code
 related_code: [android/app/src/main/java/com/termlink/app/MainShellActivity.kt, public/terminal_client.js, public/terminal_client.css]
 related_docs: [docs/changes/CHANGELOG_PROJECT.md]
@@ -106,4 +106,6 @@ Last updated: 2026-02-22
 ## 待补充（文档层）
 
 1. 原 Rollout Plan 的“Commit 4：android:sync 后构建/安装验收记录”尚未单独形成文档记录。
+2. 快捷键盘 `Ctrl/Alt` 目前仍存在控制键语义缺失问题，见 `docs/ops/incidents/client-shortcut-keyboard-modifier-issue.md`。
+3. 终端文字区按住拖动时滚动困难问题已纳入同一需求修复范围，见 `REQ-20260223-shortcut-keyboard-modifier-newline`。
 

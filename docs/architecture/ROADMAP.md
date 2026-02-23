@@ -16,6 +16,7 @@ related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BAC
 2. 固化 Android 客户端终端交互稳定性（IME、快捷键栏、连接态可视化）。
 3. 整理会话管理与配置管理的验收基线。
 4. 已完成会话生命周期与保留策略升级（`REQ-20260222-session-retention-reconnect`，6 小时 idle 保留 + 断联续接 + 容量治理）。
+5. 修复快捷键盘 `Ctrl/Alt` 语义、新增“换行”按钮，并优化终端文字区拖动滚动体验（`REQ-20260223-shortcut-keyboard-modifier-newline`）。
 
 ## 2026-Q2
 
