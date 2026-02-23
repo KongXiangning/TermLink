@@ -1,8 +1,8 @@
 ---
 title: 服务端会话长时保留与断联续接
-status: planned
+status: done
 owner: @maintainer
-last_updated: 2026-02-22
+last_updated: 2026-02-24
 source_of_truth: product
 related_code: [src/services/sessionManager.js, src/ws/terminalGateway.js, src/routes/sessions.js, src/repositories/sessionStore.js, .env.example]
 related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md]
@@ -15,7 +15,7 @@ related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIR
 - id: REQ-20260222-session-retention-reconnect
 - title: 服务端会话长时保留与断联续接
 - priority: P0
-- status: planned
+- status: done
 - owner: @maintainer
 - target_release: 2026-Q1
 - links: `docs/product/REQUIREMENTS_BACKLOG.md`

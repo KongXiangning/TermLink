@@ -1,11 +1,11 @@
 ---
 title: 服务端会话长时保留与断联续接 - 实现阶段记录（Phase 1）
-status: draft
+status: active
 record_id: CR-20260223-2114-session-retention-impl-phase1
 req_id: REQ-20260222-session-retention-reconnect
-commit_ref: TBD
+commit_ref: 67bc2c3
 owner: @maintainer
-last_updated: 2026-02-23
+last_updated: 2026-02-24
 source_of_truth: product
 related_code: [src/services/sessionManager.js, src/ws/terminalGateway.js, src/routes/sessions.js, .env.example]
 related_docs: [docs/product/requirements/REQ-20260222-session-retention-reconnect.md, docs/changes/records/INDEX.md, docs/changes/CHANGELOG_PROJECT.md]
@@ -64,7 +64,7 @@ git checkout <commit_ref>^ -- .env.example
    - `powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/validate-req.ps1 -ReqPath ./docs/product/requirements/REQ-20260222-session-retention-reconnect.md -Strict`
 2. 文档同步校验：
    - `powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/check-doc-sync.ps1 -ReqId REQ-20260222-session-retention-reconnect`
-3. 代码语法校验（待补充本次提交 hash 后再固化）：
+3. 代码语法校验：
    - `node --check src/services/sessionManager.js`
    - `node --check src/ws/terminalGateway.js`
    - `node --check src/routes/sessions.js`
@@ -75,7 +75,7 @@ git checkout <commit_ref>^ -- .env.example
   - `src/services/sessionManager.js`（TTL 与容量治理策略）
   - `src/ws/terminalGateway.js`（WS 重连错误语义）
   - `src/routes/sessions.js`（会话创建 API 错误返回）
-- 本记录提交后需补齐 `commit_ref` 并切换到 `active`。
+- 本记录已回填 `commit_ref` 并切换到 `active`，如后续继续拆分实现需新增后续 CR。
 - 如本记录后续被替代，填写：`替代记录: CR-YYYYMMDD-HHMM-<slug>`。
 
 ## 7. 风险与注意事项

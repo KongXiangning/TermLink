@@ -16,6 +16,10 @@ related_docs: [docs/README.md]
 
 1. 修复 `REQ-20260222-session-retention-reconnect` 的 WS 参数语义回归：`?sessionId=` 现在返回 `4404` 且不再静默新建会话，并新增关键自动化回归测试（见 `CR-20260224-0023-session-retention-reconnect-ws-param-fix`）。
 
+### docs
+
+1. 将 `REQ-20260222-session-retention-reconnect` 状态由 `planned` 更新为 `done`，并将 `CR-20260223-2114-session-retention-impl-phase1` 回填为 `active + commit_ref=67bc2c3`（见 `CR-20260224-0115-session-retention-status-done-sync`）。
+
 ## 2026-02-23
 
 ### server
