@@ -19,10 +19,11 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000 }) {
 
         try {
             const url = new URL(req.url, `http://${req.headers.host}`);
-            const sessionId = url.searchParams.get('sessionId');
+            const sessionIdProvided = url.searchParams.has('sessionId');
+            const sessionId = sessionIdProvided ? url.searchParams.get('sessionId') : null;
 
             let session;
-            if (sessionId) {
+            if (sessionIdProvided) {
                 session = sessionManager.getSession(sessionId);
                 if (!session) {
                     closeSocket(ws, 4404, 'Session not found or expired');
