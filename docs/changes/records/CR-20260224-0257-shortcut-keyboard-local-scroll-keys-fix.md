@@ -1,9 +1,9 @@
 ---
 title: 快捷键盘本地滚动键与换行键布局优化 - 修复记录
-status: draft
+status: active
 record_id: CR-20260224-0257-shortcut-keyboard-local-scroll-keys-fix
 req_id: REQ-20260223-shortcut-keyboard-modifier-newline
-commit_ref: TBD
+commit_ref: 11767d3
 owner: @maintainer
 last_updated: 2026-02-24
 source_of_truth: product
@@ -56,6 +56,8 @@ git checkout <commit_ref>^ -- public/terminal.html
 4. `android\\gradlew.bat :app:assembleDebug`
 5. `install-debug-apk.ps1 -Serial da34332c`
 6. 真机验证：`PgUp/PgDn/Home/End` 可直接滚动终端历史输出。
+7. `powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/validate-change-record.ps1 -RecordPath ./docs/changes/records/CR-20260224-0257-shortcut-keyboard-local-scroll-keys-fix.md -Strict`
+8. `powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/check-doc-sync.ps1 -ReqId REQ-20260223-shortcut-keyboard-modifier-newline`
 
 ## 6. 后续修改入口（How to continue）
 
