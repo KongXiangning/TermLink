@@ -922,6 +922,41 @@ function resolveTypedInputWithModifiers(data) {
     return `${resolved.payload || ''}${data.slice(1)}`;
 }
 
+function handleLocalViewportScrollKey(key) {
+    if (!term || typeof key !== 'string') return false;
+
+    if (key === 'PgUp') {
+        if (typeof term.scrollLines === 'function') {
+            term.scrollLines(-15);
+        }
+        return true;
+    }
+    if (key === 'PgDn') {
+        if (typeof term.scrollLines === 'function') {
+            term.scrollLines(15);
+        }
+        return true;
+    }
+    if (key === 'Home') {
+        if (typeof term.scrollToTop === 'function') {
+            term.scrollToTop();
+        } else if (typeof term.scrollLines === 'function') {
+            term.scrollLines(-100000);
+        }
+        return true;
+    }
+    if (key === 'End') {
+        if (typeof term.scrollToBottom === 'function') {
+            term.scrollToBottom();
+        } else if (typeof term.scrollLines === 'function') {
+            term.scrollLines(100000);
+        }
+        return true;
+    }
+
+    return false;
+}
+
 // --- Interaction Logic ---
 term.onData(data => {
     const payload = resolveTypedInputWithModifiers(data);
@@ -1312,6 +1347,13 @@ document.querySelectorAll('.key').forEach(btn => {
                 shortcutInput.handleModifierTap(modifierState, key, Date.now());
                 renderModifierButtonState();
             }
+            btn.classList.add('active');
+            setTimeout(() => btn.classList.remove('active'), 100);
+            term.focus();
+            return;
+        }
+
+        if (handleLocalViewportScrollKey(key)) {
             btn.classList.add('active');
             setTimeout(() => btn.classList.remove('active'), 100);
             term.focus();
