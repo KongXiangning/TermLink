@@ -1,9 +1,9 @@
 ---
 title: 快捷键盘控制键修复、换行按钮与触摸滚动优化 - 实施记录
-status: draft
+status: active
 record_id: CR-20260224-0201-shortcut-keyboard-modifier-newline-impl-phase1
 req_id: REQ-20260223-shortcut-keyboard-modifier-newline
-commit_ref: TBD
+commit_ref: e975244
 owner: @maintainer
 last_updated: 2026-02-24
 source_of_truth: product
@@ -64,6 +64,8 @@ git checkout <commit_ref>^ -- public/style.css
 4. `node --check public/terminal_shortcut_input.js`
 5. `npm test`
 6. `npx cap sync android`
+7. `powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/validate-change-record.ps1 -RecordPath ./docs/changes/records/CR-20260224-0201-shortcut-keyboard-modifier-newline-impl-phase1.md -Strict`
+8. `powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/check-doc-sync.ps1 -ReqId REQ-20260223-shortcut-keyboard-modifier-newline`
 
 ## 6. 后续修改入口（How to continue）
 

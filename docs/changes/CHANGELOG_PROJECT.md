@@ -12,6 +12,10 @@ related_docs: [docs/README.md]
 
 ## 2026-02-24
 
+### client
+
+1. 实现 `REQ-20260223-shortcut-keyboard-modifier-newline`：双端快捷键盘支持 `Ctrl/Alt` 单击一次性 + 双击锁定语义，新增独立 `Shift+Enter` 换行键（`\n`）并保留 `Enter`（`\r`），同时优化终端文字区触摸拖动滚动（见 `CR-20260224-0201-shortcut-keyboard-modifier-newline-impl-phase1`）。
+
 ### server
 
 1. 修复 `REQ-20260222-session-retention-reconnect` 的 WS 参数语义回归：`?sessionId=` 现在返回 `4404` 且不再静默新建会话，并新增关键自动化回归测试（见 `CR-20260224-0023-session-retention-reconnect-ws-param-fix`）。
