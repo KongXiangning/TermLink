@@ -1,9 +1,9 @@
 ---
 title: 快捷键盘资源版本号统一提升 - 缓存修复记录
-status: draft
+status: active
 record_id: CR-20260224-0220-shortcut-keyboard-cache-bust-fix
 req_id: REQ-20260223-shortcut-keyboard-modifier-newline
-commit_ref: TBD
+commit_ref: 2e4627b
 owner: @maintainer
 last_updated: 2026-02-24
 source_of_truth: product
@@ -51,6 +51,7 @@ git checkout <commit_ref>^ -- public/terminal.html
 1. `npx cap sync android`
 2. `npm test`
 3. `powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/validate-change-record.ps1 -RecordPath ./docs/changes/records/CR-20260224-0220-shortcut-keyboard-cache-bust-fix.md -Strict`
+4. `powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/check-doc-sync.ps1 -ReqId REQ-20260223-shortcut-keyboard-modifier-newline`
 
 ## 6. 后续修改入口（How to continue）
 
