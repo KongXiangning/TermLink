@@ -24,4 +24,5 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
 | CR-20260222-2200-session-retention-doc-update | REQ-20260222-session-retention-reconnect | active | 36dd134 | @maintainer | 2026-02-22 | 会话保留需求文档立项与同步 | `docs/changes/records/CR-20260222-2200-session-retention-doc-update.md` |
+| CR-20260223-1959-session-retention-impl-gate | REQ-20260222-session-retention-reconnect | draft | TBD | @maintainer | 2026-02-23 | 修复 sessionId 空值重连判定与环境变量下界校验，并补齐追踪记录 | `docs/changes/records/CR-20260223-1959-session-retention-impl-gate.md` |
 | CR-20260222-2310-server-admin-req-init | REQ-20260222-server-admin-privilege-mode | draft | TBD | @maintainer | 2026-02-22 | 管理员权限模式需求立项与主线同步 | `docs/changes/records/CR-20260222-2310-server-admin-req-init.md` |

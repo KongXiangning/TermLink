@@ -2,7 +2,17 @@ const { v4: uuidv4 } = require('uuid');
 const SessionStore = require('../repositories/sessionStore');
 const PtyService = require('./ptyService');
 
-const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+function parseEnvInt(value, defaultValue, minValue = 1) {
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < minValue) {
+        return defaultValue;
+    }
+    return parsed;
+}
+
+const SESSION_IDLE_TTL_MS = parseEnvInt(process.env.SESSION_IDLE_TTL_MS, 21600000); // 6 hours
+const SESSION_MAX_COUNT = parseEnvInt(process.env.SESSION_MAX_COUNT, 50);
+const SESSION_CLEANUP_INTERVAL_MS = parseEnvInt(process.env.SESSION_CLEANUP_INTERVAL_MS, 60000);
 const PERSIST_DEBOUNCE_MS = 500;
 
 class SessionManager {
@@ -18,11 +28,22 @@ class SessionManager {
         this.restorePersistedSessions();
 
         // Clean up idle sessions periodically
-        setInterval(() => this.cleanupIdleSessions(), 60000);
+        setInterval(() => this.cleanupIdleSessions(), SESSION_CLEANUP_INTERVAL_MS);
         this.registerShutdownHooks();
     }
 
     async createSession(options = {}) {
+        // Capacity check: evict oldest IDLE session if at limit
+        if (this.sessions.size >= SESSION_MAX_COUNT) {
+            const evicted = this.evictOldestIdleSession();
+            if (!evicted) {
+                const error = new Error('Session capacity reached. No idle sessions to evict.');
+                error.code = 'SESSION_CAPACITY_FULL';
+                throw error;
+            }
+            console.log(`[SessionManager] Evicted idle session ${evicted} to make room for new session.`);
+        }
+
         const id = uuidv4();
         const now = Date.now();
         const session = this.buildSession({
@@ -110,10 +131,39 @@ class SessionManager {
         return false;
     }
 
+    evictOldestIdleSession() {
+        let oldest = null;
+        let oldestTime = Infinity;
+
+        for (const [id, session] of this.sessions.entries()) {
+            // Only check connections - status is always IDLE when no connections
+            if (session.connections.length === 0) {
+                if (session.lastActiveAt < oldestTime) {
+                    oldestTime = session.lastActiveAt;
+                    oldest = id;
+                }
+            }
+        }
+
+        if (oldest) {
+            this.deleteSession(oldest);
+            return oldest;
+        }
+        return null;
+    }
+
+    getConfig() {
+        return {
+            idleTtlMs: SESSION_IDLE_TTL_MS,
+            maxCount: SESSION_MAX_COUNT,
+            cleanupIntervalMs: SESSION_CLEANUP_INTERVAL_MS
+        };
+    }
+
     cleanupIdleSessions() {
         const now = Date.now();
         for (const [id, session] of this.sessions.entries()) {
-            if (session.connections.length === 0 && (now - session.lastActiveAt > IDLE_TIMEOUT_MS)) {
+            if (session.connections.length === 0 && (now - session.lastActiveAt > SESSION_IDLE_TTL_MS)) {
                 console.log(`Cleaning up idle session: ${id}`);
                 this.deleteSession(id);
             }

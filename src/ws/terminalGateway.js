@@ -9,15 +9,30 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000 }) {
         }
 
         const url = new URL(req.url, `http://${req.headers.host}`);
-        const sessionId = url.searchParams.get('sessionId');
+        const sessionIdProvided = url.searchParams.has('sessionId');
+        const sessionId = sessionIdProvided ? url.searchParams.get('sessionId') : null;
 
         let session;
-        if (sessionId) {
+        if (sessionIdProvided) {
             session = sessionManager.getSession(sessionId);
         }
 
         if (!session) {
-            session = await sessionManager.createSession({ name: 'Default Session' });
+            if (sessionIdProvided) {
+                // sessionId was provided but session not found - return error
+                ws.close(4404, 'Session not found');
+                return;
+            }
+            // No sessionId provided - create new session
+            try {
+                session = await sessionManager.createSession({ name: 'Default Session' });
+            } catch (e) {
+                if (e.code === 'SESSION_CAPACITY_FULL') {
+                    ws.close(4503, 'Session capacity reached');
+                    return;
+                }
+                throw e;
+            }
         }
 
         sessionManager.addConnection(session, ws);
