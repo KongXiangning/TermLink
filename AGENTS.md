@@ -29,6 +29,10 @@
 - 用途：按 REQ 驱动开发并强制 CR 记录（`req_id + commit_ref`）。
 - 文件：`skills/docs-requirement-sync/SKILL.md`
 
+6. `git-sensitive-scan`
+- 用途：提交前敏感信息审查（扫描 staged 文件中的密钥、口令、私钥、真实本地配置地址）。
+- 文件：`skills/git-sensitive-scan/SKILL.md`
+
 ## Trigger rules
 
 满足以下任一条件时应触发对应 skill：
@@ -46,8 +50,10 @@
 4. `docs-requirement-sync` 场景下，遵循 CR 门禁规则：
 - 每次实施/提交新增一条 `docs/changes/records/CR-*.md`
 - `active` 记录必须有真实 `commit_ref`
+5. Git 提交前必须执行敏感信息审查（由 `.githooks/pre-commit` 调用 `scripts/git-sensitive-scan.ps1`）。
 
 ## Non-goals
 
 1. 不在本项目内自动安装/同步全局 skills。
 2. 不把本项目私有流程写入全局 skill 目录。
+

@@ -19,6 +19,7 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/CURRENT_S
 5. 历史文档进入 `docs/archive/`，不得继续作为主线规范。
 6. 每次实施/提交必须新增一条 CR（Change Record）文件到 `docs/changes/records/`。
 7. 需求状态进入 `done` 前，必须至少存在一条 `active` CR 且具备真实 `commit_ref`。
+8. 所有提交前必须通过敏感信息扫描（`scripts/git-sensitive-scan.ps1`）。
 
 状态机：`proposed -> triaged -> planned -> in_progress -> done -> archived`
 
@@ -70,3 +71,15 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/CURRENT_S
 2. 提交后更新 CR 为 `active` 并写入真实 commit hash。
 3. 所有恢复/回滚步骤必须写入 CR 的“回滚方案（命令级）”。
 4. `CHANGELOG_PROJECT.md` 只保留摘要，详细信息统一查 `docs/changes/records/INDEX.md`。
+
+## 5. 提交前敏感信息审查
+
+1. 首次启用（每个本地仓库执行一次）：
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\setup-git-hooks.ps1
+```
+2. 手动扫描已暂存文件：
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\git-sensitive-scan.ps1 -Staged
+```
+3. 如确认为安全内容，可在对应行添加 `sensitive-scan:allow` 标记放行。
