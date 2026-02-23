@@ -1,0 +1,5 @@
+interface:
+  display_name: "Android Local Build Debug"
+  short_description: "Build, install, and debug via adb"
+  default_prompt: "Use $android-local-build-debug to build a debug APK and install it to da34332c."
+

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Docs Requirement Sync"
+  short_description: "Implement from REQ docs with CR traceability checks"
+  default_prompt: "Use $docs-requirement-sync to implement from a REQ document and enforce CR records with req_id + commit_ref."
