@@ -67,7 +67,8 @@ class SessionManager {
             name: options.name || 'New Session',
             createdAt: now,
             lastActiveAt: now,
-            status: 'IDLE'
+            status: 'IDLE',
+            privilegeMetadata: options.privilegeMetadata || null
         });
 
         this.ensurePtyForSession(session);

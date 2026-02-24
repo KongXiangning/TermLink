@@ -8,7 +8,7 @@ const createHealthRouter = require('./routes/health');
 const createSessionsRouter = require('./routes/sessions');
 const sessionManager = require('./services/sessionManager');
 const registerTerminalGateway = require('./ws/terminalGateway');
-const { parsePrivilegeConfig, validateElevatedEnabled, PRIVILEGE_MODES } = require('./config/privilegeConfig');
+const { parsePrivilegeConfig, validateElevatedEnabled } = require('./config/privilegeConfig');
 const { runSecurityGates } = require('./config/securityGates');
 const { getAuditService } = require('./services/auditService');
 
@@ -31,6 +31,7 @@ if (privilegeConfig.isElevated) {
     }
 
     const gateResult = runSecurityGates({
+        authEnabled,
         authUser,
         authPass,
         auditPath: privilegeConfig.auditPath,

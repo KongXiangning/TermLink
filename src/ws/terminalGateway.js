@@ -1,7 +1,7 @@
 const { verifyWsUpgrade } = require('../auth/basicAuth');
 const { isIpAllowed, normalizeIp } = require('../utils/ipCheck');
 const { generateAuditTraceId } = require('../utils/auditTrace');
-const { getAuditService, AUDIT_EVENTS } = require('../services/auditService');
+const { getAuditService } = require('../services/auditService');
 const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
 
 function closeSocket(ws, code, reason) {
