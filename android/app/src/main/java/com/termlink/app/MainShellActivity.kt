@@ -1,8 +1,6 @@
 package com.termlink.app
 
-import android.content.Context
 import android.os.Bundle
-import android.os.PowerManager
 import android.text.TextUtils
 import android.util.Log
 import android.util.TypedValue
@@ -93,10 +91,10 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var fragmentContainerBasePaddingRight: Int = 0
     private var fragmentContainerBasePaddingBottom: Int = 0
     private var rootInsetsView: View? = null
-    private var wakeLock: PowerManager.WakeLock? = null
-    private var screenOnHandler: android.os.Handler? = null
-    private var screenOffRunnable: Runnable? = null
-    private val SCREEN_OFF_DELAY_MS = 2 * 60 * 1000L // 2 minutes
+    private var idleHandler: android.os.Handler? = null
+    private var idleTimeoutRunnable: Runnable? = null
+    private var isActivityVisible: Boolean = false
+    private val IDLE_DIM_DELAY_MS = 2 * 60 * 1000L // 2 minutes
     private val drawerListener = object : DrawerLayout.SimpleDrawerListener() {
         override fun onDrawerOpened(drawerView: View) {
             if (drawerView.id == R.id.shell_sessions_drawer_container) {
@@ -115,14 +113,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, true)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "TermLink:ScreenOn")
-        
-        screenOnHandler = android.os.Handler(mainLooper)
-        screenOffRunnable = Runnable {
-            wakeLock?.let { if (it.isHeld) it.release() }
-        }
+        idleHandler = android.os.Handler(mainLooper)
+        idleTimeoutRunnable = Runnable { onIdleTimeout() }
         
         setContentView(R.layout.activity_main_shell)
         drawerLayout = findViewById(R.id.shell_root_drawer)
@@ -189,15 +181,18 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             loadedTerminalSignature = ""
             lastInjectedConfigSignature = null
         }
-        wakeLock?.let { if (it.isHeld) it.release() }
-        screenOnHandler?.removeCallbacksAndMessages(null)
-        screenOnHandler = null
-        screenOffRunnable = null
+        idleHandler?.removeCallbacksAndMessages(null)
+        disableKeepScreenOn()
+        idleHandler = null
+        idleTimeoutRunnable = null
+        isActivityVisible = false
         super.onDestroy()
     }
 
     override fun onResume() {
         super.onResume()
+        isActivityVisible = true
+        markUserActive()
         val insetsView = rootInsetsView ?: return
         insetsView.post {
             ViewCompat.requestApplyInsets(insetsView)
@@ -205,11 +200,16 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         }
     }
 
-    override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
-        if (currentScreen == ScreenMode.TERMINAL) {
-            resetScreenOnTimer()
-        }
-        return super.dispatchTouchEvent(event)
+    override fun onPause() {
+        isActivityVisible = false
+        idleHandler?.removeCallbacksAndMessages(null)
+        disableKeepScreenOn()
+        super.onPause()
+    }
+
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        markUserActive()
     }
 
     override fun getOrCreateTerminalWebView(): WebView {
@@ -401,7 +401,6 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         if (injectConfig && currentTerminalType() == TerminalType.TERMLINK_WS) {
             terminalWebView?.let { injectTerminalConfigIfChanged(it) }
         }
-        resetScreenOnTimer()
     }
 
     private fun showSettingsScreen() {
@@ -409,21 +408,32 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         showMainFragment(TAG_SETTINGS)
         currentScreen = ScreenMode.SETTINGS
         applyTerminalChromeMode()
-        cancelScreenOnTimer()
-        wakeLock?.let { if (it.isHeld) it.release() }
     }
 
-    private fun resetScreenOnTimer() {
-        if (currentScreen != ScreenMode.TERMINAL) return
-        
-        wakeLock?.let { if (!it.isHeld) it.acquire() }
-        
-        screenOnHandler?.removeCallbacksAndMessages(null)
-        screenOffRunnable?.let { screenOnHandler?.postDelayed(it, SCREEN_OFF_DELAY_MS) }
+    private fun markUserActive() {
+        if (!isActivityVisible) return
+        enableKeepScreenOn()
+        rescheduleIdleTimeout()
     }
 
-    private fun cancelScreenOnTimer() {
-        screenOnHandler?.removeCallbacksAndMessages(null)
+    private fun rescheduleIdleTimeout() {
+        val handler = idleHandler ?: return
+        val timeout = idleTimeoutRunnable ?: return
+        handler.removeCallbacks(timeout)
+        handler.postDelayed(timeout, IDLE_DIM_DELAY_MS)
+    }
+
+    private fun onIdleTimeout() {
+        if (!isActivityVisible) return
+        disableKeepScreenOn()
+    }
+
+    private fun enableKeepScreenOn() {
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
+    private fun disableKeepScreenOn() {
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
     private fun showMainFragment(tag: String) {

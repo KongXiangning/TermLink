@@ -19,6 +19,7 @@ related_docs: [docs/README.md]
 3. 调整快捷键交互：`PgUp/PgDn/Home/End` 现在用于本地滚动终端历史输出（不再透传远端），并将换行键移到第二行末尾改为符号按钮（见 `CR-20260224-0257-shortcut-keyboard-local-scroll-keys-fix`）。
 4. 新增 Android External Web 终端 POC（`REQ-20260224-android-external-web-terminal-profile-sessions`）：Profile 增加 `terminalType`，Sessions 对 External 走本地持久化 CRUD，Terminal 支持按类型切换到外部网页加载（见 `CR-20260224-1636-android-external-web-terminal-poc`）。
 5. 修复 External Web POC 关键问题：BASIC 凭据更新后可立即重载生效、删除 profile 时同步清理本地 external sessions、深色策略改为通用注入并移除 OpenCode 专用 key（见 `CR-20260224-1636-android-external-web-terminal-poc`）。
+6. 实现前台 idle 息屏治理（`REQ-20260224-screen-keep-awake`）：MainShellActivity 前台默认常亮，用户无操作 2 分钟后恢复系统息屏，切后台立即取消常亮（见 `CR-20260224-2145-screen-idle-timeout-restore`）。
 
 ### server
 
