@@ -5,10 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TermLink Terminal</title>
-    <link rel="stylesheet" href="terminal_client.css?v=20">
+    <link rel="stylesheet" href="terminal_client.css?v=21">
     <link rel="stylesheet" href="lib/xterm.css">
     <script src="lib/xterm.js"></script>
     <script src="lib/xterm-addon-fit.js"></script>
+    <script src="terminal_shortcut_input.js?v=21"></script>
 </head>
 
 <body>
@@ -42,6 +43,7 @@
                 <button class="key" data-key="-">-</button>
                 <button class="key" data-key="/">/</button>
                 <button class="key" data-key="|">|</button>
+                <button class="key" data-key="Newline" title="Shift+Enter">⏎</button>
             </div>
             <div class="key-row">
                 <button class="key" data-key="Left">←</button>
@@ -53,7 +55,7 @@
             </div>
         </div>
     </div>
-    <script src="terminal_client.js?v=20"></script>
+    <script src="terminal_client.js?v=21"></script>
 </body>
 
 </html>

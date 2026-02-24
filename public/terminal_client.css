@@ -27,6 +27,17 @@ body {
     touch-action: pan-y;
 }
 
+#terminal-container .xterm-viewport {
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+}
+
+#terminal-container .xterm-screen,
+#terminal-container .xterm-rows {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
 body .xterm .xterm-viewport {
     -webkit-overflow-scrolling: touch !important;
 }
@@ -83,6 +94,17 @@ body .xterm .xterm-viewport {
 
 .key.active {
     background: #333;
+}
+
+.key.mod-armed {
+    background: #1e3e5c;
+    border-color: #3a6d9c;
+}
+
+.key.mod-locked {
+    background: #8a5a12;
+    border-color: #d09a3a;
+    color: #fff7e6;
 }
 
 #input-overlay {

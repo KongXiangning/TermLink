@@ -266,9 +266,19 @@ function focusTerminal() {
     setTimeout(() => term.focus(), 20);
 }
 
-function mapVirtualKey(key) {
+const shortcutInput = (window.TerminalShortcutInput && typeof window.TerminalShortcutInput.createModifierState === 'function')
+    ? window.TerminalShortcutInput
+    : null;
+if (!shortcutInput) {
+    console.warn('TerminalShortcutInput is not available; Ctrl/Alt modifier mode disabled.');
+}
+const modifierState = shortcutInput ? shortcutInput.createModifierState() : null;
+let modifierButtons = { Ctrl: [], Alt: [] };
+
+function mapVirtualKeyFallback(key) {
     switch (key) {
         case 'Enter': return '\r';
+        case 'Newline': return '\n';
         case 'Tab': return '\t';
         case 'Esc': return '\x1b';
         case 'Home': return '\x1b[H';
@@ -282,6 +292,94 @@ function mapVirtualKey(key) {
         case 'Ctrl-C': return '\x03';
         default: return key || '';
     }
+}
+
+function refreshModifierButtons() {
+    modifierButtons = {
+        Ctrl: Array.from(document.querySelectorAll('.key[data-key="Ctrl"]')),
+        Alt: Array.from(document.querySelectorAll('.key[data-key="Alt"]'))
+    };
+}
+
+function hasActiveModifier() {
+    if (!shortcutInput || !modifierState) return false;
+    return ['Ctrl', 'Alt'].some((modifier) => (
+        shortcutInput.getModifierMode(modifierState, modifier) !== 'off'
+    ));
+}
+
+function renderModifierButtonState() {
+    if (!shortcutInput || !modifierState) return;
+    ['Ctrl', 'Alt'].forEach((modifier) => {
+        const mode = shortcutInput.getModifierMode(modifierState, modifier);
+        const buttons = modifierButtons[modifier] || [];
+        buttons.forEach((button) => {
+            button.classList.toggle('mod-armed', mode === 'armed');
+            button.classList.toggle('mod-locked', mode === 'locked');
+        });
+    });
+}
+
+function consumeOneShotModifiers(usedModifiers) {
+    if (!shortcutInput || !modifierState) return;
+    const changed = shortcutInput.consumeOneShot(modifierState, usedModifiers);
+    if (changed) {
+        renderModifierButtonState();
+    }
+}
+
+function resolveInputWithModifiers(key) {
+    if (!shortcutInput || !modifierState) {
+        return mapVirtualKeyFallback(key);
+    }
+    const resolved = shortcutInput.resolveVirtualInput(modifierState, key);
+    consumeOneShotModifiers(resolved.usedModifiers);
+    return resolved.payload || '';
+}
+
+function resolveTypedInputWithModifiers(data) {
+    if (!data) return '';
+    if (!shortcutInput || !modifierState || !hasActiveModifier()) {
+        return data;
+    }
+    const resolved = shortcutInput.resolveVirtualInput(modifierState, data[0]);
+    consumeOneShotModifiers(resolved.usedModifiers);
+    return `${resolved.payload || ''}${data.slice(1)}`;
+}
+
+function handleLocalViewportScrollKey(key) {
+    if (!term || typeof key !== 'string') return false;
+
+    if (key === 'PgUp') {
+        if (typeof term.scrollLines === 'function') {
+            term.scrollLines(-15);
+        }
+        return true;
+    }
+    if (key === 'PgDn') {
+        if (typeof term.scrollLines === 'function') {
+            term.scrollLines(15);
+        }
+        return true;
+    }
+    if (key === 'Home') {
+        if (typeof term.scrollToTop === 'function') {
+            term.scrollToTop();
+        } else if (typeof term.scrollLines === 'function') {
+            term.scrollLines(-100000);
+        }
+        return true;
+    }
+    if (key === 'End') {
+        if (typeof term.scrollToBottom === 'function') {
+            term.scrollToBottom();
+        } else if (typeof term.scrollLines === 'function') {
+            term.scrollLines(100000);
+        }
+        return true;
+    }
+
+    return false;
 }
 
 function connect() {
@@ -512,7 +610,9 @@ function warmupHttpsForWs(normalizedBaseUrl) {
 }
 
 term.onData((data) => {
-    sendMessage({ type: 'input', data: data });
+    const payload = resolveTypedInputWithModifiers(data);
+    if (!payload) return;
+    sendMessage({ type: 'input', data: payload });
 });
 
 // ── Keyboard / viewport resize handling ─────────────────
@@ -540,6 +640,8 @@ window.__setQuickToolbarVisible = function(visible) {
 
 setQuickToolbarVisible(true);
 sendResize();
+refreshModifierButtons();
+renderModifierButtonState();
 
 document.querySelectorAll('.key').forEach((btn) => {
     const handler = async (event) => {
@@ -569,7 +671,25 @@ document.querySelectorAll('.key').forEach((btn) => {
             return;
         }
 
-        const mapped = mapVirtualKey(key);
+        if (key === 'Ctrl' || key === 'Alt') {
+            if (shortcutInput && modifierState) {
+                shortcutInput.handleModifierTap(modifierState, key, Date.now());
+                renderModifierButtonState();
+            }
+            btn.classList.add('active');
+            setTimeout(() => btn.classList.remove('active'), 90);
+            focusTerminal();
+            return;
+        }
+
+        if (handleLocalViewportScrollKey(key)) {
+            btn.classList.add('active');
+            setTimeout(() => btn.classList.remove('active'), 90);
+            focusTerminal();
+            return;
+        }
+
+        const mapped = resolveInputWithModifiers(key);
         if (mapped && ws && ws.readyState === WebSocket.OPEN) {
             sendMessage({ type: 'input', data: mapped });
         }
@@ -616,6 +736,11 @@ if (terminalContainer && isTouchDevice) {
     let lastTapAt = 0;
     let suppressNextClickFocus = false;
     let suppressFocusUntil = 0;
+    let activeTouchId = null;
+    let touchStartY = 0;
+    let lastTouchY = 0;
+    let draggedSinceTouchStart = false;
+    const DRAG_THRESHOLD_PX = 6;
 
     const closeSoftKeyboard = () => {
         const activeEl = document.activeElement;
@@ -647,7 +772,57 @@ if (terminalContainer && isTouchDevice) {
         callNativeBridge('requestHideKeyboard', []);
     };
 
+    const getViewport = () => terminalContainer.querySelector('.xterm-viewport');
+
+    terminalContainer.addEventListener('touchstart', (e) => {
+        const touch = e.changedTouches && e.changedTouches[0];
+        if (!touch) return;
+        activeTouchId = touch.identifier;
+        touchStartY = touch.clientY;
+        lastTouchY = touch.clientY;
+        draggedSinceTouchStart = false;
+    }, { passive: true });
+
+    terminalContainer.addEventListener('touchmove', (e) => {
+        if (activeTouchId === null) return;
+        const changedTouches = e.changedTouches || [];
+        let touch = null;
+        for (let i = 0; i < changedTouches.length; i += 1) {
+            if (changedTouches[i].identifier === activeTouchId) {
+                touch = changedTouches[i];
+                break;
+            }
+        }
+        if (!touch) return;
+
+        const deltaYFromStart = touch.clientY - touchStartY;
+        if (!draggedSinceTouchStart && Math.abs(deltaYFromStart) >= DRAG_THRESHOLD_PX) {
+            draggedSinceTouchStart = true;
+        }
+        if (!draggedSinceTouchStart) return;
+
+        const viewport = getViewport();
+        if (!viewport) return;
+
+        const deltaY = touch.clientY - lastTouchY;
+        if (deltaY === 0) return;
+
+        e.preventDefault();
+        viewport.scrollTop -= deltaY;
+        lastTouchY = touch.clientY;
+        suppressNextClickFocus = true;
+        suppressFocusUntil = Date.now() + 280;
+    }, { passive: false });
+
     terminalContainer.addEventListener('touchend', (e) => {
+        activeTouchId = null;
+        if (draggedSinceTouchStart) {
+            draggedSinceTouchStart = false;
+            suppressNextClickFocus = true;
+            suppressFocusUntil = Date.now() + 280;
+            return;
+        }
+
         const now = Date.now();
         if (now - lastTapAt < 450) {
             e.preventDefault();
@@ -660,6 +835,11 @@ if (terminalContainer && isTouchDevice) {
         }
         lastTapAt = now;
     }, { passive: false });
+
+    terminalContainer.addEventListener('touchcancel', () => {
+        activeTouchId = null;
+        draggedSinceTouchStart = false;
+    }, { passive: true });
 
     terminalContainer.addEventListener('dblclick', () => {
         const now = Date.now();
