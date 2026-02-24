@@ -214,7 +214,7 @@ class SessionManager {
         console.log(`[SessionManager] Restored ${records.length} persisted sessions.`);
     }
 
-    buildSession({ id, name, createdAt, lastActiveAt, status }) {
+    buildSession({ id, name, createdAt, lastActiveAt, status, privilegeMetadata }) {
         return {
             id,
             name,
@@ -223,7 +223,8 @@ class SessionManager {
             status: status || 'IDLE',
             connections: [],
             ptyService: new PtyService(),
-            ptyInitialized: false
+            ptyInitialized: false,
+            privilegeMetadata: privilegeMetadata || null
         };
     }
 

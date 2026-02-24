@@ -67,6 +67,7 @@ function basicAuthMiddleware(req, res, next) {
 /**
  * Verify a WebSocket upgrade request.
  * Accepts either a valid Basic Auth header OR a valid one-time ticket query param.
+ * Sets req.user on successful authentication for audit tracking.
  */
 function verifyWsUpgrade(req) {
     if (!isAuthEnabled) return true;
@@ -74,13 +75,18 @@ function verifyWsUpgrade(req) {
     // Try Basic Auth header first (may work in some clients)
     const user = auth(req);
     if (user && user.name === adminUser.name && user.pass === adminUser.pass) {
+        req.user = user.name;  // Set user for audit tracking
         return true;
     }
 
     // Fall back to ticket-based auth
     const url = new URL(req.url, `http://${req.headers.host}`);
     const ticket = url.searchParams.get('ticket');
-    return consumeWsTicket(ticket);
+    if (consumeWsTicket(ticket)) {
+        req.user = adminUser.name;  // Ticket was issued to authenticated user
+        return true;
+    }
+    return false;
 }
 
 module.exports = basicAuthMiddleware;

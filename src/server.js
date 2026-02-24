@@ -8,10 +8,12 @@ const createHealthRouter = require('./routes/health');
 const createSessionsRouter = require('./routes/sessions');
 const sessionManager = require('./services/sessionManager');
 const registerTerminalGateway = require('./ws/terminalGateway');
+const { parsePrivilegeConfig, validateElevatedEnabled, PRIVILEGE_MODES } = require('./config/privilegeConfig');
+const { runSecurityGates } = require('./config/securityGates');
+const { getAuditService } = require('./services/auditService');
 
-const app = express();
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+// Parse privilege configuration
+const privilegeConfig = parsePrivilegeConfig();
 
 const PORT = process.env.PORT || 3000;
 const authEnabled = process.env.AUTH_ENABLED === undefined
@@ -19,6 +21,40 @@ const authEnabled = process.env.AUTH_ENABLED === undefined
     : process.env.AUTH_ENABLED.toLowerCase() !== 'false';
 const authUser = process.env.AUTH_USER || 'admin';
 const authPass = process.env.AUTH_PASS || 'admin';
+
+// Security gate validation for elevated mode
+if (privilegeConfig.isElevated) {
+    const enabledCheck = validateElevatedEnabled(privilegeConfig);
+    if (!enabledCheck.valid) {
+        console.error(`[Security] ${enabledCheck.message}`);
+        process.exit(1);
+    }
+
+    const gateResult = runSecurityGates({
+        authUser,
+        authPass,
+        auditPath: privilegeConfig.auditPath,
+        requireMtls: privilegeConfig.requireMtls
+    });
+
+    if (!gateResult.passed) {
+        console.error(`[Security] Elevated mode security gate failed: ${gateResult.failedCheck.code}`);
+        console.error(`[Security] ${gateResult.failedCheck.message}`);
+        process.exit(1);
+    }
+
+    // Initialize audit service
+    const auditService = getAuditService({
+        enabled: true,
+        auditPath: privilegeConfig.auditPath
+    });
+    auditService.init();
+    console.log('[Security] Elevated privilege mode enabled with audit logging.');
+}
+
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
 app.use(express.json());
 
@@ -34,7 +70,7 @@ app.use((req, res, next) => {
 app.use(basicAuth);
 app.use(express.static(path.join(__dirname, '../public')));
 app.use('/api', createSessionsRouter(sessionManager));
-app.use('/api', createHealthRouter());
+app.use('/api', createHealthRouter({ privilegeConfig }));
 
 // WebSocket ticket endpoint — must be AFTER basicAuth middleware
 const { issueWsTicket } = require('./auth/basicAuth');
@@ -42,7 +78,7 @@ app.get('/api/ws-ticket', (req, res) => {
     res.json({ ticket: issueWsTicket() });
 });
 
-registerTerminalGateway(wss, { sessionManager, heartbeatMs: 30000 });
+registerTerminalGateway(wss, { sessionManager, heartbeatMs: 30000, privilegeConfig });
 
 server.listen(PORT, () => {
     if (authEnabled && authUser === 'admin' && authPass === 'admin') {

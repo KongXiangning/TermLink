@@ -102,4 +102,5 @@
     <string name="settings_mtls_any_hosts">*</string>
     <string name="settings_empty_base_url_warning">Warning: active profile has empty baseUrl. Terminal may fallback to stale local config or fail to connect.</string>
     <string name="settings_insecure_transport_warning">Warning: active profile uses insecure transport: %1$s</string>
+    <string name="terminal_elevated_mode_warning">ELEVATED MODE: Server is running with high privileges. Proceed with caution.</string>
 </resources>

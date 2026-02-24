@@ -68,6 +68,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var lastToastAtMs: Long = 0L
     private var lastInjectedConfigSignature: String? = null
     private var terminalStatusText: String = ""
+    private var currentPrivilegeLevel: String = "STANDARD"
     private var systemBarInsets: Insets = Insets.NONE
     private var imeInsets: Insets = Insets.NONE
     private var isImeVisible: Boolean = false
@@ -265,11 +266,25 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         handleTerminalError(code, message)
     }
 
-    override fun onSessionInfo(sessionId: String, name: String?) {
+    override fun onSessionInfo(sessionId: String, name: String?, privilegeLevel: String?) {
         if (sessionId.isNotBlank()) {
             persistLastSessionId(sessionId)
         }
-        Log.i(TAG, "Terminal session info sessionId=$sessionId name=${name ?: ""}")
+        val level = privilegeLevel?.uppercase(Locale.ROOT) ?: "STANDARD"
+        currentPrivilegeLevel = level
+        Log.i(TAG, "Terminal session info sessionId=$sessionId name=${name ?: ""} privilegeLevel=$level")
+
+        if (level == "ELEVATED") {
+            showElevatedModeWarning()
+        }
+    }
+
+    private fun showElevatedModeWarning() {
+        Toast.makeText(
+            this,
+            getString(R.string.terminal_elevated_mode_warning),
+            Toast.LENGTH_LONG
+        ).show()
     }
 
     override fun onRequestHideKeyboard() {

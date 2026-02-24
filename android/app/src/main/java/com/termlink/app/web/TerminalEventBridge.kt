@@ -12,7 +12,7 @@ class TerminalEventBridge(
     interface Listener {
         fun onConnectionState(state: String, detail: String?)
         fun onTerminalError(code: String, message: String?)
-        fun onSessionInfo(sessionId: String, name: String?)
+        fun onSessionInfo(sessionId: String, name: String?, privilegeLevel: String?)
         fun onRequestHideKeyboard()
     }
 
@@ -31,9 +31,9 @@ class TerminalEventBridge(
     }
 
     @JavascriptInterface
-    fun onSessionInfo(sessionId: String?, name: String?) {
+    fun onSessionInfo(sessionId: String?, name: String?, privilegeLevel: String?) {
         dispatchOnMain {
-            listener.onSessionInfo(sessionId.orEmpty(), name)
+            listener.onSessionInfo(sessionId.orEmpty(), name, privilegeLevel)
         }
     }
 

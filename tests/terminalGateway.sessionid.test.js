@@ -90,21 +90,25 @@ test('WS without sessionId creates default session', async (t) => {
         removeConnection() {}
     };
 
-    const dispose = registerTerminalGateway(wss, { sessionManager, heartbeatMs: 3600000 });
+    const privilegeConfig = { isElevated: false, allowedIps: [], privilegeMode: 'standard' };
+    const dispose = registerTerminalGateway(wss, { sessionManager, heartbeatMs: 3600000, privilegeConfig });
     t.after(() => dispose());
 
     const ws = createMockWs();
-    const req = { url: '/ws?ticket=dummy', headers: { host: 'localhost:3000' } };
+    const req = { url: '/ws?ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
     await wss.getHandler('connection')(ws, req);
 
     assert.equal(calls.create, 1);
     assert.equal(calls.get, 0);
     assert.equal(calls.add, 1);
-    assert.deepEqual(calls.createOptions, { name: 'Default Session' });
+    assert.equal(calls.createOptions.name, 'Default Session');
+    assert.ok(calls.createOptions.privilegeMetadata);
+    assert.equal(calls.createOptions.privilegeMetadata.privilegeLevel, 'STANDARD');
     assert.equal(ws.closed.length, 0);
     assert.equal(ws.sent.length, 1);
     assert.equal(ws.sent[0].type, 'session_info');
     assert.equal(ws.sent[0].sessionId, 'new-session');
+    assert.equal(ws.sent[0].privilegeLevel, 'STANDARD');
 });
 
 test('WS with valid sessionId reuses existing session', async (t) => {
@@ -130,11 +134,12 @@ test('WS with valid sessionId reuses existing session', async (t) => {
         removeConnection() {}
     };
 
-    const dispose = registerTerminalGateway(wss, { sessionManager, heartbeatMs: 3600000 });
+    const privilegeConfig = { isElevated: false, allowedIps: [], privilegeMode: 'standard' };
+    const dispose = registerTerminalGateway(wss, { sessionManager, heartbeatMs: 3600000, privilegeConfig });
     t.after(() => dispose());
 
     const ws = createMockWs();
-    const req = { url: '/ws?sessionId=existing-session&ticket=dummy', headers: { host: 'localhost:3000' } };
+    const req = { url: '/ws?sessionId=existing-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
     await wss.getHandler('connection')(ws, req);
 
     assert.equal(calls.get, 1);
@@ -143,6 +148,7 @@ test('WS with valid sessionId reuses existing session', async (t) => {
     assert.equal(calls.add, 1);
     assert.equal(ws.closed.length, 0);
     assert.equal(ws.sent[0].sessionId, 'existing-session');
+    assert.equal(ws.sent[0].privilegeLevel, 'STANDARD');
 });
 
 test('WS with empty sessionId returns 4404 and does not create session', async (t) => {
@@ -166,11 +172,12 @@ test('WS with empty sessionId returns 4404 and does not create session', async (
         removeConnection() {}
     };
 
-    const dispose = registerTerminalGateway(wss, { sessionManager, heartbeatMs: 3600000 });
+    const privilegeConfig = { isElevated: false, allowedIps: [], privilegeMode: 'standard' };
+    const dispose = registerTerminalGateway(wss, { sessionManager, heartbeatMs: 3600000, privilegeConfig });
     t.after(() => dispose());
 
     const ws = createMockWs();
-    const req = { url: '/ws?sessionId=&ticket=dummy', headers: { host: 'localhost:3000' } };
+    const req = { url: '/ws?sessionId=&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
     await wss.getHandler('connection')(ws, req);
 
     assert.equal(calls.get, 1);
@@ -202,11 +209,12 @@ test('WS with unknown sessionId returns 4404', async (t) => {
         removeConnection() {}
     };
 
-    const dispose = registerTerminalGateway(wss, { sessionManager, heartbeatMs: 3600000 });
+    const privilegeConfig = { isElevated: false, allowedIps: [], privilegeMode: 'standard' };
+    const dispose = registerTerminalGateway(wss, { sessionManager, heartbeatMs: 3600000, privilegeConfig });
     t.after(() => dispose());
 
     const ws = createMockWs();
-    const req = { url: '/ws?sessionId=missing&ticket=dummy', headers: { host: 'localhost:3000' } };
+    const req = { url: '/ws?sessionId=missing&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
     await wss.getHandler('connection')(ws, req);
 
     assert.equal(calls.get, 1);

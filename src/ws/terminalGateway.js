@@ -1,4 +1,7 @@
 const { verifyWsUpgrade } = require('../auth/basicAuth');
+const { isIpAllowed, normalizeIp } = require('../utils/ipCheck');
+const { generateAuditTraceId } = require('../utils/auditTrace');
+const { getAuditService, AUDIT_EVENTS } = require('../services/auditService');
 const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
 
 function closeSocket(ws, code, reason) {
@@ -9,7 +12,16 @@ function closeSocket(ws, code, reason) {
     }
 }
 
-function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000 }) {
+function getClientIp(req) {
+    // Directly use socket remote address - do NOT trust X-Forwarded-For
+    return normalizeIp(req.socket.remoteAddress);
+}
+
+function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, privilegeConfig }) {
+    const isElevated = privilegeConfig && privilegeConfig.isElevated;
+    const allowedIps = privilegeConfig ? privilegeConfig.allowedIps : [];
+    const auditService = isElevated ? getAuditService() : null;
+
     const handleConnection = async (ws, req) => {
         // ── Auth gate: reject unauthenticated WebSocket connections ──
         if (!verifyWsUpgrade(req)) {
@@ -17,10 +29,26 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000 }) {
             return;
         }
 
+        const clientIp = getClientIp(req);
+
+        // ── IP whitelist check for elevated mode ──
+        if (isElevated && allowedIps.length > 0 && !isIpAllowed(clientIp, allowedIps)) {
+            if (auditService) {
+                auditService.logIpWhitelistDenied({ clientIp });
+            }
+            closeSocket(ws, 4403, 'IP not allowed');
+            return;
+        }
+
+        // Generate audit trace ID for elevated sessions
+        const auditTraceId = isElevated ? generateAuditTraceId() : null;
+        const privilegeLevel = isElevated ? 'ELEVATED' : 'STANDARD';
+        let sessionId = null;
+
         try {
             const url = new URL(req.url, `http://${req.headers.host}`);
             const sessionIdProvided = url.searchParams.has('sessionId');
-            const sessionId = sessionIdProvided ? url.searchParams.get('sessionId') : null;
+            sessionId = sessionIdProvided ? url.searchParams.get('sessionId') : null;
 
             let session;
             if (sessionIdProvided) {
@@ -30,16 +58,38 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000 }) {
                     return;
                 }
             } else {
-                session = await sessionManager.createSession({ name: 'Default Session' });
+                // Create session with privilege metadata
+                session = await sessionManager.createSession({
+                    name: 'Default Session',
+                    privilegeMetadata: {
+                        privilegeLevel,
+                        connectedBy: req.user || 'unknown',
+                        auditTraceId,
+                        clientIp
+                    }
+                });
             }
 
+            sessionId = session.id;
             sessionManager.addConnection(session, ws);
             const pty = session.ptyService;
+
+            // Log connection start for elevated mode
+            if (isElevated && auditService) {
+                auditService.logConnectionStart({
+                    auditTraceId,
+                    sessionId,
+                    privilegeLevel,
+                    clientIp,
+                    connectedBy: req.user || 'unknown'
+                });
+            }
 
             ws.send(JSON.stringify({
                 type: 'session_info',
                 sessionId: session.id,
-                name: session.name
+                name: session.name,
+                privilegeLevel
             }));
 
             ws.isAlive = true;
@@ -62,6 +112,14 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000 }) {
 
             ws.on('close', () => {
                 sessionManager.removeConnection(session, ws);
+                // Log connection end for elevated mode
+                if (isElevated && auditService) {
+                    auditService.logConnectionEnd({
+                        auditTraceId,
+                        sessionId,
+                        clientIp
+                    });
+                }
             });
         } catch (e) {
             if (e && e.code === SESSION_CAPACITY_ERROR_CODE) {
