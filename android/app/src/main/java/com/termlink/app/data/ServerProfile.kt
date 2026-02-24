@@ -17,10 +17,26 @@ enum class AuthType {
     }
 }
 
+enum class TerminalType {
+    TERMLINK_WS,
+    EXTERNAL_WEB;
+
+    companion object {
+        fun fromString(value: String?): TerminalType {
+            if (value.isNullOrBlank()) {
+                return TERMLINK_WS
+            }
+            return entries.firstOrNull { it.name.equals(value.trim(), ignoreCase = true) }
+                ?: TERMLINK_WS
+        }
+    }
+}
+
 data class ServerProfile(
     val id: String,
     val name: String,
     val baseUrl: String,
+    val terminalType: TerminalType,
     val authType: AuthType,
     val basicUsername: String,
     val mtlsEnabled: Boolean,
@@ -31,6 +47,7 @@ data class ServerProfile(
             .put("id", id)
             .put("name", name)
             .put("baseUrl", baseUrl)
+            .put("terminalType", terminalType.name)
             .put("authType", authType.name)
             .put("basicUsername", basicUsername)
             .put("mtlsEnabled", mtlsEnabled)
@@ -43,6 +60,9 @@ data class ServerProfile(
                 id = json.optString("id", ""),
                 name = json.optString("name", ""),
                 baseUrl = json.optString("baseUrl", ""),
+                terminalType = TerminalType.fromString(
+                    json.optString("terminalType", TerminalType.TERMLINK_WS.name)
+                ),
                 authType = AuthType.fromString(json.optString("authType", AuthType.NONE.name)),
                 basicUsername = json.optString("basicUsername", ""),
                 mtlsEnabled = json.optBoolean("mtlsEnabled", false),

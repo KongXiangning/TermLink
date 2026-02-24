@@ -19,12 +19,15 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.material.card.MaterialCardView
 import com.termlink.app.R
 import com.termlink.app.data.ApiResult
+import com.termlink.app.data.ExternalSessionStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.SessionApiClient
 import com.termlink.app.data.SessionApiError
 import com.termlink.app.data.SessionApiErrorCode
+import com.termlink.app.data.SessionRef
 import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.SessionSummary
+import com.termlink.app.data.TerminalType
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -40,6 +43,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     private var callbacks: Callbacks? = null
 
     private lateinit var sessionApiClient: SessionApiClient
+    private lateinit var externalSessionStore: ExternalSessionStore
     private val executor: ExecutorService = Executors.newFixedThreadPool(
         Runtime.getRuntime().availableProcessors().coerceIn(4, 12)
     )
@@ -77,6 +81,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         sessionApiClient = SessionApiClient(requireContext().applicationContext)
+        externalSessionStore = ExternalSessionStore(requireContext().applicationContext)
     }
 
     override fun onDetach() {
@@ -188,7 +193,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                         )
                     )
                 }
-                when (val result = sessionApiClient.listSessions(profile)) {
+                when (val result = listSessionsForProfile(profile)) {
                     is ApiResult.Success -> ProfileGroupResult(
                         profile = profile,
                         sessions = result.value,
@@ -217,6 +222,66 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                 )
             }
         }
+    }
+
+    private fun listSessionsForProfile(profile: ServerProfile): ApiResult<List<SessionSummary>> {
+        if (profile.terminalType == TerminalType.EXTERNAL_WEB) {
+            val local = externalSessionStore.list(profile.id).map { session ->
+                SessionSummary(
+                    id = session.id,
+                    name = session.name,
+                    status = "LOCAL",
+                    activeConnections = 0,
+                    createdAt = session.createdAt,
+                    lastActiveAt = session.lastActiveAt
+                )
+            }
+            return ApiResult.Success(local)
+        }
+        return sessionApiClient.listSessions(profile)
+    }
+
+    private fun createSessionForProfile(profile: ServerProfile, name: String): ApiResult<SessionRef> {
+        if (profile.terminalType == TerminalType.EXTERNAL_WEB) {
+            val created = externalSessionStore.create(profile.id, name)
+            return ApiResult.Success(SessionRef(id = created.id, name = created.name))
+        }
+        return sessionApiClient.createSession(profile, name)
+    }
+
+    private fun renameSessionForProfile(
+        profile: ServerProfile,
+        sessionId: String,
+        name: String
+    ): ApiResult<SessionRef> {
+        if (profile.terminalType == TerminalType.EXTERNAL_WEB) {
+            val updated = externalSessionStore.rename(profile.id, sessionId, name)
+                ?: return ApiResult.Failure(
+                    SessionApiError(
+                        code = SessionApiErrorCode.NOT_FOUND,
+                        message = "External session not found."
+                    )
+                )
+            return ApiResult.Success(SessionRef(id = updated.id, name = updated.name))
+        }
+        return sessionApiClient.renameSession(profile, sessionId, name)
+    }
+
+    private fun deleteSessionForProfile(profile: ServerProfile, sessionId: String): ApiResult<Unit> {
+        if (profile.terminalType == TerminalType.EXTERNAL_WEB) {
+            val deleted = externalSessionStore.delete(profile.id, sessionId)
+            return if (deleted) {
+                ApiResult.Success(Unit)
+            } else {
+                ApiResult.Failure(
+                    SessionApiError(
+                        code = SessionApiErrorCode.NOT_FOUND,
+                        message = "External session not found."
+                    )
+                )
+            }
+        }
+        return sessionApiClient.deleteSession(profile, sessionId)
     }
 
     private fun renderProfileSummary() {
@@ -454,7 +519,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                 }
                 val profile = profiles[profileIndex]
                 runAction(
-                    action = { sessionApiClient.createSession(profile, name) },
+                    action = { createSessionForProfile(profile, name) },
                     onSuccess = { created ->
                         callbacks?.onOpenSession(profile.id, created.id)
                         refreshSessions(showSpinner = false)
@@ -473,7 +538,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             initialValue = session.name
         ) { newName ->
             runAction(
-                action = { sessionApiClient.renameSession(profile, session.id, newName) },
+                action = { renameSessionForProfile(profile, session.id, newName) },
                 onSuccess = {
                     refreshSessions(showSpinner = false)
                 }
@@ -488,7 +553,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(R.string.sessions_delete_title) { _, _ ->
                 runAction(
-                    action = { sessionApiClient.deleteSession(profile, session.id) },
+                    action = { deleteSessionForProfile(profile, session.id) },
                     onSuccess = {
                         if (session.id == currentSelection.sessionId &&
                             profile.id == currentSelection.profileId
@@ -505,6 +570,10 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
     private fun openSession(profileId: String, sessionId: String) {
         currentSelection = SessionSelection(profileId, sessionId)
+        val selectedProfile = profiles.firstOrNull { it.id == profileId }
+        if (selectedProfile?.terminalType == TerminalType.EXTERNAL_WEB) {
+            externalSessionStore.touch(profileId, sessionId)
+        }
         callbacks?.onOpenSession(profileId, sessionId)
         renderGroupedSessions(groupedSessions)
     }

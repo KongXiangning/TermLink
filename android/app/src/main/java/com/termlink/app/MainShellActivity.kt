@@ -1,6 +1,8 @@
 package com.termlink.app
 
+import android.content.Context
 import android.os.Bundle
+import android.os.PowerManager
 import android.text.TextUtils
 import android.util.Log
 import android.util.TypedValue
@@ -22,11 +24,16 @@ import androidx.core.view.WindowCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
+import com.termlink.app.data.AuthType
 import com.termlink.app.data.BasicCredentialStore
+import com.termlink.app.data.ExternalSessionStore
 import com.termlink.app.data.ServerConfigState
 import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.SessionSelection
+import com.termlink.app.data.TerminalType
 import com.termlink.app.ui.sessions.SessionsFragment
 import com.termlink.app.ui.settings.SettingsFragment
 import com.termlink.app.ui.terminal.TerminalFragment
@@ -34,6 +41,8 @@ import com.termlink.app.web.MtlsWebViewClient
 import com.termlink.app.web.TerminalEventBridge
 import com.termlink.app.web.TerminalWebViewHost
 import org.json.JSONObject
+import java.net.URI
+import java.security.MessageDigest
 import java.util.Locale
 
 class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEventBridge.Listener,
@@ -45,7 +54,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     private var terminalWebView: WebView? = null
-    private var terminalPageLoaded = false
+    private var loadedTerminalSignature: String = ""
     private var statusTextView: TextView? = null
     private var topBarView: View? = null
     private var fragmentContainerView: View? = null
@@ -58,6 +67,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private lateinit var terminalEventBridge: TerminalEventBridge
     private lateinit var serverConfigStore: ServerConfigStore
     private lateinit var basicCredentialStore: BasicCredentialStore
+    private lateinit var externalSessionStore: ExternalSessionStore
     private var serverConfigState: ServerConfigState? = null
     private var activeProfile: ServerProfile? = null
     private var currentTerminalProfileId: String = ""
@@ -83,6 +93,10 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var fragmentContainerBasePaddingRight: Int = 0
     private var fragmentContainerBasePaddingBottom: Int = 0
     private var rootInsetsView: View? = null
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var screenOnHandler: android.os.Handler? = null
+    private var screenOffRunnable: Runnable? = null
+    private val SCREEN_OFF_DELAY_MS = 2 * 60 * 1000L // 2 minutes
     private val drawerListener = object : DrawerLayout.SimpleDrawerListener() {
         override fun onDrawerOpened(drawerView: View) {
             if (drawerView.id == R.id.shell_sessions_drawer_container) {
@@ -101,6 +115,15 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, true)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "TermLink:ScreenOn")
+        
+        screenOnHandler = android.os.Handler(mainLooper)
+        screenOffRunnable = Runnable {
+            wakeLock?.let { if (it.isHeld) it.release() }
+        }
+        
         setContentView(R.layout.activity_main_shell)
         drawerLayout = findViewById(R.id.shell_root_drawer)
         rootInsetsView = drawerLayout
@@ -128,6 +151,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
         serverConfigStore = ServerConfigStore(applicationContext)
         basicCredentialStore = BasicCredentialStore(applicationContext)
+        externalSessionStore = ExternalSessionStore(applicationContext)
         syncProfileState(serverConfigStore.loadState(), inject = false)
         currentTerminalProfileId = resolveInitialProfileId()
         lastSessionId = resolveInitialSessionId()
@@ -162,9 +186,13 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             detachTerminalWebView()
             terminalWebView?.destroy()
             terminalWebView = null
-            terminalPageLoaded = false
+            loadedTerminalSignature = ""
             lastInjectedConfigSignature = null
         }
+        wakeLock?.let { if (it.isHeld) it.release() }
+        screenOnHandler?.removeCallbacksAndMessages(null)
+        screenOnHandler = null
+        screenOffRunnable = null
         super.onDestroy()
     }
 
@@ -175,6 +203,13 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             ViewCompat.requestApplyInsets(insetsView)
             applyTerminalChromeMode()
         }
+    }
+
+    override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
+        if (currentScreen == ScreenMode.TERMINAL) {
+            resetScreenOnTimer()
+        }
+        return super.dispatchTouchEvent(event)
     }
 
     override fun getOrCreateTerminalWebView(): WebView {
@@ -214,16 +249,24 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 if (view != null) {
-                    injectTerminalConfigIfChanged(view, force = true)
-                    applyQuickToolbarToWebView()
+                    if (currentTerminalType() == TerminalType.TERMLINK_WS) {
+                        injectTerminalConfigIfChanged(view, force = true)
+                        applyQuickToolbarToWebView()
+                    } else {
+                        applyExternalDarkModeHints(view)
+                        val profileName = resolveTerminalProfile()?.name
+                        updateStatus(
+                            getString(
+                                R.string.terminal_state_external_opened,
+                                profileName ?: (url ?: "")
+                            )
+                        )
+                    }
                 }
             }
         }
-        if (!terminalPageLoaded) {
-            webView.loadUrl(TERMINAL_URL)
-            terminalPageLoaded = true
-        }
         terminalWebView = webView
+        reloadTerminalSurfaceIfNeeded(forceReload = true)
         return webView
     }
 
@@ -245,6 +288,9 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     override fun onConnectionState(state: String, detail: String?) {
+        if (currentTerminalType() != TerminalType.TERMLINK_WS) {
+            return
+        }
         val normalizedState = state.lowercase(Locale.ROOT)
         lastConnectionState = normalizedState
         val statusText = when (normalizedState) {
@@ -263,6 +309,9 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     override fun onTerminalError(code: String, message: String?) {
+        if (currentTerminalType() != TerminalType.TERMLINK_WS) {
+            return
+        }
         handleTerminalError(code, message)
     }
 
@@ -307,6 +356,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     override fun onDeleteProfile(profileId: String): ServerConfigState {
+        externalSessionStore.deleteByProfile(profileId)
         basicCredentialStore.removePassword(profileId)
         val state = serverConfigStore.deleteProfile(profileId)
         syncProfileState(state, inject = true)
@@ -347,9 +397,11 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         showMainFragment(TAG_TERMINAL)
         currentScreen = ScreenMode.TERMINAL
         applyTerminalChromeMode()
-        if (injectConfig) {
+        reloadTerminalSurfaceIfNeeded(forceReload = false)
+        if (injectConfig && currentTerminalType() == TerminalType.TERMLINK_WS) {
             terminalWebView?.let { injectTerminalConfigIfChanged(it) }
         }
+        resetScreenOnTimer()
     }
 
     private fun showSettingsScreen() {
@@ -357,6 +409,21 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         showMainFragment(TAG_SETTINGS)
         currentScreen = ScreenMode.SETTINGS
         applyTerminalChromeMode()
+        cancelScreenOnTimer()
+        wakeLock?.let { if (it.isHeld) it.release() }
+    }
+
+    private fun resetScreenOnTimer() {
+        if (currentScreen != ScreenMode.TERMINAL) return
+        
+        wakeLock?.let { if (!it.isHeld) it.acquire() }
+        
+        screenOnHandler?.removeCallbacksAndMessages(null)
+        screenOffRunnable?.let { screenOnHandler?.postDelayed(it, SCREEN_OFF_DELAY_MS) }
+    }
+
+    private fun cancelScreenOnTimer() {
+        screenOnHandler?.removeCallbacksAndMessages(null)
     }
 
     private fun showMainFragment(tag: String) {
@@ -409,12 +476,15 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             currentTerminalProfileId = activeProfile?.id.orEmpty()
             persistLastProfileId(currentTerminalProfileId)
         }
-        if (inject) {
-            terminalWebView?.let { injectTerminalConfigIfChanged(it) }
+        if (inject && currentScreen == ScreenMode.TERMINAL) {
+            reloadTerminalSurfaceIfNeeded(forceReload = false)
         }
     }
 
     private fun injectTerminalConfigIfChanged(webView: WebView, force: Boolean = false) {
+        if (currentTerminalType() != TerminalType.TERMLINK_WS) {
+            return
+        }
         val configJson = buildTerminalConfigJson()
         val signature = buildTerminalConfigSignature()
         if (!force && signature == lastInjectedConfigSignature) {
@@ -437,6 +507,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         return listOf(
             profile?.id.orEmpty(),
             profile?.baseUrl.orEmpty(),
+            profile?.terminalType?.name.orEmpty(),
             profile?.authType?.name.orEmpty(),
             profile?.basicUsername.orEmpty(),
             profile?.mtlsEnabled?.toString().orEmpty(),
@@ -456,11 +527,13 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
                 .put("id", profile.id)
                 .put("name", profile.name)
                 .put("baseUrl", profile.baseUrl)
+                .put("terminalType", profile.terminalType.name)
                 .put("authType", profile.authType.name)
                 .put("basicUsername", profile.basicUsername)
                 .put("mtlsEnabled", profile.mtlsEnabled)
                 .put("allowedHosts", profile.allowedHosts)
         }
+        json.put("terminalType", profile?.terminalType?.name ?: TerminalType.TERMLINK_WS.name)
         json.put("serverUrl", resolveInjectedServerUrl(profile))
         json.put("sessionId", lastSessionId)
         json.put("activeProfile", activeProfileJson)
@@ -484,6 +557,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     private fun resolveInjectedServerUrl(profile: ServerProfile?): String {
         if (profile == null) return ""
+        if (profile.terminalType != TerminalType.TERMLINK_WS) return ""
         return profile.baseUrl
     }
 
@@ -544,6 +618,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     private fun openSessionInTerminal(profileId: String, sessionId: String) {
         updateSessionSelection(profileId, sessionId)
+        touchExternalSessionIfNeeded(profileId, sessionId)
         closeSessionsDrawerIfOpen()
         showTerminalScreen(injectConfig = true)
     }
@@ -569,7 +644,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         }
 
         if (selectionChanged && currentScreen == ScreenMode.TERMINAL) {
-            terminalWebView?.let { injectTerminalConfigIfChanged(it) }
+            reloadTerminalSurfaceIfNeeded(forceReload = false)
         }
     }
 
@@ -680,17 +755,27 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         backButton?.visibility = View.GONE
         sessionsDrawerButton?.visibility = if (isTerminalChromeCompact) View.GONE else View.VISIBLE
         settingsButton?.visibility = View.VISIBLE
-        quickToolbarButton?.visibility = View.VISIBLE
+        quickToolbarButton?.visibility = if (currentTerminalType() == TerminalType.TERMLINK_WS) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
         sessionsDrawerButton?.contentDescription = getString(R.string.sessions_panel_button)
         statusTextView?.text = terminalStatusText
     }
 
     private fun toggleQuickToolbar() {
+        if (currentTerminalType() != TerminalType.TERMLINK_WS) {
+            return
+        }
         quickToolbarVisible = !quickToolbarVisible
         applyQuickToolbarToWebView()
     }
 
     private fun applyQuickToolbarToWebView() {
+        if (currentTerminalType() != TerminalType.TERMLINK_WS) {
+            return
+        }
         val webView = terminalWebView ?: return
         val visible = quickToolbarVisible
         webView.evaluateJavascript(
@@ -744,7 +829,9 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     private fun isInsecureActiveProfileTransport(): Boolean {
-        val baseUrl = resolveTerminalProfile()?.baseUrl?.trim()?.lowercase(Locale.ROOT).orEmpty()
+        val profile = resolveTerminalProfile() ?: return false
+        if (profile.terminalType != TerminalType.TERMLINK_WS) return false
+        val baseUrl = profile.baseUrl.trim().lowercase(Locale.ROOT)
         return baseUrl.startsWith("http://")
     }
 
@@ -798,8 +885,173 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         }
     }
 
+    private fun currentTerminalType(): TerminalType {
+        return resolveTerminalProfile()?.terminalType ?: TerminalType.TERMLINK_WS
+    }
+
+    private fun reloadTerminalSurfaceIfNeeded(forceReload: Boolean) {
+        val webView = terminalWebView ?: return
+        val profile = resolveTerminalProfile()
+        val type = profile?.terminalType ?: TerminalType.TERMLINK_WS
+        applyWebViewDarkModeForType(webView, type)
+        val target = if (type == TerminalType.TERMLINK_WS) {
+            TERMINAL_URL
+        } else {
+            profile?.baseUrl?.trim().orEmpty()
+        }
+
+        if (type == TerminalType.EXTERNAL_WEB && target.isBlank()) {
+            updateStatus(
+                getString(
+                    R.string.terminal_state_error,
+                    getString(R.string.terminal_error_external_url_empty)
+                )
+            )
+            val blankSignature = buildTerminalLoadSignature(profile, type, ABOUT_BLANK_URL)
+            if (forceReload || loadedTerminalSignature != blankSignature) {
+                loadedTerminalSignature = blankSignature
+                webView.loadUrl(ABOUT_BLANK_URL)
+            }
+            return
+        }
+
+        val signature = buildTerminalLoadSignature(profile, type, target)
+        val shouldLoad = forceReload || loadedTerminalSignature != signature
+        if (shouldLoad) {
+            loadedTerminalSignature = signature
+            if (type == TerminalType.EXTERNAL_WEB) {
+                val headers = buildExternalWebHeaders(profile)
+                if (headers.isNotEmpty()) {
+                    webView.loadUrl(target, headers)
+                } else {
+                    webView.loadUrl(target)
+                }
+            } else {
+                webView.loadUrl(target)
+            }
+            return
+        }
+
+        if (type == TerminalType.TERMLINK_WS) {
+            injectTerminalConfigIfChanged(webView)
+            applyQuickToolbarToWebView()
+        } else if (profile != null) {
+            updateStatus(getString(R.string.terminal_state_external_opened, profile.name))
+        }
+    }
+
+    private fun buildTerminalLoadSignature(
+        profile: ServerProfile?,
+        type: TerminalType,
+        target: String
+    ): String {
+        if (type != TerminalType.EXTERNAL_WEB) {
+            return "${type.name}|$target"
+        }
+        val authType = profile?.authType ?: AuthType.NONE
+        val username = profile?.basicUsername?.trim().orEmpty()
+        val password = if (authType == AuthType.BASIC && profile != null) {
+            basicCredentialStore.getPassword(profile.id).orEmpty()
+        } else {
+            ""
+        }
+        val passwordFingerprint = fingerprintSecret(password)
+        return listOf(type.name, target, authType.name, username, passwordFingerprint).joinToString("|")
+    }
+
+    private fun fingerprintSecret(secret: String): String {
+        if (secret.isBlank()) return ""
+        return try {
+            val digest = MessageDigest.getInstance("SHA-256")
+                .digest(secret.toByteArray(Charsets.UTF_8))
+            digest.joinToString("") { byte -> "%02x".format(byte) }
+        } catch (_: Exception) {
+            secret.hashCode().toString()
+        }
+    }
+
+    private fun touchExternalSessionIfNeeded(profileId: String, sessionId: String) {
+        if (profileId.isBlank() || sessionId.isBlank()) return
+        val state = serverConfigState ?: serverConfigStore.loadState()
+        val profile = state.profiles.firstOrNull { it.id == profileId } ?: return
+        if (profile.terminalType != TerminalType.EXTERNAL_WEB) return
+        externalSessionStore.touch(profileId, sessionId)
+    }
+
+    private fun applyWebViewDarkModeForType(webView: WebView, type: TerminalType) {
+        val enableDarkMode = type == TerminalType.EXTERNAL_WEB
+        val settings = webView.settings
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+            WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, enableDarkMode)
+        }
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+            WebSettingsCompat.setForceDark(
+                settings,
+                if (enableDarkMode) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF
+            )
+        }
+    }
+
+    private fun applyExternalDarkModeHints(webView: WebView) {
+        if (currentTerminalType() != TerminalType.EXTERNAL_WEB) return
+        val script = """
+            (function() {
+                try {
+                    var root = document.documentElement;
+                    if (root) {
+                        root.style.colorScheme = 'dark';
+                        root.classList.add('theme-dark');
+                    }
+                    if (document.body) {
+                        document.body.style.colorScheme = 'dark';
+                        document.body.classList.add('theme-dark');
+                    }
+
+                    var head = document.head || document.getElementsByTagName('head')[0];
+                    if (head) {
+                        var meta = document.querySelector('meta[name="color-scheme"]');
+                        if (!meta) {
+                            meta = document.createElement('meta');
+                            meta.setAttribute('name', 'color-scheme');
+                            head.appendChild(meta);
+                        }
+                        meta.setAttribute('content', 'dark');
+                    }
+                } catch (_) {}
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(script, null)
+    }
+
+    private fun buildExternalWebHeaders(profile: ServerProfile?): Map<String, String> {
+        if (profile == null) return emptyMap()
+        if (profile.terminalType != TerminalType.EXTERNAL_WEB) return emptyMap()
+        if (profile.authType != AuthType.BASIC) return emptyMap()
+
+        val username = profile.basicUsername.trim()
+        val password = basicCredentialStore.getPassword(profile.id).orEmpty()
+        if (username.isBlank() || password.isBlank()) return emptyMap()
+
+        // Pre-populate WebView auth cache to improve handling of server BASIC challenges.
+        try {
+            val host = URI(profile.baseUrl.trim()).host.orEmpty()
+            if (host.isNotBlank()) {
+                terminalWebView?.setHttpAuthUsernamePassword(host, "", username, password)
+            }
+        } catch (_: Exception) {
+            // ignore malformed URL; header injection path still applies
+        }
+
+        val encoded = android.util.Base64.encodeToString(
+            "$username:$password".toByteArray(Charsets.UTF_8),
+            android.util.Base64.NO_WRAP
+        )
+        return mapOf("Authorization" to "Basic $encoded")
+    }
+
     companion object {
         private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=21"
+        private const val ABOUT_BLANK_URL = "about:blank"
         private const val DEBUG_CLEAR_TERMINAL_CACHE_ON_LOAD = false
         private const val JS_BRIDGE_NAME = "TerminalEventBridge"
         private const val PREFS_NAME = "termlink_shell"

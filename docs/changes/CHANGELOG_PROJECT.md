@@ -17,6 +17,8 @@ related_docs: [docs/README.md]
 1. 实现 `REQ-20260223-shortcut-keyboard-modifier-newline`：双端快捷键盘支持 `Ctrl/Alt` 单击一次性 + 双击锁定语义，新增独立 `Shift+Enter` 换行键（`\n`）并保留 `Enter`（`\r`），同时优化终端文字区触摸拖动滚动（见 `CR-20260224-0201-shortcut-keyboard-modifier-newline-impl-phase1`）。
 2. 修复同需求的静态资源缓存风险：统一提升 Android WebView 入口与客户端页面 `js/css` 版本参数，避免命中旧资源导致修复不生效（见 `CR-20260224-0220-shortcut-keyboard-cache-bust-fix`）。
 3. 调整快捷键交互：`PgUp/PgDn/Home/End` 现在用于本地滚动终端历史输出（不再透传远端），并将换行键移到第二行末尾改为符号按钮（见 `CR-20260224-0257-shortcut-keyboard-local-scroll-keys-fix`）。
+4. 新增 Android External Web 终端 POC（`REQ-20260224-android-external-web-terminal-profile-sessions`）：Profile 增加 `terminalType`，Sessions 对 External 走本地持久化 CRUD，Terminal 支持按类型切换到外部网页加载（见 `CR-20260224-1636-android-external-web-terminal-poc`）。
+5. 修复 External Web POC 关键问题：BASIC 凭据更新后可立即重载生效、删除 profile 时同步清理本地 external sessions、深色策略改为通用注入并移除 OpenCode 专用 key（见 `CR-20260224-1636-android-external-web-terminal-poc`）。
 
 ### server
 

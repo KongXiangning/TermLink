@@ -77,12 +77,13 @@
     <string name="settings_profiles_empty">No profiles configured.</string>
     <string name="settings_profile_name_active">%1$s (Default)</string>
     <string name="settings_profile_url_empty">(empty, will fallback in terminal)</string>
-    <string name="settings_profile_meta">Auth=%1$s | User=%2$s | mTLS=%3$s | hosts=%4$s</string>
+    <string name="settings_profile_meta">Type=%1$s | Auth=%2$s | User=%3$s | mTLS=%4$s | hosts=%5$s</string>
     <string name="settings_profile_basic_username_meta">%1$s</string>
     <string name="settings_profile_name_label">Profile Name</string>
     <string name="settings_profile_name_hint">e.g. Home Server</string>
     <string name="settings_profile_url_label">Base URL</string>
     <string name="settings_profile_url_hint">https://example.com</string>
+    <string name="settings_profile_terminal_type_label">Terminal Type</string>
     <string name="settings_profile_auth_type_label">Auth Type</string>
     <string name="settings_profile_basic_username_label">Basic Username</string>
     <string name="settings_profile_basic_username_hint">e.g. admin</string>
@@ -103,4 +104,6 @@
     <string name="settings_empty_base_url_warning">Warning: active profile has empty baseUrl. Terminal may fallback to stale local config or fail to connect.</string>
     <string name="settings_insecure_transport_warning">Warning: active profile uses insecure transport: %1$s</string>
     <string name="terminal_elevated_mode_warning">ELEVATED MODE: Server is running with high privileges. Proceed with caution.</string>
+    <string name="terminal_state_external_opened">External Web: %1$s</string>
+    <string name="terminal_error_external_url_empty">External profile base URL is empty.</string>
 </resources>

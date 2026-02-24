@@ -220,6 +220,7 @@ class ServerConfigStore(context: Context) {
             id = UUID.randomUUID().toString(),
             name = DEFAULT_PROFILE_NAME,
             baseUrl = "",
+            terminalType = TerminalType.TERMLINK_WS,
             authType = AuthType.NONE,
             basicUsername = "",
             mtlsEnabled = false,

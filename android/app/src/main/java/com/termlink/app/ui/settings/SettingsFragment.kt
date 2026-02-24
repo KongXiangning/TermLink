@@ -17,6 +17,7 @@ import com.termlink.app.R
 import com.termlink.app.data.AuthType
 import com.termlink.app.data.ServerConfigState
 import com.termlink.app.data.ServerProfile
+import com.termlink.app.data.TerminalType
 import java.util.Locale
 import java.util.UUID
 
@@ -121,6 +122,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
             }
             itemView.findViewById<TextView>(R.id.profile_meta).text = getString(
                 R.string.settings_profile_meta,
+                profile.terminalType.name,
                 profile.authType.name,
                 basicMeta,
                 profile.mtlsEnabled.toString().uppercase(Locale.ROOT),
@@ -183,10 +185,20 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         val inputBaseUrl = dialogView.findViewById<EditText>(R.id.input_profile_base_url)
         val inputAllowedHosts = dialogView.findViewById<EditText>(R.id.input_profile_allowed_hosts)
         val mtlsCheck = dialogView.findViewById<CheckBox>(R.id.checkbox_profile_mtls)
+        val terminalTypeSpinner = dialogView.findViewById<Spinner>(R.id.spinner_profile_terminal_type)
         val authSpinner = dialogView.findViewById<Spinner>(R.id.spinner_profile_auth_type)
         val basicContainer = dialogView.findViewById<LinearLayout>(R.id.basic_auth_container)
         val inputBasicUsername = dialogView.findViewById<EditText>(R.id.input_profile_basic_username)
         val inputBasicPassword = dialogView.findViewById<EditText>(R.id.input_profile_basic_password)
+
+        val terminalTypeOptions = TerminalType.entries.map { it.name }
+        val terminalTypeAdapter = ArrayAdapter(
+            requireContext(),
+            android.R.layout.simple_spinner_item,
+            terminalTypeOptions
+        )
+        terminalTypeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        terminalTypeSpinner.adapter = terminalTypeAdapter
 
         val authOptions = AuthType.entries.map { it.name }
         val authAdapter = ArrayAdapter(
@@ -204,10 +216,17 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
             mtlsCheck.isChecked = existing.mtlsEnabled
             inputBasicUsername.setText(existing.basicUsername)
             inputBasicPassword.setText(callbacks?.getBasicPassword(existing.id).orEmpty())
+            val terminalTypeIndex = terminalTypeOptions
+                .indexOf(existing.terminalType.name)
+                .coerceAtLeast(0)
+            terminalTypeSpinner.setSelection(terminalTypeIndex)
             val index = authOptions.indexOf(existing.authType.name).coerceAtLeast(0)
             authSpinner.setSelection(index)
         } else {
             mtlsCheck.isChecked = BuildConfig.MTLS_ENABLED
+            terminalTypeSpinner.setSelection(
+                terminalTypeOptions.indexOf(TerminalType.TERMLINK_WS.name).coerceAtLeast(0)
+            )
             authSpinner.setSelection(authOptions.indexOf(AuthType.NONE.name).coerceAtLeast(0))
         }
 
@@ -253,6 +272,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
                 }
 
                 val authType = AuthType.fromString(authSpinner.selectedItem?.toString())
+                val terminalType = TerminalType.fromString(terminalTypeSpinner.selectedItem?.toString())
                 val profileId = existing?.id ?: UUID.randomUUID().toString()
                 val basicUsername = inputBasicUsername.text.toString().trim()
                 val inputPassword = inputBasicPassword.text.toString()
@@ -275,6 +295,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
                     id = profileId,
                     name = name,
                     baseUrl = normalizedUrl,
+                    terminalType = terminalType,
                     authType = authType,
                     basicUsername = if (authType == AuthType.BASIC) basicUsername else "",
                     mtlsEnabled = mtlsCheck.isChecked,
