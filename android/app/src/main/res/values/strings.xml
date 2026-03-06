@@ -32,6 +32,12 @@
     <string name="sessions_group_url">Endpoint: %1$s</string>
     <string name="sessions_create_profile_label">Target Profile</string>
     <string name="sessions_create_profile_required">Please select a profile.</string>
+    <string name="sessions_create_mode_label">Session Mode</string>
+    <string name="sessions_mode_terminal">Terminal</string>
+    <string name="sessions_mode_codex">Codex Chat</string>
+    <string name="sessions_create_cwd_label">Codex Workspace Path</string>
+    <string name="sessions_create_cwd_hint">e.g. D:\ProgramCode\termlink-win</string>
+    <string name="sessions_cwd_required">Workspace path is required for Codex sessions.</string>
     <string name="sessions_name_invalid">Name is required (1..64 chars).</string>
     <string name="sessions_name_label">Session Name</string>
     <string name="sessions_name_hint">e.g. Build Debug</string>
@@ -45,8 +51,9 @@
     <string name="sessions_item_name_selected">%1$s (Selected)</string>
     <string name="sessions_item_profile">Profile: %1$s</string>
     <string name="sessions_item_meta">Status=%1$s | Conn=%2$d | Active %3$s</string>
-    <string name="sessions_item_meta_primary">Status: %1$s | Connections: %2$d</string>
+    <string name="sessions_item_meta_primary">Mode: %1$s | Status: %2$s | Connections: %3$d</string>
     <string name="sessions_item_last_active">Last active: %1$s</string>
+    <string name="sessions_item_last_active_with_cwd">Last active: %1$s | CWD: %2$s</string>
     <string name="sessions_time_unknown">unknown</string>
     <string name="sessions_time_just_now">just now</string>
     <string name="sessions_time_minutes_ago">%1$dm ago</string>
@@ -106,4 +113,10 @@
     <string name="terminal_elevated_mode_warning">ELEVATED MODE: Server is running with high privileges. Proceed with caution.</string>
     <string name="terminal_state_external_opened">External Web: %1$s</string>
     <string name="terminal_error_external_url_empty">External profile base URL is empty.</string>
+    <string name="codex_state_idle">Codex: idle</string>
+    <string name="codex_state_connecting">Codex: connecting...</string>
+    <string name="codex_state_connected">Codex: connected</string>
+    <string name="codex_state_reconnecting">Codex: reconnecting...</string>
+    <string name="codex_state_error">Codex: error (%1$s)</string>
+    <string name="codex_state_unknown">Codex: %1$s</string>
 </resources>

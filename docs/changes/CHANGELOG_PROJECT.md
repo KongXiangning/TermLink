@@ -2,13 +2,36 @@
 title: TermLink 项目变更日志
 status: active
 owner: @maintainer
-last_updated: 2026-02-24
+last_updated: 2026-03-06
 source_of_truth: product
 related_code: []
 related_docs: [docs/README.md]
 ---
 
 # CHANGELOG_PROJECT
+
+## 2026-03-06
+
+### server
+
+1. 落地 `REQ-20260306-codex-app-repair-plan` Phase 1：`/api/sessions` 与服务端会话存储正式支持 `sessionMode + cwd`，兼容旧会话默认回退 `terminal + null`，并通过 WebSocket 初始 `session_info` 透传给客户端。
+
+### client
+
+1. 落地 `REQ-20260306-codex-app-repair-plan` Phase 2：Android `Create Session` 新增 `terminal/codex` 模式选择与 Codex 工作路径输入，TermLink WS 会话可按模式分流到独立 `codex_client.html` 或终端页面，并持久化最近一次会话的 `sessionMode + cwd`。
+2. 落地 `REQ-20260306-codex-app-repair-plan` Phase 3（前端侧）：Codex WebView 发送 `cwd` 到服务端，审批请求改为前端可见的 `Approve/Reject` 卡片并可回传处理结果。
+3. 落地 `REQ-20260306-codex-app-repair-plan` Phase 4（前端侧）：Codex WebView 增加 `cwd/token usage/rate limit` 状态展示、错误提示语义化收口，并根据视口高度切换紧凑布局，保证 Android 键盘弹起时输入区仍可见。
+4. 修复 Phase 4 审查问题：`codex_state` 不再隐式触发 `thread/read`，避免审批卡片被 snapshot 清空，并降低 telemetry 驱动的 transcript 刷新噪音。
+
+### server
+
+2. 落地 `REQ-20260306-codex-app-repair-plan` Phase 3（服务端侧）：Codex 网关优先使用会话级 `cwd` 启动 thread，支持 `codex_set_cwd` 更新会话工作目录，并将审批请求挂起到前端处理，不再默认立即拒绝。
+3. 落地 `REQ-20260306-codex-app-repair-plan` Phase 4（服务端侧）：Codex 网关把 `tokenUsage/rateLimitState` 归档到 `codex_state` 快照，保证 WebView 重连后仍可恢复限额与用量状态。
+4. 修复 Phase 4 审查问题：`account/rateLimits/updated` 改为支持无 `threadId` 的账户级广播，只向已连接 Codex 会话分发，并仅在状态真实变化时广播 `codex_state`。
+
+### docs
+
+1. 新增 `REQ-20260306-codex-app-repair-plan`，将 Codex App 侧问题收敛为可执行修复计划，覆盖独立聊天窗、Create Session 模式化创建、会话级 `cwd`、审批链路、限额提示与 Android IME 布局收口。
 
 ## 2026-02-24
 

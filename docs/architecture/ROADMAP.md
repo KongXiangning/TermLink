@@ -23,9 +23,10 @@ related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BAC
 ## 2026-Q2
 
 1. 规划 Codex 控制链路 MVP（session/thread/approval）。
-2. 完成审批模型的数据结构与事件协议定稿。
-3. 明确移动端控制面板与终端页的边界。
-4. 定义并落地服务端受控管理员权限模式（`REQ-20260222-server-admin-privilege-mode`），补齐启用门禁、审计、回滚链路。
+2. 落地 Codex App 侧修复计划（`REQ-20260306-codex-app-repair-plan`），完成独立聊天窗、Create Session 模式入口、会话级 `cwd` 与审批透传。
+3. 完成审批模型的数据结构与事件协议定稿。
+4. 明确移动端控制面板与终端页的边界。
+5. 定义并落地服务端受控管理员权限模式（`REQ-20260222-server-admin-privilege-mode`），补齐启用门禁、审计、回滚链路。
 
 ## 2026-H2
 

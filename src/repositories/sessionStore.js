@@ -2,7 +2,27 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
 
-const STORE_VERSION = 1;
+const STORE_VERSION = 2;
+
+const VALID_SESSION_MODES = new Set(['terminal', 'codex']);
+
+function normalizeSessionMode(value) {
+    if (typeof value !== 'string') {
+        return 'terminal';
+    }
+
+    const normalized = value.trim().toLowerCase();
+    return VALID_SESSION_MODES.has(normalized) ? normalized : 'terminal';
+}
+
+function normalizeSessionCwd(value) {
+    if (typeof value !== 'string') {
+        return null;
+    }
+
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : null;
+}
 
 class SessionStore {
     constructor(options = {}) {
@@ -87,13 +107,17 @@ class SessionStore {
             const createdAt = Number.isFinite(record.createdAt) ? Number(record.createdAt) : now;
             const lastActiveAt = Number.isFinite(record.lastActiveAt) ? Number(record.lastActiveAt) : createdAt;
             const status = record.status === 'ACTIVE' ? 'ACTIVE' : 'IDLE';
+            const sessionMode = normalizeSessionMode(record.sessionMode);
+            const cwd = normalizeSessionCwd(record.cwd);
 
             normalized.push({
                 id: record.id,
                 name,
                 createdAt,
                 lastActiveAt,
-                status
+                status,
+                sessionMode,
+                cwd
             });
         }
 
@@ -102,3 +126,5 @@ class SessionStore {
 }
 
 module.exports = SessionStore;
+module.exports.normalizeSessionMode = normalizeSessionMode;
+module.exports.normalizeSessionCwd = normalizeSessionCwd;

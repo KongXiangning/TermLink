@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TermLink Codex</title>
+    <link rel="stylesheet" href="terminal_client.css?v=25">
+    <script src="terminal_shortcut_input.js?v=25"></script>
+</head>
+
+<body class="codex-only">
+    <div id="terminal-shell">
+        <div id="terminal-main">
+            <div id="status-overlay"></div>
+            <div id="terminal-container"></div>
+        </div>
+        <div id="codex-panel">
+            <div id="codex-header">
+                <div id="codex-header-main">
+                    <div id="codex-status-line">
+                        <span id="codex-status-dot" aria-hidden="true"></span>
+                        <span id="codex-status-text">Codex idle</span>
+                        <span id="codex-thread-id"></span>
+                    </div>
+                    <div id="codex-meta-line">
+                        <span id="codex-meta-text"></span>
+                        <span id="codex-notice-text"></span>
+                    </div>
+                </div>
+                <div id="codex-actions">
+                    <button id="btn-codex-toggle" class="codex-btn" type="button">Hide</button>
+                    <button id="btn-codex-new-thread" class="codex-btn" type="button">New Thread</button>
+                    <button id="btn-codex-interrupt" class="codex-btn danger" type="button">Interrupt</button>
+                </div>
+            </div>
+            <div id="codex-log" aria-live="polite"></div>
+            <div id="codex-composer">
+                <textarea id="codex-input" placeholder="Ask Codex to inspect, edit, or run tasks..."></textarea>
+                <button id="btn-codex-send" type="button">Send</button>
+            </div>
+        </div>
+        <div id="input-overlay">
+            <textarea id="input-buffer" placeholder="Type command here..."></textarea>
+            <div class="input-controls">
+                <button id="btn-clear">Clear</button>
+                <button id="btn-close">Close</button>
+                <button id="btn-send">Send</button>
+            </div>
+        </div>
+        <div id="toolbar"></div>
+    </div>
+    <script src="terminal_client.js?v=25"></script>
+</body>
+
+</html>

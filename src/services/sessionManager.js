@@ -9,6 +9,7 @@ const MIN_IDLE_TIMEOUT_MS = 60 * 1000;
 const MIN_CLEANUP_INTERVAL_MS = 1000;
 const PERSIST_DEBOUNCE_MS = 500;
 const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
+const { normalizeSessionMode, normalizeSessionCwd } = SessionStore;
 
 function parsePositiveIntEnv(name, defaultValue, minValue) {
     const raw = process.env[name];
@@ -68,7 +69,9 @@ class SessionManager {
             createdAt: now,
             lastActiveAt: now,
             status: 'IDLE',
-            privilegeMetadata: options.privilegeMetadata || null
+            privilegeMetadata: options.privilegeMetadata || null,
+            sessionMode: options.sessionMode,
+            cwd: options.cwd
         });
 
         this.ensurePtyForSession(session);
@@ -86,14 +89,7 @@ class SessionManager {
     }
 
     listSessions() {
-        return Array.from(this.sessions.values()).map(s => ({
-            id: s.id,
-            name: s.name,
-            status: s.status,
-            activeConnections: s.connections.length,
-            createdAt: s.createdAt,
-            lastActiveAt: s.lastActiveAt
-        }));
+        return Array.from(this.sessions.values()).map((session) => this.buildSessionSummary(session));
     }
 
     broadcast(session, envelope) {
@@ -207,7 +203,9 @@ class SessionManager {
                 name: record.name,
                 createdAt: record.createdAt,
                 lastActiveAt: record.lastActiveAt,
-                status: 'IDLE'
+                status: 'IDLE',
+                sessionMode: record.sessionMode,
+                cwd: record.cwd
             });
             this.sessions.set(session.id, session);
         }
@@ -215,17 +213,25 @@ class SessionManager {
         console.log(`[SessionManager] Restored ${records.length} persisted sessions.`);
     }
 
-    buildSession({ id, name, createdAt, lastActiveAt, status, privilegeMetadata }) {
+    buildSession({ id, name, createdAt, lastActiveAt, status, privilegeMetadata, sessionMode, cwd }) {
         return {
             id,
             name,
             createdAt,
             lastActiveAt,
             status: status || 'IDLE',
+            sessionMode: normalizeSessionMode(sessionMode),
+            cwd: normalizeSessionCwd(cwd),
             connections: [],
             ptyService: new PtyService(),
             ptyInitialized: false,
-            privilegeMetadata: privilegeMetadata || null
+            privilegeMetadata: privilegeMetadata || null,
+            codexState: {
+                threadId: null,
+                currentTurnId: null,
+                status: 'idle',
+                pendingServerRequests: []
+            }
         };
     }
 
@@ -241,6 +247,22 @@ class SessionManager {
             });
         });
         session.ptyInitialized = true;
+    }
+
+    buildSessionSummary(session) {
+        return {
+            id: session.id,
+            name: session.name,
+            status: session.status,
+            activeConnections: session.connections.length,
+            createdAt: session.createdAt,
+            lastActiveAt: session.lastActiveAt,
+            sessionMode: normalizeSessionMode(session.sessionMode),
+            cwd: normalizeSessionCwd(session.cwd),
+            codexThreadId: session.codexState && session.codexState.threadId
+                ? session.codexState.threadId
+                : null
+        };
     }
 
     schedulePersist() {
@@ -282,7 +304,9 @@ class SessionManager {
             name: s.name,
             createdAt: s.createdAt,
             lastActiveAt: s.lastActiveAt,
-            status: s.status
+            status: s.status,
+            sessionMode: normalizeSessionMode(s.sessionMode),
+            cwd: normalizeSessionCwd(s.cwd)
         }));
     }
 
@@ -313,3 +337,6 @@ const sessionManager = new SessionManager();
 sessionManager.SESSION_CAPACITY_ERROR_CODE = SESSION_CAPACITY_ERROR_CODE;
 
 module.exports = sessionManager;
+module.exports.SessionManager = SessionManager;
+module.exports.normalizeSessionMode = normalizeSessionMode;
+module.exports.normalizeSessionCwd = normalizeSessionCwd;

@@ -30,6 +30,7 @@ import com.termlink.app.data.ExternalSessionStore
 import com.termlink.app.data.ServerConfigState
 import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
+import com.termlink.app.data.SessionMode
 import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.TerminalType
 import com.termlink.app.ui.sessions.SessionsFragment
@@ -70,6 +71,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var activeProfile: ServerProfile? = null
     private var currentTerminalProfileId: String = ""
     private var lastSessionId: String = ""
+    private var lastSessionMode: SessionMode = SessionMode.TERMINAL
+    private var lastSessionCwd: String? = null
     private var currentScreen: ScreenMode = ScreenMode.TERMINAL
     private var lastConnectionState: String = "idle"
     private var lastToastSignature: String = ""
@@ -147,7 +150,9 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         syncProfileState(serverConfigStore.loadState(), inject = false)
         currentTerminalProfileId = resolveInitialProfileId()
         lastSessionId = resolveInitialSessionId()
-        terminalStatusText = getString(R.string.terminal_state_idle)
+        lastSessionMode = resolveInitialSessionMode()
+        lastSessionCwd = resolveInitialSessionCwd()
+        terminalStatusText = defaultBridgeIdleStatus()
         updateStatus(terminalStatusText)
 
         drawerLayout?.addDrawerListener(drawerListener)
@@ -294,15 +299,33 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         val normalizedState = state.lowercase(Locale.ROOT)
         lastConnectionState = normalizedState
         val statusText = when (normalizedState) {
-            "connecting" -> getString(R.string.terminal_state_connecting)
+            "connecting" -> if (isCodexSessionActive()) {
+                getString(R.string.codex_state_connecting)
+            } else {
+                getString(R.string.terminal_state_connecting)
+            }
             "connected" -> if (isInsecureActiveProfileTransport()) {
                 getString(R.string.terminal_state_connected_insecure)
+            } else if (isCodexSessionActive()) {
+                getString(R.string.codex_state_connected)
             } else {
                 getString(R.string.terminal_state_connected)
             }
-            "reconnecting" -> getString(R.string.terminal_state_reconnecting)
-            "error" -> getString(R.string.terminal_state_error, detail ?: "")
-            else -> getString(R.string.terminal_state_unknown, state)
+            "reconnecting" -> if (isCodexSessionActive()) {
+                getString(R.string.codex_state_reconnecting)
+            } else {
+                getString(R.string.terminal_state_reconnecting)
+            }
+            "error" -> if (isCodexSessionActive()) {
+                getString(R.string.codex_state_error, detail ?: "")
+            } else {
+                getString(R.string.terminal_state_error, detail ?: "")
+            }
+            else -> if (isCodexSessionActive()) {
+                getString(R.string.codex_state_unknown, state)
+            } else {
+                getString(R.string.terminal_state_unknown, state)
+            }
         }
         updateStatus(statusText)
         Log.i(TAG, "Terminal connection state=$state detail=${detail ?: ""}")
@@ -382,15 +405,20 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     override fun getCurrentSelection(): SessionSelection {
-        return SessionSelection(profileId = currentTerminalProfileId, sessionId = lastSessionId)
+        return SessionSelection(
+            profileId = currentTerminalProfileId,
+            sessionId = lastSessionId,
+            sessionMode = currentSessionMode(),
+            cwd = currentSessionCwd()
+        )
     }
 
-    override fun onOpenSession(profileId: String, sessionId: String) {
-        openSessionInTerminal(profileId, sessionId)
+    override fun onOpenSession(selection: SessionSelection) {
+        openSessionInTerminal(selection)
     }
 
-    override fun onUpdateSessionSelection(profileId: String, sessionId: String) {
-        updateSessionSelection(profileId, sessionId)
+    override fun onUpdateSessionSelection(selection: SessionSelection) {
+        updateSessionSelection(selection)
     }
 
     private fun showTerminalScreen(injectConfig: Boolean = true) {
@@ -523,6 +551,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             profile?.mtlsEnabled?.toString().orEmpty(),
             profile?.allowedHosts.orEmpty(),
             lastSessionId,
+            currentSessionMode().wireValue,
+            currentSessionCwd().orEmpty(),
             "true"
         ).joinToString("|")
     }
@@ -544,6 +574,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
                 .put("allowedHosts", profile.allowedHosts)
         }
         json.put("terminalType", profile?.terminalType?.name ?: TerminalType.TERMLINK_WS.name)
+        json.put("sessionMode", currentSessionMode().wireValue)
+        json.put("cwd", currentSessionCwd())
         json.put("serverUrl", resolveInjectedServerUrl(profile))
         json.put("sessionId", lastSessionId)
         json.put("activeProfile", activeProfileJson)
@@ -610,11 +642,57 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             .orEmpty()
     }
 
+    private fun resolveInitialSessionMode(): SessionMode {
+        val fromUri = intent?.data?.getQueryParameter("sessionMode")
+        if (!fromUri.isNullOrBlank()) {
+            return SessionMode.fromWireValue(fromUri)
+        }
+        val fromExtra = intent?.getStringExtra("sessionMode")
+        if (!fromExtra.isNullOrBlank()) {
+            return SessionMode.fromWireValue(fromExtra)
+        }
+        return SessionMode.fromWireValue(
+            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .getString(PREF_LAST_SESSION_MODE, SessionMode.TERMINAL.wireValue)
+        )
+    }
+
+    private fun resolveInitialSessionCwd(): String? {
+        val fromUri = intent?.data?.getQueryParameter("cwd")
+        if (!fromUri.isNullOrBlank()) {
+            return fromUri.trim()
+        }
+        val fromExtra = intent?.getStringExtra("cwd")
+        if (!fromExtra.isNullOrBlank()) {
+            return fromExtra.trim()
+        }
+        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .getString(PREF_LAST_SESSION_CWD, null)
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+    }
+
     private fun persistLastSessionId(sessionId: String) {
         lastSessionId = sessionId
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
             .edit()
             .putString(PREF_LAST_SESSION_ID, sessionId)
+            .apply()
+    }
+
+    private fun persistLastSessionMode(sessionMode: SessionMode) {
+        lastSessionMode = sessionMode
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .putString(PREF_LAST_SESSION_MODE, sessionMode.wireValue)
+            .apply()
+    }
+
+    private fun persistLastSessionCwd(cwd: String?) {
+        lastSessionCwd = cwd?.trim()?.takeIf { it.isNotBlank() }
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .putString(PREF_LAST_SESSION_CWD, lastSessionCwd)
             .apply()
     }
 
@@ -626,14 +704,16 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             .apply()
     }
 
-    private fun openSessionInTerminal(profileId: String, sessionId: String) {
-        updateSessionSelection(profileId, sessionId)
-        touchExternalSessionIfNeeded(profileId, sessionId)
+    private fun openSessionInTerminal(selection: SessionSelection) {
+        updateSessionSelection(selection)
+        touchExternalSessionIfNeeded(selection.profileId, selection.sessionId)
         closeSessionsDrawerIfOpen()
         showTerminalScreen(injectConfig = true)
     }
 
-    private fun updateSessionSelection(profileId: String, sessionId: String) {
+    private fun updateSessionSelection(selection: SessionSelection) {
+        val profileId = selection.profileId
+        val sessionId = selection.sessionId
         var selectionChanged = false
 
         if (profileId.isNotBlank()) {
@@ -653,7 +733,32 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             selectionChanged = true
         }
 
+        val selectedProfile = resolveProfileById(profileId)
+        val normalizedMode = if (
+            selectedProfile?.terminalType == TerminalType.TERMLINK_WS &&
+            sessionId.isNotBlank()
+        ) {
+            selection.sessionMode
+        } else {
+            SessionMode.TERMINAL
+        }
+        if (normalizedMode != lastSessionMode) {
+            persistLastSessionMode(normalizedMode)
+            selectionChanged = true
+        }
+
+        val normalizedCwd = if (normalizedMode == SessionMode.CODEX) {
+            selection.cwd?.trim()?.takeIf { it.isNotBlank() }
+        } else {
+            null
+        }
+        if (normalizedCwd != lastSessionCwd) {
+            persistLastSessionCwd(normalizedCwd)
+            selectionChanged = true
+        }
+
         if (selectionChanged && currentScreen == ScreenMode.TERMINAL) {
+            updateStatus(defaultBridgeIdleStatus())
             reloadTerminalSurfaceIfNeeded(forceReload = false)
         }
     }
@@ -765,7 +870,10 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         backButton?.visibility = View.GONE
         sessionsDrawerButton?.visibility = if (isTerminalChromeCompact) View.GONE else View.VISIBLE
         settingsButton?.visibility = View.VISIBLE
-        quickToolbarButton?.visibility = if (currentTerminalType() == TerminalType.TERMLINK_WS) {
+        quickToolbarButton?.visibility = if (
+            currentTerminalType() == TerminalType.TERMLINK_WS &&
+            currentSessionMode() == SessionMode.TERMINAL
+        ) {
             View.VISIBLE
         } else {
             View.GONE
@@ -775,7 +883,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     private fun toggleQuickToolbar() {
-        if (currentTerminalType() != TerminalType.TERMLINK_WS) {
+        if (currentTerminalType() != TerminalType.TERMLINK_WS || currentSessionMode() != SessionMode.TERMINAL) {
             return
         }
         quickToolbarVisible = !quickToolbarVisible
@@ -783,7 +891,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     private fun applyQuickToolbarToWebView() {
-        if (currentTerminalType() != TerminalType.TERMLINK_WS) {
+        if (currentTerminalType() != TerminalType.TERMLINK_WS || currentSessionMode() != SessionMode.TERMINAL) {
             return
         }
         val webView = terminalWebView ?: return
@@ -848,7 +956,11 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private fun handleTerminalError(code: String, message: String?) {
         val resolvedCode = code.trim().uppercase(Locale.ROOT).ifBlank { "UNKNOWN" }
         val readable = mapTerminalErrorMessage(resolvedCode, message)
-        updateStatus(getString(R.string.terminal_state_error, readable))
+        if (isCodexSessionActive()) {
+            updateStatus(getString(R.string.codex_state_error, readable))
+        } else {
+            updateStatus(getString(R.string.terminal_state_error, readable))
+        }
         if (shouldShowErrorToast(resolvedCode, readable)) {
             Toast.makeText(this, getString(R.string.terminal_error_toast, readable), Toast.LENGTH_SHORT).show()
         }
@@ -899,13 +1011,51 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         return resolveTerminalProfile()?.terminalType ?: TerminalType.TERMLINK_WS
     }
 
+    private fun currentSessionMode(): SessionMode {
+        if (currentTerminalType() != TerminalType.TERMLINK_WS || lastSessionId.isBlank()) {
+            return SessionMode.TERMINAL
+        }
+        return lastSessionMode
+    }
+
+    private fun currentSessionCwd(): String? {
+        return if (currentSessionMode() == SessionMode.CODEX) {
+            lastSessionCwd
+        } else {
+            null
+        }
+    }
+
+    private fun isCodexSessionActive(): Boolean {
+        return currentTerminalType() == TerminalType.TERMLINK_WS &&
+            currentSessionMode() == SessionMode.CODEX
+    }
+
+    private fun defaultBridgeIdleStatus(): String {
+        return if (isCodexSessionActive()) {
+            getString(R.string.codex_state_idle)
+        } else {
+            getString(R.string.terminal_state_idle)
+        }
+    }
+
+    private fun resolveProfileById(profileId: String): ServerProfile? {
+        if (profileId.isBlank()) return null
+        val state = serverConfigState ?: serverConfigStore.loadState()
+        return state.profiles.firstOrNull { it.id == profileId }
+    }
+
     private fun reloadTerminalSurfaceIfNeeded(forceReload: Boolean) {
         val webView = terminalWebView ?: return
         val profile = resolveTerminalProfile()
         val type = profile?.terminalType ?: TerminalType.TERMLINK_WS
         applyWebViewDarkModeForType(webView, type)
         val target = if (type == TerminalType.TERMLINK_WS) {
-            TERMINAL_URL
+            if (currentSessionMode() == SessionMode.CODEX) {
+                CODEX_URL
+            } else {
+                TERMINAL_URL
+            }
         } else {
             profile?.baseUrl?.trim().orEmpty()
         }
@@ -1060,12 +1210,15 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     companion object {
-        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=21"
+        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=25"
+        private const val CODEX_URL = "file:///android_asset/public/codex_client.html?v=25"
         private const val ABOUT_BLANK_URL = "about:blank"
         private const val DEBUG_CLEAR_TERMINAL_CACHE_ON_LOAD = false
         private const val JS_BRIDGE_NAME = "TerminalEventBridge"
         private const val PREFS_NAME = "termlink_shell"
         private const val PREF_LAST_SESSION_ID = "last_session_id"
+        private const val PREF_LAST_SESSION_MODE = "last_session_mode"
+        private const val PREF_LAST_SESSION_CWD = "last_session_cwd"
         private const val PREF_LAST_PROFILE_ID = "last_profile_id"
         private const val TAG_SESSIONS_DRAWER = "sessions_drawer"
         private const val TAG_TERMINAL = "terminal"

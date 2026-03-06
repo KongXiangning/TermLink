@@ -2,6 +2,7 @@ const { verifyWsUpgrade } = require('../auth/basicAuth');
 const { isIpAllowed, normalizeIp } = require('../utils/ipCheck');
 const { generateAuditTraceId } = require('../utils/auditTrace');
 const { getAuditService } = require('../services/auditService');
+const CodexAppServerService = require('../services/codexAppServerService');
 const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
 
 function closeSocket(ws, code, reason) {
@@ -17,10 +18,371 @@ function getClientIp(req) {
     return normalizeIp(req.socket.remoteAddress);
 }
 
+function isNonEmptyString(value) {
+    return typeof value === 'string' && value.trim().length > 0;
+}
+
+function areJsonLikeValuesEqual(left, right) {
+    return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
+}
+
+function sendWsEnvelope(ws, envelope) {
+    if (!ws || ws.readyState !== 1) return;
+    ws.send(JSON.stringify(envelope));
+}
+
+function getSessionById(sessionManager, sessionId) {
+    if (!sessionManager || !sessionManager.sessions || typeof sessionManager.sessions.get !== 'function') {
+        return null;
+    }
+    return sessionManager.sessions.get(sessionId) || null;
+}
+
+function ensureSessionCodexState(session) {
+    if (!session.codexState || typeof session.codexState !== 'object') {
+        session.codexState = {
+            threadId: null,
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null
+        };
+    } else if (!Array.isArray(session.codexState.pendingServerRequests)) {
+        session.codexState.pendingServerRequests = [];
+    }
+    if (!Object.prototype.hasOwnProperty.call(session.codexState, 'tokenUsage')) {
+        session.codexState.tokenUsage = null;
+    }
+    if (!Object.prototype.hasOwnProperty.call(session.codexState, 'rateLimitState')) {
+        session.codexState.rateLimitState = null;
+    }
+    return session.codexState;
+}
+
+function normalizeOptionalCwd(value) {
+    if (!isNonEmptyString(value)) {
+        return null;
+    }
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : null;
+}
+
+function getConfiguredCodexApprovalPolicy() {
+    const value = String(process.env.TERMLINK_CODEX_APPROVAL_POLICY || 'never').trim();
+    const valid = new Set(['untrusted', 'on-failure', 'on-request', 'never']);
+    return valid.has(value) ? value : 'never';
+}
+
+function getConfiguredCodexSandboxMode() {
+    const value = String(process.env.TERMLINK_CODEX_SANDBOX_MODE || 'workspace-write').trim();
+    const valid = new Set(['read-only', 'workspace-write', 'danger-full-access']);
+    return valid.has(value) ? value : 'workspace-write';
+}
+
+function buildThreadStartParams({ cwd }) {
+    const params = {
+        cwd,
+        approvalPolicy: getConfiguredCodexApprovalPolicy(),
+        sandbox: getConfiguredCodexSandboxMode(),
+        experimentalRawEvents: false,
+        persistExtendedHistory: true
+    };
+
+    if (isNonEmptyString(process.env.TERMLINK_CODEX_MODEL)) {
+        params.model = process.env.TERMLINK_CODEX_MODEL.trim();
+    }
+
+    return params;
+}
+
+function buildTurnInput(text) {
+    return [{
+        type: 'text',
+        text,
+        text_elements: []
+    }];
+}
+
 function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, privilegeConfig }) {
     const isElevated = privilegeConfig && privilegeConfig.isElevated;
     const allowedIps = privilegeConfig ? privilegeConfig.allowedIps : [];
     const auditService = isElevated ? getAuditService() : null;
+    const codexService = new CodexAppServerService();
+    const threadToSessionId = new Map();
+
+    const bindThreadToSession = (threadId, sessionId) => {
+        if (!isNonEmptyString(threadId) || !isNonEmptyString(sessionId)) {
+            return;
+        }
+        threadToSessionId.set(threadId, sessionId);
+    };
+
+    const syncSessionThreadBinding = (session) => {
+        const state = ensureSessionCodexState(session);
+        if (isNonEmptyString(state.threadId)) {
+            bindThreadToSession(state.threadId, session.id);
+        }
+    };
+
+    const persistSessionMetadata = (session) => {
+        if (!sessionManager || typeof sessionManager.schedulePersist !== 'function') {
+            return;
+        }
+        sessionManager.schedulePersist();
+    };
+
+    const updateSessionCwd = (session, cwd) => {
+        const normalized = normalizeOptionalCwd(cwd);
+        if (normalized === session.cwd) {
+            return normalized;
+        }
+        session.cwd = normalized;
+        persistSessionMetadata(session);
+        return normalized;
+    };
+
+    const updatePendingServerRequestState = (session, updater) => {
+        const state = ensureSessionCodexState(session);
+        const current = Array.isArray(state.pendingServerRequests) ? state.pendingServerRequests.slice() : [];
+        state.pendingServerRequests = updater(current);
+        return state;
+    };
+
+    const emitCodexState = (session, targetWs) => {
+        const state = ensureSessionCodexState(session);
+        const envelope = {
+            type: 'codex_state',
+            threadId: state.threadId,
+            currentTurnId: state.currentTurnId || null,
+            status: state.status || 'idle',
+            cwd: normalizeOptionalCwd(session.cwd),
+            approvalPending: state.pendingServerRequests.length > 0,
+            pendingServerRequestCount: state.pendingServerRequests.length,
+            tokenUsage: state.tokenUsage || null,
+            rateLimitState: state.rateLimitState || null
+        };
+        if (targetWs) {
+            sendWsEnvelope(targetWs, envelope);
+            return;
+        }
+        sessionManager.broadcast(session, envelope);
+    };
+
+    const shouldSendCodexState = (session) => {
+        const state = ensureSessionCodexState(session);
+        return session.sessionMode === 'codex'
+            || isNonEmptyString(state.threadId)
+            || state.pendingServerRequests.length > 0
+            || state.tokenUsage !== null
+            || state.rateLimitState !== null;
+    };
+
+    const getConnectedCodexSessions = () => {
+        if (!sessionManager || !sessionManager.sessions || typeof sessionManager.sessions.values !== 'function') {
+            return [];
+        }
+        return Array.from(sessionManager.sessions.values()).filter((session) => (
+            session &&
+            session.sessionMode === 'codex' &&
+            Array.isArray(session.connections) &&
+            session.connections.length > 0
+        ));
+    };
+
+    const ensureCodexThreadForSession = async (session, options = {}) => {
+        const state = ensureSessionCodexState(session);
+        const forceNewThread = options.forceNewThread === true;
+        const requestedCwd = normalizeOptionalCwd(options.cwd)
+            || normalizeOptionalCwd(session.cwd)
+            || String(process.env.TERMLINK_CODEX_WORKSPACE_DIR || process.cwd());
+        updateSessionCwd(session, requestedCwd);
+
+        if (!forceNewThread && isNonEmptyString(state.threadId)) {
+            bindThreadToSession(state.threadId, session.id);
+            return state.threadId;
+        }
+
+        const threadStartResult = await codexService.request('thread/start', buildThreadStartParams({ cwd: requestedCwd }));
+        const threadId = threadStartResult && threadStartResult.thread ? threadStartResult.thread.id : null;
+        if (!isNonEmptyString(threadId)) {
+            throw new Error('Codex thread/start did not return thread id.');
+        }
+
+        state.threadId = threadId;
+        state.currentTurnId = null;
+        state.status = 'idle';
+        bindThreadToSession(threadId, session.id);
+        persistSessionMetadata(session);
+
+        sessionManager.broadcast(session, {
+            type: 'codex_thread',
+            threadId,
+            model: threadStartResult.model || null,
+            modelProvider: threadStartResult.modelProvider || null
+        });
+        emitCodexState(session);
+
+        return threadId;
+    };
+
+    const updateCodexStateFromNotification = (session, method, params) => {
+        const state = ensureSessionCodexState(session);
+        if (method === 'turn/started') {
+            const nextTurnId = params && params.turn ? params.turn.id || null : state.currentTurnId;
+            const changed = state.currentTurnId !== nextTurnId || state.status !== 'running';
+            state.currentTurnId = nextTurnId;
+            state.status = 'running';
+            return changed;
+        }
+        if (method === 'turn/completed') {
+            const completedTurnId = params && params.turn ? params.turn.id || null : null;
+            let changed = false;
+            if (!completedTurnId || state.currentTurnId === completedTurnId) {
+                changed = changed || state.currentTurnId !== null;
+                state.currentTurnId = null;
+            }
+            changed = changed || state.status !== 'idle';
+            state.status = 'idle';
+            return changed;
+        }
+        if (method === 'thread/status/changed') {
+            const statusType = params && params.status ? params.status.type : null;
+            if (statusType === 'active') {
+                const changed = state.status !== 'running';
+                state.status = 'running';
+                return changed;
+            } else if (statusType === 'idle') {
+                const changed = state.status !== 'idle' || state.currentTurnId !== null;
+                state.status = 'idle';
+                state.currentTurnId = null;
+                return changed;
+            }
+            return false;
+        }
+        if (method === 'thread/tokenUsage/updated') {
+            const nextTokenUsage = params || null;
+            const changed = !areJsonLikeValuesEqual(state.tokenUsage, nextTokenUsage);
+            state.tokenUsage = nextTokenUsage;
+            return changed;
+        }
+        if (method === 'account/rateLimits/updated') {
+            const nextRateLimitState = params || null;
+            const changed = !areJsonLikeValuesEqual(state.rateLimitState, nextRateLimitState);
+            state.rateLimitState = nextRateLimitState;
+            return changed;
+        }
+        return false;
+    };
+
+    const handleCodexNotification = (notification) => {
+        const method = notification && notification.method;
+        const params = notification && notification.params;
+        if (!isNonEmptyString(method)) {
+            return;
+        }
+        // `codex/event/*` payloads are raw-event duplicates of high-level notifications.
+        if (method.startsWith('codex/event/')) {
+            return;
+        }
+
+        if (method === 'account/rateLimits/updated') {
+            getConnectedCodexSessions().forEach((session) => {
+                const stateChanged = updateCodexStateFromNotification(session, method, params);
+                sessionManager.broadcast(session, {
+                    type: 'codex_notification',
+                    method,
+                    params
+                });
+                if (stateChanged) {
+                    emitCodexState(session);
+                }
+            });
+            return;
+        }
+
+        const threadId = CodexAppServerService.extractThreadId(notification);
+        if (!threadId) {
+            return;
+        }
+
+        const sessionId = threadToSessionId.get(threadId);
+        if (!isNonEmptyString(sessionId)) {
+            return;
+        }
+
+        const session = getSessionById(sessionManager, sessionId);
+        if (!session) {
+            threadToSessionId.delete(threadId);
+            return;
+        }
+
+        const stateChanged = updateCodexStateFromNotification(session, method, params);
+        sessionManager.broadcast(session, {
+            type: 'codex_notification',
+            method,
+            params
+        });
+        if (stateChanged) {
+            emitCodexState(session);
+        }
+    };
+
+    const handleCodexFatal = (payload) => {
+        const message = payload && payload.message ? payload.message : 'Codex app-server failed.';
+        for (const session of sessionManager.sessions.values()) {
+            sessionManager.broadcast(session, {
+                type: 'codex_error',
+                code: payload && payload.code ? payload.code : 'CODEX_FATAL',
+                message
+            });
+        }
+    };
+
+    const handleCodexStderr = (line) => {
+        const trimmed = String(line || '').trim();
+        if (!trimmed) return;
+        console.warn(`[Codex] ${trimmed}`);
+    };
+
+    const handleCodexServerRequest = ({ requestId, message, handledBy, result }) => {
+        const method = message && message.method ? message.method : 'unknown';
+        const threadId = CodexAppServerService.extractThreadId(message);
+        if (!threadId) {
+            return;
+        }
+        const sessionId = threadToSessionId.get(threadId);
+        const session = sessionId ? getSessionById(sessionManager, sessionId) : null;
+        if (!session) {
+            return;
+        }
+        if (handledBy === 'client') {
+            updatePendingServerRequestState(session, (current) => {
+                if (current.some((entry) => entry && entry.requestId === requestId)) {
+                    return current;
+                }
+                current.push({
+                    requestId,
+                    method
+                });
+                return current;
+            });
+        }
+        sessionManager.broadcast(session, {
+            type: 'codex_server_request',
+            requestId,
+            method,
+            handledBy,
+            params: message.params || null,
+            defaultResult: result || null
+        });
+        emitCodexState(session);
+    };
+
+    codexService.on('notification', handleCodexNotification);
+    codexService.on('fatal', handleCodexFatal);
+    codexService.on('stderr', handleCodexStderr);
+    codexService.on('server_request', handleCodexServerRequest);
 
     const handleConnection = async (ws, req) => {
         // ── Auth gate: reject unauthenticated WebSocket connections ──
@@ -73,6 +435,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             sessionId = session.id;
             sessionManager.addConnection(session, ws);
             const pty = session.ptyService;
+            syncSessionThreadBinding(session);
 
             // Log connection start for elevated mode
             if (isElevated && auditService) {
@@ -89,24 +452,209 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 type: 'session_info',
                 sessionId: session.id,
                 name: session.name,
-                privilegeLevel
+                privilegeLevel,
+                sessionMode: session.sessionMode || 'terminal',
+                cwd: session.cwd || null
             }));
+
+            const codexState = ensureSessionCodexState(session);
+            if (shouldSendCodexState(session)) {
+                sendWsEnvelope(ws, {
+                    type: 'codex_state',
+                    threadId: codexState.threadId,
+                    currentTurnId: codexState.currentTurnId || null,
+                    status: codexState.status || 'idle',
+                    cwd: normalizeOptionalCwd(session.cwd),
+                    approvalPending: codexState.pendingServerRequests.length > 0,
+                    pendingServerRequestCount: codexState.pendingServerRequests.length,
+                    tokenUsage: codexState.tokenUsage || null,
+                    rateLimitState: codexState.rateLimitState || null
+                });
+            }
 
             ws.isAlive = true;
             ws.on('pong', () => { ws.isAlive = true; });
 
-            ws.on('message', (message) => {
+            ws.on('message', async (message) => {
+                let envelope = null;
                 try {
-                    const envelope = JSON.parse(message);
+                    envelope = JSON.parse(message);
                     const type = envelope.type;
 
                     if (type === 'input') {
                         pty.write(envelope.data);
                     } else if (type === 'resize') {
                         pty.resize(envelope.cols, envelope.rows);
+                    } else if (type === 'codex_new_thread') {
+                        const threadId = await ensureCodexThreadForSession(session, {
+                            forceNewThread: true,
+                            cwd: envelope.cwd
+                        });
+                        sendWsEnvelope(ws, {
+                            type: 'codex_thread_ready',
+                            threadId
+                        });
+                    } else if (type === 'codex_turn') {
+                        const text = isNonEmptyString(envelope.text) ? envelope.text.trim() : '';
+                        if (!text) {
+                            sendWsEnvelope(ws, {
+                                type: 'codex_error',
+                                code: 'CODEX_EMPTY_INPUT',
+                                message: 'Codex input text cannot be empty.'
+                            });
+                            return;
+                        }
+
+                        const threadId = await ensureCodexThreadForSession(session, {
+                            forceNewThread: envelope.forceNewThread === true,
+                            cwd: envelope.cwd
+                        });
+
+                        const turnStartResponse = await codexService.request('turn/start', {
+                            threadId,
+                            input: buildTurnInput(text)
+                        });
+
+                        const codexState = ensureSessionCodexState(session);
+                        codexState.threadId = threadId;
+                        codexState.currentTurnId = turnStartResponse && turnStartResponse.turn
+                            ? turnStartResponse.turn.id || null
+                            : null;
+                        codexState.status = 'running';
+                        bindThreadToSession(threadId, session.id);
+                        updateSessionCwd(session, envelope.cwd || session.cwd);
+                        emitCodexState(session);
+
+                        sendWsEnvelope(ws, {
+                            type: 'codex_turn_ack',
+                            threadId,
+                            turn: turnStartResponse ? turnStartResponse.turn || null : null
+                        });
+                    } else if (type === 'codex_interrupt') {
+                        const codexState = ensureSessionCodexState(session);
+                        if (!isNonEmptyString(codexState.threadId) || !isNonEmptyString(codexState.currentTurnId)) {
+                            sendWsEnvelope(ws, {
+                                type: 'codex_error',
+                                code: 'CODEX_NO_ACTIVE_TURN',
+                                message: 'No active Codex turn to interrupt.'
+                            });
+                            return;
+                        }
+                        await codexService.request('turn/interrupt', {
+                            threadId: codexState.threadId,
+                            turnId: codexState.currentTurnId
+                        });
+                        sendWsEnvelope(ws, {
+                            type: 'codex_interrupt_ack',
+                            threadId: codexState.threadId,
+                            turnId: codexState.currentTurnId
+                        });
+                    } else if (type === 'codex_set_cwd') {
+                        const nextCwd = normalizeOptionalCwd(envelope.cwd);
+                        if (!nextCwd) {
+                            sendWsEnvelope(ws, {
+                                type: 'codex_error',
+                                code: 'CODEX_INVALID_CWD',
+                                message: 'Codex cwd must be a non-empty string.'
+                            });
+                            return;
+                        }
+                        updateSessionCwd(session, nextCwd);
+                        emitCodexState(session);
+                    } else if (type === 'codex_server_request_response') {
+                        const requestId = isNonEmptyString(envelope.requestId)
+                            ? envelope.requestId.trim()
+                            : '';
+                        if (!requestId) {
+                            sendWsEnvelope(ws, {
+                                type: 'codex_error',
+                                code: 'CODEX_SERVER_REQUEST_RESPONSE_INVALID',
+                                message: 'Codex server request response requires requestId.'
+                            });
+                            return;
+                        }
+
+                        codexService.respondToServerRequest(requestId, {
+                            result: envelope.result,
+                            error: envelope.error,
+                            useDefault: envelope.useDefault === true
+                        });
+
+                        updatePendingServerRequestState(session, (current) => (
+                            current.filter((entry) => !entry || entry.requestId !== requestId)
+                        ));
+                        emitCodexState(session);
+                    } else if (type === 'codex_thread_read') {
+                        const codexState = ensureSessionCodexState(session);
+                        if (!isNonEmptyString(codexState.threadId)) {
+                            sendWsEnvelope(ws, {
+                                type: 'codex_error',
+                                code: 'CODEX_NO_THREAD',
+                                message: 'No Codex thread bound to this session.'
+                            });
+                            return;
+                        }
+                        const response = await codexService.request('thread/read', {
+                            threadId: codexState.threadId,
+                            includeTurns: true
+                        });
+                        sendWsEnvelope(ws, {
+                            type: 'codex_thread_snapshot',
+                            thread: response ? response.thread || null : null
+                        });
+                    } else if (type === 'codex_request') {
+                        const method = isNonEmptyString(envelope.method) ? envelope.method : null;
+                        if (!method) {
+                            sendWsEnvelope(ws, {
+                                type: 'codex_response',
+                                requestId: envelope.requestId || null,
+                                error: {
+                                    message: 'codex_request requires a method field.'
+                                }
+                            });
+                            return;
+                        }
+                        const response = await codexService.request(method, envelope.params);
+                        const codexState = ensureSessionCodexState(session);
+                        if (response && response.thread && isNonEmptyString(response.thread.id)) {
+                            codexState.threadId = response.thread.id;
+                            bindThreadToSession(response.thread.id, session.id);
+                        }
+                        if (response && response.turn && isNonEmptyString(response.turn.id)) {
+                            codexState.currentTurnId = response.turn.id;
+                            codexState.status = 'running';
+                        }
+                        sendWsEnvelope(ws, {
+                            type: 'codex_response',
+                            requestId: envelope.requestId || null,
+                            method,
+                            result: response
+                        });
                     }
                 } catch (e) {
-                    console.error('Failed to parse message:', e.message);
+                    if (envelope && envelope.type === 'codex_request') {
+                        sendWsEnvelope(ws, {
+                            type: 'codex_response',
+                            requestId: envelope.requestId || null,
+                            method: envelope.method || null,
+                            error: {
+                                code: e && e.code ? e.code : 'CODEX_REQUEST_FAILED',
+                                message: e && e.message ? e.message : 'Codex request failed.',
+                                data: e.data || null
+                            }
+                        });
+                        return;
+                    }
+                    if (envelope && typeof envelope.type === 'string' && envelope.type.startsWith('codex_')) {
+                        sendWsEnvelope(ws, {
+                            type: 'codex_error',
+                            code: e && e.code ? e.code : 'CODEX_REQUEST_FAILED',
+                            message: e && e.message ? e.message : 'Codex request failed.',
+                            data: e && e.data ? e.data : null
+                        });
+                        return;
+                    }
+                    console.error('Failed to parse message:', e && e.message ? e.message : e);
                 }
             });
 
@@ -153,6 +701,11 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         clearInterval(heartbeatInterval);
         wss.removeListener('connection', handleConnection);
         wss.removeListener('close', handleWssClose);
+        codexService.removeListener('notification', handleCodexNotification);
+        codexService.removeListener('fatal', handleCodexFatal);
+        codexService.removeListener('stderr', handleCodexStderr);
+        codexService.removeListener('server_request', handleCodexServerRequest);
+        codexService.stop();
     };
 }
 

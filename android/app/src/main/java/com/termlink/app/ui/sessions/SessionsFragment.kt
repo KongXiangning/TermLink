@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
@@ -24,6 +25,7 @@ import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.SessionApiClient
 import com.termlink.app.data.SessionApiError
 import com.termlink.app.data.SessionApiErrorCode
+import com.termlink.app.data.SessionMode
 import com.termlink.app.data.SessionRef
 import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.SessionSummary
@@ -36,8 +38,8 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     interface Callbacks {
         fun getProfiles(): List<ServerProfile>
         fun getCurrentSelection(): SessionSelection
-        fun onOpenSession(profileId: String, sessionId: String)
-        fun onUpdateSessionSelection(profileId: String, sessionId: String)
+        fun onOpenSession(selection: SessionSelection)
+        fun onUpdateSessionSelection(selection: SessionSelection)
     }
 
     private var callbacks: Callbacks? = null
@@ -233,7 +235,9 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                     status = "LOCAL",
                     activeConnections = 0,
                     createdAt = session.createdAt,
-                    lastActiveAt = session.lastActiveAt
+                    lastActiveAt = session.lastActiveAt,
+                    sessionMode = SessionMode.TERMINAL,
+                    cwd = null
                 )
             }
             return ApiResult.Success(local)
@@ -241,12 +245,24 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         return sessionApiClient.listSessions(profile)
     }
 
-    private fun createSessionForProfile(profile: ServerProfile, name: String): ApiResult<SessionRef> {
+    private fun createSessionForProfile(
+        profile: ServerProfile,
+        name: String,
+        sessionMode: SessionMode,
+        cwd: String?
+    ): ApiResult<SessionRef> {
         if (profile.terminalType == TerminalType.EXTERNAL_WEB) {
             val created = externalSessionStore.create(profile.id, name)
-            return ApiResult.Success(SessionRef(id = created.id, name = created.name))
+            return ApiResult.Success(
+                SessionRef(
+                    id = created.id,
+                    name = created.name,
+                    sessionMode = SessionMode.TERMINAL,
+                    cwd = null
+                )
+            )
         }
-        return sessionApiClient.createSession(profile, name)
+        return sessionApiClient.createSession(profile, name, sessionMode, cwd)
     }
 
     private fun renameSessionForProfile(
@@ -262,9 +278,36 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                         message = "External session not found."
                     )
                 )
-            return ApiResult.Success(SessionRef(id = updated.id, name = updated.name))
+            return ApiResult.Success(
+                SessionRef(
+                    id = updated.id,
+                    name = updated.name,
+                    sessionMode = SessionMode.TERMINAL,
+                    cwd = null
+                )
+            )
         }
         return sessionApiClient.renameSession(profile, sessionId, name)
+    }
+
+    private fun supportsCodexSessions(profile: ServerProfile): Boolean {
+        return profile.terminalType == TerminalType.TERMLINK_WS
+    }
+
+    private fun buildSelection(profileId: String, session: SessionSummary): SessionSelection {
+        return SessionSelection(
+            profileId = profileId,
+            sessionId = session.id,
+            sessionMode = session.sessionMode,
+            cwd = session.cwd
+        )
+    }
+
+    private fun modeLabel(mode: SessionMode): String {
+        return when (mode) {
+            SessionMode.CODEX -> getString(R.string.sessions_mode_codex)
+            SessionMode.TERMINAL -> getString(R.string.sessions_mode_terminal)
+        }
     }
 
     private fun deleteSessionForProfile(profile: ServerProfile, sessionId: String): ApiResult<Unit> {
@@ -303,7 +346,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         listContainer.removeAllViews()
 
         val availableSelections = groups.flatMap { group ->
-            group.sessions.map { SessionSelection(group.profile.id, it.id) }
+            group.sessions.map { buildSelection(group.profile.id, it) }
         }
         val hasGroupErrors = groups.any { it.error != null }
         val selectionFallbackAllowed = groups.isNotEmpty() && !hasGroupErrors
@@ -311,9 +354,10 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             it.profileId == currentSelection.profileId && it.sessionId == currentSelection.sessionId
         }
         if (selectionFallbackAllowed && currentSelection.sessionId.isNotBlank() && !selectionExists) {
-            val fallback = availableSelections.firstOrNull() ?: SessionSelection(currentSelection.profileId, "")
+            val fallback = availableSelections.firstOrNull()
+                ?: SessionSelection(currentSelection.profileId, "")
             currentSelection = fallback
-            callbacks?.onUpdateSessionSelection(fallback.profileId, fallback.sessionId)
+            callbacks?.onUpdateSessionSelection(fallback)
         }
 
         val selectedStrokeColor = ContextCompat.getColor(requireContext(), R.color.sessions_selected_stroke)
@@ -396,13 +440,24 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                 }
                 primaryMetaText.text = getString(
                     R.string.sessions_item_meta_primary,
+                    modeLabel(session.sessionMode),
                     session.status,
                     session.activeConnections
                 )
-                secondaryMetaText.text = getString(
-                    R.string.sessions_item_last_active,
-                    formatRelativeTime(session.lastActiveAt)
-                )
+                secondaryMetaText.text = if (
+                    session.sessionMode == SessionMode.CODEX && !session.cwd.isNullOrBlank()
+                ) {
+                    getString(
+                        R.string.sessions_item_last_active_with_cwd,
+                        formatRelativeTime(session.lastActiveAt),
+                        session.cwd
+                    )
+                } else {
+                    getString(
+                        R.string.sessions_item_last_active,
+                        formatRelativeTime(session.lastActiveAt)
+                    )
+                }
                 sessionCard.strokeColor = if (isSelected) selectedStrokeColor else normalStrokeColor
                 sessionCard.strokeWidth = if (isSelected) dpToPx(2) else dpToPx(1)
                 sessionCard.setCardBackgroundColor(
@@ -478,6 +533,10 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             .inflate(R.layout.dialog_session_create, null, false)
         val inputName = dialogView.findViewById<EditText>(R.id.input_create_session_name)
         val spinnerProfile = dialogView.findViewById<Spinner>(R.id.spinner_create_session_profile)
+        val modeContainer = dialogView.findViewById<View>(R.id.create_session_mode_container)
+        val spinnerMode = dialogView.findViewById<Spinner>(R.id.spinner_create_session_mode)
+        val cwdContainer = dialogView.findViewById<View>(R.id.create_session_cwd_container)
+        val inputCwd = dialogView.findViewById<EditText>(R.id.input_create_session_cwd)
         val profileLabels = profiles.map { profile ->
             "${profile.name} (${profile.baseUrl.ifBlank { getString(R.string.sessions_profile_url_empty) }})"
         }
@@ -492,6 +551,102 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         if (currentProfileIndex >= 0) {
             spinnerProfile.setSelection(currentProfileIndex)
         }
+
+        val modeAdapter = ArrayAdapter(
+            requireContext(),
+            android.R.layout.simple_spinner_item,
+            mutableListOf<String>()
+        )
+        modeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerMode.adapter = modeAdapter
+        var isUpdatingCreateDialogModeUi = false
+
+        fun selectedProfile(): ServerProfile? {
+            val index = spinnerProfile.selectedItemPosition
+            return profiles.getOrNull(index)
+        }
+
+        fun selectedSessionMode(profile: ServerProfile?): SessionMode {
+            if (profile == null || !supportsCodexSessions(profile)) {
+                return SessionMode.TERMINAL
+            }
+            return when (spinnerMode.selectedItemPosition) {
+                1 -> SessionMode.CODEX
+                else -> SessionMode.TERMINAL
+            }
+        }
+
+        fun updateCreateDialogModeUi() {
+            if (isUpdatingCreateDialogModeUi) return
+            isUpdatingCreateDialogModeUi = true
+            try {
+                val profile = selectedProfile()
+                val codexSupported = profile != null && supportsCodexSessions(profile)
+                val modeOptions = if (codexSupported) {
+                    listOf(
+                        getString(R.string.sessions_mode_terminal),
+                        getString(R.string.sessions_mode_codex)
+                    )
+                } else {
+                    listOf(getString(R.string.sessions_mode_terminal))
+                }
+                modeAdapter.clear()
+                modeAdapter.addAll(modeOptions)
+                modeAdapter.notifyDataSetChanged()
+                modeContainer.visibility = if (codexSupported) View.VISIBLE else View.GONE
+                spinnerMode.isEnabled = codexSupported
+
+                val preferredMode = when {
+                    codexSupported && spinnerMode.selectedItemPosition == 1 -> 1
+                    currentSelection.profileId == profile?.id &&
+                        currentSelection.sessionMode == SessionMode.CODEX &&
+                        codexSupported -> 1
+                    else -> 0
+                }
+                spinnerMode.setSelection(preferredMode, false)
+
+                val currentMode = selectedSessionMode(profile)
+                val showCwd = currentMode == SessionMode.CODEX
+                cwdContainer.visibility = if (showCwd) View.VISIBLE else View.GONE
+                if (showCwd && inputCwd.text.isNullOrBlank()) {
+                    val suggestedCwd = if (
+                        currentSelection.profileId == profile?.id &&
+                        currentSelection.sessionMode == SessionMode.CODEX
+                    ) {
+                        currentSelection.cwd.orEmpty()
+                    } else {
+                        ""
+                    }
+                    inputCwd.setText(suggestedCwd)
+                    inputCwd.setSelection(inputCwd.text.length)
+                }
+                if (!showCwd) {
+                    inputCwd.error = null
+                }
+            } finally {
+                isUpdatingCreateDialogModeUi = false
+            }
+        }
+
+        spinnerProfile.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                updateCreateDialogModeUi()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                updateCreateDialogModeUi()
+            }
+        }
+        spinnerMode.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                updateCreateDialogModeUi()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                updateCreateDialogModeUi()
+            }
+        }
+        updateCreateDialogModeUi()
 
         val dialog = AlertDialog.Builder(requireContext())
             .setTitle(getString(R.string.sessions_create_title))
@@ -518,10 +673,23 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                     return@setOnClickListener
                 }
                 val profile = profiles[profileIndex]
+                val sessionMode = selectedSessionMode(profile)
+                val cwd = inputCwd.text.toString().trim().takeIf { it.isNotBlank() }
+                if (sessionMode == SessionMode.CODEX && cwd.isNullOrBlank()) {
+                    inputCwd.error = getString(R.string.sessions_cwd_required)
+                    return@setOnClickListener
+                }
                 runAction(
-                    action = { createSessionForProfile(profile, name) },
+                    action = { createSessionForProfile(profile, name, sessionMode, cwd) },
                     onSuccess = { created ->
-                        callbacks?.onOpenSession(profile.id, created.id)
+                        callbacks?.onOpenSession(
+                            SessionSelection(
+                                profileId = profile.id,
+                                sessionId = created.id,
+                                sessionMode = created.sessionMode,
+                                cwd = created.cwd
+                            )
+                        )
                         refreshSessions(showSpinner = false)
                     }
                 )
@@ -558,8 +726,8 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                         if (session.id == currentSelection.sessionId &&
                             profile.id == currentSelection.profileId
                         ) {
-                            callbacks?.onUpdateSessionSelection(profile.id, "")
                             currentSelection = SessionSelection(profile.id, "")
+                            callbacks?.onUpdateSessionSelection(currentSelection)
                         }
                         refreshSessions(showSpinner = false)
                     }
@@ -569,12 +737,17 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     }
 
     private fun openSession(profileId: String, sessionId: String) {
-        currentSelection = SessionSelection(profileId, sessionId)
+        val session = groupedSessions
+            .firstOrNull { it.profile.id == profileId }
+            ?.sessions
+            ?.firstOrNull { it.id == sessionId }
+        currentSelection = session?.let { buildSelection(profileId, it) }
+            ?: SessionSelection(profileId, sessionId)
         val selectedProfile = profiles.firstOrNull { it.id == profileId }
         if (selectedProfile?.terminalType == TerminalType.EXTERNAL_WEB) {
             externalSessionStore.touch(profileId, sessionId)
         }
-        callbacks?.onOpenSession(profileId, sessionId)
+        callbacks?.onOpenSession(currentSelection)
         renderGroupedSessions(groupedSessions)
     }
 

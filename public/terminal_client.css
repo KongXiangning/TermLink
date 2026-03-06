@@ -6,6 +6,7 @@ body {
     height: 100%;
     overflow: hidden;
     background: #000;
+    overscroll-behavior: none;
 }
 
 #terminal-shell {
@@ -13,6 +14,304 @@ body {
     flex-direction: column;
     width: 100%;
     height: 100%;
+    min-height: 0;
+}
+
+body.terminal-only #codex-panel {
+    display: none !important;
+}
+
+body.terminal-only #terminal-main {
+    flex: 1 1 auto;
+}
+
+body.terminal-only #toolbar {
+    display: block;
+}
+
+body.codex-only {
+    background: #0d1117;
+}
+
+body.codex-only #terminal-shell {
+    background:
+        radial-gradient(circle at top right, rgba(76, 145, 255, 0.14), transparent 32%),
+        linear-gradient(180deg, #081018 0%, #0d1117 48%, #0a131f 100%);
+}
+
+body.codex-only #terminal-main {
+    flex: 0 0 auto;
+    min-height: 0;
+}
+
+body.codex-only #terminal-container,
+body.codex-only #toolbar,
+body.codex-only #input-overlay {
+    display: none !important;
+}
+
+body.codex-only #status-overlay {
+    position: static;
+    margin: 10px 10px 0;
+}
+
+body.codex-only #codex-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    border-bottom: none;
+}
+
+body.codex-only #btn-codex-toggle {
+    display: none;
+}
+
+body.codex-only #codex-header {
+    padding: 12px 12px 10px;
+}
+
+body.codex-only #codex-log {
+    padding: 10px 12px;
+}
+
+body.codex-only #codex-composer {
+    padding: 10px 12px 12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+#codex-panel {
+    display: flex;
+    flex: 0 0 42%;
+    min-height: 160px;
+    max-height: 60%;
+    flex-direction: column;
+    background: #0d1117;
+    border-bottom: 1px solid #223147;
+    overflow: hidden;
+}
+
+#codex-panel.collapsed {
+    flex: 0 0 auto;
+    min-height: 0;
+    max-height: none;
+}
+
+#codex-panel.collapsed #codex-log,
+#codex-panel.collapsed #codex-composer {
+    display: none;
+}
+
+#codex-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid #1e293a;
+    background: #0b141f;
+}
+
+#codex-header-main {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-direction: column;
+    gap: 4px;
+}
+
+#codex-status-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    color: #c9d7eb;
+    font-size: 12px;
+    line-height: 1.2;
+}
+
+#codex-meta-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+    font-size: 10px;
+    line-height: 1.3;
+}
+
+#codex-meta-text,
+#codex-notice-text {
+    min-width: 0;
+    word-break: break-word;
+}
+
+#codex-meta-text {
+    color: #8fa4c0;
+}
+
+#codex-notice-text {
+    color: #d9c08a;
+}
+
+#codex-notice-text.tone-error {
+    color: #ff9f9f;
+}
+
+#codex-notice-text.tone-warn {
+    color: #ffd480;
+}
+
+#codex-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #5f738c;
+}
+
+#codex-panel.status-running #codex-status-dot {
+    background: #2eb67d;
+}
+
+#codex-panel.status-error #codex-status-dot {
+    background: #e5534b;
+}
+
+#codex-thread-id {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #8fa4c0;
+}
+
+#codex-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.codex-btn {
+    border: 1px solid #334863;
+    border-radius: 6px;
+    background: #182739;
+    color: #dbe6f7;
+    font-size: 11px;
+    line-height: 1;
+    padding: 6px 8px;
+    min-height: 28px;
+}
+
+.codex-btn.danger {
+    border-color: #6d2d2d;
+    background: #3a1919;
+    color: #ffc9c9;
+}
+
+#codex-log {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 8px 10px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: #d5e1f2;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.codex-entry {
+    border-radius: 8px;
+    border: 1px solid #28374d;
+    padding: 8px;
+    margin-bottom: 8px;
+    background: #101a28;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.codex-entry.user {
+    border-color: #35517b;
+    background: #14243b;
+}
+
+.codex-entry.assistant {
+    border-color: #355546;
+    background: #14291f;
+}
+
+.codex-entry.system {
+    border-color: #4c3c21;
+    background: #2a2114;
+}
+
+.codex-entry.error {
+    border-color: #7c2f2f;
+    background: #331717;
+}
+
+.codex-entry .meta {
+    display: block;
+    font-size: 10px;
+    color: #90a3bb;
+    margin-bottom: 4px;
+}
+
+.codex-entry .actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.codex-entry .actions button {
+    border: 1px solid #334863;
+    border-radius: 6px;
+    background: #182739;
+    color: #dbe6f7;
+    font-size: 11px;
+    line-height: 1;
+    padding: 7px 10px;
+}
+
+.codex-entry .actions button.primary {
+    border-color: #2d5d48;
+    background: #1e5e46;
+    color: #e8fff4;
+}
+
+.codex-entry .actions button:disabled {
+    opacity: 0.55;
+}
+
+#codex-composer {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 8px;
+    padding: 8px 10px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid #1e293a;
+    background: #0b141f;
+}
+
+#codex-input {
+    flex: 1 1 auto;
+    min-height: 48px;
+    max-height: min(120px, 28vh);
+    resize: vertical;
+    border: 1px solid #334863;
+    border-radius: 6px;
+    background: #111e30;
+    color: #e6f1ff;
+    padding: 8px;
+    font-size: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+#btn-codex-send {
+    flex: 0 0 auto;
+    min-width: 64px;
+    border: 1px solid #2d5d48;
+    border-radius: 6px;
+    background: #1e5e46;
+    color: #e8fff4;
+    font-weight: 600;
 }
 
 #terminal-main {
@@ -149,4 +448,43 @@ body .xterm .xterm-viewport {
 
 #btn-send {
     background: #007bff;
+}
+
+@media (max-height: 650px) {
+    #codex-panel {
+        flex-basis: 48%;
+    }
+
+    body.codex-only #codex-panel {
+        flex-basis: auto;
+    }
+}
+
+body.viewport-compact #codex-panel {
+    flex-basis: 56%;
+    min-height: 132px;
+    max-height: 76%;
+}
+
+body.viewport-compact #codex-header {
+    padding: 6px 8px;
+}
+
+body.viewport-compact #codex-log {
+    padding: 6px 8px;
+}
+
+body.viewport-compact #codex-composer {
+    padding: 6px 8px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+}
+
+body.viewport-compact #codex-input {
+    min-height: 42px;
+    max-height: min(84px, 22vh);
+}
+
+body.codex-only.viewport-compact #codex-panel {
+    flex: 1 1 auto;
+    max-height: none;
 }

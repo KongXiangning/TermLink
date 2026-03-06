@@ -28,23 +28,46 @@ sealed class ApiResult<out T> {
     data class Failure(val error: SessionApiError) : ApiResult<Nothing>()
 }
 
+enum class SessionMode(val wireValue: String) {
+    TERMINAL("terminal"),
+    CODEX("codex");
+
+    companion object {
+        fun fromWireValue(value: String?): SessionMode {
+            if (value.isNullOrBlank()) {
+                return TERMINAL
+            }
+            return entries.firstOrNull {
+                it.wireValue.equals(value.trim(), ignoreCase = true) ||
+                    it.name.equals(value.trim(), ignoreCase = true)
+            } ?: TERMINAL
+        }
+    }
+}
+
 data class SessionSummary(
     val id: String,
     val name: String,
     val status: String,
     val activeConnections: Int,
     val createdAt: Long,
-    val lastActiveAt: Long
+    val lastActiveAt: Long,
+    val sessionMode: SessionMode = SessionMode.TERMINAL,
+    val cwd: String? = null
 )
 
 data class SessionRef(
     val id: String,
-    val name: String
+    val name: String,
+    val sessionMode: SessionMode = SessionMode.TERMINAL,
+    val cwd: String? = null
 )
 
 data class SessionSelection(
     val profileId: String,
-    val sessionId: String
+    val sessionId: String,
+    val sessionMode: SessionMode = SessionMode.TERMINAL,
+    val cwd: String? = null
 )
 
 data class ProfileSessionSummary(

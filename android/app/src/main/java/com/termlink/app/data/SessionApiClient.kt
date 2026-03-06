@@ -31,7 +31,24 @@ class SessionApiClient(context: Context) {
     }
 
     fun createSession(profile: ServerProfile, name: String): ApiResult<SessionRef> {
-        val payload = JSONObject().put("name", name).toString()
+        return createSession(profile, name, SessionMode.TERMINAL, null)
+    }
+
+    fun createSession(
+        profile: ServerProfile,
+        name: String,
+        sessionMode: SessionMode,
+        cwd: String?
+    ): ApiResult<SessionRef> {
+        val payload = JSONObject()
+            .put("name", name)
+            .put("sessionMode", sessionMode.wireValue)
+            .apply {
+                if (!cwd.isNullOrBlank()) {
+                    put("cwd", cwd.trim())
+                }
+            }
+            .toString()
         val response = request(
             profile = profile,
             method = "POST",
@@ -86,7 +103,9 @@ class SessionApiClient(context: Context) {
                         status = item.optString("status", "UNKNOWN"),
                         activeConnections = item.optInt("activeConnections", 0),
                         createdAt = item.optLong("createdAt", 0L),
-                        lastActiveAt = item.optLong("lastActiveAt", 0L)
+                        lastActiveAt = item.optLong("lastActiveAt", 0L),
+                        sessionMode = SessionMode.fromWireValue(item.optString("sessionMode", "terminal")),
+                        cwd = item.optString("cwd", "").trim().takeIf { it.isNotBlank() }
                     )
                 )
             }
@@ -117,7 +136,9 @@ class SessionApiClient(context: Context) {
             ApiResult.Success(
                 SessionRef(
                     id = id,
-                    name = obj.optString("name", "Unnamed Session")
+                    name = obj.optString("name", "Unnamed Session"),
+                    sessionMode = SessionMode.fromWireValue(obj.optString("sessionMode", "terminal")),
+                    cwd = obj.optString("cwd", "").trim().takeIf { it.isNotBlank() }
                 )
             )
         } catch (ex: JSONException) {

@@ -32,7 +32,7 @@ related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIR
 
 ## 2. In Scope
 
-1. 会话 idle 保留窗口默认提升为 6 小时（`21600000` ms）。
+1. 会话 idle 保留窗口默认提升为 24 小时（`86400000` ms）。
 2. 客户端断联后，会话对象与 PTY 进程保持存活，不因断联立刻销毁。
 3. 在保留窗口内，携带有效 `sessionId` 重连必须恢复到原会话上下文。
 4. 引入容量治理：最大会话数默认 50，采用 idle 会话 LRU 清理策略。
@@ -54,7 +54,7 @@ related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIR
 
 ### 5.1 环境变量（新增）
 
-1. `SESSION_IDLE_TTL_MS`，默认 `21600000`（6 小时）
+1. `SESSION_IDLE_TTL_MS`，默认 `86400000`（24 小时）
 2. `SESSION_MAX_COUNT`，默认 `50`
 3. `SESSION_CLEANUP_INTERVAL_MS`，默认 `60000`
 
@@ -86,17 +86,17 @@ related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIR
 
 ## 7. 验收标准
 
-1. 断联 5 小时内重连同一 `sessionId`，会话可继续。
-2. idle 超过 6 小时的会话会自动清理。
+1. 断联 23 小时内重连同一 `sessionId`，会话可继续。
+2. idle 超过 24 小时的会话会自动清理。
 3. 达到 50 会话上限时，新建会话触发 idle-LRU 清理；无可清理 `IDLE` 时返回容量错误。
 4. 显式删除后不可再通过原 `sessionId` 重连成功。
 5. 断联/重连过程不发生会话串线、意外重置或重建到其他会话。
 
 ## 8. 测试场景
 
-1. 单会话断网重连：1 分钟、30 分钟、5 小时。
+1. 单会话断网重连：1 分钟、30 分钟、23 小时。
 2. 多端连接同一会话并交替断开：`activeConnections` 与状态变化正确。
-3. TTL 边界：5h59m、6h00m、6h01m。
+3. TTL 边界：23h59m、24h00m、24h01m。
 4. 容量边界：49、50、51 会话创建行为。
 5. 删除优先级：显式删除与自动清理触发顺序。
 6. 异常输入：不存在/已过期 `sessionId` 重连错误可识别。

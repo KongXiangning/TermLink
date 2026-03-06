@@ -27,4 +27,42 @@
         android:id="@+id/spinner_create_session_profile"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
+
+    <LinearLayout
+        android:id="@+id/create_session_mode_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/sessions_create_mode_label" />
+
+        <Spinner
+            android:id="@+id/spinner_create_session_mode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/create_session_cwd_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/sessions_create_cwd_label" />
+
+        <EditText
+            android:id="@+id/input_create_session_cwd"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/sessions_create_cwd_hint"
+            android:inputType="textNoSuggestions|text" />
+    </LinearLayout>
 </LinearLayout>
