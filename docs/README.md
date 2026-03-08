@@ -2,7 +2,7 @@
 title: TermLink 文档中心
 status: active
 owner: @maintainer
-last_updated: 2026-02-23
+last_updated: 2026-03-09
 source_of_truth: product
 related_code: []
 related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/CURRENT_STATE.md, docs/changes/records/INDEX.md]
@@ -36,6 +36,12 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/CURRENT_S
 - 当前架构：`docs/architecture/CURRENT_STATE.md`
 - 路线图：`docs/architecture/ROADMAP.md`
 - ADR 模板：`docs/architecture/decisions/ADR-TEMPLATE.md`
+
+### Codex
+
+- 能力矩阵：`docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md`
+- 跨版本稳定结论：`docs/codex/cross-version-stable-findings.md`
+- 能力实施计划：`docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`
 
 ### Guides
 

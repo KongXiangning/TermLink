@@ -2,7 +2,7 @@
 title: 变更记录索引
 status: active
 owner: @maintainer
-last_updated: 2026-02-24
+last_updated: 2026-03-09
 source_of_truth: product
 related_code: [docs/changes/records]
 related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_CHANGE_RECORD.md]
@@ -37,3 +37,4 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 | CR-20260224-1636-android-external-web-terminal-poc | REQ-20260224-android-external-web-terminal-profile-sessions | draft | TBD | @maintainer | 2026-02-24 | Android External Web 终端 POC + 修复：凭据热更新重载、profile 删除清理 sessions、深色通用化注入 | `docs/changes/records/CR-20260224-1636-android-external-web-terminal-poc.md` |
 | CR-20260224-2145-screen-idle-timeout-restore | REQ-20260224-screen-keep-awake | draft | TBD | @maintainer | 2026-02-24 | MainShellActivity 前台无操作 2 分钟后恢复系统息屏，切后台立即取消常亮 | `docs/changes/records/CR-20260224-2145-screen-idle-timeout-restore.md` |
 | CR-20260306-1805-codex-app-repair-plan | REQ-20260306-codex-app-repair-plan | draft | TBD | @maintainer | 2026-03-06 | Codex App 侧修复计划立项，并同步主线需求与路线图 | `docs/changes/records/CR-20260306-1805-codex-app-repair-plan.md` |
+| CR-20260309-0123-codex-capability-doc-restructure | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-09 | 基于能力矩阵重构 Codex 主 REQ、实施计划与主线文档索引 | `docs/changes/records/CR-20260309-0123-codex-capability-doc-restructure.md` |

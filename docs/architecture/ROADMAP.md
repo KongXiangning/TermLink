@@ -2,7 +2,7 @@
 title: TermLink 路线图
 status: active
 owner: @maintainer
-last_updated: 2026-02-24
+last_updated: 2026-03-09
 source_of_truth: product
 related_code: []
 related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BACKLOG.md]
@@ -22,10 +22,10 @@ related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BAC
 
 ## 2026-Q2
 
-1. 规划 Codex 控制链路 MVP（session/thread/approval）。
-2. 落地 Codex App 侧修复计划（`REQ-20260306-codex-app-repair-plan`），完成独立聊天窗、Create Session 模式入口、会话级 `cwd` 与审批透传。
-3. 完成审批模型的数据结构与事件协议定稿。
-4. 明确移动端控制面板与终端页的边界。
+1. 按 `REQ-20260309-codex-capability-mvp` 落地 Codex 能力矩阵主线：优先交付历史线程、会话级配置、审批与额度可见性。
+2. 完成 `codex_capabilities` 与 `codex_request` 白名单机制，收敛协议扩展边界。
+3. 完成审批模型与交互状态机定稿（command/file/patch/userInput）。
+4. 明确 Android 优先、Browser 共享协议的交付边界，避免端侧协议分叉。
 5. 定义并落地服务端受控管理员权限模式（`REQ-20260222-server-admin-privilege-mode`），补齐启用门禁、审计、回滚链路。
 
 ## 2026-H2

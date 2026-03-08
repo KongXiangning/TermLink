@@ -2,13 +2,22 @@
 title: TermLink 项目变更日志
 status: active
 owner: @maintainer
-last_updated: 2026-03-06
+last_updated: 2026-03-09
 source_of_truth: product
 related_code: []
 related_docs: [docs/README.md]
 ---
 
 # CHANGELOG_PROJECT
+
+## 2026-03-09
+
+### docs
+
+1. 新增 `REQ-20260309-codex-capability-mvp`，将 Codex 主线从“修复计划”升级为“能力矩阵驱动的产品化需求”，并明确 `已交付基线 / MVP / 下一阶段 / Out of Scope` 四类分期。
+2. 新增 `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`，固化能力映射、接口收敛、分阶段实施顺序、测试与回滚策略。
+3. 将 `REQ-20260306-codex-app-repair-plan` 标记为 `archived`，并声明由 `REQ-20260309-codex-capability-mvp` 取代作为主线执行依据。
+4. 同步更新 `REQUIREMENTS_BACKLOG`、`PRODUCT_REQUIREMENTS`、`ROADMAP`、`README` 与 CR 索引以对齐新主线需求。
 
 ## 2026-03-06
 

@@ -1,21 +1,23 @@
 ---
 title: Codex App 侧修复计划（独立聊天窗与会话路径治理）
-status: planned
+status: archived
 owner: @maintainer
-last_updated: 2026-03-06
+last_updated: 2026-03-09
 source_of_truth: product
 related_code: [android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt, android/app/src/main/res/layout/dialog_session_create.xml, public/terminal_client.html, public/terminal_client.css, public/terminal_client.js, src/routes/sessions.js, src/services/codexAppServerService.js, src/services/sessionManager.js, src/ws/terminalGateway.js]
-related_docs: [docs/CODEX_VSCODE_PORT_TO_APP.md, docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/changes/CHANGELOG_PROJECT.md]
+related_docs: [docs/CODEX_VSCODE_PORT_TO_APP.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/changes/CHANGELOG_PROJECT.md]
 ---
 
 # REQ-20260306-codex-app-repair-plan
+
+> 本文档已归档，已被 `REQ-20260309-codex-capability-mvp` 取代，作为 Codex 首轮修复基线保留。
 
 ## Meta
 
 - id: REQ-20260306-codex-app-repair-plan
 - title: Codex App 侧修复计划（独立聊天窗与会话路径治理）
 - priority: P1
-- status: planned
+- status: archived
 - owner: @maintainer
 - target_release: 2026-Q2
 - links: `docs/CODEX_VSCODE_PORT_TO_APP.md`
