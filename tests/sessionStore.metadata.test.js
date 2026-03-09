@@ -20,7 +20,8 @@ test('SessionStore normalizes legacy records to terminal mode with null cwd', ()
         status: 'IDLE',
         sessionMode: 'terminal',
         cwd: null,
-        lastCodexThreadId: null
+        lastCodexThreadId: null,
+        codexConfig: null
     });
 });
 
@@ -45,6 +46,35 @@ test('SessionStore preserves codex mode, trimmed cwd, and last codex thread id',
         status: 'ACTIVE',
         sessionMode: 'codex',
         cwd: 'D:\\workspace\\demo',
-        lastCodexThreadId: 'thread-42'
+        lastCodexThreadId: 'thread-42',
+        codexConfig: null
+    });
+});
+
+test('SessionStore normalizes codexConfig fields without forcing defaults into storage', () => {
+    const store = new SessionStore({ enabled: false });
+    const [record] = store._normalizeRecords([{
+        id: 'codex-2',
+        name: 'Config Session',
+        createdAt: 1,
+        lastActiveAt: 2,
+        status: 'IDLE',
+        sessionMode: 'codex',
+        cwd: 'D:\\repo',
+        codexConfig: {
+            defaultModel: ' gpt-5-codex ',
+            defaultReasoningEffort: 'high',
+            defaultPersonality: 'friendly',
+            approvalPolicy: 'on-request',
+            sandboxMode: 'workspace-write'
+        }
+    }]);
+
+    assert.deepEqual(record.codexConfig, {
+        defaultModel: 'gpt-5-codex',
+        defaultReasoningEffort: 'high',
+        defaultPersonality: 'friendly',
+        approvalPolicy: 'on-request',
+        sandboxMode: 'workspace-write'
     });
 });

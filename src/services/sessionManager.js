@@ -12,7 +12,8 @@ const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
 const {
     normalizeSessionMode,
     normalizeSessionCwd,
-    normalizeLastCodexThreadId
+    normalizeLastCodexThreadId,
+    normalizeCodexConfig
 } = SessionStore;
 
 function parsePositiveIntEnv(name, defaultValue, minValue) {
@@ -76,7 +77,8 @@ class SessionManager {
             privilegeMetadata: options.privilegeMetadata || null,
             sessionMode: options.sessionMode,
             cwd: options.cwd,
-            lastCodexThreadId: options.lastCodexThreadId
+            lastCodexThreadId: options.lastCodexThreadId,
+            codexConfig: options.codexConfig
         });
 
         this.ensurePtyForSession(session);
@@ -129,6 +131,37 @@ class SessionManager {
         if (!session) return null;
 
         session.name = name;
+        session.lastActiveAt = Date.now();
+        this.schedulePersist();
+        return session;
+    }
+
+    updateSession(id, updates = {}) {
+        const session = this.sessions.get(id);
+        if (!session) return null;
+
+        let changed = false;
+        if (Object.prototype.hasOwnProperty.call(updates, 'name') && typeof updates.name === 'string') {
+            if (session.name !== updates.name) {
+                session.name = updates.name;
+                changed = true;
+            }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(updates, 'codexConfig')) {
+            const nextCodexConfig = normalizeCodexConfig(updates.codexConfig, {
+                requirePolicyAndSandbox: false
+            });
+            if (JSON.stringify(session.codexConfig ?? null) !== JSON.stringify(nextCodexConfig ?? null)) {
+                session.codexConfig = nextCodexConfig;
+                changed = true;
+            }
+        }
+
+        if (!changed) {
+            return session;
+        }
+
         session.lastActiveAt = Date.now();
         this.schedulePersist();
         return session;
@@ -211,7 +244,8 @@ class SessionManager {
                 status: 'IDLE',
                 sessionMode: record.sessionMode,
                 cwd: record.cwd,
-                lastCodexThreadId: record.lastCodexThreadId
+                lastCodexThreadId: record.lastCodexThreadId,
+                codexConfig: record.codexConfig
             });
             this.sessions.set(session.id, session);
         }
@@ -228,17 +262,22 @@ class SessionManager {
         privilegeMetadata,
         sessionMode,
         cwd,
-        lastCodexThreadId
+        lastCodexThreadId,
+        codexConfig
     }) {
+        const normalizedSessionMode = normalizeSessionMode(sessionMode);
         return {
             id,
             name,
             createdAt,
             lastActiveAt,
             status: status || 'IDLE',
-            sessionMode: normalizeSessionMode(sessionMode),
+            sessionMode: normalizedSessionMode,
             cwd: normalizeSessionCwd(cwd),
             lastCodexThreadId: normalizeLastCodexThreadId(lastCodexThreadId),
+            codexConfig: normalizeCodexConfig(codexConfig, {
+                requirePolicyAndSandbox: false
+            }),
             connections: [],
             ptyService: new PtyService(),
             ptyInitialized: false,
@@ -292,6 +331,9 @@ class SessionManager {
             sessionMode: normalizeSessionMode(session.sessionMode),
             cwd: normalizeSessionCwd(session.cwd),
             lastCodexThreadId: normalizeLastCodexThreadId(session.lastCodexThreadId),
+            codexConfig: normalizeCodexConfig(session.codexConfig, {
+                requirePolicyAndSandbox: false
+            }),
             codexThreadId: session.codexState && session.codexState.threadId
                 ? session.codexState.threadId
                 : null
@@ -340,7 +382,10 @@ class SessionManager {
             status: s.status,
             sessionMode: normalizeSessionMode(s.sessionMode),
             cwd: normalizeSessionCwd(s.cwd),
-            lastCodexThreadId: normalizeLastCodexThreadId(s.lastCodexThreadId)
+            lastCodexThreadId: normalizeLastCodexThreadId(s.lastCodexThreadId),
+            codexConfig: normalizeCodexConfig(s.codexConfig, {
+                requirePolicyAndSandbox: false
+            })
         }));
     }
 

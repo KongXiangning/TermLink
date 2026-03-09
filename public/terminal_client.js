@@ -13,6 +13,11 @@ const codexStatusText = document.getElementById('codex-status-text');
 const codexThreadIdText = document.getElementById('codex-thread-id');
 const codexMetaText = document.getElementById('codex-meta-text');
 const codexNoticeText = document.getElementById('codex-notice-text');
+const codexAlerts = document.getElementById('codex-alerts');
+const codexAlertConfig = document.getElementById('codex-alert-config');
+const codexAlertConfigText = document.getElementById('codex-alert-config-text');
+const codexAlertDeprecation = document.getElementById('codex-alert-deprecation');
+const codexAlertDeprecationText = document.getElementById('codex-alert-deprecation-text');
 const codexInput = document.getElementById('codex-input');
 const btnCodexSend = document.getElementById('btn-codex-send');
 const btnCodexToggle = document.getElementById('btn-codex-toggle');
@@ -22,6 +27,24 @@ const btnCodexHistoryRefresh = document.getElementById('btn-codex-history-refres
 const codexHistoryPanel = document.getElementById('codex-history-panel');
 const codexHistoryList = document.getElementById('codex-history-list');
 const codexHistoryEmpty = document.getElementById('codex-history-empty');
+const codexSettingsPanel = document.getElementById('codex-settings-panel');
+const codexSettingsUseDefaults = document.getElementById('codex-settings-use-defaults');
+const codexSettingsModel = document.getElementById('codex-settings-model');
+const codexSettingsReasoning = document.getElementById('codex-settings-reasoning');
+const codexSettingsPersonality = document.getElementById('codex-settings-personality');
+const codexSettingsApproval = document.getElementById('codex-settings-approval');
+const codexSettingsSandbox = document.getElementById('codex-settings-sandbox');
+const codexSettingsStatus = document.getElementById('codex-settings-status');
+const btnCodexModelsRefresh = document.getElementById('btn-codex-models-refresh');
+const btnCodexRateLimitRefresh = document.getElementById('btn-codex-rate-limit-refresh');
+const btnCodexSettingsReset = document.getElementById('btn-codex-settings-reset');
+const btnCodexSettingsSave = document.getElementById('btn-codex-settings-save');
+const codexRuntimePanel = document.getElementById('codex-runtime-panel');
+const codexRuntimeDiff = document.getElementById('codex-runtime-diff');
+const codexRuntimePlan = document.getElementById('codex-runtime-plan');
+const codexRuntimeReasoning = document.getElementById('codex-runtime-reasoning');
+const codexRuntimeTerminal = document.getElementById('codex-runtime-terminal');
+const codexRuntimeWarning = document.getElementById('codex-runtime-warning');
 const isCodexOnlyPage = !!(document.body && document.body.classList.contains('codex-only'));
 
 let term;
@@ -132,6 +155,22 @@ const codexState = {
     historyThreads: [],
     historyListLoading: false,
     historyActionThreadId: '',
+    storedCodexConfig: null,
+    modelOptions: [],
+    modelListRequested: false,
+    settingsLoadingModels: false,
+    settingsSaving: false,
+    settingsRefreshingRateLimits: false,
+    settingsStatusText: '',
+    settingsStatusTone: '',
+    runtimeDiff: '',
+    runtimePlan: '',
+    runtimeReasoning: '',
+    runtimeTerminalOutput: '',
+    runtimeWarning: '',
+    runtimeWarningTone: '',
+    configWarningText: '',
+    deprecationNoticeText: '',
     historyListRequested: false,
     initialSessionInfoReceived: false,
     initialCapabilitiesReceived: false,
@@ -194,6 +233,20 @@ function getCodexBootstrapApi() {
 function getCodexHistoryViewApi() {
     if (window.TermLinkCodexHistoryView && typeof window.TermLinkCodexHistoryView.buildHistoryEntries === 'function') {
         return window.TermLinkCodexHistoryView;
+    }
+    return null;
+}
+
+function getCodexSettingsViewApi() {
+    if (window.TermLinkCodexSettingsView && typeof window.TermLinkCodexSettingsView.buildCodexConfigPayload === 'function') {
+        return window.TermLinkCodexSettingsView;
+    }
+    return null;
+}
+
+function getCodexRuntimeViewApi() {
+    if (window.TermLinkCodexRuntimeView && typeof window.TermLinkCodexRuntimeView.buildRuntimeUpdate === 'function') {
+        return window.TermLinkCodexRuntimeView;
     }
     return null;
 }
@@ -295,10 +348,37 @@ function renderCodexAuxStatus() {
         } else if (codexState.rateLimitSummary && (codexState.rateLimitTone === 'warn' || codexState.rateLimitTone === 'error')) {
             notice = `Rate limit: ${codexState.rateLimitSummary}`;
             tone = codexState.rateLimitTone;
+        } else if (codexState.configWarningText) {
+            notice = 'Config warning';
+            tone = 'warn';
+        } else if (codexState.deprecationNoticeText) {
+            notice = 'Deprecation notice';
+            tone = 'warn';
         }
         codexNoticeText.textContent = notice;
         codexNoticeText.classList.toggle('tone-error', tone === 'error');
         codexNoticeText.classList.toggle('tone-warn', tone === 'warn');
+    }
+}
+
+function renderCodexAlerts() {
+    const hasConfigWarning = !!codexState.configWarningText;
+    const hasDeprecationNotice = !!codexState.deprecationNoticeText;
+    if (codexAlerts) {
+        codexAlerts.hidden = !hasConfigWarning && !hasDeprecationNotice;
+    }
+    if (codexAlertConfig) {
+        codexAlertConfig.hidden = !hasConfigWarning;
+    }
+    if (codexAlertConfigText) {
+        codexAlertConfigText.textContent = codexState.configWarningText || '';
+    }
+    if (codexAlertDeprecation) {
+        codexAlertDeprecation.hidden = !hasDeprecationNotice;
+        codexAlertDeprecation.classList.add('deprecation');
+    }
+    if (codexAlertDeprecationText) {
+        codexAlertDeprecationText.textContent = codexState.deprecationNoticeText || '';
     }
 }
 
@@ -411,6 +491,497 @@ function renderCodexHistoryList() {
     });
 }
 
+function getStoredCodexConfig() {
+    const settingsApi = getCodexSettingsViewApi();
+    if (!settingsApi || typeof settingsApi.normalizeStoredCodexConfig !== 'function') {
+        return null;
+    }
+    return settingsApi.normalizeStoredCodexConfig(codexState.storedCodexConfig);
+}
+
+function setCodexSettingsStatus(text, tone) {
+    codexState.settingsStatusText = typeof text === 'string' ? text.trim() : '';
+    codexState.settingsStatusTone = typeof tone === 'string' ? tone.trim() : '';
+    renderCodexSettingsPanel();
+}
+
+function getCodexSettingsStatusSummary() {
+    if (codexState.settingsStatusText) {
+        return {
+            text: codexState.settingsStatusText,
+            tone: codexState.settingsStatusTone
+        };
+    }
+    if (codexState.rateLimitSummary && codexState.capabilities.rateLimitsRead === true) {
+        return {
+            text: `Rate limit: ${codexState.rateLimitSummary}`,
+            tone: codexState.rateLimitTone || ''
+        };
+    }
+    return { text: '', tone: '' };
+}
+
+function normalizeCodexModelOptions(result) {
+    const models = result && Array.isArray(result.models) ? result.models : [];
+    return models
+        .map((entry) => {
+            if (typeof entry === 'string') {
+                return entry.trim();
+            }
+            if (entry && typeof entry === 'object' && typeof entry.id === 'string') {
+                return entry.id.trim();
+            }
+            return '';
+        })
+        .filter(Boolean);
+}
+
+function populateCodexModelSelect(forcedValue) {
+    if (!codexSettingsModel) return;
+    const selectedValue = typeof forcedValue === 'string'
+        ? forcedValue
+        : (typeof codexSettingsModel.value === 'string' ? codexSettingsModel.value : '');
+    codexSettingsModel.innerHTML = '';
+
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = codexState.settingsLoadingModels ? 'Loading models...' : 'Server default';
+    codexSettingsModel.appendChild(defaultOption);
+
+    const seen = new Set(['']);
+    codexState.modelOptions.forEach((modelId) => {
+        if (!modelId || seen.has(modelId)) return;
+        seen.add(modelId);
+        const option = document.createElement('option');
+        option.value = modelId;
+        option.textContent = modelId;
+        codexSettingsModel.appendChild(option);
+    });
+
+    if (selectedValue && !seen.has(selectedValue)) {
+        const option = document.createElement('option');
+        option.value = selectedValue;
+        option.textContent = `${selectedValue} (custom)`;
+        codexSettingsModel.appendChild(option);
+    }
+
+    codexSettingsModel.value = selectedValue;
+}
+
+function syncCodexSettingsFormFromStoredConfig() {
+    if (
+        !codexSettingsUseDefaults ||
+        !codexSettingsModel ||
+        !codexSettingsReasoning ||
+        !codexSettingsPersonality ||
+        !codexSettingsApproval ||
+        !codexSettingsSandbox
+    ) {
+        return;
+    }
+
+    const stored = getStoredCodexConfig();
+    const useServerDefaults = !stored;
+    codexSettingsUseDefaults.checked = useServerDefaults;
+    populateCodexModelSelect(stored && stored.defaultModel ? stored.defaultModel : '');
+    codexSettingsReasoning.value = stored && stored.defaultReasoningEffort ? stored.defaultReasoningEffort : '';
+    codexSettingsPersonality.value = stored && stored.defaultPersonality ? stored.defaultPersonality : '';
+    codexSettingsApproval.value = stored && stored.approvalPolicy ? stored.approvalPolicy : 'never';
+    codexSettingsSandbox.value = stored && stored.sandboxMode ? stored.sandboxMode : 'workspace-write';
+}
+
+function collectCodexSettingsPayload() {
+    const settingsApi = getCodexSettingsViewApi();
+    if (!settingsApi || typeof settingsApi.buildCodexConfigPayload !== 'function') {
+        return null;
+    }
+    return settingsApi.buildCodexConfigPayload({
+        useServerDefaults: codexSettingsUseDefaults ? codexSettingsUseDefaults.checked : true,
+        defaultModel: codexSettingsModel ? codexSettingsModel.value : '',
+        defaultReasoningEffort: codexSettingsReasoning ? codexSettingsReasoning.value : '',
+        defaultPersonality: codexSettingsPersonality ? codexSettingsPersonality.value : '',
+        approvalPolicy: codexSettingsApproval ? codexSettingsApproval.value : '',
+        sandboxMode: codexSettingsSandbox ? codexSettingsSandbox.value : ''
+    });
+}
+
+function isCodexSettingsDirty() {
+    const settingsApi = getCodexSettingsViewApi();
+    if (!settingsApi || typeof settingsApi.areCodexConfigsEqual !== 'function') {
+        return false;
+    }
+    return !settingsApi.areCodexConfigsEqual(getStoredCodexConfig(), collectCodexSettingsPayload());
+}
+
+function shouldShowCodexSettingsPanel() {
+    const settingsApi = getCodexSettingsViewApi();
+    if (settingsApi && typeof settingsApi.shouldShowSettingsPanel === 'function') {
+        return settingsApi.shouldShowSettingsPanel({
+            sessionMode: getActiveSessionMode(),
+            capabilities: codexState.capabilities
+        });
+    }
+    return getActiveSessionMode() === 'codex' && codexState.capabilities.modelConfig === true;
+}
+
+function renderCodexSettingsPanel() {
+    if (!codexSettingsPanel) return;
+    const shouldShowPanel = shouldShowCodexSettingsPanel();
+    codexSettingsPanel.hidden = !shouldShowPanel;
+    if (!shouldShowPanel) {
+        return;
+    }
+
+    const canEditModelConfig = codexState.capabilities.modelConfig === true;
+    const canReadRateLimits = codexState.capabilities.rateLimitsRead === true;
+    const settingsHeaderTitle = document.getElementById('codex-settings-title');
+    const settingsFields = document.getElementById('codex-settings-fields');
+    const settingsFooter = document.getElementById('codex-settings-footer');
+
+    populateCodexModelSelect();
+
+    const useServerDefaults = codexSettingsUseDefaults ? codexSettingsUseDefaults.checked : true;
+    const disableFields = !canEditModelConfig || useServerDefaults || codexState.settingsSaving;
+    codexSettingsPanel.classList.toggle('is-defaults', useServerDefaults);
+
+    if (settingsHeaderTitle) {
+        settingsHeaderTitle.textContent = canEditModelConfig ? 'Session Defaults' : 'Session Status';
+    }
+    if (codexSettingsUseDefaults) {
+        const toggleRow = codexSettingsUseDefaults.closest('.codex-settings-toggle');
+        if (toggleRow) {
+            toggleRow.hidden = !canEditModelConfig;
+        }
+    }
+    if (settingsFields) {
+        settingsFields.hidden = !canEditModelConfig;
+    }
+    if (settingsFooter) {
+        settingsFooter.classList.toggle('limits-only', !canEditModelConfig);
+    }
+
+    [codexSettingsModel, codexSettingsReasoning, codexSettingsPersonality, codexSettingsApproval, codexSettingsSandbox]
+        .forEach((field) => {
+            if (field) {
+                field.disabled = disableFields;
+            }
+        });
+
+    if (codexSettingsUseDefaults) {
+        codexSettingsUseDefaults.disabled = codexState.settingsSaving || !canEditModelConfig;
+    }
+    if (btnCodexModelsRefresh) {
+        btnCodexModelsRefresh.hidden = !canEditModelConfig;
+        btnCodexModelsRefresh.disabled = !canEditModelConfig || codexState.settingsLoadingModels || codexState.settingsSaving;
+    }
+    if (btnCodexRateLimitRefresh) {
+        btnCodexRateLimitRefresh.hidden = !canReadRateLimits;
+        btnCodexRateLimitRefresh.disabled = !canReadRateLimits || codexState.settingsRefreshingRateLimits || codexState.settingsSaving;
+    }
+    if (btnCodexSettingsReset) {
+        btnCodexSettingsReset.hidden = !canEditModelConfig;
+        btnCodexSettingsReset.disabled = codexState.settingsSaving || !isCodexSettingsDirty();
+    }
+    if (btnCodexSettingsSave) {
+        btnCodexSettingsSave.hidden = !canEditModelConfig;
+        btnCodexSettingsSave.disabled = codexState.settingsSaving || !isCodexSettingsDirty();
+        btnCodexSettingsSave.textContent = codexState.settingsSaving ? 'Saving...' : 'Save';
+    }
+
+    const status = getCodexSettingsStatusSummary();
+    if (codexSettingsStatus) {
+        codexSettingsStatus.textContent = status.text;
+        codexSettingsStatus.classList.toggle('tone-error', status.tone === 'error');
+        codexSettingsStatus.classList.toggle('tone-warn', status.tone === 'warn');
+        codexSettingsStatus.classList.toggle('tone-success', status.tone === 'success');
+    }
+}
+
+function shouldShowCodexRuntimePanel() {
+    const runtimeApi = getCodexRuntimeViewApi();
+    if (runtimeApi && typeof runtimeApi.shouldShowRuntimePanel === 'function') {
+        return runtimeApi.shouldShowRuntimePanel({
+            sessionMode: getActiveSessionMode(),
+            capabilities: codexState.capabilities
+        });
+    }
+    return getActiveSessionMode() === 'codex' && codexState.capabilities.diffPlanReasoning === true;
+}
+
+function trimRuntimePanelText(value, maxLength) {
+    const text = typeof value === 'string' ? value : '';
+    if (!text || text.length <= maxLength) {
+        return text;
+    }
+    return text.slice(text.length - maxLength);
+}
+
+function clearCodexRuntimePanels() {
+    codexState.runtimeDiff = '';
+    codexState.runtimePlan = '';
+    codexState.runtimeReasoning = '';
+    codexState.runtimeTerminalOutput = '';
+    codexState.runtimeWarning = '';
+    codexState.runtimeWarningTone = '';
+    renderCodexRuntimePanel();
+}
+
+function clearCodexAlerts() {
+    codexState.configWarningText = '';
+    codexState.deprecationNoticeText = '';
+    renderCodexAlerts();
+    renderCodexAuxStatus();
+}
+
+function renderCodexRuntimePanel() {
+    if (!codexRuntimePanel) return;
+    const shouldShowPanel = shouldShowCodexRuntimePanel();
+    codexRuntimePanel.hidden = !shouldShowPanel;
+    if (!shouldShowPanel) {
+        return;
+    }
+
+    if (codexRuntimeDiff) {
+        codexRuntimeDiff.textContent = codexState.runtimeDiff || 'Waiting for diff updates...';
+    }
+    if (codexRuntimePlan) {
+        codexRuntimePlan.textContent = codexState.runtimePlan || 'Waiting for plan updates...';
+    }
+    if (codexRuntimeReasoning) {
+        codexRuntimeReasoning.textContent = codexState.runtimeReasoning || 'Waiting for reasoning updates...';
+    }
+    if (codexRuntimeTerminal) {
+        codexRuntimeTerminal.textContent = codexState.runtimeTerminalOutput || 'Waiting for command output...';
+    }
+    if (codexRuntimeWarning) {
+        codexRuntimeWarning.hidden = !codexState.runtimeWarning;
+        codexRuntimeWarning.textContent = codexState.runtimeWarning || '';
+        codexRuntimeWarning.classList.toggle('tone-error', codexState.runtimeWarningTone === 'error');
+    }
+}
+
+function applyCodexRuntimeUpdate(method, params) {
+    const runtimeApi = getCodexRuntimeViewApi();
+    if (!runtimeApi || typeof runtimeApi.buildRuntimeUpdate !== 'function') {
+        return false;
+    }
+
+    const update = runtimeApi.buildRuntimeUpdate(method, params);
+    if (!update || !update.section || !update.text) {
+        return false;
+    }
+
+    const text = String(update.text);
+    if (update.section === 'warning') {
+        codexState.runtimeWarning = text;
+        codexState.runtimeWarningTone = update.warningKind === 'configWarning' ? 'warn' : 'warn';
+        if (update.warningKind === 'configWarning') {
+            codexState.configWarningText = text;
+        } else if (update.warningKind === 'deprecationNotice') {
+            codexState.deprecationNoticeText = text;
+        }
+        renderCodexAlerts();
+        renderCodexAuxStatus();
+        renderCodexRuntimePanel();
+        return true;
+    }
+
+    const stateKey = update.section === 'diff'
+        ? 'runtimeDiff'
+        : update.section === 'plan'
+            ? 'runtimePlan'
+            : update.section === 'reasoning'
+                ? 'runtimeReasoning'
+                : update.section === 'terminal'
+                    ? 'runtimeTerminalOutput'
+                    : '';
+    if (!stateKey) {
+        return false;
+    }
+
+    if (update.mode === 'append') {
+        const separator = codexState[stateKey] && !codexState[stateKey].endsWith('\n') ? '\n' : '';
+        codexState[stateKey] = trimRuntimePanelText(`${codexState[stateKey]}${separator}${text}`, 12000);
+    } else {
+        codexState[stateKey] = trimRuntimePanelText(text, 12000);
+    }
+    renderCodexRuntimePanel();
+    return true;
+}
+
+function applyCodexRuntimeSnapshotItem(item) {
+    const runtimeApi = getCodexRuntimeViewApi();
+    if (!runtimeApi || typeof runtimeApi.buildRuntimeUpdateFromThreadItem !== 'function') {
+        return false;
+    }
+
+    const update = runtimeApi.buildRuntimeUpdateFromThreadItem(item);
+    if (!update || !update.section || !update.text) {
+        return false;
+    }
+
+    const text = String(update.text);
+    if (update.section === 'warning') {
+        codexState.runtimeWarning = text;
+        renderCodexRuntimePanel();
+        return true;
+    }
+
+    const stateKey = update.section === 'diff'
+        ? 'runtimeDiff'
+        : update.section === 'plan'
+            ? 'runtimePlan'
+            : update.section === 'reasoning'
+                ? 'runtimeReasoning'
+                : update.section === 'terminal'
+                    ? 'runtimeTerminalOutput'
+                    : '';
+    if (!stateKey) {
+        return false;
+    }
+
+    if (update.mode === 'append') {
+        const separator = codexState[stateKey] && !codexState[stateKey].endsWith('\n') ? '\n' : '';
+        codexState[stateKey] = trimRuntimePanelText(`${codexState[stateKey]}${separator}${text}`, 12000);
+    } else {
+        codexState[stateKey] = trimRuntimePanelText(text, 12000);
+    }
+    renderCodexRuntimePanel();
+    return true;
+}
+
+function maybeLoadCodexModels() {
+    if (!shouldShowCodexSettingsPanel()) {
+        return;
+    }
+    if (codexState.capabilities.modelConfig !== true) {
+        return;
+    }
+    if (codexState.modelListRequested || codexState.settingsLoadingModels) {
+        return;
+    }
+    refreshCodexModelList({ silent: true });
+}
+
+function refreshCodexModelList(options) {
+    const opts = options || {};
+    if (codexState.capabilities.modelConfig !== true) {
+        return Promise.resolve([]);
+    }
+
+    codexState.modelListRequested = true;
+    codexState.settingsLoadingModels = true;
+    if (opts.silent !== true) {
+        setCodexSettingsStatus('Refreshing model list...', '');
+    } else {
+        renderCodexSettingsPanel();
+    }
+
+    return sendCodexBridgeRequest('model/list', undefined, { suppressErrorUi: opts.silent === true })
+        .then((result) => {
+            codexState.modelOptions = normalizeCodexModelOptions(result);
+            if (opts.silent !== true) {
+                setCodexSettingsStatus('Model list refreshed.', 'success');
+            }
+            renderCodexSettingsPanel();
+            return codexState.modelOptions;
+        })
+        .catch((error) => {
+            codexState.modelListRequested = false;
+            if (opts.silent !== true) {
+                const message = error && error.message ? error.message : 'Failed to load models.';
+                setCodexSettingsStatus(message, 'error');
+                appendCodexLogEntry('error', message, { meta: 'models' });
+            }
+            return [];
+        })
+        .finally(() => {
+            codexState.settingsLoadingModels = false;
+            renderCodexSettingsPanel();
+        });
+}
+
+function refreshCodexRateLimits(options) {
+    const opts = options || {};
+    if (codexState.capabilities.rateLimitsRead !== true) {
+        return Promise.resolve(null);
+    }
+
+    codexState.settingsRefreshingRateLimits = true;
+    if (opts.silent !== true) {
+        setCodexSettingsStatus('Refreshing rate limits...', '');
+    } else {
+        renderCodexSettingsPanel();
+    }
+
+    return sendCodexBridgeRequest('account/rateLimits/read', undefined, { suppressErrorUi: opts.silent === true })
+        .then((result) => {
+            applyCodexRateLimit(result);
+            if (opts.silent !== true) {
+                setCodexSettingsStatus('Rate limit snapshot refreshed.', 'success');
+            }
+            renderCodexSettingsPanel();
+            return result;
+        })
+        .catch((error) => {
+            if (opts.silent !== true) {
+                const message = error && error.message ? error.message : 'Failed to read rate limits.';
+                setCodexSettingsStatus(message, 'error');
+                appendCodexLogEntry('error', message, { meta: 'limits' });
+            }
+            return null;
+        })
+        .finally(() => {
+            codexState.settingsRefreshingRateLimits = false;
+            renderCodexSettingsPanel();
+        });
+}
+
+function saveCodexSessionSettings() {
+    if (!sessionId || !serverUrl) {
+        setCodexSettingsStatus('Cannot save settings before the session is connected.', 'error');
+        return Promise.resolve(null);
+    }
+    if (!isCodexSettingsDirty()) {
+        setCodexSettingsStatus('No setting changes to save.', '');
+        return Promise.resolve(null);
+    }
+
+    codexState.settingsSaving = true;
+    setCodexSettingsStatus('Saving session defaults...', '');
+    const payload = { codexConfig: collectCodexSettingsPayload() };
+    const requestUrl = buildApiUrl(serverUrl, `/api/sessions/${encodeURIComponent(sessionId)}`);
+
+    return fetch(requestUrl, buildJsonFetchOptions('PATCH', payload))
+        .then(async (response) => {
+            const body = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(body && body.error ? body.error : `Failed to save session defaults (${response.status})`);
+            }
+            return body;
+        })
+        .then((body) => {
+            const settingsApi = getCodexSettingsViewApi();
+            codexState.storedCodexConfig = settingsApi && typeof settingsApi.normalizeStoredCodexConfig === 'function'
+                ? settingsApi.normalizeStoredCodexConfig(body.codexConfig)
+                : null;
+            syncCodexSettingsFormFromStoredConfig();
+            setCodexSettingsStatus('Session defaults saved.', 'success');
+            appendCodexLogEntry('system', 'Session-level Codex defaults updated.', { meta: 'settings' });
+            return body;
+        })
+        .catch((error) => {
+            const message = error && error.message ? error.message : 'Failed to save session defaults.';
+            setCodexSettingsStatus(message, 'error');
+            appendCodexLogEntry('error', message, { meta: 'settings' });
+            return null;
+        })
+        .finally(() => {
+            codexState.settingsSaving = false;
+            renderCodexSettingsPanel();
+        });
+}
+
 function clearCodexErrorNotice() {
     if (!codexState.errorNotice) return;
     codexState.errorNotice = '';
@@ -511,6 +1082,21 @@ function resetCodexBootstrapState() {
     codexState.tokenUsageSummary = '';
     codexState.historyListLoading = false;
     codexState.historyActionThreadId = '';
+    codexState.storedCodexConfig = null;
+    codexState.modelOptions = [];
+    codexState.modelListRequested = false;
+    codexState.settingsLoadingModels = false;
+    codexState.settingsSaving = false;
+    codexState.settingsRefreshingRateLimits = false;
+    codexState.settingsStatusText = '';
+    codexState.settingsStatusTone = '';
+    codexState.runtimeDiff = '';
+    codexState.runtimePlan = '';
+    codexState.runtimeReasoning = '';
+    codexState.runtimeTerminalOutput = '';
+    codexState.runtimeWarning = '';
+    codexState.configWarningText = '';
+    codexState.deprecationNoticeText = '';
     codexState.initialSessionInfoReceived = false;
     codexState.initialCapabilitiesReceived = false;
     codexState.initialCodexStateReceived = false;
@@ -532,6 +1118,10 @@ function resetCodexBootstrapState() {
     };
     codexState.historyThreads = [];
     renderCodexHistoryList();
+    syncCodexSettingsFormFromStoredConfig();
+    renderCodexSettingsPanel();
+    renderCodexAlerts();
+    renderCodexRuntimePanel();
 }
 
 function rejectPendingCodexBridgeRequests(message, code) {
@@ -984,6 +1574,7 @@ function applyCodexRateLimit(payload) {
     codexState.rateLimitSummary = next.summary;
     codexState.rateLimitTone = next.tone;
     renderCodexAuxStatus();
+    renderCodexSettingsPanel();
     if (next.summary) {
         logCodexTelemetryChange('rateLimit', `Rate limit updated: ${next.summary}`, 'limits');
     }
@@ -1181,6 +1772,8 @@ function handleCodexThreadSnapshot(thread) {
     codexLog.innerHTML = '';
     codexState.messageByItemId.clear();
     codexState.requestEntryById.clear();
+    clearCodexRuntimePanels();
+    clearCodexAlerts();
 
     thread.turns.forEach((turn) => {
         if (!turn || !Array.isArray(turn.items)) return;
@@ -1201,6 +1794,7 @@ function handleCodexThreadSnapshot(thread) {
                     itemId: item.id || ''
                 });
             }
+            applyCodexRuntimeSnapshotItem(item);
         });
     });
     codexLog.scrollTop = codexLog.scrollHeight;
@@ -1213,6 +1807,8 @@ function handleCodexNotification(method, params) {
             codexState.threadId = threadId;
             updateCodexThreadLabel();
         }
+        clearCodexRuntimePanels();
+        clearCodexAlerts();
         clearCodexErrorNotice();
         setCodexStatus('idle', 'thread ready');
         return;
@@ -1232,6 +1828,8 @@ function handleCodexNotification(method, params) {
     if (method === 'turn/started') {
         const turn = params && params.turn ? params.turn : null;
         codexState.currentTurnId = turn && turn.id ? turn.id : '';
+        clearCodexRuntimePanels();
+        clearCodexAlerts();
         clearCodexErrorNotice();
         setCodexStatus('running', 'in progress');
         return;
@@ -1290,11 +1888,27 @@ function handleCodexNotification(method, params) {
         return;
     }
 
+    if (method === 'configWarning' || method === 'deprecationNotice') {
+        applyCodexRuntimeUpdate(method, params || {});
+        appendCodexLogEntry('system', codexState.runtimeWarning || 'Codex warning received.', {
+            meta: method === 'configWarning' ? 'config' : 'deprecation'
+        });
+        return;
+    }
+
     if (method === 'error') {
         const resolved = resolveCodexErrorMessage(params && params.code, params && params.message);
         appendCodexLogEntry('error', resolved, { meta: (params && params.code) || 'event' });
         setCodexErrorNotice(resolved);
         setCodexStatus('error', 'event error');
+        codexState.runtimeWarning = resolved;
+        codexState.runtimeWarningTone = 'error';
+        renderCodexRuntimePanel();
+        return;
+    }
+
+    if (applyCodexRuntimeUpdate(method, params || {})) {
+        return;
     }
 }
 
@@ -1353,6 +1967,35 @@ function buildWsUrl(baseUrl, targetSessionId) {
         parsed.searchParams.delete('sessionId');
     }
     return parsed.toString();
+}
+
+function buildApiUrl(baseUrl, apiPath) {
+    const normalizedBaseUrl = normalizeServerUrl(baseUrl);
+    if (!normalizedBaseUrl) {
+        throw new Error('Missing base URL');
+    }
+
+    const parsed = new URL(normalizedBaseUrl);
+    const pathname = parsed.pathname && parsed.pathname !== '/'
+        ? (parsed.pathname.endsWith('/') ? parsed.pathname : `${parsed.pathname}/`)
+        : '/';
+    const relativePath = typeof apiPath === 'string' ? apiPath.replace(/^\/+/, '') : '';
+    return new URL(`${pathname}${relativePath}`, `${parsed.protocol}//${parsed.host}`).toString();
+}
+
+function buildJsonFetchOptions(method, body) {
+    const headers = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+    };
+    if (authHeader) {
+        headers.Authorization = authHeader;
+    }
+    return {
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body)
+    };
 }
 
 function resolveHistoryEnabled(config) {
@@ -1690,16 +2333,28 @@ function connect() {
                     codexState.lastCodexThreadId = typeof envelope.lastCodexThreadId === 'string'
                         ? envelope.lastCodexThreadId.trim()
                         : '';
+                    const settingsApi = getCodexSettingsViewApi();
+                    codexState.storedCodexConfig = settingsApi && typeof settingsApi.normalizeStoredCodexConfig === 'function'
+                        ? settingsApi.normalizeStoredCodexConfig(envelope.codexConfig)
+                        : null;
                     codexState.initialSessionInfoReceived = true;
                     applySessionModeLayout();
+                    syncCodexSettingsFormFromStoredConfig();
+                    renderCodexSettingsPanel();
+                    renderCodexRuntimePanel();
                     notifyNativeSessionInfo(nextSessionId, envelope.name || '', envelope.privilegeLevel || '');
                     maybeBootstrapCodexSession();
+                    maybeLoadCodexModels();
                     return;
                 }
                 if (envelope.type === 'codex_capabilities') {
                     codexState.capabilities = normalizeCodexCapabilities(envelope.capabilities);
                     codexState.initialCapabilitiesReceived = true;
+                    renderCodexHistoryList();
+                    renderCodexSettingsPanel();
+                    renderCodexRuntimePanel();
                     maybeBootstrapCodexSession();
+                    maybeLoadCodexModels();
                     return;
                 }
                 if (envelope.type === 'codex_state') {
@@ -1727,6 +2382,7 @@ function connect() {
                     updateCodexThreadLabel();
                     setCodexStatus(envelope.status || 'idle');
                     if (codexState.threadId && codexState.threadId !== previousThreadId) {
+                        clearCodexRuntimePanels();
                         refreshCodexThreadList({ force: true, silent: true });
                         refreshCodexThreadSnapshot({ threadId: codexState.threadId, force: true });
                     }
@@ -2128,6 +2784,45 @@ if (btnCodexHistoryRefresh) {
     });
 }
 
+[
+    codexSettingsUseDefaults,
+    codexSettingsModel,
+    codexSettingsReasoning,
+    codexSettingsPersonality,
+    codexSettingsApproval,
+    codexSettingsSandbox
+].filter(Boolean).forEach((field) => {
+    field.addEventListener('change', () => {
+        renderCodexSettingsPanel();
+    });
+});
+
+if (btnCodexModelsRefresh) {
+    btnCodexModelsRefresh.addEventListener('click', () => {
+        refreshCodexModelList();
+    });
+}
+
+if (btnCodexRateLimitRefresh) {
+    btnCodexRateLimitRefresh.addEventListener('click', () => {
+        refreshCodexRateLimits();
+    });
+}
+
+if (btnCodexSettingsReset) {
+    btnCodexSettingsReset.addEventListener('click', () => {
+        syncCodexSettingsFormFromStoredConfig();
+        setCodexSettingsStatus('Restored saved session defaults.', '');
+        renderCodexSettingsPanel();
+    });
+}
+
+if (btnCodexSettingsSave) {
+    btnCodexSettingsSave.addEventListener('click', () => {
+        saveCodexSessionSettings();
+    });
+}
+
 if (btnCodexSend) {
     btnCodexSend.addEventListener('click', () => {
         if (!codexInput) return;
@@ -2300,6 +2995,9 @@ updateViewportLayoutState();
 applySessionModeLayout();
 appendCodexLogEntry('system', 'Codex panel ready. Start a new thread or send a prompt.', { meta: 'bridge' });
 renderCodexHistoryList();
+syncCodexSettingsFormFromStoredConfig();
+renderCodexSettingsPanel();
+renderCodexRuntimePanel();
 
 applyRuntimeConfig(runtimeConfig, false);
 loadHistoryState(getHistoryStorageKey(sessionId), true);

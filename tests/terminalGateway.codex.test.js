@@ -74,6 +74,7 @@ function createSession(id, options = {}) {
         name: options.name || 'Session',
         cwd: options.cwd || null,
         sessionMode: options.sessionMode || 'codex',
+        codexConfig: options.codexConfig || null,
         connections: [],
         ptyInitialized: true,
         ptyService: {
@@ -110,6 +111,20 @@ class MockCodexService extends EventEmitter {
                     { id: 'thread-a', title: 'Thread A' },
                     { id: 'thread-b', title: 'Thread B' }
                 ]
+            });
+        }
+        if (method === 'model/list') {
+            return Promise.resolve({
+                models: [
+                    { id: 'gpt-5-codex' },
+                    { id: 'gpt-5' }
+                ]
+            });
+        }
+        if (method === 'account/rateLimits/read') {
+            return Promise.resolve({
+                remaining: 9,
+                limit: 10
             });
         }
         if (method === 'turn/start') {
@@ -196,6 +211,8 @@ test('codex_new_thread falls back to session cwd when request omits cwd', async 
     const threadStart = service.requests.find((entry) => entry.method === 'thread/start');
     assert.ok(threadStart, 'thread/start should be invoked');
     assert.equal(threadStart.params.cwd, 'D:\\workspace\\demo');
+    assert.equal(threadStart.params.approvalPolicy, 'never');
+    assert.equal(threadStart.params.sandbox, 'workspace-write');
     assert.equal(session.lastCodexThreadId, 'thread-1');
 });
 
@@ -225,24 +242,25 @@ test('session_info includes lastCodexThreadId metadata when available', async (t
     const sessionInfo = ws.sent.find((entry) => entry.type === 'session_info');
     assert.ok(sessionInfo, 'session_info should be sent to client');
     assert.equal(sessionInfo.lastCodexThreadId, 'thread-99');
+    assert.equal(sessionInfo.codexConfig, null);
 
     const capabilitiesEnvelope = ws.sent.find((entry) => entry.type === 'codex_capabilities');
     assert.ok(capabilitiesEnvelope, 'codex_capabilities should be sent to client');
     assert.deepEqual(capabilitiesEnvelope.capabilities, {
         historyList: true,
         historyResume: true,
-        modelConfig: false,
-        rateLimitsRead: false,
+        modelConfig: true,
+        rateLimitsRead: true,
         approvals: true,
         userInputRequest: false,
-        diffPlanReasoning: false,
+        diffPlanReasoning: true,
         skillsList: false,
         compact: false,
         imageInput: false
     });
 });
 
-test('codex_request rejects methods outside the Phase 1 whitelist', async (t) => {
+test('codex_request rejects methods outside the current whitelist', async (t) => {
     MockCodexService.instances.length = 0;
     const registerTerminalGateway = loadGatewayWithMocks({
         verifyWsUpgrade: () => true,
@@ -265,7 +283,7 @@ test('codex_request rejects methods outside the Phase 1 whitelist', async (t) =>
     await ws.getHandler('message')(JSON.stringify({
         type: 'codex_request',
         requestId: 'req-1',
-        method: 'model/list'
+        method: 'thread/fork'
     }));
 
     const response = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-1');
@@ -273,8 +291,8 @@ test('codex_request rejects methods outside the Phase 1 whitelist', async (t) =>
     assert.equal(response.error.code, 'CODEX_METHOD_NOT_ALLOWED');
 
     const service = MockCodexService.instances[0];
-    const modelListCall = service.requests.find((entry) => entry.method === 'model/list');
-    assert.equal(modelListCall, undefined, 'disallowed method must not be forwarded');
+    const disallowedCall = service.requests.find((entry) => entry.method === 'thread/fork');
+    assert.equal(disallowedCall, undefined, 'disallowed method must not be forwarded');
 });
 
 test('codex_request thread/read does not overwrite lastCodexThreadId', async (t) => {
@@ -362,6 +380,96 @@ test('codex_request forwards Phase 1 whitelisted methods', async (t) => {
             { id: 'thread-b', title: 'Thread B' }
         ]
     });
+});
+
+test('codex_request forwards model/list and account/rateLimits/read', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session');
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-model',
+        method: 'model/list'
+    }));
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-limits',
+        method: 'account/rateLimits/read'
+    }));
+
+    const service = MockCodexService.instances[0];
+    assert.ok(service.requests.find((entry) => entry.method === 'model/list'));
+    assert.ok(service.requests.find((entry) => entry.method === 'account/rateLimits/read'));
+
+    const modelResponse = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-model');
+    const limitResponse = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-limits');
+    assert.deepEqual(modelResponse.result, {
+        models: [
+            { id: 'gpt-5-codex' },
+            { id: 'gpt-5' }
+        ]
+    });
+    assert.deepEqual(limitResponse.result, {
+        remaining: 9,
+        limit: 10
+    });
+});
+
+test('codex_new_thread uses session codexConfig defaults for thread/start', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        cwd: 'D:\\workspace\\demo',
+        codexConfig: {
+            defaultModel: 'gpt-5-codex',
+            defaultReasoningEffort: 'high',
+            defaultPersonality: 'pragmatic',
+            approvalPolicy: 'on-request',
+            sandboxMode: 'read-only'
+        }
+    });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({ type: 'codex_new_thread' }));
+
+    const service = MockCodexService.instances[0];
+    const threadStart = service.requests.find((entry) => entry.method === 'thread/start');
+    assert.ok(threadStart, 'thread/start should be invoked');
+    assert.equal(threadStart.params.model, 'gpt-5-codex');
+    assert.equal(threadStart.params.reasoningEffort, 'high');
+    assert.equal(threadStart.params.personality, 'pragmatic');
+    assert.equal(threadStart.params.approvalPolicy, 'on-request');
+    assert.equal(threadStart.params.sandbox, 'read-only');
 });
 
 test('thread/resume rebinds the session so stale old-thread traffic is ignored', async (t) => {

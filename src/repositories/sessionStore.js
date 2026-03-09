@@ -5,6 +5,10 @@ const path = require('path');
 const STORE_VERSION = 2;
 
 const VALID_SESSION_MODES = new Set(['terminal', 'codex']);
+const VALID_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh']);
+const VALID_PERSONALITIES = new Set(['none', 'friendly', 'pragmatic']);
+const VALID_APPROVAL_POLICIES = new Set(['untrusted', 'on-failure', 'on-request', 'never']);
+const VALID_SANDBOX_MODES = new Set(['read-only', 'workspace-write', 'danger-full-access']);
 
 function normalizeSessionMode(value) {
     if (typeof value !== 'string') {
@@ -31,6 +35,65 @@ function normalizeLastCodexThreadId(value) {
 
     const normalized = value.trim();
     return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeOptionalString(value) {
+    if (typeof value !== 'string') {
+        return null;
+    }
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeOptionalEnum(value, validSet) {
+    const normalized = normalizeOptionalString(value);
+    if (!normalized) {
+        return null;
+    }
+    const lowered = normalized.toLowerCase();
+    return validSet.has(lowered) ? lowered : null;
+}
+
+function createDefaultCodexConfig() {
+    return {
+        defaultModel: null,
+        defaultReasoningEffort: null,
+        defaultPersonality: null,
+        approvalPolicy: 'never',
+        sandboxMode: 'workspace-write'
+    };
+}
+
+function normalizeCodexConfig(value, options = {}) {
+    const required = options.requirePolicyAndSandbox === true;
+    if (value === undefined || value === null) {
+        return null;
+    }
+    if (typeof value !== 'object' || Array.isArray(value)) {
+        return null;
+    }
+
+    const defaultModel = normalizeOptionalString(value.defaultModel);
+    const defaultReasoningEffort = normalizeOptionalEnum(value.defaultReasoningEffort, VALID_REASONING_EFFORTS);
+    const defaultPersonality = normalizeOptionalEnum(value.defaultPersonality, VALID_PERSONALITIES);
+    const approvalPolicy = normalizeOptionalEnum(value.approvalPolicy, VALID_APPROVAL_POLICIES);
+    const sandboxMode = normalizeOptionalEnum(value.sandboxMode, VALID_SANDBOX_MODES);
+
+    if (required && (!approvalPolicy || !sandboxMode)) {
+        return null;
+    }
+
+    if (!approvalPolicy && !sandboxMode && !defaultModel && !defaultReasoningEffort && !defaultPersonality) {
+        return null;
+    }
+
+    return {
+        defaultModel,
+        defaultReasoningEffort,
+        defaultPersonality,
+        approvalPolicy: approvalPolicy || null,
+        sandboxMode: sandboxMode || null
+    };
 }
 
 class SessionStore {
@@ -119,6 +182,9 @@ class SessionStore {
             const sessionMode = normalizeSessionMode(record.sessionMode);
             const cwd = normalizeSessionCwd(record.cwd);
             const lastCodexThreadId = normalizeLastCodexThreadId(record.lastCodexThreadId);
+            const codexConfig = normalizeCodexConfig(record.codexConfig, {
+                requirePolicyAndSandbox: sessionMode === 'codex'
+            });
 
             normalized.push({
                 id: record.id,
@@ -128,7 +194,8 @@ class SessionStore {
                 status,
                 sessionMode,
                 cwd,
-                lastCodexThreadId
+                lastCodexThreadId,
+                codexConfig
             });
         }
 
@@ -140,3 +207,5 @@ module.exports = SessionStore;
 module.exports.normalizeSessionMode = normalizeSessionMode;
 module.exports.normalizeSessionCwd = normalizeSessionCwd;
 module.exports.normalizeLastCodexThreadId = normalizeLastCodexThreadId;
+module.exports.normalizeCodexConfig = normalizeCodexConfig;
+module.exports.createDefaultCodexConfig = createDefaultCodexConfig;

@@ -24,14 +24,14 @@
 | thread/resume | 协议存在，基本可做 | 已实现（Web） | MVP-P1 | 已支持自动恢复、手动恢复、失败回退和重连保护。 |
 | turn/start | 已确认可做 | 已实现 | baseline | 保持主链路并接入会话默认配置。 |
 | turn/interrupt | 已确认可做 | 已实现 | baseline | 保持现有行为并补充错误提示一致性。 |
-| model/list | 已确认可做 | 未实现 | MVP-P2 | 用于模型选择与可用 effort 约束。 |
-| reasoning effort | 已确认可做 | 未实现 | MVP-P2 | 从会话默认配置透传到 `turn/start`。 |
-| personality | 已确认可做 | 未实现 | MVP-P2 | 会话默认值可配置，turn 可覆盖。 |
-| account/rateLimits/read | 协议存在，基本可做 | 未实现 | MVP-P2 | 增加主动刷新入口，和通知态合并展示。 |
+| model/list | 已确认可做 | 已实现（Web） | MVP-P2 | 设置面板支持模型列表刷新与自定义模型回显。 |
+| reasoning effort | 已确认可做 | 已实现（Web） | MVP-P2 | 会话默认值可持久化并透传到 `turn/start`。 |
+| personality | 已确认可做 | 已实现（Web） | MVP-P2 | 会话默认值可持久化并透传到 `turn/start`。 |
+| account/rateLimits/read | 协议存在，基本可做 | 已实现（Web） | MVP-P2 | 设置面板支持主动刷新，头部摘要与设置状态共用限额快照。 |
 | approvals(command/file/patch) | 已确认可做 | 已实现基础版 | MVP-P3 | 统一卡片模型与状态机（pending/submitted/resolved）。 |
 | requestUserInput | 已确认可做 | 已实现基础版 | MVP-P3 | 并入统一交互卡片体系。 |
-| diff/plan/reasoning streaming | 已确认可做 | 部分实现 | MVP-P2 | 明确独立区块展示与开关策略。 |
-| configWarning/deprecationNotice | 协议存在，基本可做 | 未实现 | MVP-P2 | 纳入告警栏与日志。 |
+| diff/plan/reasoning streaming | 已确认可做 | 已实现（Web） | MVP-P2 | 已拆分为 `Diff/Plan/Reasoning/Terminal Output` 运行态区块，并支持快照重建。 |
+| configWarning/deprecationNotice | 协议存在，基本可做 | 已实现（Web） | MVP-P2 | 已接入顶层告警卡片、状态摘要和运行态 warning 区。 |
 | thread/fork | 协议存在，基本可做 | 未实现 | NEXT-P4 | 后续开放白名单。 |
 | thread/archive | 协议存在，基本可做 | 未实现 | NEXT-P4 | 配合会话管理入口。 |
 | thread/unarchive | 协议存在，基本可做 | 未实现 | NEXT-P4 | 与归档视图联动。 |
@@ -46,12 +46,10 @@
 
 ## 3. MVP 缺口清单
 
-1. 缺少会话级 `codexConfig` 数据结构与持久化。
-2. 缺少 `model/list` 与 `account/rateLimits/read` 的产品化入口。
-3. `codex_state` 字段未完整覆盖 `activeModel/activeReasoningEffort/activePersonality/lastError/warnings`。
-4. 审批与用户输入尚未统一状态机，重连恢复不完整。
-5. 浏览器端仍缺真实 DOM/WebSocket 集成验证；当前以静态页面回归和纯逻辑测试为主。
-6. Android 原生壳层尚未提供独立历史线程列表 UI；当前依赖共享 Web 客户端能力与 Session 元数据同步。
+1. `codex_state` 字段仍未完整覆盖 `activeModel/activeReasoningEffort/activePersonality/lastError/warnings`。
+2. 审批与用户输入尚未统一状态机，重连恢复不完整。
+3. 浏览器端仍缺真实 DOM/WebSocket 集成验证；当前以静态页面回归和纯逻辑测试为主。
+4. Android 原生壳层尚未提供独立历史线程列表 UI；当前依赖共享 Web 客户端能力与 Session 元数据同步。
 
 ## 4. 接口收敛策略
 
@@ -155,6 +153,7 @@ MVP 白名单：
 3. 接入 `model/list + account/rateLimits/read`。
 4. 收口 `diff/plan/reasoning/terminal output` 展示区。
 5. 接入 `configWarning/deprecationNotice`。
+6. 会话级设置面板与运行态区块当前已在 Web 端完成，后续以浏览器集成测试和 Android 壳层收口为主。
 
 ### Phase 3: 审批与交互 MVP
 
@@ -185,6 +184,8 @@ MVP 白名单：
 | browser | `codex_client.html` 历史线程面板 | 仅在 `historyList=true` 时展示，可刷新并手动恢复 |
 | runtime | `model/effort/personality` 切换 | 新 turn 生效 |
 | runtime | `account/rateLimits/read` | 主动刷新成功 |
+| runtime | `diff/plan/reasoning/terminal output` | 通知流与 `thread/read` 快照均可恢复展示 |
+| runtime | `configWarning/deprecationNotice` | 顶层告警卡片、头部摘要与日志一致 |
 | runtime | approvals + userInput | 闭环完成且重连可恢复 |
 | android | 小屏 IME 场景 | 输入/审批/日志可操作 |
 | browser | Codex 主链路回归 | 无回退 |

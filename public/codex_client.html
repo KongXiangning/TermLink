@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TermLink Codex</title>
-    <link rel="stylesheet" href="terminal_client.css?v=26">
+    <link rel="stylesheet" href="terminal_client.css?v=28">
     <script src="terminal_shortcut_input.js?v=25"></script>
 </head>
 
@@ -23,7 +23,7 @@
                         <span id="codex-status-text">Codex idle</span>
                         <span id="codex-thread-id"></span>
                     </div>
-                    <div id="codex-meta-line">
+                <div id="codex-meta-line">
                         <span id="codex-meta-text"></span>
                         <span id="codex-notice-text"></span>
                     </div>
@@ -34,6 +34,16 @@
                     <button id="btn-codex-interrupt" class="codex-btn danger" type="button">Interrupt</button>
                 </div>
             </div>
+            <div id="codex-alerts" hidden>
+                <div id="codex-alert-config" class="codex-alert" hidden>
+                    <div class="codex-alert-label">Config Warning</div>
+                    <div id="codex-alert-config-text" class="codex-alert-text"></div>
+                </div>
+                <div id="codex-alert-deprecation" class="codex-alert" hidden>
+                    <div class="codex-alert-label">Deprecation Notice</div>
+                    <div id="codex-alert-deprecation-text" class="codex-alert-text"></div>
+                </div>
+            </div>
             <div id="codex-history-panel">
                 <div id="codex-history-header">
                     <span id="codex-history-title">Threads</span>
@@ -41,6 +51,94 @@
                 </div>
                 <div id="codex-history-empty">No saved threads yet.</div>
                 <div id="codex-history-list" aria-live="polite"></div>
+            </div>
+            <div id="codex-settings-panel" hidden>
+                <div id="codex-settings-header">
+                    <span id="codex-settings-title">Session Defaults</span>
+                    <div id="codex-settings-actions">
+                        <button id="btn-codex-models-refresh" class="codex-btn subtle" type="button">Models</button>
+                        <button id="btn-codex-rate-limit-refresh" class="codex-btn subtle" type="button">Limits</button>
+                    </div>
+                </div>
+                <label class="codex-settings-toggle">
+                    <input id="codex-settings-use-defaults" type="checkbox">
+                    <span>Use server defaults</span>
+                </label>
+                <div id="codex-settings-fields">
+                    <label class="codex-settings-field">
+                        <span>Model</span>
+                        <select id="codex-settings-model"></select>
+                    </label>
+                    <label class="codex-settings-field">
+                        <span>Reasoning</span>
+                        <select id="codex-settings-reasoning">
+                            <option value="">Server default</option>
+                            <option value="none">None</option>
+                            <option value="minimal">Minimal</option>
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="xhigh">XHigh</option>
+                        </select>
+                    </label>
+                    <label class="codex-settings-field">
+                        <span>Personality</span>
+                        <select id="codex-settings-personality">
+                            <option value="">Server default</option>
+                            <option value="none">None</option>
+                            <option value="friendly">Friendly</option>
+                            <option value="pragmatic">Pragmatic</option>
+                        </select>
+                    </label>
+                    <label class="codex-settings-field">
+                        <span>Approval</span>
+                        <select id="codex-settings-approval">
+                            <option value="untrusted">Untrusted</option>
+                            <option value="on-failure">On Failure</option>
+                            <option value="on-request">On Request</option>
+                            <option value="never">Never</option>
+                        </select>
+                    </label>
+                    <label class="codex-settings-field">
+                        <span>Sandbox</span>
+                        <select id="codex-settings-sandbox">
+                            <option value="read-only">Read Only</option>
+                            <option value="workspace-write">Workspace Write</option>
+                            <option value="danger-full-access">Danger Full Access</option>
+                        </select>
+                    </label>
+                </div>
+                <div id="codex-settings-footer">
+                    <div id="codex-settings-status" aria-live="polite"></div>
+                    <div id="codex-settings-buttons">
+                        <button id="btn-codex-settings-reset" class="codex-btn subtle" type="button">Reset</button>
+                        <button id="btn-codex-settings-save" class="codex-btn" type="button">Save</button>
+                    </div>
+                </div>
+            </div>
+            <div id="codex-runtime-panel" hidden>
+                <div id="codex-runtime-header">
+                    <span id="codex-runtime-title">Live Runtime</span>
+                </div>
+                <div id="codex-runtime-grid">
+                    <section class="codex-runtime-card" data-runtime-section="diff">
+                        <div class="codex-runtime-label">Diff</div>
+                        <pre id="codex-runtime-diff" class="codex-runtime-body"></pre>
+                    </section>
+                    <section class="codex-runtime-card" data-runtime-section="plan">
+                        <div class="codex-runtime-label">Plan</div>
+                        <pre id="codex-runtime-plan" class="codex-runtime-body"></pre>
+                    </section>
+                    <section class="codex-runtime-card" data-runtime-section="reasoning">
+                        <div class="codex-runtime-label">Reasoning</div>
+                        <pre id="codex-runtime-reasoning" class="codex-runtime-body"></pre>
+                    </section>
+                    <section class="codex-runtime-card" data-runtime-section="terminal">
+                        <div class="codex-runtime-label">Terminal Output</div>
+                        <pre id="codex-runtime-terminal" class="codex-runtime-body"></pre>
+                    </section>
+                </div>
+                <div id="codex-runtime-warning" hidden></div>
             </div>
             <div id="codex-log" aria-live="polite"></div>
             <div id="codex-composer">
@@ -60,7 +158,9 @@
     </div>
     <script src="lib/codex_bootstrap.js?v=1"></script>
     <script src="lib/codex_history_view.js?v=1"></script>
-    <script src="terminal_client.js?v=27"></script>
+    <script src="lib/codex_settings_view.js?v=1"></script>
+    <script src="lib/codex_runtime_view.js?v=1"></script>
+    <script src="terminal_client.js?v=29"></script>
 </body>
 
 </html>

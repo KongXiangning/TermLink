@@ -1,16 +1,24 @@
 const express = require('express');
 const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
-const { normalizeSessionMode, normalizeSessionCwd } = require('../repositories/sessionStore');
+const {
+    normalizeSessionMode,
+    normalizeSessionCwd,
+    normalizeCodexConfig
+} = require('../repositories/sessionStore');
 
 function buildSessionResponse(session) {
+    const sessionMode = normalizeSessionMode(session.sessionMode);
     return {
         id: session.id,
         name: session.name,
-        sessionMode: normalizeSessionMode(session.sessionMode),
+        sessionMode,
         cwd: normalizeSessionCwd(session.cwd),
         lastCodexThreadId: typeof session.lastCodexThreadId === 'string' && session.lastCodexThreadId.trim()
             ? session.lastCodexThreadId.trim()
-            : null
+            : null,
+        codexConfig: normalizeCodexConfig(session.codexConfig, {
+            requirePolicyAndSandbox: false
+        })
     };
 }
 
@@ -51,8 +59,80 @@ function parseCreateSessionPayload(body) {
         return { error: 'cwd is required when sessionMode is codex' };
     }
 
+    if (
+        payload.codexConfig !== undefined &&
+        payload.codexConfig !== null &&
+        (typeof payload.codexConfig !== 'object' || Array.isArray(payload.codexConfig))
+    ) {
+        return { error: 'codexConfig must be an object, null, or omitted' };
+    }
+    let codexConfig = null;
+    if (sessionMode === 'codex') {
+        if (payload.codexConfig === undefined || payload.codexConfig === null) {
+            codexConfig = null;
+        } else {
+            codexConfig = normalizeCodexConfig(payload.codexConfig, { requirePolicyAndSandbox: true });
+        }
+        if (payload.codexConfig && !codexConfig) {
+            return { error: 'codexConfig requires valid approvalPolicy and sandboxMode for codex sessions' };
+        }
+    } else if (payload.codexConfig !== undefined) {
+        codexConfig = normalizeCodexConfig(payload.codexConfig, { requirePolicyAndSandbox: false });
+        if (payload.codexConfig && !codexConfig) {
+            return { error: 'codexConfig contains invalid fields' };
+        }
+    }
+
     parsed.sessionMode = sessionMode;
     parsed.cwd = cwd;
+    parsed.codexConfig = codexConfig;
+    return { value: parsed };
+}
+
+function parsePatchSessionPayload(body, session) {
+    const payload = body || {};
+    const parsed = {};
+
+    if (!Object.prototype.hasOwnProperty.call(payload, 'name') && !Object.prototype.hasOwnProperty.call(payload, 'codexConfig')) {
+        return { error: 'patch requires name or codexConfig' };
+    }
+
+    if (Object.prototype.hasOwnProperty.call(payload, 'name')) {
+        if (typeof payload.name !== 'string') {
+            return { error: 'name must be a string' };
+        }
+
+        const name = payload.name.trim();
+        if (name.length < 1 || name.length > 64) {
+            return { error: 'name length must be between 1 and 64' };
+        }
+        parsed.name = name;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(payload, 'codexConfig')) {
+        if (
+            payload.codexConfig !== null &&
+            (typeof payload.codexConfig !== 'object' || Array.isArray(payload.codexConfig))
+        ) {
+            return { error: 'codexConfig must be an object or null' };
+        }
+
+        if (payload.codexConfig === null) {
+            parsed.codexConfig = null;
+        } else {
+            const requirePolicyAndSandbox = normalizeSessionMode(session.sessionMode) === 'codex';
+            const codexConfig = normalizeCodexConfig(payload.codexConfig, { requirePolicyAndSandbox });
+            if (!codexConfig) {
+                return {
+                    error: requirePolicyAndSandbox
+                        ? 'codexConfig requires valid approvalPolicy and sandboxMode for codex sessions'
+                        : 'codexConfig contains invalid fields'
+                };
+            }
+            parsed.codexConfig = codexConfig;
+        }
+    }
+
     return { value: parsed };
 }
 
@@ -87,18 +167,19 @@ function createSessionsRouter(sessionManager) {
 
     router.patch('/sessions/:id', (req, res) => {
         const { id } = req.params;
-        const rawName = req.body ? req.body.name : undefined;
-
-        if (typeof rawName !== 'string') {
-            return res.status(400).json({ error: 'name must be a string' });
+        const existingSession = sessionManager.getSession(id);
+        if (!existingSession) {
+            return res.status(404).json({ error: 'Session not found' });
         }
 
-        const name = rawName.trim();
-        if (name.length < 1 || name.length > 64) {
-            return res.status(400).json({ error: 'name length must be between 1 and 64' });
+        const parsed = parsePatchSessionPayload(req.body, existingSession);
+        if (parsed.error) {
+            return res.status(400).json({ error: parsed.error });
         }
 
-        const session = sessionManager.renameSession(id, name);
+        const session = typeof sessionManager.updateSession === 'function'
+            ? sessionManager.updateSession(id, parsed.value)
+            : sessionManager.renameSession(id, parsed.value.name);
         if (!session) {
             return res.status(404).json({ error: 'Session not found' });
         }
@@ -120,3 +201,4 @@ function createSessionsRouter(sessionManager) {
 
 module.exports = createSessionsRouter;
 module.exports.parseCreateSessionPayload = parseCreateSessionPayload;
+module.exports.parsePatchSessionPayload = parsePatchSessionPayload;

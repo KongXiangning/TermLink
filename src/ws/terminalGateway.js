@@ -3,6 +3,7 @@ const { isIpAllowed, normalizeIp } = require('../utils/ipCheck');
 const { generateAuditTraceId } = require('../utils/auditTrace');
 const { getAuditService } = require('../services/auditService');
 const CodexAppServerService = require('../services/codexAppServerService');
+const { normalizeCodexConfig } = require('../repositories/sessionStore');
 const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
 
 function closeSocket(ws, code, reason) {
@@ -80,17 +81,32 @@ function getConfiguredCodexSandboxMode() {
     return valid.has(value) ? value : 'workspace-write';
 }
 
-function buildThreadStartParams({ cwd }) {
+function buildThreadStartParamsWithConfig({ cwd, codexConfig }) {
+    const normalizedConfig = normalizeCodexConfig(codexConfig, { requirePolicyAndSandbox: false });
+    const approvalPolicy = normalizedConfig && normalizedConfig.approvalPolicy
+        ? normalizedConfig.approvalPolicy
+        : getConfiguredCodexApprovalPolicy();
+    const sandboxMode = normalizedConfig && normalizedConfig.sandboxMode
+        ? normalizedConfig.sandboxMode
+        : getConfiguredCodexSandboxMode();
     const params = {
         cwd,
-        approvalPolicy: getConfiguredCodexApprovalPolicy(),
-        sandbox: getConfiguredCodexSandboxMode(),
+        approvalPolicy,
+        sandbox: sandboxMode,
         experimentalRawEvents: false,
         persistExtendedHistory: true
     };
 
-    if (isNonEmptyString(process.env.TERMLINK_CODEX_MODEL)) {
+    if (normalizedConfig && isNonEmptyString(normalizedConfig.defaultModel)) {
+        params.model = normalizedConfig.defaultModel.trim();
+    } else if (isNonEmptyString(process.env.TERMLINK_CODEX_MODEL)) {
         params.model = process.env.TERMLINK_CODEX_MODEL.trim();
+    }
+    if (normalizedConfig && isNonEmptyString(normalizedConfig.defaultReasoningEffort)) {
+        params.reasoningEffort = normalizedConfig.defaultReasoningEffort.trim();
+    }
+    if (normalizedConfig && isNonEmptyString(normalizedConfig.defaultPersonality)) {
+        params.personality = normalizedConfig.defaultPersonality.trim();
     }
 
     return params;
@@ -107,18 +123,20 @@ function buildTurnInput(text) {
 const CODEX_REQUEST_METHOD_WHITELIST = new Set([
     'thread/list',
     'thread/read',
-    'thread/resume'
+    'thread/resume',
+    'model/list',
+    'account/rateLimits/read'
 ]);
 
 function buildCodexCapabilities() {
     return {
         historyList: true,
         historyResume: true,
-        modelConfig: false,
-        rateLimitsRead: false,
+        modelConfig: true,
+        rateLimitsRead: true,
         approvals: true,
         userInputRequest: false,
-        diffPlanReasoning: false,
+        diffPlanReasoning: true,
         skillsList: false,
         compact: false,
         imageInput: false
@@ -195,6 +213,27 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         return normalized;
     };
 
+    const getStoredSessionCodexConfig = (session) => {
+        return normalizeCodexConfig(session && session.codexConfig, {
+            requirePolicyAndSandbox: false
+        });
+    };
+
+    const getEffectiveSessionCodexConfig = (session) => {
+        const stored = getStoredSessionCodexConfig(session);
+        return {
+            defaultModel: stored ? stored.defaultModel : null,
+            defaultReasoningEffort: stored ? stored.defaultReasoningEffort : null,
+            defaultPersonality: stored ? stored.defaultPersonality : null,
+            approvalPolicy: stored && stored.approvalPolicy
+                ? stored.approvalPolicy
+                : getConfiguredCodexApprovalPolicy(),
+            sandboxMode: stored && stored.sandboxMode
+                ? stored.sandboxMode
+                : getConfiguredCodexSandboxMode()
+        };
+    };
+
     const updatePendingServerRequestState = (session, updater) => {
         const state = ensureSessionCodexState(session);
         const current = Array.isArray(state.pendingServerRequests) ? state.pendingServerRequests.slice() : [];
@@ -268,7 +307,11 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             return state.threadId;
         }
 
-        const threadStartResult = await codexService.request('thread/start', buildThreadStartParams({ cwd: requestedCwd }));
+        const threadStartParams = buildThreadStartParamsWithConfig({
+            cwd: requestedCwd,
+            codexConfig: getEffectiveSessionCodexConfig(session)
+        });
+        const threadStartResult = await codexService.request('thread/start', threadStartParams);
         const threadId = threadStartResult && threadStartResult.thread ? threadStartResult.thread.id : null;
         if (!isNonEmptyString(threadId)) {
             throw new Error('Codex thread/start did not return thread id.');
@@ -522,7 +565,8 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 cwd: session.cwd || null,
                 lastCodexThreadId: isNonEmptyString(session.lastCodexThreadId)
                     ? session.lastCodexThreadId
-                    : null
+                    : null,
+                codexConfig: getStoredSessionCodexConfig(session)
             }));
             sendWsEnvelope(ws, {
                 type: 'codex_capabilities',
@@ -582,9 +626,13 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             cwd: envelope.cwd
                         });
 
+                        const sessionCodexConfig = getEffectiveSessionCodexConfig(session);
                         const turnStartResponse = await codexService.request('turn/start', {
                             threadId,
-                            input: buildTurnInput(text)
+                            input: buildTurnInput(text),
+                            model: sessionCodexConfig.defaultModel || undefined,
+                            reasoningEffort: sessionCodexConfig.defaultReasoningEffort || undefined,
+                            personality: sessionCodexConfig.defaultPersonality || undefined
                         });
 
                         const codexState = ensureSessionCodexState(session);
