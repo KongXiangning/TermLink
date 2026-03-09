@@ -247,3 +247,25 @@ MVP 白名单：
 
 1. 增加命令型或可稳定产出 plan/reasoning 的专项验证，确认 `Diff / Plan / Reasoning / Terminal Output` 在 Android 上能显示非占位内容。
 2. 增加浏览器/WebView 级集成测试，覆盖 `Limits`、`Send`、状态切换和运行态区块更新。
+
+## 11. Android Live Runtime 专项验证（2026-03-09）
+
+验证环境：
+
+1. 服务端：当前仓库启动，`PORT=3010`，默认 BasicAuth（`admin/admin`）。
+2. 设备：`MQS7N19402011743`。
+3. 会话：临时验证会话 `3620c3b2-06e6-4d4d-96cb-75917f8a76a1`，配置为 `approvalPolicy=never`、`sandboxMode=workspace-write`，用于排除审批状态机影响。
+
+结论：
+
+1. `Diff` 区块通过，Android 真机上已确认可展示真实文件变更内容。
+2. `Terminal Output` 区块部分通过，当前可展示非占位内容，但展示的是执行命令字符串而不是命令 stdout。
+3. `Plan` 与 `Reasoning` 在本轮专项验证中仍未拿到真实内容，区块继续停留在占位文案。
+4. 页面主链路正常，状态经历 `idle -> running -> idle`，`codex-log` 同步出现新的 `commentary/final_answer`。
+5. 顶部 `CONFIG WARNING / DEPRECATION NOTICE` 在 Android fresh 截图中出现空壳显示，说明告警卡片隐藏逻辑仍需后续单独收口。
+
+后续动作：
+
+1. 单独排查 `Terminal Output` 为什么当前只显示命令元信息而不是 stdout。
+2. 再补一轮更聚焦 `Plan / Reasoning` 的专项验证，确认问题在 app-server 事件产出还是前端消费。
+3. 为 Android 端空壳 warning/deprecation 卡片新增修复批次。
