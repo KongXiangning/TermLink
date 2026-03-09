@@ -1,9 +1,9 @@
 ---
 title: Codex 能力矩阵驱动主线需求（MVP + 下一阶段） - 变更记录
-status: draft
+status: active
 record_id: CR-20260309-1602-codex-phase2-runtime-panels
 req_id: REQ-20260309-codex-capability-mvp
-commit_ref: TBD
+commit_ref: 876676c
 owner: @maintainer
 last_updated: 2026-03-09
 source_of_truth: product
