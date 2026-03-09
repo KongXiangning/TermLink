@@ -178,6 +178,10 @@ MVP 白名单：
 | ws | `codex_capabilities` 下发 | 前端入口按 capability 显示 |
 | ws | 非白名单 `codex_request` | 返回明确错误 |
 | runtime | `thread/list + thread/resume` | 可恢复历史上下文 |
+| android | Codex 会话真机建连（3010） | `sessionMode=codex` 可建立会话并返回 `session_info` |
+| android | Codex thread 持久化（3010） | `/api/sessions` 可见 `lastCodexThreadId/codexThreadId` |
+| android | 强停后连接回收（3010） | `activeConnections` 从 `1` 回收至 `0` |
+| android | 重启后会话恢复（3010） | 回到同一 `sessionId` 与同一 `lastCodexThreadId` |
 | browser | `codex_client.html` 历史线程面板 | 仅在 `historyList=true` 时展示，可刷新并手动恢复 |
 | runtime | `model/effort/personality` 切换 | 新 turn 生效 |
 | runtime | `account/rateLimits/read` | 主动刷新成功 |
@@ -206,3 +210,17 @@ MVP 白名单：
 1. 某项能力异常时先关闭对应 capability，不回滚全链路。
 2. 白名单问题先回退到上一版白名单配置。
 3. 文档未完成一致性前不推进需求状态到 `in_progress`。
+
+## 9. Android 真机阶段性验证（2026-03-09）
+
+验证环境：
+
+1. 服务端：当前仓库启动，`PORT=3010`，默认 BasicAuth（`admin/admin`）。
+2. 设备：`MQS7N19402011743`。
+3. 配置：Android active profile 指向 `http://192.168.50.12:3010`。
+
+结论：
+
+1. Codex 主链路通过：`codex session` 建连、thread 建立与持久化、断开回收、重启恢复均可用。
+2. 观测到短时序现象：连接刚建立时 `/api/sessions` 可能瞬时显示 `activeConnections=0`，数秒后变为 `1`。
+3. 该现象当前归类为可见性时序抖动，不影响本阶段主链路可用性结论。
