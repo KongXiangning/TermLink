@@ -135,7 +135,7 @@ function buildCodexCapabilities() {
         modelConfig: true,
         rateLimitsRead: true,
         approvals: true,
-        userInputRequest: false,
+        userInputRequest: true,
         diffPlanReasoning: true,
         skillsList: false,
         compact: false,
@@ -145,6 +145,86 @@ function buildCodexCapabilities() {
 
 function isAllowedCodexRequestMethod(method) {
     return isNonEmptyString(method) && CODEX_REQUEST_METHOD_WHITELIST.has(method.trim());
+}
+
+function resolveCodexServerRequestKind(method) {
+    const normalizedMethod = isNonEmptyString(method) ? method.trim() : '';
+    if (normalizedMethod === 'item/commandExecution/requestApproval' || normalizedMethod === 'execCommandApproval') {
+        return 'command';
+    }
+    if (normalizedMethod === 'item/fileChange/requestApproval') {
+        return 'file';
+    }
+    if (normalizedMethod === 'applyPatchApproval') {
+        return 'patch';
+    }
+    if (normalizedMethod === 'item/tool/requestUserInput') {
+        return 'userInput';
+    }
+    return 'unknown';
+}
+
+function resolveCodexServerRequestResponseMode(method) {
+    return resolveCodexServerRequestKind(method) === 'userInput' ? 'answers' : 'decision';
+}
+
+function extractCodexServerRequestSummary(method, params) {
+    const requestKind = resolveCodexServerRequestKind(method);
+    if (requestKind === 'command') {
+        const command = isNonEmptyString(params && params.command) ? params.command.trim() : '';
+        return command || '';
+    }
+    if (requestKind === 'file') {
+        const reason = isNonEmptyString(params && params.reason) ? params.reason.trim() : '';
+        return reason || '';
+    }
+    if (requestKind === 'patch') {
+        const reason = isNonEmptyString(params && params.reason) ? params.reason.trim() : '';
+        return reason || '';
+    }
+    if (requestKind === 'userInput') {
+        const questions = Array.isArray(params && params.questions) ? params.questions : [];
+        if (questions.length === 1 && isNonEmptyString(questions[0].question)) {
+            return questions[0].question.trim();
+        }
+        if (questions.length > 1) {
+            return `${questions.length} questions pending`;
+        }
+    }
+    return '';
+}
+
+function buildCodexServerRequestEnvelope({ requestId, message, handledBy, result }) {
+    const method = message && isNonEmptyString(message.method) ? message.method.trim() : 'unknown';
+    const params = message && typeof message.params === 'object' ? message.params : null;
+    const requestKind = resolveCodexServerRequestKind(method);
+    const summary = extractCodexServerRequestSummary(method, params);
+    const questions = Array.isArray(params && params.questions) ? params.questions : [];
+    return {
+        type: 'codex_server_request',
+        requestId,
+        method,
+        requestKind,
+        responseMode: resolveCodexServerRequestResponseMode(method),
+        handledBy,
+        params,
+        summary: summary || null,
+        questionCount: requestKind === 'userInput' ? questions.length : 0,
+        defaultResult: result || null
+    };
+}
+
+function buildPendingServerRequestSnapshot(state) {
+    const requests = Array.isArray(state && state.pendingServerRequests) ? state.pendingServerRequests : [];
+    return requests
+        .filter((entry) => entry && isNonEmptyString(entry.requestId))
+        .map((entry) => ({
+            requestId: entry.requestId,
+            method: isNonEmptyString(entry.method) ? entry.method.trim() : 'unknown',
+            requestKind: isNonEmptyString(entry.requestKind) ? entry.requestKind.trim() : resolveCodexServerRequestKind(entry.method),
+            responseMode: isNonEmptyString(entry.responseMode) ? entry.responseMode.trim() : resolveCodexServerRequestResponseMode(entry.method),
+            summary: isNonEmptyString(entry.summary) ? entry.summary.trim() : null
+        }));
 }
 
 function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, privilegeConfig }) {
@@ -263,6 +343,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             cwd: normalizeOptionalCwd(session.cwd),
             approvalPending: state.pendingServerRequests.length > 0,
             pendingServerRequestCount: state.pendingServerRequests.length,
+            pendingServerRequests: buildPendingServerRequestSnapshot(state),
             tokenUsage: state.tokenUsage || null,
             rateLimitState: state.rateLimitState || null
         };
@@ -465,25 +546,29 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             return;
         }
         if (handledBy === 'client') {
+            const requestKind = resolveCodexServerRequestKind(method);
+            const responseMode = resolveCodexServerRequestResponseMode(method);
+            const summary = extractCodexServerRequestSummary(method, message.params || null);
             updatePendingServerRequestState(session, (current) => {
                 if (current.some((entry) => entry && entry.requestId === requestId)) {
                     return current;
                 }
                 current.push({
                     requestId,
-                    method
+                    method,
+                    requestKind,
+                    responseMode,
+                    summary: summary || null
                 });
                 return current;
             });
         }
-        sessionManager.broadcast(session, {
-            type: 'codex_server_request',
+        sessionManager.broadcast(session, buildCodexServerRequestEnvelope({
             requestId,
-            method,
+            message,
             handledBy,
-            params: message.params || null,
-            defaultResult: result || null
-        });
+            result
+        }));
         emitCodexState(session);
     };
 
@@ -583,6 +668,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                     cwd: normalizeOptionalCwd(session.cwd),
                     approvalPending: codexState.pendingServerRequests.length > 0,
                     pendingServerRequestCount: codexState.pendingServerRequests.length,
+                    pendingServerRequests: buildPendingServerRequestSnapshot(codexState),
                     tokenUsage: codexState.tokenUsage || null,
                     rateLimitState: codexState.rateLimitState || null
                 });

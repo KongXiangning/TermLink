@@ -252,7 +252,7 @@ test('session_info includes lastCodexThreadId metadata when available', async (t
         modelConfig: true,
         rateLimitsRead: true,
         approvals: true,
-        userInputRequest: false,
+        userInputRequest: true,
         diffPlanReasoning: true,
         skillsList: false,
         compact: false,
@@ -708,6 +708,24 @@ test('codex approval request is forwarded to client and response is returned to 
     assert.ok(approvalEnvelope, 'approval request should be sent to websocket client');
     assert.equal(approvalEnvelope.requestId, 'req-1');
     assert.equal(approvalEnvelope.method, 'execCommandApproval');
+    assert.equal(approvalEnvelope.requestKind, 'command');
+    assert.equal(approvalEnvelope.responseMode, 'decision');
+    assert.equal(approvalEnvelope.summary, 'dir');
+    assert.deepEqual(session.codexState.pendingServerRequests, [{
+        requestId: 'req-1',
+        method: 'execCommandApproval',
+        requestKind: 'command',
+        responseMode: 'decision',
+        summary: 'dir'
+    }]);
+    const pendingStateEnvelope = ws.sent.filter((entry) => entry.type === 'codex_state').at(-1);
+    assert.deepEqual(pendingStateEnvelope.pendingServerRequests, [{
+        requestId: 'req-1',
+        method: 'execCommandApproval',
+        requestKind: 'command',
+        responseMode: 'decision',
+        summary: 'dir'
+    }]);
 
     await ws.getHandler('message')(JSON.stringify({
         type: 'codex_server_request_response',
@@ -722,6 +740,84 @@ test('codex approval request is forwarded to client and response is returned to 
             error: undefined,
             useDefault: false
         }
+    }]);
+    const resolvedStateEnvelope = ws.sent.filter((entry) => entry.type === 'codex_state').at(-1);
+    assert.deepEqual(resolvedStateEnvelope.pendingServerRequests, []);
+});
+
+test('user input server request is deferred to client with answers response mode', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        codexState: {
+            threadId: 'thread-1',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null
+        }
+    });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    const service = MockCodexService.instances[0];
+    service.emit('server_request', {
+        requestId: 'req-user-1',
+        handledBy: 'client',
+        requestKind: 'userInput',
+        responseMode: 'answers',
+        message: {
+            id: 'req-user-1',
+            method: 'item/tool/requestUserInput',
+            params: {
+                threadId: 'thread-1',
+                questions: [
+                    {
+                        id: 'choice',
+                        question: 'Proceed with deployment?',
+                        options: [{ label: 'Approve' }, { label: 'Reject' }]
+                    }
+                ]
+            }
+        }
+    });
+
+    const requestEnvelope = ws.sent.find((entry) => entry.type === 'codex_server_request' && entry.requestId === 'req-user-1');
+    assert.ok(requestEnvelope, 'user input server request should be sent to websocket client');
+    assert.equal(requestEnvelope.requestKind, 'userInput');
+    assert.equal(requestEnvelope.responseMode, 'answers');
+    assert.equal(requestEnvelope.summary, 'Proceed with deployment?');
+    assert.equal(requestEnvelope.questionCount, 1);
+    assert.equal(requestEnvelope.handledBy, 'client');
+    assert.deepEqual(session.codexState.pendingServerRequests, [{
+        requestId: 'req-user-1',
+        method: 'item/tool/requestUserInput',
+        requestKind: 'userInput',
+        responseMode: 'answers',
+        summary: 'Proceed with deployment?'
+    }]);
+    const lastState = ws.sent.filter((entry) => entry.type === 'codex_state').at(-1);
+    assert.equal(lastState.pendingServerRequestCount, 1);
+    assert.deepEqual(lastState.pendingServerRequests, [{
+        requestId: 'req-user-1',
+        method: 'item/tool/requestUserInput',
+        requestKind: 'userInput',
+        responseMode: 'answers',
+        summary: 'Proceed with deployment?'
     }]);
 });
 

@@ -132,13 +132,14 @@ const codexState = {
     cwd: '',
     approvalPending: false,
     pendingServerRequestCount: 0,
+    pendingServerRequests: [],
     tokenUsageSummary: '',
     rateLimitSummary: '',
     rateLimitTone: '',
     errorNotice: '',
     streamingItemId: '',
     messageByItemId: new Map(),
-    requestEntryById: new Map(),
+    requestStateById: new Map(),
     pendingBridgeRequests: new Map(),
     nextBridgeRequestId: 1,
     capabilities: {
@@ -249,6 +250,13 @@ function getCodexSettingsViewApi() {
 function getCodexRuntimeViewApi() {
     if (window.TermLinkCodexRuntimeView && typeof window.TermLinkCodexRuntimeView.buildRuntimeUpdate === 'function') {
         return window.TermLinkCodexRuntimeView;
+    }
+    return null;
+}
+
+function getCodexApprovalViewApi() {
+    if (window.TermLinkCodexApprovalView && typeof window.TermLinkCodexApprovalView.normalizeApprovalRequest === 'function') {
+        return window.TermLinkCodexApprovalView;
     }
     return null;
 }
@@ -1087,6 +1095,7 @@ function resetCodexBootstrapState() {
     codexState.unmaterializedThreadId = '';
     codexState.approvalPending = false;
     codexState.pendingServerRequestCount = 0;
+    codexState.pendingServerRequests = [];
     codexState.streamingItemId = '';
     codexState.tokenUsageSummary = '';
     codexState.historyListLoading = false;
@@ -1114,6 +1123,8 @@ function resetCodexBootstrapState() {
     codexState.resumeAttemptedForThreadId = '';
     codexState.fallbackThreadRequested = false;
     codexState.pendingFreshThread = false;
+    codexState.messageByItemId.clear();
+    clearCodexRequestCards();
     codexState.capabilities = {
         historyList: false,
         historyResume: false,
@@ -1718,6 +1729,13 @@ function refreshCodexThreadSnapshot(options) {
 }
 
 function buildApprovalDecisionResult(method, approved) {
+    const approvalApi = getCodexApprovalViewApi();
+    if (approvalApi && typeof approvalApi.buildApprovalDecisionResult === 'function') {
+        const result = approvalApi.buildApprovalDecisionResult({ method, responseMode: 'decision' }, approved);
+        if (result) {
+            return result;
+        }
+    }
     if (method === 'item/commandExecution/requestApproval' || method === 'item/fileChange/requestApproval') {
         return { decision: approved ? 'approve' : 'decline' };
     }
@@ -1743,66 +1761,263 @@ function resolveApprovalSummary(method, params) {
     return `Approval requested: ${method || 'unknown'}`;
 }
 
+function getCodexRequestState(requestId) {
+    if (!requestId) return null;
+    return codexState.requestStateById.get(requestId) || null;
+}
+
+function setCodexRequestState(nextState) {
+    if (!nextState || !nextState.requestId) return;
+    codexState.requestStateById.set(nextState.requestId, nextState);
+}
+
+function clearCodexRequestCards() {
+    codexState.requestStateById.forEach((requestState) => {
+        if (requestState && requestState.entry && requestState.entry.isConnected) {
+            requestState.entry.remove();
+        }
+    });
+    codexState.requestStateById.clear();
+}
+
+function resolveCodexRequestActionLabel(requestState) {
+    if (!requestState || typeof requestState !== 'object') {
+        return 'approval';
+    }
+    if (requestState.requestKind === 'patch') return 'patch';
+    if (requestState.requestKind === 'file') return 'file';
+    if (requestState.requestKind === 'command') return 'command';
+    if (requestState.requestKind === 'userInput') return 'input';
+    return 'approval';
+}
+
+function updateCodexRequestCard(requestState) {
+    if (!requestState || !requestState.entry || !requestState.entry.isConnected) {
+        return;
+    }
+    const approvalApi = getCodexApprovalViewApi();
+    const entry = requestState.entry;
+    entry.classList.toggle('codex-request-pending', requestState.status === 'pending');
+    entry.classList.toggle('codex-request-submitted', requestState.status === 'submitted');
+    entry.classList.toggle('codex-request-resolved', requestState.status === 'resolved');
+
+    const statusNode = entry.querySelector('.codex-request-status');
+    if (statusNode) {
+        statusNode.textContent = approvalApi && typeof approvalApi.resolveApprovalStatusText === 'function'
+            ? approvalApi.resolveApprovalStatusText(requestState)
+            : (requestState.status || 'pending');
+    }
+    const metaNode = entry.querySelector('.meta');
+    if (metaNode) {
+        const actionLabel = resolveCodexRequestActionLabel(requestState);
+        if (requestState.status === 'resolved') {
+            metaNode.textContent = `${actionLabel}: ${requestState.resolution || 'resolved'}`;
+        } else if (requestState.status === 'submitted') {
+            metaNode.textContent = `${actionLabel}: submitted`;
+        } else {
+            metaNode.textContent = `${actionLabel}: pending`;
+        }
+    }
+    const approveBtn = entry.querySelector('[data-request-action="approve"]');
+    const rejectBtn = entry.querySelector('[data-request-action="reject"]');
+    const isLocked = requestState.status !== 'pending';
+    if (approveBtn) approveBtn.disabled = isLocked;
+    if (rejectBtn) rejectBtn.disabled = isLocked;
+}
+
+function markCodexRequestState(requestId, status, resolution) {
+    const requestState = getCodexRequestState(requestId);
+    if (!requestState) return;
+    requestState.status = status;
+    if (resolution) {
+        requestState.resolution = resolution;
+    }
+    updateCodexRequestCard(requestState);
+}
+
+function reconcileCodexRequestStatesWithServerState(pendingRequests) {
+    const approvalApi = getCodexApprovalViewApi();
+    codexState.pendingServerRequests = Array.isArray(pendingRequests) ? pendingRequests.slice() : [];
+    if (!approvalApi || typeof approvalApi.pickResolvedRequestIds !== 'function') {
+        return;
+    }
+    const activeRequestIds = codexState.pendingServerRequests
+        .filter((entry) => entry && typeof entry.requestId === 'string')
+        .map((entry) => entry.requestId);
+    const resolvedIds = approvalApi.pickResolvedRequestIds(
+        activeRequestIds,
+        Array.from(codexState.requestStateById.values())
+    );
+    resolvedIds.forEach((requestId) => {
+        markCodexRequestState(requestId, 'resolved');
+    });
+    codexState.pendingServerRequests.forEach((request) => {
+        if (!request || !request.requestId) return;
+        const existing = getCodexRequestState(request.requestId);
+        if (!existing || !existing.entry || !existing.entry.isConnected) {
+            renderCodexServerRequest({
+                ...request,
+                handledBy: 'client'
+            });
+        }
+    });
+}
+
 function renderCodexServerRequest(envelope) {
-    const requestId = envelope && typeof envelope.requestId === 'string'
-        ? envelope.requestId
-        : '';
-    const method = envelope && typeof envelope.method === 'string'
-        ? envelope.method
-        : 'unknown';
-    if (!requestId) {
+    const approvalApi = getCodexApprovalViewApi();
+    const request = approvalApi && typeof approvalApi.normalizeApprovalRequest === 'function'
+        ? approvalApi.normalizeApprovalRequest(envelope)
+        : null;
+    const requestId = request ? request.requestId : '';
+    const method = request ? request.method : (envelope && typeof envelope.method === 'string' ? envelope.method : 'unknown');
+    if (!requestId || !request) {
         appendCodexLogEntry('system', `Codex server request received: ${method}`, { meta: 'approval' });
         return;
     }
-
-    const existing = codexState.requestEntryById.get(requestId);
-    if (existing && existing.isConnected) {
+    if (request.handledBy !== 'client') {
+        const autoSummary = approvalApi && typeof approvalApi.resolveApprovalSummaryText === 'function'
+            ? approvalApi.resolveApprovalSummaryText(request)
+            : resolveApprovalSummary(method, envelope && envelope.params ? envelope.params : {});
+        appendCodexLogEntry('system', `Codex server request auto-handled: ${autoSummary}`, { meta: request.requestKind || 'approval' });
         return;
     }
 
+    const existing = getCodexRequestState(requestId);
+    if (existing && existing.entry && existing.entry.isConnected) {
+        return;
+    }
+
+    const summary = approvalApi && typeof approvalApi.resolveApprovalSummaryText === 'function'
+        ? approvalApi.resolveApprovalSummaryText(request)
+        : resolveApprovalSummary(method, envelope.params || {});
     const entry = appendCodexLogEntry(
         'system',
-        resolveApprovalSummary(method, envelope.params || {}),
+        summary,
         { meta: 'approval', itemId: `request:${requestId}` }
     );
     if (!entry) return;
+    entry.classList.add('codex-request-card', `kind-${request.requestKind || 'unknown'}`);
+
+    const titleNode = document.createElement('div');
+    titleNode.className = 'codex-request-title';
+    titleNode.textContent = request.title || 'Codex Approval';
+    entry.insertBefore(titleNode, entry.querySelector('.content'));
+
+    const statusNode = document.createElement('div');
+    statusNode.className = 'codex-request-status';
+    entry.appendChild(statusNode);
 
     const actions = document.createElement('div');
-    actions.className = 'actions';
-    const approveBtn = document.createElement('button');
-    approveBtn.type = 'button';
-    approveBtn.className = 'primary';
-    approveBtn.textContent = 'Approve';
-    const rejectBtn = document.createElement('button');
-    rejectBtn.type = 'button';
-    rejectBtn.textContent = 'Reject';
-    actions.appendChild(approveBtn);
-    actions.appendChild(rejectBtn);
-    entry.appendChild(actions);
-    codexState.requestEntryById.set(requestId, entry);
+    actions.className = 'codex-request-actions';
+    const questionSelections = {};
+    let approveBtn = null;
+    let rejectBtn = null;
+    if (request.responseMode === 'answers' && Array.isArray(request.questions) && request.questions.length > 0) {
+        request.questions.forEach((question) => {
+            const questionWrap = document.createElement('div');
+            questionWrap.className = 'codex-request-question';
 
-    const setResolved = (label) => {
-        approveBtn.disabled = true;
-        rejectBtn.disabled = true;
-        const metaNode = entry.querySelector('.meta');
-        if (metaNode) {
-            metaNode.textContent = `approval: ${label}`;
-        }
+            const questionLabel = document.createElement('div');
+            questionLabel.className = 'codex-request-question-label';
+            questionLabel.textContent = typeof question.question === 'string' && question.question.trim()
+                ? question.question.trim()
+                : (question.id || 'Question');
+            questionWrap.appendChild(questionLabel);
+
+            const optionsWrap = document.createElement('div');
+            optionsWrap.className = 'codex-request-question-options';
+            const options = Array.isArray(question.options) ? question.options : [];
+            options.forEach((option) => {
+                const optionLabel = typeof option.label === 'string' ? option.label.trim() : '';
+                if (!optionLabel) return;
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = optionLabel;
+                button.dataset.questionId = question.id || '';
+                button.dataset.answerLabel = optionLabel;
+                button.addEventListener('click', () => {
+                    questionSelections[question.id] = optionLabel;
+                    Array.from(optionsWrap.querySelectorAll('button')).forEach((node) => {
+                        node.classList.toggle('selected', node.dataset.answerLabel === optionLabel);
+                    });
+                    submitBtn.disabled = Array.isArray(request.questions)
+                        ? request.questions.some((entry) => !questionSelections[entry.id])
+                        : false;
+                });
+                optionsWrap.appendChild(button);
+            });
+            questionWrap.appendChild(optionsWrap);
+            actions.appendChild(questionWrap);
+        });
+        const submitBtn = document.createElement('button');
+        submitBtn.type = 'button';
+        submitBtn.className = 'primary';
+        submitBtn.dataset.requestAction = 'approve';
+        submitBtn.textContent = 'Submit';
+        submitBtn.disabled = true;
+        const rejectUserInputBtn = document.createElement('button');
+        rejectUserInputBtn.type = 'button';
+        rejectUserInputBtn.dataset.requestAction = 'reject';
+        rejectUserInputBtn.textContent = 'Cancel';
+        actions.appendChild(submitBtn);
+        actions.appendChild(rejectUserInputBtn);
+        approveBtn = submitBtn;
+        rejectBtn = rejectUserInputBtn;
+    } else {
+        approveBtn = document.createElement('button');
+        approveBtn.type = 'button';
+        approveBtn.className = 'primary';
+        approveBtn.dataset.requestAction = 'approve';
+        approveBtn.textContent = 'Approve';
+        rejectBtn = document.createElement('button');
+        rejectBtn.type = 'button';
+        rejectBtn.dataset.requestAction = 'reject';
+        rejectBtn.textContent = 'Reject';
+        actions.appendChild(approveBtn);
+        actions.appendChild(rejectBtn);
+    }
+    entry.appendChild(actions);
+
+    const requestState = {
+        ...request,
+        entry,
+        status: 'pending',
+        resolution: ''
     };
+    setCodexRequestState(requestState);
+    updateCodexRequestCard(requestState);
 
     approveBtn.addEventListener('click', () => {
-        const result = buildApprovalDecisionResult(method, true);
+        const result = requestState.responseMode === 'answers'
+            ? (approvalApi && typeof approvalApi.buildUserInputResult === 'function'
+                ? approvalApi.buildUserInputResult(requestState, questionSelections)
+                : null)
+            : (approvalApi && typeof approvalApi.buildApprovalDecisionResult === 'function'
+                ? approvalApi.buildApprovalDecisionResult(requestState, true)
+                : buildApprovalDecisionResult(method, true));
         if (!result) return;
         if (sendCodexEnvelope({ type: 'codex_server_request_response', requestId, result })) {
-            setResolved('approved');
+            markCodexRequestState(requestId, 'submitted', requestState.responseMode === 'answers' ? 'submitted' : 'approved');
         }
     });
 
     rejectBtn.addEventListener('click', () => {
-        const result = buildApprovalDecisionResult(method, false);
+        if (requestState.responseMode === 'answers') {
+            if (sendCodexEnvelope({
+                type: 'codex_server_request_response',
+                requestId,
+                error: { message: 'User input request cancelled by user.' }
+            })) {
+                markCodexRequestState(requestId, 'submitted', 'rejected');
+            }
+            return;
+        }
+        const result = approvalApi && typeof approvalApi.buildApprovalDecisionResult === 'function'
+            ? approvalApi.buildApprovalDecisionResult(requestState, false)
+            : buildApprovalDecisionResult(method, false);
         if (!result) return;
         if (sendCodexEnvelope({ type: 'codex_server_request_response', requestId, result })) {
-            setResolved('rejected');
+            markCodexRequestState(requestId, 'submitted', 'rejected');
         }
     });
 }
@@ -1820,7 +2035,7 @@ function handleCodexThreadSnapshot(thread) {
     }
     codexLog.innerHTML = '';
     codexState.messageByItemId.clear();
-    codexState.requestEntryById.clear();
+    clearCodexRequestCards();
     clearCodexRuntimePanels();
     clearCodexAlerts();
 
@@ -2430,6 +2645,9 @@ function connect() {
                     codexState.pendingServerRequestCount = Number.isFinite(envelope.pendingServerRequestCount)
                         ? envelope.pendingServerRequestCount
                         : 0;
+                    reconcileCodexRequestStatesWithServerState(
+                        Array.isArray(envelope.pendingServerRequests) ? envelope.pendingServerRequests : []
+                    );
                     if (Object.prototype.hasOwnProperty.call(envelope, 'tokenUsage')) {
                         applyCodexTokenUsage(envelope.tokenUsage);
                     }

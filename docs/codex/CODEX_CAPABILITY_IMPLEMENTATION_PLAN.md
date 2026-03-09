@@ -28,8 +28,8 @@
 | reasoning effort | 已确认可做 | 已实现（Web） | MVP-P2 | 会话默认值可持久化并透传到 `turn/start`。 |
 | personality | 已确认可做 | 已实现（Web） | MVP-P2 | 会话默认值可持久化并透传到 `turn/start`。 |
 | account/rateLimits/read | 协议存在，基本可做 | 已实现（Web） | MVP-P2 | 设置面板支持主动刷新，头部摘要与设置状态共用限额快照。 |
-| approvals(command/file/patch) | 已确认可做 | 已实现基础版 | MVP-P3 | 统一卡片模型与状态机（pending/submitted/resolved）。 |
-| requestUserInput | 已确认可做 | 已实现基础版 | MVP-P3 | 并入统一交互卡片体系。 |
+| approvals(command/file/patch) | 已确认可做 | 已实现（共享前端） | MVP-P3 | 已完成统一卡片模型与状态机（pending/submitted/resolved），待 Android 真机确认小屏可操作性。 |
+| requestUserInput | 已确认可做 | 已实现（共享前端） | MVP-P3 | 已并入统一交互卡片体系，当前覆盖选项式 `answers`，更复杂题型待后续增强。 |
 | diff/plan/reasoning streaming | 已确认可做 | 已实现（Web） | MVP-P2 | 已拆分为 `Diff/Plan/Reasoning/Terminal Output` 运行态区块，并支持快照重建。 |
 | configWarning/deprecationNotice | 协议存在，基本可做 | 已实现（Web） | MVP-P2 | 已接入顶层告警卡片、状态摘要和运行态 warning 区。 |
 | thread/fork | 协议存在，基本可做 | 未实现 | NEXT-P4 | 后续开放白名单。 |
@@ -47,7 +47,7 @@
 ## 3. MVP 缺口清单
 
 1. `codex_state` 字段仍未完整覆盖 `activeModel/activeReasoningEffort/activePersonality/lastError/warnings`。
-2. 审批与用户输入尚未统一状态机，重连恢复不完整。
+2. 审批与用户输入的共享状态机已实现，但 Android 真机小屏闭环与更复杂 user input 形态仍待补。
 3. 浏览器端仍缺真实 DOM/WebSocket 集成验证；当前以静态页面回归和纯逻辑测试为主。
 4. Android 原生壳层尚未提供独立历史线程列表 UI；当前依赖共享 Web 客户端能力与 Session 元数据同步。
 
@@ -272,3 +272,36 @@ MVP 白名单：
 
 1. 若继续推进 `Reasoning` 验收，应新增“稳定产出 reasoning 事件”的专项验证场景，而不是再用 commentary 做前端降级。
 2. 如需让 `Plan` 在 turn 完成后仍保留最后一次原生内容，需要单独决定是否允许“同 thread 内保留上一次 runtime 值”。
+
+## 12. Phase 3 小屏交互真机验证（2026-03-09）
+
+验证环境：
+
+1. 服务端：当前仓库启动，`PORT=3010`，BasicAuth 为 `admin/admin`。
+2. 设备：`MQS7N19402011743`。
+3. Profile：`85a6d61c-a83b-40e5-b1f6-41ce7aa7dab0`，`baseUrl=http://192.168.50.12:3010`。
+4. 会话：`b0ffb2fc-154f-4956-8f41-96272088b039`，`sessionMode=codex`，`codexConfig=medium/pragmatic/on-request/workspace-write`。
+
+结论：
+
+1. 真机冷启动通过：
+   - App 已加载最新 `codex_client.html?v=28` 与 `terminal_client.js?v=33`
+   - `/api/sessions` 显示该会话 `activeConnections=1`
+   - 冷启动后建立 thread `019cd33c-01fd-7ea0-9ebc-63ffd4743f2c`
+2. 重启恢复通过：
+   - 强停后 `activeConnections` 从 `1` 回收到 `0`
+   - 冷启动后回到同一 `sessionId` 与同一 `lastCodexThreadId`
+3. 手机端共享 UI 机械验证通过：
+   - synthetic `command` / `userInput` 卡片可在真机页面渲染
+   - `Continue` 选项可点击并切到选中态
+   - 卡片状态可从 `pending -> submitted -> resolved`
+   - `#codex-composer` 计算样式保持 `sticky`
+4. 本轮端到端未观察到真实 server request：
+   - `approvalPolicy=on-request` 下，`pwd` 直接执行返回，没有出现 approval card
+   - 要求调用 `request_user_input` 时，模型返回“当前 mode 不支持”而不是发出真实 request
+
+后续动作：
+
+1. 单独排查为什么当前本地 app-server/agent 场景没有产出真实 approval request。
+2. 寻找可稳定触发 `item/tool/requestUserInput` 的上游场景，再补一轮端到端真机验证。
+3. 在真实 server request 未出现前，Phase 3 可视为“共享前端与真机 UI 已通过，端到端上游触发仍待补证”。

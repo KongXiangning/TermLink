@@ -22,7 +22,8 @@ test('codex client shell includes history panel and shared codex scripts', () =>
     assert.match(html, /src="lib\/codex_history_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_settings_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
-    assert.match(html, /src="terminal_client\.js\?v=32"/);
+    assert.match(html, /src="lib\/codex_approval_view\.js\?v=1"/);
+    assert.match(html, /src="terminal_client\.js\?v=33"/);
 });
 
 test('terminal client shell shares scripts but does not expose codex history panel markup', () => {
@@ -35,7 +36,8 @@ test('terminal client shell shares scripts but does not expose codex history pan
     assert.match(html, /src="lib\/codex_history_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_settings_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
-    assert.match(html, /src="terminal_client\.js\?v=32"/);
+    assert.match(html, /src="lib\/codex_approval_view\.js\?v=1"/);
+    assert.match(html, /src="terminal_client\.js\?v=33"/);
 });
 
 test('terminal client stylesheet collapses the codex settings panel with the rest of the codex body', () => {
@@ -47,4 +49,6 @@ test('terminal client stylesheet collapses the codex settings panel with the res
     assert.match(css, /body\.codex-only #terminal-shell\s*\{[\s\S]*height:\s*auto/);
     assert.match(css, /body\.codex-only #codex-panel\s*\{[\s\S]*overflow:\s*visible/);
     assert.match(css, /body\.codex-only #codex-composer\s*\{[\s\S]*position:\s*sticky/);
+    assert.match(css, /\.codex-request-card/);
+    assert.match(css, /\.codex-request-actions/);
 });

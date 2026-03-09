@@ -130,6 +130,56 @@ function extractThreadIdFromParams(params) {
     return null;
 }
 
+function describeServerRequestMethod(method) {
+    const normalizedMethod = isNonEmptyString(method) ? method.trim() : '';
+    if (normalizedMethod === 'item/commandExecution/requestApproval') {
+        return {
+            method: normalizedMethod,
+            requestKind: 'command',
+            responseMode: 'decision',
+            handledByClient: true
+        };
+    }
+    if (normalizedMethod === 'execCommandApproval') {
+        return {
+            method: normalizedMethod,
+            requestKind: 'command',
+            responseMode: 'decision',
+            handledByClient: true
+        };
+    }
+    if (normalizedMethod === 'item/fileChange/requestApproval') {
+        return {
+            method: normalizedMethod,
+            requestKind: 'file',
+            responseMode: 'decision',
+            handledByClient: true
+        };
+    }
+    if (normalizedMethod === 'applyPatchApproval') {
+        return {
+            method: normalizedMethod,
+            requestKind: 'patch',
+            responseMode: 'decision',
+            handledByClient: true
+        };
+    }
+    if (normalizedMethod === 'item/tool/requestUserInput') {
+        return {
+            method: normalizedMethod,
+            requestKind: 'userInput',
+            responseMode: 'answers',
+            handledByClient: true
+        };
+    }
+    return {
+        method: normalizedMethod,
+        requestKind: 'unknown',
+        responseMode: 'unknown',
+        handledByClient: false
+    };
+}
+
 class CodexAppServerService extends EventEmitter {
     constructor() {
         super();
@@ -390,12 +440,15 @@ class CodexAppServerService extends EventEmitter {
 
     handleServerRequest(message) {
         const requestId = String(message.id);
-        if (this.shouldDeferServerRequest(message.method)) {
+        const descriptor = describeServerRequestMethod(message.method);
+        if (descriptor.handledByClient) {
             this.pendingServerRequests.set(requestId, message);
             this.emit('server_request', {
                 requestId,
                 message,
-                handledBy: 'client'
+                handledBy: 'client',
+                requestKind: descriptor.requestKind,
+                responseMode: descriptor.responseMode
             });
             return;
         }
@@ -407,7 +460,9 @@ class CodexAppServerService extends EventEmitter {
             this.emit('server_request', {
                 requestId,
                 message,
-                handledBy: 'default-error'
+                handledBy: 'default-error',
+                requestKind: descriptor.requestKind,
+                responseMode: descriptor.responseMode
             });
             return;
         }
@@ -417,15 +472,14 @@ class CodexAppServerService extends EventEmitter {
             requestId,
             message,
             handledBy: 'default-result',
-            result: defaultResponse.result
+            result: defaultResponse.result,
+            requestKind: descriptor.requestKind,
+            responseMode: descriptor.responseMode
         });
     }
 
     shouldDeferServerRequest(method) {
-        return method === 'item/commandExecution/requestApproval'
-            || method === 'item/fileChange/requestApproval'
-            || method === 'applyPatchApproval'
-            || method === 'execCommandApproval';
+        return describeServerRequestMethod(method).handledByClient;
     }
 
     buildDefaultServerRequestResponse(message) {
