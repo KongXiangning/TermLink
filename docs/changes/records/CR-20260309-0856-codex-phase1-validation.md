@@ -1,9 +1,9 @@
 ---
 title: Codex 能力矩阵驱动主线需求（MVP + 下一阶段）- Phase 1 验证与同步记录
-status: draft
+status: active
 record_id: CR-20260309-0856-codex-phase1-validation
 req_id: REQ-20260309-codex-capability-mvp
-commit_ref: TBD
+commit_ref: f383fbf
 owner: @maintainer
 last_updated: 2026-03-09
 source_of_truth: code
