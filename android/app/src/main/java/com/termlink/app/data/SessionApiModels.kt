@@ -53,14 +53,16 @@ data class SessionSummary(
     val createdAt: Long,
     val lastActiveAt: Long,
     val sessionMode: SessionMode = SessionMode.TERMINAL,
-    val cwd: String? = null
+    val cwd: String? = null,
+    val lastCodexThreadId: String? = null
 )
 
 data class SessionRef(
     val id: String,
     val name: String,
     val sessionMode: SessionMode = SessionMode.TERMINAL,
-    val cwd: String? = null
+    val cwd: String? = null,
+    val lastCodexThreadId: String? = null
 )
 
 data class SessionSelection(

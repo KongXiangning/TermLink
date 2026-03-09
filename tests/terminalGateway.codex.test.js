@@ -104,11 +104,22 @@ class MockCodexService extends EventEmitter {
         if (method === 'thread/start') {
             return Promise.resolve({ thread: { id: `thread-${this.requests.length}` } });
         }
+        if (method === 'thread/list') {
+            return Promise.resolve({
+                threads: [
+                    { id: 'thread-a', title: 'Thread A' },
+                    { id: 'thread-b', title: 'Thread B' }
+                ]
+            });
+        }
         if (method === 'turn/start') {
             return Promise.resolve({ turn: { id: `turn-${this.requests.length}` } });
         }
         if (method === 'thread/read') {
             return Promise.resolve({ thread: { id: params.threadId, turns: [] } });
+        }
+        if (method === 'thread/resume') {
+            return Promise.resolve({ thread: { id: params.threadId || 'thread-resumed' } });
         }
         if (method === 'turn/interrupt') {
             return Promise.resolve({});
@@ -185,6 +196,331 @@ test('codex_new_thread falls back to session cwd when request omits cwd', async 
     const threadStart = service.requests.find((entry) => entry.method === 'thread/start');
     assert.ok(threadStart, 'thread/start should be invoked');
     assert.equal(threadStart.params.cwd, 'D:\\workspace\\demo');
+    assert.equal(session.lastCodexThreadId, 'thread-1');
+});
+
+test('session_info includes lastCodexThreadId metadata when available', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        cwd: 'D:\\workspace\\demo'
+    });
+    session.lastCodexThreadId = 'thread-99';
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    const sessionInfo = ws.sent.find((entry) => entry.type === 'session_info');
+    assert.ok(sessionInfo, 'session_info should be sent to client');
+    assert.equal(sessionInfo.lastCodexThreadId, 'thread-99');
+
+    const capabilitiesEnvelope = ws.sent.find((entry) => entry.type === 'codex_capabilities');
+    assert.ok(capabilitiesEnvelope, 'codex_capabilities should be sent to client');
+    assert.deepEqual(capabilitiesEnvelope.capabilities, {
+        historyList: true,
+        historyResume: true,
+        modelConfig: false,
+        rateLimitsRead: false,
+        approvals: true,
+        userInputRequest: false,
+        diffPlanReasoning: false,
+        skillsList: false,
+        compact: false,
+        imageInput: false
+    });
+});
+
+test('codex_request rejects methods outside the Phase 1 whitelist', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session');
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-1',
+        method: 'model/list'
+    }));
+
+    const response = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-1');
+    assert.ok(response, 'codex_response should be returned');
+    assert.equal(response.error.code, 'CODEX_METHOD_NOT_ALLOWED');
+
+    const service = MockCodexService.instances[0];
+    const modelListCall = service.requests.find((entry) => entry.method === 'model/list');
+    assert.equal(modelListCall, undefined, 'disallowed method must not be forwarded');
+});
+
+test('codex_request thread/read does not overwrite lastCodexThreadId', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        codexState: {
+            threadId: 'thread-current',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null
+        }
+    });
+    session.lastCodexThreadId = 'thread-current';
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-2',
+        method: 'thread/read',
+        params: {
+            threadId: 'thread-other',
+            includeTurns: true
+        }
+    }));
+
+    assert.equal(session.lastCodexThreadId, 'thread-current');
+    assert.equal(session.codexState.threadId, 'thread-current');
+});
+
+test('codex_request forwards Phase 1 whitelisted methods', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session');
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-3',
+        method: 'thread/list',
+        params: {
+            limit: 20
+        }
+    }));
+
+    const service = MockCodexService.instances[0];
+    const threadListCall = service.requests.find((entry) => entry.method === 'thread/list');
+    assert.ok(threadListCall, 'thread/list should be forwarded');
+
+    const response = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-3');
+    assert.ok(response, 'codex_response should be returned');
+    assert.deepEqual(response.result, {
+        threads: [
+            { id: 'thread-a', title: 'Thread A' },
+            { id: 'thread-b', title: 'Thread B' }
+        ]
+    });
+});
+
+test('thread/resume rebinds the session so stale old-thread traffic is ignored', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        codexState: {
+            threadId: 'thread-old',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null
+        }
+    });
+    session.lastCodexThreadId = 'thread-old';
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-resume',
+        method: 'thread/resume',
+        params: {
+            threadId: 'thread-new'
+        }
+    }));
+
+    const service = MockCodexService.instances[0];
+    const baselineCount = ws.sent.length;
+
+    service.emit('notification', {
+        method: 'thread/tokenUsage/updated',
+        params: {
+            threadId: 'thread-old',
+            inputTokens: 10
+        }
+    });
+    service.emit('server_request', {
+        requestId: 'req-old-thread',
+        handledBy: 'client',
+        message: {
+            id: 'req-old-thread',
+            method: 'execCommandApproval',
+            params: {
+                threadId: 'thread-old',
+                command: 'dir'
+            }
+        }
+    });
+    service.emit('notification', {
+        method: 'thread/tokenUsage/updated',
+        params: {
+            threadId: 'thread-new',
+            inputTokens: 99
+        }
+    });
+
+    const newMessages = ws.sent.slice(baselineCount);
+    assert.equal(
+        newMessages.some((entry) => entry.type === 'codex_server_request' && entry.requestId === 'req-old-thread'),
+        false
+    );
+    assert.equal(
+        newMessages.some((entry) => entry.type === 'codex_notification' && entry.params && entry.params.threadId === 'thread-old'),
+        false
+    );
+    assert.equal(
+        newMessages.some((entry) => entry.type === 'codex_notification' && entry.params && entry.params.threadId === 'thread-new'),
+        true
+    );
+    assert.deepEqual(session.codexState.tokenUsage, {
+        threadId: 'thread-new',
+        inputTokens: 99
+    });
+});
+
+test('thread/resume clears stale runtime state before emitting the new snapshot', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        codexState: {
+            threadId: 'thread-old',
+            currentTurnId: 'turn-old',
+            status: 'running',
+            pendingServerRequests: [{ requestId: 'req-old', method: 'execCommandApproval' }],
+            tokenUsage: {
+                threadId: 'thread-old',
+                inputTokens: 120
+            },
+            rateLimitState: {
+                remaining: 2,
+                limit: 10
+            }
+        }
+    });
+    session.lastCodexThreadId = 'thread-old';
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+    const baselineStateCount = ws.sent.filter((entry) => entry.type === 'codex_state').length;
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-resume-2',
+        method: 'thread/resume',
+        params: {
+            threadId: 'thread-new'
+        }
+    }));
+
+    assert.equal(session.codexState.threadId, 'thread-new');
+    assert.equal(session.codexState.currentTurnId, null);
+    assert.equal(session.codexState.status, 'idle');
+    assert.deepEqual(session.codexState.pendingServerRequests, []);
+    assert.equal(session.codexState.tokenUsage, null);
+    assert.deepEqual(session.codexState.rateLimitState, {
+        remaining: 2,
+        limit: 10
+    });
+
+    const stateEnvelopes = ws.sent.filter((entry) => entry.type === 'codex_state');
+    assert.ok(stateEnvelopes.length > baselineStateCount, 'resume should emit an updated codex_state');
+    const lastState = stateEnvelopes[stateEnvelopes.length - 1];
+    assert.equal(lastState.threadId, 'thread-new');
+    assert.equal(lastState.currentTurnId, null);
+    assert.equal(lastState.status, 'idle');
+    assert.equal(lastState.approvalPending, false);
+    assert.equal(lastState.pendingServerRequestCount, 0);
+    assert.equal(lastState.tokenUsage, null);
+    assert.deepEqual(lastState.rateLimitState, {
+        remaining: 2,
+        limit: 10
+    });
 });
 
 test('codex_set_cwd updates session cwd used by subsequent turn/start', async (t) => {

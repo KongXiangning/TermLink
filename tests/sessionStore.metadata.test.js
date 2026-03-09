@@ -19,11 +19,12 @@ test('SessionStore normalizes legacy records to terminal mode with null cwd', ()
         lastActiveAt: 2,
         status: 'IDLE',
         sessionMode: 'terminal',
-        cwd: null
+        cwd: null,
+        lastCodexThreadId: null
     });
 });
 
-test('SessionStore preserves codex mode and trimmed cwd', () => {
+test('SessionStore preserves codex mode, trimmed cwd, and last codex thread id', () => {
     const store = new SessionStore({ enabled: false });
     const [record] = store._normalizeRecords([{
         id: 'codex-1',
@@ -32,7 +33,8 @@ test('SessionStore preserves codex mode and trimmed cwd', () => {
         lastActiveAt: 20,
         status: 'ACTIVE',
         sessionMode: 'codex',
-        cwd: ' D:\\workspace\\demo '
+        cwd: ' D:\\workspace\\demo ',
+        lastCodexThreadId: ' thread-42 '
     }]);
 
     assert.deepEqual(record, {
@@ -42,6 +44,7 @@ test('SessionStore preserves codex mode and trimmed cwd', () => {
         lastActiveAt: 20,
         status: 'ACTIVE',
         sessionMode: 'codex',
-        cwd: 'D:\\workspace\\demo'
+        cwd: 'D:\\workspace\\demo',
+        lastCodexThreadId: 'thread-42'
     });
 });

@@ -19,9 +19,9 @@
 | capability | matrix_status | repo_status | target_phase | implementation_notes |
 |---|---|---|---|---|
 | thread/start | 已确认可做 | 已实现 | baseline | 已作为 Codex 会话启动主链路。 |
-| thread/list | 已确认可做 | 未产品化 | MVP-P1 | 接入历史线程列表入口，补齐缓存与空态。 |
+| thread/list | 已确认可做 | 已实现（Web） | MVP-P1 | 网关白名单已开放，客户端已支持预取历史线程，Web 端已有列表、空态与刷新入口。 |
 | thread/read | 协议存在，基本可做 | 已实现基础版 | MVP-P1 | 统一读取策略，避免与 `codex_state` 职责混淆。 |
-| thread/resume | 协议存在，基本可做 | 未实现 | MVP-P1 | 结合 `lastCodexThreadId` 自动恢复。 |
+| thread/resume | 协议存在，基本可做 | 已实现（Web） | MVP-P1 | 已支持自动恢复、手动恢复、失败回退和重连保护。 |
 | turn/start | 已确认可做 | 已实现 | baseline | 保持主链路并接入会话默认配置。 |
 | turn/interrupt | 已确认可做 | 已实现 | baseline | 保持现有行为并补充错误提示一致性。 |
 | model/list | 已确认可做 | 未实现 | MVP-P2 | 用于模型选择与可用 effort 约束。 |
@@ -46,13 +46,12 @@
 
 ## 3. MVP 缺口清单
 
-1. 缺少历史线程列表与恢复闭环（`thread/list + thread/resume`）。
-2. 缺少会话级 `codexConfig` 数据结构与持久化。
-3. 缺少 `model/list` 与 `account/rateLimits/read` 的产品化入口。
-4. 缺少 `codex_capabilities` 声明消息和前端能力门控。
-5. `codex_request` 仍偏通用透传，缺少方法白名单治理。
-6. `codex_state` 字段未完整覆盖 `activeModel/activeReasoningEffort/activePersonality/lastError/warnings`。
-7. 审批与用户输入尚未统一状态机，重连恢复不完整。
+1. 缺少会话级 `codexConfig` 数据结构与持久化。
+2. 缺少 `model/list` 与 `account/rateLimits/read` 的产品化入口。
+3. `codex_state` 字段未完整覆盖 `activeModel/activeReasoningEffort/activePersonality/lastError/warnings`。
+4. 审批与用户输入尚未统一状态机，重连恢复不完整。
+5. 浏览器端仍缺真实 DOM/WebSocket 集成验证；当前以静态页面回归和纯逻辑测试为主。
+6. Android 原生壳层尚未提供独立历史线程列表 UI；当前依赖共享 Web 客户端能力与 Session 元数据同步。
 
 ## 4. 接口收敛策略
 
@@ -179,6 +178,7 @@ MVP 白名单：
 | ws | `codex_capabilities` 下发 | 前端入口按 capability 显示 |
 | ws | 非白名单 `codex_request` | 返回明确错误 |
 | runtime | `thread/list + thread/resume` | 可恢复历史上下文 |
+| browser | `codex_client.html` 历史线程面板 | 仅在 `historyList=true` 时展示，可刷新并手动恢复 |
 | runtime | `model/effort/personality` 切换 | 新 turn 生效 |
 | runtime | `account/rateLimits/read` | 主动刷新成功 |
 | runtime | approvals + userInput | 闭环完成且重连可恢复 |
@@ -196,6 +196,10 @@ MVP 白名单：
    - 缓解：白名单变更必须先改文档再改代码。
 4. 风险：Android 优先引发 Browser 分叉。
    - 缓解：协议共享优先，端侧仅做展示差异。
+5. 风险：`lastCodexThreadId` 被只读类桥接请求误写，导致历史线程恢复指向错误线程。
+   - 缓解：仅允许 `thread/start`、后续 `thread/resume` 等真正改变绑定关系的操作更新该字段；`thread/read`、列表查询和诊断类请求不得修改恢复指针。
+6. 风险：Phase 1 当前主要完成 Web 侧历史线程闭环，Android 原生入口仍未产品化，可能导致“Android 优先”验收项不完整。
+   - 缓解：当前保持协议、Session 元数据和共享 Web 资产一致，Android 后续可直接复用同一状态机补入口。
 
 回滚策略：
 

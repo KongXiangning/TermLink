@@ -7,7 +7,10 @@ function buildSessionResponse(session) {
         id: session.id,
         name: session.name,
         sessionMode: normalizeSessionMode(session.sessionMode),
-        cwd: normalizeSessionCwd(session.cwd)
+        cwd: normalizeSessionCwd(session.cwd),
+        lastCodexThreadId: typeof session.lastCodexThreadId === 'string' && session.lastCodexThreadId.trim()
+            ? session.lastCodexThreadId.trim()
+            : null
     };
 }
 

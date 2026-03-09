@@ -18,6 +18,10 @@ const btnCodexSend = document.getElementById('btn-codex-send');
 const btnCodexToggle = document.getElementById('btn-codex-toggle');
 const btnCodexNewThread = document.getElementById('btn-codex-new-thread');
 const btnCodexInterrupt = document.getElementById('btn-codex-interrupt');
+const btnCodexHistoryRefresh = document.getElementById('btn-codex-history-refresh');
+const codexHistoryPanel = document.getElementById('codex-history-panel');
+const codexHistoryList = document.getElementById('codex-history-list');
+const codexHistoryEmpty = document.getElementById('codex-history-empty');
 const isCodexOnlyPage = !!(document.body && document.body.classList.contains('codex-only'));
 
 let term;
@@ -93,10 +97,12 @@ const warmupDoneHosts = new Set();
 let quickToolbarVisible = true;
 
 const codexState = {
+    sessionMode: '',
     panelCollapsed: false,
     threadId: '',
     currentTurnId: '',
     lastSnapshotThreadId: '',
+    lastCodexThreadId: '',
     status: 'idle',
     statusDetail: '',
     cwd: '',
@@ -109,6 +115,30 @@ const codexState = {
     streamingItemId: '',
     messageByItemId: new Map(),
     requestEntryById: new Map(),
+    pendingBridgeRequests: new Map(),
+    nextBridgeRequestId: 1,
+    capabilities: {
+        historyList: false,
+        historyResume: false,
+        modelConfig: false,
+        rateLimitsRead: false,
+        approvals: false,
+        userInputRequest: false,
+        diffPlanReasoning: false,
+        skillsList: false,
+        compact: false,
+        imageInput: false
+    },
+    historyThreads: [],
+    historyListLoading: false,
+    historyActionThreadId: '',
+    historyListRequested: false,
+    initialSessionInfoReceived: false,
+    initialCapabilitiesReceived: false,
+    initialCodexStateReceived: false,
+    bootstrapCompleted: false,
+    resumeAttemptedForThreadId: '',
+    fallbackThreadRequested: false,
     lastTokenUsageLog: '',
     lastRateLimitLog: ''
 };
@@ -133,9 +163,17 @@ function getConfiguredSessionMode() {
     return raw === 'codex' ? 'codex' : 'terminal';
 }
 
+function getActiveSessionMode() {
+    const serverMode = typeof codexState.sessionMode === 'string' ? codexState.sessionMode.trim().toLowerCase() : '';
+    if (serverMode === 'codex' || serverMode === 'terminal') {
+        return serverMode;
+    }
+    return getConfiguredSessionMode();
+}
+
 function applySessionModeLayout() {
     if (!document.body) return;
-    const mode = getConfiguredSessionMode();
+    const mode = getActiveSessionMode();
     document.body.classList.toggle('terminal-only', mode !== 'codex');
     if (mode !== 'codex' && codexState.panelCollapsed) {
         codexState.panelCollapsed = false;
@@ -144,6 +182,33 @@ function applySessionModeLayout() {
 
 function getNativeBridge() {
     return window.TerminalEventBridge;
+}
+
+function getCodexBootstrapApi() {
+    if (window.TermLinkCodexBootstrap && typeof window.TermLinkCodexBootstrap.planBootstrap === 'function') {
+        return window.TermLinkCodexBootstrap;
+    }
+    return null;
+}
+
+function getCodexHistoryViewApi() {
+    if (window.TermLinkCodexHistoryView && typeof window.TermLinkCodexHistoryView.buildHistoryEntries === 'function') {
+        return window.TermLinkCodexHistoryView;
+    }
+    return null;
+}
+
+function isTransientCodexBridgeError(errorLike) {
+    const bootstrapApi = getCodexBootstrapApi();
+    if (bootstrapApi && typeof bootstrapApi.isTransientBridgeError === 'function') {
+        return bootstrapApi.isTransientBridgeError(errorLike);
+    }
+    const code = errorLike && typeof errorLike.code === 'string'
+        ? errorLike.code.trim().toUpperCase()
+        : '';
+    return code === 'CODEX_BRIDGE_RESTARTED'
+        || code === 'CODEX_BRIDGE_CLOSED'
+        || code === 'CODEX_BRIDGE_NOT_CONNECTED';
 }
 
 function callNativeBridge(method, args) {
@@ -184,6 +249,7 @@ function setCodexStatus(status, detail) {
         codexStatusText.textContent = `Codex ${codexState.status}${suffix}`;
     }
     renderCodexAuxStatus();
+    renderCodexHistoryList();
 }
 
 function updateCodexThreadLabel() {
@@ -191,10 +257,12 @@ function updateCodexThreadLabel() {
     if (!codexState.threadId) {
         codexThreadIdText.textContent = '';
         renderCodexAuxStatus();
+        renderCodexHistoryList();
         return;
     }
     codexThreadIdText.textContent = `thread ${codexState.threadId}`;
     renderCodexAuxStatus();
+    renderCodexHistoryList();
 }
 
 function renderCodexAuxStatus() {
@@ -232,6 +300,115 @@ function renderCodexAuxStatus() {
         codexNoticeText.classList.toggle('tone-error', tone === 'error');
         codexNoticeText.classList.toggle('tone-warn', tone === 'warn');
     }
+}
+
+function renderCodexHistoryList() {
+    if (!codexHistoryPanel || !codexHistoryList || !codexHistoryEmpty) return;
+
+    const historyApi = getCodexHistoryViewApi();
+    const shouldShowPanel = historyApi && typeof historyApi.shouldShowHistoryPanel === 'function'
+        ? historyApi.shouldShowHistoryPanel({
+            sessionMode: getActiveSessionMode(),
+            capabilities: codexState.capabilities
+        })
+        : (getActiveSessionMode() === 'codex' && codexState.capabilities.historyList === true);
+
+    codexHistoryPanel.hidden = !shouldShowPanel;
+    if (!shouldShowPanel) {
+        codexHistoryList.innerHTML = '';
+        codexHistoryEmpty.classList.add('hidden');
+        return;
+    }
+
+    const entries = historyApi && typeof historyApi.buildHistoryEntries === 'function'
+        ? historyApi.buildHistoryEntries({
+            threads: codexState.historyThreads,
+            currentThreadId: codexState.threadId,
+            lastCodexThreadId: codexState.lastCodexThreadId,
+            actionThreadId: codexState.historyActionThreadId,
+            status: codexState.status
+        })
+        : [];
+
+    codexHistoryList.innerHTML = '';
+
+    let emptyText = '';
+    if (codexState.historyListLoading) {
+        emptyText = 'Loading saved threads...';
+    } else if (entries.length === 0) {
+        emptyText = codexState.capabilities.historyList === true
+            ? 'No saved threads yet.'
+            : 'Thread history is not available on this server.';
+    }
+
+    if (emptyText) {
+        codexHistoryEmpty.textContent = emptyText;
+        codexHistoryEmpty.classList.remove('hidden');
+    } else {
+        codexHistoryEmpty.classList.add('hidden');
+    }
+
+    entries.forEach((entry) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'codex-history-item';
+        if (entry.active) {
+            button.classList.add('active');
+        }
+        button.disabled = entry.disabled;
+
+        const copy = document.createElement('div');
+        copy.className = 'codex-history-copy';
+
+        const name = document.createElement('div');
+        name.className = 'codex-history-name';
+        name.textContent = entry.title;
+        copy.appendChild(name);
+
+        const meta = document.createElement('div');
+        meta.className = 'codex-history-meta';
+        meta.textContent = entry.id;
+        copy.appendChild(meta);
+
+        if (Array.isArray(entry.badges) && entry.badges.length > 0) {
+            const badges = document.createElement('div');
+            badges.className = 'codex-history-badges';
+            entry.badges.forEach((badgeLabel) => {
+                const badge = document.createElement('span');
+                badge.className = 'codex-history-badge';
+                if (badgeLabel === 'Current') {
+                    badge.classList.add('active');
+                }
+                badge.textContent = badgeLabel;
+                badges.appendChild(badge);
+            });
+            copy.appendChild(badges);
+        }
+
+        const action = document.createElement('span');
+        action.className = 'codex-history-action';
+        action.textContent = entry.active ? 'Active' : (entry.pending ? 'Opening...' : 'Open');
+
+        button.appendChild(copy);
+        button.appendChild(action);
+        button.addEventListener('click', () => {
+            if (entry.active) {
+                refreshCodexThreadSnapshot({ threadId: entry.id, force: true });
+                return;
+            }
+            requestCodexResume(entry.id).catch((error) => {
+                if (isTransientCodexBridgeError(error)) {
+                    return;
+                }
+                appendCodexLogEntry(
+                    'error',
+                    `Failed to open Codex thread ${entry.id}: ${error.message || 'unknown error'}`,
+                    { meta: 'history' }
+                );
+            });
+        });
+        codexHistoryList.appendChild(button);
+    });
 }
 
 function clearCodexErrorNotice() {
@@ -319,6 +496,231 @@ function sendCodexEnvelope(payload) {
     }
     ws.send(JSON.stringify(payload));
     return true;
+}
+
+function resetCodexBootstrapState() {
+    if (!codexState.lastCodexThreadId && codexState.threadId) {
+        codexState.lastCodexThreadId = codexState.threadId;
+    }
+    codexState.threadId = '';
+    codexState.currentTurnId = '';
+    codexState.lastSnapshotThreadId = '';
+    codexState.approvalPending = false;
+    codexState.pendingServerRequestCount = 0;
+    codexState.streamingItemId = '';
+    codexState.tokenUsageSummary = '';
+    codexState.historyListLoading = false;
+    codexState.historyActionThreadId = '';
+    codexState.initialSessionInfoReceived = false;
+    codexState.initialCapabilitiesReceived = false;
+    codexState.initialCodexStateReceived = false;
+    codexState.bootstrapCompleted = false;
+    codexState.historyListRequested = false;
+    codexState.resumeAttemptedForThreadId = '';
+    codexState.fallbackThreadRequested = false;
+    codexState.capabilities = {
+        historyList: false,
+        historyResume: false,
+        modelConfig: false,
+        rateLimitsRead: false,
+        approvals: false,
+        userInputRequest: false,
+        diffPlanReasoning: false,
+        skillsList: false,
+        compact: false,
+        imageInput: false
+    };
+    codexState.historyThreads = [];
+    renderCodexHistoryList();
+}
+
+function rejectPendingCodexBridgeRequests(message, code) {
+    const error = new Error(message || 'Codex bridge request failed.');
+    error.code = code || 'CODEX_BRIDGE_REQUEST_ABORTED';
+    codexState.pendingBridgeRequests.forEach((handlers) => {
+        if (handlers && typeof handlers.reject === 'function') {
+            handlers.reject(error);
+        }
+    });
+    codexState.pendingBridgeRequests.clear();
+}
+
+function normalizeCodexCapabilities(payload) {
+    const source = payload && typeof payload === 'object' ? payload : {};
+    return {
+        historyList: source.historyList === true,
+        historyResume: source.historyResume === true,
+        modelConfig: source.modelConfig === true,
+        rateLimitsRead: source.rateLimitsRead === true,
+        approvals: source.approvals === true,
+        userInputRequest: source.userInputRequest === true,
+        diffPlanReasoning: source.diffPlanReasoning === true,
+        skillsList: source.skillsList === true,
+        compact: source.compact === true,
+        imageInput: source.imageInput === true
+    };
+}
+
+function sendCodexBridgeRequest(method, params, options) {
+    const opts = options || {};
+    const normalizedMethod = typeof method === 'string' ? method.trim() : '';
+    if (!normalizedMethod) {
+        return Promise.reject(new Error('Codex bridge request requires a method.'));
+    }
+    const requestId = `bridge-${Date.now()}-${codexState.nextBridgeRequestId++}`;
+    return new Promise((resolve, reject) => {
+        codexState.pendingBridgeRequests.set(requestId, {
+            resolve,
+            reject,
+            method: normalizedMethod,
+            suppressErrorUi: opts.suppressErrorUi === true
+        });
+        const sent = sendCodexEnvelope({
+            type: 'codex_request',
+            requestId,
+            method: normalizedMethod,
+            params: params && typeof params === 'object' ? params : undefined
+        });
+        if (!sent) {
+            codexState.pendingBridgeRequests.delete(requestId);
+            const error = new Error('Codex bridge websocket is not connected.');
+            error.code = 'CODEX_BRIDGE_NOT_CONNECTED';
+            reject(error);
+        }
+    });
+}
+
+function storeCodexThreadList(result) {
+    const threads = result && Array.isArray(result.threads) ? result.threads : [];
+    codexState.historyThreads = threads
+        .filter((entry) => entry && typeof entry === 'object')
+        .map((entry) => ({
+            id: typeof entry.id === 'string' ? entry.id : '',
+            title: typeof entry.title === 'string' ? entry.title : ''
+        }))
+        .filter((entry) => entry.id);
+    renderCodexHistoryList();
+    return codexState.historyThreads;
+}
+
+function refreshCodexThreadList(options) {
+    const opts = options || {};
+    if (getActiveSessionMode() !== 'codex' || codexState.capabilities.historyList !== true) {
+        return Promise.resolve([]);
+    }
+    if (!opts.force && codexState.historyListRequested) {
+        return Promise.resolve(codexState.historyThreads);
+    }
+    codexState.historyListRequested = true;
+    codexState.historyListLoading = true;
+    renderCodexHistoryList();
+    return sendCodexBridgeRequest('thread/list', { limit: 50 }, { suppressErrorUi: opts.silent === true })
+        .then((result) => storeCodexThreadList(result))
+        .catch((error) => {
+            codexState.historyListRequested = false;
+            if (opts.silent !== true) {
+                appendCodexLogEntry('error', error.message || 'Failed to load Codex thread history.', { meta: 'history' });
+            }
+            return [];
+        })
+        .finally(() => {
+            codexState.historyListLoading = false;
+            renderCodexHistoryList();
+        });
+}
+
+function requestCodexResume(threadId) {
+    const normalizedThreadId = typeof threadId === 'string' ? threadId.trim() : '';
+    if (!normalizedThreadId) {
+        return Promise.reject(new Error('Missing Codex thread id to resume.'));
+    }
+    codexState.historyActionThreadId = normalizedThreadId;
+    renderCodexHistoryList();
+    codexState.resumeAttemptedForThreadId = normalizedThreadId;
+    appendCodexLogEntry('system', `Restoring previous Codex thread ${normalizedThreadId}...`, { meta: 'history' });
+    setCodexStatus('running', 'restoring thread');
+    return sendCodexBridgeRequest(
+        'thread/resume',
+        { threadId: normalizedThreadId },
+        { suppressErrorUi: true }
+    )
+        .then((result) => {
+            const resumedThreadId = result && result.thread && typeof result.thread.id === 'string'
+                ? result.thread.id.trim()
+                : normalizedThreadId;
+            codexState.lastCodexThreadId = resumedThreadId;
+            clearCodexErrorNotice();
+            appendCodexLogEntry('system', `Restored Codex thread ${resumedThreadId}.`, { meta: 'history' });
+            refreshCodexThreadList({ force: true, silent: true });
+            return result;
+        })
+        .finally(() => {
+            codexState.historyActionThreadId = '';
+            renderCodexHistoryList();
+        });
+}
+
+function requestFallbackCodexThread() {
+    if (codexState.fallbackThreadRequested) {
+        return;
+    }
+    codexState.fallbackThreadRequested = true;
+    appendCodexLogEntry('system', 'No restorable thread available. Creating a new Codex thread...', { meta: 'history' });
+    requestCodexNewThread({ silent: true });
+}
+
+function maybeBootstrapCodexSession() {
+    if (codexState.bootstrapCompleted) return;
+    if (getActiveSessionMode() !== 'codex') return;
+    if (!codexState.initialSessionInfoReceived || !codexState.initialCapabilitiesReceived || !codexState.initialCodexStateReceived) {
+        return;
+    }
+
+    codexState.bootstrapCompleted = true;
+    const bootstrapApi = getCodexBootstrapApi();
+    const plan = bootstrapApi && typeof bootstrapApi.planBootstrap === 'function'
+        ? bootstrapApi.planBootstrap({
+            sessionMode: getActiveSessionMode(),
+            threadId: codexState.threadId,
+            lastCodexThreadId: codexState.lastCodexThreadId,
+            capabilities: codexState.capabilities
+        })
+        : {
+            shouldFetchHistoryList: codexState.capabilities.historyList === true,
+            action: codexState.threadId
+                ? null
+                : (
+                    codexState.capabilities.historyResume === true && codexState.lastCodexThreadId
+                        ? { type: 'resume', threadId: codexState.lastCodexThreadId }
+                        : { type: 'new_thread' }
+                )
+        };
+
+    if (plan.shouldFetchHistoryList) {
+        refreshCodexThreadList({ silent: true });
+    }
+
+    if (!plan.action) {
+        return;
+    }
+
+    if (plan.action.type === 'resume' && plan.action.threadId) {
+        requestCodexResume(plan.action.threadId).catch((error) => {
+            if (isTransientCodexBridgeError(error)) {
+                return;
+            }
+            appendCodexLogEntry(
+                'error',
+                `Failed to restore saved Codex thread ${codexState.lastCodexThreadId}: ${error.message || 'unknown error'}`,
+                { meta: 'history' }
+            );
+            codexState.resumeAttemptedForThreadId = '';
+            requestFallbackCodexThread();
+        });
+        return;
+    }
+
+    requestFallbackCodexThread();
 }
 
 function getConfiguredCodexCwd() {
@@ -650,8 +1052,11 @@ function sendCodexTurn(text, options) {
     });
 }
 
-function requestCodexNewThread() {
-    appendCodexLogEntry('system', 'Requesting new Codex thread...', { meta: 'bridge' });
+function requestCodexNewThread(options) {
+    const opts = options || {};
+    if (opts.silent !== true) {
+        appendCodexLogEntry('system', 'Requesting new Codex thread...', { meta: 'bridge' });
+    }
     sendCodexEnvelope({
         type: 'codex_new_thread',
         cwd: getConfiguredCodexCwd() || undefined
@@ -1245,6 +1650,11 @@ function connect() {
             isConnecting = false;
             retryCount = 0;
             reconnectInterval = 1000;
+            rejectPendingCodexBridgeRequests(
+                'Codex bridge restarted before request completion.',
+                'CODEX_BRIDGE_RESTARTED'
+            );
+            resetCodexBootstrapState();
             hideStatus();
             sendResize();
             notifyNativeConnectionState('connected', `Connected via ${transportLabel}`);
@@ -1254,9 +1664,6 @@ function connect() {
             const configuredCwd = getConfiguredCodexCwd();
             if (configuredCwd) {
                 sendCodexEnvelope({ type: 'codex_set_cwd', cwd: configuredCwd });
-            }
-            if (codexState.threadId) {
-                refreshCodexThreadSnapshot({ force: true });
             }
         };
 
@@ -1279,7 +1686,20 @@ function connect() {
                         sessionId = nextSessionId;
                         loadHistoryState(getHistoryStorageKey(sessionId), true);
                     }
+                    codexState.sessionMode = typeof envelope.sessionMode === 'string' ? envelope.sessionMode.trim() : '';
+                    codexState.lastCodexThreadId = typeof envelope.lastCodexThreadId === 'string'
+                        ? envelope.lastCodexThreadId.trim()
+                        : '';
+                    codexState.initialSessionInfoReceived = true;
+                    applySessionModeLayout();
                     notifyNativeSessionInfo(nextSessionId, envelope.name || '', envelope.privilegeLevel || '');
+                    maybeBootstrapCodexSession();
+                    return;
+                }
+                if (envelope.type === 'codex_capabilities') {
+                    codexState.capabilities = normalizeCodexCapabilities(envelope.capabilities);
+                    codexState.initialCapabilitiesReceived = true;
+                    maybeBootstrapCodexSession();
                     return;
                 }
                 if (envelope.type === 'codex_state') {
@@ -1300,30 +1720,42 @@ function connect() {
                     if (Object.prototype.hasOwnProperty.call(envelope, 'rateLimitState')) {
                         applyCodexRateLimit(envelope.rateLimitState);
                     }
+                    if (codexState.threadId) {
+                        codexState.lastCodexThreadId = codexState.threadId;
+                    }
+                    codexState.initialCodexStateReceived = true;
                     updateCodexThreadLabel();
                     setCodexStatus(envelope.status || 'idle');
                     if (codexState.threadId && codexState.threadId !== previousThreadId) {
+                        refreshCodexThreadList({ force: true, silent: true });
                         refreshCodexThreadSnapshot({ threadId: codexState.threadId, force: true });
                     }
+                    maybeBootstrapCodexSession();
                     return;
                 }
                 if (envelope.type === 'codex_thread') {
                     codexState.threadId = envelope.threadId || '';
                     codexState.currentTurnId = '';
                     codexState.lastSnapshotThreadId = '';
+                    codexState.lastCodexThreadId = codexState.threadId;
+                    codexState.fallbackThreadRequested = false;
                     clearCodexErrorNotice();
                     updateCodexThreadLabel();
                     appendCodexLogEntry('system', `Attached to thread ${codexState.threadId}`, { meta: 'bridge' });
                     setCodexStatus('idle');
+                    refreshCodexThreadList({ force: true, silent: true });
                     refreshCodexThreadSnapshot({ force: true });
                     return;
                 }
                 if (envelope.type === 'codex_thread_ready') {
                     codexState.threadId = envelope.threadId || codexState.threadId;
                     codexState.lastSnapshotThreadId = '';
+                    codexState.lastCodexThreadId = codexState.threadId;
+                    codexState.fallbackThreadRequested = false;
                     clearCodexErrorNotice();
                     updateCodexThreadLabel();
                     setCodexStatus('idle', 'thread ready');
+                    refreshCodexThreadList({ force: true, silent: true });
                     refreshCodexThreadSnapshot({ force: true });
                     return;
                 }
@@ -1366,7 +1798,20 @@ function connect() {
                     return;
                 }
                 if (envelope.type === 'codex_response') {
-                    if (envelope.error && envelope.error.message) {
+                    let suppressErrorUi = false;
+                    if (envelope.requestId) {
+                        const pending = codexState.pendingBridgeRequests.get(envelope.requestId);
+                        if (pending) {
+                            codexState.pendingBridgeRequests.delete(envelope.requestId);
+                            suppressErrorUi = pending.suppressErrorUi === true;
+                            if (envelope.error) {
+                                pending.reject(new Error(envelope.error.message || 'Codex request failed.'));
+                            } else {
+                                pending.resolve(envelope.result);
+                            }
+                        }
+                    }
+                    if (envelope.error && envelope.error.message && suppressErrorUi !== true) {
                         const message = resolveCodexErrorMessage(
                             envelope.error.code || envelope.method,
                             envelope.error.message
@@ -1385,6 +1830,11 @@ function connect() {
         ws.onclose = function (event) {
             console.log('[JS] WebSocket CLOSED:', event.code, event.reason);
             isConnecting = false;
+            rejectPendingCodexBridgeRequests(
+                `Codex bridge closed (${event.code}).`,
+                'CODEX_BRIDGE_CLOSED'
+            );
+            resetCodexBootstrapState();
             setCodexStatus('error', 'bridge disconnected');
             if (retryCount >= MAX_RETRIES) {
                 const detail = `code=${event.code} reason=${event.reason || 'none'}`;
@@ -1672,6 +2122,12 @@ if (btnCodexInterrupt) {
     });
 }
 
+if (btnCodexHistoryRefresh) {
+    btnCodexHistoryRefresh.addEventListener('click', () => {
+        refreshCodexThreadList({ force: true });
+    });
+}
+
 if (btnCodexSend) {
     btnCodexSend.addEventListener('click', () => {
         if (!codexInput) return;
@@ -1843,6 +2299,7 @@ setCodexPanelCollapsed(false);
 updateViewportLayoutState();
 applySessionModeLayout();
 appendCodexLogEntry('system', 'Codex panel ready. Start a new thread or send a prompt.', { meta: 'bridge' });
+renderCodexHistoryList();
 
 applyRuntimeConfig(runtimeConfig, false);
 loadHistoryState(getHistoryStorageKey(sessionId), true);

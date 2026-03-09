@@ -105,7 +105,9 @@ class SessionApiClient(context: Context) {
                         createdAt = item.optLong("createdAt", 0L),
                         lastActiveAt = item.optLong("lastActiveAt", 0L),
                         sessionMode = SessionMode.fromWireValue(item.optString("sessionMode", "terminal")),
-                        cwd = item.optString("cwd", "").trim().takeIf { it.isNotBlank() }
+                        cwd = item.optString("cwd", "").trim().takeIf { it.isNotBlank() },
+                        lastCodexThreadId = item.optString("lastCodexThreadId", "").trim()
+                            .takeIf { it.isNotBlank() }
                     )
                 )
             }
@@ -138,7 +140,9 @@ class SessionApiClient(context: Context) {
                     id = id,
                     name = obj.optString("name", "Unnamed Session"),
                     sessionMode = SessionMode.fromWireValue(obj.optString("sessionMode", "terminal")),
-                    cwd = obj.optString("cwd", "").trim().takeIf { it.isNotBlank() }
+                    cwd = obj.optString("cwd", "").trim().takeIf { it.isNotBlank() },
+                    lastCodexThreadId = obj.optString("lastCodexThreadId", "").trim()
+                        .takeIf { it.isNotBlank() }
                 )
             )
         } catch (ex: JSONException) {

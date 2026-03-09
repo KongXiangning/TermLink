@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TermLink Codex</title>
-    <link rel="stylesheet" href="terminal_client.css?v=25">
+    <link rel="stylesheet" href="terminal_client.css?v=26">
     <script src="terminal_shortcut_input.js?v=25"></script>
 </head>
 
@@ -34,6 +34,14 @@
                     <button id="btn-codex-interrupt" class="codex-btn danger" type="button">Interrupt</button>
                 </div>
             </div>
+            <div id="codex-history-panel">
+                <div id="codex-history-header">
+                    <span id="codex-history-title">Threads</span>
+                    <button id="btn-codex-history-refresh" class="codex-btn subtle" type="button">Refresh</button>
+                </div>
+                <div id="codex-history-empty">No saved threads yet.</div>
+                <div id="codex-history-list" aria-live="polite"></div>
+            </div>
             <div id="codex-log" aria-live="polite"></div>
             <div id="codex-composer">
                 <textarea id="codex-input" placeholder="Ask Codex to inspect, edit, or run tasks..."></textarea>
@@ -50,7 +58,9 @@
         </div>
         <div id="toolbar"></div>
     </div>
-    <script src="terminal_client.js?v=25"></script>
+    <script src="lib/codex_bootstrap.js?v=1"></script>
+    <script src="lib/codex_history_view.js?v=1"></script>
+    <script src="terminal_client.js?v=27"></script>
 </body>
 
 </html>

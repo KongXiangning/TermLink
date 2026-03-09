@@ -24,6 +24,15 @@ function normalizeSessionCwd(value) {
     return normalized.length > 0 ? normalized : null;
 }
 
+function normalizeLastCodexThreadId(value) {
+    if (typeof value !== 'string') {
+        return null;
+    }
+
+    const normalized = value.trim();
+    return normalized.length > 0 ? normalized : null;
+}
+
 class SessionStore {
     constructor(options = {}) {
         this.enabled = options.enabled !== false;
@@ -109,6 +118,7 @@ class SessionStore {
             const status = record.status === 'ACTIVE' ? 'ACTIVE' : 'IDLE';
             const sessionMode = normalizeSessionMode(record.sessionMode);
             const cwd = normalizeSessionCwd(record.cwd);
+            const lastCodexThreadId = normalizeLastCodexThreadId(record.lastCodexThreadId);
 
             normalized.push({
                 id: record.id,
@@ -117,7 +127,8 @@ class SessionStore {
                 lastActiveAt,
                 status,
                 sessionMode,
-                cwd
+                cwd,
+                lastCodexThreadId
             });
         }
 
@@ -128,3 +139,4 @@ class SessionStore {
 module.exports = SessionStore;
 module.exports.normalizeSessionMode = normalizeSessionMode;
 module.exports.normalizeSessionCwd = normalizeSessionCwd;
+module.exports.normalizeLastCodexThreadId = normalizeLastCodexThreadId;

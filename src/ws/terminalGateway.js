@@ -104,6 +104,31 @@ function buildTurnInput(text) {
     }];
 }
 
+const CODEX_REQUEST_METHOD_WHITELIST = new Set([
+    'thread/list',
+    'thread/read',
+    'thread/resume'
+]);
+
+function buildCodexCapabilities() {
+    return {
+        historyList: true,
+        historyResume: true,
+        modelConfig: false,
+        rateLimitsRead: false,
+        approvals: true,
+        userInputRequest: false,
+        diffPlanReasoning: false,
+        skillsList: false,
+        compact: false,
+        imageInput: false
+    };
+}
+
+function isAllowedCodexRequestMethod(method) {
+    return isNonEmptyString(method) && CODEX_REQUEST_METHOD_WHITELIST.has(method.trim());
+}
+
 function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, privilegeConfig }) {
     const isElevated = privilegeConfig && privilegeConfig.isElevated;
     const allowedIps = privilegeConfig ? privilegeConfig.allowedIps : [];
@@ -111,10 +136,23 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     const codexService = new CodexAppServerService();
     const threadToSessionId = new Map();
 
+    const unbindSessionThreads = (sessionId, options = {}) => {
+        if (!isNonEmptyString(sessionId)) {
+            return;
+        }
+        const keepThreadId = isNonEmptyString(options.keepThreadId) ? options.keepThreadId.trim() : null;
+        for (const [threadId, mappedSessionId] of threadToSessionId.entries()) {
+            if (mappedSessionId === sessionId && threadId !== keepThreadId) {
+                threadToSessionId.delete(threadId);
+            }
+        }
+    };
+
     const bindThreadToSession = (threadId, sessionId) => {
         if (!isNonEmptyString(threadId) || !isNonEmptyString(sessionId)) {
             return;
         }
+        unbindSessionThreads(sessionId, { keepThreadId: threadId });
         threadToSessionId.set(threadId, sessionId);
     };
 
@@ -132,6 +170,21 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         sessionManager.schedulePersist();
     };
 
+    const updateSessionLastCodexThreadId = (session, threadId) => {
+        if (!session) return null;
+        const normalized = isNonEmptyString(threadId) ? threadId.trim() : null;
+        if (sessionManager && typeof sessionManager.updateLastCodexThreadId === 'function') {
+            sessionManager.updateLastCodexThreadId(session.id, normalized);
+            return normalized;
+        }
+        if (session.lastCodexThreadId === normalized) {
+            return normalized;
+        }
+        session.lastCodexThreadId = normalized;
+        persistSessionMetadata(session);
+        return normalized;
+    };
+
     const updateSessionCwd = (session, cwd) => {
         const normalized = normalizeOptionalCwd(cwd);
         if (normalized === session.cwd) {
@@ -146,6 +199,18 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         const state = ensureSessionCodexState(session);
         const current = Array.isArray(state.pendingServerRequests) ? state.pendingServerRequests.slice() : [];
         state.pendingServerRequests = updater(current);
+        return state;
+    };
+
+    const resetSessionCodexRuntimeState = (session, options = {}) => {
+        const state = ensureSessionCodexState(session);
+        state.currentTurnId = null;
+        state.status = 'idle';
+        state.pendingServerRequests = [];
+        state.tokenUsage = null;
+        if (options.clearRateLimitState === true) {
+            state.rateLimitState = null;
+        }
         return state;
     };
 
@@ -209,10 +274,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             throw new Error('Codex thread/start did not return thread id.');
         }
 
+        resetSessionCodexRuntimeState(session);
         state.threadId = threadId;
-        state.currentTurnId = null;
-        state.status = 'idle';
         bindThreadToSession(threadId, session.id);
+        updateSessionLastCodexThreadId(session, threadId);
         persistSessionMetadata(session);
 
         sessionManager.broadcast(session, {
@@ -454,8 +519,15 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 name: session.name,
                 privilegeLevel,
                 sessionMode: session.sessionMode || 'terminal',
-                cwd: session.cwd || null
+                cwd: session.cwd || null,
+                lastCodexThreadId: isNonEmptyString(session.lastCodexThreadId)
+                    ? session.lastCodexThreadId
+                    : null
             }));
+            sendWsEnvelope(ws, {
+                type: 'codex_capabilities',
+                capabilities: buildCodexCapabilities()
+            });
 
             const codexState = ensureSessionCodexState(session);
             if (shouldSendCodexState(session)) {
@@ -614,11 +686,31 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             });
                             return;
                         }
+                        if (!isAllowedCodexRequestMethod(method)) {
+                            sendWsEnvelope(ws, {
+                                type: 'codex_response',
+                                requestId: envelope.requestId || null,
+                                method,
+                                error: {
+                                    code: 'CODEX_METHOD_NOT_ALLOWED',
+                                    message: `codex_request method is not allowed: ${method}`
+                                }
+                            });
+                            return;
+                        }
                         const response = await codexService.request(method, envelope.params);
                         const codexState = ensureSessionCodexState(session);
-                        if (response && response.thread && isNonEmptyString(response.thread.id)) {
+                        if (
+                            method === 'thread/resume' &&
+                            response &&
+                            response.thread &&
+                            isNonEmptyString(response.thread.id)
+                        ) {
+                            resetSessionCodexRuntimeState(session);
                             codexState.threadId = response.thread.id;
                             bindThreadToSession(response.thread.id, session.id);
+                            updateSessionLastCodexThreadId(session, response.thread.id);
+                            emitCodexState(session);
                         }
                         if (response && response.turn && isNonEmptyString(response.turn.id)) {
                             codexState.currentTurnId = response.turn.id;

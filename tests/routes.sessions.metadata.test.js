@@ -40,7 +40,8 @@ test('POST /sessions passes sessionMode and cwd through to sessionManager', asyn
                 id: 'session-1',
                 name: options.name,
                 sessionMode: options.sessionMode,
-                cwd: options.cwd
+                cwd: options.cwd,
+                lastCodexThreadId: 'thread-42'
             };
         },
         renameSession: () => null,
@@ -65,7 +66,8 @@ test('POST /sessions passes sessionMode and cwd through to sessionManager', asyn
         id: 'session-1',
         name: 'Codex Task',
         sessionMode: 'codex',
-        cwd: 'E:\\coding\\TermLink'
+        cwd: 'E:\\coding\\TermLink',
+        lastCodexThreadId: 'thread-42'
     });
 });
 

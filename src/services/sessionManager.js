@@ -9,7 +9,11 @@ const MIN_IDLE_TIMEOUT_MS = 60 * 1000;
 const MIN_CLEANUP_INTERVAL_MS = 1000;
 const PERSIST_DEBOUNCE_MS = 500;
 const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
-const { normalizeSessionMode, normalizeSessionCwd } = SessionStore;
+const {
+    normalizeSessionMode,
+    normalizeSessionCwd,
+    normalizeLastCodexThreadId
+} = SessionStore;
 
 function parsePositiveIntEnv(name, defaultValue, minValue) {
     const raw = process.env[name];
@@ -71,7 +75,8 @@ class SessionManager {
             status: 'IDLE',
             privilegeMetadata: options.privilegeMetadata || null,
             sessionMode: options.sessionMode,
-            cwd: options.cwd
+            cwd: options.cwd,
+            lastCodexThreadId: options.lastCodexThreadId
         });
 
         this.ensurePtyForSession(session);
@@ -205,7 +210,8 @@ class SessionManager {
                 lastActiveAt: record.lastActiveAt,
                 status: 'IDLE',
                 sessionMode: record.sessionMode,
-                cwd: record.cwd
+                cwd: record.cwd,
+                lastCodexThreadId: record.lastCodexThreadId
             });
             this.sessions.set(session.id, session);
         }
@@ -213,7 +219,17 @@ class SessionManager {
         console.log(`[SessionManager] Restored ${records.length} persisted sessions.`);
     }
 
-    buildSession({ id, name, createdAt, lastActiveAt, status, privilegeMetadata, sessionMode, cwd }) {
+    buildSession({
+        id,
+        name,
+        createdAt,
+        lastActiveAt,
+        status,
+        privilegeMetadata,
+        sessionMode,
+        cwd,
+        lastCodexThreadId
+    }) {
         return {
             id,
             name,
@@ -222,6 +238,7 @@ class SessionManager {
             status: status || 'IDLE',
             sessionMode: normalizeSessionMode(sessionMode),
             cwd: normalizeSessionCwd(cwd),
+            lastCodexThreadId: normalizeLastCodexThreadId(lastCodexThreadId),
             connections: [],
             ptyService: new PtyService(),
             ptyInitialized: false,
@@ -233,6 +250,21 @@ class SessionManager {
                 pendingServerRequests: []
             }
         };
+    }
+
+    updateLastCodexThreadId(id, threadId) {
+        const session = this.sessions.get(id);
+        if (!session) return null;
+
+        const normalized = normalizeLastCodexThreadId(threadId);
+        if (session.lastCodexThreadId === normalized) {
+            return session;
+        }
+
+        session.lastCodexThreadId = normalized;
+        session.lastActiveAt = Date.now();
+        this.schedulePersist();
+        return session;
     }
 
     ensurePtyForSession(session) {
@@ -259,6 +291,7 @@ class SessionManager {
             lastActiveAt: session.lastActiveAt,
             sessionMode: normalizeSessionMode(session.sessionMode),
             cwd: normalizeSessionCwd(session.cwd),
+            lastCodexThreadId: normalizeLastCodexThreadId(session.lastCodexThreadId),
             codexThreadId: session.codexState && session.codexState.threadId
                 ? session.codexState.threadId
                 : null
@@ -306,7 +339,8 @@ class SessionManager {
             lastActiveAt: s.lastActiveAt,
             status: s.status,
             sessionMode: normalizeSessionMode(s.sessionMode),
-            cwd: normalizeSessionCwd(s.cwd)
+            cwd: normalizeSessionCwd(s.cwd),
+            lastCodexThreadId: normalizeLastCodexThreadId(s.lastCodexThreadId)
         }));
     }
 
