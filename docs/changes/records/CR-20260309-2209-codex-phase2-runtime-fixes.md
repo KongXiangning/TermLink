@@ -1,9 +1,9 @@
 ---
 title: Codex 能力矩阵驱动主线需求（MVP + 下一阶段）- Phase 2 Live Runtime 展示修复
-status: draft
+status: active
 record_id: CR-20260309-2209-codex-phase2-runtime-fixes
 req_id: REQ-20260309-codex-capability-mvp
-commit_ref: TBD
+commit_ref: 69212bb
 owner: @maintainer
 last_updated: 2026-03-09
 source_of_truth: runtime
