@@ -82,6 +82,9 @@ related_docs: [docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md, docs/codex/cross-ve
    - `diff`
    - `plan`
    - `reasoning`
+3. Deferred note:
+   - `reasoning` 继续保留在 MVP 目标中，但当前验证样本已确认“前端消费链路已接通、上游未产出原生 reasoning 事件”。
+   - 在 app-server 产出稳定的原生 `reasoning` item 或 runtime event 之前，`reasoning` 区块允许保持占位文案，不按前端缺陷计入当前阻塞。
 
 ### 4.4 审批与交互补全
 
