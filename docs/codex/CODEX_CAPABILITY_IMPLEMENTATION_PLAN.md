@@ -259,13 +259,16 @@ MVP 白名单：
 结论：
 
 1. `Diff` 区块通过，Android 真机上已确认可展示真实文件变更内容。
-2. `Terminal Output` 区块部分通过，当前可展示非占位内容，但展示的是执行命令字符串而不是命令 stdout。
-3. `Plan` 与 `Reasoning` 在本轮专项验证中仍未拿到真实内容，区块继续停留在占位文案。
-4. 页面主链路正常，状态经历 `idle -> running -> idle`，`codex-log` 同步出现新的 `commentary/final_answer`。
-5. 顶部 `CONFIG WARNING / DEPRECATION NOTICE` 在 Android fresh 截图中出现空壳显示，说明告警卡片隐藏逻辑仍需后续单独收口。
+2. `Terminal Output` 区块已修复并通过：
+   - thread snapshot 中的 `commandExecution.aggregatedOutput` 现可正确重建为真实 stdout 内容
+   - 不再退化成命令字符串元信息
+3. `Plan` 区块已修复并通过：
+   - 原生 plan 事件已被消费
+   - Android 上现显示为结构化文本（例如 `[completed]` / `[inProgress]`），不再显示整段 JSON 对象
+4. `Reasoning` 在当前专项复测中仍未看到原生 runtime 事件；结合 `thread/read includeTurns=true` 的真实 snapshot，当前应归类为“上游未产出”，不是前端未消费。
+5. 顶部 `CONFIG WARNING / DEPRECATION NOTICE` 空壳问题已收口，fresh 页面状态下保持隐藏。
 
 后续动作：
 
-1. 单独排查 `Terminal Output` 为什么当前只显示命令元信息而不是 stdout。
-2. 再补一轮更聚焦 `Plan / Reasoning` 的专项验证，确认问题在 app-server 事件产出还是前端消费。
-3. 为 Android 端空壳 warning/deprecation 卡片新增修复批次。
+1. 若继续推进 `Reasoning` 验收，应新增“稳定产出 reasoning 事件”的专项验证场景，而不是再用 commentary 做前端降级。
+2. 如需让 `Plan` 在 turn 完成后仍保留最后一次原生内容，需要单独决定是否允许“同 thread 内保留上一次 runtime 值”。

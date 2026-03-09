@@ -21,7 +21,7 @@ test('codex client shell includes history panel and shared codex scripts', () =>
     assert.match(html, /src="lib\/codex_bootstrap\.js\?v=2"/);
     assert.match(html, /src="lib\/codex_history_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_settings_view\.js\?v=1"/);
-    assert.match(html, /src="lib\/codex_runtime_view\.js\?v=1"/);
+    assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
     assert.match(html, /src="terminal_client\.js\?v=32"/);
 });
 
@@ -34,7 +34,7 @@ test('terminal client shell shares scripts but does not expose codex history pan
     assert.match(html, /src="lib\/codex_bootstrap\.js\?v=2"/);
     assert.match(html, /src="lib\/codex_history_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_settings_view\.js\?v=1"/);
-    assert.match(html, /src="lib\/codex_runtime_view\.js\?v=1"/);
+    assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
     assert.match(html, /src="terminal_client\.js\?v=32"/);
 });
 

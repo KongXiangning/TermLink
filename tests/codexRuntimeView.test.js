@@ -35,6 +35,25 @@ test('buildRuntimeUpdate extracts diff and plan summaries', () => {
         mode: 'replace',
         text: '1. Inspect\n2. Edit\n3. Verify'
     });
+
+    assert.deepEqual(buildRuntimeUpdate('turn/plan/updated', {
+        plan: [
+            { step: 'Inspect package.json', status: 'completed' },
+            { step: 'Summarize findings', status: 'inProgress' }
+        ]
+    }), {
+        section: 'plan',
+        mode: 'replace',
+        text: '[completed] Inspect package.json\n[inProgress] Summarize findings'
+    });
+
+    assert.deepEqual(buildRuntimeUpdate('item/plan/delta', {
+        delta: '1. Inspect files'
+    }), {
+        section: 'plan',
+        mode: 'append',
+        text: '1. Inspect files'
+    });
 });
 
 test('buildRuntimeUpdate classifies reasoning and terminal stream notifications', () => {
@@ -52,6 +71,22 @@ test('buildRuntimeUpdate classifies reasoning and terminal stream notifications'
         section: 'terminal',
         mode: 'append',
         text: 'npm test\\n'
+    });
+
+    assert.deepEqual(buildRuntimeUpdate('item/reasoning/summaryTextDelta', {
+        summaryText: 'Summarized reasoning.'
+    }), {
+        section: 'reasoning',
+        mode: 'append',
+        text: 'Summarized reasoning.'
+    });
+
+    assert.deepEqual(buildRuntimeUpdate('item/reasoning/summaryPartAdded', {
+        part: { summary: 'Reasoning chunk.' }
+    }), {
+        section: 'reasoning',
+        mode: 'replace',
+        text: 'Reasoning chunk.'
     });
 });
 
@@ -92,5 +127,38 @@ test('buildRuntimeUpdateFromThreadItem reconstructs runtime panels from snapshot
         section: 'terminal',
         mode: 'replace',
         text: 'npm test\\nPASS'
+    });
+
+    assert.deepEqual(buildRuntimeUpdateFromThreadItem({
+        type: 'commandExecution',
+        result: { stdout: 'src\npackage.json' },
+        command: 'Get-ChildItem -Name'
+    }), {
+        section: 'terminal',
+        mode: 'replace',
+        text: 'src\npackage.json'
+    });
+
+    assert.deepEqual(buildRuntimeUpdateFromThreadItem({
+        type: 'commandExecution',
+        aggregatedOutput: 'Path\n----\nE:\\coding\\TermLink'
+    }), {
+        section: 'terminal',
+        mode: 'replace',
+        text: 'Path\n----\nE:\\coding\\TermLink'
+    });
+
+    assert.equal(buildRuntimeUpdateFromThreadItem({
+        type: 'commandExecution',
+        command: 'Get-ChildItem -Name'
+    }), null);
+
+    assert.deepEqual(buildRuntimeUpdateFromThreadItem({
+        type: 'commandExecution',
+        prompt: 'Press y to continue'
+    }), {
+        section: 'terminal',
+        mode: 'replace',
+        text: 'Press y to continue'
     });
 });

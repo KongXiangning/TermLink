@@ -364,8 +364,14 @@ function renderCodexAuxStatus() {
 }
 
 function renderCodexAlerts() {
-    const hasConfigWarning = !!codexState.configWarningText;
-    const hasDeprecationNotice = !!codexState.deprecationNoticeText;
+    const configWarningText = typeof codexState.configWarningText === 'string'
+        ? codexState.configWarningText.trim()
+        : '';
+    const deprecationNoticeText = typeof codexState.deprecationNoticeText === 'string'
+        ? codexState.deprecationNoticeText.trim()
+        : '';
+    const hasConfigWarning = !!configWarningText;
+    const hasDeprecationNotice = !!deprecationNoticeText;
     if (codexAlerts) {
         codexAlerts.hidden = !hasConfigWarning && !hasDeprecationNotice;
     }
@@ -373,14 +379,14 @@ function renderCodexAlerts() {
         codexAlertConfig.hidden = !hasConfigWarning;
     }
     if (codexAlertConfigText) {
-        codexAlertConfigText.textContent = codexState.configWarningText || '';
+        codexAlertConfigText.textContent = configWarningText;
     }
     if (codexAlertDeprecation) {
         codexAlertDeprecation.hidden = !hasDeprecationNotice;
         codexAlertDeprecation.classList.add('deprecation');
     }
     if (codexAlertDeprecationText) {
-        codexAlertDeprecationText.textContent = codexState.deprecationNoticeText || '';
+        codexAlertDeprecationText.textContent = deprecationNoticeText;
     }
 }
 

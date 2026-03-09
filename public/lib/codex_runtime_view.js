@@ -73,6 +73,93 @@
         return summarizeObject(value);
     }
 
+    function formatPlanSteps(steps) {
+        if (!Array.isArray(steps) || steps.length === 0) {
+            return '';
+        }
+        return steps
+            .map((entry) => {
+                if (!entry || typeof entry !== 'object') {
+                    return summarizeObject(entry);
+                }
+                const stepText = pickFirstText(entry, [
+                    ['step'],
+                    ['text'],
+                    ['summary'],
+                    ['title']
+                ]);
+                const statusText = pickFirstText(entry, [
+                    ['status'],
+                    ['state']
+                ]);
+                if (stepText && statusText) {
+                    return `[${statusText}] ${stepText}`;
+                }
+                return stepText || summarizeObject(entry);
+            })
+            .filter(Boolean)
+            .join('\n');
+    }
+
+    function summarizePlanValue(value) {
+        if (Array.isArray(value)) {
+            return formatPlanSteps(value);
+        }
+        if (!value || typeof value !== 'object') {
+            return '';
+        }
+        const directText = pickFirstText(value, [
+            ['summary'],
+            ['text'],
+            ['explanation'],
+            ['message'],
+            ['content']
+        ]);
+        const planSteps = formatPlanSteps(readPath(value, ['plan']));
+        if (planSteps && directText) {
+            return `${directText}\n${planSteps}`;
+        }
+        if (planSteps) {
+            return planSteps;
+        }
+        const stepText = formatPlanSteps(readPath(value, ['steps']));
+        if (stepText && directText) {
+            return `${directText}\n${stepText}`;
+        }
+        return directText || stepText;
+    }
+
+    function pickCommandExecutionOutput(source) {
+        return pickFirstText(source, [
+            ['output'],
+            ['aggregatedOutput'],
+            ['stdout'],
+            ['stderr'],
+            ['text'],
+            ['result', 'aggregatedOutput'],
+            ['result', 'output'],
+            ['result', 'stdout'],
+            ['result', 'stderr']
+        ]) || normalizeLines(readPath(source, ['output']))
+            || normalizeLines(readPath(source, ['aggregatedOutput']))
+            || normalizeLines(readPath(source, ['stdout']))
+            || normalizeLines(readPath(source, ['stderr']))
+            || normalizeLines(readPath(source, ['result', 'aggregatedOutput']))
+            || normalizeLines(readPath(source, ['result', 'output']))
+            || normalizeLines(readPath(source, ['result', 'stdout']))
+            || normalizeLines(readPath(source, ['result', 'stderr']));
+    }
+
+    function pickCommandInteractionText(source) {
+        return pickFirstText(source, [
+            ['message'],
+            ['prompt'],
+            ['text'],
+            ['interaction', 'message'],
+            ['interaction', 'prompt']
+        ]) || normalizeLines(readPath(source, ['interaction']));
+    }
+
     function shouldShowRuntimePanel(input) {
         const state = input && typeof input === 'object' ? input : {};
         const sessionMode = typeof state.sessionMode === 'string' ? state.sessionMode.trim().toLowerCase() : '';
@@ -110,19 +197,38 @@
                     ['plan', 'summary'],
                     ['plan', 'text'],
                     ['content']
-                ]) || normalizeLines(payload.steps) || summarizeObject(payload)
+                ]) || summarizePlanValue(payload.plan) || summarizePlanValue(payload) || normalizeLines(payload.steps) || summarizeObject(payload)
             };
         }
 
-        if (normalizedMethod.startsWith('item/reasoning/')) {
+        if (normalizedMethod === 'item/plan/delta') {
             return {
-                section: 'reasoning',
-                mode: normalizedMethod.endsWith('Delta') ? 'append' : 'replace',
+                section: 'plan',
+                mode: 'append',
                 text: pickFirstText(payload, [
                     ['delta'],
                     ['text'],
                     ['summary'],
                     ['part', 'text'],
+                    ['item', 'text']
+                ]) || summarizeObject(payload)
+            };
+        }
+
+        if (normalizedMethod.startsWith('item/reasoning/')) {
+            const isDelta = normalizedMethod.endsWith('Delta');
+            return {
+                section: 'reasoning',
+                mode: isDelta ? 'append' : 'replace',
+                text: pickFirstText(payload, [
+                    ['delta'],
+                    ['text'],
+                    ['summary'],
+                    ['summaryText'],
+                    ['part', 'text'],
+                    ['part', 'summary'],
+                    ['item', 'text'],
+                    ['item', 'summary'],
                     ['item', 'text']
                 ]) || summarizeObject(payload)
             };
@@ -144,11 +250,7 @@
             return {
                 section: 'terminal',
                 mode: 'append',
-                text: pickFirstText(payload, [
-                    ['message'],
-                    ['prompt'],
-                    ['text']
-                ]) || summarizeObject(payload)
+                text: pickCommandInteractionText(payload) || summarizeObject(payload)
             };
         }
 
@@ -213,14 +315,35 @@
         }
 
         if (current.type === 'commandExecution') {
+            const outputText = pickCommandExecutionOutput(current);
+            if (outputText) {
+                return {
+                    section: 'terminal',
+                    mode: 'replace',
+                    text: outputText
+                };
+            }
+
+            const interactionText = pickCommandInteractionText(current);
+            if (interactionText) {
+                return {
+                    section: 'terminal',
+                    mode: 'replace',
+                    text: interactionText
+                };
+            }
+
+            return null;
+        }
+
+        if (current.type === 'plan') {
             return {
-                section: 'terminal',
+                section: 'plan',
                 mode: 'replace',
                 text: pickFirstText(current, [
-                    ['output'],
                     ['text'],
-                    ['command']
-                ]) || summarizeObject(current)
+                    ['summary']
+                ]) || normalizeLines(current.steps) || summarizeObject(current)
             };
         }
 
@@ -234,17 +357,6 @@
                     ['summary'],
                     ['patch']
                 ]) || summarizeObject(current)
-            };
-        }
-
-        if (current.type === 'plan') {
-            return {
-                section: 'plan',
-                mode: 'replace',
-                text: pickFirstText(current, [
-                    ['text'],
-                    ['summary']
-                ]) || normalizeLines(current.steps) || summarizeObject(current)
             };
         }
 
