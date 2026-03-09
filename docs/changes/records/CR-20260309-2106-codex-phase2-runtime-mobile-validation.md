@@ -43,8 +43,9 @@ related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, d
    - 区块拿到了非占位内容，但当前展示的是执行命令字符串，而不是命令 stdout。
 3. `Plan`：未验证到真实内容。
    - 区块仍为 `Waiting for plan updates...`。
-4. `Reasoning`：未验证到真实内容。
-   - 区块仍为 `Waiting for reasoning updates...`。
+4. `Reasoning`：当前验证样本中未验证到真实内容，后续已收敛为“上游未产出原生事件”。
+   - 本轮区块仍为 `Waiting for reasoning updates...`。
+   - 后续结合 `thread/read includeTurns=true` 的真实 snapshot 复核，当前 thread 内未出现 `reasoning` item，应归类为“上游未产出原生 reasoning 事件”，不是前端已确认漏消费。
 5. 发送链路正常。
    - 页面状态经历 `Codex idle: thread ready -> Codex running: in progress -> Codex idle`
    - `codex-log` 出现新的 `you / commentary / final_answer`
@@ -87,8 +88,10 @@ git checkout -- docs/changes/records/INDEX.md
 1. 若继续收敛 Phase 2，应单独排查为什么 `Terminal Output` 当前只显示命令字符串而不是 stdout。
 2. 需要再补一轮更聚焦 `Plan / Reasoning` 的专项验证，确认是 app-server 未产出事件，还是前端未正确消费。
 3. 顶部 `CONFIG WARNING / DEPRECATION NOTICE` 的 Android 空壳显示应单独建修复批次处理。
+4. `Reasoning` 的后续推进应以“如何稳定触发上游原生 reasoning 事件”为主，而不是继续把问题默认归因到前端展示层。
 
 ## 8. 风险与注意事项
 
 1. 本次专项验证刻意把 `approvalPolicy` 设为 `never`，目的是排除审批状态机对 runtime 事件的干扰；结果不能直接外推到 `on-request`。
 2. 本次 `Terminal Output` 的“部分通过”不应被当作完全验收通过，直到它能稳定展示 stdout/交互输出。
+3. `Reasoning` 在本记录对应的验证批次中不应标记为“前端未通过”；更准确的状态是“当时未见原生事件，后续复核确认为上游未产出”。
