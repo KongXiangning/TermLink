@@ -225,3 +225,25 @@ MVP 白名单：
 1. Codex 主链路通过：`codex session` 建连、thread 建立与持久化、断开回收、重启恢复均可用。
 2. 观测到短时序现象：连接刚建立时 `/api/sessions` 可能瞬时显示 `activeConnections=0`，数秒后变为 `1`。
 3. 该现象当前归类为可见性时序抖动，不影响本阶段主链路可用性结论。
+
+## 10. Android Phase 2 完整交互验证（2026-03-09）
+
+验证环境：
+
+1. 服务端：当前仓库启动，`PORT=3010`，默认 BasicAuth（`admin/admin`）。
+2. 设备：`MQS7N19402011743`。
+3. 会话：`af577dbb-af3f-42ed-a669-f82c75bef3cd`，`sessionMode=codex`，`codexConfig` 为 `medium/pragmatic/on-request/workspace-write`。
+
+结论：
+
+1. Android 已加载最新 Phase 2 WebView 资产，`Session Defaults`、`Live Runtime` 和输入区在小屏上可连续到达并保持可操作。
+2. 会话级设置回填正确，`Use server defaults`、`reasoning`、`personality`、`approval`、`sandbox` 均与存储态一致。
+3. `Limits` 入口可用，页面状态会更新为 `Rate limit snapshot refreshed.`。
+4. 发送 prompt 后，手机端状态经历 `Codex idle -> Codex running: in progress -> Codex idle`，并在 `codex-log` 中记录新的 `you / final_answer`。
+5. 顶部 `config warning / deprecation notice` 卡片在 fresh 页面状态下保持隐藏，没有出现空壳残留。
+6. 当前纯文本 prompt 场景下，`Live Runtime` 四个区块仍停留在占位文案；这表明 Phase 2 手机端 UI 已加载，但仍需单独验证 app-server 是否会产出可消费的 runtime 事件。
+
+后续动作：
+
+1. 增加命令型或可稳定产出 plan/reasoning 的专项验证，确认 `Diff / Plan / Reasoning / Terminal Output` 在 Android 上能显示非占位内容。
+2. 增加浏览器/WebView 级集成测试，覆盖 `Limits`、`Send`、状态切换和运行态区块更新。
