@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { planBootstrap, isTransientBridgeError } = require('../public/lib/codex_bootstrap');
+const { planBootstrap, isTransientBridgeError, shouldReadThreadSnapshot } = require('../public/lib/codex_bootstrap');
 
 test('planBootstrap keeps the current thread when session already has an active thread', () => {
     const plan = planBootstrap({
@@ -85,4 +85,41 @@ test('isTransientBridgeError treats reconnect-related bridge errors as transient
 test('isTransientBridgeError does not hide real bridge or protocol failures', () => {
     assert.equal(isTransientBridgeError({ code: 'CODEX_METHOD_NOT_ALLOWED' }), false);
     assert.equal(isTransientBridgeError(new Error('plain failure')), false);
+});
+
+test('shouldReadThreadSnapshot skips unmaterialized threads', () => {
+    assert.equal(shouldReadThreadSnapshot({
+        threadId: 'thread-new',
+        lastSnapshotThreadId: '',
+        unmaterializedThreadId: 'thread-new',
+        force: true
+    }), false);
+});
+
+test('shouldReadThreadSnapshot skips freshly created threads before first materialization', () => {
+    assert.equal(shouldReadThreadSnapshot({
+        threadId: 'thread-new',
+        lastSnapshotThreadId: '',
+        unmaterializedThreadId: '',
+        pendingFreshThread: true,
+        force: true
+    }), false);
+});
+
+test('shouldReadThreadSnapshot skips duplicate reads unless forced', () => {
+    assert.equal(shouldReadThreadSnapshot({
+        threadId: 'thread-live',
+        lastSnapshotThreadId: 'thread-live',
+        threadMaterialized: true,
+        force: false
+    }), false);
+});
+
+test('shouldReadThreadSnapshot allows materialized threads to be read', () => {
+    assert.equal(shouldReadThreadSnapshot({
+        threadId: 'thread-live',
+        lastSnapshotThreadId: '',
+        unmaterializedThreadId: '',
+        force: true
+    }), true);
 });

@@ -125,6 +125,7 @@ const codexState = {
     threadId: '',
     currentTurnId: '',
     lastSnapshotThreadId: '',
+    unmaterializedThreadId: '',
     lastCodexThreadId: '',
     status: 'idle',
     statusDetail: '',
@@ -178,6 +179,7 @@ const codexState = {
     bootstrapCompleted: false,
     resumeAttemptedForThreadId: '',
     fallbackThreadRequested: false,
+    pendingFreshThread: false,
     lastTokenUsageLog: '',
     lastRateLimitLog: ''
 };
@@ -586,8 +588,8 @@ function syncCodexSettingsFormFromStoredConfig() {
     populateCodexModelSelect(stored && stored.defaultModel ? stored.defaultModel : '');
     codexSettingsReasoning.value = stored && stored.defaultReasoningEffort ? stored.defaultReasoningEffort : '';
     codexSettingsPersonality.value = stored && stored.defaultPersonality ? stored.defaultPersonality : '';
-    codexSettingsApproval.value = stored && stored.approvalPolicy ? stored.approvalPolicy : 'never';
-    codexSettingsSandbox.value = stored && stored.sandboxMode ? stored.sandboxMode : 'workspace-write';
+    codexSettingsApproval.value = stored && stored.approvalPolicy ? stored.approvalPolicy : '';
+    codexSettingsSandbox.value = stored && stored.sandboxMode ? stored.sandboxMode : '';
 }
 
 function collectCodexSettingsPayload() {
@@ -1076,6 +1078,7 @@ function resetCodexBootstrapState() {
     codexState.threadId = '';
     codexState.currentTurnId = '';
     codexState.lastSnapshotThreadId = '';
+    codexState.unmaterializedThreadId = '';
     codexState.approvalPending = false;
     codexState.pendingServerRequestCount = 0;
     codexState.streamingItemId = '';
@@ -1104,6 +1107,7 @@ function resetCodexBootstrapState() {
     codexState.historyListRequested = false;
     codexState.resumeAttemptedForThreadId = '';
     codexState.fallbackThreadRequested = false;
+    codexState.pendingFreshThread = false;
     codexState.capabilities = {
         historyList: false,
         historyResume: false,
@@ -1239,6 +1243,8 @@ function requestCodexResume(threadId) {
                 ? result.thread.id.trim()
                 : normalizedThreadId;
             codexState.lastCodexThreadId = resumedThreadId;
+            codexState.pendingFreshThread = false;
+            codexState.unmaterializedThreadId = '';
             clearCodexErrorNotice();
             appendCodexLogEntry('system', `Restored Codex thread ${resumedThreadId}.`, { meta: 'history' });
             refreshCodexThreadList({ force: true, silent: true });
@@ -1601,6 +1607,17 @@ function resolveCodexErrorMessage(code, message) {
     return trimmedMessage || 'Codex emitted an error event.';
 }
 
+function isCodexThreadNotMaterializedError(code, message) {
+    const normalizedCode = typeof code === 'string' ? code.trim().toUpperCase() : '';
+    const normalizedMessage = typeof message === 'string' ? message.trim().toLowerCase() : '';
+    if (normalizedCode === '-32600' || normalizedCode.includes('INVALID')) {
+        return normalizedMessage.includes('not materialized yet')
+            || normalizedMessage.includes('includeTurns is unavailable before first user message'.toLowerCase());
+    }
+    return normalizedMessage.includes('not materialized yet')
+        || normalizedMessage.includes('includeTurns is unavailable before first user message'.toLowerCase());
+}
+
 function getViewportHeight() {
     if (window.visualViewport && typeof window.visualViewport.height === 'number') {
         return Math.round(window.visualViewport.height);
@@ -1633,6 +1650,10 @@ function sendCodexTurn(text, options) {
     if (!cleaned) return;
 
     appendCodexLogEntry('user', cleaned, { meta: 'you' });
+    if (codexState.threadId && codexState.unmaterializedThreadId === codexState.threadId) {
+        codexState.unmaterializedThreadId = '';
+    }
+    codexState.pendingFreshThread = false;
     setCodexStatus('running', 'starting turn');
 
     sendCodexEnvelope({
@@ -1648,6 +1669,8 @@ function requestCodexNewThread(options) {
     if (opts.silent !== true) {
         appendCodexLogEntry('system', 'Requesting new Codex thread...', { meta: 'bridge' });
     }
+    codexState.pendingFreshThread = true;
+    codexState.unmaterializedThreadId = '';
     sendCodexEnvelope({
         type: 'codex_new_thread',
         cwd: getConfiguredCodexCwd() || undefined
@@ -1667,8 +1690,22 @@ function refreshCodexThreadSnapshot(options) {
     const targetThreadId = typeof opts.threadId === 'string' && opts.threadId.trim()
         ? opts.threadId.trim()
         : codexState.threadId;
-    if (!targetThreadId) return;
-    if (!opts.force && codexState.lastSnapshotThreadId === targetThreadId) {
+    const bootstrapApi = getCodexBootstrapApi();
+    const shouldRead = bootstrapApi && typeof bootstrapApi.shouldReadThreadSnapshot === 'function'
+        ? bootstrapApi.shouldReadThreadSnapshot({
+            threadId: targetThreadId,
+            lastSnapshotThreadId: codexState.lastSnapshotThreadId,
+            unmaterializedThreadId: codexState.unmaterializedThreadId,
+            pendingFreshThread: codexState.pendingFreshThread === true && targetThreadId === codexState.threadId,
+            force: opts.force === true
+        })
+        : (
+            !!targetThreadId
+            && !(codexState.pendingFreshThread === true && targetThreadId === codexState.threadId && !codexState.lastSnapshotThreadId)
+            && codexState.unmaterializedThreadId !== targetThreadId
+            && (opts.force === true || codexState.lastSnapshotThreadId !== targetThreadId)
+        );
+    if (!shouldRead) {
         return;
     }
     requestCodexThreadSnapshot();
@@ -1769,6 +1806,12 @@ function handleCodexThreadSnapshot(thread) {
     codexState.lastSnapshotThreadId = thread && typeof thread.id === 'string'
         ? thread.id
         : codexState.threadId;
+    if (codexState.unmaterializedThreadId && codexState.lastSnapshotThreadId === codexState.unmaterializedThreadId) {
+        codexState.unmaterializedThreadId = '';
+    }
+    if (codexState.threadId && codexState.lastSnapshotThreadId === codexState.threadId) {
+        codexState.pendingFreshThread = false;
+    }
     codexLog.innerHTML = '';
     codexState.messageByItemId.clear();
     codexState.requestEntryById.clear();
@@ -1805,6 +1848,8 @@ function handleCodexNotification(method, params) {
         const threadId = params && params.thread ? params.thread.id : '';
         if (threadId) {
             codexState.threadId = threadId;
+            codexState.unmaterializedThreadId = threadId;
+            codexState.pendingFreshThread = false;
             updateCodexThreadLabel();
         }
         clearCodexRuntimePanels();
@@ -1828,6 +1873,10 @@ function handleCodexNotification(method, params) {
     if (method === 'turn/started') {
         const turn = params && params.turn ? params.turn : null;
         codexState.currentTurnId = turn && turn.id ? turn.id : '';
+        if (codexState.threadId && codexState.unmaterializedThreadId === codexState.threadId) {
+            codexState.unmaterializedThreadId = '';
+        }
+        codexState.pendingFreshThread = false;
         clearCodexRuntimePanels();
         clearCodexAlerts();
         clearCodexErrorNotice();
@@ -1837,6 +1886,10 @@ function handleCodexNotification(method, params) {
 
     if (method === 'turn/completed') {
         codexState.currentTurnId = '';
+        if (codexState.threadId && codexState.unmaterializedThreadId === codexState.threadId) {
+            codexState.unmaterializedThreadId = '';
+        }
+        codexState.pendingFreshThread = false;
         setCodexStatus('idle');
         refreshCodexThreadSnapshot({ force: true });
         return;
@@ -2362,6 +2415,8 @@ function connect() {
                     codexState.threadId = envelope.threadId || '';
                     if (!codexState.threadId) {
                         codexState.lastSnapshotThreadId = '';
+                        codexState.unmaterializedThreadId = '';
+                        codexState.pendingFreshThread = false;
                     }
                     codexState.currentTurnId = envelope.currentTurnId || '';
                     codexState.cwd = typeof envelope.cwd === 'string' ? envelope.cwd : '';
@@ -2378,6 +2433,12 @@ function connect() {
                     if (codexState.threadId) {
                         codexState.lastCodexThreadId = codexState.threadId;
                     }
+                    if (codexState.currentTurnId && codexState.threadId && codexState.unmaterializedThreadId === codexState.threadId) {
+                        codexState.unmaterializedThreadId = '';
+                    }
+                    if (codexState.currentTurnId) {
+                        codexState.pendingFreshThread = false;
+                    }
                     codexState.initialCodexStateReceived = true;
                     updateCodexThreadLabel();
                     setCodexStatus(envelope.status || 'idle');
@@ -2393,6 +2454,8 @@ function connect() {
                     codexState.threadId = envelope.threadId || '';
                     codexState.currentTurnId = '';
                     codexState.lastSnapshotThreadId = '';
+                    codexState.unmaterializedThreadId = codexState.threadId || '';
+                    codexState.pendingFreshThread = true;
                     codexState.lastCodexThreadId = codexState.threadId;
                     codexState.fallbackThreadRequested = false;
                     clearCodexErrorNotice();
@@ -2406,6 +2469,8 @@ function connect() {
                 if (envelope.type === 'codex_thread_ready') {
                     codexState.threadId = envelope.threadId || codexState.threadId;
                     codexState.lastSnapshotThreadId = '';
+                    codexState.unmaterializedThreadId = codexState.threadId || '';
+                    codexState.pendingFreshThread = true;
                     codexState.lastCodexThreadId = codexState.threadId;
                     codexState.fallbackThreadRequested = false;
                     clearCodexErrorNotice();
@@ -2447,6 +2512,15 @@ function connect() {
                     return;
                 }
                 if (envelope.type === 'codex_error') {
+                    if (isCodexThreadNotMaterializedError(envelope.code, envelope.message)) {
+                        if (codexState.threadId) {
+                            codexState.unmaterializedThreadId = codexState.threadId;
+                            codexState.pendingFreshThread = true;
+                        }
+                        clearCodexErrorNotice();
+                        setCodexStatus('idle', 'thread ready');
+                        return;
+                    }
                     const message = resolveCodexErrorMessage(envelope.code, envelope.message || 'Unknown Codex error');
                     appendCodexLogEntry('error', message, { meta: envelope.code || 'codex' });
                     setCodexErrorNotice(message);
@@ -2468,6 +2542,15 @@ function connect() {
                         }
                     }
                     if (envelope.error && envelope.error.message && suppressErrorUi !== true) {
+                        if (isCodexThreadNotMaterializedError(envelope.error.code || envelope.method, envelope.error.message)) {
+                            if (codexState.threadId) {
+                                codexState.unmaterializedThreadId = codexState.threadId;
+                                codexState.pendingFreshThread = true;
+                            }
+                            clearCodexErrorNotice();
+                            setCodexStatus('idle', 'thread ready');
+                            return;
+                        }
                         const message = resolveCodexErrorMessage(
                             envelope.error.code || envelope.method,
                             envelope.error.message

@@ -1210,8 +1210,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     companion object {
-        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=25"
-        private const val CODEX_URL = "file:///android_asset/public/codex_client.html?v=25"
+        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=27"
+        private const val CODEX_URL = "file:///android_asset/public/codex_client.html?v=27"
         private const val ABOUT_BLANK_URL = "about:blank"
         private const val DEBUG_CLEAR_TERMINAL_CACHE_ON_LOAD = false
         private const val JS_BRIDGE_NAME = "TerminalEventBridge"

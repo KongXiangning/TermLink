@@ -31,9 +31,14 @@ body.terminal-only #toolbar {
 
 body.codex-only {
     background: #0d1117;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
 }
 
 body.codex-only #terminal-shell {
+    height: auto;
+    min-height: 100%;
     background:
         radial-gradient(circle at top right, rgba(76, 145, 255, 0.14), transparent 32%),
         linear-gradient(180deg, #081018 0%, #0d1117 48%, #0a131f 100%);
@@ -60,6 +65,7 @@ body.codex-only #codex-panel {
     min-height: 0;
     max-height: none;
     border-bottom: none;
+    overflow: visible;
 }
 
 body.codex-only #btn-codex-toggle {
@@ -71,6 +77,8 @@ body.codex-only #codex-header {
 }
 
 body.codex-only #codex-log {
+    flex: 0 0 auto;
+    max-height: min(30vh, 240px);
     padding: 10px 12px;
 }
 
@@ -91,6 +99,10 @@ body.codex-only #codex-runtime-panel {
 }
 
 body.codex-only #codex-composer {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    margin-top: auto;
     padding: 10px 12px 12px;
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
 }
@@ -871,6 +883,10 @@ body.viewport-compact #codex-input {
 body.codex-only.viewport-compact #codex-panel {
     flex: 1 1 auto;
     max-height: none;
+}
+
+body.codex-only.viewport-compact #codex-log {
+    max-height: min(24vh, 176px);
 }
 
 @media (max-width: 720px) {

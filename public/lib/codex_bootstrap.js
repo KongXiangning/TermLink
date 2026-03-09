@@ -25,6 +25,29 @@
             || code === 'CODEX_BRIDGE_NOT_CONNECTED';
     }
 
+    function shouldReadThreadSnapshot(input) {
+        const state = input && typeof input === 'object' ? input : {};
+        const threadId = normalizeThreadId(state.threadId);
+        const lastSnapshotThreadId = normalizeThreadId(state.lastSnapshotThreadId);
+        const force = state.force === true;
+        const unmaterializedThreadId = normalizeThreadId(state.unmaterializedThreadId);
+        const pendingFreshThread = state.pendingFreshThread === true;
+
+        if (!threadId) {
+            return false;
+        }
+        if (pendingFreshThread && !lastSnapshotThreadId) {
+            return false;
+        }
+        if (unmaterializedThreadId && unmaterializedThreadId === threadId) {
+            return false;
+        }
+        if (!force && threadId === lastSnapshotThreadId) {
+            return false;
+        }
+        return true;
+    }
+
     function planBootstrap(input) {
         const state = input && typeof input === 'object' ? input : {};
         const mode = normalizeMode(state.sessionMode);
@@ -69,6 +92,7 @@
 
     return {
         planBootstrap,
-        isTransientBridgeError
+        isTransientBridgeError,
+        shouldReadThreadSnapshot
     };
 }));
