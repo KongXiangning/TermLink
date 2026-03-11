@@ -371,7 +371,7 @@
 3. `codex_state` 新增 `nextTurnEffectiveCodexConfig` 与 `interactionState`。
 4. `Session Defaults` 保留最小可用二级入口，不再扩成首页主体。
 5. 验收记录：
-   - `CR-20260312-XXXX-codex-phase3-validation`（PATCH 写路径、状态一致性、interactionState 独立性）
+   - `CR-20260312-1430-codex-phase3-validation`（PATCH 写路径、状态一致性、interactionState 独立性）
 
 ### Phase 4：次级能力逐项开放
 
