@@ -52,6 +52,16 @@ const codexRuntimePlan = document.getElementById('codex-runtime-plan');
 const codexRuntimeReasoning = document.getElementById('codex-runtime-reasoning');
 const codexRuntimeTerminal = document.getElementById('codex-runtime-terminal');
 const codexRuntimeWarning = document.getElementById('codex-runtime-warning');
+const codexComposerState = document.getElementById('codex-composer-state');
+const codexPlanChip = document.getElementById('codex-plan-chip');
+const codexOverrideSummary = document.getElementById('codex-override-summary');
+const codexQuickModel = document.getElementById('codex-quick-model');
+const codexQuickReasoning = document.getElementById('codex-quick-reasoning');
+const btnCodexQuickClear = document.getElementById('btn-codex-quick-clear');
+const btnCodexSlashTrigger = document.getElementById('btn-codex-slash-trigger');
+const codexSlashMenu = document.getElementById('codex-slash-menu');
+const codexSlashMenuEmpty = document.getElementById('codex-slash-menu-empty');
+const codexSlashMenuList = document.getElementById('codex-slash-menu-list');
 const isCodexOnlyPage = !!(document.body && document.body.classList.contains('codex-only'));
 
 let term;
@@ -158,16 +168,39 @@ const codexState = {
         approvals: false,
         userInputRequest: false,
         diffPlanReasoning: false,
+        slashCommands: false,
+        slashModel: false,
+        slashPlan: false,
         skillsList: false,
         compact: false,
         imageInput: false
     },
+    slashRegistry: [],
+    slashMenuOpen: false,
+    slashMenuQuery: '',
+    nextTurnOverrides: {
+        model: null,
+        reasoningEffort: null
+    },
+    interactionState: {
+        planMode: false,
+        activeSkill: null
+    },
+    serverNextTurnConfigBase: null,
+    nextTurnEffectiveCodexConfig: null,
+    pendingSubmittedTurnState: null,
     historyThreads: [],
     historyListLoading: false,
     historyActionThreadId: '',
     storedCodexConfig: null,
+    modelCatalog: [],
     modelOptions: [],
     modelListRequested: false,
+    modelListPromise: null,
+    skillCatalog: [],
+    skillListRequested: false,
+    skillListPromise: null,
+    skillsLoading: false,
     settingsLoadingModels: false,
     settingsSaving: false,
     settingsRefreshingRateLimits: false,
@@ -196,6 +229,15 @@ const codexState = {
 const viewportState = {
     baselineHeight: 0,
     compact: false
+};
+
+const REASONING_EFFORT_LABELS = {
+    none: '无',
+    minimal: '极低',
+    low: '低',
+    medium: '中',
+    high: '高',
+    xhigh: '超高'
 };
 
 function readInjectedConfig() {
@@ -254,6 +296,13 @@ function getCodexHistoryViewApi() {
 function getCodexSettingsViewApi() {
     if (window.TermLinkCodexSettingsView && typeof window.TermLinkCodexSettingsView.buildCodexConfigPayload === 'function') {
         return window.TermLinkCodexSettingsView;
+    }
+    return null;
+}
+
+function getCodexSlashCommandsApi() {
+    if (window.TermLinkCodexSlashCommands && typeof window.TermLinkCodexSlashCommands.parseComposerInput === 'function') {
+        return window.TermLinkCodexSlashCommands;
     }
     return null;
 }
@@ -717,6 +766,312 @@ function getStoredCodexConfig() {
     return settingsApi.normalizeStoredCodexConfig(codexState.storedCodexConfig);
 }
 
+function syncNextTurnEffectiveCodexConfig() {
+    codexState.nextTurnEffectiveCodexConfig = buildLocalNextTurnEffectiveCodexConfig();
+    renderCodexComposerState();
+    renderCodexQuickControls();
+}
+
+function setCodexInteractionState(nextState, options) {
+    const opts = options || {};
+    codexState.interactionState = normalizeCodexInteractionState(nextState);
+    renderCodexComposerState();
+    if (opts.syncRemote !== false) {
+        sendCodexEnvelope({
+            type: 'codex_set_interaction_state',
+            interactionState: codexState.interactionState
+        });
+    }
+}
+
+function setPlanMode(enabled, options) {
+    setCodexInteractionState({
+        planMode: enabled === true,
+        activeSkill: codexState.interactionState.activeSkill
+    }, options);
+}
+
+function setNextTurnOverrides(nextOverrides) {
+    codexState.nextTurnOverrides = normalizeNextTurnOverrides(nextOverrides);
+    syncNextTurnEffectiveCodexConfig();
+}
+
+function clearNextTurnOverrides() {
+    setNextTurnOverrides({ model: null, reasoningEffort: null });
+}
+
+function setNextTurnOverrideValue(key, value) {
+    setNextTurnOverrides({
+        model: key === 'model' ? value : codexState.nextTurnOverrides.model,
+        reasoningEffort: key === 'reasoningEffort' ? value : codexState.nextTurnOverrides.reasoningEffort
+    });
+}
+
+function renderCodexComposerState() {
+    if (!codexComposerState) {
+        return;
+    }
+    const planMode = codexState.interactionState.planMode === true;
+    const parts = [];
+    if (codexState.nextTurnEffectiveCodexConfig && codexState.nextTurnOverrides.model) {
+        parts.push(`模型：${codexState.nextTurnEffectiveCodexConfig.model}`);
+    }
+    if (codexState.nextTurnEffectiveCodexConfig && codexState.nextTurnOverrides.reasoningEffort) {
+        parts.push(`推理：${codexState.nextTurnEffectiveCodexConfig.reasoningEffort}`);
+    }
+    if (codexState.interactionState.activeSkill) {
+        parts.push(`技能：${codexState.interactionState.activeSkill}`);
+    }
+    codexComposerState.hidden = !planMode && parts.length === 0;
+    if (codexPlanChip) {
+        codexPlanChip.hidden = !planMode;
+    }
+    if (codexOverrideSummary) {
+        codexOverrideSummary.hidden = parts.length === 0;
+        codexOverrideSummary.textContent = parts.join(' | ');
+    }
+}
+
+function renderCodexQuickControls() {
+    if (codexQuickModel) {
+        populateCodexQuickModelSelect(codexState.nextTurnOverrides.model || '');
+    }
+    if (codexQuickReasoning) {
+        populateCodexReasoningSelect(codexQuickReasoning, {
+            defaultLabel: buildReasoningDefaultLabel(),
+            forcedValue: codexState.nextTurnOverrides.reasoningEffort || '',
+            modelId: resolveReasoningModelId()
+        });
+    }
+    if (btnCodexQuickClear) {
+        btnCodexQuickClear.disabled = !codexState.nextTurnOverrides.model && !codexState.nextTurnOverrides.reasoningEffort;
+    }
+}
+
+function populateCodexQuickModelSelect(forcedValue) {
+    if (!codexQuickModel) return;
+    const selectedValue = typeof forcedValue === 'string' ? forcedValue : (codexQuickModel.value || '');
+    codexQuickModel.innerHTML = '';
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = buildModelDefaultLabel();
+    codexQuickModel.appendChild(defaultOption);
+    const seen = new Set(['']);
+    codexState.modelCatalog.forEach((model) => {
+        if (!model || !model.id || seen.has(model.id)) return;
+        seen.add(model.id);
+        const option = document.createElement('option');
+        option.value = model.id;
+        option.textContent = model.label;
+        codexQuickModel.appendChild(option);
+    });
+    if (selectedValue && !seen.has(selectedValue)) {
+        const option = document.createElement('option');
+        option.value = selectedValue;
+        option.textContent = `${selectedValue}（自定义）`;
+        codexQuickModel.appendChild(option);
+    }
+    codexQuickModel.value = selectedValue;
+}
+
+function buildModelDefaultLabel() {
+    if (codexState.settingsLoadingModels) {
+        return '正在加载模型...';
+    }
+    const effectiveModel = codexState.nextTurnEffectiveCodexConfig && codexState.nextTurnEffectiveCodexConfig.model
+        ? codexState.nextTurnEffectiveCodexConfig.model
+        : '';
+    if (effectiveModel) {
+        return effectiveModel;
+    }
+    const defaultModelEntry = codexState.modelCatalog.find((entry) => entry && entry.isDefault === true)
+        || codexState.modelCatalog.find((entry) => entry && entry.id)
+        || null;
+    return defaultModelEntry ? defaultModelEntry.label : '未解析模型';
+}
+
+function buildReasoningDefaultLabel() {
+    const effectiveReasoning = codexState.nextTurnEffectiveCodexConfig && codexState.nextTurnEffectiveCodexConfig.reasoningEffort
+        ? codexState.nextTurnEffectiveCodexConfig.reasoningEffort
+        : '';
+    if (effectiveReasoning && REASONING_EFFORT_LABELS[effectiveReasoning]) {
+        return REASONING_EFFORT_LABELS[effectiveReasoning];
+    }
+    const fallbackModelId = resolveReasoningModelId();
+    const fallbackModelEntry = findCodexModelEntry(fallbackModelId)
+        || codexState.modelCatalog.find((entry) => entry && entry.isDefault === true)
+        || codexState.modelCatalog.find((entry) => entry && entry.id)
+        || null;
+    const defaultReasoning = fallbackModelEntry && typeof fallbackModelEntry.defaultReasoningEffort === 'string'
+        ? fallbackModelEntry.defaultReasoningEffort
+        : '';
+    return defaultReasoning && REASONING_EFFORT_LABELS[defaultReasoning]
+        ? REASONING_EFFORT_LABELS[defaultReasoning]
+        : '未解析强度';
+}
+
+function resolveReasoningModelId() {
+    if (codexState.nextTurnOverrides.model) {
+        return codexState.nextTurnOverrides.model;
+    }
+    if (codexState.nextTurnEffectiveCodexConfig && codexState.nextTurnEffectiveCodexConfig.model) {
+        return codexState.nextTurnEffectiveCodexConfig.model;
+    }
+    const stored = getStoredCodexConfig();
+    if (stored && stored.defaultModel) {
+        return stored.defaultModel;
+    }
+    const defaultModelEntry = codexState.modelCatalog.find((entry) => entry && entry.isDefault === true)
+        || codexState.modelCatalog.find((entry) => entry && entry.id)
+        || null;
+    return defaultModelEntry ? defaultModelEntry.id : '';
+}
+
+function openSelectPicker(selectEl) {
+    if (!selectEl) return;
+    selectEl.focus();
+    if (typeof selectEl.showPicker === 'function') {
+        try {
+            selectEl.showPicker();
+            return;
+        } catch (_) {
+            // Fallback to click for browsers without programmatic picker support.
+        }
+    }
+    selectEl.click();
+}
+
+function renderCodexSlashMenu() {
+    if (!codexSlashMenu || !codexSlashMenuList || !codexSlashMenuEmpty) {
+        return;
+    }
+    const isSkillQuery = canLoadCodexSkills() && codexState.slashMenuQuery.startsWith('/skill');
+    const skillItems = getDiscoverableCodexSkills(codexState.slashMenuQuery);
+    const slashApi = getCodexSlashCommandsApi();
+    const items = skillItems.length > 0
+        ? []
+        : (slashApi && typeof slashApi.getDiscoverableSlashCommands === 'function'
+        ? slashApi.getDiscoverableSlashCommands({
+            registry: codexState.slashRegistry,
+            capabilities: codexState.capabilities,
+            query: codexState.slashMenuQuery
+        })
+        : []);
+    const shouldShow = codexState.slashMenuOpen === true && getActiveSessionMode() === 'codex' && codexState.capabilities.slashCommands === true;
+    codexSlashMenu.hidden = !shouldShow;
+    codexSlashMenuList.innerHTML = '';
+    if (isSkillQuery && codexState.skillsLoading) {
+        codexSlashMenuEmpty.textContent = '正在加载技能...';
+    } else if (isSkillQuery && codexState.skillListRequested && skillItems.length === 0) {
+        codexSlashMenuEmpty.textContent = '未找到匹配技能';
+    } else {
+        codexSlashMenuEmpty.textContent = 'No matching commands';
+    }
+    codexSlashMenuEmpty.hidden = items.length > 0 || skillItems.length > 0;
+    if (!shouldShow) {
+        return;
+    }
+    if (skillItems.length > 0) {
+        skillItems.forEach((entry) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'codex-slash-item';
+            const copy = document.createElement('span');
+            copy.className = 'codex-slash-item-copy';
+            const command = document.createElement('span');
+            command.className = 'codex-slash-item-command';
+            command.textContent = '$';
+            const title = document.createElement('span');
+            title.className = 'codex-slash-item-title';
+            title.textContent = entry.label;
+            copy.appendChild(command);
+            copy.appendChild(title);
+            if (entry.description) {
+                const meta = document.createElement('span');
+                meta.className = 'codex-slash-item-title';
+                meta.textContent = entry.description;
+                copy.appendChild(meta);
+            }
+            button.appendChild(copy);
+            button.addEventListener('click', () => {
+                applyCodexSkillSelection(entry);
+            });
+            codexSlashMenuList.appendChild(button);
+        });
+        return;
+    }
+    items.forEach((entry) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'codex-slash-item';
+        if (entry.availability !== 'enabled') {
+            button.classList.add('is-disabled');
+        }
+        const copy = document.createElement('span');
+        copy.className = 'codex-slash-item-copy';
+        const command = document.createElement('span');
+        command.className = 'codex-slash-item-command';
+        command.textContent = entry.command;
+        const title = document.createElement('span');
+        title.className = 'codex-slash-item-title';
+        title.textContent = entry.title;
+        copy.appendChild(command);
+        copy.appendChild(title);
+        button.appendChild(copy);
+        if (entry.availability !== 'enabled') {
+            const status = document.createElement('span');
+            status.className = 'codex-slash-item-status';
+            status.textContent = entry.availability === 'contract_frozen_not_enabled' ? '未开放' : '预留';
+            button.appendChild(status);
+        }
+        button.addEventListener('click', () => {
+            applySlashCommandSelection(entry.command);
+        });
+        codexSlashMenuList.appendChild(button);
+    });
+}
+
+function setSlashMenuState(open, query) {
+    codexState.slashMenuOpen = open === true;
+    codexState.slashMenuQuery = typeof query === 'string' ? query.trim().toLowerCase() : '';
+    renderCodexSlashMenu();
+}
+
+function applySlashCommandSelection(command) {
+    if (!codexInput) return;
+    codexInput.value = command;
+    codexInput.focus();
+    if (command === '/model' && codexQuickModel) {
+        codexInput.value = '';
+        setSlashMenuState(false, '');
+        void openCodexModelPicker();
+        return;
+    }
+    if (command === '/skill') {
+        codexInput.value = '/skill ';
+        void maybeLoadCodexSkills();
+        setSlashMenuState(true, '/skill ');
+        return;
+    }
+    setSlashMenuState(true, command);
+}
+
+function updateSlashMenuForInputValue() {
+    if (!codexInput) return;
+    const slashApi = getCodexSlashCommandsApi();
+    const parsed = slashApi && typeof slashApi.parseComposerInput === 'function'
+        ? slashApi.parseComposerInput(codexInput.value)
+        : { kind: 'text' };
+    if (parsed.kind !== 'slash') {
+        setSlashMenuState(false, '');
+        return;
+    }
+    if (parsed.command === '/skill') {
+        void maybeLoadCodexSkills();
+    }
+    setSlashMenuState(true, parsed.text || parsed.command || '/');
+}
+
 function setCodexSettingsStatus(text, tone) {
     codexState.settingsStatusText = typeof text === 'string' ? text.trim() : '';
     codexState.settingsStatusTone = typeof tone === 'string' ? tone.trim() : '';
@@ -740,18 +1095,220 @@ function getCodexSettingsStatusSummary() {
 }
 
 function normalizeCodexModelOptions(result) {
-    const models = result && Array.isArray(result.models) ? result.models : [];
+    return normalizeCodexModelCatalog(result).map((entry) => entry.id);
+}
+
+function normalizeCodexSkillCatalog(result) {
+    const source = result && typeof result === 'object' ? result : {};
+    const groups = Array.isArray(source.data) ? source.data : [];
+    const seen = new Set();
+    const skills = [];
+    groups.forEach((group) => {
+        const entries = group && Array.isArray(group.skills) ? group.skills : [];
+        entries.forEach((entry) => {
+            if (!entry || typeof entry !== 'object' || entry.enabled !== true) {
+                return;
+            }
+            const name = typeof entry.name === 'string' ? entry.name.trim() : '';
+            if (!name || seen.has(name)) {
+                return;
+            }
+            seen.add(name);
+            const ui = entry.interface && typeof entry.interface === 'object' ? entry.interface : {};
+            skills.push({
+                name,
+                label: typeof ui.displayName === 'string' && ui.displayName.trim() ? ui.displayName.trim() : name,
+                description: typeof ui.shortDescription === 'string' && ui.shortDescription.trim()
+                    ? ui.shortDescription.trim()
+                    : (typeof entry.description === 'string' ? entry.description.trim() : ''),
+                defaultPrompt: typeof ui.defaultPrompt === 'string' ? ui.defaultPrompt.trim() : '',
+                scope: typeof entry.scope === 'string' ? entry.scope.trim() : ''
+            });
+        });
+    });
+    return skills;
+}
+
+function normalizeCodexModelCatalog(result) {
+    const source = result && typeof result === 'object' ? result : {};
+    const models = Array.isArray(source.data)
+        ? source.data
+        : (Array.isArray(source.models) ? source.models : []);
     return models
         .map((entry) => {
             if (typeof entry === 'string') {
-                return entry.trim();
+                const id = entry.trim();
+                return id ? {
+                    id,
+                    label: id,
+                    defaultReasoningEffort: '',
+                    supportedReasoningEfforts: []
+                } : null;
             }
-            if (entry && typeof entry === 'object' && typeof entry.id === 'string') {
-                return entry.id.trim();
+            if (!entry || typeof entry !== 'object') {
+                return null;
             }
-            return '';
+            const id = typeof entry.id === 'string'
+                ? entry.id.trim()
+                : (typeof entry.model === 'string' ? entry.model.trim() : '');
+            if (!id) {
+                return null;
+            }
+            const label = typeof entry.displayName === 'string' && entry.displayName.trim()
+                ? entry.displayName.trim()
+                : id;
+            const supportedReasoningEfforts = Array.isArray(entry.supportedReasoningEfforts)
+                ? entry.supportedReasoningEfforts
+                    .map((item) => {
+                        if (typeof item === 'string') {
+                            return item.trim().toLowerCase();
+                        }
+                        if (item && typeof item === 'object' && typeof item.reasoningEffort === 'string') {
+                            return item.reasoningEffort.trim().toLowerCase();
+                        }
+                        return '';
+                    })
+                    .filter((value, index, arr) => value && arr.indexOf(value) === index)
+                : [];
+            return {
+                id,
+                label,
+                description: typeof entry.description === 'string' ? entry.description.trim() : '',
+                defaultReasoningEffort: typeof entry.defaultReasoningEffort === 'string'
+                    ? entry.defaultReasoningEffort.trim().toLowerCase()
+                    : '',
+                supportedReasoningEfforts,
+                isDefault: entry.isDefault === true,
+                hidden: entry.hidden === true
+            };
         })
-        .filter(Boolean);
+        .filter((entry) => entry && entry.hidden !== true);
+}
+
+function findCodexModelEntry(modelId) {
+    if (typeof modelId !== 'string' || !modelId.trim()) {
+        return null;
+    }
+    return codexState.modelCatalog.find((entry) => entry.id === modelId.trim()) || null;
+}
+
+function canLoadCodexModels() {
+    return getActiveSessionMode() === 'codex' && codexState.capabilities.modelConfig === true;
+}
+
+function getReasoningOptionsForModel(modelId) {
+    const modelEntry = findCodexModelEntry(modelId);
+    const options = modelEntry && Array.isArray(modelEntry.supportedReasoningEfforts)
+        ? modelEntry.supportedReasoningEfforts
+        : [];
+    return options.filter((value, index, arr) => REASONING_EFFORT_LABELS[value] && arr.indexOf(value) === index);
+}
+
+function canLoadCodexSkills() {
+    return getActiveSessionMode() === 'codex' && codexState.capabilities.skillsList === true;
+}
+
+function maybeLoadCodexSkills() {
+    if (!canLoadCodexSkills()) {
+        return Promise.resolve([]);
+    }
+    if (codexState.skillCatalog.length > 0) {
+        return Promise.resolve(codexState.skillCatalog);
+    }
+    if (codexState.skillListPromise) {
+        return codexState.skillListPromise;
+    }
+    if (codexState.skillListRequested) {
+        return Promise.resolve(codexState.skillCatalog);
+    }
+    codexState.skillListRequested = true;
+    codexState.skillsLoading = true;
+    renderCodexSlashMenu();
+    codexState.skillListPromise = sendCodexBridgeRequest('skills/list', {})
+        .then((result) => {
+            codexState.skillCatalog = normalizeCodexSkillCatalog(result);
+            renderCodexSlashMenu();
+            return codexState.skillCatalog;
+        })
+        .catch(() => {
+            codexState.skillListRequested = false;
+            renderCodexSlashMenu();
+            return [];
+        })
+        .finally(() => {
+            codexState.skillListPromise = null;
+            codexState.skillsLoading = false;
+            renderCodexSlashMenu();
+        });
+    return codexState.skillListPromise;
+}
+
+function getDiscoverableCodexSkills(query) {
+    if (!canLoadCodexSkills()) {
+        return [];
+    }
+    const text = typeof query === 'string' ? query.trim().toLowerCase() : '';
+    if (!text.startsWith('/skill')) {
+        return [];
+    }
+    const keyword = '/skill';
+    const search = text.startsWith('/skill ')
+        ? text.slice(keyword.length).trim()
+        : '';
+    return codexState.skillCatalog.filter((entry) => {
+        if (!search) {
+            return true;
+        }
+        return entry.name.toLowerCase().includes(search)
+            || entry.label.toLowerCase().includes(search)
+            || entry.description.toLowerCase().includes(search);
+    });
+}
+
+function findCodexSkillEntry(skillName) {
+    if (typeof skillName !== 'string' || !skillName.trim()) {
+        return null;
+    }
+    const normalized = skillName.trim().toLowerCase();
+    return codexState.skillCatalog.find((entry) => (
+        entry.name.toLowerCase() === normalized || entry.label.toLowerCase() === normalized
+    )) || null;
+}
+
+function applyCodexSkillSelection(skillEntry) {
+    if (!skillEntry) {
+        return;
+    }
+    setCodexInteractionState({
+        planMode: codexState.interactionState.planMode === true,
+        activeSkill: skillEntry.name
+    });
+    if (codexInput) {
+        codexInput.value = skillEntry.defaultPrompt || `$${skillEntry.name}`;
+        codexInput.focus();
+    }
+    setSlashMenuState(false, '');
+}
+
+function populateCodexReasoningSelect(selectEl, options) {
+    if (!selectEl) return;
+    const opts = options || {};
+    const selectedValue = typeof opts.forcedValue === 'string' ? opts.forcedValue : (selectEl.value || '');
+    const optionValues = getReasoningOptionsForModel(opts.modelId);
+    selectEl.innerHTML = '';
+
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = opts.defaultLabel || '默认';
+    selectEl.appendChild(defaultOption);
+
+    optionValues.forEach((value) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = REASONING_EFFORT_LABELS[value] || value;
+        selectEl.appendChild(option);
+    });
+    selectEl.value = optionValues.includes(selectedValue) ? selectedValue : '';
 }
 
 function populateCodexModelSelect(forcedValue) {
@@ -763,16 +1320,16 @@ function populateCodexModelSelect(forcedValue) {
 
     const defaultOption = document.createElement('option');
     defaultOption.value = '';
-    defaultOption.textContent = codexState.settingsLoadingModels ? '正在加载模型...' : '服务端默认';
+    defaultOption.textContent = codexState.settingsLoadingModels ? '正在加载模型...' : buildModelDefaultLabel();
     codexSettingsModel.appendChild(defaultOption);
 
     const seen = new Set(['']);
-    codexState.modelOptions.forEach((modelId) => {
-        if (!modelId || seen.has(modelId)) return;
-        seen.add(modelId);
+    codexState.modelCatalog.forEach((model) => {
+        if (!model || !model.id || seen.has(model.id)) return;
+        seen.add(model.id);
         const option = document.createElement('option');
-        option.value = modelId;
-        option.textContent = modelId;
+        option.value = model.id;
+        option.textContent = model.label;
         codexSettingsModel.appendChild(option);
     });
 
@@ -802,7 +1359,11 @@ function syncCodexSettingsFormFromStoredConfig() {
     const useServerDefaults = !stored;
     codexSettingsUseDefaults.checked = useServerDefaults;
     populateCodexModelSelect(stored && stored.defaultModel ? stored.defaultModel : '');
-    codexSettingsReasoning.value = stored && stored.defaultReasoningEffort ? stored.defaultReasoningEffort : '';
+    populateCodexReasoningSelect(codexSettingsReasoning, {
+        defaultLabel: buildReasoningDefaultLabel(),
+        forcedValue: stored && stored.defaultReasoningEffort ? stored.defaultReasoningEffort : '',
+        modelId: stored && stored.defaultModel ? stored.defaultModel : resolveReasoningModelId()
+    });
     codexSettingsPersonality.value = stored && stored.defaultPersonality ? stored.defaultPersonality : '';
     codexSettingsApproval.value = stored && stored.approvalPolicy ? stored.approvalPolicy : '';
     codexSettingsSandbox.value = stored && stored.sandboxMode ? stored.sandboxMode : '';
@@ -857,6 +1418,11 @@ function renderCodexSettingsPanel() {
     const settingsFooter = document.getElementById('codex-settings-footer');
 
     populateCodexModelSelect();
+    populateCodexReasoningSelect(codexSettingsReasoning, {
+        defaultLabel: buildReasoningDefaultLabel(),
+        forcedValue: codexSettingsReasoning ? codexSettingsReasoning.value : '',
+        modelId: codexSettingsModel ? codexSettingsModel.value : resolveReasoningModelId()
+    });
 
     const useServerDefaults = codexSettingsUseDefaults ? codexSettingsUseDefaults.checked : true;
     const disableFields = !canEditModelConfig || useServerDefaults || codexState.settingsSaving;
@@ -1069,21 +1635,24 @@ function applyCodexRuntimeSnapshotItem(item) {
 }
 
 function maybeLoadCodexModels() {
-    if (!shouldShowCodexSettingsPanel()) {
-        return;
+    if (!canLoadCodexModels()) {
+        return Promise.resolve([]);
     }
-    if (codexState.capabilities.modelConfig !== true) {
-        return;
+    if (codexState.modelCatalog.length > 0) {
+        return Promise.resolve(codexState.modelOptions);
+    }
+    if (codexState.modelListPromise) {
+        return codexState.modelListPromise;
     }
     if (codexState.modelListRequested || codexState.settingsLoadingModels) {
-        return;
+        return Promise.resolve(codexState.modelOptions);
     }
-    refreshCodexModelList({ silent: true });
+    return refreshCodexModelList({ silent: true });
 }
 
 function refreshCodexModelList(options) {
     const opts = options || {};
-    if (codexState.capabilities.modelConfig !== true) {
+    if (!canLoadCodexModels()) {
         return Promise.resolve([]);
     }
 
@@ -1095,13 +1664,15 @@ function refreshCodexModelList(options) {
         renderCodexSettingsPanel();
     }
 
-    return sendCodexBridgeRequest('model/list', undefined, { suppressErrorUi: opts.silent === true })
+    codexState.modelListPromise = sendCodexBridgeRequest('model/list', undefined, { suppressErrorUi: opts.silent === true })
         .then((result) => {
+            codexState.modelCatalog = normalizeCodexModelCatalog(result);
             codexState.modelOptions = normalizeCodexModelOptions(result);
             if (opts.silent !== true) {
                 setCodexSettingsStatus('模型列表已刷新。', 'success');
             }
             renderCodexSettingsPanel();
+            renderCodexQuickControls();
             return codexState.modelOptions;
         })
         .catch((error) => {
@@ -1115,8 +1686,28 @@ function refreshCodexModelList(options) {
         })
         .finally(() => {
             codexState.settingsLoadingModels = false;
+            codexState.modelListPromise = null;
             renderCodexSettingsPanel();
+            renderCodexQuickControls();
         });
+    return codexState.modelListPromise;
+}
+
+function openCodexModelPicker() {
+    if (!codexQuickModel) {
+        return Promise.resolve([]);
+    }
+    console.info('[JS][model/list] opening quick model picker', {
+        catalogCount: codexState.modelCatalog.length,
+        loading: codexState.settingsLoadingModels,
+        requested: codexState.modelListRequested
+    });
+    const request = codexState.modelCatalog.length > 0
+        ? (codexState.modelListPromise || Promise.resolve(codexState.modelOptions))
+        : maybeLoadCodexModels();
+    return Promise.resolve(request).finally(() => {
+        openSelectPicker(codexQuickModel);
+    });
 }
 
 function refreshCodexRateLimits(options) {
@@ -1183,7 +1774,9 @@ function saveCodexSessionSettings() {
             codexState.storedCodexConfig = settingsApi && typeof settingsApi.normalizeStoredCodexConfig === 'function'
                 ? settingsApi.normalizeStoredCodexConfig(body.codexConfig)
                 : null;
+            codexState.serverNextTurnConfigBase = null;
             syncCodexSettingsFormFromStoredConfig();
+            syncNextTurnEffectiveCodexConfig();
             setCodexSettingsStatus('会话默认配置已保存。', 'success');
             appendCodexLogEntry('system', '已更新会话级 Codex 默认配置。', { meta: 'settings' });
             return body;
@@ -1303,13 +1896,27 @@ function resetCodexBootstrapState() {
     codexState.historyListLoading = false;
     codexState.historyActionThreadId = '';
     codexState.storedCodexConfig = null;
+    codexState.modelCatalog = [];
     codexState.modelOptions = [];
     codexState.modelListRequested = false;
+    codexState.modelListPromise = null;
+    codexState.skillCatalog = [];
+    codexState.skillListRequested = false;
+    codexState.skillListPromise = null;
+    codexState.skillsLoading = false;
+    codexState.slashRegistry = [];
+    codexState.slashMenuOpen = false;
+    codexState.slashMenuQuery = '';
     codexState.settingsLoadingModels = false;
     codexState.settingsSaving = false;
     codexState.settingsRefreshingRateLimits = false;
     codexState.settingsStatusText = '';
     codexState.settingsStatusTone = '';
+    codexState.nextTurnOverrides = { model: null, reasoningEffort: null };
+    codexState.interactionState = { planMode: false, activeSkill: null };
+    codexState.serverNextTurnConfigBase = null;
+    codexState.nextTurnEffectiveCodexConfig = null;
+    codexState.pendingSubmittedTurnState = null;
     codexState.runtimeDiff = '';
     codexState.runtimePlan = '';
     codexState.runtimeReasoning = '';
@@ -1336,15 +1943,22 @@ function resetCodexBootstrapState() {
         approvals: false,
         userInputRequest: false,
         diffPlanReasoning: false,
+        slashCommands: false,
+        slashModel: false,
+        slashPlan: false,
         skillsList: false,
         compact: false,
         imageInput: false
     };
     codexState.historyThreads = [];
+    refreshCodexSlashRegistry();
     renderCodexHeaderSummary();
     renderCodexSecondaryNav();
     renderCodexHistoryList();
     syncCodexSettingsFormFromStoredConfig();
+    renderCodexQuickControls();
+    renderCodexComposerState();
+    renderCodexSlashMenu();
     renderCodexSettingsPanel();
     renderCodexAlerts();
     renderCodexRuntimePanel();
@@ -1371,10 +1985,97 @@ function normalizeCodexCapabilities(payload) {
         approvals: source.approvals === true,
         userInputRequest: source.userInputRequest === true,
         diffPlanReasoning: source.diffPlanReasoning === true,
+        slashCommands: source.slashCommands === true,
+        slashModel: source.slashModel === true,
+        slashPlan: source.slashPlan === true,
         skillsList: source.skillsList === true,
         compact: source.compact === true,
         imageInput: source.imageInput === true
     };
+}
+
+function normalizeCodexInteractionState(payload) {
+    const slashApi = getCodexSlashCommandsApi();
+    if (slashApi && typeof slashApi.normalizeInteractionState === 'function') {
+        return slashApi.normalizeInteractionState(payload);
+    }
+    const source = payload && typeof payload === 'object' ? payload : {};
+    return {
+        planMode: source.planMode === true,
+        activeSkill: typeof source.activeSkill === 'string' && source.activeSkill.trim()
+            ? source.activeSkill.trim()
+            : null
+    };
+}
+
+function normalizeNextTurnOverrides(payload) {
+    const slashApi = getCodexSlashCommandsApi();
+    if (slashApi && typeof slashApi.normalizeNextTurnOverrides === 'function') {
+        return slashApi.normalizeNextTurnOverrides(payload);
+    }
+    const source = payload && typeof payload === 'object' ? payload : {};
+    return {
+        model: typeof source.model === 'string' && source.model.trim() ? source.model.trim() : null,
+        reasoningEffort: typeof source.reasoningEffort === 'string' && source.reasoningEffort.trim()
+            ? source.reasoningEffort.trim().toLowerCase()
+            : null
+    };
+}
+
+function normalizeEffectiveCodexConfig(payload) {
+    const source = payload && typeof payload === 'object' ? payload : {};
+    return {
+        model: typeof source.model === 'string' && source.model.trim() ? source.model.trim() : null,
+        reasoningEffort: typeof source.reasoningEffort === 'string' && source.reasoningEffort.trim()
+            ? source.reasoningEffort.trim().toLowerCase()
+            : null,
+        personality: typeof source.personality === 'string' && source.personality.trim()
+            ? source.personality.trim()
+            : null,
+        approvalPolicy: typeof source.approvalPolicy === 'string' && source.approvalPolicy.trim()
+            ? source.approvalPolicy.trim()
+            : null,
+        sandboxMode: typeof source.sandboxMode === 'string' && source.sandboxMode.trim()
+            ? source.sandboxMode.trim()
+            : null
+    };
+}
+
+function buildLocalNextTurnEffectiveCodexConfig() {
+    const baseConfig = codexState.serverNextTurnConfigBase
+        ? normalizeEffectiveCodexConfig(codexState.serverNextTurnConfigBase)
+        : null;
+    if (baseConfig) {
+        return {
+            model: codexState.nextTurnOverrides.model || baseConfig.model || null,
+            reasoningEffort: codexState.nextTurnOverrides.reasoningEffort || baseConfig.reasoningEffort || null,
+            personality: baseConfig.personality || null,
+            approvalPolicy: baseConfig.approvalPolicy || null,
+            sandboxMode: baseConfig.sandboxMode || null
+        };
+    }
+    const slashApi = getCodexSlashCommandsApi();
+    if (slashApi && typeof slashApi.buildNextTurnEffectiveCodexConfig === 'function') {
+        return slashApi.buildNextTurnEffectiveCodexConfig({
+            storedCodexConfig: getStoredCodexConfig(),
+            nextTurnOverrides: codexState.nextTurnOverrides
+        });
+    }
+    const stored = getStoredCodexConfig();
+    return {
+        model: codexState.nextTurnOverrides.model || (stored ? stored.defaultModel : null),
+        reasoningEffort: codexState.nextTurnOverrides.reasoningEffort || (stored ? stored.defaultReasoningEffort : null),
+        personality: stored ? stored.defaultPersonality : null,
+        approvalPolicy: stored ? stored.approvalPolicy : null,
+        sandboxMode: stored ? stored.sandboxMode : null
+    };
+}
+
+function refreshCodexSlashRegistry() {
+    const slashApi = getCodexSlashCommandsApi();
+    codexState.slashRegistry = slashApi && typeof slashApi.createSlashRegistry === 'function'
+        ? slashApi.createSlashRegistry()
+        : [];
 }
 
 function sendCodexBridgeRequest(method, params, options) {
@@ -1383,6 +2084,7 @@ function sendCodexBridgeRequest(method, params, options) {
     if (!normalizedMethod) {
         return Promise.reject(new Error('Codex bridge request requires a method.'));
     }
+    const normalizedParams = params && typeof params === 'object' ? params : {};
     const requestId = `bridge-${Date.now()}-${codexState.nextBridgeRequestId++}`;
     return new Promise((resolve, reject) => {
         codexState.pendingBridgeRequests.set(requestId, {
@@ -1395,7 +2097,7 @@ function sendCodexBridgeRequest(method, params, options) {
             type: 'codex_request',
             requestId,
             method: normalizedMethod,
-            params: params && typeof params === 'object' ? params : undefined
+            params: normalizedParams
         });
         if (!sent) {
             codexState.pendingBridgeRequests.delete(requestId);
@@ -1867,9 +2569,59 @@ function updateViewportLayoutState() {
     }
 }
 
+function rememberPendingTurnState(snapshot) {
+    codexState.pendingSubmittedTurnState = snapshot || null;
+}
+
+function clearPendingTurnState() {
+    codexState.pendingSubmittedTurnState = null;
+}
+
+function finalizePendingTurnStateOnSuccess() {
+    const pending = codexState.pendingSubmittedTurnState;
+    if (!pending) {
+        return;
+    }
+    if (pending.clearOverrides === true) {
+        clearNextTurnOverrides();
+    }
+    if (pending.clearPlanMode === true || pending.clearActiveSkill === true) {
+        setCodexInteractionState({
+            planMode: pending.clearPlanMode === true ? false : codexState.interactionState.planMode === true,
+            activeSkill: pending.clearActiveSkill === true ? null : codexState.interactionState.activeSkill
+        });
+    }
+    clearPendingTurnState();
+}
+
+function restorePendingTurnStateOnFailure() {
+    const pending = codexState.pendingSubmittedTurnState;
+    if (!pending) {
+        return;
+    }
+    setNextTurnOverrides(pending.nextTurnOverrides || { model: null, reasoningEffort: null });
+    setCodexInteractionState(pending.interactionState || { planMode: false, activeSkill: null });
+    clearPendingTurnState();
+}
+
 function sendCodexTurn(text, options) {
     const cleaned = typeof text === 'string' ? text.trim() : '';
     if (!cleaned) return;
+    const opts = options || {};
+    const nextTurnOverrides = normalizeNextTurnOverrides(opts.nextTurnOverrides || codexState.nextTurnOverrides);
+    const interactionState = normalizeCodexInteractionState(opts.interactionState || codexState.interactionState);
+    const collaborationMode = typeof opts.collaborationMode === 'string' && opts.collaborationMode.trim()
+        ? opts.collaborationMode.trim()
+        : null;
+    const payload = {
+        type: 'codex_turn',
+        text: cleaned,
+        forceNewThread: !!opts.forceNewThread,
+        cwd: getConfiguredCodexCwd() || undefined,
+        model: nextTurnOverrides.model || undefined,
+        reasoningEffort: nextTurnOverrides.reasoningEffort || undefined,
+        collaborationMode: collaborationMode || undefined
+    };
 
     appendCodexLogEntry('user', cleaned, { meta: 'you' });
     if (codexState.threadId && codexState.unmaterializedThreadId === codexState.threadId) {
@@ -1877,13 +2629,91 @@ function sendCodexTurn(text, options) {
     }
     codexState.pendingFreshThread = false;
     setCodexStatus('running', 'starting turn');
-
-    sendCodexEnvelope({
-        type: 'codex_turn',
-        text: cleaned,
-        forceNewThread: !!(options && options.forceNewThread),
-        cwd: getConfiguredCodexCwd() || undefined
+    rememberPendingTurnState({
+        nextTurnOverrides,
+        interactionState,
+        clearOverrides: opts.clearOverrides !== false && (!!nextTurnOverrides.model || !!nextTurnOverrides.reasoningEffort),
+        clearPlanMode: opts.clearPlanMode === true,
+        clearActiveSkill: !!interactionState.activeSkill
     });
+    if (!sendCodexEnvelope(payload)) {
+        restorePendingTurnStateOnFailure();
+    }
+}
+
+function handleCodexComposerSubmit(rawText) {
+    const slashApi = getCodexSlashCommandsApi();
+    const parsed = slashApi && typeof slashApi.parseComposerInput === 'function'
+        ? slashApi.parseComposerInput(rawText)
+        : { kind: 'text', text: rawText };
+
+    if (parsed.kind === 'empty') {
+        return false;
+    }
+
+    if (parsed.kind !== 'slash') {
+        sendCodexTurn(parsed.text, {
+            clearPlanMode: codexState.interactionState.planMode === true,
+            collaborationMode: codexState.interactionState.planMode === true ? 'plan' : null
+        });
+        return true;
+    }
+
+    const registryEntry = slashApi && typeof slashApi.resolveSlashCommand === 'function'
+        ? slashApi.resolveSlashCommand({ registry: codexState.slashRegistry, command: parsed.command })
+        : null;
+
+    if (!registryEntry) {
+        appendCodexLogEntry('error', '未识别命令。当前支持：/model、/plan。', { meta: 'slash' });
+        return false;
+    }
+
+    if (registryEntry.command === '/plan') {
+        if (!parsed.argumentText) {
+            setPlanMode(true);
+            return true;
+        }
+        sendCodexTurn(parsed.argumentText, {
+            collaborationMode: 'plan',
+            clearPlanMode: true
+        });
+        return true;
+    }
+
+    if (registryEntry.command === '/model') {
+        if (codexInput) {
+            codexInput.value = '';
+        }
+        if (codexQuickModel) {
+            void openCodexModelPicker();
+        }
+        setSlashMenuState(false, '');
+        return false;
+    }
+
+    if (registryEntry.command === '/skill') {
+        if (!parsed.argumentText) {
+            if (codexInput) {
+                codexInput.value = '/skill ';
+                codexInput.focus();
+            }
+            void maybeLoadCodexSkills();
+            setSlashMenuState(true, '/skill ');
+            return false;
+        }
+        const skillEntry = findCodexSkillEntry(parsed.argumentText);
+        if (!skillEntry) {
+            appendCodexLogEntry('system', `未找到技能：${parsed.argumentText}`, { meta: 'slash' });
+            setSlashMenuState(true, `/skill ${parsed.argumentText}`);
+            return false;
+        }
+        applyCodexSkillSelection(skillEntry);
+        setSlashMenuState(false, '');
+        return false;
+    }
+
+    appendCodexLogEntry('system', registryEntry.statusText || '命令已预留，当前阶段不可用。', { meta: 'slash' });
+    return false;
 }
 
 function requestCodexNewThread(options) {
@@ -2816,27 +3646,35 @@ function connect() {
                     codexState.storedCodexConfig = settingsApi && typeof settingsApi.normalizeStoredCodexConfig === 'function'
                         ? settingsApi.normalizeStoredCodexConfig(envelope.codexConfig)
                         : null;
+                    codexState.serverNextTurnConfigBase = null;
                     codexState.secondaryPanel = 'none';
                     codexState.initialSessionInfoReceived = true;
+                    syncNextTurnEffectiveCodexConfig();
                     applySessionModeLayout();
                     renderCodexHeaderSummary();
                     renderCodexSecondaryNav();
                     syncCodexSettingsFormFromStoredConfig();
+                    renderCodexQuickControls();
+                    renderCodexComposerState();
                     renderCodexSecondaryPanels();
                     notifyNativeSessionInfo(nextSessionId, envelope.name || '', envelope.privilegeLevel || '');
                     maybeBootstrapCodexSession();
                     maybeLoadCodexModels();
+                    maybeLoadCodexSkills();
                     return;
                 }
                 if (envelope.type === 'codex_capabilities') {
                     codexState.capabilities = normalizeCodexCapabilities(envelope.capabilities);
+                    refreshCodexSlashRegistry();
                     codexState.secondaryPanel = 'none';
                     codexState.initialCapabilitiesReceived = true;
                     renderCodexHeaderSummary();
                     renderCodexSecondaryNav();
+                    renderCodexSlashMenu();
                     renderCodexSecondaryPanels();
                     maybeBootstrapCodexSession();
                     maybeLoadCodexModels();
+                    maybeLoadCodexSkills();
                     return;
                 }
                 if (envelope.type === 'codex_state') {
@@ -2862,6 +3700,15 @@ function connect() {
                     if (Object.prototype.hasOwnProperty.call(envelope, 'rateLimitState')) {
                         applyCodexRateLimit(envelope.rateLimitState);
                     }
+                    if (Object.prototype.hasOwnProperty.call(envelope, 'interactionState')) {
+                        codexState.interactionState = normalizeCodexInteractionState(envelope.interactionState);
+                    }
+                    if (Object.prototype.hasOwnProperty.call(envelope, 'nextTurnEffectiveCodexConfig')) {
+                        codexState.serverNextTurnConfigBase = normalizeEffectiveCodexConfig(envelope.nextTurnEffectiveCodexConfig);
+                    } else {
+                        codexState.serverNextTurnConfigBase = null;
+                    }
+                    codexState.nextTurnEffectiveCodexConfig = buildLocalNextTurnEffectiveCodexConfig();
                     if (codexState.threadId) {
                         codexState.lastCodexThreadId = codexState.threadId;
                     }
@@ -2879,6 +3726,8 @@ function connect() {
                         refreshCodexThreadList({ force: true, silent: true });
                         refreshCodexThreadSnapshot({ threadId: codexState.threadId, force: true });
                     }
+                    renderCodexComposerState();
+                    renderCodexQuickControls();
                     maybeBootstrapCodexSession();
                     return;
                 }
@@ -2915,6 +3764,7 @@ function connect() {
                 if (envelope.type === 'codex_turn_ack') {
                     const turn = envelope.turn || null;
                     codexState.currentTurnId = turn && turn.id ? turn.id : codexState.currentTurnId;
+                    finalizePendingTurnStateOnSuccess();
                     clearCodexErrorNotice();
                     setCodexStatus('running', 'turn started');
                     return;
@@ -2944,6 +3794,7 @@ function connect() {
                     return;
                 }
                 if (envelope.type === 'codex_error') {
+                    restorePendingTurnStateOnFailure();
                     if (isCodexThreadNotMaterializedError(envelope.code, envelope.message)) {
                         if (codexState.threadId) {
                             codexState.unmaterializedThreadId = codexState.threadId;
@@ -3332,6 +4183,13 @@ if (btnCodexSecondaryNotices) {
     codexSettingsSandbox
 ].filter(Boolean).forEach((field) => {
     field.addEventListener('change', () => {
+        if (field === codexSettingsModel) {
+            populateCodexReasoningSelect(codexSettingsReasoning, {
+                defaultLabel: buildReasoningDefaultLabel(),
+                forcedValue: codexSettingsReasoning ? codexSettingsReasoning.value : '',
+                modelId: codexSettingsModel ? codexSettingsModel.value : resolveReasoningModelId()
+            });
+        }
         renderCodexSettingsPanel();
     });
 });
@@ -3366,8 +4224,10 @@ if (btnCodexSend) {
     btnCodexSend.addEventListener('click', () => {
         if (!codexInput) return;
         const text = codexInput.value;
-        sendCodexTurn(text);
-        codexInput.value = '';
+        if (handleCodexComposerSubmit(text)) {
+            codexInput.value = '';
+            setSlashMenuState(false, '');
+        }
         codexInput.focus();
     });
 }
@@ -3377,9 +4237,67 @@ if (codexInput) {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
             const text = codexInput.value;
-            sendCodexTurn(text);
-            codexInput.value = '';
+            if (handleCodexComposerSubmit(text)) {
+                codexInput.value = '';
+                setSlashMenuState(false, '');
+            }
         }
+    });
+    codexInput.addEventListener('input', () => {
+        updateSlashMenuForInputValue();
+    });
+}
+
+if (codexPlanChip) {
+    codexPlanChip.addEventListener('click', () => {
+        setPlanMode(false);
+    });
+}
+
+if (codexQuickModel) {
+    codexQuickModel.addEventListener('focus', () => {
+        void maybeLoadCodexModels();
+    });
+    codexQuickModel.addEventListener('change', () => {
+        setNextTurnOverrideValue('model', codexQuickModel.value || null);
+        populateCodexReasoningSelect(codexQuickReasoning, {
+            defaultLabel: buildReasoningDefaultLabel(),
+            forcedValue: '',
+            modelId: codexQuickModel.value || resolveReasoningModelId()
+        });
+        if (codexQuickReasoning && codexQuickReasoning.value) {
+            setNextTurnOverrideValue('reasoningEffort', codexQuickReasoning.value);
+        } else {
+            setNextTurnOverrideValue('reasoningEffort', null);
+        }
+    });
+    codexQuickModel.addEventListener('pointerdown', () => {
+        if (codexState.modelCatalog.length === 0) {
+            void maybeLoadCodexModels();
+        }
+    });
+}
+
+if (codexQuickReasoning) {
+    codexQuickReasoning.addEventListener('change', () => {
+        setNextTurnOverrideValue('reasoningEffort', codexQuickReasoning.value || null);
+    });
+}
+
+if (btnCodexQuickClear) {
+    btnCodexQuickClear.addEventListener('click', () => {
+        clearNextTurnOverrides();
+    });
+}
+
+if (btnCodexSlashTrigger) {
+    btnCodexSlashTrigger.addEventListener('click', () => {
+        if (!codexInput) return;
+        if (!codexInput.value.trim()) {
+            codexInput.value = '/';
+        }
+        codexInput.focus();
+        updateSlashMenuForInputValue();
     });
 }
 
@@ -3576,4 +4494,3 @@ if (shouldExposeCodexTestHooks) {
         getCodexAlertDeprecation: () => codexAlertDeprecation
     };
 }
-

@@ -254,7 +254,10 @@ test('session_info includes lastCodexThreadId metadata when available', async (t
         approvals: true,
         userInputRequest: true,
         diffPlanReasoning: true,
-        skillsList: false,
+        slashCommands: true,
+        slashModel: true,
+        slashPlan: true,
+        skillsList: true,
         compact: false,
         imageInput: false
     });
@@ -659,6 +662,111 @@ test('codex_set_cwd updates session cwd used by subsequent turn/start', async (t
     assert.ok(threadStart, 'thread/start should be invoked');
     assert.equal(threadStart.params.cwd, 'E:\\coding\\TermLink');
     assert.equal(session.cwd, 'E:\\coding\\TermLink');
+});
+
+test('codex_set_interaction_state is persisted into codex_state snapshots', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session');
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_set_interaction_state',
+        interactionState: {
+            planMode: true,
+            activeSkill: 'refactor'
+        }
+    }));
+
+    const stateEnvelope = ws.sent.filter((entry) => entry.type === 'codex_state').at(-1);
+    assert.deepEqual(stateEnvelope.interactionState, {
+        planMode: true,
+        activeSkill: 'refactor'
+    });
+    assert.deepEqual(stateEnvelope.nextTurnEffectiveCodexConfig, {
+        model: null,
+        reasoningEffort: null,
+        personality: null,
+        approvalPolicy: 'never',
+        sandboxMode: 'workspace-write'
+    });
+});
+
+test('codex_turn forwards overrides and collaborationMode to turn/start and clears server planMode snapshot', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        codexConfig: {
+            defaultModel: 'gpt-5',
+            defaultReasoningEffort: 'medium',
+            defaultPersonality: 'pragmatic',
+            approvalPolicy: 'on-request',
+            sandboxMode: 'workspace-write'
+        },
+        codexState: {
+            threadId: null,
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null,
+            interactionState: {
+                planMode: true,
+                activeSkill: 'android-local-build-debug'
+            }
+        }
+    });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'inspect repo',
+        model: 'gpt-5-codex',
+        reasoningEffort: 'high',
+        collaborationMode: 'plan'
+    }));
+
+    const service = MockCodexService.instances[0];
+    const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
+    assert.ok(turnStart, 'turn/start should be invoked');
+    assert.equal(turnStart.params.model, 'gpt-5-codex');
+    assert.equal(turnStart.params.reasoningEffort, 'high');
+    assert.equal(turnStart.params.collaborationMode, 'plan');
+    assert.equal(turnStart.params.personality, 'pragmatic');
+
+    const lastState = ws.sent.filter((entry) => entry.type === 'codex_state').at(-1);
+    assert.deepEqual(lastState.interactionState, {
+        planMode: false,
+        activeSkill: null
+    });
 });
 
 test('codex approval request is forwarded to client and response is returned to bridge', async (t) => {

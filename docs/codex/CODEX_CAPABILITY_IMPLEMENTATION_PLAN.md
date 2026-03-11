@@ -28,7 +28,7 @@
 
 1. `thread/list`、`thread/read`、`thread/resume`、`model/list`、模型选择、推理强度选择、`turn/interrupt`、`turn/plan/updated`、`account/rateLimits/read` 均已有硬证据。
 2. slash 交互不是底层协议原语，但属于“可做，且交互形态属于客户端封装”。
-3. `/skill <name>` 当前只冻结交互契约，不推定 app-server 已存在固定原生字段或固定 RPC 承接方式。
+3. `/skill <name>` 当前按客户端一次性辅助交互实现，不推定 app-server 已存在固定原生字段或固定 RPC 承接方式。
 
 ## 3. 首页信息层级收口原则
 
@@ -79,7 +79,7 @@
 | slash registry / slash list | 可做，但交互形态属于客户端封装 | 技术已支持且当前期前置 | P2 | 客户端本地 registry，不新增底层协议。 |
 | `/model` | `model/list` 已确认可做，slash 为客户端封装 | 技术已支持且当前期前置 | P2 | 与快捷入口共用一个 next-turn override 状态源。 |
 | `/plan` | plan 流已确认可做，slash 为客户端封装 | 技术已支持且当前期前置 | P2 | 写入 `interactionState.planMode`，发送后自动清除。 |
-| `/skill <name>` 契约冻结 | 客户端封装契约可冻结 | 技术已支持但当前期不开放 | P2 | 当前期不在可执行菜单展示，手输时走“已预留未开放”兜底。 |
+| `/skill <name>` 一次性交互 | `skills/list` 可做，交互形态属于客户端封装 | 技术已支持且当前期最小开放 | P2 | 通过技能列表选择后，仅用于本次输入辅助与 prompt 预填，不进入底层固定字段。 |
 | 输入区模型 / 推理强度快捷入口 | 已确认可做 | 技术已支持且当前期前置 | P2 | 只影响下一次发送，不写回 stored config。 |
 | `model/list` | 已确认可做 | 技术已支持且当前期前置 | P2 | 既支撑 `/model`，也支撑二级 Session Defaults。 |
 | reasoning effort | 已确认可做 | 技术已支持且当前期前置 | P2 | 支撑快捷入口与 `codex_turn` override。 |
@@ -141,7 +141,7 @@
 实施约束：
 
 1. 新命令先补描述字段，再接入 dispatch。
-2. `availability` 与 `discoverability` 必须分开建模，避免“已冻结但仍可搜索到”的场景失真。
+2. `availability` 与 `discoverability` 必须分开建模，避免“已启用但不可发现”或“仅保留但被误当成可执行”的场景失真。
 3. `dispatchKind` 只能落到当前文档已定义的分发类型，新增分发类型必须先改 REQ 与实施计划。
 4. Android 与 WebView 必须共享同一套字段语义，不允许各自扩表。
 
@@ -150,9 +150,8 @@
 1. `enabled`
    - `/model`
    - `/plan`
-2. `contract_frozen_not_enabled`
    - `/skill <name>`
-3. `reserved`
+2. `reserved`
    - `/compact`
    - `/skills`
 
@@ -169,9 +168,9 @@
    - `dispatchKind = interaction_state`
    - `capabilityBinding = 客户端封装 + turn/plan/updated`
 3. `/skill <name>`
-   - `availability = contract_frozen_not_enabled`
+   - `availability = enabled`
    - `dispatchKind = interaction_state`
-   - `capabilityBinding = 客户端封装`
+   - `capabilityBinding = skills/list + 客户端封装`
 
 ### 5.3 `/model` 约束
 
@@ -192,20 +191,20 @@
 6. `/plan` 不清除 `activeSkill`。
 7. 底层仍复用现有 `turn/start` 与 `turn/plan/updated`，不新增协议类型。
 
-### 5.5 `/skill <name>` 冻结契约
+### 5.5 `/skill <name>` 一次性输入辅助契约
 
-1. `/skill <name>` 对应 `interactionState.activeSkill`。
-2. 当前期默认不在 slash 列表中展示为可执行命令。
-3. 用户手输 `/skill <name>` 时：
-   - 返回“命令已预留但暂未开放”
+1. `/skill <name>` 对应 `interactionState.activeSkill`，但该状态只用于本次输入辅助。
+2. 当前实现通过 `skills/list` 加载可选技能，并在 slash 菜单中展示为可执行命令。
+3. 选择 skill 时：
    - 不发送原始 slash
    - 不创建新线程
-   - 不写入 `interactionState`
-   - 不污染消息流
-4. 未来正式开放后，输入新的 `/skill <name>` 直接替换当前 `activeSkill`。
-5. 替换 skill 不触发发送。
-6. 替换或清除 `activeSkill` 不影响 `planMode`。
-7. `/skills` 即使后续开放，也只是浏览 / 发现入口，不改变 `/skill <name>` 的当前会话契约。
+   - 写入 `interactionState.activeSkill`
+   - 将 skill 的 `defaultPrompt` 预填到输入框，供用户继续编辑
+4. skill 不作为会话级持久配置，也不写入 `storedCodexConfig`。
+5. 本次消息发送成功后，必须自动清除 `activeSkill`。
+6. 若发送失败，允许恢复本次发送前的 `activeSkill`，避免误丢上下文辅助状态。
+7. 替换或清除 `activeSkill` 不影响 `planMode`。
+8. `/skills` 即使后续开放，也只是浏览 / 发现入口，不改变 `/skill <name>` 的一次性契约。
 
 ## 6. 配置状态与交互状态模型
 
@@ -243,10 +242,10 @@
 ### 6.4 `activeSkill` 边界
 
 1. 发送流程必须考虑 `activeSkill` 的生效语义。
-2. 当前只冻结 `activeSkill` 的交互语义与状态模型。
+2. `activeSkill` 仅表示“本次输入正在使用哪个一次性 skill 辅助”，不是会话默认配置。
 3. 当前不绑定到固定底层字段、固定 RPC 参数、固定原生 app-server 载荷。
-4. 正式开放时，再依据能力矩阵证据决定承接方式。
-5. `activeSkill` 未来如需正式进入 slash 扩展体系，也必须通过统一 registry / dispatch 接口接入，而不是单独加一套 skill 专用输入分支。
+4. 本次发送成功后自动清除；发送失败可恢复。
+5. `activeSkill` 未来如需正式进入更深的 slash / tool 扩展体系，也必须通过统一 registry / dispatch 接口接入，而不是单独加一套 skill 专用输入分支。
 
 ## 7. 接口收敛策略
 
@@ -313,7 +312,7 @@
 1. 只作用于本次发送。
 2. 发送成功后由客户端清空 `nextTurnOverrides`。
 3. 发送成功后清空 `interactionState.planMode`。
-4. `interactionState.activeSkill` 默认保留，直到显式替换或清除。
+4. `interactionState.activeSkill` 仅作为一次性发送辅助态；发送成功后清除，失败时恢复。
 5. 不自动写回 `codexConfig`。
 
 ## 8. Android / Browser 共享与差异策略
@@ -332,7 +331,7 @@
    - 保证协议兼容与无回退，不强制复刻 Android 壳层入口布局。
 4. 禁止项：
    - 不允许 Android / Browser 出现协议分叉。
-   - 不允许 slash 语义、计划模式、skill 未开放态行为分叉。
+   - 不允许 slash 语义、计划模式、skill 一次性交互行为分叉。
 
 ## 9. 分阶段实施顺序
 
@@ -342,12 +341,15 @@
 2. 收口 stored config、next-turn overrides、`nextTurnEffectiveCodexConfig`、`interactionState` 的边界。
 3. 将既有真机验证重新标注为“能力存在证明”，不是首页常驻依据。
 
-### Phase 1：对话首页收口 + 二级入口化
+### Phase 1：对话首页收口 + 二级入口化（已完成，2026-03-11）
 
 1. 首页默认只保留对话主线内容。
 2. `Threads / Session Defaults / Live Runtime / 非阻塞 warning` 改为二级入口。
 3. `New Thread`、`Interrupt` 改为二级或上下文动作。
 4. 顶部补齐当前线程摘要。
+5. 验收记录：
+   - `CR-20260310-2244-codex-phase1-home-tightening`（实现）
+   - `CR-20260310-2323-codex-phase1-mobile-validation`（Android 真机验收通过）
 
 ### Phase 2：slash registry + `/model` + `/plan` + next-turn quick controls
 
@@ -357,7 +359,7 @@
 4. 输入区附近增加模型 / 推理强度快捷入口。
 5. `/plan <文本>` 发送后自动清除 `planMode`。
 6. 未知 slash 拦截，不当作普通文本发送。
-7. 冻结 `/skill <name>` 契约，但当前期默认不开放。
+7. 落地 `/skill <name>` 的一次性交互契约，并保持不绑定固定底层字段。
 8. 预留 slash 扩展接口，确保后续新增命令只需补 registry 描述与 dispatch 适配。
 
 ### Phase 3：stored config 写路径 + Session Defaults 最小化重构
@@ -375,15 +377,15 @@
 3. `/compact`、`/skills`。
 4. image / localImage。
 5. `fork / archive / unarchive / name`。
-6. 依据能力证据决定 `/skill <name>` 的正式承接方式。
+6. 依据能力证据决定 `/skill <name>` 后续是否需要更深的底层承接方式。
 
 ## 10. MVP 缺口清单（按新主线）
 
-1. 当前静态资源仍把 `New Thread / Interrupt / Threads / Session Defaults / Live Runtime` 放在首页显著位置。
-2. 仓库中尚无 slash registry、`/model`、`/plan`、slash 列表实现。
-3. 仓库中尚无 `interactionState.planMode` 与 `interactionState.activeSkill` 的正式实现。
-4. `PATCH /api/sessions/:id` 还未被实施计划明确为正式 Phase 交付项。
-5. `nextTurnEffectiveCodexConfig` 与 `interactionState` 的边界尚未落到实现。
+1. `Phase 1` 首页收口已完成（见 `CR-20260310-2244-codex-phase1-home-tightening` 与 `CR-20260310-2323-codex-phase1-mobile-validation`）。
+2. slash registry、`/model`、`/plan`、slash 列表已落地；后续重点转为继续收口真机交互与视觉表达。
+3. `interactionState.planMode` 与 `interactionState.activeSkill` 已有正式实现；后续重点转为收口一次性 skill 文案与视觉表达。
+4. `PATCH /api/sessions/:id` 已被纳入正式 Phase 交付项；后续重点转为继续验证 Settings 写路径与即时状态回显一致性。
+5. `nextTurnEffectiveCodexConfig` 与 `interactionState` 的边界已落到实现；后续重点转为继续约束文档、测试与真机验收口径一致。
 
 ## 11. 测试与验收矩阵
 
@@ -398,15 +400,15 @@
 | slash | `/model` 未选择即返回 | 不写 override |
 | slash | 输入 `/plan` | 进入 `planMode` 并显示可取消 chip |
 | slash | 输入 `/plan <文本>` | 发送成功后自动清除 `planMode` |
-| slash | 手输 `/skill foo`（当前期） | 显示“命令已预留但暂未开放”，不写状态、不发送 |
-| interaction | `/plan` 与 `activeSkill` 并行 | `/plan` 不清除 `activeSkill`，skill 增删改不影响 `planMode` |
+| slash | 输入 `/skill` 并选择技能 | 预填本次输入 prompt，不发送原始 slash，不创建新线程 |
+| interaction | `/plan` 与 `activeSkill` 并行 | `/plan` 不覆盖 `activeSkill`；skill 仅作用于本次输入，发送成功后自动清除 |
 | config | `/model` 与快捷入口 | 共用同一状态源，最后一次选择优先 |
 | slash-ext | 新增保留命令 | 只需新增 registry 描述与 dispatch 适配，不改消息发送主链路 |
 | config | Session Defaults | 编辑 stored config，不影响 next-turn overrides |
 | api | `PATCH /api/sessions/:id` | 成为 stored `codexConfig` 正式写路径 |
 | ws | `session_info.codexConfig` | 与 REST stored config 同义 |
 | ws | `nextTurnEffectiveCodexConfig` | 正确反映下一次发送的配置快照，且不含 `activeSkill` |
-| platform | Android / WebView | `/plan`、`/model`、`/skill` 未开放态、未知 slash 兜底行为一致 |
+| platform | Android / WebView | `/plan`、`/model`、`/skill` 一次性交互、未知 slash 兜底行为一致 |
 
 ## 12. 历史验证记录（不代表首页常驻优先级）
 
@@ -431,7 +433,7 @@
 3. 风险：slash 被误做成新底层协议。
    - 缓解：所有 slash 设计评审都必须引用稳定边界文档。
 4. 风险：过早把 `activeSkill` 写死到底层字段。
-   - 缓解：在能力证据落地前，只冻结交互契约，不预绑定底层承接字段。
+   - 缓解：在能力证据进一步收敛前，只保留一次性输入辅助契约，不预绑定底层承接字段。
 5. 风险：Android 与 WebView 行为分叉。
    - 缓解：共享状态机与 registry 定义，不允许端侧私有语义。
 

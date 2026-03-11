@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TermLink Codex</title>
-    <link rel="stylesheet" href="terminal_client.css?v=29">
+    <link rel="stylesheet" href="terminal_client.css?v=35">
     <script src="terminal_shortcut_input.js?v=25"></script>
 </head>
 
@@ -159,8 +159,40 @@
             </div>
             <div id="codex-log" aria-live="polite"></div>
             <div id="codex-composer">
-                <textarea id="codex-input" placeholder="输入你的请求，让 Codex 帮你检查、修改或执行任务..."></textarea>
-                <button id="btn-codex-send" type="button">发送</button>
+                <div id="codex-composer-state" hidden>
+                    <button id="codex-plan-chip" class="codex-mode-chip" type="button" hidden>计划模式已开启</button>
+                    <div id="codex-override-summary" hidden></div>
+                    <button id="btn-codex-quick-clear" class="codex-inline-action" type="button">清除本次设置</button>
+                </div>
+                <div id="codex-slash-menu" hidden>
+                    <div id="codex-slash-menu-header">
+                        <span id="codex-slash-menu-title">搜索命令</span>
+                        <span id="codex-slash-menu-hint">输入 <code>/</code> 继续筛选</span>
+                    </div>
+                    <div id="codex-slash-menu-empty" hidden>没有匹配命令。</div>
+                    <div id="codex-slash-menu-list" aria-live="polite"></div>
+                </div>
+                <div id="codex-composer-surface">
+                    <textarea id="codex-input" placeholder="随便问点什么..."></textarea>
+                    <div id="codex-composer-footer">
+                        <button id="btn-codex-slash-trigger" class="codex-icon-btn" type="button" aria-label="打开命令菜单">+</button>
+                        <div id="codex-quick-controls">
+                            <label class="codex-quick-field">
+                                <span>模型</span>
+                                <select id="codex-quick-model">
+                                    <option value="">默认</option>
+                                </select>
+                            </label>
+                            <label class="codex-quick-field">
+                                <span>推理</span>
+                                <select id="codex-quick-reasoning">
+                                    <option value="">默认</option>
+                                </select>
+                            </label>
+                        </div>
+                        <button id="btn-codex-send" type="button" aria-label="发送">↑</button>
+                    </div>
+                </div>
             </div>
         </div>
         <div id="input-overlay">
@@ -176,10 +208,11 @@
     <script src="lib/codex_bootstrap.js?v=2"></script>
     <script src="lib/codex_history_view.js?v=1"></script>
     <script src="lib/codex_shell_view.js?v=1"></script>
+    <script src="lib/codex_slash_commands.js?v=1"></script>
     <script src="lib/codex_settings_view.js?v=1"></script>
     <script src="lib/codex_runtime_view.js?v=4"></script>
     <script src="lib/codex_approval_view.js?v=1"></script>
-    <script src="terminal_client.js?v=35"></script>
+    <script src="terminal_client.js?v=43"></script>
 </body>
 
 </html>

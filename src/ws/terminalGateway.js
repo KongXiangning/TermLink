@@ -47,7 +47,11 @@ function ensureSessionCodexState(session) {
             status: 'idle',
             pendingServerRequests: [],
             tokenUsage: null,
-            rateLimitState: null
+            rateLimitState: null,
+            interactionState: {
+                planMode: false,
+                activeSkill: null
+            }
         };
     } else if (!Array.isArray(session.codexState.pendingServerRequests)) {
         session.codexState.pendingServerRequests = [];
@@ -58,7 +62,30 @@ function ensureSessionCodexState(session) {
     if (!Object.prototype.hasOwnProperty.call(session.codexState, 'rateLimitState')) {
         session.codexState.rateLimitState = null;
     }
+    if (!session.codexState.interactionState || typeof session.codexState.interactionState !== 'object') {
+        session.codexState.interactionState = {
+            planMode: false,
+            activeSkill: null
+        };
+    }
     return session.codexState;
+}
+
+function normalizeInteractionState(value) {
+    const source = value && typeof value === 'object' ? value : {};
+    return {
+        planMode: source.planMode === true,
+        activeSkill: isNonEmptyString(source.activeSkill) ? source.activeSkill.trim() : null
+    };
+}
+
+function normalizeTurnOverrides(payload) {
+    const source = payload && typeof payload === 'object' ? payload : {};
+    return {
+        model: isNonEmptyString(source.model) ? source.model.trim() : null,
+        reasoningEffort: isNonEmptyString(source.reasoningEffort) ? source.reasoningEffort.trim() : null,
+        collaborationMode: isNonEmptyString(source.collaborationMode) ? source.collaborationMode.trim() : null
+    };
 }
 
 function normalizeOptionalCwd(value) {
@@ -125,6 +152,7 @@ const CODEX_REQUEST_METHOD_WHITELIST = new Set([
     'thread/read',
     'thread/resume',
     'model/list',
+    'skills/list',
     'account/rateLimits/read'
 ]);
 
@@ -137,7 +165,10 @@ function buildCodexCapabilities() {
         approvals: true,
         userInputRequest: true,
         diffPlanReasoning: true,
-        skillsList: false,
+        slashCommands: true,
+        slashModel: true,
+        slashPlan: true,
+        skillsList: true,
         compact: false,
         imageInput: false
     };
@@ -314,6 +345,18 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         };
     };
 
+    const buildNextTurnEffectiveCodexConfig = (session, overrides = null) => {
+        const effective = getEffectiveSessionCodexConfig(session);
+        const normalizedOverrides = normalizeTurnOverrides(overrides);
+        return {
+            model: normalizedOverrides.model || effective.defaultModel || null,
+            reasoningEffort: normalizedOverrides.reasoningEffort || effective.defaultReasoningEffort || null,
+            personality: effective.defaultPersonality || null,
+            approvalPolicy: effective.approvalPolicy || null,
+            sandboxMode: effective.sandboxMode || null
+        };
+    };
+
     const updatePendingServerRequestState = (session, updater) => {
         const state = ensureSessionCodexState(session);
         const current = Array.isArray(state.pendingServerRequests) ? state.pendingServerRequests.slice() : [];
@@ -345,7 +388,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             pendingServerRequestCount: state.pendingServerRequests.length,
             pendingServerRequests: buildPendingServerRequestSnapshot(state),
             tokenUsage: state.tokenUsage || null,
-            rateLimitState: state.rateLimitState || null
+            rateLimitState: state.rateLimitState || null,
+            interactionState: normalizeInteractionState(state.interactionState),
+            nextTurnEffectiveCodexConfig: buildNextTurnEffectiveCodexConfig(session)
         };
         if (targetWs) {
             sendWsEnvelope(targetWs, envelope);
@@ -670,7 +715,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                     pendingServerRequestCount: codexState.pendingServerRequests.length,
                     pendingServerRequests: buildPendingServerRequestSnapshot(codexState),
                     tokenUsage: codexState.tokenUsage || null,
-                    rateLimitState: codexState.rateLimitState || null
+                    rateLimitState: codexState.rateLimitState || null,
+                    interactionState: normalizeInteractionState(codexState.interactionState),
+                    nextTurnEffectiveCodexConfig: buildNextTurnEffectiveCodexConfig(session)
                 });
             }
 
@@ -706,6 +753,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             });
                             return;
                         }
+                        const turnOverrides = normalizeTurnOverrides(envelope);
 
                         const threadId = await ensureCodexThreadForSession(session, {
                             forceNewThread: envelope.forceNewThread === true,
@@ -716,9 +764,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         const turnStartResponse = await codexService.request('turn/start', {
                             threadId,
                             input: buildTurnInput(text),
-                            model: sessionCodexConfig.defaultModel || undefined,
-                            reasoningEffort: sessionCodexConfig.defaultReasoningEffort || undefined,
-                            personality: sessionCodexConfig.defaultPersonality || undefined
+                            model: turnOverrides.model || sessionCodexConfig.defaultModel || undefined,
+                            reasoningEffort: turnOverrides.reasoningEffort || sessionCodexConfig.defaultReasoningEffort || undefined,
+                            personality: sessionCodexConfig.defaultPersonality || undefined,
+                            collaborationMode: turnOverrides.collaborationMode || undefined
                         });
 
                         const codexState = ensureSessionCodexState(session);
@@ -727,6 +776,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             ? turnStartResponse.turn.id || null
                             : null;
                         codexState.status = 'running';
+                        codexState.interactionState = {
+                            planMode: false,
+                            activeSkill: null
+                        };
                         bindThreadToSession(threadId, session.id);
                         updateSessionCwd(session, envelope.cwd || session.cwd);
                         emitCodexState(session);
@@ -736,6 +789,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             threadId,
                             turn: turnStartResponse ? turnStartResponse.turn || null : null
                         });
+                    } else if (type === 'codex_set_interaction_state') {
+                        const codexState = ensureSessionCodexState(session);
+                        codexState.interactionState = normalizeInteractionState(envelope.interactionState);
+                        emitCodexState(session);
                     } else if (type === 'codex_interrupt') {
                         const codexState = ensureSessionCodexState(session);
                         if (!isNonEmptyString(codexState.threadId) || !isNonEmptyString(codexState.currentTurnId)) {

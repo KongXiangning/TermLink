@@ -22,6 +22,13 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="btn-codex-history-refresh"/);
     assert.match(html, /id="btn-codex-new-thread"/);
     assert.match(html, /id="btn-codex-settings-save"/);
+    assert.match(html, /id="codex-plan-chip"/);
+    assert.match(html, /id="codex-quick-model"/);
+    assert.match(html, /id="codex-quick-reasoning"/);
+    assert.match(html, /id="btn-codex-slash-trigger"/);
+    assert.match(html, /id="codex-composer-surface"/);
+    assert.match(html, /id="codex-composer-footer"/);
+    assert.match(html, /id="codex-slash-menu"/);
     assert.match(html, /id="codex-actions"[\s\S]*id="btn-codex-toggle"[\s\S]*id="btn-codex-interrupt"/);
     assert.match(html, /id="codex-history-actions"[\s\S]*id="btn-codex-history-refresh"[\s\S]*id="btn-codex-new-thread"/);
     assert.match(html, /id="codex-settings-approval"[\s\S]*<option value="">服务端默认<\/option>/);
@@ -29,10 +36,11 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /src="lib\/codex_bootstrap\.js\?v=2"/);
     assert.match(html, /src="lib\/codex_history_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_shell_view\.js\?v=1"/);
+    assert.match(html, /src="lib\/codex_slash_commands\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_settings_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
     assert.match(html, /src="lib\/codex_approval_view\.js\?v=1"/);
-    assert.match(html, /src="terminal_client\.js\?v=35"/);
+    assert.match(html, /src="terminal_client\.js\?v=43"/);
 });
 
 test('terminal client shell shares scripts but does not expose codex history panel markup', () => {
@@ -44,10 +52,11 @@ test('terminal client shell shares scripts but does not expose codex history pan
     assert.match(html, /src="lib\/codex_bootstrap\.js\?v=2"/);
     assert.match(html, /src="lib\/codex_history_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_shell_view\.js\?v=1"/);
+    assert.match(html, /src="lib\/codex_slash_commands\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_settings_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
     assert.match(html, /src="lib\/codex_approval_view\.js\?v=1"/);
-    assert.match(html, /src="terminal_client\.js\?v=35"/);
+    assert.match(html, /src="terminal_client\.js\?v=43"/);
 });
 
 test('terminal client stylesheet supports secondary panels and sticky composer for the codex conversation page', () => {
@@ -63,6 +72,13 @@ test('terminal client stylesheet supports secondary panels and sticky composer f
     assert.match(css, /body\.codex-only #terminal-shell\s*\{[\s\S]*height:\s*auto/);
     assert.match(css, /body\.codex-only #codex-panel\s*\{[\s\S]*overflow:\s*visible/);
     assert.match(css, /body\.codex-only #codex-composer\s*\{[\s\S]*position:\s*sticky/);
+    assert.match(css, /#codex-quick-controls/);
+    assert.match(css, /#codex-composer-surface/);
+    assert.match(css, /#codex-composer-footer/);
+    assert.match(css, /\.codex-icon-btn/);
+    assert.match(css, /\.codex-slash-item-status/);
+    assert.match(css, /#codex-slash-menu/);
+    assert.match(css, /\.codex-mode-chip/);
     assert.match(css, /body\.viewport-compact #codex-thread-summary/);
     assert.match(css, /\.codex-request-card/);
     assert.match(css, /\.codex-request-actions/);
@@ -121,4 +137,55 @@ test('Phase 1: session_info and codex_capabilities handlers must reset secondary
     // When codex_capabilities is received, secondaryPanel must be reset to 'none'
     assert.match(js, /envelope\.type\s*===\s*['"]codex_capabilities['"][\s\S]*?codexState\.secondaryPanel\s*=\s*['"]none['"]/,
         'codex_capabilities handler must reset secondaryPanel to "none"');
+});
+
+test('Phase 2: terminal_client.js composer must route through slash dispatch and interaction state sync', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    assert.match(js, /function handleCodexComposerSubmit\(rawText\)/);
+    assert.match(js, /type:\s*'codex_set_interaction_state'/);
+    assert.match(js, /collaborationMode:\s*collaborationMode \|\| undefined/);
+    assert.match(js, /finalizePendingTurnStateOnSuccess\(\)/);
+    assert.match(js, /restorePendingTurnStateOnFailure\(\)/);
+    assert.match(js, /clearActiveSkill:\s*!!interactionState\.activeSkill/);
+    assert.match(js, /activeSkill:\s*pending\.clearActiveSkill === true \? null : codexState\.interactionState\.activeSkill/);
+});
+
+test('Phase 2: terminal_client.js must compose server next-turn config with local next-turn overrides', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    assert.match(js, /serverNextTurnConfigBase:\s*null/);
+    assert.match(js, /function normalizeEffectiveCodexConfig\(payload\)/);
+    assert.match(js, /const baseConfig = codexState\.serverNextTurnConfigBase/);
+    assert.match(js, /model:\s*codexState\.nextTurnOverrides\.model \|\| baseConfig\.model \|\| null/);
+    assert.match(js, /reasoningEffort:\s*codexState\.nextTurnOverrides\.reasoningEffort \|\| baseConfig\.reasoningEffort \|\| null/);
+    assert.match(js, /codexState\.serverNextTurnConfigBase = normalizeEffectiveCodexConfig\(envelope\.nextTurnEffectiveCodexConfig\)/);
+    assert.match(js, /codexState\.nextTurnEffectiveCodexConfig = buildLocalNextTurnEffectiveCodexConfig\(\)/);
+    assert.match(js, /codexState\.serverNextTurnConfigBase = null[\s\S]*syncCodexSettingsFormFromStoredConfig\(\)[\s\S]*syncNextTurnEffectiveCodexConfig\(\)/);
+});
+
+test('Phase 2: terminal_client.js must parse model\/list and skills\/list payloads for executable slash pickers', () => {
+    const js = readPublicFile('terminal_client.js');
+    const slashJs = readPublicFile('lib/codex_slash_commands.js');
+
+    assert.match(js, /Array\.isArray\(source\.data\)/);
+    assert.match(js, /function canLoadCodexModels\(\)/);
+    assert.match(js, /function canLoadCodexSkills\(\)/);
+    assert.match(js, /getActiveSessionMode\(\)\s*===\s*'codex'\s*&&\s*codexState\.capabilities\.modelConfig\s*===\s*true/);
+    assert.match(js, /function populateCodexReasoningSelect\(selectEl, options\)/);
+    assert.match(js, /function openCodexModelPicker\(\)/);
+    assert.match(js, /maybeLoadCodexModels\(\)[\s\S]*return refreshCodexModelList\(\{ silent: true \}\)/);
+    assert.match(js, /void openCodexModelPicker\(\)/);
+    assert.match(js, /function openSelectPicker\(selectEl\)/);
+    assert.match(js, /codexInput\.value = ''[\s\S]*openCodexModelPicker\(\)/);
+    assert.match(js, /entry\.isDefault === true/);
+    assert.match(js, /defaultReasoningEffort/);
+    assert.doesNotMatch(js, /默认 ·/);
+    assert.match(js, /function normalizeCodexSkillCatalog\(result\)/);
+    assert.match(js, /sendCodexBridgeRequest\('skills\/list', \{\}\)/);
+    assert.match(js, /codexInput\.value = '\/skill '/);
+    assert.match(js, /function applyCodexSkillSelection\(skillEntry\)/);
+    assert.doesNotMatch(js, /\['low', 'medium', 'high', 'xhigh'\]/);
+    assert.doesNotMatch(js, /selectedValue && !optionValues\.includes\(selectedValue\)/);
+    assert.match(slashJs, /command:\s*'\/skill'[\s\S]*availability:\s*'enabled'/);
 });
