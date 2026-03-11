@@ -29,6 +29,7 @@
     "xterm-addon-fit": "^0.8.0"
   },
   "devDependencies": {
+    "jsdom": "^26.0.0",
     "nodemon": "^3.1.11"
   }
 }

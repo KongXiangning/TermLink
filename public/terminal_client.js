@@ -11,8 +11,12 @@ const codexPanel = document.getElementById('codex-panel');
 const codexLog = document.getElementById('codex-log');
 const codexStatusText = document.getElementById('codex-status-text');
 const codexThreadIdText = document.getElementById('codex-thread-id');
+const codexThreadSummary = document.getElementById('codex-thread-summary');
+const codexThreadSummaryMeta = document.getElementById('codex-thread-summary-meta');
+const codexThreadSummaryAction = document.getElementById('codex-thread-summary-action');
 const codexMetaText = document.getElementById('codex-meta-text');
 const codexNoticeText = document.getElementById('codex-notice-text');
+const codexSecondaryNav = document.getElementById('codex-secondary-nav');
 const codexAlerts = document.getElementById('codex-alerts');
 const codexAlertConfig = document.getElementById('codex-alert-config');
 const codexAlertConfigText = document.getElementById('codex-alert-config-text');
@@ -24,6 +28,9 @@ const btnCodexToggle = document.getElementById('btn-codex-toggle');
 const btnCodexNewThread = document.getElementById('btn-codex-new-thread');
 const btnCodexInterrupt = document.getElementById('btn-codex-interrupt');
 const btnCodexHistoryRefresh = document.getElementById('btn-codex-history-refresh');
+const btnCodexSecondarySettings = document.getElementById('btn-codex-secondary-settings');
+const btnCodexSecondaryRuntime = document.getElementById('btn-codex-secondary-runtime');
+const btnCodexSecondaryNotices = document.getElementById('btn-codex-secondary-notices');
 const codexHistoryPanel = document.getElementById('codex-history-panel');
 const codexHistoryList = document.getElementById('codex-history-list');
 const codexHistoryEmpty = document.getElementById('codex-history-empty');
@@ -122,6 +129,7 @@ let quickToolbarVisible = true;
 const codexState = {
     sessionMode: '',
     panelCollapsed: false,
+    secondaryPanel: 'none',
     threadId: '',
     currentTurnId: '',
     lastSnapshotThreadId: '',
@@ -220,6 +228,9 @@ function applySessionModeLayout() {
     if (mode !== 'codex' && codexState.panelCollapsed) {
         codexState.panelCollapsed = false;
     }
+    if (mode !== 'codex') {
+        codexState.secondaryPanel = 'none';
+    }
 }
 
 function getNativeBridge() {
@@ -243,6 +254,16 @@ function getCodexHistoryViewApi() {
 function getCodexSettingsViewApi() {
     if (window.TermLinkCodexSettingsView && typeof window.TermLinkCodexSettingsView.buildCodexConfigPayload === 'function') {
         return window.TermLinkCodexSettingsView;
+    }
+    return null;
+}
+
+function getCodexShellViewApi() {
+    if (
+        window.TermLinkCodexShellView &&
+        typeof window.TermLinkCodexShellView.getSecondaryEntryAvailability === 'function'
+    ) {
+        return window.TermLinkCodexShellView;
     }
     return null;
 }
@@ -296,6 +317,191 @@ function notifyNativeSessionInfo(id, name, privilegeLevel) {
     callNativeBridge('onSessionInfo', [id || '', name || '', privilegeLevel || '']);
 }
 
+function localizeCodexStatus(status) {
+    switch ((status || 'idle').trim().toLowerCase()) {
+    case 'running':
+        return '执行中';
+    case 'streaming':
+        return '输出中';
+    case 'waiting_approval':
+        return '等待审批';
+    case 'error':
+        return '错误';
+    default:
+        return '空闲';
+    }
+}
+
+function localizeCodexStatusDetail(detail) {
+    const normalized = typeof detail === 'string' ? detail.trim().toLowerCase() : '';
+    if (!normalized) {
+        return '';
+    }
+    const localized = {
+        'starting turn': '开始发送',
+        'restoring thread': '恢复线程中',
+        'thread ready': '线程已就绪',
+        'in progress': '处理中',
+        'turn started': '已开始执行',
+        'bridge disconnected': '连接已断开',
+        'bridge transport error': '桥接传输异常',
+        'event error': '事件异常'
+    };
+    return localized[normalized] || detail;
+}
+
+function hasCodexNonBlockingNotice() {
+    return !!(
+        (typeof codexState.configWarningText === 'string' && codexState.configWarningText.trim())
+        || (typeof codexState.deprecationNoticeText === 'string' && codexState.deprecationNoticeText.trim())
+    );
+}
+
+function getCodexSecondaryEntryAvailability() {
+    const shellApi = getCodexShellViewApi();
+    if (shellApi && typeof shellApi.getSecondaryEntryAvailability === 'function') {
+        return shellApi.getSecondaryEntryAvailability({
+            sessionMode: getActiveSessionMode(),
+            capabilities: codexState.capabilities,
+            hasNonBlockingNotice: hasCodexNonBlockingNotice()
+        });
+    }
+    const isCodex = getActiveSessionMode() === 'codex';
+    return {
+        threads: isCodex && codexState.capabilities.historyList === true,
+        settings: isCodex && (codexState.capabilities.modelConfig === true || codexState.capabilities.rateLimitsRead === true),
+        runtime: isCodex && codexState.capabilities.diffPlanReasoning === true,
+        notices: isCodex && hasCodexNonBlockingNotice()
+    };
+}
+
+function syncCodexSecondaryPanelState() {
+    const availability = getCodexSecondaryEntryAvailability();
+    const panel = typeof codexState.secondaryPanel === 'string' ? codexState.secondaryPanel : 'none';
+    const normalized = (
+        panel === 'threads'
+        || panel === 'settings'
+        || panel === 'runtime'
+        || panel === 'notices'
+    ) ? panel : 'none';
+    if (normalized !== 'none' && availability[normalized] !== true) {
+        codexState.secondaryPanel = 'none';
+    } else {
+        codexState.secondaryPanel = normalized;
+    }
+    return codexState.secondaryPanel;
+}
+
+function renderCodexHeaderSummary() {
+    const availability = getCodexSecondaryEntryAvailability();
+    const shellApi = getCodexShellViewApi();
+    const summary = shellApi && typeof shellApi.buildThreadSummary === 'function'
+        ? shellApi.buildThreadSummary({
+            threadId: codexState.threadId,
+            cwd: codexState.cwd,
+            status: codexState.status
+        })
+        : {
+            titleText: codexState.threadId || '当前线程未就绪',
+            metaText: codexState.cwd || '即将自动创建新线程',
+            empty: !codexState.threadId
+        };
+
+    if (codexThreadIdText) {
+        codexThreadIdText.textContent = summary.titleText;
+    }
+    if (codexThreadSummaryMeta) {
+        codexThreadSummaryMeta.textContent = summary.metaText;
+    }
+    if (codexThreadSummaryAction) {
+        codexThreadSummaryAction.textContent = availability.threads ? '查看线程' : '线程不可用';
+    }
+    if (codexThreadSummary) {
+        const expanded = syncCodexSecondaryPanelState() === 'threads' && availability.threads === true;
+        codexThreadSummary.disabled = availability.threads !== true;
+        codexThreadSummary.classList.toggle('empty', summary.empty === true);
+        codexThreadSummary.classList.toggle('active', expanded);
+        codexThreadSummary.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    }
+    if (btnCodexInterrupt) {
+        const showInterrupt = shellApi && typeof shellApi.shouldShowInterrupt === 'function'
+            ? shellApi.shouldShowInterrupt({
+                status: codexState.status,
+                currentTurnId: codexState.currentTurnId,
+                approvalPending: codexState.approvalPending
+            })
+            : (
+                codexState.status === 'running'
+                || codexState.status === 'streaming'
+                || codexState.status === 'waiting_approval'
+                || !!codexState.currentTurnId
+                || codexState.approvalPending === true
+            );
+        btnCodexInterrupt.hidden = !showInterrupt;
+    }
+}
+
+function renderCodexSecondaryNav() {
+    const availability = getCodexSecondaryEntryAvailability();
+    const activePanel = syncCodexSecondaryPanelState();
+    const buttons = [
+        { element: btnCodexSecondarySettings, key: 'settings' },
+        { element: btnCodexSecondaryRuntime, key: 'runtime' },
+        { element: btnCodexSecondaryNotices, key: 'notices' }
+    ];
+    let visibleCount = 0;
+    buttons.forEach(({ element, key }) => {
+        if (!element) return;
+        const isVisible = availability[key] === true;
+        element.hidden = !isVisible;
+        element.disabled = !isVisible;
+        element.classList.toggle('active', isVisible && activePanel === key);
+        element.setAttribute('aria-pressed', isVisible && activePanel === key ? 'true' : 'false');
+        if (isVisible) {
+            visibleCount += 1;
+        }
+    });
+    if (codexSecondaryNav) {
+        codexSecondaryNav.hidden = visibleCount === 0;
+    }
+}
+
+function renderCodexSecondaryPanels() {
+    syncCodexSecondaryPanelState();
+    renderCodexHistoryList();
+    renderCodexSettingsPanel();
+    renderCodexAlerts();
+    renderCodexRuntimePanel();
+}
+
+function setCodexSecondaryPanel(panelName) {
+    const normalized = (
+        panelName === 'threads'
+        || panelName === 'settings'
+        || panelName === 'runtime'
+        || panelName === 'notices'
+    ) ? panelName : 'none';
+    const availability = getCodexSecondaryEntryAvailability();
+    codexState.secondaryPanel = normalized !== 'none' && availability[normalized] === true ? normalized : 'none';
+    renderCodexHeaderSummary();
+    renderCodexSecondaryNav();
+    renderCodexSecondaryPanels();
+}
+
+function toggleCodexSecondaryPanel(panelName) {
+    const normalized = (
+        panelName === 'threads'
+        || panelName === 'settings'
+        || panelName === 'runtime'
+        || panelName === 'notices'
+    ) ? panelName : 'none';
+    if (codexState.secondaryPanel === normalized) {
+        setCodexSecondaryPanel('none');
+        return;
+    }
+    setCodexSecondaryPanel(normalized);
+}
+
 function setCodexStatus(status, detail) {
     codexState.status = status || 'idle';
     codexState.statusDetail = detail || '';
@@ -308,22 +514,17 @@ function setCodexStatus(status, detail) {
         }
     }
     if (codexStatusText) {
-        const suffix = codexState.statusDetail ? `: ${codexState.statusDetail}` : '';
-        codexStatusText.textContent = `Codex ${codexState.status}${suffix}`;
+        const suffix = codexState.statusDetail ? `：${localizeCodexStatusDetail(codexState.statusDetail)}` : '';
+        codexStatusText.textContent = `Codex ${localizeCodexStatus(codexState.status)}${suffix}`;
     }
+    renderCodexHeaderSummary();
+    renderCodexSecondaryNav();
     renderCodexAuxStatus();
     renderCodexHistoryList();
 }
 
 function updateCodexThreadLabel() {
-    if (!codexThreadIdText) return;
-    if (!codexState.threadId) {
-        codexThreadIdText.textContent = '';
-        renderCodexAuxStatus();
-        renderCodexHistoryList();
-        return;
-    }
-    codexThreadIdText.textContent = `thread ${codexState.threadId}`;
+    renderCodexHeaderSummary();
     renderCodexAuxStatus();
     renderCodexHistoryList();
 }
@@ -332,19 +533,19 @@ function renderCodexAuxStatus() {
     if (codexMetaText) {
         const parts = [];
         if (codexState.cwd) {
-            parts.push(`cwd: ${codexState.cwd}`);
+            parts.push(`工作区：${codexState.cwd}`);
         } else if (isCodexOnlyPage) {
-            parts.push('cwd: default workspace');
+            parts.push('工作区：默认目录');
         }
         if (codexState.approvalPending) {
             const count = codexState.pendingServerRequestCount || 0;
-            parts.push(count === 1 ? 'approval pending' : `${count} approvals pending`);
+            parts.push(count === 1 ? '有 1 个待审批请求' : `有 ${count} 个待审批请求`);
         }
         if (codexState.tokenUsageSummary) {
             parts.push(codexState.tokenUsageSummary);
         }
         if (codexState.rateLimitSummary && codexState.rateLimitTone !== 'warn' && codexState.rateLimitTone !== 'error') {
-            parts.push(`limit: ${codexState.rateLimitSummary}`);
+            parts.push(`额度：${codexState.rateLimitSummary}`);
         }
         codexMetaText.textContent = parts.join(' | ');
     }
@@ -356,19 +557,14 @@ function renderCodexAuxStatus() {
             notice = codexState.errorNotice;
             tone = 'error';
         } else if (codexState.rateLimitSummary && (codexState.rateLimitTone === 'warn' || codexState.rateLimitTone === 'error')) {
-            notice = `Rate limit: ${codexState.rateLimitSummary}`;
+            notice = `额度：${codexState.rateLimitSummary}`;
             tone = codexState.rateLimitTone;
-        } else if (codexState.configWarningText) {
-            notice = 'Config warning';
-            tone = 'warn';
-        } else if (codexState.deprecationNoticeText) {
-            notice = 'Deprecation notice';
-            tone = 'warn';
         }
         codexNoticeText.textContent = notice;
         codexNoticeText.classList.toggle('tone-error', tone === 'error');
         codexNoticeText.classList.toggle('tone-warn', tone === 'warn');
     }
+    renderCodexSecondaryNav();
 }
 
 function renderCodexAlerts() {
@@ -380,8 +576,9 @@ function renderCodexAlerts() {
         : '';
     const hasConfigWarning = !!configWarningText;
     const hasDeprecationNotice = !!deprecationNoticeText;
+    const shouldShowPanel = syncCodexSecondaryPanelState() === 'notices' && hasCodexNonBlockingNotice();
     if (codexAlerts) {
-        codexAlerts.hidden = !hasConfigWarning && !hasDeprecationNotice;
+        codexAlerts.hidden = !shouldShowPanel;
     }
     if (codexAlertConfig) {
         codexAlertConfig.hidden = !hasConfigWarning;
@@ -396,6 +593,7 @@ function renderCodexAlerts() {
     if (codexAlertDeprecationText) {
         codexAlertDeprecationText.textContent = deprecationNoticeText;
     }
+    renderCodexSecondaryNav();
 }
 
 function renderCodexHistoryList() {
@@ -409,7 +607,7 @@ function renderCodexHistoryList() {
         })
         : (getActiveSessionMode() === 'codex' && codexState.capabilities.historyList === true);
 
-    codexHistoryPanel.hidden = !shouldShowPanel;
+    codexHistoryPanel.hidden = !(shouldShowPanel && syncCodexSecondaryPanelState() === 'threads');
     if (!shouldShowPanel) {
         codexHistoryList.innerHTML = '';
         codexHistoryEmpty.classList.add('hidden');
@@ -430,11 +628,11 @@ function renderCodexHistoryList() {
 
     let emptyText = '';
     if (codexState.historyListLoading) {
-        emptyText = 'Loading saved threads...';
+        emptyText = '正在加载已保存线程...';
     } else if (entries.length === 0) {
         emptyText = codexState.capabilities.historyList === true
-            ? 'No saved threads yet.'
-            : 'Thread history is not available on this server.';
+            ? '暂无已保存线程。'
+            : '当前服务端不支持线程历史。';
     }
 
     if (emptyText) {
@@ -475,7 +673,11 @@ function renderCodexHistoryList() {
                 if (badgeLabel === 'Current') {
                     badge.classList.add('active');
                 }
-                badge.textContent = badgeLabel;
+                badge.textContent = ({
+                    Current: '当前',
+                    Saved: '上次',
+                    Opening: '打开中'
+                })[badgeLabel] || badgeLabel;
                 badges.appendChild(badge);
             });
             copy.appendChild(badges);
@@ -483,7 +685,7 @@ function renderCodexHistoryList() {
 
         const action = document.createElement('span');
         action.className = 'codex-history-action';
-        action.textContent = entry.active ? 'Active' : (entry.pending ? 'Opening...' : 'Open');
+        action.textContent = entry.active ? '当前' : (entry.pending ? '打开中...' : '打开');
 
         button.appendChild(copy);
         button.appendChild(action);
@@ -498,7 +700,7 @@ function renderCodexHistoryList() {
                 }
                 appendCodexLogEntry(
                     'error',
-                    `Failed to open Codex thread ${entry.id}: ${error.message || 'unknown error'}`,
+                    `打开 Codex 线程 ${entry.id} 失败：${error.message || '未知错误'}`,
                     { meta: 'history' }
                 );
             });
@@ -530,7 +732,7 @@ function getCodexSettingsStatusSummary() {
     }
     if (codexState.rateLimitSummary && codexState.capabilities.rateLimitsRead === true) {
         return {
-            text: `Rate limit: ${codexState.rateLimitSummary}`,
+            text: `额度：${codexState.rateLimitSummary}`,
             tone: codexState.rateLimitTone || ''
         };
     }
@@ -561,7 +763,7 @@ function populateCodexModelSelect(forcedValue) {
 
     const defaultOption = document.createElement('option');
     defaultOption.value = '';
-    defaultOption.textContent = codexState.settingsLoadingModels ? 'Loading models...' : 'Server default';
+    defaultOption.textContent = codexState.settingsLoadingModels ? '正在加载模型...' : '服务端默认';
     codexSettingsModel.appendChild(defaultOption);
 
     const seen = new Set(['']);
@@ -577,7 +779,7 @@ function populateCodexModelSelect(forcedValue) {
     if (selectedValue && !seen.has(selectedValue)) {
         const option = document.createElement('option');
         option.value = selectedValue;
-        option.textContent = `${selectedValue} (custom)`;
+        option.textContent = `${selectedValue}（自定义）`;
         codexSettingsModel.appendChild(option);
     }
 
@@ -643,7 +845,7 @@ function shouldShowCodexSettingsPanel() {
 function renderCodexSettingsPanel() {
     if (!codexSettingsPanel) return;
     const shouldShowPanel = shouldShowCodexSettingsPanel();
-    codexSettingsPanel.hidden = !shouldShowPanel;
+    codexSettingsPanel.hidden = !(shouldShowPanel && syncCodexSecondaryPanelState() === 'settings');
     if (!shouldShowPanel) {
         return;
     }
@@ -661,7 +863,7 @@ function renderCodexSettingsPanel() {
     codexSettingsPanel.classList.toggle('is-defaults', useServerDefaults);
 
     if (settingsHeaderTitle) {
-        settingsHeaderTitle.textContent = canEditModelConfig ? 'Session Defaults' : 'Session Status';
+        settingsHeaderTitle.textContent = canEditModelConfig ? '会话默认配置' : '会话状态';
     }
     if (codexSettingsUseDefaults) {
         const toggleRow = codexSettingsUseDefaults.closest('.codex-settings-toggle');
@@ -701,7 +903,7 @@ function renderCodexSettingsPanel() {
     if (btnCodexSettingsSave) {
         btnCodexSettingsSave.hidden = !canEditModelConfig;
         btnCodexSettingsSave.disabled = codexState.settingsSaving || !isCodexSettingsDirty();
-        btnCodexSettingsSave.textContent = codexState.settingsSaving ? 'Saving...' : 'Save';
+        btnCodexSettingsSave.textContent = codexState.settingsSaving ? '保存中...' : '保存';
     }
 
     const status = getCodexSettingsStatusSummary();
@@ -752,22 +954,22 @@ function clearCodexAlerts() {
 function renderCodexRuntimePanel() {
     if (!codexRuntimePanel) return;
     const shouldShowPanel = shouldShowCodexRuntimePanel();
-    codexRuntimePanel.hidden = !shouldShowPanel;
+    codexRuntimePanel.hidden = !(shouldShowPanel && syncCodexSecondaryPanelState() === 'runtime');
     if (!shouldShowPanel) {
         return;
     }
 
     if (codexRuntimeDiff) {
-        codexRuntimeDiff.textContent = codexState.runtimeDiff || 'Waiting for diff updates...';
+        codexRuntimeDiff.textContent = codexState.runtimeDiff || '等待变更更新...';
     }
     if (codexRuntimePlan) {
-        codexRuntimePlan.textContent = codexState.runtimePlan || 'Waiting for plan updates...';
+        codexRuntimePlan.textContent = codexState.runtimePlan || '等待计划更新...';
     }
     if (codexRuntimeReasoning) {
-        codexRuntimeReasoning.textContent = codexState.runtimeReasoning || 'Waiting for reasoning updates...';
+        codexRuntimeReasoning.textContent = codexState.runtimeReasoning || '等待推理更新...';
     }
     if (codexRuntimeTerminal) {
-        codexRuntimeTerminal.textContent = codexState.runtimeTerminalOutput || 'Waiting for command output...';
+        codexRuntimeTerminal.textContent = codexState.runtimeTerminalOutput || '等待终端输出...';
     }
     if (codexRuntimeWarning) {
         codexRuntimeWarning.hidden = !codexState.runtimeWarning;
@@ -888,7 +1090,7 @@ function refreshCodexModelList(options) {
     codexState.modelListRequested = true;
     codexState.settingsLoadingModels = true;
     if (opts.silent !== true) {
-        setCodexSettingsStatus('Refreshing model list...', '');
+        setCodexSettingsStatus('正在刷新模型列表...', '');
     } else {
         renderCodexSettingsPanel();
     }
@@ -897,7 +1099,7 @@ function refreshCodexModelList(options) {
         .then((result) => {
             codexState.modelOptions = normalizeCodexModelOptions(result);
             if (opts.silent !== true) {
-                setCodexSettingsStatus('Model list refreshed.', 'success');
+                setCodexSettingsStatus('模型列表已刷新。', 'success');
             }
             renderCodexSettingsPanel();
             return codexState.modelOptions;
@@ -905,7 +1107,7 @@ function refreshCodexModelList(options) {
         .catch((error) => {
             codexState.modelListRequested = false;
             if (opts.silent !== true) {
-                const message = error && error.message ? error.message : 'Failed to load models.';
+                const message = error && error.message ? error.message : '加载模型失败。';
                 setCodexSettingsStatus(message, 'error');
                 appendCodexLogEntry('error', message, { meta: 'models' });
             }
@@ -925,7 +1127,7 @@ function refreshCodexRateLimits(options) {
 
     codexState.settingsRefreshingRateLimits = true;
     if (opts.silent !== true) {
-        setCodexSettingsStatus('Refreshing rate limits...', '');
+        setCodexSettingsStatus('正在刷新额度信息...', '');
     } else {
         renderCodexSettingsPanel();
     }
@@ -934,14 +1136,14 @@ function refreshCodexRateLimits(options) {
         .then((result) => {
             applyCodexRateLimit(result);
             if (opts.silent !== true) {
-                setCodexSettingsStatus('Rate limit snapshot refreshed.', 'success');
+                setCodexSettingsStatus('额度快照已刷新。', 'success');
             }
             renderCodexSettingsPanel();
             return result;
         })
         .catch((error) => {
             if (opts.silent !== true) {
-                const message = error && error.message ? error.message : 'Failed to read rate limits.';
+                const message = error && error.message ? error.message : '读取额度信息失败。';
                 setCodexSettingsStatus(message, 'error');
                 appendCodexLogEntry('error', message, { meta: 'limits' });
             }
@@ -955,16 +1157,16 @@ function refreshCodexRateLimits(options) {
 
 function saveCodexSessionSettings() {
     if (!sessionId || !serverUrl) {
-        setCodexSettingsStatus('Cannot save settings before the session is connected.', 'error');
+        setCodexSettingsStatus('会话尚未连接，无法保存设置。', 'error');
         return Promise.resolve(null);
     }
     if (!isCodexSettingsDirty()) {
-        setCodexSettingsStatus('No setting changes to save.', '');
+        setCodexSettingsStatus('当前没有需要保存的更改。', '');
         return Promise.resolve(null);
     }
 
     codexState.settingsSaving = true;
-    setCodexSettingsStatus('Saving session defaults...', '');
+    setCodexSettingsStatus('正在保存会话默认配置...', '');
     const payload = { codexConfig: collectCodexSettingsPayload() };
     const requestUrl = buildApiUrl(serverUrl, `/api/sessions/${encodeURIComponent(sessionId)}`);
 
@@ -982,12 +1184,12 @@ function saveCodexSessionSettings() {
                 ? settingsApi.normalizeStoredCodexConfig(body.codexConfig)
                 : null;
             syncCodexSettingsFormFromStoredConfig();
-            setCodexSettingsStatus('Session defaults saved.', 'success');
-            appendCodexLogEntry('system', 'Session-level Codex defaults updated.', { meta: 'settings' });
+            setCodexSettingsStatus('会话默认配置已保存。', 'success');
+            appendCodexLogEntry('system', '已更新会话级 Codex 默认配置。', { meta: 'settings' });
             return body;
         })
         .catch((error) => {
-            const message = error && error.message ? error.message : 'Failed to save session defaults.';
+            const message = error && error.message ? error.message : '保存会话默认配置失败。';
             setCodexSettingsStatus(message, 'error');
             appendCodexLogEntry('error', message, { meta: 'settings' });
             return null;
@@ -1115,6 +1317,7 @@ function resetCodexBootstrapState() {
     codexState.runtimeWarning = '';
     codexState.configWarningText = '';
     codexState.deprecationNoticeText = '';
+    codexState.secondaryPanel = 'none';
     codexState.initialSessionInfoReceived = false;
     codexState.initialCapabilitiesReceived = false;
     codexState.initialCodexStateReceived = false;
@@ -1138,6 +1341,8 @@ function resetCodexBootstrapState() {
         imageInput: false
     };
     codexState.historyThreads = [];
+    renderCodexHeaderSummary();
+    renderCodexSecondaryNav();
     renderCodexHistoryList();
     syncCodexSettingsFormFromStoredConfig();
     renderCodexSettingsPanel();
@@ -1230,7 +1435,7 @@ function refreshCodexThreadList(options) {
         .catch((error) => {
             codexState.historyListRequested = false;
             if (opts.silent !== true) {
-                appendCodexLogEntry('error', error.message || 'Failed to load Codex thread history.', { meta: 'history' });
+                appendCodexLogEntry('error', error.message || '加载 Codex 线程历史失败。', { meta: 'history' });
             }
             return [];
         })
@@ -1248,7 +1453,7 @@ function requestCodexResume(threadId) {
     codexState.historyActionThreadId = normalizedThreadId;
     renderCodexHistoryList();
     codexState.resumeAttemptedForThreadId = normalizedThreadId;
-    appendCodexLogEntry('system', `Restoring previous Codex thread ${normalizedThreadId}...`, { meta: 'history' });
+    appendCodexLogEntry('system', `正在恢复 Codex 线程 ${normalizedThreadId}...`, { meta: 'history' });
     setCodexStatus('running', 'restoring thread');
     return sendCodexBridgeRequest(
         'thread/resume',
@@ -1263,7 +1468,7 @@ function requestCodexResume(threadId) {
             codexState.pendingFreshThread = false;
             codexState.unmaterializedThreadId = '';
             clearCodexErrorNotice();
-            appendCodexLogEntry('system', `Restored Codex thread ${resumedThreadId}.`, { meta: 'history' });
+            appendCodexLogEntry('system', `已恢复 Codex 线程 ${resumedThreadId}。`, { meta: 'history' });
             refreshCodexThreadList({ force: true, silent: true });
             return result;
         })
@@ -1278,7 +1483,7 @@ function requestFallbackCodexThread() {
         return;
     }
     codexState.fallbackThreadRequested = true;
-    appendCodexLogEntry('system', 'No restorable thread available. Creating a new Codex thread...', { meta: 'history' });
+    appendCodexLogEntry('system', '没有可恢复的线程，正在创建新的 Codex 线程...', { meta: 'history' });
     requestCodexNewThread({ silent: true });
 }
 
@@ -1684,7 +1889,7 @@ function sendCodexTurn(text, options) {
 function requestCodexNewThread(options) {
     const opts = options || {};
     if (opts.silent !== true) {
-        appendCodexLogEntry('system', 'Requesting new Codex thread...', { meta: 'bridge' });
+        appendCodexLogEntry('system', '正在请求新的 Codex 线程...', { meta: 'bridge' });
     }
     codexState.pendingFreshThread = true;
     codexState.unmaterializedThreadId = '';
@@ -2611,11 +2816,13 @@ function connect() {
                     codexState.storedCodexConfig = settingsApi && typeof settingsApi.normalizeStoredCodexConfig === 'function'
                         ? settingsApi.normalizeStoredCodexConfig(envelope.codexConfig)
                         : null;
+                    codexState.secondaryPanel = 'none';
                     codexState.initialSessionInfoReceived = true;
                     applySessionModeLayout();
+                    renderCodexHeaderSummary();
+                    renderCodexSecondaryNav();
                     syncCodexSettingsFormFromStoredConfig();
-                    renderCodexSettingsPanel();
-                    renderCodexRuntimePanel();
+                    renderCodexSecondaryPanels();
                     notifyNativeSessionInfo(nextSessionId, envelope.name || '', envelope.privilegeLevel || '');
                     maybeBootstrapCodexSession();
                     maybeLoadCodexModels();
@@ -2623,10 +2830,11 @@ function connect() {
                 }
                 if (envelope.type === 'codex_capabilities') {
                     codexState.capabilities = normalizeCodexCapabilities(envelope.capabilities);
+                    codexState.secondaryPanel = 'none';
                     codexState.initialCapabilitiesReceived = true;
-                    renderCodexHistoryList();
-                    renderCodexSettingsPanel();
-                    renderCodexRuntimePanel();
+                    renderCodexHeaderSummary();
+                    renderCodexSecondaryNav();
+                    renderCodexSecondaryPanels();
                     maybeBootstrapCodexSession();
                     maybeLoadCodexModels();
                     return;
@@ -2684,7 +2892,7 @@ function connect() {
                     codexState.fallbackThreadRequested = false;
                     clearCodexErrorNotice();
                     updateCodexThreadLabel();
-                    appendCodexLogEntry('system', `Attached to thread ${codexState.threadId}`, { meta: 'bridge' });
+                    appendCodexLogEntry('system', `已连接到线程 ${codexState.threadId}`, { meta: 'bridge' });
                     setCodexStatus('idle');
                     refreshCodexThreadList({ force: true, silent: true });
                     refreshCodexThreadSnapshot({ force: true });
@@ -2712,7 +2920,7 @@ function connect() {
                     return;
                 }
                 if (envelope.type === 'codex_interrupt_ack') {
-                    appendCodexLogEntry('system', 'Interrupt signal sent to Codex.', { meta: 'bridge' });
+                    appendCodexLogEntry('system', '已向 Codex 发送中断信号。', { meta: 'bridge' });
                     return;
                 }
                 if (envelope.type === 'codex_thread_snapshot') {
@@ -2729,7 +2937,7 @@ function connect() {
                     } else {
                         appendCodexLogEntry(
                             'system',
-                            `Codex server request auto-handled: ${envelope.method || 'unknown'}`,
+                            `Codex 服务端请求已自动处理：${envelope.method || 'unknown'}`,
                             { meta: 'approval' }
                         );
                     }
@@ -3073,6 +3281,12 @@ if (btnCodexToggle) {
     });
 }
 
+if (codexThreadSummary) {
+    codexThreadSummary.addEventListener('click', () => {
+        toggleCodexSecondaryPanel('threads');
+    });
+}
+
 if (btnCodexNewThread) {
     btnCodexNewThread.addEventListener('click', () => {
         requestCodexNewThread();
@@ -3088,6 +3302,24 @@ if (btnCodexInterrupt) {
 if (btnCodexHistoryRefresh) {
     btnCodexHistoryRefresh.addEventListener('click', () => {
         refreshCodexThreadList({ force: true });
+    });
+}
+
+if (btnCodexSecondarySettings) {
+    btnCodexSecondarySettings.addEventListener('click', () => {
+        toggleCodexSecondaryPanel('settings');
+    });
+}
+
+if (btnCodexSecondaryRuntime) {
+    btnCodexSecondaryRuntime.addEventListener('click', () => {
+        toggleCodexSecondaryPanel('runtime');
+    });
+}
+
+if (btnCodexSecondaryNotices) {
+    btnCodexSecondaryNotices.addEventListener('click', () => {
+        toggleCodexSecondaryPanel('notices');
     });
 }
 
@@ -3300,11 +3532,10 @@ updateCodexThreadLabel();
 setCodexPanelCollapsed(false);
 updateViewportLayoutState();
 applySessionModeLayout();
-appendCodexLogEntry('system', 'Codex panel ready. Start a new thread or send a prompt.', { meta: 'bridge' });
-renderCodexHistoryList();
+appendCodexLogEntry('system', 'Codex 面板已就绪，可以直接发送请求。', { meta: 'bridge' });
+renderCodexSecondaryNav();
+renderCodexSecondaryPanels();
 syncCodexSettingsFormFromStoredConfig();
-renderCodexSettingsPanel();
-renderCodexRuntimePanel();
 
 applyRuntimeConfig(runtimeConfig, false);
 loadHistoryState(getHistoryStorageKey(sessionId), true);
@@ -3312,5 +3543,37 @@ if (serverUrl) {
     connect();
 } else {
     showStatus('Waiting for server config...');
+}
+
+// Test hooks - only exposed when explicit test mode is enabled
+// Production runtime (browser, Android WebView) will NOT have these hooks
+// Integration tests must set window.__TERMLINK_TEST_MODE__ = true before loading this script
+const shouldExposeCodexTestHooks = !!(
+    typeof window !== 'undefined'
+    && window.__TERMLINK_TEST_MODE__ === true
+);
+
+if (shouldExposeCodexTestHooks) {
+    window.__CODEX_TEST_HOOKS__ = {
+        // State
+        codexState,
+        // Render functions
+        renderCodexAlerts,
+        renderCodexHistoryList,
+        renderCodexSettingsPanel,
+        renderCodexRuntimePanel,
+        renderCodexSecondaryPanels,
+        // Helper functions
+        syncCodexSecondaryPanelState,
+        hasCodexNonBlockingNotice,
+        getCodexSecondaryEntryAvailability,
+        // DOM element references
+        getCodexAlerts: () => codexAlerts,
+        getCodexHistoryPanel: () => codexHistoryPanel,
+        getCodexSettingsPanel: () => codexSettingsPanel,
+        getCodexRuntimePanel: () => codexRuntimePanel,
+        getCodexAlertConfig: () => codexAlertConfig,
+        getCodexAlertDeprecation: () => codexAlertDeprecation
+    };
 }
 
