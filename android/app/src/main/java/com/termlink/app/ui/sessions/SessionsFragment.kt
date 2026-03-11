@@ -576,6 +576,16 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             }
         }
 
+        fun resolveSuggestedCodexWorkspacePath(profile: ServerProfile?): String {
+            val hasCurrentCodexWorkspace = currentSelection.profileId == profile?.id &&
+                currentSelection.sessionMode == SessionMode.CODEX &&
+                !currentSelection.cwd.isNullOrBlank()
+            if (hasCurrentCodexWorkspace) {
+                return currentSelection.cwd.orEmpty()
+            }
+            return DEFAULT_CODEX_WORKSPACE_PATH
+        }
+
         fun updateCreateDialogModeUi() {
             if (isUpdatingCreateDialogModeUi) return
             isUpdatingCreateDialogModeUi = true
@@ -609,14 +619,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                 val showCwd = currentMode == SessionMode.CODEX
                 cwdContainer.visibility = if (showCwd) View.VISIBLE else View.GONE
                 if (showCwd && inputCwd.text.isNullOrBlank()) {
-                    val suggestedCwd = if (
-                        currentSelection.profileId == profile?.id &&
-                        currentSelection.sessionMode == SessionMode.CODEX
-                    ) {
-                        currentSelection.cwd.orEmpty()
-                    } else {
-                        ""
-                    }
+                    val suggestedCwd = resolveSuggestedCodexWorkspacePath(profile)
                     inputCwd.setText(suggestedCwd)
                     inputCwd.setSelection(inputCwd.text.length)
                 }
@@ -844,5 +847,6 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
     companion object {
         private const val AUTO_REFRESH_INTERVAL_MS = 10_000L
+        private const val DEFAULT_CODEX_WORKSPACE_PATH = "E:\\coding\\TermLink"
     }
 }
