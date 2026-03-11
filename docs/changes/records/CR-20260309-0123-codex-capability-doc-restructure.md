@@ -53,7 +53,7 @@ git checkout <commit_ref>^ -- <path/to/file>
 ## 6. 后续修改入口（How to continue）
 
 - 下次修改建议从以下文件继续：`docs/product/requirements/REQ-20260309-codex-capability-mvp.md`、`docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`。
-- 如本记录后续被替代，请填写：`替代记录: CR-YYYYMMDD-HHMM-<slug>`。
+- 替代记录：`CR-20260310-0112-codex-conversation-priority-doc-realign`。
 
 ## 7. 风险与注意事项
 

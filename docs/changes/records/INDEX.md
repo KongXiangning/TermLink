@@ -2,7 +2,7 @@
 title: 变更记录索引
 status: active
 owner: @maintainer
-last_updated: 2026-03-09
+last_updated: 2026-03-11
 source_of_truth: product
 related_code: [docs/changes/records]
 related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_CHANGE_RECORD.md]
@@ -47,3 +47,7 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 | CR-20260309-2209-codex-phase2-runtime-fixes | REQ-20260309-codex-capability-mvp | active | 69212bb | @maintainer | 2026-03-09 | Phase 2 Live Runtime 修复：stdout 重建、plan 结构化展示、空壳告警隐藏与 Android 复测 | `docs/changes/records/CR-20260309-2209-codex-phase2-runtime-fixes.md` |
 | CR-20260309-2245-codex-phase3-approvals | REQ-20260309-codex-capability-mvp | active | 7784567 | @maintainer | 2026-03-09 | Phase 3 审批与交互状态机：统一 command/file/patch/userInput 卡片模型与恢复快照 | `docs/changes/records/CR-20260309-2245-codex-phase3-approvals.md` |
 | CR-20260309-2310-codex-phase3-mobile-validation | REQ-20260309-codex-capability-mvp | active | 7784567 | @maintainer | 2026-03-09 | Phase 3 Android 真机验证：冷启动/重连恢复通过，synthetic request card 小屏交互通过，真实 server request 仍待补证 | `docs/changes/records/CR-20260309-2310-codex-phase3-mobile-validation.md` |
+| CR-20260310-0112-codex-conversation-priority-doc-realign | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-10 | Codex 主线文档纠偏：从状态面板驱动调整为移动端对话体验优先 | `docs/changes/records/CR-20260310-0112-codex-conversation-priority-doc-realign.md` |
+| CR-20260310-2244-codex-phase1-home-tightening | REQ-20260309-codex-capability-mvp | active | 3552d38 | @maintainer | 2026-03-11 | Phase 1 首页收口：对话页优先、线程摘要前置、二级入口化、测试加固与 Android 资源刷新 | `docs/changes/records/CR-20260310-2244-codex-phase1-home-tightening.md` |
+| CR-20260310-2310-codex-workspace-default-path | REQ-20260309-codex-capability-mvp | active | a75d336 | @maintainer | 2026-03-11 | Android 建 Codex 会话时默认预填当前仓库路径，减少真机验证手输成本 | `docs/changes/records/CR-20260310-2310-codex-workspace-default-path.md` |
+| CR-20260310-2323-codex-phase1-mobile-validation | REQ-20260309-codex-capability-mvp | active | 3552d38 | @maintainer | 2026-03-11 | Android 冷启动复验通过：首页默认只保留对话主链路，Phase 1 审批通过 | `docs/changes/records/CR-20260310-2323-codex-phase1-mobile-validation.md` |

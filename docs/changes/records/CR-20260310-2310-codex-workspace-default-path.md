@@ -1,11 +1,11 @@
 ---
 title: Codex 能力矩阵驱动主线需求（对话体验优先 MVP + 下一阶段） - 变更记录
-status: draft
+status: active
 record_id: CR-20260310-2310-codex-workspace-default-path
 req_id: REQ-20260309-codex-capability-mvp
-commit_ref: TBD
+commit_ref: a75d336
 owner: @maintainer
-last_updated: 2026-03-10
+last_updated: 2026-03-11
 source_of_truth: code
 related_code: [android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt]
 related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/changes/records/INDEX.md]
@@ -49,9 +49,9 @@ git checkout <commit_ref>^ -- android/app/src/main/java/com/termlink/app/ui/sess
 ## 5. 验证记录（Tests/Checks）
 
 - 校验命令：
-  - `.\gradlew.bat :app:assembleDebug`
+  - `$env:JAVA_HOME='D:\ProgramCode\openjdk\jdk-21'; .\gradlew.bat :app:compileDebugKotlin`
 - 结果：
-  - 待执行。
+  - 通过。
 
 ## 6. 后续修改入口（How to continue）
 

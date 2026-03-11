@@ -1,13 +1,13 @@
 ---
 title: Codex 能力矩阵驱动主线需求（对话体验优先 MVP + 下一阶段） - 变更记录
-status: draft
+status: active
 record_id: CR-20260310-2244-codex-phase1-home-tightening
 req_id: REQ-20260309-codex-capability-mvp
-commit_ref: TBD
+commit_ref: 3552d38
 owner: @maintainer
-last_updated: 2026-03-10
+last_updated: 2026-03-11
 source_of_truth: code
-related_code: [public/codex_client.html, public/terminal_client.html, public/terminal_client.css, public/terminal_client.js, public/lib/codex_shell_view.js, tests/codexClient.shell.test.js, tests/codexShellView.test.js]
+related_code: [android/app/src/main/java/com/termlink/app/MainShellActivity.kt, package.json, package-lock.json, public/codex_client.html, public/terminal_client.html, public/terminal_client.css, public/terminal_client.js, public/lib/codex_shell_view.js, tests/codexClient.shell.test.js, tests/codexShellView.test.js, tests/codexSecondaryPanel.behavior.test.js, tests/codexSecondaryPanel.integration.test.js]
 related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/changes/records/INDEX.md]
 ---
 
@@ -24,6 +24,7 @@ related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, d
 1. 重构 `public/codex_client.html` 头部结构，新增线程摘要入口、二级导航与线程面板内 `New Thread` 入口，并将静态文案切换为中文。
 2. 新增 `public/lib/codex_shell_view.js`，统一封装二级入口可用性、`Interrupt` 显隐和线程摘要文案；`public/terminal_client.js` 接入 `secondaryPanel` 状态并改为单面板展开。
 3. 调整 `public/terminal_client.css` 与测试，确保 Codex 首页默认不展示常驻大面板，同时保持 sticky composer 和手机紧凑布局可用。
+4. 提升 Android 壳层静态资源版本号，确保真机 WebView 拿到最新首页收口资源而不是命中旧缓存。
 
 ## 3. 影响范围（Files/Modules/Runtime）
 
@@ -33,16 +34,20 @@ related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, d
   - `public/terminal_client.css`
   - `public/terminal_client.js`
   - `public/lib/codex_shell_view.js`
+  - `android/app/src/main/java/com/termlink/app/MainShellActivity.kt`
   - `tests/codexClient.shell.test.js`
   - `tests/codexShellView.test.js`
+  - `tests/codexSecondaryPanel.behavior.test.js`
+  - `tests/codexSecondaryPanel.integration.test.js`
 - 模块：
   - Codex WebView 对话页壳层
   - Codex 前端显示状态与二级面板控制
-  - Codex 前端 shared helper 测试
+  - Codex 前端 shared helper 与默认态自动化测试
 - 运行时行为：
   - Codex 首页默认收口为对话主线
   - `Threads / Session Defaults / Live Runtime / 非阻塞 warning` 默认关闭，改为二级入口
   - `Interrupt` 仅在运行相关状态或兼容字段提示下显示
+  - Android WebView 通过资源版本号提升强制刷新到最新壳层资源
 
 ## 4. 回滚方案（命令级）
 
@@ -65,11 +70,9 @@ git checkout <commit_ref>^ -- tests/codexShellView.test.js
 - 校验命令：
   - `node --check public/terminal_client.js`
   - `node --check public/lib/codex_shell_view.js`
-  - `node --test tests/codexShellView.test.js tests/codexClient.shell.test.js`
-  - `node --test tests/codexHistoryView.test.js tests/codexSettingsView.test.js tests/codexRuntimeView.test.js`
-  - `node --test`
+  - `node --test tests/codexClient.shell.test.js tests/codexShellView.test.js tests/codexSecondaryPanel.behavior.test.js tests/codexSecondaryPanel.integration.test.js`
 - 结果：
-  - 全部通过；`node --test` 共 80 项通过，0 失败。
+  - 全部通过；本轮执行共 31 项通过，0 失败。
 
 ## 6. 后续修改入口（How to continue）
 

@@ -2,7 +2,7 @@
 title: TermLink 路线图
 status: active
 owner: @maintainer
-last_updated: 2026-03-09
+last_updated: 2026-03-10
 source_of_truth: product
 related_code: []
 related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BACKLOG.md]
@@ -22,11 +22,14 @@ related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BAC
 
 ## 2026-Q2
 
-1. 按 `REQ-20260309-codex-capability-mvp` 落地 Codex 能力矩阵主线：优先交付历史线程、会话级配置、审批与额度可见性。
-2. 完成 `codex_capabilities` 与 `codex_request` 白名单机制，收敛协议扩展边界。
-3. 完成审批模型与交互状态机定稿（command/file/patch/userInput）。
-4. 明确 Android 优先、Browser 共享协议的交付边界，避免端侧协议分叉。
-5. 定义并落地服务端受控管理员权限模式（`REQ-20260222-server-admin-privilege-mode`），补齐启用门禁、审计、回滚链路。
+1. 按 `REQ-20260309-codex-capability-mvp` 先完成“对话页优先”首页收口与二级入口化，并补齐顶部当前线程摘要，停止把 Codex 首页继续推进成状态控制台。
+2. 落地 slash registry、`/model`、`/plan` 与输入区附近的 next-turn quick controls；`/plan <文本>` 为一次性发送后清除，不保留持续模式。
+3. 冻结 `/skill <name>` 契约但当前期默认不开放；其替换 / 清除不影响 `planMode`，且当前不预绑定底层字段。
+4. 为后续 `/` 能力扩展预留统一的 slash registry / command-dispatch 接口，使新命令优先通过注册描述与分发适配接入，而不是新增输入分支特判。
+5. 统一 stored `codexConfig`、`nextTurnEffectiveCodexConfig` 与 `interactionState` 的边界，并将 `PATCH /api/sessions/:id` 作为 Session Defaults 最小可用化的正式交付项。
+6. 在上述主线稳定后，再逐项开放 runtime 次级视图、`/compact`、`/skills`、image 等增强能力。
+7. 明确 Android 与 WebView 共享同一交互契约与中文化规范，避免端侧协议或行为分叉。
+8. 定义并落地服务端受控管理员权限模式（`REQ-20260222-server-admin-privilege-mode`），补齐启用门禁、审计、回滚链路。
 
 ## 2026-H2
 
