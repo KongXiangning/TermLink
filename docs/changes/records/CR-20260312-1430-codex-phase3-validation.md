@@ -3,7 +3,7 @@ title: Phase 3 验收通过 - stored config 写路径与状态一致性
 status: active
 record_id: CR-20260312-1430-codex-phase3-validation
 req_id: REQ-20260309-codex-capability-mvp
-commit_ref: 371e39c
+commit_ref: f99c189
 owner: @maintainer
 last_updated: 2026-03-12
 source_of_truth: code
