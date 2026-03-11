@@ -351,7 +351,7 @@
    - `CR-20260310-2244-codex-phase1-home-tightening`（实现）
    - `CR-20260310-2323-codex-phase1-mobile-validation`（Android 真机验收通过）
 
-### Phase 2：slash registry + `/model` + `/plan` + next-turn quick controls
+### Phase 2：slash registry + `/model` + `/plan` + next-turn quick controls（已完成，2026-03-11）
 
 1. 输入 `/` 打开 slash 列表。
 2. 落地 `/model`。
@@ -361,14 +361,17 @@
 6. 未知 slash 拦截，不当作普通文本发送。
 7. 落地 `/skill <name>` 的一次性交互契约，并保持不绑定固定底层字段。
 8. 预留 slash 扩展接口，确保后续新增命令只需补 registry 描述与 dispatch 适配。
+9. 验收记录：
+   - `CR-20260311-1422-codex-phase2-slash-plan-overrides`（slash registry、interactionState、nextTurnOverrides）
 
-### Phase 3：stored config 写路径 + Session Defaults 最小化重构
+### Phase 3：stored config 写路径 + Session Defaults 最小化重构（已落地，验收通过，2026-03-12）
 
 1. `PATCH /api/sessions/:id` 支持更新 stored `codexConfig`。
 2. `session_info.codexConfig` 与 REST 统一为 stored config。
 3. `codex_state` 新增 `nextTurnEffectiveCodexConfig` 与 `interactionState`。
 4. `Session Defaults` 保留最小可用二级入口，不再扩成首页主体。
-5. PATCH 未完成前，Settings 为只读或受限编辑态。
+5. 验收记录：
+   - `CR-20260312-XXXX-codex-phase3-validation`（PATCH 写路径、状态一致性、interactionState 独立性）
 
 ### Phase 4：次级能力逐项开放
 
