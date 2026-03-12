@@ -43,6 +43,7 @@
                 <div id="codex-secondary-nav">
                     <button id="btn-codex-secondary-settings" class="codex-secondary-btn" type="button">会话设置</button>
                     <button id="btn-codex-secondary-runtime" class="codex-secondary-btn" type="button">运行态</button>
+                    <button id="btn-codex-secondary-tools" class="codex-secondary-btn" type="button" hidden>工具</button>
                     <button id="btn-codex-secondary-notices" class="codex-secondary-btn" type="button" hidden>提示</button>
                 </div>
             </div>
@@ -156,6 +157,34 @@
                     </section>
                 </div>
                 <div id="codex-runtime-warning" hidden></div>
+            </div>
+            <div id="codex-tools-panel" hidden>
+                <div id="codex-tools-header">
+                    <span id="codex-tools-title">扩展工具</span>
+                </div>
+                <div id="codex-tools-grid">
+                    <section id="codex-tools-skills-card" class="codex-tools-card">
+                        <div class="codex-tools-card-header">
+                            <span class="codex-tools-card-title">技能浏览</span>
+                            <span id="codex-tools-skills-meta" class="codex-tools-card-meta"></span>
+                        </div>
+                        <div id="codex-tools-skills-empty" class="codex-tools-empty">输入 <code>/skills</code> 后可在此浏览可用技能。</div>
+                        <div id="codex-tools-skills-list" aria-live="polite"></div>
+                    </section>
+                    <section id="codex-tools-compact-card" class="codex-tools-card">
+                        <div class="codex-tools-card-header">
+                            <span class="codex-tools-card-title">上下文压缩</span>
+                            <span id="codex-tools-compact-meta" class="codex-tools-card-meta"></span>
+                        </div>
+                        <p id="codex-tools-compact-description" class="codex-tools-description">
+                            将当前线程压缩为更短的上下文摘要，避免旧上下文继续占用窗口。
+                        </p>
+                        <div id="codex-tools-compact-status" class="codex-tools-status" aria-live="polite"></div>
+                        <div id="codex-tools-compact-actions">
+                            <button id="btn-codex-compact-confirm" class="codex-btn" type="button">确认压缩当前线程</button>
+                        </div>
+                    </section>
+                </div>
             </div>
             <div id="codex-log" aria-live="polite"></div>
             <div id="codex-composer">

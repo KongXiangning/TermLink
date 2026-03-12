@@ -12,6 +12,7 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const fs = require('fs');
 const path = require('path');
+const { createSlashRegistry } = require('../public/lib/codex_slash_commands');
 
 // ============================================================================
 // Test Environment Setup
@@ -68,6 +69,7 @@ function createTestDOM() {
                 <div id="codex-secondary-nav">
                     <button id="btn-codex-secondary-settings" class="codex-secondary-btn" type="button">会话设置</button>
                     <button id="btn-codex-secondary-runtime" class="codex-secondary-btn" type="button">运行态</button>
+                    <button id="btn-codex-secondary-tools" class="codex-secondary-btn" type="button" hidden>工具</button>
                     <button id="btn-codex-secondary-notices" class="codex-secondary-btn" type="button" hidden>提示</button>
                 </div>
             </div>
@@ -158,9 +160,61 @@ function createTestDOM() {
                 </div>
                 <div id="codex-runtime-warning" hidden></div>
             </div>
+            <div id="codex-tools-panel" hidden>
+                <div id="codex-tools-header">
+                    <span id="codex-tools-title">扩展工具</span>
+                </div>
+                <div id="codex-tools-grid">
+                    <section id="codex-tools-skills-card" class="codex-tools-card">
+                        <div class="codex-tools-card-header">
+                            <span class="codex-tools-card-title">技能浏览</span>
+                            <span id="codex-tools-skills-meta" class="codex-tools-card-meta"></span>
+                        </div>
+                        <div id="codex-tools-skills-empty" class="codex-tools-empty">输入 <code>/skills</code> 后可在此浏览可用技能。</div>
+                        <div id="codex-tools-skills-list" aria-live="polite"></div>
+                    </section>
+                    <section id="codex-tools-compact-card" class="codex-tools-card">
+                        <div class="codex-tools-card-header">
+                            <span class="codex-tools-card-title">上下文压缩</span>
+                            <span id="codex-tools-compact-meta" class="codex-tools-card-meta"></span>
+                        </div>
+                        <p id="codex-tools-compact-description" class="codex-tools-description">将当前线程压缩为更短的上下文摘要。</p>
+                        <div id="codex-tools-compact-status" class="codex-tools-status" aria-live="polite"></div>
+                        <div id="codex-tools-compact-actions">
+                            <button id="btn-codex-compact-confirm" class="codex-btn" type="button">确认压缩当前线程</button>
+                        </div>
+                    </section>
+                </div>
+            </div>
             <div id="codex-log" aria-live="polite"></div>
             <div id="codex-composer">
+                <div id="codex-composer-state" hidden>
+                    <button id="codex-plan-chip" class="codex-mode-chip" type="button" hidden>计划模式已开启</button>
+                    <div id="codex-override-summary" hidden></div>
+                    <button id="btn-codex-quick-clear" class="codex-inline-action" type="button">清除本次设置</button>
+                </div>
+                <div id="codex-slash-menu" hidden>
+                    <div id="codex-slash-menu-header">
+                        <span id="codex-slash-menu-title">搜索命令</span>
+                        <span id="codex-slash-menu-hint">输入 <code>/</code> 继续筛选</span>
+                    </div>
+                    <div id="codex-slash-menu-empty" hidden>没有匹配命令。</div>
+                    <div id="codex-slash-menu-list" aria-live="polite"></div>
+                </div>
                 <textarea id="codex-input" placeholder="输入你的请求，让 Codex 帮你检查、修改或执行任务..."></textarea>
+                <div id="codex-composer-footer">
+                    <button id="btn-codex-slash-trigger" class="codex-icon-btn" type="button">+</button>
+                    <div id="codex-quick-controls">
+                        <label class="codex-quick-field">
+                            <span>模型</span>
+                            <select id="codex-quick-model"></select>
+                        </label>
+                        <label class="codex-quick-field">
+                            <span>推理</span>
+                            <select id="codex-quick-reasoning"></select>
+                        </label>
+                    </div>
+                </div>
                 <button id="btn-codex-send" type="button">发送</button>
             </div>
         </div>
@@ -191,15 +245,29 @@ function createTestDOM() {
                     this.OPEN = 1;
                     this.CLOSING = 2;
                     this.CLOSED = 3;
+                    window.__WS_INSTANCES__.push(this);
                 }
                 send() {}
                 close() { this.readyState = 2; }
+                dispatchOpen() {
+                    this.readyState = this.OPEN;
+                    if (typeof this.onopen === 'function') {
+                        this.onopen();
+                    }
+                }
+                dispatchClose(code = 1000, reason = '') {
+                    this.readyState = this.CLOSED;
+                    if (typeof this.onclose === 'function') {
+                        this.onclose({ code, reason });
+                    }
+                }
             };
+            window.__WS_INSTANCES__ = [];
 
             // Mock fetch
             window.fetch = () => Promise.resolve({
                 ok: true,
-                json: () => Promise.resolve({})
+                json: () => Promise.resolve({ ticket: 'test-ticket' })
             });
 
             // Mock localStorage
@@ -270,6 +338,8 @@ function createTestDOM() {
             window.getCodexRuntimeViewApi = () => null;
             // Mock getCodexApprovalViewApi
             window.getCodexApprovalViewApi = () => null;
+            // Load slash commands API for real slash parsing/registry behavior
+            window.TermLinkCodexSlashCommands = require('../public/lib/codex_slash_commands');
         }
     });
 
@@ -727,6 +797,93 @@ test('Phase 1 Integration: Unavailable panel MUST NOT be shown even if secondary
     // secondaryPanel should be reset to 'none' due to unavailability
     assert.strictEqual(hooks.codexState.secondaryPanel, 'none',
         'secondaryPanel MUST be reset to "none" when requested panel is unavailable');
+
+    dom.window.close();
+});
+
+test('Integration: stale session close 4404 clears sessionId and reconnects without tools-panel loop', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'stale-session-id',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    assert.equal(window.__WS_INSTANCES__.length, 1);
+    const firstSocket = window.__WS_INSTANCES__[0];
+    assert.match(firstSocket.url, /sessionId=stale-session-id/);
+
+    firstSocket.dispatchOpen();
+    firstSocket.dispatchClose(4404, 'Session not found or expired');
+
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    assert.equal(hooks.getSessionId(), '', 'stale close must clear current sessionId before reconnect');
+    assert.equal(hooks.getRetryCount(), 0, 'stale close recovery must not consume retry budget');
+    assert.equal(window.__WS_INSTANCES__.length, 2, 'stale close must trigger a fresh reconnect');
+    assert.doesNotMatch(window.__WS_INSTANCES__[1].url, /sessionId=/, 'fresh reconnect must not reuse stale sessionId');
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: typing /compact with compact=false MUST NOT open tools panel', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.capabilities = {
+        slashCommands: true,
+        slashModel: true,
+        slashPlan: true,
+        skillsList: true,
+        compact: false
+    };
+    hooks.codexState.secondaryPanel = 'none';
+    hooks.codexState.slashRegistry = createSlashRegistry();
+
+    const submitted = hooks.handleCodexComposerSubmit('/compact');
+
+    assert.strictEqual(submitted, false, 'manual /compact should be intercepted');
+    assert.strictEqual(hooks.codexState.secondaryPanel, 'none', 'tools panel must stay closed');
+    assert.strictEqual(hooks.getCodexToolsPanel().hidden, true, 'tools panel must remain hidden');
+    assert.match(hooks.getCodexLog().textContent, /未识别命令。当前支持：/);
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: unmatched /skill query MUST only show 未找到匹配技能', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.capabilities = {
+        slashCommands: true,
+        slashModel: true,
+        slashPlan: true,
+        skillsList: true,
+        compact: true
+    };
+    hooks.codexState.skillListRequested = true;
+    hooks.codexState.skillsLoading = false;
+    hooks.codexState.skillCatalog = [
+        { name: 'android-local-build-debug', label: 'Android Local Build Debug', description: 'Build and debug', defaultPrompt: '' }
+    ];
+
+    hooks.setSlashMenuState(true, '/skill does-not-exist');
+
+    assert.strictEqual(hooks.getCodexSlashMenu().hidden, false, 'slash menu must remain visible');
+    assert.strictEqual(hooks.getCodexSlashMenuList().children.length, 0, 'slash menu must not fall back to command results');
+    assert.strictEqual(hooks.getCodexSlashMenuEmpty().hidden, false, 'empty state must be visible');
+    assert.strictEqual(hooks.getCodexSlashMenuEmpty().textContent, '未找到匹配技能');
 
     dom.window.close();
 });

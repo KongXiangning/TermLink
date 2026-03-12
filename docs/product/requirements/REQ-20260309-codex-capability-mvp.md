@@ -244,7 +244,7 @@ Codex 首页默认只保留以下主体：
 
 ## 7. Next Phase In Scope
 
-以下能力保留在下一阶段，不阻塞当前期发布：
+以下能力保留在下一阶段，不阻塞当前期发布；其中 Phase 4 首个实施包已先开放 `/compact` 与 `/skills` 的入口化版本：
 
 1. `/compact`。
 2. `/skills` 作为技能浏览 / 发现入口。
@@ -388,9 +388,9 @@ Codex 首页默认只保留以下主体：
    - `/plan`
 5. 当前期冻结契约但默认不开放：
    - `/skill <name>`
-6. 预留但不在当前期打开：
-   - `/compact`
-   - `/skills`
+6. 当前已在 Phase 4 首个实施包打开：
+   - `/compact`：打开工具面板中的 compact 确认入口，不做输入即执行
+   - `/skills`：打开技能浏览 / 发现入口，不改变 `/skill <name>` 的一次性契约
 
 命令描述字段应与前文“slash 命令描述字段约定”一致，不允许在不同端定义不同字段集。
 
@@ -467,8 +467,7 @@ Codex 首页默认只保留以下主体：
    - 明确 stored config 与 `nextTurnEffectiveCodexConfig`；
    - 保留最小可用 Session Defaults 二级入口。
 5. Phase 4（增强能力逐项开放）：
-   - `/compact`
-   - `/skills`
+   - `/compact`、`/skills` 首包已落地为次级工具入口
    - image / localImage
    - fork / archive / unarchive / name
    - 更完整 runtime 次级视图

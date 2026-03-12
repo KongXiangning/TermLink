@@ -91,8 +91,8 @@
 | approvals / requestUserInput | 已确认可做 | 技术已支持且当前期前置 | P1/P3 | 阻塞性交互在首页前置。 |
 | diff/plan/reasoning streaming | 已确认可做 | 技术已支持但降为二级入口 | P4 | 保留能力，不再要求首页常驻面板。 |
 | `configWarning/deprecationNotice` | 协议存在，基本可做 | 技术已支持但降为二级入口 | P4 | 仅阻塞态前置，其余降级。 |
-| `/compact` | 可做，但交互形态属于客户端封装 | 技术已支持但下一阶段 | P4 | 预留 registry 入口。 |
-| `/skills` | 可做，但交互形态属于客户端封装 | 技术已支持但下一阶段 | P4 | 作为技能浏览 / 发现入口，不替代 `/skill <name>` 契约。 |
+| `/compact` | 可做，但交互形态属于客户端封装 | 技术已支持且已进入 Phase 4 首包 | P4 | 通过次级工具入口打开确认卡片，再调用 `thread/compact/start`。 |
+| `/skills` | 可做，但交互形态属于客户端封装 | 技术已支持且已进入 Phase 4 首包 | P4 | 作为技能浏览 / 发现入口，不替代 `/skill <name>` 契约。 |
 | `thread/fork/archive/unarchive/name` | 协议存在，基本可做 | 技术已支持但下一阶段 | P4 | 进入扩展会话管理。 |
 | image / localImage input | 已确认可做 | 技术已支持但下一阶段 | P4 | 不阻塞当前主线。 |
 | `thread/rollback` / `turn/steer` / remote skills / account login | 协议存在但主流程未证实 | 当前不纳入 | out-of-scope | 保持排除。 |
@@ -151,7 +151,7 @@
    - `/model`
    - `/plan`
    - `/skill <name>`
-2. `reserved`
+2. `enabled`
    - `/compact`
    - `/skills`
 
@@ -377,7 +377,7 @@
 
 1. `Live Runtime` 次级视图增强。
 2. warning / deprecation 次级视图收口。
-3. `/compact`、`/skills`。
+3. `/compact`、`/skills` 已落地为首个实施包（见 `CR-20260312-0128-codex-phase4-slash-tools`，当前为 draft，待提交回填 `commit_ref`）。
 4. image / localImage。
 5. `fork / archive / unarchive / name`。
 6. 依据能力证据决定 `/skill <name>` 后续是否需要更深的底层承接方式。

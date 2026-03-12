@@ -136,6 +136,9 @@ class MockCodexService extends EventEmitter {
         if (method === 'thread/resume') {
             return Promise.resolve({ thread: { id: params.threadId || 'thread-resumed' } });
         }
+        if (method === 'thread/compact/start') {
+            return Promise.resolve({ ok: true });
+        }
         if (method === 'turn/interrupt') {
             return Promise.resolve({});
         }
@@ -258,7 +261,7 @@ test('session_info includes lastCodexThreadId metadata when available', async (t
         slashModel: true,
         slashPlan: true,
         skillsList: true,
-        compact: false,
+        compact: true,
         imageInput: false
     });
 });
@@ -385,7 +388,7 @@ test('codex_request forwards Phase 1 whitelisted methods', async (t) => {
     });
 });
 
-test('codex_request forwards model/list and account/rateLimits/read', async (t) => {
+test('codex_request forwards model/list, account/rateLimits/read, and thread/compact/start', async (t) => {
     MockCodexService.instances.length = 0;
     const registerTerminalGateway = loadGatewayWithMocks({
         verifyWsUpgrade: () => true,
@@ -415,13 +418,23 @@ test('codex_request forwards model/list and account/rateLimits/read', async (t) 
         requestId: 'req-limits',
         method: 'account/rateLimits/read'
     }));
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-compact',
+        method: 'thread/compact/start',
+        params: {
+            threadId: 'thread-current'
+        }
+    }));
 
     const service = MockCodexService.instances[0];
     assert.ok(service.requests.find((entry) => entry.method === 'model/list'));
     assert.ok(service.requests.find((entry) => entry.method === 'account/rateLimits/read'));
+    assert.ok(service.requests.find((entry) => entry.method === 'thread/compact/start'));
 
     const modelResponse = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-model');
     const limitResponse = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-limits');
+    const compactResponse = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-compact');
     assert.deepEqual(modelResponse.result, {
         models: [
             { id: 'gpt-5-codex' },
@@ -431,6 +444,9 @@ test('codex_request forwards model/list and account/rateLimits/read', async (t) 
     assert.deepEqual(limitResponse.result, {
         remaining: 9,
         limit: 10
+    });
+    assert.deepEqual(compactResponse.result, {
+        ok: true
     });
 });
 

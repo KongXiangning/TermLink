@@ -103,24 +103,24 @@
             {
                 command: '/compact',
                 title: '压缩上下文',
-                availability: 'reserved',
-                discoverability: 'hidden',
+                availability: 'enabled',
+                discoverability: ENABLED_DISCOVERABILITY,
                 argumentShape: 'none',
-                dispatchKind: 'local_notice',
-                capabilityBinding: '客户端封装',
+                dispatchKind: 'open_panel',
+                capabilityBinding: 'thread/compact/start + 客户端封装',
                 capabilityKey: 'compact',
-                statusText: '命令已预留，当前阶段不可用。'
+                statusText: ''
             },
             {
                 command: '/skills',
                 title: '技能列表',
-                availability: 'reserved',
-                discoverability: 'hidden',
+                availability: 'enabled',
+                discoverability: ENABLED_DISCOVERABILITY,
                 argumentShape: 'none',
-                dispatchKind: 'local_notice',
-                capabilityBinding: '客户端封装',
+                dispatchKind: 'open_panel',
+                capabilityBinding: 'skills/list + 客户端封装',
                 capabilityKey: 'skillsList',
-                statusText: '命令已预留，当前阶段不可用。'
+                statusText: ''
             }
         ];
     }
@@ -166,10 +166,13 @@
         const registry = Array.isArray(source.registry) ? source.registry : [];
         const capabilities = source.capabilities && typeof source.capabilities === 'object' ? source.capabilities : {};
         const query = typeof source.query === 'string' ? source.query.trim().toLowerCase() : '';
+        const hasExactCommandMatch = !!(query && query !== '/' && registry.some((entry) => entry.command === query));
         return registry.filter((entry) => {
             const matchesQuery = !query || query === '/'
                 ? true
-                : (entry.command.includes(query) || entry.title.toLowerCase().includes(query.replace(/^\//, '')));
+                : hasExactCommandMatch
+                    ? entry.command === query
+                    : (entry.command.includes(query) || entry.title.toLowerCase().includes(query.replace(/^\//, '')));
             if (entry.availability === 'enabled' && entry.discoverability === ENABLED_DISCOVERABILITY) {
                 if (entry.capabilityKey && capabilities[entry.capabilityKey] !== true) {
                     return false;

@@ -30,6 +30,7 @@ const btnCodexInterrupt = document.getElementById('btn-codex-interrupt');
 const btnCodexHistoryRefresh = document.getElementById('btn-codex-history-refresh');
 const btnCodexSecondarySettings = document.getElementById('btn-codex-secondary-settings');
 const btnCodexSecondaryRuntime = document.getElementById('btn-codex-secondary-runtime');
+const btnCodexSecondaryTools = document.getElementById('btn-codex-secondary-tools');
 const btnCodexSecondaryNotices = document.getElementById('btn-codex-secondary-notices');
 const codexHistoryPanel = document.getElementById('codex-history-panel');
 const codexHistoryList = document.getElementById('codex-history-list');
@@ -52,6 +53,15 @@ const codexRuntimePlan = document.getElementById('codex-runtime-plan');
 const codexRuntimeReasoning = document.getElementById('codex-runtime-reasoning');
 const codexRuntimeTerminal = document.getElementById('codex-runtime-terminal');
 const codexRuntimeWarning = document.getElementById('codex-runtime-warning');
+const codexToolsPanel = document.getElementById('codex-tools-panel');
+const codexToolsSkillsCard = document.getElementById('codex-tools-skills-card');
+const codexToolsSkillsMeta = document.getElementById('codex-tools-skills-meta');
+const codexToolsSkillsEmpty = document.getElementById('codex-tools-skills-empty');
+const codexToolsSkillsList = document.getElementById('codex-tools-skills-list');
+const codexToolsCompactCard = document.getElementById('codex-tools-compact-card');
+const codexToolsCompactMeta = document.getElementById('codex-tools-compact-meta');
+const codexToolsCompactStatus = document.getElementById('codex-tools-compact-status');
+const btnCodexCompactConfirm = document.getElementById('btn-codex-compact-confirm');
 const codexComposerState = document.getElementById('codex-composer-state');
 const codexPlanChip = document.getElementById('codex-plan-chip');
 const codexOverrideSummary = document.getElementById('codex-override-summary');
@@ -201,6 +211,10 @@ const codexState = {
     skillListRequested: false,
     skillListPromise: null,
     skillsLoading: false,
+    toolsPanelFocus: 'skills',
+    compactSubmitting: false,
+    compactStatusText: '',
+    compactStatusTone: '',
     settingsLoadingModels: false,
     settingsSaving: false,
     settingsRefreshingRateLimits: false,
@@ -420,7 +434,8 @@ function getCodexSecondaryEntryAvailability() {
         threads: isCodex && codexState.capabilities.historyList === true,
         settings: isCodex && (codexState.capabilities.modelConfig === true || codexState.capabilities.rateLimitsRead === true),
         runtime: isCodex && codexState.capabilities.diffPlanReasoning === true,
-        notices: isCodex && hasCodexNonBlockingNotice()
+        notices: isCodex && hasCodexNonBlockingNotice(),
+        tools: isCodex && (codexState.capabilities.skillsList === true || codexState.capabilities.compact === true)
     };
 }
 
@@ -431,6 +446,7 @@ function syncCodexSecondaryPanelState() {
         panel === 'threads'
         || panel === 'settings'
         || panel === 'runtime'
+        || panel === 'tools'
         || panel === 'notices'
     ) ? panel : 'none';
     if (normalized !== 'none' && availability[normalized] !== true) {
@@ -496,6 +512,7 @@ function renderCodexSecondaryNav() {
     const buttons = [
         { element: btnCodexSecondarySettings, key: 'settings' },
         { element: btnCodexSecondaryRuntime, key: 'runtime' },
+        { element: btnCodexSecondaryTools, key: 'tools' },
         { element: btnCodexSecondaryNotices, key: 'notices' }
     ];
     let visibleCount = 0;
@@ -521,6 +538,7 @@ function renderCodexSecondaryPanels() {
     renderCodexSettingsPanel();
     renderCodexAlerts();
     renderCodexRuntimePanel();
+    renderCodexToolsPanel();
 }
 
 function setCodexSecondaryPanel(panelName) {
@@ -528,6 +546,7 @@ function setCodexSecondaryPanel(panelName) {
         panelName === 'threads'
         || panelName === 'settings'
         || panelName === 'runtime'
+        || panelName === 'tools'
         || panelName === 'notices'
     ) ? panelName : 'none';
     const availability = getCodexSecondaryEntryAvailability();
@@ -542,6 +561,7 @@ function toggleCodexSecondaryPanel(panelName) {
         panelName === 'threads'
         || panelName === 'settings'
         || panelName === 'runtime'
+        || panelName === 'tools'
         || panelName === 'notices'
     ) ? panelName : 'none';
     if (codexState.secondaryPanel === normalized) {
@@ -948,7 +968,7 @@ function renderCodexSlashMenu() {
     const isSkillQuery = canLoadCodexSkills() && codexState.slashMenuQuery.startsWith('/skill');
     const skillItems = getDiscoverableCodexSkills(codexState.slashMenuQuery);
     const slashApi = getCodexSlashCommandsApi();
-    const items = skillItems.length > 0
+    const items = isSkillQuery
         ? []
         : (slashApi && typeof slashApi.getDiscoverableSlashCommands === 'function'
         ? slashApi.getDiscoverableSlashCommands({
@@ -967,7 +987,7 @@ function renderCodexSlashMenu() {
     } else {
         codexSlashMenuEmpty.textContent = 'No matching commands';
     }
-    codexSlashMenuEmpty.hidden = items.length > 0 || skillItems.length > 0;
+    codexSlashMenuEmpty.hidden = isSkillQuery ? skillItems.length > 0 : (items.length > 0 || skillItems.length > 0);
     if (!shouldShow) {
         return;
     }
@@ -1039,21 +1059,40 @@ function setSlashMenuState(open, query) {
 
 function applySlashCommandSelection(command) {
     if (!codexInput) return;
-    codexInput.value = command;
+    const registryEntry = resolveExecutableCodexSlashCommand(command);
+    if (!registryEntry) {
+        codexInput.value = '';
+        setSlashMenuState(false, '');
+        appendCodexLogEntry('error', buildUnsupportedSlashCommandMessage(), { meta: 'slash' });
+        return;
+    }
+    codexInput.value = registryEntry.command;
     codexInput.focus();
-    if (command === '/model' && codexQuickModel) {
+    if (registryEntry.command === '/model' && codexQuickModel) {
         codexInput.value = '';
         setSlashMenuState(false, '');
         void openCodexModelPicker();
         return;
     }
-    if (command === '/skill') {
+    if (registryEntry.command === '/skill') {
         codexInput.value = '/skill ';
         void maybeLoadCodexSkills();
         setSlashMenuState(true, '/skill ');
         return;
     }
-    setSlashMenuState(true, command);
+    if (registryEntry.command === '/skills') {
+        codexInput.value = '';
+        setSlashMenuState(false, '');
+        openCodexToolsPanel('skills');
+        return;
+    }
+    if (registryEntry.command === '/compact') {
+        codexInput.value = '';
+        setSlashMenuState(false, '');
+        openCodexToolsPanel('compact');
+        return;
+    }
+    setSlashMenuState(true, registryEntry.command);
 }
 
 function updateSlashMenuForInputValue() {
@@ -1224,21 +1263,25 @@ function maybeLoadCodexSkills() {
     codexState.skillListRequested = true;
     codexState.skillsLoading = true;
     renderCodexSlashMenu();
+    renderCodexToolsPanel();
     codexState.skillListPromise = sendCodexBridgeRequest('skills/list', {})
         .then((result) => {
             codexState.skillCatalog = normalizeCodexSkillCatalog(result);
             renderCodexSlashMenu();
+            renderCodexToolsPanel();
             return codexState.skillCatalog;
         })
         .catch(() => {
             codexState.skillListRequested = false;
             renderCodexSlashMenu();
+            renderCodexToolsPanel();
             return [];
         })
         .finally(() => {
             codexState.skillListPromise = null;
             codexState.skillsLoading = false;
             renderCodexSlashMenu();
+            renderCodexToolsPanel();
         });
     return codexState.skillListPromise;
 }
@@ -1288,6 +1331,9 @@ function applyCodexSkillSelection(skillEntry) {
         codexInput.focus();
     }
     setSlashMenuState(false, '');
+    if (codexState.secondaryPanel === 'tools') {
+        setCodexSecondaryPanel('none');
+    }
 }
 
 function populateCodexReasoningSelect(selectEl, options) {
@@ -1515,6 +1561,179 @@ function clearCodexAlerts() {
     codexState.deprecationNoticeText = '';
     renderCodexAlerts();
     renderCodexAuxStatus();
+}
+
+function shouldShowCodexToolsPanel() {
+    return getActiveSessionMode() === 'codex'
+        && (codexState.capabilities.skillsList === true || codexState.capabilities.compact === true);
+}
+
+function getDefaultCodexToolsPanelFocus() {
+    if (codexState.capabilities.skillsList === true) {
+        return 'skills';
+    }
+    if (codexState.capabilities.compact === true) {
+        return 'compact';
+    }
+    return 'skills';
+}
+
+function setCodexToolsPanelFocus(focus) {
+    codexState.toolsPanelFocus = focus === 'compact' ? 'compact' : 'skills';
+}
+
+function setCodexCompactStatus(text, tone) {
+    codexState.compactStatusText = typeof text === 'string' ? text.trim() : '';
+    codexState.compactStatusTone = typeof tone === 'string' ? tone.trim() : '';
+    renderCodexToolsPanel();
+}
+
+function openCodexToolsPanel(focus) {
+    setCodexToolsPanelFocus(focus || getDefaultCodexToolsPanelFocus());
+    if (codexState.compactSubmitting !== true) {
+        codexState.compactStatusText = '';
+        codexState.compactStatusTone = '';
+    }
+    if (codexState.toolsPanelFocus === 'skills') {
+        void maybeLoadCodexSkills();
+    }
+    setCodexSecondaryPanel('tools');
+}
+
+function renderCodexToolsPanel() {
+    if (!codexToolsPanel) {
+        return;
+    }
+    const shouldShowPanel = shouldShowCodexToolsPanel();
+    codexToolsPanel.hidden = !(shouldShowPanel && syncCodexSecondaryPanelState() === 'tools');
+    if (!shouldShowPanel) {
+        return;
+    }
+
+    const skillsEnabled = codexState.capabilities.skillsList === true;
+    const compactEnabled = codexState.capabilities.compact === true;
+    const focus = codexState.toolsPanelFocus === 'compact' ? 'compact' : 'skills';
+    const hasThread = !!(typeof codexState.threadId === 'string' && codexState.threadId.trim());
+    const compactStatusText = codexState.compactStatusText
+        || (
+            !compactEnabled ? '当前服务端未开放上下文压缩。'
+                : !hasThread ? '当前还没有可压缩的线程，请先发送一条消息或恢复已有线程。'
+                    : '确认后将对当前线程发起一次 compact 请求。'
+        );
+
+    if (codexToolsSkillsCard) {
+        codexToolsSkillsCard.hidden = !skillsEnabled;
+        codexToolsSkillsCard.classList.toggle('is-focus', skillsEnabled && focus === 'skills');
+    }
+    if (codexToolsCompactCard) {
+        codexToolsCompactCard.hidden = !compactEnabled;
+        codexToolsCompactCard.classList.toggle('is-focus', compactEnabled && focus === 'compact');
+    }
+    if (codexToolsSkillsMeta) {
+        if (skillsEnabled && codexState.skillsLoading) {
+            codexToolsSkillsMeta.textContent = '加载中';
+        } else if (skillsEnabled && codexState.skillCatalog.length > 0) {
+            codexToolsSkillsMeta.textContent = `${codexState.skillCatalog.length} 个技能`;
+        } else {
+            codexToolsSkillsMeta.textContent = skillsEnabled ? '等待加载' : '';
+        }
+    }
+    if (codexToolsSkillsEmpty) {
+        if (!skillsEnabled) {
+            codexToolsSkillsEmpty.hidden = true;
+        } else if (codexState.skillsLoading) {
+            codexToolsSkillsEmpty.hidden = false;
+            codexToolsSkillsEmpty.textContent = '正在加载技能列表...';
+        } else if (codexState.skillListRequested && codexState.skillCatalog.length === 0) {
+            codexToolsSkillsEmpty.hidden = false;
+            codexToolsSkillsEmpty.textContent = '当前没有可用技能。';
+        } else if (codexState.skillCatalog.length === 0) {
+            codexToolsSkillsEmpty.hidden = false;
+            codexToolsSkillsEmpty.innerHTML = '输入 <code>/skills</code> 后可在此浏览可用技能。';
+        } else {
+            codexToolsSkillsEmpty.hidden = true;
+        }
+    }
+    if (codexToolsSkillsList) {
+        codexToolsSkillsList.innerHTML = '';
+        if (skillsEnabled) {
+            codexState.skillCatalog.forEach((entry) => {
+                const item = document.createElement('div');
+                item.className = 'codex-tools-skill-item';
+                const copy = document.createElement('div');
+                copy.className = 'codex-tools-skill-copy';
+                const title = document.createElement('div');
+                title.className = 'codex-tools-skill-name';
+                title.textContent = entry.label;
+                copy.appendChild(title);
+                const desc = document.createElement('div');
+                desc.className = 'codex-tools-skill-desc';
+                desc.textContent = entry.description || '无额外说明';
+                copy.appendChild(desc);
+                if (entry.defaultPrompt) {
+                    const prompt = document.createElement('div');
+                    prompt.className = 'codex-tools-skill-prompt';
+                    prompt.textContent = `默认提示：${entry.defaultPrompt}`;
+                    copy.appendChild(prompt);
+                }
+                const action = document.createElement('button');
+                action.type = 'button';
+                action.className = 'codex-btn subtle';
+                action.textContent = '使用';
+                action.addEventListener('click', () => {
+                    applyCodexSkillSelection(entry);
+                });
+                item.appendChild(copy);
+                item.appendChild(action);
+                codexToolsSkillsList.appendChild(item);
+            });
+        }
+    }
+    if (codexToolsCompactMeta) {
+        codexToolsCompactMeta.textContent = hasThread ? '当前线程可用' : '等待线程';
+    }
+    if (codexToolsCompactStatus) {
+        codexToolsCompactStatus.textContent = compactStatusText;
+        codexToolsCompactStatus.classList.toggle('tone-error', codexState.compactStatusTone === 'error');
+        codexToolsCompactStatus.classList.toggle('tone-success', codexState.compactStatusTone === 'success');
+    }
+    if (btnCodexCompactConfirm) {
+        btnCodexCompactConfirm.disabled = !compactEnabled || !hasThread || codexState.compactSubmitting === true;
+        btnCodexCompactConfirm.textContent = codexState.compactSubmitting === true
+            ? '压缩中...'
+            : '确认压缩当前线程';
+    }
+}
+
+function requestCodexCompactCurrentThread() {
+    if (codexState.capabilities.compact !== true) {
+        setCodexCompactStatus('当前服务端未开放上下文压缩。', 'error');
+        return Promise.resolve(null);
+    }
+    const threadId = typeof codexState.threadId === 'string' ? codexState.threadId.trim() : '';
+    if (!threadId) {
+        setCodexCompactStatus('当前还没有可压缩的线程，请先发送一条消息或恢复已有线程。', 'error');
+        return Promise.resolve(null);
+    }
+
+    codexState.compactSubmitting = true;
+    setCodexCompactStatus('正在请求压缩当前线程...', '');
+    return sendCodexBridgeRequest('thread/compact/start', { threadId }, { suppressErrorUi: true })
+        .then((result) => {
+            codexState.compactSubmitting = false;
+            appendCodexLogEntry('system', `已请求压缩线程 ${threadId}。`, { meta: 'compact' });
+            setCodexCompactStatus('压缩请求已提交。', 'success');
+            setCodexSecondaryPanel('none');
+            return result;
+        })
+        .catch((error) => {
+            codexState.compactSubmitting = false;
+            setCodexCompactStatus(error && error.message ? error.message : '压缩上下文失败。', 'error');
+            return null;
+        })
+        .finally(() => {
+            renderCodexToolsPanel();
+        });
 }
 
 function renderCodexRuntimePanel() {
@@ -1904,6 +2123,10 @@ function resetCodexBootstrapState() {
     codexState.skillListRequested = false;
     codexState.skillListPromise = null;
     codexState.skillsLoading = false;
+    codexState.toolsPanelFocus = 'skills';
+    codexState.compactSubmitting = false;
+    codexState.compactStatusText = '';
+    codexState.compactStatusTone = '';
     codexState.slashRegistry = [];
     codexState.slashMenuOpen = false;
     codexState.slashMenuQuery = '';
@@ -1962,6 +2185,7 @@ function resetCodexBootstrapState() {
     renderCodexSettingsPanel();
     renderCodexAlerts();
     renderCodexRuntimePanel();
+    renderCodexToolsPanel();
 }
 
 function rejectPendingCodexBridgeRequests(message, code) {
@@ -2076,6 +2300,44 @@ function refreshCodexSlashRegistry() {
     codexState.slashRegistry = slashApi && typeof slashApi.createSlashRegistry === 'function'
         ? slashApi.createSlashRegistry()
         : [];
+}
+
+function isExecutableCodexSlashCommand(entry) {
+    if (!entry || entry.availability !== 'enabled') {
+        return false;
+    }
+    if (entry.capabilityKey && codexState.capabilities[entry.capabilityKey] !== true) {
+        return false;
+    }
+    return true;
+}
+
+function resolveExecutableCodexSlashCommand(command) {
+    const slashApi = getCodexSlashCommandsApi();
+    const registryEntry = slashApi && typeof slashApi.resolveSlashCommand === 'function'
+        ? slashApi.resolveSlashCommand({ registry: codexState.slashRegistry, command })
+        : null;
+    if (!isExecutableCodexSlashCommand(registryEntry)) {
+        return null;
+    }
+    return registryEntry;
+}
+
+function getEnabledCodexSlashCommands() {
+    const slashApi = getCodexSlashCommandsApi();
+    if (!slashApi || typeof slashApi.getDiscoverableSlashCommands !== 'function') {
+        return ['/model', '/plan'];
+    }
+    const commands = slashApi.getDiscoverableSlashCommands({
+        registry: codexState.slashRegistry,
+        capabilities: codexState.capabilities,
+        query: '/'
+    }).map((entry) => entry.command);
+    return commands.length > 0 ? commands : ['/model', '/plan'];
+}
+
+function buildUnsupportedSlashCommandMessage() {
+    return `未识别命令。当前支持：${getEnabledCodexSlashCommands().join('、')}。`;
 }
 
 function sendCodexBridgeRequest(method, params, options) {
@@ -2659,12 +2921,10 @@ function handleCodexComposerSubmit(rawText) {
         return true;
     }
 
-    const registryEntry = slashApi && typeof slashApi.resolveSlashCommand === 'function'
-        ? slashApi.resolveSlashCommand({ registry: codexState.slashRegistry, command: parsed.command })
-        : null;
+    const registryEntry = resolveExecutableCodexSlashCommand(parsed.command);
 
     if (!registryEntry) {
-        appendCodexLogEntry('error', '未识别命令。当前支持：/model、/plan。', { meta: 'slash' });
+        appendCodexLogEntry('error', buildUnsupportedSlashCommandMessage(), { meta: 'slash' });
         return false;
     }
 
@@ -2709,6 +2969,24 @@ function handleCodexComposerSubmit(rawText) {
         }
         applyCodexSkillSelection(skillEntry);
         setSlashMenuState(false, '');
+        return false;
+    }
+
+    if (registryEntry.command === '/skills') {
+        if (codexInput) {
+            codexInput.value = '';
+        }
+        setSlashMenuState(false, '');
+        openCodexToolsPanel('skills');
+        return false;
+    }
+
+    if (registryEntry.command === '/compact') {
+        if (codexInput) {
+            codexInput.value = '';
+        }
+        setSlashMenuState(false, '');
+        openCodexToolsPanel('compact');
         return false;
     }
 
@@ -3376,6 +3654,33 @@ function closeSocketSilently() {
     ws = null;
 }
 
+function clearPersistedSessionBinding() {
+    sessionId = '';
+    if (runtimeConfig && typeof runtimeConfig === 'object') {
+        runtimeConfig = Object.assign({}, runtimeConfig, { sessionId: '' });
+    }
+    if (typeof window !== 'undefined' && window.__TERMLINK_CONFIG__ && typeof window.__TERMLINK_CONFIG__ === 'object') {
+        window.__TERMLINK_CONFIG__ = Object.assign({}, window.__TERMLINK_CONFIG__, { sessionId: '' });
+    }
+    loadHistoryState(getHistoryStorageKey(sessionId), true);
+}
+
+function recoverFromMissingSession(event) {
+    if (!event || event.code !== 4404 || !sessionId) {
+        return false;
+    }
+    clearTimeout(reconnectTimer);
+    retryCount = 0;
+    reconnectInterval = 1000;
+    clearPersistedSessionBinding();
+    showStatus('Session expired. Requesting a fresh session...');
+    notifyNativeConnectionState('reconnecting', 'stale session; requesting fresh session');
+    reconnectTimer = setTimeout(function () {
+        connect();
+    }, 0);
+    return true;
+}
+
 function applyRuntimeConfig(config, forceReconnect) {
     if (!config || typeof config !== 'object') return;
     hasReceivedRuntimeConfig = true;
@@ -3647,6 +3952,10 @@ function connect() {
                         ? settingsApi.normalizeStoredCodexConfig(envelope.codexConfig)
                         : null;
                     codexState.serverNextTurnConfigBase = null;
+                    codexState.toolsPanelFocus = getDefaultCodexToolsPanelFocus();
+                    codexState.compactSubmitting = false;
+                    codexState.compactStatusText = '';
+                    codexState.compactStatusTone = '';
                     codexState.secondaryPanel = 'none';
                     codexState.initialSessionInfoReceived = true;
                     syncNextTurnEffectiveCodexConfig();
@@ -3666,6 +3975,10 @@ function connect() {
                 if (envelope.type === 'codex_capabilities') {
                     codexState.capabilities = normalizeCodexCapabilities(envelope.capabilities);
                     refreshCodexSlashRegistry();
+                    codexState.toolsPanelFocus = getDefaultCodexToolsPanelFocus();
+                    codexState.compactSubmitting = false;
+                    codexState.compactStatusText = '';
+                    codexState.compactStatusTone = '';
                     codexState.secondaryPanel = 'none';
                     codexState.initialCapabilitiesReceived = true;
                     renderCodexHeaderSummary();
@@ -3858,6 +4171,9 @@ function connect() {
             );
             resetCodexBootstrapState();
             setCodexStatus('error', 'bridge disconnected');
+            if (recoverFromMissingSession(event)) {
+                return;
+            }
             if (retryCount >= MAX_RETRIES) {
                 const detail = `code=${event.code} reason=${event.reason || 'none'}`;
                 showStatus('Connection failed.');
@@ -4168,9 +4484,25 @@ if (btnCodexSecondaryRuntime) {
     });
 }
 
+if (btnCodexSecondaryTools) {
+    btnCodexSecondaryTools.addEventListener('click', () => {
+        if (codexState.secondaryPanel === 'tools') {
+            toggleCodexSecondaryPanel('tools');
+            return;
+        }
+        openCodexToolsPanel(codexState.toolsPanelFocus || getDefaultCodexToolsPanelFocus());
+    });
+}
+
 if (btnCodexSecondaryNotices) {
     btnCodexSecondaryNotices.addEventListener('click', () => {
         toggleCodexSecondaryPanel('notices');
+    });
+}
+
+if (btnCodexCompactConfirm) {
+    btnCodexCompactConfirm.addEventListener('click', () => {
+        void requestCodexCompactCurrentThread();
     });
 }
 
@@ -4478,18 +4810,33 @@ if (shouldExposeCodexTestHooks) {
         // Render functions
         renderCodexAlerts,
         renderCodexHistoryList,
+        renderCodexSlashMenu,
         renderCodexSettingsPanel,
         renderCodexRuntimePanel,
         renderCodexSecondaryPanels,
+        renderCodexToolsPanel,
         // Helper functions
+        handleCodexComposerSubmit,
+        applyRuntimeConfig,
+        connect,
+        setSlashMenuState,
         syncCodexSecondaryPanelState,
         hasCodexNonBlockingNotice,
         getCodexSecondaryEntryAvailability,
+        getSessionId: () => sessionId,
+        getServerUrl: () => serverUrl,
+        getRetryCount: () => retryCount,
         // DOM element references
         getCodexAlerts: () => codexAlerts,
         getCodexHistoryPanel: () => codexHistoryPanel,
+        getCodexInput: () => codexInput,
+        getCodexLog: () => codexLog,
         getCodexSettingsPanel: () => codexSettingsPanel,
+        getCodexSlashMenu: () => codexSlashMenu,
+        getCodexSlashMenuEmpty: () => codexSlashMenuEmpty,
+        getCodexSlashMenuList: () => codexSlashMenuList,
         getCodexRuntimePanel: () => codexRuntimePanel,
+        getCodexToolsPanel: () => codexToolsPanel,
         getCodexAlertConfig: () => codexAlertConfig,
         getCodexAlertDeprecation: () => codexAlertDeprecation
     };

@@ -14,10 +14,12 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="codex-thread-summary"/);
     assert.match(html, /id="btn-codex-secondary-settings"/);
     assert.match(html, /id="btn-codex-secondary-runtime"/);
+    assert.match(html, /id="btn-codex-secondary-tools"/);
     assert.match(html, /id="btn-codex-secondary-notices"/);
     assert.match(html, /id="codex-history-panel"/);
     assert.match(html, /id="codex-settings-panel"/);
     assert.match(html, /id="codex-runtime-panel"/);
+    assert.match(html, /id="codex-tools-panel"/);
     assert.match(html, /id="codex-alerts"/);
     assert.match(html, /id="btn-codex-history-refresh"/);
     assert.match(html, /id="btn-codex-new-thread"/);
@@ -68,11 +70,13 @@ test('terminal client stylesheet supports secondary panels and sticky composer f
     assert.match(css, /#codex-history-actions/);
     assert.match(css, /#codex-panel\.collapsed #codex-settings-panel/);
     assert.match(css, /#codex-panel\.collapsed #codex-runtime-panel/);
+    assert.match(css, /#codex-panel\.collapsed #codex-tools-panel/);
     assert.match(css, /body\.codex-only\s*\{[\s\S]*overflow-y:\s*auto/);
     assert.match(css, /body\.codex-only #terminal-shell\s*\{[\s\S]*height:\s*auto/);
     assert.match(css, /body\.codex-only #codex-panel\s*\{[\s\S]*overflow:\s*visible/);
     assert.match(css, /body\.codex-only #codex-composer\s*\{[\s\S]*position:\s*sticky/);
     assert.match(css, /#codex-quick-controls/);
+    assert.match(css, /#codex-tools-grid/);
     assert.match(css, /#codex-composer-surface/);
     assert.match(css, /#codex-composer-footer/);
     assert.match(css, /\.codex-icon-btn/);
@@ -101,6 +105,7 @@ test('Phase 1: secondary panels in codex_client.html must have hidden attribute 
     assert.match(html, /<div\s+id="codex-history-panel"\s+[^>]*hidden/, 'codex-history-panel must have hidden attribute');
     assert.match(html, /<div\s+id="codex-settings-panel"\s+[^>]*hidden/, 'codex-settings-panel must have hidden attribute');
     assert.match(html, /<div\s+id="codex-runtime-panel"\s+[^>]*hidden/, 'codex-runtime-panel must have hidden attribute');
+    assert.match(html, /<div\s+id="codex-tools-panel"\s+[^>]*hidden/, 'codex-tools-panel must have hidden attribute');
     assert.match(html, /<div\s+id="codex-alerts"\s+[^>]*hidden/, 'codex-alert must have hidden attribute');
 });
 
@@ -118,6 +123,10 @@ test('Phase 1: terminal_client.js render functions must set hidden=true when sec
     // renderCodexRuntimePanel must set hidden when secondaryPanel !== 'runtime'
     assert.match(js, /codexRuntimePanel\.hidden\s*=\s*!\(.*syncCodexSecondaryPanelState\(\)\s*===\s*['"]runtime['"]\)/,
         'renderCodexRuntimePanel must set hidden=true when secondaryPanel !== "runtime"');
+
+    // renderCodexToolsPanel must set hidden when secondaryPanel !== 'tools'
+    assert.match(js, /codexToolsPanel\.hidden\s*=\s*!\(.*syncCodexSecondaryPanelState\(\)\s*===\s*['"]tools['"]\)/,
+        'renderCodexToolsPanel must set hidden=true when secondaryPanel !== "tools"');
 });
 
 test('Phase 1: codexState.secondaryPanel must default to "none" to ensure all panels hidden on cold start', () => {
@@ -184,8 +193,23 @@ test('Phase 2: terminal_client.js must parse model\/list and skills\/list payloa
     assert.match(js, /function normalizeCodexSkillCatalog\(result\)/);
     assert.match(js, /sendCodexBridgeRequest\('skills\/list', \{\}\)/);
     assert.match(js, /codexInput\.value = '\/skill '/);
+    assert.match(js, /const items = isSkillQuery\s*\?\s*\[\]/);
+    assert.match(js, /codexSlashMenuEmpty\.hidden = isSkillQuery \? skillItems\.length > 0/);
     assert.match(js, /function applyCodexSkillSelection\(skillEntry\)/);
+    assert.match(js, /sendCodexBridgeRequest\('thread\/compact\/start', \{ threadId \}, \{ suppressErrorUi: true \}\)/);
+    assert.match(js, /openCodexToolsPanel\('skills'\)/);
+    assert.match(js, /openCodexToolsPanel\('compact'\)/);
+    assert.match(js, /function isExecutableCodexSlashCommand\(entry\)/);
+    assert.match(js, /entry\.capabilityKey && codexState\.capabilities\[entry\.capabilityKey\] !== true/);
+    assert.match(js, /const registryEntry = resolveExecutableCodexSlashCommand\(parsed\.command\)/);
+    assert.match(js, /const registryEntry = resolveExecutableCodexSlashCommand\(command\)/);
+    assert.match(js, /function recoverFromMissingSession\(event\)/);
+    assert.match(js, /event\.code !== 4404/);
+    assert.match(js, /clearPersistedSessionBinding\(\)/);
+    assert.match(js, /notifyNativeConnectionState\('reconnecting', 'stale session; requesting fresh session'\)/);
     assert.doesNotMatch(js, /\['low', 'medium', 'high', 'xhigh'\]/);
     assert.doesNotMatch(js, /selectedValue && !optionValues\.includes\(selectedValue\)/);
     assert.match(slashJs, /command:\s*'\/skill'[\s\S]*availability:\s*'enabled'/);
+    assert.match(slashJs, /command:\s*'\/compact'[\s\S]*dispatchKind:\s*'open_panel'/);
+    assert.match(slashJs, /command:\s*'\/skills'[\s\S]*dispatchKind:\s*'open_panel'/);
 });

@@ -33,10 +33,12 @@ test('parseComposerInput distinguishes text, empty, and slash commands', () => {
     });
 });
 
-test('slash registry resolves enabled and frozen commands', () => {
+test('slash registry resolves enabled commands and panel dispatch', () => {
     const registry = createSlashRegistry();
     assert.equal(resolveSlashCommand({ registry, command: '/plan' }).dispatchKind, 'interaction_state');
     assert.equal(resolveSlashCommand({ registry, command: '/skill' }).availability, 'enabled');
+    assert.equal(resolveSlashCommand({ registry, command: '/skills' }).dispatchKind, 'open_panel');
+    assert.equal(resolveSlashCommand({ registry, command: '/compact' }).dispatchKind, 'open_panel');
 });
 
 test('getDiscoverableSlashCommands only returns enabled commands allowed by capabilities', () => {
@@ -55,7 +57,7 @@ test('getDiscoverableSlashCommands only returns enabled commands allowed by capa
     );
 });
 
-test('getDiscoverableSlashCommands can expose frozen /skill as search-only notice', () => {
+test('getDiscoverableSlashCommands keeps /skill search scoped to the one-shot skill command', () => {
     const registry = createSlashRegistry();
     assert.deepEqual(
         getDiscoverableSlashCommands({
@@ -69,6 +71,24 @@ test('getDiscoverableSlashCommands can expose frozen /skill as search-only notic
             query: '/skill'
         }).map((entry) => `${entry.command}:${entry.availability}`),
         ['/skill:enabled']
+    );
+});
+
+test('getDiscoverableSlashCommands includes /skills and /compact when capabilities are enabled', () => {
+    const registry = createSlashRegistry();
+    assert.deepEqual(
+        getDiscoverableSlashCommands({
+            registry,
+            capabilities: {
+                slashCommands: true,
+                slashModel: true,
+                slashPlan: true,
+                skillsList: true,
+                compact: true
+            },
+            query: '/'
+        }).map((entry) => entry.command),
+        ['/model', '/plan', '/skill', '/compact', '/skills']
     );
 });
 

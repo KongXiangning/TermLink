@@ -20,31 +20,37 @@ If multiple devices are online, always pass `-Serial`.
 
 ## Quick Start
 
-1. Build debug APK:
+1. Ensure local server is running:
+```powershell
+powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/ensure-local-server.ps1
+```
+
+2. Build debug APK:
 ```powershell
 powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/build-debug-apk.ps1
 ```
 
-2. Install and launch:
+3. Install and launch:
 ```powershell
 powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/install-debug-apk.ps1
 ```
 
-3. Stream logs:
+4. Stream logs:
 ```powershell
 powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/logcat-termlink.ps1
 ```
 
-4. Validate local server config:
+5. Validate local server config:
 ```powershell
 powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/validate-server-config.ps1
 ```
 
 ## Standard Debug Loop
 
-1. Run doctor:
+1. Run doctor and ensure local server:
 ```powershell
 powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/adb-doctor.ps1
+powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/ensure-local-server.ps1
 ```
 
 2. Rebuild and reinstall:

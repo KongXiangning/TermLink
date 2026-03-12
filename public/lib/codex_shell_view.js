@@ -58,7 +58,8 @@
             threads: isCodex && capabilities.historyList === true,
             settings: isCodex && (capabilities.modelConfig === true || capabilities.rateLimitsRead === true),
             runtime: isCodex && capabilities.diffPlanReasoning === true,
-            notices: isCodex && state.hasNonBlockingNotice === true
+            notices: isCodex && state.hasNonBlockingNotice === true,
+            tools: isCodex && (capabilities.skillsList === true || capabilities.compact === true)
         };
     }
 

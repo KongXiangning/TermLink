@@ -18,12 +18,12 @@ if (-not (Test-Path $androidDir)) {
 }
 
 if (-not $JdkHome) {
-    if ($env:JAVA_HOME -and (Test-Path $env:JAVA_HOME)) {
-        $JdkHome = $env:JAVA_HOME
-    } elseif (Test-Path 'D:\ProgramCode\openjdk\jdk-21') {
+    if (Test-Path 'D:\ProgramCode\openjdk\jdk-21') {
         $JdkHome = 'D:\ProgramCode\openjdk\jdk-21'
     } elseif (Test-Path 'C:\Program Files\Android\Android Studio\jbr') {
         $JdkHome = 'C:\Program Files\Android\Android Studio\jbr'
+    } elseif ($env:JAVA_HOME -and (Test-Path $env:JAVA_HOME)) {
+        $JdkHome = $env:JAVA_HOME
     }
 }
 

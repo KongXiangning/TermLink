@@ -151,6 +151,7 @@ const CODEX_REQUEST_METHOD_WHITELIST = new Set([
     'thread/list',
     'thread/read',
     'thread/resume',
+    'thread/compact/start',
     'model/list',
     'skills/list',
     'account/rateLimits/read'
@@ -169,7 +170,7 @@ function buildCodexCapabilities() {
         slashModel: true,
         slashPlan: true,
         skillsList: true,
-        compact: false,
+        compact: true,
         imageInput: false
     };
 }
