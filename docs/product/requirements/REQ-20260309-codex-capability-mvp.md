@@ -244,7 +244,7 @@ Codex 首页默认只保留以下主体：
 
 ## 7. Next Phase In Scope
 
-以下能力保留在下一阶段，不阻塞当前期发布；其中 Phase 4 首个实施包已先开放 `/compact` 与 `/skills` 的入口化版本：
+以下能力保留在下一阶段，不阻塞当前期发布；其中 Phase 4 已先开放 `/compact`、`/skills` 的入口化版本，在第二个实施包中接入 `thread/fork`、`thread/archive`、`thread/unarchive` 的 Threads 面板入口，并在第三个实施包中接通 `image` / `localImage` 的 composer 输入：
 
 1. `/compact`。
 2. `/skills` 作为技能浏览 / 发现入口。
@@ -468,6 +468,7 @@ Codex 首页默认只保留以下主体：
    - 保留最小可用 Session Defaults 二级入口。
 5. Phase 4（增强能力逐项开放）：
    - `/compact`、`/skills` 首包已落地为次级工具入口
-   - image / localImage
-   - fork / archive / unarchive / name
+   - `thread/fork`、`thread/archive`、`thread/unarchive` 已落地为 Threads 面板扩展动作
+   - image / localImage 已落地为 composer 图像输入
+   - thread/name/set
    - 更完整 runtime 次级视图

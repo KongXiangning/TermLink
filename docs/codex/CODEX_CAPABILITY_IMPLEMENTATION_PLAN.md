@@ -378,9 +378,10 @@
 1. `Live Runtime` 次级视图增强。
 2. warning / deprecation 次级视图收口。
 3. `/compact`、`/skills` 已落地为首个实施包（见 `CR-20260312-0128-codex-phase4-slash-tools`，当前为 draft，待提交回填 `commit_ref`）。
-4. image / localImage。
-5. `fork / archive / unarchive / name`。
-6. 依据能力证据决定 `/skill <name>` 后续是否需要更深的底层承接方式。
+4. `thread/fork`、`thread/archive`、`thread/unarchive` 已落地为第二个实施包（见 `CR-20260312-1705-codex-phase4-thread-actions`，当前为 draft，待提交回填 `commit_ref`）。
+5. image / localImage 已落地为第三个实施包（见 `CR-20260312-1815-codex-phase4-image-input`，当前为 draft，待提交回填 `commit_ref`）。
+6. `thread/name/set` 已落地为第四个实施包（见 `CR-20260312-1223-codex-phase4-thread-rename`，当前为 draft，待提交回填 `commit_ref`）。
+7. 依据能力证据决定 `/skill <name>` 后续是否需要更深的底层承接方式。
 
 ## 10. MVP 缺口清单（按新主线）
 

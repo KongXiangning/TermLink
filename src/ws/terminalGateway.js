@@ -139,18 +139,62 @@ function buildThreadStartParamsWithConfig({ cwd, codexConfig }) {
     return params;
 }
 
-function buildTurnInput(text) {
-    return [{
-        type: 'text',
-        text,
-        text_elements: []
-    }];
+function normalizeTurnAttachments(value) {
+    const attachments = Array.isArray(value) ? value : [];
+    return attachments
+        .map((entry) => {
+            if (!entry || typeof entry !== 'object') {
+                return null;
+            }
+            if (entry.type === 'image' && isNonEmptyString(entry.url)) {
+                return {
+                    type: 'image',
+                    url: entry.url.trim()
+                };
+            }
+            if (entry.type === 'localImage') {
+                // Accept either path (server-side file) or url (data URL from client)
+                if (isNonEmptyString(entry.path)) {
+                    return {
+                        type: 'localImage',
+                        path: entry.path.trim()
+                    };
+                }
+                if (isNonEmptyString(entry.url)) {
+                    return {
+                        type: 'localImage',
+                        url: entry.url.trim()
+                    };
+                }
+            }
+            return null;
+        })
+        .filter(Boolean);
+}
+
+function buildTurnInput(text, attachments) {
+    const input = [];
+    if (isNonEmptyString(text)) {
+        input.push({
+            type: 'text',
+            text,
+            text_elements: []
+        });
+    }
+    normalizeTurnAttachments(attachments).forEach((entry) => {
+        input.push(entry);
+    });
+    return input;
 }
 
 const CODEX_REQUEST_METHOD_WHITELIST = new Set([
     'thread/list',
     'thread/read',
     'thread/resume',
+    'thread/fork',
+    'thread/name/set',
+    'thread/archive',
+    'thread/unarchive',
     'thread/compact/start',
     'model/list',
     'skills/list',
@@ -171,7 +215,7 @@ function buildCodexCapabilities() {
         slashPlan: true,
         skillsList: true,
         compact: true,
-        imageInput: false
+        imageInput: true
     };
 }
 
@@ -746,11 +790,12 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         });
                     } else if (type === 'codex_turn') {
                         const text = isNonEmptyString(envelope.text) ? envelope.text.trim() : '';
-                        if (!text) {
+                        const attachments = normalizeTurnAttachments(envelope.attachments);
+                        if (!text && attachments.length === 0) {
                             sendWsEnvelope(ws, {
                                 type: 'codex_error',
                                 code: 'CODEX_EMPTY_INPUT',
-                                message: 'Codex input text cannot be empty.'
+                                message: 'Codex input cannot be empty.'
                             });
                             return;
                         }
@@ -764,7 +809,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         const sessionCodexConfig = getEffectiveSessionCodexConfig(session);
                         const turnStartResponse = await codexService.request('turn/start', {
                             threadId,
-                            input: buildTurnInput(text),
+                            input: buildTurnInput(text, attachments),
                             model: turnOverrides.model || sessionCodexConfig.defaultModel || undefined,
                             reasoningEffort: turnOverrides.reasoningEffort || sessionCodexConfig.defaultReasoningEffort || undefined,
                             personality: sessionCodexConfig.defaultPersonality || undefined,
@@ -891,6 +936,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             return;
                         }
                         const response = await codexService.request(method, envelope.params);
+                        if (method === 'account/rateLimits/read') {
+                            console.info('[CODEX][account/rateLimits/read] Response:', JSON.stringify(response, null, 2));
+                        }
                         const codexState = ensureSessionCodexState(session);
                         if (
                             method === 'thread/resume' &&

@@ -18,6 +18,17 @@ Use this priority by default:
 
 If multiple devices are online, always pass `-Serial`.
 
+## Default Debug Configuration
+
+The file `android/local-debug-config.json` contains default server profile for debug builds:
+- Base URL: `http://192.168.50.12:3010`
+- Terminal Type: `TERMLINK_WS`
+- Auth Type: `BASIC`
+- Username: `admin`
+- Password: `admin`
+
+This file is gitignored and will be copied to APK assets during build.
+
 ## Quick Start
 
 1. Build debug APK:

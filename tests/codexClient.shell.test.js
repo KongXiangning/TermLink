@@ -28,6 +28,9 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="codex-quick-model"/);
     assert.match(html, /id="codex-quick-reasoning"/);
     assert.match(html, /id="btn-codex-slash-trigger"/);
+    assert.match(html, /id="codex-image-inputs"/);
+    assert.match(html, /id="btn-codex-image-url"/);
+    assert.match(html, /id="btn-codex-image-local"/);
     assert.match(html, /id="codex-composer-surface"/);
     assert.match(html, /id="codex-composer-footer"/);
     assert.match(html, /id="codex-slash-menu"/);
@@ -42,7 +45,7 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /src="lib\/codex_settings_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
     assert.match(html, /src="lib\/codex_approval_view\.js\?v=1"/);
-    assert.match(html, /src="terminal_client\.js\?v=43"/);
+    assert.match(html, /src="terminal_client\.js\?v=45"/);
 });
 
 test('terminal client shell shares scripts but does not expose codex history panel markup', () => {
@@ -58,7 +61,7 @@ test('terminal client shell shares scripts but does not expose codex history pan
     assert.match(html, /src="lib\/codex_settings_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
     assert.match(html, /src="lib\/codex_approval_view\.js\?v=1"/);
-    assert.match(html, /src="terminal_client\.js\?v=43"/);
+    assert.match(html, /src="terminal_client\.js\?v=45"/);
 });
 
 test('terminal client stylesheet supports secondary panels and sticky composer for the codex conversation page', () => {
@@ -82,7 +85,10 @@ test('terminal client stylesheet supports secondary panels and sticky composer f
     assert.match(css, /\.codex-icon-btn/);
     assert.match(css, /\.codex-slash-item-status/);
     assert.match(css, /#codex-slash-menu/);
+    assert.match(css, /#codex-image-inputs/);
+    assert.match(css, /\.codex-image-chip/);
     assert.match(css, /\.codex-mode-chip/);
+    assert.match(css, /\.codex-history-rename-input/);
     assert.match(css, /body\.viewport-compact #codex-thread-summary/);
     assert.match(css, /\.codex-request-card/);
     assert.match(css, /\.codex-request-actions/);
@@ -154,10 +160,13 @@ test('Phase 2: terminal_client.js composer must route through slash dispatch and
     assert.match(js, /function handleCodexComposerSubmit\(rawText\)/);
     assert.match(js, /type:\s*'codex_set_interaction_state'/);
     assert.match(js, /collaborationMode:\s*collaborationMode \|\| undefined/);
+    assert.match(js, /attachments:\s*imageInputs\.length > 0 \? imageInputs : undefined/);
     assert.match(js, /finalizePendingTurnStateOnSuccess\(\)/);
     assert.match(js, /restorePendingTurnStateOnFailure\(\)/);
     assert.match(js, /clearActiveSkill:\s*!!interactionState\.activeSkill/);
     assert.match(js, /activeSkill:\s*pending\.clearActiveSkill === true \? null : codexState\.interactionState\.activeSkill/);
+    assert.match(js, /clearImageInputs:\s*imageInputs\.length > 0/);
+    assert.match(js, /setPendingCodexImageInputs\(pending\.imageInputs \|\| \[\]\)/);
 });
 
 test('Phase 2: terminal_client.js must compose server next-turn config with local next-turn overrides', () => {

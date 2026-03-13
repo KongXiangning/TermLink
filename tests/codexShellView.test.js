@@ -21,7 +21,8 @@ test('getSecondaryEntryAvailability derives secondary entries from codex capabil
         threads: true,
         settings: true,
         runtime: true,
-        notices: true
+        notices: true,
+        tools: false
     });
 
     assert.deepEqual(getSecondaryEntryAvailability({
@@ -37,7 +38,8 @@ test('getSecondaryEntryAvailability derives secondary entries from codex capabil
         threads: false,
         settings: false,
         runtime: false,
-        notices: false
+        notices: false,
+        tools: false
     });
 });
 
@@ -80,10 +82,11 @@ test('buildThreadSummary returns localized empty and active thread summaries', (
 
     assert.deepEqual(buildThreadSummary({
         threadId: 'thread-1234567890',
+        threadTitle: 'Android 调试线程',
         cwd: 'E:\\coding\\TermLink',
         status: 'running'
     }), {
-        titleText: '当前线程 thread-1234567890',
+        titleText: 'Android 调试线程',
         metaText: '工作区：E:\\coding\\TermLink · 状态：执行中',
         empty: false
     });

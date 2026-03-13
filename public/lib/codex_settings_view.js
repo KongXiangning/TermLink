@@ -29,19 +29,15 @@
         if (!value || typeof value !== 'object' || Array.isArray(value)) {
             return null;
         }
-        const defaultModel = normalizeOptionalString(value.defaultModel);
-        const defaultReasoningEffort = normalizeOptionalEnum(value.defaultReasoningEffort, VALID_REASONING_EFFORTS);
         const defaultPersonality = normalizeOptionalEnum(value.defaultPersonality, VALID_PERSONALITIES);
         const approvalPolicy = normalizeOptionalEnum(value.approvalPolicy, VALID_APPROVAL_POLICIES);
         const sandboxMode = normalizeOptionalEnum(value.sandboxMode, VALID_SANDBOX_MODES);
 
-        if (!defaultModel && !defaultReasoningEffort && !defaultPersonality && !approvalPolicy && !sandboxMode) {
+        if (!defaultPersonality && !approvalPolicy && !sandboxMode) {
             return null;
         }
 
         return {
-            defaultModel,
-            defaultReasoningEffort,
             defaultPersonality,
             approvalPolicy,
             sandboxMode
@@ -71,8 +67,6 @@
         const approvalPolicy = normalizeOptionalEnum(state.approvalPolicy, VALID_APPROVAL_POLICIES) || 'never';
         const sandboxMode = normalizeOptionalEnum(state.sandboxMode, VALID_SANDBOX_MODES) || 'workspace-write';
         return {
-            defaultModel: normalizeOptionalString(state.defaultModel),
-            defaultReasoningEffort: normalizeOptionalEnum(state.defaultReasoningEffort, VALID_REASONING_EFFORTS),
             defaultPersonality: normalizeOptionalEnum(state.defaultPersonality, VALID_PERSONALITIES),
             approvalPolicy,
             sandboxMode

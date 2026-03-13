@@ -6,7 +6,7 @@ import org.json.JSONObject
 import java.net.URI
 import java.util.UUID
 
-class ServerConfigStore(context: Context) {
+class ServerConfigStore(private val context: Context) {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val basicCredentialStore = BasicCredentialStore(context.applicationContext)
@@ -208,11 +208,44 @@ class ServerConfigStore(context: Context) {
     }
 
     private fun defaultState(): ServerConfigState {
+        // 尝试从 assets 加载 local-debug-config.json
+        val localConfig = loadLocalDebugConfig()
+        if (localConfig != null) {
+            return localConfig
+        }
         val profile = defaultProfile()
         return ServerConfigState(
             profiles = listOf(profile),
             activeProfileId = profile.id
         )
+    }
+
+    private fun loadLocalDebugConfig(): ServerConfigState? {
+        return try {
+            val inputStream = context.assets.open("local-debug-config.json")
+            val jsonString = inputStream.bufferedReader().use { it.readText() }
+            inputStream.close()
+            // 注意: 不记录 JSON 内容，避免敏感信息泄露
+            val json = JSONObject(jsonString)
+
+            // 加载 BASIC 凭据（不记录凭据详情）
+            val credentialsObj = json.optJSONObject("basicCredentials")
+            if (credentialsObj != null) {
+                val profileIds = credentialsObj.keys()
+                while (profileIds.hasNext()) {
+                    val profileId = profileIds.next()
+                    val password = credentialsObj.optString(profileId, "")
+                    if (password.isNotBlank()) {
+                        basicCredentialStore.putPassword(profileId, password)
+                    }
+                }
+            }
+
+            ServerConfigState.fromJson(json)
+        } catch (ex: Exception) {
+            Log.d(TAG, "No local-debug-config.json found or failed to parse")
+            null
+        }
     }
 
     private fun defaultProfile(): ServerProfile {

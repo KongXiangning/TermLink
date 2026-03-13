@@ -18,6 +18,8 @@ ops-local/nginx/code.kongxn.com-442.conf
 ops-local/nginx/opencode.kongxn.com-442.conf
 skills/android-local-build-debug/local-config.ps1
 .claude/skills/android-local-build-debug/local-config.ps1
+android/local-debug-config.json
+android/app/src/main/assets/local-debug-config.json
 dist/
 screenshot*.png
 *.apk

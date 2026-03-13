@@ -136,6 +136,15 @@ class MockCodexService extends EventEmitter {
         if (method === 'thread/resume') {
             return Promise.resolve({ thread: { id: params.threadId || 'thread-resumed' } });
         }
+        if (method === 'thread/fork') {
+            return Promise.resolve({ thread: { id: `${params.threadId || 'thread'}-fork` } });
+        }
+        if (method === 'thread/name/set') {
+            return Promise.resolve({ ok: true });
+        }
+        if (method === 'thread/archive' || method === 'thread/unarchive') {
+            return Promise.resolve({ ok: true });
+        }
         if (method === 'thread/compact/start') {
             return Promise.resolve({ ok: true });
         }
@@ -262,7 +271,7 @@ test('session_info includes lastCodexThreadId metadata when available', async (t
         slashPlan: true,
         skillsList: true,
         compact: true,
-        imageInput: false
+        imageInput: true
     });
 });
 
@@ -289,7 +298,7 @@ test('codex_request rejects methods outside the current whitelist', async (t) =>
     await ws.getHandler('message')(JSON.stringify({
         type: 'codex_request',
         requestId: 'req-1',
-        method: 'thread/fork'
+        method: 'thread/rollback'
     }));
 
     const response = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-1');
@@ -297,7 +306,7 @@ test('codex_request rejects methods outside the current whitelist', async (t) =>
     assert.equal(response.error.code, 'CODEX_METHOD_NOT_ALLOWED');
 
     const service = MockCodexService.instances[0];
-    const disallowedCall = service.requests.find((entry) => entry.method === 'thread/fork');
+    const disallowedCall = service.requests.find((entry) => entry.method === 'thread/rollback');
     assert.equal(disallowedCall, undefined, 'disallowed method must not be forwarded');
 });
 
@@ -448,6 +457,89 @@ test('codex_request forwards model/list, account/rateLimits/read, and thread/com
     assert.deepEqual(compactResponse.result, {
         ok: true
     });
+});
+
+test('codex_request forwards thread/fork, thread/name/set, thread/archive, and thread/unarchive', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session');
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-fork',
+        method: 'thread/fork',
+        params: {
+            threadId: 'thread-current'
+        }
+    }));
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-rename',
+        method: 'thread/name/set',
+        params: {
+            threadId: 'thread-current',
+            name: 'Renamed Thread',
+            title: 'Renamed Thread'
+        }
+    }));
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-archive',
+        method: 'thread/archive',
+        params: {
+            threadId: 'thread-current'
+        }
+    }));
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-unarchive',
+        method: 'thread/unarchive',
+        params: {
+            threadId: 'thread-archived'
+        }
+    }));
+
+    const service = MockCodexService.instances[0];
+    assert.ok(service.requests.find((entry) => entry.method === 'thread/fork'));
+    assert.ok(service.requests.find((entry) => entry.method === 'thread/name/set'));
+    assert.deepEqual(
+        service.requests.find((entry) => entry.method === 'thread/name/set').params,
+        {
+            threadId: 'thread-current',
+            name: 'Renamed Thread',
+            title: 'Renamed Thread'
+        }
+    );
+    assert.ok(service.requests.find((entry) => entry.method === 'thread/archive'));
+    assert.ok(service.requests.find((entry) => entry.method === 'thread/unarchive'));
+
+    const forkResponse = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-fork');
+    const renameResponse = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-rename');
+    const archiveResponse = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-archive');
+    const unarchiveResponse = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-unarchive');
+    assert.deepEqual(forkResponse.result, {
+        thread: {
+            id: 'thread-current-fork'
+        }
+    });
+    assert.deepEqual(renameResponse.result, { ok: true });
+    assert.deepEqual(archiveResponse.result, { ok: true });
+    assert.deepEqual(unarchiveResponse.result, { ok: true });
 });
 
 test('codex_new_thread uses session codexConfig defaults for thread/start', async (t) => {
@@ -783,6 +875,139 @@ test('codex_turn forwards overrides and collaborationMode to turn/start and clea
         planMode: false,
         activeSkill: null
     });
+});
+
+test('codex_turn forwards image and localImage inputs to turn/start', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session');
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'check these images',
+        attachments: [
+            { type: 'image', url: 'https://example.com/shot.png' },
+            { type: 'localImage', path: 'E:\\project\\shot.png' }
+        ]
+    }));
+
+    const service = MockCodexService.instances[0];
+    const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
+    assert.ok(turnStart, 'turn/start should be invoked');
+    assert.deepEqual(turnStart.params.input, [
+        {
+            type: 'text',
+            text: 'check these images',
+            text_elements: []
+        },
+        {
+            type: 'image',
+            url: 'https://example.com/shot.png'
+        },
+        {
+            type: 'localImage',
+            path: 'E:\\project\\shot.png'
+        }
+    ]);
+});
+
+test('codex_turn accepts image-only input when attachments are present', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session');
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: '',
+        attachments: [
+            { type: 'localImage', path: 'E:\\project\\only-image.png' }
+        ]
+    }));
+
+    const service = MockCodexService.instances[0];
+    const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
+    assert.ok(turnStart, 'turn/start should still be invoked for image-only input');
+    assert.deepEqual(turnStart.params.input, [
+        {
+            type: 'localImage',
+            path: 'E:\\project\\only-image.png'
+        }
+    ]);
+});
+
+test('codex_turn forwards localImage with data URL (url field)', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session');
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'analyze this image',
+        attachments: [
+            { type: 'localImage', url: dataUrl, name: 'test.png' }
+        ]
+    }));
+
+    const service = MockCodexService.instances[0];
+    const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
+    assert.ok(turnStart, 'turn/start should be invoked');
+    assert.deepEqual(turnStart.params.input, [
+        {
+            type: 'text',
+            text: 'analyze this image',
+            text_elements: []
+        },
+        {
+            type: 'localImage',
+            url: dataUrl
+        }
+    ]);
 });
 
 test('codex approval request is forwarded to client and response is returned to bridge', async (t) => {

@@ -8,6 +8,12 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebSettings
 import android.webkit.WebView
+import android.webkit.WebChromeClient
+import android.webkit.ValueCallback
+import android.net.Uri
+import android.content.Intent
+import android.provider.MediaStore
+import android.os.Environment
 import android.view.inputmethod.InputMethodManager
 import android.widget.ImageButton
 import android.widget.TextView
@@ -73,6 +79,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var lastSessionId: String = ""
     private var lastSessionMode: SessionMode = SessionMode.TERMINAL
     private var lastSessionCwd: String? = null
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    private val FILE_CHOOSER_REQUEST_CODE = 10001
     private var currentScreen: ScreenMode = ScreenMode.TERMINAL
     private var lastConnectionState: String = "idle"
     private var lastToastSignature: String = ""
@@ -212,6 +220,29 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         super.onPause()
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == FILE_CHOOSER_REQUEST_CODE) {
+            val callback = filePathCallback
+            filePathCallback = null
+            if (callback == null) {
+                return
+            }
+            if (resultCode != RESULT_OK || data == null) {
+                callback.onReceiveValue(null)
+                return
+            }
+            try {
+                val result = WebChromeClient.FileChooserParams.parseResult(resultCode, data)
+                callback.onReceiveValue(result)
+            } catch (e: Exception) {
+                Log.e("MainShellActivity", "Failed to parse file chooser result", e)
+                callback.onReceiveValue(null)
+            }
+        }
+    }
+
     override fun onUserInteraction() {
         super.onUserInteraction()
         markUserActive()
@@ -268,6 +299,52 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
                         )
                     }
                 }
+            }
+        }
+        // 添加 WebChromeClient 以捕获 JavaScript 控制台消息
+        webView.webChromeClient = object : android.webkit.WebChromeClient() {
+            override fun onConsoleMessage(message: android.webkit.ConsoleMessage?): Boolean {
+                message ?: return false
+                val logTag = "WebViewConsole"
+                when (message.messageLevel()) {
+                    android.webkit.ConsoleMessage.MessageLevel.ERROR -> {
+                        Log.e(logTag, "${message.message()} -- From ${message.sourceId()}:${message.lineNumber()}")
+                    }
+                    android.webkit.ConsoleMessage.MessageLevel.WARNING -> {
+                        Log.w(logTag, "${message.message()} -- From ${message.sourceId()}:${message.lineNumber()}")
+                    }
+                    android.webkit.ConsoleMessage.MessageLevel.LOG -> {
+                        Log.i(logTag, "${message.message()} -- From ${message.sourceId()}:${message.lineNumber()}")
+                    }
+                    else -> {
+                        Log.d(logTag, "${message.message()} -- From ${message.sourceId()}:${message.lineNumber()}")
+                    }
+                }
+                return true
+            }
+
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                // 取消之前的选择
+                this@MainShellActivity.filePathCallback?.onReceiveValue(null)
+                this@MainShellActivity.filePathCallback = filePathCallback
+
+                val intent = fileChooserParams?.createIntent()
+                if (intent == null) {
+                    this@MainShellActivity.filePathCallback = null
+                    return false
+                }
+                try {
+                    startActivityForResult(intent, FILE_CHOOSER_REQUEST_CODE)
+                } catch (e: Exception) {
+                    Log.e("MainShellActivity", "Failed to open file chooser", e)
+                    this@MainShellActivity.filePathCallback = null
+                    return false
+                }
+                return true
             }
         }
         terminalWebView = webView
@@ -653,7 +730,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         }
         return SessionMode.fromWireValue(
             getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                .getString(PREF_LAST_SESSION_MODE, SessionMode.TERMINAL.wireValue)
+                .getString(PREF_LAST_SESSION_MODE, SessionMode.CODEX.wireValue)
         )
     }
 
@@ -1012,9 +1089,11 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     private fun currentSessionMode(): SessionMode {
-        if (currentTerminalType() != TerminalType.TERMLINK_WS || lastSessionId.isBlank()) {
+        if (currentTerminalType() != TerminalType.TERMLINK_WS) {
             return SessionMode.TERMINAL
         }
+        // 如果 lastSessionId 为空但 lastSessionMode 是 CODEX，也返回 CODEX
+        // 这样首次启动时可以进入 CODEX 模式
         return lastSessionMode
     }
 
@@ -1210,8 +1289,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     companion object {
-        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=43"
-        private const val CODEX_URL = "file:///android_asset/public/codex_client.html?v=43"
+        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=50"
+        private const val CODEX_URL = "file:///android_asset/public/codex_client.html?v=50"
         private const val ABOUT_BLANK_URL = "about:blank"
         private const val DEBUG_CLEAR_TERMINAL_CACHE_ON_LOAD = false
         private const val JS_BRIDGE_NAME = "TerminalEventBridge"

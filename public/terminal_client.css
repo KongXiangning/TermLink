@@ -824,8 +824,8 @@ body.codex-only #codex-composer {
 .codex-history-item {
     display: flex;
     width: 100%;
-    align-items: flex-start;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: stretch;
     gap: 10px;
     padding: 10px;
     border: 1px solid rgba(46, 182, 125, 0.12);
@@ -861,6 +861,39 @@ body.codex-only #codex-composer {
     line-height: 1.3;
 }
 
+.codex-history-rename-field {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.codex-history-rename-label {
+    color: #8fa4c0;
+    font-size: 10px;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.codex-history-rename-input {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid rgba(46, 182, 125, 0.2);
+    border-radius: 10px;
+    background: rgba(10, 13, 17, 0.92);
+    color: #f3f5f8;
+    padding: 8px 10px;
+    font-size: 12px;
+    line-height: 1.35;
+    box-sizing: border-box;
+}
+
+.codex-history-rename-input:focus {
+    border-color: rgba(46, 182, 125, 0.4);
+    box-shadow: 0 0 12px rgba(46, 182, 125, 0.08);
+}
+
 .codex-history-meta {
     color: #7f94b0;
     font-size: 10px;
@@ -892,11 +925,43 @@ body.codex-only #codex-composer {
     color: #c8f5de;
 }
 
-.codex-history-action {
-    flex: 0 0 auto;
-    color: #90a7c4;
+.codex-history-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.codex-history-primary-action,
+.codex-history-secondary-action {
+    border-radius: 999px;
+    border: 1px solid rgba(46, 182, 125, 0.18);
+    background: rgba(46, 182, 125, 0.08);
+    color: #dbe6f7;
     font-size: 11px;
-    line-height: 1.4;
+    line-height: 1.2;
+    padding: 6px 10px;
+}
+
+.codex-history-primary-action {
+    background: rgba(46, 182, 125, 0.16);
+}
+
+.codex-history-secondary-action.primary {
+    background: rgba(46, 182, 125, 0.16);
+    border-color: rgba(46, 182, 125, 0.3);
+}
+
+.codex-history-primary-action:disabled,
+.codex-history-secondary-action:disabled {
+    opacity: 0.6;
+}
+
+.codex-history-actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
 }
 
 #codex-log {
@@ -1248,6 +1313,98 @@ body.codex-only #codex-composer {
     display: flex;
     flex-direction: column;
     gap: 6px;
+}
+
+#codex-image-inputs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.codex-image-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(94, 133, 255, 0.22);
+    background: rgba(94, 133, 255, 0.1);
+    color: #dbe6f7;
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+.codex-image-chip-label {
+    color: #9fb6db;
+}
+
+.codex-image-chip-value {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.codex-image-chip-remove {
+    border: 0;
+    background: transparent;
+    color: #dbe6f7;
+    cursor: pointer;
+    padding: 0;
+    font-size: 12px;
+    line-height: 1;
+}
+
+#codex-image-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#codex-image-prompt {
+    background: rgba(22, 27, 34, 0.95);
+    border: 1px solid rgba(46, 182, 125, 0.3);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 8px;
+}
+
+#codex-image-prompt-header {
+    margin-bottom: 8px;
+}
+
+#codex-image-prompt-title {
+    font-size: 13px;
+    color: #8b949e;
+}
+
+#codex-image-prompt-input {
+    width: 100%;
+    background: rgba(13, 17, 23, 0.8);
+    border: 1px solid rgba(48, 54, 61, 0.8);
+    border-radius: 8px;
+    color: #e6f1ff;
+    padding: 10px 12px;
+    font-size: 14px;
+    outline: none;
+    box-sizing: border-box;
+}
+
+#codex-image-prompt-input:focus {
+    border-color: rgba(46, 182, 125, 0.5);
+}
+
+#codex-image-prompt-input::placeholder {
+    color: #6e7681;
+}
+
+#codex-image-prompt-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 10px;
 }
 
 .codex-slash-item {

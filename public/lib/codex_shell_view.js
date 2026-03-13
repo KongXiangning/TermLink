@@ -23,6 +23,10 @@
         return typeof value === 'string' && value.trim() ? value.trim() : '';
     }
 
+    function normalizeTitle(value) {
+        return typeof value === 'string' && value.trim() ? value.trim() : '';
+    }
+
     function normalizeStatus(value) {
         return typeof value === 'string' && value.trim() ? value.trim().toLowerCase() : 'idle';
     }
@@ -75,6 +79,7 @@
     function buildThreadSummary(input) {
         const state = input && typeof input === 'object' ? input : {};
         const threadId = normalizeThreadId(state.threadId);
+        const threadTitle = normalizeTitle(state.threadTitle);
         const cwd = normalizeCwd(state.cwd);
         const statusLabel = localizeStatus(state.status);
 
@@ -89,7 +94,7 @@
         }
 
         return {
-            titleText: `当前线程 ${shortenThreadId(threadId)}`,
+            titleText: threadTitle || `当前线程 ${shortenThreadId(threadId)}`,
             metaText: `${cwd ? `工作区：${cwd}` : '工作区：默认目录'} · 状态：${statusLabel}`,
             empty: false
         };

@@ -201,9 +201,24 @@ function createTestDOM() {
                     <div id="codex-slash-menu-empty" hidden>没有匹配命令。</div>
                     <div id="codex-slash-menu-list" aria-live="polite"></div>
                 </div>
+                <div id="codex-image-inputs" hidden></div>
+                <div id="codex-image-prompt" hidden>
+                    <div id="codex-image-prompt-header">
+                        <span id="codex-image-prompt-title">输入图像 URL</span>
+                    </div>
+                    <input id="codex-image-prompt-input" type="text" placeholder="https://example.com/image.png">
+                    <div id="codex-image-prompt-actions">
+                        <button id="btn-codex-image-prompt-cancel" class="codex-btn subtle" type="button">取消</button>
+                        <button id="btn-codex-image-prompt-confirm" class="codex-btn" type="button">确认</button>
+                    </div>
+                </div>
                 <textarea id="codex-input" placeholder="输入你的请求，让 Codex 帮你检查、修改或执行任务..."></textarea>
                 <div id="codex-composer-footer">
                     <button id="btn-codex-slash-trigger" class="codex-icon-btn" type="button">+</button>
+                    <div id="codex-image-actions" hidden>
+                        <button id="btn-codex-image-url" class="codex-inline-action" type="button">图像 URL</button>
+                        <button id="btn-codex-image-local" class="codex-inline-action" type="button">本地图片</button>
+                    </div>
                     <div id="codex-quick-controls">
                         <label class="codex-quick-field">
                             <span>模型</span>
@@ -269,6 +284,7 @@ function createTestDOM() {
                 ok: true,
                 json: () => Promise.resolve({ ticket: 'test-ticket' })
             });
+            window.prompt = () => '';
 
             // Mock localStorage
             const storage = new Map();
@@ -884,6 +900,291 @@ test('Phase 4 Integration: unmatched /skill query MUST only show 未找到匹配
     assert.strictEqual(hooks.getCodexSlashMenuList().children.length, 0, 'slash menu must not fall back to command results');
     assert.strictEqual(hooks.getCodexSlashMenuEmpty().hidden, false, 'empty state must be visible');
     assert.strictEqual(hooks.getCodexSlashMenuEmpty().textContent, '未找到匹配技能');
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: history panel renders fork action for non-archived threads', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    window.TermLinkCodexHistoryView = require('../public/lib/codex_history_view');
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.capabilities = { historyList: true, historyResume: true };
+    hooks.codexState.secondaryPanel = 'threads';
+    hooks.codexState.status = 'idle';
+    hooks.codexState.historyThreads = [{ id: 'thread-a', title: 'Thread A', archived: false }];
+    hooks.renderCodexHistoryList();
+
+    const forkButton = Array.from(window.document.querySelectorAll('.codex-history-secondary-action'))
+        .find((button) => button.textContent === '创建分支');
+    assert.ok(forkButton, 'fork button must render in history panel');
+    assert.equal(forkButton.disabled, false, 'fork action must be enabled when thread is idle and not active');
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: history panel renders unarchive action for archived threads', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    window.TermLinkCodexHistoryView = require('../public/lib/codex_history_view');
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.capabilities = { historyList: true, historyResume: true };
+    hooks.codexState.secondaryPanel = 'threads';
+    hooks.codexState.status = 'idle';
+    hooks.codexState.historyThreads = [{ id: 'thread-archived', title: 'Thread Archived', archived: true }];
+    hooks.renderCodexHistoryList();
+
+    const unarchiveButton = Array.from(window.document.querySelectorAll('.codex-history-secondary-action'))
+        .find((button) => button.textContent === '取消归档');
+    assert.ok(unarchiveButton, 'unarchive button must render for archived threads');
+    assert.equal(unarchiveButton.disabled, false, 'unarchive action must be enabled for archived idle threads');
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: history panel renders rename action for the current thread', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    window.TermLinkCodexHistoryView = require('../public/lib/codex_history_view');
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.capabilities = { historyList: true, historyResume: true };
+    hooks.codexState.secondaryPanel = 'threads';
+    hooks.codexState.status = 'idle';
+    hooks.codexState.threadId = 'thread-a';
+    hooks.codexState.currentThreadTitle = 'Thread A';
+    hooks.codexState.historyThreads = [{ id: 'thread-a', title: 'Thread A', archived: false }];
+    hooks.renderCodexHistoryList();
+
+    const renameButton = Array.from(window.document.querySelectorAll('.codex-history-secondary-action'))
+        .find((button) => button.textContent === '重命名');
+    assert.ok(renameButton, 'rename button must render in history panel');
+    assert.equal(renameButton.disabled, false, 'rename action must remain enabled for the current thread while idle');
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: rename action opens inline editor and cancel restores actions', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    window.TermLinkCodexHistoryView = require('../public/lib/codex_history_view');
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.capabilities = { historyList: true, historyResume: true };
+    hooks.codexState.secondaryPanel = 'threads';
+    hooks.codexState.status = 'idle';
+    hooks.codexState.historyThreads = [{ id: 'thread-a', title: 'Thread A', archived: false }];
+    hooks.renderCodexHistoryList();
+
+    const renameButton = Array.from(window.document.querySelectorAll('.codex-history-secondary-action'))
+        .find((button) => button.textContent === '重命名');
+    assert.ok(renameButton, 'rename button must render before entering edit mode');
+    renameButton.click();
+
+    const renameInput = window.document.querySelector('.codex-history-rename-input');
+    assert.ok(renameInput, 'inline rename input must appear after clicking rename');
+    assert.equal(renameInput.value, 'Thread A');
+
+    const cancelButton = Array.from(window.document.querySelectorAll('.codex-history-secondary-action'))
+        .find((button) => button.textContent === '取消');
+    assert.ok(cancelButton, 'cancel button must render in inline rename mode');
+    cancelButton.click();
+
+    assert.equal(window.document.querySelector('.codex-history-rename-input'), null, 'inline rename input must close after cancel');
+    assert.ok(
+        Array.from(window.document.querySelectorAll('.codex-history-secondary-action'))
+            .some((button) => button.textContent === '重命名'),
+        'rename action must reappear after cancel'
+    );
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: thread list with untitled current thread clears stale header title', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.capabilities = { historyList: true, historyResume: true };
+    hooks.codexState.threadId = 'thread-b';
+    hooks.codexState.currentThreadTitle = 'Old Thread';
+    hooks.storeCodexThreadList({
+        threads: [{
+            id: 'thread-b',
+            title: '',
+            archived: false
+        }]
+    });
+
+    const titleEl = window.document.getElementById('codex-thread-id');
+    assert.notEqual(titleEl.textContent, 'Old Thread', 'stale thread title must not remain in header');
+    assert.match(titleEl.textContent, /当前线程 thread-b/, 'header must fall back to thread id when title is empty');
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: thread/name/updated refreshes the current thread title', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.threadId = 'thread-a';
+    hooks.codexState.currentThreadTitle = 'Before Rename';
+    hooks.codexState.historyThreads = [{ id: 'thread-a', title: 'Before Rename', archived: false }];
+
+    hooks.handleCodexNotification('thread/name/updated', {
+        threadId: 'thread-a',
+        title: 'After Rename'
+    });
+
+    assert.equal(hooks.codexState.currentThreadTitle, 'After Rename');
+    assert.equal(hooks.codexState.historyThreads[0].title, 'After Rename');
+    assert.equal(window.document.getElementById('codex-thread-id').textContent, 'After Rename');
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: thread list falls back to cached current thread title when current thread is absent', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.threadId = 'thread-cached';
+    hooks.codexState.threadTitleById.set('thread-cached', 'Cached Rename');
+    hooks.storeCodexThreadList({
+        threads: [{
+            id: 'thread-other',
+            title: 'Other Thread',
+            archived: false
+        }]
+    });
+
+    assert.equal(hooks.codexState.currentThreadTitle, 'Cached Rename');
+    assert.equal(window.document.getElementById('codex-thread-id').textContent, 'Cached Rename');
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: thread snapshot name field refreshes current thread title', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.threadId = 'thread-a';
+    hooks.codexState.currentThreadTitle = '';
+    hooks.handleCodexThreadSnapshot({
+        id: 'thread-a',
+        name: 'Snapshot Rename',
+        turns: []
+    });
+
+    assert.equal(hooks.codexState.currentThreadTitle, 'Snapshot Rename');
+    assert.equal(hooks.codexState.threadTitleById.get('thread-a'), 'Snapshot Rename');
+    assert.equal(window.document.getElementById('codex-thread-id').textContent, 'Snapshot Rename');
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: rate limit summary supports primary secondary usage payloads', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    const formatted = hooks.formatRateLimitSummary({
+        rateLimits: {
+            limitId: 'codex',
+            planType: 'plus',
+            primary: {
+                usedPercent: 1,
+                windowDurationMins: 300
+            },
+            secondary: {
+                usedPercent: 18,
+                windowDurationMins: 10080
+            },
+            credits: {
+                hasCredits: false,
+                unlimited: false,
+                balance: '0'
+            }
+        }
+    });
+
+    assert.equal(formatted.summary, '5小时 1% | 一周 18%');
+    assert.equal(formatted.tone, '');
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: account/rateLimits/updated renders summary for usage payloads', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.capabilities = { modelConfig: true, rateLimitsRead: true };
+    hooks.codexState.secondaryPanel = 'settings';
+    hooks.renderCodexSettingsPanel();
+    hooks.handleCodexNotification('account/rateLimits/updated', {
+        rateLimits: {
+            limitId: 'codex',
+            planType: 'plus',
+            primary: {
+                usedPercent: 1,
+                windowDurationMins: 300
+            },
+            secondary: {
+                usedPercent: 18,
+                windowDurationMins: 10080
+            },
+            credits: {
+                hasCredits: false,
+                unlimited: false,
+                balance: '0'
+            }
+        }
+    });
+
+    assert.equal(hooks.codexState.rateLimitSummary, '5小时 1% | 一周 18%');
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: image input actions render chips from prompt values', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.capabilities = {
+        imageInput: true
+    };
+
+    // Directly set pending image inputs (simulating URL input and file picker results)
+    hooks.setPendingCodexImageInputs([
+        { type: 'image', url: 'https://example.com/screenshot.png' },
+        { type: 'localImage', url: 'data:image/png;base64,abc', name: 'android-error.png' }
+    ]);
+
+    hooks.renderCodexImageInputs();
+
+    const chips = Array.from(window.document.querySelectorAll('.codex-image-chip'));
+    assert.equal(chips.length, 2, 'two image chips must be rendered');
+    assert.match(chips[0].textContent, /图像 URL/);
+    assert.match(chips[0].textContent, /https:\/\/example\.com\/screenshot\.png/);
+    assert.match(chips[1].textContent, /本地图片/);
+    assert.match(chips[1].textContent, /android-error\.png/);
+    assert.equal(hooks.getCodexImageInputs().hidden, false, 'image chip tray must be visible');
 
     dom.window.close();
 });

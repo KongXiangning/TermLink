@@ -23,6 +23,7 @@ const codexAlertConfigText = document.getElementById('codex-alert-config-text');
 const codexAlertDeprecation = document.getElementById('codex-alert-deprecation');
 const codexAlertDeprecationText = document.getElementById('codex-alert-deprecation-text');
 const codexInput = document.getElementById('codex-input');
+const codexImageInputs = document.getElementById('codex-image-inputs');
 const btnCodexSend = document.getElementById('btn-codex-send');
 const btnCodexToggle = document.getElementById('btn-codex-toggle');
 const btnCodexNewThread = document.getElementById('btn-codex-new-thread');
@@ -37,13 +38,10 @@ const codexHistoryList = document.getElementById('codex-history-list');
 const codexHistoryEmpty = document.getElementById('codex-history-empty');
 const codexSettingsPanel = document.getElementById('codex-settings-panel');
 const codexSettingsUseDefaults = document.getElementById('codex-settings-use-defaults');
-const codexSettingsModel = document.getElementById('codex-settings-model');
-const codexSettingsReasoning = document.getElementById('codex-settings-reasoning');
 const codexSettingsPersonality = document.getElementById('codex-settings-personality');
 const codexSettingsApproval = document.getElementById('codex-settings-approval');
 const codexSettingsSandbox = document.getElementById('codex-settings-sandbox');
 const codexSettingsStatus = document.getElementById('codex-settings-status');
-const btnCodexModelsRefresh = document.getElementById('btn-codex-models-refresh');
 const btnCodexRateLimitRefresh = document.getElementById('btn-codex-rate-limit-refresh');
 const btnCodexSettingsReset = document.getElementById('btn-codex-settings-reset');
 const btnCodexSettingsSave = document.getElementById('btn-codex-settings-save');
@@ -69,6 +67,14 @@ const codexQuickModel = document.getElementById('codex-quick-model');
 const codexQuickReasoning = document.getElementById('codex-quick-reasoning');
 const btnCodexQuickClear = document.getElementById('btn-codex-quick-clear');
 const btnCodexSlashTrigger = document.getElementById('btn-codex-slash-trigger');
+const codexImageActions = document.getElementById('codex-image-actions');
+const btnCodexImageUrl = document.getElementById('btn-codex-image-url');
+const btnCodexImageLocal = document.getElementById('btn-codex-image-local');
+const codexImagePrompt = document.getElementById('codex-image-prompt');
+const codexImagePromptTitle = document.getElementById('codex-image-prompt-title');
+const codexImagePromptInput = document.getElementById('codex-image-prompt-input');
+const btnCodexImagePromptCancel = document.getElementById('btn-codex-image-prompt-cancel');
+const btnCodexImagePromptConfirm = document.getElementById('btn-codex-image-prompt-confirm');
 const codexSlashMenu = document.getElementById('codex-slash-menu');
 const codexSlashMenuEmpty = document.getElementById('codex-slash-menu-empty');
 const codexSlashMenuList = document.getElementById('codex-slash-menu-list');
@@ -151,6 +157,7 @@ const codexState = {
     panelCollapsed: false,
     secondaryPanel: 'none',
     threadId: '',
+    currentThreadTitle: '',
     currentTurnId: '',
     lastSnapshotThreadId: '',
     unmaterializedThreadId: '',
@@ -165,6 +172,7 @@ const codexState = {
     rateLimitSummary: '',
     rateLimitTone: '',
     errorNotice: '',
+    threadTitleById: new Map(),
     streamingItemId: '',
     messageByItemId: new Map(),
     requestStateById: new Map(),
@@ -185,6 +193,8 @@ const codexState = {
         compact: false,
         imageInput: false
     },
+    pendingImageInputs: [],
+    pendingImagePromptType: null,
     slashRegistry: [],
     slashMenuOpen: false,
     slashMenuQuery: '',
@@ -202,6 +212,9 @@ const codexState = {
     historyThreads: [],
     historyListLoading: false,
     historyActionThreadId: '',
+    historyActionKind: '',
+    historyRenameThreadId: '',
+    historyRenameDraft: '',
     storedCodexConfig: null,
     modelCatalog: [],
     modelOptions: [],
@@ -463,11 +476,14 @@ function renderCodexHeaderSummary() {
     const summary = shellApi && typeof shellApi.buildThreadSummary === 'function'
         ? shellApi.buildThreadSummary({
             threadId: codexState.threadId,
+            threadTitle: codexState.currentThreadTitle,
             cwd: codexState.cwd,
             status: codexState.status
         })
         : {
-            titleText: codexState.threadId || '当前线程未就绪',
+            titleText: codexState.threadId
+                ? (codexState.currentThreadTitle || `当前线程 ${codexState.threadId}`)
+                : '当前线程未就绪',
             metaText: codexState.cwd || '即将自动创建新线程',
             empty: !codexState.threadId
         };
@@ -689,6 +705,7 @@ function renderCodexHistoryList() {
             currentThreadId: codexState.threadId,
             lastCodexThreadId: codexState.lastCodexThreadId,
             actionThreadId: codexState.historyActionThreadId,
+            actionKind: codexState.historyActionKind,
             status: codexState.status
         })
         : [];
@@ -712,21 +729,61 @@ function renderCodexHistoryList() {
     }
 
     entries.forEach((entry) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'codex-history-item';
+        const card = document.createElement('div');
+        card.className = 'codex-history-item';
         if (entry.active) {
-            button.classList.add('active');
+            card.classList.add('active');
         }
-        button.disabled = entry.disabled;
+        const renameEditing = codexState.historyRenameThreadId === entry.id;
 
         const copy = document.createElement('div');
         copy.className = 'codex-history-copy';
 
-        const name = document.createElement('div');
-        name.className = 'codex-history-name';
-        name.textContent = entry.title;
-        copy.appendChild(name);
+        if (renameEditing) {
+            const renameField = document.createElement('label');
+            renameField.className = 'codex-history-rename-field';
+
+            const renameLabel = document.createElement('span');
+            renameLabel.className = 'codex-history-rename-label';
+            renameLabel.textContent = '线程名称';
+
+            const renameInput = document.createElement('input');
+            renameInput.type = 'text';
+            renameInput.className = 'codex-history-rename-input';
+            renameInput.value = codexState.historyRenameDraft;
+            renameInput.maxLength = 200;
+            renameInput.placeholder = '输入线程名称';
+            renameInput.addEventListener('input', () => {
+                codexState.historyRenameDraft = renameInput.value;
+            });
+            renameInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    void submitCodexThreadRename(entry.id, entry.title);
+                } else if (event.key === 'Escape') {
+                    event.preventDefault();
+                    cancelCodexThreadRename();
+                }
+            });
+
+            renameField.appendChild(renameLabel);
+            renameField.appendChild(renameInput);
+            copy.appendChild(renameField);
+
+            setTimeout(() => {
+                try {
+                    renameInput.focus();
+                    renameInput.select();
+                } catch (_) {
+                    // Ignore focus failures in non-browser test environments.
+                }
+            }, 0);
+        } else {
+            const name = document.createElement('div');
+            name.className = 'codex-history-name';
+            name.textContent = entry.title;
+            copy.appendChild(name);
+        }
 
         const meta = document.createElement('div');
         meta.className = 'codex-history-meta';
@@ -745,20 +802,27 @@ function renderCodexHistoryList() {
                 badge.textContent = ({
                     Current: '当前',
                     Saved: '上次',
-                    Opening: '打开中'
+                    Archived: '已归档',
+                    Opening: '打开中',
+                    Forking: '分支中',
+                    Renaming: '重命名中',
+                    Archiving: '归档中',
+                    Restoring: '恢复中'
                 })[badgeLabel] || badgeLabel;
                 badges.appendChild(badge);
             });
             copy.appendChild(badges);
         }
 
-        const action = document.createElement('span');
-        action.className = 'codex-history-action';
-        action.textContent = entry.active ? '当前' : (entry.pending ? '打开中...' : '打开');
+        const footer = document.createElement('div');
+        footer.className = 'codex-history-footer';
 
-        button.appendChild(copy);
-        button.appendChild(action);
-        button.addEventListener('click', () => {
+        const primaryAction = document.createElement('button');
+        primaryAction.type = 'button';
+        primaryAction.className = 'codex-history-primary-action';
+        primaryAction.textContent = entry.active ? '当前' : (entry.pending ? '处理中...' : '打开');
+        primaryAction.disabled = renameEditing || !!(entry.actions && entry.actions[0] && entry.actions[0].disabled);
+        primaryAction.addEventListener('click', () => {
             if (entry.active) {
                 refreshCodexThreadSnapshot({ threadId: entry.id, force: true });
                 return;
@@ -774,8 +838,136 @@ function renderCodexHistoryList() {
                 );
             });
         });
-        codexHistoryList.appendChild(button);
+        footer.appendChild(primaryAction);
+
+        const secondaryActions = Array.isArray(entry.actions) ? entry.actions.filter((action) => action.kind !== 'open') : [];
+        if (secondaryActions.length > 0) {
+            const actionRow = document.createElement('div');
+            actionRow.className = 'codex-history-actions-row';
+            if (renameEditing) {
+                const saveButton = document.createElement('button');
+                saveButton.type = 'button';
+                saveButton.className = 'codex-history-secondary-action primary';
+                saveButton.textContent = '保存';
+                saveButton.disabled = entry.pending === true;
+                saveButton.addEventListener('click', () => {
+                    void submitCodexThreadRename(entry.id, entry.title);
+                });
+
+                const cancelButton = document.createElement('button');
+                cancelButton.type = 'button';
+                cancelButton.className = 'codex-history-secondary-action';
+                cancelButton.textContent = '取消';
+                cancelButton.disabled = entry.pending === true;
+                cancelButton.addEventListener('click', () => {
+                    cancelCodexThreadRename();
+                });
+
+                actionRow.appendChild(saveButton);
+                actionRow.appendChild(cancelButton);
+            } else {
+                secondaryActions.forEach((actionEntry) => {
+                    const actionButton = document.createElement('button');
+                    actionButton.type = 'button';
+                    actionButton.className = 'codex-history-secondary-action';
+                    actionButton.textContent = actionEntry.label;
+                    actionButton.disabled = actionEntry.disabled === true;
+                    actionButton.addEventListener('click', () => {
+                        if (actionEntry.kind === 'rename') {
+                            startCodexThreadRename(entry.id, entry.title);
+                            return;
+                        }
+                        void requestCodexThreadMutation(actionEntry.kind, entry.id);
+                    });
+                    actionRow.appendChild(actionButton);
+                });
+            }
+            footer.appendChild(actionRow);
+        }
+
+        card.appendChild(copy);
+        card.appendChild(footer);
+        codexHistoryList.appendChild(card);
     });
+}
+
+function normalizeCodexThreadTitle(value) {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function resolveCodexThreadTitle(source) {
+    if (!source || typeof source !== 'object') {
+        return '';
+    }
+    return normalizeCodexThreadTitle(source.title) || normalizeCodexThreadTitle(source.name);
+}
+
+function setKnownCodexThreadTitle(threadId, title) {
+    const normalizedThreadId = typeof threadId === 'string' ? threadId.trim() : '';
+    if (!normalizedThreadId) {
+        return '';
+    }
+    const normalizedTitle = normalizeCodexThreadTitle(title);
+    if (normalizedTitle) {
+        codexState.threadTitleById.set(normalizedThreadId, normalizedTitle);
+    } else {
+        codexState.threadTitleById.delete(normalizedThreadId);
+    }
+    return normalizedTitle;
+}
+
+function getKnownCodexThreadTitle(threadId) {
+    const normalizedThreadId = typeof threadId === 'string' ? threadId.trim() : '';
+    if (!normalizedThreadId) {
+        return '';
+    }
+    return normalizeCodexThreadTitle(codexState.threadTitleById.get(normalizedThreadId));
+}
+
+function setCurrentCodexThreadTitleForThread(threadId, title) {
+    const normalizedThreadId = typeof threadId === 'string' ? threadId.trim() : '';
+    if (!normalizedThreadId || codexState.threadId !== normalizedThreadId) {
+        return;
+    }
+    codexState.currentThreadTitle = normalizeCodexThreadTitle(title);
+}
+
+function updateCodexHistoryThreadTitle(threadId, title) {
+    const normalizedThreadId = typeof threadId === 'string' ? threadId.trim() : '';
+    if (!normalizedThreadId) {
+        return false;
+    }
+    const normalizedTitle = setKnownCodexThreadTitle(normalizedThreadId, title);
+    let found = false;
+    codexState.historyThreads = codexState.historyThreads.map((entry) => {
+        if (!entry || entry.id !== normalizedThreadId) {
+            return entry;
+        }
+        found = true;
+        return {
+            id: entry.id,
+            title: normalizedTitle,
+            archived: entry.archived === true
+        };
+    });
+    setCurrentCodexThreadTitleForThread(normalizedThreadId, normalizedTitle);
+    return found;
+}
+
+function startCodexThreadRename(threadId, currentTitle) {
+    const normalizedThreadId = typeof threadId === 'string' ? threadId.trim() : '';
+    if (!normalizedThreadId) {
+        return;
+    }
+    codexState.historyRenameThreadId = normalizedThreadId;
+    codexState.historyRenameDraft = typeof currentTitle === 'string' ? currentTitle : '';
+    renderCodexHistoryList();
+}
+
+function cancelCodexThreadRename() {
+    codexState.historyRenameThreadId = '';
+    codexState.historyRenameDraft = '';
+    renderCodexHistoryList();
 }
 
 function getStoredCodexConfig() {
@@ -850,6 +1042,209 @@ function renderCodexComposerState() {
         codexOverrideSummary.hidden = parts.length === 0;
         codexOverrideSummary.textContent = parts.join(' | ');
     }
+}
+
+function normalizeCodexImageInputs(payload) {
+    const list = Array.isArray(payload) ? payload : [];
+    return list
+        .map((entry) => {
+            if (!entry || typeof entry !== 'object') {
+                return null;
+            }
+            const type = entry.type === 'localImage' ? 'localImage' : (entry.type === 'image' ? 'image' : '');
+            // 本地图片使用 url 存储 data URL，远程图片也使用 url
+            const url = typeof entry.url === 'string' ? entry.url.trim() : '';
+            const name = typeof entry.name === 'string' ? entry.name.trim() : '';
+            if (!type || !url) {
+                return null;
+            }
+            // 统一使用 url 字段，本地图片保留 name
+            const result = { type, url };
+            if (name) {
+                result.name = name;
+            }
+            return result;
+        })
+        .filter(Boolean);
+}
+
+function setPendingCodexImageInputs(nextInputs) {
+    codexState.pendingImageInputs = normalizeCodexImageInputs(nextInputs);
+    renderCodexImageInputs();
+}
+
+function clearPendingCodexImageInputs() {
+    setPendingCodexImageInputs([]);
+}
+
+function removePendingCodexImageInput(index) {
+    const next = codexState.pendingImageInputs.filter((_, itemIndex) => itemIndex !== index);
+    setPendingCodexImageInputs(next);
+}
+
+function promptForCodexImageInput(type) {
+    if (codexState.capabilities.imageInput !== true) {
+        appendCodexLogEntry('error', '当前服务端未开放图像输入。', { meta: 'image' });
+        return;
+    }
+    const isLocal = type === 'localImage';
+
+    // 隐藏操作按钮面板
+    if (codexImageActions) {
+        codexImageActions.hidden = true;
+    }
+
+    if (isLocal) {
+        // 使用隐藏的 file input 元素触发系统文件选择器
+        triggerLocalImagePicker();
+        return;
+    }
+
+    // URL 输入：显示内联输入框
+    codexState.pendingImagePromptType = type;
+
+    if (codexImagePromptTitle) {
+        codexImagePromptTitle.textContent = '输入图像 URL';
+    }
+    if (codexImagePromptInput) {
+        codexImagePromptInput.placeholder = '例如: https://example.com/shot.png';
+        codexImagePromptInput.value = '';
+    }
+
+    if (codexImagePrompt) {
+        codexImagePrompt.hidden = false;
+    }
+
+    if (codexImagePromptInput) {
+        codexImagePromptInput.focus();
+    }
+}
+
+let codexImageFileInput = null;
+
+function getOrCreateCodexImageFileInput() {
+    if (codexImageFileInput) {
+        return codexImageFileInput;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    input.id = 'codex-image-file-input';
+    document.body.appendChild(input);
+    codexImageFileInput = input;
+
+    input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        if (!file) {
+            return;
+        }
+        // 读取文件并转换为 base64 data URL
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const dataUrl = event.target && event.target.result;
+            if (typeof dataUrl === 'string') {
+                const next = codexState.pendingImageInputs.slice();
+                next.push({ type: 'localImage', url: dataUrl, name: file.name });
+                setPendingCodexImageInputs(next);
+            }
+        };
+        reader.onerror = () => {
+            appendCodexLogEntry('error', '读取图片文件失败。', { meta: 'image' });
+        };
+        reader.readAsDataURL(file);
+        // 清理以便重复选择同一文件
+        input.value = '';
+    });
+
+    return input;
+}
+
+function triggerLocalImagePicker() {
+    const input = getOrCreateCodexImageFileInput();
+    input.click();
+}
+
+function confirmCodexImagePrompt() {
+    const type = codexState.pendingImagePromptType;
+    if (!type) return;
+
+    const rawValue = codexImagePromptInput ? codexImagePromptInput.value : '';
+    const normalizedValue = typeof rawValue === 'string' ? rawValue.trim() : '';
+
+    // 隐藏输入框
+    if (codexImagePrompt) {
+        codexImagePrompt.hidden = true;
+    }
+    codexState.pendingImagePromptType = null;
+
+    if (!normalizedValue) {
+        return;
+    }
+
+    // URL 输入（type 只会是 'image'）
+    const next = codexState.pendingImageInputs.slice();
+    next.push({ type: 'image', url: normalizedValue });
+    setPendingCodexImageInputs(next);
+}
+
+function cancelCodexImagePrompt() {
+    // 隐藏输入框
+    if (codexImagePrompt) {
+        codexImagePrompt.hidden = true;
+    }
+    codexState.pendingImagePromptType = null;
+}
+
+function renderCodexImageInputs() {
+    if (!codexImageInputs) {
+        return;
+    }
+    const enabled = codexState.capabilities.imageInput === true;
+    // 注意: codexImageActions 由用户点击 "+" 按钮切换，不在此处自动显示
+    // 如果 imageInput capability 被禁用，确保隐藏相关面板
+    if (!enabled && codexImageActions) {
+        codexImageActions.hidden = true;
+    }
+    if (!enabled && codexImagePrompt) {
+        codexImagePrompt.hidden = true;
+    }
+    codexImageInputs.innerHTML = '';
+    codexImageInputs.hidden = !enabled || codexState.pendingImageInputs.length === 0;
+    if (!enabled) {
+        return;
+    }
+    codexState.pendingImageInputs.forEach((entry, index) => {
+        const chip = document.createElement('div');
+        chip.className = 'codex-image-chip';
+
+        const label = document.createElement('span');
+        label.className = 'codex-image-chip-label';
+        label.textContent = entry.type === 'localImage' ? '本地图片' : '图像 URL';
+
+        const value = document.createElement('span');
+        value.className = 'codex-image-chip-value';
+        // 本地图片显示文件名，URL 显示完整 URL
+        if (entry.type === 'localImage') {
+            value.textContent = entry.name || '本地图片';
+        } else {
+            value.textContent = entry.url;
+        }
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'codex-image-chip-remove';
+        remove.textContent = 'x';
+        remove.setAttribute('aria-label', '移除图像输入');
+        remove.addEventListener('click', () => {
+            removePendingCodexImageInput(index);
+        });
+
+        chip.appendChild(label);
+        chip.appendChild(value);
+        chip.appendChild(remove);
+        codexImageInputs.appendChild(chip);
+    });
 }
 
 function renderCodexQuickControls() {
@@ -1357,43 +1752,9 @@ function populateCodexReasoningSelect(selectEl, options) {
     selectEl.value = optionValues.includes(selectedValue) ? selectedValue : '';
 }
 
-function populateCodexModelSelect(forcedValue) {
-    if (!codexSettingsModel) return;
-    const selectedValue = typeof forcedValue === 'string'
-        ? forcedValue
-        : (typeof codexSettingsModel.value === 'string' ? codexSettingsModel.value : '');
-    codexSettingsModel.innerHTML = '';
-
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = codexState.settingsLoadingModels ? '正在加载模型...' : buildModelDefaultLabel();
-    codexSettingsModel.appendChild(defaultOption);
-
-    const seen = new Set(['']);
-    codexState.modelCatalog.forEach((model) => {
-        if (!model || !model.id || seen.has(model.id)) return;
-        seen.add(model.id);
-        const option = document.createElement('option');
-        option.value = model.id;
-        option.textContent = model.label;
-        codexSettingsModel.appendChild(option);
-    });
-
-    if (selectedValue && !seen.has(selectedValue)) {
-        const option = document.createElement('option');
-        option.value = selectedValue;
-        option.textContent = `${selectedValue}（自定义）`;
-        codexSettingsModel.appendChild(option);
-    }
-
-    codexSettingsModel.value = selectedValue;
-}
-
 function syncCodexSettingsFormFromStoredConfig() {
     if (
         !codexSettingsUseDefaults ||
-        !codexSettingsModel ||
-        !codexSettingsReasoning ||
         !codexSettingsPersonality ||
         !codexSettingsApproval ||
         !codexSettingsSandbox
@@ -1404,12 +1765,6 @@ function syncCodexSettingsFormFromStoredConfig() {
     const stored = getStoredCodexConfig();
     const useServerDefaults = !stored;
     codexSettingsUseDefaults.checked = useServerDefaults;
-    populateCodexModelSelect(stored && stored.defaultModel ? stored.defaultModel : '');
-    populateCodexReasoningSelect(codexSettingsReasoning, {
-        defaultLabel: buildReasoningDefaultLabel(),
-        forcedValue: stored && stored.defaultReasoningEffort ? stored.defaultReasoningEffort : '',
-        modelId: stored && stored.defaultModel ? stored.defaultModel : resolveReasoningModelId()
-    });
     codexSettingsPersonality.value = stored && stored.defaultPersonality ? stored.defaultPersonality : '';
     codexSettingsApproval.value = stored && stored.approvalPolicy ? stored.approvalPolicy : '';
     codexSettingsSandbox.value = stored && stored.sandboxMode ? stored.sandboxMode : '';
@@ -1422,8 +1777,6 @@ function collectCodexSettingsPayload() {
     }
     return settingsApi.buildCodexConfigPayload({
         useServerDefaults: codexSettingsUseDefaults ? codexSettingsUseDefaults.checked : true,
-        defaultModel: codexSettingsModel ? codexSettingsModel.value : '',
-        defaultReasoningEffort: codexSettingsReasoning ? codexSettingsReasoning.value : '',
         defaultPersonality: codexSettingsPersonality ? codexSettingsPersonality.value : '',
         approvalPolicy: codexSettingsApproval ? codexSettingsApproval.value : '',
         sandboxMode: codexSettingsSandbox ? codexSettingsSandbox.value : ''
@@ -1463,13 +1816,6 @@ function renderCodexSettingsPanel() {
     const settingsFields = document.getElementById('codex-settings-fields');
     const settingsFooter = document.getElementById('codex-settings-footer');
 
-    populateCodexModelSelect();
-    populateCodexReasoningSelect(codexSettingsReasoning, {
-        defaultLabel: buildReasoningDefaultLabel(),
-        forcedValue: codexSettingsReasoning ? codexSettingsReasoning.value : '',
-        modelId: codexSettingsModel ? codexSettingsModel.value : resolveReasoningModelId()
-    });
-
     const useServerDefaults = codexSettingsUseDefaults ? codexSettingsUseDefaults.checked : true;
     const disableFields = !canEditModelConfig || useServerDefaults || codexState.settingsSaving;
     codexSettingsPanel.classList.toggle('is-defaults', useServerDefaults);
@@ -1490,7 +1836,7 @@ function renderCodexSettingsPanel() {
         settingsFooter.classList.toggle('limits-only', !canEditModelConfig);
     }
 
-    [codexSettingsModel, codexSettingsReasoning, codexSettingsPersonality, codexSettingsApproval, codexSettingsSandbox]
+    [codexSettingsPersonality, codexSettingsApproval, codexSettingsSandbox]
         .forEach((field) => {
             if (field) {
                 field.disabled = disableFields;
@@ -1499,10 +1845,6 @@ function renderCodexSettingsPanel() {
 
     if (codexSettingsUseDefaults) {
         codexSettingsUseDefaults.disabled = codexState.settingsSaving || !canEditModelConfig;
-    }
-    if (btnCodexModelsRefresh) {
-        btnCodexModelsRefresh.hidden = !canEditModelConfig;
-        btnCodexModelsRefresh.disabled = !canEditModelConfig || codexState.settingsLoadingModels || codexState.settingsSaving;
     }
     if (btnCodexRateLimitRefresh) {
         btnCodexRateLimitRefresh.hidden = !canReadRateLimits;
@@ -1944,9 +2286,16 @@ function refreshCodexRateLimits(options) {
 
     return sendCodexBridgeRequest('account/rateLimits/read', undefined, { suppressErrorUi: opts.silent === true })
         .then((result) => {
+            console.info('[JS][rateLimits] Response:', JSON.stringify(result, null, 2));
             applyCodexRateLimit(result);
             if (opts.silent !== true) {
-                setCodexSettingsStatus('额度快照已刷新。', 'success');
+                const summary = codexState.rateLimitSummary;
+                if (summary) {
+                    setCodexSettingsStatus(`额度：${summary}`, codexState.rateLimitTone || 'success');
+                } else {
+                    const keys = result ? Object.keys(result).join(', ') : 'null';
+                    setCodexSettingsStatus(`额度快照已刷新，但未识别到额度数据 (keys: ${keys})`, 'warn');
+                }
             }
             renderCodexSettingsPanel();
             return result;
@@ -2114,6 +2463,11 @@ function resetCodexBootstrapState() {
     codexState.tokenUsageSummary = '';
     codexState.historyListLoading = false;
     codexState.historyActionThreadId = '';
+    codexState.historyActionKind = '';
+    codexState.historyRenameThreadId = '';
+    codexState.historyRenameDraft = '';
+    codexState.currentThreadTitle = '';
+    codexState.threadTitleById.clear();
     codexState.storedCodexConfig = null;
     codexState.modelCatalog = [];
     codexState.modelOptions = [];
@@ -2140,6 +2494,7 @@ function resetCodexBootstrapState() {
     codexState.serverNextTurnConfigBase = null;
     codexState.nextTurnEffectiveCodexConfig = null;
     codexState.pendingSubmittedTurnState = null;
+    codexState.pendingImageInputs = [];
     codexState.runtimeDiff = '';
     codexState.runtimePlan = '';
     codexState.runtimeReasoning = '';
@@ -2181,6 +2536,7 @@ function resetCodexBootstrapState() {
     syncCodexSettingsFormFromStoredConfig();
     renderCodexQuickControls();
     renderCodexComposerState();
+    renderCodexImageInputs();
     renderCodexSlashMenu();
     renderCodexSettingsPanel();
     renderCodexAlerts();
@@ -2374,12 +2730,30 @@ function storeCodexThreadList(result) {
     const threads = result && Array.isArray(result.threads) ? result.threads : [];
     codexState.historyThreads = threads
         .filter((entry) => entry && typeof entry === 'object')
-        .map((entry) => ({
-            id: typeof entry.id === 'string' ? entry.id : '',
-            title: typeof entry.title === 'string' ? entry.title : ''
-        }))
+        .map((entry) => {
+            const nextEntry = {
+                id: typeof entry.id === 'string' ? entry.id : '',
+                title: typeof entry.title === 'string'
+                    ? entry.title
+                    : (typeof entry.name === 'string' ? entry.name : ''),
+                archived: entry.archived === true || entry.isArchived === true
+            };
+            if (nextEntry.id) {
+                nextEntry.title = setKnownCodexThreadTitle(nextEntry.id, nextEntry.title);
+            }
+            return nextEntry;
+        })
         .filter((entry) => entry.id);
+    const currentEntry = codexState.historyThreads.find((entry) => entry.id === codexState.threadId);
+    if (currentEntry) {
+        codexState.currentThreadTitle = normalizeCodexThreadTitle(currentEntry.title);
+    } else if (!codexState.threadId) {
+        codexState.currentThreadTitle = '';
+    } else {
+        codexState.currentThreadTitle = getKnownCodexThreadTitle(codexState.threadId);
+    }
     renderCodexHistoryList();
+    renderCodexHeaderSummary();
     return codexState.historyThreads;
 }
 
@@ -2415,6 +2789,7 @@ function requestCodexResume(threadId) {
         return Promise.reject(new Error('Missing Codex thread id to resume.'));
     }
     codexState.historyActionThreadId = normalizedThreadId;
+    codexState.historyActionKind = 'open';
     renderCodexHistoryList();
     codexState.resumeAttemptedForThreadId = normalizedThreadId;
     appendCodexLogEntry('system', `正在恢复 Codex 线程 ${normalizedThreadId}...`, { meta: 'history' });
@@ -2438,7 +2813,160 @@ function requestCodexResume(threadId) {
         })
         .finally(() => {
             codexState.historyActionThreadId = '';
+            codexState.historyActionKind = '';
             renderCodexHistoryList();
+        });
+}
+
+function requestCodexThreadMutation(actionKind, threadId) {
+    const normalizedThreadId = typeof threadId === 'string' ? threadId.trim() : '';
+    const normalizedAction = typeof actionKind === 'string' ? actionKind.trim() : '';
+    const actionMap = {
+        fork: {
+            method: 'thread/fork',
+            startText: `正在基于线程 ${normalizedThreadId} 创建分支...`,
+            successText: (result) => {
+                const forkedThreadId = result && result.thread && typeof result.thread.id === 'string'
+                    ? result.thread.id.trim()
+                    : '';
+                return forkedThreadId
+                    ? `已从线程 ${normalizedThreadId} 创建分支 ${forkedThreadId}。`
+                    : `已从线程 ${normalizedThreadId} 创建新的分支线程。`;
+            }
+        },
+        archive: {
+            method: 'thread/archive',
+            startText: `正在归档线程 ${normalizedThreadId}...`,
+            successText: () => `已归档线程 ${normalizedThreadId}。`
+        },
+        unarchive: {
+            method: 'thread/unarchive',
+            startText: `正在恢复归档线程 ${normalizedThreadId}...`,
+            successText: () => `已恢复线程 ${normalizedThreadId}。`
+        }
+    };
+    const definition = actionMap[normalizedAction];
+    if (!normalizedThreadId || !definition) {
+        return Promise.reject(new Error('Invalid Codex thread action request.'));
+    }
+
+    codexState.historyActionThreadId = normalizedThreadId;
+    codexState.historyActionKind = normalizedAction;
+    renderCodexHistoryList();
+    appendCodexLogEntry('system', definition.startText, { meta: 'history' });
+
+    return sendCodexBridgeRequest(
+        definition.method,
+        { threadId: normalizedThreadId },
+        { suppressErrorUi: true }
+    )
+        .then((result) => {
+            clearCodexErrorNotice();
+            appendCodexLogEntry('system', definition.successText(result), { meta: 'history' });
+            return refreshCodexThreadList({ force: true, silent: true }).then(() => result);
+        })
+        .catch((error) => {
+            if (!isTransientCodexBridgeError(error)) {
+                appendCodexLogEntry(
+                    'error',
+                    `执行线程操作失败：${error.message || '未知错误'}`,
+                    { meta: 'history' }
+                );
+            }
+            throw error;
+        })
+        .finally(() => {
+            codexState.historyActionThreadId = '';
+            codexState.historyActionKind = '';
+            renderCodexHistoryList();
+        });
+}
+
+function requestCodexThreadRename(threadId, nextName) {
+    const normalizedThreadId = typeof threadId === 'string' ? threadId.trim() : '';
+    if (!normalizedThreadId) {
+        return Promise.reject(new Error('Missing Codex thread id to rename.'));
+    }
+    const normalizedNextName = typeof nextName === 'string' ? nextName.trim() : '';
+    if (!normalizedNextName) {
+        return Promise.resolve(null);
+    }
+
+    codexState.historyActionThreadId = normalizedThreadId;
+    codexState.historyActionKind = 'rename';
+    renderCodexHistoryList();
+    appendCodexLogEntry('system', `正在将线程 ${normalizedThreadId} 重命名为“${normalizedNextName}”...`, { meta: 'history' });
+
+    return sendCodexBridgeRequest(
+        'thread/name/set',
+        {
+            threadId: normalizedThreadId,
+            name: normalizedNextName,
+            title: normalizedNextName
+        },
+        { suppressErrorUi: true }
+    )
+        .then((result) => {
+            updateCodexHistoryThreadTitle(normalizedThreadId, normalizedNextName);
+            clearCodexErrorNotice();
+            appendCodexLogEntry('system', `已将线程 ${normalizedThreadId} 重命名为“${normalizedNextName}”。`, { meta: 'history' });
+            renderCodexHistoryList();
+            renderCodexHeaderSummary();
+            return sendCodexBridgeRequest(
+                'thread/read',
+                { threadId: normalizedThreadId, includeTurns: false },
+                { suppressErrorUi: true }
+            )
+                .then((readResult) => {
+                    const readThread = readResult && readResult.thread && typeof readResult.thread === 'object'
+                        ? readResult.thread
+                        : null;
+                    const resolvedTitle = resolveCodexThreadTitle(readThread) || normalizedNextName;
+                    updateCodexHistoryThreadTitle(normalizedThreadId, resolvedTitle);
+                })
+                .catch(() => {
+                    updateCodexHistoryThreadTitle(normalizedThreadId, normalizedNextName);
+                })
+                .then(() => refreshCodexThreadList({ force: true, silent: true }))
+                .then(() => result);
+        })
+        .catch((error) => {
+            if (!isTransientCodexBridgeError(error)) {
+                appendCodexLogEntry(
+                    'error',
+                    `线程重命名失败：${error.message || '未知错误'}`,
+                    { meta: 'history' }
+                );
+            }
+            throw error;
+        })
+        .finally(() => {
+            codexState.historyActionThreadId = '';
+            codexState.historyActionKind = '';
+            renderCodexHistoryList();
+        });
+}
+
+function submitCodexThreadRename(threadId, currentTitle) {
+    const normalizedCurrentTitle = typeof currentTitle === 'string' ? currentTitle.trim() : '';
+    const draft = typeof codexState.historyRenameDraft === 'string' ? codexState.historyRenameDraft.trim() : '';
+    if (!draft) {
+        return Promise.resolve(null);
+    }
+    if (draft === normalizedCurrentTitle) {
+        cancelCodexThreadRename();
+        return Promise.resolve(null);
+    }
+    return requestCodexThreadRename(threadId, draft)
+        .then((result) => {
+            cancelCodexThreadRename();
+            return result;
+        })
+        .catch((error) => {
+            if (!isTransientCodexBridgeError(error)) {
+                renderCodexHistoryList();
+            }
+            throw error;
         });
 }
 
@@ -2557,6 +3085,20 @@ function pickFirstString(sources, paths) {
     return '';
 }
 
+function pickFirstBoolean(sources, paths) {
+    for (let i = 0; i < sources.length; i += 1) {
+        const source = sources[i];
+        if (!source || typeof source !== 'object') continue;
+        for (let j = 0; j < paths.length; j += 1) {
+            const value = readPathValue(source, paths[j]);
+            if (typeof value === 'boolean') {
+                return value;
+            }
+        }
+    }
+    return null;
+}
+
 function formatCompactNumber(value) {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
         return '';
@@ -2600,6 +3142,25 @@ function formatResetHint(value) {
         return value.trim();
     }
     return '';
+}
+
+function formatRateLimitWindowLabel(windowMins) {
+    if (typeof windowMins !== 'number' || !Number.isFinite(windowMins) || windowMins <= 0) {
+        return '';
+    }
+    if (windowMins === 300) {
+        return '5小时';
+    }
+    if (windowMins === 10080) {
+        return '一周';
+    }
+    if (windowMins < 60) {
+        return `${Math.round(windowMins)}分钟`;
+    }
+    if (windowMins % 60 === 0) {
+        return `${Math.round(windowMins / 60)}小时`;
+    }
+    return formatDurationShort(windowMins * 60);
 }
 
 function formatTokenUsageSummary(payload) {
@@ -2655,11 +3216,22 @@ function formatTokenUsageSummary(payload) {
 }
 
 function extractRateLimitEntry(payload) {
+    // Support both camelCase and snake_case keys from Codex API
+    // Also handle wrapped response: { result: { rateLimits: ... } }
+    const resultWrapper = payload && payload.result;
     const containers = [
         payload,
         payload && payload.rateLimit,
         payload && payload.rateLimits,
-        payload && payload.account
+        payload && payload.ratelimits,         // snake_case
+        payload && payload.rate_limits,        // snake_case alternative
+        payload && payload.account,
+        // Also check result wrapper
+        resultWrapper,
+        resultWrapper && resultWrapper.rateLimit,
+        resultWrapper && resultWrapper.rateLimits,
+        resultWrapper && resultWrapper.ratelimits,
+        resultWrapper && resultWrapper.rate_limits
     ];
     for (let i = 0; i < containers.length; i += 1) {
         const current = containers[i];
@@ -2673,13 +3245,43 @@ function extractRateLimitEntry(payload) {
             return { entry: current.items[0], extraCount: current.items.length - 1 };
         }
     }
+    // Also check rateLimitsByLimitId and ratelimitsbylimitid (object with limitId keys)
+    const limitIdObj = payload && (payload.rateLimitsByLimitId || payload.ratelimitsbylimitid);
+    const resultLimitIdObj = resultWrapper && (resultWrapper.rateLimitsByLimitId || resultWrapper.ratelimitsbylimitid);
+    if (limitIdObj && typeof limitIdObj === 'object') {
+        const entries = Object.values(limitIdObj);
+        if (entries.length > 0) {
+            return { entry: entries[0], extraCount: entries.length - 1 };
+        }
+    }
+    if (resultLimitIdObj && typeof resultLimitIdObj === 'object') {
+        const entries = Object.values(resultLimitIdObj);
+        if (entries.length > 0) {
+            return { entry: entries[0], extraCount: entries.length - 1 };
+        }
+    }
     return { entry: null, extraCount: 0 };
 }
 
 function formatRateLimitSummary(payload) {
     const extracted = extractRateLimitEntry(payload);
     const entry = extracted.entry;
-    const sources = [payload, payload && payload.rateLimit, payload && payload.rateLimits, entry];
+    // Support both camelCase and snake_case keys from Codex API
+    // Also handle wrapped response: { result: { rateLimits: ... } }
+    const resultWrapper = payload && payload.result;
+    const sources = [
+        payload,
+        payload && payload.rateLimit,
+        payload && payload.rateLimits,
+        payload && payload.ratelimits,         // snake_case
+        payload && payload.rate_limits,        // snake_case
+        resultWrapper,
+        resultWrapper && resultWrapper.rateLimit,
+        resultWrapper && resultWrapper.rateLimits,
+        resultWrapper && resultWrapper.ratelimits,
+        resultWrapper && resultWrapper.rate_limits,
+        entry
+    ];
     const message = pickFirstString(sources, [
         ['message'],
         ['detail'],
@@ -2693,32 +3295,77 @@ function formatRateLimitSummary(payload) {
     ]);
     const remaining = pickFirstNumber(sources, [
         ['remaining'],
+        ['remaining_requests'],    // snake_case
         ['remainingRequests'],
         ['limitRemaining'],
+        ['rate_limit_remaining'],  // snake_case
         ['rateLimitRemaining']
     ]);
     const limit = pickFirstNumber(sources, [
         ['limit'],
         ['max'],
+        ['rate_limit'],           // snake_case
         ['rateLimit']
     ]);
     const retryAfter = pickFirstNumber(sources, [
         ['retryAfterSeconds'],
+        ['retry_after_seconds'],  // snake_case
         ['retryAfter'],
-        ['retry_after_seconds']
+        ['retry_after']
     ]);
     const resetHint = formatResetHint(
-        pickFirstString(sources, [['resetAt'], ['resetsAt']])
-        || pickFirstNumber(sources, [['resetAtEpochMs'], ['resetsInSeconds']])
+        pickFirstString(sources, [['resetAt'], ['resetsAt'], ['reset_at'], ['resets_at']])
+        || pickFirstNumber(sources, [['resetAtEpochMs'], ['resetsInSeconds'], ['reset_at_epoch_ms'], ['resets_in_seconds']])
     );
     const rawStatus = pickFirstString(sources, [['status'], ['state'], ['result']]).toLowerCase();
-
+    const primaryUsedPercent = pickFirstNumber(sources, [
+        ['primary', 'usedPercent'],
+        ['primary', 'used_percent']
+    ]);
+    const secondaryUsedPercent = pickFirstNumber(sources, [
+        ['secondary', 'usedPercent'],
+        ['secondary', 'used_percent']
+    ]);
+    const primaryWindowMins = pickFirstNumber(sources, [
+        ['primary', 'windowDurationMins'],
+        ['primary', 'window_duration_mins']
+    ]);
+    const secondaryWindowMins = pickFirstNumber(sources, [
+        ['secondary', 'windowDurationMins'],
+        ['secondary', 'window_duration_mins']
+    ]);
+    const primaryResetHint = formatResetHint(
+        pickFirstString(sources, [['primary', 'resetAt'], ['primary', 'resetsAt'], ['primary', 'reset_at'], ['primary', 'resets_at']])
+        || pickFirstNumber(sources, [['primary', 'resetAtEpochMs'], ['primary', 'resetsAtEpochMs'], ['primary', 'resetsAt'], ['primary', 'resets_at']])
+    );
+    const secondaryResetHint = formatResetHint(
+        pickFirstString(sources, [['secondary', 'resetAt'], ['secondary', 'resetsAt'], ['secondary', 'reset_at'], ['secondary', 'resets_at']])
+        || pickFirstNumber(sources, [['secondary', 'resetAtEpochMs'], ['secondary', 'resetsAtEpochMs'], ['secondary', 'resetsAt'], ['secondary', 'resets_at']])
+    );
     const parts = [];
-    if (scope) parts.push(scope);
     if (typeof remaining === 'number' && typeof limit === 'number') {
+        if (scope) parts.push(scope);
         parts.push(`${Math.max(0, Math.round(remaining))}/${Math.max(0, Math.round(limit))} left`);
     } else if (typeof remaining === 'number') {
+        if (scope) parts.push(scope);
         parts.push(`${Math.max(0, Math.round(remaining))} left`);
+    } else {
+        if (typeof primaryUsedPercent === 'number') {
+            const primaryParts = [formatRateLimitWindowLabel(primaryWindowMins) || '主额度'];
+            primaryParts.push(`${Math.max(0, Math.round(primaryUsedPercent))}%`);
+            if (primaryResetHint) {
+                primaryParts.push(primaryResetHint);
+            }
+            parts.push(primaryParts.join(' '));
+        }
+        if (typeof secondaryUsedPercent === 'number') {
+            const secondaryParts = [formatRateLimitWindowLabel(secondaryWindowMins) || '附加额度'];
+            secondaryParts.push(`${Math.max(0, Math.round(secondaryUsedPercent))}%`);
+            if (secondaryResetHint) {
+                secondaryParts.push(secondaryResetHint);
+            }
+            parts.push(secondaryParts.join(' '));
+        }
     }
     if (retryAfter && retryAfter > 0) {
         parts.push(`retry in ${formatDurationShort(retryAfter)}`);
@@ -2733,6 +3380,8 @@ function formatRateLimitSummary(payload) {
     let tone = '';
     if (
         (typeof remaining === 'number' && remaining <= 1) ||
+        (typeof primaryUsedPercent === 'number' && primaryUsedPercent >= 90) ||
+        (typeof secondaryUsedPercent === 'number' && secondaryUsedPercent >= 90) ||
         (typeof retryAfter === 'number' && retryAfter > 0) ||
         rawStatus.includes('exhaust') ||
         rawStatus.includes('limit') ||
@@ -2853,6 +3502,9 @@ function finalizePendingTurnStateOnSuccess() {
             activeSkill: pending.clearActiveSkill === true ? null : codexState.interactionState.activeSkill
         });
     }
+    if (pending.clearImageInputs === true) {
+        clearPendingCodexImageInputs();
+    }
     clearPendingTurnState();
 }
 
@@ -2863,18 +3515,20 @@ function restorePendingTurnStateOnFailure() {
     }
     setNextTurnOverrides(pending.nextTurnOverrides || { model: null, reasoningEffort: null });
     setCodexInteractionState(pending.interactionState || { planMode: false, activeSkill: null });
+    setPendingCodexImageInputs(pending.imageInputs || []);
     clearPendingTurnState();
 }
 
 function sendCodexTurn(text, options) {
     const cleaned = typeof text === 'string' ? text.trim() : '';
-    if (!cleaned) return;
     const opts = options || {};
     const nextTurnOverrides = normalizeNextTurnOverrides(opts.nextTurnOverrides || codexState.nextTurnOverrides);
     const interactionState = normalizeCodexInteractionState(opts.interactionState || codexState.interactionState);
+    const imageInputs = normalizeCodexImageInputs(opts.imageInputs || codexState.pendingImageInputs);
     const collaborationMode = typeof opts.collaborationMode === 'string' && opts.collaborationMode.trim()
         ? opts.collaborationMode.trim()
         : null;
+    if (!cleaned && imageInputs.length === 0) return;
     const payload = {
         type: 'codex_turn',
         text: cleaned,
@@ -2882,10 +3536,17 @@ function sendCodexTurn(text, options) {
         cwd: getConfiguredCodexCwd() || undefined,
         model: nextTurnOverrides.model || undefined,
         reasoningEffort: nextTurnOverrides.reasoningEffort || undefined,
-        collaborationMode: collaborationMode || undefined
+        collaborationMode: collaborationMode || undefined,
+        attachments: imageInputs.length > 0 ? imageInputs : undefined
     };
 
-    appendCodexLogEntry('user', cleaned, { meta: 'you' });
+    const imageSummary = imageInputs.map((entry) => {
+        if (entry.type === 'localImage') {
+            return `[本地图片] ${entry.name || '图片'}`;
+        }
+        return `[图像 URL] ${entry.url}`;
+    });
+    appendCodexLogEntry('user', [cleaned, ...imageSummary].filter(Boolean).join('\n'), { meta: 'you' });
     if (codexState.threadId && codexState.unmaterializedThreadId === codexState.threadId) {
         codexState.unmaterializedThreadId = '';
     }
@@ -2894,9 +3555,11 @@ function sendCodexTurn(text, options) {
     rememberPendingTurnState({
         nextTurnOverrides,
         interactionState,
+        imageInputs,
         clearOverrides: opts.clearOverrides !== false && (!!nextTurnOverrides.model || !!nextTurnOverrides.reasoningEffort),
         clearPlanMode: opts.clearPlanMode === true,
-        clearActiveSkill: !!interactionState.activeSkill
+        clearActiveSkill: !!interactionState.activeSkill,
+        clearImageInputs: imageInputs.length > 0
     });
     if (!sendCodexEnvelope(payload)) {
         restorePendingTurnStateOnFailure();
@@ -2910,6 +3573,13 @@ function handleCodexComposerSubmit(rawText) {
         : { kind: 'text', text: rawText };
 
     if (parsed.kind === 'empty') {
+        if (codexState.pendingImageInputs.length > 0) {
+            sendCodexTurn('', {
+                clearPlanMode: codexState.interactionState.planMode === true,
+                collaborationMode: codexState.interactionState.planMode === true ? 'plan' : null
+            });
+            return true;
+        }
         return false;
     }
 
@@ -3337,6 +4007,10 @@ function renderCodexServerRequest(envelope) {
 
 function handleCodexThreadSnapshot(thread) {
     if (!thread || !Array.isArray(thread.turns)) return;
+    const snapshotTitle = resolveCodexThreadTitle(thread);
+    if (thread && typeof thread.id === 'string') {
+        setKnownCodexThreadTitle(thread.id, snapshotTitle);
+    }
     codexState.lastSnapshotThreadId = thread && typeof thread.id === 'string'
         ? thread.id
         : codexState.threadId;
@@ -3345,6 +4019,10 @@ function handleCodexThreadSnapshot(thread) {
     }
     if (codexState.threadId && codexState.lastSnapshotThreadId === codexState.threadId) {
         codexState.pendingFreshThread = false;
+        codexState.currentThreadTitle = snapshotTitle;
+    }
+    if (thread && typeof thread.id === 'string') {
+        updateCodexHistoryThreadTitle(thread.id, snapshotTitle);
     }
     codexLog.innerHTML = '';
     codexState.messageByItemId.clear();
@@ -3375,6 +4053,7 @@ function handleCodexThreadSnapshot(thread) {
         });
     });
     codexLog.scrollTop = codexLog.scrollHeight;
+    updateCodexThreadLabel();
 }
 
 function handleCodexNotification(method, params) {
@@ -3400,6 +4079,18 @@ function handleCodexNotification(method, params) {
             setCodexStatus('running');
         } else if (statusType === 'idle') {
             setCodexStatus('idle');
+        }
+        return;
+    }
+
+    if (method === 'thread/name/updated') {
+        const threadId = params && typeof params.threadId === 'string'
+            ? params.threadId.trim()
+            : (params && params.thread && typeof params.thread.id === 'string' ? params.thread.id.trim() : '');
+        const title = resolveCodexThreadTitle(params) || (params && params.thread ? resolveCodexThreadTitle(params.thread) : '');
+        if (threadId) {
+            updateCodexHistoryThreadTitle(threadId, title);
+            updateCodexThreadLabel();
         }
         return;
     }
@@ -3957,6 +4648,7 @@ function connect() {
                     codexState.compactStatusText = '';
                     codexState.compactStatusTone = '';
                     codexState.secondaryPanel = 'none';
+                    codexState.currentThreadTitle = '';
                     codexState.initialSessionInfoReceived = true;
                     syncNextTurnEffectiveCodexConfig();
                     applySessionModeLayout();
@@ -3965,6 +4657,7 @@ function connect() {
                     syncCodexSettingsFormFromStoredConfig();
                     renderCodexQuickControls();
                     renderCodexComposerState();
+                    renderCodexImageInputs();
                     renderCodexSecondaryPanels();
                     notifyNativeSessionInfo(nextSessionId, envelope.name || '', envelope.privilegeLevel || '');
                     maybeBootstrapCodexSession();
@@ -3974,6 +4667,7 @@ function connect() {
                 }
                 if (envelope.type === 'codex_capabilities') {
                     codexState.capabilities = normalizeCodexCapabilities(envelope.capabilities);
+                    console.log('[JS][capabilities] Received:', JSON.stringify(codexState.capabilities));
                     refreshCodexSlashRegistry();
                     codexState.toolsPanelFocus = getDefaultCodexToolsPanelFocus();
                     codexState.compactSubmitting = false;
@@ -3983,6 +4677,7 @@ function connect() {
                     codexState.initialCapabilitiesReceived = true;
                     renderCodexHeaderSummary();
                     renderCodexSecondaryNav();
+                    renderCodexImageInputs();
                     renderCodexSlashMenu();
                     renderCodexSecondaryPanels();
                     maybeBootstrapCodexSession();
@@ -3994,9 +4689,17 @@ function connect() {
                     const previousThreadId = codexState.threadId;
                     codexState.threadId = envelope.threadId || '';
                     if (!codexState.threadId) {
+                        codexState.currentThreadTitle = '';
                         codexState.lastSnapshotThreadId = '';
                         codexState.unmaterializedThreadId = '';
                         codexState.pendingFreshThread = false;
+                    } else {
+                        const currentEntry = codexState.historyThreads.find((entry) => entry.id === codexState.threadId);
+                        if (currentEntry && currentEntry.title) {
+                            codexState.currentThreadTitle = currentEntry.title;
+                        } else if (codexState.threadId !== previousThreadId) {
+                            codexState.currentThreadTitle = getKnownCodexThreadTitle(codexState.threadId);
+                        }
                     }
                     codexState.currentTurnId = envelope.currentTurnId || '';
                     codexState.cwd = typeof envelope.cwd === 'string' ? envelope.cwd : '';
@@ -4046,6 +4749,7 @@ function connect() {
                 }
                 if (envelope.type === 'codex_thread') {
                     codexState.threadId = envelope.threadId || '';
+                    codexState.currentThreadTitle = getKnownCodexThreadTitle(codexState.threadId);
                     codexState.currentTurnId = '';
                     codexState.lastSnapshotThreadId = '';
                     codexState.unmaterializedThreadId = codexState.threadId || '';
@@ -4062,6 +4766,12 @@ function connect() {
                 }
                 if (envelope.type === 'codex_thread_ready') {
                     codexState.threadId = envelope.threadId || codexState.threadId;
+                    if (!codexState.currentThreadTitle || codexState.threadId !== codexState.lastSnapshotThreadId) {
+                        const currentEntry = codexState.historyThreads.find((entry) => entry.id === codexState.threadId);
+                        codexState.currentThreadTitle = currentEntry && currentEntry.title
+                            ? currentEntry.title
+                            : getKnownCodexThreadTitle(codexState.threadId);
+                    }
                     codexState.lastSnapshotThreadId = '';
                     codexState.unmaterializedThreadId = codexState.threadId || '';
                     codexState.pendingFreshThread = true;
@@ -4506,31 +5216,52 @@ if (btnCodexCompactConfirm) {
     });
 }
 
+if (btnCodexImageUrl) {
+    btnCodexImageUrl.addEventListener('click', () => {
+        promptForCodexImageInput('image');
+    });
+}
+
+if (btnCodexImageLocal) {
+    btnCodexImageLocal.addEventListener('click', () => {
+        promptForCodexImageInput('localImage');
+    });
+}
+
+if (btnCodexImagePromptCancel) {
+    btnCodexImagePromptCancel.addEventListener('click', () => {
+        cancelCodexImagePrompt();
+    });
+}
+
+if (btnCodexImagePromptConfirm) {
+    btnCodexImagePromptConfirm.addEventListener('click', () => {
+        confirmCodexImagePrompt();
+    });
+}
+
+if (codexImagePromptInput) {
+    codexImagePromptInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            confirmCodexImagePrompt();
+        } else if (event.key === 'Escape') {
+            event.preventDefault();
+            cancelCodexImagePrompt();
+        }
+    });
+}
+
 [
     codexSettingsUseDefaults,
-    codexSettingsModel,
-    codexSettingsReasoning,
     codexSettingsPersonality,
     codexSettingsApproval,
     codexSettingsSandbox
 ].filter(Boolean).forEach((field) => {
     field.addEventListener('change', () => {
-        if (field === codexSettingsModel) {
-            populateCodexReasoningSelect(codexSettingsReasoning, {
-                defaultLabel: buildReasoningDefaultLabel(),
-                forcedValue: codexSettingsReasoning ? codexSettingsReasoning.value : '',
-                modelId: codexSettingsModel ? codexSettingsModel.value : resolveReasoningModelId()
-            });
-        }
         renderCodexSettingsPanel();
     });
 });
-
-if (btnCodexModelsRefresh) {
-    btnCodexModelsRefresh.addEventListener('click', () => {
-        refreshCodexModelList();
-    });
-}
 
 if (btnCodexRateLimitRefresh) {
     btnCodexRateLimitRefresh.addEventListener('click', () => {
@@ -4624,6 +5355,12 @@ if (btnCodexQuickClear) {
 
 if (btnCodexSlashTrigger) {
     btnCodexSlashTrigger.addEventListener('click', () => {
+        // 如果 imageInput capability 启用，切换图片操作面板
+        if (codexState.capabilities.imageInput === true && codexImageActions) {
+            codexImageActions.hidden = !codexImageActions.hidden;
+            return;
+        }
+        // 否则打开 slash 菜单（输入 "/"）
         if (!codexInput) return;
         if (!codexInput.value.trim()) {
             codexInput.value = '/';
@@ -4785,6 +5522,7 @@ applySessionModeLayout();
 appendCodexLogEntry('system', 'Codex 面板已就绪，可以直接发送请求。', { meta: 'bridge' });
 renderCodexSecondaryNav();
 renderCodexSecondaryPanels();
+renderCodexImageInputs();
 syncCodexSettingsFormFromStoredConfig();
 
 applyRuntimeConfig(runtimeConfig, false);
@@ -4810,6 +5548,7 @@ if (shouldExposeCodexTestHooks) {
         // Render functions
         renderCodexAlerts,
         renderCodexHistoryList,
+        renderCodexImageInputs,
         renderCodexSlashMenu,
         renderCodexSettingsPanel,
         renderCodexRuntimePanel,
@@ -4817,6 +5556,11 @@ if (shouldExposeCodexTestHooks) {
         renderCodexToolsPanel,
         // Helper functions
         handleCodexComposerSubmit,
+        handleCodexNotification,
+        handleCodexThreadSnapshot,
+        applyCodexRateLimit,
+        formatRateLimitSummary,
+        storeCodexThreadList,
         applyRuntimeConfig,
         connect,
         setSlashMenuState,
@@ -4826,9 +5570,15 @@ if (shouldExposeCodexTestHooks) {
         getSessionId: () => sessionId,
         getServerUrl: () => serverUrl,
         getRetryCount: () => retryCount,
+        getWebSocket: () => ws,
+        // Image input functions
+        promptForCodexImageInput,
+        confirmCodexImagePrompt,
+        setPendingCodexImageInputs,
         // DOM element references
         getCodexAlerts: () => codexAlerts,
         getCodexHistoryPanel: () => codexHistoryPanel,
+        getCodexImageInputs: () => codexImageInputs,
         getCodexInput: () => codexInput,
         getCodexLog: () => codexLog,
         getCodexSettingsPanel: () => codexSettingsPanel,
@@ -4838,6 +5588,7 @@ if (shouldExposeCodexTestHooks) {
         getCodexRuntimePanel: () => codexRuntimePanel,
         getCodexToolsPanel: () => codexToolsPanel,
         getCodexAlertConfig: () => codexAlertConfig,
-        getCodexAlertDeprecation: () => codexAlertDeprecation
+        getCodexAlertDeprecation: () => codexAlertDeprecation,
+        getCodexImagePromptInput: () => codexImagePromptInput
     };
 }

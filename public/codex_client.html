@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TermLink Codex</title>
-    <link rel="stylesheet" href="terminal_client.css?v=35">
+    <link rel="stylesheet" href="terminal_client.css?v=37">
     <script src="terminal_shortcut_input.js?v=25"></script>
 </head>
 
@@ -72,7 +72,6 @@
                 <div id="codex-settings-header">
                     <span id="codex-settings-title">会话默认配置</span>
                     <div id="codex-settings-actions">
-                        <button id="btn-codex-models-refresh" class="codex-btn subtle" type="button">模型</button>
                         <button id="btn-codex-rate-limit-refresh" class="codex-btn subtle" type="button">额度</button>
                     </div>
                 </div>
@@ -81,22 +80,6 @@
                     <span>使用服务端默认值</span>
                 </label>
                 <div id="codex-settings-fields">
-                    <label class="codex-settings-field">
-                        <span>模型</span>
-                        <select id="codex-settings-model"></select>
-                    </label>
-                    <label class="codex-settings-field">
-                        <span>推理强度</span>
-                        <select id="codex-settings-reasoning">
-                            <option value="">服务端默认</option>
-                            <option value="none">无</option>
-                            <option value="minimal">极低</option>
-                            <option value="low">低</option>
-                            <option value="medium">中</option>
-                            <option value="high">高</option>
-                            <option value="xhigh">XHigh</option>
-                        </select>
-                    </label>
                     <label class="codex-settings-field">
                         <span>人格风格</span>
                         <select id="codex-settings-personality">
@@ -201,10 +184,25 @@
                     <div id="codex-slash-menu-empty" hidden>没有匹配命令。</div>
                     <div id="codex-slash-menu-list" aria-live="polite"></div>
                 </div>
+                <div id="codex-image-inputs" hidden></div>
+                <div id="codex-image-prompt" hidden>
+                    <div id="codex-image-prompt-header">
+                        <span id="codex-image-prompt-title">输入图像 URL</span>
+                    </div>
+                    <input id="codex-image-prompt-input" type="text" placeholder="https://example.com/image.png">
+                    <div id="codex-image-prompt-actions">
+                        <button id="btn-codex-image-prompt-cancel" class="codex-btn subtle" type="button">取消</button>
+                        <button id="btn-codex-image-prompt-confirm" class="codex-btn" type="button">确认</button>
+                    </div>
+                </div>
                 <div id="codex-composer-surface">
                     <textarea id="codex-input" placeholder="随便问点什么..."></textarea>
                     <div id="codex-composer-footer">
-                        <button id="btn-codex-slash-trigger" class="codex-icon-btn" type="button" aria-label="打开命令菜单">+</button>
+                        <button id="btn-codex-slash-trigger" class="codex-icon-btn" type="button" aria-label="上传图像或打开命令菜单">+</button>
+                        <div id="codex-image-actions" hidden>
+                            <button id="btn-codex-image-url" class="codex-inline-action" type="button">图像 URL</button>
+                            <button id="btn-codex-image-local" class="codex-inline-action" type="button">本地图片</button>
+                        </div>
                         <div id="codex-quick-controls">
                             <label class="codex-quick-field">
                                 <span>模型</span>
@@ -241,7 +239,7 @@
     <script src="lib/codex_settings_view.js?v=1"></script>
     <script src="lib/codex_runtime_view.js?v=4"></script>
     <script src="lib/codex_approval_view.js?v=1"></script>
-    <script src="terminal_client.js?v=43"></script>
+    <script src="terminal_client.js?v=50"></script>
 </body>
 
 </html>

@@ -66,6 +66,11 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    sourceSets {
+        debug {
+            assets.srcDirs += ["$buildDir/generated/assets/localDebugConfig/debug"]
+        }
+    }
 }
 
 repositories {
@@ -100,4 +105,25 @@ try {
     }
 } catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
+
+// Copy local debug config into a debug-only generated assets directory.
+task copyLocalDebugConfig(type: Copy) {
+    def localConfigFile = rootProject.file('local-debug-config.json')
+    onlyIf { localConfigFile.exists() }
+    from localConfigFile
+    into layout.buildDirectory.dir('generated/assets/localDebugConfig/debug')
+    rename { 'local-debug-config.json' }
+}
+
+task removeLegacyLocalDebugConfig(type: Delete) {
+    delete file('src/main/assets/local-debug-config.json')
+}
+
+tasks.matching { it.name == 'preBuild' }.configureEach {
+    dependsOn removeLegacyLocalDebugConfig
+}
+
+tasks.matching { it.name == 'mergeDebugAssets' || it.name == 'processDebugMainResources' }.configureEach {
+    dependsOn copyLocalDebugConfig
 }
