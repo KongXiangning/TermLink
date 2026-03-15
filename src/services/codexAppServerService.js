@@ -442,7 +442,10 @@ class CodexAppServerService extends EventEmitter {
         const requestId = String(message.id);
         const descriptor = describeServerRequestMethod(message.method);
         if (descriptor.handledByClient) {
-            this.pendingServerRequests.set(requestId, message);
+            this.pendingServerRequests.set(requestId, {
+                rawId: message.id,
+                message
+            });
             this.emit('server_request', {
                 requestId,
                 message,
@@ -560,26 +563,28 @@ class CodexAppServerService extends EventEmitter {
 
     respondToServerRequest(requestId, response = {}) {
         const key = String(requestId || '');
-        const message = this.pendingServerRequests.get(key);
-        if (!message) {
+        const pending = this.pendingServerRequests.get(key);
+        if (!pending) {
             throw new Error(`Unknown pending Codex server request: ${key}`);
         }
         this.pendingServerRequests.delete(key);
+        const message = pending.message;
+        const responseId = Object.prototype.hasOwnProperty.call(pending, 'rawId') ? pending.rawId : key;
 
         if (response && response.useDefault === true) {
             const defaultResponse = this.buildDefaultServerRequestResponse(message);
             if (defaultResponse.error) {
-                this.sendRpcError(key, defaultResponse.error.code, defaultResponse.error.message, defaultResponse.error.data);
+                this.sendRpcError(responseId, defaultResponse.error.code, defaultResponse.error.message, defaultResponse.error.data);
                 return;
             }
-            this.sendRpcResult(key, defaultResponse.result);
+            this.sendRpcResult(responseId, defaultResponse.result);
             return;
         }
 
         if (response && response.error) {
             const error = response.error || {};
             this.sendRpcError(
-                key,
+                responseId,
                 error.code ?? -32000,
                 error.message || 'Codex server request rejected.',
                 error.data
@@ -587,7 +592,7 @@ class CodexAppServerService extends EventEmitter {
             return;
         }
 
-        this.sendRpcResult(key, response ? response.result : null);
+        this.sendRpcResult(responseId, response ? response.result : null);
     }
 
     static extractThreadId(message) {
