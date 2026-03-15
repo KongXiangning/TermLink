@@ -79,12 +79,62 @@ function normalizeInteractionState(value) {
     };
 }
 
+function normalizeCollaborationMode(value) {
+    if (isNonEmptyString(value)) {
+        return {
+            mode: value.trim(),
+            settings: {
+                model: '',
+                reasoning_effort: null,
+                developer_instructions: null
+            }
+        };
+    }
+    const source = value && typeof value === 'object' ? value : null;
+    if (!source || !isNonEmptyString(source.mode)) {
+        return null;
+    }
+    const settings = source.settings && typeof source.settings === 'object' ? source.settings : {};
+    return {
+        mode: source.mode.trim(),
+        settings: {
+            model: typeof settings.model === 'string' ? settings.model.trim() : '',
+            reasoning_effort: isNonEmptyString(settings.reasoning_effort)
+                ? settings.reasoning_effort.trim().toLowerCase()
+                : null,
+            developer_instructions: isNonEmptyString(settings.developer_instructions)
+                ? settings.developer_instructions
+                : null
+        }
+    };
+}
+
 function normalizeTurnOverrides(payload) {
     const source = payload && typeof payload === 'object' ? payload : {};
     return {
         model: isNonEmptyString(source.model) ? source.model.trim() : null,
         reasoningEffort: isNonEmptyString(source.reasoningEffort) ? source.reasoningEffort.trim() : null,
-        collaborationMode: isNonEmptyString(source.collaborationMode) ? source.collaborationMode.trim() : null
+        collaborationMode: normalizeCollaborationMode(source.collaborationMode)
+    };
+}
+
+function normalizeModelName(value) {
+    return isNonEmptyString(value) ? value.trim() : null;
+}
+
+function finalizeCollaborationMode(collaborationMode, defaults) {
+    if (!collaborationMode) {
+        return null;
+    }
+    const fallback = defaults && typeof defaults === 'object' ? defaults : {};
+    return {
+        mode: collaborationMode.mode,
+        settings: {
+            model: collaborationMode.settings.model || (isNonEmptyString(fallback.model) ? fallback.model.trim() : ''),
+            reasoning_effort: collaborationMode.settings.reasoning_effort
+                || (isNonEmptyString(fallback.reasoningEffort) ? fallback.reasoningEffort.trim().toLowerCase() : null),
+            developer_instructions: collaborationMode.settings.developer_instructions || null
+        }
     };
 }
 
@@ -390,11 +440,33 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         };
     };
 
+    const getSessionThreadModel = (session) => {
+        const state = ensureSessionCodexState(session);
+        return normalizeModelName(state.threadModel);
+    };
+
+    const setSessionThreadModel = (session, model) => {
+        const state = ensureSessionCodexState(session);
+        const normalized = normalizeModelName(model);
+        if (state.threadModel === normalized) {
+            return normalized;
+        }
+        state.threadModel = normalized;
+        persistSessionMetadata(session);
+        return normalized;
+    };
+
+    const resolveThreadModelFromResponse = (response) => (
+        normalizeModelName(response && response.model)
+        || normalizeModelName(response && response.thread && response.thread.model)
+        || null
+    );
+
     const buildNextTurnEffectiveCodexConfig = (session, overrides = null) => {
         const effective = getEffectiveSessionCodexConfig(session);
         const normalizedOverrides = normalizeTurnOverrides(overrides);
         return {
-            model: normalizedOverrides.model || effective.defaultModel || null,
+            model: normalizedOverrides.model || effective.defaultModel || getSessionThreadModel(session) || null,
             reasoningEffort: normalizedOverrides.reasoningEffort || effective.defaultReasoningEffort || null,
             personality: effective.defaultPersonality || null,
             approvalPolicy: effective.approvalPolicy || null,
@@ -415,6 +487,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         state.status = 'idle';
         state.pendingServerRequests = [];
         state.tokenUsage = null;
+        if (options.clearThreadModel === true) {
+            state.threadModel = null;
+        }
         if (options.clearRateLimitState === true) {
             state.rateLimitState = null;
         }
@@ -488,8 +563,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             throw new Error('Codex thread/start did not return thread id.');
         }
 
-        resetSessionCodexRuntimeState(session);
+        resetSessionCodexRuntimeState(session, { clearThreadModel: true });
         state.threadId = threadId;
+        state.threadModel = resolveThreadModelFromResponse(threadStartResult);
         bindThreadToSession(threadId, session.id);
         updateSessionLastCodexThreadId(session, threadId);
         persistSessionMetadata(session);
@@ -503,6 +579,41 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         emitCodexState(session);
 
         return threadId;
+    };
+
+    const ensureThreadModelForSession = async (session, threadId) => {
+        const effective = getEffectiveSessionCodexConfig(session);
+        if (normalizeModelName(effective.defaultModel)) {
+            return {
+                threadId,
+                model: effective.defaultModel
+            };
+        }
+
+        const currentModel = getSessionThreadModel(session);
+        if (currentModel) {
+            return {
+                threadId,
+                model: currentModel
+            };
+        }
+
+        if (!isNonEmptyString(threadId)) {
+            return {
+                threadId: null,
+                model: normalizeModelName(process.env.TERMLINK_CODEX_MODEL)
+            };
+        }
+
+        const resumeResult = await codexService.request('thread/resume', { threadId });
+        const resumedThreadId = resumeResult && resumeResult.thread ? resumeResult.thread.id : null;
+        const resumedModel = resolveThreadModelFromResponse(resumeResult);
+        return {
+            threadId: isNonEmptyString(resumedThreadId) ? resumedThreadId : threadId,
+            model: resumedModel
+                ? setSessionThreadModel(session, resumedModel)
+                : normalizeModelName(process.env.TERMLINK_CODEX_MODEL)
+        };
     };
 
     const updateCodexStateFromNotification = (session, method, params) => {
@@ -801,20 +912,38 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         }
                         const turnOverrides = normalizeTurnOverrides(envelope);
 
-                        const threadId = await ensureCodexThreadForSession(session, {
+                        const initialThreadId = await ensureCodexThreadForSession(session, {
                             forceNewThread: envelope.forceNewThread === true,
                             cwd: envelope.cwd
                         });
 
                         const sessionCodexConfig = getEffectiveSessionCodexConfig(session);
-                        const turnStartResponse = await codexService.request('turn/start', {
+                        const configuredModel = turnOverrides.model || sessionCodexConfig.defaultModel || null;
+                        const threadModelState = configuredModel
+                            ? null
+                            : await ensureThreadModelForSession(session, initialThreadId);
+                        const threadId = threadModelState && isNonEmptyString(threadModelState.threadId)
+                            ? threadModelState.threadId
+                            : initialThreadId;
+                        const fallbackThreadModel = threadModelState ? threadModelState.model : null;
+                        const effectiveModel = configuredModel
+                            || fallbackThreadModel
+                            || null;
+                        const effectiveReasoningEffort =
+                            turnOverrides.reasoningEffort || sessionCodexConfig.defaultReasoningEffort || null;
+                        const collaborationMode = finalizeCollaborationMode(turnOverrides.collaborationMode, {
+                            model: effectiveModel,
+                            reasoningEffort: effectiveReasoningEffort
+                        });
+                        const turnStartPayload = {
                             threadId,
                             input: buildTurnInput(text, attachments),
-                            model: turnOverrides.model || sessionCodexConfig.defaultModel || undefined,
-                            reasoningEffort: turnOverrides.reasoningEffort || sessionCodexConfig.defaultReasoningEffort || undefined,
+                            model: collaborationMode ? undefined : effectiveModel || undefined,
+                            reasoningEffort: collaborationMode ? undefined : effectiveReasoningEffort || undefined,
                             personality: sessionCodexConfig.defaultPersonality || undefined,
-                            collaborationMode: turnOverrides.collaborationMode || undefined
-                        });
+                            collaborationMode: collaborationMode || undefined
+                        };
+                        const turnStartResponse = await codexService.request('turn/start', turnStartPayload);
 
                         const codexState = ensureSessionCodexState(session);
                         codexState.threadId = threadId;
@@ -827,6 +956,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             activeSkill: null
                         };
                         bindThreadToSession(threadId, session.id);
+                        updateSessionLastCodexThreadId(session, threadId);
                         updateSessionCwd(session, envelope.cwd || session.cwd);
                         emitCodexState(session);
 
@@ -948,6 +1078,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         ) {
                             resetSessionCodexRuntimeState(session);
                             codexState.threadId = response.thread.id;
+                            codexState.threadModel = resolveThreadModelFromResponse(response);
                             bindThreadToSession(response.thread.id, session.id);
                             updateSessionLastCodexThreadId(session, response.thread.id);
                             emitCodexState(session);

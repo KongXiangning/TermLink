@@ -134,7 +134,10 @@ class MockCodexService extends EventEmitter {
             return Promise.resolve({ thread: { id: params.threadId, turns: [] } });
         }
         if (method === 'thread/resume') {
-            return Promise.resolve({ thread: { id: params.threadId || 'thread-resumed' } });
+            return Promise.resolve({
+                thread: { id: params.threadId === 'thread-alias' ? 'thread-canonical' : (params.threadId || 'thread-resumed') },
+                model: params.threadId === 'thread-existing' ? 'gpt-5.4' : undefined
+            });
         }
         if (method === 'thread/fork') {
             return Promise.resolve({ thread: { id: `${params.threadId || 'thread'}-fork` } });
@@ -865,9 +868,16 @@ test('codex_turn forwards overrides and collaborationMode to turn/start and clea
     const service = MockCodexService.instances[0];
     const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
     assert.ok(turnStart, 'turn/start should be invoked');
-    assert.equal(turnStart.params.model, 'gpt-5-codex');
-    assert.equal(turnStart.params.reasoningEffort, 'high');
-    assert.equal(turnStart.params.collaborationMode, 'plan');
+    assert.equal(turnStart.params.model, undefined);
+    assert.equal(turnStart.params.reasoningEffort, undefined);
+    assert.deepEqual(turnStart.params.collaborationMode, {
+        mode: 'plan',
+        settings: {
+            model: 'gpt-5-codex',
+            reasoning_effort: 'high',
+            developer_instructions: null
+        }
+    });
     assert.equal(turnStart.params.personality, 'pragmatic');
 
     const lastState = ws.sent.filter((entry) => entry.type === 'codex_state').at(-1);
@@ -875,6 +885,271 @@ test('codex_turn forwards overrides and collaborationMode to turn/start and clea
         planMode: false,
         activeSkill: null
     });
+});
+
+test('codex_turn upgrades structured collaborationMode with session defaults before turn/start', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        codexConfig: {
+            defaultModel: 'gpt-5',
+            defaultReasoningEffort: 'medium',
+            defaultPersonality: 'pragmatic'
+        }
+    });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'inspect repo',
+        collaborationMode: {
+            mode: 'plan',
+            settings: {
+                model: '',
+                reasoning_effort: null,
+                developer_instructions: null
+            }
+        }
+    }));
+
+    const service = MockCodexService.instances[0];
+    const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
+    assert.ok(turnStart, 'turn/start should be invoked');
+    assert.equal(turnStart.params.model, undefined);
+    assert.equal(turnStart.params.reasoningEffort, undefined);
+    assert.deepEqual(turnStart.params.collaborationMode, {
+        mode: 'plan',
+        settings: {
+            model: 'gpt-5',
+            reasoning_effort: 'medium',
+            developer_instructions: null
+        }
+    });
+});
+
+test('codex_turn resumes an existing thread to recover its model before turn/start', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        codexConfig: {
+            approvalPolicy: 'never',
+            sandboxMode: 'workspace-write'
+        },
+        codexState: {
+            threadId: 'thread-existing',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null
+        }
+    });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'inspect repo'
+    }));
+
+    const service = MockCodexService.instances[0];
+    const resumeCall = service.requests.find((entry) => entry.method === 'thread/resume');
+    assert.ok(resumeCall, 'thread/resume should be invoked when an existing thread has no configured model');
+    assert.equal(resumeCall.params.threadId, 'thread-existing');
+
+    const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
+    assert.ok(turnStart, 'turn/start should be invoked');
+    assert.equal(turnStart.params.model, 'gpt-5.4');
+
+    const stateEnvelope = ws.sent.filter((entry) => entry.type === 'codex_state').at(-1);
+    assert.equal(stateEnvelope.nextTurnEffectiveCodexConfig.model, 'gpt-5.4');
+});
+
+test('codex_turn uses resumed canonical thread id for turn/start and final session state', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        codexConfig: {
+            approvalPolicy: 'never',
+            sandboxMode: 'workspace-write'
+        },
+        codexState: {
+            threadId: 'thread-alias',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null
+        }
+    });
+    session.lastCodexThreadId = 'thread-alias';
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'inspect repo'
+    }));
+
+    const service = MockCodexService.instances[0];
+    const resumeCall = service.requests.find((entry) => entry.method === 'thread/resume');
+    assert.ok(resumeCall, 'thread/resume should be invoked');
+    assert.equal(resumeCall.params.threadId, 'thread-alias');
+
+    const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
+    assert.ok(turnStart, 'turn/start should be invoked');
+    assert.equal(turnStart.params.threadId, 'thread-canonical');
+
+    assert.equal(session.codexState.threadId, 'thread-canonical');
+    assert.equal(session.lastCodexThreadId, 'thread-canonical');
+
+    const ack = ws.sent.findLast((entry) => entry.type === 'codex_turn_ack');
+    assert.ok(ack, 'codex_turn_ack should be sent');
+    assert.equal(ack.threadId, 'thread-canonical');
+});
+
+test('codex gateway does not emit debug console logs for plan notifications or codex_turn payloads', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        codexState: {
+            threadId: 'thread-quiet',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null
+        }
+    });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const originalConsoleLog = console.log;
+    const loggedMessages = [];
+    console.log = (...args) => {
+        loggedMessages.push(args.map((value) => String(value)).join(' '));
+    };
+    t.after(() => {
+        console.log = originalConsoleLog;
+    });
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    const service = MockCodexService.instances[0];
+    service.emit('notification', {
+        method: 'plan/update',
+        params: {
+            threadId: 'thread-quiet',
+            prompt: 'sensitive prompt'
+        }
+    });
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'inspect repo',
+        collaborationMode: 'plan'
+    }));
+
+    assert.deepEqual(loggedMessages, []);
+});
+
+test('codex_turn skips thread/resume when turn override model is provided', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        codexConfig: {
+            approvalPolicy: 'never',
+            sandboxMode: 'workspace-write'
+        },
+        codexState: {
+            threadId: 'thread-existing',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null
+        }
+    });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'inspect repo',
+        model: 'gpt-5'
+    }));
+
+    const service = MockCodexService.instances[0];
+    const resumeCall = service.requests.find((entry) => entry.method === 'thread/resume');
+    assert.equal(resumeCall, undefined);
+
+    const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
+    assert.ok(turnStart, 'turn/start should be invoked');
+    assert.equal(turnStart.params.model, 'gpt-5');
 });
 
 test('codex_turn forwards image and localImage inputs to turn/start', async (t) => {
