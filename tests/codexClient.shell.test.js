@@ -45,7 +45,11 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /src="lib\/codex_settings_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
     assert.match(html, /src="lib\/codex_approval_view\.js\?v=1"/);
-    assert.match(html, /src="terminal_client\.js\?v=45"/);
+    assert.match(html, /id="codex-plan-workflow"/);
+    assert.match(html, /id="btn-codex-plan-execute"/);
+    assert.match(html, /id="btn-codex-plan-continue"/);
+    assert.match(html, /id="btn-codex-plan-cancel"/);
+    assert.match(html, /src="terminal_client\.js\?v=51"/);
 });
 
 test('terminal client shell shares scripts but does not expose codex history panel markup', () => {
@@ -61,7 +65,7 @@ test('terminal client shell shares scripts but does not expose codex history pan
     assert.match(html, /src="lib\/codex_settings_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
     assert.match(html, /src="lib\/codex_approval_view\.js\?v=1"/);
-    assert.match(html, /src="terminal_client\.js\?v=45"/);
+    assert.match(html, /src="terminal_client\.js\?v=51"/);
 });
 
 test('terminal client stylesheet supports secondary panels and sticky composer for the codex conversation page', () => {
@@ -92,6 +96,8 @@ test('terminal client stylesheet supports secondary panels and sticky composer f
     assert.match(css, /body\.viewport-compact #codex-thread-summary/);
     assert.match(css, /\.codex-request-card/);
     assert.match(css, /\.codex-request-actions/);
+    assert.match(css, /#codex-plan-workflow/);
+    assert.match(css, /#codex-plan-workflow-actions/);
 });
 
 // Phase 1 behavior test: secondary panels MUST be hidden by default
@@ -158,7 +164,10 @@ test('Phase 2: terminal_client.js composer must route through slash dispatch and
     const js = readPublicFile('terminal_client.js');
 
     assert.match(js, /function handleCodexComposerSubmit\(rawText\)/);
+    assert.match(js, /function buildPlanCollaborationMode\(config\)/);
     assert.match(js, /type:\s*'codex_set_interaction_state'/);
+    assert.match(js, /mode:\s*'plan'/);
+    assert.match(js, /reasoning_effort:\s*effectiveConfig\.reasoningEffort \|\| null/);
     assert.match(js, /collaborationMode:\s*collaborationMode \|\| undefined/);
     assert.match(js, /attachments:\s*imageInputs\.length > 0 \? imageInputs : undefined/);
     assert.match(js, /finalizePendingTurnStateOnSuccess\(\)/);
@@ -167,6 +176,15 @@ test('Phase 2: terminal_client.js composer must route through slash dispatch and
     assert.match(js, /activeSkill:\s*pending\.clearActiveSkill === true \? null : codexState\.interactionState\.activeSkill/);
     assert.match(js, /clearImageInputs:\s*imageInputs\.length > 0/);
     assert.match(js, /setPendingCodexImageInputs\(pending\.imageInputs \|\| \[\]\)/);
+    assert.match(js, /phase:\s*'idle'/);
+    assert.match(js, /function startPlanWorkflow\(promptText\)/);
+    assert.match(js, /function finalizePlanWorkflowForConfirmation\(\)/);
+    assert.match(js, /function buildConfirmedPlanExecutionPrompt\(\)/);
+    assert.match(js, /phase:\s*'awaiting_user_input'/);
+    assert.match(js, /phase:\s*'plan_ready_for_confirmation'/);
+    assert.match(js, /phase:\s*'executing_confirmed_plan'/);
+    assert.match(js, /if \(request\.requestKind === 'userInput' && codexState\.planWorkflow\.phase === 'planning'\)/);
+    assert.match(js, /Execute the confirmed plan below now\./);
 });
 
 test('Phase 2: terminal_client.js must compose server next-turn config with local next-turn overrides', () => {

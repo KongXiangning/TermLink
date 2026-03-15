@@ -63,6 +63,13 @@ const btnCodexCompactConfirm = document.getElementById('btn-codex-compact-confir
 const codexComposerState = document.getElementById('codex-composer-state');
 const codexPlanChip = document.getElementById('codex-plan-chip');
 const codexOverrideSummary = document.getElementById('codex-override-summary');
+const codexPlanWorkflow = document.getElementById('codex-plan-workflow');
+const codexPlanWorkflowTitle = document.getElementById('codex-plan-workflow-title');
+const codexPlanWorkflowSummary = document.getElementById('codex-plan-workflow-summary');
+const codexPlanWorkflowBody = document.getElementById('codex-plan-workflow-body');
+const btnCodexPlanExecute = document.getElementById('btn-codex-plan-execute');
+const btnCodexPlanContinue = document.getElementById('btn-codex-plan-continue');
+const btnCodexPlanCancel = document.getElementById('btn-codex-plan-cancel');
 const codexQuickModel = document.getElementById('codex-quick-model');
 const codexQuickReasoning = document.getElementById('codex-quick-reasoning');
 const btnCodexQuickClear = document.getElementById('btn-codex-quick-clear');
@@ -205,6 +212,13 @@ const codexState = {
     interactionState: {
         planMode: false,
         activeSkill: null
+    },
+    planWorkflow: {
+        phase: 'idle',
+        originalPrompt: '',
+        latestPlanText: '',
+        confirmedPlanText: '',
+        lastUserInputRequestId: ''
     },
     serverNextTurnConfigBase: null,
     nextTurnEffectiveCodexConfig: null,
@@ -1001,6 +1015,185 @@ function setPlanMode(enabled, options) {
         planMode: enabled === true,
         activeSkill: codexState.interactionState.activeSkill
     }, options);
+}
+
+function normalizePlanWorkflowPhase(value) {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (
+        normalized === 'planning'
+        || normalized === 'awaiting_user_input'
+        || normalized === 'plan_ready_for_confirmation'
+        || normalized === 'executing_confirmed_plan'
+        || normalized === 'cancelled'
+    ) {
+        return normalized;
+    }
+    return 'idle';
+}
+
+function buildEmptyPlanWorkflowState(overrides) {
+    return {
+        phase: 'idle',
+        originalPrompt: '',
+        latestPlanText: '',
+        confirmedPlanText: '',
+        lastUserInputRequestId: '',
+        ...(overrides && typeof overrides === 'object' ? overrides : {})
+    };
+}
+
+function setPlanWorkflowState(nextState) {
+    const source = nextState && typeof nextState === 'object' ? nextState : {};
+    codexState.planWorkflow = {
+        phase: normalizePlanWorkflowPhase(source.phase),
+        originalPrompt: typeof source.originalPrompt === 'string' ? source.originalPrompt.trim() : '',
+        latestPlanText: typeof source.latestPlanText === 'string' ? source.latestPlanText : '',
+        confirmedPlanText: typeof source.confirmedPlanText === 'string' ? source.confirmedPlanText : '',
+        lastUserInputRequestId: typeof source.lastUserInputRequestId === 'string' ? source.lastUserInputRequestId.trim() : ''
+    };
+    renderCodexPlanWorkflow();
+}
+
+function getPlanWorkflowDisplayText() {
+    if (codexState.planWorkflow.confirmedPlanText) {
+        return codexState.planWorkflow.confirmedPlanText;
+    }
+    if (codexState.planWorkflow.latestPlanText) {
+        return codexState.planWorkflow.latestPlanText;
+    }
+    if (codexState.runtimePlan) {
+        return codexState.runtimePlan;
+    }
+    return '';
+}
+
+function updatePlanWorkflowText(text, options) {
+    const opts = options || {};
+    const rawText = typeof text === 'string' ? text : '';
+    const normalized = opts.preserveWhitespace === true ? rawText : rawText.trim();
+    if (!normalized) {
+        return;
+    }
+    setPlanWorkflowState({
+        ...codexState.planWorkflow,
+        latestPlanText: normalized,
+        confirmedPlanText: opts.confirmed === true
+            ? normalized
+            : codexState.planWorkflow.confirmedPlanText
+    });
+}
+
+function startPlanWorkflow(promptText) {
+    const normalizedPrompt = typeof promptText === 'string' ? promptText.trim() : '';
+    const preserveOriginalPrompt = codexState.planWorkflow.phase === 'planning'
+        && !!codexState.planWorkflow.confirmedPlanText
+        && !!codexState.planWorkflow.originalPrompt;
+    setPlanWorkflowState({
+        phase: 'planning',
+        originalPrompt: preserveOriginalPrompt ? codexState.planWorkflow.originalPrompt : normalizedPrompt,
+        latestPlanText: '',
+        confirmedPlanText: '',
+        lastUserInputRequestId: ''
+    });
+}
+
+function finalizePlanWorkflowForConfirmation() {
+    const planText = getPlanWorkflowDisplayText();
+    if (!planText) {
+        setPlanWorkflowState({
+            ...codexState.planWorkflow,
+            phase: 'idle'
+        });
+        return;
+    }
+    setPlanWorkflowState({
+        ...codexState.planWorkflow,
+        phase: 'plan_ready_for_confirmation',
+        confirmedPlanText: planText,
+        latestPlanText: planText,
+        lastUserInputRequestId: ''
+    });
+}
+
+function cancelPlanWorkflow() {
+    setPlanMode(false);
+    setPlanWorkflowState({
+        ...buildEmptyPlanWorkflowState({
+            phase: 'cancelled',
+            originalPrompt: codexState.planWorkflow.originalPrompt
+        })
+    });
+    setTimeout(() => {
+        if (codexState.planWorkflow.phase === 'cancelled') {
+            setPlanWorkflowState(buildEmptyPlanWorkflowState());
+        }
+    }, 0);
+}
+
+function buildConfirmedPlanExecutionPrompt() {
+    const originalPrompt = codexState.planWorkflow.originalPrompt || 'Follow the confirmed plan below.';
+    const confirmedPlan = codexState.planWorkflow.confirmedPlanText || getPlanWorkflowDisplayText();
+    if (!confirmedPlan) {
+        return '';
+    }
+    return [
+        'Execute the confirmed plan below now.',
+        '',
+        'Original user goal:',
+        originalPrompt,
+        '',
+        'Confirmed plan:',
+        confirmedPlan
+    ].join('\n');
+}
+
+function renderCodexPlanWorkflow() {
+    if (!codexPlanWorkflow) {
+        return;
+    }
+    const phase = normalizePlanWorkflowPhase(codexState.planWorkflow.phase);
+    const visible = phase !== 'idle' && phase !== 'cancelled';
+    codexPlanWorkflow.hidden = !visible;
+    codexPlanWorkflow.dataset.phase = phase;
+    if (!visible) {
+        return;
+    }
+
+    let title = '计划进行中';
+    let summary = 'Codex 正在规划，当前不会直接执行。';
+    if (phase === 'awaiting_user_input') {
+        title = '等待补充信息';
+        summary = '需要你的选择后才能继续规划。';
+    } else if (phase === 'plan_ready_for_confirmation') {
+        title = '计划待确认';
+        summary = '当前计划已生成。确认后才会进入真实执行。';
+    } else if (phase === 'executing_confirmed_plan') {
+        title = '按确认计划执行中';
+        summary = '已切换到默认执行 turn。';
+    }
+
+    if (codexPlanWorkflowTitle) {
+        codexPlanWorkflowTitle.textContent = title;
+    }
+    if (codexPlanWorkflowSummary) {
+        codexPlanWorkflowSummary.textContent = summary;
+    }
+    if (codexPlanWorkflowBody) {
+        const text = getPlanWorkflowDisplayText();
+        codexPlanWorkflowBody.textContent = text || '等待计划文本...';
+    }
+    if (btnCodexPlanExecute) {
+        btnCodexPlanExecute.hidden = phase !== 'plan_ready_for_confirmation';
+        btnCodexPlanExecute.disabled = phase !== 'plan_ready_for_confirmation';
+    }
+    if (btnCodexPlanContinue) {
+        btnCodexPlanContinue.hidden = phase !== 'plan_ready_for_confirmation';
+        btnCodexPlanContinue.disabled = phase !== 'plan_ready_for_confirmation';
+    }
+    if (btnCodexPlanCancel) {
+        btnCodexPlanCancel.hidden = !(phase === 'planning' || phase === 'awaiting_user_input' || phase === 'plan_ready_for_confirmation');
+        btnCodexPlanCancel.disabled = phase === 'executing_confirmed_plan';
+    }
 }
 
 function setNextTurnOverrides(nextOverrides) {
@@ -2406,6 +2599,26 @@ function appendCodexLogEntry(role, text, options) {
     return entry;
 }
 
+function setCodexLogEntryText(role, itemId, text, options) {
+    if (!itemId) {
+        return appendCodexLogEntry(role, text, options);
+    }
+    let entry = getCodexEntryByItemId(itemId);
+    if (!entry) {
+        return appendCodexLogEntry(role, text, { ...(options || {}), itemId });
+    }
+    const metaNode = entry.querySelector('.meta');
+    if (metaNode && options && options.meta) {
+        metaNode.textContent = options.meta;
+    }
+    const contentNode = entry.querySelector('.content');
+    if (contentNode) {
+        contentNode.textContent = text || '';
+    }
+    codexLog.scrollTop = codexLog.scrollHeight;
+    return entry;
+}
+
 function getCodexEntryByItemId(itemId) {
     if (!itemId) return null;
     const cached = codexState.messageByItemId.get(itemId);
@@ -2491,6 +2704,7 @@ function resetCodexBootstrapState() {
     codexState.settingsStatusTone = '';
     codexState.nextTurnOverrides = { model: null, reasoningEffort: null };
     codexState.interactionState = { planMode: false, activeSkill: null };
+    codexState.planWorkflow = buildEmptyPlanWorkflowState();
     codexState.serverNextTurnConfigBase = null;
     codexState.nextTurnEffectiveCodexConfig = null;
     codexState.pendingSubmittedTurnState = null;
@@ -2536,6 +2750,7 @@ function resetCodexBootstrapState() {
     syncCodexSettingsFormFromStoredConfig();
     renderCodexQuickControls();
     renderCodexComposerState();
+    renderCodexPlanWorkflow();
     renderCodexImageInputs();
     renderCodexSlashMenu();
     renderCodexSettingsPanel();
@@ -2649,6 +2864,38 @@ function buildLocalNextTurnEffectiveCodexConfig() {
         approvalPolicy: stored ? stored.approvalPolicy : null,
         sandboxMode: stored ? stored.sandboxMode : null
     };
+}
+
+function normalizeCodexCollaborationMode(payload) {
+    const source = payload && typeof payload === 'object' ? payload : null;
+    if (!source || typeof source.mode !== 'string' || !source.mode.trim()) {
+        return null;
+    }
+    const settings = source.settings && typeof source.settings === 'object' ? source.settings : {};
+    return {
+        mode: source.mode.trim(),
+        settings: {
+            model: typeof settings.model === 'string' ? settings.model.trim() : '',
+            reasoning_effort: typeof settings.reasoning_effort === 'string' && settings.reasoning_effort.trim()
+                ? settings.reasoning_effort.trim().toLowerCase()
+                : null,
+            developer_instructions: typeof settings.developer_instructions === 'string' && settings.developer_instructions.trim()
+                ? settings.developer_instructions
+                : null
+        }
+    };
+}
+
+function buildPlanCollaborationMode(config) {
+    const effectiveConfig = normalizeEffectiveCodexConfig(config || buildLocalNextTurnEffectiveCodexConfig());
+    return normalizeCodexCollaborationMode({
+        mode: 'plan',
+        settings: {
+            model: effectiveConfig.model || '',
+            reasoning_effort: effectiveConfig.reasoningEffort || null,
+            developer_instructions: null
+        }
+    });
 }
 
 function refreshCodexSlashRegistry() {
@@ -3423,7 +3670,17 @@ function applyCodexRateLimit(payload) {
 
 function resolveCodexErrorMessage(code, message) {
     const normalizedCode = typeof code === 'string' ? code.trim().toUpperCase() : '';
-    const trimmedMessage = typeof message === 'string' ? message.trim() : '';
+    let trimmedMessage = typeof message === 'string' ? message.trim() : '';
+    if (trimmedMessage.startsWith('{') && trimmedMessage.endsWith('}')) {
+        try {
+            const parsed = JSON.parse(trimmedMessage);
+            if (typeof parsed.detail === 'string' && parsed.detail.trim()) {
+                trimmedMessage = parsed.detail.trim();
+            }
+        } catch (_) {
+            // Keep the original message if it is not valid JSON.
+        }
+    }
     if (normalizedCode.includes('TOKEN') && normalizedCode.includes('LIMIT')) {
         return trimmedMessage || 'Token limit exceeded. Reduce the prompt or start a new thread.';
     }
@@ -3473,7 +3730,7 @@ function updateViewportLayoutState() {
         viewportState.baselineHeight = height;
     }
     const lostHeight = viewportState.baselineHeight - height;
-    const compact = lostHeight >= 120 || height <= 540;
+    const compact = lostHeight >= 120 || height <= 700;
     viewportState.compact = compact;
     if (document.body) {
         document.body.classList.toggle('viewport-compact', compact);
@@ -3525,10 +3782,11 @@ function sendCodexTurn(text, options) {
     const nextTurnOverrides = normalizeNextTurnOverrides(opts.nextTurnOverrides || codexState.nextTurnOverrides);
     const interactionState = normalizeCodexInteractionState(opts.interactionState || codexState.interactionState);
     const imageInputs = normalizeCodexImageInputs(opts.imageInputs || codexState.pendingImageInputs);
-    const collaborationMode = typeof opts.collaborationMode === 'string' && opts.collaborationMode.trim()
-        ? opts.collaborationMode.trim()
-        : null;
-    if (!cleaned && imageInputs.length === 0) return;
+    const collaborationMode = normalizeCodexCollaborationMode(opts.collaborationMode);
+    if (!cleaned && imageInputs.length === 0) return false;
+    if (!collaborationMode && codexState.planWorkflow.phase === 'plan_ready_for_confirmation') {
+        setPlanWorkflowState(buildEmptyPlanWorkflowState());
+    }
     const payload = {
         type: 'codex_turn',
         text: cleaned,
@@ -3561,9 +3819,17 @@ function sendCodexTurn(text, options) {
         clearActiveSkill: !!interactionState.activeSkill,
         clearImageInputs: imageInputs.length > 0
     });
-    if (!sendCodexEnvelope(payload)) {
-        restorePendingTurnStateOnFailure();
+    if (collaborationMode && collaborationMode.mode === 'plan') {
+        startPlanWorkflow(cleaned);
     }
+    if (!sendCodexEnvelope(payload)) {
+        if (collaborationMode && collaborationMode.mode === 'plan') {
+            setPlanWorkflowState(buildEmptyPlanWorkflowState());
+        }
+        restorePendingTurnStateOnFailure();
+        return false;
+    }
+    return true;
 }
 
 function handleCodexComposerSubmit(rawText) {
@@ -3576,7 +3842,9 @@ function handleCodexComposerSubmit(rawText) {
         if (codexState.pendingImageInputs.length > 0) {
             sendCodexTurn('', {
                 clearPlanMode: codexState.interactionState.planMode === true,
-                collaborationMode: codexState.interactionState.planMode === true ? 'plan' : null
+                collaborationMode: codexState.interactionState.planMode === true
+                    ? buildPlanCollaborationMode(codexState.nextTurnEffectiveCodexConfig)
+                    : null
             });
             return true;
         }
@@ -3584,9 +3852,12 @@ function handleCodexComposerSubmit(rawText) {
     }
 
     if (parsed.kind !== 'slash') {
+        const collaborationMode = codexState.interactionState.planMode === true
+            ? buildPlanCollaborationMode(codexState.nextTurnEffectiveCodexConfig)
+            : null;
         sendCodexTurn(parsed.text, {
             clearPlanMode: codexState.interactionState.planMode === true,
-            collaborationMode: codexState.interactionState.planMode === true ? 'plan' : null
+            collaborationMode
         });
         return true;
     }
@@ -3604,7 +3875,7 @@ function handleCodexComposerSubmit(rawText) {
             return true;
         }
         sendCodexTurn(parsed.argumentText, {
-            collaborationMode: 'plan',
+            collaborationMode: buildPlanCollaborationMode(codexState.nextTurnEffectiveCodexConfig),
             clearPlanMode: true
         });
         return true;
@@ -3669,6 +3940,10 @@ function requestCodexNewThread(options) {
     if (opts.silent !== true) {
         appendCodexLogEntry('system', '正在请求新的 Codex 线程...', { meta: 'bridge' });
     }
+    setPlanWorkflowState({
+        ...buildEmptyPlanWorkflowState()
+    });
+    setPlanMode(false);
     codexState.pendingFreshThread = true;
     codexState.unmaterializedThreadId = '';
     sendCodexEnvelope({
@@ -3893,9 +4168,18 @@ function renderCodexServerRequest(envelope) {
     const actions = document.createElement('div');
     actions.className = 'codex-request-actions';
     const questionSelections = {};
+    const supportsOptionAnswers = request.responseMode === 'answers'
+        && Array.isArray(request.questions)
+        && request.questions.length > 0
+        && request.questions.every((question) => (
+            question
+            && typeof question === 'object'
+            && Array.isArray(question.options)
+            && question.options.some((option) => option && typeof option.label === 'string' && option.label.trim())
+        ));
     let approveBtn = null;
     let rejectBtn = null;
-    if (request.responseMode === 'answers' && Array.isArray(request.questions) && request.questions.length > 0) {
+    if (supportsOptionAnswers) {
         request.questions.forEach((question) => {
             const questionWrap = document.createElement('div');
             questionWrap.className = 'codex-request-question';
@@ -3946,6 +4230,16 @@ function renderCodexServerRequest(envelope) {
         actions.appendChild(rejectUserInputBtn);
         approveBtn = submitBtn;
         rejectBtn = rejectUserInputBtn;
+    } else if (request.responseMode === 'answers') {
+        const unsupported = document.createElement('div');
+        unsupported.className = 'codex-request-question-label';
+        unsupported.textContent = '当前客户端只支持选项式问题；请取消本次计划或改用普通对话补充信息。';
+        actions.appendChild(unsupported);
+        rejectBtn = document.createElement('button');
+        rejectBtn.type = 'button';
+        rejectBtn.dataset.requestAction = 'reject';
+        rejectBtn.textContent = '取消';
+        actions.appendChild(rejectBtn);
     } else {
         approveBtn = document.createElement('button');
         approveBtn.type = 'button';
@@ -3969,20 +4263,36 @@ function renderCodexServerRequest(envelope) {
     };
     setCodexRequestState(requestState);
     updateCodexRequestCard(requestState);
+    if (request.requestKind === 'userInput' && codexState.planWorkflow.phase === 'planning') {
+        setPlanWorkflowState({
+            ...codexState.planWorkflow,
+            phase: 'awaiting_user_input',
+            lastUserInputRequestId: requestId
+        });
+    }
 
-    approveBtn.addEventListener('click', () => {
-        const result = requestState.responseMode === 'answers'
-            ? (approvalApi && typeof approvalApi.buildUserInputResult === 'function'
-                ? approvalApi.buildUserInputResult(requestState, questionSelections)
-                : null)
-            : (approvalApi && typeof approvalApi.buildApprovalDecisionResult === 'function'
-                ? approvalApi.buildApprovalDecisionResult(requestState, true)
-                : buildApprovalDecisionResult(method, true));
-        if (!result) return;
-        if (sendCodexEnvelope({ type: 'codex_server_request_response', requestId, result })) {
-            markCodexRequestState(requestId, 'submitted', requestState.responseMode === 'answers' ? 'submitted' : 'approved');
-        }
-    });
+    if (approveBtn) {
+        approveBtn.addEventListener('click', () => {
+            const result = requestState.responseMode === 'answers'
+                ? (approvalApi && typeof approvalApi.buildUserInputResult === 'function'
+                    ? approvalApi.buildUserInputResult(requestState, questionSelections)
+                    : null)
+                : (approvalApi && typeof approvalApi.buildApprovalDecisionResult === 'function'
+                    ? approvalApi.buildApprovalDecisionResult(requestState, true)
+                    : buildApprovalDecisionResult(method, true));
+            if (!result) return;
+            if (sendCodexEnvelope({ type: 'codex_server_request_response', requestId, result })) {
+                if (requestState.requestKind === 'userInput') {
+                    setPlanWorkflowState({
+                        ...codexState.planWorkflow,
+                        phase: 'planning',
+                        lastUserInputRequestId: requestId
+                    });
+                }
+                markCodexRequestState(requestId, 'submitted', requestState.responseMode === 'answers' ? 'submitted' : 'approved');
+            }
+        });
+    }
 
     rejectBtn.addEventListener('click', () => {
         if (requestState.responseMode === 'answers') {
@@ -3991,6 +4301,9 @@ function renderCodexServerRequest(envelope) {
                 requestId,
                 error: { message: 'User input request cancelled by user.' }
             })) {
+                if (requestState.requestKind === 'userInput') {
+                    cancelPlanWorkflow();
+                }
                 markCodexRequestState(requestId, 'submitted', 'rejected');
             }
             return;
@@ -4106,6 +4419,7 @@ function handleCodexNotification(method, params) {
         clearCodexAlerts();
         clearCodexErrorNotice();
         setCodexStatus('running', 'in progress');
+        renderCodexPlanWorkflow();
         return;
     }
 
@@ -4116,6 +4430,11 @@ function handleCodexNotification(method, params) {
         }
         codexState.pendingFreshThread = false;
         setCodexStatus('idle');
+        if (codexState.planWorkflow.phase === 'planning' || codexState.planWorkflow.phase === 'awaiting_user_input') {
+            finalizePlanWorkflowForConfirmation();
+        } else if (codexState.planWorkflow.phase === 'executing_confirmed_plan') {
+            setPlanWorkflowState(buildEmptyPlanWorkflowState());
+        }
         refreshCodexThreadSnapshot({ force: true });
         return;
     }
@@ -4134,6 +4453,9 @@ function handleCodexNotification(method, params) {
     if (method === 'item/agentMessage/delta') {
         const itemId = params ? params.itemId : '';
         const delta = params ? params.delta : '';
+        if ((codexState.planWorkflow.phase === 'planning' || codexState.planWorkflow.phase === 'awaiting_user_input') && delta) {
+            updatePlanWorkflowText(`${getPlanWorkflowDisplayText()}${delta}`, { preserveWhitespace: true });
+        }
         upsertStreamingAssistantMessage(itemId || codexState.streamingItemId, delta || '', 'assistant');
         return;
     }
@@ -4153,11 +4475,35 @@ function handleCodexNotification(method, params) {
         if (contentNode && typeof item.text === 'string') {
             contentNode.textContent = item.text;
         }
+        if (codexState.planWorkflow.phase === 'planning' || codexState.planWorkflow.phase === 'awaiting_user_input') {
+            updatePlanWorkflowText(item.text || '');
+        }
         return;
     }
 
     if (method === 'thread/tokenUsage/updated') {
         applyCodexTokenUsage(params || {});
+        return;
+    }
+
+    if (method === 'turn/plan/updated') {
+        const planText = params && params.plan ? params.plan.text || '' : '';
+        if (planText) {
+            updatePlanWorkflowText(planText);
+            setCodexLogEntryText('assistant', params && params.plan ? params.plan.id || '' : '', planText, {
+                meta: 'plan'
+            });
+        }
+        return;
+    }
+
+    if (method === 'item/plan/delta') {
+        const itemId = params ? params.itemId || params.planId : '';
+        const delta = params ? params.delta || '' : '';
+        if (delta) {
+            updatePlanWorkflowText(`${getPlanWorkflowDisplayText()}${delta}`, { preserveWhitespace: true });
+            upsertStreamingAssistantMessage(itemId || codexState.streamingItemId, delta, 'plan');
+        }
         return;
     }
 
@@ -4175,10 +4521,19 @@ function handleCodexNotification(method, params) {
     }
 
     if (method === 'error') {
-        const resolved = resolveCodexErrorMessage(params && params.code, params && params.message);
+        const errorPayload = params && params.error && typeof params.error === 'object'
+            ? params.error
+            : {};
+        const resolved = resolveCodexErrorMessage(
+            errorPayload.code || (params && params.code),
+            errorPayload.message || (params && params.message)
+        );
         appendCodexLogEntry('error', resolved, { meta: (params && params.code) || 'event' });
         setCodexErrorNotice(resolved);
         setCodexStatus('error', 'event error');
+        if (codexState.planWorkflow.phase !== 'idle') {
+            setPlanWorkflowState(buildEmptyPlanWorkflowState());
+        }
         codexState.runtimeWarning = resolved;
         codexState.runtimeWarningTone = 'error';
         renderCodexRuntimePanel();
@@ -4831,6 +5186,9 @@ function connect() {
                     appendCodexLogEntry('error', message, { meta: envelope.code || 'codex' });
                     setCodexErrorNotice(message);
                     setCodexStatus('error', message);
+                    if (codexState.planWorkflow.phase !== 'idle') {
+                        setPlanWorkflowState(buildEmptyPlanWorkflowState());
+                    }
                     return;
                 }
                 if (envelope.type === 'codex_response') {
@@ -5317,6 +5675,51 @@ if (codexPlanChip) {
     });
 }
 
+if (btnCodexPlanExecute) {
+    btnCodexPlanExecute.addEventListener('click', () => {
+        const executionPrompt = buildConfirmedPlanExecutionPrompt();
+        if (!executionPrompt) {
+            appendCodexLogEntry('error', '当前没有可执行的已确认计划。', { meta: 'plan' });
+            return;
+        }
+        setPlanMode(false);
+        setPlanWorkflowState({
+            ...codexState.planWorkflow,
+            phase: 'executing_confirmed_plan'
+        });
+        const sent = sendCodexTurn(executionPrompt, {
+            clearPlanMode: false,
+            collaborationMode: null
+        });
+        if (!sent) {
+            setPlanWorkflowState({
+                ...codexState.planWorkflow,
+                phase: 'plan_ready_for_confirmation'
+            });
+        }
+    });
+}
+
+if (btnCodexPlanContinue) {
+    btnCodexPlanContinue.addEventListener('click', () => {
+        setPlanMode(true);
+        setPlanWorkflowState({
+            ...codexState.planWorkflow,
+            phase: 'planning',
+            latestPlanText: codexState.planWorkflow.confirmedPlanText || codexState.planWorkflow.latestPlanText
+        });
+        if (codexInput) {
+            codexInput.focus();
+        }
+    });
+}
+
+if (btnCodexPlanCancel) {
+    btnCodexPlanCancel.addEventListener('click', () => {
+        cancelPlanWorkflow();
+    });
+}
+
 if (codexQuickModel) {
     codexQuickModel.addEventListener('focus', () => {
         void maybeLoadCodexModels();
@@ -5558,6 +5961,7 @@ if (shouldExposeCodexTestHooks) {
         handleCodexComposerSubmit,
         handleCodexNotification,
         handleCodexThreadSnapshot,
+        startPlanWorkflow,
         applyCodexRateLimit,
         formatRateLimitSummary,
         storeCodexThreadList,
@@ -5589,6 +5993,9 @@ if (shouldExposeCodexTestHooks) {
         getCodexToolsPanel: () => codexToolsPanel,
         getCodexAlertConfig: () => codexAlertConfig,
         getCodexAlertDeprecation: () => codexAlertDeprecation,
-        getCodexImagePromptInput: () => codexImagePromptInput
+        getCodexImagePromptInput: () => codexImagePromptInput,
+        getCodexPlanWorkflow: () => codexPlanWorkflow,
+        getCodexPlanWorkflowBody: () => codexPlanWorkflowBody,
+        renderCodexPlanWorkflow
     };
 }

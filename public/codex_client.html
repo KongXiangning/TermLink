@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TermLink Codex</title>
-    <link rel="stylesheet" href="terminal_client.css?v=37">
+    <link rel="stylesheet" href="terminal_client.css?v=38">
     <script src="terminal_shortcut_input.js?v=25"></script>
 </head>
 
@@ -176,6 +176,18 @@
                     <div id="codex-override-summary" hidden></div>
                     <button id="btn-codex-quick-clear" class="codex-inline-action" type="button">清除本次设置</button>
                 </div>
+                <section id="codex-plan-workflow" hidden>
+                    <div id="codex-plan-workflow-header">
+                        <div id="codex-plan-workflow-title">计划进行中</div>
+                        <div id="codex-plan-workflow-summary">Codex 正在规划，当前不会直接执行。</div>
+                    </div>
+                    <pre id="codex-plan-workflow-body"></pre>
+                    <div id="codex-plan-workflow-actions">
+                        <button id="btn-codex-plan-execute" class="codex-btn" type="button" hidden>执行此计划</button>
+                        <button id="btn-codex-plan-continue" class="codex-btn subtle" type="button" hidden>继续提问/补充</button>
+                        <button id="btn-codex-plan-cancel" class="codex-btn subtle" type="button" hidden>取消</button>
+                    </div>
+                </section>
                 <div id="codex-slash-menu" hidden>
                     <div id="codex-slash-menu-header">
                         <span id="codex-slash-menu-title">搜索命令</span>
@@ -239,7 +251,7 @@
     <script src="lib/codex_settings_view.js?v=1"></script>
     <script src="lib/codex_runtime_view.js?v=4"></script>
     <script src="lib/codex_approval_view.js?v=1"></script>
-    <script src="terminal_client.js?v=50"></script>
+    <script src="terminal_client.js?v=51"></script>
 </body>
 
 </html>

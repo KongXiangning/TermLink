@@ -193,6 +193,18 @@ function createTestDOM() {
                     <div id="codex-override-summary" hidden></div>
                     <button id="btn-codex-quick-clear" class="codex-inline-action" type="button">清除本次设置</button>
                 </div>
+                <section id="codex-plan-workflow" hidden>
+                    <div id="codex-plan-workflow-header">
+                        <div id="codex-plan-workflow-title">计划进行中</div>
+                        <div id="codex-plan-workflow-summary">Codex 正在规划，当前不会直接执行。</div>
+                    </div>
+                    <pre id="codex-plan-workflow-body"></pre>
+                    <div id="codex-plan-workflow-actions">
+                        <button id="btn-codex-plan-execute" class="codex-btn" type="button" hidden>执行此计划</button>
+                        <button id="btn-codex-plan-continue" class="codex-btn subtle" type="button" hidden>继续提问/补充</button>
+                        <button id="btn-codex-plan-cancel" class="codex-btn subtle" type="button" hidden>取消</button>
+                    </div>
+                </section>
                 <div id="codex-slash-menu" hidden>
                     <div id="codex-slash-menu-header">
                         <span id="codex-slash-menu-title">搜索命令</span>
@@ -1160,6 +1172,23 @@ test('Phase 4 Integration: account/rateLimits/updated renders summary for usage 
     dom.window.close();
 });
 
+test('Phase 4 Integration: nested Codex error payloads surface the provider detail text', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.handleCodexNotification('error', {
+        error: {
+            message: '{"detail":"The empty model is not supported when using Codex with a ChatGPT account."}'
+        }
+    });
+
+    assert.match(hooks.getCodexLog().textContent, /empty model is not supported/i);
+    assert.match(window.document.getElementById('codex-status-text').textContent, /错误/);
+
+    dom.window.close();
+});
+
 test('Phase 4 Integration: image input actions render chips from prompt values', async () => {
     const dom = createTestDOM();
     const { window } = dom;
@@ -1185,6 +1214,79 @@ test('Phase 4 Integration: image input actions render chips from prompt values',
     assert.match(chips[1].textContent, /本地图片/);
     assert.match(chips[1].textContent, /android-error\.png/);
     assert.equal(hooks.getCodexImageInputs().hidden, false, 'image chip tray must be visible');
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: a new plan turn must replace stale originalPrompt', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.planWorkflow = {
+        phase: 'plan_ready_for_confirmation',
+        originalPrompt: 'old goal',
+        latestPlanText: 'Old plan',
+        confirmedPlanText: 'Old plan',
+        lastUserInputRequestId: ''
+    };
+
+    hooks.startPlanWorkflow('new goal');
+
+    assert.equal(hooks.codexState.planWorkflow.originalPrompt, 'new goal');
+    assert.equal(hooks.codexState.planWorkflow.latestPlanText, '');
+    assert.equal(hooks.codexState.planWorkflow.confirmedPlanText, '');
+    assert.equal(hooks.codexState.planWorkflow.phase, 'planning');
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: plan deltas append raw chunks and plan updates reuse one log entry', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.planWorkflow = {
+        phase: 'planning',
+        originalPrompt: 'goal',
+        latestPlanText: '',
+        confirmedPlanText: '',
+        lastUserInputRequestId: ''
+    };
+    hooks.renderCodexPlanWorkflow();
+
+    hooks.handleCodexNotification('item/plan/delta', {
+        planId: 'plan-1',
+        delta: 'Step 1'
+    });
+    hooks.handleCodexNotification('item/plan/delta', {
+        planId: 'plan-1',
+        delta: ' -> Step 2'
+    });
+
+    assert.equal(hooks.codexState.planWorkflow.latestPlanText, 'Step 1 -> Step 2');
+    assert.equal(
+        hooks.getCodexLog().querySelector('[data-item-id="plan-1"] .content').textContent,
+        'Step 1 -> Step 2'
+    );
+    assert.equal(hooks.getCodexPlanWorkflowBody().textContent, 'Step 1 -> Step 2');
+
+    hooks.handleCodexNotification('turn/plan/updated', {
+        plan: {
+            id: 'plan-2',
+            text: 'Draft A'
+        }
+    });
+    hooks.handleCodexNotification('turn/plan/updated', {
+        plan: {
+            id: 'plan-2',
+            text: 'Draft B'
+        }
+    });
+
+    const planEntries = hooks.getCodexLog().querySelectorAll('[data-item-id="plan-2"]');
+    assert.equal(planEntries.length, 1, 'turn/plan/updated should update, not duplicate, the plan log entry');
+    assert.match(planEntries[0].textContent, /Draft B/);
 
     dom.window.close();
 });
