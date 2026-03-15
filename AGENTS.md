@@ -33,6 +33,10 @@
 - 用途：提交前敏感信息审查（扫描 staged 文件中的密钥、口令、私钥、真实本地配置地址）。
 - 文件：`skills/git-sensitive-scan/SKILL.md`
 
+7. `git-worktree`
+- 用途：创建、复用、移除 Git worktree，用于并行功能开发和隔离分支目录。
+- 文件：`skills/git-worktree/SKILL.md`
+
 ## Trigger rules
 
 满足以下任一条件时应触发对应 skill：

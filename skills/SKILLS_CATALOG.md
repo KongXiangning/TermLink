@@ -46,6 +46,12 @@
 - Codex 元数据：`skills/android-build-apk-copy/agents/openai.yaml`
 - Claude 卡片：`skills/android-build-apk-copy/agents/claude.md`
 
+### 2.6 `git-worktree`
+
+- 用途：创建、复用、移除 Git worktree，用于并行功能开发和隔离分支目录。
+- Codex 元数据：`skills/git-worktree/agents/openai.yaml`
+- Claude 卡片：`skills/git-worktree/agents/claude.md`
+
 ## 3. 推荐后续新增 Skills（按优先级）
 
 ### P0

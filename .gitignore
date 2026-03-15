@@ -25,3 +25,4 @@ screenshot*.png
 *.apk
 gradle-local/
 .codex/
+tmp-*.xml
