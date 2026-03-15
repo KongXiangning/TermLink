@@ -2,7 +2,7 @@
 title: Codex 能力矩阵驱动主线需求（对话体验优先 MVP + 下一阶段）
 status: planned
 owner: @maintainer
-last_updated: 2026-03-10
+last_updated: 2026-03-15
 source_of_truth: product
 related_code: [src/routes/sessions.js, src/services/sessionManager.js, src/services/codexAppServerService.js, src/ws/terminalGateway.js, public/codex_client.html, public/terminal_client.js, android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt]
 related_docs: [docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md, docs/codex/cross-version-stable-findings.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/changes/records/INDEX.md]
@@ -360,6 +360,7 @@ Codex 首页默认只保留以下主体：
 - `text: string`
 - `model?: string`
 - `reasoningEffort?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh"`
+- `collaborationMode?: { mode: string, settings: { model: string, reasoning_effort: "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | null, developer_instructions: string | null } }`
 
 规则：
 
@@ -369,6 +370,10 @@ Codex 首页默认只保留以下主体：
 4. 发送流程必须考虑 `activeSkill` 的生效语义，但当前文档阶段不将 `activeSkill` 绑定为某个固定底层协议字段、原生 RPC 参数或 app-server 原生载荷。
 5. `activeSkill` 当前只冻结为交互契约与状态模型，未来正式开放时，再依据能力矩阵证据决定承接方式。
 6. 后续 slash 扩展命令接入时，必须优先复用统一 registry / dispatch 接口，不得继续把新命令硬编码进 composer 提交分支。
+7. `/plan` 相关发送链路必须发送结构化 `collaborationMode` 对象，不得再发送裸字符串 `'plan'`。
+8. gateway 可以兼容旧客户端传入的 `'plan'` 字符串，但转发到上游 `turn/start` 前必须归一化为对象，并把缺失的 `settings.model` / `settings.reasoning_effort` 用当前 turn 的有效配置补齐。
+9. `/plan` 当前期可依赖的最小能力是 `collaborationMode.mode = "plan"` 带来的“先计划、默认不直接执行”语义，而不是 `turn/plan/updated` / `item/plan/delta` 的稳定存在。
+10. 若 plan 相关专用事件缺失，客户端必须允许退回消费普通 agent message 作为计划文本展示与后续确认执行入口。
 
 ### 11.4 slash registry 约束
 
@@ -420,6 +425,8 @@ Codex 首页默认只保留以下主体：
 6. 输入 `/plan`，验证进入一次性 `planMode` 并显示可取消的模式 chip。
 7. 输入 `/plan <文本>`，验证按计划模式发送 `<文本>`，且发送成功后 `planMode` 被清空。
 8. 再次发送若要继续计划模式，验证必须重新输入 `/plan`。
+8a. 对同一“创建/修改文件”任务做默认模式与 plan 模式对照，验证默认模式执行而 plan 模式默认不直接执行。
+8b. 验证即使未收到 `turn/plan/updated` / `item/plan/delta`，只要返回了明确计划文本且未直接执行，仍判定 `/plan` 基础语义成立。
 9. 当前期手动输入 `/skill foo`，验证显示“命令已预留但暂未开放”，且不发送、不建线程、不写 `interactionState`、不污染消息流。
 10. 在未来开放规则中，`/skill b` 替换 `activeSkill=a` 时，验证只更新 `interactionState.activeSkill`，且不触发发送。
 11. 替换或清除 `activeSkill` 时，若 `planMode` 尚未发送，验证 `planMode` 保持不变。

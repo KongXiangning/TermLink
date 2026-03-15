@@ -2,7 +2,7 @@
 title: 变更记录索引
 status: active
 owner: @maintainer
-last_updated: 2026-03-12
+last_updated: 2026-03-15
 source_of_truth: product
 related_code: [docs/changes/records]
 related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_CHANGE_RECORD.md]
@@ -55,3 +55,6 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 | CR-20260312-1705-codex-phase4-thread-actions | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-12 | Phase 4 第二个实施包：在线程列表接入 fork/archive/unarchive 扩展动作，并开放 gateway 转发白名单 | `docs/changes/records/CR-20260312-1705-codex-phase4-thread-actions.md` |
 | CR-20260312-1815-codex-phase4-image-input | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-12 | Phase 4 第三个实施包：开放 image/localImage 输入，接通 composer 附件状态与 turn/start 输入组装 | `docs/changes/records/CR-20260312-1815-codex-phase4-image-input.md` |
 | CR-20260312-1430-codex-phase3-validation | REQ-20260309-codex-capability-mvp | active | 81d3945 | @maintainer | 2026-03-12 | Phase 3 验收通过：PATCH 写路径、状态一致性、interactionState 独立性 | `docs/changes/records/CR-20260312-1430-codex-phase3-validation.md` |
+| CR-20260314-1239-codex-plan-collab-mode-fix | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-14 | 修复 `/plan` 仍发送裸字符串 collaborationMode 的协议失配，升级为结构化对象并保留 gateway 兼容 | `docs/changes/records/CR-20260314-1239-codex-plan-collab-mode-fix.md` |
+| CR-20260315-0139-codex-plan-validation | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-15 | 独立复核 `/plan`：确认基础 plan 语义可用，但 `turn/plan/updated` / `item/plan/delta` 不能作为稳定硬前提 | `docs/changes/records/CR-20260315-0139-codex-plan-validation.md` |
+| CR-20260315-0200-codex-plan-workflow | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-15 | 实现 `/plan` 客户端双阶段工作流：等待补充信息、待确认计划卡片、确认后二次执行与不支持题型提示 | `docs/changes/records/CR-20260315-0200-codex-plan-workflow.md` |

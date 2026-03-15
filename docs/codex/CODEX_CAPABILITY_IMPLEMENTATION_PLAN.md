@@ -26,7 +26,7 @@
 
 按 `docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md`：
 
-1. `thread/list`、`thread/read`、`thread/resume`、`model/list`、模型选择、推理强度选择、`turn/interrupt`、`turn/plan/updated`、`account/rateLimits/read` 均已有硬证据。
+1. `thread/list`、`thread/read`、`thread/resume`、`model/list`、模型选择、推理强度选择、`turn/interrupt`、`account/rateLimits/read` 均已有硬证据；`collaborationMode.mode = "plan"` 的基础语义已通过运行时对照验证，但 `turn/plan/updated` / `item/plan/delta` 目前不能视为稳定硬前提。
 2. slash 交互不是底层协议原语，但属于“可做，且交互形态属于客户端封装”。
 3. `/skill <name>` 当前按客户端一次性辅助交互实现，不推定 app-server 已存在固定原生字段或固定 RPC 承接方式。
 
@@ -78,7 +78,7 @@
 | `thread/list/read/resume` | 已确认可做 / 协议存在，基本可做 | 技术已支持且当前期前置 | P1 | 保留能力，但入口改为抽屉 / 会话管理。 |
 | slash registry / slash list | 可做，但交互形态属于客户端封装 | 技术已支持且当前期前置 | P2 | 客户端本地 registry，不新增底层协议。 |
 | `/model` | `model/list` 已确认可做，slash 为客户端封装 | 技术已支持且当前期前置 | P2 | 与快捷入口共用一个 next-turn override 状态源。 |
-| `/plan` | plan 流已确认可做，slash 为客户端封装 | 技术已支持且当前期前置 | P2 | 写入 `interactionState.planMode`，发送后自动清除。 |
+| `/plan` | 基础 plan 语义已确认可做，slash 为客户端封装 | 技术已支持且当前期前置 | P2 | 写入 `interactionState.planMode`，发送时转为结构化 `collaborationMode`；计划展示需允许使用普通 agent message 兜底。 |
 | `/skill <name>` 一次性交互 | `skills/list` 可做，交互形态属于客户端封装 | 技术已支持且当前期最小开放 | P2 | 通过技能列表选择后，仅用于本次输入辅助与 prompt 预填，不进入底层固定字段。 |
 | 输入区模型 / 推理强度快捷入口 | 已确认可做 | 技术已支持且当前期前置 | P2 | 只影响下一次发送，不写回 stored config。 |
 | `model/list` | 已确认可做 | 技术已支持且当前期前置 | P2 | 既支撑 `/model`，也支撑二级 Session Defaults。 |
@@ -166,7 +166,7 @@
 2. `/plan`
    - `availability = enabled`
    - `dispatchKind = interaction_state`
-   - `capabilityBinding = 客户端封装 + turn/plan/updated`
+   - `capabilityBinding = 客户端封装 + collaborationMode(plan)`；`turn/plan/updated` / `item/plan/delta` 仅作为增强事件
 3. `/skill <name>`
    - `availability = enabled`
    - `dispatchKind = interaction_state`
@@ -189,7 +189,7 @@
 4. `/plan <文本>` 发送成功后立即清除 `planMode`。
 5. 用户若要再次进入计划模式，必须重新输入 `/plan`。
 6. `/plan` 不清除 `activeSkill`。
-7. 底层仍复用现有 `turn/start` 与 `turn/plan/updated`，不新增协议类型。
+7. 底层仍复用现有 `turn/start`，不新增协议类型；若 `turn/plan/updated` / `item/plan/delta` 出现，仅作为增强展示事件，不作为计划模式成立的唯一判据。
 
 ### 5.5 `/skill <name>` 一次性输入辅助契约
 
@@ -306,6 +306,7 @@
 
 - `model`
 - `reasoningEffort`
+- `collaborationMode`
 
 规则：
 
@@ -314,6 +315,9 @@
 3. 发送成功后清空 `interactionState.planMode`。
 4. `interactionState.activeSkill` 仅作为一次性发送辅助态；发送成功后清除，失败时恢复。
 5. 不自动写回 `codexConfig`。
+6. `/plan` 发送时，`collaborationMode` 必须采用 `{ mode, settings }` 结构，且 `settings` 至少包含 `model`、`reasoning_effort`、`developer_instructions`。
+7. gateway 继续接受 legacy `'plan'` 字符串输入，但在转发 `turn/start` 前统一升级为结构化对象；当 `collaborationMode` 存在时，不再并行发送顶层 `model` / `reasoningEffort`。
+8. `/plan` 的最小可依赖运行时判据是“plan 模式下先给计划、默认不直接执行”；前端不得把 `turn/plan/updated` / `item/plan/delta` 缺失直接判定为协议失败。
 
 ## 8. Android / Browser 共享与差异策略
 
@@ -404,6 +408,7 @@
 | slash | `/model` 未选择即返回 | 不写 override |
 | slash | 输入 `/plan` | 进入 `planMode` 并显示可取消 chip |
 | slash | 输入 `/plan <文本>` | 发送成功后自动清除 `planMode` |
+| slash | `/plan` 请求修改文件的任务 | 默认模式会执行；plan 模式默认不直接执行，且允许仅通过普通 agent message 返回计划文本 |
 | slash | 输入 `/skill` 并选择技能 | 预填本次输入 prompt，不发送原始 slash，不创建新线程 |
 | interaction | `/plan` 与 `activeSkill` 并行 | `/plan` 不覆盖 `activeSkill`；skill 仅作用于本次输入，发送成功后自动清除 |
 | config | `/model` 与快捷入口 | 共用同一状态源，最后一次选择优先 |
