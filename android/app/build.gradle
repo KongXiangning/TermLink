@@ -1,6 +1,7 @@
 apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 
+import groovy.json.JsonOutput
 import java.util.Properties
 
 def localProperties = new Properties()
@@ -33,6 +34,9 @@ def mtlsEnabled = readBuildConfigValue('TERMLINK_MTLS_ENABLED', 'false').toBoole
 def mtlsP12Asset = readBuildConfigValue('TERMLINK_MTLS_P12_ASSET', 'mtls/client.p12')
 def mtlsP12Password = readBuildConfigValue('TERMLINK_MTLS_P12_PASSWORD', '')
 def mtlsAllowedHosts = readBuildConfigValue('TERMLINK_MTLS_ALLOWED_HOSTS', '')
+def debugServerBaseUrl = readBuildConfigValue('TERMLINK_DEBUG_BASE_URL', '')
+def debugServerUsername = readBuildConfigValue('TERMLINK_DEBUG_BASIC_USERNAME', '')
+def debugServerPassword = readBuildConfigValue('TERMLINK_DEBUG_BASIC_PASSWORD', '')
 
 android {
     namespace = "com.termlink.app"
@@ -107,13 +111,45 @@ try {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
 }
 
-// Copy local debug config into a debug-only generated assets directory.
-task copyLocalDebugConfig(type: Copy) {
-    def localConfigFile = rootProject.file('local-debug-config.json')
-    onlyIf { localConfigFile.exists() }
-    from localConfigFile
-    into layout.buildDirectory.dir('generated/assets/localDebugConfig/debug')
-    rename { 'local-debug-config.json' }
+// Build a debug-only local config asset. Use an untracked local-debug-config.json or local.properties/env vars.
+task prepareDebugLocalConfig {
+    outputs.file(layout.buildDirectory.file('generated/assets/localDebugConfig/debug/local-debug-config.json'))
+    doLast {
+        def outputFile = layout.buildDirectory.file('generated/assets/localDebugConfig/debug/local-debug-config.json').get().asFile
+        def localConfigFile = rootProject.file('local-debug-config.json')
+        if (localConfigFile.exists()) {
+            outputFile.parentFile.mkdirs()
+            outputFile.text = localConfigFile.getText('UTF-8')
+            return
+        }
+
+        if (!debugServerBaseUrl) {
+            outputFile.delete()
+            return
+        }
+
+        outputFile.parentFile.mkdirs()
+
+        def profileId = 'local-debug-default'
+        def authType = (debugServerUsername && debugServerPassword) ? 'BASIC' : 'NONE'
+        def payload = [
+            profiles: [[
+                id: profileId,
+                name: 'Local Debug Server',
+                baseUrl: debugServerBaseUrl,
+                terminalType: 'TERMLINK_WS',
+                authType: authType,
+                basicUsername: debugServerUsername,
+                mtlsEnabled: false,
+                allowedHosts: ''
+            ]],
+            activeProfileId: profileId,
+            basicCredentials: authType == 'BASIC'
+                ? [(profileId): debugServerPassword]
+                : [:]
+        ]
+        outputFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(payload))
+    }
 }
 
 task removeLegacyLocalDebugConfig(type: Delete) {
@@ -125,5 +161,5 @@ tasks.matching { it.name == 'preBuild' }.configureEach {
 }
 
 tasks.matching { it.name == 'mergeDebugAssets' || it.name == 'processDebugMainResources' }.configureEach {
-    dependsOn copyLocalDebugConfig
+    dependsOn prepareDebugLocalConfig
 }
