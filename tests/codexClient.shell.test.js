@@ -11,7 +11,10 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     const html = readPublicFile('codex_client.html');
 
     assert.match(html, /id="codex-status-strip"/);
-    assert.match(html, /id="codex-thread-summary"/);
+    assert.match(html, /id="codex-thread-line"/);
+    assert.match(html, /id="codex-thread-id"/);
+    assert.match(html, /id="codex-thread-cwd"/);
+    assert.match(html, /id="btn-codex-secondary-threads"/);
     assert.match(html, /id="btn-codex-secondary-settings"/);
     assert.match(html, /id="btn-codex-secondary-runtime"/);
     assert.match(html, /id="btn-codex-secondary-tools"/);
@@ -23,14 +26,14 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="codex-alerts"/);
     assert.match(html, /id="btn-codex-history-refresh"/);
     assert.match(html, /id="btn-codex-new-thread"/);
+    assert.match(html, /id="btn-codex-history-toggle"/);
     assert.match(html, /id="btn-codex-settings-save"/);
     assert.match(html, /id="codex-plan-chip"/);
     assert.match(html, /id="codex-quick-model"/);
     assert.match(html, /id="codex-quick-reasoning"/);
     assert.match(html, /id="btn-codex-slash-trigger"/);
     assert.match(html, /id="codex-image-inputs"/);
-    assert.match(html, /id="btn-codex-image-url"/);
-    assert.match(html, /id="btn-codex-image-local"/);
+    assert.match(html, /id="codex-log"[\s\S]*id="codex-log-stack"/);
     assert.match(html, /id="codex-composer-surface"/);
     assert.match(html, /id="codex-composer-footer"/);
     assert.match(html, /id="codex-slash-menu"/);
@@ -39,7 +42,7 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="codex-settings-approval"[\s\S]*<option value="">服务端默认<\/option>/);
     assert.match(html, /id="codex-settings-sandbox"[\s\S]*<option value="">服务端默认<\/option>/);
     assert.match(html, /src="lib\/codex_bootstrap\.js\?v=2"/);
-    assert.match(html, /src="lib\/codex_history_view\.js\?v=1"/);
+    assert.match(html, /src="lib\/codex_history_view\.js\?v=2"/);
     assert.match(html, /src="lib\/codex_shell_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_slash_commands\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_settings_view\.js\?v=1"/);
@@ -49,7 +52,7 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="btn-codex-plan-execute"/);
     assert.match(html, /id="btn-codex-plan-continue"/);
     assert.match(html, /id="btn-codex-plan-cancel"/);
-    assert.match(html, /src="terminal_client\.js\?v=51"/);
+    assert.match(html, /src="terminal_client\.js\?v=56"/);
 });
 
 test('terminal client shell shares scripts but does not expose codex history panel markup', () => {
@@ -59,20 +62,20 @@ test('terminal client shell shares scripts but does not expose codex history pan
     assert.doesNotMatch(html, /id="codex-settings-panel"/);
     assert.doesNotMatch(html, /id="codex-runtime-panel"/);
     assert.match(html, /src="lib\/codex_bootstrap\.js\?v=2"/);
-    assert.match(html, /src="lib\/codex_history_view\.js\?v=1"/);
+    assert.match(html, /src="lib\/codex_history_view\.js\?v=2"/);
     assert.match(html, /src="lib\/codex_shell_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_slash_commands\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_settings_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
     assert.match(html, /src="lib\/codex_approval_view\.js\?v=1"/);
-    assert.match(html, /src="terminal_client\.js\?v=51"/);
+    assert.match(html, /src="terminal_client\.js\?v=56"/);
 });
 
 test('terminal client stylesheet supports secondary panels and sticky composer for the codex conversation page', () => {
     const css = readPublicFile('terminal_client.css');
 
     assert.match(css, /#codex-status-strip/);
-    assert.match(css, /#codex-thread-summary/);
+    assert.match(css, /#codex-thread-line/);
     assert.match(css, /\.codex-secondary-btn/);
     assert.match(css, /#codex-history-actions/);
     assert.match(css, /#codex-panel\.collapsed #codex-settings-panel/);
@@ -82,6 +85,8 @@ test('terminal client stylesheet supports secondary panels and sticky composer f
     assert.match(css, /body\.codex-only #terminal-shell\s*\{[\s\S]*height:\s*auto/);
     assert.match(css, /body\.codex-only #codex-panel\s*\{[\s\S]*overflow:\s*visible/);
     assert.match(css, /body\.codex-only #codex-composer\s*\{[\s\S]*position:\s*sticky/);
+    assert.match(css, /#codex-log-stack\s*\{[\s\S]*min-height:\s*100%/);
+    assert.match(css, /body\.codex-only #codex-log-stack\s*\{[\s\S]*justify-content:\s*flex-end/);
     assert.match(css, /#codex-quick-controls/);
     assert.match(css, /#codex-tools-grid/);
     assert.match(css, /#codex-composer-surface/);
@@ -93,11 +98,20 @@ test('terminal client stylesheet supports secondary panels and sticky composer f
     assert.match(css, /\.codex-image-chip/);
     assert.match(css, /\.codex-mode-chip/);
     assert.match(css, /\.codex-history-rename-input/);
-    assert.match(css, /body\.viewport-compact #codex-thread-summary/);
+    assert.match(css, /body\.viewport-compact #codex-input/);
     assert.match(css, /\.codex-request-card/);
     assert.match(css, /\.codex-request-actions/);
     assert.match(css, /#codex-plan-workflow/);
     assert.match(css, /#codex-plan-workflow-actions/);
+});
+
+test('codex message appends target the inner log stack instead of the scroll container root', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    assert.match(js, /const codexLogStack = document\.getElementById\('codex-log-stack'\);/);
+    assert.match(js, /function getCodexLogContainer\(\)\s*\{\s*return codexLogStack \|\| codexLog;/);
+    assert.match(js, /const logContainer = getCodexLogContainer\(\);[\s\S]*logContainer\.appendChild\(entry\);/);
+    assert.match(js, /const logContainer = getCodexLogContainer\(\);[\s\S]*logContainer\.innerHTML = '';/);
 });
 
 // Phase 1 behavior test: secondary panels MUST be hidden by default

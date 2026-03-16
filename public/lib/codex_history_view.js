@@ -20,6 +20,26 @@
         return normalized || `Thread ${fallbackId}`;
     }
 
+    function normalizeTimestamp(value) {
+        if (typeof value !== 'string') {
+            return '';
+        }
+        const normalized = value.trim();
+        if (!normalized) {
+            return '';
+        }
+        const parsed = new Date(normalized);
+        return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString();
+    }
+
+    function formatTimestamp(value) {
+        const normalized = normalizeTimestamp(value);
+        if (!normalized) {
+            return '';
+        }
+        return normalized.slice(0, 16).replace('T', ' ');
+    }
+
     function buildPendingBadge(actionKind) {
         return ({
             open: 'Opening',
@@ -68,6 +88,9 @@
                 return {
                     id,
                     title: normalizeTitle(thread.title, id),
+                    metaText: thread.lastActiveAt
+                        ? `最近活跃：${formatTimestamp(thread.lastActiveAt)}`
+                        : (thread.createdAt ? `创建时间：${formatTimestamp(thread.createdAt)}` : id),
                     badges,
                     active,
                     archived,

@@ -105,8 +105,8 @@ body.codex-only #codex-header {
 }
 
 body.codex-only #codex-log {
-    flex: 0 0 auto;
-    max-height: min(30vh, 240px);
+    flex: 1 1 auto;
+    min-height: 0;
     padding: 10px 12px;
 }
 
@@ -134,7 +134,6 @@ body.codex-only #codex-composer {
     position: sticky;
     bottom: 0;
     z-index: 3;
-    margin-top: auto;
     padding: 10px 12px 14px;
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
 }
@@ -201,6 +200,34 @@ body.codex-only #codex-composer {
     color: #c9d7eb;
     font-size: 12px;
     line-height: 1.2;
+}
+
+#codex-thread-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    color: #8fa4c0;
+    font-size: 10px;
+    line-height: 1.3;
+    overflow: hidden;
+}
+
+#codex-thread-line > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#codex-thread-cwd {
+    color: #6b8aa8;
+}
+
+#codex-thread-cwd::before {
+    content: "·";
+    margin-right: 6px;
+    color: #4a6a88;
 }
 
 #codex-thread-summary {
@@ -726,6 +753,32 @@ body.codex-only #codex-composer {
     margin: 0;
 }
 
+#codex-settings-thread-section {
+    padding: 10px 12px;
+    border: 1px solid rgba(46, 182, 125, 0.1);
+    border-radius: 12px;
+    background: rgba(46, 182, 125, 0.03);
+    margin-bottom: 8px;
+}
+
+.codex-settings-section-title {
+    color: #8fa4c0;
+    font-size: 10px;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+}
+
+#codex-settings-thread-actions {
+    display: flex;
+    gap: 8px;
+}
+
+#codex-settings-thread-actions .codex-btn {
+    flex: 1;
+}
+
 #codex-settings-fields {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -974,6 +1027,16 @@ body.codex-only #codex-composer {
     color: #d5e1f2;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+}
+
+#codex-log-stack {
+    display: flex;
+    min-height: 100%;
+    flex-direction: column;
+}
+
+body.codex-only #codex-log-stack {
+    justify-content: flex-end;
 }
 
 .codex-entry {
@@ -1256,21 +1319,95 @@ body.codex-only #codex-composer {
 }
 
 #codex-composer-surface:focus-within {
-    /* 保持简洁，不添加聚焦效果 */
+    border-color: rgba(46, 182, 125, 0.2);
 }
 
 #codex-composer-footer {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+#codex-footer-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
 }
 
 #codex-quick-controls {
     display: flex;
-    min-width: 0;
-    flex: 1 1 auto;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
+}
+
+.codex-footer-divider {
+    width: 1px;
+    height: 14px;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.codex-ghost-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: none;
+    color: #8fa4c0;
+    font-size: 13px;
+    padding: 2px 16px 2px 0;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath stroke='%238fa4c0' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 2px center;
+    transition: color 0.2s;
+}
+
+.codex-ghost-select:hover {
+    color: #f3f5f8;
+}
+
+.codex-ghost-select:focus {
+    outline: none;
+}
+
+.codex-action-btn {
+    background: transparent;
+    border: none;
+    color: #8fa4c0;
+    font-size: 20px;
+    padding: 0 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.codex-action-btn:hover {
+    color: #f3f5f8;
+}
+
+.codex-context-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: none;
+    color: #4daafc;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.2s;
+}
+
+.codex-context-btn:hover {
+    opacity: 0.8;
+}
+
+.codex-context-icon {
+    font-size: 14px;
 }
 
 .codex-quick-field {
@@ -1519,24 +1656,9 @@ body.codex-only #codex-composer {
     opacity: 0.72;
 }
 
+/* UI Buttons clean-up */
 .codex-icon-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border: 1px solid rgba(46, 182, 125, 0.12);
-    border-radius: 14px;
-    background: rgba(46, 182, 125, 0.06);
-    color: #c8e8d8;
-    font-size: 24px;
-    line-height: 1;
-    transition: all 0.2s ease;
-}
-
-.codex-icon-btn:hover {
-    border-color: rgba(46, 182, 125, 0.3);
-    background: rgba(46, 182, 125, 0.12);
+    display: none; /* Deprecated in favor of .codex-action-btn */
 }
 
 #codex-input {
@@ -1568,21 +1690,30 @@ body.codex-only #codex-composer {
 
 #btn-codex-send {
     flex: 0 0 auto;
-    width: 42px;
-    height: 42px;
-    border: 1px solid rgba(46, 182, 125, 0.3);
-    border-radius: 14px;
-    background: linear-gradient(135deg, rgba(46, 182, 125, 0.25) 0%, rgba(46, 182, 125, 0.15) 100%);
-    color: #e8f5ef;
-    font-weight: 600;
-    font-size: 18px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: #3c3c3c;
+    color: #f3f5f8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: all 0.2s ease;
-    box-shadow: 0 0 16px rgba(46, 182, 125, 0.15);
+    cursor: pointer;
 }
 
 #btn-codex-send:hover {
-    background: linear-gradient(135deg, rgba(46, 182, 125, 0.35) 0%, rgba(46, 182, 125, 0.2) 100%);
-    box-shadow: 0 0 24px rgba(46, 182, 125, 0.25);
+    background: #4a4a4a;
+    transform: translateY(-1px);
+}
+
+#btn-codex-send:active {
+    transform: translateY(0);
+}
+
+.send-icon {
+    font-size: 20px;
 }
 
 #terminal-main {
@@ -1791,7 +1922,7 @@ body.codex-only.viewport-compact #codex-panel {
 }
 
 body.codex-only.viewport-compact #codex-log {
-    max-height: min(24vh, 176px);
+    flex: 1 1 auto;
 }
 
 /* Compact mode: Reduce input area height for more output display space */
@@ -1799,47 +1930,13 @@ body.viewport-compact #codex-composer-surface {
     padding: 8px;
 }
 
-body.viewport-compact .codex-icon-btn {
-    width: 36px;
-    height: 36px;
-    font-size: 20px;
-}
-
-body.viewport-compact #btn-codex-send {
-    width: 36px;
-    height: 36px;
-    font-size: 16px;
-}
-
-body.viewport-compact .codex-quick-field select {
-    padding: 4px 8px;
-    font-size: 11px;
-}
-
 body.viewport-compact #codex-composer-footer {
-    gap: 6px;
-    flex-wrap: nowrap;
-}
-
-body.viewport-compact #codex-quick-controls {
-    flex: 0 0 auto;
-    gap: 4px;
-    width: auto;
-    order: 0;
-}
-
-body.viewport-compact .codex-quick-field {
-    flex: 0 0 auto;
-}
-
-body.viewport-compact .codex-quick-field select {
-    width: auto;
-    min-width: 60px;
-    max-width: 80px;
+    gap: 8px;
 }
 
 body.viewport-compact #btn-codex-send {
-    margin-left: 0;
+    width: 36px;
+    height: 36px;
 }
 
 @media (max-width: 720px) {
@@ -1875,16 +1972,28 @@ body.viewport-compact #btn-codex-send {
     }
 
     #codex-composer-footer {
-        align-items: stretch;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 8px;
+    }
+
+    #codex-footer-left {
+        gap: 8px;
     }
 
     #codex-quick-controls {
-        width: 100%;
-        order: 2;
+        gap: 8px;
+    }
+}
+
+/* Viewport-compact overrides: must come after media queries to restore horizontal layout */
+@media (max-width: 720px) {
+    body.viewport-compact #codex-composer-footer {
+        flex-wrap: nowrap;
+        gap: 8px;
     }
 
-    #btn-codex-send {
-        margin-left: auto;
+    body.viewport-compact #codex-footer-left {
+        gap: 8px;
     }
 }

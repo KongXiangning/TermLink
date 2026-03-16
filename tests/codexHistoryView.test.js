@@ -68,3 +68,16 @@ test('buildHistoryEntries disables non-active open actions while running', () =>
     assert.equal(entries[1].actions[2].disabled, true);
     assert.equal(entries[1].actions[3].disabled, true);
 });
+
+test('buildHistoryEntries exposes timestamp metadata for recent activity and creation fallback', () => {
+    const entries = buildHistoryEntries({
+        threads: [
+            { id: 'thread-a', title: 'Thread A', lastActiveAt: '2026-03-17T10:20:00.000Z' },
+            { id: 'thread-b', title: 'Thread B', createdAt: '2026-03-16T08:00:00.000Z' }
+        ],
+        status: 'idle'
+    });
+
+    assert.equal(entries[0].metaText, '最近活跃：2026-03-17 10:20');
+    assert.equal(entries[1].metaText, '创建时间：2026-03-16 08:00');
+});

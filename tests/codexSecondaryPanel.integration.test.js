@@ -1290,3 +1290,78 @@ test('Phase 4 Integration: plan deltas append raw chunks and plan updates reuse 
 
     dom.window.close();
 });
+
+test('Phase 4 Integration: thread list sorts by last activity desc and renders recent activity metadata', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    window.TermLinkCodexHistoryView = require('../public/lib/codex_history_view');
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.capabilities = { historyList: true, historyResume: true };
+    hooks.codexState.secondaryPanel = 'threads';
+    hooks.storeCodexThreadList({
+        threads: [
+            {
+                id: 'thread-old',
+                title: 'Old Thread',
+                lastActiveAt: '2026-03-15T12:00:00.000Z',
+                createdAt: '2026-03-14T09:00:00.000Z'
+            },
+            {
+                id: 'thread-new',
+                title: 'New Thread',
+                updatedAt: '2026-03-17T09:30:00.000Z',
+                createdAt: '2026-03-17T08:00:00.000Z'
+            },
+            {
+                id: 'thread-created-only',
+                title: 'Created Only',
+                createdAt: '2026-03-16T07:00:00.000Z'
+            }
+        ]
+    });
+    hooks.renderCodexHistoryList();
+
+    assert.deepEqual(
+        hooks.codexState.historyThreads.map((entry) => entry.id),
+        ['thread-new', 'thread-old', 'thread-created-only']
+    );
+
+    const metaTexts = Array.from(window.document.querySelectorAll('.codex-history-meta'))
+        .map((el) => el.textContent);
+    assert.ok(metaTexts.includes('最近活跃：2026-03-17 09:30'));
+    assert.ok(metaTexts.includes('创建时间：2026-03-16 07:00'));
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: thread list accepts app-server data payload shape', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    window.TermLinkCodexHistoryView = require('../public/lib/codex_history_view');
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.capabilities = { historyList: true, historyResume: true };
+    hooks.codexState.secondaryPanel = 'threads';
+    hooks.storeCodexThreadList({
+        data: [
+            {
+                id: 'thread-app-server',
+                name: 'Fix session history access',
+                updatedAt: '2026-03-17T09:30:00.000Z',
+                createdAt: '2026-03-17T08:00:00.000Z'
+            }
+        ]
+    });
+    hooks.renderCodexHistoryList();
+
+    assert.deepEqual(
+        hooks.codexState.historyThreads.map((entry) => entry.id),
+        ['thread-app-server']
+    );
+    assert.match(window.document.getElementById('codex-history-list').textContent, /Fix session history access/);
+
+    dom.window.close();
+});

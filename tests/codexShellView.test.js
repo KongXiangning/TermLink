@@ -43,6 +43,25 @@ test('getSecondaryEntryAvailability derives secondary entries from codex capabil
     });
 });
 
+test('getSecondaryEntryAvailability keeps threads visible without settings capability', () => {
+    assert.deepEqual(getSecondaryEntryAvailability({
+        sessionMode: 'codex',
+        capabilities: {
+            historyList: true,
+            modelConfig: false,
+            rateLimitsRead: false,
+            diffPlanReasoning: false
+        },
+        hasNonBlockingNotice: false
+    }), {
+        threads: true,
+        settings: false,
+        runtime: false,
+        notices: false,
+        tools: false
+    });
+});
+
 test('shouldShowInterrupt respects running states and current backend compatibility fields', () => {
     assert.equal(shouldShowInterrupt({
         status: 'running',

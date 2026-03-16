@@ -9,11 +9,10 @@ const btnClose = document.getElementById('btn-close');
 const btnSend = document.getElementById('btn-send');
 const codexPanel = document.getElementById('codex-panel');
 const codexLog = document.getElementById('codex-log');
+const codexLogStack = document.getElementById('codex-log-stack');
 const codexStatusText = document.getElementById('codex-status-text');
 const codexThreadIdText = document.getElementById('codex-thread-id');
-const codexThreadSummary = document.getElementById('codex-thread-summary');
-const codexThreadSummaryMeta = document.getElementById('codex-thread-summary-meta');
-const codexThreadSummaryAction = document.getElementById('codex-thread-summary-action');
+const codexThreadCwd = document.getElementById('codex-thread-cwd');
 const codexMetaText = document.getElementById('codex-meta-text');
 const codexNoticeText = document.getElementById('codex-notice-text');
 const codexSecondaryNav = document.getElementById('codex-secondary-nav');
@@ -29,6 +28,8 @@ const btnCodexToggle = document.getElementById('btn-codex-toggle');
 const btnCodexNewThread = document.getElementById('btn-codex-new-thread');
 const btnCodexInterrupt = document.getElementById('btn-codex-interrupt');
 const btnCodexHistoryRefresh = document.getElementById('btn-codex-history-refresh');
+const btnCodexHistoryToggle = document.getElementById('btn-codex-history-toggle');
+const btnCodexSecondaryThreads = document.getElementById('btn-codex-secondary-threads');
 const btnCodexSecondarySettings = document.getElementById('btn-codex-secondary-settings');
 const btnCodexSecondaryRuntime = document.getElementById('btn-codex-secondary-runtime');
 const btnCodexSecondaryTools = document.getElementById('btn-codex-secondary-tools');
@@ -505,18 +506,9 @@ function renderCodexHeaderSummary() {
     if (codexThreadIdText) {
         codexThreadIdText.textContent = summary.titleText;
     }
-    if (codexThreadSummaryMeta) {
-        codexThreadSummaryMeta.textContent = summary.metaText;
-    }
-    if (codexThreadSummaryAction) {
-        codexThreadSummaryAction.textContent = availability.threads ? '查看线程' : '线程不可用';
-    }
-    if (codexThreadSummary) {
-        const expanded = syncCodexSecondaryPanelState() === 'threads' && availability.threads === true;
-        codexThreadSummary.disabled = availability.threads !== true;
-        codexThreadSummary.classList.toggle('empty', summary.empty === true);
-        codexThreadSummary.classList.toggle('active', expanded);
-        codexThreadSummary.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    if (codexThreadCwd) {
+        codexThreadCwd.textContent = codexState.cwd || '';
+        codexThreadCwd.hidden = !codexState.cwd;
     }
     if (btnCodexInterrupt) {
         const showInterrupt = shellApi && typeof shellApi.shouldShowInterrupt === 'function'
@@ -540,6 +532,7 @@ function renderCodexSecondaryNav() {
     const availability = getCodexSecondaryEntryAvailability();
     const activePanel = syncCodexSecondaryPanelState();
     const buttons = [
+        { element: btnCodexSecondaryThreads, key: 'threads' },
         { element: btnCodexSecondarySettings, key: 'settings' },
         { element: btnCodexSecondaryRuntime, key: 'runtime' },
         { element: btnCodexSecondaryTools, key: 'tools' },
@@ -801,7 +794,7 @@ function renderCodexHistoryList() {
 
         const meta = document.createElement('div');
         meta.className = 'codex-history-meta';
-        meta.textContent = entry.id;
+        meta.textContent = entry.metaText || entry.id;
         copy.appendChild(meta);
 
         if (Array.isArray(entry.badges) && entry.badges.length > 0) {
@@ -909,6 +902,107 @@ function normalizeCodexThreadTitle(value) {
     return typeof value === 'string' ? value.trim() : '';
 }
 
+function normalizeCodexHistoryTimestamp(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+    }
+    if (typeof value !== 'string') {
+        return '';
+    }
+    const normalized = value.trim();
+    if (!normalized) {
+        return '';
+    }
+    const parsed = new Date(normalized);
+    return Number.isNaN(parsed.getTime()) ? normalized : parsed.toISOString();
+}
+
+function getCodexHistorySortTime(thread, fieldNames) {
+    if (!thread || typeof thread !== 'object' || !Array.isArray(fieldNames)) {
+        return Number.NEGATIVE_INFINITY;
+    }
+    for (const fieldName of fieldNames) {
+        if (!fieldName || !Object.prototype.hasOwnProperty.call(thread, fieldName)) {
+            continue;
+        }
+        const value = thread[fieldName];
+        const normalized = normalizeCodexHistoryTimestamp(value);
+        if (!normalized) {
+            continue;
+        }
+        const time = Date.parse(normalized);
+        if (!Number.isNaN(time)) {
+            return time;
+        }
+    }
+    return Number.NEGATIVE_INFINITY;
+}
+
+function buildCodexHistoryThreadEntry(entry, originalIndex) {
+    const nextEntry = {
+        id: typeof entry.id === 'string' ? entry.id : '',
+        title: typeof entry.title === 'string'
+            ? entry.title
+            : (typeof entry.name === 'string' ? entry.name : ''),
+        archived: entry.archived === true || entry.isArchived === true
+    };
+    nextEntry.lastActiveAt = normalizeCodexHistoryTimestamp(
+        entry.lastActiveAt
+        || entry.last_active_at
+        || entry.updatedAt
+        || entry.updated_at
+        || entry.lastUpdatedAt
+        || entry.last_updated_at
+        || entry.lastMessageAt
+        || entry.last_message_at
+        || entry.modifiedAt
+        || entry.modified_at
+        || entry.mtime
+    );
+    nextEntry.createdAt = normalizeCodexHistoryTimestamp(
+        entry.createdAt
+        || entry.created_at
+        || entry.created
+    );
+    nextEntry.__sortLastActiveAt = getCodexHistorySortTime(entry, [
+        'lastActiveAt',
+        'last_active_at',
+        'updatedAt',
+        'updated_at',
+        'lastUpdatedAt',
+        'last_updated_at',
+        'lastMessageAt',
+        'last_message_at',
+        'modifiedAt',
+        'modified_at',
+        'mtime'
+    ]);
+    nextEntry.__sortCreatedAt = getCodexHistorySortTime(entry, [
+        'createdAt',
+        'created_at',
+        'created'
+    ]);
+    nextEntry.__originalIndex = typeof originalIndex === 'number' ? originalIndex : Number.MAX_SAFE_INTEGER;
+    if (nextEntry.id) {
+        nextEntry.title = setKnownCodexThreadTitle(nextEntry.id, nextEntry.title);
+    }
+    return nextEntry;
+}
+
+function resolveCodexThreadListEntries(result) {
+    if (!result || typeof result !== 'object') {
+        return [];
+    }
+    if (Array.isArray(result.threads)) {
+        return result.threads;
+    }
+    if (Array.isArray(result.data)) {
+        return result.data;
+    }
+    return [];
+}
+
 function resolveCodexThreadTitle(source) {
     if (!source || typeof source !== 'object') {
         return '';
@@ -961,7 +1055,12 @@ function updateCodexHistoryThreadTitle(threadId, title) {
         return {
             id: entry.id,
             title: normalizedTitle,
-            archived: entry.archived === true
+            archived: entry.archived === true,
+            lastActiveAt: entry.lastActiveAt || '',
+            createdAt: entry.createdAt || '',
+            __sortLastActiveAt: entry.__sortLastActiveAt,
+            __sortCreatedAt: entry.__sortCreatedAt,
+            __originalIndex: entry.__originalIndex
         };
     });
     setCurrentCodexThreadTitleForThread(normalizedThreadId, normalizedTitle);
@@ -2565,8 +2664,14 @@ function setCodexErrorNotice(text) {
     renderCodexAuxStatus();
 }
 
+function getCodexLogContainer() {
+    return codexLogStack || codexLog;
+}
+
 function appendCodexLogEntry(role, text, options) {
     if (!codexLog) return null;
+    const logContainer = getCodexLogContainer();
+    if (!logContainer) return null;
     const opts = options || {};
     const itemId = opts.itemId || '';
     const safeRole = role || 'system';
@@ -2589,7 +2694,7 @@ function appendCodexLogEntry(role, text, options) {
     contentNode.textContent = text || '';
     entry.appendChild(contentNode);
 
-    codexLog.appendChild(entry);
+    logContainer.appendChild(entry);
     codexLog.scrollTop = codexLog.scrollHeight;
 
     if (itemId) {
@@ -2974,21 +3079,18 @@ function sendCodexBridgeRequest(method, params, options) {
 }
 
 function storeCodexThreadList(result) {
-    const threads = result && Array.isArray(result.threads) ? result.threads : [];
+    const threads = resolveCodexThreadListEntries(result);
     codexState.historyThreads = threads
         .filter((entry) => entry && typeof entry === 'object')
-        .map((entry) => {
-            const nextEntry = {
-                id: typeof entry.id === 'string' ? entry.id : '',
-                title: typeof entry.title === 'string'
-                    ? entry.title
-                    : (typeof entry.name === 'string' ? entry.name : ''),
-                archived: entry.archived === true || entry.isArchived === true
-            };
-            if (nextEntry.id) {
-                nextEntry.title = setKnownCodexThreadTitle(nextEntry.id, nextEntry.title);
+        .map((entry, index) => buildCodexHistoryThreadEntry(entry, index))
+        .sort((left, right) => {
+            if (left.__sortLastActiveAt !== right.__sortLastActiveAt) {
+                return right.__sortLastActiveAt - left.__sortLastActiveAt;
             }
-            return nextEntry;
+            if (left.__sortCreatedAt !== right.__sortCreatedAt) {
+                return right.__sortCreatedAt - left.__sortCreatedAt;
+            }
+            return left.__originalIndex - right.__originalIndex;
         })
         .filter((entry) => entry.id);
     const currentEntry = codexState.historyThreads.find((entry) => entry.id === codexState.threadId);
@@ -3055,8 +3157,8 @@ function requestCodexResume(threadId) {
             codexState.unmaterializedThreadId = '';
             clearCodexErrorNotice();
             appendCodexLogEntry('system', `已恢复 Codex 线程 ${resumedThreadId}。`, { meta: 'history' });
-            refreshCodexThreadList({ force: true, silent: true });
-            return result;
+            setCodexSecondaryPanel('none');
+            return refreshCodexThreadList({ force: true, silent: true }).then(() => result);
         })
         .finally(() => {
             codexState.historyActionThreadId = '';
@@ -3730,7 +3832,7 @@ function updateViewportLayoutState() {
         viewportState.baselineHeight = height;
     }
     const lostHeight = viewportState.baselineHeight - height;
-    const compact = lostHeight >= 120 || height <= 700;
+    const compact = lostHeight >= 100 || height <= 800;
     viewportState.compact = compact;
     if (document.body) {
         document.body.classList.toggle('viewport-compact', compact);
@@ -3938,7 +4040,7 @@ function handleCodexComposerSubmit(rawText) {
 function requestCodexNewThread(options) {
     const opts = options || {};
     if (opts.silent !== true) {
-        appendCodexLogEntry('system', '正在请求新的 Codex 线程...', { meta: 'bridge' });
+        appendCodexLogEntry('system', '正在新建本地任务...', { meta: 'bridge' });
     }
     setPlanWorkflowState({
         ...buildEmptyPlanWorkflowState()
@@ -3950,6 +4052,7 @@ function requestCodexNewThread(options) {
         type: 'codex_new_thread',
         cwd: getConfiguredCodexCwd() || undefined
     });
+    setCodexSecondaryPanel('none');
 }
 
 function requestCodexInterrupt() {
@@ -4337,7 +4440,10 @@ function handleCodexThreadSnapshot(thread) {
     if (thread && typeof thread.id === 'string') {
         updateCodexHistoryThreadTitle(thread.id, snapshotTitle);
     }
-    codexLog.innerHTML = '';
+    const logContainer = getCodexLogContainer();
+    if (logContainer) {
+        logContainer.innerHTML = '';
+    }
     codexState.messageByItemId.clear();
     clearCodexRequestCards();
     clearCodexRuntimePanels();
@@ -4377,6 +4483,7 @@ function handleCodexNotification(method, params) {
             codexState.unmaterializedThreadId = threadId;
             codexState.pendingFreshThread = false;
             updateCodexThreadLabel();
+            refreshCodexThreadList({ force: true, silent: true });
         }
         clearCodexRuntimePanels();
         clearCodexAlerts();
@@ -5516,8 +5623,14 @@ if (btnCodexToggle) {
     });
 }
 
-if (codexThreadSummary) {
-    codexThreadSummary.addEventListener('click', () => {
+if (btnCodexHistoryToggle) {
+    btnCodexHistoryToggle.addEventListener('click', () => {
+        toggleCodexSecondaryPanel('threads');
+    });
+}
+
+if (btnCodexSecondaryThreads) {
+    btnCodexSecondaryThreads.addEventListener('click', () => {
         toggleCodexSecondaryPanel('threads');
     });
 }
@@ -5758,9 +5871,9 @@ if (btnCodexQuickClear) {
 
 if (btnCodexSlashTrigger) {
     btnCodexSlashTrigger.addEventListener('click', () => {
-        // 如果 imageInput capability 启用，切换图片操作面板
-        if (codexState.capabilities.imageInput === true && codexImageActions) {
-            codexImageActions.hidden = !codexImageActions.hidden;
+        // 如果 imageInput capability 启用，直接选择本地图片
+        if (codexState.capabilities.imageInput === true) {
+            promptForCodexImageInput('localImage');
             return;
         }
         // 否则打开 slash 菜单（输入 "/"）

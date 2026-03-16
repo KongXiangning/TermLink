@@ -5,8 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TermLink Codex</title>
-    <link rel="stylesheet" href="terminal_client.css?v=38">
-    <script src="terminal_shortcut_input.js?v=25"></script>
+    <link rel="stylesheet" href="terminal_client.css?v=64">
+    <script src="terminal_shortcut_input.js?v=26"></script>
 </head>
 
 <body class="codex-only">
@@ -22,10 +22,11 @@
                         <div id="codex-status-line">
                             <span id="codex-status-dot" aria-hidden="true"></span>
                             <span id="codex-status-text">Codex 空闲</span>
-                        </div>
-                        <div id="codex-meta-line">
                             <span id="codex-meta-text"></span>
-                            <span id="codex-notice-text"></span>
+                        </div>
+                        <div id="codex-thread-line">
+                            <span id="codex-thread-id">当前线程未就绪</span>
+                            <span id="codex-thread-cwd"></span>
                         </div>
                     </div>
                     <div id="codex-actions">
@@ -33,14 +34,8 @@
                         <button id="btn-codex-interrupt" class="codex-btn danger" type="button" hidden>中断</button>
                     </div>
                 </div>
-                <button id="codex-thread-summary" type="button">
-                    <span class="codex-thread-summary-copy">
-                        <span id="codex-thread-id" class="codex-thread-summary-title">当前线程未就绪</span>
-                        <span id="codex-thread-summary-meta" class="codex-thread-summary-meta">即将自动创建新线程</span>
-                    </span>
-                    <span id="codex-thread-summary-action" class="codex-thread-summary-action">查看线程</span>
-                </button>
                 <div id="codex-secondary-nav">
+                    <button id="btn-codex-secondary-threads" class="codex-secondary-btn" type="button">任务历史</button>
                     <button id="btn-codex-secondary-settings" class="codex-secondary-btn" type="button">会话设置</button>
                     <button id="btn-codex-secondary-runtime" class="codex-secondary-btn" type="button">运行态</button>
                     <button id="btn-codex-secondary-tools" class="codex-secondary-btn" type="button" hidden>工具</button>
@@ -59,10 +54,10 @@
             </div>
             <div id="codex-history-panel" hidden>
                 <div id="codex-history-header">
-                    <span id="codex-history-title">线程</span>
+                    <span id="codex-history-title">任务历史</span>
                     <div id="codex-history-actions">
                         <button id="btn-codex-history-refresh" class="codex-btn subtle" type="button">刷新</button>
-                        <button id="btn-codex-new-thread" class="codex-btn" type="button">新建线程</button>
+                        <button id="btn-codex-new-thread" class="codex-btn" type="button">新建任务</button>
                     </div>
                 </div>
                 <div id="codex-history-empty">暂无已保存线程。</div>
@@ -70,9 +65,16 @@
             </div>
             <div id="codex-settings-panel" hidden>
                 <div id="codex-settings-header">
-                    <span id="codex-settings-title">会话默认配置</span>
+                    <span id="codex-settings-title">会话设置</span>
                     <div id="codex-settings-actions">
                         <button id="btn-codex-rate-limit-refresh" class="codex-btn subtle" type="button">额度</button>
+                    </div>
+                </div>
+                <div id="codex-settings-thread-section">
+                    <div class="codex-settings-section-title">线程操作</div>
+                    <div id="codex-settings-thread-actions">
+                        <button id="btn-codex-new-thread" class="codex-btn" type="button">新建任务</button>
+                        <button id="btn-codex-history-toggle" class="codex-btn subtle" type="button">查看线程</button>
                     </div>
                 </div>
                 <label class="codex-settings-toggle">
@@ -169,7 +171,9 @@
                     </section>
                 </div>
             </div>
-            <div id="codex-log" aria-live="polite"></div>
+            <div id="codex-log" aria-live="polite">
+                <div id="codex-log-stack"></div>
+            </div>
             <div id="codex-composer">
                 <div id="codex-composer-state" hidden>
                     <button id="codex-plan-chip" class="codex-mode-chip" type="button" hidden>计划模式已开启</button>
@@ -210,26 +214,25 @@
                 <div id="codex-composer-surface">
                     <textarea id="codex-input" placeholder="随便问点什么..."></textarea>
                     <div id="codex-composer-footer">
-                        <button id="btn-codex-slash-trigger" class="codex-icon-btn" type="button" aria-label="上传图像或打开命令菜单">+</button>
-                        <div id="codex-image-actions" hidden>
-                            <button id="btn-codex-image-url" class="codex-inline-action" type="button">图像 URL</button>
-                            <button id="btn-codex-image-local" class="codex-inline-action" type="button">本地图片</button>
-                        </div>
-                        <div id="codex-quick-controls">
-                            <label class="codex-quick-field">
-                                <span>模型</span>
-                                <select id="codex-quick-model">
+                        <div id="codex-footer-left">
+                            <button id="btn-codex-slash-trigger" class="codex-action-btn" type="button" aria-label="上传图像或打开命令菜单">+</button>
+                            <div id="codex-quick-controls">
+                                <select id="codex-quick-model" class="codex-ghost-select">
                                     <option value="">默认</option>
                                 </select>
-                            </label>
-                            <label class="codex-quick-field">
-                                <span>推理</span>
-                                <select id="codex-quick-reasoning">
+                                <select id="codex-quick-reasoning" class="codex-ghost-select">
                                     <option value="">默认</option>
                                 </select>
-                            </label>
+                            </div>
+                            <div class="codex-footer-divider"></div>
+                            <button id="btn-codex-ide-context" class="codex-context-btn" type="button">
+                                <span class="codex-context-icon">🪄</span>
+                                IDE 背景信息
+                            </button>
                         </div>
-                        <button id="btn-codex-send" type="button" aria-label="发送">↑</button>
+                        <button id="btn-codex-send" type="button" aria-label="发送">
+                            <span class="send-icon">↑</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -245,13 +248,13 @@
         <div id="toolbar"></div>
     </div>
     <script src="lib/codex_bootstrap.js?v=2"></script>
-    <script src="lib/codex_history_view.js?v=1"></script>
+    <script src="lib/codex_history_view.js?v=2"></script>
     <script src="lib/codex_shell_view.js?v=1"></script>
     <script src="lib/codex_slash_commands.js?v=1"></script>
     <script src="lib/codex_settings_view.js?v=1"></script>
     <script src="lib/codex_runtime_view.js?v=4"></script>
     <script src="lib/codex_approval_view.js?v=1"></script>
-    <script src="terminal_client.js?v=51"></script>
+    <script src="terminal_client.js?v=56"></script>
 </body>
 
 </html>
