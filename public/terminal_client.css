@@ -57,14 +57,13 @@ body.terminal-only #toolbar {
 
 body.codex-only {
     background: #0d0f12;
-    overflow-y: auto;
+    overflow: hidden;
     overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
     color: #f2f4f8;
 }
 
 body.codex-only #terminal-shell {
-    height: auto;
+    height: 100%;
     min-height: 100%;
     background:
         radial-gradient(ellipse at top, rgba(46, 182, 125, 0.06), transparent 50%),
@@ -93,7 +92,7 @@ body.codex-only #codex-panel {
     min-height: 0;
     max-height: none;
     border-bottom: none;
-    overflow: visible;
+    overflow: hidden;
 }
 
 body.codex-only #btn-codex-toggle {
@@ -131,8 +130,7 @@ body.codex-only #codex-tools-panel {
 }
 
 body.codex-only #codex-composer {
-    position: sticky;
-    bottom: 0;
+    position: relative;
     z-index: 3;
     padding: 10px 12px 14px;
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
@@ -741,44 +739,6 @@ body.codex-only #codex-composer {
     gap: 6px;
 }
 
-.codex-settings-toggle {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #c9d7eb;
-    font-size: 12px;
-}
-
-.codex-settings-toggle input {
-    margin: 0;
-}
-
-#codex-settings-thread-section {
-    padding: 10px 12px;
-    border: 1px solid rgba(46, 182, 125, 0.1);
-    border-radius: 12px;
-    background: rgba(46, 182, 125, 0.03);
-    margin-bottom: 8px;
-}
-
-.codex-settings-section-title {
-    color: #8fa4c0;
-    font-size: 10px;
-    line-height: 1.2;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin-bottom: 8px;
-}
-
-#codex-settings-thread-actions {
-    display: flex;
-    gap: 8px;
-}
-
-#codex-settings-thread-actions .codex-btn {
-    flex: 1;
-}
-
 #codex-settings-fields {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -815,10 +775,6 @@ body.codex-only #codex-composer {
 .codex-settings-field select:focus {
     border-color: rgba(46, 182, 125, 0.4);
     box-shadow: 0 0 12px rgba(46, 182, 125, 0.1);
-}
-
-#codex-settings-panel.is-defaults .codex-settings-field select {
-    opacity: 0.65;
 }
 
 #codex-settings-status {

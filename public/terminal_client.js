@@ -28,7 +28,6 @@ const btnCodexToggle = document.getElementById('btn-codex-toggle');
 const btnCodexNewThread = document.getElementById('btn-codex-new-thread');
 const btnCodexInterrupt = document.getElementById('btn-codex-interrupt');
 const btnCodexHistoryRefresh = document.getElementById('btn-codex-history-refresh');
-const btnCodexHistoryToggle = document.getElementById('btn-codex-history-toggle');
 const btnCodexSecondaryThreads = document.getElementById('btn-codex-secondary-threads');
 const btnCodexSecondarySettings = document.getElementById('btn-codex-secondary-settings');
 const btnCodexSecondaryRuntime = document.getElementById('btn-codex-secondary-runtime');
@@ -38,7 +37,6 @@ const codexHistoryPanel = document.getElementById('codex-history-panel');
 const codexHistoryList = document.getElementById('codex-history-list');
 const codexHistoryEmpty = document.getElementById('codex-history-empty');
 const codexSettingsPanel = document.getElementById('codex-settings-panel');
-const codexSettingsUseDefaults = document.getElementById('codex-settings-use-defaults');
 const codexSettingsPersonality = document.getElementById('codex-settings-personality');
 const codexSettingsApproval = document.getElementById('codex-settings-approval');
 const codexSettingsSandbox = document.getElementById('codex-settings-sandbox');
@@ -154,6 +152,7 @@ let ws = null;
 let reconnectTimer = null;
 let reconnectInterval = 1000;
 const maxReconnectInterval = 30000;
+const CODEX_NEW_THREAD_TIMEOUT_MS = 10000;
 let isConnecting = false;
 let retryCount = 0;
 const MAX_RETRIES = 3;
@@ -264,6 +263,8 @@ const codexState = {
     resumeAttemptedForThreadId: '',
     fallbackThreadRequested: false,
     pendingFreshThread: false,
+    pendingFreshThreadUiSnapshot: null,
+    pendingFreshThreadTimeoutId: 0,
     lastTokenUsageLog: '',
     lastRateLimitLog: ''
 };
@@ -431,6 +432,7 @@ function localizeCodexStatusDetail(detail) {
     const localized = {
         'starting turn': '开始发送',
         'restoring thread': '恢复线程中',
+        'creating fresh task': '正在创建新任务',
         'thread ready': '线程已就绪',
         'in progress': '处理中',
         'turn started': '已开始执行',
@@ -994,11 +996,11 @@ function resolveCodexThreadListEntries(result) {
     if (!result || typeof result !== 'object') {
         return [];
     }
-    if (Array.isArray(result.threads)) {
-        return result.threads;
-    }
     if (Array.isArray(result.data)) {
         return result.data;
+    }
+    if (Array.isArray(result.threads)) {
+        return result.threads;
     }
     return [];
 }
@@ -1804,6 +1806,42 @@ function setCodexSettingsStatus(text, tone) {
     renderCodexSettingsPanel();
 }
 
+function formatStoredCodexConfigSummary(config) {
+    const normalized = config && typeof config === 'object' ? config : null;
+    if (!normalized) {
+        return '当前使用默认配置。';
+    }
+    const personalityLabels = {
+        none: '无',
+        friendly: '友好',
+        pragmatic: '务实'
+    };
+    const approvalLabels = {
+        untrusted: '不信任',
+        'on-failure': '失败时',
+        'on-request': '按请求',
+        never: '从不'
+    };
+    const sandboxLabels = {
+        'read-only': '只读',
+        'workspace-write': '工作区可写',
+        'danger-full-access': '完全访问'
+    };
+    const parts = [];
+    if (normalized.defaultPersonality) {
+        parts.push(`人格风格：${personalityLabels[normalized.defaultPersonality] || normalized.defaultPersonality}`);
+    }
+    if (normalized.approvalPolicy) {
+        parts.push(`审批策略：${approvalLabels[normalized.approvalPolicy] || normalized.approvalPolicy}`);
+    }
+    if (normalized.sandboxMode) {
+        parts.push(`沙箱模式：${sandboxLabels[normalized.sandboxMode] || normalized.sandboxMode}`);
+    }
+    return parts.length > 0
+        ? `当前使用已保存配置：${parts.join('，')}`
+        : '当前使用默认配置。';
+}
+
 function getCodexSettingsStatusSummary() {
     if (codexState.settingsStatusText) {
         return {
@@ -1811,13 +1849,14 @@ function getCodexSettingsStatusSummary() {
             tone: codexState.settingsStatusTone
         };
     }
+    const parts = [formatStoredCodexConfigSummary(getStoredCodexConfig())];
     if (codexState.rateLimitSummary && codexState.capabilities.rateLimitsRead === true) {
-        return {
-            text: `额度：${codexState.rateLimitSummary}`,
-            tone: codexState.rateLimitTone || ''
-        };
+        parts.push(`额度：${codexState.rateLimitSummary}`);
     }
-    return { text: '', tone: '' };
+    return {
+        text: parts.filter(Boolean).join(' | '),
+        tone: codexState.rateLimitTone || ''
+    };
 }
 
 function normalizeCodexModelOptions(result) {
@@ -2045,18 +2084,11 @@ function populateCodexReasoningSelect(selectEl, options) {
 }
 
 function syncCodexSettingsFormFromStoredConfig() {
-    if (
-        !codexSettingsUseDefaults ||
-        !codexSettingsPersonality ||
-        !codexSettingsApproval ||
-        !codexSettingsSandbox
-    ) {
+    if (!codexSettingsPersonality || !codexSettingsApproval || !codexSettingsSandbox) {
         return;
     }
 
     const stored = getStoredCodexConfig();
-    const useServerDefaults = !stored;
-    codexSettingsUseDefaults.checked = useServerDefaults;
     codexSettingsPersonality.value = stored && stored.defaultPersonality ? stored.defaultPersonality : '';
     codexSettingsApproval.value = stored && stored.approvalPolicy ? stored.approvalPolicy : '';
     codexSettingsSandbox.value = stored && stored.sandboxMode ? stored.sandboxMode : '';
@@ -2068,7 +2100,6 @@ function collectCodexSettingsPayload() {
         return null;
     }
     return settingsApi.buildCodexConfigPayload({
-        useServerDefaults: codexSettingsUseDefaults ? codexSettingsUseDefaults.checked : true,
         defaultPersonality: codexSettingsPersonality ? codexSettingsPersonality.value : '',
         approvalPolicy: codexSettingsApproval ? codexSettingsApproval.value : '',
         sandboxMode: codexSettingsSandbox ? codexSettingsSandbox.value : ''
@@ -2108,18 +2139,10 @@ function renderCodexSettingsPanel() {
     const settingsFields = document.getElementById('codex-settings-fields');
     const settingsFooter = document.getElementById('codex-settings-footer');
 
-    const useServerDefaults = codexSettingsUseDefaults ? codexSettingsUseDefaults.checked : true;
-    const disableFields = !canEditModelConfig || useServerDefaults || codexState.settingsSaving;
-    codexSettingsPanel.classList.toggle('is-defaults', useServerDefaults);
+    const disableFields = !canEditModelConfig || codexState.settingsSaving;
 
     if (settingsHeaderTitle) {
         settingsHeaderTitle.textContent = canEditModelConfig ? '会话默认配置' : '会话状态';
-    }
-    if (codexSettingsUseDefaults) {
-        const toggleRow = codexSettingsUseDefaults.closest('.codex-settings-toggle');
-        if (toggleRow) {
-            toggleRow.hidden = !canEditModelConfig;
-        }
     }
     if (settingsFields) {
         settingsFields.hidden = !canEditModelConfig;
@@ -2135,9 +2158,6 @@ function renderCodexSettingsPanel() {
             }
         });
 
-    if (codexSettingsUseDefaults) {
-        codexSettingsUseDefaults.disabled = codexState.settingsSaving || !canEditModelConfig;
-    }
     if (btnCodexRateLimitRefresh) {
         btnCodexRateLimitRefresh.hidden = !canReadRateLimits;
         btnCodexRateLimitRefresh.disabled = !canReadRateLimits || codexState.settingsRefreshingRateLimits || codexState.settingsSaving;
@@ -2767,6 +2787,7 @@ function sendCodexEnvelope(payload) {
 }
 
 function resetCodexBootstrapState() {
+    clearPendingCodexFreshThreadTimeout();
     if (!codexState.lastCodexThreadId && codexState.threadId) {
         codexState.lastCodexThreadId = codexState.threadId;
     }
@@ -2830,6 +2851,8 @@ function resetCodexBootstrapState() {
     codexState.resumeAttemptedForThreadId = '';
     codexState.fallbackThreadRequested = false;
     codexState.pendingFreshThread = false;
+    codexState.pendingFreshThreadUiSnapshot = null;
+    codexState.pendingFreshThreadTimeoutId = 0;
     codexState.messageByItemId.clear();
     clearCodexRequestCards();
     codexState.capabilities = {
@@ -3046,6 +3069,151 @@ function getEnabledCodexSlashCommands() {
 
 function buildUnsupportedSlashCommandMessage() {
     return `未识别命令。当前支持：${getEnabledCodexSlashCommands().join('、')}。`;
+}
+
+function clearPendingCodexFreshThreadTimeout() {
+    if (codexState.pendingFreshThreadTimeoutId) {
+        clearTimeout(codexState.pendingFreshThreadTimeoutId);
+        codexState.pendingFreshThreadTimeoutId = 0;
+    }
+}
+
+function captureCodexLogNodes() {
+    const logContainer = getCodexLogContainer();
+    if (!logContainer) {
+        return [];
+    }
+    const nodes = [];
+    while (logContainer.firstChild) {
+        nodes.push(logContainer.firstChild);
+        logContainer.removeChild(logContainer.firstChild);
+    }
+    return nodes;
+}
+
+function restoreCodexLogNodes(nodes) {
+    const logContainer = getCodexLogContainer();
+    if (!logContainer) {
+        return;
+    }
+    logContainer.innerHTML = '';
+    (Array.isArray(nodes) ? nodes : []).forEach((node) => {
+        if (node) {
+            logContainer.appendChild(node);
+        }
+    });
+    codexLog.scrollTop = codexLog.scrollHeight;
+}
+
+function beginFreshCodexThreadUiReset() {
+    clearPendingCodexFreshThreadTimeout();
+    codexState.pendingFreshThreadUiSnapshot = {
+        threadId: codexState.threadId,
+        currentThreadTitle: codexState.currentThreadTitle,
+        currentTurnId: codexState.currentTurnId,
+        lastSnapshotThreadId: codexState.lastSnapshotThreadId,
+        unmaterializedThreadId: codexState.unmaterializedThreadId,
+        status: codexState.status,
+        statusDetail: codexState.statusDetail,
+        approvalPending: codexState.approvalPending,
+        pendingServerRequestCount: codexState.pendingServerRequestCount,
+        pendingServerRequests: Array.isArray(codexState.pendingServerRequests)
+            ? codexState.pendingServerRequests.slice()
+            : [],
+        errorNotice: codexState.errorNotice,
+        planWorkflow: { ...codexState.planWorkflow },
+        runtimeDiff: codexState.runtimeDiff,
+        runtimePlan: codexState.runtimePlan,
+        runtimeReasoning: codexState.runtimeReasoning,
+        runtimeTerminalOutput: codexState.runtimeTerminalOutput,
+        runtimeWarning: codexState.runtimeWarning,
+        runtimeWarningTone: codexState.runtimeWarningTone,
+        configWarningText: codexState.configWarningText,
+        deprecationNoticeText: codexState.deprecationNoticeText,
+        secondaryPanel: codexState.secondaryPanel,
+        messageByItemId: new Map(codexState.messageByItemId),
+        requestStateById: new Map(codexState.requestStateById),
+        logNodes: captureCodexLogNodes()
+    };
+    if (codexState.threadId) {
+        codexState.lastCodexThreadId = codexState.threadId;
+    }
+    codexState.threadId = '';
+    codexState.currentThreadTitle = '';
+    codexState.currentTurnId = '';
+    codexState.lastSnapshotThreadId = '';
+    codexState.unmaterializedThreadId = '';
+    codexState.approvalPending = false;
+    codexState.pendingServerRequestCount = 0;
+    codexState.pendingServerRequests = [];
+    codexState.pendingFreshThread = true;
+    codexState.messageByItemId = new Map();
+    codexState.requestStateById = new Map();
+    setPlanWorkflowState(buildEmptyPlanWorkflowState());
+    clearCodexRuntimePanels();
+    clearCodexAlerts();
+    clearCodexErrorNotice();
+    setCodexSecondaryPanel('none');
+    setCodexStatus('idle', 'creating fresh task');
+}
+
+function finalizeFreshCodexThreadUiReset() {
+    clearPendingCodexFreshThreadTimeout();
+    codexState.pendingFreshThreadUiSnapshot = null;
+}
+
+function rollbackFreshCodexThreadUiReset(message) {
+    const snapshot = codexState.pendingFreshThreadUiSnapshot;
+    clearPendingCodexFreshThreadTimeout();
+    if (!snapshot) {
+        if (message) {
+            appendCodexLogEntry('error', message, { meta: 'bridge' });
+            setCodexErrorNotice(message);
+            setCodexStatus('error', 'event error');
+        }
+        return;
+    }
+
+    codexState.threadId = snapshot.threadId || '';
+    codexState.currentThreadTitle = snapshot.currentThreadTitle || '';
+    codexState.currentTurnId = snapshot.currentTurnId || '';
+    codexState.lastSnapshotThreadId = snapshot.lastSnapshotThreadId || '';
+    codexState.unmaterializedThreadId = snapshot.unmaterializedThreadId || '';
+    codexState.approvalPending = snapshot.approvalPending === true;
+    codexState.pendingServerRequestCount = Number.isFinite(snapshot.pendingServerRequestCount)
+        ? snapshot.pendingServerRequestCount
+        : 0;
+    codexState.pendingServerRequests = Array.isArray(snapshot.pendingServerRequests)
+        ? snapshot.pendingServerRequests.slice()
+        : [];
+    codexState.planWorkflow = snapshot.planWorkflow || buildEmptyPlanWorkflowState();
+    codexState.runtimeDiff = snapshot.runtimeDiff || '';
+    codexState.runtimePlan = snapshot.runtimePlan || '';
+    codexState.runtimeReasoning = snapshot.runtimeReasoning || '';
+    codexState.runtimeTerminalOutput = snapshot.runtimeTerminalOutput || '';
+    codexState.runtimeWarning = snapshot.runtimeWarning || '';
+    codexState.runtimeWarningTone = snapshot.runtimeWarningTone || '';
+    codexState.configWarningText = snapshot.configWarningText || '';
+    codexState.deprecationNoticeText = snapshot.deprecationNoticeText || '';
+    codexState.pendingFreshThread = false;
+    codexState.messageByItemId = snapshot.messageByItemId instanceof Map
+        ? new Map(snapshot.messageByItemId)
+        : new Map();
+    codexState.requestStateById = snapshot.requestStateById instanceof Map
+        ? new Map(snapshot.requestStateById)
+        : new Map();
+    codexState.pendingFreshThreadUiSnapshot = null;
+    restoreCodexLogNodes(snapshot.logNodes);
+    setCodexSecondaryPanel(snapshot.secondaryPanel || 'none');
+    codexState.errorNotice = snapshot.errorNotice || '';
+    setCodexStatus(snapshot.status || 'idle', snapshot.statusDetail || '');
+    renderCodexPlanWorkflow();
+    renderCodexRuntimePanel();
+    renderCodexAlerts();
+    if (message) {
+        appendCodexLogEntry('error', message, { meta: 'bridge' });
+        setCodexErrorNotice(message);
+    }
 }
 
 function sendCodexBridgeRequest(method, params, options) {
@@ -4039,20 +4207,24 @@ function handleCodexComposerSubmit(rawText) {
 
 function requestCodexNewThread(options) {
     const opts = options || {};
-    if (opts.silent !== true) {
-        appendCodexLogEntry('system', '正在新建本地任务...', { meta: 'bridge' });
-    }
+    beginFreshCodexThreadUiReset();
     setPlanWorkflowState({
         ...buildEmptyPlanWorkflowState()
     });
     setPlanMode(false);
-    codexState.pendingFreshThread = true;
-    codexState.unmaterializedThreadId = '';
-    sendCodexEnvelope({
+    const sent = sendCodexEnvelope({
         type: 'codex_new_thread',
         cwd: getConfiguredCodexCwd() || undefined
     });
-    setCodexSecondaryPanel('none');
+    if (!sent) {
+        rollbackFreshCodexThreadUiReset('新建任务失败：Codex 连接未就绪。');
+        return;
+    }
+    codexState.pendingFreshThreadTimeoutId = setTimeout(() => {
+        if (codexState.pendingFreshThread === true && codexState.pendingFreshThreadUiSnapshot) {
+            rollbackFreshCodexThreadUiReset('新建任务超时，请重试。');
+        }
+    }, CODEX_NEW_THREAD_TIMEOUT_MS);
 }
 
 function requestCodexInterrupt() {
@@ -4479,9 +4651,11 @@ function handleCodexNotification(method, params) {
     if (method === 'thread/started') {
         const threadId = params && params.thread ? params.thread.id : '';
         if (threadId) {
+            finalizeFreshCodexThreadUiReset();
             codexState.threadId = threadId;
             codexState.unmaterializedThreadId = threadId;
             codexState.pendingFreshThread = false;
+            codexState.lastCodexThreadId = threadId;
             updateCodexThreadLabel();
             refreshCodexThreadList({ force: true, silent: true });
         }
@@ -4517,6 +4691,7 @@ function handleCodexNotification(method, params) {
 
     if (method === 'turn/started') {
         const turn = params && params.turn ? params.turn : null;
+        finalizeFreshCodexThreadUiReset();
         codexState.currentTurnId = turn && turn.id ? turn.id : '';
         if (codexState.threadId && codexState.unmaterializedThreadId === codexState.threadId) {
             codexState.unmaterializedThreadId = '';
@@ -4635,6 +4810,10 @@ function handleCodexNotification(method, params) {
             errorPayload.code || (params && params.code),
             errorPayload.message || (params && params.message)
         );
+        if (codexState.pendingFreshThread === true && codexState.pendingFreshThreadUiSnapshot) {
+            rollbackFreshCodexThreadUiReset(resolved);
+            return;
+        }
         appendCodexLogEntry('error', resolved, { meta: (params && params.code) || 'event' });
         setCodexErrorNotice(resolved);
         setCodexStatus('error', 'event error');
@@ -5210,6 +5389,7 @@ function connect() {
                     return;
                 }
                 if (envelope.type === 'codex_thread') {
+                    finalizeFreshCodexThreadUiReset();
                     codexState.threadId = envelope.threadId || '';
                     codexState.currentThreadTitle = getKnownCodexThreadTitle(codexState.threadId);
                     codexState.currentTurnId = '';
@@ -5220,13 +5400,13 @@ function connect() {
                     codexState.fallbackThreadRequested = false;
                     clearCodexErrorNotice();
                     updateCodexThreadLabel();
-                    appendCodexLogEntry('system', `已连接到线程 ${codexState.threadId}`, { meta: 'bridge' });
                     setCodexStatus('idle');
                     refreshCodexThreadList({ force: true, silent: true });
                     refreshCodexThreadSnapshot({ force: true });
                     return;
                 }
                 if (envelope.type === 'codex_thread_ready') {
+                    finalizeFreshCodexThreadUiReset();
                     codexState.threadId = envelope.threadId || codexState.threadId;
                     if (!codexState.currentThreadTitle || codexState.threadId !== codexState.lastSnapshotThreadId) {
                         const currentEntry = codexState.historyThreads.find((entry) => entry.id === codexState.threadId);
@@ -5247,6 +5427,7 @@ function connect() {
                     return;
                 }
                 if (envelope.type === 'codex_turn_ack') {
+                    finalizeFreshCodexThreadUiReset();
                     const turn = envelope.turn || null;
                     codexState.currentTurnId = turn && turn.id ? turn.id : codexState.currentTurnId;
                     finalizePendingTurnStateOnSuccess();
@@ -5290,6 +5471,10 @@ function connect() {
                         return;
                     }
                     const message = resolveCodexErrorMessage(envelope.code, envelope.message || 'Unknown Codex error');
+                    if (codexState.pendingFreshThread === true && codexState.pendingFreshThreadUiSnapshot) {
+                        rollbackFreshCodexThreadUiReset(message);
+                        return;
+                    }
                     appendCodexLogEntry('error', message, { meta: envelope.code || 'codex' });
                     setCodexErrorNotice(message);
                     setCodexStatus('error', message);
@@ -5623,12 +5808,6 @@ if (btnCodexToggle) {
     });
 }
 
-if (btnCodexHistoryToggle) {
-    btnCodexHistoryToggle.addEventListener('click', () => {
-        toggleCodexSecondaryPanel('threads');
-    });
-}
-
 if (btnCodexSecondaryThreads) {
     btnCodexSecondaryThreads.addEventListener('click', () => {
         toggleCodexSecondaryPanel('threads');
@@ -5724,7 +5903,6 @@ if (codexImagePromptInput) {
 }
 
 [
-    codexSettingsUseDefaults,
     codexSettingsPersonality,
     codexSettingsApproval,
     codexSettingsSandbox
@@ -5743,7 +5921,7 @@ if (btnCodexRateLimitRefresh) {
 if (btnCodexSettingsReset) {
     btnCodexSettingsReset.addEventListener('click', () => {
         syncCodexSettingsFormFromStoredConfig();
-        setCodexSettingsStatus('Restored saved session defaults.', '');
+        setCodexSettingsStatus('已恢复当前保存的会话默认配置。', 'success');
         renderCodexSettingsPanel();
     });
 }
@@ -6074,6 +6252,7 @@ if (shouldExposeCodexTestHooks) {
         handleCodexComposerSubmit,
         handleCodexNotification,
         handleCodexThreadSnapshot,
+        requestCodexNewThread,
         startPlanWorkflow,
         applyCodexRateLimit,
         formatRateLimitSummary,

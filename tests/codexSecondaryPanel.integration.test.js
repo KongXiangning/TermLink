@@ -62,11 +62,12 @@ function createTestDOM() {
                 <button id="codex-thread-summary" type="button">
                     <span class="codex-thread-summary-copy">
                         <span id="codex-thread-id" class="codex-thread-summary-title">当前线程未就绪</span>
-                        <span id="codex-thread-summary-meta" class="codex-thread-summary-meta">即将自动创建新线程</span>
+                        <span id="codex-thread-cwd" class="codex-thread-summary-meta">即将自动创建新线程</span>
                     </span>
                     <span id="codex-thread-summary-action" class="codex-thread-summary-action">查看线程</span>
                 </button>
                 <div id="codex-secondary-nav">
+                    <button id="btn-codex-secondary-threads" class="codex-secondary-btn" type="button">任务历史</button>
                     <button id="btn-codex-secondary-settings" class="codex-secondary-btn" type="button">会话设置</button>
                     <button id="btn-codex-secondary-runtime" class="codex-secondary-btn" type="button">运行态</button>
                     <button id="btn-codex-secondary-tools" class="codex-secondary-btn" type="button" hidden>工具</button>
@@ -85,10 +86,10 @@ function createTestDOM() {
             </div>
             <div id="codex-history-panel" hidden>
                 <div id="codex-history-header">
-                    <span id="codex-history-title">线程</span>
+                    <span id="codex-history-title">任务历史</span>
                     <div id="codex-history-actions">
                         <button id="btn-codex-history-refresh" class="codex-btn subtle" type="button">刷新</button>
-                        <button id="btn-codex-new-thread" class="codex-btn" type="button">新建线程</button>
+                        <button id="btn-codex-new-thread" class="codex-btn" type="button">新建任务</button>
                     </div>
                 </div>
                 <div id="codex-history-empty">暂无已保存线程。</div>
@@ -96,36 +97,29 @@ function createTestDOM() {
             </div>
             <div id="codex-settings-panel" hidden>
                 <div id="codex-settings-header">
-                    <span id="codex-settings-title">会话默认配置</span>
+                    <span id="codex-settings-title">会话设置</span>
                     <div id="codex-settings-actions">
-                        <button id="btn-codex-models-refresh" class="codex-btn subtle" type="button">模型</button>
                         <button id="btn-codex-rate-limit-refresh" class="codex-btn subtle" type="button">额度</button>
                     </div>
                 </div>
-                <label class="codex-settings-toggle">
-                    <input id="codex-settings-use-defaults" type="checkbox">
-                    <span>使用服务端默认值</span>
-                </label>
                 <div id="codex-settings-fields">
                     <label class="codex-settings-field">
-                        <span>模型</span>
-                        <select id="codex-settings-model"></select>
-                    </label>
-                    <label class="codex-settings-field">
-                        <span>推理强度</span>
-                        <select id="codex-settings-reasoning"></select>
-                    </label>
-                    <label class="codex-settings-field">
                         <span>人格风格</span>
-                        <select id="codex-settings-personality"></select>
+                        <select id="codex-settings-personality">
+                            <option value="">服务端默认</option>
+                        </select>
                     </label>
                     <label class="codex-settings-field">
                         <span>审批策略</span>
-                        <select id="codex-settings-approval"></select>
+                        <select id="codex-settings-approval">
+                            <option value="">服务端默认</option>
+                        </select>
                     </label>
                     <label class="codex-settings-field">
                         <span>沙箱模式</span>
-                        <select id="codex-settings-sandbox"></select>
+                        <select id="codex-settings-sandbox">
+                            <option value="">服务端默认</option>
+                        </select>
                     </label>
                 </div>
                 <div id="codex-settings-footer">
@@ -289,6 +283,10 @@ function createTestDOM() {
                     }
                 }
             };
+            window.WebSocket.CONNECTING = 0;
+            window.WebSocket.OPEN = 1;
+            window.WebSocket.CLOSING = 2;
+            window.WebSocket.CLOSED = 3;
             window.__WS_INSTANCES__ = [];
 
             // Mock fetch
@@ -1362,6 +1360,77 @@ test('Phase 4 Integration: thread list accepts app-server data payload shape', a
         ['thread-app-server']
     );
     assert.match(window.document.getElementById('codex-history-list').textContent, /Fix session history access/);
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: new task clears the current view immediately and keeps the fresh state after thread start', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'fresh-task-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.threadId = 'thread-old';
+    hooks.codexState.currentThreadTitle = 'Old Task';
+    hooks.handleCodexThreadSnapshot({
+        id: 'thread-old',
+        turns: [
+            {
+                items: [
+                    { type: 'agentMessage', id: 'agent-1', text: 'old reply' }
+                ]
+            }
+        ]
+    });
+
+    assert.match(hooks.getCodexLog().textContent, /old reply/);
+
+    hooks.requestCodexNewThread();
+
+    assert.equal(hooks.codexState.threadId, '');
+    assert.equal(hooks.codexState.currentTurnId, '');
+    assert.equal(hooks.codexState.lastSnapshotThreadId, '');
+    assert.equal(hooks.codexState.pendingFreshThread, true);
+    assert.equal(hooks.getCodexLog().textContent.trim(), '');
+    assert.match(window.document.getElementById('codex-status-text').textContent, /正在创建新任务/);
+
+    hooks.handleCodexNotification('thread/started', {
+        thread: { id: 'thread-new' }
+    });
+
+    assert.equal(hooks.codexState.threadId, 'thread-new');
+    assert.equal(hooks.codexState.pendingFreshThread, false);
+    assert.equal(hooks.getCodexLog().textContent.trim(), '');
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: settings panel no longer renders thread actions or server-default toggle', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.capabilities = { modelConfig: true, rateLimitsRead: true };
+    hooks.codexState.secondaryPanel = 'settings';
+    hooks.renderCodexSettingsPanel();
+
+    assert.equal(window.document.getElementById('codex-settings-use-defaults'), null);
+    assert.equal(window.document.getElementById('btn-codex-history-toggle'), null);
+    assert.match(window.document.getElementById('codex-settings-status').textContent, /当前使用默认配置/);
 
     dom.window.close();
 });

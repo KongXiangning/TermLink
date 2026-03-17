@@ -26,7 +26,6 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="codex-alerts"/);
     assert.match(html, /id="btn-codex-history-refresh"/);
     assert.match(html, /id="btn-codex-new-thread"/);
-    assert.match(html, /id="btn-codex-history-toggle"/);
     assert.match(html, /id="btn-codex-settings-save"/);
     assert.match(html, /id="codex-plan-chip"/);
     assert.match(html, /id="codex-quick-model"/);
@@ -41,18 +40,20 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="codex-history-actions"[\s\S]*id="btn-codex-history-refresh"[\s\S]*id="btn-codex-new-thread"/);
     assert.match(html, /id="codex-settings-approval"[\s\S]*<option value="">服务端默认<\/option>/);
     assert.match(html, /id="codex-settings-sandbox"[\s\S]*<option value="">服务端默认<\/option>/);
+    assert.doesNotMatch(html, /id="btn-codex-history-toggle"/);
+    assert.doesNotMatch(html, /id="codex-settings-use-defaults"/);
     assert.match(html, /src="lib\/codex_bootstrap\.js\?v=2"/);
     assert.match(html, /src="lib\/codex_history_view\.js\?v=2"/);
     assert.match(html, /src="lib\/codex_shell_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_slash_commands\.js\?v=1"/);
-    assert.match(html, /src="lib\/codex_settings_view\.js\?v=1"/);
+    assert.match(html, /src="lib\/codex_settings_view\.js\?v=2"/);
     assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
     assert.match(html, /src="lib\/codex_approval_view\.js\?v=1"/);
     assert.match(html, /id="codex-plan-workflow"/);
     assert.match(html, /id="btn-codex-plan-execute"/);
     assert.match(html, /id="btn-codex-plan-continue"/);
     assert.match(html, /id="btn-codex-plan-cancel"/);
-    assert.match(html, /src="terminal_client\.js\?v=56"/);
+    assert.match(html, /src="terminal_client\.js\?v=57"/);
 });
 
 test('terminal client shell shares scripts but does not expose codex history panel markup', () => {
@@ -65,10 +66,10 @@ test('terminal client shell shares scripts but does not expose codex history pan
     assert.match(html, /src="lib\/codex_history_view\.js\?v=2"/);
     assert.match(html, /src="lib\/codex_shell_view\.js\?v=1"/);
     assert.match(html, /src="lib\/codex_slash_commands\.js\?v=1"/);
-    assert.match(html, /src="lib\/codex_settings_view\.js\?v=1"/);
+    assert.match(html, /src="lib\/codex_settings_view\.js\?v=2"/);
     assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
     assert.match(html, /src="lib\/codex_approval_view\.js\?v=1"/);
-    assert.match(html, /src="terminal_client\.js\?v=56"/);
+    assert.match(html, /src="terminal_client\.js\?v=57"/);
 });
 
 test('terminal client stylesheet supports secondary panels and sticky composer for the codex conversation page', () => {
@@ -81,10 +82,10 @@ test('terminal client stylesheet supports secondary panels and sticky composer f
     assert.match(css, /#codex-panel\.collapsed #codex-settings-panel/);
     assert.match(css, /#codex-panel\.collapsed #codex-runtime-panel/);
     assert.match(css, /#codex-panel\.collapsed #codex-tools-panel/);
-    assert.match(css, /body\.codex-only\s*\{[\s\S]*overflow-y:\s*auto/);
-    assert.match(css, /body\.codex-only #terminal-shell\s*\{[\s\S]*height:\s*auto/);
-    assert.match(css, /body\.codex-only #codex-panel\s*\{[\s\S]*overflow:\s*visible/);
-    assert.match(css, /body\.codex-only #codex-composer\s*\{[\s\S]*position:\s*sticky/);
+    assert.match(css, /body\.codex-only\s*\{[\s\S]*overflow:\s*hidden/);
+    assert.match(css, /body\.codex-only #terminal-shell\s*\{[\s\S]*height:\s*100%/);
+    assert.match(css, /body\.codex-only #codex-panel\s*\{[\s\S]*overflow:\s*hidden/);
+    assert.match(css, /body\.codex-only #codex-composer\s*\{[\s\S]*position:\s*relative/);
     assert.match(css, /#codex-log-stack\s*\{[\s\S]*min-height:\s*100%/);
     assert.match(css, /body\.codex-only #codex-log-stack\s*\{[\s\S]*justify-content:\s*flex-end/);
     assert.match(css, /#codex-quick-controls/);

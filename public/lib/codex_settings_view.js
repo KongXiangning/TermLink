@@ -7,7 +7,6 @@
         root.TermLinkCodexSettingsView = api;
     }
 }(typeof globalThis !== 'undefined' ? globalThis : this, function createSettingsViewApi() {
-    const VALID_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh']);
     const VALID_PERSONALITIES = new Set(['none', 'friendly', 'pragmatic']);
     const VALID_APPROVAL_POLICIES = new Set(['untrusted', 'on-failure', 'on-request', 'never']);
     const VALID_SANDBOX_MODES = new Set(['read-only', 'workspace-write', 'danger-full-access']);
@@ -60,17 +59,14 @@
 
     function buildCodexConfigPayload(input) {
         const state = input && typeof input === 'object' ? input : {};
-        if (state.useServerDefaults === true) {
-            return null;
-        }
-
-        const approvalPolicy = normalizeOptionalEnum(state.approvalPolicy, VALID_APPROVAL_POLICIES) || 'never';
-        const sandboxMode = normalizeOptionalEnum(state.sandboxMode, VALID_SANDBOX_MODES) || 'workspace-write';
-        return {
+        const payload = {
             defaultPersonality: normalizeOptionalEnum(state.defaultPersonality, VALID_PERSONALITIES),
-            approvalPolicy,
-            sandboxMode
+            approvalPolicy: normalizeOptionalEnum(state.approvalPolicy, VALID_APPROVAL_POLICIES),
+            sandboxMode: normalizeOptionalEnum(state.sandboxMode, VALID_SANDBOX_MODES)
         };
+        return payload.defaultPersonality || payload.approvalPolicy || payload.sandboxMode
+            ? payload
+            : null;
     }
 
     return {
