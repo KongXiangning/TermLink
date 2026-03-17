@@ -112,6 +112,43 @@ function resolveCodexExecutablePath() {
     return 'codex';
 }
 
+function normalizeApprovalPolicy(value) {
+    const normalized = isNonEmptyString(value) ? value.trim() : '';
+    const valid = new Set(['untrusted', 'on-failure', 'on-request', 'never']);
+    return valid.has(normalized) ? normalized : null;
+}
+
+function normalizeSandboxMode(value) {
+    const normalized = isNonEmptyString(value) ? value.trim() : '';
+    const valid = new Set(['read-only', 'workspace-write', 'danger-full-access']);
+    return valid.has(normalized) ? normalized : null;
+}
+
+function normalizeLaunchRuntimeConfig(value) {
+    const source = value && typeof value === 'object' ? value : {};
+    return {
+        approvalPolicy: normalizeApprovalPolicy(source.approvalPolicy),
+        sandboxMode: normalizeSandboxMode(source.sandboxMode)
+    };
+}
+
+function buildLaunchRuntimeConfigSignature(value) {
+    return JSON.stringify(normalizeLaunchRuntimeConfig(value));
+}
+
+function buildCodexAppServerArgs(runtimeConfig) {
+    const normalizedConfig = normalizeLaunchRuntimeConfig(runtimeConfig);
+    const args = ['app-server'];
+    if (normalizedConfig.approvalPolicy) {
+        args.push('-c', `approval_policy="${normalizedConfig.approvalPolicy}"`);
+    }
+    if (normalizedConfig.sandboxMode) {
+        args.push('-c', `sandbox_mode="${normalizedConfig.sandboxMode}"`);
+    }
+    args.push('--listen', 'stdio://', '--analytics-default-enabled');
+    return args;
+}
+
 function extractThreadIdFromParams(params) {
     if (!params || typeof params !== 'object') {
         return null;
@@ -193,6 +230,8 @@ class CodexAppServerService extends EventEmitter {
         this.pendingServerRequests = new Map();
         this.packageVersion = this.readPackageVersion();
         this.executablePath = resolveCodexExecutablePath();
+        this.launchRuntimeConfigSignature = null;
+        this.intentionalStopProcess = null;
     }
 
     readPackageVersion() {
@@ -205,38 +244,55 @@ class CodexAppServerService extends EventEmitter {
         }
     }
 
-    async ensureStarted() {
+    async ensureStarted(runtimeConfig = null) {
+        const hasExplicitRuntimeConfig = runtimeConfig && typeof runtimeConfig === 'object';
+        const nextSignature = hasExplicitRuntimeConfig
+            ? buildLaunchRuntimeConfigSignature(runtimeConfig)
+            : this.launchRuntimeConfigSignature;
         if (this.started && this.process && !this.process.killed) {
-            return;
+            if (!hasExplicitRuntimeConfig || this.launchRuntimeConfigSignature === nextSignature) {
+                return false;
+            }
+        }
+        if (this.started && this.process && !this.process.killed && this.launchRuntimeConfigSignature === nextSignature) {
+            return false;
         }
         if (this.startingPromise) {
-            return this.startingPromise;
+            await this.startingPromise;
+            return !hasExplicitRuntimeConfig || this.launchRuntimeConfigSignature === nextSignature ? false : true;
         }
 
-        this.startingPromise = this.startInternal();
+        this.startingPromise = this.startInternal(hasExplicitRuntimeConfig ? runtimeConfig : null);
         try {
             await this.startingPromise;
+            return true;
         } finally {
             this.startingPromise = null;
         }
     }
 
-    async startInternal() {
+    async startInternal(runtimeConfig = null) {
         this.stop();
 
-        const args = ['app-server', '--listen', 'stdio://', '--analytics-default-enabled'];
+        const normalizedRuntimeConfig = normalizeLaunchRuntimeConfig(runtimeConfig);
+        const args = buildCodexAppServerArgs(normalizedRuntimeConfig);
         const child = spawn(this.executablePath, args, {
             cwd: process.cwd(),
             stdio: ['pipe', 'pipe', 'pipe']
         });
 
         this.process = child;
+        this.intentionalStopProcess = null;
         this.started = true;
         this.nextRequestId = 1;
         this.pendingRequests.clear();
         this.pendingServerRequests.clear();
+        this.launchRuntimeConfigSignature = buildLaunchRuntimeConfigSignature(normalizedRuntimeConfig);
 
         child.on('error', (error) => {
+            if (this.process !== child) {
+                return;
+            }
             this.emit('fatal', {
                 code: 'CODEX_PROCESS_ERROR',
                 message: error.message || String(error)
@@ -246,8 +302,24 @@ class CodexAppServerService extends EventEmitter {
         });
 
         child.on('exit', (code, signal) => {
+            const wasIntentionalStop = this.intentionalStopProcess === child;
+            if (this.process === child) {
+                this.process = null;
+            }
+            if (this.intentionalStopProcess === child) {
+                this.intentionalStopProcess = null;
+            }
+            if (wasIntentionalStop) {
+                this.started = false;
+                this.launchRuntimeConfigSignature = null;
+                return;
+            }
+            if (this.process !== child && this.process !== null) {
+                return;
+            }
             const details = { code, signal };
             this.started = false;
+            this.launchRuntimeConfigSignature = null;
             this.rejectPendingRequests(new Error(`Codex app-server exited (${JSON.stringify(details)})`));
             this.emit('fatal', {
                 code: 'CODEX_PROCESS_EXIT',
@@ -284,6 +356,7 @@ class CodexAppServerService extends EventEmitter {
 
         if (this.process) {
             try {
+                this.intentionalStopProcess = this.process;
                 this.process.kill();
             } catch (_) {
                 // ignore process kill error
@@ -294,6 +367,7 @@ class CodexAppServerService extends EventEmitter {
         this.started = false;
         this.rejectPendingRequests(new Error('Codex service stopped'));
         this.pendingServerRequests.clear();
+        this.launchRuntimeConfigSignature = null;
     }
 
     rejectPendingRequests(error) {
@@ -336,8 +410,8 @@ class CodexAppServerService extends EventEmitter {
         this.sendRaw(payload);
     }
 
-    async request(method, params, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS) {
-        await this.ensureStarted();
+    async request(method, params, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS, runtimeConfig = null) {
+        await this.ensureStarted(runtimeConfig);
 
         const id = String(this.nextRequestId++);
         return new Promise((resolve, reject) => {
@@ -602,3 +676,6 @@ class CodexAppServerService extends EventEmitter {
 }
 
 module.exports = CodexAppServerService;
+module.exports.buildCodexAppServerArgs = buildCodexAppServerArgs;
+module.exports.normalizeLaunchRuntimeConfig = normalizeLaunchRuntimeConfig;
+module.exports.buildLaunchRuntimeConfigSignature = buildLaunchRuntimeConfigSignature;

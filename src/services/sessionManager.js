@@ -154,6 +154,9 @@ class SessionManager {
             });
             if (JSON.stringify(session.codexConfig ?? null) !== JSON.stringify(nextCodexConfig ?? null)) {
                 session.codexConfig = nextCodexConfig;
+                if (session.codexState && typeof session.codexState === 'object') {
+                    session.codexState.threadExecutionContextSignature = '__stale__';
+                }
                 changed = true;
             }
         }

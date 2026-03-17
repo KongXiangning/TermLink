@@ -387,6 +387,13 @@
 6. `thread/name/set` 已落地为第四个实施包（见 `CR-20260312-1223-codex-phase4-thread-rename`，当前为 draft，待提交回填 `commit_ref`）。
 7. 依据能力证据决定 `/skill <name>` 后续是否需要更深的底层承接方式。
 
+### Phase 5：权限模式与任务辅助信息产品化
+
+1. app 主路径引入权限预设模式，并确保首页持续可见。
+2. 命令确认升级为阻塞弹窗形态，继续复用既有审批响应链路。
+3. “IDE 背景信息”入口替换为绑定当前线程的背景信息窗口。
+4. 专项实施细节、验收矩阵与风险控制见 `docs/codex/CODEX_PHASE5_PERMISSION_CONTEXT_PLAN.md`。
+
 ## 10. MVP 缺口清单（按新主线）
 
 1. `Phase 1` 首页收口已完成（见 `CR-20260310-2244-codex-phase1-home-tightening` 与 `CR-20260310-2323-codex-phase1-mobile-validation`）。

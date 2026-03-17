@@ -2,7 +2,7 @@
 title: Codex 能力矩阵驱动主线需求（对话体验优先 MVP + 下一阶段）
 status: planned
 owner: @maintainer
-last_updated: 2026-03-15
+last_updated: 2026-03-17
 source_of_truth: product
 related_code: [src/routes/sessions.js, src/services/sessionManager.js, src/services/codexAppServerService.js, src/ws/terminalGateway.js, public/codex_client.html, public/terminal_client.js, android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt]
 related_docs: [docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md, docs/codex/cross-version-stable-findings.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/changes/records/INDEX.md]
@@ -219,13 +219,50 @@ Codex 首页默认只保留以下主体：
 4. `PATCH /api/sessions/:id` 支持更新 stored `codexConfig`，这是 `Session Defaults` 最小可用重构的正式 Phase 交付项。
 5. 在 PATCH 落地前，Settings 只允许只读态或受限编辑态。
 
-### 5.7 审批、错误与阻塞态优先
+### 5.7 权限模式与审批可见性
+
+1. App 面向用户的权限入口改为权限预设模式，不在首页主路径直接暴露底层 `approval policy` / `sandbox mode` 术语。
+2. 当前期至少提供两个权限预设：
+   - `默认权限`
+   - `完全访问权限`
+3. 权限预设必须映射到既有会话配置字段：
+   - `approvalPolicy`
+   - `sandboxMode`
+4. 当前期默认映射冻结为：
+   - `默认权限 = approvalPolicy=on-request + sandboxMode=workspace-write`
+   - `完全访问权限 = approvalPolicy=never + sandboxMode=danger-full-access`
+5. 首页主视图必须持续显示当前权限预设模式，且新建线程、恢复线程、切换线程后始终可见。
+6. 权限模式一旦切换，首页显示、设置页显示、线程启动时实际下发配置三者必须同步。
+7. `Session Defaults` 仍保留底层 `approval policy` 与 `sandbox mode` 高级配置，但 app 主路径优先展示权限预设模式。
+
+### 5.8 审批、错误与阻塞态优先
 
 1. `command approval`。
 2. `file change approval`。
 3. `patch approval`。
 4. `request user input`。
 5. `fatal error` 与阻塞性 provider / auth / billing / rate-limit 错误优先前置。
+
+### 5.9 命令确认弹窗
+
+1. 当当前权限模式要求用户确认时，命令执行必须以前景阻塞弹窗呈现，而不是仅依赖消息流中的审批卡片。
+2. 弹窗至少必须展示：
+   - 确认文案
+   - 即将执行的命令
+   - 明确的允许 / 拒绝动作
+   - 可选的“记住此类命令前缀”说明或入口
+3. 弹窗未决前，当前任务必须保持阻塞态，不得伪装成已继续执行。
+4. 弹窗关闭、确认、拒绝后的结果必须继续回写既有 `codex_server_request_response` 链路，不新增底层协议。
+5. 手机端命令确认以阻塞弹窗或底部浮层为准，不再要求用户通过滚动消息流寻找普通审批卡片。
+
+### 5.10 背景信息窗口
+
+1. 输入区旁现有“IDE 背景信息”入口替换为 app 专用“背景信息”入口，不保留双入口并存。
+2. 背景信息窗口绑定当前线程，不绑定单次 turn。
+3. 新建线程、恢复线程、切换线程时，背景信息窗口内容必须自动刷新为当前线程对应数据。
+4. 当前线程为空或尚未物化时，背景信息窗口必须显示明确空态，不得显示旧线程残留内容。
+5. 背景信息窗口是当前任务的持续性辅助信息，不要求用户每次重新打开后手动刷新。
+6. 首页应能明确看出当前任务背景信息是否存在，以及窗口内容是否已刷新到当前线程。
 
 ## 6. 当前期但带前置条件
 
@@ -281,6 +318,9 @@ Codex 首页默认只保留以下主体：
 4. 作为移动端用户，我输入 `/plan` 后可以让下一次发送进入计划模式，并在发送后自动退出该模式。
 5. 作为未来 skill 用户，我可以在当前会话里切换 active skill，而不影响尚未发送的 plan mode。
 6. 作为历史会话用户，我仍可查看、读取和恢复线程，但线程管理入口不再占据首页主体。
+7. 作为 app 用户，我可以一眼看到当前权限模式，并明确知道现在是默认权限还是完全访问权限。
+8. 作为 app 用户，当 Codex 要执行需要确认的命令时，我会先看到阻塞确认弹窗，再决定是否放行。
+9. 作为 app 用户，我打开背景信息窗口时，看到的是当前线程对应的背景信息，而不是上一次任务残留内容。
 
 ## 10. 方案概要
 
@@ -289,6 +329,7 @@ Codex 首页默认只保留以下主体：
 3. 命令层：引入本地 slash registry 与 command-dispatch，当前期前置 `/model`、`/plan`，冻结 `/skill <name>` 契约。
 4. 状态层：区分 stored `codexConfig`、next-turn overrides、`nextTurnEffectiveCodexConfig`、`interactionState`。
 5. 协议层：继续维持 `gateway <-> codex app-server` 真实边界，不引入新的底层 slash 协议，也不预绑定 `activeSkill` 底层字段。
+6. 产品层：app 内新增 `permissionPreset` 作为权限预设 UI 概念，用于首页持续可见状态与设置入口收口，但最终仍映射回既有 `approvalPolicy` / `sandboxMode`。
 
 ## 11. 接口/数据结构变更
 
@@ -313,6 +354,7 @@ Codex 首页默认只保留以下主体：
 2. `Session Defaults` 二级入口编辑的是这一层，而不是当前 turn override。
 3. `terminal` 会话允许 `codexConfig = null`。
 4. `lastCodexThreadId` 仅作恢复提示与默认恢复入口，不作为线程历史真相来源。
+5. 当前期不新增新的权限协议字段；`permissionPreset` 仅属于客户端产品层状态，不作为 REST 持久化必选字段。
 
 ### 11.2 WebSocket 语义
 
@@ -352,6 +394,7 @@ Codex 首页默认只保留以下主体：
 4. `interactionState` 属于独立交互状态，至少包括：
    - `planMode`
    - `activeSkill`
+5. `permissionPreset` 允许作为客户端展示态或派生态存在，但不得替代实际生效配置；线程启动与恢复仍必须以解析后的 `approvalPolicy` / `sandboxMode` 为准。
 
 ### 11.3 `codex_turn` 请求语义
 
@@ -414,6 +457,9 @@ Codex 首页默认只保留以下主体：
 11. `nextTurnEffectiveCodexConfig` 不承载 `activeSkill`。
 12. `activeSkill` 当前只冻结契约，不绑定固定底层字段。
 13. slash 新命令可通过统一命令描述与 dispatch 接口扩展，不要求为每个命令新增独立提交链路。
+14. App 首页持续显示当前权限预设模式，且其显示结果与实际下发的 `approvalPolicy` / `sandboxMode` 保持一致。
+15. 需要确认的命令执行在 app 中以前景阻塞弹窗呈现，并继续复用既有 `codex_server_request_response` 链路。
+16. 背景信息窗口替换“IDE 背景信息”入口，并与当前线程绑定，不显示旧线程残留内容。
 
 ## 13. 测试场景
 
@@ -435,6 +481,11 @@ Codex 首页默认只保留以下主体：
 14. 验证 `Interrupt` 只在 `running / streaming / waiting_approval` 显示。
 15. 验证 Android 与 WebView 的 `/plan`、`/model`、`/skill` 未开放态、未知 slash 兜底行为一致。
 16. 新增一个 `reserved` slash 命令时，验证只需注册命令描述与 dispatch 信息，不需要改动消息发送主链路定义。
+17. 在 app 中选择“默认权限”后，验证首页持续显示该模式，且实际线程以 `on-request + workspace-write` 启动。
+18. 触发需要确认的命令时，验证 app 出现阻塞确认弹窗；允许后继续执行，拒绝后任务保持可解释状态。
+19. 切换到“完全访问权限”后，验证首页立即更新模式显示，且后续线程以 `never + danger-full-access` 启动。
+20. 新建、恢复、切换不同线程时，验证背景信息窗口自动切换为当前线程内容，不出现旧线程残留。
+21. 当前线程不存在背景信息时，验证背景信息窗口展示明确空态，而不是保留上一次任务内容。
 
 ## 14. 风险与回滚
 
@@ -448,6 +499,10 @@ Codex 首页默认只保留以下主体：
    - 控制：在能力证据未落地前，只冻结交互契约，不预绑定实现字段。
 5. 风险：Android 与 WebView 行为分叉。
    - 控制：共享交互契约，不允许端侧私有语义。
+6. 风险：权限预设显示与实际下发配置脱节，导致用户误判当前执行权限。
+   - 控制：预设模式只作为客户端派生态，线程启动和恢复一律回到 `approvalPolicy` / `sandboxMode` 真值源做一致性校验。
+7. 风险：背景信息窗口沿用旧全局缓存，切线程后仍显示上一任务内容。
+   - 控制：背景信息窗口数据必须绑定当前 `threadId`，线程为空时主动清空到空态。
 
 回滚策略：
 
@@ -479,3 +534,7 @@ Codex 首页默认只保留以下主体：
    - image / localImage 已落地为 composer 图像输入
    - thread/name/set
    - 更完整 runtime 次级视图
+6. Phase 5（权限模式与任务辅助信息产品化）：
+   - app 主路径引入权限预设模式，并确保首页持续可见
+   - 命令确认改为阻塞弹窗形态，继续复用既有审批响应链路
+   - “IDE 背景信息”入口替换为绑定当前线程的背景信息窗口

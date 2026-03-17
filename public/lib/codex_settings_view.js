@@ -10,6 +10,11 @@
     const VALID_PERSONALITIES = new Set(['none', 'friendly', 'pragmatic']);
     const VALID_APPROVAL_POLICIES = new Set(['untrusted', 'on-failure', 'on-request', 'never']);
     const VALID_SANDBOX_MODES = new Set(['read-only', 'workspace-write', 'danger-full-access']);
+    const PERMISSION_PRESET_LABELS = {
+        default: '默认权限',
+        full: '完全访问权限',
+        custom: '自定义权限'
+    };
 
     function normalizeOptionalString(value) {
         return typeof value === 'string' && value.trim() ? value.trim() : null;
@@ -69,10 +74,73 @@
             : null;
     }
 
+    function derivePermissionPreset(input) {
+        const config = input && typeof input === 'object' ? input : {};
+        const approvalPolicy = normalizeOptionalEnum(config.approvalPolicy, VALID_APPROVAL_POLICIES);
+        const sandboxMode = normalizeOptionalEnum(config.sandboxMode, VALID_SANDBOX_MODES);
+
+        if (approvalPolicy === 'on-request' && sandboxMode === 'workspace-write') {
+            return 'default';
+        }
+        if (approvalPolicy === 'never' && sandboxMode === 'danger-full-access') {
+            return 'full';
+        }
+        return 'custom';
+    }
+
+    function resolvePermissionPresetMeta(input) {
+        const preset = derivePermissionPreset(input);
+        if (preset === 'default') {
+            return {
+                key: preset,
+                label: PERMISSION_PRESET_LABELS[preset],
+                hint: '按请求审批 + 工作区可写'
+            };
+        }
+        if (preset === 'full') {
+            return {
+                key: preset,
+                label: PERMISSION_PRESET_LABELS[preset],
+                hint: '无需审批 + 完全访问'
+            };
+        }
+        return {
+            key: 'custom',
+            label: PERMISSION_PRESET_LABELS.custom,
+            hint: '当前使用自定义审批/沙箱组合'
+        };
+    }
+
+    function applyPermissionPreset(preset, input) {
+        const next = normalizeStoredCodexConfig(input) || {
+            defaultPersonality: null,
+            approvalPolicy: null,
+            sandboxMode: null
+        };
+        if (preset === 'default') {
+            return {
+                ...next,
+                approvalPolicy: 'on-request',
+                sandboxMode: 'workspace-write'
+            };
+        }
+        if (preset === 'full') {
+            return {
+                ...next,
+                approvalPolicy: 'never',
+                sandboxMode: 'danger-full-access'
+            };
+        }
+        return next;
+    }
+
     return {
         normalizeStoredCodexConfig,
         areCodexConfigsEqual,
         shouldShowSettingsPanel,
-        buildCodexConfigPayload
+        buildCodexConfigPayload,
+        derivePermissionPreset,
+        resolvePermissionPresetMeta,
+        applyPermissionPreset
     };
 }));

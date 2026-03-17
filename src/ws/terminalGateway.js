@@ -48,6 +48,7 @@ function ensureSessionCodexState(session) {
             pendingServerRequests: [],
             tokenUsage: null,
             rateLimitState: null,
+            threadExecutionContextSignature: null,
             interactionState: {
                 planMode: false,
                 activeSkill: null
@@ -61,6 +62,9 @@ function ensureSessionCodexState(session) {
     }
     if (!Object.prototype.hasOwnProperty.call(session.codexState, 'rateLimitState')) {
         session.codexState.rateLimitState = null;
+    }
+    if (!Object.prototype.hasOwnProperty.call(session.codexState, 'threadExecutionContextSignature')) {
+        session.codexState.threadExecutionContextSignature = null;
     }
     if (!session.codexState.interactionState || typeof session.codexState.interactionState !== 'object') {
         session.codexState.interactionState = {
@@ -169,7 +173,9 @@ function buildThreadStartParamsWithConfig({ cwd, codexConfig }) {
     const params = {
         cwd,
         approvalPolicy,
+        askForApproval: approvalPolicy,
         sandbox: sandboxMode,
+        sandboxMode,
         experimentalRawEvents: false,
         persistExtendedHistory: true
     };
@@ -187,6 +193,33 @@ function buildThreadStartParamsWithConfig({ cwd, codexConfig }) {
     }
 
     return params;
+}
+
+function buildThreadExecutionContextSignature({ cwd, codexConfig }) {
+    const normalizedConfig = normalizeCodexConfig(codexConfig, { requirePolicyAndSandbox: false });
+    const approvalPolicy = normalizedConfig && normalizedConfig.approvalPolicy
+        ? normalizedConfig.approvalPolicy
+        : getConfiguredCodexApprovalPolicy();
+    const sandboxMode = normalizedConfig && normalizedConfig.sandboxMode
+        ? normalizedConfig.sandboxMode
+        : getConfiguredCodexSandboxMode();
+    return JSON.stringify({
+        cwd: normalizeOptionalCwd(cwd),
+        approvalPolicy,
+        sandboxMode
+    });
+}
+
+function buildCodexProcessRuntimeConfig(codexConfig) {
+    const normalizedConfig = normalizeCodexConfig(codexConfig, { requirePolicyAndSandbox: false });
+    return {
+        approvalPolicy: normalizedConfig && normalizedConfig.approvalPolicy
+            ? normalizedConfig.approvalPolicy
+            : getConfiguredCodexApprovalPolicy(),
+        sandboxMode: normalizedConfig && normalizedConfig.sandboxMode
+            ? normalizedConfig.sandboxMode
+            : getConfiguredCodexSandboxMode()
+    };
 }
 
 function normalizeTurnAttachments(value) {
@@ -349,7 +382,8 @@ function buildPendingServerRequestSnapshot(state) {
             method: isNonEmptyString(entry.method) ? entry.method.trim() : 'unknown',
             requestKind: isNonEmptyString(entry.requestKind) ? entry.requestKind.trim() : resolveCodexServerRequestKind(entry.method),
             responseMode: isNonEmptyString(entry.responseMode) ? entry.responseMode.trim() : resolveCodexServerRequestResponseMode(entry.method),
-            summary: isNonEmptyString(entry.summary) ? entry.summary.trim() : null
+            summary: isNonEmptyString(entry.summary) ? entry.summary.trim() : null,
+            params: entry.params && typeof entry.params === 'object' ? entry.params : null
         }));
 }
 
@@ -487,6 +521,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         state.status = 'idle';
         state.pendingServerRequests = [];
         state.tokenUsage = null;
+        state.threadExecutionContextSignature = null;
         if (options.clearThreadModel === true) {
             state.threadModel = null;
         }
@@ -540,17 +575,59 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         ));
     };
 
+    const ensureCodexServiceForSession = async (session) => {
+        const state = ensureSessionCodexState(session);
+        if (!codexService || typeof codexService.ensureStarted !== 'function') {
+            return false;
+        }
+        const didRestart = await codexService.ensureStarted(
+            buildCodexProcessRuntimeConfig(getEffectiveSessionCodexConfig(session))
+        );
+        if (!didRestart) {
+            return false;
+        }
+        state.currentTurnId = null;
+        state.status = 'idle';
+        state.pendingServerRequests = [];
+        state.tokenUsage = null;
+        state.rateLimitState = null;
+        state.threadExecutionContextSignature = '__stale__';
+        unbindSessionThreads(session.id);
+        emitCodexState(session);
+        return true;
+    };
+
     const ensureCodexThreadForSession = async (session, options = {}) => {
         const state = ensureSessionCodexState(session);
         const forceNewThread = options.forceNewThread === true;
         const requestedCwd = normalizeOptionalCwd(options.cwd)
             || normalizeOptionalCwd(session.cwd)
             || String(process.env.TERMLINK_CODEX_WORKSPACE_DIR || process.cwd());
+        const executionContextSignature = buildThreadExecutionContextSignature({
+            cwd: requestedCwd,
+            codexConfig: getEffectiveSessionCodexConfig(session)
+        });
         updateSessionCwd(session, requestedCwd);
 
-        if (!forceNewThread && isNonEmptyString(state.threadId)) {
+        const currentExecutionContextSignature = isNonEmptyString(state.threadExecutionContextSignature)
+            ? state.threadExecutionContextSignature.trim()
+            : null;
+        const shouldReuseExistingThread = !forceNewThread
+            && isNonEmptyString(state.threadId)
+            && (
+                currentExecutionContextSignature === null
+                || currentExecutionContextSignature === executionContextSignature
+            );
+
+        if (shouldReuseExistingThread) {
             bindThreadToSession(state.threadId, session.id);
             return state.threadId;
+        }
+
+        if (!forceNewThread && isNonEmptyString(state.threadId)) {
+            unbindSessionThreads(session.id);
+            resetSessionCodexRuntimeState(session, { clearThreadModel: true });
+            state.threadId = null;
         }
 
         const threadStartParams = buildThreadStartParamsWithConfig({
@@ -566,6 +643,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         resetSessionCodexRuntimeState(session, { clearThreadModel: true });
         state.threadId = threadId;
         state.threadModel = resolveThreadModelFromResponse(threadStartResult);
+        state.threadExecutionContextSignature = executionContextSignature;
         bindThreadToSession(threadId, session.id);
         updateSessionLastCodexThreadId(session, threadId);
         persistSessionMetadata(session);
@@ -759,7 +837,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                     method,
                     requestKind,
                     responseMode,
-                    summary: summary || null
+                    summary: summary || null,
+                    params: message && message.params && typeof message.params === 'object'
+                        ? message.params
+                        : null
                 });
                 return current;
             });
@@ -891,6 +972,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                     } else if (type === 'resize') {
                         pty.resize(envelope.cols, envelope.rows);
                     } else if (type === 'codex_new_thread') {
+                        await ensureCodexServiceForSession(session);
                         const threadId = await ensureCodexThreadForSession(session, {
                             forceNewThread: true,
                             cwd: envelope.cwd
@@ -911,6 +993,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             return;
                         }
                         const turnOverrides = normalizeTurnOverrides(envelope);
+                        await ensureCodexServiceForSession(session);
 
                         const initialThreadId = await ensureCodexThreadForSession(session, {
                             forceNewThread: envelope.forceNewThread === true,
@@ -940,7 +1023,12 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             input: buildTurnInput(text, attachments),
                             model: collaborationMode ? undefined : effectiveModel || undefined,
                             reasoningEffort: collaborationMode ? undefined : effectiveReasoningEffort || undefined,
+                            effort: collaborationMode ? undefined : effectiveReasoningEffort || undefined,
                             personality: sessionCodexConfig.defaultPersonality || undefined,
+                            approvalPolicy: sessionCodexConfig.approvalPolicy || undefined,
+                            askForApproval: sessionCodexConfig.approvalPolicy || undefined,
+                            sandbox: sessionCodexConfig.sandboxMode || undefined,
+                            sandboxMode: sessionCodexConfig.sandboxMode || undefined,
                             collaborationMode: collaborationMode || undefined
                         };
                         const turnStartResponse = await codexService.request('turn/start', turnStartPayload);

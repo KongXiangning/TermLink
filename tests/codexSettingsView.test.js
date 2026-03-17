@@ -1,19 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const {
-    normalizeStoredCodexConfig,
-    areCodexConfigsEqual,
-    shouldShowSettingsPanel,
-    buildCodexConfigPayload
-} = require('../public/lib/codex_settings_view');
+const settingsView = require('../public/lib/codex_settings_view');
 
 test('normalizeStoredCodexConfig preserves nullable stored config', () => {
-    assert.equal(normalizeStoredCodexConfig(null), null);
-    assert.equal(normalizeStoredCodexConfig(undefined), null);
-    assert.equal(normalizeStoredCodexConfig({}), null);
+    assert.equal(settingsView.normalizeStoredCodexConfig(null), null);
+    assert.equal(settingsView.normalizeStoredCodexConfig(undefined), null);
+    assert.equal(settingsView.normalizeStoredCodexConfig({}), null);
 
-    assert.deepEqual(normalizeStoredCodexConfig({
+    assert.deepEqual(settingsView.normalizeStoredCodexConfig({
         defaultPersonality: 'friendly',
         approvalPolicy: 'on-request',
         sandboxMode: 'workspace-write'
@@ -25,8 +20,8 @@ test('normalizeStoredCodexConfig preserves nullable stored config', () => {
 });
 
 test('areCodexConfigsEqual compares normalized stored configs', () => {
-    assert.equal(areCodexConfigsEqual(null, {}), true);
-    assert.equal(areCodexConfigsEqual({
+    assert.equal(settingsView.areCodexConfigsEqual(null, {}), true);
+    assert.equal(settingsView.areCodexConfigsEqual({
         approvalPolicy: 'never',
         sandboxMode: 'workspace-write'
     }, {
@@ -35,42 +30,73 @@ test('areCodexConfigsEqual compares normalized stored configs', () => {
     }), true);
 });
 
-test('shouldShowSettingsPanel requires codex mode and modelConfig capability', () => {
-    assert.equal(shouldShowSettingsPanel({
+test('shouldShowSettingsPanel requires codex mode and config or limits capability', () => {
+    assert.equal(settingsView.shouldShowSettingsPanel({
         sessionMode: 'codex',
         capabilities: { modelConfig: true }
     }), true);
 
-    assert.equal(shouldShowSettingsPanel({
+    assert.equal(settingsView.shouldShowSettingsPanel({
         sessionMode: 'codex',
         capabilities: { modelConfig: false, rateLimitsRead: true }
     }), true);
 
-    assert.equal(shouldShowSettingsPanel({
+    assert.equal(settingsView.shouldShowSettingsPanel({
         sessionMode: 'codex',
         capabilities: { modelConfig: false, rateLimitsRead: false }
     }), false);
 
-    assert.equal(shouldShowSettingsPanel({
+    assert.equal(settingsView.shouldShowSettingsPanel({
         sessionMode: 'terminal',
         capabilities: { modelConfig: true }
     }), false);
 });
 
 test('buildCodexConfigPayload emits null for empty defaults and normalized object otherwise', () => {
-    assert.equal(buildCodexConfigPayload({
+    assert.equal(settingsView.buildCodexConfigPayload({
         defaultPersonality: '',
         approvalPolicy: '',
         sandboxMode: ''
     }), null);
 
-    assert.deepEqual(buildCodexConfigPayload({
+    assert.deepEqual(settingsView.buildCodexConfigPayload({
         defaultPersonality: 'pragmatic',
         approvalPolicy: 'on-request',
         sandboxMode: 'danger-full-access'
     }), {
         defaultPersonality: 'pragmatic',
         approvalPolicy: 'on-request',
+        sandboxMode: 'danger-full-access'
+    });
+});
+
+test('derivePermissionPreset maps fixed default and full-access pairs', () => {
+    assert.equal(settingsView.derivePermissionPreset({
+        approvalPolicy: 'on-request',
+        sandboxMode: 'workspace-write'
+    }), 'default');
+
+    assert.equal(settingsView.derivePermissionPreset({
+        approvalPolicy: 'never',
+        sandboxMode: 'danger-full-access'
+    }), 'full');
+
+    assert.equal(settingsView.derivePermissionPreset({
+        approvalPolicy: 'on-failure',
+        sandboxMode: 'workspace-write'
+    }), 'custom');
+});
+
+test('applyPermissionPreset updates only approval and sandbox values', () => {
+    const next = settingsView.applyPermissionPreset('full', {
+        defaultPersonality: 'pragmatic',
+        approvalPolicy: 'on-request',
+        sandboxMode: 'workspace-write'
+    });
+
+    assert.deepEqual(next, {
+        defaultPersonality: 'pragmatic',
+        approvalPolicy: 'never',
         sandboxMode: 'danger-full-access'
     });
 });

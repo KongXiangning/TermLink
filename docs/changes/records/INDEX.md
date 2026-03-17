@@ -2,7 +2,7 @@
 title: 变更记录索引
 status: active
 owner: @maintainer
-last_updated: 2026-03-15
+last_updated: 2026-03-17
 source_of_truth: product
 related_code: [docs/changes/records]
 related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_CHANGE_RECORD.md]
@@ -60,3 +60,4 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 | CR-20260315-0200-codex-plan-workflow | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-15 | 实现 `/plan` 客户端双阶段工作流：等待补充信息、待确认计划卡片、确认后二次执行与不支持题型提示 | `docs/changes/records/CR-20260315-0200-codex-plan-workflow.md` |
 | CR-20260317-0048-codex-mobile-log-anchor | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-17 | 修复 Codex 真机对话页消息流中段空白：为消息流增加内层栈并在 Codex-only 页面改为底部锚定 | `docs/changes/records/CR-20260317-0048-codex-mobile-log-anchor.md` |
 | CR-20260317-0110-codex-local-task-history | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-17 | 修复 Codex 本地任务历史入口不可达、列表缺少最近活跃排序与时间元信息的问题 | `docs/changes/records/CR-20260317-0110-codex-local-task-history.md` |
+| CR-20260317-0936-codex-app-permission-mode-and-context-window | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-17 | 补充 Codex app 权限预设模式、阻塞式命令确认弹窗与线程绑定背景信息窗口需求 | `docs/changes/records/CR-20260317-0936-codex-app-permission-mode-and-context-window.md` |

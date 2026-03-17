@@ -17,11 +17,11 @@
     }
 
     function resolveApprovalTitle(requestKind) {
-        if (requestKind === 'command') return 'Command Approval';
-        if (requestKind === 'file') return 'File Change Approval';
-        if (requestKind === 'patch') return 'Patch Approval';
-        if (requestKind === 'userInput') return 'User Input Request';
-        return 'Codex Approval';
+        if (requestKind === 'command') return '命令确认';
+        if (requestKind === 'file') return '文件改动确认';
+        if (requestKind === 'patch') return '补丁确认';
+        if (requestKind === 'userInput') return '补充信息请求';
+        return 'Codex 确认';
     }
 
     function normalizeApprovalRequest(envelope) {
@@ -68,21 +68,21 @@
 
     function resolveApprovalSummaryText(request) {
         if (!request || typeof request !== 'object') {
-            return 'Approval requested.';
+            return '收到待确认请求。';
         }
         if (isNonEmptyString(request.summary)) {
             return request.summary;
         }
-        if (request.requestKind === 'command') return 'Command approval requested.';
-        if (request.requestKind === 'file') return 'File change approval requested.';
-        if (request.requestKind === 'patch') return 'Patch approval requested.';
+        if (request.requestKind === 'command') return '需要确认后才能执行命令。';
+        if (request.requestKind === 'file') return '需要确认后才能修改文件。';
+        if (request.requestKind === 'patch') return '需要确认后才能应用补丁。';
         if (request.requestKind === 'userInput') {
             if (request.questionCount > 1) {
-                return `${request.questionCount} questions pending`;
+                return `还有 ${request.questionCount} 个问题待补充`;
             }
-            return 'User input requested.';
+            return '需要补充信息后才能继续。';
         }
-        return `Approval requested: ${request.method || 'unknown'}`;
+        return `收到待确认请求：${request.method || 'unknown'}`;
     }
 
     function buildUserInputResult(request, selectedAnswersByQuestionId) {
@@ -109,19 +109,30 @@
 
     function resolveApprovalStatusText(requestState) {
         if (!requestState || typeof requestState !== 'object') {
-            return 'Pending';
+            return '等待处理';
         }
         if (requestState.status === 'resolved') {
-            if (requestState.resolution === 'approved') return 'Approved';
-            if (requestState.resolution === 'rejected') return 'Rejected';
-            return 'Resolved';
+            if (requestState.resolution === 'approved') return '已允许';
+            if (requestState.resolution === 'rejected') return '已拒绝';
+            return '已完成';
         }
         if (requestState.status === 'submitted') {
-            if (requestState.resolution === 'approved') return 'Approving...';
-            if (requestState.resolution === 'rejected') return 'Rejecting...';
-            return 'Submitting...';
+            if (requestState.resolution === 'approved') return '正在允许...';
+            if (requestState.resolution === 'rejected') return '正在拒绝...';
+            return '提交中...';
         }
-        return 'Pending';
+        return '等待处理';
+    }
+
+    function shouldUseBlockingModal(request) {
+        return !!(request && request.requestKind === 'command' && request.responseMode === 'decision');
+    }
+
+    function extractCommandText(request) {
+        if (!request || !request.params || typeof request.params !== 'object') {
+            return '';
+        }
+        return isNonEmptyString(request.params.command) ? request.params.command.trim() : '';
     }
 
     function pickResolvedRequestIds(activeRequestIds, requestStates) {
@@ -149,6 +160,8 @@
         buildUserInputResult,
         resolveApprovalSummaryText,
         resolveApprovalStatusText,
-        pickResolvedRequestIds
+        pickResolvedRequestIds,
+        shouldUseBlockingModal,
+        extractCommandText
     };
 }(typeof window !== 'undefined' ? window : globalThis));

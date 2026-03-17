@@ -227,7 +227,9 @@ test('codex_new_thread falls back to session cwd when request omits cwd', async 
     assert.ok(threadStart, 'thread/start should be invoked');
     assert.equal(threadStart.params.cwd, 'D:\\workspace\\demo');
     assert.equal(threadStart.params.approvalPolicy, 'never');
+    assert.equal(threadStart.params.askForApproval, 'never');
     assert.equal(threadStart.params.sandbox, 'workspace-write');
+    assert.equal(threadStart.params.sandboxMode, 'workspace-write');
     assert.equal(session.lastCodexThreadId, 'thread-1');
 });
 
@@ -583,7 +585,9 @@ test('codex_new_thread uses session codexConfig defaults for thread/start', asyn
     assert.equal(threadStart.params.reasoningEffort, 'high');
     assert.equal(threadStart.params.personality, 'pragmatic');
     assert.equal(threadStart.params.approvalPolicy, 'on-request');
+    assert.equal(threadStart.params.askForApproval, 'on-request');
     assert.equal(threadStart.params.sandbox, 'read-only');
+    assert.equal(threadStart.params.sandboxMode, 'read-only');
 });
 
 test('thread/resume rebinds the session so stale old-thread traffic is ignored', async (t) => {
@@ -987,9 +991,70 @@ test('codex_turn resumes an existing thread to recover its model before turn/sta
     const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
     assert.ok(turnStart, 'turn/start should be invoked');
     assert.equal(turnStart.params.model, 'gpt-5.4');
+    assert.equal(turnStart.params.approvalPolicy, 'never');
+    assert.equal(turnStart.params.askForApproval, 'never');
+    assert.equal(turnStart.params.sandbox, 'workspace-write');
+    assert.equal(turnStart.params.sandboxMode, 'workspace-write');
 
     const stateEnvelope = ws.sent.filter((entry) => entry.type === 'codex_state').at(-1);
     assert.equal(stateEnvelope.nextTurnEffectiveCodexConfig.model, 'gpt-5.4');
+});
+
+test('codex_turn starts a fresh thread when the stored execution context no longer matches session permissions', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        cwd: 'D:\\workspace\\demo',
+        codexConfig: {
+            defaultModel: 'gpt-5.4',
+            approvalPolicy: 'never',
+            sandboxMode: 'danger-full-access'
+        },
+        codexState: {
+            threadId: 'thread-existing',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null,
+            threadExecutionContextSignature: '{"cwd":"D:\\\\workspace\\\\demo","approvalPolicy":"on-request","sandboxMode":"workspace-write"}'
+        }
+    });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'inspect repo'
+    }));
+
+    const service = MockCodexService.instances[0];
+    const threadStart = service.requests.find((entry) => entry.method === 'thread/start');
+    assert.ok(threadStart, 'thread/start should be invoked when execution context changes');
+    assert.equal(threadStart.params.approvalPolicy, 'never');
+    assert.equal(threadStart.params.sandbox, 'danger-full-access');
+
+    const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
+    assert.ok(turnStart, 'turn/start should be invoked');
+    assert.equal(turnStart.params.threadId, 'thread-1');
+    assert.equal(session.codexState.threadId, 'thread-1');
+    assert.equal(
+        session.codexState.threadExecutionContextSignature,
+        '{"cwd":"D:\\\\workspace\\\\demo","approvalPolicy":"never","sandboxMode":"danger-full-access"}'
+    );
 });
 
 test('codex_turn uses resumed canonical thread id for turn/start and final session state', async (t) => {
@@ -1340,7 +1405,11 @@ test('codex approval request is forwarded to client and response is returned to 
         method: 'execCommandApproval',
         requestKind: 'command',
         responseMode: 'decision',
-        summary: 'dir'
+        summary: 'dir',
+        params: {
+            threadId: 'thread-1',
+            command: 'dir'
+        }
     }]);
     const pendingStateEnvelope = ws.sent.filter((entry) => entry.type === 'codex_state').at(-1);
     assert.deepEqual(pendingStateEnvelope.pendingServerRequests, [{
@@ -1348,7 +1417,11 @@ test('codex approval request is forwarded to client and response is returned to 
         method: 'execCommandApproval',
         requestKind: 'command',
         responseMode: 'decision',
-        summary: 'dir'
+        summary: 'dir',
+        params: {
+            threadId: 'thread-1',
+            command: 'dir'
+        }
     }]);
 
     await ws.getHandler('message')(JSON.stringify({
@@ -1432,7 +1505,17 @@ test('user input server request is deferred to client with answers response mode
         method: 'item/tool/requestUserInput',
         requestKind: 'userInput',
         responseMode: 'answers',
-        summary: 'Proceed with deployment?'
+        summary: 'Proceed with deployment?',
+        params: {
+            threadId: 'thread-1',
+            questions: [
+                {
+                    id: 'choice',
+                    question: 'Proceed with deployment?',
+                    options: [{ label: 'Approve' }, { label: 'Reject' }]
+                }
+            ]
+        }
     }]);
     const lastState = ws.sent.filter((entry) => entry.type === 'codex_state').at(-1);
     assert.equal(lastState.pendingServerRequestCount, 1);
@@ -1441,7 +1524,17 @@ test('user input server request is deferred to client with answers response mode
         method: 'item/tool/requestUserInput',
         requestKind: 'userInput',
         responseMode: 'answers',
-        summary: 'Proceed with deployment?'
+        summary: 'Proceed with deployment?',
+        params: {
+            threadId: 'thread-1',
+            questions: [
+                {
+                    id: 'choice',
+                    question: 'Proceed with deployment?',
+                    options: [{ label: 'Approve' }, { label: 'Reject' }]
+                }
+            ]
+        }
     }]);
 });
 

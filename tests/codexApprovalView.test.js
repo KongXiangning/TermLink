@@ -29,7 +29,7 @@ test('normalizeApprovalRequest resolves command request metadata', () => {
     assert.equal(request.requestId, 'req-1');
     assert.equal(request.requestKind, 'command');
     assert.equal(request.responseMode, 'decision');
-    assert.equal(request.title, 'Command Approval');
+    assert.equal(request.title, '命令确认');
     assert.equal(api.resolveApprovalSummaryText(request), 'dir');
 });
 
@@ -85,4 +85,22 @@ test('pickResolvedRequestIds resolves submitted cards absent from the active req
     assert.equal(ids.length, 2);
     assert.equal(ids[0], 'req-2');
     assert.equal(ids[1], 'req-3');
+});
+
+test('blocking command approvals expose modal hints and command extraction helpers', () => {
+    const api = loadApprovalViewApi();
+    const request = api.normalizeApprovalRequest({
+        requestId: 'req-command',
+        method: 'item/commandExecution/requestApproval',
+        requestKind: 'command',
+        responseMode: 'decision',
+        handledBy: 'client',
+        params: {
+            command: 'npm test'
+        }
+    });
+
+    assert.equal(api.shouldUseBlockingModal(request), true);
+    assert.equal(api.extractCommandText(request), 'npm test');
+    assert.equal(api.resolveApprovalStatusText({ status: 'pending' }), '等待处理');
 });

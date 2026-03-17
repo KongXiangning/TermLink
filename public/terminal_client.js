@@ -14,6 +14,9 @@ const codexStatusText = document.getElementById('codex-status-text');
 const codexThreadIdText = document.getElementById('codex-thread-id');
 const codexThreadCwd = document.getElementById('codex-thread-cwd');
 const codexMetaText = document.getElementById('codex-meta-text');
+const btnCodexPermissionPreset = document.getElementById('btn-codex-permission-preset');
+const codexPermissionPresetLabel = document.getElementById('codex-permission-preset-label');
+const codexPermissionPresetHint = document.getElementById('codex-permission-preset-hint');
 const codexNoticeText = document.getElementById('codex-notice-text');
 const codexSecondaryNav = document.getElementById('codex-secondary-nav');
 const codexAlerts = document.getElementById('codex-alerts');
@@ -81,9 +84,29 @@ const codexImagePromptTitle = document.getElementById('codex-image-prompt-title'
 const codexImagePromptInput = document.getElementById('codex-image-prompt-input');
 const btnCodexImagePromptCancel = document.getElementById('btn-codex-image-prompt-cancel');
 const btnCodexImagePromptConfirm = document.getElementById('btn-codex-image-prompt-confirm');
+const btnCodexIdeContext = document.getElementById('btn-codex-ide-context');
+const codexContextStatus = document.getElementById('codex-context-status');
 const codexSlashMenu = document.getElementById('codex-slash-menu');
 const codexSlashMenuEmpty = document.getElementById('codex-slash-menu-empty');
 const codexSlashMenuList = document.getElementById('codex-slash-menu-list');
+const codexPermissionSheet = document.getElementById('codex-permission-sheet');
+const btnCodexPermissionSheetClose = document.getElementById('btn-codex-permission-sheet-close');
+const btnCodexPermissionDefault = document.getElementById('btn-codex-permission-default');
+const btnCodexPermissionFull = document.getElementById('btn-codex-permission-full');
+const btnCodexPermissionCustom = document.getElementById('btn-codex-permission-custom');
+const codexThreadContextPanel = document.getElementById('codex-thread-context-panel');
+const btnCodexThreadContextClose = document.getElementById('btn-codex-thread-context-close');
+const codexThreadContextSubtitle = document.getElementById('codex-thread-context-subtitle');
+const codexThreadContextEmpty = document.getElementById('codex-thread-context-empty');
+const codexThreadContextContent = document.getElementById('codex-thread-context-content');
+const codexCommandApprovalModal = document.getElementById('codex-command-approval-modal');
+const codexCommandApprovalStatus = document.getElementById('codex-command-approval-status');
+const codexCommandApprovalSummary = document.getElementById('codex-command-approval-summary');
+const codexCommandApprovalCommand = document.getElementById('codex-command-approval-command');
+const codexCommandApprovalRememberWrap = document.getElementById('codex-command-approval-remember-wrap');
+const codexCommandApprovalRemember = document.getElementById('codex-command-approval-remember');
+const btnCodexCommandApprovalReject = document.getElementById('btn-codex-command-approval-reject');
+const btnCodexCommandApprovalApprove = document.getElementById('btn-codex-command-approval-approve');
 const isCodexOnlyPage = !!(document.body && document.body.classList.contains('codex-only'));
 
 let term;
@@ -244,9 +267,12 @@ const codexState = {
     compactStatusTone: '',
     settingsLoadingModels: false,
     settingsSaving: false,
+    permissionPresetSheetOpen: false,
     settingsRefreshingRateLimits: false,
     settingsStatusText: '',
     settingsStatusTone: '',
+    threadContextPanelOpen: false,
+    activeCommandApprovalRequestId: '',
     runtimeDiff: '',
     runtimePlan: '',
     runtimeReasoning: '',
@@ -528,6 +554,8 @@ function renderCodexHeaderSummary() {
             );
         btnCodexInterrupt.hidden = !showInterrupt;
     }
+    renderCodexPermissionPreset();
+    renderCodexThreadContextPanel();
 }
 
 function renderCodexSecondaryNav() {
@@ -658,6 +686,8 @@ function renderCodexAuxStatus() {
         codexNoticeText.classList.toggle('tone-error', tone === 'error');
         codexNoticeText.classList.toggle('tone-warn', tone === 'warn');
     }
+    renderCodexPermissionPreset();
+    renderCodexThreadContextPanel();
     renderCodexSecondaryNav();
 }
 
@@ -1864,6 +1894,191 @@ function getCodexSettingsStatusSummary() {
     };
 }
 
+function getCurrentCodexConfigForPermissionPreset() {
+    const settingsApi = getCodexSettingsViewApi();
+    const draftPayload = collectCodexSettingsPayload();
+    if (settingsApi && typeof settingsApi.normalizeStoredCodexConfig === 'function' && draftPayload && isCodexSettingsDirty()) {
+        return settingsApi.normalizeStoredCodexConfig(draftPayload);
+    }
+    if (codexState.nextTurnEffectiveCodexConfig) {
+        return codexState.nextTurnEffectiveCodexConfig;
+    }
+    return getStoredCodexConfig();
+}
+
+function getCurrentPermissionPresetMeta() {
+    const settingsApi = getCodexSettingsViewApi();
+    const sourceConfig = getCurrentCodexConfigForPermissionPreset();
+    if (settingsApi && typeof settingsApi.resolvePermissionPresetMeta === 'function') {
+        return settingsApi.resolvePermissionPresetMeta(sourceConfig);
+    }
+    return {
+        key: 'custom',
+        label: '自定义权限',
+        hint: '当前使用自定义审批/沙箱组合'
+    };
+}
+
+function renderCodexPermissionPreset() {
+    if (!btnCodexPermissionPreset) {
+        return;
+    }
+    const meta = getCurrentPermissionPresetMeta();
+    btnCodexPermissionPreset.dataset.preset = meta.key || 'custom';
+    btnCodexPermissionPreset.disabled = !sessionId || !serverUrl || codexState.settingsSaving;
+    if (codexPermissionPresetLabel) {
+        codexPermissionPresetLabel.textContent = meta.label || '自定义权限';
+    }
+    if (codexPermissionPresetHint) {
+        const suffix = codexState.settingsSaving ? '保存中...' : '点击切换';
+        codexPermissionPresetHint.textContent = `${meta.hint || ''}${meta.hint ? ' · ' : ''}${suffix}`;
+    }
+
+    [
+        { element: btnCodexPermissionDefault, key: 'default' },
+        { element: btnCodexPermissionFull, key: 'full' },
+        { element: btnCodexPermissionCustom, key: 'custom' }
+    ].forEach(({ element, key }) => {
+        if (!element) return;
+        element.classList.toggle('active', meta.key === key);
+        element.disabled = codexState.settingsSaving === true;
+    });
+}
+
+function setCodexPermissionPresetSheetOpen(open) {
+    codexState.permissionPresetSheetOpen = open === true;
+    if (codexPermissionSheet) {
+        codexPermissionSheet.hidden = !codexState.permissionPresetSheetOpen;
+    }
+    renderCodexPermissionPreset();
+}
+
+function applyCodexPermissionPresetSelection(preset) {
+    const settingsApi = getCodexSettingsViewApi();
+    if (preset === 'custom') {
+        setCodexPermissionPresetSheetOpen(false);
+        setCodexSecondaryPanel('settings');
+        return Promise.resolve(null);
+    }
+    if (!settingsApi || typeof settingsApi.applyPermissionPreset !== 'function') {
+        return Promise.resolve(null);
+    }
+    const nextConfig = settingsApi.applyPermissionPreset(preset, collectCodexSettingsPayload() || getStoredCodexConfig());
+    if (!nextConfig) {
+        return Promise.resolve(null);
+    }
+    if (codexSettingsApproval) {
+        codexSettingsApproval.value = nextConfig.approvalPolicy || '';
+    }
+    if (codexSettingsSandbox) {
+        codexSettingsSandbox.value = nextConfig.sandboxMode || '';
+    }
+    if (codexSettingsPersonality && Object.prototype.hasOwnProperty.call(nextConfig, 'defaultPersonality')) {
+        codexSettingsPersonality.value = nextConfig.defaultPersonality || '';
+    }
+    renderCodexPermissionPreset();
+    renderCodexSettingsPanel();
+    if (!isCodexSettingsDirty()) {
+        setCodexPermissionPresetSheetOpen(false);
+        setCodexSettingsStatus('当前已是该权限模式。', '');
+        return Promise.resolve(null);
+    }
+    setCodexPermissionPresetSheetOpen(false);
+    return saveCodexSessionSettings();
+}
+
+function buildCodexThreadContextCards() {
+    const threadId = typeof codexState.threadId === 'string' ? codexState.threadId.trim() : '';
+    if (!threadId) {
+        return [];
+    }
+    const permissionMeta = getCurrentPermissionPresetMeta();
+    const currentTurnId = typeof codexState.currentTurnId === 'string' ? codexState.currentTurnId.trim() : '';
+    const nextConfig = normalizeEffectiveCodexConfig(codexState.nextTurnEffectiveCodexConfig);
+    const taskRows = [
+        ['线程', codexState.currentThreadTitle || threadId],
+        ['状态', localizeCodexStatus(codexState.status)],
+        ['工作区', codexState.cwd || '默认目录'],
+        ['当前 turn', currentTurnId || '暂无'],
+        ['权限', permissionMeta.label]
+    ];
+    const configRows = [
+        ['模型', nextConfig.model || '默认'],
+        ['推理', nextConfig.reasoningEffort || '默认'],
+        ['人格', nextConfig.personality || '默认'],
+        ['计划模式', codexState.interactionState.planMode === true ? '已开启' : '未开启'],
+        ['技能辅助', codexState.interactionState.activeSkill || '无']
+    ];
+    const telemetryRows = [
+        ['待审批', codexState.approvalPending ? `${codexState.pendingServerRequestCount || 1} 个` : '无'],
+        ['Token', codexState.tokenUsageSummary || '暂无'],
+        ['额度', codexState.rateLimitSummary || '暂无'],
+        ['快照', codexState.lastSnapshotThreadId || '暂无']
+    ];
+    return [
+        { title: '线程摘要', rows: taskRows },
+        { title: '下一次发送配置', rows: configRows },
+        { title: '运行辅助', rows: telemetryRows }
+    ];
+}
+
+function renderCodexThreadContextPanel() {
+    if (!codexThreadContextPanel) {
+        return;
+    }
+    const cards = buildCodexThreadContextCards();
+    const hasContext = cards.length > 0;
+    codexThreadContextPanel.hidden = !codexState.threadContextPanelOpen;
+    if (btnCodexIdeContext) {
+        btnCodexIdeContext.dataset.hasContext = hasContext ? 'true' : 'false';
+    }
+    if (codexContextStatus) {
+        codexContextStatus.textContent = hasContext ? '已绑定当前线程' : '当前线程为空';
+    }
+    if (codexThreadContextSubtitle) {
+        codexThreadContextSubtitle.textContent = hasContext
+            ? `当前线程：${codexState.currentThreadTitle || codexState.threadId}`
+            : '自动绑定当前线程并实时刷新。';
+    }
+    if (codexThreadContextEmpty) {
+        codexThreadContextEmpty.hidden = hasContext;
+    }
+    if (!codexThreadContextContent) {
+        return;
+    }
+    codexThreadContextContent.innerHTML = '';
+    cards.forEach((card) => {
+        const section = document.createElement('section');
+        section.className = 'codex-context-card';
+        const title = document.createElement('div');
+        title.className = 'codex-context-card-title';
+        title.textContent = card.title;
+        section.appendChild(title);
+        const list = document.createElement('div');
+        list.className = 'codex-context-list';
+        card.rows.forEach(([label, value]) => {
+            const row = document.createElement('div');
+            row.className = 'codex-context-row';
+            const labelNode = document.createElement('span');
+            labelNode.className = 'codex-context-row-label';
+            labelNode.textContent = label;
+            const valueNode = document.createElement('span');
+            valueNode.className = 'codex-context-row-value';
+            valueNode.textContent = value;
+            row.appendChild(labelNode);
+            row.appendChild(valueNode);
+            list.appendChild(row);
+        });
+        section.appendChild(list);
+        codexThreadContextContent.appendChild(section);
+    });
+}
+
+function setCodexThreadContextPanelOpen(open) {
+    codexState.threadContextPanelOpen = open === true;
+    renderCodexThreadContextPanel();
+}
+
 function normalizeCodexModelOptions(result) {
     return normalizeCodexModelCatalog(result).map((entry) => entry.id);
 }
@@ -2183,6 +2398,7 @@ function renderCodexSettingsPanel() {
         codexSettingsStatus.classList.toggle('tone-warn', status.tone === 'warn');
         codexSettingsStatus.classList.toggle('tone-success', status.tone === 'success');
     }
+    renderCodexPermissionPreset();
 }
 
 function shouldShowCodexRuntimePanel() {
@@ -2813,6 +3029,7 @@ function resetCodexBootstrapState() {
     codexState.approvalPending = false;
     codexState.pendingServerRequestCount = 0;
     codexState.pendingServerRequests = [];
+    codexState.activeCommandApprovalRequestId = '';
     codexState.streamingItemId = '';
     codexState.tokenUsageSummary = '';
     codexState.historyListLoading = false;
@@ -2840,9 +3057,11 @@ function resetCodexBootstrapState() {
     codexState.slashMenuQuery = '';
     codexState.settingsLoadingModels = false;
     codexState.settingsSaving = false;
+    codexState.permissionPresetSheetOpen = false;
     codexState.settingsRefreshingRateLimits = false;
     codexState.settingsStatusText = '';
     codexState.settingsStatusTone = '';
+    codexState.threadContextPanelOpen = false;
     codexState.nextTurnOverrides = { model: null, reasoningEffort: null };
     codexState.interactionState = { planMode: false, activeSkill: null };
     codexState.planWorkflow = buildEmptyPlanWorkflowState();
@@ -2900,6 +3119,9 @@ function resetCodexBootstrapState() {
     renderCodexAlerts();
     renderCodexRuntimePanel();
     renderCodexToolsPanel();
+    renderCodexCommandApprovalModal();
+    renderCodexPermissionPreset();
+    renderCodexThreadContextPanel();
 }
 
 function rejectPendingCodexBridgeRequests(message, code) {
@@ -3161,6 +3383,7 @@ function beginFreshCodexThreadUiReset() {
     codexState.approvalPending = false;
     codexState.pendingServerRequestCount = 0;
     codexState.pendingServerRequests = [];
+    codexState.activeCommandApprovalRequestId = '';
     codexState.pendingFreshThread = true;
     codexState.messageByItemId = new Map();
     codexState.requestStateById = new Map();
@@ -3170,6 +3393,8 @@ function beginFreshCodexThreadUiReset() {
     clearCodexErrorNotice();
     setCodexSecondaryPanel('none');
     setCodexStatus('idle', 'creating fresh task');
+    renderCodexCommandApprovalModal();
+    renderCodexThreadContextPanel();
 }
 
 function finalizeFreshCodexThreadUiReset() {
@@ -4328,6 +4553,71 @@ function clearCodexRequestCards() {
     codexState.requestStateById.clear();
 }
 
+function getBlockingCodexCommandRequestState() {
+    const requestId = typeof codexState.activeCommandApprovalRequestId === 'string'
+        ? codexState.activeCommandApprovalRequestId.trim()
+        : '';
+    if (requestId) {
+        const active = getCodexRequestState(requestId);
+        if (active && active.requestKind === 'command') {
+            return active;
+        }
+    }
+    const pendingRequest = Array.from(codexState.requestStateById.values()).find((entry) => (
+        entry
+        && entry.requestKind === 'command'
+        && (entry.status === 'pending' || entry.status === 'submitted')
+    ));
+    codexState.activeCommandApprovalRequestId = pendingRequest && pendingRequest.requestId
+        ? pendingRequest.requestId
+        : '';
+    return pendingRequest || null;
+}
+
+function renderCodexCommandApprovalModal() {
+    if (!codexCommandApprovalModal) {
+        return;
+    }
+    const approvalApi = getCodexApprovalViewApi();
+    const requestState = getBlockingCodexCommandRequestState();
+    const isVisible = !!requestState;
+    codexCommandApprovalModal.hidden = !isVisible;
+    if (!isVisible) {
+        if (codexCommandApprovalRemember) {
+            codexCommandApprovalRemember.checked = false;
+        }
+        return;
+    }
+    const statusText = approvalApi && typeof approvalApi.resolveApprovalStatusText === 'function'
+        ? approvalApi.resolveApprovalStatusText(requestState)
+        : (requestState.status || '等待处理');
+    const summaryText = approvalApi && typeof approvalApi.resolveApprovalSummaryText === 'function'
+        ? approvalApi.resolveApprovalSummaryText(requestState)
+        : '需要确认后才能执行命令。';
+    const commandText = approvalApi && typeof approvalApi.extractCommandText === 'function'
+        ? approvalApi.extractCommandText(requestState)
+        : '';
+    if (codexCommandApprovalStatus) {
+        codexCommandApprovalStatus.textContent = statusText;
+    }
+    if (codexCommandApprovalSummary) {
+        codexCommandApprovalSummary.textContent = summaryText;
+    }
+    if (codexCommandApprovalCommand) {
+        codexCommandApprovalCommand.textContent = commandText || '当前请求未返回原始命令。';
+    }
+    const isLocked = requestState.status !== 'pending';
+    if (btnCodexCommandApprovalApprove) {
+        btnCodexCommandApprovalApprove.disabled = isLocked;
+    }
+    if (btnCodexCommandApprovalReject) {
+        btnCodexCommandApprovalReject.disabled = isLocked;
+    }
+    if (codexCommandApprovalRememberWrap) {
+        codexCommandApprovalRememberWrap.hidden = requestState.status !== 'pending';
+    }
+}
+
 function resolveCodexRequestActionLabel(requestState) {
     if (!requestState || typeof requestState !== 'object') {
         return 'approval';
@@ -4340,37 +4630,45 @@ function resolveCodexRequestActionLabel(requestState) {
 }
 
 function updateCodexRequestCard(requestState) {
-    if (!requestState || !requestState.entry || !requestState.entry.isConnected) {
+    if (!requestState) {
         return;
     }
     const approvalApi = getCodexApprovalViewApi();
     const entry = requestState.entry;
-    entry.classList.toggle('codex-request-pending', requestState.status === 'pending');
-    entry.classList.toggle('codex-request-submitted', requestState.status === 'submitted');
-    entry.classList.toggle('codex-request-resolved', requestState.status === 'resolved');
+    if (entry && entry.isConnected) {
+        entry.classList.toggle('codex-request-pending', requestState.status === 'pending');
+        entry.classList.toggle('codex-request-submitted', requestState.status === 'submitted');
+        entry.classList.toggle('codex-request-resolved', requestState.status === 'resolved');
 
-    const statusNode = entry.querySelector('.codex-request-status');
-    if (statusNode) {
-        statusNode.textContent = approvalApi && typeof approvalApi.resolveApprovalStatusText === 'function'
-            ? approvalApi.resolveApprovalStatusText(requestState)
-            : (requestState.status || 'pending');
-    }
-    const metaNode = entry.querySelector('.meta');
-    if (metaNode) {
-        const actionLabel = resolveCodexRequestActionLabel(requestState);
-        if (requestState.status === 'resolved') {
-            metaNode.textContent = `${actionLabel}: ${requestState.resolution || 'resolved'}`;
-        } else if (requestState.status === 'submitted') {
-            metaNode.textContent = `${actionLabel}: submitted`;
-        } else {
-            metaNode.textContent = `${actionLabel}: pending`;
+        const statusNode = entry.querySelector('.codex-request-status');
+        if (statusNode) {
+            statusNode.textContent = approvalApi && typeof approvalApi.resolveApprovalStatusText === 'function'
+                ? approvalApi.resolveApprovalStatusText(requestState)
+                : (requestState.status || 'pending');
         }
+        const metaNode = entry.querySelector('.meta');
+        if (metaNode) {
+            const actionLabel = resolveCodexRequestActionLabel(requestState);
+            if (requestState.status === 'resolved') {
+                metaNode.textContent = `${actionLabel}: ${requestState.resolution || 'resolved'}`;
+            } else if (requestState.status === 'submitted') {
+                metaNode.textContent = `${actionLabel}: submitted`;
+            } else {
+                metaNode.textContent = `${actionLabel}: pending`;
+            }
+        }
+        const approveBtn = entry.querySelector('[data-request-action="approve"]');
+        const rejectBtn = entry.querySelector('[data-request-action="reject"]');
+        const isLocked = requestState.status !== 'pending';
+        if (approveBtn) approveBtn.disabled = isLocked;
+        if (rejectBtn) rejectBtn.disabled = isLocked;
     }
-    const approveBtn = entry.querySelector('[data-request-action="approve"]');
-    const rejectBtn = entry.querySelector('[data-request-action="reject"]');
-    const isLocked = requestState.status !== 'pending';
-    if (approveBtn) approveBtn.disabled = isLocked;
-    if (rejectBtn) rejectBtn.disabled = isLocked;
+    if (requestState.requestKind === 'command') {
+        if (requestState.status === 'resolved') {
+            codexState.activeCommandApprovalRequestId = '';
+        }
+        renderCodexCommandApprovalModal();
+    }
 }
 
 function markCodexRequestState(requestId, status, resolution) {
@@ -4402,6 +4700,23 @@ function reconcileCodexRequestStatesWithServerState(pendingRequests) {
     codexState.pendingServerRequests.forEach((request) => {
         if (!request || !request.requestId) return;
         const existing = getCodexRequestState(request.requestId);
+        if (existing) {
+            existing.method = request.method || existing.method;
+            existing.requestKind = request.requestKind || existing.requestKind;
+            existing.responseMode = request.responseMode || existing.responseMode;
+            existing.summary = request.summary || existing.summary;
+            existing.params = request.params && typeof request.params === 'object'
+                ? request.params
+                : null;
+            existing.questions = Array.isArray(request.params && request.params.questions)
+                ? request.params.questions
+                : (Array.isArray(existing.questions) ? existing.questions : []);
+            if (existing.status === 'submitted') {
+                existing.status = 'pending';
+                existing.resolution = '';
+            }
+            updateCodexRequestCard(existing);
+        }
         if (!existing || !existing.entry || !existing.entry.isConnected) {
             renderCodexServerRequest({
                 ...request,
@@ -4409,6 +4724,7 @@ function reconcileCodexRequestStatesWithServerState(pendingRequests) {
             });
         }
     });
+    renderCodexCommandApprovalModal();
 }
 
 function renderCodexServerRequest(envelope) {
@@ -4431,7 +4747,31 @@ function renderCodexServerRequest(envelope) {
     }
 
     const existing = getCodexRequestState(requestId);
-    if (existing && existing.entry && existing.entry.isConnected) {
+    if (existing && ((existing.entry && existing.entry.isConnected) || existing.requestKind === 'command')) {
+        return;
+    }
+
+    const useBlockingModal = approvalApi && typeof approvalApi.shouldUseBlockingModal === 'function'
+        ? approvalApi.shouldUseBlockingModal(request)
+        : request.requestKind === 'command';
+
+    if (useBlockingModal) {
+        appendCodexLogEntry(
+            'system',
+            `命令确认待处理：${approvalApi && typeof approvalApi.resolveApprovalSummaryText === 'function'
+                ? approvalApi.resolveApprovalSummaryText(request)
+                : (request.summary || request.method)}`,
+            { meta: 'approval', itemId: `request:${requestId}` }
+        );
+        const requestState = {
+            ...request,
+            entry: null,
+            status: 'pending',
+            resolution: ''
+        };
+        setCodexRequestState(requestState);
+        codexState.activeCommandApprovalRequestId = requestId;
+        renderCodexCommandApprovalModal();
         return;
     }
 
@@ -4606,6 +4946,25 @@ function renderCodexServerRequest(envelope) {
             markCodexRequestState(requestId, 'submitted', 'rejected');
         }
     });
+}
+
+function submitBlockingCommandApprovalDecision(approved) {
+    const requestState = getBlockingCodexCommandRequestState();
+    if (!requestState) {
+        return false;
+    }
+    const approvalApi = getCodexApprovalViewApi();
+    const result = approvalApi && typeof approvalApi.buildApprovalDecisionResult === 'function'
+        ? approvalApi.buildApprovalDecisionResult(requestState, approved)
+        : buildApprovalDecisionResult(requestState.method, approved);
+    if (!result) {
+        return false;
+    }
+    if (!sendCodexEnvelope({ type: 'codex_server_request_response', requestId: requestState.requestId, result })) {
+        return false;
+    }
+    markCodexRequestState(requestState.requestId, 'submitted', approved ? 'approved' : 'rejected');
+    return true;
 }
 
 function handleCodexThreadSnapshot(thread) {
@@ -5313,6 +5672,7 @@ function connect() {
                     codexState.compactSubmitting = false;
                     codexState.compactStatusText = '';
                     codexState.compactStatusTone = '';
+                    codexState.permissionPresetSheetOpen = false;
                     codexState.secondaryPanel = 'none';
                     codexState.currentThreadTitle = '';
                     codexState.initialSessionInfoReceived = true;
@@ -5339,6 +5699,7 @@ function connect() {
                     codexState.compactSubmitting = false;
                     codexState.compactStatusText = '';
                     codexState.compactStatusTone = '';
+                    codexState.permissionPresetSheetOpen = false;
                     codexState.secondaryPanel = 'none';
                     codexState.initialCapabilitiesReceived = true;
                     renderCodexHeaderSummary();
@@ -5934,6 +6295,7 @@ if (codexImagePromptInput) {
 ].filter(Boolean).forEach((field) => {
     field.addEventListener('change', () => {
         renderCodexSettingsPanel();
+        renderCodexPermissionPreset();
     });
 });
 
@@ -5948,6 +6310,7 @@ if (btnCodexSettingsReset) {
         syncCodexSettingsFormFromStoredConfig();
         setCodexSettingsStatus('已恢复当前保存的会话默认配置。', 'success');
         renderCodexSettingsPanel();
+        renderCodexPermissionPreset();
     });
 }
 
@@ -5956,6 +6319,72 @@ if (btnCodexSettingsSave) {
         saveCodexSessionSettings();
     });
 }
+
+if (btnCodexPermissionPreset) {
+    btnCodexPermissionPreset.addEventListener('click', () => {
+        setCodexPermissionPresetSheetOpen(!codexState.permissionPresetSheetOpen);
+    });
+}
+
+if (btnCodexPermissionSheetClose) {
+    btnCodexPermissionSheetClose.addEventListener('click', () => {
+        setCodexPermissionPresetSheetOpen(false);
+    });
+}
+
+if (btnCodexPermissionDefault) {
+    btnCodexPermissionDefault.addEventListener('click', () => {
+        void applyCodexPermissionPresetSelection('default');
+    });
+}
+
+if (btnCodexPermissionFull) {
+    btnCodexPermissionFull.addEventListener('click', () => {
+        void applyCodexPermissionPresetSelection('full');
+    });
+}
+
+if (btnCodexPermissionCustom) {
+    btnCodexPermissionCustom.addEventListener('click', () => {
+        void applyCodexPermissionPresetSelection('custom');
+    });
+}
+
+if (btnCodexIdeContext) {
+    btnCodexIdeContext.addEventListener('click', () => {
+        setCodexThreadContextPanelOpen(true);
+    });
+}
+
+if (btnCodexThreadContextClose) {
+    btnCodexThreadContextClose.addEventListener('click', () => {
+        setCodexThreadContextPanelOpen(false);
+    });
+}
+
+if (btnCodexCommandApprovalApprove) {
+    btnCodexCommandApprovalApprove.addEventListener('click', () => {
+        submitBlockingCommandApprovalDecision(true);
+    });
+}
+
+if (btnCodexCommandApprovalReject) {
+    btnCodexCommandApprovalReject.addEventListener('click', () => {
+        submitBlockingCommandApprovalDecision(false);
+    });
+}
+
+document.querySelectorAll('[data-modal-dismiss]').forEach((node) => {
+    node.addEventListener('click', () => {
+        const target = node.getAttribute('data-modal-dismiss');
+        if (target === 'permission') {
+            setCodexPermissionPresetSheetOpen(false);
+        }
+        if (target === 'context') {
+            setCodexThreadContextPanelOpen(false);
+        }
+    });
+});
 
 if (btnCodexSend) {
     btnCodexSend.addEventListener('click', () => {
@@ -6273,10 +6702,14 @@ if (shouldExposeCodexTestHooks) {
         renderCodexRuntimePanel,
         renderCodexSecondaryPanels,
         renderCodexToolsPanel,
+        renderCodexPermissionPreset,
+        renderCodexThreadContextPanel,
+        renderCodexCommandApprovalModal,
         // Helper functions
         handleCodexComposerSubmit,
         handleCodexNotification,
         handleCodexThreadSnapshot,
+        renderCodexServerRequest,
         requestCodexNewThread,
         startPlanWorkflow,
         applyCodexRateLimit,
@@ -6288,6 +6721,11 @@ if (shouldExposeCodexTestHooks) {
         syncCodexSecondaryPanelState,
         hasCodexNonBlockingNotice,
         getCodexSecondaryEntryAvailability,
+        setCodexPermissionPresetSheetOpen,
+        setCodexThreadContextPanelOpen,
+        getCurrentPermissionPresetMeta,
+        applyCodexPermissionPresetSelection,
+        submitBlockingCommandApprovalDecision,
         getSessionId: () => sessionId,
         getServerUrl: () => serverUrl,
         getRetryCount: () => retryCount,
@@ -6310,9 +6748,13 @@ if (shouldExposeCodexTestHooks) {
         getCodexToolsPanel: () => codexToolsPanel,
         getCodexAlertConfig: () => codexAlertConfig,
         getCodexAlertDeprecation: () => codexAlertDeprecation,
+        getCodexPermissionPresetButton: () => btnCodexPermissionPreset,
+        getCodexPermissionSheet: () => codexPermissionSheet,
         getCodexImagePromptInput: () => codexImagePromptInput,
         getCodexPlanWorkflow: () => codexPlanWorkflow,
         getCodexPlanWorkflowBody: () => codexPlanWorkflowBody,
+        getCodexThreadContextPanel: () => codexThreadContextPanel,
+        getCodexCommandApprovalModal: () => codexCommandApprovalModal,
         renderCodexPlanWorkflow
     };
 }

@@ -49,6 +49,10 @@ function createTestDOM() {
                             <span id="codex-status-dot" aria-hidden="true"></span>
                             <span id="codex-status-text">Codex 空闲</span>
                         </div>
+                        <button id="btn-codex-permission-preset" type="button">
+                            <span id="codex-permission-preset-label">默认权限</span>
+                            <span id="codex-permission-preset-hint">点击切换</span>
+                        </button>
                         <div id="codex-meta-line">
                             <span id="codex-meta-text"></span>
                             <span id="codex-notice-text"></span>
@@ -235,9 +239,37 @@ function createTestDOM() {
                             <select id="codex-quick-reasoning"></select>
                         </label>
                     </div>
+                    <button id="btn-codex-ide-context" type="button">
+                        <span class="codex-context-title">背景信息</span>
+                        <span id="codex-context-status">当前线程为空</span>
+                    </button>
                 </div>
                 <button id="btn-codex-send" type="button">发送</button>
             </div>
+        </div>
+        <div id="codex-permission-sheet" hidden>
+            <button id="btn-codex-permission-sheet-close" type="button">关闭</button>
+            <button id="btn-codex-permission-default" type="button">默认权限</button>
+            <button id="btn-codex-permission-full" type="button">完全访问权限</button>
+            <button id="btn-codex-permission-custom" type="button">自定义权限</button>
+            <div data-modal-dismiss="permission"></div>
+        </div>
+        <div id="codex-thread-context-panel" hidden>
+            <button id="btn-codex-thread-context-close" type="button">关闭</button>
+            <div id="codex-thread-context-subtitle"></div>
+            <div id="codex-thread-context-empty" hidden></div>
+            <div id="codex-thread-context-content"></div>
+            <div data-modal-dismiss="context"></div>
+        </div>
+        <div id="codex-command-approval-modal" hidden>
+            <div id="codex-command-approval-status"></div>
+            <div id="codex-command-approval-summary"></div>
+            <pre id="codex-command-approval-command"></pre>
+            <label id="codex-command-approval-remember-wrap">
+                <input id="codex-command-approval-remember" type="checkbox">
+            </label>
+            <button id="btn-codex-command-approval-reject" type="button">拒绝</button>
+            <button id="btn-codex-command-approval-approve" type="button">允许</button>
         </div>
         <div id="input-overlay">
             <textarea id="input-buffer" placeholder="Type command here..."></textarea>
@@ -358,12 +390,48 @@ function createTestDOM() {
             window.getCodexHistoryViewApi = () => null;
             // Mock getCodexShellViewApi
             window.getCodexShellViewApi = () => null;
-            // Mock getCodexSettingsViewApi
-            window.getCodexSettingsViewApi = () => null;
+            // Load the shared settings view API so permission preset derivation matches runtime behavior
+            window.TermLinkCodexSettingsView = require('../public/lib/codex_settings_view');
             // Mock getCodexRuntimeViewApi
             window.getCodexRuntimeViewApi = () => null;
-            // Mock getCodexApprovalViewApi
-            window.getCodexApprovalViewApi = () => null;
+            // Minimal approval view mock for blocking command modal tests
+            window.TermLinkCodexApprovalView = {
+                normalizeApprovalRequest(envelope) {
+                    return {
+                        requestId: envelope.requestId,
+                        method: envelope.method,
+                        requestKind: envelope.requestKind,
+                        responseMode: envelope.responseMode,
+                        handledBy: envelope.handledBy,
+                        summary: envelope.summary || '',
+                        title: '命令确认',
+                        params: envelope.params || {}
+                    };
+                },
+                resolveApprovalSummaryText(request) {
+                    return request.summary || '需要确认后才能执行命令。';
+                },
+                resolveApprovalStatusText(requestState) {
+                    if (requestState.status === 'submitted') return '提交中...';
+                    if (requestState.status === 'resolved') return '已完成';
+                    return '等待处理';
+                },
+                shouldUseBlockingModal(request) {
+                    return request.requestKind === 'command';
+                },
+                extractCommandText(request) {
+                    return request.params && request.params.command ? request.params.command : '';
+                },
+                buildApprovalDecisionResult(request, approved) {
+                    if (request.method === 'execCommandApproval') {
+                        return { decision: approved ? 'approved' : 'denied' };
+                    }
+                    return { decision: approved ? 'approve' : 'decline' };
+                },
+                pickResolvedRequestIds() {
+                    return [];
+                }
+            };
             // Load slash commands API for real slash parsing/registry behavior
             window.TermLinkCodexSlashCommands = require('../public/lib/codex_slash_commands');
         }
@@ -1431,6 +1499,87 @@ test('Phase 4 Integration: settings panel no longer renders thread actions or se
     assert.equal(window.document.getElementById('codex-settings-use-defaults'), null);
     assert.equal(window.document.getElementById('btn-codex-history-toggle'), null);
     assert.match(window.document.getElementById('codex-settings-status').textContent, /当前使用默认配置/);
+
+    dom.window.close();
+});
+
+test('Phase 5 Integration: header permission preset reflects current approval and sandbox mapping', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.storedCodexConfig = {
+        defaultPersonality: 'pragmatic',
+        approvalPolicy: 'never',
+        sandboxMode: 'danger-full-access'
+    };
+    hooks.codexState.nextTurnEffectiveCodexConfig = {
+        model: null,
+        reasoningEffort: null,
+        personality: 'pragmatic',
+        approvalPolicy: 'never',
+        sandboxMode: 'danger-full-access'
+    };
+    hooks.renderCodexPermissionPreset();
+
+    const button = hooks.getCodexPermissionPresetButton();
+    assert.equal(button.dataset.preset, 'full');
+    assert.match(button.textContent, /完全访问权限/);
+
+    dom.window.close();
+});
+
+test('Phase 5 Integration: background info panel follows the current thread and clears on empty thread', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.threadId = 'thread-context';
+    hooks.codexState.currentThreadTitle = 'Context Thread';
+    hooks.codexState.cwd = '/workspace/demo';
+    hooks.codexState.status = 'waiting_approval';
+    hooks.codexState.nextTurnEffectiveCodexConfig = {
+        model: 'gpt-5',
+        reasoningEffort: 'medium',
+        personality: 'pragmatic',
+        approvalPolicy: 'on-request',
+        sandboxMode: 'workspace-write'
+    };
+    hooks.setCodexThreadContextPanelOpen(true);
+
+    assert.equal(hooks.getCodexThreadContextPanel().hidden, false);
+    assert.match(hooks.getCodexThreadContextPanel().textContent, /Context Thread/);
+
+    hooks.codexState.threadId = '';
+    hooks.codexState.currentThreadTitle = '';
+    hooks.renderCodexThreadContextPanel();
+
+    assert.equal(window.document.getElementById('codex-thread-context-empty').hidden, false);
+    assert.equal(window.document.getElementById('codex-thread-context-content').textContent.trim(), '');
+
+    dom.window.close();
+});
+
+test('Phase 5 Integration: command approvals render a blocking modal instead of only a log card', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.renderCodexServerRequest({
+        requestId: 'cmd-1',
+        method: 'item/commandExecution/requestApproval',
+        requestKind: 'command',
+        responseMode: 'decision',
+        handledBy: 'client',
+        summary: 'rm -rf build',
+        params: {
+            command: 'rm -rf build'
+        }
+    });
+
+    const modal = hooks.getCodexCommandApprovalModal();
+    assert.equal(modal.hidden, false);
+    assert.match(modal.textContent, /rm -rf build/);
 
     dom.window.close();
 });
