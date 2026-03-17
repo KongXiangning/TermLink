@@ -1378,6 +1378,10 @@ body.codex-only #codex-log-stack {
     background-repeat: no-repeat;
     background-position: right 2px center;
     transition: color 0.2s;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .codex-ghost-select:hover {
@@ -2170,6 +2174,16 @@ body.viewport-compact #codex-composer-footer {
 body.viewport-compact #btn-codex-send {
     width: 36px;
     height: 36px;
+}
+
+body.viewport-compact .codex-ghost-select {
+    max-width: 55px;
+    font-size: 11px;
+    padding-right: 14px;
+}
+
+body.viewport-compact #codex-quick-controls {
+    gap: 6px;
 }
 
 @media (max-width: 720px) {

@@ -40,7 +40,8 @@
         const source = value && typeof value === 'object' ? value : {};
         return {
             model: normalizeOptionalString(source.model),
-            reasoningEffort: normalizeReasoningEffort(source.reasoningEffort)
+            reasoningEffort: normalizeReasoningEffort(source.reasoningEffort),
+            sandbox: normalizeOptionalString(source.sandbox)
         };
     }
 
@@ -61,7 +62,7 @@
             reasoningEffort: overrides.reasoningEffort || (stored ? stored.defaultReasoningEffort : null),
             personality: stored ? stored.defaultPersonality : null,
             approvalPolicy: stored ? stored.approvalPolicy : null,
-            sandboxMode: stored ? stored.sandboxMode : null
+            sandboxMode: overrides.sandbox || (stored ? stored.sandboxMode : null)
         };
     }
 

@@ -74,6 +74,7 @@ const btnCodexPlanContinue = document.getElementById('btn-codex-plan-continue');
 const btnCodexPlanCancel = document.getElementById('btn-codex-plan-cancel');
 const codexQuickModel = document.getElementById('codex-quick-model');
 const codexQuickReasoning = document.getElementById('codex-quick-reasoning');
+const codexQuickSandbox = document.getElementById('codex-quick-sandbox');
 const btnCodexQuickClear = document.getElementById('btn-codex-quick-clear');
 const btnCodexSlashTrigger = document.getElementById('btn-codex-slash-trigger');
 const codexImageActions = document.getElementById('codex-image-actions');
@@ -1333,13 +1334,14 @@ function setNextTurnOverrides(nextOverrides) {
 }
 
 function clearNextTurnOverrides() {
-    setNextTurnOverrides({ model: null, reasoningEffort: null });
+    setNextTurnOverrides({ model: null, reasoningEffort: null, sandbox: null });
 }
 
 function setNextTurnOverrideValue(key, value) {
     setNextTurnOverrides({
         model: key === 'model' ? value : codexState.nextTurnOverrides.model,
-        reasoningEffort: key === 'reasoningEffort' ? value : codexState.nextTurnOverrides.reasoningEffort
+        reasoningEffort: key === 'reasoningEffort' ? value : codexState.nextTurnOverrides.reasoningEffort,
+        sandbox: key === 'sandbox' ? value : codexState.nextTurnOverrides.sandbox
     });
 }
 
@@ -1587,8 +1589,11 @@ function renderCodexQuickControls() {
             modelId: resolveReasoningModelId()
         });
     }
+    if (codexQuickSandbox) {
+        codexQuickSandbox.value = codexState.nextTurnOverrides.sandbox || '';
+    }
     if (btnCodexQuickClear) {
-        btnCodexQuickClear.disabled = !codexState.nextTurnOverrides.model && !codexState.nextTurnOverrides.reasoningEffort;
+        btnCodexQuickClear.disabled = !codexState.nextTurnOverrides.model && !codexState.nextTurnOverrides.reasoningEffort && !codexState.nextTurnOverrides.sandbox;
     }
 }
 
@@ -3178,7 +3183,8 @@ function normalizeNextTurnOverrides(payload) {
         model: typeof source.model === 'string' && source.model.trim() ? source.model.trim() : null,
         reasoningEffort: typeof source.reasoningEffort === 'string' && source.reasoningEffort.trim()
             ? source.reasoningEffort.trim().toLowerCase()
-            : null
+            : null,
+        sandbox: typeof source.sandbox === 'string' && source.sandbox.trim() ? source.sandbox.trim() : null
     };
 }
 
@@ -3211,7 +3217,7 @@ function buildLocalNextTurnEffectiveCodexConfig() {
             reasoningEffort: codexState.nextTurnOverrides.reasoningEffort || baseConfig.reasoningEffort || null,
             personality: baseConfig.personality || null,
             approvalPolicy: baseConfig.approvalPolicy || null,
-            sandboxMode: baseConfig.sandboxMode || null
+            sandboxMode: codexState.nextTurnOverrides.sandbox || baseConfig.sandboxMode || null
         };
     }
     const slashApi = getCodexSlashCommandsApi();
@@ -3227,7 +3233,7 @@ function buildLocalNextTurnEffectiveCodexConfig() {
         reasoningEffort: codexState.nextTurnOverrides.reasoningEffort || (stored ? stored.defaultReasoningEffort : null),
         personality: stored ? stored.defaultPersonality : null,
         approvalPolicy: stored ? stored.approvalPolicy : null,
-        sandboxMode: stored ? stored.sandboxMode : null
+        sandboxMode: codexState.nextTurnOverrides.sandbox || (stored ? stored.sandboxMode : null)
     };
 }
 
@@ -6495,6 +6501,12 @@ if (codexQuickModel) {
 if (codexQuickReasoning) {
     codexQuickReasoning.addEventListener('change', () => {
         setNextTurnOverrideValue('reasoningEffort', codexQuickReasoning.value || null);
+    });
+}
+
+if (codexQuickSandbox) {
+    codexQuickSandbox.addEventListener('change', () => {
+        setNextTurnOverrideValue('sandbox', codexQuickSandbox.value || null);
     });
 }
 
