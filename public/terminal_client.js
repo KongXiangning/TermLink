@@ -1336,6 +1336,11 @@ function renderCodexComposerState() {
         codexOverrideSummary.hidden = parts.length === 0;
         codexOverrideSummary.textContent = parts.join(' | ');
     }
+    if (codexInput) {
+        codexInput.placeholder = codexState.interactionState.activeSkill
+            ? `已选择技能 ${codexState.interactionState.activeSkill}，继续输入你的具体需求...`
+            : '随便问点什么...';
+    }
 }
 
 function normalizeCodexImageInputs(payload) {
@@ -2053,7 +2058,6 @@ function applyCodexSkillSelection(skillEntry) {
         activeSkill: skillEntry.name
     });
     if (codexInput) {
-        codexInput.value = skillEntry.defaultPrompt || `$${skillEntry.name}`;
         codexInput.focus();
     }
     setSlashMenuState(false, '');
@@ -2324,16 +2328,10 @@ function renderCodexToolsPanel() {
                 desc.className = 'codex-tools-skill-desc';
                 desc.textContent = entry.description || '无额外说明';
                 copy.appendChild(desc);
-                if (entry.defaultPrompt) {
-                    const prompt = document.createElement('div');
-                    prompt.className = 'codex-tools-skill-prompt';
-                    prompt.textContent = `默认提示：${entry.defaultPrompt}`;
-                    copy.appendChild(prompt);
-                }
                 const action = document.createElement('button');
                 action.type = 'button';
                 action.className = 'codex-btn subtle';
-                action.textContent = '使用';
+                action.textContent = '选择';
                 action.addEventListener('click', () => {
                     applyCodexSkillSelection(entry);
                 });
@@ -2374,9 +2372,8 @@ function requestCodexCompactCurrentThread() {
     setCodexCompactStatus('正在请求压缩当前线程...', '');
     return sendCodexBridgeRequest('thread/compact/start', { threadId }, { suppressErrorUi: true })
         .then((result) => {
-            codexState.compactSubmitting = false;
             appendCodexLogEntry('system', `已请求压缩线程 ${threadId}。`, { meta: 'compact' });
-            setCodexCompactStatus('压缩请求已提交。', 'success');
+            setCodexCompactStatus('压缩请求已提交，等待完成通知...', '');
             setCodexSecondaryPanel('none');
             return result;
         })
@@ -2388,6 +2385,24 @@ function requestCodexCompactCurrentThread() {
         .finally(() => {
             renderCodexToolsPanel();
         });
+}
+
+function resolveCodexCompactThreadId(params) {
+    if (params && typeof params.threadId === 'string' && params.threadId.trim()) {
+        return params.threadId.trim();
+    }
+    if (params && params.thread && typeof params.thread.id === 'string' && params.thread.id.trim()) {
+        return params.thread.id.trim();
+    }
+    return '';
+}
+
+function buildCodexCompactedMessage(params) {
+    const compactedThreadId = resolveCodexCompactThreadId(params) || codexState.threadId || '当前线程';
+    const summary = formatTokenUsageSummary(params || {});
+    return summary
+        ? `线程 ${compactedThreadId} 已完成上下文压缩，${summary}。`
+        : `线程 ${compactedThreadId} 已完成上下文压缩。`;
 }
 
 function renderCodexRuntimePanel() {
@@ -4686,6 +4701,16 @@ function handleCodexNotification(method, params) {
             updateCodexHistoryThreadTitle(threadId, title);
             updateCodexThreadLabel();
         }
+        return;
+    }
+
+    if (method === 'thread/compacted') {
+        codexState.compactSubmitting = false;
+        clearCodexErrorNotice();
+        setCodexCompactStatus('当前线程已完成压缩。', 'success');
+        appendCodexLogEntry('system', buildCodexCompactedMessage(params), { meta: 'compact' });
+        refreshCodexThreadSnapshot({ force: true });
+        refreshCodexThreadList({ force: true, silent: true });
         return;
     }
 

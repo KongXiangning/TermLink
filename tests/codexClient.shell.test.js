@@ -239,6 +239,9 @@ test('Phase 2: terminal_client.js must parse model\/list and skills\/list payloa
     assert.match(js, /codexSlashMenuEmpty\.hidden = isSkillQuery \? skillItems\.length > 0/);
     assert.match(js, /function applyCodexSkillSelection\(skillEntry\)/);
     assert.match(js, /sendCodexBridgeRequest\('thread\/compact\/start', \{ threadId \}, \{ suppressErrorUi: true \}\)/);
+    assert.match(js, /if \(method === 'thread\/compacted'\)/);
+    assert.match(js, /setCodexCompactStatus\('当前线程已完成压缩。', 'success'\)/);
+    assert.match(js, /refreshCodexThreadSnapshot\(\{ force: true \}\)/);
     assert.match(js, /openCodexToolsPanel\('skills'\)/);
     assert.match(js, /openCodexToolsPanel\('compact'\)/);
     assert.match(js, /function isExecutableCodexSlashCommand\(entry\)/);

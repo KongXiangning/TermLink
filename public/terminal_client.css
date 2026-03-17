@@ -506,6 +506,7 @@ body.codex-only #codex-composer {
 #codex-tools-panel {
     display: flex;
     flex: 0 0 auto;
+    min-height: 0;
     flex-direction: column;
     gap: 10px;
     margin: 0 10px 8px;
@@ -547,20 +548,35 @@ body.codex-only #codex-composer {
 
 #codex-tools-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.65fr);
     gap: 8px;
+    min-height: 0;
+    align-items: start;
 }
 
 .codex-tools-card {
     display: flex;
     min-width: 0;
     min-height: 140px;
+    position: relative;
+    z-index: 0;
     flex-direction: column;
     gap: 8px;
     padding: 10px;
     border: 1px solid rgba(46, 182, 125, 0.12);
     border-radius: 12px;
     background: linear-gradient(135deg, rgba(46, 182, 125, 0.04) 0%, rgba(10, 13, 17, 0.82) 100%);
+}
+
+#codex-tools-skills-card {
+    min-height: 240px;
+}
+
+#codex-tools-compact-card {
+    min-height: 180px;
+    z-index: 1;
+    background: linear-gradient(180deg, rgba(13, 19, 27, 0.98) 0%, rgba(10, 13, 17, 0.98) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .codex-tools-card.is-focus {
@@ -605,6 +621,11 @@ body.codex-only #codex-composer {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-height: 0;
+    max-height: clamp(220px, 42vh, 420px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 .codex-tools-skill-item {
@@ -1422,6 +1443,7 @@ body.codex-only #codex-log-stack {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-height: 0;
     padding: 12px;
     border: 1px solid rgba(46, 182, 125, 0.15);
     border-radius: 22px;
@@ -1464,6 +1486,11 @@ body.codex-only #codex-log-stack {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    min-height: 0;
+    max-height: min(38vh, 280px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 #codex-image-inputs {
@@ -1925,6 +1952,38 @@ body.viewport-compact #btn-codex-send {
 
     #codex-tools-grid {
         grid-template-columns: 1fr;
+    }
+
+    #codex-tools-panel {
+        max-height: min(62vh, 560px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .codex-tools-card {
+        min-height: 0;
+    }
+
+    #codex-tools-skills-card {
+        min-height: 0;
+    }
+
+    #codex-tools-compact-card {
+        min-height: 156px;
+    }
+
+    #codex-tools-skills-list {
+        max-height: min(34vh, 300px);
+    }
+
+    #codex-slash-menu {
+        max-height: min(48vh, 360px);
+        overflow: hidden;
+    }
+
+    #codex-slash-menu-list {
+        max-height: min(34vh, 250px);
     }
 
     #codex-composer-footer {
