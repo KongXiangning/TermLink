@@ -38,6 +38,13 @@ test('buildApprovalDecisionResult preserves method-specific decision shape', () 
 
     assert.equal(
         JSON.stringify(api.buildApprovalDecisionResult({
+            method: 'item/commandExecution/requestApproval',
+            responseMode: 'decision'
+        }, true)),
+        JSON.stringify({ decision: 'accept' })
+    );
+    assert.equal(
+        JSON.stringify(api.buildApprovalDecisionResult({
             method: 'item/fileChange/requestApproval',
             responseMode: 'decision'
         }, true)),

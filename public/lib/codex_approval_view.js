@@ -57,7 +57,10 @@
         if (request.responseMode !== 'decision') {
             return null;
         }
-        if (request.method === 'item/commandExecution/requestApproval' || request.method === 'item/fileChange/requestApproval') {
+        if (request.method === 'item/commandExecution/requestApproval') {
+            return { decision: approved ? 'accept' : 'decline' };
+        }
+        if (request.method === 'item/fileChange/requestApproval') {
             return { decision: approved ? 'approve' : 'decline' };
         }
         if (request.method === 'applyPatchApproval' || request.method === 'execCommandApproval') {

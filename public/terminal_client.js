@@ -4509,7 +4509,10 @@ function buildApprovalDecisionResult(method, approved) {
             return result;
         }
     }
-    if (method === 'item/commandExecution/requestApproval' || method === 'item/fileChange/requestApproval') {
+    if (method === 'item/commandExecution/requestApproval') {
+        return { decision: approved ? 'accept' : 'decline' };
+    }
+    if (method === 'item/fileChange/requestApproval') {
         return { decision: approved ? 'approve' : 'decline' };
     }
     if (method === 'applyPatchApproval' || method === 'execCommandApproval') {

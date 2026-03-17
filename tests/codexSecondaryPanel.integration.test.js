@@ -426,6 +426,9 @@ function createTestDOM() {
                     if (request.method === 'execCommandApproval') {
                         return { decision: approved ? 'approved' : 'denied' };
                     }
+                    if (request.method === 'item/commandExecution/requestApproval') {
+                        return { decision: approved ? 'accept' : 'decline' };
+                    }
                     return { decision: approved ? 'approve' : 'decline' };
                 },
                 pickResolvedRequestIds() {
