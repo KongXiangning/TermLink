@@ -270,6 +270,7 @@ const codexState = {
     settingsSaving: false,
     permissionPresetSheetOpen: false,
     settingsRefreshingRateLimits: false,
+    rateLimitBootstrapRequested: false,
     settingsStatusText: '',
     settingsStatusTone: '',
     threadContextPanelOpen: false,
@@ -655,11 +656,6 @@ function updateCodexThreadLabel() {
 function renderCodexAuxStatus() {
     if (codexMetaText) {
         const parts = [];
-        if (codexState.cwd) {
-            parts.push(`工作区：${codexState.cwd}`);
-        } else if (isCodexOnlyPage) {
-            parts.push('工作区：默认目录');
-        }
         if (codexState.approvalPending) {
             const count = codexState.pendingServerRequestCount || 0;
             parts.push(count === 1 ? '有 1 个待审批请求' : `有 ${count} 个待审批请求`);
@@ -2862,6 +2858,29 @@ function refreshCodexRateLimits(options) {
         });
 }
 
+function maybeAutoRefreshCodexRateLimits() {
+    if (codexState.rateLimitBootstrapRequested) {
+        return;
+    }
+    if (getActiveSessionMode() !== 'codex') {
+        return;
+    }
+    if (!codexState.initialSessionInfoReceived || !codexState.initialCapabilitiesReceived || !codexState.initialCodexStateReceived) {
+        return;
+    }
+    if (codexState.capabilities.rateLimitsRead !== true) {
+        return;
+    }
+    if (codexState.rateLimitSummary || codexState.settingsRefreshingRateLimits) {
+        return;
+    }
+
+    codexState.rateLimitBootstrapRequested = true;
+    refreshCodexRateLimits({ silent: true }).catch(() => {
+        codexState.rateLimitBootstrapRequested = false;
+    });
+}
+
 function saveCodexSessionSettings() {
     if (!sessionId || !serverUrl) {
         setCodexSettingsStatus('会话尚未连接，无法保存设置。', 'error');
@@ -3064,6 +3083,7 @@ function resetCodexBootstrapState() {
     codexState.settingsSaving = false;
     codexState.permissionPresetSheetOpen = false;
     codexState.settingsRefreshingRateLimits = false;
+    codexState.rateLimitBootstrapRequested = false;
     codexState.settingsStatusText = '';
     codexState.settingsStatusTone = '';
     codexState.threadContextPanelOpen = false;
@@ -5698,6 +5718,7 @@ function connect() {
                     maybeBootstrapCodexSession();
                     maybeLoadCodexModels();
                     maybeLoadCodexSkills();
+                    maybeAutoRefreshCodexRateLimits();
                     return;
                 }
                 if (envelope.type === 'codex_capabilities') {
@@ -5719,6 +5740,7 @@ function connect() {
                     maybeBootstrapCodexSession();
                     maybeLoadCodexModels();
                     maybeLoadCodexSkills();
+                    maybeAutoRefreshCodexRateLimits();
                     return;
                 }
                 if (envelope.type === 'codex_state') {
@@ -5781,6 +5803,7 @@ function connect() {
                     renderCodexComposerState();
                     renderCodexQuickControls();
                     maybeBootstrapCodexSession();
+                    maybeAutoRefreshCodexRateLimits();
                     return;
                 }
                 if (envelope.type === 'codex_thread') {
@@ -6736,6 +6759,7 @@ if (shouldExposeCodexTestHooks) {
         syncCodexSecondaryPanelState,
         hasCodexNonBlockingNotice,
         getCodexSecondaryEntryAvailability,
+        maybeAutoRefreshCodexRateLimits,
         setCodexPermissionPresetSheetOpen,
         setCodexThreadContextPanelOpen,
         getCurrentPermissionPresetMeta,

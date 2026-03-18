@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TermLink Codex</title>
-    <link rel="stylesheet" href="terminal_client.css?v=66">
+    <link rel="stylesheet" href="terminal_client.css?v=67">
     <script src="terminal_shortcut_input.js?v=26"></script>
 </head>
 
@@ -22,12 +22,11 @@
                         <div id="codex-status-line">
                             <span id="codex-status-dot" aria-hidden="true"></span>
                             <span id="codex-status-text">Codex 空闲</span>
-                            <span id="codex-meta-text"></span>
                         </div>
-                        <button id="btn-codex-permission-preset" class="codex-permission-pill" type="button">
-                            <span id="codex-permission-preset-label">默认权限</span>
-                            <span id="codex-permission-preset-hint">点击切换</span>
-                        </button>
+                        <div id="codex-meta-line">
+                            <span id="codex-meta-text"></span>
+                            <span id="codex-notice-text"></span>
+                        </div>
                         <div id="codex-thread-line">
                             <span id="codex-thread-id">当前线程未就绪</span>
                             <span id="codex-thread-cwd"></span>
@@ -40,7 +39,6 @@
                 </div>
                 <div id="codex-secondary-nav">
                     <button id="btn-codex-secondary-threads" class="codex-secondary-btn" type="button">任务历史</button>
-                    <button id="btn-codex-secondary-settings" class="codex-secondary-btn" type="button">会话设置</button>
                     <button id="btn-codex-secondary-runtime" class="codex-secondary-btn" type="button">运行态</button>
                     <button id="btn-codex-secondary-tools" class="codex-secondary-btn" type="button" hidden>工具</button>
                     <button id="btn-codex-secondary-notices" class="codex-secondary-btn" type="button" hidden>提示</button>
@@ -66,51 +64,6 @@
                 </div>
                 <div id="codex-history-empty">暂无已保存线程。</div>
                 <div id="codex-history-list" aria-live="polite"></div>
-            </div>
-            <div id="codex-settings-panel" hidden>
-                <div id="codex-settings-header">
-                    <span id="codex-settings-title">会话设置</span>
-                    <div id="codex-settings-actions">
-                        <button id="btn-codex-rate-limit-refresh" class="codex-btn subtle" type="button">额度</button>
-                    </div>
-                </div>
-                <div id="codex-settings-fields">
-                    <label class="codex-settings-field">
-                        <span>人格风格</span>
-                        <select id="codex-settings-personality">
-                            <option value="">服务端默认</option>
-                            <option value="none">无</option>
-                            <option value="friendly">友好</option>
-                            <option value="pragmatic">务实</option>
-                        </select>
-                    </label>
-                    <label class="codex-settings-field">
-                        <span>审批策略</span>
-                        <select id="codex-settings-approval">
-                            <option value="">服务端默认</option>
-                            <option value="untrusted">不信任</option>
-                            <option value="on-failure">失败时</option>
-                            <option value="on-request">按请求</option>
-                            <option value="never">从不</option>
-                        </select>
-                    </label>
-                    <label class="codex-settings-field">
-                        <span>沙箱模式</span>
-                        <select id="codex-settings-sandbox">
-                            <option value="">服务端默认</option>
-                            <option value="read-only">只读</option>
-                            <option value="workspace-write">工作区可写</option>
-                            <option value="danger-full-access">完全访问</option>
-                        </select>
-                    </label>
-                </div>
-                <div id="codex-settings-footer">
-                    <div id="codex-settings-status" aria-live="polite"></div>
-                    <div id="codex-settings-buttons">
-                        <button id="btn-codex-settings-reset" class="codex-btn subtle" type="button">重置</button>
-                        <button id="btn-codex-settings-save" class="codex-btn" type="button">保存</button>
-                    </div>
-                </div>
             </div>
             <div id="codex-runtime-panel" hidden>
                 <div id="codex-runtime-header">
@@ -238,32 +191,6 @@
                 </div>
             </div>
         </div>
-        <div id="codex-permission-sheet" class="codex-modal-layer" hidden>
-            <div class="codex-modal-backdrop" data-modal-dismiss="permission"></div>
-            <section class="codex-sheet codex-permission-sheet-card" role="dialog" aria-modal="true" aria-labelledby="codex-permission-sheet-title">
-                <div class="codex-sheet-header">
-                    <div>
-                        <div id="codex-permission-sheet-title" class="codex-sheet-title">权限模式</div>
-                        <div class="codex-sheet-subtitle">切换后会立即写回当前会话默认配置。</div>
-                    </div>
-                    <button id="btn-codex-permission-sheet-close" class="codex-btn subtle" type="button">关闭</button>
-                </div>
-                <div id="codex-permission-sheet-options" class="codex-choice-list">
-                    <button id="btn-codex-permission-default" class="codex-choice-card" type="button" data-preset="default">
-                        <span class="codex-choice-title">默认权限</span>
-                        <span class="codex-choice-meta">按请求审批 + 工作区可写</span>
-                    </button>
-                    <button id="btn-codex-permission-full" class="codex-choice-card" type="button" data-preset="full">
-                        <span class="codex-choice-title">完全访问权限</span>
-                        <span class="codex-choice-meta">无需审批 + 完全访问文件系统</span>
-                    </button>
-                    <button id="btn-codex-permission-custom" class="codex-choice-card" type="button" data-preset="custom">
-                        <span class="codex-choice-title">自定义权限</span>
-                        <span class="codex-choice-meta">打开会话设置，手动调整审批策略和沙箱模式</span>
-                    </button>
-                </div>
-            </section>
-        </div>
         <div id="codex-thread-context-panel" class="codex-modal-layer" hidden>
             <div class="codex-modal-backdrop" data-modal-dismiss="context"></div>
             <section class="codex-sheet codex-context-sheet-card" role="dialog" aria-modal="true" aria-labelledby="codex-thread-context-title">
@@ -314,7 +241,7 @@
     <script src="lib/codex_settings_view.js?v=3"></script>
     <script src="lib/codex_runtime_view.js?v=4"></script>
     <script src="lib/codex_approval_view.js?v=3"></script>
-    <script src="terminal_client.js?v=59"></script>
+    <script src="terminal_client.js?v=60"></script>
 </body>
 
 </html>

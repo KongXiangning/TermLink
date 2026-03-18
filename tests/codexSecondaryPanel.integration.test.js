@@ -294,13 +294,16 @@ function createTestDOM() {
                 constructor(url) {
                     this.url = url;
                     this.readyState = 0;
+                    this.sent = [];
                     this.CONNECTING = 0;
                     this.OPEN = 1;
                     this.CLOSING = 2;
                     this.CLOSED = 3;
                     window.__WS_INSTANCES__.push(this);
                 }
-                send() {}
+                send(payload) {
+                    this.sent.push(payload);
+                }
                 close() { this.readyState = 2; }
                 dispatchOpen() {
                     this.readyState = this.OPEN;
@@ -1237,6 +1240,52 @@ test('Phase 4 Integration: account/rateLimits/updated renders summary for usage 
     });
 
     assert.equal(hooks.codexState.rateLimitSummary, '5小时 1% | 一周 18%');
+    assert.match(window.document.getElementById('codex-meta-text').textContent, /额度：5小时 1% \| 一周 18%/);
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: codex bootstrap auto-requests rate limits for the status bar', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'rate-limit-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    ws.onmessage({ data: JSON.stringify({
+        type: 'session_info',
+        sessionId: 'rate-limit-session',
+        sessionMode: 'codex',
+        codexConfig: null
+    }) });
+    ws.onmessage({ data: JSON.stringify({
+        type: 'codex_capabilities',
+        capabilities: { rateLimitsRead: true }
+    }) });
+    ws.onmessage({ data: JSON.stringify({
+        type: 'codex_state',
+        status: 'idle',
+        threadId: 'thread-rate-limit',
+        currentTurnId: '',
+        cwd: 'E:\\coding\\TermLink'
+    }) });
+
+    const limitRequest = ws.sent
+        .map((entry) => JSON.parse(entry))
+        .find((entry) => entry.type === 'codex_request' && entry.method === 'account/rateLimits/read');
+
+    assert.ok(limitRequest, 'bootstrap must request account/rateLimits/read when no quota snapshot is available');
 
     dom.window.close();
 });

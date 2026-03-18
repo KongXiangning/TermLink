@@ -11,24 +11,19 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     const html = readPublicFile('codex_client.html');
 
     assert.match(html, /id="codex-status-strip"/);
-    assert.match(html, /id="btn-codex-permission-preset"/);
-    assert.match(html, /id="codex-permission-preset-label"/);
     assert.match(html, /id="codex-thread-line"/);
     assert.match(html, /id="codex-thread-id"/);
     assert.match(html, /id="codex-thread-cwd"/);
     assert.match(html, /id="btn-codex-secondary-threads"/);
-    assert.match(html, /id="btn-codex-secondary-settings"/);
     assert.match(html, /id="btn-codex-secondary-runtime"/);
     assert.match(html, /id="btn-codex-secondary-tools"/);
     assert.match(html, /id="btn-codex-secondary-notices"/);
     assert.match(html, /id="codex-history-panel"/);
-    assert.match(html, /id="codex-settings-panel"/);
     assert.match(html, /id="codex-runtime-panel"/);
     assert.match(html, /id="codex-tools-panel"/);
     assert.match(html, /id="codex-alerts"/);
     assert.match(html, /id="btn-codex-history-refresh"/);
     assert.match(html, /id="btn-codex-new-thread"/);
-    assert.match(html, /id="btn-codex-settings-save"/);
     assert.match(html, /id="codex-plan-chip"/);
     assert.match(html, /id="codex-quick-model"/);
     assert.match(html, /id="codex-quick-reasoning"/);
@@ -42,8 +37,9 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="codex-slash-menu"/);
     assert.match(html, /id="codex-actions"[\s\S]*id="btn-codex-toggle"[\s\S]*id="btn-codex-interrupt"/);
     assert.match(html, /id="codex-history-actions"[\s\S]*id="btn-codex-history-refresh"[\s\S]*id="btn-codex-new-thread"/);
-    assert.match(html, /id="codex-settings-approval"[\s\S]*<option value="">服务端默认<\/option>/);
-    assert.match(html, /id="codex-settings-sandbox"[\s\S]*<option value="">服务端默认<\/option>/);
+    assert.doesNotMatch(html, /id="btn-codex-permission-preset"/);
+    assert.doesNotMatch(html, /id="btn-codex-secondary-settings"/);
+    assert.doesNotMatch(html, /id="codex-settings-panel"/);
     assert.doesNotMatch(html, /id="btn-codex-history-toggle"/);
     assert.doesNotMatch(html, /id="codex-settings-use-defaults"/);
     assert.match(html, /src="lib\/codex_bootstrap\.js\?v=2"/);
@@ -57,7 +53,7 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="btn-codex-plan-execute"/);
     assert.match(html, /id="btn-codex-plan-continue"/);
     assert.match(html, /id="btn-codex-plan-cancel"/);
-    assert.match(html, /src="terminal_client\.js\?v=59"/);
+    assert.match(html, /src="terminal_client\.js\?v=60"/);
 });
 
 test('terminal client shell shares scripts but does not expose codex history panel markup', () => {
@@ -73,7 +69,7 @@ test('terminal client shell shares scripts but does not expose codex history pan
     assert.match(html, /src="lib\/codex_settings_view\.js\?v=3"/);
     assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
     assert.match(html, /src="lib\/codex_approval_view\.js\?v=3"/);
-    assert.match(html, /src="terminal_client\.js\?v=59"/);
+    assert.match(html, /src="terminal_client\.js\?v=60"/);
 });
 
 test('terminal client stylesheet supports secondary panels and sticky composer for the codex conversation page', () => {
@@ -141,7 +137,6 @@ test('Phase 1: secondary panels in codex_client.html must have hidden attribute 
     // All secondary panels MUST have hidden attribute by default
     // This ensures they are hidden before JS runs, preventing FOUC (Flash of Unstyled Content)
     assert.match(html, /<div\s+id="codex-history-panel"\s+[^>]*hidden/, 'codex-history-panel must have hidden attribute');
-    assert.match(html, /<div\s+id="codex-settings-panel"\s+[^>]*hidden/, 'codex-settings-panel must have hidden attribute');
     assert.match(html, /<div\s+id="codex-runtime-panel"\s+[^>]*hidden/, 'codex-runtime-panel must have hidden attribute');
     assert.match(html, /<div\s+id="codex-tools-panel"\s+[^>]*hidden/, 'codex-tools-panel must have hidden attribute');
     assert.match(html, /<div\s+id="codex-alerts"\s+[^>]*hidden/, 'codex-alert must have hidden attribute');
