@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TermLink Codex</title>
-    <link rel="stylesheet" href="terminal_client.css?v=67">
+    <link rel="stylesheet" href="terminal_client.css?v=70">
     <script src="terminal_shortcut_input.js?v=26"></script>
 </head>
 
@@ -27,16 +27,19 @@
                             <span id="codex-meta-text"></span>
                             <span id="codex-notice-text"></span>
                         </div>
-                        <div id="codex-thread-line">
-                            <span id="codex-thread-id">当前线程未就绪</span>
-                            <span id="codex-thread-cwd"></span>
-                        </div>
                     </div>
                     <div id="codex-actions">
                         <button id="btn-codex-toggle" class="codex-btn" type="button">收起</button>
                         <button id="btn-codex-interrupt" class="codex-btn danger" type="button" hidden>中断</button>
                     </div>
                 </div>
+                <button id="codex-thread-summary" type="button">
+                    <span class="codex-thread-summary-copy">
+                        <span id="codex-thread-id" class="codex-thread-summary-title">当前线程未就绪</span>
+                        <span id="codex-thread-cwd" class="codex-thread-summary-meta" hidden></span>
+                    </span>
+                    <span id="codex-thread-summary-action" class="codex-thread-summary-action">查看线程</span>
+                </button>
                 <div id="codex-secondary-nav">
                     <button id="btn-codex-secondary-threads" class="codex-secondary-btn" type="button">任务历史</button>
                     <button id="btn-codex-secondary-runtime" class="codex-secondary-btn" type="button">运行态</button>
@@ -177,7 +180,7 @@
                             </div>
                             <div class="codex-footer-divider"></div>
                             <button id="btn-codex-ide-context" class="codex-context-btn" type="button">
-                                <span class="codex-context-icon">🪄</span>
+                                <span class="codex-context-icon" aria-hidden="true">i</span>
                                 <span class="codex-context-copy">
                                     <span class="codex-context-title">背景信息</span>
                                     <span id="codex-context-status" class="codex-context-status">当前线程为空</span>
@@ -241,7 +244,7 @@
     <script src="lib/codex_settings_view.js?v=3"></script>
     <script src="lib/codex_runtime_view.js?v=4"></script>
     <script src="lib/codex_approval_view.js?v=3"></script>
-    <script src="terminal_client.js?v=60"></script>
+    <script src="terminal_client.js?v=64"></script>
 </body>
 
 </html>

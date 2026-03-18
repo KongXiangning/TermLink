@@ -26,7 +26,7 @@ related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BAC
 2. 落地 slash registry、`/model`、`/plan` 与输入区附近的 next-turn quick controls；`/plan <文本>` 为一次性发送后清除，不保留持续模式。
 3. 冻结 `/skill <name>` 契约但当前期默认不开放；其替换 / 清除不影响 `planMode`，且当前不预绑定底层字段。
 4. 为后续 `/` 能力扩展预留统一的 slash registry / command-dispatch 接口，使新命令优先通过注册描述与分发适配接入，而不是新增输入分支特判。
-5. 统一 stored `codexConfig`、`nextTurnEffectiveCodexConfig` 与 `interactionState` 的边界，并将 `PATCH /api/sessions/:id` 作为 Session Defaults 最小可用化的正式交付项。
+5. 统一 stored `codexConfig`、`nextTurnEffectiveCodexConfig` 与 `interactionState` 的边界，并将 `PATCH /api/sessions/:id` 作为底层配置契约交付项；当前期不恢复 `Session Defaults` UI。
 6. 在上述主线稳定后，再逐项开放 runtime 次级视图、`/compact`、`/skills`、image 等增强能力。
 7. 明确 Android 与 WebView 共享同一交互契约与中文化规范，避免端侧协议或行为分叉。
 8. 定义并落地服务端受控管理员权限模式（`REQ-20260222-server-admin-privilege-mode`），补齐启用门禁、审计、回滚链路。

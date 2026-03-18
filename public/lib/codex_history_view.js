@@ -17,6 +17,13 @@
 
     function normalizeTitle(value, fallbackId) {
         const normalized = typeof value === 'string' ? value.trim() : '';
+        if (
+            /[\u0000-\u001F\u007F\uFFFD]/.test(normalized)
+            || /[\u0E00-\u0E7F]/.test(normalized)
+            || (/[?？]/.test(normalized) && normalized.length >= 12)
+        ) {
+            return `Thread ${fallbackId}`;
+        }
         return normalized || `Thread ${fallbackId}`;
     }
 

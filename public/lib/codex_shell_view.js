@@ -24,7 +24,20 @@
     }
 
     function normalizeTitle(value) {
-        return typeof value === 'string' && value.trim() ? value.trim() : '';
+        const normalized = typeof value === 'string' && value.trim() ? value.trim() : '';
+        if (!normalized) {
+            return '';
+        }
+        if (/[\u0000-\u001F\u007F\uFFFD]/.test(normalized)) {
+            return '';
+        }
+        if (/[\u0E00-\u0E7F]/.test(normalized)) {
+            return '';
+        }
+        if (/[?？]/.test(normalized) && normalized.length >= 12) {
+            return '';
+        }
+        return normalized;
     }
 
     function normalizeStatus(value) {
@@ -60,7 +73,7 @@
         const isCodex = sessionMode === 'codex';
         return {
             threads: isCodex && capabilities.historyList === true,
-            settings: isCodex && (capabilities.modelConfig === true || capabilities.rateLimitsRead === true),
+            settings: false,
             runtime: isCodex && capabilities.diffPlanReasoning === true,
             notices: isCodex && state.hasNonBlockingNotice === true,
             tools: isCodex && (capabilities.skillsList === true || capabilities.compact === true)

@@ -19,7 +19,7 @@ test('getSecondaryEntryAvailability derives secondary entries from codex capabil
         hasNonBlockingNotice: true
     }), {
         threads: true,
-        settings: true,
+        settings: false,
         runtime: true,
         notices: true,
         tools: false
@@ -117,6 +117,17 @@ test('buildThreadSummary returns localized empty and active thread summaries', (
     }), {
         titleText: '当前线程 thread-a...123456',
         metaText: '工作区：默认目录 · 状态：等待审批',
+        empty: false
+    });
+
+    assert.deepEqual(buildThreadSummary({
+        threadId: 'thread-bad-title',
+        threadTitle: '恢复顶部状态栏额度显示吗? ไม่มี',
+        cwd: 'E:\\coding\\TermLink',
+        status: 'idle'
+    }), {
+        titleText: '当前线程 thread-bad-title',
+        metaText: '工作区：E:\\coding\\TermLink · 状态：空闲',
         empty: false
     });
 });

@@ -1245,6 +1245,89 @@ test('Phase 4 Integration: account/rateLimits/updated renders summary for usage 
     dom.window.close();
 });
 
+test('Phase 4 Integration: malformed mixed-script thread title falls back to thread id in header', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.codexState.threadId = 'thread-bad-title';
+    hooks.codexState.cwd = 'E:\\coding\\TermLink';
+    hooks.handleCodexNotification('thread/name/updated', {
+        threadId: 'thread-bad-title',
+        title: '恢复顶部状态栏额度显示吗? ไม่มี'
+    });
+
+    assert.match(window.document.getElementById('codex-thread-id').textContent, /当前线程 thread-bad-title/);
+    assert.equal(window.document.getElementById('codex-thread-cwd').textContent, 'E:\\coding\\TermLink');
+
+    dom.window.close();
+});
+
+test('Phase 4 Integration: rate limit summary treats large relative reset seconds as future time instead of epoch', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+    const fixedNow = Date.UTC(2026, 2, 18, 4, 0, 0);
+    const originalNow = window.Date.now;
+    window.Date.now = () => fixedNow;
+
+    const formatted = hooks.formatRateLimitSummary({
+        rateLimits: {
+            primary: {
+                usedPercent: 1,
+                windowDurationMins: 300,
+                resetsInSeconds: 18000
+            },
+            secondary: {
+                usedPercent: 18,
+                windowDurationMins: 10080,
+                resetsInSeconds: 604800
+            }
+        }
+    });
+
+    const expectedPrimary = new window.Date(fixedNow + (18000 * 1000)).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    const expectedSecondary = new window.Date(fixedNow + (604800 * 1000)).toLocaleString([], {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    assert.equal(formatted.summary, `5小时 1% ${expectedPrimary} | 一周 18% ${expectedSecondary}`);
+
+    window.Date.now = originalNow;
+    dom.window.close();
+});
+
+test('Phase 4 Integration: rate limit summary supports epoch-second reset fields', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    const formatted = hooks.formatRateLimitSummary({
+        rateLimits: {
+            primary: {
+                usedPercent: 7,
+                windowDurationMins: 300,
+                resetAtEpochMs: 1773810000
+            }
+        }
+    });
+
+    const expectedPrimary = new window.Date(1773810000 * 1000).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    assert.equal(formatted.summary, `5小时 7% ${expectedPrimary}`);
+
+    dom.window.close();
+});
+
 test('Phase 4 Integration: codex bootstrap auto-requests rate limits for the status bar', async () => {
     const dom = createTestDOM();
     const { window } = dom;

@@ -206,34 +206,19 @@ Codex 首页默认只保留以下主体：
 2. 线程历史入口改为抽屉或会话管理入口，不再常驻首页主体。
 3. 默认进入 Codex 会话时优先恢复 `lastCodexThreadId`，为空时自动新建线程。
 
-### 5.6 Session Defaults 最小化保留
+### 5.6 Session Defaults 不进入当前期 UI
 
-1. `Session Defaults` 保留为二级入口。
-2. 本期仅保留最小可用的会话级默认配置编辑能力：
-   - `model`
-   - `reasoning effort`
-   - `personality`
-   - `approval policy`
-   - `sandbox mode`
-3. `Session Defaults` 的定位是“会话级持久默认配置”，不是首页首屏主交互。
-4. `PATCH /api/sessions/:id` 支持更新 stored `codexConfig`，这是 `Session Defaults` 最小可用重构的正式 Phase 交付项。
-5. 在 PATCH 落地前，Settings 只允许只读态或受限编辑态。
+1. 当前期不提供 `Session Defaults` 入口，不作为首页主视图，也不作为二级入口。
+2. `stored codexConfig`、`PATCH /api/sessions/:id`、`session_info.codexConfig` 仍可作为底层配置契约保留，用于后续统一服务端与客户端状态边界。
+3. 当前期实现不得因为底层配置链路存在，就恢复“会话设置”面板、按钮或只读占位块。
+4. 若后续确需恢复会话级默认配置 UI，必须重新立项并先明确其与 `nextTurnOverrides`、`nextTurnEffectiveCodexConfig`、`interactionState` 的边界。
 
 ### 5.7 权限模式与审批可见性
 
-1. App 面向用户的权限入口改为权限预设模式，不在首页主路径直接暴露底层 `approval policy` / `sandbox mode` 术语。
-2. 当前期至少提供两个权限预设：
-   - `默认权限`
-   - `完全访问权限`
-3. 权限预设必须映射到既有会话配置字段：
-   - `approvalPolicy`
-   - `sandboxMode`
-4. 当前期默认映射冻结为：
-   - `默认权限 = approvalPolicy=on-request + sandboxMode=workspace-write`
-   - `完全访问权限 = approvalPolicy=never + sandboxMode=danger-full-access`
-5. 首页主视图必须持续显示当前权限预设模式，且新建线程、恢复线程、切换线程后始终可见。
-6. 权限模式一旦切换，首页显示、设置页显示、线程启动时实际下发配置三者必须同步。
-7. `Session Defaults` 仍保留底层 `approval policy` 与 `sandbox mode` 高级配置，但 app 主路径优先展示权限预设模式。
+1. 当前期不提供顶部权限选择、权限预设 pill、权限模式快捷切换或首页持续权限显示。
+2. `approvalPolicy` / `sandboxMode` 仍属于底层执行配置，可随线程启动生效，但不在当前期 app 主路径直接暴露为可操作 UI。
+3. 当前期与权限相关的可见性要求只保留“命令审批阻塞态必须前置可见”，不再要求首页展示权限模式。
+4. 若后续需要恢复权限模式产品化入口，必须重新立项并明确它与真实下发配置的一致性约束。
 
 ### 5.8 审批、错误与阻塞态优先
 
@@ -318,7 +303,7 @@ Codex 首页默认只保留以下主体：
 4. 作为移动端用户，我输入 `/plan` 后可以让下一次发送进入计划模式，并在发送后自动退出该模式。
 5. 作为未来 skill 用户，我可以在当前会话里切换 active skill，而不影响尚未发送的 plan mode。
 6. 作为历史会话用户，我仍可查看、读取和恢复线程，但线程管理入口不再占据首页主体。
-7. 作为 app 用户，我可以一眼看到当前权限模式，并明确知道现在是默认权限还是完全访问权限。
+7. 作为 app 用户，我不会在当前期首页看到“会话设置”或顶部权限选择等偏配置型入口。
 8. 作为 app 用户，当 Codex 要执行需要确认的命令时，我会先看到阻塞确认弹窗，再决定是否放行。
 9. 作为 app 用户，我打开背景信息窗口时，看到的是当前线程对应的背景信息，而不是上一次任务残留内容。
 
@@ -329,7 +314,7 @@ Codex 首页默认只保留以下主体：
 3. 命令层：引入本地 slash registry 与 command-dispatch，当前期前置 `/model`、`/plan`，冻结 `/skill <name>` 契约。
 4. 状态层：区分 stored `codexConfig`、next-turn overrides、`nextTurnEffectiveCodexConfig`、`interactionState`。
 5. 协议层：继续维持 `gateway <-> codex app-server` 真实边界，不引入新的底层 slash 协议，也不预绑定 `activeSkill` 底层字段。
-6. 产品层：app 内新增 `permissionPreset` 作为权限预设 UI 概念，用于首页持续可见状态与设置入口收口，但最终仍映射回既有 `approvalPolicy` / `sandboxMode`。
+6. 产品层：当前期不引入 `permissionPreset` 作为面向用户的 UI 概念；`approvalPolicy` / `sandboxMode` 仅保留为底层配置字段。
 
 ## 11. 接口/数据结构变更
 
@@ -351,7 +336,7 @@ Codex 首页默认只保留以下主体：
 规则：
 
 1. `codexConfig` 是会话级 stored config，可为空，仅代表持久默认值。
-2. `Session Defaults` 二级入口编辑的是这一层，而不是当前 turn override。
+2. 当前期不提供 `Session Defaults` 二级入口；该层仅作为配置契约边界说明，不对应现网 UI。
 3. `terminal` 会话允许 `codexConfig = null`。
 4. `lastCodexThreadId` 仅作恢复提示与默认恢复入口，不作为线程历史真相来源。
 5. 当前期不新增新的权限协议字段；`permissionPreset` 仅属于客户端产品层状态，不作为 REST 持久化必选字段。
@@ -457,7 +442,7 @@ Codex 首页默认只保留以下主体：
 11. `nextTurnEffectiveCodexConfig` 不承载 `activeSkill`。
 12. `activeSkill` 当前只冻结契约，不绑定固定底层字段。
 13. slash 新命令可通过统一命令描述与 dispatch 接口扩展，不要求为每个命令新增独立提交链路。
-14. App 首页持续显示当前权限预设模式，且其显示结果与实际下发的 `approvalPolicy` / `sandboxMode` 保持一致。
+14. App 首页不出现顶部权限选择或权限预设持续展示。
 15. 需要确认的命令执行在 app 中以前景阻塞弹窗呈现，并继续复用既有 `codex_server_request_response` 链路。
 16. 背景信息窗口替换“IDE 背景信息”入口，并与当前线程绑定，不显示旧线程残留内容。
 
@@ -499,8 +484,8 @@ Codex 首页默认只保留以下主体：
    - 控制：在能力证据未落地前，只冻结交互契约，不预绑定实现字段。
 5. 风险：Android 与 WebView 行为分叉。
    - 控制：共享交互契约，不允许端侧私有语义。
-6. 风险：权限预设显示与实际下发配置脱节，导致用户误判当前执行权限。
-   - 控制：预设模式只作为客户端派生态，线程启动和恢复一律回到 `approvalPolicy` / `sandboxMode` 真值源做一致性校验。
+6. 风险：实现继续按历史文档恢复“会话设置”或顶部权限入口，导致首页重新偏向配置控制台。
+   - 控制：当前期文档明确排除这两类 UI，相关需求需重新立项。
 7. 风险：背景信息窗口沿用旧全局缓存，切线程后仍显示上一任务内容。
    - 控制：背景信息窗口数据必须绑定当前 `threadId`，线程为空时主动清空到空态。
 
@@ -524,17 +509,17 @@ Codex 首页默认只保留以下主体：
    - 落地 `/model`、`/plan`；
    - 落地输入区附近模型 / 推理强度 next-turn quick controls；
    - 冻结 `/skill <name>` 契约但默认不开放。
-4. Phase 3（Session Defaults 契约统一后最小化重构）：
+4. Phase 3（stored config 契约统一）：
    - `PATCH /api/sessions/:id` 落地；
    - 明确 stored config 与 `nextTurnEffectiveCodexConfig`；
-   - 保留最小可用 Session Defaults 二级入口。
+   - 不因此恢复 `Session Defaults` UI。
 5. Phase 4（增强能力逐项开放）：
    - `/compact`、`/skills` 首包已落地为次级工具入口
    - `thread/fork`、`thread/archive`、`thread/unarchive` 已落地为 Threads 面板扩展动作
    - image / localImage 已落地为 composer 图像输入
    - thread/name/set
    - 更完整 runtime 次级视图
-6. Phase 5（权限模式与任务辅助信息产品化）：
-   - app 主路径引入权限预设模式，并确保首页持续可见
+6. Phase 5（命令确认与任务辅助信息）：
    - 命令确认改为阻塞弹窗形态，继续复用既有审批响应链路
    - “IDE 背景信息”入口替换为绑定当前线程的背景信息窗口
+   - 明确不恢复“会话设置”和顶部权限选择

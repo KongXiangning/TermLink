@@ -55,10 +55,14 @@
 以下能力保留，但必须改为二级入口、抽屉或折叠区：
 
 1. Threads。
-2. Session Defaults。
-3. Live Runtime。
-4. 非阻塞 `config warning` / `deprecation notice`。
-5. Limits / 额度主动刷新。
+2. Live Runtime。
+3. 非阻塞 `config warning` / `deprecation notice`。
+4. Limits / 额度主动刷新。
+
+补充约束：
+
+1. 当前期不恢复 `Session Defaults` 面板或入口。
+2. 当前期保留顶部状态栏本身，但不在顶部恢复权限选择、权限 pill 或权限模式常驻展示。
 
 ### 3.3 首页动作
 
@@ -81,12 +85,12 @@
 | `/plan` | 基础 plan 语义已确认可做，slash 为客户端封装 | 技术已支持且当前期前置 | P2 | 写入 `interactionState.planMode`，发送时转为结构化 `collaborationMode`；计划展示需允许使用普通 agent message 兜底。 |
 | `/skill <name>` 一次性交互 | `skills/list` 可做，交互形态属于客户端封装 | 技术已支持且当前期最小开放 | P2 | 通过技能列表选择后，仅用于本次输入辅助与 prompt 预填，不进入底层固定字段。 |
 | 输入区模型 / 推理强度快捷入口 | 已确认可做 | 技术已支持且当前期前置 | P2 | 只影响下一次发送，不写回 stored config。 |
-| `model/list` | 已确认可做 | 技术已支持且当前期前置 | P2 | 既支撑 `/model`，也支撑二级 Session Defaults。 |
+| `model/list` | 已确认可做 | 技术已支持且当前期前置 | P2 | 支撑 `/model` 与输入区模型选择，不要求恢复 `Session Defaults` UI。 |
 | reasoning effort | 已确认可做 | 技术已支持且当前期前置 | P2 | 支撑快捷入口与 `codex_turn` override。 |
-| personality | 已确认可做 | 技术已支持但降为二级入口 | P3 | 仍保留在 Session Defaults。 |
-| approval / sandbox | 已确认可做 | 技术已支持但降为二级入口 | P3 | 仍保留在 Session Defaults。 |
+| personality | 已确认可做 | 当前期不纳入 UI | out-of-scope-for-ui | 仅保留底层配置字段，不恢复当前期入口。 |
+| approval / sandbox | 已确认可做 | 当前期不纳入 UI | out-of-scope-for-ui | 仅保留底层配置字段，不恢复顶部权限选择或设置入口。 |
 | `PATCH /api/sessions/:id` | 现有语义已确定，可做 | 技术已支持且当前期正式交付 | P3 | 作为 stored `codexConfig` 的正式写路径。 |
-| Session Defaults 面板 | 已实现基础版 | 技术已支持但降为二级入口 | P3 | PATCH 落地前只读或受限编辑，继续打磨前必须先统一契约。 |
+| Session Defaults 面板 | 已实现基础版 | 当前期不纳入 UI | out-of-scope-for-ui | 保留底层契约，不作为当前产品入口继续实现。 |
 | `account/rateLimits/read` | 协议存在，基本可做 | 技术已支持但降为二级入口 | P3 | 保留能力，但不占据首页主体。 |
 | approvals / requestUserInput | 已确认可做 | 技术已支持且当前期前置 | P1/P3 | 阻塞性交互在首页前置。 |
 | diff/plan/reasoning streaming | 已确认可做 | 技术已支持但降为二级入口 | P4 | 保留能力，不再要求首页常驻面板。 |
@@ -368,12 +372,12 @@
 9. 验收记录：
    - `CR-20260311-1422-codex-phase2-slash-plan-overrides`（slash registry、interactionState、nextTurnOverrides）
 
-### Phase 3：stored config 写路径 + Session Defaults 最小化重构（已落地，验收通过，2026-03-12）
+### Phase 3：stored config 写路径与状态边界统一（已落地，验收通过，2026-03-12）
 
 1. `PATCH /api/sessions/:id` 支持更新 stored `codexConfig`。
 2. `session_info.codexConfig` 与 REST 统一为 stored config。
 3. `codex_state` 新增 `nextTurnEffectiveCodexConfig` 与 `interactionState`。
-4. `Session Defaults` 保留最小可用二级入口，不再扩成首页主体。
+4. 不因 stored config 写路径落地而恢复 `Session Defaults` UI。
 5. 验收记录：
    - `CR-20260312-1430-codex-phase3-validation`（PATCH 写路径、状态一致性、interactionState 独立性）
 
@@ -387,11 +391,11 @@
 6. `thread/name/set` 已落地为第四个实施包（见 `CR-20260312-1223-codex-phase4-thread-rename`，当前为 draft，待提交回填 `commit_ref`）。
 7. 依据能力证据决定 `/skill <name>` 后续是否需要更深的底层承接方式。
 
-### Phase 5：权限模式与任务辅助信息产品化
+### Phase 5：命令确认与任务辅助信息
 
-1. app 主路径引入权限预设模式，并确保首页持续可见。
-2. 命令确认升级为阻塞弹窗形态，继续复用既有审批响应链路。
-3. “IDE 背景信息”入口替换为绑定当前线程的背景信息窗口。
+1. 命令确认升级为阻塞弹窗形态，继续复用既有审批响应链路。
+2. “IDE 背景信息”入口替换为绑定当前线程的背景信息窗口。
+3. 当前期明确不恢复“会话设置”和顶部权限选择。
 4. 专项实施细节、验收矩阵与风险控制见 `docs/codex/CODEX_PHASE5_PERMISSION_CONTEXT_PLAN.md`。
 
 ## 10. MVP 缺口清单（按新主线）

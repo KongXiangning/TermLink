@@ -11,9 +11,11 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     const html = readPublicFile('codex_client.html');
 
     assert.match(html, /id="codex-status-strip"/);
-    assert.match(html, /id="codex-thread-line"/);
-    assert.match(html, /id="codex-thread-id"/);
-    assert.match(html, /id="codex-thread-cwd"/);
+    assert.match(html, /id="codex-status-line"/);
+    assert.match(html, /id="codex-meta-line"/);
+    assert.match(html, /id="codex-thread-summary"/);
+    assert.match(html, /id="btn-codex-toggle"/);
+    assert.match(html, /id="btn-codex-interrupt"/);
     assert.match(html, /id="btn-codex-secondary-threads"/);
     assert.match(html, /id="btn-codex-secondary-runtime"/);
     assert.match(html, /id="btn-codex-secondary-tools"/);
@@ -35,11 +37,11 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="codex-thread-context-panel"/);
     assert.match(html, /id="codex-command-approval-modal"/);
     assert.match(html, /id="codex-slash-menu"/);
-    assert.match(html, /id="codex-actions"[\s\S]*id="btn-codex-toggle"[\s\S]*id="btn-codex-interrupt"/);
     assert.match(html, /id="codex-history-actions"[\s\S]*id="btn-codex-history-refresh"[\s\S]*id="btn-codex-new-thread"/);
     assert.doesNotMatch(html, /id="btn-codex-permission-preset"/);
     assert.doesNotMatch(html, /id="btn-codex-secondary-settings"/);
     assert.doesNotMatch(html, /id="codex-settings-panel"/);
+    assert.doesNotMatch(html, /id="codex-permission-sheet"/);
     assert.doesNotMatch(html, /id="btn-codex-history-toggle"/);
     assert.doesNotMatch(html, /id="codex-settings-use-defaults"/);
     assert.match(html, /src="lib\/codex_bootstrap\.js\?v=2"/);
@@ -53,7 +55,7 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="btn-codex-plan-execute"/);
     assert.match(html, /id="btn-codex-plan-continue"/);
     assert.match(html, /id="btn-codex-plan-cancel"/);
-    assert.match(html, /src="terminal_client\.js\?v=60"/);
+    assert.match(html, /src="terminal_client\.js\?v=64"/);
 });
 
 test('terminal client shell shares scripts but does not expose codex history panel markup', () => {
@@ -69,17 +71,14 @@ test('terminal client shell shares scripts but does not expose codex history pan
     assert.match(html, /src="lib\/codex_settings_view\.js\?v=3"/);
     assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
     assert.match(html, /src="lib\/codex_approval_view\.js\?v=3"/);
-    assert.match(html, /src="terminal_client\.js\?v=60"/);
+    assert.match(html, /src="terminal_client\.js\?v=64"/);
 });
 
 test('terminal client stylesheet supports secondary panels and sticky composer for the codex conversation page', () => {
     const css = readPublicFile('terminal_client.css');
 
-    assert.match(css, /#codex-status-strip/);
-    assert.match(css, /#codex-thread-line/);
     assert.match(css, /\.codex-secondary-btn/);
     assert.match(css, /#codex-history-actions/);
-    assert.match(css, /#codex-panel\.collapsed #codex-settings-panel/);
     assert.match(css, /#codex-panel\.collapsed #codex-runtime-panel/);
     assert.match(css, /#codex-panel\.collapsed #codex-tools-panel/);
     assert.match(css, /body\.codex-only\s*\{[\s\S]*overflow:\s*hidden/);
@@ -102,7 +101,6 @@ test('terminal client stylesheet supports secondary panels and sticky composer f
     assert.match(css, /body\.viewport-compact #codex-input/);
     assert.match(css, /\.codex-request-card/);
     assert.match(css, /\.codex-request-actions/);
-    assert.match(css, /\.codex-permission-pill/);
     assert.match(css, /\.codex-modal-layer/);
     assert.match(css, /\.codex-modal-card\s*\{[\s\S]*max-height:\s*min\(78vh,\s*680px\)/);
     assert.match(css, /\.codex-modal-card\s*\{[\s\S]*overflow:\s*auto/);
@@ -115,7 +113,6 @@ test('codex message appends target the inner log stack instead of the scroll con
     const js = readPublicFile('terminal_client.js');
 
     assert.match(js, /const codexLogStack = document\.getElementById\('codex-log-stack'\);/);
-    assert.match(js, /const btnCodexPermissionPreset = document\.getElementById\('btn-codex-permission-preset'\);/);
     assert.match(js, /const codexCommandApprovalModal = document\.getElementById\('codex-command-approval-modal'\);/);
     assert.match(js, /function getCodexLogContainer\(\)\s*\{\s*return codexLogStack \|\| codexLog;/);
     assert.match(js, /const logContainer = getCodexLogContainer\(\);[\s\S]*logContainer\.appendChild\(entry\);/);
@@ -148,10 +145,6 @@ test('Phase 1: terminal_client.js render functions must set hidden=true when sec
     // renderCodexHistoryList must set hidden when secondaryPanel !== 'threads'
     assert.match(js, /codexHistoryPanel\.hidden\s*=\s*!\(.*syncCodexSecondaryPanelState\(\)\s*===\s*['"]threads['"]\)/,
         'renderCodexHistoryList must set hidden=true when secondaryPanel !== "threads"');
-
-    // renderCodexSettingsPanel must set hidden when secondaryPanel !== 'settings'
-    assert.match(js, /codexSettingsPanel\.hidden\s*=\s*!\(.*syncCodexSecondaryPanelState\(\)\s*===\s*['"]settings['"]\)/,
-        'renderCodexSettingsPanel must set hidden=true when secondaryPanel !== "settings"');
 
     // renderCodexRuntimePanel must set hidden when secondaryPanel !== 'runtime'
     assert.match(js, /codexRuntimePanel\.hidden\s*=\s*!\(.*syncCodexSecondaryPanelState\(\)\s*===\s*['"]runtime['"]\)/,

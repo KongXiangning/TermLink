@@ -590,7 +590,6 @@ function renderCodexSecondaryNav() {
 function renderCodexSecondaryPanels() {
     syncCodexSecondaryPanelState();
     renderCodexHistoryList();
-    renderCodexSettingsPanel();
     renderCodexAlerts();
     renderCodexRuntimePanel();
     renderCodexToolsPanel();
@@ -599,7 +598,6 @@ function renderCodexSecondaryPanels() {
 function setCodexSecondaryPanel(panelName) {
     const normalized = (
         panelName === 'threads'
-        || panelName === 'settings'
         || panelName === 'runtime'
         || panelName === 'tools'
         || panelName === 'notices'
@@ -614,7 +612,6 @@ function setCodexSecondaryPanel(panelName) {
 function toggleCodexSecondaryPanel(panelName) {
     const normalized = (
         panelName === 'threads'
-        || panelName === 'settings'
         || panelName === 'runtime'
         || panelName === 'tools'
         || panelName === 'notices'
@@ -928,7 +925,20 @@ function renderCodexHistoryList() {
 }
 
 function normalizeCodexThreadTitle(value) {
-    return typeof value === 'string' ? value.trim() : '';
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (!normalized) {
+        return '';
+    }
+    if (/[\u0000-\u001F\u007F\uFFFD]/.test(normalized)) {
+        return '';
+    }
+    if (/[\u0E00-\u0E7F]/.test(normalized)) {
+        return '';
+    }
+    if (/[?？]/.test(normalized) && normalized.length >= 12) {
+        return '';
+    }
+    return normalized;
 }
 
 function normalizeCodexHistoryTimestamp(value) {
@@ -3908,21 +3918,44 @@ function formatDurationShort(totalSeconds) {
 }
 
 function formatResetHint(value) {
-    if (typeof value === 'number' && Number.isFinite(value)) {
-        if (value > 0 && value < 86400) {
-            return `in ${formatDurationShort(value)}`;
+    const formatAbsoluteResetTime = (timestampMs) => {
+        const date = new Date(timestampMs);
+        if (Number.isNaN(date.getTime())) {
+            return '';
         }
-        const date = new Date(value);
-        if (!Number.isNaN(date.getTime())) {
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const deltaMs = timestampMs - Date.now();
+        if (deltaMs >= 86400000) {
+            return date.toLocaleString([], {
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        if (value > 0 && value < 1e7) {
+            return formatAbsoluteResetTime(Date.now() + (value * 1000));
+        }
+        if (value >= 1e9 && value < 1e12) {
+            return formatAbsoluteResetTime(value * 1000);
+        }
+        if (value >= 1e12) {
+            return formatAbsoluteResetTime(value);
         }
     }
     if (typeof value === 'string' && value.trim()) {
-        const parsed = Date.parse(value);
-        if (!Number.isNaN(parsed)) {
-            return new Date(parsed).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const trimmed = value.trim();
+        if (/^\d+$/.test(trimmed)) {
+            return formatResetHint(Number(trimmed));
         }
-        return value.trim();
+        const parsed = Date.parse(trimmed);
+        if (!Number.isNaN(parsed)) {
+            return formatAbsoluteResetTime(parsed);
+        }
+        return trimmed;
     }
     return '';
 }
@@ -4118,12 +4151,36 @@ function formatRateLimitSummary(payload) {
         ['secondary', 'window_duration_mins']
     ]);
     const primaryResetHint = formatResetHint(
-        pickFirstString(sources, [['primary', 'resetAt'], ['primary', 'resetsAt'], ['primary', 'reset_at'], ['primary', 'resets_at']])
-        || pickFirstNumber(sources, [['primary', 'resetAtEpochMs'], ['primary', 'resetsAtEpochMs'], ['primary', 'resetsAt'], ['primary', 'resets_at']])
+        pickFirstString(sources, [
+            ['primary', 'resetAt'],
+            ['primary', 'resetsAt'],
+            ['primary', 'reset_at'],
+            ['primary', 'resets_at']
+        ])
+        || pickFirstNumber(sources, [
+            ['primary', 'resetAtEpochMs'],
+            ['primary', 'resetsAtEpochMs'],
+            ['primary', 'resetsAt'],
+            ['primary', 'resets_at'],
+            ['primary', 'resetsInSeconds'],
+            ['primary', 'resets_in_seconds']
+        ])
     );
     const secondaryResetHint = formatResetHint(
-        pickFirstString(sources, [['secondary', 'resetAt'], ['secondary', 'resetsAt'], ['secondary', 'reset_at'], ['secondary', 'resets_at']])
-        || pickFirstNumber(sources, [['secondary', 'resetAtEpochMs'], ['secondary', 'resetsAtEpochMs'], ['secondary', 'resetsAt'], ['secondary', 'resets_at']])
+        pickFirstString(sources, [
+            ['secondary', 'resetAt'],
+            ['secondary', 'resetsAt'],
+            ['secondary', 'reset_at'],
+            ['secondary', 'resets_at']
+        ])
+        || pickFirstNumber(sources, [
+            ['secondary', 'resetAtEpochMs'],
+            ['secondary', 'resetsAtEpochMs'],
+            ['secondary', 'resetsAt'],
+            ['secondary', 'resets_at'],
+            ['secondary', 'resetsInSeconds'],
+            ['secondary', 'resets_in_seconds']
+        ])
     );
     const parts = [];
     if (typeof remaining === 'number' && typeof limit === 'number') {
@@ -6733,6 +6790,7 @@ if (shouldExposeCodexTestHooks) {
         codexState,
         // Render functions
         renderCodexAlerts,
+        renderCodexHeaderSummary,
         renderCodexHistoryList,
         renderCodexImageInputs,
         renderCodexSlashMenu,
