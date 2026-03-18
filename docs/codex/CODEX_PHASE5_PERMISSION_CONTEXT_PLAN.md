@@ -135,6 +135,9 @@
    - `沙盒` => `approvalPolicy=on-request` + `sandboxMode=workspace-write`
    - `完全访问` => `approvalPolicy=never` + `sandboxMode=danger-full-access`
 6. 命令审批必须继续走阻塞弹窗链路；不允许因为 quick sandbox 只改了 `sandboxMode` 而导致请求直接被拒绝或绕过确认框。
+7. quick sandbox 的“真实生效”范围不仅包含前端 `codex_turn` payload，还必须覆盖 app-server runtime 对齐；不允许出现“本轮 payload 已切换，但进程仍按旧权限运行”的假生效。
+8. 线程复用必须受执行上下文约束：若当前线程的 `threadExecutionContextSignature` 与本轮权限配置不一致，或历史线程缺少该签名且本轮显式切换了 quick sandbox，则必须新建线程，不得继续复用旧线程。
+9. 本条已于 2026-03-19 Android 真机复测通过，后续如调整 quick sandbox、gateway 启动策略或线程恢复逻辑，必须回归验证 `沙盒=审批阻塞`、`完全访问=never + danger-full-access` 两条行为链路。
 
 最小交付：
 

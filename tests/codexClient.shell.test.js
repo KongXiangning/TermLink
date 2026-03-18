@@ -206,13 +206,21 @@ test('Phase 2: terminal_client.js must compose server next-turn config with loca
     const js = readPublicFile('terminal_client.js');
 
     assert.match(js, /serverNextTurnConfigBase:\s*null/);
+    assert.match(js, /nextTurnOverrides:\s*\{\s*model:\s*null,\s*reasoningEffort:\s*null,\s*sandbox:\s*null\s*\}/);
     assert.match(js, /function normalizeEffectiveCodexConfig\(payload\)/);
+    assert.match(js, /function derivePermissionConfigFromSandboxOverride\(sandboxOverride\)/);
+    assert.match(js, /function resolveCodexTurnSandboxOverride\(nextTurnOverrides\)/);
     assert.match(js, /const baseConfig = codexState\.serverNextTurnConfigBase/);
     assert.match(js, /model:\s*codexState\.nextTurnOverrides\.model \|\| baseConfig\.model \|\| null/);
     assert.match(js, /reasoningEffort:\s*codexState\.nextTurnOverrides\.reasoningEffort \|\| baseConfig\.reasoningEffort \|\| null/);
+    assert.match(js, /approvalPolicy:\s*permissionOverride \? permissionOverride\.approvalPolicy : \(baseConfig\.approvalPolicy \|\| null\)/);
+    assert.match(js, /sandboxMode:\s*permissionOverride \? permissionOverride\.sandboxMode : \(baseConfig\.sandboxMode \|\| null\)/);
     assert.match(js, /codexState\.serverNextTurnConfigBase = normalizeEffectiveCodexConfig\(envelope\.nextTurnEffectiveCodexConfig\)/);
     assert.match(js, /codexState\.nextTurnEffectiveCodexConfig = buildLocalNextTurnEffectiveCodexConfig\(\)/);
     assert.match(js, /codexState\.serverNextTurnConfigBase = null[\s\S]*syncNextTurnEffectiveCodexConfig\(\)/);
+    assert.match(js, /codexState\.nextTurnOverrides = \{ model: null, reasoningEffort: null, sandbox: null \ }|codexState\.nextTurnOverrides = \{ model: null, reasoningEffort: null, sandbox: null \}/);
+    assert.match(js, /setNextTurnOverrides\(pending\.nextTurnOverrides \|\| \{ model: null, reasoningEffort: null, sandbox: null \}\)/);
+    assert.match(js, /sandbox:\s*resolveCodexTurnSandboxOverride\(nextTurnOverrides\) \|\| undefined/);
 });
 
 test('Phase 2: terminal_client.js must parse model\/list and skills\/list payloads for executable slash pickers', () => {
@@ -256,6 +264,12 @@ test('Phase 2: terminal_client.js must parse model\/list and skills\/list payloa
     assert.match(js, /if \(existing\.status === 'submitted'\) \{\s*existing\.status = 'pending';\s*existing\.resolution = '';\s*\}/);
     assert.match(js, /function normalizeCodexContextUsage\(payload\)/);
     assert.match(js, /function renderCodexContextUsage\(\)/);
+    assert.match(js, /function maybeAutoRefreshCodexRateLimits\(\)/);
+    assert.match(js, /codexState\.rateLimitBootstrapRequested = true;/);
+    assert.match(js, /refreshCodexRateLimits\(\{ silent: true \}\)\.finally\(\(\) => \{\s*codexState\.rateLimitBootstrapRequested = false;/);
+    assert.match(js, /envelope\.type === 'session_info'[\s\S]*maybeAutoRefreshCodexRateLimits\(\)/);
+    assert.match(js, /envelope\.type === 'codex_capabilities'[\s\S]*maybeAutoRefreshCodexRateLimits\(\)/);
+    assert.match(js, /envelope\.type === 'codex_state'[\s\S]*maybeAutoRefreshCodexRateLimits\(\)/);
     assert.doesNotMatch(js, /applyCodexPermissionPresetSelection/);
     assert.doesNotMatch(js, /\['low', 'medium', 'high', 'xhigh'\]/);
     assert.doesNotMatch(js, /selectedValue && !optionValues\.includes\(selectedValue\)/);

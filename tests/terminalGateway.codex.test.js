@@ -97,7 +97,24 @@ class MockCodexService extends EventEmitter {
         super();
         this.requests = [];
         this.serverResponses = [];
+        this.ensureStartedCalls = [];
+        this.launchRuntimeConfigSignature = null;
         MockCodexService.instances.push(this);
+    }
+
+    async ensureStarted(runtimeConfig) {
+        const normalizedConfig = runtimeConfig ?? null;
+        const signature = JSON.stringify(normalizedConfig);
+        this.ensureStartedCalls.push(normalizedConfig);
+        if (this.launchRuntimeConfigSignature === null) {
+            this.launchRuntimeConfigSignature = signature;
+            return false;
+        }
+        if (this.launchRuntimeConfigSignature === signature) {
+            return false;
+        }
+        this.launchRuntimeConfigSignature = signature;
+        return true;
     }
 
     request(method, params) {
@@ -499,6 +516,15 @@ test('codex_request forwards model/list, account/rateLimits/read, and thread/com
     });
     assert.deepEqual(compactResponse.result, {
         ok: true
+    });
+    assert.deepEqual(session.codexState.rateLimitState, {
+        remaining: 9,
+        limit: 10
+    });
+    const lastState = ws.sent.filter((entry) => entry.type === 'codex_state').at(-1);
+    assert.deepEqual(lastState.rateLimitState, {
+        remaining: 9,
+        limit: 10
     });
 });
 
@@ -1185,6 +1211,110 @@ test('codex_turn sandbox override maps workspace-write to on-request approval fo
     assert.equal(turnStart.params.askForApproval, 'on-request');
     assert.equal(turnStart.params.sandbox, 'workspace-write');
     assert.equal(turnStart.params.sandboxMode, 'workspace-write');
+});
+
+test('codex_turn sandbox override maps danger-full-access to never approval for full access prompts', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        codexConfig: {
+            approvalPolicy: 'on-request',
+            sandboxMode: 'workspace-write'
+        },
+        codexState: {
+            threadId: 'thread-existing',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null
+        }
+    });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'inspect repo',
+        sandbox: 'danger-full-access'
+    }));
+
+    const service = MockCodexService.instances[0];
+    const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
+    assert.ok(turnStart, 'turn/start should be invoked');
+    assert.deepEqual(service.ensureStartedCalls.at(-1), {
+        approvalPolicy: 'never',
+        sandboxMode: 'danger-full-access'
+    });
+    assert.equal(turnStart.params.approvalPolicy, 'never');
+    assert.equal(turnStart.params.askForApproval, 'never');
+    assert.equal(turnStart.params.sandbox, 'danger-full-access');
+    assert.equal(turnStart.params.sandboxMode, 'danger-full-access');
+});
+
+test('codex_turn sandbox override starts a fresh thread when legacy thread context signature is missing', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        cwd: 'D:\\workspace\\demo',
+        codexConfig: {
+            approvalPolicy: 'never',
+            sandboxMode: 'workspace-write'
+        },
+        codexState: {
+            threadId: 'thread-legacy',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null,
+            threadExecutionContextSignature: null
+        }
+    });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'inspect repo',
+        sandbox: 'danger-full-access'
+    }));
+
+    const service = MockCodexService.instances[0];
+    const threadStart = service.requests.find((entry) => entry.method === 'thread/start');
+    const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
+    assert.ok(threadStart, 'thread/start should be invoked for legacy threads without execution context signature');
+    assert.ok(turnStart, 'turn/start should be invoked');
+    assert.equal(threadStart.params.approvalPolicy, 'never');
+    assert.equal(threadStart.params.sandbox, 'danger-full-access');
+    assert.equal(turnStart.params.threadId, 'thread-1');
+    assert.equal(session.codexState.threadId, 'thread-1');
 });
 
 test('codex_turn starts a fresh thread when the stored execution context no longer matches session permissions', async (t) => {

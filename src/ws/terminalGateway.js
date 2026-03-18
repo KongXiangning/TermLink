@@ -622,13 +622,16 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         ));
     };
 
-    const ensureCodexServiceForSession = async (session) => {
+    const ensureCodexServiceForSession = async (session, runtimeConfig = null) => {
         const state = ensureSessionCodexState(session);
         if (!codexService || typeof codexService.ensureStarted !== 'function') {
             return false;
         }
+        const effectiveRuntimeConfig = runtimeConfig && typeof runtimeConfig === 'object'
+            ? runtimeConfig
+            : getEffectiveSessionCodexConfig(session);
         const didRestart = await codexService.ensureStarted(
-            buildCodexProcessRuntimeConfig(getEffectiveSessionCodexConfig(session))
+            buildCodexProcessRuntimeConfig(effectiveRuntimeConfig)
         );
         if (!didRestart) {
             return false;
@@ -647,6 +650,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     const ensureCodexThreadForSession = async (session, options = {}) => {
         const state = ensureSessionCodexState(session);
         const forceNewThread = options.forceNewThread === true;
+        const requireExactExecutionContext = options.requireExactExecutionContext === true;
         const requestedCwd = normalizeOptionalCwd(options.cwd)
             || normalizeOptionalCwd(session.cwd)
             || String(process.env.TERMLINK_CODEX_WORKSPACE_DIR || process.cwd());
@@ -662,11 +666,12 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         const currentExecutionContextSignature = isNonEmptyString(state.threadExecutionContextSignature)
             ? state.threadExecutionContextSignature.trim()
             : null;
+        const executionContextMatches = currentExecutionContextSignature === executionContextSignature;
         const shouldReuseExistingThread = !forceNewThread
             && isNonEmptyString(state.threadId)
             && (
-                currentExecutionContextSignature === null
-                || currentExecutionContextSignature === executionContextSignature
+                executionContextMatches
+                || (!requireExactExecutionContext && currentExecutionContextSignature === null)
             );
 
         if (shouldReuseExistingThread) {
@@ -1060,12 +1065,13 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         }
                         const turnOverrides = normalizeTurnOverrides(envelope);
                         const nextTurnEffectiveConfig = buildNextTurnEffectiveCodexConfig(session, turnOverrides);
-                        await ensureCodexServiceForSession(session);
+                        await ensureCodexServiceForSession(session, nextTurnEffectiveConfig);
 
                         const initialThreadId = await ensureCodexThreadForSession(session, {
                             forceNewThread: envelope.forceNewThread === true,
                             cwd: envelope.cwd,
-                            codexConfig: nextTurnEffectiveConfig
+                            codexConfig: nextTurnEffectiveConfig,
+                            requireExactExecutionContext: !!turnOverrides.sandbox
                         });
 
                         const configuredModel = nextTurnEffectiveConfig.model || null;
@@ -1234,6 +1240,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             console.info('[CODEX][account/rateLimits/read] Response:', JSON.stringify(response, null, 2));
                         }
                         const codexState = ensureSessionCodexState(session);
+                        if (method === 'account/rateLimits/read') {
+                            codexState.rateLimitState = response || null;
+                            emitCodexState(session);
+                        }
                         if (
                             method === 'thread/resume' &&
                             response &&
