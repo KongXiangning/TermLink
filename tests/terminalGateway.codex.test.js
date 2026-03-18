@@ -103,7 +103,21 @@ class MockCodexService extends EventEmitter {
     request(method, params) {
         this.requests.push({ method, params });
         if (method === 'thread/start') {
-            return Promise.resolve({ thread: { id: `thread-${this.requests.length}` } });
+            const threadId = `thread-${this.requests.length}`;
+            if (params && params.cwd === 'D:\\workspace\\zero-context') {
+                return Promise.resolve({
+                    thread: {
+                        id: threadId,
+                        latestTokenUsageInfo: {
+                            modelContextWindow: 258000,
+                            last: {
+                                totalTokens: 0
+                            }
+                        }
+                    }
+                });
+            }
+            return Promise.resolve({ thread: { id: threadId } });
         }
         if (method === 'thread/list') {
             return Promise.resolve({
@@ -131,11 +145,35 @@ class MockCodexService extends EventEmitter {
             return Promise.resolve({ turn: { id: `turn-${this.requests.length}` } });
         }
         if (method === 'thread/read') {
+            if (params.threadId === 'thread-with-usage') {
+                return Promise.resolve({
+                    thread: {
+                        id: params.threadId,
+                        turns: [],
+                        latestTokenUsageInfo: {
+                            modelContextWindow: 258000,
+                            last: {
+                                totalTokens: 226000
+                            }
+                        }
+                    }
+                });
+            }
             return Promise.resolve({ thread: { id: params.threadId, turns: [] } });
         }
         if (method === 'thread/resume') {
             return Promise.resolve({
-                thread: { id: params.threadId === 'thread-alias' ? 'thread-canonical' : (params.threadId || 'thread-resumed') },
+                thread: {
+                    id: params.threadId === 'thread-alias' ? 'thread-canonical' : (params.threadId || 'thread-resumed'),
+                    latestTokenUsageInfo: params.threadId === 'thread-with-usage'
+                        ? {
+                            modelContextWindow: 258000,
+                            last: {
+                                totalTokens: 226000
+                            }
+                        }
+                        : undefined
+                },
                 model: params.threadId === 'thread-existing' ? 'gpt-5.4' : undefined
             });
         }
@@ -746,6 +784,107 @@ test('thread/resume clears stale runtime state before emitting the new snapshot'
     assert.deepEqual(lastState.rateLimitState, {
         remaining: 2,
         limit: 10
+    });
+});
+
+test('thread/start seeds codex_state token usage when app-server returns latestTokenUsageInfo', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        cwd: 'D:\\workspace\\zero-context'
+    });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_new_thread'
+    }));
+
+    assert.deepEqual(session.codexState.tokenUsage, {
+        latestTokenUsageInfo: {
+            modelContextWindow: 258000,
+            last: {
+                totalTokens: 0
+            }
+        }
+    });
+
+    const stateEnvelopes = ws.sent.filter((entry) => entry.type === 'codex_state');
+    const lastState = stateEnvelopes[stateEnvelopes.length - 1];
+    assert.deepEqual(lastState.tokenUsage, {
+        latestTokenUsageInfo: {
+            modelContextWindow: 258000,
+            last: {
+                totalTokens: 0
+            }
+        }
+    });
+});
+
+test('thread/read syncs latestTokenUsageInfo into codex_state for the current thread', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        codexState: {
+            threadId: 'thread-with-usage',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null
+        }
+    });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_thread_read'
+    }));
+
+    assert.deepEqual(session.codexState.tokenUsage, {
+        latestTokenUsageInfo: {
+            modelContextWindow: 258000,
+            last: {
+                totalTokens: 226000
+            }
+        }
+    });
+
+    const stateEnvelopes = ws.sent.filter((entry) => entry.type === 'codex_state');
+    const lastState = stateEnvelopes[stateEnvelopes.length - 1];
+    assert.deepEqual(lastState.tokenUsage, {
+        latestTokenUsageInfo: {
+            modelContextWindow: 258000,
+            last: {
+                totalTokens: 226000
+            }
+        }
     });
 });
 
@@ -1571,10 +1710,25 @@ test('codex notifications update token usage and account-level rate limit snapsh
     service.emit('notification', {
         method: 'thread/tokenUsage/updated',
         params: {
-            inputTokens: 1200,
-            outputTokens: 240,
-            totalTokens: 1440,
-            threadId: 'thread-1'
+            threadId: 'thread-1',
+            turnId: 'turn-1',
+            tokenUsage: {
+                modelContextWindow: 258000,
+                last: {
+                    cachedInputTokens: 100,
+                    inputTokens: 1200,
+                    outputTokens: 240,
+                    reasoningOutputTokens: 0,
+                    totalTokens: 1440
+                },
+                total: {
+                    cachedInputTokens: 100,
+                    inputTokens: 1200,
+                    outputTokens: 240,
+                    reasoningOutputTokens: 0,
+                    totalTokens: 1440
+                }
+            }
         }
     });
     service.emit('notification', {
@@ -1590,10 +1744,21 @@ test('codex notifications update token usage and account-level rate limit snapsh
     assert.ok(stateEnvelopes.length >= 3, 'expected updated codex_state envelopes');
     const lastState = stateEnvelopes[stateEnvelopes.length - 1];
     assert.deepEqual(lastState.tokenUsage, {
-        inputTokens: 1200,
-        outputTokens: 240,
-        totalTokens: 1440,
-        threadId: 'thread-1'
+        modelContextWindow: 258000,
+        last: {
+            cachedInputTokens: 100,
+            inputTokens: 1200,
+            outputTokens: 240,
+            reasoningOutputTokens: 0,
+            totalTokens: 1440
+        },
+        total: {
+            cachedInputTokens: 100,
+            inputTokens: 1200,
+            outputTokens: 240,
+            reasoningOutputTokens: 0,
+            totalTokens: 1440
+        }
     });
     assert.deepEqual(lastState.rateLimitState, {
         remaining: 1,

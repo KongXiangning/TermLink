@@ -48,11 +48,8 @@ function createTestDOM() {
                         <div id="codex-status-line">
                             <span id="codex-status-dot" aria-hidden="true"></span>
                             <span id="codex-status-text">Codex 空闲</span>
+                            <span id="codex-status-cwd" hidden></span>
                         </div>
-                        <button id="btn-codex-permission-preset" type="button">
-                            <span id="codex-permission-preset-label">默认权限</span>
-                            <span id="codex-permission-preset-hint">点击切换</span>
-                        </button>
                         <div id="codex-meta-line">
                             <span id="codex-meta-text"></span>
                             <span id="codex-notice-text"></span>
@@ -63,16 +60,8 @@ function createTestDOM() {
                         <button id="btn-codex-interrupt" class="codex-btn danger" type="button" hidden>中断</button>
                     </div>
                 </div>
-                <button id="codex-thread-summary" type="button">
-                    <span class="codex-thread-summary-copy">
-                        <span id="codex-thread-id" class="codex-thread-summary-title">当前线程未就绪</span>
-                        <span id="codex-thread-cwd" class="codex-thread-summary-meta">即将自动创建新线程</span>
-                    </span>
-                    <span id="codex-thread-summary-action" class="codex-thread-summary-action">查看线程</span>
-                </button>
                 <div id="codex-secondary-nav">
                     <button id="btn-codex-secondary-threads" class="codex-secondary-btn" type="button">任务历史</button>
-                    <button id="btn-codex-secondary-settings" class="codex-secondary-btn" type="button">会话设置</button>
                     <button id="btn-codex-secondary-runtime" class="codex-secondary-btn" type="button">运行态</button>
                     <button id="btn-codex-secondary-tools" class="codex-secondary-btn" type="button" hidden>工具</button>
                     <button id="btn-codex-secondary-notices" class="codex-secondary-btn" type="button" hidden>提示</button>
@@ -238,10 +227,18 @@ function createTestDOM() {
                             <span>推理</span>
                             <select id="codex-quick-reasoning"></select>
                         </label>
+                        <label class="codex-quick-field">
+                            <span>沙盒</span>
+                            <select id="codex-quick-sandbox">
+                                <option value="">沙盒</option>
+                                <option value="danger-full-access">完全访问</option>
+                            </select>
+                        </label>
                     </div>
-                    <button id="btn-codex-ide-context" type="button">
-                        <span class="codex-context-title">背景信息</span>
-                        <span id="codex-context-status">当前线程为空</span>
+                    <button id="codex-context-widget" type="button" hidden>
+                        <div id="codex-context-ring">
+                            <span id="codex-context-percent">--</span>
+                        </div>
                     </button>
                 </div>
                 <button id="btn-codex-send" type="button">发送</button>
@@ -254,13 +251,6 @@ function createTestDOM() {
             <button id="btn-codex-permission-custom" type="button">自定义权限</button>
             <div data-modal-dismiss="permission"></div>
         </div>
-        <div id="codex-thread-context-panel" hidden>
-            <button id="btn-codex-thread-context-close" type="button">关闭</button>
-            <div id="codex-thread-context-subtitle"></div>
-            <div id="codex-thread-context-empty" hidden></div>
-            <div id="codex-thread-context-content"></div>
-            <div data-modal-dismiss="context"></div>
-        </div>
         <div id="codex-command-approval-modal" hidden>
             <div id="codex-command-approval-status"></div>
             <div id="codex-command-approval-summary"></div>
@@ -270,6 +260,12 @@ function createTestDOM() {
             </label>
             <button id="btn-codex-command-approval-reject" type="button">拒绝</button>
             <button id="btn-codex-command-approval-approve" type="button">允许</button>
+        </div>
+        <div id="codex-context-debug-modal" hidden>
+            <button id="btn-codex-context-debug-close" type="button">关闭</button>
+            <div id="codex-context-debug-grid"></div>
+            <pre id="codex-context-debug-json"></pre>
+            <div data-modal-dismiss="context-debug"></div>
         </div>
         <div id="input-overlay">
             <textarea id="input-buffer" placeholder="Type command here..."></textarea>
@@ -678,14 +674,12 @@ test('Phase 1 Integration: Only ONE panel visible when secondaryPanel is set to 
     hooks.codexState.sessionMode = 'codex';
     hooks.codexState.capabilities = {
         historyList: true,
-        modelConfig: true,
         diffPlanReasoning: true
     };
     hooks.codexState.configWarningText = 'Test warning';
 
     const panelTests = [
         { panel: 'threads', expectedVisible: 'codex-history-panel' },
-        { panel: 'settings', expectedVisible: 'codex-settings-panel' },
         { panel: 'runtime', expectedVisible: 'codex-runtime-panel' },
         { panel: 'notices', expectedVisible: 'codex-alerts' },
     ];
@@ -697,7 +691,6 @@ test('Phase 1 Integration: Only ONE panel visible when secondaryPanel is set to 
         const panels = [
             'codex-alerts',
             'codex-history-panel',
-            'codex-settings-panel',
             'codex-runtime-panel'
         ];
 
@@ -723,7 +716,7 @@ test('Phase 1 Integration: Invalid secondaryPanel value is normalized to "none"'
     const hooks = loadTerminalClient(window);
 
     hooks.codexState.sessionMode = 'codex';
-    hooks.codexState.capabilities = { historyList: true, modelConfig: true, diffPlanReasoning: true };
+    hooks.codexState.capabilities = { historyList: true, diffPlanReasoning: true };
     hooks.codexState.secondaryPanel = 'invalid-value';
 
     hooks.renderCodexSecondaryPanels();
@@ -733,7 +726,7 @@ test('Phase 1 Integration: Invalid secondaryPanel value is normalized to "none"'
         'Invalid secondaryPanel value MUST be normalized to "none"');
 
     // All panels must be hidden
-    const panels = ['codex-alerts', 'codex-history-panel', 'codex-settings-panel', 'codex-runtime-panel'];
+    const panels = ['codex-alerts', 'codex-history-panel', 'codex-runtime-panel'];
     for (const id of panels) {
         assert.strictEqual(window.document.getElementById(id).hidden, true,
             `${id} MUST be hidden when secondaryPanel has invalid value`);
@@ -817,14 +810,13 @@ test('Phase 1 Integration: session_info handler MUST reset all panels to hidden'
     const hooks = loadTerminalClient(window);
 
     // Simulate the state when session_info arrives
-    hooks.codexState.secondaryPanel = 'settings'; // User had settings open before
-    hooks.codexState.capabilities = { historyList: true, modelConfig: true };
+    hooks.codexState.secondaryPanel = 'runtime'; // User had runtime open before
+    hooks.codexState.capabilities = { historyList: true, diffPlanReasoning: true };
     hooks.codexState.sessionMode = 'codex';
 
     // All panels are visible (simulating previous state)
     window.document.getElementById('codex-alerts').hidden = false;
     window.document.getElementById('codex-history-panel').hidden = false;
-    window.document.getElementById('codex-settings-panel').hidden = false;
     window.document.getElementById('codex-runtime-panel').hidden = false;
 
     // session_info handler resets secondaryPanel to 'none'
@@ -836,7 +828,7 @@ test('Phase 1 Integration: session_info handler MUST reset all panels to hidden'
     hooks.renderCodexSecondaryPanels();
 
     // ALL panels must be hidden after session_info processing
-    const panels = ['codex-alerts', 'codex-history-panel', 'codex-settings-panel', 'codex-runtime-panel'];
+    const panels = ['codex-alerts', 'codex-history-panel', 'codex-runtime-panel'];
     for (const id of panels) {
         assert.strictEqual(window.document.getElementById(id).hidden, true,
             `${id} MUST be hidden after session_info resets secondaryPanel to "none"`);
@@ -858,17 +850,16 @@ test('Phase 1 Integration: codex_capabilities handler MUST reset all panels to h
     // All panels are visible (simulating previous state)
     window.document.getElementById('codex-alerts').hidden = false;
     window.document.getElementById('codex-history-panel').hidden = false;
-    window.document.getElementById('codex-settings-panel').hidden = false;
     window.document.getElementById('codex-runtime-panel').hidden = false;
 
     // codex_capabilities handler resets secondaryPanel to 'none'
     hooks.codexState.secondaryPanel = 'none';
-    hooks.codexState.capabilities = { historyList: true, modelConfig: true, diffPlanReasoning: true };
+    hooks.codexState.capabilities = { historyList: true, diffPlanReasoning: true };
 
     hooks.renderCodexSecondaryPanels();
 
     // ALL panels must be hidden after codex_capabilities processing
-    const panels = ['codex-alerts', 'codex-history-panel', 'codex-settings-panel', 'codex-runtime-panel'];
+    const panels = ['codex-alerts', 'codex-history-panel', 'codex-runtime-panel'];
     for (const id of panels) {
         assert.strictEqual(window.document.getElementById(id).hidden, true,
             `${id} MUST be hidden after codex_capabilities resets secondaryPanel to "none"`);
@@ -1107,9 +1098,8 @@ test('Phase 4 Integration: thread list with untitled current thread clears stale
         }]
     });
 
-    const titleEl = window.document.getElementById('codex-thread-id');
-    assert.notEqual(titleEl.textContent, 'Old Thread', 'stale thread title must not remain in header');
-    assert.match(titleEl.textContent, /当前线程 thread-b/, 'header must fall back to thread id when title is empty');
+    assert.equal(hooks.codexState.currentThreadTitle, '', 'empty thread title must clear stale cached header state');
+    assert.equal(window.document.getElementById('codex-status-cwd').hidden, true, 'status cwd must stay hidden without cwd');
 
     dom.window.close();
 });
@@ -1131,7 +1121,6 @@ test('Phase 4 Integration: thread/name/updated refreshes the current thread titl
 
     assert.equal(hooks.codexState.currentThreadTitle, 'After Rename');
     assert.equal(hooks.codexState.historyThreads[0].title, 'After Rename');
-    assert.equal(window.document.getElementById('codex-thread-id').textContent, 'After Rename');
 
     dom.window.close();
 });
@@ -1153,7 +1142,6 @@ test('Phase 4 Integration: thread list falls back to cached current thread title
     });
 
     assert.equal(hooks.codexState.currentThreadTitle, 'Cached Rename');
-    assert.equal(window.document.getElementById('codex-thread-id').textContent, 'Cached Rename');
 
     dom.window.close();
 });
@@ -1174,7 +1162,6 @@ test('Phase 4 Integration: thread snapshot name field refreshes current thread t
 
     assert.equal(hooks.codexState.currentThreadTitle, 'Snapshot Rename');
     assert.equal(hooks.codexState.threadTitleById.get('thread-a'), 'Snapshot Rename');
-    assert.equal(window.document.getElementById('codex-thread-id').textContent, 'Snapshot Rename');
 
     dom.window.close();
 });
@@ -1217,8 +1204,6 @@ test('Phase 4 Integration: account/rateLimits/updated renders summary for usage 
 
     hooks.codexState.sessionMode = 'codex';
     hooks.codexState.capabilities = { modelConfig: true, rateLimitsRead: true };
-    hooks.codexState.secondaryPanel = 'settings';
-    hooks.renderCodexSettingsPanel();
     hooks.handleCodexNotification('account/rateLimits/updated', {
         rateLimits: {
             limitId: 'codex',
@@ -1257,8 +1242,8 @@ test('Phase 4 Integration: malformed mixed-script thread title falls back to thr
         title: '恢复顶部状态栏额度显示吗? ไม่มี'
     });
 
-    assert.match(window.document.getElementById('codex-thread-id').textContent, /当前线程 thread-bad-title/);
-    assert.equal(window.document.getElementById('codex-thread-cwd').textContent, 'E:\\coding\\TermLink');
+    assert.equal(hooks.codexState.currentThreadTitle, '');
+    assert.equal(window.document.getElementById('codex-status-cwd').textContent, 'E:\\coding\\TermLink');
 
     dom.window.close();
 });
@@ -1621,76 +1606,220 @@ test('Phase 4 Integration: new task clears the current view immediately and keep
     dom.window.close();
 });
 
-test('Phase 4 Integration: settings panel no longer renders thread actions or server-default toggle', async () => {
+test('Phase 5 Integration: context usage widget renders when token usage includes an explicit max token budget', async () => {
     const dom = createTestDOM();
     const { window } = dom;
     const hooks = loadTerminalClient(window);
-
     hooks.codexState.sessionMode = 'codex';
-    hooks.codexState.capabilities = { modelConfig: true, rateLimitsRead: true };
-    hooks.codexState.secondaryPanel = 'settings';
-    hooks.renderCodexSettingsPanel();
+    hooks.codexState.threadId = 'thread-usage';
+    hooks.codexState.currentThreadTitle = 'Usage Thread';
 
-    assert.equal(window.document.getElementById('codex-settings-use-defaults'), null);
-    assert.equal(window.document.getElementById('btn-codex-history-toggle'), null);
-    assert.match(window.document.getElementById('codex-settings-status').textContent, /当前使用默认配置/);
+    hooks.handleCodexNotification('thread/tokenUsage/updated', {
+        inputTokens: 94000,
+        maxTokens: 258000
+    });
 
-    dom.window.close();
-});
-
-test('Phase 5 Integration: header permission preset reflects current approval and sandbox mapping', async () => {
-    const dom = createTestDOM();
-    const { window } = dom;
-    const hooks = loadTerminalClient(window);
-
-    hooks.codexState.storedCodexConfig = {
-        defaultPersonality: 'pragmatic',
-        approvalPolicy: 'never',
-        sandboxMode: 'danger-full-access'
-    };
-    hooks.codexState.nextTurnEffectiveCodexConfig = {
-        model: null,
-        reasoningEffort: null,
-        personality: 'pragmatic',
-        approvalPolicy: 'never',
-        sandboxMode: 'danger-full-access'
-    };
-    hooks.renderCodexPermissionPreset();
-
-    const button = hooks.getCodexPermissionPresetButton();
-    assert.equal(button.dataset.preset, 'full');
-    assert.match(button.textContent, /完全访问权限/);
+    const widget = hooks.getCodexContextWidget();
+    assert.equal(widget.hidden, false);
+    assert.equal(window.document.getElementById('codex-context-percent').textContent, '36%');
 
     dom.window.close();
 });
 
-test('Phase 5 Integration: background info panel follows the current thread and clears on empty thread', async () => {
+test('Phase 5 Integration: context entry stays visible for debugging when the total context budget is unknown', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+    hooks.codexState.sessionMode = 'codex';
+
+    hooks.handleCodexNotification('thread/tokenUsage/updated', {
+        inputTokens: 94000
+    });
+
+    assert.equal(hooks.getCodexContextWidget().hidden, false);
+    assert.equal(window.document.getElementById('codex-context-percent').textContent, '--');
+
+    dom.window.close();
+});
+
+test('Phase 5 Integration: debug modal still opens when context usage fields are missing', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+    hooks.codexState.sessionMode = 'codex';
+
+    hooks.handleCodexNotification('thread/tokenUsage/updated', {
+        inputTokens: 94000
+    });
+
+    hooks.getCodexContextWidget().dispatchEvent(new window.Event('click'));
+
+    const modal = hooks.getCodexContextDebugModal();
+    assert.equal(modal.hidden, false);
+    assert.match(modal.textContent, /modelContextWindow/);
+    assert.match(modal.textContent, /null/);
+
+    dom.window.close();
+});
+
+test('Phase 5 Integration: context usage widget uses latestTokenUsageInfo as the preferred source', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+    hooks.codexState.sessionMode = 'codex';
+
+    hooks.handleCodexNotification('thread/tokenUsage/updated', {
+        latestTokenUsageInfo: {
+            modelContextWindow: 258000,
+            last: {
+                totalTokens: 226000
+            }
+        }
+    });
+
+    const widget = hooks.getCodexContextWidget();
+    assert.equal(widget.hidden, false);
+    assert.equal(window.document.getElementById('codex-context-percent').textContent, '87%');
+
+    dom.window.close();
+});
+
+test('Phase 5 Integration: context usage widget supports app-server tokenUsage payload shape', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+    hooks.codexState.sessionMode = 'codex';
+
+    hooks.handleCodexNotification('thread/tokenUsage/updated', {
+        threadId: 'thread-a',
+        turnId: 'turn-a',
+        tokenUsage: {
+            modelContextWindow: 258000,
+            last: {
+                cachedInputTokens: 16000,
+                inputTokens: 112000,
+                outputTokens: 9000,
+                reasoningOutputTokens: 0,
+                totalTokens: 137000
+            },
+            total: {
+                cachedInputTokens: 16000,
+                inputTokens: 112000,
+                outputTokens: 9000,
+                reasoningOutputTokens: 0,
+                totalTokens: 137000
+            }
+        }
+    });
+
+    const widget = hooks.getCodexContextWidget();
+    assert.equal(widget.hidden, false);
+    assert.equal(window.document.getElementById('codex-context-percent').textContent, '53%');
+
+    dom.window.close();
+});
+
+test('Phase 5 Integration: thread snapshot can hydrate initial context usage with zero tokens', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.threadId = 'thread-a';
+    hooks.handleCodexThreadSnapshot({
+        id: 'thread-a',
+        turns: [],
+        latestTokenUsageInfo: {
+            modelContextWindow: 258000,
+            last: {
+                totalTokens: 0
+            }
+        }
+    });
+
+    const widget = hooks.getCodexContextWidget();
+    assert.equal(widget.hidden, false);
+    assert.equal(window.document.getElementById('codex-context-percent').textContent, '0%');
+
+    dom.window.close();
+});
+
+test('Phase 5 Integration: clicking context usage widget opens debug modal with latestTokenUsageInfo details', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+    hooks.codexState.sessionMode = 'codex';
+
+    hooks.handleCodexNotification('thread/tokenUsage/updated', {
+        latestTokenUsageInfo: {
+            modelContextWindow: 258000,
+            last: {
+                totalTokens: 226000
+            }
+        }
+    });
+
+    const widget = hooks.getCodexContextWidget();
+    widget.dispatchEvent(new window.Event('click'));
+
+    const modal = hooks.getCodexContextDebugModal();
+    assert.equal(modal.hidden, false);
+    assert.match(modal.textContent, /modelContextWindow/);
+    assert.match(modal.textContent, /258000/);
+    assert.match(modal.textContent, /last\.totalTokens/);
+    assert.match(modal.textContent, /226000/);
+    assert.match(modal.textContent, /percent/);
+    assert.match(modal.textContent, /87/);
+
+    dom.window.close();
+});
+
+test('Phase 5 Integration: nested app-server token usage payload updates token summary text', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+    hooks.codexState.sessionMode = 'codex';
+
+    hooks.handleCodexNotification('thread/tokenUsage/updated', {
+        threadId: 'thread-a',
+        turnId: 'turn-a',
+        tokenUsage: {
+            modelContextWindow: 258000,
+            last: {
+                cachedInputTokens: 16000,
+                inputTokens: 112000,
+                outputTokens: 9000,
+                reasoningOutputTokens: 4000,
+                totalTokens: 137000
+            },
+            total: {
+                cachedInputTokens: 16000,
+                inputTokens: 112000,
+                outputTokens: 9000,
+                reasoningOutputTokens: 4000,
+                totalTokens: 137000
+            }
+        }
+    });
+
+    assert.match(hooks.codexState.tokenUsageSummary, /112k in/);
+    assert.match(hooks.codexState.tokenUsageSummary, /9(\.0)?k out/);
+    assert.match(hooks.codexState.tokenUsageSummary, /137k total/);
+    assert.match(hooks.codexState.tokenUsageSummary, /16k cached/);
+    assert.match(hooks.codexState.tokenUsageSummary, /4(\.0)?k reasoning/);
+
+    dom.window.close();
+});
+
+test('Phase 5 Integration: quick sandbox control writes next-turn sandbox override', async () => {
     const dom = createTestDOM();
     const { window } = dom;
     const hooks = loadTerminalClient(window);
 
-    hooks.codexState.threadId = 'thread-context';
-    hooks.codexState.currentThreadTitle = 'Context Thread';
-    hooks.codexState.cwd = '/workspace/demo';
-    hooks.codexState.status = 'waiting_approval';
-    hooks.codexState.nextTurnEffectiveCodexConfig = {
-        model: 'gpt-5',
-        reasoningEffort: 'medium',
-        personality: 'pragmatic',
-        approvalPolicy: 'on-request',
-        sandboxMode: 'workspace-write'
-    };
-    hooks.setCodexThreadContextPanelOpen(true);
+    const sandboxSelect = window.document.getElementById('codex-quick-sandbox');
+    sandboxSelect.value = 'danger-full-access';
+    sandboxSelect.dispatchEvent(new window.Event('change'));
 
-    assert.equal(hooks.getCodexThreadContextPanel().hidden, false);
-    assert.match(hooks.getCodexThreadContextPanel().textContent, /Context Thread/);
-
-    hooks.codexState.threadId = '';
-    hooks.codexState.currentThreadTitle = '';
-    hooks.renderCodexThreadContextPanel();
-
-    assert.equal(window.document.getElementById('codex-thread-context-empty').hidden, false);
-    assert.equal(window.document.getElementById('codex-thread-context-content').textContent.trim(), '');
+    assert.equal(hooks.codexState.nextTurnOverrides.sandbox, 'danger-full-access');
 
     dom.window.close();
 });

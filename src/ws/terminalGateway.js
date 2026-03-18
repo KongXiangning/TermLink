@@ -531,6 +531,28 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         return state;
     };
 
+    const extractTokenUsageSnapshot = (payload) => {
+        const source = payload && typeof payload === 'object' ? payload : null;
+        if (!source) {
+            return null;
+        }
+        if (source.latestTokenUsageInfo && typeof source.latestTokenUsageInfo === 'object') {
+            return { latestTokenUsageInfo: source.latestTokenUsageInfo };
+        }
+        if (source.tokenUsage && typeof source.tokenUsage === 'object') {
+            return source.tokenUsage;
+        }
+        if (source.thread && typeof source.thread === 'object') {
+            if (source.thread.latestTokenUsageInfo && typeof source.thread.latestTokenUsageInfo === 'object') {
+                return { latestTokenUsageInfo: source.thread.latestTokenUsageInfo };
+            }
+            if (source.thread.tokenUsage && typeof source.thread.tokenUsage === 'object') {
+                return source.thread.tokenUsage;
+            }
+        }
+        return null;
+    };
+
     const emitCodexState = (session, targetWs) => {
         const state = ensureSessionCodexState(session);
         const envelope = {
@@ -643,6 +665,12 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         resetSessionCodexRuntimeState(session, { clearThreadModel: true });
         state.threadId = threadId;
         state.threadModel = resolveThreadModelFromResponse(threadStartResult);
+        state.tokenUsage = extractTokenUsageSnapshot(threadStartResult);
+        console.info('[gateway][tokenUsage][thread/start]', JSON.stringify({
+            sessionId: session.id,
+            threadId,
+            tokenUsage: state.tokenUsage || null
+        }));
         state.threadExecutionContextSignature = executionContextSignature;
         bindThreadToSession(threadId, session.id);
         updateSessionLastCodexThreadId(session, threadId);
@@ -729,7 +757,13 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             return false;
         }
         if (method === 'thread/tokenUsage/updated') {
-            const nextTokenUsage = params || null;
+            const nextTokenUsage = extractTokenUsageSnapshot(params) || params || null;
+            console.info('[gateway][tokenUsage][notification]', JSON.stringify({
+                sessionId: session.id,
+                threadId: state.threadId || null,
+                params: params || null,
+                nextTokenUsage
+            }));
             const changed = !areJsonLikeValuesEqual(state.tokenUsage, nextTokenUsage);
             state.tokenUsage = nextTokenUsage;
             return changed;
@@ -1125,6 +1159,16 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             threadId: codexState.threadId,
                             includeTurns: true
                         });
+                        const nextTokenUsage = extractTokenUsageSnapshot(response);
+                        console.info('[gateway][tokenUsage][codex_thread_read]', JSON.stringify({
+                            sessionId: session.id,
+                            threadId: codexState.threadId,
+                            nextTokenUsage
+                        }));
+                        if (nextTokenUsage !== null) {
+                            codexState.tokenUsage = nextTokenUsage;
+                            emitCodexState(session);
+                        }
                         sendWsEnvelope(ws, {
                             type: 'codex_thread_snapshot',
                             thread: response ? response.thread || null : null
@@ -1167,9 +1211,27 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             resetSessionCodexRuntimeState(session);
                             codexState.threadId = response.thread.id;
                             codexState.threadModel = resolveThreadModelFromResponse(response);
+                            codexState.tokenUsage = extractTokenUsageSnapshot(response);
+                            console.info('[gateway][tokenUsage][thread/resume]', JSON.stringify({
+                                sessionId: session.id,
+                                threadId: response.thread.id,
+                                tokenUsage: codexState.tokenUsage || null
+                            }));
                             bindThreadToSession(response.thread.id, session.id);
                             updateSessionLastCodexThreadId(session, response.thread.id);
                             emitCodexState(session);
+                        }
+                        if (method === 'thread/read') {
+                            const nextTokenUsage = extractTokenUsageSnapshot(response);
+                            console.info('[gateway][tokenUsage][thread/read]', JSON.stringify({
+                                sessionId: session.id,
+                                threadId: codexState.threadId || null,
+                                nextTokenUsage
+                            }));
+                            if (nextTokenUsage !== null) {
+                                codexState.tokenUsage = nextTokenUsage;
+                                emitCodexState(session);
+                            }
                         }
                         if (response && response.turn && isNonEmptyString(response.turn.id)) {
                             codexState.currentTurnId = response.turn.id;
