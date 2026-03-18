@@ -26,3 +26,4 @@ screenshot*.png
 gradle-local/
 .codex/
 tmp-*.xml
+tmp/

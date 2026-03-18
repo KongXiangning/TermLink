@@ -218,7 +218,8 @@ const codexState = {
     slashMenuQuery: '',
     nextTurnOverrides: {
         model: null,
-        reasoningEffort: null
+        reasoningEffort: null,
+        sandbox: null
     },
     interactionState: {
         planMode: false,
@@ -2693,7 +2694,7 @@ function maybeAutoRefreshCodexRateLimits() {
     }
 
     codexState.rateLimitBootstrapRequested = true;
-    refreshCodexRateLimits({ silent: true }).catch(() => {
+    refreshCodexRateLimits({ silent: true }).finally(() => {
         codexState.rateLimitBootstrapRequested = false;
     });
 }
@@ -2854,7 +2855,7 @@ function resetCodexBootstrapState() {
     codexState.settingsLoadingModels = false;
     codexState.settingsRefreshingRateLimits = false;
     codexState.rateLimitBootstrapRequested = false;
-    codexState.nextTurnOverrides = { model: null, reasoningEffort: null };
+    codexState.nextTurnOverrides = { model: null, reasoningEffort: null, sandbox: null };
     codexState.interactionState = { planMode: false, activeSkill: null };
     codexState.planWorkflow = buildEmptyPlanWorkflowState();
     codexState.serverNextTurnConfigBase = null;
@@ -4090,8 +4091,12 @@ function applyCodexTokenUsage(payload) {
 
 function applyCodexRateLimit(payload) {
     const next = formatRateLimitSummary(payload || {});
-    codexState.rateLimitSummary = next.summary;
-    codexState.rateLimitTone = next.tone;
+    // 只有当新的 summary 非空时才更新状态
+    // 避免空 payload 覆盖已有的额度信息
+    if (next.summary) {
+        codexState.rateLimitSummary = next.summary;
+        codexState.rateLimitTone = next.tone;
+    }
     renderCodexAuxStatus();
     if (next.summary) {
         logCodexTelemetryChange('rateLimit', `Rate limit updated: ${next.summary}`, 'limits');
@@ -4200,7 +4205,7 @@ function restorePendingTurnStateOnFailure() {
     if (!pending) {
         return;
     }
-    setNextTurnOverrides(pending.nextTurnOverrides || { model: null, reasoningEffort: null });
+    setNextTurnOverrides(pending.nextTurnOverrides || { model: null, reasoningEffort: null, sandbox: null });
     setCodexInteractionState(pending.interactionState || { planMode: false, activeSkill: null });
     setPendingCodexImageInputs(pending.imageInputs || []);
     clearPendingTurnState();
@@ -4245,7 +4250,8 @@ function sendCodexTurn(text, options) {
         nextTurnOverrides,
         interactionState,
         imageInputs,
-        clearOverrides: opts.clearOverrides !== false && (!!nextTurnOverrides.model || !!nextTurnOverrides.reasoningEffort),
+        clearOverrides: opts.clearOverrides !== false
+            && (!!nextTurnOverrides.model || !!nextTurnOverrides.reasoningEffort || !!nextTurnOverrides.sandbox),
         clearPlanMode: opts.clearPlanMode === true,
         clearActiveSkill: !!interactionState.activeSkill,
         clearImageInputs: imageInputs.length > 0
