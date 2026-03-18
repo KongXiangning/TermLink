@@ -76,17 +76,12 @@ const codexContextWidget = document.getElementById('codex-context-widget');
 const codexContextRing = document.getElementById('codex-context-ring');
 const codexContextPercent = document.getElementById('codex-context-percent');
 const codexContextDebugModal = document.getElementById('codex-context-debug-modal');
-const codexContextDebugGrid = document.getElementById('codex-context-debug-grid');
-const codexContextDebugJson = document.getElementById('codex-context-debug-json');
-const btnCodexContextDebugClose = document.getElementById('btn-codex-context-debug-close');
+const codexContextDebugUsage = document.getElementById('codex-context-debug-usage');
+const codexContextDebugTokens = document.getElementById('codex-context-debug-tokens');
+const codexContextDebugNote = document.getElementById('codex-context-debug-note');
 const codexSlashMenu = document.getElementById('codex-slash-menu');
 const codexSlashMenuEmpty = document.getElementById('codex-slash-menu-empty');
 const codexSlashMenuList = document.getElementById('codex-slash-menu-list');
-const codexFilePicker = document.getElementById('codex-file-picker');
-const codexFilePickerList = document.getElementById('codex-file-picker-list');
-const codexFilePickerEmpty = document.getElementById('codex-file-picker-empty');
-const codexFilePickerLoading = document.getElementById('codex-file-picker-loading');
-const codexFilePickerError = document.getElementById('codex-file-picker-error');
 const codexCommandApprovalModal = document.getElementById('codex-command-approval-modal');
 const codexCommandApprovalStatus = document.getElementById('codex-command-approval-status');
 const codexCommandApprovalSummary = document.getElementById('codex-command-approval-summary');
@@ -163,6 +158,8 @@ let ws = null;
 let reconnectTimer = null;
 let reconnectInterval = 1000;
 const maxReconnectInterval = 30000;
+let clientHeartbeatTimer = null;
+const CLIENT_HEARTBEAT_INTERVAL_MS = 25000; // Send heartbeat every 25 seconds (before server's 30s timeout)
 const CODEX_NEW_THREAD_TIMEOUT_MS = 10000;
 let isConnecting = false;
 let retryCount = 0;
@@ -280,15 +277,7 @@ const codexState = {
     pendingFreshThreadUiSnapshot: null,
     pendingFreshThreadTimeoutId: 0,
     lastTokenUsageLog: '',
-    lastRateLimitLog: '',
-    filePickerOpen: false,
-    filePickerQuery: '',
-    filePickerResults: [],
-    filePickerLoading: false,
-    filePickerError: null,
-    filePickerSelectedIndex: 0,
-    filePickerTriggerStart: -1,
-    filePickerAbortController: null
+    lastRateLimitLog: ''
 };
 
 const viewportState = {
@@ -1821,324 +1810,6 @@ function updateSlashMenuForInputValue() {
     setSlashMenuState(true, parsed.text || parsed.command || '/');
 }
 
-// ========== File Picker (@-mention) Functions ==========
-
-function detectFilePickerTrigger() {
-    if (!codexInput) return null;
-    const value = codexInput.value;
-    const cursorPos = codexInput.selectionStart;
-
-    // Find @ before cursor that isn't part of an email pattern
-    let atPos = -1;
-    for (let i = cursorPos - 1; i >= 0; i--) {
-        const char = value[i];
-        if (char === '@') {
-            // Check if this is a valid trigger (not preceded by alphanumeric)
-            if (i === 0 || !/[a-zA-Z0-9]/.test(value[i - 1])) {
-                atPos = i;
-                break;
-            }
-        } else if (char === ' ' || char === '\n') {
-            // Space or newline breaks the trigger
-            break;
-        }
-    }
-
-    if (atPos === -1) return null;
-
-    const query = value.substring(atPos + 1, cursorPos);
-    // Don't trigger if query contains spaces (likely an email)
-    if (query.includes(' ')) return null;
-
-    return { atPos, query };
-}
-
-function updateFilePickerForInputValue() {
-    if (!codexInput) return;
-
-    // Close file picker if slash menu is open
-    if (codexState.slashMenuOpen) {
-        setFilePickerState(false, '', -1);
-        return;
-    }
-
-    // Only show in codex mode with a valid session
-    if (getActiveSessionMode() !== 'codex' || !sessionId) {
-        setFilePickerState(false, '', -1);
-        return;
-    }
-
-    const trigger = detectFilePickerTrigger();
-    if (!trigger) {
-        setFilePickerState(false, '', -1);
-        return;
-    }
-
-    setFilePickerState(true, trigger.query, trigger.atPos);
-}
-
-function setFilePickerState(open, query, triggerStart) {
-    const wasOpen = codexState.filePickerOpen;
-    codexState.filePickerOpen = open === true;
-    codexState.filePickerQuery = typeof query === 'string' ? query : '';
-    codexState.filePickerTriggerStart = typeof triggerStart === 'number' ? triggerStart : -1;
-
-    if (!open) {
-        // Cancel any pending request
-        if (codexState.filePickerAbortController) {
-            codexState.filePickerAbortController.abort();
-            codexState.filePickerAbortController = null;
-        }
-        codexState.filePickerResults = [];
-        codexState.filePickerLoading = false;
-        codexState.filePickerError = null;
-        codexState.filePickerSelectedIndex = 0;
-    }
-
-    renderCodexFilePicker();
-
-    // Fetch results if newly opened or query changed
-    if (open && (!wasOpen || query !== codexState.filePickerQuery)) {
-        void fetchFilePickerResults(query);
-    }
-}
-
-let filePickerDebounceTimer = null;
-
-async function fetchFilePickerResults(query) {
-    // Cancel previous request
-    if (codexState.filePickerAbortController) {
-        codexState.filePickerAbortController.abort();
-    }
-
-    // Debounce
-    if (filePickerDebounceTimer) {
-        clearTimeout(filePickerDebounceTimer);
-    }
-
-    filePickerDebounceTimer = setTimeout(async () => {
-        if (!codexState.filePickerOpen) return;
-
-        codexState.filePickerLoading = true;
-        codexState.filePickerError = null;
-        renderCodexFilePicker();
-
-        const controller = new AbortController();
-        codexState.filePickerAbortController = controller;
-
-        try {
-            const params = new URLSearchParams();
-            if (query) params.set('q', query);
-            params.set('limit', '20');
-
-            const response = await fetch(
-                `${serverUrl}/api/sessions/${sessionId}/workspace/files?${params.toString()}`,
-                {
-                    headers: { 'Authorization': authHeader },
-                    signal: controller.signal
-                }
-            );
-
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({}));
-                throw new Error(data.error || `HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            if (!codexState.filePickerOpen) return;
-
-            codexState.filePickerResults = data.results || [];
-            codexState.filePickerLoading = false;
-            codexState.filePickerSelectedIndex = 0;
-            renderCodexFilePicker();
-        } catch (e) {
-            if (e.name === 'AbortError') return;
-
-            if (!codexState.filePickerOpen) return;
-
-            codexState.filePickerError = e.message || 'Failed to load files';
-            codexState.filePickerLoading = false;
-            codexState.filePickerResults = [];
-            renderCodexFilePicker();
-        }
-    }, 150);
-}
-
-function renderCodexFilePicker() {
-    if (!codexFilePicker || !codexFilePickerList) return;
-
-    const shouldShow = codexState.filePickerOpen &&
-        getActiveSessionMode() === 'codex' &&
-        sessionId;
-
-    codexFilePicker.hidden = !shouldShow;
-
-    if (!shouldShow) {
-        codexFilePickerList.innerHTML = '';
-        return;
-    }
-
-    // Update loading state
-    if (codexFilePickerLoading) {
-        codexFilePickerLoading.hidden = false;
-        codexFilePickerEmpty.hidden = true;
-        codexFilePickerError.hidden = true;
-        codexFilePickerList.innerHTML = '';
-        return;
-    }
-
-    codexFilePickerLoading.hidden = true;
-
-    // Update error state
-    if (codexState.filePickerError) {
-        codexFilePickerError.textContent = codexState.filePickerError;
-        codexFilePickerError.hidden = false;
-        codexFilePickerEmpty.hidden = true;
-        codexFilePickerList.innerHTML = '';
-        return;
-    }
-
-    codexFilePickerError.hidden = true;
-
-    // Update empty state
-    if (codexState.filePickerResults.length === 0) {
-        codexFilePickerEmpty.hidden = false;
-        codexFilePickerList.innerHTML = '';
-        return;
-    }
-
-    codexFilePickerEmpty.hidden = true;
-
-    // Render items
-    codexFilePickerList.innerHTML = '';
-    codexState.filePickerResults.forEach((entry, index) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'codex-file-item';
-        if (index === codexState.filePickerSelectedIndex) {
-            button.classList.add('is-selected');
-        }
-
-        const copy = document.createElement('span');
-        copy.className = 'codex-file-item-copy';
-
-        const name = document.createElement('span');
-        name.className = 'codex-file-item-name';
-        name.textContent = entry.name;
-
-        const pathEl = document.createElement('span');
-        pathEl.className = 'codex-file-item-path';
-        pathEl.textContent = entry.path;
-
-        copy.appendChild(name);
-        copy.appendChild(pathEl);
-
-        const meta = document.createElement('span');
-        meta.className = 'codex-file-item-meta';
-
-        const typeBadge = document.createElement('span');
-        typeBadge.className = 'codex-file-item-type';
-        if (entry.type === 'directory') {
-            typeBadge.classList.add('is-directory');
-            typeBadge.textContent = 'DIR';
-        } else {
-            typeBadge.textContent = 'FILE';
-        }
-        meta.appendChild(typeBadge);
-
-        if (entry.type === 'file' && entry.size !== null) {
-            const sizeEl = document.createElement('span');
-            sizeEl.className = 'codex-file-item-size';
-            sizeEl.textContent = formatFileSize(entry.size);
-            meta.appendChild(sizeEl);
-        }
-
-        button.appendChild(copy);
-        button.appendChild(meta);
-
-        button.addEventListener('click', () => {
-            applyFilePickerSelection(entry);
-        });
-
-        codexFilePickerList.appendChild(button);
-    });
-}
-
-function formatFileSize(bytes) {
-    if (bytes === null || bytes === undefined) return '';
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
-function applyFilePickerSelection(entry) {
-    if (!codexInput || !entry) return;
-
-    const triggerStart = codexState.filePickerTriggerStart;
-    const cursorPos = codexInput.selectionStart;
-
-    if (triggerStart < 0) return;
-
-    // Replace from @ to cursor with @filepath
-    const before = codexInput.value.substring(0, triggerStart);
-    const after = codexInput.value.substring(cursorPos);
-    const insertion = `@${entry.path}`;
-
-    codexInput.value = before + insertion + after;
-
-    // Move cursor after the inserted path
-    const newCursorPos = triggerStart + insertion.length;
-    codexInput.setSelectionRange(newCursorPos, newCursorPos);
-    codexInput.focus();
-
-    setFilePickerState(false, '', -1);
-}
-
-function handleFilePickerKeydown(event) {
-    if (!codexState.filePickerOpen) return false;
-
-    const results = codexState.filePickerResults;
-    const currentIndex = codexState.filePickerSelectedIndex;
-
-    switch (event.key) {
-        case 'ArrowDown':
-            event.preventDefault();
-            if (results.length > 0) {
-                codexState.filePickerSelectedIndex = (currentIndex + 1) % results.length;
-                renderCodexFilePicker();
-            }
-            return true;
-
-        case 'ArrowUp':
-            event.preventDefault();
-            if (results.length > 0) {
-                codexState.filePickerSelectedIndex = (currentIndex - 1 + results.length) % results.length;
-                renderCodexFilePicker();
-            }
-            return true;
-
-        case 'Enter':
-        case 'Tab':
-            if (results.length > 0 && currentIndex >= 0 && currentIndex < results.length) {
-                event.preventDefault();
-                applyFilePickerSelection(results[currentIndex]);
-                return true;
-            }
-            return false;
-
-        case 'Escape':
-            event.preventDefault();
-            setFilePickerState(false, '', -1);
-            return true;
-
-        default:
-            return false;
-    }
-}
-
-// ========== End File Picker Functions ==========
 
 function setCodexSettingsStatus(text, tone) {
     void text;
@@ -2295,46 +1966,36 @@ function renderCodexContextUsage() {
     }
 }
 
-function buildCodexContextDebugFields() {
-    const usage = codexState.contextUsage;
-    const debug = usage && usage.debug && typeof usage.debug === 'object' ? usage.debug : {};
-    return [
-        ['modelContextWindow', debug.modelContextWindow],
-        ['last.totalTokens', debug.lastTotalTokens],
-        ['usedTokens', debug.usedTokens],
-        ['contextWindow', debug.contextWindow],
-        ['remainingTokens', debug.remainingTokens],
-        ['percent', debug.percent]
-    ];
+function formatCodexContextSummaryLine(usage) {
+    if (!usage) {
+        return '--';
+    }
+    return `${usage.usedPercent}% 已用（剩余 ${usage.remainingPercent}%）`;
+}
+
+function formatCodexContextTokensLine(usage) {
+    const debug = usage && usage.debug && typeof usage.debug === 'object' ? usage.debug : null;
+    const usedTokens = debug && typeof debug.usedTokens === 'number' ? debug.usedTokens : null;
+    const contextWindow = debug && typeof debug.contextWindow === 'number' ? debug.contextWindow : null;
+    if (usedTokens === null || contextWindow === null) {
+        return '--';
+    }
+    return `已用 ${formatCompactNumber(usedTokens)} 标记，共 ${formatCompactNumber(contextWindow)}`;
 }
 
 function renderCodexContextDebugModal() {
     if (codexContextDebugModal) {
         codexContextDebugModal.hidden = !codexState.contextDebugModalOpen;
     }
-    if (codexContextDebugGrid) {
-        const fields = buildCodexContextDebugFields();
-        codexContextDebugGrid.replaceChildren();
-        fields.forEach(([label, value]) => {
-            const row = document.createElement('div');
-            row.className = 'codex-context-debug-row';
-            const labelNode = document.createElement('span');
-            labelNode.className = 'codex-context-debug-label';
-            labelNode.textContent = label;
-            const valueNode = document.createElement('span');
-            valueNode.className = 'codex-context-debug-value';
-            valueNode.textContent = value === null || value === undefined ? 'null' : String(value);
-            row.appendChild(labelNode);
-            row.appendChild(valueNode);
-            codexContextDebugGrid.appendChild(row);
-        });
+    const usage = codexState.contextUsage;
+    if (codexContextDebugUsage) {
+        codexContextDebugUsage.textContent = formatCodexContextSummaryLine(usage);
     }
-    if (codexContextDebugJson) {
-        const usage = codexState.contextUsage;
-        const rawJson = usage && usage.debug && usage.debug.latestTokenUsageInfo
-            ? usage.debug.latestTokenUsageInfo
-            : null;
-        codexContextDebugJson.textContent = JSON.stringify(rawJson, null, 2);
+    if (codexContextDebugTokens) {
+        codexContextDebugTokens.textContent = formatCodexContextTokensLine(usage);
+    }
+    if (codexContextDebugNote) {
+        codexContextDebugNote.textContent = 'Codex 自动压缩其背景信息';
     }
 }
 
@@ -3311,6 +2972,43 @@ function normalizeNextTurnOverrides(payload) {
     };
 }
 
+function derivePermissionConfigFromSandboxOverride(sandboxOverride) {
+    const normalized = typeof sandboxOverride === 'string' && sandboxOverride.trim()
+        ? sandboxOverride.trim()
+        : null;
+    if (normalized === 'danger-full-access') {
+        return {
+            approvalPolicy: 'never',
+            sandboxMode: 'danger-full-access'
+        };
+    }
+    if (normalized === 'workspace-write') {
+        return {
+            approvalPolicy: 'on-request',
+            sandboxMode: 'workspace-write'
+        };
+    }
+    if (normalized === 'read-only') {
+        return {
+            approvalPolicy: 'on-request',
+            sandboxMode: 'read-only'
+        };
+    }
+    return null;
+}
+
+function resolveCodexTurnSandboxOverride(nextTurnOverrides) {
+    const normalizedOverrides = normalizeNextTurnOverrides(nextTurnOverrides);
+    if (normalizedOverrides.sandbox) {
+        return normalizedOverrides.sandbox;
+    }
+    if (codexQuickSandbox) {
+        const selected = typeof codexQuickSandbox.value === 'string' ? codexQuickSandbox.value.trim() : '';
+        return selected || 'workspace-write';
+    }
+    return null;
+}
+
 function normalizeEffectiveCodexConfig(payload) {
     const source = payload && typeof payload === 'object' ? payload : {};
     return {
@@ -3334,13 +3032,14 @@ function buildLocalNextTurnEffectiveCodexConfig() {
     const baseConfig = codexState.serverNextTurnConfigBase
         ? normalizeEffectiveCodexConfig(codexState.serverNextTurnConfigBase)
         : null;
+    const permissionOverride = derivePermissionConfigFromSandboxOverride(resolveCodexTurnSandboxOverride(codexState.nextTurnOverrides));
     if (baseConfig) {
         return {
             model: codexState.nextTurnOverrides.model || baseConfig.model || null,
             reasoningEffort: codexState.nextTurnOverrides.reasoningEffort || baseConfig.reasoningEffort || null,
             personality: baseConfig.personality || null,
-            approvalPolicy: baseConfig.approvalPolicy || null,
-            sandboxMode: codexState.nextTurnOverrides.sandbox || baseConfig.sandboxMode || null
+            approvalPolicy: permissionOverride ? permissionOverride.approvalPolicy : (baseConfig.approvalPolicy || null),
+            sandboxMode: permissionOverride ? permissionOverride.sandboxMode : (baseConfig.sandboxMode || null)
         };
     }
     const slashApi = getCodexSlashCommandsApi();
@@ -3355,8 +3054,8 @@ function buildLocalNextTurnEffectiveCodexConfig() {
         model: codexState.nextTurnOverrides.model || (stored ? stored.defaultModel : null),
         reasoningEffort: codexState.nextTurnOverrides.reasoningEffort || (stored ? stored.defaultReasoningEffort : null),
         personality: stored ? stored.defaultPersonality : null,
-        approvalPolicy: stored ? stored.approvalPolicy : null,
-        sandboxMode: codexState.nextTurnOverrides.sandbox || (stored ? stored.sandboxMode : null)
+        approvalPolicy: permissionOverride ? permissionOverride.approvalPolicy : (stored ? stored.approvalPolicy : null),
+        sandboxMode: permissionOverride ? permissionOverride.sandboxMode : (stored ? stored.sandboxMode : null)
     };
 }
 
@@ -4525,6 +4224,7 @@ function sendCodexTurn(text, options) {
         cwd: getConfiguredCodexCwd() || undefined,
         model: nextTurnOverrides.model || undefined,
         reasoningEffort: nextTurnOverrides.reasoningEffort || undefined,
+        sandbox: resolveCodexTurnSandboxOverride(nextTurnOverrides) || undefined,
         collaborationMode: collaborationMode || undefined,
         attachments: imageInputs.length > 0 ? imageInputs : undefined
     };
@@ -5596,7 +5296,25 @@ function resetTerminalView() {
     loadHistoryState(getHistoryStorageKey(sessionId), true);
 }
 
+function startClientHeartbeat() {
+    stopClientHeartbeat();
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    clientHeartbeatTimer = setInterval(function () {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'client_heartbeat' }));
+        }
+    }, CLIENT_HEARTBEAT_INTERVAL_MS);
+}
+
+function stopClientHeartbeat() {
+    if (clientHeartbeatTimer) {
+        clearInterval(clientHeartbeatTimer);
+        clientHeartbeatTimer = null;
+    }
+}
+
 function closeSocketSilently() {
+    stopClientHeartbeat();
     if (!ws) return;
     ws.onclose = null;
     ws.close();
@@ -5863,6 +5581,7 @@ function connect() {
             resetCodexBootstrapState();
             hideStatus();
             sendResize();
+            startClientHeartbeat();
             notifyNativeConnectionState('connected', `Connected via ${transportLabel}`);
             if (codexState.status !== 'running') {
                 setCodexStatus('idle');
@@ -6147,6 +5866,7 @@ function connect() {
         ws.onclose = function (event) {
             console.log('[JS] WebSocket CLOSED:', event.code, event.reason);
             isConnecting = false;
+            stopClientHeartbeat();
             rejectPendingCodexBridgeRequests(
                 `Codex bridge closed (${event.code}).`,
                 'CODEX_BRIDGE_CLOSED'
@@ -6554,12 +6274,6 @@ if (codexContextWidget) {
     });
 }
 
-if (btnCodexContextDebugClose) {
-    btnCodexContextDebugClose.addEventListener('click', () => {
-        setCodexContextDebugModalOpen(false);
-    });
-}
-
 document.querySelectorAll('[data-modal-dismiss]').forEach((node) => {
     node.addEventListener('click', () => {
         const target = node.getAttribute('data-modal-dismiss');
@@ -6583,24 +6297,17 @@ if (btnCodexSend) {
 
 if (codexInput) {
     codexInput.addEventListener('keydown', (event) => {
-        // Handle file picker keyboard navigation first
-        if (handleFilePickerKeydown(event)) {
-            return;
-        }
-
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
             const text = codexInput.value;
             if (handleCodexComposerSubmit(text)) {
                 codexInput.value = '';
                 setSlashMenuState(false, '');
-                setFilePickerState(false, '', -1);
             }
         }
     });
     codexInput.addEventListener('input', () => {
         updateSlashMenuForInputValue();
-        updateFilePickerForInputValue();
     });
 }
 

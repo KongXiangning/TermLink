@@ -2,7 +2,7 @@
 title: 变更记录索引
 status: active
 owner: @maintainer
-last_updated: 2026-03-17
+last_updated: 2026-03-18
 source_of_truth: product
 related_code: [docs/changes/records]
 related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_CHANGE_RECORD.md]
@@ -62,3 +62,4 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 | CR-20260317-0110-codex-local-task-history | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-17 | 修复 Codex 本地任务历史入口不可达、列表缺少最近活跃排序与时间元信息的问题 | `docs/changes/records/CR-20260317-0110-codex-local-task-history.md` |
 | CR-20260317-0936-codex-app-permission-mode-and-context-window | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-17 | 补充 Codex app 权限预设模式、阻塞式命令确认弹窗与线程绑定背景信息窗口需求 | `docs/changes/records/CR-20260317-0936-codex-app-permission-mode-and-context-window.md` |
 | CR-20260318-1452-codex-remove-settings-and-top-permission | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-18 | 收口 Codex 当前期文档边界：明确不恢复“会话设置”和顶部权限选择 | `docs/changes/records/CR-20260318-1452-codex-remove-settings-and-top-permission.md` |
+| CR-20260318-1541-codex-status-strip-doc-sync | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-18 | 同步文档口径：顶部状态栏仅保留状态、工作区与额度信息，不恢复线程查看入口 | `docs/changes/records/CR-20260318-1541-codex-status-strip-doc-sync.md` |

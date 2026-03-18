@@ -1139,6 +1139,54 @@ test('codex_turn resumes an existing thread to recover its model before turn/sta
     assert.equal(stateEnvelope.nextTurnEffectiveCodexConfig.model, 'gpt-5.4');
 });
 
+test('codex_turn sandbox override maps workspace-write to on-request approval for blocking prompts', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        codexConfig: {
+            approvalPolicy: 'never',
+            sandboxMode: 'workspace-write'
+        },
+        codexState: {
+            threadId: 'thread-existing',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null
+        }
+    });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'inspect repo',
+        sandbox: 'workspace-write'
+    }));
+
+    const service = MockCodexService.instances[0];
+    const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
+    assert.ok(turnStart, 'turn/start should be invoked');
+    assert.equal(turnStart.params.approvalPolicy, 'on-request');
+    assert.equal(turnStart.params.askForApproval, 'on-request');
+    assert.equal(turnStart.params.sandbox, 'workspace-write');
+    assert.equal(turnStart.params.sandboxMode, 'workspace-write');
+});
+
 test('codex_turn starts a fresh thread when the stored execution context no longer matches session permissions', async (t) => {
     MockCodexService.instances.length = 0;
     const registerTerminalGateway = loadGatewayWithMocks({

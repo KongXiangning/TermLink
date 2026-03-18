@@ -262,9 +262,9 @@ function createTestDOM() {
             <button id="btn-codex-command-approval-approve" type="button">允许</button>
         </div>
         <div id="codex-context-debug-modal" hidden>
-            <button id="btn-codex-context-debug-close" type="button">关闭</button>
-            <div id="codex-context-debug-grid"></div>
-            <pre id="codex-context-debug-json"></pre>
+            <div id="codex-context-debug-usage"></div>
+            <div id="codex-context-debug-tokens"></div>
+            <div id="codex-context-debug-note"></div>
             <div data-modal-dismiss="context-debug"></div>
         </div>
         <div id="input-overlay">
@@ -1656,8 +1656,8 @@ test('Phase 5 Integration: debug modal still opens when context usage fields are
 
     const modal = hooks.getCodexContextDebugModal();
     assert.equal(modal.hidden, false);
-    assert.match(modal.textContent, /modelContextWindow/);
-    assert.match(modal.textContent, /null/);
+    assert.match(modal.textContent, /--/);
+    assert.match(modal.textContent, /Codex 自动压缩其背景信息/);
 
     dom.window.close();
 });
@@ -1743,7 +1743,7 @@ test('Phase 5 Integration: thread snapshot can hydrate initial context usage wit
     dom.window.close();
 });
 
-test('Phase 5 Integration: clicking context usage widget opens debug modal with latestTokenUsageInfo details', async () => {
+test('Phase 5 Integration: clicking context usage widget opens context usage summary modal', async () => {
     const dom = createTestDOM();
     const { window } = dom;
     const hooks = loadTerminalClient(window);
@@ -1763,12 +1763,9 @@ test('Phase 5 Integration: clicking context usage widget opens debug modal with 
 
     const modal = hooks.getCodexContextDebugModal();
     assert.equal(modal.hidden, false);
-    assert.match(modal.textContent, /modelContextWindow/);
-    assert.match(modal.textContent, /258000/);
-    assert.match(modal.textContent, /last\.totalTokens/);
-    assert.match(modal.textContent, /226000/);
-    assert.match(modal.textContent, /percent/);
-    assert.match(modal.textContent, /87/);
+    assert.match(modal.textContent, /87% 已用（剩余 13%）/);
+    assert.match(modal.textContent, /已用 226k 标记，共 258k/);
+    assert.match(modal.textContent, /Codex 自动压缩其背景信息/);
 
     dom.window.close();
 });
@@ -1820,6 +1817,36 @@ test('Phase 5 Integration: quick sandbox control writes next-turn sandbox overri
     sandboxSelect.dispatchEvent(new window.Event('change'));
 
     assert.equal(hooks.codexState.nextTurnOverrides.sandbox, 'danger-full-access');
+
+    dom.window.close();
+});
+
+test('Phase 5 Integration: composer submit emits sandbox preset for approval flow', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'sandbox-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+    hooks.codexState.sessionMode = 'codex';
+
+    const submitted = hooks.handleCodexComposerSubmit('run tests');
+    assert.equal(submitted, true);
+
+    const turnEnvelope = ws.sent
+        .map((entry) => JSON.parse(entry))
+        .findLast((entry) => entry.type === 'codex_turn');
+    assert.equal(turnEnvelope.sandbox, 'workspace-write');
 
     dom.window.close();
 });

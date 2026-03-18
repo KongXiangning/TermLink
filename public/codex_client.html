@@ -144,15 +144,6 @@
                     <div id="codex-slash-menu-empty" hidden>没有匹配命令。</div>
                     <div id="codex-slash-menu-list" aria-live="polite"></div>
                 </div>
-                <div id="codex-file-picker" hidden>
-                    <div id="codex-file-picker-header">
-                        <span id="codex-file-picker-title">选择文件</span>
-                    </div>
-                    <div id="codex-file-picker-loading" hidden>搜索中...</div>
-                    <div id="codex-file-picker-error" hidden></div>
-                    <div id="codex-file-picker-empty" hidden>没有匹配文件。</div>
-                    <div id="codex-file-picker-list" aria-live="polite"></div>
-                </div>
                 <div id="codex-image-inputs" hidden></div>
                 <div id="codex-image-prompt" hidden>
                     <div id="codex-image-prompt-header">
@@ -217,15 +208,12 @@
         <div id="codex-context-debug-modal" class="codex-modal-layer" hidden>
             <div class="codex-modal-backdrop" data-modal-dismiss="context-debug"></div>
             <section class="codex-modal-card" role="dialog" aria-modal="true" aria-labelledby="codex-context-debug-title">
-                <div class="codex-modal-header">
-                    <div>
-                        <div id="codex-context-debug-title" class="codex-modal-title">上下文窗口调试信息</div>
-                        <div class="codex-modal-status">用于真机验证 `latestTokenUsageInfo` 实际到达值</div>
-                    </div>
-                    <button id="btn-codex-context-debug-close" class="codex-btn subtle" type="button">关闭</button>
+                <div class="codex-context-summary">
+                    <div id="codex-context-debug-title" class="codex-modal-title">背景信息窗口：</div>
+                    <div id="codex-context-debug-usage" class="codex-context-summary-line">--</div>
+                    <div id="codex-context-debug-tokens" class="codex-context-summary-line">--</div>
+                    <div id="codex-context-debug-note" class="codex-context-summary-note">Codex 自动压缩其背景信息</div>
                 </div>
-                <div id="codex-context-debug-grid" class="codex-context-debug-grid"></div>
-                <pre id="codex-context-debug-json" class="codex-context-debug-json"></pre>
             </section>
         </div>
         <div id="input-overlay">

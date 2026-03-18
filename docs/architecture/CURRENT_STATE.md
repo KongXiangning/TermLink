@@ -2,10 +2,10 @@
 title: TermLink 当前架构状态
 status: active
 owner: @maintainer
-last_updated: 2026-02-22
+last_updated: 2026-03-18
 source_of_truth: code
-related_code: [android/app/src/main/java/com/termlink/app/MainShellActivity.kt, src/server.js, public/terminal_client.js, public/terminal.js]
-related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md]
+related_code: [android/app/src/main/java/com/termlink/app/MainShellActivity.kt, src/server.js, public/terminal_client.js, public/codex_client.html, public/terminal.js]
+related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md]
 ---
 
 # CURRENT_STATE
@@ -16,6 +16,8 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.m
 2. Android Terminal 页面使用 `public/terminal_client.html`（客户端专用）。
 3. 浏览器页面使用 `public/terminal.html`（网页端独立路径）。
 4. Terminal 与 Native 间通过 `TerminalEventBridge` 传递连接状态/错误信息。
+5. Codex 首页顶部使用轻量状态栏，只展示 `Codex 状态`、工作区路径、额度占用与刷新时间。
+6. 顶部状态栏当前不提供“查看线程”、顶部权限设置或 `Session Defaults` 入口。
 
 ## 2. 服务端
 

@@ -118,8 +118,32 @@ function normalizeTurnOverrides(payload) {
     return {
         model: isNonEmptyString(source.model) ? source.model.trim() : null,
         reasoningEffort: isNonEmptyString(source.reasoningEffort) ? source.reasoningEffort.trim() : null,
+        sandbox: isNonEmptyString(source.sandbox) ? source.sandbox.trim() : null,
         collaborationMode: normalizeCollaborationMode(source.collaborationMode)
     };
+}
+
+function derivePermissionOverrideFromSandboxMode(value) {
+    const normalized = isNonEmptyString(value) ? value.trim() : null;
+    if (normalized === 'danger-full-access') {
+        return {
+            approvalPolicy: 'never',
+            sandboxMode: 'danger-full-access'
+        };
+    }
+    if (normalized === 'workspace-write') {
+        return {
+            approvalPolicy: 'on-request',
+            sandboxMode: 'workspace-write'
+        };
+    }
+    if (normalized === 'read-only') {
+        return {
+            approvalPolicy: 'on-request',
+            sandboxMode: 'read-only'
+        };
+    }
+    return null;
 }
 
 function normalizeModelName(value) {
@@ -499,12 +523,13 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     const buildNextTurnEffectiveCodexConfig = (session, overrides = null) => {
         const effective = getEffectiveSessionCodexConfig(session);
         const normalizedOverrides = normalizeTurnOverrides(overrides);
+        const permissionOverride = derivePermissionOverrideFromSandboxMode(normalizedOverrides.sandbox);
         return {
             model: normalizedOverrides.model || effective.defaultModel || getSessionThreadModel(session) || null,
             reasoningEffort: normalizedOverrides.reasoningEffort || effective.defaultReasoningEffort || null,
             personality: effective.defaultPersonality || null,
-            approvalPolicy: effective.approvalPolicy || null,
-            sandboxMode: effective.sandboxMode || null
+            approvalPolicy: permissionOverride ? permissionOverride.approvalPolicy : (effective.approvalPolicy || null),
+            sandboxMode: permissionOverride ? permissionOverride.sandboxMode : (effective.sandboxMode || null)
         };
     };
 
@@ -625,9 +650,12 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         const requestedCwd = normalizeOptionalCwd(options.cwd)
             || normalizeOptionalCwd(session.cwd)
             || String(process.env.TERMLINK_CODEX_WORKSPACE_DIR || process.cwd());
+        const effectiveCodexConfig = normalizeCodexConfig(options.codexConfig, {
+            requirePolicyAndSandbox: false
+        }) || getEffectiveSessionCodexConfig(session);
         const executionContextSignature = buildThreadExecutionContextSignature({
             cwd: requestedCwd,
-            codexConfig: getEffectiveSessionCodexConfig(session)
+            codexConfig: effectiveCodexConfig
         });
         updateSessionCwd(session, requestedCwd);
 
@@ -654,7 +682,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
 
         const threadStartParams = buildThreadStartParamsWithConfig({
             cwd: requestedCwd,
-            codexConfig: getEffectiveSessionCodexConfig(session)
+            codexConfig: effectiveCodexConfig
         });
         const threadStartResult = await codexService.request('thread/start', threadStartParams);
         const threadId = threadStartResult && threadStartResult.thread ? threadStartResult.thread.id : null;
@@ -993,6 +1021,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             }
 
             ws.isAlive = true;
+            ws.sessionId = sessionId;
             ws.on('pong', () => { ws.isAlive = true; });
 
             ws.on('message', async (message) => {
@@ -1005,6 +1034,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         pty.write(envelope.data);
                     } else if (type === 'resize') {
                         pty.resize(envelope.cols, envelope.rows);
+                    } else if (type === 'client_heartbeat') {
+                        // Client-initiated heartbeat - mark connection as alive
+                        ws.isAlive = true;
                     } else if (type === 'codex_new_thread') {
                         await ensureCodexServiceForSession(session);
                         const threadId = await ensureCodexThreadForSession(session, {
@@ -1027,15 +1059,16 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             return;
                         }
                         const turnOverrides = normalizeTurnOverrides(envelope);
+                        const nextTurnEffectiveConfig = buildNextTurnEffectiveCodexConfig(session, turnOverrides);
                         await ensureCodexServiceForSession(session);
 
                         const initialThreadId = await ensureCodexThreadForSession(session, {
                             forceNewThread: envelope.forceNewThread === true,
-                            cwd: envelope.cwd
+                            cwd: envelope.cwd,
+                            codexConfig: nextTurnEffectiveConfig
                         });
 
-                        const sessionCodexConfig = getEffectiveSessionCodexConfig(session);
-                        const configuredModel = turnOverrides.model || sessionCodexConfig.defaultModel || null;
+                        const configuredModel = nextTurnEffectiveConfig.model || null;
                         const threadModelState = configuredModel
                             ? null
                             : await ensureThreadModelForSession(session, initialThreadId);
@@ -1046,8 +1079,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         const effectiveModel = configuredModel
                             || fallbackThreadModel
                             || null;
-                        const effectiveReasoningEffort =
-                            turnOverrides.reasoningEffort || sessionCodexConfig.defaultReasoningEffort || null;
+                        const effectiveReasoningEffort = nextTurnEffectiveConfig.reasoningEffort || null;
                         const collaborationMode = finalizeCollaborationMode(turnOverrides.collaborationMode, {
                             model: effectiveModel,
                             reasoningEffort: effectiveReasoningEffort
@@ -1058,11 +1090,11 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             model: collaborationMode ? undefined : effectiveModel || undefined,
                             reasoningEffort: collaborationMode ? undefined : effectiveReasoningEffort || undefined,
                             effort: collaborationMode ? undefined : effectiveReasoningEffort || undefined,
-                            personality: sessionCodexConfig.defaultPersonality || undefined,
-                            approvalPolicy: sessionCodexConfig.approvalPolicy || undefined,
-                            askForApproval: sessionCodexConfig.approvalPolicy || undefined,
-                            sandbox: sessionCodexConfig.sandboxMode || undefined,
-                            sandboxMode: sessionCodexConfig.sandboxMode || undefined,
+                            personality: nextTurnEffectiveConfig.personality || undefined,
+                            approvalPolicy: nextTurnEffectiveConfig.approvalPolicy || undefined,
+                            askForApproval: nextTurnEffectiveConfig.approvalPolicy || undefined,
+                            sandbox: nextTurnEffectiveConfig.sandboxMode || undefined,
+                            sandboxMode: nextTurnEffectiveConfig.sandboxMode || undefined,
                             collaborationMode: collaborationMode || undefined
                         };
                         const turnStartResponse = await codexService.request('turn/start', turnStartPayload);

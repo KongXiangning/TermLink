@@ -37,6 +37,7 @@
 1. 命令确认仍停留在消息卡片思路，未形成 app 主路径的阻塞弹窗体验。
 2. 背景信息入口还没有明确绑定到当前 `threadId`，也没有冻结自动刷新与空态规则。
 3. 历史文档仍可能诱导实现恢复“会话设置”或顶部权限选择，需要明确排除。
+4. 顶部状态栏如继续保留，也只承担状态信息展示，不恢复“查看线程”入口。
 4. 总计划虽已补入 Phase 5 目标，但尚缺少按新范围收口后的专项拆分与验收矩阵。
 
 ## 3. 实施拆分
@@ -100,6 +101,40 @@
 5. 背景信息继续作为客户端展示层能力，不新增新的底层 app-server 协议。
 6. 若当前已有背景信息数据源不足，先以“窗口框架 + 当前线程绑定 + 空态/刷新机制”作为最小交付。
 7. 若背景信息后续包含工作区、线程摘要、上下文压缩使用量等多个来源，按“当前线程可读到的数据”渐进展示，不等待一次性补齐全量字段。
+
+实现补充：上下文窗口用量
+
+1. 背景信息窗口中的“上下文窗口用量”应直接复用会话对象里的 `latestTokenUsageInfo`，不要在 UI 层重新推导历史 token 统计。
+2. 数据更新事件以 `thread/tokenUsage/updated` 为准；收到该事件后刷新当前线程对应的背景信息窗口状态。
+3. 计算口径：
+   - `modelContextWindow` 表示总上下文窗口大小
+   - `last.totalTokens` 表示已使用 tokens
+   - `usedTokens = min(last.totalTokens, modelContextWindow)`
+   - `percent = usedTokens / modelContextWindow * 100`
+   - `remainingTokens = max(modelContextWindow - usedTokens, 0)`
+4. 当 `modelContextWindow <= 0`、`last.totalTokens < 0` 或任一关键字段缺失时，前端应显示空值或降级文案，不得显示误导性的百分比。
+5. UI 文案可继续沿用现有 i18n 键：
+   - `composer.contextWindowUsageLabel`
+   - `composer.contextWindowUsageStatusFull`
+   - `composer.contextWindowUsageStatusLeft`
+   - `composer.contextWindowUsageTooltip`
+   - `composer.contextWindow.usagePercent`
+6. 展示层只负责格式化和渲染，例如 `226k / 258k` 与 `87% 已用`；具体数值由 `latestTokenUsageInfo` 决定。
+
+实现补充：当前弹层文案与权限行为
+
+1. 点击圆环后，当前弹层按正式说明文案展示，不再输出字段级调试表或原始 JSON。
+2. 当前弹层文案固定为四行结构：
+   - `背景信息窗口：`
+   - `{usage}% 已用（剩余 {remaining}%）`
+   - `已用 {usedTokens}k 标记，共 {contextWindow}k`
+   - `Codex 自动压缩其背景信息`
+3. 当上下文长度关键字段缺失时，前两行允许降级为 `--`，但弹层仍可打开，便于真机验证点击链路。
+4. composer 中的 `codex-quick-sandbox` 不是纯显示控件；它必须真实影响下一轮请求的 `sandboxMode` 与 `approvalPolicy`。
+5. 当前权限预期映射：
+   - `沙盒` => `approvalPolicy=on-request` + `sandboxMode=workspace-write`
+   - `完全访问` => `approvalPolicy=never` + `sandboxMode=danger-full-access`
+6. 命令审批必须继续走阻塞弹窗链路；不允许因为 quick sandbox 只改了 `sandboxMode` 而导致请求直接被拒绝或绕过确认框。
 
 最小交付：
 

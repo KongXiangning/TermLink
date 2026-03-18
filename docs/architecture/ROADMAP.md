@@ -22,7 +22,7 @@ related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BAC
 
 ## 2026-Q2
 
-1. 按 `REQ-20260309-codex-capability-mvp` 先完成“对话页优先”首页收口与二级入口化，并补齐顶部当前线程摘要，停止把 Codex 首页继续推进成状态控制台。
+1. 按 `REQ-20260309-codex-capability-mvp` 先完成“对话页优先”首页收口与二级入口化，并稳定顶部轻量状态栏（仅保留状态、工作区、额度与刷新时间），停止把 Codex 首页继续推进成状态控制台。
 2. 落地 slash registry、`/model`、`/plan` 与输入区附近的 next-turn quick controls；`/plan <文本>` 为一次性发送后清除，不保留持续模式。
 3. 冻结 `/skill <name>` 契约但当前期默认不开放；其替换 / 清除不影响 `planMode`，且当前不预绑定底层字段。
 4. 为后续 `/` 能力扩展预留统一的 slash registry / command-dispatch 接口，使新命令优先通过注册描述与分发适配接入，而不是新增输入分支特判。
