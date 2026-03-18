@@ -239,93 +239,19 @@ body.codex-only #codex-composer {
     opacity: 0.8;
 }
 
-#codex-thread-line {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-    color: #8fa4c0;
-    font-size: 10px;
-    line-height: 1.3;
-    overflow: hidden;
-}
-
-#codex-thread-line > span {
-    min-width: 0;
+#codex-status-cwd {
+    color: #6b8aa8;
+    font-size: 11px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    max-width: 180px;
 }
 
-#codex-thread-cwd {
-    color: #6b8aa8;
-}
-
-#codex-thread-cwd::before {
+#codex-status-cwd::before {
     content: "·";
-    margin-right: 6px;
+    margin-right: 8px;
     color: #4a6a88;
-}
-
-#codex-thread-summary {
-    display: flex;
-    width: 100%;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 11px 12px;
-    border: 1px solid rgba(46, 182, 125, 0.1);
-    border-radius: 16px;
-    background: linear-gradient(135deg, rgba(46, 182, 125, 0.04) 0%, rgba(255, 255, 255, 0.02) 100%);
-    color: #dbe6f7;
-    text-align: left;
-    transition: all 0.2s ease;
-}
-
-#codex-thread-summary.active {
-    border-color: rgba(46, 182, 125, 0.35);
-    background: linear-gradient(135deg, rgba(46, 182, 125, 0.12) 0%, rgba(46, 182, 125, 0.06) 100%);
-    box-shadow: 0 0 20px rgba(46, 182, 125, 0.08);
-}
-
-#codex-thread-summary.empty {
-    border-style: dashed;
-    border-color: rgba(255, 255, 255, 0.06);
-}
-
-#codex-thread-summary:disabled {
-    opacity: 0.72;
-}
-
-.codex-thread-summary-copy {
-    display: flex;
-    min-width: 0;
-    flex: 1 1 auto;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.codex-thread-summary-title {
-    color: #dbe6f7;
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1.35;
-    word-break: break-word;
-}
-
-.codex-thread-summary-meta {
-    color: #8fa4c0;
-    font-size: 10px;
-    line-height: 1.4;
-    word-break: break-word;
-}
-
-.codex-thread-summary-action {
-    flex: 0 0 auto;
-    color: #9ec8ff;
-    font-size: 11px;
-    line-height: 1.3;
-    white-space: nowrap;
 }
 
 #codex-secondary-nav {
@@ -452,13 +378,6 @@ body.codex-only #codex-composer {
 @keyframes pulse-green {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.6; }
-}
-
-#codex-thread-id {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: #8fa4c0;
 }
 
 #codex-actions {
@@ -2128,10 +2047,6 @@ body.viewport-compact #codex-settings-panel {
     padding: 8px;
 }
 
-body.viewport-compact #codex-thread-summary {
-    padding: 9px 10px;
-}
-
 body.viewport-compact #codex-secondary-nav {
     gap: 6px;
 }
@@ -2195,15 +2110,6 @@ body.viewport-compact #codex-quick-controls {
     #codex-actions,
     #codex-history-actions {
         width: 100%;
-    }
-
-    #codex-thread-summary {
-        align-items: flex-start;
-    }
-
-    .codex-thread-summary-action {
-        white-space: normal;
-        text-align: right;
     }
 
     #codex-settings-fields {

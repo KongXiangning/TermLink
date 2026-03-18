@@ -11,8 +11,7 @@ const codexPanel = document.getElementById('codex-panel');
 const codexLog = document.getElementById('codex-log');
 const codexLogStack = document.getElementById('codex-log-stack');
 const codexStatusText = document.getElementById('codex-status-text');
-const codexThreadIdText = document.getElementById('codex-thread-id');
-const codexThreadCwd = document.getElementById('codex-thread-cwd');
+const codexStatusCwd = document.getElementById('codex-status-cwd');
 const codexMetaText = document.getElementById('codex-meta-text');
 const btnCodexPermissionPreset = document.getElementById('btn-codex-permission-preset');
 const codexPermissionPresetLabel = document.getElementById('codex-permission-preset-label');
@@ -516,29 +515,11 @@ function syncCodexSecondaryPanelState() {
 }
 
 function renderCodexHeaderSummary() {
-    const availability = getCodexSecondaryEntryAvailability();
     const shellApi = getCodexShellViewApi();
-    const summary = shellApi && typeof shellApi.buildThreadSummary === 'function'
-        ? shellApi.buildThreadSummary({
-            threadId: codexState.threadId,
-            threadTitle: codexState.currentThreadTitle,
-            cwd: codexState.cwd,
-            status: codexState.status
-        })
-        : {
-            titleText: codexState.threadId
-                ? (codexState.currentThreadTitle || `当前线程 ${codexState.threadId}`)
-                : '当前线程未就绪',
-            metaText: codexState.cwd || '即将自动创建新线程',
-            empty: !codexState.threadId
-        };
 
-    if (codexThreadIdText) {
-        codexThreadIdText.textContent = summary.titleText;
-    }
-    if (codexThreadCwd) {
-        codexThreadCwd.textContent = codexState.cwd || '';
-        codexThreadCwd.hidden = !codexState.cwd;
+    if (codexStatusCwd) {
+        codexStatusCwd.textContent = codexState.cwd || '';
+        codexStatusCwd.hidden = !codexState.cwd;
     }
     if (btnCodexInterrupt) {
         const showInterrupt = shellApi && typeof shellApi.shouldShowInterrupt === 'function'

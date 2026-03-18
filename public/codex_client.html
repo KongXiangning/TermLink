@@ -22,6 +22,7 @@
                         <div id="codex-status-line">
                             <span id="codex-status-dot" aria-hidden="true"></span>
                             <span id="codex-status-text">Codex 空闲</span>
+                            <span id="codex-status-cwd" hidden></span>
                         </div>
                         <div id="codex-meta-line">
                             <span id="codex-meta-text"></span>
@@ -33,13 +34,6 @@
                         <button id="btn-codex-interrupt" class="codex-btn danger" type="button" hidden>中断</button>
                     </div>
                 </div>
-                <button id="codex-thread-summary" type="button">
-                    <span class="codex-thread-summary-copy">
-                        <span id="codex-thread-id" class="codex-thread-summary-title">当前线程未就绪</span>
-                        <span id="codex-thread-cwd" class="codex-thread-summary-meta" hidden></span>
-                    </span>
-                    <span id="codex-thread-summary-action" class="codex-thread-summary-action">查看线程</span>
-                </button>
                 <div id="codex-secondary-nav">
                     <button id="btn-codex-secondary-threads" class="codex-secondary-btn" type="button">任务历史</button>
                     <button id="btn-codex-secondary-runtime" class="codex-secondary-btn" type="button">运行态</button>
