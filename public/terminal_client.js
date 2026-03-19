@@ -1907,20 +1907,35 @@ function removeFileMentionChip(index) {
 }
 
 async function searchWorkspaceFiles(query) {
-    if (!codexState.currentSessionId) return;
-    if (!codexState.capabilities.fileMentions) return;
+    console.log('[FileMention] searchWorkspaceFiles called, query:', query, 'sessionId:', sessionId, 'serverUrl:', serverUrl, 'capabilities.fileMentions:', codexState.capabilities.fileMentions);
+    if (!sessionId) {
+        console.warn('[FileMention] No sessionId, aborting');
+        return;
+    }
+    if (!codexState.capabilities.fileMentions) {
+        console.warn('[FileMention] fileMentions capability disabled, aborting');
+        return;
+    }
 
     setFileMentionMenuState(true, query, [], true);
     try {
-        const url = `/api/sessions/${encodeURIComponent(codexState.currentSessionId)}/workspace/files?q=${encodeURIComponent(query || '')}&limit=20`;
-        const resp = await fetch(url);
+        // Use absolute URL for Android WebView (file:// scheme doesn't support fetch)
+        const basePath = serverUrl ? serverUrl.replace(/\/+$/, '') : '';
+        const url = `${basePath}/api/sessions/${encodeURIComponent(sessionId)}/workspace/files?q=${encodeURIComponent(query || '')}&limit=20`;
+        console.log('[FileMention] Fetching:', url);
+        const fetchOpts = {};
+        if (authHeader) {
+            fetchOpts.headers = { 'Authorization': authHeader };
+        }
+        const resp = await fetch(url, fetchOpts);
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const data = await resp.json();
+        console.log('[FileMention] Response:', JSON.stringify(data).slice(0, 500));
         if (codexState.fileMentionMenuOpen) {
             setFileMentionMenuState(true, query, Array.isArray(data.files) ? data.files : [], false);
         }
     } catch (err) {
-        console.error('Workspace file search failed:', err);
+        console.error('[FileMention] Workspace file search failed:', err);
         if (codexState.fileMentionMenuOpen) {
             setFileMentionMenuState(true, query, [], false);
         }
@@ -1973,7 +1988,7 @@ function updateSlashMenuForInputValue() {
     if (slashApi && typeof slashApi.parseFileMentionInput === 'function') {
         const fileMention = slashApi.parseFileMentionInput(codexInput.value);
         if (fileMention && codexState.capabilities.fileMentions) {
-            setFileMentionMenuState(true, fileMention.query);
+            void searchWorkspaceFiles(fileMention.query);
             return;
         }
     }
@@ -3076,7 +3091,8 @@ function resetCodexBootstrapState() {
         slashPlan: false,
         skillsList: false,
         compact: false,
-        imageInput: false
+        imageInput: false,
+        fileMentions: false
     };
     codexState.historyThreads = [];
     refreshCodexSlashRegistry();
