@@ -52,6 +52,12 @@
 - Codex 元数据：`skills/git-worktree/agents/openai.yaml`
 - Claude 卡片：`skills/git-worktree/agents/claude.md`
 
+### 2.7 `local-dev-server-control`
+
+- 用途：管理当前仓库本地开发服务，支持启动、停止、重启、状态检查。
+- Codex 元数据：`skills/local-dev-server-control/agents/openai.yaml`
+- Claude 卡片：`skills/local-dev-server-control/agents/claude.md`
+
 ## 3. 推荐后续新增 Skills（按优先级）
 
 ### P0
