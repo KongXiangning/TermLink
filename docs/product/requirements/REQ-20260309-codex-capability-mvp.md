@@ -2,10 +2,10 @@
 title: Codex 能力矩阵驱动主线需求（对话体验优先 MVP + 下一阶段）
 status: planned
 owner: @maintainer
-last_updated: 2026-03-17
+last_updated: 2026-03-19
 source_of_truth: product
 related_code: [src/routes/sessions.js, src/services/sessionManager.js, src/services/codexAppServerService.js, src/ws/terminalGateway.js, public/codex_client.html, public/terminal_client.js, android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt]
-related_docs: [docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md, docs/codex/cross-version-stable-findings.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/changes/records/INDEX.md]
+related_docs: [docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md, docs/codex/cross-version-stable-findings.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/codex/CODEX_FILE_MENTION_INPUT_PLAN.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/changes/records/INDEX.md]
 ---
 
 # REQ-20260309-codex-capability-mvp
@@ -249,6 +249,20 @@ Codex 首页默认只保留以下主体：
 5. 背景信息窗口是当前任务的持续性辅助信息，不要求用户每次重新打开后手动刷新。
 6. 首页应能明确看出当前任务背景信息是否存在，以及窗口内容是否已刷新到当前线程。
 
+### 5.11 Composer `@` 文件提示与筛选
+
+1. 在 Codex composer 中输入 `@` 时，客户端必须进入“文件提示”辅助态，而不是把 `@` 仅当普通文本处理。
+2. 文件候选范围绑定当前 Codex 会话的 `cwd`，不得退回全局服务启动目录，也不得跨会话工作区混搜。
+3. 候选列表至少展示：
+   - 文件名
+   - 相对路径目录摘要
+   - 基于当前查询词的筛选结果
+4. `@` 后继续输入字符时，列表必须按文件名与相对路径进行筛选；空查询时允许展示首批默认结果。
+5. 选择文件后，composer 必须形成明确、可移除的已选文件态；不允许仅留下不可感知的隐式内部状态。
+6. 当前期主目标是“文件提示 + 文件筛选 + 文件选择态 + 发送时可消费这些选择结果”，不要求一次性等价复刻 VS Code 宿主私有 mention 实现。
+7. 当前期不引入任意二进制文件上传；该能力仅面向当前工作区下的文件引用与上下文辅助。
+8. 若当前线程或会话没有有效 `cwd`，文件提示必须明确降级为空态或不可用提示，不得展示误导性的旧结果。
+
 ## 6. 当前期但带前置条件
 
 以下能力保留在当前期范围，但必须建立前置条件后再深化：
@@ -275,7 +289,8 @@ Codex 首页默认只保留以下主体：
 5. `thread/unarchive`。
 6. `thread/name/set`。
 7. 图像输入：`image`、`localImage`。
-8. 更完整的 runtime 次级视图与更多命令注册。
+8. Composer `@` 文件提示、文件筛选列表与已选文件态。
+9. 更完整的 runtime 次级视图与更多命令注册。
 
 ## 8. Out of Scope
 
@@ -306,6 +321,7 @@ Codex 首页默认只保留以下主体：
 7. 作为 app 用户，我不会在当前期首页看到“会话设置”或顶部权限选择等偏配置型入口。
 8. 作为 app 用户，当 Codex 要执行需要确认的命令时，我会先看到阻塞确认弹窗，再决定是否放行。
 9. 作为 app 用户，我打开背景信息窗口时，看到的是当前线程对应的背景信息，而不是上一次任务残留内容。
+10. 作为 app 用户，我在输入区键入 `@` 时，可以只在当前会话工作区内搜索文件，并快速把目标文件加入本次提问上下文。
 
 ## 10. 方案概要
 
@@ -315,6 +331,7 @@ Codex 首页默认只保留以下主体：
 4. 状态层：区分 stored `codexConfig`、next-turn overrides、`nextTurnEffectiveCodexConfig`、`interactionState`。
 5. 协议层：继续维持 `gateway <-> codex app-server` 真实边界，不引入新的底层 slash 协议，也不预绑定 `activeSkill` 底层字段。
 6. 产品层：当前期不引入 `permissionPreset` 作为面向用户的 UI 概念；`approvalPolicy` / `sandboxMode` 仅保留为底层配置字段。
+7. 文件辅助层：`@` 文件提示采用“客户端浮层 + 会话 cwd 范围文件检索 + 已选文件态”的组合，不把 VS Code 宿主私有实现细节直接写成 TermLink 协议前提。
 
 ## 11. 接口/数据结构变更
 
@@ -366,6 +383,26 @@ Codex 首页默认只保留以下主体：
 - `skillsList`
 - `compact`
 - `imageInput`
+
+### 11.2.1 Composer `@` 文件提示辅助接口
+
+为支撑 `@` 文件提示，可新增客户端辅助查询接口，例如：
+
+- `GET /api/sessions/:id/workspace/files?q=<query>&limit=<n>`
+
+返回结构至少包含：
+
+- `label`
+- `path`
+- `relativePathWithoutFileName`
+- `fsPath`
+
+规则：
+
+1. 搜索根目录绑定会话 `cwd`。
+2. 返回项用于 composer 文件提示与文件选择态，不要求直接等价于 VS Code 私有 mention 内部结构。
+3. 当前期允许该能力只作为“选择辅助 + 发送前文本上下文拼装”存在，不强制要求新增 WebSocket 专用字段。
+4. 若后续确认稳定的 `UserInput: { type: "mention", ... }` 承接方式，再单独升级发送语义，但当前期不得在无证据前提下假定私有字段结构。
 
 规则：
 

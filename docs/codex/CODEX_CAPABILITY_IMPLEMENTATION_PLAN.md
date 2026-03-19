@@ -100,6 +100,7 @@
 | `/skills` | 可做，但交互形态属于客户端封装 | 技术已支持且已进入 Phase 4 首包 | P4 | 作为技能浏览 / 发现入口，不替代 `/skill <name>` 契约。 |
 | `thread/fork/archive/unarchive/name` | 协议存在，基本可做 | 技术已支持但下一阶段 | P4 | 进入扩展会话管理。 |
 | image / localImage input | 已确认可做 | 技术已支持但下一阶段 | P4 | 不阻塞当前主线。 |
+| composer `@` file mention input | 客户端封装 + 工作区文件检索辅助可做 | 技术已支持但需最小 REST 辅助 | P4 | 绑定 session cwd，提供文件筛选列表与已选文件态；当前先不假定私有 mention 发送 schema。 |
 | `thread/rollback` / `turn/steer` / remote skills / account login | 协议存在但主流程未证实 | 当前不纳入 | out-of-scope | 保持排除。 |
 | 服务端 slash registry / 新底层 slash 协议 | 当前无必要证据 | 当前不纳入 | out-of-scope | 严禁写入当前期方案。 |
 
@@ -390,7 +391,8 @@
 4. `thread/fork`、`thread/archive`、`thread/unarchive` 已落地为第二个实施包（见 `CR-20260312-1705-codex-phase4-thread-actions`，当前为 draft，待提交回填 `commit_ref`）。
 5. image / localImage 已落地为第三个实施包（见 `CR-20260312-1815-codex-phase4-image-input`，当前为 draft，待提交回填 `commit_ref`）。
 6. `thread/name/set` 已落地为第四个实施包（见 `CR-20260312-1223-codex-phase4-thread-rename`，当前为 draft，待提交回填 `commit_ref`）。
-7. 依据能力证据决定 `/skill <name>` 后续是否需要更深的底层承接方式。
+7. composer `@` 文件提示规划为第五个实施包：以“客户端浮层 + session cwd 文件检索 + 已选文件态 + 发送前文本拼装”为最小交付，专项计划见 `docs/codex/CODEX_FILE_MENTION_INPUT_PLAN.md`。
+8. 依据能力证据决定 `/skill <name>` 后续是否需要更深的底层承接方式。
 
 ### Phase 5：命令确认与任务辅助信息
 
@@ -406,6 +408,7 @@
 3. `interactionState.planMode` 与 `interactionState.activeSkill` 已有正式实现；后续重点转为收口一次性 skill 文案与视觉表达。
 4. `PATCH /api/sessions/:id` 已被纳入正式 Phase 交付项；后续重点转为继续验证 Settings 写路径与即时状态回显一致性。
 5. `nextTurnEffectiveCodexConfig` 与 `interactionState` 的边界已落到实现；后续重点转为继续约束文档、测试与真机验收口径一致。
+6. `@` 文件提示尚未实现；已明确收敛为 Phase 4 的独立实施包，优先目标是“当前工作区内文件提示与筛选”，不是一次性复刻宿主私有 mention 协议。
 
 ## 11. 测试与验收矩阵
 
@@ -427,6 +430,9 @@
 | slash-ext | 新增保留命令 | 只需新增 registry 描述与 dispatch 适配，不改消息发送主链路 |
 | config | Session Defaults | 编辑 stored config，不影响 next-turn overrides |
 | api | `PATCH /api/sessions/:id` | 成为 stored `codexConfig` 正式写路径 |
+| composer | 输入 `@` | 打开当前会话 cwd 范围的文件提示列表，不直接当普通文本发送 |
+| composer | `@` 后继续输入 | 按文件名与相对路径筛选当前工作区文件 |
+| composer | 选择文件 | 形成可见的已选文件态，可移除，可参与下一次发送 |
 | ws | `session_info.codexConfig` | 与 REST stored config 同义 |
 | ws | `nextTurnEffectiveCodexConfig` | 正确反映下一次发送的配置快照，且不含 `activeSkill` |
 | platform | Android / WebView | `/plan`、`/model`、`/skill` 一次性交互、未知 slash 兜底行为一致 |
