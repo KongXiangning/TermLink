@@ -1,0 +1,21 @@
+{
+  "watch": [
+    "src",
+    "public",
+    "package.json"
+  ],
+  "ext": "js,json,html,css",
+  "ignore": [
+    ".git",
+    "android",
+    "data",
+    "dist",
+    "docs",
+    "logs",
+    "node_modules",
+    "ops-local",
+    "skills",
+    "tmp",
+    "*.log"
+  ]
+}

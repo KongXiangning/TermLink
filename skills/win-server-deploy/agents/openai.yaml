@@ -1,0 +1,4 @@
+interface:
+  display_name: "Windows Server Deploy"
+  short_description: "Pack and deploy TermLink as a Windows service"
+  default_prompt: "Use $win-server-deploy to package the server and prepare service deployment."

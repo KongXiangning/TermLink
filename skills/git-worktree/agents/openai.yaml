@@ -1,0 +1,4 @@
+interface:
+  display_name: "Git Worktree"
+  short_description: "Manage Git worktrees for parallel branch work"
+  default_prompt: "Use $git-worktree to create, inspect, or clean up a Git worktree for parallel TermLink development."

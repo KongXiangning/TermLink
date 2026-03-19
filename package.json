@@ -2,17 +2,23 @@
   "name": "termlink",
   "version": "1.0.0",
   "description": "",
-  "main": "src/server.js",
+  "main": "index.js",
   "scripts": {
+    "test": "node --test",
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "android:sync": "npx cap sync",
+    "android:open": "npx cap open android",
+    "android:check-release-config": "node scripts/check-android-release-config.js --release"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
+    "@capacitor/android": "^8.1.0",
+    "@capacitor/cli": "^8.1.0",
+    "@capacitor/core": "^8.1.0",
     "basic-auth": "^2.0.1",
     "dotenv": "^17.2.4",
     "express": "^5.2.1",
@@ -23,6 +29,7 @@
     "xterm-addon-fit": "^0.8.0"
   },
   "devDependencies": {
+    "jsdom": "^26.0.0",
     "nodemon": "^3.1.11"
   }
 }

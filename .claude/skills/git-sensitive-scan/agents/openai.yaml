@@ -1,0 +1,4 @@
+interface:
+  display_name: "Git Sensitive Scan"
+  short_description: "Scan staged files for sensitive information before commit"
+  default_prompt: "Use $git-sensitive-scan to run pre-commit sensitive scanning and fix findings before committing."

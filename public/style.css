@@ -8,6 +8,8 @@
     --navbar-height: 50px;
     --input-height: 60px;
     --sidebar-width: 250px;
+    /* Dynamic Header Height including Safe Area */
+    --header-height: calc(var(--navbar-height) + env(safe-area-inset-top));
 }
 
 body.light-theme {
@@ -47,6 +49,39 @@ body {
     overflow: hidden;
 }
 
+/* Title Bar */
+#title-bar {
+    height: var(--header-height);
+    background-color: var(--secondary-color);
+    border-bottom: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 10px;
+    padding-top: env(safe-area-inset-top);
+    padding-left: calc(10px + env(safe-area-inset-left));
+    padding-right: calc(10px + env(safe-area-inset-right));
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1100;
+    /* Above sidebar */
+}
+
+.left-controls,
+.right-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#app-title {
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin-left: 5px;
+}
+
 /* Sidebar */
 #sidebar {
     width: var(--sidebar-width);
@@ -55,11 +90,11 @@ body {
     display: flex;
     flex-direction: column;
     position: absolute;
-    top: 0;
+    top: var(--header-height);
+    /* Changed from 0 */
     bottom: 0;
     left: 0;
     transform: translateX(-100%);
-    /* Hidden by default */
     transition: transform 0.3s ease;
     z-index: 1000;
 }
@@ -71,55 +106,11 @@ body {
 
 .sidebar-header {
     padding: 15px;
+    /* padding-top: 45px; Removed safe area hack */
     display: flex;
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid #333;
-}
-
-#session-list {
-    list-style: none;
-    overflow-y: auto;
-    flex: 1;
-}
-
-.session-item {
-    padding: 15px;
-    border-bottom: 1px solid #333;
-    cursor: pointer;
-}
-
-.session-item:hover,
-.session-item.active {
-    background-color: rgba(255, 255, 255, 0.05);
-}
-
-.session-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.btn-delete-session {
-    background: none;
-    border: none;
-    color: #888;
-    font-size: 1.5rem;
-    /* Larger */
-    cursor: pointer;
-    padding: 0 10px;
-    opacity: 1;
-    /* Always visible for now */
-    transition: color 0.2s;
-    z-index: 10;
-    /* Ensure on top */
-}
-
-.btn-delete-session:hover {
-    color: #ff4444;
-    background-color: rgba(255, 68, 68, 0.1);
-    /* Touch feedback */
-    border-radius: 4px;
 }
 
 /* Main Content */
@@ -131,395 +122,425 @@ body {
     position: relative;
     background-color: var(--bg-color);
     transition: margin-left 0.3s ease;
-}
-
-/* Navbar */
-#navbar {
-    height: var(--navbar-height);
-    display: flex;
-    align-items: center;
-    padding: 0 15px;
-    background-color: var(--secondary-color);
-    border-bottom: 1px solid #333;
-    z-index: 100;
-}
-
-#navbar h1 {
-    flex: 1;
-    text-align: center;
-    font-size: 1.2rem;
-    font-weight: 600;
-}
-
-#btn-menu,
-#btn-theme,
-#btn-toggle-drawer {
-    background: none;
-    border: none;
-    color: var(--text-color);
-    font-size: 1.5rem;
-    cursor: pointer;
-    padding: 5px;
-}
-
-/* Chat View */
-#chat-view {
-    flex: 1;
-    overflow-y: auto;
-    padding: 15px;
-    padding-bottom: 80px;
-    /* Space for input area */
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.message {
-    display: flex;
-    flex-direction: column;
-    max-width: 85%;
-}
-
-.message.user {
-    align-self: flex-end;
-    align-items: flex-end;
-}
-
-.message.assistant,
-.message.system {
-    align-self: flex-start;
-    align-items: flex-start;
-}
-
-.bubble {
-    padding: 10px 15px;
-    border-radius: 12px;
-    font-size: 0.95rem;
-    line-height: 1.4;
-    word-wrap: break-word;
-}
-
-.message.user .bubble {
-    background-color: var(--primary-color);
-    color: white;
-    border-radius: 12px 12px 0 12px;
-}
-
-.message.assistant .bubble {
-    background-color: var(--secondary-color);
-    color: var(--text-color);
-    border-radius: 12px 12px 12px 0;
-}
-
-.message.system .bubble {
-    background-color: rgba(255, 255, 255, 0.05);
-    color: #888;
-    font-size: 0.85rem;
-    font-style: italic;
-    border: 1px solid #333;
-}
-
-/* Approval Card */
-.approval-card {
-    background-color: var(--secondary-color);
-    border: 1px solid #444;
-    border-radius: 8px;
-    padding: 15px;
-    margin-top: 5px;
     width: 100%;
+    padding-top: var(--header-height);
+    /* Push down for title bar */
 }
 
-.approval-card.risk-dangerous {
-    border-color: #ff4444;
-    background-color: rgba(255, 68, 68, 0.1);
-}
+/* ... (Rest of existing CSS) ... */
 
-.approval-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 10px;
-}
+/* Modals - Generic (Already exists but ensure .form-group is good) */
 
-.btn-approve,
-.btn-reject {
-    flex: 1;
-    padding: 8px;
+/* Specific: New Session Modal */
+#server-select-input {
+    width: 100%;
+    padding: 10px;
+    background: #1e1e1e;
+    color: white;
+    border: 1px solid #444;
     border-radius: 4px;
-    border: none;
-    font-weight: bold;
-    cursor: pointer;
+    margin-top: 5px;
 }
 
-.btn-approve {
-    background-color: #28a745;
-    color: white;
-}
-
-.btn-reject {
-    background-color: #dc3545;
-    color: white;
-}
-
-/* Terminal Drawer */
-#terminal-drawer {
-    position: absolute;
-    /* Changed from fixed to respect app-container height */
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 60vh;
-    /* Default height */
-    background: #000;
-    transform: translateY(100%);
-    /* Hidden by default */
-    transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.5);
-    z-index: 100;
-    border-top: 1px solid #333;
-}
-
-#terminal-drawer.open {
-    transform: translateY(0);
-}
-
-/* --- Terminal Mode (Full Screen) --- */
-body.terminal-mode #chat-view {
-    display: none;
-}
-
-body.terminal-mode #input-area {
-    display: none;
-}
-
-body.terminal-mode #terminal-drawer {
-    position: relative;
-    transform: none;
-    height: 100%;
-    flex: 1;
-    border-top: none;
-    box-shadow: none;
-    z-index: 1;
-}
-
-body.terminal-mode #main-content {
-    display: flex;
-    flex-direction: column;
-}
-
-body.terminal-mode .drawer-handle {
-    display: none;
-}
-
-/* Hide toggle drawer button in terminal mode since it's always open */
-body.terminal-mode #btn-toggle-drawer {
-    display: none;
-    /* Logic handled by switching modes */
-}
+/* Desktop Sidebar - Optional: Keep it toggleable */
+/* @media (min-width: 768px) {
+    #sidebar {
+        position: relative;
+        transform: none;
+        box-shadow: none;
+    }
+} */
 
 
-/* Handle for resizing/dragging (future) or just visual */
-.drawer-handle {
-    height: 20px;
-    background-color: #222;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-}
-
-.handle-bar {
-    width: 40px;
-    height: 4px;
-    background-color: #555;
-    border-radius: 2px;
-}
-
+/* Terminal Container */
 #terminal-container {
     flex: 1;
+    background-color: #000;
     padding: 5px;
     overflow: hidden;
+    touch-action: pan-y;
 }
 
-/* Toolbar in Drawer */
-#toolbar {
-    background-color: #222;
-    display: flex;
-    flex-direction: column;
-    padding: 2px 0;
-    gap: 2px;
-    border-top: 1px solid #333;
-    width: 100%;
-    /* Auto height based on content */
+#terminal-container .xterm-viewport {
+    touch-action: pan-y;
+    overscroll-behavior: contain;
 }
 
-.toolbar-row {
-    display: flex;
-    width: 100%;
-    gap: 2px;
-    padding: 0 2px;
-}
-
-.key {
-    flex: 1;
-    height: 38px;
-    background-color: #383838;
-    /* Slightly lighter for visibility */
-    color: #e0e0e0;
-    border-radius: 4px;
-    /* Soft round corners */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 0.85rem;
-    font-weight: 500;
-    cursor: pointer;
+#terminal-container .xterm-screen,
+#terminal-container .xterm-rows {
     user-select: none;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-    border-bottom: 2px solid #222;
-    /* 3D effect */
+    -webkit-user-select: none;
+}
+
+/* Toolbar */
+#toolbar {
+    background-color: var(--secondary-color);
+    border-top: 1px solid #333;
+    padding: 5px;
+}
+
+.key-row {
+    display: flex;
+    gap: 5px;
+    overflow-x: auto;
+    margin-bottom: 5px;
+    justify-content: center;
+    /* Center keys if they don't fill row */
+}
+
+.key-row:last-child {
+    margin-bottom: 0;
+}
+
+.key,
+.nav-btn {
+    background-color: #383838;
+    color: #fff;
+    border: none;
+    padding: 12px 10px;
+    /* Slightly larger vertical padding */
+    border-radius: 4px;
+    font-family: monospace;
+    cursor: pointer;
+    white-space: nowrap;
+    flex: 1;
+    /* Buttons grow to fill space */
+    min-width: 40px;
+    /* Minimum width for touch */
+    text-align: center;
+    font-size: 14px;
 }
 
 .key:active,
-.key.active {
+.key.active,
+.nav-btn:active {
     background-color: var(--primary-color);
-    border-bottom: 0px solid transparent;
-    transform: translateY(2px);
-    color: white;
 }
 
-.action-key {
-    background-color: #2c2c2c;
-    flex: 0.8;
-    /* Slightly smaller width for tools */
+.key.mod-armed {
+    background-color: #194566;
+    border: 1px solid #2c6d97;
 }
 
-/* Input Overlay Modal */
-#input-overlay-modal {
-    position: fixed;
+.key.mod-locked {
+    background-color: #8a5a12;
+    border: 1px solid #d09a3a;
+    color: #fff7e6;
+}
+
+/* Input Overlay */
+#input-overlay {
+    position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.85);
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    padding: 20px;
-    justify-content: center;
-    backdrop-filter: blur(5px);
-}
-
-#input-overlay-modal.hidden {
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 2000;
     display: none;
+    /* Flex when active */
+    flex-direction: column;
+    padding: 10px;
 }
 
-.overlay-header {
+#input-buffer {
+    flex: 1;
+    background: #1e1e1e;
+    color: #fff;
+    border: 1px solid #333;
+    padding: 10px;
+    font-family: monospace;
+    font-size: 16px;
+    resize: none;
+    margin-bottom: 10px;
+}
+
+.input-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.input-controls button {
+    flex: 1;
+    padding: 15px;
+    background: #333;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+#btn-send {
+    background: var(--primary-color);
+}
+
+/* Old status overlay removed */
+
+/* Modals */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.8);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.open {
+    display: flex;
+}
+
+.modal-content {
+    background-color: var(--secondary-color);
+    margin: auto;
+    padding: 20px;
+    border: 1px solid #444;
+    width: 90%;
+    max-width: 400px;
+    border-radius: 8px;
+    color: var(--text-color);
+}
+
+.modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
-    color: white;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #444;
+    padding-bottom: 10px;
 }
 
-#btn-close-overlay {
+.btn-close {
     background: none;
     border: none;
     color: #aaa;
-    font-size: 1.5rem;
+    font-size: 28px;
     cursor: pointer;
 }
 
-#overlay-textarea {
-    flex: 1;
-    width: 100%;
-    background: #1e1e1e;
-    color: #fff;
-    border: 1px solid #444;
-    border-radius: 8px;
-    padding: 10px;
-    font-family: monospace;
-    font-size: 1rem;
-    resize: none;
-    margin-bottom: 10px;
+.server-list {
+    list-style: none;
+    margin-bottom: 20px;
+    max-height: 200px;
+    overflow-y: auto;
 }
 
-#btn-send-overlay {
-    background: var(--primary-color);
+.server-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #444;
+}
+
+.server-item.active-server {
+    background-color: rgba(0, 123, 255, 0.2);
+    border-left: 3px solid var(--primary-color);
+}
+
+.server-info {
+    flex: 1;
+}
+
+.server-name {
+    font-weight: bold;
+    display: block;
+}
+
+.server-url {
+    font-size: 0.8em;
+    color: #aaa;
+}
+
+.server-actions button {
+    background: none;
+    border: 1px solid #555;
+    color: var(--text-color);
+    padding: 5px 10px;
+    border-radius: 4px;
+    margin-left: 5px;
+    cursor: pointer;
+}
+
+.server-actions .btn-connect {
+    background-color: var(--primary-color);
+    border: none;
+}
+
+.add-server-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.add-server-form input {
+    padding: 10px;
+    background: #1e1e1e;
+    border: 1px solid #444;
+    color: white;
+    border-radius: 4px;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
     color: white;
     border: none;
-    padding: 12px;
-    font-size: 1rem;
-    font-weight: bold;
-    border-radius: 8px;
-    cursor: pointer;
-}
-
-/* Input Area */
-#input-area {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: var(--input-height);
-    background-color: var(--secondary-color);
-    display: flex;
-    align-items: center;
-    padding: 5px 10px;
-    gap: 10px;
-    border-top: 1px solid #333;
-    z-index: 300;
-    /* Above drawer when drawer is closed? No layer above drawer */
-}
-
-/* When drawer is open, input area should move up? 
-   Or input area stays and drawer covers it? 
-   Ideally Input Area is the main way to interact. 
-   When Drawer is Open, Input Area might type into PTY? 
-   Let's keep it simple: Drawer covers Input Area when open?
-   Or Input Area sits ABOVE Drawer? 
-   Let's make Drawer sit ON TOP of everything except maybe a "Close Drawer" button?
-   Actually, standard pattern is Drawer comes up from bottom. 
-   Let's make Input Area stay at logic bottom of Chat View.
-   When Drawer opens, it covers the Input Area.
-   BUT we need a way to close Drawer -> The Handle.
-*/
-
-#chat-input {
-    flex: 1;
-    background-color: rgba(255, 255, 255, 0.1);
-    border: 1px solid #444;
-    border-radius: 20px;
-    color: var(--text-color);
     padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
     font-size: 1rem;
-    resize: none;
-    outline: none;
-    max-height: 100px;
 }
 
-#btn-send-chat {
+/* Sidebar Controls */
+#btn-server-manager {
     background: none;
     border: none;
-    color: var(--primary-color);
-    font-size: 1.5rem;
+    color: var(--text-color);
+    font-size: 1.2rem;
     cursor: pointer;
+    line-height: 1;
+    opacity: 0.7;
+    transition: opacity 0.2s;
 }
 
-/* Status Overlay */
-#status-overlay {
+#btn-server-manager:hover {
+    opacity: 1;
+}
+
+/* Connection Overlay fallback styles */
+#connection-overlay {
     position: fixed;
     top: 0;
     left: 0;
-    right: 0;
-    background-color: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 5px;
-    text-align: center;
-    font-size: 0.8rem;
-    z-index: 9999;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 2000;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
+    color: white;
+}
+
+.form-group {
+    margin: 20px 0;
+    width: 80%;
+    max-width: 300px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px;
+    border-radius: 5px;
+    border: none;
+}
+
+
+/* Sidebar Sections */
+.sidebar-section {
+    padding: 10px;
+    border-bottom: 1px solid #333;
+}
+
+.sidebar-section h3 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 10px;
+    padding-left: 5px;
+}
+
+#sidebar-server-list {
+    list-style: none;
+    margin-bottom: 10px;
+}
+
+.sidebar-server-item {
+    padding: 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    color: #ccc;
+    transition: background 0.2s;
+}
+
+.sidebar-server-item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: white;
+}
+
+.sidebar-server-item.active {
+    background-color: rgba(0, 123, 255, 0.1);
+    color: white;
+    font-weight: 500;
+}
+
+.btn-sidebar-action {
+    background: none;
+    border: 1px dashed #444;
+    color: #888;
+    width: 100%;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.btn-sidebar-action:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #ccc;
+    border-color: #666;
+}
+
+/* Session List Styles - Tabs/Modern */
+#session-list {
+    list-style: none;
+    /* overflow-y: auto; handled by sidebar flex if needed */
+    flex: 1;
+    /* padding: 10px; handled by section padding */
+}
+
+.session-item {
+    padding: 10px;
+    border-bottom: 1px solid #333;
+    /* Keep separator */
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 6px;
+    margin-bottom: 2px;
+    background-color: transparent;
+    transition: all 0.2s ease;
+}
+
+.session-item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.session-item.active {
+    background-color: rgba(0, 123, 255, 0.15);
+    border-left: 3px solid var(--primary-color);
+    padding-left: 7px;
+}
+
+.session-item .session-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 10px;
+    font-size: 0.9rem;
 }

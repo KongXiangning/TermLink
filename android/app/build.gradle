@@ -1,0 +1,165 @@
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+import groovy.json.JsonOutput
+import java.util.Properties
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withInputStream { stream ->
+        localProperties.load(stream)
+    }
+}
+
+def readBuildConfigValue = { String key, String defaultValue ->
+    def value = project.findProperty(key)
+    if (value == null || value.toString().trim().isEmpty()) {
+        value = System.getenv(key)
+    }
+    if (value == null || value.toString().trim().isEmpty()) {
+        value = localProperties.getProperty(key)
+    }
+    if (value == null || value.toString().trim().isEmpty()) {
+        return defaultValue
+    }
+    return value.toString().trim()
+}
+
+def escapeBuildConfigString = { String value ->
+    return value.replace('\\', '\\\\').replace('"', '\\"')
+}
+
+def mtlsEnabled = readBuildConfigValue('TERMLINK_MTLS_ENABLED', 'false').toBoolean()
+def mtlsP12Asset = readBuildConfigValue('TERMLINK_MTLS_P12_ASSET', 'mtls/client.p12')
+def mtlsP12Password = readBuildConfigValue('TERMLINK_MTLS_P12_PASSWORD', '')
+def mtlsAllowedHosts = readBuildConfigValue('TERMLINK_MTLS_ALLOWED_HOSTS', '')
+def debugServerBaseUrl = readBuildConfigValue('TERMLINK_DEBUG_BASE_URL', '')
+def debugServerUsername = readBuildConfigValue('TERMLINK_DEBUG_BASIC_USERNAME', '')
+def debugServerPassword = readBuildConfigValue('TERMLINK_DEBUG_BASIC_PASSWORD', '')
+
+android {
+    namespace = "com.termlink.app"
+    compileSdk = rootProject.ext.compileSdkVersion
+    kotlinOptions {
+        jvmTarget = "21"
+    }
+    buildFeatures {
+        buildConfig true
+    }
+    defaultConfig {
+        applicationId "com.termlink.app"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField "boolean", "MTLS_ENABLED", mtlsEnabled ? "true" : "false"
+        buildConfigField "String", "MTLS_P12_ASSET", "\"${escapeBuildConfigString(mtlsP12Asset)}\""
+        buildConfigField "String", "MTLS_P12_PASSWORD", "\"${escapeBuildConfigString(mtlsP12Password)}\""
+        buildConfigField "String", "MTLS_ALLOWED_HOSTS", "\"${escapeBuildConfigString(mtlsAllowedHosts)}\""
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    sourceSets {
+        debug {
+            assets.srcDirs += ["$buildDir/generated/assets/localDebugConfig/debug"]
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.fragment:fragment-ktx:$androidxFragmentVersion"
+    implementation "androidx.webkit:webkit:$androidxWebkitVersion"
+    implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.1.0"
+    implementation "androidx.security:security-crypto:1.0.0"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation "com.google.android.material:material:1.12.0"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
+
+// Build a debug-only local config asset. Use an untracked local-debug-config.json or local.properties/env vars.
+task prepareDebugLocalConfig {
+    outputs.file(layout.buildDirectory.file('generated/assets/localDebugConfig/debug/local-debug-config.json'))
+    doLast {
+        def outputFile = layout.buildDirectory.file('generated/assets/localDebugConfig/debug/local-debug-config.json').get().asFile
+        def localConfigFile = rootProject.file('local-debug-config.json')
+        if (localConfigFile.exists()) {
+            outputFile.parentFile.mkdirs()
+            outputFile.text = localConfigFile.getText('UTF-8')
+            return
+        }
+
+        if (!debugServerBaseUrl) {
+            outputFile.delete()
+            return
+        }
+
+        outputFile.parentFile.mkdirs()
+
+        def profileId = 'local-debug-default'
+        def authType = (debugServerUsername && debugServerPassword) ? 'BASIC' : 'NONE'
+        def payload = [
+            profiles: [[
+                id: profileId,
+                name: 'Local Debug Server',
+                baseUrl: debugServerBaseUrl,
+                terminalType: 'TERMLINK_WS',
+                authType: authType,
+                basicUsername: debugServerUsername,
+                mtlsEnabled: false,
+                allowedHosts: ''
+            ]],
+            activeProfileId: profileId,
+            basicCredentials: authType == 'BASIC'
+                ? [(profileId): debugServerPassword]
+                : [:]
+        ]
+        outputFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(payload))
+    }
+}
+
+task removeLegacyLocalDebugConfig(type: Delete) {
+    delete file('src/main/assets/local-debug-config.json')
+}
+
+tasks.matching { it.name == 'preBuild' }.configureEach {
+    dependsOn removeLegacyLocalDebugConfig
+}
+
+tasks.matching { it.name == 'mergeDebugAssets' || it.name == 'processDebugMainResources' }.configureEach {
+    dependsOn prepareDebugLocalConfig
+}

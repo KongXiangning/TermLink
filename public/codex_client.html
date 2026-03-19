@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TermLink Codex</title>
+    <link rel="stylesheet" href="terminal_client.css?v=76">
+    <script src="terminal_shortcut_input.js?v=26"></script>
+</head>
+
+<body class="codex-only">
+    <div id="terminal-shell">
+        <div id="terminal-main">
+            <div id="status-overlay"></div>
+            <div id="terminal-container"></div>
+        </div>
+        <div id="codex-panel">
+            <div id="codex-header">
+                <div id="codex-status-strip">
+                    <div id="codex-header-main">
+                        <div id="codex-status-line">
+                            <span id="codex-status-dot" aria-hidden="true"></span>
+                            <span id="codex-status-text">Codex 空闲</span>
+                            <span id="codex-status-cwd" hidden></span>
+                        </div>
+                        <div id="codex-meta-line">
+                            <span id="codex-meta-text"></span>
+                            <span id="codex-notice-text"></span>
+                        </div>
+                    </div>
+                    <div id="codex-actions">
+                        <button id="btn-codex-toggle" class="codex-btn" type="button">收起</button>
+                        <button id="btn-codex-interrupt" class="codex-btn danger" type="button" hidden>中断</button>
+                    </div>
+                </div>
+                <div id="codex-secondary-nav">
+                    <button id="btn-codex-secondary-threads" class="codex-secondary-btn" type="button">任务历史</button>
+                    <button id="btn-codex-secondary-runtime" class="codex-secondary-btn" type="button">运行态</button>
+                    <button id="btn-codex-secondary-tools" class="codex-secondary-btn" type="button" hidden>工具</button>
+                    <button id="btn-codex-secondary-notices" class="codex-secondary-btn" type="button" hidden>提示</button>
+                </div>
+            </div>
+            <div id="codex-alerts" hidden>
+                <div id="codex-alert-config" class="codex-alert" hidden>
+                    <div class="codex-alert-label">配置提示</div>
+                    <div id="codex-alert-config-text" class="codex-alert-text"></div>
+                </div>
+                <div id="codex-alert-deprecation" class="codex-alert" hidden>
+                    <div class="codex-alert-label">弃用提示</div>
+                    <div id="codex-alert-deprecation-text" class="codex-alert-text"></div>
+                </div>
+            </div>
+            <div id="codex-history-panel" hidden>
+                <div id="codex-history-header">
+                    <span id="codex-history-title">任务历史</span>
+                    <div id="codex-history-actions">
+                        <button id="btn-codex-history-refresh" class="codex-btn subtle" type="button">刷新</button>
+                        <button id="btn-codex-new-thread" class="codex-btn" type="button">新建任务</button>
+                    </div>
+                </div>
+                <div id="codex-history-empty">暂无已保存线程。</div>
+                <div id="codex-history-list" aria-live="polite"></div>
+            </div>
+            <div id="codex-runtime-panel" hidden>
+                <div id="codex-runtime-header">
+                    <span id="codex-runtime-title">运行态</span>
+                </div>
+                <div id="codex-runtime-grid">
+                    <section class="codex-runtime-card" data-runtime-section="diff">
+                        <div class="codex-runtime-label">变更</div>
+                        <pre id="codex-runtime-diff" class="codex-runtime-body"></pre>
+                    </section>
+                    <section class="codex-runtime-card" data-runtime-section="plan">
+                        <div class="codex-runtime-label">计划</div>
+                        <pre id="codex-runtime-plan" class="codex-runtime-body"></pre>
+                    </section>
+                    <section class="codex-runtime-card" data-runtime-section="reasoning">
+                        <div class="codex-runtime-label">推理</div>
+                        <pre id="codex-runtime-reasoning" class="codex-runtime-body"></pre>
+                    </section>
+                    <section class="codex-runtime-card" data-runtime-section="terminal">
+                        <div class="codex-runtime-label">终端输出</div>
+                        <pre id="codex-runtime-terminal" class="codex-runtime-body"></pre>
+                    </section>
+                </div>
+                <div id="codex-runtime-warning" hidden></div>
+            </div>
+            <div id="codex-tools-panel" hidden>
+                <div id="codex-tools-header">
+                    <span id="codex-tools-title">扩展工具</span>
+                </div>
+                <div id="codex-tools-grid">
+                    <section id="codex-tools-skills-card" class="codex-tools-card">
+                        <div class="codex-tools-card-header">
+                            <span class="codex-tools-card-title">技能浏览</span>
+                            <span id="codex-tools-skills-meta" class="codex-tools-card-meta"></span>
+                        </div>
+                        <p class="codex-tools-description">选择后仅激活当前技能，不会自动写入整段模板提示。</p>
+                        <div id="codex-tools-skills-empty" class="codex-tools-empty">输入 <code>/skills</code> 后可在此浏览可用技能。</div>
+                        <div id="codex-tools-skills-list" aria-live="polite"></div>
+                    </section>
+                    <section id="codex-tools-compact-card" class="codex-tools-card">
+                        <div class="codex-tools-card-header">
+                            <span class="codex-tools-card-title">上下文压缩</span>
+                            <span id="codex-tools-compact-meta" class="codex-tools-card-meta"></span>
+                        </div>
+                        <p id="codex-tools-compact-description" class="codex-tools-description">
+                            将当前线程压缩为更短的上下文摘要，避免旧上下文继续占用窗口。
+                        </p>
+                        <div id="codex-tools-compact-status" class="codex-tools-status" aria-live="polite"></div>
+                        <div id="codex-tools-compact-actions">
+                            <button id="btn-codex-compact-confirm" class="codex-btn" type="button">确认压缩当前线程</button>
+                        </div>
+                    </section>
+                </div>
+            </div>
+            <div id="codex-log" aria-live="polite">
+                <div id="codex-log-stack"></div>
+            </div>
+            <div id="codex-composer">
+                <div id="codex-composer-state" hidden>
+                    <button id="codex-plan-chip" class="codex-mode-chip" type="button" hidden>计划模式已开启</button>
+                    <div id="codex-override-summary" hidden></div>
+                    <button id="btn-codex-quick-clear" class="codex-inline-action" type="button">清除本次设置</button>
+                </div>
+                <section id="codex-plan-workflow" hidden>
+                    <div id="codex-plan-workflow-header">
+                        <div id="codex-plan-workflow-title">计划进行中</div>
+                        <div id="codex-plan-workflow-summary">Codex 正在规划，当前不会直接执行。</div>
+                    </div>
+                    <pre id="codex-plan-workflow-body"></pre>
+                    <div id="codex-plan-workflow-actions">
+                        <button id="btn-codex-plan-execute" class="codex-btn" type="button" hidden>执行此计划</button>
+                        <button id="btn-codex-plan-continue" class="codex-btn subtle" type="button" hidden>继续提问/补充</button>
+                        <button id="btn-codex-plan-cancel" class="codex-btn subtle" type="button" hidden>取消</button>
+                    </div>
+                </section>
+                <div id="codex-slash-menu" hidden>
+                    <div id="codex-slash-menu-header">
+                        <span id="codex-slash-menu-title">搜索命令</span>
+                        <span id="codex-slash-menu-hint">输入 <code>/</code> 继续筛选</span>
+                    </div>
+                    <div id="codex-slash-menu-empty" hidden>没有匹配命令。</div>
+                    <div id="codex-slash-menu-list" aria-live="polite"></div>
+                </div>
+                <div id="codex-file-mention-chips" hidden></div>
+                <div id="codex-file-mention-menu" class="codex-slash-menu" hidden>
+                    <div class="codex-file-mention-loading" style="display:none;">搜索中...</div>
+                    <div class="codex-file-mention-empty" style="display:none;">无匹配文件</div>
+                    <div class="codex-file-mention-list" style="display:flex;flex-direction:column;gap:6px;min-height:0;max-height:min(38vh,280px);overflow-y:auto;-webkit-overflow-scrolling:touch;"></div>
+                </div>
+                <div id="codex-image-inputs" hidden></div>
+                <div id="codex-image-prompt" hidden>
+                    <div id="codex-image-prompt-header">
+                        <span id="codex-image-prompt-title">输入图像 URL</span>
+                    </div>
+                    <input id="codex-image-prompt-input" type="text" placeholder="https://example.com/image.png">
+                    <div id="codex-image-prompt-actions">
+                        <button id="btn-codex-image-prompt-cancel" class="codex-btn subtle" type="button">取消</button>
+                        <button id="btn-codex-image-prompt-confirm" class="codex-btn" type="button">确认</button>
+                    </div>
+                </div>
+                <div id="codex-composer-surface">
+                    <textarea id="codex-input" placeholder="随便问点什么..."></textarea>
+                    <div id="codex-composer-footer">
+                        <div id="codex-footer-left">
+                            <button id="btn-codex-slash-trigger" class="codex-action-btn" type="button" aria-label="上传图像或打开命令菜单">+</button>
+                            <div id="codex-quick-controls">
+                                <select id="codex-quick-model" class="codex-ghost-select">
+                                    <option value="">默认</option>
+                                </select>
+                                <select id="codex-quick-reasoning" class="codex-ghost-select">
+                                    <option value="">默认</option>
+                                </select>
+                                <select id="codex-quick-sandbox" class="codex-ghost-select">
+                                    <option value="">沙盒</option>
+                                    <option value="danger-full-access">完全访问</option>
+                                </select>
+                            </div>
+                            <div class="codex-footer-divider"></div>
+                            <button id="codex-context-widget" class="codex-context-widget" type="button" hidden aria-label="查看上下文窗口调试信息">
+                                <div id="codex-context-ring" class="codex-context-ring" aria-hidden="true">
+                                    <span id="codex-context-percent" class="codex-context-percent">--</span>
+                                </div>
+                            </button>
+                        </div>
+                        <button id="btn-codex-send" type="button" aria-label="发送">
+                            <span class="send-icon">↑</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="codex-command-approval-modal" class="codex-modal-layer" hidden>
+            <div class="codex-modal-backdrop"></div>
+            <section class="codex-modal-card" role="dialog" aria-modal="true" aria-labelledby="codex-command-approval-title">
+                <div class="codex-modal-header">
+                    <div id="codex-command-approval-title" class="codex-modal-title">命令确认</div>
+                    <div id="codex-command-approval-status" class="codex-modal-status">等待处理</div>
+                </div>
+                <div id="codex-command-approval-summary" class="codex-modal-summary"></div>
+                <pre id="codex-command-approval-command" class="codex-command-preview"></pre>
+                <label id="codex-command-approval-remember-wrap" class="codex-checkbox-row">
+                    <input id="codex-command-approval-remember" type="checkbox">
+                    <span>记住此前缀（占位，当前仅展示，不额外写入新协议）</span>
+                </label>
+                <div class="codex-modal-actions">
+                    <button id="btn-codex-command-approval-reject" class="codex-btn subtle" type="button">拒绝</button>
+                    <button id="btn-codex-command-approval-approve" class="codex-btn" type="button">允许</button>
+                </div>
+            </section>
+        </div>
+        <div id="codex-context-debug-modal" class="codex-modal-layer" hidden>
+            <div class="codex-modal-backdrop" data-modal-dismiss="context-debug"></div>
+            <section class="codex-modal-card" role="dialog" aria-modal="true" aria-labelledby="codex-context-debug-title">
+                <div class="codex-context-summary">
+                    <div id="codex-context-debug-title" class="codex-modal-title">背景信息窗口：</div>
+                    <div id="codex-context-debug-usage" class="codex-context-summary-line">--</div>
+                    <div id="codex-context-debug-tokens" class="codex-context-summary-line">--</div>
+                    <div id="codex-context-debug-note" class="codex-context-summary-note">Codex 自动压缩其背景信息</div>
+                </div>
+            </section>
+        </div>
+        <div id="input-overlay">
+            <textarea id="input-buffer" placeholder="Type command here..."></textarea>
+            <div class="input-controls">
+                <button id="btn-clear">Clear</button>
+                <button id="btn-close">Close</button>
+                <button id="btn-send">Send</button>
+            </div>
+        </div>
+        <div id="toolbar"></div>
+    </div>
+    <script src="lib/codex_bootstrap.js?v=2"></script>
+    <script src="lib/codex_history_view.js?v=2"></script>
+    <script src="lib/codex_shell_view.js?v=1"></script>
+    <script src="lib/codex_slash_commands.js?v=1"></script>
+    <script src="lib/codex_settings_view.js?v=3"></script>
+    <script src="lib/codex_runtime_view.js?v=4"></script>
+    <script src="lib/codex_approval_view.js?v=3"></script>
+    <script src="terminal_client.js?v=68"></script>
+</body>
+
+</html>

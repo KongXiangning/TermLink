@@ -1,0 +1,4 @@
+interface:
+  display_name: "Local Dev Server Control"
+  short_description: "Start, stop, or restart local dev server"
+  default_prompt: "Use $local-dev-server-control to start, stop, restart, or inspect the TermLink local dev server."

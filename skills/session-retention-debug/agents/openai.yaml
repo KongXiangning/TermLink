@@ -1,0 +1,4 @@
+interface:
+  display_name: "Session Retention Debug"
+  short_description: "Inspect and monitor /api/sessions retention state"
+  default_prompt: "Use $session-retention-debug to verify session idle aging and reconnect retention behavior."
