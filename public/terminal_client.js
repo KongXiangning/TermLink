@@ -209,10 +209,17 @@ const codexState = {
         slashPlan: false,
         skillsList: false,
         compact: false,
-        imageInput: false
+        imageInput: false,
+        fileMentions: false
     },
     pendingImageInputs: [],
     pendingImagePromptType: null,
+    pendingFileMentions: [],
+    fileMentionMenuOpen: false,
+    fileMentionQuery: '',
+    fileMentionResults: [],
+    fileMentionLoading: false,
+    activeFileMentionIndex: -1,
     slashRegistry: [],
     slashMenuOpen: false,
     slashMenuQuery: '',
@@ -1757,6 +1764,169 @@ function setSlashMenuState(open, query) {
     renderCodexSlashMenu();
 }
 
+let codexFileMentionMenu = null;
+let codexFileMentionMenuList = null;
+let codexFileMentionMenuEmpty = null;
+let codexFileMentionMenuLoading = null;
+let codexFileMentionChips = null;
+
+function getOrCreateCodexFileMentionElements() {
+    if (!codexFileMentionMenu) {
+        codexFileMentionMenu = document.getElementById('codex-file-mention-menu');
+    }
+    if (!codexFileMentionMenuList) {
+        codexFileMentionMenuList = codexFileMentionMenu ? codexFileMentionMenu.querySelector('.codex-file-mention-list') : null;
+    }
+    if (!codexFileMentionMenuEmpty) {
+        codexFileMentionMenuEmpty = codexFileMentionMenu ? codexFileMentionMenu.querySelector('.codex-file-mention-empty') : null;
+    }
+    if (!codexFileMentionMenuLoading) {
+        codexFileMentionMenuLoading = codexFileMentionMenu ? codexFileMentionMenu.querySelector('.codex-file-mention-loading') : null;
+    }
+    if (!codexFileMentionChips) {
+        codexFileMentionChips = document.getElementById('codex-file-mention-chips');
+    }
+}
+
+function setFileMentionMenuState(open, query, results, loading) {
+    getOrCreateCodexFileMentionElements();
+    codexState.fileMentionMenuOpen = open === true;
+    codexState.fileMentionQuery = typeof query === 'string' ? query : '';
+    if (Array.isArray(results)) {
+        codexState.fileMentionResults = results;
+    }
+    codexState.fileMentionLoading = loading === true;
+    codexState.activeFileMentionIndex = -1;
+    renderCodexFileMentionMenu();
+}
+
+function renderCodexFileMentionMenu() {
+    getOrCreateCodexFileMentionElements();
+    if (!codexFileMentionMenu) return;
+
+    const shouldShow = codexState.fileMentionMenuOpen === true && getActiveSessionMode() === 'codex' && codexState.capabilities.fileMentions === true;
+    codexFileMentionMenu.hidden = !shouldShow;
+
+    if (!shouldShow) return;
+
+    if (codexState.fileMentionLoading) {
+        if (codexFileMentionMenuLoading) codexFileMentionMenuLoading.style.display = 'block';
+        if (codexFileMentionMenuEmpty) codexFileMentionMenuEmpty.style.display = 'none';
+        if (codexFileMentionMenuList) codexFileMentionMenuList.style.display = 'none';
+        return;
+    }
+
+    if (codexFileMentionMenuLoading) codexFileMentionMenuLoading.style.display = 'none';
+
+    if (codexState.fileMentionResults.length === 0) {
+        if (codexFileMentionMenuEmpty) {
+            codexFileMentionMenuEmpty.style.display = 'block';
+            codexFileMentionMenuEmpty.textContent = codexState.fileMentionQuery ? '无匹配文件' : '无文件';
+        }
+        if (codexFileMentionMenuList) codexFileMentionMenuList.style.display = 'none';
+        return;
+    }
+
+    if (codexFileMentionMenuEmpty) codexFileMentionMenuEmpty.style.display = 'none';
+    if (codexFileMentionMenuList) {
+        codexFileMentionMenuList.style.display = 'flex';
+        codexFileMentionMenuList.innerHTML = '';
+        codexState.fileMentionResults.forEach((file, idx) => {
+            const item = document.createElement('div');
+            item.className = 'codex-file-mention-item';
+            if (idx === codexState.activeFileMentionIndex) {
+                item.classList.add('active');
+            }
+            const label = document.createElement('span');
+            label.className = 'item-label';
+            label.textContent = file.label;
+            const path = document.createElement('span');
+            path.className = 'item-path';
+            path.textContent = file.relativePathWithoutFileName || '';
+            item.appendChild(label);
+            item.appendChild(path);
+            item.addEventListener('click', () => handleFileMentionSelect(file));
+            codexFileMentionMenuList.appendChild(item);
+        });
+    }
+}
+
+function renderCodexFileMentionChips() {
+    getOrCreateCodexFileMentionElements();
+    if (!codexFileMentionChips) return;
+    codexFileMentionChips.innerHTML = '';
+    codexState.pendingFileMentions.forEach((file, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'codex-file-mention-chip';
+        const label = document.createElement('span');
+        label.className = 'chip-label';
+        label.textContent = file.label;
+        const remove = document.createElement('button');
+        remove.className = 'chip-remove';
+        remove.type = 'button';
+        remove.textContent = '\u00D7';
+        remove.addEventListener('click', (e) => {
+            e.stopPropagation();
+            removeFileMentionChip(idx);
+        });
+        chip.appendChild(label);
+        chip.appendChild(remove);
+        codexFileMentionChips.appendChild(chip);
+    });
+    const hasChips = codexState.pendingFileMentions.length > 0;
+    codexFileMentionChips.hidden = !hasChips;
+}
+
+function handleFileMentionSelect(file) {
+    if (!file || !file.path) return;
+    const normalizedFile = {
+        label: String(file.label || ''),
+        path: String(file.path || ''),
+        relativePathWithoutFileName: String(file.relativePathWithoutFileName || ''),
+        fsPath: String(file.fsPath || file.path || '')
+    };
+    codexState.pendingFileMentions.push(normalizedFile);
+    const slashApi = getCodexSlashCommandsApi();
+    if (slashApi && typeof slashApi.parseFileMentionInput === 'function' && codexInput) {
+        const parsed = slashApi.parseFileMentionInput(codexInput.value);
+        if (parsed && parsed.kind === 'file-mention') {
+            const before = codexInput.value.slice(0, parsed.tokenStart);
+            const after = codexInput.value.slice(parsed.tokenEnd);
+            codexInput.value = before + after;
+            codexInput.focus();
+        }
+    }
+    setFileMentionMenuState(false);
+    renderCodexFileMentionChips();
+}
+
+function removeFileMentionChip(index) {
+    if (index < 0 || index >= codexState.pendingFileMentions.length) return;
+    codexState.pendingFileMentions.splice(index, 1);
+    renderCodexFileMentionChips();
+}
+
+async function searchWorkspaceFiles(query) {
+    if (!codexState.currentSessionId) return;
+    if (!codexState.capabilities.fileMentions) return;
+
+    setFileMentionMenuState(true, query, [], true);
+    try {
+        const url = `/api/sessions/${encodeURIComponent(codexState.currentSessionId)}/workspace/files?q=${encodeURIComponent(query || '')}&limit=20`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        if (codexState.fileMentionMenuOpen) {
+            setFileMentionMenuState(true, query, Array.isArray(data.files) ? data.files : [], false);
+        }
+    } catch (err) {
+        console.error('Workspace file search failed:', err);
+        if (codexState.fileMentionMenuOpen) {
+            setFileMentionMenuState(true, query, [], false);
+        }
+    }
+}
+
 function applySlashCommandSelection(command) {
     if (!codexInput) return;
     const registryEntry = resolveExecutableCodexSlashCommand(command);
@@ -1798,11 +1968,22 @@ function applySlashCommandSelection(command) {
 function updateSlashMenuForInputValue() {
     if (!codexInput) return;
     const slashApi = getCodexSlashCommandsApi();
+
+    // Check for @ file mention first
+    if (slashApi && typeof slashApi.parseFileMentionInput === 'function') {
+        const fileMention = slashApi.parseFileMentionInput(codexInput.value);
+        if (fileMention && codexState.capabilities.fileMentions) {
+            setFileMentionMenuState(true, fileMention.query);
+            return;
+        }
+    }
+
     const parsed = slashApi && typeof slashApi.parseComposerInput === 'function'
         ? slashApi.parseComposerInput(codexInput.value)
         : { kind: 'text' };
     if (parsed.kind !== 'slash') {
         setSlashMenuState(false, '');
+        setFileMentionMenuState(false);
         return;
     }
     if (parsed.command === '/skill') {
@@ -2940,7 +3121,8 @@ function normalizeCodexCapabilities(payload) {
         slashPlan: source.slashPlan === true,
         skillsList: source.skillsList === true,
         compact: source.compact === true,
-        imageInput: source.imageInput === true
+        imageInput: source.imageInput === true,
+        fileMentions: source.fileMentions === true
     };
 }
 
@@ -4197,6 +4379,10 @@ function finalizePendingTurnStateOnSuccess() {
     if (pending.clearImageInputs === true) {
         clearPendingCodexImageInputs();
     }
+    if (pending.clearFileMentions === true) {
+        codexState.pendingFileMentions = [];
+        renderCodexFileMentionChips();
+    }
     clearPendingTurnState();
 }
 
@@ -4208,6 +4394,10 @@ function restorePendingTurnStateOnFailure() {
     setNextTurnOverrides(pending.nextTurnOverrides || { model: null, reasoningEffort: null, sandbox: null });
     setCodexInteractionState(pending.interactionState || { planMode: false, activeSkill: null });
     setPendingCodexImageInputs(pending.imageInputs || []);
+    if (Array.isArray(pending.fileMentions)) {
+        codexState.pendingFileMentions = pending.fileMentions.slice();
+        renderCodexFileMentionChips();
+    }
     clearPendingTurnState();
 }
 
@@ -4217,14 +4407,20 @@ function sendCodexTurn(text, options) {
     const nextTurnOverrides = normalizeNextTurnOverrides(opts.nextTurnOverrides || codexState.nextTurnOverrides);
     const interactionState = normalizeCodexInteractionState(opts.interactionState || codexState.interactionState);
     const imageInputs = normalizeCodexImageInputs(opts.imageInputs || codexState.pendingImageInputs);
+    const fileMentions = Array.isArray(opts.fileMentions) ? opts.fileMentions : codexState.pendingFileMentions;
     const collaborationMode = normalizeCodexCollaborationMode(opts.collaborationMode);
-    if (!cleaned && imageInputs.length === 0) return false;
+    if (!cleaned && imageInputs.length === 0 && fileMentions.length === 0) return false;
     if (!collaborationMode && codexState.planWorkflow.phase === 'plan_ready_for_confirmation') {
         setPlanWorkflowState(buildEmptyPlanWorkflowState());
     }
+    let finalText = cleaned;
+    if (fileMentions.length > 0) {
+        const fileRefs = fileMentions.map((f) => `@${f.path}`).join('\n');
+        finalText = fileRefs + '\n\n' + cleaned;
+    }
     const payload = {
         type: 'codex_turn',
-        text: cleaned,
+        text: finalText,
         forceNewThread: !!opts.forceNewThread,
         cwd: getConfiguredCodexCwd() || undefined,
         model: nextTurnOverrides.model || undefined,
@@ -4240,7 +4436,10 @@ function sendCodexTurn(text, options) {
         }
         return `[图像 URL] ${entry.url}`;
     });
-    appendCodexLogEntry('user', [cleaned, ...imageSummary].filter(Boolean).join('\n'), { meta: 'you' });
+    const fileSummary = fileMentions.length > 0
+        ? fileMentions.map((f) => `[文件] ${f.label}`).join('\n')
+        : '';
+    appendCodexLogEntry('user', [fileSummary, cleaned, ...imageSummary].filter(Boolean).join('\n'), { meta: 'you' });
     if (codexState.threadId && codexState.unmaterializedThreadId === codexState.threadId) {
         codexState.unmaterializedThreadId = '';
     }
@@ -4250,14 +4449,16 @@ function sendCodexTurn(text, options) {
         nextTurnOverrides,
         interactionState,
         imageInputs,
+        fileMentions,
         clearOverrides: opts.clearOverrides !== false
             && (!!nextTurnOverrides.model || !!nextTurnOverrides.reasoningEffort || !!nextTurnOverrides.sandbox),
         clearPlanMode: opts.clearPlanMode === true,
         clearActiveSkill: !!interactionState.activeSkill,
-        clearImageInputs: imageInputs.length > 0
+        clearImageInputs: imageInputs.length > 0,
+        clearFileMentions: fileMentions.length > 0
     });
     if (collaborationMode && collaborationMode.mode === 'plan') {
-        startPlanWorkflow(cleaned);
+        startPlanWorkflow(finalText);
     }
     if (!sendCodexEnvelope(payload)) {
         if (collaborationMode && collaborationMode.mode === 'plan') {
@@ -6303,12 +6504,41 @@ if (btnCodexSend) {
 
 if (codexInput) {
     codexInput.addEventListener('keydown', (event) => {
+        if (codexState.fileMentionMenuOpen) {
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                codexState.activeFileMentionIndex = Math.min(
+                    codexState.activeFileMentionIndex + 1,
+                    codexState.fileMentionResults.length - 1
+                );
+                renderCodexFileMentionMenu();
+                return;
+            }
+            if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                codexState.activeFileMentionIndex = Math.max(codexState.activeFileMentionIndex - 1, -1);
+                renderCodexFileMentionMenu();
+                return;
+            }
+            if (event.key === 'Enter' && codexState.activeFileMentionIndex >= 0) {
+                event.preventDefault();
+                const file = codexState.fileMentionResults[codexState.activeFileMentionIndex];
+                if (file) handleFileMentionSelect(file);
+                return;
+            }
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                setFileMentionMenuState(false);
+                return;
+            }
+        }
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
             const text = codexInput.value;
             if (handleCodexComposerSubmit(text)) {
                 codexInput.value = '';
                 setSlashMenuState(false, '');
+                setFileMentionMenuState(false);
             }
         }
     });

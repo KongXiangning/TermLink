@@ -1,4 +1,5 @@
 const express = require('express');
+const { searchWorkspaceFiles } = require('../services/workspaceFileSearch');
 const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
 const {
     normalizeSessionMode,
@@ -194,6 +195,25 @@ function createSessionsRouter(sessionManager) {
             return res.json({ status: 'ok' });
         }
         return res.status(404).json({ error: 'Session not found' });
+    });
+
+    router.get('/sessions/:id/workspace/files', (req, res) => {
+        const { id } = req.params;
+        const session = sessionManager.getSession(id);
+        if (!session) {
+            return res.status(404).json({ error: 'Session not found' });
+        }
+
+        const { cwd } = session;
+        if (!cwd || typeof cwd !== 'string') {
+            return res.json({ files: [] });
+        }
+
+        const query = typeof req.query.q === 'string' ? req.query.q : '';
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
+
+        const files = searchWorkspaceFiles(cwd, query, limit);
+        return res.json({ files });
     });
 
     return router;

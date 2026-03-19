@@ -162,6 +162,44 @@
         return registry.find((entry) => entry.command === command) || null;
     }
 
+    function parseFileMentionInput(text) {
+        if (typeof text !== 'string' || !text) {
+            return null;
+        }
+        const trimmed = text.trim();
+        const atIndex = trimmed.lastIndexOf('@');
+        if (atIndex === -1) {
+            return null;
+        }
+        if (atIndex > 0) {
+            const charBefore = trimmed[atIndex - 1];
+            if (!/[\s\n]/.test(charBefore)) {
+                return null;
+            }
+        }
+        const afterAt = trimmed.slice(atIndex + 1);
+        const spaceMatch = afterAt.match(/[\s\n]/);
+        const tokenEnd = spaceMatch ? atIndex + 1 + spaceMatch.index : trimmed.length;
+        const query = afterAt.slice(0, tokenEnd - atIndex - 1);
+        if (query.length === 0 && !spaceMatch) {
+            return {
+                kind: 'file-mention',
+                query: '',
+                tokenStart: atIndex,
+                tokenEnd: trimmed.length
+            };
+        }
+        if (query.length === 0) {
+            return null;
+        }
+        return {
+            kind: 'file-mention',
+            query: query,
+            tokenStart: atIndex,
+            tokenEnd: tokenEnd
+        };
+    }
+
     function getDiscoverableSlashCommands(input) {
         const source = input && typeof input === 'object' ? input : {};
         const registry = Array.isArray(source.registry) ? source.registry : [];
@@ -197,6 +235,7 @@
         normalizeInteractionState,
         normalizeNextTurnOverrides,
         parseComposerInput,
+        parseFileMentionInput,
         resolveSlashCommand
     };
 }));

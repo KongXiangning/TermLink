@@ -322,7 +322,8 @@ function buildCodexCapabilities() {
         slashPlan: true,
         skillsList: true,
         compact: true,
-        imageInput: true
+        imageInput: true,
+        fileMentions: true
     };
 }
 
