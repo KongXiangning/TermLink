@@ -1,9 +1,9 @@
 ---
 title: REQ-WS-0001 Phase 1 Server Workspace Implementation
-status: draft
+status: active
 record_id: CR-20260323-2244-phase1-server-workspace
 req_id: REQ-WS-0001
-commit_ref: TBD
+commit_ref: 98fa032
 owner: @maintainer
 last_updated: 2026-03-23
 source_of_truth: product
