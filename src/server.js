@@ -6,6 +6,7 @@ const path = require('path');
 const basicAuth = require('./auth/basicAuth');
 const createHealthRouter = require('./routes/health');
 const createSessionsRouter = require('./routes/sessions');
+const createWorkspaceRouter = require('./routes/workspace');
 const sessionManager = require('./services/sessionManager');
 const registerTerminalGateway = require('./ws/terminalGateway');
 const { parsePrivilegeConfig, validateElevatedEnabled } = require('./config/privilegeConfig');
@@ -71,6 +72,7 @@ app.use((req, res, next) => {
 app.use(basicAuth);
 app.use(express.static(path.join(__dirname, '../public')));
 app.use('/api', createSessionsRouter(sessionManager));
+app.use('/api', createWorkspaceRouter(sessionManager));
 app.use('/api', createHealthRouter({ privilegeConfig }));
 
 // WebSocket ticket endpoint — must be AFTER basicAuth middleware

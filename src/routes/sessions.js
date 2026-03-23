@@ -1,9 +1,12 @@
 const express = require('express');
-const { searchWorkspaceFiles } = require('../services/workspaceFileSearch');
+const fs = require('fs/promises');
+const { searchWorkspaceFiles } = require('../services/workspaceFileService');
 const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
 const {
     normalizeSessionMode,
     normalizeSessionCwd,
+    normalizeWorkspaceRoot,
+    normalizeWorkspaceRootSource,
     normalizeCodexConfig
 } = require('../repositories/sessionStore');
 
@@ -14,6 +17,8 @@ function buildSessionResponse(session) {
         name: session.name,
         sessionMode,
         cwd: normalizeSessionCwd(session.cwd),
+        workspaceRoot: normalizeWorkspaceRoot(session.workspaceRoot),
+        workspaceRootSource: normalizeWorkspaceRootSource(session.workspaceRootSource),
         lastCodexThreadId: typeof session.lastCodexThreadId === 'string' && session.lastCodexThreadId.trim()
             ? session.lastCodexThreadId.trim()
             : null,
@@ -90,6 +95,25 @@ function parseCreateSessionPayload(body) {
     return { value: parsed };
 }
 
+async function validateSessionCwd(cwd) {
+    if (!cwd) {
+        return;
+    }
+    let stats;
+    try {
+        stats = await fs.stat(cwd);
+    } catch (error) {
+        const err = new Error('cwd does not exist');
+        err.status = 400;
+        throw err;
+    }
+    if (!stats.isDirectory()) {
+        const err = new Error('cwd must be a directory');
+        err.status = 400;
+        throw err;
+    }
+}
+
 function parsePatchSessionPayload(body, session) {
     const payload = body || {};
     const parsed = {};
@@ -151,9 +175,13 @@ function createSessionsRouter(sessionManager) {
         }
 
         try {
+            await validateSessionCwd(parsed.value.cwd);
             const session = await sessionManager.createSession(parsed.value);
             res.json(buildSessionResponse(session));
         } catch (e) {
+            if (e && e.status === 400) {
+                return res.status(400).json({ error: e.message });
+            }
             if (e && e.code === SESSION_CAPACITY_ERROR_CODE) {
                 return res.status(409).json({
                     error: 'Session capacity exceeded',
@@ -197,23 +225,27 @@ function createSessionsRouter(sessionManager) {
         return res.status(404).json({ error: 'Session not found' });
     });
 
-    router.get('/sessions/:id/workspace/files', (req, res) => {
+    router.get('/sessions/:id/workspace/files', async (req, res) => {
         const { id } = req.params;
         const session = sessionManager.getSession(id);
         if (!session) {
             return res.status(404).json({ error: 'Session not found' });
         }
 
-        const { cwd } = session;
-        if (!cwd || typeof cwd !== 'string') {
+        const workspaceRoot = normalizeWorkspaceRoot(session.workspaceRoot) || normalizeSessionCwd(session.cwd);
+        if (!workspaceRoot || typeof workspaceRoot !== 'string') {
             return res.json({ files: [] });
         }
 
         const query = typeof req.query.q === 'string' ? req.query.q : '';
         const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
 
-        const files = searchWorkspaceFiles(cwd, query, limit);
-        return res.json({ files });
+        try {
+            const files = await searchWorkspaceFiles(workspaceRoot, query, limit);
+            return res.json({ files });
+        } catch (error) {
+            return res.json({ files: [] });
+        }
     });
 
     return router;
@@ -222,3 +254,4 @@ function createSessionsRouter(sessionManager) {
 module.exports = createSessionsRouter;
 module.exports.parseCreateSessionPayload = parseCreateSessionPayload;
 module.exports.parsePatchSessionPayload = parsePatchSessionPayload;
+module.exports.validateSessionCwd = validateSessionCwd;

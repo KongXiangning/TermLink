@@ -1,6 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const path = require('path');
 const createSessionsRouter = require('../src/routes/sessions');
+
+const VALID_CWD = path.resolve(__dirname, '..');
 
 function getRouteHandler(router, path, method) {
     const layer = router.stack.find((entry) => (
@@ -34,7 +37,7 @@ test('POST /sessions passes sessionMode and cwd through to sessionManager', asyn
             assert.deepEqual(options, {
                 name: 'Codex Task',
                 sessionMode: 'codex',
-                cwd: 'E:\\coding\\TermLink',
+                cwd: VALID_CWD,
                 codexConfig: {
                     defaultModel: 'gpt-5-codex',
                     defaultReasoningEffort: 'medium',
@@ -48,6 +51,8 @@ test('POST /sessions passes sessionMode and cwd through to sessionManager', asyn
                 name: options.name,
                 sessionMode: options.sessionMode,
                 cwd: options.cwd,
+                workspaceRoot: options.cwd,
+                workspaceRootSource: 'session_cwd',
                 lastCodexThreadId: 'thread-42',
                 codexConfig: options.codexConfig
             };
@@ -62,7 +67,7 @@ test('POST /sessions passes sessionMode and cwd through to sessionManager', asyn
         body: {
             name: ' Codex Task ',
             sessionMode: 'codex',
-            cwd: ' E:\\coding\\TermLink ',
+            cwd: ` ${VALID_CWD} `,
             codexConfig: {
                 defaultModel: 'gpt-5-codex',
                 defaultReasoningEffort: 'medium',
@@ -81,7 +86,9 @@ test('POST /sessions passes sessionMode and cwd through to sessionManager', asyn
         id: 'session-1',
         name: 'Codex Task',
         sessionMode: 'codex',
-        cwd: 'E:\\coding\\TermLink',
+        cwd: VALID_CWD,
+        workspaceRoot: VALID_CWD,
+        workspaceRootSource: 'session_cwd',
         lastCodexThreadId: 'thread-42',
         codexConfig: {
             defaultModel: 'gpt-5-codex',
@@ -103,6 +110,8 @@ test('POST /sessions defaults codexConfig when creating codex session', async ()
                 name: options.name,
                 sessionMode: options.sessionMode,
                 cwd: options.cwd,
+                workspaceRoot: options.cwd,
+                workspaceRootSource: 'session_cwd',
                 lastCodexThreadId: null,
                 codexConfig: options.codexConfig
             };
@@ -117,7 +126,7 @@ test('POST /sessions defaults codexConfig when creating codex session', async ()
         body: {
             name: 'Codex default config',
             sessionMode: 'codex',
-            cwd: 'E:\\coding\\TermLink'
+            cwd: VALID_CWD
         }
     };
     const res = createMockRes();
@@ -139,6 +148,8 @@ test('POST /sessions allows explicit null codexConfig for codex session', async 
                 name: options.name,
                 sessionMode: options.sessionMode,
                 cwd: options.cwd,
+                workspaceRoot: options.cwd,
+                workspaceRootSource: 'session_cwd',
                 lastCodexThreadId: null,
                 codexConfig: options.codexConfig
             };
@@ -155,7 +166,7 @@ test('POST /sessions allows explicit null codexConfig for codex session', async 
         body: {
             name: 'Codex explicit null',
             sessionMode: 'codex',
-            cwd: 'E:\\coding\\TermLink',
+            cwd: VALID_CWD,
             codexConfig: null
         }
     };
@@ -225,7 +236,7 @@ test('POST /sessions rejects invalid codexConfig for codex mode', async () => {
         body: {
             name: 'Invalid config',
             sessionMode: 'codex',
-            cwd: 'E:\\coding\\TermLink',
+            cwd: VALID_CWD,
             codexConfig: {
                 approvalPolicy: 'invalid-policy',
                 sandboxMode: 'workspace-write'
@@ -245,7 +256,9 @@ test('PATCH /sessions/:id updates name and codexConfig', async () => {
         id: 'session-1',
         name: 'Before',
         sessionMode: 'codex',
-        cwd: 'E:\\coding\\TermLink',
+        cwd: VALID_CWD,
+        workspaceRoot: VALID_CWD,
+        workspaceRootSource: 'session_cwd',
         lastCodexThreadId: 'thread-1',
         codexConfig: null
     };
@@ -300,7 +313,9 @@ test('PATCH /sessions/:id updates name and codexConfig', async () => {
         id: 'session-1',
         name: 'After',
         sessionMode: 'codex',
-        cwd: 'E:\\coding\\TermLink',
+        cwd: VALID_CWD,
+        workspaceRoot: VALID_CWD,
+        workspaceRootSource: 'session_cwd',
         lastCodexThreadId: 'thread-1',
         codexConfig: {
             defaultModel: 'gpt-5-codex',
@@ -317,7 +332,9 @@ test('PATCH /sessions/:id allows clearing codexConfig with null', async () => {
         id: 'session-2',
         name: 'Configurable',
         sessionMode: 'codex',
-        cwd: 'E:\\coding\\TermLink',
+        cwd: VALID_CWD,
+        workspaceRoot: VALID_CWD,
+        workspaceRootSource: 'session_cwd',
         lastCodexThreadId: null,
         codexConfig: {
             defaultModel: 'gpt-5-codex',
@@ -361,4 +378,31 @@ test('PATCH /sessions/:id allows clearing codexConfig with null', async () => {
 
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.codexConfig, null);
+});
+
+test('POST /sessions rejects missing cwd directories', async () => {
+    const sessionManager = {
+        listSessions: () => [],
+        async createSession() {
+            throw new Error('should not be called');
+        },
+        renameSession: () => null,
+        deleteSession: () => false
+    };
+
+    const router = createSessionsRouter(sessionManager);
+    const handler = getRouteHandler(router, '/sessions', 'post');
+    const req = {
+        body: {
+            name: 'Invalid cwd',
+            sessionMode: 'codex',
+            cwd: path.join(VALID_CWD, '__missing_workspace_dir__')
+        }
+    };
+    const res = createMockRes();
+
+    await handler(req, res);
+
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.body, { error: 'cwd does not exist' });
 });
