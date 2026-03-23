@@ -331,7 +331,8 @@ test('session_info includes lastCodexThreadId metadata when available', async (t
         slashPlan: true,
         skillsList: true,
         compact: true,
-        imageInput: true
+        imageInput: true,
+        fileMentions: true
     });
 });
 
@@ -811,6 +812,70 @@ test('thread/resume clears stale runtime state before emitting the new snapshot'
         remaining: 2,
         limit: 10
     });
+});
+
+test('thread/resume seeds execution context so matching sandbox turns keep using the resumed thread', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        cwd: 'D:\\workspace\\demo',
+        codexConfig: {
+            approvalPolicy: 'never',
+            sandboxMode: 'danger-full-access'
+        },
+        codexState: {
+            threadId: 'thread-old',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null,
+            threadExecutionContextSignature: null
+        }
+    });
+    session.lastCodexThreadId = 'thread-old';
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-resume-signature',
+        method: 'thread/resume',
+        params: {
+            threadId: 'thread-existing'
+        }
+    }));
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'continue on resumed thread',
+        sandbox: 'danger-full-access'
+    }));
+
+    const service = MockCodexService.instances[0];
+    const threadStartCalls = service.requests.filter((entry) => entry.method === 'thread/start');
+    const turnStart = service.requests.findLast((entry) => entry.method === 'turn/start');
+
+    assert.equal(threadStartCalls.length, 0, 'matching sandbox turn should not start a fresh thread after resume');
+    assert.ok(turnStart, 'turn/start should be invoked');
+    assert.equal(turnStart.params.threadId, 'thread-existing');
+    assert.equal(
+        session.codexState.threadExecutionContextSignature,
+        '{"cwd":"D:\\\\workspace\\\\demo","approvalPolicy":"never","sandboxMode":"danger-full-access"}'
+    );
 });
 
 test('thread/start seeds codex_state token usage when app-server returns latestTokenUsageInfo', async (t) => {
@@ -1371,6 +1436,70 @@ test('codex_turn starts a fresh thread when the stored execution context no long
     assert.equal(
         session.codexState.threadExecutionContextSignature,
         '{"cwd":"D:\\\\workspace\\\\demo","approvalPolicy":"never","sandboxMode":"danger-full-access"}'
+    );
+});
+
+test('codex_turn rebinds an existing thread after runtime restart instead of starting a fresh thread', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        cwd: 'D:\\workspace\\demo',
+        codexConfig: {
+            approvalPolicy: 'never',
+            sandboxMode: 'danger-full-access'
+        },
+        codexState: {
+            threadId: 'thread-existing',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null,
+            threadExecutionContextSignature: '{"cwd":"D:\\\\workspace\\\\demo","approvalPolicy":"never","sandboxMode":"danger-full-access"}'
+        }
+    });
+    session.lastCodexThreadId = 'thread-existing';
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    const service = MockCodexService.instances[0];
+    service.launchRuntimeConfigSignature = JSON.stringify({
+        approvalPolicy: 'never',
+        sandboxMode: 'danger-full-access'
+    });
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'continue on same thread after runtime restart',
+        sandbox: 'workspace-write'
+    }));
+
+    const resumeCalls = service.requests.filter((entry) => entry.method === 'thread/resume');
+    const threadStartCalls = service.requests.filter((entry) => entry.method === 'thread/start');
+    const turnStart = service.requests.findLast((entry) => entry.method === 'turn/start');
+
+    assert.equal(threadStartCalls.length, 0, 'runtime restart should rebind the old thread instead of starting a fresh one');
+    assert.ok(resumeCalls.length >= 1, 'thread/resume should be invoked to rebind after restart');
+    assert.ok(turnStart, 'turn/start should be invoked');
+    assert.equal(turnStart.params.threadId, 'thread-existing');
+    assert.equal(turnStart.params.approvalPolicy, 'on-request');
+    assert.equal(turnStart.params.sandbox, 'workspace-write');
+    assert.equal(
+        session.codexState.threadExecutionContextSignature,
+        '{"cwd":"D:\\\\workspace\\\\demo","approvalPolicy":"on-request","sandboxMode":"workspace-write"}'
     );
 });
 

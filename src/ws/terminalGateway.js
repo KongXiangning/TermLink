@@ -631,12 +631,18 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         const effectiveRuntimeConfig = runtimeConfig && typeof runtimeConfig === 'object'
             ? runtimeConfig
             : getEffectiveSessionCodexConfig(session);
+        const runtimeConfigSignature = buildCodexProcessRuntimeConfig(effectiveRuntimeConfig);
         const didRestart = await codexService.ensureStarted(
-            buildCodexProcessRuntimeConfig(effectiveRuntimeConfig)
+            runtimeConfigSignature
         );
         if (!didRestart) {
             return false;
         }
+        console.info('[gateway][codex][runtime-restart]', JSON.stringify({
+            sessionId: session.id,
+            threadId: state.threadId || null,
+            runtimeConfig: runtimeConfigSignature
+        }));
         state.currentTurnId = null;
         state.status = 'idle';
         state.pendingServerRequests = [];
@@ -675,9 +681,46 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 || (!requireExactExecutionContext && currentExecutionContextSignature === null)
             );
 
+        console.info('[gateway][codex][thread-reuse-check]', JSON.stringify({
+            sessionId: session.id,
+            existingThreadId: isNonEmptyString(state.threadId) ? state.threadId : null,
+            forceNewThread,
+            requireExactExecutionContext,
+            requestedCwd,
+            effectiveCodexConfig,
+            currentExecutionContextSignature,
+            nextExecutionContextSignature: executionContextSignature,
+            executionContextMatches,
+            shouldReuseExistingThread
+        }));
+
         if (shouldReuseExistingThread) {
             bindThreadToSession(state.threadId, session.id);
             return state.threadId;
+        }
+
+        if (
+            !forceNewThread
+            && isNonEmptyString(state.threadId)
+            && currentExecutionContextSignature === '__stale__'
+        ) {
+            const resumeResult = await codexService.request('thread/resume', { threadId: state.threadId });
+            const resumedThreadId = resumeResult && resumeResult.thread ? resumeResult.thread.id : null;
+            if (isNonEmptyString(resumedThreadId)) {
+                state.threadId = resumedThreadId;
+                state.threadModel = resolveThreadModelFromResponse(resumeResult) || state.threadModel || null;
+                state.tokenUsage = extractTokenUsageSnapshot(resumeResult);
+                state.threadExecutionContextSignature = executionContextSignature;
+                bindThreadToSession(resumedThreadId, session.id);
+                updateSessionLastCodexThreadId(session, resumedThreadId);
+                persistSessionMetadata(session);
+                console.info('[gateway][codex][thread-rebind-after-restart]', JSON.stringify({
+                    sessionId: session.id,
+                    threadId: resumedThreadId,
+                    executionContextSignature
+                }));
+                return resumedThreadId;
+            }
         }
 
         if (!forceNewThread && isNonEmptyString(state.threadId)) {
@@ -1118,7 +1161,11 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         };
                         bindThreadToSession(threadId, session.id);
                         updateSessionLastCodexThreadId(session, threadId);
-                        updateSessionCwd(session, envelope.cwd || session.cwd);
+                        const effectiveCwd = updateSessionCwd(session, envelope.cwd || session.cwd);
+                        codexState.threadExecutionContextSignature = buildThreadExecutionContextSignature({
+                            cwd: effectiveCwd,
+                            codexConfig: nextTurnEffectiveConfig
+                        });
                         emitCodexState(session);
 
                         sendWsEnvelope(ws, {
@@ -1262,6 +1309,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             }));
                             bindThreadToSession(response.thread.id, session.id);
                             updateSessionLastCodexThreadId(session, response.thread.id);
+                            codexState.threadExecutionContextSignature = buildThreadExecutionContextSignature({
+                                cwd: session.cwd,
+                                codexConfig: getEffectiveSessionCodexConfig(session)
+                            });
                             emitCodexState(session);
                         }
                         if (method === 'thread/read') {

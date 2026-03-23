@@ -48,7 +48,7 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /src="lib\/codex_bootstrap\.js\?v=2"/);
     assert.match(html, /src="lib\/codex_history_view\.js\?v=2"/);
     assert.match(html, /src="lib\/codex_shell_view\.js\?v=1"/);
-    assert.match(html, /src="lib\/codex_slash_commands\.js\?v=1"/);
+    assert.match(html, /src="lib\/codex_slash_commands\.js\?v=2"/);
     assert.match(html, /src="lib\/codex_settings_view\.js\?v=3"/);
     assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
     assert.match(html, /src="lib\/codex_approval_view\.js\?v=3"/);
@@ -68,7 +68,7 @@ test('terminal client shell shares scripts but does not expose codex history pan
     assert.match(html, /src="lib\/codex_bootstrap\.js\?v=2"/);
     assert.match(html, /src="lib\/codex_history_view\.js\?v=2"/);
     assert.match(html, /src="lib\/codex_shell_view\.js\?v=1"/);
-    assert.match(html, /src="lib\/codex_slash_commands\.js\?v=1"/);
+    assert.match(html, /src="lib\/codex_slash_commands\.js\?v=2"/);
     assert.match(html, /src="lib\/codex_settings_view\.js\?v=3"/);
     assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
     assert.match(html, /src="lib\/codex_approval_view\.js\?v=3"/);
