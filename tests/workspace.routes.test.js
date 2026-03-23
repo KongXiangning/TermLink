@@ -259,13 +259,13 @@ test('workspace picker tree lists directories and parent path', async (t) => {
     fs.mkdirSync(path.join(temp.root, 'alpha'));
     fs.mkdirSync(path.join(temp.root, 'beta'));
     fs.writeFileSync(path.join(temp.root, 'note.txt'), 'file\n');
-    const previousPickerRoot = process.env.TERMLINK_CODEX_WORKSPACE_DIR;
-    process.env.TERMLINK_CODEX_WORKSPACE_DIR = temp.root;
+    const previousPickerRoot = process.env.TERMLINK_WORKSPACE_PICKER_ROOT;
+    process.env.TERMLINK_WORKSPACE_PICKER_ROOT = temp.root;
     t.after(() => {
         if (previousPickerRoot === undefined) {
-            delete process.env.TERMLINK_CODEX_WORKSPACE_DIR;
+            delete process.env.TERMLINK_WORKSPACE_PICKER_ROOT;
         } else {
-            process.env.TERMLINK_CODEX_WORKSPACE_DIR = previousPickerRoot;
+            process.env.TERMLINK_WORKSPACE_PICKER_ROOT = previousPickerRoot;
         }
     });
 
@@ -295,13 +295,13 @@ test('workspace picker tree defaults to allowed host root when path is omitted',
     const temp = createTempWorkspace();
     t.after(() => temp.cleanup());
     fs.mkdirSync(path.join(temp.root, 'alpha'));
-    const previousPickerRoot = process.env.TERMLINK_CODEX_WORKSPACE_DIR;
-    process.env.TERMLINK_CODEX_WORKSPACE_DIR = temp.root;
+    const previousPickerRoot = process.env.TERMLINK_WORKSPACE_PICKER_ROOT;
+    process.env.TERMLINK_WORKSPACE_PICKER_ROOT = temp.root;
     t.after(() => {
         if (previousPickerRoot === undefined) {
-            delete process.env.TERMLINK_CODEX_WORKSPACE_DIR;
+            delete process.env.TERMLINK_WORKSPACE_PICKER_ROOT;
         } else {
-            process.env.TERMLINK_CODEX_WORKSPACE_DIR = previousPickerRoot;
+            process.env.TERMLINK_WORKSPACE_PICKER_ROOT = previousPickerRoot;
         }
     });
 
@@ -332,13 +332,13 @@ test('workspace picker tree rejects paths outside allowed host root', async (t) 
     const outside = createTempWorkspace();
     t.after(() => allowed.cleanup());
     t.after(() => outside.cleanup());
-    const previousPickerRoot = process.env.TERMLINK_CODEX_WORKSPACE_DIR;
-    process.env.TERMLINK_CODEX_WORKSPACE_DIR = allowed.root;
+    const previousPickerRoot = process.env.TERMLINK_WORKSPACE_PICKER_ROOT;
+    process.env.TERMLINK_WORKSPACE_PICKER_ROOT = allowed.root;
     t.after(() => {
         if (previousPickerRoot === undefined) {
-            delete process.env.TERMLINK_CODEX_WORKSPACE_DIR;
+            delete process.env.TERMLINK_WORKSPACE_PICKER_ROOT;
         } else {
-            process.env.TERMLINK_CODEX_WORKSPACE_DIR = previousPickerRoot;
+            process.env.TERMLINK_WORKSPACE_PICKER_ROOT = previousPickerRoot;
         }
     });
 
@@ -361,4 +361,143 @@ test('workspace picker tree rejects paths outside allowed host root', async (t) 
             message: 'Requested path is outside workspace root.'
         }
     });
+});
+
+test('workspace picker tree lists multiple configured roots when path is omitted', async (t) => {
+    const rootA = createTempWorkspace();
+    const rootB = createTempWorkspace();
+    t.after(() => rootA.cleanup());
+    t.after(() => rootB.cleanup());
+    const previousPickerRoot = process.env.TERMLINK_WORKSPACE_PICKER_ROOT;
+    process.env.TERMLINK_WORKSPACE_PICKER_ROOT = `${rootA.root}${path.delimiter}${rootB.root}`;
+    t.after(() => {
+        if (previousPickerRoot === undefined) {
+            delete process.env.TERMLINK_WORKSPACE_PICKER_ROOT;
+        } else {
+            process.env.TERMLINK_WORKSPACE_PICKER_ROOT = previousPickerRoot;
+        }
+    });
+
+    const router = createWorkspaceRouter(createSessionManager({
+        id: 'picker-session-multi-root',
+        sessionMode: 'codex',
+        cwd: null,
+        workspaceRoot: null,
+        workspaceRootSource: null
+    }));
+    const handler = getRouteHandler(router, '/workspace/picker/tree', 'get');
+    const res = createMockRes();
+
+    await handler({ query: {} }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.path, '');
+    assert.equal(res.body.parentPath, null);
+    assert.equal(res.body.canGoUp, false);
+    assert.deepEqual(
+        res.body.entries.map((entry) => entry.path),
+        [rootA.root, rootB.root].sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }))
+    );
+});
+
+test('workspace picker tree can go back to multi-root listing from a configured root', async (t) => {
+    const rootA = createTempWorkspace();
+    const rootB = createTempWorkspace();
+    t.after(() => rootA.cleanup());
+    t.after(() => rootB.cleanup());
+    fs.mkdirSync(path.join(rootA.root, 'alpha'));
+    const previousPickerRoot = process.env.TERMLINK_WORKSPACE_PICKER_ROOT;
+    process.env.TERMLINK_WORKSPACE_PICKER_ROOT = `${rootA.root}${path.delimiter}${rootB.root}`;
+    t.after(() => {
+        if (previousPickerRoot === undefined) {
+            delete process.env.TERMLINK_WORKSPACE_PICKER_ROOT;
+        } else {
+            process.env.TERMLINK_WORKSPACE_PICKER_ROOT = previousPickerRoot;
+        }
+    });
+
+    const router = createWorkspaceRouter(createSessionManager({
+        id: 'picker-session-multi-root-parent',
+        sessionMode: 'codex',
+        cwd: null,
+        workspaceRoot: null,
+        workspaceRootSource: null
+    }));
+    const handler = getRouteHandler(router, '/workspace/picker/tree', 'get');
+    const res = createMockRes();
+
+    await handler({ query: { path: rootA.root } }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.path, rootA.root);
+    assert.equal(res.body.parentPath, '');
+    assert.equal(res.body.canGoUp, true);
+    assert.deepEqual(
+        res.body.entries.map((entry) => entry.name),
+        ['alpha']
+    );
+});
+
+test('workspace picker tree fails when picker root is not configured', async () => {
+    const previousPickerRoot = process.env.TERMLINK_WORKSPACE_PICKER_ROOT;
+    delete process.env.TERMLINK_WORKSPACE_PICKER_ROOT;
+
+    try {
+        const router = createWorkspaceRouter(createSessionManager({
+            id: 'picker-session-missing-root',
+            sessionMode: 'codex',
+            cwd: null,
+            workspaceRoot: null,
+            workspaceRootSource: null
+        }));
+        const handler = getRouteHandler(router, '/workspace/picker/tree', 'get');
+        const res = createMockRes();
+
+        await handler({ query: {} }, res);
+
+        assert.equal(res.statusCode, 500);
+        assert.deepEqual(res.body, {
+            error: {
+                code: 'WORKSPACE_PICKER_ROOT_NOT_CONFIGURED',
+                message: 'Workspace picker root is not configured on the server.'
+            }
+        });
+    } finally {
+        if (previousPickerRoot !== undefined) {
+            process.env.TERMLINK_WORKSPACE_PICKER_ROOT = previousPickerRoot;
+        }
+    }
+});
+
+test('workspace picker tree fails when picker root is invalid', async () => {
+    const previousPickerRoot = process.env.TERMLINK_WORKSPACE_PICKER_ROOT;
+    process.env.TERMLINK_WORKSPACE_PICKER_ROOT = path.join(os.tmpdir(), 'termlink-missing-picker-root');
+
+    try {
+        const router = createWorkspaceRouter(createSessionManager({
+            id: 'picker-session-invalid-root',
+            sessionMode: 'codex',
+            cwd: null,
+            workspaceRoot: null,
+            workspaceRootSource: null
+        }));
+        const handler = getRouteHandler(router, '/workspace/picker/tree', 'get');
+        const res = createMockRes();
+
+        await handler({ query: {} }, res);
+
+        assert.equal(res.statusCode, 500);
+        assert.deepEqual(res.body, {
+            error: {
+                code: 'WORKSPACE_PICKER_ROOT_INVALID',
+                message: 'Workspace picker root is not available on the server.'
+            }
+        });
+    } finally {
+        if (previousPickerRoot === undefined) {
+            delete process.env.TERMLINK_WORKSPACE_PICKER_ROOT;
+        } else {
+            process.env.TERMLINK_WORKSPACE_PICKER_ROOT = previousPickerRoot;
+        }
+    }
 });

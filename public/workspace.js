@@ -11,7 +11,32 @@
         selectedFileMeta: null,
         activeView: 'content',
         filePreview: null,
-        diffPreview: null
+        diffPreview: null,
+        treeEntries: [],
+        meta: {
+            isGitRepo: false,
+            gitRoot: '',
+            disabledReason: ''
+        },
+        loadingState: {
+            meta: false,
+            tree: false,
+            file: false,
+            diff: false,
+            more: false
+        },
+        errorState: {
+            page: '',
+            tree: '',
+            file: '',
+            diff: ''
+        },
+        requestState: {
+            treeSeq: 0,
+            fileSeq: 0,
+            diffSeq: 0,
+            moreSeq: 0
+        }
     };
 
     const elements = {
@@ -20,9 +45,11 @@
         banner: document.getElementById('workspace-banner'),
         currentDirLabel: document.getElementById('current-dir-label'),
         browserList: document.getElementById('browser-list'),
+        browserStatus: document.getElementById('browser-status'),
         browserEmpty: document.getElementById('browser-empty'),
         viewerTitle: document.getElementById('viewer-title'),
         viewerMeta: document.getElementById('viewer-meta'),
+        viewerStatus: document.getElementById('viewer-status'),
         viewerModeNote: document.getElementById('viewer-mode-note'),
         viewerEmpty: document.getElementById('viewer-empty'),
         viewerBody: document.getElementById('viewer-body'),
@@ -46,6 +73,16 @@
             return window.__TERMLINK_CONFIG__;
         }
         return {};
+    }
+
+    function applyInjectedConfig(config) {
+        if (!config || typeof config !== 'object') {
+            return;
+        }
+        window.__TERMLINK_CONFIG__ = config;
+        state.sessionId = getQueryParam('sessionId') || config.sessionId || '';
+        state.serverUrl = normalizeServerUrl(config.serverUrl || '');
+        state.authHeader = typeof config.authHeader === 'string' ? config.authHeader : '';
     }
 
     function normalizeServerUrl(value) {
@@ -81,10 +118,10 @@
         const response = await fetch(buildApiUrl(pathName, query), { headers });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-            const message = payload && payload.error
+            const errorMessage = payload && payload.error
                 ? (payload.error.message || payload.error)
                 : `HTTP ${response.status}`;
-            throw new Error(message);
+            throw new Error(errorMessage);
         }
         return payload;
     }
@@ -94,9 +131,76 @@
         elements.banner.textContent = hidden ? '' : message;
     }
 
-    function renderBrowser(entries) {
+    function setStatusBox(element, message, tone) {
+        if (!element) {
+            return;
+        }
+        const hasMessage = typeof message === 'string' && message.trim().length > 0;
+        element.hidden = !hasMessage;
+        element.textContent = hasMessage ? message : '';
+        element.classList.remove('is-error', 'is-loading');
+        if (!hasMessage) {
+            return;
+        }
+        if (tone === 'error') {
+            element.classList.add('is-error');
+        } else if (tone === 'loading') {
+            element.classList.add('is-loading');
+        }
+    }
+
+    function setLoadingFlag(key, value) {
+        state.loadingState[key] = value;
+        renderControls();
+    }
+
+    function renderControls() {
+        const hasSelection = !!state.selectedFilePath;
+        const hasDiffView = state.activeView === 'diff';
+        const contentPreview = state.filePreview || {};
+        const isSegmented = contentPreview.viewMode === 'segmented';
+        const isTruncated = contentPreview.viewMode === 'truncated';
+        const isLimited = contentPreview.viewMode === 'limited';
+
+        elements.toggleHidden.checked = state.showHidden;
+        elements.btnRoot.disabled = state.loadingState.tree || state.currentDir === '';
+        elements.btnUp.disabled = state.loadingState.tree || state.currentDir === '';
+        elements.btnRefresh.disabled = state.loadingState.meta || state.loadingState.tree || state.loadingState.file || state.loadingState.diff || state.loadingState.more;
+        elements.toggleHidden.disabled = state.loadingState.tree;
+
+        elements.btnViewContent.disabled = !hasSelection || state.loadingState.file || state.loadingState.more;
+        elements.btnViewDiff.disabled = !hasSelection || state.loadingState.diff;
+        elements.btnReloadFile.disabled = !hasSelection || state.loadingState.file || state.loadingState.diff || state.loadingState.more;
+
+        elements.btnViewContent.classList.toggle('active', state.activeView === 'content');
+        elements.btnViewDiff.classList.toggle('active', hasDiffView);
+
+        elements.btnLoadMore.hidden = !(state.activeView === 'content' && isTruncated && contentPreview.hasMore);
+        elements.btnPrevSegment.hidden = !(state.activeView === 'content' && isSegmented);
+        elements.btnNextSegment.hidden = !(state.activeView === 'content' && isSegmented);
+        elements.btnLimitedHead.hidden = !(state.activeView === 'content' && isLimited);
+        elements.btnLimitedTail.hidden = !(state.activeView === 'content' && isLimited);
+
+        elements.btnLoadMore.disabled = state.loadingState.more;
+        elements.btnPrevSegment.disabled = state.loadingState.more || !isSegmented || !((contentPreview.offset || 0) > 0);
+        elements.btnNextSegment.disabled = state.loadingState.more || !isSegmented || !contentPreview.hasMore;
+        elements.btnLimitedHead.disabled = state.loadingState.more || !isLimited || contentPreview.currentLimitedMode === 'head';
+        elements.btnLimitedTail.disabled = state.loadingState.more || !isLimited || contentPreview.currentLimitedMode === 'tail';
+    }
+
+    function renderHeader() {
+        elements.title.textContent = state.workspaceRoot || 'Workspace';
+        if (state.meta.disabledReason) {
+            elements.subtitle.textContent = '当前工作区不可用';
+            return;
+        }
+        elements.subtitle.textContent = state.meta.isGitRepo
+            ? `Git Root: ${state.meta.gitRoot || ''}`
+            : '当前目录不在 Git 仓库中';
+    }
+
+    function renderBrowserList(entries) {
         elements.browserList.innerHTML = '';
-        elements.browserEmpty.hidden = entries.length > 0;
         entries.forEach((entry) => {
             const button = document.createElement('button');
             button.type = 'button';
@@ -113,73 +217,44 @@
                     ${entry.gitStatus ? `<span class="badge badge-git">${escapeHtml(entry.gitStatus)}</span>` : ''}
                 </span>
             `;
+            button.disabled = state.loadingState.tree;
             button.addEventListener('click', () => {
                 if (entry.type === 'directory') {
-                    loadTree(entry.path);
+                    void loadTree(entry.path);
                 } else {
-                    openFile(entry);
+                    void openFile(entry);
                 }
             });
             elements.browserList.appendChild(button);
         });
     }
 
-    function renderViewer() {
-        const preview = state.activeView === 'diff' ? state.diffPreview : state.filePreview;
-        const selected = state.selectedFileMeta;
-        elements.btnViewContent.classList.toggle('active', state.activeView === 'content');
-        elements.btnViewDiff.classList.toggle('active', state.activeView === 'diff');
-        elements.viewerTitle.textContent = selected ? selected.name : '未选择文件';
-        elements.viewerMeta.textContent = selected ? (selected.path || '') : '打开文件后可查看内容或 Diff';
+    function renderBrowserPane() {
+        const displayPath = state.currentDir || '/';
+        elements.currentDirLabel.textContent = displayPath;
 
-        if (!preview) {
-            elements.viewerEmpty.hidden = false;
-            elements.viewerBody.hidden = true;
-            elements.viewerActions.hidden = true;
-            elements.viewerModeNote.hidden = true;
+        if (state.errorState.tree) {
+            setStatusBox(elements.browserStatus, state.errorState.tree, 'error');
+        } else if (state.loadingState.tree) {
+            setStatusBox(elements.browserStatus, '正在加载目录...', 'loading');
+        } else {
+            setStatusBox(elements.browserStatus, '', '');
+        }
+
+        if (state.errorState.tree) {
+            elements.browserList.innerHTML = '';
+            elements.browserEmpty.hidden = false;
+            elements.browserEmpty.textContent = '目录加载失败，请重试。';
             return;
         }
 
-        elements.viewerEmpty.hidden = true;
-        elements.viewerBody.hidden = false;
-        elements.viewerActions.hidden = false;
-
-        if (preview.previewable === false) {
-            elements.viewerBody.textContent = '';
-            elements.viewerModeNote.hidden = false;
-            elements.viewerModeNote.textContent = '该文件不可作为文本预览。';
-        } else if (state.activeView === 'diff') {
-            elements.viewerModeNote.hidden = false;
-            if (preview.hasChanges === false) {
-                elements.viewerModeNote.textContent = preview.reason === 'untracked_file'
-                    ? '当前文件未被 Git 跟踪，无法生成有效 Diff。'
-                    : '当前文件没有 Git 变更。';
-                elements.viewerBody.textContent = '';
-            } else {
-                elements.viewerModeNote.textContent = preview.truncated
-                    ? 'Diff 输出已截断。'
-                    : '统一文本 Diff。';
-                elements.viewerBody.textContent = preview.diffText || '';
-            }
-        } else {
-            elements.viewerModeNote.hidden = false;
-            elements.viewerModeNote.textContent = buildViewModeMessage(preview);
-            elements.viewerBody.textContent = preview.content || '';
-        }
-
-        const contentPreview = state.filePreview || {};
-        const isSegmented = contentPreview.viewMode === 'segmented';
-        const isTruncated = contentPreview.viewMode === 'truncated';
-        const isLimited = contentPreview.viewMode === 'limited';
-
-        elements.btnLoadMore.hidden = !(state.activeView === 'content' && isTruncated && contentPreview.hasMore);
-        elements.btnPrevSegment.hidden = !(state.activeView === 'content' && isSegmented && contentPreview.offset > 0);
-        elements.btnNextSegment.hidden = !(state.activeView === 'content' && isSegmented && contentPreview.hasMore);
-        elements.btnLimitedHead.hidden = !(state.activeView === 'content' && isLimited);
-        elements.btnLimitedTail.hidden = !(state.activeView === 'content' && isLimited);
+        renderBrowserList(state.treeEntries);
+        const showEmpty = !state.loadingState.tree && state.treeEntries.length === 0;
+        elements.browserEmpty.hidden = !showEmpty;
+        elements.browserEmpty.textContent = '当前目录为空。';
     }
 
-    function buildViewModeMessage(preview) {
+    function buildContentModeMessage(preview) {
         if (preview.previewable === false) {
             return '该文件不可作为文本预览。';
         }
@@ -187,120 +262,403 @@
             return '完整预览';
         }
         if (preview.viewMode === 'truncated') {
-            return preview.hasMore ? '截断预览，可继续加载更多。' : '截断预览';
+            return preview.hasMore
+                ? `截断预览，当前已加载 ${preview.returnedBytes || 0} 字节，可继续加载更多。`
+                : '截断预览';
         }
         if (preview.viewMode === 'segmented') {
-            return '分段查看模式';
+            const start = Number.isFinite(preview.offset) ? preview.offset : 0;
+            const end = start + (preview.returnedBytes || 0);
+            return `分段查看模式，当前显示 ${start}-${end} 字节区间。`;
         }
         if (preview.viewMode === 'limited') {
-            return '受限查看模式，可切换头部或尾部片段。';
+            const modeLabel = preview.currentLimitedMode === 'tail' ? '尾部' : '头部';
+            return `受限查看模式，当前显示文件${modeLabel}片段。`;
         }
         return '';
     }
 
-    async function loadMeta() {
-        const payload = await fetchJson(`/api/sessions/${encodeURIComponent(state.sessionId)}/workspace/meta`);
-        state.workspaceRoot = payload.workspaceRoot || '';
-        state.defaultEntryPath = payload.defaultEntryPath || '';
-        elements.title.textContent = payload.workspaceRoot || 'Workspace';
-        elements.subtitle.textContent = payload.isGitRepo
-            ? `Git Root: ${payload.gitRoot || ''}`
-            : '当前目录不在 Git 仓库中';
-
-        if (payload.disabledReason) {
-            setBanner('当前会话缺少可用的 workspaceRoot，无法浏览工作区。', false);
-            return false;
+    function buildDiffStatusMessage(preview) {
+        if (preview.reason === 'not_git_repo') {
+            return '当前目录不在 Git 仓库中。';
         }
-        setBanner('', true);
-        return true;
+        if (preview.reason === 'untracked_file') {
+            return '当前文件未被 Git 跟踪，无法生成有效 Diff。';
+        }
+        if (preview.hasChanges === false) {
+            return '当前文件没有 Git 变更。';
+        }
+        if (preview.truncated) {
+            return 'Diff 输出已截断。';
+        }
+        return '统一文本 Diff。';
     }
 
-    async function loadTree(nextPath) {
-        state.currentDir = nextPath || '';
-        const payload = await fetchJson(`/api/sessions/${encodeURIComponent(state.sessionId)}/workspace/tree`, {
-            path: state.currentDir,
-            showHidden: state.showHidden
-        });
-        elements.currentDirLabel.textContent = payload.path || '/';
-        renderBrowser(payload.entries || []);
+    function renderViewerPane() {
+        const selected = state.selectedFileMeta;
+        const preview = state.activeView === 'diff' ? state.diffPreview : state.filePreview;
+
+        elements.viewerTitle.textContent = selected ? selected.name : '未选择文件';
+        elements.viewerMeta.textContent = selected
+            ? (selected.path || '')
+            : '打开文件后可查看内容或 Diff';
+
+        setStatusBox(elements.viewerStatus, '', '');
+        elements.viewerModeNote.hidden = true;
+        elements.viewerModeNote.textContent = '';
+        elements.viewerBody.hidden = true;
+        elements.viewerBody.textContent = '';
+        elements.viewerActions.hidden = true;
+
+        if (!selected) {
+            elements.viewerEmpty.hidden = false;
+            elements.viewerEmpty.textContent = '请选择一个文本文件。';
+            renderControls();
+            return;
+        }
+
+        if (state.activeView === 'content') {
+            if (state.errorState.file) {
+                setStatusBox(elements.viewerStatus, state.errorState.file, 'error');
+                elements.viewerEmpty.hidden = false;
+                elements.viewerEmpty.textContent = '文件内容加载失败。';
+                renderControls();
+                return;
+            }
+            if (state.loadingState.file && !state.filePreview) {
+                setStatusBox(elements.viewerStatus, '正在加载文件内容...', 'loading');
+                elements.viewerEmpty.hidden = false;
+                elements.viewerEmpty.textContent = '正在获取文件内容。';
+                renderControls();
+                return;
+            }
+            if (!preview) {
+                elements.viewerEmpty.hidden = false;
+                elements.viewerEmpty.textContent = '请选择一个文本文件。';
+                renderControls();
+                return;
+            }
+
+            elements.viewerEmpty.hidden = true;
+            elements.viewerActions.hidden = false;
+            elements.viewerModeNote.hidden = false;
+            elements.viewerModeNote.textContent = buildContentModeMessage(preview);
+
+            if (preview.previewable === false) {
+                renderControls();
+                return;
+            }
+
+            elements.viewerBody.hidden = false;
+            elements.viewerBody.textContent = preview.content || '';
+            renderControls();
+            return;
+        }
+
+        if (state.errorState.diff) {
+            setStatusBox(elements.viewerStatus, state.errorState.diff, 'error');
+            elements.viewerEmpty.hidden = false;
+            elements.viewerEmpty.textContent = 'Diff 加载失败，可切回内容视图继续查看文件。';
+            renderControls();
+            return;
+        }
+        if (state.loadingState.diff && !state.diffPreview) {
+            setStatusBox(elements.viewerStatus, '正在加载 Diff...', 'loading');
+            elements.viewerEmpty.hidden = false;
+            elements.viewerEmpty.textContent = '正在获取 Diff。';
+            renderControls();
+            return;
+        }
+        if (!state.diffPreview) {
+            elements.viewerEmpty.hidden = false;
+            elements.viewerEmpty.textContent = '点击 Diff 以按需加载当前文件变更。';
+            renderControls();
+            return;
+        }
+
+        elements.viewerEmpty.hidden = true;
+        elements.viewerModeNote.hidden = false;
+        elements.viewerModeNote.textContent = buildDiffStatusMessage(state.diffPreview);
+
+        if (state.diffPreview.hasChanges) {
+            elements.viewerBody.hidden = false;
+            elements.viewerBody.textContent = state.diffPreview.diffText || '';
+        }
+        renderControls();
     }
 
-    async function openFile(entry) {
+    function renderPage() {
+        renderHeader();
+        renderBrowserPane();
+        renderViewerPane();
+        renderControls();
+    }
+
+    function resetViewerStateForSelection(entry) {
+        state.requestState.diffSeq += 1;
+        state.requestState.moreSeq += 1;
+        state.loadingState.diff = false;
+        state.loadingState.more = false;
         state.selectedFilePath = entry.path;
         state.selectedFileMeta = entry;
         state.activeView = 'content';
+        state.filePreview = null;
         state.diffPreview = null;
-        state.filePreview = await fetchJson(`/api/sessions/${encodeURIComponent(state.sessionId)}/workspace/file`, {
-            path: entry.path
-        });
-        renderViewer();
+        state.errorState.file = '';
+        state.errorState.diff = '';
+        renderPage();
+    }
+
+    async function loadMeta() {
+        setLoadingFlag('meta', true);
+        state.errorState.page = '';
+        try {
+            const payload = await fetchJson(`/api/sessions/${encodeURIComponent(state.sessionId)}/workspace/meta`);
+            state.workspaceRoot = payload.workspaceRoot || '';
+            state.defaultEntryPath = payload.defaultEntryPath || '';
+            state.meta.isGitRepo = payload.isGitRepo === true;
+            state.meta.gitRoot = payload.gitRoot || '';
+            state.meta.disabledReason = payload.disabledReason || '';
+            renderHeader();
+            if (payload.disabledReason) {
+                setBanner('当前会话缺少可用的 workspaceRoot，无法浏览工作区。', false);
+                return false;
+            }
+            setBanner('', true);
+            return true;
+        } catch (error) {
+            state.errorState.page = error.message || '加载工作区失败。';
+            setBanner(state.errorState.page, false);
+            throw error;
+        } finally {
+            setLoadingFlag('meta', false);
+        }
+    }
+
+    async function loadTree(nextPath) {
+        const requestSeq = state.requestState.treeSeq + 1;
+        state.requestState.treeSeq = requestSeq;
+        state.currentDir = typeof nextPath === 'string' ? nextPath : '';
+        state.errorState.tree = '';
+        setLoadingFlag('tree', true);
+        renderBrowserPane();
+
+        try {
+            const payload = await fetchJson(`/api/sessions/${encodeURIComponent(state.sessionId)}/workspace/tree`, {
+                path: state.currentDir,
+                showHidden: state.showHidden
+            });
+            if (requestSeq !== state.requestState.treeSeq) {
+                return;
+            }
+            state.currentDir = payload.path || '';
+            state.treeEntries = Array.isArray(payload.entries) ? payload.entries : [];
+            state.errorState.tree = '';
+            renderBrowserPane();
+        } catch (error) {
+            if (requestSeq !== state.requestState.treeSeq) {
+                return;
+            }
+            state.treeEntries = [];
+            state.errorState.tree = error.message || '目录加载失败。';
+            renderBrowserPane();
+        } finally {
+            if (requestSeq === state.requestState.treeSeq) {
+                setLoadingFlag('tree', false);
+                renderBrowserPane();
+            }
+        }
+    }
+
+    async function openFile(entry) {
+        const requestSeq = state.requestState.fileSeq + 1;
+        state.requestState.fileSeq = requestSeq;
+        resetViewerStateForSelection(entry);
+        setLoadingFlag('file', true);
+
+        try {
+            const payload = await fetchJson(`/api/sessions/${encodeURIComponent(state.sessionId)}/workspace/file`, {
+                path: entry.path
+            });
+            if (requestSeq !== state.requestState.fileSeq || state.selectedFilePath !== entry.path) {
+                return;
+            }
+            state.filePreview = payload;
+            state.errorState.file = '';
+            renderViewerPane();
+        } catch (error) {
+            if (requestSeq !== state.requestState.fileSeq || state.selectedFilePath !== entry.path) {
+                return;
+            }
+            state.filePreview = null;
+            state.errorState.file = error.message || '文件内容加载失败。';
+            renderViewerPane();
+        } finally {
+            if (requestSeq === state.requestState.fileSeq && state.selectedFilePath === entry.path) {
+                setLoadingFlag('file', false);
+                renderViewerPane();
+            }
+        }
     }
 
     async function loadDiff() {
         if (!state.selectedFilePath) {
             return;
         }
-        state.diffPreview = await fetchJson(`/api/sessions/${encodeURIComponent(state.sessionId)}/workspace/diff`, {
-            path: state.selectedFilePath
-        });
+        const requestPath = state.selectedFilePath;
+        const requestSeq = state.requestState.diffSeq + 1;
+        state.requestState.diffSeq = requestSeq;
         state.activeView = 'diff';
-        renderViewer();
+        state.errorState.diff = '';
+        setLoadingFlag('diff', true);
+        renderViewerPane();
+
+        try {
+            const payload = await fetchJson(`/api/sessions/${encodeURIComponent(state.sessionId)}/workspace/diff`, {
+                path: requestPath
+            });
+            if (requestSeq !== state.requestState.diffSeq || state.selectedFilePath !== requestPath) {
+                return;
+            }
+            state.diffPreview = payload;
+            state.errorState.diff = '';
+            renderViewerPane();
+        } catch (error) {
+            if (requestSeq !== state.requestState.diffSeq || state.selectedFilePath !== requestPath) {
+                return;
+            }
+            state.errorState.diff = error.message || 'Diff 加载失败。';
+            renderViewerPane();
+        } finally {
+            if (requestSeq === state.requestState.diffSeq && state.selectedFilePath === requestPath) {
+                setLoadingFlag('diff', false);
+                renderViewerPane();
+            }
+        }
     }
 
     async function reloadSelectedFile() {
-        if (!state.selectedFilePath) {
+        if (!state.selectedFilePath || !state.selectedFileMeta) {
             return;
         }
         if (state.activeView === 'diff') {
             await loadDiff();
             return;
         }
-        state.filePreview = await fetchJson(`/api/sessions/${encodeURIComponent(state.sessionId)}/workspace/file`, {
-            path: state.selectedFilePath
-        });
-        renderViewer();
+        await openFile(state.selectedFileMeta);
     }
 
     async function loadMore() {
-        if (!state.filePreview || !state.filePreview.hasMore) {
+        if (!state.filePreview || !state.filePreview.hasMore || !state.selectedFilePath) {
             return;
         }
-        const payload = await fetchJson(`/api/sessions/${encodeURIComponent(state.sessionId)}/workspace/file-segment`, {
-            path: state.selectedFilePath,
-            offset: state.filePreview.nextOffset,
-            length: 131072
-        });
-        state.filePreview.content = `${state.filePreview.content || ''}${payload.content || ''}`;
-        state.filePreview.offset = payload.offset;
-        state.filePreview.returnedBytes = payload.returnedBytes;
-        state.filePreview.nextOffset = payload.nextOffset;
-        state.filePreview.hasMore = payload.hasMore;
-        renderViewer();
+        const requestPath = state.selectedFilePath;
+        const requestSeq = state.requestState.moreSeq + 1;
+        state.requestState.moreSeq = requestSeq;
+        setLoadingFlag('more', true);
+        state.errorState.file = '';
+        renderViewerPane();
+        try {
+            const payload = await fetchJson(`/api/sessions/${encodeURIComponent(state.sessionId)}/workspace/file-segment`, {
+                path: requestPath,
+                offset: state.filePreview.nextOffset,
+                length: 131072
+            });
+            if (requestSeq !== state.requestState.moreSeq || state.selectedFilePath !== requestPath) {
+                return;
+            }
+            state.filePreview = Object.assign({}, state.filePreview, payload, {
+                content: `${state.filePreview.content || ''}${payload.content || ''}`
+            });
+            renderViewerPane();
+        } catch (error) {
+            if (requestSeq === state.requestState.moreSeq && state.selectedFilePath === requestPath) {
+                state.errorState.file = error.message || '继续加载文件失败。';
+                renderViewerPane();
+            }
+        } finally {
+            if (requestSeq === state.requestState.moreSeq) {
+                setLoadingFlag('more', false);
+                if (state.selectedFilePath === requestPath) {
+                    renderViewerPane();
+                }
+            }
+        }
     }
 
     async function moveSegment(direction) {
-        if (!state.filePreview) {
+        if (!state.filePreview || !state.selectedFilePath) {
             return;
         }
+        const requestPath = state.selectedFilePath;
+        const currentOffset = Number.isFinite(state.filePreview.offset) ? state.filePreview.offset : 0;
         const nextOffset = direction === 'prev'
-            ? Math.max(0, (state.filePreview.offset || 0) - 65536)
+            ? Math.max(0, currentOffset - 65536)
             : (state.filePreview.nextOffset || 0);
-        const payload = await fetchJson(`/api/sessions/${encodeURIComponent(state.sessionId)}/workspace/file-segment`, {
-            path: state.selectedFilePath,
-            offset: nextOffset,
-            length: 65536
-        });
-        state.filePreview = Object.assign({}, state.filePreview, payload);
-        renderViewer();
+        const requestSeq = state.requestState.moreSeq + 1;
+        state.requestState.moreSeq = requestSeq;
+        setLoadingFlag('more', true);
+        state.errorState.file = '';
+        renderViewerPane();
+        try {
+            const payload = await fetchJson(`/api/sessions/${encodeURIComponent(state.sessionId)}/workspace/file-segment`, {
+                path: requestPath,
+                offset: nextOffset,
+                length: 65536
+            });
+            if (requestSeq !== state.requestState.moreSeq || state.selectedFilePath !== requestPath) {
+                return;
+            }
+            state.filePreview = Object.assign({}, state.filePreview, payload);
+            renderViewerPane();
+        } catch (error) {
+            if (requestSeq === state.requestState.moreSeq && state.selectedFilePath === requestPath) {
+                state.errorState.file = error.message || '分段加载失败。';
+                renderViewerPane();
+            }
+        } finally {
+            if (requestSeq === state.requestState.moreSeq) {
+                setLoadingFlag('more', false);
+                if (state.selectedFilePath === requestPath) {
+                    renderViewerPane();
+                }
+            }
+        }
     }
 
     async function loadLimited(mode) {
-        const payload = await fetchJson(`/api/sessions/${encodeURIComponent(state.sessionId)}/workspace/file-limited`, {
-            path: state.selectedFilePath,
-            mode
-        });
-        state.filePreview = Object.assign({}, state.filePreview || {}, payload);
-        renderViewer();
+        if (!state.selectedFilePath) {
+            return;
+        }
+        const requestPath = state.selectedFilePath;
+        const requestSeq = state.requestState.moreSeq + 1;
+        state.requestState.moreSeq = requestSeq;
+        setLoadingFlag('more', true);
+        state.errorState.file = '';
+        renderViewerPane();
+        try {
+            const payload = await fetchJson(`/api/sessions/${encodeURIComponent(state.sessionId)}/workspace/file-limited`, {
+                path: requestPath,
+                mode
+            });
+            if (requestSeq !== state.requestState.moreSeq || state.selectedFilePath !== requestPath) {
+                return;
+            }
+            state.filePreview = Object.assign({}, state.filePreview || {}, payload);
+            renderViewerPane();
+        } catch (error) {
+            if (requestSeq === state.requestState.moreSeq && state.selectedFilePath === requestPath) {
+                state.errorState.file = error.message || '切换受限查看模式失败。';
+                renderViewerPane();
+            }
+        } finally {
+            if (requestSeq === state.requestState.moreSeq) {
+                setLoadingFlag('more', false);
+                if (state.selectedFilePath === requestPath) {
+                    renderViewerPane();
+                }
+            }
+        }
     }
 
     function goUpDirectory() {
@@ -309,7 +667,7 @@
         }
         const parts = state.currentDir.split('/').filter(Boolean);
         parts.pop();
-        loadTree(parts.join('/'));
+        void loadTree(parts.join('/'));
     }
 
     function escapeHtml(value) {
@@ -324,17 +682,23 @@
     function bindEvents() {
         elements.btnRefresh.addEventListener('click', async () => {
             await loadTree(state.currentDir);
-            await reloadSelectedFile();
+            if (state.selectedFilePath) {
+                await reloadSelectedFile();
+            }
         });
-        elements.btnRoot.addEventListener('click', () => loadTree(''));
-        elements.btnUp.addEventListener('click', () => goUpDirectory());
+        elements.btnRoot.addEventListener('click', () => {
+            void loadTree('');
+        });
+        elements.btnUp.addEventListener('click', () => {
+            goUpDirectory();
+        });
         elements.toggleHidden.addEventListener('change', async (event) => {
             state.showHidden = event.target.checked;
             await loadTree(state.currentDir);
         });
         elements.btnViewContent.addEventListener('click', () => {
             state.activeView = 'content';
-            renderViewer();
+            renderViewerPane();
         });
         elements.btnViewDiff.addEventListener('click', async () => {
             await loadDiff();
@@ -360,19 +724,19 @@
     }
 
     async function bootstrap() {
-        const injectedConfig = readInjectedConfig();
-        state.sessionId = getQueryParam('sessionId') || injectedConfig.sessionId || '';
-        state.serverUrl = normalizeServerUrl(injectedConfig.serverUrl || '');
-        state.authHeader = typeof injectedConfig.authHeader === 'string' ? injectedConfig.authHeader : '';
+        applyInjectedConfig(readInjectedConfig());
 
         if (!state.sessionId) {
             setBanner('缺少 sessionId，无法打开工作区。', false);
             return;
         }
 
+        renderPage();
+
         try {
             const enabled = await loadMeta();
             if (!enabled) {
+                renderPage();
                 return;
             }
             await loadTree(state.defaultEntryPath || '');
@@ -382,5 +746,9 @@
     }
 
     bindEvents();
-    bootstrap();
+    window.__applyWorkspaceConfig = function (config) {
+        applyInjectedConfig(config);
+        void bootstrap();
+    };
+    void bootstrap();
 })();

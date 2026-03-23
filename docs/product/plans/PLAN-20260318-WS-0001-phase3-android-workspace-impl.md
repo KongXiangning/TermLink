@@ -44,6 +44,8 @@ GET /api/workspace/picker/tree
 
 Android 可以向 picker 传入一个候选起始目录，用于提升首次浏览效率。  
 候选起始目录的具体来源优先级不在本阶段冻结，由实际集成实现结合现有表单状态与客户端上下文决定。
+若客户端未提供候选路径或候选路径不可用，则由服务端基于 `TERMLINK_WORKSPACE_PICKER_ROOT` 返回默认起始目录。  
+当服务端配置多根目录时，Android picker 首屏直接展示这些宿主机根目录入口。
 
 #### 3.4 创建提交约束
 

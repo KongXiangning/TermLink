@@ -88,6 +88,40 @@ class SessionApiClient(context: Context) {
         }
     }
 
+    fun getWorkspaceMeta(profile: ServerProfile, sessionId: String): ApiResult<WorkspaceMeta> {
+        val response = request(
+            profile = profile,
+            method = "GET",
+            endpointPath = "/sessions/$sessionId/workspace/meta",
+            body = null
+        )
+        return when (response) {
+            is ApiResult.Failure -> response
+            is ApiResult.Success -> parseWorkspaceMeta(response.value)
+        }
+    }
+
+    fun getWorkspacePickerTree(profile: ServerProfile, requestedPath: String?): ApiResult<WorkspacePickerTree> {
+        val endpoint = buildString {
+            append("/workspace/picker/tree")
+            val normalizedPath = requestedPath?.trim().takeIf { !it.isNullOrBlank() }
+            if (normalizedPath != null) {
+                append("?path=")
+                append(java.net.URLEncoder.encode(normalizedPath, Charsets.UTF_8.name()))
+            }
+        }
+        val response = request(
+            profile = profile,
+            method = "GET",
+            endpointPath = endpoint,
+            body = null
+        )
+        return when (response) {
+            is ApiResult.Failure -> response
+            is ApiResult.Success -> parseWorkspacePickerTree(response.value)
+        }
+    }
+
     private fun parseSessions(payload: String): ApiResult<List<SessionSummary>> {
         return try {
             val array = JSONArray(payload.ifBlank { "[]" })
@@ -150,6 +184,71 @@ class SessionApiClient(context: Context) {
                 SessionApiError(
                     code = SessionApiErrorCode.PARSE_ERROR,
                     message = "Failed to parse session response.",
+                    cause = ex
+                )
+            )
+        }
+    }
+
+    private fun parseWorkspaceMeta(payload: String): ApiResult<WorkspaceMeta> {
+        return try {
+            val obj = JSONObject(payload.ifBlank { "{}" })
+            ApiResult.Success(
+                WorkspaceMeta(
+                    sessionId = obj.optString("sessionId", ""),
+                    workspaceRoot = obj.optString("workspaceRoot", "").trim().takeIf { it.isNotBlank() },
+                    workspaceRootSource = obj.optString("workspaceRootSource", "").trim().takeIf { it.isNotBlank() },
+                    defaultEntryPath = obj.optString("defaultEntryPath", "").trim().takeIf { it.isNotBlank() },
+                    isGitRepo = obj.optBoolean("isGitRepo", false),
+                    gitRoot = obj.optString("gitRoot", "").trim().takeIf { it.isNotBlank() },
+                    disabledReason = obj.optString("disabledReason", "").trim().takeIf { it.isNotBlank() }
+                )
+            )
+        } catch (ex: JSONException) {
+            ApiResult.Failure(
+                SessionApiError(
+                    code = SessionApiErrorCode.PARSE_ERROR,
+                    message = "Failed to parse workspace meta response.",
+                    cause = ex
+                )
+            )
+        }
+    }
+
+    private fun parseWorkspacePickerTree(payload: String): ApiResult<WorkspacePickerTree> {
+        return try {
+            val obj = JSONObject(payload.ifBlank { "{}" })
+            val entriesJson = obj.optJSONArray("entries") ?: JSONArray()
+            val entries = mutableListOf<WorkspacePickerEntry>()
+            for (index in 0 until entriesJson.length()) {
+                val item = entriesJson.optJSONObject(index) ?: continue
+                val name = item.optString("name", "").trim()
+                val path = item.optString("path", "").trim()
+                if (name.isBlank() || path.isBlank()) {
+                    continue
+                }
+                entries.add(
+                    WorkspacePickerEntry(
+                        name = name,
+                        path = path,
+                        type = item.optString("type", "directory").trim(),
+                        hidden = item.optBoolean("hidden", false)
+                    )
+                )
+            }
+            ApiResult.Success(
+                WorkspacePickerTree(
+                    path = obj.optString("path", "").trim(),
+                    parentPath = obj.optString("parentPath", "").trim().takeIf { it.isNotBlank() },
+                    canGoUp = obj.optBoolean("canGoUp", false),
+                    entries = entries
+                )
+            )
+        } catch (ex: JSONException) {
+            ApiResult.Failure(
+                SessionApiError(
+                    code = SessionApiErrorCode.PARSE_ERROR,
+                    message = "Failed to parse workspace picker response.",
                     cause = ex
                 )
             )
@@ -426,7 +525,10 @@ class SessionApiClient(context: Context) {
             if (!json.has("error")) {
                 null
             } else {
-                json.optString("error").takeIf { it.isNotBlank() }
+                when (val errorValue = json.opt("error")) {
+                    is JSONObject -> errorValue.optString("message").takeIf { it.isNotBlank() }
+                    else -> json.optString("error").takeIf { it.isNotBlank() }
+                }
             }
         } catch (_: JSONException) {
             null

@@ -36,6 +36,7 @@ import com.termlink.app.data.ExternalSessionStore
 import com.termlink.app.data.ServerConfigState
 import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
+import com.termlink.app.data.SessionApiClient
 import com.termlink.app.data.SessionMode
 import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.TerminalType
@@ -49,6 +50,8 @@ import org.json.JSONObject
 import java.net.URI
 import java.security.MessageDigest
 import java.util.Locale
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEventBridge.Listener,
     SettingsFragment.Callbacks, SessionsFragment.Callbacks {
@@ -67,12 +70,15 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var sessionsDrawerButton: ImageButton? = null
     private var backButton: ImageButton? = null
     private var settingsButton: ImageButton? = null
+    private var workspaceButton: ImageButton? = null
     private var quickToolbarButton: ImageButton? = null
     private var quickToolbarVisible: Boolean = true
     private lateinit var terminalEventBridge: TerminalEventBridge
     private lateinit var serverConfigStore: ServerConfigStore
     private lateinit var basicCredentialStore: BasicCredentialStore
     private lateinit var externalSessionStore: ExternalSessionStore
+    private lateinit var sessionApiClient: SessionApiClient
+    private val backgroundExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private var serverConfigState: ServerConfigState? = null
     private var activeProfile: ServerProfile? = null
     private var currentTerminalProfileId: String = ""
@@ -105,6 +111,12 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var idleHandler: android.os.Handler? = null
     private var idleTimeoutRunnable: Runnable? = null
     private var isActivityVisible: Boolean = false
+    private var workspaceMetaSeq: Int = 0
+    private var workspaceMetaTargetKey: String = ""
+    private var workspaceEntryLoading: Boolean = false
+    private var workspaceEntryAvailable: Boolean = false
+    private var workspaceEntryStableResolution: Boolean = false
+    private var workspaceEntryDisabledReason: String? = null
     private val IDLE_DIM_DELAY_MS = 2 * 60 * 1000L // 2 minutes
     private val drawerListener = object : DrawerLayout.SimpleDrawerListener() {
         override fun onDrawerOpened(drawerView: View) {
@@ -135,6 +147,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         sessionsDrawerButton = findViewById(R.id.btn_open_sessions_drawer)
         backButton = findViewById(R.id.btn_back_terminal)
         settingsButton = findViewById(R.id.btn_open_settings)
+        workspaceButton = findViewById(R.id.btn_open_workspace)
         quickToolbarButton = findViewById(R.id.btn_toggle_quick_toolbar)
         statusTextView = findViewById(R.id.shell_status_text)
 
@@ -155,6 +168,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         serverConfigStore = ServerConfigStore(applicationContext)
         basicCredentialStore = BasicCredentialStore(applicationContext)
         externalSessionStore = ExternalSessionStore(applicationContext)
+        sessionApiClient = SessionApiClient(applicationContext)
         syncProfileState(serverConfigStore.loadState(), inject = false)
         currentTerminalProfileId = resolveInitialProfileId()
         lastSessionId = resolveInitialSessionId()
@@ -167,6 +181,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         sessionsDrawerButton?.setOnClickListener { openSessionsDrawer() }
         backButton?.setOnClickListener { showTerminalScreen() }
         settingsButton?.setOnClickListener { showSettingsScreen() }
+        workspaceButton?.setOnClickListener { handleWorkspaceButtonClick() }
         quickToolbarButton?.setOnClickListener { toggleQuickToolbar() }
 
         applySystemBarInsets()
@@ -196,6 +211,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         }
         idleHandler?.removeCallbacksAndMessages(null)
         disableKeepScreenOn()
+        backgroundExecutor.shutdownNow()
         idleHandler = null
         idleTimeoutRunnable = null
         isActivityVisible = false
@@ -211,6 +227,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             ViewCompat.requestApplyInsets(insetsView)
             applyTerminalChromeMode()
         }
+        refreshWorkspaceEntryState(force = false)
     }
 
     override fun onPause() {
@@ -506,6 +523,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         if (injectConfig && currentTerminalType() == TerminalType.TERMLINK_WS) {
             terminalWebView?.let { injectTerminalConfigIfChanged(it) }
         }
+        refreshWorkspaceEntryState(force = false)
     }
 
     private fun showSettingsScreen() {
@@ -838,6 +856,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             updateStatus(defaultBridgeIdleStatus())
             reloadTerminalSurfaceIfNeeded(forceReload = false)
         }
+        refreshWorkspaceEntryState(force = selectionChanged)
     }
 
     private fun updateStatus(text: String) {
@@ -938,6 +957,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             sessionsDrawerButton?.visibility = View.GONE
             backButton?.visibility = View.VISIBLE
             settingsButton?.visibility = View.GONE
+            workspaceButton?.visibility = View.GONE
             quickToolbarButton?.visibility = View.GONE
             statusTextView?.text = getString(R.string.settings_screen_title)
             backButton?.contentDescription = getString(R.string.settings_back_button)
@@ -947,6 +967,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         backButton?.visibility = View.GONE
         sessionsDrawerButton?.visibility = if (isTerminalChromeCompact) View.GONE else View.VISIBLE
         settingsButton?.visibility = View.VISIBLE
+        workspaceButton?.visibility = if (isCodexSessionActive()) View.VISIBLE else View.GONE
         quickToolbarButton?.visibility = if (
             currentTerminalType() == TerminalType.TERMLINK_WS &&
             currentSessionMode() == SessionMode.TERMINAL
@@ -956,7 +977,133 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             View.GONE
         }
         sessionsDrawerButton?.contentDescription = getString(R.string.sessions_panel_button)
+        applyWorkspaceButtonState()
         statusTextView?.text = terminalStatusText
+    }
+
+    private fun applyWorkspaceButtonState() {
+        val button = workspaceButton ?: return
+        if (!isCodexSessionActive()) {
+            button.visibility = View.GONE
+            return
+        }
+        button.visibility = View.VISIBLE
+        button.alpha = when {
+            workspaceEntryLoading -> 0.6f
+            workspaceEntryAvailable -> 1f
+            else -> 0.4f
+        }
+        button.contentDescription = when {
+            workspaceEntryLoading -> getString(R.string.workspace_entry_loading)
+            workspaceEntryAvailable -> getString(R.string.workspace_open_button)
+            !workspaceEntryDisabledReason.isNullOrBlank() -> workspaceEntryDisabledReason
+            else -> getString(R.string.workspace_entry_unavailable)
+        }
+    }
+
+    private fun handleWorkspaceButtonClick() {
+        if (!isCodexSessionActive()) {
+            return
+        }
+        if (workspaceEntryLoading) {
+            Toast.makeText(this, getString(R.string.workspace_entry_checking), Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (!workspaceEntryStableResolution) {
+            refreshWorkspaceEntryState(force = true)
+            Toast.makeText(this, getString(R.string.workspace_entry_checking), Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (!workspaceEntryAvailable) {
+            Toast.makeText(
+                this,
+                workspaceEntryDisabledReason ?: getString(R.string.workspace_entry_unavailable),
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+        val profile = resolveTerminalProfile() ?: return
+        if (lastSessionId.isBlank()) {
+            Toast.makeText(this, getString(R.string.workspace_activity_invalid_session), Toast.LENGTH_SHORT).show()
+            return
+        }
+        startActivity(
+            Intent(this, WorkspaceActivity::class.java)
+                .putExtra(WorkspaceActivity.EXTRA_PROFILE_ID, profile.id)
+                .putExtra(WorkspaceActivity.EXTRA_SESSION_ID, lastSessionId)
+        )
+    }
+
+    private fun refreshWorkspaceEntryState(force: Boolean) {
+        if (currentScreen != ScreenMode.TERMINAL || !isCodexSessionActive()) {
+            clearWorkspaceEntryState()
+            return
+        }
+        val profile = resolveTerminalProfile()
+        val sessionId = lastSessionId.trim()
+        if (profile == null || profile.terminalType != TerminalType.TERMLINK_WS || sessionId.isBlank()) {
+            clearWorkspaceEntryState()
+            return
+        }
+
+        val requestKey = "${profile.id}|$sessionId"
+        if (!force && workspaceMetaTargetKey == requestKey &&
+            (workspaceEntryLoading || workspaceEntryStableResolution)
+        ) {
+            applyWorkspaceButtonState()
+            return
+        }
+
+        val requestSeq = workspaceMetaSeq + 1
+        workspaceMetaSeq = requestSeq
+        workspaceMetaTargetKey = requestKey
+        workspaceEntryLoading = true
+        workspaceEntryAvailable = false
+        workspaceEntryStableResolution = false
+        workspaceEntryDisabledReason = null
+        applyWorkspaceButtonState()
+
+        backgroundExecutor.execute {
+            val result = sessionApiClient.getWorkspaceMeta(profile, sessionId)
+            runOnUiThread {
+                if (requestSeq != workspaceMetaSeq || workspaceMetaTargetKey != requestKey) {
+                    return@runOnUiThread
+                }
+                workspaceEntryLoading = false
+                when (result) {
+                    is com.termlink.app.data.ApiResult.Success -> {
+                        val disabledReason = result.value.disabledReason?.trim()?.takeIf { it.isNotBlank() }
+                        val hasWorkspaceTarget = !result.value.workspaceRoot.isNullOrBlank() ||
+                            !result.value.defaultEntryPath.isNullOrBlank()
+                        workspaceEntryStableResolution = true
+                        workspaceEntryAvailable = disabledReason == null && hasWorkspaceTarget
+                        workspaceEntryDisabledReason = disabledReason ?: if (workspaceEntryAvailable) {
+                            null
+                        } else {
+                            getString(R.string.workspace_entry_unavailable)
+                        }
+                    }
+                    is com.termlink.app.data.ApiResult.Failure -> {
+                        workspaceEntryAvailable = false
+                        workspaceEntryStableResolution = false
+                        workspaceEntryDisabledReason = result.error.message.ifBlank {
+                            getString(R.string.workspace_entry_unavailable)
+                        }
+                    }
+                }
+                applyWorkspaceButtonState()
+            }
+        }
+    }
+
+    private fun clearWorkspaceEntryState() {
+        workspaceMetaSeq += 1
+        workspaceMetaTargetKey = ""
+        workspaceEntryLoading = false
+        workspaceEntryAvailable = false
+        workspaceEntryStableResolution = false
+        workspaceEntryDisabledReason = null
+        applyWorkspaceButtonState()
     }
 
     private fun toggleQuickToolbar() {

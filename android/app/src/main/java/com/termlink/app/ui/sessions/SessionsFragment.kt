@@ -11,8 +11,11 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ListView
+import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -26,6 +29,7 @@ import com.termlink.app.data.SessionApiClient
 import com.termlink.app.data.SessionApiError
 import com.termlink.app.data.SessionApiErrorCode
 import com.termlink.app.data.SessionMode
+import com.termlink.app.data.WorkspacePickerTree
 import com.termlink.app.data.SessionRef
 import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.SessionSummary
@@ -537,6 +541,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         val spinnerMode = dialogView.findViewById<Spinner>(R.id.spinner_create_session_mode)
         val cwdContainer = dialogView.findViewById<View>(R.id.create_session_cwd_container)
         val inputCwd = dialogView.findViewById<EditText>(R.id.input_create_session_cwd)
+        val browseCwdButton = dialogView.findViewById<Button>(R.id.btn_browse_session_cwd)
         val profileLabels = profiles.map { profile ->
             "${profile.name} (${profile.baseUrl.ifBlank { getString(R.string.sessions_profile_url_empty) }})"
         }
@@ -577,13 +582,11 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         }
 
         fun resolveSuggestedCodexWorkspacePath(profile: ServerProfile?): String {
-            val hasCurrentCodexWorkspace = currentSelection.profileId == profile?.id &&
-                currentSelection.sessionMode == SessionMode.CODEX &&
-                !currentSelection.cwd.isNullOrBlank()
-            if (hasCurrentCodexWorkspace) {
-                return currentSelection.cwd.orEmpty()
+            val currentInput = inputCwd.text?.toString()?.trim().orEmpty()
+            if (currentInput.isNotBlank()) {
+                return currentInput
             }
-            return DEFAULT_CODEX_WORKSPACE_PATH
+            return ""
         }
 
         fun updateCreateDialogModeUi() {
@@ -618,6 +621,8 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                 val currentMode = selectedSessionMode(profile)
                 val showCwd = currentMode == SessionMode.CODEX
                 cwdContainer.visibility = if (showCwd) View.VISIBLE else View.GONE
+                browseCwdButton.visibility = if (showCwd) View.VISIBLE else View.GONE
+                browseCwdButton.isEnabled = codexSupported
                 if (showCwd && inputCwd.text.isNullOrBlank()) {
                     val suggestedCwd = resolveSuggestedCodexWorkspacePath(profile)
                     inputCwd.setText(suggestedCwd)
@@ -647,6 +652,34 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
             override fun onNothingSelected(parent: AdapterView<*>?) {
                 updateCreateDialogModeUi()
+            }
+        }
+        browseCwdButton.setOnClickListener {
+            val profile = selectedProfile()
+            if (profile == null || profile.terminalType != TerminalType.TERMLINK_WS) {
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.sessions_cwd_browse_profile_required),
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@setOnClickListener
+            }
+            if (selectedSessionMode(profile) != SessionMode.CODEX) {
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.sessions_cwd_browse_codex_only),
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@setOnClickListener
+            }
+            showWorkspacePickerDialog(
+                profile = profile,
+                initialPath = inputCwd.text?.toString()?.trim().takeIf { !it.isNullOrBlank() }
+                    ?: resolveSuggestedCodexWorkspacePath(profile)
+            ) { selectedPath ->
+                inputCwd.setText(selectedPath)
+                inputCwd.setSelection(inputCwd.text.length)
+                inputCwd.error = null
             }
         }
         updateCreateDialogModeUi()
@@ -700,6 +733,118 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             }
         }
 
+        dialog.show()
+    }
+
+    private fun showWorkspacePickerDialog(
+        profile: ServerProfile,
+        initialPath: String?,
+        onSelected: (String) -> Unit
+    ) {
+        val dialogView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.dialog_workspace_picker, null, false)
+        val currentPathText = dialogView.findViewById<TextView>(R.id.workspace_picker_current_path)
+        val statusText = dialogView.findViewById<TextView>(R.id.workspace_picker_status)
+        val progressBar = dialogView.findViewById<ProgressBar>(R.id.workspace_picker_progress)
+        val listView = dialogView.findViewById<ListView>(R.id.workspace_picker_list)
+        val entryLabels = mutableListOf<String>()
+        val entryAdapter = ArrayAdapter(
+            requireContext(),
+            android.R.layout.simple_list_item_1,
+            entryLabels
+        )
+        listView.adapter = entryAdapter
+
+        var activeTree: WorkspacePickerTree? = null
+        var requestSeq = 0
+        var isDialogOpen = true
+
+        fun renderTree(tree: WorkspacePickerTree?, loading: Boolean, errorMessage: String?) {
+            currentPathText.text = tree?.path ?: initialPath.orEmpty()
+            progressBar.visibility = if (loading) View.VISIBLE else View.GONE
+            statusText.visibility = if (loading || !errorMessage.isNullOrBlank() || (tree != null && tree.entries.isEmpty())) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
+            statusText.text = when {
+                loading -> getString(R.string.workspace_picker_loading)
+                !errorMessage.isNullOrBlank() -> getString(R.string.workspace_picker_error, errorMessage)
+                tree != null && tree.entries.isEmpty() -> getString(R.string.workspace_picker_empty)
+                else -> ""
+            }
+            entryLabels.clear()
+            entryLabels.addAll((tree?.entries ?: emptyList()).map { entry ->
+                if (entry.hidden) {
+                    ".${entry.name}"
+                } else {
+                    entry.name
+                }
+            })
+            entryAdapter.notifyDataSetChanged()
+        }
+
+        fun loadTree(path: String?) {
+            val nextSeq = requestSeq + 1
+            requestSeq = nextSeq
+            renderTree(activeTree, loading = true, errorMessage = null)
+            executor.execute {
+                val result = sessionApiClient.getWorkspacePickerTree(profile, path)
+                mainHandler.post {
+                    if (!isDialogOpen || nextSeq != requestSeq) {
+                        return@post
+                    }
+                    when (result) {
+                        is ApiResult.Success -> {
+                            activeTree = result.value
+                            renderTree(activeTree, loading = false, errorMessage = null)
+                        }
+                        is ApiResult.Failure -> {
+                            renderTree(activeTree, loading = false, errorMessage = result.error.message)
+                        }
+                    }
+                }
+            }
+        }
+
+        listView.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
+            val tree = activeTree ?: return@OnItemClickListener
+            val entry = tree.entries.getOrNull(position) ?: return@OnItemClickListener
+            if (entry.type == "directory") {
+                loadTree(entry.path)
+            }
+        }
+
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle(getString(R.string.workspace_picker_title))
+            .setView(dialogView)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setNeutralButton(R.string.workspace_picker_up, null)
+            .setPositiveButton(R.string.workspace_picker_select, null)
+            .create()
+
+        dialog.setOnShowListener {
+            val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            val neutralButton = dialog.getButton(AlertDialog.BUTTON_NEUTRAL)
+
+            positiveButton.setOnClickListener {
+                val tree = activeTree ?: return@setOnClickListener
+                onSelected(tree.path)
+                dialog.dismiss()
+            }
+            neutralButton.setOnClickListener {
+                val tree = activeTree ?: return@setOnClickListener
+                if (tree.canGoUp && !tree.parentPath.isNullOrBlank()) {
+                    loadTree(tree.parentPath)
+                }
+            }
+            loadTree(initialPath)
+        }
+
+        dialog.setOnDismissListener {
+            isDialogOpen = false
+            requestSeq += 1
+        }
         dialog.show()
     }
 
@@ -847,6 +992,5 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
     companion object {
         private const val AUTO_REFRESH_INTERVAL_MS = 10_000L
-        private const val DEFAULT_CODEX_WORKSPACE_PATH = "E:\\coding\\TermLink"
     }
 }

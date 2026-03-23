@@ -86,6 +86,13 @@ button {
     color: var(--ink);
     border-radius: 999px;
     padding: 8px 14px;
+    cursor: pointer;
+    transition: background-color 120ms ease, border-color 120ms ease, opacity 120ms ease;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.52;
 }
 
 button.active {
@@ -209,6 +216,7 @@ button.active {
 }
 
 .viewer-mode-note,
+.pane-status,
 .empty-state,
 .viewer-body {
     border-radius: 14px;
@@ -216,10 +224,27 @@ button.active {
     background: var(--code-bg);
 }
 
+.pane-status,
 .viewer-mode-note,
 .empty-state {
     padding: 14px;
     color: var(--muted);
+}
+
+.pane-status {
+    background: #fff6ec;
+}
+
+.pane-status.is-error {
+    border-color: rgba(142, 44, 44, 0.2);
+    background: #fff1f1;
+    color: var(--danger);
+}
+
+.pane-status.is-loading {
+    border-color: rgba(124, 83, 31, 0.2);
+    background: #fff8ef;
+    color: var(--warning);
 }
 
 .viewer-body {

@@ -22,13 +22,67 @@ function compareEntries(left, right) {
     return left.name.localeCompare(right.name, undefined, { sensitivity: 'base' });
 }
 
-async function resolvePickerAllowedRoot() {
-    const configuredRoot = String(process.env.TERMLINK_CODEX_WORKSPACE_DIR || process.cwd());
-    try {
-        return await fs.realpath(path.resolve(configuredRoot));
-    } catch (error) {
-        throw new WorkspaceError('WORKSPACE_PATH_INVALID', 'Picker root is not available.', 500);
+function isDriveRootPath(targetPath) {
+    return /^[a-zA-Z]:\\?$/.test(targetPath);
+}
+
+function formatPickerRootEntryName(rootPath) {
+    if (isDriveRootPath(rootPath)) {
+        return rootPath.slice(0, 2);
     }
+    return rootPath;
+}
+
+function isInsideRoot(rootPath, targetPath) {
+    const relativePath = path.relative(rootPath, targetPath);
+    return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+}
+
+async function resolvePickerAllowedRoots() {
+    const configuredRoot = process.env.TERMLINK_WORKSPACE_PICKER_ROOT;
+    if (typeof configuredRoot !== 'string' || !configuredRoot.trim()) {
+        throw new WorkspaceError(
+            'WORKSPACE_PICKER_ROOT_NOT_CONFIGURED',
+            'Workspace picker root is not configured on the server.',
+            500
+        );
+    }
+
+    const configuredRoots = configuredRoot
+        .split(path.delimiter)
+        .map((value) => value.trim())
+        .filter(Boolean);
+    if (configuredRoots.length === 0) {
+        throw new WorkspaceError(
+            'WORKSPACE_PICKER_ROOT_NOT_CONFIGURED',
+            'Workspace picker root is not configured on the server.',
+            500
+        );
+    }
+
+    const resolvedRoots = [];
+    const seenRoots = new Set();
+    try {
+        for (const root of configuredRoots) {
+            const resolvedRoot = await fs.realpath(path.resolve(root));
+            const rootStats = await fs.stat(resolvedRoot);
+            if (!rootStats.isDirectory()) {
+                throw new Error('not_directory');
+            }
+            if (!seenRoots.has(resolvedRoot)) {
+                seenRoots.add(resolvedRoot);
+                resolvedRoots.push(resolvedRoot);
+            }
+        }
+    } catch (error) {
+        throw new WorkspaceError(
+            'WORKSPACE_PICKER_ROOT_INVALID',
+            'Workspace picker root is not available on the server.',
+            500
+        );
+    }
+
+    return resolvedRoots;
 }
 
 function assertPickerPathInsideAllowedRoot(allowedRoot, targetPath) {
@@ -341,8 +395,27 @@ async function readWorkspaceLimitedSegment(workspaceRoot, requestedPath, mode) {
 }
 
 async function listPickerDirectories(requestedPath) {
-    const allowedRoot = await resolvePickerAllowedRoot();
-    const pickerPath = normalizePickerPath(requestedPath, allowedRoot);
+    const allowedRoots = await resolvePickerAllowedRoots();
+    if (!requestedPath || !String(requestedPath).trim()) {
+        if (allowedRoots.length > 1) {
+            return {
+                path: '',
+                parentPath: null,
+                canGoUp: false,
+                entries: allowedRoots
+                    .map((rootPath) => ({
+                        name: formatPickerRootEntryName(rootPath),
+                        path: rootPath,
+                        type: 'directory',
+                        hidden: false
+                    }))
+                    .sort(compareEntries)
+            };
+        }
+    }
+
+    const defaultRoot = allowedRoots[0];
+    const pickerPath = normalizePickerPath(requestedPath, defaultRoot);
     let realPath;
     try {
         realPath = await fs.realpath(pickerPath);
@@ -360,7 +433,12 @@ async function listPickerDirectories(requestedPath) {
         throw new WorkspaceError('WORKSPACE_PATH_INVALID', 'Picker path must be a directory.', 400);
     }
 
-    assertPickerPathInsideAllowedRoot(allowedRoot, realPath);
+    const matchedRoot = allowedRoots
+        .filter((rootPath) => isInsideRoot(rootPath, realPath))
+        .sort((left, right) => right.length - left.length)[0];
+    if (!matchedRoot) {
+        throw new WorkspaceError('WORKSPACE_PATH_OUT_OF_RANGE', 'Requested path is outside workspace root.', 400);
+    }
 
     const entries = await fs.readdir(realPath, { withFileTypes: true });
     const directories = entries
@@ -373,8 +451,12 @@ async function listPickerDirectories(requestedPath) {
         }))
         .sort(compareEntries);
 
-    const parentPath = path.dirname(realPath);
-    const canGoUp = parentPath !== realPath && path.relative(allowedRoot, realPath) !== '';
+    let parentPath = path.dirname(realPath);
+    let canGoUp = parentPath !== realPath && path.relative(matchedRoot, realPath) !== '';
+    if (allowedRoots.length > 1 && realPath === matchedRoot) {
+        parentPath = '';
+        canGoUp = true;
+    }
     return {
         path: realPath,
         parentPath: canGoUp ? parentPath : null,
