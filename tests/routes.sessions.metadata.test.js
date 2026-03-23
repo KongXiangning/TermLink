@@ -406,3 +406,68 @@ test('POST /sessions rejects missing cwd directories', async () => {
     assert.equal(res.statusCode, 400);
     assert.deepEqual(res.body, { error: 'cwd does not exist' });
 });
+
+test('GET /sessions/:id/workspace/files returns empty list for terminal sessions', async () => {
+    const sessionManager = {
+        listSessions: () => [],
+        getSession(id) {
+            if (id !== 'terminal-1') {
+                return null;
+            }
+            return {
+                id,
+                sessionMode: 'terminal',
+                cwd: VALID_CWD,
+                workspaceRoot: VALID_CWD,
+                workspaceRootSource: 'session_cwd'
+            };
+        },
+        deleteSession: () => false
+    };
+
+    const router = createSessionsRouter(sessionManager);
+    const handler = getRouteHandler(router, '/sessions/:id/workspace/files', 'get');
+    const res = createMockRes();
+
+    await handler({
+        params: { id: 'terminal-1' },
+        query: { q: 'session', limit: '10' }
+    }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.body, { files: [] });
+});
+
+test('GET /sessions/:id/workspace/files returns empty list for legacy codex sessions without workspaceRoot', async () => {
+    const sessionManager = {
+        listSessions: () => [],
+        getSession(id) {
+            if (id !== 'codex-legacy') {
+                return null;
+            }
+            return {
+                id,
+                sessionMode: 'codex',
+                cwd: VALID_CWD,
+                workspaceRoot: null,
+                workspaceRootSource: null
+            };
+        },
+        schedulePersist() {
+            throw new Error('should not lazily persist workspaceRoot from legacy search endpoint');
+        },
+        deleteSession: () => false
+    };
+
+    const router = createSessionsRouter(sessionManager);
+    const handler = getRouteHandler(router, '/sessions/:id/workspace/files', 'get');
+    const res = createMockRes();
+
+    await handler({
+        params: { id: 'codex-legacy' },
+        query: { q: 'session', limit: '10' }
+    }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.body, { files: [] });
+});

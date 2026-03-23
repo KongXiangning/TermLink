@@ -45,15 +45,16 @@ function normalizeRelativeWorkspacePath(value) {
     return normalizedParts.join(path.sep);
 }
 
-function normalizePickerPath(value) {
+function normalizePickerPath(value, defaultPath = process.cwd()) {
+    const resolvedDefaultPath = path.resolve(defaultPath);
     if (value === undefined || value === null) {
-        return path.resolve(process.cwd());
+        return resolvedDefaultPath;
     }
     if (typeof value !== 'string') {
         throw new WorkspaceError('WORKSPACE_PATH_INVALID', 'Picker path must be a string.', 400);
     }
     const trimmed = value.trim();
-    return trimmed ? path.resolve(trimmed) : path.resolve(process.cwd());
+    return trimmed ? path.resolve(trimmed) : resolvedDefaultPath;
 }
 
 function normalizeBooleanFlag(value, defaultValue = true) {

@@ -57,6 +57,14 @@ function ensureWorkspaceRoot(sessionManager, session) {
     return null;
 }
 
+function getExistingWorkspaceRoot(session) {
+    if (typeof session.workspaceRoot !== 'string') {
+        return null;
+    }
+    const workspaceRoot = session.workspaceRoot.trim();
+    return workspaceRoot || null;
+}
+
 async function resolveWorkspaceMeta(sessionManager, sessionId) {
     const session = ensureSessionExists(sessionManager, sessionId);
     ensureCodexSession(session);
@@ -98,7 +106,7 @@ async function resolveWorkspaceAccess(sessionManager, sessionId) {
     const session = ensureSessionExists(sessionManager, sessionId);
     ensureCodexSession(session);
 
-    const workspaceRoot = ensureWorkspaceRoot(sessionManager, session);
+    const workspaceRoot = getExistingWorkspaceRoot(session);
     if (!workspaceRoot) {
         throw new WorkspaceError('WORKSPACE_ROOT_NOT_AVAILABLE', 'Workspace root is not available for this session.', 404);
     }
@@ -117,5 +125,6 @@ async function resolveWorkspaceAccess(sessionManager, sessionId) {
 module.exports = {
     resolveWorkspaceMeta,
     resolveWorkspaceAccess,
-    ensureWorkspaceRoot
+    ensureWorkspaceRoot,
+    getExistingWorkspaceRoot
 };

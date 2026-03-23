@@ -89,6 +89,40 @@ test('workspace meta lazily initializes workspaceRoot from legacy cwd', async (t
     assert.equal(sessionManager.persistCount, 1);
 });
 
+test('workspace non-meta endpoints do not lazily initialize workspaceRoot from legacy cwd', async (t) => {
+    const temp = createTempWorkspace();
+    t.after(() => temp.cleanup());
+    fs.writeFileSync(path.join(temp.root, 'hello.txt'), 'hello\n');
+
+    const session = {
+        id: 'sess-legacy-non-meta',
+        sessionMode: 'codex',
+        cwd: temp.root,
+        workspaceRoot: null,
+        workspaceRootSource: null
+    };
+    const sessionManager = createSessionManager(session);
+    const router = createWorkspaceRouter(sessionManager);
+    const handler = getRouteHandler(router, '/sessions/:id/workspace/tree', 'get');
+    const res = createMockRes();
+
+    await handler({
+        params: { id: 'sess-legacy-non-meta' },
+        query: { path: '', showHidden: 'true' }
+    }, res);
+
+    assert.equal(res.statusCode, 404);
+    assert.deepEqual(res.body, {
+        error: {
+            code: 'WORKSPACE_ROOT_NOT_AVAILABLE',
+            message: 'Workspace root is not available for this session.'
+        }
+    });
+    assert.equal(session.workspaceRoot, null);
+    assert.equal(session.workspaceRootSource, null);
+    assert.equal(sessionManager.persistCount, 0);
+});
+
 test('workspace tree returns git status and respects hidden file toggle', async (t) => {
     const temp = createTempWorkspace();
     t.after(() => temp.cleanup());
@@ -225,6 +259,15 @@ test('workspace picker tree lists directories and parent path', async (t) => {
     fs.mkdirSync(path.join(temp.root, 'alpha'));
     fs.mkdirSync(path.join(temp.root, 'beta'));
     fs.writeFileSync(path.join(temp.root, 'note.txt'), 'file\n');
+    const previousPickerRoot = process.env.TERMLINK_CODEX_WORKSPACE_DIR;
+    process.env.TERMLINK_CODEX_WORKSPACE_DIR = temp.root;
+    t.after(() => {
+        if (previousPickerRoot === undefined) {
+            delete process.env.TERMLINK_CODEX_WORKSPACE_DIR;
+        } else {
+            process.env.TERMLINK_CODEX_WORKSPACE_DIR = previousPickerRoot;
+        }
+    });
 
     const router = createWorkspaceRouter(createSessionManager({
         id: 'picker-session',
@@ -240,9 +283,82 @@ test('workspace picker tree lists directories and parent path', async (t) => {
 
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.path, temp.root);
-    assert.ok(res.body.parentPath);
+    assert.equal(res.body.parentPath, null);
+    assert.equal(res.body.canGoUp, false);
     assert.deepEqual(
         res.body.entries.map((entry) => entry.name),
         ['alpha', 'beta']
     );
+});
+
+test('workspace picker tree defaults to allowed host root when path is omitted', async (t) => {
+    const temp = createTempWorkspace();
+    t.after(() => temp.cleanup());
+    fs.mkdirSync(path.join(temp.root, 'alpha'));
+    const previousPickerRoot = process.env.TERMLINK_CODEX_WORKSPACE_DIR;
+    process.env.TERMLINK_CODEX_WORKSPACE_DIR = temp.root;
+    t.after(() => {
+        if (previousPickerRoot === undefined) {
+            delete process.env.TERMLINK_CODEX_WORKSPACE_DIR;
+        } else {
+            process.env.TERMLINK_CODEX_WORKSPACE_DIR = previousPickerRoot;
+        }
+    });
+
+    const router = createWorkspaceRouter(createSessionManager({
+        id: 'picker-session-default-root',
+        sessionMode: 'codex',
+        cwd: temp.root,
+        workspaceRoot: temp.root,
+        workspaceRootSource: 'session_cwd'
+    }));
+    const handler = getRouteHandler(router, '/workspace/picker/tree', 'get');
+    const res = createMockRes();
+
+    await handler({ query: {} }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.path, temp.root);
+    assert.equal(res.body.parentPath, null);
+    assert.equal(res.body.canGoUp, false);
+    assert.deepEqual(
+        res.body.entries.map((entry) => entry.name),
+        ['alpha']
+    );
+});
+
+test('workspace picker tree rejects paths outside allowed host root', async (t) => {
+    const allowed = createTempWorkspace();
+    const outside = createTempWorkspace();
+    t.after(() => allowed.cleanup());
+    t.after(() => outside.cleanup());
+    const previousPickerRoot = process.env.TERMLINK_CODEX_WORKSPACE_DIR;
+    process.env.TERMLINK_CODEX_WORKSPACE_DIR = allowed.root;
+    t.after(() => {
+        if (previousPickerRoot === undefined) {
+            delete process.env.TERMLINK_CODEX_WORKSPACE_DIR;
+        } else {
+            process.env.TERMLINK_CODEX_WORKSPACE_DIR = previousPickerRoot;
+        }
+    });
+
+    const router = createWorkspaceRouter(createSessionManager({
+        id: 'picker-session-2',
+        sessionMode: 'codex',
+        cwd: allowed.root,
+        workspaceRoot: allowed.root,
+        workspaceRootSource: 'session_cwd'
+    }));
+    const handler = getRouteHandler(router, '/workspace/picker/tree', 'get');
+    const res = createMockRes();
+
+    await handler({ query: { path: outside.root } }, res);
+
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(res.body, {
+        error: {
+            code: 'WORKSPACE_PATH_OUT_OF_RANGE',
+            message: 'Requested path is outside workspace root.'
+        }
+    });
 });

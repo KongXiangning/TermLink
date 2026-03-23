@@ -22,6 +22,25 @@ function compareEntries(left, right) {
     return left.name.localeCompare(right.name, undefined, { sensitivity: 'base' });
 }
 
+async function resolvePickerAllowedRoot() {
+    const configuredRoot = String(process.env.TERMLINK_CODEX_WORKSPACE_DIR || process.cwd());
+    try {
+        return await fs.realpath(path.resolve(configuredRoot));
+    } catch (error) {
+        throw new WorkspaceError('WORKSPACE_PATH_INVALID', 'Picker root is not available.', 500);
+    }
+}
+
+function assertPickerPathInsideAllowedRoot(allowedRoot, targetPath) {
+    const relativePath = path.relative(allowedRoot, targetPath);
+    if (relativePath === '') {
+        return;
+    }
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+        throw new WorkspaceError('WORKSPACE_PATH_OUT_OF_RANGE', 'Requested path is outside workspace root.', 400);
+    }
+}
+
 function buildLanguageHint(filePath) {
     const extension = path.extname(filePath).toLowerCase();
     if (extension === '.md') return 'markdown';
@@ -322,7 +341,8 @@ async function readWorkspaceLimitedSegment(workspaceRoot, requestedPath, mode) {
 }
 
 async function listPickerDirectories(requestedPath) {
-    const pickerPath = normalizePickerPath(requestedPath);
+    const allowedRoot = await resolvePickerAllowedRoot();
+    const pickerPath = normalizePickerPath(requestedPath, allowedRoot);
     let realPath;
     try {
         realPath = await fs.realpath(pickerPath);
@@ -340,6 +360,8 @@ async function listPickerDirectories(requestedPath) {
         throw new WorkspaceError('WORKSPACE_PATH_INVALID', 'Picker path must be a directory.', 400);
     }
 
+    assertPickerPathInsideAllowedRoot(allowedRoot, realPath);
+
     const entries = await fs.readdir(realPath, { withFileTypes: true });
     const directories = entries
         .filter((entry) => entry.isDirectory())
@@ -352,9 +374,11 @@ async function listPickerDirectories(requestedPath) {
         .sort(compareEntries);
 
     const parentPath = path.dirname(realPath);
+    const canGoUp = parentPath !== realPath && path.relative(allowedRoot, realPath) !== '';
     return {
         path: realPath,
-        parentPath: parentPath === realPath ? null : parentPath,
+        parentPath: canGoUp ? parentPath : null,
+        canGoUp,
         entries: directories
     };
 }
