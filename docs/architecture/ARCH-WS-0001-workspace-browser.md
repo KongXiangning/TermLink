@@ -1482,6 +1482,14 @@ Create Session 界面的目录选择交互细节
 
 [PLAN-20260318-WS-0001-workspace-browser-freeze.md](../product/plans/PLAN-20260318-WS-0001-workspace-browser-freeze.md)
 
+各阶段实施级技术清单见：
+
+[PLAN-20260318-WS-0001-phase1-server-workspace-impl.md](../product/plans/PLAN-20260318-WS-0001-phase1-server-workspace-impl.md)
+
+[PLAN-20260318-WS-0001-phase2-web-workspace-impl.md](../product/plans/PLAN-20260318-WS-0001-phase2-web-workspace-impl.md)
+
+[PLAN-20260318-WS-0001-phase3-android-workspace-impl.md](../product/plans/PLAN-20260318-WS-0001-phase3-android-workspace-impl.md)
+
 Phase 1
 
 服务端会话模型、Workspace 服务层、REST API、安全边界
@@ -1632,13 +1640,7 @@ Android Create Session 弹窗保留手动输入 Codex Workspace Path
 
 新增 Browse 按钮，打开服务端目录浏览器流程
 
-目录浏览器起始路径优先级固定为：
-
-当前输入值
-
-当前会话 cwd
-
-默认仓库路径
+目录浏览器允许带入一个候选起始目录，具体来源优先级由 Android 集成实现细化
 
 选择完成后将目录路径回填输入框
 
@@ -1654,7 +1656,7 @@ Android session 列表继续展示 cwd，不强制展示 workspaceRoot；进入 
 
 20.5 文档与实施约束
 
-自本版起，若后续要变更以下任一冻结项，必须先更新 REQ、独立计划文档与本 ARCH，再开始实现：
+自本版起，若后续要变更以下任一冻结项，必须先更新 REQ、主冻结计划、对应 phase 实施清单与本 ARCH，再开始实现：
 
 workspaceRoot 与 cwd 的职责划分
 

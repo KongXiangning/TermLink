@@ -48,179 +48,95 @@ Phase 3
 
 Android 入口与创建会话目录选择器
 
-### 4. Phase 1 - 服务端
+### 4. 实施清单索引
 
-Phase 1 必须完成以下内容：
+Phase 1 - 服务端实施清单：
 
-扩展 session 持久化字段：
+[PLAN-20260318-WS-0001-phase1-server-workspace-impl.md](./PLAN-20260318-WS-0001-phase1-server-workspace-impl.md)
 
-workspaceRoot: string | null
+Phase 2 - Web Workspace 实施清单：
 
-workspaceRootSource: "session_cwd" | null
+[PLAN-20260318-WS-0001-phase2-web-workspace-impl.md](./PLAN-20260318-WS-0001-phase2-web-workspace-impl.md)
 
-POST /api/sessions 在 sessionMode=codex 时继续要求 cwd 必填
+Phase 3 - Android Workspace 实施清单：
 
-POST /api/sessions 增加 cwd 路径有效性校验：
+[PLAN-20260318-WS-0001-phase3-android-workspace-impl.md](./PLAN-20260318-WS-0001-phase3-android-workspace-impl.md)
 
-路径非空
+以上 3 份子文档负责展开实施级技术细节、接口与测试口径；本主计划仅维护冻结决策、Phase 顺序与交付边界。
 
-路径存在
+### 5. Phase 1 - 服务端边界
 
-路径为目录
+Phase 1 负责冻结以下边界：
 
-创建 Codex 会话成功后，同时写入：
+服务端会话模型扩展与 `workspaceRoot` 固化
 
-session.cwd = cwd
+Workspace 服务层拆分与 session-bound REST API
 
-session.workspaceRoot = cwd
+创建阶段目录选择器专用接口
 
-session.workspaceRootSource = "session_cwd"
+路径安全边界、`.git` 保护与旧会话兼容
 
-新增以下 Workspace REST API：
+文件查看四级阈值、统一文本 Diff 与 Git 状态缓存策略
 
-GET /api/sessions/:sessionId/workspace/meta
+现有 `GET /api/sessions/:sessionId/workspace/files` 的安全边界复用改造
 
-GET /api/sessions/:sessionId/workspace/tree
+Phase 1 的实施级技术细节、接口契约、错误码、测试与建议提交拆分，统一维护于：
 
-GET /api/sessions/:sessionId/workspace/file
+[PLAN-20260318-WS-0001-phase1-server-workspace-impl.md](./PLAN-20260318-WS-0001-phase1-server-workspace-impl.md)
 
-GET /api/sessions/:sessionId/workspace/file-segment
+### 6. Phase 2 - Web Workspace 页面边界
 
-GET /api/sessions/:sessionId/workspace/file-limited
+Phase 2 负责冻结以下边界：
 
-GET /api/sessions/:sessionId/workspace/status
+独立 `workspace.html / workspace.js / workspace.css` 页面组织
 
-GET /api/sessions/:sessionId/workspace/diff
+基于 `sessionId + serverUrl + authHeader` 的页面初始化方式
 
-创建会话目录选择器专用接口：
+目录浏览、文件查看、内容 / Diff 切换与大文件模式交互
 
-GET /api/workspace/picker/tree
+隐藏文件开关、刷新、空态 / 错误态 / 禁用态展示
 
-该接口用于创建会话前浏览服务端宿主机目录，不依赖 session，但必须遵守现有认证与目录安全边界。
+移动端优先的页面组织方式
 
-路径安全策略冻结为：
+Phase 2 的实施级状态模型、数据流、容错策略、测试与建议提交拆分，统一维护于：
 
-客户端只传相对路径
+[PLAN-20260318-WS-0001-phase2-web-workspace-impl.md](./PLAN-20260318-WS-0001-phase2-web-workspace-impl.md)
 
-禁止绝对路径
+### 7. Phase 3 - Android 边界
 
-禁止 .. 越界
+Phase 3 负责冻结以下边界：
 
-访问前执行逻辑路径校验与 realpath 二次校验
+Create Session 保留手输路径，并新增服务端目录浏览器 Browse 流程
 
-禁止直接读取 .git 内部文件
+目录选择结果只回填输入框，创建提交仍以 `POST /api/sessions` 校验为准
 
-文件查看阈值冻结为：
+新增 `WorkspaceActivity`，以独立 WebView 承载 `workspace.html`
 
-<= 256 KB => full
+`MainShellActivity` 增加 Workspace 入口，且仅对 Codex 会话显示
 
-> 256 KB 且 <= 1 MB => truncated，首屏 128 KB
+`workspace/meta.disabledReason` 驱动 Android 入口禁用态
 
-> 1 MB 且 <= 8 MB => segmented，默认段大小 64 KB
+Android session 列表继续展示 `cwd`，进入 Workspace 时以后端 `meta` 为准
 
-> 8 MB => limited，支持 head/tail
+Phase 3 的实施级调用链、起始路径规则、Activity 生命周期、真机验证与建议提交拆分，统一维护于：
 
-Diff 策略冻结为：
+[PLAN-20260318-WS-0001-phase3-android-workspace-impl.md](./PLAN-20260318-WS-0001-phase3-android-workspace-impl.md)
 
-统一文本 Diff
+### 8. 文档约束与变更规则
 
-输出阈值 256 KB
-
-超限返回截断或限制状态
-
-untracked 文件必须返回明确反馈
-
-默认进入目录规则冻结为：
-
-DOCS
-
-docs
-
-工作区根目录
-
-Git 状态缓存采用 session-scoped 短 TTL 运行时缓存，TTL 取 5 秒
-
-### 5. Phase 2 - Web Workspace 页面
-
-Phase 2 必须以独立页面形式交付：
-
-public/workspace.html
-
-public/workspace.js
-
-public/workspace.css
-
-页面通过 sessionId 打开当前工作区，并以注入配置中的 serverUrl/authHeader 发起请求
-
-页面状态至少包含：
-
-sessionId
-
-workspaceRoot
-
-defaultEntryPath
-
-currentDir
-
-showHidden
-
-selectedFilePath
-
-activeView = content | diff
-
-filePreview
-
-diffPreview
-
-页面交互冻结为：
-
-目录浏览与文件查看分区显示
-
-支持根目录、上一级、刷新
-
-隐藏文件开关默认开启
-
-文件查看页内切换内容与 Diff
-
-明确展示 full / truncated / segmented / limited 模式说明
-
-非文本文件显示不可预览提示
-
-无变更、非 Git、untracked 必须显示明确空状态或原因
-
-### 6. Phase 3 - Android
-
-Phase 3 必须在现有 Android 会话与 Codex 页面基础上增量实现：
-
-Create Session 弹窗保留手输 Codex Workspace Path
-
-Create Session 弹窗新增 Browse 按钮
-
-Browse 按钮打开服务端目录浏览器流程，并将所选目录回填输入框
-
-创建提交前仍以服务端 POST /api/sessions 校验为准，不允许目录选择器绕过校验
-
-新增 WorkspaceActivity
-
-WorkspaceActivity 使用独立 WebView 承载 workspace.html
-
-MainShellActivity 增加进入 Workspace 的入口
-
-该入口仅对 Codex 会话显示
-
-若 workspace/meta 返回 disabledReason，则入口需显示禁用态和明确提示
-
-Android 侧 session 列表继续展示 cwd，不强制展示 workspaceRoot；进入 Workspace 时以后端 meta 为准
-
-### 7. 文档约束与变更规则
-
-本计划文档负责维护 REQ-WS-0001 的冻结实施顺序、Phase 边界与关键交付口径。
+本计划文档负责维护 REQ-WS-0001 的冻结实施顺序、Phase 边界、关键交付口径，以及 3 份实施清单的总索引。
 
 后续若要变更以下任一冻结项，必须先同时更新：
 
 [REQ-20260318-WS-0001-docs-exp.md](../requirements/REQ-20260318-WS-0001-docs-exp.md)
 
 [PLAN-20260318-WS-0001-workspace-browser-freeze.md](./PLAN-20260318-WS-0001-workspace-browser-freeze.md)
+
+[PLAN-20260318-WS-0001-phase1-server-workspace-impl.md](./PLAN-20260318-WS-0001-phase1-server-workspace-impl.md)
+
+[PLAN-20260318-WS-0001-phase2-web-workspace-impl.md](./PLAN-20260318-WS-0001-phase2-web-workspace-impl.md)
+
+[PLAN-20260318-WS-0001-phase3-android-workspace-impl.md](./PLAN-20260318-WS-0001-phase3-android-workspace-impl.md)
 
 [ARCH-WS-0001-workspace-browser.md](../../architecture/ARCH-WS-0001-workspace-browser.md)
 
