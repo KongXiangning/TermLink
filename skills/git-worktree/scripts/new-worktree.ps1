@@ -1,5 +1,3 @@
-$ErrorActionPreference = 'Stop'
-
 param(
     [Parameter(Mandatory = $true)]
     [string]$Branch,
@@ -10,6 +8,8 @@ param(
 
     [switch]$CheckoutExisting
 )
+
+$ErrorActionPreference = 'Stop'
 
 function Invoke-Git {
     param(
