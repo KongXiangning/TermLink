@@ -25,5 +25,6 @@ screenshot*.png
 *.apk
 gradle-local/
 .codex/
+.claude/settings.local.json
 tmp-*.xml
 tmp/
