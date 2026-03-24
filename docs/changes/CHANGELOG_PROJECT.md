@@ -2,13 +2,19 @@
 title: TermLink 项目变更日志
 status: active
 owner: @maintainer
-last_updated: 2026-03-09
+last_updated: 2026-03-24
 source_of_truth: product
 related_code: []
 related_docs: [docs/README.md]
 ---
 
 # CHANGELOG_PROJECT
+
+## 2026-03-24
+
+### docs
+
+1. 将 Workspace 主需求收口为规范 REQ：`REQ-20260318-ws-0001-docs-exp`（原产品编号 `REQ-WS-0001`），补齐模板化 Meta、主线索引引用、状态流转与变更记录追踪。
 
 ## 2026-03-09
 

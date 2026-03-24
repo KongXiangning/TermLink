@@ -2,26 +2,13 @@
 title: REQ-WS-0001 Phase 1 Server Workspace Implementation
 status: active
 record_id: CR-20260323-2244-phase1-server-workspace
-req_id: REQ-WS-0001
+req_id: REQ-20260318-ws-0001-docs-exp
 commit_ref: 98fa032
 owner: @maintainer
 last_updated: 2026-03-23
 source_of_truth: product
-related_code:
-  - src/routes/workspace.js
-  - src/services/workspaceContextResolver.js
-  - src/services/workspaceFileService.js
-  - src/services/workspaceGitService.js
-  - src/services/workspacePathUtils.js
-  - src/services/workspaceConstants.js
-  - src/services/sessionManager.js
-  - src/repositories/sessionStore.js
-  - src/routes/sessions.js
-  - src/server.js
-related_docs:
-  - docs/product/requirements/REQ-20260318-WS-0001-docs-exp.md
-  - docs/product/plans/PLAN-20260318-WS-0001-phase1-server-workspace-impl.md
-  - docs/architecture/ARCH-WS-0001-workspace-browser.md
+related_code: [src/routes/workspace.js, src/services/workspaceContextResolver.js, src/services/workspaceFileService.js, src/services/workspaceGitService.js, src/services/workspacePathUtils.js, src/services/workspaceConstants.js, src/services/sessionManager.js, src/repositories/sessionStore.js, src/routes/sessions.js, src/server.js]
+related_docs: [docs/product/requirements/REQ-20260318-WS-0001-docs-exp.md, docs/product/plans/PLAN-20260318-WS-0001-phase1-server-workspace-impl.md, docs/architecture/ARCH-WS-0001-workspace-browser.md]
 ---
 
 # CR-20260323-2244-phase1-server-workspace

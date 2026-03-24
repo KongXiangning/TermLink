@@ -1,8 +1,8 @@
 ---
-title: REQ-20260318-WS-0001-docs-exp - 冻结实施计划固化
+title: REQ-20260318-ws-0001-docs-exp - 冻结实施计划固化
 status: draft
 record_id: CR-20260323-1454-workspace-impl-phase1
-req_id: REQ-20260318-WS-0001-docs-exp
+req_id: REQ-20260318-ws-0001-docs-exp
 commit_ref: TBD
 owner: @maintainer
 last_updated: 2026-03-23

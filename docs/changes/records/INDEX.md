@@ -2,7 +2,7 @@
 title: 变更记录索引
 status: active
 owner: @maintainer
-last_updated: 2026-03-23
+last_updated: 2026-03-24
 source_of_truth: product
 related_code: [docs/changes/records]
 related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_CHANGE_RECORD.md]
@@ -65,6 +65,8 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 | CR-20260318-1541-codex-status-strip-doc-sync | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-18 | 同步文档口径：顶部状态栏仅保留状态、工作区与额度信息，不恢复线程查看入口 | `docs/changes/records/CR-20260318-1541-codex-status-strip-doc-sync.md` |
 | CR-20260319-0142-codex-quick-sandbox-runtime-fix | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-19 | 固化 quick sandbox 的真实生效边界：权限映射、runtime 对齐、线程上下文签名与真机复测结论 | `docs/changes/records/CR-20260319-0142-codex-quick-sandbox-runtime-fix.md` |
 | CR-20260319-1532-codex-file-mention-input | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-19 | Composer @ 文件提示需求立项：产品目标、技术边界与实施计划文档固定 | `docs/changes/records/CR-20260319-1532-codex-file-mention-input.md` |
-| CR-20260323-0954-workspace-doc-sync | REQ-20260318-WS-0001-docs-exp | active | 3c0f2da | @maintainer | 2026-03-23 | 扩展 Workspace REQ/ARCH，补齐创建路径、大文件分级、旧会话兼容与 Android 独立界面边界 | `docs/changes/records/CR-20260323-0954-workspace-doc-sync.md` |
-| CR-20260323-1454-workspace-impl-phase1 | REQ-20260318-WS-0001-docs-exp | draft | TBD | @maintainer | 2026-03-23 | 将 REQ-WS-0001 的冻结实施计划独立为 plan 文档，并同步 REQ、ARCH 与变更记录索引引用 | `docs/changes/records/CR-20260323-1454-workspace-impl-phase1.md` |
-| CR-20260323-1703-workspace-phase-impl-checklists | REQ-20260318-WS-0001-docs-exp | draft | TBD | @maintainer | 2026-03-23 | 将 Workspace 冻结计划拆成 3 份 phase 实施清单，并同步 REQ、PLAN、ARCH 互链 | `docs/changes/records/CR-20260323-1703-workspace-phase-impl-checklists.md` |
+| CR-20260323-0954-workspace-doc-sync | REQ-20260318-ws-0001-docs-exp | active | 3c0f2da | @maintainer | 2026-03-23 | 扩展 Workspace REQ/ARCH，补齐创建路径、大文件分级、旧会话兼容与 Android 独立界面边界 | `docs/changes/records/CR-20260323-0954-workspace-doc-sync.md` |
+| CR-20260323-1454-workspace-impl-phase1 | REQ-20260318-ws-0001-docs-exp | draft | TBD | @maintainer | 2026-03-23 | 将 REQ-WS-0001 的冻结实施计划独立为 plan 文档，并同步 REQ、ARCH 与变更记录索引引用 | `docs/changes/records/CR-20260323-1454-workspace-impl-phase1.md` |
+| CR-20260323-1703-workspace-phase-impl-checklists | REQ-20260318-ws-0001-docs-exp | draft | TBD | @maintainer | 2026-03-23 | 将 Workspace 冻结计划拆成 3 份 phase 实施清单，并同步 REQ、PLAN、ARCH 互链 | `docs/changes/records/CR-20260323-1703-workspace-phase-impl-checklists.md` |
+| CR-20260323-2244-phase1-server-workspace | REQ-20260318-ws-0001-docs-exp | active | 98fa032 | @maintainer | 2026-03-23 | Workspace Phase 1 服务端实现：会话模型、Workspace API、安全边界、Git 状态与 Diff 基础设施 | `docs/changes/records/CR-20260323-2244-phase1-server-workspace.md` |
+| CR-20260324-0032-workspace-phase3-android | REQ-20260318-ws-0001-docs-exp | active | 22893d5 | @maintainer | 2026-03-24 | Web Workspace 页面与 Android 集成实现：独立页面、目录选择器、WorkspaceActivity 与移动端接入 | `docs/changes/records/CR-20260324-0032-workspace-phase3-android.md` |
