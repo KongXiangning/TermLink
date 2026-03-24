@@ -16,6 +16,7 @@ related_docs: [docs/README.md]
 
 1. 将 Workspace 主需求收口为规范 REQ：`REQ-20260318-ws-0001-docs-exp`（原产品编号 `REQ-WS-0001`），补齐模板化 Meta、主线索引引用、状态流转与变更记录追踪。
 2. 新增 `REQ-20260324-session-list-local-cache`，定义 Android 会话列表本地缓存、离线回显与弱网刷新覆盖边界，并同步需求主线文档。
+3. 扩展 `REQ-20260222-doc-governance` 下的 `docs-requirement-sync` skill：实现批次现在必须同步 `PLAN + CR`，并在收尾答复中明确当前已实现的计划部分。
 
 ## 2026-03-09
 

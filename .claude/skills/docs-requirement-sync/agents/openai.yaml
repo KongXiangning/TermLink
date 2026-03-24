@@ -1,4 +1,4 @@
 interface:
   display_name: "Docs Requirement Sync"
-  short_description: "Implement from REQ docs with CR traceability checks"
-  default_prompt: "Use $docs-requirement-sync to implement from a REQ document and enforce CR records with req_id + commit_ref."
+  short_description: "Implement from REQ docs with REQ + PLAN + CR sync and plan coverage reporting"
+  default_prompt: "Use $docs-requirement-sync to implement from a REQ document, update the linked PLAN and CR in the same batch, and explicitly report which plan items were implemented."

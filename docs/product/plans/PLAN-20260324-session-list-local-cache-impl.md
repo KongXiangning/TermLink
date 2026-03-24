@@ -1,5 +1,18 @@
 ## REQ-20260324-session-list-local-cache 实施清单
 
+### 0. 当前实施进度
+
+状态口径：`done` = 已实现并有 CR 留痕，`in_progress` = 当前批次进行中，`pending` = 尚未实现。
+
+1. `done`：`8.1 第一步：抽出缓存模型与存储层`
+2. `done`：`13.1 新增 SessionListCacheStore.kt 和缓存容器类`
+3. `pending`：`8.2 第二步：接入 Sessions 首屏读取缓存`
+4. `pending`：`8.3 第三步：远端成功覆盖缓存`
+5. `pending`：`8.4 第四步：失败态与文案收口`
+6. `pending`：`8.5 第五步：创建/删除/重命名链路补齐缓存更新`
+
+对应实现记录：`docs/changes/records/CR-20260324-2331-session-list-cache-store-foundation.md`
+
 ### 1. 文档定位
 
 本清单用于展开 `REQ-20260324-session-list-local-cache` 的实施细节。
@@ -370,6 +383,8 @@
 
 #### 8.1 第一步：抽出缓存模型与存储层
 
+当前状态：`done`（见 `CR-20260324-2331-session-list-cache-store-foundation`）
+
 建议先新增独立 cache store，职责固定为：
 
 1. `load(cacheKey): CachedSessionList?`
@@ -396,6 +411,8 @@ class SessionListCacheStore(context: Context) {
 
 #### 8.2 第二步：接入 Sessions 首屏读取缓存
 
+当前状态：`pending`
+
 在 `SessionsFragment` 的首次加载流程中：
 
 1. 对每个远端 profile 计算 `cacheKey`
@@ -419,6 +436,8 @@ fetchRemoteGroupsAsync()
 
 #### 8.3 第三步：远端成功覆盖缓存
 
+当前状态：`pending`
+
 现有远端 sessions 列表接口成功后：
 
 1. 转换成该 profile 对应的缓存模型
@@ -441,6 +460,8 @@ hideCacheBanner()
 
 #### 8.4 第四步：失败态与文案收口
 
+当前状态：`pending`
+
 远端失败后：
 
 1. 若已有缓存，展示 cache stale 状态
@@ -458,6 +479,8 @@ if (hasRenderedCachedGroups) {
 ```
 
 #### 8.5 第五步：创建/删除/重命名链路补齐缓存更新
+
+当前状态：`pending`
 
 不要只修复“打开页面时的缓存可见性”，否则用户刚创建或删除会话后，下次进入仍可能看到旧缓存。
 
@@ -564,6 +587,11 @@ if (hasRenderedCachedGroups) {
 8. 改造重命名成功路径：更新对应 profile 缓存项
 9. 新增字符串资源与状态文案
 10. 补组件/手工测试，重点验证多 profile、弱网、切换 profile、`EXTERNAL_WEB` 不回归
+
+当前完成情况：
+
+1. `done`：任务 1 已完成，已新增缓存容器类、`SessionListCacheStore` 和对应 Android 测试。
+2. `pending`：任务 2 到任务 10 尚未在当前批次实现。
 
 ### 11. 实施后约束
 

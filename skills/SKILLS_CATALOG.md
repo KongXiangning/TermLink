@@ -36,7 +36,7 @@
 
 ### 2.4 `docs-requirement-sync`
 
-- 用途：按 REQ 驱动开发，并强制 CR 记录（req_id + commit_ref）以支持回放与还原。
+- 用途：按 REQ 驱动开发，并强制 `REQ + PLAN + CR` 同步；每个实现批次都要回写已完成的 plan 部分并在收尾答复中明确覆盖范围。
 - Codex 元数据：`skills/docs-requirement-sync/agents/openai.yaml`
 - Claude 卡片：`skills/docs-requirement-sync/agents/claude.md`
 
