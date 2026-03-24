@@ -2,7 +2,7 @@
 title: Android 会话列表本地缓存与离线回显
 status: planned
 owner: @maintainer
-last_updated: 2026-03-24
+last_updated: 2026-03-25
 source_of_truth: product
 related_code: [android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt, android/app/src/main/java/com/termlink/app/data/SessionApiClient.kt, android/app/src/main/java/com/termlink/app/data/SessionApiModels.kt, android/app/src/main/java/com/termlink/app/MainShellActivity.kt, src/routes/sessions.js]
 related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/product/plans/PLAN-20260324-session-list-local-cache-impl.md, docs/changes/records/INDEX.md]
@@ -39,7 +39,7 @@ related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIR
 3. 当服务端拉取失败、超时或网络较慢时，界面继续展示缓存会话，并明确标注“缓存数据”或“刷新失败”状态。
 4. 当服务端刷新成功时，用最新结果覆盖缓存并更新显示。
 5. 缓存内容仅要求覆盖会话管理页中的已有 sessions 可见性；本需求默认“用户先在会话管理页看到已有 sessions，再决定是否点创建”。
-6. 明确排除 `EXTERNAL_WEB` profile；其现有本地 sessions 存储逻辑继续沿用，不纳入本需求。
+6. `EXTERNAL_WEB` profile 也必须满足 App 端 sessions 的本地保留目标，但通过既有 `ExternalSessionStore` 满足，不并入新的远端 cache store。
 
 ## 3. Out of Scope
 
@@ -48,7 +48,7 @@ related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIR
 3. 不在本期引入跨账号、跨服务端地址的复杂同步策略。
 4. 不要求缓存终端运行态、输出历史或完整会话内容。
 5. 不要求在创建会话弹窗内部额外展示已有 sessions 摘要，也不要求创建弹窗复用缓存列表作为辅助面板。
-6. 不改造 `EXTERNAL_WEB` profile 的本地 sessions 存储逻辑。
+6. 不要求把 `EXTERNAL_WEB` profile 迁移到新的远端 cache store，也不新增第二套叠加缓存。
 
 ## 4. 方案概要
 
@@ -56,7 +56,7 @@ related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIR
 2. Sessions 页面首屏读取缓存并立即渲染，同时发起远端刷新。
 3. 刷新成功则更新 UI 和缓存；刷新失败则保留缓存并展示明确提示，而不是把列表清空。
 4. 若本地无缓存且服务端也失败，才显示真正的空态/错误态。
-5. `EXTERNAL_WEB` profile 不走这套缓存快照逻辑，继续使用现有本地数据源。
+5. `EXTERNAL_WEB` profile 不写入这套远端缓存快照，但其既有 `ExternalSessionStore` 仍属于本需求下“App 端本地保留”能力的一部分；Sessions 首屏与后续状态机不得把它的本地分组隐藏掉。
 
 ## 5. 接口/数据结构变更
 
@@ -76,7 +76,7 @@ related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIR
 3. 当展示的是缓存数据时，用户能看出当前是缓存态而不是最新实时态。
 4. 服务端刷新成功后，界面与本地缓存都会更新为最新会话列表。
 5. 切换到不同服务端配置后，不会误展示上一个服务端的缓存会话。
-6. `EXTERNAL_WEB` profile 列表展示保持现状，不受本需求缓存读写影响。
+6. `EXTERNAL_WEB` profile 列表必须继续可见，并与远端缓存首屏/刷新状态机兼容；其本地持久化来源仍为 `ExternalSessionStore`。
 
 ## 7. 测试场景
 
@@ -85,13 +85,13 @@ related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIR
 3. 已有缓存，再次进入时服务端失败，继续显示缓存并提示刷新失败。
 4. 无缓存且服务端失败，显示明确空态/错误态，不误导为“已有会话”。
 5. 切换不同服务器地址、账号或鉴权信息后，缓存不会串用。
-6. `EXTERNAL_WEB` profile 列表展示不出现回归。
+6. `EXTERNAL_WEB` profile 列表不出现回归，且在首屏存在本地记录时不应因为远端缓存首屏逻辑而被隐藏。
 
 ## 8. 风险与回滚
 
 1. 本地缓存会引入“数据可能过期”的认知风险，必须在 UI 上明确标注缓存态并避免把缓存状态冒充为实时状态。
 2. 如果缓存隔离维度设计不完整，可能出现跨服务端串数据的问题，这是实现阶段的首要风险。
-3. 若误把 `EXTERNAL_WEB` 一并纳入缓存链路，容易与现有本地 session 存储形成重叠，这是本期必须避免的边界错误。
+3. 若把 `EXTERNAL_WEB` 强行并入新的远端 cache store，容易与现有本地 session 存储形成重叠；但若首屏状态机忽略 `ExternalSessionStore`，又会造成分组回归，这两种错误都必须避免。
 4. 回滚时应优先恢复 Sessions 页面为纯远端拉取逻辑，并清理新增的本地缓存读写入口，避免保留无主缓存。
 
 ## 9. 发布计划

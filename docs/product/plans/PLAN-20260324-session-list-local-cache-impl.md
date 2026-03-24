@@ -6,12 +6,12 @@
 
 1. `done`：`8.1 第一步：抽出缓存模型与存储层`
 2. `done`：`13.1 新增 SessionListCacheStore.kt 和缓存容器类`
-3. `pending`：`8.2 第二步：接入 Sessions 首屏读取缓存`
+3. `done`：`8.2 第二步：接入 Sessions 首屏读取缓存`
 4. `pending`：`8.3 第三步：远端成功覆盖缓存`
 5. `pending`：`8.4 第四步：失败态与文案收口`
 6. `pending`：`8.5 第五步：创建/删除/重命名链路补齐缓存更新`
 
-对应实现记录：`docs/changes/records/CR-20260324-2331-session-list-cache-store-foundation.md`
+对应实现记录：`docs/changes/records/CR-20260324-2331-session-list-cache-store-foundation.md`、`docs/changes/records/CR-20260325-0050-sessions-initial-cache-render.md`
 
 ### 1. 文档定位
 
@@ -28,7 +28,7 @@
 3. 服务端刷新成功时，最新结果覆盖 UI 与本地缓存。
 4. 缓存必须按当前服务端身份隔离，不能跨服务端串用。
 5. 创建会话、删除会话、重命名会话后，缓存与当前 UI 状态需要同步更新，避免下一次进入时回显明显过期的数据。
-6. `EXTERNAL_WEB` profile 明确排除在本方案之外，继续使用 `ExternalSessionStore`。
+6. `EXTERNAL_WEB` profile 也必须满足 App 端 sessions 的本地保留目标，但通过既有 `ExternalSessionStore` 满足，不并入新的远端 cache store。
 
 ### 3. 实现边界与职责拆分
 
@@ -56,7 +56,7 @@
 
 #### 3.2 服务端边界
 
-本期默认不新增服务端接口，也不改造 `EXTERNAL_WEB` 的本地 sessions 读写链路。
+本期默认不新增服务端接口，也不改造 `EXTERNAL_WEB` 的本地 sessions 读写链路；`EXTERNAL_WEB` 的本地持久化继续由 `ExternalSessionStore` 提供。
 
 继续复用：
 
@@ -74,10 +74,10 @@
 
 以下现有链路不纳入本计划：
 
-1. `TerminalType.EXTERNAL_WEB` 对应的 `ExternalSessionStore`
+1. 把 `TerminalType.EXTERNAL_WEB` 迁移到新的 `SessionListCacheStore`
 2. 创建会话弹窗内部新增“已有 sessions 摘要”展示
 
-本期目标仅为：用户打开会话管理页时，先看到已有远端会话缓存，而不是空白列表。
+本期目标为：用户打开会话管理页时，先看到已有本地可得的 sessions 列表，其中远端 profile 来自 `SessionListCacheStore`，`EXTERNAL_WEB` 来自既有 `ExternalSessionStore`，而不是空白列表。
 
 #### 3.4 现有代码接入点
 
@@ -213,7 +213,7 @@
 
 1. 先按每个远端 profile 的 `cacheKey` 读取缓存
 2. 若存在缓存，先按 profile 分组渲染
-3. `EXTERNAL_WEB` 继续走现有本地数据源
+3. `EXTERNAL_WEB` 继续走现有本地数据源，并在首屏本地数据组装时与远端缓存分组一起保留
 4. 之后发起远端刷新
 
 建议具体时序为：
@@ -289,15 +289,11 @@
 
 不要继续用一个布尔 `loading` 覆盖全部场景，否则“缓存已可见但仍在刷新”和“无数据正在首次加载”会混成同一体验。
 
-建议在 `SessionsFragment` 中新增以下字段：
+实现边界说明：
 
-`private var hasRenderedCachedGroups: Boolean = false`
-
-`private var lastRemoteRefreshFailed: Boolean = false`
-
-`private var lastCacheVisible: Boolean = false`
-
-`private var lastCacheFetchedAtMillis: Long? = null`
+1. `8.2` 当前已落地的最小状态只有“是否已经完成过首屏本地回显”的门闩，用于保证首屏本地数据只在视图创建后的首次加载参与渲染
+2. `8.4` 再引入“缓存可见 / 远端刷新失败 / stale 提示”所需的状态字段，不以 `8.2` 已删除的伪字段为当前实现基线
+3. 后续状态字段以行为语义为准，例如“缓存当前是否可见”“最近一次远端刷新是否失败”，字段命名在 `8.4` 实施时再按真实代码定稿
 
 ### 7. UI 交互要求
 
@@ -385,6 +381,8 @@
 
 当前状态：`done`（见 `CR-20260324-2331-session-list-cache-store-foundation`）
 
+补充说明：当前实现已修正为同一 `profileId` 下允许按 `cacheKey` 共存多个缓存上下文，避免新服务端身份覆盖旧缓存。
+
 建议先新增独立 cache store，职责固定为：
 
 1. `load(cacheKey): CachedSessionList?`
@@ -402,8 +400,9 @@ class SessionListCacheStore(context: Context) {
     fun loadForProfiles(profiles: List<ServerProfile>): List<CachedProfileSessionList>
     fun replaceProfile(profile: ServerProfile, sessions: List<SessionSummary>, fetchedAt: Long)
     fun removeProfile(profileId: String)
+    fun removeProfileContext(profile: ServerProfile)
     fun updateProfileSessions(
-        profileId: String,
+        profile: ServerProfile,
         transform: (List<SessionSummary>) -> List<SessionSummary>
     )
 }
@@ -411,28 +410,46 @@ class SessionListCacheStore(context: Context) {
 
 #### 8.2 第二步：接入 Sessions 首屏读取缓存
 
-当前状态：`pending`
+当前状态：`done`（见 `CR-20260325-0050-sessions-initial-cache-render`）
+
+补充说明：当前实现已在 `SessionsFragment.refreshSessions(showSpinner)` 中先读取 `SessionListCacheStore`，并通过 `buildGroupsFromCache()` 先回显命中的远端 profile 缓存分组，再继续现有异步远端刷新。
+本阶段已补上 `EXTERNAL_WEB` 的本地分组首屏组装，确保 `ExternalSessionStore` 中已有数据不会在缓存首屏阶段被隐藏。
+首屏本地数据回显已限制为视图创建后的首次加载；后续自动刷新、手动刷新和写操作成功后的刷新不再先回放旧本地快照。
+首屏本地数据读取也已移动到后台线程，避免在主线程同步执行 `SharedPreferences + JSON` 解析。
+异步刷新与写操作也已拆分为独立 request token 跟踪，`onDestroyView()` 会显式失效旧请求并释放 loading 状态，避免 drawer 隐藏或 view 重建后卡死在旧的 `isLoading` 语义里。
+本阶段已补上 `SessionsFragment` 的 instrumentation 生命周期测试，使用 androidTest 专用 host activity 和本地 HTTP stub 覆盖“刷新进行中进入 `onDestroyView()` 后仍可再次 refresh”以及“创建动作进行中销毁并重建 view 后仍可再次 refresh”的回归路径，不把测试注入逻辑混入正式 fragment 代码。
+本批次刻意不包含缓存 banner/stale 文案、远端成功覆盖写回缓存和失败态收口，这些仍分别归属 `8.3` 与 `8.4`。
 
 在 `SessionsFragment` 的首次加载流程中：
 
 1. 对每个远端 profile 计算 `cacheKey`
 2. 批量读取缓存
 3. 若存在缓存，先构造 profile 分组结果并渲染
-4. `EXTERNAL_WEB` 仍走现有本地 store
+4. `EXTERNAL_WEB` 仍走现有本地 store，并与远端缓存一起参与首屏本地数据组装
 5. 再走现有远端拉取逻辑
 
-推荐伪代码：
+当前真实实现可抽象为：
 
 ```kotlin
-val cachedGroups = buildGroupsFromCache(profiles, currentSelection)
-if (cachedGroups.isNotEmpty()) {
-    hasRenderedCachedGroups = true
-    lastCacheVisible = true
-    renderGroupedSessions(cachedGroups)
-    renderCacheBanner(refreshing = true, stale = false)
+if (!hasCompletedInitialLocalFirstPaint) {
+    executor.execute {
+        val cachedGroups = buildGroupsFromCache(profiles)
+        mainHandler.post {
+            if (cachedGroups.isNotEmpty()) {
+                renderGroupedSessions(cachedGroups)
+            }
+            hasCompletedInitialLocalFirstPaint = true
+        }
+    }
 }
 fetchRemoteGroupsAsync()
 ```
+
+生命周期收口要求：
+
+1. 刷新结果回到主线程时，先按 request token 判断是否仍属于当前有效请求
+2. 若属于当前请求，必须先释放刷新中的状态，再决定是否因为 view 已销毁而跳过 UI 渲染
+3. `onDestroyView()` 必须失效旧 refresh/action 请求，保证下次重新打开 drawer 或重建 view 时可以重新触发 refresh
 
 #### 8.3 第三步：远端成功覆盖缓存
 
@@ -444,7 +461,7 @@ fetchRemoteGroupsAsync()
 2. 覆盖写入该 profile 的缓存
 3. 更新对应分组 UI 状态为 remote
 
-推荐伪代码：
+目标行为：
 
 ```kotlin
 nextGroups.forEach { group ->
@@ -452,11 +469,13 @@ nextGroups.forEach { group ->
         cacheStore.replaceProfile(group.profile, group.sessions, System.currentTimeMillis())
     }
 }
-lastRemoteRefreshFailed = false
-lastCacheVisible = false
 renderGroupedSessions(nextGroups)
-hideCacheBanner()
 ```
+
+说明：
+
+1. 这里的“远端成功覆盖缓存”是 `8.3` 的待实现目标，不代表当前代码已经存在 banner 或缓存可见状态字段
+2. `8.4` 若需要清理 stale 提示，应在那一阶段新增对应 UI 状态与隐藏逻辑
 
 #### 8.4 第四步：失败态与文案收口
 
@@ -467,16 +486,20 @@ hideCacheBanner()
 1. 若已有缓存，展示 cache stale 状态
 2. 若无缓存，展示真正错误态
 
-推荐伪代码：
+目标行为：
 
 ```kotlin
-if (hasRenderedCachedGroups) {
-    lastRemoteRefreshFailed = true
-    renderCacheBanner(refreshing = false, stale = true)
+if (cachedContentIsVisible) {
+    showStaleCacheMessage()
 } else {
     renderGlobalFailure(error)
 }
 ```
+
+说明：
+
+1. `cachedContentIsVisible` / `showStaleCacheMessage()` 这里是行为占位，不是当前已存在的字段或方法
+2. `8.4` 接手时应基于当时的真实渲染分支补状态机，不要回填已从 `8.2` 删除的 `hasRenderedCachedGroups` / `lastCacheVisible` / `renderCacheBanner(...)`
 
 #### 8.5 第五步：创建/删除/重命名链路补齐缓存更新
 
@@ -551,7 +574,7 @@ if (hasRenderedCachedGroups) {
 2. 远端成功后覆盖缓存
 3. 远端失败但保留缓存
 4. `cacheKey` 不同不会串数据
-5. `EXTERNAL_WEB` profile 不走新增缓存链路
+5. `EXTERNAL_WEB` profile 不写入新增远端缓存链路，但必须继续通过 `ExternalSessionStore` 满足本地持久化与首屏可见性
 6. 多 profile 页面按 profile 分组回显缓存，不压平成单列表
 
 #### 10.2 手工验收场景
@@ -578,7 +601,7 @@ if (hasRenderedCachedGroups) {
 按接近直接编码的顺序，建议拆成以下任务：
 
 1. 新增 `SessionListCacheStore.kt` 和缓存容器类，完成 `SharedPreferences(session_list_cache_v1)` 的读写、按 profile 更新、容错解析
-2. 在 `SessionsFragment` 新增缓存相关状态字段与 `buildGroupsFromCache()` / `renderCacheBanner()` 辅助方法
+2. 在 `SessionsFragment` 新增首屏本地回显门闩与 `buildGroupsFromCache()` 辅助方法；缓存提示文案与状态字段推迟到 `8.4`
 3. 改造 `refreshSessions(showSpinner)`：先渲染缓存，再异步刷新远端
 4. 改造远端刷新成功路径：按 profile 覆盖缓存，再渲染最新结果
 5. 改造远端失败路径：若已显示缓存则只显示 stale banner，不覆盖列表
@@ -591,7 +614,18 @@ if (hasRenderedCachedGroups) {
 当前完成情况：
 
 1. `done`：任务 1 已完成，已新增缓存容器类、`SessionListCacheStore` 和对应 Android 测试。
-2. `pending`：任务 2 到任务 10 尚未在当前批次实现。
+   当前实现同时保证 `profileId + cacheKey` 维度共存，不再因同一 profile 切换服务端身份而覆盖旧缓存。
+   `updateProfileSessions(...)` 也已改为按当前 `ServerProfile` 上下文更新，避免误写同 `profileId` 的其他缓存快照。
+   `removeProfile(profileId)` 保持 profile 级全量清理，同时新增 `removeProfileContext(profile)` 供后续会话级同步只删除当前上下文使用。
+2. `done`：任务 2 已完成，`SessionsFragment` 已接入远端缓存首屏回显，并把 `EXTERNAL_WEB` 的既有本地分组纳入首屏本地数据组装；上一轮遗留的未消费缓存状态字段也已移除。
+   当前实现同时引入 request token 跟踪，避免 view 销毁后的旧回调把 Sessions 页面卡死在 loading 状态。
+   自动化已从纯 helper 单测扩展到 fragment/lifecycle 级 instrumentation 测试，能同时拦住 refresh 和 create action 两条路径上“loading 中销毁并重建 view 后无法再次 refresh”的回归；测试支撑通过 androidTest 专用 host activity 与本地 HTTP stub 实现，不依赖生产静态测试钩子。
+3. `pending`：任务 3 到任务 10 尚未在当前批次实现。
+
+缓存删除语义约束：
+
+1. profile 删除 / 配置重置：使用 `removeProfile(profileId)`，清理该 profile 下全部缓存上下文。
+2. 会话级创建/删除/重命名同步：使用 `removeProfileContext(profile)` 或等价的上下文级写接口，只作用于当前 `profileId + cacheKey`。
 
 ### 11. 实施后约束
 

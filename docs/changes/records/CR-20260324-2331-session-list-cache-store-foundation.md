@@ -22,9 +22,11 @@ related_docs: [docs/product/requirements/REQ-20260324-session-list-local-cache.m
 ## 2. 实施内容（What changed）
 
 1. 新增 `CachedProfileSessionList` / `CachedSessionListCollection`，定义 `version + profiles[]` 的持久化结构，并复用 `SessionSummary` 作为缓存 payload。
-2. 新增 `SessionListCacheStore`，基于独立 `SharedPreferences(session_list_cache)` 提供按 profile 读取、覆盖写入、局部更新、删除和清空能力。
-3. 新增 Android instrumentation tests，覆盖隔离键、容错解析、排序规则、`EXTERNAL_WEB` 排除和按 profile 更新行为。
-4. 本批覆盖计划项：`8.1 第一步：抽出缓存模型与存储层`，以及 `13.1 新增 SessionListCacheStore.kt 和缓存容器类`。
+2. 新增 `SessionListCacheStore`，基于独立 `SharedPreferences(session_list_cache)` 提供按 profile 读取、覆盖写入、局部更新、删除和清空能力，并修正为同一 `profileId` 下按 `cacheKey` 共存多个缓存上下文。
+3. `updateProfileSessions(...)` 已改为按当前 `ServerProfile` 上下文命中 `cacheKey` 后再更新，避免误写同 `profileId` 的其他缓存快照。
+4. 删除语义已拆分：`removeProfile(profileId)` 保持 profile 级全量清理，新增 `removeProfileContext(profile)` 只删除当前 `profileId + cacheKey` 命中的缓存上下文。
+5. 新增 Android instrumentation tests，覆盖隔离键、同一 `profileId` 的多上下文共存、上下文感知更新、profile 级全量删除、上下文级删除、容错解析、排序规则、`EXTERNAL_WEB` 排除和按 profile 更新行为。
+6. 本批覆盖计划项：`8.1 第一步：抽出缓存模型与存储层`，以及 `13.1 新增 SessionListCacheStore.kt 和缓存容器类`。
 
 ## 3. 影响范围（Files/Modules/Runtime）
 
@@ -64,5 +66,5 @@ git checkout <commit_ref>^ -- docs/changes/records/INDEX.md
 
 ## 7. 风险与注意事项
 
-1. 当前 `updateProfileSessions(profileId, ...)` 仅以 `profileId` 为定位键，后续 UI 接入前必须保证调用方使用当前已命中的远端 profile，避免在 profile 重建场景误写旧缓存。
+1. `removeProfileContext(profile)` 只适用于当前 `TERMLINK_WS` 上下文；调用方若传入错误的 `ServerProfile`，仍可能清错当前上下文缓存。
 2. 本阶段不清理旧 profile 缓存；后续只允许按明确的 `profileId` 或 `cacheKey` 上下文消费，不能把缓存直接当全局 sessions 列表使用。

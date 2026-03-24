@@ -23,11 +23,13 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.material.card.MaterialCardView
 import com.termlink.app.R
 import com.termlink.app.data.ApiResult
+import com.termlink.app.data.ExternalSession
 import com.termlink.app.data.ExternalSessionStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.SessionApiClient
 import com.termlink.app.data.SessionApiError
 import com.termlink.app.data.SessionApiErrorCode
+import com.termlink.app.data.SessionListCacheStore
 import com.termlink.app.data.SessionMode
 import com.termlink.app.data.WorkspacePickerTree
 import com.termlink.app.data.SessionRef
@@ -50,13 +52,14 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
     private lateinit var sessionApiClient: SessionApiClient
     private lateinit var externalSessionStore: ExternalSessionStore
+    private lateinit var sessionListCacheStore: SessionListCacheStore
     private val executor: ExecutorService = Executors.newFixedThreadPool(
         Runtime.getRuntime().availableProcessors().coerceIn(4, 12)
     )
     private val mainHandler = Handler(Looper.getMainLooper())
     private val autoRefreshRunnable = object : Runnable {
         override fun run() {
-            if (isAutoRefreshActive && !isLoading) {
+            if (isAutoRefreshActive && !refreshRequestTracker.hasInFlightWork()) {
                 refreshSessions(showSpinner = false)
             }
             if (isAutoRefreshActive) {
@@ -67,7 +70,8 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
     private var isViewActive = false
     private var isAutoRefreshActive = false
-    private var isLoading = false
+    private val refreshRequestTracker = SessionAsyncRequestTracker()
+    private var hasCompletedInitialLocalFirstPaint = false
     private var profiles: List<ServerProfile> = emptyList()
     private var currentSelection: SessionSelection = SessionSelection("", "")
     private var groupedSessions: List<ProfileGroupResult> = emptyList()
@@ -88,6 +92,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         super.onCreate(savedInstanceState)
         sessionApiClient = SessionApiClient(requireContext().applicationContext)
         externalSessionStore = ExternalSessionStore(requireContext().applicationContext)
+        sessionListCacheStore = SessionListCacheStore(requireContext().applicationContext)
     }
 
     override fun onDetach() {
@@ -104,6 +109,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         isViewActive = true
+        hasCompletedInitialLocalFirstPaint = false
 
         profileText = view.findViewById(R.id.sessions_active_profile)
         errorText = view.findViewById(R.id.sessions_error_text)
@@ -147,11 +153,14 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     override fun onDestroyView() {
         stopAutoRefresh()
         isViewActive = false
+        hasCompletedInitialLocalFirstPaint = false
+        swipeRefresh.isRefreshing = false
+        refreshRequestTracker.invalidateAll()
         super.onDestroyView()
     }
 
     private fun refreshSessions(showSpinner: Boolean) {
-        if (!isViewActive || isLoading) {
+        if (!isViewActive || !refreshRequestTracker.canStartRefresh()) {
             return
         }
         val cb = callbacks ?: return
@@ -170,19 +179,55 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             return
         }
 
-        isLoading = true
+        val requestId = refreshRequestTracker.startRefresh()
         if (showSpinner) {
             swipeRefresh.isRefreshing = true
         }
 
+        val profilesSnapshot = profiles
+        val shouldAttemptFirstPaint = !hasCompletedInitialLocalFirstPaint
         executor.execute {
-            val nextGroups = fetchProfileGroups(profiles)
+            if (shouldAttemptFirstPaint) {
+                val firstPaintGroups = buildGroupsFromCache(profilesSnapshot)
+                mainHandler.post {
+                    if (!refreshRequestTracker.isActiveRefresh(requestId)) return@post
+                    if (!isViewActive || hasCompletedInitialLocalFirstPaint) return@post
+                    if (firstPaintGroups.isNotEmpty()) {
+                        renderGroupedSessions(firstPaintGroups)
+                    }
+                    hasCompletedInitialLocalFirstPaint = true
+                }
+            }
+
+            val nextGroups = fetchProfileGroups(profilesSnapshot)
             mainHandler.post {
-                if (!isViewActive) return@post
+                if (!refreshRequestTracker.completeRefresh(requestId)) return@post
                 swipeRefresh.isRefreshing = false
-                isLoading = false
+                if (!isViewActive) return@post
                 renderGroupedSessions(nextGroups)
             }
+        }
+    }
+
+    private fun buildGroupsFromCache(profileList: List<ServerProfile>): List<ProfileGroupResult> {
+        val cachedProfiles = sessionListCacheStore.loadForProfiles(profileList)
+        val externalSessionsByProfileId = profileList
+            .asSequence()
+            .filter { it.terminalType == TerminalType.EXTERNAL_WEB }
+            .map { profile -> profile.id.trim() to loadExternalSessionSummaries(profile.id) }
+            .filter { (_, sessions) -> sessions.isNotEmpty() }
+            .toMap()
+        val firstPaintGroups = SessionCacheGroupBuilder.build(
+            profiles = profileList,
+            cachedProfiles = cachedProfiles,
+            externalSessionsByProfileId = externalSessionsByProfileId
+        )
+        return firstPaintGroups.map { cached ->
+            ProfileGroupResult(
+                profile = cached.profile,
+                sessions = cached.sessions,
+                error = null
+            )
         }
     }
 
@@ -232,21 +277,26 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
     private fun listSessionsForProfile(profile: ServerProfile): ApiResult<List<SessionSummary>> {
         if (profile.terminalType == TerminalType.EXTERNAL_WEB) {
-            val local = externalSessionStore.list(profile.id).map { session ->
-                SessionSummary(
-                    id = session.id,
-                    name = session.name,
-                    status = "LOCAL",
-                    activeConnections = 0,
-                    createdAt = session.createdAt,
-                    lastActiveAt = session.lastActiveAt,
-                    sessionMode = SessionMode.TERMINAL,
-                    cwd = null
-                )
-            }
-            return ApiResult.Success(local)
+            return ApiResult.Success(loadExternalSessionSummaries(profile.id))
         }
         return sessionApiClient.listSessions(profile)
+    }
+
+    private fun loadExternalSessionSummaries(profileId: String): List<SessionSummary> {
+        return externalSessionStore.list(profileId).map(::toExternalSessionSummary)
+    }
+
+    private fun toExternalSessionSummary(session: ExternalSession): SessionSummary {
+        return SessionSummary(
+            id = session.id,
+            name = session.name,
+            status = "LOCAL",
+            activeConnections = 0,
+            createdAt = session.createdAt,
+            lastActiveAt = session.lastActiveAt,
+            sessionMode = SessionMode.TERMINAL,
+            cwd = null
+        )
     }
 
     private fun createSessionForProfile(
@@ -501,7 +551,6 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             toDisplayErrorMessage(error)
         )
         swipeRefresh.isRefreshing = false
-        isLoading = false
     }
 
     private fun toDisplayErrorMessage(error: SessionApiError): String {
@@ -583,7 +632,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             }
         }
 
-        fun resolveSuggestedCodexWorkspacePath(profile: ServerProfile?): String {
+        fun resolveSuggestedCodexWorkspacePath(): String {
             val currentInput = inputCwd.text?.toString()?.trim().orEmpty()
             if (currentInput.isNotBlank()) {
                 return currentInput
@@ -635,7 +684,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                 browseCwdButton.visibility = if (showCwd) View.VISIBLE else View.GONE
                 browseCwdButton.isEnabled = codexSupported
                 if (showCwd && inputCwd.text.isNullOrBlank()) {
-                    val suggestedCwd = resolveSuggestedCodexWorkspacePath(profile)
+                    val suggestedCwd = resolveSuggestedCodexWorkspacePath()
                     inputCwd.setText(suggestedCwd)
                     inputCwd.setSelection(inputCwd.text.length)
                 }
@@ -686,7 +735,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             showWorkspacePickerDialog(
                 profile = profile,
                 initialPath = inputCwd.text?.toString()?.trim().takeIf { !it.isNullOrBlank() }
-                    ?: resolveSuggestedCodexWorkspacePath(profile)
+                    ?: resolveSuggestedCodexWorkspacePath()
             ) { selectedPath ->
                 inputCwd.setText(selectedPath)
                 inputCwd.setSelection(inputCwd.text.length)
@@ -947,17 +996,17 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         action: () -> ApiResult<T>,
         onSuccess: (T) -> Unit
     ) {
-        if (!isViewActive || isLoading) {
+        if (!isViewActive || !refreshRequestTracker.canStartAction()) {
             return
         }
-        isLoading = true
+        val requestId = refreshRequestTracker.startAction()
         swipeRefresh.isRefreshing = true
         executor.execute {
             val result = action()
             mainHandler.post {
-                if (!isViewActive) return@post
+                if (!refreshRequestTracker.completeAction(requestId)) return@post
                 swipeRefresh.isRefreshing = false
-                isLoading = false
+                if (!isViewActive) return@post
                 when (result) {
                     is ApiResult.Success -> onSuccess(result.value)
                     is ApiResult.Failure -> renderGlobalFailure(result.error)
