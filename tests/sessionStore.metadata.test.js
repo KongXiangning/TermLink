@@ -20,6 +20,8 @@ test('SessionStore normalizes legacy records to terminal mode with null cwd', ()
         status: 'IDLE',
         sessionMode: 'terminal',
         cwd: null,
+        workspaceRoot: null,
+        workspaceRootSource: null,
         lastCodexThreadId: null,
         codexConfig: null
     });
@@ -46,6 +48,8 @@ test('SessionStore preserves codex mode, trimmed cwd, and last codex thread id',
         status: 'ACTIVE',
         sessionMode: 'codex',
         cwd: 'D:\\workspace\\demo',
+        workspaceRoot: null,
+        workspaceRootSource: null,
         lastCodexThreadId: 'thread-42',
         codexConfig: null
     });
@@ -77,4 +81,22 @@ test('SessionStore normalizes codexConfig fields without forcing defaults into s
         approvalPolicy: 'on-request',
         sandboxMode: 'workspace-write'
     });
+});
+
+test('SessionStore preserves workspaceRoot metadata when available', () => {
+    const store = new SessionStore({ enabled: false });
+    const [record] = store._normalizeRecords([{
+        id: 'codex-3',
+        name: 'Workspace Session',
+        createdAt: 1,
+        lastActiveAt: 2,
+        status: 'IDLE',
+        sessionMode: 'codex',
+        cwd: 'D:\\repo',
+        workspaceRoot: ' D:\\repo\\docs ',
+        workspaceRootSource: ' session_cwd '
+    }]);
+
+    assert.equal(record.workspaceRoot, 'D:\\repo\\docs');
+    assert.equal(record.workspaceRootSource, 'session_cwd');
 });

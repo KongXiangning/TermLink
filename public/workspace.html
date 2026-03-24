@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TermLink Workspace</title>
+    <link rel="stylesheet" href="workspace.css?v=1">
+</head>
+<body>
+    <div class="workspace-shell">
+        <header class="workspace-header">
+            <div class="workspace-header-main">
+                <div class="workspace-kicker">Workspace</div>
+                <h1 id="workspace-title">加载中</h1>
+                <p id="workspace-subtitle">正在连接会话工作区</p>
+            </div>
+            <div class="workspace-header-actions">
+                <button id="btn-refresh" type="button">刷新</button>
+                <label class="toggle">
+                    <input id="toggle-hidden" type="checkbox" checked>
+                    <span>显示隐藏文件</span>
+                </label>
+            </div>
+        </header>
+
+        <div id="workspace-banner" class="workspace-banner" hidden></div>
+
+        <main class="workspace-main">
+            <section class="workspace-pane workspace-browser">
+                <div class="pane-header">
+                    <div>
+                        <div class="pane-title">目录</div>
+                        <div id="current-dir-label" class="pane-meta">/</div>
+                    </div>
+                    <div class="pane-actions">
+                        <button id="btn-root" type="button">根目录</button>
+                        <button id="btn-up" type="button">上一级</button>
+                    </div>
+                </div>
+                <div id="browser-status" class="pane-status" hidden></div>
+                <div id="browser-empty" class="empty-state" hidden>当前目录为空。</div>
+                <div id="browser-list" class="browser-list" aria-live="polite"></div>
+            </section>
+
+            <section class="workspace-pane workspace-viewer">
+                <div class="pane-header">
+                    <div>
+                        <div id="viewer-title" class="pane-title">未选择文件</div>
+                        <div id="viewer-meta" class="pane-meta">打开文件后可查看内容或 Diff</div>
+                    </div>
+                    <div class="pane-actions">
+                        <button id="btn-view-content" type="button" class="active">内容</button>
+                        <button id="btn-view-diff" type="button">Diff</button>
+                        <button id="btn-reload-file" type="button">重载</button>
+                    </div>
+                </div>
+                <div id="viewer-status" class="pane-status" hidden></div>
+                <div id="viewer-mode-note" class="viewer-mode-note" hidden></div>
+                <div id="viewer-empty" class="empty-state">请选择一个文本文件。</div>
+                <pre id="viewer-body" class="viewer-body" hidden></pre>
+                <div id="viewer-actions" class="viewer-actions" hidden>
+                    <button id="btn-load-more" type="button" hidden>加载更多</button>
+                    <button id="btn-prev-segment" type="button" hidden>上一段</button>
+                    <button id="btn-next-segment" type="button" hidden>下一段</button>
+                    <button id="btn-limited-head" type="button" hidden>头部</button>
+                    <button id="btn-limited-tail" type="button" hidden>尾部</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="workspace.js?v=1"></script>
+</body>
+</html>

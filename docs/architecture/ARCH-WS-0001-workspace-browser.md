@@ -319,7 +319,7 @@ workspaceRootSource = "session_cwd"
 
 Android 从当前会话上下文携带 sessionId 打开 WorkspaceActivity
 
-Web 工作区页面调用 GET /api/sessions/:id/workspace/meta
+Web 工作区页面调用 GET /api/sessions/:sessionId/workspace/meta
 
 服务端：
 
@@ -521,7 +521,13 @@ GET /api/sessions/:sessionId/workspace/diff
 
 GET /api/sessions/:sessionId/workspace/status
 
-每个 Workspace API 请求必须按以下顺序校验：
+创建会话阶段的目录选择器使用独立接口：
+
+GET /api/workspace/picker/tree
+
+该接口用于创建会话前浏览服务端宿主机目录，不依赖 session。
+
+Session-bound Workspace API 请求必须先完成以下通用前置校验：
 
 请求已通过现有认证机制
 
@@ -531,9 +537,29 @@ sessionId 存在
 
 该 session 为 Codex 会话
 
-session 上存在 workspaceRoot
+完成上述校验后，服务端进入 WorkspaceContextResolver 解析阶段：
 
-请求路径未越界
+若 session 已存在 workspaceRoot，则直接返回该 workspaceRoot
+
+若缺失 workspaceRoot 但存在 cwd，则仅允许 GET /api/sessions/:sessionId/workspace/meta 在首次访问时按 cwd 完成一次懒初始化并补写 workspaceRoot
+
+若 workspaceRoot 与 cwd 均不可用，则返回 disabled 状态与明确原因
+
+GET /api/sessions/:sessionId/workspace/tree
+
+GET /api/sessions/:sessionId/workspace/file
+
+GET /api/sessions/:sessionId/workspace/file-segment
+
+GET /api/sessions/:sessionId/workspace/file-limited
+
+GET /api/sessions/:sessionId/workspace/diff
+
+GET /api/sessions/:sessionId/workspace/status
+
+仅在 WorkspaceContextResolver 成功解析出有效 workspaceRoot 后才允许继续执行路径越界校验、目录读取、文件读取或 Git 操作。
+
+GET /api/sessions/:sessionId/workspace/meta 是旧会话修复入口；其它 Workspace API 不是懒初始化入口。
 
 Workspace 不单独建立新的资源权限模型，而是继承 session 的访问权限，并在此基础上增加路径边界控制。
 
@@ -1446,3 +1472,202 @@ Android 目录选择器的具体实现方式
 Create Session 界面的目录选择交互细节
 
 受限查看模式下默认先展示头部还是尾部
+
+20. 冻结实施编排
+20.1 总体编排
+
+本架构自本版起冻结为以下 3 个实施阶段，后续实现、CR 记录与提交拆分均按此编排进行：
+
+实施顺序与冻结交付边界的产品基线见：
+
+[PLAN-20260318-WS-0001-workspace-browser-freeze.md](../product/plans/PLAN-20260318-WS-0001-workspace-browser-freeze.md)
+
+各阶段实施级技术清单见：
+
+[PLAN-20260318-WS-0001-phase1-server-workspace-impl.md](../product/plans/PLAN-20260318-WS-0001-phase1-server-workspace-impl.md)
+
+[PLAN-20260318-WS-0001-phase2-web-workspace-impl.md](../product/plans/PLAN-20260318-WS-0001-phase2-web-workspace-impl.md)
+
+[PLAN-20260318-WS-0001-phase3-android-workspace-impl.md](../product/plans/PLAN-20260318-WS-0001-phase3-android-workspace-impl.md)
+
+Phase 1
+
+服务端会话模型、Workspace 服务层、REST API、安全边界
+
+Phase 2
+
+独立 Web Workspace 页面与移动端优先交互
+
+Phase 3
+
+Android Create Session 目录选择器、Workspace 入口与 WorkspaceActivity
+
+20.2 Phase 1 冻结边界
+
+Phase 1 的实现边界固定如下：
+
+Session 持久化新增字段：
+
+workspaceRoot: string | null
+
+workspaceRootSource: "session_cwd" | null
+
+workspaceRoot 在 Codex 会话创建成功时由 cwd 固化写入
+
+运行期 codex_set_cwd 只允许更新 session.cwd，不允许覆盖 workspaceRoot
+
+旧会话若缺失 workspaceRoot 但保留 cwd，则由 WorkspaceContextResolver 在首次读取 workspace meta 时按 cwd 懒初始化并补写
+
+若 workspaceRoot 与 cwd 均缺失，则 Workspace 返回禁用态，不影响 Codex 会话本身
+
+Workspace 服务层拆分固定为：
+
+WorkspaceContextResolver
+
+WorkspaceFileService
+
+WorkspaceGitService
+
+REST API 边界固定为以下两组：
+
+Session-bound Workspace APIs
+
+GET /api/sessions/:sessionId/workspace/meta
+
+GET /api/sessions/:sessionId/workspace/tree
+
+GET /api/sessions/:sessionId/workspace/file
+
+GET /api/sessions/:sessionId/workspace/file-segment
+
+GET /api/sessions/:sessionId/workspace/file-limited
+
+GET /api/sessions/:sessionId/workspace/status
+
+GET /api/sessions/:sessionId/workspace/diff
+
+Create-session Picker API
+
+GET /api/workspace/picker/tree
+
+其中 /api/workspace/picker/tree 为创建会话专用目录浏览接口，不依赖 session。
+
+路径安全实现固定为：
+
+客户端只传相对路径
+
+逻辑路径 resolve + relative 校验
+
+实际访问前 realpath 二次校验
+
+禁止绝对路径、.. 越界和 .git 直接访问
+
+文件查看阈值固定为：
+
+full <= 256 KB
+
+truncated > 256 KB 且 <= 1 MB，首次返回 128 KB
+
+segmented > 1 MB 且 <= 8 MB，默认段大小 64 KB
+
+limited > 8 MB，支持 head/tail
+
+Diff 策略固定为 unified text diff，输出阈值 256 KB
+
+Git 状态策略固定为“全仓扫描 + 当前目录过滤 + session-scoped 短 TTL 缓存”，TTL 取 5 秒
+
+现有 GET /api/sessions/:sessionId/workspace/files 保留，但必须改为复用新的 workspaceRoot 与路径安全能力，不允许继续依赖旧的裸目录扫描实现
+
+20.3 Phase 2 冻结边界
+
+Phase 2 的实现边界固定如下：
+
+Web UI 采用独立页面，不嵌入 terminal_client 主逻辑
+
+建议固定页面文件：
+
+public/workspace.html
+
+public/workspace.js
+
+public/workspace.css
+
+页面通过 sessionId + 注入配置中的 serverUrl/authHeader 获取数据
+
+页面状态模型至少包含：
+
+sessionId
+
+workspaceRoot
+
+defaultEntryPath
+
+currentDir
+
+showHidden
+
+selectedFilePath
+
+activeView = content | diff
+
+filePreview
+
+diffPreview
+
+UI 交互固定为：
+
+目录浏览
+
+文件打开
+
+内容/Diff 切换
+
+隐藏文件开关
+
+刷新
+
+截断预览加载更多
+
+分段查看前后翻段
+
+受限查看头部/尾部切换
+
+20.4 Phase 3 冻结边界
+
+Phase 3 的实现边界固定如下：
+
+Android Create Session 弹窗保留手动输入 Codex Workspace Path
+
+新增 Browse 按钮，打开服务端目录浏览器流程
+
+目录浏览器允许带入一个候选起始目录，具体来源优先级由 Android 集成实现细化
+
+选择完成后将目录路径回填输入框
+
+创建提交仍走服务端 POST /api/sessions 校验，不允许浏览器选择绕过校验
+
+Android 新增 WorkspaceActivity 作为独立完整的工作区容器
+
+MainShellActivity 新增 Workspace 入口，但仅在 Codex 会话下显示
+
+若 workspace/meta 返回 disabledReason，则入口显示禁用态与明确提示
+
+Android session 列表继续展示 cwd，不强制展示 workspaceRoot；进入 Workspace 时以服务端 meta 为准
+
+20.5 文档与实施约束
+
+自本版起，若后续要变更以下任一冻结项，必须先更新 REQ、主冻结计划、对应 phase 实施清单与本 ARCH，再开始实现：
+
+workspaceRoot 与 cwd 的职责划分
+
+目录选择器采用服务端目录浏览器
+
+独立 Web Workspace 页面
+
+Android 采用 WorkspaceActivity
+
+文件查看四级阈值
+
+Diff 统一文本策略
+
+Git 状态缓存策略

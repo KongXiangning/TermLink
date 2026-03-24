@@ -58,11 +58,26 @@
             android:layout_height="wrap_content"
             android:text="@string/sessions_create_cwd_label" />
 
-        <EditText
-            android:id="@+id/input_create_session_cwd"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="@string/sessions_create_cwd_hint"
-            android:inputType="textNoSuggestions|text" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/input_create_session_cwd"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/sessions_create_cwd_hint"
+                android:inputType="textNoSuggestions|text" />
+
+            <Button
+                android:id="@+id/btn_browse_session_cwd"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="@string/sessions_create_cwd_browse" />
+        </LinearLayout>
     </LinearLayout>
 </LinearLayout>

@@ -56,3 +56,40 @@ test('SessionManager updateSession marks existing codex thread execution context
     assert.equal(session.codexState.threadExecutionContextSignature, '__stale__');
     assert.equal(persistCount, 1);
 });
+
+test('SessionManager buildSession fixes workspaceRoot from initial codex cwd', () => {
+    const manager = Object.create(SessionManager.prototype);
+    const session = manager.buildSession({
+        id: 'codex-session',
+        name: 'Codex Session',
+        createdAt: 1,
+        lastActiveAt: 2,
+        sessionMode: 'codex',
+        cwd: 'E:\\coding\\TermLink'
+    });
+
+    assert.equal(session.cwd, 'E:\\coding\\TermLink');
+    assert.equal(session.workspaceRoot, 'E:\\coding\\TermLink');
+    assert.equal(session.workspaceRootSource, 'session_cwd');
+});
+
+test('SessionManager keeps workspaceRoot separate from runtime cwd changes', () => {
+    const manager = Object.create(SessionManager.prototype);
+    const session = manager.buildSession({
+        id: 'codex-session',
+        name: 'Codex Session',
+        createdAt: 1,
+        lastActiveAt: 2,
+        sessionMode: 'codex',
+        cwd: 'E:\\coding\\TermLink',
+        workspaceRoot: 'E:\\coding\\TermLink',
+        workspaceRootSource: 'session_cwd'
+    });
+
+    session.cwd = 'E:\\coding\\OtherRepo';
+
+    const summary = manager.buildSessionSummary(session);
+    assert.equal(summary.cwd, 'E:\\coding\\OtherRepo');
+    assert.equal(summary.workspaceRoot, 'E:\\coding\\TermLink');
+    assert.equal(summary.workspaceRootSource, 'session_cwd');
+});

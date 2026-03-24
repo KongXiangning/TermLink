@@ -12,6 +12,8 @@ const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
 const {
     normalizeSessionMode,
     normalizeSessionCwd,
+    normalizeWorkspaceRoot,
+    normalizeWorkspaceRootSource,
     normalizeLastCodexThreadId,
     normalizeCodexConfig
 } = SessionStore;
@@ -77,6 +79,8 @@ class SessionManager {
             privilegeMetadata: options.privilegeMetadata || null,
             sessionMode: options.sessionMode,
             cwd: options.cwd,
+            workspaceRoot: options.workspaceRoot,
+            workspaceRootSource: options.workspaceRootSource,
             lastCodexThreadId: options.lastCodexThreadId,
             codexConfig: options.codexConfig
         });
@@ -247,6 +251,8 @@ class SessionManager {
                 status: 'IDLE',
                 sessionMode: record.sessionMode,
                 cwd: record.cwd,
+                workspaceRoot: record.workspaceRoot,
+                workspaceRootSource: record.workspaceRootSource,
                 lastCodexThreadId: record.lastCodexThreadId,
                 codexConfig: record.codexConfig
             });
@@ -265,10 +271,23 @@ class SessionManager {
         privilegeMetadata,
         sessionMode,
         cwd,
+        workspaceRoot,
+        workspaceRootSource,
         lastCodexThreadId,
         codexConfig
     }) {
         const normalizedSessionMode = normalizeSessionMode(sessionMode);
+        const normalizedCwd = normalizeSessionCwd(cwd);
+        const normalizedWorkspaceRoot = normalizeWorkspaceRoot(
+            workspaceRoot !== undefined
+                ? workspaceRoot
+                : (normalizedSessionMode === 'codex' ? normalizedCwd : null)
+        );
+        const normalizedWorkspaceRootSource = normalizeWorkspaceRootSource(
+            workspaceRootSource !== undefined
+                ? workspaceRootSource
+                : (normalizedWorkspaceRoot ? 'session_cwd' : null)
+        );
         return {
             id,
             name,
@@ -276,7 +295,9 @@ class SessionManager {
             lastActiveAt,
             status: status || 'IDLE',
             sessionMode: normalizedSessionMode,
-            cwd: normalizeSessionCwd(cwd),
+            cwd: normalizedCwd,
+            workspaceRoot: normalizedWorkspaceRoot,
+            workspaceRootSource: normalizedWorkspaceRootSource,
             lastCodexThreadId: normalizeLastCodexThreadId(lastCodexThreadId),
             codexConfig: normalizeCodexConfig(codexConfig, {
                 requirePolicyAndSandbox: false
@@ -333,6 +354,8 @@ class SessionManager {
             lastActiveAt: session.lastActiveAt,
             sessionMode: normalizeSessionMode(session.sessionMode),
             cwd: normalizeSessionCwd(session.cwd),
+            workspaceRoot: normalizeWorkspaceRoot(session.workspaceRoot),
+            workspaceRootSource: normalizeWorkspaceRootSource(session.workspaceRootSource),
             lastCodexThreadId: normalizeLastCodexThreadId(session.lastCodexThreadId),
             codexConfig: normalizeCodexConfig(session.codexConfig, {
                 requirePolicyAndSandbox: false
@@ -385,6 +408,8 @@ class SessionManager {
             status: s.status,
             sessionMode: normalizeSessionMode(s.sessionMode),
             cwd: normalizeSessionCwd(s.cwd),
+            workspaceRoot: normalizeWorkspaceRoot(s.workspaceRoot),
+            workspaceRootSource: normalizeWorkspaceRootSource(s.workspaceRootSource),
             lastCodexThreadId: normalizeLastCodexThreadId(s.lastCodexThreadId),
             codexConfig: normalizeCodexConfig(s.codexConfig, {
                 requirePolicyAndSandbox: false

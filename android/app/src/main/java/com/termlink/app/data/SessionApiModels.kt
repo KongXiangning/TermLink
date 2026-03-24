@@ -77,3 +77,27 @@ data class ProfileSessionSummary(
     val profileName: String,
     val session: SessionSummary
 )
+
+data class WorkspaceMeta(
+    val sessionId: String,
+    val workspaceRoot: String? = null,
+    val workspaceRootSource: String? = null,
+    val defaultEntryPath: String? = null,
+    val isGitRepo: Boolean = false,
+    val gitRoot: String? = null,
+    val disabledReason: String? = null
+)
+
+data class WorkspacePickerEntry(
+    val name: String,
+    val path: String,
+    val type: String,
+    val hidden: Boolean = false
+)
+
+data class WorkspacePickerTree(
+    val path: String,
+    val parentPath: String? = null,
+    val canGoUp: Boolean = false,
+    val entries: List<WorkspacePickerEntry> = emptyList()
+)

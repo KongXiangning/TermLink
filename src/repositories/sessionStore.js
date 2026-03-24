@@ -9,6 +9,7 @@ const VALID_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'hi
 const VALID_PERSONALITIES = new Set(['none', 'friendly', 'pragmatic']);
 const VALID_APPROVAL_POLICIES = new Set(['untrusted', 'on-failure', 'on-request', 'never']);
 const VALID_SANDBOX_MODES = new Set(['read-only', 'workspace-write', 'danger-full-access']);
+const VALID_WORKSPACE_ROOT_SOURCES = new Set(['session_cwd']);
 
 function normalizeSessionMode(value) {
     if (typeof value !== 'string') {
@@ -35,6 +36,18 @@ function normalizeLastCodexThreadId(value) {
 
     const normalized = value.trim();
     return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeWorkspaceRoot(value) {
+    return normalizeSessionCwd(value);
+}
+
+function normalizeWorkspaceRootSource(value) {
+    if (typeof value !== 'string') {
+        return null;
+    }
+    const normalized = value.trim().toLowerCase();
+    return VALID_WORKSPACE_ROOT_SOURCES.has(normalized) ? normalized : null;
 }
 
 function normalizeOptionalString(value) {
@@ -181,6 +194,8 @@ class SessionStore {
             const status = record.status === 'ACTIVE' ? 'ACTIVE' : 'IDLE';
             const sessionMode = normalizeSessionMode(record.sessionMode);
             const cwd = normalizeSessionCwd(record.cwd);
+            const workspaceRoot = normalizeWorkspaceRoot(record.workspaceRoot);
+            const workspaceRootSource = normalizeWorkspaceRootSource(record.workspaceRootSource);
             const lastCodexThreadId = normalizeLastCodexThreadId(record.lastCodexThreadId);
             const codexConfig = normalizeCodexConfig(record.codexConfig, {
                 requirePolicyAndSandbox: sessionMode === 'codex'
@@ -194,6 +209,8 @@ class SessionStore {
                 status,
                 sessionMode,
                 cwd,
+                workspaceRoot,
+                workspaceRootSource,
                 lastCodexThreadId,
                 codexConfig
             });
@@ -209,3 +226,5 @@ module.exports.normalizeSessionCwd = normalizeSessionCwd;
 module.exports.normalizeLastCodexThreadId = normalizeLastCodexThreadId;
 module.exports.normalizeCodexConfig = normalizeCodexConfig;
 module.exports.createDefaultCodexConfig = createDefaultCodexConfig;
+module.exports.normalizeWorkspaceRoot = normalizeWorkspaceRoot;
+module.exports.normalizeWorkspaceRootSource = normalizeWorkspaceRootSource;
