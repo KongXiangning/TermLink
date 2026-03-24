@@ -1072,7 +1072,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
                 workspaceEntryLoading = false
                 when (result) {
                     is com.termlink.app.data.ApiResult.Success -> {
-                        val disabledReason = result.value.disabledReason?.trim()?.takeIf { it.isNotBlank() }
+                        val disabledReason = normalizeWorkspaceReason(result.value.disabledReason)
                         val hasWorkspaceTarget = !result.value.workspaceRoot.isNullOrBlank() ||
                             !result.value.defaultEntryPath.isNullOrBlank()
                         workspaceEntryStableResolution = true
@@ -1086,7 +1086,10 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
                     is com.termlink.app.data.ApiResult.Failure -> {
                         workspaceEntryAvailable = false
                         workspaceEntryStableResolution = false
-                        workspaceEntryDisabledReason = result.error.message.ifBlank {
+                        workspaceEntryDisabledReason = normalizeWorkspaceReason(result.error.message) ?: getString(
+                            R.string.workspace_entry_unavailable
+                        )
+                        workspaceEntryDisabledReason = workspaceEntryDisabledReason?.ifBlank {
                             getString(R.string.workspace_entry_unavailable)
                         }
                     }
@@ -1104,6 +1107,14 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         workspaceEntryStableResolution = false
         workspaceEntryDisabledReason = null
         applyWorkspaceButtonState()
+    }
+
+    private fun normalizeWorkspaceReason(value: String?): String? {
+        val normalized = value?.trim().orEmpty()
+        if (normalized.isBlank() || normalized.equals("null", ignoreCase = true)) {
+            return null
+        }
+        return normalized
     }
 
     private fun toggleQuickToolbar() {

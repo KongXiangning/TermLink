@@ -195,13 +195,13 @@ class SessionApiClient(context: Context) {
             val obj = JSONObject(payload.ifBlank { "{}" })
             ApiResult.Success(
                 WorkspaceMeta(
-                    sessionId = obj.optString("sessionId", ""),
-                    workspaceRoot = obj.optString("workspaceRoot", "").trim().takeIf { it.isNotBlank() },
-                    workspaceRootSource = obj.optString("workspaceRootSource", "").trim().takeIf { it.isNotBlank() },
-                    defaultEntryPath = obj.optString("defaultEntryPath", "").trim().takeIf { it.isNotBlank() },
+                    sessionId = obj.optString("sessionId", "").trim(),
+                    workspaceRoot = optNullableTrimmedString(obj, "workspaceRoot"),
+                    workspaceRootSource = optNullableTrimmedString(obj, "workspaceRootSource"),
+                    defaultEntryPath = optNullableTrimmedString(obj, "defaultEntryPath"),
                     isGitRepo = obj.optBoolean("isGitRepo", false),
-                    gitRoot = obj.optString("gitRoot", "").trim().takeIf { it.isNotBlank() },
-                    disabledReason = obj.optString("disabledReason", "").trim().takeIf { it.isNotBlank() }
+                    gitRoot = optNullableTrimmedString(obj, "gitRoot"),
+                    disabledReason = optNullableTrimmedString(obj, "disabledReason")
                 )
             )
         } catch (ex: JSONException) {
@@ -238,8 +238,8 @@ class SessionApiClient(context: Context) {
             }
             ApiResult.Success(
                 WorkspacePickerTree(
-                    path = obj.optString("path", "").trim(),
-                    parentPath = obj.optString("parentPath", "").trim().takeIf { it.isNotBlank() },
+                    path = optNullableTrimmedString(obj, "path").orEmpty(),
+                    parentPath = optNullableTrimmedString(obj, "parentPath"),
                     canGoUp = obj.optBoolean("canGoUp", false),
                     entries = entries
                 )
@@ -526,13 +526,28 @@ class SessionApiClient(context: Context) {
                 null
             } else {
                 when (val errorValue = json.opt("error")) {
-                    is JSONObject -> errorValue.optString("message").takeIf { it.isNotBlank() }
-                    else -> json.optString("error").takeIf { it.isNotBlank() }
+                    is JSONObject -> normalizeNullableString(errorValue.optString("message"))
+                    else -> normalizeNullableString(json.optString("error"))
                 }
             }
         } catch (_: JSONException) {
             null
         }
+    }
+
+    private fun optNullableTrimmedString(obj: JSONObject, key: String): String? {
+        if (!obj.has(key) || obj.isNull(key)) {
+            return null
+        }
+        return normalizeNullableString(obj.optString(key))
+    }
+
+    private fun normalizeNullableString(value: String?): String? {
+        val normalized = value?.trim().orEmpty()
+        if (normalized.isBlank() || normalized.equals("null", ignoreCase = true)) {
+            return null
+        }
+        return normalized
     }
 
     private data class RequestContext(
