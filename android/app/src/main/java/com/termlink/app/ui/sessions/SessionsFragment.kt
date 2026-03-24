@@ -565,6 +565,8 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         modeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerMode.adapter = modeAdapter
         var isUpdatingCreateDialogModeUi = false
+        var lastModeProfileId: String? = null
+        var hasAppliedInitialModeSelection = false
 
         fun selectedProfile(): ServerProfile? {
             val index = spinnerProfile.selectedItemPosition
@@ -589,34 +591,43 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             return ""
         }
 
-        fun updateCreateDialogModeUi() {
+        fun updateCreateDialogModeUi(rebuildModeOptions: Boolean) {
             if (isUpdatingCreateDialogModeUi) return
             isUpdatingCreateDialogModeUi = true
             try {
                 val profile = selectedProfile()
                 val codexSupported = profile != null && supportsCodexSessions(profile)
-                val modeOptions = if (codexSupported) {
-                    listOf(
-                        getString(R.string.sessions_mode_terminal),
-                        getString(R.string.sessions_mode_codex)
-                    )
-                } else {
-                    listOf(getString(R.string.sessions_mode_terminal))
-                }
-                modeAdapter.clear()
-                modeAdapter.addAll(modeOptions)
-                modeAdapter.notifyDataSetChanged()
                 modeContainer.visibility = if (codexSupported) View.VISIBLE else View.GONE
                 spinnerMode.isEnabled = codexSupported
+                val shouldRebuildModeOptions = rebuildModeOptions || lastModeProfileId != profile?.id
 
-                val preferredMode = when {
-                    codexSupported && spinnerMode.selectedItemPosition == 1 -> 1
-                    currentSelection.profileId == profile?.id &&
-                        currentSelection.sessionMode == SessionMode.CODEX &&
-                        codexSupported -> 1
-                    else -> 0
+                if (shouldRebuildModeOptions) {
+                    val previousModeSelection = spinnerMode.selectedItemPosition
+                    val modeOptions = if (codexSupported) {
+                        listOf(
+                            getString(R.string.sessions_mode_terminal),
+                            getString(R.string.sessions_mode_codex)
+                        )
+                    } else {
+                        listOf(getString(R.string.sessions_mode_terminal))
+                    }
+                    modeAdapter.clear()
+                    modeAdapter.addAll(modeOptions)
+                    modeAdapter.notifyDataSetChanged()
+
+                    val preferredMode = when {
+                        codexSupported && previousModeSelection == 1 -> 1
+                        codexSupported && previousModeSelection == 0 -> 0
+                        hasAppliedInitialModeSelection -> 0
+                        currentSelection.profileId == profile?.id &&
+                            currentSelection.sessionMode == SessionMode.CODEX &&
+                            codexSupported -> 1
+                        else -> 0
+                    }
+                    spinnerMode.setSelection(preferredMode, false)
+                    lastModeProfileId = profile?.id
+                    hasAppliedInitialModeSelection = true
                 }
-                spinnerMode.setSelection(preferredMode, false)
 
                 val currentMode = selectedSessionMode(profile)
                 val showCwd = currentMode == SessionMode.CODEX
@@ -638,20 +649,20 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
         spinnerProfile.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                updateCreateDialogModeUi()
+                updateCreateDialogModeUi(rebuildModeOptions = true)
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {
-                updateCreateDialogModeUi()
+                updateCreateDialogModeUi(rebuildModeOptions = true)
             }
         }
         spinnerMode.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                updateCreateDialogModeUi()
+                updateCreateDialogModeUi(rebuildModeOptions = false)
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {
-                updateCreateDialogModeUi()
+                updateCreateDialogModeUi(rebuildModeOptions = false)
             }
         }
         browseCwdButton.setOnClickListener {
@@ -682,7 +693,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                 inputCwd.error = null
             }
         }
-        updateCreateDialogModeUi()
+        updateCreateDialogModeUi(rebuildModeOptions = true)
 
         val dialog = AlertDialog.Builder(requireContext())
             .setTitle(getString(R.string.sessions_create_title))
