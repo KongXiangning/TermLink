@@ -20,11 +20,39 @@ class SessionsFragmentTestActivity : AppCompatActivity(), SessionsFragment.Callb
         }
         setContentView(container)
         if (savedInstanceState == null) {
+            val fragment = SessionsFragment()
             supportFragmentManager.beginTransaction()
-                .replace(CONTAINER_ID, SessionsFragment())
+                .add(CONTAINER_ID, fragment, TAG_SESSIONS_FRAGMENT)
+                .apply {
+                    if (intent?.getBooleanExtra(EXTRA_START_HIDDEN, false) == true) {
+                        hide(fragment)
+                    }
+                }
                 .commitNow()
         }
     }
+
+    fun showSessionsFragment() {
+        val fragment = requireSessionsFragment()
+        if (!fragment.isHidden) {
+            return
+        }
+        supportFragmentManager.beginTransaction()
+            .show(fragment)
+            .commitNow()
+    }
+
+    fun hideSessionsFragment() {
+        val fragment = requireSessionsFragment()
+        if (fragment.isHidden) {
+            return
+        }
+        supportFragmentManager.beginTransaction()
+            .hide(fragment)
+            .commitNow()
+    }
+
+    fun getSessionsFragment(): SessionsFragment = requireSessionsFragment()
 
     override fun getProfiles(): List<ServerProfile> = TestState.profiles
 
@@ -38,8 +66,14 @@ class SessionsFragmentTestActivity : AppCompatActivity(), SessionsFragment.Callb
         TestState.selection = selection
     }
 
+    private fun requireSessionsFragment(): SessionsFragment {
+        return supportFragmentManager.findFragmentByTag(TAG_SESSIONS_FRAGMENT) as SessionsFragment
+    }
+
     companion object {
         private const val CONTAINER_ID = 0x5E551045
+        private const val TAG_SESSIONS_FRAGMENT = "sessions_fragment"
+        const val EXTRA_START_HIDDEN = "start_hidden"
     }
 }
 

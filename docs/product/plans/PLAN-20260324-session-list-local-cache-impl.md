@@ -417,7 +417,8 @@ class SessionListCacheStore(context: Context) {
 首屏本地数据回显已限制为视图创建后的首次加载；后续自动刷新、手动刷新和写操作成功后的刷新不再先回放旧本地快照。
 首屏本地数据读取也已移动到后台线程，避免在主线程同步执行 `SharedPreferences + JSON` 解析。
 异步刷新与写操作也已拆分为独立 request token 跟踪，`onDestroyView()` 会显式失效旧请求并释放 loading 状态，避免 drawer 隐藏或 view 重建后卡死在旧的 `isLoading` 语义里。
-本阶段已补上 `SessionsFragment` 的 instrumentation 生命周期测试，使用 androidTest 专用 host activity 和本地 HTTP stub 覆盖“刷新进行中进入 `onDestroyView()` 后仍可再次 refresh”以及“创建动作进行中销毁并重建 view 后仍可再次 refresh”的回归路径，不把测试注入逻辑混入正式 fragment 代码。
+本阶段已补上 `SessionsFragment` 的 instrumentation 生命周期测试，使用 androidTest 专用 host activity 和本地 HTTP stub 覆盖 refresh、create、rename、delete 四条路径在 `onDestroyView()` / recreate 后仍可再次 refresh 的回归场景，其中 delete 还校验了选中项清理回调，不把测试注入逻辑混入正式 fragment 代码。
+本阶段的 instrumentation 也已补上 drawer 风格的同实例 `show()/hide()` 覆盖：androidTest host 现在模拟 `MainShellActivity` 的 `add + hide + show` 片段事务，直接验证 `onHiddenChanged(false)` 会触发 refresh，以及隐藏期间完成的旧 refresh / rename action 不会阻塞下次重新显示后的 refresh。
 本批次刻意不包含缓存 banner/stale 文案、远端成功覆盖写回缓存和失败态收口，这些仍分别归属 `8.3` 与 `8.4`。
 
 在 `SessionsFragment` 的首次加载流程中：
@@ -619,7 +620,7 @@ if (cachedContentIsVisible) {
    `removeProfile(profileId)` 保持 profile 级全量清理，同时新增 `removeProfileContext(profile)` 供后续会话级同步只删除当前上下文使用。
 2. `done`：任务 2 已完成，`SessionsFragment` 已接入远端缓存首屏回显，并把 `EXTERNAL_WEB` 的既有本地分组纳入首屏本地数据组装；上一轮遗留的未消费缓存状态字段也已移除。
    当前实现同时引入 request token 跟踪，避免 view 销毁后的旧回调把 Sessions 页面卡死在 loading 状态。
-   自动化已从纯 helper 单测扩展到 fragment/lifecycle 级 instrumentation 测试，能同时拦住 refresh 和 create action 两条路径上“loading 中销毁并重建 view 后无法再次 refresh”的回归；测试支撑通过 androidTest 专用 host activity 与本地 HTTP stub 实现，不依赖生产静态测试钩子。
+   自动化已从纯 helper 单测扩展到 fragment/lifecycle 级 instrumentation 测试，能同时拦住 refresh、create、rename、delete 四条路径上“loading 中销毁并重建 view 后无法再次 refresh”的回归；同时也覆盖了 drawer 风格 `show()/hide()` 下 `onHiddenChanged()` 重新触发 refresh 的场景。测试支撑通过 androidTest 专用 host activity 与本地 HTTP stub 实现，不依赖生产静态测试钩子。
 3. `pending`：任务 3 到任务 10 尚未在当前批次实现。
 
 缓存删除语义约束：
