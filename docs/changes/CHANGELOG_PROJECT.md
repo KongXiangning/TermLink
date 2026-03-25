@@ -2,13 +2,19 @@
 title: TermLink 项目变更日志
 status: active
 owner: @maintainer
-last_updated: 2026-03-25
+last_updated: 2026-03-26
 source_of_truth: product
 related_code: []
 related_docs: [docs/README.md]
 ---
 
 # CHANGELOG_PROJECT
+
+## 2026-03-26
+
+### docs
+
+1. 重写 README 入口：将仓库根 `README.md` 调整为英文版，并新增 `README.zh-CN.md` 中文版，两个文档可通过超链接互相跳转；内容按已实现能力收口 Android 原生壳、Codex 工作区、Workspace 独立页、Sessions 缓存与安全发布说明，并补齐 4 张 Android 真机截图资源。
 
 ## 2026-03-25
 
