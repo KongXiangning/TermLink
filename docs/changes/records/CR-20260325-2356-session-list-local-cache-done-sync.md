@@ -1,9 +1,9 @@
 ---
 title: REQ-20260324-session-list-local-cache - requirement done sync
-status: draft
+status: active
 record_id: CR-20260325-2356-session-list-local-cache-done-sync
 req_id: REQ-20260324-session-list-local-cache
-commit_ref: TBD
+commit_ref: 6a0f06e
 owner: @maintainer
 last_updated: 2026-03-25
 source_of_truth: product
@@ -51,9 +51,9 @@ git checkout <commit_ref>^ -- docs/changes/records/CR-20260325-2356-session-list
 ## 5. 验证记录（Tests/Checks）
 
 - 校验命令：`powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/validate-req.ps1 -ReqPath ./docs/product/requirements/REQ-20260324-session-list-local-cache.md -Strict`
-- 结果：待执行
+- 结果：通过
 - 校验命令：`powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/check-doc-sync.ps1 -ReqId REQ-20260324-session-list-local-cache`
-- 结果：待执行
+- 结果：通过
 - 校验命令：`set JAVA_HOME=D:\ProgramCode\openjdk\jdk-21 && .\gradlew.bat :app:connectedDebugAndroidTest`
 - 结果：2026-03-25 真机 `LYA-TL00 - 10` 通过，34/34 instrumentation 全部通过
 
