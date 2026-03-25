@@ -1,9 +1,9 @@
 ---
 title: 文档统一管理与需求流程标准化 - root README refresh
-status: draft
+status: active
 record_id: CR-20260326-0033-root-readme-refresh
 req_id: REQ-20260222-doc-governance
-commit_ref: TBD
+commit_ref: ff36174
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: product
@@ -63,5 +63,5 @@ git checkout <commit_ref>^ -- docs/changes/records/CR-20260326-0033-root-readme-
 
 ## 7. 风险与注意事项
 
-1. 本 CR 当前为 `draft`，在真实提交前不得伪造 `commit_ref`。
-2. README 只应描述当前已实现能力；后续若引入未落地的设计稿状态，必须明确标注为“设计方向”而不是“现状”。
+1. README 只应描述当前已实现能力；后续若引入未落地的设计稿状态，必须明确标注为“设计方向”而不是“现状”。
+2. 本记录当前绑定的实现提交为 `ff36174`；后续若继续扩展 README 范围，应新增独立 CR，而不是直接覆写本记录的提交指向。
