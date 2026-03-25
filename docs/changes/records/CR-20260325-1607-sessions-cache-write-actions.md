@@ -1,9 +1,9 @@
 ---
 title: REQ-20260324-session-list-local-cache - sessions cache write actions
-status: draft
+status: active
 record_id: CR-20260325-1607-sessions-cache-write-actions
 req_id: REQ-20260324-session-list-local-cache
-commit_ref: TBD
+commit_ref: 2aaf6b6
 owner: @maintainer
 last_updated: 2026-03-25
 source_of_truth: code
@@ -56,7 +56,7 @@ git checkout <commit_ref>^ -- docs/changes/records/INDEX.md
 - 校验命令：`set JAVA_HOME=D:\ProgramCode\openjdk\jdk-21 && .\gradlew.bat :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin :app:testDebugUnitTest`
 - 结果：通过
 - 校验命令：`powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/validate-change-record.ps1 -RecordPath ./docs/changes/records/CR-20260325-1607-sessions-cache-write-actions.md -Strict`
-- 结果：待本批文档回写后执行
+- 结果：通过
 - 说明：当前未连接 Android 设备，`connectedDebugAndroidTest` 尚未执行；本批仅完成 instrumentation 源码与编译门禁。
 
 ## 6. 后续修改入口（How to continue）
