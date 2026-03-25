@@ -10,6 +10,7 @@ import com.termlink.app.data.SessionSelection
 class SessionsFragmentTestActivity : AppCompatActivity(), SessionsFragment.Callbacks {
 
     val controlledFirstPaintScheduler = ControlledFirstPaintScheduler()
+    val controlledCacheWriteScheduler = ControlledCacheWriteScheduler()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -22,7 +23,10 @@ class SessionsFragmentTestActivity : AppCompatActivity(), SessionsFragment.Callb
         }
         setContentView(container)
         if (savedInstanceState == null) {
-            val fragment = TestSessionsFragment(controlledFirstPaintScheduler)
+            val fragment = TestSessionsFragment(
+                firstPaintScheduler = controlledFirstPaintScheduler,
+                cacheWriteScheduler = controlledCacheWriteScheduler
+            )
             supportFragmentManager.beginTransaction()
                 .add(CONTAINER_ID, fragment, TAG_SESSIONS_FRAGMENT)
                 .apply {

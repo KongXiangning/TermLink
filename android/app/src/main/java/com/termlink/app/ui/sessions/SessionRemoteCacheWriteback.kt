@@ -15,14 +15,14 @@ internal object SessionRemoteCacheWriteback {
     fun apply(
         groups: List<SessionRemoteCacheWritebackCandidate>,
         fetchedAt: Long,
-        replaceProfile: (ServerProfile, List<SessionSummary>, Long) -> Unit
+        writeProfile: (ServerProfile, List<SessionSummary>, Long) -> Unit
     ): Int {
         var appliedCount = 0
         groups.forEach { group ->
             if (group.profile.terminalType != TerminalType.TERMLINK_WS || group.hasError) {
                 return@forEach
             }
-            replaceProfile(group.profile, group.sessions, fetchedAt)
+            writeProfile(group.profile, group.sessions, fetchedAt)
             appliedCount += 1
         }
         return appliedCount

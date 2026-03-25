@@ -125,11 +125,7 @@ class SessionListCacheStore(context: Context) {
     }
 
     private fun normalizeSessions(sessions: List<SessionSummary>): List<SessionSummary> {
-        return sessions.sortedWith(
-            compareByDescending<SessionSummary> { it.lastActiveAt }
-                .thenByDescending { it.createdAt }
-                .thenBy { it.name.lowercase() }
-        )
+        return SessionSummaryOrdering.normalize(sessions)
     }
 
     companion object {

@@ -31,14 +31,17 @@ import com.termlink.app.data.SessionApiError
 import com.termlink.app.data.SessionApiErrorCode
 import com.termlink.app.data.SessionListCacheStore
 import com.termlink.app.data.SessionMode
+import com.termlink.app.data.SessionSummaryOrdering
 import com.termlink.app.data.WorkspacePickerTree
 import com.termlink.app.data.SessionRef
 import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.SessionSummary
 import com.termlink.app.data.TerminalType
 import java.text.DateFormat
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicLong
 
 open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
@@ -80,6 +83,8 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     private var visibleDataSource: SessionVisibleDataSource = SessionVisibleDataSource.NONE
     private var refreshStatus: SessionRefreshStatus = SessionRefreshStatus.IDLE
     private var lastSuccessfulSyncAtMillis: Long? = null
+    private val nextCacheWriteGeneration = AtomicLong(0L)
+    private val latestCacheWriteGenerationByProfile = ConcurrentHashMap<String, Long>()
 
     private lateinit var profileText: TextView
     private lateinit var errorText: TextView
@@ -387,7 +392,14 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                 )
             },
             fetchedAt = fetchedAt,
-            replaceProfile = sessionListCacheStore::replaceProfile
+            writeProfile = { profile, sessions, timestamp ->
+                scheduleProfileCacheWrite(
+                    profile = profile,
+                    sessions = sessions,
+                    fetchedAt = timestamp,
+                    generation = reserveCacheWriteGeneration(profile)
+                )
+            }
         )
     }
 
@@ -499,6 +511,129 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             }
         }
         return sessionApiClient.deleteSession(profile, sessionId)
+    }
+
+    private fun applyLocalSessionMutation(
+        profile: ServerProfile,
+        transform: (List<SessionSummary>) -> List<SessionSummary>
+    ) {
+        var targetHandled = false
+        val mutatedGroups = groupedSessions.map { group ->
+            if (group.profile.id != profile.id) {
+                group
+            } else {
+                targetHandled = true
+                group.copy(
+                    sessions = SessionSummaryOrdering.normalize(transform(group.sessions)),
+                    error = null
+                )
+            }
+        }.toMutableList()
+
+        if (!targetHandled) {
+            val insertedSessions = SessionSummaryOrdering.normalize(transform(emptyList()))
+            if (insertedSessions.isNotEmpty()) {
+                mutatedGroups += ProfileGroupResult(
+                    profile = profile,
+                    sessions = insertedSessions,
+                    error = null
+                )
+            }
+        }
+
+        val orderedGroups = mutatedGroups.sortedBy { group ->
+            profiles.indexOfFirst { it.id == group.profile.id }.let { index ->
+                if (index >= 0) index else Int.MAX_VALUE
+            }
+        }
+        if (orderedGroups == groupedSessions) {
+            return
+        }
+        if (orderedGroups.isNotEmpty()) {
+            visibleDataSource = if (profile.terminalType == TerminalType.TERMLINK_WS) {
+                SessionVisibleDataSource.REMOTE
+            } else {
+                SessionVisibleDataSource.CACHE
+            }
+        }
+        renderGroupedSessions(orderedGroups)
+        renderStatusBanner()
+        orderedGroups.firstOrNull { it.profile.id == profile.id }?.let { group ->
+            writeMutatedRemoteProfileCache(group)
+        }
+    }
+
+    private fun reserveCacheWriteGeneration(profile: ServerProfile): Long {
+        val generation = nextCacheWriteGeneration.incrementAndGet()
+        latestCacheWriteGenerationByProfile[buildProfileCacheContextId(profile)] = generation
+        return generation
+    }
+
+    private fun isLatestCacheWriteGeneration(profile: ServerProfile, generation: Long): Boolean {
+        return latestCacheWriteGenerationByProfile[buildProfileCacheContextId(profile)] == generation
+    }
+
+    private fun scheduleProfileCacheWrite(
+        profile: ServerProfile,
+        sessions: List<SessionSummary>,
+        fetchedAt: Long,
+        generation: Long
+    ) {
+        if (profile.terminalType != TerminalType.TERMLINK_WS) {
+            return
+        }
+        postCacheWrite(
+            Runnable {
+                if (!isLatestCacheWriteGeneration(profile, generation)) {
+                    return@Runnable
+                }
+                sessionListCacheStore.replaceProfile(profile, sessions, fetchedAt)
+            }
+        )
+    }
+
+    protected open fun postCacheWrite(task: Runnable) {
+        executor.execute(task)
+    }
+
+    private fun writeMutatedRemoteProfileCache(group: ProfileGroupResult) {
+        if (group.profile.terminalType != TerminalType.TERMLINK_WS || group.error != null) {
+            return
+        }
+        val fetchedAt = sessionListCacheStore.loadForProfiles(listOf(group.profile))
+            .firstOrNull()
+            ?.fetchedAt
+            ?: lastSuccessfulSyncAtMillis
+            ?: System.currentTimeMillis()
+        scheduleProfileCacheWrite(
+            profile = group.profile,
+            sessions = group.sessions,
+            fetchedAt = fetchedAt,
+            generation = reserveCacheWriteGeneration(group.profile)
+        )
+    }
+
+    private fun buildProfileCacheContextId(profile: ServerProfile): String {
+        return "${profile.id.trim()}|${SessionListCacheStore.buildCacheKey(profile)}"
+    }
+
+    private fun buildOptimisticSessionSummary(
+        created: SessionRef,
+        fallbackName: String,
+        fallbackCwd: String?
+    ): SessionSummary {
+        val now = System.currentTimeMillis()
+        return SessionSummary(
+            id = created.id,
+            name = created.name.ifBlank { fallbackName },
+            status = "UNKNOWN",
+            activeConnections = 0,
+            createdAt = now,
+            lastActiveAt = now,
+            sessionMode = created.sessionMode,
+            cwd = created.cwd ?: fallbackCwd,
+            lastCodexThreadId = created.lastCodexThreadId
+        )
     }
 
     private fun renderProfileSummary() {
@@ -900,14 +1035,21 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                 runAction(
                     action = { createSessionForProfile(profile, name, sessionMode, cwd) },
                     onSuccess = { created ->
-                        callbacks?.onOpenSession(
-                            SessionSelection(
-                                profileId = profile.id,
-                                sessionId = created.id,
-                                sessionMode = created.sessionMode,
-                                cwd = created.cwd
-                            )
+                        val createdSelection = SessionSelection(
+                            profileId = profile.id,
+                            sessionId = created.id,
+                            sessionMode = created.sessionMode,
+                            cwd = created.cwd ?: cwd
                         )
+                        currentSelection = createdSelection
+                        applyLocalSessionMutation(profile) { sessions ->
+                            sessions.filterNot { it.id == created.id } + buildOptimisticSessionSummary(
+                                created = created,
+                                fallbackName = name,
+                                fallbackCwd = cwd
+                            )
+                        }
+                        callbacks?.onOpenSession(createdSelection)
                         refreshSessions(showSpinner = false)
                     }
                 )
@@ -1037,7 +1179,16 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         ) { newName ->
             runAction(
                 action = { renameSessionForProfile(profile, session.id, newName) },
-                onSuccess = {
+                onSuccess = { renamed ->
+                    applyLocalSessionMutation(profile) { sessions ->
+                        sessions.map { current ->
+                            if (current.id != session.id) {
+                                current
+                            } else {
+                                current.copy(name = renamed.name.ifBlank { newName })
+                            }
+                        }
+                    }
                     refreshSessions(showSpinner = false)
                 }
             )
@@ -1058,6 +1209,9 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                         ) {
                             currentSelection = SessionSelection(profile.id, "")
                             callbacks?.onUpdateSessionSelection(currentSelection)
+                        }
+                        applyLocalSessionMutation(profile) { sessions ->
+                            sessions.filterNot { it.id == session.id }
                         }
                         refreshSessions(showSpinner = false)
                     }

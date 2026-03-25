@@ -9,9 +9,9 @@
 3. `done`：`8.2 第二步：接入 Sessions 首屏读取缓存`
 4. `done`：`8.3 第三步：远端成功覆盖缓存`
 5. `done`：`8.4 第四步：失败态与文案收口`
-6. `pending`：`8.5 第五步：创建/删除/重命名链路补齐缓存更新`
+6. `done`：`8.5 第五步：创建/删除/重命名链路补齐缓存更新`
 
-对应实现记录：`docs/changes/records/CR-20260324-2331-session-list-cache-store-foundation.md`、`docs/changes/records/CR-20260325-0050-sessions-initial-cache-render.md`、`docs/changes/records/CR-20260325-0857-sessions-remote-cache-writeback.md`、`docs/changes/records/CR-20260325-1411-sessions-cache-failure-state.md`、`docs/changes/records/CR-20260325-1526-sessions-view-recreate-state-reset.md`
+对应实现记录：`docs/changes/records/CR-20260324-2331-session-list-cache-store-foundation.md`、`docs/changes/records/CR-20260325-0050-sessions-initial-cache-render.md`、`docs/changes/records/CR-20260325-0857-sessions-remote-cache-writeback.md`、`docs/changes/records/CR-20260325-1411-sessions-cache-failure-state.md`、`docs/changes/records/CR-20260325-1526-sessions-view-recreate-state-reset.md`、`docs/changes/records/CR-20260325-1607-sessions-cache-write-actions.md`
 
 ### 1. 文档定位
 
@@ -509,7 +509,14 @@ renderGroupedSessions(nextGroups)
 
 #### 8.5 第五步：创建/删除/重命名链路补齐缓存更新
 
-当前状态：`pending`
+当前状态：`done`（见 `CR-20260325-1607-sessions-cache-write-actions`）
+
+补充说明：当前实现已在 `SessionsFragment` 的创建、删除、重命名成功回调中，先同步当前可见分组与对应远端 profile 缓存，再触发 `refreshSessions(showSpinner = false)` 做静默远端覆盖。
+创建链路会基于 `SessionRef` 先构造最小 `SessionSummary` 乐观插入当前列表并立即选中新会话；重命名与删除链路会直接更新或移除当前分组中的目标项。
+对于 `TERMLINK_WS` profile，这些本地变更会异步写回 `SessionListCacheStore`，并复用和缓存层一致的 session 排序规则，避免“列表已更新但下次进入仍回显旧缓存”。
+本阶段额外补上 lifecycle instrumentation 回归：三条写操作路径都会断言“本地列表/缓存已先更新，然后后续静默 refresh 才完成”，避免 `8.5` 退化回只依赖 follow-up refresh 才可见结果。
+后续补丁 `CR-20260325-1626-sessions-cache-write-generation-guard` 进一步为 action 本地缓存写回和 refresh 权威写回引入统一的 generation 门禁，并新增 test-only cache write scheduler，锁住“旧乐观写回晚到也不能覆盖后续 refresh 结果”的竞态。
+后续补丁 `CR-20260325-1633-sessions-create-cwd-selection-fallback` 进一步修复 CODEX 创建链路：当服务端返回的 `SessionRef` 未携带 `cwd` 时，新建后立即打开的 `SessionSelection` 会回退到用户刚选择的本地路径，不再丢失工作目录上下文。
 
 不要只修复“打开页面时的缓存可见性”，否则用户刚创建或删除会话后，下次进入仍可能看到旧缓存。
 
@@ -630,8 +637,9 @@ renderGroupedSessions(nextGroups)
 4. `done`：任务 5 与任务 9 已完成，远端失败时若当前已有可见列表则只显示 stale/refreshing 状态提示而不覆盖列表；无缓存首屏下若仅部分 profile 失败，也会保留成功分组与 group error，而不是整页失败，并已补齐对应字符串资源与状态解析测试。
    当前批次额外补强了 `SessionsFragmentStatusTest` 的 partial-success 断言粒度，明确区分顶部 stale banner 与分组内 `group_error_text`，避免“只匹配到错误文案字符串但没拦住整页错误接管”的假覆盖。
    后续补丁 `CR-20260325-1526-sessions-view-recreate-state-reset` 进一步修复了 view 重建时状态泄漏：`onDestroyView()` 现在会清空当前 view 绑定的列表与 banner 状态，避免新 view 在“无缓存且刷新失败”时误显示 stale banner；同时新增 lifecycle instrumentation 用例覆盖该路径。
-5. `pending`：任务 3、6、7、8、10 尚未在当前批次实现。
-   说明：任务 10 当前已补齐 `SessionStatusBannerResolverTest` 与 `SessionsFragmentStatusTest` 的源码，并已通过 `:app:compileDebugAndroidTestKotlin` 编译校验；但因当前无连接设备，`connectedDebugAndroidTest` 尚未执行，因此整项仍保持 `pending`。
+5. `done`：任务 6、7、8 已完成。创建成功后当前列表会先乐观插入最小 `SessionSummary` 并同步缓存，重命名/删除成功后也会先改当前分组与缓存，再继续静默 refresh。
+6. `pending`：任务 3、10 尚未在当前批次完全收口。
+   说明：任务 10 本批新增了 `SessionsFragmentLifecycleTest` 的三条 8.5 instrumentation 回归源码，并已通过 `:app:compileDebugAndroidTestKotlin` 编译校验；但因当前无连接设备，`connectedDebugAndroidTest` 尚未执行，因此整项仍保持 `pending`。
 
 缓存删除语义约束：
 

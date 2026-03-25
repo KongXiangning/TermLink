@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.Espresso.onData
 import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.action.ViewActions.closeSoftKeyboard
 import androidx.test.espresso.action.ViewActions.replaceText
@@ -36,6 +37,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.hamcrest.CoreMatchers.allOf
+import org.hamcrest.CoreMatchers.instanceOf
+import org.hamcrest.CoreMatchers.`is`
 import android.view.View
 import android.widget.TextView
 import java.util.concurrent.CountDownLatch
@@ -225,6 +228,121 @@ class SessionsFragmentLifecycleTest {
     }
 
     @Test
+    fun createActionUpdatesVisibleListAndCacheBeforeFollowupRefreshCompletes() {
+        val refreshCallCount = AtomicInteger(0)
+        val firstRefreshStarted = CountDownLatch(1)
+        val secondRefreshStarted = CountDownLatch(1)
+        val allowSecondRefreshToFinish = CountDownLatch(1)
+
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                return when {
+                    request.path == "/api/sessions" && request.method == "GET" -> {
+                        when (refreshCallCount.incrementAndGet()) {
+                            1 -> {
+                                firstRefreshStarted.countDown()
+                                jsonResponse("""[{"id":"remote-1","name":"Remote 1","status":"IDLE","activeConnections":0,"createdAt":1,"lastActiveAt":1,"sessionMode":"terminal"}]""")
+                            }
+
+                            2 -> {
+                                secondRefreshStarted.countDown()
+                                allowSecondRefreshToFinish.await(5, TimeUnit.SECONDS)
+                                jsonResponse("""[{"id":"created-session","name":"Created Session","status":"IDLE","activeConnections":0,"createdAt":2,"lastActiveAt":2,"sessionMode":"terminal"}]""")
+                            }
+
+                            else -> jsonResponse("[]")
+                        }
+                    }
+
+                    request.path == "/api/sessions" && request.method == "POST" -> {
+                        jsonResponse("""{"id":"created-session","name":"Created Session","sessionMode":"terminal"}""")
+                    }
+
+                    else -> MockResponse().setResponseCode(404)
+                }
+            }
+        }
+        server.start()
+        prepareRemoteProfile()
+
+        launchTestActivity().use { scenario ->
+            assertTrue(firstRefreshStarted.await(5, TimeUnit.SECONDS))
+
+            onView(withId(R.id.btn_create_session)).perform(click())
+            onView(withId(R.id.input_create_session_name)).perform(replaceText("Created Session"), closeSoftKeyboard())
+            onView(withText(android.R.string.ok)).perform(click())
+
+            assertTrue(secondRefreshStarted.await(5, TimeUnit.SECONDS))
+            waitForSessionNameVisibility(scenario, "Created Session", expectedVisible = true)
+            waitForCachedSessionNames(listOf("Created Session", "Remote 1"))
+
+            allowSecondRefreshToFinish.countDown()
+        }
+    }
+
+    @Test
+    fun createCodexActionKeepsSelectedCwdWhenResponseOmitsIt() {
+        val refreshCallCount = AtomicInteger(0)
+        val firstRefreshStarted = CountDownLatch(1)
+        val secondRefreshStarted = CountDownLatch(1)
+        val selectedCwd = "E:\\coding\\TermLink"
+
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                return when {
+                    request.path == "/api/sessions" && request.method == "GET" -> {
+                        when (refreshCallCount.incrementAndGet()) {
+                            1 -> {
+                                firstRefreshStarted.countDown()
+                                jsonResponse("[]")
+                            }
+
+                            2 -> {
+                                secondRefreshStarted.countDown()
+                                jsonResponse(
+                                    """[{"id":"created-codex","name":"Codex Session","status":"IDLE","activeConnections":0,"createdAt":2,"lastActiveAt":2,"sessionMode":"codex","cwd":"E:\\coding\\TermLink"}]"""
+                                )
+                            }
+
+                            else -> jsonResponse("[]")
+                        }
+                    }
+
+                    request.path == "/api/sessions" && request.method == "POST" -> {
+                        jsonResponse("""{"id":"created-codex","name":"Codex Session","sessionMode":"codex"}""")
+                    }
+
+                    else -> MockResponse().setResponseCode(404)
+                }
+            }
+        }
+        server.start()
+        prepareRemoteProfile()
+
+        launchTestActivity().use { _ ->
+            assertTrue(firstRefreshStarted.await(5, TimeUnit.SECONDS))
+
+            onView(withId(R.id.btn_create_session)).perform(click())
+            onView(withId(R.id.input_create_session_name)).perform(replaceText("Codex Session"), closeSoftKeyboard())
+            onView(withId(R.id.spinner_create_session_mode)).perform(click())
+            onData(allOf(`is`(instanceOf(String::class.java)), `is`(context.getString(R.string.sessions_mode_codex))))
+                .perform(click())
+            onView(withId(R.id.input_create_session_cwd)).perform(replaceText(selectedCwd), closeSoftKeyboard())
+            onView(withText(android.R.string.ok)).perform(click())
+
+            assertTrue(secondRefreshStarted.await(5, TimeUnit.SECONDS))
+            waitForSelection(
+                SessionSelection(
+                    profileId = REMOTE_PROFILE_ID,
+                    sessionId = "created-codex",
+                    sessionMode = SessionMode.CODEX,
+                    cwd = selectedCwd
+                )
+            )
+        }
+    }
+
+    @Test
     fun renameActionCanFinishAfterViewDestroyedAndStillAllowNextRefresh() {
         val refreshCallCount = AtomicInteger(0)
         val firstRefreshStarted = CountDownLatch(1)
@@ -339,6 +457,60 @@ class SessionsFragmentLifecycleTest {
     }
 
     @Test
+    fun renameActionUpdatesVisibleListAndCacheBeforeFollowupRefreshCompletes() {
+        val refreshCallCount = AtomicInteger(0)
+        val firstRefreshStarted = CountDownLatch(1)
+        val secondRefreshStarted = CountDownLatch(1)
+        val allowSecondRefreshToFinish = CountDownLatch(1)
+
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                return when {
+                    request.path == "/api/sessions" && request.method == "GET" -> {
+                        when (refreshCallCount.incrementAndGet()) {
+                            1 -> {
+                                firstRefreshStarted.countDown()
+                                jsonResponse("""[{"id":"remote-1","name":"Remote 1","status":"IDLE","activeConnections":0,"createdAt":1,"lastActiveAt":1,"sessionMode":"terminal"}]""")
+                            }
+
+                            2 -> {
+                                secondRefreshStarted.countDown()
+                                allowSecondRefreshToFinish.await(5, TimeUnit.SECONDS)
+                                jsonResponse("""[{"id":"remote-1","name":"Renamed Remote 1","status":"IDLE","activeConnections":0,"createdAt":1,"lastActiveAt":2,"sessionMode":"terminal"}]""")
+                            }
+
+                            else -> jsonResponse("[]")
+                        }
+                    }
+
+                    request.path == "/api/sessions/remote-1" && request.method == "PATCH" -> {
+                        jsonResponse("""{"id":"remote-1","name":"Renamed Remote 1","sessionMode":"terminal"}""")
+                    }
+
+                    else -> MockResponse().setResponseCode(404)
+                }
+            }
+        }
+        server.start()
+        prepareRemoteProfile(selectedSessionId = "remote-1")
+
+        launchTestActivity().use { scenario ->
+            assertTrue(firstRefreshStarted.await(5, TimeUnit.SECONDS))
+
+            onView(sessionButtonInRow("Remote 1", R.id.btn_rename_session)).perform(click())
+            onView(withId(R.id.input_session_name)).perform(replaceText("Renamed Remote 1"), closeSoftKeyboard())
+            onView(withText(android.R.string.ok)).perform(click())
+
+            assertTrue(secondRefreshStarted.await(5, TimeUnit.SECONDS))
+            waitForSessionNameVisibility(scenario, "Renamed Remote 1", expectedVisible = true)
+            waitForSessionNameVisibility(scenario, "Remote 1", expectedVisible = false)
+            waitForCachedSessionNames(listOf("Renamed Remote 1"))
+
+            allowSecondRefreshToFinish.countDown()
+        }
+    }
+
+    @Test
     fun deleteActionClearsSelectionAndAllowsNextRefreshAfterViewRecreated() {
         val refreshCallCount = AtomicInteger(0)
         val firstRefreshStarted = CountDownLatch(1)
@@ -393,6 +565,115 @@ class SessionsFragmentLifecycleTest {
 
         assertTrue(secondRefreshStarted.await(5, TimeUnit.SECONDS))
         assertEquals(SessionSelection(REMOTE_PROFILE_ID, ""), TestState.selection)
+    }
+
+    @Test
+    fun deleteActionUpdatesVisibleListAndCacheBeforeFollowupRefreshCompletes() {
+        val refreshCallCount = AtomicInteger(0)
+        val firstRefreshStarted = CountDownLatch(1)
+        val secondRefreshStarted = CountDownLatch(1)
+        val allowSecondRefreshToFinish = CountDownLatch(1)
+
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                return when {
+                    request.path == "/api/sessions" && request.method == "GET" -> {
+                        when (refreshCallCount.incrementAndGet()) {
+                            1 -> {
+                                firstRefreshStarted.countDown()
+                                jsonResponse("""[{"id":"remote-1","name":"Remote 1","status":"IDLE","activeConnections":0,"createdAt":1,"lastActiveAt":1,"sessionMode":"terminal"}]""")
+                            }
+
+                            2 -> {
+                                secondRefreshStarted.countDown()
+                                allowSecondRefreshToFinish.await(5, TimeUnit.SECONDS)
+                                jsonResponse("""[]""")
+                            }
+
+                            else -> jsonResponse("[]")
+                        }
+                    }
+
+                    request.path == "/api/sessions/remote-1" && request.method == "DELETE" -> {
+                        MockResponse().setResponseCode(204)
+                    }
+
+                    else -> MockResponse().setResponseCode(404)
+                }
+            }
+        }
+        server.start()
+        prepareRemoteProfile(selectedSessionId = "remote-1")
+
+        launchTestActivity().use { scenario ->
+            assertTrue(firstRefreshStarted.await(5, TimeUnit.SECONDS))
+
+            onView(sessionButtonInRow("Remote 1", R.id.btn_delete_session)).perform(click())
+            onView(withText(R.string.sessions_delete_title)).perform(click())
+
+            assertTrue(secondRefreshStarted.await(5, TimeUnit.SECONDS))
+            waitForSessionNameVisibility(scenario, "Remote 1", expectedVisible = false)
+            waitForCachedSessionNames(emptyList())
+
+            allowSecondRefreshToFinish.countDown()
+        }
+    }
+
+    @Test
+    fun delayedOptimisticCacheWriteDoesNotOverrideFollowupRefreshCache() {
+        val refreshCallCount = AtomicInteger(0)
+        val firstRefreshStarted = CountDownLatch(1)
+        val secondRefreshStarted = CountDownLatch(1)
+
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                return when {
+                    request.path == "/api/sessions" && request.method == "GET" -> {
+                        when (refreshCallCount.incrementAndGet()) {
+                            1 -> {
+                                firstRefreshStarted.countDown()
+                                jsonResponse("""[{"id":"remote-1","name":"Remote 1","status":"IDLE","activeConnections":0,"createdAt":1,"lastActiveAt":1,"sessionMode":"terminal"}]""")
+                            }
+
+                            2 -> {
+                                secondRefreshStarted.countDown()
+                                jsonResponse("""[{"id":"created-session","name":"Remote Authoritative Session","status":"IDLE","activeConnections":0,"createdAt":2,"lastActiveAt":2,"sessionMode":"terminal"}]""")
+                            }
+
+                            else -> jsonResponse("[]")
+                        }
+                    }
+
+                    request.path == "/api/sessions" && request.method == "POST" -> {
+                        jsonResponse("""{"id":"created-session","name":"Optimistic Session","sessionMode":"terminal"}""")
+                    }
+
+                    else -> MockResponse().setResponseCode(404)
+                }
+            }
+        }
+        server.start()
+        prepareRemoteProfile()
+
+        launchTestActivity().use { scenario ->
+            lateinit var scheduler: ControlledCacheWriteScheduler
+            scenario.onActivity {
+                scheduler = it.controlledCacheWriteScheduler
+                scheduler.blockNextCacheWrite()
+            }
+            assertTrue(firstRefreshStarted.await(5, TimeUnit.SECONDS))
+
+            onView(withId(R.id.btn_create_session)).perform(click())
+            onView(withId(R.id.input_create_session_name)).perform(replaceText("Optimistic Session"), closeSoftKeyboard())
+            onView(withText(android.R.string.ok)).perform(click())
+
+            assertTrue(scheduler.awaitBlockedCacheWrite(5, TimeUnit.SECONDS))
+            assertTrue(secondRefreshStarted.await(5, TimeUnit.SECONDS))
+            waitForCachedSessionNames(listOf("Remote Authoritative Session"))
+
+            scheduler.releaseBlockedCacheWrite()
+            waitForCachedSessionNames(listOf("Remote Authoritative Session"))
+        }
     }
 
     @Test
@@ -587,6 +868,44 @@ class SessionsFragmentLifecycleTest {
         }
         throw AssertionError(
             "Expected session visibility for '$sessionName' to be $expectedVisible, but visible names were: $lastNames"
+        )
+    }
+
+    private fun waitForCachedSessionNames(
+        expectedNames: List<String>,
+        timeoutMs: Long = 5_000L
+    ) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var lastNames: List<String> = emptyList()
+        while (System.currentTimeMillis() < deadline) {
+            lastNames = SessionListCacheStore(context)
+                .loadForProfiles(TestState.profiles)
+                .flatMap { cached -> cached.sessions.map { it.name } }
+            if (lastNames == expectedNames) {
+                return
+            }
+            Thread.sleep(50L)
+        }
+        throw AssertionError(
+            "Timed out waiting for cached session names $expectedNames. Last names: $lastNames"
+        )
+    }
+
+    private fun waitForSelection(
+        expected: SessionSelection,
+        timeoutMs: Long = 5_000L
+    ) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var lastSelection = SessionSelection("", "")
+        while (System.currentTimeMillis() < deadline) {
+            lastSelection = TestState.selection
+            if (lastSelection == expected) {
+                return
+            }
+            Thread.sleep(50L)
+        }
+        throw AssertionError(
+            "Timed out waiting for selection $expected. Last selection: $lastSelection"
         )
     }
 
