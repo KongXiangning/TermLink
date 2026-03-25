@@ -9,6 +9,7 @@ import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.action.ViewActions.closeSoftKeyboard
 import androidx.test.espresso.action.ViewActions.replaceText
 import androidx.test.espresso.assertion.ViewAssertions.matches
+import androidx.test.espresso.assertion.ViewAssertions.doesNotExist
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withParent
@@ -453,6 +454,59 @@ class SessionsFragmentLifecycleTest {
         waitForSessionNameVisibility(scenario, "Old Cached", expectedVisible = false)
     }
 
+    @Test
+    fun recreatedViewFallsBackToGlobalFailureWhenStaleStateHasNoVisibleList() {
+        val refreshCallCount = AtomicInteger(0)
+        val firstRefreshStarted = CountDownLatch(1)
+        val allowFirstRefreshToFinish = CountDownLatch(1)
+        val secondRefreshStarted = CountDownLatch(1)
+
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                if (request.path != "/api/sessions" || request.method != "GET") {
+                    return MockResponse().setResponseCode(404)
+                }
+                return when (refreshCallCount.incrementAndGet()) {
+                    1 -> {
+                        firstRefreshStarted.countDown()
+                        allowFirstRefreshToFinish.await(5, TimeUnit.SECONDS)
+                        MockResponse().setResponseCode(500).setBody("boom")
+                    }
+
+                    2 -> {
+                        secondRefreshStarted.countDown()
+                        MockResponse().setResponseCode(500).setBody("boom")
+                    }
+
+                    else -> MockResponse().setResponseCode(500).setBody("boom")
+                }
+            }
+        }
+        server.start()
+        prepareRemoteProfile()
+        writeRemoteCache(sessionName = "Cached Before Recreate", fillerCount = 0)
+
+        val scenario = launchTestActivity()
+        assertTrue(firstRefreshStarted.await(5, TimeUnit.SECONDS))
+        waitForSessionNameVisibility(scenario, "Cached Before Recreate", expectedVisible = true)
+
+        scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+        SessionListCacheStore(context).clearAll()
+        allowFirstRefreshToFinish.countDown()
+        scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+
+        assertTrue(secondRefreshStarted.await(5, TimeUnit.SECONDS))
+        waitForErrorText(
+            scenario = scenario,
+            expectedText = "[SERVER_ERROR] HTTP 500"
+        )
+        waitForErrorTextToExclude(
+            scenario = scenario,
+            unexpectedText = context.getString(R.string.sessions_cache_stale)
+        )
+        onView(withText("Cached Before Recreate")).check(doesNotExist())
+    }
+
     private fun launchTestActivity(startHidden: Boolean = false): ActivityScenario<SessionsFragmentTestActivity> {
         val intent = Intent(context, SessionsFragmentTestActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -534,6 +588,54 @@ class SessionsFragmentLifecycleTest {
         throw AssertionError(
             "Expected session visibility for '$sessionName' to be $expectedVisible, but visible names were: $lastNames"
         )
+    }
+
+    private fun waitForErrorText(
+        scenario: ActivityScenario<SessionsFragmentTestActivity>,
+        expectedText: String,
+        timeoutMs: Long = 5_000L
+    ) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var lastText = ""
+        while (System.currentTimeMillis() < deadline) {
+            scenario.onActivity { activity ->
+                lastText = activity.getSessionsFragment()
+                    .view
+                    ?.findViewById<TextView>(R.id.sessions_error_text)
+                    ?.text
+                    ?.toString()
+                    .orEmpty()
+            }
+            if (lastText.contains(expectedText)) {
+                return
+            }
+            Thread.sleep(50L)
+        }
+        throw AssertionError("Timed out waiting for error text '$expectedText'. Last text: '$lastText'")
+    }
+
+    private fun waitForErrorTextToExclude(
+        scenario: ActivityScenario<SessionsFragmentTestActivity>,
+        unexpectedText: String,
+        timeoutMs: Long = 5_000L
+    ) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var lastText = ""
+        while (System.currentTimeMillis() < deadline) {
+            scenario.onActivity { activity ->
+                lastText = activity.getSessionsFragment()
+                    .view
+                    ?.findViewById<TextView>(R.id.sessions_error_text)
+                    ?.text
+                    ?.toString()
+                    .orEmpty()
+            }
+            if (!lastText.contains(unexpectedText)) {
+                return
+            }
+            Thread.sleep(50L)
+        }
+        throw AssertionError("Timed out waiting for error text to exclude '$unexpectedText'. Last text: '$lastText'")
     }
 
     private fun extractSessionNames(container: android.widget.LinearLayout): List<String> {

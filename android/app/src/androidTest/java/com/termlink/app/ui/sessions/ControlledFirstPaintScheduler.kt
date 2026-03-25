@@ -5,7 +5,7 @@ import android.os.Looper
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-class ControlledFirstPaintScheduler : SessionFirstPaintScheduler {
+class ControlledFirstPaintScheduler {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile
@@ -15,7 +15,7 @@ class ControlledFirstPaintScheduler : SessionFirstPaintScheduler {
     @Volatile
     private var blockedTaskLatch: CountDownLatch? = null
 
-    override fun post(task: Runnable) {
+    fun post(task: Runnable) {
         val latch = synchronized(this) {
             if (!blockNextPost) {
                 null

@@ -7,7 +7,7 @@ commit_ref: TBD
 owner: @maintainer
 last_updated: 2026-03-25
 source_of_truth: code
-related_code: [android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt, android/app/src/main/java/com/termlink/app/ui/sessions/SessionRemoteCacheWriteback.kt, android/app/src/main/java/com/termlink/app/ui/sessions/SessionFirstPaintScheduler.kt]
+related_code: [android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt, android/app/src/main/java/com/termlink/app/ui/sessions/SessionRemoteCacheWriteback.kt, android/app/src/androidTest/java/com/termlink/app/ui/sessions/TestSessionsFragment.kt]
 related_docs: [docs/product/requirements/REQ-20260324-session-list-local-cache.md, docs/product/plans/PLAN-20260324-session-list-local-cache-impl.md, docs/changes/records/INDEX.md]
 ---
 
@@ -27,7 +27,7 @@ related_docs: [docs/product/requirements/REQ-20260324-session-list-local-cache.m
 4. 远端成功写回前现在按“该 request 是否仍是 latest refresh request”决定是否允许落 cache，而不是按 view 是否仍存活决定；因此成功的 latest refresh 即使发生在 `onDestroyView()` 之后也仍可更新本地缓存，而一旦有更新的 refresh 抢占成功，旧结果就不得覆盖新缓存。
 5. `8.2` 的首屏本地回显现在额外按 view generation 隔离：旧 refresh 即使保留 latest refresh request id，也不能把上一个 view 的 `cachedGroups` 渲染进新 view，更不能提前把新 view 的 `hasCompletedInitialLocalFirstPaint` 置为 `true`。
 6. 新增/扩展 `SessionRemoteCacheWritebackTest`、`SessionAsyncRequestTrackerTest` 与 `SessionFirstPaintGateTest`，覆盖成功写回、失败跳过、`EXTERNAL_WEB` 跳过、同一批次统一 `fetchedAt`、view-destroy 风格 refresh release 不废弃 latest request、newer refresh 会压制 older refresh 写回，以及旧 view first-paint callback 不得污染新 view 的行为。
-7. `SessionsFragmentLifecycleTest` 现已补上一条 fragment/lifecycle 级 instrumentation，并通过 test-only first-paint scheduler 强制把旧 refresh 的 first-paint callback 延后到 view recreate 之后，再验证新 view 会显示新的缓存结果，而旧缓存不会在旧 callback 释放后被重新渲染进新 view。
+7. `SessionsFragmentLifecycleTest` 现已补上一条 fragment/lifecycle 级 instrumentation，并通过 androidTest 专用 `TestSessionsFragment` 子类接入 test-only first-paint scheduler，强制把旧 refresh 的 first-paint callback 延后到 view recreate 之后，再验证新 view 会显示新的缓存结果，而旧缓存不会在旧 callback 释放后被重新渲染进新 view；这条能力不再通过生产宿主扩展点暴露。
 8. test-only `ControlledFirstPaintScheduler` 的等待语义已补上竞态收口：`awaitBlockedFirstPaint()` 现在会等待 latch 延迟创建而不是只读一次当前值，并新增独立 androidTest 覆盖 delayed-latch、timeout 和 release-after-block 三类场景，避免强时序 lifecycle 用例重新退化成偶发竞争测试。
 8. 本批覆盖计划项：`8.3 第三步：远端成功覆盖缓存`，以及任务 `4. 改造远端刷新成功路径：按 profile 覆盖缓存，再渲染最新结果`。
 

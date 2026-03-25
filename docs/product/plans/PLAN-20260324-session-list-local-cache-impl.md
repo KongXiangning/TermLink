@@ -8,10 +8,10 @@
 2. `done`：`13.1 新增 SessionListCacheStore.kt 和缓存容器类`
 3. `done`：`8.2 第二步：接入 Sessions 首屏读取缓存`
 4. `done`：`8.3 第三步：远端成功覆盖缓存`
-5. `pending`：`8.4 第四步：失败态与文案收口`
+5. `done`：`8.4 第四步：失败态与文案收口`
 6. `pending`：`8.5 第五步：创建/删除/重命名链路补齐缓存更新`
 
-对应实现记录：`docs/changes/records/CR-20260324-2331-session-list-cache-store-foundation.md`、`docs/changes/records/CR-20260325-0050-sessions-initial-cache-render.md`、`docs/changes/records/CR-20260325-0857-sessions-remote-cache-writeback.md`
+对应实现记录：`docs/changes/records/CR-20260324-2331-session-list-cache-store-foundation.md`、`docs/changes/records/CR-20260325-0050-sessions-initial-cache-render.md`、`docs/changes/records/CR-20260325-0857-sessions-remote-cache-writeback.md`、`docs/changes/records/CR-20260325-1411-sessions-cache-failure-state.md`、`docs/changes/records/CR-20260325-1526-sessions-view-recreate-state-reset.md`
 
 ### 1. 文档定位
 
@@ -420,7 +420,7 @@ class SessionListCacheStore(context: Context) {
 异步刷新与写操作也已拆分为独立 request token 跟踪，`onDestroyView()` 会显式失效旧请求并释放 loading 状态，避免 drawer 隐藏或 view 重建后卡死在旧的 `isLoading` 语义里。
 本阶段已补上 `SessionsFragment` 的 instrumentation 生命周期测试，使用 androidTest 专用 host activity 和本地 HTTP stub 覆盖 refresh、create、rename、delete 四条路径在 `onDestroyView()` / recreate 后仍可再次 refresh 的回归场景，其中 delete 还校验了选中项清理回调，不把测试注入逻辑混入正式 fragment 代码。
 本阶段的 instrumentation 也已补上 drawer 风格的同实例 `show()/hide()` 覆盖：androidTest host 现在模拟 `MainShellActivity` 的 `add + hide + show` 片段事务，直接验证 `onHiddenChanged(false)` 会触发 refresh，以及隐藏期间完成的旧 refresh / rename action 不会阻塞下次重新显示后的 refresh。
-当前自动化还覆盖了“旧 refresh 的 first-paint callback 不能在 view 重建后污染新 view”这条组合场景：androidTest host 现在通过 test-only first-paint scheduler 明确延后旧 callback，再执行隐藏 fragment、销毁并重建 view、改写本地缓存的时序，稳定验证新 view 会展示新的缓存结果，而旧缓存不会在旧 callback 释放后被重新渲染到新 view。对应的 scheduler 等待点也已补上竞态收口，避免 `awaitBlockedFirstPaint()` 因 latch 延迟创建而提前返回。
+当前自动化还覆盖了“旧 refresh 的 first-paint callback 不能在 view 重建后污染新 view”这条组合场景：androidTest 现在通过专用 `TestSessionsFragment` 子类接入 test-only first-paint scheduler，明确延后旧 callback，再执行隐藏 fragment、销毁并重建 view、改写本地缓存的时序，稳定验证新 view 会展示新的缓存结果，而旧缓存不会在旧 callback 释放后被重新渲染到新 view。对应的 scheduler 等待点也已补上竞态收口，避免 `awaitBlockedFirstPaint()` 因 latch 延迟创建而提前返回。
 本批次刻意不包含缓存 banner/stale 文案、远端成功覆盖写回缓存和失败态收口，这些仍分别归属 `8.3` 与 `8.4`。
 
 在 `SessionsFragment` 的首次加载流程中：
@@ -488,27 +488,24 @@ renderGroupedSessions(nextGroups)
 
 #### 8.4 第四步：失败态与文案收口
 
-当前状态：`pending`
+当前状态：`done`（见 `CR-20260325-1411-sessions-cache-failure-state`）
 
-远端失败后：
+当前实现已在 `SessionsFragment` 中补齐最小状态机：
 
-1. 若已有缓存，展示 cache stale 状态
-2. 若无缓存，展示真正错误态
+1. `visibleDataSource=cache + refreshStatus=loading`：显示状态提示 `Showing latest available sessions, refreshing…`
+2. `visibleDataSource!=none + refreshStatus=failed`：保留当前列表，不覆盖为错误分组，并显示 `Refresh failed. Showing latest available sessions.`
+3. 若当前没有旧可见内容，但本次刷新存在“部分 profile 成功、部分 profile 失败”，则继续按 profile 渲染成功分组与 group error，并显示 stale 状态提示，而不是升级成整页失败
+4. `visibleDataSource=none + refreshStatus=failed` 且本次刷新全失败：走真正全局错误态 `renderGlobalFailure(error)`
+5. 成功刷新后切换为 `visibleDataSource=remote + refreshStatus=idle`，隐藏状态提示
 
-目标行为：
+实现说明：
 
-```kotlin
-if (cachedContentIsVisible) {
-    showStaleCacheMessage()
-} else {
-    renderGlobalFailure(error)
-}
-```
-
-说明：
-
-1. `cachedContentIsVisible` / `showStaleCacheMessage()` 这里是行为占位，不是当前已存在的字段或方法
-2. `8.4` 接手时应基于当时的真实渲染分支补状态机，不要回填已从 `8.2` 删除的 `hasRenderedCachedGroups` / `lastCacheVisible` / `renderCacheBanner(...)`
+1. 状态提示区复用了现有 `errorText`，但当有可见列表时不再把它当成“清空列表后的纯错误态”
+2. 首屏缓存/本地保留数据现在会保留最近一次成功同步时间，并在提示区附带 `Last synced: ...`
+3. 多 profile 首次加载若出现“部分成功 + 部分失败”，当前实现会继续渲染成功分组，并保留失败 profile 的 group error，而不是退化成整页错误态
+4. 只要当前已有可见内容，远端刷新失败就不会覆盖现有列表；这同时覆盖“缓存首屏后失败”和“已有远端结果后再次刷新失败”两类场景
+5. `EXTERNAL_WEB` 继续通过既有本地保留来源参与列表显示，不进入新的远端 cache store
+6. 为避免后续 `8.4/8.5` 调整把 partial-success 退化回整页错误，instrumentation 测试需要同时断言：`sessions_error_text` 显示 stale banner、成功 session 仍可见、失败 profile 的 `group_error_text` 仍可见
 
 #### 8.5 第五步：创建/删除/重命名链路补齐缓存更新
 
@@ -630,7 +627,11 @@ if (cachedContentIsVisible) {
    当前实现同时引入 request token 跟踪，避免 view 销毁后的旧回调把 Sessions 页面卡死在 loading 状态。
    自动化已从纯 helper 单测扩展到 fragment/lifecycle 级 instrumentation 测试，能同时拦住 refresh、create、rename、delete 四条路径上“loading 中销毁并重建 view 后无法再次 refresh”的回归；同时也覆盖了 drawer 风格 `show()/hide()` 下 `onHiddenChanged()` 重新触发 refresh 的场景。测试支撑通过 androidTest 专用 host activity 与本地 HTTP stub 实现，不依赖生产静态测试钩子。
 3. `done`：任务 4 已完成，远端刷新成功路径现在会先按 profile 覆盖写回缓存，再渲染最新结果；仅成功的 `TERMLINK_WS` 分组会写入 `SessionListCacheStore`，`EXTERNAL_WEB` 和失败分组会被跳过。
-4. `pending`：任务 3、5 到任务 10 尚未在当前批次实现。
+4. `done`：任务 5 与任务 9 已完成，远端失败时若当前已有可见列表则只显示 stale/refreshing 状态提示而不覆盖列表；无缓存首屏下若仅部分 profile 失败，也会保留成功分组与 group error，而不是整页失败，并已补齐对应字符串资源与状态解析测试。
+   当前批次额外补强了 `SessionsFragmentStatusTest` 的 partial-success 断言粒度，明确区分顶部 stale banner 与分组内 `group_error_text`，避免“只匹配到错误文案字符串但没拦住整页错误接管”的假覆盖。
+   后续补丁 `CR-20260325-1526-sessions-view-recreate-state-reset` 进一步修复了 view 重建时状态泄漏：`onDestroyView()` 现在会清空当前 view 绑定的列表与 banner 状态，避免新 view 在“无缓存且刷新失败”时误显示 stale banner；同时新增 lifecycle instrumentation 用例覆盖该路径。
+5. `pending`：任务 3、6、7、8、10 尚未在当前批次实现。
+   说明：任务 10 当前已补齐 `SessionStatusBannerResolverTest` 与 `SessionsFragmentStatusTest` 的源码，并已通过 `:app:compileDebugAndroidTestKotlin` 编译校验；但因当前无连接设备，`connectedDebugAndroidTest` 尚未执行，因此整项仍保持 `pending`。
 
 缓存删除语义约束：
 

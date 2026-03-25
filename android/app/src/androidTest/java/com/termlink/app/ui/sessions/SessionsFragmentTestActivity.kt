@@ -7,7 +7,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.SessionSelection
 
-class SessionsFragmentTestActivity : AppCompatActivity(), SessionsFragment.Callbacks, SessionFirstPaintSchedulerProvider {
+class SessionsFragmentTestActivity : AppCompatActivity(), SessionsFragment.Callbacks {
 
     val controlledFirstPaintScheduler = ControlledFirstPaintScheduler()
 
@@ -22,7 +22,7 @@ class SessionsFragmentTestActivity : AppCompatActivity(), SessionsFragment.Callb
         }
         setContentView(container)
         if (savedInstanceState == null) {
-            val fragment = SessionsFragment()
+            val fragment = TestSessionsFragment(controlledFirstPaintScheduler)
             supportFragmentManager.beginTransaction()
                 .add(CONTAINER_ID, fragment, TAG_SESSIONS_FRAGMENT)
                 .apply {
@@ -66,10 +66,6 @@ class SessionsFragmentTestActivity : AppCompatActivity(), SessionsFragment.Callb
 
     override fun onUpdateSessionSelection(selection: SessionSelection) {
         TestState.selection = selection
-    }
-
-    override fun provideSessionFirstPaintScheduler(defaultScheduler: SessionFirstPaintScheduler): SessionFirstPaintScheduler {
-        return controlledFirstPaintScheduler
     }
 
     private fun requireSessionsFragment(): SessionsFragment {

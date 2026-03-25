@@ -2,7 +2,7 @@
 title: 变更记录索引
 status: active
 owner: @maintainer
-last_updated: 2026-03-24
+last_updated: 2026-03-25
 source_of_truth: product
 related_code: [docs/changes/records]
 related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_CHANGE_RECORD.md]
@@ -76,3 +76,5 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 | CR-20260325-0000-docs-requirement-sync-plan-coverage | REQ-20260222-doc-governance | draft | TBD | @maintainer | 2026-03-25 | 升级 docs-requirement-sync：实现批次需同步 PLAN + CR，并在收尾答复中标记已完成的计划部分 | `docs/changes/records/CR-20260325-0000-docs-requirement-sync-plan-coverage.md` |
 | CR-20260325-0050-sessions-initial-cache-render | REQ-20260324-session-list-local-cache | draft | TBD | @maintainer | 2026-03-25 | Phase 2 首屏缓存回显：SessionsFragment 先显示远端缓存分组，再继续异步刷新 | `docs/changes/records/CR-20260325-0050-sessions-initial-cache-render.md` |
 | CR-20260325-0857-sessions-remote-cache-writeback | REQ-20260324-session-list-local-cache | draft | TBD | @maintainer | 2026-03-25 | Phase 3 远端成功写回缓存：刷新成功后按 profile 覆盖 `SessionListCacheStore` 再渲染最新结果 | `docs/changes/records/CR-20260325-0857-sessions-remote-cache-writeback.md` |
+| CR-20260325-1411-sessions-cache-failure-state | REQ-20260324-session-list-local-cache | draft | TBD | @maintainer | 2026-03-25 | Phase 4 失败态与文案收口：缓存可见时保留列表并显示 refreshing/stale 状态提示 | `docs/changes/records/CR-20260325-1411-sessions-cache-failure-state.md` |
+| CR-20260325-1526-sessions-view-recreate-state-reset | REQ-20260324-session-list-local-cache | draft | TBD | @maintainer | 2026-03-25 | Phase 4 follow-up：修复 view 重建后 stale/banner 状态泄漏，并补 lifecycle 回归测试 | `docs/changes/records/CR-20260325-1526-sessions-view-recreate-state-reset.md` |

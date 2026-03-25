@@ -7,7 +7,8 @@ import com.termlink.app.data.TerminalType
 
 internal data class FirstPaintSessionGroup(
     val profile: ServerProfile,
-    val sessions: List<SessionSummary>
+    val sessions: List<SessionSummary>,
+    val fetchedAt: Long? = null
 )
 
 internal object SessionCacheGroupBuilder {
@@ -29,7 +30,8 @@ internal object SessionCacheGroupBuilder {
                         add(
                             FirstPaintSessionGroup(
                                 profile = profile,
-                                sessions = cached.sessions
+                                sessions = cached.sessions,
+                                fetchedAt = cached.fetchedAt.takeIf { it > 0L }
                             )
                         )
                     }
@@ -39,7 +41,8 @@ internal object SessionCacheGroupBuilder {
                         add(
                             FirstPaintSessionGroup(
                                 profile = profile,
-                                sessions = localSessions
+                                sessions = localSessions,
+                                fetchedAt = null
                             )
                         )
                     }

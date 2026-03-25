@@ -36,10 +36,11 @@ import com.termlink.app.data.SessionRef
 import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.SessionSummary
 import com.termlink.app.data.TerminalType
+import java.text.DateFormat
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-class SessionsFragment : Fragment(R.layout.fragment_sessions) {
+open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
     interface Callbacks {
         fun getProfiles(): List<ServerProfile>
@@ -57,7 +58,6 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         Runtime.getRuntime().availableProcessors().coerceIn(4, 12)
     )
     private val mainHandler = Handler(Looper.getMainLooper())
-    private var firstPaintScheduler: SessionFirstPaintScheduler = defaultSessionFirstPaintScheduler(mainHandler)
     private val autoRefreshRunnable = object : Runnable {
         override fun run() {
             if (isAutoRefreshActive && !refreshRequestTracker.hasInFlightWork()) {
@@ -77,6 +77,9 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     private var profiles: List<ServerProfile> = emptyList()
     private var currentSelection: SessionSelection = SessionSelection("", "")
     private var groupedSessions: List<ProfileGroupResult> = emptyList()
+    private var visibleDataSource: SessionVisibleDataSource = SessionVisibleDataSource.NONE
+    private var refreshStatus: SessionRefreshStatus = SessionRefreshStatus.IDLE
+    private var lastSuccessfulSyncAtMillis: Long? = null
 
     private lateinit var profileText: TextView
     private lateinit var errorText: TextView
@@ -88,9 +91,6 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         super.onAttach(context)
         callbacks = context as? Callbacks
             ?: throw IllegalStateException("Host activity must implement SessionsFragment.Callbacks")
-        firstPaintScheduler = (context as? SessionFirstPaintSchedulerProvider)
-            ?.provideSessionFirstPaintScheduler(defaultSessionFirstPaintScheduler(mainHandler))
-            ?: defaultSessionFirstPaintScheduler(mainHandler)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,7 +102,6 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
     override fun onDetach() {
         callbacks = null
-        firstPaintScheduler = defaultSessionFirstPaintScheduler(mainHandler)
         super.onDetach()
     }
 
@@ -164,6 +163,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         swipeRefresh.isRefreshing = false
         refreshRequestTracker.releaseRefreshForViewDestroy()
         refreshRequestTracker.invalidateActions()
+        resetViewBoundSessionState()
         super.onDestroyView()
     }
 
@@ -191,14 +191,15 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         if (showSpinner) {
             swipeRefresh.isRefreshing = true
         }
+        beginRefreshStatus()
 
         val profilesSnapshot = profiles
         val viewGeneration = currentViewGeneration
         val shouldAttemptFirstPaint = !hasCompletedInitialLocalFirstPaint
         executor.execute {
             if (shouldAttemptFirstPaint) {
-                val firstPaintGroups = buildGroupsFromCache(profilesSnapshot)
-                firstPaintScheduler.post(Runnable {
+                val firstPaintSnapshot = buildGroupsFromCache(profilesSnapshot)
+                postFirstPaint(Runnable {
                     if (SessionFirstPaintGate.shouldApply(
                             isLatestRefreshRequest = refreshRequestTracker.isActiveRefresh(requestId),
                             isViewActive = isViewActive,
@@ -207,8 +208,11 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                             hasCompletedInitialLocalFirstPaint = hasCompletedInitialLocalFirstPaint
                         )
                     ) {
-                        if (firstPaintGroups.isNotEmpty()) {
-                            renderGroupedSessions(firstPaintGroups)
+                        if (firstPaintSnapshot.groups.isNotEmpty()) {
+                            renderGroupedSessions(firstPaintSnapshot.groups)
+                            visibleDataSource = SessionVisibleDataSource.CACHE
+                            lastSuccessfulSyncAtMillis = firstPaintSnapshot.latestFetchedAtMillis
+                            renderStatusBanner()
                         }
                         hasCompletedInitialLocalFirstPaint = true
                     }
@@ -224,12 +228,30 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                 if (!refreshRequestTracker.completeRefresh(requestId)) return@post
                 swipeRefresh.isRefreshing = false
                 if (!isViewActive) return@post
+                val hasGroupErrors = nextGroups.any { it.error != null }
+                val hasSuccessfulGroups = nextGroups.any { it.error == null }
+                if (hasGroupErrors) {
+                    if (hasSuccessfulGroups && visibleDataSource == SessionVisibleDataSource.NONE) {
+                        refreshStatus = SessionRefreshStatus.FAILED
+                        visibleDataSource = SessionVisibleDataSource.REMOTE
+                        lastSuccessfulSyncAtMillis = fetchedAt
+                        renderGroupedSessions(nextGroups)
+                        renderStatusBanner()
+                        return@post
+                    }
+                    handleRefreshFailure(nextGroups.firstNotNullOf { it.error })
+                    return@post
+                }
+                refreshStatus = SessionRefreshStatus.IDLE
+                visibleDataSource = SessionVisibleDataSource.REMOTE
+                lastSuccessfulSyncAtMillis = fetchedAt
                 renderGroupedSessions(nextGroups)
+                renderStatusBanner()
             }
         }
     }
 
-    private fun buildGroupsFromCache(profileList: List<ServerProfile>): List<ProfileGroupResult> {
+    private fun buildGroupsFromCache(profileList: List<ServerProfile>): FirstPaintSnapshot {
         val cachedProfiles = sessionListCacheStore.loadForProfiles(profileList)
         val externalSessionsByProfileId = profileList
             .asSequence()
@@ -242,13 +264,70 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             cachedProfiles = cachedProfiles,
             externalSessionsByProfileId = externalSessionsByProfileId
         )
-        return firstPaintGroups.map { cached ->
-            ProfileGroupResult(
-                profile = cached.profile,
-                sessions = cached.sessions,
-                error = null
-            )
+        return FirstPaintSnapshot(
+            groups = firstPaintGroups.map { cached ->
+                ProfileGroupResult(
+                    profile = cached.profile,
+                    sessions = cached.sessions,
+                    error = null
+                )
+            },
+            latestFetchedAtMillis = firstPaintGroups.mapNotNull { it.fetchedAt }.maxOrNull()
+        )
+    }
+
+    private fun beginRefreshStatus() {
+        refreshStatus = SessionRefreshStatus.LOADING
+        renderStatusBanner()
+    }
+
+    private fun resetViewBoundSessionState() {
+        groupedSessions = emptyList()
+        visibleDataSource = SessionVisibleDataSource.NONE
+        refreshStatus = SessionRefreshStatus.IDLE
+        lastSuccessfulSyncAtMillis = null
+    }
+
+    private fun handleRefreshFailure(error: SessionApiError) {
+        swipeRefresh.isRefreshing = false
+        refreshStatus = SessionRefreshStatus.FAILED
+        if (visibleDataSource != SessionVisibleDataSource.NONE && groupedSessions.isNotEmpty()) {
+            renderStatusBanner()
+            return
         }
+        renderGlobalFailure(error)
+    }
+
+    private fun renderStatusBanner() {
+        when (SessionStatusBannerResolver.resolve(visibleDataSource, refreshStatus)) {
+            SessionStatusBanner.NONE -> {
+                errorText.visibility = View.GONE
+            }
+            SessionStatusBanner.REFRESHING -> {
+                errorText.visibility = View.VISIBLE
+                errorText.setTextColor(ContextCompat.getColor(requireContext(), R.color.sessions_text_secondary))
+                errorText.text = buildStatusBannerText(
+                    baseText = getString(R.string.sessions_cache_refreshing)
+                )
+            }
+            SessionStatusBanner.STALE -> {
+                errorText.visibility = View.VISIBLE
+                errorText.setTextColor(ContextCompat.getColor(requireContext(), R.color.sessions_error))
+                errorText.text = buildStatusBannerText(
+                    baseText = getString(R.string.sessions_cache_stale)
+                )
+            }
+        }
+    }
+
+    private fun buildStatusBannerText(baseText: String): String {
+        val lastSynced = lastSuccessfulSyncAtMillis ?: return baseText
+        val formattedTime = DateFormat.getTimeInstance(DateFormat.SHORT).format(lastSynced)
+        return getString(
+            R.string.sessions_cache_last_synced,
+            baseText,
+            formattedTime
+        )
     }
 
     private fun fetchProfileGroups(profileList: List<ServerProfile>): List<ProfileGroupResult> {
@@ -321,6 +400,10 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
     private fun loadExternalSessionSummaries(profileId: String): List<SessionSummary> {
         return externalSessionStore.list(profileId).map(::toExternalSessionSummary)
+    }
+
+    protected open fun postFirstPaint(task: Runnable) {
+        mainHandler.post(task)
     }
 
     private fun toExternalSessionSummary(session: ExternalSession): SessionSummary {
@@ -579,8 +662,10 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
     private fun renderGlobalFailure(error: SessionApiError) {
         groupedSessions = emptyList()
+        visibleDataSource = SessionVisibleDataSource.NONE
         listContainer.removeAllViews()
         emptyText.visibility = View.GONE
+        errorText.setTextColor(ContextCompat.getColor(requireContext(), R.color.sessions_error))
         errorText.visibility = View.VISIBLE
         errorText.text = getString(
             R.string.sessions_error_template,
@@ -1085,6 +1170,11 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         val profile: ServerProfile,
         val sessions: List<SessionSummary>,
         val error: SessionApiError?
+    )
+
+    private data class FirstPaintSnapshot(
+        val groups: List<ProfileGroupResult>,
+        val latestFetchedAtMillis: Long?
     )
 
     companion object {

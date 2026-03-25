@@ -26,6 +26,9 @@
     <string name="sessions_error_no_active_profile">No active profile configured.</string>
     <string name="sessions_error_empty_base_url">Active profile baseUrl is empty.</string>
     <string name="sessions_error_all_profiles_unavailable">No profiles available for sessions.</string>
+    <string name="sessions_cache_refreshing">Showing latest available sessions, refreshing…</string>
+    <string name="sessions_cache_stale">Refresh failed. Showing latest available sessions.</string>
+    <string name="sessions_cache_last_synced">%1$s\nLast synced: %2$s</string>
     <string name="sessions_group_error">[%1$s] %2$s</string>
     <string name="sessions_group_empty">No sessions under this profile.</string>
     <string name="sessions_group_header">%1$s (%2$s)</string>
