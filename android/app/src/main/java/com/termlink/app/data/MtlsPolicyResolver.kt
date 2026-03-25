@@ -1,13 +1,13 @@
 package com.termlink.app.data
 
-import com.termlink.app.BuildConfig
 import java.util.Locale
 
 enum class MtlsPolicyReason {
     ENABLED,
-    DISABLED_BY_BUILD_CONFIG,
     DISABLED_BY_PROFILE,
-    PROFILE_MISSING
+    PROFILE_MISSING,
+    CERTIFICATE_MISSING,
+    PASSWORD_MISSING
 }
 
 data class MtlsPolicy(
@@ -18,16 +18,20 @@ data class MtlsPolicy(
 
 object MtlsPolicyResolver {
 
-    fun resolve(profile: ServerProfile?): MtlsPolicy {
-        val resolvedHosts = parseAllowedHosts(resolveAllowedHostsRaw(profile))
+    fun resolve(profile: ServerProfile?, certificateStore: MtlsCertificateStore): MtlsPolicy {
+        return resolve(
+            profile = profile,
+            hasCertificate = profile?.id?.let { certificateStore.hasCertificate(it) } == true,
+            hasPassword = profile?.id?.let { certificateStore.hasPassword(it) } == true
+        )
+    }
 
-        if (!BuildConfig.MTLS_ENABLED) {
-            return MtlsPolicy(
-                effectiveEnabled = false,
-                effectiveAllowedHosts = resolvedHosts,
-                reason = MtlsPolicyReason.DISABLED_BY_BUILD_CONFIG
-            )
-        }
+    internal fun resolve(
+        profile: ServerProfile?,
+        hasCertificate: Boolean,
+        hasPassword: Boolean
+    ): MtlsPolicy {
+        val resolvedHosts = parseAllowedHosts(resolveAllowedHostsRaw(profile))
 
         if (profile == null) {
             return MtlsPolicy(
@@ -42,6 +46,22 @@ object MtlsPolicyResolver {
                 effectiveEnabled = false,
                 effectiveAllowedHosts = resolvedHosts,
                 reason = MtlsPolicyReason.DISABLED_BY_PROFILE
+            )
+        }
+
+        if (!hasCertificate) {
+            return MtlsPolicy(
+                effectiveEnabled = false,
+                effectiveAllowedHosts = resolvedHosts,
+                reason = MtlsPolicyReason.CERTIFICATE_MISSING
+            )
+        }
+
+        if (!hasPassword) {
+            return MtlsPolicy(
+                effectiveEnabled = false,
+                effectiveAllowedHosts = resolvedHosts,
+                reason = MtlsPolicyReason.PASSWORD_MISSING
             )
         }
 
@@ -99,6 +119,6 @@ object MtlsPolicyResolver {
         if (profileHosts.isNotBlank()) {
             return profileHosts
         }
-        return BuildConfig.MTLS_ALLOWED_HOSTS
+        return ""
     }
 }

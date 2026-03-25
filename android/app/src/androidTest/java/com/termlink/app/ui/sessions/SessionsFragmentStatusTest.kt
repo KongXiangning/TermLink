@@ -174,7 +174,8 @@ class SessionsFragmentStatusTest {
                 authType = AuthType.NONE,
                 basicUsername = "",
                 mtlsEnabled = false,
-                allowedHosts = ""
+                allowedHosts = "",
+                mtlsCertificateDisplayName = ""
             )
         )
         TestState.selection = SessionSelection(REMOTE_PROFILE_ID, "")
@@ -191,7 +192,8 @@ class SessionsFragmentStatusTest {
                 authType = AuthType.NONE,
                 basicUsername = "",
                 mtlsEnabled = false,
-                allowedHosts = ""
+                allowedHosts = "",
+                mtlsCertificateDisplayName = ""
             ),
             ServerProfile(
                 id = "broken-profile",
@@ -201,7 +203,8 @@ class SessionsFragmentStatusTest {
                 authType = AuthType.NONE,
                 basicUsername = "",
                 mtlsEnabled = false,
-                allowedHosts = ""
+                allowedHosts = "",
+                mtlsCertificateDisplayName = ""
             )
         )
         TestState.selection = SessionSelection(REMOTE_PROFILE_ID, "")

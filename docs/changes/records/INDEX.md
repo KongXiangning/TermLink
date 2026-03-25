@@ -2,7 +2,7 @@
 title: 变更记录索引
 status: active
 owner: @maintainer
-last_updated: 2026-03-25
+last_updated: 2026-03-26
 source_of_truth: product
 related_code: [docs/changes/records]
 related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_CHANGE_RECORD.md]
@@ -23,6 +23,12 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260326-0145-mtls-credential-load-exception-fix | REQ-20260326-android-profile-mtls-runtime-certificate | draft | TBD | @maintainer | 2026-03-26 | Android profile mTLS Phase 3 follow-up：收敛 PKCS#12 解析异常，统一返回受控失败 | `docs/changes/records/CR-20260326-0145-mtls-credential-load-exception-fix.md` |
+| CR-20260326-0134-mtls-runtime-profile-chain-phase3 | REQ-20260326-android-profile-mtls-runtime-certificate | draft | TBD | @maintainer | 2026-03-26 | Android profile mTLS Phase 3：WebView 与 Session API 切到 profile 本地证书链路并统一缓存失效 | `docs/changes/records/CR-20260326-0134-mtls-runtime-profile-chain-phase3.md` |
+| CR-20260326-0105-mtls-import-failure-return-false | REQ-20260326-android-profile-mtls-runtime-certificate | draft | TBD | @maintainer | 2026-03-26 | Android profile mTLS Phase 2 follow-up：修复证书导入失败异常外抛，统一返回 false | `docs/changes/records/CR-20260326-0105-mtls-import-failure-return-false.md` |
+| CR-20260326-0100-mtls-settings-remove-certificate-fix | REQ-20260326-android-profile-mtls-runtime-certificate | draft | TBD | @maintainer | 2026-03-26 | Android profile mTLS Phase 2 follow-up：修复移除证书后 App 私有副本残留导致的状态不一致 | `docs/changes/records/CR-20260326-0100-mtls-settings-remove-certificate-fix.md` |
+| CR-20260326-0041-mtls-profile-settings-phase2 | REQ-20260326-android-profile-mtls-runtime-certificate | draft | TBD | @maintainer | 2026-03-26 | Android profile mTLS Phase 2：Settings 弹窗证书选择、挂起态提示与保存校验 | `docs/changes/records/CR-20260326-0041-mtls-profile-settings-phase2.md` |
+| CR-20260326-0033-mtls-profile-store-foundation | REQ-20260326-android-profile-mtls-runtime-certificate | draft | TBD | @maintainer | 2026-03-26 | Android profile mTLS Phase 1：模型兼容、本地证书存储与 profile 删除清理 | `docs/changes/records/CR-20260326-0033-mtls-profile-store-foundation.md` |
 | CR-20260222-2200-session-retention-doc-update | REQ-20260222-session-retention-reconnect | active | 36dd134 | @maintainer | 2026-02-22 | 会话保留需求文档立项与同步 | `docs/changes/records/CR-20260222-2200-session-retention-doc-update.md` |
 | CR-20260222-2310-server-admin-req-init | REQ-20260222-server-admin-privilege-mode | draft | TBD | @maintainer | 2026-02-22 | 管理员权限模式需求立项与主线同步 | `docs/changes/records/CR-20260222-2310-server-admin-req-init.md` |
 | CR-20260223-2114-session-retention-impl-phase1 | REQ-20260222-session-retention-reconnect | active | 67bc2c3 | @maintainer | 2026-02-24 | 会话保留需求实现阶段（TTL/容量治理/WS语义） | `docs/changes/records/CR-20260223-2114-session-retention-impl-phase1.md` |

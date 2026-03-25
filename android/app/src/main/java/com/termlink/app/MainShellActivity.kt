@@ -33,6 +33,7 @@ import androidx.webkit.WebViewFeature
 import com.termlink.app.data.AuthType
 import com.termlink.app.data.BasicCredentialStore
 import com.termlink.app.data.ExternalSessionStore
+import com.termlink.app.data.MtlsCertificateStore
 import com.termlink.app.data.ServerConfigState
 import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
@@ -76,6 +77,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private lateinit var terminalEventBridge: TerminalEventBridge
     private lateinit var serverConfigStore: ServerConfigStore
     private lateinit var basicCredentialStore: BasicCredentialStore
+    private lateinit var mtlsCertificateStore: MtlsCertificateStore
     private lateinit var externalSessionStore: ExternalSessionStore
     private lateinit var sessionApiClient: SessionApiClient
     private val backgroundExecutor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -167,6 +169,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
         serverConfigStore = ServerConfigStore(applicationContext)
         basicCredentialStore = BasicCredentialStore(applicationContext)
+        mtlsCertificateStore = MtlsCertificateStore(applicationContext)
         externalSessionStore = ExternalSessionStore(applicationContext)
         sessionApiClient = SessionApiClient(applicationContext)
         syncProfileState(serverConfigStore.loadState(), inject = false)
@@ -490,6 +493,30 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     override fun removeBasicPassword(profileId: String) {
         basicCredentialStore.removePassword(profileId)
+    }
+
+    override fun hasMtlsCertificate(profileId: String): Boolean {
+        return mtlsCertificateStore.hasCertificate(profileId)
+    }
+
+    override fun importMtlsCertificate(profileId: String, uri: Uri): Boolean {
+        return mtlsCertificateStore.importCertificate(profileId, uri)
+    }
+
+    override fun removeMtlsCertificate(profileId: String) {
+        mtlsCertificateStore.removeCertificate(profileId)
+    }
+
+    override fun hasMtlsPassword(profileId: String): Boolean {
+        return mtlsCertificateStore.hasPassword(profileId)
+    }
+
+    override fun putMtlsPassword(profileId: String, password: String) {
+        mtlsCertificateStore.putPassword(profileId, password)
+    }
+
+    override fun removeMtlsPassword(profileId: String) {
+        mtlsCertificateStore.removePassword(profileId)
     }
 
     override fun getProfiles(): List<ServerProfile> {

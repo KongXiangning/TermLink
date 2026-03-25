@@ -271,7 +271,8 @@ class SessionListCacheStoreTest {
             authType = AuthType.BASIC,
             basicUsername = basicUsername,
             mtlsEnabled = false,
-            allowedHosts = ""
+            allowedHosts = "",
+            mtlsCertificateDisplayName = ""
         )
     }
 

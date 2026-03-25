@@ -811,7 +811,8 @@ class SessionsFragmentLifecycleTest {
                 authType = AuthType.NONE,
                 basicUsername = "",
                 mtlsEnabled = false,
-                allowedHosts = ""
+                allowedHosts = "",
+                mtlsCertificateDisplayName = ""
             )
         )
         TestState.selection = SessionSelection(REMOTE_PROFILE_ID, selectedSessionId)

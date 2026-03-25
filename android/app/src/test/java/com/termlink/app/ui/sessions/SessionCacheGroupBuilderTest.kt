@@ -91,7 +91,8 @@ class SessionCacheGroupBuilderTest {
             authType = AuthType.NONE,
             basicUsername = "",
             mtlsEnabled = false,
-            allowedHosts = ""
+            allowedHosts = "",
+            mtlsCertificateDisplayName = ""
         )
     }
 
