@@ -1,6 +1,6 @@
 ---
 title: Android 会话列表本地缓存与离线回显
-status: planned
+status: done
 owner: @maintainer
 last_updated: 2026-03-25
 source_of_truth: product
@@ -15,10 +15,10 @@ related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIR
 - id: REQ-20260324-session-list-local-cache
 - title: Android 会话列表本地缓存与离线回显
 - priority: P1
-- status: planned
+- status: done
 - owner: @maintainer
 - target_release: 2026-Q2
-- links: `docs/changes/records/CR-20260324-1545-req-init.md`, `docs/product/plans/PLAN-20260324-session-list-local-cache-impl.md`
+- links: `docs/changes/records/CR-20260324-1545-req-init.md`, `docs/product/plans/PLAN-20260324-session-list-local-cache-impl.md`, `docs/changes/records/CR-20260325-2356-session-list-local-cache-done-sync.md`
 
 ## 1. 背景与目标
 

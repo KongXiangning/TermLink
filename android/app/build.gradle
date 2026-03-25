@@ -88,7 +88,6 @@ dependencies {
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.fragment:fragment-ktx:$androidxFragmentVersion"
-    debugImplementation "androidx.fragment:fragment-testing:$androidxFragmentVersion"
     implementation "androidx.webkit:webkit:$androidxWebkitVersion"
     implementation "androidx.swiperefreshlayout:swiperefreshlayout:1.1.0"
     implementation "androidx.security:security-crypto:1.0.0"
@@ -97,7 +96,9 @@ dependencies {
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
-    androidTestImplementation "androidx.test:core:1.5.0"
+    androidTestImplementation "androidx.test:core:1.6.1"
+    androidTestImplementation "androidx.test:runner:1.6.1"
+    androidTestImplementation "androidx.test:monitor:1.7.1"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     androidTestImplementation "com.squareup.okhttp3:mockwebserver:4.12.0"
     implementation project(':capacitor-cordova-android-plugins')

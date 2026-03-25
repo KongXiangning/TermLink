@@ -1,9 +1,9 @@
 ---
 title: REQ-20260324-session-list-local-cache - cache store + models foundation
-status: draft
+status: active
 record_id: CR-20260324-2331-session-list-cache-store-foundation
 req_id: REQ-20260324-session-list-local-cache
-commit_ref: TBD
+commit_ref: 87031bc
 owner: @maintainer
 last_updated: 2026-03-24
 source_of_truth: code
@@ -56,8 +56,8 @@ git checkout <commit_ref>^ -- docs/changes/records/INDEX.md
 - 结果：通过
 - 校验命令：`set JAVA_HOME=D:\ProgramCode\openjdk\jdk-21 && .\gradlew.bat :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin`
 - 结果：通过，缓存层代码与 Android instrumentation test 编译成功
-- 校验命令：`adb devices` 后执行 `.\gradlew.bat :app:connectedDebugAndroidTest --tests com.termlink.app.data.SessionListCacheStoreTest`
-- 结果：未执行，当前环境无已连接 Android 设备/模拟器
+- 校验命令：`set JAVA_HOME=D:\ProgramCode\openjdk\jdk-21 && .\gradlew.bat :app:connectedDebugAndroidTest`
+- 结果：2026-03-25 真机验收通过，`SessionListCacheStoreTest` 已包含在整套 connected instrumentation 中执行通过
 
 ## 6. 后续修改入口（How to continue）
 

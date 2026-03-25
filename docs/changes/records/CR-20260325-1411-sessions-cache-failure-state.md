@@ -1,9 +1,9 @@
 ---
 title: REQ-20260324-session-list-local-cache - sessions cache failure state
-status: draft
+status: active
 record_id: CR-20260325-1411-sessions-cache-failure-state
 req_id: REQ-20260324-session-list-local-cache
-commit_ref: TBD
+commit_ref: 2ca2cb8
 owner: @maintainer
 last_updated: 2026-03-25
 source_of_truth: code
@@ -59,11 +59,11 @@ git checkout <commit_ref>^ -- docs/changes/records/INDEX.md
 - 校验命令：`powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/validate-req.ps1 -ReqPath ./docs/product/requirements/REQ-20260324-session-list-local-cache.md -Strict`
 - 结果：通过
 - 校验命令：`powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/validate-change-record.ps1 -RecordPath ./docs/changes/records/CR-20260325-1411-sessions-cache-failure-state.md -Strict`
-- 结果：待本批文档回写后执行
+- 结果：通过
 - 校验命令：`set JAVA_HOME=D:\ProgramCode\openjdk\jdk-21 && .\gradlew.bat :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin :app:testDebugUnitTest`
 - 结果：通过
-- 说明：当前未连接 Android 设备，`connectedDebugAndroidTest` 未执行；androidTest 验证范围为源码编译通过。
-- 说明：本次补的是 instrumentation 断言粒度，优先执行 `:app:compileDebugAndroidTestKotlin` 校验测试源码可编译；设备侧执行仍待后续补跑。
+- 校验命令：`set JAVA_HOME=D:\ProgramCode\openjdk\jdk-21 && .\gradlew.bat :app:connectedDebugAndroidTest`
+- 结果：2026-03-25 真机验收通过，stale/refreshing banner 与 partial-success 设备侧场景已通过
 
 ## 6. 后续修改入口（How to continue）
 

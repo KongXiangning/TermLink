@@ -636,6 +636,30 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         )
     }
 
+    protected fun handleCreateSessionSuccess(
+        profile: ServerProfile,
+        requestedName: String,
+        requestedCwd: String?,
+        created: SessionRef
+    ) {
+        val createdSelection = SessionSelection(
+            profileId = profile.id,
+            sessionId = created.id,
+            sessionMode = created.sessionMode,
+            cwd = created.cwd ?: requestedCwd
+        )
+        currentSelection = createdSelection
+        applyLocalSessionMutation(profile) { sessions ->
+            sessions.filterNot { it.id == created.id } + buildOptimisticSessionSummary(
+                created = created,
+                fallbackName = requestedName,
+                fallbackCwd = requestedCwd
+            )
+        }
+        callbacks?.onOpenSession(createdSelection)
+        refreshSessions(showSpinner = false)
+    }
+
     private fun renderProfileSummary() {
         if (profiles.isEmpty()) {
             profileText.text = getString(R.string.sessions_profile_none)
@@ -1035,22 +1059,12 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                 runAction(
                     action = { createSessionForProfile(profile, name, sessionMode, cwd) },
                     onSuccess = { created ->
-                        val createdSelection = SessionSelection(
-                            profileId = profile.id,
-                            sessionId = created.id,
-                            sessionMode = created.sessionMode,
-                            cwd = created.cwd ?: cwd
+                        handleCreateSessionSuccess(
+                            profile = profile,
+                            requestedName = name,
+                            requestedCwd = cwd,
+                            created = created
                         )
-                        currentSelection = createdSelection
-                        applyLocalSessionMutation(profile) { sessions ->
-                            sessions.filterNot { it.id == created.id } + buildOptimisticSessionSummary(
-                                created = created,
-                                fallbackName = name,
-                                fallbackCwd = cwd
-                            )
-                        }
-                        callbacks?.onOpenSession(createdSelection)
-                        refreshSessions(showSpinner = false)
                     }
                 )
                 dialog.dismiss()

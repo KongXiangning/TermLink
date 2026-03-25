@@ -31,7 +31,7 @@ related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BAC
 7. 明确 Android 与 WebView 共享同一交互契约与中文化规范，避免端侧协议或行为分叉。
 8. 定义并落地服务端受控管理员权限模式（`REQ-20260222-server-admin-privilege-mode`），补齐启用门禁、审计、回滚链路。
 9. 推进 Codex Workspace 文件浏览主链路（`REQ-20260318-ws-0001-docs-exp`，原产品编号 `REQ-WS-0001`），收口工作区路径选择、独立 Web Workspace 页面与 Android `WorkspaceActivity` 集成。
-10. 推进 Android 会话列表本地缓存与离线回显（`REQ-20260324-session-list-local-cache`），解决弱网下 Sessions 管理空白和创建会话前无法看到已有会话的问题，并保证 `EXTERNAL_WEB` 继续通过现有本地持久化参与首屏可见性。
+10. 已完成 Android 会话列表本地缓存与离线回显（`REQ-20260324-session-list-local-cache`），弱网下 Sessions 管理可先显示本地缓存快照、失败时保留 stale/refreshing 提示、写操作后同步缓存，并保证 `EXTERNAL_WEB` 继续通过现有本地持久化参与首屏可见性。
 
 ## 2026-H2
 

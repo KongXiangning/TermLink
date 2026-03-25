@@ -10,8 +10,15 @@
 4. `done`：`8.3 第三步：远端成功覆盖缓存`
 5. `done`：`8.4 第四步：失败态与文案收口`
 6. `done`：`8.5 第五步：创建/删除/重命名链路补齐缓存更新`
+7. `done`：`收口验收与设备侧 instrumentation 稳定性修复`
 
 对应实现记录：`docs/changes/records/CR-20260324-2331-session-list-cache-store-foundation.md`、`docs/changes/records/CR-20260325-0050-sessions-initial-cache-render.md`、`docs/changes/records/CR-20260325-0857-sessions-remote-cache-writeback.md`、`docs/changes/records/CR-20260325-1411-sessions-cache-failure-state.md`、`docs/changes/records/CR-20260325-1526-sessions-view-recreate-state-reset.md`、`docs/changes/records/CR-20260325-1607-sessions-cache-write-actions.md`
+
+收口补充说明：
+
+1. 当前代码能力完整覆盖 `8.1` 到 `8.5`，本批没有扩展新需求范围。
+2. `connectedDebugAndroidTest` 已在真机 `LYA-TL00 - 10` 上通过，设备侧阻塞项已从 test host/theme/dependency/lifecycle 脆弱点收口到最终稳定验收通过。
+3. 本需求现已满足状态流转条件：PLAN 无剩余 `pending` 实施项，REQ 已可从 `planned` 流转到 `done`。
 
 ### 1. 文档定位
 
@@ -638,8 +645,8 @@ renderGroupedSessions(nextGroups)
    当前批次额外补强了 `SessionsFragmentStatusTest` 的 partial-success 断言粒度，明确区分顶部 stale banner 与分组内 `group_error_text`，避免“只匹配到错误文案字符串但没拦住整页错误接管”的假覆盖。
    后续补丁 `CR-20260325-1526-sessions-view-recreate-state-reset` 进一步修复了 view 重建时状态泄漏：`onDestroyView()` 现在会清空当前 view 绑定的列表与 banner 状态，避免新 view 在“无缓存且刷新失败”时误显示 stale banner；同时新增 lifecycle instrumentation 用例覆盖该路径。
 5. `done`：任务 6、7、8 已完成。创建成功后当前列表会先乐观插入最小 `SessionSummary` 并同步缓存，重命名/删除成功后也会先改当前分组与缓存，再继续静默 refresh。
-6. `pending`：任务 3、10 尚未在当前批次完全收口。
-   说明：任务 10 本批新增了 `SessionsFragmentLifecycleTest` 的三条 8.5 instrumentation 回归源码，并已通过 `:app:compileDebugAndroidTestKotlin` 编译校验；但因当前无连接设备，`connectedDebugAndroidTest` 尚未执行，因此整项仍保持 `pending`。
+6. `done`：任务 10 已完成。
+   说明：任务 3 已完成，不再作为收口阻塞项。本批已把 instrumentation host activity/test hook/scheduler 下沉到 `src/debug`，补齐 `AppTheme.Shell`、`androidx.test` 运行时依赖，并修正多条 lifecycle/status 用例的设备侧 matcher 与 spinner 交互；` :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin :app:testDebugUnitTest :app:connectedDebugAndroidTest` 已全部通过。
 
 缓存删除语义约束：
 

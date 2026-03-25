@@ -31,6 +31,8 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import org.hamcrest.Matchers.allOf
 import org.hamcrest.CoreMatchers.containsString
+import android.view.View
+import android.widget.TextView
 
 @RunWith(AndroidJUnit4::class)
 class SessionsFragmentStatusTest {
@@ -65,9 +67,9 @@ class SessionsFragmentStatusTest {
         prepareRemoteProfile()
         writeRemoteCache("Cached Session")
 
-        launchTestActivity().use { _ ->
+        launchTestActivity().use { scenario ->
             assertTrue(refreshStarted.await(5, TimeUnit.SECONDS))
-            onView(withText("Cached Session")).check(matches(isDisplayed()))
+            waitForSessionName(scenario, "Cached Session")
             onView(withId(R.id.sessions_error_text))
                 .check(matches(withText(containsString(context.getString(R.string.sessions_cache_refreshing)))))
             allowRefreshToFinish.countDown()
@@ -88,8 +90,8 @@ class SessionsFragmentStatusTest {
         prepareRemoteProfile()
         writeRemoteCache("Cached Session")
 
-        launchTestActivity().use { _ ->
-            waitForText("Cached Session")
+        launchTestActivity().use { scenario ->
+            waitForSessionName(scenario, "Cached Session")
             onView(withId(R.id.sessions_error_text))
                 .check(matches(withText(containsString(context.getString(R.string.sessions_cache_stale)))))
         }
@@ -108,8 +110,8 @@ class SessionsFragmentStatusTest {
         server.start()
         prepareRemoteProfile()
 
-        launchTestActivity().use { _ ->
-            waitForText("[SERVER_ERROR] HTTP 500")
+        launchTestActivity().use { scenario ->
+            waitForErrorText(scenario, "[SERVER_ERROR] HTTP 500")
             onView(withId(R.id.sessions_error_text)).check(matches(isDisplayed()))
         }
     }
@@ -141,8 +143,8 @@ class SessionsFragmentStatusTest {
         server.start()
         prepareMixedProfiles()
 
-        launchTestActivity().use { _ ->
-            waitForText("Remote Session")
+        launchTestActivity().use { scenario ->
+            waitForSessionName(scenario, "Remote Session")
             onView(withId(R.id.sessions_error_text))
                 .check(matches(withText(containsString(context.getString(R.string.sessions_cache_stale)))))
             onView(
@@ -226,19 +228,74 @@ class SessionsFragmentStatusTest {
         )
     }
 
-    private fun waitForText(text: String, timeoutMs: Long = 5_000L) {
+    private fun waitForSessionName(
+        scenario: ActivityScenario<SessionsFragmentTestActivity>,
+        sessionName: String,
+        timeoutMs: Long = 5_000L
+    ) {
         val deadline = System.currentTimeMillis() + timeoutMs
-        var lastError: Throwable? = null
+        var lastNames: List<String> = emptyList()
         while (System.currentTimeMillis() < deadline) {
-            try {
-                onView(withText(text)).check(matches(isDisplayed()))
+            scenario.onActivity { activity ->
+                lastNames = activity.getSessionsFragment()
+                    .view
+                    ?.findViewById<android.widget.LinearLayout>(R.id.sessions_list_container)
+                    ?.let(::extractSessionNames)
+                    ?: emptyList()
+            }
+            if (sessionName in lastNames) {
                 return
-            } catch (error: Throwable) {
-                lastError = error
-                Thread.sleep(50L)
+            }
+            Thread.sleep(50L)
+        }
+        throw AssertionError("Timed out waiting for session name: $sessionName. Last names: $lastNames")
+    }
+
+    private fun waitForErrorText(
+        scenario: ActivityScenario<SessionsFragmentTestActivity>,
+        expectedText: String,
+        timeoutMs: Long = 5_000L
+    ) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var lastText = ""
+        while (System.currentTimeMillis() < deadline) {
+            scenario.onActivity { activity ->
+                lastText = activity.getSessionsFragment()
+                    .view
+                    ?.findViewById<TextView>(R.id.sessions_error_text)
+                    ?.text
+                    ?.toString()
+                    .orEmpty()
+            }
+            if (lastText.contains(expectedText)) {
+                return
+            }
+            Thread.sleep(50L)
+        }
+        throw AssertionError("Timed out waiting for error text: $expectedText. Last text: $lastText")
+    }
+
+    private fun extractSessionNames(container: android.widget.LinearLayout): List<String> {
+        val names = mutableListOf<String>()
+        collectVisibleText(container, names)
+        return names
+    }
+
+    private fun collectVisibleText(view: View, names: MutableList<String>) {
+        if (view.visibility != View.VISIBLE) {
+            return
+        }
+        if (view is TextView && view.id == R.id.session_name) {
+            val text = view.text?.toString()?.trim().orEmpty()
+            if (text.isNotEmpty()) {
+                names += text
             }
         }
-        throw AssertionError("Timed out waiting for text: $text", lastError)
+        if (view is android.view.ViewGroup) {
+            for (index in 0 until view.childCount) {
+                collectVisibleText(view.getChildAt(index), names)
+            }
+        }
     }
 
     private fun jsonResponse(body: String): MockResponse {

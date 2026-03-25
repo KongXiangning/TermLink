@@ -1,13 +1,13 @@
 ---
 title: REQ-20260324-session-list-local-cache - sessions remote cache writeback
-status: draft
+status: active
 record_id: CR-20260325-0857-sessions-remote-cache-writeback
 req_id: REQ-20260324-session-list-local-cache
-commit_ref: TBD
+commit_ref: 3c27fa2
 owner: @maintainer
 last_updated: 2026-03-25
 source_of_truth: code
-related_code: [android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt, android/app/src/main/java/com/termlink/app/ui/sessions/SessionRemoteCacheWriteback.kt, android/app/src/androidTest/java/com/termlink/app/ui/sessions/TestSessionsFragment.kt]
+related_code: [android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt, android/app/src/main/java/com/termlink/app/ui/sessions/SessionRemoteCacheWriteback.kt, android/app/src/debug/java/com/termlink/app/ui/sessions/TestSessionsFragment.kt]
 related_docs: [docs/product/requirements/REQ-20260324-session-list-local-cache.md, docs/product/plans/PLAN-20260324-session-list-local-cache-impl.md, docs/changes/records/INDEX.md]
 ---
 
@@ -60,7 +60,8 @@ git checkout <commit_ref>^ -- docs/changes/records/INDEX.md
 - 结果：通过
 - 校验命令：`set JAVA_HOME=D:\ProgramCode\openjdk\jdk-21 && .\gradlew.bat :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin :app:testDebugUnitTest`
 - 结果：通过
-- 说明：当前未连接 Android 设备，`connectedDebugAndroidTest` 未执行；androidTest 验证范围为源码编译通过。
+- 校验命令：`set JAVA_HOME=D:\ProgramCode\openjdk\jdk-21 && .\gradlew.bat :app:connectedDebugAndroidTest`
+- 结果：2026-03-25 真机验收通过，远端成功写回缓存与 first-paint lifecycle 回归已在设备侧通过
 
 ## 6. 后续修改入口（How to continue）
 

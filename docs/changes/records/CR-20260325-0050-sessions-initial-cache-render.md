@@ -1,9 +1,9 @@
 ---
 title: REQ-20260324-session-list-local-cache - sessions initial cache render
-status: draft
+status: active
 record_id: CR-20260325-0050-sessions-initial-cache-render
 req_id: REQ-20260324-session-list-local-cache
-commit_ref: TBD
+commit_ref: 87031bc
 owner: @maintainer
 last_updated: 2026-03-25
 source_of_truth: code
@@ -63,7 +63,8 @@ git checkout <commit_ref>^ -- docs/changes/records/INDEX.md
 - 结果：通过
 - 校验命令：`set JAVA_HOME=D:\ProgramCode\openjdk\jdk-21 && .\gradlew.bat :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin :app:testDebugUnitTest`
 - 结果：通过
-- 说明：当前会话未连接 Android 设备，因此本批确认到 androidTest Kotlin 编译通过；`connectedDebugAndroidTest` 未执行
+- 校验命令：`set JAVA_HOME=D:\ProgramCode\openjdk\jdk-21 && .\gradlew.bat :app:connectedDebugAndroidTest`
+- 结果：2026-03-25 真机验收通过，首屏缓存回显与 lifecycle instrumentation 场景已在设备侧通过
 
 ## 6. 后续修改入口（How to continue）
 

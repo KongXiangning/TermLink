@@ -1,9 +1,9 @@
 ﻿---
 title: REQ-20260324-session-list-local-cache - sessions view recreate state reset
-status: draft
+status: active
 record_id: CR-20260325-1526-sessions-view-recreate-state-reset
 req_id: REQ-20260324-session-list-local-cache
-commit_ref: TBD
+commit_ref: 2ca2cb8
 owner: @maintainer
 last_updated: 2026-03-25
 source_of_truth: code
@@ -51,10 +51,11 @@ git checkout <commit_ref>^ -- docs/changes/records/INDEX.md
 - 校验命令：`powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/validate-req.ps1 -ReqPath ./docs/product/requirements/REQ-20260324-session-list-local-cache.md -Strict`
 - 结果：通过
 - 校验命令：`set JAVA_HOME=D:\ProgramCode\openjdk\jdk-21 && .\gradlew.bat :app:compileDebugAndroidTestKotlin :app:testDebugUnitTest`
-- 结果：待执行
+- 结果：通过
 - 校验命令：`powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/validate-change-record.ps1 -RecordPath ./docs/changes/records/CR-20260325-1526-sessions-view-recreate-state-reset.md -Strict`
-- 结果：待本批文档回写后执行
-- 说明：当前未连接 Android 设备，如本批没有设备实跑条件，则 `connectedDebugAndroidTest` 保持未执行并在收尾说明。
+- 结果：通过
+- 校验命令：`set JAVA_HOME=D:\ProgramCode\openjdk\jdk-21 && .\gradlew.bat :app:connectedDebugAndroidTest`
+- 结果：2026-03-25 真机验收通过，view recreate 失败态与 stale first-paint lifecycle 用例已通过
 
 ## 6. 后续修改入口（How to continue）
 

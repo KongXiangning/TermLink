@@ -2,13 +2,23 @@
 title: TermLink 项目变更日志
 status: active
 owner: @maintainer
-last_updated: 2026-03-24
+last_updated: 2026-03-25
 source_of_truth: product
 related_code: []
 related_docs: [docs/README.md]
 ---
 
 # CHANGELOG_PROJECT
+
+## 2026-03-25
+
+### client
+
+1. 完成 `REQ-20260324-session-list-local-cache`：Android Sessions 页面支持首屏本地缓存回显、远端成功覆盖缓存、失败态 stale/refreshing 提示、创建/删除/重命名后的缓存同步，以及防止旧乐观写回覆盖后续 refresh 结果的 generation 门禁；CODEX 创建在服务端未返回 `cwd` 时也会保留用户选择的工作目录。
+
+### docs
+
+1. 将 `REQ-20260324-session-list-local-cache` 状态由 `planned` 更新为 `done`，同步收口 `PLAN`、`REQUIREMENTS_BACKLOG`、`ROADMAP`、历史 CR 索引和真机验收记录。
 
 ## 2026-03-24
 

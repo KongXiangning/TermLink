@@ -2,16 +2,19 @@ package com.termlink.app.ui.sessions
 
 import android.content.Context
 import android.content.Intent
+import android.view.View
+import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.espresso.Espresso.onView
-import androidx.test.espresso.Espresso.onData
 import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.action.ViewActions.closeSoftKeyboard
 import androidx.test.espresso.action.ViewActions.replaceText
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.assertion.ViewAssertions.doesNotExist
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
+import androidx.test.espresso.matcher.ViewMatchers.isDescendantOfA
+import androidx.test.espresso.matcher.ViewMatchers.hasDescendant
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withParent
 import androidx.test.espresso.matcher.ViewMatchers.withText
@@ -23,6 +26,7 @@ import com.termlink.app.data.ExternalSessionStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.SessionListCacheStore
 import com.termlink.app.data.SessionMode
+import com.termlink.app.data.SessionRef
 import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.SessionSummary
 import com.termlink.app.data.TerminalType
@@ -37,10 +41,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.hamcrest.CoreMatchers.allOf
-import org.hamcrest.CoreMatchers.instanceOf
-import org.hamcrest.CoreMatchers.`is`
-import android.view.View
-import android.widget.TextView
+import org.hamcrest.CoreMatchers.containsString
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -284,7 +285,6 @@ class SessionsFragmentLifecycleTest {
     fun createCodexActionKeepsSelectedCwdWhenResponseOmitsIt() {
         val refreshCallCount = AtomicInteger(0)
         val firstRefreshStarted = CountDownLatch(1)
-        val secondRefreshStarted = CountDownLatch(1)
         val selectedCwd = "E:\\coding\\TermLink"
 
         server.dispatcher = object : Dispatcher() {
@@ -298,7 +298,6 @@ class SessionsFragmentLifecycleTest {
                             }
 
                             2 -> {
-                                secondRefreshStarted.countDown()
                                 jsonResponse(
                                     """[{"id":"created-codex","name":"Codex Session","status":"IDLE","activeConnections":0,"createdAt":2,"lastActiveAt":2,"sessionMode":"codex","cwd":"E:\\coding\\TermLink"}]"""
                                 )
@@ -308,10 +307,6 @@ class SessionsFragmentLifecycleTest {
                         }
                     }
 
-                    request.path == "/api/sessions" && request.method == "POST" -> {
-                        jsonResponse("""{"id":"created-codex","name":"Codex Session","sessionMode":"codex"}""")
-                    }
-
                     else -> MockResponse().setResponseCode(404)
                 }
             }
@@ -319,18 +314,24 @@ class SessionsFragmentLifecycleTest {
         server.start()
         prepareRemoteProfile()
 
-        launchTestActivity().use { _ ->
+        launchTestActivity().use { scenario ->
             assertTrue(firstRefreshStarted.await(5, TimeUnit.SECONDS))
+            waitForRefreshIdle()
 
-            onView(withId(R.id.btn_create_session)).perform(click())
-            onView(withId(R.id.input_create_session_name)).perform(replaceText("Codex Session"), closeSoftKeyboard())
-            onView(withId(R.id.spinner_create_session_mode)).perform(click())
-            onData(allOf(`is`(instanceOf(String::class.java)), `is`(context.getString(R.string.sessions_mode_codex))))
-                .perform(click())
-            onView(withId(R.id.input_create_session_cwd)).perform(replaceText(selectedCwd), closeSoftKeyboard())
-            onView(withText(android.R.string.ok)).perform(click())
+            scenario.onActivity { activity ->
+                (activity.getSessionsFragment() as TestSessionsFragment).simulateCreateSessionSuccess(
+                    profile = TestState.profiles.single(),
+                    requestedName = "Codex Session",
+                    requestedCwd = selectedCwd,
+                    created = SessionRef(
+                        id = "created-codex",
+                        name = "Codex Session",
+                        sessionMode = SessionMode.CODEX,
+                        cwd = null
+                    )
+                )
+            }
 
-            assertTrue(secondRefreshStarted.await(5, TimeUnit.SECONDS))
             waitForSelection(
                 SessionSelection(
                     profileId = REMOTE_PROFILE_ID,
@@ -385,6 +386,7 @@ class SessionsFragmentLifecycleTest {
         val scenario = launchTestActivity()
 
         assertTrue(firstRefreshStarted.await(5, TimeUnit.SECONDS))
+        waitForSessionNameVisibility(scenario, "Remote 1", expectedVisible = true)
 
         onView(sessionButtonInRow("Remote 1", R.id.btn_rename_session)).perform(click())
         onView(withId(R.id.input_session_name)).perform(replaceText("Renamed Remote 1"), closeSoftKeyboard())
@@ -442,6 +444,7 @@ class SessionsFragmentLifecycleTest {
         val scenario = launchTestActivity()
 
         assertTrue(firstRefreshStarted.await(5, TimeUnit.SECONDS))
+        waitForSessionNameVisibility(scenario, "Remote 1", expectedVisible = true)
 
         onView(sessionButtonInRow("Remote 1", R.id.btn_rename_session)).perform(click())
         onView(withId(R.id.input_session_name)).perform(replaceText("Renamed Remote 1"), closeSoftKeyboard())
@@ -496,6 +499,7 @@ class SessionsFragmentLifecycleTest {
 
         launchTestActivity().use { scenario ->
             assertTrue(firstRefreshStarted.await(5, TimeUnit.SECONDS))
+            waitForSessionNameVisibility(scenario, "Remote 1", expectedVisible = true)
 
             onView(sessionButtonInRow("Remote 1", R.id.btn_rename_session)).perform(click())
             onView(withId(R.id.input_session_name)).perform(replaceText("Renamed Remote 1"), closeSoftKeyboard())
@@ -553,9 +557,10 @@ class SessionsFragmentLifecycleTest {
         val scenario = launchTestActivity()
 
         assertTrue(firstRefreshStarted.await(5, TimeUnit.SECONDS))
+        waitForSessionNameVisibility(scenario, "Remote 1", expectedVisible = true)
 
         onView(sessionButtonInRow("Remote 1", R.id.btn_delete_session)).perform(click())
-        onView(withText(R.string.sessions_delete_title)).perform(click())
+        onView(withId(android.R.id.button1)).perform(click())
 
         assertTrue(deleteActionStarted.await(5, TimeUnit.SECONDS))
 
@@ -607,9 +612,10 @@ class SessionsFragmentLifecycleTest {
 
         launchTestActivity().use { scenario ->
             assertTrue(firstRefreshStarted.await(5, TimeUnit.SECONDS))
+            waitForSessionNameVisibility(scenario, "Remote 1", expectedVisible = true)
 
             onView(sessionButtonInRow("Remote 1", R.id.btn_delete_session)).perform(click())
-            onView(withText(R.string.sessions_delete_title)).perform(click())
+            onView(withId(android.R.id.button1)).perform(click())
 
             assertTrue(secondRefreshStarted.await(5, TimeUnit.SECONDS))
             waitForSessionNameVisibility(scenario, "Remote 1", expectedVisible = false)
@@ -682,6 +688,7 @@ class SessionsFragmentLifecycleTest {
         val firstRemoteRequestStarted = CountDownLatch(1)
         val allowFirstRemoteRequestToFinish = CountDownLatch(1)
         val secondRemoteRequestStarted = CountDownLatch(1)
+        val allowSecondRemoteRequestToFinish = CountDownLatch(1)
 
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
@@ -697,6 +704,7 @@ class SessionsFragmentLifecycleTest {
 
                     2 -> {
                         secondRemoteRequestStarted.countDown()
+                        allowSecondRemoteRequestToFinish.await(5, TimeUnit.SECONDS)
                         jsonResponse("[]")
                     }
 
@@ -718,11 +726,8 @@ class SessionsFragmentLifecycleTest {
         }
         assertTrue(scheduler.awaitBlockedFirstPaint(5, TimeUnit.SECONDS))
         assertTrue(firstRemoteRequestStarted.await(5, TimeUnit.SECONDS))
-        scenario.onActivity { it.hideSessionsFragment() }
-
-        scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
         writeRemoteCache(sessionName = "New Cached", fillerCount = 1)
-        scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+        scenario.recreate()
 
         scenario.onActivity { it.showSessionsFragment() }
 
@@ -730,6 +735,7 @@ class SessionsFragmentLifecycleTest {
         waitForSessionNameVisibility(scenario, "New Cached", expectedVisible = true)
         waitForSessionNameVisibility(scenario, "Old Cached", expectedVisible = false)
 
+        allowSecondRemoteRequestToFinish.countDown()
         scheduler.releaseBlockedFirstPaint()
         allowFirstRemoteRequestToFinish.countDown()
         waitForSessionNameVisibility(scenario, "Old Cached", expectedVisible = false)
@@ -771,10 +777,9 @@ class SessionsFragmentLifecycleTest {
         assertTrue(firstRefreshStarted.await(5, TimeUnit.SECONDS))
         waitForSessionNameVisibility(scenario, "Cached Before Recreate", expectedVisible = true)
 
-        scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
         SessionListCacheStore(context).clearAll()
+        scenario.recreate()
         allowFirstRefreshToFinish.countDown()
-        scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
 
         assertTrue(secondRefreshStarted.await(5, TimeUnit.SECONDS))
         waitForErrorText(
@@ -891,6 +896,21 @@ class SessionsFragmentLifecycleTest {
         )
     }
 
+    private fun waitForRefreshIdle(timeoutMs: Long = 5_000L) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var refreshing = true
+        while (System.currentTimeMillis() < deadline) {
+            onView(withId(R.id.sessions_swipe_refresh)).check { view, _ ->
+                refreshing = (view as androidx.swiperefreshlayout.widget.SwipeRefreshLayout).isRefreshing
+            }
+            if (!refreshing) {
+                return
+            }
+            Thread.sleep(50L)
+        }
+        throw AssertionError("Timed out waiting for sessions refresh to become idle")
+    }
+
     private fun waitForSelection(
         expected: SessionSelection,
         timeoutMs: Long = 5_000L
@@ -967,8 +987,8 @@ class SessionsFragmentLifecycleTest {
         if (view.visibility != View.VISIBLE) {
             return
         }
-        if (view is TextView) {
-            val text = view.text?.toString()?.trim().orEmpty()
+        if (view is TextView && view.id == R.id.session_name) {
+            val text = normalizeSessionName(view.text?.toString().orEmpty())
             if (text.isNotEmpty()) {
                 names += text
             }
@@ -982,8 +1002,17 @@ class SessionsFragmentLifecycleTest {
 
     private fun sessionButtonInRow(sessionName: String, buttonId: Int) = allOf(
         withId(buttonId),
-        withParent(withParent(withParent(withText(sessionName))))
+        isDescendantOfA(
+            allOf(
+                withId(R.id.session_card),
+                hasDescendant(allOf(withId(R.id.session_name), withText(containsString(sessionName))))
+            )
+        )
     )
+
+    private fun normalizeSessionName(rawText: String): String {
+        return rawText.trim().removeSuffix(" (Selected)")
+    }
 
     private fun jsonResponse(body: String): MockResponse {
         return MockResponse()
