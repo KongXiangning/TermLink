@@ -19,6 +19,31 @@ class SessionAsyncRequestTrackerTest {
     }
 
     @Test
+    fun releaseRefreshForViewDestroyAllowsNextRefreshWithoutInvalidatingLatestRequest() {
+        val tracker = SessionAsyncRequestTracker()
+        val firstRequestId = tracker.startRefresh()
+
+        tracker.releaseRefreshForViewDestroy()
+
+        assertTrue(tracker.canStartRefresh())
+        assertTrue(tracker.isActiveRefresh(firstRequestId))
+        assertTrue(tracker.completeRefresh(firstRequestId))
+    }
+
+    @Test
+    fun newerRefreshDropsOlderRefreshAfterViewDestroyRelease() {
+        val tracker = SessionAsyncRequestTracker()
+        val firstRequestId = tracker.startRefresh()
+
+        tracker.releaseRefreshForViewDestroy()
+        val secondRequestId = tracker.startRefresh()
+
+        assertFalse(tracker.isActiveRefresh(firstRequestId))
+        assertFalse(tracker.completeRefresh(firstRequestId))
+        assertTrue(tracker.completeRefresh(secondRequestId))
+    }
+
+    @Test
     fun staleRefreshCallbackCannotCompleteNewerRefresh() {
         val tracker = SessionAsyncRequestTracker()
         val firstRequestId = tracker.startRefresh()
@@ -40,6 +65,19 @@ class SessionAsyncRequestTrackerTest {
         assertFalse(tracker.completeAction(firstRequestId))
         assertTrue(tracker.canStartAction())
         assertTrue(tracker.completeAction(tracker.startAction()))
+    }
+
+    @Test
+    fun invalidateActionsClearsOnlyActionState() {
+        val tracker = SessionAsyncRequestTracker()
+        val refreshRequestId = tracker.startRefresh()
+        val actionRequestId = tracker.startAction()
+
+        tracker.invalidateActions()
+
+        assertFalse(tracker.completeAction(actionRequestId))
+        assertTrue(tracker.isActiveRefresh(refreshRequestId))
+        assertTrue(tracker.completeRefresh(refreshRequestId))
     }
 
     @Test

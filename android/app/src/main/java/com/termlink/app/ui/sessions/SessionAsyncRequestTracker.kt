@@ -10,10 +10,13 @@ internal class SessionAsyncRequestTracker {
     private var activeActionRequestId = 0
     private var actionInFlight = false
 
+    @Synchronized
     fun hasInFlightWork(): Boolean = refreshInFlight || actionInFlight
 
+    @Synchronized
     fun canStartRefresh(): Boolean = !hasInFlightWork()
 
+    @Synchronized
     fun startRefresh(): Int {
         nextRefreshRequestId += 1
         activeRefreshRequestId = nextRefreshRequestId
@@ -21,8 +24,10 @@ internal class SessionAsyncRequestTracker {
         return activeRefreshRequestId
     }
 
+    @Synchronized
     fun isActiveRefresh(requestId: Int): Boolean = requestId == activeRefreshRequestId
 
+    @Synchronized
     fun completeRefresh(requestId: Int): Boolean {
         if (requestId != activeRefreshRequestId) {
             return false
@@ -31,8 +36,22 @@ internal class SessionAsyncRequestTracker {
         return true
     }
 
+    @Synchronized
+    fun releaseRefreshForViewDestroy() {
+        refreshInFlight = false
+    }
+
+    @Synchronized
+    fun invalidateActions() {
+        nextActionRequestId += 1
+        activeActionRequestId = nextActionRequestId
+        actionInFlight = false
+    }
+
+    @Synchronized
     fun canStartAction(): Boolean = !hasInFlightWork()
 
+    @Synchronized
     fun startAction(): Int {
         nextActionRequestId += 1
         activeActionRequestId = nextActionRequestId
@@ -40,6 +59,7 @@ internal class SessionAsyncRequestTracker {
         return activeActionRequestId
     }
 
+    @Synchronized
     fun completeAction(requestId: Int): Boolean {
         if (requestId != activeActionRequestId) {
             return false
@@ -48,13 +68,11 @@ internal class SessionAsyncRequestTracker {
         return true
     }
 
+    @Synchronized
     fun invalidateAll() {
         nextRefreshRequestId += 1
         activeRefreshRequestId = nextRefreshRequestId
         refreshInFlight = false
-
-        nextActionRequestId += 1
-        activeActionRequestId = nextActionRequestId
-        actionInFlight = false
+        invalidateActions()
     }
 }

@@ -7,11 +7,11 @@
 1. `done`：`8.1 第一步：抽出缓存模型与存储层`
 2. `done`：`13.1 新增 SessionListCacheStore.kt 和缓存容器类`
 3. `done`：`8.2 第二步：接入 Sessions 首屏读取缓存`
-4. `pending`：`8.3 第三步：远端成功覆盖缓存`
+4. `done`：`8.3 第三步：远端成功覆盖缓存`
 5. `pending`：`8.4 第四步：失败态与文案收口`
 6. `pending`：`8.5 第五步：创建/删除/重命名链路补齐缓存更新`
 
-对应实现记录：`docs/changes/records/CR-20260324-2331-session-list-cache-store-foundation.md`、`docs/changes/records/CR-20260325-0050-sessions-initial-cache-render.md`
+对应实现记录：`docs/changes/records/CR-20260324-2331-session-list-cache-store-foundation.md`、`docs/changes/records/CR-20260325-0050-sessions-initial-cache-render.md`、`docs/changes/records/CR-20260325-0857-sessions-remote-cache-writeback.md`
 
 ### 1. 文档定位
 
@@ -415,10 +415,12 @@ class SessionListCacheStore(context: Context) {
 补充说明：当前实现已在 `SessionsFragment.refreshSessions(showSpinner)` 中先读取 `SessionListCacheStore`，并通过 `buildGroupsFromCache()` 先回显命中的远端 profile 缓存分组，再继续现有异步远端刷新。
 本阶段已补上 `EXTERNAL_WEB` 的本地分组首屏组装，确保 `ExternalSessionStore` 中已有数据不会在缓存首屏阶段被隐藏。
 首屏本地数据回显已限制为视图创建后的首次加载；后续自动刷新、手动刷新和写操作成功后的刷新不再先回放旧本地快照。
+当前实现还会按 view generation 隔离首屏本地回显 callback，避免旧 refresh 在 `onDestroyView()` 之后把上一个 view 的 `cachedGroups` 渲染进新 view，并错误短路新 view 自己的 first-paint。
 首屏本地数据读取也已移动到后台线程，避免在主线程同步执行 `SharedPreferences + JSON` 解析。
 异步刷新与写操作也已拆分为独立 request token 跟踪，`onDestroyView()` 会显式失效旧请求并释放 loading 状态，避免 drawer 隐藏或 view 重建后卡死在旧的 `isLoading` 语义里。
 本阶段已补上 `SessionsFragment` 的 instrumentation 生命周期测试，使用 androidTest 专用 host activity 和本地 HTTP stub 覆盖 refresh、create、rename、delete 四条路径在 `onDestroyView()` / recreate 后仍可再次 refresh 的回归场景，其中 delete 还校验了选中项清理回调，不把测试注入逻辑混入正式 fragment 代码。
 本阶段的 instrumentation 也已补上 drawer 风格的同实例 `show()/hide()` 覆盖：androidTest host 现在模拟 `MainShellActivity` 的 `add + hide + show` 片段事务，直接验证 `onHiddenChanged(false)` 会触发 refresh，以及隐藏期间完成的旧 refresh / rename action 不会阻塞下次重新显示后的 refresh。
+当前自动化还覆盖了“旧 refresh 的 first-paint callback 不能在 view 重建后污染新 view”这条组合场景：androidTest host 现在通过 test-only first-paint scheduler 明确延后旧 callback，再执行隐藏 fragment、销毁并重建 view、改写本地缓存的时序，稳定验证新 view 会展示新的缓存结果，而旧缓存不会在旧 callback 释放后被重新渲染到新 view。对应的 scheduler 等待点也已补上竞态收口，避免 `awaitBlockedFirstPaint()` 因 latch 延迟创建而提前返回。
 本批次刻意不包含缓存 banner/stale 文案、远端成功覆盖写回缓存和失败态收口，这些仍分别归属 `8.3` 与 `8.4`。
 
 在 `SessionsFragment` 的首次加载流程中：
@@ -454,7 +456,13 @@ fetchRemoteGroupsAsync()
 
 #### 8.3 第三步：远端成功覆盖缓存
 
-当前状态：`pending`
+当前状态：`done`（见 `CR-20260325-0857-sessions-remote-cache-writeback`）
+
+补充说明：当前实现已在 `SessionsFragment` 的远端刷新成功路径中，对成功返回且 `error == null` 的 `TERMLINK_WS` 分组统一取一次 `System.currentTimeMillis()` 作为 `fetchedAt`，并在 refresh 后台线程中调用 `SessionListCacheStore.replaceProfile(...)` 覆盖写回对应 profile 的缓存，再继续回到主线程 `renderGroupedSessions(nextGroups)`。
+为避免把缓存写回重新变成 UI 阻塞点，当前实现不会在主线程执行 `SharedPreferences + JSON` 写回；同时写回权限现在绑定到“该 request 仍是 latest refresh request”，而不是绑定到 view 是否还活着。也就是说，只要期间没有更新的 refresh 抢占成功，当前成功结果即使发生在 `onDestroyView()` 之后，仍可更新本地缓存；若已启动更新的 refresh，则旧结果不得覆盖新缓存。
+与之相对，`8.2` 的首屏本地回显仍严格绑定到发起它的那个 view 实例；旧 refresh 即使保留 latest refresh request id，也不能把旧 view 的 first-paint callback 投递到新 view。
+`EXTERNAL_WEB` 分组不会进入这条远端写回链路；远端失败分组也不会覆盖现有缓存，这部分失败态收口仍留在 `8.4`。
+本阶段已补上 `SessionRemoteCacheWriteback` 的 unit test，覆盖成功写回、失败跳过、`EXTERNAL_WEB` 跳过和同批次统一 `fetchedAt` 语义；缓存排序仍复用已有 `SessionListCacheStore.replaceProfile(...)` 的标准化排序与存储测试。
 
 现有远端 sessions 列表接口成功后：
 
@@ -621,7 +629,8 @@ if (cachedContentIsVisible) {
 2. `done`：任务 2 已完成，`SessionsFragment` 已接入远端缓存首屏回显，并把 `EXTERNAL_WEB` 的既有本地分组纳入首屏本地数据组装；上一轮遗留的未消费缓存状态字段也已移除。
    当前实现同时引入 request token 跟踪，避免 view 销毁后的旧回调把 Sessions 页面卡死在 loading 状态。
    自动化已从纯 helper 单测扩展到 fragment/lifecycle 级 instrumentation 测试，能同时拦住 refresh、create、rename、delete 四条路径上“loading 中销毁并重建 view 后无法再次 refresh”的回归；同时也覆盖了 drawer 风格 `show()/hide()` 下 `onHiddenChanged()` 重新触发 refresh 的场景。测试支撑通过 androidTest 专用 host activity 与本地 HTTP stub 实现，不依赖生产静态测试钩子。
-3. `pending`：任务 3 到任务 10 尚未在当前批次实现。
+3. `done`：任务 4 已完成，远端刷新成功路径现在会先按 profile 覆盖写回缓存，再渲染最新结果；仅成功的 `TERMLINK_WS` 分组会写入 `SessionListCacheStore`，`EXTERNAL_WEB` 和失败分组会被跳过。
+4. `pending`：任务 3、5 到任务 10 尚未在当前批次实现。
 
 缓存删除语义约束：
 

@@ -7,7 +7,9 @@ import androidx.appcompat.app.AppCompatActivity
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.SessionSelection
 
-class SessionsFragmentTestActivity : AppCompatActivity(), SessionsFragment.Callbacks {
+class SessionsFragmentTestActivity : AppCompatActivity(), SessionsFragment.Callbacks, SessionFirstPaintSchedulerProvider {
+
+    val controlledFirstPaintScheduler = ControlledFirstPaintScheduler()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,6 +66,10 @@ class SessionsFragmentTestActivity : AppCompatActivity(), SessionsFragment.Callb
 
     override fun onUpdateSessionSelection(selection: SessionSelection) {
         TestState.selection = selection
+    }
+
+    override fun provideSessionFirstPaintScheduler(defaultScheduler: SessionFirstPaintScheduler): SessionFirstPaintScheduler {
+        return controlledFirstPaintScheduler
     }
 
     private fun requireSessionsFragment(): SessionsFragment {

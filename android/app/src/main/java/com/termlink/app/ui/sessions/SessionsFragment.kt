@@ -57,6 +57,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         Runtime.getRuntime().availableProcessors().coerceIn(4, 12)
     )
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var firstPaintScheduler: SessionFirstPaintScheduler = defaultSessionFirstPaintScheduler(mainHandler)
     private val autoRefreshRunnable = object : Runnable {
         override fun run() {
             if (isAutoRefreshActive && !refreshRequestTracker.hasInFlightWork()) {
@@ -72,6 +73,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     private var isAutoRefreshActive = false
     private val refreshRequestTracker = SessionAsyncRequestTracker()
     private var hasCompletedInitialLocalFirstPaint = false
+    private var currentViewGeneration = 0
     private var profiles: List<ServerProfile> = emptyList()
     private var currentSelection: SessionSelection = SessionSelection("", "")
     private var groupedSessions: List<ProfileGroupResult> = emptyList()
@@ -86,6 +88,9 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         super.onAttach(context)
         callbacks = context as? Callbacks
             ?: throw IllegalStateException("Host activity must implement SessionsFragment.Callbacks")
+        firstPaintScheduler = (context as? SessionFirstPaintSchedulerProvider)
+            ?.provideSessionFirstPaintScheduler(defaultSessionFirstPaintScheduler(mainHandler))
+            ?: defaultSessionFirstPaintScheduler(mainHandler)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -97,6 +102,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
     override fun onDetach() {
         callbacks = null
+        firstPaintScheduler = defaultSessionFirstPaintScheduler(mainHandler)
         super.onDetach()
     }
 
@@ -109,6 +115,7 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         isViewActive = true
+        currentViewGeneration += 1
         hasCompletedInitialLocalFirstPaint = false
 
         profileText = view.findViewById(R.id.sessions_active_profile)
@@ -155,7 +162,8 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         isViewActive = false
         hasCompletedInitialLocalFirstPaint = false
         swipeRefresh.isRefreshing = false
-        refreshRequestTracker.invalidateAll()
+        refreshRequestTracker.releaseRefreshForViewDestroy()
+        refreshRequestTracker.invalidateActions()
         super.onDestroyView()
     }
 
@@ -185,21 +193,33 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         }
 
         val profilesSnapshot = profiles
+        val viewGeneration = currentViewGeneration
         val shouldAttemptFirstPaint = !hasCompletedInitialLocalFirstPaint
         executor.execute {
             if (shouldAttemptFirstPaint) {
                 val firstPaintGroups = buildGroupsFromCache(profilesSnapshot)
-                mainHandler.post {
-                    if (!refreshRequestTracker.isActiveRefresh(requestId)) return@post
-                    if (!isViewActive || hasCompletedInitialLocalFirstPaint) return@post
-                    if (firstPaintGroups.isNotEmpty()) {
-                        renderGroupedSessions(firstPaintGroups)
+                firstPaintScheduler.post(Runnable {
+                    if (SessionFirstPaintGate.shouldApply(
+                            isLatestRefreshRequest = refreshRequestTracker.isActiveRefresh(requestId),
+                            isViewActive = isViewActive,
+                            callbackViewGeneration = viewGeneration,
+                            currentViewGeneration = currentViewGeneration,
+                            hasCompletedInitialLocalFirstPaint = hasCompletedInitialLocalFirstPaint
+                        )
+                    ) {
+                        if (firstPaintGroups.isNotEmpty()) {
+                            renderGroupedSessions(firstPaintGroups)
+                        }
+                        hasCompletedInitialLocalFirstPaint = true
                     }
-                    hasCompletedInitialLocalFirstPaint = true
-                }
+                })
             }
 
             val nextGroups = fetchProfileGroups(profilesSnapshot)
+            val fetchedAt = System.currentTimeMillis()
+            if (refreshRequestTracker.isActiveRefresh(requestId)) {
+                persistRemoteGroupsToCache(nextGroups, fetchedAt)
+            }
             mainHandler.post {
                 if (!refreshRequestTracker.completeRefresh(requestId)) return@post
                 swipeRefresh.isRefreshing = false
@@ -273,6 +293,23 @@ class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                 )
             }
         }
+    }
+
+    private fun persistRemoteGroupsToCache(
+        groups: List<ProfileGroupResult>,
+        fetchedAt: Long
+    ) {
+        SessionRemoteCacheWriteback.apply(
+            groups = groups.map { group ->
+                SessionRemoteCacheWritebackCandidate(
+                    profile = group.profile,
+                    sessions = group.sessions,
+                    hasError = group.error != null
+                )
+            },
+            fetchedAt = fetchedAt,
+            replaceProfile = sessionListCacheStore::replaceProfile
+        )
     }
 
     private fun listSessionsForProfile(profile: ServerProfile): ApiResult<List<SessionSummary>> {

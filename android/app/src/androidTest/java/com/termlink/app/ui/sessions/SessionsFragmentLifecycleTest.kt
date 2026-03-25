@@ -9,6 +9,7 @@ import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.action.ViewActions.closeSoftKeyboard
 import androidx.test.espresso.action.ViewActions.replaceText
 import androidx.test.espresso.assertion.ViewAssertions.matches
+import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withParent
 import androidx.test.espresso.matcher.ViewMatchers.withText
@@ -19,7 +20,9 @@ import com.termlink.app.data.BasicCredentialStore
 import com.termlink.app.data.ExternalSessionStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.SessionListCacheStore
+import com.termlink.app.data.SessionMode
 import com.termlink.app.data.SessionSelection
+import com.termlink.app.data.SessionSummary
 import com.termlink.app.data.TerminalType
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
@@ -32,6 +35,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.hamcrest.CoreMatchers.allOf
+import android.view.View
+import android.widget.TextView
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -389,6 +394,65 @@ class SessionsFragmentLifecycleTest {
         assertEquals(SessionSelection(REMOTE_PROFILE_ID, ""), TestState.selection)
     }
 
+    @Test
+    fun staleFirstPaintCallbackDoesNotPolluteNewViewAfterRecreate() {
+        val refreshCallCount = AtomicInteger(0)
+        val firstRemoteRequestStarted = CountDownLatch(1)
+        val allowFirstRemoteRequestToFinish = CountDownLatch(1)
+        val secondRemoteRequestStarted = CountDownLatch(1)
+
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                if (request.path != "/api/sessions" || request.method != "GET") {
+                    return MockResponse().setResponseCode(404)
+                }
+                return when (refreshCallCount.incrementAndGet()) {
+                    1 -> {
+                        firstRemoteRequestStarted.countDown()
+                        allowFirstRemoteRequestToFinish.await(5, TimeUnit.SECONDS)
+                        jsonResponse("[]")
+                    }
+
+                    2 -> {
+                        secondRemoteRequestStarted.countDown()
+                        jsonResponse("[]")
+                    }
+
+                    else -> jsonResponse("[]")
+                }
+            }
+        }
+        server.start()
+        prepareRemoteProfile()
+        writeRemoteCache(sessionName = "Old Cached", fillerCount = 2000)
+
+        val scenario = launchTestActivity(startHidden = true)
+        lateinit var scheduler: ControlledFirstPaintScheduler
+
+        scenario.onActivity {
+            scheduler = it.controlledFirstPaintScheduler
+            scheduler.blockNextFirstPaint()
+            it.showSessionsFragment()
+        }
+        assertTrue(scheduler.awaitBlockedFirstPaint(5, TimeUnit.SECONDS))
+        assertTrue(firstRemoteRequestStarted.await(5, TimeUnit.SECONDS))
+        scenario.onActivity { it.hideSessionsFragment() }
+
+        scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+        writeRemoteCache(sessionName = "New Cached", fillerCount = 1)
+        scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+
+        scenario.onActivity { it.showSessionsFragment() }
+
+        assertTrue(secondRemoteRequestStarted.await(5, TimeUnit.SECONDS))
+        waitForSessionNameVisibility(scenario, "New Cached", expectedVisible = true)
+        waitForSessionNameVisibility(scenario, "Old Cached", expectedVisible = false)
+
+        scheduler.releaseBlockedFirstPaint()
+        allowFirstRemoteRequestToFinish.countDown()
+        waitForSessionNameVisibility(scenario, "Old Cached", expectedVisible = false)
+    }
+
     private fun launchTestActivity(startHidden: Boolean = false): ActivityScenario<SessionsFragmentTestActivity> {
         val intent = Intent(context, SessionsFragmentTestActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -413,6 +477,86 @@ class SessionsFragmentLifecycleTest {
         TestState.selection = SessionSelection(REMOTE_PROFILE_ID, selectedSessionId)
         SessionListCacheStore(context).clearAll()
         ExternalSessionStore(context).deleteByProfile(REMOTE_PROFILE_ID)
+    }
+
+    private fun writeRemoteCache(sessionName: String, fillerCount: Int) {
+        val profile = TestState.profiles.single()
+        val sessions = buildList {
+            add(createSessionSummary(id = sessionName.lowercase().replace(' ', '-'), name = sessionName, timestamp = 1L))
+            repeat(fillerCount) { index ->
+                add(
+                    createSessionSummary(
+                        id = "filler-$index",
+                        name = "Filler $index",
+                        timestamp = index + 2L
+                    )
+                )
+            }
+        }
+        SessionListCacheStore(context).replaceProfile(profile, sessions, fetchedAt = 1L)
+    }
+
+    private fun createSessionSummary(id: String, name: String, timestamp: Long): SessionSummary {
+        return SessionSummary(
+            id = id,
+            name = name,
+            status = "IDLE",
+            activeConnections = 0,
+            createdAt = timestamp,
+            lastActiveAt = timestamp,
+            sessionMode = SessionMode.TERMINAL,
+            cwd = null
+        )
+    }
+
+    private fun waitForSessionNameVisibility(
+        scenario: ActivityScenario<SessionsFragmentTestActivity>,
+        sessionName: String,
+        expectedVisible: Boolean,
+        timeoutMs: Long = 5_000L
+    ) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var lastNames: List<String> = emptyList()
+        while (System.currentTimeMillis() < deadline) {
+            scenario.onActivity { activity ->
+                lastNames = activity.getSessionsFragment()
+                    .view
+                    ?.findViewById<android.widget.LinearLayout>(R.id.sessions_list_container)
+                    ?.let(::extractSessionNames)
+                    ?: emptyList()
+            }
+            val isVisible = sessionName in lastNames
+            if (isVisible == expectedVisible) {
+                return
+            }
+            Thread.sleep(50L)
+        }
+        throw AssertionError(
+            "Expected session visibility for '$sessionName' to be $expectedVisible, but visible names were: $lastNames"
+        )
+    }
+
+    private fun extractSessionNames(container: android.widget.LinearLayout): List<String> {
+        val names = mutableListOf<String>()
+        collectVisibleText(container, names)
+        return names
+    }
+
+    private fun collectVisibleText(view: View, names: MutableList<String>) {
+        if (view.visibility != View.VISIBLE) {
+            return
+        }
+        if (view is TextView) {
+            val text = view.text?.toString()?.trim().orEmpty()
+            if (text.isNotEmpty()) {
+                names += text
+            }
+        }
+        if (view is android.view.ViewGroup) {
+            for (index in 0 until view.childCount) {
+                collectVisibleText(view.getChildAt(index), names)
+            }
+        }
     }
 
     private fun sessionButtonInRow(sessionName: String, buttonId: Int) = allOf(
