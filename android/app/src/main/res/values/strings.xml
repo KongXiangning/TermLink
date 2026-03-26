@@ -127,6 +127,11 @@
     <string name="settings_profile_mtls_status_pending_password">Pending: password is missing for %1$s.</string>
     <string name="settings_profile_mtls_status_pending_both">Pending: certificate and password are required.</string>
     <string name="settings_profile_mtls_status_disabled">mTLS is disabled for this profile.</string>
+    <string name="settings_profile_mtls_summary_disabled">disabled</string>
+    <string name="settings_profile_mtls_summary_configured">configured (%1$s)</string>
+    <string name="settings_profile_mtls_summary_pending_certificate">pending: certificate missing</string>
+    <string name="settings_profile_mtls_summary_pending_password">pending: password missing</string>
+    <string name="settings_profile_mtls_summary_pending_both">pending: certificate and password missing</string>
     <string name="settings_profile_allowed_hosts_label">Allowed Hosts (comma separated)</string>
     <string name="settings_profile_allowed_hosts_hint">code.kongxn.com,192.168.50.3</string>
     <string name="settings_name_invalid">Name is required (1..64 chars).</string>
@@ -134,10 +139,7 @@
     <string name="settings_basic_username_required">Basic username is required.</string>
     <string name="settings_basic_password_required">Basic password is required.</string>
     <string name="settings_delete_profile_confirm">Delete profile \"%1$s\"?</string>
-    <string name="settings_mtls_status_placeholder">mTLS status loading...</string>
-    <string name="settings_mtls_status_enabled">mTLS build: ENABLED (asset=%1$s, hosts=%2$s)</string>
-    <string name="settings_mtls_status_disabled">mTLS build: DISABLED</string>
-    <string name="settings_mtls_any_hosts">*</string>
+    <string name="settings_mtls_status_runtime">mTLS is configured per profile. Each profile row shows whether the current certificate setup is configured or still missing certificate/password material.</string>
     <string name="settings_empty_base_url_warning">Warning: active profile has empty baseUrl. Terminal may fallback to stale local config or fail to connect.</string>
     <string name="settings_insecure_transport_warning">Warning: active profile uses insecure transport: %1$s</string>
     <string name="terminal_elevated_mode_warning">ELEVATED MODE: Server is running with high privileges. Proceed with caution.</string>

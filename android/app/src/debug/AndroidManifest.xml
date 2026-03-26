@@ -6,6 +6,14 @@
             android:name="com.termlink.app.ui.sessions.SessionsFragmentTestActivity"
             android:exported="false"
             android:theme="@style/AppTheme.Shell" />
+        <activity
+            android:name="com.termlink.app.ui.settings.SettingsFragmentTestActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme.Shell" />
+        <activity
+            android:name="com.termlink.app.mtls.MtlsValidationTestActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme.Shell" />
     </application>
 
 </manifest>

@@ -30,6 +30,8 @@ import com.termlink.app.data.SessionRef
 import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.SessionSummary
 import com.termlink.app.data.TerminalType
+import com.termlink.app.ui.sessions.SessionsFragmentTestActivity
+import com.termlink.app.ui.sessions.TestState
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer

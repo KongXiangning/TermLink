@@ -6,8 +6,60 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 import java.io.File
 import java.io.InputStream
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
-class MtlsCertificateStore(context: Context) {
+class MtlsCertificateStore(
+    context: Context,
+    private val fileOps: FileOps = RealFileOps
+) {
+
+    interface FileOps {
+        fun replace(source: File, target: File): Boolean
+        fun move(source: File, target: File): Boolean
+        fun delete(file: File): Boolean
+    }
+
+    private object RealFileOps : FileOps {
+        override fun replace(source: File, target: File): Boolean {
+            return try {
+                Files.move(
+                    source.toPath(),
+                    target.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE
+                )
+                true
+            } catch (_: AtomicMoveNotSupportedException) {
+                try {
+                    Files.move(
+                        source.toPath(),
+                        target.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING
+                    )
+                    true
+                } catch (_: Exception) {
+                    false
+                }
+            } catch (_: Exception) {
+                false
+            }
+        }
+
+        override fun move(source: File, target: File): Boolean {
+            return try {
+                Files.move(source.toPath(), target.toPath())
+                true
+            } catch (_: Exception) {
+                false
+            }
+        }
+
+        override fun delete(file: File): Boolean {
+            return !file.exists() || file.delete()
+        }
+    }
 
     private val appContext = context.applicationContext
     private val certificateDir by lazy {
@@ -39,14 +91,33 @@ class MtlsCertificateStore(context: Context) {
         if (normalizedId.isBlank()) return false
         val targetFile = certificateFile(normalizedId) ?: return false
         val tempFile = File(targetFile.parentFile, "${targetFile.name}.tmp")
+        val backupFile = File(targetFile.parentFile, "${targetFile.name}.bak")
         return try {
             appContext.contentResolver.openInputStream(sourceUri)?.use { input ->
                 tempFile.outputStream().use { output -> input.copyTo(output) }
             } ?: return false
-            if (targetFile.exists()) {
-                targetFile.delete()
+
+            val imported = if (!targetFile.exists()) {
+                fileOps.move(tempFile, targetFile)
+            } else if (fileOps.replace(tempFile, targetFile)) {
+                true
+            } else {
+                if (backupFile.exists() && !fileOps.delete(backupFile)) {
+                    return false
+                }
+                if (!fileOps.move(targetFile, backupFile)) {
+                    return false
+                }
+                if (fileOps.move(tempFile, targetFile)) {
+                    fileOps.delete(backupFile)
+                    true
+                } else {
+                    fileOps.move(backupFile, targetFile)
+                    false
+                }
             }
-            if (!tempFile.renameTo(targetFile)) {
+
+            if (!imported) {
                 return false
             }
             MtlsCredentialRepository.clear(normalizedId)
@@ -55,7 +126,10 @@ class MtlsCertificateStore(context: Context) {
             false
         } finally {
             if (tempFile.exists()) {
-                tempFile.delete()
+                fileOps.delete(tempFile)
+            }
+            if (backupFile.exists() && targetFile.exists()) {
+                fileOps.delete(backupFile)
             }
         }
     }
@@ -63,7 +137,7 @@ class MtlsCertificateStore(context: Context) {
     fun removeCertificate(profileId: String) {
         val normalizedId = profileId.trim()
         if (normalizedId.isBlank()) return
-        certificateFile(normalizedId)?.delete()
+        certificateFile(normalizedId)?.let { fileOps.delete(it) }
         MtlsCredentialRepository.clear(normalizedId)
     }
 

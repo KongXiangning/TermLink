@@ -19,6 +19,8 @@ import com.termlink.app.data.SessionMode
 import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.SessionSummary
 import com.termlink.app.data.TerminalType
+import com.termlink.app.ui.sessions.SessionsFragmentTestActivity
+import com.termlink.app.ui.sessions.TestState
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -29,10 +31,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import org.hamcrest.Matchers.allOf
-import org.hamcrest.CoreMatchers.containsString
 import android.view.View
 import android.widget.TextView
+import org.hamcrest.CoreMatchers.containsString
+import org.hamcrest.Matchers.allOf
 
 @RunWith(AndroidJUnit4::class)
 class SessionsFragmentStatusTest {

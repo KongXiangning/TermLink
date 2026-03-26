@@ -20,7 +20,6 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
-import com.termlink.app.BuildConfig
 import com.termlink.app.R
 import com.termlink.app.data.AuthType
 import com.termlink.app.data.ServerConfigState
@@ -123,19 +122,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
     }
 
     private fun renderMtlsBuildStatus() {
-        val status = if (BuildConfig.MTLS_ENABLED) {
-            val hostsLabel = BuildConfig.MTLS_ALLOWED_HOSTS.ifBlank {
-                getString(R.string.settings_mtls_any_hosts)
-            }
-            getString(
-                R.string.settings_mtls_status_enabled,
-                BuildConfig.MTLS_P12_ASSET,
-                hostsLabel
-            )
-        } else {
-            getString(R.string.settings_mtls_status_disabled)
-        }
-        mtlsStatusText.text = status
+        mtlsStatusText.text = getString(R.string.settings_mtls_status_runtime)
     }
 
     private fun renderProfiles(state: ServerConfigState) {
@@ -169,12 +156,17 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
             } else {
                 "-"
             }
+            val mtlsSummary = ProfileMtlsSummaryResolver.resolve(
+                profile = profile,
+                certificatePresent = callbacks?.hasMtlsCertificate(profile.id) == true,
+                passwordPresent = callbacks?.hasMtlsPassword(profile.id) == true
+            )
             itemView.findViewById<TextView>(R.id.profile_meta).text = getString(
                 R.string.settings_profile_meta,
                 profile.terminalType.name,
                 profile.authType.name,
                 basicMeta,
-                profile.mtlsEnabled.toString().uppercase(Locale.ROOT),
+                formatProfileMtlsSummary(mtlsSummary),
                 profile.allowedHosts.ifBlank { "-" }
             )
 
@@ -211,6 +203,27 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
             )
         } else {
             insecureTransportWarningText.visibility = View.GONE
+        }
+    }
+
+    private fun formatProfileMtlsSummary(summary: ProfileMtlsSummary): String {
+        return when (summary.status) {
+            MtlsConfigStatus.DISABLED -> getString(R.string.settings_profile_mtls_summary_disabled)
+            MtlsConfigStatus.CONFIGURED -> getString(
+                R.string.settings_profile_mtls_summary_configured,
+                summary.certificateDisplayName.ifBlank {
+                    getString(R.string.settings_profile_mtls_certificate_unknown)
+                }
+            )
+
+            MtlsConfigStatus.PENDING_CERTIFICATE ->
+                getString(R.string.settings_profile_mtls_summary_pending_certificate)
+
+            MtlsConfigStatus.PENDING_PASSWORD ->
+                getString(R.string.settings_profile_mtls_summary_pending_password)
+
+            MtlsConfigStatus.PENDING_CERTIFICATE_AND_PASSWORD ->
+                getString(R.string.settings_profile_mtls_summary_pending_both)
         }
     }
 
@@ -280,7 +293,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
             )
             authSpinner.setSelection(authOptions.indexOf(existing.authType.name).coerceAtLeast(0))
         } else {
-            mtlsCheck.isChecked = BuildConfig.MTLS_ENABLED
+            mtlsCheck.isChecked = false
             terminalTypeSpinner.setSelection(
                 terminalTypeOptions.indexOf(TerminalType.TERMLINK_WS.name).coerceAtLeast(0)
             )
@@ -429,6 +442,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         }
 
         val mtlsDecision = resolveMtlsDecision(mtlsDialogState)
+        val sideEffects = ProfileSaveCoordinator.resolveSideEffects(authType, mtlsDecision)
         when (mtlsDecision.validationError) {
             MtlsValidationError.CERTIFICATE_REQUIRED -> {
                 mtlsDialogState.statusText.text = getString(R.string.settings_profile_mtls_certificate_required)
@@ -447,12 +461,6 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
             }
         }
 
-        if (authType == AuthType.BASIC) {
-            callbacks?.putBasicPassword(mtlsDialogState.profileId, resolvedPassword)
-        } else {
-            callbacks?.removeBasicPassword(mtlsDialogState.profileId)
-        }
-
         if (mtlsDecision.shouldPersistStagedCertificate) {
             val stagedFile = mtlsDialogState.stagedCertificateFile
             val imported = stagedFile != null &&
@@ -465,16 +473,6 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
                 ).show()
                 return
             }
-        }
-
-        if (mtlsDecision.shouldClearStoredMaterial) {
-            callbacks?.removeMtlsCertificate(mtlsDialogState.profileId)
-            callbacks?.removeMtlsPassword(mtlsDialogState.profileId)
-        } else if (mtlsDecision.shouldPersistEnteredPassword) {
-            callbacks?.putMtlsPassword(
-                mtlsDialogState.profileId,
-                mtlsDialogState.passwordInput.text.toString()
-            )
         }
 
         val updatedProfile = ServerProfile(
@@ -490,6 +488,22 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         )
 
         callbacks?.onUpsertProfile(updatedProfile)?.let { updated ->
+            if (sideEffects.persistBasicPassword) {
+                callbacks?.putBasicPassword(mtlsDialogState.profileId, resolvedPassword)
+            } else if (sideEffects.removeBasicPassword) {
+                callbacks?.removeBasicPassword(mtlsDialogState.profileId)
+            }
+
+            if (sideEffects.clearMtlsMaterial) {
+                callbacks?.removeMtlsCertificate(mtlsDialogState.profileId)
+                callbacks?.removeMtlsPassword(mtlsDialogState.profileId)
+            } else if (sideEffects.persistMtlsPassword) {
+                callbacks?.putMtlsPassword(
+                    mtlsDialogState.profileId,
+                    mtlsDialogState.passwordInput.text.toString()
+                )
+            }
+
             renderState(updated)
             dialog.dismiss()
         }

@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.termlink.app.data.MtlsCertificateStore
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertFalse
@@ -90,6 +91,71 @@ class MtlsCertificateStoreTest {
         assertFalse(store.hasCertificate(profileId))
         assertNull(store.openCertificateInputStream(profileId))
         assertTrue(store.getCertificateLastModified(profileId) == 0L)
+    }
+
+    @Test
+    fun replacingExistingCertificateOverwritesWithNewContent() {
+        val profileId = "profile-replace-success"
+        val oldBytes = "old-p12-content".toByteArray(Charsets.UTF_8)
+        val newBytes = "new-p12-content".toByteArray(Charsets.UTF_8)
+        val oldSource = File(context.cacheDir, "source-$profileId-old.p12").apply {
+            writeBytes(oldBytes)
+        }
+        val newSource = File(context.cacheDir, "source-$profileId-new.p12").apply {
+            writeBytes(newBytes)
+        }
+
+        assertTrue(store.importCertificate(profileId, Uri.fromFile(oldSource)))
+        assertTrue(store.importCertificate(profileId, Uri.fromFile(newSource)))
+        assertArrayEquals(
+            newBytes,
+            store.openCertificateInputStream(profileId)?.use { it.readBytes() }
+        )
+
+        oldSource.delete()
+        newSource.delete()
+    }
+
+    @Test
+    fun replaceFailureRestoresOldCertificateContent() {
+        val profileId = "profile-replace-failure"
+        val oldBytes = "old-p12-content".toByteArray(Charsets.UTF_8)
+        val newBytes = "new-p12-content".toByteArray(Charsets.UTF_8)
+        val oldSource = File(context.cacheDir, "source-$profileId-old.p12").apply {
+            writeBytes(oldBytes)
+        }
+        val newSource = File(context.cacheDir, "source-$profileId-new.p12").apply {
+            writeBytes(newBytes)
+        }
+        val failingStore = MtlsCertificateStore(context, FailingReplaceFileOps())
+
+        assertTrue(store.importCertificate(profileId, Uri.fromFile(oldSource)))
+        assertFalse(failingStore.importCertificate(profileId, Uri.fromFile(newSource)))
+        assertArrayEquals(
+            oldBytes,
+            store.openCertificateInputStream(profileId)?.use { it.readBytes() }
+        )
+
+        oldSource.delete()
+        newSource.delete()
+    }
+
+    private class FailingReplaceFileOps : MtlsCertificateStore.FileOps {
+        override fun replace(source: File, target: File): Boolean = false
+
+        override fun move(source: File, target: File): Boolean {
+            if (target.name.endsWith(".bak")) {
+                return source.renameTo(target)
+            }
+            if (target.name.endsWith(".p12") && source.name.endsWith(".tmp")) {
+                return false
+            }
+            return source.renameTo(target)
+        }
+
+        override fun delete(file: File): Boolean {
+            return !file.exists() || file.delete()
+        }
     }
 
     private fun clearMtlsArtifacts() {

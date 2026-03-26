@@ -17,7 +17,8 @@ related_docs: [docs/guides/android-development.md, docs/guides/deployment.md]
 - Configure trusted client CA chain (`ssl_client_certificate`).
 - Keep mTLS host allowlist aligned across:
   - Nginx exposed hostnames
-  - Android profile `allowedHosts` (or `TERMLINK_MTLS_ALLOWED_HOSTS` fallback)
+  - Android profile `allowedHosts`
+- Confirm Android Settings has imported the expected `.p12/.pfx` into the target profile and that the certificate password is saved for the same profile.
 - Validate server endpoint with:
   - Browser access for server cert trust
   - Android client-cert handshake in app (Terminal + Sessions API path)

@@ -4,6 +4,12 @@ import android.content.Context
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.termlink.app.data.AuthType
+import com.termlink.app.data.BasicCredentialStore
+import com.termlink.app.data.MtlsCertificateStore
+import com.termlink.app.data.ServerConfigStore
+import com.termlink.app.data.ServerProfile
+import com.termlink.app.data.TerminalType
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

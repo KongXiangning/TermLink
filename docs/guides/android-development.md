@@ -85,7 +85,7 @@ This project supports building a native Android app using **Capacitor**.
 - BasicAuth rule in native client:
   - if profile `authType=BASIC`, configure `basicUsername` + password in Settings
   - `baseUrl` no longer requires `user:pass@host`
-- Native Sessions API now supports mTLS when enabled via `TERMLINK_MTLS_*`, with host allowlist checks matching WebView mTLS behavior.
+- Native Sessions API now supports mTLS from the current profile's local certificate/password store, with host allowlist checks matching WebView mTLS behavior.
 
 ### Sessions 401 Troubleshooting
 
@@ -129,12 +129,11 @@ This project supports building a native Android app using **Capacitor**.
 
 ## Phase 6 Security & Stability (Current)
 
-- mTLS now uses dual control:
-  - build capability: `TERMLINK_MTLS_ENABLED` -> `BuildConfig.MTLS_ENABLED`
-  - runtime profile switch: `activeProfile.mtlsEnabled`
-- Effective mTLS host allowlist resolution:
-  - use `activeProfile.allowedHosts` first
-  - fallback to `TERMLINK_MTLS_ALLOWED_HOSTS` when profile hosts are empty
+- Android mTLS is now runtime profile-driven:
+  - enable/disable per profile with `activeProfile.mtlsEnabled`
+  - client certificate copy is stored under app-private `filesDir/mtls/<profileId>.p12`
+  - certificate password is stored in encrypted local storage
+- Effective mTLS host allowlist resolution uses `activeProfile.allowedHosts`.
 - `http/ws` remains allowed in this phase (for development/internal networks), but the app surfaces non-blocking insecure transport warnings.
 - Terminal WebSocket URL generation is unified in one function (`http->ws`, `https->wss`).
 - Connection-related `alert()` popups were removed from `terminal.js`; connection failures now rely on status bar, bridge error events, and logs.
@@ -178,34 +177,22 @@ This makes the app load your existing deployed TermLink instance directly. Use t
 ### Option B: Local Bundled (Advanced)
 If you want the app to be standalone (bundled `public` folder), configure server profiles from the native `Settings` tab. Terminal runtime reads injected config first and falls back to local settings when needed.
 
-## mTLS Client Certificate (for Nginx mutual TLS)
-If your Nginx server requires client certificates, Android WebView can now load a bundled PKCS#12 (`.p12`/`.pfx`) client certificate.
+## Android mTLS Runtime Certificate Flow
+If your Nginx server requires client certificates, configure Android mTLS from the native `Settings` tab instead of bundling a build-time asset.
 
-1. Put your client cert file here:
-   ```
-   android/app/src/main/assets/mtls/client.p12
-   ```
-2. Configure mTLS build values (recommended via env vars before build):
-   ```bash
-   TERMLINK_MTLS_ENABLED=true
-   TERMLINK_MTLS_P12_ASSET=mtls/client.p12
-   TERMLINK_MTLS_P12_PASSWORD=your_p12_password
-   TERMLINK_MTLS_ALLOWED_HOSTS=termlink.example.com,api.example.com
-   ```
-
-PowerShell example:
-```powershell
-$env:TERMLINK_MTLS_ENABLED='true'
-$env:TERMLINK_MTLS_P12_ASSET='mtls/client.p12'
-$env:TERMLINK_MTLS_P12_PASSWORD='your_p12_password'
-$env:TERMLINK_MTLS_ALLOWED_HOSTS='termlink.example.com'
-```
+1. Open `Settings`.
+2. Add or edit a server profile.
+3. Enable `mTLS for this profile`.
+4. Select a `.p12` / `.pfx` client certificate from the system picker.
+5. Enter the certificate password in the same dialog.
+6. Optionally restrict the profile with `Allowed Hosts`.
 
 Notes:
-- `TERMLINK_MTLS_ALLOWED_HOSTS` is comma-separated. Leave empty to allow all hosts.
-- Keep `.p12` and password out of Git (the default `.gitignore` already ignores `assets/mtls/*.p12` and `*.pfx`).
+- The selected certificate is copied into app-private storage and no longer depends on the original external URI after import.
+- The certificate password is stored in encrypted local storage, not in profile JSON.
+- `Allowed Hosts` is comma-separated. Leave empty to allow all hosts for that profile.
 - The server certificate still needs to be trusted by Android (public CA or installed CA).
-- Native shell uses `MtlsWebViewClient.kt` for client-cert handling.
+- Native shell and native Sessions API both use the same profile-level certificate source.
 
 ## Terminal History Cache
 
