@@ -1,9 +1,9 @@
 ---
 title: Android profile mTLS Phase 3 WebView client-cert cache invalidation follow-up
-status: draft
+status: active
 record_id: CR-20260326-1603-webview-client-cert-cache-invalidation-fix
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: code
@@ -71,3 +71,4 @@ git checkout <commit_ref>^ -- \
 
 1. 本批按约束只修复 WebView client-cert decision cache 失效缺口，不包含“证书导入非原子”或“Settings 保存部分提交”的其它问题。
 2. `clearClientCertPreferences(...)` 是全局清理能力；当前接受“统一清除后按当前 profile 重新选择证书”的成本。
+

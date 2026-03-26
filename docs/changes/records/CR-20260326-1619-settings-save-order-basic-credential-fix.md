@@ -1,9 +1,9 @@
 ---
 title: Android profile mTLS Phase 2 settings save order basic credential fix
-status: draft
+status: active
 record_id: CR-20260326-1619-settings-save-order-basic-credential-fix
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: code
@@ -71,3 +71,4 @@ git checkout <commit_ref>^ -- \
 
 1. 本批只修复“凭据提前提交”问题，不扩展成完整跨 JSON + 文件 + 凭据的事务系统。
 2. 目前接受 `onUpsertProfile` 成功后、凭据写入再失败的较小窗口；当前本地存储 API 没有显式失败返回。
+

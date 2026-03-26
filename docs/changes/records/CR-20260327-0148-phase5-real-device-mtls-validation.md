@@ -1,9 +1,9 @@
 ---
 title: Android profile mTLS phase 5 real-device validation closure
-status: draft
+status: active
 record_id: CR-20260327-0148-phase5-real-device-mtls-validation
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-27
 source_of_truth: product
@@ -83,3 +83,4 @@ git checkout <commit_ref>^ -- android/app/src/debug/AndroidManifest.xml
 
 1. 当前真机验证使用公共 `client.badssl.com` 作为外部 mTLS 靶场，证明的是 Android 侧 profile 证书切换与 WebView / Native mTLS 行为，不是 TermLink 服务端自有 mTLS 回归。
 2. `8.9` 仍需补齐“App 直连目标 Server 的 `IP:port`”与服务端拒绝缺证书 / 错证书 / 非受信 CA 的验收。
+

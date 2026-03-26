@@ -1,9 +1,9 @@
 ---
 title: Android profile commit refresh follow-up for external web
-status: draft
+status: active
 record_id: CR-20260327-0100-external-web-profile-refresh-fix
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-27
 source_of_truth: product
@@ -85,3 +85,4 @@ git checkout <commit_ref>^ -- android/app/src/test/java/com/termlink/app/Profile
 
 1. 当前新增的是刷新决策单测，不是 `MainShellActivity` 整体 instrumentation；最终仍需要设备侧验证确认 WebView reload 行为符合预期。
 2. `8.5` 仍未完成真机验收前，不应将该阶段标记为 `done`。
+

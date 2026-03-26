@@ -1,9 +1,9 @@
 ---
 title: Android Profile 级 mTLS PLAN 编号与缓存失效口径修复
-status: draft
+status: active
 record_id: CR-20260326-1553-plan-numbering-password-cache-sync
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: product
@@ -66,3 +66,4 @@ git checkout <commit_ref>^ -- \
 
 1. 本次没有回写既有 CR 的阶段编号，因为它们已经采用 `8.x`；若后续发现其它文档仍引用 `4.x`，应单独补齐。
 2. 本次只修正文档规则，实际代码是否在“仅口令变更”时主动失效缓存，仍应由后续实现/审查继续对照。
+

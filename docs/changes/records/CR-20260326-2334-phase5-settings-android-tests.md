@@ -1,9 +1,9 @@
 ---
 title: Android profile mTLS phase 5 settings android tests and build baseline fixes
-status: draft
+status: active
 record_id: CR-20260326-2334-phase5-settings-android-tests
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: product
@@ -90,3 +90,4 @@ git checkout <commit_ref>^ -- android/app/src/main/java/com/termlink/app/data/Mt
 
 1. 本批虽然已完成 unit tests 和 `androidTest` 编译，但 connected instrumentation 仍未在可用设备上真正执行，因此 `8.5` 不能标记为 `done`。
 2. 当前 adb 仅发现 `offline` 设备；恢复在线设备或模拟器后，应优先重跑 `SettingsFragmentLifecycleTest` 和 `MtlsCertificateStoreTest`。
+

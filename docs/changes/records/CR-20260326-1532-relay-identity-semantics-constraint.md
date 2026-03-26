@@ -1,9 +1,9 @@
 ---
 title: Transparent relay identity-semantics constraint sync
-status: draft
+status: active
 record_id: CR-20260326-1532-relay-identity-semantics-constraint
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: product
@@ -64,3 +64,4 @@ git checkout <commit_ref>^ -- docs/changes/records/CR-20260326-1532-relay-identi
 
 1. 若不写清该前提，后续实现者可能错误假设任何多租户 relay 都能零改动复用 `server address + allowedHosts`。
 2. 该约束解决的是“契约可行性”问题，不代表已经解决 relay 的服务发现和多租户寻址设计问题。
+

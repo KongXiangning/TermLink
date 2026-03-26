@@ -1,9 +1,9 @@
 ---
 title: Server mTLS plan expansion for Android profile runtime cert
-status: draft
+status: active
 record_id: CR-20260326-1527-server-mtls-plan-expansion
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: product
@@ -64,3 +64,4 @@ git checkout <commit_ref>^ -- docs/changes/records/CR-20260326-1527-server-mtls-
 
 1. 若后续实现只完成服务端 TLS 监听但未统一覆盖 WebSocket 与三种模式，仍会留下与 REQ 不一致的安全分裂面。
 2. 若继续把服务端实现留在“后续再说”的抽象层，REQ 会持续表现为可验收但不可实施的状态。
+

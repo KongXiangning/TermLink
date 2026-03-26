@@ -1,9 +1,9 @@
 ---
 title: Android profile mTLS credential load exception fix
-status: draft
+status: active
 record_id: CR-20260326-0145-mtls-credential-load-exception-fix
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: product
@@ -52,3 +52,4 @@ git revert <commit_ref>
 
 1. 本批通过 repository 统一吞掉异常，但当前没有在日志层保留异常细节；如果后续需要排障可再评估是否加调试日志。
 2. Gradle 编译仍未在当前工作区执行，编译级确认依赖后续环境修复。
+

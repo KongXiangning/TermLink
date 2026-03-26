@@ -1,9 +1,9 @@
 ---
 title: Android profile mTLS Phase 2 certificate replace rollback fix
-status: draft
+status: active
 record_id: CR-20260326-1609-mtls-certificate-replace-rollback-fix
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: code
@@ -72,3 +72,4 @@ git checkout <commit_ref>^ -- \
 
 1. 本批只修复“替换失败时旧证书丢失”问题，不处理 Settings 保存链路的其它事务性问题。
 2. 在底层文件系统既不支持覆盖式替换、又无法完成备份恢复的极端场景下，函数仍只会返回 `false`，但该极端路径未在当前设备环境实际验证。
+

@@ -1,9 +1,9 @@
 ---
 title: REQ release plan sync for Android and server mTLS batches
-status: draft
+status: active
 record_id: CR-20260326-1539-req-release-plan-server-batch-sync
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: product
@@ -67,3 +67,4 @@ git checkout <commit_ref>^ -- docs/changes/records/CR-20260326-1539-req-release-
 
 1. 若 REQ 发布计划继续只写 Android，会误导需求已接近收尾，但服务端 mTLS 尚未开始实施。
 2. 联合验证批次当前仍是规划描述，不代表服务端验证已经完成。
+

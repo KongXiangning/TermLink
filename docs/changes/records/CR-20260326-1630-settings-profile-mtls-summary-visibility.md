@@ -1,9 +1,9 @@
 ---
 title: Android profile mTLS phase 4 settings profile summary visibility fix
-status: draft
+status: active
 record_id: CR-20260326-1630-settings-profile-mtls-summary-visibility
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: product
@@ -75,3 +75,4 @@ git checkout <commit_ref>^ -- android/app/src/main/res/values/strings.xml
 
 1. 本批只展示“已提交状态”，不会显示 dialog 内未保存的 staged 证书或临时输入，这是刻意保持与保存边界一致。
 2. 当前单测覆盖的是摘要决策逻辑；若要验证真实文本渲染，还需在 Android 依赖恢复后补 UI 或集成测试。
+

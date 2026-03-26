@@ -1,9 +1,9 @@
 ---
 title: Android profile mTLS direct/transparent-relay contract sync
-status: draft
+status: active
 record_id: CR-20260326-1514-mtls-contract-direct-transparent-relay
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: product
@@ -67,3 +67,4 @@ git checkout <commit_ref>^ -- docs/changes/records/CR-20260326-1514-mtls-contrac
 
 1. 若后续服务端实现偏离“路径无关”的契约，可能导致 App profile 结构被重新设计，破坏本批固定的长期兼容性目标。
 2. 若未来中继产品化时默认终止 TLS，会与本批“透明中继兼容”前提冲突，必须在需求层重新决策。
+

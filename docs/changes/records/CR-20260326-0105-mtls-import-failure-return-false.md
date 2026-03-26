@@ -1,9 +1,9 @@
 ---
 title: Android profile mTLS import failure return-false fix
-status: draft
+status: active
 record_id: CR-20260326-0105-mtls-import-failure-return-false
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: product
@@ -51,3 +51,4 @@ git revert <commit_ref>
 
 1. 本批未覆盖 `renameTo()` 返回 `false` 的设备特定路径，只统一了异常抛出路径。
 2. `MtlsCertificateStore` 的导入返回值仍依赖底层文件系统对重命名的表现。
+

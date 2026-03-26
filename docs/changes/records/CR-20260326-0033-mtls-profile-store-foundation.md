@@ -1,9 +1,9 @@
 ---
 title: Android Profile mTLS Store Foundation
-status: draft
+status: active
 record_id: CR-20260326-0033-mtls-profile-store-foundation
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: code
@@ -81,3 +81,4 @@ git checkout <commit_ref>^ -- \
 
 1. Gradle verification is currently blocked by a missing local Capacitor-generated file, so this batch has code/test coverage added but not yet executed through Gradle in this workspace.
 2. Runtime mTLS behavior is intentionally unchanged in Phase 1; build-time `BuildConfig` and asset fallback are still active until later batches.
+

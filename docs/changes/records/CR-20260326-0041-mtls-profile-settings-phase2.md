@@ -1,9 +1,9 @@
 ---
 title: Android Profile mTLS Settings Phase 2
-status: draft
+status: active
 record_id: CR-20260326-0041-mtls-profile-settings-phase2
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: code
@@ -91,3 +91,4 @@ git checkout <commit_ref>^ -- \
 
 1. Settings now stages selected certificates in app-private cache until save; runtime still does not consume the profile-scoped store until Phase 3.
 2. Gradle verification remains blocked by the missing local Capacitor-generated file, so this batch is documented and test-backed in code, but not executable through Gradle in this workspace yet.
+

@@ -1,9 +1,9 @@
 ---
 title: Android profile mTLS Settings remove-certificate cleanup fix
-status: draft
+status: active
 record_id: CR-20260326-0100-mtls-settings-remove-certificate-fix
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: product
@@ -51,3 +51,4 @@ git revert <commit_ref>
 
 1. 本批仅补齐 resolver 规则与单测，未新增 instrumentation 覆盖 Settings UI 点击链路。
 2. `MtlsCertificateStore.importCertificate()` 的异常收敛问题仍未在本批处理。
+

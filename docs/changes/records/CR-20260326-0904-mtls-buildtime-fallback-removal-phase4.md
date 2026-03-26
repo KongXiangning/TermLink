@@ -1,9 +1,9 @@
 ---
 title: Android profile mTLS build-time fallback removal phase 4
-status: draft
+status: active
 record_id: CR-20260326-0904-mtls-buildtime-fallback-removal-phase4
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: product
@@ -59,3 +59,4 @@ git revert <commit_ref>
 
 1. 本批没有做 Gradle 编译确认，仍需在本地 Android 依赖恢复后跑完整编译和回归。
 2. `PRODUCT_REQUIREMENTS / REQUIREMENTS_BACKLOG` 的需求状态收口仍留给最终完成批次统一同步。
+

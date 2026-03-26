@@ -1,9 +1,9 @@
 ---
 title: Android profile mTLS runtime profile chain phase 3
-status: draft
+status: active
 record_id: CR-20260326-0134-mtls-runtime-profile-chain-phase3
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: d675956
 owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: product
@@ -57,3 +57,4 @@ git revert <commit_ref>
 
 1. 本批未在当前工作区跑通 Gradle 编译，仍需在补齐 Capacitor 本地依赖后做一次完整编译/测试确认。
 2. `SettingsFragment` 中展示 build-time mTLS 状态的文案仍保留，属于 `8.4` 的后续收口内容。
+
