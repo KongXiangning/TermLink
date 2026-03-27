@@ -236,8 +236,8 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                 val hasGroupErrors = nextGroups.any { it.error != null }
                 val hasSuccessfulGroups = nextGroups.any { it.error == null }
                 if (hasGroupErrors) {
-                    if (hasSuccessfulGroups && visibleDataSource == SessionVisibleDataSource.NONE) {
-                        refreshStatus = SessionRefreshStatus.FAILED
+                    if (hasSuccessfulGroups) {
+                        refreshStatus = SessionRefreshStatus.IDLE
                         visibleDataSource = SessionVisibleDataSource.REMOTE
                         lastSuccessfulSyncAtMillis = fetchedAt
                         renderGroupedSessions(nextGroups)

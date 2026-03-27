@@ -3,6 +3,12 @@ package com.termlink.app.data
 import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.termlink.app.data.AuthType
+import com.termlink.app.data.ServerProfile
+import com.termlink.app.data.SessionListCacheStore
+import com.termlink.app.data.SessionMode
+import com.termlink.app.data.SessionSummary
+import com.termlink.app.data.TerminalType
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
@@ -271,7 +277,8 @@ class SessionListCacheStoreTest {
             authType = AuthType.BASIC,
             basicUsername = basicUsername,
             mtlsEnabled = false,
-            allowedHosts = ""
+            allowedHosts = "",
+            mtlsCertificateDisplayName = ""
         )
     }
 

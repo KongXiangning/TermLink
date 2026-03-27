@@ -40,7 +40,8 @@ data class ServerProfile(
     val authType: AuthType,
     val basicUsername: String,
     val mtlsEnabled: Boolean,
-    val allowedHosts: String
+    val allowedHosts: String,
+    val mtlsCertificateDisplayName: String
 ) {
     fun toJson(): JSONObject {
         return JSONObject()
@@ -52,6 +53,7 @@ data class ServerProfile(
             .put("basicUsername", basicUsername)
             .put("mtlsEnabled", mtlsEnabled)
             .put("allowedHosts", allowedHosts)
+            .put("mtlsCertificateDisplayName", mtlsCertificateDisplayName)
     }
 
     companion object {
@@ -66,7 +68,8 @@ data class ServerProfile(
                 authType = AuthType.fromString(json.optString("authType", AuthType.NONE.name)),
                 basicUsername = json.optString("basicUsername", ""),
                 mtlsEnabled = json.optBoolean("mtlsEnabled", false),
-                allowedHosts = json.optString("allowedHosts", "")
+                allowedHosts = json.optString("allowedHosts", ""),
+                mtlsCertificateDisplayName = json.optString("mtlsCertificateDisplayName", "")
             )
         }
     }

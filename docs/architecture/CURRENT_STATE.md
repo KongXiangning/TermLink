@@ -29,7 +29,7 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.m
 ## 3. 安全与发布
 
 1. 支持 BasicAuth。
-2. Android 支持 mTLS 客户端证书能力（按配置启用）。
+2. Android 支持 profile 级 mTLS 客户端证书能力，证书与口令均在运行时按 profile 本地存储。
 3. 发布前需执行 `npm run android:check-release-config`，避免 HTTP 明文配置进入 release。
 
 ## 4. 当前约束

@@ -19,6 +19,8 @@ import com.termlink.app.data.SessionMode
 import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.SessionSummary
 import com.termlink.app.data.TerminalType
+import com.termlink.app.ui.sessions.SessionsFragmentTestActivity
+import com.termlink.app.ui.sessions.TestState
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -29,10 +31,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import org.hamcrest.Matchers.allOf
-import org.hamcrest.CoreMatchers.containsString
 import android.view.View
 import android.widget.TextView
+import org.hamcrest.CoreMatchers.containsString
+import org.hamcrest.Matchers.allOf
 
 @RunWith(AndroidJUnit4::class)
 class SessionsFragmentStatusTest {
@@ -145,8 +147,7 @@ class SessionsFragmentStatusTest {
 
         launchTestActivity().use { scenario ->
             waitForSessionName(scenario, "Remote Session")
-            onView(withId(R.id.sessions_error_text))
-                .check(matches(withText(containsString(context.getString(R.string.sessions_cache_stale)))))
+            waitForErrorTextVisibility(scenario, expectedVisible = false)
             onView(
                 allOf(
                     withId(R.id.group_error_text),
@@ -174,7 +175,8 @@ class SessionsFragmentStatusTest {
                 authType = AuthType.NONE,
                 basicUsername = "",
                 mtlsEnabled = false,
-                allowedHosts = ""
+                allowedHosts = "",
+                mtlsCertificateDisplayName = ""
             )
         )
         TestState.selection = SessionSelection(REMOTE_PROFILE_ID, "")
@@ -191,7 +193,8 @@ class SessionsFragmentStatusTest {
                 authType = AuthType.NONE,
                 basicUsername = "",
                 mtlsEnabled = false,
-                allowedHosts = ""
+                allowedHosts = "",
+                mtlsCertificateDisplayName = ""
             ),
             ServerProfile(
                 id = "broken-profile",
@@ -201,7 +204,8 @@ class SessionsFragmentStatusTest {
                 authType = AuthType.NONE,
                 basicUsername = "",
                 mtlsEnabled = false,
-                allowedHosts = ""
+                allowedHosts = "",
+                mtlsCertificateDisplayName = ""
             )
         )
         TestState.selection = SessionSelection(REMOTE_PROFILE_ID, "")
@@ -273,6 +277,28 @@ class SessionsFragmentStatusTest {
             Thread.sleep(50L)
         }
         throw AssertionError("Timed out waiting for error text: $expectedText. Last text: $lastText")
+    }
+
+    private fun waitForErrorTextVisibility(
+        scenario: ActivityScenario<SessionsFragmentTestActivity>,
+        expectedVisible: Boolean,
+        timeoutMs: Long = 5_000L
+    ) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var lastVisible = !expectedVisible
+        while (System.currentTimeMillis() < deadline) {
+            scenario.onActivity { activity ->
+                lastVisible = activity.getSessionsFragment()
+                    .view
+                    ?.findViewById<TextView>(R.id.sessions_error_text)
+                    ?.visibility == View.VISIBLE
+            }
+            if (lastVisible == expectedVisible) {
+                return
+            }
+            Thread.sleep(50L)
+        }
+        throw AssertionError("Timed out waiting for sessions_error_text visibility=$expectedVisible. Last visibility=$lastVisible")
     }
 
     private fun extractSessionNames(container: android.widget.LinearLayout): List<String> {

@@ -10,6 +10,7 @@ class ServerConfigStore(private val context: Context) {
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val basicCredentialStore = BasicCredentialStore(context.applicationContext)
+    private val mtlsCertificateStore = MtlsCertificateStore(context.applicationContext)
     private var state: ServerConfigState = normalizeState(loadRawState())
 
     fun loadState(): ServerConfigState {
@@ -71,6 +72,7 @@ class ServerConfigStore(private val context: Context) {
         val current = loadState()
         val updatedProfiles = current.profiles.filter { it.id != profileId }
         basicCredentialStore.removePassword(profileId)
+        mtlsCertificateStore.removeAllForProfile(profileId)
         if (updatedProfiles.isEmpty()) {
             return saveState(
                 ServerConfigState(
@@ -257,7 +259,8 @@ class ServerConfigStore(private val context: Context) {
             authType = AuthType.NONE,
             basicUsername = "",
             mtlsEnabled = false,
-            allowedHosts = ""
+            allowedHosts = "",
+            mtlsCertificateDisplayName = ""
         )
     }
 

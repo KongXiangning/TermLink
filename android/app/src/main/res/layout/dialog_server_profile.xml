@@ -98,6 +98,48 @@
             android:text="@string/settings_profile_mtls_enabled" />
 
         <TextView
+            android:id="@+id/text_profile_mtls_certificate_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/settings_profile_mtls_status_disabled" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_profile_mtls_choose_certificate"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/settings_profile_mtls_select_certificate" />
+
+            <Button
+                android:id="@+id/btn_profile_mtls_remove_certificate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="@string/settings_profile_mtls_remove_certificate"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/settings_profile_mtls_password_label" />
+
+        <EditText
+            android:id="@+id/input_profile_mtls_password"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/settings_profile_mtls_password_hint"
+            android:inputType="textPassword" />
+
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"

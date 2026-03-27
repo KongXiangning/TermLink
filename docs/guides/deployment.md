@@ -122,3 +122,18 @@ chmod +x setup-service.sh && ./setup-service.sh
 - 路由：`/win` → Win 后端，`/wsl` → WSL 后端
 - mTLS：可选（`ssl_verify_client on`）
 
+若由 Nginx 终止 TLS/mTLS，但仍希望 TermLink 后端统一暴露真实连接安全摘要：
+
+1. 在后端 `.env` 中配置：
+   - `TERMLINK_TLS_PROXY_MODE=nginx`
+   - `TERMLINK_TLS_PROXY_SECRET=<long-random-secret>`
+2. 在 Nginx 到后端的代理段显式转发：
+
+```nginx
+proxy_set_header X-Forwarded-Proto $scheme;
+proxy_set_header X-SSL-Client-Verify $ssl_client_verify;
+proxy_set_header X-TermLink-Proxy-Tls-Secret <same-random-secret>;
+```
+
+3. 不要把后端 Node 监听地址直接暴露到外网；否则客户端可伪造这些代理头绕过真实 TLS/mTLS 观测口径。
+

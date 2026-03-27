@@ -315,6 +315,14 @@ test('session_info includes lastCodexThreadId metadata when available', async (t
     assert.ok(sessionInfo, 'session_info should be sent to client');
     assert.equal(sessionInfo.lastCodexThreadId, 'thread-99');
     assert.equal(sessionInfo.codexConfig, null);
+    assert.deepEqual(sessionInfo.connectionSecurity, {
+        transport: 'http',
+        tls: false,
+        clientCertPolicy: 'none',
+        clientCertPresented: false,
+        clientCertAuthorized: false,
+        clientCertError: null
+    });
 
     const capabilitiesEnvelope = ws.sent.find((entry) => entry.type === 'codex_capabilities');
     assert.ok(capabilitiesEnvelope, 'codex_capabilities should be sent to client');

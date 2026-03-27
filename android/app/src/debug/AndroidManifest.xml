@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <application>
+    <application
+        android:networkSecurityConfig="@xml/debug_network_security_config">
         <activity
             android:name="com.termlink.app.ui.sessions.SessionsFragmentTestActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme.Shell" />
+        <activity
+            android:name="com.termlink.app.ui.settings.SettingsFragmentTestActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme.Shell" />
+        <activity
+            android:name="com.termlink.app.mtls.MtlsValidationTestActivity"
             android:exported="false"
             android:theme="@style/AppTheme.Shell" />
     </application>

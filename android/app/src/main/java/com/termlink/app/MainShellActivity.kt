@@ -33,6 +33,7 @@ import androidx.webkit.WebViewFeature
 import com.termlink.app.data.AuthType
 import com.termlink.app.data.BasicCredentialStore
 import com.termlink.app.data.ExternalSessionStore
+import com.termlink.app.data.MtlsCertificateStore
 import com.termlink.app.data.ServerConfigState
 import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
@@ -46,6 +47,7 @@ import com.termlink.app.ui.terminal.TerminalFragment
 import com.termlink.app.web.MtlsWebViewClient
 import com.termlink.app.web.TerminalEventBridge
 import com.termlink.app.web.TerminalWebViewHost
+import com.termlink.app.web.WebViewClientCertCacheInvalidator
 import org.json.JSONObject
 import java.net.URI
 import java.security.MessageDigest
@@ -76,8 +78,10 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private lateinit var terminalEventBridge: TerminalEventBridge
     private lateinit var serverConfigStore: ServerConfigStore
     private lateinit var basicCredentialStore: BasicCredentialStore
+    private lateinit var mtlsCertificateStore: MtlsCertificateStore
     private lateinit var externalSessionStore: ExternalSessionStore
     private lateinit var sessionApiClient: SessionApiClient
+    private lateinit var webViewClientCertCacheInvalidator: WebViewClientCertCacheInvalidator
     private val backgroundExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private var serverConfigState: ServerConfigState? = null
     private var activeProfile: ServerProfile? = null
@@ -167,8 +171,10 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
         serverConfigStore = ServerConfigStore(applicationContext)
         basicCredentialStore = BasicCredentialStore(applicationContext)
+        mtlsCertificateStore = MtlsCertificateStore(applicationContext)
         externalSessionStore = ExternalSessionStore(applicationContext)
         sessionApiClient = SessionApiClient(applicationContext)
+        webViewClientCertCacheInvalidator = WebViewClientCertCacheInvalidator()
         syncProfileState(serverConfigStore.loadState(), inject = false)
         currentTerminalProfileId = resolveInitialProfileId()
         lastSessionId = resolveInitialSessionId()
@@ -468,7 +474,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     override fun onUpsertProfile(profile: ServerProfile): ServerConfigState {
         val state = serverConfigStore.upsertProfile(profile)
-        syncProfileState(state, inject = true)
+        syncProfileState(state, inject = false)
+        invalidateWebViewClientCertPreferencesAfterCommittedChange()
         return state
     }
 
@@ -476,7 +483,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         externalSessionStore.deleteByProfile(profileId)
         basicCredentialStore.removePassword(profileId)
         val state = serverConfigStore.deleteProfile(profileId)
-        syncProfileState(state, inject = true)
+        syncProfileState(state, inject = false)
+        invalidateWebViewClientCertPreferencesAfterCommittedChange()
         return state
     }
 
@@ -490,6 +498,30 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     override fun removeBasicPassword(profileId: String) {
         basicCredentialStore.removePassword(profileId)
+    }
+
+    override fun hasMtlsCertificate(profileId: String): Boolean {
+        return mtlsCertificateStore.hasCertificate(profileId)
+    }
+
+    override fun importMtlsCertificate(profileId: String, uri: Uri): Boolean {
+        return mtlsCertificateStore.importCertificate(profileId, uri)
+    }
+
+    override fun removeMtlsCertificate(profileId: String) {
+        mtlsCertificateStore.removeCertificate(profileId)
+    }
+
+    override fun hasMtlsPassword(profileId: String): Boolean {
+        return mtlsCertificateStore.hasPassword(profileId)
+    }
+
+    override fun putMtlsPassword(profileId: String, password: String) {
+        mtlsCertificateStore.putPassword(profileId, password)
+    }
+
+    override fun removeMtlsPassword(profileId: String) {
+        mtlsCertificateStore.removePassword(profileId)
     }
 
     override fun getProfiles(): List<ServerProfile> {
@@ -810,16 +842,19 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         val profileId = selection.profileId
         val sessionId = selection.sessionId
         var selectionChanged = false
+        var profileChanged = false
 
         if (profileId.isNotBlank()) {
             if (profileId != currentTerminalProfileId) {
                 persistLastProfileId(profileId)
                 selectionChanged = true
+                profileChanged = true
             }
             val state = serverConfigState ?: serverConfigStore.loadState()
             if (state.activeProfileId != profileId && state.profiles.any { it.id == profileId }) {
                 syncProfileState(serverConfigStore.setActiveProfile(profileId), inject = false)
                 selectionChanged = true
+                profileChanged = true
             }
         }
 
@@ -853,10 +888,41 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         }
 
         if (selectionChanged && currentScreen == ScreenMode.TERMINAL) {
-            updateStatus(defaultBridgeIdleStatus())
-            reloadTerminalSurfaceIfNeeded(forceReload = false)
+            val reloadAction = {
+                updateStatus(defaultBridgeIdleStatus())
+                reloadTerminalSurfaceIfNeeded(forceReload = false)
+            }
+            if (profileChanged) {
+                invalidateWebViewClientCertPreferences(onComplete = reloadAction)
+            } else {
+                reloadAction.invoke()
+            }
         }
         refreshWorkspaceEntryState(force = selectionChanged)
+    }
+
+    private fun invalidateWebViewClientCertPreferencesAfterCommittedChange() {
+        val decision = ProfileCommitRefreshResolver.resolve(
+            isTerminalScreen = currentScreen == ScreenMode.TERMINAL,
+            terminalType = currentTerminalType()
+        )
+        val reloadAction = {
+            if (decision.resetBridgeStatus) {
+                updateStatus(defaultBridgeIdleStatus())
+            }
+            if (decision.reloadTerminal) {
+                reloadTerminalSurfaceIfNeeded(forceReload = false)
+            }
+        }
+        if (decision.invalidateClientCertPreferences) {
+            invalidateWebViewClientCertPreferences(onComplete = reloadAction)
+        } else {
+            reloadAction.invoke()
+        }
+    }
+
+    private fun invalidateWebViewClientCertPreferences(onComplete: (() -> Unit)? = null) {
+        webViewClientCertCacheInvalidator.invalidate(onComplete)
     }
 
     private fun updateStatus(text: String) {

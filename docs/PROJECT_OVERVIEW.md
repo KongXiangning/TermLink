@@ -403,12 +403,13 @@ Codex CLI 通过 stdio 进行 JSON-RPC 风格的通信:
 | 类名 | 职责 |
 |------|------|
 | `MainShellActivity` | 主界面，管理 Drawer 布局、WebView 生命周期、会话切换 |
-| `MtlsWebViewClient` | 自定义 WebViewClient，处理 mTLS 证书和请求头 |
+| `MtlsWebViewClient` | 自定义 WebViewClient，按当前 profile 的本地证书/口令处理 mTLS 和请求头 |
 | `TerminalEventBridge` | JS 桥接，处理 WebView 与 Kotlin 之间的消息传递 |
 | `ServerConfigStore` | 服务器配置存储 (SharedPreferences) |
 | `BasicCredentialStore` | Basic Auth 凭证加密存储 (AndroidX Security) |
+| `MtlsCertificateStore` | profile 级 mTLS 证书副本与口令存储 |
 | `SessionApiClient` | HTTP API 客户端，调用服务端 REST API |
-| `MtlsHttpSupport` | mTLS HTTP 支持，处理客户端证书 |
+| `MtlsHttpSupport` | mTLS HTTP 支持，按当前 profile 应用客户端证书 |
 
 ### 7.3 Capacitor 集成
 
@@ -552,9 +553,9 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 Android App 支持客户端证书认证:
 
-1. 导入 PKCS#12 证书
-2. 存储到 Android Keystore
-3. WebView/HTTP 请求自动附加证书
+1. 在 Settings 中为单个 profile 选择 `.p12/.pfx` 证书
+2. 证书复制到 app 私有目录，口令写入加密本地存储
+3. WebView 和原生 HTTP API 统一按当前 profile 自动附加证书
 
 ---
 

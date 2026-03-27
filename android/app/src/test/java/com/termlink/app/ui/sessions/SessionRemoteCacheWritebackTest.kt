@@ -170,7 +170,8 @@ class SessionRemoteCacheWritebackTest {
             authType = AuthType.NONE,
             basicUsername = "",
             mtlsEnabled = false,
-            allowedHosts = ""
+            allowedHosts = "",
+            mtlsCertificateDisplayName = ""
         )
     }
 
