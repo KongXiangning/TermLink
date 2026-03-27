@@ -33,6 +33,31 @@ function parsePositiveIntEnv(name, defaultValue, minValue) {
     return parsed;
 }
 
+function summarizeSessionConnections(session) {
+    const connections = Array.isArray(session && session.connections)
+        ? session.connections.filter((ws) => ws && ws.readyState === 1)
+        : [];
+    const activeConnectionCount = connections.length;
+
+    if (activeConnectionCount === 0) {
+        return {
+            activeConnectionCount: 0,
+            allTls: false,
+            allMtlsAuthorized: false
+        };
+    }
+
+    return {
+        activeConnectionCount,
+        allTls: connections.every((ws) => !!(ws.connectionSecurity && ws.connectionSecurity.tls === true)),
+        allMtlsAuthorized: connections.every((ws) => !!(
+            ws.connectionSecurity &&
+            ws.connectionSecurity.tls === true &&
+            ws.connectionSecurity.clientCertAuthorized === true
+        ))
+    };
+}
+
 class SessionManager {
     constructor() {
         this.sessions = new Map();
@@ -345,11 +370,15 @@ class SessionManager {
     }
 
     buildSessionSummary(session) {
+        const aggregate = summarizeSessionConnections(session);
         return {
             id: session.id,
             name: session.name,
             status: session.status,
-            activeConnections: session.connections.length,
+            activeConnections: aggregate.activeConnectionCount,
+            activeConnectionCount: aggregate.activeConnectionCount,
+            allTls: aggregate.allTls,
+            allMtlsAuthorized: aggregate.allMtlsAuthorized,
             createdAt: session.createdAt,
             lastActiveAt: session.lastActiveAt,
             sessionMode: normalizeSessionMode(session.sessionMode),
@@ -447,3 +476,4 @@ module.exports = sessionManager;
 module.exports.SessionManager = SessionManager;
 module.exports.normalizeSessionMode = normalizeSessionMode;
 module.exports.normalizeSessionCwd = normalizeSessionCwd;
+module.exports.summarizeSessionConnections = summarizeSessionConnections;

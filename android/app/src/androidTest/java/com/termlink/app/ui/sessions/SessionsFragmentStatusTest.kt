@@ -147,8 +147,7 @@ class SessionsFragmentStatusTest {
 
         launchTestActivity().use { scenario ->
             waitForSessionName(scenario, "Remote Session")
-            onView(withId(R.id.sessions_error_text))
-                .check(matches(withText(containsString(context.getString(R.string.sessions_cache_stale)))))
+            waitForErrorTextVisibility(scenario, expectedVisible = false)
             onView(
                 allOf(
                     withId(R.id.group_error_text),
@@ -278,6 +277,28 @@ class SessionsFragmentStatusTest {
             Thread.sleep(50L)
         }
         throw AssertionError("Timed out waiting for error text: $expectedText. Last text: $lastText")
+    }
+
+    private fun waitForErrorTextVisibility(
+        scenario: ActivityScenario<SessionsFragmentTestActivity>,
+        expectedVisible: Boolean,
+        timeoutMs: Long = 5_000L
+    ) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var lastVisible = !expectedVisible
+        while (System.currentTimeMillis() < deadline) {
+            scenario.onActivity { activity ->
+                lastVisible = activity.getSessionsFragment()
+                    .view
+                    ?.findViewById<TextView>(R.id.sessions_error_text)
+                    ?.visibility == View.VISIBLE
+            }
+            if (lastVisible == expectedVisible) {
+                return
+            }
+            Thread.sleep(50L)
+        }
+        throw AssertionError("Timed out waiting for sessions_error_text visibility=$expectedVisible. Last visibility=$lastVisible")
     }
 
     private fun extractSessionNames(container: android.widget.LinearLayout): List<String> {

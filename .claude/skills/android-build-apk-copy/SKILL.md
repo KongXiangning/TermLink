@@ -21,11 +21,12 @@ powershell -ExecutionPolicy Bypass -File ./skills/android-build-apk-copy/scripts
 1. Run `npm run android:sync`.
 2. Run `android\\gradlew.bat :app:assembleDebug`.
 3. Copy `android/app/build/outputs/apk/debug/app-debug.apk` to `E:\project\TermLink`.
+4. Default copied filename is auto-renamed with app version and build timestamp, for example `TermLink-v1.0-debug-20260328-021530.apk`.
 
 ## Optional Parameters
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./skills/android-build-apk-copy/scripts/build-apk-and-copy.ps1 -OutDir E:\project\TermLink -OutName app-debug.apk -JdkHome D:\ProgramCode\openjdk\jdk-21
+powershell -ExecutionPolicy Bypass -File ./skills/android-build-apk-copy/scripts/build-apk-and-copy.ps1 -OutDir E:\project\TermLink -OutName TermLink-custom.apk -JdkHome D:\ProgramCode\openjdk\jdk-21
 ```
 
 ## Rules
@@ -33,3 +34,4 @@ powershell -ExecutionPolicy Bypass -File ./skills/android-build-apk-copy/scripts
 1. This skill does not install APK to device.
 2. Keep default output directory as `E:\project\TermLink`.
 3. Build requires JDK 21 compatible environment.
+4. Unless `-OutName` is explicitly passed, copied APK name must include version and timestamp.

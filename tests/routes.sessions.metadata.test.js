@@ -30,6 +30,56 @@ function createMockRes() {
     };
 }
 
+test('GET /sessions exposes aggregate TLS summary fields from sessionManager', () => {
+    const router = createSessionsRouter({
+        listSessions() {
+            return [{
+                id: 'session-1',
+                name: 'Session 1',
+                status: 'ACTIVE',
+                activeConnections: 2,
+                activeConnectionCount: 2,
+                allTls: false,
+                allMtlsAuthorized: false,
+                createdAt: 1,
+                lastActiveAt: 2,
+                sessionMode: 'terminal',
+                cwd: null,
+                workspaceRoot: null,
+                workspaceRootSource: null,
+                lastCodexThreadId: null,
+                codexConfig: null,
+                codexThreadId: null
+            }];
+        }
+    });
+    const handler = getRouteHandler(router, '/sessions', 'get');
+    const req = {};
+    const res = createMockRes();
+
+    handler(req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.body, [{
+        id: 'session-1',
+        name: 'Session 1',
+        status: 'ACTIVE',
+        activeConnections: 2,
+        activeConnectionCount: 2,
+        allTls: false,
+        allMtlsAuthorized: false,
+        createdAt: 1,
+        lastActiveAt: 2,
+        sessionMode: 'terminal',
+        cwd: null,
+        workspaceRoot: null,
+        workspaceRootSource: null,
+        lastCodexThreadId: null,
+        codexConfig: null,
+        codexThreadId: null
+    }]);
+});
+
 test('POST /sessions passes sessionMode and cwd through to sessionManager', async () => {
     const sessionManager = {
         listSessions: () => [],

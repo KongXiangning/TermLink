@@ -1,9 +1,11 @@
 const { verifyWsUpgrade } = require('../auth/basicAuth');
 const { isIpAllowed, normalizeIp } = require('../utils/ipCheck');
 const { generateAuditTraceId } = require('../utils/auditTrace');
+const { resolveConnectionSecurity } = require('../utils/connectionSecurity');
 const { getAuditService } = require('../services/auditService');
 const CodexAppServerService = require('../services/codexAppServerService');
 const { normalizeCodexConfig } = require('../repositories/sessionStore');
+const { summarizeSessionConnections } = require('../services/sessionManager');
 const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
 
 function closeSocket(ws, code, reason) {
@@ -412,7 +414,7 @@ function buildPendingServerRequestSnapshot(state) {
         }));
 }
 
-function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, privilegeConfig }) {
+function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, privilegeConfig, tlsConfig = {} }) {
     const isElevated = privilegeConfig && privilegeConfig.isElevated;
     const allowedIps = privilegeConfig ? privilegeConfig.allowedIps : [];
     const auditService = isElevated ? getAuditService() : null;
@@ -971,6 +973,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     codexService.on('server_request', handleCodexServerRequest);
 
     const handleConnection = async (ws, req) => {
+        const connectionSecurity = resolveConnectionSecurity(req, tlsConfig);
+        req.connectionSecurity = connectionSecurity;
+
         // ── Auth gate: reject unauthenticated WebSocket connections ──
         if (!verifyWsUpgrade(req)) {
             closeSocket(ws, 4401, 'Unauthorized');
@@ -1018,10 +1023,22 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 });
             }
 
+            session.privilegeMetadata = {
+                ...(session.privilegeMetadata && typeof session.privilegeMetadata === 'object'
+                    ? session.privilegeMetadata
+                    : {}),
+                privilegeLevel,
+                connectedBy: req.user || 'unknown',
+                auditTraceId,
+                clientIp
+            };
+
             sessionId = session.id;
             sessionManager.addConnection(session, ws);
             const pty = session.ptyService;
             syncSessionThreadBinding(session);
+            ws.connectionSecurity = connectionSecurity;
+            const sessionSecurity = summarizeSessionConnections(session);
 
             // Log connection start for elevated mode
             if (isElevated && auditService) {
@@ -1039,6 +1056,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 sessionId: session.id,
                 name: session.name,
                 privilegeLevel,
+                connectionSecurity,
+                activeConnectionCount: sessionSecurity.activeConnectionCount,
+                allTls: sessionSecurity.allTls,
+                allMtlsAuthorized: sessionSecurity.allMtlsAuthorized,
                 sessionMode: session.sessionMode || 'terminal',
                 cwd: session.cwd || null,
                 lastCodexThreadId: isNonEmptyString(session.lastCodexThreadId)

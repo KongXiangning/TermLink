@@ -28,6 +28,26 @@ function withEnv(overrides, fn) {
     }
 }
 
+function withTlsFiles(options, fn) {
+    const includeCa = options?.includeCa !== false;
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'termlink-tls-'));
+    const certFile = path.join(tmpDir, 'server.crt');
+    const keyFile = path.join(tmpDir, 'server.key');
+    const caFile = includeCa ? path.join(tmpDir, 'client-ca.crt') : null;
+
+    fs.writeFileSync(certFile, 'FAKE_CERT');
+    fs.writeFileSync(keyFile, 'FAKE_KEY');
+    if (caFile) {
+        fs.writeFileSync(caFile, 'FAKE_CA');
+    }
+
+    try {
+        return fn({ certFile, keyFile, caFile });
+    } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+}
+
 test('parsePrivilegeConfig uses TERMLINK_* keys and defaults to standard mode', () => {
     const { parsePrivilegeConfig } = require('../src/config/privilegeConfig');
     const config = withEnv({
@@ -62,6 +82,7 @@ test('runSecurityGates blocks elevated mode with default credentials', () => {
     const { runSecurityGates } = require('../src/config/securityGates');
     const auditPath = path.join(os.tmpdir(), `termlink-audit-default-${Date.now()}.log`);
     const gateResult = runSecurityGates({
+        hasRequiredPrivileges: true,
         authEnabled: true,
         authUser: 'admin',
         authPass: 'admin',
@@ -73,12 +94,30 @@ test('runSecurityGates blocks elevated mode with default credentials', () => {
     assert.equal(gateResult.failedCheck.code, 'NON_DEFAULT_CREDENTIALS_REQUIRED');
 });
 
-test('runSecurityGates requires mtls enable flag when TERMLINK_ELEVATED_REQUIRE_MTLS=true', () => {
+test('runSecurityGates blocks elevated mode when process lacks administrator privileges', () => {
+    const { runSecurityGates } = require('../src/config/securityGates');
+    const auditPath = path.join(os.tmpdir(), `termlink-audit-privilege-${Date.now()}.log`);
+    const gateResult = runSecurityGates({
+        hasRequiredPrivileges: false,
+        authEnabled: true,
+        authUser: 'operator',
+        authPass: 'StrongPass123',
+        auditPath,
+        requireMtls: false
+    });
+
+    assert.equal(gateResult.passed, false);
+    assert.equal(gateResult.failedCheck.code, 'PROCESS_PRIVILEGE_REQUIRED');
+});
+
+test('runSecurityGates requires TLS enabled when TERMLINK_ELEVATED_REQUIRE_MTLS=true', () => {
     const { runSecurityGates } = require('../src/config/securityGates');
     const auditPath = path.join(os.tmpdir(), `termlink-audit-mtls-${Date.now()}.log`);
     const gateResult = withEnv({
-        TERMLINK_MTLS_ENABLED: 'false'
+        TERMLINK_TLS_ENABLED: 'false',
+        TERMLINK_TLS_CLIENT_CERT: undefined
     }, () => runSecurityGates({
+        hasRequiredPrivileges: true,
         authEnabled: true,
         authUser: 'operator',
         authPass: 'StrongPass123',
@@ -90,13 +129,14 @@ test('runSecurityGates requires mtls enable flag when TERMLINK_ELEVATED_REQUIRE_
     assert.equal(gateResult.failedCheck.code, 'MTLS_REQUIRED_CHECK');
 });
 
-test('runSecurityGates passes with strong credentials and writable audit path', () => {
+test('runSecurityGates requires client cert policy when mTLS required', () => {
     const { runSecurityGates } = require('../src/config/securityGates');
-    const auditPath = path.join(os.tmpdir(), `termlink-audit-pass-${Date.now()}.log`);
-
+    const auditPath = path.join(os.tmpdir(), `termlink-audit-mtls-policy-${Date.now()}.log`);
     const gateResult = withEnv({
-        TERMLINK_MTLS_ENABLED: 'true'
+        TERMLINK_TLS_ENABLED: 'true',
+        TERMLINK_TLS_CLIENT_CERT: 'none'
     }, () => runSecurityGates({
+        hasRequiredPrivileges: true,
         authEnabled: true,
         authUser: 'operator',
         authPass: 'StrongPass123',
@@ -104,6 +144,83 @@ test('runSecurityGates passes with strong credentials and writable audit path', 
         requireMtls: true
     }));
 
-    assert.equal(gateResult.passed, true);
-    assert.ok(fs.existsSync(auditPath));
+    assert.equal(gateResult.passed, false);
+    assert.equal(gateResult.failedCheck.code, 'MTLS_REQUIRED_CHECK');
+});
+
+test('runSecurityGates rejects request policy when strict mTLS required', () => {
+    const { runSecurityGates } = require('../src/config/securityGates');
+    const auditPath = path.join(os.tmpdir(), `termlink-audit-mtls-request-${Date.now()}.log`);
+
+    withTlsFiles({}, ({ certFile, keyFile, caFile }) => {
+        const gateResult = withEnv({
+            TERMLINK_TLS_ENABLED: 'true',
+            TERMLINK_TLS_CERT: certFile,
+            TERMLINK_TLS_KEY: keyFile,
+            TERMLINK_TLS_CA: caFile,
+            TERMLINK_TLS_CLIENT_CERT: 'request'
+        }, () => runSecurityGates({
+            hasRequiredPrivileges: true,
+            authEnabled: true,
+            authUser: 'operator',
+            authPass: 'StrongPass123',
+            auditPath,
+            requireMtls: true
+        }));
+
+        assert.equal(gateResult.passed, false);
+        assert.equal(gateResult.failedCheck.code, 'MTLS_REQUIRED_CHECK');
+        assert.match(gateResult.failedCheck.message, /TERMLINK_TLS_CLIENT_CERT=require/);
+    });
+});
+
+test('runSecurityGates requires readable client CA when strict mTLS required', () => {
+    const { runSecurityGates } = require('../src/config/securityGates');
+    const auditPath = path.join(os.tmpdir(), `termlink-audit-mtls-ca-${Date.now()}.log`);
+
+    withTlsFiles({ includeCa: false }, ({ certFile, keyFile }) => {
+        const gateResult = withEnv({
+            TERMLINK_TLS_ENABLED: 'true',
+            TERMLINK_TLS_CERT: certFile,
+            TERMLINK_TLS_KEY: keyFile,
+            TERMLINK_TLS_CA: undefined,
+            TERMLINK_TLS_CLIENT_CERT: 'require'
+        }, () => runSecurityGates({
+            hasRequiredPrivileges: true,
+            authEnabled: true,
+            authUser: 'operator',
+            authPass: 'StrongPass123',
+            auditPath,
+            requireMtls: true
+        }));
+
+        assert.equal(gateResult.passed, false);
+        assert.equal(gateResult.failedCheck.code, 'MTLS_REQUIRED_CHECK');
+        assert.match(gateResult.failedCheck.message, /TERMLINK_TLS_CA/);
+    });
+});
+
+test('runSecurityGates passes with strong credentials and readable strict TLS+mTLS config', () => {
+    const { runSecurityGates } = require('../src/config/securityGates');
+    const auditPath = path.join(os.tmpdir(), `termlink-audit-pass-${Date.now()}.log`);
+
+    withTlsFiles({}, ({ certFile, keyFile, caFile }) => {
+        const gateResult = withEnv({
+            TERMLINK_TLS_ENABLED: 'true',
+            TERMLINK_TLS_CERT: certFile,
+            TERMLINK_TLS_KEY: keyFile,
+            TERMLINK_TLS_CA: caFile,
+            TERMLINK_TLS_CLIENT_CERT: 'require'
+        }, () => runSecurityGates({
+            hasRequiredPrivileges: true,
+            authEnabled: true,
+            authUser: 'operator',
+            authPass: 'StrongPass123',
+            auditPath,
+            requireMtls: true
+        }));
+
+        assert.equal(gateResult.passed, true);
+        assert.ok(fs.existsSync(auditPath));
+    });
 });

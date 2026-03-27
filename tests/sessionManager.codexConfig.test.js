@@ -93,3 +93,60 @@ test('SessionManager keeps workspaceRoot separate from runtime cwd changes', () 
     assert.equal(summary.workspaceRoot, 'E:\\coding\\TermLink');
     assert.equal(summary.workspaceRootSource, 'session_cwd');
 });
+
+test('SessionManager buildSessionSummary reports false aggregate security for zero connections', () => {
+    const manager = Object.create(SessionManager.prototype);
+    const session = manager.buildSession({
+        id: 'terminal-session',
+        name: 'Terminal Session',
+        createdAt: 1,
+        lastActiveAt: 2,
+        sessionMode: 'terminal'
+    });
+
+    const summary = manager.buildSessionSummary(session);
+    assert.equal(summary.activeConnections, 0);
+    assert.equal(summary.activeConnectionCount, 0);
+    assert.equal(summary.allTls, false);
+    assert.equal(summary.allMtlsAuthorized, false);
+});
+
+test('SessionManager buildSessionSummary aggregates active connection TLS state', () => {
+    const manager = Object.create(SessionManager.prototype);
+    const session = manager.buildSession({
+        id: 'terminal-session',
+        name: 'Terminal Session',
+        createdAt: 1,
+        lastActiveAt: 2,
+        sessionMode: 'terminal'
+    });
+    session.connections = [
+        {
+            readyState: 1,
+            connectionSecurity: {
+                tls: true,
+                clientCertAuthorized: true
+            }
+        },
+        {
+            readyState: 1,
+            connectionSecurity: {
+                tls: true,
+                clientCertAuthorized: false
+            }
+        },
+        {
+            readyState: 3,
+            connectionSecurity: {
+                tls: false,
+                clientCertAuthorized: false
+            }
+        }
+    ];
+
+    const summary = manager.buildSessionSummary(session);
+    assert.equal(summary.activeConnections, 2);
+    assert.equal(summary.activeConnectionCount, 2);
+    assert.equal(summary.allTls, true);
+    assert.equal(summary.allMtlsAuthorized, false);
+});
