@@ -1,9 +1,9 @@
 ---
 title: 服务端 8.9 真机直连 IP 验证排查
-status: draft
+status: active
 record_id: CR-20260327-1610-phase9-real-device-direct-ip-validation
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: f43ff6f
 owner: @maintainer
 last_updated: 2026-03-27
 source_of_truth: docs

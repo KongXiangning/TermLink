@@ -1,9 +1,9 @@
 ---
 title: 服务端 TLS/mTLS 监听与证书加载
-status: draft
+status: active
 record_id: CR-20260327-1800-server-tls-mtls-listener
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
-commit_ref: TBD
+commit_ref: f43ff6f
 owner: @maintainer
 last_updated: 2026-03-27
 source_of_truth: code
