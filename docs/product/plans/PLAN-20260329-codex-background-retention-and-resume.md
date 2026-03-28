@@ -1,6 +1,6 @@
 ---
 title: Codex 后台保活与断线续接实施计划
-status: planned
+status: done
 owner: @maintainer
 last_updated: 2026-03-29
 source_of_truth: product
