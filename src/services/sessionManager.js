@@ -157,6 +157,16 @@ class SessionManager {
         this.schedulePersist();
     }
 
+    /**
+     * Refresh lastActiveAt so idle-session cleanup does not collect
+     * sessions that are still receiving background Codex activity
+     * (notifications, server requests, turn completions).
+     */
+    touchSession(session) {
+        if (!session) return;
+        session.lastActiveAt = Date.now();
+    }
+
     hasActiveCodexTurn(session) {
         const state = session && session.codexState;
         if (!state || typeof state !== 'object') return false;

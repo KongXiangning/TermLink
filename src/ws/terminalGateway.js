@@ -918,6 +918,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         // session has zero connections; the state update will be picked up
         // on the next reconnection via the initial codex_state message.
         const stateChanged = updateCodexStateFromNotification(session, method, params);
+        // Keep lastActiveAt fresh so the session survives idle cleanup
+        // while receiving background Codex activity.
+        sessionManager.touchSession(session);
         sessionManager.broadcast(session, {
             type: 'codex_notification',
             method,
@@ -980,7 +983,15 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 });
                 return current;
             });
+            // The turn is blocked until the client resolves this request.
+            // Persist the waiting state so reconnecting clients (and the
+            // Android foreground-service keep-alive) see the correct status.
+            const codexState = ensureSessionCodexState(session);
+            codexState.status = 'waiting_approval';
         }
+        // Keep lastActiveAt fresh so sessions with pending server requests
+        // are not garbage-collected while the user is offline.
+        sessionManager.touchSession(session);
         sessionManager.broadcast(session, buildCodexServerRequestEnvelope({
             requestId,
             message,
@@ -1274,6 +1285,16 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         updatePendingServerRequestState(session, (current) => (
                             current.filter((entry) => !entry || entry.requestId !== requestId)
                         ));
+                        // If we just resolved the last pending request and the
+                        // turn is still running, revert to 'running' so the
+                        // session status accurately reflects the Codex state.
+                        const csAfterResolve = ensureSessionCodexState(session);
+                        if (csAfterResolve.status === 'waiting_approval'
+                            && Array.isArray(csAfterResolve.pendingServerRequests)
+                            && csAfterResolve.pendingServerRequests.length === 0
+                            && csAfterResolve.currentTurnId) {
+                            csAfterResolve.status = 'running';
+                        }
                         emitCodexState(session);
                     } else if (type === 'codex_thread_read') {
                         const codexState = ensureSessionCodexState(session);
