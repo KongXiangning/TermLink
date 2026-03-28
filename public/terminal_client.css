@@ -375,9 +375,20 @@ body.codex-only #codex-composer {
     box-shadow: 0 0 12px rgba(229, 83, 75, 0.6);
 }
 
+#codex-panel.status-reconnecting #codex-status-dot {
+    background: #d29922;
+    box-shadow: 0 0 12px rgba(210, 153, 34, 0.6);
+    animation: pulse-amber 2s infinite;
+}
+
 @keyframes pulse-green {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.6; }
+}
+
+@keyframes pulse-amber {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
 }
 
 #codex-actions {

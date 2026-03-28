@@ -440,6 +440,8 @@ function localizeCodexStatus(status) {
         return '输出中';
     case 'waiting_approval':
         return '等待审批';
+    case 'reconnecting':
+        return '重连中';
     case 'error':
         return '错误';
     default:
@@ -461,7 +463,8 @@ function localizeCodexStatusDetail(detail) {
         'turn started': '已开始执行',
         'bridge disconnected': '连接已断开',
         'bridge transport error': '桥接传输异常',
-        'event error': '事件异常'
+        'event error': '事件异常',
+        'task active on server': '任务仍在服务端运行，正在重连'
     };
     return localized[normalized] || detail;
 }
@@ -605,11 +608,13 @@ function setCodexStatus(status, detail) {
     // keepalive service based on whether a Codex task is active.
     notifyNativeCodexTaskState(codexState.status);
     if (codexPanel) {
-        codexPanel.classList.remove('status-running', 'status-error');
+        codexPanel.classList.remove('status-running', 'status-error', 'status-reconnecting');
         if (codexState.status === 'running') {
             codexPanel.classList.add('status-running');
         } else if (codexState.status === 'error') {
             codexPanel.classList.add('status-error');
+        } else if (codexState.status === 'reconnecting') {
+            codexPanel.classList.add('status-reconnecting');
         }
     }
     if (codexStatusText) {
@@ -5813,7 +5818,12 @@ function connect() {
             sendResize();
             startClientHeartbeat();
             notifyNativeConnectionState('connected', `Connected via ${transportLabel}`);
-            if (codexState.status !== 'running') {
+            // Preserve the Codex status across reconnect — the server
+            // will send authoritative codex_state shortly.  Don't reset
+            // to idle if a task was active or reconnecting.
+            if (codexState.status !== 'running'
+                && codexState.status !== 'reconnecting'
+                && codexState.status !== 'waiting_approval') {
                 setCodexStatus('idle');
             }
             const configuredCwd = getConfiguredCodexCwd();
@@ -5897,6 +5907,7 @@ function connect() {
                     if (Object.prototype.hasOwnProperty.call(envelope, 'tokenUsage')) {
                         console.info('[JS][tokenUsage][codex_state]', JSON.stringify(envelope.tokenUsage || null));
                     }
+                    var wasReconnecting = codexState.status === 'reconnecting';
                     const previousThreadId = codexState.threadId;
                     codexState.threadId = envelope.threadId || '';
                     if (!codexState.threadId) {
@@ -5948,6 +5959,33 @@ function connect() {
                     codexState.initialCodexStateReceived = true;
                     updateCodexThreadLabel();
                     setCodexStatus(envelope.status || 'idle');
+
+                    // After reconnection, log a recovery message and refresh
+                    // the thread snapshot so the user sees the latest state.
+                    if (wasReconnecting && codexState.threadId) {
+                        var activeStatuses = { running: 1, waiting_approval: 1, reconnecting: 1 };
+                        if (activeStatuses[codexState.status]) {
+                            appendCodexLogEntry(
+                                'system',
+                                '已重新连接，Codex 任务恢复中…',
+                                { meta: 'reconnect' }
+                            );
+                        }
+                        // Always refresh thread snapshot on reconnect recovery
+                        // to pick up any turns that completed while offline.
+                        refreshCodexThreadSnapshot({ threadId: codexState.threadId, force: true });
+                    }
+
+                    // §5.3 requirement 4: if server reports a threadId but
+                    // no active turn, fetch thread details so the UI shows
+                    // the latest turn results that completed while offline.
+                    if (wasReconnecting
+                        && codexState.threadId
+                        && !codexState.currentTurnId
+                        && codexState.threadId === previousThreadId) {
+                        refreshCodexThreadSnapshot({ threadId: codexState.threadId, force: true });
+                    }
+
                     if (codexState.threadId && codexState.threadId !== previousThreadId) {
                         clearCodexRuntimePanels();
                         refreshCodexThreadList({ force: true, silent: true });
@@ -6097,23 +6135,48 @@ function connect() {
             console.log('[JS] WebSocket CLOSED:', event.code, event.reason);
             isConnecting = false;
             stopClientHeartbeat();
+
+            // Snapshot whether a Codex task was actively running before we
+            // clear transient state.  If so, we treat the disconnect as a
+            // temporary interruption — the server-side turn continues
+            // regardless of the WebSocket lifecycle.
+            var hadActiveCodexTask = (
+                codexState.status === 'running'
+                || codexState.status === 'waiting_approval'
+                || codexState.status === 'reconnecting'
+            );
+
             rejectPendingCodexBridgeRequests(
                 `Codex bridge closed (${event.code}).`,
                 'CODEX_BRIDGE_CLOSED'
             );
             resetCodexBootstrapState();
-            setCodexStatus('error', 'bridge disconnected');
+
+            if (hadActiveCodexTask) {
+                // Don't mark as 'error' — the server-side task is still
+                // running.  Show a reconnecting indicator instead so the
+                // user knows the task hasn't been lost.
+                setCodexStatus('reconnecting', 'task active on server');
+            } else {
+                setCodexStatus('error', 'bridge disconnected');
+            }
+
             if (recoverFromMissingSession(event)) {
                 return;
             }
             if (retryCount >= MAX_RETRIES) {
                 const detail = `code=${event.code} reason=${event.reason || 'none'}`;
                 showStatus('Connection failed.');
+                setCodexStatus('error', 'bridge disconnected');
                 notifyNativeConnectionState('error', `Connection closed (${detail})`);
                 notifyNativeError('WS_CLOSED', detail);
                 return;
             }
-            showStatus('Disconnected. Reconnecting...');
+            if (hadActiveCodexTask) {
+                showStatus('Codex 任务仍在服务端运行，正在重连…');
+            } else {
+                showStatus('Disconnected. Reconnecting...');
+            }
             notifyNativeConnectionState('reconnecting', `attempt=${retryCount + 1}`);
             retryCount += 1;
             clearTimeout(reconnectTimer);
@@ -6126,7 +6189,11 @@ function connect() {
         ws.onerror = function () {
             console.error('[JS] WebSocket ERROR');
             notifyNativeError('WS_ERROR', 'WebSocket transport error');
-            setCodexStatus('error', 'bridge transport error');
+            // Don't override 'reconnecting' with 'error' when a task is
+            // active — onerror fires right before onclose.
+            if (codexState.status !== 'reconnecting') {
+                setCodexStatus('error', 'bridge transport error');
+            }
         };
     };
 
