@@ -5971,18 +5971,11 @@ function connect() {
                                 { meta: 'reconnect' }
                             );
                         }
-                        // Always refresh thread snapshot on reconnect recovery
-                        // to pick up any turns that completed while offline.
-                        refreshCodexThreadSnapshot({ threadId: codexState.threadId, force: true });
-                    }
-
-                    // §5.3 requirement 4: if server reports a threadId but
-                    // no active turn, fetch thread details so the UI shows
-                    // the latest turn results that completed while offline.
-                    if (wasReconnecting
-                        && codexState.threadId
-                        && !codexState.currentTurnId
-                        && codexState.threadId === previousThreadId) {
+                        // Refresh thread snapshot to pick up any turns that
+                        // completed while offline — covers both active-task
+                        // recovery and the §5.3 req 4 edge case (task
+                        // finished while disconnected: threadId exists but
+                        // currentTurnId is empty).
                         refreshCodexThreadSnapshot({ threadId: codexState.threadId, force: true });
                     }
 

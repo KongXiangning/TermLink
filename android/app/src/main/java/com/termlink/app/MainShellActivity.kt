@@ -481,15 +481,47 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         Log.i(TAG, "Codex task state: $normalized")
 
         if (CodexTaskForegroundService.isActiveStatus(normalized)) {
-            if (!hasNotificationPermission()) {
+            if (hasNotificationPermission()) {
+                CodexTaskForegroundService.start(this, normalized)
+                codexForegroundServiceActive = true
+            } else {
+                // Request permission first; the service will be started in
+                // onRequestPermissionsResult once the user grants it.
                 requestNotificationPermissionIfNeeded()
             }
-            CodexTaskForegroundService.start(this, normalized)
-            codexForegroundServiceActive = true
         } else {
             if (codexForegroundServiceActive) {
                 CodexTaskForegroundService.stop(this)
                 codexForegroundServiceActive = false
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_CODE_NOTIFICATION_PERMISSION) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission granted — start the foreground service for the
+                // most recently reported Codex status if it's still active.
+                val current = lastCodexTaskStatus
+                if (CodexTaskForegroundService.isActiveStatus(current)) {
+                    CodexTaskForegroundService.start(this, current)
+                    codexForegroundServiceActive = true
+                }
+            } else {
+                Log.w(TAG, "POST_NOTIFICATIONS permission denied; foreground service will run without visible notification")
+                // Still start the service — on SDK 33+ without permission
+                // the notification won't show, but the process priority
+                // boost still applies.
+                val current = lastCodexTaskStatus
+                if (CodexTaskForegroundService.isActiveStatus(current)) {
+                    CodexTaskForegroundService.start(this, current)
+                    codexForegroundServiceActive = true
+                }
             }
         }
     }
