@@ -6650,13 +6650,17 @@ if (btnCodexPlanExecute) {
             appendCodexLogEntry('error', '当前没有可执行的已确认计划。', { meta: 'plan' });
             return;
         }
+        // §5.4: Clear planMode immediately so subsequent input never
+        // inherits plan mode, and sync the clear to the server.
         setPlanMode(false);
         setPlanWorkflowState({
             ...codexState.planWorkflow,
             phase: 'executing_confirmed_plan'
         });
         const sent = sendCodexTurn(executionPrompt, {
-            clearPlanMode: false,
+            // Ensure the turn-ack finalization also clears planMode
+            // as a second line of defense.
+            clearPlanMode: true,
             collaborationMode: null
         });
         if (!sent) {
