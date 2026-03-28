@@ -2,7 +2,7 @@
 title: TermLink 路线图
 status: active
 owner: @maintainer
-last_updated: 2026-03-25
+last_updated: 2026-03-29
 source_of_truth: product
 related_code: []
 related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BACKLOG.md]
@@ -27,11 +27,13 @@ related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BAC
 3. 冻结 `/skill <name>` 契约但当前期默认不开放；其替换 / 清除不影响 `planMode`，且当前不预绑定底层字段。
 4. 为后续 `/` 能力扩展预留统一的 slash registry / command-dispatch 接口，使新命令优先通过注册描述与分发适配接入，而不是新增输入分支特判。
 5. 统一 stored `codexConfig`、`nextTurnEffectiveCodexConfig` 与 `interactionState` 的边界，并将 `PATCH /api/sessions/:id` 作为底层配置契约交付项；当前期不恢复 `Session Defaults` UI。
-6. 在上述主线稳定后，再逐项开放 runtime 次级视图、`/compact`、`/skills`、image 等增强能力。
-7. 明确 Android 与 WebView 共享同一交互契约与中文化规范，避免端侧协议或行为分叉。
-8. 定义并落地服务端受控管理员权限模式（`REQ-20260222-server-admin-privilege-mode`），补齐启用门禁、审计、回滚链路。
-9. 推进 Codex Workspace 文件浏览主链路（`REQ-20260318-ws-0001-docs-exp`，原产品编号 `REQ-WS-0001`），收口工作区路径选择、独立 Web Workspace 页面与 Android `WorkspaceActivity` 集成。
-10. 已完成 Android 会话列表本地缓存与离线回显（`REQ-20260324-session-list-local-cache`），弱网下 Sessions 管理可先显示本地缓存快照、失败时保留 stale/refreshing 提示、写操作后同步缓存，并保证 `EXTERNAL_WEB` 继续通过现有本地持久化参与首屏可见性。
+6. 增加 Codex 活跃任务后台保活与断线续接批次：Android 以 foreground service 仅在活跃任务期间保活，服务端 turn 生命周期与单个 WebSocket 连接解耦，客户端回连后恢复原任务而不是只恢复线程。
+7. 修复 Codex 计划执行流一致性：用户点击“执行此计划”后自动退出 `planMode`，后续普通输入回到正常执行流。
+8. 在上述主线稳定后，再逐项开放 runtime 次级视图、`/compact`、`/skills`、image 等增强能力。
+9. 明确 Android 与 WebView 共享同一交互契约与中文化规范，避免端侧协议或行为分叉。
+10. 定义并落地服务端受控管理员权限模式（`REQ-20260222-server-admin-privilege-mode`），补齐启用门禁、审计、回滚链路。
+11. 推进 Codex Workspace 文件浏览主链路（`REQ-20260318-ws-0001-docs-exp`，原产品编号 `REQ-WS-0001`），收口工作区路径选择、独立 Web Workspace 页面与 Android `WorkspaceActivity` 集成。
+12. 已完成 Android 会话列表本地缓存与离线回显（`REQ-20260324-session-list-local-cache`），弱网下 Sessions 管理可先显示本地缓存快照、失败时保留 stale/refreshing 提示、写操作后同步缓存，并保证 `EXTERNAL_WEB` 继续通过现有本地持久化参与首屏可见性。
 
 ## 2026-H2
 
