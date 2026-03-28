@@ -15,7 +15,7 @@ related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, d
 状态口径：`done` = 已实现并有 CR 留痕，`in_progress` = 当前批次进行中，`pending` = 尚未实现。
 
 1. `done`：服务端将 Codex turn 生命周期与单个 WebSocket 连接解耦
-2. `pending`：Android 为活跃 Codex 任务增加 foreground service 与常驻通知保活
+2. `done`：Android 为活跃 Codex 任务增加 foreground service 与常驻通知保活
 3. `pending`：WebView / 前端在回连后恢复当前线程、运行态、审批态与必要快照
 4. `pending`：修复“执行此计划”后 `planMode` 未自动关闭的问题
 
