@@ -386,5 +386,15 @@
   "codex.approval.resolved": "resolved",
   "codex.approval.submitted": "submitted",
   "codex.approval.pending": "pending",
-  "codex.approval.defaultTitle": "Codex Approval"
+  "codex.approval.defaultTitle": "Codex Approval",
+  "codex.status.sessionExpired": "Session expired. Requesting a fresh session...",
+  "codex.status.waitingConfig": "Waiting for server config...",
+  "codex.status.missingServerUrl": "Missing server URL.",
+  "codex.status.connecting": "Connecting ({transport})...",
+  "codex.status.wsCreateFailed": "Failed to create websocket.",
+  "codex.status.connectionFailed": "Connection failed.",
+  "codex.status.reconnecting": "Disconnected. Reconnecting...",
+  "codex.log.requestReceived": "Codex server request received: {method}",
+  "codex.log.requestAutoHandled": "Codex server request auto-handled: {summary}",
+  "codex.log.warningReceived": "Codex warning received."
 }

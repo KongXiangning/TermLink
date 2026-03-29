@@ -3001,8 +3001,8 @@ function setCodexPanelCollapsed(collapsed) {
 function sendCodexEnvelope(payload) {
     if (!payload || typeof payload !== 'object') return false;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-        appendCodexLogEntry('error', 'Codex request failed: websocket is not connected.', { meta: 'bridge' });
-        setCodexErrorNotice('Bridge disconnected. Reconnect before sending another Codex request.');
+        appendCodexLogEntry('error', t('codex.error.wsNotConnected'), { meta: 'bridge' });
+        setCodexErrorNotice(t('codex.error.bridgeDisconnected'));
         setCodexStatus('error', 'bridge disconnected');
         return false;
     }
@@ -4884,14 +4884,14 @@ function renderCodexServerRequest(envelope) {
     const requestId = request ? request.requestId : '';
     const method = request ? request.method : (envelope && typeof envelope.method === 'string' ? envelope.method : 'unknown');
     if (!requestId || !request) {
-        appendCodexLogEntry('system', `Codex server request received: ${method}`, { meta: 'approval' });
+        appendCodexLogEntry('system', t('codex.log.requestReceived', { method }), { meta: 'approval' });
         return;
     }
     if (request.handledBy !== 'client') {
         const autoSummary = approvalApi && typeof approvalApi.resolveApprovalSummaryText === 'function'
             ? approvalApi.resolveApprovalSummaryText(request)
             : resolveApprovalSummary(method, envelope && envelope.params ? envelope.params : {});
-        appendCodexLogEntry('system', `Codex server request auto-handled: ${autoSummary}`, { meta: request.requestKind || 'approval' });
+        appendCodexLogEntry('system', t('codex.log.requestAutoHandled', { summary: autoSummary }), { meta: request.requestKind || 'approval' });
         return;
     }
 
@@ -5338,7 +5338,7 @@ function handleCodexNotification(method, params) {
 
     if (method === 'configWarning' || method === 'deprecationNotice') {
         applyCodexRuntimeUpdate(method, params || {});
-        appendCodexLogEntry('system', codexState.runtimeWarning || 'Codex warning received.', {
+        appendCodexLogEntry('system', codexState.runtimeWarning || t('codex.log.warningReceived'), {
             meta: method === 'configWarning' ? 'config' : 'deprecation'
         });
         return;
@@ -5565,7 +5565,7 @@ function recoverFromMissingSession(event) {
     retryCount = 0;
     reconnectInterval = 1000;
     clearPersistedSessionBinding();
-    showStatus('Session expired. Requesting a fresh session...');
+    showStatus(t('codex.status.sessionExpired'));
     notifyNativeConnectionState('reconnecting', 'stale session; requesting fresh session');
     reconnectTimer = setTimeout(function () {
         connect();
@@ -5754,12 +5754,12 @@ function connect() {
         // During startup, native config injection may not have arrived yet.
         // Avoid surfacing a false error before first config delivery.
         if (!hasReceivedRuntimeConfig) {
-            showStatus('Waiting for server config...');
+            showStatus(t('codex.status.waitingConfig'));
             return;
         }
         notifyNativeConnectionState('error', 'No injected server URL');
         notifyNativeError('NO_ACTIVE_SERVER', 'No injected server URL');
-        showStatus('Missing server URL.');
+        showStatus(t('codex.status.missingServerUrl'));
         return;
     }
 
@@ -5778,7 +5778,7 @@ function connect() {
 
     isConnecting = true;
     const transportLabel = wsUrl.startsWith('wss://') ? 'wss' : 'ws';
-    showStatus(`Connecting (${transportLabel})...`);
+    showStatus(t('codex.status.connecting', { transport: transportLabel }));
     notifyNativeConnectionState('connecting', `Connecting via ${transportLabel}`);
 
     // define websocket setup logic
@@ -5790,7 +5790,7 @@ function connect() {
             isConnecting = false;
             notifyNativeConnectionState('error', 'WebSocket construction failed');
             notifyNativeError('WS_CONSTRUCTION_ERROR', error.message || 'unknown');
-            showStatus('Failed to create websocket.');
+            showStatus(t('codex.status.wsCreateFailed'));
             return;
         }
 
@@ -6103,12 +6103,12 @@ function connect() {
             }
             if (retryCount >= MAX_RETRIES) {
                 const detail = `code=${event.code} reason=${event.reason || 'none'}`;
-                showStatus('Connection failed.');
+                showStatus(t('codex.status.connectionFailed'));
                 notifyNativeConnectionState('error', `Connection closed (${detail})`);
                 notifyNativeError('WS_CLOSED', detail);
                 return;
             }
-            showStatus('Disconnected. Reconnecting...');
+            showStatus(t('codex.status.reconnecting'));
             notifyNativeConnectionState('reconnecting', `attempt=${retryCount + 1}`);
             retryCount += 1;
             clearTimeout(reconnectTimer);
@@ -6851,7 +6851,7 @@ window.__applyTerminalConfig = function (config) {
     if (serverUrl) {
         connect();
     } else {
-        showStatus('Waiting for server config...');
+        showStatus(t('codex.status.waitingConfig'));
     }
 })();
 
