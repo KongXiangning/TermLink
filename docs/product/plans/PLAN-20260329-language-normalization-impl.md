@@ -5,8 +5,8 @@
 状态口径：`done` = 已实现并有 CR 留痕，`in_progress` = 当前批次进行中，`pending` = 尚未实现。
 
 1. `done`：`Phase 1 — 框架搭建与基础设施`（commit: 7be7db0）
-2. `done`：`Phase 2 — Web 前端全量字符串迁移`（commit: b7b1244, 68356d1）
-3. `pending`：`Phase 3 — Android 原生 i18n 与一致性`
+2. `done`：`Phase 2 — Web 前端全量字符串迁移`（commit: b7b1244, 68356d1, 12343a4, b6d8f66）
+3. `done`：`Phase 3 — Android 原生 i18n 与一致性`（commit: 7bc90e2）
 4. `pending`：`Phase 4 — 收口验收与扩展性验证`
 
 ### 1. 文档定位

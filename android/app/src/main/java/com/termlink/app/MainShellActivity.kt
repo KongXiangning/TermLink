@@ -54,6 +54,7 @@ import java.security.MessageDigest
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import com.termlink.app.util.LocaleHelper
 
 class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEventBridge.Listener,
     SettingsFragment.Callbacks, SessionsFragment.Callbacks {
@@ -1356,9 +1357,9 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         applyWebViewDarkModeForType(webView, type)
         val target = if (type == TerminalType.TERMLINK_WS) {
             if (currentSessionMode() == SessionMode.CODEX) {
-                CODEX_URL
+                LocaleHelper.appendLangParam(CODEX_URL)
             } else {
-                TERMINAL_URL
+                LocaleHelper.appendLangParam(TERMINAL_URL)
             }
         } else {
             profile?.baseUrl?.trim().orEmpty()

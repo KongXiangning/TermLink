@@ -16,6 +16,7 @@ import com.termlink.app.data.BasicCredentialStore
 import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.TerminalType
+import com.termlink.app.util.LocaleHelper
 import com.termlink.app.web.MtlsWebViewClient
 import org.json.JSONObject
 
@@ -67,7 +68,7 @@ class WorkspaceActivity : AppCompatActivity() {
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState)
         } else {
-            webView.loadUrl(WORKSPACE_URL)
+            webView.loadUrl(LocaleHelper.appendLangParam(WORKSPACE_URL))
         }
     }
 
