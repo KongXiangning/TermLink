@@ -8,7 +8,7 @@
 | req_id       | REQ-20260329-language-normalization             |
 | phase        | Phase 3 — Android 原生 i18n 与一致性            |
 | status       | active                                          |
-| commit_ref   | 7bc90e2                                         |
+| commit_ref   | 19ed314                                         |
 | author       | Copilot                                         |
 
 ## 变更摘要

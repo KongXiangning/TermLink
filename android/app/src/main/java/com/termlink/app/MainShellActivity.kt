@@ -1,5 +1,6 @@
 package com.termlink.app
 
+import android.content.res.Configuration
 import android.os.Bundle
 import android.text.TextUtils
 import android.util.Log
@@ -242,6 +243,13 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         idleHandler?.removeCallbacksAndMessages(null)
         disableKeepScreenOn()
         super.onPause()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (currentScreen == ScreenMode.TERMINAL) {
+            reloadTerminalSurfaceIfNeeded(forceReload = false)
+        }
     }
 
     @Deprecated("Deprecated in Java")

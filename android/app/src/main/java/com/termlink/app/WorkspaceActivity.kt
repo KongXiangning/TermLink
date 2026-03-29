@@ -1,5 +1,6 @@
 package com.termlink.app
 
+import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
@@ -77,6 +78,11 @@ class WorkspaceActivity : AppCompatActivity() {
         outState.putString(STATE_SESSION_ID, sessionId)
         workspaceWebView?.saveState(outState)
         super.onSaveInstanceState(outState)
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        workspaceWebView?.loadUrl(LocaleHelper.appendLangParam(WORKSPACE_URL))
     }
 
     override fun onDestroy() {
