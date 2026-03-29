@@ -1,8 +1,5 @@
 package com.termlink.app
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.text.TextUtils
 import android.util.Log
@@ -96,8 +93,6 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private val FILE_CHOOSER_REQUEST_CODE = 10001
     private var currentScreen: ScreenMode = ScreenMode.TERMINAL
     private var lastConnectionState: String = "idle"
-    private var codexForegroundServiceActive: Boolean = false
-    private var lastCodexTaskStatus: String = "idle"
     private var lastToastSignature: String = ""
     private var lastToastAtMs: Long = 0L
     private var lastInjectedConfigSignature: String? = null
@@ -214,10 +209,6 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     override fun onDestroy() {
         drawerLayout?.removeDrawerListener(drawerListener)
         if (isFinishing) {
-            if (codexForegroundServiceActive) {
-                CodexTaskForegroundService.stop(this)
-                codexForegroundServiceActive = false
-            }
             detachTerminalWebView()
             terminalWebView?.destroy()
             terminalWebView = null
@@ -473,73 +464,6 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         webView.clearFocus()
         val imm = getSystemService(InputMethodManager::class.java)
         imm?.hideSoftInputFromWindow(webView.windowToken, 0)
-    }
-
-    override fun onCodexTaskState(status: String) {
-        val normalized = status.lowercase().trim()
-        lastCodexTaskStatus = normalized
-        Log.i(TAG, "Codex task state: $normalized")
-
-        if (CodexTaskForegroundService.isActiveStatus(normalized)) {
-            if (hasNotificationPermission()) {
-                CodexTaskForegroundService.start(this, normalized)
-                codexForegroundServiceActive = true
-            } else {
-                // Request permission first; the service will be started in
-                // onRequestPermissionsResult once the user grants it.
-                requestNotificationPermissionIfNeeded()
-            }
-        } else {
-            if (codexForegroundServiceActive) {
-                CodexTaskForegroundService.stop(this)
-                codexForegroundServiceActive = false
-            }
-        }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_CODE_NOTIFICATION_PERMISSION) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permission granted — start the foreground service for the
-                // most recently reported Codex status if it's still active.
-                val current = lastCodexTaskStatus
-                if (CodexTaskForegroundService.isActiveStatus(current)) {
-                    CodexTaskForegroundService.start(this, current)
-                    codexForegroundServiceActive = true
-                }
-            } else {
-                Log.w(TAG, "POST_NOTIFICATIONS permission denied; foreground service will run without visible notification")
-                // Still start the service — on SDK 33+ without permission
-                // the notification won't show, but the process priority
-                // boost still applies.
-                val current = lastCodexTaskStatus
-                if (CodexTaskForegroundService.isActiveStatus(current)) {
-                    CodexTaskForegroundService.start(this, current)
-                    codexForegroundServiceActive = true
-                }
-            }
-        }
-    }
-
-    private fun hasNotificationPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        } else {
-            true
-        }
-    }
-
-    private fun requestNotificationPermissionIfNeeded() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_CODE_NOTIFICATION_PERMISSION)
-            }
-        }
     }
 
     override fun getServerConfigState(): ServerConfigState {
@@ -1119,6 +1043,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             View.GONE
         }
         sessionsDrawerButton?.contentDescription = getString(R.string.sessions_panel_button)
+        quickToolbarButton?.contentDescription = getString(R.string.quick_toolbar_toggle_button)
         applyWorkspaceButtonState()
         statusTextView?.text = terminalStatusText
     }
@@ -1589,7 +1514,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     companion object {
-        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=65"
+        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=67"
         private const val CODEX_URL = "file:///android_asset/public/codex_client.html?v=76"
         private const val ABOUT_BLANK_URL = "about:blank"
         private const val DEBUG_CLEAR_TERMINAL_CACHE_ON_LOAD = false
@@ -1603,7 +1528,5 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         private const val TAG_TERMINAL = "terminal"
         private const val TAG_SETTINGS = "settings"
         private const val TAG = "TermLinkShell"
-        private const val REQUEST_CODE_NOTIFICATION_PERMISSION = 10002
     }
 }
-

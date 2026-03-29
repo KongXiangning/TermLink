@@ -32,3 +32,6 @@ gradle-local/
 tmp-*.xml
 tmp/
 docs/codex/STITCH2_TERMLINK_CODEX_MOBILE_WORKSPACE_PROMPT.md
+
+# Temporary debug screenshots/XML dumps
+.tmp-*

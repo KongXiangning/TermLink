@@ -2,13 +2,23 @@
 title: TermLink 项目变更日志
 status: active
 owner: @maintainer
-last_updated: 2026-03-26
+last_updated: 2026-03-29
 source_of_truth: product
 related_code: []
 related_docs: [docs/README.md]
 ---
 
 # CHANGELOG_PROJECT
+
+## 2026-03-29
+
+### client
+
+1. 修复 Android Terminal 键盘/滚动回归：顶部键盘按钮改为“软键盘打开时优先关闭 IME，否则切换快捷键盘”，并统一 `terminal_client.*` / `terminal.*` 的双击隐藏键盘与触摸滚动逻辑，恢复文字区和空白区一致的纵向滚动体验（见 `CR-20260329-0155-android-terminal-keyboard-scroll-regression-fix`）。
+
+### docs
+
+1. 将本次 Android Terminal 回归修复回填到 `REQ-20260223-shortcut-keyboard-modifier-newline` 的实现进度，并新增对应 CR 索引记录。
 
 ## 2026-03-26
 

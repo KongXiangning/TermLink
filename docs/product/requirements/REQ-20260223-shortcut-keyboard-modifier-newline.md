@@ -2,7 +2,7 @@
 title: 快捷键盘控制键修复、换行按钮与触摸滚动优化
 status: planned
 owner: @maintainer
-last_updated: 2026-02-24
+last_updated: 2026-03-29
 source_of_truth: product
 related_code: [public/terminal_shortcut_input.js, public/terminal_client.js, public/terminal_client.css, public/terminal_client.html, public/terminal.js, public/terminal.html, public/style.css, android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/res/layout/activity_main_shell.xml]
 related_docs: [docs/ops/incidents/client-shortcut-keyboard-modifier-issue.md, docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/changes/CHANGELOG_PROJECT.md]
@@ -19,6 +19,11 @@ related_docs: [docs/ops/incidents/client-shortcut-keyboard-modifier-issue.md, do
 - owner: @maintainer
 - target_release: 2026-Q1
 - links: `docs/ops/incidents/client-shortcut-keyboard-modifier-issue.md`
+
+## Implementation Progress
+
+- 2026-02-24: 已完成快捷键盘 `Ctrl/Alt` 三态修饰、`Shift+Enter` 换行键、本地滚动键映射与首批触摸滚动优化。
+- 2026-03-29: 本批修复 Android 终端回归，顶部键盘按钮保持切换快捷键盘功能不变，并统一 `terminal_client.*` / `terminal.*` 的触摸滚动路径；另修复 debug 构建的 HTTP 明文通信权限。
 
 ## 1. 背景与目标
 

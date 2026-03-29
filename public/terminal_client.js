@@ -420,10 +420,6 @@ function notifyNativeConnectionState(state, detail) {
     callNativeBridge('onConnectionState', [state, detail || '']);
 }
 
-function notifyNativeCodexTaskState(status) {
-    callNativeBridge('onCodexTaskState', [status || 'idle']);
-}
-
 function notifyNativeError(code, message) {
     callNativeBridge('onTerminalError', [code || 'UNKNOWN', message || '']);
 }
@@ -440,8 +436,6 @@ function localizeCodexStatus(status) {
         return '输出中';
     case 'waiting_approval':
         return '等待审批';
-    case 'reconnecting':
-        return '重连中';
     case 'error':
         return '错误';
     default:
@@ -463,8 +457,7 @@ function localizeCodexStatusDetail(detail) {
         'turn started': '已开始执行',
         'bridge disconnected': '连接已断开',
         'bridge transport error': '桥接传输异常',
-        'event error': '事件异常',
-        'task active on server': '任务仍在服务端运行，正在重连'
+        'event error': '事件异常'
     };
     return localized[normalized] || detail;
 }
@@ -604,17 +597,12 @@ function toggleCodexSecondaryPanel(panelName) {
 function setCodexStatus(status, detail) {
     codexState.status = status || 'idle';
     codexState.statusDetail = detail || '';
-    // Notify Android native layer so it can start/stop the foreground
-    // keepalive service based on whether a Codex task is active.
-    notifyNativeCodexTaskState(codexState.status);
     if (codexPanel) {
-        codexPanel.classList.remove('status-running', 'status-error', 'status-reconnecting');
+        codexPanel.classList.remove('status-running', 'status-error');
         if (codexState.status === 'running') {
             codexPanel.classList.add('status-running');
         } else if (codexState.status === 'error') {
             codexPanel.classList.add('status-error');
-        } else if (codexState.status === 'reconnecting') {
-            codexPanel.classList.add('status-reconnecting');
         }
     }
     if (codexStatusText) {
@@ -5818,12 +5806,7 @@ function connect() {
             sendResize();
             startClientHeartbeat();
             notifyNativeConnectionState('connected', `Connected via ${transportLabel}`);
-            // Preserve the Codex status across reconnect — the server
-            // will send authoritative codex_state shortly.  Don't reset
-            // to idle if a task was active or reconnecting.
-            if (codexState.status !== 'running'
-                && codexState.status !== 'reconnecting'
-                && codexState.status !== 'waiting_approval') {
+            if (codexState.status !== 'running') {
                 setCodexStatus('idle');
             }
             const configuredCwd = getConfiguredCodexCwd();
@@ -5907,7 +5890,6 @@ function connect() {
                     if (Object.prototype.hasOwnProperty.call(envelope, 'tokenUsage')) {
                         console.info('[JS][tokenUsage][codex_state]', JSON.stringify(envelope.tokenUsage || null));
                     }
-                    var wasReconnecting = codexState.status === 'reconnecting';
                     const previousThreadId = codexState.threadId;
                     codexState.threadId = envelope.threadId || '';
                     if (!codexState.threadId) {
@@ -5959,26 +5941,6 @@ function connect() {
                     codexState.initialCodexStateReceived = true;
                     updateCodexThreadLabel();
                     setCodexStatus(envelope.status || 'idle');
-
-                    // After reconnection, log a recovery message and refresh
-                    // the thread snapshot so the user sees the latest state.
-                    if (wasReconnecting && codexState.threadId) {
-                        var activeStatuses = { running: 1, waiting_approval: 1, reconnecting: 1 };
-                        if (activeStatuses[codexState.status]) {
-                            appendCodexLogEntry(
-                                'system',
-                                '已重新连接，Codex 任务恢复中…',
-                                { meta: 'reconnect' }
-                            );
-                        }
-                        // Refresh thread snapshot to pick up any turns that
-                        // completed while offline — covers both active-task
-                        // recovery and the §5.3 req 4 edge case (task
-                        // finished while disconnected: threadId exists but
-                        // currentTurnId is empty).
-                        refreshCodexThreadSnapshot({ threadId: codexState.threadId, force: true });
-                    }
-
                     if (codexState.threadId && codexState.threadId !== previousThreadId) {
                         clearCodexRuntimePanels();
                         refreshCodexThreadList({ force: true, silent: true });
@@ -6128,48 +6090,23 @@ function connect() {
             console.log('[JS] WebSocket CLOSED:', event.code, event.reason);
             isConnecting = false;
             stopClientHeartbeat();
-
-            // Snapshot whether a Codex task was actively running before we
-            // clear transient state.  If so, we treat the disconnect as a
-            // temporary interruption — the server-side turn continues
-            // regardless of the WebSocket lifecycle.
-            var hadActiveCodexTask = (
-                codexState.status === 'running'
-                || codexState.status === 'waiting_approval'
-                || codexState.status === 'reconnecting'
-            );
-
             rejectPendingCodexBridgeRequests(
                 `Codex bridge closed (${event.code}).`,
                 'CODEX_BRIDGE_CLOSED'
             );
             resetCodexBootstrapState();
-
-            if (hadActiveCodexTask) {
-                // Don't mark as 'error' — the server-side task is still
-                // running.  Show a reconnecting indicator instead so the
-                // user knows the task hasn't been lost.
-                setCodexStatus('reconnecting', 'task active on server');
-            } else {
-                setCodexStatus('error', 'bridge disconnected');
-            }
-
+            setCodexStatus('error', 'bridge disconnected');
             if (recoverFromMissingSession(event)) {
                 return;
             }
             if (retryCount >= MAX_RETRIES) {
                 const detail = `code=${event.code} reason=${event.reason || 'none'}`;
                 showStatus('Connection failed.');
-                setCodexStatus('error', 'bridge disconnected');
                 notifyNativeConnectionState('error', `Connection closed (${detail})`);
                 notifyNativeError('WS_CLOSED', detail);
                 return;
             }
-            if (hadActiveCodexTask) {
-                showStatus('Codex 任务仍在服务端运行，正在重连…');
-            } else {
-                showStatus('Disconnected. Reconnecting...');
-            }
+            showStatus('Disconnected. Reconnecting...');
             notifyNativeConnectionState('reconnecting', `attempt=${retryCount + 1}`);
             retryCount += 1;
             clearTimeout(reconnectTimer);
@@ -6182,11 +6119,7 @@ function connect() {
         ws.onerror = function () {
             console.error('[JS] WebSocket ERROR');
             notifyNativeError('WS_ERROR', 'WebSocket transport error');
-            // Don't override 'reconnecting' with 'error' when a task is
-            // active — onerror fires right before onclose.
-            if (codexState.status !== 'reconnecting') {
-                setCodexStatus('error', 'bridge transport error');
-            }
+            setCodexStatus('error', 'bridge transport error');
         };
     };
 
@@ -6643,17 +6576,13 @@ if (btnCodexPlanExecute) {
             appendCodexLogEntry('error', '当前没有可执行的已确认计划。', { meta: 'plan' });
             return;
         }
-        // §5.4: Clear planMode immediately so subsequent input never
-        // inherits plan mode, and sync the clear to the server.
         setPlanMode(false);
         setPlanWorkflowState({
             ...codexState.planWorkflow,
             phase: 'executing_confirmed_plan'
         });
         const sent = sendCodexTurn(executionPrompt, {
-            // Ensure the turn-ack finalization also clears planMode
-            // as a second line of defense.
-            clearPlanMode: true,
+            clearPlanMode: false,
             collaborationMode: null
         });
         if (!sent) {
@@ -6790,27 +6719,40 @@ if (terminalContainer && isTouchDevice) {
     };
 
     const getViewport = () => terminalContainer.querySelector('.xterm-viewport');
+    const touchListenerCapture = { capture: true };
+    const passiveTouchStartOptions = { passive: true, capture: true };
+    const activeTouchOptions = { passive: false, capture: true };
+
+    const resolveTrackedTouch = (touchList) => {
+        if (!touchList || activeTouchId === null) return null;
+        for (let i = 0; i < touchList.length; i += 1) {
+            if (touchList[i].identifier === activeTouchId) {
+                return touchList[i];
+            }
+        }
+        return null;
+    };
+
+    const isViewportScrollable = (viewport) => (
+        !!viewport && viewport.scrollHeight > viewport.clientHeight + 1
+    );
 
     terminalContainer.addEventListener('touchstart', (e) => {
-        const touch = e.changedTouches && e.changedTouches[0];
+        const touch = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
         if (!touch) return;
         activeTouchId = touch.identifier;
         touchStartY = touch.clientY;
         lastTouchY = touch.clientY;
         draggedSinceTouchStart = false;
-    }, { passive: true });
+    }, passiveTouchStartOptions);
 
     terminalContainer.addEventListener('touchmove', (e) => {
         if (activeTouchId === null) return;
-        const changedTouches = e.changedTouches || [];
-        let touch = null;
-        for (let i = 0; i < changedTouches.length; i += 1) {
-            if (changedTouches[i].identifier === activeTouchId) {
-                touch = changedTouches[i];
-                break;
-            }
-        }
+        const touch = resolveTrackedTouch(e.touches) || resolveTrackedTouch(e.changedTouches);
         if (!touch) return;
+
+        const viewport = getViewport();
+        if (!isViewportScrollable(viewport)) return;
 
         const deltaYFromStart = touch.clientY - touchStartY;
         if (!draggedSinceTouchStart && Math.abs(deltaYFromStart) >= DRAG_THRESHOLD_PX) {
@@ -6818,22 +6760,22 @@ if (terminalContainer && isTouchDevice) {
         }
         if (!draggedSinceTouchStart) return;
 
-        const viewport = getViewport();
-        if (!viewport) return;
-
         const deltaY = touch.clientY - lastTouchY;
         if (deltaY === 0) return;
 
         e.preventDefault();
+        e.stopPropagation();
         viewport.scrollTop -= deltaY;
         lastTouchY = touch.clientY;
         suppressNextClickFocus = true;
         suppressFocusUntil = Date.now() + 280;
-    }, { passive: false });
+    }, activeTouchOptions);
 
     terminalContainer.addEventListener('touchend', (e) => {
         activeTouchId = null;
         if (draggedSinceTouchStart) {
+            e.preventDefault();
+            e.stopPropagation();
             draggedSinceTouchStart = false;
             suppressNextClickFocus = true;
             suppressFocusUntil = Date.now() + 280;
@@ -6851,19 +6793,19 @@ if (terminalContainer && isTouchDevice) {
             return;
         }
         lastTapAt = now;
-    }, { passive: false });
+    }, activeTouchOptions);
 
     terminalContainer.addEventListener('touchcancel', () => {
         activeTouchId = null;
         draggedSinceTouchStart = false;
-    }, { passive: true });
+    }, passiveTouchStartOptions);
 
     terminalContainer.addEventListener('dblclick', () => {
         const now = Date.now();
         closeSoftKeyboard();
         suppressNextClickFocus = true;
         suppressFocusUntil = now + 420;
-    });
+    }, touchListenerCapture);
 
     terminalContainer.addEventListener('click', () => {
         const now = Date.now();
@@ -6877,7 +6819,7 @@ if (terminalContainer && isTouchDevice) {
             return;
         }
         term.focus();
-    });
+    }, touchListenerCapture);
 } else if (terminalContainer) {
     terminalContainer.addEventListener('click', () => term.focus());
 }

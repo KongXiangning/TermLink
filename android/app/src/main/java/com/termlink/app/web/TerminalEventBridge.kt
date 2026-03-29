@@ -14,7 +14,6 @@ class TerminalEventBridge(
         fun onTerminalError(code: String, message: String?)
         fun onSessionInfo(sessionId: String, name: String?, privilegeLevel: String?)
         fun onRequestHideKeyboard()
-        fun onCodexTaskState(status: String)
     }
 
     @JavascriptInterface
@@ -42,13 +41,6 @@ class TerminalEventBridge(
     fun requestHideKeyboard() {
         dispatchOnMain {
             listener.onRequestHideKeyboard()
-        }
-    }
-
-    @JavascriptInterface
-    fun onCodexTaskState(status: String?) {
-        dispatchOnMain {
-            listener.onCodexTaskState(status.orEmpty())
         }
     }
 

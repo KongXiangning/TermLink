@@ -625,18 +625,6 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         ));
     };
 
-    // All codex sessions regardless of connection state — used for state-only
-    // updates (e.g. rateLimits) so that disconnected sessions stay up-to-date
-    // and can emit correct state on reconnection.
-    const getAllCodexSessions = () => {
-        if (!sessionManager || !sessionManager.sessions || typeof sessionManager.sessions.values !== 'function') {
-            return [];
-        }
-        return Array.from(sessionManager.sessions.values()).filter((session) => (
-            session && session.sessionMode === 'codex'
-        ));
-    };
-
     const ensureCodexServiceForSession = async (session, runtimeConfig = null) => {
         const state = ensureSessionCodexState(session);
         if (!codexService || typeof codexService.ensureStarted !== 'function') {
@@ -880,10 +868,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         }
 
         if (method === 'account/rateLimits/updated') {
-            // Use getAllCodexSessions (not getConnectedCodexSessions) so that
-            // disconnected sessions also receive the rate-limit state update.
-            // broadcast() and emitCodexState() are safe no-ops when connections === 0.
-            getAllCodexSessions().forEach((session) => {
+            getConnectedCodexSessions().forEach((session) => {
                 const stateChanged = updateCodexStateFromNotification(session, method, params);
                 sessionManager.broadcast(session, {
                     type: 'codex_notification',
@@ -913,14 +898,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             return;
         }
 
-        // Intentional: update codexState regardless of whether any WS
-        // connections are open.  broadcast() is a safe no-op when the
-        // session has zero connections; the state update will be picked up
-        // on the next reconnection via the initial codex_state message.
         const stateChanged = updateCodexStateFromNotification(session, method, params);
-        // Keep lastActiveAt fresh so the session survives idle cleanup
-        // while receiving background Codex activity.
-        sessionManager.touchSession(session);
         sessionManager.broadcast(session, {
             type: 'codex_notification',
             method,
@@ -959,10 +937,6 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         if (!session) {
             return;
         }
-        // Intentional: record pending server requests even when the session
-        // has zero active WebSocket connections.  The request stays in
-        // codexState.pendingServerRequests and will be delivered to the
-        // client on reconnection via the initial codex_state snapshot.
         if (handledBy === 'client') {
             const requestKind = resolveCodexServerRequestKind(method);
             const responseMode = resolveCodexServerRequestResponseMode(method);
@@ -983,15 +957,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 });
                 return current;
             });
-            // The turn is blocked until the client resolves this request.
-            // Persist the waiting state so reconnecting clients (and the
-            // Android foreground-service keep-alive) see the correct status.
-            const codexState = ensureSessionCodexState(session);
-            codexState.status = 'waiting_approval';
         }
-        // Keep lastActiveAt fresh so sessions with pending server requests
-        // are not garbage-collected while the user is offline.
-        sessionManager.touchSession(session);
         sessionManager.broadcast(session, buildCodexServerRequestEnvelope({
             requestId,
             message,
@@ -1285,16 +1251,6 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         updatePendingServerRequestState(session, (current) => (
                             current.filter((entry) => !entry || entry.requestId !== requestId)
                         ));
-                        // If we just resolved the last pending request and the
-                        // turn is still running, revert to 'running' so the
-                        // session status accurately reflects the Codex state.
-                        const csAfterResolve = ensureSessionCodexState(session);
-                        if (csAfterResolve.status === 'waiting_approval'
-                            && Array.isArray(csAfterResolve.pendingServerRequests)
-                            && csAfterResolve.pendingServerRequests.length === 0
-                            && csAfterResolve.currentTurnId) {
-                            csAfterResolve.status = 'running';
-                        }
                         emitCodexState(session);
                     } else if (type === 'codex_thread_read') {
                         const codexState = ensureSessionCodexState(session);
@@ -1431,10 +1387,6 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             });
 
             ws.on('close', () => {
-                // Intentional: only remove the WS reference.  Do NOT cancel
-                // an active Codex turn — the turn continues running in the
-                // Codex app-server process, and codexState is preserved on
-                // the session so a reconnecting client can pick it up.
                 sessionManager.removeConnection(session, ws);
                 // Log connection end for elevated mode
                 if (isElevated && auditService) {

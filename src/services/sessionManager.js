@@ -152,28 +152,7 @@ class SessionManager {
             session.status = 'IDLE';
             session.lastActiveAt = Date.now();
         }
-        // Intentional: do NOT touch session.codexState here.
-        // An active Codex turn must survive WebSocket disconnection.
         this.schedulePersist();
-    }
-
-    /**
-     * Refresh lastActiveAt so idle-session cleanup does not collect
-     * sessions that are still receiving background Codex activity
-     * (notifications, server requests, turn completions).
-     */
-    touchSession(session) {
-        if (!session) return;
-        session.lastActiveAt = Date.now();
-    }
-
-    hasActiveCodexTurn(session) {
-        const state = session && session.codexState;
-        if (!state || typeof state !== 'object') return false;
-        if (state.status === 'running' || state.status === 'waiting_approval' || state.status === 'reconnecting') {
-            return true;
-        }
-        return Array.isArray(state.pendingServerRequests) && state.pendingServerRequests.length > 0;
     }
 
     renameSession(id, name) {
@@ -239,12 +218,6 @@ class SessionManager {
         const now = Date.now();
         for (const [id, session] of this.sessions.entries()) {
             if (session.connections.length === 0 && (now - session.lastActiveAt > this.idleTimeoutMs)) {
-                // Never garbage-collect a session whose Codex turn is still
-                // active — the turn runs inside the Codex app-server process
-                // independently of WebSocket connections.
-                if (this.hasActiveCodexTurn(session)) {
-                    continue;
-                }
                 console.log(`Cleaning up idle session: ${id}`);
                 this.deleteSession(id);
             }
@@ -272,11 +245,6 @@ class SessionManager {
 
         for (const session of this.sessions.values()) {
             if (session.connections.length > 0) {
-                continue;
-            }
-            // Skip sessions with active Codex turns — they must not be
-            // evicted just because no WebSocket is currently connected.
-            if (this.hasActiveCodexTurn(session)) {
                 continue;
             }
             if (!oldestIdleSession || session.lastActiveAt < oldestIdleSession.lastActiveAt) {

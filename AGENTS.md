@@ -15,37 +15,42 @@
 - 文件：`skills/android-local-build-debug/SKILL.md`
 - 镜像：`.codex/skills/android-local-build-debug`、`.claude/skills/android-local-build-debug`
 
-2. `android-build-apk-copy`
+2. `adb-real-device-debug`
+- 用途：将原全局 Codex `adb-real-device-debug` 收编为项目内 skill，供 Codex/Claude 共用真机 adb 调试流程。
+- 文件：`skills/adb-real-device-debug/SKILL.md`
+- 镜像：`.codex/skills/adb-real-device-debug`、`.claude/skills/adb-real-device-debug`
+
+3. `android-build-apk-copy`
 - 用途：仅编译 APK，并复制到 `E:\project\TermLink`。
 - 文件：`skills/android-build-apk-copy/SKILL.md`
 - 镜像：`.codex/skills/android-build-apk-copy`、`.claude/skills/android-build-apk-copy`
 
-3. `session-retention-debug`
+4. `session-retention-debug`
 - 用途：验证会话保留与断联续接（`/api/sessions` 观测）。
 - 文件：`skills/session-retention-debug/SKILL.md`
 - 镜像：`.codex/skills/session-retention-debug`、`.claude/skills/session-retention-debug`
 
-4. `win-server-deploy`
+5. `win-server-deploy`
 - 用途：Windows 服务端打包与 pm2 服务部署。
 - 文件：`skills/win-server-deploy/SKILL.md`
 - 镜像：`.codex/skills/win-server-deploy`、`.claude/skills/win-server-deploy`
 
-5. `docs-requirement-sync`
+6. `docs-requirement-sync`
 - 用途：按 REQ 驱动开发并强制 CR 记录（`req_id + commit_ref`）。
 - 文件：`skills/docs-requirement-sync/SKILL.md`
 - 镜像：`.codex/skills/docs-requirement-sync`、`.claude/skills/docs-requirement-sync`
 
-6. `git-sensitive-scan`
+7. `git-sensitive-scan`
 - 用途：提交前敏感信息审查（扫描 staged 文件中的密钥、口令、私钥、真实本地配置地址）。
 - 文件：`skills/git-sensitive-scan/SKILL.md`
 - 镜像：`.codex/skills/git-sensitive-scan`、`.claude/skills/git-sensitive-scan`
 
-7. `git-worktree`
+8. `git-worktree`
 - 用途：创建、复用、移除 Git worktree，用于并行功能开发和隔离分支目录。
 - 文件：`skills/git-worktree/SKILL.md`
 - 镜像：`.codex/skills/git-worktree`、`.claude/skills/git-worktree`
 
-8. `local-dev-server-control`
+9. `local-dev-server-control`
 - 用途：启动/停止/重启/检查当前仓库本地开发环境服务（`npm run dev`）。
 - 文件：`skills/local-dev-server-control/SKILL.md`
 - 镜像：`.codex/skills/local-dev-server-control`、`.claude/skills/local-dev-server-control`
