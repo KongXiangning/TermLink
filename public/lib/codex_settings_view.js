@@ -7,14 +7,10 @@
         root.TermLinkCodexSettingsView = api;
     }
 }(typeof globalThis !== 'undefined' ? globalThis : this, function createSettingsViewApi() {
+    const t = typeof globalThis !== 'undefined' && typeof globalThis.t === 'function' ? globalThis.t : (k) => k;
     const VALID_PERSONALITIES = new Set(['none', 'friendly', 'pragmatic']);
     const VALID_APPROVAL_POLICIES = new Set(['untrusted', 'on-failure', 'on-request', 'never']);
     const VALID_SANDBOX_MODES = new Set(['read-only', 'workspace-write', 'danger-full-access']);
-    const PERMISSION_PRESET_LABELS = {
-        default: '默认权限',
-        full: '完全访问权限',
-        custom: '自定义权限'
-    };
 
     function normalizeOptionalString(value) {
         return typeof value === 'string' && value.trim() ? value.trim() : null;
@@ -93,21 +89,21 @@
         if (preset === 'default') {
             return {
                 key: preset,
-                label: PERMISSION_PRESET_LABELS[preset],
-                hint: '按请求审批 + 工作区可写'
+                label: t('codex.settings.permission.default'),
+                hint: t('codex.settings.hint.default')
             };
         }
         if (preset === 'full') {
             return {
                 key: preset,
-                label: PERMISSION_PRESET_LABELS[preset],
-                hint: '无需审批 + 完全访问'
+                label: t('codex.settings.permission.full'),
+                hint: t('codex.settings.hint.full')
             };
         }
         return {
             key: 'custom',
-            label: PERMISSION_PRESET_LABELS.custom,
-            hint: '当前使用自定义审批/沙箱组合'
+            label: t('codex.settings.permission.custom'),
+            hint: t('codex.settings.hint.custom')
         };
     }
 

@@ -1,3 +1,5 @@
+const t = typeof globalThis.t === 'function' ? globalThis.t : (k) => k;
+
 // --- DOM Elements ---
 const terminalContainer = document.getElementById('terminal-container');
 const sidebar = document.getElementById('sidebar');
@@ -30,7 +32,7 @@ try {
         theme: { background: '#000000', foreground: '#ffffff' }
     });
 } catch (e) {
-    alert("CRITICAL ERROR: Failed to initialize Terminal.\n" + e.message);
+    alert("CRITICAL ERROR: Failed to initialize Terminal.\n" + e.message);  // keep English – pre-i18n
     throw e; // Stop execution
 }
 
@@ -374,7 +376,7 @@ function renderServerList() {
                 <span class="server-url">${server.url}</span>
             </div>
             <div class="server-actions">
-                ${server.id !== serverState.activeServerId ? `<button class="btn-connect" data-id="${server.id}">Connect</button>` : '<span>Active</span>'}
+                ${server.id !== serverState.activeServerId ? `<button class="btn-connect" data-id="${server.id}">${t('terminal.server.connectBtn')}</button>` : `<span>${t('terminal.badge.activeSpan')}</span>`}
                 <button class="btn-delete" data-id="${server.id}">🗑️</button>
             </div>
         `;
@@ -434,7 +436,7 @@ function renderServerList() {
 
 function addServer(name, url) {
     if (!name || !url) {
-        showNonBlockingNotice('Name and URL are required', 'error');
+        showNonBlockingNotice(t('terminal.error.nameUrlRequired'), 'error');
         return;
     }
 
@@ -465,7 +467,7 @@ function addServer(name, url) {
 }
 
 function deleteServer(id) {
-    if (!confirm('Delete this server configuration?')) return;
+    if (!confirm(t('terminal.confirm.deleteServer'))) return;
 
     serverState.servers = serverState.servers.filter(s => s.id !== id);
     if (serverState.activeServerId === id) {
@@ -527,7 +529,7 @@ if (btnSettingsToolbar) {
             serverManagerModal.classList.add('open');
             serverManagerModal.style.display = ''; // Clear any inline style
         } catch (err) {
-            showNonBlockingNotice("Error in toolbar settings: " + err.message, 'error');
+            showNonBlockingNotice(t('terminal.error.toolbarSettings', { error: err.message }), 'error');
         }
     };
     btnSettingsToolbar.addEventListener('click', openToolbarSettings);
@@ -542,7 +544,7 @@ if (btnServerManager) {
             serverManagerModal.classList.add('open');
             serverManagerModal.style.display = ''; // Clear any inline style
         } catch (err) {
-            showNonBlockingNotice("Error opening manager: " + err.message, 'error');
+            showNonBlockingNotice(t('terminal.error.openManager', { error: err.message }), 'error');
         }
     };
 
@@ -652,7 +654,7 @@ function showConnectionSettings() {
         renderServerList();
         serverManagerModal.classList.add('open');
     } catch (e) {
-        showNonBlockingNotice("Error showing settings: " + e.message, 'error');
+        showNonBlockingNotice(t('terminal.error.showSettings', { error: e.message }), 'error');
     }
 }
 
@@ -703,6 +705,7 @@ async function connect() {
     if (!activeServer) {
         notifyNativeConnectionState('error', 'No active server configured');
         notifyNativeError('NO_ACTIVE_SERVER', 'No active server configured');
+        showStatus(t('terminal.status.noActiveServer'));
         showConnectionSettings();
         return;
     }
@@ -740,7 +743,7 @@ async function connect() {
     const transportLabel = wsUrl.startsWith('wss://') ? 'wss' : 'ws';
 
     isConnecting = true;
-    const connectingMessage = `Connecting to ${activeServer.name} (${transportLabel})...`;
+    const connectingMessage = t('terminal.status.connecting', { name: activeServer.name, transport: transportLabel });
     showStatus(connectingMessage);
     notifyNativeConnectionState('connecting', connectingMessage);
 
@@ -750,6 +753,7 @@ async function connect() {
         console.error("URL Error", e);
         isConnecting = false;
         notifyNativeConnectionState('error', 'WebSocket construction failed');
+        showStatus(t('terminal.status.wsConstructionFailed'));
         notifyNativeError('WS_CONSTRUCTION_ERROR', e.message || 'unknown');
         showConnectionSettings();
         return;
@@ -804,13 +808,13 @@ async function connect() {
     ws.onclose = (event) => {
         isConnecting = false;
         if (retryCount >= MAX_RETRIES) {
-            showStatus('Connection failed.');
+            showStatus(t('terminal.status.failed'));
             const closeDetail = `code=${event.code} reason=${event.reason || 'none'}`;
             notifyNativeConnectionState('error', `Connection closed (${closeDetail})`);
             notifyNativeError('WS_CLOSED', closeDetail);
             showConnectionSettings();
         } else {
-            showStatus('Disconnected. Reconnecting...');
+            showStatus(t('terminal.status.reconnecting'));
             notifyNativeConnectionState('reconnecting', `attempt=${retryCount + 1}`);
             retryCount++;
             clearTimeout(reconnectTimer);
@@ -1148,7 +1152,7 @@ if (btnNewSession) {
         // Populate server select
         serverSelectInput.innerHTML = '';
         if (serverState.servers.length === 0) {
-            showNonBlockingNotice("No servers configured. Please add a server first.", 'error');
+            showNonBlockingNotice(t('terminal.error.noServers'), 'error');
             renderServerList();
             serverManagerModal.classList.add('open');
             return;
@@ -1157,12 +1161,12 @@ if (btnNewSession) {
         serverState.servers.forEach(s => {
             const opt = document.createElement('option');
             opt.value = s.id;
-            opt.textContent = s.name + (s.id === serverState.activeServerId ? ' (Active)' : '');
+            opt.textContent = s.name + (s.id === serverState.activeServerId ? t('terminal.badge.active') : '');
             if (s.id === serverState.activeServerId) opt.selected = true;
             serverSelectInput.appendChild(opt);
         });
 
-        sessionNameInput.value = `Terminal ${new Date().toLocaleTimeString()}`;
+        sessionNameInput.value = t('terminal.session.defaultName', { time: new Date().toLocaleTimeString() });
         newSessionModal.classList.add('open');
         sessionNameInput.focus();
     });
@@ -1183,7 +1187,7 @@ if (btnCreateSession) {
         const targetServer = serverState.servers.find(s => s.id === targetServerId);
 
         if (!targetServer) {
-            showNonBlockingNotice('Invalid server selection', 'error');
+            showNonBlockingNotice(t('terminal.error.invalidServer'), 'error');
             return;
         }
 
@@ -1201,7 +1205,7 @@ if (btnCreateSession) {
                 ws = null;
             }
             resetTerminalView();
-            term.write(`\r\n\x1b[33mSwitching to server: ${targetServer.name}...\x1b[0m\r\n`);
+            term.write(`\r\n\x1b[33m${t('terminal.status.switching', { name: targetServer.name })}\x1b[0m\r\n`);
         }
 
         // Now creating session on (potentially new) active server
@@ -1237,7 +1241,7 @@ async function createSessionOnActive(name) {
 
     } catch (e) {
         console.error(e);
-        showNonBlockingNotice(`Failed to create session: ${e.message}. Check server connection.`, 'error');
+        showNonBlockingNotice(t('terminal.error.createSession', { error: e.message }), 'error');
         // If failed, maybe we are not connected?
         connect();
     }
@@ -1280,7 +1284,7 @@ async function loadSessions() {
     try {
         const baseUrl = getBaseUrl();
         if (!baseUrl) {
-            sessionList.innerHTML = '<li style="padding:15px; color:#666">No Server Selected</li>';
+            sessionList.innerHTML = `<li style="padding:15px; color:#666">${t('terminal.status.noServerSelected')}</li>`;
             return;
         }
 
@@ -1291,7 +1295,7 @@ async function loadSessions() {
 
         sessionList.innerHTML = '';
         if (sessions.length === 0) {
-            sessionList.innerHTML = '<li style="padding:15px; color:#666">No Active Sessions</li>';
+            sessionList.innerHTML = `<li style="padding:15px; color:#666">${t('terminal.status.noActiveSessions')}</li>`;
             // Don't auto-create here to avoid loops if server is empty
             return;
         }
@@ -1311,7 +1315,7 @@ async function loadSessions() {
             const del = document.createElement('button');
             del.textContent = '×';
             del.className = 'btn-delete-session';
-            del.title = 'Delete Session';
+            del.title = t('terminal.session.deleteTitle');
             del.dataset.id = s.id;
             del.addEventListener('click', async (e) => {
                 e.stopPropagation();
@@ -1332,7 +1336,7 @@ async function loadSessions() {
 
     } catch (e) {
         console.error('Failed to load sessions', e);
-        sessionList.innerHTML = '<li style="padding:15px; color:#f55">Connection Failed</li>';
+        sessionList.innerHTML = `<li style="padding:15px; color:#f55">${t('terminal.status.connectionFailed')}</li>`;
         // Do NOT block UI or throw
     }
 }
@@ -1349,7 +1353,7 @@ async function deleteSession(id) {
             }
             loadSessions();
         } else {
-            showNonBlockingNotice('Failed to delete session', 'error');
+            showNonBlockingNotice(t('terminal.error.deleteSession'), 'error');
         }
     } catch (e) {
         console.error('Delete error:', e);
@@ -1374,7 +1378,7 @@ document.querySelectorAll('.key').forEach(btn => {
                 }
             }).catch(err => {
                 console.error('Failed to read clipboard', err);
-                showNonBlockingNotice('Clipboard access denied or not supported.', 'error');
+                showNonBlockingNotice(t('terminal.error.clipboard'), 'error');
             });
             return;
         }
@@ -1440,5 +1444,11 @@ window.__applyTerminalConfig = function (config) {
 };
 
 // Start
-loadHistoryState(getHistoryStorageKey(sessionId), true);
-connect();
+(async () => {
+    if (typeof i18n !== 'undefined') {
+        await i18n.init();
+        i18n.translatePage();
+    }
+    loadHistoryState(getHistoryStorageKey(sessionId), true);
+    connect();
+})();

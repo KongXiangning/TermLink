@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { setupTestI18n } = require('./_i18n_helper');
+setupTestI18n();
 
 const settingsView = require('../public/lib/codex_settings_view');
 

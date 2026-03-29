@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { setupTestI18n } = require('./_i18n_helper');
+setupTestI18n();
 
 const {
     buildThreadSummary,
@@ -94,8 +96,8 @@ test('buildThreadSummary returns localized empty and active thread summaries', (
         cwd: '',
         status: 'idle'
     }), {
-        titleText: '当前线程未就绪',
-        metaText: '即将自动创建新线程 · 状态：空闲',
+        titleText: 'Current thread not ready',
+        metaText: 'Will auto-create new thread · Status: Idle',
         empty: true
     });
 
@@ -106,7 +108,7 @@ test('buildThreadSummary returns localized empty and active thread summaries', (
         status: 'running'
     }), {
         titleText: 'Android 调试线程',
-        metaText: '工作区：E:\\coding\\TermLink · 状态：执行中',
+        metaText: 'Workspace: E:\\coding\\TermLink · Status: Running',
         empty: false
     });
 
@@ -115,8 +117,8 @@ test('buildThreadSummary returns localized empty and active thread summaries', (
         cwd: '',
         status: 'waiting_approval'
     }), {
-        titleText: '当前线程 thread-a...123456',
-        metaText: '工作区：默认目录 · 状态：等待审批',
+        titleText: 'Current thread thread-a...123456',
+        metaText: 'Workspace: default directory · Status: Waiting Approval',
         empty: false
     });
 
@@ -126,8 +128,8 @@ test('buildThreadSummary returns localized empty and active thread summaries', (
         cwd: 'E:\\coding\\TermLink',
         status: 'idle'
     }), {
-        titleText: '当前线程 thread-bad-title',
-        metaText: '工作区：E:\\coding\\TermLink · 状态：空闲',
+        titleText: 'Current thread thread-bad-title',
+        metaText: 'Workspace: E:\\coding\\TermLink · Status: Idle',
         empty: false
     });
 });

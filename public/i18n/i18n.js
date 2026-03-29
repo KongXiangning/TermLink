@@ -134,6 +134,8 @@
       if (translated === key) continue;  // no translation found, keep original
       if (attr) {
         el.setAttribute(attr, translated);
+      } else if (el.hasAttribute('data-i18n-html')) {
+        el.innerHTML = translated;
       } else {
         el.textContent = translated;
       }

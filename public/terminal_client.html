@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="lib/xterm.css">
     <script src="lib/xterm.js"></script>
     <script src="lib/xterm-addon-fit.js"></script>
+    <script src="i18n/i18n.js"></script>
     <script src="terminal_shortcut_input.js?v=26"></script>
 </head>
 
@@ -19,21 +20,21 @@
             <div id="terminal-container"></div>
         </div>
         <div id="input-overlay">
-            <textarea id="input-buffer" placeholder="Type command here..."></textarea>
+            <textarea id="input-buffer" placeholder="Type command here..." data-i18n="common.inputPlaceholder" data-i18n-attr="placeholder"></textarea>
             <div class="input-controls">
-                <button id="btn-clear">Clear</button>
-                <button id="btn-close">Close</button>
-                <button id="btn-send">Send</button>
+                <button id="btn-clear" data-i18n="common.clear">Clear</button>
+                <button id="btn-close" data-i18n="common.close">Close</button>
+                <button id="btn-send" data-i18n="common.send">Send</button>
             </div>
         </div>
         <div id="toolbar">
             <div class="key-row">
-                <button class="key" id="btn-paste" title="Paste">📋</button>
+                <button class="key" id="btn-paste" title="Paste" data-i18n="common.paste" data-i18n-attr="title">📋</button>
                 <button class="key" data-key="Esc">Esc</button>
                 <button class="key" data-key="Tab">Tab</button>
                 <button class="key" data-key="Ctrl">Ctrl</button>
                 <button class="key" data-key="Alt">Alt</button>
-                <button class="key" id="btn-toggle-input" title="Input Mode">📝</button>
+                <button class="key" id="btn-toggle-input" title="Input Mode" data-i18n="common.inputMode" data-i18n-attr="title">📝</button>
             </div>
             <div class="key-row">
                 <button class="key" data-key="Home">Home</button>
