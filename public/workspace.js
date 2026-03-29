@@ -189,14 +189,14 @@
     }
 
     function renderHeader() {
-        elements.title.textContent = state.workspaceRoot || 'Workspace';
+        elements.title.textContent = state.workspaceRoot || t('workspace.branding');
         if (state.meta.disabledReason) {
-            elements.subtitle.textContent = '当前工作区不可用';
+            elements.subtitle.textContent = t('workspace.subtitle.unavailable');
             return;
         }
         elements.subtitle.textContent = state.meta.isGitRepo
-            ? `Git Root: ${state.meta.gitRoot || ''}`
-            : '当前目录不在 Git 仓库中';
+            ? t('workspace.subtitle.gitRoot', { gitRoot: state.meta.gitRoot || '' })
+            : t('workspace.subtitle.notGitRepo');
     }
 
     function renderBrowserList(entries) {
@@ -212,7 +212,7 @@
                 </span>
                 <span class="browser-badges">
                     <span class="badge ${entry.type === 'directory' ? 'badge-dir' : 'badge-file'}">
-                        ${entry.type === 'directory' ? 'DIR' : 'FILE'}
+                        ${entry.type === 'directory' ? t('workspace.browser.dirBadge') : t('workspace.browser.fileBadge')}
                     </span>
                     ${entry.gitStatus ? `<span class="badge badge-git">${escapeHtml(entry.gitStatus)}</span>` : ''}
                 </span>
@@ -236,7 +236,7 @@
         if (state.errorState.tree) {
             setStatusBox(elements.browserStatus, state.errorState.tree, 'error');
         } else if (state.loadingState.tree) {
-            setStatusBox(elements.browserStatus, '正在加载目录...', 'loading');
+            setStatusBox(elements.browserStatus, t('workspace.browser.loadingDir'), 'loading');
         } else {
             setStatusBox(elements.browserStatus, '', '');
         }
@@ -244,64 +244,64 @@
         if (state.errorState.tree) {
             elements.browserList.innerHTML = '';
             elements.browserEmpty.hidden = false;
-            elements.browserEmpty.textContent = '目录加载失败，请重试。';
+            elements.browserEmpty.textContent = t('workspace.browser.loadFailed');
             return;
         }
 
         renderBrowserList(state.treeEntries);
         const showEmpty = !state.loadingState.tree && state.treeEntries.length === 0;
         elements.browserEmpty.hidden = !showEmpty;
-        elements.browserEmpty.textContent = '当前目录为空。';
+        elements.browserEmpty.textContent = t('workspace.browser.empty');
     }
 
     function buildContentModeMessage(preview) {
         if (preview.previewable === false) {
-            return '该文件不可作为文本预览。';
+            return t('workspace.viewer.notPreviewable');
         }
         if (preview.viewMode === 'full') {
-            return '完整预览';
+            return t('workspace.viewer.fullPreview');
         }
         if (preview.viewMode === 'truncated') {
             return preview.hasMore
-                ? `截断预览，当前已加载 ${preview.returnedBytes || 0} 字节，可继续加载更多。`
-                : '截断预览';
+                ? t('workspace.viewer.truncatedPreview', { bytes: preview.returnedBytes || 0 })
+                : t('workspace.viewer.truncatedPreviewShort');
         }
         if (preview.viewMode === 'segmented') {
             const start = Number.isFinite(preview.offset) ? preview.offset : 0;
             const end = start + (preview.returnedBytes || 0);
-            return `分段查看模式，当前显示 ${start}-${end} 字节区间。`;
+            return t('workspace.viewer.segmentedView', { start, end });
         }
         if (preview.viewMode === 'limited') {
-            const modeLabel = preview.currentLimitedMode === 'tail' ? '尾部' : '头部';
-            return `受限查看模式，当前显示文件${modeLabel}片段。`;
+            const modeLabel = preview.currentLimitedMode === 'tail' ? t('workspace.viewer.tail') : t('workspace.viewer.head');
+            return t('workspace.viewer.limitedView', { mode: modeLabel });
         }
         return '';
     }
 
     function buildDiffStatusMessage(preview) {
         if (preview.reason === 'not_git_repo') {
-            return '当前目录不在 Git 仓库中。';
+            return t('workspace.viewer.diffNotGitRepo');
         }
         if (preview.reason === 'untracked_file') {
-            return '当前文件未被 Git 跟踪，无法生成有效 Diff。';
+            return t('workspace.viewer.diffUntracked');
         }
         if (preview.hasChanges === false) {
-            return '当前文件没有 Git 变更。';
+            return t('workspace.viewer.diffNoChanges');
         }
         if (preview.truncated) {
-            return 'Diff 输出已截断。';
+            return t('workspace.viewer.diffTruncated');
         }
-        return '统一文本 Diff。';
+        return t('workspace.viewer.diffUnified');
     }
 
     function renderViewerPane() {
         const selected = state.selectedFileMeta;
         const preview = state.activeView === 'diff' ? state.diffPreview : state.filePreview;
 
-        elements.viewerTitle.textContent = selected ? selected.name : '未选择文件';
+        elements.viewerTitle.textContent = selected ? selected.name : t('workspace.viewer.noFile');
         elements.viewerMeta.textContent = selected
             ? (selected.path || '')
-            : '打开文件后可查看内容或 Diff';
+            : t('workspace.viewer.hint');
 
         setStatusBox(elements.viewerStatus, '', '');
         elements.viewerModeNote.hidden = true;
@@ -312,7 +312,7 @@
 
         if (!selected) {
             elements.viewerEmpty.hidden = false;
-            elements.viewerEmpty.textContent = '请选择一个文本文件。';
+            elements.viewerEmpty.textContent = t('workspace.viewer.selectFile');
             renderControls();
             return;
         }
@@ -321,20 +321,20 @@
             if (state.errorState.file) {
                 setStatusBox(elements.viewerStatus, state.errorState.file, 'error');
                 elements.viewerEmpty.hidden = false;
-                elements.viewerEmpty.textContent = '文件内容加载失败。';
+                elements.viewerEmpty.textContent = t('workspace.viewer.contentLoadFailed');
                 renderControls();
                 return;
             }
             if (state.loadingState.file && !state.filePreview) {
-                setStatusBox(elements.viewerStatus, '正在加载文件内容...', 'loading');
+                setStatusBox(elements.viewerStatus, t('workspace.viewer.loadingContent'), 'loading');
                 elements.viewerEmpty.hidden = false;
-                elements.viewerEmpty.textContent = '正在获取文件内容。';
+                elements.viewerEmpty.textContent = t('workspace.viewer.fetchingContent');
                 renderControls();
                 return;
             }
             if (!preview) {
                 elements.viewerEmpty.hidden = false;
-                elements.viewerEmpty.textContent = '请选择一个文本文件。';
+                elements.viewerEmpty.textContent = t('workspace.viewer.selectFile');
                 renderControls();
                 return;
             }
@@ -358,20 +358,20 @@
         if (state.errorState.diff) {
             setStatusBox(elements.viewerStatus, state.errorState.diff, 'error');
             elements.viewerEmpty.hidden = false;
-            elements.viewerEmpty.textContent = 'Diff 加载失败，可切回内容视图继续查看文件。';
+            elements.viewerEmpty.textContent = t('workspace.viewer.diffLoadFailed');
             renderControls();
             return;
         }
         if (state.loadingState.diff && !state.diffPreview) {
-            setStatusBox(elements.viewerStatus, '正在加载 Diff...', 'loading');
+            setStatusBox(elements.viewerStatus, t('workspace.viewer.loadingDiff'), 'loading');
             elements.viewerEmpty.hidden = false;
-            elements.viewerEmpty.textContent = '正在获取 Diff。';
+            elements.viewerEmpty.textContent = t('workspace.viewer.fetchingDiff');
             renderControls();
             return;
         }
         if (!state.diffPreview) {
             elements.viewerEmpty.hidden = false;
-            elements.viewerEmpty.textContent = '点击 Diff 以按需加载当前文件变更。';
+            elements.viewerEmpty.textContent = t('workspace.viewer.diffClickToLoad');
             renderControls();
             return;
         }
@@ -421,13 +421,13 @@
             state.meta.disabledReason = payload.disabledReason || '';
             renderHeader();
             if (payload.disabledReason) {
-                setBanner('当前会话缺少可用的 workspaceRoot，无法浏览工作区。', false);
+                setBanner(t('workspace.error.noWorkspaceRoot'), false);
                 return false;
             }
             setBanner('', true);
             return true;
         } catch (error) {
-            state.errorState.page = error.message || '加载工作区失败。';
+            state.errorState.page = error.message || t('workspace.error.loadWorkspaceFailed');
             setBanner(state.errorState.page, false);
             throw error;
         } finally {
@@ -460,7 +460,7 @@
                 return;
             }
             state.treeEntries = [];
-            state.errorState.tree = error.message || '目录加载失败。';
+            state.errorState.tree = error.message || t('workspace.error.loadDirFailed');
             renderBrowserPane();
         } finally {
             if (requestSeq === state.requestState.treeSeq) {
@@ -491,7 +491,7 @@
                 return;
             }
             state.filePreview = null;
-            state.errorState.file = error.message || '文件内容加载失败。';
+            state.errorState.file = error.message || t('workspace.viewer.contentLoadFailed');
             renderViewerPane();
         } finally {
             if (requestSeq === state.requestState.fileSeq && state.selectedFilePath === entry.path) {
@@ -527,7 +527,7 @@
             if (requestSeq !== state.requestState.diffSeq || state.selectedFilePath !== requestPath) {
                 return;
             }
-            state.errorState.diff = error.message || 'Diff 加载失败。';
+            state.errorState.diff = error.message || t('workspace.viewer.diffLoadFailed');
             renderViewerPane();
         } finally {
             if (requestSeq === state.requestState.diffSeq && state.selectedFilePath === requestPath) {
@@ -573,7 +573,7 @@
             renderViewerPane();
         } catch (error) {
             if (requestSeq === state.requestState.moreSeq && state.selectedFilePath === requestPath) {
-                state.errorState.file = error.message || '继续加载文件失败。';
+                state.errorState.file = error.message || t('workspace.viewer.continueLoadFailed');
                 renderViewerPane();
             }
         } finally {
@@ -613,7 +613,7 @@
             renderViewerPane();
         } catch (error) {
             if (requestSeq === state.requestState.moreSeq && state.selectedFilePath === requestPath) {
-                state.errorState.file = error.message || '分段加载失败。';
+                state.errorState.file = error.message || t('workspace.viewer.segmentLoadFailed');
                 renderViewerPane();
             }
         } finally {
@@ -648,7 +648,7 @@
             renderViewerPane();
         } catch (error) {
             if (requestSeq === state.requestState.moreSeq && state.selectedFilePath === requestPath) {
-                state.errorState.file = error.message || '切换受限查看模式失败。';
+                state.errorState.file = error.message || t('workspace.viewer.limitedModeFailed');
                 renderViewerPane();
             }
         } finally {
@@ -726,8 +726,11 @@
     async function bootstrap() {
         applyInjectedConfig(readInjectedConfig());
 
+        await i18n.init();
+        i18n.translatePage();
+
         if (!state.sessionId) {
-            setBanner('缺少 sessionId，无法打开工作区。', false);
+            setBanner(t('workspace.error.noSessionId'), false);
             return;
         }
 
@@ -741,7 +744,7 @@
             }
             await loadTree(state.defaultEntryPath || '');
         } catch (error) {
-            setBanner(error.message || '加载工作区失败。', false);
+            setBanner(error.message || t('workspace.error.loadWorkspaceFailed'), false);
         }
     }
 
