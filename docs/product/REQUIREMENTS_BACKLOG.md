@@ -34,4 +34,5 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/R
 | REQ-20260318-ws-0001-docs-exp | Codex Workspace 文件浏览与 Diff 查看（原产品编号 REQ-WS-0001） | P1 | in_progress | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260318-WS-0001-docs-exp.md` |
 | REQ-20260324-session-list-local-cache | Android 会话列表本地缓存与离线回显 | P1 | done | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260324-session-list-local-cache.md` |
 | REQ-20260326-android-profile-mtls-runtime-certificate | Android Profile 级 mTLS 运行时证书选择 | P1 | planned | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260326-android-profile-mtls-runtime-certificate.md` |
+| REQ-20260329-language-normalization | 基于系统语言的应用语言自动适配与 i18n 框架建设 | P0 | planned | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260329-language-normalization.md` |
 | REQ-20260306-codex-app-repair-plan | Codex App 侧修复计划（独立聊天窗与会话路径治理） | P1 | archived | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260306-codex-app-repair-plan.md` |
