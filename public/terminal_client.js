@@ -293,14 +293,16 @@ const viewportState = {
     compact: false
 };
 
-const REASONING_EFFORT_LABELS = {
-    none: '无',
-    minimal: '极低',
-    low: '低',
-    medium: '中',
-    high: '高',
-    xhigh: '超高'
-};
+function getReasoningEffortLabels() {
+    return {
+        none: t('codex.effort.none'),
+        minimal: t('codex.effort.minimal'),
+        low: t('codex.effort.low'),
+        medium: t('codex.effort.medium'),
+        high: t('codex.effort.high'),
+        xhigh: t('codex.effort.xhigh')
+    };
+}
 
 function readInjectedConfig() {
     if (!window.__TERMLINK_CONFIG__ || typeof window.__TERMLINK_CONFIG__ !== 'object') {
@@ -431,15 +433,15 @@ function notifyNativeSessionInfo(id, name, privilegeLevel) {
 function localizeCodexStatus(status) {
     switch ((status || 'idle').trim().toLowerCase()) {
     case 'running':
-        return '执行中';
+        return t('codex.status.running');
     case 'streaming':
-        return '输出中';
+        return t('codex.status.streaming');
     case 'waiting_approval':
-        return '等待审批';
+        return t('codex.status.waitingApproval');
     case 'error':
-        return '错误';
+        return t('codex.status.error');
     default:
-        return '空闲';
+        return t('codex.status.idle');
     }
 }
 
@@ -449,15 +451,15 @@ function localizeCodexStatusDetail(detail) {
         return '';
     }
     const localized = {
-        'starting turn': '开始发送',
-        'restoring thread': '恢复线程中',
-        'creating fresh task': '正在创建新任务',
-        'thread ready': '线程已就绪',
-        'in progress': '处理中',
-        'turn started': '已开始执行',
-        'bridge disconnected': '连接已断开',
-        'bridge transport error': '桥接传输异常',
-        'event error': '事件异常'
+        'starting turn': t('codex.statusDetail.startingTurn'),
+        'restoring thread': t('codex.statusDetail.restoringThread'),
+        'creating fresh task': t('codex.statusDetail.creatingTask'),
+        'thread ready': t('codex.statusDetail.threadReady'),
+        'in progress': t('codex.statusDetail.inProgress'),
+        'turn started': t('codex.statusDetail.turnStarted'),
+        'bridge disconnected': t('codex.statusDetail.bridgeDisconnected'),
+        'bridge transport error': t('codex.statusDetail.bridgeTransportError'),
+        'event error': t('codex.statusDetail.eventError')
     };
     return localized[normalized] || detail;
 }
@@ -628,13 +630,13 @@ function renderCodexAuxStatus() {
         const parts = [];
         if (codexState.approvalPending) {
             const count = codexState.pendingServerRequestCount || 0;
-            parts.push(count === 1 ? '有 1 个待审批请求' : `有 ${count} 个待审批请求`);
+            parts.push(count === 1 ? t('codex.status.approvalCount1') : t('codex.status.approvalCountN', { count }));
         }
         if (codexState.tokenUsageSummary) {
             parts.push(codexState.tokenUsageSummary);
         }
         if (codexState.rateLimitSummary && codexState.rateLimitTone !== 'warn' && codexState.rateLimitTone !== 'error') {
-            parts.push(`额度：${codexState.rateLimitSummary}`);
+            parts.push(t('codex.notice.quota', { summary: codexState.rateLimitSummary }));
         }
         codexMetaText.textContent = parts.join(' | ');
     }
@@ -646,7 +648,7 @@ function renderCodexAuxStatus() {
             notice = codexState.errorNotice;
             tone = 'error';
         } else if (codexState.rateLimitSummary && (codexState.rateLimitTone === 'warn' || codexState.rateLimitTone === 'error')) {
-            notice = `额度：${codexState.rateLimitSummary}`;
+            notice = t('codex.notice.quota', { summary: codexState.rateLimitSummary });
             tone = codexState.rateLimitTone;
         }
         codexNoticeText.textContent = notice;
@@ -719,11 +721,11 @@ function renderCodexHistoryList() {
 
     let emptyText = '';
     if (codexState.historyListLoading) {
-        emptyText = '正在加载已保存线程...';
+        emptyText = t('codex.thread.loadingSaved');
     } else if (entries.length === 0) {
         emptyText = codexState.capabilities.historyList === true
-            ? '暂无已保存线程。'
-            : '当前服务端不支持线程历史。';
+            ? t('codex.thread.noSaved')
+            : t('codex.thread.historyUnsupported');
     }
 
     if (emptyText) {
@@ -750,14 +752,14 @@ function renderCodexHistoryList() {
 
             const renameLabel = document.createElement('span');
             renameLabel.className = 'codex-history-rename-label';
-            renameLabel.textContent = '线程名称';
+            renameLabel.textContent = t('codex.thread.renameLabel');
 
             const renameInput = document.createElement('input');
             renameInput.type = 'text';
             renameInput.className = 'codex-history-rename-input';
             renameInput.value = codexState.historyRenameDraft;
             renameInput.maxLength = 200;
-            renameInput.placeholder = '输入线程名称';
+            renameInput.placeholder = t('codex.thread.renamePlaceholder');
             renameInput.addEventListener('input', () => {
                 codexState.historyRenameDraft = renameInput.value;
             });
@@ -805,14 +807,14 @@ function renderCodexHistoryList() {
                     badge.classList.add('active');
                 }
                 badge.textContent = ({
-                    Current: '当前',
-                    Saved: '上次',
-                    Archived: '已归档',
-                    Opening: '打开中',
-                    Forking: '分支中',
-                    Renaming: '重命名中',
-                    Archiving: '归档中',
-                    Restoring: '恢复中'
+                    Current: t('codex.thread.badgeMap.current'),
+                    Saved: t('codex.thread.badgeMap.saved'),
+                    Archived: t('codex.thread.badgeMap.archived'),
+                    Opening: t('codex.thread.badgeMap.opening'),
+                    Forking: t('codex.thread.badgeMap.forking'),
+                    Renaming: t('codex.thread.badgeMap.renaming'),
+                    Archiving: t('codex.thread.badgeMap.archiving'),
+                    Restoring: t('codex.thread.badgeMap.restoring')
                 })[badgeLabel] || badgeLabel;
                 badges.appendChild(badge);
             });
@@ -825,7 +827,7 @@ function renderCodexHistoryList() {
         const primaryAction = document.createElement('button');
         primaryAction.type = 'button';
         primaryAction.className = 'codex-history-primary-action';
-        primaryAction.textContent = entry.active ? '当前' : (entry.pending ? '处理中...' : '打开');
+        primaryAction.textContent = entry.active ? t('codex.thread.openAction.current') : (entry.pending ? t('codex.thread.openAction.pending') : t('codex.thread.openAction.open'));
         primaryAction.disabled = renameEditing || !!(entry.actions && entry.actions[0] && entry.actions[0].disabled);
         primaryAction.addEventListener('click', () => {
             if (entry.active) {
@@ -838,7 +840,7 @@ function renderCodexHistoryList() {
                 }
                 appendCodexLogEntry(
                     'error',
-                    `打开 Codex 线程 ${entry.id} 失败：${error.message || '未知错误'}`,
+                    t('codex.thread.openFailed', { id: entry.id, error: error.message || t('codex.error.unknownError') }),
                     { meta: 'history' }
                 );
             });
@@ -853,7 +855,7 @@ function renderCodexHistoryList() {
                 const saveButton = document.createElement('button');
                 saveButton.type = 'button';
                 saveButton.className = 'codex-history-secondary-action primary';
-                saveButton.textContent = '保存';
+                saveButton.textContent = t('codex.thread.saveBtn');
                 saveButton.disabled = entry.pending === true;
                 saveButton.addEventListener('click', () => {
                     void submitCodexThreadRename(entry.id, entry.title);
@@ -862,7 +864,7 @@ function renderCodexHistoryList() {
                 const cancelButton = document.createElement('button');
                 cancelButton.type = 'button';
                 cancelButton.className = 'codex-history-secondary-action';
-                cancelButton.textContent = '取消';
+                cancelButton.textContent = t('codex.thread.cancelBtn');
                 cancelButton.disabled = entry.pending === true;
                 cancelButton.addEventListener('click', () => {
                     cancelCodexThreadRename();
@@ -1269,17 +1271,17 @@ function renderCodexPlanWorkflow() {
         return;
     }
 
-    let title = '计划进行中';
-    let summary = 'Codex 正在规划，当前不会直接执行。';
+    let title = t('codex.plan.inProgress');
+    let summary = t('codex.plan.summary');
     if (phase === 'awaiting_user_input') {
-        title = '等待补充信息';
-        summary = '需要你的选择后才能继续规划。';
+        title = t('codex.plan.awaitingTitle');
+        summary = t('codex.plan.awaitingSummary');
     } else if (phase === 'plan_ready_for_confirmation') {
-        title = '计划待确认';
-        summary = '当前计划已生成。确认后才会进入真实执行。';
+        title = t('codex.plan.readyTitle');
+        summary = t('codex.plan.readySummary');
     } else if (phase === 'executing_confirmed_plan') {
-        title = '按确认计划执行中';
-        summary = '已切换到默认执行 turn。';
+        title = t('codex.plan.executingTitle');
+        summary = t('codex.plan.executingSummary');
     }
 
     if (codexPlanWorkflowTitle) {
@@ -1290,7 +1292,7 @@ function renderCodexPlanWorkflow() {
     }
     if (codexPlanWorkflowBody) {
         const text = getPlanWorkflowDisplayText();
-        codexPlanWorkflowBody.textContent = text || '等待计划文本...';
+        codexPlanWorkflowBody.textContent = text || t('codex.plan.waitingText');
     }
     if (btnCodexPlanExecute) {
         btnCodexPlanExecute.hidden = phase !== 'plan_ready_for_confirmation';
@@ -1330,13 +1332,13 @@ function renderCodexComposerState() {
     const planMode = codexState.interactionState.planMode === true;
     const parts = [];
     if (codexState.nextTurnEffectiveCodexConfig && codexState.nextTurnOverrides.model) {
-        parts.push(`模型：${codexState.nextTurnEffectiveCodexConfig.model}`);
+        parts.push(t('codex.override.model', { model: codexState.nextTurnEffectiveCodexConfig.model }));
     }
     if (codexState.nextTurnEffectiveCodexConfig && codexState.nextTurnOverrides.reasoningEffort) {
-        parts.push(`推理：${codexState.nextTurnEffectiveCodexConfig.reasoningEffort}`);
+        parts.push(t('codex.override.reasoning', { effort: codexState.nextTurnEffectiveCodexConfig.reasoningEffort }));
     }
     if (codexState.interactionState.activeSkill) {
-        parts.push(`技能：${codexState.interactionState.activeSkill}`);
+        parts.push(t('codex.override.skill', { skill: codexState.interactionState.activeSkill }));
     }
     codexComposerState.hidden = !planMode && parts.length === 0;
     if (codexPlanChip) {
@@ -1348,8 +1350,8 @@ function renderCodexComposerState() {
     }
     if (codexInput) {
         codexInput.placeholder = codexState.interactionState.activeSkill
-            ? `已选择技能 ${codexState.interactionState.activeSkill}，继续输入你的具体需求...`
-            : '随便问点什么...';
+            ? t('codex.input.skillActive', { skill: codexState.interactionState.activeSkill })
+            : t('codex.input.placeholder');
     }
 }
 
@@ -1393,7 +1395,7 @@ function removePendingCodexImageInput(index) {
 
 function promptForCodexImageInput(type) {
     if (codexState.capabilities.imageInput !== true) {
-        appendCodexLogEntry('error', '当前服务端未开放图像输入。', { meta: 'image' });
+        appendCodexLogEntry('error', t('codex.image.serverUnavailable'), { meta: 'image' });
         return;
     }
     const isLocal = type === 'localImage';
@@ -1413,10 +1415,10 @@ function promptForCodexImageInput(type) {
     codexState.pendingImagePromptType = type;
 
     if (codexImagePromptTitle) {
-        codexImagePromptTitle.textContent = '输入图像 URL';
+        codexImagePromptTitle.textContent = t('codex.image.promptTitle');
     }
     if (codexImagePromptInput) {
-        codexImagePromptInput.placeholder = '例如: https://example.com/shot.png';
+        codexImagePromptInput.placeholder = t('codex.image.inputPlaceholder');
         codexImagePromptInput.value = '';
     }
 
@@ -1459,7 +1461,7 @@ function getOrCreateCodexImageFileInput() {
             }
         };
         reader.onerror = () => {
-            appendCodexLogEntry('error', '读取图片文件失败。', { meta: 'image' });
+            appendCodexLogEntry('error', t('codex.image.readFailed'), { meta: 'image' });
         };
         reader.readAsDataURL(file);
         // 清理以便重复选择同一文件
@@ -1529,13 +1531,13 @@ function renderCodexImageInputs() {
 
         const label = document.createElement('span');
         label.className = 'codex-image-chip-label';
-        label.textContent = entry.type === 'localImage' ? '本地图片' : '图像 URL';
+        label.textContent = entry.type === 'localImage' ? t('codex.image.localLabel') : t('codex.image.urlLabel');
 
         const value = document.createElement('span');
         value.className = 'codex-image-chip-value';
         // 本地图片显示文件名，URL 显示完整 URL
         if (entry.type === 'localImage') {
-            value.textContent = entry.name || '本地图片';
+            value.textContent = entry.name || t('codex.image.localLabel');
         } else {
             value.textContent = entry.url;
         }
@@ -1544,7 +1546,7 @@ function renderCodexImageInputs() {
         remove.type = 'button';
         remove.className = 'codex-image-chip-remove';
         remove.textContent = 'x';
-        remove.setAttribute('aria-label', '移除图像输入');
+        remove.setAttribute('aria-label', t('codex.image.removeLabel'));
         remove.addEventListener('click', () => {
             removePendingCodexImageInput(index);
         });
@@ -1595,7 +1597,7 @@ function populateCodexQuickModelSelect(forcedValue) {
     if (selectedValue && !seen.has(selectedValue)) {
         const option = document.createElement('option');
         option.value = selectedValue;
-        option.textContent = `${selectedValue}（自定义）`;
+        option.textContent = t('codex.model.customSuffix', { value: selectedValue });
         codexQuickModel.appendChild(option);
     }
     codexQuickModel.value = selectedValue;
@@ -1603,7 +1605,7 @@ function populateCodexQuickModelSelect(forcedValue) {
 
 function buildModelDefaultLabel() {
     if (codexState.settingsLoadingModels) {
-        return '正在加载模型...';
+        return t('codex.model.loading');
     }
     const effectiveModel = codexState.nextTurnEffectiveCodexConfig && codexState.nextTurnEffectiveCodexConfig.model
         ? codexState.nextTurnEffectiveCodexConfig.model
@@ -1614,15 +1616,15 @@ function buildModelDefaultLabel() {
     const defaultModelEntry = codexState.modelCatalog.find((entry) => entry && entry.isDefault === true)
         || codexState.modelCatalog.find((entry) => entry && entry.id)
         || null;
-    return defaultModelEntry ? defaultModelEntry.label : '未解析模型';
+    return defaultModelEntry ? defaultModelEntry.label : t('codex.model.unresolved');
 }
 
 function buildReasoningDefaultLabel() {
     const effectiveReasoning = codexState.nextTurnEffectiveCodexConfig && codexState.nextTurnEffectiveCodexConfig.reasoningEffort
         ? codexState.nextTurnEffectiveCodexConfig.reasoningEffort
         : '';
-    if (effectiveReasoning && REASONING_EFFORT_LABELS[effectiveReasoning]) {
-        return REASONING_EFFORT_LABELS[effectiveReasoning];
+    if (effectiveReasoning && getReasoningEffortLabels()[effectiveReasoning]) {
+        return getReasoningEffortLabels()[effectiveReasoning];
     }
     const fallbackModelId = resolveReasoningModelId();
     const fallbackModelEntry = findCodexModelEntry(fallbackModelId)
@@ -1632,9 +1634,9 @@ function buildReasoningDefaultLabel() {
     const defaultReasoning = fallbackModelEntry && typeof fallbackModelEntry.defaultReasoningEffort === 'string'
         ? fallbackModelEntry.defaultReasoningEffort
         : '';
-    return defaultReasoning && REASONING_EFFORT_LABELS[defaultReasoning]
-        ? REASONING_EFFORT_LABELS[defaultReasoning]
-        : '未解析强度';
+    return defaultReasoning && getReasoningEffortLabels()[defaultReasoning]
+        ? getReasoningEffortLabels()[defaultReasoning]
+        : t('codex.effort.unresolved');
 }
 
 function resolveReasoningModelId() {
@@ -1688,9 +1690,9 @@ function renderCodexSlashMenu() {
     codexSlashMenu.hidden = !shouldShow;
     codexSlashMenuList.innerHTML = '';
     if (isSkillQuery && codexState.skillsLoading) {
-        codexSlashMenuEmpty.textContent = '正在加载技能...';
+        codexSlashMenuEmpty.textContent = t('codex.slash.loadingSkills');
     } else if (isSkillQuery && codexState.skillListRequested && skillItems.length === 0) {
-        codexSlashMenuEmpty.textContent = '未找到匹配技能';
+        codexSlashMenuEmpty.textContent = t('codex.slash.noMatchingSkills');
     } else {
         codexSlashMenuEmpty.textContent = 'No matching commands';
     }
@@ -1748,7 +1750,7 @@ function renderCodexSlashMenu() {
         if (entry.availability !== 'enabled') {
             const status = document.createElement('span');
             status.className = 'codex-slash-item-status';
-            status.textContent = entry.availability === 'contract_frozen_not_enabled' ? '未开放' : '预留';
+            status.textContent = entry.availability === 'contract_frozen_not_enabled' ? t('codex.slash.contractFrozen') : t('codex.slash.reserved');
             button.appendChild(status);
         }
         button.addEventListener('click', () => {
@@ -1821,7 +1823,7 @@ function renderCodexFileMentionMenu() {
     if (codexState.fileMentionResults.length === 0) {
         if (codexFileMentionMenuEmpty) {
             codexFileMentionMenuEmpty.style.display = 'block';
-            codexFileMentionMenuEmpty.textContent = codexState.fileMentionQuery ? '无匹配文件' : '无文件';
+            codexFileMentionMenuEmpty.textContent = codexState.fileMentionQuery ? t('codex.fileMention.empty') : t('codex.fileMention.noFiles');
         }
         if (codexFileMentionMenuList) codexFileMentionMenuList.style.display = 'none';
         return;
@@ -2167,7 +2169,7 @@ function formatCodexContextSummaryLine(usage) {
     if (!usage) {
         return '--';
     }
-    return `${usage.usedPercent}% 已用（剩余 ${usage.remainingPercent}%）`;
+    return t('codex.context.usedPercent', { used: usage.usedPercent, remaining: usage.remainingPercent });
 }
 
 function formatCodexContextTokensLine(usage) {
@@ -2177,7 +2179,7 @@ function formatCodexContextTokensLine(usage) {
     if (usedTokens === null || contextWindow === null) {
         return '--';
     }
-    return `已用 ${formatCompactNumber(usedTokens)} 标记，共 ${formatCompactNumber(contextWindow)}`;
+    return t('codex.context.tokenSummary', { usedTokens: formatCompactNumber(usedTokens), totalTokens: formatCompactNumber(contextWindow) });
 }
 
 function renderCodexContextDebugModal() {
@@ -2192,7 +2194,7 @@ function renderCodexContextDebugModal() {
         codexContextDebugTokens.textContent = formatCodexContextTokensLine(usage);
     }
     if (codexContextDebugNote) {
-        codexContextDebugNote.textContent = 'Codex 自动压缩其背景信息';
+        codexContextDebugNote.textContent = t('codex.context.autoCompact');
     }
 }
 
@@ -2308,7 +2310,7 @@ function getReasoningOptionsForModel(modelId) {
     const options = modelEntry && Array.isArray(modelEntry.supportedReasoningEfforts)
         ? modelEntry.supportedReasoningEfforts
         : [];
-    return options.filter((value, index, arr) => REASONING_EFFORT_LABELS[value] && arr.indexOf(value) === index);
+    return options.filter((value, index, arr) => getReasoningEffortLabels()[value] && arr.indexOf(value) === index);
 }
 
 function canLoadCodexSkills() {
@@ -2412,13 +2414,13 @@ function populateCodexReasoningSelect(selectEl, options) {
 
     const defaultOption = document.createElement('option');
     defaultOption.value = '';
-    defaultOption.textContent = opts.defaultLabel || '默认';
+    defaultOption.textContent = opts.defaultLabel || t('common.default');
     selectEl.appendChild(defaultOption);
 
     optionValues.forEach((value) => {
         const option = document.createElement('option');
         option.value = value;
-        option.textContent = REASONING_EFFORT_LABELS[value] || value;
+        option.textContent = getReasoningEffortLabels()[value] || value;
         selectEl.appendChild(option);
     });
     selectEl.value = optionValues.includes(selectedValue) ? selectedValue : '';
@@ -2513,9 +2515,9 @@ function renderCodexToolsPanel() {
     const hasThread = !!(typeof codexState.threadId === 'string' && codexState.threadId.trim());
     const compactStatusText = codexState.compactStatusText
         || (
-            !compactEnabled ? '当前服务端未开放上下文压缩。'
-                : !hasThread ? '当前还没有可压缩的线程，请先发送一条消息或恢复已有线程。'
-                    : '确认后将对当前线程发起一次 compact 请求。'
+            !compactEnabled ? t('codex.compact.serverUnavailable')
+                : !hasThread ? t('codex.compact.noThread')
+                    : t('codex.compact.readyDesc')
         );
 
     if (codexToolsSkillsCard) {
@@ -2528,11 +2530,11 @@ function renderCodexToolsPanel() {
     }
     if (codexToolsSkillsMeta) {
         if (skillsEnabled && codexState.skillsLoading) {
-            codexToolsSkillsMeta.textContent = '加载中';
+            codexToolsSkillsMeta.textContent = t('codex.skills.loading');
         } else if (skillsEnabled && codexState.skillCatalog.length > 0) {
-            codexToolsSkillsMeta.textContent = `${codexState.skillCatalog.length} 个技能`;
+            codexToolsSkillsMeta.textContent = t('codex.skills.count', { count: codexState.skillCatalog.length });
         } else {
-            codexToolsSkillsMeta.textContent = skillsEnabled ? '等待加载' : '';
+            codexToolsSkillsMeta.textContent = skillsEnabled ? t('codex.skills.waiting') : '';
         }
     }
     if (codexToolsSkillsEmpty) {
@@ -2540,13 +2542,13 @@ function renderCodexToolsPanel() {
             codexToolsSkillsEmpty.hidden = true;
         } else if (codexState.skillsLoading) {
             codexToolsSkillsEmpty.hidden = false;
-            codexToolsSkillsEmpty.textContent = '正在加载技能列表...';
+            codexToolsSkillsEmpty.textContent = t('codex.skills.loadingList');
         } else if (codexState.skillListRequested && codexState.skillCatalog.length === 0) {
             codexToolsSkillsEmpty.hidden = false;
-            codexToolsSkillsEmpty.textContent = '当前没有可用技能。';
+            codexToolsSkillsEmpty.textContent = t('codex.skills.noneAvailable');
         } else if (codexState.skillCatalog.length === 0) {
             codexToolsSkillsEmpty.hidden = false;
-            codexToolsSkillsEmpty.innerHTML = '输入 <code>/skills</code> 后可在此浏览可用技能。';
+            codexToolsSkillsEmpty.innerHTML = t('codex.tools.skillsEmpty');
         } else {
             codexToolsSkillsEmpty.hidden = true;
         }
@@ -2565,12 +2567,12 @@ function renderCodexToolsPanel() {
                 copy.appendChild(title);
                 const desc = document.createElement('div');
                 desc.className = 'codex-tools-skill-desc';
-                desc.textContent = entry.description || '无额外说明';
+                desc.textContent = entry.description || t('codex.skills.noDescription');
                 copy.appendChild(desc);
                 const action = document.createElement('button');
                 action.type = 'button';
                 action.className = 'codex-btn subtle';
-                action.textContent = '选择';
+                action.textContent = t('codex.skills.selectBtn');
                 action.addEventListener('click', () => {
                     applyCodexSkillSelection(entry);
                 });
@@ -2581,7 +2583,7 @@ function renderCodexToolsPanel() {
         }
     }
     if (codexToolsCompactMeta) {
-        codexToolsCompactMeta.textContent = hasThread ? '当前线程可用' : '等待线程';
+        codexToolsCompactMeta.textContent = hasThread ? t('codex.skills.threadAvailable') : t('codex.skills.threadWaiting');
     }
     if (codexToolsCompactStatus) {
         codexToolsCompactStatus.textContent = compactStatusText;
@@ -2591,34 +2593,34 @@ function renderCodexToolsPanel() {
     if (btnCodexCompactConfirm) {
         btnCodexCompactConfirm.disabled = !compactEnabled || !hasThread || codexState.compactSubmitting === true;
         btnCodexCompactConfirm.textContent = codexState.compactSubmitting === true
-            ? '压缩中...'
-            : '确认压缩当前线程';
+            ? t('codex.compact.compressing')
+            : t('codex.tools.compactConfirm');
     }
 }
 
 function requestCodexCompactCurrentThread() {
     if (codexState.capabilities.compact !== true) {
-        setCodexCompactStatus('当前服务端未开放上下文压缩。', 'error');
+        setCodexCompactStatus(t('codex.compact.serverUnavailable'), 'error');
         return Promise.resolve(null);
     }
     const threadId = typeof codexState.threadId === 'string' ? codexState.threadId.trim() : '';
     if (!threadId) {
-        setCodexCompactStatus('当前还没有可压缩的线程，请先发送一条消息或恢复已有线程。', 'error');
+        setCodexCompactStatus(t('codex.compact.noThread'), 'error');
         return Promise.resolve(null);
     }
 
     codexState.compactSubmitting = true;
-    setCodexCompactStatus('正在请求压缩当前线程...', '');
+    setCodexCompactStatus(t('codex.compact.requesting'), '');
     return sendCodexBridgeRequest('thread/compact/start', { threadId }, { suppressErrorUi: true })
         .then((result) => {
-            appendCodexLogEntry('system', `已请求压缩线程 ${threadId}。`, { meta: 'compact' });
-            setCodexCompactStatus('压缩请求已提交，等待完成通知...', '');
+            appendCodexLogEntry('system', t('codex.compact.requested', { id: threadId }), { meta: 'compact' });
+            setCodexCompactStatus(t('codex.compact.requestSubmitted'), '');
             setCodexSecondaryPanel('none');
             return result;
         })
         .catch((error) => {
             codexState.compactSubmitting = false;
-            setCodexCompactStatus(error && error.message ? error.message : '压缩上下文失败。', 'error');
+            setCodexCompactStatus(error && error.message ? error.message : t('codex.compact.failed'), 'error');
             return null;
         })
         .finally(() => {
@@ -2637,11 +2639,11 @@ function resolveCodexCompactThreadId(params) {
 }
 
 function buildCodexCompactedMessage(params) {
-    const compactedThreadId = resolveCodexCompactThreadId(params) || codexState.threadId || '当前线程';
+    const compactedThreadId = resolveCodexCompactThreadId(params) || codexState.threadId || t('codex.compact.currentThread');
     const summary = formatTokenUsageSummary(params || {});
     return summary
-        ? `线程 ${compactedThreadId} 已完成上下文压缩，${summary}。`
-        : `线程 ${compactedThreadId} 已完成上下文压缩。`;
+        ? t('codex.compact.completedWithSummary', { id: compactedThreadId, summary })
+        : t('codex.compact.completed', { id: compactedThreadId });
 }
 
 function renderCodexRuntimePanel() {
@@ -2653,16 +2655,16 @@ function renderCodexRuntimePanel() {
     }
 
     if (codexRuntimeDiff) {
-        codexRuntimeDiff.textContent = codexState.runtimeDiff || '等待变更更新...';
+        codexRuntimeDiff.textContent = codexState.runtimeDiff || t('codex.runtime.waitingDiff');
     }
     if (codexRuntimePlan) {
-        codexRuntimePlan.textContent = codexState.runtimePlan || '等待计划更新...';
+        codexRuntimePlan.textContent = codexState.runtimePlan || t('codex.runtime.waitingPlan');
     }
     if (codexRuntimeReasoning) {
-        codexRuntimeReasoning.textContent = codexState.runtimeReasoning || '等待推理更新...';
+        codexRuntimeReasoning.textContent = codexState.runtimeReasoning || t('codex.runtime.waitingReasoning');
     }
     if (codexRuntimeTerminal) {
-        codexRuntimeTerminal.textContent = codexState.runtimeTerminalOutput || '等待终端输出...';
+        codexRuntimeTerminal.textContent = codexState.runtimeTerminalOutput || t('codex.runtime.waitingTerminal');
     }
     if (codexRuntimeWarning) {
         codexRuntimeWarning.hidden = !codexState.runtimeWarning;
@@ -2786,7 +2788,7 @@ function refreshCodexModelList(options) {
     codexState.modelListRequested = true;
     codexState.settingsLoadingModels = true;
     if (opts.silent !== true) {
-        setCodexSettingsStatus('正在刷新模型列表...', '');
+        setCodexSettingsStatus(t('codex.model.refreshing'), '');
     }
 
     codexState.modelListPromise = sendCodexBridgeRequest('model/list', undefined, { suppressErrorUi: opts.silent === true })
@@ -2794,7 +2796,7 @@ function refreshCodexModelList(options) {
             codexState.modelCatalog = normalizeCodexModelCatalog(result);
             codexState.modelOptions = normalizeCodexModelOptions(result);
             if (opts.silent !== true) {
-                setCodexSettingsStatus('模型列表已刷新。', 'success');
+                setCodexSettingsStatus(t('codex.model.refreshed'), 'success');
             }
             renderCodexQuickControls();
             return codexState.modelOptions;
@@ -2802,7 +2804,7 @@ function refreshCodexModelList(options) {
         .catch((error) => {
             codexState.modelListRequested = false;
             if (opts.silent !== true) {
-                const message = error && error.message ? error.message : '加载模型失败。';
+                const message = error && error.message ? error.message : t('codex.model.refreshFailed');
                 setCodexSettingsStatus(message, 'error');
                 appendCodexLogEntry('error', message, { meta: 'models' });
             }
@@ -2841,7 +2843,7 @@ function refreshCodexRateLimits(options) {
 
     codexState.settingsRefreshingRateLimits = true;
     if (opts.silent !== true) {
-        setCodexSettingsStatus('正在刷新额度信息...', '');
+        setCodexSettingsStatus(t('codex.model.refreshingQuota'), '');
     }
 
     return sendCodexBridgeRequest('account/rateLimits/read', undefined, { suppressErrorUi: opts.silent === true })
@@ -2851,17 +2853,17 @@ function refreshCodexRateLimits(options) {
             if (opts.silent !== true) {
                 const summary = codexState.rateLimitSummary;
                 if (summary) {
-                    setCodexSettingsStatus(`额度：${summary}`, codexState.rateLimitTone || 'success');
+                    setCodexSettingsStatus(t('codex.model.quotaSummary', { summary }), codexState.rateLimitTone || 'success');
                 } else {
                     const keys = result ? Object.keys(result).join(', ') : 'null';
-                    setCodexSettingsStatus(`额度快照已刷新，但未识别到额度数据 (keys: ${keys})`, 'warn');
+                    setCodexSettingsStatus(t('codex.model.quotaUnrecognized', { keys }), 'warn');
                 }
             }
             return result;
         })
         .catch((error) => {
             if (opts.silent !== true) {
-                const message = error && error.message ? error.message : '读取额度信息失败。';
+                const message = error && error.message ? error.message : t('codex.model.quotaFailed');
                 setCodexSettingsStatus(message, 'error');
                 appendCodexLogEntry('error', message, { meta: 'limits' });
             }
@@ -3332,7 +3334,7 @@ function getEnabledCodexSlashCommands() {
 }
 
 function buildUnsupportedSlashCommandMessage() {
-    return `未识别命令。当前支持：${getEnabledCodexSlashCommands().join('、')}。`;
+    return t('codex.error.unrecognizedCommand', { commands: getEnabledCodexSlashCommands().join(t('codex.slash.separator')) });
 }
 
 function clearPendingCodexFreshThreadTimeout() {
@@ -3571,7 +3573,7 @@ function refreshCodexThreadList(options) {
         .catch((error) => {
             codexState.historyListRequested = false;
             if (opts.silent !== true) {
-                appendCodexLogEntry('error', error.message || '加载 Codex 线程历史失败。', { meta: 'history' });
+                appendCodexLogEntry('error', error.message || t('codex.thread.loadHistoryFailed'), { meta: 'history' });
             }
             return [];
         })
@@ -3590,7 +3592,7 @@ function requestCodexResume(threadId) {
     codexState.historyActionKind = 'open';
     renderCodexHistoryList();
     codexState.resumeAttemptedForThreadId = normalizedThreadId;
-    appendCodexLogEntry('system', `正在恢复 Codex 线程 ${normalizedThreadId}...`, { meta: 'history' });
+    appendCodexLogEntry('system', t('codex.thread.restoring', { id: normalizedThreadId }), { meta: 'history' });
     setCodexStatus('running', 'restoring thread');
     return sendCodexBridgeRequest(
         'thread/resume',
@@ -3605,7 +3607,7 @@ function requestCodexResume(threadId) {
             codexState.pendingFreshThread = false;
             codexState.unmaterializedThreadId = '';
             clearCodexErrorNotice();
-            appendCodexLogEntry('system', `已恢复 Codex 线程 ${resumedThreadId}。`, { meta: 'history' });
+            appendCodexLogEntry('system', t('codex.thread.restored', { id: resumedThreadId }), { meta: 'history' });
             setCodexSecondaryPanel('none');
             return refreshCodexThreadList({ force: true, silent: true }).then(() => result);
         })
@@ -3622,25 +3624,25 @@ function requestCodexThreadMutation(actionKind, threadId) {
     const actionMap = {
         fork: {
             method: 'thread/fork',
-            startText: `正在基于线程 ${normalizedThreadId} 创建分支...`,
+            startText: t('codex.thread.forking', { id: normalizedThreadId }),
             successText: (result) => {
                 const forkedThreadId = result && result.thread && typeof result.thread.id === 'string'
                     ? result.thread.id.trim()
                     : '';
                 return forkedThreadId
-                    ? `已从线程 ${normalizedThreadId} 创建分支 ${forkedThreadId}。`
-                    : `已从线程 ${normalizedThreadId} 创建新的分支线程。`;
+                    ? t('codex.thread.forkSuccessWithId', { id: normalizedThreadId, newId: forkedThreadId })
+                    : t('codex.thread.forkSuccessNoId', { id: normalizedThreadId });
             }
         },
         archive: {
             method: 'thread/archive',
-            startText: `正在归档线程 ${normalizedThreadId}...`,
-            successText: () => `已归档线程 ${normalizedThreadId}。`
+            startText: t('codex.thread.archiving', { id: normalizedThreadId }),
+            successText: () => t('codex.thread.archived', { id: normalizedThreadId })
         },
         unarchive: {
             method: 'thread/unarchive',
-            startText: `正在恢复归档线程 ${normalizedThreadId}...`,
-            successText: () => `已恢复线程 ${normalizedThreadId}。`
+            startText: t('codex.thread.unarchiving', { id: normalizedThreadId }),
+            successText: () => t('codex.thread.unarchived', { id: normalizedThreadId })
         }
     };
     const definition = actionMap[normalizedAction];
@@ -3667,7 +3669,7 @@ function requestCodexThreadMutation(actionKind, threadId) {
             if (!isTransientCodexBridgeError(error)) {
                 appendCodexLogEntry(
                     'error',
-                    `执行线程操作失败：${error.message || '未知错误'}`,
+                    t('codex.thread.operationFailed', { error: error.message || t('codex.error.unknownError') }),
                     { meta: 'history' }
                 );
             }
@@ -3693,7 +3695,7 @@ function requestCodexThreadRename(threadId, nextName) {
     codexState.historyActionThreadId = normalizedThreadId;
     codexState.historyActionKind = 'rename';
     renderCodexHistoryList();
-    appendCodexLogEntry('system', `正在将线程 ${normalizedThreadId} 重命名为“${normalizedNextName}”...`, { meta: 'history' });
+    appendCodexLogEntry('system', t('codex.thread.renaming', { id: normalizedThreadId, name: normalizedNextName }), { meta: 'history' });
 
     return sendCodexBridgeRequest(
         'thread/name/set',
@@ -3707,7 +3709,7 @@ function requestCodexThreadRename(threadId, nextName) {
         .then((result) => {
             updateCodexHistoryThreadTitle(normalizedThreadId, normalizedNextName);
             clearCodexErrorNotice();
-            appendCodexLogEntry('system', `已将线程 ${normalizedThreadId} 重命名为“${normalizedNextName}”。`, { meta: 'history' });
+            appendCodexLogEntry('system', t('codex.thread.renamed', { id: normalizedThreadId, name: normalizedNextName }), { meta: 'history' });
             renderCodexHistoryList();
             renderCodexHeaderSummary();
             return sendCodexBridgeRequest(
@@ -3732,7 +3734,7 @@ function requestCodexThreadRename(threadId, nextName) {
             if (!isTransientCodexBridgeError(error)) {
                 appendCodexLogEntry(
                     'error',
-                    `线程重命名失败：${error.message || '未知错误'}`,
+                    t('codex.thread.renameFailed', { error: error.message || t('codex.error.unknownError') }),
                     { meta: 'history' }
                 );
             }
@@ -3773,7 +3775,7 @@ function requestFallbackCodexThread() {
         return;
     }
     codexState.fallbackThreadRequested = true;
-    appendCodexLogEntry('system', '没有可恢复的线程，正在创建新的 Codex 线程...', { meta: 'history' });
+    appendCodexLogEntry('system', t('codex.thread.noRestorable'), { meta: 'history' });
     requestCodexNewThread({ silent: true });
 }
 
@@ -3984,16 +3986,16 @@ function formatRateLimitWindowLabel(windowMins) {
         return '';
     }
     if (windowMins === 300) {
-        return '5小时';
+        return t('codex.rateLimit.fiveHours');
     }
     if (windowMins === 10080) {
-        return '一周';
+        return t('codex.rateLimit.oneWeek');
     }
     if (windowMins < 60) {
-        return `${Math.round(windowMins)}分钟`;
+        return t('codex.rateLimit.minutes', { mins: Math.round(windowMins) });
     }
     if (windowMins % 60 === 0) {
-        return `${Math.round(windowMins / 60)}小时`;
+        return t('codex.rateLimit.hours', { hours: Math.round(windowMins / 60) });
     }
     return formatDurationShort(windowMins * 60);
 }
@@ -4216,7 +4218,7 @@ function formatRateLimitSummary(payload) {
         parts.push(`${Math.max(0, Math.round(remaining))} left`);
     } else {
         if (typeof primaryUsedPercent === 'number') {
-            const primaryParts = [formatRateLimitWindowLabel(primaryWindowMins) || '主额度'];
+            const primaryParts = [formatRateLimitWindowLabel(primaryWindowMins) || t('codex.rateLimit.primary')];
             primaryParts.push(`${Math.max(0, Math.round(primaryUsedPercent))}%`);
             if (primaryResetHint) {
                 primaryParts.push(primaryResetHint);
@@ -4224,7 +4226,7 @@ function formatRateLimitSummary(payload) {
             parts.push(primaryParts.join(' '));
         }
         if (typeof secondaryUsedPercent === 'number') {
-            const secondaryParts = [formatRateLimitWindowLabel(secondaryWindowMins) || '附加额度'];
+            const secondaryParts = [formatRateLimitWindowLabel(secondaryWindowMins) || t('codex.rateLimit.secondary')];
             secondaryParts.push(`${Math.max(0, Math.round(secondaryUsedPercent))}%`);
             if (secondaryResetHint) {
                 secondaryParts.push(secondaryResetHint);
@@ -4448,12 +4450,12 @@ function sendCodexTurn(text, options) {
 
     const imageSummary = imageInputs.map((entry) => {
         if (entry.type === 'localImage') {
-            return `[本地图片] ${entry.name || '图片'}`;
+            return t('codex.image.localImageLog', { name: entry.name || t('codex.image.defaultName') });
         }
-        return `[图像 URL] ${entry.url}`;
+        return t('codex.image.urlLog', { url: entry.url });
     });
     const fileSummary = fileMentions.length > 0
-        ? fileMentions.map((f) => `[文件] ${f.label}`).join('\n')
+        ? fileMentions.map((f) => t('codex.image.fileLog', { label: f.label })).join('\n')
         : '';
     appendCodexLogEntry('user', [fileSummary, cleaned, ...imageSummary].filter(Boolean).join('\n'), { meta: 'you' });
     if (codexState.threadId && codexState.unmaterializedThreadId === codexState.threadId) {
@@ -4558,7 +4560,7 @@ function handleCodexComposerSubmit(rawText) {
         }
         const skillEntry = findCodexSkillEntry(parsed.argumentText);
         if (!skillEntry) {
-            appendCodexLogEntry('system', `未找到技能：${parsed.argumentText}`, { meta: 'slash' });
+            appendCodexLogEntry('system', t('codex.slash.skillNotFound', { name: parsed.argumentText }), { meta: 'slash' });
             setSlashMenuState(true, `/skill ${parsed.argumentText}`);
             return false;
         }
@@ -4585,7 +4587,7 @@ function handleCodexComposerSubmit(rawText) {
         return false;
     }
 
-    appendCodexLogEntry('system', registryEntry.statusText || '命令已预留，当前阶段不可用。', { meta: 'slash' });
+    appendCodexLogEntry('system', registryEntry.statusText || t('codex.slash.commandReserved'), { meta: 'slash' });
     return false;
 }
 
@@ -4601,12 +4603,12 @@ function requestCodexNewThread(options) {
         cwd: getConfiguredCodexCwd() || undefined
     });
     if (!sent) {
-        rollbackFreshCodexThreadUiReset('新建任务失败：Codex 连接未就绪。');
+        rollbackFreshCodexThreadUiReset(t('codex.thread.newTaskFailed'));
         return;
     }
     codexState.pendingFreshThreadTimeoutId = setTimeout(() => {
         if (codexState.pendingFreshThread === true && codexState.pendingFreshThreadUiSnapshot) {
-            rollbackFreshCodexThreadUiReset('新建任务超时，请重试。');
+            rollbackFreshCodexThreadUiReset(t('codex.thread.newTaskTimeout'));
         }
     }, CODEX_NEW_THREAD_TIMEOUT_MS);
 }
@@ -4737,10 +4739,10 @@ function renderCodexCommandApprovalModal() {
     }
     const statusText = approvalApi && typeof approvalApi.resolveApprovalStatusText === 'function'
         ? approvalApi.resolveApprovalStatusText(requestState)
-        : (requestState.status || '等待处理');
+        : (requestState.status || t('codex.approval.status.pending'));
     const summaryText = approvalApi && typeof approvalApi.resolveApprovalSummaryText === 'function'
         ? approvalApi.resolveApprovalSummaryText(requestState)
-        : '需要确认后才能执行命令。';
+        : t('codex.approval.summary.command');
     const commandText = approvalApi && typeof approvalApi.extractCommandText === 'function'
         ? approvalApi.extractCommandText(requestState)
         : '';
@@ -4751,7 +4753,7 @@ function renderCodexCommandApprovalModal() {
         codexCommandApprovalSummary.textContent = summaryText;
     }
     if (codexCommandApprovalCommand) {
-        codexCommandApprovalCommand.textContent = commandText || '当前请求未返回原始命令。';
+        codexCommandApprovalCommand.textContent = commandText || t('codex.approval.noCommandReturned');
     }
     const isLocked = requestState.status !== 'pending';
     if (btnCodexCommandApprovalApprove) {
@@ -4905,9 +4907,9 @@ function renderCodexServerRequest(envelope) {
     if (useBlockingModal) {
         appendCodexLogEntry(
             'system',
-            `命令确认待处理：${approvalApi && typeof approvalApi.resolveApprovalSummaryText === 'function'
+            t('codex.approval.logPending', { summary: approvalApi && typeof approvalApi.resolveApprovalSummaryText === 'function'
                 ? approvalApi.resolveApprovalSummaryText(request)
-                : (request.summary || request.method)}`,
+                : (request.summary || request.method) }),
             { meta: 'approval', itemId: `request:${requestId}` }
         );
         const requestState = {
@@ -4997,12 +4999,12 @@ function renderCodexServerRequest(envelope) {
         submitBtn.type = 'button';
         submitBtn.className = 'primary';
         submitBtn.dataset.requestAction = 'approve';
-        submitBtn.textContent = 'Submit';
+        submitBtn.textContent = t('common.submit');
         submitBtn.disabled = true;
         const rejectUserInputBtn = document.createElement('button');
         rejectUserInputBtn.type = 'button';
         rejectUserInputBtn.dataset.requestAction = 'reject';
-        rejectUserInputBtn.textContent = 'Cancel';
+        rejectUserInputBtn.textContent = t('common.cancel');
         actions.appendChild(submitBtn);
         actions.appendChild(rejectUserInputBtn);
         approveBtn = submitBtn;
@@ -5010,23 +5012,23 @@ function renderCodexServerRequest(envelope) {
     } else if (request.responseMode === 'answers') {
         const unsupported = document.createElement('div');
         unsupported.className = 'codex-request-question-label';
-        unsupported.textContent = '当前客户端只支持选项式问题；请取消本次计划或改用普通对话补充信息。';
+        unsupported.textContent = t('codex.approval.clientOnlyOptions');
         actions.appendChild(unsupported);
         rejectBtn = document.createElement('button');
         rejectBtn.type = 'button';
         rejectBtn.dataset.requestAction = 'reject';
-        rejectBtn.textContent = '取消';
+        rejectBtn.textContent = t('common.cancel');
         actions.appendChild(rejectBtn);
     } else {
         approveBtn = document.createElement('button');
         approveBtn.type = 'button';
         approveBtn.className = 'primary';
         approveBtn.dataset.requestAction = 'approve';
-        approveBtn.textContent = 'Approve';
+        approveBtn.textContent = t('common.approve');
         rejectBtn = document.createElement('button');
         rejectBtn.type = 'button';
         rejectBtn.dataset.requestAction = 'reject';
-        rejectBtn.textContent = 'Reject';
+        rejectBtn.textContent = t('common.reject');
         actions.appendChild(approveBtn);
         actions.appendChild(rejectBtn);
     }
@@ -5221,7 +5223,7 @@ function handleCodexNotification(method, params) {
     if (method === 'thread/compacted') {
         codexState.compactSubmitting = false;
         clearCodexErrorNotice();
-        setCodexCompactStatus('当前线程已完成压缩。', 'success');
+        setCodexCompactStatus(t('codex.compact.alreadyDone'), 'success');
         appendCodexLogEntry('system', buildCodexCompactedMessage(params), { meta: 'compact' });
         refreshCodexThreadSnapshot({ force: true });
         refreshCodexThreadList({ force: true, silent: true });
@@ -6000,7 +6002,7 @@ function connect() {
                     return;
                 }
                 if (envelope.type === 'codex_interrupt_ack') {
-                    appendCodexLogEntry('system', '已向 Codex 发送中断信号。', { meta: 'bridge' });
+                    appendCodexLogEntry('system', t('codex.codex.interruptSent'), { meta: 'bridge' });
                     return;
                 }
                 if (envelope.type === 'codex_thread_snapshot') {
@@ -6017,7 +6019,7 @@ function connect() {
                     } else {
                         appendCodexLogEntry(
                             'system',
-                            `Codex 服务端请求已自动处理：${envelope.method || 'unknown'}`,
+                            t('codex.codex.autoHandled', { method: envelope.method || 'unknown' }),
                             { meta: 'approval' }
                         );
                     }
@@ -6573,7 +6575,7 @@ if (btnCodexPlanExecute) {
     btnCodexPlanExecute.addEventListener('click', () => {
         const executionPrompt = buildConfirmedPlanExecutionPrompt();
         if (!executionPrompt) {
-            appendCodexLogEntry('error', '当前没有可执行的已确认计划。', { meta: 'plan' });
+            appendCodexLogEntry('error', t('codex.plan.noExecutable'), { meta: 'plan' });
             return;
         }
         setPlanMode(false);
@@ -6830,23 +6832,28 @@ window.__applyTerminalConfig = function (config) {
     applyRuntimeConfig(config, true);
 };
 
-setCodexStatus('idle');
-updateCodexThreadLabel();
-setCodexPanelCollapsed(false);
-updateViewportLayoutState();
-applySessionModeLayout();
-appendCodexLogEntry('system', 'Codex 面板已就绪，可以直接发送请求。', { meta: 'bridge' });
-renderCodexSecondaryNav();
-renderCodexSecondaryPanels();
-renderCodexImageInputs();
+(async () => {
+    await i18n.init();
+    i18n.translatePage();
 
-applyRuntimeConfig(runtimeConfig, false);
-loadHistoryState(getHistoryStorageKey(sessionId), true);
-if (serverUrl) {
-    connect();
-} else {
-    showStatus('Waiting for server config...');
-}
+    setCodexStatus('idle');
+    updateCodexThreadLabel();
+    setCodexPanelCollapsed(false);
+    updateViewportLayoutState();
+    applySessionModeLayout();
+    appendCodexLogEntry('system', t('codex.panel.ready'), { meta: 'bridge' });
+    renderCodexSecondaryNav();
+    renderCodexSecondaryPanels();
+    renderCodexImageInputs();
+
+    applyRuntimeConfig(runtimeConfig, false);
+    loadHistoryState(getHistoryStorageKey(sessionId), true);
+    if (serverUrl) {
+        connect();
+    } else {
+        showStatus('Waiting for server config...');
+    }
+})();
 
 // Test hooks - only exposed when explicit test mode is enabled
 // Production runtime (browser, Android WebView) will NOT have these hooks
