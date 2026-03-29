@@ -2,7 +2,7 @@
 title: 变更记录索引
 status: active
 owner: @maintainer
-last_updated: 2026-03-27
+last_updated: 2026-03-29
 source_of_truth: product
 related_code: [docs/changes/records]
 related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_CHANGE_RECORD.md]
@@ -23,6 +23,8 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260329-0155-android-terminal-keyboard-scroll-regression-fix | REQ-20260223-shortcut-keyboard-modifier-newline | draft | TBD | @maintainer | 2026-03-29 | Android Terminal 回归修复：顶部键盘按钮改为 IME 优先隐藏，并统一 client/web 双端触摸滚动与隐藏键盘链路 | `docs/changes/records/CR-20260329-0155-android-terminal-keyboard-scroll-regression-fix.md` |
+| CR-20260329-0043-codex-background-retention-plan | REQ-20260309-codex-capability-mvp | draft | TBD | @maintainer | 2026-03-29 | 重新收束 Codex 后台保活与断线续接需求：新增独立 PLAN，并把“执行此计划后自动退出 planMode”纳入主需求契约 | `docs/changes/records/CR-20260329-0043-codex-background-retention-plan.md` |
 | CR-20260327-1610-phase9-real-device-direct-ip-validation | REQ-20260326-android-profile-mtls-runtime-certificate | draft | TBD | @maintainer | 2026-03-27 | 服务端 8.9 真机直连 IP 验证排查：恢复本地 `3010` 与 LAN 基线，确认当前阻塞点在 adb 设备 `offline` 与 APK 未安装，尚未进入 App 内 HTTP/WS/mTLS 结论阶段 | `docs/changes/records/CR-20260327-1610-phase9-real-device-direct-ip-validation.md` |
 | CR-20260327-1525-server-unified-mtls-integration | REQ-20260326-android-profile-mtls-runtime-certificate | draft | TBD | @maintainer | 2026-03-27 | 服务端统一 mTLS 接入（PLAN 8.8）：新增 connectionSecurity 中间件与 WS 摘要，让 HTTP API、workspace、静态 extend_web/codex 页面和 terminal/codex 会话共享同一 TLS/mTLS 连接结果口径 | `docs/changes/records/CR-20260327-1525-server-unified-mtls-integration.md` |
 | CR-20260327-1800-server-tls-mtls-listener | REQ-20260326-android-profile-mtls-runtime-certificate | draft | TBD | @maintainer | 2026-03-27 | 服务端 TLS/mTLS 监听与证书加载（PLAN 8.7）：新增 tlsConfig 配置模块，server.js 条件创建 HTTPS 监听，并将 elevated mTLS 门禁收紧为 strict client-cert + 可读 cert/key/CA | `docs/changes/records/CR-20260327-1800-server-tls-mtls-listener.md` |

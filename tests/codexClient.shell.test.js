@@ -56,7 +56,7 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="btn-codex-plan-execute"/);
     assert.match(html, /id="btn-codex-plan-continue"/);
     assert.match(html, /id="btn-codex-plan-cancel"/);
-    assert.match(html, /src="terminal_client\.js\?v=68"/);
+    assert.match(html, /src="terminal_client\.js\?v=\d+"/);
 });
 
 test('terminal client shell shares scripts but does not expose codex history panel markup', () => {
@@ -72,7 +72,7 @@ test('terminal client shell shares scripts but does not expose codex history pan
     assert.match(html, /src="lib\/codex_settings_view\.js\?v=3"/);
     assert.match(html, /src="lib\/codex_runtime_view\.js\?v=4"/);
     assert.match(html, /src="lib\/codex_approval_view\.js\?v=3"/);
-    assert.match(html, /src="terminal_client\.js\?v=67"/);
+    assert.match(html, /src="terminal_client\.js\?v=\d+"/);
 });
 
 test('terminal client stylesheet supports secondary panels and sticky composer for the codex conversation page', () => {

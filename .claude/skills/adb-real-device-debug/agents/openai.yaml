@@ -1,0 +1,5 @@
+interface:
+  display_name: "ADB Real Device Debug"
+  short_description: "Run the real-device adb debug loop for TermLink"
+  default_prompt: "Use $adb-real-device-debug to install the latest debug APK on da34332c and collect TermLink logcat."
+

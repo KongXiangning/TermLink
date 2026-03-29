@@ -161,7 +161,12 @@ body {
     touch-action: pan-y;
 }
 
+#terminal-container .xterm {
+    height: 100%;
+}
+
 #terminal-container .xterm-viewport {
+    overflow-y: auto;
     touch-action: pan-y;
     overscroll-behavior: contain;
 }

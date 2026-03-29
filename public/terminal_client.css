@@ -2028,7 +2028,12 @@ body.codex-only #codex-log-stack {
     touch-action: pan-y;
 }
 
+#terminal-container .xterm {
+    height: 100%;
+}
+
 #terminal-container .xterm-viewport {
+    overflow-y: auto;
     touch-action: pan-y;
     overscroll-behavior: contain;
 }
@@ -2067,7 +2072,7 @@ body .xterm .xterm-viewport {
 }
 
 #toolbar.hidden {
-    display: none;
+    display: none !important;
 }
 
 .key-row {

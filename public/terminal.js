@@ -986,34 +986,69 @@ if (terminalContainer && isTouchDevice) {
 
     const closeSoftKeyboard = () => {
         const activeEl = document.activeElement;
+        const termTextarea = term && term.textarea;
+
+        if (termTextarea) {
+            try {
+                termTextarea.blur();
+                const prevReadOnly = termTextarea.readOnly;
+                termTextarea.readOnly = true;
+                setTimeout(() => {
+                    termTextarea.readOnly = prevReadOnly;
+                }, 120);
+            } catch (_) {
+                // no-op
+            }
+        }
+
         term.blur();
         if (activeEl && typeof activeEl.blur === 'function') {
             activeEl.blur();
         }
+
+        const currentActiveEl = document.activeElement;
+        if (currentActiveEl && typeof currentActiveEl.blur === 'function') {
+            currentActiveEl.blur();
+        }
+
+        callNativeBridge('requestHideKeyboard', []);
     };
 
     const getViewport = () => terminalContainer.querySelector('.xterm-viewport');
+    const touchListenerCapture = { capture: true };
+    const passiveTouchStartOptions = { passive: true, capture: true };
+    const activeTouchOptions = { passive: false, capture: true };
+
+    const resolveTrackedTouch = (touchList) => {
+        if (!touchList || activeTouchId === null) return null;
+        for (let i = 0; i < touchList.length; i += 1) {
+            if (touchList[i].identifier === activeTouchId) {
+                return touchList[i];
+            }
+        }
+        return null;
+    };
+
+    const isViewportScrollable = (viewport) => (
+        !!viewport && viewport.scrollHeight > viewport.clientHeight + 1
+    );
 
     terminalContainer.addEventListener('touchstart', (e) => {
-        const touch = e.changedTouches && e.changedTouches[0];
+        const touch = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
         if (!touch) return;
         activeTouchId = touch.identifier;
         touchStartY = touch.clientY;
         lastTouchY = touch.clientY;
         draggedSinceTouchStart = false;
-    }, { passive: true });
+    }, passiveTouchStartOptions);
 
     terminalContainer.addEventListener('touchmove', (e) => {
         if (activeTouchId === null) return;
-        const changedTouches = e.changedTouches || [];
-        let touch = null;
-        for (let i = 0; i < changedTouches.length; i += 1) {
-            if (changedTouches[i].identifier === activeTouchId) {
-                touch = changedTouches[i];
-                break;
-            }
-        }
+        const touch = resolveTrackedTouch(e.touches) || resolveTrackedTouch(e.changedTouches);
         if (!touch) return;
+
+        const viewport = getViewport();
+        if (!isViewportScrollable(viewport)) return;
 
         const deltaYFromStart = touch.clientY - touchStartY;
         if (!draggedSinceTouchStart && Math.abs(deltaYFromStart) >= DRAG_THRESHOLD_PX) {
@@ -1021,22 +1056,22 @@ if (terminalContainer && isTouchDevice) {
         }
         if (!draggedSinceTouchStart) return;
 
-        const viewport = getViewport();
-        if (!viewport) return;
-
         const deltaY = touch.clientY - lastTouchY;
         if (deltaY === 0) return;
 
         e.preventDefault();
+        e.stopPropagation();
         viewport.scrollTop -= deltaY;
         lastTouchY = touch.clientY;
         suppressNextClickFocus = true;
         suppressFocusUntil = Date.now() + 280;
-    }, { passive: false });
+    }, activeTouchOptions);
 
-    terminalContainer.addEventListener('touchend', () => {
+    terminalContainer.addEventListener('touchend', (e) => {
         activeTouchId = null;
         if (draggedSinceTouchStart) {
+            e.preventDefault();
+            e.stopPropagation();
             draggedSinceTouchStart = false;
             suppressNextClickFocus = true;
             suppressFocusUntil = Date.now() + 280;
@@ -1044,27 +1079,29 @@ if (terminalContainer && isTouchDevice) {
         }
 
         const now = Date.now();
-        if (now - lastTapAt < 320) {
+        if (now - lastTapAt < 450) {
+            e.preventDefault();
+            e.stopPropagation();
             closeSoftKeyboard();
             suppressNextClickFocus = true;
-            suppressFocusUntil = now + 320;
+            suppressFocusUntil = now + 420;
             lastTapAt = 0;
             return;
         }
         lastTapAt = now;
-    }, { passive: false });
+    }, activeTouchOptions);
 
     terminalContainer.addEventListener('touchcancel', () => {
         activeTouchId = null;
         draggedSinceTouchStart = false;
-    }, { passive: true });
+    }, passiveTouchStartOptions);
 
     terminalContainer.addEventListener('dblclick', () => {
         const now = Date.now();
         closeSoftKeyboard();
         suppressNextClickFocus = true;
-        suppressFocusUntil = now + 320;
-    });
+        suppressFocusUntil = now + 420;
+    }, touchListenerCapture);
 
     terminalContainer.addEventListener('click', () => {
         const now = Date.now();
@@ -1080,7 +1117,7 @@ if (terminalContainer && isTouchDevice) {
         }
 
         term.focus();
-    });
+    }, touchListenerCapture);
 }
 
 // Sidebar Toggle

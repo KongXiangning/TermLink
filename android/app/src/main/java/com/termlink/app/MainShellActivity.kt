@@ -1043,6 +1043,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             View.GONE
         }
         sessionsDrawerButton?.contentDescription = getString(R.string.sessions_panel_button)
+        quickToolbarButton?.contentDescription = getString(R.string.quick_toolbar_toggle_button)
         applyWorkspaceButtonState()
         statusTextView?.text = terminalStatusText
     }
@@ -1513,7 +1514,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     companion object {
-        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=65"
+        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=67"
         private const val CODEX_URL = "file:///android_asset/public/codex_client.html?v=76"
         private const val ABOUT_BLANK_URL = "about:blank"
         private const val DEBUG_CLEAR_TERMINAL_CACHE_ON_LOAD = false
@@ -1529,4 +1530,3 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         private const val TAG = "TermLinkShell"
     }
 }
-

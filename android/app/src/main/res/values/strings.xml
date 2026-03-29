@@ -11,6 +11,7 @@
     <string name="settings_open_button">Open Settings</string>
     <string name="workspace_open_button">Open Workspace</string>
     <string name="quick_toolbar_toggle_button">Toggle Quick Keyboard</string>
+
     <string name="settings_back_button">Back to Terminal</string>
     <string name="settings_screen_title">Settings</string>
     <string name="sessions_title">Sessions</string>

@@ -1,11 +1,11 @@
 ﻿---
-title: Codex 能力矩阵驱动主线需求（对话体验优先 MVP + 下一阶段）
+title: Codex 能力矩阵驱动主线需求（对话体验优先、后台保活与下一阶段）
 status: planned
 owner: @maintainer
-last_updated: 2026-03-19
+last_updated: 2026-03-29
 source_of_truth: product
 related_code: [src/routes/sessions.js, src/services/sessionManager.js, src/services/codexAppServerService.js, src/ws/terminalGateway.js, public/codex_client.html, public/terminal_client.js, android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt]
-related_docs: [docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md, docs/codex/cross-version-stable-findings.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/codex/CODEX_FILE_MENTION_INPUT_PLAN.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/changes/records/INDEX.md]
+related_docs: [docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md, docs/codex/cross-version-stable-findings.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/codex/CODEX_FILE_MENTION_INPUT_PLAN.md, docs/product/plans/PLAN-20260329-codex-background-retention-and-resume.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/changes/records/INDEX.md]
 ---
 
 # REQ-20260309-codex-capability-mvp
@@ -13,12 +13,12 @@ related_docs: [docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md, docs/codex/cross-ve
 ## Meta
 
 - id: REQ-20260309-codex-capability-mvp
-- title: Codex 能力矩阵驱动主线需求（对话体验优先 MVP + 下一阶段）
+- title: Codex 能力矩阵驱动主线需求（对话体验优先、后台保活与下一阶段）
 - priority: P1
 - status: planned
 - owner: @maintainer
 - target_release: 2026-Q2
-- links: `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`
+- links: `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`, `docs/product/plans/PLAN-20260329-codex-background-retention-and-resume.md`
 
 ## 1. 背景与目标
 
@@ -29,7 +29,7 @@ related_docs: [docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md, docs/codex/cross-ve
 1. 把 Codex Android / WebView 主线从“状态面板堆叠页”纠偏回“移动端对话页优先”。
 2. 修正 `/plan` 与 `/skill` 的状态建模错误，使其成为两个可并行生效的交互维度，而不是互斥 mode。
 
-本需求的目标不是扩充更多功能，而是把已有能力重新组织为“对话体验优先、交互契约清晰、平台行为一致”的产品主线。
+本需求的目标不是扩充更多功能，而是把已有能力重新组织为“对话体验优先、交互契约清晰、平台行为一致，并在移动端后台切换中保持任务连续性”的产品主线。
 
 ## 2. 交互主线优先级
 
@@ -176,7 +176,8 @@ Codex 首页默认只保留以下主体：
    - 不发送原始 slash
    - 发送成功后不保留持续 `planMode`
    - 若要再次进入计划模式，必须重新输入 `/plan`
-4. 不允许把 `/plan <文本>` 解释成“发送本条并顺便长期开启 plan mode”。
+4. 用户点击“执行此计划”后，必须自动退出 `planMode`，后续普通输入回到正常执行流。
+5. 不允许把 `/plan <文本>` 解释成“发送本条并顺便长期开启 plan mode”。
 
 ### 5.4 `/skill <name>` 的冻结契约
 
@@ -263,6 +264,14 @@ Codex 首页默认只保留以下主体：
 7. 当前期不引入任意二进制文件上传；该能力仅面向当前工作区下的文件引用与上下文辅助。
 8. 若当前线程或会话没有有效 `cwd`，文件提示必须明确降级为空态或不可用提示，不得展示误导性的旧结果。
 
+### 5.12 Android 后台保活与断线续接
+
+1. Android 在 Codex 任务处于 `running / reconnecting / waiting_approval` 时，必须进入 foreground service + 常驻通知保活模式。
+2. foreground service 只在活跃任务期间开启，`idle / completed / error` 时不常驻通知。
+3. 单个 WebSocket 连接断开不得中止正在执行中的 Codex turn；服务端应继续以 session 级 `codexState` 持有任务状态。
+4. 客户端回连后，必须先恢复 `session_info + codex_state`，再按需补 `thread/read`，恢复目标是“原任务状态”，不是仅恢复到原线程。
+5. 若后台期间出现审批请求或 `request_user_input`，任务进入可恢复阻塞态；回连后必须优先恢复该阻塞请求，而不是直接丢失或默认拒绝。
+
 ## 6. 当前期但带前置条件
 
 以下能力保留在当前期范围，但必须建立前置条件后再深化：
@@ -316,12 +325,14 @@ Codex 首页默认只保留以下主体：
 2. 作为移动端用户，我输入 `/` 就能看到当前可用命令，而不是把 slash 当普通提问发送。
 3. 作为移动端用户，我可以通过 `/model` 或输入区快捷入口为下一次对话快速切换模型与推理强度。
 4. 作为移动端用户，我输入 `/plan` 后可以让下一次发送进入计划模式，并在发送后自动退出该模式。
+4a. 作为移动端用户，我在计划结果页选择“执行此计划”后，会直接进入执行流，而不是继续停留在计划模式。
 5. 作为未来 skill 用户，我可以在当前会话里切换 active skill，而不影响尚未发送的 plan mode。
 6. 作为历史会话用户，我仍可查看、读取和恢复线程，但线程管理入口不再占据首页主体。
 7. 作为 app 用户，我不会在当前期首页看到“会话设置”或顶部权限选择等偏配置型入口。
 8. 作为 app 用户，当 Codex 要执行需要确认的命令时，我会先看到阻塞确认弹窗，再决定是否放行。
 9. 作为 app 用户，我打开背景信息窗口时，看到的是当前线程对应的背景信息，而不是上一次任务残留内容。
 10. 作为 app 用户，我在输入区键入 `@` 时，可以只在当前会话工作区内搜索文件，并快速把目标文件加入本次提问上下文。
+11. 作为 Android 用户，我在 Codex 任务执行中切到后台后，任务不会因单个连接断开而中止；回到前台时，App 会自动恢复到原任务状态。
 
 ## 10. 方案概要
 
@@ -332,6 +343,7 @@ Codex 首页默认只保留以下主体：
 5. 协议层：继续维持 `gateway <-> codex app-server` 真实边界，不引入新的底层 slash 协议，也不预绑定 `activeSkill` 底层字段。
 6. 产品层：当前期不引入 `permissionPreset` 作为面向用户的 UI 概念；`approvalPolicy` / `sandboxMode` 仅保留为底层配置字段。
 7. 文件辅助层：`@` 文件提示采用“客户端浮层 + 会话 cwd 范围文件检索 + 已选文件态”的组合，不把 VS Code 宿主私有实现细节直接写成 TermLink 协议前提。
+8. 后台连续性层：活跃 Codex 任务通过 Android foreground service 保活，服务端将 turn 生命周期与单个 WS 连接解耦，客户端回连后按 session 级 `codexState` 恢复任务。
 
 ## 11. 接口/数据结构变更
 
@@ -482,6 +494,7 @@ Codex 首页默认只保留以下主体：
 14. App 首页不出现顶部权限选择或权限预设持续展示。
 15. 需要确认的命令执行在 app 中以前景阻塞弹窗呈现，并继续复用既有 `codex_server_request_response` 链路。
 16. 背景信息窗口替换“IDE 背景信息”入口，并与当前线程绑定，不显示旧线程残留内容。
+17. Android 活跃 Codex 任务具备后台保活、断线不中断执行与回连自动恢复能力。
 
 ## 13. 测试场景
 
@@ -493,6 +506,7 @@ Codex 首页默认只保留以下主体：
 6. 输入 `/plan`，验证进入一次性 `planMode` 并显示可取消的模式 chip。
 7. 输入 `/plan <文本>`，验证按计划模式发送 `<文本>`，且发送成功后 `planMode` 被清空。
 8. 再次发送若要继续计划模式，验证必须重新输入 `/plan`。
+8c. 在计划模式中点击“执行此计划”，验证 `planMode` 立即关闭，随后普通输入不再走计划模式。
 8a. 对同一“创建/修改文件”任务做默认模式与 plan 模式对照，验证默认模式执行而 plan 模式默认不直接执行。
 8b. 验证即使未收到 `turn/plan/updated` / `item/plan/delta`，只要返回了明确计划文本且未直接执行，仍判定 `/plan` 基础语义成立。
 9. 当前期手动输入 `/skill foo`，验证显示“命令已预留但暂未开放”，且不发送、不建线程、不写 `interactionState`、不污染消息流。
@@ -508,6 +522,9 @@ Codex 首页默认只保留以下主体：
 19. 切换到“完全访问权限”后，验证首页立即更新模式显示，且后续线程以 `never + danger-full-access` 启动。
 20. 新建、恢复、切换不同线程时，验证背景信息窗口自动切换为当前线程内容，不出现旧线程残留。
 21. 当前线程不存在背景信息时，验证背景信息窗口展示明确空态，而不是保留上一次任务内容。
+22. 前台发起 Codex 任务后立刻切后台，再回前台，验证原任务继续中且通知仅在活跃任务期间出现。
+23. 后台期间若连接断开，验证服务端任务不中断，回连后自动恢复到原线程与原任务状态。
+24. 后台期间若出现审批或 `request_user_input`，验证回连后仍能恢复并处理该阻塞态。
 
 ## 14. 风险与回滚
 
@@ -525,6 +542,8 @@ Codex 首页默认只保留以下主体：
    - 控制：当前期文档明确排除这两类 UI，相关需求需重新立项。
 7. 风险：背景信息窗口沿用旧全局缓存，切线程后仍显示上一任务内容。
    - 控制：背景信息窗口数据必须绑定当前 `threadId`，线程为空时主动清空到空态。
+8. 风险：后台保活与回连恢复若只修 UI、不修 session 级状态保存，会造成“任务实际在跑但前端误报失败”。
+   - 控制：以 session 级 `codexState` 作为断线恢复真相来源，客户端不再仅以 `ws.onclose` 判定 turn 失败。
 
 回滚策略：
 
@@ -560,3 +579,8 @@ Codex 首页默认只保留以下主体：
    - 命令确认改为阻塞弹窗形态，继续复用既有审批响应链路
    - “IDE 背景信息”入口替换为绑定当前线程的背景信息窗口
    - 明确不恢复“会话设置”和顶部权限选择
+7. Phase 6（后台保活与断线续接）：
+   - 服务端把 Codex turn 生命周期与单个 WebSocket 连接解耦
+   - Android 增加 foreground service + 活跃任务常驻通知
+   - 客户端回连后按 `session_info + codex_state` 恢复当前任务
+   - 修复“执行此计划”后 `planMode` 未自动退出的问题
