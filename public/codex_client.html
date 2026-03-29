@@ -141,8 +141,8 @@
                 <div id="codex-slash-menu" hidden>
                     <div id="codex-slash-menu-header">
                         <span id="codex-slash-menu-title" data-i18n="codex.slash.searchTitle">Search Commands</span>
-                        <!-- i18n: manually handled in JS (contains HTML) -->
-                        <span id="codex-slash-menu-hint">Type <code>/</code> to filter</span>
+                        <!-- i18n: contains <code> HTML, use data-i18n-html -->
+                        <span id="codex-slash-menu-hint" data-i18n="codex.slash.searchHint" data-i18n-html>Type <code>/</code> to filter</span>
                     </div>
                     <div id="codex-slash-menu-empty" hidden data-i18n="codex.slash.empty">No matching commands.</div>
                     <div id="codex-slash-menu-list" aria-live="polite"></div>
@@ -226,7 +226,7 @@
             </section>
         </div>
         <div id="input-overlay">
-            <textarea id="input-buffer" placeholder="Type command here..."></textarea>
+            <textarea id="input-buffer" placeholder="Type command here..." data-i18n="common.inputPlaceholder" data-i18n-attr="placeholder"></textarea>
             <div class="input-controls">
                 <button id="btn-clear" data-i18n="common.clear">Clear</button>
                 <button id="btn-close" data-i18n="common.close">Close</button>

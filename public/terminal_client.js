@@ -126,7 +126,7 @@ if (isCodexOnlyPage) {
             theme: { background: '#000000', foreground: '#ffffff' }
         });
     } catch (e) {
-        alert(`CRITICAL ERROR: Failed to initialize Terminal.\n${e.message}`);
+        alert(t('codex.error.initFailed', { error: e.message }));
         throw e;
     }
 
