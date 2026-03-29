@@ -1,8 +1,8 @@
 ---
 title: 基于系统语言的应用语言自动适配与 i18n 框架建设
-status: planned
+status: done
 owner: @maintainer
-last_updated: 2026-03-29
+last_updated: 2026-03-30
 source_of_truth: product
 related_code: [public/terminal.html, public/terminal.js, public/terminal_client.html, public/terminal_client.js, public/workspace.html, public/workspace.js, public/codex_client.html, public/lib/codex_approval_view.js, public/lib/codex_history_view.js, public/lib/codex_settings_view.js, public/lib/codex_shell_view.js, public/lib/codex_slash_commands.js, android/app/src/main/res/values/strings.xml, android/app/src/main/java/com/termlink/app/MainShellActivity.kt]
 related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-20260329-language-normalization-impl.md]
@@ -15,7 +15,7 @@ related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIR
 - id: REQ-20260329-language-normalization
 - title: 基于系统语言的应用语言自动适配与 i18n 框架建设
 - priority: P0
-- status: planned
+- status: done
 - owner: @maintainer
 - target_release: 2026-Q2
 - links: `docs/product/plans/PLAN-20260329-language-normalization-impl.md`
