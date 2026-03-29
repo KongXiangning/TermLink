@@ -4,8 +4,8 @@
 
 状态口径：`done` = 已实现并有 CR 留痕，`in_progress` = 当前批次进行中，`pending` = 尚未实现。
 
-1. `pending`：`Phase 1 — 框架搭建与基础设施`
-2. `pending`：`Phase 2 — Web 前端全量字符串迁移`
+1. `done`：`Phase 1 — 框架搭建与基础设施`（commit: 7be7db0）
+2. `done`：`Phase 2 — Web 前端全量字符串迁移`（commit: b7b1244, 68356d1）
 3. `pending`：`Phase 3 — Android 原生 i18n 与一致性`
 4. `pending`：`Phase 4 — 收口验收与扩展性验证`
 
@@ -44,12 +44,13 @@
 
 ```javascript
 function resolveLocale(systemLang) {
-  // systemLang 来自 navigator.language 或 Android Locale
+  // 1. Exact match against SUPPORTED_LOCALES (case-insensitive)
+  // 2. Prefix match (zh-TW → zh-CN, ja-JP → ja if registered)
+  // 3. Fallback to 'en'
   const lang = systemLang.toLowerCase();
-  if (lang.startsWith('zh')) {
-    return 'zh-CN';  // 所有中文变体归一化为简体中文
-  }
-  return 'en';        // 所有非中文语言 fallback 到英文
+  if (lang.startsWith('zh')) return 'zh-CN';
+  // Future locales resolved via SUPPORTED_LOCALES prefix match
+  return 'en';
 }
 ```
 
@@ -104,8 +105,11 @@ i18n.locale             → 'zh-CN' | 'en'
 // 批量替换 DOM 中 data-i18n 属性元素
 i18n.translatePage()    → void
 
-// 注册语言（未来扩展用）
-i18n.registerLocale(locale, url) → void
+// 注册语言（可指定 basePath，供扩展使用）
+i18n.registerLocale(locale, { basePath }) → void
+
+// 获取当前已注册的 locale 列表
+i18n.getSupportedLocales() → string[]
 ```
 
 #### 4.3 语言包 key 命名规范

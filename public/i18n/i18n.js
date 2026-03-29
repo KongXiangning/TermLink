@@ -17,21 +17,34 @@
   var SUPPORTED_LOCALES = ['en', 'zh-CN'];
   var DEFAULT_LOCALE = 'en';
 
+  // Custom locale base-path overrides set via registerLocale().
+  // Keys are locale codes, values are base URLs (without trailing slash).
+  var _localeBasePaths = {};
+
   /**
    * Resolve a BCP-47 language tag to one of SUPPORTED_LOCALES.
    *
-   * Rule (current):
-   *   zh-*  →  zh-CN   (all Chinese variants map to Simplified Chinese)
-   *   else  →  en
-   *
-   * To add a new language, push it to SUPPORTED_LOCALES and add an
-   * entry in the body of this function.  Nothing else needs to change.
+   * Resolution order:
+   *   1. Exact match against SUPPORTED_LOCALES (case-insensitive).
+   *   2. Language-prefix match (e.g. zh-TW → zh-CN).
+   *   3. Fallback to DEFAULT_LOCALE.
    */
   function resolveLocale(tag) {
     if (!tag) return DEFAULT_LOCALE;
     var lower = tag.toLowerCase();
-    if (lower.startsWith('zh')) return 'zh-CN';
-    // Future: if (lower.startsWith('ja')) return 'ja';
+
+    // Exact match (case-insensitive)
+    for (var i = 0; i < SUPPORTED_LOCALES.length; i++) {
+      if (SUPPORTED_LOCALES[i].toLowerCase() === lower) return SUPPORTED_LOCALES[i];
+    }
+
+    // Prefix match: zh-TW → zh-CN, ja-JP → ja (if registered)
+    var prefix = lower.split('-')[0];
+    if (prefix === 'zh') return 'zh-CN';
+    for (var j = 0; j < SUPPORTED_LOCALES.length; j++) {
+      if (SUPPORTED_LOCALES[j].toLowerCase().split('-')[0] === prefix) return SUPPORTED_LOCALES[j];
+    }
+
     return DEFAULT_LOCALE;
   }
 
@@ -47,6 +60,17 @@
   /* ------------------------------------------------------------------ */
   /*  Language-pack loader                                               */
   /* ------------------------------------------------------------------ */
+
+  /**
+   * Build the URL for a locale's JSON pack.
+   * Checks _localeBasePaths first, then defaults to /i18n/<locale>.json.
+   */
+  function localeURL(locale) {
+    if (_localeBasePaths[locale]) {
+      return _localeBasePaths[locale] + '/' + locale + '.json';
+    }
+    return '/i18n/' + locale + '.json';
+  }
 
   function loadJSON(url) {
     return fetch(url).then(function (res) {
@@ -82,9 +106,9 @@
     _locale = resolveLocale(raw);
 
     // Load packs in parallel; fallback is always loaded for missing-key safety
-    var packs = [loadJSON('/i18n/' + _locale + '.json')];
+    var packs = [loadJSON(localeURL(_locale))];
     if (_locale !== fallbackLocale) {
-      packs.push(loadJSON('/i18n/' + fallbackLocale + '.json'));
+      packs.push(loadJSON(localeURL(fallbackLocale)));
     }
 
     var results = await Promise.all(packs);
@@ -143,13 +167,28 @@
   };
 
   /**
-   * Register an additional locale at runtime (future extensibility).
-   * After registration, call init({ locale: newLocale }) to switch.
+   * Register an additional locale at runtime.
+   *
+   * @param {string} locale   – BCP-47 locale code, e.g. 'ja'
+   * @param {Object} [options]
+   * @param {string} [options.basePath] – base URL where <locale>.json lives
+   *                                       (default: '/i18n')
+   *
+   * After registration, call init({ locale: 'ja' }) to switch.
    */
-  i18n.registerLocale = function registerLocale(locale) {
+  i18n.registerLocale = function registerLocale(locale, options) {
+    if (!locale) return;
     if (SUPPORTED_LOCALES.indexOf(locale) === -1) {
       SUPPORTED_LOCALES.push(locale);
     }
+    if (options && options.basePath) {
+      _localeBasePaths[locale] = options.basePath.replace(/\/+$/, '');
+    }
+  };
+
+  /** List of currently supported locale codes (read-only copy). */
+  i18n.getSupportedLocales = function getSupportedLocales() {
+    return SUPPORTED_LOCALES.slice();
   };
 
   /** Expose resolveLocale for testing / Android bridge usage. */

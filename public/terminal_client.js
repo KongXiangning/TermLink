@@ -1694,7 +1694,7 @@ function renderCodexSlashMenu() {
     } else if (isSkillQuery && codexState.skillListRequested && skillItems.length === 0) {
         codexSlashMenuEmpty.textContent = t('codex.slash.noMatchingSkills');
     } else {
-        codexSlashMenuEmpty.textContent = 'No matching commands';
+        codexSlashMenuEmpty.textContent = t('codex.slash.noMatchingCommands');
     }
     codexSlashMenuEmpty.hidden = isSkillQuery ? skillItems.length > 0 : (items.length > 0 || skillItems.length > 0);
     if (!shouldShow) {
@@ -2994,7 +2994,7 @@ function setCodexPanelCollapsed(collapsed) {
     if (!codexPanel) return;
     codexPanel.classList.toggle('collapsed', codexState.panelCollapsed);
     if (btnCodexToggle) {
-        btnCodexToggle.textContent = codexState.panelCollapsed ? 'Show' : 'Hide';
+        btnCodexToggle.textContent = codexState.panelCollapsed ? t('codex.panel.show') : t('codex.panel.hide');
     }
 }
 
@@ -4799,11 +4799,11 @@ function updateCodexRequestCard(requestState) {
         if (metaNode) {
             const actionLabel = resolveCodexRequestActionLabel(requestState);
             if (requestState.status === 'resolved') {
-                metaNode.textContent = `${actionLabel}: ${requestState.resolution || 'resolved'}`;
+                metaNode.textContent = `${actionLabel}: ${requestState.resolution || t('codex.approval.resolved')}`;
             } else if (requestState.status === 'submitted') {
-                metaNode.textContent = `${actionLabel}: submitted`;
+                metaNode.textContent = `${actionLabel}: ${t('codex.approval.submitted')}`;
             } else {
-                metaNode.textContent = `${actionLabel}: pending`;
+                metaNode.textContent = `${actionLabel}: ${t('codex.approval.pending')}`;
             }
         }
         const approveBtn = entry.querySelector('[data-request-action="approve"]');
@@ -4937,7 +4937,7 @@ function renderCodexServerRequest(envelope) {
 
     const titleNode = document.createElement('div');
     titleNode.className = 'codex-request-title';
-    titleNode.textContent = request.title || 'Codex Approval';
+    titleNode.textContent = request.title || t('codex.approval.defaultTitle');
     entry.insertBefore(titleNode, entry.querySelector('.content'));
 
     const statusNode = document.createElement('div');

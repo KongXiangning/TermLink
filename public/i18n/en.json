@@ -379,5 +379,12 @@
   "terminal.status.wsTransportError": "WebSocket transport error to {name}",
   "terminal.status.switching": "Switching to server: {name}...",
   "terminal.session.defaultName": "Terminal {time}",
-  "terminal.error.createSession": "Failed to create session: {error}. Check server connection."
+  "terminal.error.createSession": "Failed to create session: {error}. Check server connection.",
+  "codex.slash.noMatchingCommands": "No matching commands",
+  "codex.panel.show": "Show",
+  "codex.panel.hide": "Hide",
+  "codex.approval.resolved": "resolved",
+  "codex.approval.submitted": "submitted",
+  "codex.approval.pending": "pending",
+  "codex.approval.defaultTitle": "Codex Approval"
 }

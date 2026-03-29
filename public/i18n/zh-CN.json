@@ -379,5 +379,12 @@
   "terminal.status.wsTransportError": "WebSocket 传输错误：{name}",
   "terminal.status.switching": "正在切换至服务器：{name}...",
   "terminal.session.defaultName": "终端 {time}",
-  "terminal.error.createSession": "创建会话失败：{error}。请检查服务器连接。"
+  "terminal.error.createSession": "创建会话失败：{error}。请检查服务器连接。",
+  "codex.slash.noMatchingCommands": "无匹配命令",
+  "codex.panel.show": "显示",
+  "codex.panel.hide": "隐藏",
+  "codex.approval.resolved": "已解决",
+  "codex.approval.submitted": "已提交",
+  "codex.approval.pending": "待处理",
+  "codex.approval.defaultTitle": "Codex 审批"
 }

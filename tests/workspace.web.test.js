@@ -57,6 +57,17 @@ function createWorkspaceApp(options = {}) {
         return fetchImpl(record, window);
     };
     window.console = console;
+
+    // Provide i18n stub so workspace.js can call i18n.init() / t() safely
+    window.i18n = {
+        init: async () => {},
+        t: (key) => key,
+        translatePage: () => {},
+        locale: 'en',
+        ready: true
+    };
+    window.t = window.i18n.t;
+
     window.eval(WORKSPACE_JS);
     return {
         window,
@@ -102,8 +113,8 @@ test('workspace page boots with meta then tree and keeps viewer in empty state',
     assert.match(app.calls[0].url, /\/workspace\/meta$/);
     assert.match(app.calls[1].url, /\/workspace\/tree\?/);
     assert.equal(app.document.getElementById('current-dir-label').textContent, 'docs');
-    assert.equal(app.document.getElementById('viewer-title').textContent, '未选择文件');
-    assert.equal(app.document.getElementById('viewer-empty').textContent, '请选择一个文本文件。');
+    assert.equal(app.document.getElementById('viewer-title').textContent, 'workspace.viewer.noFile');
+    assert.equal(app.document.getElementById('viewer-empty').textContent, 'workspace.viewer.selectFile');
 });
 
 test('workspace page drops stale file responses when user selects another file', async (t) => {
@@ -222,13 +233,13 @@ test('workspace page keeps loaded content when diff request fails', async (t) =>
     await flushUi();
 
     assert.equal(app.document.getElementById('viewer-status').textContent, 'Diff service unavailable');
-    assert.equal(app.document.getElementById('viewer-empty').textContent, 'Diff 加载失败，可切回内容视图继续查看文件。');
+    assert.equal(app.document.getElementById('viewer-empty').textContent, 'workspace.viewer.diffLoadFailed');
 
     app.document.getElementById('btn-view-content').click();
     await flushUi();
 
     assert.equal(app.document.getElementById('viewer-body').textContent, 'stable content');
-    assert.equal(app.document.getElementById('viewer-mode-note').textContent, '完整预览');
+    assert.equal(app.document.getElementById('viewer-mode-note').textContent, 'workspace.viewer.fullPreview');
 });
 
 test('workspace page appends truncated content when loading more', async (t) => {
@@ -288,7 +299,7 @@ test('workspace page appends truncated content when loading more', async (t) => 
     await flushUi();
 
     assert.equal(app.document.getElementById('viewer-body').textContent, 'head-tail');
-    assert.match(app.document.getElementById('viewer-mode-note').textContent, /截断预览/);
+    assert.match(app.document.getElementById('viewer-mode-note').textContent, /truncatedPreview/);
     assert.equal(app.document.getElementById('btn-load-more').hidden, true);
 });
 
