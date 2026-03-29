@@ -100,6 +100,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var lastInjectedConfigSignature: String? = null
     private var terminalStatusText: String = ""
     private var currentPrivilegeLevel: String = "STANDARD"
+    private var lastResolvedLocale: String = LocaleHelper.resolveWebViewLocale()
     private var systemBarInsets: Insets = Insets.NONE
     private var imeInsets: Insets = Insets.NONE
     private var isImeVisible: Boolean = false
@@ -247,8 +248,12 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        if (currentScreen == ScreenMode.TERMINAL) {
-            reloadTerminalSurfaceIfNeeded(forceReload = false)
+        val newLocale = LocaleHelper.resolveWebViewLocale()
+        if (newLocale != lastResolvedLocale) {
+            lastResolvedLocale = newLocale
+            if (currentScreen == ScreenMode.TERMINAL) {
+                reloadTerminalSurfaceIfNeeded(forceReload = false)
+            }
         }
     }
 

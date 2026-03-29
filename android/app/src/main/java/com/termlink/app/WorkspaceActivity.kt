@@ -28,6 +28,7 @@ class WorkspaceActivity : AppCompatActivity() {
     private var workspaceWebView: WebView? = null
     private var profileId: String = ""
     private var sessionId: String = ""
+    private var lastResolvedLocale: String = LocaleHelper.resolveWebViewLocale()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -82,7 +83,11 @@ class WorkspaceActivity : AppCompatActivity() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        workspaceWebView?.loadUrl(LocaleHelper.appendLangParam(WORKSPACE_URL))
+        val newLocale = LocaleHelper.resolveWebViewLocale()
+        if (newLocale != lastResolvedLocale) {
+            lastResolvedLocale = newLocale
+            workspaceWebView?.loadUrl(LocaleHelper.appendLangParam(WORKSPACE_URL))
+        }
     }
 
     override fun onDestroy() {
