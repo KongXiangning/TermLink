@@ -65,8 +65,8 @@ foreach ($item in $ItemsToCopy) {
     }
 }
 
-# ── Copy deploy scripts (install/uninstall/start from this skill) ──
-$DeployScripts = @('install-service.ps1', 'uninstall-service.ps1', 'start.ps1')
+# ── Copy deploy scripts (install/uninstall/start/startup from this skill) ──
+$DeployScripts = @('install-service.ps1', 'uninstall-service.ps1', 'start.ps1', 'pm2-admin-startup.cmd')
 $DeployDst = Join-Path $StageDir 'deploy-scripts'
 New-Item $DeployDst -ItemType Directory -Force | Out-Null
 foreach ($ds in $DeployScripts) {
@@ -142,4 +142,5 @@ Deploy on target Windows machine:
   1. Right-click zip -> Extract All (or: Expand-Archive *.zip -Dest C:\TermLink)
   2. Copy .env.example -> .env, edit credentials
   3. Admin PowerShell: .\deploy-scripts\install-service.ps1
+  4. Auto-start is provided by the PM2-Termlink-Admin scheduled task
 "@

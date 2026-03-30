@@ -2,7 +2,7 @@
 title: 部署指南
 status: active
 owner: @maintainer
-last_updated: 2026-02-22
+last_updated: 2026-03-30
 source_of_truth: ops
 related_code: [src/server.js, ecosystem.config.js, docker-compose.yml]
 related_docs: [docs/ops/ops-checklist.md]
@@ -21,8 +21,9 @@ Docker 不适用——`node-pty` 需要 Windows conpty 内核接口。
 
 | 角色 | 需要 |
 |------|------|
-| **打包机**（开发机） | Node.js 20+，已 `npm install` |
-| **目标部署机** | 仅需 Node.js 20 LTS |
+| **打包机**（开发机） | 已 `npm install` |
+| **目标部署机** | Node.js 已安装且可在 `PATH` 中找到 |
+| **目标部署机（elevated 模式）** | 管理员 PowerShell |
 
 ### 一键打包
 
@@ -30,7 +31,7 @@ Docker 不适用——`node-pty` 需要 Windows conpty 内核接口。
 powershell -ExecutionPolicy Bypass -File .\skills\win-server-deploy\scripts\pack-win-server.ps1
 ```
 
-输出 `dist/termlink-win-<timestamp>.zip`（约 22 MB），包含：
+输出 `dist/termlink-win-<timestamp>.zip`，包含：
 
 ```
 termlink-win-<timestamp>/
@@ -42,7 +43,8 @@ termlink-win-<timestamp>/
 ├── deploy-scripts/       # 安装/卸载/启动脚本
 │   ├── install-service.ps1
 │   ├── uninstall-service.ps1
-│   └── start.ps1
+│   ├── start.ps1
+│   └── pm2-admin-startup.cmd
 ├── data/                 # session 持久化（空）
 └── logs/                 # 日志目录（空）
 ```
@@ -57,27 +59,56 @@ Expand-Archive termlink-win-*.zip -DestinationPath C:\TermLink
 # 2. 配置
 cd C:\TermLink
 Copy-Item .env.example .env
-notepad .env     # 必须改 AUTH_USER / AUTH_PASS
+notepad .env
 
 # 3. 安装服务（以管理员运行 PowerShell）
 powershell -ExecutionPolicy Bypass -File .\deploy-scripts\install-service.ps1
 ```
 
+安装前至少检查这些变量：
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `AUTH_USER` | `admin` | BasicAuth 用户名 |
+| `AUTH_PASS` | 见 `.env.example` | 生产环境必须改成强密码 |
+| `PORT` | 见 `.env.example` | 监听端口 |
+| `TERMLINK_PRIVILEGE_MODE` | `standard` | 仅在必须要管理员运行时改成 `elevated` |
+| `TERMLINK_ELEVATED_ENABLE` | `false` | 使用 `elevated` 时必须同步设为 `true` |
+
+### Windows 开机自启策略
+
+Windows elevated 部署不再使用 `pm2-windows-startup`。安装脚本会：
+
+1. 清理旧的 `pm2-windows-startup` 注册表残留
+2. 创建计划任务 `PM2-Termlink-Admin`
+3. 在用户登录后延迟启动 `deploy-scripts\pm2-admin-startup.cmd`
+4. 用最高权限重建 PM2 daemon，然后启动 `termlink`
+
+这样做是因为 `pm2-windows-startup` 默认走普通用户权限，无法满足 `TERMLINK_PRIVILEGE_MODE=elevated` 的安全门禁。
+
+> **重要限制：** `PM2-Termlink-Admin` 会重置当前 Windows 用户的 PM2 daemon。启用 elevated 自动启动时，不要在同一用户下托管其他无关 PM2 应用。
+
 ### 日常管理
 
 ```powershell
-pm2 status              # 查看状态
-pm2 logs termlink       # 查看日志
-pm2 restart termlink    # 重启
-pm2 stop termlink       # 停止
-pm2 monit               # 实时监控面板
+pm2 list                             # 查看状态
+pm2 logs termlink --lines 50 --nostream
+pm2 restart termlink                 # 重启
+pm2 stop termlink                    # 停止
+pm2 start termlink                   # 启动
+pm2 flush termlink                   # 清空日志
+pm2 save                             # 持久化当前进程列表
 ```
+
+如果是 `elevated` 模式，请在**管理员终端**里执行这些命令。
 
 ### 卸载
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\deploy-scripts\uninstall-service.ps1
 ```
+
+卸载脚本会删除 TermLink 的 PM2 进程，并可选移除 `PM2-Termlink-Admin` 计划任务；不会删除应用目录。
 
 ---
 
@@ -106,6 +137,10 @@ chmod +x setup-service.sh && ./setup-service.sh
 | `AUTH_ENABLED` | `true` | 是否开启 BasicAuth |
 | `AUTH_USER` | `admin` | 用户名（生产必须改） |
 | `AUTH_PASS` | `admin` | 密码（生产必须改） |
+| `TERMLINK_PRIVILEGE_MODE` | `standard` | 权限模式：`standard` / `elevated` |
+| `TERMLINK_ELEVATED_ENABLE` | `false` | 是否允许 elevated 模式 |
+| `TERMLINK_ELEVATED_AUDIT_PATH` | `./logs/elevated-audit.log` | 提权审计日志 |
+| `TERMLINK_ELEVATED_REQUIRE_MTLS` | `false` | elevated 模式下是否要求 mTLS |
 | `SESSION_PERSIST_ENABLED` | `true` | 是否持久化 session |
 | `SESSION_PERSIST_PATH` | `./data/sessions.json` | 持久化路径 |
 | `PTY_SHELL` | *自动探测* | 强制 shell（最高优先级） |
