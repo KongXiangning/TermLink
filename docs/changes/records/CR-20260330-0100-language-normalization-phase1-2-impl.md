@@ -3,7 +3,7 @@ title: REQ-20260329-language-normalization Phase 1+2 实现 — i18n 框架与 W
 status: active
 record_id: CR-20260330-0100-language-normalization-phase1-2-impl
 req_id: REQ-20260329-language-normalization
-commit_ref: 7be7db0, b7b1244, 68356d1
+commit_ref: 68356d1
 owner: @maintainer
 last_updated: 2026-03-30
 source_of_truth: code
