@@ -30,4 +30,5 @@ git worktree prune
 ## Notes
 
 - Default target path is a sibling directory next to the repo root.
+- After `git worktree add`, also copy `.codex` and `.claude` into the new worktree when those directories exist in the repo root.
 - Do not force-remove a dirty worktree unless the user explicitly wants to discard changes.
