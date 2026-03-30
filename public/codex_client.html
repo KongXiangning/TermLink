@@ -129,9 +129,12 @@
                 <section id="codex-plan-workflow" hidden>
                     <div id="codex-plan-workflow-header">
                         <div id="codex-plan-workflow-title" data-i18n="codex.plan.inProgress">Plan in Progress</div>
-                        <div id="codex-plan-workflow-summary" data-i18n="codex.plan.summary">Codex is planning. It won't execute directly for now.</div>
+                        <div id="codex-plan-workflow-header-row">
+                            <div id="codex-plan-workflow-summary" data-i18n="codex.plan.summary">Codex is planning. It won't execute directly for now.</div>
+                            <button id="btn-codex-plan-expand" class="codex-inline-action" type="button" hidden title="Expand plan" aria-label="Expand plan" data-i18n="codex.plan.expand" data-i18n-attr="title,aria-label">▼</button>
+                        </div>
                     </div>
-                    <pre id="codex-plan-workflow-body"></pre>
+                    <div id="codex-plan-workflow-body"></div>
                     <div id="codex-plan-workflow-actions">
                         <button id="btn-codex-plan-execute" class="codex-btn" type="button" hidden data-i18n="codex.plan.execute">Execute this plan</button>
                         <button id="btn-codex-plan-continue" class="codex-btn subtle" type="button" hidden data-i18n="codex.plan.continue">Continue / Ask more</button>
