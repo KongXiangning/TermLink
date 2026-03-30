@@ -87,7 +87,7 @@
                 discoverability: ENABLED_DISCOVERABILITY,
                 argumentShape: 'free_text',
                 dispatchKind: 'interaction_state',
-                capabilityBinding: '客户端封装 + turn/plan/updated',
+                capabilityBinding: 'client-side + turn/plan/updated',
                 capabilityKey: 'slashPlan',
                 statusText: ''
             },
@@ -109,7 +109,7 @@
                 discoverability: ENABLED_DISCOVERABILITY,
                 argumentShape: 'none',
                 dispatchKind: 'open_panel',
-                capabilityBinding: 'thread/compact/start + 客户端封装',
+                capabilityBinding: 'thread/compact/start + client-side',
                 capabilityKey: 'compact',
                 statusText: ''
             },
@@ -120,7 +120,7 @@
                 discoverability: ENABLED_DISCOVERABILITY,
                 argumentShape: 'none',
                 dispatchKind: 'open_panel',
-                capabilityBinding: 'skills/list + 客户端封装',
+                capabilityBinding: 'skills/list + client-side',
                 capabilityKey: 'skillsList',
                 statusText: ''
             }
