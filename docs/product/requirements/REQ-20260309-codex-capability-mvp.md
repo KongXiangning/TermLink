@@ -1,8 +1,8 @@
 ﻿---
 title: Codex 能力矩阵驱动主线需求（对话体验优先、后台保活与下一阶段）
-status: in_progress
+status: done
 owner: @maintainer
-last_updated: 2026-03-29
+last_updated: 2026-03-30
 source_of_truth: product
 related_code: [src/routes/sessions.js, src/services/sessionManager.js, src/services/codexAppServerService.js, src/ws/terminalGateway.js, public/codex_client.html, public/terminal_client.js, android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt]
 related_docs: [docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md, docs/codex/cross-version-stable-findings.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/codex/CODEX_FILE_MENTION_INPUT_PLAN.md, docs/product/plans/PLAN-20260329-codex-background-retention-and-resume.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/changes/records/INDEX.md]
@@ -15,7 +15,7 @@ related_docs: [docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md, docs/codex/cross-ve
 - id: REQ-20260309-codex-capability-mvp
 - title: Codex 能力矩阵驱动主线需求（对话体验优先、后台保活与下一阶段）
 - priority: P1
-- status: in_progress
+- status: done
 - owner: @maintainer
 - target_release: 2026-Q2
 - links: `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`, `docs/product/plans/PLAN-20260329-codex-background-retention-and-resume.md`

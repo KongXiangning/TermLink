@@ -1,4 +1,4 @@
----
+﻿---
 title: Codex 后台保活与断线续接实施计划
 status: planned
 owner: @maintainer
@@ -17,7 +17,7 @@ related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, d
 1. `done`：服务端将 Codex turn 生命周期与单个 WebSocket 连接解耦
 2. `done`：Android 为活跃 Codex 任务增加 foreground service 与常驻通知保活
 3. `done`：WebView / 前端在回连后恢复当前线程、运行态、审批态与必要快照
-4. `pending`：修复“执行此计划”后 `planMode` 未自动关闭的问题
+4. `done`：修复“执行此计划”后 `planMode` 未自动关闭的问题
 
 对应需求：`REQ-20260309-codex-capability-mvp`
 
