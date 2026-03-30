@@ -1,4 +1,5 @@
 (function attachCodexApprovalView(globalScope) {
+    const t = typeof globalScope.t === 'function' ? globalScope.t : (k) => k;
     const VALID_REQUEST_KINDS = new Set(['command', 'file', 'patch', 'userInput']);
     const VALID_RESPONSE_MODES = new Set(['decision', 'answers']);
 
@@ -17,11 +18,11 @@
     }
 
     function resolveApprovalTitle(requestKind) {
-        if (requestKind === 'command') return '命令确认';
-        if (requestKind === 'file') return '文件改动确认';
-        if (requestKind === 'patch') return '补丁确认';
-        if (requestKind === 'userInput') return '补充信息请求';
-        return 'Codex 确认';
+        if (requestKind === 'command') return t('codex.approval.title.command');
+        if (requestKind === 'file') return t('codex.approval.title.file');
+        if (requestKind === 'patch') return t('codex.approval.title.patch');
+        if (requestKind === 'userInput') return t('codex.approval.title.userInput');
+        return t('codex.approval.title.default');
     }
 
     function normalizeApprovalRequest(envelope) {
@@ -71,21 +72,21 @@
 
     function resolveApprovalSummaryText(request) {
         if (!request || typeof request !== 'object') {
-            return '收到待确认请求。';
+            return t('codex.approval.summary.default');
         }
         if (isNonEmptyString(request.summary)) {
             return request.summary;
         }
-        if (request.requestKind === 'command') return '需要确认后才能执行命令。';
-        if (request.requestKind === 'file') return '需要确认后才能修改文件。';
-        if (request.requestKind === 'patch') return '需要确认后才能应用补丁。';
+        if (request.requestKind === 'command') return t('codex.approval.summary.command');
+        if (request.requestKind === 'file') return t('codex.approval.summary.file');
+        if (request.requestKind === 'patch') return t('codex.approval.summary.patch');
         if (request.requestKind === 'userInput') {
             if (request.questionCount > 1) {
-                return `还有 ${request.questionCount} 个问题待补充`;
+                return t('codex.approval.summary.questionsRemaining', { count: request.questionCount });
             }
-            return '需要补充信息后才能继续。';
+            return t('codex.approval.summary.userInput');
         }
-        return `收到待确认请求：${request.method || 'unknown'}`;
+        return t('codex.approval.summary.unknown', { method: request.method || 'unknown' });
     }
 
     function buildUserInputResult(request, selectedAnswersByQuestionId) {
@@ -112,19 +113,19 @@
 
     function resolveApprovalStatusText(requestState) {
         if (!requestState || typeof requestState !== 'object') {
-            return '等待处理';
+            return t('codex.approval.status.pending');
         }
         if (requestState.status === 'resolved') {
-            if (requestState.resolution === 'approved') return '已允许';
-            if (requestState.resolution === 'rejected') return '已拒绝';
-            return '已完成';
+            if (requestState.resolution === 'approved') return t('codex.approval.status.approved');
+            if (requestState.resolution === 'rejected') return t('codex.approval.status.rejected');
+            return t('codex.approval.status.resolved');
         }
         if (requestState.status === 'submitted') {
-            if (requestState.resolution === 'approved') return '正在允许...';
-            if (requestState.resolution === 'rejected') return '正在拒绝...';
-            return '提交中...';
+            if (requestState.resolution === 'approved') return t('codex.approval.status.approving');
+            if (requestState.resolution === 'rejected') return t('codex.approval.status.rejecting');
+            return t('codex.approval.status.submitting');
         }
-        return '等待处理';
+        return t('codex.approval.status.pending');
     }
 
     function shouldUseBlockingModal(request) {

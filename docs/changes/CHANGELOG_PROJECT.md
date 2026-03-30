@@ -2,13 +2,23 @@
 title: TermLink 项目变更日志
 status: active
 owner: @maintainer
-last_updated: 2026-03-29
+last_updated: 2026-03-30
 source_of_truth: product
 related_code: []
 related_docs: [docs/README.md]
 ---
 
 # CHANGELOG_PROJECT
+
+## 2026-03-30
+
+### client
+
+1. 完成 `REQ-20260329-language-normalization` 收口：补齐 Android 前台 locale 切换 reload、Web 漏网 i18n 文案与测试辅助初始化，确保中文系系统语言统一显示简体中文、非中文显示英文，且原生界面与 WebView 保持一致。
+
+### docs
+
+1. 将 `REQ-20260329-language-normalization` 状态同步为 `done`，并回写 `PLAN`、`REQUIREMENTS_BACKLOG`、`ROADMAP`、`CHANGELOG_PROJECT` 与 CR 索引，补齐最终收口追踪链路。
 
 ## 2026-03-29
 

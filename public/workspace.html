@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -10,15 +10,15 @@
     <div class="workspace-shell">
         <header class="workspace-header">
             <div class="workspace-header-main">
-                <div class="workspace-kicker">Workspace</div>
-                <h1 id="workspace-title">加载中</h1>
-                <p id="workspace-subtitle">正在连接会话工作区</p>
+                <div class="workspace-kicker" data-i18n="workspace.branding">Workspace</div>
+                <h1 id="workspace-title" data-i18n="workspace.title.loading">Loading</h1>
+                <p id="workspace-subtitle" data-i18n="workspace.subtitle.connecting">Connecting to workspace</p>
             </div>
             <div class="workspace-header-actions">
-                <button id="btn-refresh" type="button">刷新</button>
+                <button id="btn-refresh" type="button" data-i18n="workspace.toolbar.refresh">Refresh</button>
                 <label class="toggle">
                     <input id="toggle-hidden" type="checkbox" checked>
-                    <span>显示隐藏文件</span>
+                    <span data-i18n="workspace.toolbar.showHidden">Show Hidden Files</span>
                 </label>
             </div>
         </header>
@@ -29,46 +29,47 @@
             <section class="workspace-pane workspace-browser">
                 <div class="pane-header">
                     <div>
-                        <div class="pane-title">目录</div>
+                        <div class="pane-title" data-i18n="workspace.browser.title">Directory</div>
                         <div id="current-dir-label" class="pane-meta">/</div>
                     </div>
                     <div class="pane-actions">
-                        <button id="btn-root" type="button">根目录</button>
-                        <button id="btn-up" type="button">上一级</button>
+                        <button id="btn-root" type="button" data-i18n="workspace.browser.root">Root</button>
+                        <button id="btn-up" type="button" data-i18n="workspace.browser.up">Up</button>
                     </div>
                 </div>
                 <div id="browser-status" class="pane-status" hidden></div>
-                <div id="browser-empty" class="empty-state" hidden>当前目录为空。</div>
+                <div id="browser-empty" class="empty-state" hidden data-i18n="workspace.browser.empty">Current directory is empty.</div>
                 <div id="browser-list" class="browser-list" aria-live="polite"></div>
             </section>
 
             <section class="workspace-pane workspace-viewer">
                 <div class="pane-header">
                     <div>
-                        <div id="viewer-title" class="pane-title">未选择文件</div>
-                        <div id="viewer-meta" class="pane-meta">打开文件后可查看内容或 Diff</div>
+                        <div id="viewer-title" class="pane-title" data-i18n="workspace.viewer.noFile">No file selected</div>
+                        <div id="viewer-meta" class="pane-meta" data-i18n="workspace.viewer.hint">Open a file to view its content or Diff</div>
                     </div>
                     <div class="pane-actions">
-                        <button id="btn-view-content" type="button" class="active">内容</button>
+                        <button id="btn-view-content" type="button" class="active" data-i18n="workspace.viewer.content">Content</button>
                         <button id="btn-view-diff" type="button">Diff</button>
-                        <button id="btn-reload-file" type="button">重载</button>
+                        <button id="btn-reload-file" type="button" data-i18n="workspace.viewer.reload">Reload</button>
                     </div>
                 </div>
                 <div id="viewer-status" class="pane-status" hidden></div>
                 <div id="viewer-mode-note" class="viewer-mode-note" hidden></div>
-                <div id="viewer-empty" class="empty-state">请选择一个文本文件。</div>
+                <div id="viewer-empty" class="empty-state" data-i18n="workspace.viewer.selectFile">Please select a text file.</div>
                 <pre id="viewer-body" class="viewer-body" hidden></pre>
                 <div id="viewer-actions" class="viewer-actions" hidden>
-                    <button id="btn-load-more" type="button" hidden>加载更多</button>
-                    <button id="btn-prev-segment" type="button" hidden>上一段</button>
-                    <button id="btn-next-segment" type="button" hidden>下一段</button>
-                    <button id="btn-limited-head" type="button" hidden>头部</button>
-                    <button id="btn-limited-tail" type="button" hidden>尾部</button>
+                    <button id="btn-load-more" type="button" hidden data-i18n="workspace.viewer.loadMore">Load More</button>
+                    <button id="btn-prev-segment" type="button" hidden data-i18n="workspace.viewer.prevSegment">Previous</button>
+                    <button id="btn-next-segment" type="button" hidden data-i18n="workspace.viewer.nextSegment">Next</button>
+                    <button id="btn-limited-head" type="button" hidden data-i18n="workspace.viewer.head">Head</button>
+                    <button id="btn-limited-tail" type="button" hidden data-i18n="workspace.viewer.tail">Tail</button>
                 </div>
             </section>
         </main>
     </div>
 
-    <script src="workspace.js?v=1"></script>
+    <script src="i18n/i18n.js"></script>
+    <script src="workspace.js?v=2"></script>
 </body>
 </html>

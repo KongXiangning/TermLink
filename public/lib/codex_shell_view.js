@@ -7,6 +7,7 @@
         root.TermLinkCodexShellView = api;
     }
 }(typeof globalThis !== 'undefined' ? globalThis : this, function createShellViewApi() {
+    const t = typeof globalThis !== 'undefined' && typeof globalThis.t === 'function' ? globalThis.t : (k) => k;
     function normalizeSessionMode(value) {
         return typeof value === 'string' ? value.trim().toLowerCase() : '';
     }
@@ -47,15 +48,15 @@
     function localizeStatus(status) {
         switch (normalizeStatus(status)) {
         case 'running':
-            return '执行中';
+            return t('codex.shell.status.running');
         case 'streaming':
-            return '输出中';
+            return t('codex.shell.status.streaming');
         case 'waiting_approval':
-            return '等待审批';
+            return t('codex.shell.status.waitingApproval');
         case 'error':
-            return '错误';
+            return t('codex.shell.status.error');
         default:
-            return '空闲';
+            return t('codex.shell.status.idle');
         }
     }
 
@@ -98,17 +99,17 @@
 
         if (!threadId) {
             return {
-                titleText: '当前线程未就绪',
+                titleText: t('codex.shell.threadNotReady'),
                 metaText: cwd
-                    ? `工作区：${cwd} · 状态：${statusLabel}`
-                    : `即将自动创建新线程 · 状态：${statusLabel}`,
+                    ? t('codex.shell.metaWithCwd', { cwd, status: statusLabel })
+                    : t('codex.shell.metaAutoCreate', { status: statusLabel }),
                 empty: true
             };
         }
 
         return {
-            titleText: threadTitle || `当前线程 ${shortenThreadId(threadId)}`,
-            metaText: `${cwd ? `工作区：${cwd}` : '工作区：默认目录'} · 状态：${statusLabel}`,
+            titleText: threadTitle || t('codex.shell.currentThread', { id: shortenThreadId(threadId) }),
+            metaText: t('codex.shell.metaWithCwd', { cwd: cwd || t('codex.shell.workspaceDefault'), status: statusLabel }),
             empty: false
         };
     }

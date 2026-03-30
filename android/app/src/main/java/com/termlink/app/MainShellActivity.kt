@@ -1,5 +1,6 @@
 package com.termlink.app
 
+import android.content.res.Configuration
 import android.os.Bundle
 import android.text.TextUtils
 import android.util.Log
@@ -54,6 +55,7 @@ import java.security.MessageDigest
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import com.termlink.app.util.LocaleHelper
 
 class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEventBridge.Listener,
     SettingsFragment.Callbacks, SessionsFragment.Callbacks {
@@ -98,6 +100,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var lastInjectedConfigSignature: String? = null
     private var terminalStatusText: String = ""
     private var currentPrivilegeLevel: String = "STANDARD"
+    private var lastResolvedLocale: String = LocaleHelper.resolveWebViewLocale()
     private var systemBarInsets: Insets = Insets.NONE
     private var imeInsets: Insets = Insets.NONE
     private var isImeVisible: Boolean = false
@@ -241,6 +244,17 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         idleHandler?.removeCallbacksAndMessages(null)
         disableKeepScreenOn()
         super.onPause()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        val newLocale = LocaleHelper.resolveWebViewLocale()
+        if (newLocale != lastResolvedLocale) {
+            lastResolvedLocale = newLocale
+            if (currentScreen == ScreenMode.TERMINAL) {
+                reloadTerminalSurfaceIfNeeded(forceReload = false)
+            }
+        }
     }
 
     @Deprecated("Deprecated in Java")
@@ -1356,9 +1370,9 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         applyWebViewDarkModeForType(webView, type)
         val target = if (type == TerminalType.TERMLINK_WS) {
             if (currentSessionMode() == SessionMode.CODEX) {
-                CODEX_URL
+                LocaleHelper.appendLangParam(CODEX_URL)
             } else {
-                TERMINAL_URL
+                LocaleHelper.appendLangParam(TERMINAL_URL)
             }
         } else {
             profile?.baseUrl?.trim().orEmpty()

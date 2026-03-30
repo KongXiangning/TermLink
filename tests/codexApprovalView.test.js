@@ -3,12 +3,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { setupTestI18n } = require('./_i18n_helper');
 
 function loadApprovalViewApi() {
+    const t = setupTestI18n();
     const script = fs.readFileSync(path.join(__dirname, '..', 'public', 'lib', 'codex_approval_view.js'), 'utf8');
     const context = {
-        window: {},
-        globalThis: {}
+        window: { t },
+        globalThis: { t }
     };
     vm.createContext(context);
     vm.runInContext(script, context);
@@ -29,7 +31,7 @@ test('normalizeApprovalRequest resolves command request metadata', () => {
     assert.equal(request.requestId, 'req-1');
     assert.equal(request.requestKind, 'command');
     assert.equal(request.responseMode, 'decision');
-    assert.equal(request.title, '命令确认');
+    assert.equal(request.title, 'Command Approval');
     assert.equal(api.resolveApprovalSummaryText(request), 'dir');
 });
 
@@ -109,5 +111,5 @@ test('blocking command approvals expose modal hints and command extraction helpe
 
     assert.equal(api.shouldUseBlockingModal(request), true);
     assert.equal(api.extractCommandText(request), 'npm test');
-    assert.equal(api.resolveApprovalStatusText({ status: 'pending' }), '等待处理');
+    assert.equal(api.resolveApprovalStatusText({ status: 'pending' }), 'Pending');
 });

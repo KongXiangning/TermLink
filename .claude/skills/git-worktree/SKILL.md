@@ -37,7 +37,8 @@ Behavior:
 1. Resolve the current repository root.
 2. Create a sibling directory such as `E:\coding\TermLink-feat-my-topic`.
 3. Run `git worktree add -b <branch> <path> <base>`.
-4. Print the created path for follow-up work.
+4. Copy repository-local assistant config directories `.codex` and `.claude` into the new worktree when they exist.
+5. Print the created path for follow-up work.
 
 Optional variants:
 
@@ -72,3 +73,4 @@ git worktree prune
 3. Keep worktrees outside the repository root as sibling directories; do not create nested worktrees inside tracked folders.
 4. Do not remove a worktree with uncommitted changes unless the user explicitly asks to discard them.
 5. Run `git worktree prune` after removal so stale metadata does not block later reuse.
+6. When creating a worktree, keep `.codex` and `.claude` synced into the new directory so local agent workflows continue to work there.

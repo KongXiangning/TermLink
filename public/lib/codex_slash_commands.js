@@ -7,6 +7,7 @@
         root.TermLinkCodexSlashCommands = api;
     }
 }(typeof globalThis !== 'undefined' ? globalThis : this, function createSlashCommandsApi() {
+    const t = typeof globalThis !== 'undefined' && typeof globalThis.t === 'function' ? globalThis.t : (k) => k;
     const VALID_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh']);
     const ENABLED_DISCOVERABILITY = 'menu_visible_executable';
 
@@ -70,7 +71,7 @@
         return [
             {
                 command: '/model',
-                title: '选择模型',
+                title: t('codex.slash.model'),
                 availability: 'enabled',
                 discoverability: ENABLED_DISCOVERABILITY,
                 argumentShape: 'none',
@@ -81,18 +82,18 @@
             },
             {
                 command: '/plan',
-                title: '计划模式',
+                title: t('codex.slash.plan'),
                 availability: 'enabled',
                 discoverability: ENABLED_DISCOVERABILITY,
                 argumentShape: 'free_text',
                 dispatchKind: 'interaction_state',
-                capabilityBinding: '客户端封装 + turn/plan/updated',
+                capabilityBinding: 'client-side + turn/plan/updated',
                 capabilityKey: 'slashPlan',
                 statusText: ''
             },
             {
                 command: '/skill',
-                title: '切换技能',
+                title: t('codex.slash.skill'),
                 availability: 'enabled',
                 discoverability: ENABLED_DISCOVERABILITY,
                 argumentShape: 'single_token',
@@ -103,23 +104,23 @@
             },
             {
                 command: '/compact',
-                title: '压缩上下文',
+                title: t('codex.slash.compact'),
                 availability: 'enabled',
                 discoverability: ENABLED_DISCOVERABILITY,
                 argumentShape: 'none',
                 dispatchKind: 'open_panel',
-                capabilityBinding: 'thread/compact/start + 客户端封装',
+                capabilityBinding: 'thread/compact/start + client-side',
                 capabilityKey: 'compact',
                 statusText: ''
             },
             {
                 command: '/skills',
-                title: '技能列表',
+                title: t('codex.slash.skills'),
                 availability: 'enabled',
                 discoverability: ENABLED_DISCOVERABILITY,
                 argumentShape: 'none',
                 dispatchKind: 'open_panel',
-                capabilityBinding: 'skills/list + 客户端封装',
+                capabilityBinding: 'skills/list + client-side',
                 capabilityKey: 'skillsList',
                 statusText: ''
             }

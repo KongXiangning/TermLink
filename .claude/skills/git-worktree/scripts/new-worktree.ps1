@@ -23,6 +23,36 @@ function Invoke-Git {
     }
 }
 
+function Copy-WorkspaceConfigDirectory {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RepoRoot,
+
+        [Parameter(Mandatory = $true)]
+        [string]$WorktreePath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$DirectoryName
+    )
+
+    $sourcePath = Join-Path $RepoRoot $DirectoryName
+    if (-not (Test-Path -LiteralPath $sourcePath -PathType Container)) {
+        return
+    }
+
+    $targetPath = Join-Path $WorktreePath $DirectoryName
+    if (-not (Test-Path -LiteralPath $targetPath -PathType Container)) {
+        New-Item -ItemType Directory -Path $targetPath | Out-Null
+    }
+
+    $entries = Get-ChildItem -LiteralPath $sourcePath -Force
+    foreach ($entry in $entries) {
+        Copy-Item -LiteralPath $entry.FullName -Destination $targetPath -Recurse -Force
+    }
+
+    Write-Host "Synced $DirectoryName into worktree."
+}
+
 $repoRoot = (& git rev-parse --show-toplevel).Trim()
 if (-not $repoRoot) {
     throw 'Unable to resolve repository root.'
@@ -51,5 +81,8 @@ if ($CheckoutExisting) {
 else {
     Invoke-Git worktree add -b $Branch $Path $Base
 }
+
+Copy-WorkspaceConfigDirectory -RepoRoot $repoRoot -WorktreePath $Path -DirectoryName '.codex'
+Copy-WorkspaceConfigDirectory -RepoRoot $repoRoot -WorktreePath $Path -DirectoryName '.claude'
 
 Write-Host "Created worktree: $Path"

@@ -1,5 +1,6 @@
 package com.termlink.app
 
+import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
@@ -16,6 +17,7 @@ import com.termlink.app.data.BasicCredentialStore
 import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.TerminalType
+import com.termlink.app.util.LocaleHelper
 import com.termlink.app.web.MtlsWebViewClient
 import org.json.JSONObject
 
@@ -26,6 +28,7 @@ class WorkspaceActivity : AppCompatActivity() {
     private var workspaceWebView: WebView? = null
     private var profileId: String = ""
     private var sessionId: String = ""
+    private var lastResolvedLocale: String = LocaleHelper.resolveWebViewLocale()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,7 +70,7 @@ class WorkspaceActivity : AppCompatActivity() {
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState)
         } else {
-            webView.loadUrl(WORKSPACE_URL)
+            webView.loadUrl(LocaleHelper.appendLangParam(WORKSPACE_URL))
         }
     }
 
@@ -76,6 +79,15 @@ class WorkspaceActivity : AppCompatActivity() {
         outState.putString(STATE_SESSION_ID, sessionId)
         workspaceWebView?.saveState(outState)
         super.onSaveInstanceState(outState)
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        val newLocale = LocaleHelper.resolveWebViewLocale()
+        if (newLocale != lastResolvedLocale) {
+            lastResolvedLocale = newLocale
+            workspaceWebView?.loadUrl(LocaleHelper.appendLangParam(WORKSPACE_URL))
+        }
     }
 
     override fun onDestroy() {

@@ -7,6 +7,7 @@
         root.TermLinkCodexHistoryView = api;
     }
 }(typeof globalThis !== 'undefined' ? globalThis : this, function createHistoryViewApi() {
+    const t = typeof globalThis !== 'undefined' && typeof globalThis.t === 'function' ? globalThis.t : (k) => k;
     function normalizeThreadId(value) {
         return typeof value === 'string' && value.trim() ? value.trim() : '';
     }
@@ -22,9 +23,9 @@
             || /[\u0E00-\u0E7F]/.test(normalized)
             || (/[?？]/.test(normalized) && normalized.length >= 12)
         ) {
-            return `Thread ${fallbackId}`;
+            return t('codex.history.threadFallback', { id: fallbackId });
         }
-        return normalized || `Thread ${fallbackId}`;
+        return normalized || t('codex.history.threadFallback', { id: fallbackId });
     }
 
     function normalizeTimestamp(value) {
@@ -49,12 +50,12 @@
 
     function buildPendingBadge(actionKind) {
         return ({
-            open: 'Opening',
-            fork: 'Forking',
-            rename: 'Renaming',
-            archive: 'Archiving',
-            unarchive: 'Restoring'
-        })[actionKind] || 'Working';
+            open: t('codex.history.badge.opening'),
+            fork: t('codex.history.badge.forking'),
+            rename: t('codex.history.badge.renaming'),
+            archive: t('codex.history.badge.archiving'),
+            unarchive: t('codex.history.badge.restoring')
+        })[actionKind] || t('codex.history.pendingBadge.working');
     }
 
     function shouldShowHistoryPanel(input) {
@@ -85,9 +86,9 @@
                 const archived = normalizeBoolean(thread.archived) || normalizeBoolean(thread.isArchived);
                 const pending = id === actionThreadId;
                 const badges = [];
-                if (active) badges.push('Current');
-                if (saved && !active) badges.push('Saved');
-                if (archived) badges.push('Archived');
+                if (active) badges.push(t('codex.history.badge.current'));
+                if (saved && !active) badges.push(t('codex.history.badge.saved'));
+                if (archived) badges.push(t('codex.history.badge.archived'));
                 if (pending) badges.push(buildPendingBadge(actionKind));
                 const openDisabled = pending || (disabledBecauseRunning && !active);
                 const mutationDisabled = pending || disabledBecauseRunning || active;
@@ -96,8 +97,8 @@
                     id,
                     title: normalizeTitle(thread.title, id),
                     metaText: thread.lastActiveAt
-                        ? `最近活跃：${formatTimestamp(thread.lastActiveAt)}`
-                        : (thread.createdAt ? `创建时间：${formatTimestamp(thread.createdAt)}` : id),
+                        ? t('codex.history.lastActive', { time: formatTimestamp(thread.lastActiveAt) })
+                        : (thread.createdAt ? t('codex.history.createdAt', { time: formatTimestamp(thread.createdAt) }) : id),
                     badges,
                     active,
                     archived,
@@ -106,32 +107,32 @@
                     actions: [
                         {
                             kind: 'open',
-                            label: active ? '当前' : (pending && actionKind === 'open' ? '打开中...' : '打开'),
+                            label: active ? t('codex.history.action.current') : (pending && actionKind === 'open' ? t('codex.history.action.opening') : t('codex.history.action.open')),
                             disabled: openDisabled,
                             primary: true
                         },
                         {
                             kind: 'fork',
-                            label: pending && actionKind === 'fork' ? '分支中...' : '创建分支',
+                            label: pending && actionKind === 'fork' ? t('codex.history.action.forking') : t('codex.history.action.fork'),
                             disabled: mutationDisabled,
                             primary: false
                         },
                         {
                             kind: 'rename',
-                            label: pending && actionKind === 'rename' ? '重命名中...' : '重命名',
+                            label: pending && actionKind === 'rename' ? t('codex.history.action.renaming') : t('codex.history.action.rename'),
                             disabled: renameDisabled,
                             primary: false
                         },
                         archived
                             ? {
                                 kind: 'unarchive',
-                                label: pending && actionKind === 'unarchive' ? '恢复中...' : '取消归档',
+                                label: pending && actionKind === 'unarchive' ? t('codex.history.action.restoring') : t('codex.history.action.unarchive'),
                                 disabled: mutationDisabled,
                                 primary: false
                             }
                             : {
                                 kind: 'archive',
-                                label: pending && actionKind === 'archive' ? '归档中...' : '归档',
+                                label: pending && actionKind === 'archive' ? t('codex.history.action.archiving') : t('codex.history.action.archive'),
                                 disabled: mutationDisabled,
                                 primary: false
                             }

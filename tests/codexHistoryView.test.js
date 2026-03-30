@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { setupTestI18n } = require('./_i18n_helper');
+setupTestI18n();
 
 const {
     buildHistoryEntries,
@@ -78,8 +80,8 @@ test('buildHistoryEntries exposes timestamp metadata for recent activity and cre
         status: 'idle'
     });
 
-    assert.equal(entries[0].metaText, '最近活跃：2026-03-17 10:20');
-    assert.equal(entries[1].metaText, '创建时间：2026-03-16 08:00');
+    assert.equal(entries[0].metaText, 'Last active: 2026-03-17 10:20');
+    assert.equal(entries[1].metaText, 'Created: 2026-03-16 08:00');
 });
 
 test('buildHistoryEntries falls back to thread id when title looks malformed', () => {

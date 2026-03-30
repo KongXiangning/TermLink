@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TermLink Codex</title>
     <link rel="stylesheet" href="terminal_client.css?v=76">
+    <script src="i18n/i18n.js"></script>
     <script src="terminal_shortcut_input.js?v=26"></script>
 </head>
 
@@ -21,7 +22,7 @@
                     <div id="codex-header-main">
                         <div id="codex-status-line">
                             <span id="codex-status-dot" aria-hidden="true"></span>
-                            <span id="codex-status-text">Codex 空闲</span>
+                            <span id="codex-status-text" data-i18n="codex.status.idle">Codex Idle</span>
                             <span id="codex-status-cwd" hidden></span>
                         </div>
                         <div id="codex-meta-line">
@@ -30,57 +31,57 @@
                         </div>
                     </div>
                     <div id="codex-actions">
-                        <button id="btn-codex-toggle" class="codex-btn" type="button">收起</button>
-                        <button id="btn-codex-interrupt" class="codex-btn danger" type="button" hidden>中断</button>
+                        <button id="btn-codex-toggle" class="codex-btn" type="button" data-i18n="codex.btn.collapse">Collapse</button>
+                        <button id="btn-codex-interrupt" class="codex-btn danger" type="button" hidden data-i18n="codex.btn.interrupt">Interrupt</button>
                     </div>
                 </div>
                 <div id="codex-secondary-nav">
-                    <button id="btn-codex-secondary-threads" class="codex-secondary-btn" type="button">任务历史</button>
-                    <button id="btn-codex-secondary-runtime" class="codex-secondary-btn" type="button">运行态</button>
-                    <button id="btn-codex-secondary-tools" class="codex-secondary-btn" type="button" hidden>工具</button>
-                    <button id="btn-codex-secondary-notices" class="codex-secondary-btn" type="button" hidden>提示</button>
+                    <button id="btn-codex-secondary-threads" class="codex-secondary-btn" type="button" data-i18n="codex.panel.history">Task History</button>
+                    <button id="btn-codex-secondary-runtime" class="codex-secondary-btn" type="button" data-i18n="codex.panel.runtime">Runtime</button>
+                    <button id="btn-codex-secondary-tools" class="codex-secondary-btn" type="button" hidden data-i18n="codex.panel.tools">Tools</button>
+                    <button id="btn-codex-secondary-notices" class="codex-secondary-btn" type="button" hidden data-i18n="codex.panel.notices">Notices</button>
                 </div>
             </div>
             <div id="codex-alerts" hidden>
                 <div id="codex-alert-config" class="codex-alert" hidden>
-                    <div class="codex-alert-label">配置提示</div>
+                    <div class="codex-alert-label" data-i18n="codex.alert.config">Config Alert</div>
                     <div id="codex-alert-config-text" class="codex-alert-text"></div>
                 </div>
                 <div id="codex-alert-deprecation" class="codex-alert" hidden>
-                    <div class="codex-alert-label">弃用提示</div>
+                    <div class="codex-alert-label" data-i18n="codex.alert.deprecation">Deprecation Notice</div>
                     <div id="codex-alert-deprecation-text" class="codex-alert-text"></div>
                 </div>
             </div>
             <div id="codex-history-panel" hidden>
                 <div id="codex-history-header">
-                    <span id="codex-history-title">任务历史</span>
+                    <span id="codex-history-title" data-i18n="codex.history.title">Task History</span>
                     <div id="codex-history-actions">
-                        <button id="btn-codex-history-refresh" class="codex-btn subtle" type="button">刷新</button>
-                        <button id="btn-codex-new-thread" class="codex-btn" type="button">新建任务</button>
+                        <button id="btn-codex-history-refresh" class="codex-btn subtle" type="button" data-i18n="common.refresh">Refresh</button>
+                        <button id="btn-codex-new-thread" class="codex-btn" type="button" data-i18n="codex.history.newTask">New Task</button>
                     </div>
                 </div>
-                <div id="codex-history-empty">暂无已保存线程。</div>
+                <div id="codex-history-empty" data-i18n="codex.history.empty">No saved threads.</div>
                 <div id="codex-history-list" aria-live="polite"></div>
             </div>
             <div id="codex-runtime-panel" hidden>
                 <div id="codex-runtime-header">
-                    <span id="codex-runtime-title">运行态</span>
+                    <span id="codex-runtime-title" data-i18n="codex.runtime.title">Runtime</span>
                 </div>
                 <div id="codex-runtime-grid">
                     <section class="codex-runtime-card" data-runtime-section="diff">
-                        <div class="codex-runtime-label">变更</div>
+                        <div class="codex-runtime-label" data-i18n="codex.runtime.diff">Diff</div>
                         <pre id="codex-runtime-diff" class="codex-runtime-body"></pre>
                     </section>
                     <section class="codex-runtime-card" data-runtime-section="plan">
-                        <div class="codex-runtime-label">计划</div>
+                        <div class="codex-runtime-label" data-i18n="codex.runtime.plan">Plan</div>
                         <pre id="codex-runtime-plan" class="codex-runtime-body"></pre>
                     </section>
                     <section class="codex-runtime-card" data-runtime-section="reasoning">
-                        <div class="codex-runtime-label">推理</div>
+                        <div class="codex-runtime-label" data-i18n="codex.runtime.reasoning">Reasoning</div>
                         <pre id="codex-runtime-reasoning" class="codex-runtime-body"></pre>
                     </section>
                     <section class="codex-runtime-card" data-runtime-section="terminal">
-                        <div class="codex-runtime-label">终端输出</div>
+                        <div class="codex-runtime-label" data-i18n="codex.runtime.terminalOutput">Terminal Output</div>
                         <pre id="codex-runtime-terminal" class="codex-runtime-body"></pre>
                     </section>
                 </div>
@@ -88,29 +89,30 @@
             </div>
             <div id="codex-tools-panel" hidden>
                 <div id="codex-tools-header">
-                    <span id="codex-tools-title">扩展工具</span>
+                    <span id="codex-tools-title" data-i18n="codex.tools.title">Extended Tools</span>
                 </div>
                 <div id="codex-tools-grid">
                     <section id="codex-tools-skills-card" class="codex-tools-card">
                         <div class="codex-tools-card-header">
-                            <span class="codex-tools-card-title">技能浏览</span>
+                            <span class="codex-tools-card-title" data-i18n="codex.tools.skillsBrowse">Skills Browse</span>
                             <span id="codex-tools-skills-meta" class="codex-tools-card-meta"></span>
                         </div>
-                        <p class="codex-tools-description">选择后仅激活当前技能，不会自动写入整段模板提示。</p>
-                        <div id="codex-tools-skills-empty" class="codex-tools-empty">输入 <code>/skills</code> 后可在此浏览可用技能。</div>
+                        <p class="codex-tools-description" data-i18n="codex.tools.skillsDesc">Only the selected skill is activated; it won't auto-inject the full template prompt.</p>
+                        <!-- i18n: manually handled in JS (contains HTML) -->
+                        <div id="codex-tools-skills-empty" class="codex-tools-empty">Type <code>/skills</code> to browse available skills here.</div>
                         <div id="codex-tools-skills-list" aria-live="polite"></div>
                     </section>
                     <section id="codex-tools-compact-card" class="codex-tools-card">
                         <div class="codex-tools-card-header">
-                            <span class="codex-tools-card-title">上下文压缩</span>
+                            <span class="codex-tools-card-title" data-i18n="codex.tools.contextCompression">Context Compression</span>
                             <span id="codex-tools-compact-meta" class="codex-tools-card-meta"></span>
                         </div>
-                        <p id="codex-tools-compact-description" class="codex-tools-description">
-                            将当前线程压缩为更短的上下文摘要，避免旧上下文继续占用窗口。
+                        <p id="codex-tools-compact-description" class="codex-tools-description" data-i18n="codex.tools.compactDesc">
+                            Compress the current thread into a shorter context summary to free up the context window.
                         </p>
                         <div id="codex-tools-compact-status" class="codex-tools-status" aria-live="polite"></div>
                         <div id="codex-tools-compact-actions">
-                            <button id="btn-codex-compact-confirm" class="codex-btn" type="button">确认压缩当前线程</button>
+                            <button id="btn-codex-compact-confirm" class="codex-btn" type="button" data-i18n="codex.tools.compactConfirm">Confirm compress current thread</button>
                         </div>
                     </section>
                 </div>
@@ -120,72 +122,73 @@
             </div>
             <div id="codex-composer">
                 <div id="codex-composer-state" hidden>
-                    <button id="codex-plan-chip" class="codex-mode-chip" type="button" hidden>计划模式已开启</button>
+                    <button id="codex-plan-chip" class="codex-mode-chip" type="button" hidden data-i18n="codex.plan.chipEnabled">Plan mode enabled</button>
                     <div id="codex-override-summary" hidden></div>
-                    <button id="btn-codex-quick-clear" class="codex-inline-action" type="button">清除本次设置</button>
+                    <button id="btn-codex-quick-clear" class="codex-inline-action" type="button" data-i18n="codex.plan.clearSettings">Clear current settings</button>
                 </div>
                 <section id="codex-plan-workflow" hidden>
                     <div id="codex-plan-workflow-header">
-                        <div id="codex-plan-workflow-title">计划进行中</div>
-                        <div id="codex-plan-workflow-summary">Codex 正在规划，当前不会直接执行。</div>
+                        <div id="codex-plan-workflow-title" data-i18n="codex.plan.inProgress">Plan in Progress</div>
+                        <div id="codex-plan-workflow-summary" data-i18n="codex.plan.summary">Codex is planning. It won't execute directly for now.</div>
                     </div>
                     <pre id="codex-plan-workflow-body"></pre>
                     <div id="codex-plan-workflow-actions">
-                        <button id="btn-codex-plan-execute" class="codex-btn" type="button" hidden>执行此计划</button>
-                        <button id="btn-codex-plan-continue" class="codex-btn subtle" type="button" hidden>继续提问/补充</button>
-                        <button id="btn-codex-plan-cancel" class="codex-btn subtle" type="button" hidden>取消</button>
+                        <button id="btn-codex-plan-execute" class="codex-btn" type="button" hidden data-i18n="codex.plan.execute">Execute this plan</button>
+                        <button id="btn-codex-plan-continue" class="codex-btn subtle" type="button" hidden data-i18n="codex.plan.continue">Continue / Ask more</button>
+                        <button id="btn-codex-plan-cancel" class="codex-btn subtle" type="button" hidden data-i18n="common.cancel">Cancel</button>
                     </div>
                 </section>
                 <div id="codex-slash-menu" hidden>
                     <div id="codex-slash-menu-header">
-                        <span id="codex-slash-menu-title">搜索命令</span>
-                        <span id="codex-slash-menu-hint">输入 <code>/</code> 继续筛选</span>
+                        <span id="codex-slash-menu-title" data-i18n="codex.slash.searchTitle">Search Commands</span>
+                        <!-- i18n: contains <code> HTML, use data-i18n-html -->
+                        <span id="codex-slash-menu-hint" data-i18n="codex.slash.searchHint" data-i18n-html>Type <code>/</code> to filter</span>
                     </div>
-                    <div id="codex-slash-menu-empty" hidden>没有匹配命令。</div>
+                    <div id="codex-slash-menu-empty" hidden data-i18n="codex.slash.empty">No matching commands.</div>
                     <div id="codex-slash-menu-list" aria-live="polite"></div>
                 </div>
                 <div id="codex-file-mention-chips" hidden></div>
                 <div id="codex-file-mention-menu" class="codex-slash-menu" hidden>
-                    <div class="codex-file-mention-loading" style="display:none;">搜索中...</div>
-                    <div class="codex-file-mention-empty" style="display:none;">无匹配文件</div>
+                    <div class="codex-file-mention-loading" style="display:none;" data-i18n="codex.fileMention.loading">Searching...</div>
+                    <div class="codex-file-mention-empty" style="display:none;" data-i18n="codex.fileMention.empty">No matching files</div>
                     <div class="codex-file-mention-list" style="display:flex;flex-direction:column;gap:6px;min-height:0;max-height:min(38vh,280px);overflow-y:auto;-webkit-overflow-scrolling:touch;"></div>
                 </div>
                 <div id="codex-image-inputs" hidden></div>
                 <div id="codex-image-prompt" hidden>
                     <div id="codex-image-prompt-header">
-                        <span id="codex-image-prompt-title">输入图像 URL</span>
+                        <span id="codex-image-prompt-title" data-i18n="codex.image.promptTitle">Enter Image URL</span>
                     </div>
-                    <input id="codex-image-prompt-input" type="text" placeholder="https://example.com/image.png">
+                    <input id="codex-image-prompt-input" type="text" placeholder="https://example.com/image.png" data-i18n="codex.image.urlPlaceholder" data-i18n-attr="placeholder">
                     <div id="codex-image-prompt-actions">
-                        <button id="btn-codex-image-prompt-cancel" class="codex-btn subtle" type="button">取消</button>
-                        <button id="btn-codex-image-prompt-confirm" class="codex-btn" type="button">确认</button>
+                        <button id="btn-codex-image-prompt-cancel" class="codex-btn subtle" type="button" data-i18n="common.cancel">Cancel</button>
+                        <button id="btn-codex-image-prompt-confirm" class="codex-btn" type="button" data-i18n="common.confirm">Confirm</button>
                     </div>
                 </div>
                 <div id="codex-composer-surface">
-                    <textarea id="codex-input" placeholder="随便问点什么..."></textarea>
+                    <textarea id="codex-input" placeholder="Ask anything..." data-i18n="codex.input.placeholder" data-i18n-attr="placeholder"></textarea>
                     <div id="codex-composer-footer">
                         <div id="codex-footer-left">
-                            <button id="btn-codex-slash-trigger" class="codex-action-btn" type="button" aria-label="上传图像或打开命令菜单">+</button>
+                            <button id="btn-codex-slash-trigger" class="codex-action-btn" type="button" aria-label="Upload image or open command menu" data-i18n="codex.input.slashTriggerLabel" data-i18n-attr="aria-label">+</button>
                             <div id="codex-quick-controls">
                                 <select id="codex-quick-model" class="codex-ghost-select">
-                                    <option value="">默认</option>
+                                    <option value="" data-i18n="codex.quick.default">Default</option>
                                 </select>
                                 <select id="codex-quick-reasoning" class="codex-ghost-select">
-                                    <option value="">默认</option>
+                                    <option value="" data-i18n="codex.quick.default">Default</option>
                                 </select>
                                 <select id="codex-quick-sandbox" class="codex-ghost-select">
-                                    <option value="">沙盒</option>
-                                    <option value="danger-full-access">完全访问</option>
+                                    <option value="" data-i18n="codex.quick.sandbox">Sandbox</option>
+                                    <option value="danger-full-access" data-i18n="codex.quick.fullAccess">Full Access</option>
                                 </select>
                             </div>
                             <div class="codex-footer-divider"></div>
-                            <button id="codex-context-widget" class="codex-context-widget" type="button" hidden aria-label="查看上下文窗口调试信息">
+                            <button id="codex-context-widget" class="codex-context-widget" type="button" hidden aria-label="View context window debug info" data-i18n="codex.context.widgetLabel" data-i18n-attr="aria-label">
                                 <div id="codex-context-ring" class="codex-context-ring" aria-hidden="true">
                                     <span id="codex-context-percent" class="codex-context-percent">--</span>
                                 </div>
                             </button>
                         </div>
-                        <button id="btn-codex-send" type="button" aria-label="发送">
+                        <button id="btn-codex-send" type="button" aria-label="Send" data-i18n="codex.btn.send" data-i18n-attr="aria-label">
                             <span class="send-icon">↑</span>
                         </button>
                     </div>
@@ -196,18 +199,18 @@
             <div class="codex-modal-backdrop"></div>
             <section class="codex-modal-card" role="dialog" aria-modal="true" aria-labelledby="codex-command-approval-title">
                 <div class="codex-modal-header">
-                    <div id="codex-command-approval-title" class="codex-modal-title">命令确认</div>
-                    <div id="codex-command-approval-status" class="codex-modal-status">等待处理</div>
+                    <div id="codex-command-approval-title" class="codex-modal-title" data-i18n="codex.approval.title">Command Approval</div>
+                    <div id="codex-command-approval-status" class="codex-modal-status" data-i18n="codex.approval.statusPending">Pending</div>
                 </div>
                 <div id="codex-command-approval-summary" class="codex-modal-summary"></div>
                 <pre id="codex-command-approval-command" class="codex-command-preview"></pre>
                 <label id="codex-command-approval-remember-wrap" class="codex-checkbox-row">
                     <input id="codex-command-approval-remember" type="checkbox">
-                    <span>记住此前缀（占位，当前仅展示，不额外写入新协议）</span>
+                    <span data-i18n="codex.approval.rememberPrefix">Remember this prefix (placeholder, currently display-only)</span>
                 </label>
                 <div class="codex-modal-actions">
-                    <button id="btn-codex-command-approval-reject" class="codex-btn subtle" type="button">拒绝</button>
-                    <button id="btn-codex-command-approval-approve" class="codex-btn" type="button">允许</button>
+                    <button id="btn-codex-command-approval-reject" class="codex-btn subtle" type="button" data-i18n="codex.approval.reject">Reject</button>
+                    <button id="btn-codex-command-approval-approve" class="codex-btn" type="button" data-i18n="codex.approval.approve">Approve</button>
                 </div>
             </section>
         </div>
@@ -215,19 +218,19 @@
             <div class="codex-modal-backdrop" data-modal-dismiss="context-debug"></div>
             <section class="codex-modal-card" role="dialog" aria-modal="true" aria-labelledby="codex-context-debug-title">
                 <div class="codex-context-summary">
-                    <div id="codex-context-debug-title" class="codex-modal-title">背景信息窗口：</div>
+                    <div id="codex-context-debug-title" class="codex-modal-title" data-i18n="codex.context.debugTitle">Context Window:</div>
                     <div id="codex-context-debug-usage" class="codex-context-summary-line">--</div>
                     <div id="codex-context-debug-tokens" class="codex-context-summary-line">--</div>
-                    <div id="codex-context-debug-note" class="codex-context-summary-note">Codex 自动压缩其背景信息</div>
+                    <div id="codex-context-debug-note" class="codex-context-summary-note" data-i18n="codex.context.autoCompact">Codex auto-compresses its context</div>
                 </div>
             </section>
         </div>
         <div id="input-overlay">
-            <textarea id="input-buffer" placeholder="Type command here..."></textarea>
+            <textarea id="input-buffer" placeholder="Type command here..." data-i18n="common.inputPlaceholder" data-i18n-attr="placeholder"></textarea>
             <div class="input-controls">
-                <button id="btn-clear">Clear</button>
-                <button id="btn-close">Close</button>
-                <button id="btn-send">Send</button>
+                <button id="btn-clear" data-i18n="common.clear">Clear</button>
+                <button id="btn-close" data-i18n="common.close">Close</button>
+                <button id="btn-send" data-i18n="common.send">Send</button>
             </div>
         </div>
         <div id="toolbar"></div>
