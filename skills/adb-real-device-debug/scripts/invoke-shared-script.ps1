@@ -10,7 +10,9 @@ $current = [string](Resolve-Path $scriptDir)
 while ($true) {
     $candidate = Join-Path $current $SharedRelativePath
     if (Test-Path $candidate) {
-        & $candidate @ForwardArgs
+        # Re-invoke through powershell.exe so forwarded named arguments like -Serial
+        # are parsed as script parameters instead of being treated positionally.
+        & powershell -ExecutionPolicy Bypass -File $candidate @ForwardArgs
         exit $LASTEXITCODE
     }
 
