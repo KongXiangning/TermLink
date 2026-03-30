@@ -1,6 +1,6 @@
 ﻿---
 title: Codex 能力矩阵驱动主线需求（对话体验优先、后台保活与下一阶段）
-status: planned
+status: in_progress
 owner: @maintainer
 last_updated: 2026-03-29
 source_of_truth: product
@@ -15,7 +15,7 @@ related_docs: [docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md, docs/codex/cross-ve
 - id: REQ-20260309-codex-capability-mvp
 - title: Codex 能力矩阵驱动主线需求（对话体验优先、后台保活与下一阶段）
 - priority: P1
-- status: planned
+- status: in_progress
 - owner: @maintainer
 - target_release: 2026-Q2
 - links: `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`, `docs/product/plans/PLAN-20260329-codex-background-retention-and-resume.md`
