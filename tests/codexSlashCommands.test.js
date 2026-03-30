@@ -102,7 +102,8 @@ test('normalize helpers and effective config keep interaction and config boundar
 
     assert.deepEqual(normalizeNextTurnOverrides({ model: ' gpt-5-codex ', reasoningEffort: 'HIGH' }), {
         model: 'gpt-5-codex',
-        reasoningEffort: 'high'
+        reasoningEffort: 'high',
+        sandbox: null
     });
 
     assert.deepEqual(buildNextTurnEffectiveCodexConfig({
@@ -125,3 +126,4 @@ test('normalize helpers and effective config keep interaction and config boundar
         sandboxMode: 'workspace-write'
     });
 });
+
