@@ -152,6 +152,15 @@
     <string name="codex_state_reconnecting">Codex: 重连中…</string>
     <string name="codex_state_error">Codex: 错误 (%1$s)</string>
     <string name="codex_state_unknown">Codex: %1$s</string>
+
+    <!-- Codex 前台服务通知 -->
+    <string name="codex_task_notification_channel">Codex 任务</string>
+    <string name="codex_task_notification_channel_desc">Codex 任务运行期间显示的通知</string>
+    <string name="codex_task_notif_title">Codex 任务进行中</string>
+    <string name="codex_task_notif_running">Codex 正在执行任务…</string>
+    <string name="codex_task_notif_reconnecting">正在重连 Codex 任务…</string>
+    <string name="codex_task_notif_waiting">Codex 任务正在等待审批</string>
+
     <string name="workspace_entry_checking">工作区正在检查可用性。</string>
     <string name="workspace_entry_unavailable">当前会话的工作区不可用。</string>
     <string name="workspace_entry_loading">工作区: 检查中…</string>

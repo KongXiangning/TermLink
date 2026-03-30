@@ -1,6 +1,9 @@
 package com.termlink.app
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.text.TextUtils
 import android.util.Log
@@ -95,6 +98,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private val FILE_CHOOSER_REQUEST_CODE = 10001
     private var currentScreen: ScreenMode = ScreenMode.TERMINAL
     private var lastConnectionState: String = "idle"
+    private var codexForegroundServiceActive: Boolean = false
+    private var lastCodexTaskStatus: String = "idle"
     private var lastToastSignature: String = ""
     private var lastToastAtMs: Long = 0L
     private var lastInjectedConfigSignature: String? = null
@@ -212,6 +217,10 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     override fun onDestroy() {
         drawerLayout?.removeDrawerListener(drawerListener)
         if (isFinishing) {
+            if (codexForegroundServiceActive) {
+                CodexTaskForegroundService.stop(this)
+                codexForegroundServiceActive = false
+            }
             detachTerminalWebView()
             terminalWebView?.destroy()
             terminalWebView = null
@@ -478,6 +487,41 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         webView.clearFocus()
         val imm = getSystemService(InputMethodManager::class.java)
         imm?.hideSoftInputFromWindow(webView.windowToken, 0)
+    }
+
+    override fun onCodexTaskState(status: String) {
+        val normalized = status.lowercase().trim()
+        lastCodexTaskStatus = normalized
+        Log.i(TAG, "Codex task state: $normalized")
+
+        if (CodexTaskForegroundService.isActiveStatus(normalized)) {
+            if (!hasNotificationPermission()) {
+                requestNotificationPermissionIfNeeded()
+            }
+            CodexTaskForegroundService.start(this, normalized)
+            codexForegroundServiceActive = true
+        } else {
+            if (codexForegroundServiceActive) {
+                CodexTaskForegroundService.stop(this)
+                codexForegroundServiceActive = false
+            }
+        }
+    }
+
+    private fun hasNotificationPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_CODE_NOTIFICATION_PERMISSION)
+            }
+        }
     }
 
     override fun getServerConfigState(): ServerConfigState {
@@ -1542,5 +1586,6 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         private const val TAG_TERMINAL = "terminal"
         private const val TAG_SETTINGS = "settings"
         private const val TAG = "TermLinkShell"
+        private const val REQUEST_CODE_NOTIFICATION_PERMISSION = 10002
     }
 }

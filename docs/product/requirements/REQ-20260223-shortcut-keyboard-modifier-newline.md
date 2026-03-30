@@ -1,6 +1,6 @@
 ---
 title: 快捷键盘控制键修复、换行按钮与触摸滚动优化
-status: planned
+status: done
 owner: @maintainer
 last_updated: 2026-03-29
 source_of_truth: product

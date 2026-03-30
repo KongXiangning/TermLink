@@ -423,6 +423,10 @@ function notifyNativeConnectionState(state, detail) {
     callNativeBridge('onConnectionState', [state, detail || '']);
 }
 
+function notifyNativeCodexTaskState(status) {
+    callNativeBridge('onCodexTaskState', [status || 'idle']);
+}
+
 function notifyNativeError(code, message) {
     callNativeBridge('onTerminalError', [code || 'UNKNOWN', message || '']);
 }
@@ -600,6 +604,7 @@ function toggleCodexSecondaryPanel(panelName) {
 function setCodexStatus(status, detail) {
     codexState.status = status || 'idle';
     codexState.statusDetail = detail || '';
+    notifyNativeCodexTaskState(codexState.status);
     if (codexPanel) {
         codexPanel.classList.remove('status-running', 'status-error');
         if (codexState.status === 'running') {

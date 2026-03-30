@@ -152,6 +152,15 @@
     <string name="codex_state_reconnecting">Codex: reconnecting...</string>
     <string name="codex_state_error">Codex: error (%1$s)</string>
     <string name="codex_state_unknown">Codex: %1$s</string>
+
+    <!-- Codex foreground service notification -->
+    <string name="codex_task_notification_channel">Codex Task</string>
+    <string name="codex_task_notification_channel_desc">Notification shown while a Codex task is running</string>
+    <string name="codex_task_notif_title">Codex Task Active</string>
+    <string name="codex_task_notif_running">Codex is executing a task…</string>
+    <string name="codex_task_notif_reconnecting">Reconnecting to Codex task…</string>
+    <string name="codex_task_notif_waiting">Codex task is waiting for approval</string>
+
     <string name="workspace_entry_checking">Workspace is still checking availability.</string>
     <string name="workspace_entry_unavailable">Workspace is unavailable for the current session.</string>
     <string name="workspace_entry_loading">Workspace: checking...</string>
