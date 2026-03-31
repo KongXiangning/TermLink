@@ -28,6 +28,7 @@ related_docs: [docs/README.md]
 4. 将 `REQ-20260222-server-admin-privilege-mode` 标记为 `done`，回写 REQ、BACKLOG、ROADMAP、CHANGELOG。
 5. 将 `REQ-20260224-android-external-web-terminal-profile-sessions` 标记为 `done`（9/9 验收标准已实现），回写 REQ、BACKLOG、ROADMAP、CHANGELOG。
 6. 将 `REQ-20260326-android-profile-mtls-runtime-certificate` 标记为 `done`（13/13 验收标准已实现），回写 REQ、BACKLOG、ROADMAP、CHANGELOG。
+7. 文档统一整理（`REQ-20260222-doc-governance`）：清理 11 个重定向桩文件、迁移 3 个错位文档、统一 REQ/PLAN 格式与模板、codex 文档 kebab-case 重命名与 YAML front-matter 补齐、归档 99 条已完成 CR 记录并补全 INDEX。
 
 ## 2026-03-30
 
@@ -83,14 +84,94 @@ related_docs: [docs/README.md]
 2. 新增 `REQ-20260324-session-list-local-cache`，定义 Android 会话列表本地缓存、离线回显与弱网刷新覆盖边界，并同步需求主线文档。
 3. 扩展 `REQ-20260222-doc-governance` 下的 `docs-requirement-sync` skill：实现批次现在必须同步 `PLAN + CR`，并在收尾答复中明确当前已实现的计划部分。
 
+### client
+
+1. 落地 `REQ-20260318-ws-0001-docs-exp` Phase 2-3：Web Workspace 独立页面实现文件浏览、大文件分级查看与 Git diff 展示；Android WorkspaceActivity 集成目录选择器对话框与创建会话时工作区联动。
+
+## 2026-03-23
+
+### server
+
+1. 落地 `REQ-20260318-ws-0001-docs-exp` Phase 1：服务端 Workspace 服务层新增 `workspaceRoot` 会话字段、8 个 REST 端点（目录浏览/文件内容/Git 状态/diff），支持 4 级查看模式并实施路径安全约束。
+
+### client
+
+1. 修复 `REQ-20260309-codex-capability-mvp` Codex 历史线程重绑定：slash 命令注册版本提升、thread 执行上下文签名增加 cwd，重启后可恢复 slash 缓存与线程绑定。
+
+## 2026-03-19
+
+### client
+
+1. 落地 `REQ-20260309-codex-capability-mvp` Phase 5 权限上下文：Composer 沙盒选择恢复、真实 token usage 圆环、quick sandbox 切换影响执行权限与线程复用策略。
+2. 新增 Codex 文件提及输入需求计划（`@` 文件浮层、cwd 文件检索与发送拼装设计）。
+
+## 2026-03-18
+
+### client
+
+1. 落地 `REQ-20260309-codex-capability-mvp` Phase 5 边界冻结：移除 Session Defaults 设置面板与顶部权限模式选择，Codex 状态栏收口为仅展示连接状态、工作区与额度。
+
+## 2026-03-17
+
+### client
+
+1. 修复 `REQ-20260309-codex-capability-mvp` Codex 移动端体验：消息流少量消息底部锚定、本地任务历史按最近活跃排序、新建任务立即清屏与 Settings 精简为默认配置下拉。
+2. 新增 Codex App 权限模式入口（权限预设切换、命令确认弹窗与背景信息线程绑定窗口）。
+
+## 2026-03-15
+
+### client
+
+1. 落地 `REQ-20260309-codex-capability-mvp` `/plan` 工作流：实现 planning → awaiting_input → ready → executing 双阶段状态机、requestUserInput 闭环与确认后二次执行链路。
+
+## 2026-03-14
+
+### client
+
+1. 修复 `REQ-20260309-codex-capability-mvp` Plan CollaborationMode 协议失配：升级为结构化对象并保留 gateway 兼容。
+
+## 2026-03-12
+
+### client
+
+1. 落地 `REQ-20260309-codex-capability-mvp` Phase 3 验收：PATCH 写路径、slash 一致性与 interactionState 独立性确认通过。
+2. 落地 Phase 4 Slash 工具入口：开放 `/compact`、`/skills` 命令与工具面板，capability 门禁与 `/skill` 查找回退。
+3. 落地 Phase 4 线程操作：Threads 列表接入 fork/archive/unarchive 扩展动作与重命名交互。
+4. 落地 Phase 4 图像输入：支持 URL 与本地路径附件、attachments chip 与 image-only turn。
+
+## 2026-03-11
+
+### client
+
+1. 落地 `REQ-20260309-codex-capability-mvp` Phase 2 Slash 覆盖：slash 注册机制、`/plan`/`/model` quick controls、next-turn override 与 interaction state 维护。
+2. 落地 Phase 1 首页收口：对话主线优先、Threads/Settings/Runtime 默认隐藏为二级入口、顶部轻量状态栏。
+3. Android 会话创建弹窗预填默认 Codex 工作路径，减少真机验证手输成本。
+
+## 2026-03-10
+
+### docs
+
+1. Codex 主线文档纠偏（`REQ-20260309-codex-capability-mvp`）：从状态面板驱动调整为移动端对话体验优先。
+
 ## 2026-03-09
 
 ### docs
 
 1. 新增 `REQ-20260309-codex-capability-mvp`，将 Codex 主线从“修复计划”升级为“能力矩阵驱动的产品化需求”，并明确 `已交付基线 / MVP / 下一阶段 / Out of Scope` 四类分期。
-2. 新增 `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`，固化能力映射、接口收敛、分阶段实施顺序、测试与回滚策略。
+2. 新增 `docs/codex/codex-capability-implementation-plan.md`，固化能力映射、接口收敛、分阶段实施顺序、测试与回滚策略。
 3. 将 `REQ-20260306-codex-app-repair-plan` 标记为 `archived`，并声明由 `REQ-20260309-codex-capability-mvp` 取代作为主线执行依据。
 4. 同步更新 `REQUIREMENTS_BACKLOG`、`PRODUCT_REQUIREMENTS`、`ROADMAP`、`README` 与 CR 索引以对齐新主线需求。
+
+### server
+
+1. 落地 `REQ-20260309-codex-capability-mvp` Phase 1 会话元数据：Session API 新增 `lastCodexThreadId` 持久化与返回，支持历史线程恢复时的服务端绑定。
+
+### client
+
+1. 落地 `REQ-20260309-codex-capability-mvp` Phase 1 历史线程：bootstrap 自动恢复上次线程、手动线程列表切换、恢复失败回退新建。
+2. 落地 Phase 2 会话级设置面板：配置保存/清空、模型/推理强度/个性化/审批/沙盒下拉与额度刷新。
+3. 落地 Phase 2 运行态区块：Diff/Plan/Reasoning/Terminal Output 实时更新与快照重建、告警卡片。
+4. 落地 Phase 3 审批与交互状态机：统一 command/file/patch/userInput 卡片模型、defer/answers payload 与恢复快照。
 
 ## 2026-03-06
 

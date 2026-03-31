@@ -1,3 +1,13 @@
+---
+title: Codex CollaborationMode 协议调查与复核报告
+status: active
+owner: "@maintainer"
+last_updated: 2026-03-31
+source_of_truth: codex
+related_code: []
+related_docs: []
+---
+
 # Codex CollaborationMode 协议调查与复核报告
 
 **首轮调查日期**: 2026-03-15  
@@ -215,7 +225,7 @@ TermLink 当前发送链路是通的。
 |---|---|
 | `src/ws/terminalGateway.js` | `collaborationMode` 归一化与 `turn/start` 透传 |
 | `public/terminal_client.js` | `/plan` 的前端发送逻辑与通知处理 |
-| `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md` | `/plan` 当前实施口径 |
+| `docs/codex/codex-capability-implementation-plan.md` | `/plan` 当前实施口径 |
 | `docs/product/requirements/REQ-20260309-codex-capability-mvp.md` | `/plan` 的正式需求契约 |
 | `docs/changes/records/CR-20260315-0139-codex-plan-validation.md` | 本次复核与文档收敛记录 |
 

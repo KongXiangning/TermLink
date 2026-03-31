@@ -1,6 +1,6 @@
 ---
 title: REQ-20260324-session-list-local-cache - sessions cache failure state
-status: active
+status: archived
 record_id: CR-20260325-1411-sessions-cache-failure-state
 req_id: REQ-20260324-session-list-local-cache
 commit_ref: 2ca2cb8

@@ -1,6 +1,6 @@
 ---
 title: 快捷键盘控制键修复、换行按钮与触摸滚动优化 - Android Terminal 回归修复
-status: active
+status: archived
 record_id: CR-20260329-0155-android-terminal-keyboard-scroll-regression-fix
 req_id: REQ-20260223-shortcut-keyboard-modifier-newline
 commit_ref: 56739f1

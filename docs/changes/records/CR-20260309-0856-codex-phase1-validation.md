@@ -1,13 +1,13 @@
 ---
 title: Codex 能力矩阵驱动主线需求（MVP + 下一阶段）- Phase 1 验证与同步记录
-status: active
+status: archived
 record_id: CR-20260309-0856-codex-phase1-validation
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: f383fbf
 owner: @maintainer
 last_updated: 2026-03-09
 source_of_truth: code
-related_code: [docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, tests/codexBootstrap.plan.test.js, tests/codexHistoryView.test.js, tests/codexClient.shell.test.js, tests/terminalGateway.codex.test.js, tests/routes.sessions.metadata.test.js, tests/sessionStore.metadata.test.js, android/app/src/main/java/com/termlink/app/data/SessionApiModels.kt, android/app/src/main/java/com/termlink/app/data/SessionApiClient.kt]
+related_code: [docs/codex/codex-capability-implementation-plan.md, tests/codexBootstrap.plan.test.js, tests/codexHistoryView.test.js, tests/codexClient.shell.test.js, tests/terminalGateway.codex.test.js, tests/routes.sessions.metadata.test.js, tests/sessionStore.metadata.test.js, android/app/src/main/java/com/termlink/app/data/SessionApiModels.kt, android/app/src/main/java/com/termlink/app/data/SessionApiClient.kt]
 related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/changes/records/CR-20260309-0132-codex-capability-phase1-impl.md, docs/changes/records/CR-20260309-0154-codex-history-resume.md, docs/changes/records/CR-20260309-0839-codex-history-ui.md, docs/changes/records/INDEX.md]
 ---
 
@@ -21,7 +21,7 @@ related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, d
 
 ## 2. 实施内容（What changed）
 
-1. 更新 `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`，把 `thread/list`、`thread/resume` 的 `repo_status` 同步为当前已实现状态，并收敛 MVP 缺口清单为剩余未完成项。
+1. 更新 `docs/codex/codex-capability-implementation-plan.md`，把 `thread/list`、`thread/resume` 的 `repo_status` 同步为当前已实现状态，并收敛 MVP 缺口清单为剩余未完成项。
 2. 明确 Android 同步结论：Phase 1 所需的 `sessionMode/cwd/lastCodexThreadId` 原生 Session 模型已经到位；历史线程恢复逻辑由共享 Web 客户端承载，本批次无需新增 Android native 字段或桥接协议。
 3. 新增 `tests/codexClient.shell.test.js`，校验：
    - `codex_client.html` 包含历史线程面板与必要脚本
@@ -30,7 +30,7 @@ related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, d
 
 ## 3. 影响范围（Files/Modules/Runtime）
 
-- 文件：`docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`、`tests/codexClient.shell.test.js`、相关已有 Phase 1 测试文件
+- 文件：`docs/codex/codex-capability-implementation-plan.md`、`tests/codexClient.shell.test.js`、相关已有 Phase 1 测试文件
 - 模块：实施计划状态同步、静态页面壳层回归验证、Phase 1 文档追踪
 - 运行时行为：无新增运行时能力；本次主要提升验证覆盖和文档一致性
 
@@ -41,7 +41,7 @@ related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, d
 git revert <commit_ref>
 
 # 方案 B：仅恢复关键文件（示例）
-git checkout <commit_ref>^ -- docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md tests/codexClient.shell.test.js
+git checkout <commit_ref>^ -- docs/codex/codex-capability-implementation-plan.md tests/codexClient.shell.test.js
 ```
 
 ## 5. 验证记录（Tests/Checks）
@@ -59,7 +59,7 @@ git checkout <commit_ref>^ -- docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md
 
 ## 6. 后续修改入口（How to continue）
 
-- 下次修改建议从以下文件继续：`docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`、`public/terminal_client.js`、`android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt`
+- 下次修改建议从以下文件继续：`docs/codex/codex-capability-implementation-plan.md`、`public/terminal_client.js`、`android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt`
 - Phase 2 可以在当前验证基线上继续实现 `codexConfig`、`model/list`、`account/rateLimits/read`
 - 如本记录后续被替代，请填写：`替代记录: CR-YYYYMMDD-HHMM-<slug>`
 

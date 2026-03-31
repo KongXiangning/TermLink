@@ -1,6 +1,6 @@
 ---
 title: Android profile commit refresh follow-up for external web
-status: active
+status: archived
 record_id: CR-20260327-0100-external-web-profile-refresh-fix
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: d675956

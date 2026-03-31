@@ -1,6 +1,6 @@
 ---
 title: REQ-20260318-ws-0001-docs-exp - Web Workspace 与 Android 集成实现
-status: active
+status: archived
 record_id: CR-20260324-0032-workspace-phase3-android
 req_id: REQ-20260318-ws-0001-docs-exp
 commit_ref: 22893d5

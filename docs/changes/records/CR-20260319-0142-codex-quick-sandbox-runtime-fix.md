@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（对话体验优先 MVP + 下一阶段）- 变更记录
-status: active
+status: archived
 record_id: CR-20260319-0142-codex-quick-sandbox-runtime-fix
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: b7520a3
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-19
 source_of_truth: product
 related_code: [public/terminal_client.js, src/ws/terminalGateway.js, tests/codexClient.shell.test.js, tests/terminalGateway.codex.test.js]
-related_docs: [docs/codex/CODEX_PHASE5_PERMISSION_CONTEXT_PLAN.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md]
+related_docs: [docs/codex/codex-phase5-permission-context-plan.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md]
 ---
 
 # CR-20260319-0142-codex-quick-sandbox-runtime-fix

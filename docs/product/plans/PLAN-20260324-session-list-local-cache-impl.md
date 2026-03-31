@@ -1,3 +1,15 @@
+---
+title: Android 会话列表本地缓存实施清单
+status: done
+owner: @maintainer
+last_updated: 2026-03-25
+source_of_truth: product
+related_code: [android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt, android/app/src/main/java/com/termlink/app/data/SessionApiClient.kt]
+related_docs: [docs/product/requirements/REQ-20260324-session-list-local-cache.md]
+---
+
+# PLAN-20260324-session-list-local-cache-impl
+
 ## REQ-20260324-session-list-local-cache 实施清单
 
 ### 0. 当前实施进度

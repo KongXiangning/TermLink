@@ -1,6 +1,6 @@
 ---
 title: Android profile mTLS direct/transparent-relay contract sync
-status: active
+status: archived
 record_id: CR-20260326-1514-mtls-contract-direct-transparent-relay
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: d675956

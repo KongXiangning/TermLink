@@ -1,3 +1,15 @@
+---
+title: 语言自动适配与 i18n 框架实施清单
+status: done
+owner: @maintainer
+last_updated: 2026-03-30
+source_of_truth: product
+related_code: [public/i18n/i18n.js, public/i18n/en.json, public/i18n/zh-CN.json, android/app/src/main/res/values/strings.xml, android/app/src/main/res/values-zh/strings.xml]
+related_docs: [docs/product/requirements/REQ-20260329-language-normalization.md]
+---
+
+# PLAN-20260329-language-normalization-impl
+
 ## REQ-20260329-language-normalization 实施清单
 
 ### 0. 当前实施进度

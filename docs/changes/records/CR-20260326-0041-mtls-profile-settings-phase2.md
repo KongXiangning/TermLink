@@ -1,6 +1,6 @@
 ---
 title: Android Profile mTLS Settings Phase 2
-status: active
+status: archived
 record_id: CR-20260326-0041-mtls-profile-settings-phase2
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: d675956

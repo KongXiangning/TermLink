@@ -1,6 +1,6 @@
 ---
 title: Android profile mTLS Phase 3 WebView client-cert cache invalidation follow-up
-status: active
+status: archived
 record_id: CR-20260326-1603-webview-client-cert-cache-invalidation-fix
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: d675956

@@ -1,4 +1,14 @@
-# CODEX_CAPABILITY_IMPLEMENTATION_PLAN
+---
+title: Codex 能力实施计划
+status: active
+owner: "@maintainer"
+last_updated: 2026-03-31
+source_of_truth: codex
+related_code: []
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md]
+---
+
+# Codex 能力实施计划
 
 ## 1. 审查结论与方向纠偏
 
@@ -24,7 +34,7 @@
 
 ### 2.2 能力依据
 
-按 `docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md`：
+按 `docs/codex/codex-plugin-capability-matrix.md`：
 
 1. `thread/list`、`thread/read`、`thread/resume`、`model/list`、模型选择、推理强度选择、`turn/interrupt`、`account/rateLimits/read` 均已有硬证据；`collaborationMode.mode = "plan"` 的基础语义已通过运行时对照验证，但 `turn/plan/updated` / `item/plan/delta` 目前不能视为稳定硬前提。
 2. slash 交互不是底层协议原语，但属于“可做，且交互形态属于客户端封装”。
@@ -391,7 +401,7 @@
 4. `thread/fork`、`thread/archive`、`thread/unarchive` 已落地为第二个实施包（见 `CR-20260312-1705-codex-phase4-thread-actions`，当前为 draft，待提交回填 `commit_ref`）。
 5. image / localImage 已落地为第三个实施包（见 `CR-20260312-1815-codex-phase4-image-input`，当前为 draft，待提交回填 `commit_ref`）。
 6. `thread/name/set` 已落地为第四个实施包（见 `CR-20260312-1223-codex-phase4-thread-rename`，当前为 draft，待提交回填 `commit_ref`）。
-7. composer `@` 文件提示规划为第五个实施包：以“客户端浮层 + session cwd 文件检索 + 已选文件态 + 发送前文本拼装”为最小交付，专项计划见 `docs/codex/CODEX_FILE_MENTION_INPUT_PLAN.md`。
+7. composer `@` 文件提示规划为第五个实施包：以“客户端浮层 + session cwd 文件检索 + 已选文件态 + 发送前文本拼装”为最小交付，专项计划见 `docs/codex/codex-file-mention-input-plan.md`。
 8. 依据能力证据决定 `/skill <name>` 后续是否需要更深的底层承接方式。
 
 ### Phase 5：命令确认与任务辅助信息
@@ -399,7 +409,7 @@
 1. 命令确认升级为阻塞弹窗形态，继续复用既有审批响应链路。
 2. “IDE 背景信息”入口替换为绑定当前线程的背景信息窗口。
 3. 当前期明确不恢复“会话设置”和顶部权限选择。
-4. 专项实施细节、验收矩阵与风险控制见 `docs/codex/CODEX_PHASE5_PERMISSION_CONTEXT_PLAN.md`。
+4. 专项实施细节、验收矩阵与风险控制见 `docs/codex/codex-phase5-permission-context-plan.md`。
 
 ## 10. MVP 缺口清单（按新主线）
 

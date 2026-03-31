@@ -5,7 +5,7 @@ owner: @maintainer
 last_updated: 2026-03-31
 source_of_truth: product
 related_code: [android/app/src/main/java/com/termlink/app/ui/settings/SettingsFragment.kt, android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/data/ServerProfile.kt, android/app/src/main/java/com/termlink/app/data/SessionApiClient.kt, android/app/src/main/java/com/termlink/app/web/MtlsWebViewClient.kt, android/app/src/main/res/layout/dialog_server_profile.xml, src/server.js, src/routes/health.js, src/auth/basicAuth.js, src/ws/terminalGateway.js, src/config/tlsConfig.js, src/utils/connectionSecurity.js]
-related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-20260326-android-profile-mtls-runtime-certificate-impl.md, docs/guides/android-development.md, docs/architecture/CURRENT_STATE.md, docs/ops/ops-checklist.md, docs/PROJECT_OVERVIEW.md]
+related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-20260326-android-profile-mtls-runtime-certificate-impl.md, docs/guides/android-development.md, docs/architecture/CURRENT_STATE.md, docs/ops/ops-checklist.md, docs/architecture/PROJECT_OVERVIEW.md]
 ---
 
 # REQ-20260326-android-profile-mtls-runtime-certificate
@@ -85,7 +85,7 @@ related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIR
 6. `MtlsWebViewClient` 与 `MtlsHttpSupport` 统一通过共享的 `MtlsCredentialRepository` 读取 `PrivateKey / X509 chain / SSLSocketFactory`。
 7. Android 构建脚本移除 `TERMLINK_MTLS_*` 到 `BuildConfig` 的注入与相关文档说明。
 8. 本需求完成后，所有仍声明 Android mTLS 依赖 `BuildConfig/TERMLINK_MTLS_*/assets/mtls` 的 active 文档必须在同一批次同步更新，避免新旧方案并存。
-9. 若 `docs/PROJECT_OVERVIEW.md` 继续作为项目入口文档使用，也必须在同一批次同步更新 Android mTLS 描述。
+9. 若 `docs/architecture/PROJECT_OVERVIEW.md` 继续作为项目入口文档使用，也必须在同一批次同步更新 Android mTLS 描述。
 10. App 持有的是“连接目标 Server 的客户端证书”；Server 校验的是受信客户端证书/CA 链；上述契约与访问路径是否直连无关。
 11. 服务端 TLS/mTLS 配置统一覆盖 HTTP API 与 WebSocket，避免 `terminal`、`extend_web`、`codex` 出现分裂的安全模型。
 12. 未来若引入透明中继，中继仅负责发现与转发，不新增“是否经 Relay 转发”的证书字段，也不改变当前 App profile 与 Server 配置结构。
@@ -132,7 +132,7 @@ related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIR
    - `docs/guides/android-development.md`
    - `docs/architecture/CURRENT_STATE.md`
    - `docs/ops/ops-checklist.md`
-11. 若 `docs/PROJECT_OVERVIEW.md` 仍作为团队常用入口文档，则也纳入同步范围。
+11. 若 `docs/architecture/PROJECT_OVERVIEW.md` 仍作为团队常用入口文档，则也纳入同步范围。
 
 ## 6. 验收标准
 

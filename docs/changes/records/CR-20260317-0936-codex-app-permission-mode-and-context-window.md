@@ -1,6 +1,6 @@
 ---
 title: Codex App 权限模式与背景信息需求补充 - 变更记录
-status: active
+status: archived
 record_id: CR-20260317-0936-codex-app-permission-mode-and-context-window
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: ede5df3
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-17
 source_of_truth: product
 related_code: [public/codex_client.html, public/terminal_client.html, public/terminal_client.css, public/terminal_client.js, public/lib/codex_settings_view.js, public/lib/codex_approval_view.js, tests/codexApprovalView.test.js, tests/codexSettingsView.test.js, tests/codexClient.shell.test.js, tests/codexSecondaryPanel.integration.test.js]
-related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/codex/CODEX_PHASE5_PERMISSION_CONTEXT_PLAN.md, docs/changes/records/INDEX.md]
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/codex-capability-implementation-plan.md, docs/codex/codex-phase5-permission-context-plan.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260317-0936-codex-app-permission-mode-and-context-window

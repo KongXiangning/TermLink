@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（对话体验优先 MVP + 下一阶段） - 变更记录
-status: active
+status: archived
 record_id: CR-20260315-0200-codex-plan-workflow
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: a24c5f3
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-15
 source_of_truth: product
 related_code: [public/codex_client.html, public/terminal_client.css, public/terminal_client.js, android/app/src/main/assets/public/codex_client.html, android/app/src/main/assets/public/terminal_client.css, android/app/src/main/assets/public/terminal_client.js, tests/codexClient.shell.test.js]
-related_docs: [docs/codex/CODEX_COLLABORATION_MODE_INVESTIGATION_20260315.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/changes/records/INDEX.md]
+related_docs: [docs/codex/codex-collaboration-mode-investigation.md, docs/codex/codex-capability-implementation-plan.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260315-0200-codex-plan-workflow
@@ -84,8 +84,8 @@ git checkout <commit_ref>^ -- tests/codexClient.shell.test.js
 
 - 若继续增强 `/plan`，优先从以下位置继续：
   - `public/terminal_client.js`
-  - `docs/codex/CODEX_COLLABORATION_MODE_INVESTIGATION_20260315.md`
-  - `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`
+  - `docs/codex/codex-collaboration-mode-investigation.md`
+  - `docs/codex/codex-capability-implementation-plan.md`
 - 下一阶段可继续补：
   - 非选项式 `requestUserInput` 题型
   - 更稳定的计划摘要抽取

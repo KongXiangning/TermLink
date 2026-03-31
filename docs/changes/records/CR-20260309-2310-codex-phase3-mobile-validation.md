@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（MVP + 下一阶段）- Phase 3 Android 小屏真机验证
-status: active
+status: archived
 record_id: CR-20260309-2310-codex-phase3-mobile-validation
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: 7784567
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-09
 source_of_truth: runtime
 related_code: [public/terminal_client.js, public/terminal_client.css, public/codex_client.html, public/terminal_client.html, public/lib/codex_approval_view.js, src/services/codexAppServerService.js, src/ws/terminalGateway.js, tests/codexApprovalView.test.js, tests/codexClient.shell.test.js, tests/terminalGateway.codex.test.js, android/app/src/main/java/com/termlink/app/MainShellActivity.kt]
-related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/changes/records/INDEX.md]
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/codex-capability-implementation-plan.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260309-2310-codex-phase3-mobile-validation
@@ -103,7 +103,7 @@ git revert <commit_ref>
 
 # 或仅恢复本记录与相关同步文档
 git checkout <commit_ref>^ -- docs/changes/records/CR-20260309-2310-codex-phase3-mobile-validation.md
-git checkout <commit_ref>^ -- docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md
+git checkout <commit_ref>^ -- docs/codex/codex-capability-implementation-plan.md
 git checkout <commit_ref>^ -- docs/changes/records/INDEX.md
 ```
 

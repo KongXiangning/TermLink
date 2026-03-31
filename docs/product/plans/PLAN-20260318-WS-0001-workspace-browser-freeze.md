@@ -1,3 +1,15 @@
+---
+title: Workspace 冻结实施计划
+status: done
+owner: @maintainer
+last_updated: 2026-03-18
+source_of_truth: product
+related_code: []
+related_docs: [docs/product/requirements/REQ-20260318-WS-0001-docs-exp.md, docs/architecture/ARCH-WS-0001-workspace-browser.md]
+---
+
+# PLAN-20260318-WS-0001-workspace-browser-freeze
+
 ## REQ-WS-0001 冻结实施计划
 
 ### 1. 基本信息

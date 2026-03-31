@@ -1,6 +1,6 @@
 ---
 title: 服务端统一 mTLS 接入
-status: active
+status: archived
 record_id: CR-20260327-1525-server-unified-mtls-integration
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: f43ff6f

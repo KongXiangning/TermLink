@@ -1,6 +1,6 @@
 ---
 title: Android profile mTLS import failure return-false fix
-status: active
+status: archived
 record_id: CR-20260326-0105-mtls-import-failure-return-false
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: d675956

@@ -1,3 +1,13 @@
+---
+title: Codex VSCode 插件移植到 TermLink App 实现说明
+status: active
+owner: "@maintainer"
+last_updated: 2026-03-31
+source_of_truth: codex
+related_code: []
+related_docs: [docs/codex/codex-integration-architecture.md, docs/codex/codex-plugin-capability-matrix.md]
+---
+
 # Codex VSCode 插件移植到 TermLink App（实现说明）
 
 ## 1. VSCode 插件核心结构（已解析）

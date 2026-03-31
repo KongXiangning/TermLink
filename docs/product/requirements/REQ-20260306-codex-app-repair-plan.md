@@ -5,7 +5,7 @@ owner: @maintainer
 last_updated: 2026-03-09
 source_of_truth: product
 related_code: [android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt, android/app/src/main/res/layout/dialog_session_create.xml, public/terminal_client.html, public/terminal_client.css, public/terminal_client.js, src/routes/sessions.js, src/services/codexAppServerService.js, src/services/sessionManager.js, src/ws/terminalGateway.js]
-related_docs: [docs/CODEX_VSCODE_PORT_TO_APP.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/changes/CHANGELOG_PROJECT.md]
+related_docs: [docs/codex/codex-vscode-port-to-app.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/changes/CHANGELOG_PROJECT.md]
 ---
 
 # REQ-20260306-codex-app-repair-plan
@@ -20,11 +20,11 @@ related_docs: [docs/CODEX_VSCODE_PORT_TO_APP.md, docs/product/requirements/REQ-2
 - status: archived
 - owner: @maintainer
 - target_release: 2026-Q2
-- links: `docs/CODEX_VSCODE_PORT_TO_APP.md`
+- links: `docs/codex/codex-vscode-port-to-app.md`
 
 ## 1. 背景与目标
 
-当前项目已经完成 Codex VSCode 插件协议到 TermLink 的首轮移植，服务端、WebSocket、WebView 面板与 Android 容器已可通跑。但根据 `docs/CODEX_VSCODE_PORT_TO_APP.md` 的复核结论，现阶段仍存在 3 类阻塞问题：
+当前项目已经完成 Codex VSCode 插件协议到 TermLink 的首轮移植，服务端、WebSocket、WebView 面板与 Android 容器已可通跑。但根据 `docs/codex/codex-vscode-port-to-app.md` 的复核结论，现阶段仍存在 3 类阻塞问题：
 
 1. Codex 聊天窗与终端同屏混排，移动端交互边界不清。
 2. Create Session 只支持终端会话，不支持以 Codex 模式显式创建会话并填写工作路径。

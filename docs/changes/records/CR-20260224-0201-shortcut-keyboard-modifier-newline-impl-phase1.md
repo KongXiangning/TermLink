@@ -1,6 +1,6 @@
 ---
 title: 快捷键盘控制键修复、换行按钮与触摸滚动优化 - 实施记录
-status: active
+status: archived
 record_id: CR-20260224-0201-shortcut-keyboard-modifier-newline-impl-phase1
 req_id: REQ-20260223-shortcut-keyboard-modifier-newline
 commit_ref: e975244

@@ -1,6 +1,6 @@
 ---
 title: REQ-20260318-ws-0001-docs-exp - 冻结实施计划固化
-status: active
+status: archived
 record_id: CR-20260323-1454-workspace-impl-phase1
 req_id: REQ-20260318-ws-0001-docs-exp
 commit_ref: e2f7b3e

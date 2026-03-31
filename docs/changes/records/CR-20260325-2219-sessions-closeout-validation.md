@@ -1,6 +1,6 @@
 ---
 title: Android 会话列表本地缓存与离线回显 - sessions closeout validation
-status: active
+status: archived
 record_id: CR-20260325-2219-sessions-closeout-validation
 req_id: REQ-20260324-session-list-local-cache
 commit_ref: 6a0f06e

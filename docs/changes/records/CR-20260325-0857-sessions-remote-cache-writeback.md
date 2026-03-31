@@ -1,6 +1,6 @@
 ---
 title: REQ-20260324-session-list-local-cache - sessions remote cache writeback
-status: active
+status: archived
 record_id: CR-20260325-0857-sessions-remote-cache-writeback
 req_id: REQ-20260324-session-list-local-cache
 commit_ref: 3c27fa2

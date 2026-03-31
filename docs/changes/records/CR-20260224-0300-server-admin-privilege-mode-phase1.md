@@ -1,6 +1,6 @@
 ---
 title: 服务端管理员权限模式 Phase 1+2 实现记录
-status: active
+status: archived
 record_id: CR-20260224-0300-server-admin-privilege-mode-phase1
 req_id: REQ-20260222-server-admin-privilege-mode
 commit_ref: a6ceeec

@@ -1,6 +1,6 @@
 ---
 title: Android profile mTLS phase 5 real-device validation closure
-status: active
+status: archived
 record_id: CR-20260327-0148-phase5-real-device-mtls-validation
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: d675956

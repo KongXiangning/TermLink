@@ -1,3 +1,13 @@
+---
+title: 跨版本稳定结论汇总
+status: active
+owner: "@maintainer"
+last_updated: 2026-03-10
+source_of_truth: codex
+related_code: []
+related_docs: [docs/codex/vscode-codex-technical-mechanisms-0474.md, docs/codex/vscode-codex-technical-mechanisms-20706.md]
+---
+
 # Cross-Version Stable Findings: VS Code Codex 插件与本地 codex app-server
 
 ## 1. 文档目的

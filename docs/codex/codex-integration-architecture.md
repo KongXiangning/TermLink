@@ -1,3 +1,15 @@
+---
+title: Codex 接入架构
+status: active
+owner: "@maintainer"
+last_updated: 2026-03-31
+source_of_truth: codex
+related_code: []
+related_docs: [docs/codex/codex-vscode-port-to-app.md]
+---
+
+# Codex 接入架构
+
 1. 目标与约束
 目标
 

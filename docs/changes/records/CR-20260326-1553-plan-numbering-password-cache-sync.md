@@ -1,6 +1,6 @@
 ---
 title: Android Profile 级 mTLS PLAN 编号与缓存失效口径修复
-status: active
+status: archived
 record_id: CR-20260326-1553-plan-numbering-password-cache-sync
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: d675956

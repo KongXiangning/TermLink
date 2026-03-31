@@ -1,6 +1,6 @@
 ---
 title: Server mTLS plan expansion for Android profile runtime cert
-status: active
+status: archived
 record_id: CR-20260326-1527-server-mtls-plan-expansion
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: d675956

@@ -1,3 +1,13 @@
+---
+title: VS Code Codex 技术机制文档 (v0.4.74)
+status: archived
+owner: "@maintainer"
+last_updated: 2026-03-31
+source_of_truth: codex
+related_code: []
+related_docs: [docs/codex/cross-version-stable-findings.md, docs/codex/vscode-codex-technical-mechanisms-20706.md]
+---
+
 # VS Code Codex 插件与本地 codex app-server 技术机制文档
 
 ## 0. 范围与边界

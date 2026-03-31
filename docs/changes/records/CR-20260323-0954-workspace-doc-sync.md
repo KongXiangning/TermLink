@@ -1,6 +1,6 @@
 ---
 title: Workspace REQ/ARCH 文档扩展 - 变更记录
-status: active
+status: archived
 record_id: CR-20260323-0954-workspace-doc-sync
 req_id: REQ-20260318-ws-0001-docs-exp
 commit_ref: 3c0f2da

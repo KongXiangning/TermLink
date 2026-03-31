@@ -1,6 +1,6 @@
 ---
 title: 会话保留需求文档更新 - 变更记录
-status: active
+status: archived
 record_id: CR-20260222-2200-session-retention-doc-update
 req_id: REQ-20260222-session-retention-reconnect
 commit_ref: 36dd134

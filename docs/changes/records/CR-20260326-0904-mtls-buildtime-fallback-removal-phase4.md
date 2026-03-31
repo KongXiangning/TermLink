@@ -1,6 +1,6 @@
 ---
 title: Android profile mTLS build-time fallback removal phase 4
-status: active
+status: archived
 record_id: CR-20260326-0904-mtls-buildtime-fallback-removal-phase4
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: d675956
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-26
 source_of_truth: product
 related_code: [android/app/build.gradle, android/app/src/main/java/com/termlink/app/ui/settings/SettingsFragment.kt, android/app/src/main/res/layout/fragment_settings.xml, android/app/src/main/res/values/strings.xml]
-related_docs: [docs/product/requirements/REQ-20260326-android-profile-mtls-runtime-certificate.md, docs/product/plans/PLAN-20260326-android-profile-mtls-runtime-certificate-impl.md, docs/guides/android-development.md, docs/architecture/CURRENT_STATE.md, docs/ops/ops-checklist.md, docs/PROJECT_OVERVIEW.md, docs/changes/records/INDEX.md]
+related_docs: [docs/product/requirements/REQ-20260326-android-profile-mtls-runtime-certificate.md, docs/product/plans/PLAN-20260326-android-profile-mtls-runtime-certificate-impl.md, docs/guides/android-development.md, docs/architecture/CURRENT_STATE.md, docs/ops/ops-checklist.md, docs/architecture/PROJECT_OVERVIEW.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260326-0904-mtls-buildtime-fallback-removal-phase4
@@ -33,7 +33,7 @@ related_docs: [docs/product/requirements/REQ-20260326-android-profile-mtls-runti
    - `docs/guides/android-development.md`
    - `docs/architecture/CURRENT_STATE.md`
    - `docs/ops/ops-checklist.md`
-   - `docs/PROJECT_OVERVIEW.md`
+   - `docs/architecture/PROJECT_OVERVIEW.md`
 
 ## 3. Impact
 

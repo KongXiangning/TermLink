@@ -1,7 +1,7 @@
 ---
 id: CR-20260330-2125-android-codex-foreground-service
 title: Android Codex 前台保活服务重新实现
-status: active
+status: archived
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: 288561b
 created: 2026-03-30

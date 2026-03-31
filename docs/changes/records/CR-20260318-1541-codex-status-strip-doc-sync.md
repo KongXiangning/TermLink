@@ -1,6 +1,6 @@
 ---
 title: Codex 顶部状态栏文档同步 - 变更记录
-status: active
+status: archived
 record_id: CR-20260318-1541-codex-status-strip-doc-sync
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: 1671e35
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-18
 source_of_truth: product
 related_code: [public/codex_client.html, public/terminal_client.js]
-related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/codex/CODEX_PHASE5_PERMISSION_CONTEXT_PLAN.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/architecture/CURRENT_STATE.md, docs/changes/records/INDEX.md]
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/codex-capability-implementation-plan.md, docs/codex/codex-phase5-permission-context-plan.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/architecture/CURRENT_STATE.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260318-1541-codex-status-strip-doc-sync
@@ -26,8 +26,8 @@ related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, d
 ## 3. 影响范围（Files/Modules/Runtime）
 - 文件：
   - `docs/product/requirements/REQ-20260309-codex-capability-mvp.md`
-  - `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`
-  - `docs/codex/CODEX_PHASE5_PERMISSION_CONTEXT_PLAN.md`
+  - `docs/codex/codex-capability-implementation-plan.md`
+  - `docs/codex/codex-phase5-permission-context-plan.md`
   - `docs/product/PRODUCT_REQUIREMENTS.md`
   - `docs/architecture/ROADMAP.md`
   - `docs/architecture/CURRENT_STATE.md`

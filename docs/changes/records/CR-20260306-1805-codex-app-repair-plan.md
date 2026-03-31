@@ -1,6 +1,6 @@
 ---
 title: REQ-20260306-codex-app-repair-plan - 变更记录
-status: active
+status: archived
 record_id: CR-20260306-1805-codex-app-repair-plan
 req_id: REQ-20260306-codex-app-repair-plan
 commit_ref: 1899f6d
@@ -52,7 +52,7 @@ git checkout <commit_ref>^ -- <path/to/file>
 
 ## 6. 后续修改入口（How to continue）
 
-- 下次修改建议从以下文件继续：`docs/product/requirements/REQ-20260306-codex-app-repair-plan.md`、`docs/CODEX_VSCODE_PORT_TO_APP.md`。
+- 下次修改建议从以下文件继续：`docs/product/requirements/REQ-20260306-codex-app-repair-plan.md`、`docs/codex/codex-vscode-port-to-app.md`。
 - 如本记录后续被替代，请填写：`替代记录: CR-YYYYMMDD-HHMM-<slug>`。
 
 ## 7. 风险与注意事项

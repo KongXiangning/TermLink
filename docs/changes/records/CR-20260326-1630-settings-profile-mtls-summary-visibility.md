@@ -1,6 +1,6 @@
 ---
 title: Android profile mTLS phase 4 settings profile summary visibility fix
-status: active
+status: archived
 record_id: CR-20260326-1630-settings-profile-mtls-summary-visibility
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: d675956

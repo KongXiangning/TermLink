@@ -1,6 +1,6 @@
 ---
 title: Transparent relay identity-semantics constraint sync
-status: active
+status: archived
 record_id: CR-20260326-1532-relay-identity-semantics-constraint
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: d675956

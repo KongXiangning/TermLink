@@ -1,6 +1,6 @@
 ---
 title: REQ-20260324-session-list-local-cache - cache store + models foundation
-status: active
+status: archived
 record_id: CR-20260324-2331-session-list-cache-store-foundation
 req_id: REQ-20260324-session-list-local-cache
 commit_ref: 87031bc

@@ -1,6 +1,6 @@
 ---
 title: REQ-WS-0001 Phase 1 Server Workspace Implementation
-status: active
+status: archived
 record_id: CR-20260323-2244-phase1-server-workspace
 req_id: REQ-20260318-ws-0001-docs-exp
 commit_ref: 98fa032

@@ -1,3 +1,15 @@
+---
+title: Workspace Phase 2 Web 页面实施清单
+status: done
+owner: @maintainer
+last_updated: 2026-03-23
+source_of_truth: product
+related_code: [public/workspace.html, public/workspace.js, public/workspace.css]
+related_docs: [docs/product/requirements/REQ-20260318-WS-0001-docs-exp.md, docs/architecture/ARCH-WS-0001-workspace-browser.md]
+---
+
+# PLAN-20260318-WS-0001-phase2-web-workspace-impl
+
 ## REQ-WS-0001 Phase 2 实施清单
 
 ### 1. 文档定位

@@ -1,3 +1,15 @@
+---
+title: Workspace Phase 1 服务端实施清单
+status: done
+owner: @maintainer
+last_updated: 2026-03-23
+source_of_truth: product
+related_code: [src/routes/workspace.js, src/services/workspaceFileService.js, src/services/workspaceGitService.js, src/services/workspaceContextResolver.js]
+related_docs: [docs/product/requirements/REQ-20260318-WS-0001-docs-exp.md, docs/architecture/ARCH-WS-0001-workspace-browser.md]
+---
+
+# PLAN-20260318-WS-0001-phase1-server-workspace-impl
+
 ## REQ-WS-0001 Phase 1 实施清单
 
 ### 1. 文档定位

@@ -1,6 +1,6 @@
 ---
 title: Android profile mTLS phase 5 settings android tests and build baseline fixes
-status: active
+status: archived
 record_id: CR-20260326-2334-phase5-settings-android-tests
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: d675956

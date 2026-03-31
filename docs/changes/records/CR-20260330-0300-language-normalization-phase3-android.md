@@ -1,15 +1,15 @@
+---
+cr_id: CR-20260330-0300
+req_id: REQ-20260329-language-normalization
+phase: "Phase 3 — Android 原生 i18n 与一致性"
+status: archived
+commit_ref: 19ed314
+author: Copilot
+created: 2026-03-30
+last_updated: 2026-03-30
+---
+
 # CR-20260330-0300 — Android 原生 i18n 与 WebView 语言桥接
-
-## 元信息
-
-| 字段         | 值                                              |
-| ------------ | ----------------------------------------------- |
-| cr_id        | CR-20260330-0300                                |
-| req_id       | REQ-20260329-language-normalization             |
-| phase        | Phase 3 — Android 原生 i18n 与一致性            |
-| status       | active                                          |
-| commit_ref   | 19ed314                                         |
-| author       | Copilot                                         |
 
 ## 变更摘要
 

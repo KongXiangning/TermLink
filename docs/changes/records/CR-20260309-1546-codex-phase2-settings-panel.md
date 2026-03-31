@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（MVP + 下一阶段） - 变更记录
-status: active
+status: archived
 record_id: CR-20260309-1546-codex-phase2-settings-panel
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: 876676c
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-09
 source_of_truth: product
 related_code: [src/repositories/sessionStore.js, src/services/sessionManager.js, src/routes/sessions.js, src/ws/terminalGateway.js, public/codex_client.html, public/terminal_client.html, public/terminal_client.css, public/terminal_client.js, public/lib/codex_settings_view.js, tests/sessionStore.metadata.test.js, tests/routes.sessions.metadata.test.js, tests/terminalGateway.codex.test.js, tests/codexSettingsView.test.js, tests/codexClient.shell.test.js]
-related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/changes/records/INDEX.md]
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/codex-capability-implementation-plan.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260309-1546-codex-phase2-settings-panel

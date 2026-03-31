@@ -1,3 +1,15 @@
+---
+title: Workspace Phase 3 Android 集成实施清单
+status: done
+owner: @maintainer
+last_updated: 2026-03-24
+source_of_truth: product
+related_code: [android/app/src/main/java/com/termlink/app/WorkspaceActivity.kt]
+related_docs: [docs/product/requirements/REQ-20260318-WS-0001-docs-exp.md, docs/architecture/ARCH-WS-0001-workspace-browser.md]
+---
+
+# PLAN-20260318-WS-0001-phase3-android-workspace-impl
+
 ## REQ-WS-0001 Phase 3 实施清单
 
 ### 1. 文档定位

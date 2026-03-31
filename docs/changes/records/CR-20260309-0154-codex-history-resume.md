@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（MVP + 下一阶段）- 历史线程恢复流实施记录
-status: active
+status: archived
 record_id: CR-20260309-0154-codex-history-resume
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: f383fbf
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-09
 source_of_truth: code
 related_code: [public/terminal_client.js, public/terminal_client.html, public/codex_client.html, public/lib/codex_bootstrap.js, tests/codexBootstrap.plan.test.js]
-related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/changes/records/INDEX.md]
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/codex-capability-implementation-plan.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260309-0154-codex-history-resume

@@ -1,6 +1,6 @@
 ---
 title: 会话刷新局部失败口径与 elevated 门禁收口
-status: active
+status: archived
 record_id: CR-20260328-0205-session-refresh-and-elevated-gate
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: f43ff6f

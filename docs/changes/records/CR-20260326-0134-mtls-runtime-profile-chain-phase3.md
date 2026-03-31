@@ -1,6 +1,6 @@
 ---
 title: Android profile mTLS runtime profile chain phase 3
-status: active
+status: archived
 record_id: CR-20260326-0134-mtls-runtime-profile-chain-phase3
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: d675956

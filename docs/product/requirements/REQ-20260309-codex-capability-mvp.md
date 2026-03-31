@@ -1,11 +1,11 @@
-﻿---
+---
 title: Codex 能力矩阵驱动主线需求（对话体验优先、后台保活与下一阶段）
 status: done
 owner: @maintainer
 last_updated: 2026-03-30
 source_of_truth: product
 related_code: [src/routes/sessions.js, src/services/sessionManager.js, src/services/codexAppServerService.js, src/ws/terminalGateway.js, public/codex_client.html, public/terminal_client.js, android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt]
-related_docs: [docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md, docs/codex/cross-version-stable-findings.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/codex/CODEX_FILE_MENTION_INPUT_PLAN.md, docs/product/plans/PLAN-20260329-codex-background-retention-and-resume.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/changes/records/INDEX.md]
+related_docs: [docs/codex/codex-plugin-capability-matrix.md, docs/codex/cross-version-stable-findings.md, docs/codex/codex-capability-implementation-plan.md, docs/codex/codex-file-mention-input-plan.md, docs/product/plans/PLAN-20260329-codex-background-retention-and-resume.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/changes/records/INDEX.md]
 ---
 
 # REQ-20260309-codex-capability-mvp
@@ -18,7 +18,7 @@ related_docs: [docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md, docs/codex/cross-ve
 - status: done
 - owner: @maintainer
 - target_release: 2026-Q2
-- links: `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`, `docs/product/plans/PLAN-20260329-codex-background-retention-and-resume.md`
+- links: `docs/codex/codex-capability-implementation-plan.md`, `docs/product/plans/PLAN-20260329-codex-background-retention-and-resume.md`
 
 ## 1. 背景与目标
 
@@ -115,7 +115,7 @@ Codex 首页默认只保留以下主体：
 
 ## 3. 能力边界来源
 
-1. 功能纳入与分期，按 `CODEX_PLUGIN_CAPABILITY_MATRIX.md` 的证据等级决策，优先：
+1. 功能纳入与分期，按 `codex-plugin-capability-matrix.md` 的证据等级决策，优先：
    - 已确认可做
    - 协议存在，基本可做
    - 可做，但交互形态属于客户端封装

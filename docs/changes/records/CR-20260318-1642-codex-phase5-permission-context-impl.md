@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（对话体验优先 MVP + 下一阶段）- 变更记录
-status: active
+status: archived
 record_id: CR-20260318-1642-codex-phase5-permission-context-impl
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: ff4676c
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-18
 source_of_truth: product
 related_code: [public/codex_client.html, public/terminal_client.html, public/terminal_client.css, public/terminal_client.js, tests/codexClient.shell.test.js, tests/codexSecondaryPanel.integration.test.js]
-related_docs: [docs/codex/CODEX_PHASE5_PERMISSION_CONTEXT_PLAN.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md]
+related_docs: [docs/codex/codex-phase5-permission-context-plan.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md]
 ---
 
 # CR-20260318-1642-codex-phase5-permission-context-impl

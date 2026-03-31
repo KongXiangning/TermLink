@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（MVP + 下一阶段）- Phase 2 手机端 UI 与恢复时机修复
-status: active
+status: archived
 record_id: CR-20260309-1747-codex-phase2-mobile-ui-fixes
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: cbe06d8
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-09
 source_of_truth: runtime
 related_code: [public/terminal_client.js, public/lib/codex_bootstrap.js, public/codex_client.html, public/terminal_client.html, public/terminal_client.css, android/app/src/main/java/com/termlink/app/MainShellActivity.kt, tests/codexBootstrap.plan.test.js, tests/codexClient.shell.test.js]
-related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/changes/records/INDEX.md]
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/codex-capability-implementation-plan.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260309-1747-codex-phase2-mobile-ui-fixes

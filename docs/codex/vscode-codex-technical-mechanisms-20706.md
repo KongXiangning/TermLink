@@ -1,3 +1,13 @@
+---
+title: VS Code Codex 技术机制提取 (v2.0.706)
+status: archived
+owner: "@maintainer"
+last_updated: 2026-03-31
+source_of_truth: codex
+related_code: []
+related_docs: [docs/codex/cross-version-stable-findings.md, docs/codex/vscode-codex-technical-mechanisms-0474.md]
+---
+
 # VS Code Codex 插件与本地 codex app-server 技术机制提取
 
 ## 文档边界

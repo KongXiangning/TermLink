@@ -1,6 +1,6 @@
 ---
 title: 服务端会话长时保留与断联续接 - 状态流转与记录回填
-status: active
+status: archived
 record_id: CR-20260224-0115-session-retention-status-done-sync
 req_id: REQ-20260222-session-retention-reconnect
 commit_ref: c82147c

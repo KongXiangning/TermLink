@@ -1,6 +1,6 @@
 ---
 title: 服务端会话长时保留与断联续接 - WS 参数语义修复与关键验收
-status: active
+status: archived
 record_id: CR-20260224-0023-session-retention-reconnect-ws-param-fix
 req_id: REQ-20260222-session-retention-reconnect
 commit_ref: f4ce64f

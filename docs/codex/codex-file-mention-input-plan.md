@@ -1,4 +1,14 @@
-# CODEX_FILE_MENTION_INPUT_PLAN
+---
+title: Codex 文件提及输入计划
+status: active
+owner: "@maintainer"
+last_updated: 2026-03-31
+source_of_truth: codex
+related_code: []
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md]
+---
+
+# Codex 文件提及输入计划
 
 ## 1. 背景
 

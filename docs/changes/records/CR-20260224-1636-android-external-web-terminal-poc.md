@@ -1,6 +1,6 @@
 ---
 title: Android External Web terminal POC - change record
-status: active
+status: archived
 record_id: CR-20260224-1636-android-external-web-terminal-poc
 req_id: REQ-20260224-android-external-web-terminal-profile-sessions
 commit_ref: ab47cb8

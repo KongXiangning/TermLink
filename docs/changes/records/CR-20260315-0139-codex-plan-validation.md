@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（对话体验优先 MVP + 下一阶段） - 变更记录
-status: active
+status: archived
 record_id: CR-20260315-0139-codex-plan-validation
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: a24c5f3
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-15
 source_of_truth: product
 related_code: []
-related_docs: [docs/codex/CODEX_COLLABORATION_MODE_INVESTIGATION_20260315.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/changes/records/INDEX.md]
+related_docs: [docs/codex/codex-collaboration-mode-investigation.md, docs/codex/codex-capability-implementation-plan.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260315-0139-codex-plan-validation
@@ -28,8 +28,8 @@ related_docs: [docs/codex/CODEX_COLLABORATION_MODE_INVESTIGATION_20260315.md, do
 ## 3. 影响范围
 
 - 文件：
-  - `docs/codex/CODEX_COLLABORATION_MODE_INVESTIGATION_20260315.md`
-  - `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`
+  - `docs/codex/codex-collaboration-mode-investigation.md`
+  - `docs/codex/codex-capability-implementation-plan.md`
   - `docs/product/requirements/REQ-20260309-codex-capability-mvp.md`
 - 模块：
   - Codex `/plan` 能力判断口径
@@ -45,8 +45,8 @@ related_docs: [docs/codex/CODEX_COLLABORATION_MODE_INVESTIGATION_20260315.md, do
 git revert <commit_ref>
 
 # 或仅恢复本次文档
-git checkout <commit_ref>^ -- docs/codex/CODEX_COLLABORATION_MODE_INVESTIGATION_20260315.md
-git checkout <commit_ref>^ -- docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md
+git checkout <commit_ref>^ -- docs/codex/codex-collaboration-mode-investigation.md
+git checkout <commit_ref>^ -- docs/codex/codex-capability-implementation-plan.md
 git checkout <commit_ref>^ -- docs/product/requirements/REQ-20260309-codex-capability-mvp.md
 git checkout <commit_ref>^ -- docs/changes/records/CR-20260315-0139-codex-plan-validation.md
 ```
@@ -67,8 +67,8 @@ git checkout <commit_ref>^ -- docs/changes/records/CR-20260315-0139-codex-plan-v
 ## 6. 后续修改入口
 
 - 下次若继续实现 `/plan` UI，优先从以下文档继续：
-  - `docs/codex/CODEX_COLLABORATION_MODE_INVESTIGATION_20260315.md`
-  - `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`
+  - `docs/codex/codex-collaboration-mode-investigation.md`
+  - `docs/codex/codex-capability-implementation-plan.md`
   - `docs/product/requirements/REQ-20260309-codex-capability-mvp.md`
 - 接入策略应优先遵循：
   - 继续发送结构化 `collaborationMode`

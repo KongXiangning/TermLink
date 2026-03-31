@@ -1,6 +1,6 @@
 ---
 title: 快捷键盘资源版本号统一提升 - 缓存修复记录
-status: active
+status: archived
 record_id: CR-20260224-0220-shortcut-keyboard-cache-bust-fix
 req_id: REQ-20260223-shortcut-keyboard-modifier-newline
 commit_ref: 2e4627b

@@ -1,6 +1,6 @@
 ---
 title: REQ-20260329-language-normalization 需求立项与文档建设
-status: active
+status: archived
 record_id: CR-20260329-1500-language-normalization-req-init
 req_id: REQ-20260329-language-normalization
 commit_ref: cfd2e2e

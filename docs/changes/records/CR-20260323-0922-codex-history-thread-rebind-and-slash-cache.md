@@ -1,6 +1,6 @@
 ---
 title: Codex history thread rebind and slash cache fix
-status: active
+status: archived
 record_id: CR-20260323-0922-codex-history-thread-rebind-and-slash-cache
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: 0be5b8a

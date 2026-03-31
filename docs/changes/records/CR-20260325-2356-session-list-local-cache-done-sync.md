@@ -1,6 +1,6 @@
 ---
 title: REQ-20260324-session-list-local-cache - requirement done sync
-status: active
+status: archived
 record_id: CR-20260325-2356-session-list-local-cache-done-sync
 req_id: REQ-20260324-session-list-local-cache
 commit_ref: 6a0f06e

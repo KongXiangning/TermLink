@@ -1,6 +1,6 @@
 ---
 title: Android Profile mTLS Store Foundation
-status: active
+status: archived
 record_id: CR-20260326-0033-mtls-profile-store-foundation
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: d675956

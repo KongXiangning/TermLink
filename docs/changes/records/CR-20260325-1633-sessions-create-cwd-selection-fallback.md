@@ -1,6 +1,6 @@
 ---
 title: REQ-20260324-session-list-local-cache - sessions create cwd selection fallback
-status: active
+status: archived
 record_id: CR-20260325-1633-sessions-create-cwd-selection-fallback
 req_id: REQ-20260324-session-list-local-cache
 commit_ref: 2aaf6b6

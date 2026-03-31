@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（MVP + 下一阶段）- Android Phase 2 完整交互验证
-status: active
+status: archived
 record_id: CR-20260309-1719-codex-phase2-mobile-validation
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: 04896a4
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-09
 source_of_truth: runtime
 related_code: [public/terminal_client.js, public/codex_client.html, public/terminal_client.css, android/app/src/main/assets/public/terminal_client.js, android/app/src/main/assets/public/codex_client.html, android/app/src/main/assets/public/terminal_client.css, android/app/src/main/java/com/termlink/app/MainShellActivity.kt]
-related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/changes/records/INDEX.md]
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/codex-capability-implementation-plan.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260309-1719-codex-phase2-mobile-validation
@@ -63,7 +63,7 @@ related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, d
 ```bash
 # 文档回滚
 git checkout -- docs/changes/records/CR-20260309-1719-codex-phase2-mobile-validation.md
-git checkout -- docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md
+git checkout -- docs/codex/codex-capability-implementation-plan.md
 git checkout -- docs/changes/records/INDEX.md
 ```
 

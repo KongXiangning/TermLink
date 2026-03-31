@@ -1,6 +1,6 @@
 ---
 title: REQ-20260329-language-normalization Phase 4 收口验收与最终同步
-status: active
+status: archived
 record_id: CR-20260330-0500-language-normalization-closeout
 req_id: REQ-20260329-language-normalization
 commit_ref: 32e39b4

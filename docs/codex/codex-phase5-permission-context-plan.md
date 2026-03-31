@@ -1,4 +1,14 @@
-# CODEX_PHASE5_PERMISSION_CONTEXT_PLAN
+---
+title: Codex Phase 5 权限上下文计划
+status: active
+owner: "@maintainer"
+last_updated: 2026-03-31
+source_of_truth: codex
+related_code: []
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md]
+---
+
+# Codex Phase 5 权限上下文计划
 
 ## 1. 背景与目标
 
@@ -9,7 +19,7 @@
 
 同时对应本轮需求补充记录 [CR-20260317-0936-codex-app-permission-mode-and-context-window](../changes/records/CR-20260317-0936-codex-app-permission-mode-and-context-window.md)。
 
-本计划是 [CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md](./CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md) 的 Phase 5 专项实施包，目标是补完 app 主链路产品化能力，而不是新增底层协议。
+本计划是 [codex-capability-implementation-plan.md](./codex-capability-implementation-plan.md) 的 Phase 5 专项实施包，目标是补完 app 主链路产品化能力，而不是新增底层协议。
 
 本专项当前只覆盖 2 件事：
 

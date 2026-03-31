@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（MVP + 下一阶段）- Phase 1 Android 真机验收
-status: active
+status: archived
 record_id: CR-20260310-2323-codex-phase1-mobile-validation
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: 3552d38
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-11
 source_of_truth: runtime
 related_code: [public/codex_client.html, public/terminal_client.js, public/terminal_client.css, android/app/src/main/java/com/termlink/app/MainShellActivity.kt]
-related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/changes/records/INDEX.md]
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/codex-capability-implementation-plan.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260310-2323-codex-phase1-mobile-validation

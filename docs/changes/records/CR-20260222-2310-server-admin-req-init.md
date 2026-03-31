@@ -1,6 +1,6 @@
 ---
 title: 管理员权限模式需求立项记录
-status: active
+status: archived
 record_id: CR-20260222-2310-server-admin-req-init
 req_id: REQ-20260222-server-admin-privilege-mode
 commit_ref: 02a1fb9

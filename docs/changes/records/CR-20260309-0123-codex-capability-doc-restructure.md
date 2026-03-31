@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（MVP + 下一阶段）- 变更记录
-status: active
+status: archived
 record_id: CR-20260309-0123-codex-capability-doc-restructure
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: 0fdb749
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-09
 source_of_truth: product
 related_code: []
-related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/changes/records/INDEX.md]
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/codex-capability-implementation-plan.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260309-0123-codex-capability-doc-restructure
@@ -22,13 +22,13 @@ related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, d
 ## 2. 实施内容（What changed）
 
 1. 新建 `REQ-20260309-codex-capability-mvp`，按“已交付基线/MVP/下一阶段/Out of Scope”重构需求结构。
-2. 新建 `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`，固化能力映射、接口收敛、分阶段实施与验收矩阵。
+2. 新建 `docs/codex/codex-capability-implementation-plan.md`，固化能力映射、接口收敛、分阶段实施与验收矩阵。
 3. 将 `REQ-20260306-codex-app-repair-plan` 标记为 `archived`，并声明已被新主 REQ 取代。
 4. 同步更新 `REQUIREMENTS_BACKLOG`、`PRODUCT_REQUIREMENTS`、`ROADMAP`、`README` 与 CR 索引。
 
 ## 3. 影响范围（Files/Modules/Runtime）
 
-- 文件：`docs/product/requirements/REQ-20260309-codex-capability-mvp.md`、`docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`、`docs/product/requirements/REQ-20260306-codex-app-repair-plan.md`、`docs/product/REQUIREMENTS_BACKLOG.md`、`docs/product/PRODUCT_REQUIREMENTS.md`、`docs/architecture/ROADMAP.md`、`docs/README.md`、`docs/changes/records/INDEX.md`。
+- 文件：`docs/product/requirements/REQ-20260309-codex-capability-mvp.md`、`docs/codex/codex-capability-implementation-plan.md`、`docs/product/requirements/REQ-20260306-codex-app-repair-plan.md`、`docs/product/REQUIREMENTS_BACKLOG.md`、`docs/product/PRODUCT_REQUIREMENTS.md`、`docs/architecture/ROADMAP.md`、`docs/README.md`、`docs/changes/records/INDEX.md`。
 - 模块：文档治理、需求主线、Codex 能力分期与实施路径。
 - 运行时行为：无直接代码行为变更，仅影响需求执行依据与后续排期决策。
 
@@ -52,7 +52,7 @@ git checkout <commit_ref>^ -- <path/to/file>
 
 ## 6. 后续修改入口（How to continue）
 
-- 下次修改建议从以下文件继续：`docs/product/requirements/REQ-20260309-codex-capability-mvp.md`、`docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`。
+- 下次修改建议从以下文件继续：`docs/product/requirements/REQ-20260309-codex-capability-mvp.md`、`docs/codex/codex-capability-implementation-plan.md`。
 - 替代记录：`CR-20260310-0112-codex-conversation-priority-doc-realign`。
 
 ## 7. 风险与注意事项

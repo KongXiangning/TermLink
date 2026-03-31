@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（MVP + 下一阶段）- Android Codex 真机阶段性验证
-status: active
+status: archived
 record_id: CR-20260309-1455-codex-mobile-validation
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: 00f0701
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-09
 source_of_truth: runtime
 related_code: [public/terminal_client.js, src/ws/terminalGateway.js, src/routes/sessions.js, android/app/src/main/java/com/termlink/app/MainShellActivity.kt]
-related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/changes/records/INDEX.md]
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/codex-capability-implementation-plan.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260309-1455-codex-mobile-validation
@@ -45,7 +45,7 @@ related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, d
 ```bash
 # 文档回滚（若本记录内容有误）
 git checkout -- docs/changes/records/CR-20260309-1455-codex-mobile-validation.md
-git checkout -- docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md
+git checkout -- docs/codex/codex-capability-implementation-plan.md
 git checkout -- docs/changes/records/INDEX.md
 ```
 

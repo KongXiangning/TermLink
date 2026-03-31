@@ -1,8 +1,8 @@
 ---
-title: REQ-20260222-document-governance
-status: planned
+title: 文档统一管理与需求流程标准化
+status: in_progress
 owner: @maintainer
-last_updated: 2026-02-22
+last_updated: 2026-03-31
 source_of_truth: product
 related_code: []
 related_docs: [docs/README.md, docs/product/REQUIREMENTS_BACKLOG.md]
@@ -15,7 +15,7 @@ related_docs: [docs/README.md, docs/product/REQUIREMENTS_BACKLOG.md]
 - id: REQ-20260222-doc-governance
 - title: 文档统一管理与需求流程标准化
 - priority: P0
-- status: planned
+- status: in_progress
 - owner: @maintainer
 - target_release: 2026-Q1
 - links: `docs/changes/CHANGELOG_PROJECT.md`

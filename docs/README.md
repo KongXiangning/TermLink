@@ -2,7 +2,7 @@
 title: TermLink 文档中心
 status: active
 owner: @maintainer
-last_updated: 2026-03-09
+last_updated: 2026-03-31
 source_of_truth: product
 related_code: []
 related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/CURRENT_STATE.md, docs/changes/records/INDEX.md]
@@ -30,18 +30,22 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/CURRENT_S
 - 主需求：`docs/product/PRODUCT_REQUIREMENTS.md`
 - 需求池：`docs/product/REQUIREMENTS_BACKLOG.md`
 - 需求模板：`docs/product/requirements/REQ-TEMPLATE.md`
+- 实施计划模板：`docs/product/plans/PLAN-TEMPLATE.md`
 
 ### Architecture
 
+- 项目总览：`docs/architecture/PROJECT_OVERVIEW.md`
 - 当前架构：`docs/architecture/CURRENT_STATE.md`
 - 路线图：`docs/architecture/ROADMAP.md`
 - ADR 模板：`docs/architecture/decisions/ADR-TEMPLATE.md`
 
 ### Codex
 
-- 能力矩阵：`docs/codex/CODEX_PLUGIN_CAPABILITY_MATRIX.md`
+- 能力矩阵：`docs/codex/codex-plugin-capability-matrix.md`
 - 跨版本稳定结论：`docs/codex/cross-version-stable-findings.md`
-- 能力实施计划：`docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`
+- 能力实施计划：`docs/codex/codex-capability-implementation-plan.md`
+- VSCode 插件移植：`docs/codex/codex-vscode-port-to-app.md`
+- Codex 集成架构：`docs/codex/codex-integration-architecture.md`
 
 ### Guides
 
@@ -58,8 +62,14 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/CURRENT_S
 ### Changes
 
 - 项目变更日志：`docs/changes/CHANGELOG_PROJECT.md`
+- **需求实施总结**：`docs/changes/summaries/`（每个 done REQ 一份聚合摘要）
 - 变更记录索引（CR）：`docs/changes/records/INDEX.md`
 - 快捷键盘按钮记录：`docs/changes/2026-02-quick-toolbar.md`
+
+### 自动化脚本
+
+- CR INDEX 自动生成：`scripts/generate-cr-index.ps1`
+- CHANGELOG 草稿生成：`scripts/generate-changelog.ps1`
 
 ### Archive
 

@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（MVP + 下一阶段）- Phase 3 审批与交互状态机
-status: active
+status: archived
 record_id: CR-20260309-2245-codex-phase3-approvals
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: 7784567
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-09
 source_of_truth: runtime
 related_code: [src/services/codexAppServerService.js, src/ws/terminalGateway.js, public/terminal_client.js]
-related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/changes/records/INDEX.md]
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/codex-capability-implementation-plan.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260309-2245-codex-phase3-approvals

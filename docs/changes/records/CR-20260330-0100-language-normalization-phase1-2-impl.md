@@ -1,6 +1,6 @@
 ---
 title: REQ-20260329-language-normalization Phase 1+2 实现 — i18n 框架与 Web 全量字符串迁移
-status: active
+status: archived
 record_id: CR-20260330-0100-language-normalization-phase1-2-impl
 req_id: REQ-20260329-language-normalization
 commit_ref: 68356d1

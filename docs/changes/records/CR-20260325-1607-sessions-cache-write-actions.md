@@ -1,6 +1,6 @@
 ---
 title: REQ-20260324-session-list-local-cache - sessions cache write actions
-status: active
+status: archived
 record_id: CR-20260325-1607-sessions-cache-write-actions
 req_id: REQ-20260324-session-list-local-cache
 commit_ref: 2aaf6b6

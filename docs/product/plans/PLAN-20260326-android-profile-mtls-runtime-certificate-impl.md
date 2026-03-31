@@ -1,4 +1,16 @@
-# REQ-20260326-android-profile-mtls-runtime-certificate 实施清单
+---
+title: Android Profile mTLS 运行时证书实施清单
+status: done
+owner: @maintainer
+last_updated: 2026-03-27
+source_of_truth: product
+related_code: [android/app/src/main/java/com/termlink/app/ui/settings/SettingsFragment.kt, android/app/src/main/java/com/termlink/app/data/ServerProfile.kt, android/app/src/main/java/com/termlink/app/web/MtlsWebViewClient.kt, src/server.js, src/config/tlsConfig.js]
+related_docs: [docs/product/requirements/REQ-20260326-android-profile-mtls-runtime-certificate.md]
+---
+
+# PLAN-20260326-android-profile-mtls-runtime-certificate-impl
+
+## REQ-20260326-android-profile-mtls-runtime-certificate 实施清单
 
 ## 0. 当前实施进度
 
@@ -198,7 +210,7 @@
    - `docs/guides/android-development.md`
    - `docs/architecture/CURRENT_STATE.md`
    - `docs/ops/ops-checklist.md`
-4. 若 `docs/PROJECT_OVERVIEW.md` 仍作为团队常用入口文档，则一并同步更新。
+4. 若 `docs/architecture/PROJECT_OVERVIEW.md` 仍作为团队常用入口文档，则一并同步更新。
 5. 将上述文档中的 Android mTLS 描述统一改为运行时选证书流程，移除 `TERMLINK_MTLS_*`、`BuildConfig.MTLS_*`、`assets/mtls/*.p12|*.pfx` 作为 Android 客户端主路径的表述。
 
 ### 8.5 第五步：测试与验证
@@ -279,7 +291,7 @@
 4. `docs/guides/android-development.md`
 5. `docs/architecture/CURRENT_STATE.md`
 6. `docs/ops/ops-checklist.md`
-7. `docs/PROJECT_OVERVIEW.md`（若仍作为入口文档持续维护）
+7. `docs/architecture/PROJECT_OVERVIEW.md`（若仍作为入口文档持续维护）
 8. 服务端部署 / TLS 文档（在服务端 mTLS 实施批次补齐）
 
 ## 6. 当前默认决策

@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（MVP + 下一阶段）- Phase 1 实施记录
-status: active
+status: archived
 record_id: CR-20260309-0132-codex-capability-phase1-impl
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: f383fbf
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-09
 source_of_truth: code
 related_code: [src/repositories/sessionStore.js, src/services/sessionManager.js, src/routes/sessions.js, src/ws/terminalGateway.js, android/app/src/main/java/com/termlink/app/data/SessionApiModels.kt, android/app/src/main/java/com/termlink/app/data/SessionApiClient.kt, tests/sessionStore.metadata.test.js, tests/routes.sessions.metadata.test.js, tests/terminalGateway.codex.test.js]
-related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/changes/records/INDEX.md]
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/codex-capability-implementation-plan.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260309-0132-codex-capability-phase1-impl
@@ -55,7 +55,7 @@ git checkout <commit_ref>^ -- <path/to/file>
 
 ## 6. 后续修改入口（How to continue）
 
-- 下次修改建议从以下文件继续：`src/ws/terminalGateway.js`、`public/terminal_client.js`、`docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`。
+- 下次修改建议从以下文件继续：`src/ws/terminalGateway.js`、`public/terminal_client.js`、`docs/codex/codex-capability-implementation-plan.md`。
 - 如本记录后续被替代，请填写：`替代记录: CR-YYYYMMDD-HHMM-<slug>`。
 
 ## 7. 风险与注意事项

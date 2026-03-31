@@ -1,6 +1,6 @@
 ---
 title: Codex 当前期排除会话设置与顶部权限选择 - 变更记录
-status: active
+status: archived
 record_id: CR-20260318-1452-codex-remove-settings-and-top-permission
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: 7dd9259
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-18
 source_of_truth: product
 related_code: [public/codex_client.html, public/terminal_client.js, public/lib/codex_shell_view.js, android/app/src/main/java/com/termlink/app/MainShellActivity.kt, tests/codexClient.shell.test.js]
-related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/codex/CODEX_PHASE5_PERMISSION_CONTEXT_PLAN.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/changes/records/INDEX.md]
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/codex-capability-implementation-plan.md, docs/codex/codex-phase5-permission-context-plan.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260318-1452-codex-remove-settings-and-top-permission
@@ -27,8 +27,8 @@ related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, d
 ## 3. 影响范围（Files/Modules/Runtime）
 - 文件：
   - `docs/product/requirements/REQ-20260309-codex-capability-mvp.md`
-  - `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`
-  - `docs/codex/CODEX_PHASE5_PERMISSION_CONTEXT_PLAN.md`
+  - `docs/codex/codex-capability-implementation-plan.md`
+  - `docs/codex/codex-phase5-permission-context-plan.md`
   - `docs/product/PRODUCT_REQUIREMENTS.md`
   - `docs/architecture/ROADMAP.md`
   - `docs/changes/records/INDEX.md`

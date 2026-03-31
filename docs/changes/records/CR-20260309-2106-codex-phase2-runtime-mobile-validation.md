@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（MVP + 下一阶段）- Android Live Runtime 专项验证
-status: active
+status: archived
 record_id: CR-20260309-2106-codex-phase2-runtime-mobile-validation
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: 6be3bec
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-09
 source_of_truth: runtime
 related_code: [public/terminal_client.js, public/lib/codex_runtime_view.js, public/codex_client.html, public/terminal_client.css, android/app/src/main/java/com/termlink/app/MainShellActivity.kt]
-related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/changes/records/INDEX.md]
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/codex-capability-implementation-plan.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260309-2106-codex-phase2-runtime-mobile-validation
@@ -64,7 +64,7 @@ related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, d
 
 ```bash
 git checkout -- docs/changes/records/CR-20260309-2106-codex-phase2-runtime-mobile-validation.md
-git checkout -- docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md
+git checkout -- docs/codex/codex-capability-implementation-plan.md
 git checkout -- docs/changes/records/INDEX.md
 ```
 

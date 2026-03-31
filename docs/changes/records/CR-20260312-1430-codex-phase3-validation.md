@@ -1,6 +1,6 @@
 ---
 title: Phase 3 验收通过 - stored config 写路径与状态一致性
-status: active
+status: archived
 record_id: CR-20260312-1430-codex-phase3-validation
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: 81d3945
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-12
 source_of_truth: code
 related_code: [src/routes/sessions.js, src/ws/terminalGateway.js, src/services/sessionManager.js, src/repositories/sessionStore.js, public/terminal_client.js, public/lib/codex_settings_view.js]
-related_docs: [docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md]
+related_docs: [docs/codex/codex-capability-implementation-plan.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md]
 ---
 
 # CR-20260312-1430-codex-phase3-validation

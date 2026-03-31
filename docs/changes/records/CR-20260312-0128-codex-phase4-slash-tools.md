@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（对话体验优先 MVP + 下一阶段） - 变更记录
-status: active
+status: archived
 record_id: CR-20260312-0128-codex-phase4-slash-tools
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: 34ddfaf
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-12
 source_of_truth: code
 related_code: [public/codex_client.html, public/terminal_client.css, public/terminal_client.js, public/lib/codex_slash_commands.js, public/lib/codex_shell_view.js, src/ws/terminalGateway.js, tests/codexSlashCommands.test.js, tests/codexClient.shell.test.js, tests/terminalGateway.codex.test.js]
-related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/changes/records/INDEX.md]
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/codex-capability-implementation-plan.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260312-0128-codex-phase4-slash-tools

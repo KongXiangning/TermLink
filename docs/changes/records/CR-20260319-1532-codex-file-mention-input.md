@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（对话体验优先 MVP + 下一阶段） - 变更记录
-status: active
+status: archived
 record_id: CR-20260319-1532-codex-file-mention-input
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: e6dfd1e
@@ -8,7 +8,7 @@ owner: @maintainer
 last_updated: 2026-03-19
 source_of_truth: product
 related_code: []
-related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md, docs/codex/CODEX_FILE_MENTION_INPUT_PLAN.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/changes/records/INDEX.md]
+related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/codex/codex-capability-implementation-plan.md, docs/codex/codex-file-mention-input-plan.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/changes/records/INDEX.md]
 ---
 
 # CR-20260319-1532-codex-file-mention-input
@@ -22,16 +22,16 @@ related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, d
 ## 2. 实施内容（What changed）
 
 1. 在 `REQ-20260309-codex-capability-mvp` 中新增 `5.11 Composer @ 文件提示与筛选`，明确产品目标、边界与用户场景。
-2. 在 `CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md` 中把 composer `@` 文件提示收敛为 Phase 4 的独立实施包，并补入验收矩阵。
-3. 新增 `docs/codex/CODEX_FILE_MENTION_INPUT_PLAN.md`，固定 TermLink 版本的技术承接方式：客户端浮层 + session cwd 文件检索 + 已选文件态 + 发送前文本拼装。
+2. 在 `codex-capability-implementation-plan.md` 中把 composer `@` 文件提示收敛为 Phase 4 的独立实施包，并补入验收矩阵。
+3. 新增 `docs/codex/codex-file-mention-input-plan.md`，固定 TermLink 版本的技术承接方式：客户端浮层 + session cwd 文件检索 + 已选文件态 + 发送前文本拼装。
 4. 在 `PRODUCT_REQUIREMENTS.md` 中同步主线口径，明确该能力属于 Codex 下一阶段输入增强项。
 
 ## 3. 影响范围（Files/Modules/Runtime）
 
 - 文件：
   - `docs/product/requirements/REQ-20260309-codex-capability-mvp.md`
-  - `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`
-  - `docs/codex/CODEX_FILE_MENTION_INPUT_PLAN.md`
+  - `docs/codex/codex-capability-implementation-plan.md`
+  - `docs/codex/codex-file-mention-input-plan.md`
   - `docs/product/PRODUCT_REQUIREMENTS.md`
 - 模块：仅文档与计划层。
 - 运行时行为：无变化；当前版本仍未实现 `@` 文件提示。
@@ -44,8 +44,8 @@ git revert <commit_ref>
 
 # 方案 B：仅恢复本次新增/修改文档
 git checkout <commit_ref>^ -- docs/product/requirements/REQ-20260309-codex-capability-mvp.md
-git checkout <commit_ref>^ -- docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md
-git checkout <commit_ref>^ -- docs/codex/CODEX_FILE_MENTION_INPUT_PLAN.md
+git checkout <commit_ref>^ -- docs/codex/codex-capability-implementation-plan.md
+git checkout <commit_ref>^ -- docs/codex/codex-file-mention-input-plan.md
 git checkout <commit_ref>^ -- docs/product/PRODUCT_REQUIREMENTS.md
 ```
 
@@ -59,9 +59,9 @@ git checkout <commit_ref>^ -- docs/product/PRODUCT_REQUIREMENTS.md
 ## 6. 后续修改入口（How to continue）
 
 - 后续实现建议从以下文档继续：
-  - `docs/codex/CODEX_FILE_MENTION_INPUT_PLAN.md`
+  - `docs/codex/codex-file-mention-input-plan.md`
   - `docs/product/requirements/REQ-20260309-codex-capability-mvp.md`
-  - `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`
+  - `docs/codex/codex-capability-implementation-plan.md`
 - 如本记录后续被替代，请填写：替代记录: `CR-YYYYMMDD-HHMM-<slug>`
 
 ## 7. 风险与注意事项

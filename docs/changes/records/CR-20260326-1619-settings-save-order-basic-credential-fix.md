@@ -1,6 +1,6 @@
 ---
 title: Android profile mTLS Phase 2 settings save order basic credential fix
-status: active
+status: archived
 record_id: CR-20260326-1619-settings-save-order-basic-credential-fix
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: d675956

@@ -1,3 +1,13 @@
+---
+title: VS Code Codex 插件能力矩阵
+status: active
+owner: "@maintainer"
+last_updated: 2026-03-31
+source_of_truth: codex
+related_code: []
+related_docs: [docs/codex/codex-capability-implementation-plan.md]
+---
+
 # VS Code Codex 插件能力矩阵
 
 ## 1. 文档说明

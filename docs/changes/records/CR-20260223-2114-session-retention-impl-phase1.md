@@ -1,6 +1,6 @@
 ---
 title: 服务端会话长时保留与断联续接 - 实现阶段记录（Phase 1）
-status: active
+status: archived
 record_id: CR-20260223-2114-session-retention-impl-phase1
 req_id: REQ-20260222-session-retention-reconnect
 commit_ref: 67bc2c3

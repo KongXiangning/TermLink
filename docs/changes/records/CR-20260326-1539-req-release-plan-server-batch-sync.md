@@ -1,6 +1,6 @@
 ---
 title: REQ release plan sync for Android and server mTLS batches
-status: active
+status: archived
 record_id: CR-20260326-1539-req-release-plan-server-batch-sync
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: d675956

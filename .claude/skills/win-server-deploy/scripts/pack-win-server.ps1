@@ -128,7 +128,17 @@ $OutDirResolved = Resolve-Path $OutDir
 $ZipPath = Join-Path $OutDirResolved "$PackageName.zip"
 
 Write-Host "`nCompressing to: $ZipPath ..."
-Compress-Archive -Path "$StageDir\*" -DestinationPath $ZipPath -Force
+if (Test-Path $ZipPath) {
+    Remove-Item $ZipPath -Force
+}
+
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::CreateFromDirectory(
+    $StageDir,
+    $ZipPath,
+    [System.IO.Compression.CompressionLevel]::Optimal,
+    $false
+)
 
 # ── Cleanup ─────────────────────────────────────────────
 Remove-Item $StageDir -Recurse -Force -ErrorAction SilentlyContinue

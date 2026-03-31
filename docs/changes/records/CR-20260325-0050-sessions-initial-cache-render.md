@@ -1,6 +1,6 @@
 ---
 title: REQ-20260324-session-list-local-cache - sessions initial cache render
-status: active
+status: archived
 record_id: CR-20260325-0050-sessions-initial-cache-render
 req_id: REQ-20260324-session-list-local-cache
 commit_ref: 87031bc

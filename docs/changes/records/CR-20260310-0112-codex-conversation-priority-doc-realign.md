@@ -1,6 +1,6 @@
 ---
 title: Codex 能力矩阵驱动主线需求（对话体验优先 MVP + 下一阶段） - 变更记录
-status: active
+status: archived
 record_id: CR-20260310-0112-codex-conversation-priority-doc-realign
 req_id: REQ-20260309-codex-capability-mvp
 commit_ref: 4a2c25f
@@ -22,7 +22,7 @@ related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, d
 ## 2. 实施内容（What changed）
 
 1. 重写 `REQ-20260309-codex-capability-mvp`，保留首页收口、`/model` 统一状态源、PATCH 正式交付、Interrupt 规则、中文化、未知 slash 兜底与平台一致性等第二版主线约束，并补正 `/plan` 与 `/skill` 的并行 interaction state。
-2. 重写 `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`，将能力映射按“当前期前置 / 二级入口 / 下一阶段 / 不纳入”重排，新增 `nextTurnEffectiveCodexConfig`、`interactionState`、`/skill <name>` 冻结契约、“不预绑定底层字段”边界，以及后续 `/` 能力统一扩展接口要求。
+2. 重写 `docs/codex/codex-capability-implementation-plan.md`，将能力映射按“当前期前置 / 二级入口 / 下一阶段 / 不纳入”重排，新增 `nextTurnEffectiveCodexConfig`、`interactionState`、`/skill <name>` 冻结契约、“不预绑定底层字段”边界，以及后续 `/` 能力统一扩展接口要求。
 3. 同步更新 `PRODUCT_REQUIREMENTS`、`ROADMAP`，让上位文档也明确 `/plan <文本>` 一次性规则、`activeSkill` 替换规则、PATCH 正式交付项、slash 扩展接口预留和 Android / WebView 共享行为契约。
 4. 追加 slash 命令描述字段约定表，固定 `command / availability / discoverability / argumentShape / dispatchKind / capabilityBinding` 等字段，避免后续扩命令时再次分叉字段模型。
 
@@ -30,7 +30,7 @@ related_docs: [docs/product/requirements/REQ-20260309-codex-capability-mvp.md, d
 
 - 文件：
   - `docs/product/requirements/REQ-20260309-codex-capability-mvp.md`
-  - `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`
+  - `docs/codex/codex-capability-implementation-plan.md`
   - `docs/product/PRODUCT_REQUIREMENTS.md`
   - `docs/architecture/ROADMAP.md`
   - `docs/changes/records/INDEX.md`
@@ -50,7 +50,7 @@ git revert <commit_ref>
 
 # 方案 B：仅恢复本次文档修订
 git checkout <commit_ref>^ -- docs/product/requirements/REQ-20260309-codex-capability-mvp.md
-git checkout <commit_ref>^ -- docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md
+git checkout <commit_ref>^ -- docs/codex/codex-capability-implementation-plan.md
 git checkout <commit_ref>^ -- docs/product/PRODUCT_REQUIREMENTS.md
 git checkout <commit_ref>^ -- docs/architecture/ROADMAP.md
 git checkout <commit_ref>^ -- docs/changes/records/INDEX.md
@@ -70,7 +70,7 @@ git checkout <commit_ref>^ -- docs/changes/records/CR-20260310-0112-codex-conver
 
 - 下次修改建议从以下文件继续：
   - `docs/product/requirements/REQ-20260309-codex-capability-mvp.md`
-  - `docs/codex/CODEX_CAPABILITY_IMPLEMENTATION_PLAN.md`
+  - `docs/codex/codex-capability-implementation-plan.md`
   - `docs/product/PRODUCT_REQUIREMENTS.md`
   - `docs/architecture/ROADMAP.md`
 - 如本记录后续被替代，请填写：`替代记录: CR-YYYYMMDD-HHMM-<slug>`

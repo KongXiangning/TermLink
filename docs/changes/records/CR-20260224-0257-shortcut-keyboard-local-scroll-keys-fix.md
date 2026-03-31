@@ -1,6 +1,6 @@
 ---
 title: 快捷键盘本地滚动键与换行键布局优化 - 修复记录
-status: active
+status: archived
 record_id: CR-20260224-0257-shortcut-keyboard-local-scroll-keys-fix
 req_id: REQ-20260223-shortcut-keyboard-modifier-newline
 commit_ref: 11767d3

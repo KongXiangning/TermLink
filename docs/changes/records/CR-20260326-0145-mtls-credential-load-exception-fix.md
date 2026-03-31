@@ -1,6 +1,6 @@
 ---
 title: Android profile mTLS credential load exception fix
-status: active
+status: archived
 record_id: CR-20260326-0145-mtls-credential-load-exception-fix
 req_id: REQ-20260326-android-profile-mtls-runtime-certificate
 commit_ref: d675956
