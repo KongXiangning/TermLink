@@ -10,6 +10,14 @@ related_docs: [docs/README.md]
 
 # CHANGELOG_PROJECT
 
+## 2026-03-31
+
+### docs
+
+1. 将 `REQ-20260224-screen-keep-awake` 状态同步为 `done`：实现已完整（FLAG_KEEP_SCREEN_ON + 2 分钟 idle 定时器 + 生命周期清理），回写 REQ、BACKLOG、ROADMAP、CHANGELOG。
+2. 批量激活 35 个 draft CR，补全 `commit_ref` 与 `status: active`，清零 draft 积压。
+3. 补全 `REQ-20260326-android-profile-mtls-runtime-certificate` 在 ROADMAP 与 CHANGELOG 中的引用。
+
 ## 2026-03-30
 
 ### client

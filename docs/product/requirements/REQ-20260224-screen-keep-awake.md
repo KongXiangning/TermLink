@@ -1,8 +1,8 @@
 ---
 title: Android 前台无操作 2 分钟后恢复系统息屏
-status: planned
+status: done
 owner: @maintainer
-last_updated: 2026-02-24
+last_updated: 2026-03-31
 source_of_truth: product
 related_code: [android/app/src/main/java/com/termlink/app/MainShellActivity.kt]
 related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/changes/records/INDEX.md]
@@ -15,7 +15,7 @@ related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/changes/records/INDEX.
 - id: REQ-20260224-screen-keep-awake
 - title: Android 前台无操作 2 分钟后恢复系统息屏
 - priority: P2
-- status: planned
+- status: done
 - owner: @maintainer
 - target_release: 2026-Q1
 - links: `docs/product/REQUIREMENTS_BACKLOG.md`
