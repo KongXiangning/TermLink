@@ -59,7 +59,6 @@ const codexPlanWorkflowBody = document.getElementById('codex-plan-workflow-body'
 const btnCodexPlanExecute = document.getElementById('btn-codex-plan-execute');
 const btnCodexPlanContinue = document.getElementById('btn-codex-plan-continue');
 const btnCodexPlanCancel = document.getElementById('btn-codex-plan-cancel');
-const btnCodexPlanExpand = document.getElementById('btn-codex-plan-expand');
 const codexQuickModel = document.getElementById('codex-quick-model');
 const codexQuickReasoning = document.getElementById('codex-quick-reasoning');
 const codexQuickSandbox = document.getElementById('codex-quick-sandbox');
@@ -1296,23 +1295,9 @@ function renderCodexPlanWorkflow() {
     if (codexPlanWorkflowSummary) {
         codexPlanWorkflowSummary.textContent = summary;
     }
-    const text = getPlanWorkflowDisplayText();
     if (codexPlanWorkflowBody) {
-        if (!text) {
-            codexPlanWorkflowBody.textContent = t('codex.plan.waitingText');
-        } else if (typeof renderPlanMarkdown === 'function') {
-            codexPlanWorkflowBody.innerHTML = renderPlanMarkdown(text);
-        } else {
-            codexPlanWorkflowBody.textContent = text;
-        }
-    }
-    if (btnCodexPlanExpand) {
-        const hasText = !!text;
-        if (!hasText && codexPlanWorkflowBody) {
-            codexPlanWorkflowBody.classList.remove('expanded');
-        }
-        btnCodexPlanExpand.hidden = !hasText;
-        syncPlanExpandButton(codexPlanWorkflowBody && codexPlanWorkflowBody.classList.contains('expanded'));
+        const text = getPlanWorkflowDisplayText();
+        codexPlanWorkflowBody.textContent = text || t('codex.plan.waitingText');
     }
     if (btnCodexPlanExecute) {
         btnCodexPlanExecute.hidden = phase !== 'plan_ready_for_confirmation';
@@ -1326,18 +1311,6 @@ function renderCodexPlanWorkflow() {
         btnCodexPlanCancel.hidden = !(phase === 'planning' || phase === 'awaiting_user_input' || phase === 'plan_ready_for_confirmation');
         btnCodexPlanCancel.disabled = phase === 'executing_confirmed_plan';
     }
-}
-
-function syncPlanExpandButton(isExpanded) {
-    if (!btnCodexPlanExpand) {
-        return;
-    }
-    const expanded = !!isExpanded;
-    btnCodexPlanExpand.classList.toggle('expanded', expanded);
-    btnCodexPlanExpand.textContent = expanded ? '▲' : '▼';
-    const label = expanded ? t('codex.plan.collapse') : t('codex.plan.expand');
-    btnCodexPlanExpand.title = label;
-    btnCodexPlanExpand.setAttribute('aria-label', label);
 }
 
 function setNextTurnOverrides(nextOverrides) {
@@ -6645,14 +6618,6 @@ if (btnCodexPlanContinue) {
 if (btnCodexPlanCancel) {
     btnCodexPlanCancel.addEventListener('click', () => {
         cancelPlanWorkflow();
-    });
-}
-
-if (btnCodexPlanExpand) {
-    btnCodexPlanExpand.addEventListener('click', () => {
-        if (!codexPlanWorkflowBody) return;
-        const isExpanded = codexPlanWorkflowBody.classList.toggle('expanded');
-        syncPlanExpandButton(isExpanded);
     });
 }
 

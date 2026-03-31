@@ -100,8 +100,6 @@
   "codex.plan.clearSettings": "清除本次设置",
   "codex.plan.inProgress": "计划进行中",
   "codex.plan.summary": "Codex 正在规划，当前不会直接执行。",
-  "codex.plan.expand": "展开计划",
-  "codex.plan.collapse": "收起计划",
   "codex.plan.execute": "执行此计划",
   "codex.plan.continue": "继续提问/补充",
   "codex.slash.searchTitle": "搜索命令",

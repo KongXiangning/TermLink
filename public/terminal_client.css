@@ -1181,13 +1181,6 @@ body.codex-only #codex-log-stack {
     gap: 4px;
 }
 
-#codex-plan-workflow-header-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-}
-
 #codex-plan-workflow-title {
     color: #eff6ff;
     font-size: 13px;
@@ -1203,131 +1196,14 @@ body.codex-only #codex-log-stack {
 
 #codex-plan-workflow-body {
     margin: 0;
-    max-height: min(50vh, 400px);
+    max-height: 220px;
     overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
+    white-space: pre-wrap;
     word-break: break-word;
     color: #d9e8f7;
     font-size: 12px;
     line-height: 1.5;
-    transition: max-height 0.3s ease;
-}
-
-#codex-plan-workflow-body.expanded {
-    max-height: none;
-}
-
-/* Plan Markdown Styles */
-#codex-plan-workflow-body .plan-heading {
-    color: #eff6ff;
-    margin: 12px 0 6px;
-    line-height: 1.35;
-}
-#codex-plan-workflow-body .plan-h1 { font-size: 16px; font-weight: 700; border-bottom: 1px solid rgba(76, 167, 242, 0.18); padding-bottom: 6px; }
-#codex-plan-workflow-body .plan-h2 { font-size: 14px; font-weight: 700; }
-#codex-plan-workflow-body .plan-h3 { font-size: 13px; font-weight: 600; color: #a8d8ea; }
-#codex-plan-workflow-body .plan-h4 { font-size: 12px; font-weight: 600; color: #8cb4cd; }
-#codex-plan-workflow-body .plan-heading:first-child { margin-top: 0; }
-
-#codex-plan-workflow-body .plan-para {
-    margin: 4px 0;
-}
-
-#codex-plan-workflow-body .plan-list {
-    margin: 4px 0;
-    padding-left: 20px;
-}
-#codex-plan-workflow-body .plan-list li {
-    margin: 2px 0;
-}
-
-#codex-plan-workflow-body .plan-inline-code {
-    background: rgba(110, 180, 255, 0.12);
-    border: 1px solid rgba(110, 180, 255, 0.15);
-    border-radius: 4px;
-    padding: 1px 5px;
     font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-    font-size: 11px;
-    color: #9dd6ff;
-}
-
-#codex-plan-workflow-body .plan-code-block {
-    background: rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 8px;
-    padding: 10px 12px;
-    margin: 6px 0;
-    overflow-x: auto;
-    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-    font-size: 11px;
-    line-height: 1.5;
-    color: #c8ddf0;
-    white-space: pre;
-}
-#codex-plan-workflow-body .plan-code-block code {
-    font-family: inherit;
-    font-size: inherit;
-    color: inherit;
-}
-
-#codex-plan-workflow-body .plan-blockquote {
-    border-left: 3px solid rgba(76, 167, 242, 0.4);
-    padding: 4px 10px;
-    margin: 6px 0;
-    color: #a0b8d0;
-    font-style: italic;
-    background: rgba(76, 167, 242, 0.04);
-    border-radius: 0 6px 6px 0;
-}
-
-#codex-plan-workflow-body .plan-hr {
-    border: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    margin: 10px 0;
-}
-
-#codex-plan-workflow-body .plan-table {
-    border-collapse: collapse;
-    width: 100%;
-    margin: 6px 0;
-    font-size: 11px;
-}
-#codex-plan-workflow-body .plan-table td {
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 4px 8px;
-}
-#codex-plan-workflow-body .plan-table tr:first-child td {
-    font-weight: 600;
-    background: rgba(255, 255, 255, 0.04);
-}
-
-#codex-plan-workflow-body strong {
-    color: #eff6ff;
-    font-weight: 600;
-}
-#codex-plan-workflow-body em {
-    color: #b8d4f0;
-}
-
-#btn-codex-plan-expand {
-    background: none;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 6px;
-    color: #8899aa;
-    font-size: 10px;
-    padding: 2px 8px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    flex-shrink: 0;
-    line-height: 1.4;
-}
-#btn-codex-plan-expand:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: #d0dde8;
-}
-#btn-codex-plan-expand.expanded {
-    transform: rotate(180deg);
 }
 
 #codex-plan-workflow-actions {
@@ -2314,10 +2190,6 @@ body.viewport-compact #codex-composer {
 body.viewport-compact #codex-plan-workflow {
     padding: 10px;
     border-radius: 16px;
-}
-
-body.viewport-compact #codex-plan-workflow-body {
-    max-height: min(40vh, 300px);
 }
 
 body.viewport-compact #codex-settings-panel {
