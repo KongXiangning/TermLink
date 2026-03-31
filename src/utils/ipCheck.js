@@ -63,12 +63,22 @@ function expandIpv6(ip) {
         }
         const middle = Array(missing).fill('0000');
         const full = [...left, ...middle, ...right];
+        for (const g of full) {
+            if (g && !/^[0-9a-f]{1,4}$/.test(g)) {
+                return null;
+            }
+        }
         return full.map((g) => g.padStart(4, '0')).join(':');
     }
 
     const groups = addr.split(':');
     if (groups.length !== 8) {
         return null;
+    }
+    for (const g of groups) {
+        if (!/^[0-9a-f]{1,4}$/.test(g)) {
+            return null;
+        }
     }
     return groups.map((g) => g.padStart(4, '0')).join(':');
 }
@@ -148,7 +158,12 @@ function isIpAllowed(ip, allowedIps = []) {
         }
         // IPv6 exact match: normalize both sides to expanded form
         if (isIpv6(rule) && isIpv6(normalizedIp)) {
-            return expandIpv6(normalizedIp) === expandIpv6(rule);
+            const expandedIp = expandIpv6(normalizedIp);
+            const expandedRule = expandIpv6(rule);
+            if (expandedIp === null || expandedRule === null) {
+                return false;
+            }
+            return expandedIp === expandedRule;
         }
         return normalizeIp(rule) === normalizedIp;
     });

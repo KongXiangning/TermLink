@@ -47,3 +47,10 @@ test('isIpAllowed handles mixed IPv4 and IPv6 rules', () => {
     assert.equal(isIpAllowed('fe80::abc', rules), true);
     assert.equal(isIpAllowed('192.168.1.1', rules), false);
 });
+
+test('isIpAllowed rejects malformed IPv6 addresses', () => {
+    // Malformed addresses should not match even against themselves
+    assert.equal(isIpAllowed('gggg::1', ['gggg::1']), false);
+    assert.equal(isIpAllowed('1:2:3', ['1:2:3']), false);
+    assert.equal(isIpAllowed('1:2:3:4:5:6:7:8:9', ['1:2:3:4:5:6:7:8:9']), false);
+});

@@ -16,6 +16,7 @@ class AuditService {
         this.auditPath = null;
         this.maxFileSize = DEFAULT_MAX_FILE_SIZE;
         this.maxRotatedFiles = DEFAULT_MAX_ROTATED_FILES;
+        this._isRotating = false;
     }
 
     configure({ enabled, auditPath, maxFileSize, maxRotatedFiles } = {}) {
@@ -51,7 +52,7 @@ class AuditService {
     }
 
     _rotateIfNeeded() {
-        if (!this.auditPath) {
+        if (!this.auditPath || this._isRotating) {
             return;
         }
 
@@ -64,27 +65,32 @@ class AuditService {
             return;
         }
 
-        // Shift existing rotated files: .4 → .5 (delete), .3 → .4, ...
-        for (let i = this.maxRotatedFiles; i >= 1; i--) {
-            const src = `${this.auditPath}.${i}`;
-            const dst = `${this.auditPath}.${i + 1}`;
-            try {
-                if (i === this.maxRotatedFiles) {
-                    fs.unlinkSync(src);
-                } else {
-                    fs.renameSync(src, dst);
-                }
-            } catch {
-                // file may not exist
-            }
-        }
-
-        // Rotate current → .1
+        this._isRotating = true;
         try {
-            fs.renameSync(this.auditPath, `${this.auditPath}.1`);
-            fs.writeFileSync(this.auditPath, '');
-        } catch {
-            // rotation failed, continue with current file
+            // Shift existing rotated files: .4 → .5 (delete), .3 → .4, ...
+            for (let i = this.maxRotatedFiles; i >= 1; i--) {
+                const src = `${this.auditPath}.${i}`;
+                const dst = `${this.auditPath}.${i + 1}`;
+                try {
+                    if (i === this.maxRotatedFiles) {
+                        fs.unlinkSync(src);
+                    } else {
+                        fs.renameSync(src, dst);
+                    }
+                } catch {
+                    // file may not exist
+                }
+            }
+
+            // Rotate current → .1
+            try {
+                fs.renameSync(this.auditPath, `${this.auditPath}.1`);
+                fs.writeFileSync(this.auditPath, '');
+            } catch {
+                // rotation failed, continue with current file
+            }
+        } finally {
+            this._isRotating = false;
         }
     }
 
