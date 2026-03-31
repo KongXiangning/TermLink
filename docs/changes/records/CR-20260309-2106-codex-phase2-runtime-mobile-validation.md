@@ -1,9 +1,9 @@
 ---
 title: Codex 能力矩阵驱动主线需求（MVP + 下一阶段）- Android Live Runtime 专项验证
-status: draft
+status: active
 record_id: CR-20260309-2106-codex-phase2-runtime-mobile-validation
 req_id: REQ-20260309-codex-capability-mvp
-commit_ref: TBD
+commit_ref: 6be3bec
 owner: @maintainer
 last_updated: 2026-03-09
 source_of_truth: runtime

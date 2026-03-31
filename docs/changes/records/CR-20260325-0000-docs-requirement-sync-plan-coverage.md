@@ -1,9 +1,9 @@
 ---
 title: REQ-20260222-doc-governance - docs-requirement-sync plan coverage sync
-status: draft
+status: active
 record_id: CR-20260325-0000-docs-requirement-sync-plan-coverage
 req_id: REQ-20260222-doc-governance
-commit_ref: TBD
+commit_ref: c805842
 owner: @maintainer
 last_updated: 2026-03-25
 source_of_truth: code

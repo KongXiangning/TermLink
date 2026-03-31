@@ -1,9 +1,9 @@
 ---
 title: Codex 后台保活与断线续接需求整理
-status: draft
+status: active
 record_id: CR-20260329-0043-codex-background-retention-plan
 req_id: REQ-20260309-codex-capability-mvp
-commit_ref: TBD
+commit_ref: 2079886
 owner: @maintainer
 last_updated: 2026-03-29
 source_of_truth: product

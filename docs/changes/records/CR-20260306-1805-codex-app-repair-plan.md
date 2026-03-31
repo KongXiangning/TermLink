@@ -1,9 +1,9 @@
 ---
 title: REQ-20260306-codex-app-repair-plan - 变更记录
-status: draft
+status: active
 record_id: CR-20260306-1805-codex-app-repair-plan
 req_id: REQ-20260306-codex-app-repair-plan
-commit_ref: TBD
+commit_ref: 1899f6d
 owner: @maintainer
 last_updated: 2026-03-06
 source_of_truth: product

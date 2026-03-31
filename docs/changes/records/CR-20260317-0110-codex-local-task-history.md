@@ -1,9 +1,9 @@
 ---
 title: Codex 本地任务历史入口与排序修复
-status: draft
+status: active
 record_id: CR-20260317-0110-codex-local-task-history
 req_id: REQ-20260309-codex-capability-mvp
-commit_ref: TBD
+commit_ref: 311827b
 owner: @maintainer
 last_updated: 2026-03-17
 source_of_truth: code

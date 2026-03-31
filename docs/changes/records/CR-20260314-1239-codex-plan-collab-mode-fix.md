@@ -1,9 +1,9 @@
 ---
 title: Codex 能力矩阵驱动主线需求（对话体验优先 MVP + 下一阶段） - 变更记录
-status: draft
+status: active
 record_id: CR-20260314-1239-codex-plan-collab-mode-fix
 req_id: REQ-20260309-codex-capability-mvp
-commit_ref: TBD
+commit_ref: a24c5f3
 owner: @maintainer
 last_updated: 2026-03-14
 source_of_truth: product

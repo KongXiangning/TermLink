@@ -1,9 +1,9 @@
 ---
 title: 管理员权限模式需求立项记录
-status: draft
+status: active
 record_id: CR-20260222-2310-server-admin-req-init
 req_id: REQ-20260222-server-admin-privilege-mode
-commit_ref: TBD
+commit_ref: 02a1fb9
 owner: @maintainer
 last_updated: 2026-02-22
 source_of_truth: product

@@ -1,9 +1,9 @@
 ---
 title: 快捷键盘控制键修复、换行与滚动优化 - 文档立项记录
-status: draft
+status: active
 record_id: CR-20260223-2136-shortcut-keyboard-modifier-newline-doc-init
 req_id: REQ-20260223-shortcut-keyboard-modifier-newline
-commit_ref: TBD
+commit_ref: b367d10
 owner: @maintainer
 last_updated: 2026-02-23
 source_of_truth: product

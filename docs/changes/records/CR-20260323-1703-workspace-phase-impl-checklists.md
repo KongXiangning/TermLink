@@ -1,9 +1,9 @@
 ---
 title: REQ-20260318-ws-0001-docs-exp - Workspace 三份实施清单拆分
-status: draft
+status: active
 record_id: CR-20260323-1703-workspace-phase-impl-checklists
 req_id: REQ-20260318-ws-0001-docs-exp
-commit_ref: TBD
+commit_ref: 103b034
 owner: @maintainer
 last_updated: 2026-03-23
 source_of_truth: product

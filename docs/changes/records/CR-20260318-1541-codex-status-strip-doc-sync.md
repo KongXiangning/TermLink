@@ -1,9 +1,9 @@
-﻿---
+---
 title: Codex 顶部状态栏文档同步 - 变更记录
-status: draft
+status: active
 record_id: CR-20260318-1541-codex-status-strip-doc-sync
 req_id: REQ-20260309-codex-capability-mvp
-commit_ref: TBD
+commit_ref: 1671e35
 owner: @maintainer
 last_updated: 2026-03-18
 source_of_truth: product

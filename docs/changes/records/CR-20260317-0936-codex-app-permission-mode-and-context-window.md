@@ -1,9 +1,9 @@
 ---
 title: Codex App 权限模式与背景信息需求补充 - 变更记录
-status: draft
+status: active
 record_id: CR-20260317-0936-codex-app-permission-mode-and-context-window
 req_id: REQ-20260309-codex-capability-mvp
-commit_ref: TBD
+commit_ref: ede5df3
 owner: @maintainer
 last_updated: 2026-03-17
 source_of_truth: product

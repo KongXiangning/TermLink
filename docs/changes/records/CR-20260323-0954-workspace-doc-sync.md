@@ -1,9 +1,9 @@
 ---
 title: Workspace REQ/ARCH 文档扩展 - 变更记录
-status: draft
+status: active
 record_id: CR-20260323-0954-workspace-doc-sync
 req_id: REQ-20260318-ws-0001-docs-exp
-commit_ref: TBD
+commit_ref: 3c0f2da
 owner: @maintainer
 last_updated: 2026-03-23
 source_of_truth: product
