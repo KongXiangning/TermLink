@@ -103,6 +103,8 @@ class WorkspaceActivity : AppCompatActivity() {
             javaScriptEnabled = true
             domStorageEnabled = true
             allowFileAccess = true
+            @Suppress("DEPRECATION")
+            allowFileAccessFromFileURLs = true
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         }
         webView.webViewClient = object : MtlsWebViewClient(

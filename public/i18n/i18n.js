@@ -63,19 +63,33 @@
 
   /**
    * Build the URL for a locale's JSON pack.
-   * Checks _localeBasePaths first, then defaults to /i18n/<locale>.json.
+   * Checks _localeBasePaths first, then defaults to i18n/<locale>.json.
+   * Uses relative path to support both http:// and file:// protocols.
    */
   function localeURL(locale) {
     if (_localeBasePaths[locale]) {
       return _localeBasePaths[locale] + '/' + locale + '.json';
     }
-    return '/i18n/' + locale + '.json';
+    return 'i18n/' + locale + '.json';
   }
 
   function loadJSON(url) {
-    return fetch(url).then(function (res) {
-      if (!res.ok) throw new Error('i18n: failed to load ' + url + ' (' + res.status + ')');
-      return res.json();
+    // Use XHR instead of fetch() — fetch doesn't support file:// in some WebViews
+    return new Promise(function (resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', url, true);
+      xhr.responseType = 'json';
+      xhr.onload = function () {
+        if (xhr.status === 0 || (xhr.status >= 200 && xhr.status < 300)) {
+          resolve(xhr.response || JSON.parse(xhr.responseText));
+        } else {
+          reject(new Error('i18n: failed to load ' + url + ' (' + xhr.status + ')'));
+        }
+      };
+      xhr.onerror = function () {
+        reject(new Error('i18n: network error loading ' + url));
+      };
+      xhr.send();
     });
   }
 
@@ -111,9 +125,15 @@
       packs.push(loadJSON(localeURL(fallbackLocale)));
     }
 
-    var results = await Promise.all(packs);
-    _messages = results[0];
-    _fallback = results[1] || _messages;  // if locale == fallback, reuse
+    try {
+      var results = await Promise.all(packs);
+      _messages = results[0];
+      _fallback = results[1] || _messages;  // if locale == fallback, reuse
+    } catch (err) {
+      console.warn('i18n: pack load failed, using key-as-value fallback.', err);
+      _messages = {};
+      _fallback = {};
+    }
     _ready = true;
   };
 

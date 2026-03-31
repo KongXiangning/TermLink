@@ -309,6 +309,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             javaScriptEnabled = true
             domStorageEnabled = true
             allowFileAccess = true
+            @Suppress("DEPRECATION")
+            allowFileAccessFromFileURLs = true
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         }
         if (BuildConfig.DEBUG && DEBUG_CLEAR_TERMINAL_CACHE_ON_LOAD) {

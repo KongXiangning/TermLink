@@ -6838,7 +6838,7 @@ window.__applyTerminalConfig = function (config) {
 };
 
 (async () => {
-    await i18n.init();
+    try { await i18n.init(); } catch (e) { console.warn('i18n init failed:', e); }
     i18n.translatePage();
 
     setCodexStatus('idle');
