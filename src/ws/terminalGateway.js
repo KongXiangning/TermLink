@@ -1041,6 +1041,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             const sessionSecurity = summarizeSessionConnections(session);
 
             // Log connection start for elevated mode
+            const connectionStartTime = Date.now();
             if (isElevated && auditService) {
                 auditService.logConnectionStart({
                     auditTraceId,
@@ -1386,14 +1387,19 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 }
             });
 
-            ws.on('close', () => {
+            ws.on('close', (code, reason) => {
                 sessionManager.removeConnection(session, ws);
                 // Log connection end for elevated mode
                 if (isElevated && auditService) {
+                    const durationMs = Date.now() - connectionStartTime;
                     auditService.logConnectionEnd({
                         auditTraceId,
                         sessionId,
-                        clientIp
+                        privilegeLevel,
+                        clientIp,
+                        closeCode: code || 1005,
+                        closeReason: reason ? String(reason) : '',
+                        durationMs
                     });
                 }
             });

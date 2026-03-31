@@ -3,6 +3,8 @@ const path = require('path');
 const childProcess = require('child_process');
 const { parseTlsConfig, validateTlsConfig } = require('./tlsConfig');
 
+const MIN_DISK_SPACE_BYTES = 50 * 1024 * 1024; // 50 MB
+
 function parseAuthEnabled() {
     const raw = process.env.AUTH_ENABLED;
     if (raw === undefined) {
@@ -33,7 +35,35 @@ function isStrongPassword(pass) {
     return hasLetter && hasNumber;
 }
 
-function checkAuditPathWritable(auditPath) {
+function getAvailableDiskSpace(dirPath) {
+    try {
+        if (process.platform === 'win32') {
+            const drive = path.resolve(dirPath).slice(0, 2); // e.g. "C:"
+            const output = childProcess.execFileSync(
+                'powershell.exe',
+                [
+                    '-NoProfile', '-NonInteractive', '-Command',
+                    `(Get-PSDrive -Name '${drive[0]}').Free`
+                ],
+                { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+            );
+            const bytes = Number.parseInt(String(output).trim(), 10);
+            return Number.isFinite(bytes) ? bytes : null;
+        }
+        // Unix: use statfs via df
+        const output = childProcess.execFileSync(
+            'df', ['--output=avail', '-B1', dirPath],
+            { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+        );
+        const lines = output.trim().split('\n');
+        const bytes = Number.parseInt(lines[lines.length - 1].trim(), 10);
+        return Number.isFinite(bytes) ? bytes : null;
+    } catch {
+        return null;
+    }
+}
+
+function checkAuditPathWritable(auditPath, { minDiskSpace } = {}) {
     if (!auditPath || String(auditPath).trim() === '') {
         return {
             passed: false,
@@ -48,13 +78,25 @@ function checkAuditPathWritable(auditPath) {
         fs.mkdirSync(dir, { recursive: true });
         const fd = fs.openSync(resolvedPath, 'a');
         fs.closeSync(fd);
-        return { passed: true };
     } catch (error) {
         return {
             passed: false,
             message: `Audit path is not writable: ${resolvedPath} (${error.message})`
         };
     }
+
+    const threshold = typeof minDiskSpace === 'number' ? minDiskSpace : MIN_DISK_SPACE_BYTES;
+    const available = getAvailableDiskSpace(dir);
+    if (available !== null && available < threshold) {
+        const availMB = (available / (1024 * 1024)).toFixed(1);
+        const reqMB = (threshold / (1024 * 1024)).toFixed(0);
+        return {
+            passed: false,
+            message: `Insufficient disk space for audit log: ${availMB} MB available, ${reqMB} MB required.`
+        };
+    }
+
+    return { passed: true };
 }
 
 function checkMtlsGate(requireMtls) {

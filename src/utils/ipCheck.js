@@ -47,6 +47,83 @@ function isIpv4InCidr(ip, cidr) {
     return (ipInt & mask) === (networkInt & mask);
 }
 
+function expandIpv6(ip) {
+    let addr = ip.toLowerCase();
+    // Handle :: expansion
+    if (addr.includes('::')) {
+        const parts = addr.split('::');
+        if (parts.length > 2) {
+            return null;
+        }
+        const left = parts[0] ? parts[0].split(':') : [];
+        const right = parts[1] ? parts[1].split(':') : [];
+        const missing = 8 - left.length - right.length;
+        if (missing < 0) {
+            return null;
+        }
+        const middle = Array(missing).fill('0000');
+        const full = [...left, ...middle, ...right];
+        return full.map((g) => g.padStart(4, '0')).join(':');
+    }
+
+    const groups = addr.split(':');
+    if (groups.length !== 8) {
+        return null;
+    }
+    return groups.map((g) => g.padStart(4, '0')).join(':');
+}
+
+function parseIpv6ToBigInt(ip) {
+    const expanded = expandIpv6(ip);
+    if (!expanded) {
+        return null;
+    }
+
+    const groups = expanded.split(':');
+    if (groups.length !== 8) {
+        return null;
+    }
+
+    let value = 0n;
+    for (const group of groups) {
+        if (!/^[0-9a-f]{4}$/.test(group)) {
+            return null;
+        }
+        value = (value << 16n) | BigInt(parseInt(group, 16));
+    }
+    return value;
+}
+
+function isIpv6InCidr(ip, cidr) {
+    const [networkIp, prefixRaw] = cidr.split('/');
+    if (!networkIp || prefixRaw === undefined) {
+        return false;
+    }
+
+    const prefix = Number.parseInt(prefixRaw, 10);
+    if (!Number.isInteger(prefix) || prefix < 0 || prefix > 128) {
+        return false;
+    }
+
+    const ipInt = parseIpv6ToBigInt(ip);
+    const networkInt = parseIpv6ToBigInt(networkIp);
+    if (ipInt === null || networkInt === null) {
+        return false;
+    }
+
+    if (prefix === 0) {
+        return true;
+    }
+
+    const shift = BigInt(128 - prefix);
+    const mask = ((1n << 128n) - 1n) >> shift << shift;
+    return (ipInt & mask) === (networkInt & mask);
+}
+
+function isIpv6(ip) {
+    return ip.includes(':');
+}
+
 function isIpAllowed(ip, allowedIps = []) {
     if (!Array.isArray(allowedIps) || allowedIps.length === 0) {
         return true;
@@ -62,7 +139,16 @@ function isIpAllowed(ip, allowedIps = []) {
             return true;
         }
         if (rule.includes('/')) {
+            // Determine if this is an IPv6 or IPv4 CIDR
+            const networkPart = rule.split('/')[0];
+            if (isIpv6(networkPart)) {
+                return isIpv6(normalizedIp) && isIpv6InCidr(normalizedIp, rule);
+            }
             return isIpv4InCidr(normalizedIp, rule);
+        }
+        // IPv6 exact match: normalize both sides to expanded form
+        if (isIpv6(rule) && isIpv6(normalizedIp)) {
+            return expandIpv6(normalizedIp) === expandIpv6(rule);
         }
         return normalizeIp(rule) === normalizedIp;
     });

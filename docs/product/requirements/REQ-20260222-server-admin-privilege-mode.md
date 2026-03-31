@@ -1,10 +1,10 @@
 ---
 title: 服务端管理员权限模式与安全治理
-status: planned
+status: done
 owner: @maintainer
-last_updated: 2026-02-22
+last_updated: 2026-03-31
 source_of_truth: product
-related_code: [src/server.js, src/auth/basicAuth.js, src/ws/terminalGateway.js, src/services/ptyService.js, skills/win-server-deploy/scripts/install-service.ps1, .env.example]
+related_code: [src/server.js, src/auth/basicAuth.js, src/ws/terminalGateway.js, src/services/ptyService.js, src/services/auditService.js, src/utils/ipCheck.js, src/config/securityGates.js, src/config/privilegeConfig.js, skills/win-server-deploy/scripts/install-service.ps1, .env.example]
 related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/guides/deployment.md]
 ---
 
@@ -15,7 +15,7 @@ related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIR
 - id: REQ-20260222-server-admin-privilege-mode
 - title: 服务端管理员权限模式与安全治理
 - priority: P1
-- status: planned
+- status: done
 - owner: @maintainer
 - target_release: 2026-Q2
 - links: `docs/product/REQUIREMENTS_BACKLOG.md`

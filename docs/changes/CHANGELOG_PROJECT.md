@@ -12,6 +12,14 @@ related_docs: [docs/README.md]
 
 ## 2026-03-31
 
+### server
+
+1. 完成 `REQ-20260222-server-admin-privilege-mode` 剩余实施：
+   - `terminalGateway.js`：CONNECTION_END 审计日志补全 `privilegeLevel`、`closeCode`、`closeReason`、`durationMs` 字段。
+   - `auditService.js`：新增文件大小触发的审计日志轮转（默认 10MB / 保留 5 份），init 和每次写入后自动检查。
+   - `ipCheck.js`：新增 IPv6 地址解析（BigInt）与 CIDR 匹配，支持 `::1`、`fe80::/10` 等压缩表示法。
+   - `securityGates.js`：AUDIT_PATH_WRITABLE 门禁新增磁盘可用空间预检（默认最小 50MB）。
+
 ### docs
 
 1. 将 `REQ-20260224-screen-keep-awake` 状态同步为 `done`：实现已完整（FLAG_KEEP_SCREEN_ON + 2 分钟 idle 定时器 + 生命周期清理），回写 REQ、BACKLOG、ROADMAP、CHANGELOG。
