@@ -2,7 +2,7 @@
 title: TermLink 项目变更日志
 status: active
 owner: @maintainer
-last_updated: 2026-03-30
+last_updated: 2026-03-31
 source_of_truth: product
 related_code: []
 related_docs: [docs/README.md]
@@ -29,6 +29,16 @@ related_docs: [docs/README.md]
 ### docs
 
 1. 将本次 Android Terminal 回归修复回填到 `REQ-20260223-shortcut-keyboard-modifier-newline` 的实现进度，并新增对应 CR 索引记录。
+
+## 2026-03-28
+
+### client
+
+1. 完成 `REQ-20260326-android-profile-mtls-runtime-certificate` 主链路：Android Profile Settings 支持运行时导入/选择客户端证书（PKCS#12），WebView 与原生 OkHttp 层统一信任链读取 Profile 绑定证书，移除编译期硬编码 BuildConfig 证书依赖；涵盖证书删除/替换回滚、密码缓存、Settings 保存顺序修复等 23 项变更记录。
+
+### server
+
+1. 新增 TLS/mTLS 监听与统一集成（`REQ-20260326-android-profile-mtls-runtime-certificate` 步骤 8.7-8.9）：服务端可选启用独立 mTLS listener，relay 层透传客户端证书身份语义。
 
 ## 2026-03-26
 

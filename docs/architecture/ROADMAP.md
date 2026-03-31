@@ -2,7 +2,7 @@
 title: TermLink 路线图
 status: active
 owner: @maintainer
-last_updated: 2026-03-30
+last_updated: 2026-03-31
 source_of_truth: product
 related_code: []
 related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BACKLOG.md]
@@ -35,6 +35,7 @@ related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BAC
 11. 推进 Codex Workspace 文件浏览主链路（`REQ-20260318-ws-0001-docs-exp`，原产品编号 `REQ-WS-0001`），收口工作区路径选择、独立 Web Workspace 页面与 Android `WorkspaceActivity` 集成。
 12. 已完成 Android 会话列表本地缓存与离线回显（`REQ-20260324-session-list-local-cache`），弱网下 Sessions 管理可先显示本地缓存快照、失败时保留 stale/refreshing 提示、写操作后同步缓存，并保证 `EXTERNAL_WEB` 继续通过现有本地持久化参与首屏可见性。
 13. 已完成系统语言自动适配与 i18n 框架建设（`REQ-20260329-language-normalization`）：中文系系统语言统一显示简体中文，非中文系统显示英文，且 Android 原生与 WebView 保持一致。
+14. 推进 Android 配置级 mTLS 运行时证书选择（`REQ-20260326-android-profile-mtls-runtime-certificate`），在 Profile Settings 中按需导入/选择客户端证书，WebView 与原生网络层统一信任链，移除编译期硬编码证书依赖。
 
 ## 2026-H2
 
