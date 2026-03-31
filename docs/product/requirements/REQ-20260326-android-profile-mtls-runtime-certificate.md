@@ -1,8 +1,8 @@
 ---
 title: Android Profile 级 mTLS 运行时证书选择
-status: planned
+status: done
 owner: @maintainer
-last_updated: 2026-03-27
+last_updated: 2026-03-31
 source_of_truth: product
 related_code: [android/app/src/main/java/com/termlink/app/ui/settings/SettingsFragment.kt, android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/data/ServerProfile.kt, android/app/src/main/java/com/termlink/app/data/SessionApiClient.kt, android/app/src/main/java/com/termlink/app/web/MtlsWebViewClient.kt, android/app/src/main/res/layout/dialog_server_profile.xml, src/server.js, src/routes/health.js, src/auth/basicAuth.js, src/ws/terminalGateway.js, src/config/tlsConfig.js, src/utils/connectionSecurity.js]
 related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-20260326-android-profile-mtls-runtime-certificate-impl.md, docs/guides/android-development.md, docs/architecture/CURRENT_STATE.md, docs/ops/ops-checklist.md, docs/PROJECT_OVERVIEW.md]
@@ -15,7 +15,7 @@ related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIR
 - id: REQ-20260326-android-profile-mtls-runtime-certificate
 - title: Android Profile 级 mTLS 运行时证书选择
 - priority: P1
-- status: planned
+- status: done
 - owner: @maintainer
 - target_release: 2026-Q2
 - links: `docs/product/REQUIREMENTS_BACKLOG.md`

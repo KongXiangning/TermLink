@@ -25,6 +25,9 @@ related_docs: [docs/README.md]
 1. 将 `REQ-20260224-screen-keep-awake` 状态同步为 `done`：实现已完整（FLAG_KEEP_SCREEN_ON + 2 分钟 idle 定时器 + 生命周期清理），回写 REQ、BACKLOG、ROADMAP、CHANGELOG。
 2. 批量激活 35 个 draft CR，补全 `commit_ref` 与 `status: active`，清零 draft 积压。
 3. 补全 `REQ-20260326-android-profile-mtls-runtime-certificate` 在 ROADMAP 与 CHANGELOG 中的引用。
+4. 将 `REQ-20260222-server-admin-privilege-mode` 标记为 `done`，回写 REQ、BACKLOG、ROADMAP、CHANGELOG。
+5. 将 `REQ-20260224-android-external-web-terminal-profile-sessions` 标记为 `done`（9/9 验收标准已实现），回写 REQ、BACKLOG、ROADMAP、CHANGELOG。
+6. 将 `REQ-20260326-android-profile-mtls-runtime-certificate` 标记为 `done`（13/13 验收标准已实现），回写 REQ、BACKLOG、ROADMAP、CHANGELOG。
 
 ## 2026-03-30
 

@@ -1,8 +1,8 @@
 ---
 title: Android External Web 终端（Profile/Sessions 同级）POC
-status: planned
+status: done
 owner: @maintainer
-last_updated: 2026-02-24
+last_updated: 2026-03-31
 source_of_truth: product
 related_code: [android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/ui/settings/SettingsFragment.kt, android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt, android/app/src/main/java/com/termlink/app/data/ServerProfile.kt, android/app/src/main/java/com/termlink/app/data/ExternalSessionStore.kt, android/app/src/main/res/layout/dialog_server_profile.xml, android/app/src/main/res/values/strings.xml]
 related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/changes/CHANGELOG_PROJECT.md]
@@ -15,7 +15,7 @@ related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIR
 - id: REQ-20260224-android-external-web-terminal-profile-sessions
 - title: Android External Web 终端（Profile/Sessions 同级）POC
 - priority: P1
-- status: planned
+- status: done
 - owner: @maintainer
 - target_release: 2026-Q1
 - links: `docs/product/REQUIREMENTS_BACKLOG.md`
