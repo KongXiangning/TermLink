@@ -59,17 +59,11 @@ class CodexTaskForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         ensureNotificationChannel()
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val status = intent?.getStringExtra(EXTRA_STATUS) ?: "running"
-        if (!isActiveStatus(status)) {
-            Log.i(TAG, "Non-active status received ($status), stopping self")
-            stopSelf()
-            return START_NOT_STICKY
-        }
-        val notification = buildNotification(status)
+        // Immediately satisfy the foreground-service contract in onCreate()
+        // to prevent RemoteServiceException on EMUI/slow devices where
+        // onStartCommand() may be delayed beyond the 5-second deadline.
         try {
+            val notification = buildNotification("running")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 ServiceCompat.startForeground(
                     this,
@@ -81,7 +75,22 @@ class CodexTaskForegroundService : Service() {
                 startForeground(NOTIFICATION_ID, notification)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "startForeground failed", e)
+            Log.e(TAG, "startForeground in onCreate failed", e)
+        }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val status = intent?.getStringExtra(EXTRA_STATUS) ?: "running"
+        // Update the notification with the actual status
+        val notification = buildNotification(status)
+        try {
+            val nm = getSystemService(NotificationManager::class.java)
+            nm?.notify(NOTIFICATION_ID, notification)
+        } catch (e: Exception) {
+            Log.e(TAG, "notification update failed", e)
+        }
+        if (!isActiveStatus(status)) {
+            Log.i(TAG, "Non-active status received ($status), stopping self")
             stopSelf()
         }
         return START_NOT_STICKY

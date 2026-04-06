@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TermLink Codex</title>
-    <link rel="stylesheet" href="terminal_client.css?v=76">
+    <link rel="stylesheet" href="terminal_client.css?v=82">
     <script src="i18n/i18n.js"></script>
     <script src="terminal_shortcut_input.js?v=26"></script>
 </head>
@@ -34,12 +34,6 @@
                         <button id="btn-codex-toggle" class="codex-btn" type="button" data-i18n="codex.btn.collapse">Collapse</button>
                         <button id="btn-codex-interrupt" class="codex-btn danger" type="button" hidden data-i18n="codex.btn.interrupt">Interrupt</button>
                     </div>
-                </div>
-                <div id="codex-secondary-nav">
-                    <button id="btn-codex-secondary-threads" class="codex-secondary-btn" type="button" data-i18n="codex.panel.history">Task History</button>
-                    <button id="btn-codex-secondary-runtime" class="codex-secondary-btn" type="button" data-i18n="codex.panel.runtime">Runtime</button>
-                    <button id="btn-codex-secondary-tools" class="codex-secondary-btn" type="button" hidden data-i18n="codex.panel.tools">Tools</button>
-                    <button id="btn-codex-secondary-notices" class="codex-secondary-btn" type="button" hidden data-i18n="codex.panel.notices">Notices</button>
                 </div>
             </div>
             <div id="codex-alerts" hidden>
@@ -121,6 +115,12 @@
                 <div id="codex-log-stack"></div>
             </div>
             <div id="codex-composer">
+                <div id="codex-secondary-nav">
+                    <button id="btn-codex-secondary-threads" class="codex-secondary-btn" type="button" data-i18n="codex.panel.history">Task History</button>
+                    <button id="btn-codex-secondary-runtime" class="codex-secondary-btn" type="button" data-i18n="codex.panel.runtime">Runtime</button>
+                    <button id="btn-codex-secondary-tools" class="codex-secondary-btn" type="button" hidden data-i18n="codex.panel.tools">Tools</button>
+                    <button id="btn-codex-secondary-notices" class="codex-secondary-btn" type="button" hidden data-i18n="codex.panel.notices">Notices</button>
+                </div>
                 <div id="codex-composer-state" hidden>
                     <button id="codex-plan-chip" class="codex-mode-chip" type="button" hidden data-i18n="codex.plan.chipEnabled">Plan mode enabled</button>
                     <div id="codex-override-summary" hidden></div>
@@ -165,31 +165,34 @@
                     </div>
                 </div>
                 <div id="codex-composer-surface">
+                    <button id="btn-codex-slash-trigger" class="codex-action-btn" type="button" aria-label="Upload image or open command menu" data-i18n="codex.input.slashTriggerLabel" data-i18n-attr="aria-label">+</button>
                     <textarea id="codex-input" placeholder="Ask anything..." data-i18n="codex.input.placeholder" data-i18n-attr="placeholder"></textarea>
-                    <div id="codex-composer-footer">
-                        <div id="codex-footer-left">
-                            <button id="btn-codex-slash-trigger" class="codex-action-btn" type="button" aria-label="Upload image or open command menu" data-i18n="codex.input.slashTriggerLabel" data-i18n-attr="aria-label">+</button>
-                            <div id="codex-quick-controls">
-                                <select id="codex-quick-model" class="codex-ghost-select">
-                                    <option value="" data-i18n="codex.quick.default">Default</option>
-                                </select>
-                                <select id="codex-quick-reasoning" class="codex-ghost-select">
-                                    <option value="" data-i18n="codex.quick.default">Default</option>
-                                </select>
-                                <select id="codex-quick-sandbox" class="codex-ghost-select">
-                                    <option value="" data-i18n="codex.quick.sandbox">Sandbox</option>
-                                    <option value="danger-full-access" data-i18n="codex.quick.fullAccess">Full Access</option>
-                                </select>
-                            </div>
-                            <div class="codex-footer-divider"></div>
-                            <button id="codex-context-widget" class="codex-context-widget" type="button" hidden aria-label="View context window debug info" data-i18n="codex.context.widgetLabel" data-i18n-attr="aria-label">
-                                <div id="codex-context-ring" class="codex-context-ring" aria-hidden="true">
-                                    <span id="codex-context-percent" class="codex-context-percent">--</span>
-                                </div>
-                            </button>
+                    <button id="btn-codex-send" type="button" aria-label="Send" data-i18n="codex.btn.send" data-i18n-attr="aria-label">
+                        <span class="send-icon">↑</span>
+                    </button>
+                </div>
+                <div id="codex-composer-footer">
+                    <div id="codex-footer-left">
+                        <span class="codex-footer-icon" aria-hidden="true">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                        </span>
+                        <div id="codex-quick-controls">
+                            <select id="codex-quick-model" class="codex-ghost-select">
+                                <option value="" data-i18n="codex.quick.default">Default</option>
+                            </select>
+                            <select id="codex-quick-reasoning" class="codex-ghost-select">
+                                <option value="" data-i18n="codex.quick.default">Default</option>
+                            </select>
+                            <select id="codex-quick-sandbox" class="codex-ghost-select">
+                                <option value="" data-i18n="codex.quick.sandbox">Sandbox</option>
+                                <option value="danger-full-access" data-i18n="codex.quick.fullAccess">Full Access</option>
+                            </select>
                         </div>
-                        <button id="btn-codex-send" type="button" aria-label="Send" data-i18n="codex.btn.send" data-i18n-attr="aria-label">
-                            <span class="send-icon">↑</span>
+                        <div class="codex-footer-divider"></div>
+                        <button id="codex-context-widget" class="codex-context-widget" type="button" hidden aria-label="View context window debug info" data-i18n="codex.context.widgetLabel" data-i18n-attr="aria-label">
+                            <div id="codex-context-ring" class="codex-context-ring" aria-hidden="true">
+                                <span id="codex-context-percent" class="codex-context-percent">--</span>
+                            </div>
                         </button>
                     </div>
                 </div>
@@ -242,7 +245,7 @@
     <script src="lib/codex_settings_view.js?v=3"></script>
     <script src="lib/codex_runtime_view.js?v=4"></script>
     <script src="lib/codex_approval_view.js?v=3"></script>
-    <script src="terminal_client.js?v=68"></script>
+    <script src="terminal_client.js?v=82"></script>
 </body>
 
 </html>

@@ -318,8 +318,6 @@
   "codex.override.reasoning": "推理：{effort}",
   "codex.override.skill": "技能：{skill}",
   "codex.image.readFailed": "读取图片文件失败。",
-  "codex.model.unresolved": "未解析模型",
-  "codex.effort.unresolved": "未解析强度",
   "codex.compact.requesting": "正在请求压缩当前线程...",
   "codex.compact.failed": "压缩上下文失败。",
   "codex.compact.currentThread": "当前线程",

@@ -1315,6 +1315,7 @@ function renderCodexPlanWorkflow() {
 
 function setNextTurnOverrides(nextOverrides) {
     codexState.nextTurnOverrides = normalizeNextTurnOverrides(nextOverrides);
+    persistNextTurnOverrides(codexState.nextTurnOverrides);
     syncNextTurnEffectiveCodexConfig();
 }
 
@@ -1330,18 +1331,35 @@ function setNextTurnOverrideValue(key, value) {
     });
 }
 
+function persistNextTurnOverrides(overrides) {
+    try {
+        const data = {
+            model: overrides.model || null,
+            reasoningEffort: overrides.reasoningEffort || null,
+            sandbox: overrides.sandbox || null
+        };
+        localStorage.setItem('codexNextTurnOverrides', JSON.stringify(data));
+    } catch (_) { /* localStorage unavailable */ }
+}
+
+function restoreNextTurnOverrides() {
+    try {
+        const raw = localStorage.getItem('codexNextTurnOverrides');
+        if (raw) {
+            return normalizeNextTurnOverrides(JSON.parse(raw));
+        }
+    } catch (_) { /* parse error or localStorage unavailable */ }
+    return { model: null, reasoningEffort: null, sandbox: null };
+}
+
 function renderCodexComposerState() {
     if (!codexComposerState) {
         return;
     }
     const planMode = codexState.interactionState.planMode === true;
     const parts = [];
-    if (codexState.nextTurnEffectiveCodexConfig && codexState.nextTurnOverrides.model) {
-        parts.push(t('codex.override.model', { model: codexState.nextTurnEffectiveCodexConfig.model }));
-    }
-    if (codexState.nextTurnEffectiveCodexConfig && codexState.nextTurnOverrides.reasoningEffort) {
-        parts.push(t('codex.override.reasoning', { effort: codexState.nextTurnEffectiveCodexConfig.reasoningEffort }));
-    }
+    // Model and reasoning overrides are already visible in the footer selects,
+    // so only show skill override in the summary badge
     if (codexState.interactionState.activeSkill) {
         parts.push(t('codex.override.skill', { skill: codexState.interactionState.activeSkill }));
     }
@@ -1569,7 +1587,6 @@ function renderCodexQuickControls() {
     }
     if (codexQuickReasoning) {
         populateCodexReasoningSelect(codexQuickReasoning, {
-            defaultLabel: buildReasoningDefaultLabel(),
             forcedValue: codexState.nextTurnOverrides.reasoningEffort || '',
             modelId: resolveReasoningModelId()
         });
@@ -1585,63 +1602,37 @@ function renderCodexQuickControls() {
 function populateCodexQuickModelSelect(forcedValue) {
     if (!codexQuickModel) return;
     const selectedValue = typeof forcedValue === 'string' ? forcedValue : (codexQuickModel.value || '');
-    codexQuickModel.innerHTML = '';
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = buildModelDefaultLabel();
-    codexQuickModel.appendChild(defaultOption);
-    const seen = new Set(['']);
-    codexState.modelCatalog.forEach((model) => {
-        if (!model || !model.id || seen.has(model.id)) return;
-        seen.add(model.id);
-        const option = document.createElement('option');
-        option.value = model.id;
-        option.textContent = model.label;
-        codexQuickModel.appendChild(option);
-    });
-    if (selectedValue && !seen.has(selectedValue)) {
-        const option = document.createElement('option');
-        option.value = selectedValue;
-        option.textContent = t('codex.model.customSuffix', { value: selectedValue });
-        codexQuickModel.appendChild(option);
-    }
-    codexQuickModel.value = selectedValue;
-}
+    const effectiveModel = selectedValue
+        || (codexState.serverNextTurnConfigBase && codexState.serverNextTurnConfigBase.model)
+        || '';
 
-function buildModelDefaultLabel() {
-    if (codexState.settingsLoadingModels) {
-        return t('codex.model.loading');
-    }
-    const effectiveModel = codexState.nextTurnEffectiveCodexConfig && codexState.nextTurnEffectiveCodexConfig.model
-        ? codexState.nextTurnEffectiveCodexConfig.model
-        : '';
-    if (effectiveModel) {
-        return effectiveModel;
-    }
-    const defaultModelEntry = codexState.modelCatalog.find((entry) => entry && entry.isDefault === true)
-        || codexState.modelCatalog.find((entry) => entry && entry.id)
-        || null;
-    return defaultModelEntry ? defaultModelEntry.label : t('codex.model.unresolved');
-}
+    // Build expected option IDs from catalog
+    const catalogIds = codexState.modelCatalog
+        .filter((m) => m && m.id)
+        .map((m) => m.id);
+    const currentOptionIds = Array.from(codexQuickModel.options).map((o) => o.value);
+    const needsRebuild = catalogIds.length !== currentOptionIds.length
+        || catalogIds.some((id, i) => id !== currentOptionIds[i]);
 
-function buildReasoningDefaultLabel() {
-    const effectiveReasoning = codexState.nextTurnEffectiveCodexConfig && codexState.nextTurnEffectiveCodexConfig.reasoningEffort
-        ? codexState.nextTurnEffectiveCodexConfig.reasoningEffort
-        : '';
-    if (effectiveReasoning && getReasoningEffortLabels()[effectiveReasoning]) {
-        return getReasoningEffortLabels()[effectiveReasoning];
+    if (needsRebuild) {
+        codexQuickModel.innerHTML = '';
+        const seen = new Set();
+        codexState.modelCatalog.forEach((model) => {
+            if (!model || !model.id || seen.has(model.id)) return;
+            seen.add(model.id);
+            const option = document.createElement('option');
+            option.value = model.id;
+            option.textContent = model.label;
+            codexQuickModel.appendChild(option);
+        });
+        if (effectiveModel && !seen.has(effectiveModel)) {
+            const option = document.createElement('option');
+            option.value = effectiveModel;
+            option.textContent = t('codex.model.customSuffix', { value: effectiveModel });
+            codexQuickModel.appendChild(option);
+        }
     }
-    const fallbackModelId = resolveReasoningModelId();
-    const fallbackModelEntry = findCodexModelEntry(fallbackModelId)
-        || codexState.modelCatalog.find((entry) => entry && entry.isDefault === true)
-        || codexState.modelCatalog.find((entry) => entry && entry.id)
-        || null;
-    const defaultReasoning = fallbackModelEntry && typeof fallbackModelEntry.defaultReasoningEffort === 'string'
-        ? fallbackModelEntry.defaultReasoningEffort
-        : '';
-    return defaultReasoning && getReasoningEffortLabels()[defaultReasoning]
-        ? getReasoningEffortLabels()[defaultReasoning]
-        : t('codex.effort.unresolved');
+    codexQuickModel.value = effectiveModel;
 }
 
 function resolveReasoningModelId() {
@@ -2415,20 +2406,27 @@ function populateCodexReasoningSelect(selectEl, options) {
     const opts = options || {};
     const selectedValue = typeof opts.forcedValue === 'string' ? opts.forcedValue : (selectEl.value || '');
     const optionValues = getReasoningOptionsForModel(opts.modelId);
-    selectEl.innerHTML = '';
 
-    const defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = opts.defaultLabel || t('common.default');
-    selectEl.appendChild(defaultOption);
+    const baseReasoning = codexState.serverNextTurnConfigBase && codexState.serverNextTurnConfigBase.reasoningEffort
+        ? codexState.serverNextTurnConfigBase.reasoningEffort
+        : '';
+    const effectiveReasoning = selectedValue || baseReasoning || '';
 
-    optionValues.forEach((value) => {
-        const option = document.createElement('option');
-        option.value = value;
-        option.textContent = getReasoningEffortLabels()[value] || value;
-        selectEl.appendChild(option);
-    });
-    selectEl.value = optionValues.includes(selectedValue) ? selectedValue : '';
+    // Only rebuild options when the available values changed
+    const currentValues = Array.from(selectEl.options).map((o) => o.value);
+    const needsRebuild = optionValues.length !== currentValues.length
+        || optionValues.some((v, i) => v !== currentValues[i]);
+
+    if (needsRebuild) {
+        selectEl.innerHTML = '';
+        optionValues.forEach((value) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = getReasoningEffortLabels()[value] || value;
+            selectEl.appendChild(option);
+        });
+    }
+    selectEl.value = optionValues.includes(effectiveReasoning) ? effectiveReasoning : (optionValues[0] || '');
 }
 
 function shouldShowCodexRuntimePanel() {
@@ -3058,7 +3056,7 @@ function resetCodexBootstrapState() {
     codexState.settingsLoadingModels = false;
     codexState.settingsRefreshingRateLimits = false;
     codexState.rateLimitBootstrapRequested = false;
-    codexState.nextTurnOverrides = { model: null, reasoningEffort: null, sandbox: null };
+    codexState.nextTurnOverrides = restoreNextTurnOverrides();
     codexState.interactionState = { planMode: false, activeSkill: null };
     codexState.planWorkflow = buildEmptyPlanWorkflowState();
     codexState.serverNextTurnConfigBase = null;
@@ -6520,6 +6518,7 @@ if (btnCodexSend) {
         if (handleCodexComposerSubmit(text)) {
             codexInput.value = '';
             setSlashMenuState(false, '');
+            autoResizeCodexInput();
         }
         codexInput.focus();
     });
@@ -6562,12 +6561,33 @@ if (codexInput) {
                 codexInput.value = '';
                 setSlashMenuState(false, '');
                 setFileMentionMenuState(false);
+                autoResizeCodexInput();
             }
         }
     });
     codexInput.addEventListener('input', () => {
         updateSlashMenuForInputValue();
+        autoResizeCodexInput();
     });
+
+    codexInput.addEventListener('focus', () => {
+        autoResizeCodexInput();
+    });
+
+    codexInput.addEventListener('blur', () => {
+        // Collapse to single-line height when empty and blurred
+        if (!codexInput.value.trim()) {
+            codexInput.style.height = '';
+        }
+    });
+}
+
+/** Auto-resize #codex-input textarea to fit content, up to CSS max-height */
+function autoResizeCodexInput() {
+    if (!codexInput) return;
+    codexInput.style.height = 'auto';
+    const maxH = parseInt(getComputedStyle(codexInput).maxHeight, 10) || 160;
+    codexInput.style.height = Math.min(codexInput.scrollHeight, maxH) + 'px';
 }
 
 if (codexPlanChip) {
@@ -6626,14 +6646,28 @@ if (codexQuickModel) {
         void maybeLoadCodexModels();
     });
     codexQuickModel.addEventListener('change', () => {
-        setNextTurnOverrideValue('model', codexQuickModel.value || null);
+        const selectedModel = codexQuickModel.value || '';
+        const baseModel = codexState.serverNextTurnConfigBase && codexState.serverNextTurnConfigBase.model
+            ? codexState.serverNextTurnConfigBase.model : '';
+        const overrideVal = selectedModel && selectedModel !== baseModel ? selectedModel : null;
+
+        // Preserve the user's current reasoning selection before model override triggers re-render
+        const currentReasoningOverride = codexState.nextTurnOverrides.reasoningEffort;
+
+        // Store model override (triggers syncNextTurnEffectiveCodexConfig → renderCodexQuickControls)
+        setNextTurnOverrideValue('model', overrideVal);
+
+        // Refresh reasoning options for the new model, keeping the user's reasoning choice
         populateCodexReasoningSelect(codexQuickReasoning, {
-            defaultLabel: buildReasoningDefaultLabel(),
-            forcedValue: '',
-            modelId: codexQuickModel.value || resolveReasoningModelId()
+            forcedValue: currentReasoningOverride || '',
+            modelId: selectedModel || resolveReasoningModelId()
         });
+        // Update reasoning override based on what's now selected in the dropdown
         if (codexQuickReasoning && codexQuickReasoning.value) {
-            setNextTurnOverrideValue('reasoningEffort', codexQuickReasoning.value);
+            const baseReasoning = codexState.serverNextTurnConfigBase && codexState.serverNextTurnConfigBase.reasoningEffort
+                ? codexState.serverNextTurnConfigBase.reasoningEffort : '';
+            setNextTurnOverrideValue('reasoningEffort',
+                codexQuickReasoning.value !== baseReasoning ? codexQuickReasoning.value : null);
         } else {
             setNextTurnOverrideValue('reasoningEffort', null);
         }
@@ -6647,7 +6681,11 @@ if (codexQuickModel) {
 
 if (codexQuickReasoning) {
     codexQuickReasoning.addEventListener('change', () => {
-        setNextTurnOverrideValue('reasoningEffort', codexQuickReasoning.value || null);
+        const selectedEffort = codexQuickReasoning.value || '';
+        const baseReasoning = codexState.serverNextTurnConfigBase && codexState.serverNextTurnConfigBase.reasoningEffort
+            ? codexState.serverNextTurnConfigBase.reasoningEffort : '';
+        setNextTurnOverrideValue('reasoningEffort',
+            selectedEffort && selectedEffort !== baseReasoning ? selectedEffort : null);
     });
 }
 

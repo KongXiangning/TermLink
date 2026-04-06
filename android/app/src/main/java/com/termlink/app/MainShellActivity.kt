@@ -500,11 +500,19 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             if (!hasNotificationPermission()) {
                 requestNotificationPermissionIfNeeded()
             }
-            CodexTaskForegroundService.start(this, normalized)
-            codexForegroundServiceActive = true
+            try {
+                CodexTaskForegroundService.start(this, normalized)
+                codexForegroundServiceActive = true
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to start foreground service", e)
+            }
         } else {
             if (codexForegroundServiceActive) {
-                CodexTaskForegroundService.stop(this)
+                try {
+                    CodexTaskForegroundService.stop(this)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to stop foreground service", e)
+                }
                 codexForegroundServiceActive = false
             }
         }

@@ -318,8 +318,6 @@
   "codex.override.reasoning": "Reasoning: {effort}",
   "codex.override.skill": "Skill: {skill}",
   "codex.image.readFailed": "Failed to read image file.",
-  "codex.model.unresolved": "Unresolved model",
-  "codex.effort.unresolved": "Unresolved effort",
   "codex.compact.requesting": "Requesting compression for current thread...",
   "codex.compact.failed": "Context compression failed.",
   "codex.compact.currentThread": "Current thread",
