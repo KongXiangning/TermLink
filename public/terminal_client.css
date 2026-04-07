@@ -1697,6 +1697,32 @@ body.codex-only #codex-log-stack {
     line-height: 1.4;
 }
 
+.codex-context-compact-section {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.codex-context-compact-status {
+    font-size: 11px;
+    color: #8b949e;
+    line-height: 1.4;
+}
+.codex-context-compact-status.tone-error {
+    color: #f85149;
+}
+.codex-context-compact-status.tone-success {
+    color: #3fb950;
+}
+
+.codex-context-compact-btn {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 12px;
+    border-radius: 4px;
+}
+
 .codex-quick-field {
     display: flex;
     min-width: 0;

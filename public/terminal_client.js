@@ -46,10 +46,12 @@ const codexToolsSkillsCard = document.getElementById('codex-tools-skills-card');
 const codexToolsSkillsMeta = document.getElementById('codex-tools-skills-meta');
 const codexToolsSkillsEmpty = document.getElementById('codex-tools-skills-empty');
 const codexToolsSkillsList = document.getElementById('codex-tools-skills-list');
-const codexToolsCompactCard = document.getElementById('codex-tools-compact-card');
-const codexToolsCompactMeta = document.getElementById('codex-tools-compact-meta');
-const codexToolsCompactStatus = document.getElementById('codex-tools-compact-status');
+const codexToolsCompactCard = null;
+const codexToolsCompactMeta = null;
+const codexToolsCompactStatus = null;
 const btnCodexCompactConfirm = document.getElementById('btn-codex-compact-confirm');
+const codexContextCompactSection = document.getElementById('codex-context-compact-section');
+const codexContextCompactStatus = document.getElementById('codex-context-compact-status');
 const codexComposerState = document.getElementById('codex-composer-state');
 const codexPlanChip = document.getElementById('codex-plan-chip');
 const codexOverrideSummary = document.getElementById('codex-override-summary');
@@ -2243,6 +2245,25 @@ function renderCodexContextDebugModal() {
     if (codexContextDebugReasoning) {
         codexContextDebugReasoning.textContent = typeof stats.reasoning === 'number' ? formatCompactNumber(stats.reasoning) : '--';
     }
+    // Compact (context compression) section
+    const compactEnabled = codexState.capabilities.compact === true;
+    const hasThread = !!(typeof codexState.threadId === 'string' && codexState.threadId.trim());
+    if (codexContextCompactSection) {
+        codexContextCompactSection.hidden = !compactEnabled;
+    }
+    if (codexContextCompactStatus) {
+        const statusText = codexState.compactStatusText
+            || (!hasThread ? t('codex.compact.noThread') : t('codex.compact.readyDesc'));
+        codexContextCompactStatus.textContent = statusText;
+        codexContextCompactStatus.classList.toggle('tone-error', codexState.compactStatusTone === 'error');
+        codexContextCompactStatus.classList.toggle('tone-success', codexState.compactStatusTone === 'success');
+    }
+    if (btnCodexCompactConfirm) {
+        btnCodexCompactConfirm.disabled = !compactEnabled || !hasThread || codexState.compactSubmitting === true;
+        btnCodexCompactConfirm.textContent = codexState.compactSubmitting === true
+            ? t('codex.compact.compressing')
+            : t('codex.tools.compactConfirm');
+    }
 }
 
 function setCodexContextDebugModalOpen(open) {
@@ -2518,7 +2539,7 @@ function clearCodexAlerts() {
 
 function shouldShowCodexToolsPanel() {
     return getActiveSessionMode() === 'codex'
-        && (codexState.capabilities.skillsList === true || codexState.capabilities.compact === true);
+        && codexState.capabilities.skillsList === true;
 }
 
 function getDefaultCodexToolsPanelFocus() {
@@ -2539,6 +2560,7 @@ function setCodexCompactStatus(text, tone) {
     codexState.compactStatusText = typeof text === 'string' ? text.trim() : '';
     codexState.compactStatusTone = typeof tone === 'string' ? tone.trim() : '';
     renderCodexToolsPanel();
+    renderCodexContextDebugModal();
 }
 
 function openCodexToolsPanel(focus) {
@@ -2564,23 +2586,9 @@ function renderCodexToolsPanel() {
     }
 
     const skillsEnabled = codexState.capabilities.skillsList === true;
-    const compactEnabled = codexState.capabilities.compact === true;
-    const focus = codexState.toolsPanelFocus === 'compact' ? 'compact' : 'skills';
-    const hasThread = !!(typeof codexState.threadId === 'string' && codexState.threadId.trim());
-    const compactStatusText = codexState.compactStatusText
-        || (
-            !compactEnabled ? t('codex.compact.serverUnavailable')
-                : !hasThread ? t('codex.compact.noThread')
-                    : t('codex.compact.readyDesc')
-        );
 
     if (codexToolsSkillsCard) {
         codexToolsSkillsCard.hidden = !skillsEnabled;
-        codexToolsSkillsCard.classList.toggle('is-focus', skillsEnabled && focus === 'skills');
-    }
-    if (codexToolsCompactCard) {
-        codexToolsCompactCard.hidden = !compactEnabled;
-        codexToolsCompactCard.classList.toggle('is-focus', compactEnabled && focus === 'compact');
     }
     if (codexToolsSkillsMeta) {
         if (skillsEnabled && codexState.skillsLoading) {
@@ -2667,20 +2675,6 @@ function renderCodexToolsPanel() {
                 codexToolsSkillsList.appendChild(item);
             });
         }
-    }
-    if (codexToolsCompactMeta) {
-        codexToolsCompactMeta.textContent = hasThread ? t('codex.skills.threadAvailable') : t('codex.skills.threadWaiting');
-    }
-    if (codexToolsCompactStatus) {
-        codexToolsCompactStatus.textContent = compactStatusText;
-        codexToolsCompactStatus.classList.toggle('tone-error', codexState.compactStatusTone === 'error');
-        codexToolsCompactStatus.classList.toggle('tone-success', codexState.compactStatusTone === 'success');
-    }
-    if (btnCodexCompactConfirm) {
-        btnCodexCompactConfirm.disabled = !compactEnabled || !hasThread || codexState.compactSubmitting === true;
-        btnCodexCompactConfirm.textContent = codexState.compactSubmitting === true
-            ? t('codex.compact.compressing')
-            : t('codex.tools.compactConfirm');
     }
 }
 

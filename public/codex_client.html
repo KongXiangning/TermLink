@@ -104,19 +104,6 @@
                             <div id="codex-tools-skills-list" aria-live="polite"></div>
                         </div>
                     </section>
-                    <section id="codex-tools-compact-card" class="codex-tools-card codex-tools-card-static">
-                        <div class="codex-tools-card-header">
-                            <span class="codex-tools-card-title" data-i18n="codex.tools.contextCompression">Context Compression</span>
-                            <span id="codex-tools-compact-meta" class="codex-tools-card-meta"></span>
-                        </div>
-                        <p id="codex-tools-compact-description" class="codex-tools-description" data-i18n="codex.tools.compactDesc">
-                            Compress the current thread into a shorter context summary to free up the context window.
-                        </p>
-                        <div id="codex-tools-compact-status" class="codex-tools-status" aria-live="polite"></div>
-                        <div id="codex-tools-compact-actions">
-                            <button id="btn-codex-compact-confirm" class="codex-btn" type="button" data-i18n="codex.tools.compactConfirm">Confirm compress current thread</button>
-                        </div>
-                    </section>
                 </div>
             </div>
             <div id="codex-log" aria-live="polite">
@@ -266,6 +253,10 @@
                     </div>
                 </div>
                 <div id="codex-context-debug-note" class="codex-context-debug-note" data-i18n="codex.context.autoCompact">Codex auto-compresses its context</div>
+                <div id="codex-context-compact-section" class="codex-context-compact-section" hidden>
+                    <div id="codex-context-compact-status" class="codex-context-compact-status" aria-live="polite"></div>
+                    <button id="btn-codex-compact-confirm" class="codex-btn codex-context-compact-btn" type="button" data-i18n="codex.tools.compactConfirm">Confirm compress current thread</button>
+                </div>
             </section>
         </div>
         <div id="input-overlay">
