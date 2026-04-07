@@ -395,6 +395,7 @@
   "codex.approval.submitted": "submitted",
   "codex.approval.pending": "pending",
   "codex.approval.defaultTitle": "Codex Approval",
+  "codex.approval.freeformPlaceholder": "Or type your own answer...",
   "codex.status.sessionExpired": "Session expired. Requesting a fresh session...",
   "codex.status.waitingConfig": "Waiting for server config...",
   "codex.status.missingServerUrl": "Missing server URL.",

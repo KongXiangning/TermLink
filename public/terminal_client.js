@@ -5048,6 +5048,7 @@ function renderCodexServerRequest(envelope) {
     let approveBtn = null;
     let rejectBtn = null;
     if (supportsOptionAnswers) {
+        const freeformInputs = {};
         request.questions.forEach((question) => {
             const questionWrap = document.createElement('div');
             questionWrap.className = 'codex-request-question';
@@ -5062,7 +5063,10 @@ function renderCodexServerRequest(envelope) {
             const optionsWrap = document.createElement('div');
             optionsWrap.className = 'codex-request-question-options';
             const options = Array.isArray(question.options) ? question.options : [];
-            options.forEach((option) => {
+            const isRecommended = (label) =>
+                /\((?:recommended|推荐)\)/i.test(label)
+                || (typeof label === 'string' && options.indexOf(options.find((o) => o && o.label === label)) === 0);
+            options.forEach((option, idx) => {
                 const optionLabel = typeof option.label === 'string' ? option.label.trim() : '';
                 if (!optionLabel) return;
                 const button = document.createElement('button');
@@ -5070,8 +5074,14 @@ function renderCodexServerRequest(envelope) {
                 button.textContent = optionLabel;
                 button.dataset.questionId = question.id || '';
                 button.dataset.answerLabel = optionLabel;
+                if (idx === 0 || isRecommended(optionLabel)) {
+                    button.classList.add('recommended');
+                }
                 button.addEventListener('click', () => {
                     questionSelections[question.id] = optionLabel;
+                    if (freeformInputs[question.id]) {
+                        freeformInputs[question.id].value = '';
+                    }
                     Array.from(optionsWrap.querySelectorAll('button')).forEach((node) => {
                         node.classList.toggle('selected', node.dataset.answerLabel === optionLabel);
                     });
@@ -5082,6 +5092,34 @@ function renderCodexServerRequest(envelope) {
                 optionsWrap.appendChild(button);
             });
             questionWrap.appendChild(optionsWrap);
+
+            const allowFreeform = question.allow_freeform !== false && question.allowFreeform !== false;
+            if (allowFreeform) {
+                const freeformWrap = document.createElement('div');
+                freeformWrap.className = 'codex-request-freeform';
+                const freeformInput = document.createElement('input');
+                freeformInput.type = 'text';
+                freeformInput.className = 'codex-request-freeform-input';
+                freeformInput.placeholder = t('codex.approval.freeformPlaceholder');
+                freeformInput.addEventListener('input', () => {
+                    const val = freeformInput.value.trim();
+                    if (val) {
+                        questionSelections[question.id] = val;
+                        Array.from(optionsWrap.querySelectorAll('button')).forEach((node) => {
+                            node.classList.remove('selected');
+                        });
+                    } else {
+                        delete questionSelections[question.id];
+                    }
+                    submitBtn.disabled = Array.isArray(request.questions)
+                        ? request.questions.some((entry) => !questionSelections[entry.id])
+                        : false;
+                });
+                freeformWrap.appendChild(freeformInput);
+                freeformInputs[question.id] = freeformInput;
+                questionWrap.appendChild(freeformWrap);
+            }
+
             actions.appendChild(questionWrap);
         });
         const submitBtn = document.createElement('button');
@@ -5268,6 +5306,10 @@ function handleCodexThreadSnapshot(thread) {
     });
     codexLog.scrollTop = codexLog.scrollHeight;
     updateCodexThreadLabel();
+    // Re-render any pending server requests that were cleared by the snapshot rebuild
+    if (codexState.pendingServerRequests && codexState.pendingServerRequests.length > 0) {
+        reconcileCodexRequestStatesWithServerState(codexState.pendingServerRequests);
+    }
 }
 
 function handleCodexNotification(method, params) {

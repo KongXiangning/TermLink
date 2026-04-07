@@ -395,6 +395,7 @@
   "codex.approval.submitted": "已提交",
   "codex.approval.pending": "待处理",
   "codex.approval.defaultTitle": "Codex 审批",
+  "codex.approval.freeformPlaceholder": "或输入自定义回答...",
   "codex.status.sessionExpired": "会话已过期，正在请求新会话...",
   "codex.status.waitingConfig": "等待服务器配置...",
   "codex.status.missingServerUrl": "缺少服务器地址。",
