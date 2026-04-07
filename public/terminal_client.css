@@ -1680,6 +1680,23 @@ body.codex-only #codex-log-stack {
     line-height: 1.25;
 }
 
+.codex-context-debug-card {
+    padding: 18px 16px;
+}
+
+.codex-context-debug-card .codex-modal-title {
+    margin-bottom: 14px;
+}
+
+.codex-context-debug-note {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    color: #8b949e;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
 .codex-quick-field {
     display: flex;
     min-width: 0;

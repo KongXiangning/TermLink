@@ -80,6 +80,10 @@ const codexContextDebugModal = document.getElementById('codex-context-debug-moda
 const codexContextDebugUsage = document.getElementById('codex-context-debug-usage');
 const codexContextDebugTokens = document.getElementById('codex-context-debug-tokens');
 const codexContextDebugNote = document.getElementById('codex-context-debug-note');
+const codexContextDebugInput = document.getElementById('codex-context-debug-input');
+const codexContextDebugOutput = document.getElementById('codex-context-debug-output');
+const codexContextDebugCached = document.getElementById('codex-context-debug-cached');
+const codexContextDebugReasoning = document.getElementById('codex-context-debug-reasoning');
 const codexSlashMenu = document.getElementById('codex-slash-menu');
 const codexSlashMenuEmpty = document.getElementById('codex-slash-menu-empty');
 const codexSlashMenuList = document.getElementById('codex-slash-menu-list');
@@ -2045,6 +2049,16 @@ function normalizeCodexContextUsage(payload) {
         ['tokenUsage', 'latestTokenUsageInfo'],
         ['thread', 'tokenUsage', 'latestTokenUsageInfo']
     ]);
+    const tokenTotal = pickFirstObjectValue(sources, [
+        ['total'],
+        ['tokenUsage', 'total'],
+        ['thread', 'tokenUsage', 'total']
+    ]);
+    const tokenLast = pickFirstObjectValue(sources, [
+        ['last'],
+        ['tokenUsage', 'last'],
+        ['thread', 'tokenUsage', 'last']
+    ]);
     const modelContextWindow = pickFirstNumber(sources, [
         ['modelContextWindow'],
         ['model_context_window']
@@ -2109,6 +2123,8 @@ function normalizeCodexContextUsage(payload) {
                         totalTokens: nestedTotalTokens
                     }
                 },
+                tokenTotal: tokenTotal || null,
+                tokenLast: tokenLast || null,
                 modelContextWindow,
                 lastTotalTokens: nestedTotalTokens,
                 usedTokens: safeUsedTokens,
@@ -2138,6 +2154,8 @@ function normalizeCodexContextUsage(payload) {
             : null,
         debug: {
             latestTokenUsageInfo: latestTokenUsageInfo || null,
+            tokenTotal: tokenTotal || null,
+            tokenLast: tokenLast || null,
             modelContextWindow: typeof maxTokens === 'number' && Number.isFinite(maxTokens) && maxTokens > 0 ? maxTokens : null,
             lastTotalTokens: typeof usedTokens === 'number' && Number.isFinite(usedTokens) && usedTokens >= 0 ? usedTokens : null,
             usedTokens: typeof usedTokens === 'number' && Number.isFinite(usedTokens) && usedTokens >= 0 ? usedTokens : null,
@@ -2182,6 +2200,22 @@ function formatCodexContextTokensLine(usage) {
     return t('codex.context.tokenSummary', { usedTokens: formatCompactNumber(usedTokens), totalTokens: formatCompactNumber(contextWindow) });
 }
 
+function extractTokenStatsFromUsage(usage) {
+    const debug = usage && usage.debug && typeof usage.debug === 'object' ? usage.debug : null;
+    const total = debug && debug.tokenTotal && typeof debug.tokenTotal === 'object' ? debug.tokenTotal : null;
+    const last = debug && debug.tokenLast && typeof debug.tokenLast === 'object' ? debug.tokenLast : null;
+    const info = debug && debug.latestTokenUsageInfo && typeof debug.latestTokenUsageInfo === 'object'
+        ? debug.latestTokenUsageInfo : null;
+    const infoLast = info && info.last && typeof info.last === 'object' ? info.last : null;
+    const sources = [total, last, infoLast, info];
+    return {
+        input: pickFirstNumber(sources, [['inputTokens'], ['input_tokens'], ['input'], ['promptTokens'], ['prompt_tokens']]),
+        output: pickFirstNumber(sources, [['outputTokens'], ['output_tokens'], ['output'], ['completionTokens'], ['completion_tokens']]),
+        cached: pickFirstNumber(sources, [['cachedInputTokens'], ['cached_input_tokens'], ['cacheTokens'], ['cache_tokens']]),
+        reasoning: pickFirstNumber(sources, [['reasoningOutputTokens'], ['reasoning_output_tokens'], ['reasoningTokens'], ['reasoning_tokens']])
+    };
+}
+
 function renderCodexContextDebugModal() {
     if (codexContextDebugModal) {
         codexContextDebugModal.hidden = !codexState.contextDebugModalOpen;
@@ -2195,6 +2229,19 @@ function renderCodexContextDebugModal() {
     }
     if (codexContextDebugNote) {
         codexContextDebugNote.textContent = t('codex.context.autoCompact');
+    }
+    const stats = extractTokenStatsFromUsage(usage);
+    if (codexContextDebugInput) {
+        codexContextDebugInput.textContent = typeof stats.input === 'number' ? formatCompactNumber(stats.input) : '--';
+    }
+    if (codexContextDebugOutput) {
+        codexContextDebugOutput.textContent = typeof stats.output === 'number' ? formatCompactNumber(stats.output) : '--';
+    }
+    if (codexContextDebugCached) {
+        codexContextDebugCached.textContent = typeof stats.cached === 'number' ? formatCompactNumber(stats.cached) : '--';
+    }
+    if (codexContextDebugReasoning) {
+        codexContextDebugReasoning.textContent = typeof stats.reasoning === 'number' ? formatCompactNumber(stats.reasoning) : '--';
     }
 }
 

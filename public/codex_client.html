@@ -227,13 +227,45 @@
         </div>
         <div id="codex-context-debug-modal" class="codex-modal-layer" hidden>
             <div class="codex-modal-backdrop" data-modal-dismiss="context-debug"></div>
-            <section class="codex-modal-card" role="dialog" aria-modal="true" aria-labelledby="codex-context-debug-title">
-                <div class="codex-context-summary">
-                    <div id="codex-context-debug-title" class="codex-modal-title" data-i18n="codex.context.debugTitle">Context Window:</div>
-                    <div id="codex-context-debug-usage" class="codex-context-summary-line">--</div>
-                    <div id="codex-context-debug-tokens" class="codex-context-summary-line">--</div>
-                    <div id="codex-context-debug-note" class="codex-context-summary-note" data-i18n="codex.context.autoCompact">Codex auto-compresses its context</div>
+            <section class="codex-modal-card codex-context-debug-card" role="dialog" aria-modal="true" aria-labelledby="codex-context-debug-title">
+                <div id="codex-context-debug-title" class="codex-modal-title" data-i18n="codex.context.debugTitle">Context Window:</div>
+                <div class="codex-context-grid">
+                    <div class="codex-context-card">
+                        <div class="codex-context-card-title" data-i18n="codex.context.usageTitle">Context Usage</div>
+                        <div class="codex-context-list">
+                            <div class="codex-context-row">
+                                <span class="codex-context-row-label" data-i18n="codex.context.usedLabel">Used</span>
+                                <span id="codex-context-debug-usage" class="codex-context-row-value">--</span>
+                            </div>
+                            <div class="codex-context-row">
+                                <span class="codex-context-row-label" data-i18n="codex.context.tokensLabel">Tokens</span>
+                                <span id="codex-context-debug-tokens" class="codex-context-row-value">--</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="codex-context-card">
+                        <div class="codex-context-card-title" data-i18n="codex.context.tokenStatsTitle">Token Statistics</div>
+                        <div class="codex-context-list">
+                            <div class="codex-context-row">
+                                <span class="codex-context-row-label" data-i18n="codex.context.inputTokens">Input</span>
+                                <span id="codex-context-debug-input" class="codex-context-row-value">--</span>
+                            </div>
+                            <div class="codex-context-row">
+                                <span class="codex-context-row-label" data-i18n="codex.context.outputTokens">Output</span>
+                                <span id="codex-context-debug-output" class="codex-context-row-value">--</span>
+                            </div>
+                            <div class="codex-context-row">
+                                <span class="codex-context-row-label" data-i18n="codex.context.cachedTokens">Cached</span>
+                                <span id="codex-context-debug-cached" class="codex-context-row-value">--</span>
+                            </div>
+                            <div class="codex-context-row">
+                                <span class="codex-context-row-label" data-i18n="codex.context.reasoningTokens">Reasoning</span>
+                                <span id="codex-context-debug-reasoning" class="codex-context-row-value">--</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+                <div id="codex-context-debug-note" class="codex-context-debug-note" data-i18n="codex.context.autoCompact">Codex auto-compresses its context</div>
             </section>
         </div>
         <div id="input-overlay">
