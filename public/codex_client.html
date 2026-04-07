@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TermLink Codex</title>
-    <link rel="stylesheet" href="terminal_client.css?v=89">
+    <link rel="stylesheet" href="terminal_client.css?v=90">
     <script src="i18n/i18n.js"></script>
     <script src="terminal_shortcut_input.js?v=26"></script>
 </head>
@@ -104,19 +104,17 @@
                             <div id="codex-tools-skills-list" aria-live="polite"></div>
                         </div>
                     </section>
-                    <section id="codex-tools-compact-card" class="codex-tools-card" onclick="this.classList.toggle('is-expanded')">
+                    <section id="codex-tools-compact-card" class="codex-tools-card codex-tools-card-static">
                         <div class="codex-tools-card-header">
                             <span class="codex-tools-card-title" data-i18n="codex.tools.contextCompression">Context Compression</span>
                             <span id="codex-tools-compact-meta" class="codex-tools-card-meta"></span>
                         </div>
-                        <div class="codex-tools-card-body">
-                            <p id="codex-tools-compact-description" class="codex-tools-description" data-i18n="codex.tools.compactDesc">
-                                Compress the current thread into a shorter context summary to free up the context window.
-                            </p>
-                            <div id="codex-tools-compact-status" class="codex-tools-status" aria-live="polite"></div>
-                            <div id="codex-tools-compact-actions">
-                                <button id="btn-codex-compact-confirm" class="codex-btn" type="button" data-i18n="codex.tools.compactConfirm" onclick="event.stopPropagation()">Confirm compress current thread</button>
-                            </div>
+                        <p id="codex-tools-compact-description" class="codex-tools-description" data-i18n="codex.tools.compactDesc">
+                            Compress the current thread into a shorter context summary to free up the context window.
+                        </p>
+                        <div id="codex-tools-compact-status" class="codex-tools-status" aria-live="polite"></div>
+                        <div id="codex-tools-compact-actions">
+                            <button id="btn-codex-compact-confirm" class="codex-btn" type="button" data-i18n="codex.tools.compactConfirm">Confirm compress current thread</button>
                         </div>
                     </section>
                 </div>

@@ -632,6 +632,19 @@ body.codex-only #codex-composer {
     border-color: rgba(78, 222, 163, 0.15);
 }
 
+.codex-tools-card-static {
+    cursor: default;
+}
+
+.codex-tools-card-static:hover {
+    border-color: #30363d;
+    background: #0d1117;
+}
+
+.codex-tools-card-static .codex-tools-card-header::after {
+    display: none;
+}
+
 #codex-tools-skills-card {
     min-height: 0;
 }
