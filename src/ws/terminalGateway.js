@@ -706,22 +706,31 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             && isNonEmptyString(state.threadId)
             && currentExecutionContextSignature === '__stale__'
         ) {
-            const resumeResult = await codexService.request('thread/resume', { threadId: state.threadId });
-            const resumedThreadId = resumeResult && resumeResult.thread ? resumeResult.thread.id : null;
-            if (isNonEmptyString(resumedThreadId)) {
-                state.threadId = resumedThreadId;
-                state.threadModel = resolveThreadModelFromResponse(resumeResult) || state.threadModel || null;
-                state.tokenUsage = extractTokenUsageSnapshot(resumeResult);
-                state.threadExecutionContextSignature = executionContextSignature;
-                bindThreadToSession(resumedThreadId, session.id);
-                updateSessionLastCodexThreadId(session, resumedThreadId);
-                persistSessionMetadata(session);
-                console.info('[gateway][codex][thread-rebind-after-restart]', JSON.stringify({
+            try {
+                const resumeResult = await codexService.request('thread/resume', { threadId: state.threadId });
+                const resumedThreadId = resumeResult && resumeResult.thread ? resumeResult.thread.id : null;
+                if (isNonEmptyString(resumedThreadId)) {
+                    state.threadId = resumedThreadId;
+                    state.threadModel = resolveThreadModelFromResponse(resumeResult) || state.threadModel || null;
+                    state.tokenUsage = extractTokenUsageSnapshot(resumeResult);
+                    state.threadExecutionContextSignature = executionContextSignature;
+                    bindThreadToSession(resumedThreadId, session.id);
+                    updateSessionLastCodexThreadId(session, resumedThreadId);
+                    persistSessionMetadata(session);
+                    console.info('[gateway][codex][thread-rebind-after-restart]', JSON.stringify({
+                        sessionId: session.id,
+                        threadId: resumedThreadId,
+                        executionContextSignature
+                    }));
+                    return resumedThreadId;
+                }
+            } catch (resumeError) {
+                console.warn('[gateway][codex][thread-resume-failed]', JSON.stringify({
                     sessionId: session.id,
-                    threadId: resumedThreadId,
-                    executionContextSignature
+                    staleThreadId: state.threadId,
+                    error: resumeError && resumeError.message ? resumeError.message : String(resumeError),
+                    code: resumeError && resumeError.code ? resumeError.code : null
                 }));
-                return resumedThreadId;
             }
         }
 
