@@ -1435,7 +1435,7 @@ body.codex-only #codex-log-stack {
     gap: 10px;
     padding: 12px;
     border: 1px solid rgba(78, 222, 163, 0.2);
-    border-radius: 6px;
+    border-radius: 4px;
     background: rgba(0, 42, 30, 0.15);
     box-shadow: none;
 }
@@ -2532,7 +2532,10 @@ body.viewport-compact #codex-composer {
 
 body.viewport-compact #codex-plan-workflow {
     padding: 10px;
-    border-radius: 4px;
+}
+
+body.viewport-compact #codex-plan-workflow-body {
+    max-height: 140px;
 }
 
 body.viewport-compact #codex-settings-panel {
