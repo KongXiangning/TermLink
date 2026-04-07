@@ -152,6 +152,8 @@
     <string name="codex_state_reconnecting">Codex: 重连中…</string>
     <string name="codex_state_error">Codex: 错误 (%1$s)</string>
     <string name="codex_state_unknown">Codex: %1$s</string>
+    <string name="codex_brand_title">Codex</string>
+    <string name="codex_brand_version">v1.0</string>
 
     <!-- Codex 前台服务通知 -->
     <string name="codex_task_notification_channel">Codex 任务</string>

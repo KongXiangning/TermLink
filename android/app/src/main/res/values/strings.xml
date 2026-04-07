@@ -152,6 +152,8 @@
     <string name="codex_state_reconnecting">Codex: reconnecting...</string>
     <string name="codex_state_error">Codex: error (%1$s)</string>
     <string name="codex_state_unknown">Codex: %1$s</string>
+    <string name="codex_brand_title">Codex</string>
+    <string name="codex_brand_version">v1.0</string>
 
     <!-- Codex foreground service notification -->
     <string name="codex_task_notification_channel">Codex Task</string>

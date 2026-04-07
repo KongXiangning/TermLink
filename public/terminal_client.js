@@ -33,6 +33,7 @@ const btnCodexSecondaryTools = document.getElementById('btn-codex-secondary-tool
 const btnCodexSecondaryNotices = document.getElementById('btn-codex-secondary-notices');
 const codexHistoryPanel = document.getElementById('codex-history-panel');
 const codexHistoryList = document.getElementById('codex-history-list');
+const codexBrandVersion = document.getElementById('codex-brand-version');
 const codexHistoryEmpty = document.getElementById('codex-history-empty');
 const codexRuntimePanel = document.getElementById('codex-runtime-panel');
 const codexRuntimeDiff = document.getElementById('codex-runtime-diff');
@@ -922,7 +923,10 @@ function normalizeCodexThreadTitle(value) {
 
 function normalizeCodexHistoryTimestamp(value) {
     if (typeof value === 'number' && Number.isFinite(value)) {
-        const date = new Date(value);
+        // Codex API may return Unix epoch seconds; new Date() expects milliseconds.
+        // Any realistic ms timestamp after 2001 is >= 1e12; seconds are < 1e12.
+        const ms = value > 0 && value < 1e12 ? value * 1000 : value;
+        const date = new Date(ms);
         return Number.isNaN(date.getTime()) ? '' : date.toISOString();
     }
     if (typeof value !== 'string') {
@@ -2720,6 +2724,11 @@ function applyCodexRuntimeUpdate(method, params) {
         codexState[stateKey] = trimRuntimePanelText(`${codexState[stateKey]}${separator}${text}`, 12000);
     } else {
         codexState[stateKey] = trimRuntimePanelText(text, 12000);
+    }
+    // Auto-expand the card that received content
+    const sectionCard = document.querySelector(`.codex-runtime-card[data-runtime-section="${update.section}"]`);
+    if (sectionCard && !sectionCard.classList.contains('is-expanded')) {
+        sectionCard.classList.add('is-expanded');
     }
     renderCodexRuntimePanel();
     return true;

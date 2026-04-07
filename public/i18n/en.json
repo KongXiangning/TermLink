@@ -72,7 +72,7 @@
   "common.open": "Open",
   "common.paste": "Paste",
   "common.inputMode": "Input Mode",
-  "codex.status.idle": "Codex Idle",
+  "codex.status.idle": "Idle",
   "codex.btn.collapse": "Collapse",
   "codex.btn.interrupt": "Interrupt",
   "codex.panel.history": "Task History",

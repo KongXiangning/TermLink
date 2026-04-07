@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TermLink Codex</title>
-    <link rel="stylesheet" href="terminal_client.css?v=82">
+    <link rel="stylesheet" href="terminal_client.css?v=86">
     <script src="i18n/i18n.js"></script>
     <script src="terminal_shortcut_input.js?v=26"></script>
 </head>
@@ -18,6 +18,16 @@
         </div>
         <div id="codex-panel">
             <div id="codex-header">
+                <div id="codex-top-bar">
+                    <div id="codex-brand">
+                        <span id="codex-brand-icon" aria-hidden="true">&#x2B22;</span>
+                        <span id="codex-brand-name">Codex</span>
+                        <span id="codex-brand-version">v1.0</span>
+                    </div>
+                    <div id="codex-top-bar-actions">
+                        <button id="btn-codex-interrupt" class="codex-btn danger" type="button" hidden data-i18n="codex.btn.interrupt">Interrupt</button>
+                    </div>
+                </div>
                 <div id="codex-status-strip">
                     <div id="codex-header-main">
                         <div id="codex-status-line">
@@ -32,7 +42,6 @@
                     </div>
                     <div id="codex-actions">
                         <button id="btn-codex-toggle" class="codex-btn" type="button" data-i18n="codex.btn.collapse">Collapse</button>
-                        <button id="btn-codex-interrupt" class="codex-btn danger" type="button" hidden data-i18n="codex.btn.interrupt">Interrupt</button>
                     </div>
                 </div>
             </div>
@@ -62,22 +71,19 @@
                     <span id="codex-runtime-title" data-i18n="codex.runtime.title">Runtime</span>
                 </div>
                 <div id="codex-runtime-grid">
-                    <section class="codex-runtime-card" data-runtime-section="diff">
+                    <section class="codex-runtime-card" data-runtime-section="diff" onclick="this.classList.toggle('is-expanded')">
                         <div class="codex-runtime-label" data-i18n="codex.runtime.diff">Diff</div>
                         <pre id="codex-runtime-diff" class="codex-runtime-body"></pre>
                     </section>
-                    <section class="codex-runtime-card" data-runtime-section="plan">
+                    <section class="codex-runtime-card" data-runtime-section="plan" onclick="this.classList.toggle('is-expanded')">
                         <div class="codex-runtime-label" data-i18n="codex.runtime.plan">Plan</div>
                         <pre id="codex-runtime-plan" class="codex-runtime-body"></pre>
                     </section>
-                    <section class="codex-runtime-card" data-runtime-section="reasoning">
+                    <section class="codex-runtime-card" data-runtime-section="reasoning" onclick="this.classList.toggle('is-expanded')">
                         <div class="codex-runtime-label" data-i18n="codex.runtime.reasoning">Reasoning</div>
                         <pre id="codex-runtime-reasoning" class="codex-runtime-body"></pre>
                     </section>
-                    <section class="codex-runtime-card" data-runtime-section="terminal">
-                        <div class="codex-runtime-label" data-i18n="codex.runtime.terminalOutput">Terminal Output</div>
-                        <pre id="codex-runtime-terminal" class="codex-runtime-body"></pre>
-                    </section>
+                    <!-- Terminal output card removed: content already shown in main log -->
                 </div>
                 <div id="codex-runtime-warning" hidden></div>
             </div>
@@ -245,7 +251,7 @@
     <script src="lib/codex_settings_view.js?v=3"></script>
     <script src="lib/codex_runtime_view.js?v=4"></script>
     <script src="lib/codex_approval_view.js?v=3"></script>
-    <script src="terminal_client.js?v=82"></script>
+    <script src="terminal_client.js?v=84"></script>
 </body>
 
 </html>

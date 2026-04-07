@@ -96,8 +96,104 @@ body.codex-only #btn-codex-toggle {
     display: none;
 }
 
+body.codex-only #codex-actions {
+    display: none;
+}
+
 body.codex-only #codex-header {
-    padding: 10px 16px;
+    padding: 0;
+    gap: 0;
+    border-bottom: none;
+}
+
+/* — Top Bar (codex-only mode) — */
+#codex-top-bar {
+    display: none;
+}
+
+body.codex-only #codex-top-bar {
+    display: none;
+}
+
+#codex-brand {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+#codex-brand-icon {
+    color: #4edea3;
+    font-size: 16px;
+    line-height: 1;
+    vertical-align: middle;
+}
+
+#codex-brand-name {
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: -0.025em;
+    color: #c9d1d9;
+}
+
+#codex-brand-version {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10px;
+    color: #484f58;
+}
+
+#codex-top-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* — Consolidated Status Strip (codex-only mode) — */
+body.codex-only #codex-status-strip {
+    padding: 8px 16px;
+    border-bottom: 1px solid #30363d;
+    background: rgba(13, 17, 23, 0.95);
+}
+
+body.codex-only #codex-header-main {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 24px;
+    overflow: hidden;
+}
+
+body.codex-only #codex-status-line {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    gap: 8px;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+body.codex-only #codex-status-text {
+    color: #4edea3;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+}
+
+body.codex-only #codex-status-dot {
+    width: 6px;
+    height: 6px;
+    flex-shrink: 0;
+    background: #4edea3;
+    box-shadow: 0 0 8px rgba(78, 222, 163, 0.5);
+}
+
+body.codex-only #codex-meta-line {
+    border-left: 1px solid rgba(48, 54, 61, 0.3);
+    padding-left: 16px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    white-space: nowrap;
 }
 
 body.codex-only #codex-log {
@@ -426,7 +522,7 @@ body.codex-only #codex-composer {
     display: flex;
     flex: 0 0 auto;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     margin: 0 10px 8px;
     padding: 10px;
     border: 1px solid #30363d;
@@ -655,37 +751,76 @@ body.codex-only #codex-composer {
     gap: 8px;
 }
 
+#codex-runtime-grid > .codex-runtime-card:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+}
+
 .codex-runtime-card {
     display: flex;
     min-width: 0;
-    min-height: 112px;
     flex-direction: column;
     gap: 6px;
     padding: 8px;
     border: 1px solid #30363d;
     border-radius: 4px;
     background: #0d1117;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.codex-runtime-card:hover {
+    border-color: rgba(78, 222, 163, 0.2);
+    background: rgba(78, 222, 163, 0.03);
+}
+
+.codex-runtime-card.is-expanded {
+    border-color: rgba(78, 222, 163, 0.15);
 }
 
 .codex-runtime-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
     color: #8b949e;
     font-size: 10px;
     line-height: 1.2;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.codex-runtime-label::after {
+    content: '▸';
+    font-size: 10px;
+    transition: transform 0.2s ease;
+}
+
+.codex-runtime-card.is-expanded .codex-runtime-label::after {
+    transform: rotate(90deg);
 }
 
 .codex-runtime-body {
     flex: 1 1 auto;
     min-height: 0;
+    max-height: 0;
     margin: 0;
-    overflow: auto;
+    overflow: hidden;
     color: #c9d1d9;
     font-size: 11px;
     line-height: 1.45;
     white-space: pre-wrap;
     word-break: break-word;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    transition: max-height 0.25s ease;
+}
+
+.codex-runtime-card.is-expanded .codex-runtime-body {
+    max-height: clamp(100px, 22vh, 280px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 #codex-runtime-warning {
@@ -785,7 +920,7 @@ body.codex-only #codex-composer {
 }
 
 #codex-history-title {
-    color: #c9d1d9;
+    color: #8b949e;
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.04em;
@@ -806,24 +941,31 @@ body.codex-only #codex-composer {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    max-height: 168px;
+    max-height: clamp(240px, 42vh, 480px);
     overflow-y: auto;
     overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 .codex-history-item {
     display: flex;
     width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    padding: 10px;
+    box-sizing: border-box;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
     border: 1px solid #30363d;
     border-radius: 4px;
     background: #0d1117;
     color: #c9d1d9;
     text-align: left;
     transition: all 0.2s ease;
+}
+
+.codex-history-item:hover {
+    border-color: rgba(78, 222, 163, 0.2);
+    background: rgba(78, 222, 163, 0.03);
 }
 
 .codex-history-item.active {
@@ -834,6 +976,11 @@ body.codex-only #codex-composer {
 
 .codex-history-item:disabled {
     opacity: 0.6;
+}
+
+.codex-history-item:disabled:hover {
+    border-color: #30363d;
+    background: #0d1117;
 }
 
 .codex-history-copy {
@@ -849,6 +996,9 @@ body.codex-only #codex-composer {
     font-size: 12px;
     font-weight: 600;
     line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .codex-history-rename-field {
@@ -885,7 +1035,7 @@ body.codex-only #codex-composer {
 }
 
 .codex-history-meta {
-    color: #484f58;
+    color: #8b949e;
     font-size: 10px;
     line-height: 1.4;
     word-break: break-word;
@@ -916,31 +1066,44 @@ body.codex-only #codex-composer {
 }
 
 .codex-history-footer {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    display: grid;
+    flex: 0 0 auto;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    min-width: 0;
 }
 
 .codex-history-primary-action,
 .codex-history-secondary-action {
-    border-radius: 999px;
-    border: 1px solid rgba(78, 222, 163, 0.18);
-    background: rgba(78, 222, 163, 0.08);
-    color: #c9d1d9;
-    font-size: 11px;
-    line-height: 1.2;
-    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid #30363d;
+    background: rgba(255, 255, 255, 0.02);
+    color: #8b949e;
+    font-size: 10px;
+    line-height: 1;
+    padding: 4px 6px;
+    min-height: 22px;
+    white-space: nowrap;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.codex-history-primary-action:hover,
+.codex-history-secondary-action:hover {
+    background: rgba(78, 222, 163, 0.12);
+    border-color: rgba(78, 222, 163, 0.3);
 }
 
 .codex-history-primary-action {
-    background: rgba(78, 222, 163, 0.16);
+    border-color: #30363d;
+    background: rgba(78, 222, 163, 0.06);
+    color: #c9d1d9;
 }
 
 .codex-history-secondary-action.primary {
-    background: rgba(78, 222, 163, 0.16);
-    border-color: rgba(78, 222, 163, 0.3);
+    background: rgba(78, 222, 163, 0.06);
+    border-color: #30363d;
+    color: #c9d1d9;
 }
 
 .codex-history-primary-action:disabled,
@@ -948,10 +1111,14 @@ body.codex-only #codex-composer {
     opacity: 0.6;
 }
 
+.codex-history-primary-action:disabled:hover,
+.codex-history-secondary-action:disabled:hover {
+    background: rgba(255, 255, 255, 0.02);
+    border-color: #30363d;
+}
+
 .codex-history-actions-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+    display: contents;
 }
 
 #codex-log {
@@ -2192,6 +2359,20 @@ body.viewport-compact #codex-header {
     gap: 8px;
 }
 
+body.viewport-compact.codex-only #codex-header {
+    padding: 0;
+    gap: 0;
+}
+
+body.viewport-compact #codex-top-bar {
+    height: 40px;
+    padding: 0 10px;
+}
+
+body.viewport-compact #codex-status-strip {
+    padding: 6px 10px;
+}
+
 body.viewport-compact #codex-log {
     padding: 6px 8px;
 }
@@ -2219,6 +2400,10 @@ body.viewport-compact #codex-alerts {
 }
 
 body.viewport-compact #codex-runtime-panel {
+    padding: 8px;
+}
+
+body.viewport-compact #codex-history-panel {
     padding: 8px;
 }
 
@@ -2308,6 +2493,10 @@ body.viewport-compact #codex-quick-controls {
 
     #codex-tools-skills-list {
         max-height: min(34vh, 300px);
+    }
+
+    #codex-history-list {
+        max-height: min(28vh, 240px);
     }
 
     #codex-slash-menu {

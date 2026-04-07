@@ -40,11 +40,11 @@ class CodexTaskForegroundService : Service() {
             val intent = Intent(context, CodexTaskForegroundService::class.java).apply {
                 putExtra(EXTRA_STATUS, status)
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            // Use regular startService() to avoid EMUI's strict 5-second
+            // startForegroundService() enforcement.  The calling Activity is
+            // always in the foreground, so background execution limits don't
+            // apply.  The service still calls startForeground() in onCreate().
+            context.startService(intent)
         }
 
         fun updateStatus(context: Context, status: String) {

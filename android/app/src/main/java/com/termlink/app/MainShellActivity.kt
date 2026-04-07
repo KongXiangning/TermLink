@@ -5,7 +5,13 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
+import android.graphics.Typeface
+import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.text.TextUtils
+import android.text.style.ForegroundColorSpan
+import android.text.style.RelativeSizeSpan
+import android.text.style.StyleSpan
 import android.util.Log
 import android.util.TypedValue
 import android.view.View
@@ -996,7 +1002,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private fun updateStatus(text: String) {
         terminalStatusText = text
         if (currentScreen == ScreenMode.TERMINAL) {
-            statusTextView?.text = text
+            statusTextView?.text = buildTopBarStatusText(text)
         }
     }
 
@@ -1113,7 +1119,70 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         sessionsDrawerButton?.contentDescription = getString(R.string.sessions_panel_button)
         quickToolbarButton?.contentDescription = getString(R.string.quick_toolbar_toggle_button)
         applyWorkspaceButtonState()
-        statusTextView?.text = terminalStatusText
+        statusTextView?.text = buildTopBarStatusText(terminalStatusText)
+    }
+
+    private fun buildTopBarStatusText(text: String): CharSequence {
+        if (!isCodexSessionActive()) {
+            return text
+        }
+        val detail = stripStatusPrefix(text)
+        val builder = SpannableStringBuilder()
+        val brandStart = builder.length
+        val brandName = getString(R.string.codex_brand_title)
+        builder.append(brandName)
+        builder.setSpan(StyleSpan(Typeface.BOLD), brandStart, builder.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        builder.setSpan(
+            ForegroundColorSpan(resources.getColor(android.R.color.white, theme)),
+            brandStart,
+            builder.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+
+        val versionStart = builder.length
+        val versionText = " ${getString(R.string.codex_brand_version)}"
+        builder.append(versionText)
+        builder.setSpan(
+            ForegroundColorSpan(0xFF8B949E.toInt()),
+            versionStart,
+            builder.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        builder.setSpan(RelativeSizeSpan(0.78f), versionStart, builder.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+
+        if (detail.isNotBlank()) {
+            val detailStart = builder.length
+            builder.append("  ")
+            builder.append(detail)
+            builder.setSpan(
+                ForegroundColorSpan(resources.getColor(android.R.color.white, theme)),
+                detailStart,
+                builder.length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+        return builder
+    }
+
+    private fun stripStatusPrefix(text: String): String {
+        val normalized = text.trim()
+        if (normalized.isBlank()) {
+            return normalized
+        }
+        val candidates = listOf(
+            "${getString(R.string.tab_terminal)}:",
+            "${getString(R.string.tab_terminal)}：",
+            "Terminal:",
+            "Terminal：",
+            "Codex:",
+            "Codex："
+        )
+        for (prefix in candidates) {
+            if (normalized.startsWith(prefix, ignoreCase = true)) {
+                return normalized.removePrefix(prefix).trim()
+            }
+        }
+        return normalized
     }
 
     private fun applyWorkspaceButtonState() {
@@ -1583,7 +1652,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     companion object {
         private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=67"
-        private const val CODEX_URL = "file:///android_asset/public/codex_client.html?v=76"
+        private const val CODEX_URL = "file:///android_asset/public/codex_client.html?v=86"
         private const val ABOUT_BLANK_URL = "about:blank"
         private const val DEBUG_CLEAR_TERMINAL_CACHE_ON_LOAD = false
         private const val JS_BRIDGE_NAME = "TerminalEventBridge"

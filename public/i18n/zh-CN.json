@@ -72,7 +72,7 @@
   "common.open": "打开",
   "common.paste": "粘贴",
   "common.inputMode": "输入模式",
-  "codex.status.idle": "Codex 空闲",
+  "codex.status.idle": "空闲",
   "codex.btn.collapse": "收起",
   "codex.btn.interrupt": "中断",
   "codex.panel.history": "任务历史",
