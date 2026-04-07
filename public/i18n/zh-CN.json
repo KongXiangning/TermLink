@@ -257,6 +257,8 @@
   "codex.skills.noneAvailable": "当前没有可用技能。",
   "codex.skills.noDescription": "无额外说明",
   "codex.skills.selectBtn": "选择",
+  "codex.skills.scope": "范围",
+  "codex.skills.defaultPrompt": "默认提示",
   "codex.skills.threadAvailable": "当前线程可用",
   "codex.skills.threadWaiting": "等待线程",
   "codex.compact.serverUnavailable": "当前服务端未开放上下文压缩。",

@@ -2566,6 +2566,16 @@ function renderCodexToolsPanel() {
             codexState.skillCatalog.forEach((entry) => {
                 const item = document.createElement('div');
                 item.className = 'codex-tools-skill-item';
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const wasExpanded = item.classList.contains('is-expanded');
+                    codexToolsSkillsList.querySelectorAll('.codex-tools-skill-item.is-expanded').forEach((el) => {
+                        el.classList.remove('is-expanded');
+                    });
+                    if (!wasExpanded) {
+                        item.classList.add('is-expanded');
+                    }
+                });
                 const copy = document.createElement('div');
                 copy.className = 'codex-tools-skill-copy';
                 const title = document.createElement('div');
@@ -2576,11 +2586,33 @@ function renderCodexToolsPanel() {
                 desc.className = 'codex-tools-skill-desc';
                 desc.textContent = entry.description || t('codex.skills.noDescription');
                 copy.appendChild(desc);
+                const detail = document.createElement('div');
+                detail.className = 'codex-tools-skill-detail';
+                if (entry.scope) {
+                    const scopeEl = document.createElement('div');
+                    scopeEl.className = 'codex-tools-skill-scope';
+                    scopeEl.textContent = t('codex.skills.scope') + ': ' + entry.scope;
+                    detail.appendChild(scopeEl);
+                }
+                if (entry.defaultPrompt) {
+                    const promptEl = document.createElement('div');
+                    promptEl.className = 'codex-tools-skill-prompt';
+                    promptEl.textContent = t('codex.skills.defaultPrompt') + ': ' + entry.defaultPrompt;
+                    detail.appendChild(promptEl);
+                }
+                if (!entry.scope && !entry.defaultPrompt) {
+                    const noExtra = document.createElement('div');
+                    noExtra.className = 'codex-tools-skill-scope';
+                    noExtra.textContent = entry.description || t('codex.skills.noDescription');
+                    detail.appendChild(noExtra);
+                }
+                copy.appendChild(detail);
                 const action = document.createElement('button');
                 action.type = 'button';
                 action.className = 'codex-btn subtle';
                 action.textContent = t('codex.skills.selectBtn');
-                action.addEventListener('click', () => {
+                action.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     applyCodexSkillSelection(entry);
                 });
                 item.appendChild(copy);

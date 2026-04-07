@@ -726,6 +726,19 @@ body.codex-only #codex-composer {
     border: 1px solid #30363d;
     border-radius: 4px;
     background: transparent;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.codex-tools-skill-item:hover {
+    border-color: rgba(78, 222, 163, 0.15);
+    background: rgba(78, 222, 163, 0.02);
+}
+
+.codex-tools-skill-item.is-expanded {
+    align-items: flex-start;
+    border-color: rgba(78, 222, 163, 0.25);
+    background: rgba(78, 222, 163, 0.03);
 }
 
 .codex-tools-skill-copy {
@@ -750,6 +763,31 @@ body.codex-only #codex-composer {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.codex-tools-skill-item.is-expanded .codex-tools-skill-desc {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+}
+
+.codex-tools-skill-detail {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid #21262d;
+}
+
+.codex-tools-skill-item.is-expanded .codex-tools-skill-detail {
+    display: flex;
+}
+
+.codex-tools-skill-scope {
+    color: #8b949e;
+    font-size: 10px;
+    line-height: 1.35;
 }
 
 .codex-tools-skill-item .codex-btn.subtle {

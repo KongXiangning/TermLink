@@ -257,6 +257,8 @@
   "codex.skills.noneAvailable": "No skills available.",
   "codex.skills.noDescription": "No description available",
   "codex.skills.selectBtn": "Select",
+  "codex.skills.scope": "Scope",
+  "codex.skills.defaultPrompt": "Default prompt",
   "codex.skills.threadAvailable": "Current thread available",
   "codex.skills.threadWaiting": "Waiting for thread",
   "codex.compact.serverUnavailable": "Current server does not support context compression.",
