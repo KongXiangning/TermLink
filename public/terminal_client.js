@@ -5095,8 +5095,11 @@ function renderCodexServerRequest(envelope) {
         rejectUserInputBtn.type = 'button';
         rejectUserInputBtn.dataset.requestAction = 'reject';
         rejectUserInputBtn.textContent = t('common.cancel');
-        actions.appendChild(submitBtn);
-        actions.appendChild(rejectUserInputBtn);
+        const submitRow = document.createElement('div');
+        submitRow.className = 'codex-request-submit-row';
+        submitRow.appendChild(submitBtn);
+        submitRow.appendChild(rejectUserInputBtn);
+        actions.appendChild(submitRow);
         approveBtn = submitBtn;
         rejectBtn = rejectUserInputBtn;
     } else if (request.responseMode === 'answers') {

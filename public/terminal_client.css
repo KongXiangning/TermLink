@@ -1276,7 +1276,8 @@ body.codex-only #codex-log-stack {
 .codex-entry .actions,
 .codex-request-actions {
     display: flex;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 10px;
     margin-top: 10px;
 }
 
@@ -1339,13 +1340,18 @@ body.codex-only #codex-log-stack {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    margin-top: 4px;
+    flex: 0 0 100%;
+    padding: 8px 10px;
+    border: 1px solid rgba(166, 141, 106, 0.15);
+    border-radius: 4px;
+    background: rgba(58, 44, 22, 0.1);
 }
 
 .codex-request-question-label {
-    color: #8b949e;
-    font-size: 11px;
-    line-height: 1.35;
+    color: #c9d1d9;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
 }
 
 .codex-request-question-options {
@@ -1368,6 +1374,13 @@ body.codex-only #codex-log-stack {
     border-color: rgba(78, 222, 163, 0.35);
     background: rgba(78, 222, 163, 0.1);
     color: #7ee787;
+}
+
+.codex-request-submit-row {
+    display: flex;
+    gap: 8px;
+    flex: 0 0 100%;
+    margin-top: 2px;
 }
 
 .codex-request-card.kind-command {
