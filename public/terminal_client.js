@@ -4558,8 +4558,7 @@ function sendCodexTurn(text, options) {
         interactionState,
         imageInputs,
         fileMentions,
-        clearOverrides: opts.clearOverrides !== false
-            && (!!nextTurnOverrides.model || !!nextTurnOverrides.reasoningEffort || !!nextTurnOverrides.sandbox),
+        clearOverrides: opts.clearOverrides === true,
         clearPlanMode: opts.clearPlanMode === true,
         clearActiveSkill: !!interactionState.activeSkill,
         clearImageInputs: imageInputs.length > 0,
