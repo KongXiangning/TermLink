@@ -710,7 +710,7 @@ body.codex-only #codex-composer {
 #codex-tools-skills-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
     min-height: 0;
     max-height: clamp(220px, 42vh, 420px);
     overflow-y: auto;
@@ -720,10 +720,9 @@ body.codex-only #codex-composer {
 
 .codex-tools-skill-item {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 10px;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
     border: 1px solid #30363d;
     border-radius: 4px;
     background: transparent;
@@ -734,22 +733,30 @@ body.codex-only #codex-composer {
     min-width: 0;
     flex: 1 1 auto;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 }
 
 .codex-tools-skill-name {
     color: #c9d1d9;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
-    line-height: 1.35;
+    line-height: 1.3;
 }
 
 .codex-tools-skill-desc {
     color: #8b949e;
-    font-size: 11px;
-    line-height: 1.45;
-    white-space: pre-wrap;
-    word-break: break-word;
+    font-size: 10px;
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.codex-tools-skill-item .codex-btn.subtle {
+    flex-shrink: 0;
+    padding: 3px 8px;
+    min-height: 22px;
+    font-size: 10px;
 }
 
 .codex-tools-skill-prompt {
