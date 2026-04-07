@@ -4380,13 +4380,18 @@ function resolveCodexErrorMessage(code, message) {
 
 function isCodexThreadNotMaterializedError(code, message) {
     const normalizedCode = typeof code === 'string' ? code.trim().toUpperCase() : '';
+    const codeNum = typeof code === 'number' ? code : Number(normalizedCode);
     const normalizedMessage = typeof message === 'string' ? message.trim().toLowerCase() : '';
-    if (normalizedCode === '-32600' || normalizedCode.includes('INVALID')) {
-        return normalizedMessage.includes('not materialized yet')
-            || normalizedMessage.includes('includeTurns is unavailable before first user message'.toLowerCase());
+    const isInvalidRequestCode = normalizedCode === '-32600'
+        || codeNum === -32600
+        || normalizedCode.includes('INVALID');
+    const isTransientThreadError = normalizedMessage.includes('not materialized yet')
+        || normalizedMessage.includes('includeTurns is unavailable before first user message'.toLowerCase())
+        || normalizedMessage.includes('no rollout found for thread id');
+    if (isInvalidRequestCode && isTransientThreadError) {
+        return true;
     }
-    return normalizedMessage.includes('not materialized yet')
-        || normalizedMessage.includes('includeTurns is unavailable before first user message'.toLowerCase());
+    return isTransientThreadError;
 }
 
 function getViewportHeight() {
