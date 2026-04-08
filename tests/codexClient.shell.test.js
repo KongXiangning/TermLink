@@ -29,7 +29,8 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="codex-quick-model"/);
     assert.match(html, /id="codex-quick-reasoning"/);
     assert.match(html, /id="codex-quick-sandbox"/);
-    assert.match(html, /id="btn-codex-slash-trigger"/);
+    assert.match(html, /id="btn-codex-file-attach"/);
+    assert.match(html, /id="btn-codex-slash-cmd"/);
     assert.match(html, /id="codex-image-inputs"/);
     assert.match(html, /id="codex-log"[\s\S]*id="codex-log-stack"/);
     assert.match(html, /id="codex-composer-surface"/);

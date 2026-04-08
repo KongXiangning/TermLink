@@ -204,6 +204,8 @@ body.codex-only #codex-log {
 
 body.codex-only #codex-history-panel {
     margin: 0 12px;
+    max-height: 45vh;
+    overflow-y: auto;
 }
 
 body.codex-only #codex-alerts {
@@ -216,6 +218,8 @@ body.codex-only #codex-settings-panel {
 
 body.codex-only #codex-runtime-panel {
     margin: 0 12px 8px;
+    max-height: 45vh;
+    overflow-y: auto;
 }
 
 body.codex-only #codex-tools-panel {
@@ -607,6 +611,8 @@ body.codex-only #codex-composer {
     grid-template-columns: 1fr;
     gap: 8px;
     min-height: 0;
+    max-height: 35vh;
+    overflow-y: auto;
     align-items: start;
 }
 
@@ -679,6 +685,14 @@ body.codex-only #codex-composer {
     transform: rotate(90deg);
 }
 
+#codex-tools-plan-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px;
+    border-top: 1px solid rgba(48, 54, 61, 0.4);
+}
+
 .codex-tools-card-title {
     color: #8b949e;
     font-size: 10px;
@@ -693,6 +707,31 @@ body.codex-only #codex-composer {
     font-size: 10px;
     line-height: 1.3;
     text-align: right;
+}
+
+.codex-tools-toggle-btn {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 10px;
+    border: 1px solid rgba(48, 54, 61, 0.6);
+    border-radius: 4px;
+    background: transparent;
+    color: #8b949e;
+    cursor: pointer;
+    transition: color 0.2s, background 0.2s, border-color 0.2s;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+
+.codex-tools-toggle-btn:hover {
+    color: #c9d1d9;
+    background: rgba(48, 54, 61, 0.3);
+}
+
+.codex-tools-toggle-btn.is-active {
+    color: #4edea3;
+    border-color: rgba(78, 222, 163, 0.4);
+    background: rgba(78, 222, 163, 0.1);
 }
 
 .codex-tools-card-body {
@@ -1454,13 +1493,6 @@ body.codex-only #codex-log-stack {
     backdrop-filter: blur(24px);
 }
 
-#codex-composer-state {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-}
-
 #codex-plan-workflow {
     display: flex;
     flex-direction: column;
@@ -1527,38 +1559,52 @@ body.codex-only #codex-log-stack {
     font-size: 11px;
     line-height: 1.2;
     padding: 7px 12px;
+    cursor: pointer;
 }
 
-#codex-override-summary {
-    color: #8b949e;
-    font-size: 11px;
-    line-height: 1.3;
+.chip-dismiss {
+    margin-left: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    opacity: 0.6;
 }
 
-#btn-codex-quick-clear {
+.codex-mode-chip:hover .chip-dismiss {
+    opacity: 1;
+}
+
+.codex-skill-chip {
+    border-color: rgba(56, 139, 253, 0.4);
+    background: rgba(56, 139, 253, 0.12);
+    color: #58a6ff;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.codex-inline-action {
-    border: none;
-    background: transparent;
-    color: #8b949e;
-    font-size: 11px;
+    padding: 3px 8px;
+    font-size: 10px;
     line-height: 1.2;
-    padding: 0;
+    vertical-align: middle;
+    margin-right: auto;
 }
 
 #codex-composer-surface {
     display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 6px 6px 6px;
+    flex-direction: column;
+    gap: 0;
+    padding: 6px;
     border: 1px solid rgba(48, 54, 61, 0.5);
-    border-radius: 9999px;
+    border-radius: 0;
     background: rgba(33, 38, 45, 0.3);
     box-shadow: none;
     backdrop-filter: none;
+}
+
+#codex-composer-input-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
 }
 
 #codex-composer-surface:focus-within {
@@ -1574,17 +1620,13 @@ body.codex-only #codex-log-stack {
 }
 
 .codex-footer-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 auto;
-    color: #484f58;
+    display: none; /* Deprecated: replaced by .codex-footer-action-btn */
 }
 
 #codex-footer-left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
@@ -1603,6 +1645,22 @@ body.codex-only #codex-log-stack {
     width: 1px;
     height: 14px;
     background-color: rgba(48, 54, 61, 0.3);
+}
+
+.codex-footer-plan-indicator {
+    border: none;
+    background: rgba(78, 222, 163, 0.15);
+    color: #4edea3;
+    font-size: 11px;
+    padding: 2px 8px;
+    cursor: pointer;
+    border-radius: 3px;
+    white-space: nowrap;
+    transition: background 0.2s, color 0.2s;
+}
+
+.codex-footer-plan-indicator:hover {
+    background: rgba(78, 222, 163, 0.25);
 }
 
 .codex-ghost-select {
@@ -1812,6 +1870,28 @@ body.codex-only #codex-log-stack {
 
 #btn-codex-slash-trigger {
     flex: 0 0 auto;
+    display: none; /* Moved to footer as btn-codex-file-attach */
+}
+
+.codex-footer-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #484f58;
+    cursor: pointer;
+    flex: 0 0 auto;
+    transition: color 0.2s, background 0.2s;
+}
+
+.codex-footer-action-btn:hover {
+    color: #c9d1d9;
+    background: rgba(48, 54, 61, 0.4);
 }
 
 #codex-slash-menu {
@@ -1896,8 +1976,8 @@ body.codex-only #codex-log-stack {
 #codex-file-mention-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    padding: 6px 0;
+    gap: 4px;
+    padding: 2px 0 4px 0;
     min-height: 0;
 }
 
@@ -1913,6 +1993,11 @@ body.codex-only #codex-log-stack {
     color: #8b949e;
     font-size: 12px;
     line-height: 1.2;
+}
+
+.codex-file-mention-chip .chip-icon {
+    font-size: 11px;
+    flex-shrink: 0;
 }
 
 .codex-file-mention-chip .chip-label {
@@ -2260,18 +2345,23 @@ body.codex-only #codex-log-stack {
     justify-content: space-between;
     gap: 10px;
     width: 100%;
-    border: 1px solid #30363d;
-    border-radius: 4px;
+    border: none;
+    border-bottom: 1px solid rgba(48, 54, 61, 0.4);
+    border-radius: 0;
     background: transparent;
     color: #c9d1d9;
-    padding: 12px 14px;
+    padding: 10px 8px;
     text-align: left;
     transition: all 0.2s ease;
 }
 
+.codex-slash-item:last-child {
+    border-bottom: none;
+}
+
 .codex-slash-item:hover {
     border-color: rgba(78, 222, 163, 0.2);
-    background: rgba(78, 222, 163, 0.06);
+    background: rgba(78, 222, 163, 0.04);
 }
 
 .codex-slash-item-copy {
@@ -2317,7 +2407,6 @@ body.codex-only #codex-log-stack {
     flex: 1 1 auto;
     min-height: 24px;
     max-height: min(160px, 30vh);
-    resize: none;
     border: none;
     border-radius: 0;
     background: transparent;
@@ -2325,11 +2414,14 @@ body.codex-only #codex-log-stack {
     padding: 4px 0;
     font-size: 13px;
     line-height: 1.5;
-    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", sans-serif;
     outline: none;
     box-shadow: none;
     overflow-y: auto;
     overflow-x: hidden;
+    white-space: pre-wrap;
+    word-break: break-word;
+    -webkit-user-modify: read-write-plaintext-only;
 }
 
 #codex-input:focus {
@@ -2338,8 +2430,27 @@ body.codex-only #codex-log-stack {
     border: none;
 }
 
-#codex-input::placeholder {
+#codex-input:empty::before {
+    content: attr(data-placeholder);
     color: rgba(72, 79, 88, 0.5);
+    pointer-events: none;
+}
+
+/* Inline file mention tag */
+.codex-mention-tag {
+    display: inline;
+    background: rgba(56, 139, 253, 0.15);
+    color: #58a6ff;
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, monospace;
+    cursor: default;
+    user-select: all;
+    white-space: nowrap;
+    vertical-align: baseline;
+    line-height: inherit;
 }
 
 #btn-codex-send {

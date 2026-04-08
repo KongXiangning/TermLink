@@ -123,6 +123,28 @@
                 capabilityBinding: 'skills/list + client-side',
                 capabilityKey: 'skillsList',
                 statusText: ''
+            },
+            {
+                command: '/mention',
+                title: t('codex.slash.mention'),
+                availability: 'enabled',
+                discoverability: ENABLED_DISCOVERABILITY,
+                argumentShape: 'none',
+                dispatchKind: 'interaction_state',
+                capabilityBinding: 'client-side file mention',
+                capabilityKey: 'fileMentions',
+                statusText: ''
+            },
+            {
+                command: '/fast',
+                title: t('codex.slash.fast'),
+                availability: 'enabled',
+                discoverability: ENABLED_DISCOVERABILITY,
+                argumentShape: 'none',
+                dispatchKind: 'next_turn_override',
+                capabilityBinding: 'client-side reasoning_effort toggle',
+                capabilityKey: '',
+                statusText: ''
             }
         ];
     }

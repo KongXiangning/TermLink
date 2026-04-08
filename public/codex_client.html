@@ -105,6 +105,10 @@
                         </div>
                     </section>
                 </div>
+                <div id="codex-tools-plan-row">
+                    <span class="codex-tools-card-title" data-i18n="codex.tools.planTitle">Plan Mode</span>
+                    <button id="btn-codex-tools-plan-toggle" class="codex-tools-toggle-btn" type="button" data-i18n="codex.tools.planOff">Off</button>
+                </div>
             </div>
             <div id="codex-log" aria-live="polite">
                 <div id="codex-log-stack"></div>
@@ -115,11 +119,6 @@
                     <button id="btn-codex-secondary-runtime" class="codex-secondary-btn" type="button" data-i18n="codex.panel.runtime">Runtime</button>
                     <button id="btn-codex-secondary-tools" class="codex-secondary-btn" type="button" hidden data-i18n="codex.panel.tools">Tools</button>
                     <button id="btn-codex-secondary-notices" class="codex-secondary-btn" type="button" hidden data-i18n="codex.panel.notices">Notices</button>
-                </div>
-                <div id="codex-composer-state" hidden>
-                    <button id="codex-plan-chip" class="codex-mode-chip" type="button" hidden data-i18n="codex.plan.chipEnabled">Plan mode enabled</button>
-                    <div id="codex-override-summary" hidden></div>
-                    <button id="btn-codex-quick-clear" class="codex-inline-action" type="button" data-i18n="codex.plan.clearSettings">Clear current settings</button>
                 </div>
                 <section id="codex-plan-workflow" hidden>
                     <div id="codex-plan-workflow-header">
@@ -142,7 +141,6 @@
                     <div id="codex-slash-menu-empty" hidden data-i18n="codex.slash.empty">No matching commands.</div>
                     <div id="codex-slash-menu-list" aria-live="polite"></div>
                 </div>
-                <div id="codex-file-mention-chips" hidden></div>
                 <div id="codex-file-mention-menu" class="codex-slash-menu" hidden>
                     <div class="codex-file-mention-loading" style="display:none;" data-i18n="codex.fileMention.loading">Searching...</div>
                     <div class="codex-file-mention-empty" style="display:none;" data-i18n="codex.fileMention.empty">No matching files</div>
@@ -160,17 +158,22 @@
                     </div>
                 </div>
                 <div id="codex-composer-surface">
-                    <button id="btn-codex-slash-trigger" class="codex-action-btn" type="button" aria-label="Upload image or open command menu" data-i18n="codex.input.slashTriggerLabel" data-i18n-attr="aria-label">+</button>
-                    <textarea id="codex-input" placeholder="Ask anything..." data-i18n="codex.input.placeholder" data-i18n-attr="placeholder"></textarea>
-                    <button id="btn-codex-send" type="button" aria-label="Send" data-i18n="codex.btn.send" data-i18n-attr="aria-label">
-                        <span class="send-icon">↑</span>
-                    </button>
+                    <div id="codex-composer-input-row">
+                        <div id="codex-input" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Ask anything..." data-i18n="codex.input.placeholder" data-i18n-attr="data-placeholder"></div>
+                        <button id="btn-codex-send" type="button" aria-label="Send" data-i18n="codex.btn.send" data-i18n-attr="aria-label">
+                            <span class="send-icon">↑</span>
+                        </button>
+                    </div>
                 </div>
                 <div id="codex-composer-footer">
                     <div id="codex-footer-left">
-                        <span class="codex-footer-icon" aria-hidden="true">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
-                        </span>
+                        <button id="btn-codex-file-attach" class="codex-footer-action-btn" type="button" aria-label="Attach file or image" data-i18n="codex.footer.fileAttachLabel" data-i18n-attr="aria-label">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        </button>
+                        <button id="btn-codex-slash-cmd" class="codex-footer-action-btn" type="button" aria-label="Open command menu" data-i18n="codex.footer.slashCmdLabel" data-i18n-attr="aria-label">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="7" y1="20" x2="17" y2="4"/></svg>
+                        </button>
+                        <div class="codex-footer-divider"></div>
                         <div id="codex-quick-controls">
                             <select id="codex-quick-model" class="codex-ghost-select">
                                 <option value="" data-i18n="codex.quick.default">Default</option>
@@ -184,6 +187,7 @@
                             </select>
                         </div>
                         <div class="codex-footer-divider"></div>
+                        <button id="codex-footer-plan-indicator" class="codex-footer-plan-indicator" type="button" hidden data-i18n="codex.footer.planOn">📋 Plan</button>
                         <button id="codex-context-widget" class="codex-context-widget" type="button" hidden aria-label="View context window debug info" data-i18n="codex.context.widgetLabel" data-i18n-attr="aria-label">
                             <div id="codex-context-ring" class="codex-context-ring" aria-hidden="true">
                                 <span id="codex-context-percent" class="codex-context-percent">--</span>

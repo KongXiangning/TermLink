@@ -46,15 +46,15 @@ const codexToolsSkillsCard = document.getElementById('codex-tools-skills-card');
 const codexToolsSkillsMeta = document.getElementById('codex-tools-skills-meta');
 const codexToolsSkillsEmpty = document.getElementById('codex-tools-skills-empty');
 const codexToolsSkillsList = document.getElementById('codex-tools-skills-list');
+const codexToolsPlanCard = document.getElementById('codex-tools-plan-card');
+const btnCodexToolsPlanToggle = document.getElementById('btn-codex-tools-plan-toggle');
 const codexToolsCompactCard = null;
 const codexToolsCompactMeta = null;
 const codexToolsCompactStatus = null;
 const btnCodexCompactConfirm = document.getElementById('btn-codex-compact-confirm');
 const codexContextCompactSection = document.getElementById('codex-context-compact-section');
 const codexContextCompactStatus = document.getElementById('codex-context-compact-status');
-const codexComposerState = document.getElementById('codex-composer-state');
-const codexPlanChip = document.getElementById('codex-plan-chip');
-const codexOverrideSummary = document.getElementById('codex-override-summary');
+const codexFooterPlanIndicator = document.getElementById('codex-footer-plan-indicator');
 const codexPlanWorkflow = document.getElementById('codex-plan-workflow');
 const codexPlanWorkflowTitle = document.getElementById('codex-plan-workflow-title');
 const codexPlanWorkflowSummary = document.getElementById('codex-plan-workflow-summary');
@@ -65,8 +65,9 @@ const btnCodexPlanCancel = document.getElementById('btn-codex-plan-cancel');
 const codexQuickModel = document.getElementById('codex-quick-model');
 const codexQuickReasoning = document.getElementById('codex-quick-reasoning');
 const codexQuickSandbox = document.getElementById('codex-quick-sandbox');
-const btnCodexQuickClear = document.getElementById('btn-codex-quick-clear');
-const btnCodexSlashTrigger = document.getElementById('btn-codex-slash-trigger');
+const btnCodexSlashTrigger = document.getElementById('btn-codex-slash-trigger');  // legacy (removed from DOM)
+const btnCodexFileAttach = document.getElementById('btn-codex-file-attach');
+const btnCodexSlashCmd = document.getElementById('btn-codex-slash-cmd');
 const codexImageActions = document.getElementById('codex-image-actions');
 const btnCodexImageUrl = document.getElementById('btn-codex-image-url');
 const btnCodexImageLocal = document.getElementById('btn-codex-image-local');
@@ -98,6 +99,157 @@ const codexCommandApprovalRemember = document.getElementById('codex-command-appr
 const btnCodexCommandApprovalReject = document.getElementById('btn-codex-command-approval-reject');
 const btnCodexCommandApprovalApprove = document.getElementById('btn-codex-command-approval-approve');
 const isCodexOnlyPage = !!(document.body && document.body.classList.contains('codex-only'));
+
+// --- Contenteditable helpers for #codex-input ---
+let savedCodexInputRange = null;
+if (codexInput && codexInput.tagName === 'DIV') {
+    Object.defineProperty(codexInput, 'value', {
+        get() {
+            let text = '';
+            const walk = (node) => {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    text += node.textContent;
+                } else if (node.nodeName === 'BR') {
+                    text += '\n';
+                } else if (node.classList && node.classList.contains('codex-mention-tag')) {
+                    text += '@' + (node.dataset.label || node.textContent.replace(/^@/, ''));
+                } else {
+                    node.childNodes.forEach(walk);
+                }
+            };
+            this.childNodes.forEach(walk);
+            return text;
+        },
+        set(v) {
+            this.textContent = v || '';
+        },
+        configurable: true
+    });
+    Object.defineProperty(codexInput, 'placeholder', {
+        get() { return this.dataset.placeholder || ''; },
+        set(v) { this.dataset.placeholder = v || ''; },
+        configurable: true
+    });
+    codexInput.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+        document.execCommand('insertText', false, text);
+    });
+    document.addEventListener('selectionchange', () => {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && codexInput.contains(sel.anchorNode)) {
+            savedCodexInputRange = sel.getRangeAt(0).cloneRange();
+        }
+    });
+}
+
+function getCodexInputRawText() {
+    if (!codexInput) return '';
+    let text = '';
+    const walk = (node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+            text += node.textContent;
+        } else if (node.nodeName === 'BR') {
+            text += '\n';
+        } else if (node.classList && node.classList.contains('codex-mention-tag')) {
+            // skip mention spans — raw text only
+        } else {
+            node.childNodes.forEach(walk);
+        }
+    };
+    codexInput.childNodes.forEach(walk);
+    return text;
+}
+
+function extractInlineMentions() {
+    if (!codexInput) return [];
+    const spans = codexInput.querySelectorAll('.codex-mention-tag');
+    return Array.from(spans).map(span => ({
+        label: span.dataset.label || '',
+        path: span.dataset.path || '',
+        relativePathWithoutFileName: '',
+        fsPath: span.dataset.fspath || span.dataset.path || ''
+    }));
+}
+
+function insertMentionTagAtCursor(file) {
+    if (!codexInput) return;
+    const sel = window.getSelection();
+
+    // Try current selection first, then fall back to saved range
+    let activeRange = null;
+    if (sel && sel.rangeCount > 0 && codexInput.contains(sel.anchorNode)) {
+        activeRange = sel.getRangeAt(0);
+    } else if (savedCodexInputRange && codexInput.contains(savedCodexInputRange.startContainer)) {
+        activeRange = savedCodexInputRange;
+        codexInput.focus();
+        sel.removeAllRanges();
+        sel.addRange(activeRange);
+    } else {
+        codexInput.focus();
+    }
+
+    let textNode = activeRange ? activeRange.startContainer : null;
+    let cursorPos = activeRange ? activeRange.startOffset : 0;
+
+    // If cursor is at the element level, find the last text node
+    if (!textNode || textNode === codexInput || textNode.nodeType !== Node.TEXT_NODE) {
+        const walker = document.createTreeWalker(codexInput, NodeFilter.SHOW_TEXT);
+        let lastText = null;
+        while (walker.nextNode()) lastText = walker.currentNode;
+        if (lastText) {
+            textNode = lastText;
+            cursorPos = textNode.textContent.length;
+        }
+    }
+
+    if (!textNode || textNode.nodeType !== Node.TEXT_NODE || !codexInput.contains(textNode)) {
+        // No text node found — append mention at end
+        const span = document.createElement('span');
+        span.className = 'codex-mention-tag';
+        span.contentEditable = 'false';
+        span.dataset.path = file.path;
+        span.dataset.fspath = file.fsPath || file.path;
+        span.dataset.label = file.label;
+        span.textContent = '@' + file.label;
+        codexInput.appendChild(span);
+        const space = document.createTextNode('\u00A0');
+        codexInput.appendChild(space);
+        const r = document.createRange();
+        r.setStartAfter(space);
+        r.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(r);
+        return;
+    }
+
+    const text = textNode.textContent;
+    const atPos = text.lastIndexOf('@', cursorPos - 1);
+    if (atPos === -1) return;
+    const beforeText = text.slice(0, atPos);
+    const afterText = text.slice(cursorPos);
+    textNode.textContent = beforeText;
+    const span = document.createElement('span');
+    span.className = 'codex-mention-tag';
+    span.contentEditable = 'false';
+    span.dataset.path = file.path;
+    span.dataset.fspath = file.fsPath || file.path;
+    span.dataset.label = file.label;
+    span.textContent = '@' + file.label;
+    textNode.after(span);
+    const space = document.createTextNode('\u00A0');
+    span.after(space);
+    if (afterText) {
+        const afterNode = document.createTextNode(afterText);
+        space.after(afterNode);
+    }
+    const newRange = document.createRange();
+    newRange.setStartAfter(space);
+    newRange.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+}
+// --- End contenteditable helpers ---
 
 let term;
 let fitAddon;
@@ -1129,6 +1281,8 @@ function setCodexInteractionState(nextState, options) {
     const opts = options || {};
     codexState.interactionState = normalizeCodexInteractionState(nextState);
     renderCodexComposerState();
+    renderCodexQuickControls();
+    renderCodexToolsPanel();
     if (opts.syncRemote !== false) {
         sendCodexEnvelope({
             type: 'codex_set_interaction_state',
@@ -1341,6 +1495,21 @@ function setNextTurnOverrideValue(key, value) {
     });
 }
 
+const FAST_MODE_REASONING_EFFORT = 'low';
+
+function toggleFastMode() {
+    const current = codexState.nextTurnOverrides.reasoningEffort;
+    const isFastNow = current === FAST_MODE_REASONING_EFFORT;
+    if (isFastNow) {
+        setNextTurnOverrideValue('reasoningEffort', null);
+        appendCodexLogEntry('system', t('codex.fast.disabled'), { meta: 'slash' });
+    } else {
+        setNextTurnOverrideValue('reasoningEffort', FAST_MODE_REASONING_EFFORT);
+        appendCodexLogEntry('system', t('codex.fast.enabled'), { meta: 'slash' });
+    }
+    renderCodexQuickControls();
+}
+
 function persistNextTurnOverrides(overrides) {
     try {
         const data = {
@@ -1363,24 +1532,37 @@ function restoreNextTurnOverrides() {
 }
 
 function renderCodexComposerState() {
-    if (!codexComposerState) {
-        return;
-    }
     const planMode = codexState.interactionState.planMode === true;
-    const parts = [];
-    // Model and reasoning overrides are already visible in the footer selects,
-    // so only show skill override in the summary badge
-    if (codexState.interactionState.activeSkill) {
-        parts.push(t('codex.override.skill', { skill: codexState.interactionState.activeSkill }));
+    const hasSkill = !!codexState.interactionState.activeSkill;
+
+    // Plan mode indicator in the footer bar
+    if (codexFooterPlanIndicator) {
+        codexFooterPlanIndicator.hidden = !planMode;
     }
-    codexComposerState.hidden = !planMode && parts.length === 0;
-    if (codexPlanChip) {
-        codexPlanChip.hidden = !planMode;
+
+    // Skill chip in the secondary nav row
+    if (codexSecondaryNav) {
+        const existing = codexSecondaryNav.querySelector('.codex-skill-chip');
+        if (existing) existing.remove();
+        if (hasSkill) {
+            const skillChip = document.createElement('button');
+            skillChip.className = 'codex-mode-chip codex-skill-chip';
+            skillChip.type = 'button';
+            const skillName = codexState.interactionState.activeSkill;
+            const maxLen = 12;
+            const display = skillName.length > maxLen ? skillName.slice(0, maxLen) + '…' : skillName;
+            skillChip.innerHTML = '🛠 ' + display + ' <span class="chip-dismiss">&times;</span>';
+            skillChip.title = skillName;
+            skillChip.addEventListener('click', () => {
+                setCodexInteractionState({
+                    planMode: codexState.interactionState.planMode,
+                    activeSkill: null
+                });
+            });
+            codexSecondaryNav.insertBefore(skillChip, codexSecondaryNav.firstChild);
+        }
     }
-    if (codexOverrideSummary) {
-        codexOverrideSummary.hidden = parts.length === 0;
-        codexOverrideSummary.textContent = parts.join(' | ');
-    }
+
     if (codexInput) {
         codexInput.placeholder = codexState.interactionState.activeSkill
             ? t('codex.input.skillActive', { skill: codexState.interactionState.activeSkill })
@@ -1603,9 +1785,6 @@ function renderCodexQuickControls() {
     }
     if (codexQuickSandbox) {
         codexQuickSandbox.value = codexState.nextTurnOverrides.sandbox || '';
-    }
-    if (btnCodexQuickClear) {
-        btnCodexQuickClear.disabled = !codexState.nextTurnOverrides.model && !codexState.nextTurnOverrides.reasoningEffort && !codexState.nextTurnOverrides.sandbox;
     }
 }
 
@@ -1853,6 +2032,7 @@ function renderCodexFileMentionMenu() {
             path.textContent = file.relativePathWithoutFileName || '';
             item.appendChild(label);
             item.appendChild(path);
+            item.addEventListener('mousedown', (e) => e.preventDefault());
             item.addEventListener('click', () => handleFileMentionSelect(file));
             codexFileMentionMenuList.appendChild(item);
         });
@@ -1866,6 +2046,9 @@ function renderCodexFileMentionChips() {
     codexState.pendingFileMentions.forEach((file, idx) => {
         const chip = document.createElement('div');
         chip.className = 'codex-file-mention-chip';
+        const icon = document.createElement('span');
+        icon.className = 'chip-icon';
+        icon.textContent = '\uD83D\uDCCE';
         const label = document.createElement('span');
         label.className = 'chip-label';
         label.textContent = file.label;
@@ -1877,6 +2060,7 @@ function renderCodexFileMentionChips() {
             e.stopPropagation();
             removeFileMentionChip(idx);
         });
+        chip.appendChild(icon);
         chip.appendChild(label);
         chip.appendChild(remove);
         codexFileMentionChips.appendChild(chip);
@@ -1893,19 +2077,9 @@ function handleFileMentionSelect(file) {
         relativePathWithoutFileName: String(file.relativePathWithoutFileName || ''),
         fsPath: String(file.fsPath || file.path || '')
     };
-    codexState.pendingFileMentions.push(normalizedFile);
-    const slashApi = getCodexSlashCommandsApi();
-    if (slashApi && typeof slashApi.parseFileMentionInput === 'function' && codexInput) {
-        const parsed = slashApi.parseFileMentionInput(codexInput.value);
-        if (parsed && parsed.kind === 'file-mention') {
-            const before = codexInput.value.slice(0, parsed.tokenStart);
-            const after = codexInput.value.slice(parsed.tokenEnd);
-            codexInput.value = before + after;
-            codexInput.focus();
-        }
-    }
+    insertMentionTagAtCursor(normalizedFile);
     setFileMentionMenuState(false);
-    renderCodexFileMentionChips();
+    autoResizeCodexInput();
 }
 
 function removeFileMentionChip(index) {
@@ -1985,16 +2159,30 @@ function applySlashCommandSelection(command) {
         openCodexToolsPanel('compact');
         return;
     }
+    if (registryEntry.command === '/mention') {
+        codexInput.value = '@';
+        setSlashMenuState(false, '');
+        codexInput.focus();
+        codexInput.dispatchEvent(new Event('input', { bubbles: true }));
+        return;
+    }
+    if (registryEntry.command === '/fast') {
+        codexInput.value = '';
+        setSlashMenuState(false, '');
+        toggleFastMode();
+        return;
+    }
     setSlashMenuState(true, registryEntry.command);
 }
 
 function updateSlashMenuForInputValue() {
     if (!codexInput) return;
     const slashApi = getCodexSlashCommandsApi();
+    const rawText = getCodexInputRawText();
 
-    // Check for @ file mention first
+    // Check for @ file mention first (use raw text to skip committed mentions)
     if (slashApi && typeof slashApi.parseFileMentionInput === 'function') {
-        const fileMention = slashApi.parseFileMentionInput(codexInput.value);
+        const fileMention = slashApi.parseFileMentionInput(rawText);
         if (fileMention && codexState.capabilities.fileMentions) {
             void searchWorkspaceFiles(fileMention.query);
             return;
@@ -2002,7 +2190,7 @@ function updateSlashMenuForInputValue() {
     }
 
     const parsed = slashApi && typeof slashApi.parseComposerInput === 'function'
-        ? slashApi.parseComposerInput(codexInput.value)
+        ? slashApi.parseComposerInput(rawText)
         : { kind: 'text' };
     if (parsed.kind !== 'slash') {
         setSlashMenuState(false, '');
@@ -2675,6 +2863,11 @@ function renderCodexToolsPanel() {
                 codexToolsSkillsList.appendChild(item);
             });
         }
+    }
+    if (btnCodexToolsPlanToggle) {
+        const isPlan = codexState.interactionState.planMode === true;
+        btnCodexToolsPlanToggle.textContent = isPlan ? t('codex.tools.planOff') : t('codex.tools.planOn');
+        btnCodexToolsPlanToggle.classList.toggle('is-active', isPlan);
     }
 }
 
@@ -4578,14 +4771,16 @@ function sendCodexTurn(text, options) {
 }
 
 function handleCodexComposerSubmit(rawText) {
+    const inlineMentions = extractInlineMentions();
     const slashApi = getCodexSlashCommandsApi();
     const parsed = slashApi && typeof slashApi.parseComposerInput === 'function'
         ? slashApi.parseComposerInput(rawText)
         : { kind: 'text', text: rawText };
 
     if (parsed.kind === 'empty') {
-        if (codexState.pendingImageInputs.length > 0) {
+        if (codexState.pendingImageInputs.length > 0 || inlineMentions.length > 0) {
             sendCodexTurn('', {
+                fileMentions: inlineMentions.length > 0 ? inlineMentions : undefined,
                 clearPlanMode: codexState.interactionState.planMode === true,
                 collaborationMode: codexState.interactionState.planMode === true
                     ? buildPlanCollaborationMode(codexState.nextTurnEffectiveCodexConfig)
@@ -4601,6 +4796,7 @@ function handleCodexComposerSubmit(rawText) {
             ? buildPlanCollaborationMode(codexState.nextTurnEffectiveCodexConfig)
             : null;
         sendCodexTurn(parsed.text, {
+            fileMentions: inlineMentions.length > 0 ? inlineMentions : undefined,
             clearPlanMode: codexState.interactionState.planMode === true,
             collaborationMode
         });
@@ -4673,6 +4869,25 @@ function handleCodexComposerSubmit(rawText) {
         }
         setSlashMenuState(false, '');
         openCodexToolsPanel('compact');
+        return false;
+    }
+
+    if (registryEntry.command === '/mention') {
+        if (codexInput) {
+            codexInput.value = '@';
+            codexInput.focus();
+            codexInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        setSlashMenuState(false, '');
+        return false;
+    }
+
+    if (registryEntry.command === '/fast') {
+        if (codexInput) {
+            codexInput.value = '';
+        }
+        setSlashMenuState(false, '');
+        toggleFastMode();
         return false;
     }
 
@@ -6707,22 +6922,30 @@ if (codexInput) {
 
     codexInput.addEventListener('blur', () => {
         // Collapse to single-line height when empty and blurred
-        if (!codexInput.value.trim()) {
+        if (!codexInput.textContent.trim()) {
             codexInput.style.height = '';
+            codexInput.style.overflowY = '';
         }
     });
 }
 
-/** Auto-resize #codex-input textarea to fit content, up to CSS max-height */
+/** Auto-resize #codex-input to fit content, up to CSS max-height */
 function autoResizeCodexInput() {
     if (!codexInput) return;
     codexInput.style.height = 'auto';
     const maxH = parseInt(getComputedStyle(codexInput).maxHeight, 10) || 160;
-    codexInput.style.height = Math.min(codexInput.scrollHeight, maxH) + 'px';
+    const sh = codexInput.scrollHeight;
+    if (sh > maxH) {
+        codexInput.style.height = maxH + 'px';
+        codexInput.style.overflowY = 'auto';
+    } else {
+        codexInput.style.height = sh + 'px';
+        codexInput.style.overflowY = 'hidden';
+    }
 }
 
-if (codexPlanChip) {
-    codexPlanChip.addEventListener('click', () => {
+if (codexFooterPlanIndicator) {
+    codexFooterPlanIndicator.addEventListener('click', () => {
         setPlanMode(false);
     });
 }
@@ -6741,7 +6964,8 @@ if (btnCodexPlanExecute) {
         });
         const sent = sendCodexTurn(executionPrompt, {
             clearPlanMode: false,
-            collaborationMode: null
+            collaborationMode: null,
+            forceNewThread: true
         });
         if (!sent) {
             setPlanWorkflowState({
@@ -6826,20 +7050,51 @@ if (codexQuickSandbox) {
     });
 }
 
-if (btnCodexQuickClear) {
-    btnCodexQuickClear.addEventListener('click', () => {
-        clearNextTurnOverrides();
+if (btnCodexToolsPlanToggle) {
+    btnCodexToolsPlanToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isActive = codexState.interactionState.planMode === true;
+        setPlanMode(!isActive);
+        renderCodexToolsPanel();
     });
 }
 
 if (btnCodexSlashTrigger) {
     btnCodexSlashTrigger.addEventListener('click', () => {
-        // 如果 imageInput capability 启用，直接选择本地图片
+        // Legacy: kept for backward compat if element exists in DOM
         if (codexState.capabilities.imageInput === true) {
             promptForCodexImageInput('localImage');
             return;
         }
-        // 否则打开 slash 菜单（输入 "/"）
+        if (!codexInput) return;
+        if (!codexInput.value.trim()) {
+            codexInput.value = '/';
+        }
+        codexInput.focus();
+        updateSlashMenuForInputValue();
+    });
+}
+
+// "+" footer button: attach file / image
+if (btnCodexFileAttach) {
+    btnCodexFileAttach.addEventListener('click', () => {
+        if (codexState.capabilities.imageInput === true) {
+            promptForCodexImageInput('localImage');
+            return;
+        }
+        // Fallback: trigger file mention by inserting "@"
+        if (!codexInput) return;
+        if (!codexInput.value.trim()) {
+            codexInput.value = '@';
+        }
+        codexInput.focus();
+        codexInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+}
+
+// "/" footer button: open slash command menu
+if (btnCodexSlashCmd) {
+    btnCodexSlashCmd.addEventListener('click', () => {
         if (!codexInput) return;
         if (!codexInput.value.trim()) {
             codexInput.value = '/';

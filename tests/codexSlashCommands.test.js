@@ -55,7 +55,7 @@ test('getDiscoverableSlashCommands only returns enabled commands allowed by capa
             },
             query: '/'
         }).map((entry) => entry.command),
-        ['/model']
+        ['/model', '/fast']
     );
 });
 
@@ -90,7 +90,7 @@ test('getDiscoverableSlashCommands includes /skills and /compact when capabiliti
             },
             query: '/'
         }).map((entry) => entry.command),
-        ['/model', '/plan', '/skill', '/compact', '/skills']
+        ['/model', '/plan', '/skill', '/compact', '/skills', '/fast']
     );
 });
 

@@ -211,9 +211,10 @@ function createTestDOM() {
                         <button id="btn-codex-image-prompt-confirm" class="codex-btn" type="button">确认</button>
                     </div>
                 </div>
-                <textarea id="codex-input" placeholder="输入你的请求，让 Codex 帮你检查、修改或执行任务..."></textarea>
+                <div id="codex-input" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="输入你的请求，让 Codex 帮你检查、修改或执行任务..."></div>
                 <div id="codex-composer-footer">
-                    <button id="btn-codex-slash-trigger" class="codex-icon-btn" type="button">+</button>
+                    <button id="btn-codex-file-attach" class="codex-footer-action-btn" type="button">+</button>
+                    <button id="btn-codex-slash-cmd" class="codex-footer-action-btn" type="button">/</button>
                     <div id="codex-image-actions" hidden>
                         <button id="btn-codex-image-url" class="codex-inline-action" type="button">图像 URL</button>
                         <button id="btn-codex-image-local" class="codex-inline-action" type="button">本地图片</button>
