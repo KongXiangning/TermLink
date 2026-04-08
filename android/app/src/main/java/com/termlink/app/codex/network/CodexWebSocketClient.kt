@@ -40,6 +40,10 @@ class CodexWebSocketClient {
 
     private var webSocket: WebSocket? = null
 
+    /** Monotonic generation counter to ignore stale WS callbacks. */
+    @Volatile
+    private var generation = 0L
+
     private val _events = MutableSharedFlow<WsEvent>(
         extraBufferCapacity = 64,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -55,7 +59,8 @@ class CodexWebSocketClient {
         headers.forEach { (k, v) -> requestBuilder.addHeader(k, v) }
         val request = requestBuilder.build()
         Log.i(TAG, "Connecting to $url")
-        webSocket = client.newWebSocket(request, Listener())
+        val gen = ++generation
+        webSocket = client.newWebSocket(request, Listener(gen))
     }
 
     fun send(text: String): Boolean {
@@ -68,13 +73,28 @@ class CodexWebSocketClient {
         webSocket = null
     }
 
-    private inner class Listener : WebSocketListener() {
+    /** Release OkHttp thread pools. Call once when the manager is done. */
+    fun shutdown() {
+        disconnect()
+        client.dispatcher.executorService.shutdown()
+        client.connectionPool.evictAll()
+    }
+
+    /**
+     * Listener scoped to a specific [gen] (generation). Callbacks from stale
+     * connections (where [gen] != current [generation]) are silently ignored.
+     */
+    private inner class Listener(private val gen: Long) : WebSocketListener() {
+        private fun isStale() = gen != generation
+
         override fun onOpen(webSocket: WebSocket, response: Response) {
+            if (isStale()) return
             Log.i(TAG, "WebSocket opened (protocol=${response.protocol})")
             _events.tryEmit(WsEvent.Opened(response.protocol.toString()))
         }
 
         override fun onMessage(webSocket: WebSocket, text: String) {
+            if (isStale()) return
             val envelope = CodexWsEnvelope.parse(text)
             if (envelope != null) {
                 _events.tryEmit(WsEvent.Message(envelope))
@@ -84,18 +104,21 @@ class CodexWebSocketClient {
         }
 
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+            if (isStale()) return
             Log.i(TAG, "WebSocket closing: $code $reason")
             _events.tryEmit(WsEvent.Closing(code, reason))
             webSocket.close(code, reason)
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+            if (isStale()) return
             Log.i(TAG, "WebSocket closed: $code $reason")
             this@CodexWebSocketClient.webSocket = null
             _events.tryEmit(WsEvent.Closed(code, reason))
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+            if (isStale()) return
             Log.e(TAG, "WebSocket failure: ${t.message}", t)
             this@CodexWebSocketClient.webSocket = null
             _events.tryEmit(WsEvent.Failure(t, response?.code))

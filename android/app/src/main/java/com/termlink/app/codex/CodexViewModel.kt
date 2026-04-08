@@ -221,6 +221,17 @@ class CodexViewModel(
     private fun handleCodexResponse(response: CodexResponse) {
         when (response.event) {
             "message_start" -> {
+                // Finalize any orphaned streaming message before starting a new one
+                if (currentStreamingMessageId != null) {
+                    val orphanId = currentStreamingMessageId
+                    _uiState.update { state ->
+                        val updated = state.messages.map { msg ->
+                            if (msg.id == orphanId) msg.copy(streaming = false) else msg
+                        }
+                        state.copy(messages = updated)
+                    }
+                    Log.w(TAG, "Finalized orphaned streaming message: $orphanId")
+                }
                 val msgId = UUID.randomUUID().toString()
                 currentStreamingMessageId = msgId
                 val msg = ChatMessage(
@@ -309,6 +320,6 @@ class CodexViewModel(
 
     override fun onCleared() {
         super.onCleared()
-        connectionManager.disconnect()
+        connectionManager.shutdown()
     }
 }

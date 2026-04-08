@@ -19,6 +19,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.net.URI
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
 
@@ -42,6 +43,12 @@ class CodexConnectionManager(
     }
 
     val wsClient = CodexWebSocketClient()
+
+    /** Shared HTTP client for ticket fetches (avoids per-call thread pool leak). */
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .build()
 
     private val _connectionState = MutableStateFlow(ConnectionState.IDLE)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
@@ -74,6 +81,14 @@ class CodexConnectionManager(
         cancelHeartbeat()
         wsClient.disconnect()
         _connectionState.value = ConnectionState.IDLE
+    }
+
+    /** Permanently release all resources. Call from ViewModel.onCleared(). */
+    fun shutdown() {
+        disconnect()
+        wsClient.shutdown()
+        httpClient.dispatcher.executorService.shutdown()
+        httpClient.connectionPool.evictAll()
     }
 
     fun send(text: String): Boolean = wsClient.send(text)
@@ -176,7 +191,9 @@ class CodexConnectionManager(
         if (path.isNotEmpty() && path != "/" && !path.endsWith("/")) {
             path = "$path/"
         }
-        val query = if (sessionId.isNotBlank()) "sessionId=$sessionId" else null
+        val query = if (sessionId.isNotBlank()) {
+            "sessionId=${URLEncoder.encode(sessionId, "UTF-8")}"
+        } else null
         return URI(wsScheme, null, uri.host, uri.port, path, query, null).toString()
     }
 
@@ -199,23 +216,20 @@ class CodexConnectionManager(
     private fun fetchTicketUrl(baseUrl: String, authHeader: String?, wsUrl: String): String {
         val ticketEndpoint = baseUrl.trimEnd('/') + "/api/ws-ticket"
         return try {
-            val client = OkHttpClient.Builder()
-                .connectTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(10, TimeUnit.SECONDS)
-                .build()
             val reqBuilder = Request.Builder().url(ticketEndpoint).get()
             authHeader?.let { reqBuilder.addHeader("Authorization", it) }
-            val response = client.newCall(reqBuilder.build()).execute()
-            if (response.isSuccessful) {
-                val body = response.body?.string().orEmpty()
-                val ticket = JSONObject(body).optString("ticket", "")
-                if (ticket.isNotBlank()) {
-                    val separator = if (wsUrl.contains("?")) "&" else "?"
-                    "$wsUrl${separator}ticket=$ticket"
-                } else wsUrl
-            } else {
-                Log.w(TAG, "Ticket fetch HTTP ${response.code}")
-                wsUrl
+            httpClient.newCall(reqBuilder.build()).execute().use { response ->
+                if (response.isSuccessful) {
+                    val body = response.body?.string().orEmpty()
+                    val ticket = JSONObject(body).optString("ticket", "")
+                    if (ticket.isNotBlank()) {
+                        val separator = if (wsUrl.contains("?")) "&" else "?"
+                        "$wsUrl${separator}ticket=$ticket"
+                    } else wsUrl
+                } else {
+                    Log.w(TAG, "Ticket fetch HTTP ${response.code}")
+                    wsUrl
+                }
             }
         } catch (e: Exception) {
             Log.w(TAG, "Ticket fetch failed: ${e.message}")
