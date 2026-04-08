@@ -2,7 +2,7 @@
 title: Codex Android 全原生并行迁移与多 CLI 提供方扩展基线
 status: planned
 owner: @maintainer
-last_updated: 2026-04-08
+last_updated: 2026-04-09
 source_of_truth: product
 related_code: [android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/web/TerminalEventBridge.kt, android/app/src/main/java/com/termlink/app/CodexTaskForegroundService.kt, public/codex_client.html, public/terminal_client.js, src/ws/terminalGateway.js]
 related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-20260408-codex-native-android-migration.md, docs/architecture/ROADMAP.md]
@@ -169,8 +169,8 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-202
 
 ## 9. 发布计划
 
-1. Phase 0：补齐 REQ、收敛 PLAN、锁定协议与入口基线。
-2. Phase 1：完成 `CodexActivity` 与新入口基础设施。
-3. Phase 2：完成原生聊天主链路与恢复闭环。
-4. Phase 3：完成功能对齐与多 provider 扩展边界收口。
-5. Phase 4：完成稳定性验证、灰度切换与旧入口受控下线。
+1. Phase 0：补齐 REQ / PLAN / ARCH，完成 `CodexActivity` 与新入口基础设施。
+2. Phase 1：完成原生聊天主链路与单轮对话恢复闭环。
+3. Phase 2：完成功能对齐与多 provider 扩展边界收口。
+4. Phase 3：完成稳定性验证与默认入口切换准备。
+5. Phase 4：完成灰度切换与旧入口受控下线。

@@ -183,4 +183,23 @@
     <string name="codex_native_input_hint">Ask Codex…</string>
     <string name="codex_native_send">Send</string>
     <string name="codex_native_stop">Stop</string>
+
+    <!-- Phase 1: shortcut, header, footer, error -->
+    <string name="codex_shortcut_short">Native Codex</string>
+    <string name="codex_shortcut_long">Native Codex (Experimental)</string>
+    <string name="codex_native_status_running">Running</string>
+    <string name="codex_native_status_streaming">Streaming…</string>
+    <string name="codex_native_role_you">you</string>
+    <string name="codex_native_role_assistant">assistant</string>
+    <string name="codex_native_role_system">system</string>
+    <string name="codex_native_role_error">error</string>
+    <string name="codex_native_role_tool">tool</string>
+    <string name="codex_native_new_thread">New Task</string>
+    <string name="codex_native_retry">Retry</string>
+    <string name="codex_native_dismiss">Dismiss</string>
+    <string name="codex_native_plan_mode">plan</string>
+    <string name="codex_native_thread_badge">thread:%1$s</string>
+    <string name="codex_native_creating_session">Creating session…</string>
+    <string name="codex_native_no_profile">No server profile configured</string>
+    <string name="codex_native_session_failed">Failed to create session</string>
 </resources>

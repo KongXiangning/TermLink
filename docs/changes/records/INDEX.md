@@ -2,7 +2,7 @@
 title: 鍙樻洿璁板綍绱㈠紩
 status: active
 owner: @maintainer
-last_updated: 2026-03-31
+last_updated: 2026-04-09
 source_of_truth: product
 related_code: [docs/changes/records]
 related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_CHANGE_RECORD.md]
@@ -24,6 +24,7 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
 | CR-20260409-phase0-codex-native-android-infrastructure | REQ-20260408-codex-native-android-migration | active | 600ead0 | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-phase0-codex-native-android-infrastructure.md` |
+| CR-20260409-0143-codex-native-android-phase1-main-path | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-0143-codex-native-android-phase1-main-path.md` |
 | CR-20260408-2247-plan-arch-refactor | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-08 |  | `docs/changes/records/CR-20260408-2247-plan-arch-refactor.md` |
 | CR-20260330-2125-android-codex-foreground-service | REQ-20260309-codex-capability-mvp | archived | 288561b | @maintainer |  |  | `docs/changes/records/CR-20260330-2125-android-codex-foreground-service.md` |
 | CR-20260330-0500-language-normalization-closeout | REQ-20260329-language-normalization | archived | 32e39b4 | @maintainer | 2026-03-30 |  | `docs/changes/records/CR-20260330-0500-language-normalization-closeout.md` |

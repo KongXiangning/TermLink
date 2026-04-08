@@ -5,7 +5,13 @@ import org.json.JSONObject
 
 /** Return the string value for [key], or null when absent / JSON-null. */
 private fun JSONObject.optStringOrNull(key: String): String? =
-    if (has(key) && !isNull(key)) getString(key) else null
+    if (!has(key) || isNull(key)) {
+        null
+    } else {
+        getString(key)
+            .trim()
+            .takeIf { it.isNotEmpty() && !it.equals("null", ignoreCase = true) }
+    }
 
 /**
  * Thin envelope for all Codex WebSocket messages.
@@ -189,14 +195,14 @@ data class CodexInterruptAck(
 }
 
 data class CodexNotification(
-    val event: String,
-    val message: String?,
+    val method: String,
+    val params: JSONObject?,
     val raw: JSONObject
 ) {
     companion object {
         fun from(json: JSONObject): CodexNotification = CodexNotification(
-            event = json.optString("event", ""),
-            message = json.optStringOrNull("message"),
+            method = json.optString("method", ""),
+            params = json.optJSONObject("params"),
             raw = json
         )
     }
@@ -217,7 +223,7 @@ object CodexClientMessages {
     ): String {
         val json = JSONObject()
             .put("type", "codex_turn")
-            .put("prompt", prompt)
+            .put("text", prompt)
         threadId?.let { json.put("threadId", it) }
         if (!images.isNullOrEmpty()) {
             json.put("images", JSONArray(images))

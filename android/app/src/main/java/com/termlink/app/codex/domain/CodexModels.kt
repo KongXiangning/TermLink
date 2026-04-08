@@ -25,7 +25,7 @@ data class ChatMessage(
     val timestamp: Long = System.currentTimeMillis(),
     val streaming: Boolean = false
 ) {
-    enum class Role { USER, ASSISTANT, SYSTEM, TOOL }
+    enum class Role { USER, ASSISTANT, SYSTEM, TOOL, ERROR }
 }
 
 /**
@@ -57,6 +57,7 @@ data class CodexLaunchParams(
     val sessionId: String,
     val sessionMode: String = "codex",
     val cwd: String? = null,
+    val threadId: String? = null,
     val launchSource: String = "sessions"
 ) {
     companion object {

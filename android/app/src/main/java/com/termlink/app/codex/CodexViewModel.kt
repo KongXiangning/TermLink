@@ -46,6 +46,8 @@ class CodexViewModel(
             it.copy(
                 sessionId = params.sessionId,
                 cwd = params.cwd,
+                threadId = params.threadId,
+                errorMessage = null,
                 connectionState = ConnectionState.CONNECTING
             )
         }
@@ -54,6 +56,25 @@ class CodexViewModel(
 
     fun disconnect() {
         connectionManager.disconnect()
+    }
+
+    fun setError(message: String) {
+        _uiState.update { it.copy(errorMessage = message, connectionState = ConnectionState.ERROR) }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    fun setCreatingSession() {
+        _uiState.update {
+            it.copy(
+                sessionId = "",
+                threadId = null,
+                errorMessage = null,
+                connectionState = ConnectionState.CONNECTING
+            )
+        }
     }
 
     fun sendMessage(prompt: String) {
@@ -74,6 +95,14 @@ class CodexViewModel(
     }
 
     fun newThread() {
+        currentStreamingMessageId = null
+        _uiState.update {
+            it.copy(
+                threadId = null,
+                messages = emptyList(),
+                errorMessage = null
+            )
+        }
         connectionManager.send(CodexClientMessages.codexNewThread())
     }
 
@@ -113,9 +142,9 @@ class CodexViewModel(
                     }
                     is WsEvent.Closing -> { /* handled by Closed */ }
                     is WsEvent.Failure -> {
-                        _uiState.update {
-                            it.copy(errorMessage = event.throwable.message)
-                        }
+                        val message = event.throwable.message ?: "WebSocket failure"
+                        appendMessage(ChatMessage.Role.ERROR, message)
+                        _uiState.update { it.copy(errorMessage = message) }
                         connectionManager.onDisconnected()
                     }
                 }
@@ -169,7 +198,10 @@ class CodexViewModel(
             "codex_thread_ready" -> {
                 val ready = CodexThreadReady.from(json)
                 _uiState.update {
-                    it.copy(threadId = ready.threadId)
+                    it.copy(
+                        threadId = ready.threadId,
+                        messages = if (ready.resumed) it.messages else emptyList()
+                    )
                 }
                 Log.i(TAG, "Thread ready: ${ready.threadId} resumed=${ready.resumed}")
             }
@@ -203,13 +235,15 @@ class CodexViewModel(
 
             "codex_error" -> {
                 val error = CodexError.from(json)
-                _uiState.update { it.copy(errorMessage = "${error.code}: ${error.message}") }
+                val message = "${error.code}: ${error.message}"
+                appendMessage(ChatMessage.Role.ERROR, message)
+                _uiState.update { it.copy(errorMessage = message) }
                 Log.e(TAG, "Codex error: ${error.code} ${error.message}")
             }
 
             "codex_notification" -> {
                 val notif = CodexNotification.from(json)
-                Log.i(TAG, "Notification: ${notif.event} ${notif.message}")
+                handleCodexNotification(notif)
             }
 
             else -> {
@@ -293,6 +327,87 @@ class CodexViewModel(
         }
     }
 
+    private fun handleCodexNotification(notification: CodexNotification) {
+        val params = notification.params
+        when (notification.method) {
+            "thread/started" -> {
+                val threadId = params
+                    ?.optJSONObject("thread")
+                    ?.optString("id", "")
+                    ?.trim()
+                    .orEmpty()
+                if (threadId.isNotEmpty()) {
+                    currentStreamingMessageId = null
+                    _uiState.update {
+                        it.copy(
+                            threadId = threadId,
+                            messages = emptyList(),
+                            errorMessage = null
+                        )
+                    }
+                }
+            }
+
+            "thread/status/changed" -> {
+                val statusType = params
+                    ?.optJSONObject("status")
+                    ?.optString("type", "")
+                    ?.trim()
+                    .orEmpty()
+                if (statusType == "idle") {
+                    finalizeStreamingMessage()
+                }
+            }
+
+            "turn/started" -> {
+                _uiState.update { it.copy(errorMessage = null) }
+            }
+
+            "turn/completed" -> {
+                finalizeStreamingMessage()
+            }
+
+            "item/started" -> {
+                val item = params?.optJSONObject("item") ?: return
+                if (item.optString("type", "") != "agentMessage") return
+                val itemId = item.optString("id", "").trim().ifEmpty { UUID.randomUUID().toString() }
+                currentStreamingMessageId = itemId
+                upsertAssistantMessage(
+                    itemId = itemId,
+                    content = item.optString("text", ""),
+                    streaming = true
+                )
+            }
+
+            "item/agentMessage/delta" -> {
+                val itemId = params?.optString("itemId", "")?.trim().orEmpty()
+                val delta = params?.optString("delta", "") ?: ""
+                if (delta.isEmpty()) return
+                val streamId = itemId.ifEmpty { currentStreamingMessageId.orEmpty() }
+                if (streamId.isEmpty()) return
+                appendAssistantDelta(streamId, delta)
+            }
+
+            "item/completed" -> {
+                val item = params?.optJSONObject("item") ?: return
+                if (item.optString("type", "") != "agentMessage") return
+                val itemId = item.optString("id", "").trim().ifEmpty { currentStreamingMessageId.orEmpty() }
+                val text = item.optString("text", "")
+                if (itemId.isEmpty()) return
+                currentStreamingMessageId = null
+                upsertAssistantMessage(
+                    itemId = itemId,
+                    content = text,
+                    streaming = false
+                )
+            }
+
+            else -> {
+                Log.d(TAG, "Unhandled codex_notification method: ${notification.method}")
+            }
+        }
+    }
+
     private fun parseSnapshotMessages(snapshot: CodexThreadSnapshot): List<ChatMessage> {
         val result = mutableListOf<ChatMessage>()
         val arr = snapshot.messages
@@ -303,6 +418,7 @@ class CodexViewModel(
                 "assistant" -> ChatMessage.Role.ASSISTANT
                 "system" -> ChatMessage.Role.SYSTEM
                 "tool" -> ChatMessage.Role.TOOL
+                "error" -> ChatMessage.Role.ERROR
                 else -> ChatMessage.Role.SYSTEM
             }
             val content = msgJson.optString("content", "")
@@ -316,6 +432,80 @@ class CodexViewModel(
             )
         }
         return result
+    }
+
+    private fun appendMessage(role: ChatMessage.Role, content: String) {
+        _uiState.update {
+            it.copy(
+                messages = it.messages + ChatMessage(
+                    id = UUID.randomUUID().toString(),
+                    role = role,
+                    content = content
+                )
+            )
+        }
+    }
+
+    private fun upsertAssistantMessage(
+        itemId: String,
+        content: String,
+        streaming: Boolean
+    ) {
+        _uiState.update { state ->
+            val existingIndex = state.messages.indexOfFirst { it.id == itemId }
+            if (existingIndex >= 0) {
+                val updated = state.messages.toMutableList()
+                updated[existingIndex] = updated[existingIndex].copy(
+                    content = content,
+                    streaming = streaming
+                )
+                state.copy(messages = updated)
+            } else {
+                state.copy(
+                    messages = state.messages + ChatMessage(
+                        id = itemId,
+                        role = ChatMessage.Role.ASSISTANT,
+                        content = content,
+                        streaming = streaming
+                    )
+                )
+            }
+        }
+    }
+
+    private fun appendAssistantDelta(itemId: String, delta: String) {
+        _uiState.update { state ->
+            val existingIndex = state.messages.indexOfFirst { it.id == itemId }
+            if (existingIndex >= 0) {
+                val updated = state.messages.toMutableList()
+                val existing = updated[existingIndex]
+                updated[existingIndex] = existing.copy(
+                    content = existing.content + delta,
+                    streaming = true
+                )
+                state.copy(messages = updated)
+            } else {
+                state.copy(
+                    messages = state.messages + ChatMessage(
+                        id = itemId,
+                        role = ChatMessage.Role.ASSISTANT,
+                        content = delta,
+                        streaming = true
+                    )
+                )
+            }
+        }
+    }
+
+    private fun finalizeStreamingMessage() {
+        val streamId = currentStreamingMessageId ?: return
+        _uiState.update { state ->
+            val updated = state.messages.map { message ->
+                if (message.id == streamId) message.copy(streaming = false) else message
+            }
+            state.copy(messages = updated)
+        }
+        currentStreamingMessageId = null
     }
 
     override fun onCleared() {

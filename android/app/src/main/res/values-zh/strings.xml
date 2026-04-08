@@ -183,4 +183,23 @@
     <string name="codex_native_input_hint">问 Codex…</string>
     <string name="codex_native_send">发送</string>
     <string name="codex_native_stop">停止</string>
+
+    <!-- Phase 1 -->
+    <string name="codex_shortcut_short">原生 Codex</string>
+    <string name="codex_shortcut_long">原生 Codex（实验性）</string>
+    <string name="codex_native_status_running">运行中</string>
+    <string name="codex_native_status_streaming">流式输出中…</string>
+    <string name="codex_native_role_you">你</string>
+    <string name="codex_native_role_assistant">助手</string>
+    <string name="codex_native_role_system">系统</string>
+    <string name="codex_native_role_error">错误</string>
+    <string name="codex_native_role_tool">工具</string>
+    <string name="codex_native_new_thread">新任务</string>
+    <string name="codex_native_retry">重试</string>
+    <string name="codex_native_dismiss">关闭</string>
+    <string name="codex_native_plan_mode">计划</string>
+    <string name="codex_native_thread_badge">线程:%1$s</string>
+    <string name="codex_native_creating_session">正在创建会话…</string>
+    <string name="codex_native_no_profile">未配置服务器</string>
+    <string name="codex_native_session_failed">创建会话失败</string>
 </resources>
