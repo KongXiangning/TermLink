@@ -1,9 +1,9 @@
 ---
 title: Phase 1 — Codex 原生 Android 聊天主链路收口
-status: draft
+status: active
 record_id: CR-20260409-0143-codex-native-android-phase1-main-path
 req_id: REQ-20260408-codex-native-android-migration
-commit_ref: TBD
+commit_ref: a1e2069
 owner: @maintainer
 last_updated: 2026-04-09
 source_of_truth: product
