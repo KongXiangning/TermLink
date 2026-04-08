@@ -1,4 +1,4 @@
-﻿---
+---
 title: 鍙樻洿璁板綍绱㈠紩
 status: active
 owner: @maintainer
@@ -23,6 +23,7 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260408-2247-plan-arch-refactor | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-08 |  | `docs/changes/records/CR-20260408-2247-plan-arch-refactor.md` |
 | CR-20260330-2125-android-codex-foreground-service | REQ-20260309-codex-capability-mvp | archived | 288561b | @maintainer |  |  | `docs/changes/records/CR-20260330-2125-android-codex-foreground-service.md` |
 | CR-20260330-0500-language-normalization-closeout | REQ-20260329-language-normalization | archived | 32e39b4 | @maintainer | 2026-03-30 |  | `docs/changes/records/CR-20260330-0500-language-normalization-closeout.md` |
 | CR-20260330-0300 | REQ-20260329-language-normalization | archived | 19ed314 | @maintainer | 2026-03-30 | Android 原生 i18n 与 WebView 语言桥接 | `docs/changes/records/CR-20260330-0300-language-normalization-phase3-android.md` |

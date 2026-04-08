@@ -36,6 +36,7 @@ related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BAC
 12. 已完成 Android 会话列表本地缓存与离线回显（`REQ-20260324-session-list-local-cache`），弱网下 Sessions 管理可先显示本地缓存快照、失败时保留 stale/refreshing 提示、写操作后同步缓存，并保证 `EXTERNAL_WEB` 继续通过现有本地持久化参与首屏可见性。
 13. 已完成系统语言自动适配与 i18n 框架建设（`REQ-20260329-language-normalization`）：中文系系统语言统一显示简体中文，非中文系统显示英文，且 Android 原生与 WebView 保持一致。
 14. 已完成 Android 配置级 mTLS 运行时证书选择（`REQ-20260326-android-profile-mtls-runtime-certificate`），Profile Settings 按需导入/选择客户端证书，WebView 与原生网络层统一信任链，移除编译期硬编码证书依赖。
+15. 启动 Codex Android 全原生并行迁移（`REQ-20260408-codex-native-android-migration`）：保留现有 WebView Codex 稳定入口，新增独立原生入口并行建设，并预留后续接入 `claude cli`、`copilot cli` 等 CLI 提供方的 adapter / capability 扩展基线。
 
 ## 2026-H2
 
