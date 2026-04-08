@@ -171,4 +171,16 @@
     <string name="workspace_activity_subtitle">%1$s | 会话 %2$s</string>
     <string name="workspace_activity_invalid_session">缺少工作区会话上下文。</string>
     <string name="workspace_activity_invalid_profile">当前配置无法打开工作区。</string>
+
+    <!-- 原生 Codex Activity (Phase 0) -->
+    <string name="codex_native_title">Codex</string>
+    <string name="codex_native_status_idle">空闲</string>
+    <string name="codex_native_status_connecting">连接中…</string>
+    <string name="codex_native_status_connected">已连接</string>
+    <string name="codex_native_status_reconnecting">重连中…</string>
+    <string name="codex_native_status_error">连接错误</string>
+    <string name="codex_native_empty_hint">发送消息开始对话。</string>
+    <string name="codex_native_input_hint">问 Codex…</string>
+    <string name="codex_native_send">发送</string>
+    <string name="codex_native_stop">停止</string>
 </resources>

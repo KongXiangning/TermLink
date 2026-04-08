@@ -33,6 +33,15 @@
 
         </activity>
 
+        <activity
+            android:name=".codex.CodexActivity"
+            android:label="@string/codex_native_title"
+            android:theme="@style/AppTheme.NoActionBar"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:windowSoftInputMode="adjustResize"
+            android:launchMode="singleTask"
+            android:exported="false" />
+
         <service
             android:name=".CodexTaskForegroundService"
             android:foregroundServiceType="specialUse"

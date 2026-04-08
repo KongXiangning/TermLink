@@ -14,13 +14,13 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/R
 
 状态口径：`done` = 已实现并有 CR 留痕，`in_progress` = 当前批次进行中，`pending` = 尚未实现。
 
-1. `pending`：Phase 0 新入口基础设施
+1. `done`：Phase 0 新入口基础设施
 2. `pending`：Phase 1 原生聊天主链路
 3. `pending`：Phase 2 功能对齐
 4. `pending`：Phase 3 稳定性与替换准备（真机回归、后台恢复、通知恢复、性能对比、差异收敛、默认入口切换开关）
 5. `pending`：Phase 4 切换与下线（默认入口切到原生实现、保留灰度窗口、受控移除旧 WebView Codex 入口）
 
-当前仅完成方案固化，尚未进入实施批次，也尚未绑定本计划对应的 CR。
+Phase 0 已完成实施并通过编译验证。
 
 ## 1. 文档定位
 
