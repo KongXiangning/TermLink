@@ -24,7 +24,7 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
 | CR-20260409-phase0-codex-native-android-infrastructure | REQ-20260408-codex-native-android-migration | active | 600ead0 | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-phase0-codex-native-android-infrastructure.md` |
-| CR-20260409-2332-native-closeout | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-2332-native-closeout.md` |
+| CR-20260409-2332-native-closeout | REQ-20260408-codex-native-android-migration | active | cd2b0daa14226713fbc5f005c7479a0bf94a4789 | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-2332-native-closeout.md` |
 | CR-20260409-2103-phase2-run-panels | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-2103-phase2-run-panels.md` |
 | CR-20260409-1955-phase2-thread-history | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-1955-phase2-thread-history.md` |
 | CR-20260409-1819-phase2-plan-workflow | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-1819-phase2-plan-workflow.md` |
