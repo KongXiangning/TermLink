@@ -2,13 +2,23 @@
 title: TermLink 项目变更日志
 status: active
 owner: @maintainer
-last_updated: 2026-03-31
+last_updated: 2026-04-09
 source_of_truth: product
 related_code: []
 related_docs: [docs/README.md]
 ---
 
 # CHANGELOG_PROJECT
+
+## 2026-04-09
+
+### client
+
+1. 完成 `REQ-20260408-codex-native-android-migration`：原生 Android Codex 已补齐工具面板、Token/Context/Rate Limit 展示、图片输入、本地图片选择、宽屏布局、默认入口切换，以及由当前入口显式注入的前台通知返回 intent；`MainShellActivity` 与 `CodexActivity` 现在可分别为 WebView 回退 / 原生入口生成独立通知回跳路径。
+
+### docs
+
+1. 同步 `REQ-20260408-codex-native-android-migration` 最终收口口径：将 REQ / Backlog / Product 状态更新为 `done`，补齐 PLAN 中 Phase 3/4 完成说明，并在 native closeout CR 中记录通知返回、弱网恢复与路由并行验证结果。
 
 ## 2026-03-31
 

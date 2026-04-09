@@ -2,7 +2,7 @@
 title: TermLink 需求池
 status: active
 owner: @maintainer
-last_updated: 2026-03-31
+last_updated: 2026-04-09
 source_of_truth: product
 related_code: []
 related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/REQ-TEMPLATE.md]
@@ -31,6 +31,7 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/R
 | REQ-20260222-server-admin-privilege-mode | 服务端管理员权限模式与安全治理 | P1 | done | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260222-server-admin-privilege-mode.md` |
 | REQ-20260224-android-external-web-terminal-profile-sessions | Android External Web 终端（Profile/Sessions 同级）POC | P1 | done | @maintainer | 2026-Q1 | `docs/product/requirements/REQ-20260224-android-external-web-terminal-profile-sessions.md` |
 | REQ-20260309-codex-capability-mvp | Codex 能力矩阵驱动主线需求（对话体验、后台保活与下一阶段） | P1 | done | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260309-codex-capability-mvp.md`, `docs/product/plans/PLAN-20260329-codex-background-retention-and-resume.md` |
+| REQ-20260408-codex-native-android-migration | Codex Android 全原生并行迁移与多 CLI 提供方扩展基线 | P1 | done | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260408-codex-native-android-migration.md`, `docs/product/plans/PLAN-20260408-codex-native-android-migration.md` |
 | REQ-20260318-ws-0001-docs-exp | Codex Workspace 文件浏览与 Diff 查看（原产品编号 REQ-WS-0001） | P1 | done | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260318-WS-0001-docs-exp.md` |
 | REQ-20260324-session-list-local-cache | Android 会话列表本地缓存与离线回显 | P1 | done | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260324-session-list-local-cache.md` |
 | REQ-20260326-android-profile-mtls-runtime-certificate | Android Profile 级 mTLS 运行时证书选择 | P1 | done | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260326-android-profile-mtls-runtime-certificate.md` |

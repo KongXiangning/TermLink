@@ -24,6 +24,15 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
 | CR-20260409-phase0-codex-native-android-infrastructure | REQ-20260408-codex-native-android-migration | active | 600ead0 | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-phase0-codex-native-android-infrastructure.md` |
+| CR-20260409-2332-native-closeout | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-2332-native-closeout.md` |
+| CR-20260409-2103-phase2-run-panels | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-2103-phase2-run-panels.md` |
+| CR-20260409-1955-phase2-thread-history | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-1955-phase2-thread-history.md` |
+| CR-20260409-1819-phase2-plan-workflow | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-1819-phase2-plan-workflow.md` |
+| CR-20260409-1818-phase2-auto-handled-feedback | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-1818-phase2-auto-handled-feedback.md` |
+| CR-20260409-1637-image-attachments-protocol | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-1637-image-attachments-protocol.md` |
+| CR-20260409-1502-phase2-quick-settings | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-1502-phase2-quick-settings.md` |
+| CR-20260409-1437-phase2-approval-dialogs | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-1437-phase2-approval-dialogs.md` |
+| CR-20260409-1419-phase2-file-mention | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-1419-phase2-file-mention.md` |
 | CR-20260409-0143-codex-native-android-phase1-main-path | REQ-20260408-codex-native-android-migration | active | a1e2069 | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-0143-codex-native-android-phase1-main-path.md` |
 | CR-20260408-2247-plan-arch-refactor | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-08 |  | `docs/changes/records/CR-20260408-2247-plan-arch-refactor.md` |
 | CR-20260330-2125-android-codex-foreground-service | REQ-20260309-codex-capability-mvp | archived | 288561b | @maintainer |  |  | `docs/changes/records/CR-20260330-2125-android-codex-foreground-service.md` |

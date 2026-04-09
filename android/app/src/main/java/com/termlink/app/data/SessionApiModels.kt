@@ -101,3 +101,10 @@ data class WorkspacePickerTree(
     val canGoUp: Boolean = false,
     val entries: List<WorkspacePickerEntry> = emptyList()
 )
+
+data class WorkspaceFileSearchResult(
+    val label: String,
+    val path: String,
+    val relativePathWithoutFileName: String = "",
+    val fsPath: String? = null
+)

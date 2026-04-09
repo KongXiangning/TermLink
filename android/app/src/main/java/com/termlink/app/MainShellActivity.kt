@@ -40,8 +40,10 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
+import com.termlink.app.codex.CodexActivity
 import com.termlink.app.data.AuthType
 import com.termlink.app.data.BasicCredentialStore
+import com.termlink.app.data.CodexLaunchPreferencesStore
 import com.termlink.app.data.ExternalSessionStore
 import com.termlink.app.data.MtlsCertificateStore
 import com.termlink.app.data.ServerConfigState
@@ -91,6 +93,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private lateinit var basicCredentialStore: BasicCredentialStore
     private lateinit var mtlsCertificateStore: MtlsCertificateStore
     private lateinit var externalSessionStore: ExternalSessionStore
+    private lateinit var codexLaunchPreferencesStore: CodexLaunchPreferencesStore
     private lateinit var sessionApiClient: SessionApiClient
     private lateinit var webViewClientCertCacheInvalidator: WebViewClientCertCacheInvalidator
     private val backgroundExecutor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -187,6 +190,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         basicCredentialStore = BasicCredentialStore(applicationContext)
         mtlsCertificateStore = MtlsCertificateStore(applicationContext)
         externalSessionStore = ExternalSessionStore(applicationContext)
+        codexLaunchPreferencesStore = CodexLaunchPreferencesStore(applicationContext)
         sessionApiClient = SessionApiClient(applicationContext)
         webViewClientCertCacheInvalidator = WebViewClientCertCacheInvalidator()
         syncProfileState(serverConfigStore.loadState(), inject = false)
@@ -507,7 +511,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
                 requestNotificationPermissionIfNeeded()
             }
             try {
-                CodexTaskForegroundService.start(this, normalized)
+                CodexTaskForegroundService.start(this, normalized, buildCodexTaskNotificationIntent())
                 codexForegroundServiceActive = true
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to start foreground service", e)
@@ -614,7 +618,11 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     override fun onOpenSession(selection: SessionSelection) {
-        openSessionInTerminal(selection)
+        if (shouldOpenNativeCodex(selection)) {
+            openSessionInNativeCodex(selection)
+        } else {
+            openSessionInTerminal(selection)
+        }
     }
 
     override fun onUpdateSessionSelection(selection: SessionSelection) {
@@ -912,6 +920,27 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         showTerminalScreen(injectConfig = true)
     }
 
+    private fun openSessionInNativeCodex(selection: SessionSelection) {
+        updateSessionSelection(selection)
+        touchExternalSessionIfNeeded(selection.profileId, selection.sessionId)
+        closeSessionsDrawerIfOpen()
+        startActivity(CodexActivity.newIntent(this, selection.profileId, selection.sessionId))
+    }
+
+    private fun shouldOpenNativeCodex(selection: SessionSelection): Boolean {
+        if (selection.sessionMode != SessionMode.CODEX) {
+            return false
+        }
+        if (!codexLaunchPreferencesStore.isNativeCodexDefaultEnabled()) {
+            return false
+        }
+        if (selection.sessionId.isBlank()) {
+            return false
+        }
+        val profile = resolveProfileById(selection.profileId) ?: return false
+        return profile.terminalType == TerminalType.TERMLINK_WS
+    }
+
     private fun updateSessionSelection(selection: SessionSelection) {
         val profileId = selection.profileId
         val sessionId = selection.sessionId
@@ -973,6 +1002,16 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             }
         }
         refreshWorkspaceEntryState(force = selectionChanged)
+    }
+
+    private fun buildCodexTaskNotificationIntent(): Intent {
+        return Intent(this, MainShellActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            currentTerminalProfileId.takeIf { it.isNotBlank() }?.let { putExtra("profileId", it) }
+            lastSessionId.takeIf { it.isNotBlank() }?.let { putExtra("sessionId", it) }
+            lastSessionCwd.takeIf { !it.isNullOrBlank() }?.let { putExtra("cwd", it) }
+            putExtra("sessionMode", currentSessionMode().wireValue)
+        }
     }
 
     private fun invalidateWebViewClientCertPreferencesAfterCommittedChange() {

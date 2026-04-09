@@ -59,8 +59,19 @@ data class CodexCapabilities(
     val defaultModel: String,
     val reasoningEffortLevels: List<String>,
     val defaultReasoningEffort: String,
+    val rateLimitsRead: Boolean,
+    val diffPlanReasoning: Boolean,
+    val historyList: Boolean,
+    val historyResume: Boolean,
+    val modelConfig: Boolean,
     val sandboxSupported: Boolean,
     val planModeSupported: Boolean,
+    val slashCommands: Boolean,
+    val slashModel: Boolean,
+    val slashPlan: Boolean,
+    val skillsList: Boolean,
+    val compact: Boolean,
+    val fileMentions: Boolean,
     val imageInputSupported: Boolean,
     val maxImageSize: Long
 ) {
@@ -73,11 +84,67 @@ data class CodexCapabilities(
                 reasoningEffortLevels = cap.optJSONArray("reasoningEffortLevels")?.toStringList()
                     ?: listOf("low", "medium", "high"),
                 defaultReasoningEffort = cap.optString("defaultReasoningEffort", "medium"),
+                rateLimitsRead = cap.optBoolean("rateLimitsRead", false),
+                diffPlanReasoning = cap.optBoolean("diffPlanReasoning", false),
+                historyList = cap.optBoolean("historyList", false),
+                historyResume = cap.optBoolean("historyResume", false),
+                modelConfig = cap.optBoolean("modelConfig", true),
                 sandboxSupported = cap.optBoolean("sandboxSupported", true),
                 planModeSupported = cap.optBoolean("planModeSupported", true),
-                imageInputSupported = cap.optBoolean("imageInputSupported", false),
-                maxImageSize = cap.optLong("maxImageSize", 0L)
+                slashCommands = cap.optBoolean("slashCommands", false),
+                slashModel = cap.optBoolean("slashModel", false),
+                slashPlan = cap.optBoolean("slashPlan", false),
+                skillsList = cap.optBoolean("skillsList", false),
+                compact = cap.optBoolean("compact", false),
+                fileMentions = cap.optBoolean("fileMentions", false),
+                imageInputSupported = cap.optBoolean("imageInputSupported", cap.optBoolean("imageInput", false)),
+                maxImageSize = cap.optLong("maxImageSize", cap.optLong("maxImageBytes", 0L))
             )
+        }
+    }
+}
+
+data class CodexEffectiveConfig(
+    val model: String?,
+    val reasoningEffort: String?,
+    val personality: String?,
+    val approvalPolicy: String?,
+    val sandboxMode: String?
+) {
+    companion object {
+        fun from(json: JSONObject?): CodexEffectiveConfig? {
+            if (json == null) return null
+            return CodexEffectiveConfig(
+                model = json.optStringOrNull("model"),
+                reasoningEffort = json.optStringOrNull("reasoningEffort")?.lowercase(),
+                personality = json.optStringOrNull("personality"),
+                approvalPolicy = json.optStringOrNull("approvalPolicy"),
+                sandboxMode = json.optStringOrNull("sandboxMode")
+            )
+        }
+    }
+}
+
+data class CodexInteractionState(
+    val planMode: Boolean = false,
+    val activeSkill: String? = null
+) {
+    companion object {
+        fun from(json: JSONObject?): CodexInteractionState? {
+            json ?: return null
+            return CodexInteractionState(
+                planMode = json.optBoolean("planMode", false),
+                activeSkill = json.optStringOrNull("activeSkill")
+            )
+        }
+    }
+
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("planMode", planMode)
+        if (!activeSkill.isNullOrBlank()) {
+            put("activeSkill", activeSkill)
+        } else {
+            put("activeSkill", JSONObject.NULL)
         }
     }
 }
@@ -89,29 +156,141 @@ data class CodexState(
     val sandbox: Boolean?,
     val planMode: Boolean?,
     val threadId: String?,
-    val interactionState: String?,
+    val interactionState: CodexInteractionState?,
     val cwd: String?,
+    val approvalPending: Boolean,
+    val pendingServerRequestCount: Int,
+    val pendingServerRequests: List<CodexServerRequest>,
+    val nextTurnEffectiveCodexConfig: CodexEffectiveConfig?,
+    val tokenUsage: Any?,
+    val rateLimitState: Any?,
     val raw: JSONObject
 ) {
     companion object {
-        fun from(json: JSONObject): CodexState = CodexState(
-            status = json.optString("status", "idle"),
-            model = json.optStringOrNull("model"),
-            reasoningEffort = json.optStringOrNull("reasoningEffort"),
-            sandbox = if (json.has("sandbox")) json.optBoolean("sandbox") else null,
-            planMode = if (json.has("planMode")) json.optBoolean("planMode") else null,
-            threadId = json.optStringOrNull("threadId"),
-            interactionState = json.optStringOrNull("interactionState"),
-            cwd = json.optStringOrNull("cwd"),
-            raw = json
-        )
+        fun from(json: JSONObject): CodexState {
+            val interactionState = CodexInteractionState.from(json.optJSONObject("interactionState"))
+            return CodexState(
+                status = json.optString("status", "idle"),
+                model = json.optStringOrNull("model"),
+                reasoningEffort = json.optStringOrNull("reasoningEffort"),
+                sandbox = if (json.has("sandbox")) json.optBoolean("sandbox") else null,
+                planMode = interactionState?.planMode ?: if (json.has("planMode")) json.optBoolean("planMode") else null,
+                threadId = json.optStringOrNull("threadId"),
+                interactionState = interactionState,
+                cwd = json.optStringOrNull("cwd"),
+                approvalPending = json.optBoolean("approvalPending", false),
+                pendingServerRequestCount = json.optInt("pendingServerRequestCount", 0),
+                pendingServerRequests = CodexServerRequest.listFrom(json.optJSONArray("pendingServerRequests")),
+                nextTurnEffectiveCodexConfig = CodexEffectiveConfig.from(
+                    json.optJSONObject("nextTurnEffectiveCodexConfig")
+                ),
+                tokenUsage = if (json.has("tokenUsage")) json.opt("tokenUsage") else null,
+                rateLimitState = if (json.has("rateLimitState")) json.opt("rateLimitState") else null,
+                raw = json
+            )
+        }
+    }
+}
+
+data class CodexServerRequestOption(
+    val label: String
+)
+
+data class CodexServerRequestQuestion(
+    val id: String,
+    val question: String,
+    val options: List<CodexServerRequestOption>,
+    val allowFreeform: Boolean
+)
+
+data class CodexServerRequest(
+    val requestId: String,
+    val method: String,
+    val requestKind: String,
+    val responseMode: String,
+    val handledBy: String,
+    val summary: String?,
+    val questionCount: Int,
+    val command: String?,
+    val questions: List<CodexServerRequestQuestion>,
+    val params: JSONObject?,
+    val defaultResult: JSONObject?
+) {
+    companion object {
+        fun from(json: JSONObject): CodexServerRequest? {
+            val requestId = json.optString("requestId", "").trim()
+            if (requestId.isEmpty()) return null
+            val params = json.optJSONObject("params")
+            val questions = parseQuestions(params?.optJSONArray("questions"))
+            return CodexServerRequest(
+                requestId = requestId,
+                method = json.optString("method", "unknown").trim().ifEmpty { "unknown" },
+                requestKind = json.optString("requestKind", "unknown").trim().ifEmpty { "unknown" },
+                responseMode = json.optString("responseMode", "unknown").trim().ifEmpty { "unknown" },
+                handledBy = json.optString("handledBy", "unknown").trim().ifEmpty { "unknown" },
+                summary = json.optStringOrNull("summary"),
+                questionCount = json.optInt("questionCount", questions.size),
+                command = params?.optStringOrNull("command"),
+                questions = questions,
+                params = params,
+                defaultResult = json.optJSONObject("defaultResult")
+            )
+        }
+
+        fun listFrom(array: JSONArray?): List<CodexServerRequest> {
+            val result = mutableListOf<CodexServerRequest>()
+            if (array == null) return result
+            for (index in 0 until array.length()) {
+                val item = array.optJSONObject(index) ?: continue
+                from(item)?.let(result::add)
+            }
+            return result
+        }
+
+        private fun parseQuestions(array: JSONArray?): List<CodexServerRequestQuestion> {
+            val result = mutableListOf<CodexServerRequestQuestion>()
+            if (array == null) return result
+            for (index in 0 until array.length()) {
+                val item = array.optJSONObject(index) ?: continue
+                val id = item.optString("id", "").trim()
+                if (id.isEmpty()) continue
+                val options = mutableListOf<CodexServerRequestOption>()
+                val optionsArray = item.optJSONArray("options")
+                if (optionsArray != null) {
+                    for (optionIndex in 0 until optionsArray.length()) {
+                        val option = optionsArray.optJSONObject(optionIndex) ?: continue
+                        val label = option.optString("label", "").trim()
+                        if (label.isNotEmpty()) {
+                            options.add(CodexServerRequestOption(label = label))
+                        }
+                    }
+                }
+                val allowFreeform = when {
+                    item.has("allow_freeform") -> item.optBoolean("allow_freeform", true)
+                    item.has("allowFreeform") -> item.optBoolean("allowFreeform", true)
+                    else -> true
+                }
+                result.add(
+                    CodexServerRequestQuestion(
+                        id = id,
+                        question = item.optString("question", "").trim(),
+                        options = options,
+                        allowFreeform = allowFreeform
+                    )
+                )
+            }
+            return result
+        }
     }
 }
 
 data class CodexResponse(
     val event: String,
+    val method: String?,
     val threadId: String?,
     val turnId: String?,
+    val result: Any?,
+    val error: JSONObject?,
     val content: String?,
     val role: String?,
     val contentType: String?,
@@ -122,8 +301,11 @@ data class CodexResponse(
     companion object {
         fun from(json: JSONObject): CodexResponse = CodexResponse(
             event = json.optString("event", ""),
+            method = json.optStringOrNull("method"),
             threadId = json.optStringOrNull("threadId"),
             turnId = json.optStringOrNull("turnId"),
+            result = json.opt("result"),
+            error = json.optJSONObject("error"),
             content = json.optStringOrNull("content"),
             role = json.optStringOrNull("role"),
             contentType = json.optStringOrNull("contentType"),
@@ -132,6 +314,19 @@ data class CodexResponse(
             raw = json
         )
     }
+}
+
+data class CodexTurnAttachment(
+    val type: String,
+    val path: String? = null,
+    val url: String? = null
+) {
+    fun toJson(): JSONObject = JSONObject()
+        .put("type", type)
+        .apply {
+            path?.let { put("path", it) }
+            url?.let { put("url", it) }
+        }
 }
 
 data class CodexError(
@@ -208,6 +403,18 @@ data class CodexNotification(
     }
 }
 
+data class CodexServerRequestEnvelope(
+    val request: CodexServerRequest,
+    val raw: JSONObject
+) {
+    companion object {
+        fun from(json: JSONObject): CodexServerRequestEnvelope? {
+            val request = CodexServerRequest.from(json) ?: return null
+            return CodexServerRequestEnvelope(request = request, raw = json)
+        }
+    }
+}
+
 // ── Client → Server builders ──────────────────────────────────────────
 
 object CodexClientMessages {
@@ -219,23 +426,51 @@ object CodexClientMessages {
     fun codexTurn(
         prompt: String,
         threadId: String? = null,
-        images: List<String>? = null
+        attachments: List<CodexTurnAttachment>? = null,
+        model: String? = null,
+        reasoningEffort: String? = null,
+        sandbox: String? = null,
+        collaborationMode: org.json.JSONObject? = null,
+        forceNewThread: Boolean = false
     ): String {
         val json = JSONObject()
             .put("type", "codex_turn")
             .put("text", prompt)
         threadId?.let { json.put("threadId", it) }
-        if (!images.isNullOrEmpty()) {
-            json.put("images", JSONArray(images))
+        if (!attachments.isNullOrEmpty()) {
+            json.put(
+                "attachments",
+                JSONArray().apply {
+                    attachments.forEach { put(it.toJson()) }
+                }
+            )
         }
+        model?.let { json.put("model", it) }
+        reasoningEffort?.let { json.put("reasoningEffort", it) }
+        sandbox?.let { json.put("sandbox", it) }
+        collaborationMode?.let { json.put("collaborationMode", it) }
+        if (forceNewThread) json.put("forceNewThread", true)
         return json.toString()
     }
 
-    fun codexRequest(action: String, params: JSONObject? = null): String {
+    fun buildCollaborationMode(
+        mode: String = "plan",
+        model: String? = null,
+        reasoningEffort: String? = null
+    ): JSONObject {
+        val settings = JSONObject()
+        model?.let { settings.put("model", it) }
+        reasoningEffort?.let { settings.put("reasoning_effort", it) }
+        return JSONObject()
+            .put("mode", mode)
+            .put("settings", settings)
+    }
+
+    fun codexRequest(action: String, params: JSONObject? = JSONObject()): String {
         val json = JSONObject()
             .put("type", "codex_request")
-            .put("action", action)
-        params?.let { json.put("params", it) }
+            .put("method", action)
+            .put("params", params ?: JSONObject())
         return json.toString()
     }
 
@@ -260,21 +495,23 @@ object CodexClientMessages {
         .put("threadId", threadId)
         .toString()
 
-    fun codexSetInteractionState(state: String): String = JSONObject()
+    fun codexSetInteractionState(state: CodexInteractionState): String = JSONObject()
         .put("type", "codex_set_interaction_state")
-        .put("interactionState", state)
+        .put("interactionState", state.toJson())
         .toString()
 
     fun codexServerRequestResponse(
         requestId: String,
-        approved: Boolean,
-        response: String? = null
+        result: JSONObject? = null,
+        error: JSONObject? = null,
+        useDefault: Boolean = false
     ): String {
         val json = JSONObject()
             .put("type", "codex_server_request_response")
             .put("requestId", requestId)
-            .put("approved", approved)
-        response?.let { json.put("response", it) }
+        result?.let { json.put("result", it) }
+        error?.let { json.put("error", it) }
+        if (useDefault) json.put("useDefault", true)
         return json.toString()
     }
 }

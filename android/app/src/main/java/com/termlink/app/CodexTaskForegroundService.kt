@@ -13,6 +13,9 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import com.termlink.app.codex.CodexActivity
+import com.termlink.app.data.CodexLaunchPreferencesStore
+import com.termlink.app.data.SessionMode
 
 /**
  * Foreground service that keeps the Android process alive while a Codex task
@@ -29,6 +32,15 @@ class CodexTaskForegroundService : Service() {
         private const val CHANNEL_ID = "codex_task_active"
         private const val NOTIFICATION_ID = 9201
         private const val EXTRA_STATUS = "codex_task_status"
+        private const val EXTRA_TAP_INTENT = "codex_task_tap_intent"
+        private const val NATIVE_PREFS_NAME = "codex_native_restore"
+        private const val NATIVE_PREF_LAST_PROFILE_ID = "last_profile_id"
+        private const val NATIVE_PREF_LAST_SESSION_ID = "last_session_id"
+        private const val NATIVE_PREF_LAST_CWD = "last_cwd"
+        private const val SHELL_PREFS_NAME = "termlink_shell"
+        private const val SHELL_PREF_LAST_PROFILE_ID = "last_profile_id"
+        private const val SHELL_PREF_LAST_SESSION_ID = "last_session_id"
+        private const val SHELL_PREF_LAST_SESSION_CWD = "last_session_cwd"
 
         private val ACTIVE_STATUSES = setOf("running", "reconnecting", "waiting_approval")
 
@@ -36,9 +48,10 @@ class CodexTaskForegroundService : Service() {
             return ACTIVE_STATUSES.contains(status?.lowercase()?.trim())
         }
 
-        fun start(context: Context, status: String) {
+        fun start(context: Context, status: String, tapIntent: Intent? = null) {
             val intent = Intent(context, CodexTaskForegroundService::class.java).apply {
                 putExtra(EXTRA_STATUS, status)
+                tapIntent?.let { putExtra(EXTRA_TAP_INTENT, it) }
             }
             // Use regular startService() to avoid EMUI's strict 5-second
             // startForegroundService() enforcement.  The calling Activity is
@@ -55,6 +68,8 @@ class CodexTaskForegroundService : Service() {
             context.stopService(Intent(context, CodexTaskForegroundService::class.java))
         }
     }
+
+    private var latestTapIntent: Intent? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -81,6 +96,12 @@ class CodexTaskForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val status = intent?.getStringExtra(EXTRA_STATUS) ?: "running"
+        latestTapIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent?.getParcelableExtra(EXTRA_TAP_INTENT, Intent::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent?.getParcelableExtra(EXTRA_TAP_INTENT)
+        } ?: latestTapIntent
         // Update the notification with the actual status
         val notification = buildNotification(status)
         try {
@@ -125,9 +146,7 @@ class CodexTaskForegroundService : Service() {
             else -> getString(R.string.codex_task_notif_running)
         }
 
-        val tapIntent = Intent(this, MainShellActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
+        val tapIntent = latestTapIntent ?: buildTapIntent()
         val pendingIntent = PendingIntent.getActivity(
             this, 0, tapIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -143,5 +162,45 @@ class CodexTaskForegroundService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
+    }
+
+    private fun buildTapIntent(): Intent {
+        val flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        if (CodexLaunchPreferencesStore(applicationContext).isNativeCodexDefaultEnabled()) {
+            val nativePrefs = getSharedPreferences(NATIVE_PREFS_NAME, MODE_PRIVATE)
+            val profileId = nativePrefs.getString(NATIVE_PREF_LAST_PROFILE_ID, null).orEmpty().trim()
+            val sessionId = nativePrefs.getString(NATIVE_PREF_LAST_SESSION_ID, null).orEmpty().trim()
+            val cwd = nativePrefs.getString(NATIVE_PREF_LAST_CWD, null)?.trim()?.takeIf { it.isNotEmpty() }
+            if (profileId.isNotEmpty() && sessionId.isNotEmpty()) {
+                return CodexActivity.newIntent(
+                    context = this,
+                    profileId = profileId,
+                    sessionId = sessionId,
+                    sessionMode = SessionMode.CODEX.wireValue,
+                    cwd = cwd,
+                    launchSource = "notification"
+                ).apply {
+                    this.flags = flags
+                }
+            }
+        }
+
+        val shellPrefs = getSharedPreferences(SHELL_PREFS_NAME, MODE_PRIVATE)
+        return Intent(this, MainShellActivity::class.java).apply {
+            this.flags = flags
+            shellPrefs.getString(SHELL_PREF_LAST_PROFILE_ID, null)
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { putExtra("profileId", it) }
+            shellPrefs.getString(SHELL_PREF_LAST_SESSION_ID, null)
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { putExtra("sessionId", it) }
+            shellPrefs.getString(SHELL_PREF_LAST_SESSION_CWD, null)
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { putExtra("cwd", it) }
+            putExtra("sessionMode", SessionMode.CODEX.wireValue)
+        }
     }
 }

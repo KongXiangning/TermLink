@@ -1,6 +1,6 @@
 ---
 title: Codex Android 全原生并行迁移与多 CLI 提供方扩展基线
-status: planned
+status: done
 owner: @maintainer
 last_updated: 2026-04-09
 source_of_truth: product
@@ -15,7 +15,7 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-202
 - id: REQ-20260408-codex-native-android-migration
 - title: Codex Android 全原生并行迁移与多 CLI 提供方扩展基线
 - priority: P1
-- status: planned
+- status: done
 - owner: @maintainer
 - target_release: 2026-Q2
 - links: `docs/product/plans/PLAN-20260408-codex-native-android-migration.md`
@@ -174,3 +174,10 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-202
 3. Phase 2：完成功能对齐与多 provider 扩展边界收口。
 4. Phase 3：完成稳定性验证与默认入口切换准备。
 5. Phase 4：完成灰度切换与旧入口受控下线。
+
+## 10. 当前进度
+
+1. Phase 0 与 Phase 1 已完成，并已有 `active` CR 留痕。
+2. Phase 2 已补齐功能对齐主线：运行态面板、工具面板、token/context/rate-limit 展示、图片输入与大屏/回退入口都已落地到原生 `CodexActivity`；审批/用户输入链路也已完成客户端实现与真机注入验证。
+3. Phase 3 已完成真机稳定性收口：原生入口已验证消息收发、`HOME -> warm relaunch` 恢复、弱网断连后 `重试` 继续使用，以及前台通知返回链路；`Sessions` 中的新旧入口并行路由和恢复状态边界也已在同一会话上验证完毕。
+4. Phase 4 已完成“原生默认入口 + WebView 受控回退”的切换与收口回归；旧 WebView Codex 正式移除不再作为本 REQ 的阻塞项，后续若决定清理旧入口，按独立 follow-up 变更处理。

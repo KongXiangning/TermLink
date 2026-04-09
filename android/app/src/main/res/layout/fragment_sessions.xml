@@ -52,6 +52,17 @@
         android:textColor="@android:color/white"
         android:textStyle="bold" />
 
+    <Button
+        android:id="@+id/btn_toggle_codex_entry"
+        android:layout_width="match_parent"
+        android:layout_height="46dp"
+        android:layout_marginTop="8dp"
+        android:backgroundTint="@color/sessions_surface_alt"
+        android:text="@string/sessions_codex_entry_toggle_on"
+        android:textAllCaps="false"
+        android:textColor="@color/sessions_text_primary"
+        android:textStyle="bold" />
+
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/sessions_swipe_refresh"
         android:layout_width="match_parent"

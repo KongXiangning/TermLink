@@ -1,6 +1,9 @@
 package com.termlink.app.codex.domain
 
 import com.termlink.app.codex.data.CodexCapabilities
+import com.termlink.app.codex.data.CodexEffectiveConfig
+import com.termlink.app.codex.data.CodexInteractionState
+import com.termlink.app.codex.data.CodexServerRequest
 
 /**
  * Connection lifecycle visible to the UI layer.
@@ -29,6 +32,115 @@ data class ChatMessage(
 }
 
 /**
+ * Client-side per-turn overrides sent with codex_turn.
+ * Mirrors Web's `nextTurnOverrides` in terminal_client.js.
+ */
+data class NextTurnOverrides(
+    val model: String? = null,
+    val reasoningEffort: String? = null,
+    val sandbox: String? = null
+)
+
+/**
+ * Collaboration mode sent with codex_turn for plan-mode turns.
+ * Shape: { mode: "plan", settings: { model, reasoning_effort } }
+ */
+data class CollaborationMode(
+    val mode: String = "plan",
+    val model: String? = null,
+    val reasoningEffort: String? = null
+)
+
+data class FileMention(
+    val label: String,
+    val path: String,
+    val relativePathWithoutFileName: String = "",
+    val fsPath: String? = null
+)
+
+data class CodexSkillEntry(
+    val name: String,
+    val label: String,
+    val description: String = "",
+    val defaultPrompt: String = "",
+    val scope: String = ""
+)
+
+data class CodexPendingImageAttachment(
+    val id: String,
+    val type: String,
+    val label: String,
+    val url: String,
+    val mimeType: String? = null,
+    val sizeBytes: Long? = null
+)
+
+data class CodexThreadHistoryEntry(
+    val id: String,
+    val title: String,
+    val archived: Boolean = false,
+    val lastActiveAt: Long? = null,
+    val createdAt: Long? = null
+)
+
+data class CodexPlanWorkflowState(
+    val phase: String = "idle",
+    val originalPrompt: String = "",
+    val latestPlanText: String = "",
+    val confirmedPlanText: String = "",
+    val lastUserInputRequestId: String = ""
+)
+
+data class CodexRuntimePanelState(
+    val visible: Boolean = false,
+    val diff: String = "",
+    val plan: String = "",
+    val reasoning: String = "",
+    val terminalOutput: String = "",
+    val warning: String = "",
+    val warningTone: String = ""
+)
+
+data class CodexToolsPanelState(
+    val visible: Boolean = false,
+    val skills: List<CodexSkillEntry> = emptyList(),
+    val loading: Boolean = false,
+    val requested: Boolean = false,
+    val compactSubmitting: Boolean = false,
+    val compactStatusText: String = "",
+    val compactStatusTone: String = ""
+)
+
+data class CodexContextUsageState(
+    val usedTokens: Long? = null,
+    val contextWindow: Long? = null,
+    val usedPercent: Int? = null,
+    val remainingPercent: Int? = null,
+    val inputTokens: Long? = null,
+    val outputTokens: Long? = null,
+    val cachedInputTokens: Long? = null,
+    val reasoningTokens: Long? = null,
+    val updatedAtMillis: Long = 0L
+)
+
+data class CodexUsagePanelState(
+    val visible: Boolean = false,
+    val tokenUsageSummary: String = "",
+    val rateLimitSummary: String = "",
+    val rateLimitTone: String = "",
+    val contextUsage: CodexContextUsageState? = null
+)
+
+enum class DebugServerRequestPreset {
+    COMMAND_APPROVAL,
+    FILE_APPROVAL,
+    PATCH_APPROVAL,
+    AUTO_HANDLED,
+    USER_INPUT_OPTIONS,
+    USER_INPUT_FREEFORM
+}
+
+/**
  * Aggregate UI state for the native Codex screen.
  * The Compose layer observes this via StateFlow.
  */
@@ -42,11 +154,41 @@ data class CodexUiState(
     val reasoningEffort: String? = null,
     val sandbox: Boolean? = null,
     val planMode: Boolean? = null,
+    val planWorkflow: CodexPlanWorkflowState = CodexPlanWorkflowState(),
     val capabilities: CodexCapabilities? = null,
     val messages: List<ChatMessage> = emptyList(),
     val errorMessage: String? = null,
-    val interactionState: String? = null,
-    val cwd: String? = null
+    val interactionState: CodexInteractionState? = null,
+    val cwd: String? = null,
+    val serverNextTurnConfigBase: CodexEffectiveConfig? = null,
+    val nextTurnEffectiveCodexConfig: CodexEffectiveConfig? = null,
+    // Phase 2: slash commands & overrides
+    val nextTurnOverrides: NextTurnOverrides = NextTurnOverrides(),
+    val slashMenuVisible: Boolean = false,
+    val slashMenuQuery: String = "",
+    val modelPickerVisible: Boolean = false,
+    val reasoningPickerVisible: Boolean = false,
+    val sandboxPickerVisible: Boolean = false,
+    val pendingFileMentions: List<FileMention> = emptyList(),
+    val fileMentionMenuVisible: Boolean = false,
+    val fileMentionQuery: String = "",
+    val fileMentionResults: List<FileMention> = emptyList(),
+    val fileMentionLoading: Boolean = false,
+    val pendingServerRequests: List<CodexServerRequest> = emptyList(),
+    val submittingServerRequestIds: Set<String> = emptySet(),
+    val sessionExpired: Boolean = false,
+    val runtimePanel: CodexRuntimePanelState = CodexRuntimePanelState(),
+    val toolsPanel: CodexToolsPanelState = CodexToolsPanelState(),
+    val usagePanel: CodexUsagePanelState = CodexUsagePanelState(),
+    val pendingImageAttachments: List<CodexPendingImageAttachment> = emptyList(),
+    val currentThreadTitle: String = "",
+    val threadHistoryEntries: List<CodexThreadHistoryEntry> = emptyList(),
+    val threadHistorySheetVisible: Boolean = false,
+    val threadHistoryLoading: Boolean = false,
+    val threadHistoryActionThreadId: String = "",
+    val threadHistoryActionKind: String = "",
+    val threadRenameTargetId: String = "",
+    val threadRenameDraft: String = ""
 )
 
 /**

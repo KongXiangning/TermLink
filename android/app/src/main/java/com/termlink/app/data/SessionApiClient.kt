@@ -122,6 +122,26 @@ class SessionApiClient(context: Context) {
         }
     }
 
+    fun searchWorkspaceFiles(
+        profile: ServerProfile,
+        sessionId: String,
+        query: String,
+        limit: Int = 20
+    ): ApiResult<List<WorkspaceFileSearchResult>> {
+        val encodedQuery = java.net.URLEncoder.encode(query, Charsets.UTF_8.name())
+        val endpoint = "/sessions/$sessionId/workspace/files?q=$encodedQuery&limit=${limit.coerceIn(1, 50)}"
+        val response = request(
+            profile = profile,
+            method = "GET",
+            endpointPath = endpoint,
+            body = null
+        )
+        return when (response) {
+            is ApiResult.Failure -> response
+            is ApiResult.Success -> parseWorkspaceFileSearchResults(response.value)
+        }
+    }
+
     private fun parseSessions(payload: String): ApiResult<List<SessionSummary>> {
         return try {
             val array = JSONArray(payload.ifBlank { "[]" })
@@ -249,6 +269,39 @@ class SessionApiClient(context: Context) {
                 SessionApiError(
                     code = SessionApiErrorCode.PARSE_ERROR,
                     message = "Failed to parse workspace picker response.",
+                    cause = ex
+                )
+            )
+        }
+    }
+
+    private fun parseWorkspaceFileSearchResults(payload: String): ApiResult<List<WorkspaceFileSearchResult>> {
+        return try {
+            val obj = JSONObject(payload.ifBlank { "{}" })
+            val filesJson = obj.optJSONArray("files") ?: JSONArray()
+            val files = mutableListOf<WorkspaceFileSearchResult>()
+            for (index in 0 until filesJson.length()) {
+                val item = filesJson.optJSONObject(index) ?: continue
+                val label = item.optString("label", "").trim()
+                val path = item.optString("path", "").trim()
+                if (label.isBlank() || path.isBlank()) {
+                    continue
+                }
+                files.add(
+                    WorkspaceFileSearchResult(
+                        label = label,
+                        path = path,
+                        relativePathWithoutFileName = item.optString("relativePathWithoutFileName", "").trim(),
+                        fsPath = item.optString("fsPath", "").trim().takeIf { it.isNotBlank() }
+                    )
+                )
+            }
+            ApiResult.Success(files)
+        } catch (ex: JSONException) {
+            ApiResult.Failure(
+                SessionApiError(
+                    code = SessionApiErrorCode.PARSE_ERROR,
+                    message = "Failed to parse workspace file search response.",
                     cause = ex
                 )
             )
