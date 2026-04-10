@@ -3,7 +3,7 @@ title: Codex 原生 Android closeout：工具/用量/图片输入、默认入口
 status: active
 record_id: CR-20260409-2332-native-closeout
 req_id: REQ-20260408-codex-native-android-migration
-commit_ref: cd2b0daa14226713fbc5f005c7479a0bf94a4789
+commit_ref: 6aff0fb77a46f721ac8faea9c04aefec5af7a228
 owner: @maintainer
 last_updated: 2026-04-09
 source_of_truth: product
