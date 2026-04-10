@@ -14,7 +14,7 @@ related_docs: [docs/README.md]
 
 ### client
 
-1. 完成 `REQ-20260408-codex-native-android-migration`：原生 Android Codex 已补齐工具面板、Token/Context/Rate Limit 展示、图片输入、本地图片选择、宽屏布局、默认入口切换，以及由当前入口显式注入的前台通知返回 intent；`MainShellActivity` 与 `CodexActivity` 现在可分别为 WebView 回退 / 原生入口生成独立通知回跳路径。
+1. 完成 `REQ-20260408-codex-native-android-migration`：原生 Android Codex 已补齐工具面板、Token/Context/Rate Limit 展示、图片输入、本地图片选择、宽屏布局、默认入口切换，以及由当前入口显式注入的前台通知返回 intent；`MainShellActivity` 与 `CodexActivity` 现在可分别为 WebView 回退 / 原生入口生成独立通知回跳路径，前台服务不再使用 shared prefs 猜测回跳目标。
 
 ### docs
 

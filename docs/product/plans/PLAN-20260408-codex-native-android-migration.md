@@ -37,7 +37,7 @@ Phase 2 当前进度：
 
 Phase 3 当前进度：
 
-1. `done`：`3.4-1` 已完成 debug APK 编译、安装、主应用启动、原生 `CodexActivity` 直启、消息收发、`HOME -> warm relaunch` 恢复、弱网断连后 `重试` 继续收发，以及 `force-stop -> 直启 native session -> 重建前台通知` 的通知返回链路收口；前台服务现改为由当前入口显式注入 tap intent，避免旧 `MainShellActivity` PendingIntent 干扰。
+1. `done`：`3.4-1` 已完成 debug APK 编译、安装、主应用启动、原生 `CodexActivity` 直启、消息收发、`HOME -> warm relaunch` 恢复、弱网断连后 `重试` 继续收发，以及 `force-stop -> 直启 native session -> 重建前台通知` 的通知返回链路收口；前台服务现改为仅绑定当前入口显式注入的 tap intent，未收到显式 intent 时不会再回退到旧 `MainShellActivity` / shared prefs 推断。
 2. `done`：`3.4-2` 已完成新旧入口同会话对照：同一 Codex 会话可在 `Sessions` 中切换为原生或 WebView 回退打开，路由、恢复状态与通知返回边界均已隔离，输入/恢复主链不再存在阻塞性差异。
 3. `done`：`3.4-3` 已在 `SessionsFragment` 增加 Codex 默认入口切换开关，并通过 `CodexLaunchPreferencesStore` 持久化原生 / WebView 路由选择。
 4. `done`：`3.4-4` 已在 `MainShellActivity` 中验证新旧入口并行路由边界：Codex 会话在开关开启时走原生 `CodexActivity`，关闭时继续保留 WebView 路径，且真机上已确认 Sessions 开关可双向切换两条路由。

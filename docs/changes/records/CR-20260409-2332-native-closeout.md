@@ -25,7 +25,7 @@ related_docs: [docs/product/plans/PLAN-20260408-codex-native-android-migration.m
 
 1. 在原生 `CodexViewModel` / `CodexScreen` / `CodexActivity` 中补齐工具面板、技能列表请求、compact 入口、token/context/rate-limit 状态消费与展示、图片 URL / 本地图片待发送态，以及宽屏布局与底部操作区收口；同时修正原生 `codex_request` 启动请求始终携带 `params`，避免 gateway 在启动阶段报 `missing field params`。
 2. 新增 `CodexLaunchPreferencesStore`，在 `SessionsFragment` 提供 Codex 默认入口切换按钮，并让 `MainShellActivity` 在打开 Codex 会话时按开关决定走原生 `CodexActivity` 还是保留旧 WebView 路径。
-3. 将 `CodexTaskForegroundService` 从“根据共享偏好猜测回跳入口”调整为“由当前入口显式注入通知 tap intent”：WebView 路径由 `MainShellActivity` 注入 `MainShellActivity` intent，原生路径由 `CodexActivity` 注入 `CodexActivity.newIntent(...)`，避免旧 PendingIntent 造成通知返回漂移。
+3. 将 `CodexTaskForegroundService` 从“根据共享偏好猜测回跳入口”调整为“由当前入口显式注入通知 tap intent”：WebView 路径由 `MainShellActivity` 注入 `MainShellActivity` intent，原生路径由 `CodexActivity` 注入 `CodexActivity.newIntent(...)`；若前台服务刚创建时尚未收到显式 intent，则初始通知不挂回跳，等待 `onStartCommand()` 更新后再绑定，避免旧 PendingIntent 或共享偏好回退造成通知返回漂移。
 4. 同步更新 PLAN、REQ、Backlog、Product、Changelog 与 CR 索引，把原生迁移 closeout、Phase 3/4 完成与“WebView 仅保留为受控回退”的口径写回文档。
 
 ## 3. 影响范围（Files/Modules/Runtime）
@@ -84,7 +84,7 @@ git checkout <commit_ref>^ -- \
   - 在原生 Codex 中发起一轮消息后，assistant 已返回响应；随后执行 `HOME -> warm relaunch`，消息记录仍保留且 `CodexActivity` 可恢复为 resumed 状态。
   - Wi-Fi 断连后原生页会暴露错误提示；恢复网络并点击 `重试` 后，native 会话可继续发送 `ping` 并收到 `pong`，说明弱网后的继续使用链路已打通。
   - Sessions drawer 中的 Codex 默认入口开关已在真机验证：切到 `WebView 回退` 后打开 Codex 会话保持在 `MainShellActivity`，切回 `原生 Android` 后同一会话可重新路由到 `CodexActivity`。
-  - 在 `force-stop -> 显式 native session 启动` 的隔离场景下，前台 `codex_task_active` 通知会由原生入口重新创建；同时 `CodexTaskForegroundService` 已改为使用当前入口显式注入的 tap intent，不再依赖共享偏好推断通知返回路径。
+  - 在 `force-stop -> 显式 native session 启动` 的隔离场景下，前台 `codex_task_active` 通知会由原生入口重新创建；`CodexTaskForegroundService` 现仅在收到当前入口显式注入的 tap intent 后才绑定通知回跳，不再依赖共享偏好推断通知返回路径。
   - REQ 严格校验通过。
 
 ## 6. 后续修改入口（How to continue）

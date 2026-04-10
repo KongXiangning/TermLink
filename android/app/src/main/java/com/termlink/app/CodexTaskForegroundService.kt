@@ -13,9 +13,6 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
-import com.termlink.app.codex.CodexActivity
-import com.termlink.app.data.CodexLaunchPreferencesStore
-import com.termlink.app.data.SessionMode
 
 /**
  * Foreground service that keeps the Android process alive while a Codex task
@@ -33,14 +30,6 @@ class CodexTaskForegroundService : Service() {
         private const val NOTIFICATION_ID = 9201
         private const val EXTRA_STATUS = "codex_task_status"
         private const val EXTRA_TAP_INTENT = "codex_task_tap_intent"
-        private const val NATIVE_PREFS_NAME = "codex_native_restore"
-        private const val NATIVE_PREF_LAST_PROFILE_ID = "last_profile_id"
-        private const val NATIVE_PREF_LAST_SESSION_ID = "last_session_id"
-        private const val NATIVE_PREF_LAST_CWD = "last_cwd"
-        private const val SHELL_PREFS_NAME = "termlink_shell"
-        private const val SHELL_PREF_LAST_PROFILE_ID = "last_profile_id"
-        private const val SHELL_PREF_LAST_SESSION_ID = "last_session_id"
-        private const val SHELL_PREF_LAST_SESSION_CWD = "last_session_cwd"
 
         private val ACTIVE_STATUSES = setOf("running", "reconnecting", "waiting_approval")
 
@@ -146,61 +135,23 @@ class CodexTaskForegroundService : Service() {
             else -> getString(R.string.codex_task_notif_running)
         }
 
-        val tapIntent = latestTapIntent ?: buildTapIntent()
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, tapIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.codex_task_notif_title))
             .setContentText(contentText)
-            .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setSilent(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .build()
-    }
-
-    private fun buildTapIntent(): Intent {
-        val flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        if (CodexLaunchPreferencesStore(applicationContext).isNativeCodexDefaultEnabled()) {
-            val nativePrefs = getSharedPreferences(NATIVE_PREFS_NAME, MODE_PRIVATE)
-            val profileId = nativePrefs.getString(NATIVE_PREF_LAST_PROFILE_ID, null).orEmpty().trim()
-            val sessionId = nativePrefs.getString(NATIVE_PREF_LAST_SESSION_ID, null).orEmpty().trim()
-            val cwd = nativePrefs.getString(NATIVE_PREF_LAST_CWD, null)?.trim()?.takeIf { it.isNotEmpty() }
-            if (profileId.isNotEmpty() && sessionId.isNotEmpty()) {
-                return CodexActivity.newIntent(
-                    context = this,
-                    profileId = profileId,
-                    sessionId = sessionId,
-                    sessionMode = SessionMode.CODEX.wireValue,
-                    cwd = cwd,
-                    launchSource = "notification"
-                ).apply {
-                    this.flags = flags
-                }
-            }
+        latestTapIntent?.let { tapIntent ->
+            val pendingIntent = PendingIntent.getActivity(
+                this,
+                0,
+                tapIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.setContentIntent(pendingIntent)
         }
-
-        val shellPrefs = getSharedPreferences(SHELL_PREFS_NAME, MODE_PRIVATE)
-        return Intent(this, MainShellActivity::class.java).apply {
-            this.flags = flags
-            shellPrefs.getString(SHELL_PREF_LAST_PROFILE_ID, null)
-                ?.trim()
-                ?.takeIf { it.isNotEmpty() }
-                ?.let { putExtra("profileId", it) }
-            shellPrefs.getString(SHELL_PREF_LAST_SESSION_ID, null)
-                ?.trim()
-                ?.takeIf { it.isNotEmpty() }
-                ?.let { putExtra("sessionId", it) }
-            shellPrefs.getString(SHELL_PREF_LAST_SESSION_CWD, null)
-                ?.trim()
-                ?.takeIf { it.isNotEmpty() }
-                ?.let { putExtra("cwd", it) }
-            putExtra("sessionMode", SessionMode.CODEX.wireValue)
-        }
+        return builder.build()
     }
 }
