@@ -1,8 +1,8 @@
 ---
-title: 鍙樻洿璁板綍绱㈠紩
+title: 变更记录索引
 status: active
 owner: @maintainer
-last_updated: 2026-04-09
+last_updated: 2026-04-11
 source_of_truth: product
 related_code: [docs/changes/records]
 related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_CHANGE_RECORD.md]
@@ -10,19 +10,25 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 # Change Records Index
 
-鏈储寮曠敤浜庣淮鎶も€滅被浼?/compact 鐨勫浐鍖栬褰曗€濓紝鏀寔鍥炴斁銆佽繕鍘熷拰鍚庣画淇敼銆?
+本索引用于维护 compact 风格的实施留痕，支持回放、回滚和后续修改追踪。
 
-## 浣跨敤瑙勫垯
+## 使用规则
 
-1. 姣忔瀹炴柦/鎻愪氦蹇呴』鏂板涓€鏉?CR 璁板綍銆?
-2. CR 蹇呴』鍖呭惈 `req_id + commit_ref`锛坄draft` 鐘舵€佸厑璁?`commit_ref: TBD`锛夈€?
-3. 闇€姹傜姸鎬佹祦杞埌 `done` 鍓嶏紝蹇呴』鑷冲皯瀛樺湪涓€鏉?`active` CR銆?
-4. `CHANGELOG_PROJECT.md` 浠呬繚鐣欐憳瑕侊紝璇︾粏鍥炴粴涓庢仮澶嶄俊鎭互 CR 涓哄噯銆?
+1. 每次实施/提交必须新增一条 CR 记录。
+2. CR 必须包含 `req_id + commit_ref`；`draft` 状态允许 `commit_ref: TBD`。
+3. 需求状态流转到 `done` 前，必须至少存在一条 `active` CR。
+4. `CHANGELOG_PROJECT.md` 仅保留摘要，详细回滚与恢复信息以 CR 为准。
 
 ## Records
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260411-1714-codex-native-main-entry-removal | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-11 |  | `docs/changes/records/CR-20260411-1714-codex-native-main-entry-removal.md` |
+| CR-20260411-1602-codex-native-retention-notification-nav-impl | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-11 |  | `docs/changes/records/CR-20260411-1602-codex-native-retention-notification-nav-impl.md` |
+| CR-20260411-1100-codex-native-retention-notification-nav-doc-init | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-11 |  | `docs/changes/records/CR-20260411-1100-codex-native-retention-notification-nav-doc-init.md` |
+| CR-20260411-0155-codex-plan-runtime-copy-fixes | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-11 |  | `docs/changes/records/CR-20260411-0155-codex-plan-runtime-copy-fixes.md` |
+| CR-20260410-1357-codex-ui-equivalence-native | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-10 |  | `docs/changes/records/CR-20260410-1357-codex-ui-equivalence-native.md` |
+| CR-20260410-1331-ui-equivalence-docs | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-10 |  | `docs/changes/records/CR-20260410-1331-ui-equivalence-docs.md` |
 | CR-20260409-phase0-codex-native-android-infrastructure | REQ-20260408-codex-native-android-migration | active | 600ead0 | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-phase0-codex-native-android-infrastructure.md` |
 | CR-20260409-2332-native-closeout | REQ-20260408-codex-native-android-migration | active | 6aff0fb77a46f721ac8faea9c04aefec5af7a228 | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-2332-native-closeout.md` |
 | CR-20260409-2103-phase2-run-panels | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-09 |  | `docs/changes/records/CR-20260409-2103-phase2-run-panels.md` |

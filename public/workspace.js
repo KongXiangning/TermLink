@@ -83,6 +83,7 @@
         state.sessionId = getQueryParam('sessionId') || config.sessionId || '';
         state.serverUrl = normalizeServerUrl(config.serverUrl || '');
         state.authHeader = typeof config.authHeader === 'string' ? config.authHeader : '';
+        state.defaultEntryPath = getQueryParam('defaultEntryPath') || config.defaultEntryPath || '';
     }
 
     function normalizeServerUrl(value) {

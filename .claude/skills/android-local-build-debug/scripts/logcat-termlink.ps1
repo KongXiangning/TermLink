@@ -10,10 +10,10 @@ if (-not $NoClear) {
     & adb -s $target logcat -c
 }
 
-$pid = (& adb -s $target shell pidof -s com.termlink.app 2>$null).Trim()
-if ($pid) {
-    Write-Host "Streaming logcat for com.termlink.app pid=$pid on $target"
-    & adb -s $target logcat --pid=$pid -v time
+$appPid = (& adb -s $target shell pidof -s com.termlink.app 2>$null).Trim()
+if ($appPid) {
+    Write-Host "Streaming logcat for com.termlink.app pid=$appPid on $target"
+    & adb -s $target logcat --pid=$appPid -v time
     exit $LASTEXITCODE
 }
 

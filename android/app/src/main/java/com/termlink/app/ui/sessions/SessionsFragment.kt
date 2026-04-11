@@ -23,7 +23,6 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.material.card.MaterialCardView
 import com.termlink.app.R
 import com.termlink.app.data.ApiResult
-import com.termlink.app.data.CodexLaunchPreferencesStore
 import com.termlink.app.data.ExternalSession
 import com.termlink.app.data.ExternalSessionStore
 import com.termlink.app.data.ServerProfile
@@ -57,7 +56,6 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
     private lateinit var sessionApiClient: SessionApiClient
     private lateinit var externalSessionStore: ExternalSessionStore
-    private lateinit var codexLaunchPreferencesStore: CodexLaunchPreferencesStore
     private lateinit var sessionListCacheStore: SessionListCacheStore
     private val executor: ExecutorService = Executors.newFixedThreadPool(
         Runtime.getRuntime().availableProcessors().coerceIn(4, 12)
@@ -93,7 +91,6 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     private lateinit var emptyText: TextView
     private lateinit var listContainer: LinearLayout
     private lateinit var swipeRefresh: SwipeRefreshLayout
-    private lateinit var codexEntryToggleButton: Button
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -105,7 +102,6 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         super.onCreate(savedInstanceState)
         sessionApiClient = SessionApiClient(requireContext().applicationContext)
         externalSessionStore = ExternalSessionStore(requireContext().applicationContext)
-        codexLaunchPreferencesStore = CodexLaunchPreferencesStore(requireContext().applicationContext)
         sessionListCacheStore = SessionListCacheStore(requireContext().applicationContext)
     }
 
@@ -131,7 +127,6 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         emptyText = view.findViewById(R.id.sessions_empty_text)
         listContainer = view.findViewById(R.id.sessions_list_container)
         swipeRefresh = view.findViewById(R.id.sessions_swipe_refresh)
-        codexEntryToggleButton = view.findViewById(R.id.btn_toggle_codex_entry)
 
         swipeRefresh.setOnRefreshListener {
             refreshSessions(showSpinner = true)
@@ -139,17 +134,10 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         view.findViewById<Button>(R.id.btn_create_session).setOnClickListener {
             showCreateDialog()
         }
-        codexEntryToggleButton.setOnClickListener {
-            val enabled = !codexLaunchPreferencesStore.isNativeCodexDefaultEnabled()
-            codexLaunchPreferencesStore.setNativeCodexDefaultEnabled(enabled)
-            renderCodexEntryToggle()
-        }
-        renderCodexEntryToggle()
     }
 
     override fun onResume() {
         super.onResume()
-        renderCodexEntryToggle()
         if (!isHidden) {
             startAutoRefresh()
             refreshSessions(showSpinner = false)
@@ -182,21 +170,6 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         refreshRequestTracker.invalidateActions()
         resetViewBoundSessionState()
         super.onDestroyView()
-    }
-
-    private fun renderCodexEntryToggle() {
-        if (!::codexEntryToggleButton.isInitialized) {
-            return
-        }
-        val enabled = codexLaunchPreferencesStore.isNativeCodexDefaultEnabled()
-        codexEntryToggleButton.text = getString(
-            if (enabled) {
-                R.string.sessions_codex_entry_toggle_on
-            } else {
-                R.string.sessions_codex_entry_toggle_off
-            }
-        )
-        codexEntryToggleButton.alpha = if (enabled) 1f else 0.82f
     }
 
     private fun refreshSessions(showSpinner: Boolean) {

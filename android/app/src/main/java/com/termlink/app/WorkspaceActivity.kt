@@ -28,6 +28,7 @@ class WorkspaceActivity : AppCompatActivity() {
     private var workspaceWebView: WebView? = null
     private var profileId: String = ""
     private var sessionId: String = ""
+    private var defaultEntryPath: String = ""
     private var lastResolvedLocale: String = LocaleHelper.resolveWebViewLocale()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,6 +41,8 @@ class WorkspaceActivity : AppCompatActivity() {
             .ifBlank { intent?.getStringExtra(EXTRA_PROFILE_ID).orEmpty() }
         sessionId = savedInstanceState?.getString(STATE_SESSION_ID).orEmpty()
             .ifBlank { intent?.getStringExtra(EXTRA_SESSION_ID).orEmpty() }
+        defaultEntryPath = savedInstanceState?.getString(STATE_DEFAULT_ENTRY_PATH).orEmpty()
+            .ifBlank { intent?.getStringExtra(EXTRA_DEFAULT_ENTRY_PATH).orEmpty() }
 
         if (sessionId.isBlank()) {
             Toast.makeText(this, getString(R.string.workspace_activity_invalid_session), Toast.LENGTH_SHORT).show()
@@ -77,6 +80,7 @@ class WorkspaceActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString(STATE_PROFILE_ID, profileId)
         outState.putString(STATE_SESSION_ID, sessionId)
+        outState.putString(STATE_DEFAULT_ENTRY_PATH, defaultEntryPath)
         workspaceWebView?.saveState(outState)
         super.onSaveInstanceState(outState)
     }
@@ -152,6 +156,9 @@ class WorkspaceActivity : AppCompatActivity() {
         val profile = resolveProfile()
         json.put("sessionId", sessionId)
         json.put("serverUrl", profile?.baseUrl.orEmpty())
+        if (defaultEntryPath.isNotBlank()) {
+            json.put("defaultEntryPath", defaultEntryPath)
+        }
         val authHeader = buildAuthHeader(profile)
         if (!authHeader.isNullOrBlank()) {
             json.put("authHeader", authHeader)
@@ -186,10 +193,25 @@ class WorkspaceActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_PROFILE_ID = "profileId"
         const val EXTRA_SESSION_ID = "sessionId"
+        const val EXTRA_DEFAULT_ENTRY_PATH = "defaultEntryPath"
+
+        fun newIntent(
+            context: android.content.Context,
+            profileId: String,
+            sessionId: String,
+            defaultEntryPath: String? = null
+        ) = android.content.Intent(context, WorkspaceActivity::class.java).apply {
+            putExtra(EXTRA_PROFILE_ID, profileId)
+            putExtra(EXTRA_SESSION_ID, sessionId)
+            defaultEntryPath?.takeIf { it.isNotBlank() }?.let {
+                putExtra(EXTRA_DEFAULT_ENTRY_PATH, it)
+            }
+        }
 
         private const val STATE_PROFILE_ID = "workspace_profile_id"
         private const val STATE_SESSION_ID = "workspace_session_id"
-        private const val WORKSPACE_URL = "file:///android_asset/public/workspace.html?v=1"
+        private const val STATE_DEFAULT_ENTRY_PATH = "workspace_default_entry_path"
+        private const val WORKSPACE_URL = "file:///android_asset/public/workspace.html?v=2"
         private const val TAG = "WorkspaceActivity"
     }
 }

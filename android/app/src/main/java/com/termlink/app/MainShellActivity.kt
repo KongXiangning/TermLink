@@ -1,6 +1,7 @@
 package com.termlink.app
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
@@ -43,7 +44,6 @@ import androidx.webkit.WebViewFeature
 import com.termlink.app.codex.CodexActivity
 import com.termlink.app.data.AuthType
 import com.termlink.app.data.BasicCredentialStore
-import com.termlink.app.data.CodexLaunchPreferencesStore
 import com.termlink.app.data.ExternalSessionStore
 import com.termlink.app.data.MtlsCertificateStore
 import com.termlink.app.data.ServerConfigState
@@ -93,7 +93,6 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private lateinit var basicCredentialStore: BasicCredentialStore
     private lateinit var mtlsCertificateStore: MtlsCertificateStore
     private lateinit var externalSessionStore: ExternalSessionStore
-    private lateinit var codexLaunchPreferencesStore: CodexLaunchPreferencesStore
     private lateinit var sessionApiClient: SessionApiClient
     private lateinit var webViewClientCertCacheInvalidator: WebViewClientCertCacheInvalidator
     private val backgroundExecutor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -138,6 +137,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var workspaceEntryAvailable: Boolean = false
     private var workspaceEntryStableResolution: Boolean = false
     private var workspaceEntryDisabledReason: String? = null
+    private var returnToNativeCodex: Boolean = false
     private val IDLE_DIM_DELAY_MS = 2 * 60 * 1000L // 2 minutes
     private val drawerListener = object : DrawerLayout.SimpleDrawerListener() {
         override fun onDrawerOpened(drawerView: View) {
@@ -149,6 +149,12 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         override fun onDrawerClosed(drawerView: View) {
             if (drawerView.id == R.id.shell_sessions_drawer_container) {
                 setDrawerSessionsFragmentVisible(false)
+                if (
+                    returnToNativeCodex &&
+                    canOpenNativeCodex(getCurrentSelection())
+                ) {
+                    launchCurrentSelectionInNativeCodex(finishCurrent = true)
+                }
             }
         }
     }
@@ -190,7 +196,6 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         basicCredentialStore = BasicCredentialStore(applicationContext)
         mtlsCertificateStore = MtlsCertificateStore(applicationContext)
         externalSessionStore = ExternalSessionStore(applicationContext)
-        codexLaunchPreferencesStore = CodexLaunchPreferencesStore(applicationContext)
         sessionApiClient = SessionApiClient(applicationContext)
         webViewClientCertCacheInvalidator = WebViewClientCertCacheInvalidator()
         syncProfileState(serverConfigStore.loadState(), inject = false)
@@ -203,7 +208,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
         drawerLayout?.addDrawerListener(drawerListener)
         sessionsDrawerButton?.setOnClickListener { openSessionsDrawer() }
-        backButton?.setOnClickListener { showTerminalScreen() }
+        backButton?.setOnClickListener { handleBackNavigation() }
         settingsButton?.setOnClickListener { showSettingsScreen() }
         workspaceButton?.setOnClickListener { handleWorkspaceButtonClick() }
         quickToolbarButton?.setOnClickListener { toggleQuickToolbar() }
@@ -211,6 +216,19 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         applySystemBarInsets()
         ensureDrawerSessionsFragment()
         setDrawerSessionsFragmentVisible(false)
+        applySelectionFromIntent(intent)
+        returnToNativeCodex = resolveReturnToNativeCodex(intent)
+        val initialOpenTarget = resolveOpenTargetFromIntent(intent)
+
+        if (shouldLaunchCurrentSelectionInNativeCodex(initialOpenTarget)) {
+            launchCurrentSelectionInNativeCodex(finishCurrent = true)
+            return
+        }
+        if (shouldOpenSessionsDrawerForMissingCodexSession(initialOpenTarget)) {
+            showTerminalScreen(injectConfig = false)
+            openSessionsDrawer()
+            return
+        }
 
         if (savedInstanceState == null) {
             showTerminalScreen(injectConfig = false)
@@ -222,6 +240,20 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             }
             applyTerminalChromeMode()
         }
+        applyOpenTargetFromIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        applySelectionFromIntent(intent)
+        returnToNativeCodex = resolveReturnToNativeCodex(intent)
+        val openTarget = resolveOpenTargetFromIntent(intent)
+        if (shouldLaunchCurrentSelectionInNativeCodex(openTarget)) {
+            launchCurrentSelectionInNativeCodex(finishCurrent = true)
+            return
+        }
+        applyOpenTargetFromIntent(intent)
     }
 
     override fun onDestroy() {
@@ -263,6 +295,24 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         idleHandler?.removeCallbacksAndMessages(null)
         disableKeepScreenOn()
         super.onPause()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        val layout = drawerLayout
+        if (layout?.isDrawerOpen(GravityCompat.END) == true) {
+            layout.closeDrawer(GravityCompat.END)
+            return
+        }
+        if (returnToNativeCodex && canOpenNativeCodex(getCurrentSelection())) {
+            launchCurrentSelectionInNativeCodex(finishCurrent = true)
+            return
+        }
+        if (currentScreen == ScreenMode.SETTINGS) {
+            handleBackNavigation()
+            return
+        }
+        super.onBackPressed()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -618,8 +668,11 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     override fun onOpenSession(selection: SessionSelection) {
-        if (shouldOpenNativeCodex(selection)) {
-            openSessionInNativeCodex(selection)
+        if (canOpenNativeCodex(selection)) {
+            openSessionInNativeCodex(
+                selection,
+                finishCurrent = returnToNativeCodex || currentScreen == ScreenMode.SETTINGS
+            )
         } else {
             openSessionInTerminal(selection)
         }
@@ -645,6 +698,29 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         showMainFragment(TAG_SETTINGS)
         currentScreen = ScreenMode.SETTINGS
         applyTerminalChromeMode()
+    }
+
+    private fun applySelectionFromIntent(targetIntent: Intent?) {
+        val selection = buildSelectionFromIntent(targetIntent) ?: return
+        updateSessionSelection(selection)
+    }
+
+    private fun applyOpenTargetFromIntent(targetIntent: Intent?) {
+        when (resolveOpenTargetFromIntent(targetIntent)) {
+            OPEN_TARGET_SETTINGS -> showSettingsScreen()
+            OPEN_TARGET_SESSIONS -> {
+                showTerminalScreen(injectConfig = true)
+                openSessionsDrawer()
+            }
+            OPEN_TARGET_TERMINAL -> {
+                if (shouldLaunchCurrentSelectionInNativeCodex(OPEN_TARGET_TERMINAL)) {
+                    launchCurrentSelectionInNativeCodex(finishCurrent = true)
+                } else {
+                    showTerminalScreen(injectConfig = true)
+                }
+            }
+            else -> Unit
+        }
     }
 
     private fun markUserActive() {
@@ -881,6 +957,53 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             ?.takeIf { it.isNotBlank() }
     }
 
+    private fun buildSelectionFromIntent(targetIntent: Intent?): SessionSelection? {
+        val profileId = readIntentParam(targetIntent, "profileId").orEmpty()
+        val sessionId = readIntentParam(targetIntent, "sessionId").orEmpty()
+        val sessionMode = readIntentParam(targetIntent, "sessionMode")
+        val cwd = readIntentParam(targetIntent, "cwd")
+        if (
+            profileId.isBlank() &&
+            sessionId.isBlank() &&
+            sessionMode.isNullOrBlank() &&
+            cwd.isNullOrBlank()
+        ) {
+            return null
+        }
+        return SessionSelection(
+            profileId = profileId,
+            sessionId = sessionId,
+            sessionMode = SessionMode.fromWireValue(sessionMode),
+            cwd = cwd
+        )
+    }
+
+    private fun resolveOpenTargetFromIntent(targetIntent: Intent?): String? {
+        val target = readIntentParam(targetIntent, EXTRA_OPEN_TARGET)?.lowercase(Locale.ROOT)
+        return when (target) {
+            OPEN_TARGET_TERMINAL,
+            OPEN_TARGET_SETTINGS,
+            OPEN_TARGET_SESSIONS -> target
+            else -> null
+        }
+    }
+
+    private fun resolveReturnToNativeCodex(targetIntent: Intent?): Boolean {
+        return targetIntent?.getBooleanExtra(EXTRA_RETURN_TO_NATIVE_CODEX, false) == true
+    }
+
+    private fun readIntentParam(targetIntent: Intent?, name: String): String? {
+        val fromUri = targetIntent?.data?.getQueryParameter(name)?.trim()
+        if (!fromUri.isNullOrBlank()) {
+            return fromUri
+        }
+        val fromExtra = targetIntent?.getStringExtra(name)?.trim()
+        if (!fromExtra.isNullOrBlank()) {
+            return fromExtra
+        }
+        return null
+    }
+
     private fun persistLastSessionId(sessionId: String) {
         lastSessionId = sessionId
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
@@ -914,24 +1037,33 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     private fun openSessionInTerminal(selection: SessionSelection) {
+        returnToNativeCodex = false
         updateSessionSelection(selection)
         touchExternalSessionIfNeeded(selection.profileId, selection.sessionId)
         closeSessionsDrawerIfOpen()
         showTerminalScreen(injectConfig = true)
     }
 
-    private fun openSessionInNativeCodex(selection: SessionSelection) {
+    private fun openSessionInNativeCodex(selection: SessionSelection, finishCurrent: Boolean = false) {
+        returnToNativeCodex = false
         updateSessionSelection(selection)
         touchExternalSessionIfNeeded(selection.profileId, selection.sessionId)
         closeSessionsDrawerIfOpen()
-        startActivity(CodexActivity.newIntent(this, selection.profileId, selection.sessionId))
+        startActivity(
+            CodexActivity.newIntent(
+                this,
+                selection.profileId,
+                selection.sessionId,
+                cwd = selection.cwd
+            )
+        )
+        if (finishCurrent) {
+            finish()
+        }
     }
 
-    private fun shouldOpenNativeCodex(selection: SessionSelection): Boolean {
+    private fun canOpenNativeCodex(selection: SessionSelection): Boolean {
         if (selection.sessionMode != SessionMode.CODEX) {
-            return false
-        }
-        if (!codexLaunchPreferencesStore.isNativeCodexDefaultEnabled()) {
             return false
         }
         if (selection.sessionId.isBlank()) {
@@ -939,6 +1071,34 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         }
         val profile = resolveProfileById(selection.profileId) ?: return false
         return profile.terminalType == TerminalType.TERMLINK_WS
+    }
+
+    private fun shouldLaunchCurrentSelectionInNativeCodex(openTarget: String?): Boolean {
+        return openTarget != OPEN_TARGET_SETTINGS &&
+            openTarget != OPEN_TARGET_SESSIONS &&
+            canOpenNativeCodex(getCurrentSelection())
+    }
+
+    private fun shouldOpenSessionsDrawerForMissingCodexSession(openTarget: String?): Boolean {
+        return openTarget != OPEN_TARGET_SETTINGS &&
+            currentSessionMode() == SessionMode.CODEX &&
+            lastSessionId.isBlank()
+    }
+
+    private fun launchCurrentSelectionInNativeCodex(finishCurrent: Boolean) {
+        val selection = getCurrentSelection()
+        if (!canOpenNativeCodex(selection)) {
+            return
+        }
+        openSessionInNativeCodex(selection, finishCurrent = finishCurrent)
+    }
+
+    private fun handleBackNavigation() {
+        if (currentScreen == ScreenMode.SETTINGS && canOpenNativeCodex(getCurrentSelection())) {
+            launchCurrentSelectionInNativeCodex(finishCurrent = true)
+            return
+        }
+        showTerminalScreen()
     }
 
     private fun updateSessionSelection(selection: SessionSelection) {
@@ -1051,7 +1211,11 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         }
         ensureDrawerSessionsFragment()
         setDrawerSessionsFragmentVisible(true)
-        drawerLayout?.openDrawer(GravityCompat.END)
+        drawerLayout?.post {
+            if (currentScreen == ScreenMode.TERMINAL && !isTerminalChromeCompact) {
+                drawerLayout?.openDrawer(GravityCompat.END)
+            }
+        }
     }
 
     private fun closeSessionsDrawerIfOpen() {
@@ -1690,6 +1854,29 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     companion object {
+        const val EXTRA_OPEN_TARGET = "openTarget"
+        const val EXTRA_RETURN_TO_NATIVE_CODEX = "returnToNativeCodex"
+        const val OPEN_TARGET_TERMINAL = "terminal"
+        const val OPEN_TARGET_SETTINGS = "settings"
+        const val OPEN_TARGET_SESSIONS = "sessions"
+
+        fun newIntent(
+            context: Context,
+            profileId: String? = null,
+            sessionId: String? = null,
+            sessionMode: String? = null,
+            cwd: String? = null,
+            openTarget: String? = null,
+            returnToNativeCodex: Boolean = false
+        ): Intent = Intent(context, MainShellActivity::class.java).apply {
+            profileId?.takeIf { it.isNotBlank() }?.let { putExtra("profileId", it) }
+            sessionId?.takeIf { it.isNotBlank() }?.let { putExtra("sessionId", it) }
+            sessionMode?.takeIf { it.isNotBlank() }?.let { putExtra("sessionMode", it) }
+            cwd?.takeIf { it.isNotBlank() }?.let { putExtra("cwd", it) }
+            openTarget?.takeIf { it.isNotBlank() }?.let { putExtra(EXTRA_OPEN_TARGET, it) }
+            putExtra(EXTRA_RETURN_TO_NATIVE_CODEX, returnToNativeCodex)
+        }
+
         private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=67"
         private const val CODEX_URL = "file:///android_asset/public/codex_client.html?v=90"
         private const val ABOUT_BLANK_URL = "about:blank"

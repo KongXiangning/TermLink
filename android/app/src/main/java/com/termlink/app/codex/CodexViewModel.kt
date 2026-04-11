@@ -7,6 +7,7 @@ import com.termlink.app.codex.data.*
 import com.termlink.app.codex.domain.ChatMessage
 import com.termlink.app.codex.domain.CodexContextUsageState
 import com.termlink.app.codex.domain.CodexLaunchParams
+import com.termlink.app.codex.domain.CodexNoticesPanelState
 import com.termlink.app.codex.domain.CodexPendingImageAttachment
 import com.termlink.app.codex.domain.CodexPlanWorkflowState
 import com.termlink.app.codex.domain.CodexRuntimePanelState
@@ -32,6 +33,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 
 class CodexViewModel(
@@ -84,6 +88,7 @@ class CodexViewModel(
                     submittingServerRequestIds = emptySet(),
                     sessionExpired = false,
                     runtimePanel = buildEmptyRuntimePanelState(),
+                    noticesPanel = CodexNoticesPanelState(),
                     toolsPanel = CodexToolsPanelState(),
                     usagePanel = CodexUsagePanelState(),
                     pendingImageAttachments = emptyList(),
@@ -128,6 +133,7 @@ class CodexViewModel(
                     submittingServerRequestIds = emptySet(),
                     sessionExpired = false,
                     runtimePanel = buildEmptyRuntimePanelState(),
+                    noticesPanel = CodexNoticesPanelState(),
                     toolsPanel = CodexToolsPanelState(),
                     usagePanel = CodexUsagePanelState(),
                     pendingImageAttachments = emptyList(),
@@ -188,6 +194,7 @@ class CodexViewModel(
                 pendingServerRequests = emptyList(),
                 submittingServerRequestIds = emptySet(),
                 runtimePanel = buildEmptyRuntimePanelState(),
+                noticesPanel = CodexNoticesPanelState(),
                 toolsPanel = it.toolsPanel.copy(
                     compactSubmitting = false,
                     compactStatusText = "",
@@ -272,6 +279,10 @@ class CodexViewModel(
     }
 
     fun injectDebugServerRequest(preset: DebugServerRequestPreset) {
+        if (preset == DebugServerRequestPreset.RUNTIME_SAMPLE) {
+            injectDebugRuntimePanelSample()
+            return
+        }
         handleCodexServerRequest(
             CodexServerRequestEnvelope(
                 request = buildDebugServerRequest(preset),
@@ -282,15 +293,77 @@ class CodexViewModel(
         )
     }
 
+    private fun injectDebugRuntimePanelSample() {
+        _uiState.update { state ->
+            state.copy(
+                runtimePanel = state.runtimePanel.copy(
+                    diff = """
+                        diff --git a/public/terminal_client.css b/public/terminal_client.css
+                        @@ -889,6 +889,9 @@
+                        -.codex-runtime-card { padding: 10px; }
+                        +.codex-runtime-card { padding: 8px; }
+                        +.codex-runtime-card.is-expanded { border-color: rgba(78, 222, 163, 0.15); }
+                    """.trimIndent(),
+                    plan = """
+                        1. Mirror the Web runtime panel hierarchy.
+                        2. Keep only Diff, Plan, and Reasoning cards.
+                        3. Collapse empty state instead of showing a blank panel.
+                    """.trimIndent(),
+                    reasoning = """
+                        Web compact/mobile layout stacks runtime cards in a single column.
+                        Keeping the panel inline above the composer preserves scan speed without squeezing content.
+                    """.trimIndent(),
+                    warning = "Debug sample: runtime warning is rendered below the card grid.",
+                    warningTone = "warn"
+                ),
+                usagePanel = state.usagePanel.copy(
+                    visible = true,
+                    rateLimitSummary = "5h 1% ⏱16:13 | 168h 15% ⏱04/17 02:11",
+                    rateLimitTone = "",
+                    contextUsage = CodexContextUsageState(
+                        usedTokens = 18_400,
+                        contextWindow = 128_000,
+                        usedPercent = 14,
+                        remainingPercent = 86,
+                        inputTokens = 8_900,
+                        outputTokens = 6_400,
+                        cachedInputTokens = 2_700,
+                        reasoningTokens = 400,
+                        updatedAtMillis = System.currentTimeMillis()
+                    )
+                ),
+                noticesPanel = state.noticesPanel.copy(
+                    configWarningText = "Debug sample: configuration requires review before the next Codex turn.",
+                    deprecationNoticeText = "Debug sample: this fallback path is deprecated and will be removed in a future update."
+                )
+            )
+        }
+        appendMessage(ChatMessage.Role.SYSTEM, "[debug] Injected runtime and usage panel sample.")
+    }
+
     fun showThreadHistory() {
-        _uiState.update { it.copy(threadHistorySheetVisible = true) }
+        _uiState.update {
+            it.copy(
+                threadHistorySheetVisible = true,
+                runtimePanel = it.runtimePanel.copy(visible = false),
+                noticesPanel = it.noticesPanel.copy(visible = false),
+                toolsPanel = it.toolsPanel.copy(visible = false)
+            )
+        }
         if (_uiState.value.capabilities?.historyList == true) {
             refreshThreadHistory()
         }
     }
 
     fun showRuntimePanel() {
-        _uiState.update { it.copy(runtimePanel = it.runtimePanel.copy(visible = true)) }
+        _uiState.update {
+            it.copy(
+                threadHistorySheetVisible = false,
+                runtimePanel = it.runtimePanel.copy(visible = true),
+                noticesPanel = it.noticesPanel.copy(visible = false),
+                toolsPanel = it.toolsPanel.copy(visible = false)
+            )
+        }
     }
 
     fun hideRuntimePanel() {
@@ -301,6 +374,9 @@ class CodexViewModel(
         maybeLoadSkillCatalog()
         _uiState.update { state ->
             state.copy(
+                threadHistorySheetVisible = false,
+                runtimePanel = state.runtimePanel.copy(visible = false),
+                noticesPanel = state.noticesPanel.copy(visible = false),
                 toolsPanel = state.toolsPanel.copy(
                     visible = true,
                     compactStatusText = if (state.toolsPanel.compactSubmitting) {
@@ -315,6 +391,23 @@ class CodexViewModel(
                     }
                 )
             )
+        }
+    }
+
+    fun showNoticesPanel() {
+        _uiState.update { state ->
+            state.copy(
+                threadHistorySheetVisible = false,
+                runtimePanel = state.runtimePanel.copy(visible = false),
+                noticesPanel = state.noticesPanel.copy(visible = true),
+                toolsPanel = state.toolsPanel.copy(visible = false)
+            )
+        }
+    }
+
+    fun hideNoticesPanel() {
+        _uiState.update { state ->
+            state.copy(noticesPanel = state.noticesPanel.copy(visible = false))
         }
     }
 
@@ -604,7 +697,11 @@ class CodexViewModel(
 
     fun togglePlanMode() {
         val current = _uiState.value
-        applyInteractionState(planMode = current.planMode != true)
+        if (current.planMode == true) {
+            closePlanMode(clearWorkflow = true)
+        } else {
+            applyInteractionState(planMode = true)
+        }
     }
 
     fun continuePlanWorkflow() {
@@ -624,14 +721,7 @@ class CodexViewModel(
     }
 
     fun cancelPlanWorkflow() {
-        _uiState.update { state ->
-            state.copy(
-                planMode = false,
-                interactionState = buildInteractionState(state, planMode = false),
-                planWorkflow = buildEmptyPlanWorkflowState()
-            )
-        }
-        syncInteractionState(_uiState.value.interactionState ?: CodexInteractionState())
+        closePlanMode(clearWorkflow = true)
     }
 
     fun executeConfirmedPlan() {
@@ -676,7 +766,13 @@ class CodexViewModel(
     }
 
     fun showReasoningPicker() {
-        _uiState.update { it.copy(reasoningPickerVisible = true) }
+        _uiState.update {
+            it.copy(
+                modelPickerVisible = false,
+                sandboxPickerVisible = false,
+                reasoningPickerVisible = true
+            )
+        }
     }
 
     fun hideReasoningPicker() {
@@ -695,7 +791,13 @@ class CodexViewModel(
     }
 
     fun showSandboxPicker() {
-        _uiState.update { it.copy(sandboxPickerVisible = true) }
+        _uiState.update {
+            it.copy(
+                modelPickerVisible = false,
+                reasoningPickerVisible = false,
+                sandboxPickerVisible = true
+            )
+        }
     }
 
     fun hideSandboxPicker() {
@@ -717,7 +819,13 @@ class CodexViewModel(
 
     fun showModelPicker() {
         maybeRequestModelList()
-        _uiState.update { it.copy(modelPickerVisible = true) }
+        _uiState.update {
+            it.copy(
+                modelPickerVisible = true,
+                reasoningPickerVisible = false,
+                sandboxPickerVisible = false
+            )
+        }
     }
 
     fun hideModelPicker() {
@@ -884,12 +992,7 @@ class CodexViewModel(
 
         // Clear plan mode after sending a plan turn (matches Web behavior)
         if (isPlanMode && clearPlanModeAfterSend) {
-            _uiState.update { current ->
-                current.copy(
-                    planMode = false,
-                    interactionState = buildInteractionState(current, planMode = false)
-                )
-            }
+            closePlanMode(clearWorkflow = false)
         }
     }
 
@@ -1514,6 +1617,7 @@ class CodexViewModel(
                 threadHistoryActionKind = "resume",
                 planWorkflow = buildEmptyPlanWorkflowState(),
                 runtimePanel = buildEmptyRuntimePanelState(visible = state.runtimePanel.visible),
+                noticesPanel = CodexNoticesPanelState(visible = state.noticesPanel.visible),
                 pendingServerRequests = emptyList(),
                 submittingServerRequestIds = emptySet()
             )
@@ -1569,6 +1673,14 @@ class CodexViewModel(
                     )
                     hasMessages -> buildEmptyRuntimePanelState(visible = state.runtimePanel.visible)
                     else -> state.runtimePanel
+                },
+                noticesPanel = when {
+                    hasTurns -> buildNoticesPanelStateFromTurns(
+                        turns = turns,
+                        visible = state.noticesPanel.visible
+                    )
+                    hasMessages -> CodexNoticesPanelState(visible = state.noticesPanel.visible)
+                    else -> state.noticesPanel
                 },
                 threadHistorySheetVisible = if (hasMessages) false else state.threadHistorySheetVisible,
                 threadHistoryActionThreadId = "",
@@ -1848,6 +1960,7 @@ class CodexViewModel(
     private fun buildDebugServerRequest(preset: DebugServerRequestPreset): CodexServerRequest {
         val requestId = "$DEBUG_REQUEST_PREFIX${preset.name.lowercase()}-${UUID.randomUUID()}"
         return when (preset) {
+            DebugServerRequestPreset.RUNTIME_SAMPLE -> error("Runtime sample is injected directly and is not a server request.")
             DebugServerRequestPreset.COMMAND_APPROVAL -> CodexServerRequest(
                 requestId = requestId,
                 method = "item/commandExecution/requestApproval",
@@ -1998,6 +2111,7 @@ class CodexViewModel(
                             messages = emptyList(),
                             errorMessage = null,
                             runtimePanel = buildEmptyRuntimePanelState(),
+                            noticesPanel = CodexNoticesPanelState(),
                             pendingServerRequests = emptyList(),
                             submittingServerRequestIds = emptySet()
                         )
@@ -2100,8 +2214,6 @@ class CodexViewModel(
             }
 
             notification.method == "turn/diff/updated" ||
-                notification.method == "item/commandExecution/outputDelta" ||
-                notification.method == "item/commandExecution/terminalInteraction" ||
                 notification.method == "item/fileChange/outputDelta" ||
                 notification.method == "item/mcpToolCall/progress" ||
                 notification.method == "configWarning" ||
@@ -2185,7 +2297,8 @@ class CodexViewModel(
         val section: String,
         val mode: String,
         val text: String,
-        val warningTone: String = ""
+        val warningTone: String = "",
+        val warningKind: String = ""
     )
 
     private fun applyRuntimeNotificationUpdate(method: String, params: JSONObject?) {
@@ -2218,12 +2331,45 @@ class CodexViewModel(
         return panel
     }
 
+    private fun buildNoticesPanelStateFromTurns(
+        turns: JSONArray?,
+        visible: Boolean
+    ): CodexNoticesPanelState {
+        var notices = CodexNoticesPanelState(visible = visible)
+        if (turns == null) {
+            return notices
+        }
+        for (turnIndex in 0 until turns.length()) {
+            val turn = turns.optJSONObject(turnIndex) ?: continue
+            val items = turn.optJSONArray("items") ?: continue
+            for (itemIndex in 0 until items.length()) {
+                val item = items.optJSONObject(itemIndex) ?: continue
+                val update = buildRuntimeSnapshotUpdate(item) ?: continue
+                notices = when (update.warningKind) {
+                    "config" -> notices.copy(configWarningText = update.text)
+                    "deprecation" -> notices.copy(deprecationNoticeText = update.text)
+                    else -> notices
+                }
+            }
+        }
+        return notices
+    }
+
     private fun applyRuntimePanelUpdate(
         state: CodexUiState,
         update: RuntimePanelUpdate
-    ): CodexUiState = state.copy(
-        runtimePanel = applyRuntimePanelUpdate(state.runtimePanel, update)
-    )
+    ): CodexUiState {
+        val nextRuntimePanel = applyRuntimePanelUpdate(state.runtimePanel, update)
+        val nextNoticesPanel = when (update.warningKind) {
+            "config" -> state.noticesPanel.copy(configWarningText = update.text)
+            "deprecation" -> state.noticesPanel.copy(deprecationNoticeText = update.text)
+            else -> state.noticesPanel
+        }
+        return state.copy(
+            runtimePanel = nextRuntimePanel,
+            noticesPanel = nextNoticesPanel
+        )
+    }
 
     private fun applyRuntimePanelUpdate(
         panel: CodexRuntimePanelState,
@@ -2242,14 +2388,12 @@ class CodexViewModel(
             "diff" -> updateRuntimeSectionText(panel.diff, update)
             "plan" -> updateRuntimeSectionText(panel.plan, update)
             "reasoning" -> updateRuntimeSectionText(panel.reasoning, update)
-            "terminal" -> updateRuntimeSectionText(panel.terminalOutput, update)
             else -> return panel
         }
         return when (update.section) {
             "diff" -> panel.copy(diff = nextText)
             "plan" -> panel.copy(plan = nextText)
             "reasoning" -> panel.copy(reasoning = nextText)
-            "terminal" -> panel.copy(terminalOutput = nextText)
             else -> panel
         }
     }
@@ -2332,21 +2476,6 @@ class CodexViewModel(
                     listOf("item", "summary")
                 ).ifEmpty { summarizeRuntimeValue(payload) }
             )
-            method == "item/commandExecution/outputDelta" -> RuntimePanelUpdate(
-                section = "terminal",
-                mode = "append",
-                text = pickFirstText(
-                    payload,
-                    listOf("delta"),
-                    listOf("output"),
-                    listOf("text")
-                ).ifEmpty { summarizeRuntimeValue(payload) }
-            )
-            method == "item/commandExecution/terminalInteraction" -> RuntimePanelUpdate(
-                section = "terminal",
-                mode = "append",
-                text = pickCommandInteractionText(payload).ifEmpty { summarizeRuntimeValue(payload) }
-            )
             method == "item/fileChange/outputDelta" -> RuntimePanelUpdate(
                 section = "diff",
                 mode = "append",
@@ -2368,10 +2497,23 @@ class CodexViewModel(
                     listOf("progress", "message")
                 ).ifEmpty { summarizeRuntimeValue(payload) }
             )
-            method == "configWarning" || method == "deprecationNotice" -> RuntimePanelUpdate(
+            method == "configWarning" -> RuntimePanelUpdate(
                 section = "warning",
                 mode = "replace",
                 warningTone = "warn",
+                warningKind = "config",
+                text = pickFirstText(
+                    payload,
+                    listOf("message"),
+                    listOf("text"),
+                    listOf("detail")
+                ).ifEmpty { summarizeRuntimeValue(payload) }
+            )
+            method == "deprecationNotice" -> RuntimePanelUpdate(
+                section = "warning",
+                mode = "replace",
+                warningTone = "warn",
+                warningKind = "deprecation",
                 text = pickFirstText(
                     payload,
                     listOf("message"),
@@ -2398,15 +2540,6 @@ class CodexViewModel(
                     listOf("part", "text")
                 ).ifEmpty { summarizeRuntimeValue(item) }
             )
-            "commandExecution" -> {
-                val outputText = pickCommandExecutionOutput(item)
-                val terminalText = outputText.ifEmpty { pickCommandInteractionText(item) }
-                RuntimePanelUpdate(
-                    section = "terminal",
-                    mode = "replace",
-                    text = terminalText
-                )
-            }
             "plan" -> RuntimePanelUpdate(
                 section = "plan",
                 mode = "replace",
@@ -2470,42 +2603,6 @@ class CodexViewModel(
         }.ifEmpty {
             "Codex runtime error"
         }
-    }
-
-    private fun pickCommandExecutionOutput(source: JSONObject): String {
-        return stripAnsiText(
-            pickFirstText(
-            source,
-            listOf("output"),
-            listOf("aggregatedOutput"),
-            listOf("stdout"),
-            listOf("stderr"),
-            listOf("text"),
-            listOf("result", "aggregatedOutput"),
-            listOf("result", "output"),
-            listOf("result", "stdout"),
-            listOf("result", "stderr")
-        ).ifEmpty {
-            normalizeLines(source.opt("output"))
-                .ifEmpty { normalizeLines(source.opt("aggregatedOutput")) }
-                .ifEmpty { normalizeLines(source.opt("stdout")) }
-                .ifEmpty { normalizeLines(source.opt("stderr")) }
-                .ifEmpty { source.optJSONObject("result")?.opt("aggregatedOutput")?.let(::normalizeLines).orEmpty() }
-                .ifEmpty { source.optJSONObject("result")?.opt("output")?.let(::normalizeLines).orEmpty() }
-                .ifEmpty { source.optJSONObject("result")?.opt("stdout")?.let(::normalizeLines).orEmpty() }
-                .ifEmpty { source.optJSONObject("result")?.opt("stderr")?.let(::normalizeLines).orEmpty() }
-        })
-    }
-
-    private fun pickCommandInteractionText(source: JSONObject): String {
-        return pickFirstText(
-            source,
-            listOf("message"),
-            listOf("prompt"),
-            listOf("text"),
-            listOf("interaction", "message"),
-            listOf("interaction", "prompt")
-        ).ifEmpty { normalizeLines(source.opt("interaction")) }
     }
 
     private fun pickFirstText(source: JSONObject, vararg paths: List<String>): String {
@@ -2891,6 +2988,21 @@ class CodexViewModel(
             listOf("retryAfter"),
             listOf("retry_after")
         )
+        val resetHint = formatResetHint(
+            pickFirstStringFromSources(
+                sources,
+                listOf("resetAt"),
+                listOf("resetsAt"),
+                listOf("reset_at"),
+                listOf("resets_at")
+            ).ifBlank { null } ?: pickFirstLongFromSources(
+                sources,
+                listOf("resetAtEpochMs"),
+                listOf("resetsInSeconds"),
+                listOf("reset_at_epoch_ms"),
+                listOf("resets_in_seconds")
+            )
+        )
         val rawStatus = pickFirstStringFromSources(
             sources,
             listOf("status"),
@@ -2917,32 +3029,87 @@ class CodexViewModel(
             listOf("secondary", "windowDurationMins"),
             listOf("secondary", "window_duration_mins")
         )
+        val primaryResetHint = formatResetHint(
+            pickFirstStringFromSources(
+                sources,
+                listOf("primary", "resetAt"),
+                listOf("primary", "resetsAt"),
+                listOf("primary", "reset_at"),
+                listOf("primary", "resets_at")
+            ).ifBlank { null } ?: pickFirstLongFromSources(
+                sources,
+                listOf("primary", "resetAtEpochMs"),
+                listOf("primary", "resetsAtEpochMs"),
+                listOf("primary", "resetsAt"),
+                listOf("primary", "resets_at"),
+                listOf("primary", "resetsInSeconds"),
+                listOf("primary", "resets_in_seconds")
+            )
+        )
+        val secondaryResetHint = formatResetHint(
+            pickFirstStringFromSources(
+                sources,
+                listOf("secondary", "resetAt"),
+                listOf("secondary", "resetsAt"),
+                listOf("secondary", "reset_at"),
+                listOf("secondary", "resets_at")
+            ).ifBlank { null } ?: pickFirstLongFromSources(
+                sources,
+                listOf("secondary", "resetAtEpochMs"),
+                listOf("secondary", "resetsAtEpochMs"),
+                listOf("secondary", "resetsAt"),
+                listOf("secondary", "resets_at"),
+                listOf("secondary", "resetsInSeconds"),
+                listOf("secondary", "resets_in_seconds")
+            )
+        )
         val parts = mutableListOf<String>()
         if (remaining != null && limit != null) {
-            if (scope.isNotEmpty()) parts += scope
-            parts += "${remaining.coerceAtLeast(0)}/${limit.coerceAtLeast(0)} left"
+            parts += buildString {
+                if (scope.isNotEmpty()) {
+                    append(scope)
+                    append(':')
+                }
+                append(remaining.coerceAtLeast(0))
+                append('/')
+                append(limit.coerceAtLeast(0))
+            }
         } else if (remaining != null) {
-            if (scope.isNotEmpty()) parts += scope
-            parts += "${remaining.coerceAtLeast(0)} left"
+            parts += buildString {
+                if (scope.isNotEmpty()) {
+                    append(scope)
+                    append(':')
+                }
+                append(remaining.coerceAtLeast(0))
+            }
         } else {
             if (primaryUsedPercent != null) {
                 val primary = mutableListOf<String>()
-                primary += formatRateLimitWindowLabel(primaryWindowMins) ?: "primary"
+                primary += formatRateLimitWindowLabel(primaryWindowMins) ?: "p"
                 primary += "${primaryUsedPercent.coerceIn(0, 100)}%"
+                if (primaryResetHint.isNotEmpty()) {
+                    primary += "⏱$primaryResetHint"
+                }
                 parts += primary.joinToString(" ")
             }
             if (secondaryUsedPercent != null) {
                 val secondary = mutableListOf<String>()
-                secondary += formatRateLimitWindowLabel(secondaryWindowMins) ?: "secondary"
+                secondary += formatRateLimitWindowLabel(secondaryWindowMins) ?: "s"
                 secondary += "${secondaryUsedPercent.coerceIn(0, 100)}%"
+                if (secondaryResetHint.isNotEmpty()) {
+                    secondary += "⏱$secondaryResetHint"
+                }
                 parts += secondary.joinToString(" ")
             }
         }
         if (retryAfter != null && retryAfter > 0) {
-            parts += "retry in ${formatDurationShort(retryAfter)}"
+            parts += "↺${formatDurationShort(retryAfter)}"
+        }
+        if (resetHint.isNotEmpty()) {
+            parts += "⏱$resetHint"
         }
         if (extracted.extraCount > 0) {
-            parts += "+${extracted.extraCount} scopes"
+            parts += "+${extracted.extraCount}"
         }
         val summary = when {
             parts.isNotEmpty() -> parts.joinToString(" | ")
@@ -3129,6 +3296,47 @@ class CodexViewModel(
         return formatDurationShort(windowMins * 60L)
     }
 
+    private fun formatResetHint(value: Any?): String {
+        fun formatAbsoluteResetTime(timestampMs: Long): String {
+            val deltaMs = timestampMs - System.currentTimeMillis()
+            val pattern = if (deltaMs >= 86_400_000L) "MM/dd HH:mm" else "HH:mm"
+            return SimpleDateFormat(pattern, Locale.getDefault()).format(Date(timestampMs))
+        }
+
+        return when (value) {
+            is Number -> {
+                val numeric = value.toLong()
+                when {
+                    numeric > 0L && numeric < 10_000_000L ->
+                        formatAbsoluteResetTime(System.currentTimeMillis() + numeric * 1000L)
+                    numeric >= 1_000_000_000L && numeric < 1_000_000_000_000L ->
+                        formatAbsoluteResetTime(numeric * 1000L)
+                    numeric >= 1_000_000_000_000L ->
+                        formatAbsoluteResetTime(numeric)
+                    else -> ""
+                }
+            }
+
+            is String -> {
+                val trimmed = value.trim()
+                when {
+                    trimmed.isEmpty() -> ""
+                    trimmed.all(Char::isDigit) -> formatResetHint(trimmed.toLongOrNull())
+                    else -> {
+                        val parsed = runCatching { Date.parse(trimmed) }.getOrNull()
+                        if (parsed != null && parsed > 0L) {
+                            formatAbsoluteResetTime(parsed)
+                        } else {
+                            trimmed
+                        }
+                    }
+                }
+            }
+
+            else -> ""
+        }
+    }
+
     private fun buildInteractionState(
         state: CodexUiState,
         planMode: Boolean
@@ -3142,6 +3350,21 @@ class CodexViewModel(
     private fun syncInteractionState(state: CodexInteractionState) {
         connectionManager.send(CodexClientMessages.codexSetInteractionState(state))
         Log.i(TAG, "Plan mode: ${state.planMode}")
+    }
+
+    private fun closePlanMode(clearWorkflow: Boolean) {
+        _uiState.update { current ->
+            current.copy(
+                planMode = false,
+                interactionState = buildInteractionState(current, planMode = false),
+                planWorkflow = if (clearWorkflow) {
+                    buildEmptyPlanWorkflowState()
+                } else {
+                    current.planWorkflow
+                }
+            )
+        }
+        syncInteractionState(_uiState.value.interactionState ?: CodexInteractionState())
     }
 
     private fun applyInteractionState(planMode: Boolean) {

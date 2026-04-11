@@ -2,10 +2,10 @@
 title: Codex 原生 Android 迁移计划
 status: done
 owner: @maintainer
-last_updated: 2026-04-09
+last_updated: 2026-04-11
 source_of_truth: product
-related_code: [android/app/src/main/java/com/termlink/app/MainShellActivity.kt, public/codex_client.html]
-related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/REQ-20260408-codex-native-android-migration.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/architecture/ARCH-20260408-codex-native-android-migration.md, docs/architecture/ROADMAP.md]
+related_code: [android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/CodexTaskForegroundService.kt, android/app/src/main/java/com/termlink/app/WorkspaceActivity.kt, android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt, android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt, public/workspace.js]
+related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/REQ-20260408-codex-native-android-migration.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/architecture/ARCH-20260408-codex-native-android-migration.md, docs/architecture/ROADMAP.md, docs/product/plans/ALIGNMENT-20260410-codex-web-android-ui-equivalence.md]
 ---
 
 # PLAN-20260408-codex-native-android-migration
@@ -18,9 +18,10 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/R
 2. `done`：Phase 1 原生聊天主链路
 3. `done`：Phase 2 功能对齐（`3.3-1` ~ `3.3-10` 已全部补齐；最新批次完成了 `3.3-7` 运行态面板收口、`3.3-8` 工具面板、`3.3-9` Token / Context / Rate Limit 用量展示，以及 `3.3-10` 图片输入、本地图片选择、额度摘要、宽屏适配与 WebView fallback 入口）
 4. `done`：Phase 3 稳定性与替换准备（已完成真机 warm relaunch、弱网断连/重试恢复、原生前台通知返回路径收口，以及新旧入口同会话并行路由与恢复状态隔离验证）
-5. `done`：Phase 4 切换与下线（默认入口已切到原生实现，旧 WebView Codex 保留为受控回退窗口，端到端回归与文档收口已完成；`3.5-3` 旧入口正式移除保留为后续可选清理）
+5. `done`：Phase 4 切换与下线（默认入口已固定到原生实现，旧 WebView Codex 已从用户主路径正式移除，端到端回归与文档收口已完成）
+6. `done`：Phase 4 follow-up retention/notification/navigation（已完成执行期后台保活扩展、后台关键事件通知，以及顶部 sessions/settings/docs 全局入口；Docs 默认打开当前会话工作区下的 `docs` 入口）
 
-Phase 0 已完成实施并通过编译验证。Phase 1 已完成实现与真机单轮对话验证；当前仍保持旧 `MainShellActivity + WebView Codex` 入口不变。
+Phase 0 ~ Phase 4 已完成实施并通过编译 / 真机验证；当前 Codex 用户路径已固定到原生 `CodexActivity`，`MainShellActivity` 仅继续承载 sessions/settings/workspace 壳层能力。
 
 Phase 2 当前进度：
 
@@ -39,15 +40,16 @@ Phase 3 当前进度：
 
 1. `done`：`3.4-1` 已完成 debug APK 编译、安装、主应用启动、原生 `CodexActivity` 直启、消息收发、`HOME -> warm relaunch` 恢复、弱网断连后 `重试` 继续收发，以及 `force-stop -> 直启 native session -> 重建前台通知` 的通知返回链路收口；前台服务现改为仅绑定当前入口显式注入的 tap intent，未收到显式 intent 时不会再回退到旧 `MainShellActivity` / shared prefs 推断。
 2. `done`：`3.4-2` 已完成新旧入口同会话对照：同一 Codex 会话可在 `Sessions` 中切换为原生或 WebView 回退打开，路由、恢复状态与通知返回边界均已隔离，输入/恢复主链不再存在阻塞性差异。
-3. `done`：`3.4-3` 已在 `SessionsFragment` 增加 Codex 默认入口切换开关，并通过 `CodexLaunchPreferencesStore` 持久化原生 / WebView 路由选择。
-4. `done`：`3.4-4` 已在 `MainShellActivity` 中验证新旧入口并行路由边界：Codex 会话在开关开启时走原生 `CodexActivity`，关闭时继续保留 WebView 路径，且真机上已确认 Sessions 开关可双向切换两条路由。
+3. `done`：`3.4-3` 并行阶段曾在 `SessionsFragment` 增加 Codex 默认入口切换开关，用于灰度验证原生 / WebView 双路由；Phase 4 `3.5-3` 已移除此开关与持久化分流。
+4. `done`：`3.4-4` 并行阶段已验证新旧入口可同时存在且互不污染；Phase 4 `3.5-3` 已在此基础上把 Codex 用户路径固定到原生 `CodexActivity`。
 
 Phase 4 当前进度：
 
-1. `done`：`3.5-1` 默认入口已切到原生实现（以显式开关为准）。
-2. `done`：`3.5-2` 旧 WebView Codex 入口继续保留为受控灰度 / 回退窗口。
-3. `pending`：`3.5-3` 旧 WebView Codex 入口与其冗余资源尚未正式移除。
-4. `done`：`3.5-4` 已补齐 `PLAN + CR + REQ/Backlog/Product/Changelog` 文档收口，并完成原生默认入口、WebView 受控回退、后台恢复、弱网重试与通知返回路径的端到端替换回归。
+1. `done`：`3.5-1` 默认入口已固定到原生实现，不再依赖显式开关。
+2. `done`：`3.5-2` 受控灰度窗口已结束；`MainShellActivity` 仅继续保留 sessions/settings/workspace 壳层能力，不再暴露旧 WebView Codex 作为用户主入口。
+3. `done`：`3.5-3` 旧 WebView Codex 入口与其冗余路由资源已正式移除，包括 Sessions 入口切换开关、`CodexLaunchPreferencesStore` 分流逻辑，以及原生页内的 Web fallback 入口。
+4. `done`：`3.5-4` 已补齐 `PLAN + CR + REQ/Backlog/Product/Changelog` 文档收口，并完成原生主入口、旧入口移除、后台恢复、弱网重试与通知返回路径的端到端替换回归。
+5. `done`：已补齐执行期后台保活扩展（`awaiting_user_input` / `plan_ready_for_confirmation`）、后台关键事件通知（命令确认 / 计划补充说明 / 等待确认 / 后台任务错误），以及顶部 `Sessions / Settings / Docs` 全局入口；Docs 按钮默认打开当前会话工作区下的 `docs` 目录。
 
 Phase 2 协议对齐盘点（截至 `3.3-3` live debug）：
 
@@ -137,6 +139,74 @@ Phase 2 协议对齐盘点（截至 `3.3-3` live debug）：
 4. 所有原生化工作默认发生在 `CodexActivity` 及其配套基础设施中，不以“抽旧代码”作为前置条件。
 5. 技术栈、协议映射、状态模型、provider adapter 与多 provider CLI 扩展设计以 [ARCH-20260408-codex-native-android-migration.md](/E:/coding/TermLink/docs/architecture/ARCH-20260408-codex-native-android-migration.md) 为准。
 
+### 4.1 Web / Android UI 等价实施基线
+
+当产品目标从“功能覆盖”提升为“原生 Android 与 Web 版 Codex 的样式、布局、操作逻辑完全一致”时，后续实施与验收统一追加以下基线：
+
+1. **Web 版是唯一 UI / 交互 source of truth**。默认基线文件为：
+   - `public/codex_client.html`
+   - `public/terminal_client.css`
+   - `public/terminal_client.js`
+   - `public/lib/codex_history_view.js`
+   - `public/lib/codex_runtime_view.js`
+   - `public/lib/codex_approval_view.js`
+   - `public/lib/codex_settings_view.js`
+   - `public/lib/codex_slash_commands.js`
+2. Android 端默认不新增与 Web 分叉的产品交互；若因平台能力差异必须偏离，必须在对齐矩阵中逐项登记差异、原因、影响面与验收口径。
+3. “完全一致”默认指**产品等价**而非像素级复刻，最小口径包括：
+   - 信息架构一致
+   - 组件层级一致
+   - 默认布局与主要视觉结构一致
+   - 用户操作路径一致
+   - 状态反馈与边界行为一致
+   - 文案、默认值、异常提示与恢复路径一致
+4. Android Compose 组件应按 Web 界面单元建立稳定映射，不以“按功能点重新设计一版 Android 风格 UI”为目标。
+5. 所有新增实现、回归和 closeout 默认对照 [ALIGNMENT-20260410-codex-web-android-ui-equivalence.md](/E:/coding/TermLink/docs/product/plans/ALIGNMENT-20260410-codex-web-android-ui-equivalence.md) 执行。
+
+#### 4.1 当前收敛进度（2026-04-10）
+
+1. `done`：`CodexScreen.kt` 已按 Web 信息架构重排为顶部状态条、消息区、底部 composer、secondary nav、inline history/runtime/tools panel、context widget 与 approval/context debug 入口，不再保留 Android 独立重设计版层级。
+2. `done`：`CodexTheme.kt`、`strings.xml`、`values-zh/strings.xml` 已同步收敛 Web 视觉 token 与用户可见文案，覆盖 header、plan workflow、history/runtime/tools、approval、context/debug、image input 与 composer/footer controls。
+3. `done`：`CodexViewModel.kt` 已补齐 secondary panel 与 quick picker 互斥行为，保证 history/runtime/tools 与 model/reasoning/sandbox 菜单的显隐路径与 Web 保持一致。
+
+#### 4.2 Follow-up 修正批次（2026-04-11）
+
+本批作为 UI 等价收敛后的 follow-up 修正，专门处理已确认的状态机、运行态映射与可用性回归，不与其他功能扩展混做。当前锁定覆盖如下：
+
+1. `done`：已修正 plan workflow 的 `continue / cancel / execute` 三条路径，并把 Android 端 plan mode 的 toggle / cancel / send-after-plan 关闭路径统一到同一套状态收口逻辑，避免“继续追问近似取消”和“计划模式无法退出”。
+2. `done`：已收敛 runtime panel 的状态模型与界面呈现，移除 Android 端不可见的 terminal 状态累计，并补齐 confirmed plan 到 runtime `Plan` 的桥接；复审中新增补上 `thread/read` 恢复时 notices panel 的 config/deprecation warnings 回放，避免恢复线程后丢失 warning 状态。
+3. `done`：runtime `Diff / Plan / Reasoning` 的 Android / Web 对照收口已完成；当前代码仅保留三块可见运行态，编译已通过，且既有真机回归图 `tmp\\codex-runtime-fixed-v1.png/xml` 已覆盖空态与显隐基线。
+4. `done`：已补齐聊天消息复制能力，消息正文改为可选择复制，覆盖 user / assistant / system / tool / error 五类消息。
+5. `done`：已清理 quota/rate-limit 摘要的英文硬编码展示口径，补齐 header 与 usage panel 的 locale-aware 展示（含 `一周/week` 窗口文案、剩余百分比、重试/重置、额外范围），并移除 approval 中未闭环的 `Remember this prefix` 无效交互。
+
+本批对应 CR：
+
+1. [CR-20260411-0155-codex-plan-runtime-copy-fixes.md](/E:/coding/TermLink/docs/changes/records/CR-20260411-0155-codex-plan-runtime-copy-fixes.md)
+
+#### 4.3 Follow-up 文档初始化批次（2026-04-11）
+
+本批只做文档初始化，不改代码。目标是把“原生执行期后台保活扩展、关键交互系统通知、顶部全局入口缺失”这三个已确认缺口正式挂回迁移主线，避免继续沿用“原生已完全收口”的误导性口径。当前锁定覆盖如下：
+
+1. `done`：`REQ`、`PLAN`、`ALIGNMENT` 已一致挂回原生执行期后台保活扩展、关键交互系统通知、顶部全局入口三类 follow-up。
+2. `done`：已用 draft CR 锁定这三类缺口的实现边界，不再沿用“原生已完全收口”的误导性口径。
+
+本批对应 CR：
+
+1. [CR-20260411-1100-codex-native-retention-notification-nav-doc-init.md](/E:/coding/TermLink/docs/changes/records/CR-20260411-1100-codex-native-retention-notification-nav-doc-init.md)
+
+#### 4.4 Follow-up 实现批次（2026-04-11）
+
+本批承接 `4.3` 锁定的 follow-up 缺口，完成实际代码收口，不引入额外功能扩展。当前锁定覆盖如下：
+
+1. `done`：已将原生执行期后台保活口径扩展到 `running / reconnecting / waiting_approval / awaiting_user_input / plan_ready_for_confirmation` 等执行相关状态。
+2. `done`：已补齐后台关键事件系统通知，覆盖命令确认、计划模式补充说明、等待确认、后台任务错误四类事件；通知在离开 `CodexActivity` 后仍可触发，并统一回跳到当前原生 Codex 会话。
+3. `done`：已在原生 `CodexActivity` 顶部 header 补齐 `Sessions / Settings / Docs` 三类全局入口，复用现有 `MainShellActivity` / `WorkspaceActivity` 承载路径。
+4. `done`：文档按钮默认打开当前会话工作区下的 `docs` 目录，不再与线程内 `Task History / Runtime / Tools` 混用。
+
+本批对应 CR：
+
+1. [CR-20260411-1602-codex-native-retention-notification-nav-impl.md](/E:/coding/TermLink/docs/changes/records/CR-20260411-1602-codex-native-retention-notification-nav-impl.md)
+
 ## 5. 验收标准
 
 本计划进入实施后，每个阶段至少满足以下验收口径：
@@ -154,6 +224,85 @@ Phase 2 协议对齐盘点（截至 `3.3-3` live debug）：
 3. 并行建设期间现有 `MainShellActivity` Codex 路径行为不得因新入口建设而退化。
 4. 迁移期间每个实施批次都能明确映射到 `PLAN + CR`，避免大包式改造失控。
 
+### 5.1 Web / Android UI 等价验收标准
+
+若后续批次以“与 Web 版完全一致”为目标，除本节已有阶段验收外，还必须补充通过以下口径：
+
+1. **布局等价**：Android `CodexScreen` 与 Web 版在以下界面单元的默认层级、进入路径、显隐策略和主次顺序一致：
+   - 顶部状态区
+   - 消息列表
+   - 底部输入区
+   - quick settings / plan indicator / context widget
+   - plan workflow 区
+   - history panel
+   - runtime panel
+   - tools panel
+   - approval / user input modal
+   - context debug / compact modal
+   - image input 区
+2. **视觉等价**：Android 主题 token 必须对齐 Web 的 typography、spacing、radius、border、surface、text、button、chip、input、panel、modal 与状态色；允许平台控件导致的细微原生差异，但不允许出现另一套产品视觉语言。
+3. **交互等价**：以下关键操作路径必须与 Web 一致，不得在 Android 端私自改写：
+   - 发送消息、流式更新、turn 完结
+   - slash 打开 / 过滤 / 选择 / 关闭
+   - `@` 文件提及搜索 / 选择 / 取消
+   - 审批 / 用户输入请求展示、提交、收口
+   - plan workflow 的 `planning -> awaiting_user_input -> confirmation -> execute`
+   - 线程历史的 refresh / resume / rename / archive / fork
+   - runtime / tools / context debug / compact 的打开、关闭与状态更新
+   - 图片添加 / 删除 / 发送
+   - 弱网重连、后台恢复、通知返回
+4. **状态等价**：同一组 gateway 事件序列输入到 Web 与 Android 后，两端在 loading、streaming、idle、approval pending、planning、awaiting input、error、reconnect、thread restore 等关键状态上的最终 UI 结果必须一致。
+5. **文案等价**：用户可见的标题、按钮、错误提示、空态、系统消息、确认语义必须与 Web 保持一致；若 Android 需要平台化文案调整，必须登记在对齐矩阵中。
+6. **验证等价**：每个收敛批次至少需要一轮 Web / Android 对照验证，最少覆盖：
+   - 冷启动空会话
+   - 单轮消息发送与流式回复
+   - slash、`@mention`
+   - approval / user input
+   - plan workflow 三动作
+   - history / runtime / tools / context debug
+   - image input
+   - 通知返回、进程恢复、弱网重连
+7. **差异留痕**：任何未收敛差异都必须在对齐矩阵和对应 CR 中显式记录，不能以“体验略有不同但可接受”作为隐性放行。
+
+#### 5.1 当前批验证记录（2026-04-10）
+
+1. `done`：debug APK 已重新编译通过，资源与 Compose API 回归到可构建状态。
+2. `done`：真机 `MQS7N19402011743` 已安装并显式启动原生 `com.termlink.app/.codex.CodexActivity`。
+3. `done`：真机 UI 层级 dump 与截图已确认顶部状态条、secondary nav、footer quick controls、bottom composer、tools panel，以及居中的 approval debug / command approval / user-input modal 均按当前 Web 口径落屏。
+4. `done`：启动期定向 logcat 已确认原生 `CodexActivity` 创建成功并完成 Codex 连接建立，未出现本批 UI 改造引入的启动级崩溃。
+
+#### 5.2 Follow-up 修正批验收口径（2026-04-11）
+
+本批完成前，除已有 UI 等价验收外，还必须新增通过以下口径：
+
+1. `done`：计划确认态的 `Continue / Ask more` 已恢复为继续规划路径，并在 planning / awaiting 态自动把焦点还给输入框；当前构建已通过，继续路径不再退化成 cancel。
+2. `done`：plan mode 的 toggle、workflow cancel 与执行收口已统一到同一状态同步逻辑；当前构建已通过，关闭路径不再出现 UI 与 interaction state 分叉。
+3. `done`：runtime panel 现仅保留 `Plan / Reasoning / Diff` 三条可见状态，并删除不可见 terminal 更新；当前构建已通过，且与 Web 对齐的可见区块顺序与空态文案已完成收口。
+4. `done`：confirmed plan 已桥接到 runtime `Plan` 回退展示；当前代码与已留存的运行态真机回归结果保持一致。
+5. `done`：quota/rate-limit 展示已移除英文硬编码口径，header 与 usage panel 统一通过本地化展示层输出；真机动态额度回归中发现 header / usage 都会把时间里的 `:` 误判为分隔符，本批已同步修正。最新真机图 `tmp\\codex-header-quota-v5.png/xml` 与 `tmp\\codex-usage-panel-v2.png/xml` 已确认动态 header 显示为 `5h 99% · 16:13`、`一周 85% · 04/17 02:11`，usage panel 显示为 `5小时 99% 剩余 · 重置 16:13 | 一周 85% 剩余 · 重置 04/17 02:11`。
+6. `done`：聊天消息正文已切到可选择复制，覆盖 user / assistant / system / tool / error 五类消息，且未引入当前构建级回归。
+7. `done`：approval 弹窗中无行为闭环的 `Remember this prefix` 控件已移除，当前构建已通过。
+
+#### 5.3 Follow-up 文档初始化批验收口径（2026-04-11）
+
+本批为文档批次，完成前必须至少满足以下口径：
+
+1. `done`：`REQ`、`PLAN`、`ALIGNMENT` 已一致写明原生执行期后台保活需要扩展到计划确认 / 补充说明等待态，而不是只覆盖狭义运行态。
+2. `done`：`REQ`、`PLAN`、`ALIGNMENT` 已一致写明四类系统通知场景：命令确认、计划补充说明、等待确认、后台任务错误。
+3. `done`：`REQ`、`PLAN`、`ALIGNMENT` 已一致写明原生 Codex 顶部缺少会话列表、设置、文档三个全局入口，且这些入口属于顶部导航而非 secondary nav。
+4. `done`：文档按钮默认行为已固定为打开 Docs 工作区，而不是模糊写成“打开文档相关能力”。
+5. `done`：已新增 draft CR 记录本批文档初始化范围，并在 `INDEX` 中登记。
+
+#### 5.4 Follow-up 实现批验收口径（2026-04-11）
+
+本批完成前，除已有替换回归外，还必须新增通过以下口径：
+
+1. `done`：前台保活通知在 `awaiting_user_input` 与 `plan_ready_for_confirmation` 阶段仍保持执行相关状态，不再只覆盖狭义 `running / reconnecting / waiting_approval`。
+2. `done`：后台关键事件系统通知已覆盖命令确认、计划补充说明、等待确认、后台任务错误四类事件；真机上离开 `CodexActivity` 后仍可触发，并可回跳当前原生 Codex 会话。
+3. `done`：顶部 `Sessions / Settings / Docs` 全局入口已落到原生 `CodexActivity` header，而非 secondary nav 或底部工具区。
+4. `done`：`Docs` 入口默认打开当前会话工作区下的 `docs` 目录，而不是泛化到任意工作区首页。
+5. `done`：当前 Android 构建已通过，可作为本批实现基线。
+
 ## 6. 风险与回滚
 
 ### 6.1 主要风险
@@ -169,4 +318,4 @@ Phase 2 协议对齐盘点（截至 `3.3-3` live debug）：
 1. 在 Phase 0~3 期间，现有 WebView Codex 入口保持原状并持续可用。
 2. 任一阶段若新入口链路出现阻塞，继续使用现有 WebView 入口作为稳定路径，不要求回退已完成旧链路。
 3. 只有在新入口完成真机回归、恢复链路验证与默认入口灰度后，才允许下调旧 WebView 方案优先级。
-4. 若后续正式立项实施，本计划应补挂独立 REQ，并按实施批次生成 CR，避免仅靠计划文档驱动代码变更。
+4. 后续若继续做 Web / Android UI 等价收敛，必须继续按实施批次同步 `PLAN + CR + 对齐矩阵`，避免仅靠口头目标推动大包式调整。

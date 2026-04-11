@@ -2,7 +2,7 @@
 title: Codex Android 全原生并行迁移与多 CLI 提供方扩展基线
 status: done
 owner: @maintainer
-last_updated: 2026-04-09
+last_updated: 2026-04-11
 source_of_truth: product
 related_code: [android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/web/TerminalEventBridge.kt, android/app/src/main/java/com/termlink/app/CodexTaskForegroundService.kt, public/codex_client.html, public/terminal_client.js, src/ws/terminalGateway.js]
 related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-20260408-codex-native-android-migration.md, docs/architecture/ROADMAP.md]
@@ -54,6 +54,9 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-202
    - 运行态面板
    - token/context 展示
    - 图片输入与额度提示
+   - 顶部全局入口：会话列表 / 设置 / 文档
+   - 执行期后台保活扩展到计划确认 / 补充说明等待态
+   - 关键交互系统通知：命令确认、计划补充说明、等待确认、后台任务错误
 5. 建立原生入口与旧 WebView 入口并行期的灰度、回退与默认入口切换策略。
 6. 建立多提供方扩展基线：
    - UI 层不把 Codex 命名、事件名或 provider 私有字段直接写死到核心状态模型
@@ -146,6 +149,9 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-202
 4. 新入口的架构说明明确具备多 provider 扩展能力，不把 Codex 私有协议细节直接固化到 UI 主链路。
 5. 文档层明确后续可扩展到 `claude cli`、`copilot cli` 等 CLI 型能力提供方，且新增 provider 的主要工作边界是 adapter / capability mapping，而不是整体重写 UI。
 6. 新入口切默认入口前，必须完成功能对齐、真机恢复、通知返回和灰度验证。
+7. 原生 `CodexActivity` 在 `running / reconnecting / waiting_approval / awaiting_user_input / plan_ready_for_confirmation` 等执行相关状态下，后台保活口径一致，不再仅覆盖狭义运行态。
+8. 命令确认、计划模式补充说明、等待确认、后台任务错误四类需要用户注意的事件，均具备系统通知能力与通知回跳路径。
+9. 原生 Codex 顶部 header 补齐会话列表、设置、文档三类全局入口，其中“文档”默认打开当前会话工作区下的 Docs 入口。
 
 ## 7. 测试场景
 
@@ -180,4 +186,6 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-202
 1. Phase 0 与 Phase 1 已完成，并已有 `active` CR 留痕。
 2. Phase 2 已补齐功能对齐主线：运行态面板、工具面板、token/context/rate-limit 展示、图片输入与大屏/回退入口都已落地到原生 `CodexActivity`；审批/用户输入链路也已完成客户端实现与真机注入验证。
 3. Phase 3 已完成真机稳定性收口：原生入口已验证消息收发、`HOME -> warm relaunch` 恢复、弱网断连后 `重试` 继续使用，以及前台通知返回链路；`Sessions` 中的新旧入口并行路由和恢复状态边界也已在同一会话上验证完毕。
-4. Phase 4 已完成“原生默认入口 + WebView 受控回退”的切换与收口回归；旧 WebView Codex 正式移除不再作为本 REQ 的阻塞项，后续若决定清理旧入口，按独立 follow-up 变更处理。
+4. Phase 4 现已完成“原生主入口 + 旧 WebView Codex 正式移除”的切换与收口回归：launcher 冷启动、Codex 会话打开、以及原生页跳转 `Settings / Sessions` 后的返回路径都已固定回到 `CodexActivity`。
+5. 2026-04-11 follow-up 已继续完成可用性收口：原生执行期后台保活已扩展到 `awaiting_user_input / plan_ready_for_confirmation`，后台关键事件通知已覆盖命令确认、计划模式补充说明、等待确认与后台任务错误，顶部也已补齐 `Sessions / Settings / Docs` 三类全局入口。
+6. `Docs` 入口默认打开当前会话工作区下的 `docs` 目录；旧 WebView Codex 的用户可达入口、Sessions 切换开关与分流持久化逻辑已在当前批次正式移除。

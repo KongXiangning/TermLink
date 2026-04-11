@@ -96,9 +96,14 @@ data class CodexRuntimePanelState(
     val diff: String = "",
     val plan: String = "",
     val reasoning: String = "",
-    val terminalOutput: String = "",
     val warning: String = "",
     val warningTone: String = ""
+)
+
+data class CodexNoticesPanelState(
+    val visible: Boolean = false,
+    val configWarningText: String = "",
+    val deprecationNoticeText: String = ""
 )
 
 data class CodexToolsPanelState(
@@ -132,6 +137,7 @@ data class CodexUsagePanelState(
 )
 
 enum class DebugServerRequestPreset {
+    RUNTIME_SAMPLE,
     COMMAND_APPROVAL,
     FILE_APPROVAL,
     PATCH_APPROVAL,
@@ -178,6 +184,7 @@ data class CodexUiState(
     val submittingServerRequestIds: Set<String> = emptySet(),
     val sessionExpired: Boolean = false,
     val runtimePanel: CodexRuntimePanelState = CodexRuntimePanelState(),
+    val noticesPanel: CodexNoticesPanelState = CodexNoticesPanelState(),
     val toolsPanel: CodexToolsPanelState = CodexToolsPanelState(),
     val usagePanel: CodexUsagePanelState = CodexUsagePanelState(),
     val pendingImageAttachments: List<CodexPendingImageAttachment> = emptyList(),

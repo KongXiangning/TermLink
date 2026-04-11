@@ -16,7 +16,8 @@ import androidx.core.app.ServiceCompat
 
 /**
  * Foreground service that keeps the Android process alive while a Codex task
- * is actively running (status = running / reconnecting / waiting_approval).
+ * is actively running (status = running / reconnecting / waiting_approval /
+ * awaiting_user_input / plan_ready_for_confirmation).
  *
  * Lifecycle is driven by [MainShellActivity] via [start] / [updateStatus] /
  * [stop] companion helpers — the service does NOT manage its own start
@@ -31,7 +32,13 @@ class CodexTaskForegroundService : Service() {
         private const val EXTRA_STATUS = "codex_task_status"
         private const val EXTRA_TAP_INTENT = "codex_task_tap_intent"
 
-        private val ACTIVE_STATUSES = setOf("running", "reconnecting", "waiting_approval")
+        private val ACTIVE_STATUSES = setOf(
+            "running",
+            "reconnecting",
+            "waiting_approval",
+            "awaiting_user_input",
+            "plan_ready_for_confirmation"
+        )
 
         fun isActiveStatus(status: String?): Boolean {
             return ACTIVE_STATUSES.contains(status?.lowercase()?.trim())
@@ -132,6 +139,8 @@ class CodexTaskForegroundService : Service() {
             "running" -> getString(R.string.codex_task_notif_running)
             "reconnecting" -> getString(R.string.codex_task_notif_reconnecting)
             "waiting_approval" -> getString(R.string.codex_task_notif_waiting)
+            "awaiting_user_input" -> getString(R.string.codex_task_notif_awaiting_input)
+            "plan_ready_for_confirmation" -> getString(R.string.codex_task_notif_plan_ready)
             else -> getString(R.string.codex_task_notif_running)
         }
 
