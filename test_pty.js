@@ -1,5 +1,6 @@
 const pty = require('node-pty');
 const os = require('os');
+const { withWindowsPtyOptions } = require('./src/services/ptySpawnOptions');
 
 const shell = 'gemini';
 const args = ['--output-format', 'stream-json'];
@@ -8,13 +9,13 @@ if (process.env.GEMINI_MODEL) {
     args.push('--model', process.env.GEMINI_MODEL);
 }
 
-const ptyProcess = pty.spawn(shell, args, {
+const ptyProcess = pty.spawn(shell, args, withWindowsPtyOptions({
     name: 'xterm-color',
     cols: 80,
     rows: 30,
     cwd: process.cwd(),
     env: process.env
-});
+}));
 
 ptyProcess.on('data', (data) => {
     // Process output

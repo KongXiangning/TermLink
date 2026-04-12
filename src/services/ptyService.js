@@ -3,6 +3,7 @@ const pty = require('node-pty');
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { withWindowsPtyOptions } = require('./ptySpawnOptions');
 
 function hasCommand(command) {
     const checker = os.platform() === 'win32' ? 'where' : 'which';
@@ -113,13 +114,13 @@ class PtyService {
         const args = this.shellArgs;
         const file = this.shell;
 
-        this.ptyProcess = pty.spawn(file, args, {
+        this.ptyProcess = pty.spawn(file, args, withWindowsPtyOptions({
             name: 'xterm-color',
             cols: cols || 80,
             rows: rows || 30,
             cwd: process.env.HOME || process.env.USERPROFILE || os.homedir(),
             env: process.env
-        });
+        }));
 
         return this.ptyProcess;
     }

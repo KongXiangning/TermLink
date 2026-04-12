@@ -1,6 +1,7 @@
 const pty = require('node-pty');
 const EventEmitter = require('events');
 const ProtocolParser = require('./protocolParser');
+const { withWindowsPtyOptions } = require('../ptySpawnOptions');
 
 class RealCodexService extends EventEmitter {
     constructor() {
@@ -52,13 +53,13 @@ class RealCodexService extends EventEmitter {
 
         const args = ['-s', 'workspace-write', '--no-alt-screen'];
 
-        this.process = pty.spawn('codex', args, {
+        this.process = pty.spawn('codex', args, withWindowsPtyOptions({
             name: 'xterm-mono', // Avoid color codes
             cols: 80,
             rows: 30,
             cwd: this.cwd,
             env: { ...process.env, FORCE_COLOR: '0', NO_COLOR: '1' } // Try to suppress colors
-        });
+        }));
 
         this.process.onData((data) => {
             const str = data.toString();
