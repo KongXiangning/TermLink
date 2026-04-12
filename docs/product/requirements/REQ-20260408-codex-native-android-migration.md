@@ -2,7 +2,7 @@
 title: Codex Android 全原生并行迁移与多 CLI 提供方扩展基线
 status: done
 owner: @maintainer
-last_updated: 2026-04-11
+last_updated: 2026-04-13
 source_of_truth: product
 related_code: [android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/web/TerminalEventBridge.kt, android/app/src/main/java/com/termlink/app/CodexTaskForegroundService.kt, public/codex_client.html, public/terminal_client.js, src/ws/terminalGateway.js]
 related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-20260408-codex-native-android-migration.md, docs/architecture/ROADMAP.md]
@@ -187,5 +187,10 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-202
 2. Phase 2 已补齐功能对齐主线：运行态面板、工具面板、token/context/rate-limit 展示、图片输入与大屏/回退入口都已落地到原生 `CodexActivity`；审批/用户输入链路也已完成客户端实现与真机注入验证。
 3. Phase 3 已完成真机稳定性收口：原生入口已验证消息收发、`HOME -> warm relaunch` 恢复、弱网断连后 `重试` 继续使用，以及前台通知返回链路；`Sessions` 中的新旧入口并行路由和恢复状态边界也已在同一会话上验证完毕。
 4. Phase 4 现已完成“原生主入口 + 旧 WebView Codex 正式移除”的切换与收口回归：launcher 冷启动、Codex 会话打开、以及原生页跳转 `Settings / Sessions` 后的返回路径都已固定回到 `CodexActivity`。
-5. 2026-04-11 follow-up 已继续完成可用性收口：原生执行期后台保活已扩展到 `awaiting_user_input / plan_ready_for_confirmation`，后台关键事件通知已覆盖命令确认、计划模式补充说明、等待确认与后台任务错误，顶部也已补齐 `Sessions / Settings / Docs` 三类全局入口。
+5. 2026-04-11 follow-up 已继续完成可用性收口：原生执行期后台保活已扩展到 `awaiting_user_input / plan_ready_for_confirmation`，后台关键事件通知已覆盖命令确认、计划模式补充说明、等待确认与后台任务错误，`Docs` 全局入口继续保留并默认打开当前会话工作区下的 `docs` 目录。
 6. `Docs` 入口默认打开当前会话工作区下的 `docs` 目录；旧 WebView Codex 的用户可达入口、Sessions 切换开关与分流持久化逻辑已在当前批次正式移除。
+7. 导航人体工学 follow-up 已完成二次收口：原生 Codex 默认界面现提供显式 `Sessions` 与 `Docs` 入口，`Sessions` 位于顶部 header 左侧、状态区 `Codex` 前，`Docs` 位于同一行最右侧；header 高度已同步增高；透明手势层与自定义触摸拦截已移除，左边内容区不再存在点击/长按/竖向滚动死区。
+8. 设置入口现已进一步收敛为真正独立页面：抽屉头部右侧设置按钮打开专用 `SettingsActivity`，不再复用 `MainShellActivity(settings)` 壳层，因此不会再出现透明重叠；系统返回后仍落回当前原生 Codex 会话。
+9. 背景信息窗口 follow-up 已完成与 web 当前基线的主结构对齐：右下角 context widget 在原生 Codex 页固定显示，缺失 telemetry 时显示 `--`；背景信息窗口中的 `Used` 摘要、auto-compact 说明、compact 区显隐与状态文案已按 web 口径收敛，并移除了 Android modal 中额外的 rate-limit 主体卡片；`Tokens` 行则按当前原生 UI 要求收窄为单行 `used/total` 紧凑格式。
+10. 背景信息窗口样式 follow-up 已进一步收敛视觉 token：在不改变既有布局和内容的前提下，dialog surface、context/token 卡片、关闭按钮、compact 按钮以及 label/note 默认文字对比度均已向 web modal 的 border / shadow / contrast 语言靠拢。
+11. 会话抽屉 follow-up 已继续收敛可达性与预览动画：左侧有效拖拽边缘已加宽到 `56dp`，抽屉宽度改为运行时 `min(screenWidth * 0.75, 420dp)`，并且 `SessionsFragment` 在 `CodexActivity` 抽屉容器内改为常驻内容树，拖拽过程中可直接看到会话列表内容，不再先出现黑底空白。

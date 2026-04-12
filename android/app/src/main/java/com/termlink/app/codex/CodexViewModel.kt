@@ -2775,6 +2775,7 @@ class CodexViewModel(
         _uiState.update { state ->
             state.copy(
                 usagePanel = state.usagePanel.copy(
+                    visible = if (contextUsage == null) false else state.usagePanel.visible,
                     tokenUsageSummary = summary,
                     contextUsage = contextUsage
                 )
@@ -2893,25 +2894,70 @@ class CodexViewModel(
             listOf("usagePercent"),
             listOf("usage_percent")
         )?.toInt()
-        val resolvedUsedTokens = when {
-            modelContextWindow != null && modelContextWindow > 0 && nestedTotalTokens != null -> nestedTotalTokens
-            else -> usedTokens
-        }
-        val resolvedContextWindow = when {
-            modelContextWindow != null && modelContextWindow > 0 -> modelContextWindow
-            else -> maxTokens
-        }
-        if (resolvedUsedTokens == null || resolvedContextWindow == null || resolvedContextWindow <= 0) {
-            return null
+        if (
+            modelContextWindow != null &&
+            modelContextWindow > 0 &&
+            nestedTotalTokens != null &&
+            nestedTotalTokens >= 0
+        ) {
+            val safeUsedTokens = nestedTotalTokens.coerceAtMost(modelContextWindow)
+            val usedPercent = clampPercent(
+                ((safeUsedTokens.toDouble() * 100.0) / modelContextWindow.toDouble()).toInt()
+            ) ?: return null
+            return CodexContextUsageState(
+                usedTokens = safeUsedTokens,
+                contextWindow = modelContextWindow,
+                usedPercent = usedPercent,
+                remainingPercent = (100 - usedPercent).coerceAtLeast(0),
+                inputTokens = pickFirstLongFromSources(
+                    sources,
+                    listOf("inputTokens"),
+                    listOf("input_tokens"),
+                    listOf("input"),
+                    listOf("promptTokens"),
+                    listOf("prompt_tokens")
+                ),
+                outputTokens = pickFirstLongFromSources(
+                    sources,
+                    listOf("outputTokens"),
+                    listOf("output_tokens"),
+                    listOf("output"),
+                    listOf("completionTokens"),
+                    listOf("completion_tokens")
+                ),
+                cachedInputTokens = pickFirstLongFromSources(
+                    sources,
+                    listOf("cachedInputTokens"),
+                    listOf("cached_input_tokens"),
+                    listOf("cacheTokens"),
+                    listOf("cache_tokens")
+                ),
+                reasoningTokens = pickFirstLongFromSources(
+                    sources,
+                    listOf("reasoningOutputTokens"),
+                    listOf("reasoning_output_tokens"),
+                    listOf("reasoningTokens"),
+                    listOf("reasoning_tokens")
+                ),
+                updatedAtMillis = System.currentTimeMillis()
+            )
         }
         val usedPercent = clampPercent(
-            explicitPercent ?: ((resolvedUsedTokens.toDouble() * 100.0) / resolvedContextWindow.toDouble()).toInt()
-        )
+            explicitPercent ?: (
+                if (usedTokens != null && maxTokens != null && maxTokens > 0) {
+                    ((usedTokens.toDouble() * 100.0) / maxTokens.toDouble()).toInt()
+                } else {
+                    null
+                }
+            )
+        ) ?: return null
+        val normalizedUsedTokens = usedTokens?.takeIf { it >= 0 }
+        val normalizedContextWindow = maxTokens?.takeIf { it > 0 }
         return CodexContextUsageState(
-            usedTokens = resolvedUsedTokens,
-            contextWindow = resolvedContextWindow,
+            usedTokens = normalizedUsedTokens,
+            contextWindow = normalizedContextWindow,
             usedPercent = usedPercent,
-            remainingPercent = usedPercent?.let { 100 - it },
+            remainingPercent = (100 - usedPercent).coerceAtLeast(0),
             inputTokens = pickFirstLongFromSources(
                 sources,
                 listOf("inputTokens"),

@@ -359,9 +359,11 @@
     <string name="codex_native_tools_clear_skill">Clear skill</string>
     <string name="codex_native_tools_open_web">Open Web fallback</string>
     <string name="codex_native_tools_compact_title">Context Compression</string>
-    <string name="codex_native_tools_compact_ready">Compress the current thread into a shorter context summary to free up the context window.</string>
-    <string name="codex_native_tools_compact_pending">Requesting…</string>
+    <string name="codex_native_tools_compact_ready">Confirm to send a compact request for the current thread.</string>
+    <string name="codex_native_tools_compact_pending">Compressing...</string>
     <string name="codex_native_tools_compact_action">Confirm compress current thread</string>
+    <string name="codex_native_tools_compact_no_thread">No thread available to compress. Send a message or restore a thread first.</string>
+    <string name="codex_native_tools_compact_requesting">Requesting compression for current thread...</string>
     <string name="codex_native_tools_skills_title">Skills Browse</string>
     <string name="codex_native_tools_skills_description">Only the selected skill is activated; it won\'t auto-inject the full template prompt.</string>
     <string name="codex_native_tools_skills_loading">Loading skills…</string>
@@ -382,6 +384,8 @@
     <string name="codex_native_context_auto_compact">Codex auto-compresses its context</string>
     <string name="codex_native_context_used_label">Used</string>
     <string name="codex_native_context_tokens_label">Tokens</string>
+    <string name="codex_native_context_used_summary">%1$d%% used (%2$d%% remaining)</string>
+    <string name="codex_native_context_token_summary">Used %1$s tokens, total %2$s</string>
     <string name="codex_native_context_input_label">Input</string>
     <string name="codex_native_context_output_label">Output</string>
     <string name="codex_native_context_cached_label">Cached</string>

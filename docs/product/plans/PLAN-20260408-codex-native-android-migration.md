@@ -2,7 +2,7 @@
 title: Codex 原生 Android 迁移计划
 status: done
 owner: @maintainer
-last_updated: 2026-04-11
+last_updated: 2026-04-13
 source_of_truth: product
 related_code: [android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/CodexTaskForegroundService.kt, android/app/src/main/java/com/termlink/app/WorkspaceActivity.kt, android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt, android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt, public/workspace.js]
 related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/REQ-20260408-codex-native-android-migration.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/architecture/ARCH-20260408-codex-native-android-migration.md, docs/architecture/ROADMAP.md, docs/product/plans/ALIGNMENT-20260410-codex-web-android-ui-equivalence.md]
@@ -20,8 +20,13 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/R
 4. `done`：Phase 3 稳定性与替换准备（已完成真机 warm relaunch、弱网断连/重试恢复、原生前台通知返回路径收口，以及新旧入口同会话并行路由与恢复状态隔离验证）
 5. `done`：Phase 4 切换与下线（默认入口已固定到原生实现，旧 WebView Codex 已从用户主路径正式移除，端到端回归与文档收口已完成）
 6. `done`：Phase 4 follow-up retention/notification/navigation（已完成执行期后台保活扩展、后台关键事件通知，以及顶部 sessions/settings/docs 全局入口；Docs 默认打开当前会话工作区下的 `docs` 入口）
+7. `done`：Phase 4 follow-up nav gesture ergonomics（会话抽屉已迁回 `CodexActivity`，`Settings` 已收敛到抽屉顶部右侧）
+8. `done`：Phase 4 follow-up nav regression fix（已恢复显式 `Sessions` 入口、移除透明手势层死区，并保留左缘拖拽与抽屉头部设置入口）
+9. `done`：Phase 4 follow-up topbar/settings-page polish（已把 `Sessions` 移到顶部 header 左侧、`Docs` 移到同一行最右侧，并将设置页切到独立 `SettingsActivity`）
+10. `done`：Phase 4 follow-up context-usage parity（已让右下角 context widget 常显，并将背景信息窗口的文案、结构与 compact 状态口径收敛到 web 当前基线）
+11. `done`：Phase 4 follow-up drawer preview/gesture tuning（已加宽左缘拖拽有效边缘、将会话抽屉宽度收敛到约 3/4 屏，并消除拖拽过程中的黑底空白）
 
-Phase 0 ~ Phase 4 已完成实施并通过编译 / 真机验证；当前 Codex 用户路径已固定到原生 `CodexActivity`，`MainShellActivity` 仅继续承载 sessions/settings/workspace 壳层能力。
+Phase 0 ~ Phase 4 主线已完成实施并通过编译 / 真机验证；当前 Codex 用户路径已固定到原生 `CodexActivity`，`MainShellActivity` 仅继续承载 sessions/workspace 壳层能力，设置页已切到独立 `SettingsActivity`，导航人体工学与后续 discoverability / dead-zone / topbar placement / context-usage parity / drawer preview tuning 回归也已完成收口。
 
 Phase 2 当前进度：
 
@@ -33,7 +38,7 @@ Phase 2 当前进度：
 6. `done`：`3.3-6` 线程历史列表 / 恢复 / 重命名 / 归档 / 分叉已完成原生状态、协议与 Compose UI 接线，并已在真机验证 sheet 打开、列表滚动、分叉生成新线程、恢复切换当前线程、归档动作触发，以及重命名保存后列表标题更新。
 7. `done`：`3.3-7` 运行态面板已补齐 Diff / Plan / Reasoning / Terminal Output 所需 capability、状态建模、通知消费、线程快照回放与底部 sheet 入口；本批继续完成 ANSI 清洗与运行态总览收口。
 8. `done`：`3.3-8` 工具面板已补齐技能列表请求、active skill 选择 / 清空、plan mode 轻量控制与 compact 触发入口。
-9. `done`：`3.3-9` Token / Context 用量与速率限制展示已补齐 `thread/tokenUsage/updated`、`account/rateLimits/updated` 消费、摘要回显与详情弹层。
+9. `done`：`3.3-9` Token / Context 用量与速率限制展示已补齐 `thread/tokenUsage/updated`、`account/rateLimits/updated` 消费、摘要回显与详情弹层；最新 follow-up 已继续完成 widget 常显、`0%` / explicit-percent 兼容、背景信息窗口 `Used / Tokens` 文案、compact 状态默认文案，以及 modal 内 rate-limit 差异移除。
 10. `done`：`3.3-10` 图片输入已补齐本地图片选择 / data URL 发送 / URL 输入待发送态；额度摘要、宽屏居中布局、底部操作区与 WebView fallback 入口一并补强。
 
 Phase 3 当前进度：
@@ -49,7 +54,9 @@ Phase 4 当前进度：
 2. `done`：`3.5-2` 受控灰度窗口已结束；`MainShellActivity` 仅继续保留 sessions/settings/workspace 壳层能力，不再暴露旧 WebView Codex 作为用户主入口。
 3. `done`：`3.5-3` 旧 WebView Codex 入口与其冗余路由资源已正式移除，包括 Sessions 入口切换开关、`CodexLaunchPreferencesStore` 分流逻辑，以及原生页内的 Web fallback 入口。
 4. `done`：`3.5-4` 已补齐 `PLAN + CR + REQ/Backlog/Product/Changelog` 文档收口，并完成原生主入口、旧入口移除、后台恢复、弱网重试与通知返回路径的端到端替换回归。
-5. `done`：已补齐执行期后台保活扩展（`awaiting_user_input` / `plan_ready_for_confirmation`）、后台关键事件通知（命令确认 / 计划补充说明 / 等待确认 / 后台任务错误），以及顶部 `Sessions / Settings / Docs` 全局入口；Docs 按钮默认打开当前会话工作区下的 `docs` 目录。
+5. `done`：已补齐执行期后台保活扩展（`awaiting_user_input` / `plan_ready_for_confirmation`）、后台关键事件通知（命令确认 / 计划补充说明 / 等待确认 / 后台任务错误），以及 `Docs` 全局入口；Docs 按钮默认打开当前会话工作区下的 `docs` 目录。
+6. `done`：已完成导航人体工学与 discoverability 收口：原生 Codex 默认界面现提供显式 `Sessions / Docs` 入口；`Sessions` 位于顶部 header 左侧并可直接打开左侧会话抽屉，`Docs` 位于同一行最右侧；header 高度已同步增高；`Settings` 位于抽屉顶部右侧并打开独立 `SettingsActivity`；透明手势层已移除，左边点击/长按/竖向滑动不再出现死区；真机已确认设置页返回仍回到当前原生 Codex 会话。
+7. `done`：已继续收敛会话抽屉可达性与动画预览：左侧有效拖拽边缘已从窄边缘加宽到 `56dp`，抽屉宽度改为运行时 `min(screenWidth * 0.75, 420dp)`，`SessionsFragment` 在 `CodexActivity` 抽屉容器内改为常驻内容树，拖拽过程中可直接看到会话列表内容，不再先出现黑底空白。
 
 Phase 2 协议对齐盘点（截至 `3.3-3` live debug）：
 
@@ -207,6 +214,89 @@ Phase 2 协议对齐盘点（截至 `3.3-3` live debug）：
 
 1. [CR-20260411-1602-codex-native-retention-notification-nav-impl.md](/E:/coding/TermLink/docs/changes/records/CR-20260411-1602-codex-native-retention-notification-nav-impl.md)
 
+#### 4.5 Follow-up 文档初始化批次（2026-04-11 导航人体工学）
+
+本批只做文档初始化，不改代码。目标是把“移除独立 `Sessions / Settings` 直达按钮、改为左缘右滑会话抽屉、将设置入口收敛到抽屉顶部右侧”这两个已确认需求正式挂回迁移主线，避免继续把当前图标布局误记为最终口径。当前锁定覆盖如下：
+
+1. `done`：`REQ`、`PLAN`、`ALIGNMENT` 已一致记录：会话列表不再通过独立按钮或整页跳转打开，而是改为左侧边缘右滑唤出抽屉式列表。
+2. `done`：`REQ`、`PLAN`、`ALIGNMENT` 已一致记录：设置入口从独立按钮调整为会话抽屉顶部右侧入口。
+3. `done`：已明确本批范围仅覆盖 `Sessions / Settings` 导航人体工学调整；`Docs` 当前入口不在本批调整范围内。
+4. `done`：已用 draft CR 锁定上述交互调整的实施边界，当前仍不声明代码实现完成。
+
+本批对应 CR：
+
+1. [CR-20260411-2132-codex-nav-gesture-docs.md](/E:/coding/TermLink/docs/changes/records/CR-20260411-2132-codex-nav-gesture-docs.md)
+
+#### 4.6 Follow-up 实现批次（2026-04-11 导航人体工学）
+
+本批承接 `4.5` 文档初始化范围，把导航人体工学要求落到真实原生交互。目标不是再新增一个“会话页”，而是把会话抽屉真正挂回 `CodexActivity` 内部，并把设置入口收敛到抽屉头部。当前实现覆盖如下：
+
+1. `done`：`CodexScreen` 底部全局操作行已移除独立 `Sessions / Settings` 直达按钮，仅保留 `Docs` 入口。
+2. `done`：`CodexActivity` 已直接承载左侧 sessions drawer，并通过左边缘右滑手势在原生页内打开，不再依赖跳转到 `MainShellActivity(sessions)` 才看到会话列表。
+3. `done`：`SessionsFragment` 抽屉头部已新增右侧设置按钮；点击后进入现有 `MainShellActivity(settings)`，系统返回后会回到当前原生 Codex 会话。
+4. `done`：`MainShellActivity` 已同步切到左侧 sessions drawer，并移除壳层顶部重复的设置按钮，统一通过抽屉头部右侧进入设置。
+5. `done`：真机 `MQS7N19402011743` 已确认默认界面只剩 `Docs` 图标、左缘右滑可打开会话抽屉、抽屉头部右侧存在设置按钮，且设置返回链路仍回到 `CodexActivity`。
+
+本批对应 CR：
+
+1. [CR-20260411-2143-codex-nav-gesture-impl.md](/E:/coding/TermLink/docs/changes/records/CR-20260411-2143-codex-nav-gesture-impl.md)
+
+#### 4.7 Follow-up 回归修复批次（2026-04-12 导航可达性与死区）
+
+本批承接 `4.6` 上线后的真机回归，目标是保留“左缘右滑会话抽屉 + 抽屉头部设置”的导航方向，同时修掉两个实际回归：会话入口不能只剩手势、左侧透明手势层不能吞掉内容触摸。当前实现覆盖如下：
+
+1. `done`：`CodexScreen` 已恢复显式 `Sessions` 入口，并与 `Docs` 并列展示；该入口保留 `contentDescription`，可直接触发当前原生 `CodexActivity` 的抽屉打开动作。
+2. `done`：`activity_codex.xml` 已删除透明 `codex_drawer_gesture_edge`；`CodexActivity` 已删除自定义 `OnTouchListener` 拦截逻辑，不再通过透明层处理左缘手势。
+3. `done`：左缘拖拽已改为 `DrawerLayout` 自己处理，并在 `DrawerLayout` 根上补充 system gesture exclusion 以兼容真机华为手势导航；左边点击、长按、竖向滑动不再误开抽屉或退回 launcher。
+4. `done`：`SessionsFragment` 抽屉头部右侧设置按钮继续保留；点击后进入 `MainShellActivity(settings)`，返回后回到当前原生 Codex 会话。
+5. `done`：真机 `MQS7N19402011743` 已确认显式 `Sessions` 入口可打开抽屉，左缘横向拖拽可打开抽屉，左边非横向交互不再形成死区。
+
+本批对应 CR：
+
+1. [CR-20260412-0037-codex-nav-regression-fix.md](/E:/coding/TermLink/docs/changes/records/CR-20260412-0037-codex-nav-regression-fix.md)
+
+#### 4.8 Follow-up 顶部栏与独立设置页批次（2026-04-12 topbar / settings page）
+
+本批承接 `4.7` 的可达性修复，继续收敛顶部全局入口的最终位置与设置页承载方式，目标是让 `Sessions / Docs` 回到同一条顶部状态栏语义中，并把设置页切成真正独立的 opaque 页面。当前实现覆盖如下：
+
+1. `done`：`CodexScreen` 已将 `Sessions` 从底部全局操作区移到顶部 header 左侧，位于状态区 `Codex` 前，保持可访问性语义与直接打开抽屉能力。
+2. `done`：`CodexScreen` 已将 `Docs` 移到顶部 header 同一行最右侧，不再与 composer/footer 行混排。
+3. `done`：顶部 header 行高已增大，以容纳左侧 `Sessions`、中间状态区与右侧 `Docs/Interrupt` 的同排布局。
+4. `done`：已新增独立 `SettingsActivity` 与 `activity_settings.xml`，抽屉头部设置按钮不再复用 `MainShellActivity(settings)` 壳层。
+5. `done`：真机 `MQS7N19402011743` 已确认：header 默认显示左 `Sessions` / 中 `Codex` 状态区 / 右 `Docs`；设置页根节点为 `settings_root`，返回后重新回到当前原生 `CodexActivity`。
+
+本批对应 CR：
+
+1. [CR-20260412-0205-codex-topbar-settings-page.md](/E:/coding/TermLink/docs/changes/records/CR-20260412-0205-codex-topbar-settings-page.md)
+
+#### 4.9 Follow-up 背景信息窗口对齐批次（2026-04-12 context usage parity）
+
+本批承接 `4.8` 的顶部入口与设置页收口，继续把右下角 context widget 与“背景信息窗口”弹层收敛到 web 当前基线，重点覆盖 widget 常显、`0%` / `--` 规则、Used/Tokens 摘要文案、compact 状态口径以及 modal 结构差异。当前实现覆盖如下：
+
+1. `done`：`CodexScreen` 右下角 context widget 已改为在原生 Codex 页始终显示，不再依赖 token / rate-limit 遥测是否存在。
+2. `done`：widget 百分比已改为“有值显示 `xx%`、无值显示 `--`”；`0%` 不再被误显示成 `--`。
+3. `done`：背景信息窗口已改成贴近 web 的自定义 card dialog，正文改为纵向堆叠的 `上下文用量 / Token 统计` 两张卡片；`Used` 行保持 web 摘要文案，`Tokens` 行则按 Android 当前视觉要求收窄成单行 `used/total` 紧凑格式，并移除了 modal 主体内多出的 rate-limit 卡片。
+4. `done`：背景信息窗口已补齐固定 `Codex auto-compresses its context` 说明，以及按 web 口径的 compact 显隐、ready / no-thread / requesting / submitting 状态文案。
+5. `done`：`CodexViewModel` 已扩展 context usage 兼容解析：保留 explicit-percent-only 场景、优先处理 `modelContextWindow + last.totalTokens` 路径，并在 context telemetry 消失时自动关闭弹层。
+6. `done`：真机 `MQS7N19402011743` 已确认右下角 context widget 在无 telemetry 时仍保持可见，并显示 `--`。
+
+本批对应 CR：
+
+1. [CR-20260412-0152-codex-context-usage-parity.md](/E:/coding/TermLink/docs/changes/records/CR-20260412-0152-codex-context-usage-parity.md)
+
+#### 4.10 Follow-up 背景信息窗口样式微调批次（2026-04-12 context usage style polish）
+
+本批承接 `4.9` 已完成的结构与内容对齐，只继续收敛背景信息窗口的视觉 token；要求保持标题、两张信息卡片、auto-compact 说明、compact 状态与按钮等布局和文案不变，仅优化 surface、border、阴影、文字对比度与按钮观感。当前实现覆盖如下：
+
+1. `done`：`UsagePanelSheet` 外层 dialog surface 已补齐更接近 web modal card 的边框与阴影，标题字号和关闭按钮视觉层级已同步微调，但不改变原有位置与交互。
+2. `done`：两张 context/token 卡片继续保持原有纵向堆叠与内容顺序，仅收敛卡片底色、边框轻重、label/note 文字对比度，使其更贴近 web 视觉 token。
+3. `done`：compact 区域继续保留原有说明、状态文案与按钮位置；仅微调默认文案色阶、按钮底色/边框/字号，避免 Android 端出现另一套按钮语言。
+4. `done`：真机 `MQS7N19402011743` 已再次确认背景信息窗口仍保持 `背景信息窗口 / 上下文用量 / Token 统计 / Codex 自动压缩其背景信息 / 确认压缩当前线程` 的同一布局顺序，且 `Tokens` 仍为单行 `18k/128k`。
+
+本批对应 CR：
+
+1. [CR-20260412-0215-codex-context-usage-style-polish.md](/E:/coding/TermLink/docs/changes/records/CR-20260412-0215-codex-context-usage-style-polish.md)
+
 ## 5. 验收标准
 
 本计划进入实施后，每个阶段至少满足以下验收口径：
@@ -302,6 +392,74 @@ Phase 2 协议对齐盘点（截至 `3.3-3` live debug）：
 3. `done`：顶部 `Sessions / Settings / Docs` 全局入口已落到原生 `CodexActivity` header，而非 secondary nav 或底部工具区。
 4. `done`：`Docs` 入口默认打开当前会话工作区下的 `docs` 目录，而不是泛化到任意工作区首页。
 5. `done`：当前 Android 构建已通过，可作为本批实现基线。
+
+#### 5.5 Follow-up 文档初始化批验收口径（2026-04-11 导航人体工学）
+
+本批为文档批次，完成前必须至少满足以下口径：
+
+1. `done`：`REQ`、`PLAN`、`ALIGNMENT` 已一致写明：会话列表入口目标交互改为左侧边缘右滑唤出抽屉，而不是通过独立 `Sessions` 按钮或整页切换承载。
+2. `done`：`REQ`、`PLAN`、`ALIGNMENT` 已一致写明：设置入口从独立 `Settings` 按钮改为会话抽屉顶部右侧入口。
+3. `done`：文档已明确本批只锁定 `Sessions / Settings` 两项导航人体工学要求，不改变 `Docs` 当前入口范围。
+4. `done`：已新增 draft CR 记录本批文档初始化范围，并在 `INDEX` 中登记。
+
+#### 5.6 Follow-up 实现批验收口径（2026-04-11 导航人体工学）
+
+本批完成前，除已有替换回归外，还必须新增通过以下口径：
+
+1. `done`：原生 Codex 默认界面已移除独立 `Sessions / Settings` 图标，底部全局操作行仅保留 `Docs` 入口。
+2. `done`：真机上从 `CodexActivity` 左侧边缘右滑，可直接在当前原生页内打开会话抽屉，而不是退回 launcher 或跳转整页壳层。
+3. `done`：会话抽屉头部右侧存在设置按钮，点击后可进入设置页。
+4. `done`：从设置页返回后，前台活动重新回到当前原生 `CodexActivity`，不会丢失当前会话上下文。
+5. `done`：当前 Android 构建已通过，可作为本批实现基线。
+
+#### 5.7 Follow-up 回归修复批验收口径（2026-04-12 导航可达性与死区）
+
+本批完成前，除已有导航回归外，还必须新增通过以下口径：
+
+1. `done`：`CodexActivity` 默认界面存在可见的 `Sessions` 入口，并保留可访问性语义（UI dump 已出现 `content-desc="会话"`）。
+2. `done`：左边缘点击、长按、竖向滑动后，抽屉仍保持关闭，且前台保持在 `CodexActivity`，不再出现透明手势层造成的内容死区或误拦截。
+3. `done`：左缘横向拖拽后，会话抽屉可直接打开，且前台不会退回 launcher。
+4. `done`：抽屉头部设置按钮仍能进入设置页；返回后重新回到当前原生 Codex 会话。
+5. `done`：抽屉打开时返回键先关闭抽屉；关闭后再次返回才退出当前页。
+
+#### 5.8 Follow-up 顶部栏与独立设置页批验收口径（2026-04-12 topbar / settings page）
+
+本批完成前，除已有导航回归外，还必须新增通过以下口径：
+
+1. `done`：`Sessions` 已位于顶部 header 左侧，且在状态区 `Codex` 前；UI dump 已出现左侧 `content-desc="会话"` 节点。
+2. `done`：`Docs` 已位于顶部 header 同一行最右侧；UI dump 已出现右侧 `content-desc="文档"` 节点。
+3. `done`：顶部 header 高度已高于上一版单纯状态条布局，可容纳左/中/右三段式同排信息。
+4. `done`：抽屉头部设置按钮进入的是独立 `SettingsActivity`；真机 UI dump 根节点为 `settings_root / settings_fragment_container`，不再是旧的 shell fragment 叠层。
+5. `done`：从独立设置页返回后，前台重新回到当前原生 `CodexActivity`，且 header 上的 `Sessions / Docs` 仍保持可见。
+
+#### 5.9 Follow-up 背景信息窗口对齐批验收口径（2026-04-12 context usage parity）
+
+本批完成前，除已有 UI 对齐项外，还必须新增通过以下口径：
+
+1. `done`：原生 Codex 页右下角 context widget 在无 token / rate-limit 遥测时仍保持可见，并显示 `--`，而不是整块消失。
+2. `done`：widget 百分比规则与 web 一致：有值显示 `xx%`，其中 `0%` 必须显示为 `0%`，只有缺失值才显示 `--`。
+3. `done`：背景信息窗口 `Used` / `Tokens` 行文案已与 web 当前基线一致，并补齐 auto-compact 固定说明。
+4. `done`：背景信息窗口 compact 区仅在 `capabilities.compact === true` 时显示，且支持 `no thread / ready / requesting / compressing / success / error` 同口径状态展示。
+5. `done`：背景信息窗口 modal 主体已移除 Android 额外的 rate-limit 卡片；rate-limit 仍保留在原生主界面摘要中，不再与 web modal 信息架构分叉。
+
+#### 5.10 Follow-up 背景信息窗口样式微调批验收口径（2026-04-12 context usage style polish）
+
+本批完成前，在不改变 `4.9 / 5.9` 已锁定布局与文案的前提下，还必须新增通过以下口径：
+
+1. `done`：背景信息窗口仍保持既有结构顺序：标题、关闭按钮、`上下文用量` 卡、`Token 统计` 卡、auto-compact 说明、compact 状态、compact 按钮；不得新增、删减或重排内容区块。
+2. `done`：dialog 外层 surface、卡片 surface、关闭按钮与 compact 按钮的 border / shadow / contrast 已统一到更接近 web modal token 的同一视觉语言。
+3. `done`：卡片 label、note 与默认 compact 状态文字对比度已提升，但成功/失败 tone、按钮可用性与 `Tokens = used/total` 的展示规则保持不变。
+4. `done`：真机 `MQS7N19402011743` 最新 UI dump 仍包含 `背景信息窗口： / 上下文用量 / Token 统计 / Codex 自动压缩其背景信息 / 确认压缩当前线程 / 18k/128k`，证明本批仅为样式微调。
+
+#### 5.11 Follow-up 会话抽屉预览与手势收敛批验收口径（2026-04-13 drawer preview / gesture tuning）
+
+本批完成前，在不回退当前 `DrawerLayout` 标准抽屉模型的前提下，还必须新增通过以下口径：
+
+1. `done`：原生 Codex 左侧有效拖拽边缘已加宽到 `56dp`，用户不必贴到极窄边缘才能拉开会话抽屉。
+2. `done`：会话抽屉宽度已改为运行时 `min(screenWidth * 0.75, 420dp)`，手机端视觉接近 3/4 屏，宽屏设备不会失控变宽。
+3. `done`：`SessionsFragment` 在 `CodexActivity` 抽屉容器内不再依赖 `show()/hide()` 事务切换；拖拽过程中可直接看到真实会话列表内容，不再先出现黑底空白面板。
+4. `done`：抽屉关闭后自动刷新会暂停，但会保留最近一次已渲染内容；再次拖拽或显式点击 `Sessions` 按钮打开时，会恢复刷新并继续显示当前列表。
+5. `done`：左边内容区点击、长按、竖向滚动仍不应出现死区或频繁误开抽屉，保持 `4.7 / 5.7` 已锁定的交互回归结果不变。
 
 ## 6. 风险与回滚
 

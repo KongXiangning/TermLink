@@ -2,7 +2,7 @@
 title: 变更记录索引
 status: active
 owner: @maintainer
-last_updated: 2026-04-11
+last_updated: 2026-04-12
 source_of_truth: product
 related_code: [docs/changes/records]
 related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_CHANGE_RECORD.md]
@@ -23,6 +23,13 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260413-0108-codex-drawer-preview-gesture-tuning | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-0108-codex-drawer-preview-gesture-tuning.md` |
+| CR-20260412-0215-codex-context-usage-style-polish | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-12 |  | `docs/changes/records/CR-20260412-0215-codex-context-usage-style-polish.md` |
+| CR-20260412-0205-codex-topbar-settings-page | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-12 |  | `docs/changes/records/CR-20260412-0205-codex-topbar-settings-page.md` |
+| CR-20260412-0152-codex-context-usage-parity | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-12 |  | `docs/changes/records/CR-20260412-0152-codex-context-usage-parity.md` |
+| CR-20260412-0037-codex-nav-regression-fix | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-12 |  | `docs/changes/records/CR-20260412-0037-codex-nav-regression-fix.md` |
+| CR-20260411-2143-codex-nav-gesture-impl | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-11 |  | `docs/changes/records/CR-20260411-2143-codex-nav-gesture-impl.md` |
+| CR-20260411-2132-codex-nav-gesture-docs | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-11 |  | `docs/changes/records/CR-20260411-2132-codex-nav-gesture-docs.md` |
 | CR-20260411-1714-codex-native-main-entry-removal | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-11 |  | `docs/changes/records/CR-20260411-1714-codex-native-main-entry-removal.md` |
 | CR-20260411-1602-codex-native-retention-notification-nav-impl | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-11 |  | `docs/changes/records/CR-20260411-1602-codex-native-retention-notification-nav-impl.md` |
 | CR-20260411-1100-codex-native-retention-notification-nav-doc-init | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-11 |  | `docs/changes/records/CR-20260411-1100-codex-native-retention-notification-nav-doc-init.md` |

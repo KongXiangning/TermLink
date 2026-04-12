@@ -84,7 +84,6 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var drawerLayout: DrawerLayout? = null
     private var sessionsDrawerButton: ImageButton? = null
     private var backButton: ImageButton? = null
-    private var settingsButton: ImageButton? = null
     private var workspaceButton: ImageButton? = null
     private var quickToolbarButton: ImageButton? = null
     private var quickToolbarVisible: Boolean = true
@@ -173,7 +172,6 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         fragmentContainerView = findViewById(R.id.shell_fragment_container)
         sessionsDrawerButton = findViewById(R.id.btn_open_sessions_drawer)
         backButton = findViewById(R.id.btn_back_terminal)
-        settingsButton = findViewById(R.id.btn_open_settings)
         workspaceButton = findViewById(R.id.btn_open_workspace)
         quickToolbarButton = findViewById(R.id.btn_toggle_quick_toolbar)
         statusTextView = findViewById(R.id.shell_status_text)
@@ -209,7 +207,6 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         drawerLayout?.addDrawerListener(drawerListener)
         sessionsDrawerButton?.setOnClickListener { openSessionsDrawer() }
         backButton?.setOnClickListener { handleBackNavigation() }
-        settingsButton?.setOnClickListener { showSettingsScreen() }
         workspaceButton?.setOnClickListener { handleWorkspaceButtonClick() }
         quickToolbarButton?.setOnClickListener { toggleQuickToolbar() }
 
@@ -300,8 +297,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         val layout = drawerLayout
-        if (layout?.isDrawerOpen(GravityCompat.END) == true) {
-            layout.closeDrawer(GravityCompat.END)
+        if (layout?.isDrawerOpen(GravityCompat.START) == true) {
+            layout.closeDrawer(GravityCompat.START)
             return
         }
         if (returnToNativeCodex && canOpenNativeCodex(getCurrentSelection())) {
@@ -682,6 +679,10 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         updateSessionSelection(selection)
     }
 
+    override fun onOpenSettings() {
+        showSettingsScreen()
+    }
+
     private fun showTerminalScreen(injectConfig: Boolean = true) {
         showMainFragment(TAG_TERMINAL)
         currentScreen = ScreenMode.TERMINAL
@@ -695,9 +696,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     private fun showSettingsScreen() {
         closeSessionsDrawerIfOpen()
-        showMainFragment(TAG_SETTINGS)
-        currentScreen = ScreenMode.SETTINGS
-        applyTerminalChromeMode()
+        startActivity(SettingsActivity.newIntent(this))
     }
 
     private fun applySelectionFromIntent(targetIntent: Intent?) {
@@ -1213,15 +1212,15 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         setDrawerSessionsFragmentVisible(true)
         drawerLayout?.post {
             if (currentScreen == ScreenMode.TERMINAL && !isTerminalChromeCompact) {
-                drawerLayout?.openDrawer(GravityCompat.END)
+                drawerLayout?.openDrawer(GravityCompat.START)
             }
         }
     }
 
     private fun closeSessionsDrawerIfOpen() {
         val layout = drawerLayout ?: return
-        if (layout.isDrawerOpen(GravityCompat.END)) {
-            layout.closeDrawer(GravityCompat.END)
+        if (layout.isDrawerOpen(GravityCompat.START)) {
+            layout.closeDrawer(GravityCompat.START)
         }
     }
 
@@ -1299,7 +1298,6 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         if (currentScreen == ScreenMode.SETTINGS) {
             sessionsDrawerButton?.visibility = View.GONE
             backButton?.visibility = View.VISIBLE
-            settingsButton?.visibility = View.GONE
             workspaceButton?.visibility = View.GONE
             quickToolbarButton?.visibility = View.GONE
             statusTextView?.text = getString(R.string.settings_screen_title)
@@ -1309,7 +1307,6 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
         backButton?.visibility = View.GONE
         sessionsDrawerButton?.visibility = if (isTerminalChromeCompact) View.GONE else View.VISIBLE
-        settingsButton?.visibility = View.VISIBLE
         workspaceButton?.visibility = if (isCodexSessionActive()) View.VISIBLE else View.GONE
         quickToolbarButton?.visibility = if (
             currentTerminalType() == TerminalType.TERMLINK_WS &&

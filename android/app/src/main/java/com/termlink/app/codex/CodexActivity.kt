@@ -7,27 +7,34 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.util.Base64
 import android.util.Log
-import androidx.core.app.NotificationCompat
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
+import androidx.core.app.NotificationCompat
+import androidx.core.view.GravityCompat
+import androidx.core.view.ViewCompat
+import androidx.drawerlayout.widget.DrawerLayout
+import androidx.fragment.app.commit
 import androidx.lifecycle.lifecycleScope
+import com.termlink.app.R
 import com.termlink.app.CodexTaskForegroundService
 import com.termlink.app.MainShellActivity
+import com.termlink.app.SettingsActivity
 import com.termlink.app.WorkspaceActivity
 import com.termlink.app.codex.domain.CodexLaunchParams
 import com.termlink.app.codex.domain.CodexUiState
@@ -39,11 +46,15 @@ import com.termlink.app.data.BasicCredentialStore
 import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.SessionApiClient
+import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.SessionMode
+import com.termlink.app.ui.sessions.SessionsFragment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * Native Codex entry point — Phase 1.
@@ -55,7 +66,7 @@ import kotlinx.coroutines.withContext
  *
  * This activity is independent of [com.termlink.app.MainShellActivity].
  */
-class CodexActivity : ComponentActivity() {
+class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
 
     companion object {
         private const val TAG = "CodexActivity"
@@ -76,6 +87,10 @@ class CodexActivity : ComponentActivity() {
         private const val NOTIF_ID_PLAN_INPUT = 9302
         private const val NOTIF_ID_PLAN_READY = 9303
         private const val NOTIF_ID_TASK_ERROR = 9304
+        private const val TAG_SESSIONS_DRAWER = "sessions_drawer"
+        private const val DRAWER_EDGE_EXCLUSION_DP = 56
+        private const val DRAWER_MAX_WIDTH_DP = 420
+        private const val DRAWER_WIDTH_FRACTION = 0.75f
 
         fun newIntent(
             context: Context,
@@ -102,17 +117,47 @@ class CodexActivity : ComponentActivity() {
     private var isActivityVisible: Boolean = false
     private var previousUiState: CodexUiState? = null
     private val activeAttentionKeys = mutableMapOf<Int, String>()
+    private var drawerLayout: DrawerLayout? = null
+    private var sessionsDrawerContainer: android.view.View? = null
+    private var drawerSelection: SessionSelection? = null
+    private val drawerListener = object : DrawerLayout.SimpleDrawerListener() {
+        override fun onDrawerSlide(drawerView: android.view.View, slideOffset: Float) {
+            if (drawerView.id == R.id.codex_sessions_drawer_container && slideOffset > 0f) {
+                setDrawerSessionsContentVisible(true)
+            }
+        }
+
+        override fun onDrawerOpened(drawerView: android.view.View) {
+            if (drawerView.id == R.id.codex_sessions_drawer_container) {
+                setDrawerSessionsContentVisible(true)
+            }
+        }
+
+        override fun onDrawerClosed(drawerView: android.view.View) {
+            if (drawerView.id == R.id.codex_sessions_drawer_container) {
+                setDrawerSessionsContentVisible(false)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        setContentView(R.layout.activity_codex)
+        drawerLayout = findViewById(R.id.codex_root_drawer)
+        sessionsDrawerContainer = findViewById(R.id.codex_sessions_drawer_container)
+        applyDrawerWidth()
+        drawerLayout?.addDrawerListener(drawerListener)
+        applyDrawerGestureExclusion()
+        ensureDrawerSessionsFragment()
+        setDrawerSessionsContentVisible(false)
 
         serverConfigStore = ServerConfigStore(applicationContext)
         basicCredentialStore = BasicCredentialStore(applicationContext)
         sessionApiClient = SessionApiClient(applicationContext)
         viewModel = CodexViewModel(basicCredentialStore, sessionApiClient)
 
-        setContent {
+        findViewById<ComposeView>(R.id.codex_compose_container).setContent {
             CodexTheme {
                 Scaffold { innerPadding ->
                     val uiState by viewModel.uiState.collectAsState()
@@ -126,7 +171,6 @@ class CodexActivity : ComponentActivity() {
                         onSendMessage = viewModel::handleComposerSubmit,
                         onInterrupt = viewModel::interrupt,
                         onOpenSessions = ::openSessions,
-                        onOpenSettings = ::openSettings,
                         onOpenDocs = ::openDocsWorkspace,
                         onNewThread = viewModel::newThread,
                         onRetry = { retryConnection() },
@@ -226,10 +270,21 @@ class CodexActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        drawerLayout?.removeDrawerListener(drawerListener)
         super.onDestroy()
         if (::viewModel.isInitialized) {
             viewModel.disconnect()
         }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        val layout = drawerLayout
+        if (layout?.isDrawerOpen(GravityCompat.START) == true) {
+            layout.closeDrawer(GravityCompat.START)
+            return
+        }
+        super.onBackPressed()
     }
 
     private fun retryConnection() {
@@ -238,37 +293,16 @@ class CodexActivity : ComponentActivity() {
     }
 
     private fun openSessions() {
-        val params = activeLaunchParams ?: return
-        startActivity(
-            MainShellActivity.newIntent(
-                context = this,
-                profileId = params.profileId,
-                sessionId = params.sessionId,
-                sessionMode = SessionMode.CODEX.wireValue,
-                cwd = viewModel.uiState.value.cwd ?: params.cwd,
-                openTarget = MainShellActivity.OPEN_TARGET_SESSIONS,
-                returnToNativeCodex = true
-            ).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
-        )
+        ensureDrawerSessionsFragment()
+        setDrawerSessionsContentVisible(true)
+        drawerLayout?.post {
+            drawerLayout?.openDrawer(GravityCompat.START)
+        }
     }
 
     private fun openSettings() {
-        val params = activeLaunchParams ?: return
-        startActivity(
-            MainShellActivity.newIntent(
-                context = this,
-                profileId = params.profileId,
-                sessionId = params.sessionId,
-                sessionMode = SessionMode.CODEX.wireValue,
-                cwd = viewModel.uiState.value.cwd ?: params.cwd,
-                openTarget = MainShellActivity.OPEN_TARGET_SETTINGS,
-                returnToNativeCodex = true
-            ).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
-        )
+        closeSessionsDrawerIfOpen()
+        startActivity(SettingsActivity.newIntent(this))
     }
 
     private fun openDocsWorkspace() {
@@ -286,6 +320,112 @@ class CodexActivity : ComponentActivity() {
                 defaultEntryPath = DOCS_DEFAULT_ENTRY_PATH
             )
         )
+    }
+
+    override fun getProfiles(): List<ServerProfile> {
+        return serverConfigStore.loadState().profiles
+    }
+
+    override fun getCurrentSelection(): SessionSelection {
+        drawerSelection?.let { selection ->
+            if (selection.profileId.isNotBlank()) {
+                return selection
+            }
+        }
+        val params = activeLaunchParams
+        val uiState = viewModel.uiState.value
+        return SessionSelection(
+            profileId = params?.profileId ?: serverConfigStore.loadState().activeProfileId,
+            sessionId = uiState.sessionId.ifBlank { params?.sessionId.orEmpty() },
+            sessionMode = SessionMode.CODEX,
+            cwd = uiState.cwd ?: params?.cwd
+        )
+    }
+
+    override fun onOpenSession(selection: SessionSelection) {
+        drawerSelection = selection
+        closeSessionsDrawerIfOpen()
+        if (selection.sessionMode == SessionMode.CODEX) {
+            startActivity(
+                newIntent(
+                    context = this,
+                    profileId = selection.profileId,
+                    sessionId = selection.sessionId,
+                    sessionMode = selection.sessionMode.wireValue,
+                    cwd = selection.cwd,
+                    launchSource = "sessions_drawer"
+                ).apply {
+                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                }
+            )
+            return
+        }
+        startActivity(
+            MainShellActivity.newIntent(
+                context = this,
+                profileId = selection.profileId,
+                sessionId = selection.sessionId,
+                sessionMode = selection.sessionMode.wireValue,
+                cwd = selection.cwd
+            ).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+        )
+    }
+
+    override fun onUpdateSessionSelection(selection: SessionSelection) {
+        drawerSelection = selection
+    }
+
+    override fun onOpenSettings() {
+        openSettings()
+    }
+
+    private fun closeSessionsDrawerIfOpen() {
+        val layout = drawerLayout ?: return
+        if (layout.isDrawerOpen(GravityCompat.START)) {
+            layout.closeDrawer(GravityCompat.START)
+        }
+    }
+
+    private fun applyDrawerGestureExclusion() {
+        val layout = drawerLayout ?: return
+        layout.post {
+            val exclusionWidthPx = (DRAWER_EDGE_EXCLUSION_DP * resources.displayMetrics.density).roundToInt()
+                .coerceAtMost(layout.width)
+            ViewCompat.setSystemGestureExclusionRects(
+                layout,
+                listOf(Rect(0, 0, exclusionWidthPx, layout.height))
+            )
+        }
+    }
+
+    private fun ensureDrawerSessionsFragment() {
+        if (supportFragmentManager.findFragmentByTag(TAG_SESSIONS_DRAWER) != null) {
+            return
+        }
+        val fragment = SessionsFragment()
+        supportFragmentManager.commit {
+            setReorderingAllowed(true)
+            add(R.id.codex_sessions_drawer_container, fragment, TAG_SESSIONS_DRAWER)
+        }
+    }
+
+    private fun setDrawerSessionsContentVisible(visible: Boolean) {
+        val fragment = supportFragmentManager.findFragmentByTag(TAG_SESSIONS_DRAWER) as? SessionsFragment ?: return
+        fragment.onDrawerContentVisibilityChanged(visible)
+    }
+
+    private fun applyDrawerWidth() {
+        val container = sessionsDrawerContainer ?: return
+        val metrics = resources.displayMetrics
+        val maxWidthPx = (DRAWER_MAX_WIDTH_DP * metrics.density).roundToInt()
+        val targetWidthPx = min((metrics.widthPixels * DRAWER_WIDTH_FRACTION).roundToInt(), maxWidthPx)
+        val layoutParams = container.layoutParams ?: return
+        if (layoutParams.width != targetWidthPx) {
+            layoutParams.width = targetWidthPx
+            container.layoutParams = layoutParams
+        }
     }
 
     private fun handlePickedImage(uri: Uri) {
@@ -425,6 +565,12 @@ class CodexActivity : ComponentActivity() {
             return
         }
         activeLaunchParams = params
+        drawerSelection = SessionSelection(
+            profileId = params.profileId,
+            sessionId = params.sessionId,
+            sessionMode = SessionMode.CODEX,
+            cwd = params.cwd
+        )
         persistRestoreState(params)
         viewModel.connect(profile, params)
     }

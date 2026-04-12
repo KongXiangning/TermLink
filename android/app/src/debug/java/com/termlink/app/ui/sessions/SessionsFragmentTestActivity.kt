@@ -71,6 +71,8 @@ class SessionsFragmentTestActivity : AppCompatActivity(), SessionsFragment.Callb
         TestState.selection = selection
     }
 
+    override fun onOpenSettings() = Unit
+
     private fun requireSessionsFragment(): SessionsFragment {
         return supportFragmentManager.findFragmentByTag(TAG_SESSIONS_FRAGMENT) as SessionsFragment
     }

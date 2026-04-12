@@ -78,11 +78,16 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -133,7 +138,6 @@ fun CodexScreen(
     onSendMessage: (String) -> Unit,
     onInterrupt: () -> Unit,
     onOpenSessions: () -> Unit,
-    onOpenSettings: () -> Unit,
     onOpenDocs: () -> Unit,
     onNewThread: () -> Unit,
     onRetry: () -> Unit,
@@ -240,6 +244,9 @@ fun CodexScreen(
             CodexHeader(
                 state = state,
                 isStreaming = isStreaming,
+                onOpenSessions = onOpenSessions,
+                onOpenDocs = onOpenDocs,
+                docsEnabled = state.sessionId.isNotBlank(),
                 onInterrupt = onInterrupt,
                 onShowDebugInjector = { debugInjectorVisible = true }
             )
@@ -369,10 +376,7 @@ fun CodexScreen(
                         onHideToolsPanel = onHideToolsPanel,
                         onExecuteConfirmedPlan = onExecuteConfirmedPlan,
                         onContinuePlanWorkflow = onContinuePlanWorkflow,
-                        onCancelPlanWorkflow = onCancelPlanWorkflow,
-                        onOpenSessions = onOpenSessions,
-                        onOpenSettings = onOpenSettings,
-                        onOpenDocs = onOpenDocs
+                        onCancelPlanWorkflow = onCancelPlanWorkflow
                     )
                 }
 
@@ -437,6 +441,9 @@ fun CodexScreen(
 private fun CodexHeader(
     state: CodexUiState,
     isStreaming: Boolean,
+    onOpenSessions: () -> Unit,
+    onOpenDocs: () -> Unit,
+    docsEnabled: Boolean,
     onInterrupt: () -> Unit,
     onShowDebugInjector: () -> Unit
 ) {
@@ -495,58 +502,90 @@ private fun CodexHeader(
         color = BgColor.copy(alpha = 0.95f)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
+            val headerInteractionModifier = if (BuildConfig.DEBUG) {
+                Modifier.combinedClickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {},
+                    onLongClick = onShowDebugInjector
+                )
+            } else {
+                Modifier
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.Top
+                    .heightIn(min = 60.dp)
+                    .padding(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
+                GlobalActionChip(
+                    iconRes = R.drawable.ic_sessions_24,
+                    contentDescription = stringResource(R.string.codex_native_header_sessions),
+                    onClick = onOpenSessions,
+                    boxSize = 32.dp,
+                    iconSize = 16.dp
+                )
+                Row(
                     modifier = Modifier
                         .weight(1f)
-                        .then(
-                            if (BuildConfig.DEBUG) {
-                                Modifier.combinedClickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = {},
-                                    onLongClick = onShowDebugInjector
-                                )
-                            } else {
-                                Modifier
-                            }
-                        )
+                        .then(headerInteractionModifier),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        PulsingDot(
-                            color = statusColor,
-                            animated = state.connectionState == ConnectionState.CONNECTING ||
-                                state.connectionState == ConnectionState.RECONNECTING ||
-                                isStreaming ||
-                                state.status.equals("running", ignoreCase = true),
-                            size = 7.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.codex_native_status_prefix, statusLabel),
+                        color = statusColor,
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp
+                    )
+                    state.cwd?.takeIf { it.isNotBlank() }?.let { cwd ->
+                        val displayCwd = formatHeaderCwdForDisplay(cwd)
+                        Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = stringResource(R.string.codex_native_status_prefix, statusLabel),
-                            color = statusColor,
-                            fontSize = 11.sp,
-                            lineHeight = 14.sp
+                            text = displayCwd,
+                            color = TextSecondary,
+                            fontSize = 10.sp,
+                            lineHeight = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        state.cwd?.takeIf { it.isNotBlank() }?.let { cwd ->
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = cwd,
-                                color = TextSecondary,
-                                fontSize = 10.sp,
-                                lineHeight = 14.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isStreaming || state.status.equals("running", ignoreCase = true)) {
+                        FilledTonalButton(
+                            onClick = onInterrupt,
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = ErrorColor.copy(alpha = 0.12f),
+                                contentColor = ErrorColor
+                            ),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(text = stringResource(R.string.codex_native_interrupt), fontSize = 11.sp)
                         }
                     }
+                    GlobalActionChip(
+                        iconRes = R.drawable.ic_workspace_24,
+                        contentDescription = stringResource(R.string.codex_native_header_docs),
+                        onClick = onOpenDocs,
+                        enabled = docsEnabled,
+                        boxSize = 32.dp,
+                        iconSize = 16.dp
+                    )
+                }
+            }
+            if (metaParts.isNotEmpty() || quotaChips.isNotEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+                ) {
                     metaParts.takeIf { it.isNotEmpty() }?.let { parts ->
-                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = parts.joinToString(" | "),
                             color = TextSecondary,
@@ -555,9 +594,11 @@ private fun CodexHeader(
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
+                        if (quotaChips.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                        }
                     }
                     quotaChips.takeIf { it.isNotEmpty() }?.let { chips ->
-                        Spacer(modifier = Modifier.height(6.dp))
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -580,55 +621,9 @@ private fun CodexHeader(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                if (isStreaming || state.status.equals("running", ignoreCase = true)) {
-                    FilledTonalButton(
-                        onClick = onInterrupt,
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = ErrorColor.copy(alpha = 0.12f),
-                            contentColor = ErrorColor
-                        ),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text(text = stringResource(R.string.codex_native_interrupt), fontSize = 11.sp)
-                    }
-                }
             }
             HorizontalDivider(color = SurfaceBorder.copy(alpha = 0.85f))
         }
-    }
-}
-
-@Composable
-private fun GlobalActionRow(
-    docsEnabled: Boolean,
-    onOpenSessions: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenDocs: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(start = 12.dp, end = 12.dp, top = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        GlobalActionChip(
-            iconRes = R.drawable.ic_sessions_24,
-            contentDescription = stringResource(R.string.codex_native_header_sessions),
-            onClick = onOpenSessions
-        )
-        GlobalActionChip(
-            iconRes = R.drawable.ic_settings_24,
-            contentDescription = stringResource(R.string.codex_native_header_settings),
-            onClick = onOpenSettings
-        )
-        GlobalActionChip(
-            iconRes = R.drawable.ic_workspace_24,
-            contentDescription = stringResource(R.string.codex_native_header_docs),
-            onClick = onOpenDocs,
-            enabled = docsEnabled
-        )
     }
 }
 
@@ -637,29 +632,26 @@ private fun GlobalActionChip(
     iconRes: Int,
     contentDescription: String,
     onClick: () -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    boxSize: Dp = 44.dp,
+    iconSize: Dp = 20.dp
 ) {
-    Surface(
-        color = if (enabled) Color(0x3321262D) else Color.Transparent,
-        shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(
-            1.dp,
-            if (enabled) SurfaceBorder.copy(alpha = 0.6f) else SurfaceBorder.copy(alpha = 0.25f)
-        ),
-        modifier = Modifier.clickable(enabled = enabled, onClick = onClick)
+    Box(
+        modifier = Modifier
+            .size(boxSize)
+            .semantics(mergeDescendants = true) {
+                this.contentDescription = contentDescription
+                role = Role.Button
+            }
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = painterResource(iconRes),
-                contentDescription = contentDescription,
-                tint = if (enabled) TextSecondary else TextMuted,
-                modifier = Modifier.size(20.dp)
-            )
-        }
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = contentDescription,
+            tint = if (enabled) TextSecondary else TextMuted,
+            modifier = Modifier.size(iconSize)
+        )
     }
 }
 
@@ -1218,6 +1210,29 @@ private fun EmptyState() {
             fontSize = 13.sp,
             lineHeight = 18.sp
         )
+    }
+}
+
+private fun formatHeaderCwdForDisplay(cwd: String): String {
+    val normalized = cwd.trim().replace('\\', '/')
+    if (normalized.contains('/')) {
+        return normalized
+    }
+    val withDriveSeparator = normalized.replace(Regex("^([A-Za-z]):(?=[^/])"), "$1:/")
+    val suffix = withDriveSeparator.substringAfter(":/", "")
+    if (suffix.isBlank() || suffix.contains('/')) {
+        return withDriveSeparator
+    }
+    val firstUppercaseIndex = suffix.indexOfFirst { it.isUpperCase() }
+    if (firstUppercaseIndex <= 0) {
+        return withDriveSeparator
+    }
+    return buildString {
+        append(withDriveSeparator.substringBefore(":/"))
+        append(":/")
+        append(suffix.substring(0, firstUppercaseIndex))
+        append('/')
+        append(suffix.substring(firstUppercaseIndex))
     }
 }
 
@@ -1969,129 +1984,153 @@ private fun UsagePanelSheet(
     onRequestCompactCurrentThread: () -> Unit
 ) {
     val contextUsage = state.usagePanel.contextUsage
-    val formattedQuotaSummary = formatRateLimitSummaryForDisplay(
-        summary = state.usagePanel.rateLimitSummary,
-        remainingLabel = stringResource(R.string.codex_native_status_quota_remaining),
-        resetsPrefix = stringResource(R.string.codex_native_status_quota_resets_prefix),
-        retryPrefix = stringResource(R.string.codex_native_status_quota_retry_prefix)
-    )
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = stringResource(R.string.codex_native_context_debug_title),
-                color = TextPrimary
-            )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val usedSummary = contextUsage?.usedPercent?.let { usedPercent ->
+        stringResource(
+            R.string.codex_native_context_used_summary,
+            usedPercent,
+            contextUsage.remainingPercent ?: (100 - usedPercent).coerceAtLeast(0)
+        )
+    } ?: "--"
+    val tokenSummary = contextUsage?.usedTokens?.let { usedTokens ->
+        contextUsage.contextWindow?.let { contextWindow ->
+            "${formatCompactNumber(usedTokens)}/${formatCompactNumber(contextWindow)}"
+        }
+    } ?: "--"
+    val compactEnabled = state.capabilities?.compact == true
+    val hasThread = state.threadId?.trim().isNullOrEmpty().not()
+    val compactStatusText = when {
+        state.toolsPanel.compactSubmitting ->
+            state.toolsPanel.compactStatusText.ifBlank {
+                stringResource(R.string.codex_native_tools_compact_requesting)
+            }
+        !hasThread -> stringResource(R.string.codex_native_tools_compact_no_thread)
+        state.toolsPanel.compactStatusText.isNotBlank() -> state.toolsPanel.compactStatusText
+        else -> stringResource(R.string.codex_native_tools_compact_ready)
+    }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 680.dp)
+                .padding(horizontal = 20.dp),
+            color = SurfaceColor,
+            shape = RoundedCornerShape(6.dp),
+            border = BorderStroke(1.dp, SurfaceBorder.copy(alpha = 0.95f)),
+            shadowElevation = 18.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(18.dp)
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        color = BgColor,
-                        shape = RoundedCornerShape(4.dp),
-                        border = BorderStroke(1.dp, SurfaceBorder)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = stringResource(R.string.codex_native_usage_context_title),
-                                color = TextPrimary,
-                                fontSize = 13.sp
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            ContextStatRow(
-                                label = stringResource(R.string.codex_native_context_used_label),
-                                value = contextUsage?.usedPercent?.let { "$it%" } ?: "--"
-                            )
-                            ContextStatRow(
-                                label = stringResource(R.string.codex_native_context_tokens_label),
-                                value = contextUsage?.let {
-                                    "${formatCompactNumber(it.usedTokens ?: 0)} / ${formatCompactNumber(it.contextWindow ?: 0)}"
-                                } ?: "--"
-                            )
-                        }
-                    }
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        color = BgColor,
-                        shape = RoundedCornerShape(4.dp),
-                        border = BorderStroke(1.dp, SurfaceBorder)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = stringResource(R.string.codex_native_usage_tokens_title),
-                                color = TextPrimary,
-                                fontSize = 13.sp
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            ContextStatRow(
-                                label = stringResource(R.string.codex_native_context_input_label),
-                                value = contextUsage?.inputTokens?.let(::formatCompactNumber) ?: "--"
-                            )
-                            ContextStatRow(
-                                label = stringResource(R.string.codex_native_context_output_label),
-                                value = contextUsage?.outputTokens?.let(::formatCompactNumber) ?: "--"
-                            )
-                            ContextStatRow(
-                                label = stringResource(R.string.codex_native_context_cached_label),
-                                value = contextUsage?.cachedInputTokens?.let(::formatCompactNumber) ?: "--"
-                            )
-                            ContextStatRow(
-                                label = stringResource(R.string.codex_native_context_reasoning_label),
-                                value = contextUsage?.reasoningTokens?.let(::formatCompactNumber) ?: "--"
-                            )
-                        }
-                    }
-                }
-                formattedQuotaSummary.takeIf { it.isNotBlank() }?.let {
-                    RuntimeSectionCard(
-                        title = stringResource(R.string.codex_native_usage_quota_title),
-                        content = it,
-                        tone = state.usagePanel.rateLimitTone,
-                        expanded = true
+                    Text(
+                        text = stringResource(R.string.codex_native_context_debug_title),
+                        color = TextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        lineHeight = 22.sp,
+                        modifier = Modifier.weight(1f)
                     )
-                }
-                Text(
-                    text = stringResource(R.string.codex_native_context_auto_compact),
-                    color = TextSecondary,
-                    fontSize = 11.sp
-                )
-                if (state.capabilities?.compact == true) {
-                    RuntimeSectionCard(
-                        title = stringResource(R.string.codex_native_tools_compact_title),
-                        content = state.toolsPanel.compactStatusText.ifBlank {
-                            stringResource(R.string.codex_native_tools_compact_ready)
-                        },
-                        tone = state.toolsPanel.compactStatusTone,
-                        expanded = true
-                    )
-                    FilledTonalButton(
-                        onClick = onRequestCompactCurrentThread,
-                        enabled = !state.toolsPanel.compactSubmitting
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.03f))
+                            .border(
+                                width = 1.dp,
+                                color = Color.White.copy(alpha = 0.08f),
+                                shape = CircleShape
+                            )
+                            .clickable(onClick = onDismiss),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            if (state.toolsPanel.compactSubmitting) {
-                                stringResource(R.string.codex_native_tools_compact_pending)
-                            } else {
-                                stringResource(R.string.codex_native_tools_compact_action)
-                            }
+                            text = "\u00d7",
+                            color = TextSecondary,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
+                Spacer(modifier = Modifier.height(14.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ContextDebugCard(
+                        title = stringResource(R.string.codex_native_usage_context_title)
+                    ) {
+                        ContextStatRow(
+                            label = stringResource(R.string.codex_native_context_used_label),
+                            value = usedSummary
+                        )
+                        ContextStatRow(
+                            label = stringResource(R.string.codex_native_context_tokens_label),
+                            value = tokenSummary
+                        )
+                    }
+                    ContextDebugCard(
+                        title = stringResource(R.string.codex_native_usage_tokens_title)
+                    ) {
+                        ContextStatRow(
+                            label = stringResource(R.string.codex_native_context_input_label),
+                            value = contextUsage?.inputTokens?.let(::formatCompactNumber) ?: "--"
+                        )
+                        ContextStatRow(
+                            label = stringResource(R.string.codex_native_context_output_label),
+                            value = contextUsage?.outputTokens?.let(::formatCompactNumber) ?: "--"
+                        )
+                        ContextStatRow(
+                            label = stringResource(R.string.codex_native_context_cached_label),
+                            value = contextUsage?.cachedInputTokens?.let(::formatCompactNumber) ?: "--"
+                        )
+                        ContextStatRow(
+                            label = stringResource(R.string.codex_native_context_reasoning_label),
+                            value = contextUsage?.reasoningTokens?.let(::formatCompactNumber) ?: "--"
+                        )
+                    }
+                }
+                HorizontalDivider(
+                    modifier = Modifier.padding(top = 12.dp),
+                    color = Color.White.copy(alpha = 0.06f)
+                )
+                Text(
+                    text = stringResource(R.string.codex_native_context_auto_compact),
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    modifier = Modifier.padding(top = 10.dp)
+                )
+                if (compactEnabled) {
+                    val compactToneColor = when (state.toolsPanel.compactStatusTone) {
+                        "error" -> ErrorColor
+                        "success" -> SuccessColor
+                        else -> TextSecondary
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = compactStatusText,
+                        color = compactToneColor,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    ContextDialogActionButton(
+                        text = if (state.toolsPanel.compactSubmitting) {
+                            stringResource(R.string.codex_native_tools_compact_pending)
+                        } else {
+                            stringResource(R.string.codex_native_tools_compact_action)
+                        },
+                        enabled = hasThread && !state.toolsPanel.compactSubmitting,
+                        onClick = onRequestCompactCurrentThread
+                    )
+                }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.codex_native_dismiss))
-            }
-        },
-        containerColor = SurfaceColor,
-        titleContentColor = TextPrimary,
-        textContentColor = TextPrimary
-    )
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -2713,18 +2752,88 @@ private fun ContextStatRow(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalAlignment = Alignment.Top
     ) {
         Text(
             text = label,
             color = TextSecondary,
-            fontSize = 12.sp
+            fontSize = 11.sp,
+            lineHeight = 16.sp,
+            modifier = Modifier.width(92.dp)
         )
         Text(
             text = value,
             color = TextPrimary,
-            fontSize = 12.sp
+            fontSize = 11.sp,
+            lineHeight = 16.sp,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
         )
+    }
+}
+
+@Composable
+private fun ContextDebugCard(
+    title: String,
+    content: @Composable () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White.copy(alpha = 0.025f),
+        shape = RoundedCornerShape(6.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.07f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = title,
+                color = TextPrimary,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+            content()
+        }
+    }
+}
+
+@Composable
+private fun ContextDialogActionButton(
+    text: String,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(4.dp))
+            .clickable(enabled = enabled, onClick = onClick),
+        color = if (enabled) SuccessColor.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.02f),
+        shape = RoundedCornerShape(4.dp),
+        border = BorderStroke(
+            1.dp,
+            if (enabled) SuccessColor.copy(alpha = 0.28f) else SurfaceBorder
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 7.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                color = if (enabled) TextPrimary else TextSecondary,
+                fontSize = 11.sp,
+                lineHeight = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
@@ -2790,9 +2899,6 @@ private fun FooterControls(
         ?: state.reasoningEffort
         ?: state.capabilities?.defaultReasoningEffort
     val activeSandboxMode = effectiveConfig?.sandboxMode ?: state.nextTurnOverrides.sandbox
-    val hasContextUsage = state.usagePanel.contextUsage != null ||
-        state.usagePanel.tokenUsageSummary.isNotBlank() ||
-        state.usagePanel.rateLimitSummary.isNotBlank()
 
     Row(
         modifier = Modifier
@@ -2917,23 +3023,19 @@ private fun FooterControls(
                 }
             }
         }
-        if (state.planMode == true || hasContextUsage) {
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(14.dp)
-                    .background(SurfaceBorder.copy(alpha = 0.3f))
-            )
-        }
+        Box(
+            modifier = Modifier
+                .width(1.dp)
+                .height(14.dp)
+                .background(SurfaceBorder.copy(alpha = 0.3f))
+        )
         if (state.planMode == true) {
             FooterPlanIndicatorButton(onClick = onTogglePlanMode)
         }
-        if (hasContextUsage) {
-            ContextUsageWidget(
-                state = state,
-                onClick = onShowUsagePanel
-            )
-        }
+        ContextUsageWidget(
+            state = state,
+            onClick = onShowUsagePanel
+        )
     }
 }
 
@@ -3029,7 +3131,7 @@ private fun ContextUsageWidget(
     state: CodexUiState,
     onClick: () -> Unit
 ) {
-    val usedPercent = (state.usagePanel.contextUsage?.usedPercent ?: 0).coerceIn(0, 100)
+    val usedPercent = state.usagePanel.contextUsage?.usedPercent?.coerceIn(0, 100)
     Box(
         modifier = Modifier
             .clickable(onClick = onClick)
@@ -3037,16 +3139,16 @@ private fun ContextUsageWidget(
         contentAlignment = Alignment.Center
     ) {
         CircularProgressIndicator(
-            progress = { usedPercent / 100f },
+            progress = { (usedPercent ?: 0) / 100f },
             modifier = Modifier.size(28.dp),
             color = ContextBlue,
             trackColor = Color.White.copy(alpha = 0.14f),
             strokeWidth = 2.dp
         )
         Text(
-            text = if (usedPercent > 0) usedPercent.toString() else "--",
+            text = usedPercent?.let { "$it%" } ?: "--",
             color = TextPrimary,
-            fontSize = 9.sp,
+            fontSize = 8.sp,
             fontWeight = FontWeight.Bold
         )
     }
@@ -3201,10 +3303,7 @@ private fun InputComposer(
     onHideToolsPanel: () -> Unit,
     onExecuteConfirmedPlan: () -> Unit,
     onContinuePlanWorkflow: () -> Unit,
-    onCancelPlanWorkflow: () -> Unit,
-    onOpenSessions: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenDocs: () -> Unit
+    onCancelPlanWorkflow: () -> Unit
 ) {
     var textFieldValue by remember { mutableStateOf(TextFieldValue("")) }
     var imageSheetVisible by remember { mutableStateOf(false) }
@@ -3298,13 +3397,6 @@ private fun InputComposer(
                     }
                 )
             }
-
-            GlobalActionRow(
-                docsEnabled = state.sessionId.isNotBlank(),
-                onOpenSessions = onOpenSessions,
-                onOpenSettings = onOpenSettings,
-                onOpenDocs = onOpenDocs
-            )
 
             if (state.planWorkflow.phase != "idle") {
                 PlanWorkflowCard(

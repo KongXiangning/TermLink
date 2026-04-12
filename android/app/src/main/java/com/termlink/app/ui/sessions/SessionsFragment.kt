@@ -50,6 +50,7 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         fun getCurrentSelection(): SessionSelection
         fun onOpenSession(selection: SessionSelection)
         fun onUpdateSessionSelection(selection: SessionSelection)
+        fun onOpenSettings()
     }
 
     private var callbacks: Callbacks? = null
@@ -74,6 +75,7 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
     private var isViewActive = false
     private var isAutoRefreshActive = false
+    private var isDrawerContentVisible = true
     private val refreshRequestTracker = SessionAsyncRequestTracker()
     private var hasCompletedInitialLocalFirstPaint = false
     private var currentViewGeneration = 0
@@ -131,6 +133,9 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         swipeRefresh.setOnRefreshListener {
             refreshSessions(showSpinner = true)
         }
+        view.findViewById<View>(R.id.btn_sessions_open_settings).setOnClickListener {
+            callbacks?.onOpenSettings()
+        }
         view.findViewById<Button>(R.id.btn_create_session).setOnClickListener {
             showCreateDialog()
         }
@@ -138,7 +143,7 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
     override fun onResume() {
         super.onResume()
-        if (!isHidden) {
+        if (shouldRefreshWhileVisible()) {
             startAutoRefresh()
             refreshSessions(showSpinner = false)
         }
@@ -151,7 +156,7 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
     override fun onHiddenChanged(hidden: Boolean) {
         super.onHiddenChanged(hidden)
-        if (hidden) {
+        if (!shouldRefreshWhileVisible()) {
             stopAutoRefresh()
             return
         }
@@ -170,6 +175,24 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         refreshRequestTracker.invalidateActions()
         resetViewBoundSessionState()
         super.onDestroyView()
+    }
+
+    fun onDrawerContentVisibilityChanged(visible: Boolean) {
+        isDrawerContentVisible = visible
+        if (!isViewActive) {
+            if (!visible) {
+                stopAutoRefresh()
+            }
+            return
+        }
+        if (!shouldRefreshWhileVisible()) {
+            stopAutoRefresh()
+            return
+        }
+        if (isResumed) {
+            startAutoRefresh()
+            refreshSessions(showSpinner = false)
+        }
     }
 
     private fun refreshSessions(showSpinner: Boolean) {
@@ -1315,6 +1338,10 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         if (!isAutoRefreshActive) return
         isAutoRefreshActive = false
         mainHandler.removeCallbacks(autoRefreshRunnable)
+    }
+
+    private fun shouldRefreshWhileVisible(): Boolean {
+        return !isHidden && isDrawerContentVisible
     }
 
     private fun formatRelativeTime(epochMs: Long): String {
