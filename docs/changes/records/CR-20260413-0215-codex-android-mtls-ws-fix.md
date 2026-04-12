@@ -1,9 +1,9 @@
 ---
 title: Codex Android mTLS websocket fix
-status: draft
+status: active
 record_id: CR-20260413-0215-codex-android-mtls-ws-fix
 req_id: REQ-20260408-codex-native-android-migration
-commit_ref: TBD
+commit_ref: da5470a
 owner: @maintainer
 last_updated: 2026-04-13
 source_of_truth: code
