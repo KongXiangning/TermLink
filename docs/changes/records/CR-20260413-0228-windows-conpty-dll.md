@@ -1,9 +1,9 @@
 ---
 title: Windows PTY 清理链路切换到 ConPTY DLL
-status: draft
+status: active
 record_id: CR-20260413-0228-windows-conpty-dll
 req_id: REQ-20260222-server-admin-privilege-mode
-commit_ref: TBD
+commit_ref: a7c6159
 owner: @maintainer
 last_updated: 2026-04-13
 source_of_truth: code
