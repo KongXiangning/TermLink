@@ -7,6 +7,7 @@ import org.junit.Before
 import org.junit.Test
 import java.security.PrivateKey
 import javax.net.ssl.SSLSocketFactory
+import javax.net.ssl.X509TrustManager
 
 class MtlsCredentialRepositoryTest {
 
@@ -108,6 +109,7 @@ class MtlsCredentialRepositoryTest {
         return MtlsCredentials(
             privateKey = FakePrivateKey(label),
             certChain = emptyArray(),
+            trustManager = FakeX509TrustManager(),
             sslSocketFactory = SSLSocketFactory.getDefault() as SSLSocketFactory
         )
     }
@@ -116,5 +118,11 @@ class MtlsCredentialRepositoryTest {
         override fun getAlgorithm(): String = "RSA"
         override fun getFormat(): String = "PKCS#8"
         override fun getEncoded(): ByteArray = label.toByteArray(Charsets.UTF_8)
+    }
+
+    private class FakeX509TrustManager : X509TrustManager {
+        override fun checkClientTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) = Unit
+        override fun checkServerTrusted(chain: Array<out java.security.cert.X509Certificate>?, authType: String?) = Unit
+        override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = emptyArray()
     }
 }

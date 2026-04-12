@@ -1,5 +1,6 @@
 package com.termlink.app.codex
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -39,6 +40,7 @@ import java.util.Locale
 import java.util.UUID
 
 class CodexViewModel(
+    appContext: Context,
     credentialStore: BasicCredentialStore,
     private val sessionApiClient: SessionApiClient
 ) : ViewModel() {
@@ -55,7 +57,7 @@ class CodexViewModel(
         private val ANSI_ESCAPE_REGEX = Regex("\\u001B\\[[;\\d?]*[ -/]*[@-~]")
     }
 
-    private val connectionManager = CodexConnectionManager(viewModelScope, credentialStore)
+    private val connectionManager = CodexConnectionManager(viewModelScope, credentialStore, appContext)
 
     private val _uiState = MutableStateFlow(CodexUiState())
     val uiState: StateFlow<CodexUiState> = _uiState.asStateFlow()

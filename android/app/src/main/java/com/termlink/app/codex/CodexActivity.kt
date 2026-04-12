@@ -155,7 +155,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         serverConfigStore = ServerConfigStore(applicationContext)
         basicCredentialStore = BasicCredentialStore(applicationContext)
         sessionApiClient = SessionApiClient(applicationContext)
-        viewModel = CodexViewModel(basicCredentialStore, sessionApiClient)
+        viewModel = CodexViewModel(applicationContext, basicCredentialStore, sessionApiClient)
 
         findViewById<ComposeView>(R.id.codex_compose_container).setContent {
             CodexTheme {

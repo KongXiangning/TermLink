@@ -33,7 +33,7 @@ class CodexWebSocketClient {
         private const val TAG = "CodexWsClient"
     }
 
-    private val client = OkHttpClient.Builder()
+    private val defaultClient = OkHttpClient.Builder()
         .readTimeout(0, TimeUnit.MILLISECONDS)
         .pingInterval(30, TimeUnit.SECONDS)
         .build()
@@ -53,7 +53,11 @@ class CodexWebSocketClient {
     val isConnected: Boolean
         get() = webSocket != null
 
-    fun connect(url: String, headers: Map<String, String> = emptyMap()) {
+    fun connect(
+        url: String,
+        headers: Map<String, String> = emptyMap(),
+        client: OkHttpClient = defaultClient
+    ) {
         disconnect()
         val requestBuilder = Request.Builder().url(url)
         headers.forEach { (k, v) -> requestBuilder.addHeader(k, v) }
@@ -76,8 +80,8 @@ class CodexWebSocketClient {
     /** Release OkHttp thread pools. Call once when the manager is done. */
     fun shutdown() {
         disconnect()
-        client.dispatcher.executorService.shutdown()
-        client.connectionPool.evictAll()
+        defaultClient.dispatcher.executorService.shutdown()
+        defaultClient.connectionPool.evictAll()
     }
 
     /**

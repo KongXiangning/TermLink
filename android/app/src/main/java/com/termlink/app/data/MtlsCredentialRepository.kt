@@ -8,10 +8,13 @@ import java.security.cert.X509Certificate
 import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocketFactory
+import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.X509TrustManager
 
 data class MtlsCredentials(
     val privateKey: PrivateKey,
     val certChain: Array<X509Certificate>,
+    val trustManager: X509TrustManager,
     val sslSocketFactory: SSLSocketFactory
 )
 
@@ -97,12 +100,21 @@ object MtlsCredentialRepository {
         )
         keyManagerFactory.init(keyStore, passwordChars)
 
+        val trustManagerFactory = TrustManagerFactory.getInstance(
+            TrustManagerFactory.getDefaultAlgorithm()
+        )
+        trustManagerFactory.init(null as KeyStore?)
+        val trustManager = trustManagerFactory.trustManagers
+            .filterIsInstance<X509TrustManager>()
+            .firstOrNull() ?: return null
+
         val sslContext = SSLContext.getInstance("TLS")
-        sslContext.init(keyManagerFactory.keyManagers, null, SecureRandom())
+        sslContext.init(keyManagerFactory.keyManagers, arrayOf(trustManager), SecureRandom())
 
         return MtlsCredentials(
             privateKey = privateKey,
             certChain = chain,
+            trustManager = trustManager,
             sslSocketFactory = sslContext.socketFactory
         )
     }

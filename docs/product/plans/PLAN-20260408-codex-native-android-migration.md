@@ -25,6 +25,7 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/R
 9. `done`：Phase 4 follow-up topbar/settings-page polish（已把 `Sessions` 移到顶部 header 左侧、`Docs` 移到同一行最右侧，并将设置页切到独立 `SettingsActivity`）
 10. `done`：Phase 4 follow-up context-usage parity（已让右下角 context widget 常显，并将背景信息窗口的文案、结构与 compact 状态口径收敛到 web 当前基线）
 11. `done`：Phase 4 follow-up drawer preview/gesture tuning（已加宽左缘拖拽有效边缘、将会话抽屉宽度收敛到约 3/4 屏，并消除拖拽过程中的黑底空白）
+12. `done`：Phase 4 follow-up Codex mTLS websocket parity（原生 Codex 现已在 mTLS 保护的 profile 场景下复用同一套客户端证书配置完成 `/api/ws-ticket` 与 WebSocket upgrade，真机不再出现“Sessions API 200 但 Codex WS 403”）
 
 Phase 0 ~ Phase 4 主线已完成实施并通过编译 / 真机验证；当前 Codex 用户路径已固定到原生 `CodexActivity`，`MainShellActivity` 仅继续承载 sessions/workspace 壳层能力，设置页已切到独立 `SettingsActivity`，导航人体工学与后续 discoverability / dead-zone / topbar placement / context-usage parity / drawer preview tuning 回归也已完成收口。
 
@@ -57,6 +58,7 @@ Phase 4 当前进度：
 5. `done`：已补齐执行期后台保活扩展（`awaiting_user_input` / `plan_ready_for_confirmation`）、后台关键事件通知（命令确认 / 计划补充说明 / 等待确认 / 后台任务错误），以及 `Docs` 全局入口；Docs 按钮默认打开当前会话工作区下的 `docs` 目录。
 6. `done`：已完成导航人体工学与 discoverability 收口：原生 Codex 默认界面现提供显式 `Sessions / Docs` 入口；`Sessions` 位于顶部 header 左侧并可直接打开左侧会话抽屉，`Docs` 位于同一行最右侧；header 高度已同步增高；`Settings` 位于抽屉顶部右侧并打开独立 `SettingsActivity`；透明手势层已移除，左边点击/长按/竖向滑动不再出现死区；真机已确认设置页返回仍回到当前原生 Codex 会话。
 7. `done`：已继续收敛会话抽屉可达性与动画预览：左侧有效拖拽边缘已从窄边缘加宽到 `56dp`，抽屉宽度改为运行时 `min(screenWidth * 0.75, 420dp)`，`SessionsFragment` 在 `CodexActivity` 抽屉容器内改为常驻内容树，拖拽过程中可直接看到会话列表内容，不再先出现黑底空白。
+8. `done`：已修复 mTLS 保护 profile 下的原生 Codex WebSocket 建连链路：`CodexConnectionManager` 现通过 `MtlsOkHttpSupport` 为当前 profile 复用客户端证书配置，并将同一份 OkHttp client 同时用于 `/api/ws-ticket` 与 `wss://...` upgrade；真机启动日志已确认 `CodexWsClient` 带 ticket 发起连接并收到 `WebSocket opened`，不再复现此前的 HTTP 403。
 
 Phase 2 协议对齐盘点（截至 `3.3-3` live debug）：
 

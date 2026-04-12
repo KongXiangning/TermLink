@@ -1,11 +1,13 @@
 package com.termlink.app.codex.network
 
+import android.content.Context
 import android.util.Base64
 import android.util.Log
 import com.termlink.app.codex.data.CodexClientMessages
 import com.termlink.app.codex.domain.ConnectionState
 import com.termlink.app.data.AuthType
 import com.termlink.app.data.BasicCredentialStore
+import com.termlink.app.data.MtlsOkHttpSupport
 import com.termlink.app.data.ServerProfile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +34,8 @@ import kotlin.math.min
  */
 class CodexConnectionManager(
     private val scope: CoroutineScope,
-    private val credentialStore: BasicCredentialStore
+    private val credentialStore: BasicCredentialStore,
+    appContext: Context
 ) {
     companion object {
         private const val TAG = "CodexConnMgr"
@@ -43,9 +46,10 @@ class CodexConnectionManager(
     }
 
     val wsClient = CodexWebSocketClient()
+    private val mtlsOkHttpSupport = MtlsOkHttpSupport(appContext)
 
     /** Shared HTTP client for ticket fetches (avoids per-call thread pool leak). */
-    private val httpClient = OkHttpClient.Builder()
+    private val baseHttpClient = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
         .build()
@@ -87,8 +91,8 @@ class CodexConnectionManager(
     fun shutdown() {
         disconnect()
         wsClient.shutdown()
-        httpClient.dispatcher.executorService.shutdown()
-        httpClient.connectionPool.evictAll()
+        baseHttpClient.dispatcher.executorService.shutdown()
+        baseHttpClient.connectionPool.evictAll()
     }
 
     fun send(text: String): Boolean = wsClient.send(text)
@@ -132,11 +136,12 @@ class CodexConnectionManager(
             try {
                 val wsUrl = buildWsUrl(baseUrl, sessionId)
                 val authHeader = buildAuthHeader(p)
-                val finalUrl = fetchTicketUrl(baseUrl, authHeader, wsUrl)
+                val transportClient = mtlsOkHttpSupport.configure(baseHttpClient, p, baseUrl)
+                val finalUrl = fetchTicketUrl(baseUrl, authHeader, wsUrl, transportClient)
                 val headers = mutableMapOf<String, String>()
                 // OkHttp doesn't support Authorization header on WS upgrade in all
                 // environments, but the ticket param handles auth for us.
-                wsClient.connect(finalUrl, headers)
+                wsClient.connect(finalUrl, headers, transportClient)
             } catch (e: Exception) {
                 Log.e(TAG, "Connect failed", e)
                 _connectionState.value = ConnectionState.ERROR
@@ -213,7 +218,12 @@ class CodexConnectionManager(
      * Fetch a one-time WS ticket from the server (same as JS client).
      * Falls back to the original wsUrl on any error.
      */
-    private fun fetchTicketUrl(baseUrl: String, authHeader: String?, wsUrl: String): String {
+    private fun fetchTicketUrl(
+        baseUrl: String,
+        authHeader: String?,
+        wsUrl: String,
+        httpClient: OkHttpClient
+    ): String {
         val ticketEndpoint = baseUrl.trimEnd('/') + "/api/ws-ticket"
         return try {
             val reqBuilder = Request.Builder().url(ticketEndpoint).get()
