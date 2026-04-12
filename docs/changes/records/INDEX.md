@@ -23,6 +23,7 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260413-0210-codex-android-mtls-ws-403 | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-0210-codex-android-mtls-ws-403.md` |
 | CR-20260413-0108-codex-drawer-preview-gesture-tuning | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-0108-codex-drawer-preview-gesture-tuning.md` |
 | CR-20260412-0215-codex-context-usage-style-polish | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-12 |  | `docs/changes/records/CR-20260412-0215-codex-context-usage-style-polish.md` |
 | CR-20260412-0205-codex-topbar-settings-page | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-12 |  | `docs/changes/records/CR-20260412-0205-codex-topbar-settings-page.md` |
