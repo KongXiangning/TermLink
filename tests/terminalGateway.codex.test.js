@@ -221,6 +221,16 @@ class MockCodexService extends EventEmitter {
 }
 
 MockCodexService.instances = [];
+
+class MissingTurnIdCodexService extends MockCodexService {
+    request(method, params) {
+        if (method === 'turn/start') {
+            this.requests.push({ method, params });
+            return Promise.resolve({ turn: {} });
+        }
+        return super.request(method, params);
+    }
+}
 MockCodexService.extractThreadId = (message) => {
     const params = message && message.params;
     if (params && typeof params.threadId === 'string' && params.threadId.trim()) {
@@ -1818,6 +1828,45 @@ test('codex_turn materializes localImage data URL into a temp path and cleans it
 
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.equal(fs.existsSync(tempPath), false, 'temp image file must be removed after turn completion');
+});
+
+test('codex_turn cleans temp localImage files when turn/start succeeds without a usable turn id', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MissingTurnIdCodexService
+    });
+    const session = createSession('codex-session');
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'analyze this image',
+        attachments: [
+            { type: 'localImage', url: dataUrl, name: 'test.png' }
+        ]
+    }));
+
+    const service = MockCodexService.instances[0];
+    const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
+    assert.ok(turnStart, 'turn/start should be invoked');
+    assert.equal(turnStart.params.input[1].type, 'localImage');
+    assert.equal(typeof turnStart.params.input[1].path, 'string');
+    assert.match(turnStart.params.input[1].path, /termlink-codex-images/i);
+    assert.equal(fs.existsSync(turnStart.params.input[1].path), false, 'temp image file must be removed when turn id is unavailable');
+    assert.equal(session.codexState.currentTurnId, null);
 });
 
 test('codex approval request is forwarded to client and response is returned to bridge', async (t) => {

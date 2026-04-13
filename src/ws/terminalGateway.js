@@ -1353,7 +1353,11 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         codexState.currentTurnId = turnStartResponse && turnStartResponse.turn
                             ? turnStartResponse.turn.id || null
                             : null;
-                        rememberTurnAttachmentTempFiles(session, codexState.currentTurnId, turnInput.tempFilePaths);
+                        if (isNonEmptyString(codexState.currentTurnId)) {
+                            rememberTurnAttachmentTempFiles(session, codexState.currentTurnId, turnInput.tempFilePaths);
+                        } else {
+                            await cleanupAttachmentTempFiles(turnInput.tempFilePaths);
+                        }
                         codexState.status = 'running';
                         codexState.interactionState = {
                             planMode: false,

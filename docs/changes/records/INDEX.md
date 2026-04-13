@@ -23,6 +23,7 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260413-1647-codex-tempfile-fallback | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-1647-codex-tempfile-fallback.md` |
 | CR-20260413-1613-codex-approval-reprobe | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-1613-codex-approval-reprobe.md` |
 | CR-20260413-1556-codex-message-split-layout | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-1556-codex-message-split-layout.md` |
 | CR-20260413-1551-codex-512-status-validate | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-1551-codex-512-status-validate.md` |
