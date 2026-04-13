@@ -391,6 +391,9 @@
     <string name="codex_native_context_cached_label">命中缓存</string>
     <string name="codex_native_context_reasoning_label">推理</string>
     <string name="codex_native_image_button">图片</string>
+    <string name="codex_native_commands_button">命令</string>
+    <string name="codex_native_model_label">模型</string>
+    <string name="codex_native_reasoning_label">推理</string>
     <string name="codex_native_image_local_chip">本地图片：%1$s</string>
     <string name="codex_native_image_url_chip">图片 URL</string>
     <string name="codex_native_image_sheet_title">添加图片</string>
@@ -402,7 +405,7 @@
     <string name="codex_native_interrupt">中断</string>
     <string name="codex_native_panel_hide">隐藏</string>
     <string name="codex_native_quick_default">默认</string>
-    <string name="codex_native_plan_mode_chip">📋 计划</string>
+    <string name="codex_native_plan_mode_chip">计划模式</string>
     <string name="codex_native_attention_channel">Codex 关注事项</string>
     <string name="codex_native_attention_channel_desc">后台审批、计划和任务错误提醒</string>
     <string name="codex_native_attention_title_command_approval">需要命令确认</string>

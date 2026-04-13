@@ -391,6 +391,9 @@
     <string name="codex_native_context_cached_label">Cached</string>
     <string name="codex_native_context_reasoning_label">Reasoning</string>
     <string name="codex_native_image_button">Image</string>
+    <string name="codex_native_commands_button">Commands</string>
+    <string name="codex_native_model_label">Model</string>
+    <string name="codex_native_reasoning_label">Reasoning</string>
     <string name="codex_native_image_local_chip">Local Image: %1$s</string>
     <string name="codex_native_image_url_chip">Image URL</string>
     <string name="codex_native_image_sheet_title">Add image</string>
@@ -402,7 +405,7 @@
     <string name="codex_native_interrupt">Interrupt</string>
     <string name="codex_native_panel_hide">Hide</string>
     <string name="codex_native_quick_default">Default</string>
-    <string name="codex_native_plan_mode_chip">📋 Plan</string>
+    <string name="codex_native_plan_mode_chip">Plan Mode</string>
     <string name="codex_native_attention_channel">Codex Attention</string>
     <string name="codex_native_attention_channel_desc">Background alerts for approval, planning, and task errors</string>
     <string name="codex_native_attention_title_command_approval">Command approval needed</string>

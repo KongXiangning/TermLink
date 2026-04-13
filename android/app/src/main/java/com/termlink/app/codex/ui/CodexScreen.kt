@@ -112,25 +112,49 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-private val BgColor = Color(0xFF0D1117)
-private val SurfaceColor = Color(0xFF161B22)
-private val SurfaceRaised = Color(0xFF0D1117)
-private val SurfaceBorder = Color(0xFF30363D)
-private val AccentBlue = Color(0xFF4D74FF)
-private val ContextBlue = Color(0xFF4DAAFC)
-private val TextPrimary = Color(0xFFC9D1D9)
-private val TextSecondary = Color(0xFF8B949E)
-private val TextMuted = Color(0xFF484F58)
+private val BgColor = Color(0xFF131A24)
+private val SurfaceColor = Color(0xFF1B2532)
+private val SurfaceRaised = Color(0xFF222E3D)
+private val SurfaceBorder = Color(0xFF425266)
+private val AccentBlue = Color(0xFF7FA8FF)
+private val ContextBlue = Color(0xFF7FC7FF)
+private val TextPrimary = Color(0xFFE7EDF6)
+private val TextSecondary = Color(0xFFB9C5D4)
+private val TextMuted = Color(0xFF7D8A9B)
 private val SuccessColor = Color(0xFF4EDEA3)
 private val RunningColor = Color(0xFF3FB950)
-private val WarningColor = Color(0xFFA68D6A)
-private val SystemColor = Color(0xFFA68D6A)
-private val ErrorColor = Color(0xFFF85149)
-private val UserBg = Color(0xFF0D1117)
+private val WarningColor = Color(0xFFE4B66A)
+private val SystemColor = Color(0xFFE4B66A)
+private val ErrorColor = Color(0xFFFF7B72)
+private val UserBg = Color(0xFF182232)
 private val AssistantBg = Color.Transparent
-private val SystemBg = Color(0x1A3A2C16)
-private val ToolBg = Color(0xFF131924)
-private val ErrorBg = Color(0x1A490106)
+private val SystemBg = Color(0x1A5E4A20)
+private val ToolBg = Color(0xFF182233)
+private val ErrorBg = Color(0x1A6E1F1A)
+
+private object CodexBottomBarTokens {
+    val composerRadius = 20.dp
+    val chipRadius = 16.dp
+    val smallChipRadius = 14.dp
+    val barPadding = 12.dp
+    val sectionGap = 10.dp
+    val rowGap = 8.dp
+    val minTouch = 44.dp
+    val compactTouch = 40.dp
+    val composerMinHeight = 56.dp
+    val composerMaxHeight = 156.dp
+    val actionButtonSize = 48.dp
+    val quickControlMinHeight = 42.dp
+    val usageMinWidth = 78.dp
+    val labelSize = 12.sp
+    val bodySize = 14.sp
+}
+
+private data class CodexActionStyle(
+    val containerColor: Color,
+    val contentColor: Color,
+    val borderColor: Color
+)
 
 @Composable
 fun CodexScreen(
@@ -2663,41 +2687,41 @@ private fun SecondaryNavRow(
     onToggleToolsPanel: () -> Unit,
     onToggleNoticesPanel: () -> Unit
 ) {
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 6.dp, start = 4.dp, end = 4.dp),
-        contentAlignment = Alignment.CenterEnd
+            .horizontalScroll(rememberScrollState())
+            .padding(start = CodexBottomBarTokens.barPadding, end = CodexBottomBarTokens.barPadding, top = 2.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(CodexBottomBarTokens.rowGap),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (state.capabilities?.historyList == true) {
-                SecondaryNavButton(
-                    text = stringResource(R.string.codex_native_thread_history_title),
-                    active = state.threadHistorySheetVisible,
-                    onClick = onToggleThreadHistory
-                )
-            }
-            if (state.capabilities?.diffPlanReasoning == true) {
-                SecondaryNavButton(
-                    text = stringResource(R.string.codex_native_runtime_title),
-                    active = state.runtimePanel.visible,
-                    onClick = onToggleRuntimePanel
-                )
-            }
-            if (state.capabilities?.skillsList == true || state.capabilities?.compact == true) {
-                SecondaryNavButton(
-                    text = stringResource(R.string.codex_native_tools_title),
-                    active = state.toolsPanel.visible,
-                    onClick = onToggleToolsPanel
-                )
-            }
-            if (hasNoticesPanelContent(state)) {
-                SecondaryNavButton(
-                    text = stringResource(R.string.codex_native_notices_title),
-                    active = state.noticesPanel.visible,
-                    onClick = onToggleNoticesPanel
-                )
-            }
+        if (state.capabilities?.historyList == true) {
+            SecondaryNavButton(
+                text = stringResource(R.string.codex_native_thread_history_title),
+                active = state.threadHistorySheetVisible,
+                onClick = onToggleThreadHistory
+            )
+        }
+        if (state.capabilities?.diffPlanReasoning == true) {
+            SecondaryNavButton(
+                text = stringResource(R.string.codex_native_runtime_title),
+                active = state.runtimePanel.visible,
+                onClick = onToggleRuntimePanel
+            )
+        }
+        if (state.capabilities?.skillsList == true || state.capabilities?.compact == true) {
+            SecondaryNavButton(
+                text = stringResource(R.string.codex_native_tools_title),
+                active = state.toolsPanel.visible,
+                onClick = onToggleToolsPanel
+            )
+        }
+        if (hasNoticesPanelContent(state)) {
+            SecondaryNavButton(
+                text = stringResource(R.string.codex_native_notices_title),
+                active = state.noticesPanel.visible,
+                onClick = onToggleNoticesPanel
+            )
         }
     }
 }
@@ -2708,19 +2732,35 @@ private fun SecondaryNavButton(
     active: Boolean,
     onClick: () -> Unit
 ) {
+    val style = if (active) {
+        CodexActionStyle(
+            containerColor = AccentBlue.copy(alpha = 0.18f),
+            contentColor = TextPrimary,
+            borderColor = AccentBlue.copy(alpha = 0.55f)
+        )
+    } else {
+        CodexActionStyle(
+            containerColor = SurfaceRaised.copy(alpha = 0.94f),
+            contentColor = TextSecondary,
+            borderColor = SurfaceBorder.copy(alpha = 0.9f)
+        )
+    }
     Surface(
-        color = Color.Transparent,
-        shape = RoundedCornerShape(2.dp),
-        modifier = Modifier.clickable(onClick = onClick)
+        color = style.containerColor,
+        shape = RoundedCornerShape(CodexBottomBarTokens.chipRadius),
+        border = BorderStroke(1.dp, style.borderColor),
+        modifier = Modifier
+            .heightIn(min = CodexBottomBarTokens.minTouch)
+            .clickable(onClick = onClick)
     ) {
         Text(
-            text = text.uppercase(Locale.ROOT),
-            color = if (active) SuccessColor else TextMuted,
-            fontSize = 10.sp,
+            text = text,
+            color = style.contentColor,
+            fontSize = CodexBottomBarTokens.labelSize,
             fontWeight = FontWeight.Medium,
-            lineHeight = 10.sp,
+            lineHeight = 16.sp,
             letterSpacing = 0.5.sp,
-            modifier = Modifier.padding(horizontal = 2.dp, vertical = 4.dp)
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp)
         )
     }
 }
@@ -2900,168 +2940,158 @@ private fun FooterControls(
         ?: state.capabilities?.defaultReasoningEffort
     val activeSandboxMode = effectiveConfig?.sandboxMode ?: state.nextTurnOverrides.sandbox
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 2.dp, end = 2.dp, top = 0.dp, bottom = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(start = CodexBottomBarTokens.barPadding, end = CodexBottomBarTokens.barPadding, bottom = CodexBottomBarTokens.barPadding),
+        verticalArrangement = Arrangement.spacedBy(CodexBottomBarTokens.rowGap)
     ) {
-        FooterActionButton(
-            onClick = onPickLocalImage,
-            enabled = imageInputEnabled,
-            label = "+"
-        )
-        FooterActionButton(
-            onClick = onShowSlashMenu,
-            label = "/"
-        )
-        Box(
-            modifier = Modifier
-                .width(1.dp)
-                .height(14.dp)
-                .background(SurfaceBorder.copy(alpha = 0.3f))
-        )
         Row(
-            modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.Start,
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(CodexBottomBarTokens.rowGap),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-        QuickControlButton(
-            text = activeModel ?: stringResource(R.string.codex_native_quick_default),
-            maxTextWidth = 78.dp,
-            expanded = state.modelPickerVisible,
-            onClick = onShowModelPicker,
-            onDismiss = onHideModelPicker
-        ) {
-            state.capabilities?.models.orEmpty().forEach { model ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = dropdownSelectionLabel(model, activeModel == model),
-                            color = if (activeModel == model) SuccessColor else TextPrimary
-                        )
-                    },
-                    onClick = { onSelectModel(model) }
-                )
-            }
+            FooterActionButton(
+                onClick = onPickLocalImage,
+                enabled = imageInputEnabled,
+                label = stringResource(R.string.codex_native_image_button)
+            )
+            FooterActionButton(
+                onClick = onShowSlashMenu,
+                label = stringResource(R.string.codex_native_commands_button)
+            )
+            FooterPlanIndicatorButton(
+                active = state.planMode == true,
+                onClick = onTogglePlanMode
+            )
+            ContextUsageWidget(
+                state = state,
+                onClick = onShowUsagePanel
+            )
         }
-                QuickControlButton(
-                    text = activeReasoning?.let { reasoningEffortLabel(it) }
-                        ?: stringResource(R.string.codex_native_quick_default),
-                    maxTextWidth = 78.dp,
-                    expanded = state.reasoningPickerVisible,
-                    onClick = onShowReasoningPicker,
-                    onDismiss = onHideReasoningPicker
-                ) {
-                    state.capabilities?.reasoningEffortLevels.orEmpty().ifEmpty {
-                        listOf("low", "medium", "high")
-                    }.forEach { effort ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = dropdownSelectionLabel(
-                                        reasoningEffortLabel(effort),
-                                        activeReasoning.equals(effort, ignoreCase = true)
-                                    ),
-                                    color = if (activeReasoning.equals(effort, ignoreCase = true)) {
-                                        SuccessColor
-                                    } else {
-                                        TextPrimary
-                                    }
-                                )
-                            },
-                            onClick = { onSelectReasoningEffort(effort) }
-                        )
-                    }
-                }
-                if (state.capabilities?.sandboxSupported == true) {
-                    QuickControlButton(
-                        text = sandboxFooterLabel(activeSandboxMode),
-                        maxTextWidth = 78.dp,
-                        expanded = state.sandboxPickerVisible,
-                        onClick = onShowSandboxPicker,
-                        onDismiss = onHideSandboxPicker
-                    ) {
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = dropdownSelectionLabel(
-                                        stringResource(R.string.codex_native_sandbox_workspace_write),
-                                        activeSandboxMode == "workspace-write"
-                                    ),
-                                    color = if (activeSandboxMode == "workspace-write") {
-                                        SuccessColor
-                                    } else {
-                                        TextPrimary
-                                    }
-                                )
-                            },
-                            onClick = { onSelectSandboxMode("workspace-write") }
-                        )
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = dropdownSelectionLabel(
-                                        stringResource(R.string.codex_native_sandbox_full_access),
-                                        activeSandboxMode == "danger-full-access"
-                                    ),
-                                    color = if (activeSandboxMode == "danger-full-access") {
-                                        SuccessColor
-                                    } else {
-                                        TextPrimary
-                                    }
-                                )
-                            },
-                            onClick = { onSelectSandboxMode("danger-full-access") }
-                        )
-                    }
-                }
-            }
-        }
-        Box(
+
+        Row(
             modifier = Modifier
-                .width(1.dp)
-                .height(14.dp)
-                .background(SurfaceBorder.copy(alpha = 0.3f))
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(CodexBottomBarTokens.rowGap),
+            verticalAlignment = Alignment.CenterVertically
         )
-        if (state.planMode == true) {
-            FooterPlanIndicatorButton(onClick = onTogglePlanMode)
+        {
+            QuickControlButton(
+                label = stringResource(R.string.codex_native_model_label),
+                text = activeModel ?: stringResource(R.string.codex_native_quick_default),
+                maxTextWidth = 104.dp,
+                expanded = state.modelPickerVisible,
+                onClick = onShowModelPicker,
+                onDismiss = onHideModelPicker
+            ) {
+                state.capabilities?.models.orEmpty().forEach { model ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = dropdownSelectionLabel(model, activeModel == model),
+                                color = if (activeModel == model) SuccessColor else TextPrimary
+                            )
+                        },
+                        onClick = { onSelectModel(model) }
+                    )
+                }
+            }
+            QuickControlButton(
+                label = stringResource(R.string.codex_native_reasoning_label),
+                text = activeReasoning?.let { reasoningEffortLabel(it) }
+                    ?: stringResource(R.string.codex_native_quick_default),
+                maxTextWidth = 104.dp,
+                expanded = state.reasoningPickerVisible,
+                onClick = onShowReasoningPicker,
+                onDismiss = onHideReasoningPicker
+            ) {
+                state.capabilities?.reasoningEffortLevels.orEmpty().ifEmpty {
+                    listOf("low", "medium", "high")
+                }.forEach { effort ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = dropdownSelectionLabel(
+                                    reasoningEffortLabel(effort),
+                                    activeReasoning.equals(effort, ignoreCase = true)
+                                ),
+                                color = if (activeReasoning.equals(effort, ignoreCase = true)) {
+                                    SuccessColor
+                                } else {
+                                    TextPrimary
+                                }
+                            )
+                        },
+                        onClick = { onSelectReasoningEffort(effort) }
+                    )
+                }
+            }
+            if (state.capabilities?.sandboxSupported == true) {
+                QuickControlButton(
+                    label = stringResource(R.string.codex_native_sandbox_label),
+                    text = sandboxFooterLabel(activeSandboxMode),
+                    maxTextWidth = 112.dp,
+                    expanded = state.sandboxPickerVisible,
+                    onClick = onShowSandboxPicker,
+                    onDismiss = onHideSandboxPicker
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = dropdownSelectionLabel(
+                                    stringResource(R.string.codex_native_sandbox_workspace_write),
+                                    activeSandboxMode == "workspace-write"
+                                ),
+                                color = if (activeSandboxMode == "workspace-write") {
+                                    SuccessColor
+                                } else {
+                                    TextPrimary
+                                }
+                            )
+                        },
+                        onClick = { onSelectSandboxMode("workspace-write") }
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = dropdownSelectionLabel(
+                                    stringResource(R.string.codex_native_sandbox_full_access),
+                                    activeSandboxMode == "danger-full-access"
+                                ),
+                                color = if (activeSandboxMode == "danger-full-access") {
+                                    SuccessColor
+                                } else {
+                                    TextPrimary
+                                }
+                            )
+                        },
+                        onClick = { onSelectSandboxMode("danger-full-access") }
+                    )
+                }
+            }
         }
-        ContextUsageWidget(
-            state = state,
-            onClick = onShowUsagePanel
-        )
     }
 }
 
 @Composable
 private fun FooterPlanIndicatorButton(
+    active: Boolean,
     onClick: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(3.dp))
-            .background(SuccessColor.copy(alpha = 0.15f))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 2.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.codex_native_plan_mode_chip),
-            color = SuccessColor,
-            fontSize = 11.sp,
-            lineHeight = 13.sp,
-            maxLines = 1
-        )
-    }
+    FooterActionButton(
+        onClick = onClick,
+        label = stringResource(R.string.codex_native_plan_mode_chip),
+        active = active
+    )
 }
 
 @Composable
 private fun QuickControlButton(
+    label: String,
     text: String,
     maxTextWidth: Dp = Dp.Unspecified,
     expanded: Boolean,
@@ -3069,27 +3099,65 @@ private fun QuickControlButton(
     onDismiss: () -> Unit,
     content: @Composable () -> Unit
 ) {
+    val style = if (expanded) {
+        CodexActionStyle(
+            containerColor = AccentBlue.copy(alpha = 0.14f),
+            contentColor = TextPrimary,
+            borderColor = AccentBlue.copy(alpha = 0.5f)
+        )
+    } else {
+        CodexActionStyle(
+            containerColor = SurfaceRaised.copy(alpha = 0.94f),
+            contentColor = TextPrimary,
+            borderColor = SurfaceBorder.copy(alpha = 0.85f)
+        )
+    }
     Box {
-        Row(
+        Surface(
             modifier = Modifier
-            .clickable(onClick = onClick)
-            .padding(horizontal = 2.dp, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .heightIn(min = CodexBottomBarTokens.quickControlMinHeight)
+                .clickable(onClick = onClick),
+            color = style.containerColor,
+            shape = RoundedCornerShape(CodexBottomBarTokens.chipRadius),
+            border = BorderStroke(1.dp, style.borderColor)
         ) {
-            Text(text = "▼", color = TextMuted, fontSize = 7.sp)
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = text,
-                color = TextMuted,
-                fontSize = 11.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = if (maxTextWidth != Dp.Unspecified) {
-                    Modifier.widthIn(max = maxTextWidth)
-                } else {
-                    Modifier
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = label,
+                        color = TextMuted,
+                        fontSize = 10.sp,
+                        lineHeight = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = text,
+                        color = style.contentColor,
+                        fontSize = CodexBottomBarTokens.labelSize,
+                        lineHeight = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = if (maxTextWidth != Dp.Unspecified) {
+                            Modifier.widthIn(max = maxTextWidth)
+                        } else {
+                            Modifier
+                        }
+                    )
                 }
-            )
+                Text(
+                    text = if (expanded) "▲" else "▼",
+                    color = if (expanded) AccentBlue else TextSecondary,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
         DropdownMenu(
             expanded = expanded,
@@ -3104,25 +3172,42 @@ private fun QuickControlButton(
 private fun FooterActionButton(
     onClick: () -> Unit,
     label: String,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    active: Boolean = false
 ) {
-    Box(
-        modifier = Modifier.size(24.dp),
-        contentAlignment = Alignment.Center
+    val style = when {
+        !enabled -> CodexActionStyle(
+            containerColor = SurfaceRaised.copy(alpha = 0.45f),
+            contentColor = TextMuted.copy(alpha = 0.55f),
+            borderColor = SurfaceBorder.copy(alpha = 0.35f)
+        )
+        active -> CodexActionStyle(
+            containerColor = SuccessColor.copy(alpha = 0.18f),
+            contentColor = TextPrimary,
+            borderColor = SuccessColor.copy(alpha = 0.5f)
+        )
+        else -> CodexActionStyle(
+            containerColor = SurfaceRaised.copy(alpha = 0.94f),
+            contentColor = TextSecondary,
+            borderColor = SurfaceBorder.copy(alpha = 0.85f)
+        )
+    }
+    Surface(
+        color = style.containerColor,
+        shape = RoundedCornerShape(CodexBottomBarTokens.chipRadius),
+        border = BorderStroke(1.dp, style.borderColor),
+        modifier = Modifier
+            .heightIn(min = CodexBottomBarTokens.minTouch)
+            .clickable(enabled = enabled, onClick = onClick)
     ) {
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .clip(RoundedCornerShape(4.dp))
-                .clickable(enabled = enabled, onClick = onClick),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = label,
-                color = if (enabled) TextMuted else TextMuted.copy(alpha = 0.45f),
-                fontSize = 13.sp
-            )
-        }
+        Text(
+            text = label,
+            color = style.contentColor,
+            fontSize = CodexBottomBarTokens.labelSize,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
+        )
     }
 }
 
@@ -3132,25 +3217,65 @@ private fun ContextUsageWidget(
     onClick: () -> Unit
 ) {
     val usedPercent = state.usagePanel.contextUsage?.usedPercent?.coerceIn(0, 100)
-    Box(
+    Surface(
+        color = SurfaceRaised.copy(alpha = 0.98f),
+        shape = RoundedCornerShape(CodexBottomBarTokens.chipRadius),
+        border = BorderStroke(
+            1.dp,
+            if (usedPercent != null && usedPercent >= 80) WarningColor.copy(alpha = 0.45f) else SurfaceBorder.copy(alpha = 0.85f)
+        ),
         modifier = Modifier
+            .heightIn(min = CodexBottomBarTokens.minTouch)
             .clickable(onClick = onClick)
-            .size(32.dp),
-        contentAlignment = Alignment.Center
     ) {
-        CircularProgressIndicator(
-            progress = { (usedPercent ?: 0) / 100f },
-            modifier = Modifier.size(28.dp),
-            color = ContextBlue,
-            trackColor = Color.White.copy(alpha = 0.14f),
-            strokeWidth = 2.dp
-        )
-        Text(
-            text = usedPercent?.let { "$it%" } ?: "--",
-            color = TextPrimary,
-            fontSize = 8.sp,
-            fontWeight = FontWeight.Bold
-        )
+        Row(
+            modifier = Modifier
+                .widthIn(min = CodexBottomBarTokens.usageMinWidth)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    progress = { (usedPercent ?: 0) / 100f },
+                    modifier = Modifier.size(28.dp),
+                    color = if (usedPercent != null && usedPercent >= 80) WarningColor else ContextBlue,
+                    trackColor = Color.White.copy(alpha = 0.14f),
+                    strokeWidth = 3.dp
+                )
+                Text(
+                    text = usedPercent?.let { "$it%" } ?: "--",
+                    color = TextPrimary,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Column(
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.codex_native_usage_chip),
+                    color = TextMuted,
+                    fontSize = 10.sp,
+                    lineHeight = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = if (usedPercent != null) {
+                        stringResource(R.string.codex_native_context_used_summary, usedPercent, 100 - usedPercent)
+                    } else {
+                        "--"
+                    },
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
     }
 }
 
@@ -3373,7 +3498,7 @@ private fun InputComposer(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = BgColor.copy(alpha = 0.96f)
+        color = BgColor.copy(alpha = 0.98f)
     ) {
         Column(
             modifier = Modifier
@@ -3454,21 +3579,31 @@ private fun InputComposer(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                color = Color(0x3321262D),
-                shape = RoundedCornerShape(0.dp),
-                border = BorderStroke(1.dp, SurfaceBorder.copy(alpha = 0.5f))
+                    .padding(horizontal = CodexBottomBarTokens.barPadding, vertical = 6.dp),
+                color = SurfaceColor.copy(alpha = 0.98f),
+                shape = RoundedCornerShape(CodexBottomBarTokens.composerRadius),
+                border = BorderStroke(1.dp, SurfaceBorder.copy(alpha = 0.9f))
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 10.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.Bottom
                 ) {
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .heightIn(min = 28.dp, max = 140.dp)
+                            .heightIn(
+                                min = CodexBottomBarTokens.composerMinHeight,
+                                max = CodexBottomBarTokens.composerMaxHeight
+                            )
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(SurfaceRaised.copy(alpha = 0.95f))
+                            .border(
+                                width = 1.dp,
+                                color = SurfaceBorder.copy(alpha = 0.7f),
+                                shape = RoundedCornerShape(16.dp)
+                            )
                             .onPreviewKeyEvent { event ->
                                 val isEnter = event.key == Key.Enter || event.key == Key.NumPadEnter
                                 if (!isEnter || event.isShiftPressed) {
@@ -3486,12 +3621,13 @@ private fun InputComposer(
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp)
                                 .focusRequester(composerFocusRequester),
                             enabled = enabled && !isStreaming,
                             textStyle = MaterialTheme.typography.bodyMedium.copy(
                                 color = TextPrimary,
-                                fontSize = 13.sp,
-                                lineHeight = 19.sp
+                                fontSize = CodexBottomBarTokens.bodySize,
+                                lineHeight = 22.sp
                             ),
                             cursorBrush = SolidColor(AccentBlue),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -3503,26 +3639,34 @@ private fun InputComposer(
                             Text(
                                 text = stringResource(R.string.codex_native_input_hint),
                                 color = TextMuted,
-                                fontSize = 13.sp
+                                fontSize = CodexBottomBarTokens.bodySize,
+                                modifier = Modifier.padding(horizontal = 16.dp)
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(CodexBottomBarTokens.rowGap))
 
                     if (isStreaming) {
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .clickable(onClick = onInterrupt),
-                            contentAlignment = Alignment.Center
+                        Surface(
+                            modifier = Modifier.size(CodexBottomBarTokens.actionButtonSize),
+                            color = ErrorColor.copy(alpha = 0.16f),
+                            shape = CircleShape,
+                            border = BorderStroke(1.dp, ErrorColor.copy(alpha = 0.45f))
                         ) {
-                            Text(
-                                text = "■",
-                                color = ErrorColor,
-                                fontSize = 13.sp
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable(onClick = onInterrupt),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "■",
+                                    color = ErrorColor,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     } else {
                         val canSubmit = enabled && (
@@ -3530,19 +3674,29 @@ private fun InputComposer(
                                 pendingMentions.isNotEmpty() ||
                                 pendingImageAttachments.isNotEmpty()
                             )
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .clickable(enabled = canSubmit, onClick = { submit() }),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "↑",
-                                color = if (canSubmit) SuccessColor else TextMuted,
-                                fontSize = 18.sp,
-                                lineHeight = 18.sp
+                        Surface(
+                            modifier = Modifier.size(CodexBottomBarTokens.actionButtonSize),
+                            color = if (canSubmit) AccentBlue else SurfaceRaised.copy(alpha = 0.72f),
+                            shape = CircleShape,
+                            border = BorderStroke(
+                                1.dp,
+                                if (canSubmit) AccentBlue.copy(alpha = 0.8f) else SurfaceBorder.copy(alpha = 0.65f)
                             )
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable(enabled = canSubmit, onClick = { submit() }),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "↑",
+                                    color = if (canSubmit) Color.White else TextMuted,
+                                    fontSize = 22.sp,
+                                    lineHeight = 22.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
