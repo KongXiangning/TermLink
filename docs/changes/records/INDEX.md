@@ -23,6 +23,7 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260414-0345-approval-request-default-config-fix |  | unknown | TBD | @maintainer |  | 修复审批请求不下发：默认 approvalPolicy 与 sandboxMode 不一致 | `docs/changes/records/CR-20260414-0345-approval-request-default-config-fix.md` |
 | CR-20260414-0318-plan-mode-thread-contamination-fix |  | unknown | TBD | @maintainer |  | Plan Mode Thread Contamination Fix | `docs/changes/records/CR-20260414-0318-plan-mode-thread-contamination-fix.md` |
 | CR-20260414-0105-relay-req-clarifications | REQ-20260413-relay-control-plane-and-transparent-transit | draft | TBD | @maintainer | 2026-04-14 |  | `docs/changes/records/CR-20260414-0105-relay-req-clarifications.md` |
 | CR-20260414-0048-relay-req-granularity-tighten | REQ-20260413-relay-control-plane-and-transparent-transit | draft | TBD | @maintainer | 2026-04-14 |  | `docs/changes/records/CR-20260414-0048-relay-req-granularity-tighten.md` |
