@@ -26,8 +26,9 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/R
 10. `done`：Phase 4 follow-up context-usage parity（已让右下角 context widget 常显，并将背景信息窗口的文案、结构与 compact 状态口径收敛到 web 当前基线）
 11. `done`：Phase 4 follow-up drawer preview/gesture tuning（已加宽左缘拖拽有效边缘、将会话抽屉宽度收敛到约 3/4 屏，并消除拖拽过程中的黑底空白）
 12. `done`：Phase 4 follow-up Codex mTLS websocket parity（原生 Codex 现已在 mTLS 保护的 profile 场景下复用同一套客户端证书配置完成 `/api/ws-ticket` 与 WebSocket upgrade，真机不再出现“Sessions API 200 但 Codex WS 403”）
+13. `pending`：Phase 4 follow-up stability / plan UX / runtime readability repairs（最新真机使用中仍发现切后台切回报错、计划模式重复展示、运行态 diff/reasoning 可读性不足、图片添加未真实上传、提权选项未出现、顶部线程 ID 挤压 header 等缺口，需要单独收口）
 
-Phase 0 ~ Phase 4 主线已完成实施并通过编译 / 真机验证；当前 Codex 用户路径已固定到原生 `CodexActivity`，`MainShellActivity` 仅继续承载 sessions/workspace 壳层能力，设置页已切到独立 `SettingsActivity`，导航人体工学与后续 discoverability / dead-zone / topbar placement / context-usage parity / drawer preview tuning 回归也已完成收口。
+Phase 0 ~ Phase 4 主线已完成实施并通过编译 / 真机验证；当前 Codex 用户路径已固定到原生 `CodexActivity`，`MainShellActivity` 仅继续承载 sessions/workspace 壳层能力，设置页已切到独立 `SettingsActivity`。但 2026-04-13 新一轮真机使用又暴露出后台恢复稳定性、计划模式信息架构、运行态信息可读性、图片真实上传与 header 稳定性缺口，因此新增一批 `pending` follow-up，不能继续把原生收口描述为“无开放问题”。
 
 Phase 2 当前进度：
 
@@ -59,6 +60,13 @@ Phase 4 当前进度：
 6. `done`：已完成导航人体工学与 discoverability 收口：原生 Codex 默认界面现提供显式 `Sessions / Docs` 入口；`Sessions` 位于顶部 header 左侧并可直接打开左侧会话抽屉，`Docs` 位于同一行最右侧；header 高度已同步增高；`Settings` 位于抽屉顶部右侧并打开独立 `SettingsActivity`；透明手势层已移除，左边点击/长按/竖向滑动不再出现死区；真机已确认设置页返回仍回到当前原生 Codex 会话。
 7. `done`：已继续收敛会话抽屉可达性与动画预览：左侧有效拖拽边缘已从窄边缘加宽到 `56dp`，抽屉宽度改为运行时 `min(screenWidth * 0.75, 420dp)`，`SessionsFragment` 在 `CodexActivity` 抽屉容器内改为常驻内容树，拖拽过程中可直接看到会话列表内容，不再先出现黑底空白。
 8. `done`：已修复 mTLS 保护 profile 下的原生 Codex WebSocket 建连链路：`CodexConnectionManager` 现通过 `MtlsOkHttpSupport` 为当前 profile 复用客户端证书配置，并将同一份 OkHttp client 同时用于 `/api/ws-ticket` 与 `wss://...` upgrade；真机启动日志已确认 `CodexWsClient` 带 ticket 发起连接并收到 `WebSocket opened`，不再复现此前的 HTTP 403。
+9. `pending`：需新增一批稳定性与信息架构修复，覆盖以下问题：
+   - `HOME -> foreground` 或切后台后切回时，原生 Codex 仍会出现 `Broken pipe`、`WebSocket failure`、`Software caused connection abort` 等错误卡片，说明后台恢复与 socket 续接仍不稳定。
+   - 计划模式信息当前在聊天主窗口、输入框上方 workflow 区、运行态 `Plan` 中重复出现，导致内容冗余；需要改成“运行态 `Plan` 负责计划正文，composer 仅保留必要的执行/取消入口”。
+   - 执行确认计划后，聊天流里不应再把完整计划文本重复回显一遍；需要保留执行语义，但降低正文重复展示。
+   - 运行态 `Diff` 当前难以直接看出有哪些文件被修改；`Reasoning` 当前也未提供稳定、可消费的有效信息。
+   - 图片添加后当前没有形成可确认的真实上传闭环；需要提权时，原生安卓 Codex 页面也没有出现对应提权选项，导致用户无法在端上完成批准。
+   - 顶部状态区在线程打开后展示长 `thread id` 会挤压 header 布局并造成视觉跳动。
 
 Phase 2 协议对齐盘点（截至 `3.3-3` live debug）：
 
@@ -462,6 +470,22 @@ Phase 2 协议对齐盘点（截至 `3.3-3` live debug）：
 3. `done`：`SessionsFragment` 在 `CodexActivity` 抽屉容器内不再依赖 `show()/hide()` 事务切换；拖拽过程中可直接看到真实会话列表内容，不再先出现黑底空白面板。
 4. `done`：抽屉关闭后自动刷新会暂停，但会保留最近一次已渲染内容；再次拖拽或显式点击 `Sessions` 按钮打开时，会恢复刷新并继续显示当前列表。
 5. `done`：左边内容区点击、长按、竖向滚动仍不应出现死区或频繁误开抽屉，保持 `4.7 / 5.7` 已锁定的交互回归结果不变。
+
+#### 5.12 Follow-up 稳定性、计划模式与运行态信息架构修复批验收口径（2026-04-13 stability / plan UX / runtime readability）
+
+本节为文档已定、代码待实现的 follow-up 批次。在不回退当前原生主入口、不恢复旧 WebView Codex 的前提下，以下口径已锁定，后续实现应直接按此执行；若实现阶段发现现有协议无法支撑这些目标，应单独开协议文档批次，而不是在本节中隐式扩展字段。
+
+1. `pending`：原生 Codex 在 `HOME -> foreground`、近期任务切换、锁屏后返回等后台恢复场景下，不再出现 `Broken pipe`、`WebSocket failure`、`Software caused connection abort` 一类直出错误卡片；若连接确实失效，也必须收敛为单一路径的恢复态，而不是连续叠加多条错误。
+2. `pending`：计划正文只保留一个稳定主落点，默认以下沉到运行态 `Plan` 为准；聊天主窗口与输入框上方不再持续重复展示完整计划文本。
+3. `pending`：输入框上方仅保留紧凑动作条承载 `执行 / 取消 / 继续` 等关键操作；计划正文与动作入口必须分离，但计划操作入口仍需显式可达，不允许藏到用户难以发现的位置。
+4. `pending`：确认执行计划后，聊天流不得再次完整回显同一份计划正文；需要保留“已执行该确认计划”的简短确认语义或状态摘要，但避免重复刷屏。
+5. `pending`：运行态 `Diff` 采用摘要优先；文件列表、文件名分组或变更摘要信息必须先于大段 diff 文本，让“哪些文件被更改”一眼可见。
+6. `pending`：运行态 `Reasoning` 采用“可用则摘要、不可用则降级”的策略；若当前上游无法稳定提供高价值内容，前端至少需要给出明确空态说明或隐藏，而不是继续展示无帮助的占位或噪音信息。
+7. `pending`：图片附件加入后必须有真实上传/发送闭环，不得只停留在本地待发送 chips。
+8. `pending`：当操作触发工作区外写入、危险命令或其他需要用户批准的提权场景时，原生安卓 Codex 页面必须以阻塞弹窗承载批准流程，出现明确的提权/批准入口与批准/拒绝操作；不允许请求已产生但 UI 无法操作，也不允许把入口藏在运行态子面板中。
+9. `pending`：线程/任务切换后，顶部状态栏不得直接把长 `thread id` 挂到 header 主布局里导致横向挤压或高度突变；需要改成摘要化、截断或移入次级区域。
+10. `pending`：原生 Codex 在长时间无输出、未报错、未结束的运行态下，不能无限保持模糊“运行中”状态；达到阈值后应先进入“疑似卡住”告警，展示已运行时长、最近事件时间、可重试/诊断入口，并在可识别时继续分类为等待用户输入/提权、连接存活但事件流停滞、仍在运行但长时间无新输出、连接已断或任务已失败等原因。
+11. `pending`：主聊天窗口中，用户消息与助手消息必须采用左右分栏 + 明显样式差异；不仅要区分颜色，还要区分对齐、容器样式和标签层级，保证回看长对话、错误卡片混排或多轮追问时能快速定位用户发起的消息。
 
 ## 6. 风险与回滚
 
