@@ -66,8 +66,16 @@ class CodexViewModel(
     val uiState: StateFlow<CodexUiState> = _uiState.asStateFlow()
 
     private var currentStreamingMessageId: String? = null
+    private var currentPlanStreamingMessageId: String? = null
+    private val executionFeedbackSeen = mutableSetOf<String>()
     private var currentProfile: ServerProfile? = null
     private var mentionSearchGeneration: Long = 0L
+    /** Tracks whether the current thread had a plan-mode turn.
+     *  The Codex API persists plan mode per-thread, so a subsequent
+     *  non-plan turn on the same thread still produces plan output.
+     *  When this flag is true and the next turn is non-plan,
+     *  we force a new thread to avoid thread-level plan contamination. */
+    private var threadHadPlanTurn = false
 
     init {
         observeConnectionState()
@@ -192,6 +200,9 @@ class CodexViewModel(
 
     fun newThread() {
         currentStreamingMessageId = null
+        currentPlanStreamingMessageId = null
+        executionFeedbackSeen.clear()
+        threadHadPlanTurn = false
         _uiState.update {
             it.copy(
                 threadId = null,
@@ -348,6 +359,82 @@ class CodexViewModel(
             "plan", "reasoning" -> true
             else -> false
         }
+    }
+
+    private fun extractTraceTurnId(params: JSONObject?): String {
+        return params
+            ?.optJSONObject("turn")
+            ?.optString("id", "")
+            ?.trim()
+            .orEmpty()
+            .ifEmpty { params?.optString("turnId", "")?.trim().orEmpty() }
+    }
+
+    private fun extractTraceItemId(params: JSONObject?): String {
+        return params
+            ?.optJSONObject("item")
+            ?.optString("id", "")
+            ?.trim()
+            .orEmpty()
+            .ifEmpty { params?.optString("itemId", "")?.trim().orEmpty() }
+    }
+
+    private fun shouldTraceNotificationMethod(method: String): Boolean {
+        return when (method) {
+            "turn/started",
+            "turn/completed",
+            "item/started",
+            "item/agentMessage/delta",
+            "item/completed",
+            "error" -> true
+            else -> false
+        }
+    }
+
+    private fun logNotificationTrace(stage: String, message: String) {
+        Log.d(TAG, "[notif-trace][$stage] $message")
+    }
+
+    private fun compactLogValue(value: String?, maxLength: Int = 1800): String {
+        val normalized = value?.trim().orEmpty()
+        if (normalized.length <= maxLength) {
+            return normalized
+        }
+        return normalized.take(maxLength) + "...<truncated>"
+    }
+
+    private fun resolvePlanStreamingMessageId(params: JSONObject?): String {
+        return params
+            ?.optJSONObject("plan")
+            ?.optString("id", "")
+            ?.trim()
+            .orEmpty()
+            .ifEmpty { params?.optString("planId", "")?.trim().orEmpty() }
+            .ifEmpty { params?.optString("itemId", "")?.trim().orEmpty() }
+            .ifEmpty { currentPlanStreamingMessageId.orEmpty() }
+    }
+
+    private fun finalizeStreamingMessageById(streamId: String) {
+        logNotificationTrace("ui", "finalize streamId=$streamId")
+        _uiState.update { state ->
+            val updated = state.messages.map { message ->
+                if (message.id == streamId) {
+                    message.copy(
+                        streaming = false,
+                        timestamp = System.currentTimeMillis()
+                    )
+                } else {
+                    message
+                }
+            }
+            syncExecutionWatch(state.copy(messages = updated), markActivity = true)
+        }
+    }
+
+    private fun finalizePlanStreamingMessage() {
+        val streamId = currentPlanStreamingMessageId ?: return
+        finalizeStreamingMessageById(streamId)
+        currentPlanStreamingMessageId = null
     }
 
     private fun trackPlanWorkflowText(
@@ -1085,6 +1172,12 @@ class CodexViewModel(
             )
         } else null
 
+        // Codex API persists plan mode per-thread. If the current thread had
+        // a plan-mode turn, a subsequent non-plan turn must start on a new
+        // thread to avoid inheriting the plan-mode context.
+        val effectiveForceNewThread = forceNewThread ||
+            (!isPlanMode && threadHadPlanTurn)
+
         val sent = sendEnvelopeOrReportFailure(
             payload = CodexClientMessages.codexTurn(
                 prompt = prompt,
@@ -1094,12 +1187,20 @@ class CodexViewModel(
                 reasoningEffort = state.nextTurnOverrides.reasoningEffort,
                 sandbox = state.nextTurnOverrides.sandbox,
                 collaborationMode = collaborationMode,
-                forceNewThread = forceNewThread
+                forceNewThread = effectiveForceNewThread
             ),
             errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
         )
         if (!sent) {
             return false
+        }
+
+        // Update plan-turn tracking: set flag if this was a plan turn,
+        // reset if we just forced a new thread (clean slate).
+        if (isPlanMode) {
+            threadHadPlanTurn = true
+        } else if (effectiveForceNewThread) {
+            threadHadPlanTurn = false
         }
 
         _uiState.update {
@@ -1117,7 +1218,7 @@ class CodexViewModel(
                     compactStatusTone = ""
                 ),
                 planWorkflow = if (
-                    forceNewThread ||
+                    effectiveForceNewThread ||
                     (forcePlanMode || state.planMode == true) ||
                     it.planWorkflow.phase != PLAN_PHASE_READY_FOR_CONFIRMATION
                 ) {
@@ -1220,9 +1321,6 @@ class CodexViewModel(
         attachments: List<CodexPendingImageAttachment> = emptyList()
     ): String {
         val parts = mutableListOf<String>()
-        if (mentions.isNotEmpty()) {
-            parts += mentions.joinToString("\n") { "@${displayPath(it)}" }
-        }
         if (attachments.isNotEmpty()) {
             parts += attachments.joinToString("\n") { attachment ->
                 when (attachment.type) {
@@ -1272,53 +1370,57 @@ class CodexViewModel(
     private fun observeWsEvents() {
         viewModelScope.launch {
             connectionManager.wsClient.events.collect { event ->
-                when (event) {
-                    is WsEvent.Opened -> {
-                        connectionManager.onConnected()
-                    }
-                    is WsEvent.Message -> {
-                        handleEnvelope(event.envelope)
-                    }
-                    is WsEvent.Closed -> {
-                        if (event.code == 4404 || event.reason.contains("Session not found or expired", ignoreCase = true)) {
-                            val message = "Session not found or expired"
-                            _uiState.update {
-                                it.copy(
-                                    errorMessage = message,
-                                    sessionExpired = true,
-                                    executionWatch = CodexExecutionWatchState()
-                                )
-                            }
+                try {
+                    when (event) {
+                        is WsEvent.Opened -> {
+                            connectionManager.onConnected()
                         }
-                        connectionManager.onDisconnected()
-                    }
-                    is WsEvent.Closing -> { /* handled by Closed */ }
-                    is WsEvent.Failure -> {
-                        val message = event.throwable.message ?: "WebSocket failure"
-                        if (isTransientWebSocketFailure(message, event.code)) {
-                            _uiState.update { state ->
-                                if (isTransientConnectionMessage(state.errorMessage)) {
-                                    state.copy(errorMessage = null)
-                                } else {
-                                    state
+                        is WsEvent.Message -> {
+                            handleEnvelope(event.envelope)
+                        }
+                        is WsEvent.Closed -> {
+                            if (event.code == 4404 || event.reason.contains("Session not found or expired", ignoreCase = true)) {
+                                val message = "Session not found or expired"
+                                _uiState.update {
+                                    it.copy(
+                                        errorMessage = message,
+                                        sessionExpired = true,
+                                        executionWatch = CodexExecutionWatchState()
+                                    )
                                 }
                             }
-                        } else {
-                            appendMessage(ChatMessage.Role.ERROR, message)
-                            _uiState.update {
-                                it.copy(
-                                    errorMessage = message,
-                                    planWorkflow = buildEmptyPlanWorkflowState(),
-                                    executionWatch = CodexExecutionWatchState(),
-                                    runtimePanel = it.runtimePanel.copy(
-                                        warning = message,
-                                        warningTone = "error"
-                                    )
-                                )
-                            }
+                            connectionManager.onDisconnected()
                         }
-                        connectionManager.onDisconnected()
+                        is WsEvent.Closing -> { /* handled by Closed */ }
+                        is WsEvent.Failure -> {
+                            val message = event.throwable.message ?: "WebSocket failure"
+                            if (isTransientWebSocketFailure(message, event.code)) {
+                                _uiState.update { state ->
+                                    if (isTransientConnectionMessage(state.errorMessage)) {
+                                        state.copy(errorMessage = null)
+                                    } else {
+                                        state
+                                    }
+                                }
+                            } else {
+                                appendMessage(ChatMessage.Role.ERROR, message)
+                                _uiState.update {
+                                    it.copy(
+                                        errorMessage = message,
+                                        planWorkflow = buildEmptyPlanWorkflowState(),
+                                        executionWatch = CodexExecutionWatchState(),
+                                        runtimePanel = it.runtimePanel.copy(
+                                            warning = message,
+                                            warningTone = "error"
+                                        )
+                                    )
+                                }
+                            }
+                            connectionManager.onDisconnected()
+                        }
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error processing WS event: ${event::class.simpleName}", e)
                 }
             }
         }
@@ -1355,6 +1457,7 @@ class CodexViewModel(
                         markActivity = false
                     )
                 }
+                maybeRequestModelList()
                 if (caps.rateLimitsRead) {
                     requestRateLimits(silent = true)
                 }
@@ -1366,7 +1469,9 @@ class CodexViewModel(
                 _uiState.update { current ->
                     val wasIdle = current.status.equals("idle", ignoreCase = true)
                     val isIdle = state.status.equals("idle", ignoreCase = true)
-                    val nextPlanMode = state.interactionState?.planMode ?: state.planMode ?: current.planMode
+                    val threadChanged = state.threadId != null && state.threadId != current.threadId
+                    // planMode is managed locally — never override from server codex_state
+                    val nextPlanMode = current.planMode ?: false
                     val nextState = syncExecutionWatch(
                         recalculateNextTurnEffectiveConfig(
                             current.copy(
@@ -1392,7 +1497,8 @@ class CodexViewModel(
                         ),
                         markActivity = true
                     )
-                    if (isIdle && !wasIdle) {
+                    // Don't finalize plan workflow during thread transitions (forceNewThread idle blip)
+                    if (isIdle && !wasIdle && !threadChanged) {
                         syncExecutionWatch(finalizePlanWorkflowOnTurnSettled(nextState), markActivity = false)
                     } else {
                         nextState
@@ -1452,12 +1558,14 @@ class CodexViewModel(
 
             "codex_turn_ack" -> {
                 val ack = CodexTurnAck.from(json)
+                executionFeedbackSeen.clear()
                 Log.d(TAG, "Turn ack: ${ack.turnId}")
             }
 
             "codex_interrupt_ack" -> {
                 Log.d(TAG, "Interrupt ack")
                 currentStreamingMessageId = null
+                currentPlanStreamingMessageId = null
             }
 
             "codex_response" -> {
@@ -1619,12 +1727,16 @@ class CodexViewModel(
         if (models.isEmpty()) {
             return
         }
+        val distinctModels = models.distinct()
         _uiState.update { state ->
-            state.copy(
-                capabilities = state.capabilities?.copy(models = models.distinct())
+            recalculateNextTurnEffectiveConfig(
+                state.copy(
+                    capabilities = state.capabilities?.copy(models = distinctModels),
+                    model = state.model ?: distinctModels.firstOrNull()
+                )
             )
         }
-        Log.i(TAG, "Loaded model list: ${models.distinct()}")
+        Log.i(TAG, "Loaded model list: $distinctModels")
     }
 
     private fun maybeLoadSkillCatalog() {
@@ -1799,6 +1911,7 @@ class CodexViewModel(
         }
         val resumedThreadId = thread.optStringOrNullCompat("id").orEmpty()
         val resumedTitle = resolveThreadTitle(thread)
+        threadHadPlanTurn = false
         _uiState.update { state ->
             state.copy(
                 threadId = resumedThreadId.ifEmpty { state.threadId },
@@ -2046,6 +2159,7 @@ class CodexViewModel(
                         )
                     }
                 }
+                maybeRequestModelList()
             }
         }
         return result
@@ -2289,6 +2403,12 @@ class CodexViewModel(
 
     private fun handleCodexNotification(notification: CodexNotification) {
         val params = notification.params
+        if (shouldTraceNotificationMethod(notification.method)) {
+            logNotificationTrace(
+                stage = "in",
+                message = "method=${notification.method} turnId=${extractTraceTurnId(params)} itemId=${extractTraceItemId(params)} currentStreaming=$currentStreamingMessageId"
+            )
+        }
         when {
             notification.method == "thread/started" -> {
                 val threadId = params
@@ -2298,6 +2418,7 @@ class CodexViewModel(
                     .orEmpty()
                 if (threadId.isNotEmpty()) {
                     currentStreamingMessageId = null
+                    currentPlanStreamingMessageId = null
                     _uiState.update {
                         it.copy(
                             threadId = threadId,
@@ -2320,6 +2441,7 @@ class CodexViewModel(
                     .orEmpty()
                 if (statusType == "idle") {
                     finalizeStreamingMessage()
+                    finalizePlanStreamingMessage()
                     _uiState.update(::finalizePlanWorkflowOnTurnSettled)
                 }
             }
@@ -2330,15 +2452,29 @@ class CodexViewModel(
 
             notification.method == "turn/completed" -> {
                 finalizeStreamingMessage()
+                finalizePlanStreamingMessage()
                 _uiState.update { syncExecutionWatch(finalizePlanWorkflowOnTurnSettled(it), markActivity = true) }
             }
 
             notification.method == "item/started" -> {
                 val item = params?.optJSONObject("item") ?: return
-                if (item.optString("type", "") != "agentMessage") return
-                if (isRuntimeOnlyAgentMessage(item)) return
+                val itemType = item.optString("type", "")
+                if (itemType != "agentMessage") {
+                    val itemId = item.optString("id", "").trim()
+                    val feedback = buildExecutionFeedback(item, itemType)
+                    if (feedback != null && itemId.isNotEmpty()) {
+                        appendCollapsibleMessage(itemId, feedback.first, feedback.second)
+                    }
+                    logNotificationTrace("drop", "item/started non-agent type=$itemType")
+                    return
+                }
+                if (isRuntimeOnlyAgentMessage(item)) {
+                    logNotificationTrace("drop", "item/started runtime-only itemId=${item.optString("id", "").trim()}")
+                    return
+                }
                 val itemId = item.optString("id", "").trim().ifEmpty { UUID.randomUUID().toString() }
                 currentStreamingMessageId = itemId
+                logNotificationTrace("apply", "item/started itemId=$itemId textLen=${item.optString("text", "").length}")
                 upsertAssistantMessage(
                     itemId = itemId,
                     content = item.optString("text", ""),
@@ -2349,25 +2485,43 @@ class CodexViewModel(
             notification.method == "item/agentMessage/delta" -> {
                 val itemId = params?.optString("itemId", "")?.trim().orEmpty()
                 val delta = params?.optString("delta", "") ?: ""
-                if (delta.isEmpty()) return
+                if (delta.isEmpty()) {
+                    logNotificationTrace("drop", "delta empty itemId=$itemId")
+                    return
+                }
                 val streamId = itemId.ifEmpty { currentStreamingMessageId.orEmpty() }
-                if (streamId.isEmpty()) return
+                if (streamId.isEmpty()) {
+                    logNotificationTrace("drop", "delta missing-stream itemId=$itemId currentStreaming=$currentStreamingMessageId")
+                    return
+                }
+                logNotificationTrace("apply", "delta streamId=$streamId deltaLen=${delta.length}")
                 appendAssistantDelta(streamId, delta)
             }
 
             notification.method == "turn/plan/updated" -> {
                 val plan = params?.optJSONObject("plan") ?: return
                 val planText = plan.optString("text", "")
+                val planMessageId = resolvePlanStreamingMessageId(params)
                 if (planText.isBlank()) {
                     applyRuntimeNotificationUpdate(notification.method, params)
                     return
                 }
                 trackPlanWorkflowText(planText)
+                if (planMessageId.isNotEmpty()) {
+                    currentPlanStreamingMessageId = planMessageId
+                    upsertAssistantMessage(
+                        itemId = planMessageId,
+                        content = planText,
+                        streaming = true,
+                        trackPlanText = false
+                    )
+                }
                 applyRuntimeNotificationUpdate(notification.method, params)
             }
 
             notification.method == "item/plan/delta" -> {
                 val delta = params?.optString("delta", "") ?: ""
+                val planMessageId = resolvePlanStreamingMessageId(params)
                 if (delta.isEmpty()) {
                     applyRuntimeNotificationUpdate(notification.method, params)
                     return
@@ -2377,18 +2531,41 @@ class CodexViewModel(
                     text = currentPlanText + delta,
                     preserveWhitespace = true
                 )
+                if (planMessageId.isNotEmpty()) {
+                    currentPlanStreamingMessageId = planMessageId
+                    appendAssistantDelta(
+                        itemId = planMessageId,
+                        delta = delta,
+                        trackPlanText = false
+                    )
+                }
                 applyRuntimeNotificationUpdate(notification.method, params)
             }
 
             notification.method == "item/completed" -> {
                 val item = params?.optJSONObject("item") ?: return
                 applyRuntimeSnapshotItem(item)
-                if (item.optString("type", "") != "agentMessage") return
-                if (isRuntimeOnlyAgentMessage(item)) return
+                val itemType = item.optString("type", "")
+                if (itemType != "agentMessage") {
+                    val itemId = item.optString("id", "").trim()
+                    if (itemId.isNotEmpty()) {
+                        updateCollapsibleMessageContent(itemId, item, itemType)
+                    }
+                    logNotificationTrace("drop", "item/completed non-agent type=$itemType")
+                    return
+                }
+                if (isRuntimeOnlyAgentMessage(item)) {
+                    logNotificationTrace("drop", "item/completed runtime-only itemId=${item.optString("id", "").trim()}")
+                    return
+                }
                 val itemId = item.optString("id", "").trim().ifEmpty { currentStreamingMessageId.orEmpty() }
                 val text = item.optString("text", "")
-                if (itemId.isEmpty()) return
+                if (itemId.isEmpty()) {
+                    logNotificationTrace("drop", "item/completed missing-stream currentStreaming=$currentStreamingMessageId")
+                    return
+                }
                 currentStreamingMessageId = null
+                logNotificationTrace("apply", "item/completed itemId=$itemId textLen=${text.length}")
                 upsertAssistantMessage(
                     itemId = itemId,
                     content = text,
@@ -2415,6 +2592,7 @@ class CodexViewModel(
 
             notification.method == "error" -> {
                 val message = resolveCodexNotificationError(params)
+                logNotificationTrace("apply", "error message=$message")
                 appendMessage(ChatMessage.Role.ERROR, message)
                 _uiState.update {
                     it.copy(
@@ -2437,6 +2615,11 @@ class CodexViewModel(
 
     private fun handleCodexServerRequest(envelope: CodexServerRequestEnvelope?) {
         val request = envelope?.request ?: return
+        Log.d(
+            TAG,
+            "[server-request] requestId=${request.requestId} kind=${request.requestKind} mode=${request.responseMode} handledBy=${request.handledBy} questionCount=${request.questionCount} parsedQuestions=${request.questions.size} summary=${compactLogValue(request.summary)} params=${compactLogValue(request.params?.toString())} raw=${compactLogValue(envelope.raw.toString())}"
+        )
+        finalizePlanStreamingMessage()
         if (!request.handledBy.equals("client", ignoreCase = true)) {
             appendMessage(
                 ChatMessage.Role.SYSTEM,
@@ -2772,6 +2955,66 @@ class CodexViewModel(
             else -> null
         }
         return update?.takeIf { it.text.isNotEmpty() }
+    }
+
+    /** Build label + initial content for a collapsible execution feedback message. */
+    private fun buildExecutionFeedback(item: JSONObject, type: String): Pair<String, String>? {
+        return when (type) {
+            "fileChange" -> {
+                val path = item.optString("filePath", "").ifEmpty { item.optString("path", "") }
+                val changeType = item.optString("changeType", "edit").lowercase()
+                val label = when (changeType) {
+                    "create", "created" -> appContext.getString(R.string.codex_native_exec_created_file)
+                    "delete", "deleted" -> appContext.getString(R.string.codex_native_exec_deleted_file)
+                    else -> appContext.getString(R.string.codex_native_exec_edited_file)
+                }
+                "$label" to path
+            }
+            "mcpToolCall" -> {
+                val name = item.optString("name", "").ifEmpty { item.optString("toolName", "") }
+                val label = appContext.getString(R.string.codex_native_exec_ran_command)
+                "$label" to name
+            }
+            else -> null
+        }
+    }
+
+    /** Append a collapsible TOOL message (auto-collapsed). */
+    private fun appendCollapsibleMessage(itemId: String, label: String, content: String) {
+        val msg = ChatMessage(
+            id = "exec-$itemId",
+            role = ChatMessage.Role.TOOL,
+            content = content,
+            collapsible = true,
+            collapsedLabel = label
+        )
+        _uiState.update { it.copy(messages = it.messages + msg) }
+    }
+
+    /** Update an existing collapsible message with completed details. */
+    private fun updateCollapsibleMessageContent(itemId: String, item: JSONObject, type: String) {
+        val targetId = "exec-$itemId"
+        val detail = when (type) {
+            "fileChange" -> {
+                val output = pickFirstText(item, listOf("output"), listOf("text"), listOf("patch"))
+                output.take(500)
+            }
+            "mcpToolCall" -> {
+                val output = pickFirstText(item, listOf("output"), listOf("message"), listOf("text"))
+                output.take(500)
+            }
+            else -> ""
+        }
+        if (detail.isBlank()) return
+        _uiState.update { state ->
+            val updated = state.messages.map { msg ->
+                if (msg.id == targetId) {
+                    val combined = if (msg.content.isNotBlank()) "${msg.content}\n$detail" else detail
+                    msg.copy(content = combined)
+                } else msg
+            }
+            state.copy(messages = updated)
+        }
     }
 
     private fun resolveCodexNotificationError(params: JSONObject?): String {
@@ -3792,16 +4035,18 @@ class CodexViewModel(
     private fun upsertAssistantMessage(
         itemId: String,
         content: String,
-        streaming: Boolean
+        streaming: Boolean,
+        trackPlanText: Boolean = true
     ) {
         _uiState.update { state ->
-            val nextState = if (shouldTrackPlanWorkflowText(state)) {
+            val nextState = if (trackPlanText && shouldTrackPlanWorkflowText(state)) {
                 updatePlanWorkflowText(state, content)
             } else {
                 state
             }
             val existingIndex = nextState.messages.indexOfFirst { it.id == itemId }
             if (existingIndex >= 0) {
+                logNotificationTrace("ui", "upsert update itemId=$itemId streaming=$streaming contentLen=${content.length}")
                 val updated = nextState.messages.toMutableList()
                 updated[existingIndex] = updated[existingIndex].copy(
                     content = content,
@@ -3810,6 +4055,7 @@ class CodexViewModel(
                 )
                 syncExecutionWatch(nextState.copy(messages = updated), markActivity = true)
             } else {
+                logNotificationTrace("ui", "upsert insert itemId=$itemId streaming=$streaming contentLen=${content.length}")
                 syncExecutionWatch(
                     nextState.copy(
                         messages = nextState.messages + ChatMessage(
@@ -3825,9 +4071,9 @@ class CodexViewModel(
         }
     }
 
-    private fun appendAssistantDelta(itemId: String, delta: String) {
+    private fun appendAssistantDelta(itemId: String, delta: String, trackPlanText: Boolean = true) {
         _uiState.update { state ->
-            val nextState = if (shouldTrackPlanWorkflowText(state)) {
+            val nextState = if (trackPlanText && shouldTrackPlanWorkflowText(state)) {
                 updatePlanWorkflowText(
                     state = state,
                     text = getPlanWorkflowDisplayText(state) + delta,
@@ -3838,6 +4084,7 @@ class CodexViewModel(
             }
             val existingIndex = nextState.messages.indexOfFirst { it.id == itemId }
             if (existingIndex >= 0) {
+                logNotificationTrace("ui", "delta append itemId=$itemId deltaLen=${delta.length}")
                 val updated = nextState.messages.toMutableList()
                 val existing = updated[existingIndex]
                 updated[existingIndex] = existing.copy(
@@ -3847,6 +4094,7 @@ class CodexViewModel(
                 )
                 syncExecutionWatch(nextState.copy(messages = updated), markActivity = true)
             } else {
+                logNotificationTrace("ui", "delta create itemId=$itemId deltaLen=${delta.length}")
                 syncExecutionWatch(
                     nextState.copy(
                         messages = nextState.messages + ChatMessage(
@@ -3864,19 +4112,7 @@ class CodexViewModel(
 
     private fun finalizeStreamingMessage() {
         val streamId = currentStreamingMessageId ?: return
-        _uiState.update { state ->
-            val updated = state.messages.map { message ->
-                if (message.id == streamId) {
-                    message.copy(
-                        streaming = false,
-                        timestamp = System.currentTimeMillis()
-                    )
-                } else {
-                    message
-                }
-            }
-            syncExecutionWatch(state.copy(messages = updated), markActivity = true)
-        }
+        finalizeStreamingMessageById(streamId)
         currentStreamingMessageId = null
     }
 

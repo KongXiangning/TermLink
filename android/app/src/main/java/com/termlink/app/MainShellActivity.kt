@@ -1237,8 +1237,9 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     }
 
     private fun setDrawerSessionsFragmentVisible(visible: Boolean) {
-        val fragment = supportFragmentManager.findFragmentByTag(TAG_SESSIONS_DRAWER) ?: return
+        val fragment = supportFragmentManager.findFragmentByTag(TAG_SESSIONS_DRAWER) as? SessionsFragment ?: return
         if (!fragment.isAdded) return
+        fragment.onDrawerContentVisibilityChanged(visible)
         if (visible && fragment.isHidden) {
             supportFragmentManager.commit {
                 setReorderingAllowed(true)

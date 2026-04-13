@@ -248,6 +248,10 @@
     <string name="codex_native_plan_workflow_continue">Continue / Ask more</string>
     <string name="codex_native_plan_workflow_cancel">Cancel</string>
     <string name="codex_native_plan_execution_log">Execute confirmed plan</string>
+    <string name="codex_native_exec_ran_command">Ran command</string>
+    <string name="codex_native_exec_edited_file">Edited file</string>
+    <string name="codex_native_exec_created_file">Created file</string>
+    <string name="codex_native_exec_deleted_file">Deleted file</string>
     <string name="codex_native_selected">Selected</string>
     <string name="codex_native_model_picker_title">Choose model</string>
     <string name="codex_native_model_picker_subtitle">Applies to the next turn only.</string>

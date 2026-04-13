@@ -2,7 +2,7 @@
 title: TermLink 路线图
 status: active
 owner: @maintainer
-last_updated: 2026-03-31
+last_updated: 2026-04-13
 source_of_truth: product
 related_code: []
 related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BACKLOG.md]
@@ -37,8 +37,10 @@ related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BAC
 13. 已完成系统语言自动适配与 i18n 框架建设（`REQ-20260329-language-normalization`）：中文系系统语言统一显示简体中文，非中文系统显示英文，且 Android 原生与 WebView 保持一致。
 14. 已完成 Android 配置级 mTLS 运行时证书选择（`REQ-20260326-android-profile-mtls-runtime-certificate`），Profile Settings 按需导入/选择客户端证书，WebView 与原生网络层统一信任链，移除编译期硬编码证书依赖。
 15. 启动 Codex Android 全原生并行迁移（`REQ-20260408-codex-native-android-migration`）：保留现有 WebView Codex 稳定入口，新增独立原生入口并行建设，并预留后续接入 `claude cli`、`copilot cli` 等 CLI 提供方的 adapter / capability 扩展基线。
+16. 规划 Relay 控制平面与透明中转模式（`REQ-20260413-relay-control-plane-and-transparent-transit`）：为无法暴露公网的后端服务新增控制台、connector 与透明 Relay 主链路；实施前先冻结“管理员预创建 `app_client` 槽位 + 一次性注册码认领”的配对路径，并将首期数据面收紧为既有 `sessions list/create/delete/rename API + terminal WebSocket`，继续保持 `relay ingress`/`target identity` 分离契约，以及“service 只能引用 connector inventory”的发布边界。
 
 ## 2026-H2
 
 1. 推进多主机与多会话治理能力。
 2. 增强审计、安全策略和可观测性。
+

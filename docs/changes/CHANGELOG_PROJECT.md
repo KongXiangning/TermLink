@@ -2,7 +2,7 @@
 title: TermLink 项目变更日志
 status: active
 owner: @maintainer
-last_updated: 2026-04-09
+last_updated: 2026-04-13
 source_of_truth: product
 related_code: []
 related_docs: [docs/README.md]
@@ -10,6 +10,11 @@ related_docs: [docs/README.md]
 
 # CHANGELOG_PROJECT
 
+## 2026-04-13
+
+### docs
+
+1. 再次收紧 `REQ-20260413-relay-control-plane-and-transparent-transit`：锁定首期 `app_client` 为“管理员预创建槽位 + 一次性注册码认领”，明确数据面只透传既有 `sessions list/create/delete/rename API + terminal WebSocket`，补齐 `access-ticket` 前置条件与最小错误集合，并同步产品主线与路线图摘要口径。
 ## 2026-04-09
 
 ### client
@@ -258,3 +263,4 @@ related_docs: [docs/README.md]
 1. 变更记录以 `docs/changes/records/INDEX.md` 为主索引。
 2. 每次实施/提交必须新增一条 CR 文件，并强制关联 `req_id + commit_ref`。
 3. `CHANGELOG_PROJECT.md` 定位为摘要层，详细恢复信息以 CR 正文为准。
+

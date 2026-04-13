@@ -26,7 +26,9 @@ data class ChatMessage(
     val contentType: String = "text",
     val toolName: String? = null,
     val timestamp: Long = System.currentTimeMillis(),
-    val streaming: Boolean = false
+    val streaming: Boolean = false,
+    val collapsible: Boolean = false,
+    val collapsedLabel: String = ""
 ) {
     enum class Role { USER, ASSISTANT, SYSTEM, TOOL, ERROR }
 }

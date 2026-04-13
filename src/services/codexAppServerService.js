@@ -11,6 +11,14 @@ function isNonEmptyString(value) {
     return typeof value === 'string' && value.trim().length > 0;
 }
 
+function compactForLog(value, maxLength = 4000) {
+    const text = typeof value === 'string' ? value : JSON.stringify(value ?? null);
+    if (text.length <= maxLength) {
+        return text;
+    }
+    return `${text.slice(0, maxLength)}...<truncated>`;
+}
+
 function fileExists(targetPath) {
     if (!isNonEmptyString(targetPath)) return false;
     try {
@@ -162,6 +170,36 @@ function extractThreadIdFromParams(params) {
     }
     if (params.thread && typeof params.thread === 'object' && isNonEmptyString(params.thread.id)) {
         return params.thread.id;
+    }
+
+    return null;
+}
+
+function extractTurnIdFromParams(params) {
+    if (!params || typeof params !== 'object') {
+        return null;
+    }
+
+    if (isNonEmptyString(params.turnId)) {
+        return params.turnId;
+    }
+    if (params.turn && typeof params.turn === 'object' && isNonEmptyString(params.turn.id)) {
+        return params.turn.id;
+    }
+
+    return null;
+}
+
+function extractItemIdFromParams(params) {
+    if (!params || typeof params !== 'object') {
+        return null;
+    }
+
+    if (isNonEmptyString(params.itemId)) {
+        return params.itemId;
+    }
+    if (params.item && typeof params.item === 'object' && isNonEmptyString(params.item.id)) {
+        return params.item.id;
     }
 
     return null;
@@ -464,6 +502,12 @@ class CodexAppServerService extends EventEmitter {
         }
 
         if (this.isNotification(message)) {
+            console.info('[codex-app-server][notification]', JSON.stringify({
+                method: message.method,
+                threadId: extractThreadIdFromParams(message.params),
+                turnId: extractTurnIdFromParams(message.params),
+                itemId: extractItemIdFromParams(message.params)
+            }));
             this.emit('notification', message);
             return;
         }
@@ -501,6 +545,15 @@ class CodexAppServerService extends EventEmitter {
         this.pendingRequests.delete(responseId);
         clearTimeout(pending.timeoutId);
 
+        if (pending.method === 'turn/start') {
+            console.info('[codex-app-server][rpc][turn/start]', JSON.stringify({
+                responseId,
+                hasError: !!(Object.prototype.hasOwnProperty.call(message, 'error') && message.error),
+                threadId: extractThreadIdFromParams(message.result),
+                turnId: extractTurnIdFromParams(message.result)
+            }));
+        }
+
         if (Object.prototype.hasOwnProperty.call(message, 'error') && message.error) {
             const error = new Error(message.error.message || `Codex request failed: ${pending.method}`);
             error.code = message.error.code;
@@ -515,6 +568,17 @@ class CodexAppServerService extends EventEmitter {
     handleServerRequest(message) {
         const requestId = String(message.id);
         const descriptor = describeServerRequestMethod(message.method);
+        const params = message && typeof message.params === 'object' ? message.params : null;
+        const questionCount = Array.isArray(params && params.questions) ? params.questions.length : 0;
+        console.info('[codex-app-server][server-request]', compactForLog({
+            requestId,
+            method: message && message.method ? message.method : 'unknown',
+            requestKind: descriptor.requestKind,
+            responseMode: descriptor.responseMode,
+            handledByClient: descriptor.handledByClient,
+            questionCount,
+            params
+        }));
         if (descriptor.handledByClient) {
             this.pendingServerRequests.set(requestId, {
                 rawId: message.id,

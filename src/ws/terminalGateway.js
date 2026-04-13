@@ -28,6 +28,14 @@ function isNonEmptyString(value) {
     return typeof value === 'string' && value.trim().length > 0;
 }
 
+function compactForLog(value, maxLength = 4000) {
+    const text = typeof value === 'string' ? value : JSON.stringify(value ?? null);
+    if (text.length <= maxLength) {
+        return text;
+    }
+    return `${text.slice(0, maxLength)}...<truncated>`;
+}
+
 function areJsonLikeValuesEqual(left, right) {
     return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
 }
@@ -561,6 +569,7 @@ function buildPendingServerRequestSnapshot(state) {
         .map((entry) => ({
             requestId: entry.requestId,
             method: isNonEmptyString(entry.method) ? entry.method.trim() : 'unknown',
+            handledBy: 'client',
             requestKind: isNonEmptyString(entry.requestKind) ? entry.requestKind.trim() : resolveCodexServerRequestKind(entry.method),
             responseMode: isNonEmptyString(entry.responseMode) ? entry.responseMode.trim() : resolveCodexServerRequestResponseMode(entry.method),
             summary: isNonEmptyString(entry.summary) ? entry.summary.trim() : null,
@@ -1026,6 +1035,17 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         return false;
     };
 
+    const summarizeCodexTraceNotification = (method, params) => ({
+        method,
+        threadId: CodexAppServerService.extractThreadId({ params }) || null,
+        turnId: params && params.turn && params.turn.id
+            ? params.turn.id
+            : (isNonEmptyString(params && params.turnId) ? params.turnId : null),
+        itemId: params && params.item && params.item.id
+            ? params.item.id
+            : (isNonEmptyString(params && params.itemId) ? params.itemId : null)
+    });
+
     const handleCodexNotification = (notification) => {
         const method = notification && notification.method;
         const params = notification && notification.params;
@@ -1054,21 +1074,36 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
 
         const threadId = CodexAppServerService.extractThreadId(notification);
         if (!threadId) {
+            console.warn('[gateway][codex][notification-drop][no-thread]', JSON.stringify(
+                summarizeCodexTraceNotification(method, params)
+            ));
             return;
         }
 
         const sessionId = threadToSessionId.get(threadId);
         if (!isNonEmptyString(sessionId)) {
+            console.warn('[gateway][codex][notification-drop][no-session-binding]', JSON.stringify(
+                summarizeCodexTraceNotification(method, params)
+            ));
             return;
         }
 
         const session = getSessionById(sessionManager, sessionId);
         if (!session) {
+            console.warn('[gateway][codex][notification-drop][session-missing]', JSON.stringify({
+                ...summarizeCodexTraceNotification(method, params),
+                sessionId
+            }));
             threadToSessionId.delete(threadId);
             return;
         }
 
         const stateChanged = updateCodexStateFromNotification(session, method, params);
+        console.info('[gateway][codex][notification-bridge]', JSON.stringify({
+            ...summarizeCodexTraceNotification(method, params),
+            sessionId,
+            stateChanged
+        }));
         sessionManager.broadcast(session, {
             type: 'codex_notification',
             method,
@@ -1108,6 +1143,21 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         if (!session) {
             return;
         }
+        console.info('[gateway][codex][server-request]', compactForLog({
+            sessionId,
+            requestId,
+            method,
+            handledBy,
+            requestKind: resolveCodexServerRequestKind(method),
+            responseMode: resolveCodexServerRequestResponseMode(method),
+            questionCount: Array.isArray(message && message.params && message.params.questions)
+                ? message.params.questions.length
+                : 0,
+            summary: extractCodexServerRequestSummary(method, message.params || null) || null,
+            params: message && message.params && typeof message.params === 'object'
+                ? message.params
+                : null
+        }));
         if (handledBy === 'client') {
             const requestKind = resolveCodexServerRequestKind(method);
             const responseMode = resolveCodexServerRequestResponseMode(method);
@@ -1370,6 +1420,20 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             cwd: effectiveCwd,
                             codexConfig: nextTurnEffectiveConfig
                         });
+                        console.info('[gateway][codex][turn-start]', JSON.stringify({
+                            sessionId: session.id,
+                            threadId,
+                            turnId: turnStartResponse && turnStartResponse.turn
+                                ? turnStartResponse.turn.id || null
+                                : null,
+                            cwd: effectiveCwd || null,
+                            model: effectiveModel,
+                            reasoningEffort: effectiveReasoningEffort,
+                            sandboxMode: nextTurnEffectiveConfig.sandboxMode || null,
+                            approvalPolicy: nextTurnEffectiveConfig.approvalPolicy || null,
+                            collaborationMode: collaborationMode || null,
+                            attachmentCount: attachments.length
+                        }));
                         emitCodexState(session);
 
                         sendWsEnvelope(ws, {

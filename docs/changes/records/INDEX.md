@@ -2,7 +2,7 @@
 title: 变更记录索引
 status: active
 owner: @maintainer
-last_updated: 2026-04-13
+last_updated: 2026-04-14
 source_of_truth: product
 related_code: [docs/changes/records]
 related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_CHANGE_RECORD.md]
@@ -23,6 +23,15 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260414-0318-plan-mode-thread-contamination-fix |  | unknown | TBD | @maintainer |  | Plan Mode Thread Contamination Fix | `docs/changes/records/CR-20260414-0318-plan-mode-thread-contamination-fix.md` |
+| CR-20260414-0105-relay-req-clarifications | REQ-20260413-relay-control-plane-and-transparent-transit | draft | TBD | @maintainer | 2026-04-14 |  | `docs/changes/records/CR-20260414-0105-relay-req-clarifications.md` |
+| CR-20260414-0048-relay-req-granularity-tighten | REQ-20260413-relay-control-plane-and-transparent-transit | draft | TBD | @maintainer | 2026-04-14 |  | `docs/changes/records/CR-20260414-0048-relay-req-granularity-tighten.md` |
+| CR-20260413-2305-relay-control-plane-doc-init | REQ-20260413-relay-control-plane-and-transparent-transit | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-2305-relay-control-plane-doc-init.md` |
+| CR-20260413-2033-android-notification-trace | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-2033-android-notification-trace.md` |
+| CR-20260413-2010-codex-turn-notification-trace | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-2010-codex-turn-notification-trace.md` |
+| CR-20260413-1904-codex-streaming-autoscroll | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-1904-codex-streaming-autoscroll.md` |
+| CR-20260413-1854-sessions-drawer-polling | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-1854-sessions-drawer-polling.md` |
+| CR-20260413-1752-codex-concrete-picker-defaults | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-1752-codex-concrete-picker-defaults.md` |
 | CR-20260413-1704-codex-control-style-revert | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-1704-codex-control-style-revert.md` |
 | CR-20260413-1647-codex-tempfile-fallback | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-1647-codex-tempfile-fallback.md` |
 | CR-20260413-1613-codex-approval-reprobe | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-1613-codex-approval-reprobe.md` |

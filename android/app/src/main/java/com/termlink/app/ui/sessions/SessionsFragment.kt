@@ -64,18 +64,24 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val autoRefreshRunnable = object : Runnable {
         override fun run() {
-            if (isAutoRefreshActive && !refreshRequestTracker.hasInFlightWork()) {
+            if (!shouldKeepAutoRefreshRunning()) {
+                stopAutoRefresh()
+                return
+            }
+            if (!refreshRequestTracker.hasInFlightWork()) {
                 refreshSessions(showSpinner = false)
             }
-            if (isAutoRefreshActive) {
+            if (shouldKeepAutoRefreshRunning()) {
                 mainHandler.postDelayed(this, AUTO_REFRESH_INTERVAL_MS)
+            } else {
+                stopAutoRefresh()
             }
         }
     }
 
     private var isViewActive = false
     private var isAutoRefreshActive = false
-    private var isDrawerContentVisible = true
+    private var isDrawerContentVisible = false
     private val refreshRequestTracker = SessionAsyncRequestTracker()
     private var hasCompletedInitialLocalFirstPaint = false
     private var currentViewGeneration = 0
@@ -152,6 +158,11 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     override fun onPause() {
         stopAutoRefresh()
         super.onPause()
+    }
+
+    override fun onStop() {
+        stopAutoRefresh()
+        super.onStop()
     }
 
     override fun onHiddenChanged(hidden: Boolean) {
@@ -1329,19 +1340,35 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     }
 
     private fun startAutoRefresh() {
-        if (isAutoRefreshActive) return
+        if (isAutoRefreshActive || !shouldAutoRefreshNow()) {
+            stopAutoRefresh()
+            return
+        }
         isAutoRefreshActive = true
+        mainHandler.removeCallbacks(autoRefreshRunnable)
         mainHandler.postDelayed(autoRefreshRunnable, AUTO_REFRESH_INTERVAL_MS)
     }
 
     private fun stopAutoRefresh() {
-        if (!isAutoRefreshActive) return
         isAutoRefreshActive = false
         mainHandler.removeCallbacks(autoRefreshRunnable)
     }
 
     private fun shouldRefreshWhileVisible(): Boolean {
         return !isHidden && isDrawerContentVisible
+    }
+
+    private fun shouldKeepAutoRefreshRunning(): Boolean {
+        return isAutoRefreshActive && shouldAutoRefreshNow()
+    }
+
+    private fun shouldAutoRefreshNow(): Boolean {
+        val hostActivity = activity ?: return false
+        return isAdded &&
+            isViewActive &&
+            isResumed &&
+            hostActivity.hasWindowFocus() &&
+            shouldRefreshWhileVisible()
     }
 
     private fun formatRelativeTime(epochMs: Long): String {
