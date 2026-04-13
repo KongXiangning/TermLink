@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -106,6 +107,7 @@ import com.termlink.app.codex.domain.CodexUiState
 import com.termlink.app.codex.domain.ConnectionState
 import com.termlink.app.codex.domain.DebugServerRequestPreset
 import com.termlink.app.codex.domain.FileMention
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -131,6 +133,8 @@ private val AssistantBg = Color.Transparent
 private val SystemBg = Color(0x1A5E4A20)
 private val ToolBg = Color(0xFF182233)
 private val ErrorBg = Color(0x1A6E1F1A)
+private const val RuntimeStallThresholdMillis = 45_000L
+private const val RuntimeStallRefreshMillis = 5_000L
 
 private object CodexBottomBarTokens {
     val composerRadius = 20.dp
@@ -219,6 +223,7 @@ fun CodexScreen(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val isStreaming = state.messages.lastOrNull()?.streaming == true
+    var stallNowMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var debugInjectorVisible by remember { mutableStateOf(false) }
     val blockingApprovalRequest = remember(state.pendingServerRequests) {
         state.pendingServerRequests.firstOrNull { request ->
@@ -253,6 +258,35 @@ fun CodexScreen(
             listState.scrollToItem(state.messages.lastIndex)
         }
     }
+    LaunchedEffect(
+        state.executionWatch.active,
+        state.executionWatch.runningSinceMillis,
+        state.executionWatch.lastEventAtMillis
+    ) {
+        stallNowMillis = System.currentTimeMillis()
+        if (!state.executionWatch.active) {
+            return@LaunchedEffect
+        }
+        while (true) {
+            delay(RuntimeStallRefreshMillis)
+            stallNowMillis = System.currentTimeMillis()
+        }
+    }
+    val runtimeStallInfo = remember(
+        state.executionWatch,
+        state.pendingServerRequests,
+        state.planWorkflow.phase,
+        state.connectionState,
+        state.errorMessage,
+        isStreaming,
+        stallNowMillis
+    ) {
+        buildRuntimeStallInfo(
+            state = state,
+            isStreaming = isStreaming,
+            nowMillis = stallNowMillis
+        )
+    }
 
     Box(
         modifier = modifier
@@ -280,6 +314,13 @@ fun CodexScreen(
                     message = message,
                     onRetry = onRetry,
                     onDismiss = onDismissError
+                )
+            }
+            runtimeStallInfo?.let { info ->
+                RuntimeStallBanner(
+                    info = info,
+                    onRetry = onRetry,
+                    onShowDiagnostics = onShowRuntimePanel
                 )
             }
 
@@ -500,7 +541,7 @@ private fun CodexHeader(
     }
 
     val metaParts = buildList {
-        state.currentThreadTitle.takeIf { it.isNotBlank() }?.let(::add)
+        headerThreadTitle(state)?.let(::add)
         state.interactionState?.activeSkill?.takeIf { it.isNotBlank() }?.let {
             add(stringResource(R.string.codex_native_active_skill_label, it))
         }
@@ -712,6 +753,64 @@ private fun ErrorBanner(
                 }
                 TextButton(onClick = onDismiss) {
                     Text(stringResource(R.string.codex_native_dismiss))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RuntimeStallBanner(
+    info: RuntimeStallInfo,
+    onRetry: () -> Unit,
+    onShowDiagnostics: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        color = SystemBg,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, WarningColor.copy(alpha = 0.4f))
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = stringResource(R.string.codex_native_runtime_stall_title),
+                color = TextPrimary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = runtimeStallReasonText(info.reason),
+                color = TextPrimary,
+                fontSize = 13.sp
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = stringResource(
+                    R.string.codex_native_runtime_stall_detail,
+                    formatRuntimeDuration(info.runningForMillis),
+                    formatClockTime(info.lastEventAtMillis),
+                    formatRuntimeDuration(info.lastEventAgoMillis)
+                ),
+                color = TextSecondary,
+                fontSize = 12.sp,
+                lineHeight = 18.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(
+                    onClick = onRetry,
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = WarningColor.copy(alpha = 0.16f),
+                        contentColor = WarningColor
+                    )
+                ) {
+                    Text(stringResource(R.string.codex_native_retry))
+                }
+                TextButton(onClick = onShowDiagnostics) {
+                    Text(stringResource(R.string.codex_native_runtime_stall_diagnostics))
                 }
             }
         }
@@ -1263,64 +1362,223 @@ private fun formatHeaderCwdForDisplay(cwd: String): String {
 @Composable
 private fun MessageBubble(message: ChatMessage) {
     val spec = remember(message.role) { bubbleSpec(message.role) }
+    val layout = remember(message.role) { bubbleLayoutSpec(message.role) }
     val label = roleLabel(message)
 
     Column(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = if (layout.alignEnd) Alignment.End else Alignment.Start
     ) {
-        Text(
-            text = label,
-            color = spec.labelColor,
-            fontSize = 10.sp,
-            modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 1.dp, bottom = 2.dp)
-        )
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(4.dp),
-            color = spec.background,
-            border = BorderStroke(1.dp, spec.border)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(layout.widthFraction)
+                .widthIn(max = layout.maxWidth)
         ) {
-            Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-                if (message.role == ChatMessage.Role.TOOL && !message.toolName.isNullOrBlank()) {
-                    Text(
-                        text = message.toolName,
-                        color = TextMuted,
-                        fontSize = 10.sp,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-                }
-                SelectionContainer {
-                    Text(
-                        text = message.content,
-                        color = spec.textColor,
-                        fontSize = 13.sp,
-                        lineHeight = 20.sp,
-                        fontFamily = if (message.role == ChatMessage.Role.TOOL) {
-                            FontFamily.Monospace
-                        } else {
-                            FontFamily.Default
-                        }
-                    )
+            Text(
+                text = label,
+                color = spec.labelColor,
+                fontSize = 10.sp,
+                textAlign = layout.labelTextAlign,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, end = 4.dp, top = 1.dp, bottom = 2.dp)
+            )
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = layout.shape,
+                color = spec.background,
+                border = BorderStroke(1.dp, spec.border)
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                    if (message.role == ChatMessage.Role.TOOL && !message.toolName.isNullOrBlank()) {
+                        Text(
+                            text = message.toolName,
+                            color = TextMuted,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                    }
+                    SelectionContainer {
+                        Text(
+                            text = message.content,
+                            color = spec.textColor,
+                            fontSize = 13.sp,
+                            lineHeight = 20.sp,
+                            fontFamily = if (message.role == ChatMessage.Role.TOOL) {
+                                FontFamily.Monospace
+                            } else {
+                                FontFamily.Default
+                            }
+                        )
+                    }
                 }
             }
-        }
 
-        if (message.streaming) {
-            Row(
-                modifier = Modifier.padding(top = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                PulsingDot(color = ContextBlue, animated = true, size = 6.dp)
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = stringResource(R.string.codex_native_status_streaming),
-                    color = TextSecondary,
-                    fontSize = 11.sp
-                )
+            if (message.streaming) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    horizontalArrangement = if (layout.alignEnd) Arrangement.End else Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (layout.alignEnd) {
+                        Text(
+                            text = stringResource(R.string.codex_native_status_streaming),
+                            color = TextSecondary,
+                            fontSize = 11.sp
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        PulsingDot(color = ContextBlue, animated = true, size = 6.dp)
+                    } else {
+                        PulsingDot(color = ContextBlue, animated = true, size = 6.dp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(R.string.codex_native_status_streaming),
+                            color = TextSecondary,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+private data class BubbleLayoutSpec(
+    val alignEnd: Boolean,
+    val widthFraction: Float,
+    val maxWidth: Dp,
+    val labelTextAlign: TextAlign,
+    val shape: RoundedCornerShape
+)
+
+private fun bubbleLayoutSpec(role: ChatMessage.Role): BubbleLayoutSpec = when (role) {
+    ChatMessage.Role.USER -> BubbleLayoutSpec(
+        alignEnd = true,
+        widthFraction = 0.84f,
+        maxWidth = 760.dp,
+        labelTextAlign = TextAlign.End,
+        shape = RoundedCornerShape(
+            topStart = 16.dp,
+            topEnd = 16.dp,
+            bottomEnd = 6.dp,
+            bottomStart = 16.dp
+        )
+    )
+    ChatMessage.Role.ASSISTANT -> BubbleLayoutSpec(
+        alignEnd = false,
+        widthFraction = 0.84f,
+        maxWidth = 760.dp,
+        labelTextAlign = TextAlign.Start,
+        shape = RoundedCornerShape(
+            topStart = 16.dp,
+            topEnd = 16.dp,
+            bottomEnd = 16.dp,
+            bottomStart = 6.dp
+        )
+    )
+    else -> BubbleLayoutSpec(
+        alignEnd = false,
+        widthFraction = 1f,
+        maxWidth = 960.dp,
+        labelTextAlign = TextAlign.Start,
+        shape = RoundedCornerShape(4.dp)
+    )
+}
+
+private enum class RuntimeStallReason {
+    WAITING_APPROVAL,
+    WAITING_INPUT,
+    RECONNECTING,
+    STREAM_STALLED,
+    RUNNING_SILENT
+}
+
+private data class RuntimeStallInfo(
+    val reason: RuntimeStallReason,
+    val runningForMillis: Long,
+    val lastEventAgoMillis: Long,
+    val lastEventAtMillis: Long
+)
+
+private fun buildRuntimeStallInfo(
+    state: CodexUiState,
+    isStreaming: Boolean,
+    nowMillis: Long
+): RuntimeStallInfo? {
+    val watch = state.executionWatch
+    if (!watch.active || state.errorMessage != null) {
+        return null
+    }
+    if (watch.runningSinceMillis <= 0L || watch.lastEventAtMillis <= 0L) {
+        return null
+    }
+    val lastEventAgoMillis = (nowMillis - watch.lastEventAtMillis).coerceAtLeast(0L)
+    if (lastEventAgoMillis < RuntimeStallThresholdMillis) {
+        return null
+    }
+    val runningForMillis = (nowMillis - watch.runningSinceMillis).coerceAtLeast(lastEventAgoMillis)
+    val reason = when {
+        state.pendingServerRequests.any { it.responseMode == "decision" } -> RuntimeStallReason.WAITING_APPROVAL
+        state.pendingServerRequests.any { it.responseMode == "answers" } ||
+            state.planWorkflow.phase == "awaiting_user_input" -> RuntimeStallReason.WAITING_INPUT
+        state.connectionState == ConnectionState.RECONNECTING ||
+            state.connectionState == ConnectionState.CONNECTING -> RuntimeStallReason.RECONNECTING
+        isStreaming -> RuntimeStallReason.STREAM_STALLED
+        else -> RuntimeStallReason.RUNNING_SILENT
+    }
+    return RuntimeStallInfo(
+        reason = reason,
+        runningForMillis = runningForMillis,
+        lastEventAgoMillis = lastEventAgoMillis,
+        lastEventAtMillis = watch.lastEventAtMillis
+    )
+}
+
+@Composable
+private fun runtimeStallReasonText(reason: RuntimeStallReason): String = when (reason) {
+    RuntimeStallReason.WAITING_APPROVAL ->
+        stringResource(R.string.codex_native_runtime_stall_reason_waiting_approval)
+    RuntimeStallReason.WAITING_INPUT ->
+        stringResource(R.string.codex_native_runtime_stall_reason_waiting_input)
+    RuntimeStallReason.RECONNECTING ->
+        stringResource(R.string.codex_native_runtime_stall_reason_reconnecting)
+    RuntimeStallReason.STREAM_STALLED ->
+        stringResource(R.string.codex_native_runtime_stall_reason_stream_stalled)
+    RuntimeStallReason.RUNNING_SILENT ->
+        stringResource(R.string.codex_native_runtime_stall_reason_running_silent)
+}
+
+private fun formatRuntimeDuration(durationMillis: Long): String {
+    val totalSeconds = (durationMillis / 1000L).coerceAtLeast(0L)
+    val hours = totalSeconds / 3600L
+    val minutes = (totalSeconds % 3600L) / 60L
+    val seconds = totalSeconds % 60L
+    val isZh = Locale.getDefault().language.startsWith("zh")
+    return when {
+        hours > 0L -> if (isZh) {
+            "${hours}小时${minutes}分"
+        } else {
+            "${hours}h ${minutes}m"
+        }
+        minutes > 0L -> if (isZh) {
+            "${minutes}分${seconds}秒"
+        } else {
+            "${minutes}m ${seconds}s"
+        }
+        else -> if (isZh) {
+            "${seconds}秒"
+        } else {
+            "${seconds}s"
+        }
+    }
+}
+
+private fun formatClockTime(epochMillis: Long): String {
+    val formatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    return formatter.format(Date(epochMillis))
 }
 
 @Composable
@@ -1347,11 +1605,6 @@ private fun PlanWorkflowCard(
         "executing_confirmed_plan" -> R.string.codex_native_plan_workflow_summary_executing
         else -> R.string.codex_native_plan_workflow_summary_planning
     }
-    val bodyText = state.planWorkflow.confirmedPlanText.ifBlank {
-        state.planWorkflow.latestPlanText
-    }.ifBlank {
-        stringResource(R.string.codex_native_plan_workflow_waiting)
-    }
     val showReadyActions = phase == "plan_ready_for_confirmation"
     val showCancel = phase == "planning" || phase == "awaiting_user_input" || phase == "plan_ready_for_confirmation"
 
@@ -1363,7 +1616,7 @@ private fun PlanWorkflowCard(
             "awaiting_user_input" -> SystemBg
             else -> UserBg
         },
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(16.dp),
         border = BorderStroke(
             1.dp,
             when (phase) {
@@ -1375,12 +1628,13 @@ private fun PlanWorkflowCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp)
+                .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
             Text(
                 text = stringResource(titleRes),
                 color = TextPrimary,
-                fontSize = 13.sp
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
@@ -1388,18 +1642,6 @@ private fun PlanWorkflowCard(
                 color = TextSecondary,
                 fontSize = 11.sp,
                 lineHeight = 16.sp
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(
-                text = bodyText,
-                color = TextPrimary,
-                fontSize = 12.sp,
-                lineHeight = 18.sp,
-                fontFamily = FontFamily.Monospace,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 220.dp)
-                    .verticalScroll(rememberScrollState())
             )
             if (showReadyActions || showCancel) {
                 Spacer(modifier = Modifier.height(12.dp))
@@ -1500,7 +1742,8 @@ private fun NoticeCard(
 private data class RuntimePanelSection(
     val key: String,
     val title: String,
-    val content: String
+    val content: String,
+    val summary: String = ""
 )
 
 @Composable
@@ -1524,17 +1767,20 @@ private fun RuntimePanelSheet(
         RuntimePanelSection(
             "diff",
             stringResource(R.string.codex_native_runtime_diff),
-            state.runtimePanel.diff.ifBlank { stringResource(R.string.codex_native_runtime_waiting_diff) }
+            state.runtimePanel.diff.ifBlank { stringResource(R.string.codex_native_runtime_waiting_diff) },
+            summarizeDiffPreview(state.runtimePanel.diff)
         ),
         RuntimePanelSection(
             "plan",
             stringResource(R.string.codex_native_runtime_plan),
-            planContent.ifBlank { stringResource(R.string.codex_native_runtime_waiting_plan) }
+            planContent.ifBlank { stringResource(R.string.codex_native_runtime_waiting_plan) },
+            summarizeNarrativePreview(planContent)
         ),
         RuntimePanelSection(
             "reasoning",
             stringResource(R.string.codex_native_runtime_reasoning),
-            state.runtimePanel.reasoning.ifBlank { stringResource(R.string.codex_native_runtime_waiting_reasoning) }
+            state.runtimePanel.reasoning.ifBlank { stringResource(R.string.codex_native_runtime_waiting_reasoning) },
+            summarizeNarrativePreview(state.runtimePanel.reasoning)
         )
     )
 
@@ -1586,6 +1832,7 @@ private fun RuntimePanelSheet(
                         modifier = Modifier.fillMaxWidth(),
                         title = section.title,
                         content = section.content,
+                        summary = section.summary,
                         expanded = expandedSections[section.key] == true,
                         onToggle = {
                             expandedSections[section.key] = !(expandedSections[section.key] == true)
@@ -1610,6 +1857,7 @@ private fun RuntimeSectionCard(
     modifier: Modifier = Modifier,
     title: String,
     content: String,
+    summary: String = "",
     tone: String = "",
     expanded: Boolean = false,
     onToggle: (() -> Unit)? = null
@@ -1654,6 +1902,16 @@ private fun RuntimeSectionCard(
                     text = if (expanded) "▾" else "▸",
                     color = TextSecondary,
                     fontSize = 10.sp
+                )
+            }
+            summary.takeIf { it.isNotBlank() }?.let { preview ->
+                Text(
+                    text = preview,
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    lineHeight = 16.sp,
+                    maxLines = if (expanded) Int.MAX_VALUE else 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
             if (expanded) {
@@ -2175,6 +2433,9 @@ private fun ImageInputSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
+                .navigationBarsPadding()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
         ) {
             Text(
                 text = stringResource(R.string.codex_native_image_sheet_title),
@@ -2938,7 +3199,7 @@ private fun FooterControls(
         ?: state.nextTurnOverrides.reasoningEffort
         ?: state.reasoningEffort
         ?: state.capabilities?.defaultReasoningEffort
-    val activeSandboxMode = effectiveConfig?.sandboxMode ?: state.nextTurnOverrides.sandbox
+    val selectedSandboxOverride = state.nextTurnOverrides.sandbox
 
     Column(
         modifier = Modifier
@@ -3033,7 +3294,11 @@ private fun FooterControls(
             if (state.capabilities?.sandboxSupported == true) {
                 QuickControlButton(
                     label = stringResource(R.string.codex_native_sandbox_label),
-                    text = sandboxFooterLabel(activeSandboxMode),
+                    text = if (selectedSandboxOverride.isNullOrBlank()) {
+                        stringResource(R.string.codex_native_sandbox_picker_default_short)
+                    } else {
+                        sandboxFooterLabel(selectedSandboxOverride)
+                    },
                     maxTextWidth = 112.dp,
                     expanded = state.sandboxPickerVisible,
                     onClick = onShowSandboxPicker,
@@ -3043,10 +3308,26 @@ private fun FooterControls(
                         text = {
                             Text(
                                 text = dropdownSelectionLabel(
-                                    stringResource(R.string.codex_native_sandbox_workspace_write),
-                                    activeSandboxMode == "workspace-write"
+                                    stringResource(R.string.codex_native_sandbox_picker_default),
+                                    selectedSandboxOverride.isNullOrBlank()
                                 ),
-                                color = if (activeSandboxMode == "workspace-write") {
+                                color = if (selectedSandboxOverride.isNullOrBlank()) {
+                                    SuccessColor
+                                } else {
+                                    TextPrimary
+                                }
+                            )
+                        },
+                        onClick = { onSelectSandboxMode(null) }
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = dropdownSelectionLabel(
+                                    stringResource(R.string.codex_native_sandbox_workspace_write),
+                                    selectedSandboxOverride == "workspace-write"
+                                ),
+                                color = if (selectedSandboxOverride == "workspace-write") {
                                     SuccessColor
                                 } else {
                                     TextPrimary
@@ -3059,10 +3340,26 @@ private fun FooterControls(
                         text = {
                             Text(
                                 text = dropdownSelectionLabel(
-                                    stringResource(R.string.codex_native_sandbox_full_access),
-                                    activeSandboxMode == "danger-full-access"
+                                    stringResource(R.string.codex_native_sandbox_read_only),
+                                    selectedSandboxOverride == "read-only"
                                 ),
-                                color = if (activeSandboxMode == "danger-full-access") {
+                                color = if (selectedSandboxOverride == "read-only") {
+                                    SuccessColor
+                                } else {
+                                    TextPrimary
+                                }
+                            )
+                        },
+                        onClick = { onSelectSandboxMode("read-only") }
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = dropdownSelectionLabel(
+                                    stringResource(R.string.codex_native_sandbox_full_access),
+                                    selectedSandboxOverride == "danger-full-access"
+                                ),
+                                color = if (selectedSandboxOverride == "danger-full-access") {
                                     SuccessColor
                                 } else {
                                     TextPrimary
@@ -4002,6 +4299,9 @@ private fun ModelPickerSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
+                .navigationBarsPadding()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
         ) {
             Text(
                 text = stringResource(R.string.codex_native_model_picker_title),
@@ -4058,6 +4358,9 @@ private fun ReasoningPickerSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
+                .navigationBarsPadding()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
         ) {
             Text(
                 text = stringResource(R.string.codex_native_reasoning_picker_title),
@@ -4102,7 +4405,6 @@ private fun SandboxPickerSheet(
     onSelectSandboxMode: (String?) -> Unit
 ) {
     val selectedSandbox = state.nextTurnOverrides.sandbox
-    val defaultSandbox = state.serverNextTurnConfigBase?.sandboxMode
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = SurfaceColor
@@ -4111,6 +4413,9 @@ private fun SandboxPickerSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
+                .navigationBarsPadding()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
         ) {
             Text(
                 text = stringResource(R.string.codex_native_sandbox_picker_title),
@@ -4128,13 +4433,17 @@ private fun SandboxPickerSheet(
             ModelPickerRow(
                 label = stringResource(R.string.codex_native_sandbox_picker_default),
                 selected = selectedSandbox.isNullOrBlank(),
-                secondary = defaultSandbox?.let { sandboxModeLabel(it) },
                 onClick = { onSelectSandboxMode(null) }
             )
             ModelPickerRow(
                 label = stringResource(R.string.codex_native_sandbox_workspace_write),
                 selected = selectedSandbox == "workspace-write",
                 onClick = { onSelectSandboxMode("workspace-write") }
+            )
+            ModelPickerRow(
+                label = stringResource(R.string.codex_native_sandbox_read_only),
+                selected = selectedSandbox == "read-only",
+                onClick = { onSelectSandboxMode("read-only") }
             )
             ModelPickerRow(
                 label = stringResource(R.string.codex_native_sandbox_full_access),
@@ -4310,19 +4619,106 @@ private fun reasoningEffortLabel(value: String): String = when (value.lowercase(
 @Composable
 private fun sandboxModeLabel(value: String?): String = when (value?.trim()) {
     "workspace-write" -> stringResource(R.string.codex_native_sandbox_workspace_write)
+    "read-only" -> stringResource(R.string.codex_native_sandbox_read_only)
     "danger-full-access" -> stringResource(R.string.codex_native_sandbox_full_access)
-    else -> stringResource(R.string.codex_native_sandbox_label)
+    else -> stringResource(R.string.codex_native_sandbox_picker_default)
 }
 
 @Composable
 private fun sandboxFooterLabel(value: String?): String = when (value?.trim()) {
     "workspace-write" -> stringResource(R.string.codex_native_sandbox_workspace_write_short)
+    "read-only" -> stringResource(R.string.codex_native_sandbox_read_only_short)
     "danger-full-access" -> stringResource(R.string.codex_native_sandbox_full_access_short)
-    else -> stringResource(R.string.codex_native_sandbox_label)
+    else -> stringResource(R.string.codex_native_sandbox_picker_default_short)
 }
 
 private fun dropdownSelectionLabel(label: String, selected: Boolean): String =
     if (selected) "✓ $label" else label
+
+@Composable
+private fun headerThreadTitle(state: CodexUiState): String? {
+    val currentTitle = state.currentThreadTitle.trim()
+    val normalizedThreadId = state.threadId?.trim().orEmpty()
+    if (currentTitle.isBlank()) {
+        return null
+    }
+    if (normalizedThreadId.isNotEmpty() && looksLikeRawThreadId(currentTitle, normalizedThreadId)) {
+        return stringResource(
+            R.string.codex_native_thread_short_label,
+            normalizedThreadId.take(8)
+        )
+    }
+    return currentTitle
+}
+
+private fun looksLikeRawThreadId(title: String, threadId: String): Boolean {
+    val normalizedTitle = title.trim()
+    val normalizedThreadId = threadId.trim()
+    if (normalizedTitle.isEmpty() || normalizedThreadId.isEmpty()) {
+        return false
+    }
+    if (normalizedTitle.equals(normalizedThreadId, ignoreCase = true)) {
+        return true
+    }
+    if (normalizedTitle.length < 16 || normalizedTitle.any { it.isWhitespace() }) {
+        return false
+    }
+    return normalizedTitle.all { it.isLetterOrDigit() || it == '-' || it == '_' }
+}
+
+private fun summarizeDiffPreview(content: String): String {
+    if (content.isBlank()) {
+        return ""
+    }
+    val regexes = listOf(
+        Regex("""^diff --git a/(.+?) b/(.+)$"""),
+        Regex("""^\+\+\+ b/(.+)$"""),
+        Regex("""^--- a/(.+)$""")
+    )
+    val files = linkedSetOf<String>()
+    for (rawLine in content.lineSequence()) {
+        val line = rawLine.trim()
+        if (line.isEmpty()) {
+            continue
+        }
+        for (regex in regexes) {
+            val match = regex.find(line) ?: continue
+            val candidate = match.groupValues.drop(1).firstOrNull { it.isNotBlank() }.orEmpty()
+            if (candidate.isNotBlank()) {
+                files += candidate
+            }
+        }
+    }
+    if (files.isEmpty()) {
+        return summarizeNarrativePreview(content)
+    }
+    val previewFiles = files.take(3)
+    val remaining = files.size - previewFiles.size
+    return buildString {
+        append(previewFiles.joinToString(" • "))
+        if (remaining > 0) {
+            append(" • +")
+            append(remaining)
+        }
+    }
+}
+
+private fun summarizeNarrativePreview(content: String): String {
+    if (content.isBlank()) {
+        return ""
+    }
+    return content.lineSequence()
+        .map { it.trim() }
+        .firstOrNull { line ->
+            line.isNotBlank() &&
+                line != "{" &&
+                line != "}" &&
+                line != "[" &&
+                line != "]"
+        }
+        ?.take(180)
+        .orEmpty()
+}
 
 @Composable
 private fun approvalTitle(request: CodexServerRequest): String = when (request.requestKind) {

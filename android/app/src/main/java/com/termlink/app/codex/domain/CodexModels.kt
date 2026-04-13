@@ -91,6 +91,12 @@ data class CodexPlanWorkflowState(
     val lastUserInputRequestId: String = ""
 )
 
+data class CodexExecutionWatchState(
+    val active: Boolean = false,
+    val runningSinceMillis: Long = 0L,
+    val lastEventAtMillis: Long = 0L
+)
+
 data class CodexRuntimePanelState(
     val visible: Boolean = false,
     val diff: String = "",
@@ -161,6 +167,7 @@ data class CodexUiState(
     val sandbox: Boolean? = null,
     val planMode: Boolean? = null,
     val planWorkflow: CodexPlanWorkflowState = CodexPlanWorkflowState(),
+    val executionWatch: CodexExecutionWatchState = CodexExecutionWatchState(),
     val capabilities: CodexCapabilities? = null,
     val messages: List<ChatMessage> = emptyList(),
     val errorMessage: String? = null,

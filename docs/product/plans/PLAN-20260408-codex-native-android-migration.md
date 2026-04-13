@@ -26,16 +26,16 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/R
 10. `done`：Phase 4 follow-up context-usage parity（已让右下角 context widget 常显，并将背景信息窗口的文案、结构与 compact 状态口径收敛到 web 当前基线）
 11. `done`：Phase 4 follow-up drawer preview/gesture tuning（已加宽左缘拖拽有效边缘、将会话抽屉宽度收敛到约 3/4 屏，并消除拖拽过程中的黑底空白）
 12. `done`：Phase 4 follow-up Codex mTLS websocket parity（原生 Codex 现已在 mTLS 保护的 profile 场景下复用同一套客户端证书配置完成 `/api/ws-ticket` 与 WebSocket upgrade，真机不再出现“Sessions API 200 但 Codex WS 403”）
-13. `pending`：Phase 4 follow-up stability / plan UX / runtime readability repairs（最新真机使用中仍发现切后台切回报错、计划模式重复展示、运行态 diff/reasoning 可读性不足、图片添加未真实上传、提权选项未出现、顶部线程 ID 挤压 header 等缺口，需要单独收口）
+13. `blocked`：Phase 4 follow-up stability / plan UX / runtime readability repairs（本批已完成原生 Codex transient reconnect 噪音抑制、计划正文去重与紧凑执行入口、运行态 Diff/Reasoning 摘要可读性补强，以及 header 长线程 ID 缩写；图片 URL 与本地图片路径现均已完成真机真实上行验证，本地图片通过 gateway data URL -> temp file -> `localImage.path` 桥接后已能直接驱动模型分析截图内容；最新真机还确认 Android 沙盒 quick setting 已能区分“会话默认 / 可写+确认 / 只读 / 完全访问”，显式选择 `workspace-write` 会触发 runtime restart 并让 gateway 进入 `approvalPolicy=on-request`；进一步的非 Plan Mode 真机探针已确认 Android 会把 `interactionState.planMode=false` 正确同步到 gateway，发出的 turn 也确实是 `collaborationMode=null + approvalPolicy=on-request + sandboxMode=workspace-write`，但 provider 仍只返回普通文本审批确认，未下发真实 `handledBy=client` 请求；计划模式下的 choice-based input 探针也仅落到通用 `awaiting_user_input` 卡片而未下发带选项按钮的真实 client-handled 请求；因此 item 13 当前按 upstream/provider 阻塞处理，等待上游能力变化后再重开）
 
-Phase 0 ~ Phase 4 主线已完成实施并通过编译 / 真机验证；当前 Codex 用户路径已固定到原生 `CodexActivity`，`MainShellActivity` 仅继续承载 sessions/workspace 壳层能力，设置页已切到独立 `SettingsActivity`。但 2026-04-13 新一轮真机使用又暴露出后台恢复稳定性、计划模式信息架构、运行态信息可读性、图片真实上传与 header 稳定性缺口，因此新增一批 `pending` follow-up，不能继续把原生收口描述为“无开放问题”。
+Phase 0 ~ Phase 4 主线已完成实施并通过编译 / 真机验证；当前 Codex 用户路径已固定到原生 `CodexActivity`，`MainShellActivity` 仅继续承载 sessions/workspace 壳层能力，设置页已切到独立 `SettingsActivity`。2026-04-13 新一轮真机 follow-up 已完成 reconnect 噪音抑制、计划模式正文去重、运行态摘要补强与 header 稳定性第一批修复，并补齐本地图片 data URL 到 app-server `localImage.path` 的服务端桥接；真机已拿到本地截图成功驱动模型分析的正向样本。后续 trace 又进一步确认端上 plan-mode 开关与 ask-mode runtime 配置均已正确入链；但当前 provider / upstream 仍未下发真实 client-handled approval request 与带选项按钮的 client-handled user-input request，因此该 follow-up 现转为 `blocked`，等待上游能力变化后再继续闭环。
 
 Phase 2 当前进度：
 
 1. `done`：`3.3-1` `/` slash 菜单与 `/model`、`/plan`、`/fast` 子集，含模型列表请求与过期恢复兜底。
 2. `done`：`3.3-2` `@` 文件提及搜索、选择、内联 chips 展示与发送前 `@path` 注入。
-3. `done`：`3.3-3` 命令审批对话框、用户输入请求对话框与响应回传协议已接线；debug build 已提供手工注入入口，命令审批、纯自由输入题与 non-client-handled 系统反馈均已完成本地 / 真机验证。当前环境虽未观测到真实 `handledBy=client` 的 provider 下发请求，但客户端实现与联调基线已具备完成口径。
-4. `done`：`3.3-4` 底部快捷配置已补齐模型、推理强度、沙盒模式入口，并完成真机选择回显验证；最新原生状态机已补上 `serverNextTurnConfigBase + nextTurnEffectiveCodexConfig`，footer 默认展示下一轮实际生效配置，而非仅显示本地 override。
+3. `done`：`3.3-3` 命令审批对话框、用户输入请求对话框与响应回传协议已接线；debug build 已提供手工注入入口，命令审批、纯自由输入题与 non-client-handled 系统反馈均已完成本地 / 真机验证。最新真机继续确认 Android 显式 `workspace-write` 覆盖会让 gateway 切到 `approvalPolicy=on-request`，非 Plan Mode 探针也已确认 `interactionState.planMode=false` 与 `collaborationMode=null` 会正确入链；但当前 provider 仍未下发真实 `handledBy=client` 请求样本。
+4. `done`：`3.3-4` 底部快捷配置已补齐模型、推理强度、沙盒模式入口，并完成真机选择回显验证；最新原生状态机已补上 `serverNextTurnConfigBase + nextTurnEffectiveCodexConfig`，footer 默认展示下一轮实际生效配置，而非仅显示本地 override；本轮 follow-up 进一步把“会话默认 / 可写+确认 / 只读 / 完全访问”拆成清晰权限档位，避免把 session default 误看成显式提权配置。
 5. `done`：`3.3-5` 计划模式工作流已补齐 planning / plan text streaming / ready confirmation / execute 入口，并完成 ready 卡片 `执行 / 继续 / 取消` 三动作真机验证；同时修正 `codex_state` 空闲快照重复 finalize 造成的继续规划回弹问题。
 6. `done`：`3.3-6` 线程历史列表 / 恢复 / 重命名 / 归档 / 分叉已完成原生状态、协议与 Compose UI 接线，并已在真机验证 sheet 打开、列表滚动、分叉生成新线程、恢复切换当前线程、归档动作触发，以及重命名保存后列表标题更新。
 7. `done`：`3.3-7` 运行态面板已补齐 Diff / Plan / Reasoning / Terminal Output 所需 capability、状态建模、通知消费、线程快照回放与底部 sheet 入口；本批继续完成 ANSI 清洗与运行态总览收口。
@@ -60,18 +60,22 @@ Phase 4 当前进度：
 6. `done`：已完成导航人体工学与 discoverability 收口：原生 Codex 默认界面现提供显式 `Sessions / Docs` 入口；`Sessions` 位于顶部 header 左侧并可直接打开左侧会话抽屉，`Docs` 位于同一行最右侧；header 高度已同步增高；`Settings` 位于抽屉顶部右侧并打开独立 `SettingsActivity`；透明手势层已移除，左边点击/长按/竖向滑动不再出现死区；真机已确认设置页返回仍回到当前原生 Codex 会话。
 7. `done`：已继续收敛会话抽屉可达性与动画预览：左侧有效拖拽边缘已从窄边缘加宽到 `56dp`，抽屉宽度改为运行时 `min(screenWidth * 0.75, 420dp)`，`SessionsFragment` 在 `CodexActivity` 抽屉容器内改为常驻内容树，拖拽过程中可直接看到会话列表内容，不再先出现黑底空白。
 8. `done`：已修复 mTLS 保护 profile 下的原生 Codex WebSocket 建连链路：`CodexConnectionManager` 现通过 `MtlsOkHttpSupport` 为当前 profile 复用客户端证书配置，并将同一份 OkHttp client 同时用于 `/api/ws-ticket` 与 `wss://...` upgrade；真机启动日志已确认 `CodexWsClient` 带 ticket 发起连接并收到 `WebSocket opened`，不再复现此前的 HTTP 403。
-9. `pending`：需新增一批稳定性与信息架构修复，覆盖以下问题：
-   - `HOME -> foreground` 或切后台后切回时，原生 Codex 仍会出现 `Broken pipe`、`WebSocket failure`、`Software caused connection abort` 等错误卡片，说明后台恢复与 socket 续接仍不稳定。
-   - 计划模式信息当前在聊天主窗口、输入框上方 workflow 区、运行态 `Plan` 中重复出现，导致内容冗余；需要改成“运行态 `Plan` 负责计划正文，composer 仅保留必要的执行/取消入口”。
-   - 执行确认计划后，聊天流里不应再把完整计划文本重复回显一遍；需要保留执行语义，但降低正文重复展示。
-   - 运行态 `Diff` 当前难以直接看出有哪些文件被修改；`Reasoning` 当前也未提供稳定、可消费的有效信息。
-   - 图片添加后当前没有形成可确认的真实上传闭环；需要提权时，原生安卓 Codex 页面也没有出现对应提权选项，导致用户无法在端上完成批准。
-   - 顶部状态区在线程打开后展示长 `thread id` 会挤压 header 布局并造成视觉跳动。
+9. `in_progress`：稳定性与信息架构修复 follow-up 已进入第一批实现 / 验证，当前口径如下：
+   - `done`：`CodexConnectionManager` 已把建连阶段异常改为优先走重连调度，`CodexViewModel` 也会抑制 `Broken pipe`、`WebSocket failure`、`Software caused connection abort`、`socket closed` 等典型 transient socket 噪音；本批真机重新编译安装后，冷启动与 `HOME -> foreground -> CodexActivity` 日志中未再复现此前的 `CodexWsClient` 失败噪音。
+   - `done`：计划模式正文已收敛到运行态 `Plan`；composer 上方 workflow 区改为紧凑动作入口，执行确认计划后聊天流仅保留简短确认语义，不再重复整段计划正文。
+   - `done`：运行态 `Diff` 已补做文件级摘要预览，`Reasoning` 已改为优先提取稳定文本摘要并过滤低价值结构化噪音，ANSI 文本也会在进入运行态摘要前清洗。
+   - `done`：顶部状态区对长 `thread id` 已改为本地化短标签显示，避免直接挤压 header 布局。
+   - `done`：图片 URL 与本地图片路径现均已在真机确认进入真实上行：URL 附件会走到上游下载并把 `invalid_request_error / invalid_value / param=url / upstream status code: 404` 明确回显给用户；本地图片则通过 gateway 新增的 data URL -> temp file -> `localImage.path` 桥接，已在真机成功把刚选择的截图送入模型并返回针对截图内容的分析文本，不再出现此前 `missing field 'path'` 错误。
+   - `done`：Android 沙盒 quick setting 现已把“会话默认 / 工作区可写（需确认） / 只读（需确认） / 完全访问（不询问）”拆分为明确权限档位，真机选择 `工作区可写（需确认）` 后 gateway 会触发 runtime restart，并把该轮执行上下文切到 `approvalPolicy=on-request + sandboxMode=workspace-write`。
+   - `blocked`：端上提权 / 批准请求仍未在本轮真机中拿到真实 `handledBy=client` 请求样本；最新非 Plan Mode 真机重跑已在底部 quick setting 显式切到 `工作区可写（需确认）`，并发送 `create tmp/approval_probe.txt with content APPROVAL_PROBE and ask for approval before writing it`。结果页中助手仍只返回普通文本 `我会先发起一次明确的审批请求；只有你批准后，才会写入 tmp/approval_probe.txt。`，原生页未出现真实 client-handled approval dialog；因此该子项继续按 upstream/provider 阻塞处理，等待上游能力变化后再重开。
+   - `blocked`：计划模式下已不再复现 `request_user_input is unavailable in Default mode`，但最新真机重跑中，底部 `计划模式` 已明确亮起，发送 `ask me one multiple choice question using the built in input ui with choices yes and no not plain text` 后，助手先后仅返回“我先做一次最小化的非变更检查，然后用内置输入 UI 发出一个只有 yes/no 的单选问题。”与“工作目录探测失败了，我改用一次不依赖目录切换的只读检查，然后继续发起 UI 问题。”两段普通文本；原生页实际仍只出现通用 `awaiting_user_input` 工作流卡片（`等待补充信息 / 继续规划前需要你的补充信息 / 取消`），未下发带选项按钮的真实 client-handled 输入请求；该子项继续按 upstream/provider 阻塞处理。
+   - `done`：原生 Codex 现已补上长时间无新事件时的“疑似卡住”告警卡：当任务仍标记为 `running` 但长时间没有新输出时，主界面会展示 `任务可能卡住了` 提示，并给出已运行时长、最近事件时间、`重试 / 诊断` 入口；诊断入口会直接拉起运行态面板。真机已通过 debug runtime sample 验证该告警卡与诊断入口均能落屏。
+   - `done`：主聊天窗口消息已完成左右分栏收口；`MessageBubble` 已按角色拆成镜像布局 spec，用户消息改为右侧窄气泡、助手消息改为左侧窄气泡，`SYSTEM / TOOL / ERROR` 仍保留整行样式。真机 `MQS7N19402011743` 本轮已抓到新的右侧用户气泡样本；助手侧 live 样本受当前运行态停滞告警打断，但代码中同一套 `BubbleLayoutSpec` 已对助手分支做镜像配置，当前本地实现口径可判定完成。
 
 Phase 2 协议对齐盘点（截至 `3.3-3` live debug）：
 
 1. **已对齐**
-   - Web 与 Android 已统一走 `codex_turn -> gateway -> turn/start` 主链路；原生 Android 现已确认可发送 `sandbox=workspace-write`，gateway 也会为该会话计算出 `approvalPolicy=on-request + sandboxMode=workspace-write`。
+   - Web 与 Android 已统一走 `codex_turn -> gateway -> turn/start` 主链路；原生 Android 现已确认可发送显式 `sandbox=workspace-write` 覆盖，gateway 会触发 runtime restart，并为该轮会话计算出 `approvalPolicy=on-request + sandboxMode=workspace-write`。
    - Android 已补齐 `serverNextTurnConfigBase + nextTurnEffectiveCodexConfig` 这一层状态，footer quick settings 默认显示下一轮实际生效的 model / reasoning / sandbox，而不再只依据本地 override 回显。
    - 审批 / 用户输入响应协议已统一为 `codex_server_request_response` 的 `result / error / useDefault` 结构，不再沿用旧的 `approved / response` 负载。
    - Android 已对齐 `pendingServerRequests` 快照恢复与 `handledBy=client` 过滤逻辑，只对客户端处理型请求展示原生审批 / 输入对话框。
@@ -125,7 +129,7 @@ Phase 2 协议对齐盘点（截至 `3.3-3` live debug）：
 
 1. 实现 `/` slash 命令菜单与命令选择。（`done`：本地原生已支持 `/` 菜单与 `/model`、`/plan`、`/fast` 子集）
 2. 实现 `@` 文件提及搜索、选择与内联展示。（`done`：已支持工作区文件搜索、chips 展示与发送前 `@path` 注入）
-3. 实现命令审批对话框、用户输入请求对话框。（`in_progress`：已完成协议解析、状态建模、Compose 弹框、响应提交流程与 debug-only 手工注入验证入口；最新真机联调确认 Android 与 gateway 已使用 `workspace-write + on-request`，但当前环境尚未触发真实 client-handled 请求）
+3. 实现命令审批对话框、用户输入请求对话框。（`blocked`：已完成协议解析、状态建模、Compose 弹框、响应提交流程与 debug-only 手工注入验证入口；最新真机联调已确认 Android quick setting 能显式切到 `workspace-write + on-request`，且非 Plan Mode 文件写入探针会以 `collaborationMode=null` 真正发出；但当前 provider 仍未下发真实 client-handled approval request，计划模式输入链路也只进入通用 `awaiting_user_input` 工作流卡片，尚缺带选项的真实请求样本，因此该闭环当前按 upstream/provider 阻塞处理）
 4. 实现模型、推理强度、沙盒模式等底部快捷配置。（`done`：底部已支持模型 picker、推理强度 picker、沙盒模式 picker，真机上可完成选择与 chip 回显；并已补上 `nextTurnEffectiveCodexConfig` 本地状态，使默认显示值与下一轮实际生效配置一致）
 5. 实现计划模式工作流：planning、awaiting user input、confirmation、execute。（`done`：原生 Android 已补齐本地计划状态机、`interactionState` 对象同步、`item/plan/delta` / `turn/plan/updated` 通知消费，以及 ready review 卡片与 `执行 / 继续 / 取消` 动作；最新真机已补做 `执行 / 继续 / 取消` 三动作回归，并修正 `codex_state=idle` 重复 finalize 导致继续规划回弹的问题）
 6. 实现线程历史列表、恢复、重命名、归档与分叉。（`done`：原生 Android 已补齐 `historyList/historyResume` capability 消费、`thread/list` / `thread/read` / `thread/resume` / `thread/fork` / `thread/archive` / `thread/unarchive` / `thread/name/set` 请求处理、当前线程标题展示、线程历史 sheet 与重命名对话框；最新真机已验证线程入口、sheet 列表滚动、分叉生成新线程、恢复切换当前线程、归档动作可从列表触发，以及重命名保存后的标题刷新）
@@ -475,17 +479,17 @@ Phase 2 协议对齐盘点（截至 `3.3-3` live debug）：
 
 本节为文档已定、代码待实现的 follow-up 批次。在不回退当前原生主入口、不恢复旧 WebView Codex 的前提下，以下口径已锁定，后续实现应直接按此执行；若实现阶段发现现有协议无法支撑这些目标，应单独开协议文档批次，而不是在本节中隐式扩展字段。
 
-1. `pending`：原生 Codex 在 `HOME -> foreground`、近期任务切换、锁屏后返回等后台恢复场景下，不再出现 `Broken pipe`、`WebSocket failure`、`Software caused connection abort` 一类直出错误卡片；若连接确实失效，也必须收敛为单一路径的恢复态，而不是连续叠加多条错误。
-2. `pending`：计划正文只保留一个稳定主落点，默认以下沉到运行态 `Plan` 为准；聊天主窗口与输入框上方不再持续重复展示完整计划文本。
-3. `pending`：输入框上方仅保留紧凑动作条承载 `执行 / 取消 / 继续` 等关键操作；计划正文与动作入口必须分离，但计划操作入口仍需显式可达，不允许藏到用户难以发现的位置。
-4. `pending`：确认执行计划后，聊天流不得再次完整回显同一份计划正文；需要保留“已执行该确认计划”的简短确认语义或状态摘要，但避免重复刷屏。
-5. `pending`：运行态 `Diff` 采用摘要优先；文件列表、文件名分组或变更摘要信息必须先于大段 diff 文本，让“哪些文件被更改”一眼可见。
-6. `pending`：运行态 `Reasoning` 采用“可用则摘要、不可用则降级”的策略；若当前上游无法稳定提供高价值内容，前端至少需要给出明确空态说明或隐藏，而不是继续展示无帮助的占位或噪音信息。
-7. `pending`：图片附件加入后必须有真实上传/发送闭环，不得只停留在本地待发送 chips。
-8. `pending`：当操作触发工作区外写入、危险命令或其他需要用户批准的提权场景时，原生安卓 Codex 页面必须以阻塞弹窗承载批准流程，出现明确的提权/批准入口与批准/拒绝操作；不允许请求已产生但 UI 无法操作，也不允许把入口藏在运行态子面板中。
-9. `pending`：线程/任务切换后，顶部状态栏不得直接把长 `thread id` 挂到 header 主布局里导致横向挤压或高度突变；需要改成摘要化、截断或移入次级区域。
-10. `pending`：原生 Codex 在长时间无输出、未报错、未结束的运行态下，不能无限保持模糊“运行中”状态；达到阈值后应先进入“疑似卡住”告警，展示已运行时长、最近事件时间、可重试/诊断入口，并在可识别时继续分类为等待用户输入/提权、连接存活但事件流停滞、仍在运行但长时间无新输出、连接已断或任务已失败等原因。
-11. `pending`：主聊天窗口中，用户消息与助手消息必须采用左右分栏 + 明显样式差异；不仅要区分颜色，还要区分对齐、容器样式和标签层级，保证回看长对话、错误卡片混排或多轮追问时能快速定位用户发起的消息。
+1. `done`：原生 Codex 在 `HOME -> foreground`、近期任务切换、锁屏后返回等后台恢复场景下，已不再出现 `Broken pipe`、`WebSocket failure`、`Software caused connection abort` 一类直出错误卡片；若连接确实失效，也已收敛为单一路径的恢复态，而不是连续叠加多条错误。
+2. `done`：计划正文已只保留一个稳定主落点，默认以下沉到运行态 `Plan` 为准；聊天主窗口与输入框上方不再持续重复展示完整计划文本。
+3. `done`：输入框上方已只保留紧凑动作条承载 `执行 / 取消 / 继续` 等关键操作；计划正文与动作入口已经分离，且计划操作入口仍显式可达。
+4. `done`：确认执行计划后，聊天流已不再完整回显同一份计划正文；当前只保留“已执行该确认计划”的简短确认语义或状态摘要，避免重复刷屏。
+5. `done`：运行态 `Diff` 已采用摘要优先；文件列表与文件级摘要会先于大段 diff 文本展示，让“哪些文件被更改”一眼可见。
+6. `done`：运行态 `Reasoning` 已采用“可用则摘要、不可用则降级”的策略；当前前端会优先展示稳定摘要并过滤低价值噪音，而不是继续展示无帮助占位。
+7. `done`：图片附件加入后已具备真实上传/发送闭环，不再只停留在本地待发送 chips。
+8. `blocked`：当操作触发工作区外写入、危险命令或其他需要用户批准的提权场景时，原生安卓 Codex 页面虽然已具备阻塞弹窗承载能力与批准/拒绝操作，但当前 provider / upstream 仍未下发真实 `handledBy=client` 提权请求样本。2026-04-13 最新真机重跑已再次在 `工作区可写（需确认）` 档位下发送写文件审批探针，助手仍只返回“我会先发起一次明确的审批请求……”的普通文本，而未下发真实审批对话框；该项继续按上游阻塞处理，而不是继续标记为本地未实现。
+9. `done`：线程/任务切换后，顶部状态栏已不再把长 `thread id` 直接挂到 header 主布局里导致横向挤压或高度突变；当前已改为摘要化短标签展示。
+10. `done`：原生 Codex 在长时间无输出、未报错、未结束的运行态下，现已补上“疑似卡住”告警卡；达到阈值后会展示已运行时长、最近事件时间，以及 `重试 / 诊断` 入口，并能按等待确认、等待补充输入、连接恢复中、事件流停滞、仍在运行但长时间无新输出等口径分类提示。真机已通过 debug runtime sample 验证主界面告警卡与诊断入口。
+11. `done`：主聊天窗口中，用户消息与助手消息现已采用左右分栏；`MessageBubble` 已按角色切为镜像窄气泡布局，用户消息右对齐、助手消息左对齐，并保留明显的圆角/对齐差异。真机 `MQS7N19402011743` 已抓到新的右侧用户气泡样本；由于当前 live turn 被“任务可能卡住了”告警打断，未补到同轮助手回复截图，但助手分支与用户分支共用同一套镜像布局配置，本地实现已完成。
 
 ## 6. 风险与回滚
 

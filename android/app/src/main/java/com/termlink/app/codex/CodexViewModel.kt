@@ -4,9 +4,11 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.termlink.app.R
 import com.termlink.app.codex.data.*
 import com.termlink.app.codex.domain.ChatMessage
 import com.termlink.app.codex.domain.CodexContextUsageState
+import com.termlink.app.codex.domain.CodexExecutionWatchState
 import com.termlink.app.codex.domain.CodexLaunchParams
 import com.termlink.app.codex.domain.CodexNoticesPanelState
 import com.termlink.app.codex.domain.CodexPendingImageAttachment
@@ -57,7 +59,8 @@ class CodexViewModel(
         private val ANSI_ESCAPE_REGEX = Regex("\\u001B\\[[;\\d?]*[ -/]*[@-~]")
     }
 
-    private val connectionManager = CodexConnectionManager(viewModelScope, credentialStore, appContext)
+    private val appContext = appContext.applicationContext
+    private val connectionManager = CodexConnectionManager(viewModelScope, credentialStore, this.appContext)
 
     private val _uiState = MutableStateFlow(CodexUiState())
     val uiState: StateFlow<CodexUiState> = _uiState.asStateFlow()
@@ -89,6 +92,7 @@ class CodexViewModel(
                     pendingServerRequests = emptyList(),
                     submittingServerRequestIds = emptySet(),
                     sessionExpired = false,
+                    executionWatch = CodexExecutionWatchState(),
                     runtimePanel = buildEmptyRuntimePanelState(),
                     noticesPanel = CodexNoticesPanelState(),
                     toolsPanel = CodexToolsPanelState(),
@@ -113,7 +117,13 @@ class CodexViewModel(
     }
 
     fun setError(message: String) {
-        _uiState.update { it.copy(errorMessage = message, connectionState = ConnectionState.ERROR) }
+        _uiState.update {
+            it.copy(
+                errorMessage = message,
+                connectionState = ConnectionState.ERROR,
+                executionWatch = CodexExecutionWatchState()
+            )
+        }
     }
 
     fun clearError() {
@@ -134,6 +144,7 @@ class CodexViewModel(
                     pendingServerRequests = emptyList(),
                     submittingServerRequestIds = emptySet(),
                     sessionExpired = false,
+                    executionWatch = CodexExecutionWatchState(),
                     runtimePanel = buildEmptyRuntimePanelState(),
                     noticesPanel = CodexNoticesPanelState(),
                     toolsPanel = CodexToolsPanelState(),
@@ -223,33 +234,39 @@ class CodexViewModel(
     fun submitApprovalDecision(requestId: String, approved: Boolean) {
         val request = findPendingServerRequest(requestId) ?: return
         val result = buildApprovalDecisionResult(request, approved) ?: return
-        markServerRequestSubmitting(requestId)
         if (isDebugServerRequest(requestId)) {
+            markServerRequestSubmitting(requestId)
             completeDebugServerRequest(requestId, result = result)
             return
         }
-        connectionManager.send(
-            CodexClientMessages.codexServerRequestResponse(
+        val sent = sendEnvelopeOrReportFailure(
+            payload = CodexClientMessages.codexServerRequestResponse(
                 requestId = requestId,
                 result = result
-            )
+            ),
+            errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
         )
+        if (!sent) return
+        markServerRequestSubmitting(requestId)
     }
 
     fun submitUserInputAnswers(requestId: String, answersByQuestionId: Map<String, String>) {
         val request = findPendingServerRequest(requestId) ?: return
         val result = buildUserInputResult(request, answersByQuestionId) ?: return
-        markServerRequestSubmitting(requestId)
         if (isDebugServerRequest(requestId)) {
+            markServerRequestSubmitting(requestId)
             completeDebugServerRequest(requestId, result = result)
             return
         }
-        connectionManager.send(
-            CodexClientMessages.codexServerRequestResponse(
+        val sent = sendEnvelopeOrReportFailure(
+            payload = CodexClientMessages.codexServerRequestResponse(
                 requestId = requestId,
                 result = result
-            )
+            ),
+            errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
         )
+        if (!sent) return
+        markServerRequestSubmitting(requestId)
         _uiState.update { state ->
             if (state.planWorkflow.phase == PLAN_PHASE_AWAITING_USER_INPUT) {
                 state.copy(
@@ -266,18 +283,120 @@ class CodexViewModel(
 
     fun rejectUserInputRequest(requestId: String) {
         if (findPendingServerRequest(requestId) == null) return
-        markServerRequestSubmitting(requestId)
         val error = JSONObject().put("message", "User input request cancelled by user.")
         if (isDebugServerRequest(requestId)) {
+            markServerRequestSubmitting(requestId)
             completeDebugServerRequest(requestId, error = error)
             return
         }
-        connectionManager.send(
-            CodexClientMessages.codexServerRequestResponse(
+        val sent = sendEnvelopeOrReportFailure(
+            payload = CodexClientMessages.codexServerRequestResponse(
                 requestId = requestId,
                 error = error
-            )
+            ),
+            errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
         )
+        if (!sent) return
+        markServerRequestSubmitting(requestId)
+    }
+
+    private fun sendEnvelopeOrReportFailure(
+        payload: String,
+        errorMessage: String
+    ): Boolean {
+        val sent = connectionManager.send(payload)
+        if (!sent) {
+            _uiState.update { state ->
+                state.copy(errorMessage = errorMessage)
+            }
+        }
+        return sent
+    }
+
+    private fun isTransientWebSocketFailure(message: String, code: Int?): Boolean {
+        if (code != null && code >= 400) {
+            return false
+        }
+        val normalized = message.trim().lowercase()
+        if (normalized.isEmpty()) {
+            return false
+        }
+        return normalized.contains("broken pipe") ||
+            normalized.contains("software caused connection abort") ||
+            normalized.contains("socket closed") ||
+            normalized.contains("connection reset") ||
+            normalized.contains("connection abort") ||
+            normalized.contains("closed channel")
+    }
+
+    private fun isTransientConnectionMessage(message: String?): Boolean {
+        val normalized = message?.trim().orEmpty()
+        if (normalized.isBlank()) {
+            return false
+        }
+        if (normalized == appContext.getString(R.string.codex_native_connection_action_unavailable)) {
+            return true
+        }
+        return isTransientWebSocketFailure(normalized, null)
+    }
+
+    private fun agentMessagePhase(item: JSONObject): String =
+        item.optString("phase", "").trim().lowercase()
+
+    private fun isRuntimeOnlyAgentMessage(item: JSONObject): Boolean {
+        return when (agentMessagePhase(item)) {
+            "plan", "reasoning" -> true
+            else -> false
+        }
+    }
+
+    private fun trackPlanWorkflowText(
+        text: String,
+        preserveWhitespace: Boolean = false
+    ) {
+        _uiState.update { state ->
+            if (shouldTrackPlanWorkflowText(state)) {
+                updatePlanWorkflowText(
+                    state = state,
+                    text = text,
+                    preserveWhitespace = preserveWhitespace
+                )
+            } else {
+                state
+            }
+        }
+    }
+
+    private fun summarizeReasoningPayload(value: Any?): String {
+        return when (value) {
+            is String -> value.trim()
+            is Number -> value.toString()
+            is JSONObject -> {
+                pickFirstText(
+                    value,
+                    listOf("delta"),
+                    listOf("text"),
+                    listOf("summary"),
+                    listOf("summaryText"),
+                    listOf("part", "text"),
+                    listOf("part", "summary"),
+                    listOf("item", "text"),
+                    listOf("item", "summary")
+                ).ifEmpty {
+                    summarizeReasoningPayload(value.optJSONArray("parts"))
+                }
+            }
+            is JSONArray -> {
+                buildList {
+                    for (index in 0 until value.length()) {
+                        summarizeReasoningPayload(value.opt(index))
+                            .takeIf { it.isNotBlank() }
+                            ?.let(::add)
+                    }
+                }.joinToString("\n")
+            }
+            else -> ""
+        }.trim()
     }
 
     fun injectDebugServerRequest(preset: DebugServerRequestPreset) {
@@ -296,8 +415,14 @@ class CodexViewModel(
     }
 
     private fun injectDebugRuntimePanelSample() {
+        val now = System.currentTimeMillis()
         _uiState.update { state ->
             state.copy(
+                messages = state.messages + ChatMessage(
+                    id = UUID.randomUUID().toString(),
+                    role = ChatMessage.Role.SYSTEM,
+                    content = "[debug] Injected runtime and usage panel sample."
+                ),
                 runtimePanel = state.runtimePanel.copy(
                     diff = """
                         diff --git a/public/terminal_client.css b/public/terminal_client.css
@@ -337,10 +462,16 @@ class CodexViewModel(
                 noticesPanel = state.noticesPanel.copy(
                     configWarningText = "Debug sample: configuration requires review before the next Codex turn.",
                     deprecationNoticeText = "Debug sample: this fallback path is deprecated and will be removed in a future update."
+                ),
+                status = "running",
+                connectionState = ConnectionState.CONNECTED,
+                executionWatch = CodexExecutionWatchState(
+                    active = true,
+                    runningSinceMillis = now - 125_000L,
+                    lastEventAtMillis = now - 65_000L
                 )
             )
         }
-        appendMessage(ChatMessage.Role.SYSTEM, "[debug] Injected runtime and usage panel sample.")
     }
 
     fun showThreadHistory() {
@@ -743,12 +874,21 @@ class CodexViewModel(
             )
         }
         syncInteractionState(_uiState.value.interactionState ?: CodexInteractionState())
-        sendTurnWithOverrides(
+        val sent = sendTurnWithOverrides(
             text = executionPrompt,
             forceNewThread = true,
             clearPlanModeAfterSend = false,
-            displayTextOverride = executionPrompt
+            displayTextOverride = appContext.getString(R.string.codex_native_plan_execution_log)
         )
+        if (!sent) {
+            _uiState.update { current ->
+                current.copy(
+                    planWorkflow = current.planWorkflow.copy(
+                        phase = PLAN_PHASE_READY_FOR_CONFIRMATION
+                    )
+                )
+            }
+        }
     }
 
     // ── Fast mode ─────────────────────────────────────────────────────
@@ -914,9 +1054,9 @@ class CodexViewModel(
         forceNewThread: Boolean = false,
         clearPlanModeAfterSend: Boolean = true,
         displayTextOverride: String? = null
-    ) {
+    ): Boolean {
         val state = _uiState.value
-        if (text.isBlank() && state.pendingFileMentions.isEmpty() && state.pendingImageAttachments.isEmpty()) return
+        if (text.isBlank() && state.pendingFileMentions.isEmpty() && state.pendingImageAttachments.isEmpty()) return false
         val attachments = state.pendingImageAttachments.map { attachment ->
             CodexTurnAttachment(
                 type = attachment.type,
@@ -934,6 +1074,34 @@ class CodexViewModel(
             role = ChatMessage.Role.USER,
             content = displayText
         )
+        val isPlanMode = forcePlanMode || state.planMode == true
+        val effectiveModel = state.nextTurnOverrides.model ?: state.model
+        val effectiveReasoning = state.nextTurnOverrides.reasoningEffort ?: state.reasoningEffort
+
+        val collaborationMode = if (isPlanMode) {
+            CodexClientMessages.buildCollaborationMode(
+                model = effectiveModel,
+                reasoningEffort = effectiveReasoning
+            )
+        } else null
+
+        val sent = sendEnvelopeOrReportFailure(
+            payload = CodexClientMessages.codexTurn(
+                prompt = prompt,
+                threadId = state.threadId,
+                attachments = attachments,
+                model = state.nextTurnOverrides.model,
+                reasoningEffort = state.nextTurnOverrides.reasoningEffort,
+                sandbox = state.nextTurnOverrides.sandbox,
+                collaborationMode = collaborationMode,
+                forceNewThread = forceNewThread
+            ),
+            errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+        )
+        if (!sent) {
+            return false
+        }
+
         _uiState.update {
             it.copy(
                 messages = it.messages + userMsg,
@@ -960,30 +1128,6 @@ class CodexViewModel(
             )
         }
 
-        val isPlanMode = forcePlanMode || state.planMode == true
-        val effectiveModel = state.nextTurnOverrides.model ?: state.model
-        val effectiveReasoning = state.nextTurnOverrides.reasoningEffort ?: state.reasoningEffort
-
-        val collaborationMode = if (isPlanMode) {
-            CodexClientMessages.buildCollaborationMode(
-                model = effectiveModel,
-                reasoningEffort = effectiveReasoning
-            )
-        } else null
-
-        connectionManager.send(
-            CodexClientMessages.codexTurn(
-                prompt = prompt,
-                threadId = state.threadId,
-                attachments = attachments,
-                model = state.nextTurnOverrides.model,
-                reasoningEffort = state.nextTurnOverrides.reasoningEffort,
-                sandbox = state.nextTurnOverrides.sandbox,
-                collaborationMode = collaborationMode,
-                forceNewThread = forceNewThread
-            )
-        )
-
         if (collaborationMode != null) {
             _uiState.update { current ->
                 current.copy(
@@ -996,6 +1140,7 @@ class CodexViewModel(
         if (isPlanMode && clearPlanModeAfterSend) {
             closePlanMode(clearWorkflow = false)
         }
+        return true
     }
 
     private fun maybeRequestModelList() {
@@ -1103,8 +1248,23 @@ class CodexViewModel(
 
     private fun observeConnectionState() {
         viewModelScope.launch {
-            connectionManager.connectionState.collect { state ->
-                _uiState.update { it.copy(connectionState = state) }
+            connectionManager.connectionState.collect { nextState ->
+                _uiState.update { current ->
+                    syncExecutionWatch(
+                        current.copy(
+                            connectionState = nextState,
+                            errorMessage = if (
+                                nextState != ConnectionState.ERROR &&
+                                isTransientConnectionMessage(current.errorMessage)
+                            ) {
+                                null
+                            } else {
+                                current.errorMessage
+                            }
+                        ),
+                        markActivity = nextState != current.connectionState
+                    )
+                }
             }
         }
     }
@@ -1125,7 +1285,8 @@ class CodexViewModel(
                             _uiState.update {
                                 it.copy(
                                     errorMessage = message,
-                                    sessionExpired = true
+                                    sessionExpired = true,
+                                    executionWatch = CodexExecutionWatchState()
                                 )
                             }
                         }
@@ -1134,16 +1295,27 @@ class CodexViewModel(
                     is WsEvent.Closing -> { /* handled by Closed */ }
                     is WsEvent.Failure -> {
                         val message = event.throwable.message ?: "WebSocket failure"
-                        appendMessage(ChatMessage.Role.ERROR, message)
-                        _uiState.update {
-                            it.copy(
-                                errorMessage = message,
-                                planWorkflow = buildEmptyPlanWorkflowState(),
-                                runtimePanel = it.runtimePanel.copy(
-                                    warning = message,
-                                    warningTone = "error"
+                        if (isTransientWebSocketFailure(message, event.code)) {
+                            _uiState.update { state ->
+                                if (isTransientConnectionMessage(state.errorMessage)) {
+                                    state.copy(errorMessage = null)
+                                } else {
+                                    state
+                                }
+                            }
+                        } else {
+                            appendMessage(ChatMessage.Role.ERROR, message)
+                            _uiState.update {
+                                it.copy(
+                                    errorMessage = message,
+                                    planWorkflow = buildEmptyPlanWorkflowState(),
+                                    executionWatch = CodexExecutionWatchState(),
+                                    runtimePanel = it.runtimePanel.copy(
+                                        warning = message,
+                                        warningTone = "error"
+                                    )
                                 )
-                            )
+                            }
                         }
                         connectionManager.onDisconnected()
                     }
@@ -1158,9 +1330,12 @@ class CodexViewModel(
             "session_info" -> {
                 val info = SessionInfo.from(json)
                 _uiState.update {
-                    it.copy(
-                        sessionId = info.sessionId,
-                        sessionName = info.sessionName
+                    syncExecutionWatch(
+                        it.copy(
+                            sessionId = info.sessionId,
+                            sessionName = info.sessionName
+                        ),
+                        markActivity = false
                     )
                 }
                 Log.i(TAG, "Session info: ${info.sessionId} ${info.sessionName}")
@@ -1169,12 +1344,15 @@ class CodexViewModel(
             "codex_capabilities" -> {
                 val caps = CodexCapabilities.from(json)
                 _uiState.update {
-                    recalculateNextTurnEffectiveConfig(
-                        it.copy(
-                            capabilities = caps,
-                            model = caps.defaultModel.ifBlank { it.model },
-                            reasoningEffort = caps.defaultReasoningEffort.ifBlank { it.reasoningEffort }
-                        )
+                    syncExecutionWatch(
+                        recalculateNextTurnEffectiveConfig(
+                            it.copy(
+                                capabilities = caps,
+                                model = caps.defaultModel.ifBlank { it.model },
+                                reasoningEffort = caps.defaultReasoningEffort.ifBlank { it.reasoningEffort }
+                            )
+                        ),
+                        markActivity = false
                     )
                 }
                 if (caps.rateLimitsRead) {
@@ -1188,30 +1366,34 @@ class CodexViewModel(
                 _uiState.update { current ->
                     val wasIdle = current.status.equals("idle", ignoreCase = true)
                     val isIdle = state.status.equals("idle", ignoreCase = true)
-                    val nextState = recalculateNextTurnEffectiveConfig(
-                        current.copy(
-                            status = state.status,
-                            model = state.model ?: current.model,
-                            reasoningEffort = state.reasoningEffort ?: current.reasoningEffort,
-                            sandbox = state.sandbox ?: current.sandbox,
-                            planMode = state.interactionState?.planMode ?: state.planMode ?: current.planMode,
-                            threadId = state.threadId ?: current.threadId,
-                            currentThreadTitle = resolveCurrentThreadTitle(
+                    val nextPlanMode = state.interactionState?.planMode ?: state.planMode ?: current.planMode
+                    val nextState = syncExecutionWatch(
+                        recalculateNextTurnEffectiveConfig(
+                            current.copy(
+                                status = state.status,
+                                model = state.model ?: current.model,
+                                reasoningEffort = state.reasoningEffort ?: current.reasoningEffort,
+                                sandbox = state.sandbox ?: current.sandbox,
+                                planMode = nextPlanMode,
                                 threadId = state.threadId ?: current.threadId,
-                                entries = current.threadHistoryEntries,
-                                fallback = current.currentThreadTitle
-                            ),
-                            interactionState = state.interactionState ?: current.interactionState,
-                            cwd = state.cwd ?: current.cwd,
-                            serverNextTurnConfigBase = state.nextTurnEffectiveCodexConfig,
-                            pendingServerRequests = state.pendingServerRequests.filter { request ->
-                                request.handledBy.equals("client", ignoreCase = true)
-                            },
-                            submittingServerRequestIds = emptySet()
-                        )
+                                currentThreadTitle = resolveCurrentThreadTitle(
+                                    threadId = state.threadId ?: current.threadId,
+                                    entries = current.threadHistoryEntries,
+                                    fallback = current.currentThreadTitle
+                                ),
+                                interactionState = state.interactionState ?: current.interactionState,
+                                cwd = state.cwd ?: current.cwd,
+                                serverNextTurnConfigBase = state.nextTurnEffectiveCodexConfig,
+                                pendingServerRequests = state.pendingServerRequests.filter { request ->
+                                    request.handledBy.equals("client", ignoreCase = true)
+                                },
+                                submittingServerRequestIds = emptySet()
+                            )
+                        ),
+                        markActivity = true
                     )
                     if (isIdle && !wasIdle) {
-                        finalizePlanWorkflowOnTurnSettled(nextState)
+                        syncExecutionWatch(finalizePlanWorkflowOnTurnSettled(nextState), markActivity = false)
                     } else {
                         nextState
                     }
@@ -1227,19 +1409,22 @@ class CodexViewModel(
             "codex_thread_ready" -> {
                 val ready = CodexThreadReady.from(json)
                 _uiState.update {
-                    it.copy(
-                        threadId = ready.threadId,
-                        messages = if (ready.resumed) it.messages else emptyList(),
-                        runtimePanel = if (ready.resumed) {
-                            it.runtimePanel
-                        } else {
-                            buildEmptyRuntimePanelState()
-                        },
-                        currentThreadTitle = resolveCurrentThreadTitle(
+                    syncExecutionWatch(
+                        it.copy(
                             threadId = ready.threadId,
-                            entries = it.threadHistoryEntries,
-                            fallback = it.currentThreadTitle
-                        )
+                            messages = if (ready.resumed) it.messages else emptyList(),
+                            runtimePanel = if (ready.resumed) {
+                                it.runtimePanel
+                            } else {
+                                buildEmptyRuntimePanelState()
+                            },
+                            currentThreadTitle = resolveCurrentThreadTitle(
+                                threadId = ready.threadId,
+                                entries = it.threadHistoryEntries,
+                                fallback = it.currentThreadTitle
+                            )
+                        ),
+                        markActivity = false
                     )
                 }
                 Log.i(TAG, "Thread ready: ${ready.threadId} resumed=${ready.resumed}")
@@ -1249,14 +1434,17 @@ class CodexViewModel(
                 val snapshot = CodexThreadSnapshot.from(json)
                 val messages = parseSnapshotMessages(snapshot)
                 _uiState.update {
-                    it.copy(
-                        threadId = snapshot.threadId,
-                        messages = messages,
-                        currentThreadTitle = resolveCurrentThreadTitle(
+                    syncExecutionWatch(
+                        it.copy(
                             threadId = snapshot.threadId,
-                            entries = it.threadHistoryEntries,
-                            fallback = it.currentThreadTitle
-                        )
+                            messages = messages,
+                            currentThreadTitle = resolveCurrentThreadTitle(
+                                threadId = snapshot.threadId,
+                                entries = it.threadHistoryEntries,
+                                fallback = it.currentThreadTitle
+                            )
+                        ),
+                        markActivity = false
                     )
                 }
                 Log.i(TAG, "Thread snapshot: ${snapshot.threadId} msgs=${messages.size}")
@@ -1846,6 +2034,9 @@ class CodexViewModel(
                         }
                     }
                     "agentMessage" -> {
+                        if (isRuntimeOnlyAgentMessage(item)) {
+                            continue
+                        }
                         result.add(
                             ChatMessage(
                                 id = item.optString("id", UUID.randomUUID().toString()),
@@ -2134,17 +2325,18 @@ class CodexViewModel(
             }
 
             notification.method == "turn/started" -> {
-                _uiState.update { it.copy(errorMessage = null) }
+                _uiState.update { syncExecutionWatch(it.copy(errorMessage = null), markActivity = true) }
             }
 
             notification.method == "turn/completed" -> {
                 finalizeStreamingMessage()
-                _uiState.update(::finalizePlanWorkflowOnTurnSettled)
+                _uiState.update { syncExecutionWatch(finalizePlanWorkflowOnTurnSettled(it), markActivity = true) }
             }
 
             notification.method == "item/started" -> {
                 val item = params?.optJSONObject("item") ?: return
                 if (item.optString("type", "") != "agentMessage") return
+                if (isRuntimeOnlyAgentMessage(item)) return
                 val itemId = item.optString("id", "").trim().ifEmpty { UUID.randomUUID().toString() }
                 currentStreamingMessageId = itemId
                 upsertAssistantMessage(
@@ -2170,33 +2362,21 @@ class CodexViewModel(
                     applyRuntimeNotificationUpdate(notification.method, params)
                     return
                 }
-                val planId = plan.optString("id", "").trim().ifEmpty {
-                    currentStreamingMessageId ?: UUID.randomUUID().toString()
-                }
-                currentStreamingMessageId = planId
-                upsertAssistantMessage(
-                    itemId = planId,
-                    content = planText,
-                    streaming = true
-                )
+                trackPlanWorkflowText(planText)
                 applyRuntimeNotificationUpdate(notification.method, params)
             }
 
             notification.method == "item/plan/delta" -> {
-                val itemId = params?.optString("itemId", "")?.trim().orEmpty()
-                val planId = params?.optString("planId", "")?.trim().orEmpty()
                 val delta = params?.optString("delta", "") ?: ""
                 if (delta.isEmpty()) {
                     applyRuntimeNotificationUpdate(notification.method, params)
                     return
                 }
-                val streamId = itemId.ifEmpty {
-                    planId.ifEmpty {
-                        currentStreamingMessageId ?: UUID.randomUUID().toString()
-                    }
-                }
-                currentStreamingMessageId = streamId
-                appendAssistantDelta(streamId, delta)
+                val currentPlanText = getPlanWorkflowDisplayText(_uiState.value)
+                trackPlanWorkflowText(
+                    text = currentPlanText + delta,
+                    preserveWhitespace = true
+                )
                 applyRuntimeNotificationUpdate(notification.method, params)
             }
 
@@ -2204,6 +2384,7 @@ class CodexViewModel(
                 val item = params?.optJSONObject("item") ?: return
                 applyRuntimeSnapshotItem(item)
                 if (item.optString("type", "") != "agentMessage") return
+                if (isRuntimeOnlyAgentMessage(item)) return
                 val itemId = item.optString("id", "").trim().ifEmpty { currentStreamingMessageId.orEmpty() }
                 val text = item.optString("text", "")
                 if (itemId.isEmpty()) return
@@ -2239,6 +2420,7 @@ class CodexViewModel(
                     it.copy(
                         errorMessage = message,
                         planWorkflow = buildEmptyPlanWorkflowState(),
+                        executionWatch = CodexExecutionWatchState(),
                         runtimePanel = it.runtimePanel.copy(
                             warning = message,
                             warningTone = "error"
@@ -2268,18 +2450,24 @@ class CodexViewModel(
             _uiState.value.planWorkflow.phase == PLAN_PHASE_PLANNING
         ) {
             _uiState.update { state ->
-                state.copy(
-                    planWorkflow = state.planWorkflow.copy(
-                        phase = PLAN_PHASE_AWAITING_USER_INPUT,
-                        lastUserInputRequestId = request.requestId
-                    )
+                syncExecutionWatch(
+                    state.copy(
+                        planWorkflow = state.planWorkflow.copy(
+                            phase = PLAN_PHASE_AWAITING_USER_INPUT,
+                            lastUserInputRequestId = request.requestId
+                        )
+                    ),
+                    markActivity = true
                 )
             }
         }
         _uiState.update { state ->
-            state.copy(
-                pendingServerRequests = upsertPendingServerRequest(state.pendingServerRequests, request),
-                submittingServerRequestIds = state.submittingServerRequestIds - request.requestId
+            syncExecutionWatch(
+                state.copy(
+                    pendingServerRequests = upsertPendingServerRequest(state.pendingServerRequests, request),
+                    submittingServerRequestIds = state.submittingServerRequestIds - request.requestId
+                ),
+                markActivity = true
             )
         }
         Log.i(TAG, "Pending server request: ${request.requestKind} ${request.requestId}")
@@ -2305,12 +2493,16 @@ class CodexViewModel(
 
     private fun applyRuntimeNotificationUpdate(method: String, params: JSONObject?) {
         val update = buildRuntimeNotificationUpdate(method, params) ?: return
-        _uiState.update { state -> applyRuntimePanelUpdate(state, update) }
+        _uiState.update { state ->
+            syncExecutionWatch(applyRuntimePanelUpdate(state, update), markActivity = true)
+        }
     }
 
     private fun applyRuntimeSnapshotItem(item: JSONObject) {
         val update = buildRuntimeSnapshotUpdate(item) ?: return
-        _uiState.update { state -> applyRuntimePanelUpdate(state, update) }
+        _uiState.update { state ->
+            syncExecutionWatch(applyRuntimePanelUpdate(state, update), markActivity = true)
+        }
     }
 
     private fun buildRuntimePanelStateFromTurns(
@@ -2401,11 +2593,15 @@ class CodexViewModel(
     }
 
     private fun updateRuntimeSectionText(existing: String, update: RuntimePanelUpdate): String {
+        val normalizedUpdateText = stripAnsiText(update.text).trim()
+        if (normalizedUpdateText.isEmpty()) {
+            return existing
+        }
         return if (update.mode == "append") {
             val separator = if (existing.isNotEmpty() && !existing.endsWith('\n')) "\n" else ""
-            trimRuntimePanelText(existing + separator + update.text)
+            trimRuntimePanelText(existing + separator + normalizedUpdateText)
         } else {
-            trimRuntimePanelText(update.text)
+            trimRuntimePanelText(normalizedUpdateText)
         }
     }
 
@@ -2466,17 +2662,7 @@ class CodexViewModel(
             method.startsWith("item/reasoning/") -> RuntimePanelUpdate(
                 section = "reasoning",
                 mode = if (method.endsWith("Delta")) "append" else "replace",
-                text = pickFirstText(
-                    payload,
-                    listOf("delta"),
-                    listOf("text"),
-                    listOf("summary"),
-                    listOf("summaryText"),
-                    listOf("part", "text"),
-                    listOf("part", "summary"),
-                    listOf("item", "text"),
-                    listOf("item", "summary")
-                ).ifEmpty { summarizeRuntimeValue(payload) }
+                text = summarizeReasoningPayload(payload)
             )
             method == "item/fileChange/outputDelta" -> RuntimePanelUpdate(
                 section = "diff",
@@ -2534,13 +2720,7 @@ class CodexViewModel(
             "reasoning" -> RuntimePanelUpdate(
                 section = "reasoning",
                 mode = "replace",
-                text = pickFirstText(
-                    item,
-                    listOf("text"),
-                    listOf("summary"),
-                    listOf("content"),
-                    listOf("part", "text")
-                ).ifEmpty { summarizeRuntimeValue(item) }
+                text = summarizeReasoningPayload(item)
             )
             "plan" -> RuntimePanelUpdate(
                 section = "plan",
@@ -2584,7 +2764,7 @@ class CodexViewModel(
                     "reasoning" -> RuntimePanelUpdate(
                         section = "reasoning",
                         mode = "replace",
-                        text = pickFirstText(item, listOf("text")).ifEmpty { summarizeRuntimeValue(item) }
+                        text = summarizeReasoningPayload(item)
                     )
                     else -> null
                 }
@@ -3596,12 +3776,15 @@ class CodexViewModel(
 
     private fun appendMessage(role: ChatMessage.Role, content: String) {
         _uiState.update {
-            it.copy(
-                messages = it.messages + ChatMessage(
-                    id = UUID.randomUUID().toString(),
-                    role = role,
-                    content = content
-                )
+            syncExecutionWatch(
+                it.copy(
+                    messages = it.messages + ChatMessage(
+                        id = UUID.randomUUID().toString(),
+                        role = role,
+                        content = content
+                    )
+                ),
+                markActivity = role != ChatMessage.Role.USER
             )
         }
     }
@@ -3622,17 +3805,21 @@ class CodexViewModel(
                 val updated = nextState.messages.toMutableList()
                 updated[existingIndex] = updated[existingIndex].copy(
                     content = content,
-                    streaming = streaming
+                    streaming = streaming,
+                    timestamp = System.currentTimeMillis()
                 )
-                nextState.copy(messages = updated)
+                syncExecutionWatch(nextState.copy(messages = updated), markActivity = true)
             } else {
-                nextState.copy(
-                    messages = nextState.messages + ChatMessage(
-                        id = itemId,
-                        role = ChatMessage.Role.ASSISTANT,
-                        content = content,
-                        streaming = streaming
-                    )
+                syncExecutionWatch(
+                    nextState.copy(
+                        messages = nextState.messages + ChatMessage(
+                            id = itemId,
+                            role = ChatMessage.Role.ASSISTANT,
+                            content = content,
+                            streaming = streaming
+                        )
+                    ),
+                    markActivity = true
                 )
             }
         }
@@ -3655,17 +3842,21 @@ class CodexViewModel(
                 val existing = updated[existingIndex]
                 updated[existingIndex] = existing.copy(
                     content = existing.content + delta,
-                    streaming = true
+                    streaming = true,
+                    timestamp = System.currentTimeMillis()
                 )
-                nextState.copy(messages = updated)
+                syncExecutionWatch(nextState.copy(messages = updated), markActivity = true)
             } else {
-                nextState.copy(
-                    messages = nextState.messages + ChatMessage(
-                        id = itemId,
-                        role = ChatMessage.Role.ASSISTANT,
-                        content = delta,
-                        streaming = true
-                    )
+                syncExecutionWatch(
+                    nextState.copy(
+                        messages = nextState.messages + ChatMessage(
+                            id = itemId,
+                            role = ChatMessage.Role.ASSISTANT,
+                            content = delta,
+                            streaming = true
+                        )
+                    ),
+                    markActivity = true
                 )
             }
         }
@@ -3675,11 +3866,62 @@ class CodexViewModel(
         val streamId = currentStreamingMessageId ?: return
         _uiState.update { state ->
             val updated = state.messages.map { message ->
-                if (message.id == streamId) message.copy(streaming = false) else message
+                if (message.id == streamId) {
+                    message.copy(
+                        streaming = false,
+                        timestamp = System.currentTimeMillis()
+                    )
+                } else {
+                    message
+                }
             }
-            state.copy(messages = updated)
+            syncExecutionWatch(state.copy(messages = updated), markActivity = true)
         }
         currentStreamingMessageId = null
+    }
+
+    private fun syncExecutionWatch(
+        state: CodexUiState,
+        markActivity: Boolean,
+        nowMillis: Long = System.currentTimeMillis()
+    ): CodexUiState {
+        if (!shouldTrackExecutionWatch(state)) {
+            return if (
+                !state.executionWatch.active &&
+                state.executionWatch.runningSinceMillis == 0L &&
+                state.executionWatch.lastEventAtMillis == 0L
+            ) {
+                state
+            } else {
+                state.copy(executionWatch = CodexExecutionWatchState())
+            }
+        }
+        val startedAt = state.executionWatch.runningSinceMillis.takeIf { it > 0L } ?: nowMillis
+        val lastEventAt = when {
+            markActivity -> nowMillis
+            state.executionWatch.lastEventAtMillis > 0L -> state.executionWatch.lastEventAtMillis
+            else -> nowMillis
+        }
+        return state.copy(
+            executionWatch = CodexExecutionWatchState(
+                active = true,
+                runningSinceMillis = startedAt,
+                lastEventAtMillis = lastEventAt
+            )
+        )
+    }
+
+    private fun shouldTrackExecutionWatch(state: CodexUiState): Boolean {
+        if (state.errorMessage != null || state.connectionState == ConnectionState.ERROR) {
+            return false
+        }
+        if (state.pendingServerRequests.isNotEmpty()) {
+            return true
+        }
+        if (state.planWorkflow.phase == PLAN_PHASE_AWAITING_USER_INPUT) {
+            return true
+        }
+        return state.status.equals("running", ignoreCase = true)
     }
 
     override fun onCleared() {

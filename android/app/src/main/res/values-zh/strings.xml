@@ -206,6 +206,7 @@
     <string name="codex_native_status_quota_window_secondary">附加额度</string>
     <string name="codex_native_status_approval_count_one">1 个待确认请求</string>
     <string name="codex_native_status_approval_count_many">%1$d 个待确认请求</string>
+    <string name="codex_native_connection_action_unavailable">Codex 正在重连，请等待连接恢复后再重试。</string>
     <string name="codex_native_role_you">你</string>
     <string name="codex_native_role_assistant">助手</string>
     <string name="codex_native_role_system">系统</string>
@@ -214,6 +215,14 @@
     <string name="codex_native_new_thread">新任务</string>
     <string name="codex_native_retry">重试</string>
     <string name="codex_native_dismiss">关闭</string>
+    <string name="codex_native_runtime_stall_title">任务可能卡住了</string>
+    <string name="codex_native_runtime_stall_reason_waiting_approval">Codex 正在等待你的确认，但没有新的任务事件。</string>
+    <string name="codex_native_runtime_stall_reason_waiting_input">Codex 正在等待你的补充输入，但没有新的任务事件。</string>
+    <string name="codex_native_runtime_stall_reason_reconnecting">连接正在恢复，但没有新的任务事件。</string>
+    <string name="codex_native_runtime_stall_reason_stream_stalled">连接仍然存活，但事件流长时间没有新内容。</string>
+    <string name="codex_native_runtime_stall_reason_running_silent">任务仍标记为运行中，但长时间没有新的输出。</string>
+    <string name="codex_native_runtime_stall_detail">已运行 %1$s。最近事件 %2$s（%3$s前）。</string>
+    <string name="codex_native_runtime_stall_diagnostics">诊断</string>
     <string name="codex_native_plan_mode">计划</string>
     <string name="codex_native_runtime_chip">运行态</string>
     <string name="codex_native_threads_chip">线程</string>
@@ -238,6 +247,7 @@
     <string name="codex_native_plan_workflow_execute">执行此计划</string>
     <string name="codex_native_plan_workflow_continue">继续 / 追问更多</string>
     <string name="codex_native_plan_workflow_cancel">取消</string>
+    <string name="codex_native_plan_execution_log">执行确认计划</string>
     <string name="codex_native_selected">已选中</string>
     <string name="codex_native_model_picker_title">选择模型</string>
     <string name="codex_native_model_picker_subtitle">仅应用到下一次发送。</string>
@@ -248,10 +258,13 @@
     <string name="codex_native_sandbox_picker_title">选择沙盒模式</string>
     <string name="codex_native_sandbox_picker_subtitle">仅应用到下一次发送。</string>
     <string name="codex_native_sandbox_picker_default">使用会话默认值</string>
+    <string name="codex_native_sandbox_picker_default_short">会话默认</string>
     <string name="codex_native_sandbox_label">沙盒</string>
-    <string name="codex_native_sandbox_workspace_write">默认权限</string>
-    <string name="codex_native_sandbox_full_access">完全访问</string>
-    <string name="codex_native_sandbox_workspace_write_short">默认权限</string>
+    <string name="codex_native_sandbox_workspace_write">工作区可写（需确认）</string>
+    <string name="codex_native_sandbox_read_only">只读（需确认）</string>
+    <string name="codex_native_sandbox_full_access">完全访问（不询问）</string>
+    <string name="codex_native_sandbox_workspace_write_short">可写+确认</string>
+    <string name="codex_native_sandbox_read_only_short">只读</string>
     <string name="codex_native_sandbox_full_access_short">完全访问</string>
     <string name="codex_native_effort_none">无</string>
     <string name="codex_native_effort_minimal">极低</string>
@@ -304,6 +317,7 @@
     <string name="codex_native_debug_sample_user_input_freeform">纯自由输入样例</string>
     <string name="codex_native_thread_history_title">任务历史</string>
     <string name="codex_native_thread_history_subtitle">打开已保存的 Codex 线程，或管理其元数据。</string>
+    <string name="codex_native_thread_short_label">线程 %1$s</string>
     <string name="codex_native_thread_history_loading">正在加载已保存线程…</string>
     <string name="codex_native_thread_history_empty">暂无已保存线程。</string>
     <string name="codex_native_thread_refresh">刷新</string>

@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const EventEmitter = require('node:events');
+const fs = require('node:fs');
 
 function loadGatewayWithMocks({ verifyWsUpgrade, codexServiceClass }) {
     const authPath = require.resolve('../src/auth/basicAuth');
@@ -1759,7 +1760,7 @@ test('codex_turn accepts image-only input when attachments are present', async (
     ]);
 });
 
-test('codex_turn forwards localImage with data URL (url field)', async (t) => {
+test('codex_turn materializes localImage data URL into a temp path and cleans it after completion', async (t) => {
     MockCodexService.instances.length = 0;
     const registerTerminalGateway = loadGatewayWithMocks({
         verifyWsUpgrade: () => true,
@@ -1791,17 +1792,32 @@ test('codex_turn forwards localImage with data URL (url field)', async (t) => {
     const service = MockCodexService.instances[0];
     const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
     assert.ok(turnStart, 'turn/start should be invoked');
-    assert.deepEqual(turnStart.params.input, [
-        {
-            type: 'text',
-            text: 'analyze this image',
-            text_elements: []
-        },
-        {
-            type: 'localImage',
-            url: dataUrl
+    assert.equal(turnStart.params.input[0].type, 'text');
+    assert.equal(turnStart.params.input[0].text, 'analyze this image');
+    assert.equal(turnStart.params.input[1].type, 'localImage');
+    assert.equal(typeof turnStart.params.input[1].path, 'string');
+    assert.match(turnStart.params.input[1].path, /termlink-codex-images/i);
+    assert.equal(fs.existsSync(turnStart.params.input[1].path), true, 'temp image file must exist before turn completion');
+
+    const tempPath = turnStart.params.input[1].path;
+    const turnAck = ws.sent.find((entry) => entry.type === 'codex_turn_ack');
+    assert.ok(turnAck && turnAck.turn && typeof turnAck.turn.id === 'string', 'turn ack must include the turn id');
+    t.after(() => {
+        if (fs.existsSync(tempPath)) {
+            fs.unlinkSync(tempPath);
         }
-    ]);
+    });
+
+    service.emit('notification', {
+        method: 'turn/completed',
+        params: {
+            threadId: turnStart.params.threadId,
+            turn: { id: turnAck.turn.id }
+        }
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(fs.existsSync(tempPath), false, 'temp image file must be removed after turn completion');
 });
 
 test('codex approval request is forwarded to client and response is returned to bridge', async (t) => {

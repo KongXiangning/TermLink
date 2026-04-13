@@ -23,6 +23,10 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260413-1613-codex-approval-reprobe | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-1613-codex-approval-reprobe.md` |
+| CR-20260413-1556-codex-message-split-layout | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-1556-codex-message-split-layout.md` |
+| CR-20260413-1551-codex-512-status-validate | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-1551-codex-512-status-validate.md` |
+| CR-20260413-1515-codex-runtime-stall-warning | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-1515-codex-runtime-stall-warning.md` |
 | CR-20260413-0832-codex-android-followup-doc-init | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-0832-codex-android-followup-doc-init.md` |
 | CR-20260413-0228-windows-conpty-dll | REQ-20260222-server-admin-privilege-mode | active | a7c6159 | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-0228-windows-conpty-dll.md` |
 | CR-20260413-0215-codex-android-mtls-ws-fix | REQ-20260408-codex-native-android-migration | active | da5470a | @maintainer | 2026-04-13 |  | `docs/changes/records/CR-20260413-0215-codex-android-mtls-ws-fix.md` |

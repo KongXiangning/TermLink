@@ -1,3 +1,6 @@
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { verifyWsUpgrade } = require('../auth/basicAuth');
 const { isIpAllowed, normalizeIp } = require('../utils/ipCheck');
 const { generateAuditTraceId } = require('../utils/auditTrace');
@@ -50,6 +53,7 @@ function ensureSessionCodexState(session) {
             pendingServerRequests: [],
             tokenUsage: null,
             rateLimitState: null,
+            turnAttachmentTempFiles: {},
             threadExecutionContextSignature: null,
             interactionState: {
                 planMode: false,
@@ -67,6 +71,9 @@ function ensureSessionCodexState(session) {
     }
     if (!Object.prototype.hasOwnProperty.call(session.codexState, 'threadExecutionContextSignature')) {
         session.codexState.threadExecutionContextSignature = null;
+    }
+    if (!session.codexState.turnAttachmentTempFiles || typeof session.codexState.turnAttachmentTempFiles !== 'object') {
+        session.codexState.turnAttachmentTempFiles = {};
     }
     if (!session.codexState.interactionState || typeof session.codexState.interactionState !== 'object') {
         session.codexState.interactionState = {
@@ -281,7 +288,93 @@ function normalizeTurnAttachments(value) {
         .filter(Boolean);
 }
 
-function buildTurnInput(text, attachments) {
+const IMAGE_MIME_EXTENSION_MAP = {
+    'image/png': '.png',
+    'image/jpeg': '.jpg',
+    'image/jpg': '.jpg',
+    'image/gif': '.gif',
+    'image/webp': '.webp',
+    'image/bmp': '.bmp',
+    'image/tiff': '.tiff',
+    'image/heic': '.heic',
+    'image/heif': '.heif',
+    'image/svg+xml': '.svg'
+};
+
+function parseBase64DataUrl(value) {
+    const normalized = isNonEmptyString(value) ? value.trim() : '';
+    if (!normalized.startsWith('data:')) {
+        return null;
+    }
+    const commaIndex = normalized.indexOf(',');
+    if (commaIndex < 0) {
+        return null;
+    }
+    const header = normalized.slice(5, commaIndex);
+    const payload = normalized.slice(commaIndex + 1);
+    if (!header || !payload) {
+        return null;
+    }
+    const segments = header.split(';').map((segment) => segment.trim()).filter(Boolean);
+    const mimeType = segments[0] || 'application/octet-stream';
+    if (!segments.some((segment) => segment.toLowerCase() === 'base64')) {
+        return null;
+    }
+    try {
+        const bytes = Buffer.from(payload, 'base64');
+        if (bytes.length === 0) {
+            return null;
+        }
+        return { mimeType, bytes };
+    } catch (_) {
+        return null;
+    }
+}
+
+function getTempImageExtension(mimeType) {
+    const normalizedMimeType = isNonEmptyString(mimeType) ? mimeType.trim().toLowerCase() : '';
+    return IMAGE_MIME_EXTENSION_MAP[normalizedMimeType] || '.img';
+}
+
+async function materializeLocalImageAttachment(url) {
+    const parsed = parseBase64DataUrl(url);
+    if (!parsed) {
+        return null;
+    }
+    if (!parsed.mimeType.toLowerCase().startsWith('image/')) {
+        return null;
+    }
+    const tempRoot = path.join(os.tmpdir(), 'termlink-codex-images');
+    await fs.promises.mkdir(tempRoot, { recursive: true });
+    const tempPath = path.join(
+        tempRoot,
+        `local-image-${Date.now()}-${Math.random().toString(36).slice(2, 10)}${getTempImageExtension(parsed.mimeType)}`
+    );
+    await fs.promises.writeFile(tempPath, parsed.bytes);
+    return tempPath;
+}
+
+async function resolveTurnInputAttachments(attachments) {
+    const resolved = [];
+    const tempFilePaths = [];
+    for (const entry of normalizeTurnAttachments(attachments)) {
+        if (entry.type === 'localImage' && isNonEmptyString(entry.url)) {
+            const tempPath = await materializeLocalImageAttachment(entry.url);
+            if (tempPath) {
+                resolved.push({
+                    type: 'localImage',
+                    path: tempPath
+                });
+                tempFilePaths.push(tempPath);
+                continue;
+            }
+        }
+        resolved.push(entry);
+    }
+    return { attachments: resolved, tempFilePaths };
+}
+
+async function buildTurnInput(text, attachments) {
     const input = [];
     if (isNonEmptyString(text)) {
         input.push({
@@ -290,10 +383,71 @@ function buildTurnInput(text, attachments) {
             text_elements: []
         });
     }
-    normalizeTurnAttachments(attachments).forEach((entry) => {
+    const resolvedAttachments = await resolveTurnInputAttachments(attachments);
+    resolvedAttachments.attachments.forEach((entry) => {
         input.push(entry);
     });
-    return input;
+    return {
+        input,
+        tempFilePaths: resolvedAttachments.tempFilePaths
+    };
+}
+
+async function cleanupAttachmentTempFiles(filePaths) {
+    if (!Array.isArray(filePaths) || filePaths.length === 0) {
+        return;
+    }
+    await Promise.all(filePaths.map(async (filePath) => {
+        if (!isNonEmptyString(filePath)) {
+            return;
+        }
+        try {
+            await fs.promises.unlink(filePath);
+        } catch (error) {
+            if (!error || error.code !== 'ENOENT') {
+                console.warn('Failed to clean temporary Codex image file:', filePath, error && error.message ? error.message : error);
+            }
+        }
+    }));
+}
+
+function rememberTurnAttachmentTempFiles(session, turnId, filePaths) {
+    if (!isNonEmptyString(turnId) || !Array.isArray(filePaths) || filePaths.length === 0) {
+        return;
+    }
+    const state = ensureSessionCodexState(session);
+    if (!state.turnAttachmentTempFiles || typeof state.turnAttachmentTempFiles !== 'object') {
+        state.turnAttachmentTempFiles = {};
+    }
+    state.turnAttachmentTempFiles[turnId] = [
+        ...(Array.isArray(state.turnAttachmentTempFiles[turnId]) ? state.turnAttachmentTempFiles[turnId] : []),
+        ...filePaths
+    ];
+}
+
+async function cleanupTurnAttachmentTempFiles(session, turnId) {
+    if (!isNonEmptyString(turnId)) {
+        return;
+    }
+    const state = ensureSessionCodexState(session);
+    const turnAttachmentTempFiles = state.turnAttachmentTempFiles;
+    const filePaths = turnAttachmentTempFiles && Array.isArray(turnAttachmentTempFiles[turnId])
+        ? turnAttachmentTempFiles[turnId].slice()
+        : [];
+    if (turnAttachmentTempFiles && Object.prototype.hasOwnProperty.call(turnAttachmentTempFiles, turnId)) {
+        delete turnAttachmentTempFiles[turnId];
+    }
+    await cleanupAttachmentTempFiles(filePaths);
+}
+
+async function cleanupAllSessionAttachmentTempFiles(session) {
+    const state = ensureSessionCodexState(session);
+    const turnAttachmentTempFiles = state.turnAttachmentTempFiles && typeof state.turnAttachmentTempFiles === 'object'
+        ? state.turnAttachmentTempFiles
+        : {};
+    const filePaths = Object.values(turnAttachmentTempFiles).flatMap((entry) => Array.isArray(entry) ? entry : []);
+    state.turnAttachmentTempFiles = {};
+    await cleanupAttachmentTempFiles(filePaths);
 }
 
 const CODEX_REQUEST_METHOD_WHITELIST = new Set([
@@ -822,6 +976,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         if (method === 'turn/completed') {
             const completedTurnId = params && params.turn ? params.turn.id || null : null;
             let changed = false;
+            const tempFileTurnId = completedTurnId || state.currentTurnId || null;
+            if (tempFileTurnId) {
+                void cleanupTurnAttachmentTempFiles(session, tempFileTurnId);
+            }
             if (!completedTurnId || state.currentTurnId === completedTurnId) {
                 changed = changed || state.currentTurnId !== null;
                 state.currentTurnId = null;
@@ -837,6 +995,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 state.status = 'running';
                 return changed;
             } else if (statusType === 'idle') {
+                if (state.currentTurnId) {
+                    void cleanupTurnAttachmentTempFiles(session, state.currentTurnId);
+                }
                 const changed = state.status !== 'idle' || state.currentTurnId !== null;
                 state.status = 'idle';
                 state.currentTurnId = null;
@@ -921,6 +1082,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     const handleCodexFatal = (payload) => {
         const message = payload && payload.message ? payload.message : 'Codex app-server failed.';
         for (const session of sessionManager.sessions.values()) {
+            void cleanupAllSessionAttachmentTempFiles(session);
             sessionManager.broadcast(session, {
                 type: 'codex_error',
                 code: payload && payload.code ? payload.code : 'CODEX_FATAL',
@@ -1165,9 +1327,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             model: effectiveModel,
                             reasoningEffort: effectiveReasoningEffort
                         });
+                        const turnInput = await buildTurnInput(text, attachments);
                         const turnStartPayload = {
                             threadId,
-                            input: buildTurnInput(text, attachments),
+                            input: turnInput.input,
                             model: collaborationMode ? undefined : effectiveModel || undefined,
                             reasoningEffort: collaborationMode ? undefined : effectiveReasoningEffort || undefined,
                             effort: collaborationMode ? undefined : effectiveReasoningEffort || undefined,
@@ -1178,13 +1341,19 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             sandboxMode: nextTurnEffectiveConfig.sandboxMode || undefined,
                             collaborationMode: collaborationMode || undefined
                         };
-                        const turnStartResponse = await codexService.request('turn/start', turnStartPayload);
+                        let turnStartResponse;
+                        try {
+                            turnStartResponse = await codexService.request('turn/start', turnStartPayload);
+                        } catch (turnStartError) {
+                            await cleanupAttachmentTempFiles(turnInput.tempFilePaths);
+                            throw turnStartError;
+                        }
 
-                        const codexState = ensureSessionCodexState(session);
                         codexState.threadId = threadId;
                         codexState.currentTurnId = turnStartResponse && turnStartResponse.turn
                             ? turnStartResponse.turn.id || null
                             : null;
+                        rememberTurnAttachmentTempFiles(session, codexState.currentTurnId, turnInput.tempFilePaths);
                         codexState.status = 'running';
                         codexState.interactionState = {
                             planMode: false,
@@ -1448,6 +1617,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         codexService.removeListener('fatal', handleCodexFatal);
         codexService.removeListener('stderr', handleCodexStderr);
         codexService.removeListener('server_request', handleCodexServerRequest);
+        for (const session of sessionManager.sessions.values()) {
+            void cleanupAllSessionAttachmentTempFiles(session);
+        }
         codexService.stop();
     };
 }

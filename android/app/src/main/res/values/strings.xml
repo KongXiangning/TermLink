@@ -206,6 +206,7 @@
     <string name="codex_native_status_quota_window_secondary">Secondary quota</string>
     <string name="codex_native_status_approval_count_one">1 pending approval</string>
     <string name="codex_native_status_approval_count_many">%1$d pending approvals</string>
+    <string name="codex_native_connection_action_unavailable">Codex is reconnecting. Wait for the connection to recover, then try again.</string>
     <string name="codex_native_role_you">you</string>
     <string name="codex_native_role_assistant">assistant</string>
     <string name="codex_native_role_system">system</string>
@@ -214,6 +215,14 @@
     <string name="codex_native_new_thread">New Task</string>
     <string name="codex_native_retry">Retry</string>
     <string name="codex_native_dismiss">Dismiss</string>
+    <string name="codex_native_runtime_stall_title">Task may be stuck</string>
+    <string name="codex_native_runtime_stall_reason_waiting_approval">Codex is waiting for your approval, but no new task events arrived.</string>
+    <string name="codex_native_runtime_stall_reason_waiting_input">Codex is waiting for additional input, but no new task events arrived.</string>
+    <string name="codex_native_runtime_stall_reason_reconnecting">Connection is recovering, but no fresh task events arrived.</string>
+    <string name="codex_native_runtime_stall_reason_stream_stalled">Connection is alive, but the event stream has been quiet for too long.</string>
+    <string name="codex_native_runtime_stall_reason_running_silent">Task is still marked running, but no fresh output arrived for too long.</string>
+    <string name="codex_native_runtime_stall_detail">Running for %1$s. Last event %2$s (%3$s ago).</string>
+    <string name="codex_native_runtime_stall_diagnostics">Diagnostics</string>
     <string name="codex_native_plan_mode">plan</string>
     <string name="codex_native_runtime_chip">runtime</string>
     <string name="codex_native_threads_chip">threads</string>
@@ -238,6 +247,7 @@
     <string name="codex_native_plan_workflow_execute">Execute this plan</string>
     <string name="codex_native_plan_workflow_continue">Continue / Ask more</string>
     <string name="codex_native_plan_workflow_cancel">Cancel</string>
+    <string name="codex_native_plan_execution_log">Execute confirmed plan</string>
     <string name="codex_native_selected">Selected</string>
     <string name="codex_native_model_picker_title">Choose model</string>
     <string name="codex_native_model_picker_subtitle">Applies to the next turn only.</string>
@@ -248,10 +258,13 @@
     <string name="codex_native_sandbox_picker_title">Choose sandbox</string>
     <string name="codex_native_sandbox_picker_subtitle">Applies to the next turn only.</string>
     <string name="codex_native_sandbox_picker_default">Use session default</string>
+    <string name="codex_native_sandbox_picker_default_short">Session default</string>
     <string name="codex_native_sandbox_label">Sandbox</string>
-    <string name="codex_native_sandbox_workspace_write">Default Access</string>
-    <string name="codex_native_sandbox_full_access">Full Access</string>
-    <string name="codex_native_sandbox_workspace_write_short">Default Access</string>
+    <string name="codex_native_sandbox_workspace_write">Workspace Write (Ask)</string>
+    <string name="codex_native_sandbox_read_only">Read-only (Ask)</string>
+    <string name="codex_native_sandbox_full_access">Full Access (No Ask)</string>
+    <string name="codex_native_sandbox_workspace_write_short">Write + Ask</string>
+    <string name="codex_native_sandbox_read_only_short">Read-only</string>
     <string name="codex_native_sandbox_full_access_short">Full Access</string>
     <string name="codex_native_effort_none">None</string>
     <string name="codex_native_effort_minimal">Minimal</string>
@@ -304,6 +317,7 @@
     <string name="codex_native_debug_sample_user_input_freeform">Freeform input sample</string>
     <string name="codex_native_thread_history_title">Task History</string>
     <string name="codex_native_thread_history_subtitle">Open a saved Codex thread or manage its metadata.</string>
+    <string name="codex_native_thread_short_label">Thread %1$s</string>
     <string name="codex_native_thread_history_loading">Loading saved threads…</string>
     <string name="codex_native_thread_history_empty">No saved threads.</string>
     <string name="codex_native_thread_refresh">Refresh</string>
