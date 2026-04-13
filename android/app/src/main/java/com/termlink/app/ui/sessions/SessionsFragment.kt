@@ -1340,10 +1340,8 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     }
 
     private fun startAutoRefresh() {
-        if (isAutoRefreshActive || !shouldAutoRefreshNow()) {
-            stopAutoRefresh()
-            return
-        }
+        if (isAutoRefreshActive) return
+        if (!shouldAutoRefreshNow()) return
         isAutoRefreshActive = true
         mainHandler.removeCallbacks(autoRefreshRunnable)
         mainHandler.postDelayed(autoRefreshRunnable, AUTO_REFRESH_INTERVAL_MS)
