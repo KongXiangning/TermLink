@@ -1,9 +1,9 @@
 ---
 title: Codex Android 原生活动技能 chip 与结构化 skill 输入收口
-status: draft
+status: active
 record_id: CR-20260414-1412-codex-skill-chip-input
 req_id: REQ-20260408-codex-native-android-migration
-commit_ref: TBD
+commit_ref: 09d9db33a70d0552f22bb7146b2edfeaff43b4be
 owner: @maintainer
 last_updated: 2026-04-14
 source_of_truth: product
