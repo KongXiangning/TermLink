@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -1493,6 +1494,12 @@ private fun MessageBubble(message: ChatMessage) {
                 border = BorderStroke(1.dp, spec.border)
             ) {
                 Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                    if (message.role == ChatMessage.Role.USER && !message.activeSkill.isNullOrBlank()) {
+                        StaticSkillChip(
+                            skillName = message.activeSkill,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
                     if (message.role == ChatMessage.Role.TOOL && !message.toolName.isNullOrBlank()) {
                         Text(
                             text = message.toolName,
@@ -3150,55 +3157,18 @@ private fun SecondaryNavRow(
     onToggleThreadHistory: () -> Unit,
     onToggleRuntimePanel: () -> Unit,
     onToggleToolsPanel: () -> Unit,
-    onToggleNoticesPanel: () -> Unit,
-    onClearActiveSkill: () -> Unit = {}
+    onToggleNoticesPanel: () -> Unit
 ) {
-    val activeSkill = state.interactionState?.activeSkill?.takeIf { it.isNotBlank() }
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 6.dp, start = 10.dp, end = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(bottom = 6.dp, start = 10.dp, end = 10.dp)
     ) {
-        // Left: active skill chip (web-parity: .codex-skill-chip)
-        if (activeSkill != null) {
-            val maxLen = 12
-            val display = if (activeSkill.length > maxLen)
-                activeSkill.take(maxLen) + "…" else activeSkill
-            Box(
-                modifier = Modifier
-                    .widthIn(max = 140.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(AccentBlue.copy(alpha = 0.12f))
-                    .border(1.dp, AccentBlue.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
-                    .clickable(onClick = onClearActiveSkill)
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "🛠 $display",
-                        color = AccentBlue,
-                        fontSize = 10.sp,
-                        lineHeight = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    Text(
-                        text = " ×",
-                        color = TextMuted.copy(alpha = 0.6f),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        lineHeight = 12.sp
-                    )
-                }
-            }
-        } else {
-            Spacer(modifier = Modifier.width(0.dp))
-        }
-        // Right: nav buttons
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.align(Alignment.CenterEnd),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             if (state.capabilities?.historyList == true) {
                 SecondaryNavButton(
                     text = stringResource(R.string.codex_native_thread_history_title),
@@ -3862,6 +3832,7 @@ private fun InputComposer(
     var imageUrlDraft by remember { mutableStateOf("") }
     val composerFocusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val activeSkill = state.interactionState?.activeSkill?.takeIf { it.isNotBlank() }
 
     LaunchedEffect(state.planMode, state.planWorkflow.phase) {
         val shouldFocusComposer = state.planMode == true && (
@@ -3897,6 +3868,14 @@ private fun InputComposer(
             onShowSlashMenu(query)
             onSlashMenuQueryChanged(query)
         }
+    }
+
+    LaunchedEffect(activeSkill) {
+        if (activeSkill.isNullOrBlank()) {
+            return@LaunchedEffect
+        }
+        composerFocusRequester.requestFocus()
+        keyboardController?.show()
     }
 
     fun submit(): Boolean {
@@ -3947,8 +3926,7 @@ private fun InputComposer(
                     },
                     onToggleNoticesPanel = {
                         if (state.noticesPanel.visible) onHideNoticesPanel() else onShowNoticesPanel()
-                    },
-                    onClearActiveSkill = onClearActiveSkill
+                    }
                 )
             }
 
@@ -3996,6 +3974,14 @@ private fun InputComposer(
                         )
                     }
                 }
+            }
+
+            if (activeSkill != null) {
+                ComposerSkillChip(
+                    skillName = activeSkill,
+                    onClear = onClearActiveSkill,
+                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 4.dp)
+                )
             }
 
             Surface(
@@ -4048,7 +4034,11 @@ private fun InputComposer(
                         )
                         if (textFieldValue.text.isBlank()) {
                             Text(
-                                text = stringResource(R.string.codex_native_input_hint),
+                                text = if (activeSkill != null) {
+                                    stringResource(R.string.codex_native_input_hint_skill, activeSkill)
+                                } else {
+                                    stringResource(R.string.codex_native_input_hint)
+                                },
                                 color = TextMuted,
                                 fontSize = 13.sp
                             )
@@ -4138,6 +4128,96 @@ private fun InputComposer(
             }
         )
     }
+}
+
+@Composable
+private fun ComposerSkillChip(
+    skillName: String,
+    onClear: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.Start
+    ) {
+        SkillChipFrame(
+            modifier = Modifier.clickable(onClick = onClear)
+        ) {
+            SkillChipLabel(skillName = skillName)
+            Text(
+                text = stringResource(R.string.codex_native_skill_chip_remove),
+                color = TextMuted,
+                fontSize = 12.sp,
+                lineHeight = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun StaticSkillChip(
+    skillName: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.Start
+    ) {
+        SkillChipFrame {
+            SkillChipLabel(skillName = skillName)
+        }
+    }
+}
+
+@Composable
+private fun SkillChipFrame(
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(CodexBottomBarTokens.smallChipRadius))
+            .background(AccentBlue.copy(alpha = 0.14f))
+            .border(
+                width = 1.dp,
+                color = AccentBlue.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(CodexBottomBarTokens.smallChipRadius)
+            )
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        content = content
+    )
+}
+
+@Composable
+private fun SkillChipLabel(skillName: String) {
+    val maxLen = 28
+    val display = if (skillName.length > maxLen) {
+        skillName.take(maxLen) + "…"
+    } else {
+        skillName
+    }
+    Text(
+        text = stringResource(R.string.codex_native_skill_chip_prefix),
+        color = AccentBlue,
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        fontWeight = FontWeight.SemiBold
+    )
+    Text(
+        text = display,
+        color = TextPrimary,
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
 }
 
 @Composable

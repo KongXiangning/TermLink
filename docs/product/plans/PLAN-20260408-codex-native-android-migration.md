@@ -39,7 +39,7 @@ Phase 2 当前进度：
 5. `done`：`3.3-5` 计划模式工作流已补齐 planning / plan text streaming / ready confirmation / execute 入口，并完成 ready 卡片 `执行 / 继续 / 取消` 三动作真机验证；同时修正 `codex_state` 空闲快照重复 finalize 造成的继续规划回弹问题。
 6. `done`：`3.3-6` 线程历史列表 / 恢复 / 重命名 / 归档 / 分叉已完成原生状态、协议与 Compose UI 接线，并已在真机验证 sheet 打开、列表滚动、分叉生成新线程、恢复切换当前线程、归档动作触发，以及重命名保存后列表标题更新。
 7. `done`：`3.3-7` 运行态面板已补齐 Diff / Plan / Reasoning / Terminal Output 所需 capability、状态建模、通知消费、线程快照回放与底部 sheet 入口；本批继续完成 ANSI 清洗与运行态总览收口。
-8. `done`：`3.3-8` 工具面板已补齐技能列表请求、active skill 选择 / 清空、plan mode 轻量控制与 compact 触发入口。
+8. `done`：`3.3-8` 工具面板已补齐技能列表请求、active skill 选择 / 清空、plan mode 轻量控制与 compact 触发入口；最新 follow-up 已把 active skill 的可见状态收口到 composer 区域内联 chip，并在主聊天窗口的用户消息气泡中同步显示 skill chip；发送链路改为 `codex_turn` 显式携带 `interactionState.activeSkill`，gateway 再装配为结构化 `UserInput(type=skill, name, path)`，不再依赖前置状态同步，也不再把 skill 默认提示注入输入框正文。
 9. `done`：`3.3-9` Token / Context 用量与速率限制展示已补齐 `thread/tokenUsage/updated`、`account/rateLimits/updated` 消费、摘要回显与详情弹层；最新 follow-up 已继续完成 widget 常显、`0%` / explicit-percent 兼容、背景信息窗口 `Used / Tokens` 文案、compact 状态默认文案，以及 modal 内 rate-limit 差异移除。
 10. `done`：`3.3-10` 图片输入已补齐本地图片选择 / data URL 发送 / URL 输入待发送态；额度摘要、宽屏居中布局、底部操作区与 WebView fallback 入口一并补强。
 
@@ -72,7 +72,7 @@ Phase 4 当前进度：
     - `blocked`：计划模式下已不再复现 `request_user_input is unavailable in Default mode`，但最新真机重跑中，底部 `计划模式` 已明确亮起，发送 `ask me one multiple choice question using the built in input ui with choices yes and no not plain text` 后，助手先后仅返回“我先做一次最小化的非变更检查，然后用内置输入 UI 发出一个只有 yes/no 的单选问题。”与“工作目录探测失败了，我改用一次不依赖目录切换的只读检查，然后继续发起 UI 问题。”两段普通文本；原生页实际仍只出现通用 `awaiting_user_input` 工作流卡片（`等待补充信息 / 继续规划前需要你的补充信息 / 取消`），未下发带选项按钮的真实 client-handled 输入请求；该子项继续按 upstream/provider 阻塞处理。
     - `done`：原生 Codex 现已补上长时间无新事件时的“疑似卡住”告警卡：当任务仍标记为 `running` 但长时间没有新输出时，主界面会展示 `任务可能卡住了` 提示，并给出已运行时长、最近事件时间、`重试 / 诊断` 入口；诊断入口会直接拉起运行态面板。真机已通过 debug runtime sample 验证该告警卡与诊断入口均能落屏。
      - `done`：主聊天窗口消息已完成左右分栏收口；`MessageBubble` 已按角色拆成镜像布局 spec，用户消息改为右侧窄气泡、助手消息改为左侧窄气泡，`SYSTEM / TOOL / ERROR` 仍保留整行样式。真机 `MQS7N19402011743` 本轮已抓到新的右侧用户气泡样本；助手侧 live 样本受当前运行态停滞告警打断，但代码中同一套 `BubbleLayoutSpec` 已对助手分支做镜像配置，当前本地实现口径可判定完成。
-     - `done`：输入/选择控制区已回退到上一版紧凑样式：输入框上方的 `任务历史 / 运行态 / 扩展工具` 已收回右对齐轻量文字式次级导航；底部 footer 已恢复为单行旧布局，左侧依次为 `+`、`/`，中间为 `模型 / 推理 / 沙盒` quick setting，最右为背景信息百分比圆；`计划模式` 仅在激活时再以内联小 chip 出现。真机 `MQS7N19402011743` 已重新安装并抓到最新截图 `tmp/codex_control_style_revert_v5.png`，当前落屏口径与“先回旧版再继续设计”一致。
+    - `done`：输入/选择控制区已回退到上一版紧凑样式：输入框上方的 `任务历史 / 运行态 / 扩展工具` 已收回右对齐轻量文字式次级导航；底部 footer 已恢复为单行旧布局，左侧依次为 `+`、`/`，中间为 `模型 / 推理 / 沙盒` quick setting，最右为背景信息百分比圆；`计划模式` 仅在激活时再以内联小 chip 出现。后续又把 active skill 的可见状态收口到 composer 上方的轻量 chip，并在用户消息气泡中增加只读 skill chip，同时保持正文输入纯文本、不自动写入 skill 模板提示。真机 `MQS7N19402011743` 已重新安装并抓到最新截图 `tmp/codex_control_style_revert_v5.png`，当前落屏口径与“先回旧版再继续设计”一致。
      - `done`：Sessions drawer 的自动刷新已补成“只在真正可见时继续运行”的自校验循环：`SessionsFragment` 现在会在每轮 runnable 调度前重新确认自身仍处于 resumed + window focused + drawer content visible 状态，并在 `onStop()` 再做一次兜底清理；`CodexActivity` 关抽屉直开真机等待 25 秒后，logcat 中已不再出现后台 `/api/sessions` 轮询，重新打开抽屉时才恢复按需抓取 session 列表。
      - `done`：Codex 主聊天区的自动滚动已从“最后一条消息内容每变一次就立即滚到底”收敛为“只有列表仍贴底/接近底部时才跟随”，并对流式消息 delta 增加节流；这样用户主动上滑查看旧消息时不会再被强行拉回底部，持续 streaming 时也不会再每个 chunk 都触发一次 `scrollToItem(lastIndex)`。当前批次已完成 Android debug 编译与真机 `CodexActivity` 烟雾启动确认。
 

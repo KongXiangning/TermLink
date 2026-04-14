@@ -183,6 +183,9 @@
     <string name="codex_native_status_error">Connection error</string>
     <string name="codex_native_empty_hint">Ask anything...</string>
     <string name="codex_native_input_hint">Ask anything...</string>
+    <string name="codex_native_input_hint_skill">Skill %1$s selected, enter your specific request...</string>
+    <string name="codex_native_skill_chip_prefix">Skill</string>
+    <string name="codex_native_skill_chip_remove">×</string>
     <string name="codex_native_send">Send</string>
     <string name="codex_native_stop">Stop</string>
 

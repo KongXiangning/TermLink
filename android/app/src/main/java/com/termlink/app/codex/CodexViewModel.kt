@@ -1144,6 +1144,10 @@ class CodexViewModel(
     ): Boolean {
         val state = _uiState.value
         if (text.isBlank() && state.pendingFileMentions.isEmpty() && state.pendingImageAttachments.isEmpty()) return false
+        val turnInteractionState = CodexInteractionState(
+            planMode = forcePlanMode || state.planMode == true,
+            activeSkill = state.interactionState?.activeSkill
+        )
         val attachments = state.pendingImageAttachments.map { attachment ->
             CodexTurnAttachment(
                 type = attachment.type,
@@ -1159,7 +1163,8 @@ class CodexViewModel(
         val userMsg = ChatMessage(
             id = UUID.randomUUID().toString(),
             role = ChatMessage.Role.USER,
-            content = displayText
+            content = displayText,
+            activeSkill = turnInteractionState.activeSkill
         )
         val isPlanMode = forcePlanMode || state.planMode == true
         val effectiveModel = state.nextTurnOverrides.model ?: state.model
@@ -1183,6 +1188,7 @@ class CodexViewModel(
                 prompt = prompt,
                 threadId = state.threadId,
                 attachments = attachments,
+                interactionState = turnInteractionState,
                 model = state.nextTurnOverrides.model,
                 reasoningEffort = state.nextTurnOverrides.reasoningEffort,
                 sandbox = state.nextTurnOverrides.sandbox,
@@ -1225,7 +1231,11 @@ class CodexViewModel(
                     it.planWorkflow
                 } else {
                     buildEmptyPlanWorkflowState()
-                }
+                },
+                interactionState = CodexInteractionState(
+                    planMode = if (isPlanMode && clearPlanModeAfterSend) false else it.planMode == true,
+                    activeSkill = null
+                )
             )
         }
 
@@ -1239,8 +1249,11 @@ class CodexViewModel(
 
         // Clear plan mode after sending a plan turn (matches Web behavior)
         if (isPlanMode && clearPlanModeAfterSend) {
-            closePlanMode(clearWorkflow = false)
+            _uiState.update { current ->
+                current.copy(planMode = false)
+            }
         }
+        syncInteractionState(_uiState.value.interactionState ?: CodexInteractionState())
         return true
     }
 
@@ -1472,6 +1485,10 @@ class CodexViewModel(
                     val threadChanged = state.threadId != null && state.threadId != current.threadId
                     // planMode is managed locally — never override from server codex_state
                     val nextPlanMode = current.planMode ?: false
+                    val mergedInteractionState = mergeInteractionState(
+                        current = current.interactionState,
+                        incoming = state.interactionState
+                    )
                     val nextState = syncExecutionWatch(
                         recalculateNextTurnEffectiveConfig(
                             current.copy(
@@ -1486,7 +1503,7 @@ class CodexViewModel(
                                     entries = current.threadHistoryEntries,
                                     fallback = current.currentThreadTitle
                                 ),
-                                interactionState = state.interactionState ?: current.interactionState,
+                                interactionState = mergedInteractionState,
                                 cwd = state.cwd ?: current.cwd,
                                 serverNextTurnConfigBase = state.nextTurnEffectiveCodexConfig,
                                 pendingServerRequests = state.pendingServerRequests.filter { request ->
@@ -3182,11 +3199,19 @@ class CodexViewModel(
                 val ui = entry.optJSONObject("interface")
                 skills += CodexSkillEntry(
                     name = name,
-                    label = ui?.optStringOrNullCompat("displayName").orEmpty().ifBlank { name },
-                    description = ui?.optStringOrNullCompat("shortDescription")
+                    label = (
+                        ui?.optStringOrNullCompat("displayName")
+                            ?: ui?.optStringOrNullCompat("display_name")
+                        ).orEmpty().ifBlank { name },
+                    description = (
+                        ui?.optStringOrNullCompat("shortDescription")
+                            ?: ui?.optStringOrNullCompat("short_description")
+                        )
                         ?: entry.optStringOrNullCompat("description")
                         ?: "",
-                    defaultPrompt = ui?.optStringOrNullCompat("defaultPrompt") ?: "",
+                    defaultPrompt = ui?.optStringOrNullCompat("defaultPrompt")
+                        ?: ui?.optStringOrNullCompat("default_prompt")
+                        ?: "",
                     scope = entry.optStringOrNullCompat("scope") ?: ""
                 )
             }
@@ -3815,6 +3840,22 @@ class CodexViewModel(
         return CodexInteractionState(
             planMode = planMode,
             activeSkill = state.interactionState?.activeSkill
+        )
+    }
+
+    private fun mergeInteractionState(
+        current: CodexInteractionState?,
+        incoming: CodexInteractionState?
+    ): CodexInteractionState? {
+        if (current == null) {
+            return incoming
+        }
+        if (incoming == null) {
+            return current
+        }
+        return CodexInteractionState(
+            planMode = current.planMode,
+            activeSkill = incoming.activeSkill ?: current.activeSkill
         )
     }
 

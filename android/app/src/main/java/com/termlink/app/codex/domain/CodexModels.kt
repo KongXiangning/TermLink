@@ -25,6 +25,7 @@ data class ChatMessage(
     val content: String,
     val contentType: String = "text",
     val toolName: String? = null,
+    val activeSkill: String? = null,
     val timestamp: Long = System.currentTimeMillis(),
     val streaming: Boolean = false,
     val collapsible: Boolean = false,

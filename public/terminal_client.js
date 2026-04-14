@@ -2482,11 +2482,17 @@ function normalizeCodexSkillCatalog(result) {
             const ui = entry.interface && typeof entry.interface === 'object' ? entry.interface : {};
             skills.push({
                 name,
-                label: typeof ui.displayName === 'string' && ui.displayName.trim() ? ui.displayName.trim() : name,
+                label: typeof ui.displayName === 'string' && ui.displayName.trim()
+                    ? ui.displayName.trim()
+                    : (typeof ui.display_name === 'string' && ui.display_name.trim() ? ui.display_name.trim() : name),
                 description: typeof ui.shortDescription === 'string' && ui.shortDescription.trim()
                     ? ui.shortDescription.trim()
-                    : (typeof entry.description === 'string' ? entry.description.trim() : ''),
-                defaultPrompt: typeof ui.defaultPrompt === 'string' ? ui.defaultPrompt.trim() : '',
+                    : (typeof ui.short_description === 'string' && ui.short_description.trim()
+                        ? ui.short_description.trim()
+                        : (typeof entry.description === 'string' ? entry.description.trim() : '')),
+                defaultPrompt: typeof ui.defaultPrompt === 'string' && ui.defaultPrompt.trim()
+                    ? ui.defaultPrompt.trim()
+                    : (typeof ui.default_prompt === 'string' ? ui.default_prompt.trim() : ''),
                 scope: typeof entry.scope === 'string' ? entry.scope.trim() : ''
             });
         });

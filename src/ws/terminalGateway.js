@@ -191,6 +191,45 @@ function normalizeOptionalCwd(value) {
     return normalized.length > 0 ? normalized : null;
 }
 
+async function isExistingDirectoryCwd(value) {
+    const normalized = normalizeOptionalCwd(value);
+    if (!normalized) {
+        return false;
+    }
+
+    try {
+        const stats = await fs.promises.stat(normalized);
+        return stats.isDirectory();
+    } catch (error) {
+        return false;
+    }
+}
+
+async function resolveRunnableCodexCwd(session, requestedCwd) {
+    const candidates = [];
+    const pushCandidate = (value) => {
+        const normalized = normalizeOptionalCwd(value);
+        if (!normalized || candidates.includes(normalized)) {
+            return;
+        }
+        candidates.push(normalized);
+    };
+
+    pushCandidate(requestedCwd);
+    pushCandidate(session && session.cwd);
+    pushCandidate(session && session.workspaceRoot);
+    pushCandidate(process.env.TERMLINK_CODEX_WORKSPACE_DIR);
+    pushCandidate(process.cwd());
+
+    for (const candidate of candidates) {
+        if (await isExistingDirectoryCwd(candidate)) {
+            return candidate;
+        }
+    }
+
+    return String(process.env.TERMLINK_CODEX_WORKSPACE_DIR || process.cwd());
+}
+
 function getConfiguredCodexApprovalPolicy() {
     const value = String(process.env.TERMLINK_CODEX_APPROVAL_POLICY || 'never').trim();
     const valid = new Set(['untrusted', 'on-failure', 'on-request', 'never']);
@@ -382,13 +421,50 @@ async function resolveTurnInputAttachments(attachments) {
     return { attachments: resolved, tempFilePaths };
 }
 
-async function buildTurnInput(text, attachments) {
+function buildActiveSkillCandidates(cwd, skillName) {
+    const normalizedCwd = normalizeOptionalCwd(cwd);
+    const normalizedSkill = isNonEmptyString(skillName) ? skillName.trim() : '';
+    if (!normalizedCwd || !normalizedSkill) {
+        return [];
+    }
+    return [
+        path.join(normalizedCwd, '.codex', 'skills', normalizedSkill, 'SKILL.md'),
+        path.join(normalizedCwd, 'skills', normalizedSkill, 'SKILL.md'),
+        path.join(normalizedCwd, '.claude', 'skills', normalizedSkill, 'SKILL.md')
+    ];
+}
+
+async function resolveSkillInputPath(cwd, skillName) {
+    const candidates = buildActiveSkillCandidates(cwd, skillName);
+    for (const candidate of candidates) {
+        try {
+            const stats = await fs.promises.stat(candidate);
+            if (stats.isFile()) {
+                return candidate;
+            }
+        } catch (_) {
+            // Fall through to the next mirrored skill location.
+        }
+    }
+    return candidates[0] || null;
+}
+
+async function buildTurnInput(text, attachments, interactionState, cwd) {
     const input = [];
     if (isNonEmptyString(text)) {
         input.push({
             type: 'text',
             text,
             text_elements: []
+        });
+    }
+    if (interactionState && isNonEmptyString(interactionState.activeSkill)) {
+        const skillName = interactionState.activeSkill.trim();
+        const skillPath = await resolveSkillInputPath(cwd, skillName);
+        input.push({
+            type: 'skill',
+            name: skillName,
+            path: skillPath
         });
     }
     const resolvedAttachments = await resolveTurnInputAttachments(attachments);
@@ -651,16 +727,24 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
 
     const getEffectiveSessionCodexConfig = (session) => {
         const stored = getStoredSessionCodexConfig(session);
+        const effectiveSandbox = stored && stored.sandboxMode
+            ? stored.sandboxMode
+            : getConfiguredCodexSandboxMode();
+        let effectiveApproval;
+        if (stored && stored.approvalPolicy) {
+            effectiveApproval = stored.approvalPolicy;
+        } else {
+            const derived = derivePermissionOverrideFromSandboxMode(effectiveSandbox);
+            effectiveApproval = derived
+                ? derived.approvalPolicy
+                : getConfiguredCodexApprovalPolicy();
+        }
         return {
             defaultModel: stored ? stored.defaultModel : null,
             defaultReasoningEffort: stored ? stored.defaultReasoningEffort : null,
             defaultPersonality: stored ? stored.defaultPersonality : null,
-            approvalPolicy: stored && stored.approvalPolicy
-                ? stored.approvalPolicy
-                : getConfiguredCodexApprovalPolicy(),
-            sandboxMode: stored && stored.sandboxMode
-                ? stored.sandboxMode
-                : getConfiguredCodexSandboxMode()
+            approvalPolicy: effectiveApproval,
+            sandboxMode: effectiveSandbox
         };
     };
 
@@ -823,9 +907,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         const state = ensureSessionCodexState(session);
         const forceNewThread = options.forceNewThread === true;
         const requireExactExecutionContext = options.requireExactExecutionContext === true;
-        const requestedCwd = normalizeOptionalCwd(options.cwd)
-            || normalizeOptionalCwd(session.cwd)
-            || String(process.env.TERMLINK_CODEX_WORKSPACE_DIR || process.cwd());
+        const requestedCwd = await resolveRunnableCodexCwd(
+            session,
+            normalizeOptionalCwd(options.cwd)
+        );
         const effectiveCodexConfig = normalizeCodexConfig(options.codexConfig, {
             requirePolicyAndSandbox: false
         }) || getEffectiveSessionCodexConfig(session);
@@ -1342,7 +1427,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                     } else if (type === 'codex_turn') {
                         const text = isNonEmptyString(envelope.text) ? envelope.text.trim() : '';
                         const attachments = normalizeTurnAttachments(envelope.attachments);
-                        if (!text && attachments.length === 0) {
+                        const turnInteractionState = envelope.interactionState
+                            ? normalizeInteractionState(envelope.interactionState)
+                            : normalizeInteractionState(codexState.interactionState);
+                        if (!text && attachments.length === 0 && !isNonEmptyString(turnInteractionState.activeSkill)) {
                             sendWsEnvelope(ws, {
                                 type: 'codex_error',
                                 code: 'CODEX_EMPTY_INPUT',
@@ -1352,6 +1440,13 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         }
                         const turnOverrides = normalizeTurnOverrides(envelope);
                         const nextTurnEffectiveConfig = buildNextTurnEffectiveCodexConfig(session, turnOverrides);
+                        console.info('[gateway][codex][turn-config]', JSON.stringify({
+                            sessionId: session.id,
+                            clientSandbox: turnOverrides.sandbox || null,
+                            clientApprovalPolicy: turnOverrides.approvalPolicy || null,
+                            effectiveApproval: nextTurnEffectiveConfig.approvalPolicy,
+                            effectiveSandbox: nextTurnEffectiveConfig.sandboxMode
+                        }));
                         await ensureCodexServiceForSession(session, nextTurnEffectiveConfig);
 
                         const initialThreadId = await ensureCodexThreadForSession(session, {
@@ -1377,7 +1472,12 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             model: effectiveModel,
                             reasoningEffort: effectiveReasoningEffort
                         });
-                        const turnInput = await buildTurnInput(text, attachments);
+                        const turnInput = await buildTurnInput(
+                            text,
+                            attachments,
+                            turnInteractionState,
+                            envelope.cwd || session.cwd
+                        );
                         const turnStartPayload = {
                             threadId,
                             input: turnInput.input,
@@ -1471,6 +1571,14 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                                 type: 'codex_error',
                                 code: 'CODEX_INVALID_CWD',
                                 message: 'Codex cwd must be a non-empty string.'
+                            });
+                            return;
+                        }
+                        if (!await isExistingDirectoryCwd(nextCwd)) {
+                            sendWsEnvelope(ws, {
+                                type: 'codex_error',
+                                code: 'CODEX_INVALID_CWD_PATH',
+                                message: 'Codex cwd must be an existing directory.'
                             });
                             return;
                         }

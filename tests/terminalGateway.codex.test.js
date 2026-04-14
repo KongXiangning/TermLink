@@ -1731,6 +1731,122 @@ test('codex_turn forwards image and localImage inputs to turn/start', async (t) 
     ]);
 });
 
+test('codex_turn forwards the selected activeSkill as a structured skill input without mutating text', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        cwd: 'E:\\coding\\TermLink',
+        codexState: {
+            threadId: null,
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null,
+            interactionState: {
+                planMode: false,
+                activeSkill: 'adb-real-device-debug'
+            }
+        }
+    });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'install to my connected device'
+    }));
+
+    const service = MockCodexService.instances[0];
+    const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
+    assert.ok(turnStart, 'turn/start should be invoked');
+    assert.deepEqual(turnStart.params.input, [
+        {
+            type: 'text',
+            text: 'install to my connected device',
+            text_elements: []
+        },
+        {
+            type: 'skill',
+            name: 'adb-real-device-debug',
+            path: 'E:\\coding\\TermLink\\.codex\\skills\\adb-real-device-debug\\SKILL.md'
+        }
+    ]);
+});
+
+test('codex_turn prefers the turn interactionState activeSkill over the stale session snapshot', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        cwd: 'E:\\coding\\TermLink',
+        codexState: {
+            threadId: null,
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null,
+            interactionState: {
+                planMode: false,
+                activeSkill: null
+            }
+        }
+    });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: '执行',
+        interactionState: {
+            planMode: false,
+            activeSkill: 'adb-real-device-debug'
+        }
+    }));
+
+    const service = MockCodexService.instances[0];
+    const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
+    assert.ok(turnStart, 'turn/start should be invoked');
+    assert.deepEqual(turnStart.params.input, [
+        {
+            type: 'text',
+            text: '执行',
+            text_elements: []
+        },
+        {
+            type: 'skill',
+            name: 'adb-real-device-debug',
+            path: 'E:\\coding\\TermLink\\.codex\\skills\\adb-real-device-debug\\SKILL.md'
+        }
+    ]);
+});
+
 test('codex_turn accepts image-only input when attachments are present', async (t) => {
     MockCodexService.instances.length = 0;
     const registerTerminalGateway = loadGatewayWithMocks({

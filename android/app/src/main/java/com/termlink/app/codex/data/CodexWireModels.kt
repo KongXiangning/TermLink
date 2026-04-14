@@ -427,6 +427,7 @@ object CodexClientMessages {
         prompt: String,
         threadId: String? = null,
         attachments: List<CodexTurnAttachment>? = null,
+        interactionState: CodexInteractionState? = null,
         model: String? = null,
         reasoningEffort: String? = null,
         sandbox: String? = null,
@@ -445,6 +446,7 @@ object CodexClientMessages {
                 }
             )
         }
+        interactionState?.let { json.put("interactionState", it.toJson()) }
         model?.let { json.put("model", it) }
         reasoningEffort?.let { json.put("reasoningEffort", it) }
         sandbox?.let { json.put("sandbox", it) }
