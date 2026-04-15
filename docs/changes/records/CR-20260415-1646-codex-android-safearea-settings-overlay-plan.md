@@ -3,7 +3,7 @@ title: Codex Android 顶部安全区、配置可读性与浮层计划补充
 status: draft
 record_id: CR-20260415-1646-codex-android-safearea-settings-overlay-plan
 req_id: REQ-20260408-codex-native-android-migration
-commit_ref: TBD
+commit_ref: 545b2f7c95888f2809e82bf69b5655393faa8ac4
 owner: @maintainer
 last_updated: 2026-04-15
 source_of_truth: product

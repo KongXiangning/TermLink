@@ -3,7 +3,7 @@ title: Codex Android 任务历史、运行态与工具窗口 overlay 化实现
 status: draft
 record_id: CR-20260415-1721-codex-android-overlay-panels-impl
 req_id: REQ-20260408-codex-native-android-migration
-commit_ref: TBD
+commit_ref: 545b2f7c95888f2809e82bf69b5655393faa8ac4
 owner: @maintainer
 last_updated: 2026-04-15
 source_of_truth: product
@@ -46,6 +46,7 @@ git checkout <commit_ref>^ -- android/app/src/main/java/com/termlink/app/codex/u
 
 - 校验命令：`$env:JAVA_HOME='D:\ProgramCode\openjdk\jdk-21'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; Push-Location ./android; try { ./gradlew.bat :app:testDebugUnitTest --console=plain } finally { Pop-Location }`
 - 校验命令：`powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/validate-change-record.ps1 -RecordPath ./docs/changes/records/CR-20260415-1721-codex-android-overlay-panels-impl.md -Strict`
+- 真机验证：`tmp/device-validate/thread-history.png`、`tmp/device-validate/runtime-overlay-retry.png`、`tmp/device-validate/tools-overlay-retry.png` 显示历史/运行态/扩展工具均叠加在主窗口上方，底部导航、输入框与模型栏位置保持不变。
 - 结果：Android 单测任务通过；本批覆盖计划项：`PLAN-20260415-codex-android-menu-context-autoscroll-freeze` 的 `2.7`。
 
 ## 6. 后续修改入口（How to continue）

@@ -3,7 +3,7 @@ title: Codex Android 顶部安全区与前摄遮挡自适应实现
 status: draft
 record_id: CR-20260415-1700-codex-android-safearea-insets-impl
 req_id: REQ-20260408-codex-native-android-migration
-commit_ref: TBD
+commit_ref: 545b2f7c95888f2809e82bf69b5655393faa8ac4
 owner: @maintainer
 last_updated: 2026-04-15
 source_of_truth: product
@@ -56,6 +56,7 @@ git checkout <commit_ref>^ -- android/app/src/main/res/layout/activity_workspace
 
 - 校验命令：`$env:JAVA_HOME='D:\ProgramCode\openjdk\jdk-21'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; Push-Location ./android; try { ./gradlew.bat :app:testDebugUnitTest --console=plain } finally { Pop-Location }`
 - 校验命令：`powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/validate-change-record.ps1 -RecordPath ./docs/changes/records/CR-20260415-1700-codex-android-safearea-insets-impl.md -Strict`
+- 真机验证：`MQS7N19402011743 (VOG-AL00, Android 10)` 冷启动截图 `tmp/device-validate/launch.png` 与 `tmp/device-validate/launch-retry.png` 显示顶部 header 已避开前摄/挖孔区域。
 - 结果：Android 单测任务通过，说明本批 Kotlin/XML 改动可编译；本批覆盖计划项：`PLAN-20260415-codex-android-menu-context-autoscroll-freeze` 的 `2.5`。
 
 ## 6. 后续修改入口（How to continue）

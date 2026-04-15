@@ -3,7 +3,7 @@ title: Codex Android 配置界面暗色可读性实现
 status: draft
 record_id: CR-20260415-1709-codex-android-settings-readability-impl
 req_id: REQ-20260408-codex-native-android-migration
-commit_ref: TBD
+commit_ref: 545b2f7c95888f2809e82bf69b5655393faa8ac4
 owner: @maintainer
 last_updated: 2026-04-15
 source_of_truth: product
@@ -58,6 +58,7 @@ git checkout <commit_ref>^ -- android/app/src/main/res/drawable/bg_settings_dial
 
 - 校验命令：`$env:JAVA_HOME='D:\ProgramCode\openjdk\jdk-21'; $env:Path="$env:JAVA_HOME\bin;$env:Path"; Push-Location ./android; try { ./gradlew.bat :app:testDebugUnitTest --console=plain } finally { Pop-Location }`
 - 校验命令：`powershell -ExecutionPolicy Bypass -File ./skills/docs-requirement-sync/scripts/validate-change-record.ps1 -RecordPath ./docs/changes/records/CR-20260415-1709-codex-android-settings-readability-impl.md -Strict`
+- 真机验证：`tmp/device-validate/settings-actual.png` 显示暗色模式下设置页标题、说明文案、警告文本与卡片操作按钮均已具备可读对比度。
 - 结果：Android 单测任务通过；本批覆盖计划项：`PLAN-20260415-codex-android-menu-context-autoscroll-freeze` 的 `2.6`。
 
 ## 6. 后续修改入口（How to continue）
