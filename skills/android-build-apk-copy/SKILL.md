@@ -19,9 +19,10 @@ powershell -ExecutionPolicy Bypass -File ./skills/android-build-apk-copy/scripts
 ## Behavior
 
 1. Run `npm run android:sync`.
-2. Run `android\\gradlew.bat :app:assembleDebug`.
-3. Copy `android/app/build/outputs/apk/debug/app-debug.apk` to `E:\project\TermLink`.
-4. Default copied filename is auto-renamed with app version and build timestamp, for example `TermLink-v1.0-debug-20260328-021530.apk`.
+2. Remove any existing `android/app/build/outputs/apk/debug/app-debug.apk`.
+3. Run `android\\gradlew.bat clean :app:assembleDebug --no-build-cache --rerun-tasks` to force a fresh APK build.
+4. Copy `android/app/build/outputs/apk/debug/app-debug.apk` to `E:\project\TermLink`.
+5. Default copied filename is auto-renamed with app version and build timestamp, for example `TermLink-v1.0-debug-20260328-021530.apk`.
 
 ## Optional Parameters
 
@@ -35,3 +36,4 @@ powershell -ExecutionPolicy Bypass -File ./skills/android-build-apk-copy/scripts
 2. Keep default output directory as `E:\project\TermLink`.
 3. Build requires JDK 21 compatible environment.
 4. Unless `-OutName` is explicitly passed, copied APK name must include version and timestamp.
+5. This skill must force a fresh APK build instead of reusing an incremental Gradle output.

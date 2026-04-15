@@ -12,7 +12,7 @@ related_docs: [docs/product/requirements/REQ-20260408-codex-native-android-migra
 
 ## 0. 当前实施进度
 
-状态口径：`done` = 文档冻结已完成，`in_progress` = 当前仍在补文档或收敛口径，`pending` = 仅提出方向、尚未冻结。
+状态口径：`done` = 文档、实现与本轮验证均已收口，`in_progress` = 当前仍在补实现、补验证或补文档，`pending` = 仅提出方向、尚未冻结。
 
 1. `done`：本计划已建立并挂回 `REQ-20260408-codex-native-android-migration` 主线。
 2. `done`：slash/menu、背景信息窗口 token/context、系统状态栏策略与主消息区自动跟随规则均已完成文档冻结。
@@ -25,9 +25,10 @@ related_docs: [docs/product/requirements/REQ-20260408-codex-native-android-migra
 2. `done`：`2.2 背景信息窗口口径` 已完成本批收口：新任务会清空旧 context/token 展示，背景信息窗口只接受任务级 telemetry，缺少单次任务值时明确显示空值，空白 idle 态右下 context widget 已真机验证回落为 `--`，并移除 header 中重复承载的 token 摘要。
 3. `done`：`2.3 系统状态栏策略` 已完成两段收口：首批实现先解决 `CodexActivity` 会话抽屉打开态与系统状态栏堆叠问题；随后 follow-up 扩展为全应用规则，`MainShellActivity`、`SettingsActivity`、`WorkspaceActivity` 与 `CodexActivity` 在前台统一隐藏手机顶部系统状态栏，并在离开页面时恢复。Android 单测通过；`MQS7N19402011743` 真机截图与 `uiautomator dump` 已确认 MainShell、Settings、Codex 三页前台均不再暴露 SystemUI 顶部信息栏节点。
 4. `done`：`2.4 主消息区自动跟随` 已完成本批收口：主消息区默认自动跟随最新消息；手动回看历史后停止自动跟随，并在右下出现“返回最新”按钮；点击后列表回到底部且恢复自动跟随。`MQS7N19402011743` 真机已验证按钮出现与点击恢复两段交互。
-5. `done`：`2.5 顶部安全区与前摄遮挡` 已完成本批实现：新增共享 `statusBarSafeTopInset()` 口径，`MainShellActivity`、`SettingsActivity`、`WorkspaceActivity` 与 `CodexActivity` 在隐藏系统状态栏后统一按 `statusBars + DisplayCutout` 安全区补齐顶部 inset，不再依赖固定 top padding；`WorkspaceActivity` 也补齐了此前缺失的顶部/底部 inset 处理。Android 单测通过。
-6. `done`：`2.6 配置界面可读性` 已完成本批实现：设置页主列表、profile 卡片、profile 编辑弹窗、mTLS 状态文案以及确认/删除按钮统一收敛到高对比暗色 token；保留原有信息架构，不引入白天模式。Android 单测通过。
-7. `done`：`2.7 任务历史、运行态与扩展工具窗口层级` 已完成本批实现：线程历史、运行态、Notices 与扩展工具面板从主 `Column` 改为渲染在消息区 `Box` 的 overlay 层，保留原有宽度、padding、卡片样式与对齐方式，但不再挤压主窗口。Android 单测通过。
+5. `done`：`2.5 顶部安全区与前摄遮挡` 已完成本批实现：新增共享 `statusBarSafeTopInset()` 口径，`MainShellActivity`、`SettingsActivity`、`WorkspaceActivity` 与 `CodexActivity` 在隐藏系统状态栏后统一按 `statusBars + DisplayCutout` 安全区补齐顶部 inset，不再依赖固定 top padding；`WorkspaceActivity` 也补齐了此前缺失的顶部/底部 inset 处理。Android 单测通过，`MQS7N19402011743` 真机截图已确认顶部 header 避开前摄/挖孔区域。
+6. `done`：`2.6 配置界面可读性` 已完成本批实现：设置页主列表、profile 卡片、profile 编辑弹窗、mTLS 状态文案以及确认/删除按钮统一收敛到高对比暗色 token；保留原有信息架构，不引入白天模式。Android 单测通过，真机截图已确认暗色模式下标题、说明、警告与操作按钮具备可读对比度。
+7. `done`：`2.7 任务历史、运行态与扩展工具窗口层级` 已完成本批实现：线程历史、运行态、Notices 与扩展工具面板从主 `Column` 改为渲染在消息区 `Box` 的 overlay 层，保留原有宽度、padding、卡片样式与对齐方式，但不再挤压主窗口。Android 单测通过，`任务历史 / 运行态 / 扩展工具` 三组真机截图已确认主输入区与底部工具栏位置保持不变。
+8. `done`：本轮实现已提交到 `545b2f7 feat(android): finalize codex follow-up polish`，相关 CR 回填与验证补录已提交到 `5859bda docs(cr): backfill android follow-up commit refs`。
 
 ## 1. 文档定位
 
@@ -114,7 +115,7 @@ related_docs: [docs/product/requirements/REQ-20260408-codex-native-android-migra
 
 ## 3. 实施顺序
 
-本计划只冻结顺序，不执行代码：
+本计划最初用于冻结实施顺序；当前各批已按该顺序完成并留痕到对应 CR：
 
 1. `2.1 Slash 菜单与底部 /` 已完成。
 2. `2.2 背景信息窗口口径` 已完成。
@@ -153,8 +154,8 @@ related_docs: [docs/product/requirements/REQ-20260408-codex-native-android-migra
 
 1. 风险：若主迁移计划继续直接堆叠 follow-up 细节，后续会再次变成“一个总计划承载全部历史补丁”，难以维护。
    - 控制：本轮将细节抽离为独立冻结计划，主计划只保留索引关系。
-2. 风险：后续实现批次误把本计划的 `done` 理解为“代码已完成”。
-   - 控制：本计划在实施进度中明确 `done` 仅表示文档冻结完成，代码实现仍是 `pending`。
+2. 风险：后续新增 follow-up 若继续直接叠加到既有 `2.1` 至 `2.7` 文案，容易让“已收口规则”和“新问题”混在同一计划里。
+   - 控制：当前 `2.1` 至 `2.7` 已明确为已实现、已验证、已留痕；新 follow-up 必须新增 CR 或单独计划，不再覆写既有完成态。
 3. 风险：顶部安全区若继续依赖固定 `dp`，不同挖孔/刘海设备仍可能出现前摄遮挡。
    - 控制：文档明确要求优先依赖运行时安全区信息，不以机型硬编码作为主路径。
 4. 风险：配置界面可读性优化若失控，容易演变成主题系统重写或无意改变信息架构。

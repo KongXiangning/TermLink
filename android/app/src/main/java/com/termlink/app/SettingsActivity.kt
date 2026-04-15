@@ -19,6 +19,7 @@ import com.termlink.app.data.ServerConfigState
 import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.ui.settings.SettingsFragment
+import com.termlink.app.util.ProfileRestoreStateCleaner
 import com.termlink.app.util.setStatusBarHidden
 import com.termlink.app.util.statusBarSafeTopInset
 import com.termlink.app.web.WebViewClientCertCacheInvalidator
@@ -109,6 +110,7 @@ class SettingsActivity : AppCompatActivity(), SettingsFragment.Callbacks {
         externalSessionStore.deleteByProfile(profileId)
         basicCredentialStore.removePassword(profileId)
         val state = serverConfigStore.deleteProfile(profileId)
+        ProfileRestoreStateCleaner.clearDeletedProfileState(applicationContext, profileId, state)
         invalidateWebViewClientCertPreferencesAfterCommittedChange()
         return state
     }

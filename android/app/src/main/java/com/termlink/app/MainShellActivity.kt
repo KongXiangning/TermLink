@@ -67,6 +67,7 @@ import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import com.termlink.app.util.LocaleHelper
+import com.termlink.app.util.ProfileRestoreStateCleaner
 import com.termlink.app.util.setStatusBarHidden
 import com.termlink.app.util.statusBarSafeTopInset
 
@@ -201,9 +202,9 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         webViewClientCertCacheInvalidator = WebViewClientCertCacheInvalidator()
         syncProfileState(serverConfigStore.loadState(), inject = false)
         currentTerminalProfileId = resolveInitialProfileId()
-        lastSessionId = resolveInitialSessionId()
-        lastSessionMode = resolveInitialSessionMode()
-        lastSessionCwd = resolveInitialSessionCwd()
+        lastSessionId = resolveInitialSessionId(currentTerminalProfileId)
+        lastSessionMode = resolveInitialSessionMode(currentTerminalProfileId, lastSessionId)
+        lastSessionCwd = resolveInitialSessionCwd(currentTerminalProfileId, lastSessionId)
         terminalStatusText = defaultBridgeIdleStatus()
         updateStatus(terminalStatusText)
 
@@ -613,6 +614,12 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         externalSessionStore.deleteByProfile(profileId)
         basicCredentialStore.removePassword(profileId)
         val state = serverConfigStore.deleteProfile(profileId)
+        ProfileRestoreStateCleaner.clearDeletedProfileState(applicationContext, profileId, state)
+        if (currentTerminalProfileId == profileId) {
+            persistLastSessionId("")
+            persistLastSessionMode(SessionMode.TERMINAL)
+            persistLastSessionCwd(null)
+        }
         syncProfileState(state, inject = false)
         invalidateWebViewClientCertPreferencesAfterCommittedChange()
         return state
@@ -917,7 +924,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         return activeProfile?.id.orEmpty()
     }
 
-    private fun resolveInitialSessionId(): String {
+    private fun resolveInitialSessionId(resolvedProfileId: String): String {
         val fromUri = intent?.data?.getQueryParameter("sessionId")
         if (!fromUri.isNullOrBlank()) {
             return fromUri
@@ -926,12 +933,18 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         if (!fromExtra.isNullOrBlank()) {
             return fromExtra
         }
-        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            .getString(PREF_LAST_SESSION_ID, "")
-            .orEmpty()
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val persistedProfileId = prefs.getString(PREF_LAST_PROFILE_ID, "")?.trim().orEmpty()
+        if (persistedProfileId.isNotBlank() && persistedProfileId != resolvedProfileId) {
+            return ""
+        }
+        return prefs.getString(PREF_LAST_SESSION_ID, "").orEmpty()
     }
 
-    private fun resolveInitialSessionMode(): SessionMode {
+    private fun resolveInitialSessionMode(
+        resolvedProfileId: String,
+        resolvedSessionId: String
+    ): SessionMode {
         val fromUri = intent?.data?.getQueryParameter("sessionMode")
         if (!fromUri.isNullOrBlank()) {
             return SessionMode.fromWireValue(fromUri)
@@ -940,13 +953,24 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         if (!fromExtra.isNullOrBlank()) {
             return SessionMode.fromWireValue(fromExtra)
         }
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val persistedProfileId = prefs.getString(PREF_LAST_PROFILE_ID, "")?.trim().orEmpty()
+        if (
+            resolvedSessionId.isBlank() &&
+            persistedProfileId.isNotBlank() &&
+            persistedProfileId != resolvedProfileId
+        ) {
+            return SessionMode.TERMINAL
+        }
         return SessionMode.fromWireValue(
-            getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                .getString(PREF_LAST_SESSION_MODE, SessionMode.CODEX.wireValue)
+            prefs.getString(PREF_LAST_SESSION_MODE, SessionMode.CODEX.wireValue)
         )
     }
 
-    private fun resolveInitialSessionCwd(): String? {
+    private fun resolveInitialSessionCwd(
+        resolvedProfileId: String,
+        resolvedSessionId: String
+    ): String? {
         val fromUri = intent?.data?.getQueryParameter("cwd")
         if (!fromUri.isNullOrBlank()) {
             return fromUri.trim()
@@ -955,8 +979,16 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         if (!fromExtra.isNullOrBlank()) {
             return fromExtra.trim()
         }
-        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-            .getString(PREF_LAST_SESSION_CWD, null)
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val persistedProfileId = prefs.getString(PREF_LAST_PROFILE_ID, "")?.trim().orEmpty()
+        if (
+            resolvedSessionId.isBlank() &&
+            persistedProfileId.isNotBlank() &&
+            persistedProfileId != resolvedProfileId
+        ) {
+            return null
+        }
+        return prefs.getString(PREF_LAST_SESSION_CWD, null)
             ?.trim()
             ?.takeIf { it.isNotBlank() }
     }

@@ -2,17 +2,20 @@
 title: Codex 原生 Android 迁移计划
 status: done
 owner: @maintainer
-last_updated: 2026-04-13
+last_updated: 2026-04-15
 source_of_truth: product
 related_code: [android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/CodexTaskForegroundService.kt, android/app/src/main/java/com/termlink/app/WorkspaceActivity.kt, android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt, android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt, public/workspace.js]
-related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/REQ-20260408-codex-native-android-migration.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/architecture/ARCH-20260408-codex-native-android-migration.md, docs/architecture/ROADMAP.md, docs/product/plans/ALIGNMENT-20260410-codex-web-android-ui-equivalence.md]
+related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/REQ-20260408-codex-native-android-migration.md, docs/product/requirements/REQ-20260309-codex-capability-mvp.md, docs/architecture/ARCH-20260408-codex-native-android-migration.md, docs/architecture/ROADMAP.md, docs/product/plans/ALIGNMENT-20260410-codex-web-android-ui-equivalence.md, docs/product/plans/PLAN-20260415-codex-android-menu-context-autoscroll-freeze.md]
 ---
 
 # PLAN-20260408-codex-native-android-migration
 
 ## 0. 当前实施进度
 
-状态口径：`done` = 已实现并有 CR 留痕，`in_progress` = 当前批次进行中，`pending` = 尚未实现。
+状态口径：
+
+1. 实现批次：`done` = 已实现并有 CR 留痕，`in_progress` = 当前批次进行中，`pending` = 尚未实现。
+2. 文档批次：`done` = 文档冻结或索引抽离已完成，`in_progress` = 文档仍在收敛，`pending` = 尚未建立对应文档。
 
 1. `done`：Phase 0 新入口基础设施
 2. `done`：Phase 1 原生聊天主链路
@@ -27,6 +30,7 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/R
 11. `done`：Phase 4 follow-up drawer preview/gesture tuning（已加宽左缘拖拽有效边缘、将会话抽屉宽度收敛到约 3/4 屏，并消除拖拽过程中的黑底空白）
 12. `done`：Phase 4 follow-up Codex mTLS websocket parity（原生 Codex 现已在 mTLS 保护的 profile 场景下复用同一套客户端证书配置完成 `/api/ws-ticket` 与 WebSocket upgrade，真机不再出现“Sessions API 200 但 Codex WS 403”）
 13. `blocked`：Phase 4 follow-up stability / plan UX / runtime readability repairs（本批已完成原生 Codex transient reconnect 噪音抑制、计划正文去重与紧凑执行入口、运行态 Diff/Reasoning 摘要可读性补强，以及 header 长线程 ID 缩写；图片 URL 与本地图片路径现均已完成真机真实上行验证，本地图片通过 gateway data URL -> temp file -> `localImage.path` 桥接后已能直接驱动模型分析截图内容；最新真机还确认 Android quick setting 已继续收敛到更具体的配置语义：model/list 会在连上后预加载，不再等点开模型 picker 才请求；footer 中模型与沙盒也不再显示“默认 / 会话默认”占位，而是直接回显具体 model 与具体沙盒档位；输入框、`任务历史 / 运行态 / 扩展工具` 次级导航、底部快捷按钮与 quick setting 已回退到上一版更紧凑的旧样式；本轮又补上 sessions drawer 隐藏态的轮询自校验，真机直开 `CodexActivity` 且保持抽屉关闭超过一个轮询周期时，已不再后台刷 `/api/sessions`；主聊天窗口的自动滚动也已收敛为“仅在列表仍贴底时跟随”，并对流式 delta 做节流，避免每个 streaming chunk 都强制 `scrollToItem(lastIndex)`；进一步的非 Plan Mode 真机探针已确认 Android 会把 `interactionState.planMode=false` 正确同步到 gateway，发出的 turn 也确实是 `collaborationMode=null + approvalPolicy=on-request + sandboxMode=workspace-write`，但 provider 仍只返回普通文本审批确认，未下发真实 `handledBy=client` 请求；计划模式下的 choice-based input 探针也仅落到通用 `awaiting_user_input` 卡片而未下发带选项按钮的真实 client-handled 请求；因此 item 13 当前按 upstream/provider 阻塞处理，等待上游能力变化后再重开）
+14. `done`：Phase 4 follow-up docs freeze extracted to standalone plan（本批文档冻结已抽离为独立计划 [PLAN-20260415-codex-android-menu-context-autoscroll-freeze.md](/E:/coding/TermLink/docs/product/plans/PLAN-20260415-codex-android-menu-context-autoscroll-freeze.md)；主迁移计划仅保留索引，不再内嵌该批细节）
 
 Phase 0 ~ Phase 4 主线已完成实施并通过编译 / 真机验证；当前 Codex 用户路径已固定到原生 `CodexActivity`，`MainShellActivity` 仅继续承载 sessions/workspace 壳层能力，设置页已切到独立 `SettingsActivity`。2026-04-13 新一轮真机 follow-up 已完成 reconnect 噪音抑制、计划模式正文去重、运行态摘要补强与 header 稳定性第一批修复，并补齐本地图片 data URL 到 app-server `localImage.path` 的服务端桥接；真机已拿到本地截图成功驱动模型分析的正向样本。后续 trace 又进一步确认端上 plan-mode 开关与 ask-mode runtime 配置均已正确入链；但当前 provider / upstream 仍未下发真实 client-handled approval request 与带选项按钮的 client-handled user-input request，因此该 follow-up 现转为 `blocked`，等待上游能力变化后再继续闭环。
 
@@ -39,7 +43,7 @@ Phase 2 当前进度：
 5. `done`：`3.3-5` 计划模式工作流已补齐 planning / plan text streaming / ready confirmation / execute 入口，并完成 ready 卡片 `执行 / 继续 / 取消` 三动作真机验证；同时修正 `codex_state` 空闲快照重复 finalize 造成的继续规划回弹问题。
 6. `done`：`3.3-6` 线程历史列表 / 恢复 / 重命名 / 归档 / 分叉已完成原生状态、协议与 Compose UI 接线，并已在真机验证 sheet 打开、列表滚动、分叉生成新线程、恢复切换当前线程、归档动作触发，以及重命名保存后列表标题更新。
 7. `done`：`3.3-7` 运行态面板已补齐 Diff / Plan / Reasoning / Terminal Output 所需 capability、状态建模、通知消费、线程快照回放与底部 sheet 入口；本批继续完成 ANSI 清洗与运行态总览收口。
-8. `done`：`3.3-8` 工具面板已补齐技能列表请求、active skill 选择 / 清空、plan mode 轻量控制与 compact 触发入口；最新 follow-up 已把 active skill 的可见状态收口到 composer 区域内联 chip，并在主聊天窗口的用户消息气泡中同步显示 skill chip；发送链路改为 `codex_turn` 显式携带 `interactionState.activeSkill`，gateway 再装配为结构化 `UserInput(type=skill, name, path)`，不再依赖前置状态同步，也不再把 skill 默认提示注入输入框正文。
+8. `done`：`3.3-8` 工具面板已补齐技能列表请求、active skill 选择 / 清空、plan mode 轻量控制与 compact 触发入口；最新 follow-up 已把 active skill 的可见状态收口到 composer 区域内联 chip，并在主聊天窗口的用户消息气泡中同步显示 skill chip；发送链路改为 `codex_turn` 显式携带 `interactionState.activeSkill`，gateway 再装配为结构化 `UserInput(type=skill, name, path)`，不再依赖前置状态同步，也不再把 skill 默认提示注入输入框正文。后续又补上 thread read / snapshot 回放时的 skill part 解析，确保历史用户消息在重建后仍保留 skill chip，但不显示完整本地路径。
 9. `done`：`3.3-9` Token / Context 用量与速率限制展示已补齐 `thread/tokenUsage/updated`、`account/rateLimits/updated` 消费、摘要回显与详情弹层；最新 follow-up 已继续完成 widget 常显、`0%` / explicit-percent 兼容、背景信息窗口 `Used / Tokens` 文案、compact 状态默认文案，以及 modal 内 rate-limit 差异移除。
 10. `done`：`3.3-10` 图片输入已补齐本地图片选择 / data URL 发送 / URL 输入待发送态；额度摘要、宽屏居中布局、底部操作区与 WebView fallback 入口一并补强。
 
@@ -72,8 +76,9 @@ Phase 4 当前进度：
     - `blocked`：计划模式下已不再复现 `request_user_input is unavailable in Default mode`，但最新真机重跑中，底部 `计划模式` 已明确亮起，发送 `ask me one multiple choice question using the built in input ui with choices yes and no not plain text` 后，助手先后仅返回“我先做一次最小化的非变更检查，然后用内置输入 UI 发出一个只有 yes/no 的单选问题。”与“工作目录探测失败了，我改用一次不依赖目录切换的只读检查，然后继续发起 UI 问题。”两段普通文本；原生页实际仍只出现通用 `awaiting_user_input` 工作流卡片（`等待补充信息 / 继续规划前需要你的补充信息 / 取消`），未下发带选项按钮的真实 client-handled 输入请求；该子项继续按 upstream/provider 阻塞处理。
     - `done`：原生 Codex 现已补上长时间无新事件时的“疑似卡住”告警卡：当任务仍标记为 `running` 但长时间没有新输出时，主界面会展示 `任务可能卡住了` 提示，并给出已运行时长、最近事件时间、`重试 / 诊断` 入口；诊断入口会直接拉起运行态面板。真机已通过 debug runtime sample 验证该告警卡与诊断入口均能落屏。
      - `done`：主聊天窗口消息已完成左右分栏收口；`MessageBubble` 已按角色拆成镜像布局 spec，用户消息改为右侧窄气泡、助手消息改为左侧窄气泡，`SYSTEM / TOOL / ERROR` 仍保留整行样式。真机 `MQS7N19402011743` 本轮已抓到新的右侧用户气泡样本；助手侧 live 样本受当前运行态停滞告警打断，但代码中同一套 `BubbleLayoutSpec` 已对助手分支做镜像配置，当前本地实现口径可判定完成。
-    - `done`：输入/选择控制区已回退到上一版紧凑样式：输入框上方的 `任务历史 / 运行态 / 扩展工具` 已收回右对齐轻量文字式次级导航；底部 footer 已恢复为单行旧布局，左侧依次为 `+`、`/`，中间为 `模型 / 推理 / 沙盒` quick setting，最右为背景信息百分比圆；`计划模式` 仅在激活时再以内联小 chip 出现。后续又把 active skill 的可见状态收口到 composer 上方的轻量 chip，并在用户消息气泡中增加只读 skill chip，同时保持正文输入纯文本、不自动写入 skill 模板提示。真机 `MQS7N19402011743` 已重新安装并抓到最新截图 `tmp/codex_control_style_revert_v5.png`，当前落屏口径与“先回旧版再继续设计”一致。
+    - `done`：输入/选择控制区已回退到上一版紧凑样式：输入框上方的 `任务历史 / 运行态 / 扩展工具` 已收回右对齐轻量文字式次级导航；底部 footer 已恢复为单行旧布局，左侧依次为 `+`、`/`，中间为 `模型 / 推理 / 沙盒` quick setting，最右为背景信息百分比圆；`计划模式` 仅在激活时再以内联小 chip 出现。后续又把 active skill 的可见状态收口到 composer 上方的轻量 chip，并在用户消息气泡中增加只读 skill chip，同时保持正文输入纯文本、不自动写入 skill 模板提示；最新 follow-up 又补上 thread read / snapshot 回放时的 `type=skill` 结构化内容解析，使历史回看时仍能看到 skill chip，但不暴露 `SKILL.md` 路径。本轮继续收口 footer 触控：`+` 与 `/` 已改成独立图标按钮以降低误触，并按真机反馈继续缩小到更贴近整条 footer 的视觉重量；`+` 现直接打开系统文件选择器，图片继续作为图片附件发送，非图片则落为文件引用 chip，URL 图片入口移除。当前在线真机为 `da34332c`，已作为本轮安装验证目标。
      - `done`：Sessions drawer 的自动刷新已补成“只在真正可见时继续运行”的自校验循环：`SessionsFragment` 现在会在每轮 runnable 调度前重新确认自身仍处于 resumed + window focused + drawer content visible 状态，并在 `onStop()` 再做一次兜底清理；`CodexActivity` 关抽屉直开真机等待 25 秒后，logcat 中已不再出现后台 `/api/sessions` 轮询，重新打开抽屉时才恢复按需抓取 session 列表。
+     - `done`：删除 profile 后的陈旧会话恢复链路已补收口：`SettingsActivity/MainShellActivity` 删除配置时会同步清理 `termlink_shell + codex_native_restore` 中指向该 profile 的恢复态；`MainShellActivity` 启动时不再把新 active profile 与旧 `sessionId` 拼成跨 profile 恢复选择；`CodexActivity` 在 `uiState.sessionId` 变化时也会同步刷新自身 launch intent，收到 `4404 Session not found or expired` 后会清理 stale restore state 与旧 extras，再走自动重建，不再无限拿陈旧会话重连。
      - `done`：Codex 主聊天区的自动滚动已从“最后一条消息内容每变一次就立即滚到底”收敛为“只有列表仍贴底/接近底部时才跟随”，并对流式消息 delta 增加节流；这样用户主动上滑查看旧消息时不会再被强行拉回底部，持续 streaming 时也不会再每个 chunk 都触发一次 `scrollToItem(lastIndex)`。当前批次已完成 Android debug 编译与真机 `CodexActivity` 烟雾启动确认。
 
 Phase 2 协议对齐盘点（截至 `3.3-3` live debug）：
@@ -315,6 +320,14 @@ Phase 2 协议对齐盘点（截至 `3.3-3` live debug）：
 
 1. [CR-20260412-0215-codex-context-usage-style-polish.md](/E:/coding/TermLink/docs/changes/records/CR-20260412-0215-codex-context-usage-style-polish.md)
 
+#### 4.13 Follow-up 文档冻结批次（2026-04-15 slash/menu + context usage + drawer system bars + autoscroll）
+
+本批的冻结细节已抽离到独立计划：
+
+1. [PLAN-20260415-codex-android-menu-context-autoscroll-freeze.md](/E:/coding/TermLink/docs/product/plans/PLAN-20260415-codex-android-menu-context-autoscroll-freeze.md)
+
+主迁移计划在此只保留总索引关系，不再重复展开 slash/menu、背景信息窗口、系统状态栏与自动跟随的逐条冻结内容。
+
 ## 5. 验收标准
 
 本计划进入实施后，每个阶段至少满足以下验收口径：
@@ -494,6 +507,14 @@ Phase 2 协议对齐盘点（截至 `3.3-3` live debug）：
 9. `done`：线程/任务切换后，顶部状态栏已不再把长 `thread id` 直接挂到 header 主布局里导致横向挤压或高度突变；当前已改为摘要化短标签展示。
 10. `done`：原生 Codex 在长时间无输出、未报错、未结束的运行态下，现已补上“疑似卡住”告警卡；达到阈值后会展示已运行时长、最近事件时间，以及 `重试 / 诊断` 入口，并能按等待确认、等待补充输入、连接恢复中、事件流停滞、仍在运行但长时间无新输出等口径分类提示。真机已通过 debug runtime sample 验证主界面告警卡与诊断入口。
 11. `done`：主聊天窗口中，用户消息与助手消息现已采用左右分栏；`MessageBubble` 已按角色切为镜像窄气泡布局，用户消息右对齐、助手消息左对齐，并保留明显的圆角/对齐差异。真机 `MQS7N19402011743` 已抓到新的右侧用户气泡样本；由于当前 live turn 被“任务可能卡住了”告警打断，未补到同轮助手回复截图，但助手分支与用户分支共用同一套镜像布局配置，本地实现已完成。
+
+#### 5.13 Follow-up 文档冻结批验收口径（2026-04-15 slash/menu + context usage + drawer system bars + autoscroll）
+
+本批验收口径已抽离到独立计划：
+
+1. [PLAN-20260415-codex-android-menu-context-autoscroll-freeze.md](/E:/coding/TermLink/docs/product/plans/PLAN-20260415-codex-android-menu-context-autoscroll-freeze.md)
+
+主迁移计划在此只保留“存在一个独立冻结计划且后续实现需引用它”的索引口径。
 
 ## 6. 风险与回滚
 

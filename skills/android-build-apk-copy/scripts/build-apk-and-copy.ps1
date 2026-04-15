@@ -150,6 +150,7 @@ if (-not (Test-Path $androidDir)) {
     throw "Android directory not found: $androidDir"
 }
 
+$apkPath = Join-Path $ProjectRoot 'android\app\build\outputs\apk\debug\app-debug.apk'
 $JdkHome = Resolve-Jdk21Home -RequestedJdkHome $JdkHome
 
 $env:JAVA_HOME = $JdkHome
@@ -165,8 +166,13 @@ try {
 
     Push-Location $androidDir
     try {
-        Write-Host "Building debug APK..."
-        .\gradlew.bat :app:assembleDebug
+        if (Test-Path $apkPath) {
+            Write-Host "Removing previous APK output..."
+            Remove-Item -LiteralPath $apkPath -Force
+        }
+
+        Write-Host "Building fresh debug APK..."
+        .\gradlew.bat clean :app:assembleDebug --no-build-cache --rerun-tasks
         if ($LASTEXITCODE -ne 0) {
             throw 'assembleDebug failed'
         }
@@ -177,7 +183,6 @@ try {
     Pop-Location
 }
 
-$apkPath = Join-Path $ProjectRoot 'android\app\build\outputs\apk\debug\app-debug.apk'
 if (-not (Test-Path $apkPath)) {
     throw "APK not found: $apkPath"
 }

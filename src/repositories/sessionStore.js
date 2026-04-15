@@ -29,6 +29,19 @@ function normalizeSessionCwd(value) {
     return normalized.length > 0 ? normalized : null;
 }
 
+function isExistingDirectoryPath(value) {
+    const normalized = normalizeSessionCwd(value);
+    if (!normalized) {
+        return false;
+    }
+
+    try {
+        return fs.existsSync(normalized) && fs.statSync(normalized).isDirectory();
+    } catch (error) {
+        return false;
+    }
+}
+
 function normalizeLastCodexThreadId(value) {
     if (typeof value !== 'string') {
         return null;
@@ -193,13 +206,24 @@ class SessionStore {
             const lastActiveAt = Number.isFinite(record.lastActiveAt) ? Number(record.lastActiveAt) : createdAt;
             const status = record.status === 'ACTIVE' ? 'ACTIVE' : 'IDLE';
             const sessionMode = normalizeSessionMode(record.sessionMode);
-            const cwd = normalizeSessionCwd(record.cwd);
-            const workspaceRoot = normalizeWorkspaceRoot(record.workspaceRoot);
+            let cwd = normalizeSessionCwd(record.cwd);
+            let workspaceRoot = normalizeWorkspaceRoot(record.workspaceRoot);
             const workspaceRootSource = normalizeWorkspaceRootSource(record.workspaceRootSource);
             const lastCodexThreadId = normalizeLastCodexThreadId(record.lastCodexThreadId);
             const codexConfig = normalizeCodexConfig(record.codexConfig, {
                 requirePolicyAndSandbox: sessionMode === 'codex'
             });
+
+            if (sessionMode === 'codex') {
+                const cwdExists = isExistingDirectoryPath(cwd);
+                const workspaceRootExists = isExistingDirectoryPath(workspaceRoot);
+
+                if (!cwdExists && workspaceRootExists) {
+                    cwd = workspaceRoot;
+                } else if (cwdExists && !workspaceRootExists) {
+                    workspaceRoot = cwd;
+                }
+            }
 
             normalized.push({
                 id: record.id,

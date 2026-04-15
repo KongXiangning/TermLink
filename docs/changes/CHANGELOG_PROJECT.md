@@ -2,13 +2,19 @@
 title: TermLink 项目变更日志
 status: active
 owner: @maintainer
-last_updated: 2026-04-13
+last_updated: 2026-04-14
 source_of_truth: product
 related_code: []
 related_docs: [docs/README.md]
 ---
 
 # CHANGELOG_PROJECT
+
+## 2026-04-14
+
+### docs
+
+1. 收紧 `REQ-20260413-relay-control-plane-and-transparent-transit` 的最终口径：明确首期实现强关联当前 TermLink 后台服务与 Android App，同时采用单组织 + 单管理员操作面，并要求 `Relay Control API / Transit / Connector / Console Web` 按未来独立项目维护方式设计；补齐稳定标识、显式 ticket/连接失效治理、App 缓存与错误交互、审计/迁移/验收闭环，并同步产品主线与路线图摘要口径。
 
 ## 2026-04-13
 
