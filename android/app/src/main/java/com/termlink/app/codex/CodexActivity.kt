@@ -18,6 +18,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.collectAsState
@@ -51,6 +52,8 @@ import com.termlink.app.data.SessionApiClient
 import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.SessionMode
 import com.termlink.app.ui.sessions.SessionsFragment
+import com.termlink.app.util.setStatusBarHidden
+import com.termlink.app.util.statusBarSafeTopInset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -121,27 +124,32 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
     private val activeAttentionKeys = mutableMapOf<Int, String>()
     private var drawerLayout: DrawerLayout? = null
     private var sessionsDrawerContainer: android.view.View? = null
+    private var composeContainerView: ComposeView? = null
+    private var composeContainerBasePaddingLeft: Int = 0
+    private var composeContainerBasePaddingTop: Int = 0
+    private var composeContainerBasePaddingRight: Int = 0
+    private var composeContainerBasePaddingBottom: Int = 0
+    private var sessionsDrawerBasePaddingLeft: Int = 0
+    private var sessionsDrawerBasePaddingTop: Int = 0
+    private var sessionsDrawerBasePaddingRight: Int = 0
+    private var sessionsDrawerBasePaddingBottom: Int = 0
     private var drawerSelection: SessionSelection? = null
-    private var isDrawerStatusBarHidden: Boolean = false
     private val drawerListener = object : DrawerLayout.SimpleDrawerListener() {
         override fun onDrawerSlide(drawerView: android.view.View, slideOffset: Float) {
             if (drawerView.id == R.id.codex_sessions_drawer_container && slideOffset > 0f) {
                 setDrawerSessionsContentVisible(true)
-                setDrawerStatusBarHidden(true)
             }
         }
 
         override fun onDrawerOpened(drawerView: android.view.View) {
             if (drawerView.id == R.id.codex_sessions_drawer_container) {
                 setDrawerSessionsContentVisible(true)
-                setDrawerStatusBarHidden(true)
             }
         }
 
         override fun onDrawerClosed(drawerView: android.view.View) {
             if (drawerView.id == R.id.codex_sessions_drawer_container) {
                 setDrawerSessionsContentVisible(false)
-                setDrawerStatusBarHidden(false)
             }
         }
     }
@@ -152,20 +160,36 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         setContentView(R.layout.activity_codex)
         drawerLayout = findViewById(R.id.codex_root_drawer)
         sessionsDrawerContainer = findViewById(R.id.codex_sessions_drawer_container)
+        composeContainerView = findViewById(R.id.codex_compose_container)
+        composeContainerView?.let { container ->
+            composeContainerBasePaddingLeft = container.paddingLeft
+            composeContainerBasePaddingTop = container.paddingTop
+            composeContainerBasePaddingRight = container.paddingRight
+            composeContainerBasePaddingBottom = container.paddingBottom
+        }
+        sessionsDrawerContainer?.let { container ->
+            sessionsDrawerBasePaddingLeft = container.paddingLeft
+            sessionsDrawerBasePaddingTop = container.paddingTop
+            sessionsDrawerBasePaddingRight = container.paddingRight
+            sessionsDrawerBasePaddingBottom = container.paddingBottom
+        }
         applyDrawerWidth()
         drawerLayout?.addDrawerListener(drawerListener)
         applyDrawerGestureExclusion()
         ensureDrawerSessionsFragment()
         setDrawerSessionsContentVisible(false)
+        applySystemBarInsets()
 
         serverConfigStore = ServerConfigStore(applicationContext)
         basicCredentialStore = BasicCredentialStore(applicationContext)
         sessionApiClient = SessionApiClient(applicationContext)
         viewModel = CodexViewModel(applicationContext, basicCredentialStore, sessionApiClient)
 
-        findViewById<ComposeView>(R.id.codex_compose_container).setContent {
+        composeContainerView?.setContent {
             CodexTheme {
-                Scaffold { innerPadding ->
+                Scaffold(
+                    contentWindowInsets = WindowInsets(0, 0, 0, 0)
+                ) { innerPadding ->
                     val uiState by viewModel.uiState.collectAsState()
                     val filePickerLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.OpenDocument()
@@ -242,14 +266,20 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
 
     override fun onStart() {
         super.onStart()
+        if (recoverIfLaunchProfileWasDeleted()) {
+            return
+        }
         isActivityVisible = true
         cancelAttentionNotifications()
-        syncDrawerStatusBarVisibility()
+        setStatusBarHidden(hidden = true, anchor = drawerLayout)
+        drawerLayout?.post {
+            drawerLayout?.let(ViewCompat::requestApplyInsets)
+        }
     }
 
     override fun onStop() {
         isActivityVisible = false
-        setDrawerStatusBarHidden(false)
+        setStatusBarHidden(hidden = false, anchor = drawerLayout)
         if (!isChangingConfigurations) {
             syncAttentionNotifications(null, viewModel.uiState.value)
         }
@@ -280,6 +310,28 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         if (::viewModel.isInitialized) {
             viewModel.disconnect()
         }
+    }
+
+    private fun applySystemBarInsets() {
+        val root = drawerLayout ?: return
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val safeTopInset = insets.statusBarSafeTopInset()
+            composeContainerView?.setPadding(
+                composeContainerBasePaddingLeft,
+                composeContainerBasePaddingTop + safeTopInset,
+                composeContainerBasePaddingRight,
+                composeContainerBasePaddingBottom
+            )
+            sessionsDrawerContainer?.setPadding(
+                sessionsDrawerBasePaddingLeft,
+                sessionsDrawerBasePaddingTop + safeTopInset,
+                sessionsDrawerBasePaddingRight,
+                sessionsDrawerBasePaddingBottom + systemBars.bottom
+            )
+            insets
+        }
+        ViewCompat.requestApplyInsets(root)
     }
 
     @Deprecated("Deprecated in Java")
@@ -403,27 +455,6 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                 listOf(Rect(0, 0, exclusionWidthPx, layout.height))
             )
         }
-    }
-
-    private fun syncDrawerStatusBarVisibility() {
-        val layout = drawerLayout ?: return
-        val drawerVisible = layout.isDrawerOpen(GravityCompat.START) || layout.isDrawerVisible(GravityCompat.START)
-        setDrawerStatusBarHidden(drawerVisible)
-    }
-
-    private fun setDrawerStatusBarHidden(hidden: Boolean) {
-        if (isDrawerStatusBarHidden == hidden) {
-            return
-        }
-        val anchor = drawerLayout ?: return
-        val controller = WindowInsetsControllerCompat(window, anchor)
-        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        if (hidden) {
-            controller.hide(WindowInsetsCompat.Type.statusBars())
-        } else {
-            controller.show(WindowInsetsCompat.Type.statusBars())
-        }
-        isDrawerStatusBarHidden = hidden
     }
 
     private fun ensureDrawerSessionsFragment() {
@@ -611,7 +642,14 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
     private fun startConnection(params: CodexLaunchParams) {
         val profile = resolveProfile(params.profileId)
         if (profile == null) {
-            viewModel.setError("Profile not found: ${params.profileId}")
+            Log.w(TAG, "Launch profile missing: ${params.profileId}; launchSource=${params.launchSource}")
+            if (params.launchSource == "restore") {
+                clearRestoreState()
+                activeLaunchParams = null
+                resolveAndConnect()
+            } else {
+                viewModel.setError("Profile not found: ${params.profileId}")
+            }
             return
         }
         activeLaunchParams = params
@@ -621,6 +659,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             sessionMode = SessionMode.CODEX,
             cwd = params.cwd
         )
+        syncActivityIntent(params)
         persistRestoreState(params)
         viewModel.connect(profile, params)
     }
@@ -631,21 +670,26 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                 syncForegroundService(state)
                 syncAttentionNotifications(previousUiState, state)
                 previousUiState = state
-                if (state.sessionExpired && activeLaunchParams?.launchSource == "restore") {
-                    Log.w(TAG, "Restored session expired; clearing restore session and auto-creating a new one")
-                    clearRestoreSession()
+                if (state.sessionExpired) {
+                    Log.w(TAG, "Session expired; clearing stale launch state and auto-creating a new one")
+                    viewModel.disconnect()
+                    clearRestoreState()
+                    clearLaunchIntentSelection()
                     activeLaunchParams = null
+                    drawerSelection = null
                     viewModel.acknowledgeSessionExpired()
                     resolveAndConnect()
                     return@collect
                 }
                 val params = activeLaunchParams ?: return@collect
-                persistRestoreState(
-                    params.copy(
-                        cwd = state.cwd ?: params.cwd,
-                        threadId = state.threadId ?: params.threadId
-                    )
+                val updatedParams = params.copy(
+                    sessionId = state.sessionId.ifBlank { params.sessionId },
+                    cwd = state.cwd ?: params.cwd,
+                    threadId = state.threadId ?: params.threadId
                 )
+                activeLaunchParams = updatedParams
+                syncActivityIntent(updatedParams)
+                persistRestoreState(updatedParams)
             }
         }
     }
@@ -928,10 +972,16 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
     // ── Param resolution (Intent > restore) ──────────────────────────
 
     private fun resolveParams(): CodexLaunchParams? {
+        val state = serverConfigStore.loadState()
+
         // Priority 1: explicit Intent extras
         val intentProfileId = intent.getStringExtra(CodexLaunchParams.EXTRA_PROFILE_ID)
         val intentSessionId = intent.getStringExtra(CodexLaunchParams.EXTRA_SESSION_ID)
         if (!intentProfileId.isNullOrBlank() && !intentSessionId.isNullOrBlank()) {
+            if (state.profiles.none { it.id == intentProfileId }) {
+                Log.w(TAG, "Ignoring explicit launch for missing profile: $intentProfileId")
+                return null
+            }
             return CodexLaunchParams(
                 profileId = intentProfileId,
                 sessionId = intentSessionId,
@@ -946,6 +996,11 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         val restoredProfileId = prefs.getString(PREF_PROFILE_ID, null)
         val restoredSessionId = prefs.getString(PREF_SESSION_ID, null)
         if (!restoredProfileId.isNullOrBlank() && !restoredSessionId.isNullOrBlank()) {
+            if (state.profiles.none { it.id == restoredProfileId }) {
+                Log.w(TAG, "Discarding restore state for deleted profile: $restoredProfileId")
+                clearRestoreState()
+                return null
+            }
             return CodexLaunchParams(
                 profileId = restoredProfileId,
                 sessionId = restoredSessionId,
@@ -962,7 +1017,6 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
     private fun resolveProfile(profileId: String): ServerProfile? {
         val state = serverConfigStore.loadState()
         return state.profiles.firstOrNull { it.id == profileId }
-            ?: state.profiles.firstOrNull { it.id == state.activeProfileId }
     }
 
     private fun resolveActiveProfile(): ServerProfile? {
@@ -981,10 +1035,45 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             .apply()
     }
 
-    private fun clearRestoreSession() {
+    private fun clearRestoreState() {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+            .remove(PREF_PROFILE_ID)
             .remove(PREF_SESSION_ID)
+            .remove(PREF_SESSION_MODE)
+            .remove(PREF_CWD)
             .remove(PREF_THREAD_ID)
             .apply()
+    }
+
+    private fun clearLaunchIntentSelection() {
+        setIntent(Intent(this, CodexActivity::class.java))
+    }
+
+    private fun syncActivityIntent(params: CodexLaunchParams) {
+        setIntent(
+            newIntent(
+                context = this,
+                profileId = params.profileId,
+                sessionId = params.sessionId,
+                sessionMode = params.sessionMode,
+                cwd = params.cwd,
+                launchSource = params.launchSource
+            )
+        )
+    }
+
+    private fun recoverIfLaunchProfileWasDeleted(): Boolean {
+        val params = activeLaunchParams ?: return false
+        if (resolveProfile(params.profileId) != null) {
+            return false
+        }
+        Log.w(TAG, "Active launch profile was deleted: ${params.profileId}; recovering")
+        clearRestoreState()
+        activeLaunchParams = null
+        drawerSelection = null
+        viewModel.disconnect()
+        viewModel.clearError()
+        resolveAndConnect()
+        return true
     }
 }

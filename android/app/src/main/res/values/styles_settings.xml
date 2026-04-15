@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Widget.TermLink.SettingsButton.Primary" parent="Widget.MaterialComponents.Button">
+        <item name="android:layout_height">40dp</item>
+        <item name="android:minHeight">40dp</item>
+        <item name="android:minWidth">88dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">12sp</item>
+        <item name="backgroundTint">@color/sessions_primary</item>
+        <item name="android:textColor">@color/sessions_text_primary</item>
+    </style>
+
+    <style name="Widget.TermLink.SettingsButton.Outlined" parent="Widget.TermLink.SessionButton.OpenOutlined">
+        <item name="android:textColor">@color/sessions_primary</item>
+    </style>
+
+    <style name="Widget.TermLink.SettingsButton.SecondaryText" parent="Widget.TermLink.SessionButton.SecondaryText">
+        <item name="android:textColor">@color/sessions_text_secondary</item>
+    </style>
+
+    <style name="Widget.TermLink.SettingsButton.DangerText" parent="Widget.TermLink.SessionButton.DangerText">
+        <item name="android:textColor">@color/sessions_error</item>
+    </style>
+
+    <style name="Widget.TermLink.Settings.EditText" parent="@style/Widget.AppCompat.EditText">
+        <item name="android:textColor">@color/sessions_text_primary</item>
+        <item name="android:textColorHint">@color/sessions_text_muted</item>
+        <item name="android:backgroundTint">@color/sessions_selected_stroke</item>
+    </style>
+
+    <style name="TextAppearance.TermLink.Settings.Label" parent="@style/TextAppearance.AppCompat.Body2">
+        <item name="android:textColor">@color/sessions_text_secondary</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+</resources>

@@ -23,6 +23,12 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260415-1721-codex-android-overlay-panels-impl | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-1721-codex-android-overlay-panels-impl.md` |
+| CR-20260415-1709-codex-android-settings-readability-impl | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-1709-codex-android-settings-readability-impl.md` |
+| CR-20260415-1700-codex-android-safearea-insets-impl | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-1700-codex-android-safearea-insets-impl.md` |
+| CR-20260415-1646-codex-android-safearea-settings-overlay-plan | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-1646-codex-android-safearea-settings-overlay-plan.md` |
+| CR-20260415-1640-codex-stale-session-restore-fix | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-1640-codex-stale-session-restore-fix.md` |
+| CR-20260415-1348-android-global-statusbar-hide | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-1348-android-global-statusbar-hide.md` |
 | CR-20260415-1314-codex-file-mention-uri-fix | REQ-20260408-codex-native-android-migration | active | 183e9f3d4709a8cd45c8dd299cbc57958f44fc84 | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-1314-codex-file-mention-uri-fix.md` |
 | CR-20260415-1253-codex-android-autoscroll | REQ-20260408-codex-native-android-migration | active | 183e9f3d4709a8cd45c8dd299cbc57958f44fc84 | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-1253-codex-android-autoscroll.md` |
 | CR-20260415-1246-codex-android-drawer-statusbar | REQ-20260408-codex-native-android-migration | active | 183e9f3d4709a8cd45c8dd299cbc57958f44fc84 | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-1246-codex-android-drawer-statusbar.md` |

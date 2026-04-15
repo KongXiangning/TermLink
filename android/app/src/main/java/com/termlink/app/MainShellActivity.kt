@@ -67,6 +67,8 @@ import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import com.termlink.app.util.LocaleHelper
+import com.termlink.app.util.setStatusBarHidden
+import com.termlink.app.util.statusBarSafeTopInset
 
 class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEventBridge.Listener,
     SettingsFragment.Callbacks, SessionsFragment.Callbacks {
@@ -115,6 +117,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var lastResolvedLocale: String = LocaleHelper.resolveWebViewLocale()
     private var systemBarInsets: Insets = Insets.NONE
     private var imeInsets: Insets = Insets.NONE
+    private var safeTopInset: Int = 0
     private var isImeVisible: Boolean = false
     private var isTerminalChromeCompact: Boolean = false
     private var topBarBasePaddingLeft: Int = 0
@@ -278,6 +281,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     override fun onResume() {
         super.onResume()
         isActivityVisible = true
+        setStatusBarHidden(hidden = true, anchor = rootInsetsView)
         markUserActive()
         val insetsView = rootInsetsView ?: return
         insetsView.post {
@@ -289,6 +293,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     override fun onPause() {
         isActivityVisible = false
+        setStatusBarHidden(hidden = false, anchor = rootInsetsView)
         idleHandler?.removeCallbacksAndMessages(null)
         disableKeepScreenOn()
         super.onPause()
@@ -1256,6 +1261,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private fun applySystemBarInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.shell_root_drawer)) { _, insets ->
             systemBarInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            safeTopInset = insets.statusBarSafeTopInset()
             imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             isImeVisible = imeInsets.bottom > 0
             applyTerminalChromeMode()
@@ -1546,7 +1552,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         val topBar = topBarView ?: return
         topBar.setPadding(
             topBarBasePaddingLeft,
-            (if (isTerminalChromeCompact) 0 else topBarBasePaddingTop) + systemBarInsets.top,
+            (if (isTerminalChromeCompact) 0 else topBarBasePaddingTop) + safeTopInset,
             topBarBasePaddingRight,
             if (isTerminalChromeCompact) dpToPx(2) else topBarBasePaddingBottom
         )

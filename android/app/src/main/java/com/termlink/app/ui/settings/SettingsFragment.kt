@@ -19,6 +19,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.termlink.app.R
 import com.termlink.app.data.AuthType
@@ -130,6 +131,8 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         if (state.profiles.isEmpty()) {
             val empty = TextView(requireContext()).apply {
                 text = getString(R.string.settings_profiles_empty)
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.sessions_text_secondary))
+                textSize = 13f
             }
             profilesContainer.addView(empty)
             return
@@ -228,7 +231,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
     }
 
     private fun showDeleteConfirmation(profile: ServerProfile) {
-        AlertDialog.Builder(requireContext())
+        val dialog = AlertDialog.Builder(requireContext())
             .setTitle(getString(R.string.settings_delete_profile))
             .setMessage(getString(R.string.settings_delete_profile_confirm, profile.name))
             .setNegativeButton(android.R.string.cancel, null)
@@ -239,6 +242,10 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
                 }
             }
             .show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            ?.setTextColor(ContextCompat.getColor(requireContext(), R.color.sessions_error))
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+            ?.setTextColor(ContextCompat.getColor(requireContext(), R.color.sessions_text_secondary))
     }
 
     private fun showProfileDialog(existing: ServerProfile?) {
@@ -376,6 +383,10 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         }
 
         dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                ?.setTextColor(ContextCompat.getColor(requireContext(), R.color.sessions_primary))
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                ?.setTextColor(ContextCompat.getColor(requireContext(), R.color.sessions_text_secondary))
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 saveProfileDialog(
                     dialog = dialog,
@@ -547,6 +558,18 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
             MtlsConfigStatus.PENDING_CERTIFICATE_AND_PASSWORD ->
                 getString(R.string.settings_profile_mtls_status_pending_both)
         }
+        state.statusText.setTextColor(
+            ContextCompat.getColor(
+                requireContext(),
+                when (decision.status) {
+                    MtlsConfigStatus.DISABLED -> R.color.sessions_text_muted
+                    MtlsConfigStatus.CONFIGURED -> R.color.sessions_primary
+                    MtlsConfigStatus.PENDING_CERTIFICATE,
+                    MtlsConfigStatus.PENDING_PASSWORD,
+                    MtlsConfigStatus.PENDING_CERTIFICATE_AND_PASSWORD -> R.color.sessions_text_secondary
+                }
+            )
+        )
 
         state.chooseButton.setText(
             if (decision.effectiveCertificatePresent) {

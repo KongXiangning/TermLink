@@ -380,39 +380,6 @@ fun CodexScreen(
                 )
             }
 
-            if (state.threadHistorySheetVisible) {
-                ThreadHistorySheet(
-                    state = state,
-                    onRefresh = onRefreshThreadHistory,
-                    onResumeThread = onResumeThread,
-                    onForkThread = onForkThread,
-                    onToggleThreadArchive = onToggleThreadArchive,
-                    onStartRename = onStartThreadRename,
-                    onRenameDraftChange = onUpdateThreadRenameDraft,
-                    onCancelRename = onCancelThreadRename,
-                    onSubmitRename = onSubmitThreadRename,
-                    onNewThread = onNewThread
-                )
-            }
-
-            if (runtimePanelVisible) {
-                RuntimePanelSheet(
-                    state = state
-                )
-            }
-
-            if (noticesPanelVisible) {
-                NoticesPanelSheet(state = state)
-            }
-
-            if (state.toolsPanel.visible) {
-                    ToolsPanelSheet(
-                        state = state,
-                        onSelectSkill = onSelectSkill,
-                        onTogglePlanMode = onTogglePlanMode
-                    )
-                }
-
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -554,6 +521,48 @@ fun CodexScreen(
                                 onHideToolsPanel()
                             }
                     )
+                }
+
+                if (secondaryPanelVisible) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .widthIn(max = 960.dp)
+                            .align(Alignment.TopCenter)
+                    ) {
+                        if (state.threadHistorySheetVisible) {
+                            ThreadHistorySheet(
+                                state = state,
+                                onRefresh = onRefreshThreadHistory,
+                                onResumeThread = onResumeThread,
+                                onForkThread = onForkThread,
+                                onToggleThreadArchive = onToggleThreadArchive,
+                                onStartRename = onStartThreadRename,
+                                onRenameDraftChange = onUpdateThreadRenameDraft,
+                                onCancelRename = onCancelThreadRename,
+                                onSubmitRename = onSubmitThreadRename,
+                                onNewThread = onNewThread
+                            )
+                        }
+
+                        if (runtimePanelVisible) {
+                            RuntimePanelSheet(
+                                state = state
+                            )
+                        }
+
+                        if (noticesPanelVisible) {
+                            NoticesPanelSheet(state = state)
+                        }
+
+                        if (state.toolsPanel.visible) {
+                            ToolsPanelSheet(
+                                state = state,
+                                onSelectSkill = onSelectSkill,
+                                onTogglePlanMode = onTogglePlanMode
+                            )
+                        }
+                    }
                 }
             }
         }

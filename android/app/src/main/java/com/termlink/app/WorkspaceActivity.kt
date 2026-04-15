@@ -4,6 +4,8 @@ import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
+import android.view.View
+import android.view.WindowManager
 import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
@@ -12,12 +14,17 @@ import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.termlink.app.data.AuthType
 import com.termlink.app.data.BasicCredentialStore
 import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.TerminalType
 import com.termlink.app.util.LocaleHelper
+import com.termlink.app.util.setStatusBarHidden
+import com.termlink.app.util.statusBarSafeTopInset
 import com.termlink.app.web.MtlsWebViewClient
 import org.json.JSONObject
 
@@ -30,13 +37,27 @@ class WorkspaceActivity : AppCompatActivity() {
     private var sessionId: String = ""
     private var defaultEntryPath: String = ""
     private var lastResolvedLocale: String = LocaleHelper.resolveWebViewLocale()
+    private var rootView: View? = null
+    private var topBarView: View? = null
+    private var topBarBasePaddingLeft: Int = 0
+    private var topBarBasePaddingTop: Int = 0
+    private var topBarBasePaddingRight: Int = 0
+    private var topBarBasePaddingBottom: Int = 0
+    private var webViewBasePaddingLeft: Int = 0
+    private var webViewBasePaddingTop: Int = 0
+    private var webViewBasePaddingRight: Int = 0
+    private var webViewBasePaddingBottom: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         setContentView(R.layout.activity_workspace)
 
         serverConfigStore = ServerConfigStore(applicationContext)
         basicCredentialStore = BasicCredentialStore(applicationContext)
+        rootView = findViewById(R.id.workspace_root)
+        topBarView = findViewById(R.id.workspace_top_bar)
         profileId = savedInstanceState?.getString(STATE_PROFILE_ID).orEmpty()
             .ifBlank { intent?.getStringExtra(EXTRA_PROFILE_ID).orEmpty() }
         sessionId = savedInstanceState?.getString(STATE_SESSION_ID).orEmpty()
@@ -65,10 +86,21 @@ class WorkspaceActivity : AppCompatActivity() {
             profile.name,
             sessionId
         )
+        topBarView?.let { topBar ->
+            topBarBasePaddingLeft = topBar.paddingLeft
+            topBarBasePaddingTop = topBar.paddingTop
+            topBarBasePaddingRight = topBar.paddingRight
+            topBarBasePaddingBottom = topBar.paddingBottom
+        }
 
         val webView = findViewById<WebView>(R.id.workspace_webview)
         workspaceWebView = webView
+        webViewBasePaddingLeft = webView.paddingLeft
+        webViewBasePaddingTop = webView.paddingTop
+        webViewBasePaddingRight = webView.paddingRight
+        webViewBasePaddingBottom = webView.paddingBottom
         configureWebView(webView)
+        applySystemBarInsets()
 
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState)
@@ -92,6 +124,19 @@ class WorkspaceActivity : AppCompatActivity() {
             lastResolvedLocale = newLocale
             workspaceWebView?.loadUrl(LocaleHelper.appendLangParam(WORKSPACE_URL))
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        setStatusBarHidden(hidden = true)
+        rootView?.post {
+            rootView?.let(ViewCompat::requestApplyInsets)
+        }
+    }
+
+    override fun onStop() {
+        setStatusBarHidden(hidden = false)
+        super.onStop()
     }
 
     override fun onDestroy() {
@@ -136,6 +181,28 @@ class WorkspaceActivity : AppCompatActivity() {
                 return true
             }
         }
+    }
+
+    private fun applySystemBarInsets() {
+        val root = rootView ?: return
+        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val safeTopInset = insets.statusBarSafeTopInset()
+            topBarView?.setPadding(
+                topBarBasePaddingLeft,
+                topBarBasePaddingTop + safeTopInset,
+                topBarBasePaddingRight,
+                topBarBasePaddingBottom
+            )
+            workspaceWebView?.setPadding(
+                webViewBasePaddingLeft,
+                webViewBasePaddingTop,
+                webViewBasePaddingRight,
+                webViewBasePaddingBottom + systemBars.bottom
+            )
+            insets
+        }
+        ViewCompat.requestApplyInsets(root)
     }
 
     private fun injectWorkspaceConfig(webView: WebView) {

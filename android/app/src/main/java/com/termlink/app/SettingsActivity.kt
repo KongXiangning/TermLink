@@ -19,6 +19,8 @@ import com.termlink.app.data.ServerConfigState
 import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.ui.settings.SettingsFragment
+import com.termlink.app.util.setStatusBarHidden
+import com.termlink.app.util.statusBarSafeTopInset
 import com.termlink.app.web.WebViewClientCertCacheInvalidator
 
 class SettingsActivity : AppCompatActivity(), SettingsFragment.Callbacks {
@@ -78,6 +80,19 @@ class SettingsActivity : AppCompatActivity(), SettingsFragment.Callbacks {
                 replace(R.id.settings_fragment_container, SettingsFragment())
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        setStatusBarHidden(hidden = true, anchor = rootView)
+        rootView?.post {
+            rootView?.let(ViewCompat::requestApplyInsets)
+        }
+    }
+
+    override fun onStop() {
+        setStatusBarHidden(hidden = false, anchor = rootView)
+        super.onStop()
     }
 
     override fun getServerConfigState(): ServerConfigState {
@@ -142,9 +157,10 @@ class SettingsActivity : AppCompatActivity(), SettingsFragment.Callbacks {
         val root = rootView ?: return
         ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val safeTopInset = insets.statusBarSafeTopInset()
             topBarView?.setPadding(
                 topBarBasePaddingLeft,
-                topBarBasePaddingTop + systemBars.top,
+                topBarBasePaddingTop + safeTopInset,
                 topBarBasePaddingRight,
                 topBarBasePaddingBottom
             )

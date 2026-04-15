@@ -2,10 +2,10 @@
 title: Codex Android 全原生并行迁移与多 CLI 提供方扩展基线
 status: done
 owner: @maintainer
-last_updated: 2026-04-13
+last_updated: 2026-04-15
 source_of_truth: product
 related_code: [android/app/src/main/java/com/termlink/app/MainShellActivity.kt, android/app/src/main/java/com/termlink/app/web/TerminalEventBridge.kt, android/app/src/main/java/com/termlink/app/CodexTaskForegroundService.kt, public/codex_client.html, public/terminal_client.js, src/ws/terminalGateway.js]
-related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-20260408-codex-native-android-migration.md, docs/architecture/ROADMAP.md]
+related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-20260408-codex-native-android-migration.md, docs/product/plans/PLAN-20260415-codex-android-menu-context-autoscroll-freeze.md, docs/changes/records/CR-20260415-1646-codex-android-safearea-settings-overlay-plan.md, docs/architecture/ROADMAP.md]
 ---
 
 # REQ-20260408-codex-native-android-migration
@@ -18,7 +18,7 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-202
 - status: done
 - owner: @maintainer
 - target_release: 2026-Q2
-- links: `docs/product/plans/PLAN-20260408-codex-native-android-migration.md`
+- links: `docs/product/plans/PLAN-20260408-codex-native-android-migration.md`, `docs/product/plans/PLAN-20260415-codex-android-menu-context-autoscroll-freeze.md`
 
 ## 1. 背景与目标
 
@@ -152,6 +152,11 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-202
 7. 原生 `CodexActivity` 在 `running / reconnecting / waiting_approval / awaiting_user_input / plan_ready_for_confirmation` 等执行相关状态下，后台保活口径一致，不再仅覆盖狭义运行态。
 8. 命令确认、计划模式补充说明、等待确认、后台任务错误四类需要用户注意的事件，均具备系统通知能力与通知回跳路径。
 9. 原生 Codex 顶部 header 补齐会话列表、设置、文档三类全局入口，其中“文档”默认打开当前会话工作区下的 Docs 入口。
+10. 原生 Codex 及相关原生主页面在前台统一隐藏顶部系统状态栏；隐藏后顶部 header / 状态区仍需依据运行时 `WindowInsets` / `DisplayCutout` 自动避开不同设备的刘海、挖孔与前摄遮挡，不允许回退到固定 `top padding` 或“只修部分页面”的实现。
+11. 原生 Codex 主消息区默认自动跟随最新消息；用户手动上滑回看历史后必须停止自动跟随，并通过右下悬浮“返回最新”入口恢复到底与自动跟随，不允许只对 Plan Mode 特判自动滚动。
+12. 背景信息窗口中的上下文与 Token 展示口径固定为：新任务/新线程的“进程上下文”初始态必须为 `0` 或明确空值；Token 统计按单次任务值展示，不得把线程累计值误展示为单次任务统计。
+13. 当前仅有暗色主题的 `SettingsActivity` 必须保持足够的文字/边框/分组层级对比度；本批允许优化暗色视觉 token，但不要求补齐白天模式，也不要求重排设置项信息架构。
+14. 任务历史、运行态、扩展工具窗口必须作为压在主窗口之上的 overlay 层打开；不得再与主窗口同层挤压主内容，也不得借此改动既有样式、布局或位置。
 
 ## 7. 测试场景
 
@@ -160,6 +165,9 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-202
 3. 文档校验：REQ 中已明确旧入口、新入口、前台服务、bridge、恢复状态的基线边界。
 4. 架构评审：在不修改 UI 主体结构的前提下，能够说明未来新增 `claude cli` adapter 时需要修改的层次仅限 adapter / capability mapping / 少量能力降级处理。
 5. 架构评审：在不修改 UI 主体结构的前提下，能够说明未来新增 `copilot cli` adapter 时不需要重写消息流、审批、线程、运行态主界面。
+6. 文档校验：REQ、PLAN 对“隐藏系统状态栏后按运行时安全区自动避开刘海/挖孔/前摄遮挡”的口径一致，不再保留固定 top padding 方案。
+7. 文档校验：REQ、PLAN 对当前暗色模式下配置界面可读性提升、但不引入白天模式/不重排信息架构的边界描述一致。
+8. 文档校验：REQ、PLAN 对任务历史、运行态、扩展工具窗口“只改层级为 overlay、不改样式/布局/位置”的约束描述一致。
 
 ## 8. 风险与回滚
 
@@ -194,3 +202,6 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/plans/PLAN-202
 9. 背景信息窗口 follow-up 已完成与 web 当前基线的主结构对齐：右下角 context widget 在原生 Codex 页固定显示，缺失 telemetry 时显示 `--`；背景信息窗口中的 `Used` 摘要、auto-compact 说明、compact 区显隐与状态文案已按 web 口径收敛，并移除了 Android modal 中额外的 rate-limit 主体卡片；`Tokens` 行则按当前原生 UI 要求收窄为单行 `used/total` 紧凑格式。
 10. 背景信息窗口样式 follow-up 已进一步收敛视觉 token：在不改变既有布局和内容的前提下，dialog surface、context/token 卡片、关闭按钮、compact 按钮以及 label/note 默认文字对比度均已向 web modal 的 border / shadow / contrast 语言靠拢。
 11. 会话抽屉 follow-up 已继续收敛可达性与预览动画：左侧有效拖拽边缘已加宽到 `56dp`，抽屉宽度改为运行时 `min(screenWidth * 0.75, 420dp)`，并且 `SessionsFragment` 在 `CodexActivity` 抽屉容器内改为常驻内容树，拖拽过程中可直接看到会话列表内容，不再先出现黑底空白。
+12. 2026-04-15 文档冻结 follow-up 已将下一轮 Android 原生 Codex 收口决策挂回迁移主线：前台主页面统一隐藏系统状态栏、主消息区统一为“默认自动跟随最新 + 手动回看后停止 + 右下返回最新恢复”、以及背景信息窗口的“新建任务进程上下文初始归零 + Token 统计按单次任务值”展示口径均已冻结到 `REQ + PLAN + CR`；slash 命令层面的 `/skill` 去重、`/compact`、`/mention`、`/fast` 与底部 `/` toggle 行为则继续由 `PLAN` 承载实现细节。
+13. 同日新增的 follow-up 计划补充已继续冻结三项 Android 可用性要求：隐藏系统状态栏后的顶部安全区必须按设备刘海/挖孔自动留白；当前暗色模式下的 `SettingsActivity` 需提高可读性；任务历史、运行态与扩展工具窗口需改为压在主窗口上的 overlay 层，且不改变既有样式、布局与位置。
+14. 同日后续实现批次已完成上述三项可用性收口：顶部安全区现统一按 `statusBars + DisplayCutout` 安全区自动留白；设置页暗色 token 已提升列表与弹窗可读性；任务历史、运行态、Notices 与扩展工具面板已改为压在主窗口上的 overlay 层，不再挤压主消息区。
