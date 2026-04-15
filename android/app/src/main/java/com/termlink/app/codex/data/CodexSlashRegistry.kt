@@ -12,7 +12,8 @@ object CodexSlashRegistry {
         val titleKey: String,
         val argumentShape: ArgumentShape,
         val dispatchKind: DispatchKind,
-        val capabilityKey: String
+        val capabilityKey: String,
+        val discoverable: Boolean = true
     )
 
     enum class ArgumentShape { NONE, FREE_TEXT, SINGLE_TOKEN }
@@ -23,7 +24,7 @@ object CodexSlashRegistry {
         SlashCommand("/plan", "codex_native_slash_plan", ArgumentShape.FREE_TEXT, DispatchKind.INTERACTION_STATE, "slashPlan"),
         SlashCommand("/skill", "codex_native_slash_skill", ArgumentShape.SINGLE_TOKEN, DispatchKind.INTERACTION_STATE, "skillsList"),
         SlashCommand("/compact", "codex_native_slash_compact", ArgumentShape.NONE, DispatchKind.OPEN_PANEL, "compact"),
-        SlashCommand("/skills", "codex_native_slash_skills", ArgumentShape.NONE, DispatchKind.OPEN_PANEL, "skillsList"),
+        SlashCommand("/skills", "codex_native_slash_skills", ArgumentShape.NONE, DispatchKind.OPEN_PANEL, "skillsList", discoverable = false),
         SlashCommand("/mention", "codex_native_slash_mention", ArgumentShape.NONE, DispatchKind.INTERACTION_STATE, "fileMentions"),
         SlashCommand("/fast", "codex_native_slash_fast", ArgumentShape.NONE, DispatchKind.NEXT_TURN_OVERRIDE, "")
     )
@@ -91,6 +92,9 @@ object CodexSlashRegistry {
     ): List<SlashCommand> {
         val q = query.trim().lowercase()
         return REGISTRY.filter { entry ->
+            if (!entry.discoverable) {
+                return@filter false
+            }
             // Capability gate: if capabilityKey is set, it must be true
             if (entry.capabilityKey.isNotEmpty() && capabilities[entry.capabilityKey] != true) {
                 return@filter false

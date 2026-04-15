@@ -16,7 +16,6 @@ import android.util.Base64
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.padding
@@ -28,6 +27,8 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationCompat
 import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.commit
 import androidx.lifecycle.lifecycleScope
@@ -37,6 +38,7 @@ import com.termlink.app.MainShellActivity
 import com.termlink.app.SettingsActivity
 import com.termlink.app.WorkspaceActivity
 import com.termlink.app.codex.domain.CodexLaunchParams
+import com.termlink.app.codex.domain.FileMention
 import com.termlink.app.codex.domain.CodexUiState
 import com.termlink.app.codex.domain.DebugServerRequestPreset
 import com.termlink.app.codex.ui.CodexScreen
@@ -120,22 +122,26 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
     private var drawerLayout: DrawerLayout? = null
     private var sessionsDrawerContainer: android.view.View? = null
     private var drawerSelection: SessionSelection? = null
+    private var isDrawerStatusBarHidden: Boolean = false
     private val drawerListener = object : DrawerLayout.SimpleDrawerListener() {
         override fun onDrawerSlide(drawerView: android.view.View, slideOffset: Float) {
             if (drawerView.id == R.id.codex_sessions_drawer_container && slideOffset > 0f) {
                 setDrawerSessionsContentVisible(true)
+                setDrawerStatusBarHidden(true)
             }
         }
 
         override fun onDrawerOpened(drawerView: android.view.View) {
             if (drawerView.id == R.id.codex_sessions_drawer_container) {
                 setDrawerSessionsContentVisible(true)
+                setDrawerStatusBarHidden(true)
             }
         }
 
         override fun onDrawerClosed(drawerView: android.view.View) {
             if (drawerView.id == R.id.codex_sessions_drawer_container) {
                 setDrawerSessionsContentVisible(false)
+                setDrawerStatusBarHidden(false)
             }
         }
     }
@@ -161,10 +167,10 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             CodexTheme {
                 Scaffold { innerPadding ->
                     val uiState by viewModel.uiState.collectAsState()
-                    val imagePickerLauncher = rememberLauncherForActivityResult(
-                        contract = ActivityResultContracts.PickVisualMedia()
+                    val filePickerLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocument()
                     ) { uri ->
-                        uri?.let(::handlePickedImage)
+                        uri?.let(::handlePickedDocument)
                     }
                     CodexScreen(
                         state = uiState,
@@ -220,11 +226,8 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                         onCancelThreadRename = viewModel::cancelThreadRename,
                         onSubmitThreadRename = viewModel::submitThreadRename,
                         onPickLocalImage = {
-                            imagePickerLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
+                            filePickerLauncher.launch(arrayOf("*/*"))
                         },
-                        onAddImageUrl = viewModel::addImageUrlAttachment,
                         onRemovePendingImageAttachment = viewModel::removePendingImageAttachment,
                         onInjectDebugServerRequest = viewModel::injectDebugServerRequest,
                         modifier = Modifier.padding(innerPadding)
@@ -241,10 +244,12 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         super.onStart()
         isActivityVisible = true
         cancelAttentionNotifications()
+        syncDrawerStatusBarVisibility()
     }
 
     override fun onStop() {
         isActivityVisible = false
+        setDrawerStatusBarHidden(false)
         if (!isChangingConfigurations) {
             syncAttentionNotifications(null, viewModel.uiState.value)
         }
@@ -400,6 +405,27 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         }
     }
 
+    private fun syncDrawerStatusBarVisibility() {
+        val layout = drawerLayout ?: return
+        val drawerVisible = layout.isDrawerOpen(GravityCompat.START) || layout.isDrawerVisible(GravityCompat.START)
+        setDrawerStatusBarHidden(drawerVisible)
+    }
+
+    private fun setDrawerStatusBarHidden(hidden: Boolean) {
+        if (isDrawerStatusBarHidden == hidden) {
+            return
+        }
+        val anchor = drawerLayout ?: return
+        val controller = WindowInsetsControllerCompat(window, anchor)
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (hidden) {
+            controller.hide(WindowInsetsCompat.Type.statusBars())
+        } else {
+            controller.show(WindowInsetsCompat.Type.statusBars())
+        }
+        isDrawerStatusBarHidden = hidden
+    }
+
     private fun ensureDrawerSessionsFragment() {
         if (supportFragmentManager.findFragmentByTag(TAG_SESSIONS_DRAWER) != null) {
             return
@@ -428,28 +454,46 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         }
     }
 
-    private fun handlePickedImage(uri: Uri) {
+    private fun handlePickedDocument(uri: Uri) {
         lifecycleScope.launch {
-            val result = withContext(Dispatchers.IO) { readImageAttachment(uri) }
-            if (result == null) {
-                viewModel.setError("Failed to load selected image.")
-                return@launch
+            val selection = withContext(Dispatchers.IO) { readSelectedDocument(uri) }
+            when (selection) {
+                is SelectedDocument.Image -> {
+                    viewModel.addLocalImageAttachment(
+                        label = selection.label,
+                        dataUrl = selection.dataUrl,
+                        mimeType = selection.mimeType,
+                        sizeBytes = selection.sizeBytes
+                    )
+                }
+                is SelectedDocument.FileReference -> {
+                    viewModel.selectFileMention(
+                        FileMention(
+                            label = selection.label,
+                            path = selection.uri
+                        )
+                    )
+                }
+                null -> {
+                    viewModel.setError("Failed to load selected file.")
+                }
             }
-            viewModel.addLocalImageAttachment(
-                label = result.label,
-                dataUrl = result.dataUrl,
-                mimeType = result.mimeType,
-                sizeBytes = result.sizeBytes
-            )
         }
     }
 
-    private data class SelectedImageAttachment(
-        val label: String,
-        val dataUrl: String,
-        val mimeType: String?,
-        val sizeBytes: Long
-    )
+    private sealed interface SelectedDocument {
+        data class Image(
+            val label: String,
+            val dataUrl: String,
+            val mimeType: String?,
+            val sizeBytes: Long
+        ) : SelectedDocument
+
+        data class FileReference(
+            val label: String,
+            val uri: String
+        ) : SelectedDocument
+    }
 
     private data class AttentionNotificationSpec(
         val notificationId: Int,
@@ -458,17 +502,23 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         val contentText: String
     )
 
-    private fun readImageAttachment(uri: Uri): SelectedImageAttachment? {
+    private fun readSelectedDocument(uri: Uri): SelectedDocument? {
         val resolver = applicationContext.contentResolver
-        val mimeType = resolver.getType(uri)?.trim()?.takeIf { it.isNotBlank() } ?: "image/*"
-        val bytes = resolver.openInputStream(uri)?.use { input -> input.readBytes() } ?: return null
-        val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
         val label = queryDisplayName(uri) ?: uri.lastPathSegment?.substringAfterLast('/') ?: "Image"
-        return SelectedImageAttachment(
+        val mimeType = resolver.getType(uri)?.trim()?.takeIf { it.isNotBlank() }
+        if (mimeType != null && mimeType.startsWith("image/", ignoreCase = true)) {
+            val bytes = resolver.openInputStream(uri)?.use { input -> input.readBytes() } ?: return null
+            val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+            return SelectedDocument.Image(
+                label = label,
+                dataUrl = "data:$mimeType;base64,$base64",
+                mimeType = mimeType,
+                sizeBytes = bytes.size.toLong()
+            )
+        }
+        return SelectedDocument.FileReference(
             label = label,
-            dataUrl = "data:$mimeType;base64,$base64",
-            mimeType = mimeType,
-            sizeBytes = bytes.size.toLong()
+            uri = uri.toString()
         )
     }
 

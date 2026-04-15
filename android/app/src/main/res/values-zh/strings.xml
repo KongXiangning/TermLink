@@ -186,6 +186,11 @@
     <string name="codex_native_input_hint_skill">已选择技能 %1$s，继续输入你的具体需求...</string>
     <string name="codex_native_skill_chip_prefix">技能</string>
     <string name="codex_native_skill_chip_remove">×</string>
+    <string name="codex_native_attach_file">选择文件</string>
+    <string name="codex_native_open_commands">切换命令菜单</string>
+    <string name="codex_native_attach_file_short">文件</string>
+    <string name="codex_native_open_commands_short">命令</string>
+    <string name="codex_native_return_latest">返回最新</string>
     <string name="codex_native_send">发送</string>
     <string name="codex_native_stop">停止</string>
 
@@ -285,12 +290,15 @@
     <string name="codex_native_slash_model">选择模型</string>
     <string name="codex_native_slash_plan">进入计划模式</string>
     <string name="codex_native_slash_skill">选择技能</string>
-    <string name="codex_native_slash_compact">打开压缩面板</string>
+    <string name="codex_native_slash_compact">打开背景信息窗口</string>
     <string name="codex_native_slash_skills">打开技能面板</string>
-    <string name="codex_native_slash_mention">提及文件</string>
-    <string name="codex_native_slash_fast">切换快速模式</string>
+    <string name="codex_native_slash_mention">打开文件提及搜索</string>
+    <string name="codex_native_slash_fast">切换快速推理</string>
     <string name="codex_native_file_mention_searching">正在搜索工作区文件…</string>
     <string name="codex_native_file_mention_no_match">没有匹配的文件</string>
+    <string name="codex_native_mention_shortcut_hint">请从 slash 菜单使用 /mention，或在输入框里点击 @ 来搜索工作区文件。</string>
+    <string name="codex_native_fast_enabled">⚡ 快速模式已开启 — 最快推理，2 倍用量消耗</string>
+    <string name="codex_native_fast_disabled">快速模式已关闭 — 恢复默认推理</string>
     <string name="codex_native_approval_title_command">命令确认</string>
     <string name="codex_native_approval_title_file">文件改动确认</string>
     <string name="codex_native_approval_title_patch">补丁确认</string>

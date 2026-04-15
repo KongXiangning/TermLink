@@ -2,7 +2,7 @@
 title: 变更记录索引
 status: active
 owner: @maintainer
-last_updated: 2026-04-14
+last_updated: 2026-04-15
 source_of_truth: product
 related_code: [docs/changes/records]
 related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_CHANGE_RECORD.md]
@@ -23,6 +23,15 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260415-1314-codex-file-mention-uri-fix | REQ-20260408-codex-native-android-migration | active | 183e9f3d4709a8cd45c8dd299cbc57958f44fc84 | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-1314-codex-file-mention-uri-fix.md` |
+| CR-20260415-1253-codex-android-autoscroll | REQ-20260408-codex-native-android-migration | active | 183e9f3d4709a8cd45c8dd299cbc57958f44fc84 | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-1253-codex-android-autoscroll.md` |
+| CR-20260415-1246-codex-android-drawer-statusbar | REQ-20260408-codex-native-android-migration | active | 183e9f3d4709a8cd45c8dd299cbc57958f44fc84 | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-1246-codex-android-drawer-statusbar.md` |
+| CR-20260415-0120-codex-android-background-info | REQ-20260408-codex-native-android-migration | active | 183e9f3d4709a8cd45c8dd299cbc57958f44fc84 | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-0120-codex-android-background-info.md` |
+| CR-20260415-0104-codex-android-slash-menu | REQ-20260408-codex-native-android-migration | active | 183e9f3d4709a8cd45c8dd299cbc57958f44fc84 | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-0104-codex-android-slash-menu.md` |
+| CR-20260415-0025-codex-android-doc-freeze-menu-context-autoscroll | REQ-20260408-codex-native-android-migration | active | 183e9f3d4709a8cd45c8dd299cbc57958f44fc84 | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-0025-codex-android-doc-freeze-menu-context-autoscroll.md` |
+| CR-20260414-2343-relay-maintainability-boundary | REQ-20260413-relay-control-plane-and-transparent-transit | draft | TBD | @maintainer | 2026-04-14 |  | `docs/changes/records/CR-20260414-2343-relay-maintainability-boundary.md` |
+| CR-20260414-1600-codex-footer-file-picker | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-14 |  | `docs/changes/records/CR-20260414-1600-codex-footer-file-picker.md` |
+| CR-20260414-1539-codex-skill-message-replay | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-14 |  | `docs/changes/records/CR-20260414-1539-codex-skill-message-replay.md` |
 | CR-20260414-1412-codex-skill-chip-input | REQ-20260408-codex-native-android-migration | active | 09d9db33a70d0552f22bb7146b2edfeaff43b4be | @maintainer | 2026-04-14 |  | `docs/changes/records/CR-20260414-1412-codex-skill-chip-input.md` |
 | CR-20260414-0345-approval-request-default-config-fix |  | unknown | TBD | @maintainer |  | 修复审批请求不下发：默认 approvalPolicy 与 sandboxMode 不一致 | `docs/changes/records/CR-20260414-0345-approval-request-default-config-fix.md` |
 | CR-20260414-0318-plan-mode-thread-contamination-fix |  | unknown | TBD | @maintainer |  | Plan Mode Thread Contamination Fix | `docs/changes/records/CR-20260414-0318-plan-mode-thread-contamination-fix.md` |

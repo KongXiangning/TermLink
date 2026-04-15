@@ -224,7 +224,11 @@ class CodexViewModel(
                     compactStatusText = "",
                     compactStatusTone = ""
                 ),
-                usagePanel = it.usagePanel.copy(visible = false),
+                usagePanel = it.usagePanel.copy(
+                    visible = false,
+                    tokenUsageSummary = "",
+                    contextUsage = null
+                ),
                 pendingImageAttachments = emptyList(),
                 currentThreadTitle = "",
                 threadHistorySheetVisible = false,
@@ -563,11 +567,13 @@ class CodexViewModel(
 
     fun showThreadHistory() {
         _uiState.update {
-            it.copy(
-                threadHistorySheetVisible = true,
-                runtimePanel = it.runtimePanel.copy(visible = false),
-                noticesPanel = it.noticesPanel.copy(visible = false),
-                toolsPanel = it.toolsPanel.copy(visible = false)
+            closeSlashMenu(
+                it.copy(
+                    threadHistorySheetVisible = true,
+                    runtimePanel = it.runtimePanel.copy(visible = false),
+                    noticesPanel = it.noticesPanel.copy(visible = false),
+                    toolsPanel = it.toolsPanel.copy(visible = false)
+                )
             )
         }
         if (_uiState.value.capabilities?.historyList == true) {
@@ -577,11 +583,13 @@ class CodexViewModel(
 
     fun showRuntimePanel() {
         _uiState.update {
-            it.copy(
-                threadHistorySheetVisible = false,
-                runtimePanel = it.runtimePanel.copy(visible = true),
-                noticesPanel = it.noticesPanel.copy(visible = false),
-                toolsPanel = it.toolsPanel.copy(visible = false)
+            closeSlashMenu(
+                it.copy(
+                    threadHistorySheetVisible = false,
+                    runtimePanel = it.runtimePanel.copy(visible = true),
+                    noticesPanel = it.noticesPanel.copy(visible = false),
+                    toolsPanel = it.toolsPanel.copy(visible = false)
+                )
             )
         }
     }
@@ -593,22 +601,24 @@ class CodexViewModel(
     fun showToolsPanel() {
         maybeLoadSkillCatalog()
         _uiState.update { state ->
-            state.copy(
-                threadHistorySheetVisible = false,
-                runtimePanel = state.runtimePanel.copy(visible = false),
-                noticesPanel = state.noticesPanel.copy(visible = false),
-                toolsPanel = state.toolsPanel.copy(
-                    visible = true,
-                    compactStatusText = if (state.toolsPanel.compactSubmitting) {
-                        state.toolsPanel.compactStatusText
-                    } else {
-                        ""
-                    },
-                    compactStatusTone = if (state.toolsPanel.compactSubmitting) {
-                        state.toolsPanel.compactStatusTone
-                    } else {
-                        ""
-                    }
+            closeSlashMenu(
+                state.copy(
+                    threadHistorySheetVisible = false,
+                    runtimePanel = state.runtimePanel.copy(visible = false),
+                    noticesPanel = state.noticesPanel.copy(visible = false),
+                    toolsPanel = state.toolsPanel.copy(
+                        visible = true,
+                        compactStatusText = if (state.toolsPanel.compactSubmitting) {
+                            state.toolsPanel.compactStatusText
+                        } else {
+                            ""
+                        },
+                        compactStatusTone = if (state.toolsPanel.compactSubmitting) {
+                            state.toolsPanel.compactStatusTone
+                        } else {
+                            ""
+                        }
+                    )
                 )
             )
         }
@@ -616,11 +626,13 @@ class CodexViewModel(
 
     fun showNoticesPanel() {
         _uiState.update { state ->
-            state.copy(
-                threadHistorySheetVisible = false,
-                runtimePanel = state.runtimePanel.copy(visible = false),
-                noticesPanel = state.noticesPanel.copy(visible = true),
-                toolsPanel = state.toolsPanel.copy(visible = false)
+            closeSlashMenu(
+                state.copy(
+                    threadHistorySheetVisible = false,
+                    runtimePanel = state.runtimePanel.copy(visible = false),
+                    noticesPanel = state.noticesPanel.copy(visible = true),
+                    toolsPanel = state.toolsPanel.copy(visible = false)
+                )
             )
         }
     }
@@ -702,7 +714,9 @@ class CodexViewModel(
     fun showUsagePanel() {
         requestRateLimits(silent = true)
         _uiState.update { state ->
-            state.copy(usagePanel = state.usagePanel.copy(visible = true))
+            closeSlashMenu(
+                state.copy(usagePanel = state.usagePanel.copy(visible = true))
+            )
         }
     }
 
@@ -881,8 +895,9 @@ class CodexViewModel(
             "/plan" -> handleSlashPlan(parsed.argumentText)
             "/fast" -> toggleFastMode()
             "/skills" -> showToolsPanel()
-            "/compact" -> showToolsPanel()
+            "/compact" -> showUsagePanel()
             "/skill" -> handleSlashSkill(parsed.argumentText)
+            "/mention" -> appendMessage(ChatMessage.Role.SYSTEM, appContext.getString(R.string.codex_native_mention_shortcut_hint))
             else -> appendMessage(ChatMessage.Role.SYSTEM, "${entry.command} is not yet supported on mobile")
         }
     }
@@ -981,10 +996,12 @@ class CodexViewModel(
     // ── Fast mode ─────────────────────────────────────────────────────
 
     fun toggleFastMode() {
+        var enabled = false
         _uiState.update { state ->
             val current = state.nextTurnOverrides.reasoningEffort
             val isFastNow = current == FAST_MODE_EFFORT
             val newEffort = if (isFastNow) null else FAST_MODE_EFFORT
+            enabled = !isFastNow
             Log.i(TAG, "Fast mode: ${!isFastNow} (reasoning: $newEffort)")
             recalculateNextTurnEffectiveConfig(
                 state.copy(
@@ -992,14 +1009,22 @@ class CodexViewModel(
                 )
             )
         }
+        appendMessage(
+            ChatMessage.Role.SYSTEM,
+            appContext.getString(
+                if (enabled) R.string.codex_native_fast_enabled else R.string.codex_native_fast_disabled
+            )
+        )
     }
 
     fun showReasoningPicker() {
         _uiState.update {
-            it.copy(
-                modelPickerVisible = false,
-                sandboxPickerVisible = false,
-                reasoningPickerVisible = true
+            closeSlashMenu(
+                it.copy(
+                    modelPickerVisible = false,
+                    sandboxPickerVisible = false,
+                    reasoningPickerVisible = true
+                )
             )
         }
     }
@@ -1021,10 +1046,12 @@ class CodexViewModel(
 
     fun showSandboxPicker() {
         _uiState.update {
-            it.copy(
-                modelPickerVisible = false,
-                reasoningPickerVisible = false,
-                sandboxPickerVisible = true
+            closeSlashMenu(
+                it.copy(
+                    modelPickerVisible = false,
+                    reasoningPickerVisible = false,
+                    sandboxPickerVisible = true
+                )
             )
         }
     }
@@ -1049,10 +1076,12 @@ class CodexViewModel(
     fun showModelPicker() {
         maybeRequestModelList()
         _uiState.update {
-            it.copy(
-                modelPickerVisible = true,
-                reasoningPickerVisible = false,
-                sandboxPickerVisible = false
+            closeSlashMenu(
+                it.copy(
+                    modelPickerVisible = true,
+                    reasoningPickerVisible = false,
+                    sandboxPickerVisible = false
+                )
             )
         }
     }
@@ -1086,6 +1115,9 @@ class CodexViewModel(
     fun updateSlashMenuQuery(query: String) {
         _uiState.update { it.copy(slashMenuQuery = query) }
     }
+
+    private fun closeSlashMenu(state: CodexUiState): CodexUiState =
+        state.copy(slashMenuVisible = false, slashMenuQuery = "")
 
     fun handleComposerTextChanged(rawText: String) {
         val mentionInput = CodexSlashRegistry.parseFileMentionInput(rawText)
@@ -2153,12 +2185,14 @@ class CodexViewModel(
                 when (item.optString("type", "")) {
                     "userMessage" -> {
                         val text = extractUserMessageText(item)
-                        if (text.isNotEmpty()) {
+                        val activeSkill = extractUserMessageActiveSkill(item.optJSONArray("content"))
+                        if (text.isNotEmpty() || !activeSkill.isNullOrBlank()) {
                             result.add(
                                 ChatMessage(
                                     id = item.optString("id", UUID.randomUUID().toString()),
                                     role = ChatMessage.Role.USER,
-                                    content = text
+                                    content = text,
+                                    activeSkill = activeSkill
                                 )
                             )
                         }
@@ -2191,6 +2225,21 @@ class CodexViewModel(
             }
         }
         return ""
+    }
+
+    private fun extractUserMessageActiveSkill(content: JSONArray?): String? {
+        content ?: return null
+        for (index in 0 until content.length()) {
+            val part = content.optJSONObject(index) ?: continue
+            if (part.optString("type", "") == "skill") {
+                val skillName = part.optStringOrNullCompat("name")
+                    ?: part.optStringOrNullCompat("toolName")
+                if (!skillName.isNullOrBlank()) {
+                    return skillName
+                }
+            }
+        }
+        return null
     }
 
     private fun normalizeHistoryTimestamp(value: Any?): Long? {
@@ -3220,8 +3269,8 @@ class CodexViewModel(
     }
 
     private fun applyTokenUsagePayload(payload: Any?) {
-        val summary = formatTokenUsageSummary(payload)
         val contextUsage = normalizeContextUsageState(payload)
+        val summary = formatTokenUsageSummary(contextUsage)
         _uiState.update { state ->
             state.copy(
                 usagePanel = state.usagePanel.copy(
@@ -3248,48 +3297,17 @@ class CodexViewModel(
         }
     }
 
-    private fun formatTokenUsageSummary(payload: Any?): String {
-        val sources = buildTokenUsageSources(payload)
-        val input = pickFirstLongFromSources(
-            sources,
-            listOf("inputTokens"),
-            listOf("input_tokens"),
-            listOf("input"),
-            listOf("promptTokens"),
-            listOf("prompt_tokens")
-        )
-        val output = pickFirstLongFromSources(
-            sources,
-            listOf("outputTokens"),
-            listOf("output_tokens"),
-            listOf("output"),
-            listOf("completionTokens"),
-            listOf("completion_tokens")
-        )
-        val total = pickFirstLongFromSources(
-            sources,
-            listOf("totalTokens"),
-            listOf("total_tokens"),
-            listOf("total")
-        ) ?: if (input != null || output != null) {
+    private fun formatTokenUsageSummary(contextUsage: CodexContextUsageState?): String {
+        val usage = contextUsage ?: return ""
+        val input = usage.inputTokens
+        val output = usage.outputTokens
+        val total = usage.usedTokens ?: if (input != null || output != null) {
             (input ?: 0L) + (output ?: 0L)
         } else {
             null
         }
-        val cached = pickFirstLongFromSources(
-            sources,
-            listOf("cachedInputTokens"),
-            listOf("cached_input_tokens"),
-            listOf("cacheTokens"),
-            listOf("cache_tokens")
-        )
-        val reasoning = pickFirstLongFromSources(
-            sources,
-            listOf("reasoningOutputTokens"),
-            listOf("reasoning_output_tokens"),
-            listOf("reasoningTokens"),
-            listOf("reasoning_tokens")
-        )
+        val cached = usage.cachedInputTokens
+        val reasoning = usage.reasoningTokens
         val parts = mutableListOf<String>()
         input?.let { parts += "${formatCompactNumber(it)} in" }
         output?.let { parts += "${formatCompactNumber(it)} out" }
@@ -3300,7 +3318,10 @@ class CodexViewModel(
     }
 
     private fun normalizeContextUsageState(payload: Any?): CodexContextUsageState? {
-        val sources = buildTokenUsageSources(payload)
+        val sources = buildTokenUsageSources(payload).filter(::looksLikeTaskScopedContextSource)
+        if (sources.isEmpty()) {
+            return null
+        }
         val modelContextWindow = pickFirstLongFromSources(
             sources,
             listOf("modelContextWindow"),
@@ -3311,20 +3332,12 @@ class CodexViewModel(
             listOf("last", "totalTokens"),
             listOf("last", "total_tokens")
         )
-        val usedTokens = pickFirstLongFromSources(
+        val explicitUsedTokens = pickFirstLongFromSources(
             sources,
             listOf("usedTokens"),
-            listOf("used_tokens"),
-            listOf("last", "totalTokens"),
-            listOf("last", "total_tokens"),
-            listOf("totalTokens"),
-            listOf("total_tokens"),
-            listOf("inputTokens"),
-            listOf("input_tokens"),
-            listOf("promptTokens"),
-            listOf("prompt_tokens")
+            listOf("used_tokens")
         )
-        val maxTokens = pickFirstLongFromSources(
+        val explicitMaxTokens = pickFirstLongFromSources(
             sources,
             listOf("maxTokens"),
             listOf("max_tokens"),
@@ -3392,6 +3405,8 @@ class CodexViewModel(
                 updatedAtMillis = System.currentTimeMillis()
             )
         }
+        val usedTokens = explicitUsedTokens?.takeIf { it >= 0 }
+        val maxTokens = explicitMaxTokens?.takeIf { it > 0 }
         val usedPercent = clampPercent(
             explicitPercent ?: (
                 if (usedTokens != null && maxTokens != null && maxTokens > 0) {
@@ -3440,6 +3455,34 @@ class CodexViewModel(
             ),
             updatedAtMillis = System.currentTimeMillis()
         )
+    }
+
+    private fun looksLikeTaskScopedContextSource(source: JSONObject): Boolean {
+        if (source.has("contextUsage") || source.has("context_usage")) {
+            return true
+        }
+        if (
+            source.has("modelContextWindow") ||
+            source.has("model_context_window") ||
+            source.has("usedPercent") ||
+            source.has("used_percent") ||
+            source.has("contextUsedPercent") ||
+            source.has("context_used_percent") ||
+            source.has("usagePercent") ||
+            source.has("usage_percent") ||
+            source.has("contextWindowTokens") ||
+            source.has("context_window_tokens") ||
+            source.has("contextWindowMaxTokens") ||
+            source.has("context_window_max_tokens") ||
+            source.has("maxContextTokens") ||
+            source.has("max_context_tokens") ||
+            source.has("usedTokens") ||
+            source.has("used_tokens")
+        ) {
+            return true
+        }
+        val last = source.optJSONObject("last")
+        return last?.has("totalTokens") == true || last?.has("total_tokens") == true
     }
 
     private fun formatRateLimitSummary(payload: Any?): RateLimitSummary {
@@ -4046,11 +4089,14 @@ class CodexViewModel(
                 else -> ChatMessage.Role.SYSTEM
             }
             val content = msgJson.optString("content", "")
+            val activeSkill = msgJson.optStringOrNullCompat("activeSkill")
+                ?: extractUserMessageActiveSkill(msgJson.optJSONArray("content"))
             result.add(
                 ChatMessage(
                     id = msgJson.optString("id", UUID.randomUUID().toString()),
                     role = role,
                     content = content,
+                    activeSkill = if (role == ChatMessage.Role.USER) activeSkill else null,
                     timestamp = msgJson.optLong("timestamp", System.currentTimeMillis())
                 )
             )

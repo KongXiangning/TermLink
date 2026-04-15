@@ -186,6 +186,11 @@
     <string name="codex_native_input_hint_skill">Skill %1$s selected, enter your specific request...</string>
     <string name="codex_native_skill_chip_prefix">Skill</string>
     <string name="codex_native_skill_chip_remove">×</string>
+    <string name="codex_native_attach_file">Attach file</string>
+    <string name="codex_native_open_commands">Toggle commands</string>
+    <string name="codex_native_attach_file_short">File</string>
+    <string name="codex_native_open_commands_short">Cmd</string>
+    <string name="codex_native_return_latest">Return to latest</string>
     <string name="codex_native_send">Send</string>
     <string name="codex_native_stop">Stop</string>
 
@@ -285,12 +290,15 @@
     <string name="codex_native_slash_model">Choose model</string>
     <string name="codex_native_slash_plan">Enter plan mode</string>
     <string name="codex_native_slash_skill">Select skill</string>
-    <string name="codex_native_slash_compact">Open compact panel</string>
+    <string name="codex_native_slash_compact">Open background info</string>
     <string name="codex_native_slash_skills">Open skills panel</string>
-    <string name="codex_native_slash_mention">Mention file</string>
-    <string name="codex_native_slash_fast">Toggle fast mode</string>
+    <string name="codex_native_slash_mention">Open file mention search</string>
+    <string name="codex_native_slash_fast">Switch fast reasoning</string>
     <string name="codex_native_file_mention_searching">Searching workspace files…</string>
     <string name="codex_native_file_mention_no_match">No matching files</string>
+    <string name="codex_native_mention_shortcut_hint">Use /mention from the slash menu or tap @ in the composer to search workspace files.</string>
+    <string name="codex_native_fast_enabled">⚡ Fast mode enabled — fastest inference at 2× plan usage</string>
+    <string name="codex_native_fast_disabled">Fast mode disabled — back to default reasoning</string>
     <string name="codex_native_approval_title_command">Command Approval</string>
     <string name="codex_native_approval_title_file">File Change Approval</string>
     <string name="codex_native_approval_title_patch">Patch Approval</string>

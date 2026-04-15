@@ -217,18 +217,21 @@ fun CodexScreen(
     onCancelThreadRename: () -> Unit,
     onSubmitThreadRename: () -> Unit,
     onPickLocalImage: () -> Unit,
-    onAddImageUrl: (String) -> Unit,
     onRemovePendingImageAttachment: (String) -> Unit,
     onInjectDebugServerRequest: (DebugServerRequestPreset) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    var autoFollowEnabled by remember { mutableStateOf(true) }
+    var suppressAutoFollowPause by remember { mutableStateOf(false) }
     val isStreaming = state.messages.lastOrNull()?.streaming == true ||
         state.status.equals("running", ignoreCase = true)
     var lastStreamAutoScrollAtMillis by remember { mutableStateOf(0L) }
     var stallNowMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var debugInjectorVisible by remember { mutableStateOf(false) }
+    val bottomAnchorIndex = state.messages.size
+    val atLatestPosition = isMessageListAtBottom(listState, bottomAnchorIndex)
     val blockingApprovalRequest = remember(state.pendingServerRequests) {
         state.pendingServerRequests.firstOrNull { request ->
             request.responseMode == "decision"
@@ -253,32 +256,62 @@ fun CodexScreen(
     val noticesPanelVisible = state.noticesPanel.visible && hasNoticesPanelContent(state)
     val secondaryPanelVisible = state.threadHistorySheetVisible || runtimePanelVisible || noticesPanelVisible || state.toolsPanel.visible
 
-    // Auto-scroll: on new messages (size/id change), always follow to bottom if near bottom
+    LaunchedEffect(state.messages.firstOrNull()?.id) {
+        autoFollowEnabled = true
+    }
+    LaunchedEffect(
+        listState.isScrollInProgress,
+        atLatestPosition,
+        bottomAnchorIndex,
+        autoFollowEnabled,
+        suppressAutoFollowPause
+    ) {
+        if (
+            bottomAnchorIndex > 0 &&
+            listState.isScrollInProgress &&
+            autoFollowEnabled &&
+            !suppressAutoFollowPause &&
+            !atLatestPosition
+        ) {
+            autoFollowEnabled = false
+        }
+    }
+    // Auto-scroll: on new messages (size/id change), follow to bottom unless the user paused it
     LaunchedEffect(
         state.messages.size,
         state.messages.lastOrNull()?.id
     ) {
-        val anchorIndex = state.messages.size // index of _bottom_anchor spacer
-        if (anchorIndex <= 0 || !shouldAutoFollowMessages(listState, anchorIndex)) {
+        val anchorIndex = bottomAnchorIndex // index of _bottom_anchor spacer
+        if (anchorIndex <= 0 || !autoFollowEnabled) {
             return@LaunchedEffect
         }
-        listState.scrollToItem(anchorIndex)
+        suppressAutoFollowPause = true
+        try {
+            listState.scrollToItem(anchorIndex)
+        } finally {
+            suppressAutoFollowPause = false
+        }
     }
-    // Auto-scroll during streaming: throttled, only when near bottom
+    // Auto-scroll during streaming: throttled, unless the user paused it
     LaunchedEffect(
         state.messages.lastOrNull()?.content?.length,
         state.messages.lastOrNull()?.streaming
     ) {
-        val anchorIndex = state.messages.size
+        val anchorIndex = bottomAnchorIndex
         if (anchorIndex <= 0) return@LaunchedEffect
         val lastMessage = state.messages.lastOrNull() ?: return@LaunchedEffect
         if (!lastMessage.streaming) return@LaunchedEffect
-        if (!shouldAutoFollowMessages(listState, anchorIndex)) return@LaunchedEffect
+        if (!autoFollowEnabled) return@LaunchedEffect
         val nowMillis = System.currentTimeMillis()
         if (nowMillis - lastStreamAutoScrollAtMillis < StreamingAutoScrollThrottleMillis) {
             return@LaunchedEffect
         }
-        listState.scrollToItem(anchorIndex)
+        suppressAutoFollowPause = true
+        try {
+            listState.scrollToItem(anchorIndex)
+        } finally {
+            suppressAutoFollowPause = false
+        }
         lastStreamAutoScrollAtMillis = nowMillis
     }
     LaunchedEffect(
@@ -435,14 +468,20 @@ fun CodexScreen(
                         mentionResults = state.fileMentionResults,
                         mentionLoading = state.fileMentionLoading,
                         pendingMentions = state.pendingFileMentions,
-                        imageInputEnabled = state.capabilities?.imageInputSupported == true,
-                        maxImageSize = state.capabilities?.maxImageSize ?: 0L,
+                        attachmentInputEnabled = state.capabilities?.imageInputSupported == true ||
+                            state.capabilities?.fileMentions == true,
                         pendingImageAttachments = state.pendingImageAttachments,
                         onSend = { text ->
+                            autoFollowEnabled = true
                             onSendMessage(text)
                             coroutineScope.launch {
-                                if (state.messages.isNotEmpty()) {
-                                    listState.scrollToItem(state.messages.size + 1)
+                                suppressAutoFollowPause = true
+                                try {
+                                    if (state.messages.isNotEmpty()) {
+                                        listState.scrollToItem(state.messages.size + 1)
+                                    }
+                                } finally {
+                                    suppressAutoFollowPause = false
                                 }
                             }
                         },
@@ -455,7 +494,6 @@ fun CodexScreen(
                         onSelectFileMention = onSelectFileMention,
                         onRemoveFileMention = onRemoveFileMention,
                         onPickLocalImage = onPickLocalImage,
-                        onAddImageUrl = onAddImageUrl,
                         onRemovePendingImageAttachment = onRemovePendingImageAttachment,
                         onShowModelPicker = onShowModelPicker,
                         onHideModelPicker = onHideModelPicker,
@@ -477,6 +515,28 @@ fun CodexScreen(
                         onShowToolsPanel = onShowToolsPanel,
                         onHideToolsPanel = onHideToolsPanel,
                         onClearActiveSkill = onClearActiveSkill
+                    )
+                }
+
+                if (state.messages.isNotEmpty() && !autoFollowEnabled) {
+                    ReturnToLatestButton(
+                        onClick = {
+                            autoFollowEnabled = true
+                            coroutineScope.launch {
+                                suppressAutoFollowPause = true
+                                try {
+                                    if (bottomAnchorIndex > 0) {
+                                        listState.animateScrollToItem(bottomAnchorIndex)
+                                    }
+                                } finally {
+                                    suppressAutoFollowPause = false
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = 20.dp, bottom = 118.dp)
+                            .navigationBarsPadding()
                     )
                 }
 
@@ -585,7 +645,6 @@ private fun CodexHeader(
     }
 
     val metaParts = buildList {
-        state.usagePanel.tokenUsageSummary.takeIf { it.isNotBlank() }?.let(::add)
         if (state.pendingServerRequests.size == 1) {
             add(stringResource(R.string.codex_native_status_approval_count_one))
         } else if (state.pendingServerRequests.size > 1) {
@@ -854,6 +913,32 @@ private fun RuntimeStallBanner(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ReturnToLatestButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val label = stringResource(R.string.codex_native_return_latest)
+    FilledTonalButton(
+        onClick = onClick,
+        modifier = modifier.semantics {
+            contentDescription = label
+            role = Role.Button
+        },
+        colors = ButtonDefaults.filledTonalButtonColors(
+            containerColor = AccentBlue.copy(alpha = 0.18f),
+            contentColor = AccentBlue
+        ),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp)
+    ) {
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
@@ -1664,7 +1749,7 @@ private fun bubbleLayoutSpec(role: ChatMessage.Role): BubbleLayoutSpec = when (r
     )
 }
 
-private fun shouldAutoFollowMessages(
+private fun isMessageListAtBottom(
     listState: androidx.compose.foundation.lazy.LazyListState,
     lastIndex: Int
 ): Boolean {
@@ -1673,10 +1758,12 @@ private fun shouldAutoFollowMessages(
     }
     val layoutInfo = listState.layoutInfo
     val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull() ?: return true
+    if (lastVisible.index < lastIndex) {
+        return false
+    }
     val viewportEnd = layoutInfo.viewportEndOffset
     val lastItemEnd = lastVisible.offset + lastVisible.size
-    // Only follow if the actual bottom of content is near the viewport bottom
-    return lastItemEnd <= viewportEnd + 120
+    return lastItemEnd <= viewportEnd + 16
 }
 
 private enum class RuntimeStallReason {
@@ -2476,7 +2563,7 @@ private fun UsagePanelSheet(
     onDismiss: () -> Unit,
     onRequestCompactCurrentThread: () -> Unit
 ) {
-    val contextUsage = state.usagePanel.contextUsage
+    val contextUsage = displayedContextUsage(state)
     val usedSummary = contextUsage?.usedPercent?.let { usedPercent ->
         stringResource(
             R.string.codex_native_context_used_summary,
@@ -2622,100 +2709,6 @@ private fun UsagePanelSheet(
                     )
                 }
             }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ImageInputSheet(
-    maxImageSize: Long,
-    imageUrlDraft: String,
-    onImageUrlChanged: (String) -> Unit,
-    onDismiss: () -> Unit,
-    onPickLocalImage: () -> Unit,
-    onConfirmUrl: () -> Unit
-) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = SurfaceColor
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .navigationBarsPadding()
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-        ) {
-            Text(
-                text = stringResource(R.string.codex_native_image_sheet_title),
-                color = TextPrimary,
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.codex_native_image_sheet_subtitle),
-                color = TextMuted,
-                fontSize = 13.sp
-            )
-            if (maxImageSize > 0L) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    text = stringResource(
-                        R.string.codex_native_image_size_limit,
-                        formatFileSize(maxImageSize)
-                    ),
-                    color = TextSecondary,
-                    fontSize = 12.sp
-                )
-            }
-            Spacer(modifier = Modifier.height(14.dp))
-            FilledTonalButton(onClick = onPickLocalImage) {
-                Text(stringResource(R.string.codex_native_image_pick_local))
-            }
-            Spacer(modifier = Modifier.height(14.dp))
-            TextField(
-                value = imageUrlDraft,
-                onValueChange = onImageUrlChanged,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = {
-                    Text(
-                        text = stringResource(R.string.codex_native_image_url_placeholder),
-                        color = TextMuted
-                    )
-                },
-                shape = RoundedCornerShape(16.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedTextColor = TextPrimary,
-                    unfocusedTextColor = TextPrimary,
-                    disabledTextColor = TextMuted,
-                    focusedContainerColor = SurfaceRaised,
-                    unfocusedContainerColor = SurfaceRaised,
-                    disabledContainerColor = SurfaceRaised,
-                    cursorColor = AccentBlue,
-                    focusedIndicatorColor = AccentBlue,
-                    unfocusedIndicatorColor = SurfaceBorder,
-                    disabledIndicatorColor = SurfaceBorder
-                ),
-                singleLine = true
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                FilledTonalButton(
-                    onClick = onConfirmUrl,
-                    enabled = imageUrlDraft.isNotBlank()
-                ) {
-                    Text(stringResource(R.string.codex_native_image_add_url))
-                }
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(R.string.codex_native_dismiss))
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -3381,6 +3374,7 @@ private fun FooterControls(
     onHideSandboxPicker: () -> Unit,
     onSelectSandboxMode: (String?) -> Unit,
     onTogglePlanMode: () -> Unit,
+    slashMenuVisible: Boolean,
     onShowToolsPanel: () -> Unit,
     onHideToolsPanel: () -> Unit,
     onShowUsagePanel: () -> Unit,
@@ -3404,16 +3398,19 @@ private fun FooterControls(
             .fillMaxWidth()
             .padding(start = 10.dp, end = 10.dp, top = 0.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         FooterActionButton(
             onClick = onPickLocalImage,
             enabled = imageInputEnabled,
-            label = "+"
+            label = "⊕",
+            contentDescription = stringResource(R.string.codex_native_attach_file)
         )
         FooterActionButton(
             onClick = onShowSlashMenu,
-            label = "/"
+            label = "/",
+            contentDescription = stringResource(R.string.codex_native_open_commands),
+            active = slashMenuVisible
         )
         Box(
             modifier = Modifier
@@ -3625,25 +3622,48 @@ private fun QuickControlButton(
 private fun FooterActionButton(
     onClick: () -> Unit,
     label: String,
-    enabled: Boolean = true
+    contentDescription: String,
+    enabled: Boolean = true,
+    active: Boolean = false
 ) {
     Box(
         modifier = Modifier
-            .heightIn(min = 24.dp)
-            .clickable(enabled = enabled, onClick = onClick)
-    ) {
-        Box(
-            modifier = Modifier.padding(horizontal = 2.dp, vertical = 2.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = label,
-                color = if (enabled) TextMuted else TextMuted.copy(alpha = 0.45f),
-                fontSize = 13.sp,
-                lineHeight = 13.sp,
-                fontWeight = FontWeight.Medium
+            .size(30.dp)
+            .clip(RoundedCornerShape(9.dp))
+            .background(
+                when {
+                    !enabled -> SurfaceRaised.copy(alpha = 0.45f)
+                    active -> AccentBlue.copy(alpha = 0.24f)
+                    else -> AccentBlue.copy(alpha = 0.14f)
+                }
             )
-        }
+            .border(
+                1.dp,
+                when {
+                    !enabled -> SurfaceBorder.copy(alpha = 0.35f)
+                    active -> AccentBlue.copy(alpha = 0.75f)
+                    else -> AccentBlue.copy(alpha = 0.35f)
+                },
+                RoundedCornerShape(9.dp)
+            )
+            .semantics {
+                this.contentDescription = contentDescription
+                role = Role.Button
+            }
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = when {
+                !enabled -> TextMuted.copy(alpha = 0.55f)
+                active -> TextPrimary
+                else -> AccentBlue
+            },
+            fontSize = 14.sp,
+            lineHeight = 14.sp,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
@@ -3652,7 +3672,7 @@ private fun ContextUsageWidget(
     state: CodexUiState,
     onClick: () -> Unit
 ) {
-    val usedPercent = state.usagePanel.contextUsage?.usedPercent?.coerceIn(0, 100)
+    val usedPercent = displayedContextUsage(state)?.usedPercent?.coerceIn(0, 100)
     Box(
         modifier = Modifier
             .size(32.dp)
@@ -3676,6 +3696,15 @@ private fun ContextUsageWidget(
             )
         }
     }
+}
+
+private fun displayedContextUsage(state: CodexUiState): com.termlink.app.codex.domain.CodexContextUsageState? {
+    val contextUsage = state.usagePanel.contextUsage ?: return null
+    val hasVisibleConversation = state.messages.isNotEmpty()
+    val hasActiveTaskState = state.status.equals("running", ignoreCase = true) ||
+        state.messages.lastOrNull()?.streaming == true ||
+        state.pendingServerRequests.isNotEmpty()
+    return if (hasVisibleConversation || hasActiveTaskState) contextUsage else null
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -3791,8 +3820,7 @@ private fun InputComposer(
     mentionResults: List<FileMention>,
     mentionLoading: Boolean,
     pendingMentions: List<FileMention>,
-    imageInputEnabled: Boolean,
-    maxImageSize: Long,
+    attachmentInputEnabled: Boolean,
     pendingImageAttachments: List<CodexPendingImageAttachment>,
     onSend: (String) -> Unit,
     onInterrupt: () -> Unit,
@@ -3804,7 +3832,6 @@ private fun InputComposer(
     onSelectFileMention: (FileMention) -> Unit,
     onRemoveFileMention: (String) -> Unit,
     onPickLocalImage: () -> Unit,
-    onAddImageUrl: (String) -> Unit,
     onRemovePendingImageAttachment: (String) -> Unit,
     onShowModelPicker: () -> Unit,
     onHideModelPicker: () -> Unit,
@@ -3828,8 +3855,6 @@ private fun InputComposer(
     onClearActiveSkill: () -> Unit = {}
 ) {
     var textFieldValue by remember { mutableStateOf(TextFieldValue("")) }
-    var imageSheetVisible by remember { mutableStateOf(false) }
-    var imageUrlDraft by remember { mutableStateOf("") }
     val composerFocusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val activeSkill = state.interactionState?.activeSkill?.takeIf { it.isNotBlank() }
@@ -3878,6 +3903,27 @@ private fun InputComposer(
         keyboardController?.show()
     }
 
+    fun openFileMentionShortcut(): Boolean {
+        if (state.capabilities?.fileMentions != true) {
+            return false
+        }
+        val shortcutText = "@"
+        textFieldValue = TextFieldValue(
+            text = shortcutText,
+            selection = TextRange(shortcutText.length)
+        )
+        onHideSlashMenu()
+        syncComposerMenus(shortcutText)
+        composerFocusRequester.requestFocus()
+        keyboardController?.show()
+        return true
+    }
+
+    fun handleLocalSlashShortcut(command: String): Boolean = when (command.trim().lowercase()) {
+        "/mention" -> openFileMentionShortcut()
+        else -> false
+    }
+
     fun submit(): Boolean {
         val submittedText = textFieldValue.text.trim()
         if (
@@ -3887,9 +3933,11 @@ private fun InputComposer(
         ) {
             return false
         }
+        if (handleLocalSlashShortcut(submittedText)) {
+            return true
+        }
         onSend(submittedText)
         textFieldValue = TextFieldValue("")
-        imageUrlDraft = ""
         onHideSlashMenu()
         onHideFileMentionMenu()
         onComposerTextChanged("")
@@ -3950,6 +3998,9 @@ private fun InputComposer(
                 SlashMenu(
                     commands = slashCommands,
                     onSelect = { command ->
+                        if (handleLocalSlashShortcut(command)) {
+                            return@SlashMenu
+                        }
                         onSend(command)
                         textFieldValue = TextFieldValue("")
                         onHideSlashMenu()
@@ -4087,7 +4138,7 @@ private fun InputComposer(
 
             FooterControls(
                 state = state,
-                imageInputEnabled = imageInputEnabled,
+                imageInputEnabled = attachmentInputEnabled,
                 onShowModelPicker = onShowModelPicker,
                 onHideModelPicker = onHideModelPicker,
                 onSelectModel = onSelectModel,
@@ -4098,6 +4149,7 @@ private fun InputComposer(
                 onHideSandboxPicker = onHideSandboxPicker,
                 onSelectSandboxMode = onSelectSandboxMode,
                 onTogglePlanMode = onTogglePlanMode,
+                slashMenuVisible = slashMenuVisible,
                 onShowToolsPanel = onShowToolsPanel,
                 onHideToolsPanel = onHideToolsPanel,
                 onShowUsagePanel = onShowUsagePanel,
@@ -4105,28 +4157,18 @@ private fun InputComposer(
                 onHideRuntimePanel = onHideRuntimePanel,
                 onShowThreadHistory = onShowThreadHistory,
                 onHideThreadHistory = onHideThreadHistory,
-                onPickLocalImage = { imageSheetVisible = true },
-                onShowSlashMenu = { onShowSlashMenu("/") }
+                onPickLocalImage = onPickLocalImage,
+                onShowSlashMenu = {
+                    if (slashMenuVisible) {
+                        onHideSlashMenu()
+                    } else {
+                        onHideFileMentionMenu()
+                        onShowSlashMenu("/")
+                        onSlashMenuQueryChanged("/")
+                    }
+                }
             )
         }
-    }
-
-    if (imageSheetVisible) {
-        ImageInputSheet(
-            maxImageSize = maxImageSize,
-            imageUrlDraft = imageUrlDraft,
-            onImageUrlChanged = { imageUrlDraft = it },
-            onDismiss = { imageSheetVisible = false },
-            onPickLocalImage = {
-                imageSheetVisible = false
-                onPickLocalImage()
-            },
-            onConfirmUrl = {
-                onAddImageUrl(imageUrlDraft)
-                imageUrlDraft = ""
-                imageSheetVisible = false
-            }
-        )
     }
 }
 
