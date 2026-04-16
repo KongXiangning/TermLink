@@ -1458,6 +1458,67 @@ test('codex_turn starts a fresh thread when the stored execution context no long
     );
 });
 
+test('codex_turn honors an explicit history threadId even when the stored execution context no longer matches', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        cwd: 'D:\\workspace\\demo',
+        codexConfig: {
+            defaultModel: 'gpt-5.4',
+            approvalPolicy: 'never',
+            sandboxMode: 'danger-full-access'
+        },
+        codexState: {
+            threadId: 'thread-existing',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null,
+            threadExecutionContextSignature: '{"cwd":"D:\\\\workspace\\\\demo","approvalPolicy":"on-request","sandboxMode":"workspace-write"}'
+        }
+    });
+    session.lastCodexThreadId = 'thread-existing';
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        threadId: 'thread-alias',
+        text: 'continue selected history thread'
+    }));
+
+    const service = MockCodexService.instances[0];
+    const resumeCall = service.requests.find((entry) => entry.method === 'thread/resume');
+    const threadStartCalls = service.requests.filter((entry) => entry.method === 'thread/start');
+    const turnStart = service.requests.find((entry) => entry.method === 'turn/start');
+
+    assert.ok(resumeCall, 'thread/resume should be invoked for the explicit history thread');
+    assert.equal(resumeCall.params.threadId, 'thread-alias');
+    assert.equal(threadStartCalls.length, 0, 'explicit history thread should not start a fresh thread');
+    assert.ok(turnStart, 'turn/start should be invoked');
+    assert.equal(turnStart.params.threadId, 'thread-canonical');
+    assert.equal(session.codexState.threadId, 'thread-canonical');
+    assert.equal(session.lastCodexThreadId, 'thread-canonical');
+    assert.equal(
+        session.codexState.threadExecutionContextSignature,
+        '{"cwd":"E:\\\\coding\\\\TermLink","approvalPolicy":"never","sandboxMode":"danger-full-access"}'
+    );
+});
+
 test('codex_turn rebinds an existing thread after runtime restart instead of starting a fresh thread', async (t) => {
     MockCodexService.instances.length = 0;
     const registerTerminalGateway = loadGatewayWithMocks({

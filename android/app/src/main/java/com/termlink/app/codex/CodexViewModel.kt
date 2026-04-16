@@ -76,6 +76,8 @@ class CodexViewModel(
      *  When this flag is true and the next turn is non-plan,
      *  we force a new thread to avoid thread-level plan contamination. */
     private var threadHadPlanTurn = false
+    private var pendingThreadResyncThreadId: String? = null
+    private var threadResyncInFlightThreadId: String? = null
 
     init {
         observeConnectionState()
@@ -86,6 +88,7 @@ class CodexViewModel(
 
     fun connect(profile: ServerProfile, params: CodexLaunchParams) {
         currentProfile = profile
+        clearPendingThreadResync()
         _uiState.update {
             recalculateNextTurnEffectiveConfig(
                 it.copy(
@@ -195,7 +198,20 @@ class CodexViewModel(
     }
 
     fun interrupt() {
-        connectionManager.send(CodexClientMessages.codexInterrupt(_uiState.value.threadId))
+        val state = _uiState.value
+        if (state.threadId.isNullOrBlank() || state.currentTurnId.isNullOrBlank()) {
+            _uiState.update {
+                syncExecutionWatch(
+                    it.copy(currentTurnId = null),
+                    markActivity = false
+                )
+            }
+            return
+        }
+        sendEnvelopeOrReportFailure(
+            payload = CodexClientMessages.codexInterrupt(state.threadId),
+            errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+        )
     }
 
     fun newThread() {
@@ -203,6 +219,7 @@ class CodexViewModel(
         currentPlanStreamingMessageId = null
         executionFeedbackSeen.clear()
         threadHadPlanTurn = false
+        clearPendingThreadResync()
         _uiState.update {
             it.copy(
                 threadId = null,
@@ -1196,6 +1213,7 @@ class CodexViewModel(
             id = UUID.randomUUID().toString(),
             role = ChatMessage.Role.USER,
             content = displayText,
+            fileMentions = state.pendingFileMentions,
             activeSkill = turnInteractionState.activeSkill
         )
         val isPlanMode = forcePlanMode || state.planMode == true
@@ -1352,7 +1370,9 @@ class CodexViewModel(
 
     private fun buildPromptWithMentions(text: String, mentions: List<FileMention>): String {
         val mentionPrefix = mentions.joinToString("\n") { "@${it.path}" }
-        val promptText = text.trim()
+        val promptText = mentions.fold(text) { current, file ->
+            stripCommittedMentionToken(current, "@${file.label}")
+        }.trim()
         return when {
             mentionPrefix.isBlank() -> promptText
             promptText.isBlank() -> mentionPrefix
@@ -1378,13 +1398,34 @@ class CodexViewModel(
         return parts.joinToString("\n")
     }
 
-    private fun displayPath(file: FileMention): String {
-        val folder = file.relativePathWithoutFileName.trim().trim('.', '\\', '/')
-        return if (folder.isBlank()) {
-            file.label
-        } else {
-            "$folder/${file.label}"
+    private fun stripCommittedMentionToken(text: String, token: String): String {
+        if (token.isBlank()) return text
+        val result = StringBuilder(text.length)
+        var cursor = 0
+        while (cursor < text.length) {
+            val matchIndex = text.indexOf(token, cursor)
+            if (matchIndex == -1) {
+                result.append(text, cursor, text.length)
+                break
+            }
+            val tokenEnd = matchIndex + token.length
+            result.append(text, cursor, matchIndex)
+            if (isCommittedMentionBoundary(text, matchIndex, tokenEnd)) {
+                cursor = tokenEnd
+            } else {
+                result.append(token)
+                cursor = tokenEnd
+            }
         }
+        return result.toString()
+    }
+
+    private fun isCommittedMentionBoundary(text: String, start: Int, end: Int): Boolean {
+        val validStart = start == 0 || text[start - 1].isWhitespace()
+        val validEnd = end == text.length ||
+            text[end].isWhitespace() ||
+            text[end] in charArrayOf(',', '.', ';', ':', '，', '。', '、', '；', '：', ')', ']', '}')
+        return validStart && validEnd
     }
 
     // ── Internal observers ────────────────────────────────────────────
@@ -1408,6 +1449,14 @@ class CodexViewModel(
                         markActivity = nextState != current.connectionState
                     )
                 }
+                if (nextState == ConnectionState.CONNECTED) {
+                    val state = _uiState.value
+                    maybeRequestPendingThreadResync(
+                        threadId = state.threadId,
+                        status = state.status,
+                        currentTurnId = state.currentTurnId
+                    )
+                }
             }
         }
     }
@@ -1424,20 +1473,23 @@ class CodexViewModel(
                             handleEnvelope(event.envelope)
                         }
                         is WsEvent.Closed -> {
+                            markPendingThreadResyncIfNeeded(_uiState.value)
                             if (event.code == 4404 || event.reason.contains("Session not found or expired", ignoreCase = true)) {
                                 val message = "Session not found or expired"
-                                _uiState.update {
-                                    it.copy(
-                                        errorMessage = message,
-                                        sessionExpired = true,
-                                        executionWatch = CodexExecutionWatchState()
-                                    )
-                                }
+                _uiState.update {
+                    it.copy(
+                        errorMessage = message,
+                        sessionExpired = true,
+                        currentTurnId = null,
+                        executionWatch = CodexExecutionWatchState()
+                    )
+                }
                             }
                             connectionManager.onDisconnected()
                         }
                         is WsEvent.Closing -> { /* handled by Closed */ }
                         is WsEvent.Failure -> {
+                            markPendingThreadResyncIfNeeded(_uiState.value)
                             val message = event.throwable.message ?: "WebSocket failure"
                             if (isTransientWebSocketFailure(message, event.code)) {
                                 _uiState.update { state ->
@@ -1452,6 +1504,7 @@ class CodexViewModel(
                                 _uiState.update {
                                     it.copy(
                                         errorMessage = message,
+                                        currentTurnId = null,
                                         planWorkflow = buildEmptyPlanWorkflowState(),
                                         executionWatch = CodexExecutionWatchState(),
                                         runtimePanel = it.runtimePanel.copy(
@@ -1530,6 +1583,7 @@ class CodexViewModel(
                                 sandbox = state.sandbox ?: current.sandbox,
                                 planMode = nextPlanMode,
                                 threadId = state.threadId ?: current.threadId,
+                                currentTurnId = state.currentTurnId,
                                 currentThreadTitle = resolveCurrentThreadTitle(
                                     threadId = state.threadId ?: current.threadId,
                                     entries = current.threadHistoryEntries,
@@ -1553,6 +1607,11 @@ class CodexViewModel(
                         nextState
                     }
                 }
+                maybeRequestPendingThreadResync(
+                    threadId = _uiState.value.threadId,
+                    status = _uiState.value.status,
+                    currentTurnId = _uiState.value.currentTurnId
+                )
                 if (json.has("tokenUsage")) {
                     applyTokenUsagePayload(state.tokenUsage)
                 }
@@ -1567,6 +1626,7 @@ class CodexViewModel(
                     syncExecutionWatch(
                         it.copy(
                             threadId = ready.threadId,
+                            currentTurnId = null,
                             messages = if (ready.resumed) it.messages else emptyList(),
                             runtimePanel = if (ready.resumed) {
                                 it.runtimePanel
@@ -1588,11 +1648,13 @@ class CodexViewModel(
             "codex_thread_snapshot" -> {
                 val snapshot = CodexThreadSnapshot.from(json)
                 val messages = parseSnapshotMessages(snapshot)
+                clearPendingThreadResync(snapshot.threadId)
                 _uiState.update {
                     syncExecutionWatch(
                         it.copy(
                             threadId = snapshot.threadId,
                             messages = messages,
+                            currentTurnId = null,
                             currentThreadTitle = resolveCurrentThreadTitle(
                                 threadId = snapshot.threadId,
                                 entries = it.threadHistoryEntries,
@@ -1607,6 +1669,12 @@ class CodexViewModel(
 
             "codex_turn_ack" -> {
                 val ack = CodexTurnAck.from(json)
+                _uiState.update {
+                    syncExecutionWatch(
+                        it.copy(currentTurnId = ack.turnId.ifBlank { null }),
+                        markActivity = false
+                    )
+                }
                 executionFeedbackSeen.clear()
                 Log.d(TAG, "Turn ack: ${ack.turnId}")
             }
@@ -1624,11 +1692,22 @@ class CodexViewModel(
 
             "codex_error" -> {
                 val error = CodexError.from(json)
+                if (error.code == "CODEX_NO_ACTIVE_TURN") {
+                    _uiState.update {
+                        syncExecutionWatch(
+                            it.copy(currentTurnId = null),
+                            markActivity = false
+                        )
+                    }
+                    Log.w(TAG, "Ignoring stale interrupt error: ${error.code} ${error.message}")
+                    return
+                }
                 val message = "${error.code}: ${error.message}"
                 appendMessage(ChatMessage.Role.ERROR, message)
                 _uiState.update {
                     it.copy(
                         errorMessage = message,
+                        currentTurnId = null,
                         planWorkflow = buildEmptyPlanWorkflowState(),
                         runtimePanel = it.runtimePanel.copy(
                             warning = message,
@@ -1961,6 +2040,7 @@ class CodexViewModel(
         val resumedThreadId = thread.optStringOrNullCompat("id").orEmpty()
         val resumedTitle = resolveThreadTitle(thread)
         threadHadPlanTurn = false
+        clearPendingThreadResync()
         _uiState.update { state ->
             state.copy(
                 threadId = resumedThreadId.ifEmpty { state.threadId },
@@ -2007,6 +2087,7 @@ class CodexViewModel(
             parseThreadMessages(thread.optJSONArray("messages"))
         }
         val hasMessages = hasTurns || thread.optJSONArray("messages") != null
+        clearPendingThreadResync(threadId)
         _uiState.update { state ->
             state.copy(
                 threadId = threadId.ifEmpty { state.threadId },
@@ -2043,6 +2124,69 @@ class CodexViewModel(
         }
         if (thread.has("tokenUsage")) {
             applyTokenUsagePayload(thread.opt("tokenUsage"))
+        }
+    }
+
+    private fun normalizeThreadId(threadId: String?): String? =
+        threadId?.trim()?.takeIf { it.isNotEmpty() }
+
+    private fun markPendingThreadResyncIfNeeded(state: CodexUiState) {
+        val threadId = normalizeThreadId(state.threadId) ?: return
+        val shouldResync = !state.currentTurnId.isNullOrBlank() ||
+            state.status.equals("running", ignoreCase = true) ||
+            state.executionWatch.active
+        if (!shouldResync) {
+            return
+        }
+        pendingThreadResyncThreadId = threadId
+        if (threadResyncInFlightThreadId != threadId) {
+            threadResyncInFlightThreadId = null
+        }
+    }
+
+    private fun clearPendingThreadResync(threadId: String? = null) {
+        val normalized = normalizeThreadId(threadId)
+        if (normalized == null) {
+            pendingThreadResyncThreadId = null
+            threadResyncInFlightThreadId = null
+            return
+        }
+        if (pendingThreadResyncThreadId == normalized) {
+            pendingThreadResyncThreadId = null
+        }
+        if (threadResyncInFlightThreadId == normalized) {
+            threadResyncInFlightThreadId = null
+        }
+    }
+
+    private fun maybeRequestPendingThreadResync(
+        threadId: String?,
+        status: String?,
+        currentTurnId: String?
+    ) {
+        val normalizedThreadId = normalizeThreadId(threadId) ?: return
+        if (pendingThreadResyncThreadId != normalizedThreadId) {
+            return
+        }
+        if (!currentTurnId.isNullOrBlank()) {
+            return
+        }
+        if (!status.equals("idle", ignoreCase = true)) {
+            return
+        }
+        if (threadResyncInFlightThreadId == normalizedThreadId) {
+            return
+        }
+        val sent = connectionManager.send(
+            CodexClientMessages.codexRequest(
+                action = "thread/read",
+                params = JSONObject()
+                    .put("threadId", normalizedThreadId)
+                    .put("includeTurns", true)
+            )
+        )
+        if (sent) {
+            threadResyncInFlightThreadId = normalizedThreadId
         }
     }
 
@@ -2185,13 +2329,19 @@ class CodexViewModel(
                 when (item.optString("type", "")) {
                     "userMessage" -> {
                         val text = extractUserMessageText(item)
+                        val fileMentions = extractUserMessageFileMentions(
+                            content = item.optJSONArray("content"),
+                            fallbackText = text
+                        )
                         val activeSkill = extractUserMessageActiveSkill(item.optJSONArray("content"))
-                        if (text.isNotEmpty() || !activeSkill.isNullOrBlank()) {
+                        val visibleText = stripLeadingMentionLines(text)
+                        if (visibleText.isNotEmpty() || fileMentions.isNotEmpty() || !activeSkill.isNullOrBlank()) {
                             result.add(
                                 ChatMessage(
                                     id = item.optString("id", UUID.randomUUID().toString()),
                                     role = ChatMessage.Role.USER,
-                                    content = text,
+                                    content = visibleText,
+                                    fileMentions = fileMentions,
                                     activeSkill = activeSkill
                                 )
                             )
@@ -2227,6 +2377,34 @@ class CodexViewModel(
         return ""
     }
 
+    private fun extractUserMessageFileMentions(
+        content: JSONArray?,
+        fallbackText: String = ""
+    ): List<FileMention> {
+        val structured = mutableListOf<FileMention>()
+        content?.let { parts ->
+            for (index in 0 until parts.length()) {
+                val part = parts.optJSONObject(index) ?: continue
+                val type = part.optString("type", "")
+                if (type in setOf("mention", "fileMention", "file_mention", "file")) {
+                    val path = part.optStringOrNullCompat("path")
+                        ?: part.optStringOrNullCompat("filePath")
+                        ?: continue
+                    structured += buildFileMentionFromPath(
+                        path = path,
+                        labelOverride = part.optStringOrNullCompat("label")
+                            ?: part.optStringOrNullCompat("displayName")
+                    )
+                }
+            }
+        }
+        return if (structured.isNotEmpty()) {
+            structured.distinctBy { it.path }
+        } else {
+            extractLeadingFileMentions(fallbackText)
+        }
+    }
+
     private fun extractUserMessageActiveSkill(content: JSONArray?): String? {
         content ?: return null
         for (index in 0 until content.length()) {
@@ -2240,6 +2418,63 @@ class CodexViewModel(
             }
         }
         return null
+    }
+
+    private fun extractLeadingFileMentions(text: String): List<FileMention> {
+        val result = mutableListOf<FileMention>()
+        val trimmed = text.trimStart()
+        if (trimmed.isBlank()) {
+            return emptyList()
+        }
+        for (line in trimmed.lineSequence()) {
+            val normalized = line.trim()
+            if (!normalized.startsWith("@")) {
+                break
+            }
+            val path = normalized.removePrefix("@").trim()
+            if (path.isBlank()) {
+                break
+            }
+            result += buildFileMentionFromPath(path)
+        }
+        return result.distinctBy { it.path }
+    }
+
+    private fun stripLeadingMentionLines(text: String): String {
+        if (text.isBlank()) {
+            return ""
+        }
+        val lines = text.lines()
+        var index = 0
+        while (index < lines.size) {
+            val normalized = lines[index].trim()
+            if (!normalized.startsWith("@")) {
+                break
+            }
+            val path = normalized.removePrefix("@").trim()
+            if (path.isBlank()) {
+                break
+            }
+            index += 1
+        }
+        return lines.drop(index).joinToString("\n").trim()
+    }
+
+    private fun buildFileMentionFromPath(path: String, labelOverride: String? = null): FileMention {
+        val normalizedPath = path.trim()
+        val sanitized = normalizedPath.trimEnd('/', '\\')
+        val label = labelOverride?.trim()?.takeIf { it.isNotBlank() }
+            ?: sanitized.substringAfterLast('/').substringAfterLast('\\').ifBlank { normalizedPath }
+        val folder = sanitized
+            .substringBeforeLast('/', missingDelimiterValue = sanitized)
+            .substringBeforeLast('\\', missingDelimiterValue = sanitized)
+            .takeIf { it != sanitized }
+            .orEmpty()
+        return FileMention(
+            label = label,
+            path = normalizedPath,
+            relativePathWithoutFileName = folder
+        )
     }
 
     private fun normalizeHistoryTimestamp(value: Any?): Long? {
@@ -2488,6 +2723,7 @@ class CodexViewModel(
                     _uiState.update {
                         it.copy(
                             threadId = threadId,
+                            currentTurnId = null,
                             messages = emptyList(),
                             errorMessage = null,
                             runtimePanel = buildEmptyRuntimePanelState(),
@@ -2508,18 +2744,51 @@ class CodexViewModel(
                 if (statusType == "idle") {
                     finalizeStreamingMessage()
                     finalizePlanStreamingMessage()
-                    _uiState.update(::finalizePlanWorkflowOnTurnSettled)
+                    _uiState.update {
+                        syncExecutionWatch(
+                            finalizePlanWorkflowOnTurnSettled(
+                                it.copy(currentTurnId = null)
+                            ),
+                            markActivity = false
+                        )
+                    }
+                    val state = _uiState.value
+                    maybeRequestPendingThreadResync(
+                        threadId = state.threadId,
+                        status = state.status,
+                        currentTurnId = state.currentTurnId
+                    )
                 }
             }
 
             notification.method == "turn/started" -> {
-                _uiState.update { syncExecutionWatch(it.copy(errorMessage = null), markActivity = true) }
+                val turnId = params
+                    ?.optJSONObject("turn")
+                    ?.optString("id", "")
+                    ?.trim()
+                    .orEmpty()
+                _uiState.update {
+                    syncExecutionWatch(
+                        it.copy(
+                            errorMessage = null,
+                            currentTurnId = turnId.ifEmpty { it.currentTurnId }
+                        ),
+                        markActivity = true
+                    )
+                }
             }
 
             notification.method == "turn/completed" -> {
                 finalizeStreamingMessage()
                 finalizePlanStreamingMessage()
-                _uiState.update { syncExecutionWatch(finalizePlanWorkflowOnTurnSettled(it), markActivity = true) }
+                _uiState.update {
+                    syncExecutionWatch(
+                        finalizePlanWorkflowOnTurnSettled(
+                            it.copy(currentTurnId = null)
+                        ),
+                        markActivity = true
+                    )
+                }
             }
 
             notification.method == "item/started" -> {
@@ -4089,13 +4358,22 @@ class CodexViewModel(
                 else -> ChatMessage.Role.SYSTEM
             }
             val content = msgJson.optString("content", "")
+            val fileMentions = if (role == ChatMessage.Role.USER) {
+                extractUserMessageFileMentions(
+                    content = msgJson.optJSONArray("content"),
+                    fallbackText = content
+                )
+            } else {
+                emptyList()
+            }
             val activeSkill = msgJson.optStringOrNullCompat("activeSkill")
                 ?: extractUserMessageActiveSkill(msgJson.optJSONArray("content"))
             result.add(
                 ChatMessage(
                     id = msgJson.optString("id", UUID.randomUUID().toString()),
                     role = role,
-                    content = content,
+                    content = if (role == ChatMessage.Role.USER) stripLeadingMentionLines(content) else content,
+                    fileMentions = fileMentions,
                     activeSkill = if (role == ChatMessage.Role.USER) activeSkill else null,
                     timestamp = msgJson.optLong("timestamp", System.currentTimeMillis())
                 )
@@ -4244,7 +4522,7 @@ class CodexViewModel(
         if (state.planWorkflow.phase == PLAN_PHASE_AWAITING_USER_INPUT) {
             return true
         }
-        return state.status.equals("running", ignoreCase = true)
+        return !state.currentTurnId.isNullOrBlank()
     }
 
     override fun onCleared() {

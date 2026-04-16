@@ -907,6 +907,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         const state = ensureSessionCodexState(session);
         const forceNewThread = options.forceNewThread === true;
         const requireExactExecutionContext = options.requireExactExecutionContext === true;
+        const preferredThreadId = isNonEmptyString(options.threadId) ? options.threadId.trim() : null;
         const requestedCwd = await resolveRunnableCodexCwd(
             session,
             normalizeOptionalCwd(options.cwd)
@@ -924,16 +925,21 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             ? state.threadExecutionContextSignature.trim()
             : null;
         const executionContextMatches = currentExecutionContextSignature === executionContextSignature;
+        const explicitThreadTargetMatches = preferredThreadId !== null
+            && isNonEmptyString(state.threadId)
+            && state.threadId.trim() === preferredThreadId;
         const shouldReuseExistingThread = !forceNewThread
             && isNonEmptyString(state.threadId)
             && (
-                executionContextMatches
+                explicitThreadTargetMatches
+                || executionContextMatches
                 || (!requireExactExecutionContext && currentExecutionContextSignature === null)
             );
 
         console.info('[gateway][codex][thread-reuse-check]', JSON.stringify({
             sessionId: session.id,
             existingThreadId: isNonEmptyString(state.threadId) ? state.threadId : null,
+            preferredThreadId,
             forceNewThread,
             requireExactExecutionContext,
             requestedCwd,
@@ -944,7 +950,43 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             shouldReuseExistingThread
         }));
 
+        if (!forceNewThread && preferredThreadId && !explicitThreadTargetMatches) {
+            try {
+                const resumeResult = await codexService.request('thread/resume', { threadId: preferredThreadId });
+                const resumedThreadId = resumeResult && resumeResult.thread ? resumeResult.thread.id : null;
+                if (!isNonEmptyString(resumedThreadId)) {
+                    throw new Error('Codex thread/resume did not return thread id.');
+                }
+                resetSessionCodexRuntimeState(session, { clearThreadModel: true });
+                state.threadId = resumedThreadId;
+                state.threadModel = resolveThreadModelFromResponse(resumeResult) || state.threadModel || null;
+                state.tokenUsage = extractTokenUsageSnapshot(resumeResult);
+                state.threadExecutionContextSignature = executionContextSignature;
+                bindThreadToSession(resumedThreadId, session.id);
+                updateSessionLastCodexThreadId(session, resumedThreadId);
+                persistSessionMetadata(session);
+                console.info('[gateway][codex][preferred-thread-resumed]', JSON.stringify({
+                    sessionId: session.id,
+                    preferredThreadId,
+                    resumedThreadId,
+                    executionContextSignature
+                }));
+                return resumedThreadId;
+            } catch (resumeError) {
+                console.warn('[gateway][codex][preferred-thread-resume-failed]', JSON.stringify({
+                    sessionId: session.id,
+                    preferredThreadId,
+                    error: resumeError && resumeError.message ? resumeError.message : String(resumeError),
+                    code: resumeError && resumeError.code ? resumeError.code : null
+                }));
+                throw resumeError;
+            }
+        }
+
         if (shouldReuseExistingThread) {
+            if (explicitThreadTargetMatches) {
+                state.threadExecutionContextSignature = executionContextSignature;
+            }
             bindThreadToSession(state.threadId, session.id);
             return state.threadId;
         }
@@ -1451,6 +1493,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
 
                         const initialThreadId = await ensureCodexThreadForSession(session, {
                             forceNewThread: envelope.forceNewThread === true,
+                            threadId: envelope.threadId,
                             cwd: envelope.cwd,
                             codexConfig: nextTurnEffectiveConfig,
                             requireExactExecutionContext: !!turnOverrides.sandbox
