@@ -59,6 +59,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -84,11 +85,17 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -227,11 +234,14 @@ fun CodexScreen(
     var suppressAutoFollowPause by remember { mutableStateOf(false) }
     val isStreaming = state.messages.lastOrNull()?.streaming == true ||
         state.status.equals("running", ignoreCase = true)
+    val hasInterruptibleTurn = !state.currentTurnId.isNullOrBlank()
     var lastStreamAutoScrollAtMillis by remember { mutableStateOf(0L) }
     var stallNowMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var debugInjectorVisible by remember { mutableStateOf(false) }
     val bottomAnchorIndex = state.messages.size
-    val atLatestPosition = isMessageListAtBottom(listState, bottomAnchorIndex)
+    val atLatestPosition by remember(listState, bottomAnchorIndex) {
+        derivedStateOf { isMessageListAtBottom(listState, bottomAnchorIndex) }
+    }
     val blockingApprovalRequest = remember(state.pendingServerRequests) {
         state.pendingServerRequests.firstOrNull { request ->
             request.responseMode == "decision"
@@ -274,6 +284,21 @@ fun CodexScreen(
             !atLatestPosition
         ) {
             autoFollowEnabled = false
+        }
+    }
+    LaunchedEffect(
+        atLatestPosition,
+        bottomAnchorIndex,
+        autoFollowEnabled,
+        suppressAutoFollowPause
+    ) {
+        if (
+            bottomAnchorIndex > 0 &&
+            atLatestPosition &&
+            !autoFollowEnabled &&
+            !suppressAutoFollowPause
+        ) {
+            autoFollowEnabled = true
         }
     }
     // Auto-scroll: on new messages (size/id change), follow to bottom unless the user paused it
@@ -358,6 +383,7 @@ fun CodexScreen(
             CodexHeader(
                 state = state,
                 isStreaming = isStreaming,
+                hasInterruptibleTurn = hasInterruptibleTurn,
                 onOpenSessions = onOpenSessions,
                 onOpenDocs = onOpenDocs,
                 docsEnabled = state.sessionId.isNotBlank(),
@@ -452,6 +478,7 @@ fun CodexScreen(
                                 }
                             }
                         },
+                        hasInterruptibleTurn = hasInterruptibleTurn,
                         onInterrupt = onInterrupt,
                         onShowSlashMenu = onShowSlashMenu,
                         onHideSlashMenu = onHideSlashMenu,
@@ -619,6 +646,7 @@ fun CodexScreen(
 private fun CodexHeader(
     state: CodexUiState,
     isStreaming: Boolean,
+    hasInterruptibleTurn: Boolean,
     onOpenSessions: () -> Unit,
     onOpenDocs: () -> Unit,
     docsEnabled: Boolean,
@@ -689,40 +717,54 @@ private fun CodexHeader(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 60.dp)
-                    .padding(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 6.dp),
+                    .heightIn(min = 72.dp)
+                    .padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 GlobalActionChip(
                     iconRes = R.drawable.ic_sessions_24,
                     contentDescription = stringResource(R.string.codex_native_header_sessions),
                     onClick = onOpenSessions,
-                    boxSize = 32.dp,
-                    iconSize = 16.dp
+                    boxSize = 40.dp,
+                    iconSize = 18.dp
                 )
-                Row(
+                Column(
                     modifier = Modifier
                         .weight(1f)
+                        .padding(horizontal = 8.dp)
                         .then(headerInteractionModifier),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Text(
                         text = stringResource(R.string.codex_native_status_prefix, statusLabel),
                         color = statusColor,
                         fontSize = 11.sp,
-                        lineHeight = 14.sp
+                        lineHeight = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     state.cwd?.takeIf { it.isNotBlank() }?.let { cwd ->
                         val displayCwd = formatHeaderCwdForDisplay(cwd)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = displayCwd,
-                            color = TextSecondary,
-                            fontSize = 10.sp,
-                            lineHeight = 14.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.codex_native_header_path_prefix),
+                                color = TextMuted,
+                                fontSize = 10.sp,
+                                lineHeight = 14.sp
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = displayCwd,
+                                color = TextSecondary,
+                                fontSize = 10.sp,
+                                lineHeight = 14.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.width(12.dp))
@@ -730,7 +772,7 @@ private fun CodexHeader(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (isStreaming || state.status.equals("running", ignoreCase = true)) {
+                    if (hasInterruptibleTurn) {
                         FilledTonalButton(
                             onClick = onInterrupt,
                             colors = ButtonDefaults.filledTonalButtonColors(
@@ -743,12 +785,12 @@ private fun CodexHeader(
                         }
                     }
                     GlobalActionChip(
-                        iconRes = R.drawable.ic_workspace_24,
+                        iconRes = R.drawable.ic_codex_docs_24,
                         contentDescription = stringResource(R.string.codex_native_header_docs),
                         onClick = onOpenDocs,
                         enabled = docsEnabled,
-                        boxSize = 32.dp,
-                        iconSize = 16.dp
+                        boxSize = 44.dp,
+                        iconSize = 22.dp
                     )
                 }
             }
@@ -1604,7 +1646,11 @@ private fun MessageBubble(message: ChatMessage) {
                     }
                     SelectionContainer {
                         Text(
-                            text = message.content,
+                            text = buildMentionAnnotatedString(
+                                text = message.content,
+                                mentions = message.fileMentions,
+                                textColor = spec.textColor
+                            ),
                             color = spec.textColor,
                             fontSize = 13.sp,
                             lineHeight = 20.sp,
@@ -1765,14 +1811,20 @@ private fun isMessageListAtBottom(
     if (lastIndex <= 0) {
         return true
     }
+    if (!listState.canScrollForward) {
+        return true
+    }
     val layoutInfo = listState.layoutInfo
-    val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull() ?: return true
-    if (lastVisible.index < lastIndex) {
+    val lastContentIndex = lastIndex - 1
+    val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull { item ->
+        item.index <= lastContentIndex
+    } ?: return false
+    if (lastVisible.index < lastContentIndex) {
         return false
     }
-    val viewportEnd = layoutInfo.viewportEndOffset
+    val viewportEnd = layoutInfo.viewportEndOffset - layoutInfo.afterContentPadding
     val lastItemEnd = lastVisible.offset + lastVisible.size
-    return lastItemEnd <= viewportEnd + 16
+    return lastItemEnd <= viewportEnd + 24
 }
 
 private enum class RuntimeStallReason {
@@ -3710,7 +3762,7 @@ private fun ContextUsageWidget(
 private fun displayedContextUsage(state: CodexUiState): com.termlink.app.codex.domain.CodexContextUsageState? {
     val contextUsage = state.usagePanel.contextUsage ?: return null
     val hasVisibleConversation = state.messages.isNotEmpty()
-    val hasActiveTaskState = state.status.equals("running", ignoreCase = true) ||
+    val hasActiveTaskState = !state.currentTurnId.isNullOrBlank() ||
         state.messages.lastOrNull()?.streaming == true ||
         state.pendingServerRequests.isNotEmpty()
     return if (hasVisibleConversation || hasActiveTaskState) contextUsage else null
@@ -3832,6 +3884,7 @@ private fun InputComposer(
     attachmentInputEnabled: Boolean,
     pendingImageAttachments: List<CodexPendingImageAttachment>,
     onSend: (String) -> Unit,
+    hasInterruptibleTurn: Boolean,
     onInterrupt: () -> Unit,
     onShowSlashMenu: (String) -> Unit,
     onHideSlashMenu: () -> Unit,
@@ -3933,6 +3986,35 @@ private fun InputComposer(
         else -> false
     }
 
+    fun insertComposerText(insertedText: String) {
+        val currentValue = textFieldValue
+        val selectionStart = currentValue.selection.min.coerceIn(0, currentValue.text.length)
+        val selectionEnd = currentValue.selection.max.coerceIn(0, currentValue.text.length)
+        val nextValue = if (
+            insertedText == "/" &&
+            currentValue.text == "/" &&
+            selectionStart == 1 &&
+            selectionEnd == 1
+        ) {
+            currentValue
+        } else {
+            val updatedText = buildString {
+                append(currentValue.text.substring(0, selectionStart))
+                append(insertedText)
+                append(currentValue.text.substring(selectionEnd))
+            }
+            TextFieldValue(
+                text = updatedText,
+                selection = TextRange(selectionStart + insertedText.length)
+            )
+        }
+        textFieldValue = nextValue
+        onHideFileMentionMenu()
+        syncComposerMenus(nextValue.text)
+        composerFocusRequester.requestFocus()
+        keyboardController?.show()
+    }
+
     fun submit(): Boolean {
         val submittedText = textFieldValue.text.trim()
         if (
@@ -3995,7 +4077,10 @@ private fun InputComposer(
                     results = mentionResults,
                     onSelect = { file ->
                         onSelectFileMention(file)
-                        val updatedValue = replaceActiveMentionToken(textFieldValue, file)
+                        val updatedValue = insertSelectedMentionToken(
+                            currentValue = textFieldValue,
+                            file = file
+                        )
                         textFieldValue = updatedValue
                         syncComposerMenus(
                             rawText = updatedValue.text,
@@ -4034,6 +4119,9 @@ private fun InputComposer(
                         )
                     }
                 }
+            }
+
+            if (pendingMentions.isNotEmpty()) {
             }
 
             if (activeSkill != null) {
@@ -4086,6 +4174,9 @@ private fun InputComposer(
                                 fontSize = 13.sp,
                                 lineHeight = 19.sp
                             ),
+                            visualTransformation = remember(pendingMentions) {
+                                mentionVisualTransformation(pendingMentions)
+                            },
                             cursorBrush = SolidColor(AccentBlue),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                             keyboardActions = KeyboardActions(onSend = { submit() }),
@@ -4107,7 +4198,7 @@ private fun InputComposer(
 
                     Spacer(modifier = Modifier.width(4.dp))
 
-                    if (isStreaming) {
+                    if (hasInterruptibleTurn) {
                         Box(
                             modifier = Modifier
                                 .size(28.dp)
@@ -4168,13 +4259,7 @@ private fun InputComposer(
                 onHideThreadHistory = onHideThreadHistory,
                 onPickLocalImage = onPickLocalImage,
                 onShowSlashMenu = {
-                    if (slashMenuVisible) {
-                        onHideSlashMenu()
-                    } else {
-                        onHideFileMentionMenu()
-                        onShowSlashMenu("/")
-                        onSlashMenuQueryChanged("/")
-                    }
+                    insertComposerText("/")
                 }
             )
         }
@@ -4221,6 +4306,35 @@ private fun StaticSkillChip(
     ) {
         SkillChipFrame {
             SkillChipLabel(skillName = skillName)
+        }
+    }
+}
+
+@Composable
+private fun StaticMentionChip(
+    file: FileMention,
+    modifier: Modifier = Modifier
+) {
+    Row(modifier = modifier) {
+        SkillChipFrame {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "@",
+                    color = AccentBlue,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = file.label,
+                    color = TextPrimary,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
@@ -4729,41 +4843,6 @@ private fun extractSlashQuery(text: String): String? {
     return trimmed.lowercase()
 }
 
-private fun removeActiveMentionToken(text: String): String {
-    val mention = CodexSlashRegistry.parseFileMentionInput(text) ?: return text
-    val updated = text.removeRange(mention.tokenStart, mention.tokenEnd).trimEnd()
-    return if (updated.isNotBlank() && !updated.last().isWhitespace()) "$updated " else updated
-}
-
-private fun replaceActiveMentionToken(text: String, file: FileMention): String {
-    val mention = CodexSlashRegistry.parseFileMentionInput(text) ?: return text
-    val prefix = text.substring(0, mention.tokenStart)
-    val suffix = text.substring(mention.tokenEnd).trimStart()
-    val inlineMention = "@${displayFileMention(file)}"
-    return buildString {
-        append(prefix)
-        append(inlineMention)
-        append(' ')
-        append(suffix)
-    }
-}
-
-private fun replaceActiveMentionToken(value: TextFieldValue, file: FileMention): TextFieldValue {
-    val mention = CodexSlashRegistry.parseFileMentionInput(value.text) ?: return value
-    val updatedText = replaceActiveMentionToken(value.text, file)
-    val cursorPosition = mention.tokenStart + displayFileMention(file).length + 2
-    return TextFieldValue(
-        text = updatedText,
-        selection = TextRange(cursorPosition)
-    )
-}
-
-private fun composerContainsMention(text: String, file: FileMention): Boolean {
-    val inlinePathToken = "@${displayFileMention(file)}"
-    val inlineLabelToken = "@${file.label}"
-    return text.contains(inlinePathToken) || text.contains(inlineLabelToken)
-}
-
 private fun composerRawTextForMentionParsing(
     text: String,
     committedMentions: List<FileMention>
@@ -4802,6 +4881,116 @@ private fun stripCommittedMentionToken(text: String, token: String): String {
     return result.toString()
 }
 
+private fun composerContainsMention(text: String, file: FileMention): Boolean {
+    val token = "@${displayFileMention(file)}" // sensitive-scan:allow false positive for inline @mention token
+    var cursor = 0
+    while (cursor < text.length) {
+        val matchIndex = text.indexOf(token, cursor)
+        if (matchIndex == -1) return false
+        val tokenEnd = matchIndex + token.length
+        if (isCommittedMentionBoundary(text, matchIndex, tokenEnd)) {
+            return true
+        }
+        cursor = tokenEnd
+    }
+    return false
+}
+
+private fun insertSelectedMentionToken(
+    currentValue: TextFieldValue,
+    file: FileMention
+): TextFieldValue {
+    val mentionToken = "@${displayFileMention(file)}"
+    val cleanedValue = removeActiveMentionToken(currentValue)
+    val insertionPoint = cleanedValue.selection.start.coerceIn(0, cleanedValue.text.length)
+    val textWithSpacing = buildString {
+        append(cleanedValue.text.substring(0, insertionPoint))
+        append(mentionToken)
+        append(' ')
+        append(cleanedValue.text.substring(insertionPoint))
+    }
+    val nextCursor = (insertionPoint + mentionToken.length + 1).coerceAtMost(textWithSpacing.length)
+    return TextFieldValue(
+        text = textWithSpacing,
+        selection = TextRange(nextCursor)
+    )
+}
+
+private fun removeActiveMentionToken(value: TextFieldValue): TextFieldValue {
+    val text = value.text
+    val selectionEnd = value.selection.end.coerceIn(0, text.length)
+    val tokenStart = text.lastIndexOf('@', startIndex = (selectionEnd - 1).coerceAtLeast(0))
+    if (tokenStart == -1) {
+        return value
+    }
+    val tokenEnd = text.indexOfFirstFrom(tokenStart) { it.isWhitespace() }.let { whitespaceIndex ->
+        if (whitespaceIndex == -1) text.length else whitespaceIndex
+    }
+    if (tokenStart > 0 && !text[tokenStart - 1].isWhitespace()) {
+        return value
+    }
+    if (selectionEnd < tokenStart || selectionEnd > tokenEnd) {
+        return value
+    }
+    val trimmedEnd = if (tokenEnd < text.length && text[tokenEnd].isWhitespace()) tokenEnd + 1 else tokenEnd
+    val nextText = text.removeRange(tokenStart, trimmedEnd)
+    return TextFieldValue(
+        text = nextText,
+        selection = TextRange(tokenStart.coerceAtMost(nextText.length))
+    )
+}
+
+private fun String.indexOfFirstFrom(startIndex: Int, predicate: (Char) -> Boolean): Int {
+    for (index in startIndex until length) {
+        if (predicate(this[index])) return index
+    }
+    return -1
+}
+
+private fun mentionVisualTransformation(mentions: List<FileMention>): VisualTransformation {
+    return VisualTransformation { source ->
+        TransformedText(
+            buildMentionAnnotatedString(
+                text = source.text,
+                mentions = mentions,
+                textColor = TextPrimary
+            ),
+            OffsetMapping.Identity
+        )
+    }
+}
+
+private fun buildMentionAnnotatedString(
+    text: String,
+    mentions: List<FileMention>,
+    textColor: Color
+): AnnotatedString {
+    val mentionTokens = mentions.map { "@${displayFileMention(it)}" }.distinct()
+    return buildAnnotatedString {
+        append(text)
+        addStyle(SpanStyle(color = textColor), 0, text.length)
+        mentionTokens.forEach { token ->
+            var cursor = 0
+            while (cursor < text.length) {
+                val matchIndex = text.indexOf(token, cursor)
+                if (matchIndex == -1) break
+                val tokenEnd = matchIndex + token.length
+                if (isCommittedMentionBoundary(text, matchIndex, tokenEnd)) {
+                    addStyle(
+                        SpanStyle(
+                            color = AccentBlue,
+                            background = Color(0x1F2F81F7)
+                        ),
+                        matchIndex,
+                        tokenEnd
+                    )
+                }
+                cursor = tokenEnd
+            }
+        }
+    }
+}
+
 private fun isCommittedMentionBoundary(text: String, start: Int, end: Int): Boolean {
     val validStart = start == 0 || text[start - 1].isWhitespace()
     val validEnd = end == text.length ||
@@ -4811,12 +5000,7 @@ private fun isCommittedMentionBoundary(text: String, start: Int, end: Int): Bool
 }
 
 private fun displayFileMention(file: FileMention): String {
-    val folder = file.relativePathWithoutFileName.trim().trim('.', '\\', '/')
-    return if (folder.isBlank()) {
-        file.label
-    } else {
-        "$folder/${file.label}"
-    }
+    return file.label
 }
 
 @Composable

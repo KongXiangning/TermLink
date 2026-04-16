@@ -242,6 +242,7 @@
     <string name="codex_native_header_sessions">会话</string>
     <string name="codex_native_header_settings">设置</string>
     <string name="codex_native_header_docs">文档</string>
+    <string name="codex_native_header_path_prefix">PATH</string>
     <string name="codex_native_input_hint_plan">问任何问题...</string>
     <string name="codex_native_plan_workflow_title_planning">计划进行中</string>
     <string name="codex_native_plan_workflow_title_awaiting">等待补充信息</string>
@@ -436,14 +437,16 @@
     <string name="codex_native_quick_default">默认</string>
     <string name="codex_native_plan_mode_chip">计划模式</string>
     <string name="codex_native_attention_channel">Codex 关注事项</string>
-    <string name="codex_native_attention_channel_desc">后台审批、计划和任务错误提醒</string>
+    <string name="codex_native_attention_channel_desc">后台审批、计划、任务完成和任务错误提醒</string>
     <string name="codex_native_attention_title_command_approval">需要命令确认</string>
     <string name="codex_native_attention_title_approval">需要处理确认请求</string>
     <string name="codex_native_attention_title_plan_input">计划需要补充信息</string>
     <string name="codex_native_attention_title_plan_ready">计划等待确认</string>
     <string name="codex_native_attention_title_error">Codex 任务出错</string>
+    <string name="codex_native_attention_title_task_complete">Codex 任务已完成</string>
     <string name="codex_native_attention_body_command_approval">返回 Codex 查看并处理待确认请求。</string>
     <string name="codex_native_attention_body_plan_input">返回 Codex 补充继续规划所需的信息。</string>
     <string name="codex_native_attention_body_plan_ready">返回 Codex 审阅并确认生成的计划。</string>
     <string name="codex_native_attention_body_error">返回 Codex 查看后台任务失败详情。</string>
+    <string name="codex_native_attention_body_task_complete">返回 Codex 查看已完成任务的结果。</string>
 </resources>

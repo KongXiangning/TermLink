@@ -38,6 +38,7 @@ import com.termlink.app.CodexTaskForegroundService
 import com.termlink.app.MainShellActivity
 import com.termlink.app.SettingsActivity
 import com.termlink.app.WorkspaceActivity
+import com.termlink.app.codex.domain.ChatMessage
 import com.termlink.app.codex.domain.CodexLaunchParams
 import com.termlink.app.codex.domain.FileMention
 import com.termlink.app.codex.domain.CodexUiState
@@ -92,6 +93,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         private const val NOTIF_ID_PLAN_INPUT = 9302
         private const val NOTIF_ID_PLAN_READY = 9303
         private const val NOTIF_ID_TASK_ERROR = 9304
+        private const val NOTIF_ID_TASK_COMPLETE = 9305
         private const val TAG_SESSIONS_DRAWER = "sessions_drawer"
         private const val DRAWER_EDGE_EXCLUSION_DP = 56
         private const val DRAWER_MAX_WIDTH_DP = 420
@@ -319,7 +321,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             val safeTopInset = insets.statusBarSafeTopInset()
             composeContainerView?.setPadding(
                 composeContainerBasePaddingLeft,
-                composeContainerBasePaddingTop + safeTopInset,
+                composeContainerBasePaddingTop,
                 composeContainerBasePaddingRight,
                 composeContainerBasePaddingBottom
             )
@@ -727,6 +729,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         detectApprovalNotification(previousState, state)?.let(::postAttentionNotification)
         detectPlanInputNotification(previousState, state)?.let(::postAttentionNotification)
         detectPlanReadyNotification(previousState, state)?.let(::postAttentionNotification)
+        detectTaskCompleteNotification(previousState, state)?.let(::postAttentionNotification)
         detectErrorNotification(previousState, state)?.let(::postAttentionNotification)
     }
 
@@ -737,8 +740,17 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             else -> {
                 if (state.pendingServerRequests.any { it.responseMode == "decision" }) {
                     "waiting_approval"
+                } else if (!state.currentTurnId.isNullOrBlank()) {
+                    if (
+                        state.connectionState == com.termlink.app.codex.domain.ConnectionState.RECONNECTING ||
+                        state.status.equals("reconnecting", ignoreCase = true)
+                    ) {
+                        "reconnecting"
+                    } else {
+                        "running"
+                    }
                 } else {
-                    state.status.lowercase().trim()
+                    "idle"
                 }
             }
         }
@@ -865,6 +877,57 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         )
     }
 
+    private fun detectTaskCompleteNotification(
+        previousState: CodexUiState?,
+        state: CodexUiState
+    ): AttentionNotificationSpec? {
+        if (previousState == null) {
+            return null
+        }
+        val sameThreadContext =
+            previousState.threadId.isNullOrBlank() ||
+                state.threadId.isNullOrBlank() ||
+                previousState.threadId == state.threadId
+        if (!sameThreadContext) {
+            return null
+        }
+        val previousStatus = resolveForegroundServiceStatus(previousState)
+        val currentStatus = resolveForegroundServiceStatus(state)
+        val completedTrackedTurn =
+            !previousState.currentTurnId.isNullOrBlank() && state.currentTurnId.isNullOrBlank()
+        val completedFromRunningTransition =
+            previousStatus in setOf("running", "reconnecting") &&
+                !CodexTaskForegroundService.isActiveStatus(currentStatus)
+        if (!completedTrackedTurn && !completedFromRunningTransition) {
+            return null
+        }
+        if (CodexTaskForegroundService.isActiveStatus(currentStatus)) {
+            return null
+        }
+        if (!state.errorMessage.isNullOrBlank()) {
+            return null
+        }
+        val latestResult = state.messages
+            .asReversed()
+            .firstOrNull { it.role == ChatMessage.Role.ASSISTANT || it.role == ChatMessage.Role.TOOL }
+        val dedupeKey = buildString {
+            append(state.threadId.orEmpty())
+            append('|')
+            append(latestResult?.id.orEmpty())
+            append('|')
+            append(latestResult?.timestamp ?: 0L)
+        }
+        return AttentionNotificationSpec(
+            notificationId = NOTIF_ID_TASK_COMPLETE,
+            dedupeKey = dedupeKey,
+            title = getString(com.termlink.app.R.string.codex_native_attention_title_task_complete),
+            contentText = summarizeNotificationText(
+                latestResult?.content ?: state.currentThreadTitle,
+                getString(com.termlink.app.R.string.codex_native_attention_body_task_complete)
+            )
+        )
+    }
+
     private fun summarizeNotificationText(value: String?, fallback: String): String {
         val normalized = value
             ?.lineSequence()
@@ -887,6 +950,9 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         }
         if (state.errorMessage.isNullOrBlank()) {
             cancelAttentionNotification(NOTIF_ID_TASK_ERROR)
+        }
+        if (!state.currentTurnId.isNullOrBlank() || CodexTaskForegroundService.isActiveStatus(resolveForegroundServiceStatus(state))) {
+            cancelAttentionNotification(NOTIF_ID_TASK_COMPLETE)
         }
     }
 
@@ -920,6 +986,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         cancelAttentionNotification(NOTIF_ID_PLAN_INPUT)
         cancelAttentionNotification(NOTIF_ID_PLAN_READY)
         cancelAttentionNotification(NOTIF_ID_TASK_ERROR)
+        cancelAttentionNotification(NOTIF_ID_TASK_COMPLETE)
     }
 
     private fun ensureAttentionNotificationChannel() {

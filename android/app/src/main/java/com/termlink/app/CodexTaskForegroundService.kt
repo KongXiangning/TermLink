@@ -61,6 +61,7 @@ class CodexTaskForegroundService : Service() {
         }
 
         fun stop(context: Context) {
+            context.getSystemService(NotificationManager::class.java)?.cancel(NOTIFICATION_ID)
             context.stopService(Intent(context, CodexTaskForegroundService::class.java))
         }
     }
@@ -108,6 +109,12 @@ class CodexTaskForegroundService : Service() {
         }
         if (!isActiveStatus(status)) {
             Log.i(TAG, "Non-active status received ($status), stopping self")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
             stopSelf()
         }
         return START_NOT_STICKY
@@ -116,6 +123,13 @@ class CodexTaskForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
+        getSystemService(NotificationManager::class.java)?.cancel(NOTIFICATION_ID)
         super.onDestroy()
         Log.i(TAG, "Service destroyed")
     }
