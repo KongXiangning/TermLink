@@ -37,7 +37,7 @@ Phase 0 ~ Phase 4 主线已完成实施并通过编译 / 真机验证；当前 C
 Phase 2 当前进度：
 
 1. `done`：`3.3-1` `/` slash 菜单与 `/model`、`/plan`、`/fast` 子集，含模型列表请求与过期恢复兜底。
-2. `done`：`3.3-2` `@` 文件提及搜索、选择、内联 chips 展示与发送前 `@path` 注入。
+2. `done`：`3.3-2` `@` 文件提及搜索、选择、正文内联展示与发送前 `@path` 注入；当前 composer 输入框与用户消息正文中的 file mention 均以内联 `@文件名` 呈现，按输入/选择顺序混排，不再直接暴露完整路径。
 3. `done`：`3.3-3` 命令审批对话框、用户输入请求对话框与响应回传协议已接线；debug build 已提供手工注入入口，命令审批、纯自由输入题与 non-client-handled 系统反馈均已完成本地 / 真机验证。最新真机继续确认 Android 显式 `workspace-write` 覆盖会让 gateway 切到 `approvalPolicy=on-request`，非 Plan Mode 探针也已确认 `interactionState.planMode=false` 与 `collaborationMode=null` 会正确入链；但当前 provider 仍未下发真实 `handledBy=client` 请求样本。
 4. `done`：`3.3-4` 底部快捷配置已补齐模型、推理强度、沙盒模式入口，并完成真机选择回显验证；最新原生状态机已补上 `serverNextTurnConfigBase + nextTurnEffectiveCodexConfig`，footer 默认展示下一轮实际生效配置，而非仅显示本地 override；本轮 follow-up 进一步把“会话默认 / 可写+确认 / 只读 / 完全访问”拆成清晰权限档位，避免把 session default 误看成显式提权配置。
 5. `done`：`3.3-5` 计划模式工作流已补齐 planning / plan text streaming / ready confirmation / execute 入口，并完成 ready 卡片 `执行 / 继续 / 取消` 三动作真机验证；同时修正 `codex_state` 空闲快照重复 finalize 造成的继续规划回弹问题。
@@ -137,7 +137,7 @@ Phase 2 协议对齐盘点（截至 `3.3-3` live debug）：
 ### 3.3 Phase 2：功能对齐
 
 1. 实现 `/` slash 命令菜单与命令选择。（`done`：本地原生已支持 `/` 菜单与 `/model`、`/plan`、`/fast` 子集）
-2. 实现 `@` 文件提及搜索、选择与内联展示。（`done`：已支持工作区文件搜索、chips 展示与发送前 `@path` 注入）
+2. 实现 `@` 文件提及搜索、选择与内联展示。（`done`：已支持工作区文件搜索、输入框/用户消息正文内联 `@文件名` 显示，以及发送前 `@path` 注入）
 3. 实现命令审批对话框、用户输入请求对话框。（`blocked`：已完成协议解析、状态建模、Compose 弹框、响应提交流程与 debug-only 手工注入验证入口；最新真机联调已确认 Android quick setting 能显式切到 `workspace-write + on-request`，且非 Plan Mode 文件写入探针会以 `collaborationMode=null` 真正发出；但当前 provider 仍未下发真实 client-handled approval request，计划模式输入链路也只进入通用 `awaiting_user_input` 工作流卡片，尚缺带选项的真实请求样本，因此该闭环当前按 upstream/provider 阻塞处理）
 4. 实现模型、推理强度、沙盒模式等底部快捷配置。（`done`：底部已支持模型 picker、推理强度 picker、沙盒模式 picker，真机上可完成选择与 chip 回显；并已补上 `nextTurnEffectiveCodexConfig` 本地状态，使默认显示值与下一轮实际生效配置一致）
 5. 实现计划模式工作流：planning、awaiting user input、confirmation、execute。（`done`：原生 Android 已补齐本地计划状态机、`interactionState` 对象同步、`item/plan/delta` / `turn/plan/updated` 通知消费，以及 ready review 卡片与 `执行 / 继续 / 取消` 动作；最新真机已补做 `执行 / 继续 / 取消` 三动作回归，并修正 `codex_state=idle` 重复 finalize 导致继续规划回弹的问题）

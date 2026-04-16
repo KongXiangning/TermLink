@@ -1,8 +1,8 @@
 ---
-title: 变更记录索引
+title: 鍙樻洿璁板綍绱㈠紩
 status: active
 owner: @maintainer
-last_updated: 2026-04-15
+last_updated: 2026-04-16
 source_of_truth: product
 related_code: [docs/changes/records]
 related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_CHANGE_RECORD.md]
@@ -10,19 +10,26 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 # Change Records Index
 
-本索引用于维护 compact 风格的实施留痕，支持回放、回滚和后续修改追踪。
+鏈储寮曠敤浜庣淮鎶?compact 椋庢牸鐨勫疄鏂界暀鐥曪紝鏀寔鍥炴斁銆佸洖婊氬拰鍚庣画淇敼杩借釜銆?
 
-## 使用规则
+## 浣跨敤瑙勫垯
 
-1. 每次实施/提交必须新增一条 CR 记录。
-2. CR 必须包含 `req_id + commit_ref`；`draft` 状态允许 `commit_ref: TBD`。
-3. 需求状态流转到 `done` 前，必须至少存在一条 `active` CR。
-4. `CHANGELOG_PROJECT.md` 仅保留摘要，详细回滚与恢复信息以 CR 为准。
+1. 姣忔瀹炴柦/鎻愪氦蹇呴』鏂板涓€鏉?CR 璁板綍銆?
+2. CR 蹇呴』鍖呭惈 `req_id + commit_ref`锛沗draft` 鐘舵€佸厑璁?`commit_ref: TBD`銆?
+3. 闇€姹傜姸鎬佹祦杞埌 `done` 鍓嶏紝蹇呴』鑷冲皯瀛樺湪涓€鏉?`active` CR銆?
+4. `CHANGELOG_PROJECT.md` 浠呬繚鐣欐憳瑕侊紝璇︾粏鍥炴粴涓庢仮澶嶄俊鎭互 CR 涓哄噯銆?
 
 ## Records
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260416-0925-codex-header-doc-icon-refine | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-04-16 |  | `docs/changes/records/CR-20260416-0925-codex-header-doc-icon-refine.md` |
+| CR-20260416-0440-codex-top-cutout-regression-fix | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-04-16 |  | `docs/changes/records/CR-20260416-0440-codex-top-cutout-regression-fix.md` |
+| CR-20260416-0415-codex-android-history-resync-fix | REQ-20260415-codex-android-runtime-interaction-fixes | active | 2e661a0d9eb3565dbe0e9e1627691a1856b9b848 | @maintainer | 2026-04-16 |  | `docs/changes/records/CR-20260416-0415-codex-android-history-resync-fix.md` |
+| CR-20260416-0249-codex-android-header-interaction-fix | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-04-16 |  | `docs/changes/records/CR-20260416-0249-codex-android-header-interaction-fix.md` |
+| CR-20260416-0207-codex-android-lifecycle-notification-fix | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-04-16 |  | `docs/changes/records/CR-20260416-0207-codex-android-lifecycle-notification-fix.md` |
+| CR-20260416-0145-codex-android-runtime-interaction-fixes-plan | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260416-0145-codex-android-runtime-interaction-fixes-plan.md` |
+| CR-20260416-0041-codex-file-mention-chip-display-fix | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-16 |  | `docs/changes/records/CR-20260416-0041-codex-file-mention-chip-display-fix.md` |
 | CR-20260415-1721-codex-android-overlay-panels-impl | REQ-20260408-codex-native-android-migration | draft | 545b2f7c95888f2809e82bf69b5655393faa8ac4 | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-1721-codex-android-overlay-panels-impl.md` |
 | CR-20260415-1709-codex-android-settings-readability-impl | REQ-20260408-codex-native-android-migration | draft | 545b2f7c95888f2809e82bf69b5655393faa8ac4 | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-1709-codex-android-settings-readability-impl.md` |
 | CR-20260415-1700-codex-android-safearea-insets-impl | REQ-20260408-codex-native-android-migration | draft | 545b2f7c95888f2809e82bf69b5655393faa8ac4 | @maintainer | 2026-04-15 |  | `docs/changes/records/CR-20260415-1700-codex-android-safearea-insets-impl.md` |

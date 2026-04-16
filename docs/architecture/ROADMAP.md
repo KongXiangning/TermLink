@@ -2,7 +2,7 @@
 title: TermLink 路线图
 status: active
 owner: @maintainer
-last_updated: 2026-04-14
+last_updated: 2026-04-15
 source_of_truth: product
 related_code: []
 related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BACKLOG.md]
@@ -38,6 +38,7 @@ related_docs: [docs/architecture/CURRENT_STATE.md, docs/product/REQUIREMENTS_BAC
 14. 已完成 Android 配置级 mTLS 运行时证书选择（`REQ-20260326-android-profile-mtls-runtime-certificate`），Profile Settings 按需导入/选择客户端证书，WebView 与原生网络层统一信任链，移除编译期硬编码证书依赖。
 15. 启动 Codex Android 全原生并行迁移（`REQ-20260408-codex-native-android-migration`）：保留现有 WebView Codex 稳定入口，新增独立原生入口并行建设，并预留后续接入 `claude cli`、`copilot cli` 等 CLI 提供方的 adapter / capability 扩展基线。
 16. 规划 Relay 控制平面与透明中转模式（`REQ-20260413-relay-control-plane-and-transparent-transit`）：为无法暴露公网的后端服务新增控制台、connector 与透明 Relay 主链路；实施前先冻结“管理员预创建 `app_client` 槽位 + 一次性注册码认领”的配对路径、单组织 + 单管理员操作面，以及首期只透传既有 `sessions list/create/delete/rename API + terminal WebSocket` 的数据面边界；继续保持 `relay ingress`/`target identity` 分离契约、“service 只能引用 connector inventory”的发布边界，并提前冻结未来独立 Relay 项目的稳定标识、显式失效治理、跨项目兼容与拆分迁移边界。
+17. 推进 Codex Android 运行态一致性与关键交互修复主线（`REQ-20260415-codex-android-runtime-interaction-fixes`）：三批实现与 Huawei 真机闭环已覆盖任务生命周期 / 通知一致性、顶部 header 两行安全区布局、“返回最新”自动隐藏、底部 `/` 写入 composer、历史线程继续执行与弱网结果回补；当前只剩关联 CR `commit_ref` 回填后的最终文档关单。
 
 ## 2026-H2
 

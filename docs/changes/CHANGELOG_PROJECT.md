@@ -2,13 +2,25 @@
 title: TermLink 项目变更日志
 status: active
 owner: @maintainer
-last_updated: 2026-04-14
+last_updated: 2026-04-16
 source_of_truth: product
 related_code: []
 related_docs: [docs/README.md]
 ---
 
 # CHANGELOG_PROJECT
+
+## 2026-04-16
+
+### docs
+
+1. 回写 `REQ-20260415-codex-android-runtime-interaction-fixes` 第三批真机闭环：Huawei `MQS7N19402011743` 上已完成历史线程继续发送与弱网断流 transcript 回补取证，并同步更新 `PLAN-20260415-codex-android-runtime-interaction-fixes` 与 `CR-20260416-0415-codex-android-history-resync-fix`，同时把产品 / backlog / roadmap 摘要状态从 `planned` 对齐为 `in_progress`。
+
+## 2026-04-15
+
+### docs
+
+1. 新增 `REQ-20260415-codex-android-runtime-interaction-fixes` 与配套 `PLAN-20260415-codex-android-runtime-interaction-fixes`，把原生 Codex 后续 8 组修复问题独立成新的 bugfix 主线：覆盖终止按钮误报、任务进行中通知残留、任务完成提醒、顶部 header 两行安全区布局、“返回最新”自动隐藏、底部 `/` 写入 composer、历史线程继续执行，以及弱网后结果回补。
 
 ## 2026-04-14
 
