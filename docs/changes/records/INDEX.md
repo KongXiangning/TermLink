@@ -23,7 +23,7 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
-| CR-20260418-0048-codex-reopen-transcript-attachment-fix | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-04-18 |  | `docs/changes/records/CR-20260418-0048-codex-reopen-transcript-attachment-fix.md` |
+| CR-20260418-0048-codex-reopen-transcript-attachment-fix | REQ-20260415-codex-android-runtime-interaction-fixes | active | 527bad77a3c98b68b52aa64ccbf41e325f09039d | @maintainer | 2026-04-18 |  | `docs/changes/records/CR-20260418-0048-codex-reopen-transcript-attachment-fix.md` |
 | CR-20260417-1531-codex-attachment-picker-mode | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-04-17 |  | `docs/changes/records/CR-20260417-1531-codex-attachment-picker-mode.md` |
 | CR-20260417-0435-codex-current-task-transcript-stale | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-04-17 |  | `docs/changes/records/CR-20260417-0435-codex-current-task-transcript-stale.md` |
 | CR-20260417-0424-codex-open-reuse-session-bug | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-04-17 |  | `docs/changes/records/CR-20260417-0424-codex-open-reuse-session-bug.md` |

@@ -1,9 +1,9 @@
 ---
 title: Codex Android reopen session, transcript convergence, and attachment split
-status: draft
+status: active
 record_id: CR-20260418-0048-codex-reopen-transcript-attachment-fix
 req_id: REQ-20260415-codex-android-runtime-interaction-fixes
-commit_ref: TBD
+commit_ref: 527bad77a3c98b68b52aa64ccbf41e325f09039d
 owner: @maintainer
 last_updated: 2026-04-18
 source_of_truth: product
@@ -65,10 +65,10 @@ git checkout <commit_ref>^ -- \
 
 ## 6. How to continue
 
-- Backfill `commit_ref` once the implementation commit is created, then promote this CR out of `draft`.
+- This CR is now tied to implementation commit `527bad77a3c98b68b52aa64ccbf41e325f09039d`.
 - If Huawei adb automation needs to reproduce the attachment sheet again, focus the composer first and then tap the `+` button using the keyboard-open layout coordinates.
 
 ## 7. Risks / follow-up
 
 1. Huawei adb automation reports clipped bottom-footer coordinates when the keyboard is hidden, so future device automation should prefer the keyboard-open path for reliable `+` button proof.
-2. The CR can leave `draft` only after `commit_ref` is backfilled, even though the runtime validation for reopen/transcript/attachment is now complete.
+2. Runtime validation for reopen/transcript/attachment is complete; remaining follow-up only concerns any future regressions or later batch extensions under the same REQ.
