@@ -29,6 +29,7 @@ import com.termlink.app.data.BasicCredentialStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.SessionApiClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -94,7 +95,7 @@ class CodexViewModel(
                 it.copy(
                     sessionId = params.sessionId,
                     cwd = params.cwd,
-                    threadId = params.threadId,
+                    threadId = normalizeThreadId(params.threadId),
                     errorMessage = null,
                     connectionState = ConnectionState.CONNECTING,
                     serverNextTurnConfigBase = null,
@@ -699,7 +700,7 @@ class CodexViewModel(
             }
             return
         }
-        val threadId = state.threadId?.trim().orEmpty()
+        val threadId = normalizeThreadId(state.threadId).orEmpty()
         if (threadId.isEmpty()) {
             _uiState.update {
                 it.copy(
@@ -1236,7 +1237,7 @@ class CodexViewModel(
         val sent = sendEnvelopeOrReportFailure(
             payload = CodexClientMessages.codexTurn(
                 prompt = prompt,
-                threadId = state.threadId,
+                threadId = normalizeThreadId(state.threadId),
                 attachments = attachments,
                 interactionState = turnInteractionState,
                 model = state.nextTurnOverrides.model,
@@ -1622,10 +1623,11 @@ class CodexViewModel(
 
             "codex_thread_ready" -> {
                 val ready = CodexThreadReady.from(json)
+                val readyThreadId = normalizeThreadId(ready.threadId)
                 _uiState.update {
                     syncExecutionWatch(
                         it.copy(
-                            threadId = ready.threadId,
+                            threadId = readyThreadId,
                             currentTurnId = null,
                             messages = if (ready.resumed) it.messages else emptyList(),
                             runtimePanel = if (ready.resumed) {
@@ -1634,7 +1636,7 @@ class CodexViewModel(
                                 buildEmptyRuntimePanelState()
                             },
                             currentThreadTitle = resolveCurrentThreadTitle(
-                                threadId = ready.threadId,
+                                threadId = readyThreadId,
                                 entries = it.threadHistoryEntries,
                                 fallback = it.currentThreadTitle
                             )
@@ -1642,29 +1644,39 @@ class CodexViewModel(
                         markActivity = false
                     )
                 }
-                Log.i(TAG, "Thread ready: ${ready.threadId} resumed=${ready.resumed}")
+                Log.i(TAG, "Thread ready: $readyThreadId resumed=${ready.resumed}")
             }
 
             "codex_thread_snapshot" -> {
                 val snapshot = CodexThreadSnapshot.from(json)
-                val messages = parseSnapshotMessages(snapshot)
-                clearPendingThreadResync(snapshot.threadId)
-                _uiState.update {
+                val snapshotThreadId = normalizeThreadId(snapshot.threadId)
+                val canonicalMessages = parseSnapshotMessages(snapshot)
+                clearPendingThreadResync(snapshotThreadId)
+                _uiState.update { state ->
+                    val preserveLocalTail = shouldPreserveLocalMessageTail(
+                        threadId = snapshotThreadId,
+                        state = state
+                    )
+                    val mergedMessages = mergeCanonicalMessages(
+                        canonicalMessages = canonicalMessages,
+                        currentMessages = state.messages,
+                        preserveLocalTail = preserveLocalTail
+                    )
                     syncExecutionWatch(
-                        it.copy(
-                            threadId = snapshot.threadId,
-                            messages = messages,
-                            currentTurnId = null,
+                        state.copy(
+                            threadId = snapshotThreadId,
+                            messages = mergedMessages,
+                            currentTurnId = if (preserveLocalTail) state.currentTurnId else null,
                             currentThreadTitle = resolveCurrentThreadTitle(
-                                threadId = snapshot.threadId,
-                                entries = it.threadHistoryEntries,
-                                fallback = it.currentThreadTitle
+                                threadId = snapshotThreadId,
+                                entries = state.threadHistoryEntries,
+                                fallback = state.currentThreadTitle
                             )
                         ),
                         markActivity = false
                     )
                 }
-                Log.i(TAG, "Thread snapshot: ${snapshot.threadId} msgs=${messages.size}")
+                Log.i(TAG, "Thread snapshot: $snapshotThreadId msgs=${canonicalMessages.size}")
             }
 
             "codex_turn_ack" -> {
@@ -2037,7 +2049,7 @@ class CodexViewModel(
             clearThreadHistoryAction()
             return
         }
-        val resumedThreadId = thread.optStringOrNullCompat("id").orEmpty()
+        val resumedThreadId = normalizeThreadId(thread.optStringOrNullCompat("id")).orEmpty()
         val resumedTitle = resolveThreadTitle(thread)
         threadHadPlanTurn = false
         clearPendingThreadResync()
@@ -2055,14 +2067,7 @@ class CodexViewModel(
             )
         }
         if (resumedThreadId.isNotEmpty()) {
-            connectionManager.send(
-                CodexClientMessages.codexRequest(
-                    action = "thread/read",
-                    params = JSONObject()
-                        .put("threadId", resumedThreadId)
-                        .put("includeTurns", true)
-                )
-            )
+            requestCanonicalThreadRead(resumedThreadId, reason = "thread-resume")
         } else {
             clearThreadHistoryAction()
         }
@@ -2077,7 +2082,7 @@ class CodexViewModel(
             clearThreadHistoryAction()
             return
         }
-        val threadId = thread.optStringOrNullCompat("id").orEmpty()
+        val threadId = normalizeThreadId(thread.optStringOrNullCompat("id")).orEmpty()
         val threadTitle = resolveThreadTitle(thread)
         val turns = thread.optJSONArray("turns")
         val hasTurns = turns != null
@@ -2089,16 +2094,29 @@ class CodexViewModel(
         val hasMessages = hasTurns || thread.optJSONArray("messages") != null
         clearPendingThreadResync(threadId)
         _uiState.update { state ->
+            val resolvedThreadId = threadId.ifEmpty { state.threadId }
+            val mergedMessages = if (hasMessages) {
+                mergeCanonicalMessages(
+                    canonicalMessages = messages,
+                    currentMessages = state.messages,
+                    preserveLocalTail = shouldPreserveLocalMessageTail(
+                        threadId = resolvedThreadId,
+                        state = state
+                    )
+                )
+            } else {
+                state.messages
+            }
             state.copy(
-                threadId = threadId.ifEmpty { state.threadId },
+                threadId = resolvedThreadId,
                 currentThreadTitle = threadTitle.ifBlank {
                     resolveCurrentThreadTitle(
-                        threadId = threadId.ifEmpty { state.threadId },
+                        threadId = resolvedThreadId,
                         entries = state.threadHistoryEntries,
                         fallback = state.currentThreadTitle
                     )
                 },
-                messages = if (hasMessages) messages else state.messages,
+                messages = mergedMessages,
                 runtimePanel = when {
                     hasTurns -> buildRuntimePanelStateFromTurns(
                         turns = turns,
@@ -2127,8 +2145,102 @@ class CodexViewModel(
         }
     }
 
-    private fun normalizeThreadId(threadId: String?): String? =
-        threadId?.trim()?.takeIf { it.isNotEmpty() }
+    private fun normalizeThreadId(threadId: String?): String? {
+        val normalized = threadId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        return when {
+            normalized.equals("null", ignoreCase = true) -> null
+            normalized.equals("undefined", ignoreCase = true) -> null
+            else -> normalized
+        }
+    }
+
+    private fun shouldPreserveLocalMessageTail(
+        threadId: String?,
+        state: CodexUiState
+    ): Boolean {
+        if (state.currentTurnId.isNullOrBlank()) {
+            return false
+        }
+        val normalizedStateThreadId = normalizeThreadId(state.threadId)
+        val normalizedIncomingThreadId = normalizeThreadId(threadId)
+        return normalizedStateThreadId == null ||
+            normalizedIncomingThreadId == null ||
+            normalizedStateThreadId == normalizedIncomingThreadId
+    }
+
+    private fun mergeCanonicalMessages(
+        canonicalMessages: List<ChatMessage>,
+        currentMessages: List<ChatMessage>,
+        preserveLocalTail: Boolean
+    ): List<ChatMessage> {
+        if (!preserveLocalTail) {
+            return canonicalMessages
+        }
+        if (currentMessages.isEmpty()) {
+            return canonicalMessages
+        }
+        if (canonicalMessages.isEmpty()) {
+            return currentMessages.filter(::shouldPreserveTailMessage)
+        }
+        var searchStart = 0
+        var lastMatchedCurrentIndex = -1
+        canonicalMessages.forEach { canonicalMessage ->
+            for (index in searchStart until currentMessages.size) {
+                if (messagesEquivalentForConvergence(currentMessages[index], canonicalMessage)) {
+                    lastMatchedCurrentIndex = index
+                    searchStart = index + 1
+                    break
+                }
+            }
+        }
+        val localTail = currentMessages
+            .subList((lastMatchedCurrentIndex + 1).coerceAtMost(currentMessages.size), currentMessages.size)
+            .filter(::shouldPreserveTailMessage)
+        if (localTail.isEmpty()) {
+            return canonicalMessages
+        }
+        val merged = canonicalMessages.toMutableList()
+        localTail.forEach { message ->
+            if (merged.none { existing -> messagesEquivalentForConvergence(existing, message) }) {
+                merged.add(message)
+            }
+        }
+        return merged
+    }
+
+    private fun shouldPreserveTailMessage(message: ChatMessage): Boolean {
+        if (message.role == ChatMessage.Role.USER) {
+            return message.content.isNotBlank() ||
+                message.fileMentions.isNotEmpty() ||
+                !message.activeSkill.isNullOrBlank()
+        }
+        return message.content.isNotBlank() || message.streaming
+    }
+
+    private fun messagesEquivalentForConvergence(
+        left: ChatMessage,
+        right: ChatMessage
+    ): Boolean = messageConvergenceKey(left) == messageConvergenceKey(right)
+
+    private fun messageConvergenceKey(message: ChatMessage): String = buildString {
+        append(message.role.name)
+        append('|')
+        append(message.contentType)
+        append('|')
+        append(message.toolName.orEmpty())
+        append('|')
+        append(message.collapsible)
+        append('|')
+        append(message.collapsedLabel.trim())
+        append('|')
+        append(message.activeSkill.orEmpty())
+        append('|')
+        append(message.content.trim())
+        append('|')
+        append(message.fileMentions.joinToString(separator = "\u001F") { mention ->
+            mention.path.trim()
+        })
+    }
 
     private fun markPendingThreadResyncIfNeeded(state: CodexUiState) {
         val threadId = normalizeThreadId(state.threadId) ?: return
@@ -2187,6 +2299,38 @@ class CodexViewModel(
         )
         if (sent) {
             threadResyncInFlightThreadId = normalizedThreadId
+        }
+    }
+
+    private fun requestCanonicalThreadRead(threadId: String?, reason: String): Boolean {
+        val normalizedThreadId = normalizeThreadId(threadId) ?: return false
+        logNotificationTrace("request", "thread/read reason=$reason threadId=$normalizedThreadId")
+        return connectionManager.send(
+            CodexClientMessages.codexRequest(
+                action = "thread/read",
+                params = JSONObject()
+                    .put("threadId", normalizedThreadId)
+                    .put("includeTurns", true)
+            )
+        )
+    }
+
+    private fun scheduleCanonicalThreadRead(
+        threadId: String?,
+        reason: String,
+        delayMillis: Long = 250L
+    ) {
+        val normalizedThreadId = normalizeThreadId(threadId) ?: return
+        viewModelScope.launch {
+            delay(delayMillis)
+            val state = _uiState.value
+            if (!state.currentTurnId.isNullOrBlank()) {
+                return@launch
+            }
+            if (normalizeThreadId(state.threadId) != normalizedThreadId) {
+                return@launch
+            }
+            requestCanonicalThreadRead(normalizedThreadId, reason)
         }
     }
 
@@ -2310,7 +2454,7 @@ class CodexViewModel(
 
     private fun parseThreadMessages(messages: JSONArray?): List<ChatMessage> {
         val snapshot = CodexThreadSnapshot(
-            threadId = _uiState.value.threadId.orEmpty(),
+            threadId = normalizeThreadId(_uiState.value.threadId).orEmpty(),
             messages = messages ?: JSONArray()
         )
         return parseSnapshotMessages(snapshot)
@@ -2736,6 +2880,7 @@ class CodexViewModel(
             }
 
             notification.method == "thread/status/changed" -> {
+                val hadActiveTurn = !_uiState.value.currentTurnId.isNullOrBlank()
                 val statusType = params
                     ?.optJSONObject("status")
                     ?.optString("type", "")
@@ -2753,6 +2898,12 @@ class CodexViewModel(
                         )
                     }
                     val state = _uiState.value
+                    if (hadActiveTurn) {
+                        scheduleCanonicalThreadRead(
+                            threadId = state.threadId,
+                            reason = "thread-idle"
+                        )
+                    }
                     maybeRequestPendingThreadResync(
                         threadId = state.threadId,
                         status = state.status,
@@ -2789,6 +2940,10 @@ class CodexViewModel(
                         markActivity = true
                     )
                 }
+                scheduleCanonicalThreadRead(
+                    threadId = _uiState.value.threadId,
+                    reason = "turn-completed"
+                )
             }
 
             notification.method == "item/started" -> {

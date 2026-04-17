@@ -54,7 +54,6 @@ import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.SessionMode
 import com.termlink.app.ui.sessions.SessionsFragment
 import com.termlink.app.util.setStatusBarHidden
-import com.termlink.app.util.statusBarSafeTopInset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -83,6 +82,9 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         private const val PREF_CWD = "last_cwd"
         private const val PREF_THREAD_ID = "last_thread_id"
         private const val SHELL_PREFS_NAME = "termlink_shell"
+        private const val SHELL_PREF_LAST_PROFILE_ID = "last_profile_id"
+        private const val SHELL_PREF_LAST_SESSION_ID = "last_session_id"
+        private const val SHELL_PREF_LAST_SESSION_MODE = "last_session_mode"
         private const val SHELL_PREF_LAST_SESSION_CWD = "last_session_cwd"
         private const val DEFAULT_CODEX_CWD = "E:\\coding\\TermLink"
         private const val DOCS_DEFAULT_ENTRY_PATH = "docs"
@@ -146,12 +148,14 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         override fun onDrawerOpened(drawerView: android.view.View) {
             if (drawerView.id == R.id.codex_sessions_drawer_container) {
                 setDrawerSessionsContentVisible(true)
+                updateStatusBarVisibility()
             }
         }
 
         override fun onDrawerClosed(drawerView: android.view.View) {
             if (drawerView.id == R.id.codex_sessions_drawer_container) {
                 setDrawerSessionsContentVisible(false)
+                updateStatusBarVisibility()
             }
         }
     }
@@ -193,10 +197,15 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                     contentWindowInsets = WindowInsets(0, 0, 0, 0)
                 ) { innerPadding ->
                     val uiState by viewModel.uiState.collectAsState()
+                    val imagePickerLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocument()
+                    ) { uri ->
+                        uri?.let { handlePickedDocument(it, DocumentPickerKind.IMAGE) }
+                    }
                     val filePickerLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.OpenDocument()
                     ) { uri ->
-                        uri?.let(::handlePickedDocument)
+                        uri?.let { handlePickedDocument(it, DocumentPickerKind.FILE) }
                     }
                     CodexScreen(
                         state = uiState,
@@ -252,6 +261,9 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                         onCancelThreadRename = viewModel::cancelThreadRename,
                         onSubmitThreadRename = viewModel::submitThreadRename,
                         onPickLocalImage = {
+                            imagePickerLauncher.launch(arrayOf("image/*"))
+                        },
+                        onPickLocalFile = {
                             filePickerLauncher.launch(arrayOf("*/*"))
                         },
                         onRemovePendingImageAttachment = viewModel::removePendingImageAttachment,
@@ -273,7 +285,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         }
         isActivityVisible = true
         cancelAttentionNotifications()
-        setStatusBarHidden(hidden = true, anchor = drawerLayout)
+        updateStatusBarVisibility()
         drawerLayout?.post {
             drawerLayout?.let(ViewCompat::requestApplyInsets)
         }
@@ -297,7 +309,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                 cwd = params.cwd ?: activeLaunchParams?.cwd,
                 launchSource = params.launchSource
             ) ?: params
-            persistRestoreState(activeLaunchParams!!)
+            persistActiveLaunchSelection(activeLaunchParams!!)
             cancelAttentionNotifications()
             return
         }
@@ -318,7 +330,6 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         val root = drawerLayout ?: return
         ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val safeTopInset = insets.statusBarSafeTopInset()
             composeContainerView?.setPadding(
                 composeContainerBasePaddingLeft,
                 composeContainerBasePaddingTop,
@@ -327,13 +338,25 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             )
             sessionsDrawerContainer?.setPadding(
                 sessionsDrawerBasePaddingLeft,
-                sessionsDrawerBasePaddingTop + safeTopInset,
+                sessionsDrawerBasePaddingTop,
                 sessionsDrawerBasePaddingRight,
                 sessionsDrawerBasePaddingBottom + systemBars.bottom
             )
             insets
         }
         ViewCompat.requestApplyInsets(root)
+    }
+
+    private fun shouldHideStatusBar(): Boolean {
+        return isActivityVisible
+    }
+
+    private fun updateStatusBarVisibility() {
+        val anchor = drawerLayout ?: return
+        setStatusBarHidden(hidden = shouldHideStatusBar(), anchor = anchor)
+        anchor.post {
+            ViewCompat.requestApplyInsets(anchor)
+        }
     }
 
     @Deprecated("Deprecated in Java")
@@ -487,9 +510,9 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         }
     }
 
-    private fun handlePickedDocument(uri: Uri) {
+    private fun handlePickedDocument(uri: Uri, pickerKind: DocumentPickerKind) {
         lifecycleScope.launch {
-            val selection = withContext(Dispatchers.IO) { readSelectedDocument(uri) }
+            val selection = withContext(Dispatchers.IO) { readSelectedDocument(uri, pickerKind) }
             when (selection) {
                 is SelectedDocument.Image -> {
                     viewModel.addLocalImageAttachment(
@@ -535,10 +558,21 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         val contentText: String
     )
 
-    private fun readSelectedDocument(uri: Uri): SelectedDocument? {
+    private enum class DocumentPickerKind {
+        IMAGE,
+        FILE
+    }
+
+    private fun readSelectedDocument(uri: Uri, pickerKind: DocumentPickerKind): SelectedDocument? {
         val resolver = applicationContext.contentResolver
         val label = queryDisplayName(uri) ?: uri.lastPathSegment?.substringAfterLast('/') ?: "Image"
         val mimeType = resolver.getType(uri)?.trim()?.takeIf { it.isNotBlank() }
+        if (pickerKind == DocumentPickerKind.FILE) {
+            return SelectedDocument.FileReference(
+                label = label,
+                uri = uri.toString()
+            )
+        }
         if (mimeType != null && mimeType.startsWith("image/", ignoreCase = true)) {
             val bytes = resolver.openInputStream(uri)?.use { input -> input.readBytes() } ?: return null
             val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
@@ -610,7 +644,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                         sessionId = ref.id,
                         sessionMode = ref.sessionMode.wireValue,
                         cwd = ref.cwd ?: initialCwd,
-                        threadId = ref.lastCodexThreadId,
+                        threadId = normalizeStoredThreadId(ref.lastCodexThreadId),
                         launchSource = "auto_create"
                     )
                     startConnection(newParams)
@@ -646,7 +680,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         if (profile == null) {
             Log.w(TAG, "Launch profile missing: ${params.profileId}; launchSource=${params.launchSource}")
             if (params.launchSource == "restore") {
-                clearRestoreState()
+                clearPersistedLaunchSelection()
                 activeLaunchParams = null
                 resolveAndConnect()
             } else {
@@ -662,7 +696,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             cwd = params.cwd
         )
         syncActivityIntent(params)
-        persistRestoreState(params)
+        persistActiveLaunchSelection(params)
         viewModel.connect(profile, params)
     }
 
@@ -675,7 +709,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                 if (state.sessionExpired) {
                     Log.w(TAG, "Session expired; clearing stale launch state and auto-creating a new one")
                     viewModel.disconnect()
-                    clearRestoreState()
+                    clearPersistedLaunchSelection()
                     clearLaunchIntentSelection()
                     activeLaunchParams = null
                     drawerSelection = null
@@ -687,11 +721,12 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                 val updatedParams = params.copy(
                     sessionId = state.sessionId.ifBlank { params.sessionId },
                     cwd = state.cwd ?: params.cwd,
-                    threadId = state.threadId ?: params.threadId
+                    threadId = normalizeStoredThreadId(state.threadId)
+                        ?: normalizeStoredThreadId(params.threadId)
                 )
                 activeLaunchParams = updatedParams
                 syncActivityIntent(updatedParams)
-                persistRestoreState(updatedParams)
+                persistActiveLaunchSelection(updatedParams)
             }
         }
     }
@@ -1065,7 +1100,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         if (!restoredProfileId.isNullOrBlank() && !restoredSessionId.isNullOrBlank()) {
             if (state.profiles.none { it.id == restoredProfileId }) {
                 Log.w(TAG, "Discarding restore state for deleted profile: $restoredProfileId")
-                clearRestoreState()
+                clearPersistedLaunchSelection()
                 return null
             }
             return CodexLaunchParams(
@@ -1073,7 +1108,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                 sessionId = restoredSessionId,
                 sessionMode = prefs.getString(PREF_SESSION_MODE, "codex") ?: "codex",
                 cwd = prefs.getString(PREF_CWD, null),
-                threadId = prefs.getString(PREF_THREAD_ID, null),
+                threadId = normalizeStoredThreadId(prefs.getString(PREF_THREAD_ID, null)),
                 launchSource = "restore"
             )
         }
@@ -1093,13 +1128,37 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
     }
 
     private fun persistRestoreState(params: CodexLaunchParams) {
+        val normalizedThreadId = normalizeStoredThreadId(params.threadId)
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
             .putString(PREF_PROFILE_ID, params.profileId)
             .putString(PREF_SESSION_ID, params.sessionId)
             .putString(PREF_SESSION_MODE, params.sessionMode)
             .putString(PREF_CWD, params.cwd)
-            .putString(PREF_THREAD_ID, params.threadId)
+            .putString(PREF_THREAD_ID, normalizedThreadId)
             .apply()
+    }
+
+    private fun normalizeStoredThreadId(threadId: String?): String? {
+        val normalized = threadId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        return when {
+            normalized.equals("null", ignoreCase = true) -> null
+            normalized.equals("undefined", ignoreCase = true) -> null
+            else -> normalized
+        }
+    }
+
+    private fun persistShellSelection(params: CodexLaunchParams) {
+        getSharedPreferences(SHELL_PREFS_NAME, MODE_PRIVATE).edit()
+            .putString(SHELL_PREF_LAST_PROFILE_ID, params.profileId)
+            .putString(SHELL_PREF_LAST_SESSION_ID, params.sessionId)
+            .putString(SHELL_PREF_LAST_SESSION_MODE, params.sessionMode)
+            .putString(SHELL_PREF_LAST_SESSION_CWD, params.cwd)
+            .apply()
+    }
+
+    private fun persistActiveLaunchSelection(params: CodexLaunchParams) {
+        persistRestoreState(params)
+        persistShellSelection(params)
     }
 
     private fun clearRestoreState() {
@@ -1110,6 +1169,20 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             .remove(PREF_CWD)
             .remove(PREF_THREAD_ID)
             .apply()
+    }
+
+    private fun clearShellSelection() {
+        getSharedPreferences(SHELL_PREFS_NAME, MODE_PRIVATE).edit()
+            .remove(SHELL_PREF_LAST_PROFILE_ID)
+            .remove(SHELL_PREF_LAST_SESSION_ID)
+            .remove(SHELL_PREF_LAST_SESSION_MODE)
+            .remove(SHELL_PREF_LAST_SESSION_CWD)
+            .apply()
+    }
+
+    private fun clearPersistedLaunchSelection() {
+        clearRestoreState()
+        clearShellSelection()
     }
 
     private fun clearLaunchIntentSelection() {
@@ -1135,7 +1208,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             return false
         }
         Log.w(TAG, "Active launch profile was deleted: ${params.profileId}; recovering")
-        clearRestoreState()
+        clearPersistedLaunchSelection()
         activeLaunchParams = null
         drawerSelection = null
         viewModel.disconnect()

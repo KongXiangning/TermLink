@@ -224,6 +224,7 @@ fun CodexScreen(
     onCancelThreadRename: () -> Unit,
     onSubmitThreadRename: () -> Unit,
     onPickLocalImage: () -> Unit,
+    onPickLocalFile: () -> Unit,
     onRemovePendingImageAttachment: (String) -> Unit,
     onInjectDebugServerRequest: (DebugServerRequestPreset) -> Unit,
     modifier: Modifier = Modifier
@@ -488,6 +489,7 @@ fun CodexScreen(
                         onSelectFileMention = onSelectFileMention,
                         onRemoveFileMention = onRemoveFileMention,
                         onPickLocalImage = onPickLocalImage,
+                        onPickLocalFile = onPickLocalFile,
                         onRemovePendingImageAttachment = onRemovePendingImageAttachment,
                         onShowModelPicker = onShowModelPicker,
                         onHideModelPicker = onHideModelPicker,
@@ -3422,6 +3424,7 @@ private fun hasNoticesPanelContent(state: CodexUiState): Boolean {
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 private fun FooterControls(
     state: CodexUiState,
     imageInputEnabled: Boolean,
@@ -3444,6 +3447,7 @@ private fun FooterControls(
     onShowThreadHistory: () -> Unit,
     onHideThreadHistory: () -> Unit,
     onPickLocalImage: () -> Unit,
+    onPickLocalFile: () -> Unit,
     onShowSlashMenu: () -> Unit
 ) {
     val effectiveConfig = state.nextTurnEffectiveCodexConfig
@@ -3453,6 +3457,7 @@ private fun FooterControls(
         ?: state.reasoningEffort
         ?: state.capabilities?.defaultReasoningEffort
     val activeSandboxMode = resolvedConcreteSandboxSelection(state)
+    var attachmentMenuExpanded by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier
@@ -3461,12 +3466,14 @@ private fun FooterControls(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        FooterActionButton(
-            onClick = onPickLocalImage,
-            enabled = imageInputEnabled,
-            label = "⊕",
-            contentDescription = stringResource(R.string.codex_native_attach_file)
-        )
+        Box {
+            FooterActionButton(
+                onClick = { attachmentMenuExpanded = true },
+                enabled = imageInputEnabled,
+                label = "⊕",
+                contentDescription = stringResource(R.string.codex_native_attach)
+            )
+        }
         FooterActionButton(
             onClick = onShowSlashMenu,
             label = "/",
@@ -3612,6 +3619,43 @@ private fun FooterControls(
             state = state,
             onClick = onShowUsagePanel
         )
+    }
+    if (attachmentMenuExpanded && imageInputEnabled) {
+        ModalBottomSheet(
+            onDismissRequest = { attachmentMenuExpanded = false }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.codex_native_attach),
+                    color = TextPrimary,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                FilledTonalButton(
+                    onClick = {
+                        attachmentMenuExpanded = false
+                        onPickLocalImage()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(text = stringResource(R.string.codex_native_attach_image))
+                }
+                FilledTonalButton(
+                    onClick = {
+                        attachmentMenuExpanded = false
+                        onPickLocalFile()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(text = stringResource(R.string.codex_native_attach_file))
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+        }
     }
 }
 
@@ -3894,6 +3938,7 @@ private fun InputComposer(
     onSelectFileMention: (FileMention) -> Unit,
     onRemoveFileMention: (String) -> Unit,
     onPickLocalImage: () -> Unit,
+    onPickLocalFile: () -> Unit,
     onRemovePendingImageAttachment: (String) -> Unit,
     onShowModelPicker: () -> Unit,
     onHideModelPicker: () -> Unit,
@@ -4049,6 +4094,7 @@ private fun InputComposer(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .imePadding()
         ) {
             if (showComposerNav) {
@@ -4258,6 +4304,7 @@ private fun InputComposer(
                 onShowThreadHistory = onShowThreadHistory,
                 onHideThreadHistory = onHideThreadHistory,
                 onPickLocalImage = onPickLocalImage,
+                onPickLocalFile = onPickLocalFile,
                 onShowSlashMenu = {
                     insertComposerText("/")
                 }

@@ -2,7 +2,7 @@
 title: 鍙樻洿璁板綍绱㈠紩
 status: active
 owner: @maintainer
-last_updated: 2026-04-16
+last_updated: 2026-04-17
 source_of_truth: product
 related_code: [docs/changes/records]
 related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_CHANGE_RECORD.md]
@@ -23,6 +23,10 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
+| CR-20260418-0048-codex-reopen-transcript-attachment-fix | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-04-18 |  | `docs/changes/records/CR-20260418-0048-codex-reopen-transcript-attachment-fix.md` |
+| CR-20260417-1531-codex-attachment-picker-mode | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-04-17 |  | `docs/changes/records/CR-20260417-1531-codex-attachment-picker-mode.md` |
+| CR-20260417-0435-codex-current-task-transcript-stale | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-04-17 |  | `docs/changes/records/CR-20260417-0435-codex-current-task-transcript-stale.md` |
+| CR-20260417-0424-codex-open-reuse-session-bug | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-04-17 |  | `docs/changes/records/CR-20260417-0424-codex-open-reuse-session-bug.md` |
 | CR-20260416-0925-codex-header-doc-icon-refine | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-04-16 |  | `docs/changes/records/CR-20260416-0925-codex-header-doc-icon-refine.md` |
 | CR-20260416-0440-codex-top-cutout-regression-fix | REQ-20260415-codex-android-runtime-interaction-fixes | draft | TBD | @maintainer | 2026-04-16 |  | `docs/changes/records/CR-20260416-0440-codex-top-cutout-regression-fix.md` |
 | CR-20260416-0415-codex-android-history-resync-fix | REQ-20260415-codex-android-runtime-interaction-fixes | active | 2e661a0d9eb3565dbe0e9e1627691a1856b9b848 | @maintainer | 2026-04-16 |  | `docs/changes/records/CR-20260416-0415-codex-android-history-resync-fix.md` |

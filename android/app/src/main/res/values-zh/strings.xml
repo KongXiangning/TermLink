@@ -186,7 +186,9 @@
     <string name="codex_native_input_hint_skill">已选择技能 %1$s，继续输入你的具体需求...</string>
     <string name="codex_native_skill_chip_prefix">技能</string>
     <string name="codex_native_skill_chip_remove">×</string>
-    <string name="codex_native_attach_file">选择文件</string>
+    <string name="codex_native_attach">添加附件</string>
+    <string name="codex_native_attach_image">图片</string>
+    <string name="codex_native_attach_file">文件</string>
     <string name="codex_native_open_commands">切换命令菜单</string>
     <string name="codex_native_attach_file_short">文件</string>
     <string name="codex_native_open_commands_short">命令</string>
