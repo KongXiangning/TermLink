@@ -18,6 +18,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.material.card.MaterialCardView
@@ -37,6 +39,8 @@ import com.termlink.app.data.SessionRef
 import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.SessionSummary
 import com.termlink.app.data.TerminalType
+import com.termlink.app.util.horizontalSafeInsets
+import com.termlink.app.util.statusBarSafeTopInset
 import java.text.DateFormat
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
@@ -99,6 +103,18 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     private lateinit var emptyText: TextView
     private lateinit var listContainer: LinearLayout
     private lateinit var swipeRefresh: SwipeRefreshLayout
+    private lateinit var headerContent: View
+    private lateinit var primaryActionButton: Button
+    private var rootBasePaddingLeft: Int = 0
+    private var rootBasePaddingTop: Int = 0
+    private var rootBasePaddingRight: Int = 0
+    private var rootBasePaddingBottom: Int = 0
+    private var headerBasePaddingLeft: Int = 0
+    private var headerBasePaddingTop: Int = 0
+    private var headerBasePaddingRight: Int = 0
+    private var headerBasePaddingBottom: Int = 0
+    private var primaryActionBasePaddingLeft: Int = 0
+    private var primaryActionBasePaddingRight: Int = 0
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
@@ -129,6 +145,42 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         isViewActive = true
         currentViewGeneration += 1
         hasCompletedInitialLocalFirstPaint = false
+        rootBasePaddingLeft = view.paddingLeft
+        rootBasePaddingTop = view.paddingTop
+        rootBasePaddingRight = view.paddingRight
+        rootBasePaddingBottom = view.paddingBottom
+        headerContent = view.findViewById(R.id.sessions_header_content)
+        primaryActionButton = view.findViewById(R.id.btn_create_session)
+        headerBasePaddingLeft = headerContent.paddingLeft
+        headerBasePaddingTop = headerContent.paddingTop
+        headerBasePaddingRight = headerContent.paddingRight
+        headerBasePaddingBottom = headerContent.paddingBottom
+        primaryActionBasePaddingLeft = primaryActionButton.paddingLeft
+        primaryActionBasePaddingRight = primaryActionButton.paddingRight
+        ViewCompat.setOnApplyWindowInsetsListener(view) { target, insets ->
+            val rootInsets = ViewCompat.getRootWindowInsets(target) ?: insets
+            val horizontalSafeInsets = rootInsets.horizontalSafeInsets()
+            target.setPadding(
+                rootBasePaddingLeft,
+                rootBasePaddingTop,
+                rootBasePaddingRight,
+                rootBasePaddingBottom
+            )
+            headerContent.setPadding(
+                headerBasePaddingLeft + horizontalSafeInsets.left,
+                headerBasePaddingTop + rootInsets.statusBarSafeTopInset(),
+                headerBasePaddingRight + horizontalSafeInsets.right,
+                headerBasePaddingBottom
+            )
+            primaryActionButton.setPadding(
+                primaryActionBasePaddingLeft + horizontalSafeInsets.left,
+                primaryActionButton.paddingTop,
+                primaryActionBasePaddingRight + horizontalSafeInsets.right,
+                primaryActionButton.paddingBottom
+            )
+            WindowInsetsCompat.CONSUMED
+        }
+        ViewCompat.requestApplyInsets(view)
 
         profileText = view.findViewById(R.id.sessions_active_profile)
         errorText = view.findViewById(R.id.sessions_error_text)
@@ -142,7 +194,7 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         view.findViewById<View>(R.id.btn_sessions_open_settings).setOnClickListener {
             callbacks?.onOpenSettings()
         }
-        view.findViewById<Button>(R.id.btn_create_session).setOnClickListener {
+        primaryActionButton.setOnClickListener {
             showCreateDialog()
         }
     }

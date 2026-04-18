@@ -85,6 +85,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var topBarView: View? = null
     private var fragmentContainerView: View? = null
     private var drawerLayout: DrawerLayout? = null
+    private var sessionsDrawerContainer: View? = null
     private var sessionsDrawerButton: ImageButton? = null
     private var backButton: ImageButton? = null
     private var workspaceButton: ImageButton? = null
@@ -130,6 +131,10 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var fragmentContainerBasePaddingTop: Int = 0
     private var fragmentContainerBasePaddingRight: Int = 0
     private var fragmentContainerBasePaddingBottom: Int = 0
+    private var sessionsDrawerBasePaddingLeft: Int = 0
+    private var sessionsDrawerBasePaddingTop: Int = 0
+    private var sessionsDrawerBasePaddingRight: Int = 0
+    private var sessionsDrawerBasePaddingBottom: Int = 0
     private var rootInsetsView: View? = null
     private var idleHandler: android.os.Handler? = null
     private var idleTimeoutRunnable: Runnable? = null
@@ -146,12 +151,14 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         override fun onDrawerOpened(drawerView: View) {
             if (drawerView.id == R.id.shell_sessions_drawer_container) {
                 setDrawerSessionsFragmentVisible(true)
+                updateStatusBarVisibility()
             }
         }
 
         override fun onDrawerClosed(drawerView: View) {
             if (drawerView.id == R.id.shell_sessions_drawer_container) {
                 setDrawerSessionsFragmentVisible(false)
+                updateStatusBarVisibility()
                 if (
                     returnToNativeCodex &&
                     canOpenNativeCodex(getCurrentSelection())
@@ -164,13 +171,14 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, true)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         idleHandler = android.os.Handler(mainLooper)
         idleTimeoutRunnable = Runnable { onIdleTimeout() }
         
         setContentView(R.layout.activity_main_shell)
         drawerLayout = findViewById(R.id.shell_root_drawer)
+        sessionsDrawerContainer = findViewById(R.id.shell_sessions_drawer_container)
         rootInsetsView = drawerLayout
         topBarView = findViewById(R.id.shell_top_bar)
         fragmentContainerView = findViewById(R.id.shell_fragment_container)
@@ -191,6 +199,12 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             fragmentContainerBasePaddingTop = container.paddingTop
             fragmentContainerBasePaddingRight = container.paddingRight
             fragmentContainerBasePaddingBottom = container.paddingBottom
+        }
+        sessionsDrawerContainer?.let { container ->
+            sessionsDrawerBasePaddingLeft = container.paddingLeft
+            sessionsDrawerBasePaddingTop = container.paddingTop
+            sessionsDrawerBasePaddingRight = container.paddingRight
+            sessionsDrawerBasePaddingBottom = container.paddingBottom
         }
         statusTextDefaultSizePx = statusTextView?.textSize ?: 0f
 
@@ -282,7 +296,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     override fun onResume() {
         super.onResume()
         isActivityVisible = true
-        setStatusBarHidden(hidden = true, anchor = rootInsetsView)
+        updateStatusBarVisibility()
         markUserActive()
         val insetsView = rootInsetsView ?: return
         insetsView.post {
@@ -1307,6 +1321,18 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         }
     }
 
+    private fun shouldHideStatusBar(): Boolean {
+        return isActivityVisible
+    }
+
+    private fun updateStatusBarVisibility() {
+        val anchor = rootInsetsView ?: return
+        setStatusBarHidden(hidden = shouldHideStatusBar(), anchor = anchor)
+        anchor.post {
+            ViewCompat.requestApplyInsets(anchor)
+        }
+    }
+
     private fun applyTerminalChromeMode() {
         val shouldCompact = currentScreen == ScreenMode.TERMINAL && isImeVisible
         if (shouldCompact != isTerminalChromeCompact) {
@@ -1599,6 +1625,12 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             fragmentContainerBasePaddingTop,
             fragmentContainerBasePaddingRight,
             fragmentContainerBasePaddingBottom + contentBottomInset
+        )
+        sessionsDrawerContainer?.setPadding(
+            sessionsDrawerBasePaddingLeft,
+            sessionsDrawerBasePaddingTop,
+            sessionsDrawerBasePaddingRight,
+            sessionsDrawerBasePaddingBottom + systemBarInsets.bottom
         )
 
         if (currentScreen == ScreenMode.TERMINAL) {

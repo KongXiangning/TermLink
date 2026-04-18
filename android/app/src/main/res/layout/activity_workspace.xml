@@ -12,10 +12,10 @@
         android:background="#1F1F1F"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="8dp"
-        android:paddingTop="6dp"
-        android:paddingEnd="8dp"
-        android:paddingBottom="6dp">
+        android:paddingStart="16dp"
+        android:paddingTop="0dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="8dp">
 
         <ImageButton
             android:id="@+id/btn_workspace_back"
@@ -28,9 +28,10 @@
             android:tint="@android:color/white" />
 
         <LinearLayout
+            android:id="@+id/workspace_title_container"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="12dp"
             android:layout_weight="1"
             android:orientation="vertical">
 
@@ -40,7 +41,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/workspace_activity_title"
                 android:textColor="#FFFFFF"
-                android:textSize="15sp"
+                android:textSize="16sp"
                 android:textStyle="bold" />
 
             <TextView

@@ -13,15 +13,16 @@ import android.webkit.WebView
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import com.termlink.app.data.AuthType
 import com.termlink.app.data.BasicCredentialStore
 import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.TerminalType
+import com.termlink.app.util.horizontalSafeInsets
 import com.termlink.app.util.LocaleHelper
 import com.termlink.app.util.setStatusBarHidden
 import com.termlink.app.util.statusBarSafeTopInset
@@ -43,14 +44,18 @@ class WorkspaceActivity : AppCompatActivity() {
     private var topBarBasePaddingTop: Int = 0
     private var topBarBasePaddingRight: Int = 0
     private var topBarBasePaddingBottom: Int = 0
+    private var backButtonBaseMarginStart: Int = 0
+    private var titleContainerBaseMarginStart: Int = 0
     private var webViewBasePaddingLeft: Int = 0
     private var webViewBasePaddingTop: Int = 0
     private var webViewBasePaddingRight: Int = 0
     private var webViewBasePaddingBottom: Int = 0
+    private var backButton: ImageButton? = null
+    private var titleContainer: View? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, true)
+        enableEdgeToEdge()
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         setContentView(R.layout.activity_workspace)
 
@@ -58,6 +63,8 @@ class WorkspaceActivity : AppCompatActivity() {
         basicCredentialStore = BasicCredentialStore(applicationContext)
         rootView = findViewById(R.id.workspace_root)
         topBarView = findViewById(R.id.workspace_top_bar)
+        backButton = findViewById(R.id.btn_workspace_back)
+        titleContainer = findViewById(R.id.workspace_title_container)
         profileId = savedInstanceState?.getString(STATE_PROFILE_ID).orEmpty()
             .ifBlank { intent?.getStringExtra(EXTRA_PROFILE_ID).orEmpty() }
         sessionId = savedInstanceState?.getString(STATE_SESSION_ID).orEmpty()
@@ -78,7 +85,7 @@ class WorkspaceActivity : AppCompatActivity() {
             return
         }
 
-        findViewById<ImageButton>(R.id.btn_workspace_back).setOnClickListener {
+        backButton?.setOnClickListener {
             onBackPressedDispatcher.onBackPressed()
         }
         findViewById<TextView>(R.id.workspace_toolbar_subtitle).text = getString(
@@ -91,6 +98,12 @@ class WorkspaceActivity : AppCompatActivity() {
             topBarBasePaddingTop = topBar.paddingTop
             topBarBasePaddingRight = topBar.paddingRight
             topBarBasePaddingBottom = topBar.paddingBottom
+        }
+        (backButton?.layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.let { params ->
+            backButtonBaseMarginStart = params.marginStart
+        }
+        (titleContainer?.layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.let { params ->
+            titleContainerBaseMarginStart = params.marginStart
         }
 
         val webView = findViewById<WebView>(R.id.workspace_webview)
@@ -128,14 +141,14 @@ class WorkspaceActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        setStatusBarHidden(hidden = true)
+        setStatusBarHidden(hidden = true, anchor = rootView)
         rootView?.post {
             rootView?.let(ViewCompat::requestApplyInsets)
         }
     }
 
     override fun onStop() {
-        setStatusBarHidden(hidden = false)
+        setStatusBarHidden(hidden = false, anchor = rootView)
         super.onStop()
     }
 
@@ -186,14 +199,24 @@ class WorkspaceActivity : AppCompatActivity() {
     private fun applySystemBarInsets() {
         val root = rootView ?: return
         ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val safeTopInset = insets.statusBarSafeTopInset()
+            val rootInsets = ViewCompat.getRootWindowInsets(root) ?: insets
+            val systemBars = rootInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val safeTopInset = rootInsets.statusBarSafeTopInset()
+            val horizontalSafeInsets = rootInsets.horizontalSafeInsets()
             topBarView?.setPadding(
-                topBarBasePaddingLeft,
+                topBarBasePaddingLeft + horizontalSafeInsets.left,
                 topBarBasePaddingTop + safeTopInset,
-                topBarBasePaddingRight,
+                topBarBasePaddingRight + horizontalSafeInsets.right,
                 topBarBasePaddingBottom
             )
+            (backButton?.layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.let { params ->
+                params.marginStart = backButtonBaseMarginStart + horizontalSafeInsets.left
+                backButton?.layoutParams = params
+            }
+            (titleContainer?.layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.let { params ->
+                params.marginStart = titleContainerBaseMarginStart + horizontalSafeInsets.left
+                titleContainer?.layoutParams = params
+            }
             workspaceWebView?.setPadding(
                 webViewBasePaddingLeft,
                 webViewBasePaddingTop,
