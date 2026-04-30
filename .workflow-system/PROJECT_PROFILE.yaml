@@ -1,0 +1,140 @@
+schema_version: 1
+project:
+  type: application
+  summary: "TODO: describe this project"
+  name: termlink
+  slug: termlink
+  primary_hosts:
+    - claude
+    - codex
+runtime:
+  languages:
+    - TypeScript
+  package_manager: bun
+  module_system: esm
+  build_commands: []
+  test_commands:
+    - bun test
+  dev_commands: []
+paths:
+  workflow_home: docs/workflow
+  source_directories:
+    - scripts
+  documentation_files:
+    - README.md
+  workflow_template_directories:
+    - templates/docs
+    - templates/skills
+  existing_skill_template_patterns:
+    - "*/SKILL.md.tmpl"
+    - SKILL.md.tmpl
+  generated_artifacts:
+    - docs/workflow/generated/workflow-docs/**
+    - docs/workflow/generated/workflow-skills/**
+    - docs/workflow/SKILL_REGISTRY.md
+boundaries:
+  forbidden_paths:
+    - .git/**
+    - node_modules/**
+  generated_only_paths:
+    - docs/workflow/generated/workflow-docs/**
+    - docs/workflow/generated/workflow-skills/**
+    - docs/workflow/SKILL_REGISTRY.md
+  workflow_owned_paths:
+    - AGENTS.md
+    - CLAUDE.md
+    - .workflow-system/**
+    - docs/workflow/**
+    - scripts/workflow-core.ts
+    - scripts/repo-path-patterns.ts
+    - scripts/workflow-doc-contracts.ts
+    - scripts/task-identity.ts
+    - scripts/bootstrap-project-governance.ts
+    - scripts/validation-model.ts
+    - scripts/run-validation.ts
+    - scripts/check-freshness.ts
+    - scripts/gen-workflow-skills.ts
+    - scripts/gen-workflow-docs.ts
+    - scripts/gen-registry.ts
+    - scripts/workflow-runtime.ts
+    - templates/docs/**
+    - templates/skills/**
+architecture_rules:
+  - Keep workflow automation and generators in scripts/.
+  - Treat templates/skills/ as workflow skill template sources, not runtime
+    outputs.
+  - Do not hand-edit generated outputs.
+decision_types:
+  - mechanical
+  - taste
+  - user_challenge
+governance:
+  current_documents:
+    - .workflow-system/PROJECT_PROFILE.yaml
+    - .workflow-system/WORKFLOW_PROTOCOL.md
+    - .workflow-system/FILE_SCHEMAS.md
+    - AGENTS.md
+    - CLAUDE.md
+    - docs/workflow/SKILL_REGISTRY.md
+    - docs/workflow/BASELINES.md
+    - docs/workflow/CONTRACTS.md
+    - docs/workflow/CURRENT_TASK.md
+    - docs/workflow/DECISIONS.md
+    - docs/workflow/LESSONS.md
+    - docs/workflow/ROADMAP.md
+    - docs/workflow/STATUS.md
+    - docs/workflow/TASK_ARCHIVE.md
+    - docs/workflow/TASK_SUMMARY.md
+    - docs/workflow/WORKFLOW_GUIDE.md
+  planned_documents: []
+validation:
+  matrix:
+    - name: workflow-skills-validation
+      layer: protocol
+      command: bun run gen:workflow-skills --dry-run
+      blocker_level: blocks-generator
+      description: Validate workflow skill templates.
+      phase: P9
+      owner: workflow-system
+    - name: workflow-docs-validation
+      layer: protocol
+      command: bun run gen:workflow-docs --dry-run
+      blocker_level: blocks-generator
+      description: Validate generated governance doc structure.
+      phase: P9
+      owner: workflow-system
+    - name: registry-validation
+      layer: protocol
+      command: bun run gen:registry --dry-run
+      blocker_level: blocks-generator
+      description: Validate registry generation.
+      phase: P9
+      owner: workflow-system
+    - name: unit
+      layer: project
+      command: ""
+      blocker_level: blocks-merge
+      description: Bind target project unit-test command during A4.
+      phase: A4
+      owner: target-project
+    - name: integration
+      layer: project
+      command: ""
+      blocker_level: blocks-merge
+      description: Bind target project integration-test command during A4.
+      phase: A4
+      owner: target-project
+    - name: e2e-smoke
+      layer: project
+      command: ""
+      blocker_level: blocks-merge
+      description: Bind target project smoke validation during A4.
+      phase: A4
+      owner: target-project
+    - name: contract-compatibility
+      layer: project
+      command: ""
+      blocker_level: blocks-merge
+      description: Bind target project contract checks during A4.
+      phase: A4
+      owner: target-project

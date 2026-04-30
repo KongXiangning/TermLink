@@ -1,0 +1,485 @@
+{
+  "state_version": 1,
+  "bundle_id": "workflow-system@0.14.5.0+ec6c7f56a7db",
+  "workflow_system_version": "0.14.5.0",
+  "installed_at": "2026-04-30T02:11:06.075Z",
+  "managed_files": [
+    {
+      "path": "scripts/workflow-core.ts",
+      "mode": "replace-managed",
+      "bundle_checksum": "0e10b9b9a57fda04f931ae12079dcf4ab46f52638fa8965deb0e448eef7020bb",
+      "installed_checksum": "0e10b9b9a57fda04f931ae12079dcf4ab46f52638fa8965deb0e448eef7020bb"
+    },
+    {
+      "path": "scripts/repo-path-patterns.ts",
+      "mode": "replace-managed",
+      "bundle_checksum": "afeb00fa3f40bd50ea8914f6219900f84a5d47164a0ae875bbbdecd0b53f1cd0",
+      "installed_checksum": "afeb00fa3f40bd50ea8914f6219900f84a5d47164a0ae875bbbdecd0b53f1cd0"
+    },
+    {
+      "path": "scripts/workflow-doc-contracts.ts",
+      "mode": "replace-managed",
+      "bundle_checksum": "a012da86d5cbc4d0478e0444d96ae58184f9e6490ecc1d975c425feffb3c13ea",
+      "installed_checksum": "a012da86d5cbc4d0478e0444d96ae58184f9e6490ecc1d975c425feffb3c13ea"
+    },
+    {
+      "path": "scripts/propagation-governance.ts",
+      "mode": "replace-managed",
+      "bundle_checksum": "79586dd0a5eb034b2c2ec598fbfe225fc13330cb797c77d10a210810623c3a72",
+      "installed_checksum": "79586dd0a5eb034b2c2ec598fbfe225fc13330cb797c77d10a210810623c3a72"
+    },
+    {
+      "path": "scripts/task-identity.ts",
+      "mode": "replace-managed",
+      "bundle_checksum": "107bf722d024b35aa2f7d584d897a9ca0f932a21e81adb318b0a04d1c73d5e09",
+      "installed_checksum": "107bf722d024b35aa2f7d584d897a9ca0f932a21e81adb318b0a04d1c73d5e09"
+    },
+    {
+      "path": "scripts/bootstrap-project-governance.ts",
+      "mode": "replace-managed",
+      "bundle_checksum": "db22dc992a0749d3b8a8c7e2e6aa0e896da83145609d340817429441505acfc4",
+      "installed_checksum": "db22dc992a0749d3b8a8c7e2e6aa0e896da83145609d340817429441505acfc4"
+    },
+    {
+      "path": "scripts/validation-model.ts",
+      "mode": "replace-managed",
+      "bundle_checksum": "3c4129e449673be59b55270bea41da36e8e38c8a261247727fce8846f4f17110",
+      "installed_checksum": "3c4129e449673be59b55270bea41da36e8e38c8a261247727fce8846f4f17110"
+    },
+    {
+      "path": "scripts/run-validation.ts",
+      "mode": "replace-managed",
+      "bundle_checksum": "fac786648390eeaa984f8cc8edadfe4fe53218f1bbda9c15a46b0e4840aa737e",
+      "installed_checksum": "fac786648390eeaa984f8cc8edadfe4fe53218f1bbda9c15a46b0e4840aa737e"
+    },
+    {
+      "path": "scripts/check-freshness.ts",
+      "mode": "replace-managed",
+      "bundle_checksum": "d9f8a0791d00ca1fd2e9a3a8d0e392df8142e6cc014393054ef366362d24f367",
+      "installed_checksum": "d9f8a0791d00ca1fd2e9a3a8d0e392df8142e6cc014393054ef366362d24f367"
+    },
+    {
+      "path": "scripts/gen-workflow-skills.ts",
+      "mode": "replace-managed",
+      "bundle_checksum": "c19b9db9f80860c2f1be6c167fe7e8817fdd0b0826727b97a9954458379c9119",
+      "installed_checksum": "c19b9db9f80860c2f1be6c167fe7e8817fdd0b0826727b97a9954458379c9119"
+    },
+    {
+      "path": "scripts/gen-workflow-docs.ts",
+      "mode": "replace-managed",
+      "bundle_checksum": "5d4f93b5c9fb5fcdd92d7b1a811e7e3148f5175415e0c44c2e63531ec42d346f",
+      "installed_checksum": "5d4f93b5c9fb5fcdd92d7b1a811e7e3148f5175415e0c44c2e63531ec42d346f"
+    },
+    {
+      "path": "scripts/gen-registry.ts",
+      "mode": "replace-managed",
+      "bundle_checksum": "f999943b039664a5bcf4ba7cf095072530db2e7536430f6392024e472588a2e5",
+      "installed_checksum": "f999943b039664a5bcf4ba7cf095072530db2e7536430f6392024e472588a2e5"
+    },
+    {
+      "path": "scripts/workflow-runtime.ts",
+      "mode": "replace-managed",
+      "bundle_checksum": "eebac58bd3123e8b4535ce471f6b8487ec461b402b64eac4357d07b51d77e346",
+      "installed_checksum": "eebac58bd3123e8b4535ce471f6b8487ec461b402b64eac4357d07b51d77e346"
+    },
+    {
+      "path": ".workflow-system/WORKFLOW_PROTOCOL.md",
+      "mode": "replace-managed",
+      "bundle_checksum": "a033bb93047f0cdab6f192d62f47d9f7095c5dac044b3ce53bf891c7c9b322ff",
+      "installed_checksum": "a033bb93047f0cdab6f192d62f47d9f7095c5dac044b3ce53bf891c7c9b322ff"
+    },
+    {
+      "path": ".workflow-system/FILE_SCHEMAS.md",
+      "mode": "replace-managed",
+      "bundle_checksum": "b507d79bf831eb5ee5247f5d0b30591e72d3e8181a68b057fe247cbf52f2b27a",
+      "installed_checksum": "b507d79bf831eb5ee5247f5d0b30591e72d3e8181a68b057fe247cbf52f2b27a"
+    },
+    {
+      "path": "templates/skills/adopt-existing-project.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "8b6f7011ab59a498f214b4fc29b22e3eba7a7756921d24a03a85a14b38ce96a5",
+      "installed_checksum": "8b6f7011ab59a498f214b4fc29b22e3eba7a7756921d24a03a85a14b38ce96a5"
+    },
+    {
+      "path": "templates/skills/archive-task.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "dfd11db293624763ad8b93e5e12454f26902be346a178cdfdc1455f030f7bd0d",
+      "installed_checksum": "dfd11db293624763ad8b93e5e12454f26902be346a178cdfdc1455f030f7bd0d"
+    },
+    {
+      "path": "templates/skills/capture-lessons.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "34cd2b089baaa796c3a426a22b8a5f80cbd18e7f04fb079489d3f83ee9eee165",
+      "installed_checksum": "34cd2b089baaa796c3a426a22b8a5f80cbd18e7f04fb079489d3f83ee9eee165"
+    },
+    {
+      "path": "templates/skills/classify-decisions.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "884487e3e3f8a92e90b2806377d623c2c98f8d7b314cfdb556c4c61175368b28",
+      "installed_checksum": "884487e3e3f8a92e90b2806377d623c2c98f8d7b314cfdb556c4c61175368b28"
+    },
+    {
+      "path": "templates/skills/create-current-task.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "1a5975dd597458883eef484793206f483ac09e110b02c5f0a08f348eca928060",
+      "installed_checksum": "1a5975dd597458883eef484793206f483ac09e110b02c5f0a08f348eca928060"
+    },
+    {
+      "path": "templates/skills/decompose-task.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "c3ca0cb424b73e71eb547790d59da4dec624cf360b079080796338a62015e7d2",
+      "installed_checksum": "c3ca0cb424b73e71eb547790d59da4dec624cf360b079080796338a62015e7d2"
+    },
+    {
+      "path": "templates/skills/design-baseline-init.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "e59563013bb0202ef3862fca69fb28edfb28d60659f807fffa93f769e179990e",
+      "installed_checksum": "e59563013bb0202ef3862fca69fb28edfb28d60659f807fffa93f769e179990e"
+    },
+    {
+      "path": "templates/skills/greenfield-init.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "de43620b676d8eaf051649a548226bb633858cb6ba0d0cb9c35a46695a4d0184",
+      "installed_checksum": "de43620b676d8eaf051649a548226bb633858cb6ba0d0cb9c35a46695a4d0184"
+    },
+    {
+      "path": "templates/skills/implement-current-step.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "18c8456badff962efe70ad275ae83d1dbba2c0391f126bc1079ffd81978eea75",
+      "installed_checksum": "18c8456badff962efe70ad275ae83d1dbba2c0391f126bc1079ffd81978eea75"
+    },
+    {
+      "path": "templates/skills/investigate-root-cause.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "6a9bb258ba466bee06aaf783c5ab641585121ead5d3a0c05d61fbefcdb4e73c8",
+      "installed_checksum": "6a9bb258ba466bee06aaf783c5ab641585121ead5d3a0c05d61fbefcdb4e73c8"
+    },
+    {
+      "path": "templates/skills/legacy-inventory.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "6740198ddf6fa5d6aa021bbd377ff5798a4269b5274e8db4ce09d7f2e91f8e1d",
+      "installed_checksum": "6740198ddf6fa5d6aa021bbd377ff5798a4269b5274e8db4ce09d7f2e91f8e1d"
+    },
+    {
+      "path": "templates/skills/lock-scope.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "cb7ec6d552c28771072d97f8309453b6659965f2e9ad274fc67f20c54f2b1867",
+      "installed_checksum": "cb7ec6d552c28771072d97f8309453b6659965f2e9ad274fc67f20c54f2b1867"
+    },
+    {
+      "path": "templates/skills/prepare-delivery-summary.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "5cd9f10a965a721a0e7cb7a2c601769ac5f6945888cbd83ff727b8e900d23a7e",
+      "installed_checksum": "5cd9f10a965a721a0e7cb7a2c601769ac5f6945888cbd83ff727b8e900d23a7e"
+    },
+    {
+      "path": "templates/skills/review-current-task.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "6fc2eaeb58ec34a39e5eaec491f90e23cd38ac6ca932969d541c6bfb8c664fee",
+      "installed_checksum": "6fc2eaeb58ec34a39e5eaec491f90e23cd38ac6ca932969d541c6bfb8c664fee"
+    },
+    {
+      "path": "templates/skills/review-diff.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "81a7e6f0db8e365dd69cfa13ea596dc9a6808c6a09e8a7f776abb406fe633a5d",
+      "installed_checksum": "81a7e6f0db8e365dd69cfa13ea596dc9a6808c6a09e8a7f776abb406fe633a5d"
+    },
+    {
+      "path": "templates/skills/run-regression.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "829a63469891492768968f50481441261b22256a37c83499d3322998502151f0",
+      "installed_checksum": "829a63469891492768968f50481441261b22256a37c83499d3322998502151f0"
+    },
+    {
+      "path": "templates/skills/sync-contracts.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "7460c44151b629ae6b54b5e4de0774b29eba1315927c2d0a62a878c25213efd0",
+      "installed_checksum": "7460c44151b629ae6b54b5e4de0774b29eba1315927c2d0a62a878c25213efd0"
+    },
+    {
+      "path": "templates/skills/sync-current-task.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "ba604702fe956069b3d00bb0fa13c85f2a9d366c7bc42e2ce9be522b98a402a2",
+      "installed_checksum": "ba604702fe956069b3d00bb0fa13c85f2a9d366c7bc42e2ce9be522b98a402a2"
+    },
+    {
+      "path": "templates/skills/sync-decisions.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "affff9cfc3427f7199eb03be65a824bdc993823e84eca45e4555077000b75c71",
+      "installed_checksum": "affff9cfc3427f7199eb03be65a824bdc993823e84eca45e4555077000b75c71"
+    },
+    {
+      "path": "templates/skills/sync-host-guidance.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "12915e2e6a98ce93b17a8a309f2a4cb8032e5363028caeaeac2cf715e1a7f915",
+      "installed_checksum": "12915e2e6a98ce93b17a8a309f2a4cb8032e5363028caeaeac2cf715e1a7f915"
+    },
+    {
+      "path": "templates/skills/sync-status.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "c166c667ed7a768728dc57c59e62ae1442b08c101263583a2325ed8783b7309f",
+      "installed_checksum": "c166c667ed7a768728dc57c59e62ae1442b08c101263583a2325ed8783b7309f"
+    },
+    {
+      "path": "templates/skills/verify-contracts.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "30f3eedb014c4ab62fad6581867d1741b409e53d7118c98c135830b00c920d71",
+      "installed_checksum": "30f3eedb014c4ab62fad6581867d1741b409e53d7118c98c135830b00c920d71"
+    },
+    {
+      "path": "templates/docs/BASELINES.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "4b43800b6d7da63480ffd9d3c62d39537db958185e8cc4184732b2e1e1f397a7",
+      "installed_checksum": "4b43800b6d7da63480ffd9d3c62d39537db958185e8cc4184732b2e1e1f397a7"
+    },
+    {
+      "path": "templates/docs/CONTRACTS.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "17bd15dc27ec22c2ac354273443448e8b6c1f71658bc8de5c11adc08de610711",
+      "installed_checksum": "17bd15dc27ec22c2ac354273443448e8b6c1f71658bc8de5c11adc08de610711"
+    },
+    {
+      "path": "templates/docs/CURRENT_TASK.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "38f072ca2cde80fbe2debff34b1a03a9a167e55adf681c473f062de19e30f6e3",
+      "installed_checksum": "38f072ca2cde80fbe2debff34b1a03a9a167e55adf681c473f062de19e30f6e3"
+    },
+    {
+      "path": "templates/docs/DECISIONS.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "61a97a7f9d0ba8a92fcb1160a28c28f0fd1bea3e78fdcb5096340566eb6375d0",
+      "installed_checksum": "61a97a7f9d0ba8a92fcb1160a28c28f0fd1bea3e78fdcb5096340566eb6375d0"
+    },
+    {
+      "path": "templates/docs/LESSONS.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "cadf8447964896e602cf95a93425dfadf307b8bb074b4b255d2cc451fc5d56cc",
+      "installed_checksum": "cadf8447964896e602cf95a93425dfadf307b8bb074b4b255d2cc451fc5d56cc"
+    },
+    {
+      "path": "templates/docs/ROADMAP.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "f009c8c2bae415cb4bdaf94c4d0e452fa8f639401c3b1203df2e2e8a30f3a68f",
+      "installed_checksum": "f009c8c2bae415cb4bdaf94c4d0e452fa8f639401c3b1203df2e2e8a30f3a68f"
+    },
+    {
+      "path": "templates/docs/STATUS.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "9f8bc945837c2c34b8bff41c5bc4fb090e9ff95369e4ca7bf8a2c5eb6247acc5",
+      "installed_checksum": "9f8bc945837c2c34b8bff41c5bc4fb090e9ff95369e4ca7bf8a2c5eb6247acc5"
+    },
+    {
+      "path": "templates/docs/TASK_ARCHIVE.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "d0cce1cb394b7badaf473668c2055007e3a5378ec75a06c8fa53a5242cf7a715",
+      "installed_checksum": "d0cce1cb394b7badaf473668c2055007e3a5378ec75a06c8fa53a5242cf7a715"
+    },
+    {
+      "path": "templates/docs/TASK_SUMMARY.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "ed20686ed5c480b9c2854c22faccd50814fc880c042eb67788d1cad8be43e282",
+      "installed_checksum": "ed20686ed5c480b9c2854c22faccd50814fc880c042eb67788d1cad8be43e282"
+    },
+    {
+      "path": "templates/docs/WORKFLOW_GUIDE.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "5b4dca47992d38334471a1ff11de592d65c206d53d79e8ed7677e3fb4e0a1f35",
+      "installed_checksum": "5b4dca47992d38334471a1ff11de592d65c206d53d79e8ed7677e3fb4e0a1f35"
+    },
+    {
+      "path": ".claude/skills/workflow-system-design-baseline-init/SKILL.md",
+      "mode": "bootstrap-skill-install",
+      "bundle_checksum": "1f074d44e5e3a2fe924b52967f21c32bcf8ddd245961b7e3230c5ae97ad03db1",
+      "installed_checksum": "1f074d44e5e3a2fe924b52967f21c32bcf8ddd245961b7e3230c5ae97ad03db1"
+    },
+    {
+      "path": ".claude/skills/workflow-system-greenfield-init/SKILL.md",
+      "mode": "bootstrap-skill-install",
+      "bundle_checksum": "9a61d0a35a4ec500431741b62956941981999877a59e906f2f09b3f15bdc10da",
+      "installed_checksum": "9a61d0a35a4ec500431741b62956941981999877a59e906f2f09b3f15bdc10da"
+    },
+    {
+      "path": ".claude/skills/workflow-system-legacy-inventory/SKILL.md",
+      "mode": "bootstrap-skill-install",
+      "bundle_checksum": "b432fa5dcea680a6e95743fbc85a81a3c71a20e5b9701fb4a6061313d6c50328",
+      "installed_checksum": "b432fa5dcea680a6e95743fbc85a81a3c71a20e5b9701fb4a6061313d6c50328"
+    },
+    {
+      "path": ".claude/skills/workflow-system-adopt-existing-project/SKILL.md",
+      "mode": "bootstrap-skill-install",
+      "bundle_checksum": "bf9e1f4b50b807579f000d41581e3c236cb16ac78b2115bf27ca5b0a7ed9b10e",
+      "installed_checksum": "bf9e1f4b50b807579f000d41581e3c236cb16ac78b2115bf27ca5b0a7ed9b10e"
+    },
+    {
+      "path": ".codex/skills/workflow-system-design-baseline-init/SKILL.md",
+      "mode": "bootstrap-skill-install",
+      "bundle_checksum": "1f074d44e5e3a2fe924b52967f21c32bcf8ddd245961b7e3230c5ae97ad03db1",
+      "installed_checksum": "1f074d44e5e3a2fe924b52967f21c32bcf8ddd245961b7e3230c5ae97ad03db1"
+    },
+    {
+      "path": ".codex/skills/workflow-system-greenfield-init/SKILL.md",
+      "mode": "bootstrap-skill-install",
+      "bundle_checksum": "9a61d0a35a4ec500431741b62956941981999877a59e906f2f09b3f15bdc10da",
+      "installed_checksum": "9a61d0a35a4ec500431741b62956941981999877a59e906f2f09b3f15bdc10da"
+    },
+    {
+      "path": ".codex/skills/workflow-system-legacy-inventory/SKILL.md",
+      "mode": "bootstrap-skill-install",
+      "bundle_checksum": "b432fa5dcea680a6e95743fbc85a81a3c71a20e5b9701fb4a6061313d6c50328",
+      "installed_checksum": "b432fa5dcea680a6e95743fbc85a81a3c71a20e5b9701fb4a6061313d6c50328"
+    },
+    {
+      "path": ".codex/skills/workflow-system-adopt-existing-project/SKILL.md",
+      "mode": "bootstrap-skill-install",
+      "bundle_checksum": "bf9e1f4b50b807579f000d41581e3c236cb16ac78b2115bf27ca5b0a7ed9b10e",
+      "installed_checksum": "bf9e1f4b50b807579f000d41581e3c236cb16ac78b2115bf27ca5b0a7ed9b10e"
+    }
+  ],
+  "package_json_fragment": {
+    "scripts": {
+      "gen:workflow-docs": "bun run scripts/gen-workflow-docs.ts",
+      "gen:workflow-skills": "bun run scripts/gen-workflow-skills.ts",
+      "gen:registry": "bun run scripts/gen-registry.ts",
+      "gen:all": "bun run gen:workflow-skills && bun run gen:workflow-docs && bun run gen:registry",
+      "bootstrap:project-governance": "bun run scripts/bootstrap-project-governance.ts --dry-run",
+      "validate:protocol": "bun run scripts/run-validation.ts --layer=protocol",
+      "validate:all": "bun run scripts/run-validation.ts",
+      "validate:freshness": "bun run scripts/check-freshness.ts",
+      "workflow:health": "bun run scripts/workflow-runtime.ts health",
+      "workflow:manifest": "bun run scripts/workflow-runtime.ts manifest",
+      "workflow:sync": "bun run scripts/workflow-runtime.ts sync",
+      "workflow:pack": "bun run scripts/workflow-runtime.ts pack",
+      "workflow:install": "bun run scripts/workflow-runtime.ts install"
+    },
+    "dependencies": {
+      "yaml": "^2.8.3"
+    },
+    "engines": {
+      "bun": ">=1.0.0"
+    }
+  },
+  "project_profile_fragment": {
+    "runtime": {
+      "package_manager": "bun",
+      "module_system": "esm"
+    },
+    "paths": {
+      "workflow_template_directories": [
+        "templates/docs",
+        "templates/skills"
+      ],
+      "generated_artifacts": [
+        "docs/workflow/generated/workflow-docs/**",
+        "docs/workflow/generated/workflow-skills/**",
+        "docs/workflow/SKILL_REGISTRY.md"
+      ]
+    },
+    "boundaries": {
+      "workflow_owned_paths": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        ".workflow-system/**",
+        "docs/workflow/**",
+        "scripts/workflow-core.ts",
+        "scripts/repo-path-patterns.ts",
+        "scripts/workflow-doc-contracts.ts",
+        "scripts/task-identity.ts",
+        "scripts/bootstrap-project-governance.ts",
+        "scripts/validation-model.ts",
+        "scripts/run-validation.ts",
+        "scripts/check-freshness.ts",
+        "scripts/gen-workflow-skills.ts",
+        "scripts/gen-workflow-docs.ts",
+        "scripts/gen-registry.ts",
+        "scripts/workflow-runtime.ts",
+        "templates/docs/**",
+        "templates/skills/**"
+      ]
+    },
+    "project": {
+      "primary_hosts": [
+        "claude",
+        "codex"
+      ]
+    },
+    "validation": {
+      "matrix": [
+        {
+          "name": "workflow-skills-validation",
+          "layer": "protocol",
+          "command": "bun run gen:workflow-skills --dry-run",
+          "blocker_level": "blocks-generator",
+          "description": "Validate workflow skill templates.",
+          "phase": "P9",
+          "owner": "workflow-system"
+        },
+        {
+          "name": "workflow-docs-validation",
+          "layer": "protocol",
+          "command": "bun run gen:workflow-docs --dry-run",
+          "blocker_level": "blocks-generator",
+          "description": "Validate generated governance doc structure.",
+          "phase": "P9",
+          "owner": "workflow-system"
+        },
+        {
+          "name": "registry-validation",
+          "layer": "protocol",
+          "command": "bun run gen:registry --dry-run",
+          "blocker_level": "blocks-generator",
+          "description": "Validate registry generation.",
+          "phase": "P9",
+          "owner": "workflow-system"
+        },
+        {
+          "name": "unit",
+          "layer": "project",
+          "command": "",
+          "blocker_level": "blocks-merge",
+          "description": "Bind target project unit-test command during A4.",
+          "phase": "A4",
+          "owner": "target-project"
+        },
+        {
+          "name": "integration",
+          "layer": "project",
+          "command": "",
+          "blocker_level": "blocks-merge",
+          "description": "Bind target project integration-test command during A4.",
+          "phase": "A4",
+          "owner": "target-project"
+        },
+        {
+          "name": "e2e-smoke",
+          "layer": "project",
+          "command": "",
+          "blocker_level": "blocks-merge",
+          "description": "Bind target project smoke validation during A4.",
+          "phase": "A4",
+          "owner": "target-project"
+        },
+        {
+          "name": "contract-compatibility",
+          "layer": "project",
+          "command": "",
+          "blocker_level": "blocks-merge",
+          "description": "Bind target project contract checks during A4.",
+          "phase": "A4",
+          "owner": "target-project"
+        }
+      ]
+    }
+  },
+  "host_sync_state": {
+    "claude": {
+      "namespace": "workflow-system-*",
+      "synced_at": null,
+      "synced_entries": []
+    },
+    "codex": {
+      "namespace": "workflow-system-*",
+      "synced_at": null,
+      "synced_entries": []
+    }
+  }
+}
