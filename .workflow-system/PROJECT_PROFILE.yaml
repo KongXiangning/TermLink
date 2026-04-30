@@ -1,7 +1,7 @@
 schema_version: 1
 project:
   type: application
-  summary: "TODO: describe this project"
+  summary: "Mobile-first AI terminal workspace with Android native shell, WebView Codex runtime, session APIs, and workspace browsing."
   name: termlink
   slug: termlink
   primary_hosts:
@@ -9,19 +9,35 @@ project:
     - codex
 runtime:
   languages:
-    - TypeScript
-  package_manager: bun
-  module_system: esm
-  build_commands: []
+    - JavaScript
+    - Kotlin
+    - HTML
+    - CSS
+  package_manager: npm
+  module_system: commonjs
+  build_commands:
+    - npm run android:sync
+    - npm run android:open
   test_commands:
-    - bun test
-  dev_commands: []
+    - node --test
+    - npm run android:check-release-config
+  dev_commands:
+    - npm run dev
+    - npm run start
 paths:
   workflow_home: docs/workflow
   source_directories:
+    - src
+    - android
+    - public
+    - tests
     - scripts
   documentation_files:
     - README.md
+    - docs/README.md
+    - docs/product/PRODUCT_REQUIREMENTS.md
+    - docs/architecture/CURRENT_STATE.md
+    - docs/architecture/ROADMAP.md
   workflow_template_directories:
     - templates/docs
     - templates/skills
@@ -112,29 +128,29 @@ validation:
       owner: workflow-system
     - name: unit
       layer: project
-      command: ""
+      command: node --test
       blocker_level: blocks-merge
-      description: Bind target project unit-test command during A4.
+      description: Run the repository Node test suite.
       phase: A4
       owner: target-project
     - name: integration
       layer: project
       command: ""
       blocker_level: blocks-merge
-      description: Bind target project integration-test command during A4.
+      description: No repository-wide integration command is confirmed yet.
       phase: A4
       owner: target-project
     - name: e2e-smoke
       layer: project
       command: ""
       blocker_level: blocks-merge
-      description: Bind target project smoke validation during A4.
+      description: No repository-wide e2e smoke command is confirmed yet.
       phase: A4
       owner: target-project
     - name: contract-compatibility
       layer: project
       command: ""
       blocker_level: blocks-merge
-      description: Bind target project contract checks during A4.
+      description: Contract compatibility checks are not yet bound; release config validation exists separately via npm run android:check-release-config.
       phase: A4
       owner: target-project

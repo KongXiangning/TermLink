@@ -2,6 +2,25 @@
 
 本文件定义 **仅在本项目生效** 的本地 skills。
 
+## workflow-system baseline
+
+- 本项目已完成 workflow-system install 与 adoption baseline。
+- 在修改 workflow 管理文档前，先读：
+  - `.workflow-system/PROJECT_PROFILE.yaml`
+  - `.workflow-system/WORKFLOW_PROTOCOL.md`
+  - `.workflow-system/FILE_SCHEMAS.md`
+  - `docs/workflow/CONTRACTS.md`
+  - `docs/workflow/STATUS.md`
+  - `docs/workflow/DECISIONS.md`
+- 当前项目按**老项目接入**处理，不要把 adoption 阶段当成重写架构的机会。
+- 变更项目级 AI 协作规则、宿主说明或共享 workflow 命令后，执行 `/sync-host-guidance`。
+- 变更 workflow 模板或治理文档骨架后，执行：
+  - `bun install`
+  - `bun run gen:all`
+  - `bun run workflow:sync --host claude --write`
+  - `bun run workflow:sync --host codex --write`
+  - `bun run workflow:health`
+
 ## Scope
 
 - 适用范围：`E:\coding\TermLink`
@@ -82,6 +101,7 @@
 - 每次实施/提交新增一条 `docs/changes/records/CR-*.md`
 - `active` 记录必须有真实 `commit_ref`
 7. Git 提交前必须执行敏感信息审查（由 `.githooks/pre-commit` 调用 `scripts/git-sensitive-scan.ps1`）。
+8. workflow 管理的 live docs 以 `docs/workflow/*.md` 为准；`docs/workflow/generated/**` 是生成参考输出，不是 live source of truth。
 
 ## Non-goals
 
