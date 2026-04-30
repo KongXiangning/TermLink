@@ -93,7 +93,7 @@ decision_record_policy:
 - Keep workflow automation and generators in scripts/., Treat templates/skills/ as workflow skill template sources, not runtime outputs., Do not hand-edit generated outputs.
 
 ### execution
-- node --test, npm run android:check-release-config
+- node --test, android\gradlew.bat :app:testDebugUnitTest, npm run android:check-release-config
 - mechanical, taste, user_challenge
 
 ## Required Reads

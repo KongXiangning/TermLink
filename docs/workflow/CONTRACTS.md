@@ -20,12 +20,20 @@
   - 备注：Android Sessions 主链路已依赖
 
 - 名称：Workspace API
-  - 路径 / 符号：`/api/sessions/:id/workspace/*`, `/api/workspace/picker/tree`
+  - 路径 / 符号：`/api/sessions/:id/workspace/*`
   - 当前语义：围绕 `workspaceRoot` 提供 meta/tree/file/status/diff 能力
   - 不可破坏项：
     - 访问范围受 `workspaceRoot` 约束
     - diff/status 依赖 Git 根目录解析
   - 备注：Codex Workspace 主链路已依赖
+
+- 名称：Workspace picker API
+  - 路径 / 符号：`/api/workspace/picker/tree`
+  - 当前语义：提供独立的服务端目录选择树
+  - 不可破坏项：
+    - 访问范围受 `TERMLINK_WORKSPACE_PICKER_ROOT` 约束，而不是 session `workspaceRoot`
+    - 当前返回目录条目，不承诺文件内容读取语义
+  - 备注：Android `SessionsFragment` 目录选择器当前已依赖
 
 - 名称：WebSocket gateway ticket
   - 路径 / 符号：`GET /api/ws-ticket`
@@ -69,7 +77,8 @@
 ### 🟡 可扩展不可破坏
 
 - `codexConfig` 可以扩展字段，但不能破坏已有 `approvalPolicy` / `sandboxMode` 语义
-- workspace 接口可以扩展只读能力，但不能突破 `workspaceRoot` 边界
+- session 作用域的 workspace 接口可以扩展只读能力，但不能突破 `workspaceRoot` 边界
+- workspace picker 可以扩展目录选择体验，但不能突破 `TERMLINK_WORKSPACE_PICKER_ROOT`
 - Android / WebView UI 可以扩展次级入口，但不能破坏现有 session 与 workspace 主链路
 
 ### 🟢 自由修改
@@ -112,6 +121,7 @@
 
 - WebSocket `codex_state` 表示当前 session 的 Codex runtime 状态，而不是单次消息回执
 - `workspaceRoot` 是访问边界，不只是 UI 显示路径
+- `TERMLINK_WORKSPACE_PICKER_ROOT` 是 picker API 的服务端边界，不等同于 session `workspaceRoot`
 - `lastCodexThreadId` 是恢复线索，不是随意可覆盖的装饰字段
 
 ## 三、变更规则
@@ -158,7 +168,8 @@
     - session 创建 / 删除 / rename / patch 语义稳定
     - codex session 需要 `cwd`
     - idle cleanup 默认 6 小时
-    - workspace 访问不能突破 `workspaceRoot`
+    - session workspace 访问不能突破 `workspaceRoot`
+    - picker API 访问不能突破 `TERMLINK_WORKSPACE_PICKER_ROOT`
   - verification：
     - `node --test`
     - 手动 Sessions / Workspace / Android smoke

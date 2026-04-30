@@ -20,6 +20,7 @@ runtime:
     - npm run android:open
   test_commands:
     - node --test
+    - android\gradlew.bat :app:testDebugUnitTest
     - npm run android:check-release-config
   dev_commands:
     - npm run dev
@@ -34,7 +35,12 @@ paths:
     - scripts
   documentation_files:
     - README.md
+    - ARCHITECTURE.md
+    - DATABASE.md
     - docs/README.md
+    - docs/adoption/API_INVENTORY.md
+    - docs/adoption/RISK_REGISTER.md
+    - docs/adoption/ADOPTION_REPORT.md
     - docs/product/PRODUCT_REQUIREMENTS.md
     - docs/architecture/CURRENT_STATE.md
     - docs/architecture/ROADMAP.md
@@ -133,6 +139,20 @@ validation:
       description: Run the repository Node test suite.
       phase: A4
       owner: target-project
+    - name: android-unit
+      layer: project
+      command: android\gradlew.bat :app:testDebugUnitTest
+      blocker_level: blocks-merge
+      description: Run Android JVM unit tests. Requires Java 21 and the Android toolchain.
+      phase: A4
+      owner: target-project
+    - name: android-release-config
+      layer: project
+      command: npm run android:check-release-config
+      blocker_level: blocks-merge
+      description: Validate Android release config invariants for cleartext and scheme settings.
+      phase: A4
+      owner: target-project
     - name: integration
       layer: project
       command: ""
@@ -151,6 +171,6 @@ validation:
       layer: project
       command: ""
       blocker_level: blocks-merge
-      description: Contract compatibility checks are not yet bound; release config validation exists separately via npm run android:check-release-config.
+      description: Contract compatibility checks are not yet bound to a dedicated repository-wide command.
       phase: A4
       owner: target-project

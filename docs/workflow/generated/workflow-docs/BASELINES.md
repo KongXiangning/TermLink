@@ -12,7 +12,7 @@
 - 项目：termlink
 - 项目类型：application
 - 主要技术栈：JavaScript, Kotlin, HTML, CSS
-- 关联验证入口：node --test, npm run android:check-release-config
+- 关联验证入口：node --test, android\gradlew.bat :app:testDebugUnitTest, npm run android:check-release-config
 
 ## 发布基线
 

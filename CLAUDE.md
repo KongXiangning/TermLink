@@ -10,10 +10,7 @@
   - `docs/workflow/CONTRACTS.md`
   - `docs/workflow/STATUS.md`
   - `docs/workflow/DECISIONS.md`
-- This repository is an **existing project**, not a greenfield workflow setup.
-- Bootstrap path for legacy adoption:
-  - `/legacy-inventory`
-  - `/adopt-existing-project`
+- This repository is an **existing project** and already has an adoption baseline; continue with task-driven workflow instead of re-running greenfield bootstrap.
 - After workflow template or governance changes, run:
   - `bun install`
   - `bun run gen:all`
@@ -25,7 +22,6 @@
 ## host-local skills
 
 - Claude local skills live under `.claude/skills/`.
-- Project docs may also mention `.codex/skills/` because the same repo supports both hosts.
 - The old root `skills/` tree is no longer the active source-of-truth.
 
 ## collaboration rules

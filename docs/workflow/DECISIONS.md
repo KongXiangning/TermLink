@@ -31,24 +31,38 @@
 
 ## 🎨 口味决策
 
-### TD-001: 项目内技能说明默认指向 host-local mirrors
+### TD-001: host guidance 使用各自宿主的本地 skill 路径
 
 - 状态：accepted
 - 背景：仓库刚完成把 `skills/` 重复树删除，并将文档改为 host-local skills。
-- 决策：后续文档与宿主指引默认引用 `.claude/skills/` / `.codex/skills/`，不再回写根目录 `skills/`。
+- 决策：
+  - `AGENTS.md` 只写 Codex 宿主需要读取的 `.codex/skills/`
+  - `CLAUDE.md` 只写 Claude 宿主需要读取的 `.claude/skills/`
+  - 项目级公共文档可以在需要时并列描述 host-local mirrors
 - 原因：减少重复源和漂移。
 - 约束：当宿主说明变化时，必须同步 `AGENTS.md` / `CLAUDE.md`。
 - 影响范围：README、部署文档、宿主指引、workflow sync。
 - 替代方案：重新恢复单一根目录 `skills/` 作为源，但当前未采用。
 - 复议条件：host-local mirror 维护成本失控或 `.codex` 忽略策略导致协作失真。
 
+### TD-002: adoption 基线遇到文档/代码冲突时以可运行代码与配置为准
+
+- 状态：accepted
+- 背景：本轮 inventory 已发现 `README.md` 默认端口与 `src/server.js` 默认值不一致。
+- 决策：workflow adoption 与后续 baseline 更新时，事实冲突先以当前可运行代码、配置和测试为准，同时把文档漂移显式记录出来。
+- 原因：避免把 stale docs 误固化成治理规则。
+- 约束：不能借此静默忽略冲突；仍需把冲突记录进 adoption / workflow 文档并安排清理。
+- 影响范围：`PROJECT_PROFILE`、workflow baseline docs、inventory / adoption 输出、active docs 审查。
+- 替代方案：继续把 README 等 active 文档视为同等级事实源，但当前冲突已证明这样风险更高。
+- 复议条件：仓库未来建立了受控发布文档源并以其覆盖运行时默认值。
+
 ## ⏸️ 暂缓决策
 
 ### DEFER-001: integration / e2e / deploy validation 的正式绑定
 
 - 状态：deferred
-- 背景：workflow validation matrix 已预留槽位，但当前仓库事实里只明确有 `node --test` 和 `android:check-release-config`。
-- 当前结论：先把 unit 与 release safety 视为 confirmed，其余验证入口暂不硬编。
+- 背景：workflow validation matrix 已预留槽位，但当前仓库事实里只明确绑定了 `node --test`、`android\\gradlew.bat :app:testDebugUnitTest` 和 `npm run android:check-release-config`。
+- 当前结论：先把 Node tests、Android JVM unit 和 release safety 视为 confirmed，其余验证入口暂不硬编。
 - 暂缓原因：仓库里还缺少可以直接证明的统一命令入口。
 - 触发复议条件：团队补齐 smoke / integration / deploy 验证脚本，或第一张 workflow task 需要这些门禁。
 - 明确不做范围：不在 adoption 期猜测不存在的 CI / e2e 命令。

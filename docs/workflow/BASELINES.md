@@ -11,7 +11,7 @@
 - 项目：termlink
 - 项目类型：application
 - 主要技术栈：Node.js CommonJS、Express、ws、node-pty、Capacitor、Android Kotlin、WebView
-- 关联验证入口：`node --test`、`npm run android:check-release-config`
+- 关联验证入口：`node --test`、`android\gradlew.bat :app:testDebugUnitTest`、`npm run android:check-release-config`
 
 ## 发布基线
 
@@ -21,11 +21,13 @@
 - 生效版本 / 窗口：1.0.0 当前窗口
 - 发布前必须满足：
   - Node 自动化测试可运行
+  - Android JVM unit tests 可运行
   - Android release config 检查通过
   - 敏感信息扫描通过
 - 阻塞级别：blocks-merge
 - 证据 / 验证入口：
   - `node --test`
+  - `android\gradlew.bat :app:testDebugUnitTest`
   - `npm run android:check-release-config`
   - `.githooks/pre-commit`
 - release readiness gate：未满足上述任一项时，不应宣称可发布
@@ -131,3 +133,4 @@
 ## 基线变更记录
 
 - 2026-04-30：基于 legacy-inventory 建立首版项目基线
+- 2026-04-30：adoption review 对齐验证口径，补录 Android JVM unit 入口并保留 Node / release check 观察结果

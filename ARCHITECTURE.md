@@ -1,91 +1,141 @@
 # ARCHITECTURE.md
 
-## 1. 当前系统拓扑
+## 1. 盘点范围与证据
 
-- **Android 客户端**：以原生壳为主，承载 Sessions / Settings / Workspace 入口，并通过 WebView 承载 Terminal / Codex 页面。
-- **Web 前端资源**：`public/` 提供 `terminal_client.*`、`codex_client.*`、`workspace.*` 等页面资源。
-- **Node 服务端**：`src/server.js` 负责 Express API、静态资源、健康检查和 WebSocket 网关挂载。
-- **终端 / Codex 运行层**：`src/ws/terminalGateway.js` 将 WebSocket 会话、PTY 会话和 Codex app-server 串起来。
-- **会话持久化层**：`src/services/sessionManager.js` + `src/repositories/sessionStore.js` 通过 `data/sessions.json` 保存会话元数据。
-- **工作区浏览层**：`src/routes/workspace.js` + `src/services/workspace*` 负责在 `workspaceRoot` 边界内提供目录、文件和 diff 能力。
+- 本文件只固化**当前仓库能直接证明**的运行架构事实。
+- 主要证据：
+  - `package.json`
+  - `src/server.js`
+  - `src/routes/sessions.js`
+  - `src/routes/workspace.js`
+  - `src/routes/health.js`
+  - `src/services/sessionManager.js`
+  - `src/repositories/sessionStore.js`
+  - `src/ws/terminalGateway.js`
+  - `android/app/src/main/AndroidManifest.xml`
+  - `android/app/src/main/java/com/termlink/app/data/ServerConfigStore.kt`
+  - `android/app/src/main/java/com/termlink/app/data/SessionListCacheStore.kt`
+  - `android/app/src/main/java/com/termlink/app/data/ExternalSessionStore.kt`
+  - `android/app/src/main/java/com/termlink/app/data/BasicCredentialStore.kt`
+  - `android/app/src/main/java/com/termlink/app/data/MtlsCertificateStore.kt`
 
-## 2. 已确认架构事实
+## 2. 当前系统拓扑
 
-### 2.1 服务端入口
+### 2.1 客户端面
 
-- `src/server.js`
-  - 使用 `express`、`ws`、`node-pty`。
-  - 在 `basicAuth` 之后挂载：
-    - `/api/sessions*`
-    - `/api/workspace*`
-    - `/api/health`
-    - `/api/ws-ticket`
-  - 根据 TLS 配置切换 `http.createServer` / `https.createServer`。
+- **[confirmed] Android 主入口是原生壳，不是纯 WebView。**
+  - 证据：`android/app/src/main/AndroidManifest.xml`
+  - 事实：
+    - Launcher Activity 是 `MainShellActivity`
+    - 另有 `WorkspaceActivity`
+    - 另有 `SettingsActivity`
+    - 另有 `codex.CodexActivity`
+- **[confirmed] 浏览器 / WebView 静态资源由 Node 服务端直接托管 `public/`。**
+  - 证据：`src/server.js:101`
 
-### 2.2 会话与终端
+### 2.2 服务端面
 
-- `src/services/sessionManager.js`
-  - 会话内存态保存在 `Map`。
-  - 默认 idle 保留时长是 6 小时。
-  - 默认最大 session 数是 50。
-  - 会话元数据通过 `schedulePersist()` 异步写入 `data/sessions.json`。
-- `src/repositories/sessionStore.js`
-  - 当前服务端持久化不是数据库，而是 JSON 文件。
-  - `sessionMode` 目前只有 `terminal | codex` 两类。
-  - `codex` 会话要求 `cwd`，并维护 `workspaceRoot`、`lastCodexThreadId`、`codexConfig`。
+- **[confirmed] 服务端是 Node.js CommonJS 应用，不是 ESM。**
+  - 证据：`package.json:30`
+- **[confirmed] HTTP 服务由 Express 提供，WebSocket 服务与同一 HTTP/HTTPS server 共享。**
+  - 证据：`src/server.js:82-86`
+- **[confirmed] 服务端支持 HTTP 与 HTTPS 两种监听形态，并带 TLS / mTLS 校验入口。**
+  - 证据：`src/server.js:23-42,83-85`
+- **[confirmed] BasicAuth 默认开启，所有静态资源和 `/api` 都在鉴权之后。**
+  - 证据：`src/server.js:45-49,99-104`，`src/auth/basicAuth.js:9-15,56-64`
 
-### 2.3 Codex 运行链路
+### 2.3 会话 / 终端 / Codex 运行层
 
-- `src/ws/terminalGateway.js`
-  - 为 Codex 会话维护 thread 与 session 的绑定关系。
-  - 暴露 `codex_state`、`codex_thread` 和服务端审批请求等运行态消息。
-  - 会根据 `cwd` / `workspaceRoot` / `codexConfig` 决定 thread 复用与重启。
-- `src/services/codexAppServerService.js`
-  - 通过子进程方式启动 `codex app-server`。
-  - 优先从环境变量或 VS Code 扩展目录发现 Codex 可执行文件。
+- **[confirmed] `SessionManager` 是服务端会话中心，内存主存储是 `Map`。**
+  - 证据：`src/services/sessionManager.js:61-90`
+- **[confirmed] 会话默认行为包含 idle 清理、容量限制和异步持久化。**
+  - 证据：
+    - idle TTL 默认 6 小时：`src/services/sessionManager.js:5-10,65-79`
+    - 默认最大会话数 50：`src/services/sessionManager.js:7,75-79`
+    - 持久化 debounce 500ms：`src/services/sessionManager.js:10,398-410`
+- **[confirmed] PTY 生命周期挂在 `SessionManager` 上，而不是单独的 session worker。**
+  - 证据：`src/services/sessionManager.js:358-369`
+- **[confirmed] Codex 运行态与普通 terminal WebSocket 共用 `src/ws/terminalGateway.js`。**
+  - 证据：`src/server.js:112`，`src/ws/terminalGateway.js:1323-1779`
+- **[confirmed] WebSocket 首次连接后会下发 `session_info`、`codex_capabilities`，必要时还会下发 `codex_state`。**
+  - 证据：`src/ws/terminalGateway.js:1403-1440`
 
-### 2.4 Workspace 浏览链路
+### 2.4 Workspace 浏览层
 
-- `src/routes/workspace.js`
-  - 提供：
-    - `GET /api/sessions/:id/workspace/meta`
-    - `GET /api/sessions/:id/workspace/tree`
-    - `GET /api/sessions/:id/workspace/file`
-    - `GET /api/sessions/:id/workspace/file-segment`
-    - `GET /api/sessions/:id/workspace/file-limited`
-    - `GET /api/sessions/:id/workspace/status`
-    - `GET /api/sessions/:id/workspace/diff`
-    - `GET /api/workspace/picker/tree`
-  - 访问前会通过 `resolveWorkspaceAccess()` 解析 `workspaceRoot` 和 Git 根目录。
+- **[confirmed] Session 作用域的 workspace API 独立成 `src/routes/workspace.js`，并通过 `resolveWorkspaceAccess()` 以 `workspaceRoot` 为边界。**
+  - 证据：`src/routes/workspace.js:40-145`
+- **[confirmed] `/api/workspace/picker/tree` 是单独的服务端目录选择接口，不走 session `workspaceRoot`；它受 `TERMLINK_WORKSPACE_PICKER_ROOT` 约束。**
+  - 证据：`src/routes/workspace.js:147-153`，`src/services/workspaceFileService.js:41-85,397-465`
+- **[confirmed] Workspace 当前支持目录树、文件全文/分段/限流视图、Git status、unified diff，以及独立的 picker tree。**
+  - 证据：`src/routes/workspace.js:40-153`
 
-## 3. 目录职责
+### 2.5 持久化与客户端本地状态
 
-- `android/`：Android 原生壳、Settings、WorkspaceActivity 和 WebView 容器。
-- `public/`：浏览器 / WebView 页面与前端静态资源。
-- `src/`：Node 服务端、API、WebSocket 网关、会话与工作区服务。
-- `docs/`：产品、架构、运维、需求与变更文档。
-- `.claude/skills/`：受版本控制的 Claude 本地技能镜像。
-- `.codex/skills/`：Codex 本地技能镜像，当前仓库会在本地使用，但并非全部路径都受版本控制。
-- `data/`：服务端 JSON 持久化数据。
+- **[confirmed] 服务端核心持久化不是关系型数据库，而是 JSON 文件 `data/sessions.json`。**
+  - 证据：`src/repositories/sessionStore.js:125-190`
+- **[confirmed] Android 侧存在多份本地状态，而不是“纯远端无状态壳”。**
+  - 证据：
+    - `ServerConfigStore.kt`
+    - `SessionListCacheStore.kt`
+    - `ExternalSessionStore.kt`
+    - `BasicCredentialStore.kt`
+    - `MtlsCertificateStore.kt`
+    - `MainShellActivity.kt:932-1087`
+    - `CodexActivity.kt:662-1117`
 
-## 4. 数据流 / 状态流
+## 3. 当前入口与测试面
 
-1. Android 或浏览器先通过 HTTP API 读取 / 创建 session。
-2. 客户端再用 `sessionId` 建立 WebSocket 连接。
-3. `terminalGateway` 将连接绑定到 `sessionManager` 中的 session。
-4. 普通 terminal 会话走 PTY 输出流；Codex 会话额外维护 thread、approval、runtime state。
-5. session 名称、状态、`cwd`、`workspaceRoot`、`lastCodexThreadId`、`codexConfig` 持久化到 `data/sessions.json`。
+### 3.1 运行入口
 
-## 5. 安全与部署事实
+- **[confirmed] Repo 级 Node 入口：**
+  - `npm run start` -> `node src/server.js`
+  - `npm run dev` -> `nodemon src/server.js`
+  - `npm run test` -> `node --test`
+  - 证据：`package.json:7-9`
+- **[confirmed] Android 相关 repo 级脚本：**
+  - `npm run android:sync`
+  - `npm run android:open`
+  - `npm run android:check-release-config`
+  - 证据：`package.json:10-12`
 
-- `basicAuth` 默认开启，若仍使用 `admin/admin` 会在启动时告警。
-- TLS / mTLS 配置由 `src/config/tlsConfig.js` 相关逻辑决定，并在启动时校验。
-- 高权限管理员模式受 `src/config/privilegeConfig.js` 与 `src/config/securityGates.js` 门禁约束。
-- 发布前已有显式检查命令：`npm run android:check-release-config`。
+### 3.2 已确认测试面
 
-## 6. 当前风险与 unknown
+- **[confirmed] Node 测试已覆盖 sessions、workspace、health、TLS、安全门禁、Codex gateway、audit 等面。**
+  - 证据：`tests/*.js`，如：
+    - `tests/health.route.test.js`
+    - `tests/routes.sessions.metadata.test.js`
+    - `tests/workspace.routes.test.js`
+    - `tests/terminalGateway.codex.test.js`
+    - `tests/auditService.test.js`
+- **[confirmed] Android 侧同时存在 unit test 与 instrumented test。**
+  - 证据：
+    - `android/app/src/test/**/*.kt`
+    - `android/app/src/androidTest/**/*.kt`
+    - `android/app/build.gradle:105-112`
 
-- **Fragile**：`src/ws/terminalGateway.js` 体量大，承载 PTY、Codex thread、审批与 attachment 清理，多条运行态责任耦合在同一文件。
-- **Fragile**：`workspaceRoot` / `cwd` / `lastCodexThreadId` 同时参与 session 复用和 workspace 浏览，错误更新会直接影响用户会话恢复。
-- **Unknown**：外部是否已有除 Android / 浏览器之外的第三方 consumer 直接依赖 `sessions` 或 `workspace` API，仓库内没有直接证据。
-- **Unknown**：Relay 控制平面目前仍处于规划中，尚未在本仓库形成稳定实现面。
+## 4. 脆弱区（fragile）
+
+- **[fragile] `src/ws/terminalGateway.js` 是高耦合中心。**
+  - 证据：同一文件同时处理 WebSocket 鉴权、session 绑定、Codex thread、approval、cwd 更新、generic codex request。
+- **[fragile] `cwd / workspaceRoot / workspaceRootSource / lastCodexThreadId / codexConfig` 是跨层共享状态。**
+  - 证据：
+    - HTTP create / patch：`src/routes/sessions.js`
+    - 持久化：`src/repositories/sessionStore.js`
+    - WebSocket 运行态：`src/ws/terminalGateway.js`
+- **[fragile] Android 恢复状态分散在多份 SharedPreferences。**
+  - 证据：
+    - `MainShellActivity` 使用 `termlink_shell`
+    - `CodexActivity` 使用 `codex_native_restore` 和 `termlink_shell`
+- **[fragile] `/api/sessions/:id/workspace/files` 出错时直接返回空列表，而不是显式错误。**
+  - 证据：`src/routes/sessions.js:229-244`
+
+## 5. 未确认项与冲突
+
+- **[unknown] 仓库外是否已有第三方 consumer 直接依赖当前 HTTP / WebSocket 形状。**
+  - 证据：仓库内未见公开 versioning、SDK 或外部 consumer 清单。
+- **[unknown] Android 测试是否已经被 CI 或统一发布门禁稳定执行。**
+  - 证据：测试源码存在，但 `package.json` 未暴露 Android test 命令。
+- **[conflict] 默认端口文档与代码不一致。**
+  - 代码：`src/server.js:44` 默认 `PORT=3000`
+  - 文档：`README.md:103` 写的是 `http://localhost:3010/api/health`
+  - 当前盘点口径：以代码为准，文档冲突保留为待清理事实。

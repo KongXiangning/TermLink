@@ -6,7 +6,7 @@
 - 项目类型：application
 - 技术栈：JavaScript, Kotlin, HTML, CSS
 - 核心目录：src, android, public, tests, scripts
-- 测试命令：node --test, npm run android:check-release-config
+- 测试命令：node --test, android\gradlew.bat :app:testDebugUnitTest, npm run android:check-release-config
 - 当前版本：1.0.0
 
 ## ✅ 已完成且稳定
