@@ -2,9 +2,9 @@
 title: 服务端管理员权限模式与安全治理
 status: done
 owner: @maintainer
-last_updated: 2026-03-31
+last_updated: 2026-04-30
 source_of_truth: product
-related_code: [src/server.js, src/auth/basicAuth.js, src/ws/terminalGateway.js, src/services/ptyService.js, src/services/auditService.js, src/utils/ipCheck.js, src/config/securityGates.js, src/config/privilegeConfig.js, skills/win-server-deploy/scripts/install-service.ps1, .env.example]
+related_code: [src/server.js, src/auth/basicAuth.js, src/ws/terminalGateway.js, src/services/ptyService.js, src/services/auditService.js, src/utils/ipCheck.js, src/config/securityGates.js, src/config/privilegeConfig.js, .codex/skills/win-server-deploy/scripts/install-service.ps1, .claude/skills/win-server-deploy/scripts/install-service.ps1, .env.example]
 related_docs: [docs/product/REQUIREMENTS_BACKLOG.md, docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/ROADMAP.md, docs/guides/deployment.md]
 ---
 

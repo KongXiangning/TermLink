@@ -115,19 +115,31 @@ adb devices
 2. 确保本地服务可用：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/ensure-local-server.ps1
+# Codex
+powershell -ExecutionPolicy Bypass -File ./.codex/skills/android-local-build-debug/scripts/ensure-local-server.ps1
+
+# Claude
+powershell -ExecutionPolicy Bypass -File ./.claude/skills/android-local-build-debug/scripts/ensure-local-server.ps1
 ```
 
 3. 构建 debug APK：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/build-debug-apk.ps1
+# Codex
+powershell -ExecutionPolicy Bypass -File ./.codex/skills/android-local-build-debug/scripts/build-debug-apk.ps1
+
+# Claude
+powershell -ExecutionPolicy Bypass -File ./.claude/skills/android-local-build-debug/scripts/build-debug-apk.ps1
 ```
 
 4. 安装并启动：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/install-debug-apk.ps1 -Serial <adb-serial>
+# Codex
+powershell -ExecutionPolicy Bypass -File ./.codex/skills/android-local-build-debug/scripts/install-debug-apk.ps1 -Serial <adb-serial>
+
+# Claude
+powershell -ExecutionPolicy Bypass -File ./.claude/skills/android-local-build-debug/scripts/install-debug-apk.ps1 -Serial <adb-serial>
 ```
 
 更多 Android 说明见 `docs/guides/android-development.md`。
@@ -141,7 +153,8 @@ TermLink/
 ├── src/                     # Express、WebSocket、PTY、sessions/workspace 服务端
 ├── tests/                   # Node 测试
 ├── docs/                    # 主线文档、REQ/PLAN/CR、指南与运维文档
-├── skills/                  # 项目本地 skills
+├── .codex/skills/           # Codex 本地 skill 镜像
+├── .claude/skills/          # Claude 本地 skill 镜像
 └── data/                    # 会话持久化数据
 ```
 

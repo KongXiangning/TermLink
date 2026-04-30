@@ -115,19 +115,31 @@ adb devices
 2. Ensure the local server is healthy:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/ensure-local-server.ps1
+# Codex
+powershell -ExecutionPolicy Bypass -File ./.codex/skills/android-local-build-debug/scripts/ensure-local-server.ps1
+
+# Claude
+powershell -ExecutionPolicy Bypass -File ./.claude/skills/android-local-build-debug/scripts/ensure-local-server.ps1
 ```
 
 3. Build the debug APK:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/build-debug-apk.ps1
+# Codex
+powershell -ExecutionPolicy Bypass -File ./.codex/skills/android-local-build-debug/scripts/build-debug-apk.ps1
+
+# Claude
+powershell -ExecutionPolicy Bypass -File ./.claude/skills/android-local-build-debug/scripts/build-debug-apk.ps1
 ```
 
 4. Install and launch:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./skills/android-local-build-debug/scripts/install-debug-apk.ps1 -Serial <adb-serial>
+# Codex
+powershell -ExecutionPolicy Bypass -File ./.codex/skills/android-local-build-debug/scripts/install-debug-apk.ps1 -Serial <adb-serial>
+
+# Claude
+powershell -ExecutionPolicy Bypass -File ./.claude/skills/android-local-build-debug/scripts/install-debug-apk.ps1 -Serial <adb-serial>
 ```
 
 For more Android details, see `docs/guides/android-development.md`.
@@ -141,7 +153,8 @@ TermLink/
 ├── src/                     # Express, WebSocket, PTY, sessions/workspace server side
 ├── tests/                   # Node tests
 ├── docs/                    # REQ/PLAN/CR, guides, ops docs
-├── skills/                  # Project-local skills
+├── .codex/skills/           # Codex local skill mirror
+├── .claude/skills/          # Claude local skill mirror
 └── data/                    # Persisted session data
 ```
 

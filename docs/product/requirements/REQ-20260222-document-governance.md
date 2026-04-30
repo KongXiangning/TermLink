@@ -2,7 +2,7 @@
 title: 文档统一管理与需求流程标准化
 status: in_progress
 owner: @maintainer
-last_updated: 2026-03-31
+last_updated: 2026-04-30
 source_of_truth: product
 related_code: []
 related_docs: [docs/README.md, docs/product/REQUIREMENTS_BACKLOG.md]
@@ -30,7 +30,7 @@ related_docs: [docs/README.md, docs/product/REQUIREMENTS_BACKLOG.md]
 2. 迁移主线/运维/指南文档并建立总导航。
 3. 引入需求池与需求卡模板。
 4. 保留历史文档并标注替代关系。
-5. 治理仓库内 skills 文档流程，使 `skills/*/SKILL.md`、对应 agent 卡片与文档追踪规则保持一致。
+5. 治理仓库内 host-local skills 文档流程，使 `.codex/skills/*/SKILL.md`、`.claude/skills/*/SKILL.md`、对应 agent 卡片与文档追踪规则保持一致。
 6. 当实现批次依赖实施计划时，要求文档流程能同步回写 `PLAN` 进度，并在收尾答复中明确当前已实现的计划部分。
 
 ## 3. Out of Scope

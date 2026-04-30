@@ -2,7 +2,7 @@
 title: 部署指南
 status: active
 owner: @maintainer
-last_updated: 2026-03-30
+last_updated: 2026-04-30
 source_of_truth: ops
 related_code: [src/server.js, ecosystem.config.js, docker-compose.yml]
 related_docs: [docs/ops/ops-checklist.md]
@@ -12,7 +12,7 @@ related_docs: [docs/ops/ops-checklist.md]
 
 ## Windows 独立部署（Win 端推荐）
 
-> **完整操作手册**见 `skills/win-server-deploy/SKILL.md`
+> **完整操作手册**见 `.codex/skills/win-server-deploy/SKILL.md`（Codex）或 `.claude/skills/win-server-deploy/SKILL.md`（Claude）
 
 适用于需要 Windows 原生 PTY（PowerShell / CMD）的场景。  
 Docker 不适用——`node-pty` 需要 Windows conpty 内核接口。
@@ -28,7 +28,11 @@ Docker 不适用——`node-pty` 需要 Windows conpty 内核接口。
 ### 一键打包
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\skills\win-server-deploy\scripts\pack-win-server.ps1
+# Codex
+powershell -ExecutionPolicy Bypass -File .\.codex\skills\win-server-deploy\scripts\pack-win-server.ps1
+
+# Claude
+powershell -ExecutionPolicy Bypass -File .\.claude\skills\win-server-deploy\scripts\pack-win-server.ps1
 ```
 
 输出 `dist/termlink-win-<timestamp>.zip`，包含：
