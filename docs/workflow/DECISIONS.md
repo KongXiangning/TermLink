@@ -56,6 +56,17 @@
 - 替代方案：继续把 README 等 active 文档视为同等级事实源，但当前冲突已证明这样风险更高。
 - 复议条件：仓库未来建立了受控发布文档源并以其覆盖运行时默认值。
 
+### TD-003: 现有架构文档继续保留在当前项目路径，不因 workflow bucket 升级而强制迁移
+
+- 状态：accepted
+- 背景：新的 workflow 文档目录协议为 greenfield design baseline 引入了 `docs/designs/**`，并为 adoption inventory 引入了 `docs/adoption/*inventory.md`，但当前仓库已经有 `ARCHITECTURE.md`、`DATABASE.md` 和 `docs/architecture/**` 作为持续维护中的项目文档。
+- 决策：本仓库在 workflow 资产 realign 时，保留 `ARCHITECTURE.md`、`DATABASE.md` 和 `docs/architecture/**` 的现有位置，把它们视为项目文档而不是本轮需要强制搬迁的 workflow-managed bucket 资产。
+- 原因：避免把仍在使用的项目文档误判成旧路径垃圾并做破坏性迁移。
+- 约束：后续如需迁移到 `docs/designs/**` 或 `docs/adoption/*inventory.md`，必须作为显式文档迁移任务处理，而不是在 workflow sync / realign 中静默完成。
+- 影响范围：`PROJECT_PROFILE`、文档目录约定、后续 workflow realign / sync 任务。
+- 替代方案：立即把上述文档整体迁移到新 bucket；当前未采用。
+- 复议条件：团队明确把这些文档改造为 greenfield design baseline 或 adoption inventory 的正式 live source。
+
 ## ⏸️ 暂缓决策
 
 ### DEFER-001: integration / e2e / deploy validation 的正式绑定

@@ -22,8 +22,8 @@ reads:
   - .workflow-system/FILE_SCHEMAS.md
   - templates/docs/
   - docs/workflow/ROADMAP.md
-  - ARCHITECTURE.md
-  - DATABASE.md
+  - docs/designs/architecture.md
+  - docs/designs/database.md
   - docs/designs/
   - docs/workflow/BASELINES.md
   - README.md
@@ -100,7 +100,7 @@ notes:
 
 ## Execution Rules
 
-1. 先读取已有 scaffold（如 `.workflow-system/PROJECT_PROFILE.yaml`、`README.md`、`package.json`）、设计基线（如 `docs/workflow/ROADMAP.md`、`ARCHITECTURE.md`、`DATABASE.md`、`docs/designs/`、`docs/workflow/BASELINES.md`）以及 `.workflow-system/WORKFLOW_PROTOCOL.md`、`.workflow-system/FILE_SCHEMAS.md`、`templates/docs/`；如果项目文件不存在，就把缺失视为待建立事实，而不是错误。
+1. 先读取已有 scaffold（如 `.workflow-system/PROJECT_PROFILE.yaml`、`README.md`、`package.json`）、设计基线（如 `docs/workflow/ROADMAP.md`、`docs/designs/architecture.md`、`docs/designs/database.md`、`docs/designs/`、`docs/workflow/BASELINES.md`）以及 `.workflow-system/WORKFLOW_PROTOCOL.md`、`.workflow-system/FILE_SCHEMAS.md`、`templates/docs/`；如果项目文件不存在，就把缺失视为待建立事实，而不是错误。
 2. 复杂新项目若缺少架构、数据库、接口或详细设计基线，先停止并要求进入 `design-baseline-init`，不要在本 skill 中现场推导完整设计。
 3. 按 `.workflow-system/FILE_SCHEMAS.md` 与 `templates/docs/` 的章节骨架建立首版 `.workflow-system/PROJECT_PROFILE.yaml`、`AGENTS.md`、`CLAUDE.md`、`docs/workflow/ROADMAP.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/BASELINES.md`、`docs/workflow/STATUS.md`、`docs/workflow/DECISIONS.md`。
 4. 只把已确认设计固化为治理基线：稳定接口、模块边界和数据约束写入 `docs/workflow/CONTRACTS.md`；版本窗口和当前阶段写入 `docs/workflow/ROADMAP.md`；发布、兼容、安全、部署、性能要求写入 `docs/workflow/BASELINES.md`；架构取舍、替代方案和否决方案写入 `docs/workflow/DECISIONS.md`。

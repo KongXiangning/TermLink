@@ -1,9 +1,9 @@
-# CONTRACTS.md
+# docs/workflow/CONTRACTS.md
 
 ## 使用规则
 
 - 修改任何代码前先阅读本文件
-- 变更 `🔒` 项必须先记录到 `DECISIONS.md` 并获得明确确认
+- 变更 `🔒` 项必须先记录到 `docs/workflow/DECISIONS.md` 并获得明确确认
 - 变更 `🟡` 项允许执行，但必须在任务总结中显式说明
 - `🟢` 项可自由修改，但仍需遵守整体分层与依赖方向
 

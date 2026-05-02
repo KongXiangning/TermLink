@@ -26,8 +26,8 @@ reads:
   - tests
   - scripts
 writes:
-  - ARCHITECTURE.md
-  - DATABASE.md
+  - docs/adoption/architecture-inventory.md
+  - docs/adoption/database-inventory.md
   - docs/adoption/API_INVENTORY.md
   - docs/adoption/RISK_REGISTER.md
   - docs/adoption/ADOPTION_REPORT.md
@@ -50,8 +50,8 @@ stop_conditions:
   - 数据库、部署或 API 事实来源互相冲突且无法判定真值
   - 缺少关键业务背景导致无法区分稳定事实与偶然实现
 output:
-  - ARCHITECTURE.md 当前事实版
-  - DATABASE.md 当前事实版
+  - docs/adoption/architecture-inventory.md 当前事实版
+  - docs/adoption/database-inventory.md 当前事实版
   - docs/adoption/API_INVENTORY.md
   - docs/adoption/RISK_REGISTER.md
   - docs/adoption/ADOPTION_REPORT.md
@@ -97,8 +97,8 @@ notes:
 
 1. 系统扫描现有代码、文档、配置，以及仓库中可发现的测试、数据库迁移和部署线索；不要预设特定目录名，优先依据仓库事实发现入口和边界。`reads` 中渲染出的代码目录是项目 profile 的具体展开值，不是 workflow-system 的固定目录假设。
 2. 把每条结论标为 `confirmed`、`inferred` 或 `unknown`，并附证据来源。
-3. `ARCHITECTURE.md` 只描述当前实际架构，不美化、不重写、不提出新架构作为事实。
-4. `DATABASE.md` 只固化当前表结构、迁移状态、数据约束和高风险字段。
+3. `docs/adoption/architecture-inventory.md` 只描述当前实际架构，不美化、不重写、不提出新架构作为事实。
+4. `docs/adoption/database-inventory.md` 只固化当前表结构、迁移状态、数据约束和高风险字段。
 5. `docs/adoption/API_INVENTORY.md` 记录真实 API、消费者、兼容性承诺和 unknown consumer。
 6. `docs/adoption/RISK_REGISTER.md` 按 stable / fragile / unknown / deprecated 标记模块、接口、数据和流程。
 7. `docs/adoption/ADOPTION_REPORT.md` 汇总证据、推断、冲突来源、待确认问题和建议固化项。

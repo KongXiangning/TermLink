@@ -1,9 +1,9 @@
-# ROADMAP.md
+# docs/workflow/ROADMAP.md
 
 ## 使用规则
 
 - 本文件记录版本窗口、里程碑和跨阶段依赖，不把长期规划塞进单次任务包
-- 已进入当前窗口的事项必须能映射到 `STATUS.md`、`CURRENT_TASK.md` 或明确的候选池
+- 已进入当前窗口的事项必须能映射到 `docs/workflow/STATUS.md`、`docs/workflow/CURRENT_TASK.md` 或明确的候选池
 - 计划发生变化时追加说明，不覆盖历史窗口判断
 
 ## 生命周期阶段

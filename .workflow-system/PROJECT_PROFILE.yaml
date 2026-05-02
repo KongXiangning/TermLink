@@ -98,6 +98,7 @@ governance:
     - AGENTS.md
     - CLAUDE.md
     - docs/workflow/SKILL_REGISTRY.md
+    - docs/workflow/DOCUMENT_CATALOG.md
     - docs/workflow/BASELINES.md
     - docs/workflow/CONTRACTS.md
     - docs/workflow/CURRENT_TASK.md

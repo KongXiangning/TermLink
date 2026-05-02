@@ -1,4 +1,4 @@
-# DECISIONS.md
+# docs/workflow/DECISIONS.md
 
 ## 使用规则
 

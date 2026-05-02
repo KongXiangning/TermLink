@@ -85,9 +85,9 @@ These inputs collectively define, enforce, and materialize the workflow-system s
 
 Generated artifacts:
 
-- `generated/workflow-docs/**`
-- `generated/workflow-skills/**`
-- `SKILL_REGISTRY.md`
+- `docs/workflow/generated/workflow-docs/**`
+- `docs/workflow/generated/workflow-skills/**`
+- `docs/workflow/SKILL_REGISTRY.md`
 
 are **bundle-local reference evidence produced by the pipeline**, used for auditability and verification.
 
@@ -104,10 +104,10 @@ Synchronization rules:
 
 ## 2. Output model
 
-The workflow skill generator must emit generated skills into a dedicated output root:
+The workflow skill generator must emit generated skills into a dedicated output root under the workflow home:
 
 ```text
-generated/workflow-skills/
+docs/workflow/generated/workflow-skills/
 ```
 
 Each generated skill should use this naming rule:
@@ -118,9 +118,9 @@ Each generated skill should use this naming rule:
 
 Examples:
 
-- `generated/workflow-skills/create-current-task.SKILL.md`
-- `generated/workflow-skills/implement-current-step.SKILL.md`
-- `generated/workflow-skills/review-diff.SKILL.md`
+- `docs/workflow/generated/workflow-skills/create-current-task.SKILL.md`
+- `docs/workflow/generated/workflow-skills/implement-current-step.SKILL.md`
+- `docs/workflow/generated/workflow-skills/review-diff.SKILL.md`
 
 This output root is intentionally separated from:
 
@@ -366,6 +366,7 @@ Mode selection is mandatory and must use repository facts plus the user's curren
 | Condition | Required mode |
 |---|---|
 | Repository is empty or has no meaningful implementation, no governance baseline, and no confirmed design baseline | `design-baseline-init` |
+| Repository already has workflow-managed docs or skills, but they are still on legacy paths or mixed layouts | `realign-workflow-assets` |
 | Repository is empty or has no meaningful implementation, no governance baseline, and already has a confirmed design baseline | `greenfield-init` |
 | Repository has existing implementation or docs, no workflow governance baseline, and no adoption inventory | `legacy-inventory` |
 | Repository has existing implementation or docs, no workflow governance baseline, and already has confirmed adoption inventory | `adopt-existing-project` |
@@ -374,7 +375,7 @@ Mode selection is mandatory and must use repository facts plus the user's curren
 
 Prohibitions:
 
-- `design-baseline-init`, `greenfield-init`, `legacy-inventory`, and `adopt-existing-project` must not implement feature work.
+- `design-baseline-init`, `realign-workflow-assets`, `greenfield-init`, `legacy-inventory`, and `adopt-existing-project` must not implement feature work.
 - `create-current-task` must not rewrite `.workflow-system/PROJECT_PROFILE.yaml`.
 - Task-phase skills must not rewrite the `CONTRACTS.md` baseline unless the current task explicitly declares contract evolution as an allowed or conditional mutation.
 - A workflow step must stop and ask the user when multiple modes match and the repository facts do not disambiguate them.
@@ -514,7 +515,7 @@ Generation must fail if a handoff points to:
 The rendered chain must support:
 
 ```text
-design-baseline-init -> greenfield-init | legacy-inventory -> adopt-existing-project
+design-baseline-init -> realign-workflow-assets? -> greenfield-init | legacy-inventory -> adopt-existing-project
   -> create-current-task
   -> review-current-task
   -> lock-scope
@@ -636,7 +637,7 @@ Allowed examples:
 
 - `scripts/**`
 - `.git/**`
-- `generated/workflow-docs/**`
+- `docs/workflow/generated/workflow-docs/**`
 
 Invalid examples:
 
@@ -807,7 +808,7 @@ This protocol revision constrains the workflow skill generator to the following 
 1. read `.workflow-system/PROJECT_PROFILE.yaml`
 2. read `templates/skills/*.SKILL.md.tmpl`
 3. expand project-level variables
-4. render output to `generated/workflow-skills/`
+4. render output to `docs/workflow/generated/workflow-skills/`
 5. validate the rendered set
 
 The workflow skill generator scope excludes the following:
@@ -833,7 +834,7 @@ This protocol is considered implemented when all of the following machine-checka
 | 4 | No skill has `writes` / `forbidden_writes` overlap (§7.3) | `bun run test:workflow-skills` — boundary check |
 | 5 | All 10 stage groups are covered (§4a) | `bun run test:workflow-skills` — stage coverage |
 | 6 | All project-level placeholders are resolved; only runtime placeholders remain | `bun run test:workflow-skills` — placeholder check |
-| 7 | Output is isolated from native gstack `*/SKILL.md` artifacts | Output path is `generated/workflow-skills/` — structural guarantee |
+| 7 | Output is isolated from native gstack `*/SKILL.md` artifacts | Output path is `docs/workflow/generated/workflow-skills/` — structural guarantee |
 
 ### 11.2 Registry generator (`gen:registry`)
 
@@ -909,10 +910,10 @@ Any divergence between the cache and `.workflow-system/FILE_SCHEMAS.md` is a pro
 
 ### 12.2 Docs output model
 
-The workflow docs generator must emit rendered docs into:
+The workflow docs generator must emit rendered docs into the generated-docs subdirectory of the workflow home:
 
 ```text
-generated/workflow-docs/
+docs/workflow/generated/workflow-docs/
 ```
 
 Each generated file should keep its runtime filename:
@@ -922,6 +923,7 @@ CURRENT_TASK.md
 STATUS.md
 DECISIONS.md
 CONTRACTS.md
+DOCUMENT_CATALOG.md
 LESSONS.md
 TASK_SUMMARY.md
 TASK_ARCHIVE.md
@@ -934,6 +936,7 @@ This protocol revision extends the required generated doc set with lifecycle-gov
 
 - `ROADMAP.md` for milestone / roadmap / version-window planning
 - `BASELINES.md` for release, compatibility, security, deploy, and non-functional baselines
+- `DOCUMENT_CATALOG.md` for directory classification and document lookup guidance
 - `WORKFLOW_GUIDE.md` for target-project operating guidance: when to use each governance doc and workflow skill
 
 ### 12.3 Docs substitution rules
@@ -968,7 +971,7 @@ The docs generator must fail loudly if:
 
 ### 12.5 Scope note
 
-The docs generator may emit generated skeletons, but it must not write, overwrite, or reconcile live governance files in the repo root directly.
+The docs generator may emit generated skeletons, but it must not write, overwrite, or reconcile live governance files in the workflow home directly.
 
 Any live-doc materialization or refresh must flow through the hybrid sync policy defined in §14.
 
@@ -1002,12 +1005,12 @@ It must extract metadata from skill frontmatter instead of relying on manually c
 The registry generator must emit:
 
 ```text
-SKILL_REGISTRY.md
+docs/workflow/SKILL_REGISTRY.md
 ```
 
 This file is a generated-but-committed artifact:
 
-- humans must read it directly from the repo root
+- humans must read it directly from the workflow home
 - generators must own its content
 - hand edits must be overwritten by regeneration
 
@@ -1032,7 +1035,7 @@ The registry generator must fail loudly if:
 
 ### 13.5 Freshness enforcement
 
-Changes to `templates/skills/*.SKILL.md.tmpl` must be validated in CI by regenerating `SKILL_REGISTRY.md` and checking that the repo stays clean.
+Changes to `templates/skills/*.SKILL.md.tmpl` must be validated in CI by regenerating `docs/workflow/SKILL_REGISTRY.md` and checking that the repo stays clean.
 
 That freshness check is a workflow-system integrity check. It verifies that the generator and committed generated artifact still agree.
 
@@ -1042,7 +1045,7 @@ That freshness check must be separate from runtime host skill-doc validation and
 
 ## 14. Hybrid sync model for generated docs and live docs
 
-This section defines the contract between generated governance docs in `generated/workflow-docs/` and live governance docs in the repo root.
+This section defines the contract between generated governance docs in `docs/workflow/generated/workflow-docs/` and live governance docs in the workflow home.
 
 This section governs repository compliance, not generator correctness. A sync failure means the current repo state has drifted from the generated structure contract; it does not by itself mean the workflow generators are incorrect.
 
@@ -1090,7 +1093,7 @@ For the purpose of sync:
 
 Each live governance doc must be in exactly one lifecycle state:
 
-- `absent`: no live doc exists at the expected repo-root path
+- `absent`: no live doc exists at the expected workflow-home path
 - `materialized`: a live doc exists and is aligned with the generated structure contract
 - `drifted`: a live doc exists, but its structure has diverged from the generated contract
 - `orphaned`: a live doc exists, but there is no corresponding generated doc contract for that filename
@@ -1171,7 +1174,7 @@ First adoption of the workflow system must be non-destructive.
 Required order:
 
 1. generate the authoritative skeleton docs
-2. inspect the repo root for existing live governance docs
+2. inspect the workflow home for existing live governance docs
 3. classify each existing live doc before any write
 4. apply only the actions allowed by this section
 
@@ -1205,7 +1208,7 @@ It is a repository-compliance gate, not a workflow-system-integrity gate.
 
 CI behavior:
 
-- a future sync-check command must classify repo-root live docs against the freshness-checked structural contract derived from `.workflow-system/WORKFLOW_PROTOCOL.md` and `.workflow-system/FILE_SCHEMAS.md`; `generated/workflow-docs/**` may be used only as comparison fixtures after freshness passes.
+- a future sync-check command must classify workflow-home live docs against the freshness-checked structural contract derived from `.workflow-system/WORKFLOW_PROTOCOL.md` and `.workflow-system/FILE_SCHEMAS.md`; `docs/workflow/generated/workflow-docs/**` may be used only as comparison fixtures after freshness passes.
 - CI passes when each evaluated doc is either `absent` or `structure-compatible`
 - CI blocks merge when any evaluated doc is `structure-drifted but mergeable` or `incompatible and diff-only until confirmed`
 - `orphaned` files must emit warnings unless a stricter host policy overrides that default
@@ -1215,7 +1218,7 @@ Structured sync failures must use the §9b error shape with the `SYNC_` code nam
 This check is complementary to generator freshness checks:
 
 - freshness checks prove generated artifacts match templates and that the workflow system is internally consistent
-- sync checks prove repo-root live docs still match the generated structure contract
+- sync checks prove workflow-home live docs still match the generated structure contract
 
 ---
 
@@ -1369,7 +1372,7 @@ Freshness rules:
 
 - generated workflow skills must match the output of `gen:workflow-skills --dry-run`
 - generated workflow docs must match the output of `gen:workflow-docs --dry-run`
-- the committed `SKILL_REGISTRY.md` must match the output of `gen:registry --dry-run`
+- the committed `docs/workflow/SKILL_REGISTRY.md` must match the output of `gen:registry --dry-run`
 
 If any freshness check fails, it must be treated as a protocol-level failure with blocker level `blocks-merge`.
 
@@ -1455,8 +1458,8 @@ The import contract defines the steps a target project follows during Adoption `
 4. Merge the minimum `workflow:*`, `gen:*`, and `validate:*` scripts plus required runtime dependencies into the target project's `package.json`
 5. Create or merge the project-specific `.workflow-system/PROJECT_PROFILE.yaml`
 6. Write `.workflow-system/install-state.json` only after the install transaction succeeds
-7. Install the bootstrap init skills (`design-baseline-init`, `greenfield-init`, `legacy-inventory`, `adopt-existing-project`) into the target host namespace during `workflow:install`
-8. Invoke `design-baseline-init` -> `greenfield-init` for new projects, or `legacy-inventory` -> `adopt-existing-project` for existing repos, in the target host to perform Adoption `A2`
+7. Install the bootstrap init skills (`design-baseline-init`, `realign-workflow-assets`, `greenfield-init`, `legacy-inventory`, `adopt-existing-project`) into the target host namespace during `workflow:install`
+8. Invoke `design-baseline-init` -> `greenfield-init` for new projects, insert `realign-workflow-assets` before the next step when the target repo already contains legacy workflow assets, or `legacy-inventory` -> `adopt-existing-project` for existing repos, in the target host to perform Adoption `A2`
 9. Run generators plus `workflow:sync` / `workflow:health` to produce initial workflow outputs and activate the full runtime skill set after the baseline exists
 
 Import boundary note:

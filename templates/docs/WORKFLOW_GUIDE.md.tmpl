@@ -6,12 +6,22 @@
 - 本文件只解释使用方法，不定义字段、章节、错误码或 gate 语义。
 - 详细文档结构以 `.workflow-system/FILE_SCHEMAS.md` 为准；skill 的 reads / writes / handoff 以对应 `SKILL.md` 为准。
 - 如果本文件与 `.workflow-system/WORKFLOW_PROTOCOL.md`、`.workflow-system/FILE_SCHEMAS.md` 或具体 skill frontmatter 冲突，以规范源和 skill frontmatter 为准。
-- `generated/workflow-skills/**` 与 `generated/workflow-docs/**` 是 source-repo reference render，不是安装到 target project 后的 live runtime artifacts；target repo 会在 install / sync 时按自己的 `.workflow-system/PROJECT_PROFILE.yaml` 重新渲染。
+- `docs/workflow/generated/workflow-skills/**` 与 `docs/workflow/generated/workflow-docs/**` 是 source-repo reference render，不是安装到 target project 后的 live runtime artifacts；target repo 需要重渲染时，由 workflow-system 源仓库通过 `WORKFLOW_SYSTEM_ROOT=<target-repo>` 按目标项目的 `.workflow-system/PROJECT_PROFILE.yaml` 生成。
+
+## 目录分类规则
+
+| 目录 | 分类依据 | 典型文档 |
+| --- | --- | --- |
+| 根目录 | 宿主入口与系统控制文件，只保留 host/runtime 必须从根读取的入口 | `README.md`、`AGENTS.md`、`CLAUDE.md`、`.workflow-system/**` |
+| `docs/workflow/` | workflow 治理文档、目录索引、registry 与 source-repo reference render | `DOCUMENT_CATALOG.md`、`WORKFLOW_GUIDE.md`、`ROADMAP.md`、`STATUS.md`、`generated/**` |
+| `docs/designs/` | 新项目设计基线与设计展开文档 | `architecture.md`、`database.md`、`domain-model.md`、`api-contracts.md` |
+| `docs/adoption/` | 老项目事实盘点、风险登记与接管材料 | `architecture-inventory.md`、`database-inventory.md`、`ADOPTION_REPORT.md` |
 
 ## 文档速查
 
 | 文档 | 作用 | 主要使用时机 |
 | --- | --- | --- |
+| `DOCUMENT_CATALOG.md` | 文档目录协议、分类规则和快速查表入口 | 不确定文档该去哪里读写时 |
 | `STATUS.md` | 当前项目状态、稳定模块、风险和下一检查点 | 开始任务前、任务结束后 |
 | `ROADMAP.md` | 里程碑、当前窗口、候选事项和跨阶段风险 | 规划阶段、排优先级时 |
 | `CURRENT_TASK.md` | 本轮任务目标、范围、验收、设计约束、发布后验证、回归和执行记录 | 每轮工作前、每步完成后 |
@@ -26,9 +36,10 @@
 
 | 场景 | 使用 skill | 主要读取 | 主要产出 |
 | --- | --- | --- | --- |
-| 新项目设计基线 | `/design-baseline-init` | 原始需求、用户目标、技术栈偏好、交付约束 | `ROADMAP.md`、`ARCHITECTURE.md`、`DATABASE.md`、`docs/designs/**`、`BASELINES.md` / `DECISIONS.md` 草案 |
+| 新项目设计基线 | `/design-baseline-init` | 原始需求、用户目标、技术栈偏好、交付约束 | `ROADMAP.md`、`docs/designs/architecture.md`、`docs/designs/database.md`、`docs/designs/**`、`BASELINES.md` / `DECISIONS.md` 草案 |
+| 对齐已有 workflow 资产 | `/realign-workflow-assets` | 当前 `.workflow-system/PROJECT_PROFILE.yaml`、已有 `docs/workflow/**` / `docs/designs/**` / `docs/adoption/**`、legacy root docs、runtime skill 目录、`AGENTS.md` / `CLAUDE.md` | 整理后的 workflow 文档目录、同步后的 runtime skills、更新后的 `AGENTS.md` / `CLAUDE.md` / `.workflow-system/PROJECT_PROFILE.yaml` |
 | 初始化新项目治理基线 | `/greenfield-init` | 已确认设计基线、用户目标、技术栈偏好、`.workflow-system/PROJECT_PROFILE.yaml` scaffold | 首版 `.workflow-system/PROJECT_PROFILE.yaml`、`AGENTS.md`、`CLAUDE.md`、`ROADMAP.md`、`CONTRACTS.md`、`BASELINES.md`、`STATUS.md`、`DECISIONS.md` |
-| 老项目事实盘点 | `/legacy-inventory` | 由 profile / 仓库事实确定的代码目录、README/docs、package scripts、数据库和部署线索 | `ARCHITECTURE.md` 当前事实版、`DATABASE.md`、`docs/adoption/**`、`ROADMAP.md` 缺口草案 |
+| 老项目事实盘点 | `/legacy-inventory` | 由 profile / 仓库事实确定的代码目录、README/docs、package scripts、数据库和部署线索 | `docs/adoption/architecture-inventory.md`、`docs/adoption/database-inventory.md`、`docs/adoption/**`、`ROADMAP.md` 缺口草案 |
 | 接管老项目治理基线 | `/adopt-existing-project` | `legacy-inventory` 产物、现有仓库事实、用户确认信息 | 首版 `.workflow-system/PROJECT_PROFILE.yaml`、`AGENTS.md`、`CLAUDE.md`、`ROADMAP.md`、`CONTRACTS.md`、`BASELINES.md`、`STATUS.md`、`DECISIONS.md`，必要时更新 `docs/adoption/ADOPTION_REPORT.md` |
 | 创建任务包 | `/create-current-task` | `.workflow-system/PROJECT_PROFILE.yaml`、`CONTRACTS.md`、`STATUS.md`、`DECISIONS.md`、用户需求 | `CURRENT_TASK.md` |
 | 审查任务包 | `/review-current-task` | `CURRENT_TASK.md`、`.workflow-system/PROJECT_PROFILE.yaml`、`CONTRACTS.md`、`DECISIONS.md`、`STATUS.md` | 修订后的任务边界、验收、设计约束和风险 |
@@ -51,8 +62,8 @@
 
 ## 标准任务流程
 
-0. 初始化完成后进入日常任务链路：新项目先走 `/design-baseline-init` → `/greenfield-init`，老项目先走 `/legacy-inventory` → `/adopt-existing-project`。
-1. 先读 `STATUS.md` / `ROADMAP.md`，确认当前任务是否处在正确窗口。
+0. 初始化完成后进入日常任务链路：新项目先走 `/design-baseline-init`；如果目标项目里已经有旧路径或旧版 workflow 资产，先插入 `/realign-workflow-assets`，再进入 `/greenfield-init`。老项目先走 `/legacy-inventory` → `/adopt-existing-project`。需要重新生成 / sync 时，从 workflow-system 源仓库用 `WORKFLOW_SYSTEM_ROOT=<target-repo>` 和 `--root <target-repo>` 驱动目标项目，不要为了 workflow-system 迁移在目标项目里执行 `bun install`。
+1. 先读 `DOCUMENT_CATALOG.md` 确认文档目录协议，再读 `STATUS.md` / `ROADMAP.md`，确认当前任务是否处在正确窗口。
 2. 用 `/create-current-task` 创建 `CURRENT_TASK.md`。
 3. 用 `/review-current-task` 收敛目标、验收、风险和范围。
 4. 用 `/lock-scope` 明确 Safety mode、`Allowed Files`、`Forbidden Files`、`Conditional Files`、Dangerous surfaces 和受影响契约。
@@ -68,6 +79,8 @@
 | 场景 | 推荐入口 |
 | --- | --- |
 | 新项目只有产品想法，尚无架构/数据库/详细设计 | `/design-baseline-init` → `/greenfield-init` |
+| 已跑过 `design-baseline-init`，但项目里还残留旧路径 workflow 资产 | `/realign-workflow-assets` → `/greenfield-init` |
+| workflow-system 升级后，需要把现有技能和文档重排到当前规范 | `/realign-workflow-assets` |
 | 空仓库或无实现但已有确认设计基线 | `/greenfield-init` |
 | 已有代码但无 workflow 治理基线，尚未完成事实盘点 | `/legacy-inventory` → `/adopt-existing-project` |
 | 已有代码且已完成事实盘点 | `/adopt-existing-project` |

@@ -1,4 +1,4 @@
-# STATUS.md
+# docs/workflow/STATUS.md
 
 ## 项目概览
 

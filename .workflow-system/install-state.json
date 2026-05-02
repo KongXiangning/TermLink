@@ -1,8 +1,8 @@
 {
   "state_version": 1,
-  "bundle_id": "workflow-system@0.14.5.0+ec6c7f56a7db",
+  "bundle_id": "workflow-system@0.14.5.0+dee332a9a949",
   "workflow_system_version": "0.14.5.0",
-  "installed_at": "2026-04-30T02:11:06.075Z",
+  "installed_at": "2026-05-02T17:22:00.914Z",
   "managed_files": [
     {
       "path": "scripts/workflow-core.ts",
@@ -19,7 +19,7 @@
     {
       "path": "scripts/workflow-doc-contracts.ts",
       "mode": "replace-managed",
-      "bundle_checksum": "a012da86d5cbc4d0478e0444d96ae58184f9e6490ecc1d975c425feffb3c13ea",
+      "bundle_checksum": "053363b663a6266b04422a3c9500d43cc0df7a60aefc398870d5eb276819cf6d",
       "installed_checksum": "a012da86d5cbc4d0478e0444d96ae58184f9e6490ecc1d975c425feffb3c13ea"
     },
     {
@@ -55,7 +55,7 @@
     {
       "path": "scripts/check-freshness.ts",
       "mode": "replace-managed",
-      "bundle_checksum": "d9f8a0791d00ca1fd2e9a3a8d0e392df8142e6cc014393054ef366362d24f367",
+      "bundle_checksum": "33acd6c9e25d0b94eb9d9ec5fbf9a6ee892672e16d6b2d766b9bf42424c4c2bc",
       "installed_checksum": "d9f8a0791d00ca1fd2e9a3a8d0e392df8142e6cc014393054ef366362d24f367"
     },
     {
@@ -67,25 +67,25 @@
     {
       "path": "scripts/gen-workflow-docs.ts",
       "mode": "replace-managed",
-      "bundle_checksum": "5d4f93b5c9fb5fcdd92d7b1a811e7e3148f5175415e0c44c2e63531ec42d346f",
+      "bundle_checksum": "4e32bb33b201bab24e448ba7eb560f6344e88336eef7646989dbcf944562f9dd",
       "installed_checksum": "5d4f93b5c9fb5fcdd92d7b1a811e7e3148f5175415e0c44c2e63531ec42d346f"
     },
     {
       "path": "scripts/gen-registry.ts",
       "mode": "replace-managed",
-      "bundle_checksum": "f999943b039664a5bcf4ba7cf095072530db2e7536430f6392024e472588a2e5",
+      "bundle_checksum": "e1eb3c43c50943b05ee6f9236edd5ed486a707f7f64be1424d6bd970c4b95e59",
       "installed_checksum": "f999943b039664a5bcf4ba7cf095072530db2e7536430f6392024e472588a2e5"
     },
     {
       "path": "scripts/workflow-runtime.ts",
       "mode": "replace-managed",
-      "bundle_checksum": "eebac58bd3123e8b4535ce471f6b8487ec461b402b64eac4357d07b51d77e346",
+      "bundle_checksum": "1603439f76033a27cc6aea659d6e838e318fec84739fbb444880c65d8f0a9f0c",
       "installed_checksum": "eebac58bd3123e8b4535ce471f6b8487ec461b402b64eac4357d07b51d77e346"
     },
     {
       "path": ".workflow-system/WORKFLOW_PROTOCOL.md",
       "mode": "replace-managed",
-      "bundle_checksum": "a033bb93047f0cdab6f192d62f47d9f7095c5dac044b3ce53bf891c7c9b322ff",
+      "bundle_checksum": "d17fad602861040979d2341baefdbbc521661934a71084e4117dcff5cbfa7c16",
       "installed_checksum": "a033bb93047f0cdab6f192d62f47d9f7095c5dac044b3ce53bf891c7c9b322ff"
     },
     {
@@ -97,7 +97,7 @@
     {
       "path": "templates/skills/adopt-existing-project.SKILL.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "8b6f7011ab59a498f214b4fc29b22e3eba7a7756921d24a03a85a14b38ce96a5",
+      "bundle_checksum": "53bda23bf328a6040f39c9c99db131779d885a565cffc301ad9dc0f8026da52a",
       "installed_checksum": "8b6f7011ab59a498f214b4fc29b22e3eba7a7756921d24a03a85a14b38ce96a5"
     },
     {
@@ -133,13 +133,13 @@
     {
       "path": "templates/skills/design-baseline-init.SKILL.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "e59563013bb0202ef3862fca69fb28edfb28d60659f807fffa93f769e179990e",
+      "bundle_checksum": "387f4cdf693c8152b83549cea679adfb3e205c3df4ba777e5cfc52e86ae284fb",
       "installed_checksum": "e59563013bb0202ef3862fca69fb28edfb28d60659f807fffa93f769e179990e"
     },
     {
       "path": "templates/skills/greenfield-init.SKILL.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "de43620b676d8eaf051649a548226bb633858cb6ba0d0cb9c35a46695a4d0184",
+      "bundle_checksum": "fe45fa82dbdc1bc504efde17c28c08ddd91091c6bdb5c1be35d53583330ae04a",
       "installed_checksum": "de43620b676d8eaf051649a548226bb633858cb6ba0d0cb9c35a46695a4d0184"
     },
     {
@@ -157,7 +157,7 @@
     {
       "path": "templates/skills/legacy-inventory.SKILL.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "6740198ddf6fa5d6aa021bbd377ff5798a4269b5274e8db4ce09d7f2e91f8e1d",
+      "bundle_checksum": "eeee547464d738bc47ba2c45048130d30ffbe9395d1e6c1a3f7d058839bb1885",
       "installed_checksum": "6740198ddf6fa5d6aa021bbd377ff5798a4269b5274e8db4ce09d7f2e91f8e1d"
     },
     {
@@ -171,6 +171,12 @@
       "mode": "replace-managed",
       "bundle_checksum": "5cd9f10a965a721a0e7cb7a2c601769ac5f6945888cbd83ff727b8e900d23a7e",
       "installed_checksum": "5cd9f10a965a721a0e7cb7a2c601769ac5f6945888cbd83ff727b8e900d23a7e"
+    },
+    {
+      "path": "templates/skills/realign-workflow-assets.SKILL.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "c87f7ba8ee095e7728b8df5795104db724948a0ab8622979b565ab1c7762652f",
+      "installed_checksum": "c87f7ba8ee095e7728b8df5795104db724948a0ab8622979b565ab1c7762652f"
     },
     {
       "path": "templates/skills/review-current-task.SKILL.md.tmpl",
@@ -251,6 +257,12 @@
       "installed_checksum": "61a97a7f9d0ba8a92fcb1160a28c28f0fd1bea3e78fdcb5096340566eb6375d0"
     },
     {
+      "path": "templates/docs/DOCUMENT_CATALOG.md.tmpl",
+      "mode": "replace-managed",
+      "bundle_checksum": "1d194eaa7697f30d9ed36074ec78c6cbb461e93fe7f07c7a3faf09518a2d3ba1",
+      "installed_checksum": "1d194eaa7697f30d9ed36074ec78c6cbb461e93fe7f07c7a3faf09518a2d3ba1"
+    },
+    {
       "path": "templates/docs/LESSONS.md.tmpl",
       "mode": "replace-managed",
       "bundle_checksum": "cadf8447964896e602cf95a93425dfadf307b8bb074b4b255d2cc451fc5d56cc",
@@ -283,56 +295,68 @@
     {
       "path": "templates/docs/WORKFLOW_GUIDE.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "5b4dca47992d38334471a1ff11de592d65c206d53d79e8ed7677e3fb4e0a1f35",
+      "bundle_checksum": "1d0941d3d73530fce5e2f92946a55532e804c74ef01344e6e70e43cb843025fe",
       "installed_checksum": "5b4dca47992d38334471a1ff11de592d65c206d53d79e8ed7677e3fb4e0a1f35"
     },
     {
       "path": ".claude/skills/workflow-system-design-baseline-init/SKILL.md",
       "mode": "bootstrap-skill-install",
-      "bundle_checksum": "1f074d44e5e3a2fe924b52967f21c32bcf8ddd245961b7e3230c5ae97ad03db1",
-      "installed_checksum": "1f074d44e5e3a2fe924b52967f21c32bcf8ddd245961b7e3230c5ae97ad03db1"
+      "bundle_checksum": "f03a0e63446b995c397e4ef3e3c45d13f6d668b9a4f3e813955456f184e478af",
+      "installed_checksum": "6cfa1ad4d37da39b9d8480f5066b5f91fbdc6b8790e4566ea67002fd74c7ad91"
+    },
+    {
+      "path": ".claude/skills/workflow-system-realign-workflow-assets/SKILL.md",
+      "mode": "bootstrap-skill-install",
+      "bundle_checksum": "c87f7ba8ee095e7728b8df5795104db724948a0ab8622979b565ab1c7762652f",
+      "installed_checksum": "c87f7ba8ee095e7728b8df5795104db724948a0ab8622979b565ab1c7762652f"
     },
     {
       "path": ".claude/skills/workflow-system-greenfield-init/SKILL.md",
       "mode": "bootstrap-skill-install",
-      "bundle_checksum": "9a61d0a35a4ec500431741b62956941981999877a59e906f2f09b3f15bdc10da",
-      "installed_checksum": "9a61d0a35a4ec500431741b62956941981999877a59e906f2f09b3f15bdc10da"
+      "bundle_checksum": "434fa56ec1bdef4badeaaacd9007e910fb17484e105712618cbaf4e60e8535f7",
+      "installed_checksum": "2700462b6be369ccb50feaccd623b1f0e74540a8eb082e6f10c007df79f5e1c8"
     },
     {
       "path": ".claude/skills/workflow-system-legacy-inventory/SKILL.md",
       "mode": "bootstrap-skill-install",
-      "bundle_checksum": "b432fa5dcea680a6e95743fbc85a81a3c71a20e5b9701fb4a6061313d6c50328",
-      "installed_checksum": "b432fa5dcea680a6e95743fbc85a81a3c71a20e5b9701fb4a6061313d6c50328"
+      "bundle_checksum": "bf046be3e0d263179ee1b463887892d367795d4d66dd90bc1ce77ff24c94dc65",
+      "installed_checksum": "fc0da5706d8a8001e1e9cc4886e866d9e2e358d0cb6ad4808b2f2bdd905d87eb"
     },
     {
       "path": ".claude/skills/workflow-system-adopt-existing-project/SKILL.md",
       "mode": "bootstrap-skill-install",
-      "bundle_checksum": "bf9e1f4b50b807579f000d41581e3c236cb16ac78b2115bf27ca5b0a7ed9b10e",
-      "installed_checksum": "bf9e1f4b50b807579f000d41581e3c236cb16ac78b2115bf27ca5b0a7ed9b10e"
+      "bundle_checksum": "84a4d0e5cb3ef42ada0d4d076b98e1da51d63383542de68f15e92ac8bda821ac",
+      "installed_checksum": "6d6e12d387d740c0709f5f82a70912829f1166ef57cb8a478b4df21f89baba64"
     },
     {
       "path": ".codex/skills/workflow-system-design-baseline-init/SKILL.md",
       "mode": "bootstrap-skill-install",
-      "bundle_checksum": "1f074d44e5e3a2fe924b52967f21c32bcf8ddd245961b7e3230c5ae97ad03db1",
-      "installed_checksum": "1f074d44e5e3a2fe924b52967f21c32bcf8ddd245961b7e3230c5ae97ad03db1"
+      "bundle_checksum": "f03a0e63446b995c397e4ef3e3c45d13f6d668b9a4f3e813955456f184e478af",
+      "installed_checksum": "6cfa1ad4d37da39b9d8480f5066b5f91fbdc6b8790e4566ea67002fd74c7ad91"
+    },
+    {
+      "path": ".codex/skills/workflow-system-realign-workflow-assets/SKILL.md",
+      "mode": "bootstrap-skill-install",
+      "bundle_checksum": "c87f7ba8ee095e7728b8df5795104db724948a0ab8622979b565ab1c7762652f",
+      "installed_checksum": "c87f7ba8ee095e7728b8df5795104db724948a0ab8622979b565ab1c7762652f"
     },
     {
       "path": ".codex/skills/workflow-system-greenfield-init/SKILL.md",
       "mode": "bootstrap-skill-install",
-      "bundle_checksum": "9a61d0a35a4ec500431741b62956941981999877a59e906f2f09b3f15bdc10da",
-      "installed_checksum": "9a61d0a35a4ec500431741b62956941981999877a59e906f2f09b3f15bdc10da"
+      "bundle_checksum": "434fa56ec1bdef4badeaaacd9007e910fb17484e105712618cbaf4e60e8535f7",
+      "installed_checksum": "2700462b6be369ccb50feaccd623b1f0e74540a8eb082e6f10c007df79f5e1c8"
     },
     {
       "path": ".codex/skills/workflow-system-legacy-inventory/SKILL.md",
       "mode": "bootstrap-skill-install",
-      "bundle_checksum": "b432fa5dcea680a6e95743fbc85a81a3c71a20e5b9701fb4a6061313d6c50328",
-      "installed_checksum": "b432fa5dcea680a6e95743fbc85a81a3c71a20e5b9701fb4a6061313d6c50328"
+      "bundle_checksum": "bf046be3e0d263179ee1b463887892d367795d4d66dd90bc1ce77ff24c94dc65",
+      "installed_checksum": "fc0da5706d8a8001e1e9cc4886e866d9e2e358d0cb6ad4808b2f2bdd905d87eb"
     },
     {
       "path": ".codex/skills/workflow-system-adopt-existing-project/SKILL.md",
       "mode": "bootstrap-skill-install",
-      "bundle_checksum": "bf9e1f4b50b807579f000d41581e3c236cb16ac78b2115bf27ca5b0a7ed9b10e",
-      "installed_checksum": "bf9e1f4b50b807579f000d41581e3c236cb16ac78b2115bf27ca5b0a7ed9b10e"
+      "bundle_checksum": "84a4d0e5cb3ef42ada0d4d076b98e1da51d63383542de68f15e92ac8bda821ac",
+      "installed_checksum": "6d6e12d387d740c0709f5f82a70912829f1166ef57cb8a478b4df21f89baba64"
     }
   ],
   "package_json_fragment": {
@@ -359,10 +383,6 @@
     }
   },
   "project_profile_fragment": {
-    "runtime": {
-      "package_manager": "bun",
-      "module_system": "esm"
-    },
     "paths": {
       "workflow_template_directories": [
         "templates/docs",
@@ -430,42 +450,6 @@
           "description": "Validate registry generation.",
           "phase": "P9",
           "owner": "workflow-system"
-        },
-        {
-          "name": "unit",
-          "layer": "project",
-          "command": "",
-          "blocker_level": "blocks-merge",
-          "description": "Bind target project unit-test command during A4.",
-          "phase": "A4",
-          "owner": "target-project"
-        },
-        {
-          "name": "integration",
-          "layer": "project",
-          "command": "",
-          "blocker_level": "blocks-merge",
-          "description": "Bind target project integration-test command during A4.",
-          "phase": "A4",
-          "owner": "target-project"
-        },
-        {
-          "name": "e2e-smoke",
-          "layer": "project",
-          "command": "",
-          "blocker_level": "blocks-merge",
-          "description": "Bind target project smoke validation during A4.",
-          "phase": "A4",
-          "owner": "target-project"
-        },
-        {
-          "name": "contract-compatibility",
-          "layer": "project",
-          "command": "",
-          "blocker_level": "blocks-merge",
-          "description": "Bind target project contract checks during A4.",
-          "phase": "A4",
-          "owner": "target-project"
         }
       ]
     }
