@@ -2390,14 +2390,39 @@ function formatCodexContextTokensLine(usage) {
     return t('codex.context.tokenSummary', { usedTokens: formatCompactNumber(usedTokens), totalTokens: formatCompactNumber(contextWindow) });
 }
 
-function extractTokenStatsFromUsage(usage) {
+function extractTokenStatsFromUsage(usage, fallbackSource) {
     const debug = usage && usage.debug && typeof usage.debug === 'object' ? usage.debug : null;
     const total = debug && debug.tokenTotal && typeof debug.tokenTotal === 'object' ? debug.tokenTotal : null;
     const last = debug && debug.tokenLast && typeof debug.tokenLast === 'object' ? debug.tokenLast : null;
     const info = debug && debug.latestTokenUsageInfo && typeof debug.latestTokenUsageInfo === 'object'
         ? debug.latestTokenUsageInfo : null;
     const infoLast = info && info.last && typeof info.last === 'object' ? info.last : null;
-    const sources = [total, last, infoLast, info];
+    const fallback = fallbackSource && typeof fallbackSource === 'object' ? fallbackSource : null;
+    const sources = [
+        total,
+        last,
+        infoLast,
+        info,
+        fallback,
+        fallback && fallback.latestTokenUsageInfo,
+        fallback && fallback.latestTokenUsageInfo && fallback.latestTokenUsageInfo.last,
+        fallback && fallback.tokenUsage,
+        fallback && fallback.tokenUsage && fallback.tokenUsage.latestTokenUsageInfo,
+        fallback && fallback.tokenUsage && fallback.tokenUsage.latestTokenUsageInfo && fallback.tokenUsage.latestTokenUsageInfo.last,
+        fallback && fallback.tokenUsage && fallback.tokenUsage.last,
+        fallback && fallback.tokenUsage && fallback.tokenUsage.total,
+        fallback && fallback.usage,
+        fallback && fallback.contextUsage,
+        fallback && fallback.context_usage,
+        fallback && fallback.thread,
+        fallback && fallback.thread && fallback.thread.latestTokenUsageInfo,
+        fallback && fallback.thread && fallback.thread.latestTokenUsageInfo && fallback.thread.latestTokenUsageInfo.last,
+        fallback && fallback.thread && fallback.thread.tokenUsage,
+        fallback && fallback.thread && fallback.thread.tokenUsage && fallback.thread.tokenUsage.latestTokenUsageInfo,
+        fallback && fallback.thread && fallback.thread.tokenUsage && fallback.thread.tokenUsage.latestTokenUsageInfo && fallback.thread.tokenUsage.latestTokenUsageInfo.last,
+        fallback && fallback.thread && fallback.thread.tokenUsage && fallback.thread.tokenUsage.last,
+        fallback && fallback.thread && fallback.thread.tokenUsage && fallback.thread.tokenUsage.total
+    ];
     return {
         input: pickFirstNumber(sources, [['inputTokens'], ['input_tokens'], ['input'], ['promptTokens'], ['prompt_tokens']]),
         output: pickFirstNumber(sources, [['outputTokens'], ['output_tokens'], ['output'], ['completionTokens'], ['completion_tokens']]),
@@ -2420,7 +2445,7 @@ function renderCodexContextDebugModal() {
     if (codexContextDebugNote) {
         codexContextDebugNote.textContent = t('codex.context.autoCompact');
     }
-    const stats = extractTokenStatsFromUsage(usage);
+    const stats = extractTokenStatsFromUsage(usage, codexState.contextUsageDebug);
     if (codexContextDebugInput) {
         codexContextDebugInput.textContent = typeof stats.input === 'number' ? formatCompactNumber(stats.input) : '--';
     }
@@ -3310,6 +3335,7 @@ function resetCodexBootstrapState() {
     codexState.streamingItemId = '';
     codexState.tokenUsageSummary = '';
     codexState.contextUsage = null;
+    codexState.contextUsageDebug = null;
     codexState.contextUsageUpdatedAt = 0;
     codexState.historyListLoading = false;
     codexState.historyActionThreadId = '';
@@ -3702,6 +3728,7 @@ function beginFreshCodexThreadUiReset() {
     codexState.activeCommandApprovalRequestId = '';
     codexState.tokenUsageSummary = '';
     codexState.contextUsage = null;
+    codexState.contextUsageDebug = null;
     codexState.contextUsageUpdatedAt = 0;
     codexState.pendingFreshThread = true;
     codexState.messageByItemId = new Map();
@@ -4556,6 +4583,7 @@ function applyCodexTokenUsage(payload) {
     const summary = formatTokenUsageSummary(payload);
     codexState.tokenUsageSummary = summary;
     codexState.contextUsage = normalizeCodexContextUsage(payload);
+    codexState.contextUsageDebug = payload && typeof payload === 'object' ? payload : null;
     console.info('[JS][tokenUsage][apply]', JSON.stringify({
         payload: payload || null,
         summary,

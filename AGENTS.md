@@ -1,5 +1,6 @@
 # Project Agents Instructions (TermLink)
 
+用中文回答问题
 本文件定义 **仅在本项目生效** 的本地 skills。
 
 ## workflow-system baseline
@@ -69,17 +70,93 @@
 - 用途：新项目首版设计基线初始化。
 - 文件：`.codex/skills/workflow-system-design-baseline-init/SKILL.md`
 
-11. `greenfield-init`
-- 用途：新项目 workflow 治理基线初始化。
-- 文件：`.codex/skills/workflow-system-greenfield-init/SKILL.md`
-
-12. `legacy-inventory`
+11. `legacy-inventory`
 - 用途：老项目接入 workflow 前的事实盘点。
 - 文件：`.codex/skills/workflow-system-legacy-inventory/SKILL.md`
 
-13. `adopt-existing-project`
+12. `realign-workflow-assets`
+- 用途：在不清空目标仓库的前提下，对齐现有 workflow 文档、runtime skills、host guidance 与项目画像到当前 layout contract。
+- 文件：`.codex/skills/workflow-system-realign-workflow-assets/SKILL.md`
+
+13. `greenfield-init`
+- 用途：新项目 workflow 治理基线初始化。
+- 文件：`.codex/skills/workflow-system-greenfield-init/SKILL.md`
+
+14. `adopt-existing-project`
 - 用途：基于盘点结果为老项目建立首版 workflow 治理基线。
 - 文件：`.codex/skills/workflow-system-adopt-existing-project/SKILL.md`
+
+15. `create-current-task`
+- 用途：根据用户需求生成首版 `docs/workflow/CURRENT_TASK.md`。
+- 文件：`.codex/skills/workflow-system-create-current-task/SKILL.md`
+
+16. `review-current-task`
+- 用途：审查并收敛 `docs/workflow/CURRENT_TASK.md`，使其可执行、可审计。
+- 文件：`.codex/skills/workflow-system-review-current-task/SKILL.md`
+
+17. `lock-scope`
+- 用途：锁定本轮允许修改、禁止修改与条件放行边界。
+- 文件：`.codex/skills/workflow-system-lock-scope/SKILL.md`
+
+18. `classify-decisions`
+- 用途：把任务中的决策分成 mechanical / taste / user_challenge。
+- 文件：`.codex/skills/workflow-system-classify-decisions/SKILL.md`
+
+19. `decompose-task`
+- 用途：把任务拆成可独立验证的小步骤。
+- 文件：`.codex/skills/workflow-system-decompose-task/SKILL.md`
+
+20. `implement-current-step`
+- 用途：只实现 `CURRENT_TASK.md` 的当前步骤，禁止顺手扩散。
+- 文件：`.codex/skills/workflow-system-implement-current-step/SKILL.md`
+
+21. `investigate-root-cause`
+- 用途：先做根因定位，再提出最小修复路径。
+- 文件：`.codex/skills/workflow-system-investigate-root-cause/SKILL.md`
+
+22. `review-diff`
+- 用途：审查当前 diff 是否越界、是否偏离任务意图。
+- 文件：`.codex/skills/workflow-system-review-diff/SKILL.md`
+
+23. `verify-contracts`
+- 用途：核查本轮变更是否破坏接口契约或架构契约。
+- 文件：`.codex/skills/workflow-system-verify-contracts/SKILL.md`
+
+24. `run-regression`
+- 用途：按任务上下文选择合适 QA 模式并执行回归验证。
+- 文件：`.codex/skills/workflow-system-run-regression/SKILL.md`
+
+25. `sync-current-task`
+- 用途：回写 `docs/workflow/CURRENT_TASK.md` 的执行状态、验证结果与剩余问题。
+- 文件：`.codex/skills/workflow-system-sync-current-task/SKILL.md`
+
+26. `sync-status`
+- 用途：更新 `docs/workflow/STATUS.md`，反映当前项目整体进度与稳定状态。
+- 文件：`.codex/skills/workflow-system-sync-status/SKILL.md`
+
+27. `sync-contracts`
+- 用途：把新形成的稳定接口或架构边界写回 `docs/workflow/CONTRACTS.md`。
+- 文件：`.codex/skills/workflow-system-sync-contracts/SKILL.md`
+
+28. `sync-decisions`
+- 用途：把已确认架构、口味、暂缓或否决决策写回 `docs/workflow/DECISIONS.md`。
+- 文件：`.codex/skills/workflow-system-sync-decisions/SKILL.md`
+
+29. `sync-host-guidance`
+- 用途：同步 `AGENTS.md` 与 `CLAUDE.md`，确保两侧宿主读取同一套已确认项目级约束。
+- 文件：`.codex/skills/workflow-system-sync-host-guidance/SKILL.md`
+
+30. `capture-lessons`
+- 用途：把可复用经验与踩坑记录沉淀到 `docs/workflow/LESSONS.md`。
+- 文件：`.codex/skills/workflow-system-capture-lessons/SKILL.md`
+
+31. `prepare-delivery-summary`
+- 用途：整理结构化交付摘要，便于审计与移交。
+- 文件：`.codex/skills/workflow-system-prepare-delivery-summary/SKILL.md`
+
+32. `archive-task`
+- 用途：归档已完成任务，并为下一轮任务准备干净入口。
+- 文件：`.codex/skills/workflow-system-archive-task/SKILL.md`
 
 ## Trigger rules
 

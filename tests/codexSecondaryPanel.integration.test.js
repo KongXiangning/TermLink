@@ -20,6 +20,17 @@ const { createSlashRegistry } = require('../public/lib/codex_slash_commands');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const JS_PATH = path.join(PUBLIC_DIR, 'terminal_client.js');
+const zhTranslations = JSON.parse(fs.readFileSync(path.join(PUBLIC_DIR, 'i18n', 'zh-CN.json'), 'utf8'));
+function translateTestKey(key, params) {
+    let text = zhTranslations[key] || key;
+    if (params) {
+        for (const [name, value] of Object.entries(params)) {
+            text = text.replace(new RegExp(`\\{${name}\\}`, 'g'), String(value));
+        }
+    }
+    return text;
+}
+globalThis.t = translateTestKey;
 
 // Read actual terminal_client.js source
 const jsContent = fs.readFileSync(JS_PATH, 'utf8');
@@ -265,6 +276,10 @@ function createTestDOM() {
         <div id="codex-context-debug-modal" hidden>
             <div id="codex-context-debug-usage"></div>
             <div id="codex-context-debug-tokens"></div>
+            <div id="codex-context-debug-input"></div>
+            <div id="codex-context-debug-output"></div>
+            <div id="codex-context-debug-cached"></div>
+            <div id="codex-context-debug-reasoning"></div>
             <div id="codex-context-debug-note"></div>
             <div data-modal-dismiss="context-debug"></div>
         </div>
@@ -327,6 +342,12 @@ function createTestDOM() {
                 json: () => Promise.resolve({ ticket: 'test-ticket' })
             });
             window.prompt = () => '';
+            window.t = translateTestKey;
+            window.i18n = {
+                init: () => new Promise(() => {}),
+                translatePage: () => {},
+                t: window.t
+            };
 
             // Mock localStorage
             const storage = new Map();
@@ -1658,12 +1679,85 @@ test('Phase 5 Integration: debug modal still opens when context usage fields are
     const modal = hooks.getCodexContextDebugModal();
     assert.equal(modal.hidden, false);
     assert.match(modal.textContent, /--/);
+    assert.equal(window.document.getElementById('codex-context-debug-input').textContent, '94k');
     assert.match(modal.textContent, /Codex 自动压缩其背景信息/);
 
     dom.window.close();
 });
 
-test('Phase 5 Integration: context usage widget uses latestTokenUsageInfo as the preferred source', async () => {
+test('Phase 5 Integration: debug modal token stats render from app-server payloads', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+    hooks.codexState.sessionMode = 'codex';
+
+    hooks.handleCodexNotification('thread/tokenUsage/updated', {
+        tokenUsage: {
+            last: {
+                cachedInputTokens: 16000,
+                inputTokens: 112000,
+                outputTokens: 9000,
+                reasoningOutputTokens: 4000,
+                totalTokens: 137000
+            },
+            total: {
+                cachedInputTokens: 16000,
+                inputTokens: 112000,
+                outputTokens: 9000,
+                reasoningOutputTokens: 4000,
+                totalTokens: 137000
+            }
+        }
+    });
+
+    hooks.getCodexContextWidget().dispatchEvent(new window.Event('click'));
+
+    assert.equal(window.document.getElementById('codex-context-debug-input').textContent, '112k');
+    assert.equal(window.document.getElementById('codex-context-debug-output').textContent, '9.0k');
+    assert.equal(window.document.getElementById('codex-context-debug-cached').textContent, '16k');
+    assert.equal(window.document.getElementById('codex-context-debug-reasoning').textContent, '4.0k');
+
+    dom.window.close();
+});
+
+test('Phase 5 Integration: fresh thread reset clears stale debug modal token stats', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+    hooks.codexState.sessionMode = 'codex';
+
+    hooks.handleCodexNotification('thread/tokenUsage/updated', {
+        tokenUsage: {
+            last: {
+                cachedInputTokens: 16000,
+                inputTokens: 112000,
+                outputTokens: 9000,
+                reasoningOutputTokens: 4000,
+                totalTokens: 137000
+            },
+            total: {
+                cachedInputTokens: 16000,
+                inputTokens: 112000,
+                outputTokens: 9000,
+                reasoningOutputTokens: 4000,
+                totalTokens: 137000
+            }
+        }
+    });
+
+    hooks.requestCodexNewThread();
+    hooks.setCodexContextDebugModalOpen(true);
+
+    assert.equal(hooks.codexState.contextUsageDebug, null);
+    assert.equal(window.document.getElementById('codex-context-debug-input').textContent, '--');
+    assert.equal(window.document.getElementById('codex-context-debug-output').textContent, '--');
+    assert.equal(window.document.getElementById('codex-context-debug-cached').textContent, '--');
+    assert.equal(window.document.getElementById('codex-context-debug-reasoning').textContent, '--');
+
+    dom.window.close();
+});
+
+test('Phase 5 Integration: context usage widget uses latestTokenUsageInfo as the preferred source', async () => {      
     const dom = createTestDOM();
     const { window } = dom;
     const hooks = loadTerminalClient(window);

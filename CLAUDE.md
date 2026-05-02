@@ -22,6 +22,7 @@
 ## host-local skills
 
 - Claude local skills live under `.claude/skills/`.
+- The synced workflow-system runtime set also lives there, including task-flow skills such as `workflow-system-create-current-task`, `workflow-system-review-diff`, `workflow-system-sync-status`, and `workflow-system-realign-workflow-assets`.
 - The old root `skills/` tree is no longer the active source-of-truth.
 
 ## collaboration rules

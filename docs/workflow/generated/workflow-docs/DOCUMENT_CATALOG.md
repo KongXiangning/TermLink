@@ -17,6 +17,8 @@
 | `docs/designs/` | 新项目设计基线 | 放设计基线、领域模型、接口草案、详细设计等 greenfield 文档 |
 | `docs/adoption/` | 老项目事实盘点与接管材料 | 放 legacy inventory、风险登记、API 盘点和 adoption 报告 |
 
+- 对已完成 adoption 的存量项目，如果 `docs/workflow/DECISIONS.md` 或 `.workflow-system/PROJECT_PROFILE.yaml` 已明确保留现有项目文档路径（例如 `ARCHITECTURE.md`、`DATABASE.md`、`docs/architecture/**`），这些文档可以继续原位维护；`docs/designs/**` 与 `docs/adoption/*inventory.md` 是 canonical bucket，不是无条件迁移指令。
+
 ## 文档总览
 
 | 路径 | 分类 | 作用 | 生成/维护方式 | 生成批次 | 最后修改时间查询 |
@@ -35,6 +37,10 @@
 | `docs/workflow/SKILL_REGISTRY.md` | workflow-registry | 全部 workflow skill 的 stage / IO / handoff 总览 | `gen:registry` 生成 | `v1.0.0` | `git log -1 --format=%cI -- docs/workflow/SKILL_REGISTRY.md` |
 | `docs/workflow/generated/workflow-docs/**` | workflow-reference | source-repo governance docs reference render | `gen:workflow-docs` 生成 | `v1.0.0` | `git log -1 --format=%cI -- docs/workflow/generated/workflow-docs` |
 | `docs/workflow/generated/workflow-skills/**` | workflow-reference | source-repo skill reference render | `gen:workflow-skills` 生成 | `v1.0.0` | `git log -1 --format=%cI -- docs/workflow/generated/workflow-skills` |
+| `ARCHITECTURE.md` | project-doc | 当前仓库确认的项目架构事实与 inventory 基线 | 项目文档，按已确认事实维护 | current project doc | `git log -1 --format=%cI -- ARCHITECTURE.md` |
+| `DATABASE.md` | project-doc | 当前仓库确认的持久化/数据层事实与 inventory 基线 | 项目文档，按已确认事实维护 | current project doc | `git log -1 --format=%cI -- DATABASE.md` |
+| `docs/architecture/CURRENT_STATE.md` | project-doc | 当前产品/客户端/服务端现状说明 | 项目文档，按已确认事实维护 | current project doc | `git log -1 --format=%cI -- docs/architecture/CURRENT_STATE.md` |
+| `docs/architecture/ROADMAP.md` | project-doc | 产品/架构路线图与阶段计划 | 项目文档，按已确认事实维护 | current project doc | `git log -1 --format=%cI -- docs/architecture/ROADMAP.md` |
 | `docs/designs/architecture.md` | design-baseline | 新项目目标架构、边界与数据流 | `design-baseline-init` 生成/更新 | runtime skill output | `git log -1 --format=%cI -- docs/designs/architecture.md` |
 | `docs/designs/database.md` | design-baseline | 新项目数据库设计与生命周期约束 | `design-baseline-init` 生成/更新 | runtime skill output | `git log -1 --format=%cI -- docs/designs/database.md` |
 | `docs/designs/domain-model.md` | design-baseline | 核心实体、关系和业务不变量 | `design-baseline-init` 生成/更新 | runtime skill output | `git log -1 --format=%cI -- docs/designs/domain-model.md` |
@@ -52,3 +58,4 @@
 2. 需要 live governance 内容时，优先读 `docs/workflow/*.md`，不要把 `docs/workflow/generated/**` 当作目标项目的 live runtime docs。
 3. 需要 source-repo reference render 时，读取 `docs/workflow/generated/workflow-docs/**` 和 `docs/workflow/generated/workflow-skills/**`。
 4. 需要设计基线时读 `docs/designs/**`；需要老项目接管事实时读 `docs/adoption/**`。
+5. 对已确认保留现有项目文档路径的仓库，继续从 `ARCHITECTURE.md`、`DATABASE.md`、`docs/architecture/**` 等当前路径读取项目事实，不要为了满足 bucket 名称而静默迁移。

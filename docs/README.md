@@ -49,6 +49,7 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/CURRENT_S
 
 ### Guides
 
+- 开发与调试：`docs/guides/development-debugging.md`
 - Android 开发与构建：`docs/guides/android-development.md`
 - 部署指南：`docs/guides/deployment.md`
 

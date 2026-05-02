@@ -17,6 +17,8 @@
 | `docs/designs/` | 新项目设计基线与设计展开文档 | `architecture.md`、`database.md`、`domain-model.md`、`api-contracts.md` |
 | `docs/adoption/` | 老项目事实盘点、风险登记与接管材料 | `architecture-inventory.md`、`database-inventory.md`、`ADOPTION_REPORT.md` |
 
+- 若 `docs/workflow/DECISIONS.md` 或 `.workflow-system/PROJECT_PROFILE.yaml` 已确认保留现有项目文档路径，则继续使用 `ARCHITECTURE.md`、`DATABASE.md`、`docs/architecture/**` 等当前路径；`docs/designs/**` 与 `docs/adoption/*inventory.md` 主要描述 canonical output bucket，而不是强制迁移命令。
+
 ## 文档速查
 
 | 文档 | 作用 | 主要使用时机 |
@@ -31,16 +33,17 @@
 | `BASELINES.md` | 发布、兼容、安全、部署、性能和 gate 基线 | 涉及发布 gate、兼容窗口或非功能要求时 |
 | `TASK_SUMMARY.md` | 交付摘要结构参考 | 交付前准备摘要时 |
 | `TASK_ARCHIVE.md` | 任务归档结构参考 | 任务完成后、追溯历史时 |
+| `ARCHITECTURE.md` / `DATABASE.md` / `docs/architecture/**` | 当前仓库保留的项目架构、数据与现状文档 | 需要读取项目事实，且 `DECISIONS.md` 已确认这些文档保持原位时 |
 
 ## Skill 速查
 
 | 场景 | 使用 skill | 主要读取 | 主要产出 |
 | --- | --- | --- | --- |
 | 新项目设计基线 | `/design-baseline-init` | 原始需求、用户目标、技术栈偏好、交付约束 | `ROADMAP.md`、`docs/designs/architecture.md`、`docs/designs/database.md`、`docs/designs/**`、`BASELINES.md` / `DECISIONS.md` 草案 |
-| 对齐已有 workflow 资产 | `/realign-workflow-assets` | 当前 `.workflow-system/PROJECT_PROFILE.yaml`、已有 `docs/workflow/**` / `docs/designs/**` / `docs/adoption/**`、legacy root docs、runtime skill 目录、`AGENTS.md` / `CLAUDE.md` | 整理后的 workflow 文档目录、同步后的 runtime skills、更新后的 `AGENTS.md` / `CLAUDE.md` / `.workflow-system/PROJECT_PROFILE.yaml` |
+| 对齐已有 workflow 资产 | `/realign-workflow-assets` | 当前 `.workflow-system/PROJECT_PROFILE.yaml`、已有 `docs/workflow/**` / `docs/designs/**` / `docs/adoption/**`、legacy root docs、runtime skill 目录、`AGENTS.md` / `CLAUDE.md` | 整理后的 workflow 文档目录、同步后的 runtime skills、更新后的 `AGENTS.md` / `CLAUDE.md` / `.workflow-system/PROJECT_PROFILE.yaml`；如 `DECISIONS.md` 已确认保留现有项目文档路径，则按确认结果保留，不做静默迁移 |
 | 初始化新项目治理基线 | `/greenfield-init` | 已确认设计基线、用户目标、技术栈偏好、`.workflow-system/PROJECT_PROFILE.yaml` scaffold | 首版 `.workflow-system/PROJECT_PROFILE.yaml`、`AGENTS.md`、`CLAUDE.md`、`ROADMAP.md`、`CONTRACTS.md`、`BASELINES.md`、`STATUS.md`、`DECISIONS.md` |
-| 老项目事实盘点 | `/legacy-inventory` | 由 profile / 仓库事实确定的代码目录、README/docs、package scripts、数据库和部署线索 | `docs/adoption/architecture-inventory.md`、`docs/adoption/database-inventory.md`、`docs/adoption/**`、`ROADMAP.md` 缺口草案 |
-| 接管老项目治理基线 | `/adopt-existing-project` | `legacy-inventory` 产物、现有仓库事实、用户确认信息 | 首版 `.workflow-system/PROJECT_PROFILE.yaml`、`AGENTS.md`、`CLAUDE.md`、`ROADMAP.md`、`CONTRACTS.md`、`BASELINES.md`、`STATUS.md`、`DECISIONS.md`，必要时更新 `docs/adoption/ADOPTION_REPORT.md` |
+| 老项目事实盘点 | `/legacy-inventory` | 由 profile / 仓库事实确定的代码目录、README/docs、package scripts、数据库和部署线索 | canonical 输出是 `docs/adoption/architecture-inventory.md`、`docs/adoption/database-inventory.md` 与 `docs/adoption/**`；若仓库已确认保留现有项目文档路径，则继续以当前项目文档为事实源并在 adoption 产物中记录 |
+| 接管老项目治理基线 | `/adopt-existing-project` | `legacy-inventory` 产物、现有仓库事实、用户确认信息 | 首版 `.workflow-system/PROJECT_PROFILE.yaml`、`AGENTS.md`、`CLAUDE.md`、`ROADMAP.md`、`CONTRACTS.md`、`BASELINES.md`、`STATUS.md`、`DECISIONS.md`，必要时更新 `docs/adoption/ADOPTION_REPORT.md`；不静默覆盖已确认保留的项目文档路径 |
 | 创建任务包 | `/create-current-task` | `.workflow-system/PROJECT_PROFILE.yaml`、`CONTRACTS.md`、`STATUS.md`、`DECISIONS.md`、用户需求 | `CURRENT_TASK.md` |
 | 审查任务包 | `/review-current-task` | `CURRENT_TASK.md`、`.workflow-system/PROJECT_PROFILE.yaml`、`CONTRACTS.md`、`DECISIONS.md`、`STATUS.md` | 修订后的任务边界、验收、设计约束和风险 |
 | 锁定范围 | `/lock-scope` | `CURRENT_TASK.md`、`CONTRACTS.md`、`DECISIONS.md` | Safety mode、Allowed Files、Forbidden Files、Conditional Files、Dangerous surfaces、Unlock / widening conditions |
