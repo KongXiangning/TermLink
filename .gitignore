@@ -29,6 +29,7 @@ gradle-local/
 .codex/**/claude.md
 .codex/**/openai.yaml
 .claude/settings.local.json
+.github/copilot-instructions.md
 tmp-*.xml
 tmp/
 docs/codex/STITCH2_TERMLINK_CODEX_MOBILE_WORKSPACE_PROMPT.md
