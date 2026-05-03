@@ -122,6 +122,12 @@
     - HTTP create / patch：`src/routes/sessions.js`
     - 持久化：`src/repositories/sessionStore.js`
     - WebSocket 运行态：`src/ws/terminalGateway.js`
+- **[confirmed] Codex App 的 skills 可见性按当前 Codex session `cwd` 解释。**
+  - 语义：Android 中不同 Codex 会话可以打开不同路径；该路径对应 Codex CLI 的当前工作目录语义，因此不同路径下的 `.codex/skills/`、兼容 `skills/`、`.claude/skills/` 会形成不同的可见 skill 集合。
+  - 证据：
+    - Android 创建 / 恢复 Codex session 会携带 `cwd`：`CodexActivity.kt`、`SessionsFragment.kt`
+    - Gateway 解析 active skill 时按 `cwd/.codex/skills/<name>/SKILL.md`、`cwd/skills/<name>/SKILL.md`、`cwd/.claude/skills/<name>/SKILL.md` 构造候选路径：`src/ws/terminalGateway.js`
+  - 排查规则：App 中新增 skill 不可见时，先核对当前 Codex session 的 `cwd` 是否就是预期项目目录，再核对该目录下的 host-local skill mirror；不要先把 PM2 / Node 服务部署目录当作 skill catalog 来源。
 - **[fragile] Android 恢复状态分散在多份 SharedPreferences。**
   - 证据：
     - `MainShellActivity` 使用 `termlink_shell`

@@ -68,6 +68,15 @@
   - 不可破坏项：字段语义与类型不可无兼容地改变
   - 备注：当前仓库内 consumer 已依赖
 
+- 名称：Codex session cwd / skills discovery scope
+  - 结构：Codex session `cwd` + host-local skill mirrors under that cwd
+  - 语义：Android App 中打开的 Codex 会话对应一个用户选择的工作目录；该目录应与 Codex CLI 在同一路径下看到的项目上下文一致。不同 Codex session 可以有不同 `cwd`，因此可见 skill 集合也可以不同。
+  - 不可破坏项：
+    - App skill catalog 的排查第一事实是当前 Codex session `cwd`，不是 PM2 / Node 服务部署目录
+    - 项目本地 skills 应按当前 `cwd` 下的 `.codex/skills/`、兼容 `skills/`、`.claude/skills/` 解释
+    - 选中 skill 发送 turn 时，gateway 按当前 `cwd` 解析 `SKILL.md` 路径
+  - 备注：若 App 与 Codex CLI 在同一路径下看到的 skills 不一致，先核对 App 当前 session `cwd` 和 `skills/list` 原始响应，再判断 gateway 或 Android 展示层是否有问题
+
 - 名称：`data/sessions.json`
   - 结构：`{ version, savedAt, sessions[] }`
   - 语义：服务端 session metadata 持久化
@@ -120,7 +129,8 @@
 ### 🔒 事件 / DTO 语义
 
 - WebSocket `codex_state` 表示当前 session 的 Codex runtime 状态，而不是单次消息回执
-- `workspaceRoot` 是访问边界，不只是 UI 显示路径
+- `cwd` 是 Codex session 的执行上下文，也是 skill discovery 的项目作用域，不只是 UI 显示路径
+- `workspaceRoot` 是 workspace API 访问边界，不只是 UI 显示路径
 - `TERMLINK_WORKSPACE_PICKER_ROOT` 是 picker API 的服务端边界，不等同于 session `workspaceRoot`
 - `lastCodexThreadId` 是恢复线索，不是随意可覆盖的装饰字段
 
@@ -167,6 +177,7 @@
   - assertions：
     - session 创建 / 删除 / rename / patch 语义稳定
     - codex session 需要 `cwd`
+    - App / Codex CLI 的 skill 可见性按当前 Codex session `cwd` 对齐；服务端部署目录不是 App skill catalog 的默认项目作用域
     - idle cleanup 默认 6 小时
     - session workspace 访问不能突破 `workspaceRoot`
     - picker API 访问不能突破 `TERMLINK_WORKSPACE_PICKER_ROOT`

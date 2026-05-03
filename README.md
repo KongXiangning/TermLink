@@ -328,13 +328,14 @@ Workspace is hosted in `WorkspaceActivity` and provides directory browsing, text
 - `MainShellActivity` is the native entry and owns the top bar, sessions drawer, settings, workspace entry, and WebView container.
 - Android Terminal uses `public/terminal_client.html`; Codex uses `public/codex_client.html`; Workspace uses dedicated `WorkspaceActivity + public/workspace.html`.
 - Session creation supports `terminal` / `codex` routing, and Codex sessions can carry `cwd` and `workspaceRoot` context.
+- Each Codex session's `cwd` is the project context used by Codex CLI and App skill discovery. Different Codex sessions can point at different directories, so their visible `.codex/skills` / compatible `skills` / `.claude/skills` catalogs can differ.
 
 ### Codex Workspace
 
 - The top status strip shows current state, `cwd` summary, and rate-limit information.
 - Secondary navigation is scoped to `Task History / Runtime / Tools`.
 - The composer supports slash commands, `@` file mention, image URL input, one-turn model override, one-turn reasoning override, and one-turn sandbox override.
-- `/plan`, task history, tools panel, blocking command-approval modal, and the context widget are wired into the active flow.
+- `/plan`, task history, tools panel, skill browsing, blocking command-approval modal, and the context widget are wired into the active flow.
 
 ### Workspace Browsing
 

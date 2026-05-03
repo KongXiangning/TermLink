@@ -60,6 +60,10 @@
   - `sessionMode=codex` 时 `cwd` 必填
   - `cwd` 必须存在且是目录
   - 证据：`src/routes/sessions.js:32-116`
+- **[confirmed] Codex `cwd` 不是单纯显示字段。**
+  - Android App 选择 / 恢复的 Codex session `cwd` 对应 Codex CLI 的当前工作目录语义。
+  - App 中 tools / skill catalog 的可见集合应按当前 session `cwd` 下的项目本地 skills 解释；不同 `cwd` 可以看到不同 skills。
+  - 排查新增 skill 不可见时，优先核对 session `cwd` 与该路径下 `.codex/skills/`、兼容 `skills/`、`.claude/skills/` 的目录事实。
 
 ## 3. Android 本地持久化
 
@@ -90,8 +94,8 @@
 ## 4. 高风险字段 / 高风险存储
 
 - **[fragile] `cwd / workspaceRoot / workspaceRootSource`**
-  - 原因：同时影响 session 创建、Codex 恢复、workspace 浏览
-  - 证据：`src/routes/sessions.js`、`src/repositories/sessionStore.js`、`src/routes/workspace.js`
+  - 原因：同时影响 session 创建、Codex 恢复、workspace 浏览，以及当前 Codex session 的 skill discovery 项目作用域
+  - 证据：`src/routes/sessions.js`、`src/repositories/sessionStore.js`、`src/routes/workspace.js`、`src/ws/terminalGateway.js`
 - **[fragile] `lastCodexThreadId`**
   - 原因：错误复用会把会话恢复到错误 thread
   - 证据：`src/repositories/sessionStore.js`、`src/services/sessionManager.js`、`src/ws/terminalGateway.js`
