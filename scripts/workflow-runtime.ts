@@ -175,6 +175,7 @@ type ParsedCliArgs = {
   outDir?: string;
   includeTests: boolean;
   repairBootstrapDrift: boolean;
+  replaceManagedDrift: boolean;
 };
 
 export type BundleArtifact = {
@@ -277,6 +278,7 @@ export type InstallOptions = {
   host?: RuntimeHost;
   dryRun?: boolean;
   repairBootstrapDrift?: boolean;
+  replaceManagedDrift?: boolean;
 };
 
 type HostResolution = {
@@ -496,6 +498,7 @@ export function parseRuntimeCliArgs(argv: string[]): ParsedCliArgs {
         flag === '--bundle' ||
         flag === '--dry-run' ||
         flag === '--repair-bootstrap-drift' ||
+        flag === '--replace-managed-drift' ||
       flag === '--out-dir' ||
         flag === '--include-tests' ||
         flag.startsWith('--host=') ||
@@ -524,6 +527,7 @@ export function parseRuntimeCliArgs(argv: string[]): ParsedCliArgs {
     outDir,
     includeTests: flags.includes('--include-tests'),
     repairBootstrapDrift: flags.includes('--repair-bootstrap-drift'),
+    replaceManagedDrift: flags.includes('--replace-managed-drift'),
   };
 }
 
@@ -1532,6 +1536,7 @@ function buildReplaceManagedPlan(
   bundleDir: string,
   bundle: WorkflowBundle,
   installState?: InstallState,
+  options: { replaceManagedDrift?: boolean } = {},
 ): { plannedWrites: PlannedWrite[]; managedFiles: ManagedFileEntry[]; failures: PreflightFailure[] } {
   const failures: PreflightFailure[] = [];
   const plannedWrites: PlannedWrite[] = [];
@@ -1550,7 +1555,7 @@ function buildReplaceManagedPlan(
       path: relativePath,
       mode: 'replace-managed',
       bundle_checksum: artifact.checksum,
-      installed_checksum: currentExists ? currentChecksum! : artifact.checksum,
+      installed_checksum: artifact.checksum,
     });
 
     if (!installState) {
@@ -1567,10 +1572,21 @@ function buildReplaceManagedPlan(
     }
 
     if (currentExists && stateEntry && currentChecksum !== stateEntry.installed_checksum) {
-      failures.push({
-        category: 'local_drift',
-        path: relativePath,
-        message: 'Managed file was modified locally since last install.',
+      if (currentChecksum === artifact.checksum) {
+        continue;
+      }
+      if (!options.replaceManagedDrift) {
+        failures.push({
+          category: 'local_drift',
+          path: relativePath,
+          message: 'Managed file was modified locally since last install. Re-run with --replace-managed-drift only after confirming workflow-system managed files may be replaced from the bundle.',
+        });
+        continue;
+      }
+      plannedWrites.push({
+        path: targetPath,
+        action: 'overwrite',
+        mode: 'replace-managed',
       });
       continue;
     }
@@ -1591,12 +1607,14 @@ function buildReplaceManagedPlan(
     if (!bundlePaths.has(normalizeRelativePath(prior.path))) {
       const targetPath = path.join(root, prior.path.replace(/\//g, path.sep));
       if (fs.existsSync(targetPath) && computeFileChecksum(targetPath) !== prior.installed_checksum) {
-        failures.push({
-          category: 'local_drift',
-          path: prior.path,
-          message: 'Managed file slated for prune was modified locally since last install.',
-        });
-        continue;
+        if (!options.replaceManagedDrift) {
+          failures.push({
+            category: 'local_drift',
+            path: prior.path,
+            message: 'Managed file slated for prune was modified locally since last install. Re-run with --replace-managed-drift only after confirming workflow-system managed files may be pruned.',
+          });
+          continue;
+        }
       }
       plannedWrites.push({ path: targetPath, action: 'delete', mode: 'replace-managed' });
     }
@@ -1632,7 +1650,7 @@ function buildBootstrapManagedPlan(
       path: relativePath,
       mode: 'bootstrap-skill-install',
       bundle_checksum: expectedChecksum,
-      installed_checksum: currentExists ? currentChecksum! : expectedChecksum,
+      installed_checksum: expectedChecksum,
     });
 
     if (!installState) {
@@ -1649,6 +1667,9 @@ function buildBootstrapManagedPlan(
     }
 
     if (currentExists && stateEntry && currentChecksum !== stateEntry.installed_checksum) {
+      if (currentChecksum === expectedChecksum) {
+        continue;
+      }
       if (!options.repairBootstrapDrift) {
         failures.push({
           category: 'local_drift',
@@ -1749,7 +1770,13 @@ export function installWorkflowBundle(options: InstallOptions): InstallReport {
     : undefined;
   const failures: PreflightFailure[] = [];
 
-  const replaceManagedPlan = buildReplaceManagedPlan(root, bundleDir, bundle, existingInstallState);
+  const replaceManagedPlan = buildReplaceManagedPlan(
+    root,
+    bundleDir,
+    bundle,
+    existingInstallState,
+    { replaceManagedDrift: options.replaceManagedDrift },
+  );
   failures.push(...replaceManagedPlan.failures);
 
   const packagePlan = buildPackageJsonPlan(root, bundle, existingInstallState);
@@ -2331,6 +2358,7 @@ function main(): void {
       host: args.host,
       dryRun: args.dryRun,
       repairBootstrapDrift: args.repairBootstrapDrift,
+      replaceManagedDrift: args.replaceManagedDrift,
     });
     writeCliReport(args.json ? JSON.stringify(report, null, 2) : formatInstallReport(report), {
       json: args.json,

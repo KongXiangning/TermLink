@@ -20,15 +20,15 @@
 | 阶段 | Skill |
 |---|---|
 | 初始化 | `design-baseline-init` → `realign-workflow-assets` → `greenfield-init` / `legacy-inventory` → `adopt-existing-project` |
-| 阶段 1：需求进入 | `create-current-task` → `review-current-task` |
+| 阶段 1：需求进入 | `execute-current-task` → `create-current-task` → `review-current-task` |
 | 阶段 2：范围锁定 | `lock-scope` |
 | 阶段 3：方案拆解 | `classify-decisions` → `decompose-task` |
-| 阶段 4：小步实现 | `implement-current-step` |
-| 阶段 4/6：异常处理 | `investigate-root-cause` |
-| 阶段 5：范围复核 | `review-diff` → `verify-contracts` |
+| 阶段 4：小步实现 | `continue-current-step` → `implement-current-step` |
+| 阶段 4/6：异常处理 | `debug-and-fix-current-task` → `investigate-root-cause` |
+| 阶段 5：范围复核 | `review-current-diff` → `review-diff` → `review-implementation` → `verify-contracts` |
 | 阶段 6：回归验证 | `run-regression` |
 | 阶段 7：状态同步 | `sync-current-task` → `sync-status` → `sync-contracts` → `sync-decisions` → `sync-host-guidance` → `capture-lessons` |
-| 阶段 8：交付沉淀 | `prepare-delivery-summary` → `archive-task` |
+| 阶段 8：交付沉淀 | `close-current-task` → `prepare-delivery-summary` → `archive-task` |
 
 失败分支：
 
@@ -53,6 +53,7 @@
 
 | Skill | 作用 | 触发条件 | 读取 | 写入 | handoff.success | handoff.failure |
 |---|---|---|---|---|---|---|
+| `execute-current-task` | 按标准顺序执行当前任务，从任务复核、范围锁定、决策分类和步骤拆解进入实现与验证链。 | docs/workflow/CURRENT_TASK.md 已存在，用户要求继续执行或自动推进当前任务时。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/STATUS.md` | `[]` | `review-current-task` | `ask-user` |
 | `create-current-task` | 根据用户需求生成可执行的 docs/workflow/CURRENT_TASK.md 初稿。 | 当用户提出新需求，且当前没有可直接执行的任务包时。 | `.workflow-system/PROJECT_PROFILE.yaml`、`docs/workflow/CONTRACTS.md`、`docs/workflow/STATUS.md`、`docs/workflow/DECISIONS.md` | `docs/workflow/CURRENT_TASK.md` | `review-current-task` | `ask-user` |
 | `review-current-task` | 审查 docs/workflow/CURRENT_TASK.md 初稿并收敛成可执行任务包。 | 当 docs/workflow/CURRENT_TASK.md 初稿已经生成，进入实现前。 | `docs/workflow/CURRENT_TASK.md`、`.workflow-system/PROJECT_PROFILE.yaml`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/STATUS.md` | `docs/workflow/CURRENT_TASK.md` | `lock-scope` | `ask-user` |
 
@@ -73,19 +74,23 @@
 
 | Skill | 作用 | 触发条件 | 读取 | 写入 | handoff.success | handoff.failure |
 |---|---|---|---|---|---|---|
+| `continue-current-step` | 执行已锁定范围内的当前实施步骤，并自动进入范围审查、实现质量审查、契约验证和回归验证。 | docs/workflow/CURRENT_TASK.md 已完成范围锁定和步骤拆解，用户要求继续当前 step 时。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/LESSONS.md` | `[]` | `implement-current-step` | `ask-user` |
 | `implement-current-step` | 只实现 docs/workflow/CURRENT_TASK.md 中当前步骤，禁止顺手扩散。 | 进入具体编码实现时。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/LESSONS.md` | `src`、`android`、`public`、`tests`、`scripts`、`docs/workflow/CURRENT_TASK.md` | `review-diff` | `ask-user` |
 
 ### 3.6 阶段 4/6：异常处理
 
 | Skill | 作用 | 触发条件 | 读取 | 写入 | handoff.success | handoff.failure |
 |---|---|---|---|---|---|---|
+| `debug-and-fix-current-task` | 针对当前 bug 任务先调查根因，再执行最小修复并完成审查和回归验证。 | 测试失败、回归失败、实现异常或用户要求自动调查并修复当前 bug 时。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/LESSONS.md` | `[]` | `investigate-root-cause` | `ask-user` |
 | `investigate-root-cause` | 先做根因定位，再提出最小修复建议。 | 测试失败、验证失败或实现过程中出现异常时。 | `docs/workflow/CURRENT_TASK.md` | `docs/workflow/CURRENT_TASK.md` | `implement-current-step` | `ask-user` |
 
 ### 3.7 阶段 5：范围复核
 
 | Skill | 作用 | 触发条件 | 读取 | 写入 | handoff.success | handoff.failure |
 |---|---|---|---|---|---|---|
-| `review-diff` | 审查当前 diff 是否越界、是否偏离任务意图。 | 每完成一个实现步骤后。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md` | `[]` | `verify-contracts` | `ask-user` |
+| `review-current-diff` | 只审查当前 diff，不修复；输出范围、实现质量、契约和回归验证风险。 | 用户要求 review、只报告问题、不要改代码，或准备合并前需要审查当前 diff 时。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/LESSONS.md`、`.workflow-system/PROJECT_PROFILE.yaml` | `[]` | `review-diff` | `ask-user` |
+| `review-diff` | 审查当前 diff 是否越界、是否偏离任务意图。 | 每完成一个实现步骤后。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md` | `[]` | `review-implementation` | `ask-user` |
+| `review-implementation` | 审查当前实现是否真正解决任务目标，并检查代码合理性、鲁棒性和测试充分性。 | review-diff 通过后、进入契约验证前。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/LESSONS.md` | `[]` | `verify-contracts` | `ask-user` |
 | `verify-contracts` | 专门核查接口契约和架构契约是否被破坏。 | diff 较大、涉及稳定边界，或 review-diff 发现潜在契约风险时。 | `docs/workflow/CONTRACTS.md`、`docs/workflow/CURRENT_TASK.md` | `[]` | `run-regression` | `ask-user` |
 
 ### 3.8 阶段 6：回归验证
@@ -109,6 +114,7 @@
 
 | Skill | 作用 | 触发条件 | 读取 | 写入 | handoff.success | handoff.failure |
 |---|---|---|---|---|---|---|
+| `close-current-task` | 在实现和验证完成后，按顺序同步任务、状态、契约、决策、宿主指引、经验、交付摘要和归档。 | 当前任务实现、审查和验证完成，用户要求收尾、交付或归档时。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/STATUS.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/LESSONS.md` | `[]` | `sync-current-task` | `ask-user` |
 | `prepare-delivery-summary` | 整理本轮任务摘要，形成可交付、可复核的结果记录。 | 一轮任务完成后，准备收尾或交付时。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/STATUS.md` | `[]` | `archive-task` | `ask-user` |
 | `archive-task` | 将本轮任务归档到 TASKS/，并为下一轮留下清晰入口。 | 任务正式完成并确认可以归档时。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/STATUS.md` | `TASKS/TASK-{{TASK_ID}}-{{TASK_SLUG}}.md`、`docs/workflow/CURRENT_TASK.md` | `create-current-task` | `ask-user` |
 
@@ -118,8 +124,14 @@
 
 以下 skill 应优先关注，因为它们最容易造成越界或状态失真：
 
+- `execute-current-task`
+- `continue-current-step`
+- `debug-and-fix-current-task`
+- `review-current-diff`
+- `close-current-task`
 - `implement-current-step`
 - `review-diff`
+- `review-implementation`
 - `verify-contracts`
 - `run-regression`
 - `sync-contracts`

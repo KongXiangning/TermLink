@@ -331,7 +331,7 @@ The workflow system defines exactly 10 stage groups. Generators must validate th
 | `phase-3-decomposition` | 阶段 3：方案拆解 | Decision classification and task decomposition | Planning |
 | `phase-4-implementation` | 阶段 4：小步实现 | Step-by-step implementation | Execution |
 | `phase-4-6-exception` | 阶段 4/6：实现或验证异常 | Exception handling during implementation or regression | Execution |
-| `phase-5-scope-review` | 阶段 5：范围复核 | Review diff and verify contracts | Review |
+| `phase-5-scope-review` | 阶段 5：范围复核 | Review diff, implementation quality, and contracts | Review |
 | `phase-6-regression` | 阶段 6：回归验证 | Regression verification | Review |
 | `phase-7-sync` | 阶段 7：状态同步 | Sync task, status, contracts, decisions | Sync |
 | `phase-8-delivery` | 阶段 8：交付沉淀 | Capture lessons, prepare summary, archive | Delivery |
@@ -523,6 +523,7 @@ design-baseline-init -> realign-workflow-assets? -> greenfield-init | legacy-inv
   -> decompose-task
   -> implement-current-step
   -> review-diff
+  -> review-implementation
   -> verify-contracts
   -> run-regression
   -> sync-current-task
@@ -540,6 +541,20 @@ Plus the failure detour:
 ```text
 run-regression -> investigate-root-cause -> implement-current-step
 ```
+
+Plus orchestration entrypoints that sequence existing workflow skills without replacing their read/write boundaries:
+
+```text
+execute-current-task -> review-current-task -> lock-scope -> classify-decisions -> decompose-task -> implement-current-step -> review-diff -> review-implementation -> verify-contracts -> run-regression
+continue-current-step -> implement-current-step -> review-diff -> review-implementation -> verify-contracts -> run-regression -> sync-current-task
+debug-and-fix-current-task -> investigate-root-cause -> implement-current-step -> review-diff -> review-implementation -> verify-contracts -> run-regression
+review-current-diff -> review-diff -> review-implementation -> verify-contracts -> run-regression(report-only terminal report)
+close-current-task -> sync-current-task -> sync-status -> sync-contracts(no-op allowed) -> sync-decisions(no-op allowed) -> sync-host-guidance(no-op allowed) -> capture-lessons(no-op allowed) -> prepare-delivery-summary -> archive-task
+```
+
+- Orchestration entrypoints may define `child_overrides` for a child skill when the parent flow must constrain an otherwise normal handoff. `/review-current-diff` must override `/run-regression` with `qa_mode=report-only`, `terminal=true`, and suppressed success/failure handoffs.
+- `/review-implementation` must separate current-scope mechanical findings from findings that require human confirmation. The skill must classify findings by `conditional_handoff` before falling back to `handoff.failure`. Mechanical implementation findings within Allowed Files may hand off to `implement-current-step`; user challenge, contract or architecture changes, and scope widening must stop at `ask-user` or `lock-scope`.
+- Every major or critical `/review-implementation` finding must include concrete evidence: `file_or_symbol`, `failing_scenario`, `why_current_implementation_fails`, `minimal_fix_direction`, and `required_test_or_smoke_evidence`.
 
 ---
 
@@ -585,8 +600,14 @@ Current implementation:
 The following skills are designated non-code-writing in the current templates and generated outputs:
 
 - `review-diff`
+- `review-implementation`
 - `verify-contracts`
 - `run-regression`
+- `execute-current-task`
+- `continue-current-step`
+- `debug-and-fix-current-task`
+- `review-current-diff`
+- `close-current-task`
 
 Current implementation:
 
