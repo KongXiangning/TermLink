@@ -548,6 +548,88 @@ test('codex_request forwards model/list, account/rateLimits/read, and thread/com
     });
 });
 
+test('codex_request skills/list injects session cwd for legacy clients and preserves explicit cwds', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', { cwd: 'E:\\coding\\TermLink' });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-skills-legacy',
+        method: 'skills/list',
+        params: {}
+    }));
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-skills-explicit',
+        method: 'skills/list',
+        params: {
+            cwds: ['D:\\other\\repo']
+        }
+    }));
+
+    const service = MockCodexService.instances[0];
+    const skillsListCalls = service.requests.filter((entry) => entry.method === 'skills/list');
+    assert.equal(skillsListCalls.length, 2);
+    assert.deepEqual(skillsListCalls[0].params, {
+        cwds: ['E:\\coding\\TermLink']
+    });
+    assert.deepEqual(skillsListCalls[1].params, {
+        cwds: ['D:\\other\\repo']
+    });
+});
+
+test('codex_request skills/list without session cwd does not crash or synthesize cwd', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session');
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-skills-no-cwd',
+        method: 'skills/list',
+        params: {}
+    }));
+
+    const service = MockCodexService.instances[0];
+    const skillsListCall = service.requests.find((entry) => entry.method === 'skills/list');
+    assert.ok(skillsListCall, 'skills/list should still be forwarded');
+    assert.deepEqual(skillsListCall.params, {});
+    const response = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-skills-no-cwd');
+    assert.ok(response, 'codex_response should be returned');
+    assert.equal(response.error, undefined);
+});
+
 test('codex_request forwards thread/fork, thread/name/set, thread/archive, and thread/unarchive', async (t) => {
     MockCodexService.instances.length = 0;
     const registerTerminalGateway = loadGatewayWithMocks({

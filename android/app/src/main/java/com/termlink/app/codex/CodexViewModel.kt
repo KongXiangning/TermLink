@@ -1893,7 +1893,12 @@ class CodexViewModel(
                 )
             )
         }
-        connectionManager.send(CodexClientMessages.codexRequest("skills/list", JSONObject()))
+        val params = JSONObject()
+        val cwd = state.cwd?.trim().orEmpty()
+        if (cwd.isNotEmpty()) {
+            params.put("cwds", JSONArray().put(cwd))
+        }
+        connectionManager.send(CodexClientMessages.codexRequest("skills/list", params))
     }
 
     private fun handleSkillsListResponse(result: Any?) {

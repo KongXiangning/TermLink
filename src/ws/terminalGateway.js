@@ -571,6 +571,32 @@ function isAllowedCodexRequestMethod(method) {
     return isNonEmptyString(method) && CODEX_REQUEST_METHOD_WHITELIST.has(method.trim());
 }
 
+function buildCodexRequestParams(method, params, session) {
+    if (!isNonEmptyString(method) || method.trim() !== 'skills/list') {
+        return params;
+    }
+
+    const source = params && typeof params === 'object' && !Array.isArray(params)
+        ? params
+        : {};
+    if (Object.prototype.hasOwnProperty.call(source, 'cwds')) {
+        return params;
+    }
+
+    const cwd = normalizeOptionalCwd(session && session.cwd);
+    if (!cwd) {
+        console.warn('[gateway][codex_request][skills/list] Missing session cwd; forwarding request without cwds.', JSON.stringify({
+            sessionId: session && session.id ? session.id : null
+        }));
+        return params;
+    }
+
+    return {
+        ...source,
+        cwds: [cwd]
+    };
+}
+
 function resolveCodexServerRequestKind(method) {
     const normalizedMethod = isNonEmptyString(method) ? method.trim() : '';
     if (normalizedMethod === 'item/commandExecution/requestApproval' || normalizedMethod === 'execCommandApproval') {
@@ -1702,7 +1728,8 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             });
                             return;
                         }
-                        const response = await codexService.request(method, envelope.params);
+                        const requestParams = buildCodexRequestParams(method, envelope.params, session);
+                        const response = await codexService.request(method, requestParams);
                         if (method === 'account/rateLimits/read') {
                             console.info('[CODEX][account/rateLimits/read] Response:', JSON.stringify(response, null, 2));
                         }

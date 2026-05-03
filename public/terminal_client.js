@@ -2604,6 +2604,11 @@ function canLoadCodexSkills() {
     return getActiveSessionMode() === 'codex' && codexState.capabilities.skillsList === true;
 }
 
+function buildCodexSkillsListParams() {
+    const cwd = String(codexState.cwd || getConfiguredCodexCwd() || '').trim();
+    return cwd ? { cwds: [cwd] } : {};
+}
+
 function maybeLoadCodexSkills() {
     if (!canLoadCodexSkills()) {
         return Promise.resolve([]);
@@ -2621,7 +2626,7 @@ function maybeLoadCodexSkills() {
     codexState.skillsLoading = true;
     renderCodexSlashMenu();
     renderCodexToolsPanel();
-    codexState.skillListPromise = sendCodexBridgeRequest('skills/list', {})
+    codexState.skillListPromise = sendCodexBridgeRequest('skills/list', buildCodexSkillsListParams())
         .then((result) => {
             codexState.skillCatalog = normalizeCodexSkillCatalog(result);
             renderCodexSlashMenu();

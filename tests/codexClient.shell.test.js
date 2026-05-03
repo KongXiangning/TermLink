@@ -242,7 +242,10 @@ test('Phase 2: terminal_client.js must parse model\/list and skills\/list payloa
     assert.match(js, /defaultReasoningEffort/);
     assert.doesNotMatch(js, /默认 ·/);
     assert.match(js, /function normalizeCodexSkillCatalog\(result\)/);
-    assert.match(js, /sendCodexBridgeRequest\('skills\/list', \{\}\)/);
+    assert.match(js, /function buildCodexSkillsListParams\(\)/);
+    assert.match(js, /const cwd = String\(codexState\.cwd \|\| getConfiguredCodexCwd\(\) \|\| ''\)\.trim\(\)/);
+    assert.match(js, /return cwd \? \{ cwds: \[cwd\] \} : \{\}/);
+    assert.match(js, /sendCodexBridgeRequest\('skills\/list', buildCodexSkillsListParams\(\)\)/);
     assert.match(js, /codexInput\.value = '\/skill '/);
     assert.match(js, /const items = isSkillQuery\s*\?\s*\[\]/);
     assert.match(js, /codexSlashMenuEmpty\.hidden = isSkillQuery \? skillItems\.length > 0/);
