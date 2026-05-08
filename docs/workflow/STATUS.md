@@ -21,8 +21,8 @@
 
 ## 🔨 正在开发
 
-- [ ] Codex Android 运行态一致性与交互修复收口，文档仍显示该需求处于 in_progress
-- [ ] A5 current-task driven delivery 尚未开始，首张 `CURRENT_TASK.md` 仍待创建
+- [ ] Codex history / active thread session 作用域修复已提交并进入条件交接：状态为 `implemented_committed_limited_android_smoke_conditionally_accepted`，有限真机 Android smoke 未发现当前可复现阻塞问题，但完整步骤 12-15 smoke 未充分覆盖，不能写入稳定区
+- [x] A5 current-task driven delivery 已开始，当前任务包为 `docs/workflow/CURRENT_TASK.md`（任务 ID：20260504-001）
 
 ## 📋 待开发
 
@@ -33,6 +33,8 @@
 ## ⚠️ 已知风险 / 观察点
 
 - `src/ws/terminalGateway.js` 责任过重，是高回归风险区域
+- Codex session / thread / task 状态链路仍处于观察：双 cwd session 历史列表隔离、A/B 项目切换 stale task/thread 清理、同一 session 重新进入 active thread 一致性、新建任务脱离 stale threadId 的完整真机 smoke 均未完整验证
+- 后续新需求若继续触碰 session / thread / task 状态逻辑，必须重新纳入上述 Android smoke 风险，不得直接视为已稳定
 - 外部 consumer 是否依赖现有 API 仍是 unknown
 - `.codex/skills/` 在本仓库带有本地忽略语义，需持续注意 host guidance 漂移
 - workflow validation matrix 已明确绑定 Node tests、Android JVM unit 和 Android release config；integration / e2e / deploy 仍待补
@@ -47,7 +49,8 @@
 
 ## 🔜 下一检查点
 
-- [ ] 创建第一张 `CURRENT_TASK.md`
+- [ ] 对当前 Codex session/thread 条件交接任务执行后续完整 Android smoke，覆盖双 cwd 历史隔离、A/B 项目切换、same-session re-entry、直接发送和新建任务链路
+- [ ] 决定任务 `20260504-001` 是否按条件交接进入 `/close-current-task`，或先补齐完整 Android smoke 后再归档
 - [ ] 隔离 `node --test` 挂起的具体测试并决定是否继续作为 blocker gate
 - [ ] 明确 Android release 配置应通过环境覆写还是仓库默认值满足 release check
 - [ ] 决定 Android unit / integration / e2e / deploy 验证哪些正式进入门禁
@@ -58,3 +61,4 @@
 - 2026-04-30：完成 workflow install 产物落地、host-local skill 文档迁移、legacy adoption baseline 首版
 - 2026-04-30：基于 adopt-existing-project 收正 workflow 状态，切换到 A5 准备阶段
 - 2026-04-30：workflow health 与 Android JVM unit 通过；Node test full suite 挂起，release config check 对当前配置失败
+- 2026-05-08：同步当前任务状态。Codex history / active thread session 作用域修复已提交（`0700047`）并进入条件交接；自动验证完成，有限真机 Android smoke 未发现当前可复现阻塞问题，但完整 Android smoke 风险保留为后续追踪项，因此不写入稳定区
