@@ -644,7 +644,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                         sessionId = ref.id,
                         sessionMode = ref.sessionMode.wireValue,
                         cwd = ref.cwd ?: initialCwd,
-                        threadId = normalizeStoredThreadId(ref.lastCodexThreadId),
+                        threadId = null,
                         launchSource = "auto_create"
                     )
                     startConnection(newParams)
@@ -722,7 +722,6 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                     sessionId = state.sessionId.ifBlank { params.sessionId },
                     cwd = state.cwd ?: params.cwd,
                     threadId = normalizeStoredThreadId(state.threadId)
-                        ?: normalizeStoredThreadId(params.threadId)
                 )
                 activeLaunchParams = updatedParams
                 syncActivityIntent(updatedParams)
@@ -1108,7 +1107,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                 sessionId = restoredSessionId,
                 sessionMode = prefs.getString(PREF_SESSION_MODE, "codex") ?: "codex",
                 cwd = prefs.getString(PREF_CWD, null),
-                threadId = normalizeStoredThreadId(prefs.getString(PREF_THREAD_ID, null)),
+                threadId = null,
                 launchSource = "restore"
             )
         }
@@ -1129,13 +1128,17 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
 
     private fun persistRestoreState(params: CodexLaunchParams) {
         val normalizedThreadId = normalizeStoredThreadId(params.threadId)
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+        val editor = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
             .putString(PREF_PROFILE_ID, params.profileId)
             .putString(PREF_SESSION_ID, params.sessionId)
             .putString(PREF_SESSION_MODE, params.sessionMode)
             .putString(PREF_CWD, params.cwd)
-            .putString(PREF_THREAD_ID, normalizedThreadId)
-            .apply()
+        if (normalizedThreadId == null) {
+            editor.remove(PREF_THREAD_ID)
+        } else {
+            editor.putString(PREF_THREAD_ID, normalizedThreadId)
+        }
+        editor.apply()
     }
 
     private fun normalizeStoredThreadId(threadId: String?): String? {

@@ -68,6 +68,7 @@
 - `## 受影响的契约`
 - `## 已确认决策`
 - `## 待确认问题`
+- `## 实现方案`
 - `## 传播治理记录`
 - `## 实施步骤`
 - `## 回归检查项`
@@ -78,6 +79,24 @@
 
 - `## 设计约束`：UI / 视觉 / 交互任务必须填写；非 UI 任务可保留默认 `Design mode: none`
 - `## 发布后验证`：发布、部署、生产验证、canary、性能基线或上线后观察任务必须填写；其他任务可保留默认 `Release mode: none`
+
+### 实现方案最小内容
+
+`## 实现方案` 承载当前任务内的实现分析和计划基线，由 `/plan-implementation` 写入，供 `/decompose-task` 拆解步骤使用。该章节只描述本轮任务的可执行方案，不替代长期 `CONTRACTS.md`、`DECISIONS.md` 或 `LESSONS.md`。
+
+最小字段：
+
+- `Goal:`
+- `Architecture impact:`
+- `Technical approach:`
+- `Alternatives considered:`
+- `Data / state flow:`
+- `Compatibility:`
+- `Risks and rollback:`
+- `Validation strategy:`
+- `Open decisions:`
+
+长期有效的产品、架构、接口、兼容或治理决策必须通过 `/sync-decisions`、`/sync-contracts` 或 `/capture-lessons` 沉淀；`CURRENT_TASK.md > 实现方案` 不能单独定义长期事实源。
 
 ### 传播治理记录最小内容
 

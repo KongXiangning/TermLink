@@ -23,6 +23,7 @@ export type { RepoPatternField } from './repo-path-patterns';
 export type JsonValue = string | number | boolean | null | JsonObject | JsonValue[];
 export type JsonObject = { [key: string]: JsonValue };
 export type HandoffRef = { success: string; failure: string };
+export type ConditionalHandoffRef = Record<string, string>;
 export type WriteOperation = { path: string; content: string };
 export type PathField = 'reads' | 'writes' | 'forbidden_writes';
 export const WORKFLOW_SYSTEM_DIRECTORY = '.workflow-system';
@@ -526,6 +527,46 @@ export function validateHandoff(
   }
 }
 
+export function extractConditionalHandoff(
+  frontmatter: JsonObject,
+  filePath: string,
+): ConditionalHandoffRef | null {
+  const conditionalHandoff = frontmatter.conditional_handoff;
+  if (conditionalHandoff == null) {
+    return null;
+  }
+  if (typeof conditionalHandoff !== 'object' || Array.isArray(conditionalHandoff)) {
+    throw new Error(`Invalid conditional_handoff structure in ${filePath}`);
+  }
+
+  const routes: ConditionalHandoffRef = {};
+  for (const [rawRoute, rawTarget] of Object.entries(conditionalHandoff)) {
+    const route = rawRoute.trim();
+    const target = typeof rawTarget === 'string' ? rawTarget.trim() : '';
+    if (!route || !target) {
+      throw new Error(`Incomplete conditional_handoff structure in ${filePath}`);
+    }
+    if (Object.prototype.hasOwnProperty.call(routes, route)) {
+      throw new Error(`Duplicate conditional_handoff route "${route}" in ${filePath}`);
+    }
+    routes[route] = target;
+  }
+
+  return routes;
+}
+
+export function validateConditionalHandoff(
+  conditionalHandoff: ConditionalHandoffRef,
+  knownNames: Set<string>,
+  context: string,
+): void {
+  for (const [route, target] of Object.entries(conditionalHandoff)) {
+    if (!knownNames.has(target) && !RESERVED_FAILURE_TARGETS.has(target)) {
+      throw new Error(`Invalid conditional_handoff.${route} "${target}" in ${context}`);
+    }
+  }
+}
+
 export function validateUnresolvedPlaceholders(
   label: string,
   content: string,
@@ -609,6 +650,38 @@ function classifyGeneratorError(generator: string, message: string): { report: E
         severity: 'error',
         code: isHandoff ? 'HANDOFF_001' : 'SCHEMA_002',
         message: isHandoff ? 'Invalid handoff structure' : 'Invalid metadata structure',
+        details: message,
+      },
+      exitCode: 2,
+    };
+  }
+
+  if (
+    message.startsWith('Invalid conditional_handoff structure') ||
+    message.startsWith('Incomplete conditional_handoff structure')
+  ) {
+    return {
+      report: {
+        generator,
+        severity: 'error',
+        code: 'HANDOFF_003',
+        message: 'Invalid conditional handoff structure',
+        field: 'conditional_handoff',
+        details: message,
+      },
+      exitCode: 2,
+    };
+  }
+
+  if (message.startsWith('Invalid conditional_handoff.')) {
+    const fieldMatch = message.match(/^Invalid (conditional_handoff\.[^ ]+)/);
+    return {
+      report: {
+        generator,
+        severity: 'error',
+        code: 'HANDOFF_003',
+        message: 'Invalid conditional handoff target',
+        field: fieldMatch?.[1] ?? 'conditional_handoff',
         details: message,
       },
       exitCode: 2,

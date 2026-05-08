@@ -160,6 +160,11 @@ class MockCodexService extends EventEmitter {
             });
         }
         if (method === 'turn/start') {
+            if (params.threadId === 'thread-missing') {
+                const error = new Error('-32600: thread not found: thread-missing');
+                error.code = -32600;
+                return Promise.reject(error);
+            }
             return Promise.resolve({ turn: { id: `turn-${this.requests.length}` } });
         }
         if (method === 'thread/read') {
@@ -180,6 +185,16 @@ class MockCodexService extends EventEmitter {
             return Promise.resolve({ thread: { id: params.threadId, turns: [] } });
         }
         if (method === 'thread/resume') {
+            if (params.threadId === 'thread-missing') {
+                const error = new Error('-32600: thread not found: thread-missing');
+                error.code = -32600;
+                return Promise.reject(error);
+            }
+            if (params.threadId === 'thread-invalid-request') {
+                const error = new Error('-32600: invalid request payload');
+                error.code = -32600;
+                return Promise.reject(error);
+            }
             return Promise.resolve({
                 thread: {
                     id: params.threadId === 'thread-alias' ? 'thread-canonical' : (params.threadId || 'thread-resumed'),
@@ -475,6 +490,79 @@ test('codex_request forwards Phase 1 whitelisted methods', async (t) => {
             { id: 'thread-b', title: 'Thread B' }
         ]
     });
+});
+
+test('codex_request thread/list injects session cwd when request omits cwd', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', { cwd: 'D:\\workspace\\demo' });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-history-cwd',
+        method: 'thread/list',
+        params: {
+            limit: 50
+        }
+    }));
+
+    const service = MockCodexService.instances[0];
+    const threadListCall = service.requests.find((entry) => entry.method === 'thread/list');
+    assert.ok(threadListCall, 'thread/list should be forwarded');
+    assert.equal(threadListCall.params.limit, 50);
+    assert.equal(threadListCall.params.cwd, 'D:\\workspace\\demo');
+});
+
+test('codex_request thread/list preserves explicit cwd', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', { cwd: 'D:\\workspace\\demo' });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-history-explicit-cwd',
+        method: 'thread/list',
+        params: {
+            limit: 10,
+            cwd: 'E:\\other\\project'
+        }
+    }));
+
+    const service = MockCodexService.instances[0];
+    const threadListCall = service.requests.find((entry) => entry.method === 'thread/list');
+    assert.ok(threadListCall, 'thread/list should be forwarded');
+    assert.equal(threadListCall.params.limit, 10);
+    assert.equal(threadListCall.params.cwd, 'E:\\other\\project');
 });
 
 test('codex_request forwards model/list, account/rateLimits/read, and thread/compact/start', async (t) => {
@@ -1663,6 +1751,170 @@ test('codex_turn rebinds an existing thread after runtime restart instead of sta
         session.codexState.threadExecutionContextSignature,
         '{"cwd":"D:\\\\workspace\\\\demo","approvalPolicy":"on-request","sandboxMode":"workspace-write"}'
     );
+});
+
+test('codex_turn clears stale missing thread and starts a fresh thread', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        cwd: 'D:\\workspace\\demo',
+        codexConfig: {
+            approvalPolicy: 'never',
+            sandboxMode: 'danger-full-access'
+        },
+        codexState: {
+            threadId: 'thread-missing',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null,
+            threadExecutionContextSignature: '{"cwd":"D:\\\\workspace\\\\demo","approvalPolicy":"never","sandboxMode":"danger-full-access"}'
+        }
+    });
+    session.lastCodexThreadId = 'thread-missing';
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'start after stale restore',
+        threadId: 'thread-missing'
+    }));
+
+    const service = MockCodexService.instances[0];
+    const staleProbe = service.requests.find((entry) => (
+        (entry.method === 'thread/resume' || entry.method === 'turn/start') &&
+        entry.params.threadId === 'thread-missing'
+    ));
+    const threadStart = service.requests.find((entry) => entry.method === 'thread/start');
+    const turnStartCalls = service.requests.filter((entry) => entry.method === 'turn/start');
+    const turnStart = turnStartCalls.at(-1);
+    const errorEnvelope = ws.sent.find((entry) => entry.type === 'codex_error');
+
+    assert.ok(staleProbe, 'stale thread should be detected before falling back');
+    assert.ok(threadStart, 'missing preferred thread should fall back to thread/start');
+    assert.ok(turnStart, 'turn/start should run on the fresh thread');
+    assert.equal(turnStart.params.threadId, 'thread-2');
+    assert.equal(session.codexState.threadId, 'thread-2');
+    assert.equal(session.lastCodexThreadId, 'thread-2');
+    assert.equal(errorEnvelope, undefined);
+});
+
+test('codex_turn does not treat non-thread-not-found -32600 errors as stale threads', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        cwd: 'D:\\workspace\\demo',
+        codexConfig: {
+            approvalPolicy: 'never',
+            sandboxMode: 'danger-full-access'
+        },
+        codexState: {
+            threadId: 'thread-invalid-request',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null,
+            threadExecutionContextSignature: '{"cwd":"D:\\\\workspace\\\\demo","approvalPolicy":"never","sandboxMode":"danger-full-access"}'
+        }
+    });
+    session.lastCodexThreadId = 'thread-invalid-request';
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'start with invalid request thread',
+        threadId: 'thread-invalid-request'
+    }));
+
+    const service = MockCodexService.instances[0];
+    const resumeCall = service.requests.find((entry) => entry.method === 'thread/resume');
+    const threadStart = service.requests.find((entry) => entry.method === 'thread/start');
+    const errorEnvelope = ws.sent.find((entry) => entry.type === 'codex_error');
+
+    assert.ok(resumeCall, 'thread/resume should surface the app-server error');
+    assert.equal(resumeCall.params.threadId, 'thread-invalid-request');
+    assert.equal(threadStart, undefined, 'non-thread-not-found -32600 errors must not start a fresh thread');
+    assert.ok(errorEnvelope, 'non-stale app-server errors should be returned');
+    assert.match(errorEnvelope.message, /invalid request payload/);
+    assert.equal(session.codexState.threadId, 'thread-invalid-request');
+    assert.equal(session.lastCodexThreadId, 'thread-invalid-request');
+});
+
+test('codex_turn reuses the active session thread for consecutive normal turns', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        cwd: 'D:\\workspace\\demo',
+        codexConfig: {
+            approvalPolicy: 'never',
+            sandboxMode: 'danger-full-access'
+        }
+    });
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'first normal turn'
+    }));
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'second normal turn'
+    }));
+
+    const service = MockCodexService.instances[0];
+    const threadStartCalls = service.requests.filter((entry) => entry.method === 'thread/start');
+    const turnStartCalls = service.requests.filter((entry) => entry.method === 'turn/start');
+
+    assert.equal(threadStartCalls.length, 1, 'consecutive turns should not create a new thread each time');
+    assert.equal(turnStartCalls.length, 2, 'both turns should start');
+    assert.equal(turnStartCalls[0].params.threadId, threadStartCalls[0].params.threadId || 'thread-1');
+    assert.equal(turnStartCalls[1].params.threadId, turnStartCalls[0].params.threadId);
+    assert.equal(session.codexState.threadId, turnStartCalls[0].params.threadId);
+    assert.equal(session.lastCodexThreadId, turnStartCalls[0].params.threadId);
 });
 
 test('codex_turn uses resumed canonical thread id for turn/start and final session state', async (t) => {

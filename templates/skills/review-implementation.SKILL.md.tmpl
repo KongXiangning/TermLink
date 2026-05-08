@@ -53,7 +53,7 @@ handoff:
   success: verify-contracts
   failure: ask-user
 conditional_handoff:
-  mechanical_findings: implement-current-step
+  mechanical_findings: sync-review-findings
   user_challenge_findings: ask-user
   contract_or_architecture_change: ask-user
   scope_widening_required: lock-scope
@@ -77,6 +77,7 @@ allowed-tools:
 benefits-from:
   - /review-diff
   - /implement-current-step
+  - /sync-review-findings
 notes:
   - 这是只读实现质量审查 skill，补足 review-diff 和 verify-contracts 之间的代码质量层。
 quality_dimensions:
@@ -95,7 +96,7 @@ implementation_review_rules:
   - 如果问题需要扩大修改范围，停止并回到 /lock-scope 或 ask-user。
   - 如果发现原任务验收标准不足，应报告测试缺口或任务缺口，不得静默改写任务目标。
 finding_handoff_policy:
-  - mechanical implementation findings within Allowed Files hand off to implement-current-step
+  - mechanical implementation findings within Allowed Files hand off to sync-review-findings
   - user_challenge findings hand off to ask-user
   - contract or architecture changes hand off to ask-user
   - scope widening required hand off to lock-scope
@@ -211,7 +212,7 @@ review-diff 通过后、进入契约验证前。
 - 如果发现原任务验收标准不足，应报告测试缺口或任务缺口，不得静默改写任务目标。
 
 ### finding_handoff_policy
-- mechanical implementation findings within Allowed Files hand off to implement-current-step
+- mechanical implementation findings within Allowed Files hand off to sync-review-findings
 - user_challenge findings hand off to ask-user
 - contract or architecture changes hand off to ask-user
 - scope widening required hand off to lock-scope
@@ -262,7 +263,7 @@ review-diff 通过后、进入契约验证前。
 
 ## Finding Handoff Policy
 
-- 当前 Allowed Files 内的 mechanical implementation finding，可以 hand off 到 `/implement-current-step`。
+- 当前 Allowed Files 内的 mechanical implementation finding，必须 hand off 到 `/sync-review-findings`，先写入 `CURRENT_TASK.md > 审查问题队列`，再进入 `/implement-current-step`。
 - 需要改变产品行为、接口契约或架构边界的 finding，必须 hand off 到 `/ask-user`。
 - 需要扩大文件范围的 finding，必须 hand off 到 `/lock-scope`。
 - 在只读编排 `/review-current-diff` 中运行时，只输出 findings，不进入修复 handoff。
@@ -296,7 +297,7 @@ Implementation Review:
 4. Check `must_check` items before acting.
 5. Respect `forbidden_writes` and current task boundaries.
 6. If findings exist, classify them by `conditional_handoff` before using `handoff.failure`.
-7. Mechanical implementation findings within Allowed Files hand off to `/implement-current-step`.
+7. Mechanical implementation findings within Allowed Files hand off to `/sync-review-findings`.
 8. User challenge, contract, architecture, or product behavior findings hand off to `/ask-user`.
 9. Scope widening findings hand off to `/lock-scope`.
 10. If a stop condition does not match a `conditional_handoff` category, stop and hand off to `handoff.failure`.

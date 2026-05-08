@@ -31,6 +31,7 @@ forbidden_writes:
 must_check:
   - 是否已有 docs/workflow/CURRENT_TASK.md；没有则应先 create-current-task
   - 失败现象和复现路径是否足够进入 investigate-root-cause
+  - 根因确认后是否已有最小修复方案、架构影响和验证策略
   - 当前范围是否允许最小修复路径
   - 修复后是否复验原始失败场景
 stop_conditions:
@@ -66,6 +67,8 @@ notes:
   - 没有 docs/workflow/CURRENT_TASK.md 时，不应直接调试；先创建 bug 调查任务包。
 orchestration_sequence:
   - investigate-root-cause
+  - plan-implementation
+  - decompose-task
   - implement-current-step
   - review-diff
   - review-implementation
@@ -83,6 +86,8 @@ orchestration_sequence:
 
 ```text
 /investigate-root-cause
+-> /plan-implementation
+-> /decompose-task
 -> /implement-current-step
 -> /review-diff
 -> /review-implementation

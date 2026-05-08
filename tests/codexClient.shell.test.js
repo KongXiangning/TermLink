@@ -246,6 +246,9 @@ test('Phase 2: terminal_client.js must parse model\/list and skills\/list payloa
     assert.match(js, /const cwd = String\(codexState\.cwd \|\| getConfiguredCodexCwd\(\) \|\| ''\)\.trim\(\)/);
     assert.match(js, /return cwd \? \{ cwds: \[cwd\] \} : \{\}/);
     assert.match(js, /sendCodexBridgeRequest\('skills\/list', buildCodexSkillsListParams\(\)\)/);
+    assert.match(js, /function buildCodexThreadListParams\(\)/);
+    assert.match(js, /return cwd \? \{ limit: 50, cwd \} : \{ limit: 50 \}/);
+    assert.match(js, /sendCodexBridgeRequest\('thread\/list', buildCodexThreadListParams\(\), \{ suppressErrorUi: opts\.silent === true \}\)/);
     assert.match(js, /codexInput\.value = '\/skill '/);
     assert.match(js, /const items = isSkillQuery\s*\?\s*\[\]/);
     assert.match(js, /codexSlashMenuEmpty\.hidden = isSkillQuery \? skillItems\.length > 0/);
@@ -280,4 +283,26 @@ test('Phase 2: terminal_client.js must parse model\/list and skills\/list payloa
     assert.match(slashJs, /command:\s*'\/skill'[\s\S]*availability:\s*'enabled'/);
     assert.match(slashJs, /command:\s*'\/compact'[\s\S]*dispatchKind:\s*'open_panel'/);
     assert.match(slashJs, /command:\s*'\/skills'[\s\S]*dispatchKind:\s*'open_panel'/);
+});
+
+test('terminal client reconnects and clears codex state when runtime session binding changes', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    assert.match(
+        js,
+        /const shouldReconnectBridge = \(serverChanged \|\| sessionChanged\) && \(forceReconnect \|\| ws\);/
+    );
+    assert.match(
+        js,
+        /if \(shouldReconnectBridge\) \{[\s\S]*closeSocketSilently\(\);[\s\S]*resetTerminalView\(\);[\s\S]*resetCodexBootstrapState\(\);[\s\S]*connect\(\);[\s\S]*\}/
+    );
+});
+
+test('terminal client includes the active thread id when sending normal codex turns', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    assert.match(
+        js,
+        /const payload = \{[\s\S]*type: 'codex_turn'[\s\S]*text: finalText[\s\S]*threadId:\s*codexState\.threadId \|\| undefined[\s\S]*forceNewThread: !!opts\.forceNewThread/
+    );
 });

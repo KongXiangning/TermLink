@@ -89,6 +89,10 @@ class CodexViewModel(
 
     fun connect(profile: ServerProfile, params: CodexLaunchParams) {
         currentProfile = profile
+        currentStreamingMessageId = null
+        currentPlanStreamingMessageId = null
+        executionFeedbackSeen.clear()
+        threadHadPlanTurn = false
         clearPendingThreadResync()
         _uiState.update {
             recalculateNextTurnEffectiveConfig(
@@ -96,11 +100,18 @@ class CodexViewModel(
                     sessionId = params.sessionId,
                     cwd = params.cwd,
                     threadId = normalizeThreadId(params.threadId),
+                    currentTurnId = null,
+                    messages = emptyList(),
                     errorMessage = null,
                     connectionState = ConnectionState.CONNECTING,
                     serverNextTurnConfigBase = null,
                     nextTurnEffectiveCodexConfig = null,
                     planWorkflow = buildEmptyPlanWorkflowState(),
+                    pendingFileMentions = emptyList(),
+                    fileMentionMenuVisible = false,
+                    fileMentionQuery = "",
+                    fileMentionResults = emptyList(),
+                    fileMentionLoading = false,
                     pendingServerRequests = emptyList(),
                     submittingServerRequestIds = emptySet(),
                     sessionExpired = false,
@@ -810,12 +821,18 @@ class CodexViewModel(
     }
 
     fun refreshThreadHistory() {
-        if (_uiState.value.capabilities?.historyList != true) return
+        val state = _uiState.value
+        if (state.capabilities?.historyList != true) return
+        val params = JSONObject().put("limit", 50)
+        val cwd = state.cwd?.trim().orEmpty()
+        if (cwd.isNotEmpty()) {
+            params.put("cwd", cwd)
+        }
         _uiState.update { it.copy(threadHistoryLoading = true) }
         connectionManager.send(
             CodexClientMessages.codexRequest(
                 action = "thread/list",
-                params = JSONObject().put("limit", 50)
+                params = params
             )
         )
     }
@@ -1568,7 +1585,8 @@ class CodexViewModel(
                 _uiState.update { current ->
                     val wasIdle = current.status.equals("idle", ignoreCase = true)
                     val isIdle = state.status.equals("idle", ignoreCase = true)
-                    val threadChanged = state.threadId != null && state.threadId != current.threadId
+                    val serverThreadId = state.threadId
+                    val threadChanged = serverThreadId != null && serverThreadId != current.threadId
                     // planMode is managed locally — never override from server codex_state
                     val nextPlanMode = current.planMode ?: false
                     val mergedInteractionState = mergeInteractionState(
@@ -1583,13 +1601,17 @@ class CodexViewModel(
                                 reasoningEffort = state.reasoningEffort ?: current.reasoningEffort,
                                 sandbox = state.sandbox ?: current.sandbox,
                                 planMode = nextPlanMode,
-                                threadId = state.threadId ?: current.threadId,
+                                threadId = serverThreadId,
                                 currentTurnId = state.currentTurnId,
-                                currentThreadTitle = resolveCurrentThreadTitle(
-                                    threadId = state.threadId ?: current.threadId,
-                                    entries = current.threadHistoryEntries,
-                                    fallback = current.currentThreadTitle
-                                ),
+                                currentThreadTitle = if (serverThreadId == null) {
+                                    ""
+                                } else {
+                                    resolveCurrentThreadTitle(
+                                        threadId = serverThreadId,
+                                        entries = current.threadHistoryEntries,
+                                        fallback = current.currentThreadTitle
+                                    )
+                                },
                                 interactionState = mergedInteractionState,
                                 cwd = state.cwd ?: current.cwd,
                                 serverNextTurnConfigBase = state.nextTurnEffectiveCodexConfig,
@@ -1681,9 +1703,22 @@ class CodexViewModel(
 
             "codex_turn_ack" -> {
                 val ack = CodexTurnAck.from(json)
+                val ackThreadId = normalizeThreadId(ack.threadId)
                 _uiState.update {
                     syncExecutionWatch(
-                        it.copy(currentTurnId = ack.turnId.ifBlank { null }),
+                        it.copy(
+                            threadId = ackThreadId ?: it.threadId,
+                            currentTurnId = ack.turnId.ifBlank { null },
+                            currentThreadTitle = if (ackThreadId == null) {
+                                it.currentThreadTitle
+                            } else {
+                                resolveCurrentThreadTitle(
+                                    threadId = ackThreadId,
+                                    entries = it.threadHistoryEntries,
+                                    fallback = it.currentThreadTitle
+                                )
+                            }
+                        ),
                         markActivity = false
                     )
                 }

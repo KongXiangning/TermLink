@@ -572,28 +572,38 @@ function isAllowedCodexRequestMethod(method) {
 }
 
 function buildCodexRequestParams(method, params, session) {
-    if (!isNonEmptyString(method) || method.trim() !== 'skills/list') {
+    const normalizedMethod = isNonEmptyString(method) ? method.trim() : '';
+    if (normalizedMethod !== 'skills/list' && normalizedMethod !== 'thread/list') {
         return params;
     }
 
     const source = params && typeof params === 'object' && !Array.isArray(params)
         ? params
         : {};
-    if (Object.prototype.hasOwnProperty.call(source, 'cwds')) {
-        return params;
-    }
-
     const cwd = normalizeOptionalCwd(session && session.cwd);
     if (!cwd) {
-        console.warn('[gateway][codex_request][skills/list] Missing session cwd; forwarding request without cwds.', JSON.stringify({
+        console.warn(`[gateway][codex_request][${normalizedMethod}] Missing session cwd; forwarding request without cwd scope.`, JSON.stringify({
             sessionId: session && session.id ? session.id : null
         }));
         return params;
     }
 
+    if (normalizedMethod === 'skills/list') {
+        if (Object.prototype.hasOwnProperty.call(source, 'cwds')) {
+            return params;
+        }
+        return {
+            ...source,
+            cwds: [cwd]
+        };
+    }
+
+    if (Object.prototype.hasOwnProperty.call(source, 'cwd')) {
+        return params;
+    }
     return {
         ...source,
-        cwds: [cwd]
+        cwd
     };
 }
 
@@ -832,6 +842,34 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         return state;
     };
 
+    const isThreadNotFoundError = (error) => {
+        const message = error && error.message
+            ? String(error.message)
+            : String(error || '');
+        return /thread not found/i.test(message);
+    };
+
+    const clearStaleSessionThreadBinding = (session, threadId) => {
+        const state = resetSessionCodexRuntimeState(session, { clearThreadModel: true });
+        const staleThreadId = isNonEmptyString(threadId) ? threadId.trim() : null;
+        const currentThreadId = isNonEmptyString(state.threadId) ? state.threadId.trim() : null;
+        const currentLastThreadId = isNonEmptyString(session.lastCodexThreadId)
+            ? session.lastCodexThreadId.trim()
+            : null;
+        const shouldClearCurrentThread = !staleThreadId || currentThreadId === staleThreadId;
+        unbindSessionThreads(session.id, {
+            keepThreadId: shouldClearCurrentThread ? null : currentThreadId
+        });
+        if (shouldClearCurrentThread) {
+            state.threadId = null;
+        }
+        if (!staleThreadId || currentLastThreadId === staleThreadId) {
+            updateSessionLastCodexThreadId(session, null);
+        }
+        persistSessionMetadata(session);
+        emitCodexState(session);
+    };
+
     const extractTokenUsageSnapshot = (payload) => {
         const source = payload && typeof payload === 'object' ? payload : null;
         if (!source) {
@@ -1005,7 +1043,15 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                     error: resumeError && resumeError.message ? resumeError.message : String(resumeError),
                     code: resumeError && resumeError.code ? resumeError.code : null
                 }));
-                throw resumeError;
+                if (isThreadNotFoundError(resumeError)) {
+                    clearStaleSessionThreadBinding(session, preferredThreadId);
+                    console.warn('[gateway][codex][preferred-thread-stale-cleared]', JSON.stringify({
+                        sessionId: session.id,
+                        preferredThreadId
+                    }));
+                } else {
+                    throw resumeError;
+                }
             }
         }
 
@@ -1517,7 +1563,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         }));
                         await ensureCodexServiceForSession(session, nextTurnEffectiveConfig);
 
-                        const initialThreadId = await ensureCodexThreadForSession(session, {
+                        let initialThreadId = await ensureCodexThreadForSession(session, {
                             forceNewThread: envelope.forceNewThread === true,
                             threadId: envelope.threadId,
                             cwd: envelope.cwd,
@@ -1526,10 +1572,32 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         });
 
                         const configuredModel = nextTurnEffectiveConfig.model || null;
-                        const threadModelState = configuredModel
-                            ? null
-                            : await ensureThreadModelForSession(session, initialThreadId);
-                        const threadId = threadModelState && isNonEmptyString(threadModelState.threadId)
+                        let threadModelState = null;
+                        if (!configuredModel) {
+                            try {
+                                threadModelState = await ensureThreadModelForSession(session, initialThreadId);
+                            } catch (threadModelError) {
+                                if (!isThreadNotFoundError(threadModelError)) {
+                                    throw threadModelError;
+                                }
+                                clearStaleSessionThreadBinding(session, initialThreadId);
+                                initialThreadId = await ensureCodexThreadForSession(session, {
+                                    forceNewThread: true,
+                                    cwd: envelope.cwd,
+                                    codexConfig: nextTurnEffectiveConfig
+                                });
+                                console.warn('[gateway][codex][thread-model-stale-thread-retry]', JSON.stringify({
+                                    sessionId: session.id,
+                                    staleThreadId: envelope.threadId || null,
+                                    freshThreadId: initialThreadId
+                                }));
+                                threadModelState = {
+                                    threadId: initialThreadId,
+                                    model: normalizeModelName(process.env.TERMLINK_CODEX_MODEL)
+                                };
+                            }
+                        }
+                        let threadId = threadModelState && isNonEmptyString(threadModelState.threadId)
                             ? threadModelState.threadId
                             : initialThreadId;
                         const fallbackThreadModel = threadModelState ? threadModelState.model : null;
@@ -1564,8 +1632,34 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         try {
                             turnStartResponse = await codexService.request('turn/start', turnStartPayload);
                         } catch (turnStartError) {
-                            await cleanupAttachmentTempFiles(turnInput.tempFilePaths);
-                            throw turnStartError;
+                            if (isThreadNotFoundError(turnStartError)) {
+                                clearStaleSessionThreadBinding(session, threadId);
+                                try {
+                                    threadId = await ensureCodexThreadForSession(session, {
+                                        forceNewThread: true,
+                                        cwd: envelope.cwd,
+                                        codexConfig: nextTurnEffectiveConfig
+                                    });
+                                } catch (threadStartError) {
+                                    await cleanupAttachmentTempFiles(turnInput.tempFilePaths);
+                                    throw threadStartError;
+                                }
+                                turnStartPayload.threadId = threadId;
+                                console.warn('[gateway][codex][turn-stale-thread-retry]', JSON.stringify({
+                                    sessionId: session.id,
+                                    staleThreadId: initialThreadId,
+                                    freshThreadId: threadId
+                                }));
+                                try {
+                                    turnStartResponse = await codexService.request('turn/start', turnStartPayload);
+                                } catch (retryError) {
+                                    await cleanupAttachmentTempFiles(turnInput.tempFilePaths);
+                                    throw retryError;
+                                }
+                            } else {
+                                await cleanupAttachmentTempFiles(turnInput.tempFilePaths);
+                                throw turnStartError;
+                            }
                         }
 
                         codexState.threadId = threadId;

@@ -2609,6 +2609,11 @@ function buildCodexSkillsListParams() {
     return cwd ? { cwds: [cwd] } : {};
 }
 
+function buildCodexThreadListParams() {
+    const cwd = String(codexState.cwd || getConfiguredCodexCwd() || '').trim();
+    return cwd ? { limit: 50, cwd } : { limit: 50 };
+}
+
 function maybeLoadCodexSkills() {
     if (!canLoadCodexSkills()) {
         return Promise.resolve([]);
@@ -3884,7 +3889,7 @@ function refreshCodexThreadList(options) {
     codexState.historyListRequested = true;
     codexState.historyListLoading = true;
     renderCodexHistoryList();
-    return sendCodexBridgeRequest('thread/list', { limit: 50 }, { suppressErrorUi: opts.silent === true })
+    return sendCodexBridgeRequest('thread/list', buildCodexThreadListParams(), { suppressErrorUi: opts.silent === true })
         .then((result) => storeCodexThreadList(result))
         .catch((error) => {
             codexState.historyListRequested = false;
@@ -4761,6 +4766,7 @@ function sendCodexTurn(text, options) {
     const payload = {
         type: 'codex_turn',
         text: finalText,
+        threadId: codexState.threadId || undefined,
         forceNewThread: !!opts.forceNewThread,
         cwd: getConfiguredCodexCwd() || undefined,
         model: nextTurnOverrides.model || undefined,
@@ -5990,12 +5996,14 @@ function applyRuntimeConfig(config, forceReconnect) {
             sendCodexEnvelope({ type: 'codex_set_cwd', cwd: nextCwd });
         }
     }
-    if (forceReconnect && (serverChanged || sessionChanged)) {
+    const shouldReconnectBridge = (serverChanged || sessionChanged) && (forceReconnect || ws);
+    if (shouldReconnectBridge) {
         clearTimeout(reconnectTimer);
         isConnecting = false;
         retryCount = 0;
         closeSocketSilently();
         resetTerminalView();
+        resetCodexBootstrapState();
         connect();
     }
 }

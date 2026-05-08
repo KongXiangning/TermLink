@@ -121,6 +121,7 @@ Examples:
 - `docs/workflow/generated/workflow-skills/create-current-task.SKILL.md`
 - `docs/workflow/generated/workflow-skills/implement-current-step.SKILL.md`
 - `docs/workflow/generated/workflow-skills/review-diff.SKILL.md`
+- `docs/workflow/generated/workflow-skills/sync-review-findings.SKILL.md`
 
 This output root is intentionally separated from:
 
@@ -328,7 +329,7 @@ The workflow system defines exactly 10 stage groups. Generators must validate th
 | `init` | 初始化 | Project governance initialization | Setup |
 | `phase-1-intake` | 阶段 1：需求进入 | Task creation and intake | Planning |
 | `phase-2-scope-lock` | 阶段 2：范围锁定 | Scope review and lock | Planning |
-| `phase-3-decomposition` | 阶段 3：方案拆解 | Decision classification and task decomposition | Planning |
+| `phase-3-decomposition` | 阶段 3：方案拆解 | Decision classification, implementation planning, and task decomposition | Planning |
 | `phase-4-implementation` | 阶段 4：小步实现 | Step-by-step implementation | Execution |
 | `phase-4-6-exception` | 阶段 4/6：实现或验证异常 | Exception handling during implementation or regression | Execution |
 | `phase-5-scope-review` | 阶段 5：范围复核 | Review diff, implementation quality, and contracts | Review |
@@ -520,6 +521,7 @@ design-baseline-init -> realign-workflow-assets? -> greenfield-init | legacy-inv
   -> review-current-task
   -> lock-scope
   -> classify-decisions
+  -> plan-implementation
   -> decompose-task
   -> implement-current-step
   -> review-diff
@@ -539,21 +541,31 @@ design-baseline-init -> realign-workflow-assets? -> greenfield-init | legacy-inv
 Plus the failure detour:
 
 ```text
-run-regression -> investigate-root-cause -> implement-current-step
+run-regression -> investigate-root-cause -> plan-implementation -> decompose-task -> implement-current-step
 ```
+
+- `investigate-root-cause` is a current-task failure detour, not a new bug intake command. If the user asks to register, record, or create a new bug, the workflow must route to `create-current-task` and must not hand off toward implementation unless the user later authorizes implementation.
+
+Plus the review-finding persistence detour:
+
+```text
+review-diff | review-implementation -> sync-review-findings -> implement-current-step
+```
+
+`review-implementation` is both a generated workflow skill and a supported source label for implementation review output. Mechanical implementation findings must be persisted by `sync-review-findings` before returning to implementation.
 
 Plus orchestration entrypoints that sequence existing workflow skills without replacing their read/write boundaries:
 
 ```text
-execute-current-task -> review-current-task -> lock-scope -> classify-decisions -> decompose-task -> implement-current-step -> review-diff -> review-implementation -> verify-contracts -> run-regression
+execute-current-task -> review-current-task -> lock-scope -> classify-decisions -> plan-implementation -> decompose-task -> implement-current-step -> review-diff -> review-implementation -> verify-contracts -> run-regression
 continue-current-step -> implement-current-step -> review-diff -> review-implementation -> verify-contracts -> run-regression -> sync-current-task
-debug-and-fix-current-task -> investigate-root-cause -> implement-current-step -> review-diff -> review-implementation -> verify-contracts -> run-regression
+debug-and-fix-current-task -> investigate-root-cause -> plan-implementation -> decompose-task -> implement-current-step -> review-diff -> review-implementation -> verify-contracts -> run-regression
 review-current-diff -> review-diff -> review-implementation -> verify-contracts -> run-regression(report-only terminal report)
 close-current-task -> sync-current-task -> sync-status -> sync-contracts(no-op allowed) -> sync-decisions(no-op allowed) -> sync-host-guidance(no-op allowed) -> capture-lessons(no-op allowed) -> prepare-delivery-summary -> archive-task
 ```
 
 - Orchestration entrypoints may define `child_overrides` for a child skill when the parent flow must constrain an otherwise normal handoff. `/review-current-diff` must override `/run-regression` with `qa_mode=report-only`, `terminal=true`, and suppressed success/failure handoffs.
-- `/review-implementation` must separate current-scope mechanical findings from findings that require human confirmation. The skill must classify findings by `conditional_handoff` before falling back to `handoff.failure`. Mechanical implementation findings within Allowed Files may hand off to `implement-current-step`; user challenge, contract or architecture changes, and scope widening must stop at `ask-user` or `lock-scope`.
+- `/review-diff` and `/review-implementation` must separate current-scope mechanical findings from findings that require human confirmation. The skill must classify findings by `conditional_handoff` before falling back to `handoff.failure`. Mechanical implementation findings within Allowed Files must hand off to `sync-review-findings`; user challenge, contract or architecture changes, and scope widening must stop at `ask-user` or `lock-scope`.
 - Every major or critical `/review-implementation` finding must include concrete evidence: `file_or_symbol`, `failing_scenario`, `why_current_implementation_fails`, `minimal_fix_direction`, and `required_test_or_smoke_evidence`.
 
 ---
@@ -601,6 +613,7 @@ The following skills are designated non-code-writing in the current templates an
 
 - `review-diff`
 - `review-implementation`
+- `sync-review-findings`
 - `verify-contracts`
 - `run-regression`
 - `execute-current-task`
@@ -611,8 +624,29 @@ The following skills are designated non-code-writing in the current templates an
 
 Current implementation:
 
-- this requirement is currently realized by template convention and generated output review (`writes: []`)
+- this requirement is currently realized by template convention and generated output review (`writes: []` for read-only review / verification / orchestration skills; `writes: [CURRENT_TASK.md]` for `sync-review-findings`)
 - the generator does not yet infer which paths are "code paths" and does not apply additional semantic enforcement beyond the explicit `writes` declarations
+
+### 7.5 Review finding persistence
+
+Implementation review findings must not depend only on conversational memory once they become actionable fix input.
+
+Canonical flow:
+
+```text
+read-only review -> sync-review-findings -> implement-current-step
+```
+
+Rules:
+
+- `review-diff` and `review-implementation` outputs remain read-only and must not write `CURRENT_TASK.md`.
+- `sync-review-findings` is the only generated workflow skill dedicated to persisting structured review findings into `CURRENT_TASK.md > 审查问题队列`.
+- `sync-review-findings` may write only `CURRENT_TASK.md`.
+- Each persisted finding must retain severity, file / symbol, failure scenario, minimal fix direction, required test, status, source, and handoff target.
+- Only mechanical implementation findings inside the current Allowed Files may be queued for `/implement-current-step`.
+- Findings that require scope widening must return to `/lock-scope`.
+- Findings that require product behavior, contract, architecture, or design-direction changes must go to `/ask-user`.
+- Findings with unclear root cause must go to `/investigate-root-cause`.
 
 ---
 
@@ -1496,6 +1530,10 @@ Public runtime interface notes:
 - `workflow:install --root <target-repo>` and `workflow:sync --root <target-repo>` operate on the explicit target repo; when `--root` is omitted they operate on the current working directory
 - the recommended operator flow is `--dry-run --json` first, then a second run without `--dry-run` to apply
 - install failures must report explicit categories so the operator can distinguish `frozen_path`, `local_drift`, `contract_conflict`, and `incompatible_target`
+- when an already-installed target reports `local_drift`, `workflow:install --replace-managed-drift` may replace or prune only install-state entries whose mode is `replace-managed`
+- when an already-installed target reports bootstrap skill drift, `workflow:install --repair-bootstrap-drift` may re-render or prune only install-state entries whose mode is `bootstrap-skill-install`
+- these drift repair flags must not reinitialize target-owned project facts, redo inventory/adoption, overwrite existing scaffold-once host guidance files, or bypass `frozen_path`, `contract_conflict`, or `incompatible_target` failures
+- `package.json` and `.workflow-system/PROJECT_PROFILE.yaml` drift remain merge-managed contract failures and must not be silently repaired by `--replace-managed-drift` or `--repair-bootstrap-drift`
 - post-init mechanical steps must preserve explicit failure reporting for generator, health, and host-sync failures
 
 ### §17.4 Host-specific sync

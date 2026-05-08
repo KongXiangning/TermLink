@@ -67,6 +67,8 @@ const HIGH_RISK_SKILLS = [
   'close-current-task',
   'implement-current-step',
   'review-diff',
+  'sync-review-findings',
+  'plan-implementation',
   'review-implementation',
   'verify-contracts',
   'run-regression',
@@ -85,6 +87,7 @@ const WORKFLOW_ORDER = [
   'review-current-task',
   'lock-scope',
   'classify-decisions',
+  'plan-implementation',
   'decompose-task',
   'continue-current-step',
   'implement-current-step',
@@ -93,6 +96,7 @@ const WORKFLOW_ORDER = [
   'review-current-diff',
   'review-diff',
   'review-implementation',
+  'sync-review-findings',
   'verify-contracts',
   'run-regression',
   'sync-current-task',
@@ -244,6 +248,9 @@ function renderRegistry(skills: RegistrySkill[], workflowSkillDir: string): stri
     const stageSkills = grouped.get(section.stage) ?? [];
     if (section.stage === '初始化') {
       return `| ${section.summaryLabel} | \`design-baseline-init\` → \`realign-workflow-assets\` → \`greenfield-init\` / \`legacy-inventory\` → \`adopt-existing-project\` |`;
+    }
+    if (section.stage === '阶段 5：范围复核') {
+      return `| ${section.summaryLabel} | \`review-diff\` → \`review-implementation\` → \`verify-contracts\`；findings detour: \`review-diff\` / \`review-implementation\` → \`sync-review-findings\` → \`implement-current-step\` |`;
     }
     return `| ${section.summaryLabel} | ${formatSkillRefs(stageSkills.map(skill => skill.name))} |`;
   });

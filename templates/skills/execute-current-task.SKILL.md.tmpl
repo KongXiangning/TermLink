@@ -5,7 +5,7 @@ version: 0.2.0
 description: |
   Orchestrate the standard current-task execution flow from task review through regression.
 purpose: |
-  按标准顺序执行当前任务，从任务复核、范围锁定、决策分类和步骤拆解进入实现与验证链。
+  按标准顺序执行当前任务，从任务复核、范围锁定、决策分类、实现方案分析和步骤拆解进入实现与验证链。
 stage: 阶段 1：需求进入
 trigger: |
   CURRENT_TASK.md 已存在，用户要求继续执行或自动推进当前任务时。
@@ -30,6 +30,7 @@ must_check:
   - 是否需要先 review-current-task 收敛目标和验收
   - 是否需要 lock-scope 重新确认 Allowed Files / Forbidden Files / Conditional Files
   - 是否存在 Taste 或 User challenge 决策需要先确认
+  - 是否已有实现方案、架构影响、技术路线和验证策略
   - 是否已有当前可执行步骤
 stop_conditions:
   - CURRENT_TASK.md 缺失或任务已归档
@@ -65,6 +66,7 @@ orchestration_sequence:
   - review-current-task
   - lock-scope
   - classify-decisions
+  - plan-implementation
   - decompose-task
   - implement-current-step
   - review-diff
@@ -83,7 +85,7 @@ manual_confirmation_points:
 
 ## Purpose
 
-按标准顺序执行当前任务，从任务复核、范围锁定、决策分类和步骤拆解进入实现与验证链。
+按标准顺序执行当前任务，从任务复核、范围锁定、决策分类、实现方案分析和步骤拆解进入实现与验证链。
 
 ## Orchestration Sequence
 
@@ -91,6 +93,7 @@ manual_confirmation_points:
 /review-current-task
 -> /lock-scope
 -> /classify-decisions
+-> /plan-implementation
 -> /decompose-task
 -> /implement-current-step
 -> /review-diff
