@@ -4,13 +4,17 @@ const { setupTestI18n } = require('./_i18n_helper');
 setupTestI18n();
 
 const {
+    buildSkillPathCandidates,
+    buildSkillToken,
     buildNextTurnEffectiveCodexConfig,
     createSlashRegistry,
+    extractSkillTokens,
     getDiscoverableSlashCommands,
     normalizeInteractionState,
     normalizeNextTurnOverrides,
     parseComposerInput,
-    resolveSlashCommand
+    resolveSlashCommand,
+    stripSkillTokens
 } = require('../public/lib/codex_slash_commands');
 
 test('parseComposerInput distinguishes text, empty, and slash commands', () => {
@@ -125,5 +129,47 @@ test('normalize helpers and effective config keep interaction and config boundar
         approvalPolicy: 'never',
         sandboxMode: 'workspace-write'
     });
+});
+
+test('skill token helpers build Windows skill paths and strip tokens back out of composer text', () => {
+    assert.deepEqual(buildSkillPathCandidates({
+        cwd: 'E:/coding/TermLink/',
+        skillName: 'adb-real-device-debug'
+    }), [
+        'E:\\coding\\TermLink\\.codex\\skills\\adb-real-device-debug\\SKILL.md',
+        'E:\\coding\\TermLink\\skills\\adb-real-device-debug\\SKILL.md',
+        'E:\\coding\\TermLink\\.claude\\skills\\adb-real-device-debug\\SKILL.md'
+    ]);
+
+    const token = buildSkillToken({
+        cwd: 'E:\\coding\\TermLink',
+        skillName: 'adb-real-device-debug'
+    });
+
+    assert.equal(
+        token,
+        '[$adb-real-device-debug](E:\\coding\\TermLink\\.codex\\skills\\adb-real-device-debug\\SKILL.md)'
+    );
+
+    assert.deepEqual(
+        extractSkillTokens(`Investigate ${token} and [$git-sensitive-scan](E:\\coding\\TermLink\\.codex\\skills\\git-sensitive-scan\\SKILL.md)`),
+        [
+            {
+                raw: '[$adb-real-device-debug](E:\\coding\\TermLink\\.codex\\skills\\adb-real-device-debug\\SKILL.md)',
+                name: 'adb-real-device-debug',
+                path: 'E:\\coding\\TermLink\\.codex\\skills\\adb-real-device-debug\\SKILL.md'
+            },
+            {
+                raw: '[$git-sensitive-scan](E:\\coding\\TermLink\\.codex\\skills\\git-sensitive-scan\\SKILL.md)',
+                name: 'git-sensitive-scan',
+                path: 'E:\\coding\\TermLink\\.codex\\skills\\git-sensitive-scan\\SKILL.md'
+            }
+        ]
+    );
+
+    assert.equal(
+        stripSkillTokens(`Investigate ${token}\n\n[$git-sensitive-scan](E:\\coding\\TermLink\\.codex\\skills\\git-sensitive-scan\\SKILL.md) now`),
+        'Investigate\n\nnow'
+    );
 });
 

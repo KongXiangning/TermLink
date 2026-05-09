@@ -6,6 +6,7 @@ package com.termlink.app.codex.data
  * and capability-filtered discoverable command list.
  */
 object CodexSlashRegistry {
+    private val SKILL_TOKEN_REGEX = Regex("""\[\$([^\]\r\n]+)]\(([^)\r\n]+)\)""")
 
     data class SlashCommand(
         val command: String,
@@ -45,6 +46,12 @@ object CodexSlashRegistry {
         val tokenEnd: Int
     )
 
+    data class SkillToken(
+        val raw: String,
+        val name: String,
+        val path: String
+    )
+
     fun parseComposerInput(raw: String): ParsedInput {
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) return ParsedInput.Empty
@@ -77,6 +84,77 @@ object CodexSlashRegistry {
             tokenStart = atIndex,
             tokenEnd = tokenEnd
         )
+    }
+
+    fun buildSkillPathCandidates(cwd: String?, skillName: String): List<String> {
+        val normalizedCwd = cwd?.trim()
+            ?.replace('/', '\\')
+            ?.trimEnd('\\')
+            .orEmpty()
+        val normalizedSkill = skillName.trim()
+        if (normalizedCwd.isEmpty() || normalizedSkill.isEmpty()) {
+            return emptyList()
+        }
+        return listOf(
+            "$normalizedCwd\\.codex\\skills\\$normalizedSkill\\SKILL.md",
+            "$normalizedCwd\\skills\\$normalizedSkill\\SKILL.md",
+            "$normalizedCwd\\.claude\\skills\\$normalizedSkill\\SKILL.md"
+        )
+    }
+
+    fun buildSkillToken(
+        cwd: String?,
+        skillName: String,
+        skillPath: String? = null
+    ): String {
+        val normalizedSkill = skillName.trim()
+        if (normalizedSkill.isEmpty()) {
+            return ""
+        }
+        val resolvedPath = skillPath
+            ?.trim()
+            ?.replace('/', '\\')
+            ?.takeIf { it.isNotEmpty() }
+            ?: buildSkillPathCandidates(cwd, normalizedSkill).firstOrNull()
+            ?: return "[\$${normalizedSkill}]"
+        return "[\$${normalizedSkill}]($resolvedPath)"
+    }
+
+    fun extractSkillTokens(text: String): List<SkillToken> {
+        if (text.isBlank()) {
+            return emptyList()
+        }
+        val results = mutableListOf<SkillToken>()
+        val seen = linkedSetOf<String>()
+        SKILL_TOKEN_REGEX.findAll(text).forEach { match ->
+            val name = match.groupValues.getOrNull(1)?.trim().orEmpty()
+            val path = match.groupValues.getOrNull(2)?.trim()?.replace('/', '\\').orEmpty()
+            if (name.isEmpty() || path.isEmpty()) {
+                return@forEach
+            }
+            val dedupeKey = "${name.lowercase()}::${path.lowercase()}"
+            if (seen.add(dedupeKey)) {
+                results += SkillToken(
+                    raw = match.value,
+                    name = name,
+                    path = path
+                )
+            }
+        }
+        return results
+    }
+
+    fun stripSkillTokens(text: String): String {
+        if (text.isBlank()) {
+            return ""
+        }
+        return text
+            .replace(SKILL_TOKEN_REGEX, "")
+            .replace(Regex("""[ \t]+\n"""), "\n")
+            .replace(Regex("""\n[ \t]+"""), "\n")
+            .replace(Regex("""\n{3,}"""), "\n\n")
+            .replace(Regex("""[ \t]{2,}"""), " ")
+            .trim()
     }
 
     // ── Command resolution ────────────────────────────────────────────

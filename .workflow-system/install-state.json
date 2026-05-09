@@ -1,8 +1,8 @@
 {
   "state_version": 1,
-  "bundle_id": "workflow-system@0.14.5+40236a0ab576",
+  "bundle_id": "workflow-system@0.14.5+0e6838a43ed3",
   "workflow_system_version": "0.14.5",
-  "installed_at": "2026-05-08T01:50:56.138Z",
+  "installed_at": "2026-05-08T14:44:11.217Z",
   "managed_files": [
     {
       "path": "scripts/workflow-core.ts",
@@ -79,8 +79,8 @@
     {
       "path": "scripts/workflow-runtime.ts",
       "mode": "replace-managed",
-      "bundle_checksum": "9b015d9efdd8a99dd31881de014f34b656f3d93b7b4ad633f5768fea0451c9eb",
-      "installed_checksum": "9b015d9efdd8a99dd31881de014f34b656f3d93b7b4ad633f5768fea0451c9eb"
+      "bundle_checksum": "e44688379d81ed62363bc43d016a18079c5c6eb5a1c984b8f1a78b3724409674",
+      "installed_checksum": "e44688379d81ed62363bc43d016a18079c5c6eb5a1c984b8f1a78b3724409674"
     },
     {
       "path": ".workflow-system/WORKFLOW_PROTOCOL.md",

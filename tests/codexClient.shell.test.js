@@ -7,6 +7,13 @@ function readPublicFile(relativePath) {
     return fs.readFileSync(path.join(__dirname, '..', 'public', relativePath), 'utf8');
 }
 
+function readAndroidMainFile(relativePath) {
+    return fs.readFileSync(
+        path.join(__dirname, '..', 'android', 'app', 'src', 'main', 'java', 'com', 'termlink', 'app', relativePath),
+        'utf8'
+    );
+}
+
 test('codex client shell uses the Phase 1 conversation-first header and shared codex scripts', () => {
     const html = readPublicFile('codex_client.html');
 
@@ -99,6 +106,8 @@ test('terminal client stylesheet supports secondary panels and sticky composer f
     assert.match(css, /#codex-image-inputs/);
     assert.match(css, /\.codex-image-chip/);
     assert.match(css, /\.codex-mode-chip/);
+    assert.match(css, /\.codex-entry-context/);
+    assert.match(css, /\.codex-entry-chip/);
     assert.match(css, /\.codex-history-rename-input/);
     assert.match(css, /body\.viewport-compact #codex-input/);
     assert.match(css, /\.codex-request-card/);
@@ -119,6 +128,141 @@ test('codex message appends target the inner log stack instead of the scroll con
     assert.match(js, /function getCodexLogContainer\(\)\s*\{\s*return codexLogStack \|\| codexLog;/);
     assert.match(js, /const logContainer = getCodexLogContainer\(\);[\s\S]*logContainer\.appendChild\(entry\);/);
     assert.match(js, /const logContainer = getCodexLogContainer\(\);[\s\S]*logContainer\.innerHTML = '';/);
+});
+
+test('localImage history summaries keep only safe labels in Web and Android display metadata', () => {
+    const js = readPublicFile('terminal_client.js');
+    const vm = readAndroidMainFile(path.join('codex', 'CodexViewModel.kt'));
+
+    assert.match(
+        js,
+        /if \(entry\.type === 'localImage'\)[\s\S]*return \{[\s\S]*kind:\s*'image',[\s\S]*label,[\s\S]*dedupeKey:\s*buildCodexAttachmentDedupeKey\(localPath \|\| label\)[\s\S]*\};/
+    );
+    assert.match(
+        js,
+        /chip\.title = attachment\.kind === 'image'[\s\S]*\?\s*attachment\.label[\s\S]*:\s*\(attachment\.path \|\| attachment\.url \|\| attachment\.label\);/
+    );
+    assert.match(
+        vm,
+        /private fun buildMessageAttachmentSummary\([\s\S]*val isLocalImage = attachment\.type == "localImage"[\s\S]*path = null,[\s\S]*url = attachment\.url\.takeUnless \{ isLocalImage \}[\s\S]*source = if \(isLocalImage\) "local" else "remote"[\s\S]*dedupeKey = if \(isLocalImage\) \{[\s\S]*buildAttachmentDedupeKey\(attachment\.url\.ifBlank \{ attachment\.label \}\)/
+    );
+});
+
+test('Android user message context chips use wrapping layout instead of horizontal scroll', () => {
+    const screen = readAndroidMainFile(path.join('codex', 'ui', 'CodexScreen.kt'));
+
+    assert.match(
+        screen,
+        /@OptIn\(ExperimentalLayoutApi::class\)[\s\S]*private fun MessageBubble\(message: ChatMessage\)/
+    );
+    assert.match(
+        screen,
+        /if \(message\.role == ChatMessage\.Role\.USER[\s\S]*FlowRow\([\s\S]*verticalArrangement = Arrangement\.spacedBy\(8\.dp\)/
+    );
+    assert.doesNotMatch(
+        screen,
+        /if \(message\.role == ChatMessage\.Role\.USER &&[\s\S]{0,220}horizontalScroll\(rememberScrollState\(\)\)/
+    );
+    assert.match(
+        screen,
+        /private fun SkillChipLabel\(skillName: String\)[\s\S]*text = "\$"[\s\S]*text = display/
+    );
+    assert.doesNotMatch(
+        screen,
+        /private fun SkillChipLabel\(skillName: String\)[\s\S]*codex_native_skill_chip_prefix/
+    );
+});
+
+test('localImage history dedupe uses an opaque key instead of collapsing same-name files by label', () => {
+    const js = readPublicFile('terminal_client.js');
+    const vm = readAndroidMainFile(path.join('codex', 'CodexViewModel.kt'));
+    const models = readAndroidMainFile(path.join('codex', 'domain', 'CodexModels.kt'));
+    const screen = readAndroidMainFile(path.join('codex', 'ui', 'CodexScreen.kt'));
+
+    assert.match(js, /function buildCodexAttachmentDedupeKey\(value\)/);
+    assert.match(
+        js,
+        /const dedupeSource = typeof attachment\.dedupeKey === 'string' && attachment\.dedupeKey\.trim\(\)[\s\S]*: \(attachment\.path \|\| attachment\.url \|\| label\);/
+    );
+    assert.match(
+        js,
+        /dedupeKey:\s*buildCodexAttachmentDedupeKey\(localPath \|\| label\)/
+    );
+    assert.match(
+        js,
+        /dedupeKey:\s*dedupeSource \|\| ''/
+    );
+    assert.match(models, /data class CodexMessageAttachment\([\s\S]*val source: String\? = null,[\s\S]*val dedupeKey: String\? = null/);
+    assert.match(vm, /private fun buildAttachmentDedupeKey\(value: String\?\): String/);
+    assert.match(
+        vm,
+        /attachment\.dedupeKey[\s\S]*?: listOf\([\s\S]*attachment\.source\.orEmpty\(\)\.trim\(\)\.lowercase\(\)[\s\S]*attachment\.label\.trim\(\)\.lowercase\(\)/
+    );
+    assert.match(
+        screen,
+        /val isLocalImage = attachment\.source == "local" \|\|[\s\S]*isLocalImage[\s\S]*stringResource\(R\.string\.codex_native_image_local_chip, attachment\.label\)/
+    );
+});
+
+test('Android preserves optimistic user messages until turn ack arrives', () => {
+    const vm = readAndroidMainFile(path.join('codex', 'CodexViewModel.kt'));
+
+    assert.match(
+        vm,
+        /internal fun shouldPreserveLocalMessageTailForUi\([\s\S]*allowThreadIdSwitch: Boolean = false[\s\S]*val knownThreadSwitch = allowThreadIdSwitch[\s\S]*if \(!sameThread && !knownThreadSwitch\) \{\s*return false\s*\}/
+    );
+    assert.match(
+        vm,
+        /private fun shouldAllowOptimisticTailAcrossThreadSwitch\([\s\S]*pendingOptimisticNewThreadSourceThreadId[\s\S]*normalizedIncomingThreadId != pendingSourceThreadId/
+    );
+});
+
+test('composer skill tokens hide raw skill paths while preserving transport parsing', () => {
+    const js = readPublicFile('terminal_client.js');
+    const css = readPublicFile('terminal_client.css');
+    const screen = readAndroidMainFile(path.join('codex', 'ui', 'CodexScreen.kt'));
+
+    assert.match(js, /node\.classList && node\.classList\.contains\('codex-skill-tag'\)[\s\S]*node\.dataset\.rawToken/);
+    assert.match(js, /function insertSkillTagAtCursor\(skillEntry\)/);
+    assert.match(js, /span\.className = 'codex-skill-tag'[\s\S]*span\.dataset\.rawToken = rawToken[\s\S]*span\.textContent = displayText/);
+    assert.match(js, /applyCodexSkillSelection\(skillEntry\)[\s\S]*insertSkillTagAtCursor\(skillEntry\)/);
+    assert.match(css, /\.codex-skill-tag\s*\{/);
+    assert.match(
+        screen,
+        /private fun composerVisualTransformation\(mentions: List<FileMention>\): VisualTransformation \{[\s\S]*buildComposerTransformedText\([\s\S]*text = source\.text/
+    );
+    assert.match(screen, /private fun buildComposerTransformedText\(/);
+    assert.ok(
+        screen.includes('rawMatches += (matchIndex until matchEnd) to "\\$${token.name}"'),
+        'Android composer transformation should render skill tokens as visible $name tags instead of raw path tokens'
+    );
+});
+
+test('user message skill tokens stay inline in message order instead of rendering as a separate skill chip row', () => {
+    const js = readPublicFile('terminal_client.js');
+    const screen = readAndroidMainFile(path.join('codex', 'ui', 'CodexScreen.kt'));
+
+    assert.match(js, /function replaceCodexSkillTokensForDisplay\(text\)/);
+    assert.match(
+        js,
+        /return \{\s*text:\s*replaceCodexSkillTokensForDisplay\(sourceText\),[\s\S]*attachments\s*\}/
+    );
+    assert.match(
+        js,
+        /const extractedFiles = extractCodexLeadingFileReferences\(sourceText\);[\s\S]*text:\s*replaceCodexSkillTokensForDisplay\(extractedFiles\.bodyText\)/
+    );
+    assert.match(js, /if \(!presentation \|\| !presentation\.attachments\.length\) \{\s*return;\s*\}/);
+    assert.doesNotMatch(js, /presentation\.skills\.forEach/);
+
+    assert.match(
+        screen,
+        /if \(message\.role == ChatMessage\.Role\.USER &&[\s\S]*message\.fileMentions\.isNotEmpty\(\) \|\| message\.attachments\.isNotEmpty\(\)/
+    );
+    assert.match(
+        screen,
+        /text = if \(message\.role == ChatMessage\.Role\.USER\) \{[\s\S]*buildComposerTransformedText\([\s\S]*textColor = spec\.textColor[\s\S]*\)\.text[\s\S]*\} else \{[\s\S]*buildComposerAnnotatedString\(/
+    );
+    assert.doesNotMatch(screen, /private fun StaticSkillChip\(/);
 });
 
 // Phase 1 behavior test: secondary panels MUST be hidden by default
@@ -186,10 +330,11 @@ test('Phase 2: terminal_client.js composer must route through slash dispatch and
     assert.match(js, /reasoning_effort:\s*effectiveConfig\.reasoningEffort \|\| null/);
     assert.match(js, /collaborationMode:\s*collaborationMode \|\| undefined/);
     assert.match(js, /attachments:\s*imageInputs\.length > 0 \? imageInputs : undefined/);
+    assert.match(js, /interactionState,\s*\n\s*model:/);
     assert.match(js, /finalizePendingTurnStateOnSuccess\(\)/);
     assert.match(js, /restorePendingTurnStateOnFailure\(\)/);
-    assert.match(js, /clearActiveSkill:\s*!!interactionState\.activeSkill/);
-    assert.match(js, /activeSkill:\s*pending\.clearActiveSkill === true \? null : codexState\.interactionState\.activeSkill/);
+    assert.match(js, /const skillTokens = extractCodexSkillTokensFromText\(cleaned\);/);
+    assert.match(js, /activeSkill:\s*skillTokens\.length === 1 \? skillTokens\[0\]\.name : null/);
     assert.match(js, /clearImageInputs:\s*imageInputs\.length > 0/);
     assert.match(js, /setPendingCodexImageInputs\(pending\.imageInputs \|\| \[\]\)/);
     assert.match(js, /phase:\s*'idle'/);
@@ -253,6 +398,11 @@ test('Phase 2: terminal_client.js must parse model\/list and skills\/list payloa
     assert.match(js, /const items = isSkillQuery\s*\?\s*\[\]/);
     assert.match(js, /codexSlashMenuEmpty\.hidden = isSkillQuery \? skillItems\.length > 0/);
     assert.match(js, /function applyCodexSkillSelection\(skillEntry\)/);
+    assert.match(js, /const tokenText = buildCodexSkillTokenText\(skillEntry\);/);
+    assert.match(js, /insertTextAtCodexCursor\(tokenText\);/);
+    assert.match(slashJs, /function buildSkillToken\(input\)/);
+    assert.match(slashJs, /function extractSkillTokens\(text\)/);
+    assert.match(slashJs, /function stripSkillTokens\(text\)/);
     assert.match(js, /sendCodexBridgeRequest\('thread\/compact\/start', \{ threadId \}, \{ suppressErrorUi: true \}\)/);
     assert.match(js, /if \(method === 'thread\/compacted'\)/);
     assert.match(js, /setCodexCompactStatus\('当前线程已完成压缩。', 'success'\)/);

@@ -1312,6 +1312,44 @@ body.codex-only #codex-log-stack {
     margin-bottom: 4px;
 }
 
+.codex-entry-context {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.codex-entry-chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: 4px 8px;
+    border-radius: 999px;
+    border: 1px solid #30363d;
+    background: #161b22;
+    color: #c9d1d9;
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.codex-entry-chip-skill {
+    color: #7ee787;
+    border-color: rgba(78, 222, 163, 0.25);
+    background: rgba(0, 42, 30, 0.16);
+}
+
+.codex-entry-chip-file {
+    color: #8b949e;
+}
+
+.codex-entry-chip-image {
+    color: #d2a8ff;
+    border-color: rgba(210, 168, 255, 0.25);
+}
+
 .codex-entry .actions,
 .codex-request-actions {
     display: flex;
@@ -2441,6 +2479,22 @@ body.codex-only #codex-log-stack {
     display: inline;
     background: rgba(56, 139, 253, 0.15);
     color: #58a6ff;
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, monospace;
+    cursor: default;
+    user-select: all;
+    white-space: nowrap;
+    vertical-align: baseline;
+    line-height: inherit;
+}
+
+.codex-skill-tag {
+    display: inline;
+    background: rgba(78, 222, 163, 0.16);
+    color: #4edea3;
     border-radius: 3px;
     padding: 1px 4px;
     font-size: 12px;

@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.termlink.app.R
 import com.termlink.app.codex.data.*
 import com.termlink.app.codex.domain.ChatMessage
+import com.termlink.app.codex.domain.CodexMessageAttachment
 import com.termlink.app.codex.domain.CodexContextUsageState
 import com.termlink.app.codex.domain.CodexExecutionWatchState
 import com.termlink.app.codex.domain.CodexLaunchParams
@@ -15,6 +16,7 @@ import com.termlink.app.codex.domain.CodexPendingImageAttachment
 import com.termlink.app.codex.domain.CodexPlanWorkflowState
 import com.termlink.app.codex.domain.CodexRuntimePanelState
 import com.termlink.app.codex.domain.CodexSkillEntry
+import com.termlink.app.codex.domain.CodexSkillReference
 import com.termlink.app.codex.domain.CodexThreadHistoryEntry
 import com.termlink.app.codex.domain.CodexToolsPanelState
 import com.termlink.app.codex.domain.CodexUiState
@@ -41,6 +43,91 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+
+internal data class ThreadReadyUiTransition(
+    val currentTurnId: String?,
+    val messages: List<ChatMessage>,
+    val runtimePanel: CodexRuntimePanelState
+)
+
+internal fun normalizeCodexThreadId(threadId: String?): String? {
+    val normalized = threadId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    return when {
+        normalized.equals("null", ignoreCase = true) -> null
+        normalized.equals("undefined", ignoreCase = true) -> null
+        else -> normalized
+    }
+}
+
+internal fun shouldPreserveCodexTailMessage(message: ChatMessage): Boolean {
+    if (message.role == ChatMessage.Role.USER) {
+        return message.content.isNotBlank() ||
+            message.fileMentions.isNotEmpty() ||
+            message.skills.isNotEmpty() ||
+            message.attachments.isNotEmpty()
+    }
+    return message.content.isNotBlank() || message.streaming
+}
+
+internal fun shouldPreserveLocalMessageTailForUi(
+    threadId: String?,
+    state: CodexUiState,
+    allowThreadIdSwitch: Boolean = false
+): Boolean {
+    val normalizedStateThreadId = normalizeCodexThreadId(state.threadId)
+    val normalizedIncomingThreadId = normalizeCodexThreadId(threadId)
+    val sameThread = normalizedStateThreadId == null ||
+        normalizedIncomingThreadId == null ||
+        normalizedStateThreadId == normalizedIncomingThreadId
+    val knownThreadSwitch = allowThreadIdSwitch &&
+        normalizedStateThreadId != null &&
+        normalizedIncomingThreadId != null &&
+        normalizedStateThreadId != normalizedIncomingThreadId
+    if (!sameThread && !knownThreadSwitch) {
+        return false
+    }
+    if (!state.currentTurnId.isNullOrBlank()) {
+        return true
+    }
+    val tail = state.messages.lastOrNull() ?: return false
+    return tail.role == ChatMessage.Role.USER && shouldPreserveCodexTailMessage(tail)
+}
+
+internal fun buildThreadReadyUiTransition(
+    readyThreadId: String?,
+    resumed: Boolean,
+    state: CodexUiState,
+    allowThreadIdSwitch: Boolean = false
+): ThreadReadyUiTransition {
+    val preserveLocalTail = shouldPreserveLocalMessageTailForUi(
+        threadId = readyThreadId,
+        state = state,
+        allowThreadIdSwitch = allowThreadIdSwitch
+    )
+    val keepOptimisticMessages = resumed || preserveLocalTail
+    return ThreadReadyUiTransition(
+        currentTurnId = if (preserveLocalTail) state.currentTurnId else null,
+        messages = if (keepOptimisticMessages) state.messages else emptyList(),
+        runtimePanel = if (keepOptimisticMessages) {
+            state.runtimePanel
+        } else {
+            CodexRuntimePanelState(visible = state.runtimePanel.visible)
+        }
+    )
+}
+
+internal fun buildThreadStartedUiTransition(
+    startedThreadId: String?,
+    state: CodexUiState,
+    allowThreadIdSwitch: Boolean = false
+): ThreadReadyUiTransition {
+    return buildThreadReadyUiTransition(
+        readyThreadId = startedThreadId,
+        resumed = false,
+        state = state,
+        allowThreadIdSwitch = allowThreadIdSwitch
+    )
+}
 
 class CodexViewModel(
     appContext: Context,
@@ -77,6 +164,7 @@ class CodexViewModel(
      *  When this flag is true and the next turn is non-plan,
      *  we force a new thread to avoid thread-level plan contamination. */
     private var threadHadPlanTurn = false
+    private var pendingOptimisticNewThreadSourceThreadId: String? = null
     private var pendingThreadResyncThreadId: String? = null
     private var threadResyncInFlightThreadId: String? = null
 
@@ -93,6 +181,7 @@ class CodexViewModel(
         currentPlanStreamingMessageId = null
         executionFeedbackSeen.clear()
         threadHadPlanTurn = false
+        clearPendingOptimisticNewThreadTransition()
         clearPendingThreadResync()
         _uiState.update {
             recalculateNextTurnEffectiveConfig(
@@ -136,6 +225,7 @@ class CodexViewModel(
     }
 
     fun disconnect() {
+        clearPendingOptimisticNewThreadTransition()
         connectionManager.disconnect()
     }
 
@@ -231,6 +321,7 @@ class CodexViewModel(
         currentPlanStreamingMessageId = null
         executionFeedbackSeen.clear()
         threadHadPlanTurn = false
+        clearPendingOptimisticNewThreadTransition()
         clearPendingThreadResync()
         _uiState.update {
             it.copy(
@@ -680,22 +771,21 @@ class CodexViewModel(
 
     fun selectSkill(skillName: String?) {
         val normalized = skillName?.trim().orEmpty()
-        val current = _uiState.value
-        val nextInteractionState = CodexInteractionState(
-            planMode = current.planMode == true,
-            activeSkill = normalized.ifEmpty { null }
-        )
         _uiState.update { state ->
             state.copy(
-                interactionState = nextInteractionState,
+                pendingSkillInsertName = normalized.ifEmpty { null },
                 toolsPanel = state.toolsPanel.copy(visible = false)
             )
         }
-        syncInteractionState(nextInteractionState)
     }
 
     fun clearActiveSkill() {
-        selectSkill(null)
+        _uiState.update { state ->
+            state.copy(
+                pendingSkillInsertName = null,
+                interactionState = state.interactionState?.copy(activeSkill = null)
+            )
+        }
     }
 
     fun requestCompactCurrentThread() {
@@ -840,6 +930,7 @@ class CodexViewModel(
     fun resumeThread(threadId: String) {
         val normalizedThreadId = threadId.trim()
         if (normalizedThreadId.isEmpty()) return
+        clearPendingOptimisticNewThreadTransition()
         _uiState.update {
             it.copy(
                 threadHistoryActionThreadId = normalizedThreadId,
@@ -1155,6 +1246,21 @@ class CodexViewModel(
         state.copy(slashMenuVisible = false, slashMenuQuery = "")
 
     fun handleComposerTextChanged(rawText: String) {
+        val derivedActiveSkill = extractSkillReferencesFromText(rawText).singleOrNull()?.name
+        _uiState.update { state ->
+            state.copy(
+                interactionState = buildInteractionState(
+                    state = state.copy(
+                        interactionState = state.interactionState?.copy(activeSkill = derivedActiveSkill)
+                            ?: CodexInteractionState(
+                                planMode = state.planMode == true,
+                                activeSkill = derivedActiveSkill
+                            )
+                    ),
+                    planMode = state.planMode == true
+                )
+            )
+        }
         val mentionInput = CodexSlashRegistry.parseFileMentionInput(rawText)
         if (mentionInput == null || _uiState.value.capabilities?.fileMentions != true) {
             hideFileMentionMenu()
@@ -1211,9 +1317,10 @@ class CodexViewModel(
     ): Boolean {
         val state = _uiState.value
         if (text.isBlank() && state.pendingFileMentions.isEmpty() && state.pendingImageAttachments.isEmpty()) return false
+        val skillReferences = extractSkillReferencesFromText(text)
         val turnInteractionState = CodexInteractionState(
             planMode = forcePlanMode || state.planMode == true,
-            activeSkill = state.interactionState?.activeSkill
+            activeSkill = skillReferences.singleOrNull()?.name
         )
         val attachments = state.pendingImageAttachments.map { attachment ->
             CodexTurnAttachment(
@@ -1224,15 +1331,16 @@ class CodexViewModel(
         val prompt = buildPromptWithMentions(text, state.pendingFileMentions)
         val displayText = displayTextOverride ?: buildDisplayText(
             text = text,
-            mentions = state.pendingFileMentions,
-            attachments = state.pendingImageAttachments
+            mentions = state.pendingFileMentions
         )
         val userMsg = ChatMessage(
             id = UUID.randomUUID().toString(),
             role = ChatMessage.Role.USER,
             content = displayText,
             fileMentions = state.pendingFileMentions,
-            activeSkill = turnInteractionState.activeSkill
+            activeSkill = turnInteractionState.activeSkill,
+            skills = skillReferences,
+            attachments = state.pendingImageAttachments.map(::buildMessageAttachmentSummary)
         )
         val isPlanMode = forcePlanMode || state.planMode == true
         val effectiveModel = state.nextTurnOverrides.model ?: state.model
@@ -1276,6 +1384,11 @@ class CodexViewModel(
         } else if (effectiveForceNewThread) {
             threadHadPlanTurn = false
         }
+        pendingOptimisticNewThreadSourceThreadId = if (effectiveForceNewThread) {
+            normalizeThreadId(state.threadId)
+        } else {
+            null
+        }
 
         _uiState.update {
             it.copy(
@@ -1286,6 +1399,7 @@ class CodexViewModel(
                 fileMentionQuery = "",
                 fileMentionResults = emptyList(),
                 fileMentionLoading = false,
+                pendingSkillInsertName = null,
                 toolsPanel = it.toolsPanel.copy(
                     compactSubmitting = false,
                     compactStatusText = "",
@@ -1400,20 +1514,130 @@ class CodexViewModel(
 
     private fun buildDisplayText(
         text: String,
-        mentions: List<FileMention>,
-        attachments: List<CodexPendingImageAttachment> = emptyList()
+        mentions: List<FileMention>
     ): String {
-        val parts = mutableListOf<String>()
-        if (attachments.isNotEmpty()) {
-            parts += attachments.joinToString("\n") { attachment ->
-                when (attachment.type) {
-                    "localImage" -> "[image] ${attachment.label}"
-                    else -> "[image-url] ${attachment.label}"
+        val withoutSkills = CodexSlashRegistry.stripSkillTokens(text)
+        val withoutMentions = mentions.fold(withoutSkills) { current, file ->
+            stripCommittedMentionTokens(current, file)
+        }
+        return stripAttachmentSummaryLines(withoutMentions).trim()
+    }
+
+    private fun stripCommittedMentionTokens(text: String, mention: FileMention): String {
+        val candidates = buildSet {
+            val trimmedPath = mention.path.trim()
+            if (trimmedPath.isNotEmpty()) {
+                add("@$trimmedPath")
+            }
+            mention.label.trim()
+                .takeIf { it.isNotEmpty() }
+                ?.let { add("@$it") }
+        }
+        return candidates.fold(text) { current, token ->
+            stripCommittedMentionToken(current, token)
+        }
+    }
+
+    private fun buildVisibleUserMessageText(text: String): String {
+        val withoutMentions = stripLeadingMentionLines(text)
+        val withoutSkills = CodexSlashRegistry.stripSkillTokens(withoutMentions)
+        return stripAttachmentSummaryLines(withoutSkills).trim()
+    }
+
+    private fun stripAttachmentSummaryLines(text: String): String {
+        if (text.isBlank()) return ""
+        return text
+            .lineSequence()
+            .filterNot { line ->
+                val trimmed = line.trim()
+                trimmed.startsWith("[image] ", ignoreCase = true) ||
+                    trimmed.startsWith("[image-url] ", ignoreCase = true)
+            }
+            .joinToString("\n")
+    }
+
+    private fun extractSkillReferencesFromText(text: String): List<CodexSkillReference> {
+        return CodexSlashRegistry.extractSkillTokens(text).map { token ->
+            CodexSkillReference(
+                name = token.name,
+                path = token.path
+            )
+        }
+    }
+
+    private fun buildMessageAttachmentSummary(
+        attachment: CodexPendingImageAttachment
+    ): CodexMessageAttachment {
+        val isLocalImage = attachment.type == "localImage"
+        return CodexMessageAttachment(
+            kind = "image",
+            label = attachment.label,
+            path = null,
+            url = attachment.url.takeUnless { isLocalImage },
+            source = if (isLocalImage) "local" else "remote",
+            dedupeKey = if (isLocalImage) {
+                buildAttachmentDedupeKey(attachment.url.ifBlank { attachment.label })
+            } else {
+                null
+            }
+        )
+    }
+
+    private fun buildAttachmentDedupeKey(value: String?): String {
+        val normalized = value?.trim().orEmpty()
+        if (normalized.isEmpty()) {
+            return ""
+        }
+        var hash = 0x811C9DC5.toInt()
+        normalized.forEach { char ->
+            hash = hash xor char.code
+            hash *= 16777619
+        }
+        return "k${Integer.toUnsignedString(hash, 16)}"
+    }
+
+    private fun buildAttachmentLabel(preferred: String?, fallbackPath: String?): String {
+        val preferredTrimmed = preferred?.trim().orEmpty()
+        if (preferredTrimmed.isNotEmpty()) {
+            return preferredTrimmed
+        }
+        val fallbackTrimmed = fallbackPath?.trim().orEmpty()
+        if (fallbackTrimmed.isEmpty()) {
+            return "Image"
+        }
+        return fallbackTrimmed.substringAfterLast('/').substringAfterLast('\\').ifBlank { fallbackTrimmed }
+    }
+
+    private fun extractAttachmentSummaryLines(text: String): List<CodexMessageAttachment> {
+        if (text.isBlank()) return emptyList()
+        return text.lineSequence()
+            .mapNotNull { line ->
+                val trimmed = line.trim()
+                when {
+                    trimmed.startsWith("[image] ", ignoreCase = true) -> {
+                        CodexMessageAttachment(
+                            kind = "image",
+                            label = trimmed.removePrefix("[image]").trim()
+                        )
+                    }
+                    trimmed.startsWith("[image-url] ", ignoreCase = true) -> {
+                        CodexMessageAttachment(
+                            kind = "image",
+                            label = trimmed.removePrefix("[image-url]").trim()
+                        )
+                    }
+                    else -> null
                 }
             }
-        }
-        text.trim().takeIf { it.isNotEmpty() }?.let(parts::add)
-        return parts.joinToString("\n")
+            .distinctBy { attachment ->
+                listOf(
+                    attachment.kind.trim().lowercase(),
+                    attachment.path.orEmpty().trim().lowercase(),
+                    attachment.url.orEmpty().trim().lowercase(),
+                    attachment.label.trim().lowercase()
+                ).joinToString("::")
+            }
+            .toList()
     }
 
     private fun stripCommittedMentionToken(text: String, token: String): String {
@@ -1635,6 +1859,7 @@ class CodexViewModel(
                     status = _uiState.value.status,
                     currentTurnId = _uiState.value.currentTurnId
                 )
+                clearPendingOptimisticNewThreadTransitionIfResolved(_uiState.value.threadId)
                 if (json.has("tokenUsage")) {
                     applyTokenUsagePayload(state.tokenUsage)
                 }
@@ -1647,16 +1872,22 @@ class CodexViewModel(
                 val ready = CodexThreadReady.from(json)
                 val readyThreadId = normalizeThreadId(ready.threadId)
                 _uiState.update {
+                    val allowThreadIdSwitch = shouldAllowOptimisticTailAcrossThreadSwitch(
+                        stateThreadId = it.threadId,
+                        incomingThreadId = readyThreadId
+                    )
+                    val transition = buildThreadReadyUiTransition(
+                        readyThreadId = readyThreadId,
+                        resumed = ready.resumed,
+                        state = it,
+                        allowThreadIdSwitch = allowThreadIdSwitch
+                    )
                     syncExecutionWatch(
                         it.copy(
                             threadId = readyThreadId,
-                            currentTurnId = null,
-                            messages = if (ready.resumed) it.messages else emptyList(),
-                            runtimePanel = if (ready.resumed) {
-                                it.runtimePanel
-                            } else {
-                                buildEmptyRuntimePanelState()
-                            },
+                            currentTurnId = transition.currentTurnId,
+                            messages = transition.messages,
+                            runtimePanel = transition.runtimePanel,
                             currentThreadTitle = resolveCurrentThreadTitle(
                                 threadId = readyThreadId,
                                 entries = it.threadHistoryEntries,
@@ -1666,6 +1897,7 @@ class CodexViewModel(
                         markActivity = false
                     )
                 }
+                clearPendingOptimisticNewThreadTransitionIfResolved(readyThreadId)
                 Log.i(TAG, "Thread ready: $readyThreadId resumed=${ready.resumed}")
             }
 
@@ -1675,9 +1907,14 @@ class CodexViewModel(
                 val canonicalMessages = parseSnapshotMessages(snapshot)
                 clearPendingThreadResync(snapshotThreadId)
                 _uiState.update { state ->
+                    val allowThreadIdSwitch = shouldAllowOptimisticTailAcrossThreadSwitch(
+                        stateThreadId = state.threadId,
+                        incomingThreadId = snapshotThreadId
+                    )
                     val preserveLocalTail = shouldPreserveLocalMessageTail(
                         threadId = snapshotThreadId,
-                        state = state
+                        state = state,
+                        allowThreadIdSwitch = allowThreadIdSwitch
                     )
                     val mergedMessages = mergeCanonicalMessages(
                         canonicalMessages = canonicalMessages,
@@ -1698,6 +1935,7 @@ class CodexViewModel(
                         markActivity = false
                     )
                 }
+                clearPendingOptimisticNewThreadTransitionIfResolved(snapshotThreadId)
                 Log.i(TAG, "Thread snapshot: $snapshotThreadId msgs=${canonicalMessages.size}")
             }
 
@@ -1722,6 +1960,7 @@ class CodexViewModel(
                         markActivity = false
                     )
                 }
+                clearPendingOptimisticNewThreadTransitionIfResolved(ackThreadId)
                 executionFeedbackSeen.clear()
                 Log.d(TAG, "Turn ack: ${ack.turnId}")
             }
@@ -2092,6 +2331,7 @@ class CodexViewModel(
         val resumedThreadId = normalizeThreadId(thread.optStringOrNullCompat("id")).orEmpty()
         val resumedTitle = resolveThreadTitle(thread)
         threadHadPlanTurn = false
+        clearPendingOptimisticNewThreadTransition()
         clearPendingThreadResync()
         _uiState.update { state ->
             state.copy(
@@ -2186,26 +2426,22 @@ class CodexViewModel(
     }
 
     private fun normalizeThreadId(threadId: String?): String? {
-        val normalized = threadId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-        return when {
-            normalized.equals("null", ignoreCase = true) -> null
-            normalized.equals("undefined", ignoreCase = true) -> null
-            else -> normalized
-        }
+        return normalizeCodexThreadId(threadId)
     }
 
     private fun shouldPreserveLocalMessageTail(
         threadId: String?,
-        state: CodexUiState
+        state: CodexUiState,
+        allowThreadIdSwitch: Boolean = false
     ): Boolean {
-        if (state.currentTurnId.isNullOrBlank()) {
-            return false
-        }
-        val normalizedStateThreadId = normalizeThreadId(state.threadId)
-        val normalizedIncomingThreadId = normalizeThreadId(threadId)
-        return normalizedStateThreadId == null ||
-            normalizedIncomingThreadId == null ||
-            normalizedStateThreadId == normalizedIncomingThreadId
+        // Snapshot can arrive before turn ack. Keep the optimistic user tail
+        // until the canonical thread state catches up so the sent message
+        // does not disappear mid-turn.
+        return shouldPreserveLocalMessageTailForUi(
+            threadId = threadId,
+            state = state,
+            allowThreadIdSwitch = allowThreadIdSwitch
+        )
     }
 
     private fun mergeCanonicalMessages(
@@ -2224,22 +2460,28 @@ class CodexViewModel(
         }
         var searchStart = 0
         var lastMatchedCurrentIndex = -1
-        canonicalMessages.forEach { canonicalMessage ->
+        val mergedCanonical = canonicalMessages.map { canonicalMessage ->
+            var mergedMessage = canonicalMessage
             for (index in searchStart until currentMessages.size) {
                 if (messagesEquivalentForConvergence(currentMessages[index], canonicalMessage)) {
                     lastMatchedCurrentIndex = index
                     searchStart = index + 1
+                    mergedMessage = mergeCanonicalUserMessageMetadata(
+                        canonical = canonicalMessage,
+                        local = currentMessages[index]
+                    )
                     break
                 }
             }
+            mergedMessage
         }
         val localTail = currentMessages
             .subList((lastMatchedCurrentIndex + 1).coerceAtMost(currentMessages.size), currentMessages.size)
             .filter(::shouldPreserveTailMessage)
         if (localTail.isEmpty()) {
-            return canonicalMessages
+            return mergedCanonical
         }
-        val merged = canonicalMessages.toMutableList()
+        val merged = mergedCanonical.toMutableList()
         localTail.forEach { message ->
             if (merged.none { existing -> messagesEquivalentForConvergence(existing, message) }) {
                 merged.add(message)
@@ -2248,13 +2490,43 @@ class CodexViewModel(
         return merged
     }
 
-    private fun shouldPreserveTailMessage(message: ChatMessage): Boolean {
-        if (message.role == ChatMessage.Role.USER) {
-            return message.content.isNotBlank() ||
-                message.fileMentions.isNotEmpty() ||
-                !message.activeSkill.isNullOrBlank()
+    private fun mergeCanonicalUserMessageMetadata(
+        canonical: ChatMessage,
+        local: ChatMessage
+    ): ChatMessage {
+        if (canonical.role != ChatMessage.Role.USER || local.role != ChatMessage.Role.USER) {
+            return canonical
         }
-        return message.content.isNotBlank() || message.streaming
+        val mergedMentions = (canonical.fileMentions + local.fileMentions)
+            .distinctBy { mention -> mention.path.trim().lowercase() }
+        val mergedSkills = (canonical.skills + local.skills)
+            .distinctBy { skill ->
+                "${skill.name.trim().lowercase()}::${skill.path.orEmpty().trim().lowercase()}"
+            }
+        val mergedAttachments = (canonical.attachments + local.attachments)
+            .distinctBy { attachment ->
+                attachment.dedupeKey
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.lowercase()
+                    ?: listOf(
+                        attachment.kind.trim().lowercase(),
+                        attachment.source.orEmpty().trim().lowercase(),
+                        attachment.path.orEmpty().trim().lowercase(),
+                        attachment.url.orEmpty().trim().lowercase(),
+                        attachment.label.trim().lowercase()
+                    ).joinToString("::")
+            }
+        return canonical.copy(
+            activeSkill = canonical.activeSkill ?: local.activeSkill ?: mergedSkills.firstOrNull()?.name,
+            fileMentions = mergedMentions,
+            skills = mergedSkills,
+            attachments = mergedAttachments
+        )
+    }
+
+    private fun shouldPreserveTailMessage(message: ChatMessage): Boolean {
+        return shouldPreserveCodexTailMessage(message)
     }
 
     private fun messagesEquivalentForConvergence(
@@ -2274,6 +2546,10 @@ class CodexViewModel(
         append(message.collapsedLabel.trim())
         append('|')
         append(message.activeSkill.orEmpty())
+        append('|')
+        append(message.skills.joinToString(separator = "\u001F") { skill ->
+            "${skill.name.trim()}::${skill.path.orEmpty().trim()}"
+        })
         append('|')
         append(message.content.trim())
         append('|')
@@ -2308,6 +2584,32 @@ class CodexViewModel(
         }
         if (threadResyncInFlightThreadId == normalized) {
             threadResyncInFlightThreadId = null
+        }
+    }
+
+    private fun shouldAllowOptimisticTailAcrossThreadSwitch(
+        stateThreadId: String?,
+        incomingThreadId: String?
+    ): Boolean {
+        val pendingSourceThreadId = normalizeThreadId(pendingOptimisticNewThreadSourceThreadId)
+            ?: return false
+        val normalizedStateThreadId = normalizeThreadId(stateThreadId)
+        val normalizedIncomingThreadId = normalizeThreadId(incomingThreadId)
+        return normalizedStateThreadId == pendingSourceThreadId &&
+            normalizedIncomingThreadId != null &&
+            normalizedIncomingThreadId != pendingSourceThreadId
+    }
+
+    private fun clearPendingOptimisticNewThreadTransition() {
+        pendingOptimisticNewThreadSourceThreadId = null
+    }
+
+    private fun clearPendingOptimisticNewThreadTransitionIfResolved(observedThreadId: String?) {
+        val pendingSourceThreadId = normalizeThreadId(pendingOptimisticNewThreadSourceThreadId)
+            ?: return
+        val normalizedObservedThreadId = normalizeThreadId(observedThreadId) ?: return
+        if (normalizedObservedThreadId != pendingSourceThreadId) {
+            pendingOptimisticNewThreadSourceThreadId = null
         }
     }
 
@@ -2517,16 +2819,26 @@ class CodexViewModel(
                             content = item.optJSONArray("content"),
                             fallbackText = text
                         )
-                        val activeSkill = extractUserMessageActiveSkill(item.optJSONArray("content"))
-                        val visibleText = stripLeadingMentionLines(text)
-                        if (visibleText.isNotEmpty() || fileMentions.isNotEmpty() || !activeSkill.isNullOrBlank()) {
+                        val skills = extractUserMessageSkills(
+                            content = item.optJSONArray("content"),
+                            fallbackText = text
+                        )
+                        val attachments = extractUserMessageAttachments(
+                            content = item.optJSONArray("content"),
+                            fallbackText = text
+                        )
+                        val activeSkill = skills.firstOrNull()?.name
+                        val visibleText = buildVisibleUserMessageText(text)
+                        if (visibleText.isNotEmpty() || fileMentions.isNotEmpty() || skills.isNotEmpty() || attachments.isNotEmpty()) {
                             result.add(
                                 ChatMessage(
                                     id = item.optString("id", UUID.randomUUID().toString()),
                                     role = ChatMessage.Role.USER,
                                     content = visibleText,
                                     fileMentions = fileMentions,
-                                    activeSkill = activeSkill
+                                    activeSkill = activeSkill,
+                                    skills = skills,
+                                    attachments = attachments
                                 )
                             )
                         }
@@ -2585,7 +2897,7 @@ class CodexViewModel(
         return if (structured.isNotEmpty()) {
             structured.distinctBy { it.path }
         } else {
-            extractLeadingFileMentions(fallbackText)
+            extractLeadingFileMentions(CodexSlashRegistry.stripSkillTokens(fallbackText))
         }
     }
 
@@ -2602,6 +2914,88 @@ class CodexViewModel(
             }
         }
         return null
+    }
+
+    private fun extractUserMessageSkills(
+        content: JSONArray?,
+        fallbackText: String = ""
+    ): List<CodexSkillReference> {
+        val structured = mutableListOf<CodexSkillReference>()
+        content?.let { parts ->
+            for (index in 0 until parts.length()) {
+                val part = parts.optJSONObject(index) ?: continue
+                if (part.optString("type", "") == "skill") {
+                    val skillName = part.optStringOrNullCompat("name")
+                        ?: part.optStringOrNullCompat("toolName")
+                        ?: continue
+                    structured += CodexSkillReference(
+                        name = skillName,
+                        path = part.optStringOrNullCompat("path")
+                    )
+                }
+            }
+        }
+        val tokenSkills = extractSkillReferencesFromText(fallbackText)
+        return (structured + tokenSkills).distinctBy { skill ->
+            "${skill.name.trim().lowercase()}::${skill.path.orEmpty().trim().lowercase()}"
+        }
+    }
+
+    private fun extractUserMessageAttachments(
+        content: JSONArray?,
+        fallbackText: String = ""
+    ): List<CodexMessageAttachment> {
+        val structured = mutableListOf<CodexMessageAttachment>()
+        content?.let { parts ->
+            for (index in 0 until parts.length()) {
+                val part = parts.optJSONObject(index) ?: continue
+                when (part.optString("type", "")) {
+                    "image", "image_url", "input_image" -> {
+                        val url = part.optStringOrNullCompat("url")
+                            ?: part.optStringOrNullCompat("imageUrl")
+                            ?: continue
+                        structured += CodexMessageAttachment(
+                            kind = "image",
+                            label = buildAttachmentLabel(
+                                preferred = part.optStringOrNullCompat("label")
+                                    ?: part.optStringOrNullCompat("name"),
+                                fallbackPath = url
+                            ),
+                            url = url,
+                            source = "remote"
+                        )
+                    }
+                    "localImage" -> {
+                        val path = part.optStringOrNullCompat("path")
+                            ?: part.optStringOrNullCompat("url")
+                            ?: continue
+                        structured += CodexMessageAttachment(
+                            kind = "image",
+                            label = buildAttachmentLabel(
+                                preferred = part.optStringOrNullCompat("label")
+                                    ?: part.optStringOrNullCompat("name"),
+                                fallbackPath = path
+                            ),
+                            path = path,
+                            source = "local",
+                            dedupeKey = buildAttachmentDedupeKey(path)
+                        )
+                    }
+                }
+            }
+        }
+        return if (structured.isNotEmpty()) {
+            structured.distinctBy { attachment ->
+                listOf(
+                    attachment.kind.trim().lowercase(),
+                    attachment.path.orEmpty().trim().lowercase(),
+                    attachment.url.orEmpty().trim().lowercase(),
+                    attachment.label.trim().lowercase()
+                ).joinToString("::")
+            }
+        } else {
+            extractAttachmentSummaryLines(fallbackText)
+        }
     }
 
     private fun extractLeadingFileMentions(text: String): List<FileMention> {
@@ -2901,17 +3295,31 @@ class CodexViewModel(
                     ?.optString("id", "")
                     ?.trim()
                     .orEmpty()
-                if (threadId.isNotEmpty()) {
+                val startedThreadId = normalizeThreadId(threadId)
+                if (!startedThreadId.isNullOrEmpty()) {
                     currentStreamingMessageId = null
                     currentPlanStreamingMessageId = null
                     _uiState.update {
+                        val allowThreadIdSwitch = shouldAllowOptimisticTailAcrossThreadSwitch(
+                            stateThreadId = it.threadId,
+                            incomingThreadId = startedThreadId
+                        )
+                        val transition = buildThreadStartedUiTransition(
+                            startedThreadId = startedThreadId,
+                            state = it,
+                            allowThreadIdSwitch = allowThreadIdSwitch
+                        )
                         it.copy(
-                            threadId = threadId,
-                            currentTurnId = null,
-                            messages = emptyList(),
+                            threadId = startedThreadId,
+                            currentTurnId = transition.currentTurnId,
+                            messages = transition.messages,
                             errorMessage = null,
-                            runtimePanel = buildEmptyRuntimePanelState(),
-                            noticesPanel = CodexNoticesPanelState(),
+                            runtimePanel = transition.runtimePanel,
+                            noticesPanel = if (transition.messages.isEmpty()) {
+                                CodexNoticesPanelState()
+                            } else {
+                                it.noticesPanel
+                            },
                             pendingServerRequests = emptyList(),
                             submittingServerRequestIds = emptySet()
                         )
@@ -4561,15 +4969,33 @@ class CodexViewModel(
             } else {
                 emptyList()
             }
+            val skills = if (role == ChatMessage.Role.USER) {
+                extractUserMessageSkills(
+                    content = msgJson.optJSONArray("content"),
+                    fallbackText = content
+                )
+            } else {
+                emptyList()
+            }
+            val attachments = if (role == ChatMessage.Role.USER) {
+                extractUserMessageAttachments(
+                    content = msgJson.optJSONArray("content"),
+                    fallbackText = content
+                )
+            } else {
+                emptyList()
+            }
             val activeSkill = msgJson.optStringOrNullCompat("activeSkill")
-                ?: extractUserMessageActiveSkill(msgJson.optJSONArray("content"))
+                ?: skills.firstOrNull()?.name
             result.add(
                 ChatMessage(
                     id = msgJson.optString("id", UUID.randomUUID().toString()),
                     role = role,
-                    content = if (role == ChatMessage.Role.USER) stripLeadingMentionLines(content) else content,
+                    content = if (role == ChatMessage.Role.USER) buildVisibleUserMessageText(content) else content,
                     fileMentions = fileMentions,
                     activeSkill = if (role == ChatMessage.Role.USER) activeSkill else null,
+                    skills = if (role == ChatMessage.Role.USER) skills else emptyList(),
+                    attachments = if (role == ChatMessage.Role.USER) attachments else emptyList(),
                     timestamp = msgJson.optLong("timestamp", System.currentTimeMillis())
                 )
             )

@@ -10,9 +10,18 @@
     const t = typeof globalThis !== 'undefined' && typeof globalThis.t === 'function' ? globalThis.t : (k) => k;
     const VALID_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh']);
     const ENABLED_DISCOVERABILITY = 'menu_visible_executable';
+    const SKILL_TOKEN_REGEX = /\[\$([^\]\r\n]+)\]\(([^)\r\n]+)\)/g;
 
     function normalizeOptionalString(value) {
         return typeof value === 'string' && value.trim() ? value.trim() : null;
+    }
+
+    function normalizeWindowsPath(value) {
+        const normalized = normalizeOptionalString(value);
+        if (!normalized) {
+            return null;
+        }
+        return normalized.replace(/\//g, '\\');
     }
 
     function normalizeReasoningEffort(value) {
@@ -52,6 +61,74 @@
             planMode: source.planMode === true,
             activeSkill: normalizeOptionalString(source.activeSkill)
         };
+    }
+
+    function buildSkillPathCandidates(input) {
+        const source = input && typeof input === 'object' ? input : {};
+        const cwd = normalizeWindowsPath(source.cwd);
+        const skillName = normalizeOptionalString(source.skillName);
+        if (!cwd || !skillName) {
+            return [];
+        }
+        const base = cwd.replace(/[\\\/]+$/, '');
+        return [
+            `${base}\\.codex\\skills\\${skillName}\\SKILL.md`,
+            `${base}\\skills\\${skillName}\\SKILL.md`,
+            `${base}\\.claude\\skills\\${skillName}\\SKILL.md`
+        ];
+    }
+
+    function buildSkillToken(input) {
+        const source = input && typeof input === 'object' ? input : {};
+        const skillName = normalizeOptionalString(source.skillName);
+        if (!skillName) {
+            return '';
+        }
+        const skillPath = normalizeWindowsPath(source.skillPath) || buildSkillPathCandidates({
+            cwd: source.cwd,
+            skillName
+        })[0] || '';
+        return skillPath
+            ? `[$${skillName}](${skillPath})`
+            : `[$${skillName}]`;
+    }
+
+    function extractSkillTokens(text) {
+        const source = typeof text === 'string' ? text : '';
+        const matches = [];
+        const seen = new Set();
+        let match = null;
+        SKILL_TOKEN_REGEX.lastIndex = 0;
+        while ((match = SKILL_TOKEN_REGEX.exec(source)) !== null) {
+            const name = normalizeOptionalString(match[1]);
+            const path = normalizeWindowsPath(match[2]) || '';
+            if (!name) {
+                continue;
+            }
+            const dedupeKey = `${name.toLowerCase()}::${path.toLowerCase()}`;
+            if (seen.has(dedupeKey)) {
+                continue;
+            }
+            seen.add(dedupeKey);
+            matches.push({
+                raw: match[0],
+                name,
+                path
+            });
+        }
+        return matches;
+    }
+
+    function stripSkillTokens(text) {
+        const source = typeof text === 'string' ? text : '';
+        SKILL_TOKEN_REGEX.lastIndex = 0;
+        return source
+            .replace(SKILL_TOKEN_REGEX, '')
+            .replace(/[ \t]+\n/g, '\n')
+            .replace(/\n[ \t]+/g, '\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .replace(/[ \t]{2,}/g, ' ')
+            .trim();
     }
 
     function buildNextTurnEffectiveCodexConfig(input) {
@@ -252,13 +329,17 @@
     }
 
     return {
+        buildSkillPathCandidates,
+        buildSkillToken,
         buildNextTurnEffectiveCodexConfig,
         createSlashRegistry,
+        extractSkillTokens,
         getDiscoverableSlashCommands,
         normalizeInteractionState,
         normalizeNextTurnOverrides,
         parseComposerInput,
         parseFileMentionInput,
-        resolveSlashCommand
+        resolveSlashCommand,
+        stripSkillTokens
     };
 }));

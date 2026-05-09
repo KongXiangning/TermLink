@@ -16,6 +16,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -1597,6 +1599,7 @@ private fun formatHeaderCwdForDisplay(cwd: String): String {
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun MessageBubble(message: ChatMessage) {
     if (message.collapsible) {
         CollapsibleExecutionItem(message)
@@ -1632,11 +1635,23 @@ private fun MessageBubble(message: ChatMessage) {
                 border = BorderStroke(1.dp, spec.border)
             ) {
                 Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-                    if (message.role == ChatMessage.Role.USER && !message.activeSkill.isNullOrBlank()) {
-                        StaticSkillChip(
-                            skillName = message.activeSkill,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
+                    if (message.role == ChatMessage.Role.USER &&
+                        (message.fileMentions.isNotEmpty() || message.attachments.isNotEmpty())
+                    ) {
+                        FlowRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            message.fileMentions.forEach { mention ->
+                                StaticMentionChip(file = mention)
+                            }
+                            message.attachments.forEach { attachment ->
+                                StaticAttachmentChip(attachment = attachment)
+                            }
+                        }
                     }
                     if (message.role == ChatMessage.Role.TOOL && !message.toolName.isNullOrBlank()) {
                         Text(
@@ -1648,11 +1663,19 @@ private fun MessageBubble(message: ChatMessage) {
                     }
                     SelectionContainer {
                         Text(
-                            text = buildMentionAnnotatedString(
-                                text = message.content,
-                                mentions = message.fileMentions,
-                                textColor = spec.textColor
-                            ),
+                            text = if (message.role == ChatMessage.Role.USER) {
+                                buildComposerTransformedText(
+                                    text = message.content,
+                                    mentions = message.fileMentions,
+                                    textColor = spec.textColor
+                                ).text
+                            } else {
+                                buildComposerAnnotatedString(
+                                    text = message.content,
+                                    mentions = message.fileMentions,
+                                    textColor = spec.textColor
+                                )
+                            },
                             color = spec.textColor,
                             fontSize = 13.sp,
                             lineHeight = 20.sp,
@@ -3964,7 +3987,6 @@ private fun InputComposer(
     var textFieldValue by remember { mutableStateOf(TextFieldValue("")) }
     val composerFocusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
-    val activeSkill = state.interactionState?.activeSkill?.takeIf { it.isNotBlank() }
 
     LaunchedEffect(state.planMode, state.planWorkflow.phase) {
         val shouldFocusComposer = state.planMode == true && (
@@ -3987,8 +4009,8 @@ private fun InputComposer(
             }
         }
         val mentionParseText = composerRawTextForMentionParsing(rawText, mentionParseMentions)
+        onComposerTextChanged(mentionParseText)
         if (CodexSlashRegistry.parseFileMentionInput(mentionParseText) != null) {
-            onComposerTextChanged(mentionParseText)
             onHideSlashMenu()
             return
         }
@@ -4002,8 +4024,49 @@ private fun InputComposer(
         }
     }
 
-    LaunchedEffect(activeSkill) {
-        if (activeSkill.isNullOrBlank()) {
+    fun insertSkillToken(skillName: String) {
+        val token = CodexSlashRegistry.buildSkillToken(
+            cwd = state.cwd,
+            skillName = skillName
+        )
+        if (token.isBlank()) return
+        val currentValue = textFieldValue
+        val selectionStart = currentValue.selection.min.coerceIn(0, currentValue.text.length)
+        val selectionEnd = currentValue.selection.max.coerceIn(0, currentValue.text.length)
+        val prefix = buildString {
+            if (selectionStart > 0 && !currentValue.text[selectionStart - 1].isWhitespace()) {
+                append(' ')
+            }
+            append(token)
+            if (selectionEnd < currentValue.text.length && !currentValue.text[selectionEnd].isWhitespace()) {
+                append(' ')
+            } else {
+                append(' ')
+            }
+        }
+        val updatedText = buildString {
+            append(currentValue.text.substring(0, selectionStart))
+            append(prefix)
+            append(currentValue.text.substring(selectionEnd))
+        }
+        textFieldValue = TextFieldValue(
+            text = updatedText,
+            selection = TextRange(selectionStart + prefix.length)
+        )
+        syncComposerMenus(updatedText)
+    }
+
+    LaunchedEffect(state.pendingSkillInsertName) {
+        val skillName = state.pendingSkillInsertName?.takeIf { it.isNotBlank() }
+            ?: return@LaunchedEffect
+        insertSkillToken(skillName)
+        onClearActiveSkill()
+        composerFocusRequester.requestFocus()
+        keyboardController?.show()
+    }
+
+    LaunchedEffect(state.interactionState?.activeSkill) {
+        if (state.interactionState?.activeSkill.isNullOrBlank()) {
             return@LaunchedEffect
         }
         composerFocusRequester.requestFocus()
@@ -4084,8 +4147,7 @@ private fun InputComposer(
         state.capabilities?.diffPlanReasoning == true ||
         hasNoticesPanelContent(state) ||
         state.capabilities?.skillsList == true ||
-        state.capabilities?.compact == true ||
-        state.interactionState?.activeSkill?.isNotBlank() == true
+        state.capabilities?.compact == true
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -4168,14 +4230,20 @@ private fun InputComposer(
             }
 
             if (pendingMentions.isNotEmpty()) {
-            }
-
-            if (activeSkill != null) {
-                ComposerSkillChip(
-                    skillName = activeSkill,
-                    onClear = onClearActiveSkill,
-                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 4.dp)
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(start = 12.dp, end = 12.dp, top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    pendingMentions.forEach { mention ->
+                        MentionChip(
+                            file = mention,
+                            onRemove = { onRemoveFileMention(mention.path) }
+                        )
+                    }
+                }
             }
 
             Surface(
@@ -4221,7 +4289,7 @@ private fun InputComposer(
                                 lineHeight = 19.sp
                             ),
                             visualTransformation = remember(pendingMentions) {
-                                mentionVisualTransformation(pendingMentions)
+                                composerVisualTransformation(pendingMentions)
                             },
                             cursorBrush = SolidColor(AccentBlue),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -4231,11 +4299,7 @@ private fun InputComposer(
                         )
                         if (textFieldValue.text.isBlank()) {
                             Text(
-                                text = if (activeSkill != null) {
-                                    stringResource(R.string.codex_native_input_hint_skill, activeSkill)
-                                } else {
-                                    stringResource(R.string.codex_native_input_hint)
-                                },
+                                text = stringResource(R.string.codex_native_input_hint),
                                 color = TextMuted,
                                 fontSize = 13.sp
                             )
@@ -4341,23 +4405,6 @@ private fun ComposerSkillChip(
 }
 
 @Composable
-private fun StaticSkillChip(
-    skillName: String,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.Start
-    ) {
-        SkillChipFrame {
-            SkillChipLabel(skillName = skillName)
-        }
-    }
-}
-
-@Composable
 private fun StaticMentionChip(
     file: FileMention,
     modifier: Modifier = Modifier
@@ -4382,6 +4429,33 @@ private fun StaticMentionChip(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun StaticAttachmentChip(
+    attachment: com.termlink.app.codex.domain.CodexMessageAttachment,
+    modifier: Modifier = Modifier
+) {
+    val isLocalImage = attachment.source == "local" ||
+        (!attachment.path.isNullOrBlank() && attachment.url.isNullOrBlank())
+    Row(modifier = modifier) {
+        SkillChipFrame {
+            Text(
+                text = when {
+                    isLocalImage ->
+                        stringResource(R.string.codex_native_image_local_chip, attachment.label)
+                    else ->
+                        stringResource(R.string.codex_native_image_url_chip)
+                },
+                color = TextPrimary,
+                fontSize = 11.sp,
+                lineHeight = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 240.dp)
+            )
         }
     }
 }
@@ -4416,7 +4490,7 @@ private fun SkillChipLabel(skillName: String) {
         skillName
     }
     Text(
-        text = stringResource(R.string.codex_native_skill_chip_prefix),
+        text = "$",
         color = AccentBlue,
         fontSize = 11.sp,
         lineHeight = 14.sp,
@@ -4994,20 +5068,141 @@ private fun String.indexOfFirstFrom(startIndex: Int, predicate: (Char) -> Boolea
     return -1
 }
 
-private fun mentionVisualTransformation(mentions: List<FileMention>): VisualTransformation {
+private fun composerVisualTransformation(mentions: List<FileMention>): VisualTransformation {
     return VisualTransformation { source ->
-        TransformedText(
-            buildMentionAnnotatedString(
-                text = source.text,
-                mentions = mentions,
-                textColor = TextPrimary
-            ),
-            OffsetMapping.Identity
+        buildComposerTransformedText(
+            text = source.text,
+            mentions = mentions
         )
     }
 }
 
-private fun buildMentionAnnotatedString(
+private data class ComposerSkillDisplayRange(
+    val rawStart: Int,
+    val rawEnd: Int,
+    val displayStart: Int,
+    val displayEnd: Int
+)
+
+private fun buildComposerTransformedText(
+    text: String,
+    mentions: List<FileMention>,
+    textColor: Color = TextPrimary
+): TransformedText {
+    val rawMatches = mutableListOf<Pair<IntRange, String>>()
+    CodexSlashRegistry.extractSkillTokens(text).forEach { token ->
+        val tokenText = token.raw.trim()
+        if (tokenText.isBlank()) return@forEach
+        var cursor = 0
+        while (cursor < text.length) {
+            val matchIndex = text.indexOf(tokenText, cursor)
+            if (matchIndex == -1) break
+            val matchEnd = matchIndex + tokenText.length
+            rawMatches += (matchIndex until matchEnd) to "\$${token.name}"
+            cursor = matchEnd
+        }
+    }
+    if (rawMatches.isEmpty()) {
+        return TransformedText(
+            buildComposerAnnotatedString(
+                text = text,
+                mentions = mentions,
+                textColor = textColor
+            ),
+            OffsetMapping.Identity
+        )
+    }
+    val filteredMatches = mutableListOf<Pair<IntRange, String>>()
+    var nextRawStart = 0
+    rawMatches.sortedBy { it.first.first }.forEach { match ->
+        if (match.first.first >= nextRawStart) {
+            filteredMatches += match
+            nextRawStart = match.first.last + 1
+        }
+    }
+    val transformed = StringBuilder()
+    val originalToTransformedOffsets = IntArray(text.length + 1)
+    val transformedToOriginalOffsets = mutableListOf<Int>()
+    val skillDisplayRanges = mutableListOf<ComposerSkillDisplayRange>()
+    var originalCursor = 0
+    filteredMatches.forEach { (rawRange, displayText) ->
+        while (originalCursor < rawRange.first) {
+            originalToTransformedOffsets[originalCursor] = transformed.length
+            transformed.append(text[originalCursor])
+            transformedToOriginalOffsets += originalCursor
+            originalCursor += 1
+        }
+        val displayStart = transformed.length
+        displayText.forEachIndexed { index, char ->
+            transformed.append(char)
+            transformedToOriginalOffsets += (rawRange.first + index).coerceAtMost(rawRange.last + 1)
+        }
+        val displayEnd = transformed.length
+        for (offset in rawRange.first..rawRange.last) {
+            originalToTransformedOffsets[offset] = (displayStart + (offset - rawRange.first)).coerceAtMost(displayEnd)
+        }
+        originalToTransformedOffsets[rawRange.last + 1] = displayEnd
+        skillDisplayRanges += ComposerSkillDisplayRange(
+            rawStart = rawRange.first,
+            rawEnd = rawRange.last + 1,
+            displayStart = displayStart,
+            displayEnd = displayEnd
+        )
+        originalCursor = rawRange.last + 1
+    }
+    while (originalCursor < text.length) {
+        originalToTransformedOffsets[originalCursor] = transformed.length
+        transformed.append(text[originalCursor])
+        transformedToOriginalOffsets += originalCursor
+        originalCursor += 1
+    }
+    originalToTransformedOffsets[text.length] = transformed.length
+    transformedToOriginalOffsets += text.length
+    val mentionTokens = mentions.map { "@${displayFileMention(it)}" }.distinct()
+    val annotated = buildAnnotatedString {
+        append(transformed.toString())
+        addStyle(SpanStyle(color = textColor), 0, transformed.length)
+        skillDisplayRanges.forEach { range ->
+            addStyle(
+                SpanStyle(
+                    color = AccentBlue,
+                    background = Color(0x1A2F81F7)
+                ),
+                range.displayStart,
+                range.displayEnd
+            )
+        }
+        mentionTokens.forEach { token ->
+            var cursor = 0
+            while (cursor < text.length) {
+                val matchIndex = text.indexOf(token, cursor)
+                if (matchIndex == -1) break
+                val tokenEnd = matchIndex + token.length
+                if (isCommittedMentionBoundary(text, matchIndex, tokenEnd)) {
+                    addStyle(
+                        SpanStyle(
+                            color = AccentBlue,
+                            background = Color(0x1F2F81F7)
+                        ),
+                        originalToTransformedOffsets[matchIndex],
+                        originalToTransformedOffsets[tokenEnd]
+                    )
+                }
+                cursor = tokenEnd
+            }
+        }
+    }
+    val offsetMapping = object : OffsetMapping {
+        override fun originalToTransformed(offset: Int): Int =
+            originalToTransformedOffsets[offset.coerceIn(0, text.length)]
+
+        override fun transformedToOriginal(offset: Int): Int =
+            transformedToOriginalOffsets[offset.coerceIn(0, transformedToOriginalOffsets.lastIndex)]
+    }
+    return TransformedText(annotated, offsetMapping)
+}
+
+private fun buildComposerAnnotatedString(
     text: String,
     mentions: List<FileMention>,
     textColor: Color
@@ -5016,6 +5211,25 @@ private fun buildMentionAnnotatedString(
     return buildAnnotatedString {
         append(text)
         addStyle(SpanStyle(color = textColor), 0, text.length)
+        CodexSlashRegistry.extractSkillTokens(text).forEach { token ->
+            val tokenText = token.raw.trim()
+            if (tokenText.isBlank()) return@forEach
+            var cursor = 0
+            while (cursor < text.length) {
+                val matchIndex = text.indexOf(tokenText, cursor)
+                if (matchIndex == -1) break
+                val tokenEnd = matchIndex + tokenText.length
+                addStyle(
+                    SpanStyle(
+                        color = AccentBlue,
+                        background = Color(0x1A2F81F7)
+                    ),
+                    matchIndex,
+                    tokenEnd
+                )
+                cursor = tokenEnd
+            }
+        }
         mentionTokens.forEach { token ->
             var cursor = 0
             while (cursor < text.length) {

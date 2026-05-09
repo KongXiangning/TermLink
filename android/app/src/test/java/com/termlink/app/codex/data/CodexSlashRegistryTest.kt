@@ -42,4 +42,53 @@ class CodexSlashRegistryTest {
 
         assertEquals(listOf("/skill"), commands.map { it.command })
     }
+
+    @Test
+    fun skillTokenHelpersBuildWindowsPathAndStripTokensFromComposerText() {
+        assertEquals(
+            listOf(
+                "E:\\coding\\TermLink\\.codex\\skills\\adb-real-device-debug\\SKILL.md",
+                "E:\\coding\\TermLink\\skills\\adb-real-device-debug\\SKILL.md",
+                "E:\\coding\\TermLink\\.claude\\skills\\adb-real-device-debug\\SKILL.md"
+            ),
+            CodexSlashRegistry.buildSkillPathCandidates(
+                cwd = "E:/coding/TermLink/",
+                skillName = "adb-real-device-debug"
+            )
+        )
+
+        val token = CodexSlashRegistry.buildSkillToken(
+            cwd = "E:\\coding\\TermLink",
+            skillName = "adb-real-device-debug"
+        )
+        assertEquals(
+            "[\$adb-real-device-debug](E:\\coding\\TermLink\\.codex\\skills\\adb-real-device-debug\\SKILL.md)",
+            token
+        )
+
+        assertEquals(
+            listOf(
+                CodexSlashRegistry.SkillToken(
+                    raw = "[\$adb-real-device-debug](E:\\coding\\TermLink\\.codex\\skills\\adb-real-device-debug\\SKILL.md)",
+                    name = "adb-real-device-debug",
+                    path = "E:\\coding\\TermLink\\.codex\\skills\\adb-real-device-debug\\SKILL.md"
+                ),
+                CodexSlashRegistry.SkillToken(
+                    raw = "[\$git-sensitive-scan](E:\\coding\\TermLink\\.codex\\skills\\git-sensitive-scan\\SKILL.md)",
+                    name = "git-sensitive-scan",
+                    path = "E:\\coding\\TermLink\\.codex\\skills\\git-sensitive-scan\\SKILL.md"
+                )
+            ),
+            CodexSlashRegistry.extractSkillTokens(
+                "Investigate $token and [\$git-sensitive-scan](E:\\coding\\TermLink\\.codex\\skills\\git-sensitive-scan\\SKILL.md)"
+            )
+        )
+
+        assertEquals(
+            "Investigate\n\nnow",
+            CodexSlashRegistry.stripSkillTokens(
+                "Investigate $token\n\n[\$git-sensitive-scan](E:\\coding\\TermLink\\.codex\\skills\\git-sensitive-scan\\SKILL.md) now"
+            )
+        )
+    }
 }

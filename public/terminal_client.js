@@ -113,6 +113,8 @@ if (codexInput && codexInput.tagName === 'DIV') {
                     text += '\n';
                 } else if (node.classList && node.classList.contains('codex-mention-tag')) {
                     text += '@' + (node.dataset.label || node.textContent.replace(/^@/, ''));
+                } else if (node.classList && node.classList.contains('codex-skill-tag')) {
+                    text += node.dataset.rawToken || node.textContent;
                 } else {
                     node.childNodes.forEach(walk);
                 }
@@ -153,6 +155,8 @@ function getCodexInputRawText() {
             text += '\n';
         } else if (node.classList && node.classList.contains('codex-mention-tag')) {
             // skip mention spans — raw text only
+        } else if (node.classList && node.classList.contains('codex-skill-tag')) {
+            // skip rendered skill spans — raw text only
         } else {
             node.childNodes.forEach(walk);
         }
@@ -170,6 +174,361 @@ function extractInlineMentions() {
         relativePathWithoutFileName: '',
         fsPath: span.dataset.fspath || span.dataset.path || ''
     }));
+}
+
+function moveCodexCaretToEnd() {
+    if (!codexInput || codexInput.tagName !== 'DIV') {
+        return;
+    }
+    const selection = window.getSelection();
+    if (!selection) {
+        return;
+    }
+    const range = document.createRange();
+    range.selectNodeContents(codexInput);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    savedCodexInputRange = range.cloneRange();
+}
+
+function resolveCodexInputRange() {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0 && codexInput.contains(selection.anchorNode)) {
+        return selection.getRangeAt(0);
+    }
+    if (savedCodexInputRange && codexInput.contains(savedCodexInputRange.startContainer)) {
+        if (selection) {
+            selection.removeAllRanges();
+            selection.addRange(savedCodexInputRange);
+        }
+        return savedCodexInputRange;
+    }
+    return null;
+}
+
+function insertTextAtCodexCursor(text) {
+    if (!codexInput || !text) {
+        return;
+    }
+    const selection = window.getSelection();
+    const activeRange = resolveCodexInputRange();
+    if (!activeRange) {
+        codexInput.focus();
+        const currentText = getCodexInputRawText();
+        const leadingSpace = currentText && !/\s$/.test(currentText) ? ' ' : '';
+        const textNode = document.createTextNode(`${leadingSpace}${text} `);
+        codexInput.appendChild(textNode);
+        const nextRange = document.createRange();
+        nextRange.setStart(textNode, textNode.textContent.length);
+        nextRange.collapse(true);
+        if (selection) {
+            selection.removeAllRanges();
+            selection.addRange(nextRange);
+        }
+        savedCodexInputRange = nextRange.cloneRange();
+        return;
+    }
+    const previousChar = activeRange.startContainer && activeRange.startContainer.nodeType === Node.TEXT_NODE
+        ? (activeRange.startContainer.textContent || '').charAt(Math.max(activeRange.startOffset - 1, 0))
+        : '';
+    const nextChar = activeRange.startContainer && activeRange.startContainer.nodeType === Node.TEXT_NODE
+        ? (activeRange.startContainer.textContent || '').charAt(activeRange.startOffset)
+        : '';
+    const leadingSpace = previousChar && !/\s/.test(previousChar) ? ' ' : '';
+    const trailingSpace = nextChar && !/\s/.test(nextChar) ? ' ' : ' ';
+    const insertedText = `${leadingSpace}${text}${trailingSpace}`;
+    activeRange.deleteContents();
+    const textNode = document.createTextNode(insertedText);
+    activeRange.insertNode(textNode);
+    const nextRange = document.createRange();
+    nextRange.setStart(textNode, insertedText.length);
+    nextRange.collapse(true);
+    if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(nextRange);
+    }
+    savedCodexInputRange = nextRange.cloneRange();
+}
+
+function getCodexSkillTokenHelpers() {
+    const slashApi = getCodexSlashCommandsApi();
+    return slashApi && typeof slashApi.buildSkillToken === 'function'
+        && typeof slashApi.extractSkillTokens === 'function'
+        && typeof slashApi.stripSkillTokens === 'function'
+        ? slashApi
+        : null;
+}
+
+function buildCodexSkillTokenText(skillEntry) {
+    if (!skillEntry || typeof skillEntry.name !== 'string' || !skillEntry.name.trim()) {
+        return '';
+    }
+    const helpers = getCodexSkillTokenHelpers();
+    if (!helpers) {
+        return `[$${skillEntry.name.trim()}]`;
+    }
+    return helpers.buildSkillToken({
+        cwd: String(codexState.cwd || getConfiguredCodexCwd() || '').trim(),
+        skillName: skillEntry.name.trim()
+    });
+}
+
+function extractCodexSkillTokensFromText(text) {
+    const helpers = getCodexSkillTokenHelpers();
+    return helpers ? helpers.extractSkillTokens(text) : [];
+}
+
+function stripCodexSkillTokensFromText(text) {
+    const helpers = getCodexSkillTokenHelpers();
+    return helpers ? helpers.stripSkillTokens(text) : (typeof text === 'string' ? text.trim() : '');
+}
+
+function replaceCodexSkillTokensForDisplay(text) {
+    const source = typeof text === 'string' ? text : '';
+    const skillTokens = extractCodexSkillTokensFromText(source);
+    if (!skillTokens.length) {
+        return source.trim();
+    }
+    let displayText = source;
+    skillTokens.forEach((token) => {
+        const rawToken = typeof token.raw === 'string' ? token.raw.trim() : '';
+        const skillName = typeof token.name === 'string' ? token.name.trim() : '';
+        if (!rawToken || !skillName) {
+            return;
+        }
+        displayText = displayText.split(rawToken).join(`$${skillName}`);
+    });
+    return displayText.trim();
+}
+
+function getCodexPathLeafName(value) {
+    const source = typeof value === 'string' ? value.trim() : '';
+    if (!source) {
+        return '';
+    }
+    const parts = source.split(/[\\/]+/).filter(Boolean);
+    return parts.length > 0 ? parts[parts.length - 1] : source;
+}
+
+function isCodexFileReferenceLine(line) {
+    const trimmed = typeof line === 'string' ? line.trim() : '';
+    if (!trimmed.startsWith('@') || trimmed.length < 2) {
+        return false;
+    }
+    const candidate = trimmed.slice(1);
+    return /^[A-Za-z]:\\/.test(candidate)
+        || /^\.{1,2}[\\/]/.test(candidate)
+        || /[\\/]/.test(candidate);
+}
+
+function extractCodexLeadingFileReferences(text) {
+    const source = typeof text === 'string' ? text.trim() : '';
+    if (!source) {
+        return { files: [], bodyText: '' };
+    }
+    const lines = source.split(/\r?\n/);
+    const files = [];
+    let index = 0;
+    while (index < lines.length && isCodexFileReferenceLine(lines[index])) {
+        const filePath = lines[index].trim().slice(1);
+        files.push({
+            kind: 'file',
+            label: getCodexPathLeafName(filePath) || filePath,
+            path: filePath
+        });
+        index += 1;
+    }
+    if (files.length > 0 && index < lines.length && !lines[index].trim()) {
+        index += 1;
+    }
+    return {
+        files,
+        bodyText: lines.slice(index).join('\n').trim()
+    };
+}
+
+function pushUniqueCodexSkill(target, skill) {
+    if (!skill || typeof skill.name !== 'string' || !skill.name.trim()) {
+        return;
+    }
+    const name = skill.name.trim();
+    if (target.some((entry) => entry.name === name)) {
+        return;
+    }
+    target.push({ name });
+}
+
+function pushUniqueCodexAttachment(target, attachment) {
+    if (!attachment || typeof attachment.kind !== 'string' || typeof attachment.label !== 'string') {
+        return;
+    }
+    const label = attachment.label.trim();
+    if (!label) {
+        return;
+    }
+    const dedupeSource = typeof attachment.dedupeKey === 'string' && attachment.dedupeKey.trim()
+        ? attachment.dedupeKey.trim()
+        : (attachment.path || attachment.url || label);
+    const dedupeKey = `${attachment.kind}:${dedupeSource.toLowerCase()}`;
+    if (target.some((entry) => {
+        const existingSource = typeof entry.dedupeKey === 'string' && entry.dedupeKey.trim()
+            ? entry.dedupeKey.trim()
+            : (entry.path || entry.url || entry.label);
+        return `${entry.kind}:${existingSource.toLowerCase()}` === dedupeKey;
+    })) {
+        return;
+    }
+    target.push({
+        kind: attachment.kind,
+        label,
+        path: attachment.path || '',
+        url: attachment.url || '',
+        dedupeKey: dedupeSource || ''
+    });
+}
+
+function buildCodexAttachmentDedupeKey(value) {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (!normalized) {
+        return '';
+    }
+    let hash = 2166136261;
+    for (let index = 0; index < normalized.length; index += 1) {
+        hash ^= normalized.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return `k${(hash >>> 0).toString(16)}`;
+}
+
+function buildCodexImageAttachmentSummary(entry) {
+    if (!entry || typeof entry !== 'object') {
+        return null;
+    }
+    if (entry.type === 'localImage') {
+        const localPath = typeof entry.path === 'string' && entry.path.trim()
+            ? entry.path.trim()
+            : (typeof entry.url === 'string' ? entry.url.trim() : '');
+        const label = typeof entry.name === 'string' && entry.name.trim()
+            ? entry.name.trim()
+            : (getCodexPathLeafName(localPath) || t('codex.image.defaultName'));
+        return {
+            kind: 'image',
+            label,
+            dedupeKey: buildCodexAttachmentDedupeKey(localPath || label)
+        };
+    }
+    if (entry.type === 'image') {
+        const imageUrl = typeof entry.url === 'string' ? entry.url.trim() : '';
+        if (!imageUrl) {
+            return null;
+        }
+        return {
+            kind: 'image',
+            label: getCodexPathLeafName(imageUrl) || imageUrl,
+            url: imageUrl
+        };
+    }
+    return null;
+}
+
+function buildCodexFileAttachmentSummary(entry) {
+    if (!entry || typeof entry !== 'object') {
+        return null;
+    }
+    const label = typeof entry.label === 'string' && entry.label.trim()
+        ? entry.label.trim()
+        : getCodexPathLeafName(entry.path || entry.fsPath || '');
+    const filePath = typeof entry.path === 'string' && entry.path.trim()
+        ? entry.path.trim()
+        : (typeof entry.fsPath === 'string' ? entry.fsPath.trim() : '');
+    if (!label && !filePath) {
+        return null;
+    }
+    return {
+        kind: 'file',
+        label: label || filePath,
+        path: filePath
+    };
+}
+
+function buildCodexUserMessagePresentation(text, options) {
+    const opts = options || {};
+    const contentParts = Array.isArray(opts.contentParts) ? opts.contentParts : [];
+    const skills = [];
+    const attachments = [];
+    const textParts = [];
+
+    contentParts.forEach((part) => {
+        if (!part || typeof part !== 'object') {
+            return;
+        }
+        if (part.type === 'text' && typeof part.text === 'string') {
+            textParts.push(part.text);
+            return;
+        }
+        if (part.type === 'skill' && typeof part.name === 'string') {
+            pushUniqueCodexSkill(skills, { name: part.name });
+            return;
+        }
+        pushUniqueCodexAttachment(attachments, buildCodexImageAttachmentSummary(part));
+    });
+
+    const sourceText = typeof text === 'string' && text.trim()
+        ? text.trim()
+        : textParts.join('\n').trim();
+    extractCodexSkillTokensFromText(sourceText).forEach((skill) => pushUniqueCodexSkill(skills, skill));
+
+    if (Array.isArray(opts.fileMentions) && opts.fileMentions.length > 0) {
+        opts.fileMentions.forEach((entry) => pushUniqueCodexAttachment(attachments, buildCodexFileAttachmentSummary(entry)));
+        Array.isArray(opts.imageInputs) && opts.imageInputs.forEach((entry) => {
+            pushUniqueCodexAttachment(attachments, buildCodexImageAttachmentSummary(entry));
+        });
+        return {
+            text: replaceCodexSkillTokensForDisplay(sourceText),
+            skills,
+            attachments
+        };
+    }
+
+    const extractedFiles = extractCodexLeadingFileReferences(sourceText);
+    extractedFiles.files.forEach((entry) => pushUniqueCodexAttachment(attachments, entry));
+    Array.isArray(opts.imageInputs) && opts.imageInputs.forEach((entry) => {
+        pushUniqueCodexAttachment(attachments, buildCodexImageAttachmentSummary(entry));
+    });
+    return {
+        text: replaceCodexSkillTokensForDisplay(extractedFiles.bodyText),
+        skills,
+        attachments
+    };
+}
+
+function renderCodexUserMessageContext(entry, presentation) {
+    if (!entry) {
+        return;
+    }
+    const existing = entry.querySelector('.codex-entry-context');
+    if (existing) {
+        existing.remove();
+    }
+    if (!presentation || !presentation.attachments.length) {
+        return;
+    }
+    const contextNode = document.createElement('div');
+    contextNode.className = 'codex-entry-context';
+    presentation.attachments.forEach((attachment) => {
+        const chip = document.createElement('span');
+        chip.className = `codex-entry-chip codex-entry-chip-${attachment.kind}`;
+        chip.textContent = attachment.kind === 'image'
+            ? `🖼 ${attachment.label}`
+            : `📎 ${attachment.label}`;
+        chip.title = attachment.kind === 'image'
+            ? attachment.label
+            : (attachment.path || attachment.url || attachment.label);
+        contextNode.appendChild(chip);
+    });
+    const contentNode = entry.querySelector('.content');
+    entry.insertBefore(contextNode, contentNode || null);
 }
 
 function insertMentionTagAtCursor(file) {
@@ -250,6 +609,71 @@ function insertMentionTagAtCursor(file) {
     sel.addRange(newRange);
 }
 // --- End contenteditable helpers ---
+
+function insertSkillTagAtCursor(skillEntry) {
+    if (!codexInput || !skillEntry || typeof skillEntry.name !== 'string') {
+        return false;
+    }
+    const rawToken = buildCodexSkillTokenText(skillEntry);
+    const displayText = `$${skillEntry.name.trim()}`;
+    if (!rawToken || !displayText) {
+        return false;
+    }
+    const selection = window.getSelection();
+    const activeRange = resolveCodexInputRange();
+    const span = document.createElement('span');
+    span.className = 'codex-skill-tag';
+    span.contentEditable = 'false';
+    span.dataset.name = skillEntry.name.trim();
+    span.dataset.rawToken = rawToken;
+    span.textContent = displayText;
+    if (!activeRange) {
+        codexInput.focus();
+        const currentText = getCodexInputRawText();
+        const leadingSpace = currentText && !/\s$/.test(currentText) ? ' ' : '';
+        if (leadingSpace) {
+            codexInput.appendChild(document.createTextNode(leadingSpace));
+        }
+        codexInput.appendChild(span);
+        const space = document.createTextNode('\u00A0');
+        codexInput.appendChild(space);
+        const nextRange = document.createRange();
+        nextRange.setStartAfter(space);
+        nextRange.collapse(true);
+        if (selection) {
+            selection.removeAllRanges();
+            selection.addRange(nextRange);
+        }
+        savedCodexInputRange = nextRange.cloneRange();
+        return true;
+    }
+    const previousChar = activeRange.startContainer && activeRange.startContainer.nodeType === Node.TEXT_NODE
+        ? (activeRange.startContainer.textContent || '').charAt(Math.max(activeRange.startOffset - 1, 0))
+        : '';
+    const nextChar = activeRange.startContainer && activeRange.startContainer.nodeType === Node.TEXT_NODE
+        ? (activeRange.startContainer.textContent || '').charAt(activeRange.startOffset)
+        : '';
+    const leadingSpace = previousChar && !/\s/.test(previousChar) ? ' ' : '';
+    const trailingSpace = nextChar && !/\s/.test(nextChar) ? '\u00A0' : '\u00A0';
+    activeRange.deleteContents();
+    const fragment = document.createDocumentFragment();
+    if (leadingSpace) {
+        fragment.appendChild(document.createTextNode(leadingSpace));
+    }
+    fragment.appendChild(span);
+    const trailingNode = document.createTextNode(trailingSpace);
+    fragment.appendChild(trailingNode);
+    activeRange.insertNode(fragment);
+    const nextRange = document.createRange();
+    nextRange.setStartAfter(trailingNode);
+    nextRange.collapse(true);
+    if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(nextRange);
+    }
+    savedCodexInputRange = nextRange.cloneRange();
+    return true;
+}
 
 let term;
 let fitAddon;
@@ -1533,40 +1957,14 @@ function restoreNextTurnOverrides() {
 
 function renderCodexComposerState() {
     const planMode = codexState.interactionState.planMode === true;
-    const hasSkill = !!codexState.interactionState.activeSkill;
 
     // Plan mode indicator in the footer bar
     if (codexFooterPlanIndicator) {
         codexFooterPlanIndicator.hidden = !planMode;
     }
 
-    // Skill chip in the secondary nav row
-    if (codexSecondaryNav) {
-        const existing = codexSecondaryNav.querySelector('.codex-skill-chip');
-        if (existing) existing.remove();
-        if (hasSkill) {
-            const skillChip = document.createElement('button');
-            skillChip.className = 'codex-mode-chip codex-skill-chip';
-            skillChip.type = 'button';
-            const skillName = codexState.interactionState.activeSkill;
-            const maxLen = 12;
-            const display = skillName.length > maxLen ? skillName.slice(0, maxLen) + '…' : skillName;
-            skillChip.innerHTML = '🛠 ' + display + ' <span class="chip-dismiss">&times;</span>';
-            skillChip.title = skillName;
-            skillChip.addEventListener('click', () => {
-                setCodexInteractionState({
-                    planMode: codexState.interactionState.planMode,
-                    activeSkill: null
-                });
-            });
-            codexSecondaryNav.insertBefore(skillChip, codexSecondaryNav.firstChild);
-        }
-    }
-
     if (codexInput) {
-        codexInput.placeholder = codexState.interactionState.activeSkill
-            ? t('codex.input.skillActive', { skill: codexState.interactionState.activeSkill })
-            : t('codex.input.placeholder');
+        codexInput.placeholder = t('codex.input.placeholder');
     }
 }
 
@@ -2689,10 +3087,23 @@ function applyCodexSkillSelection(skillEntry) {
     if (!skillEntry) {
         return;
     }
-    setCodexInteractionState({
-        planMode: codexState.interactionState.planMode === true,
-        activeSkill: skillEntry.name
-    });
+    if (!buildCodexSkillTokenText(skillEntry) || !codexInput) {
+        return;
+    }
+    const slashApi = getCodexSlashCommandsApi();
+    const rawText = getCodexInputRawText();
+    const parsed = slashApi && typeof slashApi.parseComposerInput === 'function'
+        ? slashApi.parseComposerInput(rawText)
+        : null;
+    if (parsed && parsed.kind === 'slash' && parsed.command === '/skill') {
+        codexInput.value = '';
+        codexInput.focus();
+        insertSkillTagAtCursor(skillEntry);
+    } else {
+        codexInput.focus();
+        insertSkillTagAtCursor(skillEntry);
+    }
+    codexInput.dispatchEvent(new Event('input', { bubbles: true }));
     if (codexInput) {
         codexInput.focus();
     }
@@ -3254,8 +3665,18 @@ function appendCodexLogEntry(role, text, options) {
 
     const contentNode = document.createElement('div');
     contentNode.className = 'content';
-    contentNode.textContent = text || '';
+    const presentation = safeRole === 'user'
+        ? buildCodexUserMessagePresentation(text || '', {
+            fileMentions: opts.fileMentions,
+            imageInputs: opts.imageInputs,
+            contentParts: opts.contentParts
+        })
+        : null;
+    contentNode.textContent = presentation ? presentation.text : (text || '');
     entry.appendChild(contentNode);
+    if (presentation) {
+        renderCodexUserMessageContext(entry, presentation);
+    }
 
     logContainer.appendChild(entry);
     codexLog.scrollTop = codexLog.scrollHeight;
@@ -4715,10 +5136,10 @@ function finalizePendingTurnStateOnSuccess() {
     if (pending.clearOverrides === true) {
         clearNextTurnOverrides();
     }
-    if (pending.clearPlanMode === true || pending.clearActiveSkill === true) {
+    if (pending.clearPlanMode === true) {
         setCodexInteractionState({
-            planMode: pending.clearPlanMode === true ? false : codexState.interactionState.planMode === true,
-            activeSkill: pending.clearActiveSkill === true ? null : codexState.interactionState.activeSkill
+            planMode: false,
+            activeSkill: codexState.interactionState.activeSkill
         });
     }
     if (pending.clearImageInputs === true) {
@@ -4750,10 +5171,15 @@ function sendCodexTurn(text, options) {
     const cleaned = typeof text === 'string' ? text.trim() : '';
     const opts = options || {};
     const nextTurnOverrides = normalizeNextTurnOverrides(opts.nextTurnOverrides || codexState.nextTurnOverrides);
-    const interactionState = normalizeCodexInteractionState(opts.interactionState || codexState.interactionState);
+    const requestedInteractionState = normalizeCodexInteractionState(opts.interactionState || codexState.interactionState);
     const imageInputs = normalizeCodexImageInputs(opts.imageInputs || codexState.pendingImageInputs);
     const fileMentions = Array.isArray(opts.fileMentions) ? opts.fileMentions : codexState.pendingFileMentions;
     const collaborationMode = normalizeCodexCollaborationMode(opts.collaborationMode);
+    const skillTokens = extractCodexSkillTokensFromText(cleaned);
+    const interactionState = normalizeCodexInteractionState({
+        planMode: requestedInteractionState.planMode === true,
+        activeSkill: skillTokens.length === 1 ? skillTokens[0].name : null
+    });
     if (!cleaned && imageInputs.length === 0 && fileMentions.length === 0) return false;
     if (!collaborationMode && codexState.planWorkflow.phase === 'plan_ready_for_confirmation') {
         setPlanWorkflowState(buildEmptyPlanWorkflowState());
@@ -4769,23 +5195,18 @@ function sendCodexTurn(text, options) {
         threadId: codexState.threadId || undefined,
         forceNewThread: !!opts.forceNewThread,
         cwd: getConfiguredCodexCwd() || undefined,
+        interactionState,
         model: nextTurnOverrides.model || undefined,
         reasoningEffort: nextTurnOverrides.reasoningEffort || undefined,
         sandbox: resolveCodexTurnSandboxOverride(nextTurnOverrides) || undefined,
         collaborationMode: collaborationMode || undefined,
         attachments: imageInputs.length > 0 ? imageInputs : undefined
     };
-
-    const imageSummary = imageInputs.map((entry) => {
-        if (entry.type === 'localImage') {
-            return t('codex.image.localImageLog', { name: entry.name || t('codex.image.defaultName') });
-        }
-        return t('codex.image.urlLog', { url: entry.url });
+    appendCodexLogEntry('user', cleaned, {
+        meta: 'you',
+        fileMentions,
+        imageInputs
     });
-    const fileSummary = fileMentions.length > 0
-        ? fileMentions.map((f) => t('codex.image.fileLog', { label: f.label })).join('\n')
-        : '';
-    appendCodexLogEntry('user', [fileSummary, cleaned, ...imageSummary].filter(Boolean).join('\n'), { meta: 'you' });
     if (codexState.threadId && codexState.unmaterializedThreadId === codexState.threadId) {
         codexState.unmaterializedThreadId = '';
     }
@@ -4793,12 +5214,11 @@ function sendCodexTurn(text, options) {
     setCodexStatus('running', 'starting turn');
     rememberPendingTurnState({
         nextTurnOverrides,
-        interactionState,
+        interactionState: requestedInteractionState,
         imageInputs,
         fileMentions,
         clearOverrides: opts.clearOverrides === true,
         clearPlanMode: opts.clearPlanMode === true,
-        clearActiveSkill: !!interactionState.activeSkill,
         clearImageInputs: imageInputs.length > 0,
         clearFileMentions: fileMentions.length > 0
     });
@@ -5547,12 +5967,11 @@ function handleCodexThreadSnapshot(thread) {
         turn.items.forEach((item) => {
             if (!item || typeof item !== 'object') return;
             if (item.type === 'userMessage') {
-                const firstText = Array.isArray(item.content)
-                    ? item.content.find((part) => part && part.type === 'text' && typeof part.text === 'string')
-                    : null;
-                if (firstText && firstText.text) {
-                    appendCodexLogEntry('user', firstText.text, { meta: 'you', itemId: item.id || '' });
-                }
+                appendCodexLogEntry('user', '', {
+                    meta: 'you',
+                    itemId: item.id || '',
+                    contentParts: Array.isArray(item.content) ? item.content : []
+                });
                 return;
             }
             if (item.type === 'agentMessage') {

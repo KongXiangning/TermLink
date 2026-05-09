@@ -27,6 +27,8 @@ data class ChatMessage(
     val toolName: String? = null,
     val fileMentions: List<FileMention> = emptyList(),
     val activeSkill: String? = null,
+    val skills: List<CodexSkillReference> = activeSkill?.let { listOf(CodexSkillReference(it)) } ?: emptyList(),
+    val attachments: List<CodexMessageAttachment> = emptyList(),
     val timestamp: Long = System.currentTimeMillis(),
     val streaming: Boolean = false,
     val collapsible: Boolean = false,
@@ -68,6 +70,20 @@ data class CodexSkillEntry(
     val description: String = "",
     val defaultPrompt: String = "",
     val scope: String = ""
+)
+
+data class CodexSkillReference(
+    val name: String,
+    val path: String? = null
+)
+
+data class CodexMessageAttachment(
+    val kind: String,
+    val label: String,
+    val path: String? = null,
+    val url: String? = null,
+    val source: String? = null,
+    val dedupeKey: String? = null
 )
 
 data class CodexPendingImageAttachment(
@@ -195,6 +211,7 @@ data class CodexUiState(
     val pendingServerRequests: List<CodexServerRequest> = emptyList(),
     val submittingServerRequestIds: Set<String> = emptySet(),
     val sessionExpired: Boolean = false,
+    val pendingSkillInsertName: String? = null,
     val runtimePanel: CodexRuntimePanelState = CodexRuntimePanelState(),
     val noticesPanel: CodexNoticesPanelState = CodexNoticesPanelState(),
     val toolsPanel: CodexToolsPanelState = CodexToolsPanelState(),
