@@ -18,11 +18,12 @@
 - [x] BasicAuth 默认开启与 Android release config 校验入口
 - [x] workflow-system install 与 host-local skill 文档迁移
 - [x] legacy inventory 与 adopt-existing-project 首版治理基线
+- [x] Codex 多 skill 内联 token、附件摘要历史展示与 Web/Android 回看能力：任务 `20260508-001` 已完成 Web/Android 手动 smoke、Node/Android 回归和 session/thread 关联风险 smoke，确认 skill / file / image 上下文在发送前、流式中、完成后与跨 session/cwd 切换时都不再出现本轮已知回归
 
 ## 🔨 正在开发
 
 - [ ] Codex history / active thread session 作用域修复已提交并进入条件交接：状态为 `implemented_committed_limited_android_smoke_conditionally_accepted`，有限真机 Android smoke 未发现当前可复现阻塞问题，但完整步骤 12-15 smoke 未充分覆盖，不能写入稳定区
-- [x] A5 current-task driven delivery 已开始，当前任务包为 `docs/workflow/CURRENT_TASK.md`（任务 ID：20260504-001）
+- [ ] 当前无活动 `CURRENT_TASK.md` 任务包；下一轮需求明确后需重新运行 `/create-current-task`
 
 ## 📋 待开发
 
@@ -62,3 +63,4 @@
 - 2026-04-30：基于 adopt-existing-project 收正 workflow 状态，切换到 A5 准备阶段
 - 2026-04-30：workflow health 与 Android JVM unit 通过；Node test full suite 挂起，release config check 对当前配置失败
 - 2026-05-08：同步当前任务状态。Codex history / active thread session 作用域修复已提交（`0700047`）并进入条件交接；自动验证完成，有限真机 Android smoke 未发现当前可复现阻塞问题，但完整 Android smoke 风险保留为后续追踪项，因此不写入稳定区
+- 2026-05-10：`CURRENT_TASK.md` 已清理为无活动任务的 clean handoff 入口；保留 `20260504-001` 的待补完整 Android smoke / 归档判断，以及 Node full suite 挂起点和 Android release config 失败这两项后续入口

@@ -461,12 +461,20 @@ export function isRuntimeHost(value: string): value is RuntimeHost {
 function getFlagValue(argv: string[], flag: string): string | undefined {
   const exactIndex = argv.indexOf(flag);
   if (exactIndex >= 0) {
-    return argv[exactIndex + 1];
+    const value = argv[exactIndex + 1];
+    if (!value || value.startsWith('--')) {
+      throw new Error(`${flag} requires a value.`);
+    }
+    return value;
   }
 
   const prefixed = argv.find(arg => arg.startsWith(`${flag}=`));
   if (prefixed) {
-    return prefixed.slice(flag.length + 1);
+    const value = prefixed.slice(flag.length + 1);
+    if (!value) {
+      throw new Error(`${flag} requires a value.`);
+    }
+    return value;
   }
 
   return undefined;

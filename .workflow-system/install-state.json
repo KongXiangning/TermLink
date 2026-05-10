@@ -1,8 +1,8 @@
 {
   "state_version": 1,
-  "bundle_id": "workflow-system@0.14.5+0e6838a43ed3",
+  "bundle_id": "workflow-system@0.14.5+af6ef39b6f3b",
   "workflow_system_version": "0.14.5",
-  "installed_at": "2026-05-08T14:44:11.217Z",
+  "installed_at": "2026-05-10T03:39:36.389Z",
   "managed_files": [
     {
       "path": "scripts/workflow-core.ts",
@@ -79,20 +79,20 @@
     {
       "path": "scripts/workflow-runtime.ts",
       "mode": "replace-managed",
-      "bundle_checksum": "e44688379d81ed62363bc43d016a18079c5c6eb5a1c984b8f1a78b3724409674",
-      "installed_checksum": "e44688379d81ed62363bc43d016a18079c5c6eb5a1c984b8f1a78b3724409674"
+      "bundle_checksum": "4629df66cee217eabb83ba9ef34eec94af02bdb55f3785b5d0bd2501a970269e",
+      "installed_checksum": "4629df66cee217eabb83ba9ef34eec94af02bdb55f3785b5d0bd2501a970269e"
     },
     {
       "path": ".workflow-system/WORKFLOW_PROTOCOL.md",
       "mode": "replace-managed",
-      "bundle_checksum": "d6512b049383b4a57cbcc01d92dd8b5bf9505026997a6b03e774c36809942f5d",
-      "installed_checksum": "d6512b049383b4a57cbcc01d92dd8b5bf9505026997a6b03e774c36809942f5d"
+      "bundle_checksum": "f640585b2b42c9462081cd37bccf5ca2806aca175f7a1031837ef4857b3cff52",
+      "installed_checksum": "f640585b2b42c9462081cd37bccf5ca2806aca175f7a1031837ef4857b3cff52"
     },
     {
       "path": ".workflow-system/FILE_SCHEMAS.md",
       "mode": "replace-managed",
-      "bundle_checksum": "d32d514f33e2b0a493b397bcc30a36ea7723f03693bc9c03376c6d22551c4588",
-      "installed_checksum": "d32d514f33e2b0a493b397bcc30a36ea7723f03693bc9c03376c6d22551c4588"
+      "bundle_checksum": "7e995e2a2224b0b23284e39e812fd871b36263fef873f833a1ea7dae07810da0",
+      "installed_checksum": "7e995e2a2224b0b23284e39e812fd871b36263fef873f833a1ea7dae07810da0"
     },
     {
       "path": "templates/skills/adopt-existing-project.SKILL.md.tmpl",
@@ -127,8 +127,8 @@
     {
       "path": "templates/skills/continue-current-step.SKILL.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "baa5fcff5813db6606d5794f8c637ba2ffc64c29551fe1971ff229ea3cc406ec",
-      "installed_checksum": "baa5fcff5813db6606d5794f8c637ba2ffc64c29551fe1971ff229ea3cc406ec"
+      "bundle_checksum": "eecfb1ce7ce25f7392e9987d9ff3354aac39e97a690d69958c18638e4413a414",
+      "installed_checksum": "eecfb1ce7ce25f7392e9987d9ff3354aac39e97a690d69958c18638e4413a414"
     },
     {
       "path": "templates/skills/create-current-task.SKILL.md.tmpl",
@@ -139,8 +139,8 @@
     {
       "path": "templates/skills/debug-and-fix-current-task.SKILL.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "cbb483a176a5a1ba7e2919a6e25cf23d38eac68b45020b9efc43cfddc11dfb7f",
-      "installed_checksum": "cbb483a176a5a1ba7e2919a6e25cf23d38eac68b45020b9efc43cfddc11dfb7f"
+      "bundle_checksum": "71be2f3a76fa39696e64b1ee70690a51f331171a217276cd9129503e03858a89",
+      "installed_checksum": "71be2f3a76fa39696e64b1ee70690a51f331171a217276cd9129503e03858a89"
     },
     {
       "path": "templates/skills/decompose-task.SKILL.md.tmpl",
@@ -157,8 +157,8 @@
     {
       "path": "templates/skills/execute-current-task.SKILL.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "40686894ef144769adc31e205254b6fb9a18fa6433b8067850e782aa0e5b026c",
-      "installed_checksum": "40686894ef144769adc31e205254b6fb9a18fa6433b8067850e782aa0e5b026c"
+      "bundle_checksum": "43cf923165d5b8b61d08cfc82b8b9708ad5dabe3bbea1ea49c89d784b89b96a5",
+      "installed_checksum": "43cf923165d5b8b61d08cfc82b8b9708ad5dabe3bbea1ea49c89d784b89b96a5"
     },
     {
       "path": "templates/skills/greenfield-init.SKILL.md.tmpl",
@@ -211,8 +211,8 @@
     {
       "path": "templates/skills/review-current-diff.SKILL.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "b7eca1b13e28e38f47840ca23845044b659932eb0bf347144034f2cd01b8e857",
-      "installed_checksum": "b7eca1b13e28e38f47840ca23845044b659932eb0bf347144034f2cd01b8e857"
+      "bundle_checksum": "73f825d0282515197679572b7e73d41e61d7692c6287926462998ae440a4bd69",
+      "installed_checksum": "73f825d0282515197679572b7e73d41e61d7692c6287926462998ae440a4bd69"
     },
     {
       "path": "templates/skills/review-current-task.SKILL.md.tmpl",
@@ -223,20 +223,20 @@
     {
       "path": "templates/skills/review-diff.SKILL.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "d91b01942019867e52f64a70712df329a32108aacd127ec031318c538163c843",
-      "installed_checksum": "d91b01942019867e52f64a70712df329a32108aacd127ec031318c538163c843"
+      "bundle_checksum": "89cf53102ac606b662418c7e52d22e53239f083f3295e243e5c1a6a07e037c1a",
+      "installed_checksum": "89cf53102ac606b662418c7e52d22e53239f083f3295e243e5c1a6a07e037c1a"
     },
     {
       "path": "templates/skills/review-implementation.SKILL.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "3695abbe809ca8a458edf136ee20497cc09ab1e87f7e17d15b12e15fb35aefc8",
-      "installed_checksum": "3695abbe809ca8a458edf136ee20497cc09ab1e87f7e17d15b12e15fb35aefc8"
+      "bundle_checksum": "0dd5cdddf4afe12cced86f19af1aa11c9ef1445556b68ded33ebdcd6053e7da7",
+      "installed_checksum": "0dd5cdddf4afe12cced86f19af1aa11c9ef1445556b68ded33ebdcd6053e7da7"
     },
     {
       "path": "templates/skills/run-regression.SKILL.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "d0dfb837216e2fff9069de06a6646d4e1c42415de07cea6e625e4067307942ca",
-      "installed_checksum": "d0dfb837216e2fff9069de06a6646d4e1c42415de07cea6e625e4067307942ca"
+      "bundle_checksum": "0bae7990e807eee57e709f6685ce00e13b815b97ede60553f521c77cf80b96cb",
+      "installed_checksum": "0bae7990e807eee57e709f6685ce00e13b815b97ede60553f521c77cf80b96cb"
     },
     {
       "path": "templates/skills/sync-contracts.SKILL.md.tmpl",
@@ -277,8 +277,8 @@
     {
       "path": "templates/skills/verify-contracts.SKILL.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "30f3eedb014c4ab62fad6581867d1741b409e53d7118c98c135830b00c920d71",
-      "installed_checksum": "30f3eedb014c4ab62fad6581867d1741b409e53d7118c98c135830b00c920d71"
+      "bundle_checksum": "f8894d1febad349e64a00acec23c22445775fd3d6d162891d2307df01cbfb0a3",
+      "installed_checksum": "f8894d1febad349e64a00acec23c22445775fd3d6d162891d2307df01cbfb0a3"
     },
     {
       "path": "templates/docs/BASELINES.md.tmpl",
@@ -295,8 +295,8 @@
     {
       "path": "templates/docs/CURRENT_TASK.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "0793a31e2dd5804298e468ee029b8c991bff838abb29932c917b8d66c4590c34",
-      "installed_checksum": "0793a31e2dd5804298e468ee029b8c991bff838abb29932c917b8d66c4590c34"
+      "bundle_checksum": "e34747c727bb319c7c008a579688d14dd70fe420cb501ebf77359e26ff086017",
+      "installed_checksum": "e34747c727bb319c7c008a579688d14dd70fe420cb501ebf77359e26ff086017"
     },
     {
       "path": "templates/docs/DECISIONS.md.tmpl",
@@ -343,8 +343,8 @@
     {
       "path": "templates/docs/WORKFLOW_GUIDE.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "d2db1937bdad0194ee41a243831af82c8786de251a9af5af84d12cf36a6a200a",
-      "installed_checksum": "d2db1937bdad0194ee41a243831af82c8786de251a9af5af84d12cf36a6a200a"
+      "bundle_checksum": "c2d21de828176b6e725e45e35bc247127dbda0e12d64732cfe55aa4b362f9dfe",
+      "installed_checksum": "c2d21de828176b6e725e45e35bc247127dbda0e12d64732cfe55aa4b362f9dfe"
     },
     {
       "path": ".claude/skills/workflow-system-design-baseline-init/SKILL.md",
