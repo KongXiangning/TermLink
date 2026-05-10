@@ -1636,7 +1636,9 @@ private fun MessageBubble(message: ChatMessage) {
             ) {
                 Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
                     if (message.role == ChatMessage.Role.USER &&
-                        (message.fileMentions.isNotEmpty() || message.attachments.isNotEmpty())
+                        (message.skills.isNotEmpty() ||
+                            message.fileMentions.isNotEmpty() ||
+                            message.attachments.isNotEmpty())
                     ) {
                         FlowRow(
                             modifier = Modifier
@@ -1645,6 +1647,9 @@ private fun MessageBubble(message: ChatMessage) {
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            message.skills.forEach { skill ->
+                                UserMessageSkillChip(skillName = skill.name)
+                            }
                             message.fileMentions.forEach { mention ->
                                 StaticMentionChip(file = mention)
                             }
@@ -4429,6 +4434,18 @@ private fun StaticMentionChip(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun UserMessageSkillChip(
+    skillName: String,
+    modifier: Modifier = Modifier
+) {
+    Row(modifier = modifier) {
+        SkillChipFrame {
+            SkillChipLabel(skillName = skillName)
         }
     }
 }

@@ -32,7 +32,8 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="codex-alerts"/);
     assert.match(html, /id="btn-codex-history-refresh"/);
     assert.match(html, /id="btn-codex-new-thread"/);
-    assert.match(html, /id="codex-plan-chip"/);
+    assert.match(html, /id="codex-footer-plan-indicator"/);
+    assert.doesNotMatch(html, /id="codex-plan-chip"/);
     assert.match(html, /id="codex-quick-model"/);
     assert.match(html, /id="codex-quick-reasoning"/);
     assert.match(html, /id="codex-quick-sandbox"/);
@@ -238,7 +239,7 @@ test('composer skill tokens hide raw skill paths while preserving transport pars
     );
 });
 
-test('user message skill tokens stay inline in message order instead of rendering as a separate skill chip row', () => {
+test('web keeps skill tokens inline while Android post-send bubbles render skill chips without exposing paths', () => {
     const js = readPublicFile('terminal_client.js');
     const screen = readAndroidMainFile(path.join('codex', 'ui', 'CodexScreen.kt'));
 
@@ -256,11 +257,19 @@ test('user message skill tokens stay inline in message order instead of renderin
 
     assert.match(
         screen,
-        /if \(message\.role == ChatMessage\.Role\.USER &&[\s\S]*message\.fileMentions\.isNotEmpty\(\) \|\| message\.attachments\.isNotEmpty\(\)/
+        /if \(message\.role == ChatMessage\.Role\.USER &&[\s\S]*message\.skills\.isNotEmpty\(\)[\s\S]*message\.fileMentions\.isNotEmpty\(\) \|\|[\s\S]*message\.attachments\.isNotEmpty\(\)/
+    );
+    assert.match(
+        screen,
+        /message\.skills\.forEach \{ skill ->[\s\S]*UserMessageSkillChip\(skillName = skill\.name\)/
     );
     assert.match(
         screen,
         /text = if \(message\.role == ChatMessage\.Role\.USER\) \{[\s\S]*buildComposerTransformedText\([\s\S]*textColor = spec\.textColor[\s\S]*\)\.text[\s\S]*\} else \{[\s\S]*buildComposerAnnotatedString\(/
+    );
+    assert.match(
+        screen,
+        /private fun UserMessageSkillChip\([\s\S]*SkillChipLabel\(skillName = skillName\)/
     );
     assert.doesNotMatch(screen, /private fun StaticSkillChip\(/);
 });
@@ -364,7 +373,8 @@ test('Phase 2: terminal_client.js must compose server next-turn config with loca
     assert.match(js, /codexState\.serverNextTurnConfigBase = normalizeEffectiveCodexConfig\(envelope\.nextTurnEffectiveCodexConfig\)/);
     assert.match(js, /codexState\.nextTurnEffectiveCodexConfig = buildLocalNextTurnEffectiveCodexConfig\(\)/);
     assert.match(js, /codexState\.serverNextTurnConfigBase = null[\s\S]*syncNextTurnEffectiveCodexConfig\(\)/);
-    assert.match(js, /codexState\.nextTurnOverrides = \{ model: null, reasoningEffort: null, sandbox: null \ }|codexState\.nextTurnOverrides = \{ model: null, reasoningEffort: null, sandbox: null \}/);
+    assert.match(js, /function clearNextTurnOverrides\(\)\s*\{\s*setNextTurnOverrides\(\{ model: null, reasoningEffort: null, sandbox: null \}\);/);
+    assert.match(js, /codexState\.nextTurnOverrides = restoreNextTurnOverrides\(\)/);
     assert.match(js, /setNextTurnOverrides\(pending\.nextTurnOverrides \|\| \{ model: null, reasoningEffort: null, sandbox: null \}\)/);
     assert.match(js, /sandbox:\s*resolveCodexTurnSandboxOverride\(nextTurnOverrides\) \|\| undefined/);
 });
@@ -398,14 +408,14 @@ test('Phase 2: terminal_client.js must parse model\/list and skills\/list payloa
     assert.match(js, /const items = isSkillQuery\s*\?\s*\[\]/);
     assert.match(js, /codexSlashMenuEmpty\.hidden = isSkillQuery \? skillItems\.length > 0/);
     assert.match(js, /function applyCodexSkillSelection\(skillEntry\)/);
-    assert.match(js, /const tokenText = buildCodexSkillTokenText\(skillEntry\);/);
-    assert.match(js, /insertTextAtCodexCursor\(tokenText\);/);
+    assert.match(js, /const rawToken = buildCodexSkillTokenText\(skillEntry\);/);
+    assert.match(js, /if \(!buildCodexSkillTokenText\(skillEntry\) \|\| !codexInput\) \{\s*return;\s*\}/);
     assert.match(slashJs, /function buildSkillToken\(input\)/);
     assert.match(slashJs, /function extractSkillTokens\(text\)/);
     assert.match(slashJs, /function stripSkillTokens\(text\)/);
     assert.match(js, /sendCodexBridgeRequest\('thread\/compact\/start', \{ threadId \}, \{ suppressErrorUi: true \}\)/);
     assert.match(js, /if \(method === 'thread\/compacted'\)/);
-    assert.match(js, /setCodexCompactStatus\('当前线程已完成压缩。', 'success'\)/);
+    assert.match(js, /setCodexCompactStatus\(t\('codex\.compact\.alreadyDone'\), 'success'\)/);
     assert.match(js, /refreshCodexThreadSnapshot\(\{ force: true \}\)/);
     assert.match(js, /openCodexToolsPanel\('skills'\)/);
     assert.match(js, /openCodexToolsPanel\('compact'\)/);
