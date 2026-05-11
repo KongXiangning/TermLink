@@ -56,6 +56,21 @@
 - 替代方案：继续把 README 等 active 文档视为同等级事实源，但当前冲突已证明这样风险更高。
 - 复议条件：仓库未来建立了受控发布文档源并以其覆盖运行时默认值。
 
+### TD-004: `node --test` gate 拆分为 confirmed narrow gate + deferred fix follow-up
+
+- 状态：accepted
+- 背景：`20260511-001` 任务已通过 Step 1/Step 2 排查确认 `node --test` full suite 的挂起面不是单点问题，而是 `tests\sessionManager.codexConfig.test.js`、`tests\terminalGateway.codex.test.js` 与 `tests\terminalGateway.sessionid.test.js` 三个独立 hanging surface；其余 6 个测试文件（`tlsConfig`、`workspace.routes`、`workspace.web`、`sessionStore.metadata`、`terminal_shortcut_input`、`codexSecondaryPanel.integration`）均可单独或组合在 3 秒内正常退出。
+- 决策：在 3 个 hanging 文件被修复前，`node --test` 以 split 形态运作——6 文件 passing subset 作为 confirmed narrow gate（`blocks-merge`），3 hanging 文件拆出为 deferred fix follow-up 任务。PROJECT_PROFILE.yaml 中 `node --test` 的 `blocks-merge` 身份保持不变，但实际 gate 执行面为 confirmed subset。
+- 原因：full suite 无法完成使得 gate 实际上不可用；完全移除 gate 会丢失 6 个 passing 文件的覆盖；拆分为窄 gate + follow-up 既保留当前可用的验证价值，又把挂起面显式分流为独立的修复任务。
+- 约束：
+  - confirmed narrow gate 命令为：`node --test tests\tlsConfig.test.js tests\workspace.routes.test.js tests\workspace.web.test.js tests\sessionStore.metadata.test.js tests\terminal_shortcut_input.test.js tests\codexSecondaryPanel.integration.test.js`
+  - 3 个 hanging 文件集中在 terminalGateway / sessionManager codex config 路径，修复任务不得顺手扩大范围到其他测试或运行时实现
+  - 修复任务完成后必须重跑 full suite 确认 clean pass，届时回写 DECISIONS.md 将 TD-004 标记为 superseded
+  - 本轮 gate split 不等同于永久降级；它是基于当前事实的过渡策略
+- 影响范围：`STATUS.md` 风险描述、`DECISIONS.md` 本条目、后续 deferred fix 任务包、验证矩阵的实际 gate 执行面
+- 替代方案：继续保持 full suite 为唯一 gate（拒绝——gate 实际不可用）；直接降级 `node --test` 为非 blocker（拒绝——丢失 6 个 passing 文件的覆盖）；不拆分直接修复 hanging 文件（拒绝——超出当前 investigation-only 任务范围，需要独立修复任务）
+- 验证方式：`tmp\20260511-001-step2\*` 中 14 组 meta 文件记录了各子集的 pass/hung 结果；confirmed subset 已通过 `tmp\20260511-001-step4\confirmed-narrow-gate.meta.txt` 的 6 文件组合 gate 验证，其中 `sessionStore.metadata`、`terminal_shortcut_input`、`codexSecondaryPanel.integration` 已单文件验证通过，`tlsConfig/workspace.routes/workspace.web` 已通过 3 文件组合验证
+
 ### TD-003: 现有架构文档继续保留在当前项目路径，不因 workflow bucket 升级而强制迁移
 
 - 状态：accepted

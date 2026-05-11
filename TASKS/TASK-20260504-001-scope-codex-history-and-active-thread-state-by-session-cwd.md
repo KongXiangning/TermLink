@@ -7,10 +7,10 @@
 - 任务 ID：20260504-001
 - 任务标题：Scope Codex history and active thread state by session cwd
 - 任务 slug：scope-codex-history-and-active-thread-state-by-session-cwd
-- 最终状态：implemented_committed_limited_android_smoke_conditionally_accepted
+- 最终状态：completed_verified_archived
 - 创建时间：2026-05-04
-- 归档时间：2026-05-08
-- 归档性质：条件交接；不是 stable / completed 归档
+- 归档时间：2026-05-11
+- 归档性质：完成归档；2026-05-08 的条件交接已在补齐 Android 步骤 12-15 后转正
 
 ## 原始任务包快照
 
@@ -46,8 +46,8 @@
   - 增加 / 更新 gateway 定向测试，覆盖 `thread/list` cwd 注入、显式 cwd 保留、stale thread fallback、非 `thread not found` 错误不误清理、连续普通 turn 复用同一 thread。
   - 增加 / 更新 WebView 静态测试，覆盖 runtime session binding 和 active thread id 发送路径。
 - 文档 / workflow：
-  - 当前任务包同步到条件交接状态。
-  - `STATUS.md` 记录该任务不进入稳定区，完整 Android smoke 风险保留为观察项。
+  - 初次归档时，当前任务包仅同步到条件交接状态。
+  - 补齐 Android 步骤 12-15 真机 smoke 后，本归档已从条件交接收敛为完成归档，并允许后续状态同步把该能力写入稳定区。
 
 ## 契约与决策记录
 
@@ -81,12 +81,14 @@
   - `git diff --check`
   - `bun run workflow:health`
   - Android / WebView 静态检查：确认 thread list cwd 参数、runtime binding reset、active thread id 回写 / 发送路径存在。
-- 已知阻塞 / 未覆盖：
-  - `android\gradlew.bat :app:testDebugUnitTest` 在本机 Java 17 环境下被 `source 21` 不兼容阻塞，错误为 `无效的源发行版：21`。
-  - `tests/codexClient.shell.test.js` 大范围 Phase 2 测试仍有既有 compact 文案断言漂移，不是本轮新增 active thread 修复导致。
-- 有限真机 Android smoke：
-  - 已执行有限真机 Android smoke，未发现当前可复现阻塞问题。
-  - 覆盖不足以支撑完整步骤 12-15 勾选。
+- 历史环境观察（不构成当前完成归档 blocker）：
+  - 任务实现期曾遇到 `android\gradlew.bat :app:testDebugUnitTest` 在本机 Java 17 环境下被 `source 21` 不兼容阻塞，错误为 `无效的源发行版：21`；当前项目已明确 Android 构建需使用 Java 21。
+  - `tests/codexClient.shell.test.js` 大范围 Phase 2 测试曾有既有 compact 文案断言漂移，不是本轮新增 active thread 修复导致。
+- 完整真机 Android smoke（2026-05-10 / 2026-05-11）：
+  - 步骤 12：passed。双 `cwd` 会话 A/B 的历史列表已确认隔离，证据见 `tmp\20260510-001-step12-13\session-panel-4.{xml,png}`、`b-main.{xml,png}`、`b-history.{xml,png}`、`a-history.xml`。
+  - 步骤 13：passed。A/B 切换后不残留旧 task / thread，回切 A 后可直接继续对话，证据见 `tmp\20260510-001-step12-13\a-returned.{xml,png}`、`a-enter-send.{xml,png}`。
+  - 步骤 14：passed。same-session re-entry 后 active thread 状态一致，且无需先打开历史列表即可直接发送，证据见 `tmp\20260510-001-step14-15\step3-after-retry.{xml,png}`、`step14-direct-send.{xml,png}`、`step14-sessions.json`、`step3-after-retry-logcat.txt`。
+  - 步骤 15：passed。点击 `新任务` 后消息区清空，fresh 对话已绑定新 thread `019e12b5-211a-7283-805b-a120127b2d80`，证据见 `tmp\20260510-001-step14-15\step15-retry-history-open.{xml,png}`、`step15-retry-new-task.{xml,png}`、`step15-retry-fresh-send.{xml,png}`、`step15-retry-sessions.json`、`step15-retry-logcat.txt`。
 
 ## 发布后验证证据
 
@@ -97,7 +99,7 @@
   - Android native request payload check
   - WebView static / unit payload check
   - Gateway compatibility test
-  - 有限真机 Android smoke
+  - 完整真机 Android smoke
 - Canary window: none
 - Performance baseline: none
 - Rollback / recovery:
@@ -109,35 +111,30 @@
 - Release evidence:
   - real app-server `thread/list { cwd, limit }` accepts cwd。
   - WebView / gateway focused checks passed。
-  - Android Gradle unit 被本机 Java 17 / source 21 mismatch 阻塞。
-  - 有限真机 Android smoke 未发现当前可复现阻塞问题。
+  - 完整真机 Android smoke 步骤 12-15 全部通过，且 Step 15 已确认 `codexThreadId` 从 `019e112a-be07-79d2-a793-2b9bc6902683` 切换到新 thread `019e12b5-211a-7283-805b-a120127b2d80`。
 - canary result: not applicable
 - performance baseline result: not applicable
 - rollback status: not exercised
 - remaining observation:
-  - 双 cwd session 历史列表隔离未完整验证。
-  - A/B 项目切换后的 stale task / thread 清理未完整验证。
-  - 同一 session 重新进入后的 active thread 状态一致性未完整验证。
-  - 新建任务脱离 stale threadId 的完整链路未完整验证。
+  - 若后续新需求继续触碰 session / thread / task 状态逻辑，必须重新纳入双 cwd、A/B 切换、same-session re-entry、直接发送与新任务链路的 Android 真机 smoke。
 
-## 未完成 Smoke 保留记录
+## 完整 Android smoke 收敛记录
 
-以下 smoke 项故意保留为未完成，不得在后续引用中写成已通过：
+以下 smoke 项已补齐并可作为完成归档依据：
 
-- [ ] 步骤 12：执行真实 Android smoke：创建或切换两个不同 cwd 的 Codex session，验证历史列表只显示当前 session cwd 的 threads。
-- [ ] 步骤 13：执行真实 Android smoke：A 项目打开历史任务 -> 切换 B 项目 Codex 会话 -> 主窗口不显示 A 历史任务；回切 A 后继续对话不报旧 task / thread not found。
-- [ ] 步骤 14：执行真实 Android smoke：重新进入同一未关闭、未运行任务的 Codex session 后，主界面与 active thread 状态一致，或明确显示无 active thread；不打开历史列表直接发起对话不得报 thread/task not found。
-- [ ] 步骤 15：执行真实 Android smoke：重新进入后点击新建任务必须脱离 stale threadId，不报 thread/task not found；打开 / 切换历史列表不再是恢复 stale 状态的必要步骤。
+- [x] 步骤 12：执行真实 Android smoke：创建或切换两个不同 cwd 的 Codex session，验证历史列表只显示当前 session cwd 的 threads。
+- [x] 步骤 13：执行真实 Android smoke：A 项目打开历史任务 -> 切换 B 项目 Codex 会话 -> 主窗口不显示 A 历史任务；回切 A 后继续对话不报旧 task / thread not found。
+- [x] 步骤 14：执行真实 Android smoke：重新进入同一未关闭、未运行任务的 Codex session 后，主界面与 active thread 状态一致，或明确显示无 active thread；不打开历史列表直接发起对话不得报 thread/task not found。
+- [x] 步骤 15：执行真实 Android smoke：重新进入后点击新建任务必须脱离 stale threadId，不报 thread/task not found；打开 / 切换历史列表不再是恢复 stale 状态的必要步骤。
 
 后续规则：
 
-- 完整 Android smoke 转为后续追踪项，不作为当前新需求创建的硬阻塞。
 - 若后续新需求继续触碰 session / thread / task 状态逻辑，必须把上述 smoke 风险重新纳入验收。
-- 在上述 smoke 补齐前，本任务对应能力不得被写入 `STATUS.md` 的“已完成且稳定”区。
+- 本任务对应能力现已具备进入 `STATUS.md` “已完成且稳定”区的证据前提；是否写入由后续状态同步与 closeout 流程落盘。
 
 ## Lessons 回写
 
-- 本任务未直接写入 `docs/workflow/LESSONS.md`。
+- 本任务补齐真机 smoke 后，已新增 `docs/workflow/LESSONS.md` 条目，记录 Step 15 在 busy session 下应等待 idle 再按 `history-open -> new-task -> fresh-send + /api/sessions` 证据链复跑。
 - 可复用经验：
   - bugfix 流程必须先更新 / 收敛 `CURRENT_TASK.md`，再进入 root-cause / 最小修复 / 回归；本轮出现了先修后补的流程偏差，已在任务记录中保留。
   - `codex_state.threadId = null` 应被视为当前 runtime 无 active thread 的权威信号，客户端不能继续沿用旧 launch / restore threadId。
@@ -146,7 +143,10 @@
 
 ## 后续关联
 
-- 后续任务建议：补齐完整 Android smoke，覆盖双 cwd 历史隔离、A/B 项目切换、same-session re-entry、直接发送和新建任务链路。
-- 后续触发条件：任何继续触碰 session / thread / task 状态逻辑的新需求，都必须重新纳入本归档中的未完成 smoke 风险。
+- 后续任务建议：
+  - 隔离 `node --test` full suite 挂起的具体测试点
+  - 明确 Android release config 应通过环境覆写还是仓库默认值满足 release check
+  - 清理 `README` 默认端口与代码默认值冲突等 active docs 漂移
+- 后续触发条件：任何继续触碰 session / thread / task 状态逻辑的新需求，都必须重新纳入本归档中的 Android smoke 风险。
 - 相关提交：`0700047`
 - 归档位置：`TASKS/TASK-20260504-001-scope-codex-history-and-active-thread-state-by-session-cwd.md`

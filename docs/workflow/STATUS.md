@@ -22,8 +22,7 @@
 
 ## 🔨 正在开发
 
-- [ ] Codex history / active thread session 作用域修复已提交并进入条件交接：状态为 `implemented_committed_limited_android_smoke_conditionally_accepted`，有限真机 Android smoke 未发现当前可复现阻塞问题，但完整步骤 12-15 smoke 未充分覆盖，不能写入稳定区
-- [ ] 当前无活动 `CURRENT_TASK.md` 任务包；下一轮需求明确后需重新运行 `/create-current-task`
+- [ ] 当前无活动任务。`20260511-001` 已完成归档，`CURRENT_TASK.md` 已清理为 clean handoff；下一轮需要先执行 `/create-current-task`
 
 ## 📋 待开发
 
@@ -40,7 +39,7 @@
 - `.codex/skills/` 在本仓库带有本地忽略语义，需持续注意 host guidance 漂移
 - workflow validation matrix 已明确绑定 Node tests、Android JVM unit 和 Android release config；integration / e2e / deploy 仍待补
 - README 默认端口与代码默认值仍有冲突，说明 active docs 仍需持续对齐代码事实
-- `node --test` 在本轮 adoption 验证中于 full suite 后段挂起，具体卡住的测试点仍需单独定位
+- `node --test` 当前在 `20260511-001` 中已确认不是单点挂起：`tests\sessionManager.codexConfig.test.js`、`tests\terminalGateway.codex.test.js` 与 `tests\terminalGateway.sessionid.test.js` 各自单独运行都会在 90 秒窗口内未退出；Step 3 已基于这 3 个独立 hanging surface 形成 gate split 决策（TD-004）：6 文件 passing subset 作为 confirmed narrow gate（`blocks-merge`），3 hanging 文件拆出为 deferred fix follow-up 任务。3 个 hanging 文件全部集中在 terminalGateway / sessionManager codex config 路径，与已知高风险区域重叠；在 follow-up 修复前，终端网关和 session codex 配置相关回归无法被自动化 gate 捕获
 - `npm run android:check-release-config` 当前对 checked-in 配置报错：release 要求 `server.cleartext=false` 且 `server.androidScheme=https`
 
 ## ❌ 已移除 / 推迟
@@ -50,9 +49,7 @@
 
 ## 🔜 下一检查点
 
-- [ ] 对当前 Codex session/thread 条件交接任务执行后续完整 Android smoke，覆盖双 cwd 历史隔离、A/B 项目切换、same-session re-entry、直接发送和新建任务链路
-- [ ] 决定任务 `20260504-001` 是否按条件交接进入 `/close-current-task`，或先补齐完整 Android smoke 后再归档
-- [ ] 隔离 `node --test` 挂起的具体测试并决定是否继续作为 blocker gate
+- [ ] 拆分 deferred fix 任务：修复 `tests\sessionManager.codexConfig.test.js`、`tests\terminalGateway.codex.test.js`、`tests\terminalGateway.sessionid.test.js` 的挂起问题，恢复 full suite 可运行性
 - [ ] 明确 Android release 配置应通过环境覆写还是仓库默认值满足 release check
 - [ ] 决定 Android unit / integration / e2e / deploy 验证哪些正式进入门禁
 - [ ] 清理已知 active docs 漂移（从 README 端口冲突开始）
@@ -64,3 +61,9 @@
 - 2026-04-30：workflow health 与 Android JVM unit 通过；Node test full suite 挂起，release config check 对当前配置失败
 - 2026-05-08：同步当前任务状态。Codex history / active thread session 作用域修复已提交（`0700047`）并进入条件交接；自动验证完成，有限真机 Android smoke 未发现当前可复现阻塞问题，但完整 Android smoke 风险保留为后续追踪项，因此不写入稳定区
 - 2026-05-10：`CURRENT_TASK.md` 已清理为无活动任务的 clean handoff 入口；保留 `20260504-001` 的待补完整 Android smoke / 归档判断，以及 Node full suite 挂起点和 Android release config 失败这两项后续入口
+- 2026-05-11：切换到新任务 `20260511-001`。当前活动任务已变为“隔离 `node --test` full suite 挂起点并判断 gate 处理方式”；Step 1 已确认 `node --test` 在 120 秒窗口内未退出，`CURRENT_TASK.md` 的 allowed-path `/review-diff`、`/review-implementation`、`/verify-contracts` 与 `diff-aware` `/run-regression` 均已通过，项目状态推进到 `ready_for_step2`
+- 2026-05-11：完成 `20260511-001` 的 Step 2。当前已确认 `tests\sessionManager.codexConfig.test.js`、`tests\terminalGateway.codex.test.js` 与 `tests\terminalGateway.sessionid.test.js` 各自单独运行都会在 90 秒窗口内未退出；`codexSecondaryPanel.integration`、`sessionStore.metadata`、`terminal_shortcut_input` 及 `tls + workspace` 对照子集均可正常退出，活动任务状态推进到 `ready_for_step3`
+- 2026-05-11：完成 `20260511-001` 的 Step 3。gate 建议为 split：6 文件 passing subset 作为 confirmed narrow gate（`blocks-merge`），3 hanging 文件拆出为 deferred fix follow-up；`DECISIONS.md` 新增 TD-004 记录拆分决策，`LESSONS.md` 新增 test-hang isolation 经验，活动任务状态推进到 `ready_for_step4`
+- 2026-05-11：完成 `20260511-001` 的 Step 4。当前任务审查结论为 clean-with-known-residual-risk，confirmed narrow gate 命令 `node --test tests\tlsConfig.test.js tests\workspace.routes.test.js tests\workspace.web.test.js tests\sessionStore.metadata.test.js tests\terminal_shortcut_input.test.js tests\codexSecondaryPanel.integration.test.js` 在 30 秒窗口内通过（99 pass / 0 fail）；活动任务状态推进到 `completed_ready_for_closeout`，下一步进入 `/close-current-task` 或创建 3 个 hanging 文件的修复任务。
+- 2026-05-12：同步 `20260511-001` 的最终状态。`CURRENT_TASK.md` 已记录 `/run-regression` 后的 `/sync-current-task` 结果：confirmed narrow gate 复跑通过（99 pass / 0 fail，duration_ms 2368.8897），`git diff --check -- docs/workflow/CURRENT_TASK.md docs/workflow/STATUS.md docs/workflow/DECISIONS.md docs/workflow/LESSONS.md` 无 whitespace error；`RDF-20260511-002`、`RDF-20260511-003`、`RDF-20260511-004` 均保持 resolved。该任务不把任何产品模块新增写入稳定区，3 个 hanging files 仍作为 deferred fix 风险保留。
+- 2026-05-12：完成 `20260511-001` 归档。归档文件为 `TASKS/TASK-20260511-001-isolate-node-test-full-suite-hang-and-classify-gate.md`，`CURRENT_TASK.md` 已清理为 clean handoff；下一优先入口是修复 3 个 hanging test files 并恢复 full suite 可运行性。
