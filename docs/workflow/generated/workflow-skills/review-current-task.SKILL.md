@@ -37,6 +37,8 @@ must_check:
   - 发布 / 部署任务的 Release mode、Deploy source、Target environment、Health
     checks、Rollback / recovery 是否清楚
   - Allowed Files、Forbidden Files、Conditional Files 是否完整
+  - 回滚点是否包含 Task start base、Last reviewed checkpoint、Current diff review target
+    三字段，且未知值已显式标记
   - 是否存在 docs/workflow/CURRENT_TASK.md 覆盖 docs/workflow/CONTRACTS.md 的冲突
   - 是否遗漏关键契约
   - 是否触发 Change Propagation Check
@@ -46,6 +48,8 @@ stop_conditions:
   - 存在关键口味决策未确认
   - UI / 视觉任务缺少设计来源、设计验收或用户确认
   - 生产发布缺少回滚方案、health check 或发布证据
+  - 回滚点缺少 Task start base、Last reviewed checkpoint 或 Current diff review
+    target，且无法从仓库事实或任务记录补齐
   - 存在与既有决策冲突
   - docs/workflow/CURRENT_TASK.md 试图覆盖 docs/workflow/CONTRACTS.md 或
     .workflow-system/PROJECT_PROFILE.yaml
@@ -66,6 +70,7 @@ verification:
   - 发布 / 部署任务的 Release mode、Deploy source、Target environment、Health
     checks、Rollback / recovery、Release evidence 已审查
   - Allowed Files、Forbidden Files、Conditional Files 已收敛
+  - 回滚点三字段已审查：Task start base、Last reviewed checkpoint、Current diff review target
   - 所有高风险未决项已上浮
   - 当前任务可进入范围锁定
 allowed-tools:
@@ -87,6 +92,7 @@ required_sections:
   - 已确认决策
   - 待确认问题
   - 传播治理记录
+  - 回滚点
 task_scope_rules:
   - 范围过宽时必须收缩
   - Allowed Files 必须只列本任务确需修改的文件或目录
@@ -101,6 +107,14 @@ source_of_truth_rules:
 propagation_rules:
   - 触碰公共 API、schema、DTO、event、共享逻辑或 docs/workflow/CONTRACTS.md 锁定项时必须上浮影响集合
   - 兼容策略为 breaking 或 unknown 时不得直接进入实现
+rollback_review_rules:
+  - Task start base 必须是 commit/ref、unknown 或明确的人工补齐项
+  - Last reviewed checkpoint 必须是 commit/ref、not-yet-created 或明确的人工补齐项
+  - Current diff review target 必须是
+    working-tree、staged、task-base-to-HEAD、checkpoint-to-HEAD、user-supplied-patch、to-be-established
+    或具体 git diff range
+  - 如果任务已经存在 checkpoint commit，Current diff review target 不得停留在 working-tree
+  - 如果三字段缺失且无法机械补齐，停止并上浮
 acceptance_rules:
   - 每条验收标准都应可验证
   - 口味问题要与技术问题分开
@@ -160,6 +174,7 @@ release_review_rules:
 - Design open decisions 是否包含未确认口味决策
 - 发布 / 部署任务的 Release mode、Deploy source、Target environment、Health checks、Rollback / recovery 是否清楚
 - Allowed Files、Forbidden Files、Conditional Files 是否完整
+- 回滚点是否包含 Task start base、Last reviewed checkpoint、Current diff review target 三字段，且未知值已显式标记
 - 是否存在 docs/workflow/CURRENT_TASK.md 覆盖 docs/workflow/CONTRACTS.md 的冲突
 - 是否遗漏关键契约
 - 是否触发 Change Propagation Check
@@ -171,6 +186,7 @@ release_review_rules:
 - 存在关键口味决策未确认
 - UI / 视觉任务缺少设计来源、设计验收或用户确认
 - 生产发布缺少回滚方案、health check 或发布证据
+- 回滚点缺少 Task start base、Last reviewed checkpoint 或 Current diff review target，且无法从仓库事实或任务记录补齐
 - 存在与既有决策冲突
 - docs/workflow/CURRENT_TASK.md 试图覆盖 docs/workflow/CONTRACTS.md 或 .workflow-system/PROJECT_PROFILE.yaml
 
@@ -187,6 +203,7 @@ release_review_rules:
 - UI / 视觉任务的 Design mode、Design source、Design acceptance、Design evidence 已审查
 - 发布 / 部署任务的 Release mode、Deploy source、Target environment、Health checks、Rollback / recovery、Release evidence 已审查
 - Allowed Files、Forbidden Files、Conditional Files 已收敛
+- 回滚点三字段已审查：Task start base、Last reviewed checkpoint、Current diff review target
 - 所有高风险未决项已上浮
 - 当前任务可进入范围锁定
 
@@ -200,6 +217,7 @@ release_review_rules:
 - 已确认决策
 - 待确认问题
 - 传播治理记录
+- 回滚点
 
 ### task_scope_rules
 - 范围过宽时必须收缩
@@ -217,6 +235,13 @@ release_review_rules:
 ### propagation_rules
 - 触碰公共 API、schema、DTO、event、共享逻辑或 docs/workflow/CONTRACTS.md 锁定项时必须上浮影响集合
 - 兼容策略为 breaking 或 unknown 时不得直接进入实现
+
+### rollback_review_rules
+- Task start base 必须是 commit/ref、unknown 或明确的人工补齐项
+- Last reviewed checkpoint 必须是 commit/ref、not-yet-created 或明确的人工补齐项
+- Current diff review target 必须是 working-tree、staged、task-base-to-HEAD、checkpoint-to-HEAD、user-supplied-patch、to-be-established 或具体 git diff range
+- 如果任务已经存在 checkpoint commit，Current diff review target 不得停留在 working-tree
+- 如果三字段缺失且无法机械补齐，停止并上浮
 
 ### acceptance_rules
 - 每条验收标准都应可验证
