@@ -69,3 +69,8 @@
   - 结论：
   - 触发信号：
   - 应对动作：
+
+- 场景：开源 release 任务同时覆盖 Windows / Linux 打包、安装脚本、自启和证书工具，如果一开始就直接实现 installer，包结构、脚本落点和文档入口很容易一起漂移，后续 diff 也难审计。
+  - 结论：这类任务先做“release 结构收敛步骤”更稳妥——先落统一的 repo-level 构建入口，以及 machine-readable 的 `release-manifest.json` / `release-contents.txt`，把 artifact 命名、包内目录和脚本落点固定下来，再分步骤实现 Windows / Linux installer 与 mTLS 工具。
+  - 触发信号：任务同时要求跨平台 release、后续 installer/mTLS 工具分步落地，而且 scope 已锁定但平台脚本尚未实现。
+  - 应对动作：先在 `scripts/release/**` 提供可重复生成的 release 清单和最小 smoke 输出；diff-aware QA 先验证清单生成与窄 gate，再把安装、自启和证书生成逻辑留给后续步骤独立实现与审查。
