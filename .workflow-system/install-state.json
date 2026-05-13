@@ -1,8 +1,8 @@
 {
   "state_version": 1,
-  "bundle_id": "workflow-system@0.14.5+a335b55bdc1c",
+  "bundle_id": "workflow-system@0.14.5+e82af8c17b5a",
   "workflow_system_version": "0.14.5",
-  "installed_at": "2026-05-10T06:32:27.652Z",
+  "installed_at": "2026-05-13T02:32:10.433Z",
   "managed_files": [
     {
       "path": "scripts/workflow-core.ts",
@@ -169,14 +169,14 @@
     {
       "path": "templates/skills/implement-current-step.SKILL.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "0f4a8a6caaa24c77123bb6c60bfa6c58075fb10402a39f19fb3446fc835b7a1d",
-      "installed_checksum": "0f4a8a6caaa24c77123bb6c60bfa6c58075fb10402a39f19fb3446fc835b7a1d"
+      "bundle_checksum": "946dba13c087f86476ebf811c9bc13d85d94fb77570ccedc96f46cf57069f22e",
+      "installed_checksum": "946dba13c087f86476ebf811c9bc13d85d94fb77570ccedc96f46cf57069f22e"
     },
     {
       "path": "templates/skills/investigate-root-cause.SKILL.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "724ad6d5f2f0e08db3c4d9bb1cccf420263f072f4ec9e89e1eb1c7bca6928840",
-      "installed_checksum": "724ad6d5f2f0e08db3c4d9bb1cccf420263f072f4ec9e89e1eb1c7bca6928840"
+      "bundle_checksum": "39c8b93a31bc251aafe5c3ded4d6b9bc041cb0dd7b6bad0299951ab7a199527e",
+      "installed_checksum": "39c8b93a31bc251aafe5c3ded4d6b9bc041cb0dd7b6bad0299951ab7a199527e"
     },
     {
       "path": "templates/skills/legacy-inventory.SKILL.md.tmpl",
@@ -193,8 +193,8 @@
     {
       "path": "templates/skills/plan-implementation.SKILL.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "f91979b81d278eeb49b2abd98848ae95b01b385fbceeca22e0094a02a83fb7c7",
-      "installed_checksum": "f91979b81d278eeb49b2abd98848ae95b01b385fbceeca22e0094a02a83fb7c7"
+      "bundle_checksum": "465e9fcace52fa01506ca135cfd569f24ef9edea63951d565bd1134608ee8e3e",
+      "installed_checksum": "465e9fcace52fa01506ca135cfd569f24ef9edea63951d565bd1134608ee8e3e"
     },
     {
       "path": "templates/skills/prepare-delivery-summary.SKILL.md.tmpl",
@@ -229,8 +229,8 @@
     {
       "path": "templates/skills/review-implementation.SKILL.md.tmpl",
       "mode": "replace-managed",
-      "bundle_checksum": "11f8cbbb5347fd8bccd8ce83599ccad780b3782e823d142d5cd8093a4701bd21",
-      "installed_checksum": "11f8cbbb5347fd8bccd8ce83599ccad780b3782e823d142d5cd8093a4701bd21"
+      "bundle_checksum": "957948cf00b12b8cad47bf61cee0046f62eaec37ce605c997f0cabfdb4895f04",
+      "installed_checksum": "957948cf00b12b8cad47bf61cee0046f62eaec37ce605c997f0cabfdb4895f04"
     },
     {
       "path": "templates/skills/run-regression.SKILL.md.tmpl",
