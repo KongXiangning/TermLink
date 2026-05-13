@@ -29,6 +29,20 @@
 - 替代方案：全面原生化，但需另开迁移任务。
 - 验证方式：`README.md`、`docs/architecture/CURRENT_STATE.md`
 
+### AD-003: 开源 release 安装路径的 Linux 自启正式支持范围限定为 systemd
+
+- 状态：accepted
+- 背景：任务 `20260513-001` 需要为开源 release 提供 Windows / Linux 安装与自启，但不同 Linux init 体系会显著扩大脚本范围、验证面和回退路径。
+- 决策：本轮开源 release 安装器中，Linux 正式自启路径只支持 `systemd`；非 `systemd` 环境必须显式输出 unsupported / fallback 指引，不静默适配其它 init 体系。
+- 原因：这是用户在任务收敛阶段明确确认的支持边界，也能把当前交付保持在可实现、可验证和可审计的范围内。
+- 约束：
+  - 未重新执行 `/lock-scope` 前，不得静默扩展到 OpenRC、SysVinit、runit 或其他 init 体系
+  - README、安装脚本和状态文档都必须同步说明 `systemd-only` 的正式支持边界
+  - 非 `systemd` 路径必须显式失败或给出 fallback 指引，不得伪装成成功安装
+- 影响范围：`scripts/install/**`、`setup-service.sh`、`README.md`、`README.zh-CN.md`、`docs/guides/deployment.md`、`docs/workflow/CURRENT_TASK.md`
+- 替代方案：覆盖多种 Linux init 体系；当前未采用
+- 验证方式：`docs/workflow/CURRENT_TASK.md` 中的用户确认与后续 Linux 安装步骤验证
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径
