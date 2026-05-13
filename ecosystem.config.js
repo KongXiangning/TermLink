@@ -3,7 +3,7 @@
 module.exports = {
     apps: [
         {
-            name: 'termlink',
+            name: process.env.TERMLINK_SERVICE_NAME || 'termlink',
             script: 'src/server.js',
             cwd: __dirname,
             instances: 1,

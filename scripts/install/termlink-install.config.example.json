@@ -1,0 +1,32 @@
+{
+  "installDir": "",
+  "serviceName": "termlink",
+  "autoStart": true,
+  "port": 3010,
+  "auth": {
+    "enabled": true,
+    "user": "admin",
+    "pass": "admin"
+  },
+  "privilege": {
+    "mode": "standard",
+    "elevatedEnable": false
+  },
+  "tls": {
+    "mode": "off",
+    "clientCertPolicy": "none",
+    "certDir": "./certs",
+    "serverCert": "./certs/server.crt",
+    "serverKey": "./certs/server.key",
+    "caCert": "./certs/client-ca.crt",
+    "proxySecret": ""
+  },
+  "mtls": {
+    "deployment": "none",
+    "generateDirectServerCertificates": false,
+    "opensslPath": "openssl",
+    "serverOutputDir": "./certs",
+    "clientOutputDir": "./certs/clients",
+    "clientP12Password": ""
+  }
+}

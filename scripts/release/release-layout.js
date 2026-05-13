@@ -11,10 +11,15 @@ const SUPPORTED_PLATFORMS = Object.freeze({
         deployStrategy: 'pm2-scheduled-task',
         existingFiles: ['ecosystem.config.js'],
         plannedFiles: [
-            { path: 'deploy-scripts/install-service.ps1', step: 2, reason: 'Windows install entry' },
-            { path: 'deploy-scripts/uninstall-service.ps1', step: 2, reason: 'Windows uninstall entry' },
-            { path: 'deploy-scripts/start.ps1', step: 2, reason: 'Windows foreground start helper' },
-            { path: 'deploy-scripts/pm2-admin-startup.cmd', step: 2, reason: 'Windows auto-start bootstrap' }
+            { path: 'install.config.example.json', status: 'implemented-step2', step: 2, reason: 'Shared install configuration template' },
+            { path: 'deploy-scripts/install-service.ps1', status: 'implemented-step2', step: 2, reason: 'Windows install entry' },
+            { path: 'deploy-scripts/uninstall-service.ps1', status: 'implemented-step2', step: 2, reason: 'Windows uninstall entry' },
+            { path: 'deploy-scripts/enable-autostart.ps1', status: 'implemented-step2', step: 2, reason: 'Windows scheduled task enable entry' },
+            { path: 'deploy-scripts/disable-autostart.ps1', status: 'implemented-step2', step: 2, reason: 'Windows scheduled task disable entry' },
+            { path: 'deploy-scripts/start.ps1', status: 'implemented-step2', step: 2, reason: 'Windows start helper' },
+            { path: 'deploy-scripts/test-health.ps1', status: 'implemented-step2', step: 2, reason: 'Windows health check helper' },
+            { path: 'deploy-scripts/common.ps1', status: 'implemented-step2', step: 2, reason: 'Windows install config and health helper functions' },
+            { path: 'deploy-scripts/pm2-admin-startup.cmd', status: 'implemented-step2', step: 2, reason: 'Windows auto-start bootstrap wrapper' }
         ],
         notes: [
             'Retain ecosystem.config.js and PM2 fork mode as the Windows runtime baseline.',
@@ -95,7 +100,7 @@ function buildPackageEntries(platformKey) {
         ...platform.plannedFiles.map((entry) => ({
             path: entry.path,
             kind: entry.path.endsWith('/') ? 'directory' : 'file',
-            status: 'planned',
+            status: entry.status || 'planned',
             step: entry.step,
             reason: entry.reason
         }))

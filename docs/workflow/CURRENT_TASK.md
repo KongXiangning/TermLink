@@ -7,7 +7,7 @@
 - 任务 ID：20260513-001
 - 任务标题：提供跨平台发行安装脚本与一键 mTLS 证书工具
 - 任务 slug：provide-cross-platform-release-installer-and-mtls-tooling
-- 当前状态：step1_validated_ready_for_step2
+- 当前状态：step2_validated_ready_for_step3
 - 创建时间：2026-05-13
 - 创建来源：用户提出“面向开源发布的易用安装、跨平台发行与 mTLS 证书工具”需求后，由 `/create-current-task` 生成首版任务包。
 
@@ -77,7 +77,9 @@
 - Release evidence:
   - 步骤 1 已补齐 release layout 证据：`npm run release:build` 可稳定生成 Windows / Linux 的 `release-manifest.json` 与 `release-contents.txt`
   - 步骤 1 已补齐 diff-aware regression evidence：`TD-004` 的 6 文件 confirmed narrow gate 通过（99/99）
-  - residual risk：Windows / Linux 安装脚本、`/api/health` 安装后验证、direct mTLS 产物检查与 nginx-side mTLS 工具证据仍待步骤 2-5 落地后补齐
+  - 步骤 2 已补齐 Windows release 安装配置与脚本骨架证据：PowerShell 脚本语法解析通过，安装配置 JSON 可解析，`npm run release:build` 可在 Windows release 清单中标出 `implemented-step2` 条目
+  - 步骤 2 已补齐 diff-aware regression evidence：PowerShell parser、install config JSON、helper URL smoke、`git diff --check`、`npm run release:build`、TLS / health Node tests（21/21）、PM2 fork baseline smoke、Windows manifest step2 条目检查与带 BasicAuth 的 `/api/health` smoke 均通过
+  - residual risk：Linux 安装脚本、真实 Windows 安装 / 自启 smoke、`/api/health` 安装后验证、direct mTLS 产物检查与 nginx-side mTLS 工具证据仍待步骤 3-5 / 7 落地后补齐
   - residual risk：Linux 正式支持范围已锁定为 `systemd`；非 `systemd` 环境的 unsupported / fallback 文案与脚本行为仍需在实现阶段落地并留证
 
 ## 允许修改范围
@@ -283,16 +285,27 @@ Forbidden Files:
 
 ## 审查问题队列
 
-- 当前来源：none
-- Finding ID：
-  - Severity：none
-  - Source：not-yet-created
-  - Status：open
-  - File / symbol：not-yet-created
-  - Failure scenario：待 `/review-current-task`、后续实现与 diff 审查补充
-  - Minimal fix direction：none yet
-  - Required test：not-yet-created
-  - Handoff：`review-current-task`
+- 当前来源：`/review-diff`（2026-05-14，步骤 2）
+- Finding ID：RDF-20260514-001
+  - Severity：P2
+  - Source：`/review-diff`
+  - Status：resolved
+  - File / symbol：`scripts/install/termlink-install.config.example.json` `installDir`；`scripts/install/windows/install-service.ps1` `$ProjectRoot`
+  - Failure scenario：配置骨架声明了 `installDir`，但 Windows 安装脚本始终以脚本所在 release 根目录解析 `$ProjectRoot`，后续 `.env` 写入、运行时目录创建、PM2 启动和安装结果输出都使用 `$ProjectRoot`；这与步骤 2 “配置文件字段能覆盖安装目录”的单步验证不完全匹配。
+  - Minimal fix direction：在当前步骤范围内补齐 `installDir` 语义；要么让 Windows 安装脚本在配置提供 `installDir` 时使用该目录作为安装目标 / 运行根，要么明确将 `installDir` 改为预留字段并同步步骤 2 验收表述，避免声明不可用配置。
+  - Required test：用示例配置和带 `installDir` 的临时配置加载 `common.ps1`，验证解析结果能区分默认 release 根与配置安装目录；复跑 PowerShell parser 与 `npm run release:build`。
+  - Resolution：新增 `Resolve-TermLinkInstallRoot`，`install-service.ps1` / `start.ps1` / `uninstall-service.ps1` 均使用 `installDir` 解析后的安装根目录；默认空值仍回退到脚本发现的 release 根目录。
+  - Handoff：`review-diff`
+- Finding ID：RDF-20260514-002
+  - Severity：P3
+  - Source：`/review-diff`
+  - Status：resolved
+  - File / symbol：`scripts/install/windows/install-service.ps1` 安装结果 `Health URL`；`scripts/install/windows/common.ps1` `Invoke-TermLinkHealthCheck`
+  - Failure scenario：`Invoke-TermLinkHealthCheck` 在 `tls.mode=direct` 时会使用 `https`，但安装结果摘要固定输出 `http://localhost:<port>/api/health`；默认 `tls.mode=off` 不受影响，但后续 direct TLS / mTLS 接入后安装摘要会误导用户。
+  - Minimal fix direction：复用或新增一个统一的 health URL 构造函数，让安装结果输出与实际健康检查使用同一 scheme / URL。
+  - Required test：用默认 `tls.mode=off` 与临时 `tls.mode=direct` 配置分别加载 helper，验证 health URL 分别为 `http://...` 与 `https://...`；复跑 PowerShell parser。
+  - Resolution：新增 `Get-TermLinkHealthUrl`，`Invoke-TermLinkHealthCheck` 与 `install-service.ps1` 安装结果摘要共用同一 URL 构造逻辑。
+  - Handoff：`review-diff`
 
 ## 传播治理记录
 
@@ -493,14 +506,15 @@ Forbidden Files:
 
 ### blockers / gate status
 
-- 当前执行步骤：step1_validated_ready_for_step2
+- 当前执行步骤：step2_validated_ready_for_step3
 - 已完成 discovery：
   - workflow governance docs
   - README / README.zh-CN / deployment guide
   - `.env.example`
   - TLS config and health route
 - 剩余 blocker：
-  - none
+  - none for current release/install/tooling scope
+  - `npm run android:check-release-config` 仍是 scope-external known validation failure；它属于 Android Capacitor release 安全门禁，与本任务服务端 release/install/tooling diff 无直接实现耦合，不阻塞步骤 2，后续需单独决定修复路径
 - `ContractCompatibilityResult`：
   - error_code：none-yet
   - object_path：release/install/tooling surface
@@ -509,10 +523,10 @@ Forbidden Files:
   - evidence：任务已完成 `/review-current-task`、`/lock-scope`、`/classify-decisions`、`/plan-implementation` 与 `/decompose-task`，当前仍保持 backward-compatible 策略
   - strategy_origin.over_limit_policy_branch：single-task bounded
   - strategy_origin.divergence_state：Windows baseline exists, Linux/tooling incomplete
-  - branch_gate_mapping.merge_gate：implement-current-step
+  - branch_gate_mapping.merge_gate：step3
   - branch_gate_mapping.ship_gate：run-regression after steps 2-7
-  - branch_gate_mapping.rationale：步骤 1 已完成实现、评审与 diff-aware regression；下一步进入步骤 2
-  - suggested_resolution：同步项目状态后，按当前推荐步骤执行 `/implement-current-step` 进入步骤 2
+  - branch_gate_mapping.rationale：步骤 2 已完成实现、diff review、implementation review、contract verification 与 diff-aware regression；下一步进入步骤 3 Linux `systemd` 安装路径
+  - suggested_resolution：按当前推荐步骤执行 `/implement-current-step` 进入步骤 3
 
 ### conformance / verification cases
 
@@ -539,16 +553,17 @@ Forbidden Files:
 ## 实施步骤
 
 - 建议执行顺序：1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
-- 当前推荐执行步骤：步骤 2（完成当前 diff review 后进入）
+- 当前推荐执行步骤：步骤 3
 - [x] 步骤 1：收敛 release 产物目录与构建入口。
   - 输入：现有 Windows 打包事实、`package.json`、允许修改范围。
   - 输出：统一的 release 目录结构、平台压缩包命名、正式构建命令入口与脚本落点。
   - 单步验证：能明确列出 Windows / Linux release 包内应包含的目录、配置文件与脚本清单；不需要先改运行时代码。
   - 本步结果：新增 `scripts/release/release-layout.js` 与 `scripts/release/build-release.js`，并在 `package.json` 暴露 `release:build` / `release:build:win` / `release:build:linux` 入口；当前命令会生成 `dist/release-layout/**` 下的 `release-manifest.json` 与 `release-contents.txt`，用于固定跨平台 release 命名、内容清单与脚本落点。
-- [ ] 步骤 2：落 Windows release 安装 / 卸载 / 自启脚本与统一安装配置文件骨架。
+- [x] 步骤 2：落 Windows release 安装 / 卸载 / 自启脚本与统一安装配置文件骨架。
   - 输入：步骤 1 的 release 结构、现有 Windows PM2 `fork` 基线。
   - 输出：Windows 安装 / 卸载 / enable / disable / 健康检查脚本，以及共享配置文件字段定义。
   - 单步验证：配置文件字段能覆盖安装目录、自启开关、TLS/mTLS 模式与认证；Windows 路径不改变现有 PM2 `fork` 语义。
+  - 本步结果：新增 `scripts/install/termlink-install.config.example.json` 与 `scripts/install/windows/**`，提供 Windows install / uninstall / enable-autostart / disable-autostart / start / health check 入口；`ecosystem.config.js` 仅将 PM2 app name 参数化为 `TERMLINK_SERVICE_NAME || 'termlink'`，继续保持 `exec_mode: 'fork'`。
 - [ ] 步骤 3：落 Linux `systemd` 安装路径与非 `systemd` fallback。
   - 输入：共享配置文件字段定义、`setup-service.sh` 与 Linux 支持边界。
   - 输出：Linux 安装 / 卸载 / enable / disable 脚本、service unit 模板或生成逻辑、非 `systemd` 明确提示分支。
@@ -609,3 +624,10 @@ Forbidden Files:
 - 2026-05-13：`/review-implementation` 结论 clean。步骤 1 的目标拟合、逻辑正确性、兼容性与最小改动原则成立；未发现需要补查第三方 current docs 的 review finding。
 - 2026-05-13：`/verify-contracts` 结论 clean。未触碰 `src` / `android` / `public`、锁定 API / DTO、`data/sessions.json` 或架构依赖方向；当前 diff 对锁定接口与架构契约保持 backward-compatible。
 - 2026-05-13：`/run-regression` 以 diff-aware 模式通过。沿用 `working-tree` 对 `HEAD` 作为 diff review target；`npm run release:build` 成功生成跨平台 release 清单，`node --test tests\\tlsConfig.test.js tests\\workspace.routes.test.js tests\\workspace.web.test.js tests\\sessionStore.metadata.test.js tests\\terminal_shortcut_input.test.js tests\\codexSecondaryPanel.integration.test.js` 通过（99 tests / 99 pass / 0 fail）。UI / 视觉 / 登录 smoke 不适用本步；安装脚本、`/api/health` 与 mTLS 产物验证留待后续步骤补证。
+- 2026-05-13：再次执行 `/run-regression`（diff-aware，沿用 `working-tree` 对 `HEAD`）。步骤 1 产品实现 diff 已完成审查；`npm run release:build` 通过，`node --test tests\\tlsConfig.test.js tests\\health.route.test.js` 通过（21 tests / 21 pass / 0 fail），但 `npm run android:check-release-config` 稳定失败，报错为 `server.cleartext must be false for release builds` 与 `server.androidScheme must be "https" for release builds`。
+- 2026-05-13：`/investigate-root-cause` 结论：失败根因不是本轮 `scripts/release/**` diff 引入，而是 checked-in `capacitor.config.json` 当前仍保留开发态 `server.cleartext=true`、`server.androidScheme="http"`；`scripts/check-android-release-config.js --release` 会对这两个字段做强校验，因此命令必然失败。External Documentation Gate 未触发（仅涉及仓库内脚本与配置事实）。由于 `capacitor.config.json` 不在本任务 `Allowed Files` / `Conditional Files` 内，当前问题判定为 scope-external known validation failure；它与当前服务端 release/install/tooling 需求无直接实现关系，记录为后续独立决策，不阻塞步骤 2。
+- 2026-05-14：`/implement-current-step` 执行步骤 2。新增 Windows release 安装脚本组 `scripts/install/windows/**` 与共享配置骨架 `scripts/install/termlink-install.config.example.json`；更新 `scripts/release/release-layout.js` 让 Windows release 清单包含 `install.config.example.json`、安装 / 卸载 / 自启 enable-disable / start / health check / common helper / PM2 startup wrapper；`ecosystem.config.js` 仅把 PM2 app name 改为 `process.env.TERMLINK_SERVICE_NAME || 'termlink'`，不改变 `fork` 基线。
+- 2026-05-14：步骤 2 最小验证通过：PowerShell parser 对 `scripts/install/windows/*.ps1` 全部返回 OK；`scripts/install/termlink-install.config.example.json` 可被 `ConvertFrom-Json` 解析；通过 `common.ps1` 读取示例配置得到 `service=termlink port=3010 tls=off`；`npm run release:build` 成功生成 Windows / Linux release layout，Windows `release-contents.txt` 已显示步骤 2 条目为 `implemented-step2`。External Documentation Gate 未补查：本步只封装项目内现有 PM2 / Scheduled Task 安装基线和既有 `/api/health` 检查路径，未新增第三方 current behavior 判断；真实安装、自启注册与健康 smoke 留待 review / regression 阶段按需执行。
+- 2026-05-14：`/implement-current-step` 修复 `/review-diff` 入队问题：`RDF-20260514-001` 通过 `Resolve-TermLinkInstallRoot` 让 `installDir` 参与 Windows 安装 / 启动 / 卸载路径解析；`RDF-20260514-002` 通过 `Get-TermLinkHealthUrl` 统一健康检查实际 URL 与安装结果摘要。最小验证通过：PowerShell parser 全部 OK；默认配置解析为 `INSTALL_ROOT_DEFAULT_OK E:\coding\TermLink`；显式 `installDir` 配置解析为 `INSTALL_ROOT_EXPLICIT_OK E:\coding\TermLink`；health URL 在 `tls.mode=off` 为 `http://localhost:3010/api/health`，在 `tls.mode=direct` 为 `https://localhost:3010/api/health`；`npm run release:build` 通过。External Documentation Gate 未补查：本轮只修项目内 PowerShell helper 逻辑，不新增第三方 current behavior 判断。
+- 2026-05-14：`/review-diff`、`/review-implementation` 与 `/verify-contracts` 对步骤 2 复核通过。当前 diff target 沿用 `working-tree` 对 `HEAD` 并显式包含未跟踪的 `scripts/install/**`；未触碰 Forbidden Files、generated workflow 输出、Sessions / Workspace API、session DTO、`data/sessions.json` 或 `terminalGateway`，Windows PM2 `fork` 基线保持兼容。
+- 2026-05-14：`/run-regression` 以 diff-aware 模式通过。验证项包括 PowerShell parser、安装配置 JSON、helper URL smoke、`git diff --check`、`npm run release:build`、`node --test tests\tlsConfig.test.js tests\health.route.test.js`（21/21 pass）、`ecosystem.config.js` service name / `fork` smoke、Windows release manifest `implemented-step2` 条目检查，以及带 BasicAuth 的 `http://127.0.0.1:3010/api/health` smoke（HTTP 200）。`npm run android:check-release-config` 仍稳定失败，错误为 `server.cleartext must be false for release builds` 与 `server.androidScheme must be "https" for release builds`；该项继续按 scope-external known validation failure 记录，不阻塞步骤 3。
