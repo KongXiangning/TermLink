@@ -29,6 +29,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $InstallRoot 'ecosystem.config.js'))
 
 Write-TermLinkEnv -ProjectRoot $InstallRoot -Config $Config
 Initialize-TermLinkRuntimeDirs -ProjectRoot $InstallRoot -Config $Config
+$directMtls = Invoke-TermLinkDirectMtlsGeneration -InstallRoot $InstallRoot -ConfigPath $ResolvedConfigPath
 
 if (-not (Get-Command pm2 -ErrorAction SilentlyContinue)) {
     Write-Host 'pm2 not found. Installing pm2 globally...'
@@ -55,7 +56,7 @@ finally {
 }
 
 if (ConvertTo-TermLinkBool $Config.autoStart) {
-    Enable-TermLinkAutostart -ProjectRoot $ProjectRoot -Config $Config -ConfigPath $ResolvedConfigPath
+    Enable-TermLinkAutostart -ProjectRoot $InstallRoot -Config $Config -ConfigPath $ResolvedConfigPath
     $autoStartStatus = 'enabled'
 }
 else {
@@ -64,8 +65,7 @@ else {
 
 Start-Sleep -Seconds 3
 try {
-    $health = Invoke-TermLinkHealthCheck -Config $Config
-    $healthStatus = "OK HTTP $($health.StatusCode)"
+    $healthStatus = Invoke-TermLinkHealthCheck -Config $Config -InstallRoot $InstallRoot -ConfigPath $ResolvedConfigPath
 }
 catch {
     $healthStatus = "FAILED: $($_.Exception.Message)"
@@ -80,4 +80,9 @@ Write-Host "Service     : $($Config.serviceName)"
 Write-Host "Auto-start  : $autoStartStatus"
 Write-Host "Health URL  : $(Get-TermLinkHealthUrl -Config $Config)"
 Write-Host "Health      : $healthStatus"
+if ($directMtls.enabled) {
+    Write-Host "Server certs: $($directMtls.serverOutputDir)"
+    Write-Host "Client import: $($directMtls.clientOutputDir)"
+    Write-Host "P12 password: $($directMtls.clientPasswordPath)"
+}
 Write-Host "Logs        : pm2 logs $($Config.serviceName) --lines 50 --nostream"

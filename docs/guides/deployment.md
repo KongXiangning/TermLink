@@ -2,171 +2,242 @@
 title: 部署指南
 status: active
 owner: @maintainer
-last_updated: 2026-04-30
+last_updated: 2026-05-14
 source_of_truth: ops
-related_code: [src/server.js, ecosystem.config.js, docker-compose.yml]
-related_docs: [docs/ops/ops-checklist.md]
+related_code: [src/server.js, ecosystem.config.js, scripts/install, scripts/certs, scripts/release]
+related_docs: [README.md, README.zh-CN.md, docs/ops/ops-checklist.md]
 ---
 
 # TermLink 部署指南
 
-## Windows 独立部署（Win 端推荐）
+## 正式 release 路径概览
 
-> **完整操作手册**见 `.codex/skills/win-server-deploy/SKILL.md`（Codex）或 `.claude/skills/win-server-deploy/SKILL.md`（Claude）
+本任务当前的正式交付路径是：
 
-适用于需要 Windows 原生 PTY（PowerShell / CMD）的场景。  
-Docker 不适用——`node-pty` 需要 Windows conpty 内核接口。
+1. 在源码仓库执行 `npm run release:build`
+2. 取用 `dist/release-layout/termlink-win-v1.0.0` 或 `dist/release-layout/termlink-linux-v1.0.0`
+3. 复制并编辑 `scripts/install/termlink-install.config.example.json`
+4. 按目标平台运行 `scripts/install/windows/**` 或 `scripts/install/linux/**`
+5. 按所选 TLS / mTLS 模式补齐证书材料与健康检查
 
-### 前置要求
+## 平台支持矩阵
 
-| 角色 | 需要 |
-|------|------|
-| **打包机**（开发机） | 已 `npm install` |
-| **目标部署机** | Node.js 已安装且可在 `PATH` 中找到 |
-| **目标部署机（elevated 模式）** | 管理员 PowerShell |
+| 目标 | 安装入口 | 自启支持 | 状态 |
+|------|----------|----------|------|
+| Windows | `powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\install-service.ps1 -ConfigPath .\termlink-install.config.json` | 支持 | 正式 release 路径 |
+| Linux（`systemd`） | `bash ./scripts/install/linux/install-service.sh --config ./termlink-install.config.json` | 支持 | 正式 release 路径 |
+| Linux（无 `systemd`） | `bash ./scripts/install/linux/start.sh --foreground --config ./termlink-install.config.json` | 不支持 | 明确的手动 fallback |
 
-### 一键打包
+> 当前 Linux 正式自启边界只支持 `systemd`。不要把 OpenRC、SysVinit、runit 或其它 init 系统当作已支持路径。
 
-```powershell
-# Codex
-powershell -ExecutionPolicy Bypass -File .\.codex\skills\win-server-deploy\scripts\pack-win-server.ps1
-
-# Claude
-powershell -ExecutionPolicy Bypass -File .\.claude\skills\win-server-deploy\scripts\pack-win-server.ps1
-```
-
-输出 `dist/termlink-win-<timestamp>.zip`，包含：
-
-```
-termlink-win-<timestamp>/
-├── src/                  # 服务端源码
-├── public/               # Web 前端
-├── node_modules/         # 裁剪后的依赖（含预编译 node-pty）
-├── ecosystem.config.js   # pm2 进程配置
-├── .env.example          # 环境变量模板
-├── deploy-scripts/       # 安装/卸载/启动脚本
-│   ├── install-service.ps1
-│   ├── uninstall-service.ps1
-│   ├── start.ps1
-│   └── pm2-admin-startup.cmd
-├── data/                 # session 持久化（空）
-└── logs/                 # 日志目录（空）
-```
-
-### 部署到目标 Windows 机器
-
-```powershell
-# 1. 解压
-#    右键 zip → 全部提取，或：
-Expand-Archive termlink-win-*.zip -DestinationPath C:\TermLink
-
-# 2. 配置
-cd C:\TermLink
-Copy-Item .env.example .env
-notepad .env
-
-# 3. 安装服务（以管理员运行 PowerShell）
-powershell -ExecutionPolicy Bypass -File .\deploy-scripts\install-service.ps1
-```
-
-安装前至少检查这些变量：
-
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `AUTH_USER` | `admin` | BasicAuth 用户名 |
-| `AUTH_PASS` | 见 `.env.example` | 生产环境必须改成强密码 |
-| `PORT` | 见 `.env.example` | 监听端口 |
-| `TERMLINK_PRIVILEGE_MODE` | `standard` | 仅在必须要管理员运行时改成 `elevated` |
-| `TERMLINK_ELEVATED_ENABLE` | `false` | 使用 `elevated` 时必须同步设为 `true` |
-
-### Windows 开机自启策略
-
-Windows elevated 部署不再使用 `pm2-windows-startup`。安装脚本会：
-
-1. 清理旧的 `pm2-windows-startup` 注册表残留
-2. 创建计划任务 `PM2-Termlink-Admin`
-3. 在用户登录后延迟启动 `deploy-scripts\pm2-admin-startup.cmd`
-4. 用最高权限重建 PM2 daemon，然后启动 `termlink`
-
-这样做是因为 `pm2-windows-startup` 默认走普通用户权限，无法满足 `TERMLINK_PRIVILEGE_MODE=elevated` 的安全门禁。
-
-> **重要限制：** `PM2-Termlink-Admin` 会重置当前 Windows 用户的 PM2 daemon。启用 elevated 自动启动时，不要在同一用户下托管其他无关 PM2 应用。
-
-### 日常管理
-
-```powershell
-pm2 list                             # 查看状态
-pm2 logs termlink --lines 50 --nostream
-pm2 restart termlink                 # 重启
-pm2 stop termlink                    # 停止
-pm2 start termlink                   # 启动
-pm2 flush termlink                   # 清空日志
-pm2 save                             # 持久化当前进程列表
-```
-
-如果是 `elevated` 模式，请在**管理员终端**里执行这些命令。
-
-### 卸载
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\deploy-scripts\uninstall-service.ps1
-```
-
-卸载脚本会删除 TermLink 的 PM2 进程，并可选移除 `PM2-Termlink-Admin` 计划任务；不会删除应用目录。
-
----
-
-## Docker 部署（适用于 Linux / WSL 端）
+## 从源码构建 release
 
 ```bash
-docker-compose up -d --build
+npm install
+npm run release:build
 ```
 
-- `restart: always` 保证开机自启
-- `.env` 和 `data/` 通过 volume 挂载
+产物目录：
 
-## Systemd 部署（Linux 原生）
+- `dist/release-layout/termlink-win-v1.0.0`
+- `dist/release-layout/termlink-linux-v1.0.0`
+
+每个平台目录都包含：
+
+- `release-manifest.json`
+- `release-contents.txt`
+- `scripts/install/**`
+- `scripts/certs/**`
+- `scripts/install/termlink-install.config.example.json`
+
+## 安装配置文件
+
+复制并编辑：
+
+**PowerShell**
+
+```powershell
+Copy-Item .\scripts\install\termlink-install.config.example.json .\termlink-install.config.json
+```
+
+**Bash**
 
 ```bash
-chmod +x setup-service.sh && ./setup-service.sh
+cp ./scripts/install/termlink-install.config.example.json ./termlink-install.config.json
 ```
 
----
+关键字段：
 
-## 环境变量
-
-| 变量 | 默认值 | 说明 |
+| 字段 | 允许值 | 作用 |
 |------|--------|------|
-| `PORT` | `3000` | 监听端口 |
-| `AUTH_ENABLED` | `true` | 是否开启 BasicAuth |
-| `AUTH_USER` | `admin` | 用户名（生产必须改） |
-| `AUTH_PASS` | `admin` | 密码（生产必须改） |
-| `TERMLINK_PRIVILEGE_MODE` | `standard` | 权限模式：`standard` / `elevated` |
-| `TERMLINK_ELEVATED_ENABLE` | `false` | 是否允许 elevated 模式 |
-| `TERMLINK_ELEVATED_AUDIT_PATH` | `./logs/elevated-audit.log` | 提权审计日志 |
-| `TERMLINK_ELEVATED_REQUIRE_MTLS` | `false` | elevated 模式下是否要求 mTLS |
-| `SESSION_PERSIST_ENABLED` | `true` | 是否持久化 session |
-| `SESSION_PERSIST_PATH` | `./data/sessions.json` | 持久化路径 |
-| `PTY_SHELL` | *自动探测* | 强制 shell（最高优先级） |
-| `PTY_WINDOWS_SHELL` | *自动探测* | 仅 Windows |
-| `PTY_UNIX_SHELL` | *自动探测* | 仅 Linux/WSL |
-| `PTY_SHELL_ARGS` | 空 | shell 参数 |
+| `installDir` | 空字符串或绝对路径 | 覆盖安装根目录 |
+| `serviceName` | 字母、数字、`.`、`_`、`@`、`-` | 服务 / pm2 / systemd 名称 |
+| `autoStart` | `true` / `false` | 安装时是否启用自启 |
+| `port` | 整数 | 服务端口 |
+| `auth.enabled` | `true` / `false` | BasicAuth 开关 |
+| `tls.mode` | `off`、`direct`、`nginx` | 明文、直连 HTTPS、受信 nginx 代理 |
+| `tls.clientCertPolicy` | `none`、`request`、`require` | 直连 TLS 的客户端证书策略 |
+| `mtls.deployment` | `none`、`direct-server`、`nginx` | 证书部署模式 |
+| `mtls.generateDirectServerCertificates` | `true` / `false` | 是否由安装器生成 direct-server mTLS 证书 |
+| `mtls.opensslPath` | 可执行路径 | 覆盖 OpenSSL 命令路径 |
 
-## Nginx 反向代理
+生产环境不要继续使用默认 `auth.user=admin` / `auth.pass=admin`。
 
-参考 `ops-local/nginx/code.kongxn.com-442.conf`：
+## Windows release 安装
 
-- WebSocket：需 `Upgrade` / `Connection` 头透传
-- 超时：`proxy_read_timeout 3600s`
-- 路由：`/win` → Win 后端，`/wsl` → WSL 后端
-- mTLS：可选（`ssl_verify_client on`）
+安装：
 
-若由 Nginx 终止 TLS/mTLS，但仍希望 TermLink 后端统一暴露真实连接安全摘要：
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\install-service.ps1 -ConfigPath .\termlink-install.config.json
+```
 
-1. 在后端 `.env` 中配置：
-   - `TERMLINK_TLS_PROXY_MODE=nginx`
-   - `TERMLINK_TLS_PROXY_SECRET=<long-random-secret>`
-2. 在 Nginx 到后端的代理段显式转发：
+健康检查：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\test-health.ps1 -ConfigPath .\termlink-install.config.json
+```
+
+安装后开启 / 关闭自启：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\enable-autostart.ps1 -ConfigPath .\termlink-install.config.json
+powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\disable-autostart.ps1 -ConfigPath .\termlink-install.config.json
+```
+
+卸载：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\uninstall-service.ps1 -ConfigPath .\termlink-install.config.json
+```
+
+Windows 路径的要点：
+
+- 保持 `ecosystem.config.js` 的 `fork` 基线
+- 缺少 `pm2` 时会自动全局安装
+- `autoStart=true` 时通过计划任务启用自启
+- 安装摘要会输出 Health URL、日志命令和 direct-server mTLS 产物位置
+
+## Linux release 安装
+
+安装：
+
+```bash
+bash ./scripts/install/linux/install-service.sh --config ./termlink-install.config.json
+```
+
+健康检查：
+
+```bash
+bash ./scripts/install/linux/test-health.sh --config ./termlink-install.config.json
+```
+
+安装后开启 / 关闭自启：
+
+```bash
+bash ./scripts/install/linux/enable-autostart.sh --config ./termlink-install.config.json
+bash ./scripts/install/linux/disable-autostart.sh --config ./termlink-install.config.json
+```
+
+卸载：
+
+```bash
+bash ./scripts/install/linux/uninstall-service.sh --config ./termlink-install.config.json
+```
+
+Linux 路径的要点：
+
+- 安装器会写出 `.env` 与 `.env.systemd`
+- 正式自启只支持 `systemd`
+- 非 `systemd` 环境要显式使用：
+
+```bash
+bash ./scripts/install/linux/start.sh --foreground --config ./termlink-install.config.json
+```
+
+## 证书与 mTLS 模式
+
+### 1. direct server-side mTLS
+
+示例配置：
+
+```json
+{
+  "tls": {
+    "mode": "direct",
+    "clientCertPolicy": "require"
+  },
+  "mtls": {
+    "deployment": "direct-server",
+    "generateDirectServerCertificates": true,
+    "opensslPath": "openssl"
+  }
+}
+```
+
+安装器会自动生成：
+
+- 服务端证书目录
+- 客户端导入目录
+- `client.p12`
+- 密码文件路径（安装结果摘要打印）
+
+缺少 OpenSSL 时会显式失败并报 `OpenSSL not found`。
+
+### 2. nginx-side mTLS
+
+示例配置：
+
+```json
+{
+  "tls": {
+    "mode": "nginx",
+    "clientCertPolicy": "none",
+    "proxySecret": "<long-random-secret>"
+  },
+  "mtls": {
+    "deployment": "nginx",
+    "generateDirectServerCertificates": false
+  }
+}
+```
+
+先预览路径：
+
+```bash
+npm run mtls:generate:nginx -- --mode describe --install-root .
+```
+
+再生成 nginx 侧客户端证书材料：
+
+```bash
+npm run mtls:generate:nginx -- --install-root . --client-name termlink-nginx-client
+```
+
+常用参数：
+
+- `--output-dir ./certs/nginx-mtls`
+- `--client-name <name>`
+- `--client-p12-password <password>`
+- `--openssl-path <path-to-openssl>`
+
+该工具会生成：
+
+- `client-ca.crt` / `client-ca.key`
+- `clients/<client-name>.crt`
+- `clients/<client-name>.key`
+- `clients/<client-name>.p12`
+- `clients/<client-name>-password.txt`
+
+release 安装器不会自动生成 nginx-side mTLS 证书。
+
+## nginx 反向代理（trusted proxy 模式）
+
+若由 nginx 终止 TLS / mTLS，但仍希望 TermLink 后端输出真实连接安全摘要：
+
+1. 安装配置使用：
+   - `tls.mode=nginx`
+   - `tls.proxySecret=<long-random-secret>`
+2. nginx 到后端显式转发：
 
 ```nginx
 proxy_set_header X-Forwarded-Proto $scheme;
@@ -174,5 +245,10 @@ proxy_set_header X-SSL-Client-Verify $ssl_client_verify;
 proxy_set_header X-TermLink-Proxy-Tls-Secret <same-random-secret>;
 ```
 
-3. 不要把后端 Node 监听地址直接暴露到外网；否则客户端可伪造这些代理头绕过真实 TLS/mTLS 观测口径。
+3. 不要把后端 Node 监听地址直接暴露到外网；否则客户端可伪造这些代理头。
+
+## 其他路径说明
+
+- `setup-service.sh` 仍保留为 Linux 兼容入口，但正式文档以 `scripts/install/linux/**` 为准。
+- Docker / `docker-compose.yml` 不是本轮 release-readiness 的正式验证路径。
 

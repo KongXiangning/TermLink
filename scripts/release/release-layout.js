@@ -57,10 +57,20 @@ const SHARED_EXISTING_ENTRIES = Object.freeze([
     { path: '.env.example', kind: 'file', status: 'existing', reason: 'Base runtime config template' }
 ]);
 
+const SHARED_CERT_TOOL_ENTRIES = Object.freeze([
+    { path: 'scripts/certs/', kind: 'directory', status: 'implemented-step5', step: 5, reason: 'Shared certificate tooling and installer helpers' },
+    { path: 'scripts/certs/direct-mtls.js', kind: 'file', status: 'implemented-step4', step: 4, reason: 'Shared direct mTLS helper module' },
+    { path: 'scripts/certs/generate-direct-mtls.js', kind: 'file', status: 'implemented-step4', step: 4, reason: 'Direct server-side mTLS generator' },
+    { path: 'scripts/certs/installer-health-check.js', kind: 'file', status: 'implemented-step4', step: 4, reason: 'Installer-aware health check helper' },
+    { path: 'scripts/certs/nginx-mtls.js', kind: 'file', status: 'implemented-step5', step: 5, reason: 'Shared nginx-side mTLS helper module' },
+    { path: 'scripts/certs/generate-nginx-mtls.js', kind: 'file', status: 'implemented-step5', step: 5, reason: 'Standalone nginx-side mTLS certificate generator' }
+]);
+
 const SHARED_PLANNED_ENTRIES = Object.freeze([
     { path: 'install.config.example.json', kind: 'file', status: 'implemented-step2', step: 2, reason: 'Shared install configuration template' },
     { path: 'deploy-scripts/', kind: 'directory', status: 'planned', step: 2, reason: 'Cross-platform install and service helpers' },
-    { path: 'certs/', kind: 'directory', status: 'planned', step: 4, reason: 'Direct mTLS output and shared cert storage' },
+    ...SHARED_CERT_TOOL_ENTRIES,
+    { path: 'certs/', kind: 'directory', status: 'implemented-step4', step: 4, reason: 'Direct mTLS output and shared cert storage' },
     { path: 'data/', kind: 'directory', status: 'planned', step: 2, reason: 'Runtime state directory' },
     { path: 'logs/', kind: 'directory', status: 'planned', step: 2, reason: 'Runtime log directory' },
     { path: 'release-manifest.json', kind: 'file', status: 'generated-step1', step: 1, reason: 'Release structure manifest' },

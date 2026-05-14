@@ -94,6 +94,28 @@ function Read-TermLinkInstallConfig {
     if (-not $config.tls.clientCertPolicy) {
         $config.tls | Add-Member -NotePropertyName clientCertPolicy -NotePropertyValue 'none' -Force
     }
+    if (-not $config.mtls) {
+        $config | Add-Member -NotePropertyName mtls -NotePropertyValue ([pscustomobject]@{}) -Force
+    }
+    if (-not $config.mtls.deployment) {
+        $config.mtls | Add-Member -NotePropertyName deployment -NotePropertyValue 'none' -Force
+    }
+    if ($null -eq $config.mtls.generateDirectServerCertificates) {
+        $config.mtls | Add-Member -NotePropertyName generateDirectServerCertificates -NotePropertyValue $false -Force
+    }
+    if (-not $config.mtls.opensslPath) {
+        $config.mtls | Add-Member -NotePropertyName opensslPath -NotePropertyValue 'openssl' -Force
+    }
+    if (-not $config.mtls.serverOutputDir) {
+        $config.mtls | Add-Member -NotePropertyName serverOutputDir -NotePropertyValue ($config.tls.certDir ? [string]$config.tls.certDir : './certs') -Force
+    }
+    if (-not $config.mtls.clientOutputDir) {
+        $defaultClientOutputDir = Join-Path ([string]$config.mtls.serverOutputDir) 'clients'
+        $config.mtls | Add-Member -NotePropertyName clientOutputDir -NotePropertyValue $defaultClientOutputDir -Force
+    }
+    if ($null -eq $config.mtls.clientP12Password) {
+        $config.mtls | Add-Member -NotePropertyName clientP12Password -NotePropertyValue '' -Force
+    }
 
     $tlsMode = [string]$config.tls.mode
     if ($tlsMode -notin @('off', 'direct', 'nginx')) {
@@ -107,6 +129,21 @@ function Read-TermLinkInstallConfig {
     }
     if ([string]$config.tls.clientCertPolicy -notin @('none', 'request', 'require')) {
         throw "tls.clientCertPolicy must be one of: none, request, require."
+    }
+    $mtlsDeployment = [string]$config.mtls.deployment
+    if ($mtlsDeployment -notin @('none', 'direct-server', 'nginx')) {
+        throw "mtls.deployment must be one of: none, direct-server, nginx."
+    }
+    if ((ConvertTo-TermLinkBool $config.mtls.generateDirectServerCertificates) -and $mtlsDeployment -ne 'direct-server') {
+        throw "mtls.generateDirectServerCertificates can only be true when mtls.deployment is direct-server."
+    }
+    if ($mtlsDeployment -eq 'direct-server') {
+        if ($tlsMode -ne 'direct') {
+            throw 'mtls.deployment=direct-server requires tls.mode=direct.'
+        }
+        if ([string]$config.tls.clientCertPolicy -notin @('request', 'require')) {
+            throw 'mtls.deployment=direct-server requires tls.clientCertPolicy=request or require.'
+        }
     }
 
     return [pscustomobject]@{
@@ -156,6 +193,27 @@ function ConvertTo-TermLinkBool {
     return ([string]$Value).Trim().ToLowerInvariant() -in @('1', 'true', 'yes', 'on')
 }
 
+function Resolve-TermLinkRuntimePath {
+    param(
+        [string]$ProjectRoot,
+        [string]$ConfiguredPath,
+        [string]$FallbackRelativePath
+    )
+
+    $candidate = if ([string]::IsNullOrWhiteSpace($ConfiguredPath)) {
+        $FallbackRelativePath
+    }
+    else {
+        $ConfiguredPath
+    }
+
+    if ([System.IO.Path]::IsPathRooted($candidate)) {
+        return $candidate
+    }
+
+    return Join-Path $ProjectRoot $candidate
+}
+
 function Write-TermLinkEnv {
     param(
         [string]$ProjectRoot,
@@ -202,12 +260,67 @@ function Initialize-TermLinkRuntimeDirs {
     )
 
     $certDir = if ($Config.tls.certDir) { [string]$Config.tls.certDir } else { './certs' }
-    foreach ($relativePath in @('data', 'logs', $certDir)) {
-        $target = Join-Path $ProjectRoot $relativePath
+    $targets = @(
+        (Join-Path $ProjectRoot 'data'),
+        (Join-Path $ProjectRoot 'logs'),
+        (Resolve-TermLinkRuntimePath -ProjectRoot $ProjectRoot -ConfiguredPath $certDir -FallbackRelativePath './certs')
+    )
+
+    if ([string]$Config.mtls.deployment -eq 'direct-server' -or (ConvertTo-TermLinkBool $Config.mtls.generateDirectServerCertificates)) {
+        $targets += Resolve-TermLinkRuntimePath -ProjectRoot $ProjectRoot -ConfiguredPath ([string]$Config.mtls.serverOutputDir) -FallbackRelativePath './certs'
+        $targets += Resolve-TermLinkRuntimePath -ProjectRoot $ProjectRoot -ConfiguredPath ([string]$Config.mtls.clientOutputDir) -FallbackRelativePath '.\certs\clients'
+    }
+
+    foreach ($target in $targets) {
         if (-not (Test-Path -LiteralPath $target)) {
             New-Item -Path $target -ItemType Directory -Force | Out-Null
         }
     }
+}
+
+function Get-TermLinkDirectMtlsScriptPath {
+    param([string]$InstallRoot)
+
+    $scriptPath = Join-Path $InstallRoot 'scripts\certs\generate-direct-mtls.js'
+    if (-not (Test-Path -LiteralPath $scriptPath)) {
+        throw "Direct mTLS helper not found: $scriptPath"
+    }
+    return $scriptPath
+}
+
+function Get-TermLinkInstallerHealthScriptPath {
+    param([string]$InstallRoot)
+
+    $scriptPath = Join-Path $InstallRoot 'scripts\certs\installer-health-check.js'
+    if (-not (Test-Path -LiteralPath $scriptPath)) {
+        throw "Installer health helper not found: $scriptPath"
+    }
+    return $scriptPath
+}
+
+function Invoke-TermLinkNodeJson {
+    param(
+        [string]$ScriptPath,
+        [string[]]$Arguments
+    )
+
+    $output = & node $ScriptPath @Arguments 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw (($output | ForEach-Object { [string]$_ }) -join [Environment]::NewLine)
+    }
+
+    $joined = ($output | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
+    return $joined | ConvertFrom-Json
+}
+
+function Invoke-TermLinkDirectMtlsGeneration {
+    param(
+        [string]$InstallRoot,
+        [string]$ConfigPath
+    )
+
+    $scriptPath = Get-TermLinkDirectMtlsScriptPath -InstallRoot $InstallRoot
+    return Invoke-TermLinkNodeJson -ScriptPath $scriptPath -Arguments @('--mode', 'generate', '--install-root', $InstallRoot, '--config', $ConfigPath)
 }
 
 function Test-TermLinkAdmin {
@@ -265,15 +378,16 @@ function Disable-TermLinkAutostart {
 function Invoke-TermLinkHealthCheck {
     param(
         [object]$Config,
+        [string]$InstallRoot,
+        [string]$ConfigPath,
         [int]$TimeoutSec = 8
     )
 
-    $uri = Get-TermLinkHealthUrl -Config $Config
-    $headers = @{}
-    if (ConvertTo-TermLinkBool $Config.auth.enabled) {
-        $token = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$($Config.auth.user):$($Config.auth.pass)"))
-        $headers.Authorization = "Basic $token"
+    $scriptPath = Get-TermLinkInstallerHealthScriptPath -InstallRoot $InstallRoot
+    $output = & node $scriptPath '--install-root' $InstallRoot '--config' $ConfigPath '--timeout' $TimeoutSec 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw (($output | ForEach-Object { [string]$_ }) -join [Environment]::NewLine)
     }
 
-    return Invoke-WebRequest -Uri $uri -Headers $headers -TimeoutSec $TimeoutSec -ErrorAction Stop
+    return (($output | ForEach-Object { [string]$_ }) | Select-Object -Last 1)
 }

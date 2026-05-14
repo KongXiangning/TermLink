@@ -71,38 +71,252 @@ Workspace 通过独立 `WorkspaceActivity` 承载，面向 Codex 会话提供固
 - Android 支持按配置启用 mTLS 客户端证书。
 - release 前需执行 `npm run android:check-release-config`，避免不安全的 `http/ws` 配置进入发布包。
 
-## 本地运行
+## 发布打包与安装
 
 ### 环境要求
 
 - Node.js 18+
 - npm
-- JDK 21
-- Android Studio 或可用的 `adb`
+- OpenSSL（direct-server 或 nginx-side mTLS 产物生成时需要）
+- Windows release 安装：PowerShell 5.1+（启用 auto-start 或 elevated 时需管理员 PowerShell）
+- Linux release 安装：`bash`、`sudo`，以及用于正式自启路径的 `systemd`
 
-### 启动服务端
+Docker 仍可用于开发或其他运维场景，但**不是**本轮 Windows 正式 release 路径。Windows 安装器继续沿用 `pm2` `fork` 基线，以保持 `node-pty` 的原生 ConPTY 能力。
 
-1. 安装依赖：
+### 1. 从源码构建 release 产物
+
+在仓库根目录执行：
 
 ```bash
 npm install
+npm run release:build
 ```
 
-2. 复制环境变量：
+当前会生成：
 
-```bash
-copy .env.example .env
+- `dist/release-layout/termlink-win-v1.0.0`
+- `dist/release-layout/termlink-linux-v1.0.0`
+
+每个平台目录下都包含 `release-manifest.json`、`release-contents.txt`，以及正式安装入口 `scripts/install/**` 与证书工具 `scripts/certs/**`。
+
+### 2. 平台支持矩阵
+
+| 目标 | 安装入口 | 自启状态 | 说明 |
+| --- | --- | --- | --- |
+| Windows | `powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\install-service.ps1 -ConfigPath .\termlink-install.config.json` | 正式支持 | 保持既有 `pm2` `fork` 基线 |
+| Linux（`systemd`） | `bash ./scripts/install/linux/install-service.sh --config ./termlink-install.config.json` | 正式支持 | 当前 Linux 自启仅正式支持 `systemd` |
+| Linux（无 `systemd`） | `bash ./scripts/install/linux/start.sh --foreground --config ./termlink-install.config.json` | 仅手动 fallback | 本轮不提供正式 auto-start 支持 |
+
+### 3. release 安装配置文件
+
+从 release 包（或源码目录）复制示例配置：
+
+**PowerShell**
+
+```powershell
+Copy-Item .\scripts\install\termlink-install.config.example.json .\termlink-install.config.json
 ```
 
-3. 启动本地服务：
+**Bash**
 
 ```bash
+cp ./scripts/install/termlink-install.config.example.json ./termlink-install.config.json
+```
+
+关键字段：
+
+| 字段 | 允许值 | 作用 |
+| --- | --- | --- |
+| `installDir` | 空字符串或绝对路径 | 覆盖安装根目录 |
+| `serviceName` | 字母、数字、`.`、`_`、`@`、`-` | 服务 / pm2 名称 |
+| `autoStart` | `true` / `false` | 安装时是否启用自启 |
+| `port` | 整数 | 服务端口 |
+| `auth.enabled` | `true` / `false` | BasicAuth 开关 |
+| `tls.mode` | `off`、`direct`、`nginx` | 明文、直连 HTTPS、或受信 nginx 代理模式 |
+| `tls.clientCertPolicy` | `none`、`request`、`require` | 直连 TLS 的客户端证书策略 |
+| `mtls.deployment` | `none`、`direct-server`、`nginx` | 选择安装期 direct mTLS 或独立 nginx-side 工具 |
+| `mtls.generateDirectServerCertificates` | `true` / `false` | 是否由安装器生成 direct-server mTLS 证书 |
+| `mtls.opensslPath` | 可执行路径 | 指定 OpenSSL 命令路径 |
+
+对外使用前，务必把 `AUTH_USER` / `AUTH_PASS` 改成非默认值。
+
+### 4. Windows release 安装生命周期
+
+安装：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\install-service.ps1 -ConfigPath .\termlink-install.config.json
+```
+
+健康检查：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\test-health.ps1 -ConfigPath .\termlink-install.config.json
+```
+
+安装后单独开启 / 关闭自启：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\enable-autostart.ps1 -ConfigPath .\termlink-install.config.json
+powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\disable-autostart.ps1 -ConfigPath .\termlink-install.config.json
+```
+
+卸载：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\uninstall-service.ps1 -ConfigPath .\termlink-install.config.json
+```
+
+Windows 安装器会：
+
+- 根据 JSON 安装配置写出 `.env`
+- 保持 `ecosystem.config.js` 的 `fork` 模式
+- 在缺少 `pm2` 时自动全局安装
+- 仅在 `autoStart=true` 时配置计划任务自启
+- 执行健康检查并输出 Health URL
+- 在 direct-server mTLS 模式下输出 server cert、client import、P12 password 路径
+
+### 5. Linux release 安装生命周期
+
+安装：
+
+```bash
+bash ./scripts/install/linux/install-service.sh --config ./termlink-install.config.json
+```
+
+健康检查：
+
+```bash
+bash ./scripts/install/linux/test-health.sh --config ./termlink-install.config.json
+```
+
+安装后单独开启 / 关闭自启：
+
+```bash
+bash ./scripts/install/linux/enable-autostart.sh --config ./termlink-install.config.json
+bash ./scripts/install/linux/disable-autostart.sh --config ./termlink-install.config.json
+```
+
+卸载：
+
+```bash
+bash ./scripts/install/linux/uninstall-service.sh --config ./termlink-install.config.json
+```
+
+Linux 侧补充说明：
+
+- 正式自启路径**只支持 `systemd`**。
+- 安装器会同时写出 `.env`（Node / 前台运行读取）和 `.env.systemd`（systemd `EnvironmentFile=` 读取）。
+- 非 `systemd` 环境只能走 `start.sh --foreground` 明确手动 fallback，不应假设存在正式 auto-start。
+
+### 6. 选择 mTLS 部署方式
+
+#### 方案 A：不启用 mTLS
+
+HTTP 或直连 HTTPS 但不校验客户端证书：
+
+```json
+{
+  "tls": { "mode": "off", "clientCertPolicy": "none" },
+  "mtls": { "deployment": "none", "generateDirectServerCertificates": false }
+}
+```
+
+如果你要用直连 HTTPS 但不启用 mTLS，把 `tls.mode` 设为 `direct`，`tls.clientCertPolicy` 保持 `none`，并在配置里提供已有的服务端证书路径。
+
+#### 方案 B：服务端自管 direct mTLS
+
+由安装器自动生成 direct-server mTLS 证书：
+
+```json
+{
+  "tls": {
+    "mode": "direct",
+    "clientCertPolicy": "require"
+  },
+  "mtls": {
+    "deployment": "direct-server",
+    "generateDirectServerCertificates": true,
+    "opensslPath": "openssl"
+  }
+}
+```
+
+安装阶段会在 Windows / Linux 上自动生成：
+
+- `mtls.serverOutputDir` 下的服务端证书材料
+- `mtls.clientOutputDir` 下的客户端导入材料
+- `client.p12`
+- 安装结果摘要中打印的密码文件路径
+
+如果缺少 OpenSSL，安装器会显式失败并报 `OpenSSL not found`，不会静默跳过。
+
+#### 方案 C：nginx 侧 mTLS
+
+当 nginx 负责公网 TLS / mTLS 边界，而 Node 服务只作为后端时使用：
+
+```json
+{
+  "tls": {
+    "mode": "nginx",
+    "clientCertPolicy": "none",
+    "proxySecret": "<long-random-secret>"
+  },
+  "mtls": {
+    "deployment": "nginx",
+    "generateDirectServerCertificates": false
+  }
+}
+```
+
+先预览路径规划：
+
+```bash
+npm run mtls:generate:nginx -- --mode describe --install-root .
+```
+
+再生成 nginx-side mTLS 所需的 client CA 与客户端证书：
+
+```bash
+npm run mtls:generate:nginx -- --install-root . --client-name termlink-nginx-client
+```
+
+常用可选参数：
+
+- `--output-dir ./certs/nginx-mtls`
+- `--client-name <name>`
+- `--client-p12-password <password>`
+- `--openssl-path <path-to-openssl>`
+
+该工具会生成：
+
+- `client-ca.crt` / `client-ca.key`
+- `clients/<client-name>.crt`
+- `clients/<client-name>.key`
+- `clients/<client-name>.p12`
+- `clients/<client-name>-password.txt`
+
+release 安装器**不会**自动生成 nginx-side 证书。
+
+### 7. 从源码直接跑本地服务
+
+如果你当前是在做源码开发而不是验证 release 包：
+
+**PowerShell**
+
+```powershell
+Copy-Item .env.example .env
 npm run dev
 ```
 
-默认健康检查地址为 `http://localhost:3010/api/health`。
+**Bash**
 
-`.env.example` 当前默认开启 BasicAuth；仅可信本地环境才应关闭认证或继续使用默认账号。
+```bash
+cp ./.env.example ./.env
+npm run dev
+```
+
+默认健康检查地址：`http://localhost:3010/api/health`。
 
 ## Android 调试最短路径
 

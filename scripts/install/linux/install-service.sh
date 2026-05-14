@@ -36,6 +36,7 @@ printf 'Service     : %s\n' "$SERVICE_NAME"
 
 write_termlink_env "$INSTALL_ROOT" "$RESOLVED_CONFIG_PATH"
 init_runtime_dirs "$INSTALL_ROOT" "$RESOLVED_CONFIG_PATH"
+DIRECT_MTLS_JSON="$(generate_direct_mtls_artifacts "$INSTALL_ROOT" "$RESOLVED_CONFIG_PATH")"
 install_node_dependencies_if_needed "$INSTALL_ROOT"
 
 render_systemd_unit "$INSTALL_ROOT" "$RESOLVED_CONFIG_PATH" > "$INSTALL_ROOT/${SERVICE_NAME}.service"
@@ -70,4 +71,9 @@ printf 'Service     : %s\n' "$SERVICE_NAME"
 printf 'Auto-start  : %s\n' "$AUTO_START_STATUS"
 printf 'Health URL  : %s\n' "$(health_url "$RESOLVED_CONFIG_PATH")"
 printf 'Health      : %s\n' "$HEALTH_STATUS"
+if [ "$(json_value "$DIRECT_MTLS_JSON" enabled false)" = "true" ]; then
+    printf 'Server certs: %s\n' "$(json_value "$DIRECT_MTLS_JSON" serverOutputDir)"
+    printf 'Client import: %s\n' "$(json_value "$DIRECT_MTLS_JSON" clientOutputDir)"
+    printf 'P12 password: %s\n' "$(json_value "$DIRECT_MTLS_JSON" clientPasswordPath)"
+fi
 printf 'Logs        : journalctl -u %s -n 100 --no-pager\n' "$(service_unit_name "$RESOLVED_CONFIG_PATH")"

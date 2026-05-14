@@ -58,6 +58,11 @@
   - 触发信号：多个 hanging files 的路径或测试主题指向同一运行时模块；STATUS.md 中该模块已被标记为高风险区域。
   - 应对动作：在 gate 决策中显式写明"共性风险面"（如"3 个 hanging 文件全部集中在 terminalGateway / sessionManager codex config 路径"），并在风险说明中指出修复前该模块的回归无法被自动化 gate 捕获。
 
+- 场景：release / installer 任务的当前 patch 同时包含未跟踪的 `scripts/**` 或 `tests/**` 新文件，但 workflow 文档和 review 口径仍只笼统写成 `working-tree`。
+  - 结论：只要当前审查或回归依赖未跟踪文件，`/review-diff`、`/review-implementation`、`/run-regression` 与 `CURRENT_TASK.md` 的 diff source 都应明确写成 `working-tree vs HEAD + untracked files`，不能只写模糊的 `working-tree`，否则后续 handoff 容易漏审新脚本 / 新测试，或让 workflow 文档与实际验证口径脱节。
+  - 触发信号：`git status` 中同时出现 `?? scripts/...`、`?? tests/...`；当前 clean/pass 结论依赖这些新文件；`CURRENT_TASK.md` 的 `Current diff review target` 仍未显式说明 untracked files。
+  - 应对动作：在第一次 clean review 前就统一回写精确 diff target，并在后续 regression 文案中重复同一口径；若 release 清单或 smoke 依赖新 helper，还要显式核对这些 untracked 文件是否进入 manifest、测试命令和证据记录。
+
 - 场景：在华为真机上用 adb / UIAutomator 做 Android composer smoke，skill token 在发送前或发送后异常退化成单个字符（如 `V`）。
   - 结论：这类现象先不要直接归因为产品渲染回归；键盘弹起后继续点击固定低位坐标，很容易误命中系统键盘并向 composer 注入脏字符。稳定做法是按当前 `EditText.bounds` 或高位安全坐标点击，而不是复用旧的低位固定点。
   - 触发信号：`$skill` 在任何附件选择前就已经被污染；XML 中 `EditText` bounds 位于高位，但自动化脚本仍点击低位坐标；重跑同一业务路径时污染字符不稳定复现。
@@ -74,3 +79,8 @@
   - 结论：这类任务先做“release 结构收敛步骤”更稳妥——先落统一的 repo-level 构建入口，以及 machine-readable 的 `release-manifest.json` / `release-contents.txt`，把 artifact 命名、包内目录和脚本落点固定下来，再分步骤实现 Windows / Linux installer 与 mTLS 工具。
   - 触发信号：任务同时要求跨平台 release、后续 installer/mTLS 工具分步落地，而且 scope 已锁定但平台脚本尚未实现。
   - 应对动作：先在 `scripts/release/**` 提供可重复生成的 release 清单和最小 smoke 输出；diff-aware QA 先验证清单生成与窄 gate，再把安装、自启和证书生成逻辑留给后续步骤独立实现与审查。
+
+- 场景：跨平台 release / deployment 文档把“复制配置文件”或“源码本地运行准备”写成单一 shell 命令（例如只写 PowerShell `Copy-Item`），但文档本身又声称 Linux 路径是正式支持面。
+  - 结论：只要文档步骤是 Windows / Linux 共享入口，就不能默认依赖单一 shell；必须给出显式的 PowerShell / Bash 双平台写法，或写成不绑定 shell 的说明后再分别给出平台示例，否则 Linux 用户会在最前置步骤就因命令不存在而失败。
+  - 触发信号：README / deployment guide 中出现 `Copy-Item`、`cp`、`setx`、`export` 等明显 shell-specific 命令，但该步骤没有标注平台分支；当前任务验收又要求 Windows 和 Linux 用户都能按文档独立走通。
+  - 应对动作：在文档 review 阶段优先扫一遍所有共享步骤，把 shell-specific 命令改成双平台分支；最小回归至少核对 `README.md`、`README.zh-CN.md` 与 `docs/guides/deployment.md` 中共享步骤是否同时覆盖 PowerShell / Bash，避免把“命令存在性”问题留到最终宿主 smoke 才暴露。

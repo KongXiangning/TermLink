@@ -99,9 +99,17 @@ const fs = require('fs');
 const configPath = process.argv[2];
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 const tls = config.tls || {};
+const mtls = config.mtls || {};
 const privilege = config.privilege || {};
 const port = Number(config.port || 3010);
 const serviceName = String(config.serviceName || 'termlink');
+const mtlsDeployment = String(mtls.deployment || 'none');
+const directServerGeneration = (() => {
+  const raw = mtls.generateDirectServerCertificates;
+  if (raw === undefined || raw === null || raw === '') return false;
+  if (typeof raw === 'boolean') return raw;
+  return ['1', 'true', 'yes', 'on'].includes(String(raw).trim().toLowerCase());
+})();
 function fail(message) {
   console.error(message);
   process.exit(1);
@@ -112,6 +120,12 @@ if (!/^[A-Za-z0-9_.@-]+$/.test(serviceName) || serviceName.includes('..')) {
 }
 if (!['off', 'direct', 'nginx'].includes(String(tls.mode || 'off'))) fail('tls.mode must be one of: off, direct, nginx.');
 if (!['none', 'request', 'require'].includes(String(tls.clientCertPolicy || 'none'))) fail('tls.clientCertPolicy must be one of: none, request, require.');
+if (!['none', 'direct-server', 'nginx'].includes(mtlsDeployment)) fail('mtls.deployment must be one of: none, direct-server, nginx.');
+if (directServerGeneration && mtlsDeployment !== 'direct-server') fail('mtls.generateDirectServerCertificates can only be true when mtls.deployment is "direct-server".');
+if (mtlsDeployment === 'direct-server' && String(tls.mode || 'off') !== 'direct') fail('mtls.deployment=direct-server requires tls.mode=direct.');
+if (mtlsDeployment === 'direct-server' && !['request', 'require'].includes(String(tls.clientCertPolicy || 'none'))) {
+  fail('mtls.deployment=direct-server requires tls.clientCertPolicy=request or require.');
+}
 if (!['standard', 'elevated'].includes(String(privilege.mode || 'standard'))) fail('privilege.mode must be one of: standard, elevated.');
 const certDir = tls.certDir ?? './certs';
 const envFields = [
@@ -127,6 +141,42 @@ const envFields = [
 ];
 for (const [field, value] of envFields) {
   if (/[\r\n]/.test(String(value))) fail(`${field} must not contain newline characters for env file output.`);
+}
+NODE
+}
+
+resolve_runtime_path() {
+    local install_root="$1"
+    local configured_path="${2:-}"
+    local fallback_path="$3"
+    local candidate="$configured_path"
+    if [ -z "${candidate// }" ]; then
+        candidate="$fallback_path"
+    fi
+    if [[ "$candidate" = /* ]]; then
+        printf '%s\n' "$candidate"
+        return 0
+    fi
+    printf '%s\n' "$(cd "$install_root" >/dev/null 2>&1 && pwd)/$candidate"
+}
+
+json_value() {
+    local json_input="$1"
+    local expression="$2"
+    local fallback="${3:-}"
+    node - "$json_input" "$expression" "$fallback" <<'NODE'
+const [jsonInput, expression, fallback] = process.argv.slice(2);
+const payload = JSON.parse(jsonInput);
+const value = expression.split('.').reduce((current, key) => {
+  if (current == null || !Object.prototype.hasOwnProperty.call(current, key)) return undefined;
+  return current[key];
+}, payload);
+if (value === undefined || value === null || value === '') {
+  process.stdout.write(fallback);
+} else if (typeof value === 'boolean') {
+  process.stdout.write(value ? 'true' : 'false');
+} else {
+  process.stdout.write(String(value));
 }
 NODE
 }
@@ -287,9 +337,17 @@ EOF
 init_runtime_dirs() {
     local install_root="$1"
     local config_path="$2"
-    local cert_dir
+    local cert_dir mtls_deployment generate_direct server_output_dir client_output_dir
     cert_dir="$(json_get "$config_path" tls.certDir ./certs)"
-    mkdir -p "$install_root/data" "$install_root/logs" "$install_root/$cert_dir"
+    mkdir -p "$install_root/data" "$install_root/logs" "$(resolve_runtime_path "$install_root" "$cert_dir" ./certs)"
+
+    mtls_deployment="$(json_get "$config_path" mtls.deployment none)"
+    generate_direct="$(to_bool "$(json_get "$config_path" mtls.generateDirectServerCertificates false)")"
+    if [ "$mtls_deployment" = "direct-server" ] || [ "$generate_direct" = "true" ]; then
+        server_output_dir="$(resolve_runtime_path "$install_root" "$(json_get "$config_path" mtls.serverOutputDir "$cert_dir")" ./certs)"
+        client_output_dir="$(resolve_runtime_path "$install_root" "$(json_get "$config_path" mtls.clientOutputDir "$cert_dir/clients")" ./certs/clients)"
+        mkdir -p "$server_output_dir" "$client_output_dir"
+    fi
 }
 
 render_systemd_unit() {
@@ -336,4 +394,12 @@ install_node_dependencies_if_needed() {
         command -v npm >/dev/null 2>&1 || die "npm not found and node_modules is missing. Install npm or prepack dependencies first."
         (cd "$install_root" && npm install --omit=dev)
     fi
+}
+
+generate_direct_mtls_artifacts() {
+    local install_root="$1"
+    local config_path="$2"
+    local helper_path="$install_root/scripts/certs/generate-direct-mtls.js"
+    [ -f "$helper_path" ] || die "Direct mTLS helper not found: $helper_path"
+    node "$helper_path" --mode generate --install-root "$install_root" --config "$config_path"
 }

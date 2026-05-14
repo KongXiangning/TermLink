@@ -7,7 +7,7 @@
 - 任务 ID：20260513-001
 - 任务标题：提供跨平台发行安装脚本与一键 mTLS 证书工具
 - 任务 slug：provide-cross-platform-release-installer-and-mtls-tooling
-- 当前状态：step3_validated_ready_for_step4
+- 当前状态：step6_regression_passed_ready_for_status_sync
 - 创建时间：2026-05-13
 - 创建来源：用户提出“面向开源发布的易用安装、跨平台发行与 mTLS 证书工具”需求后，由 `/create-current-task` 生成首版任务包。
 
@@ -80,7 +80,11 @@
   - 步骤 2 已补齐 Windows release 安装配置与脚本骨架证据：PowerShell 脚本语法解析通过，安装配置 JSON 可解析，`npm run release:build` 可在 Windows release 清单中标出 `implemented-step2` 条目
   - 步骤 2 已补齐 diff-aware regression evidence：PowerShell parser、install config JSON、helper URL smoke、`git diff --check`、`npm run release:build`、TLS / health Node tests（21/21）、PM2 fork baseline smoke、Windows manifest step2 条目检查与带 BasicAuth 的 `/api/health` smoke 均通过
   - 步骤 3 已补齐 Linux `systemd` 安装路径骨架证据：Bash parser 通过，`npm run release:build` 可在 Linux release 清单中标出 `implemented-step3` 条目，非 `systemd` fallback 分支在 helper 中显式输出 unsupported / manual start 指引
-  - residual risk：真实 Windows 安装 / 自启 smoke、真实 Linux `systemd` install / enable / disable / uninstall smoke、`/api/health` 安装后验证、direct mTLS 产物检查与 nginx-side mTLS 工具证据仍待步骤 4-5 / 7 落地后补齐
+  - 步骤 4 已补齐 direct server-side mTLS 安装期自动生成证据：新增 `scripts/certs/direct-mtls.js`、`scripts/certs/generate-direct-mtls.js` 与 `scripts/certs/installer-health-check.js` 作为共享 OpenSSL helper；Windows / Linux install flow 会在 `mtls.deployment=direct-server` 时生成 CA、server cert/key、client cert/key、`client.p12` 与密码文件，并在安装结果摘要中展示服务端证书目录、客户端导入目录与密码文件路径；`npm run release:build` 可在 release 清单中标出 `certs/` 的 `implemented-step4` 状态
+  - 步骤 4 已补齐最小验证 evidence：PowerShell parser 通过；对 LF-normalized Linux 脚本副本执行 `bash -n` 通过；`node --test tests\directMtlsInstaller.test.js tests\tlsConfig.test.js tests\health.route.test.js` 通过（24/24）；`npm run release:build` 通过；使用 `C:\Program Files\Git\usr\bin\openssl.exe` 的 direct mTLS smoke 可实际生成全部产物；配置 `mtls.opensslPath=termlink-missing-openssl` 时会显式失败并返回 `OpenSSL not found`
+  - 步骤 5 已补齐 nginx-side mTLS 一键工具证据：新增 `scripts/certs/nginx-mtls.js` 与 `scripts/certs/generate-nginx-mtls.js`，复用步骤 4 的 OpenSSL command wrapper 生成独立于 direct mTLS 的 `./certs/nginx-mtls/**` 路径；默认产物包含 `client-ca.crt` / `client-ca.key`、`clients/<client-name>.crt` / `.key` / `.p12` 与 `<client-name>-password.txt`，并在 `package.json` 暴露 `npm run mtls:generate:nginx` 正式入口；`scripts/release/release-layout.js` 现已把 `scripts/certs/` 及 direct/nginx mTLS helper 产物统一标入 release 清单
+  - 步骤 5 已补齐最小验证 evidence：`npm run mtls:generate:nginx -- --mode describe` 可输出独立 nginx mTLS 路径规划；`node --test tests\nginxMtlsTool.test.js tests\directMtlsInstaller.test.js tests\tlsConfig.test.js tests\health.route.test.js` 通过（27/27）；`npm run release:build` 通过；使用 `C:\Program Files\Git\usr\bin\openssl.exe` 的 nginx mTLS smoke 可实际生成 CA、client cert/key、`client.p12` 与密码文件；将 `--openssl-path` 设为不存在值时，工具会显式失败并返回 `OpenSSL not found`
+  - residual risk：真实 Windows 安装 / 自启 smoke、真实 Linux `systemd` install / enable / disable / uninstall smoke、安装后 `/api/health` 端到端 smoke，以及步骤 6 的 README / deployment 文档收口与步骤 7 的最终 release smoke 仍待后续落地
   - residual risk：Linux 正式支持范围已锁定为 `systemd`；当前脚本已实现非 `systemd` unsupported / fallback 文案，但仍需在最终 Linux smoke 中补真实宿主证据
 
 ## 允许修改范围
@@ -117,6 +121,10 @@ Conditional Files:
   - 仅当安装后验证必须补充稳定、通用且 backward-compatible 的健康摘要字段时允许修改；否则禁止。
 - `tests/**`
   - 仅当新增 Node 脚本或配置解析逻辑可以复用现有测试框架做自动验证时允许新增 / 调整测试；不得借机处理无关 hanging tests。
+- `docs/workflow/CURRENT_TASK.md`
+  - 仅当需要同步当前步骤执行状态、审查问题队列、diff review target、验证证据或 lock-scope 结果时允许修改；不得借机改写任务目标、已确认决策、锁定契约或无关步骤历史。
+- `docs/workflow/STATUS.md`
+  - 仅当需要同步本任务在项目级状态、剩余风险或下一检查点中的事实进展时允许修改；内容必须严格来源于本任务已完成的实现 / 审查 / 验证证据，不得顺手改写其他任务、契约或决策。
 
 ## 禁止修改范围
 
@@ -135,7 +143,6 @@ Forbidden Files:
 - `docs/workflow/generated/**`
 - `.workflow-system/**`
 - `docs/workflow/CONTRACTS.md`
-- `docs/workflow/STATUS.md`
 - `docs/workflow/DECISIONS.md`
 - `templates/**`
 - `docker-compose.yml`
@@ -160,6 +167,11 @@ Forbidden Files:
   - `CONTRACTS.md` 中锁定的 Sessions / Workspace / `/api/ws-ticket` / session DTO / `data/sessions.json` / `terminalGateway` 均不在本轮修改范围。
   - direct TLS / direct mTLS / nginx trusted proxy 的现有运行时语义保持 backward-compatible。
   - Windows PM2 `fork` 模式保持为现有部署基线，除非 Conditional Files 条件触发且仍保持兼容。
+- 本次 widening（2026-05-14）：
+  - 原因：当前实现链路必须同步 `docs/workflow/CURRENT_TASK.md` 的审查问题队列 / 执行记录，以及 `docs/workflow/STATUS.md` 的项目级进展，否则 workflow 文档会持续作为范围外噪音混入实现 diff，导致 review target 无法 clean。
+  - 影响文件：`docs/workflow/CURRENT_TASK.md`、`docs/workflow/STATUS.md`
+  - 风险：若放宽到全部 workflow 文档，容易把 scope drift 伪装成治理同步，掩盖真正的实现越界。
+  - 验证方式：后续 `/review-diff` 只接受这两份 workflow 文档出现在 diff 中，且内容必须可回溯到本任务已落地的实现 / 审查 / 回归证据；`docs/workflow/CONTRACTS.md` 与 `docs/workflow/DECISIONS.md` 继续保持 Forbidden。
 - Diff filter：
   - 后续审查仅允许覆盖 `Allowed Files` 与满足条件后的 `Conditional Files`。
   - 任何落到 `Forbidden Files` 或未授权路径的变更，默认按 major scope violation 处理。
@@ -168,6 +180,7 @@ Forbidden Files:
   - 若需要触碰 `src/routes/sessions.js`、`src/routes/workspace.js`、`src/services/sessionManager.js`、`src/repositories/sessionStore.js`、`src/ws/terminalGateway.js`、`docs/workflow/CONTRACTS.md` 或 `docs/workflow/DECISIONS.md`，必须停止当前实现并上浮为 scope widening。
   - 若需要恢复 `docker-compose.yml` 进入本轮交付面，必须说明原因、影响文件、风险和验证方式后重新锁定范围。
   - 若需要在 `scripts/release/**`、`scripts/install/**`、`scripts/mtls/**`、`scripts/certs/**` 之外新增正式脚本目录，也必须回到 `/lock-scope` 重生范围清单。
+  - 若需要把 workflow widening 继续扩大到 `docs/workflow/CURRENT_TASK.md` / `docs/workflow/STATUS.md` 之外的其他 workflow 文档，也必须重新执行 `/lock-scope` 并说明为何现有双文档同步边界不够。
 
 ## 受影响的契约
 
@@ -399,6 +412,42 @@ Forbidden Files:
   - Resolution：`write_termlink_env()` 现在在 `umask 077` 子 shell 内写入 `.env` 与 `.env.systemd`，随后显式执行 `chmod 600`，确保 BasicAuth 密码与 proxy secret 不会落成 group/world-readable。
   - Handoff：`review-diff`
 
+- 当前来源：`/review-diff`（2026-05-14，步骤 5）
+- Finding ID：RDF-20260514-004
+  - Severity：P2
+  - Source：`/review-diff`
+  - Status：resolved
+  - File / symbol：`scripts/release/release-layout.js` `SHARED_PLANNED_ENTRIES`；`scripts/install/linux/common.sh` `run_direct_mtls_generation`；`scripts/install/linux/test-health.sh`；`scripts/install/windows/common.ps1` `Invoke-TermLinkDirectMtlsGeneration` / `Invoke-TermLinkHealthCheck`；`scripts/certs/*.js`
+  - Failure scenario：当前安装与健康检查链路在 release 解压后的安装根下直接调用 `scripts/certs/generate-direct-mtls.js`、`scripts/certs/installer-health-check.js`，nginx-side 工具也依赖 `scripts/certs/generate-nginx-mtls.js` 与其同目录 helper；但 `scripts/release/release-layout.js` 的 release 清单只显式声明了 `cert-tools/` 与 `cert-tools/generate-nginx-mtls.js`，没有把 direct mTLS / installer health helper 及其依赖以一致路径纳入产物计划。若后续 release 打包按当前 manifest / contents 落地，解压包内的安装脚本和独立证书工具可能找不到所需 helper。
+  - Minimal fix direction：在当前允许范围内统一 release artifact 对证书 helper 的路径约定。可选方向是：1）把 `scripts/release/release-layout.js` 更新为显式纳入 `scripts/certs/direct-mtls.js`、`generate-direct-mtls.js`、`installer-health-check.js`、`generate-nginx-mtls.js`、`nginx-mtls.js` 等实际运行时依赖；或 2）把安装脚本 / 独立入口改为消费 manifest 中规划的统一 `cert-tools/` 路径，并确保 helper 依赖一起随包分发。无论采用哪种方式，都要保证 release 清单与运行时调用路径一致。
+  - Required test：复跑 `npm run release:build`，并验证 Windows / Linux `release-manifest.json` 与 `release-contents.txt` 同时覆盖 direct mTLS、installer health check 与 nginx mTLS 工具所需 helper；至少证明清单中的路径与 `scripts/install/**`、独立生成入口实际引用的路径一致。
+  - Resolution：`scripts/release/release-layout.js` 新增 `scripts/certs/` 目录及 `direct-mtls.js`、`generate-direct-mtls.js`、`installer-health-check.js`、`nginx-mtls.js`、`generate-nginx-mtls.js` 条目，release manifest / contents 现与 Windows / Linux 安装脚本及 nginx-side 独立工具的实际运行路径保持一致。
+  - Handoff：`review-diff`
+
+- 当前来源：`/review-diff`（2026-05-14，步骤 5）
+- Finding ID：RDF-20260514-005
+  - Severity：P3
+  - Source：`/review-diff`
+  - Status：resolved
+  - File / symbol：`docs/workflow/CURRENT_TASK.md` `## 实施步骤` -> `步骤 5` -> `本步结果`
+  - Failure scenario：`scripts/release/release-layout.js` 与执行记录已经把 release 清单中的证书 helper 路径统一到 `scripts/certs/**`，但 `CURRENT_TASK.md` 的步骤 5 “本步结果” 仍写着旧的 `cert-tools/` / `cert-tools/generate-nginx-mtls.js`。后续如果继续把 `CURRENT_TASK.md` 作为 scope 与证据源，这处旧路径会让 workflow 文档内部对同一事实给出两套说法，增加后续审查和交接歧义。
+  - Minimal fix direction：只在 `docs/workflow/CURRENT_TASK.md` 当前步骤记录内把步骤 5 “本步结果”的旧 `cert-tools/` 描述改成与 `scripts/release/release-layout.js` 当前实现一致的 `scripts/certs/**` 路径表述；不得顺手改写无关步骤或决策历史。
+  - Required test：修改后核对 `CURRENT_TASK.md` 的步骤 5 “本步结果”、审查问题队列 `RDF-20260514-004` 的 Resolution，以及最新执行记录对 release 清单路径的描述三处一致；必要时复跑 `npm run release:build` 证明文档引用的路径与生成清单一致。
+  - Resolution：步骤 5 “本步结果” 已改为与当前 `scripts/release/release-layout.js`、`RDF-20260514-004` Resolution 和最新执行记录一致的 `scripts/certs/**` 路径表述，消除了 workflow 文档内部对同一 release 清单事实的双重说法。
+  - Handoff：`review-diff`
+
+- 当前来源：`/review-implementation`（2026-05-14，步骤 6）
+- Finding ID：RIM-20260514-008
+  - Severity：P2
+  - Source：`/review-implementation`
+  - Status：resolved
+  - File / symbol：`README.md`、`README.zh-CN.md`、`docs/guides/deployment.md` 中跨平台共享的配置复制步骤与源码本地运行准备步骤
+  - Failure scenario：Linux 用户在正式支持的 `bash` / `sudo` / `systemd` 路径下，按文档执行 release 安装或源码本地运行准备时，会先遇到 `Copy-Item .\\scripts\\install\\termlink-install.config.example.json ...` 或 `Copy-Item .env.example .env`；典型 Linux 主机默认没有 PowerShell，这一步会直接失败，使“按文档独立走通 Linux 路径”的验收目标不成立。
+  - Minimal fix direction：把这些跨平台共享 copy 步骤改成明确的双平台写法（例如 PowerShell 用 `Copy-Item`、Bash 用 `cp`），或改成不绑定 shell 的说明文字并分别给出 Windows / Linux 示例；修复范围仅限当前步骤文档文件，不改脚本行为。
+  - Required test：修改后核对 `README.md`、`README.zh-CN.md` 与 `docs/guides/deployment.md`，确认所有跨平台共享步骤都提供 Linux 可直接执行的命令或显式的平台分支；`git diff --check -- README.md README.zh-CN.md docs/guides/deployment.md docs/workflow/CURRENT_TASK.md` 通过。
+  - Resolution：`README.md`、`README.zh-CN.md` 与 `docs/guides/deployment.md` 的跨平台共享 copy 步骤现已改为显式的 PowerShell / Bash 双平台写法；release 配置复制与源码本地运行准备都不再默认要求 Linux 用户具备 PowerShell。
+  - Handoff：`implement-current-step`
+
 ## 传播治理记录
 
 ### change_start_set
@@ -598,7 +647,7 @@ Forbidden Files:
 
 ### blockers / gate status
 
-- 当前执行步骤：step3_implemented_ready_for_review
+- 当前执行步骤：step6_regression_passed_ready_for_status_sync
 - 已完成 discovery：
   - workflow governance docs
   - README / README.zh-CN / deployment guide
@@ -606,19 +655,19 @@ Forbidden Files:
   - TLS config and health route
 - 剩余 blocker：
   - none for current release/install/tooling scope
-  - `npm run android:check-release-config` 仍是 scope-external known validation failure；它属于 Android Capacitor release 安全门禁，与本任务服务端 release/install/tooling diff 无直接实现耦合，不阻塞步骤 2，后续需单独决定修复路径
+- `npm run android:check-release-config` 仍是 scope-external known validation failure；它属于 Android Capacitor release 安全门禁，与本任务服务端 release/install/tooling diff 无直接实现耦合，不阻塞当前步骤，后续需单独决定修复路径
 - `ContractCompatibilityResult`：
-  - error_code：none-yet
+  - error_code：none
   - object_path：release/install/tooling surface
   - severity：low
-  - default_blocker_level：implementation-ready
-  - evidence：任务已完成 `/review-current-task`、`/lock-scope`、`/classify-decisions`、`/plan-implementation` 与 `/decompose-task`，当前仍保持 backward-compatible 策略
+  - default_blocker_level：status-sync-ready
+  - evidence：步骤 6 文档收口及其 Linux 可执行性修复已完成，并通过 review / contracts / regression 链，当前仍保持 backward-compatible 策略
   - strategy_origin.over_limit_policy_branch：single-task bounded
-  - strategy_origin.divergence_state：Windows baseline exists, Linux/tooling incomplete
-  - branch_gate_mapping.merge_gate：review-diff
+  - strategy_origin.divergence_state：step6 docs finalized, final release smoke pending
+  - branch_gate_mapping.merge_gate：sync-status
   - branch_gate_mapping.ship_gate：run-regression after steps 2-7
-  - branch_gate_mapping.rationale：步骤 3 已完成 Linux `systemd` 安装 / 卸载 / 自启 enable-disable / start / health check 脚本骨架实现；下一步进入 `/review-diff`
-  - suggested_resolution：先执行 `/review-diff` 审查步骤 3 diff，再按结论进入后续 review / regression 链
+  - branch_gate_mapping.rationale：步骤 6 的文档收口与 Linux 文档可执行性修复均已完成，并重新通过 `/review-diff`、`/review-implementation`、`/verify-contracts` 与 `/run-regression`；下一步应同步项目级状态，然后进入步骤 7
+  - suggested_resolution：先执行 `/sync-status` 回写项目级状态，再推进步骤 7 的最终 release smoke 与剩余 release-readiness 证据
 
 ### conformance / verification cases
 
@@ -645,7 +694,7 @@ Forbidden Files:
 ## 实施步骤
 
 - 建议执行顺序：1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
-- 当前推荐执行步骤：步骤 4
+- 当前推荐执行步骤：步骤 7
 - [x] 步骤 1：收敛 release 产物目录与构建入口。
   - 输入：现有 Windows 打包事实、`package.json`、允许修改范围。
   - 输出：统一的 release 目录结构、平台压缩包命名、正式构建命令入口与脚本落点。
@@ -661,18 +710,21 @@ Forbidden Files:
   - 输出：Linux 安装 / 卸载 / enable / disable 脚本、service unit 模板或生成逻辑、非 `systemd` 明确提示分支。
   - 单步验证：`systemd` 与非 `systemd` 两条路径都能给出明确结果；不引入 Docker 路径回退。
   - 本步结果：新增 `scripts/install/linux/**`，提供 Linux install / uninstall / enable-autostart / disable-autostart / start / health check / common helper / systemd unit template；`setup-service.sh` 作为兼容入口转发到正式 Linux installer；`scripts/release/release-layout.js` 将 Linux release 清单中的步骤 3 条目标为 `implemented-step3`。
-- [ ] 步骤 4：接入 direct server-side mTLS 安装期自动生成。
+- [x] 步骤 4：接入 direct server-side mTLS 安装期自动生成。
   - 输入：统一安装器、OpenSSL 检测策略、证书输出目录约定。
   - 输出：CA、server cert/key、client cert/key、`client.p12`、密码文件与安装结果摘要。
   - 单步验证：OpenSSL 存在时产物齐全；OpenSSL 缺失时显式失败且提示清楚。
-- [ ] 步骤 5：实现 nginx-side mTLS 一键工具。
+  - 本步结果：新增 `scripts/certs/direct-mtls.js`、`scripts/certs/generate-direct-mtls.js` 与 `scripts/certs/installer-health-check.js` 作为 Windows / Linux 共用 helper；安装配置在 `mtls.deployment=direct-server` 时会自动生成 direct mTLS 证书材料并将安装摘要扩展为服务端证书目录、客户端导入目录与 `client-password.txt` 路径；Linux / Windows 健康检查均改为复用共享 Node helper，以便在 direct mTLS 模式下携带生成的 `client.p12` 做本地验证。
+- [x] 步骤 5：实现 nginx-side mTLS 一键工具。
   - 输入：OpenSSL 封装、共享证书输出约定、README 接入要求。
   - 输出：独立运行的一键证书生成脚本，支持可选自定义密码参数。
   - 单步验证：不经过安装脚本也能生成 Nginx 侧需要的通用证书产物；默认不要求用户做额外交互选择。
-- [ ] 步骤 6：同步中英文文档与配置说明。
+  - 本步结果：新增 `scripts/certs/nginx-mtls.js` 与 `scripts/certs/generate-nginx-mtls.js`，默认把 nginx-side mTLS 产物输出到与 direct mTLS 分离的 `./certs/nginx-mtls/**`；工具支持 `--client-p12-password` 可选自定义密码参数，并通过 `package.json` 暴露 `npm run mtls:generate:nginx` 入口；`scripts/release/release-layout.js` 同步把 `scripts/certs/` 及 nginx/direct mTLS helper 条目标记进 release 清单。
+- [x] 步骤 6：同步中英文文档与配置说明。
   - 输入：前 1-5 步稳定后的脚本入口与配置字段。
   - 输出：`README.md`、`README.zh-CN.md`、`docs/guides/deployment.md` 的一致化说明。
   - 单步验证：按文档可独立走通“源码打包 -> release 解压 -> 配置 -> 安装 -> 健康检查 -> 证书生成 / 导入”路径。
+  - 本步结果：`README.md`、`README.zh-CN.md` 与 `docs/guides/deployment.md` 已统一到当前 release-first 口径：补齐 `npm run release:build` 源码打包入口、Windows / Linux 安装 / 健康检查 / 卸载命令、`systemd`-only Linux 支持矩阵、`scripts/install/termlink-install.config.example.json` 的关键字段说明，以及 direct server-side mTLS 与 nginx-side mTLS 的差异化使用方式。
 - [ ] 步骤 7：执行回归与 release 烟测，补齐交付证据。
   - 输入：前 1-6 步全部落地后的脚本与文档。
   - 输出：Windows / Linux 安装 smoke、mTLS 工具 smoke、`/api/health` 验证与现有命令回归证据。
@@ -694,9 +746,10 @@ Forbidden Files:
 
 - Task start base：`911ac451e3ce7a442ec989afeab66f1a78a4d77b`
 - Last reviewed checkpoint：not-yet-created
-- Current diff review target：working-tree
+- Current diff review target：working-tree vs HEAD + untracked files
 - 备注：
   - 当前工作树在创建任务时未见额外待处理状态输出；若后续存在用户并行修改，review 时需切换到 allowed-path diff source。
+  - 当前步骤的 review / regression 已显式把未跟踪的 `scripts/certs/**` 与 `tests/**` 纳入 diff source。
 
 ## 执行记录
 
@@ -736,3 +789,23 @@ Forbidden Files:
 - 2026-05-14：`/review-implementation` 结论 clean。步骤 3 review 修复后的实现继续满足 Linux `systemd` / non-`systemd` 边界约束；`start.sh --foreground` 复用既有依赖安装 helper，`.env` / `.env.systemd` 权限收紧逻辑与空格路径拒绝策略都能用当前验证证据支撑。External Documentation Gate no-op：clean 判断不依赖新的第三方 current behavior，已有 systemd / dotenv evidence 足以覆盖未变更路径。
 - 2026-05-14：`/verify-contracts` 结论 clean。当前 diff 未触碰 `src` / `android` / `public`、锁定 API / DTO / 表结构、`data/sessions.json` 或架构依赖方向；无需修改 `docs/workflow/CONTRACTS.md` 即可解释本轮 Linux installer 变更。
 - 2026-05-14：`/run-regression` 以 diff-aware 模式通过。沿用 `working-tree` 对 `HEAD` 作为 diff review target；执行 Git Bash `bash -n scripts/install/linux/*.sh setup-service.sh`、`node --test tests\\tlsConfig.test.js tests\\health.route.test.js`（21/21 pass）、`npm run release:build`，以及 WSL Linux smoke（`.env` 与 `.env.systemd` 权限为 `600`，含空格 `installDir` 调用 `render_systemd_unit` 会明确失败）。Browser/session requirement 与 visual evidence 不适用；release evidence 已补齐到 Linux installer 脚本与 release layout。剩余风险保持可见：真实 Windows / Linux install smoke、安装后 `/api/health` smoke，以及步骤 4/5 的 mTLS 产物验证仍待后续步骤补证；`npm run android:check-release-config` 继续沿用既有 scope-external known failure 记录，本轮未重跑。
+- 2026-05-14：`/implement-current-step` 执行步骤 4。新增 `scripts/certs/direct-mtls.js`、`scripts/certs/generate-direct-mtls.js` 与 `scripts/certs/installer-health-check.js`，把 direct server-side mTLS 的 OpenSSL 生成、路径解析与本地健康检查收敛为 Windows / Linux 共用 helper；`scripts/install/windows/install-service.ps1`、`scripts/install/windows/test-health.ps1`、`scripts/install/linux/common.sh`、`scripts/install/linux/install-service.sh` 与 `scripts/install/linux/test-health.sh` 均已接入该 helper，并让安装结果摘要展示 server cert 目录、client import 目录与 `client-password.txt` 路径；`scripts/release/release-layout.js` 同步将 `certs/` 标记为 `implemented-step4`。
+- 2026-05-14：步骤 4 最小验证通过：PowerShell parser 对 `scripts/install/windows/*.ps1` 返回 OK；对 LF-normalized Linux 脚本副本执行 `bash -n` 通过；`node --test tests\\directMtlsInstaller.test.js tests\\tlsConfig.test.js tests\\health.route.test.js` 通过（24/24）；`npm run release:build` 通过；使用 `C:\Program Files\Git\usr\bin\openssl.exe` 的 direct mTLS smoke 成功生成 CA、server cert/key、client cert/key、`client.p12` 与密码文件；将 `mtls.opensslPath` 设为不存在值时，`generate-direct-mtls.js` 明确返回 `OpenSSL not found` 失败。External Documentation Gate 未补查：本步完全复用 `/plan-implementation` 中已记录的 OpenSSL CLI evidence，未新增超出“非交互生成 CA / cert / PKCS12”范围的第三方 current behavior 判断。
+- 2026-05-14：`/review-diff` 对步骤 4 结论 clean。diff target 继续沿用 `working-tree` 对 `HEAD`；当前 diff 落在 `scripts/install/**`、`scripts/certs/**`、`scripts/release/release-layout.js`、条件授权的 `tests/directMtlsInstaller.test.js` 与 `docs/workflow/CURRENT_TASK.md`，未命中 Forbidden Files，也未出现 unauthorized scope widening、design drift 或额外 CI/CD / database surfaces。
+- 2026-05-14：`/review-implementation` 对步骤 4 结论 clean。direct mTLS helper 的 goal fit、正确性、鲁棒性、兼容性与最小改动原则成立；`tests/directMtlsInstaller.test.js` 与真实 OpenSSL smoke 共同覆盖“产物成功生成 / OpenSSL 缺失显式失败”两条关键路径。External Documentation Gate no-op：clean 结论直接复用 `/plan-implementation` 已记录的 OpenSSL non-interactive evidence。
+- 2026-05-14：`/verify-contracts` 对步骤 4 结论 clean。当前 diff 未触碰 `src` / `android` / `public`、锁定 API / DTO / 表结构、`data/sessions.json` 或架构依赖方向；`/api/health` 仅被安装器继续复用，未改其返回结构或语义，整体兼容策略保持 backward-compatible。
+- 2026-05-14：`/run-regression` 以 diff-aware 模式通过。沿用 `working-tree` 对 `HEAD` 作为 diff review target；执行 PowerShell parser、LF-normalized Linux Bash parser、`node --test tests\\directMtlsInstaller.test.js tests\\tlsConfig.test.js tests\\health.route.test.js`（24/24 pass）、`npm run release:build`、direct mTLS 真实 OpenSSL 生成 smoke、缺失 OpenSSL 失败 smoke 与 `git diff --check`，全部通过。Browser/session requirement 与 visual evidence 不适用；release evidence 已补齐到步骤 4 的最小 local release-readiness。剩余风险保持可见：真实 Windows / Linux install smoke、安装后 `/api/health` 端到端 smoke，以及步骤 5 的 nginx-side mTLS 工具仍待后续步骤补证。
+- 2026-05-14：`/implement-current-step` 执行步骤 5。新增 `scripts/certs/nginx-mtls.js` 与 `scripts/certs/generate-nginx-mtls.js`，复用步骤 4 已落地的 OpenSSL command wrapper，提供独立于 direct mTLS 的 nginx-side mTLS 一键工具；默认输出路径固定为 `./certs/nginx-mtls/**`，与 direct mTLS 的安装期产物路径分离，默认生成 `client-ca.crt` / `client-ca.key`、`clients/<client-name>.crt` / `.key` / `.p12` 与 `<client-name>-password.txt`，并支持 `--client-p12-password` 可选自定义密码参数；`package.json` 新增 `npm run mtls:generate:nginx` 正式入口，`scripts/release/release-layout.js` 同步将 `scripts/certs/` 及 nginx/direct mTLS helper 条目标记进 release 清单。
+- 2026-05-14：步骤 5 最小验证通过：`npm run mtls:generate:nginx -- --mode describe` 可输出 nginx-side mTLS 的独立路径规划；`node --test tests\\nginxMtlsTool.test.js tests\\directMtlsInstaller.test.js tests\\tlsConfig.test.js tests\\health.route.test.js` 通过（27/27）；`npm run release:build` 通过；使用 `C:\Program Files\Git\usr\bin\openssl.exe` 的 nginx mTLS smoke 成功生成 CA、client cert/key、`client.p12` 与密码文件；将 `--openssl-path` 设为不存在值时，`generate-nginx-mtls.js` 明确返回 `OpenSSL not found` 失败。External Documentation Gate 未补查：本步只复用步骤 4 已验证的 OpenSSL CLI 非交互生成 surface，没有新增超出该 evidence 覆盖范围的第三方 current behavior 判断。
+- 2026-05-14：`/implement-current-step` 修复 `/review-diff` 入队问题：`RDF-20260514-004` 通过在 `scripts/release/release-layout.js` 中补齐 `scripts/certs/` 目录及 direct/nginx mTLS helper 条目，消除 release 清单与安装 / 证书工具实际运行路径的传播缺口。最小验证通过：`npm run release:build` 重新生成 Windows / Linux `release-manifest.json` 与 `release-contents.txt`；两套清单均已覆盖 `scripts/certs/direct-mtls.js`、`scripts/certs/generate-direct-mtls.js`、`scripts/certs/installer-health-check.js`、`scripts/certs/nginx-mtls.js`、`scripts/certs/generate-nginx-mtls.js`。External Documentation Gate no-op：本轮仅同步仓库内 release manifest 与现有脚本路径，不依赖新的第三方 current behavior。
+- 2026-05-14：`/lock-scope` 对 workflow 文档边界执行最小 widening。`docs/workflow/CURRENT_TASK.md` 与 `docs/workflow/STATUS.md` 已改为 Conditional Files，仅允许同步本任务的执行状态、审查问题队列、diff review target、验证证据与项目级进展；`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md` 继续保持 Forbidden。理由是当前实现链路必须回写 task/status 事实，否则 workflow 文档会持续作为范围外噪音混入实现 diff。后续 `/review-diff` 的验证口径也相应收紧为：若 workflow 文档出现在 diff 中，只接受这两份文件，且内容必须能回溯到本任务已落地的实现 / 审查 / 回归证据。
+- 2026-05-14：`/implement-current-step` 修复 `/review-diff` 入队问题：`RDF-20260514-005` 已把步骤 5 “本步结果”的旧 `cert-tools/` / `cert-tools/generate-nginx-mtls.js` 描述改为与当前 `scripts/release/release-layout.js`、`RDF-20260514-004` Resolution 和步骤 5 执行记录一致的 `scripts/certs/**` 路径表述。最小验证通过：`CURRENT_TASK.md` 中步骤 5 “本步结果”、`RDF-20260514-004` 的 Resolution，以及 2026-05-14 的步骤 5 / RDF-20260514-004 执行记录现已统一引用 `scripts/certs/**`；External Documentation Gate no-op：本轮仅同步仓库内 workflow 文档事实，不依赖新的第三方 current behavior。
+- 2026-05-14：`/review-implementation` 对步骤 5 结论 clean。nginx-side mTLS 工具的 goal fit、正确性、鲁棒性、兼容性与最小改动原则成立；`scripts/release/release-layout.js` 的 helper 清单补齐后，release manifest 与工具实际落点保持一致。External Documentation Gate no-op：clean 结论复用步骤 4 已确认的 OpenSSL CLI evidence，不依赖新的第三方 current behavior。
+- 2026-05-14：`/verify-contracts` 对步骤 5 结论 clean。当前 diff 未触碰 `src` / `android` / `public`、锁定 API / DTO / 表结构、`data/sessions.json` 或架构依赖方向；`package.json` 仅新增 `npm run mtls:generate:nginx` 仓库级 CLI 入口，整体契约保持 backward-compatible。
+- 2026-05-14：`/run-regression` 以 diff-aware 模式通过。沿用 `working-tree` 对 `HEAD` 并显式包含 untracked files 作为 diff review target；执行 `node --test tests\\nginxMtlsTool.test.js tests\\directMtlsInstaller.test.js tests\\tlsConfig.test.js tests\\health.route.test.js`（27/27 pass）、`npm run mtls:generate:nginx -- --mode describe` 与 `npm run release:build`，全部通过。Browser/session requirement 与 visual evidence 不适用；release evidence 已补齐到 nginx-side mTLS CLI smoke 与跨平台 release layout。剩余风险保持可见：真实 Windows / Linux install smoke、安装后 `/api/health` 端到端 smoke，以及步骤 6 / 7 的文档与最终 release 收口仍待后续落地。
+- 2026-05-14：`/implement-current-step` 执行步骤 6。已同步 `README.md`、`README.zh-CN.md` 与 `docs/guides/deployment.md`，统一当前 release-first 文档口径：源码打包入口改为 `npm run release:build`，安装生命周期统一到 `scripts/install/windows/**` / `scripts/install/linux/**`，Linux 正式支持边界明确为 `systemd` only，安装配置统一引用 `scripts/install/termlink-install.config.example.json`，并把 direct server-side mTLS 与 nginx-side mTLS 的使用差异分别写清。最小验证：核对三份文档均已覆盖源码打包、平台支持矩阵、install / test-health / uninstall 命令、`tls.mode` / `mtls.deployment` 关键字段，以及 direct / nginx mTLS 分流；`git diff --check -- README.md README.zh-CN.md docs/guides/deployment.md docs/workflow/CURRENT_TASK.md` 通过。External Documentation Gate no-op：本步仅同步仓库内已实现脚本和配置事实，不依赖新的第三方 current behavior。
+- 2026-05-14：`/implement-current-step` 修复 `/review-implementation` 入队问题：`RIM-20260514-008` 已把 `README.md`、`README.zh-CN.md` 与 `docs/guides/deployment.md` 中跨平台共享的 copy 步骤改为显式的 PowerShell / Bash 双平台写法，避免 Linux 用户在 release 配置复制或源码本地运行准备时先撞上 `Copy-Item`。最小验证：核对三份文档的 release config copy 与 source-dev copy 步骤均已同时给出 `Copy-Item` / `cp`，且 `git diff --check -- README.md README.zh-CN.md docs/guides/deployment.md docs/workflow/CURRENT_TASK.md` 通过。External Documentation Gate no-op：本轮只修文档命令示例，不依赖新的第三方 current behavior。
+- 2026-05-14：`/review-diff` 对步骤 6 finding 修复结论 clean。diff target 继续沿用 `working-tree` 对 `HEAD` 并显式包含 untracked files；当前最小补丁只触碰 `README.md`、`README.zh-CN.md`、`docs/guides/deployment.md` 与条件授权的 `docs/workflow/CURRENT_TASK.md`，未命中 Forbidden Files，也未出现 unauthorized scope widening、design drift 或额外 CI/CD / database surfaces。
+- 2026-05-14：`/review-implementation` 对步骤 6 finding 修复结论 clean。双平台 copy 写法已覆盖 Linux bash-only 路径的原始失败场景，同时保留既有 Windows PowerShell 路径；修复保持最小化，只落在文档示例与 finding 状态同步，未改变 release/install/tooling 的运行时语义。External Documentation Gate no-op：clean 判断仅依赖仓库内文档文本和现有脚本事实，不依赖新的第三方 current behavior。
+- 2026-05-14：`/verify-contracts` 对步骤 6 finding 修复结论 clean。当前 diff 未触碰 `src` / `android` / `public`、锁定 API / DTO / 表结构、`data/sessions.json` 或架构依赖方向；无需修改 `docs/workflow/CONTRACTS.md` 即可解释本轮文档修复。
+- 2026-05-14：`/run-regression` 以 diff-aware 模式通过。沿用 `working-tree` 对 `HEAD` 并显式包含 untracked files 作为 diff review target；执行 `git diff --check -- README.md README.zh-CN.md docs/guides/deployment.md docs/workflow/CURRENT_TASK.md`，并核对三份文档均已同时给出 PowerShell `Copy-Item` 与 Bash `cp` 的跨平台 copy 写法，全部通过。Browser/session requirement 与 visual evidence 不适用；release evidence 追加为“步骤 6 的 Linux 文档可执行性问题已补齐，但真实 Windows / Linux install smoke、安装后 `/api/health` 端到端验证与步骤 7 最终 release smoke 仍待后续落地”。

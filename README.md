@@ -18,51 +18,244 @@ TermLink is a mobile-first AI terminal workspace. It combines remote terminal ac
 
 - Node.js 18+
 - npm
-- OpenSSL when generating local certificates
-- Administrator PowerShell only when installing elevated Windows auto-start
+- OpenSSL when generating direct-server or nginx-side mTLS materials
+- Windows release install: PowerShell 5.1+ (Administrator PowerShell only when you enable auto-start or elevated mode)
+- Linux release install: `bash`, `sudo`, and `systemd` for the supported auto-start path
 
-Docker is not the recommended server runtime for TermLink on Windows. `node-pty` needs native Windows ConPTY access for PowerShell/CMD terminal sessions.
+Docker is still available for developer workflows, but it is **not** the formal Windows release path. The Windows installer keeps the existing `pm2` `fork` baseline because `node-pty` needs native Windows ConPTY access.
 
-### 1. Install the Local Server
+### 1. Build release artifacts from source
 
 From the repository root:
 
 ```bash
 npm install
+npm run release:build
 ```
 
-Create `.env`:
+This generates:
+
+- `dist/release-layout/termlink-win-v1.0.0`
+- `dist/release-layout/termlink-linux-v1.0.0`
+
+Each layout includes `release-manifest.json` and `release-contents.txt`, plus the formal installer and certificate-tool entrypoints under `scripts/install/**` and `scripts/certs/**`.
+
+### 2. Supported release-install paths
+
+| Target | Install entry | Auto-start status | Notes |
+| --- | --- | --- | --- |
+| Windows | `powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\install-service.ps1 -ConfigPath .\termlink-install.config.json` | Supported | Keeps the existing `pm2` `fork` baseline |
+| Linux with `systemd` | `bash ./scripts/install/linux/install-service.sh --config ./termlink-install.config.json` | Supported | This is the only officially supported Linux auto-start path |
+| Linux without `systemd` | `bash ./scripts/install/linux/start.sh --foreground --config ./termlink-install.config.json` | Manual fallback only | Explicitly unsupported for auto-start in this release scope |
+
+### 3. Release install config
+
+Copy the example config from the extracted release (or from the repo while testing from source):
+
+**PowerShell**
+
+```powershell
+Copy-Item .\scripts\install\termlink-install.config.example.json .\termlink-install.config.json
+```
+
+**Bash**
+
+```bash
+cp ./scripts/install/termlink-install.config.example.json ./termlink-install.config.json
+```
+
+Key fields:
+
+| Field | Allowed values | Purpose |
+| --- | --- | --- |
+| `installDir` | empty or absolute path | Overrides the release root used by the installer |
+| `serviceName` | letters, numbers, `.`, `_`, `@`, `-` | Service / pm2 name |
+| `autoStart` | `true` / `false` | Enables or disables auto-start during install |
+| `port` | integer | Server port |
+| `auth.enabled` | `true` / `false` | BasicAuth gate |
+| `tls.mode` | `off`, `direct`, `nginx` | Plain HTTP, direct HTTPS, or trusted nginx proxy mode |
+| `tls.clientCertPolicy` | `none`, `request`, `require` | Direct TLS client-certificate policy |
+| `mtls.deployment` | `none`, `direct-server`, `nginx` | Chooses installer-managed direct mTLS or standalone nginx-side tooling |
+| `mtls.generateDirectServerCertificates` | `true` / `false` | Allows the installer to generate direct-server mTLS materials |
+| `mtls.opensslPath` | executable path | Overrides the OpenSSL command used by the tooling |
+
+Keep `AUTH_USER` / `AUTH_PASS` off their defaults before exposing the service beyond a trusted local machine.
+
+### 4. Windows release install lifecycle
+
+Install:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\install-service.ps1 -ConfigPath .\termlink-install.config.json
+```
+
+Health check:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\test-health.ps1 -ConfigPath .\termlink-install.config.json
+```
+
+Enable / disable auto-start after install:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\enable-autostart.ps1 -ConfigPath .\termlink-install.config.json
+powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\disable-autostart.ps1 -ConfigPath .\termlink-install.config.json
+```
+
+Uninstall:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\uninstall-service.ps1 -ConfigPath .\termlink-install.config.json
+```
+
+The Windows installer:
+
+- writes `.env` from the JSON install config
+- keeps `ecosystem.config.js` in `fork` mode
+- installs `pm2` globally if needed
+- enables scheduled-task auto-start only when `autoStart=true`
+- runs the installer health check and prints the health URL
+- prints direct-server mTLS artifact locations when that mode is enabled
+
+### 5. Linux release install lifecycle
+
+Install:
+
+```bash
+bash ./scripts/install/linux/install-service.sh --config ./termlink-install.config.json
+```
+
+Health check:
+
+```bash
+bash ./scripts/install/linux/test-health.sh --config ./termlink-install.config.json
+```
+
+Enable / disable auto-start after install:
+
+```bash
+bash ./scripts/install/linux/enable-autostart.sh --config ./termlink-install.config.json
+bash ./scripts/install/linux/disable-autostart.sh --config ./termlink-install.config.json
+```
+
+Uninstall:
+
+```bash
+bash ./scripts/install/linux/uninstall-service.sh --config ./termlink-install.config.json
+```
+
+Linux-specific notes:
+
+- Official Linux auto-start support is **systemd only**.
+- The installer writes both `.env` (Node / foreground runtime) and `.env.systemd` (systemd `EnvironmentFile=`).
+- When `systemd` is unavailable, use `start.sh --foreground` as the explicit manual fallback instead of expecting auto-start support.
+
+### 6. Choose an mTLS deployment mode
+
+#### Option A: No mTLS
+
+Use plain HTTP or direct HTTPS without client certificates:
+
+```json
+{
+  "tls": { "mode": "off", "clientCertPolicy": "none" },
+  "mtls": { "deployment": "none", "generateDirectServerCertificates": false }
+}
+```
+
+For direct HTTPS without mTLS, set `tls.mode` to `direct`, keep `tls.clientCertPolicy` as `none`, and provide your server certificate paths in the config.
+
+#### Option B: Direct server-side mTLS
+
+Use installer-managed certificate generation:
+
+```json
+{
+  "tls": {
+    "mode": "direct",
+    "clientCertPolicy": "require"
+  },
+  "mtls": {
+    "deployment": "direct-server",
+    "generateDirectServerCertificates": true,
+    "opensslPath": "openssl"
+  }
+}
+```
+
+During install, Windows and Linux both generate:
+
+- server certificate materials under `mtls.serverOutputDir`
+- client import materials under `mtls.clientOutputDir`
+- a `client.p12`
+- a password file printed in the installation summary
+
+If OpenSSL is missing, the installer fails explicitly with `OpenSSL not found`.
+
+#### Option C: Nginx-side mTLS
+
+Use this when nginx owns the public TLS / mTLS edge and the Node server stays behind the proxy:
+
+```json
+{
+  "tls": {
+    "mode": "nginx",
+    "clientCertPolicy": "none",
+    "proxySecret": "<long-random-secret>"
+  },
+  "mtls": {
+    "deployment": "nginx",
+    "generateDirectServerCertificates": false
+  }
+}
+```
+
+Preview the generated paths:
+
+```bash
+npm run mtls:generate:nginx -- --mode describe --install-root .
+```
+
+Generate the nginx-side client CA and client certificate bundle:
+
+```bash
+npm run mtls:generate:nginx -- --install-root . --client-name termlink-nginx-client
+```
+
+Optional flags:
+
+- `--output-dir ./certs/nginx-mtls`
+- `--client-name <name>`
+- `--client-p12-password <password>`
+- `--openssl-path <path-to-openssl>`
+
+The nginx-side tool produces:
+
+- `client-ca.crt` / `client-ca.key`
+- `clients/<client-name>.crt`
+- `clients/<client-name>.key`
+- `clients/<client-name>.p12`
+- `clients/<client-name>-password.txt`
+
+The release installer does **not** generate nginx-side certificates automatically.
+
+### 7. Development from source
+
+If you are developing from source instead of using the release layout:
+
+**PowerShell**
 
 ```powershell
 Copy-Item .env.example .env
-```
-
-Edit at least these values before exposing the server beyond a trusted local machine:
-
-```dotenv
-PORT=3010
-AUTH_ENABLED=true
-AUTH_USER=<change-me>
-AUTH_PASS=<change-me>
-SESSION_PERSIST_ENABLED=true
-SESSION_PERSIST_PATH=./data/sessions.json
-```
-
-### 2. Start the Server
-
-For foreground operation:
-
-```powershell
-npm start
-```
-
-For local development with auto-reload:
-
-```powershell
 npm run dev
 ```
 
-The default server listens on `http://localhost:3010`.
+**Bash**
+
+```bash
+cp ./.env.example ./.env
+npm run dev
+```
 
 Useful local URLs:
 
@@ -73,185 +266,7 @@ Useful local URLs:
 | `http://localhost:3010/codex_client.html` | Browser Codex workspace client |
 | `http://localhost:3010/workspace.html` | Browser workspace page |
 
-When `AUTH_ENABLED=true`, the browser and App must use the BasicAuth username and password configured in `.env`.
-
-### 3. Configure Auto-Start on Windows
-
-Pack a portable Windows server build:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File ./.codex/skills/win-server-deploy/scripts/pack-win-server.ps1
-```
-
-Extract the generated `dist/termlink-win-<timestamp>.zip` on the target machine, for example to `C:\TermLink`, then configure:
-
-```powershell
-cd C:\TermLink
-Copy-Item .env.example .env
-notepad .env
-```
-
-Install the pm2 service and scheduled-task startup from an Administrator PowerShell:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\deploy-scripts\install-service.ps1
-```
-
-This installer:
-
-- installs `pm2` globally if missing
-- starts TermLink in `fork` mode, which is required by `node-pty`
-- creates the scheduled task `PM2-Termlink-Admin`
-- runs the scheduled task with highest privileges
-- verifies `/api/health` using the configured auth
-
-Daily management:
-
-```powershell
-pm2 list
-pm2 restart termlink
-pm2 stop termlink
-pm2 start termlink
-pm2 logs termlink --lines 50
-pm2 save
-```
-
-### 4. Configure Auto-Start Permissions
-
-TermLink supports two practical privilege modes:
-
-| Mode | Use When | Required Setting |
-| --- | --- | --- |
-| `standard` | Normal terminal access under the service user | `TERMLINK_PRIVILEGE_MODE=standard` |
-| `elevated` | TermLink must open elevated shells or perform admin operations | `TERMLINK_PRIVILEGE_MODE=elevated` and `TERMLINK_ELEVATED_ENABLE=true` |
-
-For elevated mode:
-
-- run `install-service.ps1` from Administrator PowerShell
-- use non-default `AUTH_USER` and `AUTH_PASS`
-- keep `TERMLINK_ELEVATED_AUDIT_PATH` writable
-- use a dedicated Windows user for TermLink pm2 workloads
-- do not share that Windows user with unrelated pm2 applications
-
-Optional elevated-mode gates:
-
-```dotenv
-TERMLINK_PRIVILEGE_MODE=elevated
-TERMLINK_ELEVATED_ENABLE=true
-TERMLINK_ELEVATED_AUDIT_PATH=./logs/elevated-audit.log
-TERMLINK_ELEVATED_ALLOWED_IPS=192.168.1.0/24
-# TERMLINK_ELEVATED_REQUIRE_MTLS=true
-```
-
-### 5. Choose a Certificate Mode
-
-TermLink can run as plain HTTP, direct HTTPS, direct HTTPS with mTLS, or behind an HTTPS/mTLS reverse proxy.
-
-#### Option A: Trusted LAN HTTP
-
-Use only on trusted local networks:
-
-```dotenv
-TERMLINK_TLS_ENABLED=false
-```
-
-App `baseUrl` example:
-
-```text
-http://192.168.1.20:3010
-```
-
-#### Option B: Direct HTTPS Without Client Certificates
-
-Use a public CA certificate in production. For an internal self-signed certificate, create a private CA and a server certificate with a SAN that matches the host or IP used by the App.
-
-Example OpenSSL flow. Replace `termlink.local` and `192.168.1.20` with the DNS name or LAN IP used by your App.
-
-```bash
-mkdir certs
-openssl genrsa -out certs/local-ca.key 4096
-openssl req -x509 -new -nodes -key certs/local-ca.key -sha256 -days 3650 -out certs/local-ca.crt -subj "/CN=TermLink Local CA"
-openssl genrsa -out certs/server.key 2048
-openssl req -new -key certs/server.key -out certs/server.csr -subj "/CN=termlink.local"
-```
-
-Create `certs/server.ext`:
-
-```ini
-subjectAltName=DNS:termlink.local,IP:192.168.1.20
-```
-
-Sign the server certificate:
-
-```bash
-openssl x509 -req -in certs/server.csr -CA certs/local-ca.crt -CAkey certs/local-ca.key -CAcreateserial -out certs/server.crt -days 825 -sha256 -extfile certs/server.ext
-```
-
-Configure `.env`:
-
-```dotenv
-TERMLINK_TLS_ENABLED=true
-TERMLINK_TLS_CERT=./certs/server.crt
-TERMLINK_TLS_KEY=./certs/server.key
-TERMLINK_TLS_CLIENT_CERT=none
-```
-
-App `baseUrl` example:
-
-```text
-https://termlink.local:3010
-```
-
-The Android device must trust the CA that issued the server certificate, or use a publicly trusted certificate.
-
-#### Option C: Direct HTTPS With mTLS
-
-Generate a client certificate signed by the same local CA:
-
-```bash
-openssl genrsa -out certs/client.key 2048
-openssl req -new -key certs/client.key -out certs/client.csr -subj "/CN=termlink-android-client"
-openssl x509 -req -in certs/client.csr -CA certs/local-ca.crt -CAkey certs/local-ca.key -CAcreateserial -out certs/client.crt -days 825 -sha256
-openssl pkcs12 -export -out certs/client.p12 -inkey certs/client.key -in certs/client.crt -certfile certs/local-ca.crt
-```
-
-Configure `.env`:
-
-```dotenv
-TERMLINK_TLS_ENABLED=true
-TERMLINK_TLS_CERT=./certs/server.crt
-TERMLINK_TLS_KEY=./certs/server.key
-TERMLINK_TLS_CA=./certs/local-ca.crt
-TERMLINK_TLS_CLIENT_CERT=require
-```
-
-Use `TERMLINK_TLS_CLIENT_CERT=request` only when you want to request client certificates but not reject clients that do not present one.
-
-In the App, import `client.p12`, enter its password, and enable mTLS for the server profile.
-
-#### Option D: Nginx Terminates HTTPS/mTLS
-
-Use this when Nginx owns public TLS and forwards traffic to the Node server.
-
-Backend `.env`:
-
-```dotenv
-TERMLINK_TLS_ENABLED=false
-TERMLINK_TLS_PROXY_MODE=nginx
-TERMLINK_TLS_PROXY_SECRET=<long-random-secret>
-```
-
-Nginx must forward the TLS summary headers:
-
-```nginx
-proxy_set_header X-Forwarded-Proto $scheme;
-proxy_set_header X-SSL-Client-Verify $ssl_client_verify;
-proxy_set_header X-TermLink-Proxy-Tls-Secret <same-long-random-secret>;
-```
-
-If Nginx requires mTLS, also configure `ssl_verify_client on;` and `ssl_client_certificate` with the CA that issued the Android client certificate. Do not expose the backend Node port directly when proxy TLS headers are trusted.
-
-### 6. Configure the Android App
+### 8. Configure the Android App
 
 In the Android App, open `Settings`, then add or edit a server profile.
 
