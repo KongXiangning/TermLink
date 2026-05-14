@@ -11,7 +11,6 @@ const SUPPORTED_PLATFORMS = Object.freeze({
         deployStrategy: 'pm2-scheduled-task',
         existingFiles: ['ecosystem.config.js'],
         plannedFiles: [
-            { path: 'install.config.example.json', status: 'implemented-step2', step: 2, reason: 'Shared install configuration template' },
             { path: 'deploy-scripts/install-service.ps1', status: 'implemented-step2', step: 2, reason: 'Windows install entry' },
             { path: 'deploy-scripts/uninstall-service.ps1', status: 'implemented-step2', step: 2, reason: 'Windows uninstall entry' },
             { path: 'deploy-scripts/enable-autostart.ps1', status: 'implemented-step2', step: 2, reason: 'Windows scheduled task enable entry' },
@@ -34,10 +33,14 @@ const SUPPORTED_PLATFORMS = Object.freeze({
         deployStrategy: 'systemd',
         existingFiles: [],
         plannedFiles: [
-            { path: 'deploy-scripts/install-service.sh', step: 3, reason: 'Linux install entry' },
-            { path: 'deploy-scripts/uninstall-service.sh', step: 3, reason: 'Linux uninstall entry' },
-            { path: 'deploy-scripts/start.sh', step: 3, reason: 'Linux foreground start helper' },
-            { path: 'deploy-scripts/termlink.service', step: 3, reason: 'Systemd unit template or rendered unit file' }
+            { path: 'deploy-scripts/install-service.sh', status: 'implemented-step3', step: 3, reason: 'Linux systemd install entry' },
+            { path: 'deploy-scripts/uninstall-service.sh', status: 'implemented-step3', step: 3, reason: 'Linux systemd uninstall entry' },
+            { path: 'deploy-scripts/enable-autostart.sh', status: 'implemented-step3', step: 3, reason: 'Linux systemd enable entry' },
+            { path: 'deploy-scripts/disable-autostart.sh', status: 'implemented-step3', step: 3, reason: 'Linux systemd disable entry' },
+            { path: 'deploy-scripts/start.sh', status: 'implemented-step3', step: 3, reason: 'Linux start helper' },
+            { path: 'deploy-scripts/test-health.sh', status: 'implemented-step3', step: 3, reason: 'Linux health check helper' },
+            { path: 'deploy-scripts/common.sh', status: 'implemented-step3', step: 3, reason: 'Linux install config and systemd helper functions' },
+            { path: 'deploy-scripts/termlink.service.template', status: 'implemented-step3', step: 3, reason: 'Systemd unit template' }
         ],
         notes: [
             'Linux auto-start support is intentionally limited to systemd in this task.',
@@ -55,6 +58,7 @@ const SHARED_EXISTING_ENTRIES = Object.freeze([
 ]);
 
 const SHARED_PLANNED_ENTRIES = Object.freeze([
+    { path: 'install.config.example.json', kind: 'file', status: 'implemented-step2', step: 2, reason: 'Shared install configuration template' },
     { path: 'deploy-scripts/', kind: 'directory', status: 'planned', step: 2, reason: 'Cross-platform install and service helpers' },
     { path: 'certs/', kind: 'directory', status: 'planned', step: 4, reason: 'Direct mTLS output and shared cert storage' },
     { path: 'data/', kind: 'directory', status: 'planned', step: 2, reason: 'Runtime state directory' },

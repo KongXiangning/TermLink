@@ -7,7 +7,7 @@
 - 任务 ID：20260513-001
 - 任务标题：提供跨平台发行安装脚本与一键 mTLS 证书工具
 - 任务 slug：provide-cross-platform-release-installer-and-mtls-tooling
-- 当前状态：step2_validated_ready_for_step3
+- 当前状态：step3_validated_ready_for_step4
 - 创建时间：2026-05-13
 - 创建来源：用户提出“面向开源发布的易用安装、跨平台发行与 mTLS 证书工具”需求后，由 `/create-current-task` 生成首版任务包。
 
@@ -79,8 +79,9 @@
   - 步骤 1 已补齐 diff-aware regression evidence：`TD-004` 的 6 文件 confirmed narrow gate 通过（99/99）
   - 步骤 2 已补齐 Windows release 安装配置与脚本骨架证据：PowerShell 脚本语法解析通过，安装配置 JSON 可解析，`npm run release:build` 可在 Windows release 清单中标出 `implemented-step2` 条目
   - 步骤 2 已补齐 diff-aware regression evidence：PowerShell parser、install config JSON、helper URL smoke、`git diff --check`、`npm run release:build`、TLS / health Node tests（21/21）、PM2 fork baseline smoke、Windows manifest step2 条目检查与带 BasicAuth 的 `/api/health` smoke 均通过
-  - residual risk：Linux 安装脚本、真实 Windows 安装 / 自启 smoke、`/api/health` 安装后验证、direct mTLS 产物检查与 nginx-side mTLS 工具证据仍待步骤 3-5 / 7 落地后补齐
-  - residual risk：Linux 正式支持范围已锁定为 `systemd`；非 `systemd` 环境的 unsupported / fallback 文案与脚本行为仍需在实现阶段落地并留证
+  - 步骤 3 已补齐 Linux `systemd` 安装路径骨架证据：Bash parser 通过，`npm run release:build` 可在 Linux release 清单中标出 `implemented-step3` 条目，非 `systemd` fallback 分支在 helper 中显式输出 unsupported / manual start 指引
+  - residual risk：真实 Windows 安装 / 自启 smoke、真实 Linux `systemd` install / enable / disable / uninstall smoke、`/api/health` 安装后验证、direct mTLS 产物检查与 nginx-side mTLS 工具证据仍待步骤 4-5 / 7 落地后补齐
+  - residual risk：Linux 正式支持范围已锁定为 `systemd`；当前脚本已实现非 `systemd` unsupported / fallback 文案，但仍需在最终 Linux smoke 中补真实宿主证据
 
 ## 允许修改范围
 
@@ -306,6 +307,97 @@ Forbidden Files:
   - Required test：用默认 `tls.mode=off` 与临时 `tls.mode=direct` 配置分别加载 helper，验证 health URL 分别为 `http://...` 与 `https://...`；复跑 PowerShell parser。
   - Resolution：新增 `Get-TermLinkHealthUrl`，`Invoke-TermLinkHealthCheck` 与 `install-service.ps1` 安装结果摘要共用同一 URL 构造逻辑。
   - Handoff：`review-diff`
+- 当前来源：`/review-diff`（2026-05-14，步骤 3）
+- Finding ID：RDF-20260514-003
+  - Severity：P2
+  - Source：`/review-diff`
+  - Status：resolved
+  - File / symbol：`scripts/install/linux/common.sh` `ensure_systemd_supported` fallback 文案；`scripts/install/linux/start.sh` 默认启动路径
+  - Failure scenario：非 `systemd` 环境下 `ensure_systemd_supported()` 提示 fallback 为 `scripts/install/linux/start.sh manually`，但 `start.sh` 默认路径在未传 `--foreground` 时仍会再次调用 `ensure_systemd_supported` 并执行 `systemctl restart`；用户按提示执行会再次得到同类失败，未满足步骤 3 “非 systemd fallback 明确结果”的要求。
+  - Minimal fix direction：把 fallback 文案改为 `scripts/install/linux/start.sh --foreground`，或让 `start.sh` 在非 `systemd` 环境自动提示 / 进入 foreground 手动运行路径；优先保持行为显式，不静默伪装为 systemd 安装成功。
+  - Required test：`rg` 确认 fallback 文案包含 `--foreground`；`bash -n scripts/install/linux/*.sh setup-service.sh`；复跑 `npm run release:build`。
+  - Resolution：`ensure_systemd_supported` 的两个非 `systemd` fallback 文案均改为 `scripts/install/linux/start.sh --foreground manually`，避免用户按提示执行默认 `start.sh` 后再次进入 `systemctl` 路径。
+  - Handoff：`implement-current-step`
+- 当前来源：`/review-implementation`（2026-05-14，步骤 3）
+- Finding ID：RIM-20260514-001
+  - Severity：P2
+  - Source：`/review-implementation`
+  - Status：resolved
+  - File / symbol：`scripts/install/linux/common.sh` `validate_install_config` / `service_name` / `systemd_unit_path`；`scripts/install/linux/install-service.sh` unit 文件写入路径
+  - Failure scenario：用户在 `install.config.json` 中把 `serviceName` 配成包含 `/`、`..`、空格或 shell / systemd 不安全字符的值，例如 `../../tmp/termlink-test`。
+  - Minimal fix direction：在 `validate_install_config()` 中校验 `serviceName`，限制为非空且只允许保守字符集，例如 `^[A-Za-z0-9_.@-]+$`，并禁止 `/`、反斜杠、空白和 `..`。
+  - Required test：默认配置通过；`serviceName=termlink-dev_1` 通过；`serviceName=../bad`、`bad/name`、`bad name` 明确失败；复跑 `bash -n scripts/install/linux/*.sh setup-service.sh` 与 `npm run release:build`。
+  - Resolution：`validate_install_config()` 新增 `serviceName` 校验，限制为 `^[A-Za-z0-9_.@-]+$` 且禁止 `..`，防止 Linux systemd unit 名称和 `/etc/systemd/system/<name>.service` 路径被异常配置污染。
+  - Handoff：`implement-current-step`
+- 当前来源：`/review-implementation`（2026-05-14，步骤 3）
+- Finding ID：RIM-20260514-002
+  - Severity：P2
+  - Source：`/review-implementation`
+  - Status：resolved
+  - File / symbol：`scripts/install/linux/enable-autostart.sh` 与 `scripts/install/linux/disable-autostart.sh` 配置解析后未调用 `validate_install_config`
+  - Failure scenario：用户单独运行 `scripts/install/linux/enable-autostart.sh --config install.config.json` 或 `scripts/install/linux/disable-autostart.sh --config install.config.json`，而配置里的 `serviceName` 是 `../bad`、`bad/name`、`bad name` 等非法值。
+  - Minimal fix direction：在两个脚本解析 `RESOLVED_CONFIG_PATH` 后立即调用 `validate_install_config "$RESOLVED_CONFIG_PATH"`，与 install / start / uninstall 入口保持一致。
+  - Required test：证明两个脚本源码中 `resolve_config_path` 后存在 `validate_install_config`；复跑 `bash -n scripts/install/linux/*.sh setup-service.sh`、`serviceName` 正反例校验与 `npm run release:build`。
+  - Resolution：`enable-autostart.sh` 与 `disable-autostart.sh` 均在 `resolve_config_path` 后立即调用 `validate_install_config "$RESOLVED_CONFIG_PATH"`，与 install / start / uninstall 入口保持一致，避免单独 enable / disable 自启时绕过 `serviceName` 校验。
+  - Handoff：`implement-current-step`
+- 当前来源：`/review-implementation`（2026-05-14，步骤 3）
+- Finding ID：RIM-20260514-003
+  - Severity：P2
+  - Source：`/review-implementation`
+  - Status：resolved
+  - File / symbol：`scripts/install/linux/common.sh` `write_termlink_env` 直接把配置值写入 systemd `EnvironmentFile`
+  - Failure scenario：用户在 `install.config.json` 中设置包含反斜杠、行尾反斜杠、换行、引号或类似特殊字符的 `auth.pass`、`auth.user`、`tls.proxySecret` 或 TLS 路径值；Linux installer 会把这些值原样写入 `.env`，再由 systemd `EnvironmentFile=` 解析。
+  - Minimal fix direction：在 `common.sh` 增加专门的 systemd EnvironmentFile value escape / quote helper，让 `write_termlink_env` 所有来自配置的值都通过该 helper 写入；至少覆盖 `AUTH_USER`、`AUTH_PASS`、TLS 路径、`TERMLINK_TLS_PROXY_SECRET` 等配置来源字段。
+  - Required test：构造包含 `pa\\ss word`、`quote"test`、`dollar$value`、行尾反斜杠等值的临时 config，验证生成 `.env` 中对应行是 systemd `EnvironmentFile` 可安全解析的格式；复跑 `bash -n scripts/install/linux/*.sh setup-service.sh` 与 `npm run release:build`。
+  - Resolution：`common.sh` 新增 `systemd_env_value`，`write_termlink_env` 的配置来源字段均以 systemd `EnvironmentFile` 安全的双引号形式写入，并在 `validate_install_config` 中拒绝带 CR/LF 的环境字段，避免行续接或多行值污染 systemd 解析。
+  - Handoff：`implement-current-step`
+- 当前来源：`/review-implementation`（2026-05-14，步骤 3）
+- Finding ID：RIM-20260514-004
+  - Severity：P2
+  - Source：`/review-implementation`
+  - Status：resolved
+  - File / symbol：`scripts/install/linux/common.sh` `systemd_env_value` / `write_termlink_env`；`scripts/install/linux/start.sh` `--foreground`
+  - Failure scenario：用户配置 `auth.pass` 或 `tls.proxySecret` 包含 `$`、`"`、反斜杠等字符，然后在非 `systemd` 环境按 fallback 使用 `scripts/install/linux/start.sh --foreground`。
+  - Minimal fix direction：在当前 `scripts/install/linux/**` 范围内拆开两种消费路径。可选方向是为 systemd 写专用 env file，同时为 foreground 写 dotenv-compatible `.env`；或让 `start.sh --foreground` 不依赖 systemd-escaped `.env`，而是从 config 安全地直接注入环境变量。
+  - Required test：构造包含 `$`、`"`、`\`、空格的 `auth.pass` / `tls.proxySecret`，分别验证 systemd env 文件格式和 `dotenv.parse()` / foreground Node 环境中看到的值都与 JSON config 原值一致；复跑 `bash -n scripts/install/linux/*.sh setup-service.sh` 与 `npm run release:build`。
+  - Resolution：`write_termlink_env` 现在同时写入 dotenv-compatible `$install_root/.env` 与 systemd-only `$install_root/.env.systemd`；`render_systemd_unit` 和 `termlink.service.template` 改为读取 `.env.systemd`，而 `start.sh --foreground` 继续经 Node/dotenv 消费 `.env`，避免 systemd 转义污染 foreground 路径。
+  - Handoff：`implement-current-step`
+
+- 当前来源：`/review-implementation`（2026-05-14，步骤 3）
+- Finding ID：RIM-20260514-005
+  - Severity：P2
+  - Source：`/review-implementation`
+  - Status：resolved
+  - File / symbol：`scripts/install/linux/start.sh` `--foreground`；`scripts/install/linux/common.sh` `install_node_dependencies_if_needed`
+  - Failure scenario：非 `systemd` 环境下，用户运行 `install-service.sh` 会在 `ensure_systemd_supported` 提前失败；按提示执行 `scripts/install/linux/start.sh --foreground` 时，干净 release 包没有 `node_modules`，foreground 启动不会先安装依赖，可能直接因依赖缺失失败。
+  - Minimal fix direction：在 foreground `exec node src/server.js` 前对 `INSTALL_ROOT` 调用 `install_node_dependencies_if_needed`；或明确要求 fallback 前必须先执行独立 install 步骤。
+  - Required test：无 `node_modules` 的临时 install root 验证 `start.sh --foreground` 会先触发依赖安装；至少补充静态 smoke 覆盖 foreground 分支存在依赖安装调用。
+  - Resolution：`start.sh --foreground` 在 `exec node src/server.js` 前先调用 `install_node_dependencies_if_needed "$INSTALL_ROOT"`，让非 `systemd` fallback 与 install 路径一样会先补齐生产依赖，再进入前台启动。
+  - Handoff：`review-diff`
+
+- 当前来源：`/review-implementation`（2026-05-14，步骤 3）
+- Finding ID：RIM-20260514-006
+  - Severity：P2
+  - Source：`/review-implementation`
+  - Status：resolved
+  - File / symbol：`scripts/install/linux/common.sh` `render_systemd_unit`
+  - Failure scenario：安装目录或 Node 路径包含空格，例如 `/opt/TermLink App` 时，systemd unit 中裸写的 `WorkingDirectory`、`EnvironmentFile`、`ExecStart` 可能被 systemd 按空格拆分或解析失败。
+  - Minimal fix direction：新增 systemd unit value / exec arg quoting helper，并在 unit 渲染中使用；或在配置校验中显式拒绝不支持的含空格安装路径。
+  - Required test：用含空格 install root 渲染 unit，验证 `WorkingDirectory`、`EnvironmentFile`、`ExecStart` 对 systemd 有效；若环境可用，补充 `systemd-analyze verify`。
+  - Resolution：`render_systemd_unit()` 新增 `require_systemd_safe_path`，在渲染前显式拒绝带空白字符的 `installDir` / `node` 路径，避免生成 systemd 可能错误解析的裸值 unit 行；当前 Linux release installer 把含空格路径视为不支持配置并明确失败。
+  - Handoff：`review-diff`
+
+- 当前来源：`/review-implementation`（2026-05-14，步骤 3）
+- Finding ID：RIM-20260514-007
+  - Severity：P2
+  - Source：`/review-implementation`
+  - Status：resolved
+  - File / symbol：`scripts/install/linux/common.sh` `write_termlink_env`
+  - Failure scenario：配置包含 `auth.pass` 或 `tls.proxySecret` 时，installer 生成 `.env` 和 `.env.systemd` 但未设置受限权限；默认 `umask 022` 下可能生成 group/world-readable 文件，泄露 BasicAuth 密码或 proxy secret。
+  - Minimal fix direction：写入 env 文件后执行 `chmod 0600`，或在写入期间使用 `umask 077`。
+  - Required test：生成 env 文件后用 `stat` 验证权限为 `600`；保留现有 env parse / systemd escape smoke。
+  - Resolution：`write_termlink_env()` 现在在 `umask 077` 子 shell 内写入 `.env` 与 `.env.systemd`，随后显式执行 `chmod 600`，确保 BasicAuth 密码与 proxy secret 不会落成 group/world-readable。
+  - Handoff：`review-diff`
 
 ## 传播治理记录
 
@@ -506,7 +598,7 @@ Forbidden Files:
 
 ### blockers / gate status
 
-- 当前执行步骤：step2_validated_ready_for_step3
+- 当前执行步骤：step3_implemented_ready_for_review
 - 已完成 discovery：
   - workflow governance docs
   - README / README.zh-CN / deployment guide
@@ -523,10 +615,10 @@ Forbidden Files:
   - evidence：任务已完成 `/review-current-task`、`/lock-scope`、`/classify-decisions`、`/plan-implementation` 与 `/decompose-task`，当前仍保持 backward-compatible 策略
   - strategy_origin.over_limit_policy_branch：single-task bounded
   - strategy_origin.divergence_state：Windows baseline exists, Linux/tooling incomplete
-  - branch_gate_mapping.merge_gate：step3
+  - branch_gate_mapping.merge_gate：review-diff
   - branch_gate_mapping.ship_gate：run-regression after steps 2-7
-  - branch_gate_mapping.rationale：步骤 2 已完成实现、diff review、implementation review、contract verification 与 diff-aware regression；下一步进入步骤 3 Linux `systemd` 安装路径
-  - suggested_resolution：按当前推荐步骤执行 `/implement-current-step` 进入步骤 3
+  - branch_gate_mapping.rationale：步骤 3 已完成 Linux `systemd` 安装 / 卸载 / 自启 enable-disable / start / health check 脚本骨架实现；下一步进入 `/review-diff`
+  - suggested_resolution：先执行 `/review-diff` 审查步骤 3 diff，再按结论进入后续 review / regression 链
 
 ### conformance / verification cases
 
@@ -553,7 +645,7 @@ Forbidden Files:
 ## 实施步骤
 
 - 建议执行顺序：1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
-- 当前推荐执行步骤：步骤 3
+- 当前推荐执行步骤：步骤 4
 - [x] 步骤 1：收敛 release 产物目录与构建入口。
   - 输入：现有 Windows 打包事实、`package.json`、允许修改范围。
   - 输出：统一的 release 目录结构、平台压缩包命名、正式构建命令入口与脚本落点。
@@ -564,10 +656,11 @@ Forbidden Files:
   - 输出：Windows 安装 / 卸载 / enable / disable / 健康检查脚本，以及共享配置文件字段定义。
   - 单步验证：配置文件字段能覆盖安装目录、自启开关、TLS/mTLS 模式与认证；Windows 路径不改变现有 PM2 `fork` 语义。
   - 本步结果：新增 `scripts/install/termlink-install.config.example.json` 与 `scripts/install/windows/**`，提供 Windows install / uninstall / enable-autostart / disable-autostart / start / health check 入口；`ecosystem.config.js` 仅将 PM2 app name 参数化为 `TERMLINK_SERVICE_NAME || 'termlink'`，继续保持 `exec_mode: 'fork'`。
-- [ ] 步骤 3：落 Linux `systemd` 安装路径与非 `systemd` fallback。
+- [x] 步骤 3：落 Linux `systemd` 安装路径与非 `systemd` fallback。
   - 输入：共享配置文件字段定义、`setup-service.sh` 与 Linux 支持边界。
   - 输出：Linux 安装 / 卸载 / enable / disable 脚本、service unit 模板或生成逻辑、非 `systemd` 明确提示分支。
   - 单步验证：`systemd` 与非 `systemd` 两条路径都能给出明确结果；不引入 Docker 路径回退。
+  - 本步结果：新增 `scripts/install/linux/**`，提供 Linux install / uninstall / enable-autostart / disable-autostart / start / health check / common helper / systemd unit template；`setup-service.sh` 作为兼容入口转发到正式 Linux installer；`scripts/release/release-layout.js` 将 Linux release 清单中的步骤 3 条目标为 `implemented-step3`。
 - [ ] 步骤 4：接入 direct server-side mTLS 安装期自动生成。
   - 输入：统一安装器、OpenSSL 检测策略、证书输出目录约定。
   - 输出：CA、server cert/key、client cert/key、`client.p12`、密码文件与安装结果摘要。
@@ -631,3 +724,15 @@ Forbidden Files:
 - 2026-05-14：`/implement-current-step` 修复 `/review-diff` 入队问题：`RDF-20260514-001` 通过 `Resolve-TermLinkInstallRoot` 让 `installDir` 参与 Windows 安装 / 启动 / 卸载路径解析；`RDF-20260514-002` 通过 `Get-TermLinkHealthUrl` 统一健康检查实际 URL 与安装结果摘要。最小验证通过：PowerShell parser 全部 OK；默认配置解析为 `INSTALL_ROOT_DEFAULT_OK E:\coding\TermLink`；显式 `installDir` 配置解析为 `INSTALL_ROOT_EXPLICIT_OK E:\coding\TermLink`；health URL 在 `tls.mode=off` 为 `http://localhost:3010/api/health`，在 `tls.mode=direct` 为 `https://localhost:3010/api/health`；`npm run release:build` 通过。External Documentation Gate 未补查：本轮只修项目内 PowerShell helper 逻辑，不新增第三方 current behavior 判断。
 - 2026-05-14：`/review-diff`、`/review-implementation` 与 `/verify-contracts` 对步骤 2 复核通过。当前 diff target 沿用 `working-tree` 对 `HEAD` 并显式包含未跟踪的 `scripts/install/**`；未触碰 Forbidden Files、generated workflow 输出、Sessions / Workspace API、session DTO、`data/sessions.json` 或 `terminalGateway`，Windows PM2 `fork` 基线保持兼容。
 - 2026-05-14：`/run-regression` 以 diff-aware 模式通过。验证项包括 PowerShell parser、安装配置 JSON、helper URL smoke、`git diff --check`、`npm run release:build`、`node --test tests\tlsConfig.test.js tests\health.route.test.js`（21/21 pass）、`ecosystem.config.js` service name / `fork` smoke、Windows release manifest `implemented-step2` 条目检查，以及带 BasicAuth 的 `http://127.0.0.1:3010/api/health` smoke（HTTP 200）。`npm run android:check-release-config` 仍稳定失败，错误为 `server.cleartext must be false for release builds` 与 `server.androidScheme must be "https" for release builds`；该项继续按 scope-external known validation failure 记录，不阻塞步骤 3。
+- 2026-05-14：`/implement-current-step` 执行步骤 3。新增 Linux release 安装脚本组 `scripts/install/linux/**`，包含共享 Bash helper、install / uninstall、enable / disable autostart、start、test-health 与 `termlink.service.template`；`setup-service.sh` 改为兼容转发入口；`scripts/release/release-layout.js` 将 Linux release 清单中的步骤 3 条目标为 `implemented-step3`。本步未引入 Docker、OpenRC、SysVinit、runit 或其他 init 适配，非 `systemd` 分支通过 `ensure_systemd_supported` 明确失败并提示 fallback 为 `scripts/install/linux/start.sh` 手动运行。
+- 2026-05-14：步骤 3 最小验证通过：`bash -n scripts/install/linux/*.sh setup-service.sh` 语法检查通过；`npm run release:build` 通过；Linux `release-manifest.json` 中 `implemented-step3` 条目为 8 个，覆盖 install / uninstall / enable-autostart / disable-autostart / start / test-health / common helper / systemd unit template；静态检查确认 unit template 和渲染逻辑包含 `EnvironmentFile=<installRoot>/.env.systemd`、`ExecStart=<node> src/server.js`、`WantedBy=multi-user.target`，非 `systemd` fallback 文案存在。External Documentation Gate 未补查：本步复用 `/plan-implementation` 已记录的 Context7 systemd evidence，未新增超出该 evidence 覆盖范围的第三方 current behavior 判断；真实 systemd host smoke 留待 review / regression 或步骤 7 补证。
+- 2026-05-14：`/implement-current-step` 修复 `/review-diff` 入队问题：`RDF-20260514-003` 通过把非 `systemd` fallback 文案改为 `scripts/install/linux/start.sh --foreground manually`，让提示与 `start.sh` 的实际手动前台运行路径一致。最小验证通过：`rg` 确认 fallback 文案均包含 `--foreground`；`bash -n scripts/install/linux/*.sh setup-service.sh` 通过；`npm run release:build` 通过。External Documentation Gate 未补查：本轮只修项目内 fallback 文案，不新增第三方 current behavior 判断。
+- 2026-05-14：`/implement-current-step` 修复 `/review-implementation` 入队问题：`RIM-20260514-001` 通过在 `scripts/install/linux/common.sh` 的 `validate_install_config()` 中新增 `serviceName` 白名单校验，限制为 `^[A-Za-z0-9_.@-]+$` 且禁止 `..`。最小验证通过：默认配置与 `serviceName=termlink-dev_1` 通过，`serviceName=../bad`、`bad/name`、`bad name` 明确失败；`bash -n scripts/install/linux/*.sh setup-service.sh` 通过；`npm run release:build` 通过。External Documentation Gate 未触发：本轮只修项目内配置字符串校验与路径安全边界，不新增或质疑第三方 current behavior。
+- 2026-05-14：`/implement-current-step` 修复 `/review-implementation` 入队问题：`RIM-20260514-002` 通过在 `scripts/install/linux/enable-autostart.sh` 与 `scripts/install/linux/disable-autostart.sh` 解析 `RESOLVED_CONFIG_PATH` 后立即调用 `validate_install_config "$RESOLVED_CONFIG_PATH"`，补齐单独 enable / disable 自启路径的 `serviceName` 校验。最小验证：源码静态检查确认两个脚本中 `resolve_config_path` 后存在 `validate_install_config`；复跑 `bash -n scripts/install/linux/*.sh setup-service.sh`、`serviceName` 正反例校验与 `npm run release:build`。External Documentation Gate 未触发：本轮只修项目内 Bash 入口校验路径，不新增或质疑第三方 current behavior。
+- 2026-05-14：`/implement-current-step` 修复 `/review-implementation` 入队问题：`RIM-20260514-003` 通过在 `scripts/install/linux/common.sh` 新增 `systemd_env_value`，让 `write_termlink_env` 写入 systemd `EnvironmentFile` 的配置来源字段统一采用双引号转义形式，并在 `validate_install_config` 中拒绝带 CR/LF 的环境字段，避免反斜杠行续接或多行值污染 systemd 解析。External Documentation Gate evidence：Context7 `/systemd/systemd` 未返回足够的 `EnvironmentFile` 转义细节；补查 freedesktop.org 官方 `systemd.exec` man page（`https://www.freedesktop.org/software/systemd/man/256/systemd.exec.html`），确认 `EnvironmentFile` 未引号值会按 POSIX shell-like 反斜杠规则解析，行尾反斜杠会续行，双引号值中反斜杠可保护 `"`、`\`、`$` 等字符。最小验证通过：`bash -n scripts/install/linux/*.sh setup-service.sh`；特殊值配置生成 systemd env 行时 `AUTH_USER="admin user"`、`AUTH_PASS="pa\\ss word"`、`TERMLINK_TLS_PROXY_SECRET="quote\"test dollar\$value end\\"`、带空格 TLS 路径的双引号行；`auth.pass` 含换行时 `validate_install_config` 明确失败；`npm run release:build` 通过；`git diff --check -- docs/workflow/CURRENT_TASK.md scripts/install/linux/common.sh` 无 whitespace error，仅有 CRLF 提示。
+- 2026-05-14：`/implement-current-step` 修复 `/review-implementation` 入队问题：`RIM-20260514-004` 通过拆分 Linux env 消费路径解决 systemd `EnvironmentFile` 转义与 Node dotenv 解析规则不一致的问题。`write_termlink_env` 现在生成 `$INSTALL_ROOT/.env`（dotenv-compatible，供 `start.sh --foreground` / Node 启动读取）和 `$INSTALL_ROOT/.env.systemd`（systemd-only，供 service unit 的 `EnvironmentFile=` 读取）；`render_systemd_unit`、`termlink.service.template` 与安装结果摘要均同步使用 / 展示 `.env.systemd`。External Documentation Gate evidence：复用 freedesktop.org `systemd.exec` evidence 覆盖 `.env.systemd` 双引号转义；补查 Context7 `/motdotla/dotenv`，确认 dotenv 支持 single / double / backtick quoted values，quoted values 会保留空白并允许特殊字符，`#` 在未引号值中会开始注释但在 quoted value 中可保留。最小验证通过：`bash -n scripts/install/linux/common.sh scripts/install/linux/install-service.sh scripts/install/linux/uninstall-service.sh scripts/install/linux/enable-autostart.sh scripts/install/linux/disable-autostart.sh scripts/install/linux/start.sh scripts/install/linux/test-health.sh setup-service.sh`；Node `dotenv.parse()` smoke 验证 single-quoted `AUTH_PASS` / `TERMLINK_TLS_PROXY_SECRET` 可保留 `quote" dollar$value slash\ hash# space end`；Node systemd escape smoke 验证同值生成 `"quote\" dollar\$value slash\\ hash# space end"`；`npm run release:build` 通过；`git diff --check -- docs/workflow/CURRENT_TASK.md scripts/install/linux/common.sh scripts/install/linux/install-service.sh scripts/install/linux/termlink.service.template` 无 whitespace error，仅有 CRLF 提示。
+- 2026-05-14：`/implement-current-step` 修复 `/review-implementation` 入队问题：`RIM-20260514-005` 让 `scripts/install/linux/start.sh --foreground` 在前台 `exec node src/server.js` 之前先执行 `install_node_dependencies_if_needed "$INSTALL_ROOT"`，避免非 `systemd` fallback 在干净 release 包里因缺少 `node_modules` 直接失败；`RIM-20260514-006` 在 `render_systemd_unit()` 中新增 `require_systemd_safe_path`，显式拒绝含空白字符的 `installDir` / `node` 路径，避免生成 systemd 可能错误解析的裸值 unit；`RIM-20260514-007` 让 `write_termlink_env()` 在 `umask 077` 下写入 `.env` / `.env.systemd` 并追加 `chmod 600`，收紧包含 BasicAuth 密码与 proxy secret 的 env 文件权限。最小验证通过：Git Bash 下 `bash -n scripts/install/linux/*.sh setup-service.sh`；`rg` 确认 `start.sh` 的 foreground 分支包含 `install_node_dependencies_if_needed "$INSTALL_ROOT"`；在 WSL 中对 LF-normalized `common.sh` 临时副本做 Linux smoke，验证生成 `.env` 与 `.env.systemd` 权限均为 `600`，且临时含空格路径调用 `render_systemd_unit` 明确报错 `installDir contains whitespace`；`npm run release:build` 通过。External Documentation Gate 未补查：本轮采用“显式补依赖 + 权限收紧 + 拒绝不支持的空格路径”策略，未新增或质疑第三方 current behavior；已有 systemd / dotenv evidence 足以覆盖其余未变更路径。
+- 2026-05-14：`/review-diff` 结论 clean。diff target 沿用 `working-tree` 对 `HEAD`；当前 diff 只触碰 `docs/workflow/CURRENT_TASK.md`、`scripts/release/release-layout.js`、`setup-service.sh` 与未跟踪的 `scripts/install/linux/**`，全部位于 Allowed Files 内；未命中 Forbidden / Conditional Files，未出现 unauthorized scope widening、design drift 或额外 CI/CD / database surfaces。
+- 2026-05-14：`/review-implementation` 结论 clean。步骤 3 review 修复后的实现继续满足 Linux `systemd` / non-`systemd` 边界约束；`start.sh --foreground` 复用既有依赖安装 helper，`.env` / `.env.systemd` 权限收紧逻辑与空格路径拒绝策略都能用当前验证证据支撑。External Documentation Gate no-op：clean 判断不依赖新的第三方 current behavior，已有 systemd / dotenv evidence 足以覆盖未变更路径。
+- 2026-05-14：`/verify-contracts` 结论 clean。当前 diff 未触碰 `src` / `android` / `public`、锁定 API / DTO / 表结构、`data/sessions.json` 或架构依赖方向；无需修改 `docs/workflow/CONTRACTS.md` 即可解释本轮 Linux installer 变更。
+- 2026-05-14：`/run-regression` 以 diff-aware 模式通过。沿用 `working-tree` 对 `HEAD` 作为 diff review target；执行 Git Bash `bash -n scripts/install/linux/*.sh setup-service.sh`、`node --test tests\\tlsConfig.test.js tests\\health.route.test.js`（21/21 pass）、`npm run release:build`，以及 WSL Linux smoke（`.env` 与 `.env.systemd` 权限为 `600`，含空格 `installDir` 调用 `render_systemd_unit` 会明确失败）。Browser/session requirement 与 visual evidence 不适用；release evidence 已补齐到 Linux installer 脚本与 release layout。剩余风险保持可见：真实 Windows / Linux install smoke、安装后 `/api/health` smoke，以及步骤 4/5 的 mTLS 产物验证仍待后续步骤补证；`npm run android:check-release-config` 继续沿用既有 scope-external known failure 记录，本轮未重跑。
