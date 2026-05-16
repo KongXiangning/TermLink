@@ -1,8 +1,10 @@
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const {
     SUPPORTED_PLATFORMS,
-    getReleasePlan
+    getReleasePlan,
+    getMaterializedReleaseEntries
 } = require('./release-layout');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -61,6 +63,7 @@ function ensureProjectFacts() {
 
 function ensureOutputDir(artifactBaseName) {
     const artifactDir = path.join(DIST_ROOT, artifactBaseName);
+    fs.rmSync(artifactDir, { recursive: true, force: true });
     fs.mkdirSync(artifactDir, { recursive: true });
     return artifactDir;
 }
@@ -88,13 +91,76 @@ function renderContents(plan) {
     return `${lines.join('\n')}\n`;
 }
 
+function ensureParentDir(filePath) {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+}
+
+function copyMaterializedEntries(outputDir, platformKey) {
+    for (const entry of getMaterializedReleaseEntries(platformKey)) {
+        const targetPath = path.join(outputDir, entry.target);
+        if (!entry.source) {
+            fs.mkdirSync(targetPath, { recursive: true });
+            continue;
+        }
+
+        const sourcePath = path.join(PROJECT_ROOT, entry.source);
+        if (!fs.existsSync(sourcePath)) {
+            throw new Error(`Release source path not found: ${entry.source}`);
+        }
+
+        if (entry.kind === 'directory') {
+            fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+            fs.cpSync(sourcePath, targetPath, { recursive: true });
+            continue;
+        }
+
+        ensureParentDir(targetPath);
+        fs.copyFileSync(sourcePath, targetPath);
+    }
+}
+
+function runCommand(command, args, options = {}) {
+    const result = spawnSync(command, args, {
+        cwd: options.cwd || PROJECT_ROOT,
+        stdio: 'pipe',
+        encoding: 'utf8'
+    });
+    if (result.status !== 0) {
+        const stderr = String(result.stderr || '').trim();
+        const stdout = String(result.stdout || '').trim();
+        const detail = stderr || stdout || `exit code ${result.status}`;
+        throw new Error(`${command} ${args.join(' ')} failed: ${detail}`);
+    }
+}
+
+function createArchive(plan, outputDir) {
+    const archivePath = path.join(DIST_ROOT, plan.artifactName);
+    fs.rmSync(archivePath, { force: true });
+
+    if (plan.platformKey === 'win') {
+        runCommand('powershell.exe', [
+            '-NoProfile',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-Command',
+            `Compress-Archive -LiteralPath '${outputDir.replace(/'/g, "''")}' -DestinationPath '${archivePath.replace(/'/g, "''")}' -Force`
+        ], { cwd: DIST_ROOT });
+        return archivePath;
+    }
+
+    runCommand('tar.exe', ['-czf', archivePath, '-C', DIST_ROOT, plan.artifactBaseName], { cwd: DIST_ROOT });
+    return archivePath;
+}
+
 function writePlanFiles(plan) {
     const outputDir = ensureOutputDir(plan.artifactBaseName);
+    copyMaterializedEntries(outputDir, plan.platformKey);
     const manifestPath = path.join(outputDir, 'release-manifest.json');
     const contentsPath = path.join(outputDir, 'release-contents.txt');
     fs.writeFileSync(manifestPath, `${JSON.stringify(plan, null, 2)}\n`, 'utf8');
     fs.writeFileSync(contentsPath, renderContents(plan), 'utf8');
-    return { manifestPath, contentsPath };
+    const archivePath = createArchive(plan, outputDir);
+    return { manifestPath, contentsPath, archivePath };
 }
 
 function printSummary(results) {
@@ -106,6 +172,7 @@ function printSummary(results) {
         console.log(`  output dir  : ${result.plan.outputDirectory}`);
         console.log(`  manifest    : ${path.relative(PROJECT_ROOT, result.manifestPath)}`);
         console.log(`  contents    : ${path.relative(PROJECT_ROOT, result.contentsPath)}`);
+        console.log(`  archive     : ${path.relative(PROJECT_ROOT, result.archivePath)}`);
     }
     console.log('');
     console.log('Aggregate entry: npm run release:build');

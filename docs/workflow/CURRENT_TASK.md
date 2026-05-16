@@ -7,7 +7,7 @@
 - 任务 ID：20260513-001
 - 任务标题：提供跨平台发行安装脚本与一键 mTLS 证书工具
 - 任务 slug：provide-cross-platform-release-installer-and-mtls-tooling
-- 当前状态：step6_regression_passed_ready_for_status_sync
+- 当前状态：step7_release_smoke_partial_blocked
 - 创建时间：2026-05-13
 - 创建来源：用户提出“面向开源发布的易用安装、跨平台发行与 mTLS 证书工具”需求后，由 `/create-current-task` 生成首版任务包。
 
@@ -75,7 +75,7 @@
   - 保留当前手动部署方式与现有 Windows skill 脚本作为回退路径
   - 若新安装脚本或新配置模型导致行为不明确，回滚到本任务开始前的 README / 部署文档 / 打包脚本状态
 - Release evidence:
-  - 步骤 1 已补齐 release layout 证据：`npm run release:build` 可稳定生成 Windows / Linux 的 `release-manifest.json` 与 `release-contents.txt`
+  - 步骤 1 已补齐 release layout 证据：`npm run release:build` 可稳定生成 Windows / Linux 的真实 release 目录、`release-manifest.json`、`release-contents.txt`，以及 `termlink-win-v1.0.0.zip` / `termlink-linux-v1.0.0.tar.gz`
   - 步骤 1 已补齐 diff-aware regression evidence：`TD-004` 的 6 文件 confirmed narrow gate 通过（99/99）
   - 步骤 2 已补齐 Windows release 安装配置与脚本骨架证据：PowerShell 脚本语法解析通过，安装配置 JSON 可解析，`npm run release:build` 可在 Windows release 清单中标出 `implemented-step2` 条目
   - 步骤 2 已补齐 diff-aware regression evidence：PowerShell parser、install config JSON、helper URL smoke、`git diff --check`、`npm run release:build`、TLS / health Node tests（21/21）、PM2 fork baseline smoke、Windows manifest step2 条目检查与带 BasicAuth 的 `/api/health` smoke 均通过
@@ -84,8 +84,12 @@
   - 步骤 4 已补齐最小验证 evidence：PowerShell parser 通过；对 LF-normalized Linux 脚本副本执行 `bash -n` 通过；`node --test tests\directMtlsInstaller.test.js tests\tlsConfig.test.js tests\health.route.test.js` 通过（24/24）；`npm run release:build` 通过；使用 `C:\Program Files\Git\usr\bin\openssl.exe` 的 direct mTLS smoke 可实际生成全部产物；配置 `mtls.opensslPath=termlink-missing-openssl` 时会显式失败并返回 `OpenSSL not found`
   - 步骤 5 已补齐 nginx-side mTLS 一键工具证据：新增 `scripts/certs/nginx-mtls.js` 与 `scripts/certs/generate-nginx-mtls.js`，复用步骤 4 的 OpenSSL command wrapper 生成独立于 direct mTLS 的 `./certs/nginx-mtls/**` 路径；默认产物包含 `client-ca.crt` / `client-ca.key`、`clients/<client-name>.crt` / `.key` / `.p12` 与 `<client-name>-password.txt`，并在 `package.json` 暴露 `npm run mtls:generate:nginx` 正式入口；`scripts/release/release-layout.js` 现已把 `scripts/certs/` 及 direct/nginx mTLS helper 产物统一标入 release 清单
   - 步骤 5 已补齐最小验证 evidence：`npm run mtls:generate:nginx -- --mode describe` 可输出独立 nginx mTLS 路径规划；`node --test tests\nginxMtlsTool.test.js tests\directMtlsInstaller.test.js tests\tlsConfig.test.js tests\health.route.test.js` 通过（27/27）；`npm run release:build` 通过；使用 `C:\Program Files\Git\usr\bin\openssl.exe` 的 nginx mTLS smoke 可实际生成 CA、client cert/key、`client.p12` 与密码文件；将 `--openssl-path` 设为不存在值时，工具会显式失败并返回 `OpenSSL not found`
-  - residual risk：真实 Windows 安装 / 自启 smoke、真实 Linux `systemd` install / enable / disable / uninstall smoke、安装后 `/api/health` 端到端 smoke，以及步骤 6 的 README / deployment 文档收口与步骤 7 的最终 release smoke 仍待后续落地
-  - residual risk：Linux 正式支持范围已锁定为 `systemd`；当前脚本已实现非 `systemd` unsupported / fallback 文案，但仍需在最终 Linux smoke 中补真实宿主证据
+  - 步骤 7 已补齐 partial release smoke evidence：`release-layout.js` 现与真实包路径对齐到 `scripts/install/**` / `scripts/certs/**` / `setup-service.sh`；`npm run release:build` 会物化可解压目录和压缩包，且 zip/tar 顶层目录名与包内脚本路径均已核对；`node --test tests\releaseLayout.test.js tests\directMtlsInstaller.test.js tests\nginxMtlsTool.test.js tests\tlsConfig.test.js tests\health.route.test.js` 通过（30/30）；`TD-004` 的 6 文件 confirmed narrow gate 通过（99/99，duration_ms 1853.2668）
+  - 步骤 7 已补齐 packaged runtime smoke evidence：Windows 打包目录下的 `start.ps1 -Foreground` + `test-health.ps1` 在 `tls.mode=off` 与 `mtls.deployment=direct-server` 两种场景均可返回 `Health OK HTTP 200`；direct mTLS 场景同时确认 `client-ca.crt`、`server.crt`、`server.key`、`client.p12` 与 `client-password.txt` 均实际落盘；打包目录下的 `scripts/certs/generate-nginx-mtls.js` 也可实际生成 nginx-side CA、client cert/key、`client.p12` 与密码文件
+  - 步骤 7 已补齐 explicit failure-path evidence：Windows `enable-autostart.ps1` 在非管理员 PowerShell 下会显式报错 `Administrator PowerShell is required to register the startup scheduled task.`；Linux 打包目录在 Git Bash 非 `systemd` 宿主下会显式报错 `systemctl not found ... Fallback: run scripts/install/linux/start.sh --foreground manually.`
+  - residual risk：当前 Windows 宿主上的 `install-service.ps1` 仍无法形成 PM2 正式安装实证：即使在物化后的 Windows release 目录中设置隔离的 `PM2_HOME`，直接执行 `pm2.cmd start ecosystem.config.js` 仍报 `connect EPERM //./pipe/rpc.sock`；因此“Windows 安装脚本 smoke（含自启开启 / 关闭）”仍未完成，只拿到 `start.ps1 -Foreground` 级别的 packaged runtime smoke
+  - residual risk：真实 Linux `systemd` install / enable / disable / uninstall smoke 仍未完成；当前只拿到 Git Bash 非 `systemd` fallback 显式失败证据，而本宿主上的 `wsl.exe --status` 在 30 秒窗口内仍停在无输出状态，无法提供主支持路径的本机实证
+  - residual risk：`npm run android:check-release-config` 仍按 scope-external known validation failure 失败（`server.cleartext=false`、`server.androidScheme=https` 未满足），不由本任务当前 diff 修复
 
 ## 允许修改范围
 
@@ -448,6 +452,30 @@ Forbidden Files:
   - Resolution：`README.md`、`README.zh-CN.md` 与 `docs/guides/deployment.md` 的跨平台共享 copy 步骤现已改为显式的 PowerShell / Bash 双平台写法；release 配置复制与源码本地运行准备都不再默认要求 Linux 用户具备 PowerShell。
   - Handoff：`implement-current-step`
 
+- 当前来源：`/review-implementation`（2026-05-15，步骤 7）
+- Finding ID：RIM-20260515-001
+  - Severity：P2
+  - Source：`/review-implementation`
+  - Status：resolved
+  - File / symbol：`scripts/install/windows/install-service.ps1` PM2 启动分支；`scripts/install/windows/start.ps1` 非 `-Foreground` PM2 分支
+  - Failure scenario：在 Windows PowerShell 中执行正式安装脚本，或执行 `start.ps1` 的非 `-Foreground` 分支，且系统里 `Get-Command pm2` 会先解析到 `pm2.ps1`。当前宿主已确认 `pm2.ps1` 先于 `pm2.cmd` 被解析，因此脚本里的裸 `pm2` 调用可能先命中 execution policy 失败，而不是稳定进入已记录的 `pm2.cmd ... connect EPERM //./pipe/rpc.sock` host-level blocked 路径。
+  - Minimal fix direction：在当前 Allowed Files 范围内，把 Windows 正式 PM2 调用统一切到显式可控的 `pm2.cmd` 解析路径，并让 `install-service.ps1` / `start.ps1` 的正式入口与已记录的 PM2 root-cause 证据保持一致；不要顺手改动 `fork` 基线或扩大到 scope 外运行时逻辑。
+  - Required test：至少补一条 Windows PowerShell 下的正式 PM2 分支 smoke，证明脚本不再先命中 `pm2.ps1`；同时更新步骤 7 的任务证据，明确区分“脚本入口已正确分发到 `pm2.cmd`”与“宿主 PM2 daemon 仍因 named-pipe / EPERM blocked”这两层结论。
+  - Resolution：`scripts/install/windows/common.ps1` 新增 `Resolve-TermLinkPm2Command`，显式优先解析 `pm2.cmd`；`install-service.ps1` 与 `start.ps1` 的正式 PM2 分支已统一通过该 helper 调用 `.cmd` shim，不再依赖裸 `pm2` 的 PowerShell 命令优先级。
+  - Handoff：`review-diff`
+
+- 当前来源：`/review-diff`（2026-05-15，步骤 7）
+- Finding ID：RDF-20260515-001
+  - Severity：P2
+  - Source：`/review-diff`
+  - Status：resolved
+  - File / symbol：`scripts/install/windows/uninstall-service.ps1` PM2 清理分支
+  - Failure scenario：当前 `install-service.ps1` 与 `start.ps1` 已改为显式走 `pm2.cmd`，但 `uninstall-service.ps1` 仍用裸 `pm2` 执行 `stop` / `delete` / `save`。在 Windows PowerShell 里如果 `Get-Command pm2` 先解析到 `pm2.ps1`，卸载路径仍可能先命中 execution policy 失败，导致“Windows 正式 PM2 调用统一切到 `pm2.cmd`”的收口不完整。
+  - Minimal fix direction：在当前 Allowed Files 范围内，让 `uninstall-service.ps1` 复用 `Resolve-TermLinkPm2Command` 或等价 helper，显式优先调用 `pm2.cmd` 做 PM2 stop/delete/save；若 `pm2.cmd` 缺失，保持现有“跳过 PM2 cleanup 并告警”的兼容分支，不扩展到 scope 外运行时逻辑。
+  - Required test：至少补一条 Windows PowerShell 下的卸载 PM2 分支 smoke，证明 `uninstall-service.ps1` 不再先命中 `pm2.ps1`；同时复跑 PowerShell parser 与 `git diff --check -- scripts/install/windows/common.ps1 scripts/install/windows/uninstall-service.ps1 docs/workflow/CURRENT_TASK.md`。
+  - Resolution：`scripts/install/windows/uninstall-service.ps1` 已复用 `Resolve-TermLinkPm2Command -AllowMissing`，在 PM2 清理分支显式优先调用 `pm2.cmd` 做 `stop` / `delete` / `save`；若缺少 `pm2.cmd` 则继续保持“跳过 PM2 cleanup 并告警”的兼容行为。
+  - Handoff：`review-diff`
+
 ## 传播治理记录
 
 ### change_start_set
@@ -647,27 +675,28 @@ Forbidden Files:
 
 ### blockers / gate status
 
-- 当前执行步骤：step6_regression_passed_ready_for_status_sync
+- 当前执行步骤：step7_release_smoke_partial_blocked
 - 已完成 discovery：
   - workflow governance docs
   - README / README.zh-CN / deployment guide
   - `.env.example`
   - TLS config and health route
 - 剩余 blocker：
-  - none for current release/install/tooling scope
+  - 当前 Windows 宿主上的 PM2 daemon 无法给 `install-service.ps1` 提供正式安装实证：`pm2 start ecosystem.config.js` 与隔离 `PM2_HOME` 下的 `pm2.cmd ping` 都稳定报 `connect EPERM //./pipe/rpc.sock`，因此该卡点更像宿主 PM2 / named-pipe 环境问题，而不是 release 脚本路径分发问题
+  - Linux 主支持路径只拿到 non-systemd fallback 证据，尚未拿到真实 `systemd` host 的 install / enable / disable / uninstall smoke；本宿主上的 `wsl.exe` systemd 探测在 15 秒窗口内超时
 - `npm run android:check-release-config` 仍是 scope-external known validation failure；它属于 Android Capacitor release 安全门禁，与本任务服务端 release/install/tooling diff 无直接实现耦合，不阻塞当前步骤，后续需单独决定修复路径
 - `ContractCompatibilityResult`：
   - error_code：none
   - object_path：release/install/tooling surface
-  - severity：low
-  - default_blocker_level：status-sync-ready
-  - evidence：步骤 6 文档收口及其 Linux 可执行性修复已完成，并通过 review / contracts / regression 链，当前仍保持 backward-compatible 策略
+  - severity：medium
+  - default_blocker_level：release-smoke-blocked
+  - evidence：步骤 7 已补齐真实打包目录 / 压缩包生成、packaged HTTP 与 direct mTLS 前台运行 smoke、nginx-side mTLS 工具 smoke，以及 Windows 非管理员自启失败 / Linux 非 `systemd` fallback 显式失败证据；但 PM2 正式安装链和 Linux `systemd` 主支持路径仍缺宿主实证
   - strategy_origin.over_limit_policy_branch：single-task bounded
-  - strategy_origin.divergence_state：step6 docs finalized, final release smoke pending
-  - branch_gate_mapping.merge_gate：sync-status
+  - strategy_origin.divergence_state：step7 partial smoke complete, host-level install proof still blocked
+  - branch_gate_mapping.merge_gate：ask-user
   - branch_gate_mapping.ship_gate：run-regression after steps 2-7
-  - branch_gate_mapping.rationale：步骤 6 的文档收口与 Linux 文档可执行性修复均已完成，并重新通过 `/review-diff`、`/review-implementation`、`/verify-contracts` 与 `/run-regression`；下一步应同步项目级状态，然后进入步骤 7
-  - suggested_resolution：先执行 `/sync-status` 回写项目级状态，再推进步骤 7 的最终 release smoke 与剩余 release-readiness 证据
+  - branch_gate_mapping.rationale：步骤 7 已完成打包结构对齐、packaged runtime smoke、mTLS 工具 smoke 与显式失败路径验证，但当前共享宿主无法给出 Windows PM2 install-service 与 Linux `systemd` 主支持路径的最终实证；继续推进前需要用户决定是继续追宿主级 smoke，还是接受当前 partial evidence 并保留 blocked risk
+  - suggested_resolution：回到 `/ask-user`，确认是否继续把步骤 7 的剩余卡点（Windows PM2 install-service host proof / Linux systemd host proof）作为后续修复或验证目标
 
 ### conformance / verification cases
 
@@ -729,6 +758,13 @@ Forbidden Files:
   - 输入：前 1-6 步全部落地后的脚本与文档。
   - 输出：Windows / Linux 安装 smoke、mTLS 工具 smoke、`/api/health` 验证与现有命令回归证据。
   - 单步验证：回归检查项中的每条都能归档到明确证据；若有 blocked risk，必须显式写回任务记录。
+  - 当前进展（2026-05-15）：
+    - `release-layout.js` 与 `build-release.js` 已修复为真实打包实现：物化 `dist/release-layout/<artifact>/` 目录、生成 `.zip/.tar.gz`，并把包内路径统一到 `scripts/install/**` / `scripts/certs/**` / `setup-service.sh`
+    - Windows 打包目录下的 `start.ps1 -Foreground` + `test-health.ps1` 已验证 HTTP 与 direct mTLS 两条 packaged runtime 路径；direct mTLS 证书材料会在打包目录中真实生成
+    - Windows `enable-autostart.ps1` 在非管理员 PowerShell 下会显式失败；Linux 打包目录在 Git Bash 非 `systemd` 宿主下会显式给出 fallback，不会伪装为安装成功
+    - 最新 diff-aware regression 已再次确认 4 个 Windows 安装脚本 parser 通过、`Resolve-TermLinkPm2Command` 稳定解析到 `pm2.cmd`、`node --test tests\releaseLayout.test.js tests\directMtlsInstaller.test.js tests\nginxMtlsTool.test.js tests\tlsConfig.test.js tests\health.route.test.js` 通过（30/30），且 `npm run release:build` 仍可生成 Windows / Linux 真实打包目录与压缩包
+    - 继续追宿主实证后，物化 Windows release 目录里的 `pm2.cmd start ecosystem.config.js` 在隔离 `PM2_HOME` 下仍稳定报 `connect EPERM //./pipe/rpc.sock`；`wsl.exe --status` 在本宿主 30 秒窗口内仍卡住无输出，因此剩余卡点继续收敛为宿主级 blocked
+    - 仍缺真实 Windows PM2 install-service 和 Linux `systemd` 主支持路径的宿主实证，因此本步骤保持未完成并继续标记 blocked
 
 ## 回归检查项
 
@@ -809,3 +845,15 @@ Forbidden Files:
 - 2026-05-14：`/review-implementation` 对步骤 6 finding 修复结论 clean。双平台 copy 写法已覆盖 Linux bash-only 路径的原始失败场景，同时保留既有 Windows PowerShell 路径；修复保持最小化，只落在文档示例与 finding 状态同步，未改变 release/install/tooling 的运行时语义。External Documentation Gate no-op：clean 判断仅依赖仓库内文档文本和现有脚本事实，不依赖新的第三方 current behavior。
 - 2026-05-14：`/verify-contracts` 对步骤 6 finding 修复结论 clean。当前 diff 未触碰 `src` / `android` / `public`、锁定 API / DTO / 表结构、`data/sessions.json` 或架构依赖方向；无需修改 `docs/workflow/CONTRACTS.md` 即可解释本轮文档修复。
 - 2026-05-14：`/run-regression` 以 diff-aware 模式通过。沿用 `working-tree` 对 `HEAD` 并显式包含 untracked files 作为 diff review target；执行 `git diff --check -- README.md README.zh-CN.md docs/guides/deployment.md docs/workflow/CURRENT_TASK.md`，并核对三份文档均已同时给出 PowerShell `Copy-Item` 与 Bash `cp` 的跨平台 copy 写法，全部通过。Browser/session requirement 与 visual evidence 不适用；release evidence 追加为“步骤 6 的 Linux 文档可执行性问题已补齐，但真实 Windows / Linux install smoke、安装后 `/api/health` 端到端验证与步骤 7 最终 release smoke 仍待后续落地”。
+- 2026-05-15：`/implement-current-step` 进入步骤 7。先根据真实 smoke 结果修复了两处直接阻塞：1）`scripts/release/release-layout.js` 与 `scripts/release/build-release.js` 现在会按仓库实际路径物化 `scripts/install/**` / `scripts/certs/**` / `setup-service.sh` 到 `dist/release-layout/<artifact>/`，并同时生成 `.zip/.tar.gz`；2）Windows 安装脚本新增 `Install-TermLinkNodeDependenciesIfNeeded`，在 `install-service.ps1` 与 `start.ps1` 中复用，从而不再假定打包目录预装 `node_modules`。同时新增 `tests/releaseLayout.test.js`，把 release layout 的路径对齐和物化清单纳入自动回归。
+- 2026-05-15：步骤 7 最小回归通过：`node --test tests\releaseLayout.test.js tests\directMtlsInstaller.test.js tests\nginxMtlsTool.test.js tests\tlsConfig.test.js tests\health.route.test.js` 通过（30/30）；`node --test tests\tlsConfig.test.js tests\workspace.routes.test.js tests\workspace.web.test.js tests\sessionStore.metadata.test.js tests\terminal_shortcut_input.test.js tests\codexSecondaryPanel.integration.test.js` 通过（99/99，duration_ms 1853.2668）；`npm run release:build` 通过并生成真实打包目录与 `termlink-win-v1.0.0.zip` / `termlink-linux-v1.0.0.tar.gz`，压缩包顶层目录分别为 `termlink-win-v1.0.0/` 与 `termlink-linux-v1.0.0/`。
+- 2026-05-15：步骤 7 packaged runtime smoke 通过：Windows 打包目录下 `start.ps1 -Foreground` + `test-health.ps1` 在 `tls.mode=off` 场景返回 `Health OK HTTP 200`；direct server-side mTLS 场景先通过 `scripts/certs/generate-direct-mtls.js` 生成 `client-ca.crt`、`server.crt`、`server.key`、`client.p12` 与 `client-password.txt`，随后 `start.ps1 -Foreground` + `test-health.ps1` 同样返回 `Health OK HTTP 200`；打包目录下 `scripts/certs/generate-nginx-mtls.js` 也已实际生成 nginx-side CA、client cert/key、`client.p12` 与密码文件。
+- 2026-05-15：步骤 7 explicit-failure smoke 通过：Windows `enable-autostart.ps1` 在非管理员 PowerShell 下明确报错 `Administrator PowerShell is required to register the startup scheduled task.`；Linux 打包目录在 Git Bash 非 `systemd` 宿主下明确报错 `systemctl not found ... Fallback: run scripts/install/linux/start.sh --foreground manually.` External Documentation Gate no-op：本步只修复仓库内打包 / 安装脚本路径与既有 helper 复用，不新增第三方 current behavior 判断。
+- 2026-05-15：补充 Windows PM2 root-cause 证据。`powershell.exe` 下直接调用 `pm2.ps1` 会先命中 execution policy，改用 `pm2.cmd` 后在隔离 `PM2_HOME` 目录里执行 `pm2.cmd ping` 仍稳定报 `connect EPERM //./pipe/rpc.sock`；因此当前 Windows install-service 卡点继续判定为宿主 PM2 / named-pipe 环境 blocked，而不是 `scripts/install/windows/**` 内部的命令路径分发错误。
+- 2026-05-15：`/implement-current-step` 修复步骤 7 open finding `RIM-20260515-001`。`scripts/install/windows/common.ps1` 新增 `Resolve-TermLinkPm2Command`，显式优先解析 `pm2.cmd`；`scripts/install/windows/install-service.ps1` 与 `scripts/install/windows/start.ps1` 的正式 PM2 分支均改为通过该 helper 调用 `.cmd` shim，避免 PowerShell 先命中 `pm2.ps1` 的 execution policy 路径。最小验证：`Resolve-TermLinkPm2Command` 在当前宿主返回 `D:\ProgramCode\nodejs\pm2.cmd`；隔离 `PM2_HOME` 下通过该 helper 执行 `pm2.cmd ping` 仍报 `connect EPERM //./pipe/rpc.sock`，说明脚本入口已正确分发到 `pm2.cmd`，剩余 blocked 面继续收敛为宿主 PM2 / named-pipe 环境问题。External Documentation Gate no-op：本轮仅修项目内 PowerShell 命令解析与现有 PM2 调用入口，不新增或质疑第三方 current behavior。
+- 2026-05-15：`/implement-current-step` 修复步骤 7 open finding `RDF-20260515-001`。`scripts/install/windows/uninstall-service.ps1` 现已复用 `Resolve-TermLinkPm2Command -AllowMissing`，PM2 清理分支显式优先调用 `pm2.cmd` 执行 `stop` / `delete` / `save`；若缺少 `pm2.cmd`，则继续走“跳过 PM2 cleanup 并告警”的兼容路径。最小验证：PowerShell parser 对 `common.ps1` 与 `uninstall-service.ps1` 通过；静态检查确认 `uninstall-service.ps1` 已使用 `Resolve-TermLinkPm2Command -AllowMissing` 且不再包含裸 `& pm2` 调用；隔离 `PM2_HOME` 下通过同一 helper 解析到 `D:\ProgramCode\nodejs\pm2.cmd` 并执行 `pm2.cmd ping`，结果仍为宿主级 `connect EPERM //./pipe/rpc.sock`，未再出现 execution policy 失败；`git diff --check -- scripts/install/windows/common.ps1 scripts/install/windows/uninstall-service.ps1 docs/workflow/CURRENT_TASK.md` 通过。External Documentation Gate no-op：本轮只把现有 PM2 命令解析 helper 传播到卸载脚本，不新增或质疑第三方 current behavior。
+- 2026-05-15：步骤 7 仍保持 blocked。当前 Windows 宿主上直接运行 `install-service.ps1` 时，PM2 daemon 稳定报 `connect EPERM //./pipe/rpc.sock`；即使设置隔离的 `PM2_HOME` 并绕过 `pm2.ps1` 改用 `pm2.cmd` 也仍复现，因此尚未拿到正式 PM2 install-service 成功证据。Linux 主支持路径方面，本宿主上的 `wsl.exe` systemd 探测在 15 秒窗口内未返回，只能记录为 host-level blocked reason；`npm run android:check-release-config` 继续按 scope-external known validation failure 记录。
+- 2026-05-15：`/verify-contracts` 对步骤 7 当前 diff 结论 clean。沿用 `working-tree` 对 `HEAD` 并显式包含 untracked files 作为 diff review target；当前变更只落在 `scripts/install/windows/**`、`scripts/release/**`、条件授权的 `tests/releaseLayout.test.js` 与 `docs/workflow/CURRENT_TASK.md`，未触碰 `src/routes/sessions.js`、`src/routes/workspace.js`、`src/services/sessionManager.js`、`src/repositories/sessionStore.js`、`src/ws/terminalGateway.js`、`data/sessions.json`、`android/**` 或 `public/**`，也未改变锁定 API / DTO、依赖方向或目录职责。
+- 2026-05-15：`/run-regression` 以 diff-aware 模式通过。沿用 `working-tree` 对 `HEAD` 并显式包含 untracked files 作为 diff review target；执行 `node --test tests\releaseLayout.test.js tests\directMtlsInstaller.test.js tests\nginxMtlsTool.test.js tests\tlsConfig.test.js tests\health.route.test.js`（30/30 pass）、`npm run release:build`、4 个 Windows 安装脚本的 PowerShell parser、`Resolve-TermLinkPm2Command` 路径 smoke，以及 `git diff --check -- scripts\install\windows\common.ps1 scripts\install\windows\install-service.ps1 scripts\install\windows\start.ps1 scripts\install\windows\uninstall-service.ps1 scripts\release\build-release.js scripts\release\release-layout.js tests\releaseLayout.test.js`（仅有 LF/CRLF warning，无 whitespace error）；`dist\release-layout\termlink-win-v1.0.0(.zip)` 与 `termlink-linux-v1.0.0(.tar.gz)` 均重新生成。Browser/session requirement 与 visual evidence 不适用；Windows PM2 helper 已稳定分发到 `pm2.cmd`，但在隔离 `PM2_HOME` 下执行 `pm2.cmd ping` 仍报 `connect EPERM //./pipe/rpc.sock`，继续作为宿主级 blocked reason 保留，不判定为当前 diff 新回归。
+- 2026-05-15：继续执行步骤 7 的 host-level smoke。对 `dist\release-layout\termlink-win-v1.0.0` 设置隔离 `PM2_HOME` 后直接运行 `pm2.cmd start ecosystem.config.js`，结果仍稳定报 `connect EPERM //./pipe/rpc.sock` 并以 exit code 1 退出，说明 blocked 现象在物化后的 Windows release 目录里依旧存在，不是仅限源代码目录的脚本分发问题。External Documentation Gate no-op：本轮只继续收集当前宿主的 PM2 / WSL 行为证据，不新增或质疑第三方 current behavior 依赖。
+- 2026-05-15：继续执行步骤 7 的 Linux host probe。`wsl.exe --status` 在本宿主 30 秒等待窗口内仍停在无输出状态，无法返回可用的 `systemd` 状态或 distro 信息；因此 Linux `systemd` 主支持路径继续保持 host-level blocked，不把 Git Bash fallback 误写成主支持路径通过。

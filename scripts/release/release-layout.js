@@ -11,14 +11,14 @@ const SUPPORTED_PLATFORMS = Object.freeze({
         deployStrategy: 'pm2-scheduled-task',
         existingFiles: ['ecosystem.config.js'],
         plannedFiles: [
-            { path: 'deploy-scripts/install-service.ps1', status: 'implemented-step2', step: 2, reason: 'Windows install entry' },
-            { path: 'deploy-scripts/uninstall-service.ps1', status: 'implemented-step2', step: 2, reason: 'Windows uninstall entry' },
-            { path: 'deploy-scripts/enable-autostart.ps1', status: 'implemented-step2', step: 2, reason: 'Windows scheduled task enable entry' },
-            { path: 'deploy-scripts/disable-autostart.ps1', status: 'implemented-step2', step: 2, reason: 'Windows scheduled task disable entry' },
-            { path: 'deploy-scripts/start.ps1', status: 'implemented-step2', step: 2, reason: 'Windows start helper' },
-            { path: 'deploy-scripts/test-health.ps1', status: 'implemented-step2', step: 2, reason: 'Windows health check helper' },
-            { path: 'deploy-scripts/common.ps1', status: 'implemented-step2', step: 2, reason: 'Windows install config and health helper functions' },
-            { path: 'deploy-scripts/pm2-admin-startup.cmd', status: 'implemented-step2', step: 2, reason: 'Windows auto-start bootstrap wrapper' }
+            { path: 'scripts/install/windows/install-service.ps1', status: 'implemented-step2', step: 2, reason: 'Windows install entry' },
+            { path: 'scripts/install/windows/uninstall-service.ps1', status: 'implemented-step2', step: 2, reason: 'Windows uninstall entry' },
+            { path: 'scripts/install/windows/enable-autostart.ps1', status: 'implemented-step2', step: 2, reason: 'Windows scheduled task enable entry' },
+            { path: 'scripts/install/windows/disable-autostart.ps1', status: 'implemented-step2', step: 2, reason: 'Windows scheduled task disable entry' },
+            { path: 'scripts/install/windows/start.ps1', status: 'implemented-step2', step: 2, reason: 'Windows start helper' },
+            { path: 'scripts/install/windows/test-health.ps1', status: 'implemented-step2', step: 2, reason: 'Windows health check helper' },
+            { path: 'scripts/install/windows/common.ps1', status: 'implemented-step2', step: 2, reason: 'Windows install config and health helper functions' },
+            { path: 'scripts/install/windows/pm2-admin-startup.cmd', status: 'implemented-step2', step: 2, reason: 'Windows auto-start bootstrap wrapper' }
         ],
         notes: [
             'Retain ecosystem.config.js and PM2 fork mode as the Windows runtime baseline.',
@@ -31,16 +31,16 @@ const SUPPORTED_PLATFORMS = Object.freeze({
         archiveExtension: '.tar.gz',
         buildEntry: 'npm run release:build:linux',
         deployStrategy: 'systemd',
-        existingFiles: [],
+        existingFiles: ['setup-service.sh'],
         plannedFiles: [
-            { path: 'deploy-scripts/install-service.sh', status: 'implemented-step3', step: 3, reason: 'Linux systemd install entry' },
-            { path: 'deploy-scripts/uninstall-service.sh', status: 'implemented-step3', step: 3, reason: 'Linux systemd uninstall entry' },
-            { path: 'deploy-scripts/enable-autostart.sh', status: 'implemented-step3', step: 3, reason: 'Linux systemd enable entry' },
-            { path: 'deploy-scripts/disable-autostart.sh', status: 'implemented-step3', step: 3, reason: 'Linux systemd disable entry' },
-            { path: 'deploy-scripts/start.sh', status: 'implemented-step3', step: 3, reason: 'Linux start helper' },
-            { path: 'deploy-scripts/test-health.sh', status: 'implemented-step3', step: 3, reason: 'Linux health check helper' },
-            { path: 'deploy-scripts/common.sh', status: 'implemented-step3', step: 3, reason: 'Linux install config and systemd helper functions' },
-            { path: 'deploy-scripts/termlink.service.template', status: 'implemented-step3', step: 3, reason: 'Systemd unit template' }
+            { path: 'scripts/install/linux/install-service.sh', status: 'implemented-step3', step: 3, reason: 'Linux systemd install entry' },
+            { path: 'scripts/install/linux/uninstall-service.sh', status: 'implemented-step3', step: 3, reason: 'Linux systemd uninstall entry' },
+            { path: 'scripts/install/linux/enable-autostart.sh', status: 'implemented-step3', step: 3, reason: 'Linux systemd enable entry' },
+            { path: 'scripts/install/linux/disable-autostart.sh', status: 'implemented-step3', step: 3, reason: 'Linux systemd disable entry' },
+            { path: 'scripts/install/linux/start.sh', status: 'implemented-step3', step: 3, reason: 'Linux start helper' },
+            { path: 'scripts/install/linux/test-health.sh', status: 'implemented-step3', step: 3, reason: 'Linux health check helper' },
+            { path: 'scripts/install/linux/common.sh', status: 'implemented-step3', step: 3, reason: 'Linux install config and systemd helper functions' },
+            { path: 'scripts/install/linux/termlink.service.template', status: 'implemented-step3', step: 3, reason: 'Systemd unit template' }
         ],
         notes: [
             'Linux auto-start support is intentionally limited to systemd in this task.',
@@ -67,8 +67,8 @@ const SHARED_CERT_TOOL_ENTRIES = Object.freeze([
 ]);
 
 const SHARED_PLANNED_ENTRIES = Object.freeze([
-    { path: 'install.config.example.json', kind: 'file', status: 'implemented-step2', step: 2, reason: 'Shared install configuration template' },
-    { path: 'deploy-scripts/', kind: 'directory', status: 'planned', step: 2, reason: 'Cross-platform install and service helpers' },
+    { path: 'scripts/install/termlink-install.config.example.json', kind: 'file', status: 'implemented-step2', step: 2, reason: 'Shared install configuration template' },
+    { path: 'scripts/install/', kind: 'directory', status: 'implemented-step2', step: 2, reason: 'Cross-platform install and service helpers' },
     ...SHARED_CERT_TOOL_ENTRIES,
     { path: 'certs/', kind: 'directory', status: 'implemented-step4', step: 4, reason: 'Direct mTLS output and shared cert storage' },
     { path: 'data/', kind: 'directory', status: 'planned', step: 2, reason: 'Runtime state directory' },
@@ -121,6 +121,35 @@ function buildPackageEntries(platformKey) {
     ];
 }
 
+function getMaterializedReleaseEntries(platformKey) {
+    assertSupportedPlatform(platformKey);
+
+    const baseEntries = [
+        { source: 'src', target: 'src', kind: 'directory' },
+        { source: 'public', target: 'public', kind: 'directory' },
+        { source: 'package.json', target: 'package.json', kind: 'file' },
+        { source: 'package-lock.json', target: 'package-lock.json', kind: 'file' },
+        { source: '.env.example', target: '.env.example', kind: 'file' },
+        { source: 'scripts/install/termlink-install.config.example.json', target: 'scripts/install/termlink-install.config.example.json', kind: 'file' },
+        { source: 'scripts/certs', target: 'scripts/certs', kind: 'directory' },
+        { target: 'certs', kind: 'directory' },
+        { target: 'data', kind: 'directory' },
+        { target: 'logs', kind: 'directory' }
+    ];
+
+    const platformEntries = platformKey === 'win'
+        ? [
+            { source: 'ecosystem.config.js', target: 'ecosystem.config.js', kind: 'file' },
+            { source: 'scripts/install/windows', target: 'scripts/install/windows', kind: 'directory' }
+        ]
+        : [
+            { source: 'setup-service.sh', target: 'setup-service.sh', kind: 'file' },
+            { source: 'scripts/install/linux', target: 'scripts/install/linux', kind: 'directory' }
+        ];
+
+    return [...baseEntries, ...platformEntries];
+}
+
 function getReleasePlan(version, platformKey) {
     assertSupportedPlatform(platformKey);
     const platform = SUPPORTED_PLATFORMS[platformKey];
@@ -149,5 +178,6 @@ module.exports = {
     SUPPORTED_PLATFORMS,
     getArtifactBaseName,
     getArtifactName,
-    getReleasePlan
+    getReleasePlan,
+    getMaterializedReleaseEntries
 };

@@ -107,7 +107,8 @@ function Read-TermLinkInstallConfig {
         $config.mtls | Add-Member -NotePropertyName opensslPath -NotePropertyValue 'openssl' -Force
     }
     if (-not $config.mtls.serverOutputDir) {
-        $config.mtls | Add-Member -NotePropertyName serverOutputDir -NotePropertyValue ($config.tls.certDir ? [string]$config.tls.certDir : './certs') -Force
+        $defaultServerOutputDir = if ($config.tls.certDir) { [string]$config.tls.certDir } else { './certs' }
+        $config.mtls | Add-Member -NotePropertyName serverOutputDir -NotePropertyValue $defaultServerOutputDir -Force
     }
     if (-not $config.mtls.clientOutputDir) {
         $defaultClientOutputDir = Join-Path ([string]$config.mtls.serverOutputDir) 'clients'
@@ -276,6 +277,50 @@ function Initialize-TermLinkRuntimeDirs {
             New-Item -Path $target -ItemType Directory -Force | Out-Null
         }
     }
+}
+
+function Install-TermLinkNodeDependenciesIfNeeded {
+    param([string]$ProjectRoot)
+
+    if (Test-Path -LiteralPath (Join-Path $ProjectRoot 'node_modules')) {
+        return
+    }
+
+    $npmCommand = Get-Command npm.cmd -ErrorAction SilentlyContinue
+    if (-not $npmCommand) {
+        throw 'npm not found and node_modules is missing. Install npm or prepack dependencies first.'
+    }
+
+    Push-Location $ProjectRoot
+    try {
+        & $npmCommand.Source install --omit=dev
+        if ($LASTEXITCODE -ne 0) {
+            throw "npm install --omit=dev failed with exit code $LASTEXITCODE"
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function Resolve-TermLinkPm2Command {
+    param([switch]$AllowMissing)
+
+    $pm2Cmd = Get-Command pm2.cmd -ErrorAction SilentlyContinue
+    if ($pm2Cmd) {
+        return $pm2Cmd.Source
+    }
+
+    if ($AllowMissing) {
+        return $null
+    }
+
+    $pm2Ps1 = Get-Command pm2.ps1 -ErrorAction SilentlyContinue
+    if ($pm2Ps1) {
+        throw "pm2.cmd not found in PATH. PowerShell currently resolves pm2 to $($pm2Ps1.Source); use the Windows pm2.cmd shim to avoid execution policy failures."
+    }
+
+    throw 'pm2.cmd not found in PATH. Install PM2 first.'
 }
 
 function Get-TermLinkDirectMtlsScriptPath {

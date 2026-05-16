@@ -75,6 +75,15 @@
   - 触发信号：
   - 应对动作：
 
+- 场景：Windows PowerShell 下做 release / installer smoke 时，脚本里的裸 `pm2` 调用会先被解析到 `pm2.ps1`，导致 execution policy 错误把真正的 PM2 daemon / named-pipe 问题遮住。
+  - 结论：只要验证路径经过 PowerShell 的正式 PM2 分支，就不要直接调用裸 `pm2`；应显式优先解析 `pm2.cmd`，并用隔离 `PM2_HOME` 的 `pm2.cmd ping` 把“脚本入口分发错误”和“宿主 PM2 / named-pipe blocked”分开取证。
+  - 触发信号：`Get-Command pm2` 先返回 `pm2.ps1`；Windows install/start/uninstall 的 PM2 路径先报 execution policy，或同一宿主同时出现 `pm2.ps1` 与 `connect EPERM //./pipe/rpc.sock` 两类失败。
+  - 应对动作：
+    1. 先在脚本侧提供统一 helper，显式优先解析 `pm2.cmd`，不要在 PowerShell 脚本里裸调 `pm2`。
+    2. 先跑 PowerShell parser，确认 install/start/uninstall 入口都接入同一 helper。
+    3. 用隔离 `PM2_HOME` 运行 `pm2.cmd ping` 或等价最小 smoke，记录失败是 execution policy 还是 `connect EPERM //./pipe/rpc.sock`。
+    4. 若切到 `pm2.cmd` 后仍稳定报 `EPERM`，就把它归类为宿主级 blocked reason，不要再误判为 release 脚本路径分发回归。
+
 - 场景：开源 release 任务同时覆盖 Windows / Linux 打包、安装脚本、自启和证书工具，如果一开始就直接实现 installer，包结构、脚本落点和文档入口很容易一起漂移，后续 diff 也难审计。
   - 结论：这类任务先做“release 结构收敛步骤”更稳妥——先落统一的 repo-level 构建入口，以及 machine-readable 的 `release-manifest.json` / `release-contents.txt`，把 artifact 命名、包内目录和脚本落点固定下来，再分步骤实现 Windows / Linux installer 与 mTLS 工具。
   - 触发信号：任务同时要求跨平台 release、后续 installer/mTLS 工具分步落地，而且 scope 已锁定但平台脚本尚未实现。

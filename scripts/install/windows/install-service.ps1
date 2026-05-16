@@ -30,23 +30,31 @@ if (-not (Test-Path -LiteralPath (Join-Path $InstallRoot 'ecosystem.config.js'))
 Write-TermLinkEnv -ProjectRoot $InstallRoot -Config $Config
 Initialize-TermLinkRuntimeDirs -ProjectRoot $InstallRoot -Config $Config
 $directMtls = Invoke-TermLinkDirectMtlsGeneration -InstallRoot $InstallRoot -ConfigPath $ResolvedConfigPath
+Install-TermLinkNodeDependenciesIfNeeded -ProjectRoot $InstallRoot
 
-if (-not (Get-Command pm2 -ErrorAction SilentlyContinue)) {
+$pm2Command = Resolve-TermLinkPm2Command -AllowMissing
+if (-not $pm2Command) {
+    $npmCommand = Get-Command npm.cmd -ErrorAction SilentlyContinue
+    if (-not $npmCommand) {
+        throw 'npm.cmd not found in PATH. Install Node.js/npm first.'
+    }
     Write-Host 'pm2 not found. Installing pm2 globally...'
-    & npm install -g pm2
+    & $npmCommand.Source install -g pm2
     if ($LASTEXITCODE -ne 0) {
         throw "npm install -g pm2 failed with exit code $LASTEXITCODE"
     }
+
+    $pm2Command = Resolve-TermLinkPm2Command
 }
 
 $env:TERMLINK_SERVICE_NAME = [string]$Config.serviceName
 Push-Location $InstallRoot
 try {
-    & pm2 start ecosystem.config.js
+    & $pm2Command start ecosystem.config.js
     if ($LASTEXITCODE -ne 0) {
         throw "pm2 start ecosystem.config.js failed with exit code $LASTEXITCODE"
     }
-    & pm2 save --force
+    & $pm2Command save --force
     if ($LASTEXITCODE -ne 0) {
         throw "pm2 save failed with exit code $LASTEXITCODE"
     }

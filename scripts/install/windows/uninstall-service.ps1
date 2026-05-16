@@ -15,10 +15,11 @@ Write-Host '=== TermLink Windows Release Uninstaller ===' -ForegroundColor Cyan
 Write-Host "Install dir : $InstallRoot"
 Write-Host "Service     : $($Config.serviceName)"
 
-if (Get-Command pm2 -ErrorAction SilentlyContinue) {
-    & pm2 stop $Config.serviceName 2>$null
-    & pm2 delete $Config.serviceName 2>$null
-    & pm2 save --force
+$pm2Command = Resolve-TermLinkPm2Command -AllowMissing
+if ($pm2Command) {
+    & $pm2Command stop $Config.serviceName 2>$null
+    & $pm2Command delete $Config.serviceName 2>$null
+    & $pm2Command save --force
     Write-Host "Removed PM2 process: $($Config.serviceName)"
 }
 else {

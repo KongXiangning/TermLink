@@ -13,22 +13,24 @@ $InstallRoot = Resolve-TermLinkInstallRoot -SourceRoot $SourceRoot -Config $Conf
 
 Write-TermLinkEnv -ProjectRoot $InstallRoot -Config $Config
 Initialize-TermLinkRuntimeDirs -ProjectRoot $InstallRoot -Config $Config
+Install-TermLinkNodeDependenciesIfNeeded -ProjectRoot $InstallRoot
 $env:TERMLINK_SERVICE_NAME = [string]$Config.serviceName
 
 Push-Location $InstallRoot
 try {
-    if ($Foreground -or -not (Get-Command pm2 -ErrorAction SilentlyContinue)) {
+    $pm2Command = if ($Foreground) { $null } else { Resolve-TermLinkPm2Command -AllowMissing }
+    if ($Foreground -or -not $pm2Command) {
         & node src/server.js
     }
     else {
-        & pm2 restart $Config.serviceName 2>$null
+        & $pm2Command restart $Config.serviceName 2>$null
         if ($LASTEXITCODE -ne 0) {
-            & pm2 start ecosystem.config.js
+            & $pm2Command start ecosystem.config.js
         }
         if ($LASTEXITCODE -ne 0) {
             throw "PM2 start/restart failed with exit code $LASTEXITCODE"
         }
-        & pm2 save --force
+        & $pm2Command save --force
         Write-Host "TermLink started via PM2: $($Config.serviceName)"
     }
 }
