@@ -19,11 +19,11 @@
 - [x] workflow-system install 与 host-local skill 文档迁移
 - [x] legacy inventory 与 adopt-existing-project 首版治理基线
 - [x] Codex 多 skill 内联 token、附件摘要历史展示与 Web/Android 回看能力：任务 `20260508-001` 已完成 Web/Android 手动 smoke、Node/Android 回归和 session/thread 关联风险 smoke，确认 skill / file / image 上下文在发送前、流式中、完成后与跨 session/cwd 切换时都不再出现本轮已知回归
+- [x] 开源 release 安装 / 打包 / mTLS 工具交付面：任务 `20260513-001` 已完成跨平台 release 构建、Windows / Linux 安装脚本、direct server-side mTLS 安装期自动生成、nginx-side mTLS 独立工具、中英文部署文档收口，以及 Windows PM2 / Linux `systemd` host smoke 确认；`npm run android:check-release-config` 仍作为任务外已知失败保留
 
 ## 🔨 正在开发
 
-- [ ] 活动任务：`20260513-001`「提供跨平台发行安装脚本与一键 mTLS 证书工具」正在推进中。当前已完成步骤 1-6，并在步骤 7 补齐了真实 release 目录 / 压缩包生成、`tests\releaseLayout.test.js` 自动回归、packaged HTTP 与 direct mTLS 前台运行 smoke、nginx-side mTLS 工具 smoke，以及 Windows 非管理员自启失败 / Linux 非 `systemd` fallback 显式失败证据；步骤 7 的 `/verify-contracts` 已 clean、diff-aware `/run-regression` 已 pass，任务状态为 `step7_release_smoke_partial_blocked`
-- [ ] 本任务的 release-readiness 当前为 `blocked`：开源 release 所需的 Windows / Linux 安装脚本、direct mTLS 安装期自动生成、nginx-side mTLS 工具与中英文 release 文档已到位，但真实 Windows PM2 `install-service.ps1` 宿主实证仍被 `connect EPERM //./pipe/rpc.sock` 阻塞，真实 Linux `systemd` install / enable / disable / uninstall smoke 仍缺宿主证据；`/api/health` 的 packaged runtime smoke 已补齐，但正式 install smoke 仍未完成
+- [ ] 当前无活动任务。`20260513-001` 已归档到 `TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md`，`CURRENT_TASK.md` 应清理为 clean handoff；下一轮需求先执行 `/create-current-task`
 
 ## 📋 待开发
 
@@ -51,9 +51,8 @@
 
 ## 🔜 下一检查点
 
-- [ ] 推进 `20260513-001` 的步骤 7：执行最终回归与 release 烟测
-- [ ] 对 `20260513-001` 补真实 Windows PM2 install-service 与 Linux `systemd` install smoke；若继续受宿主限制阻塞，明确是否接受当前 partial evidence 并保留 blocked risk
-- [ ] 对 `20260513-001` 补正式 install 路径下的 `/api/health` 端到端验证
+- [ ] 按新需求执行 `/create-current-task`，为下一轮建立新的任务包
+- [ ] 如需进一步补强开源 release 证据，可单独补正式 install 路径下的 `/api/health` 端到端验证
 - [ ] 拆分 deferred fix 任务：修复 `tests\sessionManager.codexConfig.test.js`、`tests\terminalGateway.codex.test.js`、`tests\terminalGateway.sessionid.test.js` 的挂起问题，恢复 full suite 可运行性
 - [ ] 明确 Android release 配置应通过环境覆写还是仓库默认值满足 release check
 - [ ] 决定 Android unit / integration / e2e / deploy 验证哪些正式进入门禁
@@ -78,3 +77,5 @@
 - 2026-05-14：再次同步 `20260513-001` 的当前状态。步骤 5（nginx-side mTLS 一键工具）已完成；步骤 5 的 `/review-diff`、`/review-implementation`、`/verify-contracts` 与 diff-aware `/run-regression` 全部 clean/pass，当前任务推进到 `step5_regression_passed_ready_for_status_sync`。release-readiness 仍为 `blocked`，因为真实 Windows / Linux install smoke、安装后 `/api/health` 端到端验证，以及 README / README.zh-CN / deployment guide 收口尚未完成。
 - 2026-05-14：再次同步 `20260513-001` 的当前状态。步骤 6（README / README.zh-CN / deployment guide 收口）已完成；针对 Linux 文档可执行性的 finding 修复后，步骤 6 的 `/review-diff`、`/review-implementation`、`/verify-contracts` 与 diff-aware `/run-regression` 全部 clean/pass，当前任务推进到 `step6_regression_passed_ready_for_status_sync`。release-readiness 继续保持 `blocked`，因为真实 Windows / Linux install smoke、安装后 `/api/health` 端到端验证，以及步骤 7 的最终 release smoke 仍未完成。
 - 2026-05-15：再次同步 `20260513-001` 的当前状态。步骤 7 已补齐真实 release 目录 / 压缩包生成、`tests\releaseLayout.test.js` 自动回归、packaged HTTP 与 direct mTLS 前台运行 smoke、nginx-side mTLS 工具 smoke，以及 Windows 非管理员自启失败 / Linux 非 `systemd` fallback 显式失败证据；步骤 7 当前 diff 的 `/verify-contracts` clean，diff-aware `/run-regression` 通过（30/30 tests、`npm run release:build`、4 个 Windows 安装脚本 parser、`pm2.cmd` 路径 smoke）。release-readiness 仍保持 `blocked`，因为真实 Windows PM2 `install-service.ps1` 宿主实证继续被 `connect EPERM //./pipe/rpc.sock` 阻塞，Linux `systemd` 主支持路径也仍缺本机宿主证据。
+- 2026-05-17：同步 `20260513-001` 的步骤 7 收口状态。用户已确认 Windows PM2 与 Linux `systemd` host validation 均已完成，当前任务状态推进到 `completed_ready_for_closeout`；本任务范围内的 release-readiness gate 已收口，`npm run android:check-release-config` 继续仅作为 scope-external known validation failure 保留，不阻塞当前任务 closeout。
+- 2026-05-17：完成 `20260513-001` 归档。归档文件为 `TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md`；`CURRENT_TASK.md` 已清理为 clean handoff 入口，下一步按新需求执行 `/create-current-task`。

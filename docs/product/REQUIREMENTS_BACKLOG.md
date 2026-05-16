@@ -2,7 +2,7 @@
 title: TermLink 需求池
 status: active
 owner: @maintainer
-last_updated: 2026-04-13
+last_updated: 2026-05-16
 source_of_truth: product
 related_code: []
 related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/REQ-TEMPLATE.md]
@@ -34,6 +34,7 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/product/requirements/R
 | REQ-20260408-codex-native-android-migration | Codex Android 全原生并行迁移与多 CLI 提供方扩展基线 | P1 | done | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260408-codex-native-android-migration.md`, `docs/product/plans/PLAN-20260408-codex-native-android-migration.md` |
 | REQ-20260413-relay-control-plane-and-transparent-transit | Relay 控制平面与透明中转模式 | P1 | planned | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260413-relay-control-plane-and-transparent-transit.md` |
 | REQ-20260415-codex-android-runtime-interaction-fixes | Codex Android 运行态一致性、通知与关键交互修复 | P1 | in_progress | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260415-codex-android-runtime-interaction-fixes.md`, `docs/product/plans/PLAN-20260415-codex-android-runtime-interaction-fixes.md` |
+| REQ-20260516-codex-mobile-realtime-sync | Codex 手机端与 CLI / 桌面端实时同步 | P1 | planned | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260516-codex-mobile-realtime-sync.md` |
 | REQ-20260318-ws-0001-docs-exp | Codex Workspace 文件浏览与 Diff 查看（原产品编号 REQ-WS-0001） | P1 | done | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260318-WS-0001-docs-exp.md` |
 | REQ-20260324-session-list-local-cache | Android 会话列表本地缓存与离线回显 | P1 | done | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260324-session-list-local-cache.md` |
 | REQ-20260326-android-profile-mtls-runtime-certificate | Android Profile 级 mTLS 运行时证书选择 | P1 | done | @maintainer | 2026-Q2 | `docs/product/requirements/REQ-20260326-android-profile-mtls-runtime-certificate.md` |

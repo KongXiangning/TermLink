@@ -1,9 +1,11 @@
 # TermLink 宿主验证指导
 
-本文件只用于手动验证当前 step 7 剩余的两个宿主级卡点：
+本文件只用于手动验证当前 step 7 剩余的宿主级卡点和 release 安装能力：
 
 1. Windows PM2 daemon / named-pipe 环境
 2. Linux `systemd` 主支持路径
+3. direct server-side mTLS 安装后健康检查
+4. nginx-side mTLS 证书工具生成结果
 
 ## 一、统一原则
 
@@ -15,6 +17,7 @@
    - 关键 stdout / stderr
    - 宿主信息
 4. 只要出现明确的宿主阻塞信号，就停止继续“修脚本”，直接记为 host-level blocked。
+5. PM2 / systemd 基础服务通过只代表明文 HTTP 或服务托管路径通过，不等于 mTLS 能力通过；mTLS 必须单独保留证据。
 
 ## 二、Windows PM2 手动验证
 
@@ -166,7 +169,7 @@ pm2 show termlink-smoke
 - 这类情况不代表当前 release 验证通过，只说明你复用了旧 PM2 服务。
 - 先回到步骤 F，把 `serviceName` 改成新的唯一值，再重新执行步骤 G。
 
-### 步骤 H：验证安装后的健康状态
+### 步骤 H：验证安装后的基础 HTTP 健康状态
 
 如果你没有改 `install-smoke.config.json` 里的默认认证配置，可以直接按下面的默认值验证：
 
@@ -204,6 +207,96 @@ pm2 show termlink-smoke
 3. `pm2 show termlink-smoke` 的 `script path` / `exec cwd` 明确指向当前 release 目录
 4. `pm2 logs` 中没有立即导致退出的启动错误
 
+### 步骤 H.1：验证 direct server-side mTLS 安装链路
+
+基础 HTTP 通过后，只能说明 PM2 和普通健康检查可用。若要声明 direct mTLS 支持通过，必须用单独配置重跑安装和健康检查。
+
+#### 准备 direct mTLS smoke 配置
+
+建议使用新的服务名和端口，避免与基础 HTTP smoke 共享 PM2 状态或证书目录：
+
+```powershell
+Copy-Item .\scripts\install\termlink-install.config.example.json .\install-mtls-direct.config.json
+$cfg = Get-Content .\install-mtls-direct.config.json -Raw | ConvertFrom-Json
+$cfg.serviceName = 'termlink-smoke-mtls'
+$cfg.port = 3011
+$cfg.autoStart = $false
+$cfg.tls.mode = 'direct'
+$cfg.tls.clientCertPolicy = 'require'
+$cfg.tls.certDir = './certs/direct-smoke'
+$cfg.tls.serverCert = './certs/direct-smoke/server.crt'
+$cfg.tls.serverKey = './certs/direct-smoke/server.key'
+$cfg.tls.caCert = './certs/direct-smoke/client-ca.crt'
+$cfg.mtls.deployment = 'direct-server'
+$cfg.mtls.generateDirectServerCertificates = $true
+$cfg.mtls.serverOutputDir = './certs/direct-smoke'
+$cfg.mtls.clientOutputDir = './certs/direct-smoke/clients'
+$cfg.mtls.opensslPath = 'C:\Program Files\Git\usr\bin\openssl.exe'
+$cfg | ConvertTo-Json -Depth 8 | Set-Content .\install-mtls-direct.config.json -Encoding UTF8
+```
+
+如果这台机器上的 OpenSSL 不在 `C:\Program Files\Git\usr\bin\openssl.exe`，就把上面这一行改成你本机 `openssl.exe` 的真实路径；不要继续保留默认值 `openssl`。
+
+#### 执行 direct mTLS 安装
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install\windows\install-service.ps1 -ConfigPath .\install-mtls-direct.config.json
+pm2 show termlink-smoke-mtls
+```
+
+必须确认 `pm2 show termlink-smoke-mtls` 的 `script path` / `exec cwd` 仍指向当前 release 目录。
+
+#### 验证 direct mTLS 健康状态
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install\windows\test-health.ps1 -ConfigPath .\install-mtls-direct.config.json
+```
+
+**通过标准：**
+
+1. 安装脚本生成 direct mTLS 证书材料，并输出 `Server certs`、`Client import`、`P12 password`。
+2. 以下文件实际存在：
+   - `.\certs\direct-smoke\client-ca.crt`
+   - `.\certs\direct-smoke\server.crt`
+   - `.\certs\direct-smoke\server.key`
+   - `.\certs\direct-smoke\clients\client.p12`
+   - `.\certs\direct-smoke\clients\client-password.txt`
+3. `test-health.ps1` 返回 `Health OK HTTP 200`。该脚本会根据配置使用 HTTPS、CA 和生成的 client `.p12`，因此它才是 direct mTLS 的健康检查证据。
+4. 浏览器普通 HTTP 访问失败或被拒绝不代表 mTLS 失败；direct 模式应以脚本化 HTTPS + client cert 检查为准。
+
+#### direct mTLS 清理
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install\windows\uninstall-service.ps1 -ConfigPath .\install-mtls-direct.config.json
+pm2 delete termlink-smoke-mtls
+```
+
+### 步骤 H.2：验证 nginx-side mTLS 证书工具
+
+`mtls.deployment=nginx` 代表 nginx 在边缘终止 TLS / mTLS，release 安装器不会自动生成 nginx-side 证书。当前 release 目录里需要单独验证证书工具本身可用：
+
+```powershell
+node .\scripts\certs\generate-nginx-mtls.js --install-root . --mode describe
+node .\scripts\certs\generate-nginx-mtls.js --install-root . --output-dir .\certs\nginx-mtls-smoke --client-name termlink-nginx-smoke
+```
+
+**通过标准：**
+
+1. `--mode describe` 返回规划路径，未报参数或 OpenSSL 错误。
+2. 生成命令成功退出。
+3. 以下文件实际存在：
+   - `.\certs\nginx-mtls-smoke\client-ca.crt`
+   - `.\certs\nginx-mtls-smoke\client-ca.key`
+   - `.\certs\nginx-mtls-smoke\clients\termlink-nginx-smoke.crt`
+   - `.\certs\nginx-mtls-smoke\clients\termlink-nginx-smoke.key`
+   - `.\certs\nginx-mtls-smoke\clients\termlink-nginx-smoke.p12`
+   - `.\certs\nginx-mtls-smoke\clients\termlink-nginx-smoke-password.txt`
+
+**不能写成通过的情况：**
+
+- 只生成了 nginx-side 证书，不能写成“nginx mTLS 反向代理链路已通过”。
+- 只有在真实 nginx 配置了 `ssl_client_certificate`、`ssl_verify_client`，并向 TermLink 转发 `X-Forwarded-Proto`、`X-SSL-Client-Verify` 等头后，才能声明 nginx-side mTLS 端到端通过。
+
 ### 步骤 I：清理
 
 ```powershell
@@ -230,7 +323,9 @@ pm2 kill
 
 - **脚本入口已正常**：`pm2.cmd` 被稳定调用，未再出现 `pm2.ps1` execution policy。
 - **宿主 blocked**：`pm2 ping` / `pm2 start ecosystem.config.js` 在独立 `PM2_HOME` 下仍报 `connect EPERM //./pipe/rpc.sock`。
-- **正式安装通过**：仅当 `install-service.ps1`、`pm2 list`、`test-health.ps1` 都成功时才能写通过。
+- **基础正式安装通过**：仅当 HTTP 配置下的 `install-service.ps1`、`pm2 list`、`test-health.ps1` 都成功时才能写通过。
+- **direct mTLS 通过**：仅当 direct 配置下的安装脚本生成证书材料，且 `test-health.ps1` 通过 HTTPS + client `.p12` 返回 `Health OK HTTP 200` 时才能写通过。
+- **nginx-side mTLS 工具通过**：仅当 `generate-nginx-mtls.js` 生成 CA、client cert/key、`.p12` 和密码文件时才能写通过；这不等于 nginx 代理端到端通过。
 
 ## 三、Linux systemd 手动验证
 
@@ -311,6 +406,65 @@ bash ./scripts/install/linux/test-health.sh --config ./install-smoke.config.json
 journalctl -u termlink-smoke -n 100 --no-pager
 ```
 
+### 步骤 E.1：验证 direct server-side mTLS
+
+如果要声明 Linux direct mTLS install smoke 通过，不能只跑 `tls.mode=off` 的基础健康检查。需要准备独立配置，例如：
+
+```bash
+cp ./scripts/install/termlink-install.config.example.json ./install-mtls-direct.config.json
+node - <<'NODE'
+const fs = require('fs');
+const file = './install-mtls-direct.config.json';
+const cfg = JSON.parse(fs.readFileSync(file, 'utf8'));
+cfg.serviceName = 'termlink-smoke-mtls';
+cfg.port = 3011;
+cfg.autoStart = false;
+cfg.tls.mode = 'direct';
+cfg.tls.clientCertPolicy = 'require';
+cfg.tls.certDir = './certs/direct-smoke';
+cfg.tls.serverCert = './certs/direct-smoke/server.crt';
+cfg.tls.serverKey = './certs/direct-smoke/server.key';
+cfg.tls.caCert = './certs/direct-smoke/client-ca.crt';
+cfg.mtls.deployment = 'direct-server';
+cfg.mtls.generateDirectServerCertificates = true;
+cfg.mtls.serverOutputDir = './certs/direct-smoke';
+cfg.mtls.clientOutputDir = './certs/direct-smoke/clients';
+fs.writeFileSync(file, `${JSON.stringify(cfg, null, 2)}\n`);
+NODE
+bash ./scripts/install/linux/install-service.sh --config ./install-mtls-direct.config.json
+systemctl status termlink-smoke-mtls --no-pager
+bash ./scripts/install/linux/test-health.sh --config ./install-mtls-direct.config.json
+```
+
+**通过标准：**
+
+1. 安装脚本生成 direct mTLS 证书材料。
+2. `./certs/direct-smoke/client-ca.crt`、`server.crt`、`server.key`、`clients/client.p12`、`clients/client-password.txt` 实际存在。
+3. `test-health.sh` 返回 `Health OK HTTP 200`；该脚本会按配置使用 HTTPS、CA 和生成的 client `.p12`。
+
+清理：
+
+```bash
+bash ./scripts/install/linux/uninstall-service.sh --config ./install-mtls-direct.config.json
+```
+
+### 步骤 E.2：验证 nginx-side mTLS 证书工具
+
+nginx-side mTLS 工具可以在 Linux release 目录中直接验证：
+
+```bash
+node ./scripts/certs/generate-nginx-mtls.js --install-root . --mode describe
+node ./scripts/certs/generate-nginx-mtls.js --install-root . --output-dir ./certs/nginx-mtls-smoke --client-name termlink-nginx-smoke
+test -f ./certs/nginx-mtls-smoke/client-ca.crt
+test -f ./certs/nginx-mtls-smoke/client-ca.key
+test -f ./certs/nginx-mtls-smoke/clients/termlink-nginx-smoke.crt
+test -f ./certs/nginx-mtls-smoke/clients/termlink-nginx-smoke.key
+test -f ./certs/nginx-mtls-smoke/clients/termlink-nginx-smoke.p12
+test -f ./certs/nginx-mtls-smoke/clients/termlink-nginx-smoke-password.txt
+```
+
+这只证明 nginx-side 证书工具可用。要声明 nginx mTLS 端到端通过，还必须在真实 nginx 上配置 client CA、`ssl_verify_client` 和转发头，并再做经过 nginx 的健康检查。
+
 ### 步骤 F：验证 enable / disable
 
 ```bash
@@ -340,6 +494,8 @@ bash ./scripts/install/linux/uninstall-service.sh --config ./install-smoke.confi
 ### Linux 结论模板
 
 - **主支持路径通过**：install / enable / start / test-health / disable / uninstall 全链路通过。
+- **direct mTLS 通过**：direct 配置下 install / systemd service / `test-health.sh` 通过，且证书材料实际落盘。
+- **nginx-side mTLS 工具通过**：证书工具生成 CA、client cert/key、`.p12` 和密码文件；这不等于 nginx 代理端到端通过。
 - **宿主 blocked**：systemd 本身不可用、`systemctl` 不可达、或 WSL/system bus 状态无法证明。
 - **不能误判通过**：只有 Git Bash fallback 成功提示，不等于 Linux `systemd` 主支持路径通过。
 
@@ -356,6 +512,8 @@ bash ./scripts/install/linux/uninstall-service.sh --config ./install-smoke.confi
    - `pm2 start ecosystem.config.js`
    - `install-service`
    - `test-health`
+   - direct mTLS 证书材料路径
+   - `generate-nginx-mtls.js`
    - `systemctl status`
    - `journalctl -u ...`
 3. 关键结论
@@ -366,7 +524,10 @@ bash ./scripts/install/linux/uninstall-service.sh --config ./install-smoke.confi
 
 1. **Windows**
    - 只要 `pm2.cmd` 入口正确，但 `pm2 ping` / `pm2 start ecosystem.config.js` 仍稳定报 `EPERM //./pipe/rpc.sock`，就收口为宿主级 blocked。
+   - PM2 成功后，仍需分别记录基础 HTTP、direct mTLS、nginx-side mTLS 工具三个结论；不能用基础 HTTP 结果覆盖 mTLS。
 2. **Linux**
    - 只要当前宿主无法明确证明 systemd 可用，就不要继续把 fallback 结果往“主支持路径通过”上写。
+   - systemd 成功后，仍需分别记录基础 HTTP、direct mTLS、nginx-side mTLS 工具三个结论；不能用基础 HTTP 结果覆盖 mTLS。
 3. **统一**
    - 证据不足时，宁可记 `blocked`，不要把“没法验证”写成“已经通过”。
+   - nginx-side 证书生成通过，只能写“工具通过”；没有真实 nginx 代理配置和经 nginx 的健康检查时，不能写“nginx mTLS 端到端通过”。
