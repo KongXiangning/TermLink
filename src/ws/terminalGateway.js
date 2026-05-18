@@ -7,6 +7,7 @@ const { generateAuditTraceId } = require('../utils/auditTrace');
 const { resolveConnectionSecurity } = require('../utils/connectionSecurity');
 const { getAuditService } = require('../services/auditService');
 const CodexAppServerService = require('../services/codexAppServerService');
+const { CodexThreadHub } = require('../services/codexThreadHub');
 const { normalizeCodexConfig } = require('../repositories/sessionStore');
 const { summarizeSessionConnections } = require('../services/sessionManager');
 const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
@@ -694,26 +695,14 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     const allowedIps = privilegeConfig ? privilegeConfig.allowedIps : [];
     const auditService = isElevated ? getAuditService() : null;
     const codexService = new CodexAppServerService();
-    const threadToSessionId = new Map();
+    const threadHub = new CodexThreadHub();
 
     const unbindSessionThreads = (sessionId, options = {}) => {
-        if (!isNonEmptyString(sessionId)) {
-            return;
-        }
-        const keepThreadId = isNonEmptyString(options.keepThreadId) ? options.keepThreadId.trim() : null;
-        for (const [threadId, mappedSessionId] of threadToSessionId.entries()) {
-            if (mappedSessionId === sessionId && threadId !== keepThreadId) {
-                threadToSessionId.delete(threadId);
-            }
-        }
+        threadHub.unbindSessionThreads(sessionId, options);
     };
 
     const bindThreadToSession = (threadId, sessionId) => {
-        if (!isNonEmptyString(threadId) || !isNonEmptyString(sessionId)) {
-            return;
-        }
-        unbindSessionThreads(sessionId, { keepThreadId: threadId });
-        threadToSessionId.set(threadId, sessionId);
+        threadHub.bindThreadToSession(threadId, sessionId);
     };
 
     const syncSessionThreadBinding = (session) => {
@@ -1279,7 +1268,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             return;
         }
 
-        const sessionId = threadToSessionId.get(threadId);
+        const sessionId = threadHub.getSessionIdForThread(threadId);
         if (!isNonEmptyString(sessionId)) {
             console.warn('[gateway][codex][notification-drop][no-session-binding]', JSON.stringify(
                 summarizeCodexTraceNotification(method, params)
@@ -1293,7 +1282,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 ...summarizeCodexTraceNotification(method, params),
                 sessionId
             }));
-            threadToSessionId.delete(threadId);
+            threadHub.unbindThread(threadId);
             return;
         }
 
@@ -1337,7 +1326,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         if (!threadId) {
             return;
         }
-        const sessionId = threadToSessionId.get(threadId);
+        const sessionId = threadHub.getSessionIdForThread(threadId);
         const session = sessionId ? getSessionById(sessionManager, sessionId) : null;
         if (!session) {
             return;
