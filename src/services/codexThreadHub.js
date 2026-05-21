@@ -9,7 +9,50 @@ function normalizeId(value) {
 class CodexThreadHub {
     constructor() {
         this.threadSubscribers = new Map();
-        this.sessionThreads = new Map();
+        this.actorSessionThreads = new Map();
+        this.followerSessionThreads = new Map();
+    }
+
+    ensureThreadSubscriber(threadId) {
+        let subscriber = this.threadSubscribers.get(threadId);
+        if (!subscriber) {
+            subscriber = {
+                actorSessionId: null,
+                followerSessionIds: new Set()
+            };
+            this.threadSubscribers.set(threadId, subscriber);
+        }
+        return subscriber;
+    }
+
+    pruneThreadSubscriber(threadId) {
+        const subscriber = this.threadSubscribers.get(threadId);
+        if (!subscriber) {
+            return;
+        }
+        if (!subscriber.actorSessionId && subscriber.followerSessionIds.size === 0) {
+            this.threadSubscribers.delete(threadId);
+        }
+    }
+
+    removeFollowerSessionThread(sessionId, threadId) {
+        const followerThreads = this.followerSessionThreads.get(sessionId);
+        if (!followerThreads) {
+            return;
+        }
+        followerThreads.delete(threadId);
+        if (followerThreads.size === 0) {
+            this.followerSessionThreads.delete(sessionId);
+        }
+    }
+
+    rememberFollowerSessionThread(sessionId, threadId) {
+        let followerThreads = this.followerSessionThreads.get(sessionId);
+        if (!followerThreads) {
+            followerThreads = new Set();
+            this.followerSessionThreads.set(sessionId, followerThreads);
+        }
+        followerThreads.add(threadId);
     }
 
     bindThreadToSession(threadId, sessionId) {
@@ -21,12 +64,66 @@ class CodexThreadHub {
 
         const previousSubscriber = this.threadSubscribers.get(normalizedThreadId);
         if (previousSubscriber && previousSubscriber.actorSessionId !== normalizedSessionId) {
-            this.sessionThreads.delete(previousSubscriber.actorSessionId);
+            this.actorSessionThreads.delete(previousSubscriber.actorSessionId);
+            if (previousSubscriber.actorSessionId) {
+                previousSubscriber.followerSessionIds.add(previousSubscriber.actorSessionId);
+                this.rememberFollowerSessionThread(previousSubscriber.actorSessionId, normalizedThreadId);
+            }
         }
 
         this.unbindSessionThreads(normalizedSessionId, { keepThreadId: normalizedThreadId });
-        this.threadSubscribers.set(normalizedThreadId, { actorSessionId: normalizedSessionId });
-        this.sessionThreads.set(normalizedSessionId, normalizedThreadId);
+        const subscriber = this.ensureThreadSubscriber(normalizedThreadId);
+        subscriber.actorSessionId = normalizedSessionId;
+        subscriber.followerSessionIds.delete(normalizedSessionId);
+        this.removeFollowerSessionThread(normalizedSessionId, normalizedThreadId);
+        this.actorSessionThreads.set(normalizedSessionId, normalizedThreadId);
+    }
+
+    addFollowerSession(threadId, sessionId) {
+        const normalizedThreadId = normalizeId(threadId);
+        const normalizedSessionId = normalizeId(sessionId);
+        if (!normalizedThreadId || !normalizedSessionId) {
+            return;
+        }
+        if (this.actorSessionThreads.get(normalizedSessionId) === normalizedThreadId) {
+            return;
+        }
+
+        const subscriber = this.ensureThreadSubscriber(normalizedThreadId);
+        subscriber.followerSessionIds.add(normalizedSessionId);
+        this.rememberFollowerSessionThread(normalizedSessionId, normalizedThreadId);
+    }
+
+    removeFollowerSession(threadId, sessionId) {
+        const normalizedThreadId = normalizeId(threadId);
+        const normalizedSessionId = normalizeId(sessionId);
+        if (!normalizedThreadId || !normalizedSessionId) {
+            return;
+        }
+
+        const subscriber = this.threadSubscribers.get(normalizedThreadId);
+        if (!subscriber) {
+            return;
+        }
+
+        subscriber.followerSessionIds.delete(normalizedSessionId);
+        this.removeFollowerSessionThread(normalizedSessionId, normalizedThreadId);
+        this.pruneThreadSubscriber(normalizedThreadId);
+    }
+
+    getThreadSubscribers(threadId) {
+        const normalizedThreadId = normalizeId(threadId);
+        if (!normalizedThreadId) {
+            return null;
+        }
+        const subscriber = this.threadSubscribers.get(normalizedThreadId);
+        if (!subscriber) {
+            return null;
+        }
+        return {
+            actorSessionId: subscriber.actorSessionId,
+            followerSessionIds: Array.from(subscriber.followerSessionIds)
+        };
     }
 
     unbindSessionThreads(sessionId, options = {}) {
@@ -36,15 +133,33 @@ class CodexThreadHub {
         }
         const keepThreadId = normalizeId(options.keepThreadId);
 
-        for (const [threadId, subscriber] of this.threadSubscribers.entries()) {
-            if (subscriber.actorSessionId === normalizedSessionId && threadId !== keepThreadId) {
-                this.threadSubscribers.delete(threadId);
+        const actorThreadId = this.actorSessionThreads.get(normalizedSessionId);
+        if (actorThreadId && actorThreadId !== keepThreadId) {
+            const subscriber = this.threadSubscribers.get(actorThreadId);
+            if (subscriber && subscriber.actorSessionId === normalizedSessionId) {
+                subscriber.actorSessionId = null;
             }
+            this.actorSessionThreads.delete(normalizedSessionId);
+            this.pruneThreadSubscriber(actorThreadId);
         }
 
-        const currentThreadId = this.sessionThreads.get(normalizedSessionId);
-        if (currentThreadId && currentThreadId !== keepThreadId) {
-            this.sessionThreads.delete(normalizedSessionId);
+        const followerThreads = this.followerSessionThreads.get(normalizedSessionId);
+        if (!followerThreads) {
+            return;
+        }
+        for (const threadId of Array.from(followerThreads)) {
+            if (threadId === keepThreadId) {
+                continue;
+            }
+            const subscriber = this.threadSubscribers.get(threadId);
+            if (subscriber) {
+                subscriber.followerSessionIds.delete(normalizedSessionId);
+            }
+            followerThreads.delete(threadId);
+            this.pruneThreadSubscriber(threadId);
+        }
+        if (followerThreads.size === 0) {
+            this.followerSessionThreads.delete(normalizedSessionId);
         }
     }
 
@@ -65,10 +180,16 @@ class CodexThreadHub {
         const subscriber = this.threadSubscribers.get(normalizedThreadId);
         this.threadSubscribers.delete(normalizedThreadId);
         if (
-            subscriber &&
-            this.sessionThreads.get(subscriber.actorSessionId) === normalizedThreadId
+            subscriber
+            && subscriber.actorSessionId
+            && this.actorSessionThreads.get(subscriber.actorSessionId) === normalizedThreadId
         ) {
-            this.sessionThreads.delete(subscriber.actorSessionId);
+            this.actorSessionThreads.delete(subscriber.actorSessionId);
+        }
+        if (subscriber && subscriber.followerSessionIds.size > 0) {
+            for (const followerSessionId of subscriber.followerSessionIds) {
+                this.removeFollowerSessionThread(followerSessionId, normalizedThreadId);
+            }
         }
     }
 }

@@ -705,6 +705,40 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         threadHub.bindThreadToSession(threadId, sessionId);
     };
 
+    const addFollowerSessionToThread = (threadId, sessionId) => {
+        threadHub.addFollowerSession(threadId, sessionId);
+    };
+
+    const getThreadRouting = (threadId) => {
+        const subscribers = threadHub.getThreadSubscribers(threadId);
+        if (!subscribers) {
+            return {
+                actorSessionId: null,
+                actorSession: null,
+                followerSessionIds: [],
+                followerSessions: []
+            };
+        }
+        const actorSessionId = isNonEmptyString(subscribers.actorSessionId)
+            ? subscribers.actorSessionId
+            : null;
+        const actorSession = actorSessionId
+            ? getSessionById(sessionManager, actorSessionId)
+            : null;
+        const followerSessionIds = Array.isArray(subscribers.followerSessionIds)
+            ? subscribers.followerSessionIds.filter((sessionId) => sessionId !== actorSessionId)
+            : [];
+        const followerSessions = followerSessionIds
+            .map((sessionId) => getSessionById(sessionManager, sessionId))
+            .filter((session) => Boolean(session));
+        return {
+            actorSessionId,
+            actorSession,
+            followerSessionIds,
+            followerSessions
+        };
+    };
+
     const syncSessionThreadBinding = (session) => {
         const state = ensureSessionCodexState(session);
         if (isNonEmptyString(state.threadId)) {
@@ -881,9 +915,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         return null;
     };
 
-    const emitCodexState = (session, targetWs) => {
+    const buildCodexStateEnvelope = (session) => {
         const state = ensureSessionCodexState(session);
-        const envelope = {
+        return {
             type: 'codex_state',
             threadId: state.threadId,
             currentTurnId: state.currentTurnId || null,
@@ -897,11 +931,25 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             interactionState: normalizeInteractionState(state.interactionState),
             nextTurnEffectiveCodexConfig: buildNextTurnEffectiveCodexConfig(session)
         };
+    };
+
+    const emitCodexState = (session, targetWs, sourceSession = session) => {
+        const envelope = buildCodexStateEnvelope(sourceSession);
         if (targetWs) {
             sendWsEnvelope(targetWs, envelope);
             return;
         }
         sessionManager.broadcast(session, envelope);
+    };
+
+    const fanoutThreadState = (threadId, sourceSession) => {
+        if (!isNonEmptyString(threadId) || !sourceSession) {
+            return;
+        }
+        const { followerSessions } = getThreadRouting(threadId);
+        followerSessions.forEach((session) => {
+            emitCodexState(session, null, sourceSession);
+        });
     };
 
     const shouldSendCodexState = (session) => {
@@ -1268,37 +1316,52 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             return;
         }
 
-        const sessionId = threadHub.getSessionIdForThread(threadId);
-        if (!isNonEmptyString(sessionId)) {
+        const {
+            actorSessionId,
+            actorSession,
+            followerSessionIds,
+            followerSessions
+        } = getThreadRouting(threadId);
+        if (!actorSession && followerSessions.length === 0) {
             console.warn('[gateway][codex][notification-drop][no-session-binding]', JSON.stringify(
                 summarizeCodexTraceNotification(method, params)
             ));
             return;
         }
 
-        const session = getSessionById(sessionManager, sessionId);
-        if (!session) {
+        if (!actorSession && isNonEmptyString(actorSessionId)) {
             console.warn('[gateway][codex][notification-drop][session-missing]', JSON.stringify({
                 ...summarizeCodexTraceNotification(method, params),
-                sessionId
+                sessionId: actorSessionId
             }));
-            threadHub.unbindThread(threadId);
-            return;
         }
 
-        const stateChanged = updateCodexStateFromNotification(session, method, params);
+        const stateChanged = actorSession
+            ? updateCodexStateFromNotification(actorSession, method, params)
+            : false;
         console.info('[gateway][codex][notification-bridge]', JSON.stringify({
             ...summarizeCodexTraceNotification(method, params),
-            sessionId,
+            actorSessionId,
+            followerSessionIds,
             stateChanged
         }));
-        sessionManager.broadcast(session, {
-            type: 'codex_notification',
-            method,
-            params
+        if (actorSession) {
+            sessionManager.broadcast(actorSession, {
+                type: 'codex_notification',
+                method,
+                params
+            });
+        }
+        followerSessions.forEach((session) => {
+            sessionManager.broadcast(session, {
+                type: 'codex_notification',
+                method,
+                params
+            });
         });
-        if (stateChanged) {
-            emitCodexState(session);
+        if (stateChanged && actorSession) {
+            emitCodexState(actorSession);
+            fanoutThreadState(threadId, actorSession);
         }
     };
 
@@ -1326,13 +1389,12 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         if (!threadId) {
             return;
         }
-        const sessionId = threadHub.getSessionIdForThread(threadId);
-        const session = sessionId ? getSessionById(sessionManager, sessionId) : null;
-        if (!session) {
+        const { actorSessionId, actorSession } = getThreadRouting(threadId);
+        if (!actorSession) {
             return;
         }
         console.info('[gateway][codex][server-request]', compactForLog({
-            sessionId,
+            sessionId: actorSessionId,
             requestId,
             method,
             handledBy,
@@ -1350,7 +1412,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             const requestKind = resolveCodexServerRequestKind(method);
             const responseMode = resolveCodexServerRequestResponseMode(method);
             const summary = extractCodexServerRequestSummary(method, message.params || null);
-            updatePendingServerRequestState(session, (current) => {
+            updatePendingServerRequestState(actorSession, (current) => {
                 if (current.some((entry) => entry && entry.requestId === requestId)) {
                     return current;
                 }
@@ -1367,13 +1429,13 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 return current;
             });
         }
-        sessionManager.broadcast(session, buildCodexServerRequestEnvelope({
+        sessionManager.broadcast(actorSession, buildCodexServerRequestEnvelope({
             requestId,
             message,
             handledBy,
             result
         }));
-        emitCodexState(session);
+        emitCodexState(actorSession);
     };
 
     codexService.on('notification', handleCodexNotification);
@@ -1783,6 +1845,11 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             codexState.tokenUsage = nextTokenUsage;
                             emitCodexState(session);
                         }
+                        const { actorSession } = getThreadRouting(codexState.threadId);
+                        if (actorSession && actorSession.id !== session.id) {
+                            addFollowerSessionToThread(codexState.threadId, session.id);
+                            emitCodexState(session, null, actorSession);
+                        }
                         sendWsEnvelope(ws, {
                             type: 'codex_thread_snapshot',
                             thread: response ? response.thread || null : null
@@ -1845,15 +1912,29 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             emitCodexState(session);
                         }
                         if (method === 'thread/read') {
+                            const readThreadId = response
+                                && response.thread
+                                && isNonEmptyString(response.thread.id)
+                                ? response.thread.id
+                                : (requestParams && isNonEmptyString(requestParams.threadId)
+                                    ? requestParams.threadId.trim()
+                                    : null);
                             const nextTokenUsage = extractTokenUsageSnapshot(response);
                             console.info('[gateway][tokenUsage][thread/read]', JSON.stringify({
                                 sessionId: session.id,
-                                threadId: codexState.threadId || null,
+                                threadId: readThreadId || codexState.threadId || null,
                                 nextTokenUsage
                             }));
                             if (nextTokenUsage !== null) {
                                 codexState.tokenUsage = nextTokenUsage;
                                 emitCodexState(session);
+                            }
+                            if (readThreadId) {
+                                const { actorSession } = getThreadRouting(readThreadId);
+                                if (actorSession && actorSession.id !== session.id) {
+                                    addFollowerSessionToThread(readThreadId, session.id);
+                                    emitCodexState(session, null, actorSession);
+                                }
                             }
                         }
                         if (response && response.turn && isNonEmptyString(response.turn.id)) {

@@ -114,15 +114,16 @@ function createSession(id, options = {}) {
     };
 }
 
-function createSessionManager(session) {
+function createSessionManager(input) {
+    const sessions = Array.isArray(input) ? input : [input];
     return {
-        sessions: new Map([[session.id, session]]),
+        sessions: new Map(sessions.map((session) => [session.id, session])),
         broadcasts: [],
         getSession(id) {
             return this.sessions.get(id) || null;
         },
         async createSession() {
-            return session;
+            return sessions[0];
         },
         addConnection(currentSession, ws) {
             currentSession.connections.push(ws);
@@ -178,32 +179,45 @@ MockCodexService.extractThreadId = (message) => {
 };
 
 async function connectCodexSession(session) {
+    const { dispose, sessionManager, service, connections } = await connectCodexSessions([session]);
+    return {
+        dispose,
+        sessionManager,
+        service,
+        ws: connections.get(session.id)
+    };
+}
+
+async function connectCodexSessions(sessions) {
     MockCodexService.instances.length = 0;
     const registerTerminalGateway = loadGatewayWithMocks({
         verifyWsUpgrade: () => true,
         codexServiceClass: MockCodexService
     });
-    const sessionManager = createSessionManager(session);
+    const sessionManager = createSessionManager(sessions);
     const wss = createMockWss();
     const dispose = registerTerminalGateway(wss, {
         sessionManager,
         heartbeatMs: 3600000,
         privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
     });
-    const ws = createMockWs();
-    const req = {
-        url: `/ws?sessionId=${session.id}&ticket=dummy`,
-        headers: { host: 'localhost:3000' },
-        socket: { remoteAddress: '127.0.0.1' }
-    };
-
-    await wss.getHandler('connection')(ws, req);
+    const connections = new Map();
+    for (const session of sessions) {
+        const ws = createMockWs();
+        const req = {
+            url: `/ws?sessionId=${session.id}&ticket=dummy`,
+            headers: { host: 'localhost:3000' },
+            socket: { remoteAddress: '127.0.0.1' }
+        };
+        await wss.getHandler('connection')(ws, req);
+        connections.set(session.id, ws);
+    }
 
     return {
         dispose,
         sessionManager,
         service: MockCodexService.instances[0],
-        ws
+        connections
     };
 }
 
@@ -312,6 +326,170 @@ test('closing a subscriber connection does not clear thread routing state', asyn
             entry.sessionId === 'codex-session' &&
             entry.envelope.type === 'codex_notification' &&
             entry.envelope.params.threadId === 'thread-sticky'
+        )),
+        true
+    );
+});
+
+test('thread/read attaches a follower session and fans out live notification/state without replacing actor', async (t) => {
+    const actorSession = createSession('actor-session', { threadId: 'thread-live' });
+    actorSession.codexState.currentTurnId = 'turn-live';
+    actorSession.codexState.status = 'running';
+    const followerSession = createSession('follower-session', { threadId: null });
+    followerSession.lastCodexThreadId = null;
+
+    const { dispose, service, connections } = await connectCodexSessions([actorSession, followerSession]);
+    t.after(() => dispose());
+    const actorWs = connections.get(actorSession.id);
+    const followerWs = connections.get(followerSession.id);
+
+    await followerWs.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-follow-read',
+        method: 'thread/read',
+        params: { threadId: 'thread-live', includeTurns: true }
+    }));
+
+    const followerMessagesAfterRead = followerWs.sent.slice();
+    assert.equal(
+        followerMessagesAfterRead.some((entry) => (
+            entry.type === 'codex_state'
+            && entry.threadId === 'thread-live'
+            && entry.currentTurnId === 'turn-live'
+            && entry.status === 'running'
+        )),
+        true
+    );
+    assert.equal(followerSession.lastCodexThreadId, null);
+    assert.equal(actorSession.lastCodexThreadId, 'thread-live');
+
+    const actorBaseline = actorWs.sent.length;
+    const followerBaseline = followerWs.sent.length;
+
+    service.emit('server_request', {
+        requestId: 'approval-1',
+        handledBy: 'client',
+        message: {
+            id: 'approval-1',
+            method: 'execCommandApproval',
+            params: { threadId: 'thread-live', command: 'dir' }
+        }
+    });
+    service.emit('notification', {
+        method: 'turn/completed',
+        params: {
+            threadId: 'thread-live',
+            turn: { id: 'turn-live' }
+        }
+    });
+
+    const actorMessages = actorWs.sent.slice(actorBaseline);
+    const followerMessages = followerWs.sent.slice(followerBaseline);
+    assert.equal(
+        actorMessages.some((entry) => entry.type === 'codex_server_request' && entry.requestId === 'approval-1'),
+        true
+    );
+    assert.equal(
+        followerMessages.some((entry) => entry.type === 'codex_server_request' && entry.requestId === 'approval-1'),
+        false
+    );
+    assert.equal(
+        actorMessages.some((entry) => (
+            entry.type === 'codex_notification'
+            && entry.method === 'turn/completed'
+            && entry.params.threadId === 'thread-live'
+        )),
+        true
+    );
+    assert.equal(
+        followerMessages.some((entry) => (
+            entry.type === 'codex_notification'
+            && entry.method === 'turn/completed'
+            && entry.params.threadId === 'thread-live'
+        )),
+        true
+    );
+    assert.equal(
+        followerMessages.some((entry) => (
+            entry.type === 'codex_state'
+            && entry.threadId === 'thread-live'
+            && entry.currentTurnId === null
+            && entry.status === 'idle'
+        )),
+        true
+    );
+});
+
+test('follower codex_turn keeps original actor subscribed to subsequent thread notifications', async (t) => {
+    const actorSession = createSession('actor-session', { threadId: 'thread-live' });
+    actorSession.codexState.currentTurnId = 'turn-live';
+    actorSession.codexState.status = 'running';
+    const followerSession = createSession('follower-session', { threadId: null });
+
+    const { dispose, service, connections } = await connectCodexSessions([actorSession, followerSession]);
+    t.after(() => dispose());
+    const actorWs = connections.get(actorSession.id);
+    const followerWs = connections.get(followerSession.id);
+
+    await followerWs.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-follow-read',
+        method: 'thread/read',
+        params: { threadId: 'thread-live', includeTurns: true }
+    }));
+
+    await followerWs.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'rerun from follower',
+        threadId: 'thread-live'
+    }));
+
+    const followerTurnStart = service.requests.find((entry) => entry.method === 'turn/start');
+    assert.equal(followerTurnStart.params.threadId, 'thread-live');
+
+    const actorBaseline = actorWs.sent.length;
+    const followerBaseline = followerWs.sent.length;
+
+    service.emit('server_request', {
+        requestId: 'approval-2',
+        handledBy: 'client',
+        message: {
+            id: 'approval-2',
+            method: 'execCommandApproval',
+            params: { threadId: 'thread-live', command: 'dir' }
+        }
+    });
+    service.emit('notification', {
+        method: 'turn/completed',
+        params: {
+            threadId: 'thread-live',
+            turn: { id: 'turn-follow' }
+        }
+    });
+
+    const actorMessages = actorWs.sent.slice(actorBaseline);
+    const followerMessages = followerWs.sent.slice(followerBaseline);
+    assert.equal(
+        followerMessages.some((entry) => entry.type === 'codex_server_request' && entry.requestId === 'approval-2'),
+        true
+    );
+    assert.equal(
+        actorMessages.some((entry) => entry.type === 'codex_server_request' && entry.requestId === 'approval-2'),
+        false
+    );
+    assert.equal(
+        actorMessages.some((entry) => (
+            entry.type === 'codex_notification'
+            && entry.method === 'turn/completed'
+            && entry.params.threadId === 'thread-live'
+        )),
+        true
+    );
+    assert.equal(
+        followerMessages.some((entry) => (
+            entry.type === 'codex_notification'
+            && entry.method === 'turn/completed'
+            && entry.params.threadId === 'thread-live'
         )),
         true
     );

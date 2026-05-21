@@ -243,6 +243,7 @@ data class CodexLaunchParams(
         const val EXTRA_SESSION_ID = "codex_session_id"
         const val EXTRA_SESSION_MODE = "codex_session_mode"
         const val EXTRA_CWD = "codex_cwd"
+        const val EXTRA_THREAD_ID = "codex_thread_id"
         const val EXTRA_LAUNCH_SOURCE = "codex_launch_source"
     }
 }

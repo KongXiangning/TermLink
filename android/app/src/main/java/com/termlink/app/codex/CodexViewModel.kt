@@ -50,6 +50,12 @@ internal data class ThreadReadyUiTransition(
     val runtimePanel: CodexRuntimePanelState
 )
 
+internal data class ThreadReadMergeTransition(
+    val threadId: String?,
+    val currentTurnId: String?,
+    val messages: List<ChatMessage>
+)
+
 internal fun normalizeCodexThreadId(threadId: String?): String? {
     val normalized = threadId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
     return when {
@@ -129,6 +135,158 @@ internal fun buildThreadStartedUiTransition(
     )
 }
 
+internal fun mergeCanonicalUserMessageMetadataForUi(
+    canonical: ChatMessage,
+    local: ChatMessage
+): ChatMessage {
+    if (canonical.role != ChatMessage.Role.USER || local.role != ChatMessage.Role.USER) {
+        return canonical
+    }
+    val mergedMentions = (canonical.fileMentions + local.fileMentions)
+        .distinctBy { mention -> mention.path.trim().lowercase() }
+    val mergedSkills = (canonical.skills + local.skills)
+        .distinctBy { skill ->
+            "${skill.name.trim().lowercase()}::${skill.path.orEmpty().trim().lowercase()}"
+        }
+    val mergedAttachments = (canonical.attachments + local.attachments)
+        .distinctBy { attachment ->
+            attachment.dedupeKey
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+                ?.lowercase()
+                ?: listOf(
+                    attachment.kind.trim().lowercase(),
+                    attachment.source.orEmpty().trim().lowercase(),
+                    attachment.path.orEmpty().trim().lowercase(),
+                    attachment.url.orEmpty().trim().lowercase(),
+                    attachment.label.trim().lowercase()
+                ).joinToString("::")
+        }
+    return canonical.copy(
+        activeSkill = canonical.activeSkill ?: local.activeSkill ?: mergedSkills.firstOrNull()?.name,
+        fileMentions = mergedMentions,
+        skills = mergedSkills,
+        attachments = mergedAttachments
+    )
+}
+
+internal fun messageConvergenceKeyForUi(message: ChatMessage): String = buildString {
+    append(message.role.name)
+    append('|')
+    append(message.contentType)
+    append('|')
+    append(message.toolName.orEmpty())
+    append('|')
+    append(message.collapsible)
+    append('|')
+    append(message.collapsedLabel.trim())
+    append('|')
+    append(message.activeSkill.orEmpty())
+    append('|')
+    append(message.skills.joinToString(separator = "\u001F") { skill ->
+        "${skill.name.trim()}::${skill.path.orEmpty().trim()}"
+    })
+    append('|')
+    append(message.content.trim())
+    append('|')
+    append(message.fileMentions.joinToString(separator = "\u001F") { mention ->
+        mention.path.trim()
+    })
+}
+
+internal fun messagesEquivalentForConvergenceForUi(
+    left: ChatMessage,
+    right: ChatMessage
+): Boolean = messageConvergenceKeyForUi(left) == messageConvergenceKeyForUi(right)
+
+internal fun mergeCanonicalMessagesForUi(
+    canonicalMessages: List<ChatMessage>,
+    currentMessages: List<ChatMessage>,
+    preserveLocalTail: Boolean
+): List<ChatMessage> {
+    if (!preserveLocalTail) {
+        return canonicalMessages
+    }
+    if (currentMessages.isEmpty()) {
+        return canonicalMessages
+    }
+    if (canonicalMessages.isEmpty()) {
+        return currentMessages.filter(::shouldPreserveCodexTailMessage)
+    }
+    var searchStart = 0
+    var lastMatchedCurrentIndex = -1
+    val mergedCanonical = canonicalMessages.map { canonicalMessage ->
+        var mergedMessage = canonicalMessage
+        for (index in searchStart until currentMessages.size) {
+            if (messagesEquivalentForConvergenceForUi(currentMessages[index], canonicalMessage)) {
+                lastMatchedCurrentIndex = index
+                searchStart = index + 1
+                mergedMessage = mergeCanonicalUserMessageMetadataForUi(
+                    canonical = canonicalMessage,
+                    local = currentMessages[index]
+                )
+                break
+            }
+        }
+        mergedMessage
+    }
+    val localTail = currentMessages
+        .subList((lastMatchedCurrentIndex + 1).coerceAtMost(currentMessages.size), currentMessages.size)
+        .filter(::shouldPreserveCodexTailMessage)
+    if (localTail.isEmpty()) {
+        return mergedCanonical
+    }
+    val merged = mergedCanonical.toMutableList()
+    localTail.forEach { message ->
+        if (merged.none { existing -> messagesEquivalentForConvergenceForUi(existing, message) }) {
+            merged.add(message)
+        }
+    }
+    return merged
+}
+
+internal fun buildThreadReadMergeTransition(
+    incomingThreadId: String?,
+    canonicalMessages: List<ChatMessage>,
+    state: CodexUiState,
+    allowThreadIdSwitch: Boolean = false
+): ThreadReadMergeTransition {
+    val resolvedThreadId = normalizeCodexThreadId(incomingThreadId) ?: state.threadId
+    val preserveLocalTail = shouldPreserveLocalMessageTailForUi(
+        threadId = resolvedThreadId,
+        state = state,
+        allowThreadIdSwitch = allowThreadIdSwitch
+    )
+    return ThreadReadMergeTransition(
+        threadId = resolvedThreadId,
+        currentTurnId = state.currentTurnId,
+        messages = mergeCanonicalMessagesForUi(
+            canonicalMessages = canonicalMessages,
+            currentMessages = state.messages,
+            preserveLocalTail = preserveLocalTail
+        )
+    )
+}
+
+internal fun resolveLaunchHydrateThreadRequest(
+    pendingLaunchHydrate: Boolean,
+    requestedThreadId: String?,
+    observedThreadId: String?,
+    inFlightThreadId: String?
+): String? {
+    if (!pendingLaunchHydrate) {
+        return null
+    }
+    val targetThreadId = normalizeCodexThreadId(requestedThreadId)
+        ?: normalizeCodexThreadId(observedThreadId)
+        ?: return null
+    return if (normalizeCodexThreadId(inFlightThreadId) == targetThreadId) {
+        null
+    } else {
+        targetThreadId
+    }
+}
+
 class CodexViewModel(
     appContext: Context,
     credentialStore: BasicCredentialStore,
@@ -167,6 +325,9 @@ class CodexViewModel(
     private var pendingOptimisticNewThreadSourceThreadId: String? = null
     private var pendingThreadResyncThreadId: String? = null
     private var threadResyncInFlightThreadId: String? = null
+    private var launchHydratePending: Boolean = false
+    private var launchHydrateTargetThreadId: String? = null
+    private var launchHydrateInFlightThreadId: String? = null
 
     init {
         observeConnectionState()
@@ -183,6 +344,9 @@ class CodexViewModel(
         threadHadPlanTurn = false
         clearPendingOptimisticNewThreadTransition()
         clearPendingThreadResync()
+        launchHydratePending = true
+        launchHydrateTargetThreadId = normalizeThreadId(params.threadId)
+        launchHydrateInFlightThreadId = null
         _uiState.update {
             recalculateNextTurnEffectiveConfig(
                 it.copy(
@@ -226,6 +390,7 @@ class CodexViewModel(
 
     fun disconnect() {
         clearPendingOptimisticNewThreadTransition()
+        clearPendingLaunchHydrate()
         connectionManager.disconnect()
     }
 
@@ -323,6 +488,7 @@ class CodexViewModel(
         threadHadPlanTurn = false
         clearPendingOptimisticNewThreadTransition()
         clearPendingThreadResync()
+        clearPendingLaunchHydrate()
         _uiState.update {
             it.copy(
                 threadId = null,
@@ -931,6 +1097,7 @@ class CodexViewModel(
         val normalizedThreadId = threadId.trim()
         if (normalizedThreadId.isEmpty()) return
         clearPendingOptimisticNewThreadTransition()
+        clearPendingLaunchHydrate()
         _uiState.update {
             it.copy(
                 threadHistoryActionThreadId = normalizedThreadId,
@@ -1693,6 +1860,7 @@ class CodexViewModel(
                 }
                 if (nextState == ConnectionState.CONNECTED) {
                     val state = _uiState.value
+                    maybeRequestLaunchHydrate(state.threadId)
                     maybeRequestPendingThreadResync(
                         threadId = state.threadId,
                         status = state.status,
@@ -1859,6 +2027,7 @@ class CodexViewModel(
                     status = _uiState.value.status,
                     currentTurnId = _uiState.value.currentTurnId
                 )
+                maybeRequestLaunchHydrate(_uiState.value.threadId)
                 clearPendingOptimisticNewThreadTransitionIfResolved(_uiState.value.threadId)
                 if (json.has("tokenUsage")) {
                     applyTokenUsagePayload(state.tokenUsage)
@@ -1906,6 +2075,7 @@ class CodexViewModel(
                 val snapshotThreadId = normalizeThreadId(snapshot.threadId)
                 val canonicalMessages = parseSnapshotMessages(snapshot)
                 clearPendingThreadResync(snapshotThreadId)
+                clearPendingLaunchHydrate(snapshotThreadId)
                 _uiState.update { state ->
                     val allowThreadIdSwitch = shouldAllowOptimisticTailAcrossThreadSwitch(
                         stateThreadId = state.threadId,
@@ -2373,30 +2543,32 @@ class CodexViewModel(
         }
         val hasMessages = hasTurns || thread.optJSONArray("messages") != null
         clearPendingThreadResync(threadId)
+        clearPendingLaunchHydrate(threadId)
         _uiState.update { state ->
-            val resolvedThreadId = threadId.ifEmpty { state.threadId }
-            val mergedMessages = if (hasMessages) {
-                mergeCanonicalMessages(
+            val transition = if (hasMessages) {
+                buildThreadReadMergeTransition(
+                    incomingThreadId = threadId,
                     canonicalMessages = messages,
-                    currentMessages = state.messages,
-                    preserveLocalTail = shouldPreserveLocalMessageTail(
-                        threadId = resolvedThreadId,
-                        state = state
-                    )
+                    state = state
                 )
             } else {
-                state.messages
+                ThreadReadMergeTransition(
+                    threadId = threadId.ifEmpty { state.threadId },
+                    currentTurnId = state.currentTurnId,
+                    messages = state.messages
+                )
             }
             state.copy(
-                threadId = resolvedThreadId,
+                threadId = transition.threadId,
+                currentTurnId = transition.currentTurnId,
                 currentThreadTitle = threadTitle.ifBlank {
                     resolveCurrentThreadTitle(
-                        threadId = resolvedThreadId,
+                        threadId = transition.threadId,
                         entries = state.threadHistoryEntries,
                         fallback = state.currentThreadTitle
                     )
                 },
-                messages = mergedMessages,
+                messages = transition.messages,
                 runtimePanel = when {
                     hasTurns -> buildRuntimePanelStateFromTurns(
                         turns = turns,
@@ -2449,80 +2621,18 @@ class CodexViewModel(
         currentMessages: List<ChatMessage>,
         preserveLocalTail: Boolean
     ): List<ChatMessage> {
-        if (!preserveLocalTail) {
-            return canonicalMessages
-        }
-        if (currentMessages.isEmpty()) {
-            return canonicalMessages
-        }
-        if (canonicalMessages.isEmpty()) {
-            return currentMessages.filter(::shouldPreserveTailMessage)
-        }
-        var searchStart = 0
-        var lastMatchedCurrentIndex = -1
-        val mergedCanonical = canonicalMessages.map { canonicalMessage ->
-            var mergedMessage = canonicalMessage
-            for (index in searchStart until currentMessages.size) {
-                if (messagesEquivalentForConvergence(currentMessages[index], canonicalMessage)) {
-                    lastMatchedCurrentIndex = index
-                    searchStart = index + 1
-                    mergedMessage = mergeCanonicalUserMessageMetadata(
-                        canonical = canonicalMessage,
-                        local = currentMessages[index]
-                    )
-                    break
-                }
-            }
-            mergedMessage
-        }
-        val localTail = currentMessages
-            .subList((lastMatchedCurrentIndex + 1).coerceAtMost(currentMessages.size), currentMessages.size)
-            .filter(::shouldPreserveTailMessage)
-        if (localTail.isEmpty()) {
-            return mergedCanonical
-        }
-        val merged = mergedCanonical.toMutableList()
-        localTail.forEach { message ->
-            if (merged.none { existing -> messagesEquivalentForConvergence(existing, message) }) {
-                merged.add(message)
-            }
-        }
-        return merged
+        return mergeCanonicalMessagesForUi(
+            canonicalMessages = canonicalMessages,
+            currentMessages = currentMessages,
+            preserveLocalTail = preserveLocalTail
+        )
     }
 
     private fun mergeCanonicalUserMessageMetadata(
         canonical: ChatMessage,
         local: ChatMessage
     ): ChatMessage {
-        if (canonical.role != ChatMessage.Role.USER || local.role != ChatMessage.Role.USER) {
-            return canonical
-        }
-        val mergedMentions = (canonical.fileMentions + local.fileMentions)
-            .distinctBy { mention -> mention.path.trim().lowercase() }
-        val mergedSkills = (canonical.skills + local.skills)
-            .distinctBy { skill ->
-                "${skill.name.trim().lowercase()}::${skill.path.orEmpty().trim().lowercase()}"
-            }
-        val mergedAttachments = (canonical.attachments + local.attachments)
-            .distinctBy { attachment ->
-                attachment.dedupeKey
-                    ?.trim()
-                    ?.takeIf { it.isNotEmpty() }
-                    ?.lowercase()
-                    ?: listOf(
-                        attachment.kind.trim().lowercase(),
-                        attachment.source.orEmpty().trim().lowercase(),
-                        attachment.path.orEmpty().trim().lowercase(),
-                        attachment.url.orEmpty().trim().lowercase(),
-                        attachment.label.trim().lowercase()
-                    ).joinToString("::")
-            }
-        return canonical.copy(
-            activeSkill = canonical.activeSkill ?: local.activeSkill ?: mergedSkills.firstOrNull()?.name,
-            fileMentions = mergedMentions,
-            skills = mergedSkills,
-            attachments = mergedAttachments
-        )
+        return mergeCanonicalUserMessageMetadataForUi(canonical, local)
     }
 
     private fun shouldPreserveTailMessage(message: ChatMessage): Boolean {
@@ -2532,31 +2642,9 @@ class CodexViewModel(
     private fun messagesEquivalentForConvergence(
         left: ChatMessage,
         right: ChatMessage
-    ): Boolean = messageConvergenceKey(left) == messageConvergenceKey(right)
+    ): Boolean = messagesEquivalentForConvergenceForUi(left, right)
 
-    private fun messageConvergenceKey(message: ChatMessage): String = buildString {
-        append(message.role.name)
-        append('|')
-        append(message.contentType)
-        append('|')
-        append(message.toolName.orEmpty())
-        append('|')
-        append(message.collapsible)
-        append('|')
-        append(message.collapsedLabel.trim())
-        append('|')
-        append(message.activeSkill.orEmpty())
-        append('|')
-        append(message.skills.joinToString(separator = "\u001F") { skill ->
-            "${skill.name.trim()}::${skill.path.orEmpty().trim()}"
-        })
-        append('|')
-        append(message.content.trim())
-        append('|')
-        append(message.fileMentions.joinToString(separator = "\u001F") { mention ->
-            mention.path.trim()
-        })
-    }
+    private fun messageConvergenceKey(message: ChatMessage): String = messageConvergenceKeyForUi(message)
 
     private fun markPendingThreadResyncIfNeeded(state: CodexUiState) {
         val threadId = normalizeThreadId(state.threadId) ?: return
@@ -2641,6 +2729,37 @@ class CodexViewModel(
         )
         if (sent) {
             threadResyncInFlightThreadId = normalizedThreadId
+        }
+    }
+
+    private fun maybeRequestLaunchHydrate(observedThreadId: String?) {
+        val targetThreadId = resolveLaunchHydrateThreadRequest(
+            pendingLaunchHydrate = launchHydratePending,
+            requestedThreadId = launchHydrateTargetThreadId,
+            observedThreadId = observedThreadId,
+            inFlightThreadId = launchHydrateInFlightThreadId
+        ) ?: return
+        val sent = requestCanonicalThreadRead(targetThreadId, reason = "launch-hydrate")
+        if (sent) {
+            launchHydrateTargetThreadId = targetThreadId
+            launchHydrateInFlightThreadId = targetThreadId
+        }
+    }
+
+    private fun clearPendingLaunchHydrate(threadId: String? = null) {
+        val normalizedThreadId = normalizeThreadId(threadId)
+        if (normalizedThreadId == null) {
+            launchHydratePending = false
+            launchHydrateTargetThreadId = null
+            launchHydrateInFlightThreadId = null
+            return
+        }
+        val targetThreadId = normalizeThreadId(launchHydrateTargetThreadId)
+        val inFlightThreadId = normalizeThreadId(launchHydrateInFlightThreadId)
+        if (targetThreadId == null || targetThreadId == normalizedThreadId || inFlightThreadId == normalizedThreadId) {
+            launchHydratePending = false
+            launchHydrateTargetThreadId = normalizedThreadId
+            launchHydrateInFlightThreadId = null
         }
     }
 

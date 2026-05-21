@@ -61,6 +61,56 @@ import kotlinx.coroutines.withContext
 import kotlin.math.min
 import kotlin.math.roundToInt
 
+internal fun normalizeCodexLaunchThreadId(threadId: String?): String? {
+    val normalized = threadId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    return when {
+        normalized.equals("null", ignoreCase = true) -> null
+        normalized.equals("undefined", ignoreCase = true) -> null
+        else -> normalized
+    }
+}
+
+internal fun resolveCodexTargetThreadId(
+    explicitThreadId: String?,
+    fallbackThreadId: String?
+): String? {
+    return normalizeCodexLaunchThreadId(explicitThreadId)
+        ?: normalizeCodexLaunchThreadId(fallbackThreadId)
+}
+
+internal fun resolveIntentLaunchThreadId(
+    intentProfileId: String,
+    intentSessionId: String,
+    explicitThreadId: String?,
+    storedProfileId: String?,
+    storedSessionId: String?,
+    storedThreadId: String?
+): String? {
+    resolveCodexTargetThreadId(explicitThreadId, null)?.let { return it }
+    val sameStoredSession = storedProfileId == intentProfileId && storedSessionId == intentSessionId
+    return if (sameStoredSession) {
+        normalizeCodexLaunchThreadId(storedThreadId)
+    } else {
+        null
+    }
+}
+
+internal fun mergeSameSessionLaunchParams(
+    next: CodexLaunchParams,
+    current: CodexLaunchParams?
+): CodexLaunchParams {
+    if (current == null) {
+        return next.copy(
+            cwd = next.cwd,
+            threadId = normalizeCodexLaunchThreadId(next.threadId)
+        )
+    }
+    return next.copy(
+        cwd = next.cwd ?: current.cwd,
+        threadId = resolveCodexTargetThreadId(next.threadId, current.threadId)
+    )
+}
+
 /**
  * Native Codex entry point — Phase 1.
  *
@@ -107,12 +157,16 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             sessionId: String,
             sessionMode: String = "codex",
             cwd: String? = null,
+            threadId: String? = null,
             launchSource: String = "sessions"
         ): Intent = Intent(context, CodexActivity::class.java).apply {
             putExtra(CodexLaunchParams.EXTRA_PROFILE_ID, profileId)
             putExtra(CodexLaunchParams.EXTRA_SESSION_ID, sessionId)
             putExtra(CodexLaunchParams.EXTRA_SESSION_MODE, sessionMode)
             cwd?.let { putExtra(CodexLaunchParams.EXTRA_CWD, it) }
+            resolveCodexTargetThreadId(threadId, null)?.let {
+                putExtra(CodexLaunchParams.EXTRA_THREAD_ID, it)
+            }
             putExtra(CodexLaunchParams.EXTRA_LAUNCH_SOURCE, launchSource)
         }
     }
@@ -305,11 +359,18 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         setIntent(intent)
         val params = resolveParams() ?: return
         if (targetsSameSession(params, activeLaunchParams)) {
-            activeLaunchParams = activeLaunchParams?.copy(
-                cwd = params.cwd ?: activeLaunchParams?.cwd,
-                launchSource = params.launchSource
-            ) ?: params
-            persistActiveLaunchSelection(activeLaunchParams!!)
+            val currentParams = activeLaunchParams
+            val mergedParams = mergeSameSessionLaunchParams(params, currentParams)
+            val threadChanged = normalizeCodexLaunchThreadId(mergedParams.threadId) !=
+                normalizeCodexLaunchThreadId(currentParams?.threadId)
+            if (threadChanged) {
+                viewModel.clearError()
+                startConnection(mergedParams)
+            } else {
+                activeLaunchParams = mergedParams
+                syncActivityIntent(mergedParams)
+                persistActiveLaunchSelection(mergedParams)
+            }
             cancelAttentionNotifications()
             return
         }
@@ -721,7 +782,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                 val updatedParams = params.copy(
                     sessionId = state.sessionId.ifBlank { params.sessionId },
                     cwd = state.cwd ?: params.cwd,
-                    threadId = normalizeStoredThreadId(state.threadId)
+                    threadId = normalizeCodexLaunchThreadId(state.threadId)
                 )
                 activeLaunchParams = updatedParams
                 syncActivityIntent(updatedParams)
@@ -798,6 +859,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             sessionId = params.sessionId,
             sessionMode = SessionMode.CODEX.wireValue,
             cwd = viewModel.uiState.value.cwd ?: params.cwd,
+            threadId = resolveCodexTargetThreadId(viewModel.uiState.value.threadId, params.threadId),
             launchSource = "notification"
         ).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -1074,6 +1136,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
 
     private fun resolveParams(): CodexLaunchParams? {
         val state = serverConfigStore.loadState()
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
 
         // Priority 1: explicit Intent extras
         val intentProfileId = intent.getStringExtra(CodexLaunchParams.EXTRA_PROFILE_ID)
@@ -1088,12 +1151,19 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                 sessionId = intentSessionId,
                 sessionMode = intent.getStringExtra(CodexLaunchParams.EXTRA_SESSION_MODE) ?: "codex",
                 cwd = intent.getStringExtra(CodexLaunchParams.EXTRA_CWD),
+                threadId = resolveIntentLaunchThreadId(
+                    intentProfileId = intentProfileId,
+                    intentSessionId = intentSessionId,
+                    explicitThreadId = intent.getStringExtra(CodexLaunchParams.EXTRA_THREAD_ID),
+                    storedProfileId = prefs.getString(PREF_PROFILE_ID, null),
+                    storedSessionId = prefs.getString(PREF_SESSION_ID, null),
+                    storedThreadId = prefs.getString(PREF_THREAD_ID, null)
+                ),
                 launchSource = intent.getStringExtra(CodexLaunchParams.EXTRA_LAUNCH_SOURCE) ?: "intent"
             )
         }
 
         // Priority 2: persisted restore state
-        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val restoredProfileId = prefs.getString(PREF_PROFILE_ID, null)
         val restoredSessionId = prefs.getString(PREF_SESSION_ID, null)
         if (!restoredProfileId.isNullOrBlank() && !restoredSessionId.isNullOrBlank()) {
@@ -1107,7 +1177,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                 sessionId = restoredSessionId,
                 sessionMode = prefs.getString(PREF_SESSION_MODE, "codex") ?: "codex",
                 cwd = prefs.getString(PREF_CWD, null),
-                threadId = null,
+                threadId = normalizeCodexLaunchThreadId(prefs.getString(PREF_THREAD_ID, null)),
                 launchSource = "restore"
             )
         }
@@ -1127,7 +1197,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
     }
 
     private fun persistRestoreState(params: CodexLaunchParams) {
-        val normalizedThreadId = normalizeStoredThreadId(params.threadId)
+        val normalizedThreadId = normalizeCodexLaunchThreadId(params.threadId)
         val editor = getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
             .putString(PREF_PROFILE_ID, params.profileId)
             .putString(PREF_SESSION_ID, params.sessionId)
@@ -1139,15 +1209,6 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             editor.putString(PREF_THREAD_ID, normalizedThreadId)
         }
         editor.apply()
-    }
-
-    private fun normalizeStoredThreadId(threadId: String?): String? {
-        val normalized = threadId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-        return when {
-            normalized.equals("null", ignoreCase = true) -> null
-            normalized.equals("undefined", ignoreCase = true) -> null
-            else -> normalized
-        }
     }
 
     private fun persistShellSelection(params: CodexLaunchParams) {
@@ -1200,6 +1261,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                 sessionId = params.sessionId,
                 sessionMode = params.sessionMode,
                 cwd = params.cwd,
+                threadId = params.threadId,
                 launchSource = params.launchSource
             )
         )
