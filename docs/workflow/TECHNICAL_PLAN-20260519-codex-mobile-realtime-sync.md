@@ -96,6 +96,61 @@ Selected upstream model:
 - `threadId -> Set<sessionId>` remains useful for TermLink bookkeeping, UI diagnostics, lifecycle cleanup, and preventing one session's switch from mutating another session's local state. It is not the selected primary mechanism for replaying one upstream event stream to all sessions.
 - If the same logical TermLink session temporarily has multiple WebSocket connections, those WebSocket connections share the same logical session and the same upstream app-server connection.
 
+Migration target from the current singleton `codexService`:
+
+- Use one managed Codex app-server process/runtime for the TermLink service.
+- Open multiple upstream connections to that one app-server process, one upstream connection per TermLink logical session.
+- Do not start one app-server process per TermLink session. That would split `thread -> connection_ids`, pending request replay, and first-valid-response semantics across independent runtimes.
+- Do not keep the current single shared upstream connection as the target model. That would force TermLink to reimplement app-server connection fanout, request recipient handling, and duplicate response resolution.
+- Because expected concurrent session count is small, usually fewer than five, no complex connection pool is required. A simple runtime registry keyed by `sessionId` is sufficient.
+- `stdio://` represents a single upstream connection and is suitable only for current compatibility or focused tests. The target app-server process should use a multi-connection transport, preferring websocket or Unix socket where supported.
+
+Recommended implementation split:
+
+```text
+CodexAppServerProcess
+  - starts/stops the single managed app-server process
+  - exposes a multi-connection app-server transport, preferably websocket or Unix socket
+  - closes the process during TermLink shutdown
+
+CodexUpstreamConnection
+  - one instance per TermLink logical session
+  - owns JSON-RPC request/response, notifications, and server_request handling for that session
+  - carries both sessionId and upstream connectionId for routing
+
+CodexUpstreamRegistry
+  - Map<sessionId, CodexUpstreamConnection>
+  - getOrCreate(sessionId)
+  - getByConnectionId(connectionId)
+  - getSessionForConnection(connectionId)
+  - close(sessionId)
+  - closeDormant(sessionId)
+  - closeAll()
+```
+
+`CodexUpstreamRegistry` contract:
+
+```text
+sessionConnections: Map<sessionId, CodexUpstreamConnection>
+connectionSessions: Map<connectionId, sessionId>
+```
+
+- `getOrCreate(sessionId)` creates or reuses exactly one `CodexUpstreamConnection` for the logical TermLink session.
+- When a connection is opened, the registry assigns or records its upstream `connectionId`, stores `sessionConnections[sessionId] = connection`, and stores `connectionSessions[connectionId] = sessionId`.
+- If a fresh upstream connection replaces an old one for the same `sessionId`, the old connection must be closed first and both maps must remove the old `connectionId` before the new mapping is installed.
+- `getSessionForConnection(connectionId)` is the only source for `getSessionForUpstreamConnection(connectionId)` in gateway pseudocode. Missing mappings are treated as stale upstream events and must be ignored or logged without broadcasting.
+- Closing a session upstream connection removes both `sessionConnections[sessionId]` and `connectionSessions[connectionId]`, unsubscribes / closes the transport, rejects local pending requests, and removes event listeners.
+- A transient WebSocket close does not remove either mapping while the logical session remains retained; it only starts dormant TTL handling.
+- `CodexThreadHub` remains the thread subscription and UI-focus registry: `threadId -> Set<sessionId>`, `sessionId -> activeFocusedThreadId`, and foreground-only membership. It must not own upstream connection objects.
+- `CodexUpstreamRegistry` remains the upstream ownership registry: `sessionId -> connection` and `connectionId -> sessionId`. It must not decide thread membership except by calling `CodexThreadHub` during attach, switch, unsubscribe, close, or cleanup flows.
+
+Migration steps:
+
+1. Introduce `getCodexConnectionForSession(sessionId)` as the only gateway entrypoint for Codex requests, while initially preserving behavior behind the abstraction.
+2. Replace direct singleton `codexService.request(...)` calls with session-scoped connection requests.
+3. Make notification and server-request handlers connection-scoped: a connection receives the upstream event, the registry resolves its `sessionId`, and the gateway broadcasts only to that session.
+4. Add lifecycle handling: short WebSocket disconnect keeps the session upstream connection until dormant TTL; session delete / session TTL expiry closes that session connection; TermLink shutdown closes all session connections and the single app-server process.
+
 For the selected first implementation, each TermLink session is foreground-only: one session subscribes to at most one live/interactable focused thread at a time. Multi-session behavior remains supported through the thread subscriber set. Example: session A and session B can both subscribe to thread X; if session A switches to thread Y, only session A is removed from thread X and only session A's upstream connection unsubscribes from thread X. Session B remains subscribed through its own upstream connection.
 
 ## Current TermLink Mistakes
@@ -171,10 +226,16 @@ TermLink currently routes normal user input through `turn/start`. That is correc
 Required correction:
 
 - For idle or completed threads: use `turn/start(threadId, input)`.
-- For an active in-flight turn with non-empty composer input: do not silently choose a behavior. The first implementation must show two explicit send choices at the composer: `queue` and `steer`.
+- For an active in-flight turn with non-empty composer input: do not silently choose a behavior. The target behavior is to expose two explicit send choices at the composer: `queue` and `steer`.
 - `queue`: keep the input in TermLink until the active turn completes, then send it as `turn/start(threadId, input)` after verifying the session is still attached to the same target thread.
 - `steer`: send immediately through `turn/steer(threadId, expectedTurnId, input)` and require `expectedTurnId` to match the current active turn. If the expected turn is missing or stale, reject clearly rather than falling back to `turn/start`.
 - `interrupt`: do not expose it as a top action while there is composer text. Interruption is only available through the composer send control when the task is running and the composer is empty.
+
+Implementation split:
+
+- The `queue` / `steer` / composer-terminate UI change is not part of the current Android live-follow repair task because it changes visible controls and exceeds that task's design constraint.
+- This UI work must be decomposed into the next task with explicit UI scope, allowed files, Android unit coverage, and manual visual / interaction smoke.
+- Until that follow-up task is opened, the current task may define the protocol target but must not remove the existing top interrupt button or add queue / steer composer controls.
 
 ## Required Behavior By Operation
 
@@ -197,8 +258,9 @@ Required behavior:
 3. Decide whether the open action is read-only or live/interactable:
    - Completed/read-only view: keep the result as a hydrate-only `thread/read` view and do not call `thread/resume`.
    - Running thread or interactable view: call `thread/resume` or a TermLink internal equivalent that subscribes the session to the thread before expecting live events.
-4. Mark this `threadId` as the session's active focused thread only when the task becomes the active/interactable task.
-5. Continue receiving `codex_notification`, `codex_state`, and server requests while subscribed.
+4. After `thread/resume`, handle any app-server replayed pending server requests for that upstream connection and create session-local pending UI from that replay.
+5. Mark this `threadId` as the session's active focused thread only when the task becomes the active/interactable task.
+6. Continue receiving `codex_notification`, `codex_state`, and server requests while subscribed.
 
 `thread/resume` has stronger semantics than a passive read: in Codex it reopens an existing thread so later `turn/start` calls append to it. Therefore TermLink should not blindly call `thread/resume` for every historical preview. If the task is already completed and the user is only browsing history, `thread/read(includeTurns=true)` is enough. If the task is running, or if the UI is opening it as the current task where the user may continue the conversation, `thread/resume` is the correct attach path.
 
@@ -210,7 +272,8 @@ Allowed policies:
 
 - Foreground-only (selected for this task):
   - When switching away from the current focused thread, gateway removes the current TermLink session from the previous `threadId` subscriber set.
-  - Gateway sends upstream `thread/unsubscribe` for the previous `threadId` only if that removal makes the internal subscriber set empty.
+  - Gateway sends upstream `thread/unsubscribe` for the previous `threadId` on that session's own upstream connection every time that session switches away.
+  - The internal `threadId -> Set<sessionId>` may become non-empty because other sessions are still subscribed; that does not keep the switching session's upstream connection subscribed to the old thread.
   - Then hydrate/resume the new focused thread according to the "Opening an existing task" rules.
   - The session's `activeFocusedThreadId` changes to the new thread.
 - Background-follow (deferred):
@@ -218,7 +281,7 @@ Allowed policies:
   - Keep the previous thread subscription active so notifications and pending server requests may still arrive.
   - Change only `activeFocusedThreadId` / UI focus, and route composer input to the focused thread.
 
-The first implementation is foreground-only at the single-session level. Internal unsubscribe plus empty-set upstream `thread/unsubscribe` is part of the gateway switching contract. Background-follow is deferred because it requires thread-scoped per-session state instead of a single focused `session.codexState`.
+The first implementation is foreground-only at the single-session level. Switching away always unsubscribes the switching session's own upstream connection from the old thread. The internal subscriber set is bookkeeping for TermLink diagnostics, lifecycle cleanup, and cross-session isolation; it must not decide whether another session's upstream connection remains subscribed. Background-follow is deferred because it requires thread-scoped per-session state instead of a single focused `session.codexState`.
 
 Foreground-only does not mean single global subscriber. It means each TermLink session has only one active focused live/interactable thread. Different TermLink sessions may subscribe to the same or different threads concurrently, and one session's switch must not mutate another session's subscription.
 
@@ -249,10 +312,10 @@ This means a sudden phone/Web disconnect does not immediately close the session'
 Any subscribed session can send input:
 
 - If the thread is idle: `turn/start(threadId, input)`.
-- If the thread has an active regular turn and the composer has text: clicking the send control opens two small in-place send choices:
+- Target follow-up UI behavior, deferred from the current Android live-follow repair task: if the thread has an active regular turn and the composer has text, clicking the send control opens two small in-place send choices:
   - Queue send: enqueue locally and send `turn/start(threadId, input)` only after the active turn completes.
   - Steer send: send `turn/steer(threadId, expectedTurnId, input)` immediately; `expectedTurnId` must match the current active turn.
-- If the thread has an active regular turn and the composer is empty: the same control becomes the terminate control and invokes the explicit interrupt/stop path.
+- Target follow-up UI behavior, deferred from the current Android live-follow repair task: if the thread has an active regular turn and the composer is empty, the same control becomes the terminate control and invokes the explicit interrupt/stop path.
 - `turn/start` does not automatically subscribe the sending session. Before calling `turn/start`, TermLink must verify that the sending session is already subscribed to the target thread; if not, it must first call `thread/resume` or perform an equivalent internal attach/subscribe step.
 - Sending input must not unsubscribe other sessions from the thread.
 
@@ -297,6 +360,8 @@ But new code should not depend on actor/follower return values.
 ### `terminalGateway.js`
 
 Notification handling for the selected per-session upstream model should be owner-session scoped:
+
+`getSessionForUpstreamConnection(connectionId)` means `CodexUpstreamRegistry.getSessionForConnection(connectionId)` followed by a session lookup in `SessionManager`.
 
 ```text
 threadId = extractThreadId(notification)
@@ -366,11 +431,10 @@ Android should continue to preserve the existing UI, but the lifecycle semantics
 - `CodexActivity` must carry explicit `threadId` when opening a known task.
 - `CodexViewModel` should treat launch/open task as `hydrate + attach`.
 - `thread/read` response should merge canonical history without dropping live tail.
+- Replayed pending server requests after `thread/resume` should immediately create session-local pending UI; Android must not infer pending approval UI from historical `thread/read` transcript alone.
 - `codex_notification` and `codex_state` should be accepted from the subscribed thread regardless of which session started the turn.
 - When Android sends input on the followed thread, the gateway must not reassign ownership away from desktop / VS Code.
-- The existing top "interrupt" button should be removed.
-- When a task is running and the composer is empty, the composer send button becomes the terminate button.
-- When a task is running and the composer contains text, the composer send button remains a send button; clicking it opens two small in-place send buttons for `queue` and `steer`.
+- Keep the current Android visible control layout for this task. Removing the existing top "interrupt" button, mapping empty-composer send to terminate, and adding in-place `queue` / `steer` send controls are deferred to the next UI-scoped task.
 - When no task is running, the composer send button keeps the current send behavior.
 
 ## Validation Requirements Before Implementation Is Accepted
@@ -379,7 +443,8 @@ The current tests should be rewritten around flat subscriptions, not actor/follo
 
 Required Node tests:
 
-- Multiple sessions subscribe to the same `threadId`; all receive later notifications.
+- Multiple sessions subscribe/resume the same Codex `threadId` through separate upstream connections `C_A`, `C_B`, and `C_C`; when the app-server delivers the corresponding event on each upstream connection, session A receives the event from `C_A`, session B receives the event from `C_B`, and session C receives the event from `C_C`.
+- A single upstream event received on `C_A` is delivered only to session A and is not re-fanned out by TermLink to sessions B/C.
 - Single-session foreground-only switching removes only that session from the previous thread subscriber set and does not affect other sessions subscribed to that thread.
 - A second session first subscribes/resumes the same `threadId`, then sends `turn/start`; this does not remove the first session from subscribers.
 - Calling `turn/start` from an unsubscribed TermLink session is not treated as live attach; the gateway must either attach first or fail clearly.
@@ -394,10 +459,7 @@ Required Node tests:
 - Server requests are routed only to the owner session for the upstream connection that received them; other sessions receive their own app-server requests through their own upstream connections.
 - First server-request response wins is delegated to Codex app-server; duplicate local responses from the same session are handled deterministically.
 - Same logical TermLink session with multiple WebSocket connections shares one upstream connection.
-- Running thread with empty composer exposes terminate through the composer send control and does not show the old top interrupt button.
-- Running thread with non-empty composer exposes explicit queue and steer choices before sending.
-- Queue follow-up does not call `turn/start` until the active turn completes.
-- Steer follow-up calls `turn/steer` with the current `expectedTurnId`; missing or stale `expectedTurnId` is rejected clearly.
+- Running-thread composer UI changes are deferred to the next UI-scoped task; current backend tests should not require removal of the existing top interrupt button or new queue / steer controls.
 - `codex_state` updates are per-subscriber, not copied from a source session.
 
 Required Android JVM tests:
@@ -406,10 +468,15 @@ Required Android JVM tests:
 - Launch/open task triggers hydrate then attach.
 - Canonical hydrate preserves live tail and current running state.
 - Sending from Android on a followed thread keeps desktop/VS Code subscriber visibility.
+- Idle state preserves the current composer send behavior.
+
+Deferred next-task Android UI tests:
+
 - Running state hides the old top interrupt button.
 - Running state with empty composer maps the composer send control to terminate.
-- Running state with non-empty composer opens explicit queue/steer send choices.
-- Idle state preserves the current composer send behavior.
+- Running state with non-empty composer opens explicit queue / steer send choices.
+- Queue follow-up does not call `turn/start` until the active turn completes.
+- Steer follow-up calls `turn/steer` with the current `expectedTurnId`; missing or stale `expectedTurnId` is rejected clearly.
 
 Required manual smoke:
 
@@ -445,6 +512,7 @@ Rejected because it does not fully match Codex desktop / VS Code behavior and ri
 - Server requests reach each real subscriber through Codex app-server's connection-level fanout.
 - First valid server-request response wins is delegated to Codex app-server.
 - In-flight follow-up policy is fixed: non-empty composer text requires explicit queue or steer choice; steer uses `turn/steer(expectedTurnId)`, queue waits for completion and then uses `turn/start`; interrupt is available only as the composer terminate control when the composer is empty.
+- The Android visible-control implementation for this in-flight follow-up policy is deferred to the next UI-scoped task; the current task must not remove the top interrupt button or add queue / steer composer controls.
 - Tests cover approval/user-input participation and duplicate response handling.
 
 This is the architecture that best matches official Codex app-server semantics and is the recommended target if the goal is parity with Codex desktop and the VS Code extension.
@@ -572,8 +640,9 @@ Object boundaries:
 
 ```text
 TermLink session metadata: persisted in data/sessions.json
-upstream Codex connection: runtime-only, process-local
-Codex app-server child process / transport: runtime-only
+CodexAppServerProcess: one managed runtime process per TermLink service, runtime-only
+CodexUpstreamConnection: one upstream JSON-RPC connection per TermLink logical session, runtime-only
+CodexUpstreamRegistry: process-local Map<sessionId, CodexUpstreamConnection>
 ```
 
 Cleanup rules:

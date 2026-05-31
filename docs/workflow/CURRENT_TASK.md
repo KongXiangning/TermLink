@@ -52,6 +52,7 @@
 - Design acceptance:
   - 保持现有 Android Codex 页面布局、任务列表入口和 runtime panel 主结构不变
   - 本批只修正“打开当前任务后的状态 / transcript / live flow 跟随”，不新增新的多端协作可视控件
+  - 本批不移除顶部 interrupt 按钮，不新增 queue / steer 发送选择，也不把空输入 composer send 改成 terminate；这些属于下一轮 UI scope 任务
   - 不引入需要用户重新学习的新主路径；若必须增加提示，优先复用现有状态 / notice 区域
 - Design evidence: 当前 Android Codex 现有页面与会话 / 任务入口
 - Design open decisions:
@@ -204,12 +205,14 @@ Forbidden Files:
 - 用户已确认：本批只修“状态 + transcript + live message flow 跟随”这条当前失败路径，不把审批 / 用户输入的跨端镜像纳入本批。
 - 本批优先选择内部 follower attach 语义，不新增公开 follow 消息类型；只有当现有 envelope 无法表达必要状态时，才最小扩展兼容字段。
 - Android 打开当前任务的 launch / restore 链路优先显式携带目标 `threadId`；若入口没有明确 `threadId`，再回退到服务器返回的当前 active thread。
+- 2026-05-21 用户确认：Android composer 的 queue / steer 选择、移除顶部 interrupt 按钮、空输入 send 映射 terminate 属于下一轮 UI scope 拆解任务；当前任务只保留协议目标分析，不实施可见控件改动。
 
 ## 待确认问题
 
 - [x] 2026-05-19：用户已确认本批只收敛“状态 + transcript + live message flow 跟随”，不覆盖审批 / 用户输入的跨端镜像与接管。
 - [x] 2026-05-19：review-current-task 收敛后，当前实现默认优先走内部 follower attach 语义，不新增公开 follow 消息类型；只有当现有 envelope 不足以表达必要状态时，才允许最小兼容扩展。
 - [x] 2026-05-19：review-current-task 收敛后，Android 打开当前任务的 launch / restore 链路优先显式携带目标 `threadId`；缺失时再回退到服务器返回的当前 active thread。
+- [x] 2026-05-21：queue / steer / composer terminate / 顶部 interrupt 调整已从当前任务拆出，作为下一轮 UI scope 任务处理。
 
 ## 决策分类
 
@@ -479,3 +482,4 @@ Forbidden Files:
 - 2026-05-20：按用户要求细化“不保留 requestRecipients 的风险”。技术方案已把该风险展开为具体验证场景：多 session 同 request 首个 approval 后其他端 UI 清理、recipient 断线 dormant 后重连不复活旧 approval、切换 foreground 后仍能清理 pending、后续新 session resume 不看到已 resolved request、fresh upstream reconnect 以 app-server replay 为准、重复响应稳定返回 resolved / no longer pending。后续决策标准为：若 app-server resolved / replay 语义覆盖这些场景，v1 可不保留本地 `requestRecipients`；否则需要最小 `pendingRequestLifecycle` cache。
 - 2026-05-21：按用户确认将 request 处理从“场景清单”收敛为技术流程：v1 不保留 `requestRecipients` 作为跨 session request 权威状态，Codex app-server 负责 fanout、first valid response wins 与重复响应处理；TermLink 只保留 session-local、内存级 `sessionPendingRequests` UI lifecycle，用于防止 approval 弹窗在 foreground 切换、dormant reconnect 或 fresh upstream reconnect 后残留 / 复活。技术方案已固定 pending UI 的创建来源、清理触发、不允许的清理触发，以及 A/C 同 approval、C dormant、C foreground switch、D later resume、fresh upstream reconnect 和 duplicate response 的处理流程。
 - 2026-05-21：按用户确认固定 upstream connection 生命周期方案。技术方案已明确 TermLink session metadata 是持久对象，upstream Codex connection / managed app-server child process 是运行时对象；`session delete`、`session TTL expiry`、`logout` 会 close upstream 并按语义删除或清理 session/auth 状态，`TermLink shutdown` 只 close runtime upstream / app-server child process 并保留 `data/sessions.json` session metadata，`app-server connection error` 标记 session runtime degraded 并允许后续重建 upstream + `thread/read` / `thread/resume`。同时固定 dormant TTL：短断先保留 upstream，超过 `CODEX_UPSTREAM_DORMANT_TTL_MS` 或默认 `min(30 minutes, SESSION_IDLE_TTL_MS)` 后只关闭 upstream，不删除 session metadata；技术方案已将 Remaining Discussion Items 清空，下一步应按确认模型重新拆实施步骤。
+- 2026-05-21：按用户要求将 Android 可见控件调整从当前任务拆出。`queue` / `steer` composer 选择、移除顶部 interrupt 按钮、空输入 send 映射 terminate 不进入当前 live-follow 修复任务；这些内容保留为技术方案中的协议目标和下一轮 UI scope 任务入口。当前任务设计约束继续以“不新增多端协作可视控件、保持现有 Android 页面主结构”为准。
