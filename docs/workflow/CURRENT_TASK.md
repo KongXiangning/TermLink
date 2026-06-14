@@ -3,115 +3,113 @@
 ## 任务信息
 
 - 任务 ID：20260615-001
-- 任务标题：按 Scope B 架构重建 Codex 多端实时同步
-- 任务 slug：scope-b-codex-multi-client-realtime-sync
-- 当前状态：ready_for_review
+- 任务标题：接入 codex-ipc 实现 App Codex 会话页实时同步
+- 任务 slug：app-codex-ipc-realtime-sync
+- 当前状态：reviewed_ready_for_lock_scope
 - 创建时间：2026-06-15
-- 创建来源：执行 `/supersede-current-task`，替代旧任务 `20260519-001`；旧 actor/follower 技术方向已确认不成立，按 Scope B 技术方案重新拆解
-- 任务类型：architectural-rebuild / realtime-sync
-- 任务目标：以 Codex app-server 原生扁平订阅模型（`threadId -> Set<connectionId>`）替代当前 TermLink actor/follower ownership 近似实现，使 Android 端能作为完整参与者（而非只读 viewer）打开并跟随已有 Codex 任务，实现与 CLI / 桌面端 / VS Code 插件的 rich-client parity
-- 技术方案文件：`docs/workflow/TECHNICAL_PLAN-20260519-codex-mobile-realtime-sync.md`
-- 技术方案审核状态：reviewed-scope-b-selected-foreground-only-session-per-session-upstream；Scope B = full rich-client parity + 单 TermLink session foreground-only + 每 logical session 一条 upstream Codex app-server connection + thread-scoped model/reasoning/planMode projection + session-scoped permissions
+- 创建来源：用户直接指令，基于 `docs/architecture/技术文档.md` 和 `E:\coding\termlink-demo` 参考实现创建新任务包
+- 任务类型：feature / realtime-sync
+- 任务目标：在 TermLink 服务端新增 `codex-ipc` 接入能力，将现有 Android Codex 会话页接入 Codex Desktop / VS Code 的实时同步数据源与控制链路，使 App 端能够接收 Desktop/VS Code 的实时消息流、状态变更、approval 和 PLAN，同时能从 App 端发送消息、审批和 PLAN 操作并同步回 Desktop/VS Code；整个过程中 App 现有页面设计、操作逻辑和用户交互方式保持不变，IPC 不可用时 graceful fallback 到原有 TermLink Codex 会话路径
+- 技术参考文件：
+  - `docs/architecture/技术文档.md` — codex-ipc 架构、owner/follower 模型、分层说明
+  - `E:\coding\termlink-demo\src\codex-ipc\**` — IPC client、codec、types、thread-stream tracker 参考实现
+  - `E:\coding\termlink-demo\server\src\wsGateway.ts` — WebSocket gateway 与 IPC feed 集成参考
+  - `E:\coding\termlink-demo\server\src\codexIpcFeed.ts` — IPC feed 组件参考
+- 技术方案审核状态：reviewed；当前任务包已完成 `/review-current-task` 收敛，下一步进入 `/lock-scope`
 
-## Superseded 旧任务治理记录
+## Superseded 治理记录
 
-本任务替代旧任务 `20260519-001`（`android-open-existing-codex-task-live-follow`），不走 closeout，不归档到 TASKS/。
+本任务替代此前 CURRENT_TASK.md 中记录的 Scope B app-server 方案任务。旧方案基于 "per-session upstream Codex app-server connection + flat subscription model"，经 `docs/architecture/技术文档.md` 和 termlink-demo 的实际验证后，确认更正确的接入点是 `codex-ipc`（本机 UI surface 协调总线）而非 Codex app-server 的直接 transport。
 
-### 旧任务身份
+### 已弃用的旧方案
 
-- 旧任务 ID：20260519-001
-- 旧任务标题：修复 Android 打开现有 Codex 任务时无法实时跟随
-- 旧任务 slug：android-open-existing-codex-task-live-follow
-- 旧任务最终状态：blocked_by_replan
-- 旧任务创建时间：2026-05-19
-- 旧任务状态演变：step5_regression_fixed_pending_manual_recheck → blocked_by_replan（2026-06-15）
+- 旧方案描述：Scope B — 每 TermLink logical session 一条 upstream Codex app-server connection，通过 app-server 原生 `connection_ids: HashSet<ConnectionId>` 实现多端同步
+- 弃用原因：`codex-ipc` 是 Desktop/VS Code 之间实际使用的同步总线；app-server 负责 runtime 执行，`codex-ipc` 负责 UI surface 间状态广播与 follower 控制路由。TermLink 应接入 `codex-ipc` 层而非直接管理多条 app-server connection。旧方案中 "per-session upstream connection"、"flat subscription model"、"thread config sync" 等概念不再作为当前任务的技术基础。
+- 旧方案有效产出保留：
+  - `docs/architecture/技术文档.md` 中的架构分析（第 1-11 章）
+  - termlink-demo 的 IPC client、codec、thread-stream tracker、wsGateway 参考实现
+  - 对 Codex owner/follower 模型的理解
 
-### 旧任务失效原因
+### 旧任务 `20260519-001` 残留（已 superseded）
 
-旧 actor/follower 技术方向已于 2026-05-20 至 2026-05-21 期间经以下复核确认不成立：
-
-1. Codex 官方 app-server 文档确认：app-server 的 thread subscriber 模型是 `connection_ids: HashSet<ConnectionId>` 扁平集合，事件 fanout 通过 `subscribed_connection_ids(thread_id)` 重新读取订阅者列表，server request 通过 `ThreadScopedOutgoingMessageSender` 向所有订阅连接发送。
-2. 本地 Codex 源码核对确认：`ThreadEntry` 存储 `connection_ids: HashSet<ConnectionId>`，不存在 actor/owner 层级。
-3. VS Code extension manifest 确认：Codex 桌面端 rich client 行为基于扁平订阅，而非单 owner + follower。
-4. 结论：TermLink 当前 `CodexThreadHub` 的 actor + follower 模型是对 Codex 原生模型的错误近似。继续沿该方向修补只会把错误抽象扩散到更多模块。
-
-### 旧任务已有有效产出（保留复用）
-
-1. **根因定位 evidence**（全部保留）：`RCF-20260519-001` 的 root cause analysis、minimal repro、code trace 均有效。
-2. **服务端 thread hub handoff 修复事实**（保留为兼容基线）：`bindThreadToSession()` 的 handoff 降级修复（旧 actor 降级为 follower）是对当时 actor/follower 模型内的正确修复，其测试覆盖的 "同一 thread 上 follow session 发起 turn 后旧 session 不应丢失跟随" 场景在 Scope B 中映射为 "同一 thread 的任一 subscriber 发起 turn 后其他 subscriber 继续接收事件"。
-3. **已通过定向测试记录**（保留为回归参考）：
-   - `node --test tests\codexThreadHub.test.js tests\terminalGateway.threadHub.test.js`：14 pass / 0 fail（旧 actor/follower 模型下）
-   - `android\gradlew.bat :app:testDebugUnitTest`：BUILD SUCCESSFUL（含 `CodexActivityLaunchParamsTest`、`CodexViewModelHydrateFollowTest`、`CodexViewModelThreadReadyTest`）
-   - Narrow gate：99 pass / 0 fail
-
-### 旧任务未完成项
-
-1. **真实桌面路径手动复测未完成**：Step 5 的 "Android 在已跟随 thread 上再次发起 turn 后，VSCode Codex / Codex Desktop 看不到第二次执行" 已修复（handoff 降级），但用户侧真实桌面链路待复测。此场景在 Scope B 中由 app-server 原生 fanout 覆盖，不再依赖 TermLink handoff 逻辑。
-
-### Partial diff ownership
-
-当前 working tree 中存在旧 actor/follower 方向的已提交改动（commit 历史在 `d652684` 之上）。以下明确各改动的复用/废弃/回滚判断：
-
-#### 可被新任务复用的改动
-
-- `android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt`：threadId 显式 extra 接入、same-session re-entry 保留、notification intent 恢复解析 — 这部分 launch/restore 线程解析是正确的，与 Scope B 的 "resolve target threadId" 一致。
-- `android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt`：`EXTRA_THREAD_ID` 常量 — 保留。
-- `android/app/src/test/java/com/termlink/app/codex/CodexActivityLaunchParamsTest.kt`：threadId 选择顺序测试 — 保留，需扩展覆盖 Scope B 的 attach mode 参数。
-- `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`：launch-hydrate 跟踪与 transcript merge helper 提取 — 核心逻辑可复用，但 subscribe 语义需从 "register follower" 改为 "ensure subscribed via thread/resume"。
-
-#### 不得继续传播的旧方向改动
-
-- `src/services/codexThreadHub.js`：actor/follower registry（`actorSessionThreads`、`followerSessionThreads`、`bindThreadToSession` demote 行为）— **必须重写为扁平订阅模型**（`threadId -> Set<sessionId>`、`subscribeSession`/`unsubscribeSession`）。
-- `src/ws/terminalGateway.js`：follower fanout（`fanoutThreadState` 从 actor session 复制 state 到 follower）— **必须重写为 per-session upstream connection 路由**。每个 session 通过自己的 upstream connection 接收 app-server 事件；gateway 不再做跨 session 的 re-fanout。
-- `tests/codexThreadHub.test.js`：actor/follower 测试 — **必须重写为扁平订阅测试**。
-- `tests/terminalGateway.threadHub.test.js`：cross-session fanout 测试 — **必须重写为 per-session upstream 路由测试**。
-
-#### 与新方案冲突的旧 diff 处理
-
-- `CodexThreadHub.bindThreadToSession()` 的 handoff demote 行为：在 Scope B 中不存在 "actor handoff" 概念。该逻辑应在 `CodexThreadHub` 重写时完整移除，不得在新代码中以 wrapper/compat 形式保留。
-- `terminalGateway.fanoutThreadState()`：在 Scope B 中不存在 "从 actor 复制 state 到 follower" 的流程。该函数应在 gateway 重写时移除，替换为 "per-session 独立 state 更新"。
-- `thread/read` 自动注册 follower 的 attach 语义：在 Scope B 中 `thread/read` 是纯只读 snapshot。Attach/subscribe 必须通过 `thread/resume` 或显式内部 subscribe 步骤完成。
+- 旧任务 ID：20260519-001（`android-open-existing-codex-task-live-follow`）
+- 旧任务最终状态：blocked_by_replan（actor/follower 方向已确认不成立）
+- 旧任务有效产出保留：
+  - Android launch params `threadId` 解析（`CodexActivity.kt`）
+  - `CodexModels.kt` 中的 `EXTRA_THREAD_ID` 常量
+  - `CodexActivityLaunchParamsTest.kt` JVM unit
+- 旧任务废弃产出（不得在新方案中复用）：
+  - `CodexThreadHub` 的 actor/follower registry
+  - `terminalGateway.js` 的 cross-session follower fanout
+  - `CodexViewModel` 的 "registerFollower" 逻辑
 
 ## 背景与上下文
 
-- 用户原始需求 `REQ-20260516-codex-mobile-realtime-sync` 要求：手机端进入已有 Codex session / thread 时优先恢复并跟随当前活跃状态，桌面端 / CLI 正在执行任务时手机端打开同一 thread 应能看到当前执行进度、已输出内容和后续增量。
-- 旧任务 `20260517-001` 只交付了 thread-centric foundation，不包含完整多端同步。
-- 旧任务 `20260519-001` 在 actor/follower 模型下完成了服务端 follower registry、gateway fanout、Android target thread 解析、hydrate+follow 状态合并和定向回归，但在真实桌面路径手动复测中发现 "follower 发起 turn 后旧 actor 丢失跟随" 的回归，根因在 thread hub handoff 语义。
-- 2026-05-20 至 2026-05-21：经 Codex 官方 app-server 文档、Codex 源码和 VS Code extension 参与方式复核，确认旧 actor/follower 方向整体不成立，Codex 真实模型是扁平订阅。Scope B 技术方案已编写并审核通过。
-- 当前项目状态：
-  - `20260517-001` 的 foundation 已交付。
-  - `src/services/codexThreadHub.js` 当前仍是 actor/follower 模型（含 handoff demote 修复）。
-  - `src/ws/terminalGateway.js` 当前仍是 follower fanout 路由。
-  - Android 端 launch params 解析已正确，但 hydrate/follow 语义绑定在 actor/follower 模型上。
-  - `terminalGateway.js` 仍是 `CONTRACTS.md` 锁定的高风险区域。
-  - TD-004 仍生效：`node --test` full suite 受已知 hanging surface 影响，自动回归继续采用 confirmed narrow gate。
+- 用户需求 `REQ-20260516-codex-mobile-realtime-sync` 要求手机端与 CLI/桌面端在同一 Codex thread 上实时同步。
+- `docs/architecture/技术文档.md` 已完整梳理 Codex Desktop / VS Code 的同步架构：
+  - `codex app-server` 负责 runtime（thread、turn、tool execution、approval request、JSON-RPC stream）
+  - `codex-ipc` 负责本机 UI surface 间协调（broadcast、owner/follower routing、follower 控制请求转发）
+  - Desktop / VS Code 的实时同步不是两个 app-server 各自运行同一个 turn，而是 owner surface 通过 `codex-ipc` 广播 `thread-stream-state-changed`，follower surface 接收广播并更新 UI
+  - Windows 下 `codex-ipc` 表现为 `\\.\pipe\codex-ipc`
+- termlink-demo 已验证：
+  - 可以连接 `\\.\pipe\codex-ipc` 并作为 observer/follower 接收实时状态
+  - IPC frame codec（4 字节 LE 长度前缀 + JSON payload）
+  - `thread-stream-state-changed` broadcast 包含 snapshot 和 patches 两种 change type
+  - `ThreadStreamTracker` 按 `conversationId` 维护原始 state，`buildDesktopSurfaceSnapshot` 投影为前端可消费的 surface
+  - 控制类 method（`thread-follower-start-turn`、`thread-follower-command-approval-decision`、`thread-follower-steer-turn` 等）已登记并可发送
+  - running 状态闸门防止误发 `thread-follower-start-turn`
+  - PLAN 实施需要先 `thread-follower-update-thread-settings`（切到 default mode）再 `thread-follower-start-turn`
+  - command approval 需要使用 owner raw request id 发送 `thread-follower-command-approval-decision`
+- 当前 TermLink 项目状态：
+  - `src/ws/terminalGateway.js` 仍是旧 app-server/gateway Codex 路径（session-centric + actor/follower）
+  - Android Codex 会话页（`CodexActivity`、`CodexViewModel`）基于旧 gateway 路径
+  - 本任务需要在不破坏旧路径的前提下新增 IPC 数据源，实现双路径 graceful fallback
+  - TD-004 仍生效：`node --test` full suite 受 hanging surface 影响，继续使用 confirmed narrow gate
 
 ## 验收标准
 
-1. 当桌面端 / CLI / VS Code 已在同一 Codex thread 上运行任务时，Android 打开该任务后能够显示当前 `threadId / status / currentTurnId`，并与运行中的任务状态保持同步。
-2. Android 进入已有 live task 时，先补齐 canonical transcript（`thread/read(includeTurns=true)`），再通过 `thread/resume` 或等价内部 attach 订阅 live events；不得只停留在一次性静态快照。
-3. Android 跟随已有任务的动作不得触发 `thread/start`，不得误建新任务 thread。
-4. 任何 subscribed session 发起 `turn/start` 后，同一 thread 的其他 subscribed session 继续收到 live events；不因 "actor 切换" 而丢失跟随。
-5. 同一 thread 下所有 subscribed session 独立接收 app-server 事件（各自通过自己的 upstream connection）；TermLink gateway 不做跨 session re-fanout。
-6. Server request（approval / user input / patch confirm）通过 app-server 原生 connection-level fanout 到达每个 subscribed session 的 upstream connection；TermLink 只做 session-local pending UI 管理。
-7. Foreground-only 切换：单个 TermLink session 切换离开当前 focused thread 时，只移除该 session 自己的订阅；不得影响其他 session 对同一 thread 的订阅。
-8. Thread-scoped configuration（model / reasoningEffort / planMode）任一 session 修改后同步到同一 thread 的其他 session；permission-scoped configuration（approvalPolicy / sandboxMode / permissions preset）不同步。
-9. 现有 `codex_thread_read`、`thread/read`、`thread/resume`、`lastCodexThreadId` 与旧 Web / Android 客户端 envelope 语义保持 backward-compatible。
-10. 自动化测试覆盖：flat subscription 多 session 场景、per-session upstream 路由、foreground-only 切换隔离、`codex_turn` 前 attach 前置条件、server request session-local 路由、thread config sync/not-sync。
-11. Manual smoke 覆盖：桌面端 / CLI / VS Code 启动任务 → Android 打开同一任务 → 看到 running 状态、已有输出、后续增量 → Android 发起新 turn → 桌面端继续看到第二次执行 → 最终 transcript 一致。
+### 页面与交互保持
+
+1. App Codex 会话页视觉结构不变：消息区、composer、approval 面板、runtime panel、PLAN/goal 展示入口均保持当前设计。
+2. 用户操作逻辑不变：发送消息、审批、interrupt、PLAN 确认等操作入口和执行方式与当前一致。
+3. 不新增"主动 Follower 模式"开关或其他替代性 UI 控件。
+4. 不新增替代 Codex 会话页或分流入口。
+
+### IPC 在线时的数据同步
+
+5. Desktop / VS Code 的用户消息、进度更新（commentary）、最终回复（final_answer）、工具/文件摘要、approval 状态、PLAN 生成与实施请求能同步到 Android Codex 会话页。
+6. Android 只展示当前选中 conversation 的内容，不混入其它 conversation 的数据。
+7. Android 发送 idle 消息后，Desktop / VS Code 能同步出现该消息并继续产生 stream。
+8. Android 在 running 状态中补充输入不得复用 `thread-follower-start-turn`，必须走 `thread-follower-steer-turn`、`thread-follower-submit-user-input` 或 queued follow-ups。
+   - 若 owner 当前并未暴露可接收 follow-up / user-input 的 live 请求，App 必须阻止发送而不是猜测协议。
+9. Android command approval 操作经 owner surface 生效（使用 owner raw request id），并以后续 IPC broadcast 收敛 UI。
+10. Android PLAN 实施操作：先通过 `thread-follower-update-thread-settings` 切到 default collaboration mode，再通过 `thread-follower-start-turn` 发送 `PLEASE IMPLEMENT THIS PLAN:\n{planContent}`；owner surface 应在 Default mode 下执行计划。
+
+### IPC 不可用时的 fallback
+
+11. 服务端所在机器没有安装或没有运行 VS Code Codex 扩展 / Codex Desktop 时，IPC 状态显示为 unavailable / disconnected。
+12. IPC 不可用时，Android Codex 会话页原有功能（发送普通消息、查看历史、审批、composer 等）继续按现有 app-server / gateway 路径正常工作。
+13. 不因缺少 Desktop / VS Code / named pipe 而禁用原 composer、历史、审批或普通 Codex 会话入口。
+
+### 兼容性
+
+14. 现有 `codex_turn`、`codex_thread_read`、`codex_request(thread/resume)`、`codex_state`、`codex_notification` 旧 envelope 保持 backward-compatible。
+15. 旧 Web / Android 客户端在 IPC 启用后仍可正常工作（IPC 路径是新增数据源，不替代旧路径）。
 
 ## 设计约束
 
 - Design mode: design-system
 - Design source: current UI
 - Design acceptance:
-  - 保持现有 Android Codex 页面布局、任务列表入口和 runtime panel 主结构不变
-  - 本批不新增新的多端协作可视控件
-  - 不引入需要用户重新学习的新主路径；若必须增加提示，优先复用现有状态 / notice 区域
-  - `queue` / `steer` composer 选择、移除顶部 interrupt 按钮、空输入 send 映射 terminate **不在本轮范围**；这些属于下一轮 UI scope 任务
+  - 保持现有 Android Codex 页面布局、消息区、composer、approval 面板、runtime panel、PLAN/goal 展示入口不变
+  - 本批不新增新的 UI surface、不新增替代页面、不改变导航关系
+  - 不新增"主动 Follower 模式"开关或等效 UI 控件
+  - 不改变用户原本发送消息、审批、interrupt、PLAN 确认等操作入口
+  - 若 IPC 状态需要显示，复用现有状态/notice 区域
+  - `queue` / `steer` composer 选择、移除顶部 interrupt 按钮、空输入 send 映射 terminate **不在本轮范围**
 - Design evidence: 当前 Android Codex 现有页面与会话 / 任务入口
 - Design open decisions:
-  - none；本批默认不新增新的跟随提示 UI，只有当现有状态 / notice 区域已能承载必要反馈时才复用既有 surface
+  - none
 
 ## 发布后验证
 
@@ -121,7 +119,7 @@
 - Health checks: not-required
 - Canary window: none
 - Performance baseline: none
-- Rollback / recovery: 通过 git diff 回滚 CodexThreadHub / terminalGateway / Android 相关改动；不涉及生产部署
+- Rollback / recovery: 断开 IPC 路径即回退到旧 app-server/gateway 路径；IPC 相关代码通过 feature flag 或模块不存在即降级
 - Release evidence: not-required
 
 ## 允许修改范围
@@ -129,332 +127,316 @@
 Allowed Files:
 
 - `docs/workflow/CURRENT_TASK.md`
-- `docs/workflow/TECHNICAL_PLAN-20260519-codex-mobile-realtime-sync.md`
-- `src/services/codexThreadHub.js`
-- `src/services/codexUpstreamRegistry.js`
-- `src/services/codexUpstreamConnection.js`
-- `src/services/codexAppServerProcess.js`
+- `src/services/codexIpcConfig.js`
+- `src/services/codexIpcClient.js`
+- `src/services/codexIpcCodec.js`
+- `src/services/codexIpcThreadStream.js`
+- `src/services/codexIpcFeed.js`
 - `src/ws/terminalGateway.js`
-- `tests/codexThreadHub.test.js`
-- `tests/terminalGateway.threadHub.test.js`
-- `tests/codexUpstreamRegistry.test.js`
-- `tests/codexUpstreamConnection.test.js`
-- `tests/codexAppServerProcess.test.js`
-- `android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt`
+- `tests/codexIpcConfig.test.js`
+- `tests/codexIpcClient.test.js`
+- `tests/codexIpcCodec.test.js`
+- `tests/codexIpcThreadStream.test.js`
+- `tests/codexIpcFeed.test.js`
+- `tests/terminalGateway.codexIpc.test.js`
 - `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`
+- `android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt`
+- `android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt`
+- `android/app/src/main/java/com/termlink/app/codex/network/CodexConnectionManager.kt`
+- `android/app/src/main/java/com/termlink/app/codex/network/CodexWebSocketClient.kt`
 - `android/app/src/test/java/com/termlink/app/codex/**`
 
 Conditional Files:
 
+- `android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt`
+  - 条件：仅当现有 Activity 无法把 IPC status / active conversation 所需参数传给 `CodexViewModel` 时允许。
+  - 限制：不得改变页面入口、导航关系、launch params 既有语义。
+- `src/services/codexThreadHub.js`
+  - 条件：仅当需要对接 IPC feed 的 conversation 订阅/focus 注册时允许。
+  - 限制：不得扩展 actor/follower 模型；只新增 `subscribeSession`/`unsubscribeSession`/`setFocusedThread`/`getFocusedThread` 等扁平方法。
 - `src/services/sessionManager.js`
-  - 条件：仅当 upstream connection lifecycle 需要与 session create/delete/idle-TTL/logout/shutdown 集成时允许。
-  - 限制：不得改变 session lifecycle 核心语义、retention、metadata 持久化。
-- `src/services/codexService.js`
-  - 条件：仅当现有 singleton `codexService` 需要拆分为 per-session connection 时允许。
-  - 限制：不得改变 `codexService` 对旧调用方的兼容行为，除非旧调用方已迁移到新 abstraction。
-- `android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt`
-  - 条件：仅当 launch 参数或 thread runtime state 字段需要最小补充时允许。
-  - 限制：不得借机重构整个 Codex UI 状态模型。
-- `android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt`
-  - 条件：仅当 wire envelope 需要新增字段以表达 subscribe/attach 状态时允许。
-  - 限制：不得破坏现有 `codex_state`、`codex_notification`、`codex_thread_snapshot` 的旧字段兼容性。
+  - 条件：仅当需要保存 IPC active conversation 或 runtime 状态时允许。
+  - 限制：不得改变 session lifecycle、retention、metadata 持久化语义。
+- `src/repositories/sessionStore.js`
+  - 条件：仅当必须持久化用户显式 IPC 配置，且给出兼容策略时允许。
+  - 限制：不得改变现有字段语义或序列化格式。
+- `src/routes/sessions.js`
+  - 条件：仅当 Android 需要通过 Sessions API 发现 IPC 可用性时允许。
+  - 限制：不得改变现有 Sessions API response 结构。
 - `android/app/src/main/java/com/termlink/app/codex/network/**`
-  - 条件：仅当 Android attach handshake 需要最小改动时允许。
+  - 条件：仅当 WebSocket 消息路由需要区分 IPC 和旧 gateway 路径时允许。
   - 限制：不得改动非 Codex WebSocket 主线。
-- `android/app/src/main/java/com/termlink/app/codex/ui/**`
-  - 条件：仅当现有状态 / transcript 面板没有可用接线点，必须补最小显示逻辑时允许。
-  - 限制：不得做视觉重排或新增多端协作 UI；不得移除顶部 interrupt 按钮；不得添加 queue/steer composer 控件。
-- `src/config/**`
-  - 条件：仅当需要新增 `CODEX_UPSTREAM_DORMANT_TTL_MS` 或等价配置项时允许。
-  - 限制：不得改变现有配置键语义或默认值。
+- `android/app/src/main/res/values/strings.xml`
+  - 条件：仅当新增 IPC 同步状态或错误文案时允许。
+  - 限制：不得修改现有字符串资源。
 - `docs/workflow/CONTRACTS.md`
-  - 条件：仅当 flat subscription / per-session upstream / foreground-only 语义形成新的稳定 public contract 时，通过后续 `/sync-contracts` 写入。
+  - 条件：仅当 IPC feed / surface snapshot 语义形成稳定 contract 时，通过后续 `/sync-contracts` 写入。
   - 当前任务创建阶段不得直接修改。
 - `docs/workflow/DECISIONS.md`
-  - 条件：仅当 Scope B 架构决策需要正式记录为长期决策时，通过后续 `/sync-decisions` 写入。
+  - 条件：仅当 IPC 接入架构决策需要正式记录时，通过后续 `/sync-decisions` 写入。
   - 当前任务创建阶段不得直接修改。
 
 ## 禁止修改范围
 
 Forbidden Files:
 
+- `E:\coding\termlink-demo\**` — 只读参考，不得修改
+- `docs/architecture/技术文档.md` — 本轮作为只读技术依据，不在当前任务内回写
 - `.git/**`
 - `node_modules/**`
 - `dist/**`
 - `docs/workflow/generated/**`
 - `docs/workflow/SKILL_REGISTRY.md`
+- `docs/workflow/STATUS.md` — 本次不修改，后续 `/sync-status` 处理
 - `scripts/install/**`
 - `templates/**`
 - release layout / mTLS / deployment 相关文件
 - 普通 terminal PTY、workspace API、release install、mTLS、workflow generator 无关代码
+- Codex Desktop / VS Code / Codex app-server 外部安装文件
+- 新建替代 Android Codex 会话页
+- 改变 App 现有 Codex 页面设计、主交互流程或导航关系
 - 未列入 Allowed Files 且不满足 Conditional Files 条件的所有文件
-- `codex_turn` / `codex_thread_read` / `codex_request(thread/resume)` / `codex_state` / `codex_notification` 旧 envelope 的字段级兼容性不得破坏
 
 ## 范围锁定
 
 - Lock status: not-yet-locked
 - Safety mode: not-yet-selected
 - Guarded mode: not-yet-selected
-- 说明：本任务包刚通过 `/supersede-current-task` 创建，尚未执行 `/lock-scope`。范围锁定将在 `/review-current-task` 收敛后通过 `/lock-scope` 完成。
-- Dangerous surfaces（预识别，待 lock-scope 正式冻结）：
-  - `src/services/codexThreadHub.js`：从 actor/follower 重写为 flat subscription，是本次最核心的 model change
-  - `src/ws/terminalGateway.js`：从 cross-session fanout 重写为 per-session upstream routing，高风险
-  - `src/services/codexUpstreamRegistry.js`：新增 per-session upstream connection 管理
-  - `src/services/codexAppServerProcess.js`：新增 managed app-server process 生命周期
-  - `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`：从 follower attach 改为 resume/attach 语义
-- Out-of-scope dangerous surfaces（与旧任务一致）：
+- 说明：本任务包已完成 `/review-current-task` 收敛，尚未执行 `/lock-scope`。下一步由 `/lock-scope` 冻结范围边界。
+- Dangerous surfaces（预识别）：
+  - `src/services/codexIpcClient.js`（新增）：Windows named pipe 连接、IPC frame codec、request/response correlation、reconnect
+  - `src/services/codexIpcFeed.js`（新增）：`thread-stream-state-changed` 监听、raw state 维护、surface snapshot 投影
+  - `src/ws/terminalGateway.js`（修改）：新增 IPC 事件路由，与旧 app-server/gateway 路径共存
+  - `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`（修改）：接入 IPC surface snapshot 数据源
+- Out-of-scope dangerous surfaces：
   - production / database / migration / permissions / authentication / payments / deployment / rollback / CI/CD / monitoring config / performance baseline / bulk delete / force push / history rewrite
 
 ## 受影响的契约
 
-- `src/services/codexThreadHub.js`
-  - 影响面：actor/follower registry → flat subscription registry
-  - 兼容策略：新增 `subscribeSession`/`unsubscribeSession`/`getSubscriberSessionIds`/`isSubscribed`/`setFocusedThread`/`getFocusedThread`；旧 `bindThreadToSession`/`addFollowerSession` 在迁移期内保留为 wrapper，但标记为 deprecated
-  - 风险等级：critical
+- 新增 IPC 数据路径
+  - 影响面：`codex-ipc` named pipe 连接、`thread-stream-state-changed` broadcast 消费、`thread-follower-*` 控制请求发送
+  - 兼容策略：IPC 路径与旧 app-server/gateway 路径共存；IPC 不可用时 graceful fallback
+  - 风险等级：high
 - `src/ws/terminalGateway.js`
-  - 影响面：cross-session follower fanout → per-session upstream connection routing
-  - 兼容策略：gateway 不再做 re-fanout；每个 session 的 upstream connection 独立接收 app-server 事件
-  - 风险等级：critical
-- `src/services/codexUpstreamRegistry.js`（新增）
-  - 影响面：session ↔ upstream connection 生命周期映射
-  - 兼容策略：新模块，不破坏现有行为
+  - 影响面：新增 IPC feed 事件订阅与 WebSocket 推送路由；旧 Codex notification/server-request 路径保持不变
+  - 兼容策略：IPC 事件走新增 WebSocket message type（`conversation_surface_snapshot`、`codex_ipc_status` 等），旧 `codex_notification`/`codex_state` 路径不受影响
   - 风险等级：high
-- `src/services/codexAppServerProcess.js`（新增）
-  - 影响面：managed app-server process 启停
-  - 兼容策略：新模块；当前单 app-server process 行为保持不变
-  - 风险等级：high
-- Android Codex 打开任务与 hydrate/attach 路径
-  - 影响面：`CodexActivity` threadId 解析、`CodexViewModel` hydrate + attach 语义
-  - 兼容策略：threadId 解析逻辑复用；subscribe/attach 从 "register follower" 改为 "ensure subscribed via thread/resume"
-  - 风险等级：high
-- Thread configuration synchronization（新增）
-  - 影响面：`codex_thread_config_updated` envelope、`threadConfigProjection`
-  - 兼容策略：新 envelope，旧客户端忽略
-  - 风险等级：medium
-- Upstream connection lifecycle（新增）
-  - 影响面：session create/delete/TTL/shutdown 对 upstream connection 的级联操作
-  - 兼容策略：通过 Conditional Files 路径最小集成到 sessionManager
+- Android Codex 会话页
+  - 影响面：新增 IPC surface snapshot 消费路径；现有 session-centric Codex 路径保持不变
+  - 兼容策略：Android 端优先展示 IPC surface snapshot（当 IPC online 且 active conversation 匹配时），否则 fallback 到旧 `codex_thread_snapshot`/`codex_notification` 路径
   - 风险等级：high
 
 ## 已确认决策
 
-- Scope B 为实施目标（2026-05-20 用户确认）。
-- 单 TermLink session foreground-only：一个 session 同时只订阅一个 focused live/interactable thread；多 session 独立订阅不受影响（2026-05-20 用户确认）。
-- 每 logical session 一条 upstream Codex app-server connection（2026-05-20 用户确认）。
-- TermLink 服务与 Codex app-server 服务一对一部署，但 TermLink 可打开多条 upstream connection 到同一 app-server（2026-05-20 用户确认）。
-- Thread-scoped model/reasoningEffort/planMode 实时同步；permission-scoped approvalPolicy/sandboxMode 不同步（2026-05-20 用户确认）。
-- v1 不保留 `requestRecipients`；app-server 负责 fanout + first valid response wins；TermLink 只保留 session-local `sessionPendingRequests` UI lifecycle（2026-05-21 用户确认）。
-- Upstream connection 生命周期：session delete/TTL/logout 关闭 upstream；TermLink shutdown 关闭 upstream 但保留 session metadata；short disconnect 保留 upstream 直到 dormant TTL（2026-05-21 用户确认）。
-- `queue`/`steer` composer 选择、移除顶部 interrupt 按钮、空输入 send 映射 terminate **不在本轮范围**；属于下一轮 UI scope 任务（2026-05-21 用户确认）。
-- TD-004 仍生效：`node --test` full suite 暂不可作为唯一 gate，自动回归继续使用 confirmed narrow gate。
+- `codex-ipc` 首版仅支持 Windows 本机 named pipe（`\\.\pipe\codex-ipc`）。
+- IPC 不可用时必须 graceful fallback 到现有 TermLink Codex 会话路径（app-server / gateway），不得禁用原有功能。
+- App 页面设计、操作逻辑、用户交互方式不变：不重做页面、不新增替代页、不新增"主动 Follower 模式"开关。
+- Android 只展示当前选中 conversation，不混入其它 conversation。
+- `E:\coding\termlink-demo` 只读参考，不作为本任务修改对象。
+- IPC frame codec 复用 demo 的 4 字节 LE 长度前缀 + JSON payload 格式。
+- IPC request/response correlation 复用 demo 的 `requestId` + `pendingRequests` Map 模式。
+- TermLink 不引入 demo 的 `codex.config.json` 配置面；IPC 开关与默认值沿用当前服务端环境变量配置风格，并使用 `TERMLINK_CODEX_IPC_*` 命名。
+- `clientType` 收敛为两档：
+  - observer：`termlink-app-observer`
+  - active follower：`termlink-app-active-follower`
+- IPC 默认值收敛为：
+  - `TERMLINK_CODEX_IPC_RECONNECT_DELAY_MS=1000`
+  - `TERMLINK_CODEX_IPC_REQUEST_TIMEOUT_MS=5000`
+- active send 保护为服务端显式开关，不新增 App 端“主动 Follower 模式”新 UI：
+  - `TERMLINK_CODEX_IPC_ENABLED`
+  - `TERMLINK_CODEX_IPC_ALLOW_ACTIVE`
+  - `TERMLINK_CODEX_IPC_CONFIRM_SEND`
+- `thread-stream-state-changed` 支持 `snapshot`（全量）和 `patches`（增量）两种 change type；按 `conversationId` 维护 raw state。
+- Raw conversation state → Android surface snapshot 投影在服务端完成（`buildDesktopSurfaceSnapshot` 或等价逻辑），Android 端只消费轻量 snapshot。
+- 轻量 surface snapshot 只保留当前 UI 必需的用户可见字段、pending approval / plan / goal 动作和状态摘要；完整 raw conversation state 只保留在服务端内存，不直接透传到 Android。
+- 控制链路按当前 conversation status 选择 IPC method：
+  - idle → `thread-follower-start-turn`
+  - running → `thread-follower-steer-turn` 或 `thread-follower-submit-user-input`（不得复用 start-turn）
+  - command approval → `thread-follower-command-approval-decision`（使用 owner raw request id）
+  - PLAN implementation → `thread-follower-update-thread-settings`（切 default mode）→ `thread-follower-start-turn`（发送 `PLEASE IMPLEMENT THIS PLAN:\n{planContent}`）
+- "命令都可发送"表示不需要额外 UI 开关，但仍必须遵守 IPC online、active conversation、owner request id、conversation status 等协议约束。
+- 本批强制闭环的审批链路是 command approval；file approval / permissions approval 仅做展示态透传，不在当前任务中承诺完整交互闭环。
+- TD-004 仍生效：`node --test` full suite 暂不可作为唯一 gate。
 - AD-001 仍生效：服务端 session metadata 继续使用 JSON 文件持久化。
 - AD-002 仍生效：Android 继续采用原生壳 + WebView 混合架构。
-- 兼容目标为 `backward-compatible`：旧 Web / Android 客户端 envelope 保持可用。
-- `turn/start` 不自动订阅当前 session；发送前必须先确认 target session 已通过 `thread/resume` 或等价内部 attach 订阅目标 thread。
 
 ## 待确认问题
 
-- [ ] `/review-current-task` 收敛后确认本任务的范围边界、allowed files 和验收标准
-- [ ] `/review-current-task` 收敛后确认 app-server transport 选择（websocket vs unix socket vs stdio），当前默认优先 websocket
-- [ ] `/review-current-task` 收敛后确认 `CODEX_UPSTREAM_DORMANT_TTL_MS` 默认值（当前建议 `min(30 minutes, SESSION_IDLE_TTL_MS)`）
-- [ ] 实施步骤中是否需要显式 feature flag 保护旧 actor/follower 路径作为降级（技术方案建议保留 feature flag，待 `/plan-implementation` 确认）
+- none。当前任务包已满足进入 `/lock-scope` 的条件；实现阶段如发现 live payload 与参考实现不一致，应停在当前步骤并回写新的 blocker，而不是临场扩 scope。
 
 ## 决策分类
 
 - Mechanical:
-  - 将 `CodexThreadHub` 从 actor/follower ownership 重写为 flat `threadId -> Set<sessionId>` 订阅。
-  - 新增 `CodexUpstreamRegistry` 管理 `sessionId -> upstreamConnection` 映射。
-  - 新增 `CodexAppServerProcess` 管理单 app-server process 生命周期。
-  - `terminalGateway.js` notification/server-request 路由改为 per-session upstream connection scoped。
-  - Android 端 subscribe/attach 改为 "hydrate → resume/attach" 语义。
-  - Thread configuration sync 新增 `codex_thread_config_updated` envelope。
-  - Upstream connection lifecycle 集成 session CRUD/TTL/shutdown 路径。
+  - 新增 `src/services/codexIpcCodec.js`：实现 IPC frame 编解码（4 字节 LE 长度前缀 + JSON payload），复用 demo `codec.ts` 逻辑。
+  - 新增 `src/services/codexIpcConfig.js`：集中读取和归一化 `TERMLINK_CODEX_IPC_*` 环境变量，避免把 IPC 默认值散落到 gateway/client。
+  - 新增 `src/services/codexIpcClient.js`：实现 Windows named pipe 连接、`initialize` 握手、broadcast 监听、request/response correlation、reconnect、`allowActive` + `confirmSend` 保护。
+  - 新增 `src/services/codexIpcThreadStream.js`：实现 `ThreadStreamTracker`（snapshot + patches 按 `conversationId` 维护 raw state）和 `buildDesktopSurfaceSnapshot`（raw state → Android surface 投影）。
+  - 新增 `src/services/codexIpcFeed.js`：封装 `CodexIpcClient` + `ThreadStreamTracker` + surface snapshot 投影，对上层暴露 event emitter（`status`、`snapshot`、`error`）。
+  - 修改 `src/ws/terminalGateway.js`：集成 `CodexIpcFeed`，新增 WebSocket message type（`conversation_surface_snapshot`、`codex_ipc_status`、`follower_message_sent`、`follower_approval_response_sent`、`follower_plan_response_sent`），旧路径不变。
+  - 修改 Android `CodexViewModel.kt`、`CodexWireModels.kt`、`CodexModels.kt`：新增 IPC surface snapshot / status 消费路径（优先 IPC，fallback 旧路径）；保持现有 hydrate/resync/merge 逻辑不变。
+  - 仅在现有接线不够时条件修改 `CodexActivity.kt`、`CodexConnectionManager.kt`、`CodexWebSocketClient.kt`，把 IPC status / snapshot 接入既有消息分发链路。
 - Taste:
-  - none。
+  - none
 - User challenge:
-  - none；用户已确认本批不纳入审批 / 用户输入跨端镜像。
+  - none
 
 ## 实现方案
 
-- Superseded note:
-  - 本节替代旧任务 `20260519-001` 的 actor/follower 实现方案。
-  - 完整技术方案见 `docs/workflow/TECHNICAL_PLAN-20260519-codex-mobile-realtime-sync.md`（状态：reviewed-scope-b-selected-foreground-only-session-per-session-upstream）。
 - Goal:
-  - 以 Codex app-server 原生扁平订阅模型替换当前 TermLink actor/follower 近似实现，使 Android 端作为完整参与者跟随已有 Codex 任务。
+  - 在 TermLink 服务端接入 `codex-ipc`（`\\.\pipe\codex-ipc`），使 Android Codex 会话页能够接收 Desktop/VS Code 的实时同步数据，并能在 IPC online 时通过 owner surface 发送消息、审批和 PLAN 操作。
 - Architecture impact:
-  - `CodexThreadHub`：核心 model change，actor/follower → flat subscription。
-  - `terminalGateway`：routing change，cross-session fanout → per-session upstream routing。
-  - 新增 `CodexUpstreamRegistry`、`CodexUpstreamConnection`、`CodexAppServerProcess` 三个服务端模块。
-  - Android `CodexViewModel`：attach 语义从 "register follower" 改为 "hydrate + resume/attach"。
-  - 新增 thread configuration sync envelope。
+  - 新增 `codexIpcConfig`、`codexIpcCodec`、`codexIpcClient`、`codexIpcThreadStream`、`codexIpcFeed` 五个服务端模块。
+  - `terminalGateway.js` 新增 IPC 事件路由（与旧 Codex 路径共存）。
+  - Android Codex 数据模型 / 网络接线新增 IPC surface snapshot 消费路径（与旧路径共存）。
+  - 不改变 `CodexThreadHub` 的 actor/follower 模型（IPC 路径不使用它），不改变旧 app-server/gateway Codex 路径。
 - Technical approach:
-  - **Phase 1 — Flat subscription core**：重写 `CodexThreadHub` 为 `subscribeSession(threadId, sessionId)` / `unsubscribeSession(threadId, sessionId)` / `getSubscriberSessionIds(threadId)` / `setFocusedThread(sessionId, threadId)` / `getFocusedThread(sessionId)`；移除 actor/follower storage、demote 行为和 ownership 概念。`CodexThreadHub` 仅做 internal bookkeeping + UI focus，不做 upstream connection 管理。
-  - **Phase 2 — Per-session upstream**：新增 `CodexUpstreamRegistry`（`Map<sessionId, CodexUpstreamConnection>` + `Map<connectionId, sessionId>`）、`CodexUpstreamConnection`（per-session JSON-RPC handler）和 `CodexAppServerProcess`（managed child process lifecycle）。`terminalGateway.js` 中 notification/server-request handler 改为 `connectionId → sessionId → session-local broadcast`，移除 cross-session re-fanout。
-  - **Phase 3 — Gateway routing rewrite**：`thread/read` 仅为只读 snapshot；`thread/resume` 为 live/interactable attach（订阅 session 到 thread + 创建 upstream connection）；`codex_turn` 发送前强制检查 target session 已订阅 target thread，未订阅则先 resume/attach；`codex_state` 从 per-subscriber 独立 state 派生，不做 actor-to-follower copy。
-  - **Phase 4 — Android attach correction**：`CodexViewModel` 的 open-task 路径改为 "hydrate(`thread/read(includeTurns=true)`) → attach(`thread/resume` 仅当 running/interactable) → receive live events"；移除 "registerFollower" 逻辑。保留现有 threadId launch params 解析（复用旧任务 Step 3 产出）。
-  - **Phase 5 — Thread config sync**：新增 `codex_thread_config_updated` envelope 和 `threadConfigProjection`；model/reasoningEffort/planMode 实时同步；permissions 不同步。`turn/start` 从 thread projection 取 model/reasoning/planMode 默认值。
-  - **Phase 6 — Lifecycle integration**：session delete/TTL/logout 级联关闭 upstream connection；TermLink shutdown 关闭所有 upstream 和 app-server process 但保留 session metadata；short disconnect 标记 dormant 并在 TTL 后关闭 upstream；app-server error 标记 session degraded 并允许后续重建。
-  - **Phase 7 — Queue/steer UI deferred**：本轮仅定义协议目标（queue = 等 active turn 完成后 `turn/start`；steer = 立即 `turn/steer(expectedTurnId)`；empty composer terminate = interrupt），不实施 Android 可见控件变更。
+  - **Layer 0 — IPC config**：`codexIpcConfig.js` 统一读取 `TERMLINK_CODEX_IPC_ENABLED`、`TERMLINK_CODEX_IPC_ALLOW_ACTIVE`、`TERMLINK_CODEX_IPC_CONFIRM_SEND`、`TERMLINK_CODEX_IPC_RECONNECT_DELAY_MS`、`TERMLINK_CODEX_IPC_REQUEST_TIMEOUT_MS`，不引入 `codex.config.json`。
+  - **Layer 1 — IPC transport**：`codexIpcCodec.js` 实现 frame 编解码（4 字节 LE 长度前缀 + JSON payload，MAX_FRAME=256MB，MAX_BUFFER=512MB）；`codexIpcClient.js` 实现 Windows named pipe 连接（`\\.\pipe\codex-ipc`），`initialize` 握手（`clientType` + `label` → `clientId`），broadcast/request/response 路由，request 超时（默认 5s），断线重连（默认 1s 延迟）。控制类 method 发送需 `allowActive && confirmSend` 双开关。
+  - **Layer 2 — Stream state**：`codexIpcThreadStream.js` 实现 `ThreadStreamTracker`（`Map<conversationId, {hostId, revision, state, desynced}>`），处理 `thread-stream-state-changed` broadcast：`snapshot` change 全量替换 state，`patches` change 按 JSON Patch（`add/remove/replace`）增量应用，revision 不匹配时标记 desynced 并等待下次 snapshot。`buildDesktopSurfaceSnapshot` 把 raw `conversationState.turns[].items[]` 投影为 Android 可消费的轻量结构（`DesktopSurfaceSnapshot`），区分 `message`（user/assistant commentary/final_answer）、`status`（commands/files/tools/context）、`approval_request`、`plan_prompt`、`goal_prompt`，并推导 `status`（running/waiting_for_approval/waiting_for_input/completed/failed/interrupted/unknown）。
+  - **Layer 3 — IPC feed**：`codexIpcFeed.js` 组装 `CodexIpcClient` + `ThreadStreamTracker`，对外 emit `status`（online/offline/clientId）、`snapshot`（conversationId + DesktopSurfaceSnapshot）、`error`。维护 recent events 缓存供新连接客户端 replay。
+  - **Layer 4 — Gateway integration**：`terminalGateway.js` 订阅 `codexIpcFeed` 事件。新增 WebSocket server→client message type：`codex_ipc_status`（IPC 连接状态）、`conversation_surface_snapshot`（surface snapshot 推送）、`follower_message_sent`（follower 消息发送确认）、`follower_approval_response_sent`（审批响应确认）、`follower_plan_response_sent`（PLAN 响应确认）。新增 client→server message type：`set_active_conversation`（设置当前关注的 conversation）、`follower_send_message`（发送消息，idle 时走 `thread-follower-start-turn`）、`follower_approval_response`（审批响应，走 `thread-follower-command-approval-decision`）、`follower_plan_response`（PLAN 响应，走 `thread-follower-update-thread-settings` + `thread-follower-start-turn` 或 `thread-follower-submit-user-input`）。
+  - **Layer 5 — Running gate**：服务端发送前检查 latest conversation snapshot status；若为 `running`，拒绝 `thread-follower-start-turn` 并返回明确错误；running 中补充输入只允许走当前 live request 明确暴露的 `thread-follower-steer-turn`、`thread-follower-submit-user-input` 或 queued follow-up 路径，否则阻止发送。
+  - **Layer 6 — Android integration**：`CodexViewModel`、`CodexWireModels.kt`、`CodexModels.kt` 新增 IPC surface snapshot / status 消费；仅在既有消息分发链路不足时再条件修改 `CodexActivity.kt`、`CodexConnectionManager.kt`、`CodexWebSocketClient.kt`。IPC online 时优先展示 surface snapshot；IPC offline 时 fallback 到旧 `codex_thread_snapshot`/`codex_notification` 路径。现有消息区、composer、approval 面板、runtime panel 复用现有 UI 组件和操作入口。
 - Alternatives considered:
-  - **Scope A（output sync parity only）**：已拒绝。仅 fanout notification + codex_state，server requests 仅发到 focused/initiating session。这不匹配 Codex desktop/VS Code 完整客户端行为，且仍携带旧 ownership 模型痕迹。
-  - **继续修补旧 actor/follower 模型**：已拒绝。Codex 源码已证明 actor/follower 是对 `HashSet<ConnectionId>` 扁平订阅的错误抽象；继续修补只会扩大错误面。
-  - **所有 session 共享一条 upstream connection**：已拒绝。这会要求 TermLink 自己实现 request recipient tracking、duplicate response 处理和 cross-session re-fanout，等同于在 gateway 层重写 app-server 逻辑。
+  - **Scope B（per-session upstream app-server connection）**：已弃用。该方案直接管理多条 app-server connection，但 Desktop/VS Code 实际同步走的是 `codex-ipc` 而非多条 app-server transport。接入 `codex-ipc` 更接近 Desktop/VS Code 的真实同步路径。
+  - **只做 observer（只读监听）**：部分拒绝。observer 能力是第一阶段，但用户需求明确要求支持发送消息、审批和 PLAN 操作，因此必须同时实现 follower 控制链路。
+  - **新建替代 Android Codex 会话页**：拒绝。用户明确要求页面设计不变、操作逻辑不变。
 - Data / state flow:
-  - 旧：`desktop actor → gateway → single session broadcast → Android 如果不是该 session 则收不到`
-  - 新：`Android open task → hydrate(thread/read) → attach(thread/resume, 仅 interactable) → own upstream connection receives live events → session-local broadcast to Android WebSocket connections → independent codex_state per session`
+  - **IPC online 时**：
+    ```
+    Desktop/VS Code owner surface → codex-ipc broadcast (thread-stream-state-changed)
+    → CodexIpcClient (frame decode) → ThreadStreamTracker (apply snapshot/patches)
+    → buildDesktopSurfaceSnapshot (raw → surface projection)
+    → CodexIpcFeed (emit snapshot) → terminalGateway (push to active conversation clients)
+    → Android WebSocket → CodexViewModel (merge surface snapshot into UI state)
+    ```
+  - **Android 发送消息（idle）时**：
+    ```
+    Android composer → WebSocket follower_send_message
+    → terminalGateway (validate: IPC online, conversation not running)
+    → CodexIpcClient.sendRequest("thread-follower-start-turn", {conversationId, turnStartParams})
+    → codex-ipc → owner Desktop/VS Code surface → owner app-server
+    → new thread-stream-state-changed broadcast → Android 同步刷新
+    ```
+  - **IPC offline 时**：
+    ```
+    Android → 旧 codex_turn / codex_thread_read / codex_notification 路径
+    → terminalGateway 旧 Codex handler → app-server / gateway → 旧响应路径
+    ```
 - Compatibility:
   - 旧 Web / Android 客户端 envelope 保持可用。
-  - 旧 `codex_turn` / `codex_thread_read` / `codex_request(thread/resume)` 通过 session attach 前置条件保持兼容。
-  - `thread/read` 不变：只读 snapshot。
-  - `thread/resume` 语义不变：reopen thread for interactable use。
-  - `lastCodexThreadId` 语义不变：恢复线索，不因 subscribe 被错误覆盖。
+  - IPC 路径使用独立的 WebSocket message type，不污染旧 `codex_*` 消息。
+  - `codex_turn`、`codex_thread_read`、`codex_request(thread/resume)` 行为不变。
+  - `lastCodexThreadId` 语义不变。
 - Risks and rollback:
-  - 风险：flat subscription 重写引入 thread subscriber 泄漏或 session 切换清理不完整。
-  - 风险：per-session upstream connection 数量增长导致 app-server connection 资源压力（预期 <5 session，低风险）。
-  - 风险：app-server websocket/unix-socket transport 在当前版本是否稳定支持多条 connection。
-  - 控制：优先新增独立可退出的 Node 测试覆盖每个 module；feature flag `CODEX_THREAD_HUB_ENABLED` 保护降级路径。
-  - 回滚：恢复到 `20260519-001` 的 actor/follower 实现（含 handoff 降级修复），关闭 per-session upstream、flat subscription 和 config sync。
+  - 风险：IPC named pipe 不可用时，旧路径和新路径的切换逻辑可能有边界条件遗漏。
+  - 风险：`thread-stream-state-changed` patch 应用逻辑若实现不当，可能导致 state desync 或 revision 跳变。
+  - 风险：控制类 method params schema 与 owner surface 期望不完全匹配（尤其 approval raw id、PLAN collaboration mode 等细节）。
+  - 控制：优先新增独立可退出的 Node 测试覆盖 IPC frame codec、thread-stream patch 应用、surface snapshot 投影和 running gate。
+  - 回滚：断开 IPC 路径（不连接 named pipe 或不创建 `CodexIpcClient`）即回退到旧 app-server/gateway 路径；Android 端 surface snapshot 不存在时自动 fallback。
 - Validation strategy:
-  - 首选新增可独立退出的 Node gateway 测试与 Android JVM unit test。
-  - 继续使用 TD-004 confirmed narrow gate，避免 full `node --test` hanging surface 阻塞。
-  - Manual smoke 以用户当前失败路径为主，覆盖 CLI/桌面端 → Android 打开 → 双向 turn → 最终 transcript 一致性。
+  - Node tests：IPC frame codec 编解码、request/response correlation、broadcast 解析、`thread-stream-state-changed` snapshot + patches 按 `conversationId` 隔离、raw state → surface snapshot 投影、running gate、IPC unavailable 不阻断现有 gateway 路径。
+  - Android JVM tests：新 IPC envelope 解析、active conversation 过滤、原 Codex 页面 UI state/transcript merge/hydrate 不回退、IPC unavailable 时 composer 与原会话功能仍可用、pending approval 与 PLAN 控制复用现有操作入口。
+  - Manual smoke：
+    - 有 Desktop/VS Code 环境：三端同步消息、状态、approval、PLAN；Android 发送消息后 Desktop 同步出现；Android 审批后 Desktop turn 继续/中止；Android PLAN 实施后 Desktop 在 Default mode 下执行。
+    - 无 Desktop/VS Code 环境：App Codex 会话页仍可打开、发送普通指令、显示原有状态。
+    - 切换 conversation 后不串流。
+    - running 状态下 start-turn 被阻止，正确提示或切换到 steer/user-input 路径。
 - External Documentation Gate:
-  - triggered。技术方案 `TECHNICAL_PLAN-20260519-codex-mobile-realtime-sync.md` 已审核通过，是本任务的技术事实源。
+  - triggered。`docs/architecture/技术文档.md` 和 termlink-demo 源码是本任务的技术参考源。
 - Open decisions:
-  - app-server transport 选择待 `/review-current-task` 收敛。
-  - dormant TTL 默认值待 `/review-current-task` 收敛。
-  - feature flag 策略待 `/plan-implementation` 确认。
+  - 如实现期捕获到的 live payload 与 `docs/architecture/技术文档.md` / demo 参考结构不一致，需要在不扩 scope 的前提下先收口到“阻止发送 + 明确提示”，再决定是否另开 follow-up。
 - Handoff:
-  - 当前任务包为 `/supersede-current-task` 产出，尚未经过 `/review-current-task` 收敛。
-  - **必须 handoff 到 `/review-current-task`**，后续流程：`/review-current-task` → `/lock-scope` → `/plan-implementation` → `/decompose-task`。
-  - 不得直接进入实现步骤。
+  - 当前任务包已完成 `/review-current-task` 收敛。
+  - **必须 handoff 到 `/lock-scope`**，后续流程：`/lock-scope` → `/plan-implementation` → `/decompose-task`。
+  - 不得跳过范围锁定直接进入实现步骤。
 
 ## 审查问题队列
 
-- 当前来源：`/supersede-current-task` 替代 `20260519-001`
+- 当前来源：用户直接指令创建新任务包
 - Finding ID：
   - `RCF-20260615-001`
-    - Severity：critical
-    - Source：architecture audit + Codex source review + upstream docs
+    - Severity：major
+    - Source：architecture analysis + termlink-demo verification
     - Status：open
-    - File / symbol：`src/services/codexThreadHub.js`（actor/follower model）、`src/ws/terminalGateway.js`（cross-session fanout）
-    - Failure scenario：当前 TermLink 的 actor/follower ownership 模型是对 Codex 原生 `threadId -> HashSet<ConnectionId>` 扁平订阅的错误近似，导致 server requests actor-only、handoff 降级误判、`codex_state` 跨 session 复制等系统性问题
-    - Minimal fix direction：以 Scope B 扁平订阅模型重写 CodexThreadHub + terminalGateway + Android attach 语义
-    - Required test：flat subscription 多 session 测试、per-session upstream routing 测试、foreground-only switch 测试、config sync/not-sync 测试
-    - Handoff：`/review-current-task` → `/lock-scope` → `/plan-implementation` → `/decompose-task`
+    - File / symbol：`src/ws/terminalGateway.js`（缺少 IPC 数据源）、Android `CodexViewModel.kt`（缺少 surface snapshot 消费路径）
+    - Failure scenario：当前 TermLink Android Codex 会话页只能通过旧 app-server/gateway 路径获取数据，无法接收 Desktop/VS Code 通过 `codex-ipc` 广播的实时 thread stream state，导致手机端与桌面端不同步
+    - Minimal fix direction：新增 `codex-ipc` 接入层（codec → client → thread-stream → feed → gateway → Android），IPC online 时优先走 IPC 路径，IPC offline 时 fallback 到旧路径
+    - Required test：IPC frame codec、thread-stream patch、surface snapshot 投影、running gate、IPC unavailable fallback、Android JVM surface snapshot 消费
+    - Handoff：`/lock-scope` → `/plan-implementation` → `/decompose-task`
 
 ## 传播治理记录
 
 - Propagation Check: required
 - Trigger:
-  - 重写 `src/services/codexThreadHub.js`（core model change）
-  - 重写 `src/ws/terminalGateway.js` Codex routing（high-risk gateway）
-  - 新增 `src/services/codexUpstreamRegistry.js`、`src/services/codexUpstreamConnection.js`、`src/services/codexAppServerProcess.js`
-  - 触碰 WebSocket event flow、session lifecycle、Android Codex open/attach 路径
-  - 命中 `CONTRACTS.md` 中 session lifecycle + codex runtime BehaviorContract
+  - 新增 `src/services/codexIpcConfig.js`、`codexIpcClient.js`、`codexIpcCodec.js`、`codexIpcThreadStream.js`、`codexIpcFeed.js`
+  - 修改 `src/ws/terminalGateway.js`（新增 IPC 事件路由）
+  - 修改 Android Codex 会话页的数据消费链路
+  - 触碰 WebSocket event flow、Android Codex 会话页数据路径
 - Change start set:
-  - `flat subscription model`
-  - `per-session upstream connection`
-  - `per-session notification/server-request routing`
-  - `Android hydrate + resume/attach`
-  - `thread configuration sync`
-- Compatibility strategy: backward-compatible
-- Candidate impact set:
-  - `src/services/codexThreadHub.js`
-  - `src/services/codexUpstreamRegistry.js`
-  - `src/services/codexUpstreamConnection.js`
-  - `src/services/codexAppServerProcess.js`
-  - `src/ws/terminalGateway.js`
-  - `tests/codexThreadHub.test.js`
-  - `tests/terminalGateway.threadHub.test.js`
-  - `tests/codexUpstreamRegistry.test.js`
-  - `tests/codexUpstreamConnection.test.js`
-  - `tests/codexAppServerProcess.test.js`
-  - `android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt`
-  - `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`
-  - `android/app/src/test/java/com/termlink/app/codex/**`
-  - `src/services/sessionManager.js` (conditional: lifecycle integration)
-  - `src/services/codexService.js` (conditional: singleton → per-session migration)
-- Discovery evidence:
-  - mechanism: upstream-docs-read
-    - query_or_entrypoint: `https://developers.openai.com/codex/app-server`
-    - result_summary: Codex app-server uses bidirectional JSON-RPC with thread/conversation-scoped connection subscriptions; `thread/resume` reopens thread for interactable use; `thread/read` is read-only snapshot
-    - confidence: high
-  - mechanism: source-read
-    - query_or_entrypoint: Codex `app-server/src/thread_state.rs` `ThreadEntry.connection_ids: HashSet<ConnectionId>`
-    - result_summary: Flat set of connection IDs per thread; no actor/owner hierarchy
-    - confidence: high
-  - mechanism: source-read
-    - query_or_entrypoint: Codex `app-server/src/request_processors/thread_lifecycle.rs` re-reads `subscribed_connection_ids(conversation_id)` on event processing
-    - result_summary: Event fanout uses live subscriber set, not a single owner
-    - confidence: high
-  - mechanism: source-read
-    - query_or_entrypoint: Codex `app-server/src/outgoing_message.rs` `ThreadScopedOutgoingMessageSender`
-    - result_summary: Thread-scoped server requests and notifications sent to thread's connection ID list
-    - confidence: high
-  - mechanism: source-read
-    - query_or_entrypoint: `src/services/codexThreadHub.js`
-    - result_summary: Current `actorSessionThreads`/`followerSessionThreads` is a two-tier ownership model not present in Codex source
-    - confidence: high
-- ContractCompatibilityResult:
-  - error_code: INCOMPATIBLE_MUTATION_CONFLICT
-  - object_path: `src/services/codexThreadHub.js` + `src/ws/terminalGateway.js`
-  - severity: critical
-  - default_blocker_level: blocks-merge
-  - suggested_resolution: 以 flat subscription 模型完全替代 actor/follower；旧 `bindThreadToSession`/`addFollowerSession` 在迁移期内保留为 deprecated wrapper
-- Migration requirement:
-  - required: true
-  - rationale: CodexThreadHub core model change 需要迁移期 wrapper 策略；新 `subscribeSession`/`unsubscribeSession` 替代旧 `bindThreadToSession`/`addFollowerSession`
-- Linked regression record:
-  - regression_chain_id: codex-mobile-live-follow
-  - current_issue: Actor/follower ownership 模型与 Codex 原生扁平订阅模型不匹配，导致系统性同步缺陷
-  - prior_fix_refs:
-    - `20260519-001` Codex mobile live follow (actor/follower, superseded)
-    - `20260517-001` Codex thread-centric foundation
-    - `20260508-001` Codex history / active thread session scope fix
-    - `20260415-codex-android-runtime-interaction-fixes`
-  - escalation: critical；core model change 触碰 gateway、thread hub 和 Android attach 语义
+  - `codex-ipc named pipe 连接`
+  - `thread-stream-state-changed broadcast 消费`
+  - `raw state → surface snapshot 投影`
+  - `thread-follower-* 控制请求发送`
+  - `Android surface snapshot 消费`
+- Compatibility strategy: backward-compatible（IPC 路径与旧路径共存；旧 envelope 不改名不重写）
+- discovery evidence:
+  - `docs/architecture/技术文档.md`：确认 `codex-ipc` 是 Desktop / VS Code 之间的本机 UI surface 协调总线，owner surface 广播 `thread-stream-state-changed`，控制请求经 owner 转交 app-server。
+  - `E:\coding\termlink-demo\src\codex-ipc\**`：确认 demo 已验证 IPC client、codec、thread-stream tracker、surface snapshot 投影和 running gate 的可行形态。
+  - `E:\coding\termlink-demo\server\src\wsGateway.ts`、`codexIpcFeed.ts`：确认 gateway 与 IPC feed 集成的消息分发、approval raw id 反查、PLAN collaboration mode 切换可复用为参考。
+- aggregation / complexity:
+  - 高风险面集中在 `src/ws/terminalGateway.js` 与 Android Codex 数据消费链路。
+  - 当前任务仍保持一个主目标，且兼容策略明确为“新增 IPC 路径，不替代旧路径”，review 阶段无需拆成多个不相干任务。
+- eligibility / candidate / registry:
+  - 直接可变：新增 `src/services/codexIpc*.js`、新增 IPC 定向测试、Android Codex IPC 相关数据模型/网络接线。
+  - 条件可变：`CodexActivity.kt`、`codexThreadHub.js`、`sessionManager.js`、`sessionStore.js`、`src/routes/sessions.js`，只有在实现链路证明确有必要时才放行。
+  - review 阶段未发现必须修改 `Sessions API` DTO 或 `data/sessions.json` schema 的证据；若实现期触发该需求，必须停下并重新锁 scope。
+- layout / behavior / migration / regression:
+  - LayoutContract：保持现有 Android Codex 页面、导航关系和入口不变。
+  - BehaviorContract：IPC online 时优先 surface snapshot；IPC offline 时旧 `codex_turn` / `codex_thread_read` / `codex_notification` 路径继续可用。
+  - migration_plan_requirement：not-required；本批是新增数据源，不做持久化迁移。
+  - linked_regression_record：沿用 `codex-mobile-realtime-sync` 风险链，标记为 high；任何影响 `terminalGateway.js` 的回归都要纳入额外注意，因为 TD-004 指出该区域存在自动化 gate 盲区。
 
 ## 实施步骤
 
-- 实施步骤尚未拆解。本任务包为 `/supersede-current-task` 产出，必须先通过 `/review-current-task` 收敛，再依次执行：
-  1. `/review-current-task` — 审核并收敛任务目标、范围、验收标准
-  2. `/lock-scope` — 冻结 Allowed / Conditional / Forbidden Files
-  3. `/plan-implementation` — 产出详细实现方案
-  4. `/decompose-task` — 拆解为一步一验的实施步骤
+- 实施步骤尚未拆解。当前任务包已完成 `/review-current-task`，下一步依次执行：
+  1. `/lock-scope` — 冻结 Allowed / Conditional / Forbidden Files
+  2. `/plan-implementation` — 产出详细实现方案
+  3. `/decompose-task` — 拆解为一步一验的实施步骤
 - 建议拆解方向（仅供参考，实际步骤由 `/decompose-task` 产出）：
-  - Step A：重写 `CodexThreadHub` 为 flat subscription（移除 actor/follower）
-  - Step B：新增 `CodexAppServerProcess` + `CodexUpstreamRegistry` + `CodexUpstreamConnection`
-  - Step C：重写 `terminalGateway` Codex routing 为 per-session upstream
-  - Step D：修正 Android hydrate + attach 语义
-  - Step E：新增 thread configuration sync
-  - Step F：集成 upstream connection lifecycle 到 sessionManager
-  - Step G：统一回归 + manual smoke
-  - Step H：审查与治理收口
+  - Step A：新增 `codexIpcConfig.js` + `codexIpcCodec.js` + `codexIpcClient.js`（配置与 IPC transport 层）
+  - Step B：新增 `codexIpcThreadStream.js`（stream state 聚合 + surface snapshot 投影）
+  - Step C：新增 `codexIpcFeed.js`（IPC feed 组件，组装 client + tracker + 事件）
+  - Step D：集成到 `terminalGateway.js`（新增 IPC WebSocket message type + running gate）
+  - Step E：Android `CodexViewModel` / wire model / network 接线接入 IPC surface snapshot 消费
+  - Step F：Android 发送消息、审批、PLAN 操作接入 IPC 控制链路
+  - Step G：IPC unavailable fallback 验证
+  - Step H：统一回归 + manual smoke（有/无 Desktop 环境）
 
 ## 回归检查项
 
 - 回归检查项待 `/decompose-task` 后确定。预期覆盖：
-  - Flat subscription 多 session 测试
-  - Per-session upstream routing 测试
-  - Foreground-only switch 隔离测试
-  - Android hydrate + attach 测试
-  - Thread config sync/not-sync 测试
-  - Upstream lifecycle (delete/TTL/shutdown/dormant) 测试
+  - IPC frame codec 编解码正确性
+  - `thread-stream-state-changed` snapshot + patches 按 `conversationId` 隔离
+  - Raw state → surface snapshot 投影正确性（message/status/approval/plan/goal 分类）
+  - Running gate：running 状态拒绝 `thread-follower-start-turn`
+  - IPC unavailable 不阻断旧 gateway Codex 路径
+  - Android surface snapshot 消费：active conversation 过滤、UI state merge
+  - Android IPC unavailable 时 composer 与原会话功能仍可用
   - Narrow gate 回归（TD-004 confirmed subset）
-  - Manual smoke：CLI/桌面端 → Android → 双向 turn → 最终 transcript 一致
+  - Manual smoke（见验收标准）
 
 ## 回滚点
 
-- Task start base：d652684（与旧任务 `20260519-001` 相同）
+- Task start base：`d98c8f28ff81320e7d46122216075df147c2106c`
 - Last reviewed checkpoint：not-yet-created
-- Current diff review target：working-tree vs HEAD + untracked files
+- Current diff review target：working-tree
 - 回滚策略：
-  - 若 flat subscription 引入回归，回滚 `CodexThreadHub` 到旧 actor/follower 实现（含 handoff demote 修复）
-  - 若 per-session upstream 引入资源泄漏或稳定性问题，回滚 gateway 到旧 cross-session fanout
-  - 若 Android attach 语义引入错误状态恢复，回滚 `CodexViewModel` 到旧 follower attach 逻辑
-  - Feature flag `CODEX_THREAD_HUB_ENABLED=false` 作为整体降级开关
+  - 若 IPC 路径引入回归：不创建 `CodexIpcClient` 实例或断开 named pipe 连接即回退到旧路径
+  - 若 surface snapshot 投影引入 UI 回归：Android 端 fallback 到旧 `codex_thread_snapshot`/`codex_notification` 路径
+  - IPC 相关代码通过模块不存在即降级的方式保护（`try/catch` require 或 feature flag）
 
 ## 执行记录
 
-- 2026-06-15：执行 `/supersede-current-task`。旧任务 `20260519-001` 因 actor/follower 技术方向经 Codex 官方文档、源码和 VS Code extension 复核后确认不成立，被标记为 `blocked_by_replan`。本任务包 `20260615-001` 基于 Scope B 技术方案创建，当前状态 `ready_for_review`。旧任务的根因定位、handoff 修复事实和定向测试记录已保留为治理事实。下一步必须执行 `/review-current-task`，不得直接进入实现。
+- 2026-06-15：用户直接指令创建任务包 `20260615-001`。基于 `docs/architecture/技术文档.md` 和 `E:\coding\termlink-demo` 参考实现，按 `codex-ipc` 接入方案创建新 CURRENT_TASK。已弃用此前 Scope B app-server 方案。
+- 2026-06-15：完成 `/review-current-task` 收敛。已移除只读参考资料的可改权限，收敛 IPC 默认值、feature flag 和 client type，明确 command approval 为本批闭环边界，并把回滚基线固定到 `d98c8f28ff81320e7d46122216075df147c2106c`。当前状态推进为 `reviewed_ready_for_lock_scope`，下一步进入 `/lock-scope`。
