@@ -5,7 +5,7 @@
 - 任务 ID：20260615-001
 - 任务标题：接入 codex-ipc 实现 App Codex 会话页实时同步
 - 任务 slug：app-codex-ipc-realtime-sync
-- 当前状态：planned_ready_for_decompose_task
+- 当前状态：decomposed_ready_for_step1
 - 创建时间：2026-06-15
 - 创建来源：用户直接指令，基于 `docs/architecture/技术文档.md` 和 `E:\coding\termlink-demo` 参考实现创建新任务包
 - 任务类型：feature / realtime-sync
@@ -15,7 +15,7 @@
   - `E:\coding\termlink-demo\src\codex-ipc\**` — IPC client、codec、types、thread-stream tracker 参考实现
   - `E:\coding\termlink-demo\server\src\wsGateway.ts` — WebSocket gateway 与 IPC feed 集成参考
   - `E:\coding\termlink-demo\server\src\codexIpcFeed.ts` — IPC feed 组件参考
-- 技术方案审核状态：planned；当前任务包已完成 `/review-current-task`、`/lock-scope` 与 `/plan-implementation`，下一步进入 `/decompose-task`
+- 技术方案审核状态：decomposed；当前任务包已完成 `/review-current-task`、`/lock-scope`、`/plan-implementation` 与 `/decompose-task`，下一步进入 `/implement-current-step`
 
 ## Superseded 治理记录
 
@@ -377,8 +377,8 @@ Implementation Plan:
 - Open decisions:
   - none for `/decompose-task`。实现期若发现必须持久化 IPC active conversation、修改 Sessions API DTO、完整支持 file / permissions approval、或新增 Android UI 控件，均视为 scope widening，需要重新 `/lock-scope` 或另开 follow-up。
 - Handoff:
-  - 当前任务包已完成 `/plan-implementation`。
-  - 下一步 handoff 到 `/decompose-task`，只把本计划拆成可独立验证的小步骤；不得在拆解时扩大 Allowed / Conditional / Forbidden 文件集合。
+  - 当前任务包已完成 `/plan-implementation` 与 `/decompose-task`。
+  - 下一步 handoff 到 `/implement-current-step`，从 Step 1 开始一次只实现一个可独立验证的小步骤；不得扩大 Allowed / Conditional / Forbidden 文件集合。
 
 ## 审查问题队列
 
@@ -428,19 +428,222 @@ Implementation Plan:
 
 ## 实施步骤
 
-- 实施步骤尚未拆解。当前任务包已完成 `/review-current-task`、`/lock-scope` 与 `/plan-implementation`，下一步执行 `/decompose-task`。
-- 拆解输入锚点：
-  - IPC config / codec / client transport
-  - IPC thread-stream tracker 与 surface snapshot 投影
-  - IPC feed 事件源
-  - `terminalGateway.js` IPC status / snapshot / follower action 路由
-  - Android wire model / ViewModel / network 接线
-  - IPC unavailable fallback 与旧路径兼容验证
-  - 统一回归与 manual smoke
+- Decomposition status: complete
+- Current step: Step 1
+- Step policy:
+  - 一次只实现一个 step；每个 step 完成后先执行该 step 绑定验证，再进入 review / regression 链。
+  - 不得在 step 内扩大 Allowed / Conditional / Forbidden 文件集合。
+  - 若实现期发现 live IPC payload 与 `docs/architecture/技术文档.md` / demo 参考不一致，当前 step 必须收口为 blocked evidence，不得临场扩 scope。
+
+### Step 1 — IPC config 与 frame codec 基础层
+
+- Objective：建立最小、可单独验证的 IPC 配置读取和 frame 编解码能力。
+- Inputs：
+  - `TERMLINK_CODEX_IPC_ENABLED`
+  - `TERMLINK_CODEX_IPC_ALLOW_ACTIVE`
+  - `TERMLINK_CODEX_IPC_CONFIRM_SEND`
+  - `TERMLINK_CODEX_IPC_RECONNECT_DELAY_MS`
+  - `TERMLINK_CODEX_IPC_REQUEST_TIMEOUT_MS`
+  - demo `codec.ts` 参考实现
+- Files：
+  - `src/services/codexIpcConfig.js`
+  - `src/services/codexIpcCodec.js`
+  - `tests/codexIpcConfig.test.js`
+  - `tests/codexIpcCodec.test.js`
+- Output：
+  - 可复用的 config parser，默认 reconnect `1000ms`、request timeout `5000ms`。
+  - 4 字节 LE 长度前缀 + JSON payload 的 encode/decode helper。
+  - oversize frame、malformed JSON、split/concat frame 的明确错误或解析结果。
+- Verification：
+  - `node --test tests/codexIpcConfig.test.js tests/codexIpcCodec.test.js`
+  - `git diff --check -- src/services/codexIpcConfig.js src/services/codexIpcCodec.js tests/codexIpcConfig.test.js tests/codexIpcCodec.test.js`
+- Exit criteria：
+  - config 和 codec 测试独立通过。
+  - 不触碰 `terminalGateway.js` 或 Android 文件。
+
+### Step 2 — IPC client transport 与 active send gate
+
+- Objective：在不接入 gateway 的前提下，实现 Windows named pipe client、initialize、request correlation、broadcast dispatch、timeout、reconnect 和 active send gate。
+- Inputs：
+  - Step 1 的 config / codec。
+  - `\\.\pipe\codex-ipc` transport 约定。
+  - `clientType`: `termlink-app-observer` / `termlink-app-active-follower`。
+- Files：
+  - `src/services/codexIpcClient.js`
+  - `tests/codexIpcClient.test.js`
+  - 必要时只读依赖 Step 1 文件，不扩大修改面。
+- Output：
+  - `CodexIpcClient` 或等价 factory，暴露 status / broadcast / response / error event。
+  - `sendRequest()` 支持 request timeout 和 pending cleanup。
+  - 控制类 method 只有在 `enabled && allowActive && confirmSend` 满足时放行。
+- Verification：
+  - `node --test tests/codexIpcClient.test.js tests/codexIpcConfig.test.js tests/codexIpcCodec.test.js`
+  - `git diff --check -- src/services/codexIpcClient.js tests/codexIpcClient.test.js`
+- Exit criteria：
+  - mock socket / fake transport 下可验证 initialize、broadcast、timeout、close/reconnect。
+  - 不接入 `terminalGateway.js`，不产生真实 named pipe 运行依赖。
+
+### Step 3 — Thread stream tracker 与 surface snapshot 投影
+
+- Objective：把 `thread-stream-state-changed` raw state 安全聚合为 Android 可消费的轻量 snapshot。
+- Inputs：
+  - demo `thread-stream.ts` 参考。
+  - 当前任务锁定的 snapshot 字段裁剪策略。
+- Files：
+  - `src/services/codexIpcThreadStream.js`
+  - `tests/codexIpcThreadStream.test.js`
+- Output：
+  - 按 `conversationId` 隔离 raw state。
+  - 支持 snapshot 全量替换与当前范围内 JSON Patch 增量应用。
+  - revision mismatch / patch failure 标记 desynced 并等待下一次 snapshot。
+  - `buildDesktopSurfaceSnapshot` 输出 message/status/approval_request/plan_prompt/goal_prompt/status。
+- Verification：
+  - `node --test tests/codexIpcThreadStream.test.js`
+  - `git diff --check -- src/services/codexIpcThreadStream.js tests/codexIpcThreadStream.test.js`
+- Exit criteria：
+  - conversation 隔离、patch 应用、desync fallback、surface 投影均有测试。
+  - raw state 不直接作为 Android payload 输出。
+
+### Step 4 — IPC feed 事件源
+
+- Objective：把 client + tracker 组装为 gateway 可订阅的 IPC feed，并提供 status/snapshot/error/replay 能力。
+- Inputs：
+  - Step 2 的 client。
+  - Step 3 的 tracker / projection。
+- Files：
+  - `src/services/codexIpcFeed.js`
+  - `tests/codexIpcFeed.test.js`
+- Output：
+  - feed 初始化、启动、停止、status event、snapshot event、error event。
+  - latest/recent snapshot 缓存，用于新 WebSocket connection 或 active conversation 切换后 replay。
+  - IPC disabled / pipe unavailable 时输出 unavailable/disconnected status，不抛出阻断旧路径的异常。
+- Verification：
+  - `node --test tests/codexIpcFeed.test.js tests/codexIpcClient.test.js tests/codexIpcThreadStream.test.js`
+  - `git diff --check -- src/services/codexIpcFeed.js tests/codexIpcFeed.test.js`
+- Exit criteria：
+  - feed 可在 fake client 下独立验证。
+  - IPC unavailable 不影响进程启动语义。
+
+### Step 5 — Gateway IPC status / snapshot 路由与旧路径兼容
+
+- Objective：把 IPC feed 接入 `terminalGateway.js`，只新增 status/snapshot routing，不实现 follower action 控制。
+- Inputs：
+  - Step 4 的 feed。
+  - 当前 gateway `session_info`、`codex_state`、`codex_notification` 旧路径。
+- Files：
+  - `src/ws/terminalGateway.js`
+  - `tests/terminalGateway.codexIpc.test.js`
+- Output：
+  - WebSocket 连接建立后发送 `codex_ipc_status`。
+  - client 可发 `set_active_conversation`。
+  - gateway 只向 active conversation 匹配的连接推送 `conversation_surface_snapshot`。
+  - latest snapshot 可 replay。
+  - 旧 `codex_turn` / `codex_thread_read` / `codex_notification` 路径保持可用。
+- Verification：
+  - `node --test tests/terminalGateway.codexIpc.test.js`
+  - `node --test tests\tlsConfig.test.js tests\workspace.routes.test.js tests\workspace.web.test.js tests\sessionStore.metadata.test.js tests\terminal_shortcut_input.test.js tests\codexSecondaryPanel.integration.test.js`
+  - `git diff --check -- src/ws/terminalGateway.js tests/terminalGateway.codexIpc.test.js`
+- Exit criteria：
+  - IPC unavailable fallback 被 gateway 测试覆盖。
+  - 未实现 follower send/approval/plan action；该控制面留到 Step 6。
+
+### Step 6 — Gateway follower action 控制链路
+
+- Objective：在 gateway 中实现 App 经 owner surface 发送 idle 消息、command approval 和 PLAN implementation。
+- Inputs：
+  - Step 5 的 active conversation routing。
+  - Step 4 feed 的 latest snapshot 查询能力。
+  - 已确认 active send gate。
+- Files：
+  - `src/ws/terminalGateway.js`
+  - `tests/terminalGateway.codexIpc.test.js`
+- Output：
+  - `follower_send_message`：校验 IPC online、active conversation、non-running status 后发送 `thread-follower-start-turn`。
+  - `follower_approval_response`：从 latest snapshot 反查 owner raw request id，发送 `thread-follower-command-approval-decision`。
+  - `follower_plan_response`：先 `thread-follower-update-thread-settings` 切 default mode，再 `thread-follower-start-turn` 发送 implementation prompt。
+  - running 状态缺少明确 live request 时阻止发送并返回结构化错误。
+- Verification：
+  - `node --test tests/terminalGateway.codexIpc.test.js`
+  - `node --test tests\tlsConfig.test.js tests\workspace.routes.test.js tests\workspace.web.test.js tests\sessionStore.metadata.test.js tests\terminal_shortcut_input.test.js tests\codexSecondaryPanel.integration.test.js`
+  - `git diff --check -- src/ws/terminalGateway.js tests/terminalGateway.codexIpc.test.js`
+- Exit criteria：
+  - idle send、running gate、command approval raw id、PLAN sequence 均有测试。
+  - 不实现 file approval / permissions approval 完整闭环。
+
+### Step 7 — Android wire model 与 WebSocket message builders
+
+- Objective：让 Android 可以解析 IPC status / snapshot，并能构造 follower action envelope，但不改 UI 布局。
+- Inputs：
+  - Step 5 / Step 6 的 gateway envelope shape。
+  - 现有 `CodexWireModels.kt` DTO 与 `CodexClientMessages` builders。
+- Files：
+  - `android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt`
+  - `android/app/src/test/java/com/termlink/app/codex/**`
+- Output：
+  - `CodexIpcStatus`、`DesktopSurfaceSnapshot`、surface item / pending approval / pending plan DTO。
+  - `CodexClientMessages.setActiveConversation`、`followerSendMessage`、`followerApprovalResponse`、`followerPlanResponse` 或等价 builder。
+  - Unknown envelope 继续安全忽略。
+- Verification：
+  - `$env:JAVA_HOME='D:\ProgramCode\openjdk\jdk-21'; $env:PATH="$env:JAVA_HOME\bin;$env:PATH"; android\gradlew.bat :app:testDebugUnitTest --tests \"com.termlink.app.codex.*\"`
+  - `git diff --check -- android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt android/app/src/test/java/com/termlink/app/codex`
+- Exit criteria：
+  - DTO parse 和 builder output 均有 JVM unit 覆盖。
+  - 不改 `CodexViewModel.kt` 的 UI state merge。
+
+### Step 8 — Android ViewModel snapshot merge 与 follower action 接线
+
+- Objective：把 IPC snapshot/status 接入现有 Codex UI state，并复用现有 composer、approval 和 PLAN 操作入口。
+- Inputs：
+  - Step 7 的 DTO / builders。
+  - 现有 `CodexViewModel` message、runtime panel、pending server request、plan workflow 合并逻辑。
+- Files：
+  - `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`
+  - `android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt`
+  - `android/app/src/main/java/com/termlink/app/codex/network/CodexConnectionManager.kt`
+  - `android/app/src/main/java/com/termlink/app/codex/network/CodexWebSocketClient.kt`
+  - `android/app/src/test/java/com/termlink/app/codex/**`
+  - Conditional: `android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt` 仅在必须传参时修改。
+  - Conditional: `android/app/src/main/res/values/strings.xml` 仅在必须新增状态/错误文案时修改。
+- Output：
+  - `conversation_surface_snapshot` 只在 active conversation 匹配时 merge。
+  - IPC snapshot 更新 messages、runtime panel、pending approval、plan workflow、status。
+  - IPC offline / unavailable 时继续旧 `codex_thread_snapshot` / `codex_notification` 路径。
+  - Existing composer / approval / PLAN 操作复用 follower action builders；不新增“主动 Follower 模式”开关。
+- Verification：
+  - `$env:JAVA_HOME='D:\ProgramCode\openjdk\jdk-21'; $env:PATH="$env:JAVA_HOME\bin;$env:PATH"; android\gradlew.bat :app:testDebugUnitTest --tests \"com.termlink.app.codex.*\"`
+  - `git diff --check -- android/app/src/main/java/com/termlink/app/codex android/app/src/test/java/com/termlink/app/codex android/app/src/main/res/values/strings.xml`
+- Exit criteria：
+  - active conversation 过滤、snapshot merge、fallback、follower action send 均有 JVM unit 覆盖。
+  - UI 结构、导航和主操作入口不变。
+
+### Step 9 — 集成回归与 smoke 证据收口
+
+- Objective：把服务端 IPC 链路、Android 消费链路、旧路径 fallback 和手动 smoke 证据统一收口。
+- Inputs：
+  - Step 1-8 的实现与测试结果。
+  - TD-004 confirmed narrow gate。
+  - 有 / 无 Desktop 或 VS Code Codex IPC 环境的实际可用性。
+- Files：
+  - `docs/workflow/CURRENT_TASK.md`
+  - 仅当后续 sync skill 触发时才更新 `docs/workflow/STATUS.md` / `CONTRACTS.md` / `DECISIONS.md`，本 step 不直接写长期治理文档。
+- Output：
+  - 记录 Node IPC tests、gateway tests、Android JVM tests、narrow gate 结果。
+  - 记录 manual smoke：IPC online 三端同步、Android idle send、command approval、PLAN implementation、conversation 切换不串流。
+  - 记录 no-IPC fallback：App Codex 会话页可打开、普通消息/历史/旧 approval 可用。
+  - 若宿主缺少 Desktop / VS Code IPC 环境，记录 blocked reason 和已完成的自动化替代证据。
+- Verification：
+  - `node --test tests/codexIpcConfig.test.js tests/codexIpcCodec.test.js tests/codexIpcClient.test.js tests/codexIpcThreadStream.test.js tests/codexIpcFeed.test.js tests/terminalGateway.codexIpc.test.js`
+  - `node --test tests\tlsConfig.test.js tests\workspace.routes.test.js tests\workspace.web.test.js tests\sessionStore.metadata.test.js tests\terminal_shortcut_input.test.js tests\codexSecondaryPanel.integration.test.js`
+  - `$env:JAVA_HOME='D:\ProgramCode\openjdk\jdk-21'; $env:PATH="$env:JAVA_HOME\bin;$env:PATH"; android\gradlew.bat :app:testDebugUnitTest`
+  - `git diff --check`
+- Exit criteria：
+  - 自动化回归有清晰 pass/fail/blocked 记录。
+  - manual smoke 或 blocked reason 写入执行记录。
+  - 当前任务可进入 review / regression / sync 链。
 
 ## 回归检查项
 
-- 回归检查项待 `/decompose-task` 后绑定到具体步骤。计划层预期覆盖：
+- 回归检查项已在 `实施步骤` 中绑定到 Step 1-9；总体覆盖：
   - IPC frame codec 编解码正确性
   - `thread-stream-state-changed` snapshot + patches 按 `conversationId` 隔离
   - Raw state → surface snapshot 投影正确性（message/status/approval/plan/goal 分类）
@@ -467,3 +670,4 @@ Implementation Plan:
 - 2026-06-15：完成 `/review-current-task` 收敛。已移除只读参考资料的可改权限，收敛 IPC 默认值、feature flag 和 client type，明确 command approval 为本批闭环边界，并把回滚基线固定到 `d98c8f28ff81320e7d46122216075df147c2106c`。当前状态推进为 `reviewed_ready_for_lock_scope`，下一步进入 `/lock-scope`。
 - 2026-06-15：完成 `/lock-scope`。Safety mode 选择 `frozen-scope`：本任务命中 `terminalGateway.js`（`CONTRACTS.md` 锁定高风险区域）与 Android Codex 数据消费链路，但不触碰 production / database / permissions / deployment 等 guarded surfaces，因此不启用 `guarded`。Allowed Files（19 个）、Conditional Files（9 个）、Forbidden Files 已冻结；locked contracts 已识别；unlock/widening 条件已写明；diff filter 规则已确立。当前状态推进为 `scope_locked_ready_for_plan_implementation`，下一步进入 `/plan-implementation`。
 - 2026-06-15：完成 `/plan-implementation`。已将实现方案收敛为配置 / transport / stream tracker / feed / gateway / Android merge / fallback 的分层计划，明确 alternatives、compatibility、risk / rollback、validation strategy 与 External Documentation Gate 的 no-block-with-project-evidence 口径。当前状态推进为 `planned_ready_for_decompose_task`，下一步进入 `/decompose-task`。
+- 2026-06-15：完成 `/decompose-task`。已把 implementation plan 拆成 Step 1-9：IPC config/codec、IPC client、thread-stream tracker、IPC feed、gateway status/snapshot、gateway follower action、Android wire model、Android ViewModel merge、integration regression/smoke。每个 step 均绑定允许文件、输出、验证命令和退出条件；当前状态推进为 `decomposed_ready_for_step1`，下一步进入 `/implement-current-step`。
