@@ -690,12 +690,225 @@ function buildPendingServerRequestSnapshot(state) {
         }));
 }
 
-function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, privilegeConfig, tlsConfig = {} }) {
+function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, privilegeConfig, tlsConfig = {}, ipcFeed }) {
     const isElevated = privilegeConfig && privilegeConfig.isElevated;
     const allowedIps = privilegeConfig ? privilegeConfig.allowedIps : [];
     const auditService = isElevated ? getAuditService() : null;
     const codexService = new CodexAppServerService();
     const threadHub = new CodexThreadHub();
+
+    // ── IPC feed integration ──────────────────────────────────────────────
+    /** @type {Map<import('ws').WebSocket, string>} */
+    const _ipcActiveConversations = new Map();
+
+    if (ipcFeed) {
+        ipcFeed.on('status', (status) => {
+            for (const client of wss.clients) {
+                if (client.readyState === 1) { // WebSocket.OPEN
+                    sendWsEnvelope(client, { type: 'codex_ipc_status', status });
+                }
+            }
+        });
+
+        ipcFeed.on('snapshot', ({ conversationId, surface }) => {
+            for (const client of wss.clients) {
+                if (client.readyState !== 1) continue;
+                const activeConv = _ipcActiveConversations.get(client);
+                if (activeConv === conversationId) {
+                    sendWsEnvelope(client, { type: 'conversation_surface_snapshot', conversationId, snapshot: surface });
+                }
+            }
+        });
+    }
+
+    const _broadcastIpcStatus = (ws) => {
+        if (!ipcFeed) return;
+        sendWsEnvelope(ws, {
+            type: 'codex_ipc_status',
+            status: { online: ipcFeed.online, clientId: ipcFeed.clientId }
+        });
+    };
+
+    const _handleSetActiveConversation = (ws, conversationId) => {
+        if (!ipcFeed) {
+            sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available', detail: 'codex-ipc is not configured on this server.' });
+            return;
+        }
+        if (typeof conversationId !== 'string' || !conversationId.trim()) {
+            sendWsEnvelope(ws, { type: 'error', message: 'Invalid conversationId', detail: 'conversationId must be a non-empty string.' });
+            return;
+        }
+        _ipcActiveConversations.set(ws, conversationId);
+
+        // Replay latest cached snapshot if available.
+        const latest = ipcFeed.getLatestSnapshot(conversationId);
+        if (latest) {
+            sendWsEnvelope(ws, { type: 'conversation_surface_snapshot', conversationId, snapshot: latest });
+        }
+    };
+    const _getActiveConversationId = (ws) => _ipcActiveConversations.get(ws) || null;
+
+    const _handleFollowerSendMessage = async (ws, conversationId, input) => {
+        if (!ipcFeed) {
+            sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available', detail: 'Enable codex-ipc to send follower messages.' });
+            return;
+        }
+        if (!ipcFeed.online) {
+            sendWsEnvelope(ws, { type: 'error', message: 'IPC is not online', detail: 'Cannot send message while IPC is disconnected.' });
+            return;
+        }
+        if (!ipcFeed.allowActiveSend) {
+            sendWsEnvelope(ws, { type: 'error', message: 'Active send is not allowed', detail: 'Enable TERMLINK_CODEX_IPC_ENABLED + ALLOW_ACTIVE + CONFIRM_SEND.' });
+            return;
+        }
+        if (typeof conversationId !== 'string' || !conversationId.trim()) {
+            sendWsEnvelope(ws, { type: 'error', message: 'No active conversation', detail: 'Set an active conversation before sending messages.' });
+            return;
+        }
+        if (typeof input !== 'string' || !input.trim()) {
+            sendWsEnvelope(ws, { type: 'error', message: 'Input cannot be empty', detail: 'Provide non-empty message text.' });
+            return;
+        }
+
+        // Running gate: block start-turn when conversation is running.
+        const latest = ipcFeed.getLatestSnapshot(conversationId);
+        if (latest && (latest.status === 'running' || latest.status === 'waiting_for_approval')) {
+            sendWsEnvelope(ws, {
+                type: 'error',
+                message: 'Conversation is still running',
+                detail: 'Wait for the current turn to finish before starting a new follower turn.'
+            });
+            return;
+        }
+
+        try {
+            const { randomUUID } = require('node:crypto');
+            const response = await ipcFeed.sendRequest('thread-follower-start-turn', {
+                conversationId,
+                turnStartParams: {
+                    clientUserMessageId: randomUUID(),
+                    input: [{ type: 'text', text: input.trim() }]
+                }
+            });
+            if (response.type === 'response' && response.resultType === 'error') {
+                throw new Error(typeof response.error === 'string' ? response.error : JSON.stringify(response.error));
+            }
+            sendWsEnvelope(ws, { type: 'follower_message_sent', conversationId, acknowledged: true });
+        } catch (error) {
+            sendWsEnvelope(ws, { type: 'error', message: 'Failed to send follower message', detail: error.message });
+        }
+    };
+
+    const _handleFollowerApprovalResponse = async (ws, conversationId, decision, requestId) => {
+        if (!ipcFeed) {
+            sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available' });
+            return;
+        }
+        if (!ipcFeed.online || !ipcFeed.allowActiveSend) {
+            sendWsEnvelope(ws, { type: 'error', message: 'IPC is not available for active send' });
+            return;
+        }
+
+        // Resolve the owner raw request id from the latest snapshot.
+        const latest = ipcFeed.getLatestSnapshot(conversationId);
+        const rawId = resolveRawRequestId(latest, requestId);
+
+        try {
+            const response = await ipcFeed.sendRequest('thread-follower-command-approval-decision', {
+                conversationId,
+                requestId: rawId,
+                decision: decision === 'acceptWithExecpolicyAmendment'
+                    ? { acceptWithExecpolicyAmendment: { execpolicy_amendment: [] } }
+                    : decision
+            });
+            if (response.type === 'response' && response.resultType === 'error') {
+                throw new Error(typeof response.error === 'string' ? response.error : JSON.stringify(response.error));
+            }
+            sendWsEnvelope(ws, { type: 'follower_approval_response_sent', conversationId, requestId, acknowledged: true });
+        } catch (error) {
+            sendWsEnvelope(ws, { type: 'error', message: 'Failed to send approval response', detail: error.message });
+        }
+    };
+
+    const _handleFollowerPlanResponse = async (ws, conversationId, input, requestId) => {
+        if (!ipcFeed) {
+            sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available' });
+            return;
+        }
+        if (!ipcFeed.online || !ipcFeed.allowActiveSend) {
+            sendWsEnvelope(ws, { type: 'error', message: 'IPC is not available for active send' });
+            return;
+        }
+        if (!conversationId || !input || !input.trim()) {
+            sendWsEnvelope(ws, { type: 'error', message: 'Plan response is incomplete' });
+            return;
+        }
+
+        try {
+            const latest = ipcFeed.getLatestSnapshot(conversationId);
+            const planAction = latest?.pendingPlanAction;
+            const trimmedInput = input.trim();
+
+            if (planAction && planAction.requestMethod === 'item/plan/requestImplementation' && isPlanAcceptInput(trimmedInput)) {
+                // PLAN implementation: switch to default mode first.
+                const updateRes = await ipcFeed.sendRequest('thread-follower-update-thread-settings', {
+                    conversationId,
+                    threadSettings: { collaborationMode: { mode: 'default' } }
+                });
+                if (updateRes.type === 'response' && updateRes.resultType === 'error') {
+                    throw new Error(typeof updateRes.error === 'string' ? updateRes.error : JSON.stringify(updateRes.error));
+                }
+
+                const planContent = planAction.planContent || trimmedInput;
+                const prompt = `PLEASE IMPLEMENT THIS PLAN:\n${planContent}`;
+                const { randomUUID } = require('node:crypto');
+                const startRes = await ipcFeed.sendRequest('thread-follower-start-turn', {
+                    conversationId,
+                    turnStartParams: {
+                        clientUserMessageId: randomUUID(),
+                        input: [{ type: 'text', text: prompt }],
+                        collaborationMode: { mode: 'default' }
+                    }
+                });
+                if (startRes.type === 'response' && startRes.resultType === 'error') {
+                    throw new Error(typeof startRes.error === 'string' ? startRes.error : JSON.stringify(startRes.error));
+                }
+            } else {
+                // Regular text input for plan feedback.
+                const res = await ipcFeed.sendRequest('thread-follower-submit-user-input', {
+                    conversationId,
+                    requestId: requestId || (planAction?.requestId || ''),
+                    response: { answers: typeof requestId === 'string' ? { [requestId]: { answers: [trimmedInput] } } : {} }
+                });
+                if (res.type === 'response' && res.resultType === 'error') {
+                    throw new Error(typeof res.error === 'string' ? res.error : JSON.stringify(res.error));
+                }
+            }
+            sendWsEnvelope(ws, { type: 'follower_plan_response_sent', conversationId, acknowledged: true });
+        } catch (error) {
+            sendWsEnvelope(ws, { type: 'error', message: 'Failed to send plan response', detail: error.message });
+        }
+    };
+
+    /**
+     * Resolve the owner-visible raw request id from the latest surface snapshot.
+     * The UI may display a derived requestId; the raw id is what the IPC owner expects.
+     */
+    function resolveRawRequestId(snapshot, requestId) {
+        if (!snapshot || !snapshot.pendingApproval) return requestId;
+        const raw = snapshot.pendingApproval.raw;
+        if (raw && typeof raw === 'object') {
+            const rawId = raw.id;
+            if (typeof rawId === 'string' || typeof rawId === 'number') return rawId;
+        }
+        return requestId;
+    }
+
+    function isPlanAcceptInput(input) {
+        const normalized = input.trim();
+        return normalized === '是，实施此计划' || normalized === 'Implement plan';
+    }
+    // ── end IPC feed integration ──────────────────────────────────────────
 
     const unbindSessionThreads = (sessionId, options = {}) => {
         threadHub.unbindSessionThreads(sessionId, options);
@@ -1544,6 +1757,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 capabilities: buildCodexCapabilities()
             });
 
+            // ── IPC feed: push current status on connect ──
+            _broadcastIpcStatus(ws);
+
             const codexState = ensureSessionCodexState(session);
             if (shouldSendCodexState(session)) {
                 sendWsEnvelope(ws, {
@@ -1572,7 +1788,15 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                     envelope = JSON.parse(message);
                     const type = envelope.type;
 
-                    if (type === 'input') {
+                    if (type === 'set_active_conversation') {
+                        _handleSetActiveConversation(ws, envelope.conversationId);
+                    } else if (type === 'follower_send_message') {
+                        _handleFollowerSendMessage(ws, envelope.conversationId, envelope.input).catch(err => console.error('[gateway][ipc][follower-send]', err));
+                    } else if (type === 'follower_approval_response') {
+                        _handleFollowerApprovalResponse(ws, envelope.conversationId, envelope.decision, envelope.requestId).catch(err => console.error('[gateway][ipc][follower-approval]', err));
+                    } else if (type === 'follower_plan_response') {
+                        _handleFollowerPlanResponse(ws, envelope.conversationId, envelope.input, envelope.requestId).catch(err => console.error('[gateway][ipc][follower-plan]', err));
+                    } else if (type === 'input') {
                         pty.write(envelope.data);
                     } else if (type === 'resize') {
                         pty.resize(envelope.cols, envelope.rows);
@@ -1976,6 +2200,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             });
 
             ws.on('close', (code, reason) => {
+                _ipcActiveConversations.delete(ws);
                 sessionManager.removeConnection(session, ws);
                 // Log connection end for elevated mode
                 if (isElevated && auditService) {
@@ -2027,6 +2252,8 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         codexService.removeListener('fatal', handleCodexFatal);
         codexService.removeListener('stderr', handleCodexStderr);
         codexService.removeListener('server_request', handleCodexServerRequest);
+        if (ipcFeed) { ipcFeed.removeAllListeners(); }
+        _ipcActiveConversations.clear();
         for (const session of sessionManager.sessions.values()) {
             void cleanupAllSessionAttachmentTempFiles(session);
         }

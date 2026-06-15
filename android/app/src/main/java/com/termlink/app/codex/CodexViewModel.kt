@@ -1972,6 +1972,33 @@ class CodexViewModel(
                 Log.i(TAG, "Capabilities: models=${caps.models}")
             }
 
+            // ── IPC realtime sync messages ──
+            "codex_ipc_status" -> {
+                val status = CodexIpcStatus.from(json)
+                _uiState.update { it.copy(ipcOnline = status.online, ipcClientId = status.clientId) }
+                Log.d(TAG, "IPC status: online=${status.online} clientId=${status.clientId}")
+            }
+
+            "conversation_surface_snapshot" -> {
+                val snap = DesktopSurfaceSnapshot.from(json)
+                val convId = snap.conversationId
+                val activeConv = _uiState.value.activeConversationId
+                if (convId != null && convId == activeConv) {
+                    _uiState.update { current ->
+                        val mergedMessages = mergeSurfaceItems(current.messages, snap.items)
+                        val nextPlanWorkflow = mergePlanWorkflow(current.planWorkflow, snap.pendingPlanAction)
+                        current.copy(
+                            ipcSurfaceSnapshot = snap,
+                            status = snap.status,
+                            messages = mergedMessages,
+                            pendingServerRequests = mergePendingApproval(current.pendingServerRequests, snap.pendingApproval),
+                            planWorkflow = nextPlanWorkflow
+                        )
+                    }
+                }
+                Log.d(TAG, "IPC snapshot: conv=$convId status=${snap.status} items=${snap.items.size}")
+            }
+
             "codex_state" -> {
                 val state = CodexState.from(json)
                 _uiState.update { current ->
@@ -5263,6 +5290,74 @@ class CodexViewModel(
             return true
         }
         return !state.currentTurnId.isNullOrBlank()
+    }
+
+    // ── IPC surface snapshot merge helpers ────────────────────────────
+
+    private fun mergeSurfaceItems(
+        existing: List<ChatMessage>,
+        surfaceItems: List<SurfaceEntry>
+    ): List<ChatMessage> {
+        if (surfaceItems.isEmpty()) return existing
+        val merged = existing.toMutableList()
+        val seenKeys = existing.map { it.id }.toMutableSet()
+        for (entry in surfaceItems) {
+            val key = entry.key
+            if (key.isBlank() || key in seenKeys) continue
+            seenKeys.add(key)
+            val role = when (entry.kind) {
+                "message" -> when (entry.role) {
+                    "user" -> ChatMessage.Role.USER
+                    else -> ChatMessage.Role.ASSISTANT
+                }
+                "status", "approval_request" -> ChatMessage.Role.SYSTEM
+                else -> ChatMessage.Role.ASSISTANT
+            }
+            merged.add(
+                ChatMessage(
+                    id = key,
+                    role = role,
+                    content = entry.text ?: "",
+                    streaming = false
+                )
+            )
+        }
+        return merged
+    }
+
+    private fun mergePendingApproval(
+        existing: List<CodexServerRequest>,
+        pending: PendingApprovalInfo?
+    ): List<CodexServerRequest> {
+        if (pending == null) return existing
+        val reqId = pending.requestId ?: return existing
+        if (existing.any { it.requestId == reqId }) return existing
+        return existing + CodexServerRequest(
+            requestId = reqId,
+            method = "item/commandExecution/requestApproval",
+            requestKind = "approval",
+            responseMode = "freeform",
+            handledBy = "client",
+            summary = pending.description ?: pending.title ?: "等待审批",
+            questionCount = 1,
+            command = pending.command,
+            questions = emptyList(),
+            params = null,
+            defaultResult = null
+        )
+    }
+
+    private fun mergePlanWorkflow(
+        current: CodexPlanWorkflowState,
+        action: PendingPlanActionInfo?
+    ): CodexPlanWorkflowState {
+        if (action == null) return current
+        return current.copy(
+            planContent = action.planContent ?: current.planContent,
+            canSubmitPlan = action.canSubmit,
+            planRequestId = action.requestId ?: current.planRequestId,
+            planRequestMethod = action.requestMethod ?: current.planRequestMethod
+        )
     }
 
     override fun onCleared() {

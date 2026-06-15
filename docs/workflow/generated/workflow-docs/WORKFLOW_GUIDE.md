@@ -43,6 +43,8 @@
 | 接管老项目治理基线 | `/adopt-existing-project` | `legacy-inventory` 产物、现有仓库事实、用户确认信息 | 首版 `.workflow-system/PROJECT_PROFILE.yaml`、`AGENTS.md`、`CLAUDE.md`、`docs/workflow/ROADMAP.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/BASELINES.md`、`docs/workflow/STATUS.md`、`docs/workflow/DECISIONS.md`，必要时更新 `docs/adoption/ADOPTION_REPORT.md` |
 | 执行当前任务编排 | `/execute-current-task` | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/STATUS.md` | 自动进入 review-current-task → lock-scope → classify-decisions → plan-implementation → decompose-task → implement/review/regression 链 |
 | 创建任务包 | `/create-current-task` | `.workflow-system/PROJECT_PROFILE.yaml`、`docs/workflow/CONTRACTS.md`、`docs/workflow/STATUS.md`、`docs/workflow/DECISIONS.md`、用户需求 | `docs/workflow/CURRENT_TASK.md` |
+| 替代失效任务包 | `/supersede-current-task` | 旧 `docs/workflow/CURRENT_TASK.md`、`docs/workflow/STATUS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/CONTRACTS.md` | 当未完成任务包发生 scope invalidation 时，保留旧任务状态、未完成项和 partial diff 归属，并把新任务包送回 `review-current-task` |
+| 记录无关新事项 | `/capture-work-item` | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`TASKS/inbox/**` | 将与当前任务无关的新事项写入 `TASKS/inbox/**` 的 record-only branch；成功后回到 `/ask-user`，不自动创建任务 |
 | 审查任务包 | `/review-current-task` | `docs/workflow/CURRENT_TASK.md`、`.workflow-system/PROJECT_PROFILE.yaml`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/STATUS.md` | 修订后的任务边界、验收、设计约束和风险 |
 | 锁定范围 | `/lock-scope` | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md` | Safety mode、Allowed Files、Forbidden Files、Conditional Files、Dangerous surfaces、Unlock / widening conditions |
 | 分类决策 | `/classify-decisions` | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/DECISIONS.md` | Mechanical / Taste / User challenge 分类 |
@@ -52,6 +54,10 @@
 | 调试并修复编排 | `/debug-and-fix-current-task` | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/LESSONS.md` | investigate-root-cause → plan-implementation → decompose-task → implement-current-step → review / verify / regression |
 | 调查根因 | `/investigate-root-cause` | `docs/workflow/CURRENT_TASK.md`、代码和日志线索 | Symptom、Reproduction、Root cause hypothesis、Evidence、Minimal fix path、Regression check |
 | 实现当前步骤 | `/implement-current-step` | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/LESSONS.md` | 代码改动、dangerous command gate、验证结果、执行记录 |
+| 暂停当前任务 | `/pause-current-task` | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md` | paused package、fail-closed transaction、resume gate marker |
+| 中断当前任务 | `/interrupt-current-task` | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md` | interrupted package、checkpoint / dirty / environment / recovery evidence、fail-closed transaction |
+| 恢复已暂停任务 | `/resume-paused-task` | `docs/workflow/CURRENT_TASK.md`、`TASKS/paused/**`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md` | 从完整 payload 重建的 `docs/workflow/CURRENT_TASK.md`，并固定回到 `review-current-task` |
+| 恢复已中断任务 | `/resume-interrupted-task` | `docs/workflow/CURRENT_TASK.md`、`TASKS/interrupted/**`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md` | 从完整 payload 重建的 `docs/workflow/CURRENT_TASK.md`，并固定回到 `review-current-task` |
 | 只读审查编排 | `/review-current-diff` | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/LESSONS.md`、`.workflow-system/PROJECT_PROFILE.yaml` | review-diff → review-implementation → verify-contracts → run-regression(report-only) |
 | 审查 diff | `/review-diff` | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`，以及明确的 diff review target | scope drift / decision drift / safety boundary review / 回归风险 |
 | 审查实现质量 | `/review-implementation` | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/LESSONS.md`，以及同一 diff review target 和实现上下文 | Goal fit、Correctness、Edge cases、Robustness、Compatibility、Test adequacy、Remaining risks |
@@ -73,6 +79,8 @@
 0. 初始化完成后进入日常任务链路：新项目先走 `/design-baseline-init`；如果目标项目里已经有旧路径或旧版 workflow 资产，先插入 `/realign-workflow-assets`，再进入 `/greenfield-init`。老项目先走 `/legacy-inventory` → `/adopt-existing-project`。需要重新生成 / sync 时，从 workflow-system 源仓库用 `WORKFLOW_SYSTEM_ROOT=<target-repo>` 和 `--root <target-repo>` 驱动目标项目，不要为了 workflow-system 迁移在目标项目里执行 `bun install`。
 1. 先读 `docs/workflow/DOCUMENT_CATALOG.md` 确认文档目录协议，再读 `docs/workflow/STATUS.md` / `docs/workflow/ROADMAP.md`，确认当前任务是否处在正确窗口。
 2. 用 `/create-current-task` 创建 `docs/workflow/CURRENT_TASK.md`。
+   - 如果未完成的 `docs/workflow/CURRENT_TASK.md` 在实现、审查或回归中发现目标、范围锁或验收标准已经失效，先用 `/supersede-current-task` 替代任务包，再重新进入 `/review-current-task` → `/lock-scope` → `/plan-implementation`；不得直接继续 `/implement-current-step`。
+   - `阶段 1：需求进入` 还允许一条 record-only branch：当当前任务执行中冒出与当前范围无关的新事项时，用 `/capture-work-item` 只写 `TASKS/inbox/**`，成功后固定回到 `/ask-user`；它不是 `/create-current-task` 主链，也不会自动 promote 成新任务。
 3. 用 `/review-current-task` 收敛目标、验收、风险和范围。
 4. 用 `/lock-scope` 明确 Safety mode、`Allowed Files`、`Forbidden Files`、`Conditional Files`、Dangerous surfaces 和受影响契约。
 5. 用 `/classify-decisions` 识别哪些决策可自动处理，哪些必须用户确认。
@@ -80,8 +88,12 @@
 7. 用 `/decompose-task` 把确认后的方案拆成一次只做一个当前步骤的小步计划。
 8. 每一步用 `/implement-current-step` 实现，并把执行记录写回 `docs/workflow/CURRENT_TASK.md`。
 9. 每步后用 `/review-diff`、`/review-implementation`、`/verify-contracts`、`/run-regression` 做范围、实现质量、契约和回归复核；先声明本轮 `diff_review_target`，可以是未提交 diff、staged diff、commit range、task-base-to-HEAD、checkpoint-to-HEAD 或用户提供的 patch。长任务允许在流程未关闭前创建 checkpoint commit，但必须把 task base / checkpoint / review target 记录到 `docs/workflow/CURRENT_TASK.md > 回滚点` 或执行记录，后续 review 不得因工作区为空而漏审已提交改动。只读审查发现当前 Allowed Files 内可修的 implementation findings 时，先用 `/sync-review-findings` 写入 `docs/workflow/CURRENT_TASK.md > 审查问题队列`，再回到 `/implement-current-step` 修复。`/review-implementation` 必须检查实现是否满足目标、逻辑是否正确、边界条件和异常路径是否鲁棒、兼容性是否保持、测试是否覆盖原始问题和关键边界路径；`/run-regression` 必须先选择 QA mode。UI / 登录 / 表单 / 路由 / 状态流任务必须考虑 browser-backed smoke；UI / 视觉任务必须有 Design mode、Design source、Design acceptance、Design evidence 或 blocked reason；发布 / 部署 / canary / benchmark 任务必须有 Release mode、Deploy source、Target environment、Health checks、Rollback / recovery、Release evidence 或 blocked reason。如果测试或验证失败且根因不明确，先进入 `/investigate-root-cause`，不要直接修代码。
-10. 用 `/sync-current-task`、`/sync-status`、必要时 `/sync-contracts` / `/sync-decisions` / `/sync-host-guidance` 同步治理事实。
-11. 交付前用 `/prepare-delivery-summary`，交付后用 `/capture-lessons` 和 `/archive-task` 完成沉淀。
+   - 如果旧任务遗留问题阻断当前 active task，先做 ownership-aware routing：`current_task_owned` 才能继续当前修复；`scope_widening_candidate` 回 `/lock-scope`；唯一 paused / interrupted owner 只有在 matching suspended package evidence 存在且 active-owner guard 通过时才进入 `/resume-paused-task` 或 `/resume-interrupted-task`；否则按 `ask-user`、`create-current-task` 或 `blocked / evidence gap` fail-closed。
+   - 当前 live task 仍 active 时，不得直接恢复旧任务覆盖它；必须先让用户决定是否 `/pause-current-task` 或 `/interrupt-current-task` 当前任务，再继续恢复链。
+10. 需要暂时释放 active ownership 时，用 `/pause-current-task` 或 `/interrupt-current-task` 写出 suspended package；两者都必须采用 `write_incomplete + recovery_only` → read-back validation → `ready_for_resume + recovery_only` 的 fail-closed file transaction。
+11. 需要恢复时，用 `/resume-paused-task` 或 `/resume-interrupted-task` 从完整 payload 重建 `docs/workflow/CURRENT_TASK.md`；恢复成功后必须回到 `/review-current-task`，不得直接进入 `/implement-current-step`。
+12. 用 `/sync-current-task`、`/sync-status`、必要时 `/sync-contracts` / `/sync-decisions` / `/sync-host-guidance` 同步治理事实。
+13. 交付前用 `/prepare-delivery-summary`，交付后用 `/capture-lessons` 和 `/archive-task` 完成沉淀。
 
 ## 主流程编排
 
@@ -172,6 +184,7 @@ flowchart TD
 | 顺序 | Skill | 目的 | 影响文档 | 是否需要人工确认 |
 |---:|---|---|---|---|
 | 1 | `/create-current-task` | 把需求写成任务包初稿 | `docs/workflow/CURRENT_TASK.md` | 需求模糊、目标不清时需要 |
+| 1a | `/capture-work-item` | 当当前任务执行中出现无关新事项时，走 record-only branch，只写 `TASKS/inbox/**`，不改当前 `docs/workflow/CURRENT_TASK.md` | `TASKS/inbox/**` | relation 不明确、疑似 duplicate 或需要改当前范围时需要 |
 | 2 | `/review-current-task` | 收敛目标、验收标准、风险、范围 | `docs/workflow/CURRENT_TASK.md` | Taste / User challenge 需要 |
 | 3 | `/lock-scope` | 锁定 Allowed / Forbidden / Conditional Files | `docs/workflow/CURRENT_TASK.md` | 扩大范围、高风险文件需要 |
 | 4 | `/classify-decisions` | 判断哪些方案决策可自动做，哪些要用户拍板 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/DECISIONS.md` | Taste / User challenge 必须 |
@@ -225,7 +238,9 @@ flowchart TD
 | 已有 docs/workflow/CURRENT_TASK.md，希望自动推进完整任务 | `/execute-current-task` |
 | 当前任务已锁范围并拆好步骤，只想继续下一步 | `/continue-current-step` |
 | 新需求进入 | `/create-current-task` |
+| 当前任务进行中，冒出与当前范围无关但需要留档的新事项 | `/capture-work-item`（record-only，成功后 `/ask-user`） |
 | 登记或记录一个新 bug，尚未授权修复 | `/create-current-task` |
+| 当前未完成任务的目标、范围锁或验收标准已经失效 | `/supersede-current-task` → `/review-current-task` → `/lock-scope` → `/plan-implementation` |
 | 任务范围太大或不清楚 | `/review-current-task` → `/lock-scope` |
 | 需要多个模块联动 | `/classify-decisions` → `/plan-implementation` → `/decompose-task` |
 | 从零建立设计系统或视觉方向 | `/create-current-task` → `/review-current-task`，在 `设计约束` 中选择 `design-system` |
@@ -241,6 +256,16 @@ flowchart TD
 | 只允许改一个模块 | `/lock-scope` 选择 `frozen-scope`，并在 `docs/workflow/CURRENT_TASK.md` 写明允许/禁止范围 |
 | 需要危险命令或高影响操作 | `/implement-current-step` 执行 dangerous command gate |
 | 需要解除或扩大修改范围 | 回到 `/lock-scope`，重新记录原因、影响文件、风险、验证方式和三类范围 |
+| 需要暂停当前任务但不立即切换新任务 | `/pause-current-task`（`pause_only = ask-user`） |
+| 需要暂停当前任务并立刻切到新任务 | `/pause-current-task`（`pause_and_switch = create-current-task`） |
+| 当前任务必须中断并保留 checkpoint / dirty / environment / recovery evidence | `/interrupt-current-task` |
+| 从 paused package 恢复当前任务 | `/resume-paused-task` → `/review-current-task` |
+| 从 interrupted package 恢复当前任务 | `/resume-interrupted-task` → `/review-current-task` |
+| 旧任务遗留 blocker 属于唯一 paused owner，且 matching suspended package evidence 完整、active-owner guard 通过 | `/resume-paused-task` → `/review-current-task` |
+| 旧任务遗留 blocker 属于唯一 interrupted owner，且 matching suspended package evidence 完整、active-owner guard 通过 | `/resume-interrupted-task` → `/review-current-task` |
+| 旧任务遗留 blocker 命中 paused / interrupted owner，但当前 live task 仍 active，需要先决定是否暂停/中断当前任务 | `/ask-user`，先决定 `/pause-current-task` 或 `/interrupt-current-task` |
+| 旧任务遗留 blocker 属于当前任务但修复会越出 Allowed Files | `/lock-scope` |
+| 旧任务遗留 blocker 无法唯一归属，或需要独立 bug 任务承载 | `/create-current-task` |
 | 当前任务执行/验证失败，且不确定 bug 根因 | `/investigate-root-cause` |
 | 希望自动调查并修复当前 bug 任务 | `/debug-and-fix-current-task` |
 | 当前任务测试失败但原因不明 | `/investigate-root-cause` |
@@ -269,6 +294,7 @@ flowchart TD
 
 - 如果实现需要修改 `docs/workflow/CURRENT_TASK.md` 的 `Allowed Files` / `Conditional Files` 之外的文件，停止当前实现并回到 `/lock-scope`。
 - 未明确允许的文件默认禁止修改。
+- 如果当前未完成任务包的目标、范围锁或验收标准已经失效，这不是普通补步骤；应先用 `/supersede-current-task` 替代任务包，并回到 `/review-current-task` → `/lock-scope` → `/plan-implementation`，不得直接进入实现。
 - `/review-diff` 或 `/review-implementation` 输出的 mechanical implementation findings 先用 `/sync-review-findings` 写入 `docs/workflow/CURRENT_TASK.md > 审查问题队列`，再修复。
 - workflow-system 不依赖 native hook；即使没有 shell 拦截器或 session-level freeze，也必须按 Safety mode、mutation scope 和 dangerous command gate 执行。
 - workflow-system 不绑定具体设计生成工具、comparison board、Pretext 或 browse daemon；`DESIGN.md` 只能作为 optional source，不加入 required reads。

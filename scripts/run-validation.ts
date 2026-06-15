@@ -10,6 +10,7 @@
  * Implements WORKFLOW_PROTOCOL.md §16.
  */
 
+import * as fs from 'fs';
 import * as path from 'path';
 import { spawnSync } from 'child_process';
 import { parse } from 'yaml';
@@ -23,10 +24,16 @@ import {
 } from './workflow-core';
 import { validatePropagationGovernanceDocs } from './propagation-governance';
 import {
+  parseInboxArtifactPath,
+  parseSuspendedTaskArtifactPath,
+  validateInboxArtifactPackage,
+  validateSuspendedTaskPackage,
   validateBaselineCoverageForBoundSlots,
   validateLifecycleGovernanceDoc,
+  validateWorkflowGuideCaptureContract,
   type LifecycleGovernanceDoc,
 } from './workflow-doc-contracts';
+import { extractCurrentTaskStateFromCurrentTask } from './task-identity';
 import {
   type BlockerLevel,
   type ValidationEntrypoint,
@@ -63,6 +70,26 @@ type GovernanceHomeCheck = {
   file: LifecycleGovernanceDoc;
   entrypoint: 'baseline-governance-home' | 'decisions-governance-home' | 'roadmap-governance-home';
   validateContent: (content: string, entrypoints: readonly ValidationEntrypoint[]) => void;
+};
+
+type EntrypointExecutionContext = {
+  cwd: string;
+  env?: NodeJS.ProcessEnv;
+};
+
+type SuspendedTaskPackageCheck = {
+  entrypoint: 'suspended-task-package-validation';
+  blocker_level: 'blocks-merge';
+};
+
+type InboxArtifactCheck = {
+  entrypoint: 'inbox-artifact-validation';
+  blocker_level: 'blocks-merge';
+};
+
+type WorkflowGuideCaptureCheck = {
+  entrypoint: 'workflow-guide-capture-validation';
+  blocker_level: 'blocks-merge';
 };
 
 // --- CLI ---
@@ -150,6 +177,20 @@ const GOVERNANCE_HOME_CHECKS: readonly GovernanceHomeCheck[] = [
   },
 ] as const;
 
+const WORKFLOW_SYSTEM_SOURCE_ROOT = path.resolve(import.meta.dir, '..');
+const SUSPENDED_TASK_PACKAGE_CHECK: SuspendedTaskPackageCheck = {
+  entrypoint: 'suspended-task-package-validation',
+  blocker_level: 'blocks-merge',
+};
+const INBOX_ARTIFACT_CHECK: InboxArtifactCheck = {
+  entrypoint: 'inbox-artifact-validation',
+  blocker_level: 'blocks-merge',
+};
+const WORKFLOW_GUIDE_CAPTURE_CHECK: WorkflowGuideCaptureCheck = {
+  entrypoint: 'workflow-guide-capture-validation',
+  blocker_level: 'blocks-merge',
+};
+
 function shouldRun(entrypoint: ValidationEntrypoint, maxBlockerLevel?: BlockerLevel): boolean {
   if (!maxBlockerLevel) return true;
   return BLOCKER_SEVERITY[entrypoint.blocker_level] >= BLOCKER_SEVERITY[maxBlockerLevel];
@@ -158,11 +199,13 @@ function shouldRun(entrypoint: ValidationEntrypoint, maxBlockerLevel?: BlockerLe
 export function executeEntrypoint(
   entrypoint: ValidationEntrypoint,
   cwd: string,
+  env?: NodeJS.ProcessEnv,
 ): ValidationResult {
   const parts = entrypoint.command.split(/\s+/);
   const result = spawnSync(parts[0], parts.slice(1), {
     cwd,
     encoding: 'utf8',
+    env: env ?? process.env,
     stdio: 'pipe',
     shell: true,
   });
@@ -197,6 +240,23 @@ export function executeEntrypoint(
     status: 'passed',
     output,
   };
+}
+
+export function resolveEntrypointExecutionContext(
+  entrypoint: ValidationEntrypoint,
+  root: string,
+): EntrypointExecutionContext {
+  if (entrypoint.layer === 'protocol' && entrypoint.owner === 'workflow-system') {
+    return {
+      cwd: WORKFLOW_SYSTEM_SOURCE_ROOT,
+      env: {
+        ...process.env,
+        WORKFLOW_SYSTEM_ROOT: root,
+      },
+    };
+  }
+
+  return { cwd: root };
 }
 
 function skipResult(entrypoint: ValidationEntrypoint, reason: string): ValidationResult {
@@ -283,6 +343,150 @@ function buildPropagationGovernanceFailure(
   };
 }
 
+function listFilesRecursively(rootDir: string): string[] {
+  if (!fs.existsSync(rootDir)) {
+    return [];
+  }
+
+  const files: string[] = [];
+  for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
+    const absolutePath = path.join(rootDir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listFilesRecursively(absolutePath));
+      continue;
+    }
+    if (entry.isFile()) {
+      files.push(absolutePath);
+    }
+  }
+  return files;
+}
+
+function validateSuspendedTaskArtifacts(root: string): void {
+  const artifactFiles = [
+    ...listFilesRecursively(path.join(root, 'TASKS', 'paused')),
+    ...listFilesRecursively(path.join(root, 'TASKS', 'interrupted')),
+  ];
+
+  for (const filePath of artifactFiles) {
+    const relativePath = path.relative(root, filePath).replace(/\\/g, '/');
+    if (parseSuspendedTaskArtifactPath(relativePath) === null) {
+      throw new Error(
+        `Stray suspended artifact detected at ${relativePath}; expected only TASKS/paused/TASK-<TASK_ID>-<TASK_SLUG>.md or TASKS/interrupted/TASK-<TASK_ID>-<TASK_SLUG>.md.`,
+      );
+    }
+
+    validateSuspendedTaskPackage(relativePath, readText(filePath));
+  }
+}
+
+function readArtifactKind(content: string): string | null {
+  const match = /^\s*(?:-\s*)?artifact_kind\s*:\s*(.*?)\s*$/m.exec(content);
+  return match?.[1]?.trim() || null;
+}
+
+function validateInboxCurrentTaskState(root: string): void {
+  const profile = loadProfile(getWorkflowProfilePath(root));
+  const currentTaskPath = getWorkflowDocPath(root, profile, 'CURRENT_TASK.md');
+  if (!fs.existsSync(currentTaskPath)) {
+    return;
+  }
+
+  const { lifecycleState } = extractCurrentTaskStateFromCurrentTask(readText(currentTaskPath));
+  if (!lifecycleState) {
+    return;
+  }
+
+  if (['capture', 'backlog_item', 'inbox_item'].includes(lifecycleState)) {
+    throw new Error(
+      'CURRENT_TASK.md lifecycle state must not use capture, backlog_item, or inbox_item; inbox artifacts are record-only and must stay outside the lifecycle tuple.',
+    );
+  }
+}
+
+function validateMisplacedInboxArchiveArtifacts(root: string): void {
+  const taskRoot = path.join(root, 'TASKS');
+  if (!fs.existsSync(taskRoot)) {
+    return;
+  }
+
+  for (const entry of fs.readdirSync(taskRoot, { withFileTypes: true })) {
+    if (!entry.isFile()) {
+      continue;
+    }
+
+    const relativePath = path.join('TASKS', entry.name).replace(/\\/g, '/');
+    if (!/^TASKS\/TASK-[0-9]{3,}-[a-z0-9]+(?:-[a-z0-9]+)*\.md$/.test(relativePath)) {
+      continue;
+    }
+
+    const artifactKind = readArtifactKind(readText(path.join(taskRoot, entry.name)));
+    if (artifactKind === 'inbox_item') {
+      throw new Error(
+        `Inbox artifact must not be stored at ${relativePath}; use TASKS/inbox/INBOX-<YYYYMMDD>-<short-id>-<slug>.md instead.`,
+      );
+    }
+  }
+}
+
+function validateInboxArtifacts(root: string): void {
+  const artifactFiles = listFilesRecursively(path.join(root, 'TASKS', 'inbox'));
+
+  for (const filePath of artifactFiles) {
+    const relativePath = path.relative(root, filePath).replace(/\\/g, '/');
+    if (parseInboxArtifactPath(relativePath) === null) {
+      throw new Error(
+        `Stray inbox artifact detected at ${relativePath}; expected only TASKS/inbox/INBOX-<YYYYMMDD>-<short-id>-<slug>.md.`,
+      );
+    }
+
+    validateInboxArtifactPackage(relativePath, readText(filePath));
+  }
+
+  validateMisplacedInboxArchiveArtifacts(root);
+  validateInboxCurrentTaskState(root);
+}
+
+function validateWorkflowGuideCapture(root: string): void {
+  const profile = loadProfile(getWorkflowProfilePath(root));
+  const generatedGuidePath = path.join(getWorkflowGeneratedDir(root, profile, 'workflow-docs'), 'WORKFLOW_GUIDE.md');
+  if (!fs.existsSync(generatedGuidePath)) {
+    return;
+  }
+
+  validateWorkflowGuideCaptureContract(readText(generatedGuidePath));
+}
+
+function buildSuspendedTaskPackageFailure(error: Error): ValidationResult {
+  return {
+    entrypoint: SUSPENDED_TASK_PACKAGE_CHECK.entrypoint,
+    layer: 'protocol',
+    blocker_level: SUSPENDED_TASK_PACKAGE_CHECK.blocker_level,
+    status: 'failed',
+    error: error.message,
+  };
+}
+
+function buildInboxArtifactFailure(error: Error): ValidationResult {
+  return {
+    entrypoint: INBOX_ARTIFACT_CHECK.entrypoint,
+    layer: 'protocol',
+    blocker_level: INBOX_ARTIFACT_CHECK.blocker_level,
+    status: 'failed',
+    error: error.message,
+  };
+}
+
+function buildWorkflowGuideCaptureFailure(error: Error): ValidationResult {
+  return {
+    entrypoint: WORKFLOW_GUIDE_CAPTURE_CHECK.entrypoint,
+    layer: 'protocol',
+    blocker_level: WORKFLOW_GUIDE_CAPTURE_CHECK.blocker_level,
+    status: 'failed',
+    error: error.message,
+  };
+}
+
 function validateProjectGovernanceHomes(root: string, entrypoints: ValidationEntrypoint[]): ValidationResult[] {
   if (getBoundProjectEntrypoints(entrypoints).length === 0) {
     return [];
@@ -332,10 +536,72 @@ export function runValidation(options: RunValidationOptions = {}): ValidationRep
       protocolResults.push(skipResult(entry, 'dry-run mode'));
       continue;
     }
-    protocolResults.push(executeEntrypoint(entry, root));
+    const execution = resolveEntrypointExecutionContext(entry, root);
+    protocolResults.push(executeEntrypoint(entry, execution.cwd, execution.env));
   }
 
   if (options.layer !== 'project') {
+    if (shouldRun(
+      {
+        name: SUSPENDED_TASK_PACKAGE_CHECK.entrypoint,
+        layer: 'protocol',
+        command: '',
+        blocker_level: SUSPENDED_TASK_PACKAGE_CHECK.blocker_level,
+        description: 'Validate suspended task packages and stray artifact paths.',
+        phase: 'P9',
+        owner: 'workflow-system',
+      },
+      options.maxBlockerLevel,
+    )) {
+      try {
+        validateSuspendedTaskArtifacts(root);
+      } catch (error) {
+        protocolResults.push(
+          buildSuspendedTaskPackageFailure(error instanceof Error ? error : new Error(String(error))),
+        );
+      }
+    }
+
+    if (shouldRun(
+      {
+        name: INBOX_ARTIFACT_CHECK.entrypoint,
+        layer: 'protocol',
+        command: '',
+        blocker_level: INBOX_ARTIFACT_CHECK.blocker_level,
+        description: 'Validate inbox artifacts, archive-path pollution, and lifecycle contamination.',
+        phase: 'P9',
+        owner: 'workflow-system',
+      },
+      options.maxBlockerLevel,
+    )) {
+      try {
+        validateInboxArtifacts(root);
+      } catch (error) {
+        protocolResults.push(buildInboxArtifactFailure(error instanceof Error ? error : new Error(String(error))));
+      }
+    }
+
+    if (shouldRun(
+      {
+        name: WORKFLOW_GUIDE_CAPTURE_CHECK.entrypoint,
+        layer: 'protocol',
+        command: '',
+        blocker_level: WORKFLOW_GUIDE_CAPTURE_CHECK.blocker_level,
+        description: 'Validate capture-work-item guide snippets when the guide exposes that branch.',
+        phase: 'P9',
+        owner: 'workflow-system',
+      },
+      options.maxBlockerLevel,
+    )) {
+      try {
+        validateWorkflowGuideCapture(root);
+      } catch (error) {
+        protocolResults.push(
+          buildWorkflowGuideCaptureFailure(error instanceof Error ? error : new Error(String(error))),
+        );
+      }
+    }
+
     try {
       validatePropagationGovernanceDocs(root, 'protocol');
     } catch (error) {
@@ -405,7 +671,8 @@ export function runValidation(options: RunValidationOptions = {}): ValidationRep
       projectResults.push(skipResult(entry, 'dry-run mode'));
       continue;
     }
-    projectResults.push(executeEntrypoint(entry, root));
+    const execution = resolveEntrypointExecutionContext(entry, root);
+    projectResults.push(executeEntrypoint(entry, execution.cwd, execution.env));
   }
 
   return buildValidationReport(protocolResults, projectResults);

@@ -417,6 +417,149 @@ data class CodexServerRequestEnvelope(
     }
 }
 
+// ── IPC DTOs ────────────────────────────────────────────────────────────
+
+data class CodexIpcStatus(
+    val online: Boolean,
+    val reason: String?,
+    val clientId: String?
+) {
+    companion object {
+        fun from(json: JSONObject): CodexIpcStatus {
+            val status = json.optJSONObject("status") ?: json
+            return CodexIpcStatus(
+                online = status.optBoolean("online", false),
+                reason = status.optStringOrNull("reason"),
+                clientId = status.optStringOrNull("clientId")
+            )
+        }
+    }
+}
+
+data class SurfaceEntry(
+    val key: String,
+    val kind: String,
+    val role: String?,
+    val phase: String?,
+    val text: String?,
+    val turnId: String?,
+    val itemId: String?,
+    val statusType: String?,
+    val approvalType: String?,
+    val requestId: String?,
+    val raw: JSONObject?
+) {
+    companion object {
+        fun from(json: JSONObject): SurfaceEntry = SurfaceEntry(
+            key = json.optString("key", ""),
+            kind = json.optString("kind", "unknown"),
+            role = json.optStringOrNull("role"),
+            phase = json.optStringOrNull("phase"),
+            text = json.optStringOrNull("text"),
+            turnId = json.optStringOrNull("turnId"),
+            itemId = json.optStringOrNull("itemId"),
+            statusType = json.optStringOrNull("statusType"),
+            approvalType = json.optStringOrNull("approvalType"),
+            requestId = json.optStringOrNull("requestId"),
+            raw = json.optJSONObject("raw")
+        )
+    }
+}
+
+data class PendingApprovalInfo(
+    val kind: String,
+    val requestId: String?,
+    val title: String?,
+    val description: String?,
+    val command: String?,
+    val availableDecisions: List<String>,
+    val raw: JSONObject?
+) {
+    companion object {
+        fun from(json: JSONObject?): PendingApprovalInfo? {
+            if (json == null) return null
+            val decisions = json.optJSONArray("availableDecisions")
+            return PendingApprovalInfo(
+                kind = json.optString("kind", "command"),
+                requestId = json.optStringOrNull("requestId"),
+                title = json.optStringOrNull("title"),
+                description = json.optStringOrNull("description"),
+                command = json.optStringOrNull("command"),
+                availableDecisions = if (decisions != null) decisions.toStringList() else emptyList(),
+                raw = json.optJSONObject("raw")
+            )
+        }
+    }
+}
+
+data class PendingPlanActionInfo(
+    val kind: String,
+    val requestId: String?,
+    val requestMethod: String?,
+    val questionId: String?,
+    val acceptedAnswer: String?,
+    val turnId: String?,
+    val planContent: String?,
+    val canSubmit: Boolean,
+    val unavailableReason: String?,
+    val raw: JSONObject?
+) {
+    companion object {
+        fun from(json: JSONObject?): PendingPlanActionInfo? {
+            if (json == null) return null
+            return PendingPlanActionInfo(
+                kind = json.optString("kind", "text_input"),
+                requestId = json.optStringOrNull("requestId"),
+                requestMethod = json.optStringOrNull("requestMethod"),
+                questionId = json.optStringOrNull("questionId"),
+                acceptedAnswer = json.optStringOrNull("acceptedAnswer"),
+                turnId = json.optStringOrNull("turnId"),
+                planContent = json.optStringOrNull("planContent"),
+                canSubmit = json.optBoolean("canSubmit", false),
+                unavailableReason = json.optStringOrNull("unavailableReason"),
+                raw = json.optJSONObject("raw")
+            )
+        }
+    }
+}
+
+data class DesktopSurfaceSnapshot(
+    val conversationId: String?,
+    val revision: Int,
+    val status: String,
+    val updatedAt: Long,
+    val latestTurnId: String?,
+    val items: List<SurfaceEntry>,
+    val pendingApproval: PendingApprovalInfo?,
+    val pendingPlanAction: PendingPlanActionInfo?,
+    val raw: JSONObject
+) {
+    companion object {
+        fun from(json: JSONObject): DesktopSurfaceSnapshot {
+            val snapshot = json.optJSONObject("snapshot") ?: json
+            val items = snapshot.optJSONArray("items")
+            val itemList = mutableListOf<SurfaceEntry>()
+            if (items != null) {
+                for (i in 0 until items.length()) {
+                    val entry = items.optJSONObject(i) ?: continue
+                    itemList.add(SurfaceEntry.from(entry))
+                }
+            }
+            return DesktopSurfaceSnapshot(
+                conversationId = json.optStringOrNull("conversationId") ?: snapshot.optStringOrNull("conversationId"),
+                revision = snapshot.optInt("revision", 0),
+                status = snapshot.optString("status", "unknown"),
+                updatedAt = snapshot.optLong("updatedAt", 0L),
+                latestTurnId = snapshot.optStringOrNull("latestTurnId"),
+                items = itemList,
+                pendingApproval = PendingApprovalInfo.from(snapshot.optJSONObject("pendingApproval")),
+                pendingPlanAction = PendingPlanActionInfo.from(snapshot.optJSONObject("pendingPlanAction")),
+                raw = json
+            )
+        }
+    }
+}
+
 // ── Client → Server builders ──────────────────────────────────────────
 
 object CodexClientMessages {
@@ -516,6 +659,43 @@ object CodexClientMessages {
         result?.let { json.put("result", it) }
         error?.let { json.put("error", it) }
         if (useDefault) json.put("useDefault", true)
+        return json.toString()
+    }
+
+    // ── IPC follower action builders ─────────────────────────────────
+
+    fun setActiveConversation(conversationId: String): String = JSONObject()
+        .put("type", "set_active_conversation")
+        .put("conversationId", conversationId)
+        .toString()
+
+    fun followerSendMessage(conversationId: String, input: String): String = JSONObject()
+        .put("type", "follower_send_message")
+        .put("conversationId", conversationId)
+        .put("input", input)
+        .toString()
+
+    fun followerApprovalResponse(
+        conversationId: String,
+        requestId: String,
+        decision: String
+    ): String = JSONObject()
+        .put("type", "follower_approval_response")
+        .put("conversationId", conversationId)
+        .put("requestId", requestId)
+        .put("decision", decision)
+        .toString()
+
+    fun followerPlanResponse(
+        conversationId: String,
+        input: String,
+        requestId: String? = null
+    ): String {
+        val json = JSONObject()
+            .put("type", "follower_plan_response")
+            .put("conversationId", conversationId)
+            .put("input", input)
+        requestId?.let { json.put("requestId", it) }
         return json.toString()
     }
 }

@@ -20,14 +20,14 @@
 | 阶段 | Skill |
 |---|---|
 | 初始化 | `design-baseline-init` → `realign-workflow-assets` → `greenfield-init` / `legacy-inventory` → `adopt-existing-project` |
-| 阶段 1：需求进入 | `execute-current-task` → `create-current-task` → `review-current-task` |
+| 阶段 1：需求进入 | main chain: `execute-current-task` → `create-current-task` → `supersede-current-task` → `review-current-task`；record-only branch: `capture-work-item` → `ask-user` |
 | 阶段 2：范围锁定 | `lock-scope` |
 | 阶段 3：方案拆解 | `classify-decisions` → `plan-implementation` → `decompose-task` |
 | 阶段 4：小步实现 | `continue-current-step` → `implement-current-step` |
 | 阶段 4/6：异常处理 | `debug-and-fix-current-task` → `investigate-root-cause` |
 | 阶段 5：范围复核 | `review-diff` → `review-implementation` → `verify-contracts`；findings detour: `review-diff` / `review-implementation` → `sync-review-findings` → `implement-current-step` |
 | 阶段 6：回归验证 | `run-regression` |
-| 阶段 7：状态同步 | `sync-current-task` → `sync-status` → `sync-contracts` → `sync-decisions` → `sync-host-guidance` → `capture-lessons` |
+| 阶段 7：状态同步 | suspend branch: `pause-current-task` / `interrupt-current-task`；resume branch: `resume-paused-task` / `resume-interrupted-task` → `review-current-task`；steady-state sync: `sync-current-task` → `sync-status` → `sync-contracts` → `sync-decisions` → `sync-host-guidance` → `capture-lessons` |
 | 阶段 8：交付沉淀 | `close-current-task` → `prepare-delivery-summary` → `archive-task` |
 
 失败分支：
@@ -55,6 +55,8 @@
 |---|---|---|---|---|---|---|
 | `execute-current-task` | 按标准顺序执行当前任务，从任务复核、范围锁定、决策分类、实现方案分析和步骤拆解进入实现与验证链。 | docs/workflow/CURRENT_TASK.md 已存在，用户要求继续执行或自动推进当前任务时。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/STATUS.md` | `[]` | `review-current-task` | `ask-user` |
 | `create-current-task` | 根据用户需求生成可执行的 docs/workflow/CURRENT_TASK.md 初稿。 | 当用户提出新需求，且当前没有可直接执行的任务包时。 | `.workflow-system/PROJECT_PROFILE.yaml`、`docs/workflow/CONTRACTS.md`、`docs/workflow/STATUS.md`、`docs/workflow/DECISIONS.md` | `docs/workflow/CURRENT_TASK.md` | `review-current-task` | `ask-user` |
+| `supersede-current-task` | 当未完成的当前任务因目标、范围锁或验收标准失效而不能继续时，用新任务包安全替代旧任务包。 | docs/workflow/CURRENT_TASK.md 尚未完成，但执行中发现原任务目标、范围锁或验收标准失效，必须替代当前任务包时。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/STATUS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/CONTRACTS.md` | `docs/workflow/CURRENT_TASK.md` | `review-current-task` | `ask-user` |
+| `capture-work-item` | 将与当前任务无关的新事项记录到 TASKS/inbox/**，不切换当前 active task。 | 当执行当前任务时冒出一个已判断与当前 live task 无关、但需要留档的新事项。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`TASKS/inbox/**` | `TASKS/inbox/**` | `create-current-task` | `ask-user` |
 | `review-current-task` | 审查 docs/workflow/CURRENT_TASK.md 初稿并收敛成可执行任务包。 | 当 docs/workflow/CURRENT_TASK.md 初稿已经生成，进入实现前。 | `docs/workflow/CURRENT_TASK.md`、`.workflow-system/PROJECT_PROFILE.yaml`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/STATUS.md` | `docs/workflow/CURRENT_TASK.md` | `lock-scope` | `ask-user` |
 
 ### 3.3 阶段 2：范围锁定
@@ -83,7 +85,7 @@
 | Skill | 作用 | 触发条件 | 读取 | 写入 | handoff.success | handoff.failure |
 |---|---|---|---|---|---|---|
 | `debug-and-fix-current-task` | 针对当前 bug 任务先调查根因，再执行最小修复并完成审查和回归验证。 | 测试失败、回归失败、实现异常或用户要求自动调查并修复当前 bug 时。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/LESSONS.md` | `[]` | `investigate-root-cause` | `ask-user` |
-| `investigate-root-cause` | 先做根因定位，再提出最小修复建议。 | 当前任务的测试失败、验证失败或实现过程中出现异常时；不是新 bug 登记入口。 | `docs/workflow/CURRENT_TASK.md` | `docs/workflow/CURRENT_TASK.md` | `plan-implementation` | `ask-user` |
+| `investigate-root-cause` | 先做根因定位，再提出最小修复建议。 | 当前任务的测试失败、验证失败或实现过程中出现异常时；不是新 bug 登记入口。 | `docs/workflow/CURRENT_TASK.md`、`TASKS/paused/**`、`TASKS/interrupted/**` | `docs/workflow/CURRENT_TASK.md` | `plan-implementation` | `ask-user` |
 
 ### 3.7 阶段 5：范围复核
 
@@ -92,19 +94,23 @@
 | `review-current-diff` | 只审查当前 diff，不修复；输出范围、实现质量、契约和回归验证风险。 | 用户要求 review、只报告问题、不要改代码，或准备合并前需要审查当前 diff 时。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/LESSONS.md`、`.workflow-system/PROJECT_PROFILE.yaml` | `[]` | `review-diff` | `ask-user` |
 | `review-diff` | 审查当前 diff 是否越界、是否偏离任务意图。 | 每完成一个实现步骤后。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md` | `[]` | `review-implementation` | `ask-user` |
 | `review-implementation` | 审查当前实现是否真正解决任务目标，并检查代码合理性、鲁棒性和测试充分性。 | review-diff 通过后、进入契约验证前。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/LESSONS.md` | `[]` | `verify-contracts` | `ask-user` |
-| `sync-review-findings` | 将 review-diff / review-implementation 发现的实现问题写入 docs/workflow/CURRENT_TASK.md 的审查问题队列，作为下一轮修复输入。 | 只读审查输出 P1 / P2 / P3 implementation findings，且这些 finding 需要在进入修复前持久记录时。 | `docs/workflow/CURRENT_TASK.md` | `docs/workflow/CURRENT_TASK.md` | `implement-current-step` | `ask-user` |
+| `sync-review-findings` | 将 review-diff / review-implementation 发现的实现问题写入 docs/workflow/CURRENT_TASK.md 的审查问题队列，作为下一轮修复输入。 | 只读审查输出 P1 / P2 / P3 implementation findings，且这些 finding 需要在进入修复前持久记录时。 | `docs/workflow/CURRENT_TASK.md`、`TASKS/paused/**`、`TASKS/interrupted/**` | `docs/workflow/CURRENT_TASK.md` | `implement-current-step` | `ask-user` |
 | `verify-contracts` | 专门核查接口契约和架构契约是否被破坏。 | diff 较大、涉及稳定边界，或 review-diff 发现潜在契约风险时。 | `docs/workflow/CONTRACTS.md`、`docs/workflow/CURRENT_TASK.md` | `[]` | `run-regression` | `ask-user` |
 
 ### 3.8 阶段 6：回归验证
 
 | Skill | 作用 | 触发条件 | 读取 | 写入 | handoff.success | handoff.failure |
 |---|---|---|---|---|---|---|
-| `run-regression` | 选择合适 QA 模式，运行已有测试或最小 smoke check，确认旧功能未被破坏。 | 通过范围复核后。 | `docs/workflow/CURRENT_TASK.md`、`.workflow-system/PROJECT_PROFILE.yaml` | `[]` | `sync-current-task` | `investigate-root-cause` |
+| `run-regression` | 选择合适 QA 模式，运行已有测试或最小 smoke check，确认旧功能未被破坏。 | 通过范围复核后。 | `docs/workflow/CURRENT_TASK.md`、`TASKS/paused/**`、`TASKS/interrupted/**`、`.workflow-system/PROJECT_PROFILE.yaml` | `[]` | `sync-current-task` | `investigate-root-cause` |
 
 ### 3.9 阶段 7：状态同步
 
 | Skill | 作用 | 触发条件 | 读取 | 写入 | handoff.success | handoff.failure |
 |---|---|---|---|---|---|---|
+| `pause-current-task` | 将当前 active task 安全暂停为 paused suspended package，并保留可恢复的完整任务快照。 | 当前任务需要暂时让出 active ownership，但后续仍可能恢复时。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md` | `docs/workflow/CURRENT_TASK.md`、`TASKS/paused/**` | `create-current-task` | `ask-user` |
+| `interrupt-current-task` | 将当前 active task 中断为 interrupted package，并保留完整恢复证据与任务快照。 | 当前任务必须中断，且恢复时需要基于 checkpoint、dirty 状态和环境证据重建上下文时。 | `docs/workflow/CURRENT_TASK.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md` | `docs/workflow/CURRENT_TASK.md`、`TASKS/interrupted/**` | `create-current-task` | `ask-user` |
+| `resume-paused-task` | 从一个明确的 paused suspended package 恢复 live docs/workflow/CURRENT_TASK.md，并把流程固定交回 review-current-task。 | 用户明确要求恢复一个 paused task，且目标 package 已显式给定或可无歧义解析时。 | `docs/workflow/CURRENT_TASK.md`、`TASKS/paused/**`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md` | `docs/workflow/CURRENT_TASK.md`、`TASKS/paused/**` | `review-current-task` | `ask-user` |
+| `resume-interrupted-task` | 从一个明确的 interrupted suspended package 恢复 live docs/workflow/CURRENT_TASK.md，并把流程固定交回 review-current-task。 | 用户明确要求恢复一个 interrupted task，且目标 package 已显式给定或可无歧义解析时。 | `docs/workflow/CURRENT_TASK.md`、`TASKS/interrupted/**`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md` | `docs/workflow/CURRENT_TASK.md`、`TASKS/interrupted/**` | `review-current-task` | `ask-user` |
 | `sync-current-task` | 回写 docs/workflow/CURRENT_TASK.md 的执行状态、验证结果和剩余问题。 | 每轮实现与验证完成后。 | `docs/workflow/CURRENT_TASK.md` | `docs/workflow/CURRENT_TASK.md` | `sync-status` | `ask-user` |
 | `sync-status` | 更新 docs/workflow/STATUS.md，反映当前项目整体进度和稳定状态。 | 任务阶段完成或状态发生变化时。 | `docs/workflow/STATUS.md`、`docs/workflow/CURRENT_TASK.md` | `docs/workflow/STATUS.md` | `sync-contracts` | `ask-user` |
 | `sync-contracts` | 将新形成的稳定接口或架构边界写入 docs/workflow/CONTRACTS.md。 | 本轮任务新增了稳定接口、稳定结构或稳定架构规则时。 | `docs/workflow/CONTRACTS.md`、`docs/workflow/CURRENT_TASK.md` | `docs/workflow/CONTRACTS.md` | `sync-decisions` | `ask-user` |
@@ -127,6 +133,8 @@
 以下 skill 应优先关注，因为它们最容易造成越界或状态失真：
 
 - `execute-current-task`
+- `supersede-current-task`
+- `capture-work-item`
 - `continue-current-step`
 - `debug-and-fix-current-task`
 - `review-current-diff`
@@ -138,6 +146,10 @@
 - `review-implementation`
 - `verify-contracts`
 - `run-regression`
+- `pause-current-task`
+- `interrupt-current-task`
+- `resume-paused-task`
+- `resume-interrupted-task`
 - `sync-contracts`
 - `sync-decisions`
 - `archive-task`

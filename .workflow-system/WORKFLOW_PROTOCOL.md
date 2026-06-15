@@ -251,6 +251,132 @@ Materialization boundary:
 - `archive-task` must fail closed if any of those fields are missing or still placeholder text
 - runtime helpers may derive a slug from task title only as an explicit surfaced step; generators must not silently auto-discover task identity
 
+### 3.4.1 Workflow status and lifecycle state
+
+`CURRENT_TASK.md > ## 任务信息 > 当前状态` continues to express live workflow / ownership status, not the task lifecycle phase itself.
+
+The v1 live workflow-status set is:
+
+- `draft`
+- `active`
+- `suspended`
+- `archived`
+- `superseded`
+- `replaced`
+- `blocked_by_replan`
+
+The v1 task lifecycle-state set is:
+
+- `active`
+- `paused_pending_closure`
+- `paused_blocked`
+- `interrupted`
+- `archived`
+
+The following terms are explicitly **not** lifecycle states in this protocol revision:
+
+- `backlog_item`
+- `capture`
+- `active_review_required`
+
+Rules:
+
+- unknown, empty, or misplaced workflow-status / lifecycle-state values must fail closed
+- `paused_pending_closure`, `paused_blocked`, and `interrupted` must not be written into `当前状态`
+- `active_review_required` is modeled as resume-gate metadata, not as a lifecycle state
+
+### 3.4.2 Artifact homes and active ownership
+
+Task lifecycle uses three artifact homes:
+
+- live task package: `docs/workflow/CURRENT_TASK.md`
+- suspended task package: `TASKS/paused/TASK-{{TASK_ID}}-{{TASK_SLUG}}.md`
+- interrupted task package: `TASKS/interrupted/TASK-{{TASK_ID}}-{{TASK_SLUG}}.md`
+
+Archive naming contract remains:
+
+- `TASKS/TASK-{{TASK_ID}}-{{TASK_SLUG}}.md`
+
+Active ownership rules:
+
+- only `draft + active` and `active + active` are active-owner tuples
+- `suspended + paused_pending_closure`, `suspended + paused_blocked`, and `suspended + interrupted` are non-active suspended markers
+- `archived + archived` is a terminal archive tuple
+- `superseded + active`, `replaced + active`, and `blocked_by_replan + active` are non-active replacement / replan markers and are not resumable
+
+Dual-active protection:
+
+- active ownership must be derived from the live `CURRENT_TASK.md` tuple, not inferred from suspended package existence
+- if a live active-owner tuple and a suspended / interrupted artifact for the same `TASK_ID` simultaneously claim incompatible ownership, the workflow must fail closed rather than choosing one implicitly
+
+### 3.4.3 Allowed transitions and resume gate
+
+Allowed v1 lifecycle transitions:
+
+- `active -> paused_pending_closure`
+- `active -> paused_blocked`
+- `active -> interrupted`
+- `active -> archived`
+- `paused_pending_closure -> active`
+- `paused_blocked -> active`
+- `interrupted -> active`
+
+Resume-gate rules:
+
+- every suspended-to-active resume path requires `resume_requires_review = true`
+- every suspended-to-active resume path requires a non-empty, normalized `resume_review_reasons` set
+- `paused_pending_closure` resumes must preserve closure-oriented review semantics
+- `paused_blocked` resumes must preserve blocker recheck semantics
+- `interrupted` resumes must preserve checkpoint / recovery-review semantics
+- field names, schema keys, and closed enums are owned by `.workflow-system/FILE_SCHEMAS.md`; this protocol defines the required semantics and fail-closed behavior
+
+Forbidden v1 transitions:
+
+- `paused_pending_closure -> archived`
+- `paused_blocked -> archived`
+- `interrupted -> archived`
+- `archived -> active`
+- any suspended-to-active transition without complete resume-gate metadata
+- any transition that encodes paused / interrupted lifecycle values by overwriting `当前状态`
+
+### 3.4.4 Fail-closed idempotence and recovery
+
+The v1 lifecycle contract uses fail-closed idempotence:
+
+- repeating pause / interrupt / resume / archive against the wrong source tuple, wrong artifact set, or mismatched markers must fail rather than returning a success-shaped no-op
+- lifecycle helpers must not silently normalize or discard contradictory marker combinations
+
+Partial-failure recovery rules:
+
+- suspend / interrupt / resume flows must preserve explicit recovery markers that distinguish completed artifacts from incomplete artifacts
+- incomplete or contradictory artifacts are not eligible resume inputs until an explicit recovery path resolves them
+- interrupted artifacts must carry checkpoint evidence, dirty-diff attribution, environment-state notes, and a recovery strategy before they are considered resumable
+- validators and runtime helpers must reject artifacts whose marker set is incomplete, contradictory, or inconsistent with the declared lifecycle transition
+
+Compatibility boundary:
+
+- this protocol revision does not change runtime manifest / install / health report contracts
+- if lifecycle artifact semantics prove that those runtime contracts must change, the implementation must stop and split follow-up work instead of widening the current task
+
+### 3.4.5 Record-only intake artifacts
+
+This protocol revision also allows a **record-only intake artifact** family for items that are explicitly judged unrelated to the current live task.
+
+Canonical rules:
+
+- record-only intake artifacts must live under `TASKS/inbox/INBOX-<YYYYMMDD>-<short-id>-<slug>.md`
+- record-only intake artifacts are **not** lifecycle states, suspended packages, archive packages, or governance catalog documents
+- `capture` and `backlog_item` remain explicitly forbidden as lifecycle-state values
+- a persisted inbox artifact must represent `relation_to_current_task = unrelated`; scope-widening or uncertain routes must fail closed to review / user decision flow without writing an inbox artifact
+- successful record-only capture must not mutate the live `CURRENT_TASK.md` goal, acceptance, scope boundaries, execution steps, review-finding queue, or active-ownership tuple
+- duplicate handling may use lightweight read-back against existing inbox artifacts, but must fail closed rather than silently overwriting an existing record
+
+Compatibility boundary:
+
+- inbox artifacts are a separate artifact family and do not expand the task-identity `artifact_kind` contract in this protocol revision
+- if inbox semantics prove that `TaskArtifactKind`, `DOCUMENT_CATALOG.md`, owner-routing, or runtime manifest / install / health report contracts must change, the implementation must stop and split follow-up work instead of widening the current task
+- field names, minimal required fields, and closed enums for inbox artifacts are owned by `.workflow-system/FILE_SCHEMAS.md`; this protocol defines only the required semantics and fail-closed behavior
+
 ---
 
 ## 4. Project-type specialization rules
@@ -343,6 +469,7 @@ The workflow system defines exactly 10 stage groups. Generators must validate th
 - Generators must validate that the rendered **runtime skill set** covers all workflow stages, including `init` and `phase-4-6-exception`.
 - The canonical ID is the protocol-level identifier. The display name is an alias for human readability.
 - A stage value that matches neither the canonical ID nor the display name is invalid and must cause generation to fail.
+- Intake and task-creation skills must reuse the existing `phase-1-intake` / `阶段 1：需求进入` stage value; aliases such as `阶段 1：任务创建` are invalid and must fail generation rather than being normalized silently.
 - Multiple skills may belong to the same stage. The minimum required runtime-skill coverage is at least one generated skill per stage group.
 
 ### 4a.2 Stage count clarification
@@ -567,6 +694,16 @@ run-regression -> investigate-root-cause -> plan-implementation -> decompose-tas
 ```
 
 - `investigate-root-cause` is a current-task failure detour, not a new bug intake command. If the user asks to register, record, or create a new bug, the workflow must route to `create-current-task` and must not hand off toward implementation unless the user later authorizes implementation.
+
+Plus the phase-1 record-only intake branch:
+
+```text
+capture-work-item -> ask-user
+```
+
+- `capture-work-item`, when present, must belong to `phase-1-intake` / `阶段 1：需求进入`
+- its record-only success path must terminate at `ask-user` (or an equivalent explicit manual-decision node), not auto-promote into the main implementation chain
+- registry / guide rendering must distinguish the phase-1 main chain from this record-only branch rather than flattening all phase-1 skills into one linear summary
 
 Plus the review-finding persistence detour:
 
@@ -1100,6 +1237,7 @@ The registry generator must:
 - render a workflow overview grouped by stage
 - render a detailed skill table grouped by stage
 - include handoff success/failure targets for every skill
+- when `phase-1-intake` contains a record-only intake skill such as `capture-work-item`, render the overview so the main task-creation chain and the record-only branch stay distinguishable instead of appearing as one linear sequence
 
 ### 13.4 Registry validation rules
 

@@ -61,6 +61,8 @@ const REQUIRED_FIELDS = ['name', 'purpose', 'stage', 'trigger', 'reads', 'writes
 const ALLOWED_UNRESOLVED = new Set(['{{TASK_ID}}', '{{TASK_SLUG}}']);
 const HIGH_RISK_SKILLS = [
   'execute-current-task',
+  'supersede-current-task',
+  'capture-work-item',
   'continue-current-step',
   'debug-and-fix-current-task',
   'review-current-diff',
@@ -72,6 +74,10 @@ const HIGH_RISK_SKILLS = [
   'review-implementation',
   'verify-contracts',
   'run-regression',
+  'pause-current-task',
+  'interrupt-current-task',
+  'resume-paused-task',
+  'resume-interrupted-task',
   'sync-contracts',
   'sync-decisions',
   'archive-task',
@@ -84,6 +90,8 @@ const WORKFLOW_ORDER = [
   'adopt-existing-project',
   'execute-current-task',
   'create-current-task',
+  'supersede-current-task',
+  'capture-work-item',
   'review-current-task',
   'lock-scope',
   'classify-decisions',
@@ -99,6 +107,10 @@ const WORKFLOW_ORDER = [
   'sync-review-findings',
   'verify-contracts',
   'run-regression',
+  'pause-current-task',
+  'interrupt-current-task',
+  'resume-paused-task',
+  'resume-interrupted-task',
   'sync-current-task',
   'sync-status',
   'sync-contracts',
@@ -249,8 +261,20 @@ function renderRegistry(skills: RegistrySkill[], workflowSkillDir: string): stri
     if (section.stage === '初始化') {
       return `| ${section.summaryLabel} | \`design-baseline-init\` → \`realign-workflow-assets\` → \`greenfield-init\` / \`legacy-inventory\` → \`adopt-existing-project\` |`;
     }
+    if (section.stage === '阶段 1：需求进入') {
+      const stageSkillNames = stageSkills.map(skill => skill.name);
+      if (stageSkillNames.includes('capture-work-item')) {
+        const mainChain = stageSkills
+          .filter(skill => skill.name !== 'capture-work-item')
+          .map(skill => skill.name);
+        return `| ${section.summaryLabel} | main chain: ${formatSkillRefs(mainChain)}；record-only branch: \`capture-work-item\` → \`ask-user\` |`;
+      }
+    }
     if (section.stage === '阶段 5：范围复核') {
       return `| ${section.summaryLabel} | \`review-diff\` → \`review-implementation\` → \`verify-contracts\`；findings detour: \`review-diff\` / \`review-implementation\` → \`sync-review-findings\` → \`implement-current-step\` |`;
+    }
+    if (section.stage === '阶段 7：状态同步') {
+      return `| ${section.summaryLabel} | suspend branch: \`pause-current-task\` / \`interrupt-current-task\`；resume branch: \`resume-paused-task\` / \`resume-interrupted-task\` → \`review-current-task\`；steady-state sync: \`sync-current-task\` → \`sync-status\` → \`sync-contracts\` → \`sync-decisions\` → \`sync-host-guidance\` → \`capture-lessons\` |`;
     }
     return `| ${section.summaryLabel} | ${formatSkillRefs(stageSkills.map(skill => skill.name))} |`;
   });

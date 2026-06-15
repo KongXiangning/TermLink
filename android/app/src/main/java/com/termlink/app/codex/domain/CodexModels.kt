@@ -4,6 +4,7 @@ import com.termlink.app.codex.data.CodexCapabilities
 import com.termlink.app.codex.data.CodexEffectiveConfig
 import com.termlink.app.codex.data.CodexInteractionState
 import com.termlink.app.codex.data.CodexServerRequest
+import com.termlink.app.codex.data.DesktopSurfaceSnapshot
 
 /**
  * Connection lifecycle visible to the UI layer.
@@ -108,7 +109,12 @@ data class CodexPlanWorkflowState(
     val originalPrompt: String = "",
     val latestPlanText: String = "",
     val confirmedPlanText: String = "",
-    val lastUserInputRequestId: String = ""
+    val lastUserInputRequestId: String = "",
+    // IPC fields
+    val planContent: String? = null,
+    val canSubmitPlan: Boolean = false,
+    val planRequestId: String? = null,
+    val planRequestMethod: String? = null
 )
 
 data class CodexExecutionWatchState(
@@ -224,7 +230,12 @@ data class CodexUiState(
     val threadHistoryActionThreadId: String = "",
     val threadHistoryActionKind: String = "",
     val threadRenameTargetId: String = "",
-    val threadRenameDraft: String = ""
+    val threadRenameDraft: String = "",
+    // ── IPC realtime sync state ──
+    val ipcOnline: Boolean = false,
+    val ipcClientId: String? = null,
+    val activeConversationId: String? = null,
+    val ipcSurfaceSnapshot: DesktopSurfaceSnapshot? = null
 )
 
 /**
