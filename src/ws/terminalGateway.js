@@ -727,6 +727,15 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             type: 'codex_ipc_status',
             status: { online: ipcFeed.online, clientId: ipcFeed.clientId }
         });
+        // Also send the list of known conversations so the client can populate its selector.
+        const conversations = ipcFeed.getRecentSnapshots().map(s => ({
+            conversationId: s.conversationId,
+            status: s.surface?.status || 'unknown',
+            updatedAt: s.timestamp
+        }));
+        if (conversations.length > 0) {
+            sendWsEnvelope(ws, { type: 'codex_ipc_conversations', conversations });
+        }
     };
 
     const _handleSetActiveConversation = (ws, conversationId) => {

@@ -1,4 +1,8 @@
 require('dotenv').config();
+// IPC feed defaults for local dev — override via .env or process env.
+if (!process.env.TERMLINK_CODEX_IPC_ENABLED) process.env.TERMLINK_CODEX_IPC_ENABLED = '1';
+if (!process.env.TERMLINK_CODEX_IPC_ALLOW_ACTIVE) process.env.TERMLINK_CODEX_IPC_ALLOW_ACTIVE = '1';
+if (!process.env.TERMLINK_CODEX_IPC_CONFIRM_SEND) process.env.TERMLINK_CODEX_IPC_CONFIRM_SEND = '1';
 const express = require('express');
 const http = require('http');
 const https = require('https');
@@ -10,6 +14,7 @@ const createSessionsRouter = require('./routes/sessions');
 const createWorkspaceRouter = require('./routes/workspace');
 const sessionManager = require('./services/sessionManager');
 const registerTerminalGateway = require('./ws/terminalGateway');
+const { CodexIpcFeed } = require('./services/codexIpcFeed');
 const { parsePrivilegeConfig, validateElevatedEnabled } = require('./config/privilegeConfig');
 const { runSecurityGates } = require('./config/securityGates');
 const { getAuditService } = require('./services/auditService');
@@ -109,12 +114,26 @@ app.get('/api/ws-ticket', (req, res) => {
     res.json({ ticket: issueWsTicket() });
 });
 
-registerTerminalGateway(wss, { sessionManager, heartbeatMs: 30000, privilegeConfig, tlsConfig });
+// ── IPC feed: connect to codex-ipc when enabled ──
+const ipcFeed = new CodexIpcFeed();
 
-server.listen(PORT, () => {
-    if (authEnabled && authUser === 'admin' && authPass === 'admin') {
-        console.warn('[Security] AUTH is enabled but default credentials (admin/admin) are in use. Set AUTH_USER and AUTH_PASS for non-dev deployments.');
-    }
-    const proto = tlsConfig.enabled ? 'https' : 'http';
-    console.log(`Server started on ${proto}://localhost:${PORT}`);
+registerTerminalGateway(wss, { sessionManager, heartbeatMs: 30000, privilegeConfig, tlsConfig, ipcFeed });
+
+// Start IPC feed first, then listen — avoids a race where the feed's
+// initialize handshake completes after the first WebSocket client connects.
+ipcFeed.start().then(() => {
+    server.listen(PORT, () => {
+        if (authEnabled && authUser === 'admin' && authPass === 'admin') {
+            console.warn('[Security] AUTH is enabled but default credentials (admin/admin) are in use. Set AUTH_USER and AUTH_PASS for non-dev deployments.');
+        }
+        const proto = tlsConfig.enabled ? 'https' : 'http';
+        console.log(`Server started on ${proto}://localhost:${PORT}`);
+    });
+}).catch(err => {
+    console.warn('[server] IPC feed start failed:', err.message);
+    // Still start the server even if IPC feed fails.
+    server.listen(PORT, () => {
+        const proto = tlsConfig.enabled ? 'https' : 'http';
+        console.log(`Server started on ${proto}://localhost:${PORT} (IPC unavailable)`);
+    });
 });

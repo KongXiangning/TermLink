@@ -404,12 +404,45 @@ function extractTodoSummary(item) {
 
 // ── visible entries ──────────────────────────────────────────────────────────
 
+/**
+ * Strip IDE context wrapper from user messages.
+ * VS Code / Desktop owner wraps user input with:
+ *   # Context from my IDE setup:
+ *   ... (open tabs, active file, etc.)
+ *   ## My request for Codex:
+ *   <actual query>
+ * Returns only the <actual query> portion.
+ */
+function extractUserQuery(raw) {
+    const marker = '## My request for Codex:';
+    const idx = raw.indexOf(marker);
+    if (idx !== -1) {
+        const query = raw.slice(idx + marker.length).trim();
+        if (query) return query;
+    }
+    // Also handle the older "# Context from my IDE setup:" prefix without the request marker.
+    const ctxMarker = '# Context from my IDE setup:';
+    const ctxIdx = raw.indexOf(ctxMarker);
+    if (ctxIdx !== -1) {
+        // Try to find any line that looks like the actual request after the context block.
+        const afterCtx = raw.slice(ctxIdx + ctxMarker.length);
+        const requestMatch = afterCtx.match(/##\s*(?:My\s+)?[Rr]equest\s*(?:for\s+Codex)?[:\n]/);
+        if (requestMatch) {
+            const query = afterCtx.slice(requestMatch.index + requestMatch[0].length).trim();
+            if (query) return query;
+        }
+    }
+    return raw;
+}
+
 function toVisibleEntry(item, turnId) {
     const itemType = asString(item.type);
     const itemId = asString(item.id);
     if (itemType === 'userMessage') {
-        const text = extractText(item.content) ?? extractText(item.text);
-        if (!text) return undefined;
+        const raw = extractText(item.content) ?? extractText(item.text);
+        if (!raw) return undefined;
+        // Strip IDE context wrapper: "# Context from my IDE setup:\n...\n## My request for Codex:\n<query>"
+        const text = extractUserQuery(raw);
         return { key: itemId ?? `${turnId ?? 'turn'}:user:${text.slice(0, 32)}`, kind: 'message', role: 'user', text, turnId, itemId };
     }
     if (itemType === 'agentMessage') {

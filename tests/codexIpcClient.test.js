@@ -31,11 +31,10 @@ class MockTransport extends EventEmitter {
         if (!this._connected) {
             throw new Error('transport not connected');
         }
-        const frame = encodeFrame(message);
         if (this._otherEnd) {
-            setImmediate(() => this._otherEnd.emit('data', frame));
+            setImmediate(() => this._otherEnd.emit('message', message));
         }
-        return frame;
+        return Buffer.from(JSON.stringify(message));
     }
 
     close() {
@@ -54,8 +53,8 @@ class MockTransport extends EventEmitter {
         other._otherEnd = this;
     }
 
-    pushData(chunk) {
-        setImmediate(() => this.emit('data', chunk));
+    pushData(message) {
+        setImmediate(() => this.emit('message', message));
     }
 }
 
@@ -96,27 +95,23 @@ function setupPeer(transport, extraHandler) {
     transport.crossConnect(peer);
     const decoder = new IpcFrameDecoder();
 
-    peer.on('data', (chunk) => {
-        const frames = decoder.push(chunk);
-        for (const frame of frames) {
-            const msg = frame.parsed;
-            if (!msg) continue;
-            if (msg.method === 'initialize') {
-                peer.send({
-                    type: 'response',
-                    requestId: msg.requestId,
-                    resultType: 'success',
-                    method: 'initialize',
-                    handledByClientId: 'peer-1',
-                    result: { clientId: 'test-client-42' }
-                });
-            } else if (extraHandler) {
-                extraHandler(msg, peer);
-            }
+    peer.on('message', (msg) => {
+        if (!msg) return;
+        if (msg.method === 'initialize') {
+            peer.send({
+                type: 'response',
+                requestId: msg.requestId,
+                resultType: 'success',
+                method: 'initialize',
+                handledByClientId: 'peer-1',
+                result: { clientId: 'test-client-42' }
+            });
+        } else if (extraHandler) {
+            extraHandler(msg, peer);
         }
     });
 
-    return { peer, decoder };
+    return { peer };
 }
 
 function delay(ms) {
@@ -148,17 +143,12 @@ test('connect emits connect event', async () => {
 
 test('sendBroadcast sends a well-formed broadcast frame', async () => {
     const { client, transport } = createTestClient({ reconnect: false });
-    const { peer, decoder } = setupPeer(transport);
+    const { peer } = setupPeer(transport);
     await client.connect();
 
     const bcPromise = new Promise((resolve) => {
-        peer.on('data', (chunk) => {
-            const frames = decoder.push(chunk);
-            for (const frame of frames) {
-                if (frame.parsed && frame.parsed.type === 'broadcast') {
-                    resolve(frame.parsed);
-                }
-            }
+        peer.on('message', (msg) => {
+            if (msg && msg.type === 'broadcast') resolve(msg);
         });
     });
 
@@ -297,19 +287,14 @@ test('reconnect attempts reconnection after transport close', async () => {
 
     // Set up a new peer for the reconnect attempt.
     peer.removeAllListeners('data');
-    const decoder2 = new IpcFrameDecoder();
-    peer.on('data', (chunk) => {
-        const frames = decoder2.push(chunk);
-        for (const frame of frames) {
-            const msg = frame.parsed;
-            if (msg && msg.method === 'initialize') {
-                peer.send({
-                    type: 'response', requestId: msg.requestId,
-                    resultType: 'success', method: 'initialize',
-                    handledByClientId: 'peer-2',
-                    result: { clientId: 'test-client-reconnected' }
-                });
-            }
+    peer.on('message', (msg) => {
+        if (msg && msg.method === 'initialize') {
+            peer.send({
+                type: 'response', requestId: msg.requestId,
+                resultType: 'success', method: 'initialize',
+                handledByClientId: 'peer-2',
+                result: { clientId: 'test-client-reconnected' }
+            });
         }
     });
 
@@ -329,13 +314,12 @@ test('incoming broadcast messages are emitted', async () => {
         client.on('broadcast', (msg) => resolve(msg));
     });
 
-    const frame = encodeFrame({
+    transport.pushData({
         type: 'broadcast',
         method: 'thread-stream-state-changed',
         sourceClientId: 'desktop-client',
         params: { conversationId: 'conv-1' }
     });
-    transport.pushData(frame);
 
     const msg = await bcPromise;
     assert.equal(msg.type, 'broadcast');
@@ -352,13 +336,12 @@ test('unmatched responses are emitted', async () => {
         client.on('unmatched_response', (msg) => resolve(msg));
     });
 
-    const frame = encodeFrame({
+    transport.pushData({
         type: 'response',
         requestId: randomUUID(),
         resultType: 'success',
         result: {}
     });
-    transport.pushData(frame);
 
     const msg = await unmatchedPromise;
     assert.equal(msg.type, 'response');
@@ -366,20 +349,17 @@ test('unmatched responses are emitted', async () => {
 
 // ── parse error ──────────────────────────────────────────────────────────
 
-test('malformed frames are emitted as parse_error', async () => {
-    const { client, transport } = createTestClient({ reconnect: false });
-
-    const errorPromise = new Promise((resolve) => {
-        client.on('parse_error', (frame) => resolve(frame));
-    });
-
+test('malformed frames handled by transport (parse error on transport)', () => {
+    // Parse errors are handled at the transport layer, not the client layer.
+    // The transport's IpcFrameDecoder catches JSON parse failures internally.
+    const { IpcFrameDecoder } = require('../src/services/codexIpcCodec');
+    const decoder = new IpcFrameDecoder();
     const payloadText = '{invalid';
     const payloadBytes = Buffer.byteLength(payloadText, 'utf8');
     const header = Buffer.allocUnsafe(4);
     header.writeUInt32LE(payloadBytes, 0);
     const chunk = Buffer.concat([header, Buffer.from(payloadText, 'utf8')]);
-    transport.pushData(chunk);
-
-    const frame = await errorPromise;
-    assert.ok(typeof frame.parseError === 'string');
+    const frames = decoder.push(chunk);
+    assert.equal(frames.length, 1);
+    assert.ok(typeof frames[0].parseError === 'string');
 });

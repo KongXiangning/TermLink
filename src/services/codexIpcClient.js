@@ -96,7 +96,7 @@ class CodexIpcClient extends EventEmitter {
         this._transportListenersAttached = false;
 
         this._boundOnTransportConnect = this._onTransportConnect.bind(this);
-        this._boundOnTransportData = this._onTransportData.bind(this);
+        this._boundOnTransportMessage = this._onTransportMessage.bind(this);
         this._boundOnTransportClose = this._onTransportClose.bind(this);
         this._boundOnTransportError = this._onTransportError.bind(this);
 
@@ -241,7 +241,7 @@ class CodexIpcClient extends EventEmitter {
 
         this._transportListenersAttached = true;
         t.on('connect', this._boundOnTransportConnect);
-        t.on('data', this._boundOnTransportData);
+        t.on('message', this._boundOnTransportMessage);
         t.on('close', this._boundOnTransportClose);
         t.on('error', this._boundOnTransportError);
     }
@@ -250,22 +250,8 @@ class CodexIpcClient extends EventEmitter {
         this.emit('connect', event);
     }
 
-    _onTransportData(chunk) {
-        let frames;
-        try {
-            frames = this._decoder.push(chunk);
-        } catch (error) {
-            this.emit('error', error);
-            return;
-        }
-
-        for (const frame of frames) {
-            if (frame.parseError) {
-                this.emit('parse_error', frame);
-            } else {
-                this._handleMessage(frame.parsed);
-            }
-        }
+    _onTransportMessage(parsed) {
+        this._handleMessage(parsed);
     }
 
     _onTransportClose(event) {

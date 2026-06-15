@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TermLink Codex IPC</title>
+  <link rel="stylesheet" href="codex_ipc.css?v=1">
+</head>
+<body class="ipc-page">
+
+  <!-- ── status bar ────────────────────────────────────────────────────── -->
+  <header class="ipc-status-bar">
+    <span class="ipc-status-indicator" id="ws-status">
+      <span class="ipc-status-dot offline"></span> WS
+    </span>
+    <span class="ipc-status-indicator" id="ipc-status">
+      <span class="ipc-status-dot offline"></span> IPC
+    </span>
+    <div class="ipc-conv-selector-wrap">
+      <select class="ipc-conv-selector" id="conv-selector" disabled>
+        <option value="">-- 选择会话 --</option>
+      </select>
+      <span class="ipc-conv-badge" id="conv-status-badge" hidden></span>
+    </div>
+  </header>
+
+  <!-- ── offline banner ─────────────────────────────────────────────────── -->
+  <div class="ipc-offline-banner" id="offline-banner">IPC 不可用，实时同步已暂停</div>
+
+  <!-- ── surface (message list) ─────────────────────────────────────────── -->
+  <main class="ipc-surface" id="ipc-surface">
+    <div class="ipc-surface-empty" id="surface-empty">
+      选择一个会话以查看实时消息流
+    </div>
+  </main>
+
+  <!-- ── approval panel ─────────────────────────────────────────────────── -->
+  <div class="ipc-approval-panel" id="approval-panel">
+    <div class="ipc-approval-title" id="approval-title">等待命令审批</div>
+    <div class="ipc-approval-desc" id="approval-desc"></div>
+    <div class="ipc-approval-command" id="approval-command"></div>
+    <div class="ipc-approval-actions" id="approval-actions">
+      <button class="ipc-approval-accept-btn" id="approval-accept-btn">允许</button>
+      <button class="ipc-approval-reject-btn" id="approval-reject-btn">拒绝</button>
+    </div>
+    <div class="ipc-approval-status" id="approval-status"></div>
+  </div>
+
+  <!-- ── plan panel ─────────────────────────────────────────────────────── -->
+  <div class="ipc-plan-panel" id="plan-panel">
+    <div class="ipc-plan-text" id="plan-text"></div>
+    <div class="ipc-plan-actions">
+      <button class="ipc-plan-accept-btn" id="plan-accept-btn">是，实施此计划</button>
+      <input class="ipc-plan-feedback-input" id="plan-feedback-input" placeholder="调整意见（可选）…">
+      <button class="ipc-plan-feedback-btn" id="plan-feedback-btn">提交反馈</button>
+    </div>
+    <div class="ipc-plan-status" id="plan-status"></div>
+  </div>
+
+  <!-- ── follower input ─────────────────────────────────────────────────── -->
+  <div class="ipc-follower-hint" id="follower-hint" hidden></div>
+  <div class="ipc-follower-input-panel" id="follower-input-panel">
+    <input class="ipc-follower-input" id="follower-input" type="text"
+           placeholder="输入消息…" disabled>
+    <button class="ipc-follower-send-btn" id="follower-send-btn" disabled>发送</button>
+    <span class="ipc-follower-send-status" id="follower-send-status"></span>
+  </div>
+
+  <script src="codex_ipc.js?v=1"></script>
+</body>
+</html>
