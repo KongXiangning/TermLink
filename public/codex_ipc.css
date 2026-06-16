@@ -361,6 +361,22 @@
   display: block;
 }
 
+/* ── SPA shell view wrappers ─────────────────────────────────────────────── */
+
+#terminal-view,
+#codex-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Ensure codex surface scrolls within the available height. */
+#codex-view .ipc-surface {
+  flex: 1;
+  overflow-y: auto;
+}
+
 /* ── responsive ───────────────────────────────────────────────────────────── */
 
 @media (min-width: 768px) {

@@ -5,7 +5,7 @@
 - 任务 ID：20260616-001
 - 任务标题：主页主链路内整合 Codex 会话入口与 Codex IPC 会话页
 - 任务 slug：web-session-management-home-and-codex-integration
-- 当前状态：spa_decomposed_ready_for_step1
+- 当前状态：spa_all_5_steps_completed
 - 生命周期状态：active
 - 恢复需审查：false
 - 恢复审查原因：

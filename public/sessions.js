@@ -11,6 +11,26 @@
     });
   }
 
+  // ── SPA view switching ──────────────────────────────────────────────────
+  function switchToView(mode, sessionId) {
+    var termView = document.getElementById('terminal-view');
+    var codexView = document.getElementById('codex-view');
+    if (mode === 'codex') {
+      if (termView) termView.style.display = 'none';
+      if (codexView) codexView.style.display = '';
+      if (window.__codexInit) window.__codexInit(sessionId);
+    } else {
+      if (codexView) codexView.style.display = 'none';
+      if (termView) termView.style.display = '';
+      if (sessionId) {
+        // Update URL without page reload for terminal sessions
+        var url = new URL(location.href);
+        url.searchParams.set('sessionId', sessionId);
+        history.replaceState(null, '', url.toString());
+      }
+    }
+  }
+
   // ── drawer session list enhancer ────────────────────────────────────────
   function enhanceDrawer() {
     var list = document.getElementById('session-list');
@@ -58,8 +78,8 @@
           // Don't interfere with delete button
           if (e.target.closest('button')) return;
           var s = li._sessionData;
-          if (s && (s.sessionMode === 'codex')) {
-            location.href = 'codex_ipc.html?sessionId=' + encodeURIComponent(s.id);
+          if (s) {
+            switchToView(s.sessionMode || 'terminal', s.id);
           }
         });
       });
@@ -171,8 +191,7 @@
         .then(function (created) {
           overlay.classList.remove('is-active');
           var id = created.id || (created.session && created.session.id);
-          if (currentMode === 'codex') location.href = 'codex_ipc.html?sessionId=' + encodeURIComponent(id);
-          else location.href = 'terminal.html?sessionId=' + encodeURIComponent(id);
+          switchToView(currentMode, id);
         }).catch(function (err) { alert('创建失败: ' + err.message); });
     });
 
@@ -213,6 +232,8 @@
 
   // ── codex_ipc: add drawer toggle if missing ────────────────────────────
   function addDrawerToggleToCodex() {
+    // Skip in embedded SPA mode — the shell has its own drawer.
+    if (typeof window.__CODEX_EMBEDDED !== 'undefined') return;
     if (!location.pathname.includes('codex_ipc')) return;
     var bar = document.querySelector('.ipc-status-bar');
     if (!bar) { setTimeout(addDrawerToggleToCodex, 200); return; }
@@ -257,8 +278,7 @@
               (mode === 'codex' ? 'background:rgba(0,123,255,0.2);color:#4da3ff;' : 'background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);') + '">' + mode + '</span>' +
             '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.85rem">' + escHtml(s.name || s.id) + '</span>';
           row.addEventListener('click', function () {
-            if (mode === 'codex') location.href = 'codex_ipc.html?sessionId=' + encodeURIComponent(s.id);
-            else location.href = 'terminal.html?sessionId=' + encodeURIComponent(s.id);
+            switchToView(mode, s.id);
           });
           listEl.appendChild(row);
         });

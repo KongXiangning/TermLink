@@ -109,6 +109,7 @@
                 </div>
             </div>
 
+            <div id="terminal-view">
             <div id="input-overlay">
                 <textarea id="input-buffer" placeholder="Type command here..." data-i18n="common.inputPlaceholder" data-i18n-attr="placeholder"></textarea>
                 <div class="input-controls">
@@ -150,8 +151,60 @@
                     <button class="key" data-key="Enter" style="flex: 2;">Enter ↵</button>
                 </div>
             </div>
+            </div><!-- #terminal-view -->
+
+            <!-- codex IPC view (hidden by default, shown when codex session selected) -->
+            <div id="codex-view" style="display:none">
+              <header class="ipc-status-bar">
+                <span id="codex-session-name" style="font-weight:600;font-size:0.9rem;flex:1">Codex</span>
+                <span id="codex-session-cwd" style="font-size:0.7rem;opacity:0.4;max-width:30%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" hidden></span>
+                <span class="ipc-status-indicator" id="codex-ws-status">
+                  <span class="ipc-status-dot offline"></span> WS
+                </span>
+                <span class="ipc-status-indicator" id="codex-ipc-status">
+                  <span class="ipc-status-dot offline"></span> IPC
+                </span>
+                <select class="ipc-conv-selector" id="codex-conv-selector" disabled>
+                  <option value="">-- 选择会话 --</option>
+                </select>
+                <span class="ipc-conv-badge" id="codex-conv-badge" hidden></span>
+              </header>
+              <div class="ipc-offline-banner" id="codex-offline-banner">IPC 不可用，实时同步已暂停</div>
+              <main class="ipc-surface" id="codex-surface">
+                <div class="ipc-surface-empty">选择一个会话以查看实时消息流</div>
+              </main>
+              <div class="ipc-approval-panel" id="codex-approval-panel">
+                <div class="ipc-approval-title" id="codex-approval-title">等待命令审批</div>
+                <div class="ipc-approval-desc" id="codex-approval-desc"></div>
+                <div class="ipc-approval-command" id="codex-approval-command"></div>
+                <div class="ipc-approval-actions">
+                  <button class="ipc-approval-accept-btn" id="codex-approval-accept-btn">允许</button>
+                  <button class="ipc-approval-reject-btn" id="codex-approval-reject-btn">拒绝</button>
+                </div>
+                <div class="ipc-approval-status" id="codex-approval-status"></div>
+              </div>
+              <div class="ipc-plan-panel" id="codex-plan-panel">
+                <div class="ipc-plan-text" id="codex-plan-text"></div>
+                <div class="ipc-plan-actions">
+                  <button class="ipc-plan-accept-btn" id="codex-plan-accept-btn">是，实施此计划</button>
+                  <input class="ipc-plan-feedback-input" id="codex-plan-feedback-input" placeholder="调整意见（可选）…">
+                  <button class="ipc-plan-feedback-btn" id="codex-plan-feedback-btn">提交反馈</button>
+                </div>
+                <div class="ipc-plan-status" id="codex-plan-status"></div>
+              </div>
+              <div class="ipc-follower-hint" id="codex-follower-hint" hidden></div>
+              <div class="ipc-follower-input-panel">
+                <input class="ipc-follower-input" id="codex-follower-input" type="text" placeholder="输入消息…" disabled>
+                <button class="ipc-follower-send-btn" id="codex-follower-send-btn" disabled>发送</button>
+                <span class="ipc-follower-send-status" id="codex-follower-send-status"></span>
+              </div>
+            </div><!-- #codex-view -->
+
         </div>
     </div>
+    <script>window.__CODEX_EMBEDDED = true;</script>
+    <link rel="stylesheet" href="codex_ipc.css?v=1">
+    <script src="codex_ipc.js?v=1"></script>
     <script src="sessions.js?v=1"></script>
     <script src="terminal.js?v=3"></script>
 </body>

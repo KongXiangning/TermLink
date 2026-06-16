@@ -1,8 +1,12 @@
 (function () {
   'use strict';
 
+  // ── embedded mode ─────────────────────────────────────────────────────
+  var EMBEDDED = typeof window.__CODEX_EMBEDDED !== 'undefined';
+  var PREFIX = EMBEDDED ? 'codex-' : '';
+
   // ── DOM refs ──────────────────────────────────────────────────────────
-  var $ = function (id) { return document.getElementById(id); };
+  var $ = function (id) { return document.getElementById(PREFIX + id); };
 
   var sessName   = $('session-name');
   var sessCwd    = $('session-cwd');
@@ -493,27 +497,37 @@
   }
 
   // ── session init ───────────────────────────────────────────────────────
-  (function initSession() {
-    var params = new URLSearchParams(location.search);
-    var sid = params.get('sessionId');
+  function initSession(sid) {
     if (!sid) {
-      // No sessionId — redirect back to sessions page
-      location.replace('terminal.html');
+      // Embedded mode: just show empty state, wait for drawer selection.
+      // Standalone mode: redirect to terminal.html.
+      if (!EMBEDDED) location.replace('terminal.html');
       return;
     }
     state.sessionId = sid;
 
-    // Fetch session meta for header display
     fetch('/api/sessions/' + encodeURIComponent(sid), { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function (s) {
-        sessName.textContent = s.name || sid;
-        if (s.cwd) { sessCwd.textContent = s.cwd; sessCwd.hidden = false; }
+        if (sessName) sessName.textContent = s.name || sid;
+        if (s.cwd && sessCwd) { sessCwd.textContent = s.cwd; sessCwd.hidden = false; }
       })
       .catch(function () {
-        sessName.textContent = sid.slice(0, 8);
+        if (sessName) sessName.textContent = sid.slice(0, 8);
       });
-  })();
+  }
+
+  // SPA entry point — called by sessions.js switchToView()
+  window.__codexInit = function (sid) {
+    initSession(sid);
+    if (!state.ws || state.ws.readyState !== WebSocket.OPEN) connectWs();
+  };
+
+  // Auto-init in standalone mode
+  if (!EMBEDDED) {
+    var params = new URLSearchParams(location.search);
+    initSession(params.get('sessionId'));
+  }
 
   // ── start ──────────────────────────────────────────────────────────────
   connectWs();
