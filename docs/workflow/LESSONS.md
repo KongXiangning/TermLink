@@ -29,6 +29,13 @@
 - **应对**: 新增 `codex_ipc_conversations` 消息，在客户端连接时主动推送全部已知 conversation 列表
 - **Source**: `20260615-002` B4/B8
 
+### L-005: addEventListener on existing element creates duplicate handlers
+
+- **触发信号**: 共享 helper 脚本给已有 DOM 元素加 `addEventListener` 后，页面出现双重弹窗、双重跳转
+- **实例**: `sessions.js` 给 `#btn-new-session` 加 click handler，但 `terminal.js` 已有 handler。`stopPropagation` 只阻止冒泡，不阻止同元素其他 handler——两个都执行
+- **应对**: 使用 `e.stopImmediatePropagation()` 阻止同元素上的后续 handler；或在加载顺序可控时，让共享脚本在目标脚本之前加载并使用 `{ once: true }`
+- **Source**: `20260616-001` double modal bug
+
 ### L-004: Env var inheritance through cmd.exe chain
 
 - **触发信号**: PowerShell `$env:VAR='1'` 设置后，子进程 `cmd.exe /c npm run dev` 中 Node 读不到该变量

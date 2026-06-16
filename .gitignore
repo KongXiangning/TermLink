@@ -40,3 +40,15 @@ docs/codex/STITCH2_TERMLINK_CODEX_MOBILE_WORKSPACE_PROMPT.md
 # Temporary debug screenshots/XML dumps
 .tmp-*
 ui.xml
+
+# Playwright MCP runtime artifacts
+.playwright-mcp/
+
+# Temporary review / verification screenshots
+codex-ipc-*.png
+codex-drawer-*.png
+new-session-*.png
+sessions-*.png
+spa-terminal-*.png
+terminal-*.png
+termlink-demo-ipc-online.png

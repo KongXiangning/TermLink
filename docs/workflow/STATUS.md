@@ -23,8 +23,9 @@
 
 ## 🔨 正在开发
 
-- [x] `20260615-002` 网页版 Codex IPC 实时同步会话页：已完成实现、review、commit `9603ea7`（11 files, +2129/-627），端到端验证通过（4 conversations, 87 items, 189 pass/0 fail）。等待 closeout。
-- [ ] `20260615-001` Codex IPC Android 实时同步：paused_blocked（服务端全链路已完成 + Android 端已集成，缺 Desktop IPC 环境 manual smoke）。Paused package: `TASKS/paused/TASK-20260615-001-*.md`。
+- [x] `20260615-002` 网页版 Codex IPC 实时同步会话页：已完成并归档。commit `9603ea7`。
+- [x] `20260616-001` 网页版 SPA 统一 shell + Codex 会话整合：已完成实现、review、regression。`terminal.html` 改造为 SPA shell，`terminal.js` 零改动。commit `32c4659`。
+- [ ] `20260615-001` Codex IPC Android 实时同步：paused_blocked（缺 Desktop IPC 环境 manual smoke）。
 
 ## 📋 待开发
 
