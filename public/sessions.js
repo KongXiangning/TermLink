@@ -187,7 +187,7 @@
 
     // Override click to show our modal
     btn.addEventListener('click', function (e) {
-      e.stopPropagation();
+      e.stopImmediatePropagation();
       e.preventDefault();
       var modal = buildNewSessionModal();
       // Reset form
