@@ -8,6 +8,34 @@
 
 ## 通用
 
+### L-001: Mock-only tests pass ≠ real integration works
+
+- **触发信号**: 新增模块的测试全部用 mock/fake transport 通过，但真实环境下模块不工作
+- **实例**: `codexIpcClient` tests 用 `MockTransport`（emit `'data'`）全部通过，但 `CodexIpcTransport` 内部解码后 emit `'message'`——事件名不匹配导致客户端收不到任何 pipe 消息
+- **应对**: 每个需要真实 I/O 的模块至少有一个 integration-smoke 测试（连接真实 pipe/socket），或 transport 与 client 的接口契约通过 shared test suite 验证
+- **Source**: `20260615-002` B3
+
+### L-002: Server startup race — await feed before listen
+
+- **触发信号**: 服务端 feed 在 `server.listen()` 之后才完成初始化握手，导致初始广播丢失
+- **实例**: `ipcFeed.start()` 是 fire-and-forget，`server.listen()` 先于 feed 的 initialize 握手完成。Desktop 在握手后立即发送 `thread-stream-state-changed` 快照，但此时无 WebSocket 客户端连接，快照被 feed 缓存但未推送到前端
+- **应对**: `await ipcFeed.start()` before `server.listen()`；或至少确保 feed status 事件先于客户端连接
+- **Source**: `20260615-002` B1
+
+### L-003: Chicken-and-egg conversation discovery
+
+- **触发信号**: 客户端需要知道 conversation 列表才能让用户选择，但 snapshot 只在选择后才推送
+- **实例**: 网页端下拉框需要填充 conversation 列表，但 `conversation_surface_snapshot` 只在 `set_active_conversation` 之后才发送给该客户端。Gateway 有 `getRecentSnapshots()` 可获取全部缓存但从未发送给客户端
+- **应对**: 新增 `codex_ipc_conversations` 消息，在客户端连接时主动推送全部已知 conversation 列表
+- **Source**: `20260615-002` B4/B8
+
+### L-004: Env var inheritance through cmd.exe chain
+
+- **触发信号**: PowerShell `$env:VAR='1'` 设置后，子进程 `cmd.exe /c npm run dev` 中 Node 读不到该变量
+- **实例**: `TERMLINK_CODEX_IPC_ENABLED` 在 PowerShell 中设置，但通过 `manage-local-dev-server.ps1` → `cmd.exe` → `npm` → `nodemon` → `node` 链后丢失
+- **应对**: 关键配置直接硬编码在 `server.js` 中作为 dev 默认值（`if (!process.env.VAR) process.env.VAR = '1'`），或写入 `.env` 文件由 `dotenv` 加载
+- **Source**: `20260615-002` B1 env var debugging
+
 ### Lesson 模板
 
 - 场景：

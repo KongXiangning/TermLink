@@ -23,7 +23,8 @@
 
 ## 🔨 正在开发
 
-- [ ] 当前无活动任务。`20260513-001` 已归档到 `TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md`，`CURRENT_TASK.md` 应清理为 clean handoff；下一轮需求先执行 `/create-current-task`
+- [x] `20260615-002` 网页版 Codex IPC 实时同步会话页：已完成实现、review、commit `9603ea7`（11 files, +2129/-627），端到端验证通过（4 conversations, 87 items, 189 pass/0 fail）。等待 closeout。
+- [ ] `20260615-001` Codex IPC Android 实时同步：paused_blocked（服务端全链路已完成 + Android 端已集成，缺 Desktop IPC 环境 manual smoke）。Paused package: `TASKS/paused/TASK-20260615-001-*.md`。
 
 ## 📋 待开发
 
@@ -42,6 +43,7 @@
 - README 默认端口与代码默认值仍有冲突，说明 active docs 仍需持续对齐代码事实
 - `node --test` 当前在 `20260511-001` 中已确认不是单点挂起：`tests\sessionManager.codexConfig.test.js`、`tests\terminalGateway.codex.test.js` 与 `tests\terminalGateway.sessionid.test.js` 各自单独运行都会在 90 秒窗口内未退出；Step 3 已基于这 3 个独立 hanging surface 形成 gate split 决策（TD-004）：6 文件 passing subset 作为 confirmed narrow gate（`blocks-merge`），3 hanging 文件拆出为 deferred fix follow-up 任务。3 个 hanging 文件全部集中在 terminalGateway / sessionManager codex config 路径，与已知高风险区域重叠；在 follow-up 修复前，终端网关和 session codex 配置相关回归无法被自动化 gate 捕获
 - `npm run android:check-release-config` 当前对 checked-in 配置报错：release 要求 `server.cleartext=false` 且 `server.androidScheme=https`
+- 网页版 IPC Codex 实时同步页 `public/codex_ipc.*` 已交付（`20260615-002`），需注意：该页面依赖 `src/services/codexIpc*.js` + `src/ws/terminalGateway.js` IPC 路由（`20260615-001` 产出），`20260615-001` 处于 paused_blocked。IPC online 三端同步场景待 Desktop IPC 环境 manual smoke。
 - `20260513-001` 当前已完成 release 结构清单、Windows 安装脚本、Linux `systemd` / non-`systemd` 安装路径、direct mTLS 安装期自动生成、nginx-side mTLS 一键工具，以及 README / README.zh-CN / deployment guide 收口；步骤 7 也已补齐真实打包目录 / 压缩包、release layout 自动回归、packaged runtime `/api/health` smoke 与显式失败路径证据，但真实 Windows PM2 install-service 与 Linux `systemd` 主支持路径仍缺宿主实证，因此开源 release 交付面继续保持 blocked 而非 stable
 
 ## ❌ 已移除 / 推迟
@@ -79,3 +81,5 @@
 - 2026-05-15：再次同步 `20260513-001` 的当前状态。步骤 7 已补齐真实 release 目录 / 压缩包生成、`tests\releaseLayout.test.js` 自动回归、packaged HTTP 与 direct mTLS 前台运行 smoke、nginx-side mTLS 工具 smoke，以及 Windows 非管理员自启失败 / Linux 非 `systemd` fallback 显式失败证据；步骤 7 当前 diff 的 `/verify-contracts` clean，diff-aware `/run-regression` 通过（30/30 tests、`npm run release:build`、4 个 Windows 安装脚本 parser、`pm2.cmd` 路径 smoke）。release-readiness 仍保持 `blocked`，因为真实 Windows PM2 `install-service.ps1` 宿主实证继续被 `connect EPERM //./pipe/rpc.sock` 阻塞，Linux `systemd` 主支持路径也仍缺本机宿主证据。
 - 2026-05-17：同步 `20260513-001` 的步骤 7 收口状态。用户已确认 Windows PM2 与 Linux `systemd` host validation 均已完成，当前任务状态推进到 `completed_ready_for_closeout`；本任务范围内的 release-readiness gate 已收口，`npm run android:check-release-config` 继续仅作为 scope-external known validation failure 保留，不阻塞当前任务 closeout。
 - 2026-05-17：完成 `20260513-001` 归档。归档文件为 `TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md`；`CURRENT_TASK.md` 已清理为 clean handoff 入口，下一步按新需求执行 `/create-current-task`。
+- 2026-06-15：创建 `20260615-001`（App Codex IPC 实时同步），完成服务端全链路（codexIpcFeed/Transport/Client/ThreadStream + gateway IPC 路由）和 Android 端集成。自动化回归 189 pass/0 fail。因缺 Desktop IPC 环境 manual smoke，任务 paused_blocked。
+- 2026-06-16：创建并完成 `20260615-002`（网页版 Codex IPC 实时同步会话页）。纯前端 codex_ipc.html/js/css + 服务端 scope widening（吸收 `20260615-001` 的 4 处 IPC 集成遗漏）。端到端验证通过（4 conversations, 87 items）。commit `9603ea7`（11 files, +2129/-627）。等待 closeout。
