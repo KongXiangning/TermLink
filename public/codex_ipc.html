@@ -5,11 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>TermLink Codex IPC</title>
   <link rel="stylesheet" href="codex_ipc.css?v=1">
+  <link rel="stylesheet" href="sessions.css?v=1">
 </head>
 <body class="ipc-page">
 
-  <!-- ── status bar ────────────────────────────────────────────────────── -->
-  <header class="ipc-status-bar">
+  <!-- ── session header ─────────────────────────────────────────────────── -->
+  <header class="ipc-status-bar" style="gap:6px">
+    <span id="session-name" style="font-weight:600;font-size:0.9rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Codex</span>
+    <span id="session-cwd" style="font-size:0.7rem;opacity:0.4;max-width:30%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" hidden></span>
     <span class="ipc-status-indicator" id="ws-status">
       <span class="ipc-status-dot offline"></span> WS
     </span>
@@ -66,6 +69,7 @@
     <span class="ipc-follower-send-status" id="follower-send-status"></span>
   </div>
 
+  <script src="sessions.js?v=1"></script>
   <script src="codex_ipc.js?v=1"></script>
 </body>
 </html>

@@ -1,0 +1,325 @@
+/* sessions.css — Session management home page */
+/* All selectors scoped to .sessions- prefix. */
+
+.sessions-page {
+  display: flex;
+  flex-direction: column;
+  width: min(900px, 100%);
+  margin: 0 auto;
+  min-height: 100dvh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg-color, #121212);
+  color: var(--text-color, #e0e0e0);
+}
+
+/* ── brand bar ──────────────────────────────────────────────────────────── */
+
+.sessions-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--secondary-color, #2c2c2c);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.sessions-brand-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.sessions-btn {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.sessions-btn:active { opacity: 0.8; }
+
+.sessions-btn-primary {
+  background: var(--primary-color, #007bff);
+  color: #fff;
+}
+
+.sessions-btn-danger {
+  background: rgba(244, 67, 54, 0.15);
+  color: #f44336;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+.sessions-btn-subtle {
+  background: transparent;
+  color: var(--text-color, #e0e0e0);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-weight: 400;
+}
+
+.sessions-btn-small {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+}
+
+/* ── session list ────────────────────────────────────────────────────────── */
+
+.sessions-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 16px;
+}
+
+.sessions-empty {
+  text-align: center;
+  padding: 48px 16px;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.9rem;
+}
+
+.sessions-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.sessions-card:hover,
+.sessions-card:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sessions-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.sessions-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sessions-card-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sessions-card-meta {
+  font-size: 0.75rem;
+  opacity: 0.5;
+  margin-top: 2px;
+}
+
+.sessions-card-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* ── mode badge ──────────────────────────────────────────────────────────── */
+
+.sessions-mode-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.sessions-mode-badge.codex   { background: rgba(0, 123, 255, 0.2);    color: #4da3ff; }
+.sessions-mode-badge.terminal { background: rgba(255, 255, 255, 0.08); color: rgba(255,255,255,0.5); }
+
+/* ── new session modal ───────────────────────────────────────────────────── */
+
+.sessions-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.sessions-modal-overlay.is-active {
+  display: flex;
+}
+
+.sessions-modal {
+  width: min(420px, calc(100vw - 32px));
+  background: var(--secondary-color, #2c2c2c);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.sessions-modal-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+.sessions-form-group {
+  margin-bottom: 12px;
+}
+
+.sessions-form-label {
+  display: block;
+  font-size: 0.8rem;
+  opacity: 0.6;
+  margin-bottom: 4px;
+}
+
+.sessions-form-input {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  background: var(--bg-color, #121212);
+  color: var(--text-color, #e0e0e0);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  outline: none;
+}
+.sessions-form-input:focus {
+  border-color: var(--primary-color, #007bff);
+}
+
+/* ── mode tabs ───────────────────────────────────────────────────────────── */
+
+.sessions-mode-tabs {
+  display: flex;
+  gap: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+.sessions-mode-tab {
+  flex: 1;
+  padding: 8px;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: rgba(255,255,255,0.4);
+  border: none;
+  transition: background 0.15s, color 0.15s;
+}
+.sessions-mode-tab.is-active {
+  background: var(--primary-color, #007bff);
+  color: #fff;
+}
+
+/* ── cwd group ───────────────────────────────────────────────────────────── */
+
+.sessions-cwd-group {
+  display: none;
+}
+.sessions-cwd-group.is-active {
+  display: block;
+}
+
+.sessions-cwd-row {
+  display: flex;
+  gap: 8px;
+}
+
+.sessions-cwd-row .sessions-form-input {
+  flex: 1;
+}
+
+/* ── picker tree ─────────────────────────────────────────────────────────── */
+
+.sessions-picker-tree {
+  display: none;
+  margin-top: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+  background: var(--bg-color, #121212);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 4px 0;
+}
+.sessions-picker-tree.is-active {
+  display: block;
+}
+
+.sessions-picker-item {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sessions-picker-item:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.sessions-picker-parent {
+  opacity: 0.5;
+}
+
+/* ── modal actions ───────────────────────────────────────────────────────── */
+
+.sessions-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+/* ── rename inline ───────────────────────────────────────────────────────── */
+
+.sessions-rename-input {
+  width: 100%;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  background: var(--bg-color, #121212);
+  color: var(--text-color, #e0e0e0);
+  border: 1px solid var(--primary-color, #007bff);
+  border-radius: 4px;
+  outline: none;
+}
+
+/* ── refresh bar ─────────────────────────────────────────────────────────── */
+
+.sessions-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.sessions-count {
+  font-size: 0.75rem;
+  opacity: 0.4;
+}
+
+/* ── responsive ──────────────────────────────────────────────────────────── */
+
+@media (min-width: 768px) {
+  .sessions-page {
+    border-left: 1px solid rgba(255,255,255,0.06);
+    border-right: 1px solid rgba(255,255,255,0.06);
+  }
+}

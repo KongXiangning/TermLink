@@ -3,85 +3,87 @@
 ## 任务信息
 
 - 任务 ID：20260616-001
-- 任务标题：主页内整合 Codex 新建会话入口与 Codex 会话页
+- 任务标题：主页主链路内整合 Codex 会话入口与 Codex IPC 会话页
 - 任务 slug：web-session-management-home-and-codex-integration
-- 当前状态：investigation_completed_architecture_mismatch
+- 当前状态：decomposed_ready_for_implement_current_step
+- 生命周期状态：active
+- 恢复需审查：false
+- 恢复审查原因：
 - 创建时间：2026-06-16
-- 创建来源：用户直接指令，将 Codex IPC 实时同步会话页整合进统一主页，提供与 Android App 一致的会话管理体验
+- 创建来源：用户直接指令，要求把 Codex 会话页整合进主页主链路，并保持与 Android App 相同的主交互模型
 - 任务类型：feature / web-ui / integration
-- 任务目标：为 TermLink 网页版构建一个统一的会话管理主页——用户可以在主页的新建会话入口中选择会话类型；当选择 `codex` 时，需像 Android App 新建会话页一样显示目标文件夹输入与浏览选择能力，并在创建成功后直接打开 Codex 会话页。Codex 会话页复用 `20260615-002` 已交付的 IPC 实时同步能力，布局和交互参照 Android App Codex 会话页
+- 任务目标：以现有 `terminal.html` 主入口和会话 drawer 为基线，在网页主链路内补齐 `codex` 会话创建、浏览和跳转能力；同时让 `codex_ipc.html` 具备与终端页一致的 drawer 会话入口与新建会话能力，形成“统一会话入口 -> terminal/codex 分流”的网页体验，且 Codex 页继续基于当前 IPC 实时同步实现
 - 技术参考：
-  - `public/codex_ipc.html/js/css` — 已有的 IPC 实时同步 Codex 会话页（`20260615-002` 交付）
-  - Android App `SessionsFragment` + `CodexActivity` — 会话管理 + Codex 会话页的交互参照
-  - `public/terminal.html` — 已有的终端页
-  - `/api/sessions` REST API — 服务端会话 CRUD
-  - `docs/workflow/TECHNICAL_DETAILS-20260616-001-web-session-management-home-and-codex-integration.md` — 本任务的具体代码实现指导补充件
+  - `public/terminal.html` / `public/terminal.js` - 当前网页主入口与现有会话 drawer 事实基线
+  - `public/codex_ipc.html/js/css` - 当前 Codex IPC 实时同步页
+  - `android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt` - Android 会话管理交互参考
+  - `android/app/src/main/res/layout/dialog_session_create.xml` - Android 新建会话对话框参考
+  - `src/routes/sessions.js` - 只读 REST 契约参考
+  - `src/routes/workspace.js` - 只读 workspace picker 契约参考
+  - `docs/workflow/TECHNICAL_DETAILS-20260616-001-web-session-management-home-and-codex-integration.md` - 本轮重新规划后的具体代码实现指导补充件
 
 ## 背景与上下文
 
-- `20260615-002` 已交付 `codex_ipc.html`（独立 IPC Codex 页），但该页面是独立入口，未与主页/会话管理整合
-- Android App 端有完整的会话管理 → Codex 会话页链路：
-  - `SessionsFragment`：会话列表（name、sessionMode、cwd）、新建会话（选择 mode + cwd）、重命名、删除
-  - 点击 codex session → `CodexActivity`（IPC 实时同步）
-  - 点击 terminal session → 终端页
-- 网页版当前状态：
-  - `index.html` 自动跳转到 `terminal.html`
-  - `codex_ipc.html` 是独立页面（无会话管理入口）
-  - `/api/sessions` REST API 已具备完整 CRUD 能力
-- 本任务需要构建网页版的会话管理主页，将 IPC Codex 页整合进统一入口
-- 本任务**不改服务端代码**（复用现有 API 和 gateway）
-- 本任务**不改 Android 端**
-- Codex 会话页的 IPC 能力基于 `codex_ipc.html`，但布局参照 Android App 的 CodexActivity 风格
+- `20260615-002` 已交付 `codex_ipc.html`，其 IPC 实时同步能力是本任务必须复用的能力基线。
+- 本轮最初把“统一会话管理主页”误收敛为独立 `sessions.html` 页面，并将 `/` 改跳转到该页。
+- 重新核对现有前端事实后确认：
+  - `terminal.html` 早已是网页主入口；
+  - `terminal.html` 已有 `☰` drawer，内含服务器列表、会话列表和“新建会话”入口；
+  - 因此再新增独立 `sessions.html` 作为主页，会与现有主入口职责重复，也偏离 Android 的主交互模型。
+- 本任务现已收敛为单一主目标：保留 `terminal.html` 为网页主入口，把缺失的 `codex` 会话创建/切换能力整合进现有 drawer，并让 `codex_ipc.html` 获得同构 drawer 入口。
+- 本任务不修改服务端代码，不修改 Android 代码，不回退到旧 `codex_client.html` 链路。
 
 ## 验收标准
 
-### 主页（会话管理）
+### 统一会话主链路
 
-1. 访问网页版根路径（`/`）时看到会话管理主页，而非直接跳转到 terminal.html。
-2. 主页顶部显示 TermLink 品牌栏 + 新建会话按钮。
-3. 会话列表展示所有已有 session，每项显示：name、sessionMode 标签（Codex / Terminal）、cwd（若有）、最近活跃时间。
-4. 点击“新建会话”后出现与 Android App 新建会话页对齐的表单：输入 `name`、选择 `sessionMode`（Codex / Terminal）。
-5. 当 `sessionMode = codex` 时，表单必须显示 `cwd` 输入区和 `Browse` 入口；`Browse` 基于 `/api/workspace/picker/tree` 选择目录，且仍允许用户直接手动输入路径。
-6. 当 `sessionMode = terminal` 时，`cwd` 输入区默认隐藏且创建请求不发送 `cwd`。
-7. 创建 `codex` 会话成功后，页面直接打开 `codex_ipc.html?sessionId=<id>`；创建 `terminal` 会话成功后，页面直接打开 `terminal.html?sessionId=<id>`。
-8. 点击已有 Codex session → 打开 Codex 会话页（`codex_ipc.html?sessionId=<id>`）。
-9. 点击已有 Terminal session → 打开终端页（`terminal.html?sessionId=<id>`）。
-10. 会话列表支持重命名和删除（inline 或弹出确认）。
-11. 会话列表支持刷新。
+1. 访问网页版根路径 `/` 时，主入口仍为 `terminal.html`，而不是独立会话页。
+2. `terminal.html` 的现有 drawer 继续作为网页会话主入口，不新增第二套独立主页来承载会话管理。
+3. `terminal.html` drawer 中的会话列表展示全部 session，并能区分 `terminal` / `codex` 模式。
+4. `terminal.html` 和 `codex_ipc.html` 都提供新建会话入口，且新建表单交互对齐 Android：先选会话类型；当选择 `codex` 时显示 `cwd` 输入和 `Browse` 目录选择；当选择 `terminal` 时不要求 `cwd`。
+5. `Browse` 基于 `/api/workspace/picker/tree`，同时保留手动输入 `cwd` 的能力。
 
-### Codex 会话页
+### 分流行为
 
-12. Codex 会话页顶部显示返回按钮、当前 session 名称、当前 `cwd`（有值时）以及 IPC / WS 状态指示器。
-13. Codex 会话页的消息面、composer、approval 面板、PLAN 面板、conversation selector 功能基于 `codex_ipc.html` 的现有实现，不回退到旧 `codex_client.html` 路径。
-14. Codex 会话页整体布局参照 Android App `CodexActivity` 的风格：顶部 header + 消息区 + 底部 composer，不引入桌面式侧栏框架。
+6. 从 `terminal.html` drawer 点击已有 `terminal` 会话时，继续进入/切换到终端会话主链路。
+7. 从 `terminal.html` drawer 点击已有 `codex` 会话时，跳转到 `codex_ipc.html?sessionId=<id>`。
+8. 创建 `terminal` 会话成功后，进入/切换到 `terminal.html?sessionId=<id>`。
+9. 创建 `codex` 会话成功后，进入 `codex_ipc.html?sessionId=<id>`。
+10. 会话列表支持删除；若实现重命名，必须保持与现有 `/api/sessions` PATCH 契约一致。
+
+### Codex IPC 页
+
+11. `codex_ipc.html` 保持当前 IPC 实时同步主能力不变，不回退到旧 `codex_client.html`。
+12. `codex_ipc.html` 增加与主入口一致的 drawer/toggle 入口，使用户可从 Codex 页查看会话列表、切换会话和新建会话。
+13. `codex_ipc.html` 继续维持移动端优先的“顶部 header + 消息区 + composer / 面板”结构，不引入桌面式双栏或 iframe 容器。
+14. `codex_ipc.html` 顶部仍需显示当前会话的名称、可选的 `cwd`、以及 IPC / WS 状态。
 
 ### 兼容性
 
-15. 旧 `terminal.html` 仍可直接访问（用于纯终端场景）。
-16. `/api/sessions` REST API 与 `/api/workspace/picker/tree` 不做任何改动。
-17. Android App 不受任何影响。
-18. `codex_ipc.html` 独立访问路径仍可用（向后兼容）。
+15. `/api/sessions` 与 `/api/workspace/picker/tree` 不做任何协议改动。
+16. Android App 不受影响。
+17. `codex_ipc.html?sessionId=<id>` 直接访问仍可用。
+18. `terminal.html` 现有 PTY、服务器管理和快捷输入逻辑不得被破坏。
 
 ## 设计约束
 
 - Design mode: design-system
 - Design source:
-  - Android App `SessionsFragment`（会话列表布局参考）
-  - Android App `CodexActivity`（Codex 会话页布局参考）
-  - `public/codex_ipc.html`（IPC 实时同步能力基线）
-  - 现有 `public/style.css` + `terminal_client.css`（CSS 变量基准）
+  - 现有 `terminal.html` drawer 结构
+  - Android `SessionsFragment`
+  - Android `dialog_session_create.xml`
+  - 现有 `codex_ipc.html`
 - Design acceptance:
-  - 主页布局：顶部品牌栏（TermLink brand + 新建会话入口）→ 会话卡片列表（name + mode 标签 + cwd + 最近活跃 + 操作按钮）
-  - 新建会话：默认与 Android `dialog_session_create.xml` 对齐；`sessionMode` 切换后动态显示/隐藏 `cwd` 区块；`Codex` 模式下提供 `Browse` 目录选择按钮
-  - Codex 会话页：顶部 header（返回 + session 名 + cwd/状态信息）→ 消息区（flex:1 scroll）→ 底部 composer 区
-  - 所有颜色、字体、间距复用现有 CSS 变量
-  - 移动端优先，桌面端居中（max-width 约束）
+  - 不新增与现有 terminal 主入口平行竞争的第二主页
+  - 新建会话表单保留 Android 风格的 mode 切换 + `cwd/Browse` 逻辑
+  - `codex_ipc.html` 的新入口应表现为 drawer/toggle，而不是独立桌面侧栏
+  - 继续复用现有 CSS 变量和移动端优先布局
 - Design evidence:
-  - Android `SessionsFragment.kt` + `dialog_session_create.xml` 作为新建会话交互基线
-  - Android `CodexActivity.kt` 作为 Codex 会话页布局与返回链路基线
-  - `public/codex_ipc.html/js/css` 作为网页 IPC 能力基线
+  - `public/terminal.html` 当前 drawer 结构
+  - Android `SessionsFragment.kt` 与 `dialog_session_create.xml`
+  - `public/codex_ipc.html/js/css`
 - Design open decisions:
-  - 无；本任务按“主页列表 + 新建会话表单 + 独立 Codex 会话页跳转”收敛，不在本轮引入 SPA/iframe 变体
+  - 无；本轮不再讨论独立 `sessions.html`、SPA 容器或 iframe 方案
 
 ## 发布后验证
 
@@ -91,7 +93,7 @@
 - Health checks: not-required
 - Canary window: none
 - Performance baseline: none
-- Rollback / recovery: 还原 `index.html` 跳转逻辑，删除新增文件
+- Rollback / recovery: 恢复 `terminal.html` / `terminal.js` / `codex_ipc.*` 到任务前状态，删除本轮新增的共享会话管理增强
 - Release evidence: not-required
 
 ## 允许修改范围
@@ -101,555 +103,464 @@ Allowed Files:
 - `docs/workflow/CURRENT_TASK.md`
 - `docs/workflow/TECHNICAL_DETAILS-20260616-001-web-session-management-home-and-codex-integration.md`
 - `.codex/skills/workflow-system-plan-implementation/SKILL.md`
-- `public/index.html`
-- `public/sessions.js`
-- `public/sessions.css`
+- `public/terminal.html`
+- `public/terminal.js`
 - `public/codex_ipc.html`
 - `public/codex_ipc.js`
 - `public/codex_ipc.css`
-- `public/terminal.js`
+- `public/sessions.js`
+- `public/sessions.css`
 
 Conditional Files:
 
+- `public/index.html`
+  - 条件：仅当仓库当前根路径入口已被错误改到独立 `sessions.html`，需要恢复到 `terminal.html` 时允许修改。
+  - 限制：不得把根路径再改成任何新的独立会话页。
+- `public/sessions.html`
+  - 条件：仅当工作区中已存在此前误实现的独立页面，需要删除或留空兼容跳转时允许修改。
+  - 限制：不得继续把它作为本轮正式主入口。
 - `public/style.css`
-  - 条件：仅当需要新增全局 CSS 变量或通用组件样式时允许。
-  - 限制：不得改变现有选择器语义，不得影响 terminal.html / codex_client.html 视觉。
+  - 条件：仅当共享会话入口样式必须落在全局变量层时允许修改。
+  - 限制：不得无证据影响现有终端页和旧客户端页视觉。
 - `public/i18n/i18n.js`
-  - 条件：仅当新增 UI 文案需要多语言支持时允许。
-  - 限制：不得改变现有 i18n key 语义。
+  - 条件：仅当新增文案必须接入现有 i18n 机制时允许修改。
+  - 限制：不得改动既有 key 语义。
 - `public/i18n/en.json`
-  - 条件：仅当新增主页 / 会话管理文案需要纳入现有 i18n 词条时允许。
-  - 限制：仅允许追加新 key，不得重写既有 key 语义。
+  - 条件：仅当新增网页会话入口文案需要英文词条时允许修改。
+  - 限制：仅允许追加 key。
 - `public/i18n/zh-CN.json`
-  - 条件：仅当新增主页 / 会话管理文案需要纳入现有 i18n 词条时允许。
-  - 限制：仅允许追加新 key，不得重写既有 key 语义。
-- `public/terminal.html`
-  - 条件：仅当需要增加"返回主页"入口时允许。
-  - 限制：不得改变终端页主体布局和 PTY 交互逻辑。
+  - 条件：仅当新增网页会话入口文案需要中文词条时允许修改。
+  - 限制：仅允许追加 key。
 
 ## 禁止修改范围
 
 Forbidden Files:
 
-- `src/**` — 服务端代码不修改
-- `android/**` — 不涉及 Android
+- `src/**` - 服务端代码不修改
+- `android/**` - Android 不在本轮范围
 - `tests/**`
 - `.git/**`
 - `node_modules/**`
 - `dist/**`
 - `docs/workflow/generated/**`
 - `docs/workflow/SKILL_REGISTRY.md`
-- `scripts/install/**`
 - `templates/**`
-- `public/codex_client.html` — 旧 Codex 页面保持不动
-- `public/terminal_client.html` — 终端客户端页保持不动
-- `public/client.js` — 旧客户端脚本保持不动
-- `public/workspace.html` — workspace 页面保持不动
-- `E:\coding\termlink-demo\**` — 只读参考
-- release layout / mTLS / deployment 相关文件
+- `scripts/install/**`
+- `public/codex_client.html`
+- `public/terminal_client.html`
+- `public/client.js`
+- `public/workspace.html`
+- `E:\coding\termlink-demo\**`
+- release / mTLS / deployment 相关文件
 - 未列入 Allowed Files 且不满足 Conditional Files 条件的所有文件
 
 ## 范围锁定
 
 - Lock status: locked
-- Safety mode: normal
+- Safety mode: frozen-scope
 - Guarded mode: not selected
-  - 理由：纯前端新增/微调页面（sessions.html/js/css + index.html + codex_ipc 微调），不修改服务端代码、不触碰 CONTRACTS.md 锁定项、不涉及 production/database/permissions/deployment。风险低。
-- Scope sources: `CURRENT_TASK.md`、Android `SessionsFragment` + `CodexActivity`（交互参照）、`CONTRACTS.md`、`DECISIONS.md`
+  - 理由：本轮是纯前端 UI/交互整合任务，不触碰服务端、部署、认证、数据库或生产配置；但 `terminal.html` / `terminal.js` 是现有主入口，`codex_ipc.html/js/css` 是已交付 IPC 主链路，因此必须采用窄文件集冻结范围，避免顺手扩散。
+- Scope sources:
+  - `docs/workflow/CURRENT_TASK.md`
+  - `docs/workflow/CONTRACTS.md`
+  - `docs/workflow/DECISIONS.md`
+  - `public/terminal.html`
 - Locked mutation buckets:
-  - Allowed: `CURRENT_TASK.md` + 本任务技术细节文档 + `plan-implementation` skill + `sessions.html/js/css` + `index.html` + `codex_ipc.html/js/css`
-  - Conditional: `style.css`、`i18n.js`、`en.json`、`zh-CN.json`、`terminal.html`
-  - Forbidden: `src/**`、旧页面、Android、termlink-demo
-- Dangerous surfaces: none
-- Locked contracts: none（不修改现有接口/API/事件）
-- Unlock / widening conditions:
-  - 本轮已执行一次 scope widening，用于允许新增“具体代码实现指导文档”以及放开 `plan-implementation` skill 对该文档的写入能力
-  - widening 原因：当前 `plan-implementation` skill 只允许写 `CURRENT_TASK.md`，无法承载用户明确要求的独立技术实现指导文档
-  - widening 影响文件：
+  - Allowed:
+    - `docs/workflow/CURRENT_TASK.md`
     - `docs/workflow/TECHNICAL_DETAILS-20260616-001-web-session-management-home-and-codex-integration.md`
     - `.codex/skills/workflow-system-plan-implementation/SKILL.md`
-    - `docs/workflow/CURRENT_TASK.md`
-  - widening 风险：
-    - skill 放权过宽会导致未来任务越权写入额外文档
-    - 技术细节文档若与 `CURRENT_TASK.md` 漂移，会形成双事实源
-  - widening 验证方式：
-    - skill 写入面仅放宽到 `docs/workflow/TECHNICAL_DETAILS-*.md`
-    - 技术细节文档必须明确声明自身是 `CURRENT_TASK.md` 的补充件，不替代 live task package
-    - 后续 `plan-implementation` 仅在当前 task scope 明确允许时才可创建/更新该文档
-- Diff filter: 仅允许 Allowed + 满足条件的 Conditional 文件
+    - `public/terminal.html`
+    - `public/terminal.js`
+    - `public/codex_ipc.html`
+    - `public/codex_ipc.js`
+    - `public/codex_ipc.css`
+    - `public/sessions.js`
+    - `public/sessions.css`
+  - Conditional:
+    - `public/index.html`
+    - `public/sessions.html`
+    - `public/style.css`
+    - `public/i18n/i18n.js`
+    - `public/i18n/en.json`
+    - `public/i18n/zh-CN.json`
+  - Forbidden:
+    - `src/**`
+    - `android/**`
+    - `tests/**`
+    - 旧 client 页面与 deployment 相关文件
+- Dangerous surfaces:
+  - none
+  - 备注：`public/terminal.js` 与 `public/codex_ipc.js` 属于高回归 UI/runtime 入口，但不属于 protocol 所定义的 guarded dangerous surface；风险通过 `frozen-scope` 和后续 browser smoke 管控。
+- Locked contracts:
+  - `Sessions API` 只读消费，不改 payload / DTO / PATCH 语义
+  - `Workspace picker API` 只读消费，不改服务端边界
+  - `terminal.html` 作为现有网页主入口的事实基线不得被平行主页替代
+  - `codex_ipc.html` 当前 IPC 实时同步主链路不得回退到旧 `codex_client.html`
+- Unlock / widening conditions:
+  - 本轮不允许静默扩大到 `src/**`、`android/**`、`tests/**` 或任何未列入范围的页面。
+  - 若后续确认必须改服务端接口、会话 DTO、workspace picker 返回结构、Android 入口，必须重新执行 `/lock-scope`。
+  - 若旧版 `TECHNICAL_DETAILS` 文档需要重写，可在当前范围内更新；若需要新增第二份 task 文档，必须重新列入 Allowed Files。
+  - widening 必须写明原因、影响文件、风险、验证方式，并重新生成 Allowed / Conditional / Forbidden。
+- Diff filter:
+  - 仅允许后续审查和实现当前 Allowed Files 与满足条件的 Conditional Files。
+  - 发现范围外文件改动即视为越界。
 
-- 无后端契约变更。纯前端 HTML/JS/CSS，复用现有 REST API 和 WebSocket gateway。
-- `/api/sessions` REST API：只读消费，不修改；前端必须遵守已锁定约束：
+## 受影响的契约
+
+- 无后端契约变更；本轮只读消费既有 API。
+- `/api/sessions`
+  - 只读/只按既有契约调用
   - `sessionMode` 只能是 `terminal | codex`
-  - 创建 `codex` session 时必须提供非空且真实存在的 `cwd`
-  - `name` 长度必须满足 `1..64`
-- `/api/workspace/picker/tree`：只读消费，用作 `codex` 新建会话的目录浏览入口，不修改
-- WebSocket gateway：只读消费，不修改
+  - 创建 `codex` 会话时必须提供有效 `cwd`
+  - `PATCH` 仍只允许 `name` 或 `codexConfig`
+- `/api/workspace/picker/tree`
+  - 只用于目录浏览
+  - 不改变其服务端边界与返回语义
+- WebSocket / IPC
+  - `codex_ipc.html` 继续使用当前 `ws-ticket -> websocket -> ipc realtime sync` 链路
 
 ## 已确认决策
 
-- 复用现有 `/api/sessions` REST API + WebSocket gateway，不做后端改动。
-- Codex 会话页的 IPC 实时同步能力基于 `codex_ipc.html` 的现有实现。
-- Android App 不受影响。
-- 网页版视觉以现有 CSS 变量为基准，参照 Android App 交互模式。
-- 会话主页显示全部 session（Codex + Terminal），与 Android 会话管理页保持一致。
-- 新建会话入口按 Android `SessionsFragment` 交互收敛：`Codex` 模式显示 `cwd + Browse`，`Terminal` 模式隐藏 `cwd`。
-- Codex 会话页采用独立页面跳转 `codex_ipc.html?sessionId=<id>`，不在本轮引入 iframe 或 SPA 容器切换。
-- 新建成功后的默认落点与会话模式一致：`codex -> codex_ipc.html`，`terminal -> terminal.html`。
+- `terminal.html` 仍是网页主入口；不再以独立 `sessions.html` 作为主方案。
+- 会话管理入口应复用现有 drawer 主链路，而不是新增平行主页。
+- `codex_ipc.html` 必须基于当前 IPC 实时同步实现继续增强。
+- `terminal` / `codex` 的分流规则由 session mode 决定。
+- 新建 `codex` 会话必须提供 `cwd + Browse`。
+- 本轮不扩大到服务端或 Android 修改。
 
 ## 待确认问题
 
-- [ ] 暂无阻塞当前实现的未确认项；若后续需要“主页快捷直达 terminal”或“自动填充默认名称”，另开任务处理，避免扩大本轮 UI 范围。
+- [ ] 当前无阻塞实现的产品口味未决项。
+- [x] 旧分解步骤基于独立 `sessions.html` 架构，已不再可直接执行；已通过本轮 `/decompose-task` 重建为 `terminal.html` / `codex_ipc.html` 共用 drawer 路线。
 
 ## 决策分类
 
 - Mechanical:
-  - 新增 `sessions.html/js/css`：承载主页会话列表、新建表单、重命名、删除与刷新
-  - 修改 `index.html`：根路径默认落到 `sessions.html`
-  - 修改 `codex_ipc.html/js/css`：补返回入口、session 名称 / cwd / IPC 状态头部
-  - 新建会话表单接入 `/api/sessions` CRUD 与 `/api/workspace/picker/tree` 目录浏览
-  - 复用现有 CSS 变量、已有 IPC surface 组件与现有 WebSocket ticket / session 读取方式
+  - 在 `terminal.html` / `terminal.js` 现有 drawer 基础上补 mode badge、codex 跳转和新建会话模式切换
+  - 让 `codex_ipc.html/js/css` 补同构 drawer/toggle 入口与 session metadata header
+  - 把 `sessions.js/css` 收敛为共享会话管理逻辑/样式，而不是独立主页脚本
+  - 仅在需要修复误改时恢复 `index.html` 与 `sessions.html`
 - Taste:
-  - 无；本轮口味决策已按 Android 现有交互基线收敛
+  - 无；主交互模型已由现有 terminal drawer + Android 参考收敛
 - User challenge:
-  - 会话入口必须整合进主页主链路，而不是继续维持“用户手输独立 URL 才能进入 Codex 页”的模式
-  - “新建会话”必须支持先选择会话类型；当选择 `codex` 时，交互需与 Android 新建会话页一致，显示 `cwd` 输入与 `Browse` 目录选择
-  - Codex 会话页的能力基线必须建立在当前 `codex_ipc.html` 的 IPC 实时同步实现上，不能回退到旧 `codex_client.html` 或改走非 IPC 主链路
-  - 网页版 Codex 会话页的布局与功能应对齐 Android `CodexActivity` 的主结构，不引入会改变主交互模型的 iframe / SPA 容器切换 / 桌面侧栏方案
-  - 本轮不允许静默扩大到服务端或 Android 改动；若发现前端范围不足以满足目标，必须重新走 scope widening，而不是直接改 `src/**` 或 `android/**`
+  - 必须整合进主页主链路，不能继续依赖独立 URL 才能进入 Codex 体验
+  - 必须先选会话类型；`codex` 时显示 `cwd + Browse`
+  - Codex 页能力基线必须建立在当前 IPC 实时同步实现上
+  - 不得静默扩大到服务端或 Android
 
 ## 实现方案
 
-- Goal:
-  - 构建网页版统一会话管理主页，将 IPC Codex 会话页整合进主页流程，提供与 Android App 一致的“会话管理 → 新建会话 → 打开 Codex/Terminal 会话”体验。
-  - 产出应足以直接指导后续编码，不再停留在高层描述；实现人员应能仅凭本节与引用文件完成页面结构、状态管理、接口接入与 smoke 路径。
-- Architecture impact:
-  - 纯前端改动，不触碰 `src/**`、`android/**` 和既有 API 契约。
-  - 受影响文件与职责：
-    - `public/index.html`
-      - 现状：仅执行 `terminal.html` 跳转。
-      - 目标：改为根路径跳转 `sessions.html`，保留 query/hash 透传。
-    - `public/sessions.html`（新增）
-      - 承载统一会话管理主页的静态 DOM：品牌头部、会话列表容器、新建会话入口、创建表单/弹层、目录选择弹层占位、错误/空态/加载态容器。
-    - `public/sessions.js`（新增）
-      - 承载页面状态、REST API 调用、列表渲染、创建/重命名/删除、workspace picker 浏览、模式切换与页面跳转。
-    - `public/sessions.css`（新增）
-      - 承载主页与表单样式，需保持移动端优先，并复用现有视觉变量而不是引入新设计体系。
-    - `public/codex_ipc.html`
-      - 当前仅有 IPC 状态栏 + conversation selector + surface + approval/plan/follower 区。
-      - 目标：在不破坏现有 IPC surface 结构的前提下补会话页 header 信息区。
-    - `public/codex_ipc.js`
-      - 当前已具备 IPC WebSocket、conversation selector、surface render、approval/plan/follower 行为。
-      - 目标：补 session 级元信息读取、页面级返回链路、无 `sessionId` 保护、header 状态联动。
-    - `public/codex_ipc.css`
-      - 当前只覆盖 IPC 状态栏 / surface / panel。
-      - 目标：补页面 header、返回按钮、session metadata 行，以及与现有 sticky bar 的叠层关系。
-  - 参考实现映射：
-    - Android 新建会话交互基线：`android/app/src/main/res/layout/dialog_session_create.xml`
-      - 关注点：`create_session_mode_container`、`input_create_session_cwd`、`btn_browse_session_cwd`。
-    - Android 会话创建逻辑基线：`android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt`
-      - 关注点：`updateCreateDialogModeUi(...)`、`showWorkspacePickerDialog(...)`、`showCreateDialog()`。
-    - Web IPC 页能力基线：`public/codex_ipc.html`、`public/codex_ipc.js`、`public/codex_ipc.css`
-      - 关注点：现有 `connectWs()`、`handleMessage()`、`renderSurface()`、approval/plan/follower UI。
-    - 服务端只读契约基线：`src/routes/sessions.js`、`src/routes/workspace.js`
-      - 关注点：`POST /api/sessions` 的 payload/校验规则；`GET /api/workspace/picker/tree` 的目录浏览语义。
-- Technical approach:
-  - **总体策略**
-    - 不引入框架或构建步骤；沿用现有 repo 的“单页面 HTML + 原生 JS + 独立 CSS”模式。
-    - 新主页与现有 `codex_ipc.html` 采用“页面跳转 + query 传参”串联，而不是共享复杂全局状态。
-    - 所有新增逻辑优先使用可测试的纯函数/小型状态对象组织，避免把整个页面写成无边界的大脚本。
-  - **`sessions.html` 页面结构建议**
-    - 页面根容器：
-      - `<body class="sessions-page">`
-      - `<div class="sessions-shell">`
-    - 顶部品牌区：
-      - `sessions-header`
-      - 左侧 `TermLink` 品牌文字
-      - 右侧主按钮 `btn-open-create-session`
-    - 页面状态区：
-      - `sessions-feedback`：显示加载中、列表错误、create/rename/delete 操作错误
-      - `sessions-empty-state`：当列表为空时显示引导文案和创建入口
-    - 会话列表区：
-      - `sessions-list`
-      - 每个 item 由 JS 渲染，包含：
-        - session 名称
-        - mode badge
-        - cwd（仅 codex 且有值时显示）
-        - 最近活跃 / 无最近活跃占位
-        - 主操作按钮：打开
-        - 次操作按钮：重命名、删除
-    - 新建会话表单区：
-      - 推荐优先做 modal/drawer，而不是内联永驻表单；更接近 Android dialog
-      - 必要元素：
-        - `input-session-name`
-        - `select-session-mode` 或 2 个 tabs/buttons
-        - `create-cwd-container`
-        - `input-session-cwd`
-        - `btn-browse-session-cwd`
-        - `btn-submit-create-session`
-        - `btn-cancel-create-session`
-    - workspace picker 弹层区：
-      - 单独 modal，避免把目录树塞进主表单
-      - 必要元素：
-        - 当前路径展示
-        - “上一级”按钮
-        - 目录列表容器
-        - 选择当前目录按钮
-        - 取消按钮
-  - **`sessions.js` 模块划分建议**
-    - 推荐在单文件内按职责分块，而不是裸写一长段：
-      - `state`
-      - `dom refs`
-      - `api helpers`
-      - `render helpers`
-      - `create session modal`
-      - `workspace picker modal`
-      - `session list actions`
-      - `navigation helpers`
-      - `bootstrap`
-    - 页面状态对象建议最小包含：
-      - `sessions`: 当前会话列表
-      - `loading`: 列表加载态
-      - `submitting`: 创建提交态
-      - `activeModal`: `none | create | picker | rename`
-      - `createForm`: `{ name, sessionMode, cwd }`
-      - `picker`: `{ path, entries, loading, error, canGoUp, parentPath }`
-      - `pendingActionSessionId`: 当前正在 rename/delete/open 的目标
-    - API helper 建议：
-      - `fetchSessions()`
-        - `GET /api/sessions`
-        - 成功后统一做前端排序与字段标准化
-      - `createSession(payload)`
-        - `POST /api/sessions`
-        - 只在 `sessionMode === 'codex'` 时传 `cwd`
-      - `renameSession(sessionId, name)`
-        - `PATCH /api/sessions/:id` with `{ name }`
-      - `deleteSession(sessionId)`
-        - `DELETE /api/sessions/:id`
-      - `fetchPickerTree(path)`
-        - `GET /api/workspace/picker/tree`
-        - query `path` 为空时读取根；非空时读取目标目录
-    - render helper 建议：
-      - `renderSessionsList()`
-      - `renderCreateModal()`
-      - `renderPickerModal()`
-      - `renderFeedback(message, level)`
-      - `syncCreateModeUi()`
-        - 对齐 Android `updateCreateDialogModeUi(...)` 的核心语义：
-          - codex 显示 cwd 容器 + browse 按钮
-          - terminal 隐藏 cwd 容器并清除 cwd 相关错误
-    - 导航 helper 建议：
-      - `openSession(session)`
-        - `codex -> location.href = 'codex_ipc.html?sessionId=' + encodeURIComponent(id)`
-        - `terminal -> location.href = 'terminal.html?sessionId=' + encodeURIComponent(id)`
-      - `goToSessionsHome()`
-        - 统一用于 Codex 页返回链路
-  - **会话列表数据展示规则**
-    - 数据来源为 `GET /api/sessions` 返回的 session summary DTO。
-    - 建议按最近活跃优先排序；若当前 REST 响应没有明确 `updatedAt/lastActiveAt`，则：
-      - 不在前端伪造时间排序语义
-      - 展示“最近活跃时间未知”或省略该行
-      - 同时在实现中写明该字段受实际返回结构约束，避免前端假定不存在的服务端字段
-    - 列表项展示规则：
-      - `name` 为主标题
-      - `sessionMode` 规范化为 badge 文案：`Codex` / `Terminal`
-      - `cwd` 仅在非空时展示完整路径或受控折叠文本
-      - 操作按钮顺序建议：`打开`、`重命名`、`删除`
-  - **新建会话表单实现要领**
-    - 模式切换时的行为必须明确：
-      - 初始默认 mode 建议为 `codex` 或沿用当前上次值都属于产品口味；由于本轮已按 Android 基线收敛，推荐默认 `codex`
-      - 但不自动填充 name，避免新增未确认产品文案策略
-      - `terminal` 模式下隐藏 `cwd` 容器、保留内部值但提交时不发送
-      - `codex` 模式下显示 `cwd` 容器，并允许：
-        - 手工输入路径
-        - 通过 picker 选择路径后回填
-    - 提交前前端校验：
-      - `name.trim()` 长度 1..64
-      - `sessionMode` 仅允许 `terminal` / `codex`
-      - `codex` 时 `cwd.trim()` 非空
-      - 仅做最小前端校验；目录是否真实存在交给服务端 `validateSessionCwd(...)`
-    - 提交失败处理：
-      - 显示服务端 error message，例如：
-        - `cwd is required when sessionMode is codex`
-        - `cwd does not exist`
-        - `cwd must be a directory`
-        - `name length must be between 1 and 64`
-      - 不吞错，不只打印 console
-  - **workspace picker 交互实现要领**
-    - 参考 Android `showWorkspacePickerDialog(...)` 的行为，但简化为 Web 版：
-      - 页面打开 picker 时先请求当前 `cwd`（若已填）或根目录
-      - 列表只展示目录条目，不尝试读取文件内容
-      - 点击目录进入下一层
-      - 点击“上一级”回到 `parentPath`
-      - 点击“选择当前目录”将当前 path 回填到创建表单
-    - Web 版必须兼容 picker API 的限制：
-      - 当服务端未配置 `TERMLINK_WORKSPACE_PICKER_ROOT`，接口可能报错
-      - 该错误要在 picker modal 明确展示，而不是静默失败
-      - 即使 picker 不可用，也应保留手动输入路径能力，确保 Codex 会话仍可创建
-  - **`codex_ipc.html/js/css` 微调方案**
-    - HTML：
-      - 在现有 `.ipc-status-bar` 之前增加页面级 header，建议结构：
-        - `ipc-page-header`
-        - `ipc-back-link`
-        - `ipc-session-meta`
-        - `ipc-session-title`
-        - `ipc-session-cwd`
-      - 现有 status bar、surface、approval、plan、follower 结构尽量不动，避免破坏 IPC 能力
-    - JS：
-      - 新增 URL 参数解析：
-        - `sessionId = new URLSearchParams(location.search).get('sessionId')`
-        - 若为空，直接跳回 `sessions.html`
-      - 新增 session metadata 拉取 helper：
-        - 首选：调用 `GET /api/sessions` 后按 `id` 查找当前 session
-        - 原因：当前 `session_info` 在现有页面里只可靠提供 `sessionId`，不能假定一定带 `name/cwd`
-      - 新增 header render：
-        - `renderSessionHeader(sessionSummary)`
-        - 显示 `name`
-        - `cwd` 有值时显示；无值则隐藏 `cwd` 行
-      - 保留现有 `connectWs()` / `handleMessage()` / `renderSurface()` 主体逻辑
-      - 当 WebSocket 收到 `session_info` 且 sessionId 变化时，可重新触发一次 session metadata 刷新
-    - CSS：
-      - header 与现有 `.ipc-status-bar` 保持视觉一致，但层级分离
-      - 避免把“返回按钮 + session 标题”塞进现有 conversation selector 容器，减少布局耦合
-      - sticky 关系建议：
-        - `ipc-page-header` 静态
-        - `.ipc-status-bar` 继续 sticky
-  - **接口负载与返回的使用边界**
-    - `POST /api/sessions`
-      - Codex create payload：
-        - `{ name, sessionMode: 'codex', cwd }`
-      - Terminal create payload：
-        - `{ name, sessionMode: 'terminal' }`
-      - 本轮不发送 `codexConfig`，因为用户目标未要求暴露 approval/sandbox 配置
-    - `PATCH /api/sessions/:id`
-      - 仅发送 `{ name }`
-      - 不尝试 patch `cwd` 或 `codexConfig`
-    - `GET /api/workspace/picker/tree`
-      - 仅依赖其目录树浏览语义，不在前端推断文件访问能力
-  - **External Documentation Gate**
-    - no-op
-    - 原因：本轮技术路线只使用项目内既有浏览器原生 API、repo 内已实现的 REST/WebSocket 契约，不依赖第三方 library / SDK / CLI 的 current behavior 判断。
-- Alternatives considered:
-  - 方案 A：新增 `sessions.html/js/css` + `index.html` 改跳转 + `codex_ipc.*` 轻量增强
-    - 结论：采用
-    - 原因：与当前 repo 页面组织最一致，scope 最小，职责清晰，回滚成本低。
-  - 方案 B：在 `terminal.html` 内加入新会话管理层
-    - 放弃原因：会把终端页从“会话运行页”变成“主页 + 运行页”双职责，容易污染现有 PTY 页面结构。
-  - 方案 C：主页内嵌 iframe 指向 `codex_ipc.html`
-    - 放弃原因：会引入双层滚动、返回链路复杂化、query 透传与错误态同步问题，且与 Android 主结构不一致。
-  - 方案 D：直接以 `codex_client.html` 为主页继续扩展
-    - 放弃原因：违背已确认的 IPC 主链路方向，会把旧非 IPC 路径重新抬回主交付面。
-  - 方案 E：新增独立技术方案文档
-    - 从执行组织上是有价值的，但当前 skill 写入约束仅允许 `docs/workflow/CURRENT_TASK.md`
-    - 结论：本轮把足够细的技术指导内嵌在 `CURRENT_TASK.md`；若后续需要独立文档，必须在后续 scope 中显式允许新文档路径
-- Data / state flow:
-  - **主页首次进入**
-    - `/` → `index.html` → `sessions.html`
-    - `sessions.js bootstrap`
-    - `GET /api/sessions`
-    - `renderSessionsList()`
-  - **打开已有 Codex 会话**
-    - 用户点击列表项 `打开`
-    - `openSession(session)`
-    - `location.href = codex_ipc.html?sessionId=<id>`
-    - `codex_ipc.js` 解析 `sessionId`
-    - 先拉取 session metadata 渲染 header
-    - 再 `connectWs()` 建立 IPC 页面实时同步
-  - **打开已有 Terminal 会话**
-    - 用户点击列表项 `打开`
-    - `location.href = terminal.html?sessionId=<id>`
-    - 终端页继续走既有逻辑
-  - **新建 Codex 会话**
-    - 打开创建 modal
-    - 选择 mode = `codex`
-    - 输入/选择 `cwd`
-    - `POST /api/sessions`
-    - 成功返回 session summary DTO
-    - 立即跳转到 `codex_ipc.html?sessionId=<id>`
-  - **新建 Terminal 会话**
-    - 打开创建 modal
-    - 选择 mode = `terminal`
-    - 不提交 `cwd`
-    - `POST /api/sessions`
-    - 成功后跳转到 `terminal.html?sessionId=<id>`
-  - **rename/delete**
-    - rename：弹出轻量 name 输入 → `PATCH /api/sessions/:id` → 成功后局部更新或整表刷新
-    - delete：确认弹窗 → `DELETE /api/sessions/:id` → 成功后从列表移除
-  - **workspace picker**
-    - 打开 picker modal
-    - `GET /api/workspace/picker/tree?path=...`
-    - 导航目录树
-    - 选择当前 path
-    - 回填 `createForm.cwd`
-- Compatibility:
-  - `/api/sessions` REST 不变；前端只消费已锁定字段，不假设新增服务端字段。
-  - `/api/workspace/picker/tree` 不变；前端只消费目录浏览能力。
-  - WebSocket gateway 不变；`codex_ipc.js` 继续走现有 `ws-ticket -> websocket` 连接流程。
-  - `terminal.html` 直接访问保留。
-  - `codex_ipc.html` 独立访问保留；即使从主页外部直接打开，只要带 `sessionId` 仍应可用。
-  - `codex_client.html`、`terminal_client.html`、`client.js` 均不触碰。
-  - Android App 完全不受影响；其交互仅作为设计参考，不共享运行时代码。
-- Risks and rollback:
-  - 主要风险 1：workspace picker API 在当前环境不可用
-    - 触发信号：`GET /api/workspace/picker/tree` 返回配置错误或越界错误
-    - 应对：picker modal 清晰报错；保留手动输入 cwd 作为降级路径
-  - 主要风险 2：`codex_ipc.html` header 改动误伤现有 IPC 页面布局
-    - 触发信号：conversation selector、surface、approval/plan/follower 区错位
-    - 应对：新增 header 与旧 status bar 分层，而不是重排原有 DOM 主体
-  - 主要风险 3：前端误假设 `/api/sessions` 返回“最近活跃时间”字段
-    - 触发信号：列表渲染出现 `undefined`、排序异常、文案错误
-    - 应对：实现中先检查字段是否存在；不存在时走无时间展示分支
-  - 主要风险 4：Codex 页只依赖 `session_info` 导致拿不到 `name/cwd`
-    - 触发信号：header 只有 sessionId 没有名称
-    - 应对：页面初始化时增加一次 `GET /api/sessions` 匹配当前 session metadata
-  - 主要风险 5：新主页文案若接入 i18n 可能扩大变更面
-    - 触发信号：必须和现有页面保持多语言一致
-    - 应对：先按 Conditional Files 接入最小新增 key；若本轮不做 i18n，也需确保中文硬编码只留在新增页面内
-  - 回滚方式：
-    - `index.html` 改回跳转 `terminal.html`
-    - 删除 `sessions.html`、`sessions.js`、`sessions.css`
-    - 去除 `codex_ipc.*` 的 header/返回链路增强
-- Validation strategy:
-  - **实现前静态核对**
-    - 对照 `src/routes/sessions.js`，确认 create/patch payload 不越界
-    - 对照 `src/routes/workspace.js`，确认 picker 只按目录树语义消费
-  - **浏览器手动 smoke 1：主页加载**
-    - 打开 `/`
-    - 确认跳到 `sessions.html`
-    - 列表可见，空态/错误态正常
-  - **浏览器手动 smoke 2：新建 Codex**
-    - 打开创建表单
-    - 切到 `codex`
-    - 看见 `cwd + Browse`
-    - 用 picker 选择路径或手工输入路径
-    - 创建成功后进入 `codex_ipc.html?sessionId=<id>`
-    - 确认返回按钮、session 名称、cwd、IPC/WS 状态、conversation selector、surface 均正常
-  - **浏览器手动 smoke 3：新建 Terminal**
-    - 切到 `terminal`
-    - 确认 `cwd` 容器隐藏
-    - 创建成功后进入 `terminal.html?sessionId=<id>`
-  - **浏览器手动 smoke 4：已有会话管理**
-    - 从主页打开已有 Codex / Terminal 会话
-    - 执行 rename
-    - 执行 delete
-    - 刷新列表确认状态一致
-  - **兼容性 smoke**
-    - 直接访问 `terminal.html`
-    - 直接访问 `codex_ipc.html?sessionId=<id>`
-    - 验证旧 `codex_client.html` 仍不受影响
-  - **无自动化新增要求**
-    - 本轮 scope 未允许 `tests/**`，因此不新增测试文件
-    - 但实现后应至少进行 browser-backed evidence；若后续发现前端行为复杂且高回归，再单独立项补测试
-  - **Lessons 对本轮的直接约束**
-    - 依据 `LESSONS.md` 中“不能只看表面文案”的经验，Codex smoke 必须验证实际 WebSocket/IPC 连接状态，而不是只看页面标题或 header
-    - 不对不存在的 repository-wide e2e 命令做假设
-- Open decisions:
-  - none
-- Handoff:
-  - 已完成详细实现方案规划；下一步执行 `/decompose-task`
+- Implementation Plan:
+  - Goal:
+    - 在现有 `terminal.html` 主入口和 drawer 模型内完成 Web 端 terminal/codex 会话统一管理；`codex_ipc.html` 接入同构 drawer 能力，形成从主页、终端页、Codex IPC 页都能创建/切换会话的主链路。
+    - 旧 `sessions.html` 独立主页方案不再作为实现目标；`sessions.js/css` 只作为共享会话管理 helper/style 使用。
+  - Architecture impact:
+    - 纯前端变更，不修改 `src/**`、`android/**`、`tests/**`，不改变 `/api/sessions`、`/api/workspace/picker/tree` 或 WebSocket gateway 契约。
+    - `public/terminal.html`：在现有 New Session modal 内补充 `sessionMode` 选择、Codex `cwd` 输入、Browse 入口；加载共享 `sessions.css/js`。
+    - `public/terminal.js`：保留 terminal PTY、server manager、history、keyboard bar 的现有职责；仅在 session list 和 create session 流程中接入 mode 分流。
+    - `public/codex_ipc.html`：把当前顶部“返回 sessions.html”入口替换为 menu/drawer 入口，并放置共享 drawer / create modal 所需容器；保留 IPC status bar、conversation selector、surface、approval、plan、follower panel。
+    - `public/codex_ipc.js`：保留 `connectWs()`、`handleMessage()`、`renderSurface()` 等 IPC 主干；只接入 session metadata、drawer 初始化、session 跳转和无 `sessionId` 保护。
+    - `public/sessions.js`：从独立页面脚本改造为共享 helper，暴露一个轻量全局对象（建议 `window.TermLinkSessions`），供 terminal/codex 两页初始化 drawer、create modal、picker、session list。
+    - `public/sessions.css`：从独立主页样式改造为 `.sessions-` 前缀的共享 drawer/modal/list/badge/picker 样式，不覆盖 terminal/codex IPC 既有布局。
+    - `public/index.html` 与 `public/sessions.html`：只在发现当前工作区仍指向独立页面时做条件式清理；不作为正式主入口继续演进。
+  - Technical approach:
+    - 共享 helper 采用原生 JS，不引入框架或构建步骤。
+    - `sessions.js` 建议导出：
+      - `initDrawer(options)`：初始化某个页面的会话 drawer。
+      - `refreshSessions()`：从 `GET /api/sessions` 刷新列表。
+      - `openCreateModal(defaultMode)`：打开新建会话 modal。
+      - `openSession(session)`：按 `sessionMode` 分流。
+      - `openWorkspacePicker(initialPath)`：通过 `/api/workspace/picker/tree` 浏览并回填 `cwd`。
+    - `options` 最小字段建议：
+      - `root`：drawer/modal 所在根节点。
+      - `currentSessionId`：当前页面 session id。
+      - `getBaseUrl()`：terminal 页使用现有 server manager 的 active server；codex IPC 页使用 same-origin。
+      - `onOpenTerminal(session)`：terminal 页内部 `switchSession(id)`；codex 页跳 `terminal.html?sessionId=<id>`。
+      - `onOpenCodex(session)`：跳 `codex_ipc.html?sessionId=<id>`。
+      - `onCreated(session)`：创建成功后的落点，按 mode 分流。
+      - `onNotice(message, level)`：terminal 页复用 `showNonBlockingNotice`，codex 页使用本页轻量状态提示。
+    - `terminal.js` 的最小改动：
+      - `loadSessions()` 渲染时读取 `s.sessionMode || 'terminal'`，增加 mode badge 和 cwd 显示。
+      - 点击 `codex` session 时设置 `location.href = 'codex_ipc.html?sessionId=' + encodeURIComponent(s.id)`。
+      - 点击 `terminal` session 时继续走 `switchSession(s.id)`。
+      - `createSessionOnActive()` 改为接收 `{ name, sessionMode, cwd }`，terminal payload 不带 `cwd`，codex payload 必带 `cwd`。
+      - 新建 modal 保留现有 target server select；新增 mode toggle，避免破坏多 server 选择行为。
+    - `codex_ipc.js` 的最小改动：
+      - 初始化时仍从 query 读取 `sessionId`；无 `sessionId` 时跳回 `terminal.html` 或打开 drawer 引导，而不是 `sessions.html`。
+      - session metadata 可以优先使用 `GET /api/sessions/:id`；若失败，再用 `GET /api/sessions` 查找，避免依赖 `session_info` 必带 `name/cwd`。
+      - drawer 切换到另一个 codex session 时直接 `location.href = 'codex_ipc.html?sessionId=<id>'`，不在当前 WS 上热切换，减少 IPC 状态交叉风险。
+    - `sessions.html` 清理策略：
+      - 若保留文件，建议只做轻量兼容跳转到 `terminal.html`；不再承载真实会话管理 UI。
+      - 若后续选择删除，需要在 `/decompose-task` 中作为独立清理步骤列出。
+  - Alternatives considered:
+    - 方案 A：改造 `sessions.js/css` 为共享 drawer/helper，并增强 `terminal.html` 与 `codex_ipc.html`。采用。原因是与当前主入口事实、锁定范围和用户确认方向一致，且不改服务端。
+    - 方案 B：继续维护独立 `sessions.html`。放弃。原因是会形成双入口，并与现有 `terminal.html` drawer 事实冲突。
+    - 方案 C：把所有会话逻辑直接写进 `terminal.js` 和 `codex_ipc.js`，不复用 `sessions.js`。放弃。原因是 terminal/codex 两页都会需要 list/create/delete/picker，重复会增加后续漂移。
+    - 方案 D：新增服务端 API 或修改 `/api/sessions` DTO。放弃。原因是当前 API 已满足目标，且 `src/**` 禁止修改。
+    - 方案 E：在 Codex 页内 iframe 嵌入 terminal drawer 或独立主页。放弃。原因是会引入滚动、焦点、WebSocket 状态和布局耦合问题。
+  - Data / state flow:
+    - `/` -> `index.html` -> `terminal.html`（若当前不是该行为，按 Conditional Files 修正）。
+    - terminal drawer -> `getBaseUrl()` -> `GET /api/sessions` -> render session list。
+    - terminal 点击 terminal session -> `switchSession(id)` -> terminal WS 重连 / URL replace。
+    - terminal 点击 codex session -> `codex_ipc.html?sessionId=<id>`。
+    - terminal 新建 terminal -> `POST /api/sessions { name, sessionMode:'terminal' }` -> `switchSession(created.id)`。
+    - terminal 新建 codex -> `POST /api/sessions { name, sessionMode:'codex', cwd }` -> `codex_ipc.html?sessionId=<id>`。
+    - codex IPC drawer -> same-origin `GET /api/sessions` -> render session list。
+    - codex 点击 terminal session -> `terminal.html?sessionId=<id>`。
+    - codex 点击 codex session -> `codex_ipc.html?sessionId=<id>`。
+    - workspace picker -> `GET /api/workspace/picker/tree?path=<path>` -> 目录导航 -> 回填 create modal 的 `cwd`。
+  - Compatibility:
+    - `terminal.html` 原有服务器管理、多 server 选择、PTY 输入、history、keyboard bar、native bridge 行为保持。
+    - `codex_ipc.html` 原有 IPC/WS 状态、conversation selector、surface、approval、plan、follower input 行为保持。
+    - `codex_ipc.html?sessionId=<id>` 直接访问继续可用。
+    - `codex_client.html`、`terminal_client.html`、`client.js`、`workspace.html` 不触碰。
+    - Android App 不受影响。
+    - `sessionMode`、`cwd`、`workspaceRoot`、`codexConfig` 等 DTO 字段只消费不改义。
+  - Risks and rollback:
+    - 风险 1：共享 helper 误接管 terminal 连接状态。控制方式：`sessions.js` 只管理 list/create/picker/open，terminal WS 仍由 `terminal.js` 管。
+    - 风险 2：Codex 页 drawer 与 IPC sticky status bar/follower input 冲突。控制方式：drawer 使用 overlay/fixed 层，IPC status bar 与 follower panel 结构不重排。
+    - 风险 3：active server 与 same-origin API 混淆。控制方式：terminal 页通过 `options.getBaseUrl()` 使用现有 active server；codex IPC 页只用 same-origin。
+    - 风险 4：旧 `sessions.html` 残留造成双入口。控制方式：仅允许兼容跳转或清理，不再放真实 UI。
+    - 回滚方式：恢复 `terminal.html` / `terminal.js` / `codex_ipc.html/js/css`，将 `sessions.js/css` 回退或移除共享 helper，必要时恢复 `index.html` 到任务前入口。
+  - Validation strategy:
+    - 静态核对：确认 diff 只落在 Allowed Files 和满足条件的 Conditional Files。
+    - Browser smoke 1：访问 `/`，确认进入 `terminal.html`，drawer 可打开。
+    - Browser smoke 2：terminal drawer 列出 terminal/codex session，mode badge 与 cwd 展示正确。
+    - Browser smoke 3：terminal 新建 terminal session，请求 payload 不带 `cwd`，成功后留在/切到 `terminal.html?sessionId=<id>`。
+    - Browser smoke 4：terminal 新建 codex session，`cwd + Browse` 正常，payload 带 `sessionMode:'codex'` 与 `cwd`，成功后进入 `codex_ipc.html?sessionId=<id>`。
+    - Browser smoke 5：codex IPC 页 drawer 可打开、可切换 terminal/codex session、可新建 codex session。
+    - Browser smoke 6：codex IPC 页 IPC/WS 状态、conversation selector、surface、approval/plan/follower input 不回归。
+    - Compatibility smoke：直接访问 `terminal.html`、`codex_ipc.html?sessionId=<id>`、旧 `codex_client.html`。
+    - External Documentation Gate：no-op。本轮只使用项目内既有 REST/WebSocket 契约和浏览器原生 API，不依赖第三方 library/framework/SDK/CLI/cloud current behavior。
+  - Open decisions:
+    - none
+  - Handoff:
+    - 实现方案已重新对齐 `frozen-scope`；下一步执行 `/decompose-task`。
 
 ## 审查问题队列
 
-- 当前来源：用户直接指令
+- 当前来源：`/review-current-task`
 - Finding ID：
-  - `RCF-20260616-001`
-    - Severity：minor
-    - Source：feature gap — 网页版缺少统一的会话管理入口
-    - Status：open
-    - File / symbol：`public/index.html`、`public/sessions.html`（新增）
-    - Failure scenario：网页版用户无法在统一主页管理会话（创建/切换/删除），Codex 页需独立输入 URL 访问
-    - Minimal fix direction：新增会话管理主页 + index 入口调整 + codex_ipc 返回导航
-    - Required test：browser manual smoke
-    - Handoff：`/lock-scope`
+  - `RCT-20260616-001`
+    - Severity：critical
+    - Source：architecture mismatch
+    - Status：resolved-in-current-task
+    - File / symbol：`docs/workflow/CURRENT_TASK.md`
+    - Failure scenario：任务包同时保留“独立 `sessions.html` 主页方案”和“以 `terminal.html` drawer 为主入口的修正方案”，导致当前任务不再是单一可执行目标
+    - Minimal fix direction：已移除独立主页作为主方案，回到 `terminal.html` / `codex_ipc.html` 共用 drawer 的单一路线，并重新锁定范围
+    - Required test：后续 `/decompose-task` + browser manual smoke
+    - Handoff：`/decompose-task`
 
 ## 传播治理记录
 
 - Propagation Check: not-required
-- 理由：纯前端 HTML/JS/CSS 改动，不触碰公共 API、schema、event、共享逻辑或 CONTRACTS.md 锁定项。
+- 理由：仅做前端页面与脚本增强；不触碰公共 API、schema、event 或 `CONTRACTS.md` 锁定项。
 
 ## 实施步骤
 
-- Decomposition status: complete
+- Decomposition status: ready
 - Current step: Step 1
-- Step policy: 一次只实现一个 step，每步绑定验证，不得跨步扩大文件集合。
-- Design decomposition:
-  - exploration：skip（Android `SessionsFragment` + `CodexActivity` 已确认交互基线）
-  - design implementation：Step 1-2（CSS + HTML 结构）；Step 3-4（JS 逻辑 + 入口调整）
-  - visual QA：Step 6（浏览器 smoke 独立收口）
-
-### Step 1 — 会话管理主页 CSS（sessions.css）
-
-- Objective：建立会话管理主页的视觉基线，复用现有 CSS 变量，定义卡片、badge、表单、按钮样式。
-- Files：`public/sessions.css`
-- Output：
-  - 页面级布局：品牌栏 + 会话列表 + 新建按钮 FAB
-  - Session card：flex row，左侧 mode icon + name/cwd，右侧操作按钮
-  - Mode badge：Codex 蓝色 / Terminal 灰色
-  - 新建表单：modal/overlay，mode toggle tabs，cwd 输入 + Browse 按钮
-  - 所有选择器 `.sessions-` 前缀，不影响旧页面
-- Verification：CSS 无语法错误，`.sessions-` 前缀隔离
-
-### Step 2 — 会话管理主页 HTML（sessions.html）
-
-- Objective：构建静态 DOM 结构。
-- Files：`public/sessions.html`
-- Output：
-  - `#sessions-brand` 品牌栏 + `#btn-new-session` 按钮
-  - `#sessions-list` 容器 + `#sessions-empty` 空状态
-  - `#new-session-modal`（hidden）：`#new-name` input + `#new-mode-codex`/`#new-mode-terminal` tabs + `#new-cwd-group`（codex 模式显示）+ `#new-cwd` input + `#btn-browse-cwd` + `#picker-tree` 容器 + `#btn-create` + `#btn-cancel`
-  - 加载 `sessions.css` + `sessions.js`
-- Verification：浏览器打开 `/sessions.html` → 静态结构可见；`/` 暂仍跳 terminal（Step 4 修复）
-
-### Step 3 — 会话管理逻辑（sessions.js）
-
-- Objective：连接 `/api/sessions` 和 `/api/workspace/picker/tree`，实现完整 CRUD + 目录浏览。
-- Files：`public/sessions.js`
-- Output：
-  - `loadSessions()`：`GET /api/sessions` → 渲染卡片列表
-  - Session card：name、mode badge、cwd、进入按钮
-  - `createSession(name, mode, cwd)`：`POST /api/sessions { name, sessionMode, cwd }` → 跳转目标页
-  - `renameSession(id, name)`：`PATCH /api/sessions/:id { name }`
-  - `deleteSession(id)`：`DELETE /api/sessions/:id`（确认后）
-  - Mode 切换：Codex → 显示 cwd + Browse；Terminal → 隐藏 cwd
-  - `browseCwd(path)`：`GET /api/workspace/picker/tree?path=<path>` → 渲染目录列表 → 点击目录填入 `#new-cwd`
-  - 创建成功：Codex → `codex_ipc.html?sessionId=`；Terminal → `terminal.html?sessionId=`
-  - 列表刷新按钮
-- Verification：浏览器 DevTools Network 面板确认 API 调用正确；创建 codex session → 正确跳转
-
-### Step 4 — 入口与返回导航调整
-
-- Objective：`index.html` 跳转到 sessions.html；Codex 页增加返回按钮和 session header。
-- Files：`public/index.html`、`public/codex_ipc.html`、`public/codex_ipc.js`
-- Output：
-  - `index.html`：`window.location.replace('sessions.html')`
-  - `codex_ipc.html` header：返回按钮（`← 返回会话列表`）+ session 名称 + IPC/WS 状态
-  - `codex_ipc.js`：解析 `?sessionId=`；`GET /api/sessions/:id` 获取 session 元信息渲染 header；无 `sessionId` 时跳回 `sessions.html`
-- Verification：访问 `/` → sessions.html；从 sessions 进入 codex 页 → header 显示 session 名 + 返回按钮可用；无 sessionId 时自动跳回
-
-### Step 5 — 集成验证与浏览器 smoke
-
-- Objective：端到端验证完整流程，确保旧页面不受影响。
-- Files：`docs/workflow/CURRENT_TASK.md`（写执行记录）
-- Output：
-  - 主页 → 会话列表渲染
-  - 新建 Codex session（选 cwd）→ 跳转 codex_ipc 页 → IPC 功能正常
-  - 新建 Terminal session → 跳转 terminal 页
-  - 重命名 / 删除 session
-  - 返回按钮链路正确
-  - 旧页面：`terminal.html` 直接访问可用、`codex_ipc.html` 独立访问可用、`codex_client.html` 不受影响
-- Verification：浏览器 manual smoke 全路径 + DevTools console 无 error
+- Step policy:
+  - 一步一验；每步只服务当前子目标。
+  - 禁止恢复旧独立 `sessions.html` 主页路线。
+  - 每步完成后必须先同步本章节执行状态，再进入 review / regression 链。
+  - 若任一步发现必须修改 `src/**`、`android/**`、`tests/**` 或未列入范围文件，立即停止并重新 `/lock-scope`。
+- Suggested execution order:
+  - Step 1 -> Step 2 -> Step 3 -> Step 4 -> Step 5 -> Step 6 -> Step 7
+- Steps:
+  - Step 1: 设计基线与入口残留核对
+    - Type: design exploration / compatibility cleanup planning
+    - Goal: 确认实现前的页面入口事实、旧独立主页残留和共享样式接入点，明确本轮按现有 design-system 执行，不再探索新视觉方向。
+    - Inputs:
+      - `public/index.html`
+      - `public/terminal.html`
+      - `public/codex_ipc.html`
+      - `public/sessions.html`（仅当存在）
+      - `docs/workflow/TECHNICAL_DETAILS-20260616-001-web-session-management-home-and-codex-integration.md`
+    - Allowed files for this step:
+      - `docs/workflow/CURRENT_TASK.md`
+      - 条件满足时的 `public/index.html`
+      - 条件满足时的 `public/sessions.html`
+    - Implementation notes:
+      - 核对 `/` 当前是否仍落到 `terminal.html`；若已被误改到 `sessions.html`，恢复为 `terminal.html`。
+      - 核对 `sessions.html` 是否存在旧独立主页实现；若存在，只允许删除真实 UI 或改成轻量兼容跳转到 `terminal.html`，不得继续演进。
+      - 不改 `terminal.js`、`codex_ipc.js`、`sessions.js/css`。
+    - Output:
+      - 入口行为与旧残留处理完成，或记录“无需变更”。
+    - Independent verification:
+      - 静态检查 `index.html` 不再把根路径引向独立 `sessions.html`。
+      - 静态检查 `sessions.html` 不再承载正式会话管理主 UI。
+    - Handoff on success:
+      - `/implement-current-step` for Step 2
+  - Step 2: 共享 `sessions.js/css` helper 骨架
+    - Type: implementation
+    - Goal: 把 `sessions.js/css` 收敛为可被 terminal/codex 两页复用的会话 drawer / create modal / workspace picker helper，不绑定具体页面 runtime。
+    - Inputs:
+      - `public/sessions.js`
+      - `public/sessions.css`
+      - `src/routes/sessions.js`（只读契约参考）
+      - `src/routes/workspace.js`（只读契约参考）
+      - 技术细节文档中的 helper API 建议
+    - Allowed files for this step:
+      - `public/sessions.js`
+      - `public/sessions.css`
+      - `docs/workflow/CURRENT_TASK.md`
+    - Implementation notes:
+      - 暴露 `window.TermLinkSessions.initDrawer(options)`，不引入框架或构建步骤。
+      - helper 只负责 session list / create / delete / picker / open 分流回调，不负责 terminal WS、Codex IPC WS 或 server manager。
+      - API base 通过 `options.getBaseUrl()` 取得；terminal 页可走 active server，codex 页走 same-origin。
+      - 样式使用 `.sessions-` 前缀，避免覆盖 `terminal.html` 和 `codex_ipc.html` 既有布局。
+    - Output:
+      - 可独立初始化但尚未强接入页面主流程的共享 helper。
+    - Independent verification:
+      - 静态检查不存在对 `switchSession`、`connectWs`、`currentSessionId` 等页面私有符号的硬依赖。
+      - 静态检查所有新增共享样式以 `.sessions-` 或明确的 drawer/modal 根选择器收敛。
+    - Handoff on success:
+      - `/implement-current-step` for Step 3
+  - Step 3: `terminal.html/js` 接入统一会话创建与分流
+    - Type: implementation
+    - Goal: 在现有 terminal drawer 和新建会话 modal 内补齐 `terminal/codex` mode 选择、Codex `cwd + Browse`、会话列表 mode badge 和点击分流。
+    - Inputs:
+      - `public/terminal.html`
+      - `public/terminal.js`
+      - `public/sessions.js`
+      - `public/sessions.css`
+    - Allowed files for this step:
+      - `public/terminal.html`
+      - `public/terminal.js`
+      - `docs/workflow/CURRENT_TASK.md`
+    - Conditional files for this step:
+      - `public/i18n/i18n.js`
+      - `public/i18n/en.json`
+      - `public/i18n/zh-CN.json`
+      - 条件：仅当 terminal 新增文案必须接入现有 i18n 机制；只允许追加 key，不改旧 key 语义。
+    - Implementation notes:
+      - 保留现有 server manager、PTY 输入、history、keyboard bar、native bridge。
+      - `loadSessions()` 渲染 `sessionMode` badge；`codex` session 点击跳 `codex_ipc.html?sessionId=<id>`；`terminal` session 继续 `switchSession(id)`。
+      - `createSessionOnActive()` 接 `{ name, sessionMode, cwd }`；terminal payload 不带 `cwd`，codex payload 必带 `cwd`。
+      - Browse 调用共享 helper 的 workspace picker 或等价页面内接入，不改 `/api/workspace/picker/tree` 语义。
+    - Output:
+      - terminal 主入口可创建 terminal/codex 会话并按 mode 分流。
+    - Independent verification:
+      - 静态检查 terminal 创建 codex 的 payload 包含 `sessionMode:'codex'` 与 `cwd`。
+      - 静态检查 terminal 创建 terminal 的 payload 不强制 `cwd`。
+      - 静态检查 `terminal` session 仍调用 `switchSession`，`codex` session 才跳 `codex_ipc.html`。
+    - Handoff on success:
+      - `/implement-current-step` for Step 4
+  - Step 4: `codex_ipc.html/js/css` 接入同构 drawer 与 metadata header
+    - Type: implementation
+    - Goal: 让 Codex IPC 页具备与主入口一致的 drawer/toggle、新建会话、会话切换和当前 session metadata 展示，同时保持 IPC 实时同步主干不变。
+    - Inputs:
+      - `public/codex_ipc.html`
+      - `public/codex_ipc.js`
+      - `public/codex_ipc.css`
+      - `public/sessions.js`
+      - `public/sessions.css`
+    - Allowed files for this step:
+      - `public/codex_ipc.html`
+      - `public/codex_ipc.js`
+      - `public/codex_ipc.css`
+      - `docs/workflow/CURRENT_TASK.md`
+    - Implementation notes:
+      - 替换当前返回 `sessions.html` 的顶部入口为 drawer toggle。
+      - 无 `sessionId` 时跳 `terminal.html` 或显示 drawer 引导，不再跳 `sessions.html`。
+      - session metadata 优先通过既有 sessions API 获取；失败时使用列表 fallback。
+      - 切换另一个 codex session 用整页跳转，不在当前 IPC WebSocket 上热切换。
+      - 不重写 `connectWs()`、`handleMessage()`、`renderSurface()`、approval / plan / follower 主流程。
+    - Output:
+      - Codex IPC 页可打开 drawer、查看/切换/新建会话，并显示当前 session 名称、cwd 与 IPC/WS 状态。
+    - Independent verification:
+      - 静态检查 `codex_ipc.html/js` 不再把主返回入口指向 `sessions.html`。
+      - 静态检查 Codex IPC 的 WebSocket 初始化仍以 query `sessionId` 为主。
+      - 静态检查 drawer/fixed overlay 不重排 IPC surface、composer、follower panel 的主 DOM。
+    - Handoff on success:
+      - `/implement-current-step` for Step 5
+  - Step 5: 跨页行为收口与旧入口兼容清理
+    - Type: implementation / compatibility cleanup
+    - Goal: 把 terminal 与 codex 页的共享 helper 初始化、入口跳转、旧 `sessions.html` 兼容策略和直接访问行为收口到一致状态。
+    - Inputs:
+      - Step 1-4 的实现结果
+      - `public/index.html`
+      - `public/sessions.html`
+      - `public/terminal.html/js`
+      - `public/codex_ipc.html/js/css`
+      - `public/sessions.js/css`
+    - Allowed files for this step:
+      - `public/terminal.html`
+      - `public/terminal.js`
+      - `public/codex_ipc.html`
+      - `public/codex_ipc.js`
+      - `public/codex_ipc.css`
+      - `public/sessions.js`
+      - `public/sessions.css`
+      - `docs/workflow/CURRENT_TASK.md`
+    - Conditional files for this step:
+      - `public/index.html`
+      - `public/sessions.html`
+      - `public/style.css`
+      - 条件：仅为清理旧误入口、兼容跳转或共享变量接入；不得新增平行主页或全局视觉重构。
+    - Implementation notes:
+      - 确保 `terminal.html` 与 `codex_ipc.html` 都加载必要的共享 helper/style，且不会重复初始化。
+      - 统一 open behavior：terminal -> `switchSession`；codex -> `codex_ipc.html?sessionId=`；跨页 terminal/codex 跳转清晰。
+      - 如果 `sessions.html` 保留，只做兼容跳转或说明，不承载正式 UI。
+    - Output:
+      - 主入口、terminal 页、codex IPC 页与旧入口兼容行为一致。
+    - Independent verification:
+      - 静态 grep 确认没有新的正式入口把用户导向 `sessions.html`。
+      - 静态检查 shared helper 初始化在两页具备各自 `getBaseUrl` / open callbacks。
+    - Handoff on success:
+      - `/implement-current-step` for Step 6
+  - Step 6: 浏览器功能 smoke
+    - Type: regression / behavior QA
+    - Goal: 用本地浏览器验证主路径 create / switch / browse / delete / IPC 状态不回归。
+    - Inputs:
+      - Step 1-5 的实现结果
+      - 本地开发服务
+    - Allowed files for this step:
+      - `docs/workflow/CURRENT_TASK.md`
+    - Implementation notes:
+      - 本步不做产品代码编辑；若发现问题，记录 finding 并回到对应实现步骤修复。
+      - 覆盖 `/`、`terminal.html`、`codex_ipc.html?sessionId=<id>` 直接访问。
+      - 覆盖 terminal 新建 terminal、terminal 新建 codex、Browse 选择目录、drawer 分流、删除会话、codex IPC 状态/selector/surface/composer/follower 不回归。
+    - Output:
+      - Browser smoke 证据与失败项记录。
+    - Independent verification:
+      - 手动或 Browser-backed smoke 记录 pass/fail。
+      - 若 fail，CURRENT_TASK 中记录失败步骤、复现路径和回退目标。
+    - Handoff on success:
+      - `/implement-current-step` for Step 7
+  - Step 7: 视觉 QA 与最终范围审查
+    - Type: visual QA / final review
+    - Goal: 独立检查移动端优先布局、drawer overlay、Codex IPC 主面板、anti-slop 与范围边界，确认任务可进入后续 review/regression/closeout。
+    - Inputs:
+      - Step 6 smoke 结果
+      - 当前 git diff
+    - Allowed files for this step:
+      - `docs/workflow/CURRENT_TASK.md`
+    - Implementation notes:
+      - 本步不做产品代码编辑；若视觉或行为问题明确，记录 finding 并返回对应实现步骤修复。
+      - 检查 mobile/desktop 宽度下 drawer、modal、picker、header/status、composer/follower 是否遮挡或漂移。
+      - 检查 diff 仅包含 Allowed Files 或满足条件的 Conditional Files。
+    - Output:
+      - 视觉 QA 与 scope review 结果，当前任务状态可推进到实现审查链。
+    - Independent verification:
+      - Browser 截图或人工视觉记录。
+      - `git diff --name-only` 范围核对。
+    - Handoff on success:
+      - `/review-diff`
+- Next required handoff:
+  - `/implement-current-step` for Step 1
 
 ## 回归检查项
 
-- 回归检查项待 `/decompose-task` 后确定。预期覆盖：
-  - `Codex` 模式下 `cwd` 区块显隐与 Browse 目录选择正常
-  - `Terminal` 模式下不显示 `cwd` 区块且创建请求不依赖 `cwd`
-  - `terminal.html` 直接访问仍可用
-  - `codex_ipc.html` 独立访问仍可用
-  - `codex_client.html` 不受影响
-  - `/api/sessions` CRUD 在网页端可用
-  - Android App 不受影响
-  - Browser manual smoke（创建/切换/删除 session + Codex IPC 功能）
+- `terminal.html` 仍是根路径主入口
+- `terminal` / `codex` 会话在统一 drawer 中可见且可分流
+- `codex` 新建会话具备 `cwd + Browse`
+- `terminal` 新建会话不要求 `cwd`
+- `codex_ipc.html` 独立访问仍可用
+- `terminal.html` 既有 PTY 与服务器管理不受影响
+- Browser manual smoke 覆盖 create / switch / delete / codex IPC 状态
 
 ## 回滚点
 
@@ -657,52 +568,17 @@ Forbidden Files:
 - Last reviewed checkpoint：not-yet-created
 - Current diff review target：working-tree
 - 回滚策略：
-  - 还原 `index.html` 跳转到 `terminal.html`
-  - 删除 `sessions.html`、`sessions.js`、`sessions.css`
-  - 还原 `codex_ipc.html/js` 的微调
-
-## 架构修正 Bug（Playwright 观察 `terminal.html` 后确认）
-
-### 发现
-
-`terminal.html` 已有完整的 ☰ drawer 模式：
-- ☰ 按钮 → 打开 drawer 面板，内含：TermLink 品牌名、服务器列表、**会话列表（含 name + × 删除按钮）**、"+ 添加服务器" 按钮
-- 顶部栏：☰ | TermLink | ⚙️ | "+"
-- 终端区：input + output + keyboard bar
-
-**当前错误实现**：
-- `sessions.html` 是独立会话管理页 → **多余**（drawer 已有会话列表）
-- `sessions.js` CRUD 在独立页中 → **应整合进 drawer**
-- `codex_ipc.html` 无 drawer → **无法切换会话**
-- `index.html` 跳转到 `sessions.html` → **破坏了 terminal.html 作为主入口的架构**
-
-### 修正方案
-
-| ID | Severity | 修正 | 文件 |
-|---|---|---|---|
-| **AF1** | critical | `index.html` 恢复跳转 `terminal.html` | `index.html` |
-| **AF2** | critical | `sessions.html` 删除——drawer 已承担会话管理 | `sessions.html`（删除） |
-| **AF3** | critical | `codex_ipc.html` 加 ☰ drawer（含会话列表 + mode badge + 新建 modal） | `codex_ipc.html/js/css` |
-| **AF4** | major | terminal.html drawer 会话列表增强：mode badge + codex session 点击跳转 `codex_ipc.html?sessionId=` + 新建 codex 会话入口（cwd + Browse） | `terminal.html`（对应的 JS 文件） |
-| **AF5** | major | `sessions.js` CRUD + picker 逻辑改造为 shared drawer 组件，供 terminal 和 codex_ipc 共用 | `sessions.js/css` |
-| **AF6** | minor | `codex_ipc.html` session header 返回按钮 → 改为 ☰ drawer toggle | `codex_ipc.html/js` |
-
-### Recommended Route: `current_task_owned`
-
-所有修正均在 Allowed Files 内（`index.html`、`codex_ipc.html/js/css`、`sessions.js/css`、`terminal.html`（条件允许））。`sessions.html` 删除。
+  - 恢复 `terminal.html` / `terminal.js` / `codex_ipc.html/js/css`
+  - 清理误实现的独立会话主页残留
 
 ## 执行记录
 
-- 2026-06-16：用户直接指令创建任务包 `20260616-001`。基于 `20260615-002` 交付的 IPC Codex 页 + Android App 交互参照，构建网页版统一会话管理主页并整合 Codex 会话页。纯前端任务。初始状态 `draft_ready_for_review_current_task`。
-- 2026-06-16：完成 `/review-current-task`。审查结论：未触发 stop condition。当前状态推进为 `reviewed_ready_for_lock_scope`。
-- 2026-06-16：完成 `/lock-scope`。Safety mode `normal`（纯前端新增/微调，不改服务端）。Allowed 8 文件，Conditional 5 项，Forbidden 明确。Design open decisions 收敛为无（已按 Android 基线对齐）。当前状态 `scope_locked_ready_for_plan_implementation`，下一步 `/plan-implementation`。
-- 2026-06-16：完成 `/plan-implementation`。已将实现方案扩写为可直接指导编码的详细技术计划，覆盖文件职责、DOM 结构、前端状态模型、REST payload、workspace picker 交互、Codex IPC 页 header 增量方案、风险与验证路径，并明确 External Documentation Gate = no-op。按当前 skill 写入约束，本轮未新增独立技术文档，而是将可执行技术细节内嵌到 `CURRENT_TASK.md > 实现方案`。当前状态推进为 `planned_ready_for_decompose_task`，下一步 `/decompose-task`。
-- 2026-06-16：按用户要求重新执行 `/lock-scope` widening。新增允许文件：本任务专用技术实现指导文档 `docs/workflow/TECHNICAL_DETAILS-20260616-001-web-session-management-home-and-codex-integration.md` 与 `.codex/skills/workflow-system-plan-implementation/SKILL.md`。目的：允许 `plan-implementation` 生成独立技术细节文档，同时把权限约束收窄到 task-scoped 文档路径。
-- 2026-06-16：已更新 `.codex/skills/workflow-system-plan-implementation/SKILL.md` + 新增本任务专用 `TECHNICAL_DETAILS` 文档。`/sync-host-guidance` no-op。
-- 2026-06-16：完成 `/decompose-task`。已拆为 5 步：sessions.css（Step 1）→ sessions.html（Step 2）→ sessions.js CRUD + workspace picker（Step 3）→ index.html 入口 + codex_ipc 返回导航（Step 4）→ 集成 smoke（Step 5）。Design exploration 跳过（Android 基线已确认），visual QA 独立在 Step 5。每步绑定文件、输出和验证。当前状态 `decomposed_ready_for_step1`，下一步 `/implement-current-step`。
-- 2026-06-16：完成 Step 1（sessions.css）。已创建 `public/sessions.css`：48 个 `.sessions-` 前缀选择器。当前状态 `step1_completed_ready_for_step2`。
-- 2026-06-16：完成 Step 2（sessions.html）。已创建 `public/sessions.html`（3224 bytes）。验证：HTTP 200。当前状态 `step2_completed_ready_for_step3`。
-- 2026-06-16：完成 Step 3（sessions.js）。`loadSessions/createSession/startRename/deleteSession/browsePicker` 全部实现。当前状态 `step3_completed_ready_for_step4`。
-- 2026-06-16：完成 Step 4（入口 + 返回导航）。当前状态 `step4_completed_ready_for_step5`。
-- 2026-06-16：完成 Step 5（集成验证与浏览器 smoke）。全页面验证通过。当前状态 `step5_completed_all_implementation_done`。
-- 2026-06-16：用户指出架构错误。Playwright 观察 `terminal.html` 发现：**terminal.html 已有完整的 ☰ drawer**（含会话列表 + × 删除按钮 + 服务器列表 + ⚙️ 设置 + "+" 按钮）。`sessions.html` 作为独立会话管理页是多余的重复页面，与 Android App "session page 为主体 + drawer 管理" 的模型不符。详见 `## 架构修正 Bug（Playwright 观察）`。
+- 2026-06-16：用户直接指令创建任务包 `20260616-001`，目标是把 Codex 会话页整合进网页主链路。
+- 2026-06-16：首轮 `/review-current-task`、`/lock-scope`、`/plan-implementation` 已完成，但当时误把“统一入口”收敛成独立 `sessions.html` 主页。
+- 2026-06-16：按用户要求放宽了 task-scoped 技术细节文档与 `plan-implementation` skill 的写入能力，并新增 `TECHNICAL_DETAILS` 补充件。
+- 2026-06-16：后续旧 `/decompose-task` 与步骤实现均建立在“独立 `sessions.html` 主页”前提上。
+- 2026-06-16：重新核对 `public/terminal.html` 后确认现有主入口事实与旧方案冲突：`terminal.html` 已有完整 drawer，会话管理不应被拆到新的平行主页。
+- 2026-06-16：本次 `/review-current-task` 已将任务包收敛为新的单一目标：保留 `terminal.html` 为主页主链路，改为增强 `terminal.html` 与 `codex_ipc.html` 的统一 drawer 能力；旧方案步骤与旧技术细节文档标记为 stale，下一步重新进入 `/lock-scope`。
+- 2026-06-16：完成重新 `/lock-scope`。本轮选择 `frozen-scope`：Allowed Files 收窄到 `terminal.html` / `terminal.js` / `codex_ipc.html/js/css` / `sessions.js/css` 与任务文档；`index.html`、`sessions.html`、i18n 与 `style.css` 仅保留条件式清理或接入权限；明确不允许静默扩大到 `src/**`、`android/**`、`tests/**`。下一步重新执行 `/plan-implementation`。
+- 2026-06-16：完成重新 `/plan-implementation`。已将实现方案改为 `terminal.html` / `codex_ipc.html` 共用 drawer + `sessions.js/css` 共享 helper 路线，并重写本任务 `TECHNICAL_DETAILS` 文档；External Documentation Gate = no-op。当前状态 `planned_ready_for_decompose_task`，下一步 `/decompose-task`。
+- 2026-06-16：完成重新 `/decompose-task`。已按新方案拆为 7 个一验一步的执行步骤：设计基线与旧入口核对、共享 helper 骨架、terminal 接入、codex IPC 接入、跨页兼容收口、浏览器功能 smoke、视觉 QA 与最终范围审查。当前状态 `decomposed_ready_for_implement_current_step`，下一步 `/implement-current-step` 执行 Step 1。

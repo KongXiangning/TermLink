@@ -4,6 +4,8 @@
   // ── DOM refs ──────────────────────────────────────────────────────────
   var $ = function (id) { return document.getElementById(id); };
 
+  var sessName   = $('session-name');
+  var sessCwd    = $('session-cwd');
   var wsStatus   = $('ws-status');
   var ipcStatus  = $('ipc-status');
   var convSel    = $('conv-selector');
@@ -489,6 +491,29 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
+
+  // ── session init ───────────────────────────────────────────────────────
+  (function initSession() {
+    var params = new URLSearchParams(location.search);
+    var sid = params.get('sessionId');
+    if (!sid) {
+      // No sessionId — redirect back to sessions page
+      location.replace('terminal.html');
+      return;
+    }
+    state.sessionId = sid;
+
+    // Fetch session meta for header display
+    fetch('/api/sessions/' + encodeURIComponent(sid), { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (s) {
+        sessName.textContent = s.name || sid;
+        if (s.cwd) { sessCwd.textContent = s.cwd; sessCwd.hidden = false; }
+      })
+      .catch(function () {
+        sessName.textContent = sid.slice(0, 8);
+      });
+  })();
 
   // ── start ──────────────────────────────────────────────────────────────
   connectWs();
