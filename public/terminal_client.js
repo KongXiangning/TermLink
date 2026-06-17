@@ -8452,21 +8452,41 @@ function handleConversationSurfaceSnapshot(envelope) {
         codexState.ipcBridge.preferred = false;
         return;
     }
-    // Map IPC snapshot status to Codex status display (F-004)
+
+    // Map IPC snapshot status to Codex status display (F-004 + completed/failed/waiting_for_input)
     if (surface.status) {
         var mappedStatus = 'idle';
         var mappedDetail = '';
         if (surface.status === 'running') {
             mappedStatus = 'running';
-        } else if (surface.status === 'error') {
+        } else if (surface.status === 'failed' || surface.status === 'error') {
             mappedStatus = 'error';
+            mappedDetail = surface.status;
         } else if (surface.status === 'waiting_for_approval') {
             mappedStatus = 'running';
             mappedDetail = 'waiting_for_approval';
+        } else if (surface.status === 'waiting_for_input') {
+            mappedStatus = 'running';
+            mappedDetail = 'waiting_for_input';
+        } else if (surface.status === 'completed' || surface.status === 'interrupted') {
+            mappedStatus = 'idle';
+            mappedDetail = surface.status;
         }
         setCodexStatus(mappedStatus, mappedDetail);
     }
-    // F-007: Clean up IPC-origin request cards from previous snapshot
+
+    // ── Full redraw (matching codex_ipc.js demo renderSurface pattern) ──
+
+    // 1. Clear all IPC-origin log entries
+    var logContainer = getCodexLogContainer();
+    if (logContainer) {
+        var ipcEntries = logContainer.querySelectorAll('[data-item-id^="ipc:"]');
+        for (var ei = 0; ei < ipcEntries.length; ei++) {
+            ipcEntries[ei].remove();
+        }
+    }
+
+    // 2. Clear IPC-origin request cards
     codexState.requestStateById.forEach(function(requestState, requestId) {
         if (requestState && requestState.ipcTransport && requestState.ipcConversationId === convId) {
             if (requestState.entry && requestState.entry.isConnected) {
@@ -8475,66 +8495,28 @@ function handleConversationSurfaceSnapshot(envelope) {
             codexState.requestStateById.delete(requestId);
         }
     });
-    // F-007: Clean up IPC-origin plan workflow if snapshot no longer has pendingPlanAction
-    if (codexState.ipcBridge.ipcPlanWorkflowActive && !surface.pendingPlanAction) {
-        var planPhase = codexState.planWorkflow.phase;
-        if (planPhase === 'plan_ready_for_confirmation' || planPhase === 'planning' || planPhase === 'awaiting_user_input') {
-            setPlanWorkflowState(buildEmptyPlanWorkflowState());
-        }
+
+    // 3. Clear IPC-origin plan workflow
+    if (codexState.ipcBridge.ipcPlanWorkflowActive) {
+        setPlanWorkflowState(buildEmptyPlanWorkflowState());
         codexState.ipcBridge.ipcPlanWorkflowActive = false;
     }
+
+    // 4. Reset projection tracking
+    codexState.ipcBridge.projectedItemKeys.clear();
+    codexState.ipcBridge.projectedItemTextByKey.clear();
     codexState.ipcBridge.pendingApproval = null;
     codexState.ipcBridge.pendingPlanAction = null;
     codexState.ipcBridge.pendingGoalAction = null;
-    if (surface.pendingApproval) {
-        codexState.ipcBridge.pendingApproval = surface.pendingApproval;
-        var approvalEnv = {
-            requestId: surface.pendingApproval.requestId || surface.pendingApproval.id || '',
-            method: surface.pendingApproval.method || 'item/commandExecution/requestApproval',
-            requestKind: 'command',
-            responseMode: 'confirm',
-            handledBy: 'client',
-            summary: surface.pendingApproval.description || surface.pendingApproval.title || '',
-            params: { command: surface.pendingApproval.command || '' }
-        };
-        if (approvalEnv.requestId) {
-            renderCodexServerRequest(approvalEnv, {
-                conversationId: convId,
-                ipcRequestId: approvalEnv.requestId
-            });
-        }
-    }
-    if (surface.pendingPlanAction) {
-        codexState.ipcBridge.pendingPlanAction = surface.pendingPlanAction;
-        var planText = surface.pendingPlanAction.planContent || surface.pendingPlanAction.description || '';
-        if (planText) {
-            setPlanWorkflowState({
-                phase: 'plan_ready_for_confirmation',
-                originalPrompt: '',
-                latestPlanText: planText,
-                confirmedPlanText: planText,
-                lastUserInputRequestId: ''
-            });
-            codexState.ipcBridge.ipcPlanWorkflowActive = true;
-        }
-    }
-    if (surface.pendingGoalAction) {
-        codexState.ipcBridge.pendingGoalAction = surface.pendingGoalAction;
-    }
+
+    // 5. Full rebuild from snapshot items
     var items = surface.items || [];
     for (var i = 0; i < items.length; i++) {
         var item = items[i];
         if (!item) continue;
-        var key = item.id || item.itemId || item.key || ('idx:' + i);
+        var key = item.key || item.id || item.itemId || ('idx:' + i);
         var stableKey = 'ipc:' + convId + ':' + key;
-        if (codexState.ipcBridge.projectedItemKeys.has(stableKey)) {
-            var existingText = codexState.ipcBridge.projectedItemTextByKey.get(stableKey);
-            if (existingText === item.text) continue;
-            var role = item.role === 'user' ? 'user' : 'assistant';
-            setCodexLogEntryText(role, stableKey, item.text || '');
-            codexState.ipcBridge.projectedItemTextByKey.set(stableKey, item.text || '');
-            continue;
-        }
+
         if (item.kind === 'message') {
             var role = item.role === 'user' ? 'user' : 'assistant';
             var logMeta = { itemId: stableKey };
@@ -8580,8 +8562,50 @@ function handleConversationSurfaceSnapshot(envelope) {
                 });
             }
         }
+
         codexState.ipcBridge.projectedItemKeys.add(stableKey);
         codexState.ipcBridge.projectedItemTextByKey.set(stableKey, item.text || '');
+    }
+
+    // 6. Process surface.pendingApproval (interactive)
+    if (surface.pendingApproval) {
+        codexState.ipcBridge.pendingApproval = surface.pendingApproval;
+        var approvalEnv = {
+            requestId: surface.pendingApproval.requestId || surface.pendingApproval.id || '',
+            method: surface.pendingApproval.method || 'item/commandExecution/requestApproval',
+            requestKind: 'command',
+            responseMode: 'confirm',
+            handledBy: 'client',
+            summary: surface.pendingApproval.description || surface.pendingApproval.title || '',
+            params: { command: surface.pendingApproval.command || '' }
+        };
+        if (approvalEnv.requestId) {
+            renderCodexServerRequest(approvalEnv, {
+                conversationId: convId,
+                ipcRequestId: approvalEnv.requestId
+            });
+        }
+    }
+
+    // 7. Process surface.pendingPlanAction
+    if (surface.pendingPlanAction) {
+        codexState.ipcBridge.pendingPlanAction = surface.pendingPlanAction;
+        var planText = surface.pendingPlanAction.planContent || surface.pendingPlanAction.description || '';
+        if (planText) {
+            setPlanWorkflowState({
+                phase: 'plan_ready_for_confirmation',
+                originalPrompt: '',
+                latestPlanText: planText,
+                confirmedPlanText: planText,
+                lastUserInputRequestId: ''
+            });
+            codexState.ipcBridge.ipcPlanWorkflowActive = true;
+        }
+    }
+
+    // 8. Process surface.pendingGoalAction
+    if (surface.pendingGoalAction) {
+        codexState.ipcBridge.pendingGoalAction = surface.pendingGoalAction;
     }
 }
 
