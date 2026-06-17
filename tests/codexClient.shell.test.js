@@ -466,3 +466,203 @@ test('terminal client includes the active thread id when sending normal codex tu
         /const payload = \{[\s\S]*type: 'codex_turn'[\s\S]*text: finalText[\s\S]*threadId:\s*codexState\.threadId \|\| undefined[\s\S]*forceNewThread: !!opts\.forceNewThread/
     );
 });
+
+// ── Step 5: IPC data routing static assertions ────────────────────────────
+
+test('IPC: terminal_client.js registers IPC envelope handlers on the WebSocket message dispatch', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    // IPC handlers must exist as function definitions
+    assert.match(js, /function handleCodexIpcStatus\(/, 'handleCodexIpcStatus must be defined');
+    assert.match(js, /function handleCodexIpcConversations\(/, 'handleCodexIpcConversations must be defined');
+    assert.match(js, /function selectCodexIpcConversation\(/, 'selectCodexIpcConversation must be defined');
+    assert.match(js, /function handleConversationSurfaceSnapshot\(/, 'handleConversationSurfaceSnapshot must be defined');
+    assert.match(js, /function handleCodexIpcFollowerAck\(/, 'handleCodexIpcFollowerAck must be defined');
+    assert.match(js, /function handleCodexIpcGatewayError\(/, 'handleCodexIpcGatewayError must be defined');
+
+    // IPC envelope types must be consumed in ws.onmessage dispatch
+    assert.match(js, /envelope\.type\s*===\s*['"]codex_ipc_status['"]/, 'codex_ipc_status envelope must be dispatched');
+    assert.match(js, /envelope\.type\s*===\s*['"]codex_ipc_conversations['"]/, 'codex_ipc_conversations envelope must be dispatched');
+    assert.match(js, /envelope\.type\s*===\s*['"]conversation_surface_snapshot['"]/, 'conversation_surface_snapshot envelope must be dispatched');
+});
+
+test('IPC: follower_send_message and set_active_conversation envelope builders exist', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    // Outbound IPC envelope types
+    assert.match(js, /type:\s*['"]follower_send_message['"]/, 'follower_send_message envelope must exist');
+    assert.match(js, /type:\s*['"]set_active_conversation['"]/, 'set_active_conversation envelope must exist');
+    assert.match(js, /type:\s*['"]follower_approval_response['"]/, 'follower_approval_response envelope must exist');
+    assert.match(js, /type:\s*['"]follower_plan_response['"]/, 'follower_plan_response envelope must exist');
+});
+
+test('IPC: shouldSendCodexViaIpcFollower guard enforces all six preconditions', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    // The guard function must exist
+    assert.match(js, /function shouldSendCodexViaIpcFollower\(\)/, 'shouldSendCodexViaIpcFollower must be defined');
+
+    // Must check online
+    assert.match(js, /if\s*\(!bridge\.online\)\s*return\s*false/, 'guard must check online');
+    // Must check preferred
+    assert.match(js, /if\s*\(!bridge\.preferred\)\s*return\s*false/, 'guard must check preferred');
+    // Must check activeConversationId
+    assert.match(js, /if\s*\(!bridge\.activeConversationId\)\s*return\s*false/, 'guard must check activeConversationId');
+    // Must check cooldown
+    assert.match(js, /Date\.now\(\)\s*<\s*bridge\.cooldownUntil/, 'guard must check cooldownUntil');
+    // Must check running/waiting_for_approval/blocked/offline status
+    assert.match(js, /status\s*===\s*['"]running['"]\s*\|\|\s*status\s*===\s*['"]waiting_for_approval['"]\s*\|\|\s*status\s*===\s*['"]blocked['"]\s*\|\|\s*status\s*===\s*['"]offline['"]/, 'guard must check blocked conversation statuses');
+});
+
+test('IPC: sendCodexFollowerMessage constructs correct envelope and handles send failure', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    assert.match(js, /function sendCodexFollowerMessage\(/, 'sendCodexFollowerMessage must be defined');
+    assert.match(js, /type:\s*['"]follower_send_message['"]/, 'payload must include follower_send_message type');
+    assert.match(js, /conversationId:\s*bridge\.activeConversationId/, 'payload must include conversationId');
+    assert.match(js, /input:\s*text/, 'payload must include input text');
+    // Must handle send failure by clearing pending marker
+    assert.match(js, /bridge\.pendingFollowerSend\s*=\s*null/, 'send failure must clear pendingFollowerSend');
+});
+
+test('IPC: handleCodexIpcStatus correctly reads online field and resets on offline', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    // Must read status.online
+    assert.match(js, /function handleCodexIpcStatus\(/, 'handleCodexIpcStatus must be defined');
+    assert.match(js, /status\.online/, 'must read status.online field');
+});
+
+test('IPC: handleCodexIpcGatewayError resets preferred and sets cooldown', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    assert.match(js, /function handleCodexIpcGatewayError\(/, 'handleCodexIpcGatewayError must be defined');
+    // Must reset preferred (uses codexState.ipcBridge.preferred = false)
+    assert.match(js, /ipcBridge\.preferred\s*=\s*false/, 'error handler must reset preferred');
+    // Must set cooldown
+    assert.match(js, /ipcBridge\.cooldownUntil\s*=\s*Date\.now\(\)\s*\+\s*\d+/, 'error handler must set cooldown');
+    // Must clear pending send
+    assert.match(js, /ipcBridge\.pendingFollowerSend\s*=\s*null/, 'error handler must clear pendingFollowerSend');
+});
+
+test('IPC: ipcBridge state includes all required fields initialized at declaration', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    assert.match(js, /ipcBridge:\s*\{/);
+    assert.match(js, /online:\s*false/);
+    assert.match(js, /preferred:\s*false/);
+    assert.match(js, /conversations:\s*\[\]/);
+    assert.match(js, /activeConversationId:\s*''/);
+    assert.match(js, /activeConversationStatus:\s*''/);
+    assert.match(js, /latestSurface:\s*null/);
+    assert.match(js, /projectedItemKeys:\s*new\s*Set\(\)/);
+    assert.match(js, /projectedItemTextByKey:\s*new\s*Map\(\)/);
+    assert.match(js, /pendingFollowerSend:\s*null/);
+    assert.match(js, /pendingApproval:\s*null/);
+    assert.match(js, /pendingPlanAction:\s*null/);
+    assert.match(js, /pendingGoalAction:\s*null/);
+    assert.match(js, /ipcPlanWorkflowActive:\s*false/);
+    assert.match(js, /cooldownUntil:\s*0/);
+});
+
+test('IPC: HTML and CSS files contain zero IPC-specific UI elements', () => {
+    const html = readPublicFile('codex_client.html');
+    const css = readPublicFile('terminal_client.css');
+
+    // No IPC panel, selector, status bar, badge, or conversation picker in HTML
+    assert.doesNotMatch(html, /ipc-panel|ipc-status|ipc-conversation|ipc-badge|ipc-selector|conversation-selector/i,
+        'HTML must not contain IPC-specific UI elements');
+    // No IPC-specific CSS rules
+    assert.doesNotMatch(css, /ipc-panel|ipc-status|ipc-conversation|ipc-badge|ipc-selector/i,
+        'CSS must not contain IPC-specific UI rules');
+});
+
+test('IPC: resetCodexIpcBridgeState clears all transient fields including ipcPlanWorkflowActive', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    assert.match(js, /function resetCodexIpcBridgeState\(/);
+    assert.match(js, /codexState\.ipcBridge\.online\s*=\s*false/);
+    assert.match(js, /codexState\.ipcBridge\.preferred\s*=\s*false/);
+    assert.match(js, /codexState\.ipcBridge\.activeConversationId\s*=\s*''/);
+    assert.match(js, /codexState\.ipcBridge\.latestSurface\s*=\s*null/);
+    assert.match(js, /codexState\.ipcBridge\.projectedItemKeys\.clear\(\)/);
+    assert.match(js, /codexState\.ipcBridge\.projectedItemTextByKey\.clear\(\)/);
+    assert.match(js, /codexState\.ipcBridge\.pendingFollowerSend\s*=\s*null/);
+    assert.match(js, /codexState\.ipcBridge\.pendingApproval\s*=\s*null/);
+    assert.match(js, /codexState\.ipcBridge\.pendingPlanAction\s*=\s*null/);
+    assert.match(js, /codexState\.ipcBridge\.pendingGoalAction\s*=\s*null/);
+    assert.match(js, /codexState\.ipcBridge\.ipcPlanWorkflowActive\s*=\s*false/);
+    assert.match(js, /codexState\.ipcBridge\.cooldownUntil\s*=\s*0/);
+});
+
+test('IPC: composer submit path includes IPC-first guard before legacy sendCodexTurn', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    // The IPC guard must be called before sendCodexTurn in the composer submit path
+    assert.match(js, /function handleCodexComposerSubmit\(/, 'handleCodexComposerSubmit must be defined');
+    // shouldSendCodexViaIpcFollower must be referenced in the composer submit flow
+    assert.match(js, /shouldSendCodexViaIpcFollower/, 'composer submit must reference shouldSendCodexViaIpcFollower guard');
+    // sendCodexFollowerMessage must be referenced
+    assert.match(js, /sendCodexFollowerMessage/, 'composer submit must reference sendCodexFollowerMessage');
+    // Legacy sendCodexTurn must still exist as fallback
+    assert.match(js, /function sendCodexTurn\(/, 'legacy sendCodexTurn must still exist');
+});
+
+test('IPC: snapshot handler projects plan_prompt, goal_prompt, and approval_request item kinds', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    // The snapshot handler must handle all item kinds for complete projection
+    assert.match(js, /item\.kind\s*===\s*['"]plan_prompt['"]/, 'snapshot handler must project plan_prompt items');
+    assert.match(js, /item\.kind\s*===\s*['"]goal_prompt['"]/, 'snapshot handler must project goal_prompt items');
+    assert.match(js, /item\.kind\s*===\s*['"]approval_request['"]/, 'snapshot handler must project approval_request items');
+});
+
+test('IPC: snapshot status is mapped to setCodexStatus for header display', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    // handleConversationSurfaceSnapshot must call setCodexStatus with mapped status
+    assert.match(js, /function handleConversationSurfaceSnapshot\(/, 'snapshot handler must be defined');
+    // The status mapping must call setCodexStatus inside the snapshot handler (after preferred check)
+    assert.match(js, /setCodexStatus\(mappedStatus,\s*mappedDetail\)/, 'snapshot must map status to setCodexStatus');
+});
+
+test('IPC: approval approve/reject handlers check sendCodexEnvelope return before marking submitted', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    // The IPC approve path must check the boolean return of sendCodexEnvelope
+    // Pattern: if (!sendCodexEnvelope({...type:'follower_approval_response'...decision:'accept'...})) { return; }
+    assert.match(js, /if\s*\(!sendCodexEnvelope\(\{[\s\S]*type:\s*['"]follower_approval_response['"][\s\S]*decision:\s*['"]accept['"]/, 'approve must check sendCodexEnvelope return');
+    // Pattern: if (!sendCodexEnvelope({...type:'follower_approval_response'...decision:'reject'...})) { return; }
+    assert.match(js, /if\s*\(!sendCodexEnvelope\(\{[\s\S]*type:\s*['"]follower_approval_response['"][\s\S]*decision:\s*['"]reject['"]/, 'reject must check sendCodexEnvelope return');
+});
+
+test('IPC: plan execute/cancel handlers check sendCodexEnvelope return before clearing pending state', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    // Plan execute IPC path must check return
+    assert.match(js, /if\s*\(!sendCodexEnvelope\(\{[\s\S]*type:\s*['"]follower_plan_response['"][\s\S]*input:\s*['"]是，实施此计划['"]/, 'plan execute must check sendCodexEnvelope return');
+    // Plan cancel IPC path must check return
+    assert.match(js, /if\s*\(!sendCodexEnvelope\(\{[\s\S]*type:\s*['"]follower_plan_response['"][\s\S]*input:\s*['"]取消['"]/, 'plan cancel must check sendCodexEnvelope return');
+});
+
+test('IPC: submitBlockingCommandApprovalDecision already checks sendCodexEnvelope for IPC transport', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    assert.match(js, /function submitBlockingCommandApprovalDecision\(/);
+    // Must check sendCodexEnvelope return for IPC path
+    assert.match(js, /requestState\.ipcTransport[\s\S]*if\s*\(!sendCodexEnvelope\(/, 'blocking approval must check sendCodexEnvelope return for IPC transport');
+});
+
+test('IPC: test hooks expose all IPC functions for integration testing', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    assert.match(js, /handleCodexIpcStatus,/);
+    assert.match(js, /handleCodexIpcConversations,/);
+    assert.match(js, /handleConversationSurfaceSnapshot,/);
+    assert.match(js, /handleCodexIpcFollowerAck,/);
+    assert.match(js, /handleCodexIpcGatewayError,/);
+    assert.match(js, /selectCodexIpcConversation,/);
+    assert.match(js, /resetCodexIpcBridgeState,/);
+    assert.match(js, /shouldSendCodexViaIpcFollower,/);
+    assert.match(js, /sendCodexFollowerMessage,/);
+});

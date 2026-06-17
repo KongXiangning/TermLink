@@ -893,7 +893,27 @@ const codexState = {
     pendingFreshThreadUiSnapshot: null,
     pendingFreshThreadTimeoutId: 0,
     lastTokenUsageLog: '',
-    lastRateLimitLog: ''
+    lastRateLimitLog: '',
+    ipcBridge: {
+        online: false,
+        preferred: false,
+        statusReason: '',
+        clientId: '',
+        conversations: [],
+        activeConversationId: '',
+        activeConversationStatus: '',
+        latestSurface: null,
+        latestSurfaceRevision: 0,
+        projectedItemKeys: new Set(),
+        projectedItemTextByKey: new Map(),
+        pendingFollowerSend: null,
+        pendingApproval: null,
+        pendingPlanAction: null,
+        pendingGoalAction: null,
+        ipcPlanWorkflowActive: false,
+        lastError: '',
+        cooldownUntil: 0
+    }
 };
 
 const viewportState = {
@@ -4285,6 +4305,31 @@ function resetCodexBootstrapState() {
     renderCodexToolsPanel();
     renderCodexCommandApprovalModal();
     renderCodexContextUsage();
+    resetCodexIpcBridgeState();
+}
+
+function resetCodexIpcBridgeState(options) {
+    var preserve = options && options.preserveConversations === true;
+    codexState.ipcBridge.online = false;
+    codexState.ipcBridge.preferred = false;
+    codexState.ipcBridge.statusReason = '';
+    codexState.ipcBridge.clientId = '';
+    if (!preserve) {
+        codexState.ipcBridge.conversations = [];
+    }
+    codexState.ipcBridge.activeConversationId = '';
+    codexState.ipcBridge.activeConversationStatus = '';
+    codexState.ipcBridge.latestSurface = null;
+    codexState.ipcBridge.latestSurfaceRevision = 0;
+    codexState.ipcBridge.projectedItemKeys.clear();
+    codexState.ipcBridge.projectedItemTextByKey.clear();
+    codexState.ipcBridge.pendingFollowerSend = null;
+    codexState.ipcBridge.pendingApproval = null;
+    codexState.ipcBridge.pendingPlanAction = null;
+    codexState.ipcBridge.pendingGoalAction = null;
+    codexState.ipcBridge.ipcPlanWorkflowActive = false;
+    codexState.ipcBridge.lastError = '';
+    codexState.ipcBridge.cooldownUntil = 0;
 }
 
 function rejectPendingCodexBridgeRequests(message, code) {
@@ -5690,6 +5735,18 @@ function handleCodexComposerSubmit(rawText) {
     }
 
     if (parsed.kind !== 'slash') {
+        var isIpcPlainText = !inlineMentions.length
+            && !codexState.pendingImageInputs.length
+            && codexState.interactionState.planMode !== true
+            && !codexState.interactionState.activeSkill;
+
+        if (isIpcPlainText && shouldSendCodexViaIpcFollower()) {
+            if (sendCodexFollowerMessage(parsed.text || '')) {
+                setCodexStatus('running', 'starting turn');
+                return true;
+            }
+        }
+
         const collaborationMode = codexState.interactionState.planMode === true
             ? buildPlanCollaborationMode(codexState.nextTurnEffectiveCodexConfig)
             : null;
@@ -6078,7 +6135,7 @@ function reconcileCodexRequestStatesWithServerState(pendingRequests) {
     renderCodexCommandApprovalModal();
 }
 
-function renderCodexServerRequest(envelope) {
+function renderCodexServerRequest(envelope, ipcMeta) {
     const approvalApi = getCodexApprovalViewApi();
     const request = approvalApi && typeof approvalApi.normalizeApprovalRequest === 'function'
         ? approvalApi.normalizeApprovalRequest(envelope)
@@ -6098,7 +6155,15 @@ function renderCodexServerRequest(envelope) {
     }
 
     const existing = getCodexRequestState(requestId);
+    var useIpcTransport = ipcMeta && ipcMeta.conversationId;
+
     if (existing && ((existing.entry && existing.entry.isConnected) || existing.requestKind === 'command')) {
+        if (useIpcTransport && !existing.ipcConversationId) {
+            existing.ipcTransport = true;
+            existing.ipcConversationId = ipcMeta.conversationId;
+            existing.ipcRequestId = ipcMeta.ipcRequestId || requestId;
+            updateCodexRequestCard(existing);
+        }
         return;
     }
 
@@ -6281,7 +6346,10 @@ function renderCodexServerRequest(envelope) {
         ...request,
         entry,
         status: 'pending',
-        resolution: ''
+        resolution: '',
+        ipcTransport: useIpcTransport === true,
+        ipcConversationId: useIpcTransport ? ipcMeta.conversationId : '',
+        ipcRequestId: useIpcTransport ? (ipcMeta.ipcRequestId || requestId) : ''
     };
     setCodexRequestState(requestState);
     updateCodexRequestCard(requestState);
@@ -6295,6 +6363,25 @@ function renderCodexServerRequest(envelope) {
 
     if (approveBtn) {
         approveBtn.addEventListener('click', () => {
+            if (requestState.ipcTransport && requestState.ipcConversationId) {
+                if (!sendCodexEnvelope({
+                    type: 'follower_approval_response',
+                    conversationId: requestState.ipcConversationId,
+                    requestId: requestState.ipcRequestId || requestId,
+                    decision: 'accept'
+                })) {
+                    return;
+                }
+                markCodexRequestState(requestId, 'submitted', 'approved');
+                if (requestState.requestKind === 'userInput') {
+                    setPlanWorkflowState({
+                        ...codexState.planWorkflow,
+                        phase: 'planning',
+                        lastUserInputRequestId: requestId
+                    });
+                }
+                return;
+            }
             const result = requestState.responseMode === 'answers'
                 ? (approvalApi && typeof approvalApi.buildUserInputResult === 'function'
                     ? approvalApi.buildUserInputResult(requestState, questionSelections)
@@ -6317,6 +6404,21 @@ function renderCodexServerRequest(envelope) {
     }
 
     rejectBtn.addEventListener('click', () => {
+        if (requestState.ipcTransport && requestState.ipcConversationId) {
+            if (!sendCodexEnvelope({
+                type: 'follower_approval_response',
+                conversationId: requestState.ipcConversationId,
+                requestId: requestState.ipcRequestId || requestId,
+                decision: 'reject'
+            })) {
+                return;
+            }
+            markCodexRequestState(requestId, 'submitted', 'rejected');
+            if (requestState.requestKind === 'userInput') {
+                cancelPlanWorkflow();
+            }
+            return;
+        }
         if (requestState.responseMode === 'answers') {
             if (sendCodexEnvelope({
                 type: 'codex_server_request_response',
@@ -6344,6 +6446,18 @@ function submitBlockingCommandApprovalDecision(approved) {
     const requestState = getBlockingCodexCommandRequestState();
     if (!requestState) {
         return false;
+    }
+    if (requestState.ipcTransport && requestState.ipcConversationId) {
+        if (!sendCodexEnvelope({
+            type: 'follower_approval_response',
+            conversationId: requestState.ipcConversationId,
+            requestId: requestState.ipcRequestId || requestState.requestId,
+            decision: approved ? 'accept' : 'reject'
+        })) {
+            return false;
+        }
+        markCodexRequestState(requestState.requestId, 'submitted', approved ? 'approved' : 'rejected');
+        return true;
     }
     const approvalApi = getCodexApprovalViewApi();
     const result = approvalApi && typeof approvalApi.buildApprovalDecisionResult === 'function'
@@ -7304,6 +7418,33 @@ function connect() {
                     }
                     return;
                 }
+                if (envelope.type === 'codex_ipc_status') {
+                    handleCodexIpcStatus(envelope);
+                    return;
+                }
+                if (envelope.type === 'codex_ipc_conversations') {
+                    handleCodexIpcConversations(envelope);
+                    return;
+                }
+                if (envelope.type === 'conversation_surface_snapshot') {
+                    handleConversationSurfaceSnapshot(envelope);
+                    return;
+                }
+                if (envelope.type === 'follower_message_sent' || envelope.type === 'follower_approval_response_sent' || envelope.type === 'follower_plan_response_sent') {
+                    handleCodexIpcFollowerAck(envelope);
+                    return;
+                }
+                if (envelope.type === 'error') {
+                    var isIpcErr = /follower|ipc|conversation/i.test(envelope.message || '')
+                        || codexState.ipcBridge.preferred === true
+                        || codexState.ipcBridge.pendingFollowerSend !== null
+                        || codexState.ipcBridge.pendingApproval !== null
+                        || codexState.ipcBridge.pendingPlanAction !== null;
+                    if (isIpcErr) {
+                        handleCodexIpcGatewayError(envelope);
+                        return;
+                    }
+                }
                 if (envelope.type === 'codex_response') {
                     let suppressErrorUi = false;
                     if (envelope.requestId) {
@@ -7838,6 +7979,21 @@ if (codexFooterPlanIndicator) {
 
 if (btnCodexPlanExecute) {
     btnCodexPlanExecute.addEventListener('click', () => {
+        if (codexState.ipcBridge.pendingPlanAction && codexState.ipcBridge.activeConversationId) {
+            var planAction = codexState.ipcBridge.pendingPlanAction;
+            if (!sendCodexEnvelope({
+                type: 'follower_plan_response',
+                conversationId: codexState.ipcBridge.activeConversationId,
+                input: '是，实施此计划',
+                requestId: planAction.requestId || ''
+            })) {
+                return;
+            }
+            codexState.ipcBridge.pendingPlanAction = null;
+            codexState.ipcBridge.ipcPlanWorkflowActive = false;
+            setPlanWorkflowState(buildEmptyPlanWorkflowState());
+            return;
+        }
         const executionPrompt = buildConfirmedPlanExecutionPrompt();
         if (!executionPrompt) {
             appendCodexLogEntry('error', t('codex.plan.noExecutable'), { meta: 'plan' });
@@ -7878,6 +8034,21 @@ if (btnCodexPlanContinue) {
 
 if (btnCodexPlanCancel) {
     btnCodexPlanCancel.addEventListener('click', () => {
+        if (codexState.ipcBridge.pendingPlanAction && codexState.ipcBridge.activeConversationId) {
+            var planAction = codexState.ipcBridge.pendingPlanAction;
+            if (!sendCodexEnvelope({
+                type: 'follower_plan_response',
+                conversationId: codexState.ipcBridge.activeConversationId,
+                input: '取消',
+                requestId: planAction.requestId || ''
+            })) {
+                return;
+            }
+            codexState.ipcBridge.pendingPlanAction = null;
+            codexState.ipcBridge.ipcPlanWorkflowActive = false;
+            setPlanWorkflowState(buildEmptyPlanWorkflowState());
+            return;
+        }
         cancelPlanWorkflow();
     });
 }
@@ -8191,6 +8362,276 @@ window.__applyTerminalConfig = function (config) {
     }
 })();
 
+// ── IPC bridge handler functions ──────────────────────────────────────────
+
+function handleCodexIpcStatus(envelope) {
+    var status = envelope.status || {};
+    var online = status.online === true;
+    codexState.ipcBridge.online = online;
+    codexState.ipcBridge.statusReason = status.reason || '';
+    codexState.ipcBridge.clientId = status.clientId || '';
+    if (!online) {
+        resetCodexIpcBridgeState();
+    }
+}
+
+function selectCodexIpcConversation(conversations) {
+    if (!Array.isArray(conversations) || conversations.length === 0) return null;
+    var normalized = [];
+    for (var i = 0; i < conversations.length; i++) {
+        var c = conversations[i];
+        var id = c.conversationId || c.id || '';
+        if (!id) continue;
+        normalized.push({
+            id: id,
+            conversationId: id,
+            status: c.status || 'unknown',
+            updatedAt: c.updatedAt || c.lastUpdatedAt || Date.now(),
+            latestTurnId: c.latestTurnId || '',
+            title: c.title || ''
+        });
+    }
+    if (normalized.length === 0) return null;
+    var threadId = codexState.threadId || '';
+    if (threadId) {
+        for (var i = 0; i < normalized.length; i++) {
+            if (normalized[i].id === threadId) return normalized[i];
+        }
+    }
+    var lastThreadId = codexState.lastCodexThreadId || '';
+    if (lastThreadId && lastThreadId !== threadId) {
+        for (var i = 0; i < normalized.length; i++) {
+            if (normalized[i].id === lastThreadId) return normalized[i];
+        }
+    }
+    normalized.sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+    return normalized[0];
+}
+
+function handleCodexIpcConversations(envelope) {
+    var rawList = envelope.conversations || envelope.data || [];
+    if (!Array.isArray(rawList) || rawList.length === 0) return;
+    var conversations = [];
+    for (var i = 0; i < rawList.length; i++) {
+        var c = rawList[i];
+        var convId = c.conversationId || c.id || '';
+        if (!convId) continue;
+        conversations.push({
+            conversationId: convId,
+            status: c.status || 'unknown',
+            updatedAt: c.updatedAt || c.lastUpdatedAt || Date.now(),
+            latestTurnId: c.latestTurnId || '',
+            title: c.title || ''
+        });
+    }
+    if (conversations.length === 0) return;
+    codexState.ipcBridge.conversations = conversations;
+    var selected = selectCodexIpcConversation(conversations);
+    if (!selected) {
+        codexState.ipcBridge.preferred = false;
+        return;
+    }
+    if (selected.conversationId !== codexState.ipcBridge.activeConversationId) {
+        codexState.ipcBridge.activeConversationId = selected.conversationId;
+        codexState.ipcBridge.activeConversationStatus = selected.status || 'unknown';
+        sendCodexEnvelope({ type: 'set_active_conversation', conversationId: selected.conversationId });
+    }
+}
+
+function handleConversationSurfaceSnapshot(envelope) {
+    var convId = envelope.conversationId || '';
+    var surface = envelope.snapshot || null;
+    if (!convId || !surface) return;
+    if (convId !== codexState.ipcBridge.activeConversationId) return;
+    codexState.ipcBridge.latestSurface = surface;
+    codexState.ipcBridge.latestSurfaceRevision = (codexState.ipcBridge.latestSurfaceRevision || 0) + 1;
+    codexState.ipcBridge.activeConversationStatus = surface.status || codexState.ipcBridge.activeConversationStatus;
+    if (codexState.ipcBridge.online && surface.status !== 'offline' && surface.status !== 'unavailable' && surface.status !== 'error') {
+        codexState.ipcBridge.preferred = true;
+    } else {
+        codexState.ipcBridge.preferred = false;
+        return;
+    }
+    // Map IPC snapshot status to Codex status display (F-004)
+    if (surface.status) {
+        var mappedStatus = 'idle';
+        var mappedDetail = '';
+        if (surface.status === 'running') {
+            mappedStatus = 'running';
+        } else if (surface.status === 'error') {
+            mappedStatus = 'error';
+        } else if (surface.status === 'waiting_for_approval') {
+            mappedStatus = 'running';
+            mappedDetail = 'waiting_for_approval';
+        }
+        setCodexStatus(mappedStatus, mappedDetail);
+    }
+    // F-007: Clean up IPC-origin request cards from previous snapshot
+    codexState.requestStateById.forEach(function(requestState, requestId) {
+        if (requestState && requestState.ipcTransport && requestState.ipcConversationId === convId) {
+            if (requestState.entry && requestState.entry.isConnected) {
+                requestState.entry.remove();
+            }
+            codexState.requestStateById.delete(requestId);
+        }
+    });
+    // F-007: Clean up IPC-origin plan workflow if snapshot no longer has pendingPlanAction
+    if (codexState.ipcBridge.ipcPlanWorkflowActive && !surface.pendingPlanAction) {
+        var planPhase = codexState.planWorkflow.phase;
+        if (planPhase === 'plan_ready_for_confirmation' || planPhase === 'planning' || planPhase === 'awaiting_user_input') {
+            setPlanWorkflowState(buildEmptyPlanWorkflowState());
+        }
+        codexState.ipcBridge.ipcPlanWorkflowActive = false;
+    }
+    codexState.ipcBridge.pendingApproval = null;
+    codexState.ipcBridge.pendingPlanAction = null;
+    codexState.ipcBridge.pendingGoalAction = null;
+    if (surface.pendingApproval) {
+        codexState.ipcBridge.pendingApproval = surface.pendingApproval;
+        var approvalEnv = {
+            requestId: surface.pendingApproval.requestId || surface.pendingApproval.id || '',
+            method: surface.pendingApproval.method || 'item/commandExecution/requestApproval',
+            requestKind: 'command',
+            responseMode: 'confirm',
+            handledBy: 'client',
+            summary: surface.pendingApproval.description || surface.pendingApproval.title || '',
+            params: { command: surface.pendingApproval.command || '' }
+        };
+        if (approvalEnv.requestId) {
+            renderCodexServerRequest(approvalEnv, {
+                conversationId: convId,
+                ipcRequestId: approvalEnv.requestId
+            });
+        }
+    }
+    if (surface.pendingPlanAction) {
+        codexState.ipcBridge.pendingPlanAction = surface.pendingPlanAction;
+        var planText = surface.pendingPlanAction.planContent || surface.pendingPlanAction.description || '';
+        if (planText) {
+            setPlanWorkflowState({
+                phase: 'plan_ready_for_confirmation',
+                originalPrompt: '',
+                latestPlanText: planText,
+                confirmedPlanText: planText,
+                lastUserInputRequestId: ''
+            });
+            codexState.ipcBridge.ipcPlanWorkflowActive = true;
+        }
+    }
+    if (surface.pendingGoalAction) {
+        codexState.ipcBridge.pendingGoalAction = surface.pendingGoalAction;
+    }
+    var items = surface.items || [];
+    for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        if (!item) continue;
+        var key = item.id || item.itemId || item.key || ('idx:' + i);
+        var stableKey = 'ipc:' + convId + ':' + key;
+        if (codexState.ipcBridge.projectedItemKeys.has(stableKey)) {
+            var existingText = codexState.ipcBridge.projectedItemTextByKey.get(stableKey);
+            if (existingText === item.text) continue;
+            var role = item.role === 'user' ? 'user' : 'assistant';
+            setCodexLogEntryText(role, stableKey, item.text || '');
+            codexState.ipcBridge.projectedItemTextByKey.set(stableKey, item.text || '');
+            continue;
+        }
+        if (item.kind === 'message') {
+            var role = item.role === 'user' ? 'user' : 'assistant';
+            var logMeta = { itemId: stableKey };
+            if (role === 'assistant' && item.phase === 'commentary') {
+                logMeta.meta = 'commentary';
+            }
+            if (role === 'user') {
+                logMeta.meta = 'you';
+            }
+            appendCodexLogEntry(role, item.text || '', logMeta);
+        } else if (item.kind === 'status') {
+            appendCodexLogEntry('system', item.text || '', { itemId: stableKey, meta: 'ipc_status' });
+        } else if (item.kind === 'plan_prompt') {
+            var planPromptText = item.text || item.content || '';
+            if (planPromptText) {
+                setPlanWorkflowState({
+                    phase: 'plan_ready_for_confirmation',
+                    originalPrompt: '',
+                    latestPlanText: planPromptText,
+                    confirmedPlanText: planPromptText,
+                    lastUserInputRequestId: ''
+                });
+                codexState.ipcBridge.ipcPlanWorkflowActive = true;
+            }
+            appendCodexLogEntry('system', planPromptText || '(plan prompt)', { itemId: stableKey, meta: 'ipc_plan' });
+        } else if (item.kind === 'goal_prompt') {
+            var goalPromptText = item.text || item.content || '';
+            appendCodexLogEntry('system', goalPromptText || '(goal prompt)', { itemId: stableKey, meta: 'ipc_goal' });
+        } else if (item.kind === 'approval_request') {
+            var appReqId = item.id || item.requestId || '';
+            if (appReqId) {
+                renderCodexServerRequest({
+                    requestId: appReqId,
+                    method: item.method || 'item/commandExecution/requestApproval',
+                    requestKind: 'command',
+                    responseMode: 'confirm',
+                    handledBy: 'client',
+                    summary: item.description || item.title || item.text || '',
+                    params: { command: item.command || '' }
+                }, {
+                    conversationId: convId,
+                    ipcRequestId: appReqId
+                });
+            }
+        }
+        codexState.ipcBridge.projectedItemKeys.add(stableKey);
+        codexState.ipcBridge.projectedItemTextByKey.set(stableKey, item.text || '');
+    }
+}
+
+function handleCodexIpcFollowerAck(envelope) {
+    codexState.ipcBridge.pendingFollowerSend = null;
+    if (envelope.type === 'follower_approval_response_sent') {
+        codexState.ipcBridge.pendingApproval = null;
+    }
+    if (envelope.type === 'follower_plan_response_sent') {
+        codexState.ipcBridge.pendingPlanAction = null;
+    }
+}
+
+function handleCodexIpcGatewayError(envelope) {
+    var msg = envelope.message || '';
+    codexState.ipcBridge.pendingFollowerSend = null;
+    codexState.ipcBridge.preferred = false;
+    codexState.ipcBridge.cooldownUntil = Date.now() + 10000;
+    codexState.ipcBridge.lastError = msg;
+}
+
+// ── IPC send helpers ─────────────────────────────────────────────────────
+
+function shouldSendCodexViaIpcFollower() {
+    var bridge = codexState.ipcBridge;
+    if (!bridge.online) return false;
+    if (!bridge.preferred) return false;
+    if (!bridge.activeConversationId) return false;
+    if (Date.now() < bridge.cooldownUntil) return false;
+    var status = bridge.activeConversationStatus;
+    if (status === 'running' || status === 'waiting_for_approval' || status === 'blocked' || status === 'offline') return false;
+    return true;
+}
+
+function sendCodexFollowerMessage(text) {
+    var bridge = codexState.ipcBridge;
+    if (!bridge.activeConversationId || !text) return false;
+    var payload = {
+        type: 'follower_send_message',
+        conversationId: bridge.activeConversationId,
+        input: text
+    };
+    bridge.pendingFollowerSend = text;
+    if (!sendCodexEnvelope(payload)) {
+        bridge.pendingFollowerSend = null;
+        return false;
+    }
+    return true;
+}
+
 // Test hooks - only exposed when explicit test mode is enabled
 // Production runtime (browser, Android WebView) will NOT have these hooks
 // Integration tests must set window.__TERMLINK_TEST_MODE__ = true before loading this script
@@ -8238,6 +8679,16 @@ if (shouldExposeCodexTestHooks) {
         getServerUrl: () => serverUrl,
         getRetryCount: () => retryCount,
         getWebSocket: () => ws,
+        // IPC bridge functions
+        handleCodexIpcStatus,
+        handleCodexIpcConversations,
+        handleConversationSurfaceSnapshot,
+        handleCodexIpcFollowerAck,
+        handleCodexIpcGatewayError,
+        selectCodexIpcConversation,
+        resetCodexIpcBridgeState,
+        shouldSendCodexViaIpcFollower,
+        sendCodexFollowerMessage,
         // Image input functions
         promptForCodexImageInput,
         confirmCodexImagePrompt,

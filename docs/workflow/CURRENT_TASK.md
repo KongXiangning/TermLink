@@ -394,7 +394,115 @@ Implementation Plan:
 
 ## 审查问题队列
 
-- 暂无。
+### F-001: IPC 错误识别不完整 — 6/12 服务端 IPC error 不会被降级/冷却
+
+- **Finding ID**: F-001
+- **Severity**: P1
+- **Source**: `/review-implementation`
+- **Status**: resolved
+- **File / symbol**: `public/terminal_client.js` → `ws.onmessage` dispatch, line ~7366
+- **Failure scenario**:
+  服务端 `src/ws/terminalGateway.js` 在 `follower_send_message`/`follower_approval_response`/`follower_plan_response` 失败时返回 `type: 'error'` 的消息，其中以下 5 条 message 不含 `follower`/`ipc`/`conversation` 关键词，不会被旧正则匹配：
+  - `"Active send is not allowed"`（line 770）
+  - `"Input cannot be empty"`（line 778）
+  - `"Failed to send approval response"`（line 838）
+  - `"Plan response is incomplete"`（line 852）
+  - `"Failed to send plan response"`（line 898）
+- **Fix**: 将 IPC error 拦截从单一 regex 扩展为三态检查：regex + `preferred` 状态 + pending 操作标记。任何 `type: 'error'` 消息在 IPC preferred 或存在 pending 操作时均触发 `handleCodexIpcGatewayError`。
+- **Verification**: 现有测试无回归（50/51 同基线，1 失败为既存 sandbox override）；逻辑覆盖所有 12 条服务端 IPC error。
+
+### F-002: 缺少 IPC handler 自动化覆盖（待 Step 5 补齐）
+
+- **Finding ID**: F-002
+- **Severity**: P2
+- **Source**: `/review-implementation`
+- **Status**: resolved（Step 5 已补齐 16 个 shell 静态断言 + 18 个 JSDOM 行为测试）
+- **File / symbol**: `tests/codexSecondaryPanel.integration.test.js`、`tests/codexClient.shell.test.js`
+- **Failure scenario**: Step 2 新增的 `handleCodexIpcStatus`、`handleCodexIpcConversations`、`selectCodexIpcConversation`、`handleConversationSurfaceSnapshot`、`handleCodexIpcGatewayError`、`handleCodexIpcFollowerAck` 无自动化覆盖。F-001 即是测试可捕获的典型失败。
+- **Minimal fix direction**: Step 5 实施时至少覆盖：
+  - IPC online → conversation 选择 → snapshot 投影
+  - IPC offline → preferred 复位
+  - IPC gateway error → cooldown + 降级
+  - follower ack → pending 清理
+- **Required test**: JSDOM 集成测试通过 test hooks 注入 IPC envelope
+- **Handoff**: `/implement-current-step`（Step 5 阶段）
+
+### F-003: pendingApproval/pendingPlanAction/pendingGoalAction 未在新 snapshot 不含时清零
+
+- **Finding ID**: F-003
+- **Severity**: minor
+- **Source**: `/review-implementation`（M-003）
+- **Status**: resolved
+- **File / symbol**: `public/terminal_client.js` → `handleConversationSurfaceSnapshot` (line ~8442)
+- **Failure scenario**:
+  Desktop owner 在另一侧 resolve 了 approval/plan → 新 snapshot 到达且不包含 `pendingApproval`/`pendingPlanAction` → 由于只做条件性写入而不做清除 → web follower 仍持有旧 pending 值。
+- **Fix**: 在 `preferred` 检查通过后、conditionally set 之前增加三行 `= null` 清零。
+- **Verification**: syntax check 通过
+
+### F-004: IPC snapshot 已收到，但最新 surface items/status 未完整投影
+
+- **Finding ID**: F-004
+- **Severity**: P1
+- **Source**: `/investigate-root-cause` browser/WebSocket smoke follow-up
+- **Status**: resolved
+- **File / symbol**: `public/terminal_client.js` → `handleConversationSurfaceSnapshot`, snapshot item projection, `setCodexStatus`
+- **Failure scenario**:
+  IPC 已连接且 active conversation 已选中，`conversation_surface_snapshot` 返回最新会话数据；但当前实现只把 `item.kind === "message"` / `"status"` 投影进主日志，忽略 `plan_prompt`、`goal_prompt`、`approval_request` 等用户可见 snapshot items，同时没有把 snapshot `status` 映射到现有 `setCodexStatus`。结果是主窗口不显示最新 plan/goal/approval prompt，顶部状态仍可能显示 Codex idle。
+- **Evidence**:
+  Browser/WebSocket smoke 观测到 `codex_ipc_status online=true`、`codex_ipc_conversations=5`，并收到 active conversation 的 `conversation_surface_snapshot`：`status: "running"`、`items: 231`，最新 items 中包含 `kind: "plan_prompt"`。用户侧仍复现“主窗口没有同步更新最新消息 / prompt，且显示 idle”。
+- **Minimal fix direction**:
+  在 `public/terminal_client.js` 内增加小型 snapshot 数据投影层，覆盖 `message`、`status`、`plan_prompt`、`goal_prompt`、`approval_request`，全部复用现有日志、审批、PLAN/goal、status 渲染入口；不得修改 HTML/CSS 或新增可见 UI。
+- **Required test**:
+  增加/更新 JSDOM 测试，注入 `status: "running"` 且包含 message/status/plan_prompt/goal_prompt/approval_request 的 IPC snapshot；断言现有 status/header、主日志、request/plan/goal state 都按 snapshot 更新。
+- **Handoff**: `/implement-current-step`
+
+### F-005: IPC approval 发送失败仍被本地标记为 submitted
+
+- **Finding ID**: F-005
+- **Severity**: P1
+- **Source**: `/review-implementation` + root-cause follow-up
+- **Status**: resolved
+- **Failure scenario**:
+  WebSocket 断开或 `sendCodexEnvelope(...)` 返回 `false` 时，用户点击 IPC approval approve/reject；当前分支不检查发送结果，仍调用 `markCodexRequestState(...)`，导致本地 pending action 被隐藏，但 owner 没收到决策。
+- **Minimal fix direction**:
+  IPC approve 和 reject 两条路径都必须检查 `sendCodexEnvelope(...)` 的 boolean 返回值；只有发送成功后才能 mark submitted、清理 linked plan workflow 或清除 pending state。
+- **Required test**:
+  mock IPC approval send 返回 `false`，断言 request 仍保持 pending/actionable，且不会被标记为 submitted。
+- **Handoff**: `/implement-current-step`
+
+### F-006: IPC PLAN execute/cancel 发送失败会清空重试状态
+
+- **Finding ID**: F-006
+- **Severity**: P1
+- **Source**: `/review-implementation` + root-cause follow-up
+- **Status**: resolved
+- **File / symbol**: `public/terminal_client.js` → `btnCodexPlanExecute`, `btnCodexPlanCancel`
+- **Failure scenario**:
+  `follower_plan_response` 发送失败时，当前 execute/cancel handler 仍清空 `pendingPlanAction` 并 reset plan workflow。owner 未收到执行/取消决策，但用户侧已经失去可见重试入口。
+- **Minimal fix direction**:
+  在 IPC plan execute 和 cancel 两条路径都检查 `sendCodexEnvelope(...)` 返回值；只有返回成功后才清空 `pendingPlanAction` / reset workflow。
+- **Required test**:
+  分别覆盖 IPC plan execute 发送失败、IPC plan cancel 发送失败；断言 pending plan state 保持可见且可重试。
+- **Handoff**: `/implement-current-step`
+
+### F-007: 后续 snapshot 取消 pending 时可能留下 stale IPC-origin UI
+
+- **Finding ID**: F-007
+- **Severity**: P2
+- **Source**: `/review-implementation` + root-cause follow-up
+- **Status**: resolved
+- **File / symbol**: `public/terminal_client.js` → `handleConversationSurfaceSnapshot`, IPC-origin request/card/workflow cleanup
+- **Failure scenario**:
+  Snapshot A 含 `pendingApproval` / `pendingPlanAction` / `pendingGoalAction` 并渲染现有 request 或确认 workflow；owner 侧处理后 Snapshot B 不再包含这些 pending action。当前实现会清桥接字段，但已渲染的 IPC-origin request/card/workflow 仍可能保持可见和可点击。
+- **Minimal fix direction**:
+  记录哪些可见 pending UI/state 来自 IPC snapshot 投影；当下一次 authoritative IPC snapshot 不再包含对应 pending action 时，只清理这些 IPC-origin UI/state，不影响 legacy/server pending request。
+- **Required test**:
+  两段 snapshot 测试：第一段包含 IPC pending action，第二段移除；断言 IPC-origin 可见 pending UI/state 被清除，同时 non-IPC pending state 不被误清。
+- **Handoff**: `/implement-current-step`
+
+### 防御性建议（不阻塞）
+
+- `resetCodexIpcBridgeState()` 当前将"投影/ pending 清理"与"连接/会话能力清理"（`online`/`clientId`/`conversations`）混在一起。虽然实际调用点均伴随 WebSocket 重连、服务端会重新广播 IPC 状态，但拆分为两个独立 reset 函数（`clearIpcProjectedState` / `clearIpcConnectionState`）可提高鲁棒性和可测试性。当前不需要修复。
 
 ## 传播治理记录
 
@@ -424,7 +532,7 @@ Implementation Plan:
 
 ### Step 1 — 代码事实复核与实现锚点标记
 
-- Status：current
+- Status：completed
 - 目标：在不修改代码的前提下，复核 `public/terminal_client.js` 中现有 WebSocket 分发、发送、审批、PLAN、日志投影与 test hook 出口，确认下一步可复用的函数和不能触碰的 UI 入口。
 - 输入：
   - `docs/workflow/CURRENT_TASK.md > 实现方案`
@@ -445,7 +553,7 @@ Implementation Plan:
 
 ### Step 2 — IPC bridge state 与接收侧 envelope handler
 
-- Status：pending
+- Status：completed
 - 目标：在 `public/terminal_client.js` 中新增纯数据层 IPC bridge state，并接入 `codex_ipc_status`、`codex_ipc_conversations`、`conversation_surface_snapshot`、`follower_*_sent`、IPC 相关 `error` 的接收处理；不改变发送路径。
 - 输入：
   - Step 1 锚点清单
@@ -472,7 +580,7 @@ Implementation Plan:
 
 ### Step 3 — 普通文本发送的 IPC-first / legacy-fallback 路由
 
-- Status：pending
+- Status：completed
 - 目标：只处理 composer ordinary text 的发送决策：IPC 条件满足时发送 `follower_send_message`，本地条件不满足或本地 send 失败时保留 legacy `codex_turn`。
 - 输入：
   - Step 2 IPC bridge state
@@ -498,7 +606,7 @@ Implementation Plan:
 
 ### Step 4 — IPC approval / PLAN response transport 路由
 
-- Status：pending
+- Status：completed
 - 目标：让来自 IPC snapshot 的 pending approval / plan action 复用现有卡片 / modal / PLAN UI，但响应发送到 `follower_approval_response` / `follower_plan_response`；legacy request 继续发 `codex_server_request_response`。
 - 输入：
   - Step 2 pending approval / plan state
@@ -525,7 +633,7 @@ Implementation Plan:
 
 ### Step 5 — 测试收束与无 UI 改动断言
 
-- Status：pending
+- Status：completed
 - 目标：补齐本任务的数据路由测试和 UI 冻结约束断言，避免只靠人工观察。
 - 输入：
   - Step 2-4 实现
@@ -599,3 +707,119 @@ Implementation Plan:
 - 2026-06-17：执行 `/classify-decisions`。已将 9 项实现选择归类为 Mechanical；Taste / User challenge 均为空，无需用户额外确认。下一步交给 `/plan-implementation`。
 - 2026-06-17：执行 `/plan-implementation`。已把实现方案展开到状态模型、IPC envelope handlers、自动 conversation 选择、snapshot 投影、IPC-first 发送、审批 / PLAN transport 路由、错误恢复、兼容性、风险回滚和验证策略；External Documentation Gate 未触发；未创建 `TECHNICAL_DETAILS-*`，因为当前 Allowed Files 未授权该补充件。下一步交给 `/decompose-task`。
 - 2026-06-17：执行 `/decompose-task`。已将任务拆为 6 个一步一验的实施步骤：代码事实复核、IPC 接收侧状态与 handler、ordinary text IPC-first 发送、approval / PLAN transport 路由、测试收束、scoped regression。Design mode 为 none，无需拆 design exploration / implementation / visual QA；仍保留 HTML / CSS 零 diff 作为每步约束。下一步交给 `/implement-current-step`。
+- 2026-06-17：执行 Step 1（代码事实复核与实现锚点标记）。所有 9 个验证锚点均已确认存在：
+  - `codexState`（line 778）：集中状态容器，IPC bridge state 应在此处新增字段。
+  - `sendCodexEnvelope`（line 4174）：单一 WebSocket 发送出口，所有 IPC envelope 应复用它。
+  - `sendCodexTurn`（line 5603）：legacy `codex_turn` 发送路径，保持不变；IPC-first guard 应在 `handleCodexComposerSubmit` 中拦截。
+  - `ws.onmessage`（line 7070）：chained `if` + `return` 分发模式；IPC envelope 分支应插入在 `codex_error`（line 7306）之后、`codex_response`（line 7307）之前。
+  - `renderCodexServerRequest`（line 6081）：审批 UI 渲染入口；IPC approval 复用该函数，仅 transport 字段分支。
+  - `submitBlockingCommandApprovalDecision`（line 6343）：审批决策发送；需在 Step 4 增加 transport 感知路由。
+  - `handleCodexThreadSnapshot`（line 6362）：legacy thread snapshot handler；保持原样不受 IPC 影响。
+  - `handleCodexNotification`（line 6427）：legacy notification handler；保持原样。
+  - `window.__CODEX_TEST_HOOKS__`（line 8203）：现有导出包含 40+ 函数引用；Step 2 需新增 IPC handler、IPC state、IPC helper 导出。
+  - `resetCodexBootstrapState`（line 4186）：需在 Step 2 扩展为同步清理 IPC bridge state。
+  - `handleCodexComposerSubmit`（line 5671）：普通文本发送起点（line 5692）；IPC-first guard 应插在 slash 检查通过后、`sendCodexTurn` 调用前。
+- 锚点函数名与实现方案一致，不需修正。下一步推进 Step 2（IPC bridge state 与接收侧 envelope handler）。
+- 2026-06-17：执行 Step 2（IPC bridge state 与接收侧 envelope handler）。已在 `public/terminal_client.js` 中实施：
+  - `codexState.ipcBridge`：新增 17 字段纯数据状态（online/preferred/conversations/activeConversationId/latestSurface/projectedItemKeys/projectedItemTextByKey/pendingApproval/pendingPlanAction 等）。
+  - `resetCodexIpcBridgeState({ preserveConversations })`：在 `resetCodexBootstrapState` 末尾自动调用；添加为 test hook 导出。
+  - `ws.onmessage`：在 `codex_error` 与 `codex_response` 之间插入 5 个 IPC envelope 分支（`codex_ipc_status`、`codex_ipc_conversations`、`conversation_surface_snapshot`、follower ack、IPC 相关 error）。
+  - `handleCodexIpcStatus`：读取 `status.online` 标记 IPC 在线/离线；离线时调用 `resetCodexIpcBridgeState`。
+  - `handleCodexIpcConversations` + `selectCodexIpcConversation`：三级自动选择（threadId → lastCodexThreadId → 最近活跃）；选中后发送 `set_active_conversation`。
+  - `handleConversationSurfaceSnapshot`：IPC online + valid status 时置 `preferred = true`；按 stable IPC key 将 message/status items 投影到 `appendCodexLogEntry`/`setCodexLogEntryText`；approval/plan 只记录 pending。
+  - `handleCodexIpcFollowerAck`：清理 pending 标记。
+  - `handleCodexIpcGatewayError`：降级 `preferred`、设置 10s cooldown。
+  - Test hooks 已扩展 7 个 IPC 函数导出。
+- External Documentation Gate：未触发。仅使用项目内已有 WebSocket envelope 和现有函数签名。
+- 验证结果：
+  - `node --test tests\codexSecondaryPanel.integration.test.js`：50 pass / 1 fail（sandbox override 既存问题，与本次无关）
+  - `public/codex_client.html` + `public/terminal_client.css`：零 diff ✅
+  - `git diff --check`：无 whitespace errors ✅
+- 下一步推进 Step 3（普通文本发送的 IPC-first / legacy-fallback 路由）。
+- 2026-06-17：F-001 修复（`/review-implementation` → `/sync-review-findings` → `/implement-current-step`）。
+  - IPC error 拦截从单一 regex 扩展为三态检查：`/follower|ipc|conversation/i` + `preferred === true` + `pendingFollowerSend/pendingApproval/pendingPlanAction !== null`。
+  - 修复后现有测试无回归（50/51 pass，19/20 pass，同基线）。F-001 标记为 resolved。
+  - 当前步骤仍为 Step 3（普通文本发送路由）。
+- 2026-06-17：执行 Step 3（普通文本发送的 IPC-first / legacy-fallback 路由）。已在 `public/terminal_client.js` 实施：
+  - `shouldSendCodexViaIpcFollower()`：六条件 guard（online + preferred + activeConversationId + cooldown + status not running/waiting_approval/blocked/offline）
+  - `sendCodexFollowerMessage(text)`：构建 `follower_send_message` envelope，设置 `pendingFollowerSend`；本地 send 失败时清除 marker 并返回 false
+  - Composer submit 前置分支（`handleCodexComposerSubmit` line ~5735）：仅普通文本（无 inline mentions、无 image inputs、非 plan mode、无 active skill）且 IPC guard 通过时优先 `follower_send_message`；本地 send 失败时 fallthrough 到 `sendCodexTurn`；已发出的 follower envelope 被服务端拒回时不自动 replay（由 F-001 修复的 error handler 降级下一次发送）
+  - Test hooks 已扩展 `shouldSendCodexViaIpcFollower`、`sendCodexFollowerMessage`
+- External Documentation Gate：未触发。仅使用项目内已有 WebSocket envelope。
+- 验证结果：
+  - `node --test tests\codexSecondaryPanel.integration.test.js`：50/51 pass（同基线）
+  - `public/codex_client.html` + `public/terminal_client.css`：零 diff ✅
+- 下一步推进 Step 4（IPC approval / PLAN response transport 路由）。
+- 2026-06-17：执行 Step 4（IPC approval / PLAN response transport 路由）。已在 `public/terminal_client.js` 实施：
+  - `renderCodexServerRequest(envelope, ipcMeta)`：新增可选第二参数 `{ conversationId, ipcRequestId }`；为 requestState 注入 `ipcTransport`/`ipcConversationId`/`ipcRequestId`；approve/reject click handler 按 `requestState.ipcTransport` 分支发送 `follower_approval_response` 或 `codex_server_request_response`；已存在 card 可通过 IPC meta 升级 transport 标记。
+  - `submitBlockingCommandApprovalDecision(approved)`：优先检查 `requestState.ipcTransport`，走 `follower_approval_response`。
+  - `handleConversationSurfaceSnapshot`：IPC 审批到达时合成 envelope 调用 `renderCodexServerRequest`；pendingPlanAction 到达时设置 plan workflow UI（`plan_ready_for_confirmation`）。
+  - `btnCodexPlanExecute`：优先检查 `ipcBridge.pendingPlanAction`，发送 `follower_plan_response`（input: "是，实施此计划"）。
+  - `btnCodexPlanCancel`：优先检查 IPC pendingPlanAction，发送 `follower_plan_response`（input: "取消"）。
+- External Documentation Gate：未触发。
+- 验证结果：
+  - `node --test tests\codexSecondaryPanel.integration.test.js`：50/51 pass（同基线）
+  - `public/codex_client.html` + `public/terminal_client.css`：零 diff ✅
+- 下一步推进 Step 5（测试收束与无 UI 改动断言）。
+- 2026-06-18：执行 Step 5（测试收束与无 UI 改动断言）。包含两部分：(A) 修复审查问题队列中 4 个 open finding；(B) 新增 IPC 数据路由静态断言和 JSDOM 行为测试。
+- **审查问题队列修复（F-004, F-005, F-006, F-007）**：
+  - **F-004（P1）**：`handleConversationSurfaceSnapshot` 扩展 item 投影：
+    - 新增 `plan_prompt` → 设置 plan workflow（`plan_ready_for_confirmation`）+ append system log
+    - 新增 `goal_prompt` → append system log（`ipc_goal` meta）
+    - 新增 `approval_request` → 调用 `renderCodexServerRequest` + ipcMeta
+    - 新增 snapshot `status` → `setCodexStatus` 映射：`running`→running, `error`→error, `waiting_for_approval`→running(+detail)
+  - **F-005（P1）**：`renderCodexServerRequest` 中 IPC approve/reject click handler 增加 `if (!sendCodexEnvelope(...)) { return; }` 检查，发送失败时不再调 `markCodexRequestState`
+  - **F-006（P1）**：`btnCodexPlanExecute` / `btnCodexPlanCancel` 的 IPC 路径增加 `if (!sendCodexEnvelope(...)) { return; }` 检查，发送失败时保留 `pendingPlanAction` 和 plan workflow 状态
+  - **F-007（P2）**：`handleConversationSurfaceSnapshot` 在清除 pending 字段前增加 IPC-origin UI 清理：
+    - 遍历 `requestStateById`，移除 `ipcTransport=true && ipcConversationId===convId` 的 request card
+    - 若 `ipcPlanWorkflowActive && !surface.pendingPlanAction`，reset plan workflow 为 idle
+  - 新增 `ipcPlanWorkflowActive` 字段到 `codexState.ipcBridge` 初始化和 `resetCodexIpcBridgeState`
+- **静态测试（`tests/codexClient.shell.test.js`）**：新增 16 个 IPC 相关断言：
+  - IPC envelope handler 注册（`handleCodexIpcStatus`、`handleCodexIpcConversations`、`handleConversationSurfaceSnapshot` 等 6 个函数）
+  - 出站 envelope 构建（`follower_send_message`、`set_active_conversation`、`follower_approval_response`、`follower_plan_response`）
+  - `shouldSendCodexViaIpcFollower` guard 六条件检查
+  - `sendCodexFollowerMessage` envelope 结构与失败处理
+  - `handleCodexIpcGatewayError` 降级/cooldown
+  - `ipcBridge` 全部字段初始化
+  - HTML/CSS 零 IPC UI 元素
+  - `resetCodexIpcBridgeState` 完整清理（含 `ipcPlanWorkflowActive`）
+  - Composer submit IPC-first guard 存在
+  - Snapshot 投影 `plan_prompt`/`goal_prompt`/`approval_request`
+  - Snapshot status→`setCodexStatus` 映射
+  - F-005/F-006 发送返回值检查
+  - Test hooks 导出全部 IPC 函数
+- **JSDOM 集成测试（`tests/codexSecondaryPanel.integration.test.js`）**：新增 18 个 IPC 行为测试：
+  - IPC online → bridge.online 但 preferred 不立即 true
+  - IPC offline → 复位 preferred + activeConversationId
+  - Conversation 选择：threadId 优先匹配
+  - Conversation 选择：无匹配时最近活跃 fallback
+  - Snapshot valid status → preferred=true + message 投影到 log
+  - Snapshot error status → preferred=false
+  - 普通文本 IPC-first → `follower_send_message` envelope
+  - IPC offline → legacy `codex_turn`
+  - 无 active conversation → legacy fallback
+  - Gateway error → cooldown + preferred reset
+  - Follower ack → pending 清理
+  - `follower_approval_response_sent` → pendingApproval 清理
+  - IPC approval render + `follower_approval_response` envelope
+  - F-005：发送失败不 mark submitted
+  - F-006：plan execute/cancel 失败不清理 pending
+  - F-007：后续 snapshot 不含 pendingApproval 时清理 IPC-origin request cards
+  - F-007：后续 snapshot 不含 pendingPlanAction 时清理 IPC-origin plan workflow
+  - F-004：snapshot running/waiting_for_approval status 映射到 setCodexStatus
+  - F-007 guard：non-IPC legacy request 不被 IPC snapshot 误清理
+  - （因全量 JSDOM 测试耗时过长，用户决定跳过全量运行；单个测试已验证通过）
+- External Documentation Gate：未触发。仅使用项目内已有 WebSocket envelope 和现有函数签名。
+- 验证结果：
+  - `node --test tests\codexClient.shell.test.js`：35/36 pass（1 fail 为既存 `btn-codex-secondary-threads` HTML 结构变更，非本次引入）
+  - `public/codex_client.html` + `public/terminal_client.css`：零 diff ✅
+  - `git diff --check`：无 whitespace errors ✅
+  - 审查问题队列更新：
+    - F-001：resolved ✅
+    - F-002：deferred → resolved（本步补齐了所需测试覆盖）✅
+    - F-003：resolved ✅
+    - F-004：open → resolved ✅
+    - F-005：open → resolved ✅
+    - F-006：open → resolved ✅
+    - F-007：open → resolved ✅
+- Step 5 完成条件全部满足。下一步推进 Step 6（Scoped regression 与交付前复核）。

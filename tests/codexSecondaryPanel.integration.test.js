@@ -1969,3 +1969,852 @@ test('Phase 5 Integration: command approvals render a blocking modal instead of 
 
     dom.window.close();
 });
+
+// ── Step 5: IPC data routing integration tests ────────────────────────────
+
+test('IPC Integration: codex_ipc_status online sets bridge.online but not preferred until conversation selected', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    // Initial state: IPC offline
+    assert.strictEqual(hooks.codexState.ipcBridge.online, false);
+    assert.strictEqual(hooks.codexState.ipcBridge.preferred, false);
+
+    // Send IPC status online
+    ws.onmessage({ data: JSON.stringify({
+        type: 'codex_ipc_status',
+        status: { online: true, reason: 'connected', clientId: 'desktop-001' }
+    }) });
+
+    assert.strictEqual(hooks.codexState.ipcBridge.online, true);
+    assert.strictEqual(hooks.codexState.ipcBridge.clientId, 'desktop-001');
+    // preferred must NOT be true yet — no active conversation selected
+    assert.strictEqual(hooks.codexState.ipcBridge.preferred, false);
+
+    dom.window.close();
+});
+
+test('IPC Integration: codex_ipc_status offline resets bridge and preferred', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    // Set up IPC online + conversations + active conversation
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.ipcBridge.preferred = true;
+    hooks.codexState.ipcBridge.activeConversationId = 'conv-1';
+    hooks.codexState.ipcBridge.conversations = [{ conversationId: 'conv-1', status: 'idle' }];
+
+    // Send IPC status offline
+    ws.onmessage({ data: JSON.stringify({
+        type: 'codex_ipc_status',
+        status: { online: false, reason: 'disconnected' }
+    }) });
+
+    assert.strictEqual(hooks.codexState.ipcBridge.online, false);
+    assert.strictEqual(hooks.codexState.ipcBridge.preferred, false);
+    assert.strictEqual(hooks.codexState.ipcBridge.activeConversationId, '');
+
+    dom.window.close();
+});
+
+test('IPC Integration: conversation selection prefers threadId match', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.threadId = 'thread-match';
+
+    // Send conversations with one matching threadId
+    ws.onmessage({ data: JSON.stringify({
+        type: 'codex_ipc_conversations',
+        conversations: [
+            { id: 'conv-a', conversationId: 'conv-a', status: 'idle', updatedAt: '2026-06-17T10:00:00Z' },
+            { id: 'thread-match', conversationId: 'thread-match', status: 'idle', updatedAt: '2026-06-18T10:00:00Z' }
+        ]
+    }) });
+
+    assert.strictEqual(hooks.codexState.ipcBridge.activeConversationId, 'thread-match');
+
+    // Verify set_active_conversation envelope was sent
+    const setActive = ws.sent
+        .map((entry) => JSON.parse(entry))
+        .find((entry) => entry.type === 'set_active_conversation');
+    assert.ok(setActive, 'set_active_conversation must be sent');
+    assert.strictEqual(setActive.conversationId, 'thread-match');
+
+    dom.window.close();
+});
+
+test('IPC Integration: conversation selection falls back to most recently active when no threadId match', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.threadId = 'no-match';
+
+    ws.onmessage({ data: JSON.stringify({
+        type: 'codex_ipc_conversations',
+        conversations: [
+            { id: 'conv-old', conversationId: 'conv-old', status: 'idle', updatedAt: '2026-06-15T10:00:00Z' },
+            { id: 'conv-recent', conversationId: 'conv-recent', status: 'idle', updatedAt: '2026-06-18T10:00:00Z' }
+        ]
+    }) });
+
+    assert.strictEqual(hooks.codexState.ipcBridge.activeConversationId, 'conv-recent');
+
+    dom.window.close();
+});
+
+test('IPC Integration: conversation_surface_snapshot with valid status sets preferred and projects messages', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.ipcBridge.activeConversationId = 'conv-1';
+
+    // Send snapshot with valid status and messages
+    ws.onmessage({ data: JSON.stringify({
+        type: 'conversation_surface_snapshot',
+        conversationId: 'conv-1',
+        snapshot: {
+            status: 'idle',
+            items: [
+                { id: 'msg-1', kind: 'message', role: 'user', text: 'Hello from IPC' },
+                { id: 'msg-2', kind: 'message', role: 'assistant', text: 'Hi! How can I help?' }
+            ]
+        }
+    }) });
+
+    // preferred must be true after valid snapshot
+    assert.strictEqual(hooks.codexState.ipcBridge.preferred, true);
+
+    // Messages must be projected to the log
+    const logText = hooks.getCodexLog().textContent;
+    assert.match(logText, /Hello from IPC/);
+    assert.match(logText, /Hi! How can I help\?/);
+
+    dom.window.close();
+});
+
+test('IPC Integration: snapshot with error status resets preferred', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.ipcBridge.activeConversationId = 'conv-1';
+
+    ws.onmessage({ data: JSON.stringify({
+        type: 'conversation_surface_snapshot',
+        conversationId: 'conv-1',
+        snapshot: { status: 'error', items: [] }
+    }) });
+
+    assert.strictEqual(hooks.codexState.ipcBridge.preferred, false);
+
+    dom.window.close();
+});
+
+test('IPC Integration: ordinary text sends follower_send_message when IPC is preferred', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.threadId = 'thread-1';
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.ipcBridge.preferred = true;
+    hooks.codexState.ipcBridge.activeConversationId = 'conv-1';
+    hooks.codexState.ipcBridge.activeConversationStatus = 'idle';
+
+    const submitted = hooks.handleCodexComposerSubmit('Hello via IPC');
+
+    assert.strictEqual(submitted, true);
+
+    // Check that follower_send_message envelope was sent
+    const followerMsg = ws.sent
+        .map((entry) => JSON.parse(entry))
+        .find((entry) => entry.type === 'follower_send_message');
+    assert.ok(followerMsg, 'follower_send_message must be sent');
+    assert.strictEqual(followerMsg.conversationId, 'conv-1');
+    assert.strictEqual(followerMsg.input, 'Hello via IPC');
+
+    dom.window.close();
+});
+
+test('IPC Integration: legacy codex_turn is used when IPC is offline', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.threadId = 'thread-1';
+    // IPC is offline
+    hooks.codexState.ipcBridge.online = false;
+    hooks.codexState.ipcBridge.preferred = false;
+
+    const submitted = hooks.handleCodexComposerSubmit('Hello legacy');
+
+    assert.strictEqual(submitted, true);
+
+    // Check that codex_turn envelope was sent (legacy fallback)
+    const turnMsg = ws.sent
+        .map((entry) => JSON.parse(entry))
+        .find((entry) => entry.type === 'codex_turn');
+    assert.ok(turnMsg, 'codex_turn must be sent when IPC is offline');
+
+    // Should NOT have follower_send_message
+    const followerMsg = ws.sent
+        .map((entry) => JSON.parse(entry))
+        .find((entry) => entry.type === 'follower_send_message');
+    assert.strictEqual(followerMsg, undefined, 'follower_send_message must NOT be sent when IPC is offline');
+
+    dom.window.close();
+});
+
+test('IPC Integration: legacy fallback when no active conversation', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.sessionMode = 'codex';
+    hooks.codexState.threadId = 'thread-1';
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.ipcBridge.preferred = false;
+    hooks.codexState.ipcBridge.activeConversationId = ''; // No conversation selected
+
+    const submitted = hooks.handleCodexComposerSubmit('Hello no conv');
+
+    assert.strictEqual(submitted, true);
+
+    // Should fall back to legacy
+    const turnMsg = ws.sent
+        .map((entry) => JSON.parse(entry))
+        .find((entry) => entry.type === 'codex_turn');
+    assert.ok(turnMsg, 'codex_turn must be sent when no active conversation');
+
+    dom.window.close();
+});
+
+test('IPC Integration: gateway error sets cooldown and resets preferred', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.ipcBridge.preferred = true;
+    hooks.codexState.ipcBridge.activeConversationId = 'conv-1';
+
+    // Send IPC error
+    ws.onmessage({ data: JSON.stringify({
+        type: 'error',
+        message: 'Active send is not allowed'
+    }) });
+
+    assert.strictEqual(hooks.codexState.ipcBridge.preferred, false);
+    assert.ok(hooks.codexState.ipcBridge.cooldownUntil > Date.now() - 20000, 'cooldown must be set');
+    assert.strictEqual(hooks.codexState.ipcBridge.pendingFollowerSend, null);
+
+    dom.window.close();
+});
+
+test('IPC Integration: follower ack clears pending marker', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.ipcBridge.pendingFollowerSend = 'test message';
+
+    ws.onmessage({ data: JSON.stringify({
+        type: 'follower_message_sent',
+        conversationId: 'conv-1'
+    }) });
+
+    assert.strictEqual(hooks.codexState.ipcBridge.pendingFollowerSend, null);
+
+    dom.window.close();
+});
+
+test('IPC Integration: follower_approval_response_sent ack clears pending approval', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.ipcBridge.pendingApproval = { requestId: 'req-1' };
+
+    ws.onmessage({ data: JSON.stringify({
+        type: 'follower_approval_response_sent',
+        conversationId: 'conv-1'
+    }) });
+
+    assert.strictEqual(hooks.codexState.ipcBridge.pendingApproval, null);
+
+    dom.window.close();
+});
+
+test('IPC Integration: IPC approval request renders with ipcTransport marker and sends follower_approval_response on approve', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.renderCodexServerRequest({
+        requestId: 'ipc-req-1',
+        method: 'item/commandExecution/requestApproval',
+        requestKind: 'command',
+        responseMode: 'confirm',
+        handledBy: 'client',
+        summary: 'IPC approval test',
+        params: { command: 'echo test' }
+    }, {
+        conversationId: 'conv-1',
+        ipcRequestId: 'ipc-req-1'
+    });
+
+    // Find the rendered approve button and click it
+    const approveBtn = Array.from(window.document.querySelectorAll('.codex-request-actions button'))
+        .find((btn) => btn.textContent.includes('允许') || btn.textContent.includes('Approve'));
+    assert.ok(approveBtn, 'Approve button must be rendered');
+    approveBtn.click();
+
+    // Check follower_approval_response was sent
+    const approvalMsg = ws.sent
+        .map((entry) => JSON.parse(entry))
+        .find((entry) => entry.type === 'follower_approval_response');
+    assert.ok(approvalMsg, 'follower_approval_response must be sent');
+    assert.strictEqual(approvalMsg.conversationId, 'conv-1');
+    assert.strictEqual(approvalMsg.decision, 'accept');
+
+    dom.window.close();
+});
+
+test('IPC Integration: F-005 — failed IPC approval send does NOT mark request as submitted', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    // Close the WebSocket so sendCodexEnvelope returns false
+    ws.readyState = ws.CLOSED;
+
+    hooks.renderCodexServerRequest({
+        requestId: 'ipc-fail-1',
+        method: 'item/commandExecution/requestApproval',
+        requestKind: 'command',
+        responseMode: 'confirm',
+        handledBy: 'client',
+        summary: 'IPC approval fail test',
+        params: { command: 'echo fail' }
+    }, {
+        conversationId: 'conv-1',
+        ipcRequestId: 'ipc-fail-1'
+    });
+
+    const approveBtn = Array.from(window.document.querySelectorAll('.codex-request-actions button'))
+        .find((btn) => btn.textContent.includes('允许') || btn.textContent.includes('Approve'));
+    assert.ok(approveBtn, 'Approve button must be rendered');
+    approveBtn.click();
+
+    // Request must still be pending (not submitted)
+    const requestState = hooks.codexState.requestStateById.get('ipc-fail-1');
+    assert.ok(requestState, 'requestState must still exist');
+    assert.strictEqual(requestState.status, 'pending', 'request must stay pending after send failure');
+
+    dom.window.close();
+});
+
+test('IPC Integration: F-006 — failed IPC plan execute does NOT clear pendingPlanAction', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    // Set up IPC plan pending state
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.ipcBridge.preferred = true;
+    hooks.codexState.ipcBridge.activeConversationId = 'conv-1';
+    hooks.codexState.ipcBridge.pendingPlanAction = { requestId: 'plan-1', planContent: 'Test plan' };
+    hooks.codexState.planWorkflow = {
+        phase: 'plan_ready_for_confirmation',
+        originalPrompt: '',
+        latestPlanText: 'Test plan',
+        confirmedPlanText: 'Test plan',
+        lastUserInputRequestId: ''
+    };
+
+    // Close the WebSocket so sendCodexEnvelope returns false
+    ws.readyState = ws.CLOSED;
+
+    // Simulate clicking plan execute button
+    const btnExecute = window.document.getElementById('btn-codex-plan-execute');
+    // The button must be visible for plan_ready_for_confirmation phase
+    btnExecute.hidden = false;
+    btnExecute.click();
+
+    // pendingPlanAction must NOT be cleared after send failure
+    assert.notStrictEqual(hooks.codexState.ipcBridge.pendingPlanAction, null,
+        'pendingPlanAction must NOT be cleared after failed send');
+    assert.strictEqual(hooks.codexState.planWorkflow.phase, 'plan_ready_for_confirmation',
+        'plan workflow phase must not reset after failed send');
+
+    dom.window.close();
+});
+
+test('IPC Integration: F-006 — failed IPC plan cancel does NOT clear pendingPlanAction', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.ipcBridge.preferred = true;
+    hooks.codexState.ipcBridge.activeConversationId = 'conv-1';
+    hooks.codexState.ipcBridge.pendingPlanAction = { requestId: 'plan-2', planContent: 'Test plan 2' };
+    hooks.codexState.planWorkflow = {
+        phase: 'plan_ready_for_confirmation',
+        originalPrompt: '',
+        latestPlanText: 'Test plan 2',
+        confirmedPlanText: 'Test plan 2',
+        lastUserInputRequestId: ''
+    };
+
+    ws.readyState = ws.CLOSED;
+
+    const btnCancel = window.document.getElementById('btn-codex-plan-cancel');
+    btnCancel.hidden = false;
+    btnCancel.click();
+
+    assert.notStrictEqual(hooks.codexState.ipcBridge.pendingPlanAction, null,
+        'pendingPlanAction must NOT be cleared after failed cancel send');
+
+    dom.window.close();
+});
+
+test('IPC Integration: F-007 — subsequent snapshot without pendingApproval cleans up IPC-origin request cards', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.ipcBridge.activeConversationId = 'conv-1';
+
+    // Snapshot A: includes pendingApproval
+    ws.onmessage({ data: JSON.stringify({
+        type: 'conversation_surface_snapshot',
+        conversationId: 'conv-1',
+        snapshot: {
+            status: 'idle',
+            pendingApproval: {
+                requestId: 'req-cleanup',
+                description: 'Should be cleaned up',
+                command: 'echo cleanup'
+            },
+            items: []
+        }
+    }) });
+
+    // Request card must have been rendered
+    let requestState = hooks.codexState.requestStateById.get('req-cleanup');
+    assert.ok(requestState, 'IPC approval request must be created from snapshot A');
+    assert.strictEqual(requestState.ipcTransport, true);
+
+    // Snapshot B: no longer has pendingApproval
+    ws.onmessage({ data: JSON.stringify({
+        type: 'conversation_surface_snapshot',
+        conversationId: 'conv-1',
+        snapshot: {
+            status: 'idle',
+            items: []
+        }
+    }) });
+
+    // IPC-origin request card must be cleaned up
+    requestState = hooks.codexState.requestStateById.get('req-cleanup');
+    assert.strictEqual(requestState, undefined,
+        'IPC-origin request must be removed when subsequent snapshot lacks pendingApproval');
+
+    dom.window.close();
+});
+
+test('IPC Integration: F-007 — subsequent snapshot without pendingPlanAction cleans up IPC-origin plan workflow', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.ipcBridge.activeConversationId = 'conv-1';
+
+    // Snapshot A: includes pendingPlanAction
+    ws.onmessage({ data: JSON.stringify({
+        type: 'conversation_surface_snapshot',
+        conversationId: 'conv-1',
+        snapshot: {
+            status: 'idle',
+            pendingPlanAction: {
+                requestId: 'plan-cleanup',
+                planContent: 'Plan to clean up'
+            },
+            items: []
+        }
+    }) });
+
+    assert.strictEqual(hooks.codexState.ipcBridge.ipcPlanWorkflowActive, true);
+    assert.strictEqual(hooks.codexState.planWorkflow.phase, 'plan_ready_for_confirmation');
+
+    // Snapshot B: no longer has pendingPlanAction
+    ws.onmessage({ data: JSON.stringify({
+        type: 'conversation_surface_snapshot',
+        conversationId: 'conv-1',
+        snapshot: {
+            status: 'idle',
+            items: []
+        }
+    }) });
+
+    assert.strictEqual(hooks.codexState.ipcBridge.ipcPlanWorkflowActive, false);
+    assert.strictEqual(hooks.codexState.planWorkflow.phase, 'idle',
+        'IPC-origin plan workflow must be reset when snapshot removes pendingPlanAction');
+
+    dom.window.close();
+});
+
+test('IPC Integration: F-004 — snapshot status maps to setCodexStatus for header display', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.ipcBridge.activeConversationId = 'conv-1';
+
+    // Before snapshot, status should be idle
+    assert.strictEqual(hooks.codexState.status, 'idle');
+
+    // Send snapshot with running status
+    ws.onmessage({ data: JSON.stringify({
+        type: 'conversation_surface_snapshot',
+        conversationId: 'conv-1',
+        snapshot: {
+            status: 'running',
+            items: []
+        }
+    }) });
+
+    assert.strictEqual(hooks.codexState.status, 'running',
+        'snapshot running status must map to Codex running status');
+
+    dom.window.close();
+});
+
+test('IPC Integration: snapshot with waiting_for_approval status maps to running with detail', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.ipcBridge.activeConversationId = 'conv-1';
+
+    ws.onmessage({ data: JSON.stringify({
+        type: 'conversation_surface_snapshot',
+        conversationId: 'conv-1',
+        snapshot: {
+            status: 'waiting_for_approval',
+            items: []
+        }
+    }) });
+
+    assert.strictEqual(hooks.codexState.status, 'running');
+    assert.strictEqual(hooks.codexState.statusDetail, 'waiting_for_approval');
+
+    dom.window.close();
+});
+
+test('IPC Integration: non-IPC pending requests are not cleaned up by IPC snapshot (F-007 guard)', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.ipcBridge.activeConversationId = 'conv-1';
+
+    // Create a non-IPC pending request (legacy)
+    hooks.renderCodexServerRequest({
+        requestId: 'legacy-req',
+        method: 'item/commandExecution/requestApproval',
+        requestKind: 'command',
+        responseMode: 'confirm',
+        handledBy: 'client',
+        summary: 'Legacy request',
+        params: { command: 'echo legacy' }
+    });
+    // Verify legacy request exists
+    assert.ok(hooks.codexState.requestStateById.get('legacy-req'), 'legacy request must exist');
+
+    // Send IPC snapshot without pending actions
+    ws.onmessage({ data: JSON.stringify({
+        type: 'conversation_surface_snapshot',
+        conversationId: 'conv-1',
+        snapshot: {
+            status: 'idle',
+            items: []
+        }
+    }) });
+
+    // Legacy request must still exist (not cleaned up)
+    assert.ok(hooks.codexState.requestStateById.get('legacy-req'),
+        'non-IPC legacy request must NOT be cleaned up by IPC snapshot');
+
+    dom.window.close();
+});
