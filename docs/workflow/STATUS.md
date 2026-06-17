@@ -26,6 +26,7 @@
 - [x] `20260615-002` 网页版 Codex IPC 实时同步会话页：已完成并归档。commit `9603ea7`。
 - [x] `20260616-001` 网页版 SPA 统一 shell + Codex 会话整合：已完成实现、review、regression。`terminal.html` 改造为 SPA shell，`terminal.js` 零改动。commit `32c4659`。
 - [ ] `20260615-001` Codex IPC Android 实时同步：paused_blocked（缺 Desktop IPC 环境 manual smoke）。
+- [x] `20260617-001` 网页版 Codex 会话页按安卓端设计对齐：9 files, +2191/−416, commit `647037b`。已完成 review/regression/verify-contracts，已归档。
 
 ## 📋 待开发
 
@@ -84,3 +85,4 @@
 - 2026-05-17：完成 `20260513-001` 归档。归档文件为 `TASKS/TASK-20260513-001-provide-cross-platform-release-installer-and-mtls-tooling.md`；`CURRENT_TASK.md` 已清理为 clean handoff 入口，下一步按新需求执行 `/create-current-task`。
 - 2026-06-15：创建 `20260615-001`（App Codex IPC 实时同步），完成服务端全链路（codexIpcFeed/Transport/Client/ThreadStream + gateway IPC 路由）和 Android 端集成。自动化回归 189 pass/0 fail。因缺 Desktop IPC 环境 manual smoke，任务 paused_blocked。
 - 2026-06-16：创建并完成 `20260615-002`（网页版 Codex IPC 实时同步会话页）。纯前端 codex_ipc.html/js/css + 服务端 scope widening（吸收 `20260615-001` 的 4 处 IPC 集成遗漏）。端到端验证通过（4 conversations, 87 items）。commit `9603ea7`（11 files, +2129/-627）。等待 closeout。
+- 2026-06-17：完成 `20260617-001`（网页版 Codex 会话页按安卓端设计对齐）。9 files, +2191/−416。commit `647037b` + `a50cd03`。已验证 98/99 pass，1 个 sandbox 测试（条件路径，需更新选择器）。已归档。

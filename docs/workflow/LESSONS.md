@@ -59,6 +59,21 @@
 
 ## 前端与交互
 
+- 场景：iframe 嵌入的 codex 页面点击事件不冒泡到父页面，导致 sidebar 无法自动关闭。
+  - 结论：跨 iframe 交互不能靠事件冒泡，必须用 `postMessage` 通信。iframe 内发送 `window.parent.postMessage({ type })`，父页面通过 `window.addEventListener('message', handler)` 接收。
+  - 触发信号：点击 iframe 内部元素时父页面的 `document.addEventListener('click', ...)` 不触发。
+  - 应对动作：添加 iframe 内点击监听 → `postMessage` → 父页面监听 `message` 事件执行相应动作。
+
+- 场景：`codex_client.html` 独立打开时拿不到 `sessionId`，WebSocket 连接到空会话。
+  - 结论：`terminal_client.js` 不负责解析 URL 参数，`sessionId` 只来自 WebSocket `session_info` 或 `applyRuntimeConfig`，两者都需要外部配置。
+  - 触发信号：`session_info.cwd=null`，`codexState.cwd` 始终为空，页面显示"Codex"而非路径。
+  - 应对动作：在 init 块中主动调用 `new URL(location.href).searchParams.get('sessionId')`，在 `applyRuntimeConfig` 之后设置 `sessionId`。
+
+- 场景：`codex_state` 消息到达时 `envelope.cwd=null`，覆盖了此前 `session_info` 已经设好的 cwd。
+  - 结论：后续消息不应无条件覆盖前序消息已设的字段值，特别是当后续消息的结构可能不完整时。
+  - 触发信号：`session_info` 中 `cwd` 有效，但 `codex_state` 到达后 `cwd` 变空。
+  - 应对动作：`codex_state` 处理 `cwd` 时保留已有值：`codexState.cwd = envelope.cwd || codexState.cwd`。
+
 - 场景：
   - 结论：
   - 触发信号：
