@@ -1137,6 +1137,13 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// Close sidebar when iframe (codex page) reports a click
+window.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'close-sidebar') {
+        sidebar.classList.remove('open');
+    }
+});
+
 // --- DOM Elements (New Session) ---
 const newSessionModal = document.getElementById('new-session-modal');
 const btnCloseNewSession = document.getElementById('btn-close-new-session');
@@ -1248,33 +1255,68 @@ async function createSessionOnActive(name) {
 }
 
 function switchSession(id) {
+    // Only skip if it's the same session AND already connected (not initial load)
+    var isFirstCall = !sessionId;
+
     if (sessionId === id && ws && ws.readyState === WebSocket.OPEN) return;
 
-    sessionId = id;
-    localStorage.setItem('lastSessionId', id);
+    var termView = document.getElementById('terminal-view');
+    var codexView = document.getElementById('codex-view');
 
-    // Reset Connection State
-    clearTimeout(reconnectTimer);
-    isConnecting = false;
-    retryCount = 0;
+    // Fetch session info to check mode before deciding path
+    fetch(getBaseUrl() + '/api/sessions').then(function (r) { return r.ok ? r.json() : []; }).then(function (sessions) {
+        var s = sessions.find(function (sess) { return sess.id === id; });
+        if (s && s.sessionMode === 'codex') {
+            // Codex session: show redesigned page in iframe
+            if (termView) termView.style.display = 'none';
+            if (codexView) {
+                codexView.style.display = '';
+                var iframe = codexView.querySelector('iframe');
+                if (!iframe) {
+                    iframe = document.createElement('iframe');
+                    iframe.style.cssText = 'width:100%;height:100%;border:none;';
+                    codexView.innerHTML = '';
+                    codexView.appendChild(iframe);
+                }
+                iframe.src = '/codex_client.html?sessionId=' + encodeURIComponent(id);
+            }
+            sessionId = id;
+            localStorage.setItem('lastSessionId', id);
+            // Close sidebar
+            sidebar.classList.remove('open');
+            return;
+        }
+        // Terminal session flow
+        terminalSwitchSession(id);
+    }).catch(function () {
+        // Fallback: treat as terminal
+        terminalSwitchSession(id);
+    });
 
-    // Close old connection if open
-    if (ws) {
-        ws.onclose = null;
-        ws.close();
-        ws = null;
-    }
+    function terminalSwitchSession(id) {
+        sessionId = id;
+        localStorage.setItem('lastSessionId', id);
+        if (codexView) codexView.style.display = 'none';
+        if (termView) termView.style.display = '';
 
-    resetTerminalView();
-    connect(); // This will use activeServer + new sessionId
+        clearTimeout(reconnectTimer);
+        isConnecting = false;
+        retryCount = 0;
 
-    // URL Update
-    const newUrl = new URL(window.location);
-    newUrl.searchParams.set('sessionId', id);
-    if (!isFileProtocol) window.history.replaceState({}, '', newUrl);
+        if (ws) {
+            ws.onclose = null;
+            ws.close();
+            ws = null;
+        }
 
-    // Close sidebar on mobile
-    if (window.innerWidth < 768) {
+        resetTerminalView();
+        connect();
+
+        const newUrl = new URL(window.location);
+        newUrl.searchParams.set('sessionId', id);
+        if (!isFileProtocol) window.history.replaceState({}, '', newUrl);
+
+        // Close sidebar
         sidebar.classList.remove('open');
     }
 }
@@ -1309,7 +1351,30 @@ async function loadSessions() {
             nameSpan.className = 'session-name';
             nameSpan.textContent = s.name;
 
-            li.addEventListener('click', () => switchSession(s.id));
+            li.addEventListener('click', function () {
+                if (s.sessionMode === 'codex') {
+                    // Codex session: show redesigned page in iframe
+                    var termView = document.getElementById('terminal-view');
+                    var codexView = document.getElementById('codex-view');
+                    if (termView) termView.style.display = 'none';
+                    if (codexView) {
+                        codexView.style.display = '';
+                        var iframe = codexView.querySelector('iframe');
+                        if (!iframe) {
+                            iframe = document.createElement('iframe');
+                            iframe.style.cssText = 'width:100%;height:100%;border:none;';
+                            codexView.innerHTML = '';
+                            codexView.appendChild(iframe);
+                        }
+                        iframe.src = '/codex_client.html?sessionId=' + encodeURIComponent(s.id);
+                    }
+                    sessionId = s.id;
+                    localStorage.setItem('lastSessionId', s.id);
+                    sidebar.classList.remove('open');
+                    return;
+                }
+                switchSession(s.id);
+            });
 
             // Delete button
             const del = document.createElement('button');

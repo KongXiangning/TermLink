@@ -17,34 +17,45 @@
             <div id="terminal-container"></div>
         </div>
         <div id="codex-panel">
-            <div id="codex-header">
-                <div id="codex-top-bar">
-                    <div id="codex-brand">
-                        <span id="codex-brand-icon" aria-hidden="true">&#x2B22;</span>
-                        <span id="codex-brand-name">Codex</span>
-                        <span id="codex-brand-version">v1.0</span>
-                    </div>
-                    <div id="codex-top-bar-actions">
-                        <button id="btn-codex-interrupt" class="codex-btn danger" type="button" hidden data-i18n="codex.btn.interrupt">Interrupt</button>
-                    </div>
-                </div>
-                <div id="codex-status-strip">
-                    <div id="codex-header-main">
-                        <div id="codex-status-line">
-                            <span id="codex-status-dot" aria-hidden="true"></span>
-                            <span id="codex-status-text" data-i18n="codex.status.idle">Codex Idle</span>
-                            <span id="codex-status-cwd" hidden></span>
+                <div id="codex-header">
+                    <div id="codex-top-bar">
+                        <div id="codex-brand">
+                            <span id="codex-brand-icon" aria-hidden="true">&#x2B22;</span>
+                            <span id="codex-brand-name">Codex</span>
+                            <span id="codex-brand-version"></span>
                         </div>
-                        <div id="codex-meta-line">
-                            <span id="codex-meta-text"></span>
-                            <span id="codex-notice-text"></span>
+                        <div id="codex-top-bar-actions">
+                            <button id="btn-codex-header-docs" class="codex-header-icon-btn" type="button" aria-label="Docs" title="Docs" hidden>&#x1F4C4;</button>
+                            <button id="btn-codex-header-history" class="codex-history-tip-btn" type="button" data-i18n="codex.tab.history">&#x1F4CB; 任务历史</button>
+                            <button id="btn-codex-interrupt" class="codex-btn danger" type="button" hidden data-i18n="codex.btn.interrupt">Interrupt</button>
                         </div>
                     </div>
-                    <div id="codex-actions">
-                        <button id="btn-codex-toggle" class="codex-btn" type="button" data-i18n="codex.btn.collapse">Collapse</button>
+                    <div id="codex-status-strip">
+                        <button id="btn-codex-hamburger" class="codex-header-icon-btn" type="button" aria-label="Open sessions" title="Sessions">&#x2630;</button>
+                        <div id="codex-header-main">
+                            <div id="codex-status-line">
+                                <span id="codex-status-dot" aria-hidden="true"></span>
+                                <span id="codex-status-text" data-i18n="codex.status.idle">Codex Idle</span>
+                                <span id="codex-status-cwd" hidden></span>
+                                <span id="codex-status-cwd-row" class="codex-cwd-row" hidden>
+                                    <span id="codex-cwd-prefix" data-i18n="codex.header.pathPrefix">PATH</span>
+                                    <span id="codex-cwd-text"></span>
+                                </span>
+                            </div>
+                            <div id="codex-meta-line">
+                                <span id="codex-meta-text"></span>
+                                <span id="codex-notice-text"></span>
+                            </div>
+                        </div>
+                        <div id="codex-actions">
+                            <button id="btn-codex-toggle" class="codex-btn" type="button" data-i18n="codex.btn.collapse">Collapse</button>
+                        </div>
+                    </div>
+                    <div id="codex-quota-row" hidden>
+                        <span id="codex-quota-label" class="codex-quota-label" data-i18n="codex.quota.label">Quota</span>
+                        <span id="codex-quota-chips" class="codex-quota-chips"></span>
                     </div>
                 </div>
-            </div>
             <div id="codex-alerts" hidden>
                 <div id="codex-alert-config" class="codex-alert" hidden>
                     <div class="codex-alert-label" data-i18n="codex.alert.config">Config Alert</div>
@@ -111,15 +122,12 @@
                 </div>
             </div>
             <div id="codex-log" aria-live="polite">
+                <div id="codex-empty-state" hidden>
+                    <span id="codex-watermark" data-i18n="codex.empty.watermark">CODEX</span>
+                </div>
                 <div id="codex-log-stack"></div>
             </div>
             <div id="codex-composer">
-                <div id="codex-secondary-nav">
-                    <button id="btn-codex-secondary-threads" class="codex-secondary-btn" type="button" data-i18n="codex.panel.history">Task History</button>
-                    <button id="btn-codex-secondary-runtime" class="codex-secondary-btn" type="button" data-i18n="codex.panel.runtime">Runtime</button>
-                    <button id="btn-codex-secondary-tools" class="codex-secondary-btn" type="button" hidden data-i18n="codex.panel.tools">Tools</button>
-                    <button id="btn-codex-secondary-notices" class="codex-secondary-btn" type="button" hidden data-i18n="codex.panel.notices">Notices</button>
-                </div>
                 <section id="codex-plan-workflow" hidden>
                     <div id="codex-plan-workflow-header">
                         <div id="codex-plan-workflow-title" data-i18n="codex.plan.inProgress">Plan in Progress</div>
@@ -166,34 +174,27 @@
                     </div>
                 </div>
                 <div id="codex-composer-footer">
-                    <div id="codex-footer-left">
-                        <button id="btn-codex-file-attach" class="codex-footer-action-btn" type="button" aria-label="Attach file or image" data-i18n="codex.footer.fileAttachLabel" data-i18n-attr="aria-label">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <div id="codex-footer-actions">
+                        <button class="codex-capsule-btn" id="btn-codex-capsule-attach" type="button" aria-label="Attach" title="Attach">+</button>
+                        <button class="codex-capsule-btn has-dropdown" id="btn-codex-capsule-model" type="button">
+                            <span class="capsule-label" data-i18n="codex.capsule.model">Model</span>
+                            <span class="capsule-value" id="capsule-model-value">Default</span>
                         </button>
-                        <button id="btn-codex-slash-cmd" class="codex-footer-action-btn" type="button" aria-label="Open command menu" data-i18n="codex.footer.slashCmdLabel" data-i18n-attr="aria-label">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="7" y1="20" x2="17" y2="4"/></svg>
+                        <button class="codex-capsule-btn has-dropdown" id="btn-codex-capsule-reasoning" type="button">
+                            <span class="capsule-label" data-i18n="codex.capsule.reasoning">Think</span>
+                            <span class="capsule-value" id="capsule-reasoning-value">Default</span>
                         </button>
-                        <div class="codex-footer-divider"></div>
-                        <div id="codex-quick-controls">
-                            <select id="codex-quick-model" class="codex-ghost-select">
-                                <option value="" data-i18n="codex.quick.default">Default</option>
-                            </select>
-                            <select id="codex-quick-reasoning" class="codex-ghost-select">
-                                <option value="" data-i18n="codex.quick.default">Default</option>
-                            </select>
-                            <select id="codex-quick-sandbox" class="codex-ghost-select">
-                                <option value="" data-i18n="codex.quick.sandbox">Sandbox</option>
-                                <option value="danger-full-access" data-i18n="codex.quick.fullAccess">Full Access</option>
-                            </select>
-                        </div>
-                        <div class="codex-footer-divider"></div>
-                        <button id="codex-footer-plan-indicator" class="codex-footer-plan-indicator" type="button" hidden data-i18n="codex.footer.planOn">📋 Plan</button>
-                        <button id="codex-context-widget" class="codex-context-widget" type="button" hidden aria-label="View context window debug info" data-i18n="codex.context.widgetLabel" data-i18n-attr="aria-label">
-                            <div id="codex-context-ring" class="codex-context-ring" aria-hidden="true">
-                                <span id="codex-context-percent" class="codex-context-percent">--</span>
-                            </div>
+                        <button class="codex-capsule-btn has-dropdown" id="btn-codex-capsule-sandbox" type="button">
+                            <span class="capsule-label" data-i18n="codex.capsule.sandbox">Sandbox</span>
+                            <span class="capsule-value" id="capsule-sandbox-value">Sandbox</span>
                         </button>
                     </div>
+                    <div id="codex-footer-spacer"></div>
+                    <button id="codex-context-widget" class="codex-context-widget" type="button" hidden aria-label="View context window debug info" data-i18n="codex.context.widgetLabel" data-i18n-attr="aria-label">
+                        <div id="codex-context-ring" class="codex-context-ring" aria-hidden="true">
+                            <span id="codex-context-percent" class="codex-context-percent">--</span>
+                        </div>
+                    </button>
                 </div>
             </div>
         </div>
@@ -273,6 +274,15 @@
         </div>
         <div id="toolbar"></div>
     </div>
+    <div id="codex-sheet-overlay" class="codex-sheet-overlay" hidden></div>
+    <div id="codex-sheet-panel" class="codex-sheet-panel" hidden>
+        <div id="codex-sheet-handle"></div>
+        <div id="codex-sheet-header">
+            <span id="codex-sheet-title"></span>
+            <button id="codex-sheet-close" class="codex-sheet-close-btn">&times;</button>
+        </div>
+        <div id="codex-sheet-body"></div>
+    </div>
     <script src="lib/codex_bootstrap.js?v=2"></script>
     <script src="lib/codex_history_view.js?v=2"></script>
     <script src="lib/codex_shell_view.js?v=1"></script>
@@ -280,7 +290,7 @@
     <script src="lib/codex_settings_view.js?v=3"></script>
     <script src="lib/codex_runtime_view.js?v=4"></script>
     <script src="lib/codex_approval_view.js?v=3"></script>
-    <script src="terminal_client.js?v=84"></script>
+    <script src="terminal_client.js?v=100"></script>
 </body>
 
 </html>

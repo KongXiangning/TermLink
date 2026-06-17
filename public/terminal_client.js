@@ -12,6 +12,9 @@ const codexLog = document.getElementById('codex-log');
 const codexLogStack = document.getElementById('codex-log-stack');
 const codexStatusText = document.getElementById('codex-status-text');
 const codexStatusCwd = document.getElementById('codex-status-cwd');
+const codexCwdRow = document.getElementById('codex-status-cwd-row');
+const codexCwdPrefix = document.getElementById('codex-cwd-prefix');
+const codexCwdText = document.getElementById('codex-cwd-text');
 const codexMetaText = document.getElementById('codex-meta-text');
 const codexNoticeText = document.getElementById('codex-notice-text');
 const codexSecondaryNav = document.getElementById('codex-secondary-nav');
@@ -26,6 +29,11 @@ const btnCodexSend = document.getElementById('btn-codex-send');
 const btnCodexToggle = document.getElementById('btn-codex-toggle');
 const btnCodexNewThread = document.getElementById('btn-codex-new-thread');
 const btnCodexInterrupt = document.getElementById('btn-codex-interrupt');
+const btnCodexHamburger = document.getElementById('btn-codex-hamburger');
+const btnCodexHeaderDocs = document.getElementById('btn-codex-header-docs');
+const codexQuotaRow = document.getElementById('codex-quota-row');
+const codexQuotaChips = document.getElementById('codex-quota-chips');
+const codexQuotaLabel = document.getElementById('codex-quota-label');
 const btnCodexHistoryRefresh = document.getElementById('btn-codex-history-refresh');
 const btnCodexSecondaryThreads = document.getElementById('btn-codex-secondary-threads');
 const btnCodexSecondaryRuntime = document.getElementById('btn-codex-secondary-runtime');
@@ -68,6 +76,21 @@ const codexQuickSandbox = document.getElementById('codex-quick-sandbox');
 const btnCodexSlashTrigger = document.getElementById('btn-codex-slash-trigger');  // legacy (removed from DOM)
 const btnCodexFileAttach = document.getElementById('btn-codex-file-attach');
 const btnCodexSlashCmd = document.getElementById('btn-codex-slash-cmd');
+// New capsule button references
+const btnCodexCapsuleAttach = document.getElementById('btn-codex-capsule-attach');
+const btnCodexCapsuleSlash = document.getElementById('btn-codex-capsule-slash');
+const btnCodexCapsuleModel = document.getElementById('btn-codex-capsule-model');
+const btnCodexCapsuleReasoning = document.getElementById('btn-codex-capsule-reasoning');
+const btnCodexCapsuleSandbox = document.getElementById('btn-codex-capsule-sandbox');
+const capsuleModelValue = document.getElementById('capsule-model-value');
+// Sheet system
+const codexSheetOverlay = document.getElementById('codex-sheet-overlay');
+const codexSheetPanel = document.getElementById('codex-sheet-panel');
+const codexSheetTitle = document.getElementById('codex-sheet-title');
+const codexSheetBody = document.getElementById('codex-sheet-body');
+const btnCodexSheetClose = document.getElementById('codex-sheet-close');
+const capsuleReasoningValue = document.getElementById('capsule-reasoning-value');
+const capsuleSandboxValue = document.getElementById('capsule-sandbox-value');
 const codexImageActions = document.getElementById('codex-image-actions');
 const btnCodexImageUrl = document.getElementById('btn-codex-image-url');
 const btnCodexImageLocal = document.getElementById('btn-codex-image-local');
@@ -729,7 +752,9 @@ const HISTORY_STORAGE_PREFIX = 'termLinkClientHistory:';
 const HISTORY_MAX_LINES = 1000;
 
 let runtimeConfig = readInjectedConfig();
-let serverUrl = '';
+// Default serverUrl to current origin whenever no config is provided
+let inIframe = window.self !== window.top;
+let serverUrl = runtimeConfig.serverUrl || location.origin || '';
 let sessionId = '';
 let authHeader = '';
 let historyEnabled = true;
@@ -1098,10 +1123,25 @@ function syncCodexSecondaryPanelState() {
 function renderCodexHeaderSummary() {
     const shellApi = getCodexShellViewApi();
 
-    if (codexStatusCwd) {
-        codexStatusCwd.textContent = codexState.cwd || '';
-        codexStatusCwd.hidden = !codexState.cwd;
+    // CWD display: new cwd-row format + legacy fallback
+    const cwd = codexState.cwd || '';
+    // Show cwd in brand version slot (fallback to "Codex")
+    if (codexBrandVersion) {
+        codexBrandVersion.textContent = cwd || 'Codex';
+        codexBrandVersion.hidden = false;
     }
+    if (codexCwdRow) {
+        codexCwdRow.hidden = !cwd;
+        if (cwd && codexCwdText) {
+            codexCwdText.textContent = cwd;
+        }
+    }
+    if (codexStatusCwd) {
+        codexStatusCwd.textContent = cwd;
+        codexStatusCwd.hidden = !cwd;
+    }
+
+    // Interrupt button
     if (btnCodexInterrupt) {
         const showInterrupt = shellApi && typeof shellApi.shouldShowInterrupt === 'function'
             ? shellApi.shouldShowInterrupt({
@@ -1118,33 +1158,66 @@ function renderCodexHeaderSummary() {
             );
         btnCodexInterrupt.hidden = !showInterrupt;
     }
+
+    // Docs button: show when session has cwd (codex session active)
+    if (btnCodexHeaderDocs) {
+        btnCodexHeaderDocs.hidden = !cwd;
+    }
+
+    // Hide hamburger and docs in iframe (SPA shell handles sessions)
+    if (inIframe) {
+        if (btnCodexHamburger) btnCodexHamburger.hidden = true;
+    }
+
+    // Quota chips
+    renderCodexQuotaChips();
+
     renderCodexContextUsage();
 }
 
-function renderCodexSecondaryNav() {
-    const availability = getCodexSecondaryEntryAvailability();
-    const activePanel = syncCodexSecondaryPanelState();
-    const buttons = [
-        { element: btnCodexSecondaryThreads, key: 'threads' },
-        { element: btnCodexSecondaryRuntime, key: 'runtime' },
-        { element: btnCodexSecondaryTools, key: 'tools' },
-        { element: btnCodexSecondaryNotices, key: 'notices' }
-    ];
-    let visibleCount = 0;
-    buttons.forEach(({ element, key }) => {
-        if (!element) return;
-        const isVisible = availability[key] === true;
-        element.hidden = !isVisible;
-        element.disabled = !isVisible;
-        element.classList.toggle('active', isVisible && activePanel === key);
-        element.setAttribute('aria-pressed', isVisible && activePanel === key ? 'true' : 'false');
-        if (isVisible) {
-            visibleCount += 1;
-        }
-    });
-    if (codexSecondaryNav) {
-        codexSecondaryNav.hidden = visibleCount === 0;
+function setCodexCwd(rawCwd) {
+    if (codexCwdRow && codexCwdText) {
+        const display = rawCwd || '';
+        codexCwdRow.hidden = !display;
+        codexCwdText.textContent = display;
     }
+    if (codexStatusCwd) {
+        codexStatusCwd.textContent = rawCwd || '';
+        codexStatusCwd.hidden = !rawCwd;
+    }
+    // Show docs button when cwd is available
+    if (btnCodexHeaderDocs) {
+        btnCodexHeaderDocs.hidden = !rawCwd;
+    }
+}
+
+function renderCodexQuotaChips() {
+    if (!codexQuotaRow || !codexQuotaChips) return;
+    const summary = codexState.rateLimitSummary || '';
+    const tone = codexState.rateLimitTone || '';
+    if (!summary) {
+        codexQuotaRow.hidden = true;
+        return;
+    }
+    codexQuotaRow.hidden = false;
+
+    // Split summary by " | " into chip parts
+    const parts = summary.split('|').filter(Boolean);
+    codexQuotaChips.innerHTML = '';
+    for (let i = 0; i < parts.length; i++) {
+        const chip = document.createElement('span');
+        chip.className = 'codex-quota-chip' + (tone ? ' is-' + tone : '');
+        chip.textContent = parts[i].trim();
+        codexQuotaChips.appendChild(chip);
+    }
+}
+
+function renderCodexTabBar() {
+    // Deprecated: tab bar replaced by top‑right history tip button.
+}
+
+function renderCodexSecondaryNav() {
+    // Deprecated: tab bar removed. kept for backward compat.
 }
 
 function renderCodexSecondaryPanels() {
@@ -1157,30 +1230,238 @@ function renderCodexSecondaryPanels() {
 
 function setCodexSecondaryPanel(panelName) {
     const normalized = (
-        panelName === 'threads'
+        panelName === 'history'
         || panelName === 'runtime'
         || panelName === 'tools'
-        || panelName === 'notices'
+        || panelName === 'threads'
     ) ? panelName : 'none';
+    // Normalize old 'threads' key to 'history' for tab bar
+    const tabKey = normalized === 'threads' ? 'history' : normalized;
     const availability = getCodexSecondaryEntryAvailability();
-    codexState.secondaryPanel = normalized !== 'none' && availability[normalized] === true ? normalized : 'none';
+    // Map old keys to new tab keys for availability check
+    const availKey = tabKey === 'history' ? 'threads' : tabKey;
+    codexState.secondaryPanel = normalized !== 'none' && availability[availKey] === true ? normalized : 'none';
     renderCodexHeaderSummary();
-    renderCodexSecondaryNav();
+    renderCodexTabBar();
     renderCodexSecondaryPanels();
 }
 
 function toggleCodexSecondaryPanel(panelName) {
     const normalized = (
-        panelName === 'threads'
+        panelName === 'history'
         || panelName === 'runtime'
         || panelName === 'tools'
-        || panelName === 'notices'
+        || panelName === 'threads'
     ) ? panelName : 'none';
     if (codexState.secondaryPanel === normalized) {
         setCodexSecondaryPanel('none');
         return;
     }
     setCodexSecondaryPanel(normalized);
+}
+
+// ── Watermark visibility ──
+function renderCodexWatermark() {
+    const el = document.getElementById('codex-empty-state');
+    if (!el) return;
+    const hasMessages = codexState.messages && codexState.messages.length > 0;
+    const isRunning = codexState.status === 'running' || codexState.status === 'streaming';
+    el.hidden = hasMessages || isRunning;
+}
+
+// ── Sheet overlay system ──
+function openCodexSheet(title, contentBuilder) {
+    if (!codexSheetOverlay || !codexSheetPanel || !codexSheetBody) return;
+    if (codexSheetTitle) codexSheetTitle.textContent = title || '';
+    codexSheetBody.innerHTML = '';
+    if (typeof contentBuilder === 'function') {
+        contentBuilder(codexSheetBody);
+    }
+    codexSheetOverlay.hidden = false;
+    codexSheetPanel.hidden = false;
+    // Force reflow for transition
+    void codexSheetOverlay.offsetWidth;
+    codexSheetOverlay.classList.add('is-open');
+    codexSheetPanel.classList.add('is-open');
+}
+
+function closeCodexSheet() {
+    if (!codexSheetOverlay || !codexSheetPanel) return;
+    codexSheetOverlay.classList.remove('is-open');
+    codexSheetPanel.classList.remove('is-open');
+    // Reset tab bar active state
+    codexState.secondaryPanel = 'none';
+    renderCodexTabBar();
+    var onTransitionEnd = function () {
+        codexSheetOverlay.hidden = true;
+        codexSheetPanel.hidden = true;
+        codexSheetOverlay.removeEventListener('transitionend', onTransitionEnd);
+    };
+    codexSheetOverlay.addEventListener('transitionend', onTransitionEnd);
+    // Fallback: hide after 300ms if transitionend doesn't fire
+    clearTimeout(codexSheetOverlay._closeTimer);
+    codexSheetOverlay._closeTimer = setTimeout(function () {
+        if (!codexSheetOverlay.classList.contains('is-open')) {
+            codexSheetOverlay.hidden = true;
+            codexSheetPanel.hidden = true;
+        }
+    }, 350);
+}
+
+// ── History popup (top‑right positioned) ──
+function renderHistorySheet() {
+    renderCodexHistoryList();
+    // Close existing popup
+    var existing = document.getElementById('codex-history-popup');
+    if (existing) existing.remove();
+    var existingOv = document.getElementById('codex-history-popup-overlay');
+    if (existingOv) existingOv.remove();
+
+    var list = document.getElementById('codex-history-list');
+    var popup = document.createElement('div');
+    popup.id = 'codex-history-popup';
+    popup.className = 'codex-history-popup';
+
+    // Header
+    var hdr = document.createElement('div');
+    hdr.className = 'codex-history-popup-header';
+    var title = document.createElement('span');
+    title.textContent = t('codex.tab.history') || 'Task History';
+    var closeBtn = document.createElement('button');
+    closeBtn.textContent = '\u00D7';
+    closeBtn.className = 'codex-history-popup-close';
+    hdr.appendChild(title);
+    hdr.appendChild(closeBtn);
+    popup.appendChild(hdr);
+
+    // Actions
+    var actions = document.createElement('div');
+    actions.className = 'codex-history-popup-actions';
+    actions.innerHTML =
+        '<button class="codex-btn subtle" id="popup-history-refresh">' + (t('common.refresh') || 'Refresh') + '</button>' +
+        '<button class="codex-btn" id="popup-history-new">' + (t('codex.history.newTask') || 'New Task') + '</button>';
+    popup.appendChild(actions);
+
+    // Content
+    var content = document.createElement('div');
+    content.className = 'codex-history-popup-content';
+    if (list && list.children.length > 0) {
+        while (list.firstChild) content.appendChild(list.firstChild);
+    } else {
+        content.innerHTML = '<div style="color:#7D8A9B;padding:16px;text-align:center;">' + (t('codex.history.empty') || 'No saved threads.') + '</div>';
+    }
+    popup.appendChild(content);
+    // Auto‑close when history action button is clicked
+    content.addEventListener('click', function (e) {
+        if (e.target.closest('.codex-history-primary-action, .codex-history-secondary-action')) {
+            closeHistoryPopup();
+        }
+    });
+
+    document.body.appendChild(popup);
+
+    // Position near button
+    var btn = document.getElementById('btn-codex-header-history');
+    if (btn) {
+        var rect = btn.getBoundingClientRect();
+        popup.style.top = Math.max(4, rect.bottom + 4) + 'px';
+        popup.style.right = (window.innerWidth - rect.right) + 'px';
+    }
+
+    // Wire actions
+    var refreshBtn = document.getElementById('popup-history-refresh');
+    var newBtn = document.getElementById('popup-history-new');
+    if (refreshBtn) refreshBtn.addEventListener('click', function () { refreshCodexThreadList({ force: true }); closeHistoryPopup(); });
+    if (newBtn) newBtn.addEventListener('click', function () { requestCodexNewThread(); closeHistoryPopup(); });
+    closeBtn.addEventListener('click', closeHistoryPopup);
+
+    function closeHistoryPopup() {
+        // Restore elements to panel
+        var targetList = document.getElementById('codex-history-list');
+        if (targetList && content) {
+            while (content.firstChild) targetList.appendChild(content.firstChild);
+        }
+        popup.remove();
+    }
+}
+
+function renderRuntimeSheet() {
+    renderCodexRuntimePanel();
+    openCodexSheet(t('codex.tab.runtime') || 'Runtime', function (body) {
+        var panel = document.getElementById('codex-runtime-panel');
+        if (panel && panel.children.length > 0) {
+            body.innerHTML = panel.innerHTML;
+        } else {
+            body.innerHTML = '<div style="color:#7D8A9B;padding:12px;">No runtime data</div>';
+        }
+    });
+}
+
+function renderToolsSheet() {
+    renderCodexToolsPanel();
+    openCodexSheet(t('codex.tab.tools') || 'Tools', function (body) {
+        var panel = document.getElementById('codex-tools-panel');
+        if (panel && panel.children.length > 0) {
+            body.innerHTML = panel.innerHTML;
+            // Re-wire plan toggle
+            var planToggle = body.querySelector('#btn-codex-tools-plan-toggle');
+            if (planToggle) {
+                planToggle.addEventListener('click', function () {
+                    var isActive = codexState.interactionState.planMode === true;
+                    setPlanMode(!isActive);
+                    renderCodexToolsPanel();
+                });
+            }
+        } else {
+            body.innerHTML = '<div style="color:#7D8A9B;padding:12px;">No tools available</div>';
+        }
+    });
+}
+
+function renderAttachmentSheet() {
+    openCodexSheet(t('codex.sheet.attach.title') || 'Add Attachment', function (body) {
+        var div = document.createElement('div');
+        div.className = 'codex-attach-options';
+        div.innerHTML =
+            '<button class="codex-attach-option" id="btn-attach-image">' +
+            '<span class="attach-icon">\uD83D\uDDBC</span>' +
+            '<span class="attach-label">' + (t('codex.sheet.attach.image') || 'Image') + '</span>' +
+            '</button>' +
+            '<button class="codex-attach-option" id="btn-attach-file">' +
+            '<span class="attach-icon">\uD83D\uDCC4</span>' +
+            '<span class="attach-label">' + (t('codex.sheet.attach.file') || 'File') + '</span>' +
+            '</button>';
+        body.appendChild(div);
+        var imageBtn = body.querySelector('#btn-attach-image');
+        var fileBtn = body.querySelector('#btn-attach-file');
+        if (imageBtn) imageBtn.addEventListener('click', function () { promptForCodexImageInput('localImage'); closeCodexSheet(); });
+        if (fileBtn) fileBtn.addEventListener('click', function () { promptForCodexFileInput(); closeCodexSheet(); });
+    });
+}
+
+// ── Wire sheet close ──
+if (codexSheetOverlay) {
+    codexSheetOverlay.addEventListener('click', function (e) {
+        if (e.target === codexSheetOverlay) closeCodexSheet();
+    });
+}
+if (btnCodexSheetClose) {
+    btnCodexSheetClose.addEventListener('click', function () {
+        closeCodexSheet();
+    });
+}
+
+function promptForCodexFileInput() {
+    var input = document.getElementById('codex-file-input');
+    if (!input) {
+        input = document.createElement('input');
+        input.type = 'file';
+        input.id = 'codex-file-input';
+        input.style.display = 'none';
+        document.body.appendChild(input);
+    }
+    input.value = '';
+    input.click();
 }
 
 function setCodexStatus(status, detail) {
@@ -1204,6 +1485,7 @@ function setCodexStatus(status, detail) {
     renderCodexAuxStatus();
     renderCodexHistoryList();
     renderCodexContextUsage();
+    renderCodexWatermark();
 }
 
 function updateCodexThreadLabel() {
@@ -1211,6 +1493,7 @@ function updateCodexThreadLabel() {
     renderCodexAuxStatus();
     renderCodexHistoryList();
     renderCodexContextUsage();
+    renderCodexWatermark();
 }
 
 function renderCodexAuxStatus() {
@@ -1911,6 +2194,21 @@ function clearNextTurnOverrides() {
     setNextTurnOverrides({ model: null, reasoningEffort: null, sandbox: null });
 }
 
+// ── Capsule dropdown action wrappers ──
+function requestCodexSetModel(value) {
+    setNextTurnOverrideValue('model', value);
+    renderCodexQuickControls();
+    renderCodexCapsuleBar();
+}
+function requestCodexSetReasoningEffort(value) {
+    setNextTurnOverrideValue('reasoningEffort', value);
+    renderCodexCapsuleBar();
+}
+function requestCodexSetSandboxMode(value) {
+    setNextTurnOverrideValue('sandbox', value);
+    renderCodexCapsuleBar();
+}
+
 function setNextTurnOverrideValue(key, value) {
     setNextTurnOverrides({
         model: key === 'model' ? value : codexState.nextTurnOverrides.model,
@@ -2184,6 +2482,141 @@ function renderCodexQuickControls() {
     if (codexQuickSandbox) {
         codexQuickSandbox.value = codexState.nextTurnOverrides.sandbox || '';
     }
+    // Also update capsule bar
+    renderCodexCapsuleBar();
+}
+
+function renderCodexCapsuleBar() {
+    // Update model capsule
+    var modelVal = codexState.nextTurnOverrides.model || '';
+    if (!modelVal && codexState.serverNextTurnConfigBase) {
+        modelVal = codexState.serverNextTurnConfigBase.model || '';
+    }
+    if (capsuleModelValue) {
+        capsuleModelValue.textContent = modelVal || t('codex.quick.default');
+    }
+    // Update reasoning capsule
+    var reVal = codexState.nextTurnOverrides.reasoningEffort || '';
+    if (!reVal && codexState.serverNextTurnConfigBase) {
+        reVal = codexState.serverNextTurnConfigBase.reasoningEffort || '';
+    }
+    if (capsuleReasoningValue) {
+        capsuleReasoningValue.textContent = reVal || t('codex.quick.default');
+    }
+    // Update sandbox capsule
+    var sbVal = codexState.nextTurnOverrides.sandbox || '';
+    if (capsuleSandboxValue) {
+        capsuleSandboxValue.textContent = sbVal || t('codex.quick.sandbox');
+    }
+}
+
+// ── Capsule dropdown system ──
+var activeCapsuleDropdown = null;
+
+function closeActiveCapsuleDropdown() {
+    if (activeCapsuleDropdown) {
+        activeCapsuleDropdown.classList.remove('is-open');
+        activeCapsuleDropdown = null;
+    }
+}
+
+function toggleCapsuleDropdown(btn, type) {
+    var dropdown = document.getElementById('codex-capsule-dropdown-' + type);
+    if (!dropdown) {
+        dropdown = document.createElement('div');
+        dropdown.id = 'codex-capsule-dropdown-' + type;
+        dropdown.className = 'codex-capsule-dropdown';
+        document.body.appendChild(dropdown);
+    }
+    if (activeCapsuleDropdown === dropdown) {
+        closeActiveCapsuleDropdown();
+        return;
+    }
+    closeActiveCapsuleDropdown();
+    activeCapsuleDropdown = dropdown;
+
+    // Build items
+    var items = buildCapsuleDropdownItems(type);
+    dropdown.innerHTML = '';
+    items.forEach(function (item) {
+        var el = document.createElement('div');
+        el.className = 'codex-capsule-dropdown-item' + (item.isSelected ? ' is-selected' : '');
+        el.textContent = item.label;
+        el.addEventListener('click', function () {
+            item.onClick();
+            closeActiveCapsuleDropdown();
+        });
+        dropdown.appendChild(el);
+    });
+    dropdown.classList.add('is-open');
+
+    // Position above button (capsule buttons are at page bottom)
+    var rect = btn.getBoundingClientRect();
+    dropdown.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+    dropdown.style.left = Math.max(4, rect.left) + 'px';
+}
+
+function buildCapsuleDropdownItems(type) {
+    if (type === 'model') {
+        var items = [];
+        var currentVal = codexState.nextTurnOverrides.model || '';
+        var seen = {};
+        codexState.modelCatalog.forEach(function (m) {
+            if (!m || !m.id || seen[m.id]) return;
+            seen[m.id] = true;
+            items.push({
+                label: m.label || m.id,
+                isSelected: m.id === currentVal,
+                onClick: function () { requestCodexSetModel(m.id); }
+            });
+        });
+        // Default option
+        items.unshift({
+            label: t('codex.quick.default'),
+            isSelected: !currentVal,
+            onClick: function () { requestCodexSetModel(null); }
+        });
+        return items;
+    }
+    if (type === 'reasoning') {
+        var rItems = [];
+        var currentRE = codexState.nextTurnOverrides.reasoningEffort || '';
+        var available = codexState.availableReasoningEfforts || [];
+        available.forEach(function (r) {
+            rItems.push({
+                label: r.label || r.id,
+                isSelected: r.id === currentRE,
+                onClick: function () { requestCodexSetReasoningEffort(r.id || null); }
+            });
+        });
+        rItems.unshift({
+            label: t('codex.quick.default'),
+            isSelected: !currentRE,
+            onClick: function () { requestCodexSetReasoningEffort(null); }
+        });
+        return rItems;
+    }
+    if (type === 'sandbox') {
+        var sItems = [];
+        var currentSB = codexState.nextTurnOverrides.sandbox || '';
+        var modes = codexState.availableSandboxModes || [];
+        modes.forEach(function (s) {
+            sItems.push({
+                label: s.label || s.id,
+                isSelected: (s.id || '') === currentSB,
+                onClick: function () { requestCodexSetSandboxMode(s.id || null); }
+            });
+        });
+        if (!currentSB) {
+            sItems.unshift({
+                label: t('codex.quick.sandbox'),
+                isSelected: true,
+                onClick: function () { requestCodexSetSandboxMode(null); }
+            });
+        }
+        return sItems;
+    }
+    return [];
 }
 
 function populateCodexQuickModelSelect(forcedValue) {
@@ -6397,7 +6830,9 @@ function applyRuntimeConfig(config, forceReconnect) {
     const previousHistoryEnabled = historyEnabled;
     const previousCwd = getConfiguredCodexCwd();
 
-    serverUrl = normalizeServerUrl(config.serverUrl || '');
+    if (Object.prototype.hasOwnProperty.call(config, 'serverUrl') || config.serverUrl) {
+        serverUrl = normalizeServerUrl(config.serverUrl || location.origin);
+    }
     sessionId = typeof config.sessionId === 'string' ? config.sessionId.trim() : '';
     authHeader = typeof config.authHeader === 'string' ? config.authHeader : '';
     historyEnabled = resolveHistoryEnabled(config);
@@ -6667,6 +7102,10 @@ function connect() {
                     codexState.secondaryPanel = 'none';
                     codexState.currentThreadTitle = '';
                     codexState.initialSessionInfoReceived = true;
+                    // Also read cwd from session_info (available even without Codex bridge)
+                    if (envelope.cwd) {
+                        codexState.cwd = String(envelope.cwd).trim();
+                    }
                     syncNextTurnEffectiveCodexConfig();
                     applySessionModeLayout();
                     renderCodexHeaderSummary();
@@ -6723,7 +7162,8 @@ function connect() {
                         }
                     }
                     codexState.currentTurnId = envelope.currentTurnId || '';
-                    codexState.cwd = typeof envelope.cwd === 'string' ? envelope.cwd : '';
+                    codexState.cwd = typeof envelope.cwd === 'string' && envelope.cwd.trim()
+                        ? envelope.cwd.trim() : codexState.cwd;
                     codexState.approvalPending = envelope.approvalPending === true;
                     codexState.pendingServerRequestCount = Number.isFinite(envelope.pendingServerRequestCount)
                         ? envelope.pendingServerRequestCount
@@ -7190,9 +7630,11 @@ if (btnCodexToggle) {
     });
 }
 
-if (btnCodexSecondaryThreads) {
-    btnCodexSecondaryThreads.addEventListener('click', () => {
-        toggleCodexSecondaryPanel('threads');
+// ── History tip button: open task history sheet ──
+var btnCodexHeaderHistory = document.getElementById('btn-codex-header-history');
+if (btnCodexHeaderHistory) {
+    btnCodexHeaderHistory.addEventListener('click', function () {
+        renderHistorySheet();
     });
 }
 
@@ -7211,28 +7653,6 @@ if (btnCodexInterrupt) {
 if (btnCodexHistoryRefresh) {
     btnCodexHistoryRefresh.addEventListener('click', () => {
         refreshCodexThreadList({ force: true });
-    });
-}
-
-if (btnCodexSecondaryRuntime) {
-    btnCodexSecondaryRuntime.addEventListener('click', () => {
-        toggleCodexSecondaryPanel('runtime');
-    });
-}
-
-if (btnCodexSecondaryTools) {
-    btnCodexSecondaryTools.addEventListener('click', () => {
-        if (codexState.secondaryPanel === 'tools') {
-            toggleCodexSecondaryPanel('tools');
-            return;
-        }
-        openCodexToolsPanel(codexState.toolsPanelFocus || getDefaultCodexToolsPanelFocus());
-    });
-}
-
-if (btnCodexSecondaryNotices) {
-    btnCodexSecondaryNotices.addEventListener('click', () => {
-        toggleCodexSecondaryPanel('notices');
     });
 }
 
@@ -7462,59 +7882,46 @@ if (btnCodexPlanCancel) {
     });
 }
 
-if (codexQuickModel) {
-    codexQuickModel.addEventListener('focus', () => {
+// ── Capsule button click handlers ──
+if (btnCodexCapsuleAttach) {
+    btnCodexCapsuleAttach.addEventListener('click', function () {
+        renderAttachmentSheet();
+    });
+}
+if (btnCodexCapsuleSlash) {
+    btnCodexCapsuleSlash.addEventListener('click', function () {
+        if (!codexInput) return;
+        codexInput.focus();
+        var currentVal = codexInput.value;
+        if (!currentVal || !currentVal.startsWith('/')) {
+            codexInput.value = '/';
+        }
+        setSlashMenuState(true, '/');
+    });
+}
+if (btnCodexCapsuleModel) {
+    btnCodexCapsuleModel.addEventListener('click', function () {
         void maybeLoadCodexModels();
+        toggleCapsuleDropdown(btnCodexCapsuleModel, 'model');
     });
-    codexQuickModel.addEventListener('change', () => {
-        const selectedModel = codexQuickModel.value || '';
-        const baseModel = codexState.serverNextTurnConfigBase && codexState.serverNextTurnConfigBase.model
-            ? codexState.serverNextTurnConfigBase.model : '';
-        const overrideVal = selectedModel && selectedModel !== baseModel ? selectedModel : null;
-
-        // Preserve the user's current reasoning selection before model override triggers re-render
-        const currentReasoningOverride = codexState.nextTurnOverrides.reasoningEffort;
-
-        // Store model override (triggers syncNextTurnEffectiveCodexConfig → renderCodexQuickControls)
-        setNextTurnOverrideValue('model', overrideVal);
-
-        // Refresh reasoning options for the new model, keeping the user's reasoning choice
-        populateCodexReasoningSelect(codexQuickReasoning, {
-            forcedValue: currentReasoningOverride || '',
-            modelId: selectedModel || resolveReasoningModelId()
-        });
-        // Update reasoning override based on what's now selected in the dropdown
-        if (codexQuickReasoning && codexQuickReasoning.value) {
-            const baseReasoning = codexState.serverNextTurnConfigBase && codexState.serverNextTurnConfigBase.reasoningEffort
-                ? codexState.serverNextTurnConfigBase.reasoningEffort : '';
-            setNextTurnOverrideValue('reasoningEffort',
-                codexQuickReasoning.value !== baseReasoning ? codexQuickReasoning.value : null);
-        } else {
-            setNextTurnOverrideValue('reasoningEffort', null);
-        }
+}
+if (btnCodexCapsuleReasoning) {
+    btnCodexCapsuleReasoning.addEventListener('click', function () {
+        toggleCapsuleDropdown(btnCodexCapsuleReasoning, 'reasoning');
     });
-    codexQuickModel.addEventListener('pointerdown', () => {
-        if (codexState.modelCatalog.length === 0) {
-            void maybeLoadCodexModels();
-        }
+}
+if (btnCodexCapsuleSandbox) {
+    btnCodexCapsuleSandbox.addEventListener('click', function () {
+        toggleCapsuleDropdown(btnCodexCapsuleSandbox, 'sandbox');
     });
 }
 
-if (codexQuickReasoning) {
-    codexQuickReasoning.addEventListener('change', () => {
-        const selectedEffort = codexQuickReasoning.value || '';
-        const baseReasoning = codexState.serverNextTurnConfigBase && codexState.serverNextTurnConfigBase.reasoningEffort
-            ? codexState.serverNextTurnConfigBase.reasoningEffort : '';
-        setNextTurnOverrideValue('reasoningEffort',
-            selectedEffort && selectedEffort !== baseReasoning ? selectedEffort : null);
-    });
-}
-
-if (codexQuickSandbox) {
-    codexQuickSandbox.addEventListener('change', () => {
-        setNextTurnOverrideValue('sandbox', codexQuickSandbox.value || null);
-    });
-}
+// Close dropdown on outside click
+document.addEventListener('click', function (e) {
+    if (activeCapsuleDropdown && !e.target.closest('.codex-capsule-btn') && !e.target.closest('.codex-capsule-dropdown')) {
+        closeActiveCapsuleDropdown();
+    }
+});
 
 if (btnCodexToolsPlanToggle) {
     btnCodexToolsPlanToggle.addEventListener('click', (e) => {
@@ -7567,6 +7974,29 @@ if (btnCodexSlashCmd) {
         }
         codexInput.focus();
         updateSlashMenuForInputValue();
+    });
+}
+
+// ── Hamburger: back to SPA shell for session management ──
+if (btnCodexHamburger) {
+    btnCodexHamburger.addEventListener('click', function () {
+        location.href = '/terminal.html';
+    });
+}
+
+// ── Docs button: open project documentation ──
+if (btnCodexHeaderDocs) {
+    btnCodexHeaderDocs.addEventListener('click', function () {
+        window.open('/docs/workflow/STATUS.md', '_blank');
+    });
+}
+
+// ── Notify parent SPA shell to close sidebar on any click inside iframe ──
+if (inIframe) {
+    document.addEventListener('click', function () {
+        if (window.parent && window.parent.postMessage) {
+            window.parent.postMessage({ type: 'close-sidebar' }, '*');
+        }
     });
 }
 
@@ -7742,6 +8172,17 @@ window.__applyTerminalConfig = function (config) {
     renderCodexImageInputs();
 
     applyRuntimeConfig(runtimeConfig, false);
+    // Hide hamburger in iframe (SPA sidebar handles sessions)
+    if (inIframe && btnCodexHamburger) btnCodexHamburger.hidden = true;
+    // Read sessionId from URL query (after applyRuntimeConfig which may reset it)
+    try {
+        var urlParams = new URL(location.href).searchParams;
+        var urlSessionId = urlParams.get('sessionId');
+        if (urlSessionId && urlSessionId.trim() && !sessionId) {
+            sessionId = urlSessionId.trim();
+            localStorage.setItem('lastSessionId', sessionId);
+        }
+    } catch (_) {}
     loadHistoryState(getHistoryStorageKey(sessionId), true);
     if (serverUrl) {
         connect();

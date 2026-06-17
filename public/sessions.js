@@ -17,13 +17,22 @@
     var codexView = document.getElementById('codex-view');
     if (mode === 'codex') {
       if (termView) termView.style.display = 'none';
-      if (codexView) codexView.style.display = '';
-      if (window.__codexInit) window.__codexInit(sessionId);
+      if (codexView) {
+        codexView.style.display = '';
+        // Load redesigned codex client page inside an iframe
+        var iframe = codexView.querySelector('iframe');
+        if (!iframe) {
+          iframe = document.createElement('iframe');
+          iframe.style.cssText = 'width:100%;height:100%;border:none;';
+          codexView.innerHTML = '';
+          codexView.appendChild(iframe);
+        }
+        iframe.src = '/codex_client.html?sessionId=' + encodeURIComponent(sessionId || '');
+      }
     } else {
       if (codexView) codexView.style.display = 'none';
       if (termView) termView.style.display = '';
       if (sessionId) {
-        // Update URL without page reload for terminal sessions
         var url = new URL(location.href);
         url.searchParams.set('sessionId', sessionId);
         history.replaceState(null, '', url.toString());
