@@ -8446,14 +8446,8 @@ function handleConversationSurfaceSnapshot(envelope) {
     codexState.ipcBridge.latestSurface = surface;
     codexState.ipcBridge.latestSurfaceRevision = (codexState.ipcBridge.latestSurfaceRevision || 0) + 1;
     codexState.ipcBridge.activeConversationStatus = surface.status || codexState.ipcBridge.activeConversationStatus;
-    if (codexState.ipcBridge.online && surface.status !== 'offline' && surface.status !== 'unavailable' && surface.status !== 'error') {
-        codexState.ipcBridge.preferred = true;
-    } else {
-        codexState.ipcBridge.preferred = false;
-        return;
-    }
 
-    // Map IPC snapshot status to Codex status display (F-004 + completed/failed/waiting_for_input)
+    // Map IPC snapshot status to Codex status display.
     if (surface.status) {
         var mappedStatus = 'idle';
         var mappedDetail = '';
@@ -8473,6 +8467,15 @@ function handleConversationSurfaceSnapshot(envelope) {
             mappedDetail = surface.status;
         }
         setCodexStatus(mappedStatus, mappedDetail);
+    }
+    if (codexState.ipcBridge.online
+        && surface.status !== 'offline'
+        && surface.status !== 'unavailable'
+        && surface.status !== 'failed'
+        && surface.status !== 'error') {
+        codexState.ipcBridge.preferred = true;
+    } else {
+        codexState.ipcBridge.preferred = false;
     }
 
     // ── Full redraw (matching codex_ipc.js demo renderSurface pattern) ──
