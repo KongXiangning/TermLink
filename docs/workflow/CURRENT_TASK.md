@@ -422,11 +422,156 @@ Implementation Plan:
 
 ## 实施步骤
 
-1. 当前步骤：审查 `terminal_client.js` 现有 WebSocket 分发、发送、审批、Plan、日志渲染函数，标出可复用的数据入口和不能触碰的 UI 入口。
-2. 在 `terminal_client.js` 增加 IPC bridge state 与 envelope handlers，仅接入数据层，不改 DOM / CSS。
-3. 实现 IPC-first send / approval / plan routing 与 legacy fallback。
-4. 补充自动化测试，覆盖 IPC online 优先、IPC offline fallback、无 UI 改动约束。
-5. 运行 scoped regression，并记录 IPC online / offline 手动 smoke 是否具备环境。
+### Step 1 — 代码事实复核与实现锚点标记
+
+- Status：current
+- 目标：在不修改代码的前提下，复核 `public/terminal_client.js` 中现有 WebSocket 分发、发送、审批、PLAN、日志投影与 test hook 出口，确认下一步可复用的函数和不能触碰的 UI 入口。
+- 输入：
+  - `docs/workflow/CURRENT_TASK.md > 实现方案`
+  - `public/terminal_client.js`
+  - `public/codex_ipc.js`（只读参考）
+  - `tests/codexSecondaryPanel.integration.test.js`
+  - `tests/codexClient.shell.test.js`
+- 允许修改：
+  - 通常无需修改代码；若发现实现方案中的函数名与当前代码事实不一致，只允许回写 `docs/workflow/CURRENT_TASK.md` 的执行记录或后续风险说明。
+- 输出：
+  - 明确 IPC bridge state、IPC handlers、send guard、approval/plan response sender、test hooks 应落在 `terminal_client.js` 的哪些现有区域。
+  - 明确哪些 helper 可以复用，哪些路径必须保留 legacy 行为。
+- 验证：
+  - `rg` / 只读片段确认以下锚点存在或替代函数存在：`codexState`、`sendCodexEnvelope`、`sendCodexTurn`、`ws.onmessage`、`renderCodexServerRequest`、`submitBlockingCommandApprovalDecision`、`handleCodexThreadSnapshot`、`handleCodexNotification`、`window.__CODEX_TEST_HOOKS__`。
+  - 若锚点缺失，不进入 Step 2，先回到任务文档记录偏差。
+- 完成条件：
+  - 下一步可直接实施 IPC bridge state 与 envelope handler，不需要扩大 Allowed Files。
+
+### Step 2 — IPC bridge state 与接收侧 envelope handler
+
+- Status：pending
+- 目标：在 `public/terminal_client.js` 中新增纯数据层 IPC bridge state，并接入 `codex_ipc_status`、`codex_ipc_conversations`、`conversation_surface_snapshot`、`follower_*_sent`、IPC 相关 `error` 的接收处理；不改变发送路径。
+- 输入：
+  - Step 1 锚点清单
+  - `docs/workflow/CURRENT_TASK.md > 实现方案 > Technical approach 1-4`
+  - 现有 `public/codex_ipc.js` envelope 处理逻辑（只读参考）
+- 允许修改：
+  - `public/terminal_client.js`
+  - 如需 JSDOM 直接调用 handler，可同步最小扩展 `window.__CODEX_TEST_HOOKS__`
+- 输出：
+  - `codexState.ipcBridge` 或等价内部状态。
+  - `handleCodexIpcStatus(...)`
+  - `handleCodexIpcConversations(...)`
+  - `selectCodexIpcConversation(...)`
+  - `handleConversationSurfaceSnapshot(...)`
+  - IPC ack / error reset 逻辑。
+  - Snapshot message/status item 先投影到现有 log/status 模型；approval/plan 只记录 pending，不在本步完成响应发送。
+- 验证：
+  - `node --test tests\codexSecondaryPanel.integration.test.js` 中与现有 test hook 不冲突的子集或全文件可运行。
+  - 静态检查确认 `public/codex_client.html`、`public/terminal_client.css` 无 diff。
+  - `git diff --check -- public/terminal_client.js tests/codexSecondaryPanel.integration.test.js docs/workflow/CURRENT_TASK.md`
+- 完成条件：
+  - IPC online + conversations + snapshot 能被内部状态接收并投影，不影响 legacy `codex_state` / `codex_notification` handler。
+  - IPC offline / error 能复位 `preferred`，不污染 legacy 状态。
+
+### Step 3 — 普通文本发送的 IPC-first / legacy-fallback 路由
+
+- Status：pending
+- 目标：只处理 composer ordinary text 的发送决策：IPC 条件满足时发送 `follower_send_message`，本地条件不满足或本地 send 失败时保留 legacy `codex_turn`。
+- 输入：
+  - Step 2 IPC bridge state
+  - 现有 composer submit 与 `sendCodexTurn(...)`
+  - `docs/workflow/CURRENT_TASK.md > 验收标准 6`
+- 允许修改：
+  - `public/terminal_client.js`
+  - 必要时 `tests/codexSecondaryPanel.integration.test.js` 或 `tests/codexClient.shell.test.js`
+- 输出：
+  - `shouldSendCodexViaIpcFollower(...)` 或等价 guard。
+  - `sendCodexFollowerMessage(...)` 或等价 helper。
+  - composer submit 前置分支：plain text 且 IPC safe 时走 follower，否则 legacy。
+  - 服务端 IPC error 后只降级下一次发送，不自动 replay 当前输入。
+- 验证：
+  - JSDOM 或静态测试覆盖：
+    - IPC online + active conversation + plain text -> `follower_send_message`
+    - IPC offline / no conversation / cooldown / complex payload -> `codex_turn`
+    - follower envelope 已发送后的 IPC error 不触发同文本 legacy replay
+  - `node --test tests\codexSecondaryPanel.integration.test.js`
+  - `node --test tests\codexClient.shell.test.js`
+- 完成条件：
+  - 普通文本发送有 IPC-first 行为；附件、skill、slash、新 thread、resume、plan special mode 等复杂输入保持 legacy。
+
+### Step 4 — IPC approval / PLAN response transport 路由
+
+- Status：pending
+- 目标：让来自 IPC snapshot 的 pending approval / plan action 复用现有卡片 / modal / PLAN UI，但响应发送到 `follower_approval_response` / `follower_plan_response`；legacy request 继续发 `codex_server_request_response`。
+- 输入：
+  - Step 2 pending approval / plan state
+  - 现有 `renderCodexServerRequest(...)`
+  - 现有 `submitBlockingCommandApprovalDecision(...)`
+  - 现有 plan workflow handler
+  - `tests/terminalGateway.codexIpc.test.js` 中 follower response payload 事实
+- 允许修改：
+  - `public/terminal_client.js`
+  - 必要时 `public/lib/codex_approval_view.js`（仅当 requestId/transport 字段必须经该 helper 规范化；不得改布局/样式）
+  - 必要时 `tests/codexSecondaryPanel.integration.test.js`
+- 输出：
+  - requestState 增加内部 `transport: 'ipc'`、`conversationId`、`ipcRequestId`。
+  - 统一 response sender 按 transport 分支发送 legacy 或 IPC envelope。
+  - PLAN 执行 / 拒绝按钮按 plan workflow transport 分支发送。
+- 验证：
+  - JSDOM 测试覆盖 IPC approval decision envelope。
+  - JSDOM 测试覆盖 IPC plan response envelope。
+  - legacy `codex_server_request_response` 测试或静态断言仍成立。
+  - 若触发 `public/lib/codex_approval_view.js`，必须补充说明触发条件与无 UI 改动证据。
+- 完成条件：
+  - IPC 与 legacy pending request 不会发错通道。
+  - 现有 request UI / PLAN UI 无新增 DOM / CSS。
+
+### Step 5 — 测试收束与无 UI 改动断言
+
+- Status：pending
+- 目标：补齐本任务的数据路由测试和 UI 冻结约束断言，避免只靠人工观察。
+- 输入：
+  - Step 2-4 实现
+  - `docs/workflow/CURRENT_TASK.md > 验收标准 1, 10`
+  - TD-004 confirmed narrow gate
+- 允许修改：
+  - `tests/codexClient.shell.test.js`
+  - `tests/codexSecondaryPanel.integration.test.js`
+  - 条件触发时 `tests/terminalGateway.codexIpc.test.js`
+- 输出：
+  - 静态断言：`terminal_client.js` 注册 IPC envelope handler，存在 follower send / set active conversation / fallback guard；HTML/CSS 不需要 IPC UI。
+  - JSDOM 行为断言：IPC online receive、conversation selection、snapshot projection、ordinary text IPC-first、offline/no conversation fallback、approval/plan transport。
+  - 如服务端契约测试未覆盖现有 follower ack/error，可只读确认；不默认修改服务端测试。
+- 验证：
+  - `node --test tests\codexClient.shell.test.js`
+  - `node --test tests\codexSecondaryPanel.integration.test.js`
+  - `node --test tests\terminalGateway.codexIpc.test.js`
+  - `git diff -- public/codex_client.html public/terminal_client.css` 为空。
+- 完成条件：
+  - 新行为有自动化覆盖，且测试没有依赖新增 UI selector。
+
+### Step 6 — Scoped regression 与交付前复核
+
+- Status：pending
+- 目标：运行当前任务声明的窄回归，确认实现未越界、旧通道未回归，并记录 IPC online/offline smoke 条件是否具备。
+- 输入：
+  - Step 2-5 diff
+  - `docs/workflow/CURRENT_TASK.md > 回归检查项`
+  - TD-004 gate split 决策
+- 允许修改：
+  - 通常无需修改代码；如回归失败，回到对应实现步骤修复。
+  - 只允许通过后续 workflow skill 回写验证结果。
+- 输出：
+  - Scoped regression 结果。
+  - 如果本机具备 IPC feed，记录 IPC online smoke；若不具备，明确 blocked reason，不伪造结果。
+  - 准备进入 `/review-diff`、`/review-implementation`、`/verify-contracts`。
+- 验证：
+  - `node --test tests\codexClient.shell.test.js`
+  - `node --test tests\codexSecondaryPanel.integration.test.js`
+  - `node --test tests\terminalGateway.codexIpc.test.js`
+  - TD-004 confirmed narrow gate
+  - `git diff --check -- public/terminal_client.js tests/codexClient.shell.test.js tests/codexSecondaryPanel.integration.test.js tests/terminalGateway.codexIpc.test.js docs/workflow/CURRENT_TASK.md`
+- 完成条件：
+  - 自动化回归通过或失败已明确分流。
+  - 无 HTML/CSS/server/Android 越界 diff。
+  - 可交给 review 链复核。
 
 ## 回归检查项
 
@@ -453,3 +598,4 @@ Implementation Plan:
 - 2026-06-17：执行 `/lock-scope`。范围锁定为 `frozen-scope`，不启用 guarded；允许修改 `public/terminal_client.js` 与指定测试，禁止 `src/**`、`android/**`、`public/codex_client.html`、`public/terminal_client.css`、`public/codex_ipc.*` 和未授权文件。下一步交给 `/classify-decisions`。
 - 2026-06-17：执行 `/classify-decisions`。已将 9 项实现选择归类为 Mechanical；Taste / User challenge 均为空，无需用户额外确认。下一步交给 `/plan-implementation`。
 - 2026-06-17：执行 `/plan-implementation`。已把实现方案展开到状态模型、IPC envelope handlers、自动 conversation 选择、snapshot 投影、IPC-first 发送、审批 / PLAN transport 路由、错误恢复、兼容性、风险回滚和验证策略；External Documentation Gate 未触发；未创建 `TECHNICAL_DETAILS-*`，因为当前 Allowed Files 未授权该补充件。下一步交给 `/decompose-task`。
+- 2026-06-17：执行 `/decompose-task`。已将任务拆为 6 个一步一验的实施步骤：代码事实复核、IPC 接收侧状态与 handler、ordinary text IPC-first 发送、approval / PLAN transport 路由、测试收束、scoped regression。Design mode 为 none，无需拆 design exploration / implementation / visual QA；仍保留 HTML / CSS 零 diff 作为每步约束。下一步交给 `/implement-current-step`。
