@@ -517,18 +517,36 @@
       });
   }
 
+  function getInitialSessionId() {
+    var sid = '';
+    try {
+      sid = new URLSearchParams(location.search).get('sessionId') || '';
+    } catch (_) {
+      sid = '';
+    }
+    if (!sid && EMBEDDED) {
+      try {
+        sid = localStorage.getItem('lastSessionId') || '';
+      } catch (_) {
+        sid = '';
+      }
+    }
+    return typeof sid === 'string' ? sid.trim() : '';
+  }
+
   // SPA entry point — called by sessions.js switchToView()
   window.__codexInit = function (sid) {
     initSession(sid);
     if (!state.ws || state.ws.readyState !== WebSocket.OPEN) connectWs();
   };
 
-  // Auto-init in standalone mode
-  if (!EMBEDDED) {
-    var params = new URLSearchParams(location.search);
-    initSession(params.get('sessionId'));
+  var initialSessionId = getInitialSessionId();
+  if (!EMBEDDED || initialSessionId) {
+    initSession(initialSessionId);
   }
 
   // ── start ──────────────────────────────────────────────────────────────
-  connectWs();
+  if (!EMBEDDED || state.sessionId) {
+    connectWs();
+  }
 })();
