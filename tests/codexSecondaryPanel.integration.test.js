@@ -2431,10 +2431,9 @@ test('IPC Integration: IPC approval request renders with ipcTransport marker and
         ipcRequestId: 'ipc-req-1'
     });
 
-    // Find the rendered approve button and click it
-    const approveBtn = Array.from(window.document.querySelectorAll('.codex-request-actions button'))
-        .find((btn) => btn.textContent.includes('允许') || btn.textContent.includes('Approve'));
-    assert.ok(approveBtn, 'Approve button must be rendered');
+    // Find the rendered approve button (blocking modal button for command-kind requests)
+    const approveBtn = window.document.getElementById('btn-codex-command-approval-approve');
+    assert.ok(approveBtn, 'Approve button must be rendered in blocking modal');
     approveBtn.click();
 
     // Check follower_approval_response was sent
@@ -2481,9 +2480,9 @@ test('IPC Integration: F-005 — failed IPC approval send does NOT mark request 
         ipcRequestId: 'ipc-fail-1'
     });
 
-    const approveBtn = Array.from(window.document.querySelectorAll('.codex-request-actions button'))
-        .find((btn) => btn.textContent.includes('允许') || btn.textContent.includes('Approve'));
-    assert.ok(approveBtn, 'Approve button must be rendered');
+    // Blocking modal approve button for command-kind requests
+    const approveBtn = window.document.getElementById('btn-codex-command-approval-approve');
+    assert.ok(approveBtn, 'Approve button must be rendered in blocking modal');
     approveBtn.click();
 
     // Request must still be pending (not submitted)

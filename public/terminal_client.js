@@ -6183,7 +6183,10 @@ function renderCodexServerRequest(envelope, ipcMeta) {
             ...request,
             entry: null,
             status: 'pending',
-            resolution: ''
+            resolution: '',
+            ipcTransport: useIpcTransport === true,
+            ipcConversationId: useIpcTransport ? ipcMeta.conversationId : '',
+            ipcRequestId: useIpcTransport ? (ipcMeta.ipcRequestId || requestId) : ''
         };
         setCodexRequestState(requestState);
         codexState.activeCommandApprovalRequestId = requestId;
@@ -8404,7 +8407,11 @@ function selectCodexIpcConversation(conversations) {
             if (normalized[i].id === lastThreadId) return normalized[i];
         }
     }
-    normalized.sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
+    normalized.sort(function (a, b) {
+        var ta = new Date(a.updatedAt || 0).getTime();
+        var tb = new Date(b.updatedAt || 0).getTime();
+        return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
+    });
     return normalized[0];
 }
 
