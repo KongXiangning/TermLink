@@ -27,6 +27,7 @@
 - [x] `20260616-001` 网页版 SPA 统一 shell + Codex 会话整合：已完成实现、review、regression。`terminal.html` 改造为 SPA shell，`terminal.js` 零改动。commit `32c4659`。
 - [ ] `20260615-001` Codex IPC Android 实时同步：paused_blocked（缺 Desktop IPC 环境 manual smoke）。
 - [x] `20260617-001` 网页版 Codex 会话页按安卓端设计对齐：9 files, +2191/−416, commit `647037b`。已完成 review/regression/verify-contracts，已归档。
+- [x] `20260617-002` 网页版 Codex 会话页 IPC-first 数据路由：5 commits, `public/terminal_client.js` + 两个测试文件。IPC bridge state + 6 receive handler + send guard + approval/PLAN transport routing + 全量重绘 snapshot handler（参考 `codex_ipc.js` 和 `termlink-demo` 已验证模式）。审查问题队列 7 finding 全部 resolved。commit `2862b40`。
 
 ## 📋 待开发
 

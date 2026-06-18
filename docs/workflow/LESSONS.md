@@ -65,6 +65,12 @@
   - 应对动作：添加 iframe 内点击监听 → `postMessage` → 父页面监听 `message` 事件执行相应动作。
 
 - 场景：`codex_client.html` 独立打开时拿不到 `sessionId`，WebSocket 连接到空会话。
+
+- **场景**: 快照驱动的实时同步用了增量投影（检查 key 是否已存在，追加新 item / 更新已知 item text），而非全量重绘
+  - **结论**: 当服务端发送全量快照（每次包含完整 `items[]` 数组）时，增量投影会因非 message 类型 item（status/plan_prompt/goal_prompt/approval_request）更新路径断裂而静默失败。正确做法是参考已验证的 demo（`codex_ipc.js`、`termlink-demo/web/app.js`）使用全量重绘：清空全部 → 从 snapshot 全量重建。
+  - **触发信号**: 手动验证发现实时同步不工作，但测试通过。item 在快照中被移除或非 message 类型 item text 变化时前端不更新。
+  - **应对动作**: 每次收到快照时清空对应 UI（`querySelectorAll('[data-item-id^="ipc:"]')` 清除所有 IPC-origin entry），然后从 `snapshot.items[]` 全量重建所有类型 item。不要用 `projectedItemKeys.has()` 检查做增量优化。
+  - **Source**: `20260617-002` F-004/F-007 root cause
   - 结论：`terminal_client.js` 不负责解析 URL 参数，`sessionId` 只来自 WebSocket `session_info` 或 `applyRuntimeConfig`，两者都需要外部配置。
   - 触发信号：`session_info.cwd=null`，`codexState.cwd` 始终为空，页面显示"Codex"而非路径。
   - 应对动作：在 init 块中主动调用 `new URL(location.href).searchParams.get('sessionId')`，在 `applyRuntimeConfig` 之后设置 `sessionId`。
