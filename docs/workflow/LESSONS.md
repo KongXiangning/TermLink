@@ -97,6 +97,13 @@
   - 触发信号：
   - 应对动作：
 
+### L-006: Embedded scripts can preempt WebSocket before session context is available
+
+- **触发信号**: 页面刷新后服务端出现新的 session 创建日志；`/api/sessions` 中 terminal count 伴随每次刷新递增；WebSocket 连接顺序中先出现无 `?sessionId=` 参数的连接
+- **实例**: `terminal.html` 先加载 `codex_ipc.js`（embedded mode）再加载 `terminal.js`。`codex_ipc.js` 末尾无条件调用 `connectWs()`，在 terminal 主连接拿到 sessionId 之前就已发出一条不带 sessionId 的 WebSocket，触发服务端默认创建 `Terminal Session`
+- **应对**: embedded mode 脚本必须先从 URL `?sessionId=` 或 `localStorage.lastSessionId` 读取上下文；仅在 standalone 页面或已获得有效 sessionId 时才允许 `connectWs()`；无 context 时不能抢跑建连
+- **Source**: `20260618-001`
+
 ## 测试与回归
 
 - 场景：`node --test` full suite 报告"挂起"，但旧结论只是泛化地描述"full suite 会在后段挂起"，没有具体文件、测试名或执行阶段边界，导致 gate 状态长期停留在"知道有问题但无法行动"。

@@ -54,11 +54,37 @@ test('buildApprovalDecisionResult preserves method-specific decision shape', () 
     );
     assert.equal(
         JSON.stringify(api.buildApprovalDecisionResult({
+            requestKind: 'permissions',
+            method: 'item/tool/call',
+            responseMode: 'decision'
+        }, true)),
+        JSON.stringify({ decision: 'accept' })
+    );
+    assert.equal(
+        JSON.stringify(api.buildApprovalDecisionResult({
             method: 'applyPatchApproval',
             responseMode: 'decision'
         }, false)),
         JSON.stringify({ decision: 'denied' })
     );
+});
+
+test('normalizeApprovalRequest preserves permissions request kind', () => {
+    const api = loadApprovalViewApi();
+    const request = api.normalizeApprovalRequest({
+        requestId: 'req-perm',
+        rawRequestId: 'raw-perm',
+        method: 'item/tool/call',
+        requestKind: 'permissions',
+        responseMode: 'decision',
+        handledBy: 'client',
+        summary: 'Allow Chrome DevTools press_key'
+    });
+
+    assert.equal(request.requestKind, 'permissions');
+    assert.equal(request.rawRequestId, 'raw-perm');
+    assert.equal(request.responseMode, 'decision');
+    assert.equal(api.resolveApprovalSummaryText(request), 'Allow Chrome DevTools press_key');
 });
 
 test('buildUserInputResult returns answers payload for all selected questions', () => {

@@ -176,6 +176,67 @@ test('request-based approval is detected from state.requests', () => {
     const snap = buildDesktopSurfaceSnapshot(state);
     assert.ok(snap.pendingApproval);
     assert.equal(snap.pendingApproval.kind, 'command');
+    assert.equal(snap.pendingApproval.rawRequestId, '1');
+    assert.equal(snap.status, 'waiting_for_approval');
+});
+
+test('request-based user input is projected as an interactive approval request', () => {
+    const state = {
+        turns: [],
+        requests: [{
+            id: 'req-key',
+            method: 'item/tool/requestUserInput',
+            params: {
+                questions: [{
+                    id: 'confirm',
+                    question: 'Press key?',
+                    options: [{ label: 'Approve' }, { label: 'Reject' }]
+                }]
+            }
+        }]
+    };
+    const snap = buildDesktopSurfaceSnapshot(state);
+    const request = snap.items.find(i => i.kind === 'approval_request' && i.requestId === 'req-key');
+
+    assert.ok(request);
+    assert.equal(request.requestKind, 'userInput');
+    assert.equal(request.responseMode, 'answers');
+    assert.equal(request.method, 'item/tool/requestUserInput');
+    assert.equal(request.params.questions[0].question, 'Press key?');
+    assert.equal(snap.status, 'waiting_for_input');
+});
+
+test('request-based item/tool/call MCP approval is projected as an interactive approval request', () => {
+    const state = {
+        turns: [{ turnId: 't1', items: [
+            { type: 'mcpToolCall', server: 'chrome-devtools', name: 'press_key', status: 'in_progress' }
+        ] }],
+        requests: [{
+            id: 'req-perm',
+            method: 'item/tool/call',
+            params: {
+                meta: {
+                    codex_approval_kind: 'mcp_tool_call',
+                    codex_request_type: 'approval_request',
+                    connector_name: 'chrome-devtools',
+                    tool_name: 'press_key'
+                },
+                tool_params: { key: 'Control+R' }
+            }
+        }]
+    };
+    const snap = buildDesktopSurfaceSnapshot(state);
+    const request = snap.items.find(i => i.kind === 'approval_request' && i.requestId === 'req-perm');
+
+    assert.ok(request);
+    assert.equal(request.requestKind, 'permissions');
+    assert.equal(request.responseMode, 'decision');
+    assert.equal(request.method, 'item/tool/call');
+    assert.equal(request.rawRequestId, 'req-perm');
+    assert.equal(request.toolName, 'press_key');
+    assert.match(request.summary, /Control\+R/);
+    assert.equal(snap.pendingApproval.kind, 'permissions');
+    assert.equal(snap.pendingApproval.rawRequestId, 'req-perm');
     assert.equal(snap.status, 'waiting_for_approval');
 });
 

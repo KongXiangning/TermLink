@@ -28,6 +28,7 @@
 - [ ] `20260615-001` Codex IPC Android 实时同步：paused_blocked（缺 Desktop IPC 环境 manual smoke）。
 - [x] `20260617-001` 网页版 Codex 会话页按安卓端设计对齐：9 files, +2191/−416, commit `647037b`。已完成 review/regression/verify-contracts，已归档。
 - [x] `20260617-002` 网页版 Codex 会话页 IPC-first 数据路由：5 commits, `public/terminal_client.js` + 两个测试文件。IPC bridge state + 6 receive handler + send guard + approval/PLAN transport routing + 全量重绘 snapshot handler（参考 `codex_ipc.js` 和 `termlink-demo` 已验证模式）。审查问题队列 7 finding 全部 resolved。commit `2862b40`。
+- [x] `20260618-001` 修复刷新页面重复新建 TERMINAL 会话：commit `1cd85c6`。根因在 `public/codex_ipc.js` embedded mode 无条件抢先发起无 sessionId WebSocket。修复为 embedded 先读 URL/localStorage sessionId 再 connect；首次无 session 兼容路径保留。已验证 12/12 pass 目标测试 + 浏览器 smoke。剩余风险：embedded Codex IPC 首连缺自动化回归（Step 5 targeted tests 跳过）。
 
 ## 📋 待开发
 
@@ -87,3 +88,4 @@
 - 2026-06-15：创建 `20260615-001`（App Codex IPC 实时同步），完成服务端全链路（codexIpcFeed/Transport/Client/ThreadStream + gateway IPC 路由）和 Android 端集成。自动化回归 189 pass/0 fail。因缺 Desktop IPC 环境 manual smoke，任务 paused_blocked。
 - 2026-06-16：创建并完成 `20260615-002`（网页版 Codex IPC 实时同步会话页）。纯前端 codex_ipc.html/js/css + 服务端 scope widening（吸收 `20260615-001` 的 4 处 IPC 集成遗漏）。端到端验证通过（4 conversations, 87 items）。commit `9603ea7`（11 files, +2129/-627）。等待 closeout。
 - 2026-06-17：完成 `20260617-001`（网页版 Codex 会话页按安卓端设计对齐）。9 files, +2191/−416。commit `647037b` + `a50cd03`。已验证 98/99 pass，1 个 sandbox 测试（条件路径，需更新选择器）。已归档。
+- 2026-06-19：完成 `20260618-001`（修复刷新重复新建 TERMINAL 会话）。commit `1cd85c6`。2 files, +411/−14。已验证 12/12 pass 目标测试 + 浏览器 smoke；full suite 预置 5 项失败不变。任务归档进行中。

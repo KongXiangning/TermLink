@@ -2084,7 +2084,7 @@ test('IPC Integration: conversation selection prefers threadId match', async () 
     dom.window.close();
 });
 
-test('IPC Integration: conversation selection falls back to most recently active when no threadId match', async () => {
+test('IPC Integration: conversation selection does not pick most recently active when no threadId match', async () => {
     const dom = createTestDOM();
     const { window } = dom;
     const hooks = loadTerminalClient(window);
@@ -2112,7 +2112,87 @@ test('IPC Integration: conversation selection falls back to most recently active
         ]
     }) });
 
-    assert.strictEqual(hooks.codexState.ipcBridge.activeConversationId, 'conv-recent');
+    assert.strictEqual(hooks.codexState.ipcBridge.activeConversationId, '');
+    const setActive = ws.sent
+        .map((entry) => JSON.parse(entry))
+        .find((entry) => entry.type === 'set_active_conversation');
+    assert.strictEqual(setActive, undefined);
+
+    dom.window.close();
+});
+
+test('IPC Integration: conversation selection subscribes to sole conversation when no thread context exists', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.threadId = '';
+    hooks.codexState.lastCodexThreadId = '';
+
+    ws.onmessage({ data: JSON.stringify({
+        type: 'codex_ipc_conversations',
+        conversations: [
+            { id: 'conv-only', conversationId: 'conv-only', status: 'idle', updatedAt: '2026-06-18T10:00:00Z' }
+        ]
+    }) });
+
+    assert.strictEqual(hooks.codexState.ipcBridge.activeConversationId, 'conv-only');
+    const setActive = ws.sent
+        .map((entry) => JSON.parse(entry))
+        .find((entry) => entry.type === 'set_active_conversation');
+    assert.ok(setActive, 'sole conversation must be subscribed for snapshot replay');
+    assert.strictEqual(setActive.conversationId, 'conv-only');
+
+    dom.window.close();
+});
+
+test('IPC Integration: conversation selection preserves active conversation over newer updates', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.threadId = 'no-match';
+    hooks.codexState.ipcBridge.activeConversationId = 'conv-current';
+
+    ws.onmessage({ data: JSON.stringify({
+        type: 'codex_ipc_conversations',
+        conversations: [
+            { id: 'conv-current', conversationId: 'conv-current', status: 'idle', updatedAt: '2026-06-15T10:00:00Z' },
+            { id: 'conv-newer', conversationId: 'conv-newer', status: 'idle', updatedAt: '2026-06-18T10:00:00Z' }
+        ]
+    }) });
+
+    assert.strictEqual(hooks.codexState.ipcBridge.activeConversationId, 'conv-current');
+    const setActive = ws.sent
+        .map((entry) => JSON.parse(entry))
+        .find((entry) => entry.type === 'set_active_conversation');
+    assert.strictEqual(setActive, undefined);
 
     dom.window.close();
 });

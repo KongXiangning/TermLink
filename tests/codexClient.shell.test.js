@@ -7,6 +7,10 @@ function readPublicFile(relativePath) {
     return fs.readFileSync(path.join(__dirname, '..', 'public', relativePath), 'utf8');
 }
 
+function readSourceFile(relativePath) {
+    return fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
+}
+
 function readAndroidMainFile(relativePath) {
     return fs.readFileSync(
         path.join(__dirname, '..', 'android', 'app', 'src', 'main', 'java', 'com', 'termlink', 'app', relativePath),
@@ -634,6 +638,43 @@ test('IPC: approval approve/reject handlers check sendCodexEnvelope return befor
     assert.match(js, /if\s*\(!sendCodexEnvelope\(\{[\s\S]*type:\s*['"]follower_approval_response['"][\s\S]*decision:\s*['"]accept['"]/, 'approve must check sendCodexEnvelope return');
     // Pattern: if (!sendCodexEnvelope({...type:'follower_approval_response'...decision:'reject'...})) { return; }
     assert.match(js, /if\s*\(!sendCodexEnvelope\(\{[\s\S]*type:\s*['"]follower_approval_response['"][\s\S]*decision:\s*['"]reject['"]/, 'reject must check sendCodexEnvelope return');
+});
+
+test('IPC: approval projection preserves decision and answers response modes', () => {
+    const js = readPublicFile('terminal_client.js');
+
+    assert.doesNotMatch(js, /responseMode:\s*['"]confirm['"]/, 'IPC approval projection must not use unsupported confirm mode');
+    assert.match(js, /var itemRequestKind = item\.requestKind \|\| item\.approvalType \|\| ['"]['"]/, 'approval_request items must derive request kind from requestKind or approvalType');
+    assert.match(js, /requestKind:\s*itemRequestKind \|\| ['"]command['"]/, 'approval_request items must preserve non-command request kinds');
+    assert.match(js, /rawRequestId:\s*item\.rawRequestId \|\| appReqId/, 'approval_request items must preserve raw request id');
+    assert.match(js, /ipcRequestId:\s*item\.rawRequestId \|\| appReqId/, 'IPC meta must use raw request id for follower responses');
+    assert.match(js, /responseMode:\s*item\.responseMode\s*\|\|\s*\(itemRequestKind === ['"]userInput['"] \? ['"]answers['"] : ['"]decision['"]\)/, 'approval_request items must preserve answers/decision modes');
+    assert.match(js, /type:\s*['"]follower_plan_response['"][\s\S]*response:\s*result/, 'IPC userInput answers must be sent as follower_plan_response response payload');
+});
+
+test('IPC: gateway resolves approval response target before sending approval decision', () => {
+    const js = readSourceFile(path.join('src', 'ws', 'terminalGateway.js'));
+
+    assert.match(js, /resolvePendingApprovalResponseTarget\(latest,\s*requestId,\s*requestKind\)/, 'gateway must resolve matching pending approval target');
+    assert.match(js, /No matching pending approval request was found/, 'gateway must fail fast when requestId does not match');
+    assert.match(js, /kind === ['"]permissions['"][\s\S]*thread-follower-permissions-request-approval-response/, 'permissions approvals must use the permissions IPC method');
+    assert.match(js, /kind === ['"]file['"][\s\S]*thread-follower-file-approval-decision/, 'file approvals must use the file IPC method');
+    assert.match(js, /thread-follower-command-approval-decision/, 'command approvals must keep the existing IPC method');
+});
+
+test('IPC: conversation selection does not fall back to most recently active conversation', () => {
+    const js = readPublicFile('terminal_client.js');
+    const fnStart = js.indexOf('function selectCodexIpcConversation(conversations)');
+    const fnEnd = js.indexOf('function handleCodexIpcConversations(envelope)', fnStart);
+    const fn = js.slice(fnStart, fnEnd);
+
+    assert.match(fn, /findConversationById\(threadId\)/, 'selection must prefer exact current thread match');
+    assert.match(fn, /findConversationById\(lastThreadId\)/, 'selection must prefer exact last thread match');
+    assert.match(fn, /findConversationById\(activeConversationId\)/, 'selection must preserve current active conversation');
+    assert.match(fn, /!threadId && !lastThreadId && normalized\.length === 1/, 'selection must subscribe to the sole conversation when no thread context exists');
+    assert.match(fn, /return normalized\[0\]/, 'safe sole-conversation subscription must return that conversation');
+    assert.doesNotMatch(fn, /normalized\.sort/, 'selection must not sort by updatedAt to choose recent conversations');
+    assert.match(fn, /return null;/, 'selection must decline auto-selection when there is no safe match');
 });
 
 test('IPC: plan execute/cancel handlers check sendCodexEnvelope return before clearing pending state', () => {

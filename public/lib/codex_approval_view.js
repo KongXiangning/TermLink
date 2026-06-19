@@ -1,6 +1,6 @@
 (function attachCodexApprovalView(globalScope) {
     const t = typeof globalScope.t === 'function' ? globalScope.t : (k) => k;
-    const VALID_REQUEST_KINDS = new Set(['command', 'file', 'patch', 'userInput']);
+    const VALID_REQUEST_KINDS = new Set(['command', 'file', 'patch', 'permissions', 'userInput']);
     const VALID_RESPONSE_MODES = new Set(['decision', 'answers']);
 
     function isNonEmptyString(value) {
@@ -21,6 +21,7 @@
         if (requestKind === 'command') return t('codex.approval.title.command');
         if (requestKind === 'file') return t('codex.approval.title.file');
         if (requestKind === 'patch') return t('codex.approval.title.patch');
+        if (requestKind === 'permissions') return t('codex.approval.title.default');
         if (requestKind === 'userInput') return t('codex.approval.title.userInput');
         return t('codex.approval.title.default');
     }
@@ -37,6 +38,7 @@
         const summary = isNonEmptyString(envelope.summary) ? envelope.summary.trim() : '';
         return {
             requestId,
+            rawRequestId: isNonEmptyString(envelope.rawRequestId) ? envelope.rawRequestId.trim() : requestId,
             method: isNonEmptyString(envelope.method) ? envelope.method.trim() : 'unknown',
             requestKind,
             responseMode: normalizeResponseMode(envelope.responseMode),
@@ -64,6 +66,9 @@
         if (request.method === 'item/fileChange/requestApproval') {
             return { decision: approved ? 'approve' : 'decline' };
         }
+        if (request.requestKind === 'permissions') {
+            return { decision: approved ? 'accept' : 'reject' };
+        }
         if (request.method === 'applyPatchApproval' || request.method === 'execCommandApproval') {
             return { decision: approved ? 'approved' : 'denied' };
         }
@@ -80,6 +85,7 @@
         if (request.requestKind === 'command') return t('codex.approval.summary.command');
         if (request.requestKind === 'file') return t('codex.approval.summary.file');
         if (request.requestKind === 'patch') return t('codex.approval.summary.patch');
+        if (request.requestKind === 'permissions') return t('codex.approval.summary.default');
         if (request.requestKind === 'userInput') {
             if (request.questionCount > 1) {
                 return t('codex.approval.summary.questionsRemaining', { count: request.questionCount });

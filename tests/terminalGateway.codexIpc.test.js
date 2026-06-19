@@ -21,6 +21,13 @@ class FakeIpcFeed extends EventEmitter {
     get clientId() { return this._clientId; }
     get allowActiveSend() { return this._allowActiveSend; }
     getLatestSnapshot(conversationId) { return this._snapshots.get(conversationId); }
+    getRecentSnapshots() {
+        return Array.from(this._snapshots.entries()).map(([conversationId, surface]) => ({
+            conversationId,
+            surface,
+            timestamp: surface.updatedAt || Date.now()
+        }));
+    }
     setOnline(v) { this._online = v; }
     pushSnapshot(conversationId, surface) { this._snapshots.set(conversationId, surface); this.emit('snapshot', { conversationId, surface }); }
     pushStatus(status) { this.emit('status', status); }
@@ -359,6 +366,68 @@ test('follower_approval_response sends command-approval-decision', async () => {
     await stopGateway(g);
 });
 
+test('follower_approval_response sends permissions approval response for MCP tool approvals', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-1', {
+        conversationId: 'conv-1', status: 'waiting_for_approval', items: [],
+        pendingApproval: { kind: 'permissions', requestId: 'req-perm', raw: { id: 77 } }
+    });
+
+    let capturedMethod = null;
+    let capturedRequestId = null;
+    let capturedDecision = null;
+    g.ipcFeed._sendRequestHandler = (method, params) => {
+        capturedMethod = method;
+        capturedRequestId = params.requestId;
+        capturedDecision = params.decision;
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
+    await delay(50);
+    ws.send(JSON.stringify({ type: 'follower_approval_response', conversationId: 'conv-1', decision: 'accept', requestId: 'req-perm', requestKind: 'permissions' }));
+    await delay(100);
+
+    assert.equal(capturedMethod, 'thread-follower-permissions-request-approval-response');
+    assert.equal(capturedRequestId, 77);
+    assert.equal(capturedDecision, 'accept');
+    const ack = messages.find(m => m.type === 'follower_approval_response_sent');
+    assert.ok(ack);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_approval_response rejects unmatched request ids without sending a command decision', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-1', {
+        conversationId: 'conv-1', status: 'waiting_for_approval', items: [],
+        pendingApproval: { kind: 'command', requestId: 'req-command', rawRequestId: 'raw-command' }
+    });
+
+    let capturedMethod = null;
+    g.ipcFeed._sendRequestHandler = (method) => {
+        capturedMethod = method;
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    ws.send(JSON.stringify({ type: 'follower_approval_response', conversationId: 'conv-1', decision: 'accept', requestId: 'missing-request', requestKind: 'command' }));
+    await delay(100);
+
+    assert.equal(capturedMethod, null);
+    const err = messages.find(m => m.type === 'error' && /No matching pending approval request/.test(m.detail || ''));
+    assert.ok(err);
+    ws.close();
+    await stopGateway(g);
+});
+
 test('follower_plan_response triggers plan implementation path', async () => {
     const g = await setupGateway();
     g.ipcFeed.pushSnapshot('conv-1', {
@@ -386,6 +455,40 @@ test('follower_plan_response triggers plan implementation path', async () => {
     // Second call: start-turn with implementation prompt
     assert.equal(calls[1].method, 'thread-follower-start-turn');
     assert.ok(calls[1].params.turnStartParams.input[0].text.includes('PLEASE IMPLEMENT THIS PLAN'));
+    const ack = messages.find(m => m.type === 'follower_plan_response_sent');
+    assert.ok(ack);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_plan_response forwards explicit user input response payload', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-1', {
+        conversationId: 'conv-1', status: 'waiting_for_input', items: []
+    });
+
+    let captured = null;
+    g.ipcFeed._sendRequestHandler = (method, params) => {
+        captured = { method, params };
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    const response = { answers: { confirm: { answers: ['Approve'] } } };
+    ws.send(JSON.stringify({
+        type: 'follower_plan_response',
+        conversationId: 'conv-1',
+        requestId: 'req-key',
+        response
+    }));
+    await delay(100);
+
+    assert.equal(captured.method, 'thread-follower-submit-user-input');
+    assert.equal(captured.params.requestId, 'req-key');
+    assert.deepEqual(captured.params.response, response);
     const ack = messages.find(m => m.type === 'follower_plan_response_sent');
     assert.ok(ack);
     ws.close();

@@ -808,7 +808,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         }
     };
 
-    const _handleFollowerApprovalResponse = async (ws, conversationId, decision, requestId) => {
+    const _handleFollowerApprovalResponse = async (ws, conversationId, decision, requestId, requestKind) => {
         if (!ipcFeed) {
             sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available' });
             return;
@@ -818,17 +818,25 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             return;
         }
 
-        // Resolve the owner raw request id from the latest snapshot.
         const latest = ipcFeed.getLatestSnapshot(conversationId);
-        const rawId = resolveRawRequestId(latest, requestId);
+        const approval = resolvePendingApprovalResponseTarget(latest, requestId, requestKind);
+        if (!approval) {
+            sendWsEnvelope(ws, {
+                type: 'error',
+                message: 'Failed to send approval response',
+                detail: 'No matching pending approval request was found.'
+            });
+            return;
+        }
+        const decisionValue = decision === 'acceptWithExecpolicyAmendment'
+            ? { acceptWithExecpolicyAmendment: { execpolicy_amendment: [] } }
+            : decision;
 
         try {
-            const response = await ipcFeed.sendRequest('thread-follower-command-approval-decision', {
+            const response = await ipcFeed.sendRequest(approval.method, {
                 conversationId,
-                requestId: rawId,
-                decision: decision === 'acceptWithExecpolicyAmendment'
-                    ? { acceptWithExecpolicyAmendment: { execpolicy_amendment: [] } }
-                    : decision
+                requestId: approval.rawRequestId,
+                decision: decisionValue
             });
             if (response.type === 'response' && response.resultType === 'error') {
                 throw new Error(typeof response.error === 'string' ? response.error : JSON.stringify(response.error));
@@ -839,7 +847,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         }
     };
 
-    const _handleFollowerPlanResponse = async (ws, conversationId, input, requestId) => {
+    const _handleFollowerPlanResponse = async (ws, conversationId, input, requestId, explicitResponse) => {
         if (!ipcFeed) {
             sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available' });
             return;
@@ -848,7 +856,8 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             sendWsEnvelope(ws, { type: 'error', message: 'IPC is not available for active send' });
             return;
         }
-        if (!conversationId || !input || !input.trim()) {
+        const hasExplicitResponse = explicitResponse && typeof explicitResponse === 'object';
+        if (!conversationId || (!hasExplicitResponse && (!input || !input.trim()))) {
             sendWsEnvelope(ws, { type: 'error', message: 'Plan response is incomplete' });
             return;
         }
@@ -856,9 +865,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         try {
             const latest = ipcFeed.getLatestSnapshot(conversationId);
             const planAction = latest?.pendingPlanAction;
-            const trimmedInput = input.trim();
+            const trimmedInput = typeof input === 'string' ? input.trim() : '';
 
-            if (planAction && planAction.requestMethod === 'item/plan/requestImplementation' && isPlanAcceptInput(trimmedInput)) {
+            if (!hasExplicitResponse && planAction && planAction.requestMethod === 'item/plan/requestImplementation' && isPlanAcceptInput(trimmedInput)) {
                 // PLAN implementation: switch to default mode first.
                 const updateRes = await ipcFeed.sendRequest('thread-follower-update-thread-settings', {
                     conversationId,
@@ -884,10 +893,13 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 }
             } else {
                 // Regular text input for plan feedback.
+                const responsePayload = hasExplicitResponse
+                    ? explicitResponse
+                    : { answers: typeof requestId === 'string' ? { [requestId]: { answers: [trimmedInput] } } : {} };
                 const res = await ipcFeed.sendRequest('thread-follower-submit-user-input', {
                     conversationId,
                     requestId: requestId || (planAction?.requestId || ''),
-                    response: { answers: typeof requestId === 'string' ? { [requestId]: { answers: [trimmedInput] } } : {} }
+                    response: responsePayload
                 });
                 if (res.type === 'response' && res.resultType === 'error') {
                     throw new Error(typeof res.error === 'string' ? res.error : JSON.stringify(res.error));
@@ -899,18 +911,59 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         }
     };
 
-    /**
-     * Resolve the owner-visible raw request id from the latest surface snapshot.
-     * The UI may display a derived requestId; the raw id is what the IPC owner expects.
-     */
-    function resolveRawRequestId(snapshot, requestId) {
-        if (!snapshot || !snapshot.pendingApproval) return requestId;
-        const raw = snapshot.pendingApproval.raw;
-        if (raw && typeof raw === 'object') {
-            const rawId = raw.id;
-            if (typeof rawId === 'string' || typeof rawId === 'number') return rawId;
+    function resolvePendingApprovalResponseTarget(snapshot, requestId, requestKind) {
+        if (!snapshot) return null;
+        const requested = isNonEmptyString(requestId) ? requestId.trim() : '';
+        const requestedKind = isNonEmptyString(requestKind) ? requestKind.trim() : '';
+        const candidates = [];
+        if (snapshot.pendingApproval && typeof snapshot.pendingApproval === 'object') {
+            candidates.push(snapshot.pendingApproval);
         }
-        return requestId;
+        const items = Array.isArray(snapshot.items) ? snapshot.items : [];
+        for (const item of items) {
+            if (!item || typeof item !== 'object' || item.kind !== 'approval_request') continue;
+            candidates.push(item);
+        }
+        for (const candidate of candidates) {
+            const resolved = normalizePendingApprovalCandidate(candidate, requested, requestedKind);
+            if (resolved) return resolved;
+        }
+        return null;
+    }
+
+    function normalizePendingApprovalCandidate(candidate, requested, requestedKind) {
+        const requestIds = [
+            isNonEmptyString(candidate.requestId) ? candidate.requestId.trim() : '',
+            isNonEmptyString(candidate.id) ? candidate.id.trim() : '',
+            isNonEmptyString(candidate.rawRequestId) ? candidate.rawRequestId.trim() : ''
+        ].filter(Boolean);
+        const raw = candidate.raw && typeof candidate.raw === 'object' ? candidate.raw : null;
+        if (raw && (typeof raw.id === 'string' || typeof raw.id === 'number')) {
+            requestIds.push(String(raw.id));
+        }
+        if (requested && !requestIds.includes(requested)) return null;
+        const kind = isNonEmptyString(candidate.requestKind)
+            ? candidate.requestKind.trim()
+            : (isNonEmptyString(candidate.kind)
+                ? candidate.kind.trim()
+                : (isNonEmptyString(candidate.approvalType) ? candidate.approvalType.trim() : ''));
+        if (requestedKind && kind && requestedKind !== kind) return null;
+        const rawRequestId = isNonEmptyString(candidate.rawRequestId)
+            ? candidate.rawRequestId.trim()
+            : (raw && (typeof raw.id === 'string' || typeof raw.id === 'number')
+                ? raw.id
+                : (requestIds[0] || requested));
+        const method = resolveApprovalResponseMethod(kind);
+        return method && rawRequestId !== undefined && rawRequestId !== ''
+            ? { kind, rawRequestId, method }
+            : null;
+    }
+
+    function resolveApprovalResponseMethod(kind) {
+        if (kind === 'permissions') return 'thread-follower-permissions-request-approval-response';
+        if (kind === 'file') return 'thread-follower-file-approval-decision';
+        if (kind === 'command') return 'thread-follower-command-approval-decision';
+        return null;
     }
 
     function isPlanAcceptInput(input) {
@@ -1802,9 +1855,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                     } else if (type === 'follower_send_message') {
                         _handleFollowerSendMessage(ws, envelope.conversationId, envelope.input).catch(err => console.error('[gateway][ipc][follower-send]', err));
                     } else if (type === 'follower_approval_response') {
-                        _handleFollowerApprovalResponse(ws, envelope.conversationId, envelope.decision, envelope.requestId).catch(err => console.error('[gateway][ipc][follower-approval]', err));
+                        _handleFollowerApprovalResponse(ws, envelope.conversationId, envelope.decision, envelope.requestId, envelope.requestKind).catch(err => console.error('[gateway][ipc][follower-approval]', err));
                     } else if (type === 'follower_plan_response') {
-                        _handleFollowerPlanResponse(ws, envelope.conversationId, envelope.input, envelope.requestId).catch(err => console.error('[gateway][ipc][follower-plan]', err));
+                        _handleFollowerPlanResponse(ws, envelope.conversationId, envelope.input, envelope.requestId, envelope.response).catch(err => console.error('[gateway][ipc][follower-plan]', err));
                     } else if (type === 'input') {
                         pty.write(envelope.data);
                     } else if (type === 'resize') {

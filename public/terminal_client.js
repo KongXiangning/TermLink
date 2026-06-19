@@ -6033,6 +6033,7 @@ function resolveCodexRequestActionLabel(requestState) {
     if (requestState.requestKind === 'patch') return 'patch';
     if (requestState.requestKind === 'file') return 'file';
     if (requestState.requestKind === 'command') return 'command';
+    if (requestState.requestKind === 'permissions') return 'permissions';
     if (requestState.requestKind === 'userInput') return 'input';
     return 'approval';
 }
@@ -6352,7 +6353,7 @@ function renderCodexServerRequest(envelope, ipcMeta) {
         resolution: '',
         ipcTransport: useIpcTransport === true,
         ipcConversationId: useIpcTransport ? ipcMeta.conversationId : '',
-        ipcRequestId: useIpcTransport ? (ipcMeta.ipcRequestId || requestId) : ''
+        ipcRequestId: useIpcTransport ? (ipcMeta.ipcRequestId || request.rawRequestId || requestId) : ''
     };
     setCodexRequestState(requestState);
     updateCodexRequestCard(requestState);
@@ -6367,10 +6368,35 @@ function renderCodexServerRequest(envelope, ipcMeta) {
     if (approveBtn) {
         approveBtn.addEventListener('click', () => {
             if (requestState.ipcTransport && requestState.ipcConversationId) {
+                if (requestState.responseMode === 'answers') {
+                    const result = approvalApi && typeof approvalApi.buildUserInputResult === 'function'
+                        ? approvalApi.buildUserInputResult(requestState, questionSelections)
+                        : null;
+                    if (!result) return;
+                    if (!sendCodexEnvelope({
+                        type: 'follower_plan_response',
+                        conversationId: requestState.ipcConversationId,
+                        requestId: requestState.ipcRequestId || requestId,
+                        requestKind: requestState.requestKind,
+                        response: result
+                    })) {
+                        return;
+                    }
+                    markCodexRequestState(requestId, 'submitted', 'submitted');
+                    if (requestState.requestKind === 'userInput') {
+                        setPlanWorkflowState({
+                            ...codexState.planWorkflow,
+                            phase: 'planning',
+                            lastUserInputRequestId: requestId
+                        });
+                    }
+                    return;
+                }
                 if (!sendCodexEnvelope({
                     type: 'follower_approval_response',
                     conversationId: requestState.ipcConversationId,
                     requestId: requestState.ipcRequestId || requestId,
+                    requestKind: requestState.requestKind,
                     decision: 'accept'
                 })) {
                     return;
@@ -6408,10 +6434,27 @@ function renderCodexServerRequest(envelope, ipcMeta) {
 
     rejectBtn.addEventListener('click', () => {
         if (requestState.ipcTransport && requestState.ipcConversationId) {
+            if (requestState.responseMode === 'answers') {
+                if (!sendCodexEnvelope({
+                    type: 'follower_plan_response',
+                    conversationId: requestState.ipcConversationId,
+                    requestId: requestState.ipcRequestId || requestId,
+                    requestKind: requestState.requestKind,
+                    input: '取消'
+                })) {
+                    return;
+                }
+                markCodexRequestState(requestId, 'submitted', 'rejected');
+                if (requestState.requestKind === 'userInput') {
+                    cancelPlanWorkflow();
+                }
+                return;
+            }
             if (!sendCodexEnvelope({
                 type: 'follower_approval_response',
                 conversationId: requestState.ipcConversationId,
                 requestId: requestState.ipcRequestId || requestId,
+                requestKind: requestState.requestKind,
                 decision: 'reject'
             })) {
                 return;
@@ -6455,6 +6498,7 @@ function submitBlockingCommandApprovalDecision(approved) {
             type: 'follower_approval_response',
             conversationId: requestState.ipcConversationId,
             requestId: requestState.ipcRequestId || requestState.requestId,
+            requestKind: requestState.requestKind,
             decision: approved ? 'accept' : 'reject'
         })) {
             return false;
@@ -8395,24 +8439,30 @@ function selectCodexIpcConversation(conversations) {
         });
     }
     if (normalized.length === 0) return null;
+    function findConversationById(id) {
+        if (!id) return null;
+        for (var i = 0; i < normalized.length; i++) {
+            if (normalized[i].id === id) return normalized[i];
+        }
+        return null;
+    }
     var threadId = codexState.threadId || '';
     if (threadId) {
-        for (var i = 0; i < normalized.length; i++) {
-            if (normalized[i].id === threadId) return normalized[i];
-        }
+        var threadMatch = findConversationById(threadId);
+        if (threadMatch) return threadMatch;
     }
     var lastThreadId = codexState.lastCodexThreadId || '';
     if (lastThreadId && lastThreadId !== threadId) {
-        for (var i = 0; i < normalized.length; i++) {
-            if (normalized[i].id === lastThreadId) return normalized[i];
-        }
+        var lastThreadMatch = findConversationById(lastThreadId);
+        if (lastThreadMatch) return lastThreadMatch;
     }
-    normalized.sort(function (a, b) {
-        var ta = new Date(a.updatedAt || 0).getTime();
-        var tb = new Date(b.updatedAt || 0).getTime();
-        return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
-    });
-    return normalized[0];
+    var activeConversationId = codexState.ipcBridge.activeConversationId || '';
+    var activeConversation = findConversationById(activeConversationId);
+    if (activeConversation) return activeConversation;
+    if (!threadId && !lastThreadId && normalized.length === 1) {
+        return normalized[0];
+    }
+    return null;
 }
 
 function handleCodexIpcConversations(envelope) {
@@ -8436,6 +8486,20 @@ function handleCodexIpcConversations(envelope) {
     var selected = selectCodexIpcConversation(conversations);
     if (!selected) {
         codexState.ipcBridge.preferred = false;
+        var currentActiveId = codexState.ipcBridge.activeConversationId || '';
+        if (currentActiveId) {
+            var activeStillExists = conversations.some(function (entry) {
+                return entry.conversationId === currentActiveId;
+            });
+            if (!activeStillExists) {
+                codexState.ipcBridge.activeConversationId = '';
+                codexState.ipcBridge.activeConversationStatus = 'unknown';
+                codexState.ipcBridge.latestSurface = null;
+                codexState.ipcBridge.pendingApproval = null;
+                codexState.ipcBridge.pendingPlanAction = null;
+                codexState.ipcBridge.pendingGoalAction = null;
+            }
+        }
         return;
     }
     if (selected.conversationId !== codexState.ipcBridge.activeConversationId) {
@@ -8558,17 +8622,20 @@ function handleConversationSurfaceSnapshot(envelope) {
         } else if (item.kind === 'approval_request') {
             var appReqId = item.id || item.requestId || '';
             if (appReqId) {
+                var itemRequestKind = item.requestKind || item.approvalType || '';
                 renderCodexServerRequest({
                     requestId: appReqId,
-                    method: item.method || 'item/commandExecution/requestApproval',
-                    requestKind: 'command',
-                    responseMode: 'confirm',
+                    rawRequestId: item.rawRequestId || appReqId,
+                    method: item.method || (itemRequestKind === 'userInput' ? 'item/tool/requestUserInput' : 'item/commandExecution/requestApproval'),
+                    requestKind: itemRequestKind || 'command',
+                    responseMode: item.responseMode || (itemRequestKind === 'userInput' ? 'answers' : 'decision'),
                     handledBy: 'client',
-                    summary: item.description || item.title || item.text || '',
-                    params: { command: item.command || '' }
+                    summary: item.summary || item.description || item.title || item.text || '',
+                    questionCount: item.questionCount || 0,
+                    params: item.params || { command: item.command || '' }
                 }, {
                     conversationId: convId,
-                    ipcRequestId: appReqId
+                    ipcRequestId: item.rawRequestId || appReqId
                 });
             }
         }
@@ -8580,19 +8647,21 @@ function handleConversationSurfaceSnapshot(envelope) {
     // 6. Process surface.pendingApproval (interactive)
     if (surface.pendingApproval) {
         codexState.ipcBridge.pendingApproval = surface.pendingApproval;
+        var pendingApprovalKind = surface.pendingApproval.kind || surface.pendingApproval.requestKind || 'command';
         var approvalEnv = {
             requestId: surface.pendingApproval.requestId || surface.pendingApproval.id || '',
+            rawRequestId: surface.pendingApproval.rawRequestId || surface.pendingApproval.requestId || surface.pendingApproval.id || '',
             method: surface.pendingApproval.method || 'item/commandExecution/requestApproval',
-            requestKind: 'command',
-            responseMode: 'confirm',
+            requestKind: pendingApprovalKind,
+            responseMode: 'decision',
             handledBy: 'client',
             summary: surface.pendingApproval.description || surface.pendingApproval.title || '',
-            params: { command: surface.pendingApproval.command || '' }
+            params: surface.pendingApproval.params || { command: surface.pendingApproval.command || '' }
         };
         if (approvalEnv.requestId) {
             renderCodexServerRequest(approvalEnv, {
                 conversationId: convId,
-                ipcRequestId: approvalEnv.requestId
+                ipcRequestId: approvalEnv.rawRequestId || approvalEnv.requestId
             });
         }
     }

@@ -273,13 +273,31 @@ function buildDesktopSurfaceSnapshot(state, options = {}) {
     const reqApproval = extractPendingApprovalFromRequests(state);
     if (reqApproval) {
         pendingApproval = pendingApproval ?? reqApproval;
-        items.push({ key: `req:approval:${reqApproval.requestId ?? items.length}`, kind: 'approval_request', approvalType: reqApproval.kind, text: formatApprovalText(reqApproval), requestId: reqApproval.requestId, raw: reqApproval.raw });
+        items.push(toApprovalRequestSurfaceItem(reqApproval, `req:approval:${reqApproval.requestId ?? items.length}`));
+    }
+    const reqUserInput = extractPendingUserInputRequestFromRequests(state);
+    if (reqUserInput) {
+        items.push({
+            key: `req:userInput:${reqUserInput.requestId ?? items.length}`,
+            kind: 'approval_request',
+            approvalType: reqUserInput.kind,
+            text: formatUserInputText(reqUserInput),
+            requestId: reqUserInput.requestId,
+            method: 'item/tool/requestUserInput',
+            requestKind: 'userInput',
+            responseMode: 'answers',
+            summary: formatUserInputText(reqUserInput),
+            questionCount: reqUserInput.questionCount,
+            params: reqUserInput.params,
+            raw: reqUserInput.raw
+        });
     }
     const reqPlan = extractPendingPlanActionFromRequests(state);
     if (reqPlan) pendingPlanAction = pendingPlanAction ? { ...pendingPlanAction, ...reqPlan } : reqPlan;
 
     const status = options.status ??
         (pendingApproval ? 'waiting_for_approval' :
+         reqUserInput ? 'waiting_for_input' :
          inferTurnStatus(turns) === 'running' ? 'running' :
          (pendingPlanAction || pendingGoalAction) ? 'waiting_for_input' :
          inferTurnStatus(turns));
@@ -300,29 +318,262 @@ function buildDesktopSurfaceSnapshot(state, options = {}) {
 // ── surface items ────────────────────────────────────────────────────────────
 
 function toApprovalEntry(item, turnId, itemType) {
+    if (itemType === 'mcpToolCall') return toPermissionsApprovalEntry(item, turnId);
     if (itemType !== 'commandExecution') return undefined;
     const status = asString(item.status);
     if (status !== 'pending_approval' && status !== 'awaiting_approval') return undefined;
     const cmd = asString(item.command) ?? '';
     const reason = asString(item.reason) ?? '';
     const text = reason ? `${reason}\n$ ${cmd}` : `$ ${cmd}`;
-    return { key: `${turnId ?? 'turn'}:approval:${item.id ?? cmd}`, kind: 'approval_request', approvalType: 'command', text, turnId, itemId: asString(item.id), requestId: asString(item.requestId) ?? asString(item.id), raw: item };
+    const requestId = asString(item.requestId) ?? asString(item.id);
+    return {
+        key: `${turnId ?? 'turn'}:approval:${item.id ?? cmd}`,
+        kind: 'approval_request',
+        approvalType: 'command',
+        text,
+        turnId,
+        itemId: asString(item.id),
+        requestId,
+        rawRequestId: requestId,
+        method: 'item/commandExecution/requestApproval',
+        requestKind: 'command',
+        responseMode: 'decision',
+        raw: item
+    };
 }
 
 function extractPendingApproval(item) {
-    return { kind: 'command', requestId: asString(item.requestId) ?? asString(item.id), title: '等待命令审批', description: asString(item.reason), command: asString(item.command), availableDecisions: normalizeDecisions(item.availableDecisions), raw: item };
+    if (asString(item.type) === 'mcpToolCall') return extractPermissionsApprovalFromItem(item);
+    const requestId = asString(item.requestId) ?? asString(item.id);
+    return { kind: 'command', requestId, rawRequestId: requestId, method: 'item/commandExecution/requestApproval', requestKind: 'command', title: '等待命令审批', description: asString(item.reason), command: asString(item.command), availableDecisions: normalizeDecisions(item.availableDecisions), raw: item };
 }
 
 function extractPendingApprovalFromRequests(state) {
     const requests = Array.isArray(state?.requests) ? state.requests : [];
     for (const req of requests) {
-        const r = asRecord(req);
-        const params = asRecord(r?.params);
-        if (!r || !params || r.method !== 'item/commandExecution/requestApproval') continue;
+        const normalized = normalizePendingApprovalRequest(req);
+        if (normalized) return normalized;
+    }
+    return undefined;
+}
+
+function normalizePendingApprovalRequest(req) {
+    const r = asRecord(req);
+    const params = asRecord(r?.params);
+    const method = asString(r?.method);
+    if (!r || !params || !method) return undefined;
+    const requestId = String(r.id);
+
+    if (method === 'item/commandExecution/requestApproval') {
         const actions = Array.isArray(params.commandActions) ? params.commandActions : [];
         const first = asRecord(actions[0]);
         const cmd = asString(first?.command) ?? asString(params.command);
-        return { kind: 'command', requestId: String(r.id), title: '等待命令审批', description: asString(params.reason), command: cmd, availableDecisions: normalizeDecisions(params.availableDecisions), raw: r };
+        return {
+            kind: 'command',
+            requestId,
+            rawRequestId: requestId,
+            method,
+            requestKind: 'command',
+            responseMode: 'decision',
+            title: '等待命令审批',
+            description: asString(params.reason),
+            command: cmd,
+            availableDecisions: normalizeDecisions(params.availableDecisions),
+            params,
+            raw: r
+        };
+    }
+
+    if (method === 'item/fileChange/requestApproval') {
+        return {
+            kind: 'file',
+            requestId,
+            rawRequestId: requestId,
+            method,
+            requestKind: 'file',
+            responseMode: 'decision',
+            title: '等待文件变更审批',
+            description: summarizeFileApproval(params),
+            availableDecisions: normalizeDecisions(params.availableDecisions),
+            params,
+            raw: r
+        };
+    }
+
+    if (isMcpToolApprovalRequest(method, params)) {
+        const meta = extractToolMeta(params);
+        return {
+            kind: 'permissions',
+            requestId,
+            rawRequestId: requestId,
+            method,
+            requestKind: 'permissions',
+            responseMode: 'decision',
+            title: '等待工具权限审批',
+            description: summarizePermissionsApproval(params),
+            toolName: resolveToolName(params),
+            serverName: resolveServerName(params),
+            meta,
+            availableDecisions: ['accept', 'reject'],
+            params,
+            raw: r
+        };
+    }
+
+    return undefined;
+}
+
+function toApprovalRequestSurfaceItem(approval, key) {
+    return {
+        key,
+        kind: 'approval_request',
+        approvalType: approval.kind,
+        text: formatApprovalText(approval),
+        requestId: approval.requestId,
+        rawRequestId: approval.rawRequestId ?? approval.requestId,
+        method: approval.method ?? 'item/commandExecution/requestApproval',
+        requestKind: approval.requestKind ?? approval.kind ?? 'command',
+        responseMode: approval.responseMode ?? 'decision',
+        summary: formatApprovalText(approval),
+        toolName: approval.toolName,
+        serverName: approval.serverName,
+        meta: approval.meta,
+        params: approval.params,
+        raw: approval.raw
+    };
+}
+
+function toPermissionsApprovalEntry(item, turnId) {
+    const approval = extractPermissionsApprovalFromItem(item);
+    if (!approval) return undefined;
+    return {
+        key: `${turnId ?? 'turn'}:permissions:${approval.requestId ?? approval.toolName ?? 'tool'}`,
+        kind: 'approval_request',
+        approvalType: 'permissions',
+        text: formatPermissionsApprovalText(approval),
+        turnId,
+        itemId: asString(item.id),
+        requestId: approval.requestId,
+        rawRequestId: approval.rawRequestId ?? approval.requestId,
+        method: approval.method,
+        requestKind: 'permissions',
+        responseMode: 'decision',
+        summary: formatPermissionsApprovalText(approval),
+        params: approval.params,
+        raw: item
+    };
+}
+
+function extractPermissionsApprovalFromItem(item) {
+    const status = asString(item.status);
+    if (status !== 'pending_approval' && status !== 'awaiting_approval') return undefined;
+    const requestId = asString(item.requestId) ?? asString(item.id);
+    if (!requestId) return undefined;
+    return {
+        kind: 'permissions',
+        requestId,
+        rawRequestId: requestId,
+        method: 'item/tool/call',
+        requestKind: 'permissions',
+        responseMode: 'decision',
+        title: '等待工具权限审批',
+        description: summarizePermissionsApproval(item),
+        toolName: resolveToolName(item),
+        serverName: resolveServerName(item),
+        meta: extractToolMeta(item),
+        availableDecisions: ['accept', 'reject'],
+        params: item,
+        raw: item
+    };
+}
+
+function isMcpToolApprovalRequest(method, params) {
+    if (!method) return false;
+    if (method === 'item/tool/call') return hasToolApprovalSignal(params);
+    const normalized = method.toLowerCase();
+    return normalized.includes('permission') && (normalized.includes('approval') || normalized.includes('request'));
+}
+
+function hasToolApprovalSignal(params) {
+    const r = asRecord(params);
+    if (!r) return false;
+    const meta = extractToolMeta(r);
+    const approvalKind = asString(meta?.codex_approval_kind) ?? asString(meta?.approvalKind);
+    const requestType = asString(meta?.codex_request_type) ?? asString(meta?.requestType);
+    if (approvalKind === 'mcp_tool_call' || requestType === 'approval_request') return true;
+    return Boolean(resolveToolName(r) && (resolveServerName(r) || asString(meta?.connector_name) || asString(meta?.connector_id)));
+}
+
+function extractToolMeta(value) {
+    const r = asRecord(value);
+    if (!r) return undefined;
+    return asRecord(r.meta) ?? asRecord(r.metadata) ?? asRecord(r._meta);
+}
+
+function resolveToolName(value) {
+    const r = asRecord(value);
+    if (!r) return undefined;
+    const meta = extractToolMeta(r);
+    return asString(r.toolName)
+        ?? asString(r.tool)
+        ?? asString(r.tool_name)
+        ?? asString(r.name)
+        ?? asString(meta?.tool_name)
+        ?? asString(r.server)
+        ?? asString(asRecord(r.toolCall)?.name)
+        ?? asString(asRecord(r.mcpToolCall)?.name);
+}
+
+function resolveServerName(value) {
+    const r = asRecord(value);
+    if (!r) return undefined;
+    const meta = extractToolMeta(r);
+    return asString(r.server)
+        ?? asString(r.serverName)
+        ?? asString(r.mcpServer)
+        ?? asString(r.connectorName)
+        ?? asString(meta?.connector_name)
+        ?? asString(meta?.connector_id)
+        ?? asString(asRecord(r.toolCall)?.server)
+        ?? asString(asRecord(r.mcpToolCall)?.server);
+}
+
+function summarizePermissionsApproval(value) {
+    const r = asRecord(value);
+    if (!r) return '等待工具权限审批';
+    const server = resolveServerName(r);
+    const toolName = resolveToolName(r);
+    const toolParams = asRecord(r.tool_params) ?? asRecord(r.toolParams) ?? asRecord(r.arguments) ?? asRecord(r.args) ?? asRecord(r.input);
+    const key = asString(r.key) ?? asString(toolParams?.key);
+    const parts = [];
+    if (server) parts.push(prettifyTool(server));
+    if (toolName) parts.push(toolName);
+    if (key) parts.push(key);
+    return parts.length > 0 ? `等待允许 ${parts.join(' / ')}` : '等待工具权限审批';
+}
+
+function summarizeFileApproval(params) {
+    const changes = Array.isArray(params?.changes) ? params.changes : [];
+    if (changes.length > 0) return `等待审批 ${changes.length} 个文件变更`;
+    return asString(params?.reason) ?? '等待文件变更审批';
+}
+
+function extractPendingUserInputRequestFromRequests(state) {
+    const requests = Array.isArray(state?.requests) ? state.requests : [];
+    for (const req of requests) {
+        const r = asRecord(req);
+        const params = asRecord(r?.params);
+        if (!r || !params || r.method !== 'item/tool/requestUserInput') continue;
+        const questions = Array.isArray(params.questions) ? params.questions : [];
+        return {
+            kind: 'userInput',
+            requestId: String(r.id),
+            title: '等待确认',
+            description: summarizeQuestions(questions),
+            questionCount: questions.length,
+            params,
+            raw: r
+        };
     }
     return undefined;
 }
@@ -337,12 +588,6 @@ function extractPendingPlanActionFromRequests(state) {
         if (r.method === 'item/plan/requestImplementation') {
             return { kind: 'plan_implementation', requestId: String(r.id), requestMethod: r.method, turnId: asString(params.turnId), planContent: asString(params.planContent), canSubmit: Boolean(params.turnId && params.planContent), raw: r };
         }
-        if (r.method !== 'item/tool/requestUserInput') continue;
-        const questions = Array.isArray(params.questions) ? params.questions : [];
-        const firstQ = asRecord(questions[0]);
-        const options = Array.isArray(firstQ?.options) ? firstQ.options : [];
-        const firstOpt = asRecord(options[0]);
-        return { kind: 'text_input', requestId: String(r.id), requestMethod: r.method, questionId: asString(firstQ?.id) ?? asString(firstQ?.name), acceptedAnswer: asString(firstOpt?.label) ?? asString(firstOpt?.value), canSubmit: true, raw: r };
     }
     return undefined;
 }
@@ -359,8 +604,25 @@ function normalizeDecisions(value) {
 }
 
 function formatApprovalText(approval) {
+    if (approval?.kind === 'permissions') return formatPermissionsApprovalText(approval);
     const cmd = approval.command ? `\n$ ${approval.command}` : '';
     return `${approval.description ?? approval.reason ?? approval.title ?? '等待审批'}${cmd}`;
+}
+
+function formatPermissionsApprovalText(approval) {
+    return approval.description ?? approval.title ?? '等待工具权限审批';
+}
+
+function summarizeQuestions(questions) {
+    if (!Array.isArray(questions) || questions.length === 0) return '等待用户确认';
+    const first = asRecord(questions[0]);
+    const question = asString(first?.question) ?? asString(first?.id) ?? asString(first?.name);
+    if (questions.length === 1) return question || '等待用户确认';
+    return `${questions.length} questions pending`;
+}
+
+function formatUserInputText(request) {
+    return request.description ?? request.title ?? '等待用户确认';
 }
 
 // ── plan / goal detection ────────────────────────────────────────────────────
