@@ -6156,7 +6156,7 @@ function renderCodexServerRequest(envelope, ipcMeta) {
     }
 
     const existing = getCodexRequestState(requestId);
-    var useIpcTransport = ipcMeta && ipcMeta.conversationId;
+    var useIpcTransport = !!(ipcMeta && ipcMeta.conversationId);
 
     if (existing && ((existing.entry && existing.entry.isConnected) || existing.requestKind === 'command')) {
         if (useIpcTransport && !existing.ipcConversationId) {
@@ -8451,14 +8451,10 @@ function selectCodexIpcConversation(conversations) {
         var threadMatch = findConversationById(threadId);
         if (threadMatch) return threadMatch;
     }
-    var lastThreadId = codexState.lastCodexThreadId || '';
-    if (lastThreadId && lastThreadId !== threadId) {
-        var lastThreadMatch = findConversationById(lastThreadId);
-        if (lastThreadMatch) return lastThreadMatch;
-    }
     var activeConversationId = codexState.ipcBridge.activeConversationId || '';
     var activeConversation = findConversationById(activeConversationId);
     if (activeConversation) return activeConversation;
+    var lastThreadId = codexState.lastCodexThreadId || '';
     if (!threadId && !lastThreadId && normalized.length === 1) {
         return normalized[0];
     }

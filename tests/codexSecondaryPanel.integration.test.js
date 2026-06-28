@@ -2197,6 +2197,83 @@ test('IPC Integration: conversation selection preserves active conversation over
     dom.window.close();
 });
 
+test('IPC Integration: stale lastCodexThreadId does not auto-select another conversation', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.threadId = '';
+    hooks.codexState.lastCodexThreadId = 'old-restorable-thread';
+
+    ws.onmessage({ data: JSON.stringify({
+        type: 'codex_ipc_conversations',
+        conversations: [
+            { id: 'old-restorable-thread', conversationId: 'old-restorable-thread', status: 'idle', updatedAt: '2026-06-18T10:00:00Z' },
+            { id: 'current-visible-task', conversationId: 'current-visible-task', status: 'running', updatedAt: '2026-06-19T10:00:00Z' }
+        ]
+    }) });
+
+    assert.strictEqual(hooks.codexState.ipcBridge.activeConversationId, '');
+    const setActive = ws.sent
+        .map((entry) => JSON.parse(entry))
+        .find((entry) => entry.type === 'set_active_conversation');
+    assert.strictEqual(setActive, undefined);
+
+    dom.window.close();
+});
+
+test('IPC Integration: active conversation is not overridden by stale lastCodexThreadId match', async () => {
+    const dom = createTestDOM();
+    const { window } = dom;
+    const hooks = loadTerminalClient(window);
+
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'ipc-test-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    hooks.codexState.ipcBridge.online = true;
+    hooks.codexState.threadId = '';
+    hooks.codexState.lastCodexThreadId = 'old-restorable-thread';
+    hooks.codexState.ipcBridge.activeConversationId = 'current-visible-task';
+
+    ws.onmessage({ data: JSON.stringify({
+        type: 'codex_ipc_conversations',
+        conversations: [
+            { id: 'old-restorable-thread', conversationId: 'old-restorable-thread', status: 'idle', updatedAt: '2026-06-18T10:00:00Z' },
+            { id: 'current-visible-task', conversationId: 'current-visible-task', status: 'running', updatedAt: '2026-06-19T10:00:00Z' }
+        ]
+    }) });
+
+    assert.strictEqual(hooks.codexState.ipcBridge.activeConversationId, 'current-visible-task');
+    const setActive = ws.sent
+        .map((entry) => JSON.parse(entry))
+        .find((entry) => entry.type === 'set_active_conversation');
+    assert.strictEqual(setActive, undefined);
+
+    dom.window.close();
+});
+
 test('IPC Integration: conversation_surface_snapshot with valid status sets preferred and projects messages', async () => {
     const dom = createTestDOM();
     const { window } = dom;
@@ -2502,7 +2579,7 @@ test('IPC Integration: IPC approval request renders with ipcTransport marker and
         requestId: 'ipc-req-1',
         method: 'item/commandExecution/requestApproval',
         requestKind: 'command',
-        responseMode: 'confirm',
+        responseMode: 'decision',
         handledBy: 'client',
         summary: 'IPC approval test',
         params: { command: 'echo test' }
@@ -2514,13 +2591,15 @@ test('IPC Integration: IPC approval request renders with ipcTransport marker and
     // Find the rendered approve button (blocking modal button for command-kind requests)
     const approveBtn = window.document.getElementById('btn-codex-command-approval-approve');
     assert.ok(approveBtn, 'Approve button must be rendered in blocking modal');
-    approveBtn.click();
+    assert.strictEqual(approveBtn.disabled, false, 'Approve button must be enabled for pending IPC command approval');
+    assert.strictEqual(hooks.submitBlockingCommandApprovalDecision(true), true);
 
     // Check follower_approval_response was sent
-    const approvalMsg = ws.sent
-        .map((entry) => JSON.parse(entry))
+    const sentPayloads = window.__WS_INSTANCES__.flatMap((entry) => entry.sent || [])
+        .map((entry) => JSON.parse(entry));
+    const approvalMsg = sentPayloads
         .find((entry) => entry.type === 'follower_approval_response');
-    assert.ok(approvalMsg, 'follower_approval_response must be sent');
+    assert.ok(approvalMsg, `follower_approval_response must be sent; sent=${JSON.stringify(sentPayloads)}`);
     assert.strictEqual(approvalMsg.conversationId, 'conv-1');
     assert.strictEqual(approvalMsg.decision, 'accept');
 
@@ -2551,7 +2630,7 @@ test('IPC Integration: F-005 — failed IPC approval send does NOT mark request 
         requestId: 'ipc-fail-1',
         method: 'item/commandExecution/requestApproval',
         requestKind: 'command',
-        responseMode: 'confirm',
+        responseMode: 'decision',
         handledBy: 'client',
         summary: 'IPC approval fail test',
         params: { command: 'echo fail' }
@@ -2563,7 +2642,8 @@ test('IPC Integration: F-005 — failed IPC approval send does NOT mark request 
     // Blocking modal approve button for command-kind requests
     const approveBtn = window.document.getElementById('btn-codex-command-approval-approve');
     assert.ok(approveBtn, 'Approve button must be rendered in blocking modal');
-    approveBtn.click();
+    assert.strictEqual(approveBtn.disabled, false, 'Approve button must be enabled for pending IPC command approval');
+    assert.strictEqual(hooks.submitBlockingCommandApprovalDecision(true), false);
 
     // Request must still be pending (not submitted)
     const requestState = hooks.codexState.requestStateById.get('ipc-fail-1');

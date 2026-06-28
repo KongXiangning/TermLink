@@ -669,8 +669,8 @@ test('IPC: conversation selection does not fall back to most recently active con
     const fn = js.slice(fnStart, fnEnd);
 
     assert.match(fn, /findConversationById\(threadId\)/, 'selection must prefer exact current thread match');
-    assert.match(fn, /findConversationById\(lastThreadId\)/, 'selection must prefer exact last thread match');
     assert.match(fn, /findConversationById\(activeConversationId\)/, 'selection must preserve current active conversation');
+    assert.doesNotMatch(fn, /findConversationById\(lastThreadId\)/, 'lastCodexThreadId must not auto-select stale IPC conversations');
     assert.match(fn, /!threadId && !lastThreadId && normalized\.length === 1/, 'selection must subscribe to the sole conversation when no thread context exists');
     assert.match(fn, /return normalized\[0\]/, 'safe sole-conversation subscription must return that conversation');
     assert.doesNotMatch(fn, /normalized\.sort/, 'selection must not sort by updatedAt to choose recent conversations');
