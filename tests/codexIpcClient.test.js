@@ -161,7 +161,47 @@ test('sendBroadcast sends a well-formed broadcast frame', async () => {
     assert.equal(bc.sourceClientId, 'test-client-42');
 });
 
+test('sendBroadcast emits message_out for the sent IPC envelope', async () => {
+    const { client, transport } = createTestClient({ reconnect: false });
+    setupPeer(transport);
+    await client.connect();
+
+    const outPromise = new Promise((resolve) => client.once('message_out', resolve));
+    client.sendBroadcast('thread-follower-status', { conversationId: 'conv-out' });
+
+    const out = await outPromise;
+    assert.equal(out.type, 'broadcast');
+    assert.equal(out.method, 'thread-follower-status');
+    assert.equal(out.params.conversationId, 'conv-out');
+});
+
 // ── sendRequest ──────────────────────────────────────────────────────────
+
+test('thread-follower-interrupt-turn uses demo-compatible method version', async () => {
+    let capturedRequest = null;
+    const { client, transport } = createTestClient({ reconnect: false });
+    setupPeer(transport, (msg, peer) => {
+        if (msg.type === 'request') {
+            capturedRequest = msg;
+            peer.send({
+                type: 'response',
+                requestId: msg.requestId,
+                resultType: 'success',
+                method: msg.method,
+                result: { ok: true }
+            });
+        }
+    });
+    await client.connect();
+
+    await client.sendRequest('thread-follower-interrupt-turn', {
+        conversationId: 'conv-1',
+        turnId: 'turn-1'
+    });
+
+    assert.equal(capturedRequest.method, 'thread-follower-interrupt-turn');
+    assert.equal(capturedRequest.version, 2);
+});
 
 test('sendRequest resolves with the response message', async () => {
     const { client, transport } = createTestClient({ reconnect: false });
@@ -286,7 +326,7 @@ test('reconnect attempts reconnection after transport close', async () => {
     transport.close();
 
     // Set up a new peer for the reconnect attempt.
-    peer.removeAllListeners('data');
+    peer.removeAllListeners('message');
     peer.on('message', (msg) => {
         if (msg && msg.method === 'initialize') {
             peer.send({
@@ -325,6 +365,23 @@ test('incoming broadcast messages are emitted', async () => {
     assert.equal(msg.type, 'broadcast');
     assert.equal(msg.method, 'thread-stream-state-changed');
     assert.equal(msg.params.conversationId, 'conv-1');
+});
+
+test('incoming messages emit message_in before routing', async () => {
+    const { client, transport } = createTestClient({ reconnect: false });
+
+    const inPromise = new Promise((resolve) => client.once('message_in', resolve));
+    transport.pushData({
+        type: 'broadcast',
+        method: 'thread-stream-state-changed',
+        sourceClientId: 'desktop-client',
+        params: { conversationId: 'conv-in' }
+    });
+
+    const msg = await inPromise;
+    assert.equal(msg.type, 'broadcast');
+    assert.equal(msg.method, 'thread-stream-state-changed');
+    assert.equal(msg.params.conversationId, 'conv-in');
 });
 
 // ── response routing ─────────────────────────────────────────────────────

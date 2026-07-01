@@ -1,0 +1,20 @@
+sequenceDiagram
+  participant Owner as Desktop/VS Code Codex owner
+  participant Pipe as codex-ipc pipe
+  participant Feed as CodexIpcFeed
+  participant Tracker as ThreadStreamTracker
+  participant GW as WebSocketGateway
+  participant Web as web/app.js
+
+  Owner->>Pipe: thread-stream-state-changed snapshot/patch
+  Pipe->>Feed: IPC broadcast frame
+  Feed->>Tracker: applyBroadcast()
+  Tracker-->>Feed: projection + conversationState
+  Feed->>Feed: buildDesktopSurfaceSnapshot()
+  Feed->>GW: event/status
+  GW->>Web: codex_ipc_sync_event
+  GW->>Web: conversation_surface_snapshot
+  GW->>Web: conversation_status_changed
+  GW->>Web: conversation_action_required
+  Web->>Web: trackConversationEvent()
+  Web->>Web: renderDesktopSurface / approval / PLAN / goal

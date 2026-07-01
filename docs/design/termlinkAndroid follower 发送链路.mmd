@@ -1,0 +1,28 @@
+sequenceDiagram
+  participant Android as Android CodexViewModel
+  participant GW as terminalGateway.js
+  participant Feed as CodexIpcFeed
+  participant IPC as CodexIpcClient
+  participant Owner as Desktop / VS Code owner
+
+  Android->>GW: set_active_conversation
+  GW-->>Android: conversation_surface_snapshot
+  GW-->>Android: follower_mode_changed
+
+  Android->>GW: set_active_follower_mode(true)
+  GW-->>Android: follower_mode_changed(enabled=true)
+
+  Android->>GW: follower_send_message
+  GW->>GW: check IPC online / active allowed / follower mode / status
+  GW->>Feed: sendRequest(thread-follower-start-turn)
+  Feed->>IPC: IPC request envelope
+  IPC->>Owner: thread-follower-start-turn
+  Owner-->>IPC: response
+  IPC-->>Feed: ack/error
+  Feed-->>GW: result
+  GW-->>Android: follower_message_sent
+
+  Owner-->>IPC: updated thread-stream-state-changed
+  IPC-->>Feed: broadcast
+  Feed-->>GW: new surface
+  GW-->>Android: conversation_surface_snapshot

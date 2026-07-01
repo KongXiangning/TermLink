@@ -6,6 +6,8 @@ const http = require('node:http');
 const { WebSocketServer } = require('ws');
 const { EventEmitter } = require('node:events');
 
+const activeGateways = new Set();
+
 // ── FakeIpcFeed ──────────────────────────────────────────────────────────────
 
 class FakeIpcFeed extends EventEmitter {
@@ -20,6 +22,8 @@ class FakeIpcFeed extends EventEmitter {
     get online() { return this._online; }
     get clientId() { return this._clientId; }
     get allowActiveSend() { return this._allowActiveSend; }
+    isOnline() { return this._online; }
+    getStatus() { return { online: this._online, clientId: this._online ? this._clientId : undefined }; }
     getLatestSnapshot(conversationId) { return this._snapshots.get(conversationId); }
     getRecentSnapshots() {
         return Array.from(this._snapshots.entries()).map(([conversationId, surface]) => ({
@@ -27,6 +31,20 @@ class FakeIpcFeed extends EventEmitter {
             surface,
             timestamp: surface.updatedAt || Date.now()
         }));
+    }
+    getRecentEvents() {
+        return Array.from(this._snapshots.entries()).map(([conversationId, surface], index) => ({
+            sequence: index + 1,
+            receivedAt: surface.updatedAt || Date.now(),
+            method: 'thread-stream-state-changed',
+            threadId: conversationId,
+            sourceClientId: 'external-owner',
+            surface
+        }));
+    }
+    hasExternalPendingPlanAction(conversationId, requestId) {
+        const snapshot = this._snapshots.get(conversationId);
+        return Boolean(requestId && snapshot?.pendingPlanAction?.requestId === requestId);
     }
     setOnline(v) { this._online = v; }
     pushSnapshot(conversationId, surface) { this._snapshots.set(conversationId, surface); this.emit('snapshot', { conversationId, surface }); }
@@ -62,15 +80,19 @@ function loadGateway() {
     }
     require.cache[codexPath] = { id: codexPath, filename: codexPath, loaded: true, exports: FakeCodexService };
 
-    // Stub sessionManager's broadcast/connection helpers.
-    const smModule = require(sessionManagerPath);
-    delete require.cache[sessionManagerPath];
+    // Stub sessionManager without loading the real singleton; it starts
+    // process-wide cleanup intervals and shutdown hooks that make this
+    // gateway-focused test file hang under node --test.
     require.cache[sessionManagerPath] = {
         id: sessionManagerPath, filename: sessionManagerPath, loaded: true,
         exports: {
-            ...smModule,
             broadcast: () => {},
-            getSessionThreadIds: () => []
+            getSessionThreadIds: () => [],
+            summarizeSessionConnections: () => ({
+                activeConnectionCount: 0,
+                allTls: false,
+                allMtlsAuthorized: false
+            })
         }
     };
 
@@ -120,16 +142,34 @@ async function setupGateway(opts = {}) {
             server.on('upgrade', (req, socket, head) => {
                 wss.handleUpgrade(req, socket, head, (ws) => { wss.emit('connection', ws, req); });
             });
-            resolve({ server, wss, port, sm, ipcFeed, teardown });
+            const gateway = { server, wss, port, sm, ipcFeed, teardown };
+            activeGateways.add(gateway);
+            resolve(gateway);
         });
     });
 }
 
 async function stopGateway(g) {
+    if (!g || !activeGateways.has(g)) return;
+    activeGateways.delete(g);
     g.teardown();
-    g.wss.close();
-    return new Promise((resolve) => g.server.close(resolve));
+    for (const client of g.wss.clients) {
+        try {
+            client.terminate();
+        } catch {
+            // Best-effort test cleanup.
+        }
+    }
+    await new Promise((resolve) => g.wss.close(resolve));
+    await new Promise((resolve) => g.server.close(resolve));
 }
+
+test.after(async () => {
+    const gateways = Array.from(activeGateways);
+    for (const gateway of gateways) {
+        await stopGateway(gateway);
+    }
+});
 
 function connectWs(port, sessionId) {
     const WebSocket = require('ws');
@@ -140,6 +180,11 @@ function connectWs(port, sessionId) {
         ws.on('message', (d) => messages.push(JSON.parse(d.toString())));
         ws.on('error', reject);
     });
+}
+
+async function enableFollowerMode(ws) {
+    ws.send(JSON.stringify({ type: 'set_active_follower_mode', enabled: true }));
+    await delay(50);
 }
 
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -220,6 +265,44 @@ test('latest snapshot is replayed on set_active_conversation', async () => {
     await stopGateway(g);
 });
 
+test('IPC conversations list includes surface summary fields for Android bootstrap', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-summary', {
+        conversationId: 'conv-summary',
+        status: 'running',
+        title: 'Summary title',
+        cwd: 'E:\\coding\\TermLink',
+        ownerKind: 'desktop',
+        latestTurnId: 'turn-1',
+        items: [{ key: 'm1', kind: 'message', role: 'user', text: 'hello' }],
+        activeGoal: { objective: 'ship', status: 'active' },
+        pendingApproval: { requestId: 'approval-1' },
+        pendingPlanAction: { requestId: 'plan-1' },
+        pendingUserInputAction: { requestId: 'input-1' }
+    });
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    const list = messages.find(m => m.type === 'codex_ipc_conversations');
+    assert.ok(list, 'conversation list should be sent during IPC bootstrap');
+    const summary = list.conversations.find(c => c.conversationId === 'conv-summary');
+    assert.ok(summary, 'target conversation summary should be present');
+    assert.equal(summary.status, 'running');
+    assert.equal(summary.title, 'Summary title');
+    assert.equal(summary.cwd, 'E:\\coding\\TermLink');
+    assert.equal(summary.ownerKind, 'desktop');
+    assert.equal(summary.latestTurnId, 'turn-1');
+    assert.equal(summary.itemCount, 1);
+    assert.equal(summary.hasActiveGoal, true);
+    assert.equal(summary.hasPendingApproval, true);
+    assert.equal(summary.hasPendingPlanAction, true);
+    assert.equal(summary.hasPendingUserInputAction, true);
+    ws.close();
+    await stopGateway(g);
+});
+
 test('set_active_conversation without feed — gateway stays up', async () => {
     const g = await setupGateway({ ipcFeed: undefined });
     const sess = await g.sm.createSession({ name: 'test' });
@@ -287,12 +370,39 @@ test('follower_send_message succeeds when conversation is idle', async () => {
 
     ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
     await delay(50);
+    await enableFollowerMode(ws);
     ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-1', input: 'Hello from follower' }));
     await delay(100);
 
     const ack = messages.find(m => m.type === 'follower_message_sent');
     assert.ok(ack, 'should acknowledge follower message');
     assert.equal(ack.acknowledged, true);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_send_message is blocked until follower mode is explicitly enabled', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-1', { conversationId: 'conv-1', status: 'completed', items: [] });
+
+    let capturedMethod = null;
+    g.ipcFeed._sendRequestHandler = (method) => {
+        capturedMethod = method;
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
+    await delay(50);
+    ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-1', input: 'blocked before mode' }));
+    await delay(100);
+
+    assert.equal(capturedMethod, null);
+    assert.ok(messages.find(m => m.type === 'follower_mode_changed' && m.enabled === false));
+    assert.ok(messages.find(m => m.type === 'error' && m.message === 'Active send is not allowed'));
     ws.close();
     await stopGateway(g);
 });
@@ -307,6 +417,7 @@ test('follower_send_message blocked when conversation is running', async () => {
 
     ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
     await delay(50);
+    await enableFollowerMode(ws);
     ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-1', input: 'Should be blocked' }));
     await delay(100);
 
@@ -325,11 +436,36 @@ test('follower_send_message blocked when IPC offline', async () => {
 
     ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
     await delay(50);
+    await enableFollowerMode(ws);
     ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-1', input: 'test' }));
     await delay(100);
 
     const err = messages.find(m => m.type === 'error' && m.message.includes('not online'));
     assert.ok(err, 'should block send when IPC offline');
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_send_message blocked without a live conversation snapshot', async () => {
+    const g = await setupGateway();
+
+    let capturedMethod = null;
+    g.ipcFeed._sendRequestHandler = (method) => {
+        capturedMethod = method;
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-missing', input: 'Should be blocked' }));
+    await delay(100);
+
+    assert.equal(capturedMethod, null);
+    const err = messages.find(m => m.type === 'error' && m.message === 'Conversation is not live');
+    assert.ok(err, 'should block send without a live surface snapshot');
     ws.close();
     await stopGateway(g);
 });
@@ -355,6 +491,7 @@ test('follower_approval_response sends command-approval-decision', async () => {
 
     ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
     await delay(50);
+    await enableFollowerMode(ws);
     ws.send(JSON.stringify({ type: 'follower_approval_response', conversationId: 'conv-1', decision: 'accept', requestId: 'req-1' }));
     await delay(100);
 
@@ -362,6 +499,90 @@ test('follower_approval_response sends command-approval-decision', async () => {
     assert.equal(capturedDecision, 'accept');
     const ack = messages.find(m => m.type === 'follower_approval_response_sent');
     assert.ok(ack);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_approval_response forwards execpolicy amendment decision shape', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-1', {
+        conversationId: 'conv-1', status: 'waiting_for_approval', items: [],
+        pendingApproval: { kind: 'command', requestId: 'req-remember', rawRequestId: 'raw-remember' }
+    });
+
+    let capturedDecision = null;
+    g.ipcFeed._sendRequestHandler = (method, params) => {
+        capturedDecision = params.decision;
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
+    await delay(50);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_approval_response',
+        conversationId: 'conv-1',
+        decision: 'acceptWithExecpolicyAmendment',
+        requestId: 'req-remember',
+        requestKind: 'command',
+        execpolicyAmendment: ['New-Item', '-Path']
+    }));
+    await delay(100);
+
+    assert.deepEqual(capturedDecision, {
+        acceptWithExecpolicyAmendment: {
+            execpolicy_amendment: ['New-Item', '-Path']
+        }
+    });
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_approval_response derives remember amendment from pending approval params', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-1', {
+        conversationId: 'conv-1', status: 'waiting_for_approval', items: [],
+        pendingApproval: {
+            kind: 'command',
+            requestId: 'req-derived',
+            rawRequestId: 'raw-derived',
+            params: {
+                proposedExecpolicyAmendment: ['New-Item', '-Path', 'notes.txt', '-ItemType', 'File']
+            }
+        }
+    });
+
+    let capturedDecision = null;
+    g.ipcFeed._sendRequestHandler = (method, params) => {
+        capturedDecision = params.decision;
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
+    await delay(50);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_approval_response',
+        conversationId: 'conv-1',
+        decision: 'acceptWithExecpolicyAmendment',
+        requestId: 'req-derived',
+        requestKind: 'command'
+    }));
+    await delay(100);
+
+    assert.deepEqual(capturedDecision, {
+        acceptWithExecpolicyAmendment: {
+            execpolicy_amendment: ['New-Item', '-Path']
+        }
+    });
     ws.close();
     await stopGateway(g);
 });
@@ -389,6 +610,7 @@ test('follower_approval_response sends permissions approval response for MCP too
 
     ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
     await delay(50);
+    await enableFollowerMode(ws);
     ws.send(JSON.stringify({ type: 'follower_approval_response', conversationId: 'conv-1', decision: 'accept', requestId: 'req-perm', requestKind: 'permissions' }));
     await delay(100);
 
@@ -418,6 +640,7 @@ test('follower_approval_response rejects unmatched request ids without sending a
     const { ws, messages } = await connectWs(g.port, sess.id);
     await delay(100);
 
+    await enableFollowerMode(ws);
     ws.send(JSON.stringify({ type: 'follower_approval_response', conversationId: 'conv-1', decision: 'accept', requestId: 'missing-request', requestKind: 'command' }));
     await delay(100);
 
@@ -428,7 +651,7 @@ test('follower_approval_response rejects unmatched request ids without sending a
     await stopGateway(g);
 });
 
-test('follower_plan_response triggers plan implementation path', async () => {
+test('follower_plan_response triggers plan implementation path without invented collaboration mode', async () => {
     const g = await setupGateway();
     g.ipcFeed.pushSnapshot('conv-1', {
         conversationId: 'conv-1', status: 'waiting_for_input', items: [],
@@ -447,16 +670,60 @@ test('follower_plan_response triggers plan implementation path', async () => {
 
     ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
     await delay(50);
+    await enableFollowerMode(ws);
     ws.send(JSON.stringify({ type: 'follower_plan_response', conversationId: 'conv-1', input: '是，实施此计划' }));
     await delay(100);
 
-    // First call: update-thread-settings
-    assert.equal(calls[0].method, 'thread-follower-update-thread-settings');
-    // Second call: start-turn with implementation prompt
-    assert.equal(calls[1].method, 'thread-follower-start-turn');
-    assert.ok(calls[1].params.turnStartParams.input[0].text.includes('PLEASE IMPLEMENT THIS PLAN'));
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].method, 'thread-follower-start-turn');
+    assert.ok(calls[0].params.turnStartParams.input[0].text.includes('PLEASE IMPLEMENT THIS PLAN'));
+    assert.equal(calls[0].params.turnStartParams.collaborationMode, undefined);
     const ack = messages.find(m => m.type === 'follower_plan_response_sent');
     assert.ok(ack);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_plan_response derives default collaboration mode from latest mode settings', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-1', {
+        conversationId: 'conv-1',
+        status: 'waiting_for_input',
+        latestCollaborationMode: {
+            mode: 'plan',
+            settings: { model: 'gpt-5.5', reasoning_effort: 'high', developer_instructions: 'keep context' }
+        },
+        items: [],
+        pendingPlanAction: { kind: 'plan_implementation', requestId: 'r-plan', requestMethod: 'item/plan/requestImplementation', planContent: 'BUILD IT', turnId: 't1', canSubmit: true }
+    });
+
+    const calls = [];
+    g.ipcFeed._sendRequestHandler = (method, params) => {
+        calls.push({ method, params });
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
+    await delay(50);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({ type: 'follower_plan_response', conversationId: 'conv-1', input: '是，实施此计划' }));
+    await delay(100);
+
+    assert.equal(calls[0].method, 'thread-follower-update-thread-settings');
+    assert.deepEqual(calls[0].params.threadSettings.collaborationMode, {
+        mode: 'default',
+        settings: { model: 'gpt-5.5', reasoning_effort: 'high', developer_instructions: null }
+    });
+    assert.equal(calls[1].method, 'thread-follower-start-turn');
+    assert.deepEqual(calls[1].params.turnStartParams.collaborationMode, {
+        mode: 'default',
+        settings: { model: 'gpt-5.5', reasoning_effort: 'high', developer_instructions: null }
+    });
+    assert.ok(messages.find(m => m.type === 'follower_plan_response_sent'));
     ws.close();
     await stopGateway(g);
 });
@@ -477,6 +744,7 @@ test('follower_plan_response forwards explicit user input response payload', asy
     const { ws, messages } = await connectWs(g.port, sess.id);
     await delay(100);
 
+    await enableFollowerMode(ws);
     const response = { answers: { confirm: { answers: ['Approve'] } } };
     ws.send(JSON.stringify({
         type: 'follower_plan_response',
@@ -491,6 +759,252 @@ test('follower_plan_response forwards explicit user input response payload', asy
     assert.deepEqual(captured.params.response, response);
     const ack = messages.find(m => m.type === 'follower_plan_response_sent');
     assert.ok(ack);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_plan_response rejects explicit user input response without live request id', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-1', {
+        conversationId: 'conv-1', status: 'waiting_for_input', items: []
+    });
+
+    let captured = null;
+    g.ipcFeed._sendRequestHandler = (method, params) => {
+        captured = { method, params };
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    await enableFollowerMode(ws);
+    const response = { answers: { confirm: { answers: ['Approve'] } } };
+    ws.send(JSON.stringify({
+        type: 'follower_plan_response',
+        conversationId: 'conv-1',
+        response
+    }));
+    await delay(100);
+
+    assert.equal(captured, null);
+    assert.ok(messages.find(m => m.type === 'error' && m.message === 'Plan response cannot be submitted'));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_plan_response builds answers payload with question id', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-1', {
+        conversationId: 'conv-1',
+        status: 'waiting_for_input',
+        items: []
+    });
+
+    let captured = null;
+    g.ipcFeed._sendRequestHandler = (method, params) => {
+        captured = { method, params };
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_plan_response',
+        conversationId: 'conv-1',
+        requestId: 'req-key',
+        questionId: 'confirm',
+        input: 'Approve'
+    }));
+    await delay(100);
+
+    assert.equal(captured.method, 'thread-follower-submit-user-input');
+    assert.equal(captured.params.requestId, 'req-key');
+    assert.deepEqual(captured.params.response, { answers: { confirm: { answers: ['Approve'] } } });
+    assert.ok(messages.find(m => m.type === 'follower_plan_response_sent'));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_send_message includes desktop-compatible turn context', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-1', {
+        conversationId: 'conv-1',
+        status: 'completed',
+        cwd: 'E:\\coding\\project-a',
+        latestDefaultCollaborationMode: {
+            mode: 'default',
+            settings: { model: 'gpt-5.5', reasoning_effort: 'high', developer_instructions: null }
+        },
+        items: []
+    });
+
+    let captured = null;
+    g.ipcFeed._sendRequestHandler = (method, params) => {
+        captured = { method, params };
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-1', input: 'Hello with context' }));
+    await delay(100);
+
+    assert.equal(captured.method, 'thread-follower-start-turn');
+    assert.equal(captured.params.turnStartParams.input[0].text, 'Hello with context');
+    assert.deepEqual(captured.params.turnStartParams.input[0].text_elements, []);
+    assert.deepEqual(captured.params.turnStartParams.attachments, []);
+    assert.deepEqual(captured.params.turnStartParams.commentAttachments, []);
+    assert.equal(captured.params.turnStartParams.cwd, 'E:\\coding\\project-a');
+    assert.deepEqual(captured.params.turnStartParams.runtimeWorkspaceRoots, ['E:\\coding\\project-a']);
+    assert.deepEqual(captured.params.turnStartParams.collaborationMode, {
+        mode: 'default',
+        settings: { model: 'gpt-5.5', reasoning_effort: 'high', developer_instructions: null }
+    });
+    assert.ok(messages.find(m => m.type === 'follower_message_sent'));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_start_goal sends /goal as ordinary follower turn', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-1', { conversationId: 'conv-1', status: 'completed', items: [] });
+
+    let captured = null;
+    g.ipcFeed._sendRequestHandler = (method, params) => {
+        captured = { method, params };
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({ type: 'follower_start_goal', conversationId: 'conv-1', goal: '完成同步链路' }));
+    await delay(100);
+
+    assert.equal(captured.method, 'thread-follower-start-turn');
+    assert.equal(captured.params.turnStartParams.input[0].text, '/goal 完成同步链路');
+    assert.ok(messages.find(m => m.type === 'follower_goal_sent'));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_interrupt_turn sends thread-follower-interrupt-turn with latest turn id', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-1', {
+        conversationId: 'conv-1',
+        status: 'running',
+        latestTurnId: 'turn-1',
+        items: []
+    });
+
+    let captured = null;
+    g.ipcFeed._sendRequestHandler = (method, params) => {
+        captured = { method, params };
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({ type: 'follower_interrupt_turn', conversationId: 'conv-1' }));
+    await delay(100);
+
+    assert.equal(captured.method, 'thread-follower-interrupt-turn');
+    assert.equal(captured.params.conversationId, 'conv-1');
+    assert.equal(captured.params.turnId, 'turn-1');
+    assert.ok(messages.find(m => m.type === 'follower_turn_interrupted'));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('conversation snapshot emits action required for approval plan user input and goal', async () => {
+    const g = await setupGateway();
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
+    await delay(50);
+    g.ipcFeed.pushSnapshot('conv-1', {
+        conversationId: 'conv-1',
+        status: 'waiting_for_input',
+        items: [],
+        pendingApproval: { kind: 'command', requestId: 'req-approval' },
+        pendingPlanAction: { kind: 'plan_implementation', requestId: 'req-plan' },
+        pendingUserInputAction: { requestId: 'req-input', method: 'item/tool/requestUserInput', requestKind: 'userInput', responseMode: 'answers', handledBy: 'ipc_follower', params: { questions: [{ id: 'q1', question: 'Continue?' }] } },
+        pendingGoalAction: { kind: 'text_input' }
+    });
+    await delay(100);
+
+    assert.ok(messages.find(m => m.type === 'conversation_action_required' && m.actionType === 'approval'));
+    assert.ok(messages.find(m => m.type === 'conversation_action_required' && m.actionType === 'plan'));
+    assert.ok(messages.find(m => m.type === 'conversation_action_required' && m.actionType === 'user_input'));
+    assert.ok(messages.find(m => m.type === 'conversation_action_required' && m.actionType === 'goal'));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('set_active_follower_mode false blocks active follower actions', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-1', { conversationId: 'conv-1', status: 'completed', items: [] });
+
+    let capturedMethod = null;
+    g.ipcFeed._sendRequestHandler = (method) => {
+        capturedMethod = method;
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    ws.send(JSON.stringify({ type: 'set_active_follower_mode', enabled: false }));
+    await delay(50);
+    ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-1', input: 'blocked' }));
+    await delay(100);
+
+    assert.equal(capturedMethod, null);
+    assert.ok(messages.find(m => m.type === 'follower_mode_changed' && m.enabled === false));
+    assert.ok(messages.find(m => m.type === 'error' && m.message === 'Active send is not allowed'));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('set_active_follower_mode true is rejected when active send is not configured', async () => {
+    const g = await setupGateway({ ipcFeed: new FakeIpcFeed({ allowActiveSend: false }) });
+    g.ipcFeed.pushSnapshot('conv-1', { conversationId: 'conv-1', status: 'completed', items: [] });
+
+    let capturedMethod = null;
+    g.ipcFeed._sendRequestHandler = (method) => {
+        capturedMethod = method;
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    ws.send(JSON.stringify({ type: 'set_active_follower_mode', enabled: true }));
+    await delay(50);
+    ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-1', input: 'blocked by server config' }));
+    await delay(100);
+
+    assert.equal(capturedMethod, null);
+    assert.ok(messages.find(m => m.type === 'follower_mode_changed' && m.enabled === false && m.activeSendAllowed === false));
+    assert.ok(messages.find(m => m.type === 'error' && m.message === 'Active follower mode is not available'));
+    assert.ok(messages.find(m => m.type === 'error' && m.message === 'Active send is not allowed'));
     ws.close();
     await stopGateway(g);
 });

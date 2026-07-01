@@ -210,7 +210,7 @@ function extractConversationId(value, seen = new Set()) {
  * Only includes fields Android needs for display — raw state stays server-side.
  *
  * @param {Record<string, unknown>|undefined} state
- * @param {{conversationId?: string, revision?: number, status?: string}} [options]
+ * @param {{conversationId?: string, revision?: number, status?: string, ownerKind?: string, title?: string, cwd?: string}} [options]
  * @returns {object}
  */
 function buildDesktopSurfaceSnapshot(state, options = {}) {
@@ -221,12 +221,24 @@ function buildDesktopSurfaceSnapshot(state, options = {}) {
     let latestTurnId;
     let pendingApproval;
     let pendingPlanAction;
+    let pendingUserInputAction;
     let pendingGoalAction;
+    const activeGoal = extractActiveGoal(state);
 
     for (const turn of turns) {
         const r = asRecord(turn);
         const turnId = getTurnId(r);
         if (turnId) latestTurnId = turnId;
+        const turnStatus = asString(r?.status);
+        const goalInputEntry = toGoalInputEntry(r, turnId);
+        if (goalInputEntry) {
+            items.push(...flushStatusBucket(statusBucket, ++seq, turnId));
+            statusBucket = createStatusBucket();
+            items.push(goalInputEntry);
+            if (isRunningTurnStatus(turnStatus)) {
+                pendingGoalAction = { kind: 'text_input', raw: r };
+            }
+        }
         const turnItems = Array.isArray(r?.items) ? r.items : [];
 
         for (const item of turnItems) {
@@ -277,15 +289,16 @@ function buildDesktopSurfaceSnapshot(state, options = {}) {
     }
     const reqUserInput = extractPendingUserInputRequestFromRequests(state);
     if (reqUserInput) {
+        pendingUserInputAction = reqUserInput;
         items.push({
             key: `req:userInput:${reqUserInput.requestId ?? items.length}`,
             kind: 'approval_request',
-            approvalType: reqUserInput.kind,
+            approvalType: reqUserInput.requestKind,
             text: formatUserInputText(reqUserInput),
             requestId: reqUserInput.requestId,
-            method: 'item/tool/requestUserInput',
-            requestKind: 'userInput',
-            responseMode: 'answers',
+            method: reqUserInput.method,
+            requestKind: reqUserInput.requestKind,
+            responseMode: reqUserInput.responseMode,
             summary: formatUserInputText(reqUserInput),
             questionCount: reqUserInput.questionCount,
             params: reqUserInput.params,
@@ -305,14 +318,68 @@ function buildDesktopSurfaceSnapshot(state, options = {}) {
     return {
         conversationId: options.conversationId,
         revision: options.revision,
+        ownerKind: options.ownerKind,
         status,
         updatedAt: Date.now(),
+        title: options.title ?? asString(state?.title) ?? asString(state?.name),
+        cwd: options.cwd ?? asString(state?.cwd),
         latestTurnId,
+        latestCollaborationMode: extractLatestCollaborationMode(state),
+        latestDefaultCollaborationMode: extractLatestDefaultCollaborationMode(state, turns),
         items,
+        activeGoal,
         pendingApproval,
         pendingPlanAction,
+        pendingUserInputAction,
         pendingGoalAction
     };
+}
+
+function extractActiveGoal(state) {
+    const goal = asRecord(state?.threadGoal) ?? asRecord(state?.currentGoal);
+    if (!goal) return undefined;
+    const status = asString(goal.status);
+    if (!status || status === 'complete' || status === 'completed') return undefined;
+    return {
+        threadId: asString(goal.threadId),
+        objective: asString(goal.objective),
+        status,
+        tokenBudget: asNumber(goal.tokenBudget),
+        tokensUsed: asNumber(goal.tokensUsed),
+        timeUsedSeconds: asNumber(goal.timeUsedSeconds),
+        createdAt: asNumber(goal.createdAt),
+        updatedAt: asNumber(goal.updatedAt),
+        raw: goal
+    };
+}
+
+function extractLatestCollaborationMode(state) {
+    const mode =
+        asRecord(asRecord(state?.latestThreadSettings)?.collaborationMode) ??
+        asRecord(state?.latestCollaborationMode);
+    return mode ? structuredClone(mode) : undefined;
+}
+
+function extractLatestDefaultCollaborationMode(state, turns) {
+    const stateCandidates = [
+        asRecord(asRecord(state?.latestThreadSettings)?.collaborationMode),
+        asRecord(state?.latestCollaborationMode)
+    ];
+
+    for (const candidate of stateCandidates) {
+        if (isDefaultCollaborationMode(candidate)) return structuredClone(candidate);
+    }
+
+    for (let index = turns.length - 1; index >= 0; index--) {
+        const turn = asRecord(turns[index]);
+        const candidate = asRecord(asRecord(turn?.params)?.collaborationMode);
+        if (isDefaultCollaborationMode(candidate)) return structuredClone(candidate);
+    }
+    return undefined;
+}
+
+function isDefaultCollaborationMode(value) {
+    return asString(value?.mode) === 'default';
 }
 
 // ── surface items ────────────────────────────────────────────────────────────
@@ -565,11 +632,16 @@ function extractPendingUserInputRequestFromRequests(state) {
         const params = asRecord(r?.params);
         if (!r || !params || r.method !== 'item/tool/requestUserInput') continue;
         const questions = Array.isArray(params.questions) ? params.questions : [];
+        const summary = summarizeQuestions(questions);
         return {
-            kind: 'userInput',
             requestId: String(r.id),
+            method: 'item/tool/requestUserInput',
+            requestKind: 'userInput',
+            responseMode: 'answers',
+            handledBy: 'ipc_follower',
             title: '等待确认',
-            description: summarizeQuestions(questions),
+            summary,
+            description: summary,
             questionCount: questions.length,
             params,
             raw: r
@@ -639,6 +711,49 @@ function toPlanGoalEntry(item, turnId, itemType) {
     const todoItems = Array.isArray(item.items) ? item.items : [];
     const hasPlan = todoItems.some(t => { const s = asString(asRecord(t)?.status); return s === 'planned' || s === 'in_progress'; });
     return { key: `${turnId ?? 'turn'}:todo:${item.id ?? 'list'}`, kind: hasPlan ? 'plan_prompt' : 'goal_prompt', text, turnId, itemId: asString(item.id), raw: item };
+}
+
+function toGoalInputEntry(turn, turnId) {
+    const params = asRecord(turn?.params);
+    const inputText = extractText(params?.input);
+    const goalText = extractGoalObjective(inputText);
+    if (!goalText) return undefined;
+    return {
+        key: `${turnId ?? 'pending'}:goal-input:${hashText(goalText)}`,
+        kind: 'goal_prompt',
+        text: goalText,
+        turnId,
+        raw: {
+            input: inputText,
+            status: asString(turn?.status)
+        }
+    };
+}
+
+function extractGoalObjective(inputText) {
+    const text = inputText?.trim();
+    if (!text) return undefined;
+
+    const slashMatch = text.match(/^\/goal(?:\s+|$)([\s\S]*)$/i);
+    if (slashMatch) return slashMatch[1]?.trim() || text;
+
+    const chineseMatch = text.match(/^goal追求目标[:：\s]*([\s\S]*)$/i);
+    if (chineseMatch) return chineseMatch[1]?.trim() || text;
+
+    const internalGoalMatch = text.match(
+        /<codex_internal_context\s+source=["']goal["'][^>]*>[\s\S]*?<objective>\s*([\s\S]*?)\s*<\/objective>/i
+    );
+    if (internalGoalMatch) return internalGoalMatch[1]?.trim() || undefined;
+
+    return undefined;
+}
+
+function hashText(text) {
+    let hash = 0;
+    for (let index = 0; index < text.length; index++) {
+        hash = (hash * 31 + text.charCodeAt(index)) >>> 0;
+    }
+    return hash.toString(36);
 }
 
 function extractPlanText(item) {
@@ -776,6 +891,10 @@ function inferTurnStatus(turns) {
     }
     if (items.length > 0 && !status) return 'running';
     return 'unknown';
+}
+
+function isRunningTurnStatus(status) {
+    return status === 'inProgress' || status === 'in_progress';
 }
 
 // ── text extraction ──────────────────────────────────────────────────────────

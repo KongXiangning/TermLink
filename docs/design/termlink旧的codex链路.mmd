@@ -1,0 +1,5 @@
+flowchart LR
+  Android["Android CodexViewModel"] -->|"codex_turn / codex_request / codex_interrupt"| GW["terminalGateway.js"]
+  GW --> Legacy["CodexAppServerService"]
+  Legacy --> CodexRuntime["Codex app-server process"]
+  CodexRuntime --> Legacy --> GW --> Android

@@ -700,6 +700,120 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     // ── IPC feed integration ──────────────────────────────────────────────
     /** @type {Map<import('ws').WebSocket, string>} */
     const _ipcActiveConversations = new Map();
+    /** @type {Map<import('ws').WebSocket, boolean>} */
+    const _ipcFollowerModes = new Map();
+    /** @type {Map<string, string>} */
+    const _ipcConversationLastStatus = new Map();
+
+    const _isIpcOnline = () => {
+        if (!ipcFeed) return false;
+        if (typeof ipcFeed.isOnline === 'function') return ipcFeed.isOnline();
+        return Boolean(ipcFeed.online);
+    };
+
+    const _getIpcStatus = () => {
+        if (!ipcFeed) return { online: false };
+        if (typeof ipcFeed.getStatus === 'function') return ipcFeed.getStatus();
+        return { online: Boolean(ipcFeed.online), clientId: ipcFeed.clientId };
+    };
+
+    const _isIpcActiveSendAllowed = () => {
+        if (!ipcFeed) return false;
+        if (typeof ipcFeed.isActiveAllowed === 'function') return ipcFeed.isActiveAllowed();
+        return Boolean(ipcFeed.allowActiveSend);
+    };
+
+    const _isFollowerModeEnabled = (ws) => _ipcFollowerModes.get(ws) === true;
+
+    const _sendFollowerMode = (ws) => {
+        sendWsEnvelope(ws, {
+            type: 'follower_mode_changed',
+            enabled: _isFollowerModeEnabled(ws),
+            activeSendAllowed: _isIpcActiveSendAllowed()
+        });
+    };
+
+    const _setFollowerMode = (ws, enabled) => {
+        if (enabled && !_isIpcActiveSendAllowed()) {
+            sendWsEnvelope(ws, {
+                type: 'error',
+                message: 'Active follower mode is not available',
+                detail: 'Server IPC feed is not configured with active send enabled.'
+            });
+            return;
+        }
+        _ipcFollowerModes.set(ws, Boolean(enabled));
+        _sendFollowerMode(ws);
+    };
+
+    const _getLatestConversationSnapshot = (conversationId) => {
+        if (!ipcFeed || !isNonEmptyString(conversationId)) return null;
+        if (typeof ipcFeed.getLatestSnapshot === 'function') {
+            return ipcFeed.getLatestSnapshot(conversationId);
+        }
+        return null;
+    };
+
+    const _emitConversationActionRequired = (ws, conversationId, surface) => {
+        if (!surface || typeof surface !== 'object') return;
+        if (surface.pendingApproval) {
+            sendWsEnvelope(ws, {
+                type: 'conversation_action_required',
+                conversationId,
+                actionType: 'approval',
+                payload: surface.pendingApproval
+            });
+        }
+        if (surface.pendingPlanAction) {
+            sendWsEnvelope(ws, {
+                type: 'conversation_action_required',
+                conversationId,
+                actionType: 'plan',
+                payload: surface.pendingPlanAction
+            });
+        }
+        if (surface.pendingUserInputAction) {
+            sendWsEnvelope(ws, {
+                type: 'conversation_action_required',
+                conversationId,
+                actionType: 'user_input',
+                payload: surface.pendingUserInputAction
+            });
+        }
+        if (surface.pendingGoalAction) {
+            sendWsEnvelope(ws, {
+                type: 'conversation_action_required',
+                conversationId,
+                actionType: 'goal',
+                payload: surface.pendingGoalAction
+            });
+        }
+    };
+
+    const _pushConversationSurfaceSnapshot = (conversationId, surface) => {
+        const status = isNonEmptyString(surface?.status) ? surface.status : 'unknown';
+        const previousStatus = _ipcConversationLastStatus.get(conversationId);
+        if (status) {
+            _ipcConversationLastStatus.set(conversationId, status);
+        }
+
+        for (const client of wss.clients) {
+            if (client.readyState !== 1) continue;
+            const activeConv = _ipcActiveConversations.get(client);
+            if (activeConv !== conversationId) continue;
+
+            sendWsEnvelope(client, { type: 'conversation_surface_snapshot', conversationId, snapshot: surface });
+            if (previousStatus && previousStatus !== status) {
+                sendWsEnvelope(client, {
+                    type: 'conversation_status_changed',
+                    conversationId,
+                    status,
+                    previousStatus
+                });
+            }
+            _emitConversationActionRequired(client, conversationId, surface);
+        }
+    };
 
     if (ipcFeed) {
         ipcFeed.on('status', (status) => {
@@ -711,11 +825,22 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         });
 
         ipcFeed.on('snapshot', ({ conversationId, surface }) => {
+            _pushConversationSurfaceSnapshot(conversationId, surface);
+        });
+
+        ipcFeed.on('event', (event) => {
             for (const client of wss.clients) {
-                if (client.readyState !== 1) continue;
-                const activeConv = _ipcActiveConversations.get(client);
-                if (activeConv === conversationId) {
-                    sendWsEnvelope(client, { type: 'conversation_surface_snapshot', conversationId, snapshot: surface });
+                if (client.readyState === 1) {
+                    sendWsEnvelope(client, { type: 'codex_ipc_sync_event', event });
+                }
+            }
+        });
+
+        ipcFeed.on('error', (error) => {
+            const detail = error instanceof Error ? error.message : String(error);
+            for (const client of wss.clients) {
+                if (client.readyState === 1) {
+                    sendWsEnvelope(client, { type: 'error', message: 'Codex IPC feed error', detail });
                 }
             }
         });
@@ -725,17 +850,32 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         if (!ipcFeed) return;
         sendWsEnvelope(ws, {
             type: 'codex_ipc_status',
-            status: { online: ipcFeed.online, clientId: ipcFeed.clientId }
+            status: _getIpcStatus()
         });
+        if (typeof ipcFeed.getRecentEvents === 'function') {
+            for (const event of ipcFeed.getRecentEvents()) {
+                sendWsEnvelope(ws, { type: 'codex_ipc_sync_event', event });
+            }
+        }
         // Also send the list of known conversations so the client can populate its selector.
         const conversations = ipcFeed.getRecentSnapshots().map(s => ({
             conversationId: s.conversationId,
             status: s.surface?.status || 'unknown',
-            updatedAt: s.timestamp
+            updatedAt: s.timestamp,
+            title: s.surface?.title || undefined,
+            cwd: s.surface?.cwd || undefined,
+            ownerKind: s.surface?.ownerKind || undefined,
+            latestTurnId: s.surface?.latestTurnId || undefined,
+            itemCount: Array.isArray(s.surface?.items) ? s.surface.items.length : 0,
+            hasActiveGoal: Boolean(s.surface?.activeGoal),
+            hasPendingApproval: Boolean(s.surface?.pendingApproval),
+            hasPendingPlanAction: Boolean(s.surface?.pendingPlanAction),
+            hasPendingUserInputAction: Boolean(s.surface?.pendingUserInputAction)
         }));
         if (conversations.length > 0) {
             sendWsEnvelope(ws, { type: 'codex_ipc_conversations', conversations });
         }
+        _sendFollowerMode(ws);
     };
 
     const _handleSetActiveConversation = (ws, conversationId) => {
@@ -750,23 +890,25 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         _ipcActiveConversations.set(ws, conversationId);
 
         // Replay latest cached snapshot if available.
-        const latest = ipcFeed.getLatestSnapshot(conversationId);
+        const latest = _getLatestConversationSnapshot(conversationId);
         if (latest) {
             sendWsEnvelope(ws, { type: 'conversation_surface_snapshot', conversationId, snapshot: latest });
+            _emitConversationActionRequired(ws, conversationId, latest);
         }
+        _sendFollowerMode(ws);
     };
     const _getActiveConversationId = (ws) => _ipcActiveConversations.get(ws) || null;
 
-    const _handleFollowerSendMessage = async (ws, conversationId, input) => {
+    const _handleFollowerSendMessage = async (ws, conversationId, input, options = {}) => {
         if (!ipcFeed) {
-            sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available', detail: 'Enable codex-ipc to send follower messages.' });
+            sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available', detail: options.unavailableDetail || 'Enable codex-ipc to send follower messages.' });
             return;
         }
-        if (!ipcFeed.online) {
+        if (!_isIpcOnline()) {
             sendWsEnvelope(ws, { type: 'error', message: 'IPC is not online', detail: 'Cannot send message while IPC is disconnected.' });
             return;
         }
-        if (!ipcFeed.allowActiveSend) {
+        if (!_isIpcActiveSendAllowed() || !_isFollowerModeEnabled(ws)) {
             sendWsEnvelope(ws, { type: 'error', message: 'Active send is not allowed', detail: 'Enable TERMLINK_CODEX_IPC_ENABLED + ALLOW_ACTIVE + CONFIRM_SEND.' });
             return;
         }
@@ -780,8 +922,16 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         }
 
         // Running gate: block start-turn when conversation is running.
-        const latest = ipcFeed.getLatestSnapshot(conversationId);
-        if (latest && (latest.status === 'running' || latest.status === 'waiting_for_approval')) {
+        const latest = _getLatestConversationSnapshot(conversationId);
+        if (!latest) {
+            sendWsEnvelope(ws, {
+                type: 'error',
+                message: 'Conversation is not live',
+                detail: 'Wait for a live IPC surface snapshot before starting a follower turn.'
+            });
+            return;
+        }
+        if (!canStartFollowerTurn(latest?.status)) {
             sendWsEnvelope(ws, {
                 type: 'error',
                 message: 'Conversation is still running',
@@ -791,34 +941,84 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         }
 
         try {
-            const { randomUUID } = require('node:crypto');
             const response = await ipcFeed.sendRequest('thread-follower-start-turn', {
                 conversationId,
-                turnStartParams: {
-                    clientUserMessageId: randomUUID(),
-                    input: [{ type: 'text', text: input.trim() }]
-                }
+                turnStartParams: buildFollowerTurnStartParams(input.trim(), latest)
             });
-            if (response.type === 'response' && response.resultType === 'error') {
-                throw new Error(typeof response.error === 'string' ? response.error : JSON.stringify(response.error));
-            }
-            sendWsEnvelope(ws, { type: 'follower_message_sent', conversationId, acknowledged: true });
+            assertIpcSuccess(response);
+            sendWsEnvelope(ws, { type: options.successType || 'follower_message_sent', conversationId, acknowledged: true });
         } catch (error) {
-            sendWsEnvelope(ws, { type: 'error', message: 'Failed to send follower message', detail: error.message });
+            sendWsEnvelope(ws, { type: 'error', message: options.failureMessage || 'Failed to send follower message', detail: error.message });
         }
     };
 
-    const _handleFollowerApprovalResponse = async (ws, conversationId, decision, requestId, requestKind) => {
+    const _handleFollowerStartGoal = async (ws, conversationId, goal) => {
+        if (typeof goal !== 'string' || !goal.trim()) {
+            sendWsEnvelope(ws, {
+                type: 'error',
+                message: 'Goal objective is empty',
+                detail: 'Enter a goal objective before starting a goal.'
+            });
+            return;
+        }
+        await _handleFollowerSendMessage(ws, conversationId, `/goal ${goal.trim()}`, {
+            successType: 'follower_goal_sent',
+            failureMessage: 'Failed to start follower goal',
+            unavailableDetail: 'Enable codex-ipc to start follower goals.'
+        });
+    };
+
+    const _handleFollowerInterruptTurn = async (ws, conversationId) => {
+        if (!ipcFeed) {
+            sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available', detail: 'Enable codex-ipc to interrupt follower turns.' });
+            return;
+        }
+        if (!isNonEmptyString(conversationId)) {
+            sendWsEnvelope(ws, { type: 'error', message: 'No active conversation', detail: 'Set an active conversation before interrupting a turn.' });
+            return;
+        }
+        if (!_isIpcOnline()) {
+            sendWsEnvelope(ws, { type: 'error', message: 'IPC is not online', detail: 'Cannot interrupt the active turn while IPC is disconnected.' });
+            return;
+        }
+        if (!_isIpcActiveSendAllowed() || !_isFollowerModeEnabled(ws)) {
+            sendWsEnvelope(ws, { type: 'error', message: 'Active send is not allowed', detail: 'Enable TERMLINK_CODEX_IPC_ENABLED + ALLOW_ACTIVE + CONFIRM_SEND.' });
+            return;
+        }
+
+        const latest = _getLatestConversationSnapshot(conversationId);
+        if (!latest || latest.status !== 'running') {
+            sendWsEnvelope(ws, {
+                type: 'error',
+                message: 'Conversation is not running',
+                detail: 'Only a running turn can be interrupted.'
+            });
+            return;
+        }
+
+        try {
+            const response = await ipcFeed.sendRequest('thread-follower-interrupt-turn', {
+                conversationId,
+                ...(isNonEmptyString(latest.latestTurnId) ? { turnId: latest.latestTurnId } : {})
+            });
+            assertIpcSuccess(response);
+            sendWsEnvelope(ws, { type: 'follower_turn_interrupted', conversationId, acknowledged: true });
+        } catch (error) {
+            sendWsEnvelope(ws, { type: 'error', message: 'Failed to interrupt follower turn', detail: error.message });
+        }
+    };
+
+    const _handleFollowerApprovalResponse = async (ws, conversationId, decision, requestId, requestKind, execpolicyAmendment) => {
         if (!ipcFeed) {
             sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available' });
             return;
         }
-        if (!ipcFeed.online || !ipcFeed.allowActiveSend) {
+        if (!_isIpcOnline() || !_isIpcActiveSendAllowed() || !_isFollowerModeEnabled(ws)) {
             sendWsEnvelope(ws, { type: 'error', message: 'IPC is not available for active send' });
             return;
         }
 
-        const latest = ipcFeed.getLatestSnapshot(conversationId);
+        const latest = _getLatestConversationSnapshot(conversationId);
         const approval = resolvePendingApprovalResponseTarget(latest, requestId, requestKind);
         if (!approval) {
             sendWsEnvelope(ws, {
@@ -828,9 +1028,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             });
             return;
         }
-        const decisionValue = decision === 'acceptWithExecpolicyAmendment'
-            ? { acceptWithExecpolicyAmendment: { execpolicy_amendment: [] } }
-            : decision;
+        const decisionValue = buildApprovalDecisionValue(decision, execpolicyAmendment, approval);
 
         try {
             const response = await ipcFeed.sendRequest(approval.method, {
@@ -838,21 +1036,19 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 requestId: approval.rawRequestId,
                 decision: decisionValue
             });
-            if (response.type === 'response' && response.resultType === 'error') {
-                throw new Error(typeof response.error === 'string' ? response.error : JSON.stringify(response.error));
-            }
+            assertIpcSuccess(response);
             sendWsEnvelope(ws, { type: 'follower_approval_response_sent', conversationId, requestId, acknowledged: true });
         } catch (error) {
             sendWsEnvelope(ws, { type: 'error', message: 'Failed to send approval response', detail: error.message });
         }
     };
 
-    const _handleFollowerPlanResponse = async (ws, conversationId, input, requestId, explicitResponse) => {
+    const _handleFollowerPlanResponse = async (ws, conversationId, input, requestId, explicitResponse, questionId) => {
         if (!ipcFeed) {
             sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available' });
             return;
         }
-        if (!ipcFeed.online || !ipcFeed.allowActiveSend) {
+        if (!_isIpcOnline() || !_isIpcActiveSendAllowed() || !_isFollowerModeEnabled(ws)) {
             sendWsEnvelope(ws, { type: 'error', message: 'IPC is not available for active send' });
             return;
         }
@@ -863,47 +1059,57 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         }
 
         try {
-            const latest = ipcFeed.getLatestSnapshot(conversationId);
+            const latest = _getLatestConversationSnapshot(conversationId);
             const planAction = latest?.pendingPlanAction;
             const trimmedInput = typeof input === 'string' ? input.trim() : '';
+            const livePlanRequestId = requestId || planAction?.requestId || '';
+            const hasExternalPlanAction = typeof ipcFeed.hasExternalPendingPlanAction === 'function'
+                ? ipcFeed.hasExternalPendingPlanAction(conversationId, livePlanRequestId)
+                : Boolean(planAction && livePlanRequestId);
 
             if (!hasExplicitResponse && planAction && planAction.requestMethod === 'item/plan/requestImplementation' && isPlanAcceptInput(trimmedInput)) {
-                // PLAN implementation: switch to default mode first.
-                const updateRes = await ipcFeed.sendRequest('thread-follower-update-thread-settings', {
-                    conversationId,
-                    threadSettings: { collaborationMode: { mode: 'default' } }
-                });
-                if (updateRes.type === 'response' && updateRes.resultType === 'error') {
-                    throw new Error(typeof updateRes.error === 'string' ? updateRes.error : JSON.stringify(updateRes.error));
+                if (!hasExternalPlanAction) {
+                    sendWsEnvelope(ws, {
+                        type: 'error',
+                        message: 'Plan response cannot be submitted',
+                        detail: 'The current plan was reconstructed from session history or a local snapshot and does not include a live external request.'
+                    });
+                    return;
                 }
 
+                const collaborationMode = resolvePlanStartCollaborationMode(latest);
+                if (collaborationMode) {
+                    const updateRes = await ipcFeed.sendRequest('thread-follower-update-thread-settings', {
+                        conversationId,
+                        threadSettings: { collaborationMode }
+                    });
+                    assertIpcSuccess(updateRes);
+                }
                 const planContent = planAction.planContent || trimmedInput;
-                const prompt = `PLEASE IMPLEMENT THIS PLAN:\n${planContent}`;
-                const { randomUUID } = require('node:crypto');
                 const startRes = await ipcFeed.sendRequest('thread-follower-start-turn', {
                     conversationId,
-                    turnStartParams: {
-                        clientUserMessageId: randomUUID(),
-                        input: [{ type: 'text', text: prompt }],
-                        collaborationMode: { mode: 'default' }
-                    }
+                    turnStartParams: buildFollowerTurnStartParams(buildPlanImplementationPrompt(planContent), latest, { collaborationMode })
                 });
-                if (startRes.type === 'response' && startRes.resultType === 'error') {
-                    throw new Error(typeof startRes.error === 'string' ? startRes.error : JSON.stringify(startRes.error));
-                }
+                assertIpcSuccess(startRes);
             } else {
                 // Regular text input for plan feedback.
+                if (!livePlanRequestId) {
+                    sendWsEnvelope(ws, {
+                        type: 'error',
+                        message: 'Plan response cannot be submitted',
+                        detail: 'The current plan does not include the live requestId required by thread-follower-submit-user-input.'
+                    });
+                    return;
+                }
                 const responsePayload = hasExplicitResponse
                     ? explicitResponse
-                    : { answers: typeof requestId === 'string' ? { [requestId]: { answers: [trimmedInput] } } : {} };
+                    : buildPlanInputResponse(trimmedInput, questionId || requestId || livePlanRequestId);
                 const res = await ipcFeed.sendRequest('thread-follower-submit-user-input', {
                     conversationId,
-                    requestId: requestId || (planAction?.requestId || ''),
+                    requestId: livePlanRequestId,
                     response: responsePayload
                 });
-                if (res.type === 'response' && res.resultType === 'error') {
-                    throw new Error(typeof res.error === 'string' ? res.error : JSON.stringify(res.error));
-                }
+                assertIpcSuccess(res);
             }
             sendWsEnvelope(ws, { type: 'follower_plan_response_sent', conversationId, acknowledged: true });
         } catch (error) {
@@ -955,7 +1161,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 : (requestIds[0] || requested));
         const method = resolveApprovalResponseMethod(kind);
         return method && rawRequestId !== undefined && rawRequestId !== ''
-            ? { kind, rawRequestId, method }
+            ? { kind, rawRequestId, method, raw, params: candidate.params }
             : null;
     }
 
@@ -966,9 +1172,132 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         return null;
     }
 
+    function buildApprovalDecisionValue(decision, execpolicyAmendment, approval) {
+        if (decision !== 'acceptWithExecpolicyAmendment') return decision;
+        const amendment = normalizeExecpolicyAmendmentForRemember(
+            nonEmptyExecpolicyAmendment(execpolicyAmendment) ||
+            extractProposedExecpolicyAmendment(approval?.params) ||
+            extractProposedExecpolicyAmendment(approval?.raw?.params) ||
+            extractProposedExecpolicyAmendment(approval?.raw)
+        ) || [];
+        return {
+            acceptWithExecpolicyAmendment: {
+                execpolicy_amendment: amendment
+            }
+        };
+    }
+
+    function extractProposedExecpolicyAmendment(params) {
+        if (!params || typeof params !== 'object' || Array.isArray(params)) return undefined;
+        const value = params.proposedExecpolicyAmendment;
+        if (!Array.isArray(value)) return undefined;
+        const amendment = value.filter(part => typeof part === 'string');
+        return amendment.length > 0 ? amendment : undefined;
+    }
+
+    function nonEmptyExecpolicyAmendment(value) {
+        if (!Array.isArray(value)) return undefined;
+        const amendment = value.filter(part => isNonEmptyString(part));
+        return amendment.length > 0 ? amendment : undefined;
+    }
+
+    function normalizeExecpolicyAmendmentForRemember(value) {
+        if (!Array.isArray(value)) return undefined;
+        const lower = value.map(part => typeof part === 'string' ? part.toLowerCase() : '');
+        const itemTypeIndex = lower.indexOf('-itemtype');
+        const itemType = itemTypeIndex >= 0 ? lower[itemTypeIndex + 1] : '';
+        const pathIndex = lower.indexOf('-path');
+        if (
+            lower[0] === 'new-item' &&
+            pathIndex === 1 &&
+            isNonEmptyString(value[2]) &&
+            itemType === 'file'
+        ) {
+            return ['New-Item', '-Path'];
+        }
+        return value;
+    }
+
     function isPlanAcceptInput(input) {
         const normalized = input.trim();
         return normalized === '是，实施此计划' || normalized === 'Implement plan';
+    }
+
+    function canStartFollowerTurn(status) {
+        return !status ||
+            status === 'unknown' ||
+            status === 'completed' ||
+            status === 'interrupted' ||
+            status === 'failed';
+    }
+
+    function buildFollowerTurnStartParams(input, snapshot, options = {}) {
+        const { randomUUID } = require('node:crypto');
+        const collaborationMode = options.collaborationMode ||
+            snapshot?.latestDefaultCollaborationMode ||
+            snapshot?.latestCollaborationMode;
+        return {
+            clientUserMessageId: randomUUID(),
+            input: buildTextInputSequence(input),
+            attachments: [],
+            commentAttachments: [],
+            ...(isNonEmptyString(snapshot?.cwd) ? {
+                cwd: snapshot.cwd,
+                runtimeWorkspaceRoots: [snapshot.cwd]
+            } : {}),
+            ...(collaborationMode ? { collaborationMode } : {})
+        };
+    }
+
+    function buildTextInputSequence(text) {
+        return [{
+            type: 'text',
+            text,
+            text_elements: []
+        }];
+    }
+
+    function buildPlanImplementationPrompt(planContent) {
+        return `PLEASE IMPLEMENT THIS PLAN:\n${String(planContent || '').trim()}`;
+    }
+
+    function buildPlanInputResponse(input, requestId) {
+        if (!isNonEmptyString(requestId)) return { answers: {} };
+        return {
+            answers: {
+                [requestId]: {
+                    answers: [input]
+                }
+            }
+        };
+    }
+
+    function resolvePlanStartCollaborationMode(snapshot) {
+        if (isDefaultCollaborationMode(snapshot?.latestDefaultCollaborationMode)) {
+            return snapshot.latestDefaultCollaborationMode;
+        }
+        const settings = snapshot?.latestCollaborationMode?.settings;
+        if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+            return undefined;
+        }
+        return {
+            mode: 'default',
+            settings: {
+                model: typeof settings.model === 'string' ? settings.model : 'gpt-5.5',
+                reasoning_effort: typeof settings.reasoning_effort === 'string' ? settings.reasoning_effort : 'medium',
+                developer_instructions: null
+            }
+        };
+    }
+
+    function isDefaultCollaborationMode(mode) {
+        return Boolean(mode && typeof mode === 'object' && !Array.isArray(mode) && mode.mode === 'default');
+    }
+
+    function assertIpcSuccess(response) {
+        if (!response || typeof response !== 'object') return;
+        if (response.type !== 'response' || response.resultType !== 'error') return;
+        throw new Error(typeof response.error === 'string' ? response.error : JSON.stringify(response.error));
     }
     // ── end IPC feed integration ──────────────────────────────────────────
 
@@ -1852,12 +2181,18 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
 
                     if (type === 'set_active_conversation') {
                         _handleSetActiveConversation(ws, envelope.conversationId);
+                    } else if (type === 'set_active_follower_mode') {
+                        _setFollowerMode(ws, envelope.enabled === true);
                     } else if (type === 'follower_send_message') {
                         _handleFollowerSendMessage(ws, envelope.conversationId, envelope.input).catch(err => console.error('[gateway][ipc][follower-send]', err));
+                    } else if (type === 'follower_start_goal') {
+                        _handleFollowerStartGoal(ws, envelope.conversationId, envelope.goal).catch(err => console.error('[gateway][ipc][follower-goal]', err));
+                    } else if (type === 'follower_interrupt_turn') {
+                        _handleFollowerInterruptTurn(ws, envelope.conversationId).catch(err => console.error('[gateway][ipc][follower-interrupt]', err));
                     } else if (type === 'follower_approval_response') {
-                        _handleFollowerApprovalResponse(ws, envelope.conversationId, envelope.decision, envelope.requestId, envelope.requestKind).catch(err => console.error('[gateway][ipc][follower-approval]', err));
+                        _handleFollowerApprovalResponse(ws, envelope.conversationId, envelope.decision, envelope.requestId, envelope.requestKind, envelope.execpolicyAmendment).catch(err => console.error('[gateway][ipc][follower-approval]', err));
                     } else if (type === 'follower_plan_response') {
-                        _handleFollowerPlanResponse(ws, envelope.conversationId, envelope.input, envelope.requestId, envelope.response).catch(err => console.error('[gateway][ipc][follower-plan]', err));
+                        _handleFollowerPlanResponse(ws, envelope.conversationId, envelope.input, envelope.requestId, envelope.response, envelope.questionId).catch(err => console.error('[gateway][ipc][follower-plan]', err));
                     } else if (type === 'input') {
                         pty.write(envelope.data);
                     } else if (type === 'resize') {
@@ -2263,6 +2598,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
 
             ws.on('close', (code, reason) => {
                 _ipcActiveConversations.delete(ws);
+                _ipcFollowerModes.delete(ws);
                 sessionManager.removeConnection(session, ws);
                 // Log connection end for elevated mode
                 if (isElevated && auditService) {
@@ -2316,6 +2652,8 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         codexService.removeListener('server_request', handleCodexServerRequest);
         if (ipcFeed) { ipcFeed.removeAllListeners(); }
         _ipcActiveConversations.clear();
+        _ipcFollowerModes.clear();
+        _ipcConversationLastStatus.clear();
         for (const session of sessionManager.sessions.values()) {
             void cleanupAllSessionAttachmentTempFiles(session);
         }

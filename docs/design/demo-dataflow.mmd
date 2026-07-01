@@ -1,0 +1,32 @@
+flowchart LR
+  Web["Browser Web UI\nweb/app.js"] <-->|"/ws JSON messages"| GW["WebSocketGateway"]
+
+  subgraph DemoServer["termlink-demo server"]
+    GW
+    HTTP["HTTP APIs + static web\n/health /debug /api/codex/*"]
+    Hub["ThreadHub\nclient-thread subscription"]
+    IPCFeed["CodexIpcFeed"]
+    Tracker["ThreadStreamTracker\nbuildDesktopSurfaceSnapshot"]
+    Proxy["CodexProxyBridge\nTCP NDJSON bridge"]
+    AppFeed["CodexAppServerFeed"]
+    SessionFeed["CodexSessionFeed\nCODEX_HOME/sessions/*.jsonl"]
+    Owner["DemoOwnerSurfaceTracker"]
+  end
+
+  Desktop["Desktop / VS Code Codex owner"] <-->|"codex-ipc pipe"| IPCFeed
+  IPCFeed --> Tracker --> GW
+
+  CodexProxy["codex-proxy app-server bridge"] <-->|"TCP 127.0.0.1:39999"| Proxy
+  Proxy --> GW
+
+  CodexApp["TermLink-managed Codex app-server"] <-->|"JSON-RPC"| AppFeed
+  CodexApp --> Owner --> IPCFeed
+  Owner --> GW
+
+  SessionFiles["Codex session jsonl files"] --> SessionFeed --> GW
+  SessionFeed --> HTTP
+  IPCFeed --> HTTP
+  Proxy --> HTTP
+
+  Web <-->|"REST debug/model/owner smoke"| HTTP
+  GW <--> Hub

@@ -44,6 +44,8 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
+private const val PLAN_PHASE_READY_FOR_CONFIRMATION = "plan_ready_for_confirmation"
+
 internal data class ThreadReadyUiTransition(
     val currentTurnId: String?,
     val messages: List<ChatMessage>,
@@ -55,6 +57,325 @@ internal data class ThreadReadMergeTransition(
     val currentTurnId: String?,
     val messages: List<ChatMessage>
 )
+
+internal fun shouldBlockPlainTextFallbackForIpcConversationState(
+    state: CodexUiState,
+    isPlanMode: Boolean,
+    hasAttachments: Boolean,
+    hasFileMentions: Boolean
+): Boolean {
+    if (isPlanMode) return false
+    if (hasAttachments || hasFileMentions) return false
+    val hasIpcContext = state.ipcOnline || state.ipcClientId != null || state.ipcSurfaceSnapshot != null
+    return hasIpcContext && !state.activeConversationId.isNullOrBlank()
+}
+
+internal fun applyIpcStatusToUiState(
+    state: CodexUiState,
+    status: CodexIpcStatus
+): CodexUiState {
+    return state.copy(
+        ipcOnline = status.online,
+        ipcClientId = status.clientId,
+        followerActiveSendAllowed = if (status.online) {
+            state.followerActiveSendAllowed
+        } else {
+            false
+        }
+    )
+}
+
+internal fun applyConversationStatusChangedToUiState(
+    state: CodexUiState,
+    conversationId: String?,
+    status: String?
+): CodexUiState {
+    val normalizedStatus = status?.trim().orEmpty()
+    if (normalizedStatus.isEmpty()) return state
+    val normalizedConversationId = conversationId?.trim().orEmpty()
+    val activeConversationId = state.activeConversationId?.trim().orEmpty()
+    if (normalizedConversationId.isNotEmpty() && activeConversationId.isNotEmpty() && normalizedConversationId != activeConversationId) {
+        return state
+    }
+    return state.copy(
+        activeConversationId = normalizedConversationId.ifEmpty { state.activeConversationId },
+        status = normalizedStatus
+    )
+}
+
+internal fun shouldRequestActiveFollowerModeEnable(mode: CodexFollowerMode): Boolean =
+    mode.activeSendAllowed && !mode.enabled
+
+internal fun chooseInitialIpcConversationForUi(
+    conversations: List<CodexIpcConversationSummary>,
+    threadId: String?,
+    cwd: String?
+): CodexIpcConversationSummary? {
+    if (conversations.isEmpty()) return null
+    val normalizedThreadId = threadId?.trim().orEmpty()
+    if (normalizedThreadId.isNotEmpty()) {
+        conversations.firstOrNull { it.conversationId == normalizedThreadId }?.let { return it }
+    }
+
+    val normalizedCwd = cwd?.trim()?.replace('\\', '/')?.trimEnd('/')?.lowercase(Locale.ROOT).orEmpty()
+    if (normalizedCwd.isNotEmpty()) {
+        conversations
+            .filter { it.cwd?.trim()?.replace('\\', '/')?.trimEnd('/')?.lowercase(Locale.ROOT) == normalizedCwd }
+            .maxByOrNull { it.updatedAt }
+            ?.let { return it }
+    }
+
+    conversations.firstOrNull { it.hasActiveGoal }?.let { return it }
+    return conversations.maxByOrNull { it.updatedAt }
+}
+
+internal fun selectIpcConversationForUi(
+    conversations: List<CodexIpcConversationSummary>,
+    activeConversationId: String?,
+    threadId: String?,
+    cwd: String?
+): CodexIpcConversationSummary? {
+    val active = activeConversationId?.trim().orEmpty()
+    if (active.isNotEmpty()) {
+        conversations.firstOrNull { it.conversationId == active }?.let { return it }
+    }
+    return chooseInitialIpcConversationForUi(conversations, threadId, cwd)
+}
+
+internal fun applyIpcConversationSelectionToUiState(
+    state: CodexUiState,
+    selected: CodexIpcConversationSummary
+): CodexUiState {
+    val selectedId = selected.conversationId.trim()
+    val activeId = state.activeConversationId?.trim().orEmpty()
+    val switched = activeId.isNotEmpty() && activeId != selectedId
+    val hadIpcSurface = state.ipcSurfaceSnapshot != null
+    val hasIpcPlanWorkflow = state.planWorkflow.planContent != null ||
+        state.planWorkflow.canSubmitPlan ||
+        state.planWorkflow.planRequestId != null ||
+        state.planWorkflow.planRequestMethod != null ||
+        state.planWorkflow.planQuestionId != null
+    return state.copy(
+        activeConversationId = selectedId,
+        currentThreadTitle = selected.title ?: state.currentThreadTitle,
+        cwd = selected.cwd ?: state.cwd,
+        status = selected.status.takeIf { it.isNotBlank() } ?: state.status,
+        ipcSurfaceSnapshot = if (switched) null else state.ipcSurfaceSnapshot,
+        activeGoal = if (switched) null else state.activeGoal,
+        messages = if (switched && hadIpcSurface) emptyList() else state.messages,
+        pendingServerRequests = if (switched) {
+            state.pendingServerRequests.filterNot { it.handledBy.equals("ipc_follower", ignoreCase = true) }
+        } else {
+            state.pendingServerRequests
+        },
+        submittingServerRequestIds = if (switched) emptySet() else state.submittingServerRequestIds,
+        planWorkflow = if (switched && hasIpcPlanWorkflow) {
+            CodexPlanWorkflowState()
+        } else {
+            state.planWorkflow
+        }
+    )
+}
+
+internal fun clearIpcConversationSelectionFromUiState(state: CodexUiState): CodexUiState {
+    val hadIpcSurface = state.ipcSurfaceSnapshot != null
+    val hasIpcPlanWorkflow = state.planWorkflow.planContent != null ||
+        state.planWorkflow.canSubmitPlan ||
+        state.planWorkflow.planRequestId != null ||
+        state.planWorkflow.planRequestMethod != null ||
+        state.planWorkflow.planQuestionId != null
+    return state.copy(
+        activeConversationId = null,
+        ipcSurfaceSnapshot = null,
+        activeGoal = null,
+        followerModeEnabled = false,
+        followerActiveSendAllowed = false,
+        messages = if (hadIpcSurface) emptyList() else state.messages,
+        pendingServerRequests = state.pendingServerRequests.filterNot {
+            it.handledBy.equals("ipc_follower", ignoreCase = true)
+        },
+        submittingServerRequestIds = emptySet(),
+        planWorkflow = if (hasIpcPlanWorkflow) CodexPlanWorkflowState() else state.planWorkflow
+    )
+}
+
+internal fun applyDesktopSurfaceSnapshotToUiState(
+    state: CodexUiState,
+    snap: DesktopSurfaceSnapshot
+): CodexUiState {
+    val convId = snap.conversationId ?: state.activeConversationId
+    return state.copy(
+        activeConversationId = convId,
+        ipcSurfaceSnapshot = snap,
+        status = snap.status,
+        messages = mergeSurfaceItems(state.messages, snap.items),
+        pendingServerRequests = mergePendingUserInput(
+            mergePendingApproval(state.pendingServerRequests, snap.pendingApproval),
+            snap.pendingUserInputAction
+        ),
+        planWorkflow = mergePlanWorkflow(state.planWorkflow, snap.pendingPlanAction),
+        activeGoal = snap.activeGoal,
+        currentThreadTitle = snap.title ?: state.currentThreadTitle,
+        cwd = snap.cwd ?: state.cwd
+    )
+}
+
+internal fun mergeSurfaceItems(
+    existing: List<ChatMessage>,
+    surfaceItems: List<SurfaceEntry>
+): List<ChatMessage> {
+    if (surfaceItems.isEmpty()) return existing
+    val merged = existing.toMutableList()
+    val seenKeys = existing.map { it.id }.toMutableSet()
+    for (entry in surfaceItems) {
+        val key = entry.key
+        if (key.isBlank()) continue
+        val existingIndex = merged.indexOfFirst { it.id == key }
+        if (existingIndex >= 0) {
+            val text = entry.text
+            if (text != null && text != merged[existingIndex].content) {
+                merged[existingIndex] = merged[existingIndex].copy(
+                    content = text,
+                    streaming = false
+                )
+            }
+            continue
+        }
+        if (key in seenKeys) continue
+        seenKeys.add(key)
+        val role = when (entry.kind) {
+            "message" -> when (entry.role) {
+                "user" -> ChatMessage.Role.USER
+                else -> ChatMessage.Role.ASSISTANT
+            }
+            "status", "approval_request" -> ChatMessage.Role.SYSTEM
+            else -> ChatMessage.Role.ASSISTANT
+        }
+        merged.add(
+            ChatMessage(
+                id = key,
+                role = role,
+                content = entry.text ?: "",
+                streaming = false
+            )
+        )
+    }
+    return merged
+}
+
+internal fun mergePendingApproval(
+    existing: List<CodexServerRequest>,
+    pending: PendingApprovalInfo?
+): List<CodexServerRequest> {
+    val withoutStaleIpcApprovals = existing.filterNot { it.isIpcFollowerApprovalRequest() }
+    if (pending == null) return withoutStaleIpcApprovals
+    val reqId = pending.requestId ?: return withoutStaleIpcApprovals
+    return withoutStaleIpcApprovals + CodexServerRequest(
+        requestId = reqId,
+        method = pending.method ?: "item/commandExecution/requestApproval",
+        requestKind = pending.requestKind ?: pending.kind,
+        responseMode = pending.responseMode ?: "decision",
+        handledBy = "ipc_follower",
+        summary = pending.description ?: pending.title ?: "等待审批",
+        questionCount = 1,
+        command = pending.command,
+        questions = emptyList(),
+        params = JSONObject().apply {
+            put("availableDecisions", JSONArray().apply {
+                pending.availableDecisions.forEach { put(it) }
+            })
+        },
+        defaultResult = null
+    )
+}
+
+private fun CodexServerRequest.isIpcFollowerApprovalRequest(): Boolean {
+    if (!handledBy.equals("ipc_follower", ignoreCase = true)) return false
+    if (!responseMode.equals("decision", ignoreCase = true)) return false
+    return requestKind in setOf("approval", "command", "file", "patch", "permissions")
+}
+
+internal fun resolveIpcFollowerApprovalDecision(
+    request: CodexServerRequest,
+    approved: Boolean
+): String {
+    val decisions = request.params
+        ?.optJSONArray("availableDecisions")
+        ?.let { array ->
+            (0 until array.length())
+                .mapNotNull { index -> array.optString(index, "").trim().takeIf { it.isNotEmpty() } }
+        }
+        .orEmpty()
+    if (!approved) {
+        return when {
+            "decline" in decisions -> "decline"
+            "reject" in decisions -> "reject"
+            "cancel" in decisions -> "cancel"
+            else -> "decline"
+        }
+    }
+    return when {
+        decisions.isEmpty() -> "accept"
+        "accept" in decisions -> "accept"
+        "acceptForSession" in decisions -> "acceptForSession"
+        "acceptWithExecpolicyAmendment" in decisions -> "acceptWithExecpolicyAmendment"
+        else -> decisions.first()
+    }
+}
+
+internal fun mergePendingUserInput(
+    existing: List<CodexServerRequest>,
+    pending: CodexServerRequest?
+): List<CodexServerRequest> {
+    if (pending == null) return existing
+    return upsertPendingServerRequest(existing, pending.copy(handledBy = "ipc_follower"))
+}
+
+internal fun upsertPendingServerRequest(
+    current: List<CodexServerRequest>,
+    request: CodexServerRequest
+): List<CodexServerRequest> {
+    val existingIndex = current.indexOfFirst { it.requestId == request.requestId }
+    if (existingIndex == -1) {
+        return current + request
+    }
+    return current.toMutableList().also { it[existingIndex] = request }
+}
+
+internal fun mergePlanWorkflow(
+    current: CodexPlanWorkflowState,
+    action: PendingPlanActionInfo?
+): CodexPlanWorkflowState {
+    if (action == null) return clearStaleIpcPlanWorkflow(current)
+    val nextPlanContent = action.planContent ?: current.planContent
+    return current.copy(
+        phase = if (action.canSubmit && !nextPlanContent.isNullOrBlank()) {
+            PLAN_PHASE_READY_FOR_CONFIRMATION
+        } else {
+            current.phase
+        },
+        planContent = nextPlanContent,
+        latestPlanText = nextPlanContent ?: current.latestPlanText,
+        confirmedPlanText = if (action.canSubmit && !nextPlanContent.isNullOrBlank()) {
+            nextPlanContent
+        } else {
+            current.confirmedPlanText
+        },
+        canSubmitPlan = action.canSubmit,
+        planRequestId = action.requestId ?: current.planRequestId,
+        planRequestMethod = action.requestMethod ?: current.planRequestMethod,
+        planQuestionId = action.questionId ?: current.planQuestionId
+    )
+}
+
+internal fun clearStaleIpcPlanWorkflow(current: CodexPlanWorkflowState): CodexPlanWorkflowState {
+    val hasIpcPlanState = current.planContent != null ||
+        current.canSubmitPlan ||
+        current.planRequestId != null ||
+        current.planRequestMethod != null ||
+        current.planQuestionId != null
+    return if (hasIpcPlanState) CodexPlanWorkflowState() else current
+}
 
 internal fun normalizeCodexThreadId(threadId: String?): String? {
     val normalized = threadId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
@@ -300,7 +621,6 @@ class CodexViewModel(
         private const val PLAN_PHASE_IDLE = "idle"
         private const val PLAN_PHASE_PLANNING = "planning"
         private const val PLAN_PHASE_AWAITING_USER_INPUT = "awaiting_user_input"
-        private const val PLAN_PHASE_READY_FOR_CONFIRMATION = "plan_ready_for_confirmation"
         private const val PLAN_PHASE_EXECUTING_CONFIRMED_PLAN = "executing_confirmed_plan"
         private val ANSI_ESCAPE_REGEX = Regex("\\u001B\\[[;\\d?]*[ -/]*[@-~]")
     }
@@ -347,12 +667,13 @@ class CodexViewModel(
         launchHydratePending = true
         launchHydrateTargetThreadId = normalizeThreadId(params.threadId)
         launchHydrateInFlightThreadId = null
+        val launchConversationId = normalizeThreadId(params.threadId)
         _uiState.update {
             recalculateNextTurnEffectiveConfig(
                 it.copy(
                     sessionId = params.sessionId,
                     cwd = params.cwd,
-                    threadId = normalizeThreadId(params.threadId),
+                    threadId = launchConversationId,
                     currentTurnId = null,
                     messages = emptyList(),
                     errorMessage = null,
@@ -381,7 +702,12 @@ class CodexViewModel(
                     threadHistoryActionThreadId = "",
                     threadHistoryActionKind = "",
                     threadRenameTargetId = "",
-                    threadRenameDraft = ""
+                    threadRenameDraft = "",
+                    activeConversationId = launchConversationId,
+                    ipcSurfaceSnapshot = null,
+                    activeGoal = null,
+                    followerModeEnabled = true,
+                    followerActiveSendAllowed = false
                 )
             )
         }
@@ -466,6 +792,13 @@ class CodexViewModel(
 
     fun interrupt() {
         val state = _uiState.value
+        if (shouldUseIpcFollowerTransport(state)) {
+            sendEnvelopeOrReportFailure(
+                payload = CodexClientMessages.followerInterruptTurn(state.activeConversationId!!),
+                errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+            )
+            return
+        }
         if (state.threadId.isNullOrBlank() || state.currentTurnId.isNullOrBlank()) {
             _uiState.update {
                 syncExecutionWatch(
@@ -534,6 +867,29 @@ class CodexViewModel(
 
     fun submitApprovalDecision(requestId: String, approved: Boolean) {
         val request = findPendingServerRequest(requestId) ?: return
+        if (isIpcFollowerRequest(request)) {
+            val state = _uiState.value
+            val conversationId = state.activeConversationId?.trim().orEmpty()
+            if (!shouldUseIpcFollowerTransport(state) || conversationId.isEmpty()) {
+                _uiState.update {
+                    it.copy(errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable))
+                }
+                return
+            }
+            val decision = resolveIpcFollowerApprovalDecision(request, approved)
+            val sent = sendEnvelopeOrReportFailure(
+                payload = CodexClientMessages.followerApprovalResponse(
+                    conversationId = conversationId,
+                    requestId = requestId,
+                    decision = decision,
+                    requestKind = request.requestKind.takeIf { it.isNotBlank() && it != "approval" }
+                ),
+                errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+            )
+            if (!sent) return
+            markServerRequestSubmitting(requestId)
+            return
+        }
         val result = buildApprovalDecisionResult(request, approved) ?: return
         if (isDebugServerRequest(requestId)) {
             markServerRequestSubmitting(requestId)
@@ -553,6 +909,29 @@ class CodexViewModel(
 
     fun submitUserInputAnswers(requestId: String, answersByQuestionId: Map<String, String>) {
         val request = findPendingServerRequest(requestId) ?: return
+        if (isIpcFollowerRequest(request)) {
+            val conversationId = _uiState.value.activeConversationId?.trim().orEmpty()
+            val firstQuestion = request.questions.firstOrNull()
+            val explicitResponse = buildUserInputResult(request, answersByQuestionId)
+            val answer = firstQuestion
+                ?.let { answersByQuestionId[it.id]?.trim() }
+                ?: answersByQuestionId.values.firstOrNull()?.trim()
+                ?: ""
+            if (conversationId.isEmpty() || (answer.isEmpty() && explicitResponse == null)) return
+            val sent = sendEnvelopeOrReportFailure(
+                payload = CodexClientMessages.followerPlanResponse(
+                    conversationId = conversationId,
+                    input = answer.ifEmpty { "submitted" },
+                    requestId = requestId,
+                    questionId = firstQuestion?.id,
+                    response = explicitResponse
+                ),
+                errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+            )
+            if (!sent) return
+            markServerRequestSubmitting(requestId)
+            return
+        }
         val result = buildUserInputResult(request, answersByQuestionId) ?: return
         if (isDebugServerRequest(requestId)) {
             markServerRequestSubmitting(requestId)
@@ -1177,6 +1556,10 @@ class CodexViewModel(
     // ── Slash command dispatch ─────────────────────────────────────────
 
     private fun dispatchSlashCommand(parsed: CodexSlashRegistry.ParsedInput.Slash) {
+        if (parsed.command == "/goal") {
+            startFollowerGoal(parsed.argumentText)
+            return
+        }
         val entry = CodexSlashRegistry.resolveSlashCommand(parsed.command)
         if (entry == null) {
             appendMessage(ChatMessage.Role.SYSTEM, "Unknown command: ${parsed.command}")
@@ -1201,6 +1584,25 @@ class CodexViewModel(
         } else {
             sendTurnWithOverrides(argumentText, forcePlanMode = true)
         }
+    }
+
+    private fun startFollowerGoal(argumentText: String) {
+        val objective = argumentText.trim()
+        if (objective.isEmpty()) {
+            appendMessage(ChatMessage.Role.SYSTEM, "Goal objective is required.")
+            return
+        }
+        val state = _uiState.value
+        val conversationId = state.activeConversationId?.trim().orEmpty()
+        if (!shouldUseIpcFollowerTransport(state) || conversationId.isEmpty()) {
+            sendTurnWithOverrides("/goal $objective")
+            return
+        }
+        val sent = sendEnvelopeOrReportFailure(
+            payload = CodexClientMessages.followerStartGoal(conversationId, objective),
+            errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+        )
+        if (!sent) return
     }
 
     private fun handleSlashSkill(argumentText: String) {
@@ -1257,6 +1659,29 @@ class CodexViewModel(
         val executionPrompt = buildConfirmedPlanExecutionPrompt(state)
         if (executionPrompt.isBlank()) {
             appendMessage(ChatMessage.Role.ERROR, "No confirmed plan available to execute.")
+            return
+        }
+        val followerPlanRequestId = state.planWorkflow.planRequestId?.trim().orEmpty()
+        val followerConversationId = state.activeConversationId?.trim().orEmpty()
+        if (shouldUseIpcFollowerTransport(state) && followerPlanRequestId.isNotEmpty() && followerConversationId.isNotEmpty()) {
+            val sent = sendEnvelopeOrReportFailure(
+                payload = CodexClientMessages.followerPlanResponse(
+                    conversationId = followerConversationId,
+                    input = "是，实施此计划",
+                    requestId = followerPlanRequestId,
+                    questionId = state.planWorkflow.planQuestionId
+                ),
+                errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+            )
+            if (sent) {
+                _uiState.update { current ->
+                    current.copy(
+                        planMode = false,
+                        interactionState = buildInteractionState(current, planMode = false),
+                        planWorkflow = buildEmptyPlanWorkflowState()
+                    )
+                }
+            }
             return
         }
         _uiState.update { current ->
@@ -1526,8 +1951,21 @@ class CodexViewModel(
         val effectiveForceNewThread = forceNewThread ||
             (!isPlanMode && threadHadPlanTurn)
 
+        val followerPayload = buildFollowerTurnPayloadIfSupported(
+            state = state,
+            prompt = prompt,
+            isPlanMode = isPlanMode,
+            attachments = attachments
+        )
+        val sentViaIpcFollower = followerPayload != null
+        if (followerPayload == null && shouldBlockPlainTextFallbackForIpcConversation(state, isPlanMode, attachments)) {
+            _uiState.update {
+                it.copy(errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable))
+            }
+            return false
+        }
         val sent = sendEnvelopeOrReportFailure(
-            payload = CodexClientMessages.codexTurn(
+            payload = followerPayload ?: CodexClientMessages.codexTurn(
                 prompt = prompt,
                 threadId = normalizeThreadId(state.threadId),
                 attachments = attachments,
@@ -1544,14 +1982,16 @@ class CodexViewModel(
             return false
         }
 
-        // Update plan-turn tracking: set flag if this was a plan turn,
-        // reset if we just forced a new thread (clean slate).
-        if (isPlanMode) {
-            threadHadPlanTurn = true
-        } else if (effectiveForceNewThread) {
-            threadHadPlanTurn = false
+        if (!sentViaIpcFollower) {
+            // Update plan-turn tracking: set flag if this was a plan turn,
+            // reset if we just forced a new thread (clean slate).
+            if (isPlanMode) {
+                threadHadPlanTurn = true
+            } else if (effectiveForceNewThread) {
+                threadHadPlanTurn = false
+            }
         }
-        pendingOptimisticNewThreadSourceThreadId = if (effectiveForceNewThread) {
+        pendingOptimisticNewThreadSourceThreadId = if (!sentViaIpcFollower && effectiveForceNewThread) {
             normalizeThreadId(state.threadId)
         } else {
             null
@@ -1559,7 +1999,7 @@ class CodexViewModel(
 
         _uiState.update {
             it.copy(
-                messages = it.messages + userMsg,
+                messages = if (sentViaIpcFollower) it.messages else it.messages + userMsg,
                 pendingFileMentions = emptyList(),
                 pendingImageAttachments = emptyList(),
                 fileMentionMenuVisible = false,
@@ -1588,7 +2028,7 @@ class CodexViewModel(
             )
         }
 
-        if (collaborationMode != null) {
+        if (!sentViaIpcFollower && collaborationMode != null) {
             _uiState.update { current ->
                 current.copy(
                     planWorkflow = startPlanWorkflow(prompt)
@@ -1604,6 +2044,38 @@ class CodexViewModel(
         }
         syncInteractionState(_uiState.value.interactionState ?: CodexInteractionState())
         return true
+    }
+
+    private fun shouldUseIpcFollowerTransport(state: CodexUiState): Boolean =
+        state.ipcOnline &&
+            state.followerModeEnabled &&
+            state.followerActiveSendAllowed &&
+            !state.activeConversationId.isNullOrBlank()
+
+    private fun buildFollowerTurnPayloadIfSupported(
+        state: CodexUiState,
+        prompt: String,
+        isPlanMode: Boolean,
+        attachments: List<CodexTurnAttachment>
+    ): String? {
+        val conversationId = state.activeConversationId?.trim().orEmpty()
+        if (!shouldUseIpcFollowerTransport(state) || conversationId.isEmpty()) return null
+        if (isPlanMode) return null
+        if (attachments.isNotEmpty() || state.pendingFileMentions.isNotEmpty()) return null
+        return CodexClientMessages.followerSendMessage(conversationId, prompt)
+    }
+
+    private fun shouldBlockPlainTextFallbackForIpcConversation(
+        state: CodexUiState,
+        isPlanMode: Boolean,
+        attachments: List<CodexTurnAttachment>
+    ): Boolean {
+        return shouldBlockPlainTextFallbackForIpcConversationState(
+            state = state,
+            isPlanMode = isPlanMode,
+            hasAttachments = attachments.isNotEmpty(),
+            hasFileMentions = state.pendingFileMentions.isNotEmpty()
+        )
     }
 
     private fun maybeRequestModelList() {
@@ -1878,6 +2350,7 @@ class CodexViewModel(
                     when (event) {
                         is WsEvent.Opened -> {
                             connectionManager.onConnected()
+                            subscribeActiveConversationIfNeeded()
                         }
                         is WsEvent.Message -> {
                             handleEnvelope(event.envelope)
@@ -1934,6 +2407,12 @@ class CodexViewModel(
         }
     }
 
+    private fun subscribeActiveConversationIfNeeded() {
+        val conversationId = _uiState.value.activeConversationId?.trim().orEmpty()
+        if (conversationId.isEmpty()) return
+        connectionManager.send(CodexClientMessages.setActiveConversation(conversationId))
+    }
+
     private fun handleEnvelope(envelope: CodexWsEnvelope) {
         val json = envelope.raw
         when (envelope.type) {
@@ -1975,28 +2454,71 @@ class CodexViewModel(
             // ── IPC realtime sync messages ──
             "codex_ipc_status" -> {
                 val status = CodexIpcStatus.from(json)
-                _uiState.update { it.copy(ipcOnline = status.online, ipcClientId = status.clientId) }
+                _uiState.update { applyIpcStatusToUiState(it, status) }
                 Log.d(TAG, "IPC status: online=${status.online} clientId=${status.clientId}")
+            }
+
+            "codex_ipc_conversations" -> {
+                val conversations = CodexIpcConversationSummary.listFrom(json)
+                var conversationToSubscribe: String? = null
+                _uiState.update { current ->
+                    val preferred = selectIpcConversationForUi(
+                        conversations = conversations,
+                        activeConversationId = current.activeConversationId,
+                        threadId = current.threadId,
+                        cwd = current.cwd
+                    )
+                    if (preferred == null) {
+                        clearIpcConversationSelectionFromUiState(current)
+                    } else if (preferred.conversationId == current.activeConversationId?.trim().orEmpty()) {
+                        applyIpcConversationSelectionToUiState(current, preferred)
+                    } else {
+                        conversationToSubscribe = preferred.conversationId
+                        applyIpcConversationSelectionToUiState(current, preferred)
+                    }
+                }
+                conversationToSubscribe?.let { conversationId ->
+                    connectionManager.send(CodexClientMessages.setActiveConversation(conversationId))
+                }
+            }
+
+            "codex_ipc_sync_event" -> {
+                // Android consumes normalized conversation snapshots; raw sync events are diagnostics.
+            }
+
+            "output" -> {
+                // Legacy terminal output envelope; the native Codex page consumes normalized Codex/IPC state.
+            }
+
+            "follower_mode_changed" -> {
+                val mode = CodexFollowerMode.from(json)
+                _uiState.update {
+                    it.copy(
+                        followerModeEnabled = mode.enabled,
+                        followerActiveSendAllowed = mode.activeSendAllowed
+                    )
+                }
+                if (shouldRequestActiveFollowerModeEnable(mode)) {
+                    connectionManager.send(CodexClientMessages.setActiveFollowerMode(true))
+                }
             }
 
             "conversation_surface_snapshot" -> {
                 val snap = DesktopSurfaceSnapshot.from(json)
                 val convId = snap.conversationId
                 val activeConv = _uiState.value.activeConversationId
-                if (convId != null && convId == activeConv) {
-                    _uiState.update { current ->
-                        val mergedMessages = mergeSurfaceItems(current.messages, snap.items)
-                        val nextPlanWorkflow = mergePlanWorkflow(current.planWorkflow, snap.pendingPlanAction)
-                        current.copy(
-                            ipcSurfaceSnapshot = snap,
-                            status = snap.status,
-                            messages = mergedMessages,
-                            pendingServerRequests = mergePendingApproval(current.pendingServerRequests, snap.pendingApproval),
-                            planWorkflow = nextPlanWorkflow
-                        )
-                    }
+                if (convId != null && (activeConv == null || convId == activeConv)) {
+                    _uiState.update { current -> applyDesktopSurfaceSnapshotToUiState(current, snap) }
                 }
                 Log.d(TAG, "IPC snapshot: conv=$convId status=${snap.status} items=${snap.items.size}")
+            }
+
+            "conversation_status_changed" -> {
+                applyConversationStatusChanged(json)
+            }
+
+            "conversation_action_required" -> {
+                handleConversationActionRequired(json)
             }
 
             "codex_state" -> {
@@ -2168,6 +2690,29 @@ class CodexViewModel(
                 currentPlanStreamingMessageId = null
             }
 
+            "follower_turn_interrupted" -> {
+                Log.d(TAG, "Follower interrupt ack")
+            }
+
+            "follower_message_sent", "follower_goal_sent" -> {
+                Log.d(TAG, "Follower turn accepted: ${envelope.type}")
+            }
+
+            "follower_approval_response_sent" -> {
+                val requestId = json.optStringOrNullCompat("requestId").orEmpty()
+                if (requestId.isNotEmpty()) {
+                    _uiState.update { current ->
+                        current.copy(
+                            submittingServerRequestIds = current.submittingServerRequestIds - requestId
+                        )
+                    }
+                }
+            }
+
+            "follower_plan_response_sent" -> {
+                Log.d(TAG, "Follower plan response accepted")
+            }
+
             "codex_response" -> {
                 val response = CodexResponse.from(json)
                 handleCodexResponse(response)
@@ -2199,6 +2744,22 @@ class CodexViewModel(
                     )
                 }
                 Log.e(TAG, "Codex error: ${error.code} ${error.message}")
+            }
+
+            "error" -> {
+                val message = json.optString("message", "Codex request failed")
+                val detail = json.opt("detail")?.toString()?.takeIf { it.isNotBlank() }
+                val rendered = if (detail.isNullOrBlank()) message else "$message: $detail"
+                appendMessage(ChatMessage.Role.ERROR, rendered)
+                _uiState.update {
+                    it.copy(
+                        errorMessage = rendered,
+                        runtimePanel = it.runtimePanel.copy(
+                            warning = rendered,
+                            warningTone = "error"
+                        )
+                    )
+                }
             }
 
             "codex_notification" -> {
@@ -3213,21 +3774,13 @@ class CodexViewModel(
     private fun findPendingServerRequest(requestId: String): CodexServerRequest? =
         _uiState.value.pendingServerRequests.firstOrNull { it.requestId == requestId }
 
+    private fun isIpcFollowerRequest(request: CodexServerRequest): Boolean =
+        request.handledBy.equals("ipc_follower", ignoreCase = true)
+
     private fun markServerRequestSubmitting(requestId: String) {
         _uiState.update { state ->
             state.copy(submittingServerRequestIds = state.submittingServerRequestIds + requestId)
         }
-    }
-
-    private fun upsertPendingServerRequest(
-        current: List<CodexServerRequest>,
-        request: CodexServerRequest
-    ): List<CodexServerRequest> {
-        val existingIndex = current.indexOfFirst { it.requestId == request.requestId }
-        if (existingIndex == -1) {
-            return current + request
-        }
-        return current.toMutableList().also { it[existingIndex] = request }
     }
 
     private fun buildApprovalDecisionResult(
@@ -5294,70 +5847,61 @@ class CodexViewModel(
 
     // ── IPC surface snapshot merge helpers ────────────────────────────
 
-    private fun mergeSurfaceItems(
-        existing: List<ChatMessage>,
-        surfaceItems: List<SurfaceEntry>
-    ): List<ChatMessage> {
-        if (surfaceItems.isEmpty()) return existing
-        val merged = existing.toMutableList()
-        val seenKeys = existing.map { it.id }.toMutableSet()
-        for (entry in surfaceItems) {
-            val key = entry.key
-            if (key.isBlank() || key in seenKeys) continue
-            seenKeys.add(key)
-            val role = when (entry.kind) {
-                "message" -> when (entry.role) {
-                    "user" -> ChatMessage.Role.USER
-                    else -> ChatMessage.Role.ASSISTANT
-                }
-                "status", "approval_request" -> ChatMessage.Role.SYSTEM
-                else -> ChatMessage.Role.ASSISTANT
-            }
-            merged.add(
-                ChatMessage(
-                    id = key,
-                    role = role,
-                    content = entry.text ?: "",
-                    streaming = false
-                )
+    private fun applyConversationStatusChanged(json: JSONObject) {
+        val conversationId = json.optStringOrNullCompat("conversationId").orEmpty()
+        val status = json.optStringOrNullCompat("status").orEmpty()
+        if (status.isEmpty()) return
+        _uiState.update { current ->
+            applyConversationStatusChangedToUiState(
+                state = current,
+                conversationId = conversationId,
+                status = status
             )
         }
-        return merged
     }
 
-    private fun mergePendingApproval(
-        existing: List<CodexServerRequest>,
-        pending: PendingApprovalInfo?
-    ): List<CodexServerRequest> {
-        if (pending == null) return existing
-        val reqId = pending.requestId ?: return existing
-        if (existing.any { it.requestId == reqId }) return existing
-        return existing + CodexServerRequest(
-            requestId = reqId,
-            method = "item/commandExecution/requestApproval",
-            requestKind = "approval",
-            responseMode = "freeform",
-            handledBy = "client",
-            summary = pending.description ?: pending.title ?: "等待审批",
-            questionCount = 1,
-            command = pending.command,
-            questions = emptyList(),
-            params = null,
-            defaultResult = null
-        )
-    }
-
-    private fun mergePlanWorkflow(
-        current: CodexPlanWorkflowState,
-        action: PendingPlanActionInfo?
-    ): CodexPlanWorkflowState {
-        if (action == null) return current
-        return current.copy(
-            planContent = action.planContent ?: current.planContent,
-            canSubmitPlan = action.canSubmit,
-            planRequestId = action.requestId ?: current.planRequestId,
-            planRequestMethod = action.requestMethod ?: current.planRequestMethod
-        )
+    private fun handleConversationActionRequired(json: JSONObject) {
+        val conversationId = json.optStringOrNullCompat("conversationId").orEmpty()
+        val actionType = json.optString("actionType", "").trim()
+        val payload = json.optJSONObject("payload") ?: return
+        val activeConversationId = _uiState.value.activeConversationId?.trim().orEmpty()
+        if (conversationId.isNotEmpty() && activeConversationId.isNotEmpty() && conversationId != activeConversationId) {
+            return
+        }
+        when (actionType) {
+            "approval" -> {
+                val pending = PendingApprovalInfo.from(payload) ?: return
+                _uiState.update { current ->
+                    current.copy(
+                        activeConversationId = conversationId.ifEmpty { current.activeConversationId },
+                        pendingServerRequests = mergePendingApproval(current.pendingServerRequests, pending)
+                    )
+                }
+            }
+            "plan" -> {
+                val pending = PendingPlanActionInfo.from(payload) ?: return
+                _uiState.update { current ->
+                    current.copy(
+                        activeConversationId = conversationId.ifEmpty { current.activeConversationId },
+                        planWorkflow = mergePlanWorkflow(current.planWorkflow, pending)
+                    )
+                }
+            }
+            "user_input" -> {
+                val request = CodexServerRequest.from(payload)?.copy(handledBy = "ipc_follower") ?: return
+                _uiState.update { current ->
+                    current.copy(
+                        activeConversationId = conversationId.ifEmpty { current.activeConversationId },
+                        pendingServerRequests = upsertPendingServerRequest(current.pendingServerRequests, request)
+                    )
+                }
+            }
+            "goal" -> {
+                _uiState.update { current ->
+                    current.copy(activeConversationId = conversationId.ifEmpty { current.activeConversationId })
+                }
+            }
+        }
     }
 
     override fun onCleared() {

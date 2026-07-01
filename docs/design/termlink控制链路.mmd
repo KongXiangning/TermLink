@@ -1,0 +1,19 @@
+flowchart TD
+  Snapshot["conversation_surface_snapshot"] --> AndroidState["Android UI state"]
+
+  AndroidState --> Approval["pendingApproval\nCodexServerRequest"]
+  AndroidState --> Plan["pendingPlanAction\nCodexPlanWorkflowState"]
+  AndroidState --> Goal["activeGoal / pendingGoalAction"]
+
+  Approval -->|"follower_approval_response"| GW["terminalGateway.js"]
+  Plan -->|"follower_plan_response"| GW
+  Goal -->|"follower_start_goal / follower_interrupt_turn"| GW
+
+  GW -->|"thread-follower-command-approval-decision\nthread-follower-file-approval-decision\nthread-follower-permissions-request-approval-response"| IPC["CodexIpcFeed"]
+  GW -->|"thread-follower-submit-user-input\nthread-follower-start-turn"| IPC
+  GW -->|"thread-follower-interrupt-turn"| IPC
+
+  IPC --> Owner["Desktop / VS Code owner"]
+  Owner -->|"new stream snapshot"| IPC
+  IPC --> GW
+  GW --> AndroidState

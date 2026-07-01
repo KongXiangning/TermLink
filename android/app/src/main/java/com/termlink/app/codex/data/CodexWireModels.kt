@@ -469,6 +469,9 @@ data class SurfaceEntry(
 data class PendingApprovalInfo(
     val kind: String,
     val requestId: String?,
+    val requestKind: String?,
+    val responseMode: String?,
+    val method: String?,
     val title: String?,
     val description: String?,
     val command: String?,
@@ -482,6 +485,9 @@ data class PendingApprovalInfo(
             return PendingApprovalInfo(
                 kind = json.optString("kind", "command"),
                 requestId = json.optStringOrNull("requestId"),
+                requestKind = json.optStringOrNull("requestKind"),
+                responseMode = json.optStringOrNull("responseMode"),
+                method = json.optStringOrNull("method"),
                 title = json.optStringOrNull("title"),
                 description = json.optStringOrNull("description"),
                 command = json.optStringOrNull("command"),
@@ -523,15 +529,61 @@ data class PendingPlanActionInfo(
     }
 }
 
+data class PendingGoalActionInfo(
+    val kind: String,
+    val raw: JSONObject?
+) {
+    companion object {
+        fun from(json: JSONObject?): PendingGoalActionInfo? {
+            if (json == null) return null
+            return PendingGoalActionInfo(
+                kind = json.optString("kind", "text_input"),
+                raw = json.optJSONObject("raw")
+            )
+        }
+    }
+}
+
+data class ActiveGoalInfo(
+    val threadId: String?,
+    val objective: String?,
+    val status: String?,
+    val tokenBudget: Long?,
+    val tokensUsed: Long?,
+    val timeUsedSeconds: Long?,
+    val raw: JSONObject?
+) {
+    companion object {
+        fun from(json: JSONObject?): ActiveGoalInfo? {
+            if (json == null) return null
+            return ActiveGoalInfo(
+                threadId = json.optStringOrNull("threadId"),
+                objective = json.optStringOrNull("objective"),
+                status = json.optStringOrNull("status"),
+                tokenBudget = json.optNullableLong("tokenBudget"),
+                tokensUsed = json.optNullableLong("tokensUsed"),
+                timeUsedSeconds = json.optNullableLong("timeUsedSeconds"),
+                raw = json.optJSONObject("raw")
+            )
+        }
+    }
+}
+
 data class DesktopSurfaceSnapshot(
     val conversationId: String?,
+    val ownerKind: String?,
     val revision: Int,
     val status: String,
     val updatedAt: Long,
+    val title: String?,
+    val cwd: String?,
     val latestTurnId: String?,
     val items: List<SurfaceEntry>,
     val pendingApproval: PendingApprovalInfo?,
     val pendingPlanAction: PendingPlanActionInfo?,
+    val pendingUserInputAction: CodexServerRequest?,
+    val pendingGoalAction: PendingGoalActionInfo?,
+    val activeGoal: ActiveGoalInfo?,
     val raw: JSONObject
 ) {
     companion object {
@@ -545,17 +597,80 @@ data class DesktopSurfaceSnapshot(
                     itemList.add(SurfaceEntry.from(entry))
                 }
             }
+            val pendingUserInputJson = snapshot.optJSONObject("pendingUserInputAction")
+                ?: snapshot.optJSONObject("pendingUserInput")
             return DesktopSurfaceSnapshot(
                 conversationId = json.optStringOrNull("conversationId") ?: snapshot.optStringOrNull("conversationId"),
+                ownerKind = snapshot.optStringOrNull("ownerKind"),
                 revision = snapshot.optInt("revision", 0),
                 status = snapshot.optString("status", "unknown"),
                 updatedAt = snapshot.optLong("updatedAt", 0L),
+                title = snapshot.optStringOrNull("title"),
+                cwd = snapshot.optStringOrNull("cwd"),
                 latestTurnId = snapshot.optStringOrNull("latestTurnId"),
                 items = itemList,
                 pendingApproval = PendingApprovalInfo.from(snapshot.optJSONObject("pendingApproval")),
                 pendingPlanAction = PendingPlanActionInfo.from(snapshot.optJSONObject("pendingPlanAction")),
+                pendingUserInputAction = pendingUserInputJson?.let { CodexServerRequest.from(it) },
+                pendingGoalAction = PendingGoalActionInfo.from(snapshot.optJSONObject("pendingGoalAction")),
+                activeGoal = ActiveGoalInfo.from(snapshot.optJSONObject("activeGoal")),
                 raw = json
             )
+        }
+    }
+}
+
+data class CodexFollowerMode(
+    val enabled: Boolean,
+    val activeSendAllowed: Boolean
+) {
+    companion object {
+        fun from(json: JSONObject): CodexFollowerMode = CodexFollowerMode(
+            enabled = json.optBoolean("enabled", true),
+            activeSendAllowed = json.optBoolean("activeSendAllowed", false)
+        )
+    }
+}
+
+data class CodexIpcConversationSummary(
+    val conversationId: String,
+    val status: String,
+    val updatedAt: Long,
+    val title: String?,
+    val cwd: String?,
+    val ownerKind: String?,
+    val latestTurnId: String?,
+    val itemCount: Int,
+    val hasActiveGoal: Boolean,
+    val hasPendingApproval: Boolean,
+    val hasPendingPlanAction: Boolean,
+    val hasPendingUserInputAction: Boolean
+) {
+    companion object {
+        fun listFrom(json: JSONObject): List<CodexIpcConversationSummary> {
+            val arr = json.optJSONArray("conversations") ?: return emptyList()
+            val result = mutableListOf<CodexIpcConversationSummary>()
+            for (i in 0 until arr.length()) {
+                val entry = arr.optJSONObject(i) ?: continue
+                val conversationId = entry.optStringOrNull("conversationId") ?: continue
+                result.add(
+                    CodexIpcConversationSummary(
+                        conversationId = conversationId,
+                        status = entry.optString("status", "unknown"),
+                        updatedAt = entry.optLong("updatedAt", 0L),
+                        title = entry.optStringOrNull("title"),
+                        cwd = entry.optStringOrNull("cwd"),
+                        ownerKind = entry.optStringOrNull("ownerKind"),
+                        latestTurnId = entry.optStringOrNull("latestTurnId"),
+                        itemCount = entry.optInt("itemCount", 0),
+                        hasActiveGoal = entry.optBoolean("hasActiveGoal", false),
+                        hasPendingApproval = entry.optBoolean("hasPendingApproval", false),
+                        hasPendingPlanAction = entry.optBoolean("hasPendingPlanAction", false),
+                        hasPendingUserInputAction = entry.optBoolean("hasPendingUserInputAction", false)
+                    )
+                )
+            }
+            return result
         }
     }
 }
@@ -669,38 +784,77 @@ object CodexClientMessages {
         .put("conversationId", conversationId)
         .toString()
 
+    fun setActiveFollowerMode(enabled: Boolean): String = JSONObject()
+        .put("type", "set_active_follower_mode")
+        .put("enabled", enabled)
+        .toString()
+
     fun followerSendMessage(conversationId: String, input: String): String = JSONObject()
         .put("type", "follower_send_message")
         .put("conversationId", conversationId)
         .put("input", input)
         .toString()
 
+    fun followerStartGoal(conversationId: String, goal: String): String = JSONObject()
+        .put("type", "follower_start_goal")
+        .put("conversationId", conversationId)
+        .put("goal", goal)
+        .toString()
+
+    fun followerInterruptTurn(conversationId: String): String = JSONObject()
+        .put("type", "follower_interrupt_turn")
+        .put("conversationId", conversationId)
+        .toString()
+
     fun followerApprovalResponse(
         conversationId: String,
         requestId: String,
-        decision: String
-    ): String = JSONObject()
-        .put("type", "follower_approval_response")
-        .put("conversationId", conversationId)
-        .put("requestId", requestId)
-        .put("decision", decision)
-        .toString()
+        decision: String,
+        requestKind: String? = null,
+        execpolicyAmendment: List<String>? = null
+    ): String {
+        val json = JSONObject()
+            .put("type", "follower_approval_response")
+            .put("conversationId", conversationId)
+            .put("requestId", requestId)
+            .put("decision", decision)
+        requestKind?.let { json.put("requestKind", it) }
+        execpolicyAmendment
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { parts ->
+                val arr = JSONArray()
+                parts.forEach { arr.put(it) }
+                json.put("execpolicyAmendment", arr)
+            }
+        return json.toString()
+    }
 
     fun followerPlanResponse(
         conversationId: String,
         input: String,
-        requestId: String? = null
+        requestId: String? = null,
+        questionId: String? = null,
+        response: JSONObject? = null
     ): String {
         val json = JSONObject()
             .put("type", "follower_plan_response")
             .put("conversationId", conversationId)
             .put("input", input)
         requestId?.let { json.put("requestId", it) }
+        questionId?.let { json.put("questionId", it) }
+        response?.let { json.put("response", it) }
         return json.toString()
     }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
+
+private fun JSONObject.optNullableLong(key: String): Long? =
+    if (!has(key) || isNull(key)) {
+        null
+    } else {
+        optLong(key)
+    }
 
 private fun JSONArray.toStringList(): List<String> {
     val result = mutableListOf<String>()

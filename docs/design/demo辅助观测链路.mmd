@@ -1,0 +1,12 @@
+flowchart LR
+  ProxyProc["codex-proxy process"] -->|"NDJSON TCP"| Proxy["CodexProxyBridge"]
+  Proxy --> GW["WebSocketGateway"]
+  Proxy --> HTTP["/debug/codex-proxy /api/codex/live-feed"]
+
+  AppServer["Managed Codex app-server JSON-RPC"] --> AppFeed["CodexAppServerFeed"]
+  AppFeed --> GW
+  AppFeed --> HTTP
+
+  Sessions["CODEX_HOME/sessions/*.jsonl"] --> SessionFeed["CodexSessionFeed"]
+  SessionFeed --> GW
+  SessionFeed --> HTTP["/api/codex/conversations"]

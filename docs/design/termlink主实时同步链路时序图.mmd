@@ -1,0 +1,21 @@
+sequenceDiagram
+  participant Owner as Desktop / VS Code Codex owner
+  participant IPC as CodexIpcClient
+  participant Feed as CodexIpcFeed
+  participant Tracker as ThreadStreamTracker
+  participant GW as terminalGateway.js
+  participant Android as Android CodexViewModel
+
+  Owner->>IPC: thread-stream-state-changed snapshot/patch
+  IPC->>Feed: broadcast message
+  Feed->>Tracker: applyBroadcast()
+  Tracker-->>Feed: conversation state / projection
+  Feed->>Feed: buildDesktopSurfaceSnapshot()
+  Feed->>GW: snapshot / event / status
+  GW->>Android: codex_ipc_status
+  GW->>Android: codex_ipc_conversations
+  GW->>Android: codex_ipc_sync_event
+  GW->>Android: conversation_surface_snapshot
+  GW->>Android: conversation_status_changed
+  GW->>Android: conversation_action_required
+  Android->>Android: merge snapshot into UI messages / approval / PLAN / goal

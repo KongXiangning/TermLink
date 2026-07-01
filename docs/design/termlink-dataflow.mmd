@@ -1,0 +1,21 @@
+flowchart LR
+  Android["Android CodexActivity / CodexViewModel"] <-->|"TermLink /ws\nJSON envelope"| GW["terminalGateway.js"]
+
+  subgraph Server["TermLink 后端服务"]
+    HTTP["HTTP server\n/api/ws-ticket / sessions 等"]
+    GW["WebSocket Gateway\nsrc/ws/terminalGateway.js"]
+    IPCFeed["CodexIpcFeed\nsrc/services/codexIpcFeed.js"]
+    IPCClient["CodexIpcClient\nsrc/services/codexIpcClient.js"]
+    Tracker["ThreadStreamTracker\nbuildDesktopSurfaceSnapshot"]
+    LegacyCodex["CodexAppServerService\n旧 codex_turn 路径"]
+    SessionMgr["sessionManager / sessionStore\nTermLink 会话与 cwd/config"]
+  end
+
+  Owner["Desktop / VS Code Codex owner"] <-->|"\\\\.\\pipe\\codex-ipc\n4-byte LE frame + JSON"| IPCClient
+  IPCClient --> IPCFeed --> Tracker --> GW
+
+  Android -->|"fetch /api/ws-ticket\nBasic/mTLS profile"| HTTP
+  HTTP --> Android
+
+  GW <--> SessionMgr
+  GW <--> LegacyCodex

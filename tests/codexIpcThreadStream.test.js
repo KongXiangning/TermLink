@@ -203,6 +203,11 @@ test('request-based user input is projected as an interactive approval request',
     assert.equal(request.responseMode, 'answers');
     assert.equal(request.method, 'item/tool/requestUserInput');
     assert.equal(request.params.questions[0].question, 'Press key?');
+    assert.ok(snap.pendingUserInputAction);
+    assert.equal(snap.pendingUserInputAction.requestId, 'req-key');
+    assert.equal(snap.pendingUserInputAction.method, 'item/tool/requestUserInput');
+    assert.equal(snap.pendingUserInputAction.handledBy, 'ipc_follower');
+    assert.equal(snap.pendingUserInputAction.params.questions[0].id, 'confirm');
     assert.equal(snap.status, 'waiting_for_input');
 });
 
@@ -282,6 +287,48 @@ test('todo-list without planned items is rendered as goal_prompt', () => {
     const snap = buildDesktopSurfaceSnapshot(state);
     const goals = snap.items.filter(i => i.kind === 'goal_prompt');
     assert.ok(goals.length >= 1);
+});
+
+test('goal input turn is rendered and exposes pendingGoalAction while running', () => {
+    const state = {
+        turns: [{
+            turnId: 'goal-turn',
+            status: 'inProgress',
+            params: { input: '/goal Build server Android sync' },
+            items: []
+        }]
+    };
+    const snap = buildDesktopSurfaceSnapshot(state);
+    const goal = snap.items.find(i => i.kind === 'goal_prompt' && i.turnId === 'goal-turn');
+    assert.ok(goal);
+    assert.equal(goal.text, 'Build server Android sync');
+    assert.ok(snap.pendingGoalAction);
+    assert.equal(snap.pendingGoalAction.kind, 'text_input');
+    assert.equal(snap.status, 'running');
+});
+
+test('snapshot includes active goal and collaboration metadata without leaking raw turns', () => {
+    const state = {
+        title: 'Desktop conversation',
+        cwd: 'E:\\coding\\TermLink',
+        latestThreadSettings: { collaborationMode: { mode: 'default', effort: 'medium' } },
+        currentGoal: {
+            threadId: 'thread-1',
+            objective: 'Synchronize Codex surfaces',
+            status: 'active',
+            tokenBudget: 1000,
+            tokensUsed: 250
+        },
+        turns: [{ turnId: 't1', status: 'completed', items: [] }]
+    };
+    const snap = buildDesktopSurfaceSnapshot(state, { ownerKind: 'ipc' });
+    assert.equal(snap.ownerKind, 'ipc');
+    assert.equal(snap.title, 'Desktop conversation');
+    assert.equal(snap.cwd, 'E:\\coding\\TermLink');
+    assert.equal(snap.activeGoal.objective, 'Synchronize Codex surfaces');
+    assert.deepEqual(snap.latestCollaborationMode, { mode: 'default', effort: 'medium' });
+    assert.deepEqual(snap.latestDefaultCollaborationMode, { mode: 'default', effort: 'medium' });
+    assert.equal(snap.turns, undefined);
 });
 
 // ── buildDesktopSurfaceSnapshot — status inference ───────────────────────────

@@ -13,14 +13,18 @@ class FakeClient extends EventEmitter {
         super();
         this._clientId = opts.clientId || 'fake-client-1';
         this._connectFails = opts.connectFails || false;
+        this.connectCount = 0;
     }
     get clientId() { return this._clientId; }
     async connect() {
+        this.connectCount += 1;
         if (this._connectFails) throw new Error('pipe unavailable');
         this.emit('connect', { pipePath: '\\\\.\\pipe\\codex-ipc' });
     }
     close() { this.emit('close', { hadError: false }); }
     simulateBroadcast(message) { this.emit('broadcast', message); }
+    simulateMessageIn(message) { this.emit('message_in', message); }
+    simulateMessageOut(message) { this.emit('message_out', message); }
     simulateError(err) { this.emit('error', err); }
 }
 
@@ -36,15 +40,22 @@ function disableIpc() {
     process.env.TERMLINK_CODEX_IPC_ENABLED = '0';
 }
 
-function snapshotBroadcast(conversationId, revision, turns) {
-    return { method: 'thread-stream-state-changed', params: { conversationId, change: { type: 'snapshot', revision, conversationState: { turns: turns || [] } } } };
+function snapshotBroadcast(conversationId, revision, turns, sourceClientId) {
+    return { method: 'thread-stream-state-changed', sourceClientId, params: { conversationId, change: { type: 'snapshot', revision, conversationState: { turns: turns || [] } } } };
 }
 
 /** Start feed + wait for the initial online status event. */
-async function startAndWaitOnline(feed, client) {
-    const p = new Promise((resolve) => feed.once('status', (s) => { if (s.online) resolve(s); }));
+async function startAndWaitOnline(feed) {
+    const p = new Promise((resolve) => {
+        const onStatus = (s) => {
+            if (!s.online) return;
+            feed.removeListener('status', onStatus);
+            resolve(s);
+        };
+        feed.on('status', onStatus);
+    });
     await feed.start();
-    return client ? p : null; // status already emitted during start()
+    return p;
 }
 
 // ── tests ────────────────────────────────────────────────────────────────────
@@ -68,6 +79,7 @@ test('feed emits online status on client connect', async () => {
     const feed = new CodexIpcFeed({ client });
     await startAndWaitOnline(feed);
     assert.equal(feed.online, true);
+    assert.equal(feed.getStatus().clientId, 'fake-client-1');
     feed.stop();
 });
 
@@ -82,6 +94,8 @@ test('feed emits offline status on client close', async () => {
     const s = await offlineP;
     assert.equal(s.online, false);
     assert.equal(s.reason, 'disconnected');
+    assert.equal(s.clientId, undefined);
+    assert.equal(feed.getStatus().clientId, undefined);
     feed.stop();
 });
 
@@ -90,11 +104,31 @@ test('feed emits unavailable status when connect fails', async () => {
     const client = new FakeClient({ connectFails: true });
     const feed = new CodexIpcFeed({ client });
 
-    const p = new Promise((resolve) => feed.once('status', resolve));
+    const p = new Promise((resolve) => feed.on('status', (s) => { if (s.reason === 'unavailable') resolve(s); }));
     await feed.start();
     const s = await p;
     assert.equal(s.online, false);
     assert.equal(s.reason, 'unavailable');
+    assert.equal(s.clientId, undefined);
+    assert.equal(feed.getStatus().clientId, undefined);
+    feed.stop();
+});
+
+test('feed retries after initial connect failure and returns online', async () => {
+    enableIpc();
+    const client = new FakeClient({ connectFails: true });
+    const feed = new CodexIpcFeed({ client, reconnectDelayMs: 10 });
+
+    const onlineP = new Promise((resolve) => feed.on('status', (s) => { if (s.online) resolve(s); }));
+    await feed.start();
+    assert.equal(feed.getStatus().online, false);
+    assert.equal(feed.getStatus().reason, 'unavailable');
+
+    client._connectFails = false;
+    const s = await onlineP;
+    assert.equal(s.online, true);
+    assert.equal(feed.online, true);
+    assert.ok(client.connectCount >= 2);
     feed.stop();
 });
 
@@ -110,6 +144,47 @@ test('feed emits snapshot on thread-stream-state-changed broadcast', async () =>
     assert.equal(snap.conversationId, 'conv-1');
     assert.equal(snap.revision, 1);
     assert.equal(snap.surface.conversationId, 'conv-1');
+    feed.stop();
+});
+
+test('feed emits and caches demo-style sync events with surface projection', async () => {
+    enableIpc();
+    const client = new FakeClient();
+    const feed = new CodexIpcFeed({ client });
+    await startAndWaitOnline(feed);
+
+    const eventP = new Promise((resolve) => feed.once('event', resolve));
+    client.simulateBroadcast(snapshotBroadcast('conv-1', 7, [
+        { turnId: 't1', status: 'completed', items: [{ type: 'agentMessage', phase: 'final_answer', text: 'done' }] }
+    ], 'desktop-owner'));
+    const event = await eventP;
+
+    assert.equal(event.sequence, 1);
+    assert.equal(event.method, 'thread-stream-state-changed');
+    assert.equal(event.threadId, 'conv-1');
+    assert.equal(event.sourceClientId, 'desktop-owner');
+    assert.equal(event.surface.conversationId, 'conv-1');
+    assert.equal(event.surface.revision, 7);
+    assert.equal(feed.getRecentEvents().length, 1);
+    assert.equal(feed.getRecentEvents()[0].surface.status, 'completed');
+    feed.stop();
+});
+
+test('feed records incoming and outgoing raw IPC events', async () => {
+    enableIpc();
+    const client = new FakeClient();
+    const feed = new CodexIpcFeed({ client, maxEvents: 3 });
+    await startAndWaitOnline(feed);
+
+    client.simulateMessageIn({ type: 'broadcast', method: 'thread-stream-state-changed', sourceClientId: 'desktop-owner', params: { conversationId: 'conv-raw' } });
+    client.simulateMessageOut({ type: 'request', method: 'thread-follower-start-turn', requestId: 'req-1', targetClientId: 'desktop-owner', params: { conversationId: 'conv-raw' } });
+
+    const raw = feed.getRawEvents();
+    assert.equal(raw.length, 2);
+    assert.equal(raw[0].direction, 'incoming');
+    assert.equal(raw[0].conversationId, 'conv-raw');
+    assert.equal(raw[1].direction, 'outgoing');
+    assert.equal(raw[1].requestId, 'req-1');
     feed.stop();
 });
 
@@ -146,6 +221,65 @@ test('getRecentSnapshots returns latest per conversation sorted by timestamp', a
     assert.equal(recent.length, 2);
     const ids = recent.map(r => r.conversationId).sort();
     assert.deepEqual(ids, ['conv-a', 'conv-b']);
+    feed.stop();
+});
+
+test('feed detects richer external surfaces for a conversation', async () => {
+    enableIpc();
+    const client = new FakeClient({ clientId: 'termlink-client' });
+    const feed = new CodexIpcFeed({ client });
+    await startAndWaitOnline(feed);
+
+    const ownP = new Promise((resolve) => feed.once('event', resolve));
+    client.simulateBroadcast(snapshotBroadcast('conv-rich', 1, [{ turnId: 't0', items: [] }], 'termlink-client'));
+    await ownP;
+    assert.equal(feed.hasRicherExternalSurface('conv-rich', { items: [] }), false);
+
+    const externalP = new Promise((resolve) => feed.once('event', resolve));
+    client.simulateBroadcast(snapshotBroadcast('conv-rich', 2, [{
+        turnId: 't1',
+        status: 'completed',
+        items: [{ type: 'agentMessage', phase: 'final_answer', text: 'final answer' }]
+    }], 'desktop-owner'));
+    await externalP;
+
+    assert.equal(feed.hasRicherExternalSurface('conv-rich', { items: [] }), true);
+    feed.stop();
+});
+
+test('feed detects pending plan action from external live surface only', async () => {
+    enableIpc();
+    const client = new FakeClient({ clientId: 'termlink-client' });
+    const feed = new CodexIpcFeed({ client });
+    await startAndWaitOnline(feed);
+
+    const ownP = new Promise((resolve) => feed.once('event', resolve));
+    client.simulateBroadcast(snapshotBroadcast('conv-plan', 1, [], 'termlink-client'));
+    await ownP;
+
+    const ownState = feed.getLatestSnapshot('conv-plan');
+    assert.equal(feed.hasExternalPendingPlanAction('conv-plan', ownState?.pendingPlanAction?.requestId), false);
+
+    const externalP = new Promise((resolve) => feed.once('event', resolve));
+    client.simulateBroadcast({
+        method: 'thread-stream-state-changed',
+        sourceClientId: 'desktop-owner',
+        params: {
+            conversationId: 'conv-plan',
+            change: {
+                type: 'snapshot',
+                revision: 2,
+                conversationState: {
+                    turns: [{ turnId: 't99', status: 'completed', items: [] }],
+                    requests: [{ id: 'plan-req-1', method: 'item/plan/requestImplementation', params: { turnId: 't99', planContent: 'BUILD IT' } }]
+                }
+            }
+        }
+    });
+    await externalP;
+
+    assert.equal(feed.hasExternalPendingPlanAction('conv-plan', 'plan-req-1'), true);
+    assert.equal(feed.hasExternalPendingPlanAction('conv-plan', 'missing'), false);
     feed.stop();
 });
 
@@ -220,6 +354,8 @@ test('stop emits offline status and cleans up', async () => {
     feed.stop();
     const s = await stopP;
     assert.equal(s.reason, 'stopped');
+    assert.equal(s.clientId, undefined);
+    assert.equal(feed.getStatus().clientId, undefined);
     assert.equal(feed.online, false);
     assert.equal(feed.started, false);
 });

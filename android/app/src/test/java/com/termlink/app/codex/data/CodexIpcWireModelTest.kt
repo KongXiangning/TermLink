@@ -80,14 +80,73 @@ class CodexIpcWireModelTest {
          "snapshot":{"conversationId":"c1","revision":1,"status":"waiting_for_input","updatedAt":3000,
          "items":[],
          "pendingPlanAction":{"kind":"plan_implementation","requestId":"rp","requestMethod":"item/plan/requestImplementation",
-         "turnId":"t1","planContent":"BUILD","canSubmit":true}}}
+         "questionId":"confirm","turnId":"t1","planContent":"BUILD","canSubmit":true},
+         "pendingGoalAction":{"kind":"text_input"},
+         "activeGoal":{"threadId":"c1","objective":"ship it","status":"active","tokenBudget":1000,"tokensUsed":25}}}
         """)
         val snap = DesktopSurfaceSnapshot.from(json)
         assertNotNull(snap.pendingPlanAction)
         assertEquals("plan_implementation", snap.pendingPlanAction!!.kind)
         assertEquals("rp", snap.pendingPlanAction!!.requestId)
+        assertEquals("confirm", snap.pendingPlanAction!!.questionId)
         assertEquals("BUILD", snap.pendingPlanAction!!.planContent)
         assertTrue(snap.pendingPlanAction!!.canSubmit)
+        assertNotNull(snap.pendingGoalAction)
+        assertEquals("text_input", snap.pendingGoalAction!!.kind)
+        assertNotNull(snap.activeGoal)
+        assertEquals("ship it", snap.activeGoal!!.objective)
+        assertEquals(25L, snap.activeGoal!!.tokensUsed)
+    }
+
+    @Test
+    fun `parse follower mode changed`() {
+        val json = JSONObject("""{"type":"follower_mode_changed","enabled":true,"activeSendAllowed":true}""")
+        val mode = CodexFollowerMode.from(json)
+        assertTrue(mode.enabled)
+        assertTrue(mode.activeSendAllowed)
+    }
+
+    @Test
+    fun `parse ipc conversations summary list`() {
+        val json = JSONObject("""
+        {"type":"codex_ipc_conversations","conversations":[
+          {"conversationId":"conv-1","status":"running","updatedAt":1234,
+           "title":"Live Codex","cwd":"E:\\coding\\TermLink","ownerKind":"desktop",
+           "latestTurnId":"turn-1","itemCount":8,"hasActiveGoal":true,
+           "hasPendingApproval":true,"hasPendingPlanAction":false,"hasPendingUserInputAction":true}
+        ]}
+        """)
+        val conversations = CodexIpcConversationSummary.listFrom(json)
+        assertEquals(1, conversations.size)
+        assertEquals("conv-1", conversations[0].conversationId)
+        assertEquals("running", conversations[0].status)
+        assertEquals(1234L, conversations[0].updatedAt)
+        assertEquals("Live Codex", conversations[0].title)
+        assertEquals("E:\\coding\\TermLink", conversations[0].cwd)
+        assertEquals("desktop", conversations[0].ownerKind)
+        assertEquals("turn-1", conversations[0].latestTurnId)
+        assertEquals(8, conversations[0].itemCount)
+        assertTrue(conversations[0].hasActiveGoal)
+        assertTrue(conversations[0].hasPendingApproval)
+        assertFalse(conversations[0].hasPendingPlanAction)
+        assertTrue(conversations[0].hasPendingUserInputAction)
+    }
+
+    @Test
+    fun `parse surface snapshot with pending user input action`() {
+        val json = JSONObject("""
+        {"type":"conversation_surface_snapshot","conversationId":"c1",
+         "snapshot":{"conversationId":"c1","revision":1,"status":"waiting_for_input","updatedAt":3000,
+         "items":[],
+         "pendingUserInputAction":{"requestId":"req-input","method":"item/tool/requestUserInput",
+         "requestKind":"userInput","responseMode":"answers","handledBy":"ipc_follower","summary":"Continue?",
+         "questionCount":1,"params":{"questions":[{"id":"confirm","question":"Continue?","options":[{"label":"Yes"}]}]}}}}
+        """)
+        val snap = DesktopSurfaceSnapshot.from(json)
+        assertNotNull(snap.pendingUserInputAction)
+        assertEquals("req-input", snap.pendingUserInputAction!!.requestId)
+        assertEquals("ipc_follower", snap.pendingUserInputAction!!.handledBy)
+        assertEquals("confirm", snap.pendingUserInputAction!!.questions.first().id)
     }
 
     @Test
@@ -112,6 +171,14 @@ class CodexIpcWireModelTest {
     }
 
     @Test
+    fun `setActiveFollowerMode builder`() {
+        val msg = CodexClientMessages.setActiveFollowerMode(true)
+        val json = JSONObject(msg)
+        assertEquals("set_active_follower_mode", json.getString("type"))
+        assertTrue(json.getBoolean("enabled"))
+    }
+
+    @Test
     fun `followerSendMessage builder`() {
         val msg = CodexClientMessages.followerSendMessage("conv-1", "Hello from Android")
         val json = JSONObject(msg)
@@ -122,21 +189,67 @@ class CodexIpcWireModelTest {
 
     @Test
     fun `followerApprovalResponse builder`() {
-        val msg = CodexClientMessages.followerApprovalResponse("conv-1", "req-42", "accept")
+        val msg = CodexClientMessages.followerApprovalResponse("conv-1", "req-42", "accept", "permissions")
         val json = JSONObject(msg)
         assertEquals("follower_approval_response", json.getString("type"))
         assertEquals("conv-1", json.getString("conversationId"))
         assertEquals("req-42", json.getString("requestId"))
         assertEquals("accept", json.getString("decision"))
+        assertEquals("permissions", json.getString("requestKind"))
+    }
+
+    @Test
+    fun `followerApprovalResponse builder with execpolicy amendment`() {
+        val msg = CodexClientMessages.followerApprovalResponse(
+            conversationId = "conv-1",
+            requestId = "req-42",
+            decision = "acceptWithExecpolicyAmendment",
+            requestKind = "command",
+            execpolicyAmendment = listOf("New-Item", "-Path")
+        )
+        val json = JSONObject(msg)
+        assertEquals("follower_approval_response", json.getString("type"))
+        assertEquals("acceptWithExecpolicyAmendment", json.getString("decision"))
+        assertEquals("command", json.getString("requestKind"))
+        assertEquals("New-Item", json.getJSONArray("execpolicyAmendment").getString(0))
+        assertEquals("-Path", json.getJSONArray("execpolicyAmendment").getString(1))
+    }
+
+    @Test
+    fun `followerStartGoal builder`() {
+        val msg = CodexClientMessages.followerStartGoal("conv-1", "完成同步")
+        val json = JSONObject(msg)
+        assertEquals("follower_start_goal", json.getString("type"))
+        assertEquals("conv-1", json.getString("conversationId"))
+        assertEquals("完成同步", json.getString("goal"))
+    }
+
+    @Test
+    fun `followerInterruptTurn builder`() {
+        val msg = CodexClientMessages.followerInterruptTurn("conv-1")
+        val json = JSONObject(msg)
+        assertEquals("follower_interrupt_turn", json.getString("type"))
+        assertEquals("conv-1", json.getString("conversationId"))
     }
 
     @Test
     fun `followerPlanResponse builder with requestId`() {
-        val msg = CodexClientMessages.followerPlanResponse("conv-1", "是，实施此计划", "r-plan")
+        val msg = CodexClientMessages.followerPlanResponse("conv-1", "是，实施此计划", "r-plan", "confirm")
         val json = JSONObject(msg)
         assertEquals("follower_plan_response", json.getString("type"))
         assertEquals("是，实施此计划", json.getString("input"))
         assertEquals("r-plan", json.getString("requestId"))
+        assertEquals("confirm", json.getString("questionId"))
+    }
+
+    @Test
+    fun `followerPlanResponse builder with explicit response`() {
+        val response = JSONObject("""{"answers":{"confirm":{"answers":["Yes"]}}}""")
+        val msg = CodexClientMessages.followerPlanResponse("conv-1", "Yes", "req-input", "confirm", response)
+        val json = JSONObject(msg)
+        assertEquals("follower_plan_response", json.getString("type"))
+        assertEquals("req-input", json.getString("requestId"))
+        assertEquals("Yes", json.getJSONObject("response").getJSONObject("answers").getJSONObject("confirm").getJSONArray("answers").getString(0))
     }
 
     @Test

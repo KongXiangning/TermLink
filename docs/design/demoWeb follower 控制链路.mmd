@@ -1,0 +1,23 @@
+sequenceDiagram
+  participant Web as web/app.js
+  participant GW as WebSocketGateway
+  participant IPC as CodexIpcFeed
+  participant Owner as Desktop/VS Code owner
+
+  Web->>GW: set_active_conversation
+  GW-->>Web: latest conversation_surface_snapshot
+  GW-->>Web: follower_mode_changed
+
+  Web->>GW: set_active_follower_mode(true)
+  GW-->>Web: follower_mode_changed(enabled=true)
+
+  Web->>GW: follower_send_message
+  GW->>GW: validate follower mode + conversation status
+  GW->>IPC: thread-follower-start-turn
+  IPC->>Owner: IPC request
+  Owner-->>IPC: response
+  IPC-->>GW: ack/error
+  GW-->>Web: follower_message_sent
+  Owner-->>IPC: new thread-stream-state-changed
+  IPC-->>GW: updated surface
+  GW-->>Web: conversation_surface_snapshot

@@ -30,7 +30,7 @@ const KNOWN_METHOD_VERSIONS = {
     'thread-follower-start-turn': 1,
     'thread-follower-compact-thread': 1,
     'thread-follower-steer-turn': 1,
-    'thread-follower-interrupt-turn': 1,
+    'thread-follower-interrupt-turn': 2,
     'thread-follower-update-thread-settings': 1,
     'thread-follower-edit-last-user-turn': 1,
     'thread-follower-command-approval-decision': 1,
@@ -251,6 +251,7 @@ class CodexIpcClient extends EventEmitter {
     }
 
     _onTransportMessage(parsed) {
+        this.emit('message_in', parsed);
         this._handleMessage(parsed);
     }
 
@@ -354,6 +355,7 @@ class CodexIpcClient extends EventEmitter {
             throw new Error('codex-ipc transport is not available');
         }
         this._transport.send(message);
+        this.emit('message_out', message);
     }
 
     _assertActiveSendAllowed(method) {

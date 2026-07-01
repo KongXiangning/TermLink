@@ -1,0 +1,8 @@
+flowchart TD
+  Web["Web UI owner smoke / demo owner action"] --> GW["WebSocketGateway"]
+  GW --> Codex["Managed Codex app-server\nor ProxyBridge"]
+  Codex --> OwnerTracker["DemoOwnerSurfaceTracker"]
+  OwnerTracker -->|"conversation state -> surface"| GW
+  OwnerTracker -->|"thread-stream-state-changed broadcast"| IPC["CodexIpcFeed"]
+  IPC --> Pipe["codex-ipc pipe"]
+  Pipe --> OtherClients["Desktop / VS Code / other observers"]
