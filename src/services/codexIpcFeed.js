@@ -206,6 +206,11 @@ class CodexIpcFeed extends EventEmitter {
         return this._client.sendRequest(method, params);
     }
 
+    sendBroadcast(method, params) {
+        if (!this._client) throw new Error('IPC client is not available');
+        return this._client.sendBroadcast(method, params);
+    }
+
     /**
      * Check whether the active send gate is satisfied.
      */

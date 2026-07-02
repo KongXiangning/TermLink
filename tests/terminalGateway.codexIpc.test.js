@@ -7,6 +7,7 @@ const { WebSocketServer } = require('ws');
 const { EventEmitter } = require('node:events');
 
 const activeGateways = new Set();
+const fakeCodexServices = [];
 
 // ── FakeIpcFeed ──────────────────────────────────────────────────────────────
 
@@ -71,12 +72,52 @@ function loadGateway() {
     const authModule = require(authPath);
     authModule.verifyWsUpgrade = () => true;
 
-    // Minimal mock for CodexAppServerService — an EventEmitter that does nothing.
     class FakeCodexService extends EventEmitter {
-        constructor() { super(); }
+        constructor() {
+            super();
+            this.requests = [];
+            this.responses = [];
+            this.requestHandler = null;
+            fakeCodexServices.push(this);
+        }
         start() { return Promise.resolve(); }
         stop() {}
-        request() { return Promise.reject(new Error('not implemented')); }
+        request(method, params) {
+            this.requests.push({ method, params });
+            if (this.requestHandler) return this.requestHandler(method, params);
+            if (method === 'thread/resume') {
+                return Promise.resolve({ thread: { id: params.threadId, cwd: 'E:\\coding\\TermLink' } });
+            }
+            if (method === 'turn/start') {
+                const text = Array.isArray(params.input)
+                    ? params.input.map((part) => part && part.text).filter(Boolean).join('\n')
+                    : '';
+                return Promise.resolve({
+                    turn: {
+                        id: `turn-${this.requests.filter((entry) => entry.method === 'turn/start').length}`,
+                        status: 'inProgress',
+                        params,
+                        items: [
+                            { type: 'userMessage', id: params.clientUserMessageId || 'user-message', text }
+                        ]
+                    }
+                });
+            }
+            if (method === 'turn/interrupt' || method === 'thread/settings/update') {
+                return Promise.resolve({ ok: true });
+            }
+            return Promise.resolve({ ok: true });
+        }
+        respondToServerRequest(requestId, response) {
+            this.responses.push({ requestId, response });
+        }
+        static extractThreadId(message) {
+            const params = message && message.params && typeof message.params === 'object' ? message.params : {};
+            if (typeof params.threadId === 'string' && params.threadId.trim()) return params.threadId;
+            if (typeof params.conversationId === 'string' && params.conversationId.trim()) return params.conversationId;
+            if (params.thread && typeof params.thread === 'object' && typeof params.thread.id === 'string') return params.thread.id;
+            return null;
+        }
     }
     require.cache[codexPath] = { id: codexPath, filename: codexPath, loaded: true, exports: FakeCodexService };
 
@@ -142,7 +183,7 @@ async function setupGateway(opts = {}) {
             server.on('upgrade', (req, socket, head) => {
                 wss.handleUpgrade(req, socket, head, (ws) => { wss.emit('connection', ws, req); });
             });
-            const gateway = { server, wss, port, sm, ipcFeed, teardown };
+            const gateway = { server, wss, port, sm, ipcFeed, teardown, codexService: fakeCodexServices[fakeCodexServices.length - 1] };
             activeGateways.add(gateway);
             resolve(gateway);
         });
@@ -228,6 +269,13 @@ test('set_active_conversation succeeds and snapshot is pushed to matching client
 
     ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
     await delay(50);
+
+    assert.equal(sess.lastCodexThreadId, 'conv-1');
+    const bound = messages.find(m => m.type === 'session_codex_thread_bound');
+    assert.ok(bound, 'binding event must be emitted for a newly selected Codex conversation');
+    assert.equal(bound.sessionId, sess.id);
+    assert.equal(bound.conversationId, 'conv-1');
+    assert.equal(bound.lastCodexThreadId, 'conv-1');
 
     // Push a snapshot for a different conversation — should NOT arrive.
     g.ipcFeed.pushSnapshot('conv-other', { conversationId: 'conv-other', status: 'running', items: [] });
@@ -466,6 +514,182 @@ test('follower_send_message blocked without a live conversation snapshot', async
     assert.equal(capturedMethod, null);
     const err = messages.find(m => m.type === 'error' && m.message === 'Conversation is not live');
     assert.ok(err, 'should block send without a live surface snapshot');
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_send_message falls back to owner runtime when IPC owner is gone', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-orphan', {
+        conversationId: 'conv-orphan',
+        status: 'completed',
+        title: 'Orphaned owner',
+        cwd: 'E:\\coding\\TermLink',
+        items: [
+            { key: 'external:old', kind: 'message', role: 'assistant', phase: 'final_answer', text: 'old external answer' }
+        ]
+    });
+    g.ipcFeed._sendRequestHandler = (method) => ({
+        type: 'response',
+        resultType: 'error',
+        method,
+        error: 'no-client-found'
+    });
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-orphan' }));
+    await delay(50);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-orphan', input: 'take over locally' }));
+    await delay(150);
+
+    assert.ok(messages.find(m => m.type === 'follower_message_sent' && m.conversationId === 'conv-orphan'));
+    assert.ok(g.codexService.requests.find((entry) => entry.method === 'thread/resume' && entry.params.threadId === 'conv-orphan'));
+    assert.ok(g.codexService.requests.find((entry) => entry.method === 'turn/start' && entry.params.threadId === 'conv-orphan'));
+    const ownerSnapshot = messages.filter(m => m.type === 'conversation_surface_snapshot').at(-1);
+    assert.equal(ownerSnapshot.snapshot.ownerKind, 'termlink');
+    assert.ok(ownerSnapshot.snapshot.items.some((item) => item.text === 'old external answer'));
+    assert.ok(ownerSnapshot.snapshot.items.some((item) => item.text === 'take over locally'));
+    assert.equal(messages.some(m => m.type === 'error' && /no-client-found/i.test(String(m.detail || ''))), false);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_send_message resumes owner runtime when IPC is offline but snapshot is cached', async () => {
+    const g = await setupGateway({ ipcFeed: new FakeIpcFeed({ online: false }) });
+    g.ipcFeed.pushSnapshot('conv-offline-cached', {
+        conversationId: 'conv-offline-cached',
+        status: 'completed',
+        cwd: 'E:\\coding\\TermLink',
+        items: [
+            { key: 'external:cached', kind: 'message', role: 'assistant', phase: 'final_answer', text: 'cached external answer' }
+        ]
+    });
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-offline-cached' }));
+    await delay(50);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-offline-cached', input: 'resume while offline' }));
+    await delay(150);
+
+    assert.ok(g.codexService.requests.find((entry) => entry.method === 'thread/resume' && entry.params.threadId === 'conv-offline-cached'));
+    assert.ok(g.codexService.requests.find((entry) => entry.method === 'turn/start' && entry.params.threadId === 'conv-offline-cached'));
+    assert.ok(messages.find(m => m.type === 'follower_message_sent' && m.conversationId === 'conv-offline-cached'));
+    assert.equal(messages.some(m => m.type === 'error' && m.message === 'IPC is not online'), false);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('owner-owned conversation sends through app-server while IPC is offline', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-owner-offline', {
+        conversationId: 'conv-owner-offline',
+        status: 'completed',
+        cwd: 'E:\\coding\\TermLink',
+        items: []
+    });
+    g.ipcFeed._sendRequestHandler = (method) => ({
+        type: 'response',
+        resultType: 'error',
+        method,
+        error: 'no-client-found'
+    });
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-owner-offline' }));
+    await delay(50);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-owner-offline', input: 'first takeover' }));
+    await delay(120);
+    g.codexService.emit('notification', {
+        method: 'turn/completed',
+        params: {
+            threadId: 'conv-owner-offline',
+            turn: { id: 'turn-1', status: 'completed', items: [] }
+        }
+    });
+    await delay(50);
+    g.ipcFeed.setOnline(false);
+    messages.length = 0;
+    ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-owner-offline', input: 'second local turn' }));
+    await delay(120);
+
+    const turnStarts = g.codexService.requests.filter((entry) => entry.method === 'turn/start');
+    assert.equal(turnStarts.length, 2);
+    assert.ok(turnStarts[1].params.input.some((part) => part.text === 'second local turn'));
+    assert.ok(messages.find(m => m.type === 'follower_message_sent'));
+    assert.equal(messages.some(m => m.type === 'error' && m.message === 'IPC is not online'), false);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('owner pending approval response is resolved through app-server instead of IPC', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-owner-approval', {
+        conversationId: 'conv-owner-approval',
+        status: 'completed',
+        cwd: 'E:\\coding\\TermLink',
+        items: []
+    });
+    g.ipcFeed._sendRequestHandler = (method) => ({
+        type: 'response',
+        resultType: 'error',
+        method,
+        error: 'no-client-found'
+    });
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-owner-approval' }));
+    await delay(50);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-owner-approval', input: 'takeover' }));
+    await delay(120);
+
+    g.codexService.emit('server_request', {
+        requestId: 'owner-approval-1',
+        handledBy: 'client',
+        message: {
+            method: 'item/commandExecution/requestApproval',
+            params: {
+                threadId: 'conv-owner-approval',
+                reason: 'Need approval',
+                command: 'echo owner',
+                availableDecisions: ['accept', 'reject']
+            }
+        }
+    });
+    await delay(80);
+
+    assert.ok(messages.find(m => m.type === 'conversation_action_required' && m.actionType === 'approval'));
+    g.ipcFeed.setOnline(false);
+    ws.send(JSON.stringify({
+        type: 'follower_approval_response',
+        conversationId: 'conv-owner-approval',
+        requestId: 'owner-approval-1',
+        requestKind: 'command',
+        decision: 'accept'
+    }));
+    await delay(100);
+
+    assert.deepEqual(g.codexService.responses.at(-1), {
+        requestId: 'owner-approval-1',
+        response: { result: { decision: 'accept' } }
+    });
+    assert.ok(messages.find(m => m.type === 'follower_approval_response_sent' && m.requestId === 'owner-approval-1'));
+    assert.equal(messages.some(m => m.type === 'error' && /IPC/i.test(m.message)), false);
     ws.close();
     await stopGateway(g);
 });

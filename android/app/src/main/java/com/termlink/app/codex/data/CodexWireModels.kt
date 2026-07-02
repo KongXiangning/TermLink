@@ -41,6 +41,7 @@ data class SessionInfo(
     val sessionName: String,
     val sessionMode: String,
     val cwd: String?,
+    val lastCodexThreadId: String?,
     val privilegeLevel: String?
 ) {
     companion object {
@@ -49,6 +50,7 @@ data class SessionInfo(
             sessionName = json.optString("sessionName", json.optString("name", "")),
             sessionMode = json.optString("sessionMode", "codex"),
             cwd = json.optStringOrNull("cwd"),
+            lastCodexThreadId = json.optStringOrNull("lastCodexThreadId"),
             privilegeLevel = json.optStringOrNull("privilegeLevel")
         )
     }

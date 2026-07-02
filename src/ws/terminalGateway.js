@@ -8,6 +8,7 @@ const { resolveConnectionSecurity } = require('../utils/connectionSecurity');
 const { getAuditService } = require('../services/auditService');
 const CodexAppServerService = require('../services/codexAppServerService');
 const { CodexThreadHub } = require('../services/codexThreadHub');
+const { CodexOwnerSurfaceTracker } = require('../services/codexOwnerSurfaceTracker');
 const { normalizeCodexConfig } = require('../repositories/sessionStore');
 const { summarizeSessionConnections } = require('../services/sessionManager');
 const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
@@ -696,6 +697,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     const auditService = isElevated ? getAuditService() : null;
     const codexService = new CodexAppServerService();
     const threadHub = new CodexThreadHub();
+    const ownerSurfaceTracker = new CodexOwnerSurfaceTracker();
 
     // ── IPC feed integration ──────────────────────────────────────────────
     /** @type {Map<import('ws').WebSocket, string>} */
@@ -746,12 +748,27 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         _sendFollowerMode(ws);
     };
 
-    const _getLatestConversationSnapshot = (conversationId) => {
+    const _getLatestIpcSnapshot = (conversationId) => {
         if (!ipcFeed || !isNonEmptyString(conversationId)) return null;
         if (typeof ipcFeed.getLatestSnapshot === 'function') {
-            return ipcFeed.getLatestSnapshot(conversationId);
+            return ipcFeed.getLatestSnapshot(conversationId) || null;
         }
         return null;
+    };
+
+    const _getLatestOwnerSnapshot = (conversationId) => {
+        if (!isNonEmptyString(conversationId)) return null;
+        const event = ownerSurfaceTracker.peekSnapshot(conversationId);
+        return event && event.surface ? event.surface : null;
+    };
+
+    const _getLatestConversationSnapshot = (conversationId) => {
+        const ownerSurface = _getLatestOwnerSnapshot(conversationId);
+        const ipcSurface = _getLatestIpcSnapshot(conversationId);
+        if (ownerSurface && ipcSurface) {
+            return chooseRicherConversationSurface(ownerSurface, ipcSurface);
+        }
+        return ownerSurface || ipcSurface || null;
     };
 
     const _emitConversationActionRequired = (ws, conversationId, surface) => {
@@ -846,6 +863,23 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         });
     }
 
+    ownerSurfaceTracker.on('broadcast', (event) => {
+        if (!event || !isNonEmptyString(event.conversationId) || !event.surface) {
+            return;
+        }
+        if (ipcFeed && typeof ipcFeed.hasRicherExternalSurface === 'function' && ipcFeed.hasRicherExternalSurface(event.conversationId, event.surface)) {
+            return;
+        }
+        _pushConversationSurfaceSnapshot(event.conversationId, event.surface);
+        if (ipcFeed && _isIpcOnline() && typeof ipcFeed.sendBroadcast === 'function') {
+            try {
+                ipcFeed.sendBroadcast('thread-stream-state-changed', event.payload);
+            } catch (error) {
+                console.warn('[gateway][codex][owner-surface-broadcast-failed]', error && error.message ? error.message : String(error));
+            }
+        }
+    });
+
     const _broadcastIpcStatus = (ws) => {
         if (!ipcFeed) return;
         sendWsEnvelope(ws, {
@@ -858,7 +892,17 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             }
         }
         // Also send the list of known conversations so the client can populate its selector.
-        const conversations = ipcFeed.getRecentSnapshots().map(s => ({
+        const snapshotMap = new Map();
+        for (const s of ipcFeed.getRecentSnapshots()) {
+            snapshotMap.set(s.conversationId, s);
+        }
+        for (const s of ownerSurfaceTracker.getRecentSnapshots()) {
+            const existing = snapshotMap.get(s.conversationId);
+            snapshotMap.set(s.conversationId, existing
+                ? { ...s, surface: chooseRicherConversationSurface(s.surface, existing.surface), timestamp: Math.max(s.timestamp || 0, existing.timestamp || 0) }
+                : s);
+        }
+        const conversations = Array.from(snapshotMap.values()).map(s => ({
             conversationId: s.conversationId,
             status: s.surface?.status || 'unknown',
             updatedAt: s.timestamp,
@@ -878,7 +922,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         _sendFollowerMode(ws);
     };
 
-    const _handleSetActiveConversation = (ws, conversationId) => {
+    const _handleSetActiveConversation = (ws, session, conversationId) => {
         if (!ipcFeed) {
             sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available', detail: 'codex-ipc is not configured on this server.' });
             return;
@@ -887,27 +931,73 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             sendWsEnvelope(ws, { type: 'error', message: 'Invalid conversationId', detail: 'conversationId must be a non-empty string.' });
             return;
         }
-        _ipcActiveConversations.set(ws, conversationId);
+        const normalizedConversationId = conversationId.trim();
+        _ipcActiveConversations.set(ws, normalizedConversationId);
+
+        if (session && session.sessionMode === 'codex') {
+            const previousThreadId = isNonEmptyString(session.lastCodexThreadId)
+                ? session.lastCodexThreadId.trim()
+                : null;
+            const boundThreadId = updateSessionLastCodexThreadId(session, normalizedConversationId);
+            if (boundThreadId && boundThreadId !== previousThreadId) {
+                sendWsEnvelope(ws, {
+                    type: 'session_codex_thread_bound',
+                    sessionId: session.id,
+                    conversationId: boundThreadId,
+                    lastCodexThreadId: boundThreadId
+                });
+            }
+        }
 
         // Replay latest cached snapshot if available.
-        const latest = _getLatestConversationSnapshot(conversationId);
+        const latest = _getLatestConversationSnapshot(normalizedConversationId);
         if (latest) {
-            sendWsEnvelope(ws, { type: 'conversation_surface_snapshot', conversationId, snapshot: latest });
-            _emitConversationActionRequired(ws, conversationId, latest);
+            sendWsEnvelope(ws, { type: 'conversation_surface_snapshot', conversationId: normalizedConversationId, snapshot: latest });
+            _emitConversationActionRequired(ws, normalizedConversationId, latest);
         }
         _sendFollowerMode(ws);
     };
     const _getActiveConversationId = (ws) => _ipcActiveConversations.get(ws) || null;
 
+    const _shouldUseOwnerRuntime = (conversationId) => ownerSurfaceTracker.hasConversation(conversationId);
+
+    const _ensureOwnerConversation = async (conversationId, seedSurface) => {
+        if (!isNonEmptyString(conversationId)) {
+            throw new Error('Owner conversation id is required.');
+        }
+        if (_shouldUseOwnerRuntime(conversationId)) {
+            return conversationId;
+        }
+        const resumeResult = await codexService.request('thread/resume', { threadId: conversationId });
+        const resumedThreadId = resumeResult && resumeResult.thread && isNonEmptyString(resumeResult.thread.id)
+            ? resumeResult.thread.id.trim()
+            : conversationId;
+        ownerSurfaceTracker.registerThreadResume(resumedThreadId, {
+            seedSurface: seedSurface || _getLatestIpcSnapshot(conversationId) || { conversationId }
+        });
+        return resumedThreadId;
+    };
+
+    const _startOwnerTurn = async (ws, conversationId, input, latestSnapshot, options = {}) => {
+        try {
+            const threadId = await _ensureOwnerConversation(conversationId, latestSnapshot);
+            const turnStartParams = buildFollowerTurnStartParams(input.trim(), latestSnapshot || {});
+            const result = await codexService.request('turn/start', {
+                threadId,
+                ...turnStartParams
+            });
+            ownerSurfaceTracker.adoptTurnStartResult(threadId, result, turnStartParams.clientUserMessageId);
+            sendWsEnvelope(ws, { type: options.successType || 'follower_message_sent', conversationId: threadId, acknowledged: true });
+        } catch (error) {
+            sendWsEnvelope(ws, {
+                type: 'error',
+                message: options.failureMessage || 'Failed to send owner message',
+                detail: error && error.message ? error.message : String(error)
+            });
+        }
+    };
+
     const _handleFollowerSendMessage = async (ws, conversationId, input, options = {}) => {
-        if (!ipcFeed) {
-            sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available', detail: options.unavailableDetail || 'Enable codex-ipc to send follower messages.' });
-            return;
-        }
-        if (!_isIpcOnline()) {
-            sendWsEnvelope(ws, { type: 'error', message: 'IPC is not online', detail: 'Cannot send message while IPC is disconnected.' });
-            return;
-        }
         if (!_isIpcActiveSendAllowed() || !_isFollowerModeEnabled(ws)) {
             sendWsEnvelope(ws, { type: 'error', message: 'Active send is not allowed', detail: 'Enable TERMLINK_CODEX_IPC_ENABLED + ALLOW_ACTIVE + CONFIRM_SEND.' });
             return;
@@ -923,6 +1013,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
 
         // Running gate: block start-turn when conversation is running.
         const latest = _getLatestConversationSnapshot(conversationId);
+        if (!latest && !_shouldUseOwnerRuntime(conversationId) && ipcFeed && !_isIpcOnline()) {
+            sendWsEnvelope(ws, { type: 'error', message: 'IPC is not online', detail: 'Cannot send message while IPC is disconnected.' });
+            return;
+        }
         if (!latest) {
             sendWsEnvelope(ws, {
                 type: 'error',
@@ -940,6 +1034,20 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             return;
         }
 
+        if (_shouldUseOwnerRuntime(conversationId)) {
+            await _startOwnerTurn(ws, conversationId, input, latest, options);
+            return;
+        }
+
+        if (!ipcFeed) {
+            sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available', detail: options.unavailableDetail || 'Enable codex-ipc to send follower messages.' });
+            return;
+        }
+        if (!_isIpcOnline()) {
+            await _startOwnerTurn(ws, conversationId, input, latest, options);
+            return;
+        }
+
         try {
             const response = await ipcFeed.sendRequest('thread-follower-start-turn', {
                 conversationId,
@@ -948,6 +1056,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             assertIpcSuccess(response);
             sendWsEnvelope(ws, { type: options.successType || 'follower_message_sent', conversationId, acknowledged: true });
         } catch (error) {
+            if (isNoClientFoundError(error)) {
+                await _startOwnerTurn(ws, conversationId, input, latest, options);
+                return;
+            }
             sendWsEnvelope(ws, { type: 'error', message: options.failureMessage || 'Failed to send follower message', detail: error.message });
         }
     };
@@ -969,16 +1081,8 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     };
 
     const _handleFollowerInterruptTurn = async (ws, conversationId) => {
-        if (!ipcFeed) {
-            sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available', detail: 'Enable codex-ipc to interrupt follower turns.' });
-            return;
-        }
         if (!isNonEmptyString(conversationId)) {
             sendWsEnvelope(ws, { type: 'error', message: 'No active conversation', detail: 'Set an active conversation before interrupting a turn.' });
-            return;
-        }
-        if (!_isIpcOnline()) {
-            sendWsEnvelope(ws, { type: 'error', message: 'IPC is not online', detail: 'Cannot interrupt the active turn while IPC is disconnected.' });
             return;
         }
         if (!_isIpcActiveSendAllowed() || !_isFollowerModeEnabled(ws)) {
@@ -996,6 +1100,28 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             return;
         }
 
+        if (_shouldUseOwnerRuntime(conversationId)) {
+            try {
+                await codexService.request('turn/interrupt', {
+                    threadId: conversationId,
+                    ...(isNonEmptyString(latest.latestTurnId) ? { turnId: latest.latestTurnId } : {})
+                });
+                sendWsEnvelope(ws, { type: 'follower_turn_interrupted', conversationId, acknowledged: true });
+            } catch (error) {
+                sendWsEnvelope(ws, { type: 'error', message: 'Failed to interrupt owner turn', detail: error.message });
+            }
+            return;
+        }
+
+        if (!ipcFeed) {
+            sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available', detail: 'Enable codex-ipc to interrupt follower turns.' });
+            return;
+        }
+        if (!_isIpcOnline()) {
+            sendWsEnvelope(ws, { type: 'error', message: 'IPC is not online', detail: 'Cannot interrupt the active turn while IPC is disconnected.' });
+            return;
+        }
+
         try {
             const response = await ipcFeed.sendRequest('thread-follower-interrupt-turn', {
                 conversationId,
@@ -1009,11 +1135,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     };
 
     const _handleFollowerApprovalResponse = async (ws, conversationId, decision, requestId, requestKind, execpolicyAmendment) => {
-        if (!ipcFeed) {
-            sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available' });
-            return;
-        }
-        if (!_isIpcOnline() || !_isIpcActiveSendAllowed() || !_isFollowerModeEnabled(ws)) {
+        if (!_isIpcActiveSendAllowed() || !_isFollowerModeEnabled(ws)) {
             sendWsEnvelope(ws, { type: 'error', message: 'IPC is not available for active send' });
             return;
         }
@@ -1030,6 +1152,28 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         }
         const decisionValue = buildApprovalDecisionValue(decision, execpolicyAmendment, approval);
 
+        if (_shouldUseOwnerRuntime(conversationId)) {
+            try {
+                codexService.respondToServerRequest(approval.rawRequestId, {
+                    result: { decision: decisionValue }
+                });
+                ownerSurfaceTracker.resolveRequest(approval.rawRequestId, conversationId);
+                sendWsEnvelope(ws, { type: 'follower_approval_response_sent', conversationId, requestId, acknowledged: true });
+            } catch (error) {
+                sendWsEnvelope(ws, { type: 'error', message: 'Failed to send owner approval response', detail: error.message });
+            }
+            return;
+        }
+
+        if (!ipcFeed) {
+            sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available' });
+            return;
+        }
+        if (!_isIpcOnline()) {
+            sendWsEnvelope(ws, { type: 'error', message: 'IPC is not available for active send' });
+            return;
+        }
+
         try {
             const response = await ipcFeed.sendRequest(approval.method, {
                 conversationId,
@@ -1044,11 +1188,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     };
 
     const _handleFollowerPlanResponse = async (ws, conversationId, input, requestId, explicitResponse, questionId) => {
-        if (!ipcFeed) {
-            sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available' });
-            return;
-        }
-        if (!_isIpcOnline() || !_isIpcActiveSendAllowed() || !_isFollowerModeEnabled(ws)) {
+        if (!_isIpcActiveSendAllowed() || !_isFollowerModeEnabled(ws)) {
             sendWsEnvelope(ws, { type: 'error', message: 'IPC is not available for active send' });
             return;
         }
@@ -1063,6 +1203,50 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             const planAction = latest?.pendingPlanAction;
             const trimmedInput = typeof input === 'string' ? input.trim() : '';
             const livePlanRequestId = requestId || planAction?.requestId || '';
+
+            if (_shouldUseOwnerRuntime(conversationId)) {
+                if (!hasExplicitResponse && planAction && planAction.requestMethod === 'item/plan/requestImplementation' && isPlanAcceptInput(trimmedInput)) {
+                    const collaborationMode = resolvePlanStartCollaborationMode(latest);
+                    if (collaborationMode) {
+                        await codexService.request('thread/settings/update', {
+                            threadId: conversationId,
+                            collaborationMode
+                        });
+                        ownerSurfaceTracker.applyThreadSettingsUpdate(conversationId, { collaborationMode }, { broadcast: false });
+                    }
+                    await _startOwnerTurn(ws, conversationId, buildPlanImplementationPrompt(planAction.planContent || trimmedInput), latest, {
+                        successType: 'follower_plan_response_sent',
+                        failureMessage: 'Failed to send owner plan response'
+                    });
+                    return;
+                }
+
+                if (!livePlanRequestId) {
+                    sendWsEnvelope(ws, {
+                        type: 'error',
+                        message: 'Plan response cannot be submitted',
+                        detail: 'The current owner plan action does not include a live requestId.'
+                    });
+                    return;
+                }
+                const responsePayload = hasExplicitResponse
+                    ? explicitResponse
+                    : buildPlanInputResponse(trimmedInput, questionId || requestId || livePlanRequestId);
+                codexService.respondToServerRequest(livePlanRequestId, { result: responsePayload });
+                ownerSurfaceTracker.resolveRequest(livePlanRequestId, conversationId);
+                sendWsEnvelope(ws, { type: 'follower_plan_response_sent', conversationId, acknowledged: true });
+                return;
+            }
+
+            if (!ipcFeed) {
+                sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available' });
+                return;
+            }
+            if (!_isIpcOnline()) {
+                sendWsEnvelope(ws, { type: 'error', message: 'IPC is not available for active send' });
+                return;
+            }
+
             const hasExternalPlanAction = typeof ipcFeed.hasExternalPendingPlanAction === 'function'
                 ? ipcFeed.hasExternalPendingPlanAction(conversationId, livePlanRequestId)
                 : Boolean(planAction && livePlanRequestId);
@@ -1292,6 +1476,35 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
 
     function isDefaultCollaborationMode(mode) {
         return Boolean(mode && typeof mode === 'object' && !Array.isArray(mode) && mode.mode === 'default');
+    }
+
+    function chooseRicherConversationSurface(left, right) {
+        if (!left) return right || null;
+        if (!right) return left;
+        return surfaceContentScore(left) >= surfaceContentScore(right) ? left : right;
+    }
+
+    function surfaceContentScore(surface) {
+        if (!surface || typeof surface !== 'object') return 0;
+        const items = Array.isArray(surface.items) ? surface.items : [];
+        let score = items.length * 10;
+        for (const item of items) {
+            if (item && typeof item === 'object' && typeof item.text === 'string') {
+                score += Math.min(item.text.length, 200);
+            }
+        }
+        if (surface.pendingApproval) score += 1000;
+        if (surface.pendingPlanAction) score += 900;
+        if (surface.pendingUserInputAction) score += 800;
+        if (surface.activeGoal) score += 100;
+        if (surface.status === 'running') score += 50;
+        return score;
+    }
+
+    function isNoClientFoundError(error) {
+        const message = error && error.message ? error.message : String(error || '');
+        return /no[-_ ]client[-_ ]found/i.test(message) ||
+            /client[^a-z0-9]+not[^a-z0-9]+found/i.test(message);
     }
 
     function assertIpcSuccess(response) {
@@ -1897,6 +2110,8 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             return;
         }
 
+        ownerSurfaceTracker.handleNotification(method, params);
+
         if (method === 'account/rateLimits/updated') {
             getConnectedCodexSessions().forEach((session) => {
                 const stateChanged = updateCodexStateFromNotification(session, method, params);
@@ -1927,6 +2142,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             followerSessions
         } = getThreadRouting(threadId);
         if (!actorSession && followerSessions.length === 0) {
+            if (ownerSurfaceTracker.hasConversation(threadId)) {
+                return;
+            }
             console.warn('[gateway][codex][notification-drop][no-session-binding]', JSON.stringify(
                 summarizeCodexTraceNotification(method, params)
             ));
@@ -1990,6 +2208,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     const handleCodexServerRequest = ({ requestId, message, handledBy, result }) => {
         const method = message && message.method ? message.method : 'unknown';
         const threadId = CodexAppServerService.extractThreadId(message);
+        if (handledBy === 'client' && threadId) {
+            ownerSurfaceTracker.handleRequest(requestId, method, message.params || null);
+        }
         if (!threadId) {
             return;
         }
@@ -2180,7 +2401,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                     const type = envelope.type;
 
                     if (type === 'set_active_conversation') {
-                        _handleSetActiveConversation(ws, envelope.conversationId);
+                        _handleSetActiveConversation(ws, session, envelope.conversationId);
                     } else if (type === 'set_active_follower_mode') {
                         _setFollowerMode(ws, envelope.enabled === true);
                     } else if (type === 'follower_send_message') {

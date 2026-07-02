@@ -156,6 +156,7 @@ internal fun applyIpcConversationSelectionToUiState(
         state.planWorkflow.planRequestMethod != null ||
         state.planWorkflow.planQuestionId != null
     return state.copy(
+        threadId = selectedId,
         activeConversationId = selectedId,
         currentThreadTitle = selected.title ?: state.currentThreadTitle,
         cwd = selected.cwd ?: state.cwd,
@@ -205,6 +206,7 @@ internal fun applyDesktopSurfaceSnapshotToUiState(
 ): CodexUiState {
     val convId = snap.conversationId ?: state.activeConversationId
     return state.copy(
+        threadId = convId ?: state.threadId,
         activeConversationId = convId,
         ipcSurfaceSnapshot = snap,
         status = snap.status,
@@ -2418,14 +2420,32 @@ class CodexViewModel(
         when (envelope.type) {
             "session_info" -> {
                 val info = SessionInfo.from(json)
+                var conversationToSubscribe: String? = null
                 _uiState.update {
+                    val boundThreadId = normalizeThreadId(info.lastCodexThreadId)
+                    val shouldAdoptBoundThread = boundThreadId != null &&
+                        it.threadId.isNullOrBlank() &&
+                        it.activeConversationId.isNullOrBlank()
+                    if (shouldAdoptBoundThread) {
+                        conversationToSubscribe = boundThreadId
+                    }
                     syncExecutionWatch(
                         it.copy(
                             sessionId = info.sessionId,
-                            sessionName = info.sessionName
+                            sessionName = info.sessionName,
+                            cwd = info.cwd ?: it.cwd,
+                            threadId = if (shouldAdoptBoundThread) boundThreadId else it.threadId,
+                            activeConversationId = if (shouldAdoptBoundThread) {
+                                boundThreadId
+                            } else {
+                                it.activeConversationId
+                            }
                         ),
                         markActivity = false
                     )
+                }
+                conversationToSubscribe?.let { conversationId ->
+                    connectionManager.send(CodexClientMessages.setActiveConversation(conversationId))
                 }
                 Log.i(TAG, "Session info: ${info.sessionId} ${info.sessionName}")
             }
@@ -2521,12 +2541,35 @@ class CodexViewModel(
                 handleConversationActionRequired(json)
             }
 
+            "session_codex_thread_bound" -> {
+                val boundSessionId = json.optStringOrNullCompat("sessionId").orEmpty()
+                val conversationId = normalizeThreadId(
+                    json.optStringOrNullCompat("lastCodexThreadId")
+                        ?: json.optStringOrNullCompat("conversationId")
+                )
+                if (conversationId != null) {
+                    _uiState.update { current ->
+                        if (boundSessionId.isNotBlank() && boundSessionId != current.sessionId) {
+                            current
+                        } else {
+                            current.copy(
+                                threadId = conversationId,
+                                activeConversationId = conversationId
+                            )
+                        }
+                    }
+                }
+            }
+
             "codex_state" -> {
                 val state = CodexState.from(json)
                 _uiState.update { current ->
                     val wasIdle = current.status.equals("idle", ignoreCase = true)
                     val isIdle = state.status.equals("idle", ignoreCase = true)
                     val serverThreadId = state.threadId
+                    val nextThreadId = serverThreadId
+                        ?: current.activeConversationId
+                        ?: current.threadId
                     val threadChanged = serverThreadId != null && serverThreadId != current.threadId
                     // planMode is managed locally — never override from server codex_state
                     val nextPlanMode = current.planMode ?: false
@@ -2542,13 +2585,13 @@ class CodexViewModel(
                                 reasoningEffort = state.reasoningEffort ?: current.reasoningEffort,
                                 sandbox = state.sandbox ?: current.sandbox,
                                 planMode = nextPlanMode,
-                                threadId = serverThreadId,
+                                threadId = nextThreadId,
                                 currentTurnId = state.currentTurnId,
-                                currentThreadTitle = if (serverThreadId == null) {
+                                currentThreadTitle = if (nextThreadId == null) {
                                     ""
                                 } else {
                                     resolveCurrentThreadTitle(
-                                        threadId = serverThreadId,
+                                        threadId = nextThreadId,
                                         entries = current.threadHistoryEntries,
                                         fallback = current.currentThreadTitle
                                     )

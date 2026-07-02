@@ -69,7 +69,8 @@ data class SessionSelection(
     val profileId: String,
     val sessionId: String,
     val sessionMode: SessionMode = SessionMode.TERMINAL,
-    val cwd: String? = null
+    val cwd: String? = null,
+    val lastCodexThreadId: String? = null
 )
 
 data class ProfileSessionSummary(

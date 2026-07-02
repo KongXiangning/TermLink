@@ -1012,11 +1012,13 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         val sessionId = readIntentParam(targetIntent, "sessionId").orEmpty()
         val sessionMode = readIntentParam(targetIntent, "sessionMode")
         val cwd = readIntentParam(targetIntent, "cwd")
+        val threadId = readIntentParam(targetIntent, "threadId")
         if (
             profileId.isBlank() &&
             sessionId.isBlank() &&
             sessionMode.isNullOrBlank() &&
-            cwd.isNullOrBlank()
+            cwd.isNullOrBlank() &&
+            threadId.isNullOrBlank()
         ) {
             return null
         }
@@ -1024,7 +1026,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             profileId = profileId,
             sessionId = sessionId,
             sessionMode = SessionMode.fromWireValue(sessionMode),
-            cwd = cwd
+            cwd = cwd,
+            lastCodexThreadId = threadId
         )
     }
 
@@ -1104,7 +1107,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
                 this,
                 selection.profileId,
                 selection.sessionId,
-                cwd = selection.cwd
+                cwd = selection.cwd,
+                threadId = selection.lastCodexThreadId
             )
         )
         if (finishCurrent) {

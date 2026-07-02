@@ -6,6 +6,24 @@ import org.junit.Assert.*
 
 class CodexIpcWireModelTest {
 
+    @Test
+    fun `parse session info with last codex thread id`() {
+        val json = JSONObject(
+            """
+            {"type":"session_info","sessionId":"session-1","name":"Codex Task",
+             "sessionMode":"codex","cwd":"E:\\coding\\TermLink","lastCodexThreadId":" conv-live "}
+            """
+        )
+
+        val info = SessionInfo.from(json)
+
+        assertEquals("session-1", info.sessionId)
+        assertEquals("Codex Task", info.sessionName)
+        assertEquals("codex", info.sessionMode)
+        assertEquals("E:\\coding\\TermLink", info.cwd)
+        assertEquals("conv-live", info.lastCodexThreadId)
+    }
+
     // ── CodexIpcStatus ─────────────────────────────────────────────────
 
     @Test

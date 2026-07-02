@@ -571,7 +571,8 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             profileId = profileId,
             sessionId = session.id,
             sessionMode = session.sessionMode,
-            cwd = session.cwd
+            cwd = session.cwd,
+            lastCodexThreadId = session.lastCodexThreadId
         )
     }
 
@@ -732,7 +733,8 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             profileId = profile.id,
             sessionId = created.id,
             sessionMode = created.sessionMode,
-            cwd = created.cwd ?: requestedCwd
+            cwd = created.cwd ?: requestedCwd,
+            lastCodexThreadId = created.lastCodexThreadId
         )
         currentSelection = createdSelection
         applyLocalSessionMutation(profile) { sessions ->

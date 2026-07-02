@@ -12,7 +12,7 @@
 - 创建时间：2026-06-29
 - 创建来源：用户 `/goal` 请求
 - 任务类型：feature / server-android / Codex IPC realtime sync
-- 当前 handoff：manual-owner-approval-plan-smoke-required
+- 当前 handoff：ipc-id-entry-propagation-validated
 - 任务目标：只针对 TermLink 服务端与安卓端，完全遵照 `E:\coding\termlink-demo` 的技术实现改造 Codex 会话实时同步能力；`termlink-demo` 只读参考，以代码实现为准、`docs/技术文档.md` 为辅，禁止修改；服务端为 Codex 会话提供同步 Codex Desktop / VS Code Codex 扩展的能力，安卓端 Codex 会话作为展示端，所有获取信息与发送信息都通过服务端通信；安卓端页面布局与基础功能不得变动，功能不得减少。
 
 ## Supersede 记录
@@ -73,6 +73,7 @@ Allowed Files:
 - `src/services/codexIpcCodec.js`
 - `src/services/codexIpcConfig.js`
 - `src/services/codexIpcFeed.js`
+- `src/services/codexOwnerSurfaceTracker.js`
 - `src/services/codexIpcThreadStream.js`
 - `src/services/codexIpcTransport.js`
 - `src/services/codexThreadHub.js`
@@ -81,6 +82,7 @@ Allowed Files:
 - `tests/codexIpcCodec.test.js`
 - `tests/codexIpcConfig.test.js`
 - `tests/codexIpcFeed.test.js`
+- `tests/codexOwnerSurfaceTracker.test.js`
 - `tests/codexIpcThreadStream.test.js`
 - `tests/codexThreadHub.test.js`
 - `tests/terminalGateway.codexIpc.test.js`
@@ -129,6 +131,7 @@ Forbidden Files:
   - `src/services/codexIpcCodec.js`
   - `src/services/codexIpcConfig.js`
   - `src/services/codexIpcFeed.js`
+  - `src/services/codexOwnerSurfaceTracker.js`
   - `src/services/codexIpcThreadStream.js`
   - `src/services/codexIpcTransport.js`
   - `src/services/codexThreadHub.js`
@@ -137,6 +140,7 @@ Forbidden Files:
   - `tests/codexIpcCodec.test.js`
   - `tests/codexIpcConfig.test.js`
   - `tests/codexIpcFeed.test.js`
+  - `tests/codexOwnerSurfaceTracker.test.js`
   - `tests/codexIpcThreadStream.test.js`
   - `tests/codexThreadHub.test.js`
   - `tests/terminalGateway.codexIpc.test.js`
@@ -148,6 +152,7 @@ Forbidden Files:
   - `src/routes/sessions.js`：仅当服务端需要 additive session response 字段或 Codex session action endpoint 才可改；必须保持旧 API backward-compatible 并补 tests。
   - `src/services/sessionManager.js`、`src/repositories/sessionStore.js`：仅当需要持久化 Codex live/follower 元数据才可改；必须提供迁移 / 兼容策略，不得删除现有字段。
   - `android/app/src/main/java/com/termlink/app/data/SessionApiModels.kt`、`android/app/src/main/java/com/termlink/app/data/SessionApiClient.kt`：仅当服务端 session DTO additive 扩展需要 Android 读取时可改。
+  - `android/app/src/main/java/com/termlink/app/MainShellActivity.kt`、`android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt`：仅当任务列表入口需要把已存在的 `lastCodexThreadId` 透传给 CodexActivity 时可改；禁止改布局、导航结构、视觉资源或减少原有入口。
   - `tests/routes.sessions.metadata.test.js`、`tests/sessionStore.metadata.test.js`、`tests/sessionManager.codexConfig.test.js`：仅当对应 session API / metadata 条件文件被修改时可改或运行；若命中既有 hanging 风险，记录超时证据。
   - `docs/workflow/STATUS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/LESSONS.md`、`docs/workflow/TASK_SUMMARY.md`、`TASKS/**`：仅在后续对应 sync / closeout / lesson / archive skill 触发时修改。
   - `docs/changes/records/CR-*.md`：仅当本轮进入提交或 docs-requirement-sync 门禁需要 CR 记录时新增。
@@ -166,6 +171,7 @@ Forbidden Files:
 - Dangerous surfaces：
   - `src/ws/terminalGateway.js`：WebSocket / Codex IPC / runtime bridge 高风险文件；只允许改 Codex IPC follower/snapshot/action routing，禁止改 session 创建、ticket、PTY、workspace、mTLS、BasicAuth、terminal runtime lifecycle。
   - `src/services/codexIpc*.js`：Codex IPC 连接、编解码、feed、snapshot projection；必须保持 demo parity 和 conversation isolation。
+  - `src/services/codexOwnerSurfaceTracker.js`：TermLink-managed Codex app-server owner surface projection；只允许承载 owner conversation state、pending request 与 normalized surface snapshot，不得改 session/store/auth/workspace 边界。
   - Android `CodexViewModel` / `CodexConnectionManager` / `CodexWebSocketClient` / `CodexWireModels`：只允许服务端通信与 state model 改造，不允许删除功能或改布局。
 - Locked contracts：
   - Sessions API、session summary DTO、`data/sessions.json`、6 小时 idle 保留、workspace boundary、WebSocket ticket / BasicAuth 语义均不得破坏。
@@ -176,6 +182,8 @@ Forbidden Files:
   - 出现 `public/**`、demo 目录、workspace、release、mTLS、auth、workflow generator 或 Android layout/resource 改动，按 major 越界处理。
   - 破坏锁定契约、Sessions API、WebSocket ticket / auth、session persistence schema 或 Android 功能集合，按 critical 越界处理。
 - Unlock / widening conditions：
+  - 2026-07-02 scope widening：用户明确要求 demo 已废弃 `CodexProxyBridge` 且 `OwnerSurfaceTracker` 必须加入 TermLink；根因排查确认当前 bug 来自 TermLink 缺少 owner surface tracker / owner-runtime 路由，导致 external Desktop / VS Code owner client 消失后只能继续走 IPC follower request 并触发 `no-client-found` / IPC unavailable。允许新增 `src/services/codexOwnerSurfaceTracker.js` 与 `tests/codexOwnerSurfaceTracker.test.js`，并在既有 `src/ws/terminalGateway.js`、`src/services/codexIpcFeed.js`、`tests/terminalGateway.codexIpc.test.js` 中做最小接线。风险：owner 与 external IPC surface 合并错误、pending request stale、误改旧 session runtime；验证方式：owner tracker unit tests、gateway no-client-found fallback / owner route targeted tests、服务 IPC/gateway targeted regression、`node --check` 与 `git diff --check`。
+  - 2026-07-02 scope widening：用户明确指出 Android 历史任务 id 不是 IPC 通道 id，且 demo 的业务逻辑是“有 ipc-id 直接读；任务列表原来没有 ipc-id、后来产生 ipc-id 时主动刷新列表并更新”。根因排查确认 TermLink 的任务列表选择对象 `SessionSelection` 未携带 `lastCodexThreadId`，导致从任务列表打开 Codex session 时即使 session summary 已有 IPC id，也不能作为 `threadId` 传入 `CodexActivity`；同 cwd 多任务场景会退回 cwd/latest 猜测，从而出现 A/B 任务串线。允许最小修改 `SessionApiModels.kt`、`SessionsFragment.kt`、`MainShellActivity.kt` 与 `CodexActivity.kt`，仅传递/保持 `lastCodexThreadId`，禁止修改 Android layout/resource/navigation 结构。风险：native shell selection 与 CodexActivity restore state 不一致；验证方式：Android JVM 编译/测试、真机 A->B 或 explicit Intent smoke、logcat 中目标 conversation snapshot 与 session metadata 一致。
   - 若 demo parity 必须修改 `public/**`、Android layout/resource、session persistence schema、auth/ticket、workspace 或 release/mTLS，必须停止并重新执行 `/lock-scope`，不得在实现中直接越界。
   - 若必须新增长期稳定 DTO / API 字段，需先记录影响面、兼容策略和验证方式，再按 Conditional Files 执行。
 
@@ -385,3 +393,6 @@ Implementation Plan:
 - 2026-06-30：补充真实 live conversation 长文本同步真机 smoke，验证用户反馈的 assistant 文本截断问题已在当前运行态消失。真实 IPC conversation list 当前包含 live 目标会话 `019f0f6e-9952-70e3-80a5-2a339c445e61`（status=running、cwd=`E:\coding\TermLink`、items 947+）以及多个 completed 会话，均无 pending approval / PLAN。安装修复后 debug APK 并显式打开 live 目标会话，Android `MQS7N19402011743` 持续收到 snapshot（items 951 -> 953），logcat 显示 `WebSocket opened`、`IPC status online=true`、多次 `IPC snapshot`，未见 `Unhandled` / `Failed` / `No matching` / `FATAL` / `AndroidRuntime`。UIAutomator dump 直接显示最近长文本完整内容，例如“当前真实 IPC 列表里没有 pending approval / PLAN；可用的真实 live 会话就是本轮目标会话本身，且仍在 running。接下来我用真机打开这条 running conversation，验证最近的长文本同步是否完整，不再只显示首字。”，不再只显示首字“我”；截图证据：`android/app/build/outputs/screenshots/termlink-codex-live-current-fulltext-20260630.png`。仍未完成：真实 owner 自然生成 pending approval / PLAN 后的三端写入式 smoke。
 - 2026-06-30：继续补强真实 owner 与重启恢复证据。首先用真实 `\\.\pipe\codex-ipc` 只读探测当前总线，收到 4 个 conversation：当前目标会话 `019f0f6e-9952-70e3-80a5-2a339c445e61` 为 running/items 982+/activeGoal=true，其余为 completed，均无 `pendingApproval` / `pendingPlanAction`。随后通过真实 `/api/ws-ticket` + WebSocket + `terminalGateway.js` 对 completed smoke conversation `019f1476-7b21-7990-a56d-0c859e7189c1` 发起两次低污染 owner pending 尝试：1) 请求“只制定计划并等待确认”，服务端收到 `follower_message_sent` ack，conversation items 21 -> 23 并 completed，但未出现 `pendingPlanAction`；assistant 文本声称等待确认，但 IPC surface 没有真实 pending。2) 请求创建 `D:\termlink_android_approval_smoke_20260630.txt` 以触发权限确认，owner 直接执行并 completed，未出现 `pendingApproval`；该 smoke 文件内容为本轮 marker，已立即删除确认 `SMOKE_FILE_REMOVED`。因此当前可见真实 owner 环境仍无法自然产生可点击 approval / PLAN pending，不能用这些尝试替代最终三端 pending action smoke。最后复验用户反馈的服务重启恢复：真机 `MQS7N19402011743` 打开 live 目标会话后，手动只停止 TermLink 当前 3010 进程链（未停止 `termlink-demo`），重启当前仓库 dev server，Android logcat 先出现 `Connection reset`，随后自动 `WebSocket opened`，收到新 IPC clientId `b84f0331-d5b1-49ea-b378-81fd909257a7` 与目标 conversation snapshot（items 1007），未见 `Unhandled` / `Failed` / `No matching` / `FATAL` / `AndroidRuntime`；截图与 UI dump：`android/app/build/outputs/screenshots/termlink-codex-live-restart-resync-20260630.png`、`android/app/build/outputs/screenshots/window-termlink-restart-20260630.xml`。补充观察：`.codex/skills/local-dev-server-control/scripts/manage-local-dev-server.ps1` 的 stop 匹配会把其它 `npm-cli.js run dev` 进程列入 tracked，本轮未使用其 restart，而是显式按 TermLink PID 链停止，避免误伤 `E:\coding\termlink-demo`。
 - 2026-06-30：继续对照 `E:\coding\termlink-demo` 当前 pending action 实现，重点核对 `src/codex-ipc/thread-stream.ts`、`server/src/codexIpcFeed.ts`、`server/src/wsGateway.ts` 的 external IPC pending approval / PLAN 投影与响应路由。结论：TermLink 当前服务端 external IPC 路径已覆盖 demo 的 command/file/permissions approval、`item/tool/requestUserInput`、`item/plan/requestImplementation`、`hasExternalPendingPlanAction()` 与 pending surface scoring；demo 额外的 `DemoOwnerSurfaceTracker` / app-server owner runtime 属于 demo 自托管 owner 路径，当前 TermLink 目标仍是同步 Desktop / VS Code owner，不在本轮搬迁范围。发现并修复一个 Android 端兼容小缺口：`resolveIpcFollowerApprovalDecision()` 原先拒绝时固定返回 `decline`，当 owner `availableDecisions` 仅提供 `reject` 时会偏离 live decision 集合；现改为按可用拒绝决策优先选择 `decline` / `reject` / `cancel`，无可用集合时才 fallback `decline`。补充 `ipcApprovalDecisionUsesAvailableRejectionWhenDeclineIsUnavailable` 单测。验证：JDK21 下 `.\gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelThreadReadyTest` BUILD SUCCESSFUL；服务 IPC/gateway targeted `node --test tests/codexIpcClient.test.js tests/codexIpcCodec.test.js tests/codexIpcConfig.test.js tests/codexIpcFeed.test.js tests/codexIpcThreadStream.test.js tests/codexThreadHub.test.js tests/terminalGateway.codexIpc.test.js` 127/127 pass；Android Codex package JVM tests BUILD SUCCESSFUL；`git diff --check` 无 whitespace error（仅 CRLF warning）。未修改 demo、Web、Android layout/resource/navigation/Manifest；真实 owner 自然 pending approval / PLAN 仍未可得，最终三端 pending action smoke 继续保留。
+- 2026-07-02：执行用户要求的最小修复，废弃 `CodexProxyBridge` 方向并把 `OwnerSurfaceTracker` 加入 TermLink。先按 `/lock-scope` 扩大最小范围，新增 `src/services/codexOwnerSurfaceTracker.js` 与 `tests/codexOwnerSurfaceTracker.test.js`；实现 TermLink-managed owner surface tracker，接收 `CodexAppServerService` notification / server_request，输出 `ownerKind=termlink` 的 normalized surface snapshot，并保留 external IPC seed surface。`terminalGateway` 现在合并 owner surface 与 external IPC surface；`follower_send_message` 在 `no-client-found` 或 IPC offline 但存在 cached snapshot 时通过 `thread/resume` + `turn/start` 接管同一 conversation；owner-owned conversation 后续普通 turn、interrupt、approval 与 PLAN/user-input response 优先走本地 app-server，不再依赖 external Desktop / VS Code owner client。`CodexIpcFeed` 增加 `sendBroadcast()` 薄封装，用于 owner surface 可选回写 IPC broadcast。验证：`node --test --test-name-pattern "owner runtime|owner-owned|owner pending|offline but snapshot" tests/terminalGateway.codexIpc.test.js` 4/4 pass；`node --test tests/terminalGateway.codexIpc.test.js` 33/33 pass；服务 IPC/gateway targeted `node --test tests/codexIpcClient.test.js tests/codexIpcCodec.test.js tests/codexIpcConfig.test.js tests/codexIpcFeed.test.js tests/codexIpcThreadStream.test.js tests/codexThreadHub.test.js tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js` 134/134 pass；`node --check` 覆盖相关服务端与测试文件；`git diff --check` 无 whitespace error（仅 CRLF warning）；`git diff --name-only -- public web android\app\src\main\res android\app\src\main\AndroidManifest.xml` 为空。`git -C E:\coding\termlink-demo status --short` 仍显示 demo 仓库既有脏文件，但本轮未写入 demo。修复方向结论：自动化已证明 owner client 消失 / IPC offline with cached snapshot 不再直接报错，而会进入 TermLink owner runtime 接管；真实 Desktop / VS Code 进程退出端到端 smoke 仍可作为后续人工验证补强。
+- 2026-07-02：继续排查用户反馈的 Android Codex 会话无法拿到 Desktop 最新 running 状态、以及任务列表无 IPC id 时不会回写绑定的问题。根因：TermLink 的 `set_active_conversation` 只订阅 IPC snapshot，不把选中的 `conversationId` 写回当前 Codex session 的 `lastCodexThreadId`；Android 虽能解析 session 列表中的 `lastCodexThreadId`，但 `session_info` DTO 未读取该字段，自动按 cwd/latest 选中 IPC conversation 后也没有同步更新 `threadId`，后续还可能被 `codex_state(threadId=null)` 冲掉。修复：`terminalGateway` 在 `set_active_conversation` 成功时持久化 session `lastCodexThreadId` 并发送 `session_codex_thread_bound`；Android `SessionInfo` 读取 `lastCodexThreadId`，`CodexViewModel` 在 session_info / 绑定事件 / IPC conversation selection / surface snapshot 中保持 `threadId == activeConversationId`，且空 `codex_state.threadId` 不再覆盖已选 IPC conversation。验证：`node --test tests/terminalGateway.codexIpc.test.js` 33/33 pass；服务 IPC/gateway targeted 134/134 pass；JDK21 下 Android Codex focused 与 package JVM tests BUILD SUCCESSFUL；JDK21 下 `:app:assembleDebug` BUILD SUCCESSFUL；真机 `MQS7N19402011743` 已重装新版 APK，`CodexActivity` 为 ResumedActivity，logcat 显示 `WebSocket opened`、`IPC status online=true`、conversation `019f17d4-40f4-78d0-a7e5-774dd9193c50` 持续收到 `status=running` snapshot（items 173 -> 175），且 `data/sessions.json` 已写回该 `lastCodexThreadId`。未执行 OS 级 Desktop 点击发送：当前工具只暴露 Chrome/Node/Codex 线程工具，没有通用 computer-use；但当前 Codex Desktop 会话自身继续产生消息时 Android snapshot items 已增长，证明 Desktop owner running 状态可实时到达 Android。
+- 2026-07-02：按用户补充结论继续收口：demo 已废弃 `CodexProxyBridge`，TermLink 必须保留 `OwnerSurfaceTracker`；同时修复“有 IPC id 应直接读，历史 task id 不能当 IPC id”的 Android 入口链路。新增 `SessionSelection.lastCodexThreadId`，`SessionsFragment` 从 refreshed session summary / create response 构造 selection 时保留 `lastCodexThreadId`；`MainShellActivity.openSessionInNativeCodex()` 将 selection 中的 IPC id 作为 `CodexActivity.threadId`；`CodexActivity` 自身 session drawer 与 restore/current selection 也继续保留该 id。验证：`node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js` 36/36 pass；JDK21 下 `.\gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.* --tests com.termlink.app.codex.data.* :app:assembleDebug` BUILD SUCCESSFUL；真机 `MQS7N19402011743` 覆盖安装新版 APK 后启动，logcat 显示 `thread/read reason=launch-hydrate threadId=019f17d4-40f4-78d0-a7e5-774dd9193c50`，与服务端 `/api/sessions` 返回的 `lastCodexThreadId` 一致；服务端 WebSocket smoke 显示 `session_info.lastCodexThreadId=019f17d4-40f4-78d0-a7e5-774dd9193c50`、`codex_ipc_status.online=true`、conversation list 中该 id 为 `running` 且 items=219，并在 `set_active_conversation` 后返回 `conversation_surface_snapshot`。`/api/sessions` 同时显示该 Codex session `activeConnections=1`。未修改 demo、Web、Android layout/resource/navigation/Manifest。当前工具面仍未暴露可操作 native Codex Desktop 的 computer-use 能力，无法执行“点击 Desktop 手动发一条消息”的 OS 级 smoke；本轮用真实 IPC online + Android logcat + gateway WS snapshot 替代验证。

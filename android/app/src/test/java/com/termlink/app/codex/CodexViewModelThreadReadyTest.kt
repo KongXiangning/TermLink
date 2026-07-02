@@ -376,6 +376,7 @@ class CodexViewModelThreadReadyTest {
         )
 
         assertEquals("conv-live", next.activeConversationId)
+        assertEquals("conv-live", next.threadId)
         assertEquals(1, next.messages.size)
         assertEquals("conv-live", next.ipcSurfaceSnapshot?.conversationId)
         assertEquals(1, next.pendingServerRequests.size)
@@ -404,6 +405,7 @@ class CodexViewModelThreadReadyTest {
         )
 
         assertEquals("conv-live", next.activeConversationId)
+        assertEquals("conv-live", next.threadId)
         assertTrue(next.messages.isEmpty())
         assertNull(next.ipcSurfaceSnapshot)
         assertEquals(listOf("req-local"), next.pendingServerRequests.map { it.requestId })
@@ -667,6 +669,7 @@ class CodexViewModelThreadReadyTest {
         val next = applyDesktopSurfaceSnapshotToUiState(state, snapshot)
 
         assertEquals("conv-live", next.activeConversationId)
+        assertEquals("conv-live", next.threadId)
         assertEquals(snapshot, next.ipcSurfaceSnapshot)
         assertEquals("waiting_for_input", next.status)
         assertEquals(listOf("existing", "msg-user", "approval-msg"), next.messages.map { it.id })

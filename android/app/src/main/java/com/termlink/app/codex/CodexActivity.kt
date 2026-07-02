@@ -481,7 +481,8 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             profileId = params?.profileId ?: serverConfigStore.loadState().activeProfileId,
             sessionId = uiState.sessionId.ifBlank { params?.sessionId.orEmpty() },
             sessionMode = SessionMode.CODEX,
-            cwd = uiState.cwd ?: params?.cwd
+            cwd = uiState.cwd ?: params?.cwd,
+            lastCodexThreadId = normalizeCodexLaunchThreadId(uiState.threadId ?: params?.threadId)
         )
     }
 
@@ -496,6 +497,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                     sessionId = selection.sessionId,
                     sessionMode = selection.sessionMode.wireValue,
                     cwd = selection.cwd,
+                    threadId = selection.lastCodexThreadId,
                     launchSource = "sessions_drawer"
                 ).apply {
                     flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -754,7 +756,8 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             profileId = params.profileId,
             sessionId = params.sessionId,
             sessionMode = SessionMode.CODEX,
-            cwd = params.cwd
+            cwd = params.cwd,
+            lastCodexThreadId = params.threadId
         )
         syncActivityIntent(params)
         persistActiveLaunchSelection(params)
