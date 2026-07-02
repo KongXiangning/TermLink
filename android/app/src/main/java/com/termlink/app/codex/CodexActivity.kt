@@ -343,9 +343,23 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         drawerLayout?.post {
             drawerLayout?.let(ViewCompat::requestApplyInsets)
         }
+        // Log task loading on resume (after lock/unlock)
+        val state = viewModel.uiState.value
+        Log.i(TAG, "[lifecycle][onStart] activity visible, current task: " +
+            "threadId=${state.threadId.orEmpty()} " +
+            "activeConversationId=${state.activeConversationId.orEmpty()} " +
+            "ipcOnline=${state.ipcOnline} " +
+            "sessionId=${state.sessionId} " +
+            "cwd=${state.cwd.orEmpty()}")
     }
 
     override fun onStop() {
+        val state = viewModel.uiState.value
+        Log.i(TAG, "[lifecycle][onStop] activity hidden, active task: " +
+            "threadId=${state.threadId.orEmpty()} " +
+            "activeConversationId=${state.activeConversationId.orEmpty()} " +
+            "ipcOnline=${state.ipcOnline} " +
+            "sessionId=${state.sessionId}")
         isActivityVisible = false
         setStatusBarHidden(hidden = false, anchor = drawerLayout)
         if (!isChangingConfigurations) {
@@ -489,6 +503,15 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
     override fun onOpenSession(selection: SessionSelection) {
         drawerSelection = selection
         closeSessionsDrawerIfOpen()
+        val currentState = viewModel.uiState.value
+        Log.i(TAG, "[lifecycle][drawer-select] manual task selection: " +
+            "selectedThreadId=${selection.lastCodexThreadId.orEmpty()} " +
+            "selectedSessionId=${selection.sessionId} " +
+            "profileId=${selection.profileId} " +
+            "cwd=${selection.cwd.orEmpty()} " +
+            "currentActiveConversationId=${currentState.activeConversationId.orEmpty()} " +
+            "currentThreadId=${currentState.threadId.orEmpty()} " +
+            "ipcOnline=${currentState.ipcOnline}")
         if (selection.sessionMode == SessionMode.CODEX) {
             startActivity(
                 newIntent(

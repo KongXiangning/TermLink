@@ -670,6 +670,14 @@ class CodexViewModel(
         launchHydrateTargetThreadId = normalizeThreadId(params.threadId)
         launchHydrateInFlightThreadId = null
         val launchConversationId = normalizeThreadId(params.threadId)
+        val previousActiveConvId = _uiState.value.activeConversationId?.trim().orEmpty()
+        Log.i(TAG, "[ipc][connect] starting connection: " +
+            "launchConversationId=${launchConversationId.orEmpty()} " +
+            "launchThreadId=${params.threadId.orEmpty()} " +
+            "launchSource=${params.launchSource} " +
+            "previousActiveConversationId=$previousActiveConvId " +
+            "sessionId=${params.sessionId} " +
+            "profileId=${profile.id}")
         _uiState.update {
             recalculateNextTurnEffectiveConfig(
                 it.copy(
@@ -2412,6 +2420,7 @@ class CodexViewModel(
     private fun subscribeActiveConversationIfNeeded() {
         val conversationId = _uiState.value.activeConversationId?.trim().orEmpty()
         if (conversationId.isEmpty()) return
+        Log.i(TAG, "[ipc][subscribe-active-conversation] subscribing to conversationId=$conversationId")
         connectionManager.send(CodexClientMessages.setActiveConversation(conversationId))
     }
 
@@ -2421,11 +2430,18 @@ class CodexViewModel(
             "session_info" -> {
                 val info = SessionInfo.from(json)
                 var conversationToSubscribe: String? = null
+                val previousThreadId = _uiState.value.threadId.orEmpty()
+                val previousActiveConvId = _uiState.value.activeConversationId.orEmpty()
+                val boundThreadId = normalizeThreadId(info.lastCodexThreadId)
+                val condBoundThreadId = boundThreadId != null
+                val condThreadIdBlank = _uiState.value.threadId.isNullOrBlank()
+                val condActiveConvBlank = _uiState.value.activeConversationId.isNullOrBlank()
+                val shouldAdoptBoundThread = condBoundThreadId && condThreadIdBlank && condActiveConvBlank
+                Log.i(TAG, "[ipc][session-info][decision] boundThreadId=${boundThreadId.orEmpty()} " +
+                    "cond:boundThreadId=$condBoundThreadId threadIdBlank=$condThreadIdBlank activeConvBlank=$condActiveConvBlank " +
+                    "→ shouldAdopt=$shouldAdoptBoundThread " +
+                    "previousThreadId=$previousThreadId previousActiveConv=$previousActiveConvId")
                 _uiState.update {
-                    val boundThreadId = normalizeThreadId(info.lastCodexThreadId)
-                    val shouldAdoptBoundThread = boundThreadId != null &&
-                        it.threadId.isNullOrBlank() &&
-                        it.activeConversationId.isNullOrBlank()
                     if (shouldAdoptBoundThread) {
                         conversationToSubscribe = boundThreadId
                     }
@@ -2447,7 +2463,16 @@ class CodexViewModel(
                 conversationToSubscribe?.let { conversationId ->
                     connectionManager.send(CodexClientMessages.setActiveConversation(conversationId))
                 }
-                Log.i(TAG, "Session info: ${info.sessionId} ${info.sessionName}")
+                val didAdopt = shouldAdoptBoundThread
+                Log.i(TAG, "[session-info] sessionReady: " +
+                    "sessionId=${info.sessionId} " +
+                    "sessionName=${info.sessionName} " +
+                    "lastCodexThreadId=${info.lastCodexThreadId.orEmpty()} " +
+                    "boundThreadId=${boundThreadId.orEmpty()} " +
+                    "didAdopt=$didAdopt " +
+                    "previousActiveConversationId=$previousActiveConvId " +
+                    "activeConversationId=${_uiState.value.activeConversationId.orEmpty()} " +
+                    "cwd=${info.cwd.orEmpty()}")
             }
 
             "codex_capabilities" -> {
@@ -2474,20 +2499,41 @@ class CodexViewModel(
             // ── IPC realtime sync messages ──
             "codex_ipc_status" -> {
                 val status = CodexIpcStatus.from(json)
+                val wasOnline = _uiState.value.ipcOnline
                 _uiState.update { applyIpcStatusToUiState(it, status) }
-                Log.d(TAG, "IPC status: online=${status.online} clientId=${status.clientId}")
+                Log.i(TAG, "[ipc][status] " +
+                    "online=${status.online} " +
+                    "wasOnline=$wasOnline " +
+                    "clientId=${status.clientId.orEmpty()} " +
+                    "activeConversationId=${_uiState.value.activeConversationId.orEmpty()}")
             }
 
             "codex_ipc_conversations" -> {
                 val conversations = CodexIpcConversationSummary.listFrom(json)
                 var conversationToSubscribe: String? = null
+                val previousConversationId = _uiState.value.activeConversationId?.trim().orEmpty()
+                val currentThreadId = _uiState.value.threadId?.trim().orEmpty()
+                val currentCwd = _uiState.value.cwd
+                // Trace selection reasoning
+                val matchReason: String
+                val selected: CodexIpcConversationSummary? = selectIpcConversationForUi(
+                    conversations = conversations,
+                    activeConversationId = previousConversationId,
+                    threadId = currentThreadId,
+                    cwd = currentCwd
+                )
+                matchReason = when {
+                    selected == null -> "none"
+                    selected.conversationId == previousConversationId -> "exact-activeConversationId"
+                    selected.conversationId == currentThreadId -> "threadId-match"
+                    selected.cwd != null && currentCwd != null &&
+                        selected.cwd.trim().replace('\\', '/').trimEnd('/').lowercase() ==
+                        currentCwd.trim().replace('\\', '/').trimEnd('/').lowercase() -> "cwd-match"
+                    selected.hasActiveGoal -> "hasActiveGoal"
+                    else -> "fallback-most-recent"
+                }
                 _uiState.update { current ->
-                    val preferred = selectIpcConversationForUi(
-                        conversations = conversations,
-                        activeConversationId = current.activeConversationId,
-                        threadId = current.threadId,
-                        cwd = current.cwd
-                    )
+                    val preferred = selected
                     if (preferred == null) {
                         clearIpcConversationSelectionFromUiState(current)
                     } else if (preferred.conversationId == current.activeConversationId?.trim().orEmpty()) {
@@ -2497,7 +2543,25 @@ class CodexViewModel(
                         applyIpcConversationSelectionToUiState(current, preferred)
                     }
                 }
+                val newConversationId = _uiState.value.activeConversationId?.trim().orEmpty()
+                val switched = previousConversationId.isNotEmpty() && newConversationId.isNotEmpty() && previousConversationId != newConversationId
+                Log.i(TAG, "[ipc][conversations-received] " +
+                    "conversationCount=${conversations.size} " +
+                    "availableIds=${conversations.map { it.conversationId }} " +
+                    "selectedId=$newConversationId " +
+                    "previousId=$previousConversationId " +
+                    "matchReason=$matchReason " +
+                    "switched=$switched " +
+                    "willSubscribe=${conversationToSubscribe != null}")
+                if (!switched && previousConversationId.isEmpty() && newConversationId.isEmpty()) {
+                    Log.w(TAG, "[ipc][conversations-received][no-selection] no conversation selected: " +
+                        "available=${conversations.size} " +
+                        "threadId=$currentThreadId " +
+                        "cwd=$currentCwd " +
+                        "anyHasActiveGoal=${conversations.any { it.hasActiveGoal }}")
+                }
                 conversationToSubscribe?.let { conversationId ->
+                    Log.i(TAG, "[ipc][subscribe] sending set_active_conversation: $conversationId")
                     connectionManager.send(CodexClientMessages.setActiveConversation(conversationId))
                 }
             }
@@ -2527,17 +2591,42 @@ class CodexViewModel(
                 val snap = DesktopSurfaceSnapshot.from(json)
                 val convId = snap.conversationId
                 val activeConv = _uiState.value.activeConversationId
-                if (convId != null && (activeConv == null || convId == activeConv)) {
+                val applied = convId != null && (activeConv == null || convId == activeConv)
+                if (applied) {
                     _uiState.update { current -> applyDesktopSurfaceSnapshotToUiState(current, snap) }
                 }
-                Log.d(TAG, "IPC snapshot: conv=$convId status=${snap.status} items=${snap.items.size}")
+                Log.i(TAG, "[ipc][surface-snapshot] " +
+                    "conv=$convId " +
+                    "activeConv=$activeConv " +
+                    "applied=$applied " +
+                    "status=${snap.status} " +
+                    "items=${snap.items.size} " +
+                    "hasPendingApproval=${snap.pendingApproval != null} " +
+                    "hasPendingPlan=${snap.pendingPlanAction != null} " +
+                    "hasActiveGoal=${snap.activeGoal != null}")
+                if (!applied && convId != null && activeConv != null) {
+                    Log.w(TAG, "[ipc][mismatch] surface snapshot not applied: " +
+                        "pushedConv=$convId != activeConv=$activeConv")
+                }
             }
 
             "conversation_status_changed" -> {
                 applyConversationStatusChanged(json)
+                val statusJson = json.optStringOrNullCompat("status").orEmpty()
+                val previousJson = json.optStringOrNullCompat("previousStatus").orEmpty()
+                Log.i(TAG, "[ipc][conversation-status-changed] " +
+                    "conversationId=${json.optStringOrNullCompat("conversationId").orEmpty()} " +
+                    "status=$statusJson " +
+                    "previousStatus=$previousJson")
             }
 
             "conversation_action_required" -> {
+                val convId = json.optStringOrNullCompat("conversationId").orEmpty()
+                val actionType = json.optString("actionType", "").trim()
+                Log.i(TAG, "[ipc][action-required] " +
+                    "conversationId=$convId " +
+                    "actionType=$actionType " +
+                    "activeConversationId=${_uiState.value.activeConversationId.orEmpty()}")
                 handleConversationActionRequired(json)
             }
 
@@ -2548,6 +2637,7 @@ class CodexViewModel(
                         ?: json.optStringOrNullCompat("conversationId")
                 )
                 if (conversationId != null) {
+                    val previousConversationId = _uiState.value.activeConversationId.orEmpty()
                     _uiState.update { current ->
                         if (boundSessionId.isNotBlank() && boundSessionId != current.sessionId) {
                             current
@@ -2558,6 +2648,11 @@ class CodexViewModel(
                             )
                         }
                     }
+                    Log.i(TAG, "[ipc][session-thread-bound] " +
+                        "boundSessionId=$boundSessionId " +
+                        "conversationId=$conversationId " +
+                        "previousActiveConversationId=$previousConversationId " +
+                        "switched=${previousConversationId.isNotEmpty() && previousConversationId != conversationId}")
                 }
             }
 
@@ -2627,6 +2722,12 @@ class CodexViewModel(
                 if (json.has("rateLimitState")) {
                     applyRateLimitPayload(state.rateLimitState)
                 }
+                Log.i(TAG, "[ipc][codex-state] threadId=${_uiState.value.threadId.orEmpty()} " +
+                    "activeConversationId=${_uiState.value.activeConversationId.orEmpty()} " +
+                    "status=${state.status} " +
+                    "serverThreadId=${state.threadId.orEmpty()} " +
+                    "ipcOnline=${_uiState.value.ipcOnline} " +
+                    "note=threadId-may-differ-from-activeConversationId")
             }
 
             "codex_thread_ready" -> {

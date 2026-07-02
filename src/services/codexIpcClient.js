@@ -292,6 +292,12 @@ class CodexIpcClient extends EventEmitter {
             if (typeof clientId === 'string') {
                 this._clientId = clientId;
                 this._initialized = true;
+                console.warn('[codex-ipc][client][initialize] acquired IPC-ID', JSON.stringify({
+                    clientId,
+                    clientType: this._clientType,
+                    label: this._clientIdLabel,
+                    pipePath: this._config.pipePath
+                }));
             }
         }
 

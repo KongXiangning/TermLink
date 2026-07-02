@@ -254,6 +254,18 @@ class CodexIpcFeed extends EventEmitter {
             status: inferStatusFromProjection(projection)
         });
 
+        console.warn('[codex-ipc][feed][broadcast] received thread-stream-state-changed', JSON.stringify({
+            conversationId,
+            revision: projection.revision,
+            status: surface.status || 'unknown',
+            itemCount: Array.isArray(surface.items) ? surface.items.length : 0,
+            sourceClientId: message.sourceClientId || undefined,
+            hasActiveGoal: Boolean(surface.activeGoal),
+            hasPendingApproval: Boolean(surface.pendingApproval),
+            hasPendingPlanAction: Boolean(surface.pendingPlanAction),
+            desynced: Boolean(projection.desynced)
+        }));
+
         // Cache the snapshot.
         let cache = this._snapshotCache.get(conversationId);
         if (!cache) {
@@ -290,18 +302,28 @@ class CodexIpcFeed extends EventEmitter {
 
     _onClientClose() {
         if (this._closed) return;
+        console.warn('[codex-ipc][feed][disconnect] IPC connection closed, scheduling reconnect', JSON.stringify({
+            clientId: this.clientId,
+            eventCount: this._sequence
+        }));
         this._online = false;
         this._emitStatus({ online: false, reconnecting: true, reason: 'disconnected', clientId: undefined });
         this._scheduleReconnect();
     }
 
     _onClientError(error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        console.warn('[codex-ipc][feed][error] IPC client error', JSON.stringify({
+            error: detail,
+            clientId: this.clientId,
+            eventCount: this._sequence
+        }));
         this._online = false;
         this._status = {
             ...this._status,
             online: false,
             reconnecting: true,
-            lastError: error instanceof Error ? error.message : String(error),
+            lastError: detail,
             clientId: undefined
         };
         this.emit('status', this.getStatus());
@@ -331,6 +353,11 @@ class CodexIpcFeed extends EventEmitter {
 
         try {
             await this._client.connect();
+            console.warn('[codex-ipc][feed][connect] IPC connection established', JSON.stringify({
+                clientId: this.clientId,
+                pipePath: this._config.pipePath,
+                connectAttempts: this._connectAttempts
+            }));
             this._emitStatus({
                 online: true,
                 reconnecting: false,
@@ -342,6 +369,11 @@ class CodexIpcFeed extends EventEmitter {
             });
         } catch (error) {
             const detail = error instanceof Error ? error.message : String(error);
+            console.warn('[codex-ipc][feed][connect] IPC connection failed', JSON.stringify({
+                error: detail,
+                pipePath: this._config.pipePath,
+                connectAttempts: this._connectAttempts
+            }));
             this._emitStatus({ online: false, reconnecting: true, reason: 'unavailable', detail, lastError: detail, clientId: undefined });
             this._scheduleReconnect();
         } finally {
@@ -351,6 +383,10 @@ class CodexIpcFeed extends EventEmitter {
 
     _scheduleReconnect() {
         if (this._closed || this._reconnectTimer) return;
+        console.warn('[codex-ipc][feed][reconnect] scheduling reconnect', JSON.stringify({
+            delayMs: this._reconnectDelayMs,
+            attempt: this._connectAttempts + 1
+        }));
         this._reconnectTimer = setTimeout(() => {
             this._reconnectTimer = null;
             this._connect().catch((error) => this._onClientError(error));

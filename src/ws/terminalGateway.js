@@ -814,12 +814,14 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             _ipcConversationLastStatus.set(conversationId, status);
         }
 
+        let sentCount = 0;
         for (const client of wss.clients) {
             if (client.readyState !== 1) continue;
             const activeConv = _ipcActiveConversations.get(client);
             if (activeConv !== conversationId) continue;
 
             sendWsEnvelope(client, { type: 'conversation_surface_snapshot', conversationId, snapshot: surface });
+            sentCount++;
             if (previousStatus && previousStatus !== status) {
                 sendWsEnvelope(client, {
                     type: 'conversation_status_changed',
@@ -830,27 +832,69 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             }
             _emitConversationActionRequired(client, conversationId, surface);
         }
+        console.warn('[gateway][ipc][surface-snapshot-pushed]', JSON.stringify({
+            conversationId,
+            status,
+            previousStatus: previousStatus || null,
+            statusChanged: Boolean(previousStatus && previousStatus !== status),
+            sentToSubscribers: sentCount
+        }));
+        if (sentCount === 0) {
+            const subscribedIds = [];
+            for (const client of wss.clients) {
+                if (client.readyState !== 1) continue;
+                const cid = _ipcActiveConversations.get(client);
+                if (cid) subscribedIds.push(cid);
+            }
+            console.warn('[gateway][ipc][mismatch] snapshot has no subscriber', JSON.stringify({
+                pushedConversationId: conversationId,
+                currentlySubscribedIds: subscribedIds
+            }));
+        }
     };
 
     if (ipcFeed) {
         ipcFeed.on('status', (status) => {
+            let sentCount = 0;
             for (const client of wss.clients) {
                 if (client.readyState === 1) { // WebSocket.OPEN
                     sendWsEnvelope(client, { type: 'codex_ipc_status', status });
+                    sentCount++;
                 }
             }
+            console.warn('[gateway][ipc][status-broadcast]', JSON.stringify({
+                online: status.online,
+                clientId: status.clientId || null,
+                sentToClients: sentCount
+            }));
         });
 
         ipcFeed.on('snapshot', ({ conversationId, surface }) => {
+            console.warn('[gateway][ipc][snapshot-push]', JSON.stringify({
+                conversationId,
+                status: surface.status || 'unknown',
+                itemCount: Array.isArray(surface.items) ? surface.items.length : 0,
+                hasActiveGoal: Boolean(surface.activeGoal),
+                hasPendingApproval: Boolean(surface.pendingApproval),
+                hasPendingPlanAction: Boolean(surface.pendingPlanAction)
+            }));
             _pushConversationSurfaceSnapshot(conversationId, surface);
         });
 
         ipcFeed.on('event', (event) => {
+            let sentCount = 0;
             for (const client of wss.clients) {
                 if (client.readyState === 1) {
                     sendWsEnvelope(client, { type: 'codex_ipc_sync_event', event });
+                    sentCount++;
                 }
             }
+            console.warn('[gateway][ipc][sync-event-broadcast]', JSON.stringify({
+                conversationId: event.threadId || event.conversationId || null,
+                method: event.method || null,
+                sequence: event.sequence,
+                sentToClients: sentCount
+            }));
         });
 
         ipcFeed.on('error', (error) => {
@@ -919,6 +963,11 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         if (conversations.length > 0) {
             sendWsEnvelope(ws, { type: 'codex_ipc_conversations', conversations });
         }
+        console.warn('[gateway][ipc][broadcast-ipc-status]', JSON.stringify({
+            conversationCount: conversations.length,
+            conversationIds: conversations.map(c => c.conversationId),
+            ipcOnline: _getIpcStatus().online
+        }));
         _sendFollowerMode(ws);
     };
 
@@ -933,6 +982,12 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         }
         const normalizedConversationId = conversationId.trim();
         _ipcActiveConversations.set(ws, normalizedConversationId);
+        console.warn('[gateway][ipc][set-active-conversation]', JSON.stringify({
+            conversationId: normalizedConversationId,
+            sessionId: session?.id || null,
+            sessionMode: session?.sessionMode || null,
+            previousThreadId: session && isNonEmptyString(session.lastCodexThreadId) ? session.lastCodexThreadId.trim() : null
+        }));
 
         if (session && session.sessionMode === 'codex') {
             const previousThreadId = isNonEmptyString(session.lastCodexThreadId)
