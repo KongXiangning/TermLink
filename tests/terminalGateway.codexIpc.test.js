@@ -388,6 +388,33 @@ test('IPC status broadcast reaches all connected clients', async () => {
     await stopGateway(g);
 });
 
+test('IPC recovery broadcasts the refreshed conversation list to connected clients', async () => {
+    const g = await setupGateway({ ipcFeed: new FakeIpcFeed({ online: false }) });
+    g.ipcFeed.pushSnapshot('conv-recovered', {
+        conversationId: 'conv-recovered',
+        status: 'running',
+        title: 'Recovered conversation',
+        items: [{ key: 'm1', kind: 'message', role: 'assistant', text: 'still running' }]
+    });
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+    messages.length = 0;
+
+    g.ipcFeed.setOnline(true);
+    g.ipcFeed.pushStatus({ online: true, clientId: 'recovered-client' });
+    await delay(50);
+
+    const list = messages.find(message => message.type === 'codex_ipc_conversations');
+    assert.ok(list, 'IPC recovery must broadcast the refreshed conversation list');
+    assert.equal(list.conversations.length, 1);
+    assert.equal(list.conversations[0].conversationId, 'conv-recovered');
+    assert.equal(list.conversations[0].status, 'running');
+    ws.close();
+    await stopGateway(g);
+});
+
 test('client disconnect does not crash on subsequent snapshot push', async () => {
     const g = await setupGateway();
     const sess = await g.sm.createSession({ name: 'test' });

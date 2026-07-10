@@ -222,6 +222,41 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun codexStateThreadChangeRebindsTheActiveConversationAndRequiresResubscribe() {
+        val selectedThreadId = resolveCodexStateThreadId(
+            serverThreadId = "conv-new",
+            activeConversationId = "conv-old",
+            currentThreadId = "conv-old"
+        )
+
+        assertEquals("conv-new", selectedThreadId)
+        assertTrue(
+            shouldResubscribeForCodexStateThreadChange(
+                previousThreadId = "conv-old",
+                serverThreadId = "conv-new"
+            )
+        )
+    }
+
+    @Test
+    fun codexStateWithoutThreadKeepsTheCurrentIpcConversationAndDoesNotResubscribe() {
+        val selectedThreadId = resolveCodexStateThreadId(
+            serverThreadId = null,
+            activeConversationId = "conv-live",
+            currentThreadId = "thread-history"
+        )
+
+        assertEquals("conv-live", selectedThreadId)
+        assertEquals(
+            false,
+            shouldResubscribeForCodexStateThreadChange(
+                previousThreadId = "conv-live",
+                serverThreadId = null
+            )
+        )
+    }
+
+    @Test
     fun activeFollowerModeEnableIsRequestedOnlyWhenServerAllowsActiveSend() {
         assertEquals(
             true,

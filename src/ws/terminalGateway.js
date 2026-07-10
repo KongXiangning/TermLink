@@ -867,6 +867,19 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 clientId: status.clientId || null,
                 sentToClients: sentCount
             }));
+            // When IPC comes online (new IPC-ID from desktop Codex), push fresh
+            // conversation list so the app can re-evaluate which conversation to follow.
+            if (status.online) {
+                const conversations = _buildConversations();
+                const convSent = _broadcastConversationsToAll(conversations);
+                if (convSent > 0) {
+                    console.warn('[gateway][ipc][status-online-conversations]', JSON.stringify({
+                        conversationCount: conversations.length,
+                        conversationIds: conversations.map(c => c.conversationId),
+                        sentToClients: convSent
+                    }));
+                }
+            }
         });
 
         ipcFeed.on('snapshot', ({ conversationId, surface }) => {
@@ -924,18 +937,8 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         }
     });
 
-    const _broadcastIpcStatus = (ws) => {
-        if (!ipcFeed) return;
-        sendWsEnvelope(ws, {
-            type: 'codex_ipc_status',
-            status: _getIpcStatus()
-        });
-        if (typeof ipcFeed.getRecentEvents === 'function') {
-            for (const event of ipcFeed.getRecentEvents()) {
-                sendWsEnvelope(ws, { type: 'codex_ipc_sync_event', event });
-            }
-        }
-        // Also send the list of known conversations so the client can populate its selector.
+    const _buildConversations = () => {
+        if (!ipcFeed) return [];
         const snapshotMap = new Map();
         for (const s of ipcFeed.getRecentSnapshots()) {
             snapshotMap.set(s.conversationId, s);
@@ -946,7 +949,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 ? { ...s, surface: chooseRicherConversationSurface(s.surface, existing.surface), timestamp: Math.max(s.timestamp || 0, existing.timestamp || 0) }
                 : s);
         }
-        const conversations = Array.from(snapshotMap.values()).map(s => ({
+        return Array.from(snapshotMap.values()).map(s => ({
             conversationId: s.conversationId,
             status: s.surface?.status || 'unknown',
             updatedAt: s.timestamp,
@@ -960,6 +963,32 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             hasPendingPlanAction: Boolean(s.surface?.pendingPlanAction),
             hasPendingUserInputAction: Boolean(s.surface?.pendingUserInputAction)
         }));
+    };
+
+    const _broadcastConversationsToAll = (conversations) => {
+        if (!conversations || conversations.length === 0) return 0;
+        let sent = 0;
+        for (const client of wss.clients) {
+            if (client.readyState === 1) {
+                sendWsEnvelope(client, { type: 'codex_ipc_conversations', conversations });
+                sent++;
+            }
+        }
+        return sent;
+    };
+
+    const _broadcastIpcStatus = (ws) => {
+        if (!ipcFeed) return;
+        sendWsEnvelope(ws, {
+            type: 'codex_ipc_status',
+            status: _getIpcStatus()
+        });
+        if (typeof ipcFeed.getRecentEvents === 'function') {
+            for (const event of ipcFeed.getRecentEvents()) {
+                sendWsEnvelope(ws, { type: 'codex_ipc_sync_event', event });
+            }
+        }
+        const conversations = _buildConversations();
         if (conversations.length > 0) {
             sendWsEnvelope(ws, { type: 'codex_ipc_conversations', conversations });
         }

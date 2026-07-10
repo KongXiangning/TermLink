@@ -43,6 +43,20 @@
 - 替代方案：覆盖多种 Linux init 体系；当前未采用
 - 验证方式：`docs/workflow/CURRENT_TASK.md` 中的用户确认与后续 Linux 安装步骤验证
 
+### AD-004: Codex 实时同步核心冻结为稳定基线，pending action 另行验收
+
+- 状态：accepted
+- 背景：TermLink 已完成并经真实 Android 手动验证同一 Codex 任务的最新 running 状态可以实时同步；同时完成 IPC id 绑定回写、Android 入口直传、A/B session 切换隔离，以及外部 owner 缺失时由 TermLink owner runtime 接管。授权提权和 PLAN 只具备自动化 / harness 路径证据，尚未得到真实 owner 自然产生 pending action 的人工端到端验证。
+- 决策：把上述实时同步核心作为后续开发的稳定架构基线。`lastCodexThreadId` / `activeConversationId` 使用 IPC conversation id；`CodexOwnerSurfaceTracker` 保留为正式容错 owner runtime；新功能不得以历史 task id、cwd/latest 猜测或 `CodexProxyBridge` 替换已绑定会话和 owner fallback。
+- 原因：这些链路已解决 Android 实时状态不同步、IPC id 延迟产生后任务列表不更新、A/B task 串线和 external owner 消失导致 `no-client-found` 的已知问题；重做其中任一层会重新引入同类失效。
+- 约束：
+  - 变更该基线必须同步评估并回归 `CONTRACTS.md` 所列 Node / Android tests；影响 session selection 或 restore 时必须做 A -> B -> A 真机 smoke。
+  - 未有新的显式架构决策和兼容验证前，不得移除 `session_codex_thread_bound`、`lastCodexThreadId` 回写、`OwnerSurfaceTracker` 或 Android non-null thread change 重订阅。
+  - “真实 owner 授权提权”和“真实 owner PLAN”保留为独立 pending action 验收项，禁止借实时同步核心通过而标记完成。
+- 影响范围：`src/ws/terminalGateway.js`、`src/services/codexOwnerSurfaceTracker.js`、`src/services/codexIpcFeed.js`、session metadata、Android Codex selection / ViewModel / Activity / Sessions entry。
+- 替代方案：重新让 Android 按 cwd/latest 或历史 task id 推断 conversation，或只依赖外部 Desktop / VS Code owner；当前均未采用。
+- 验证方式：`tests/codexOwnerSurfaceTracker.test.js`、`tests/terminalGateway.codexIpc.test.js`、Android Codex ViewModel/wire JVM tests，以及已完成的 Android A -> B -> A 和同任务实时同步手动 smoke。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径

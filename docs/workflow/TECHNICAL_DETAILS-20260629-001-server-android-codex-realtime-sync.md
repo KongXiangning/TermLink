@@ -15,8 +15,8 @@
 - snapshot 内容可做 richer-surface merge，但 `pendingPlanAction` / `pendingApproval` 这类瞬时交互状态必须谨慎，避免 stale pending 残留。
 - follower 控制类操作必须按 owner 类型分流：
   - Desktop / VS Code owner：走 `thread-follower-*` IPC request。
-  - demo-managed owner：走 managed app-server，并广播不弱于当前 live surface 的 snapshot。
-  - TermLink 本任务第一轮优先保证 Desktop / VS Code live surface follower 路径；未验证 owner activation 不写成稳定能力。
+  - TermLink-managed owner：走 managed app-server，并广播不弱于当前 live surface 的 snapshot。
+  - TermLink 已由 `CodexOwnerSurfaceTracker` 承担 owner fallback；未验证的部分仅是外部 owner 自然产生的授权提权 / PLAN pending action 端到端验收。
 
 ## 模块映射
 
@@ -26,7 +26,7 @@
 | `src/codex-ipc/thread-stream.ts` | `src/services/codexIpcThreadStream.js` | TermLink 已有 projection，但比 demo 少 `ownerKind`、`cwd`、collaboration mode、goal、permissions schema 细节和 session-only 状态支撑。 | 按 demo 补齐 surface 字段与 request normalization，避免原始 IPC patch 直接给 Android。 |
 | `server/src/wsGateway.ts` | `src/ws/terminalGateway.js` | TermLink 有 `set_active_conversation`、send、approval、plan，但缺 follower mode gate、goal/interrupt、richer merge、session-only/live state、owner-type 分流、action required events。 | 在不改 session/ticket/PTY/workspace 的前提下补服务端 gateway Codex IPC action surface。 |
 | `server/src/threadHub.ts` | `src/services/codexThreadHub.js` | TermLink 需要确认当前 hub 是否足够表达 active conversation / subscriber state。 | 只在必要时补最小状态，避免影响 session lifecycle。 |
-| `server/src/demoOwnerSurfaceTracker.ts` | no direct TermLink target in first batch | demo-managed owner runtime 是 demo 特有补强；本任务第一轮不承诺未验证 owner activation。 | 只吸收其 stronger surface / stale snapshot 经验，不直接引入 demo owner runtime。 |
+| `server/src/demoOwnerSurfaceTracker.ts` | `src/services/codexOwnerSurfaceTracker.js` | 外部 Desktop / VS Code owner 消失时，TermLink 不能继续只走 follower IPC request。 | TermLink owner tracker 接收 app-server surface，`terminalGateway` 在 `no-client-found` 或 IPC offline with cached surface 时恢复同一 conversation 并接管后续 owner action。 |
 | `web/src/App.tsx` / `wsClient.ts` | Android Codex ViewModel / wire model | Android 目前混合旧 `codex_state` 和 IPC snapshot，`mergeSurfaceItems()` 只追加、不全量替换，pending approval 被降成 command/freeform。 | Android 继续保留 UI，但将 Codex IPC snapshot 作为服务端展示数据源之一，按 active conversation 做全量/可收敛 merge，并保留 request kind。 |
 
 ## 服务端数据面设计
@@ -139,6 +139,8 @@
 
 - 连接后应能接收 `codex_ipc_conversations` 并选择当前 session/thread 对应 conversation。
 - `conversation_surface_snapshot` 必须只应用到 `activeConversationId`。
+- `lastCodexThreadId` 是 IPC conversation id；有该值时 session entry / restore 直接使用。初始无该值的 session 在 `set_active_conversation` 后必须回写，并由 sessions refresh 返回。
+- `codex_state.threadId` 为非空新值时，Android 必须更新 `threadId` 与 `activeConversationId` 并重新订阅；空值不得清除已选 IPC conversation。
 - surface items 不应无限追加 stale item；需要按 snapshot 重建 IPC-origin 消息，保留当前本地 composer / pending attachment / 非 IPC local tail。
 - pending approval 应保留 request kind、response mode、method、raw request id，而不是降级为 command/freeform。
 - pending plan action 清空应以最新 snapshot 为准；不能用旧 action 兜底保留 stale pending。
@@ -163,5 +165,5 @@
 
 - 不修改 `E:\coding\termlink-demo`。
 - 不修改 `public/**` Web 页面。
-- 不承诺未验证的 owner activation / create-open-resume。
+- 不承诺真实 owner 自然产生的授权提权 / PLAN pending action 已完成端到端验收。
 - 不重写 Android UI 或删除现有功能。

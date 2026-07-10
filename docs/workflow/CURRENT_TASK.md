@@ -12,7 +12,7 @@
 - 创建时间：2026-06-29
 - 创建来源：用户 `/goal` 请求
 - 任务类型：feature / server-android / Codex IPC realtime sync
-- 当前 handoff：ipc-id-entry-propagation-validated
+- 当前 handoff：realtime-sync-core-stabilized-pending-owner-action-manual-smoke
 - 任务目标：只针对 TermLink 服务端与安卓端，完全遵照 `E:\coding\termlink-demo` 的技术实现改造 Codex 会话实时同步能力；`termlink-demo` 只读参考，以代码实现为准、`docs/技术文档.md` 为辅，禁止修改；服务端为 Codex 会话提供同步 Codex Desktop / VS Code Codex 扩展的能力，安卓端 Codex 会话作为展示端，所有获取信息与发送信息都通过服务端通信；安卓端页面布局与基础功能不得变动，功能不得减少。
 
 ## Supersede 记录
@@ -209,6 +209,7 @@ Forbidden Files:
 - Android UI 规则：页面布局和基础功能不能变动，功能不能减少；只允许更新实现与数据流。
 - TD-004 仍生效：`node --test` full suite 当前存在既有 hanging 风险，优先使用 targeted tests 与 confirmed narrow gate。
 - `terminalGateway.js` 是高风险文件，必须 guarded scope。
+- 用户确认同一 Codex 任务的 Android 实时同步已手动成功；该核心进入稳定基线。真实 owner 授权提权与真实 owner PLAN 仍未手动验证，必须保留为独立验收，不得随核心同步能力一并标记完成。
 
 ## 决策分类
 
@@ -225,6 +226,7 @@ Forbidden Files:
   - 不得修改 Web `public/**` 来满足本目标。
   - 不得改变 Android 页面布局、导航入口或减少基础功能。
   - 不得把未验证的 owner activation / create-open-resume 能力写成已完成稳定能力；若只能证明已 live conversation follower 同步，应把历史会话激活拆为 follow-up。
+  - 不得因实时同步核心已稳定，就把真实 owner 授权提权或真实 owner PLAN 写成已完成；两者均要求独立的 pending action 人工 smoke。
 - 结论：无需回问用户即可进入 `/plan-implementation`；所有用户明确要求均被当作硬约束。
 
 ## 待确认问题
@@ -324,7 +326,7 @@ Implementation Plan:
 3. 已完成：服务端控制面。按 demo 实现收敛 follower send / goal / approval / plan / user input / interrupt routing，补 targeted Node tests；`tests/terminalGateway.codexIpc.test.js` 已可自然退出并 22/22 pass。
 4. 已完成：Android wire 与 state。更新 Android Codex wire model、ViewModel，使 live snapshot、follower mode、approval / permissions / file、PLAN、user input、goal、interrupt 与普通消息都经服务端 envelope 接入；无 Android layout/resource 改动。
 5. 已完成：Android UI binding preserve。仅复用现有 messages、pendingServerRequests、planWorkflow、runtime/status 与原操作入口接入新状态；页面布局、导航入口、基础功能和已有交互能力未减少。
-6. 当前步骤：集成 smoke 与最终审查。自动化回归、真实 IPC 只读链路 smoke、真实 dev server ticket/WebSocket 只读链路、Android IPC conversation list bootstrap、Android debug APK build、Android 真机只读/视觉 smoke、真实 Android active-send 写入式 smoke，以及可控 harness 下的 Android approval / PLAN -> 当前服务端 gateway 写入路径 smoke 已完成；真实 Desktop / VS Code owner 自然产生 pending approval / PLAN 的三端手动验证仍待可写测试会话。
+6. 当前步骤：核心实时同步已稳定，pending action 验收仍待完成。自动化回归、真实 IPC 只读链路 smoke、真实 dev server ticket/WebSocket 只读链路、Android IPC conversation list bootstrap、Android debug APK build、Android 真机只读/视觉 smoke、真实 Android active-send 写入式 smoke、Android A -> B -> A 切换、同一 Codex 任务最新 running 状态同步，以及可控 harness 下的 Android approval / PLAN -> 当前服务端 gateway 写入路径 smoke 已完成；真实 Desktop / VS Code owner 自然产生 pending approval / PLAN 的三端手动验证仍待可写测试会话。
 
 ## 回归检查项
 
@@ -398,3 +400,4 @@ Implementation Plan:
 - 2026-07-02：按用户补充结论继续收口：demo 已废弃 `CodexProxyBridge`，TermLink 必须保留 `OwnerSurfaceTracker`；同时修复“有 IPC id 应直接读，历史 task id 不能当 IPC id”的 Android 入口链路。新增 `SessionSelection.lastCodexThreadId`，`SessionsFragment` 从 refreshed session summary / create response 构造 selection 时保留 `lastCodexThreadId`；`MainShellActivity.openSessionInNativeCodex()` 将 selection 中的 IPC id 作为 `CodexActivity.threadId`；`CodexActivity` 自身 session drawer 与 restore/current selection 也继续保留该 id。验证：`node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js` 36/36 pass；JDK21 下 `.\gradlew.bat :app:testDebugUnitTest --tests com.termlink.app.codex.* --tests com.termlink.app.codex.data.* :app:assembleDebug` BUILD SUCCESSFUL；真机 `MQS7N19402011743` 覆盖安装新版 APK 后启动，logcat 显示 `thread/read reason=launch-hydrate threadId=019f17d4-40f4-78d0-a7e5-774dd9193c50`，与服务端 `/api/sessions` 返回的 `lastCodexThreadId` 一致；服务端 WebSocket smoke 显示 `session_info.lastCodexThreadId=019f17d4-40f4-78d0-a7e5-774dd9193c50`、`codex_ipc_status.online=true`、conversation list 中该 id 为 `running` 且 items=219，并在 `set_active_conversation` 后返回 `conversation_surface_snapshot`。`/api/sessions` 同时显示该 Codex session `activeConnections=1`。未修改 demo、Web、Android layout/resource/navigation/Manifest。当前工具面仍未暴露可操作 native Codex Desktop 的 computer-use 能力，无法执行“点击 Desktop 手动发一条消息”的 OS 级 smoke；本轮用真实 IPC online + Android logcat + gateway WS snapshot 替代验证。
 - 2026-07-02：补充完整 A/B 真机切换 smoke。先通过真实 `/api/sessions` 创建临时 Codex session B（cwd=`E:\coding\LawAgent`），其初始 `lastCodexThreadId=null`；通过真实 WS 对 B 执行 `set_active_conversation` 到 running IPC `019f212f-91c5-7e71-917c-15816608ea16` 后，立即收到 `session_codex_thread_bound.lastCodexThreadId=019f212f-91c5-7e71-917c-15816608ea16`，随后 `/api/sessions` 与 `data/sessions.json` 均显示 B 已写回该 IPC id，证明“任务列表原来无 ipc-id、后续产生后服务端可被列表刷新拿到”的链路成立；Android `SessionsFragment` 在抽屉可见时 `onDrawerContentVisibilityChanged()` 立即刷新并启动 10 秒 auto-refresh，能拉取该 additive 字段。随后清 logcat 并在同一 `singleTask` `CodexActivity` 中连续 `am start`：A=`fd2237ed-5fbf-4adf-b050-a2724af9c1b8`/`019f17d4-40f4-78d0-a7e5-774dd9193c50`，B=`795ea194-b91b-493f-93d6-443f4ee3b4c1`/`019f212f-91c5-7e71-917c-15816608ea16`，再切回 A。logcat 证据：A 首次发 `thread/read reason=launch-hydrate threadId=019f17d4-40f4-78d0-a7e5-774dd9193c50`；B 发 `thread/read ... threadId=019f212f-91c5-7e71-917c-15816608ea16` 并持续收到 `IPC snapshot ... status=running items=95 -> 96`；回 A 后再次发 `thread/read ... threadId=019f17d4-40f4-78d0-a7e5-774dd9193c50` 并收到 `IPC snapshot ... status=running items=263`。`dumpsys activity` 显示当前 `ResumedActivity` 仍为 `CodexActivity`，服务端 active session 回到 A。随后删除临时 B，`/api/sessions` 与 `data/sessions.json` 恢复仅用户原有 A session。最终 WS 复验当前 TermLink conversation 为 `running`，item count 已增至 269，`codex_ipc_status.online=true` 且 `lastEventAt` 更新。computer-use 插件现已可发现，但其 skill 明确禁止自动化 Codex Desktop / Codex CLI / Codex 扩展，因此未执行 Windows UI 点击发送；该限制由真实 IPC/WS/Android 观测替代。
 - 2026-07-02：最终 Desktop/Codex 事件 smoke。使用 `codex_app.send_message_to_thread` 对同一个 Codex thread / IPC conversation `019f17d4-40f4-78d0-a7e5-774dd9193c50` 发送 `SMOKE_SYNC_20260702`，该路径不属于 Windows UI 自动化，规避 computer-use 对 Codex Desktop UI 的禁止规则。`codex_app.read_thread` 显示该 thread 中已有 delegation 输入与 `SMOKE_SYNC_OK_20260702` 回复；TermLink WS 连接同一 session 后，`codex_ipc_conversations` 显示 conversation 仍为 `running` 且 items=291，`conversation_surface_snapshot.snapshot.items[284].text=SMOKE_SYNC_OK_20260702`，并继续收到包含 smoke 文本的 `codex_ipc_sync_event`；真机 `MQS7N19402011743` 当前 `ResumedActivity=CodexActivity`，logcat 显示同一 conversation `IPC snapshot ... status=running items=290 -> 293`，`uiautomator dump` 可见包含 `SMOKE_SYNC_20260702` 与 `SMOKE_SYNC_OK_20260702` 的当前 Android Codex UI 文本；`/api/sessions` 显示用户原有 A session `activeConnections=1`、`lastCodexThreadId=019f17d4-40f4-78d0-a7e5-774dd9193c50`。由此覆盖“同一个任务打开时 Android 端可获取 Desktop/Codex 最新执行中状态”的最终验收。
+- 2026-07-10：用户再次手动确认实时同步可用。本轮将已完成核心固定为长期契约：IPC conversation id 的 session binding / Android 入口直传 / state 重订阅、A/B session 隔离和 TermLink owner fallback；新增服务端 IPC recovery conversation-list 回归，以及 Android non-null / null `codex_state.threadId` 的 selection / resubscribe 回归。验证：`node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js` 37/37 pass；JDK21 下 `:app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelThreadReadyTest --tests com.termlink.app.codex.data.CodexIpcWireModelTest` BUILD SUCCESSFUL。真实 owner 授权提权与真实 owner PLAN 未经人工端到端验证，继续作为当前任务唯一的 pending action 验收项；任务保持 active，不能以核心稳定替代这两项验证。

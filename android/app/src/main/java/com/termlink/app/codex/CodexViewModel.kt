@@ -85,6 +85,17 @@ internal fun applyIpcStatusToUiState(
     )
 }
 
+internal fun resolveCodexStateThreadId(
+    serverThreadId: String?,
+    activeConversationId: String?,
+    currentThreadId: String?
+): String? = serverThreadId ?: activeConversationId ?: currentThreadId
+
+internal fun shouldResubscribeForCodexStateThreadChange(
+    previousThreadId: String?,
+    serverThreadId: String?
+): Boolean = serverThreadId != null && serverThreadId != previousThreadId
+
 internal fun applyConversationStatusChangedToUiState(
     state: CodexUiState,
     conversationId: String?,
@@ -2658,14 +2669,20 @@ class CodexViewModel(
 
             "codex_state" -> {
                 val state = CodexState.from(json)
+                val previousThreadId = _uiState.value.threadId
+                val serverThreadId = state.threadId
+                val threadChanged = shouldResubscribeForCodexStateThreadChange(
+                    previousThreadId = previousThreadId,
+                    serverThreadId = serverThreadId
+                )
                 _uiState.update { current ->
                     val wasIdle = current.status.equals("idle", ignoreCase = true)
                     val isIdle = state.status.equals("idle", ignoreCase = true)
-                    val serverThreadId = state.threadId
-                    val nextThreadId = serverThreadId
-                        ?: current.activeConversationId
-                        ?: current.threadId
-                    val threadChanged = serverThreadId != null && serverThreadId != current.threadId
+                    val nextThreadId = resolveCodexStateThreadId(
+                        serverThreadId = serverThreadId,
+                        activeConversationId = current.activeConversationId,
+                        currentThreadId = current.threadId
+                    )
                     // planMode is managed locally — never override from server codex_state
                     val nextPlanMode = current.planMode ?: false
                     val mergedInteractionState = mergeInteractionState(
@@ -2681,6 +2698,7 @@ class CodexViewModel(
                                 sandbox = state.sandbox ?: current.sandbox,
                                 planMode = nextPlanMode,
                                 threadId = nextThreadId,
+                                activeConversationId = nextThreadId,
                                 currentTurnId = state.currentTurnId,
                                 currentThreadTitle = if (nextThreadId == null) {
                                     ""
@@ -2708,6 +2726,11 @@ class CodexViewModel(
                     } else {
                         nextState
                     }
+                }
+                if (threadChanged) {
+                    Log.i(TAG, "[ipc][codex-state][thread-changed] re-subscribing: " +
+                        "from=$previousThreadId to=${serverThreadId.orEmpty()}")
+                    subscribeActiveConversationIfNeeded()
                 }
                 maybeRequestPendingThreadResync(
                     threadId = _uiState.value.threadId,

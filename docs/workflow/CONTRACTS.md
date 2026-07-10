@@ -118,6 +118,16 @@
 - WebSocket 连接 -> `terminalGateway` -> `sessionManager` / `ptyService` / `codexAppServerService`
 - workspace 请求 -> `resolveWorkspaceAccess()` -> workspace services -> Git 状态 / diff
 
+### 🔒 Codex 原生会话实时同步核心
+
+- 已锁定数据流：Codex Desktop / VS Code / Codex thread surface -> `codex-ipc` -> `CodexIpcFeed` 与 `CodexOwnerSurfaceTracker` -> `terminalGateway` normalized snapshot / conversation list -> Android WebSocket -> `CodexViewModel` / Codex UI。
+- Canonical id：`lastCodexThreadId` 和 `activeConversationId` 只能表示 IPC `conversationId`。session id、历史 task id、`cwd`、latest 时间戳只能参与“尚未绑定时”的候选选择，不能覆盖已经绑定的 conversation。
+- 绑定与恢复：`set_active_conversation` 成功后必须把 conversation id 回写为 session `lastCodexThreadId`，发送 `session_codex_thread_bound`，并让 Android 后续 sessions refresh 可读取该 additive 字段。Android 从 session 列表、启动参数、drawer restore 或 `session_info` 取得该字段时，必须直连对应 conversation，不得退回把历史 task id 当 IPC id。
+- Android 状态收敛：`threadId` 与 `activeConversationId` 在已选 IPC conversation 时保持同一 id；空 `codex_state.threadId` 不得清掉既有选择，非空新 thread id 必须更新选择并重新订阅。A/B session 切换后，旧 conversation snapshot 不得回写当前 UI。
+- owner 容错：`CodexOwnerSurfaceTracker` 是 TermLink 的正式 owner runtime；Desktop / VS Code owner 不存在、或 IPC offline 但仍有缓存 surface 时，gateway 必须可接管同一 conversation，后续 owner action 不得继续依赖已消失的外部 client。不得恢复 `CodexProxyBridge` 作为该容错路径。
+- 回归门：改动 `terminalGateway.js`、`codexOwnerSurfaceTracker.js`、Codex session DTO / selection，或 Android Codex ViewModel / Activity / Sessions entry 链路时，至少运行 `tests/codexOwnerSurfaceTracker.test.js`、`tests/terminalGateway.codexIpc.test.js`、Android Codex ViewModel/wire JVM tests；影响 selection / restore 时还必须补同机 A -> B -> A 真机 smoke。
+- 明确排除：真实 owner 自然产生的授权提权与 PLAN pending action 尚未完成人工端到端验收；不得因为本核心已稳定、或因为 harness / unit tests 通过，而宣称这两条动作链已验收。
+
 ### 🔒 目录职责
 
 - `android/`：原生 Android 壳
@@ -133,12 +143,14 @@
 - `workspaceRoot` 是 workspace API 访问边界，不只是 UI 显示路径
 - `TERMLINK_WORKSPACE_PICKER_ROOT` 是 picker API 的服务端边界，不等同于 session `workspaceRoot`
 - `lastCodexThreadId` 是恢复线索，不是随意可覆盖的装饰字段
+- 已绑定 Codex session 的 `lastCodexThreadId` 是 IPC conversation 的 canonical id；它不能被历史 task id 或空 `codex_state.threadId` 替换
 
 ## 三、变更规则
 
 - 任何改动 `sessions` / `workspace` API 结构的任务，都必须显式写出 consumer 影响面。
 - 任何改动 `data/sessions.json` 字段的任务，都必须给出迁移或兼容策略。
 - 任何涉及 `terminalGateway.js` 的任务，都默认属于高风险任务，需要更严格 scope。
+- 任何改动 Codex 实时同步核心的任务，必须在变更说明中逐项声明对 canonical id、binding 回写、owner fallback、Android A/B 隔离的影响；缺任一项不得以“无影响”默认通过。
 
 ## 四、传播治理补充
 

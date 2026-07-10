@@ -20,6 +20,7 @@
 - [x] legacy inventory 与 adopt-existing-project 首版治理基线
 - [x] Codex 多 skill 内联 token、附件摘要历史展示与 Web/Android 回看能力：任务 `20260508-001` 已完成 Web/Android 手动 smoke、Node/Android 回归和 session/thread 关联风险 smoke，确认 skill / file / image 上下文在发送前、流式中、完成后与跨 session/cwd 切换时都不再出现本轮已知回归
 - [x] 开源 release 安装 / 打包 / mTLS 工具交付面：任务 `20260513-001` 已完成跨平台 release 构建、Windows / Linux 安装脚本、direct server-side mTLS 安装期自动生成、nginx-side mTLS 独立工具、中英文部署文档收口，以及 Windows PM2 / Linux `systemd` host smoke 确认；`npm run android:check-release-config` 仍作为任务外已知失败保留
+- [x] Codex 原生会话实时同步核心：同一任务的 Android 实时状态同步、IPC conversation id 绑定回写与 Android 入口直传、A/B session 隔离、external owner 缺失时的 TermLink owner fallback 已完成自动化与真机手动验证；稳定边界见 `CONTRACTS.md` 的“Codex 原生会话实时同步核心”。真实 owner 授权提权和 PLAN 不在本稳定项内。
 
 ## 🔨 正在开发
 
@@ -38,6 +39,8 @@
   - 2026-06-30 follow-up 6：补充真实 owner pending 探测与服务重启恢复真机 smoke。当前真实 IPC 总线 4 个 conversation 均无 pending approval / PLAN；通过真实 `/api/ws-ticket` + WebSocket + 当前 `terminalGateway.js` 对 completed smoke conversation 发起“等待计划确认”和“越界写入触发权限确认”两次尝试，均经 owner 正常完成但未自然生成 `pendingPlanAction` / `pendingApproval`，其中越界写入产生的 `D:\termlink_android_approval_smoke_20260630.txt` 已立即删除。真机 `MQS7N19402011743` 上复验服务重启恢复：Android 先收到旧 IPC snapshot，当前仓库 3010 服务被显式 TermLink PID 链重启后 logcat 出现 `Connection reset`，随后自动重新 `WebSocket opened`，收到新 IPC clientId 和 live snapshot（items 1007），未见 `Unhandled` / `Failed` / `No matching` / `FATAL` / `AndroidRuntime`；截图：`android/app/build/outputs/screenshots/termlink-codex-live-restart-resync-20260630.png`。真实 owner 自然 pending action 仍未可得，三端 approval / PLAN 最终验收继续保留。
   - 2026-06-30 follow-up 7：再次对照 `termlink-demo` 当前 pending action 代码，确认 TermLink external IPC 路径已覆盖 demo 的 pending approval / PLAN 投影、external pending plan gate 与 response routing；demo 自带 app-server owner runtime 属于 demo 私有 owner 路径，本轮不搬迁。补齐 Android 拒绝 decision 兼容：当 live owner `availableDecisions` 只有 `reject` 而无 `decline` 时，Android 会发送 `reject`，否则按 `decline` / `cancel` / fallback `decline` 处理。验证：服务 IPC/gateway targeted 127/127 pass，Android Codex package JVM tests BUILD SUCCESSFUL，focused `CodexViewModelThreadReadyTest` BUILD SUCCESSFUL，`git diff --check` clean（仅 CRLF warning）。真实 owner 自然 pending action 仍未可得，三端 approval / PLAN 最终验收继续保留。
 
+- 2026-07-10 基线冻结：用户已人工确认同一 Codex 任务可实时同步到 Android。`lastCodexThreadId` canonical IPC id、`session_codex_thread_bound` 回写、session entry 直传、A/B session 隔离、`CodexOwnerSurfaceTracker` owner fallback 进入稳定基线并新增回归约束；真实 owner 授权提权与真实 owner PLAN 仍为未验收的独立 pending action，不得借本项标记完成。
+
 ## 📋 待开发
 
 - [ ] Relay 控制平面与透明中转模式从规划进入实现
@@ -47,8 +50,8 @@
 ## ⚠️ 已知风险 / 观察点
 
 - `src/ws/terminalGateway.js` 责任过重，是高回归风险区域
-- Codex session / thread / task 状态链路仍处于观察：双 cwd session 历史列表隔离、A/B 项目切换 stale task/thread 清理、同一 session 重新进入 active thread 一致性、新建任务脱离 stale threadId 的完整真机 smoke 均未完整验证
-- 后续新需求若继续触碰 session / thread / task 状态逻辑，必须重新纳入上述 Android smoke 风险，不得直接视为已稳定
+- Codex session / thread / task 链路中，已绑定 conversation 的实时同步、A/B 切换隔离与同一任务重入已完成真机验证；仍需观察尚未绑定 conversation 的跨 cwd 历史候选策略，以及真实 owner pending action 的端到端表现。
+- 后续新需求若触碰 Codex session / thread / task 状态逻辑，必须按 `CONTRACTS.md` 的实时同步核心回归门验证；不得以 cwd/latest 或历史 task id 替换已绑定 conversation，也不得将授权提权 / PLAN 视为已验收。
 - 外部 consumer 是否依赖现有 API 仍是 unknown
 - `.codex/skills/` 在本仓库带有本地忽略语义，需持续注意 host guidance 漂移
 - workflow validation matrix 已明确绑定 Node tests、Android JVM unit 和 Android release config；integration / e2e / deploy 仍待补
