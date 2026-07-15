@@ -342,6 +342,58 @@ test('folder picker reports loading state and navigates directly into selected f
     assert.equal(browse.hasAttribute('aria-busy'), false);
 });
 
+test('folder picker explains missing server configuration and preserves manual cwd input', async (t) => {
+    const app = createSessionsApp((call) => {
+        if (call.url.startsWith('/api/workspace/picker/tree')) {
+            return response({
+                error: {
+                    code: 'WORKSPACE_PICKER_ROOT_NOT_CONFIGURED',
+                    message: 'Workspace picker root is not configured on the server.'
+                }
+            }, false);
+        }
+        return response([]);
+    });
+    t.after(() => app.cleanup());
+    await flushUi();
+
+    app.document.getElementById('btn-new-session').click();
+    const overlay = app.document.getElementById('sessions-new-modal');
+    const cwd = overlay.querySelector('#snew-cwd');
+    const browse = overlay.querySelector('#snew-browse');
+    cwd.value = '/manually/entered/project';
+    browse.click();
+    await flushUi();
+
+    assert.equal(overlay.querySelector('.sessions-picker-state').textContent, EN['sessions.new.pickerNotConfigured']);
+    assert.equal(cwd.value, '/manually/entered/project');
+    assert.equal(browse.disabled, false);
+    assert.equal(browse.hasAttribute('aria-busy'), false);
+});
+
+test('folder picker distinguishes an unavailable configured root from generic failures', async (t) => {
+    const app = createSessionsApp((call) => {
+        if (call.url === '/api/workspace/picker/tree') {
+            return response({
+                error: {
+                    code: 'WORKSPACE_PICKER_ROOT_INVALID',
+                    message: 'Workspace picker root is not available.'
+                }
+            }, false);
+        }
+        return response([]);
+    });
+    t.after(() => app.cleanup());
+    await flushUi();
+
+    app.document.getElementById('btn-new-session').click();
+    const overlay = app.document.getElementById('sessions-new-modal');
+    overlay.querySelector('#snew-browse').click();
+    await flushUi();
+
+    assert.equal(overlay.querySelector('.sessions-picker-state').textContent, EN['sessions.new.pickerUnavailable']);
+});
+
 test('standalone Codex drawer is hidden from focus until opened and closes with Escape', async (t) => {
     const app = createSessionsApp(() => response([
         { id: 'codex-1', name: 'Review', sessionMode: 'codex' }

@@ -490,6 +490,8 @@
   "sessions.new.pickerLoading": "正在加载目录…",
   "sessions.new.pickerEmpty": "此处没有子目录。",
   "sessions.new.pickerError": "无法加载目录，你仍可手动输入路径。",
+  "sessions.new.pickerNotConfigured": "服务器尚未配置目录浏览范围。你可以手动输入项目路径，或请服务器管理员完成配置。",
+  "sessions.new.pickerUnavailable": "服务器配置的目录浏览根路径不可用。你可以手动输入项目路径，或检查服务器配置。",
   "sessions.new.parentDirectory": "← 上级目录",
   "sessions.new.creating": "正在创建会话…",
   "sessions.new.createError": "无法创建会话：{error}",

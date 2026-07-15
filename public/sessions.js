@@ -29,8 +29,16 @@
     opts = opts || {};
     opts.credentials = 'same-origin';
     return fetch(resolveApiUrl(url), opts).then(function (r) {
-      if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
-      return r.json();
+      if (r.ok) return r.json();
+      return Promise.resolve(typeof r.json === 'function' ? r.json() : null)
+        .catch(function () { return null; })
+        .then(function (payload) {
+          var detail = payload && payload.error;
+          var error = new Error((detail && detail.message) || (r.status + ' ' + r.statusText));
+          error.status = r.status;
+          error.code = detail && detail.code;
+          throw error;
+        });
     });
   }
 
@@ -255,8 +263,14 @@
           item.addEventListener('click', function () { cwdInput.value = fullPath; loadPicker(fullPath); });
           tree.appendChild(item);
         });
-      }).catch(function () {
-        renderPickerState(tr('sessions.new.pickerError'), 'error');
+      }).catch(function (error) {
+        var messageKey = 'sessions.new.pickerError';
+        if (error && error.code === 'WORKSPACE_PICKER_ROOT_NOT_CONFIGURED') {
+          messageKey = 'sessions.new.pickerNotConfigured';
+        } else if (error && error.code === 'WORKSPACE_PICKER_ROOT_INVALID') {
+          messageKey = 'sessions.new.pickerUnavailable';
+        }
+        renderPickerState(tr(messageKey), 'error');
       }).finally(function () {
         browseButton.disabled = false;
         browseButton.removeAttribute('aria-busy');

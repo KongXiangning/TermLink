@@ -490,6 +490,8 @@
   "sessions.new.pickerLoading": "Loading folders…",
   "sessions.new.pickerEmpty": "No child folders here.",
   "sessions.new.pickerError": "Folders could not be loaded. You can still enter a path manually.",
+  "sessions.new.pickerNotConfigured": "Directory browsing is not configured on this server. Enter the project path manually or ask the server administrator to configure it.",
+  "sessions.new.pickerUnavailable": "The configured directory browsing root is unavailable. Enter the project path manually or check the server configuration.",
   "sessions.new.parentDirectory": "← Parent folder",
   "sessions.new.creating": "Creating session…",
   "sessions.new.createError": "Session could not be created: {error}",
