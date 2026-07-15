@@ -1,9 +1,9 @@
 ---
 title: Linux 交互式 Release 安装器
-status: draft
+status: active
 record_id: CR-20260715-1635-linux-interactive-installer
 req_id: REQ-20260715-linux-interactive-release-installer
-commit_ref: TBD
+commit_ref: 20398215b7e1586f48e47d9e527a7bb7e5b13ead
 owner: @maintainer
 last_updated: 2026-07-15
 source_of_truth: code

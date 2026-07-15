@@ -23,7 +23,7 @@ related_docs: [docs/changes/CHANGELOG_PROJECT.md, docs/changes/records/TEMPLATE_
 
 | record_id | req_id | status | commit_ref | owner | last_updated | summary | file |
 |---|---|---|---|---|---|---|---|
-| CR-20260715-1635-linux-interactive-installer | REQ-20260715-linux-interactive-release-installer | draft | TBD | @maintainer | 2026-07-15 | Linux interactive Release installer, FHS upgrade, mTLS, and tag publishing | `docs/changes/records/CR-20260715-1635-linux-interactive-installer.md` |
+| CR-20260715-1635-linux-interactive-installer | REQ-20260715-linux-interactive-release-installer | active | 20398215b7e1586f48e47d9e527a7bb7e5b13ead | @maintainer | 2026-07-15 | Linux interactive Release installer, FHS upgrade, mTLS, and tag publishing | `docs/changes/records/CR-20260715-1635-linux-interactive-installer.md` |
 | CR-20260518-1848-codex-thread-centric-sync-foundation-impl | REQ-20260516-codex-mobile-realtime-sync | draft | TBD | @maintainer | 2026-05-18 |  | `docs/changes/records/CR-20260518-1848-codex-thread-centric-sync-foundation-impl.md` |
 | CR-20260418-0315-codex-skill-catalog-count-mismatch | REQ-20260408-codex-native-android-migration | draft | TBD | @maintainer | 2026-04-18 |  | `docs/changes/records/CR-20260418-0315-codex-skill-catalog-count-mismatch.md` |
 | CR-20260418-0048-codex-reopen-transcript-attachment-fix | REQ-20260415-codex-android-runtime-interaction-fixes | active | 527bad77a3c98b68b52aa64ccbf41e325f09039d | @maintainer | 2026-04-18 |  | `docs/changes/records/CR-20260418-0048-codex-reopen-transcript-attachment-fix.md` |
