@@ -1,0 +1,453 @@
+---
+name: run-regression
+preamble-tier: 2
+version: 0.2.0
+description: >
+  Select the right QA mode, run existing tests and smoke checks, and report
+  whether stable behavior still holds.
+purpose: |
+  选择合适 QA 模式，运行已有测试或最小 smoke check，确认旧功能未被破坏。
+stage: 阶段 6：回归验证
+trigger: |
+  通过范围复核后。
+inputs:
+  - current_task
+  - diff_review_target
+  - project_profile
+  - test_commands
+  - smoke_check_list
+  - qa_mode
+  - browser_or_session_requirement
+reads:
+  - docs/workflow/CURRENT_TASK.md
+  - TASKS/paused/**
+  - TASKS/interrupted/**
+  - .workflow-system/PROJECT_PROFILE.yaml
+writes: []
+forbidden_writes:
+  - src
+  - android
+  - public
+  - tests
+  - scripts
+  - docs/workflow/CURRENT_TASK.md
+  - docs/workflow/STATUS.md
+must_check:
+  - QA mode 是否匹配任务风险和验证目标
+  - diff-aware / report-only 验证是否沿用前序 review 的 diff review target
+  - report-only 模式是否明确声明为 terminal report，不继续 handoff
+  - ownership route 是否可收敛到 canonical 闭集
+  - paused / interrupted owner 候选是否已读取 matching suspended package evidence
+  - active-owner guard 是否已在 resume route 前判定
+  - 先跑与当前改动直接相关的测试
+  - 核心稳定功能是否仍正常
+  - 最小 smoke check 是否完成
+  - UI / 交互 / 登录相关任务是否已考虑 browser-backed smoke
+  - UI / 视觉任务是否输出 visual evidence 或 blocked reason
+  - 发布 / 部署 / canary / benchmark 任务是否输出 Release evidence 或 blocked reason
+  - 认证态验证需要 session/cookie 时是否已明确可用性
+stop_conditions:
+  - diff-aware 或 report-only 模式下 diff_review_target 缺失、不明确，或无法证明与前序 review
+    使用的目标一致
+  - 关键测试失败
+  - 验证结果与任务目标冲突
+  - 现有测试缺失但无法完成人工检查
+  - 认证态验证需要 session/cookie 但不可用
+  - paused / interrupted owner 候选存在但 matching suspended package evidence
+    缺失、marker 不自洽或无法唯一解析
+  - active-owner guard 未通过却试图直接报告 resume success chain
+output:
+  - QA mode
+  - Target surface
+  - Checks run
+  - Ownership assessment
+  - Ownership evidence
+  - Recommended route
+  - Recommended handoff
+  - Browser/session requirement
+  - Visual evidence
+  - Release evidence
+  - Findings
+  - Pass / fail
+  - Evidence
+  - Handoff
+  - 测试结果
+  - smoke check 结论
+  - 是否通过的判断
+handoff:
+  success: sync-current-task
+  failure: investigate-root-cause
+conditional_handoff:
+  scope_widening_candidate: lock-scope
+  resume_paused_guard_passed: resume-paused-task
+  resume_paused_guard_blocked: ask-user
+  resume_interrupted_guard_passed: resume-interrupted-task
+  resume_interrupted_guard_blocked: ask-user
+  new_bug_task_required: create-current-task
+  user_decision_required: ask-user
+decision_policy:
+  mechanical: 可以自动运行已有测试和整理结果。
+  taste: 不要为了看起来更好而删减失败信息。
+  user_challenge: 关键验证失败时不得自称通过。
+verification:
+  - QA mode selection 已说明
+  - 已声明 diff-aware / report-only 验证使用的 diff review target
+  - "`Recommended route` 已收敛到 canonical ownership route 闭集"
+  - paused / interrupted owner 候选已先读取 matching suspended package evidence
+  - resume route 已报告 active-owner guard 结果
+  - 已运行相关测试或完成最小 smoke check
+  - UI / 交互相关任务已说明是否执行 browser-backed smoke
+  - UI / 视觉任务已说明 visual QA、browser-backed smoke 或 blocked reason
+  - 发布后验证已说明 health / canary / benchmark 证据或 blocked reason
+  - 已明确给出 pass / fail 判断
+  - 失败时已转入 investigate-root-cause
+  - report-only 模式已停在 QA report，没有继续进入 sync-current-task 或 investigate-root-cause
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+  - AskUserQuestion
+benefits-from:
+  - /verify-contracts
+notes:
+  - 优先复用现有测试，不额外引入新测试体系。
+  - 本 skill 保持只读验证；不得修改代码或治理文档。
+test_sources:
+  - .workflow-system/PROJECT_PROFILE.yaml 中的测试命令
+  - docs/workflow/CURRENT_TASK.md 中的回归检查项
+  - diff review target 影响面
+qa_modes:
+  - diff-aware
+  - quick-smoke
+  - full-qa
+  - report-only
+  - authenticated-browser
+  - regression-baseline
+release_verification_modes:
+  - release-readiness
+  - deploy-verification
+  - canary
+  - benchmark
+smoke_checks:
+  - 关键页面可打开
+  - 核心流程可走通
+  - 原有按钮 / 表单 / 接口正常
+  - UI / 交互任务说明 browser-backed smoke 结果或阻塞原因
+  - UI / 视觉任务说明 visual evidence 或 blocked reason
+visual_qa_rules:
+  - UI / 视觉任务必须检查视觉层级、状态覆盖、响应式、可访问性和 anti-slop
+  - browser-backed smoke 可用时必须提供截图、页面状态或控制台证据
+  - 浏览器能力不可用时记录 blocked reason，不得把未验证视觉结论标记为通过
+release_verification_rules:
+  - 读取 docs/workflow/CURRENT_TASK.md 的 Release mode、Deploy source、Target
+    environment、Health checks、Canary window、Performance baseline、Rollback /
+    recovery、Release evidence
+  - deploy-verification 必须提供 deploy log、health check 或 blocked reason
+  - canary 必须提供 canary window、采样结果、失败阈值和默认动作
+  - benchmark 必须提供 baseline source、指标、允许回退阈值和对比证据
+  - 缺少生产 session、deploy log、health endpoint 或 baseline 时输出 blocked，不得假装通过
+pass_criteria:
+  - 相关测试通过
+  - 关键 smoke check 无阻断问题
+  - 需要登录的验证已确认 session/cookie 可用，或已标记 blocked
+failure_policy:
+  - diff-aware 或 report-only 模式下缺少明确 diff_review_target 时停止，不进入
+    sync-current-task 或 investigate-root-cause
+  - 测试失败时进入 investigate-root-cause，而不是直接大改代码
+  - report-only 模式只报告问题和证据，不进入实现或修复
+  - report-only 模式覆盖 normal handoff；无论 pass / fail，输出报告后停止
+report_only_handoff_policy:
+  - qa_mode 为 report-only 时，本 skill 是 terminal report
+  - report-only pass 不 handoff 到 sync-current-task
+  - report-only fail 不 handoff 到 investigate-root-cause
+  - report-only findings 只作为人工审查证据，不自动触发修复链
+browser_session_policy:
+  - 不绑定具体 browse daemon；如果项目有浏览器工具或宿主支持浏览器能力，应执行 browser-backed smoke
+  - 需要登录但 session/cookie 不可用时输出 blocked，不得把未验证页面记为通过
+---
+
+# Skill: run-regression
+
+## Purpose
+
+选择合适 QA 模式，运行已有测试或最小 smoke check，确认旧功能未被破坏。
+
+## Trigger
+
+通过范围复核后。
+
+## Inputs
+
+- current_task
+- diff_review_target
+- project_profile
+- test_commands
+- smoke_check_list
+- qa_mode
+- browser_or_session_requirement
+
+## Project Variables
+
+### core
+- termlink
+- application
+- JavaScript, Kotlin, HTML, CSS
+
+### structure
+- src, android, public, tests, scripts
+- .git/**, node_modules/**
+- Keep workflow automation and generators in scripts/., Treat templates/skills/ as workflow skill template sources, not runtime outputs., Do not hand-edit generated outputs.
+
+### execution
+- node --test, android\gradlew.bat :app:testDebugUnitTest, npm run android:check-release-config
+- mechanical, taste, user_challenge
+
+## Required Reads
+
+1. Read every file listed in frontmatter `reads` before making any decision.
+2. If a required file is missing, follow `handoff.failure` instead of guessing.
+3. When `docs/workflow/CURRENT_TASK.md` exists, treat it as the source of truth for scope.
+4. If `Ownership assessment` points to a paused / interrupted owner candidate, read the matching suspended package evidence from `TASKS/paused/**` or `TASKS/interrupted/**` before choosing `Recommended route`, `Recommended handoff`, or a blocked QA result.
+5. Do not infer owner from package presence, runtime memory, or fuzzy similarity; if the suspended package evidence is missing, contradictory, or not unique, fail closed to `blocked`, `ask-user`, `evidence gap`, `lock-scope`, or `/create-current-task`.
+
+## Must Check
+
+- QA mode 是否匹配任务风险和验证目标
+- diff-aware / report-only 验证是否沿用前序 review 的 diff review target
+- `Ownership assessment` 是否已收敛到 canonical route 闭集
+- paused / interrupted owner 候选是否已读取 matching suspended package evidence
+- active-owner guard 是否已在 resume route 前判定
+- 先跑与当前改动直接相关的测试
+- 核心稳定功能是否仍正常
+- 最小 smoke check 是否完成
+- UI / 交互 / 登录相关任务是否已考虑 browser-backed smoke
+- UI / 视觉任务是否输出 visual evidence 或 blocked reason
+- 发布 / 部署 / canary / benchmark 任务是否输出 Release evidence 或 blocked reason
+- 认证态验证需要 session/cookie 时是否已明确可用性
+
+## Stop Conditions
+
+- diff-aware 或 report-only 模式下 diff_review_target 缺失、不明确，或无法证明与前序 review 使用的目标一致
+- 关键测试失败
+- 验证结果与任务目标冲突
+- 现有测试缺失但无法完成人工检查
+- 认证态验证需要 session/cookie 但不可用
+
+## Decision Policy
+
+- `mechanical`: 可以自动运行已有测试和整理结果。
+- `taste`: 不要为了看起来更好而删减失败信息。
+- `user_challenge`: 关键验证失败时不得自称通过。
+
+## Verification
+
+- QA mode selection 已说明
+- 已声明 diff-aware / report-only 验证使用的 diff review target
+- 已运行相关测试或完成最小 smoke check
+- UI / 交互相关任务已说明是否执行 browser-backed smoke
+- UI / 视觉任务已说明 visual QA、browser-backed smoke 或 blocked reason
+- 发布后验证已说明 health / canary / benchmark 证据或 blocked reason
+- 已明确给出 pass / fail 判断
+- 失败时已转入 investigate-root-cause
+
+## Extension Fields
+
+### qa_modes
+- diff-aware
+- quick-smoke
+- full-qa
+- report-only
+- authenticated-browser
+- regression-baseline
+
+### release_verification_modes
+- release-readiness
+- deploy-verification
+- canary
+- benchmark
+
+### test_sources
+- .workflow-system/PROJECT_PROFILE.yaml 中的测试命令
+- docs/workflow/CURRENT_TASK.md 中的回归检查项
+- diff review target 影响面
+
+### smoke_checks
+- 关键页面可打开
+- 核心流程可走通
+- 原有按钮 / 表单 / 接口正常
+- UI / 交互任务说明 browser-backed smoke 结果或阻塞原因
+- UI / 视觉任务说明 visual evidence 或 blocked reason
+
+### visual_qa_rules
+- UI / 视觉任务必须检查视觉层级、状态覆盖、响应式、可访问性和 anti-slop
+- browser-backed smoke 可用时必须提供截图、页面状态或控制台证据
+- 浏览器能力不可用时记录 blocked reason，不得把未验证视觉结论标记为通过
+
+### release_verification_rules
+- 读取 docs/workflow/CURRENT_TASK.md 的 Release mode、Deploy source、Target environment、Health checks、Canary window、Performance baseline、Rollback / recovery、Release evidence
+- deploy-verification 必须提供 deploy log、health check 或 blocked reason
+- canary 必须提供 canary window、采样结果、失败阈值和默认动作
+- benchmark 必须提供 baseline source、指标、允许回退阈值和对比证据
+- 缺少生产 session、deploy log、health endpoint 或 baseline 时输出 blocked，不得假装通过
+
+### pass_criteria
+- 相关测试通过
+- 关键 smoke check 无阻断问题
+- 需要登录的验证已确认 session/cookie 可用，或已标记 blocked
+
+### failure_policy
+- diff-aware 或 report-only 模式下缺少明确 diff_review_target 时停止，不进入 sync-current-task 或 investigate-root-cause
+- 测试失败时进入 investigate-root-cause，而不是直接大改代码
+- report-only 模式只报告问题和证据，不进入实现或修复
+- report-only 模式覆盖 normal handoff；无论 pass / fail，输出报告后停止
+
+### report_only_handoff_policy
+- qa_mode 为 report-only 时，本 skill 是 terminal report
+- report-only pass 不 handoff 到 sync-current-task
+- report-only fail 不 handoff 到 investigate-root-cause
+- report-only findings 只作为人工审查证据，不自动触发修复链
+- report-only 仍必须输出 `Recommended route` / `Recommended handoff`，但只能报告，不得自动执行 route
+
+### browser_session_policy
+- 不绑定具体 browse daemon；如果项目有浏览器工具或宿主支持浏览器能力，应执行 browser-backed smoke
+- 需要登录但 session/cookie 不可用时输出 blocked，不得把未验证页面记为通过
+
+## QA Mode Selection
+
+- `diff-aware`：默认模式。基于 `docs/workflow/CURRENT_TASK.md`、`diff_review_target` 和回归检查项验证受影响路径。
+- `quick-smoke`：用于小任务或低风险改动。运行相关测试、关键入口和最小 smoke check。
+- `full-qa`：用于大任务、UI / 交互改动、高传播面改动。系统性检查核心路径、状态、控制台错误和关键用户流程。
+- `report-only`：只输出问题、证据和风险；不修复、不更新治理文档、不进入实现。
+- `authenticated-browser`：用于登录态页面、权限流、账号状态相关验证。先确认 session/cookie 或人工登录可用。
+- `regression-baseline`：当存在 baseline、截图、历史报告或性能/行为基线时，做前后对比。
+
+## Ownership-Aware Routing
+
+`/run-regression` 在输出 pass / fail / blocked / report-only 结论前，必须先判断该验证结果属于哪个 owner，再决定是否推荐后续 handoff。
+
+Canonical ownership route 闭集：
+
+- `current_task_owned`
+- `scope_widening_candidate`
+- `resume_paused_required`
+- `resume_interrupted_required`
+- `new_bug_task_required`
+- `user_decision_required`
+
+Skill-local alias 只能映射到 canonical route 或 guard 结果，不能扩展闭集：
+
+- `scope_widening_candidate`：映射 `scope_widening_candidate`
+- `resume_paused_guard_passed` / `resume_paused_guard_blocked`：映射 `resume_paused_required`
+- `resume_interrupted_guard_passed` / `resume_interrupted_guard_blocked`：映射 `resume_interrupted_required`
+- `new_bug_task_required`：映射 `new_bug_task_required`
+- `user_decision_required`：映射 `user_decision_required`
+
+Ownership assessment rules：
+
+- 只有当验证结果属于当前 active task、后续修复仍在当前 Allowed Files 内，才可输出 `current_task_owned`。
+- 当验证结果属于当前任务目标，但最小修复路径会越出 Allowed Files 时，输出 `scope_widening_candidate`。
+- 当验证结果明显属于唯一 paused / interrupted owner 候选时，先读取 matching suspended package evidence，再决定是否输出 `resume_paused_required` 或 `resume_interrupted_required`。
+- 当验证结果不属于当前 active task，也不属于可恢复的唯一 suspended owner，且需要单独 bug 任务承载时，输出 `new_bug_task_required`。
+- 当当前 live task 仍持有 active ownership、需要用户决定是否 pause / interrupt 当前任务后再恢复旧任务，或验证结论依赖人工裁决时，输出 `user_decision_required`。
+
+Ownership evidence rules：
+
+- `Ownership evidence` 必须引用 live `docs/workflow/CURRENT_TASK.md`、`diff_review_target`、已执行 checks，以及命中时读取到的 matching suspended package evidence。
+- 不得仅凭运行时记忆或模糊相似性猜测 owner。
+- 若 suspended package marker 不自洽、文件缺失、同时命中多个候选或无法唯一解析，明确记录 `evidence gap`，并保持 fail-closed。
+
+Recommended handoff rules：
+
+- `current_task_owned` -> `/sync-current-task`
+- `scope_widening_candidate` -> `scope_widening_candidate` -> `/lock-scope`
+- `resume_paused_required` -> `resume_paused_guard_passed` -> `/resume-paused-task`
+- `resume_paused_required` -> `resume_paused_guard_blocked` -> `/ask-user`
+- `resume_interrupted_required` -> `resume_interrupted_guard_passed` -> `/resume-interrupted-task`
+- `resume_interrupted_required` -> `resume_interrupted_guard_blocked` -> `/ask-user`
+- `new_bug_task_required` -> `new_bug_task_required` -> `/create-current-task`
+- `user_decision_required` -> `user_decision_required` -> `/ask-user`
+
+`Recommended route` 表达 owner 归属；`Recommended handoff` 表达 guard-aware 下一步。`qa_mode=report-only` 时仍必须输出这两个字段，但只报告，不自动执行 handoff。若 suspended package evidence 缺失、矛盾、无法唯一解析，或 active-owner guard 未通过，只能导向 `blocked`、`ask-user`、`evidence gap`、`lock-scope` 或 `/create-current-task`，不得直接进入 resume success chain。
+
+## Release Verification Rules
+
+`/run-regression` 是发布后验证的只读入口，不执行真实 merge、push、deploy 或监控轮询。发布、部署、canary、benchmark 任务必须读取 `docs/workflow/CURRENT_TASK.md` 的发布后验证字段：
+
+- Release mode
+- Deploy source
+- Target environment
+- Health checks
+- Canary window
+- Performance baseline
+- Rollback / recovery
+- Release evidence
+
+`deploy-verification` 必须提供 deploy log、health check 或 blocked reason。`canary` 必须提供 canary window、采样结果、失败阈值和默认动作。`benchmark` 必须提供 baseline source、指标、允许回退阈值和对比证据。
+
+缺少生产 session、deploy log、health endpoint 或 baseline 时，输出 blocked，不得把未验证发布状态记为通过。
+
+## Browser And Session Rules
+
+- UI / 视觉任务先读取 `docs/workflow/CURRENT_TASK.md` 的 Design mode、Design source、Design acceptance、Design evidence，不重新选择设计方向。
+- UI / 交互 / 表单 / 路由 / 状态流相关任务必须至少说明是否做过 browser-backed smoke。
+- UI / 视觉任务必须说明 visual QA 结果、visual evidence 或 blocked reason。
+- 不能只用单元测试替代真实页面验证；如果浏览器能力不可用，应记录为人工验证项或 blocked risk。
+- 需要登录但 session/cookie 不可用时，输出 blocked，不得把未验证页面记为通过。
+- 不写死 native `/browse` 或 `/setup-browser-cookies` 的具体 CLI；只要求在项目有可用浏览器工具或宿主能力时使用它。
+
+## QA Report Template
+
+```md
+QA Report:
+- QA mode:
+- Target surface:
+- Checks run:
+- Ownership assessment:
+- Ownership evidence:
+- Recommended route:
+- Recommended handoff:
+- Browser/session requirement:
+- Visual evidence:
+- Release evidence:
+- Findings:
+- Pass / fail:
+- Evidence:
+- Handoff:
+```
+
+## Execution Protocol
+
+1. Restate the goal in one sentence.
+2. Read all files listed in `reads`.
+3. Select and state the QA mode before running checks.
+4. Check `must_check` items before acting.
+5. Complete `Ownership assessment` and `Ownership evidence` before choosing any `Recommended route` or `Recommended handoff`.
+6. If the route points to paused / interrupted ownership, read the matching suspended package evidence first and evaluate the active-owner guard before choosing `Recommended handoff`.
+7. Respect `forbidden_writes` and current task boundaries.
+8. If any `stop_conditions` match, produce a fail or blocked QA report; use `handoff.failure` for actual regressions outside `report-only`, and do not implement fixes here.
+9. In `report-only` mode, stop after the QA report even when findings exist.
+10. In `report-only` mode, do not follow `handoff.success` or `handoff.failure`; the QA report is the terminal output.
+11. Produce the artifact(s) described in `output`.
+12. Hand off to `handoff.success` when the skill completes normally outside `report-only` mode.
+
+## Output Contract
+
+- Only write the files listed in `writes`.
+- If `writes` is `[]`, respond without persisting files.
+- Do not modify code or governance docs from this skill.
+- Surface assumptions explicitly.
+- Keep the result structured and auditable.
+- Report unresolved risks rather than hiding them.
+
+## Notes
+
+- 优先复用现有测试，不额外引入新测试体系。
+- This is a draft skill template generated from the workflow schema in `vibe-coding/vibe-coding-workflow.md`.
+- This source-repo reference render already expands the current `.workflow-system/PROJECT_PROFILE.yaml`; target projects re-render these values during install / sync.
+
+## Reference Render Semantics
+
+- This generated file is a source-repo reference render produced from the current `.workflow-system/PROJECT_PROFILE.yaml`.
+- The concrete project values shown here reflect this repository's profile, not a universal target-project default.
+- Target projects render workflow skills from their own `.workflow-system/PROJECT_PROFILE.yaml` during install / sync.

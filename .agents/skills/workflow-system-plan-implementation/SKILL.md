@@ -1,0 +1,322 @@
+---
+name: plan-implementation
+preamble-tier: 2
+version: 0.1.0
+description: >
+  Analyze the current task and produce an implementation plan covering
+  architecture impact, technical approach, alternatives, risks, and validation
+  strategy before step decomposition.
+purpose: |
+  针对 docs/workflow/CURRENT_TASK.md 分析接下来要实现的架构、技术路线和方案，并形成可拆解的实现计划。
+stage: 阶段 3：方案拆解
+trigger: |
+  完成决策分级后、拆解实施步骤前。
+inputs:
+  - current_task
+  - decision_classification
+  - contracts
+  - decisions
+  - lessons
+  - project_profile
+reads:
+  - docs/workflow/CURRENT_TASK.md
+  - docs/workflow/CONTRACTS.md
+  - docs/workflow/DECISIONS.md
+  - docs/workflow/LESSONS.md
+  - .workflow-system/PROJECT_PROFILE.yaml
+writes:
+  - docs/workflow/CURRENT_TASK.md
+  - docs/workflow/TECHNICAL_DETAILS-*.md
+forbidden_writes:
+  - src
+  - android
+  - public
+  - tests
+  - scripts
+  - docs/workflow/CONTRACTS.md
+  - docs/workflow/DECISIONS.md
+  - docs/workflow/LESSONS.md
+must_check:
+  - 当前任务目标、验收和 Allowed Files 是否足以支撑实现方案
+  - 涉及哪些架构边界、接口契约、数据结构、状态流或调用链
+  - 是否存在多个候选技术方案及其取舍
+  - 哪些方案决策属于 Mechanical、Taste 或 User challenge
+  - 最小可行实现路径是否清晰
+  - 关键风险、兼容性影响、回滚方式和验证策略是否明确
+  - 是否需要补充测试、smoke、browser-backed evidence 或 release evidence
+  - 技术路线是否依赖第三方 library / framework / SDK / API / CLI tool / cloud service 的
+    current behavior，是否需要触发 External Documentation Gate
+stop_conditions:
+  - 目标、验收或范围不足以形成实现方案
+  - 方案需要修改 Forbidden Files 或扩大 Allowed Files
+  - 候选方案涉及 Taste 或 User challenge 但尚未确认
+  - 方案会改变产品行为、接口契约、数据结构或架构边界但未获确认
+  - 无法确定最小可行实现路径或验证策略
+  - ctx7 evidence 暴露多个会改变架构、产品行为、依赖版本、长期维护路径或用户已确认方向的候选方案但尚未确认
+  - External Documentation Gate 已触发但无法取得 current docs evidence，且受影响判断是当前技术路线的前置条件
+output:
+  - Implementation plan
+  - Optional technical implementation details document
+  - Architecture impact
+  - Technical approach
+  - Alternatives and tradeoffs
+  - Risk and compatibility analysis
+  - Validation strategy
+  - Open decisions
+  - External docs evidence 或 blocked reason
+handoff:
+  success: decompose-task
+  failure: ask-user
+decision_policy:
+  mechanical: 可以自动选择最小兼容技术路径、补充实现顺序和验证策略。
+  taste: 影响体验、交互、文案、视觉或产品口味的方案选择必须显式暴露。
+  user_challenge: 改变用户已确认方向、行为、契约或架构边界时必须停下确认。
+verification:
+  - docs/workflow/CURRENT_TASK.md 中已有实现方案或方案分析记录
+  - 已说明架构影响、技术路径、候选方案和取舍
+  - 已说明最小实现路径和验证策略
+  - 已列出未确认 Taste / User challenge 决策
+  - 若触发 External Documentation Gate，已记录 current docs evidence；若只能记录 blocked
+    reason，未继续决定依赖第三方 current behavior 的技术路线
+  - 没有修改代码或长期治理文档
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+  - Write
+  - Edit
+  - AskUserQuestion
+benefits-from:
+  - /classify-decisions
+notes:
+  - 本 skill 只把当前任务内的实现方案写入 docs/workflow/CURRENT_TASK.md；长期有效决策必须由
+    sync-decisions 在用户确认后沉淀。
+  - 当 `CURRENT_TASK.md > Allowed Files` 明确允许本任务专用的 `docs/workflow/TECHNICAL_DETAILS-*.md`
+    补充件时，本 skill 可以额外创建 / 更新该文档，用于承载更细的代码实现指导、文件映射、
+    DOM/状态设计、接口负载和实现注意事项。
+  - 本 skill 不拆步骤，步骤拆解交给 decompose-task。
+required_sections:
+  - 实现方案
+planning_dimensions:
+  - architecture_impact
+  - technical_approach
+  - data_and_state_flow
+  - alternatives_and_tradeoffs
+  - compatibility
+  - risk_and_rollback
+  - validation_strategy
+implementation_plan_rules:
+  - 只基于
+    docs/workflow/CURRENT_TASK.md、docs/workflow/CONTRACTS.md、docs/workflow/DECISIONS.md、docs/workflow/LESSONS.md
+    和项目 profile 形成当前任务方案
+  - 不把长期决策直接写入 docs/workflow/DECISIONS.md
+  - 不把稳定契约直接写入 docs/workflow/CONTRACTS.md
+  - 不把步骤拆解混进方案设计；步骤拆解交给 decompose-task
+  - 如果方案需要扩大 scope，停止并回到 lock-scope
+---
+
+# Skill: plan-implementation
+
+## Purpose
+
+针对 docs/workflow/CURRENT_TASK.md 分析接下来要实现的架构、技术路线和方案，并形成可拆解的实现计划。
+
+## Trigger
+
+完成决策分级后、拆解实施步骤前。
+
+## Inputs
+
+- current_task
+- decision_classification
+- contracts
+- decisions
+- lessons
+- project_profile
+
+## Project Variables
+
+### core
+- termlink
+- application
+- JavaScript, Kotlin, HTML, CSS
+
+### structure
+- src, android, public, tests, scripts
+- .git/**, node_modules/**
+- Keep workflow automation and generators in scripts/., Treat templates/skills/ as workflow skill template sources, not runtime outputs., Do not hand-edit generated outputs.
+
+### execution
+- node --test, android\gradlew.bat :app:testDebugUnitTest, npm run android:check-release-config
+- mechanical, taste, user_challenge
+
+## Required Reads
+
+1. Read every file listed in frontmatter `reads` before making any decision.
+2. If a required file is missing, follow `handoff.failure` instead of guessing.
+3. When `docs/workflow/CURRENT_TASK.md` exists, treat it as the source of truth for current goal, acceptance, scope, and constraints.
+
+## Must Check
+
+- 当前任务目标、验收和 Allowed Files 是否足以支撑实现方案
+- 涉及哪些架构边界、接口契约、数据结构、状态流或调用链
+- 是否存在多个候选技术方案及其取舍
+- 哪些方案决策属于 Mechanical、Taste 或 User challenge
+- 最小可行实现路径是否清晰
+- 关键风险、兼容性影响、回滚方式和验证策略是否明确
+- 是否需要补充测试、smoke、browser-backed evidence 或 release evidence
+- 技术路线是否依赖第三方 library / framework / SDK / API / CLI tool / cloud service 的 current behavior，是否需要触发 External Documentation Gate
+
+## Stop Conditions
+
+- 目标、验收或范围不足以形成实现方案
+- 方案需要修改 Forbidden Files 或扩大 Allowed Files
+- 候选方案涉及 Taste 或 User challenge 但尚未确认
+- 方案会改变产品行为、接口契约、数据结构或架构边界但未获确认
+- 无法确定最小可行实现路径或验证策略
+- ctx7 evidence 暴露多个会改变架构、产品行为、依赖版本、长期维护路径或用户已确认方向的候选方案但尚未确认
+- External Documentation Gate 已触发但无法取得 current docs evidence，且受影响判断是当前技术路线的前置条件
+
+## Decision Policy
+
+- `mechanical`: 可以自动选择最小兼容技术路径、补充实现顺序和验证策略。
+- `taste`: 影响体验、交互、文案、视觉或产品口味的方案选择必须显式暴露。
+- `user_challenge`: 改变用户已确认方向、行为、契约或架构边界时必须停下确认。
+
+## Verification
+
+- docs/workflow/CURRENT_TASK.md 中已有实现方案或方案分析记录
+- 已说明架构影响、技术路径、候选方案和取舍
+- 已说明最小实现路径和验证策略
+- 已列出未确认 Taste / User challenge 决策
+- 若触发 External Documentation Gate，已记录 current docs evidence；若只能记录 blocked reason，未继续决定依赖第三方 current behavior 的技术路线
+- 没有修改代码或长期治理文档
+
+## Extension Fields
+
+### required_sections
+- 实现方案
+
+### planning_dimensions
+- architecture_impact
+- technical_approach
+- data_and_state_flow
+- alternatives_and_tradeoffs
+- compatibility
+- risk_and_rollback
+- validation_strategy
+
+### implementation_plan_rules
+- 只基于 docs/workflow/CURRENT_TASK.md、docs/workflow/CONTRACTS.md、docs/workflow/DECISIONS.md、docs/workflow/LESSONS.md 和项目 profile 形成当前任务方案
+- 不把长期决策直接写入 docs/workflow/DECISIONS.md
+- 不把稳定契约直接写入 docs/workflow/CONTRACTS.md
+- 不把步骤拆解混进方案设计；步骤拆解交给 decompose-task
+- 如果方案需要扩大 scope，停止并回到 lock-scope
+
+## External Documentation Gate
+
+`/plan-implementation` 在形成技术方案前必须判断技术路线是否依赖第三方 library、framework、SDK、API、CLI tool 或 cloud service 的 current behavior。
+
+触发条件：
+
+- 方案需要选择或验证第三方 API / SDK / CLI / config / cloud service 的当前用法。
+- 技术路线依赖某第三方参数、返回结构、配置字段、命令 flag、版本约束或 breaking-change 行为。
+- 需要判断某写法当前是否仍受支持、是否 deprecated、是否有官方替代写法。
+- 候选方案之间的差异来自第三方当前能力或限制。
+
+调用优先级：
+
+1. 优先使用 ctx7 MCP。
+2. MCP 不可用时，使用可确认会获取 current docs 的 ctx7 / docs skill。
+3. MCP 和可用 skill 都不可用，且宿主允许 shell / CLI 时，使用 `ctx7` CLI。
+4. 全部不可用时，记录 blocked reason；不得用训练数据默默替代 current docs 判断。
+
+失败处理：
+
+- 若 gate 已触发但无法取得 current docs evidence，不得继续决定依赖第三方 current behavior 的技术路线。
+- blocked reason 必须写明已尝试通道、失败类型、受影响技术判断和 handoff。失败类型包括未安装、不可用、无权限、命令不存在、认证失败、quota、DNS / network、返回结果不可信或宿主禁止 shell / CLI。
+- 只有当受影响判断不是当前方案前置条件，或项目内已有稳定 wrapper / 已锁定契约足以覆盖当前判断时，才可继续；继续时必须写明 no-block reason。
+- 若 blocked reason 影响当前技术路线成立性，停止并 handoff 到 `ask-user`；不得把未验证候选方案交给 `decompose-task`。
+
+证据写入：
+
+- 把 docs source、查询对象、关键结论、适用版本或适用范围写入 `docs/workflow/CURRENT_TASK.md > 实现方案`。
+- 若未触发 gate，说明 no-op 原因，例如“不涉及第三方 current behavior”或“仅使用项目内既有稳定 wrapper”。
+- 若 gate 不可用，按失败处理规则写明 blocked reason、受影响技术判断和是否阻塞当前方案。
+
+回问规则：
+
+- 纯 mechanical 的文档验证和项目既有技术栈用法可以自动取证并形成方案。
+- 如果 ctx7 evidence 暴露多个会改变架构边界、产品行为、依赖版本、长期维护路径或用户已确认方向的候选方案，必须以 plan 形式回问用户确认。
+- 未确认前不得把这些候选方案塞进实现步骤；handoff 到 `ask-user`。
+
+## Implementation Planning
+
+`/plan-implementation` 负责把“要做什么”转成“准备用什么方案做”。它不写代码，也不拆具体步骤。
+
+输出必须覆盖：
+
+- Architecture impact：受影响的模块、边界、接口、数据结构、状态流、调用链。
+- Technical approach：推荐技术路径、最小可行实现方式、为什么符合当前 scope。
+- Alternatives and tradeoffs：候选方案、放弃原因、是否涉及 Taste / User challenge。
+- Compatibility：旧行为、旧参数、旧返回结构、旧数据、旧客户端是否保持可用。
+- Risk and rollback：主要失败模式、回滚方式、危险面。
+- Validation strategy：需要哪些测试、smoke、browser evidence、release evidence 或 blocked reason。
+
+## Plan Record Template
+
+```md
+Implementation Plan:
+- Goal:
+- Architecture impact:
+- Technical approach:
+- Alternatives considered:
+- Data / state flow:
+- Compatibility:
+- Risks and rollback:
+- Validation strategy:
+- Open decisions:
+- Handoff:
+```
+
+## Execution Protocol
+
+1. Restate the current task goal in one sentence.
+2. Read all files listed in `reads`.
+3. Use Bash only for read-only discovery, script/test discovery, and fact verification.
+4. Check `must_check` items before acting.
+5. Respect `forbidden_writes` and current task boundaries.
+6. If any `stop_conditions` match, stop and hand off to `handoff.failure`.
+7. Write the implementation plan into `docs/workflow/CURRENT_TASK.md` under `## 实现方案`.
+8. If `CURRENT_TASK.md > Allowed Files` explicitly permits a task-scoped `docs/workflow/TECHNICAL_DETAILS-*.md` companion document, optionally create or update it with concrete implementation guidance.
+9. Produce the artifact(s) described in `output`.
+10. Hand off to `handoff.success` when the skill completes normally.
+
+## Output Contract
+
+- Only write the files listed in `writes`.
+- If `writes` is `[]`, respond without persisting files.
+- Do not modify code from this skill.
+- Do not write `docs/workflow/CONTRACTS.md`, `docs/workflow/DECISIONS.md`, or `docs/workflow/LESSONS.md` directly from this skill.
+- `docs/workflow/TECHNICAL_DETAILS-*.md` 仅在满足以下条件时允许写入：
+  - 当前任务 scope 已在 `Allowed Files` 中显式允许该具体路径；
+  - 文档内容是 `CURRENT_TASK.md` 的实现补充件，而不是新的治理事实源；
+  - 文档必须引用所属 task id / slug，并说明自己不替代 `CURRENT_TASK.md`。
+- Bash is read-only in this skill; do not use it to modify code, governance docs, or run destructive commands.
+- Surface assumptions explicitly.
+- Keep the result structured and auditable.
+- Report unresolved risks rather than hiding them.
+
+## Notes
+
+- 本 skill 只把当前任务内的实现方案写入 docs/workflow/CURRENT_TASK.md；长期有效决策必须由 sync-decisions 在用户确认后沉淀。
+- 本 skill 不拆步骤，步骤拆解交给 decompose-task。
+- This is a draft skill template generated from the workflow schema in `vibe-coding/vibe-coding-workflow.md`.
+- This source-repo reference render already expands the current `.workflow-system/PROJECT_PROFILE.yaml`; target projects re-render these values during install / sync.
+
+## Reference Render Semantics
+
+- This generated file is a source-repo reference render produced from the current `.workflow-system/PROJECT_PROFILE.yaml`.
+- The concrete project values shown here reflect this repository's profile, not a universal target-project default.
+- Target projects render workflow skills from their own `.workflow-system/PROJECT_PROFILE.yaml` during install / sync.

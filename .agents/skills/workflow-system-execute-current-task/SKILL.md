@@ -1,0 +1,140 @@
+---
+name: execute-current-task
+preamble-tier: 2
+version: 0.2.0
+description: >
+  Orchestrate the standard current-task execution flow from task review through
+  regression.
+purpose: |
+  按标准顺序执行当前任务，从任务复核、范围锁定、决策分类、实现方案分析和步骤拆解进入实现与验证链。
+stage: 阶段 1：需求进入
+trigger: |
+  docs/workflow/CURRENT_TASK.md 已存在，用户要求继续执行或自动推进当前任务时。
+inputs:
+  - current_task
+  - user_intent
+  - current_diff
+  - diff_review_target
+reads:
+  - docs/workflow/CURRENT_TASK.md
+  - docs/workflow/CONTRACTS.md
+  - docs/workflow/DECISIONS.md
+  - docs/workflow/STATUS.md
+writes: []
+forbidden_writes:
+  - src
+  - android
+  - public
+  - tests
+  - scripts
+  - docs/workflow/CURRENT_TASK.md
+  - docs/workflow/CONTRACTS.md
+  - docs/workflow/DECISIONS.md
+  - docs/workflow/STATUS.md
+must_check:
+  - docs/workflow/CURRENT_TASK.md 是否存在且不是已归档任务
+  - 是否需要先 review-current-task 收敛目标和验收
+  - 是否需要 lock-scope 重新确认 Allowed Files / Forbidden Files / Conditional Files
+  - 是否存在 Taste 或 User challenge 决策需要先确认
+  - 是否已有实现方案、架构影响、技术路线和验证策略
+  - 是否已有当前可执行步骤
+  - 若后续进入 review / verify / regression 链路，diff_review_target 是否已声明或可由
+    docs/workflow/CURRENT_TASK.md 回滚点明确推导
+stop_conditions:
+  - docs/workflow/CURRENT_TASK.md 缺失或任务已归档
+  - 任务目标、验收或范围不清
+  - 需要扩大范围、改变产品行为、接口契约或架构边界
+  - 任何子流程返回 ask-user
+output:
+  - Orchestration plan
+  - Executed skill sequence
+  - Stop point or next handoff
+  - Remaining manual confirmations
+handoff:
+  success: review-current-task
+  failure: ask-user
+decision_policy:
+  mechanical: 可以自动按标准顺序推进只读检查和已授权实现步骤。
+  taste: 不自动决定产品口味、视觉方向或方案取舍。
+  user_challenge: 需要扩大范围、改变行为或触碰契约时必须停下确认。
+verification:
+  - 已说明即将执行的 skill 顺序
+  - 已说明后续 review / verify / regression 链路使用的 diff_review_target，或说明为何当前阶段尚未产生可审查
+    diff
+  - 已在每个子 skill stop condition 处停下
+  - 没有绕过 lock-scope 或 dangerous command gate
+  - 没有直接修改代码或治理文档
+allowed-tools:
+  - Read
+  - AskUserQuestion
+benefits-from:
+  - /create-current-task
+  - /review-current-task
+notes:
+  - 这是编排入口，实际写入只能由被调用的底层 skill 执行。
+orchestration_sequence:
+  - review-current-task
+  - lock-scope
+  - classify-decisions
+  - plan-implementation
+  - decompose-task
+  - implement-current-step
+  - review-diff
+  - review-implementation
+  - verify-contracts
+  - run-regression
+orchestration_constraints:
+  - review-diff、review-implementation、verify-contracts 和 diff-aware
+    run-regression 必须沿用同一个 diff_review_target
+  - 如果 docs/workflow/CURRENT_TASK.md 记录了 checkpoint commit，不得让子流程退回只看 git diff /
+    git diff --cached
+  - diff_review_target 不明确时，进入 review-diff 前必须停下并要求明确
+manual_confirmation_points:
+  - 扩大 Allowed Files 或触碰 Forbidden Files
+  - 修改产品行为、接口契约、数据结构或架构边界
+  - Taste / User challenge 决策未确认
+  - dangerous command / deployment / database surfaces
+  - 子流程返回 ask-user
+---
+
+# Skill: execute-current-task
+
+## Purpose
+
+按标准顺序执行当前任务，从任务复核、范围锁定、决策分类、实现方案分析和步骤拆解进入实现与验证链。
+
+## Orchestration Sequence
+
+```text
+/review-current-task
+-> /lock-scope
+-> /classify-decisions
+-> /plan-implementation
+-> /decompose-task
+-> /implement-current-step
+-> /review-diff
+-> /review-implementation
+-> /verify-contracts
+-> /run-regression
+```
+
+## Rules
+
+- 这是编排入口，不直接修改文件。
+- 每个子 skill 的 reads / writes / stop_conditions 仍然生效。
+- 如果当前任务已经拆好且范围已锁，可改用 `/continue-current-step`。
+- 进入 `/review-diff` 前必须明确 `diff_review_target`；如果任务已有 checkpoint commit，使用记录的 task base / checkpoint range，而不是默认当前工作区 diff。
+- `/review-diff`、`/review-implementation`、`/verify-contracts` 和 diff-aware `/run-regression` 必须沿用同一个 `diff_review_target`。
+- 任一子 skill 需要人工确认时，停止并报告 stop point。
+
+## Output Contract
+
+- 输出已执行的 skill sequence、停止点、剩余确认项和下一步。
+- 不把未完成的子流程写成完成。
+- 不绕过 `/lock-scope`、`/classify-decisions` 或 dangerous command gate。
+
+## Reference Render Semantics
+
+- This generated file is a source-repo reference render produced from the current `.workflow-system/PROJECT_PROFILE.yaml`.
+- The concrete project values shown here reflect this repository's profile, not a universal target-project default.
+- Target projects render workflow skills from their own `.workflow-system/PROJECT_PROFILE.yaml` during install / sync.

@@ -1,0 +1,300 @@
+---
+name: sync-review-findings
+preamble-tier: 2
+version: 0.1.0
+description: >
+  Persist structured implementation review findings into
+  docs/workflow/CURRENT_TASK.md before the next fix pass.
+purpose: >
+  将 review-diff / review-implementation 发现的实现问题写入 docs/workflow/CURRENT_TASK.md
+  的审查问题队列，作为下一轮修复输入。
+stage: 阶段 5：范围复核
+trigger: |
+  只读审查输出 P1 / P2 / P3 implementation findings，且这些 finding 需要在进入修复前持久记录时。
+inputs:
+  - current_task
+  - structured_review_findings
+  - finding_source
+reads:
+  - docs/workflow/CURRENT_TASK.md
+  - TASKS/paused/**
+  - TASKS/interrupted/**
+writes:
+  - docs/workflow/CURRENT_TASK.md
+forbidden_writes:
+  - src
+  - android
+  - public
+  - tests
+  - scripts
+  - .git/**
+  - node_modules/**
+  - docs/workflow/CONTRACTS.md
+  - docs/workflow/DECISIONS.md
+must_check:
+  - findings 是否来自只读审查输出
+  - 每条 finding 是否包含 severity、file / symbol、failure scenario、minimal fix
+    direction、required test
+  - finding 是否能映射到当前任务允许范围
+  - finding owner 是否可收敛到 canonical route 闭集
+  - paused / interrupted owner 候选是否已读取 matching suspended package evidence
+  - active-owner guard 是否已在 resume route 前判定
+  - 是否需要扩大范围、修改契约或确认产品行为
+  - 是否存在根因未明的 finding
+stop_conditions:
+  - finding 缺少可执行定位或失败场景
+  - finding 与当前任务目标无法建立关系
+  - paused / interrupted owner 候选存在但 matching suspended package evidence
+    缺失、marker 不自洽或无法唯一解析
+  - active-owner guard 未通过却试图把 finding 写成 resume success chain 或当前任务可修队列
+output:
+  - 更新后的 docs/workflow/CURRENT_TASK.md 审查问题队列
+  - Ownership assessment
+  - Ownership evidence
+  - Recommended route
+  - Recommended handoff
+handoff:
+  success: implement-current-step
+  failure: ask-user
+conditional_handoff:
+  queued_fixable_findings: implement-current-step
+  scope_widening_candidate: lock-scope
+  resume_paused_guard_passed: resume-paused-task
+  resume_paused_guard_blocked: ask-user
+  resume_interrupted_guard_passed: resume-interrupted-task
+  resume_interrupted_guard_blocked: ask-user
+  new_bug_task_required: create-current-task
+  user_decision_required: ask-user
+  product_contract_architecture: ask-user
+  unknown_root_cause: investigate-root-cause
+  invalid_finding_input: ask-user
+decision_policy:
+  mechanical: 可以把结构化 finding 规范化写入 docs/workflow/CURRENT_TASK.md，不改变其含义。
+  taste: 不得把个人偏好补写成 review finding。
+  user_challenge: 涉及产品、契约、架构或范围扩大时必须上浮确认。
+verification:
+  - docs/workflow/CURRENT_TASK.md 已记录每条待修 finding
+  - 每条 finding 保留 severity、定位、失败场景、最小修复方向和验证要求
+  - 只有 `current_task_owned` 且当前 Allowed Files 内可修的 mechanical finding 被写入队列
+  - paused / interrupted / new bug / user decision findings 没有错写进当前队列
+  - 越界、契约、架构或产品问题没有被伪装成 mechanical fix
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - AskUserQuestion
+benefits-from:
+  - /review-diff
+  - /review-implementation
+notes:
+  - 本 skill 只同步审查发现，不修代码。
+finding_queue_fields:
+  - Finding ID
+  - Severity
+  - Source
+  - Status
+  - File / symbol
+  - Failure scenario
+  - Minimal fix direction
+  - Required test
+  - Handoff
+finding_statuses:
+  - open
+  - in-progress
+  - resolved
+  - deferred
+  - needs-user
+finding_handoff_rules:
+  - 当前 Allowed Files 内的 mechanical implementation finding 写入队列后交给
+    implement-current-step
+  - 需要扩大范围的 finding 不写成可修队列，交给 lock-scope
+  - 需要改产品、契约、架构或设计方向的 finding 交给 ask-user
+  - 根因不明的 finding 交给 investigate-root-cause
+---
+
+# Skill: sync-review-findings
+
+## Purpose
+
+将 review-diff / review-implementation 发现的实现问题写入 docs/workflow/CURRENT_TASK.md 的审查问题队列，作为下一轮修复输入。
+
+## Trigger
+
+只读审查输出 P1 / P2 / P3 implementation findings，且这些 finding 需要在进入修复前持久记录时。
+
+## Inputs
+
+- current_task
+- structured_review_findings
+- finding_source
+
+## Project Variables
+
+### core
+- termlink
+- application
+- JavaScript, Kotlin, HTML, CSS
+
+### structure
+- src, android, public, tests, scripts
+- .git/**, node_modules/**
+- Keep workflow automation and generators in scripts/., Treat templates/skills/ as workflow skill template sources, not runtime outputs., Do not hand-edit generated outputs.
+
+### execution
+- node --test, android\gradlew.bat :app:testDebugUnitTest, npm run android:check-release-config
+- mechanical, taste, user_challenge
+
+## Required Reads
+
+1. Read every file listed in frontmatter `reads` before making any decision.
+2. If a required file is missing, follow `handoff.failure` instead of guessing.
+3. When `docs/workflow/CURRENT_TASK.md` exists, treat it as the source of truth for scope.
+
+## Must Check
+
+- findings 是否来自只读审查输出
+- 每条 finding 是否包含 severity、file / symbol、failure scenario、minimal fix direction、required test
+- finding 是否能映射到当前任务允许范围
+- 是否需要扩大范围、修改契约或确认产品行为
+- 是否存在根因未明的 finding
+
+## Stop Conditions
+
+- finding 缺少可执行定位或失败场景
+- finding 与当前任务目标无法建立关系
+
+## Decision Policy
+
+- `mechanical`: 可以把结构化 finding 规范化写入 docs/workflow/CURRENT_TASK.md，不改变其含义。
+- `taste`: 不得把个人偏好补写成 review finding。
+- `user_challenge`: 涉及产品、契约、架构或范围扩大时必须上浮确认。
+
+## Verification
+
+- docs/workflow/CURRENT_TASK.md 已记录每条待修 finding
+- 每条 finding 保留 severity、定位、失败场景、最小修复方向和验证要求
+- 越界、契约、架构或产品问题没有被伪装成 mechanical fix
+
+## Extension Fields
+
+### conditional_handoff
+- queued_fixable_findings: implement-current-step
+- scope_widening_candidate: lock-scope
+- resume_paused_guard_passed: resume-paused-task
+- resume_paused_guard_blocked: ask-user
+- resume_interrupted_guard_passed: resume-interrupted-task
+- resume_interrupted_guard_blocked: ask-user
+- new_bug_task_required: create-current-task
+- user_decision_required: ask-user
+- product_contract_architecture: ask-user
+- unknown_root_cause: investigate-root-cause
+- invalid_finding_input: ask-user
+
+### finding_queue_fields
+- Finding ID
+- Severity
+- Source
+- Status
+- File / symbol
+- Failure scenario
+- Minimal fix direction
+- Required test
+- Handoff
+
+### finding_statuses
+- open
+- in-progress
+- resolved
+- deferred
+- needs-user
+
+### finding_handoff_rules
+- 当前 Allowed Files 内的 mechanical implementation finding 写入队列后交给 implement-current-step
+- 需要扩大范围的 finding 不写成可修队列，交给 lock-scope
+- 命中 paused / interrupted owner 候选时，必须先读取 matching suspended package evidence，再决定是否 route 到 `resume-*` 或 `ask-user`
+- 需要改产品、契约、架构或设计方向的 finding 交给 ask-user
+- 根因不明的 finding 交给 investigate-root-cause
+
+## Ownership-Aware Queue Routing
+
+`/sync-review-findings` 在把 finding 写入 `docs/workflow/CURRENT_TASK.md > 审查问题队列` 前，必须先判断 owner，避免把旧任务或独立 bug 的问题误写到当前 active task。
+
+Canonical ownership route 闭集：
+
+- `current_task_owned`
+- `scope_widening_candidate`
+- `resume_paused_required`
+- `resume_interrupted_required`
+- `new_bug_task_required`
+- `user_decision_required`
+
+Skill-local alias 只能映射到 canonical route 或 pre-routing state，不能扩展闭集：
+
+- `queued_fixable_findings`：映射 `current_task_owned`
+- `scope_widening_candidate`：映射 `scope_widening_candidate`
+- `resume_paused_guard_passed` / `resume_paused_guard_blocked`：映射 `resume_paused_required`
+- `resume_interrupted_guard_passed` / `resume_interrupted_guard_blocked`：映射 `resume_interrupted_required`
+- `new_bug_task_required`：映射 `new_bug_task_required`
+- `user_decision_required`：映射 `user_decision_required`
+- `unknown_root_cause` / `invalid_finding_input`：pre-routing state
+
+Ownership assessment rules：
+
+- 只有当 finding 属于当前 active task、位于当前 Allowed Files 内，且是当前任务可修的 mechanical implementation finding，才可输出 `current_task_owned` 并写入当前队列。
+- 当 finding 属于当前任务目标，但最小修复路径会越出 Allowed Files 时，输出 `scope_widening_candidate`，不得写入当前队列。
+- 当 finding 明显属于唯一 paused / interrupted owner 候选时，先读取 matching suspended package evidence，再决定是否输出 `resume_paused_required` 或 `resume_interrupted_required`。
+- 当 finding 不属于当前 active task，也不属于可恢复的唯一 suspended owner，且需要单独 bug 任务承载时，输出 `new_bug_task_required`。
+- 当当前 live task 仍持有 active ownership、需要用户决定是否 pause / interrupt 当前任务后再恢复旧任务，或 finding 涉及产品 / 契约 / 架构裁决时，输出 `user_decision_required`。
+
+Ownership evidence rules：
+
+- `Ownership evidence` 必须引用 live `docs/workflow/CURRENT_TASK.md`、review source、finding location / failure scenario，以及命中时读取到的 matching suspended package evidence。
+- 不得仅凭运行时记忆或模糊相似性猜测 owner。
+- 若 suspended package marker 不自洽、文件缺失、同时命中多个候选或无法唯一解析，明确记录 `evidence gap`，并保持 fail-closed。
+
+Recommended handoff rules：
+
+- `current_task_owned` -> `queued_fixable_findings` -> `/implement-current-step`
+- `scope_widening_candidate` -> `scope_widening_candidate` -> `/lock-scope`
+- `resume_paused_required` -> `resume_paused_guard_passed` -> `/resume-paused-task`
+- `resume_paused_required` -> `resume_paused_guard_blocked` -> `/ask-user`
+- `resume_interrupted_required` -> `resume_interrupted_guard_passed` -> `/resume-interrupted-task`
+- `resume_interrupted_required` -> `resume_interrupted_guard_blocked` -> `/ask-user`
+- `new_bug_task_required` -> `new_bug_task_required` -> `/create-current-task`
+- `user_decision_required` -> `user_decision_required` -> `/ask-user`
+
+`Recommended route` 表达 owner 归属；`Recommended handoff` 表达 guard-aware 下一步。只有 `current_task_owned` 才允许进入当前 `审查问题队列`；paused / interrupted / new bug / user decision findings 必须在队列外报告 route，不得错写进当前任务。
+
+## Finding Sync Protocol
+
+1. Read `docs/workflow/CURRENT_TASK.md`.
+2. Normalize each incoming finding without changing its meaning.
+3. Complete `Ownership assessment` and `Ownership evidence` before deciding queue destination.
+4. If `Ownership assessment` points to a paused / interrupted owner candidate, read the matching suspended package evidence from `TASKS/paused/**` or `TASKS/interrupted/**` before choosing `Recommended route`, `Recommended handoff`, or queue disposition.
+5. Write only to `docs/workflow/CURRENT_TASK.md > 审查问题队列`.
+6. Preserve the source skill name, severity, location, failure scenario, minimal fix direction, and required test.
+7. Mark new actionable items as `open`.
+8. Classify each finding with `conditional_handoff`; only `queued_fixable_findings` may enter the queue for code fix.
+9. If a finding requires scope widening, product confirmation, contract change, architecture change, root-cause investigation, paused / interrupted resume, new bug registration, or user decision, stop and hand off according to `conditional_handoff` / `finding_handoff_rules`.
+10. Use `handoff.success` only after fixable findings are persisted to the queue.
+
+## Output Contract
+
+- Only write the files listed in `writes`.
+- If `writes` is `[]`, respond without persisting files.
+- Surface assumptions explicitly.
+- Keep the result structured and auditable.
+- Report unresolved risks rather than hiding them.
+
+## Notes
+
+- 本 skill 只同步审查发现，不修代码。
+- `conditional_handoff` 是本 skill 的规范结构化路由；`handoff.failure` 只用于无效或不可落地的 finding 输入。
+- This is a draft skill template generated from the workflow schema in `vibe-coding/vibe-coding-workflow.md`.
+- This source-repo reference render already expands the current `.workflow-system/PROJECT_PROFILE.yaml`; target projects re-render these values during install / sync.
+
+## Reference Render Semantics
+
+- This generated file is a source-repo reference render produced from the current `.workflow-system/PROJECT_PROFILE.yaml`.
+- The concrete project values shown here reflect this repository's profile, not a universal target-project default.
+- Target projects render workflow skills from their own `.workflow-system/PROJECT_PROFILE.yaml` during install / sync.

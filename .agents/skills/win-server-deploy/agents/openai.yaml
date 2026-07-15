@@ -1,0 +1,4 @@
+interface:
+  display_name: "Windows Server Deploy"
+  short_description: "Pack and deploy TermLink with pm2 and Task Scheduler startup"
+  default_prompt: "Use $win-server-deploy to package the server and prepare Windows scheduled-task deployment."
