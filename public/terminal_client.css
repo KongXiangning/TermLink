@@ -1711,6 +1711,11 @@ body.codex-only #codex-log-stack {
     border-color: rgba(166, 141, 106, 0.45);
 }
 
+.codex-request-freeform-input:focus-visible {
+    outline: 2px solid rgba(78, 222, 163, 0.7);
+    outline-offset: 2px;
+}
+
 .codex-request-submit-row {
     display: flex;
     gap: 8px;
@@ -2187,6 +2192,11 @@ body.codex-only #codex-log-stack {
 
 .codex-ghost-select:focus {
     outline: none;
+}
+
+.codex-ghost-select:focus-visible {
+    outline: 2px solid rgba(78, 222, 163, 0.7);
+    outline-offset: 2px;
 }
 
 .codex-action-btn {
@@ -2823,6 +2833,11 @@ body.codex-only #codex-log-stack {
 
 #codex-image-prompt-input:focus {
     border-color: rgba(78, 222, 163, 0.35);
+}
+
+#codex-image-prompt-input:focus-visible {
+    outline: 2px solid rgba(78, 222, 163, 0.7);
+    outline-offset: 2px;
 }
 
 #codex-image-prompt-input::placeholder {

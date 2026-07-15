@@ -4,15 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>TermLink Codex IPC</title>
-  <link rel="stylesheet" href="codex_ipc.css?v=1">
-  <link rel="stylesheet" href="sessions.css?v=1">
+  <link rel="stylesheet" href="ui-foundation.css?v=2">
+  <link rel="stylesheet" href="codex_ipc.css?v=2">
+  <link rel="stylesheet" href="sessions.css?v=2">
+  <script src="i18n/i18n.js"></script>
 </head>
 <body class="ipc-page">
 
   <!-- ── session header ─────────────────────────────────────────────────── -->
-  <header class="ipc-status-bar" style="gap:6px">
-    <span id="session-name" style="font-weight:600;font-size:0.9rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Codex</span>
-    <span id="session-cwd" style="font-size:0.7rem;opacity:0.4;max-width:30%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" hidden></span>
+  <header class="ipc-status-bar ipc-status-bar-compact">
+    <span id="session-name" class="ipc-session-name">Codex</span>
+    <span id="session-cwd" class="ipc-session-cwd" hidden></span>
     <span class="ipc-status-indicator" id="ws-status">
       <span class="ipc-status-dot offline"></span> WS
     </span>
@@ -21,30 +23,30 @@
     </span>
     <div class="ipc-conv-selector-wrap">
       <select class="ipc-conv-selector" id="conv-selector" disabled>
-        <option value="">-- 选择会话 --</option>
+        <option value="" data-i18n="ipc.conversationPlaceholder">-- Select conversation --</option>
       </select>
       <span class="ipc-conv-badge" id="conv-status-badge" hidden></span>
     </div>
   </header>
 
   <!-- ── offline banner ─────────────────────────────────────────────────── -->
-  <div class="ipc-offline-banner" id="offline-banner">IPC 不可用，实时同步已暂停</div>
+  <div class="ipc-offline-banner" id="offline-banner" data-i18n="ipc.offline">IPC is unavailable. Live sync is paused.</div>
 
   <!-- ── surface (message list) ─────────────────────────────────────────── -->
   <main class="ipc-surface" id="ipc-surface">
     <div class="ipc-surface-empty" id="surface-empty">
-      选择一个会话以查看实时消息流
+      <span data-i18n="ipc.empty">Select a conversation to view its live message stream.</span>
     </div>
   </main>
 
   <!-- ── approval panel ─────────────────────────────────────────────────── -->
   <div class="ipc-approval-panel" id="approval-panel">
-    <div class="ipc-approval-title" id="approval-title">等待命令审批</div>
+    <div class="ipc-approval-title" id="approval-title" data-i18n="ipc.approvalPending">Command approval pending</div>
     <div class="ipc-approval-desc" id="approval-desc"></div>
     <div class="ipc-approval-command" id="approval-command"></div>
     <div class="ipc-approval-actions" id="approval-actions">
-      <button class="ipc-approval-accept-btn" id="approval-accept-btn">允许</button>
-      <button class="ipc-approval-reject-btn" id="approval-reject-btn">拒绝</button>
+      <button class="ipc-approval-accept-btn" id="approval-accept-btn" data-i18n="ipc.allow">Allow</button>
+      <button class="ipc-approval-reject-btn" id="approval-reject-btn" data-i18n="ipc.reject">Reject</button>
     </div>
     <div class="ipc-approval-status" id="approval-status"></div>
   </div>
@@ -53,9 +55,9 @@
   <div class="ipc-plan-panel" id="plan-panel">
     <div class="ipc-plan-text" id="plan-text"></div>
     <div class="ipc-plan-actions">
-      <button class="ipc-plan-accept-btn" id="plan-accept-btn">是，实施此计划</button>
-      <input class="ipc-plan-feedback-input" id="plan-feedback-input" placeholder="调整意见（可选）…">
-      <button class="ipc-plan-feedback-btn" id="plan-feedback-btn">提交反馈</button>
+      <button class="ipc-plan-accept-btn" id="plan-accept-btn" data-i18n="ipc.implementPlan">Yes, implement this plan</button>
+      <input class="ipc-plan-feedback-input" id="plan-feedback-input" placeholder="Feedback (optional)…" data-i18n="ipc.feedbackPlaceholder" data-i18n-attr="placeholder">
+      <button class="ipc-plan-feedback-btn" id="plan-feedback-btn" data-i18n="ipc.submitFeedback">Submit feedback</button>
     </div>
     <div class="ipc-plan-status" id="plan-status"></div>
   </div>
@@ -64,12 +66,12 @@
   <div class="ipc-follower-hint" id="follower-hint" hidden></div>
   <div class="ipc-follower-input-panel" id="follower-input-panel">
     <input class="ipc-follower-input" id="follower-input" type="text"
-           placeholder="输入消息…" disabled>
-    <button class="ipc-follower-send-btn" id="follower-send-btn" disabled>发送</button>
+           placeholder="Type a message…" data-i18n="ipc.messagePlaceholder" data-i18n-attr="placeholder" disabled>
+    <button class="ipc-follower-send-btn" id="follower-send-btn" data-i18n="ipc.send" disabled>Send</button>
     <span class="ipc-follower-send-status" id="follower-send-status"></span>
   </div>
 
-  <script src="sessions.js?v=1"></script>
+  <script src="sessions.js?v=3"></script>
   <script src="codex_ipc.js?v=1"></script>
 </body>
 </html>

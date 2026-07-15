@@ -59,6 +59,18 @@
 
 ## 前端与交互
 
+- 场景：对话框只记录 `document.activeElement` 作为关闭后恢复目标，键盘正常但触屏验收时焦点丢失。
+  - 结论：touch activation 不保证先把焦点放到 opener；打开 modal/drawer 的 helper 应显式接收 `event.currentTarget` 或等价 trigger 作为 restore target。
+  - 触发信号：鼠标/键盘路径关闭后能回焦，touch emulation 下 `activeElement` 却回到 body 或对话框内元素。
+  - 应对动作：在 open helper 中优先保存显式 opener，close 后聚焦该元素；三种 viewport 分别验证 dialog/drawer 的 focus trap 与 restore。
+  - Source：`20260715-002` / WEB-STEP8-F002
+
+- 场景：Linux 环境内找不到 Chromium/Firefox/Playwright，但宿主实际是 WSL 并挂载了 Windows 浏览器。
+  - 结论：UI 任务在声明 browser-backed QA blocked 前，应同时盘点 Linux PATH、`/mnt/c/Program Files*` 与 CDP 远程调试能力；Windows Edge/Chrome 可以为 WSL 内本地 Node 服务提供真实渲染证据。
+  - 触发信号：`which chromium` 为空，但工作区在 WSL，`/mnt/c` 可读，需求又必须提供像素/触屏/console 证据。
+  - 应对动作：检查 Windows Edge/Chrome，用独立 profile + CDP 连接隔离端口服务；验证后停止浏览器和临时服务，不影响开发中的默认端口。
+  - Source：`20260715-002` / Step 8
+
 - 场景：iframe 嵌入的 codex 页面点击事件不冒泡到父页面，导致 sidebar 无法自动关闭。
   - 结论：跨 iframe 交互不能靠事件冒泡，必须用 `postMessage` 通信。iframe 内发送 `window.parent.postMessage({ type })`，父页面通过 `window.addEventListener('message', handler)` 接收。
   - 触发信号：点击 iframe 内部元素时父页面的 `document.addEventListener('click', ...)` 不触发。

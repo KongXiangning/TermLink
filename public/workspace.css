@@ -221,6 +221,7 @@ button.active {
 
 .browser-item-path {
     font-size: 12px;
+    overflow-wrap: anywhere;
 }
 
 .browser-badges {
@@ -331,5 +332,49 @@ button.active {
 
     .workspace-pane {
         min-height: auto;
+    }
+}
+
+@media (max-width: 640px) {
+    .workspace-shell {
+        padding: 10px;
+    }
+
+    .workspace-header,
+    .workspace-pane {
+        padding: 14px;
+        border-radius: 14px;
+    }
+
+    .pane-header,
+    .workspace-viewer .pane-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .pane-actions,
+    .workspace-viewer .pane-actions {
+        width: 100%;
+    }
+
+    button,
+    .toggle {
+        min-height: 44px;
+    }
+
+    .pane-actions button {
+        flex: 1 1 auto;
+    }
+
+    .browser-item {
+        align-items: flex-start;
+    }
+
+    .browser-badges {
+        flex: 0 0 auto;
+    }
+
+    .viewer-body {
+        padding: 14px;
     }
 }

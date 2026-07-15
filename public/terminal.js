@@ -14,6 +14,14 @@ const statusOverlay = document.getElementById('status-overlay');
 const sessionList = document.getElementById('session-list');
 const btnNewSession = document.getElementById('btn-new-session');
 const btnCtrlC = document.getElementById('btn-ctrl-c');
+const btnCloseSidebar = document.getElementById('btn-close-sidebar');
+const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+const connectionStatus = document.getElementById('terminal-connection-status');
+const connectionLabel = document.getElementById('terminal-connection-label');
+const terminalSessionLabel = document.getElementById('terminal-session-label');
+const btnFitTerminal = document.getElementById('btn-fit-terminal');
+const btnReconnectTerminal = document.getElementById('btn-reconnect-terminal');
+const btnFullscreenTerminal = document.getElementById('btn-fullscreen-terminal');
 
 // --- Terminal Setup ---
 // --- Terminal Setup ---
@@ -91,6 +99,58 @@ function notifyNativeError(code, message) {
 
 function notifyNativeSessionInfo(id, name) {
     callNativeBridge('onSessionInfo', [id || '', name || '']);
+}
+
+function setConnectionStatus(state, message) {
+    if (!connectionStatus || !connectionLabel) return;
+    connectionStatus.dataset.state = state || 'idle';
+    connectionLabel.textContent = message || t('terminal.status.idle');
+    connectionStatus.title = connectionLabel.textContent;
+}
+
+function setActiveSessionLabel(name) {
+    if (!terminalSessionLabel) return;
+    terminalSessionLabel.textContent = name || t('terminal.session.pending');
+    terminalSessionLabel.title = terminalSessionLabel.textContent;
+}
+
+function setWorkspaceMode(mode) {
+    document.body.classList.toggle('codex-workspace-active', mode === 'codex');
+}
+
+function focusTerminalIfAppropriate() {
+    if (!term || typeof term.focus !== 'function') return;
+    const active = document.activeElement;
+    const blocksFocus = active && active !== document.body && active !== document.documentElement && (
+        active.matches('input, textarea, select, button, [contenteditable="true"]') ||
+        active.closest('.modal.open, #sidebar.open, #input-overlay')
+    );
+    if (!blocksFocus) term.focus();
+}
+
+function syncWorkspaceControlLabels() {
+    const labels = [
+        [btnMenu, 'terminal.btn.menu'],
+        [btnCloseSidebar, 'terminal.sidebar.close'],
+        [btnFitTerminal, 'terminal.btn.fit'],
+        [btnReconnectTerminal, 'terminal.btn.reconnect'],
+        [btnFullscreenTerminal, document.fullscreenElement ? 'terminal.btn.exitFullscreen' : 'terminal.btn.fullscreen'],
+        [document.getElementById('btn-server-manager'), 'terminal.btn.manageServers'],
+        [btnNewSession, 'terminal.btn.newSession'],
+        [document.getElementById('btn-paste'), 'common.paste'],
+        [btnToggleInput, 'common.inputMode']
+    ];
+    labels.forEach(([control, key]) => {
+        if (!control) return;
+        const label = t(key);
+        control.title = label;
+        control.setAttribute('aria-label', label);
+    });
+    document.querySelectorAll('.key[data-key]').forEach(control => {
+        if (!control.hasAttribute('aria-label')) {
+            control.setAttribute('aria-label', control.dataset.key);
+        }
+    });
 }
 
 function resolveHistoryEnabled(config) {
@@ -354,15 +414,112 @@ const serverManagerModal = document.getElementById('server-manager-modal');
 const btnCloseServerManager = document.getElementById('btn-close-server-manager');
 const serverListEl = document.getElementById('server-list');
 const btnAddServer = document.getElementById('btn-add-server');
+const addServerForm = document.getElementById('add-server-form');
 const inputNewServerName = document.getElementById('new-server-name');
 const inputNewServerUrl = document.getElementById('new-server-url');
+const serverFormStatus = document.getElementById('server-form-status');
+const serverCount = document.getElementById('server-count');
+const confirmModal = document.getElementById('confirm-modal');
+const confirmModalTitle = document.getElementById('confirm-modal-title');
+const confirmModalMessage = document.getElementById('confirm-modal-message');
+const confirmModalCancel = document.getElementById('confirm-modal-cancel');
+const confirmModalAccept = document.getElementById('confirm-modal-accept');
 
 const sidebarServerListEl = document.getElementById('sidebar-server-list');
+
+let activeDialogModal = null;
+const dialogRestoreTargets = new WeakMap();
+let confirmationResolver = null;
+
+function getFocusableElements(container) {
+    if (!container) return [];
+    return Array.from(container.querySelectorAll(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+    )).filter(element => !element.hidden && element.getAttribute('aria-hidden') !== 'true');
+}
+
+function openDialogModal(modal, initialFocus, restoreTarget) {
+    if (!modal) return;
+    if (activeDialogModal && activeDialogModal !== modal) {
+        activeDialogModal.setAttribute('aria-hidden', 'true');
+    }
+    if (!modal.classList.contains('open')) {
+        const resolvedRestoreTarget = restoreTarget || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+        dialogRestoreTargets.set(modal, resolvedRestoreTarget);
+    }
+    activeDialogModal = modal;
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    const target = initialFocus || getFocusableElements(modal)[0] || modal.querySelector('[role="dialog"], [role="alertdialog"]');
+    requestAnimationFrame(() => target && target.focus());
+}
+
+function closeDialogModal(modal, restoreFocus = true) {
+    if (!modal) return;
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+    if (activeDialogModal === modal) {
+        const remaining = Array.from(document.querySelectorAll('.modal.open'));
+        activeDialogModal = remaining.length ? remaining[remaining.length - 1] : null;
+        if (activeDialogModal) activeDialogModal.setAttribute('aria-hidden', 'false');
+    }
+    const restoreTarget = dialogRestoreTargets.get(modal);
+    if (restoreFocus && restoreTarget && document.contains(restoreTarget)) restoreTarget.focus();
+    dialogRestoreTargets.delete(modal);
+}
+
+function resolveConfirmation(accepted) {
+    const resolve = confirmationResolver;
+    confirmationResolver = null;
+    closeDialogModal(confirmModal);
+    if (resolve) resolve(Boolean(accepted));
+}
+
+function requestConfirmation({ title, message, confirmLabel }) {
+    if (!confirmModal) return Promise.resolve(false);
+    if (confirmationResolver) resolveConfirmation(false);
+    confirmModalTitle.textContent = title || t('terminal.confirm.title');
+    confirmModalMessage.textContent = message || '';
+    confirmModalAccept.textContent = confirmLabel || t('common.delete');
+    openDialogModal(confirmModal, confirmModalCancel);
+    return new Promise(resolve => { confirmationResolver = resolve; });
+}
+
+document.addEventListener('keydown', event => {
+    if (!activeDialogModal) return;
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        if (activeDialogModal === confirmModal) resolveConfirmation(false);
+        else closeDialogModal(activeDialogModal);
+        return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = getFocusableElements(activeDialogModal);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+    }
+});
 
 // --- Server Manager Logic ---
 function renderServerList() {
     // 1. Render for Modal (Manager)
     serverListEl.innerHTML = '';
+    if (serverCount) {
+        serverCount.textContent = t('terminal.server.count', { count: serverState.servers.length });
+    }
+    if (serverState.servers.length === 0) {
+        const empty = document.createElement('li');
+        empty.className = 'server-list-empty';
+        empty.textContent = t('terminal.server.empty');
+        serverListEl.appendChild(empty);
+    }
     serverState.servers.forEach(server => {
         const li = document.createElement('li');
         li.className = 'server-item';
@@ -370,16 +527,40 @@ function renderServerList() {
             li.classList.add('active-server');
         }
 
-        li.innerHTML = `
-            <div class="server-info">
-                <span class="server-name">${server.name}</span>
-                <span class="server-url">${server.url}</span>
-            </div>
-            <div class="server-actions">
-                ${server.id !== serverState.activeServerId ? `<button class="btn-connect" data-id="${server.id}">${t('terminal.server.connectBtn')}</button>` : `<span>${t('terminal.badge.activeSpan')}</span>`}
-                <button class="btn-delete" data-id="${server.id}">🗑️</button>
-            </div>
-        `;
+        const info = document.createElement('div');
+        info.className = 'server-info';
+        const name = document.createElement('span');
+        name.className = 'server-name';
+        name.textContent = server.name;
+        const url = document.createElement('span');
+        url.className = 'server-url';
+        url.textContent = server.url;
+        info.append(name, url);
+
+        const actions = document.createElement('div');
+        actions.className = 'server-actions';
+        if (server.id !== serverState.activeServerId) {
+            const connectButton = document.createElement('button');
+            connectButton.type = 'button';
+            connectButton.className = 'btn-connect';
+            connectButton.dataset.id = server.id;
+            connectButton.textContent = t('terminal.server.connectBtn');
+            connectButton.setAttribute('aria-label', t('terminal.server.connectNamed', { name: server.name }));
+            actions.appendChild(connectButton);
+        } else {
+            const activeLabel = document.createElement('span');
+            activeLabel.className = 'server-active-label';
+            activeLabel.textContent = t('terminal.badge.activeSpan');
+            actions.appendChild(activeLabel);
+        }
+        const deleteButton = document.createElement('button');
+        deleteButton.type = 'button';
+        deleteButton.className = 'btn-delete';
+        deleteButton.dataset.id = server.id;
+        deleteButton.textContent = t('common.delete');
+        deleteButton.setAttribute('aria-label', t('terminal.server.deleteNamed', { name: server.name }));
+        actions.appendChild(deleteButton);
+        li.append(info, actions);
         serverListEl.appendChild(li);
     });
 
@@ -400,8 +581,8 @@ function renderServerList() {
             if (server.id === serverState.activeServerId) {
                 const statusDot = document.createElement('span');
                 statusDot.textContent = '●';
-                statusDot.style.color = 'var(--primary-color)';
-                statusDot.style.marginRight = '8px';
+                statusDot.className = 'sidebar-server-status';
+                statusDot.setAttribute('aria-hidden', 'true');
                 li.prepend(statusDot);
             }
 
@@ -421,13 +602,13 @@ function renderServerList() {
     }
 
     // Event Listeners for generated buttons (Modal)
-    document.querySelectorAll('.btn-connect').forEach(btn => {
+    serverListEl.querySelectorAll('.btn-connect').forEach(btn => {
         btn.addEventListener('click', (e) => {
             setActiveServer(e.target.dataset.id);
         });
     });
 
-    document.querySelectorAll('.server-actions .btn-delete').forEach(btn => {
+    serverListEl.querySelectorAll('.server-actions .btn-delete').forEach(btn => {
         btn.addEventListener('click', (e) => {
             deleteServer(e.target.dataset.id);
         });
@@ -435,14 +616,46 @@ function renderServerList() {
 }
 
 function addServer(name, url) {
+    [inputNewServerName, inputNewServerUrl].forEach(input => input && input.removeAttribute('aria-invalid'));
+    if (serverFormStatus) {
+        serverFormStatus.textContent = '';
+        serverFormStatus.className = 'settings-form-status';
+    }
     if (!name || !url) {
-        showNonBlockingNotice(t('terminal.error.nameUrlRequired'), 'error');
-        return;
+        if (!name && inputNewServerName) inputNewServerName.setAttribute('aria-invalid', 'true');
+        if (!url && inputNewServerUrl) inputNewServerUrl.setAttribute('aria-invalid', 'true');
+        if (serverFormStatus) {
+            serverFormStatus.textContent = t('terminal.error.nameUrlRequired');
+            serverFormStatus.classList.add('is-error');
+        }
+        (!name ? inputNewServerName : inputNewServerUrl)?.focus();
+        return false;
     }
 
     // Normalize URL
     if (!url.startsWith('http')) url = 'http://' + url;
-    while (url.endsWith('/')) url = url.slice(0, -1);
+    try {
+        const parsed = new URL(url);
+        if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) throw new Error('unsupported URL');
+        if (parsed.username || parsed.password) {
+            inputNewServerUrl?.setAttribute('aria-invalid', 'true');
+            if (serverFormStatus) {
+                serverFormStatus.textContent = t('terminal.error.serverUrlCredentials');
+                serverFormStatus.classList.add('is-error');
+            }
+            inputNewServerUrl?.focus();
+            return false;
+        }
+        url = parsed.toString().replace(/\/$/, '');
+    } catch (_error) {
+        inputNewServerUrl?.setAttribute('aria-invalid', 'true');
+        if (serverFormStatus) {
+            serverFormStatus.textContent = t('terminal.error.invalidServerUrl');
+            serverFormStatus.classList.add('is-error');
+        }
+        inputNewServerUrl?.focus();
+        return false;
+    }
 
     const newId = Date.now().toString();
     const newServer = { id: newId, name, url };
@@ -459,36 +672,61 @@ function addServer(name, url) {
 
     inputNewServerName.value = '';
     inputNewServerUrl.value = '';
+    if (serverFormStatus) {
+        serverFormStatus.textContent = t('terminal.server.added', { name });
+        serverFormStatus.classList.add('is-success');
+    }
 
     // If we just added the first/active server, try connecting
     if (serverState.servers.length === 1) {
         connect();
     }
+    return true;
 }
 
-function deleteServer(id) {
-    if (!confirm(t('terminal.confirm.deleteServer'))) return;
+async function deleteServer(id) {
+    const server = serverState.servers.find(item => item.id === id);
+    if (!server) return;
+    const accepted = await requestConfirmation({
+        title: t('terminal.confirm.deleteServerTitle'),
+        message: t('terminal.confirm.deleteServerNamed', { name: server.name }),
+        confirmLabel: t('terminal.server.deleteAction')
+    });
+    if (!accepted) return;
 
+    const wasActive = serverState.activeServerId === id;
     serverState.servers = serverState.servers.filter(s => s.id !== id);
-    if (serverState.activeServerId === id) {
+    if (wasActive) {
         serverState.activeServerId = null;
-        // If we have other servers, maybe switch to first?
         if (serverState.servers.length > 0) {
             serverState.activeServerId = serverState.servers[0].id;
         } else {
-            // No servers left
-            if (ws) ws.close();
-            resetTerminalView();
             showConnectionSettings(); // Fallback
         }
+        resetConnectionForServerChange();
     }
     saveServerState();
     renderServerList();
 
     // If active changed (or verified same), reconnection might be needed 
-    if (serverState.activeServerId && id === serverState.activeServerId) {
+    if (serverState.activeServerId && wasActive) {
         connect();
     }
+    showNonBlockingNotice(t('terminal.server.deleted', { name: server.name }), 'info');
+}
+
+function resetConnectionForServerChange() {
+    sessionId = null;
+    localStorage.removeItem('lastSessionId');
+    clearTimeout(reconnectTimer);
+    isConnecting = false;
+    retryCount = 0;
+    if (ws) {
+        ws.onclose = null;
+        ws.close();
+        ws = null;
+    }
+    resetTerminalView();
 }
 
 function setActiveServer(id) {
@@ -496,23 +734,9 @@ function setActiveServer(id) {
     saveServerState();
     renderServerList(); // Update UI to show new active
 
-    // Reconnect
-    sessionId = null; // Clear session ID as it belongs to old server
-    localStorage.removeItem('lastSessionId');
-
-    // Reset Connection State (Fix for hanging)
-    clearTimeout(reconnectTimer);
-    isConnecting = false;
-    retryCount = 0;
-
-    if (ws) {
-        ws.onclose = null;
-        ws.close();
-        ws = null;
-    }
-    resetTerminalView();
+    resetConnectionForServerChange();
     connect();
-    serverManagerModal.classList.remove('open');
+    closeDialogModal(serverManagerModal);
 }
 
 // --- UI Event Listeners ---
@@ -526,8 +750,7 @@ if (btnSettingsToolbar) {
         e.stopPropagation();
         try {
             renderServerList();
-            serverManagerModal.classList.add('open');
-            serverManagerModal.style.display = ''; // Clear any inline style
+            openDialogModal(serverManagerModal, inputNewServerName, e.currentTarget);
         } catch (err) {
             showNonBlockingNotice(t('terminal.error.toolbarSettings', { error: err.message }), 'error');
         }
@@ -541,8 +764,7 @@ if (btnServerManager) {
         e.stopPropagation();
         try {
             renderServerList();
-            serverManagerModal.classList.add('open');
-            serverManagerModal.style.display = ''; // Clear any inline style
+            openDialogModal(serverManagerModal, inputNewServerName, e.currentTarget);
         } catch (err) {
             showNonBlockingNotice(t('terminal.error.openManager', { error: err.message }), 'error');
         }
@@ -558,12 +780,13 @@ if (btnServerManager) {
 
 if (btnCloseServerManager) {
     btnCloseServerManager.addEventListener('click', () => {
-        serverManagerModal.classList.remove('open');
+        closeDialogModal(serverManagerModal);
     });
 }
 
-if (btnAddServer) {
-    btnAddServer.addEventListener('click', () => {
+if (addServerForm) {
+    addServerForm.addEventListener('submit', event => {
+        event.preventDefault();
         addServer(inputNewServerName.value.trim(), inputNewServerUrl.value.trim());
     });
 }
@@ -571,19 +794,24 @@ if (btnAddServer) {
 // Sidebar Add Server Button
 const btnSidebarAddServer = document.getElementById('btn-sidebar-add-server');
 if (btnSidebarAddServer) {
-    btnSidebarAddServer.addEventListener('click', () => {
+    btnSidebarAddServer.addEventListener('click', event => {
         // Open the manager modal directly
         renderServerList();
-        serverManagerModal.classList.add('open');
+        openDialogModal(serverManagerModal, inputNewServerName, event.currentTarget);
     });
 }
 
 // Close modal when clicking outside
 window.addEventListener('click', (e) => {
     if (e.target === serverManagerModal) {
-        serverManagerModal.classList.remove('open');
+        closeDialogModal(serverManagerModal);
+    } else if (e.target === confirmModal) {
+        resolveConfirmation(false);
     }
 });
+
+if (confirmModalCancel) confirmModalCancel.addEventListener('click', () => resolveConfirmation(false));
+if (confirmModalAccept) confirmModalAccept.addEventListener('click', () => resolveConfirmation(true));
 
 let ws;
 let reconnectInterval = 1000;
@@ -652,7 +880,7 @@ function showConnectionSettings() {
     // The previous check (length === 0) prevented functionality when corrupted/wrong server was present
     try {
         renderServerList();
-        serverManagerModal.classList.add('open');
+        openDialogModal(serverManagerModal, inputNewServerName);
     } catch (e) {
         showNonBlockingNotice(t('terminal.error.showSettings', { error: e.message }), 'error');
     }
@@ -665,17 +893,17 @@ if (btnSaveConnection) {
         if (!inputVal) return;
         addServer('Quick Server', inputVal);
         connectionOverlay.style.display = 'none';
-        serverManagerModal.classList.remove('open');
+        closeDialogModal(serverManagerModal);
     });
 }
 
 function showStatus(msg) {
     statusOverlay.textContent = msg;
-    statusOverlay.style.display = 'block';
+    statusOverlay.hidden = false;
 }
 
 function hideStatus() {
-    statusOverlay.style.display = 'none';
+    statusOverlay.hidden = true;
 }
 
 let noticeTimer = null;
@@ -706,6 +934,7 @@ async function connect() {
         notifyNativeConnectionState('error', 'No active server configured');
         notifyNativeError('NO_ACTIVE_SERVER', 'No active server configured');
         showStatus(t('terminal.status.noActiveServer'));
+        setConnectionStatus('error', t('terminal.status.noActiveServer'));
         showConnectionSettings();
         return;
     }
@@ -719,6 +948,7 @@ async function connect() {
         const detail = error && error.message ? error.message : 'Invalid websocket URL';
         notifyNativeConnectionState('error', detail);
         notifyNativeError('INVALID_WS_URL', `${hostUrl || ''} (${detail})`);
+        setConnectionStatus('error', t('terminal.status.wsConstructionFailed'));
         showConnectionSettings();
         return;
     }
@@ -745,6 +975,7 @@ async function connect() {
     isConnecting = true;
     const connectingMessage = t('terminal.status.connecting', { name: activeServer.name, transport: transportLabel });
     showStatus(connectingMessage);
+    setConnectionStatus('connecting', connectingMessage);
     notifyNativeConnectionState('connecting', connectingMessage);
 
     try {
@@ -754,6 +985,7 @@ async function connect() {
         isConnecting = false;
         notifyNativeConnectionState('error', 'WebSocket construction failed');
         showStatus(t('terminal.status.wsConstructionFailed'));
+        setConnectionStatus('error', t('terminal.status.wsConstructionFailed'));
         notifyNativeError('WS_CONSTRUCTION_ERROR', e.message || 'unknown');
         showConnectionSettings();
         return;
@@ -763,11 +995,13 @@ async function connect() {
         isConnecting = false;
         retryCount = 0;
         hideStatus();
-        fitAddon.fit();
-        sendResize();
+        scheduleTerminalResize();
         reconnectInterval = 1000;
+        const connectedMessage = t('terminal.status.connected', { name: activeServer.name, transport: transportLabel });
+        setConnectionStatus('connected', connectedMessage);
         notifyNativeConnectionState('connected', `Connected to ${activeServer.name} via ${transportLabel}`);
         loadSessions(); // Refresh list on connect
+        focusTerminalIfAppropriate();
     };
 
     ws.onmessage = event => {
@@ -796,6 +1030,7 @@ async function connect() {
                 }
 
                 document.title = `TermLink - ${envelope.name}`;
+                setActiveSessionLabel(envelope.name || envelope.sessionId);
                 notifyNativeSessionInfo(envelope.sessionId, envelope.name || '');
                 loadSessions(); // Highlight active
             }
@@ -809,12 +1044,14 @@ async function connect() {
         isConnecting = false;
         if (retryCount >= MAX_RETRIES) {
             showStatus(t('terminal.status.failed'));
+            setConnectionStatus('error', t('terminal.status.failed'));
             const closeDetail = `code=${event.code} reason=${event.reason || 'none'}`;
             notifyNativeConnectionState('error', `Connection closed (${closeDetail})`);
             notifyNativeError('WS_CLOSED', closeDetail);
             showConnectionSettings();
         } else {
             showStatus(t('terminal.status.reconnecting'));
+            setConnectionStatus('reconnecting', t('terminal.status.reconnecting'));
             notifyNativeConnectionState('reconnecting', `attempt=${retryCount + 1}`);
             retryCount++;
             clearTimeout(reconnectTimer);
@@ -827,6 +1064,7 @@ async function connect() {
 
     ws.onerror = (err) => {
         console.error('WebSocket error:', err);
+        setConnectionStatus('error', t('terminal.status.wsTransportError', { name: activeServer.name }));
         notifyNativeError('WS_ERROR', `WebSocket transport error to ${activeServer.name}`);
     };
 }
@@ -843,6 +1081,19 @@ function sendResize() {
     if (dims) {
         sendMessage({ type: 'resize', cols: dims.cols, rows: dims.rows });
     }
+}
+
+let resizeScheduled = false;
+function scheduleTerminalResize() {
+    if (resizeScheduled) return;
+    resizeScheduled = true;
+    const requestFrame = typeof window.requestAnimationFrame === 'function'
+        ? window.requestAnimationFrame.bind(window)
+        : callback => window.setTimeout(callback, 16);
+    requestFrame(() => {
+        resizeScheduled = false;
+        sendResize();
+    });
 }
 
 const shortcutInput = (window.TerminalShortcutInput && typeof window.TerminalShortcutInput.createModifierState === 'function')
@@ -968,7 +1219,11 @@ term.onData(data => {
     sendMessage({ type: 'input', data: payload });
 });
 
-window.addEventListener('resize', sendResize);
+window.addEventListener('resize', scheduleTerminalResize);
+if (typeof ResizeObserver === 'function' && terminalContainer) {
+    const terminalResizeObserver = new ResizeObserver(() => scheduleTerminalResize());
+    terminalResizeObserver.observe(terminalContainer);
+}
 refreshModifierButtons();
 renderModifierButtonState();
 
@@ -1124,135 +1379,113 @@ if (terminalContainer && isTouchDevice) {
     }, touchListenerCapture);
 }
 
-// Sidebar Toggle
+// Workspace controls and navigation drawer
+function getSidebarFocusable() {
+    if (!sidebar) return [];
+    return Array.from(sidebar.querySelectorAll('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'));
+}
+
+function openSidebar() {
+    if (!sidebar) return;
+    sidebar.classList.add('open');
+    sidebar.removeAttribute('inert');
+    sidebar.setAttribute('aria-hidden', 'false');
+    if (sidebarBackdrop) sidebarBackdrop.hidden = false;
+    if (btnMenu) btnMenu.setAttribute('aria-expanded', 'true');
+    const activeSession = sidebar.querySelector('.session-item.active .session-item-main');
+    const focusTarget = activeSession || getSidebarFocusable()[0];
+    if (focusTarget) requestAnimationFrame(() => focusTarget.focus());
+}
+
+function closeSidebar(restoreFocus = true) {
+    if (!sidebar) return;
+    sidebar.classList.remove('open');
+    sidebar.setAttribute('inert', '');
+    sidebar.setAttribute('aria-hidden', 'true');
+    if (sidebarBackdrop) sidebarBackdrop.hidden = true;
+    if (btnMenu) btnMenu.setAttribute('aria-expanded', 'false');
+    if (restoreFocus && btnMenu) btnMenu.focus();
+}
+
 if (btnMenu) {
     btnMenu.addEventListener('click', (e) => {
         e.stopPropagation();
-        sidebar.classList.toggle('open');
+        if (sidebar.classList.contains('open')) closeSidebar();
+        else openSidebar();
     });
 }
-document.addEventListener('click', (e) => {
-    if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== btnMenu) {
-        sidebar.classList.remove('open');
+if (btnCloseSidebar) btnCloseSidebar.addEventListener('click', () => closeSidebar());
+if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', () => closeSidebar());
+
+document.addEventListener('keydown', event => {
+    if (!sidebar || !sidebar.classList.contains('open')) return;
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        closeSidebar();
+        return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = getSidebarFocusable();
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
     }
 });
+
+if (btnFitTerminal) {
+    btnFitTerminal.addEventListener('click', () => {
+        scheduleTerminalResize();
+        if (term && typeof term.focus === 'function') term.focus();
+    });
+}
+
+if (btnReconnectTerminal) {
+    btnReconnectTerminal.addEventListener('click', () => {
+        clearTimeout(reconnectTimer);
+        isConnecting = false;
+        retryCount = 0;
+        if (ws) {
+            ws.onclose = null;
+            ws.close();
+            ws = null;
+        }
+        setConnectionStatus('reconnecting', t('terminal.status.reconnecting'));
+        connect();
+    });
+}
+
+if (btnFullscreenTerminal) {
+    btnFullscreenTerminal.addEventListener('click', async () => {
+        try {
+            if (document.fullscreenElement) await document.exitFullscreen();
+            else if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+            else throw new Error('Fullscreen API unavailable');
+        } catch (error) {
+            showNonBlockingNotice(t('terminal.error.fullscreen'), 'error');
+        }
+    });
+    document.addEventListener('fullscreenchange', () => {
+        const active = Boolean(document.fullscreenElement);
+        btnFullscreenTerminal.setAttribute('aria-pressed', String(active));
+        const label = t(active ? 'terminal.btn.exitFullscreen' : 'terminal.btn.fullscreen');
+        btnFullscreenTerminal.title = label;
+        btnFullscreenTerminal.setAttribute('aria-label', label);
+        scheduleTerminalResize();
+    });
+}
 
 // Close sidebar when iframe (codex page) reports a click
 window.addEventListener('message', (e) => {
     if (e.data && e.data.type === 'close-sidebar') {
-        sidebar.classList.remove('open');
+        closeSidebar(false);
     }
 });
-
-// --- DOM Elements (New Session) ---
-const newSessionModal = document.getElementById('new-session-modal');
-const btnCloseNewSession = document.getElementById('btn-close-new-session');
-const btnCreateSession = document.getElementById('btn-create-session');
-const sessionNameInput = document.getElementById('session-name-input');
-const serverSelectInput = document.getElementById('server-select-input');
-
-// --- Session & Server Logic ---
-
-// Open New Session Modal
-if (btnNewSession) {
-    btnNewSession.addEventListener('click', () => {
-        // Populate server select
-        serverSelectInput.innerHTML = '';
-        if (serverState.servers.length === 0) {
-            showNonBlockingNotice(t('terminal.error.noServers'), 'error');
-            renderServerList();
-            serverManagerModal.classList.add('open');
-            return;
-        }
-
-        serverState.servers.forEach(s => {
-            const opt = document.createElement('option');
-            opt.value = s.id;
-            opt.textContent = s.name + (s.id === serverState.activeServerId ? t('terminal.badge.active') : '');
-            if (s.id === serverState.activeServerId) opt.selected = true;
-            serverSelectInput.appendChild(opt);
-        });
-
-        sessionNameInput.value = t('terminal.session.defaultName', { time: new Date().toLocaleTimeString() });
-        newSessionModal.classList.add('open');
-        sessionNameInput.focus();
-    });
-}
-
-// Close Modal
-if (btnCloseNewSession) {
-    btnCloseNewSession.addEventListener('click', () => {
-        newSessionModal.classList.remove('open');
-    });
-}
-
-// Create Session Action
-if (btnCreateSession) {
-    btnCreateSession.addEventListener('click', async () => {
-        const name = sessionNameInput.value.trim() || 'Untitled Session';
-        const targetServerId = serverSelectInput.value;
-        const targetServer = serverState.servers.find(s => s.id === targetServerId);
-
-        if (!targetServer) {
-            showNonBlockingNotice(t('terminal.error.invalidServer'), 'error');
-            return;
-        }
-
-        // If target is different from active, switch first
-        if (targetServerId !== serverState.activeServerId) {
-            // We switch active server physically in state
-            serverState.activeServerId = targetServerId;
-            saveServerState();
-            renderServerList(); // Update manager UI if open (it's not)
-
-            // Disconnect current
-            if (ws) {
-                ws.onclose = null;
-                ws.close();
-                ws = null;
-            }
-            resetTerminalView();
-            term.write(`\r\n\x1b[33m${t('terminal.status.switching', { name: targetServer.name })}\x1b[0m\r\n`);
-        }
-
-        // Now creating session on (potentially new) active server
-        newSessionModal.classList.remove('open');
-        await createSessionOnActive(name);
-    });
-}
-
-// Helper: Create Session on (assumed) active server
-async function createSessionOnActive(name) {
-    try {
-        const baseUrl = getBaseUrl();
-        if (!baseUrl) {
-            showConnectionSettings();
-            return;
-        }
-
-        // If not connected yet, connect() will happen in switchSession or manual connect
-        // But to create a session we need HTTP access to the server.
-        // We assume HTTP is reachable if we are trying to create a session.
-
-        const res = await fetch(`${baseUrl}/api/sessions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name })
-        });
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const data = await res.json();
-        // Switch to new session (triggers connect if needed)
-        switchSession(data.id);
-
-    } catch (e) {
-        console.error(e);
-        showNonBlockingNotice(t('terminal.error.createSession', { error: e.message }), 'error');
-        // If failed, maybe we are not connected?
-        connect();
-    }
-}
 
 function switchSession(id) {
     // Only skip if it's the same session AND already connected (not initial load)
@@ -1281,20 +1514,24 @@ function switchSession(id) {
                 iframe.src = '/codex_client.html?sessionId=' + encodeURIComponent(id);
             }
             sessionId = id;
+            setWorkspaceMode('codex');
+            setActiveSessionLabel(s.name || id);
             localStorage.setItem('lastSessionId', id);
             // Close sidebar
-            sidebar.classList.remove('open');
+            closeSidebar(false);
             return;
         }
         // Terminal session flow
-        terminalSwitchSession(id);
+        terminalSwitchSession(id, s);
     }).catch(function () {
         // Fallback: treat as terminal
-        terminalSwitchSession(id);
+        terminalSwitchSession(id, null);
     });
 
-    function terminalSwitchSession(id) {
+    function terminalSwitchSession(id, session) {
         sessionId = id;
+        setWorkspaceMode('terminal');
+        setActiveSessionLabel((session && session.name) || id);
         localStorage.setItem('lastSessionId', id);
         if (codexView) codexView.style.display = 'none';
         if (termView) termView.style.display = '';
@@ -1317,7 +1554,7 @@ function switchSession(id) {
         if (!isFileProtocol) window.history.replaceState({}, '', newUrl);
 
         // Close sidebar
-        sidebar.classList.remove('open');
+        closeSidebar(false);
     }
 }
 
@@ -1326,7 +1563,7 @@ async function loadSessions() {
     try {
         const baseUrl = getBaseUrl();
         if (!baseUrl) {
-            sessionList.innerHTML = `<li style="padding:15px; color:#666">${t('terminal.status.noServerSelected')}</li>`;
+            renderSessionListState(t('terminal.status.noServerSelected'));
             return;
         }
 
@@ -1337,7 +1574,7 @@ async function loadSessions() {
 
         sessionList.innerHTML = '';
         if (sessions.length === 0) {
-            sessionList.innerHTML = `<li style="padding:15px; color:#666">${t('terminal.status.noActiveSessions')}</li>`;
+            renderSessionListState(t('terminal.status.noActiveSessions'));
             // Don't auto-create here to avoid loops if server is empty
             return;
         }
@@ -1345,13 +1582,24 @@ async function loadSessions() {
         sessions.forEach(s => {
             const li = document.createElement('li');
             li.className = 'session-item';
+            li.dataset.sessionId = s.id;
             if (s.id === sessionId) li.classList.add('active');
 
+            const main = document.createElement('button');
+            main.type = 'button';
+            main.className = 'session-item-main';
+            main.setAttribute('aria-label', t('terminal.session.openNamed', { name: s.name }));
+            const badge = document.createElement('span');
+            const mode = s.sessionMode || 'terminal';
+            badge.className = `sessions-mode-badge ${mode}`;
+            badge.textContent = mode;
+            badge.setAttribute('aria-label', t('terminal.session.modeLabel', { mode }));
             const nameSpan = document.createElement('span');
             nameSpan.className = 'session-name';
             nameSpan.textContent = s.name;
+            main.append(badge, nameSpan);
 
-            li.addEventListener('click', function () {
+            const openSession = function () {
                 if (s.sessionMode === 'codex') {
                     // Codex session: show redesigned page in iframe
                     var termView = document.getElementById('terminal-view');
@@ -1369,25 +1617,29 @@ async function loadSessions() {
                         iframe.src = '/codex_client.html?sessionId=' + encodeURIComponent(s.id);
                     }
                     sessionId = s.id;
+                    setWorkspaceMode('codex');
+                    setActiveSessionLabel(s.name || s.id);
                     localStorage.setItem('lastSessionId', s.id);
-                    sidebar.classList.remove('open');
+                    closeSidebar(false);
                     return;
                 }
                 switchSession(s.id);
-            });
+            };
+            main.addEventListener('click', openSession);
 
             // Delete button
             const del = document.createElement('button');
             del.textContent = '×';
             del.className = 'btn-delete-session';
             del.title = t('terminal.session.deleteTitle');
+            del.setAttribute('aria-label', t('terminal.session.deleteNamed', { name: s.name }));
             del.dataset.id = s.id;
             del.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                await deleteSession(s.id);
+                await deleteSession(s.id, s.name);
             });
 
-            li.appendChild(nameSpan);
+            li.appendChild(main);
             li.appendChild(del);
             sessionList.appendChild(li);
         });
@@ -1401,12 +1653,26 @@ async function loadSessions() {
 
     } catch (e) {
         console.error('Failed to load sessions', e);
-        sessionList.innerHTML = `<li style="padding:15px; color:#f55">${t('terminal.status.connectionFailed')}</li>`;
+        renderSessionListState(t('terminal.status.connectionFailed'), 'error');
         // Do NOT block UI or throw
     }
 }
 
-async function deleteSession(id) {
+function renderSessionListState(message, tone = 'muted') {
+    sessionList.innerHTML = '';
+    const item = document.createElement('li');
+    item.className = `session-list-state is-${tone}`;
+    item.textContent = message;
+    sessionList.appendChild(item);
+}
+
+async function deleteSession(id, name) {
+    const accepted = await requestConfirmation({
+        title: t('terminal.confirm.deleteSessionTitle'),
+        message: t('terminal.confirm.deleteSessionNamed', { name: name || id }),
+        confirmLabel: t('terminal.session.deleteAction')
+    });
+    if (!accepted) return;
     try {
         const baseUrl = getBaseUrl();
         if (!baseUrl) return;
@@ -1416,12 +1682,14 @@ async function deleteSession(id) {
             if (id === sessionId) {
                 sessionId = null; // Forces switch to another or pull new
             }
-            loadSessions();
+            await loadSessions();
+            showNonBlockingNotice(t('terminal.session.deleted', { name: name || id }), 'info');
         } else {
             showNonBlockingNotice(t('terminal.error.deleteSession'), 'error');
         }
     } catch (e) {
         console.error('Delete error:', e);
+        showNonBlockingNotice(t('terminal.error.deleteSession'), 'error');
     }
 }
 
@@ -1511,9 +1779,16 @@ window.__applyTerminalConfig = function (config) {
 // Start
 (async () => {
     if (typeof i18n !== 'undefined') {
-        try { await i18n.init(); } catch (e) { console.warn('i18n init failed:', e); }
+        try {
+            const i18nReady = window.__TERMLINK_I18N_READY__ || i18n.init();
+            window.__TERMLINK_I18N_READY__ = i18nReady;
+            await i18nReady;
+        } catch (e) { console.warn('i18n init failed:', e); }
         i18n.translatePage();
     }
+    syncWorkspaceControlLabels();
+    setActiveSessionLabel('');
+    setConnectionStatus('idle', t('terminal.status.idle'));
     loadHistoryState(getHistoryStorageKey(sessionId), true);
     connect();
 })();

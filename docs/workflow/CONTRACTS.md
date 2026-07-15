@@ -42,6 +42,16 @@
     - 必须位于 BasicAuth 之后
   - 备注：浏览器 / WebView 不能直接带 Authorization header
 
+- 名称：Browser authentication session
+  - 路径 / 符号：`POST /api/auth/login`、`GET /api/auth/session`、`POST /api/auth/logout`、`src/auth/basicAuth.js`
+  - 当前语义：为浏览器 HTML navigation 提供 additive 的服务端内存会话与 HttpOnly Cookie；未认证 HTML navigation 跳转登录页，API 仍使用 401 challenge。
+  - 不可破坏项：
+    - Cookie 必须保持 `HttpOnly`、`SameSite=Strict`、host-only `Path=/`，TLS 下带 `Secure`
+    - 浏览器仅保存 opaque token，密码与 token 不得进入 Web Storage、URL、HTML 或日志
+    - logout 必须撤销当前会话；same-origin next 校验不得允许 open redirect 或 login loop
+    - 既有 Basic Authorization、API 401 + `WWW-Authenticate`、`AUTH_ENABLED=false` 与 single-use WebSocket ticket 语义必须保持兼容
+  - 备注：服务重启使内存浏览器会话失效是当前已接受行为；本契约不要求持久化认证 session
+
 ### 🔒 已锁定核心函数 / 导出
 
 - 模块：`src/services/sessionManager.js`

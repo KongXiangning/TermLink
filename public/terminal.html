@@ -5,9 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TermLink Mobile</title>
-    <link rel="stylesheet" href="terminal.css?v=3">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101820'/%3E%3Cpath d='m17 20 13 12-13 12M33 44h14' fill='none' stroke='%2356d6b0' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="ui-foundation.css?v=2">
+    <link rel="stylesheet" href="terminal.css?v=7">
     <link rel="stylesheet" href="lib/xterm.css">
-    <link rel="stylesheet" href="sessions.css?v=1">
+    <link rel="stylesheet" href="sessions.css?v=2">
     <script src="lib/xterm.js"></script>
     <script src="lib/xterm-addon-fit.js"></script>
     <script src="i18n/i18n.js"></script>
@@ -19,19 +21,30 @@
         <!-- Title Bar -->
         <div id="title-bar">
             <div class="left-controls">
-                <button id="btn-menu" class="nav-btn" title="Menu" data-i18n="terminal.btn.menu" data-i18n-attr="title">☰</button>
-                <span id="app-title">TermLink</span>
+                <button id="btn-menu" class="nav-btn nav-btn-icon" type="button" title="Menu" aria-label="Menu" aria-expanded="false" aria-controls="sidebar" data-i18n="terminal.btn.menu" data-i18n-attr="title">☰</button>
+                <div class="terminal-heading">
+                    <span id="app-title">TermLink</span>
+                    <span id="terminal-session-label" class="terminal-session-label" data-i18n="terminal.session.pending">Waiting for session</span>
+                </div>
+                <div id="terminal-connection-status" class="terminal-connection-status" data-state="idle" role="status" aria-live="polite">
+                    <span class="terminal-status-dot" aria-hidden="true"></span>
+                    <span id="terminal-connection-label" data-i18n="terminal.status.idle">Not connected</span>
+                </div>
             </div>
             <div class="right-controls">
-                <button id="btn-server-manager" class="nav-btn" title="Manage Servers" data-i18n="terminal.btn.manageServers" data-i18n-attr="title">⚙️</button>
-                <button id="btn-new-session" class="nav-btn" title="New Session" data-i18n="terminal.btn.newSession" data-i18n-attr="title">+</button>
+                <button id="btn-fit-terminal" class="nav-btn nav-btn-icon terminal-action" type="button" title="Fit terminal" aria-label="Fit terminal" data-i18n="terminal.btn.fit" data-i18n-attr="title">↔</button>
+                <button id="btn-reconnect-terminal" class="nav-btn nav-btn-icon terminal-action" type="button" title="Reconnect" aria-label="Reconnect" data-i18n="terminal.btn.reconnect" data-i18n-attr="title">↻</button>
+                <button id="btn-fullscreen-terminal" class="nav-btn nav-btn-icon terminal-action" type="button" title="Enter fullscreen" aria-label="Enter fullscreen" aria-pressed="false" data-i18n="terminal.btn.fullscreen" data-i18n-attr="title">⛶</button>
+                <button id="btn-server-manager" class="nav-btn nav-btn-icon" type="button" title="Manage Servers" aria-label="Manage Servers" data-i18n="terminal.btn.manageServers" data-i18n-attr="title">⚙️</button>
+                <button id="btn-new-session" class="nav-btn nav-btn-icon" type="button" title="New Session" aria-label="New Session" data-i18n="terminal.btn.newSession" data-i18n-attr="title">+</button>
             </div>
         </div>
 
         <!-- Sidebar Navigation -->
-        <div id="sidebar">
+        <aside id="sidebar" aria-labelledby="sidebar-title" aria-hidden="true" inert>
             <div class="sidebar-header">
-                <h2>TermLink</h2>
+                <h2 id="sidebar-title" data-i18n="terminal.sidebar.title">Servers & sessions</h2>
+                <button id="btn-close-sidebar" class="nav-btn nav-btn-icon" type="button" aria-label="Close navigation" title="Close navigation" data-i18n="terminal.sidebar.close" data-i18n-attr="title">×</button>
             </div>
 
             <div class="sidebar-section">
@@ -48,11 +61,12 @@
                     <!-- Session items will be injected here -->
                 </ul>
             </div>
-        </div>
+        </aside>
+        <button id="sidebar-backdrop" class="sidebar-backdrop" type="button" aria-label="Close navigation" data-i18n="terminal.sidebar.close" data-i18n-attr="aria-label" hidden></button>
 
         <!-- Main Content Area -->
         <div id="main-content">
-            <div id="status-overlay"></div>
+            <div id="status-overlay" role="status" aria-live="polite" hidden></div>
 
             <!-- Server Connection Overlay (Initial/Fallback) -->
             <div id="connection-overlay" style="display:none;">
@@ -65,46 +79,65 @@
             </div>
 
             <!-- Server Manager Modal -->
-            <div id="server-manager-modal" class="modal">
-                <div class="modal-content">
+            <div id="server-manager-modal" class="modal" role="presentation" aria-hidden="true">
+                <div class="modal-content modal-content-wide" role="dialog" aria-modal="true" aria-labelledby="server-manager-title" aria-describedby="server-manager-description" tabindex="-1">
                     <div class="modal-header">
-                        <h3 data-i18n="terminal.server.managementTitle">Server Management</h3>
-                        <button id="btn-close-server-manager" class="btn-close">×</button>
+                        <div>
+                            <p class="modal-eyebrow" data-i18n="terminal.server.eyebrow">CONNECTION PROFILES</p>
+                            <h3 id="server-manager-title" data-i18n="terminal.server.managementTitle">Server Management</h3>
+                        </div>
+                        <button id="btn-close-server-manager" class="btn-close" type="button" aria-label="Close server management" data-i18n="common.close" data-i18n-attr="aria-label">×</button>
                     </div>
                     <div class="modal-body">
-                        <ul id="server-list" class="server-list">
+                        <p id="server-manager-description" class="modal-description" data-i18n="terminal.server.description">Choose the server used by this browser, or add another connection profile.</p>
+                        <section class="settings-section" aria-labelledby="saved-servers-title">
+                            <div class="settings-section-heading">
+                                <h4 id="saved-servers-title" data-i18n="terminal.server.savedTitle">Saved servers</h4>
+                                <span id="server-count" class="settings-count" aria-live="polite"></span>
+                            </div>
+                            <ul id="server-list" class="server-list" aria-live="polite">
                             <!-- Server items injected here -->
-                        </ul>
-                        <div class="add-server-form">
-                            <h4 data-i18n="terminal.server.addTitle">Add New Server</h4>
-                            <input type="text" id="new-server-name" placeholder="Name (e.g. Home PC)" data-i18n="terminal.server.namePlaceholder" data-i18n-attr="placeholder">
-                            <input type="text" id="new-server-url" placeholder="URL (http://...)" data-i18n="terminal.server.urlPlaceholder" data-i18n-attr="placeholder">
-                            <button id="btn-add-server" class="btn-primary" style="width:100%" data-i18n="terminal.server.addBtn">Add Server</button>
-                        </div>
+                            </ul>
+                        </section>
+                        <form id="add-server-form" class="add-server-form" novalidate>
+                            <div class="settings-section-heading">
+                                <div>
+                                    <h4 data-i18n="terminal.server.addTitle">Add New Server</h4>
+                                    <p data-i18n="terminal.server.addHint">Use a recognizable name and the HTTP or HTTPS address exposed by TermLink.</p>
+                                </div>
+                            </div>
+                            <div class="settings-field-grid">
+                                <div class="settings-field">
+                                    <label for="new-server-name" data-i18n="terminal.server.nameLabel">Profile name</label>
+                                    <input type="text" id="new-server-name" required maxlength="64" autocomplete="off" placeholder="Name (e.g. Home PC)" data-i18n="terminal.server.namePlaceholder" data-i18n-attr="placeholder" aria-describedby="server-form-status">
+                                </div>
+                                <div class="settings-field settings-field-wide">
+                                    <label for="new-server-url" data-i18n="terminal.server.urlLabel">Server URL</label>
+                                    <input type="url" id="new-server-url" required inputmode="url" autocomplete="url" placeholder="URL (http://...)" data-i18n="terminal.server.urlPlaceholder" data-i18n-attr="placeholder" aria-describedby="server-url-hint server-form-status">
+                                    <span id="server-url-hint" class="settings-hint" data-i18n="terminal.server.urlHint">Example: https://terminal.example.com</span>
+                                </div>
+                            </div>
+                            <div id="server-form-status" class="settings-form-status" role="status" aria-live="polite"></div>
+                            <div class="settings-form-actions">
+                                <button id="btn-add-server" class="btn-primary" type="submit" data-i18n="terminal.server.addBtn">Add Server</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
 
-            <!-- New Session Modal -->
-            <div id="new-session-modal" class="modal">
-                <div class="modal-content">
+            <!-- Shared destructive-action confirmation -->
+            <div id="confirm-modal" class="modal" role="presentation" aria-hidden="true">
+                <div class="modal-content modal-content-confirm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-modal-title" aria-describedby="confirm-modal-message" tabindex="-1">
                     <div class="modal-header">
-                        <h3 data-i18n="terminal.session.title">New Session</h3>
-                        <button id="btn-close-new-session" class="btn-close">×</button>
+                        <h3 id="confirm-modal-title" data-i18n="terminal.confirm.title">Confirm action</h3>
                     </div>
                     <div class="modal-body">
-                        <div class="form-group" style="width:100%">
-                            <label data-i18n="terminal.session.nameLabel">Session Name</label>
-                            <input type="text" id="session-name-input" placeholder="My Terminal" data-i18n="terminal.session.namePlaceholder" data-i18n-attr="placeholder">
+                        <p id="confirm-modal-message" class="confirm-message"></p>
+                        <div class="modal-actions">
+                            <button id="confirm-modal-cancel" class="btn-secondary" type="button" data-i18n="common.cancel">Cancel</button>
+                            <button id="confirm-modal-accept" class="btn-danger" type="button" data-i18n="common.delete">Delete</button>
                         </div>
-                        <div class="form-group" style="width:100%">
-                            <label data-i18n="terminal.session.targetServer">Target Server</label>
-                            <select id="server-select-input"
-                                style="width:100%; padding:10px; background:#1e1e1e; color:white; border:1px solid #444; border-radius:4px;">
-                                <!-- Options injected via JS -->
-                            </select>
-                        </div>
-                        <button id="btn-create-session" class="btn-primary" style="width:100%" data-i18n="common.create">Create</button>
                     </div>
                 </div>
             </div>
@@ -119,16 +152,16 @@
                 </div>
             </div>
             <div id="terminal-container"></div>
-            <div id="toolbar">
+            <div id="toolbar" role="toolbar" aria-label="Terminal shortcuts" data-i18n="terminal.toolbar.label" data-i18n-attr="aria-label">
                 <!-- Row 1: System & Modifiers -->
                 <div class="key-row">
                     <!-- Nav moved to top -->
-                    <button class="key" id="btn-paste" title="Paste" data-i18n="common.paste" data-i18n-attr="title">📋</button>
+                    <button class="key" id="btn-paste" title="Paste" aria-label="Paste" data-i18n="common.paste" data-i18n-attr="title">📋</button>
                     <button class="key" data-key="Esc">Esc</button>
                     <button class="key" data-key="Tab">Tab</button>
                     <button class="key" data-key="Ctrl">Ctrl</button>
                     <button class="key" data-key="Alt">Alt</button>
-                    <button class="key" id="btn-toggle-input" title="Input Mode" data-i18n="common.inputMode" data-i18n-attr="title">📝</button>
+                    <button class="key" id="btn-toggle-input" title="Input Mode" aria-label="Input Mode" data-i18n="common.inputMode" data-i18n-attr="title">📝</button>
                 </div>
                 <!-- Row 2: Symbols & Jumps -->
                 <div class="key-row">
@@ -147,8 +180,8 @@
                     <button class="key" data-key="Down">↓</button>
                     <button class="key" data-key="Right">→</button>
                     <button class="key" data-key="PgDn">PgDn</button>
-                    <button class="key" id="btn-ctrl-c" data-key="Ctrl-C" style="color:red;">🛑</button>
-                    <button class="key" data-key="Enter" style="flex: 2;">Enter ↵</button>
+                    <button class="key key-danger" id="btn-ctrl-c" data-key="Ctrl-C" aria-label="Control C">🛑</button>
+                    <button class="key key-enter" data-key="Enter">Enter ↵</button>
                 </div>
             </div>
             </div><!-- #terminal-view -->
@@ -156,8 +189,8 @@
             <!-- codex IPC view (hidden by default, shown when codex session selected) -->
             <div id="codex-view" style="display:none">
               <header class="ipc-status-bar">
-                <span id="codex-session-name" style="font-weight:600;font-size:0.9rem;flex:1">Codex</span>
-                <span id="codex-session-cwd" style="font-size:0.7rem;opacity:0.4;max-width:30%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" hidden></span>
+                <span id="codex-session-name" class="ipc-session-name">Codex</span>
+                <span id="codex-session-cwd" class="ipc-session-cwd" hidden></span>
                 <span class="ipc-status-indicator" id="codex-ws-status">
                   <span class="ipc-status-dot offline"></span> WS
                 </span>
@@ -165,37 +198,37 @@
                   <span class="ipc-status-dot offline"></span> IPC
                 </span>
                 <select class="ipc-conv-selector" id="codex-conv-selector" disabled>
-                  <option value="">-- 选择会话 --</option>
+                  <option value="" data-i18n="ipc.conversationPlaceholder">-- Select conversation --</option>
                 </select>
                 <span class="ipc-conv-badge" id="codex-conv-badge" hidden></span>
               </header>
-              <div class="ipc-offline-banner" id="codex-offline-banner">IPC 不可用，实时同步已暂停</div>
+              <div class="ipc-offline-banner" id="codex-offline-banner" data-i18n="ipc.offline">IPC is unavailable. Live sync is paused.</div>
               <main class="ipc-surface" id="codex-surface">
-                <div class="ipc-surface-empty">选择一个会话以查看实时消息流</div>
+                <div class="ipc-surface-empty" data-i18n="ipc.empty">Select a conversation to view its live message stream.</div>
               </main>
               <div class="ipc-approval-panel" id="codex-approval-panel">
-                <div class="ipc-approval-title" id="codex-approval-title">等待命令审批</div>
+                <div class="ipc-approval-title" id="codex-approval-title" data-i18n="ipc.approvalPending">Command approval pending</div>
                 <div class="ipc-approval-desc" id="codex-approval-desc"></div>
                 <div class="ipc-approval-command" id="codex-approval-command"></div>
                 <div class="ipc-approval-actions">
-                  <button class="ipc-approval-accept-btn" id="codex-approval-accept-btn">允许</button>
-                  <button class="ipc-approval-reject-btn" id="codex-approval-reject-btn">拒绝</button>
+                  <button class="ipc-approval-accept-btn" id="codex-approval-accept-btn" data-i18n="ipc.allow">Allow</button>
+                  <button class="ipc-approval-reject-btn" id="codex-approval-reject-btn" data-i18n="ipc.reject">Reject</button>
                 </div>
                 <div class="ipc-approval-status" id="codex-approval-status"></div>
               </div>
               <div class="ipc-plan-panel" id="codex-plan-panel">
                 <div class="ipc-plan-text" id="codex-plan-text"></div>
                 <div class="ipc-plan-actions">
-                  <button class="ipc-plan-accept-btn" id="codex-plan-accept-btn">是，实施此计划</button>
-                  <input class="ipc-plan-feedback-input" id="codex-plan-feedback-input" placeholder="调整意见（可选）…">
-                  <button class="ipc-plan-feedback-btn" id="codex-plan-feedback-btn">提交反馈</button>
+                  <button class="ipc-plan-accept-btn" id="codex-plan-accept-btn" data-i18n="ipc.implementPlan">Yes, implement this plan</button>
+                  <input class="ipc-plan-feedback-input" id="codex-plan-feedback-input" placeholder="Feedback (optional)…" data-i18n="ipc.feedbackPlaceholder" data-i18n-attr="placeholder">
+                  <button class="ipc-plan-feedback-btn" id="codex-plan-feedback-btn" data-i18n="ipc.submitFeedback">Submit feedback</button>
                 </div>
                 <div class="ipc-plan-status" id="codex-plan-status"></div>
               </div>
               <div class="ipc-follower-hint" id="codex-follower-hint" hidden></div>
               <div class="ipc-follower-input-panel">
-                <input class="ipc-follower-input" id="codex-follower-input" type="text" placeholder="输入消息…" disabled>
-                <button class="ipc-follower-send-btn" id="codex-follower-send-btn" disabled>发送</button>
+                <input class="ipc-follower-input" id="codex-follower-input" type="text" placeholder="Type a message…" data-i18n="ipc.messagePlaceholder" data-i18n-attr="placeholder" disabled>
+                <button class="ipc-follower-send-btn" id="codex-follower-send-btn" data-i18n="ipc.send" disabled>Send</button>
                 <span class="ipc-follower-send-status" id="codex-follower-send-status"></span>
               </div>
             </div><!-- #codex-view -->
@@ -203,10 +236,10 @@
         </div>
     </div>
     <script>window.__CODEX_EMBEDDED = true;</script>
-    <link rel="stylesheet" href="codex_ipc.css?v=1">
+    <link rel="stylesheet" href="codex_ipc.css?v=2">
     <script src="codex_ipc.js?v=1"></script>
-    <script src="sessions.js?v=1"></script>
-    <script src="terminal.js?v=4"></script>
+    <script src="sessions.js?v=3"></script>
+    <script src="terminal.js?v=8"></script>
 </body>
 
 </html>

@@ -22,6 +22,7 @@
 - [x] 开源 release 安装 / 打包 / mTLS 工具交付面：任务 `20260513-001` 已完成跨平台 release 构建、Windows / Linux 安装脚本、direct server-side mTLS 安装期自动生成、nginx-side mTLS 独立工具、中英文部署文档收口，以及 Windows PM2 / Linux `systemd` host smoke 确认；`npm run android:check-release-config` 仍作为任务外已知失败保留
 - [x] Codex 原生会话实时同步核心：同一任务的 Android 实时状态同步、IPC conversation id 绑定回写与 Android 入口直传、A/B session 隔离、external owner 缺失时的 TermLink owner fallback 已完成自动化与真机手动验证；稳定边界见 `CONTRACTS.md` 的“Codex 原生会话实时同步核心”。真实 owner 授权提权、PLAN 和 Goal 控制不在本稳定项内。
 - [x] Codex Android 真实 owner 控制面：Approval、PLAN implementation、Goal 启动与继续/恢复已在真实 Desktop owner + TermLink gateway + Android 真机完成闭环；pending 与 activeGoal 只由 owner snapshot 收敛，raw JSON-RPC requestId 保持原始类型。Goal update/cancel/complete 因 external owner IPC 未提供客户端动作，不在稳定能力内。
+- [x] 网页版登录、配置/会话、共享视觉基线与 terminal-first 工作区：任务 `20260715-002` Steps 1-9 已完成并归档。新增 additive HttpOnly Cookie 登录并保留 Basic/API/WS 契约；配置、drawer/dialog、terminal status/focus/fit/reconnect/mobile input 和 workspace/Codex 兼容已收口。Edge 150 在 1440/768/390 三档真实渲染/交互 QA 通过，最终相关自动化 111/111 pass。
 
 ## 🔨 正在开发
 
@@ -51,6 +52,8 @@
 
 ## ⚠️ 已知风险 / 观察点
 
+- `20260715-001` Windows x64 Setup/Portable/配置工具本地实现已完成，但仍缺 clean Windows x64 host 的最终外部验收；任务被当前 Web UX 目标 supersede 后，该证据保持独立未完成，不得误写为 stable 或在 Web 任务中顺手修改。
+- `20260715-002` 已获得 Edge 150 authenticated-browser 与三档 viewport 证据，本任务无剩余产品阻断。已知的 `codexClient.shell` 缺历史按钮和 `codexSecondaryPanel.integration` quick-sandbox 断言在 task base 已存在且本轮未改动对应行为，继续作为 scope-external baseline failures 管理；Node full-suite 既有挂起面仍按 TD-004 窄门禁处理。
 - `src/ws/terminalGateway.js` 责任过重，是高回归风险区域
 - Codex session / thread / task 链路中，已绑定 conversation 的实时同步、A/B 切换隔离与同一任务重入已完成真机验证；仍需观察尚未绑定 conversation 的跨 cwd 历史候选策略，以及真实 owner pending action 的端到端表现。
 - 后续新需求若触碰 Codex session / thread / task 状态逻辑，必须按 `CONTRACTS.md` 的实时同步核心回归门验证；不得以 cwd/latest 或历史 task id 替换已绑定 conversation，也不得将授权提权、PLAN 或 Goal 控制视为已验收。
@@ -81,6 +84,14 @@
 
 ## 最近更新记录
 
+- 2026-07-16：完成 `20260715-002` 归档，归档文件为 `TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md`；`CURRENT_TASK.md` 已清理为 clean handoff 入口。新 browser authentication session 边界已同步到 `CONTRACTS.md`，touch focus restore 与 WSL/Windows browser-backed QA 经验已沉淀到 `LESSONS.md`。
+- 2026-07-16：完成 `20260715-002` Steps 8-9 和最终收口。Edge 150 真实浏览器验证覆盖 login/config/terminal 的 1440×900、768×1024、390×844 渲染、键盘/触屏、登录成败与 loading、xterm 输入/fit/reconnect、drawer/dialog focus、溢出、触控尺寸、reduced-motion、对比度和 console。三项视觉 finding（宽屏 toolbar/粗指针尺寸、touch focus restore、对比度）均已修复并复验。统一 task-base scope/implementation/contracts review clean，最终 111/111 tests 与 syntax/i18n/diff checks 通过，任务进入 closeout handoff。截图与报告位于 `C:\temp\termlink-visual-qa\`。
+- 2026-07-16：完成 `20260715-002` Step 7 跨页兼容与 review 链。Codex IPC stable UI 已去 inline layout 并接入双语，mobile controls/selector/message layout 收口；workspace 手机 pane/actions 与长路径适配完成；Codex legacy focus resets 不再吞掉 shared focus ring；sessions/terminal 共用 i18n ready Promise，避免 runtime drawer 显示 key。新增 cross-page regression，最终相关自动化 111/111 pass。主机无浏览器运行时，任务停在 Step 8 真实视觉 QA，未宣称像素证据完成。
+- 2026-07-16：完成 `20260715-002` Step 6 terminal UX 与 review 链。terminal 标题栏新增持久连接/session context 和 fit/reconnect/fullscreen，drawer 支持 backdrop、inert、Esc、focus loop/restore，快捷键区具备 toolbar semantics、44px touch target、窄屏滚动与 safe-area，resize 使用 ResizeObserver + animation-frame 合并。review 中发现并修复 Codex view 仍显示 terminal-only actions 的上下文错误；动态覆盖连接/重连/session_info/paste/fit/drawer，focused 24/24 pass。任务推进到 Step 7 跨页兼容收口。
+- 2026-07-16：完成 `20260715-002` Step 5 配置/会话 UX 及完整 review 链。服务器配置、新建会话、目录选择和 standalone Codex drawer 已具备 semantic dialog、inline loading/error、safe rendering、具名确认、focus trap/restore、44px touch target 与双语文案；两项 P1 review finding（credential URL 持久化、删除 active server 的旧连接残留）均已修复。累计相关回归 80/80 pass，syntax/JSON/diff check clean；任务推进到 Step 6 terminal UX。
+- 2026-07-16：完成 `20260715-002` Step 4 shared design baseline。新增 scoped `--tl-*` tokens 与 button/field/status/dialog/empty/focus/reduced-motion primitives，并在各页面自身 CSS 前加载；登录页已消费共享 tokens。review 发现并修复 foundation 全局 dark scheme 与既有 light theme 的兼容问题。累计相关 75/75 tests、Codex secondary-panel 6/6、syntax/JSON/diff check 通过；无浏览器环境，visual QA 仍留 Step 8。任务推进到 Step 5 配置/会话 UX。
+- 2026-07-15：切换到 `20260715-002` Web UX 任务并完成 Step 1 browser auth foundation。新增 additive opaque Cookie session 与 login/session/logout server endpoints，保留 Basic/API/WS 兼容；两项 review finding（API HTML navigation 误 redirect、缺 WS ticket single-use 直接证据）均 resolved。相关 auth/security/health/TLS/session/workspace/terminal shortcut 回归通过；任务仍为 in-development，未把登录 UI 或视觉 QA 写成完成。
+- 2026-07-15：完成 `20260715-002` Step 2 登录页实现与复核。独立 login HTML/CSS/JS 使用现有双语 i18n，具备语义表单、password-manager autocomplete、show-password、loading/error、existing-session restore、safe next、TLS/HTTP 提示、响应式和 reduced-motion；真实 HTTP redirect/API 401/Cookie/protected page/ws-ticket/logout smoke 通过，累计 targeted tests 通过。当前无 browser binary，像素 visual QA 保持 Step 8 pending，任务推进到 Step 4。
 - 2026-07-15：归档 `20260629-001`。实时同步核心、owner fallback、真实 Approval / PLAN / Goal 控制面及 canonical owner snapshot 兼容均已完成；Goal update/cancel/complete 继续作为 external owner IPC 未提供的非稳定动作保留。下一轮进入 Windows x64 安装包与配置工具任务。
 
 - 2026-04-30：完成 workflow install 产物落地、host-local skill 文档迁移、legacy adoption baseline 首版

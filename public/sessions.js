@@ -1,11 +1,34 @@
 (function () {
   'use strict';
 
+  function tr(key, params) {
+    if (window.i18n && typeof window.i18n.t === 'function') return window.i18n.t(key, params);
+    if (typeof window.t === 'function') return window.t(key, params);
+    return key;
+  }
+
+  function focusableElements(container) {
+    return Array.from(container.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')).filter(function (element) {
+      return !element.hidden && !element.closest('.sessions-cwd-group:not(.is-active)');
+    });
+  }
+
   // ── API ─────────────────────────────────────────────────────────────────
+  function resolveApiUrl(url) {
+    if (typeof url !== 'string' || !url.startsWith('/api/') || typeof window.getBaseUrl !== 'function') return url;
+    var baseUrl = window.getBaseUrl();
+    if (!baseUrl) return url;
+    try {
+      return new URL(url, baseUrl.replace(/\/$/, '') + '/').toString();
+    } catch (_error) {
+      return url;
+    }
+  }
+
   function api(url, opts) {
     opts = opts || {};
     opts.credentials = 'same-origin';
-    return fetch(url, opts).then(function (r) {
+    return fetch(resolveApiUrl(url), opts).then(function (r) {
       if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
       return r.json();
     });
@@ -33,6 +56,10 @@
       if (codexView) codexView.style.display = 'none';
       if (termView) termView.style.display = '';
       if (sessionId) {
+        if (typeof window.switchSession === 'function') {
+          window.switchSession(sessionId);
+          return;
+        }
         var url = new URL(location.href);
         url.searchParams.set('sessionId', sessionId);
         history.replaceState(null, '', url.toString());
@@ -62,7 +89,8 @@
       items.forEach(function (li, i) {
         // Find matching session by name
         var name = (li.textContent || '').replace(/[×✕]/g, '').trim();
-        var match = sessions.find(function (s) { return s.name === name || s.id === name; });
+        var storedId = li.dataset && li.dataset.sessionId;
+        var match = sessions.find(function (s) { return s.id === storedId || s.name === name || s.id === name; });
         if (match) {
           // Add mode badge if not already present
           if (!li.querySelector('.sessions-mode-badge')) {
@@ -70,8 +98,7 @@
             var badge = document.createElement('span');
             badge.className = 'sessions-mode-badge ' + mode;
             badge.textContent = mode;
-            badge.style.cssText = 'margin-left:6px;font-size:0.6em;padding:1px 5px;border-radius:3px;' +
-              (mode === 'codex' ? 'background:rgba(0,123,255,0.2);color:#4da3ff;' : 'background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);');
+            badge.setAttribute('aria-label', tr('terminal.session.modeLabel', { mode: mode }));
             li.insertBefore(badge, li.firstChild);
           }
           // Store session data
@@ -81,6 +108,7 @@
 
       // Add click handlers for codex sessions
       items.forEach(function (li) {
+        if (li.dataset && li.dataset.sessionId) return; // terminal.js owns modern session rows
         if (li._hasCodexHandler) return;
         li._hasCodexHandler = true;
         li.addEventListener('click', function (e) {
@@ -99,110 +127,223 @@
 
   // ── new session modal builder ───────────────────────────────────────────
   function buildNewSessionModal() {
-    // Check if we're on terminal.html (needs modal injected) or codex_ipc.html (already has it)
     var existing = document.getElementById('sessions-new-modal');
-    if (existing) return existing;
+    if (existing && existing._sessionsWired) return existing;
 
-    var overlay = document.createElement('div');
-    overlay.id = 'sessions-new-modal';
-    overlay.className = 'sessions-modal-overlay';
-    overlay.innerHTML =
-      '<div class="sessions-modal">' +
-        '<div class="sessions-modal-title">新建会话</div>' +
-        '<div class="sessions-form-group">' +
-          '<label class="sessions-form-label">名称</label>' +
-          '<input class="sessions-form-input" id="snew-name" type="text" placeholder="会话名称" maxlength="64">' +
-        '</div>' +
-        '<div class="sessions-form-group">' +
-          '<label class="sessions-form-label">会话类型</label>' +
-          '<div class="sessions-mode-tabs" id="snew-mode-tabs">' +
-            '<button class="sessions-mode-tab is-active" data-mode="codex">Codex</button>' +
-            '<button class="sessions-mode-tab" data-mode="terminal">Terminal</button>' +
+    var overlay = existing || document.createElement('div');
+    if (!existing) {
+      overlay.id = 'sessions-new-modal';
+      overlay.className = 'sessions-modal-overlay';
+      overlay.setAttribute('role', 'presentation');
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.innerHTML =
+        '<div class="sessions-modal" role="dialog" aria-modal="true" aria-labelledby="sessions-new-title" aria-describedby="sessions-new-description" tabindex="-1">' +
+          '<div class="sessions-modal-header">' +
+            '<div><div class="sessions-modal-eyebrow">' + escHtml(tr('sessions.new.eyebrow')) + '</div>' +
+            '<div class="sessions-modal-title" id="sessions-new-title">' + escHtml(tr('sessions.new.title')) + '</div></div>' +
+            '<button class="sessions-modal-close" id="snew-close" type="button" aria-label="' + escHtml(tr('common.close')) + '">×</button>' +
           '</div>' +
-        '</div>' +
-        '<div class="sessions-cwd-group is-active" id="snew-cwd-group">' +
-          '<label class="sessions-form-label">目标文件夹</label>' +
-          '<div class="sessions-cwd-row">' +
-            '<input class="sessions-form-input" id="snew-cwd" type="text" placeholder="例如 D:\\projects\\my-app">' +
-            '<button class="sessions-btn sessions-btn-subtle sessions-btn-small" id="snew-browse">浏览</button>' +
-          '</div>' +
-          '<div class="sessions-picker-tree" id="snew-picker-tree"></div>' +
-        '</div>' +
-        '<div class="sessions-modal-actions">' +
-          '<button class="sessions-btn sessions-btn-subtle" id="snew-cancel">取消</button>' +
-          '<button class="sessions-btn sessions-btn-primary" id="snew-create">创建</button>' +
-        '</div>' +
-      '</div>';
-    document.body.appendChild(overlay);
+          '<p class="sessions-modal-description" id="sessions-new-description">' + escHtml(tr('sessions.new.description')) + '</p>' +
+          '<form id="snew-form" novalidate>' +
+            '<div class="sessions-form-group">' +
+              '<label class="sessions-form-label" for="snew-name">' + escHtml(tr('sessions.new.nameLabel')) + '</label>' +
+              '<input class="sessions-form-input" id="snew-name" name="name" type="text" placeholder="' + escHtml(tr('sessions.new.namePlaceholder')) + '" maxlength="64" autocomplete="off" aria-describedby="snew-status">' +
+            '</div>' +
+            '<fieldset class="sessions-form-group sessions-mode-fieldset">' +
+              '<legend class="sessions-form-label">' + escHtml(tr('sessions.new.modeLabel')) + '</legend>' +
+              '<div class="sessions-mode-tabs" id="snew-mode-tabs" role="radiogroup">' +
+                '<button class="sessions-mode-tab is-active" type="button" role="radio" aria-checked="true" data-mode="codex">Codex</button>' +
+                '<button class="sessions-mode-tab" type="button" role="radio" aria-checked="false" data-mode="terminal">Terminal</button>' +
+              '</div>' +
+              '<span class="sessions-form-hint">' + escHtml(tr('sessions.new.modeHint')) + '</span>' +
+            '</fieldset>' +
+            '<div class="sessions-cwd-group is-active" id="snew-cwd-group">' +
+              '<label class="sessions-form-label" for="snew-cwd">' + escHtml(tr('sessions.new.cwdLabel')) + '</label>' +
+              '<div class="sessions-cwd-row">' +
+                '<input class="sessions-form-input" id="snew-cwd" name="cwd" type="text" placeholder="' + escHtml(tr('sessions.new.cwdPlaceholder')) + '" autocomplete="off" aria-describedby="snew-cwd-hint snew-status">' +
+                '<button class="sessions-btn sessions-btn-subtle sessions-btn-small" id="snew-browse" type="button" aria-expanded="false" aria-controls="snew-picker-tree">' + escHtml(tr('sessions.new.browse')) + '</button>' +
+              '</div>' +
+              '<span class="sessions-form-hint" id="snew-cwd-hint">' + escHtml(tr('sessions.new.cwdHint')) + '</span>' +
+              '<div class="sessions-picker-tree" id="snew-picker-tree" role="list" aria-label="' + escHtml(tr('sessions.new.pickerLabel')) + '"></div>' +
+            '</div>' +
+            '<div class="sessions-form-status" id="snew-status" role="status" aria-live="polite"></div>' +
+            '<div class="sessions-modal-actions">' +
+              '<button class="sessions-btn sessions-btn-subtle" id="snew-cancel" type="button">' + escHtml(tr('common.cancel')) + '</button>' +
+              '<button class="sessions-btn sessions-btn-primary" id="snew-create" type="submit">' + escHtml(tr('common.create')) + '</button>' +
+            '</div>' +
+          '</form>' +
+        '</div>';
+      document.body.appendChild(overlay);
+    }
+    overlay._sessionsWired = true;
 
-    // Wire events
     var currentMode = 'codex';
     var pickerVisible = false;
+    var restoreTarget = null;
+    var nameInput = overlay.querySelector('#snew-name');
+    var cwdInput = overlay.querySelector('#snew-cwd');
+    var tree = overlay.querySelector('#snew-picker-tree');
+    var browseButton = overlay.querySelector('#snew-browse');
+    var createButton = overlay.querySelector('#snew-create');
+    var status = overlay.querySelector('#snew-status');
+    var form = overlay.querySelector('#snew-form');
 
-    document.getElementById('snew-cancel').addEventListener('click', function () { overlay.classList.remove('is-active'); });
-    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.classList.remove('is-active'); });
+    function setStatus(message, tone) {
+      status.textContent = message || '';
+      status.className = 'sessions-form-status' + (tone ? ' is-' + tone : '');
+    }
 
-    document.getElementById('snew-mode-tabs').addEventListener('click', function (e) {
-      var tab = e.target.closest('.sessions-mode-tab');
-      if (!tab) return;
-      currentMode = tab.dataset.mode;
-      var tabs = overlay.querySelectorAll('.sessions-mode-tab');
-      tabs.forEach(function (t) { t.classList.toggle('is-active', t.dataset.mode === currentMode); });
-      document.getElementById('snew-cwd-group').classList.toggle('is-active', currentMode === 'codex');
-    });
+    function closeModal() {
+      overlay.classList.remove('is-active');
+      overlay.setAttribute('aria-hidden', 'true');
+      if (restoreTarget && document.contains(restoreTarget)) restoreTarget.focus();
+      restoreTarget = null;
+    }
 
-    document.getElementById('snew-browse').addEventListener('click', function () {
-      var tree = document.getElementById('snew-picker-tree');
-      if (pickerVisible) { tree.classList.remove('is-active'); pickerVisible = false; return; }
-      var path = document.getElementById('snew-cwd').value || '';
+    function setMode(mode) {
+      currentMode = mode === 'terminal' ? 'terminal' : 'codex';
+      overlay.querySelectorAll('.sessions-mode-tab').forEach(function (tab) {
+        var selected = tab.dataset.mode === currentMode;
+        tab.classList.toggle('is-active', selected);
+        tab.setAttribute('aria-checked', selected ? 'true' : 'false');
+      });
+      overlay.querySelector('#snew-cwd-group').classList.toggle('is-active', currentMode === 'codex');
+      cwdInput.toggleAttribute('required', currentMode === 'codex');
+      cwdInput.removeAttribute('aria-invalid');
+      setStatus('');
+    }
+
+    function renderPickerState(message, tone) {
+      tree.innerHTML = '';
+      var state = document.createElement('div');
+      state.className = 'sessions-picker-state' + (tone ? ' is-' + tone : '');
+      state.textContent = message;
+      tree.appendChild(state);
+    }
+
+    function loadPicker(path) {
+      browseButton.disabled = true;
+      browseButton.setAttribute('aria-busy', 'true');
+      renderPickerState(tr('sessions.new.pickerLoading'));
+      tree.classList.add('is-active');
+      browseButton.setAttribute('aria-expanded', 'true');
+      pickerVisible = true;
       var url = '/api/workspace/picker/tree';
       if (path) url += '?path=' + encodeURIComponent(path);
       api(url).then(function (data) {
         tree.innerHTML = '';
-        if (path) {
-          var parentPath = path.replace(/[\\/]?[^\\/]*$/, '') || '';
-          if (parentPath !== path) {
-            var pe = document.createElement('div');
-            pe.className = 'sessions-picker-item sessions-picker-parent';
-            pe.textContent = '← 上级目录';
-            pe.addEventListener('click', function () { document.getElementById('snew-cwd').value = parentPath; document.getElementById('snew-browse').click(); });
-            tree.appendChild(pe);
-          }
+        var parentPath = data && typeof data.parentPath === 'string' ? data.parentPath : (path ? path.replace(/[\\/]?[^\\/]*$/, '') : '');
+        if (path && parentPath !== path) {
+          var parent = document.createElement('button');
+          parent.type = 'button';
+          parent.className = 'sessions-picker-item sessions-picker-parent';
+          parent.textContent = tr('sessions.new.parentDirectory');
+          parent.addEventListener('click', function () { cwdInput.value = parentPath; loadPicker(parentPath); });
+          tree.appendChild(parent);
         }
-        var dirs = Array.isArray(data) ? data : (data.entries || []);
-        dirs.forEach(function (d) {
-          var name = typeof d === 'string' ? d : (d.name || d.path || '');
-          var fp = typeof d === 'string' ? (path ? path + '\\' + d : d) : (d.path || (path ? path + '\\' + name : name));
-          var el = document.createElement('div');
-          el.className = 'sessions-picker-item';
-          el.textContent = '📁 ' + name;
-          el.addEventListener('click', function () { document.getElementById('snew-cwd').value = fp; document.getElementById('snew-browse').click(); });
-          tree.appendChild(el);
+        var dirs = Array.isArray(data) ? data : ((data && data.entries) || []);
+        if (!dirs.length && !tree.children.length) renderPickerState(tr('sessions.new.pickerEmpty'));
+        dirs.forEach(function (directory) {
+          var directoryName = typeof directory === 'string' ? directory : (directory.name || directory.path || '');
+          var fullPath = typeof directory === 'string'
+            ? (path ? path.replace(/[\\/]$/, '') + '/' + directory : directory)
+            : (directory.path || (path ? path.replace(/[\\/]$/, '') + '/' + directoryName : directoryName));
+          var item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'sessions-picker-item';
+          item.textContent = '▸ ' + directoryName;
+          item.addEventListener('click', function () { cwdInput.value = fullPath; loadPicker(fullPath); });
+          tree.appendChild(item);
         });
-        tree.classList.add('is-active');
-        pickerVisible = true;
       }).catch(function () {
-        tree.innerHTML = '<div class="sessions-picker-item">加载失败</div>';
-        tree.classList.add('is-active');
-        pickerVisible = true;
+        renderPickerState(tr('sessions.new.pickerError'), 'error');
+      }).finally(function () {
+        browseButton.disabled = false;
+        browseButton.removeAttribute('aria-busy');
       });
+    }
+
+    overlay.querySelector('#snew-cancel').addEventListener('click', closeModal);
+    overlay.querySelector('#snew-close').addEventListener('click', closeModal);
+    overlay.addEventListener('click', function (event) { if (event.target === overlay) closeModal(); });
+    overlay.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeModal();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      var focusable = focusableElements(overlay);
+      if (!focusable.length) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     });
 
-    document.getElementById('snew-create').addEventListener('click', function () {
-      var name = document.getElementById('snew-name').value.trim() || (currentMode === 'codex' ? 'Codex Session' : 'Terminal Session');
+    overlay.querySelector('#snew-mode-tabs').addEventListener('click', function (event) {
+      var tab = event.target.closest('.sessions-mode-tab');
+      if (!tab) return;
+      setMode(tab.dataset.mode);
+    });
+
+    browseButton.addEventListener('click', function () {
+      if (pickerVisible) {
+        tree.classList.remove('is-active');
+        browseButton.setAttribute('aria-expanded', 'false');
+        pickerVisible = false;
+      } else {
+        loadPicker(cwdInput.value.trim());
+      }
+    });
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      var name = nameInput.value.trim() || tr(currentMode === 'codex' ? 'sessions.new.defaultCodexName' : 'sessions.new.defaultTerminalName');
       var body = { name: name, sessionMode: currentMode };
       if (currentMode === 'codex') {
-        var cwd = document.getElementById('snew-cwd').value.trim();
-        if (!cwd) { alert('Codex 会话需要指定目标文件夹'); return; }
+        var cwd = cwdInput.value.trim();
+        if (!cwd) {
+          cwdInput.setAttribute('aria-invalid', 'true');
+          setStatus(tr('sessions.new.cwdRequired'), 'error');
+          cwdInput.focus();
+          return;
+        }
         body.cwd = cwd;
       }
+      cwdInput.removeAttribute('aria-invalid');
+      createButton.disabled = true;
+      form.setAttribute('aria-busy', 'true');
+      setStatus(tr('sessions.new.creating'));
       api('/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
         .then(function (created) {
-          overlay.classList.remove('is-active');
           var id = created.id || (created.session && created.session.id);
+          if (!id) throw new Error('missing session id');
+          closeModal();
           switchToView(currentMode, id);
-        }).catch(function (err) { alert('创建失败: ' + err.message); });
+        }).catch(function (error) {
+          setStatus(tr('sessions.new.createError', { error: error.message }), 'error');
+        }).finally(function () {
+          createButton.disabled = false;
+          form.setAttribute('aria-busy', 'false');
+        });
     });
+
+    overlay._sessionsOpen = function (opener) {
+      restoreTarget = opener || document.activeElement;
+      nameInput.value = '';
+      cwdInput.value = '';
+      cwdInput.removeAttribute('aria-invalid');
+      tree.innerHTML = '';
+      tree.classList.remove('is-active');
+      browseButton.setAttribute('aria-expanded', 'false');
+      pickerVisible = false;
+      setMode('codex');
+      setStatus('');
+      overlay.classList.add('is-active');
+      overlay.setAttribute('aria-hidden', 'false');
+      requestAnimationFrame(function () { nameInput.focus(); });
+    };
 
     return overlay;
   }
@@ -218,25 +359,9 @@
       e.stopImmediatePropagation();
       e.preventDefault();
       var modal = buildNewSessionModal();
-      // Reset form
-      document.getElementById('snew-name').value = '';
-      document.getElementById('snew-cwd').value = '';
-      document.getElementById('snew-picker-tree').innerHTML = '';
-      document.getElementById('snew-picker-tree').classList.remove('is-active');
-      // Default codex mode
-      document.getElementById('snew-mode-tabs').querySelector('[data-mode="codex"]').click();
-      modal.classList.add('is-active');
+      modal._sessionsOpen(btn);
     });
 
-    // Also hook the drawer's "+" buttons that might appear
-    document.addEventListener('click', function (e) {
-      var addBtn = e.target.closest('button');
-      if (addBtn && (addBtn.textContent || '').includes('添加') && (addBtn.textContent || '').includes('会话')) {
-        e.stopPropagation();
-        e.preventDefault();
-        btn.click();
-      }
-    });
   }
 
   // ── codex_ipc: add drawer toggle if missing ────────────────────────────
@@ -252,58 +377,105 @@
 
     var toggle = document.createElement('button');
     toggle.id = 'codex-drawer-toggle';
+    toggle.type = 'button';
+    toggle.className = 'sessions-drawer-toggle';
     toggle.textContent = '☰';
-    toggle.style.cssText = 'background:none;border:none;color:var(--text-color,#e0e0e0);font-size:1.2rem;cursor:pointer;padding:0 6px';
-    toggle.title = '会话管理';
+    toggle.title = tr('sessions.drawer.title');
+    toggle.setAttribute('aria-label', tr('sessions.drawer.open'));
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-controls', 'codex-drawer');
 
-    // Build a minimal drawer panel
-    var drawer = document.createElement('div');
+    var backdrop = document.createElement('div');
+    backdrop.className = 'sessions-drawer-backdrop';
+    backdrop.setAttribute('aria-hidden', 'true');
+    backdrop.hidden = true;
+    var drawer = document.createElement('aside');
     drawer.id = 'codex-drawer';
-    drawer.style.cssText = 'display:none;position:fixed;top:0;left:0;width:280px;max-width:80vw;height:100dvh;z-index:200;background:var(--secondary-color,#2c2c2c);border-right:1px solid rgba(255,255,255,0.1);overflow-y:auto;padding:16px;';
+    drawer.className = 'sessions-drawer';
+    drawer.setAttribute('role', 'dialog');
+    drawer.setAttribute('aria-modal', 'true');
+    drawer.setAttribute('aria-labelledby', 'codex-drawer-title');
+    drawer.setAttribute('aria-hidden', 'true');
+    drawer.hidden = true;
     drawer.innerHTML =
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
-        '<span style="font-weight:700">会话</span>' +
-        '<button id="codex-drawer-close" style="background:none;border:none;color:var(--text-color,#e0e0e0);font-size:1.2rem;cursor:pointer">✕</button>' +
+      '<div class="sessions-drawer-header">' +
+        '<div><div class="sessions-modal-eyebrow">' + escHtml(tr('sessions.drawer.eyebrow')) + '</div>' +
+        '<span class="sessions-drawer-title" id="codex-drawer-title">' + escHtml(tr('sessions.drawer.title')) + '</span></div>' +
+        '<button id="codex-drawer-close" class="sessions-modal-close" type="button" aria-label="' + escHtml(tr('common.close')) + '">×</button>' +
       '</div>' +
-      '<div id="codex-drawer-list" style="margin-bottom:12px">加载中…</div>' +
-      '<button id="codex-drawer-new" style="width:100%;padding:8px;font-size:0.85rem;background:var(--primary-color,#007bff);color:#fff;border:none;border-radius:6px;cursor:pointer">+ 新建会话</button>';
-    document.body.appendChild(drawer);
+      '<div id="codex-drawer-list" class="sessions-drawer-list" aria-live="polite">' + escHtml(tr('sessions.drawer.loading')) + '</div>' +
+      '<button id="codex-drawer-new" class="sessions-btn sessions-btn-primary sessions-drawer-new" type="button">' + escHtml(tr('sessions.drawer.new')) + '</button>';
+    document.body.append(backdrop, drawer);
 
-    toggle.addEventListener('click', function () { drawer.style.display = 'block'; });
-    document.getElementById('codex-drawer-close').addEventListener('click', function () { drawer.style.display = 'none'; });
+    function closeDrawer() {
+      drawer.classList.remove('is-active');
+      backdrop.classList.remove('is-active');
+      drawer.setAttribute('aria-hidden', 'true');
+      backdrop.setAttribute('aria-hidden', 'true');
+      drawer.hidden = true;
+      backdrop.hidden = true;
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.focus();
+    }
+
+    function openDrawer() {
+      drawer.hidden = false;
+      backdrop.hidden = false;
+      drawer.classList.add('is-active');
+      backdrop.classList.add('is-active');
+      drawer.setAttribute('aria-hidden', 'false');
+      backdrop.setAttribute('aria-hidden', 'false');
+      toggle.setAttribute('aria-expanded', 'true');
+      loadDrawer();
+      requestAnimationFrame(function () { document.getElementById('codex-drawer-close').focus(); });
+    }
+
+    toggle.addEventListener('click', openDrawer);
+    backdrop.addEventListener('click', closeDrawer);
+    document.getElementById('codex-drawer-close').addEventListener('click', closeDrawer);
+    drawer.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') { event.preventDefault(); closeDrawer(); return; }
+      if (event.key !== 'Tab') return;
+      var focusable = focusableElements(drawer);
+      if (!focusable.length) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    });
 
     // Load sessions into drawer
     function loadDrawer() {
       api('/api/sessions').then(function (sessions) {
         var listEl = document.getElementById('codex-drawer-list');
         listEl.innerHTML = '';
-        if (!sessions.length) { listEl.textContent = '暂无会话'; return; }
+        if (!sessions.length) { listEl.textContent = tr('sessions.drawer.empty'); return; }
         sessions.forEach(function (s) {
-          var row = document.createElement('div');
-          row.style.cssText = 'padding:8px;margin-bottom:4px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.03)';
+          var row = document.createElement('button');
+          row.type = 'button';
+          row.className = 'sessions-drawer-row';
           var mode = s.sessionMode || 'terminal';
-          row.innerHTML =
-            '<span style="font-size:0.65em;padding:1px 5px;border-radius:3px;' +
-              (mode === 'codex' ? 'background:rgba(0,123,255,0.2);color:#4da3ff;' : 'background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);') + '">' + mode + '</span>' +
-            '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.85rem">' + escHtml(s.name || s.id) + '</span>';
+          var badge = document.createElement('span');
+          badge.className = 'sessions-mode-badge ' + mode;
+          badge.textContent = mode;
+          var label = document.createElement('span');
+          label.className = 'sessions-drawer-row-label';
+          label.textContent = s.name || s.id;
+          row.append(badge, label);
           row.addEventListener('click', function () {
+            closeDrawer();
             switchToView(mode, s.id);
           });
           listEl.appendChild(row);
         });
-      }).catch(function () { document.getElementById('codex-drawer-list').textContent = '加载失败'; });
+      }).catch(function () { document.getElementById('codex-drawer-list').textContent = tr('sessions.drawer.error'); });
     }
-    loadDrawer();
 
     // Hook new session button in drawer
     document.getElementById('codex-drawer-new').addEventListener('click', function () {
+      closeDrawer();
       var modal = buildNewSessionModal();
-      document.getElementById('snew-name').value = '';
-      document.getElementById('snew-cwd').value = '';
-      document.getElementById('snew-picker-tree').innerHTML = '';
-      document.getElementById('snew-picker-tree').classList.remove('is-active');
-      document.getElementById('snew-mode-tabs').querySelector('[data-mode="codex"]').click();
-      modal.classList.add('is-active');
+      modal._sessionsOpen(toggle);
     });
 
     // Insert toggle as first child of status bar
@@ -316,7 +488,25 @@
   }
 
   // ── start ──────────────────────────────────────────────────────────────
-  enhanceDrawer();
-  hookNewSessionButton();
-  addDrawerToggleToCodex();
+  function start() {
+    enhanceDrawer();
+    hookNewSessionButton();
+    addDrawerToggleToCodex();
+  }
+
+  if (window.i18n && typeof window.i18n.init === 'function' && !window.i18n.ready) {
+    var i18nReady = window.__TERMLINK_I18N_READY__ || window.i18n.init();
+    window.__TERMLINK_I18N_READY__ = i18nReady;
+    i18nReady.catch(function (error) {
+      console.warn('sessions i18n init failed', error);
+    }).then(function () {
+      if (typeof window.i18n.translatePage === 'function') window.i18n.translatePage();
+      start();
+    });
+  } else if (window.i18n && typeof window.i18n.translatePage === 'function') {
+    window.i18n.translatePage();
+    start();
+  } else {
+    start();
+  }
 })();

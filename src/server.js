@@ -103,7 +103,10 @@ app.use((req, res, next) => {
 });
 
 app.use(createConnectionSecurityMiddleware(tlsConfig));
+app.post('/api/auth/login', basicAuth.loginHandler);
+app.get('/api/auth/session', basicAuth.sessionHandler);
 app.use(basicAuth);
+app.post('/api/auth/logout', basicAuth.logoutHandler);
 app.use(express.static(path.join(__dirname, '../public')));
 app.use('/api', createSessionsRouter(sessionManager));
 app.use('/api', createWorkspaceRouter(sessionManager));
