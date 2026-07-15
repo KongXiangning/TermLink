@@ -428,6 +428,15 @@ class CodexIpcFeed extends EventEmitter {
 
 function inferStatusFromProjection(projection) {
     if (projection.desynced) return undefined;
+    const runtimeStatus = projection.threadRuntimeStatus;
+    if (runtimeStatus === 'active' || runtimeStatus === 'running' || runtimeStatus === 'inProgress' || runtimeStatus === 'in_progress') {
+        return 'running';
+    }
+    if (runtimeStatus === 'failed' || runtimeStatus === 'error' || runtimeStatus === 'cancelled') return 'failed';
+    if (runtimeStatus === 'interrupted') return 'interrupted';
+    if (runtimeStatus === 'idle' || runtimeStatus === 'completed' || runtimeStatus === 'done' || runtimeStatus === 'finished') {
+        return 'completed';
+    }
     const inProgress = Array.isArray(projection.inProgressTurnIds) && projection.inProgressTurnIds.length > 0;
     if (inProgress) return 'running';
     const latestStatus = projection.latestTurn?.status;

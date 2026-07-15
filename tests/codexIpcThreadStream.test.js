@@ -24,6 +24,29 @@ test('snapshot change replaces full conversation state', () => {
     assert.deepEqual(tracker.getConversationState('conv-1'), { turns: [{ turnId: 't1', status: 'completed', items: [] }] });
 });
 
+test('snapshot projection reads canonical turn history and runtime status', () => {
+    const tracker = new ThreadStreamTracker();
+    const activeTurn = {
+        turnId: 'turn-active',
+        status: 'inProgress',
+        items: [{ type: 'agentMessage', phase: 'commentary', text: 'working' }]
+    };
+    const msg = makeBroadcast('snapshot', {
+        conversationId: 'conv-canonical',
+        change: {
+            type: 'snapshot',
+            revision: 9,
+            conversationState: canonicalHistoryState(activeTurn, { type: 'active', activeFlags: [] })
+        }
+    });
+
+    const projection = tracker.applyBroadcast(msg);
+    assert.equal(projection.turnCount, 1);
+    assert.equal(projection.latestTurn.turnId, 'turn-active');
+    assert.deepEqual(projection.inProgressTurnIds, ['turn-active']);
+    assert.equal(projection.threadRuntimeStatus, 'active');
+});
+
 test('snapshot keeps conversations isolated', () => {
     const tracker = new ThreadStreamTracker();
     tracker.applyBroadcast(makeBroadcast('snapshot', { conversationId: 'conv-a', change: { type: 'snapshot', revision: 1, conversationState: { turns: [{ turnId: 'ta' }] } } }));
@@ -176,7 +199,8 @@ test('request-based approval is detected from state.requests', () => {
     const snap = buildDesktopSurfaceSnapshot(state);
     assert.ok(snap.pendingApproval);
     assert.equal(snap.pendingApproval.kind, 'command');
-    assert.equal(snap.pendingApproval.rawRequestId, '1');
+    assert.equal(snap.pendingApproval.requestId, '1');
+    assert.equal(snap.pendingApproval.rawRequestId, 1);
     assert.equal(snap.status, 'waiting_for_approval');
 });
 
@@ -338,6 +362,47 @@ test('inProgress turn status maps to running', () => {
     assert.equal(buildDesktopSurfaceSnapshot(state).status, 'running');
 });
 
+test('canonical turn history and active runtime project live messages as running', () => {
+    const state = canonicalHistoryState({
+        turnId: 'canonical-live',
+        status: 'inProgress',
+        items: [
+            { type: 'userMessage', content: 'start goal work' },
+            { type: 'agentMessage', phase: 'commentary', text: 'goal is running' }
+        ]
+    }, { type: 'active', activeFlags: [] });
+
+    const snap = buildDesktopSurfaceSnapshot(state);
+    assert.equal(snap.status, 'running');
+    assert.equal(snap.latestTurnId, 'canonical-live');
+    assert.ok(snap.items.some((item) => item.text === 'goal is running'));
+});
+
+test('idle runtime overrides stale inProgress history after a goal pauses', () => {
+    const state = canonicalHistoryState({
+        turnId: 'canonical-stale',
+        status: 'inProgress',
+        items: []
+    }, { type: 'idle' });
+
+    assert.equal(buildDesktopSurfaceSnapshot(state).status, 'completed');
+});
+
+test('pending plan remains waiting for input when runtime is idle', () => {
+    const state = canonicalHistoryState({
+        turnId: 'canonical-plan',
+        status: 'completed',
+        items: []
+    }, { type: 'idle' });
+    state.requests = [{
+        id: 'plan-1',
+        method: 'item/plan/requestImplementation',
+        params: { turnId: 'canonical-plan', planContent: 'Implement the plan' }
+    }];
+
+    assert.equal(buildDesktopSurfaceSnapshot(state).status, 'waiting_for_input');
+});
+
 test('completed turn status maps to completed', () => {
     const state = { turns: [{ turnId: 't1', status: 'completed', items: [] }] };
     assert.equal(buildDesktopSurfaceSnapshot(state).status, 'completed');
@@ -372,5 +437,25 @@ function makeBroadcast(changeType, params) {
     return {
         method: 'thread-stream-state-changed',
         params: { hostId: 'host-1', ...params }
+    };
+}
+
+function canonicalHistoryState(turn, threadRuntimeStatus) {
+    const entityKey = `turn:${turn.turnId}`;
+    return {
+        turns: [],
+        threadRuntimeStatus,
+        turnHistory: {
+            kind: 'canonical',
+            history: {
+                entitiesByKey: { [entityKey]: turn },
+                generation: 1,
+                isComplete: true,
+                islands: [{
+                    id: 'tail:1',
+                    entries: [{ key: entityKey, value: entityKey }]
+                }]
+            }
+        }
     };
 }

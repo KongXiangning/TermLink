@@ -103,6 +103,9 @@ function loadGateway() {
                     }
                 });
             }
+            if (method === 'thread/goal/set') {
+                return Promise.resolve({ goal: { ...params } });
+            }
             if (method === 'turn/interrupt' || method === 'thread/settings/update') {
                 return Promise.resolve({ ok: true });
             }
@@ -716,7 +719,70 @@ test('owner pending approval response is resolved through app-server instead of 
         response: { result: { decision: 'accept' } }
     });
     assert.ok(messages.find(m => m.type === 'follower_approval_response_sent' && m.requestId === 'owner-approval-1'));
+    const afterResponse = messages.filter(m => m.type === 'conversation_surface_snapshot').at(-1);
+    assert.equal(afterResponse.snapshot.pendingApproval.requestId, 'owner-approval-1');
+
+    g.codexService.emit('notification', {
+        method: 'turn/started',
+        params: {
+            threadId: 'conv-owner-approval',
+            turn: { id: 'turn-owner-approval', status: 'inProgress', items: [] }
+        }
+    });
+    await delay(50);
+    const afterProgress = messages.filter(m => m.type === 'conversation_surface_snapshot').at(-1);
+    assert.equal(afterProgress.snapshot.pendingApproval, undefined);
     assert.equal(messages.some(m => m.type === 'error' && /IPC/i.test(m.message)), false);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('owner permissions approval returns requested permissions and waits for owner progress', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-owner-permissions', {
+        conversationId: 'conv-owner-permissions', status: 'completed', cwd: 'E:\\coding\\TermLink', items: []
+    });
+    g.ipcFeed._sendRequestHandler = () => ({ type: 'response', resultType: 'error', error: 'no-client-found' });
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-owner-permissions' }));
+    await delay(50);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-owner-permissions', input: 'takeover' }));
+    await delay(120);
+
+    g.codexService.emit('server_request', {
+        requestId: 'permissions-raw-1',
+        handledBy: 'client',
+        message: {
+            method: 'item/permissions/requestApproval',
+            params: {
+                threadId: 'conv-owner-permissions',
+                reason: 'Need network',
+                permissions: { network: true }
+            }
+        }
+    });
+    await delay(50);
+    ws.send(JSON.stringify({
+        type: 'follower_approval_response',
+        conversationId: 'conv-owner-permissions',
+        requestId: 'permissions-raw-1',
+        requestKind: 'permissions',
+        decision: 'acceptForSession'
+    }));
+    await delay(80);
+
+    assert.deepEqual(g.codexService.responses.at(-1), {
+        requestId: 'permissions-raw-1',
+        response: { result: { permissions: { network: true }, scope: 'session' } }
+    });
+    assert.equal(
+        messages.filter(m => m.type === 'conversation_surface_snapshot').at(-1).snapshot.pendingApproval.requestId,
+        'permissions-raw-1'
+    );
     ws.close();
     await stopGateway(g);
 });
@@ -725,13 +791,15 @@ test('follower_approval_response sends command-approval-decision', async () => {
     const g = await setupGateway();
     g.ipcFeed.pushSnapshot('conv-1', {
         conversationId: 'conv-1', status: 'waiting_for_approval', items: [],
-        pendingApproval: { kind: 'command', requestId: 'req-1', raw: { id: 42 } }
+        pendingApproval: { kind: 'command', requestId: '42', rawRequestId: 42, raw: { id: 42 } }
     });
 
     let capturedMethod = null;
+    let capturedRequestId = null;
     let capturedDecision = null;
     g.ipcFeed._sendRequestHandler = (method, params) => {
         capturedMethod = method;
+        capturedRequestId = params.requestId;
         capturedDecision = params.decision;
         return { type: 'response', resultType: 'success', method };
     };
@@ -743,10 +811,11 @@ test('follower_approval_response sends command-approval-decision', async () => {
     ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
     await delay(50);
     await enableFollowerMode(ws);
-    ws.send(JSON.stringify({ type: 'follower_approval_response', conversationId: 'conv-1', decision: 'accept', requestId: 'req-1' }));
+    ws.send(JSON.stringify({ type: 'follower_approval_response', conversationId: 'conv-1', decision: 'accept', requestId: '42' }));
     await delay(100);
 
     assert.equal(capturedMethod, 'thread-follower-command-approval-decision');
+    assert.equal(capturedRequestId, 42);
     assert.equal(capturedDecision, 'accept');
     const ack = messages.find(m => m.type === 'follower_approval_response_sent');
     assert.ok(ack);
@@ -935,6 +1004,74 @@ test('follower_plan_response triggers plan implementation path without invented 
     await stopGateway(g);
 });
 
+test('owner plan implementation waits for owner snapshot before clearing pending action', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-owner-plan', {
+        conversationId: 'conv-owner-plan', status: 'completed', cwd: 'E:\\coding\\TermLink', items: []
+    });
+    g.ipcFeed._sendRequestHandler = () => ({ type: 'response', resultType: 'error', error: 'no-client-found' });
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-owner-plan' }));
+    await delay(50);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-owner-plan', input: 'takeover' }));
+    await delay(120);
+
+    g.codexService.emit('server_request', {
+        requestId: 'owner-plan-raw-1',
+        handledBy: 'client',
+        message: {
+            method: 'item/plan/requestImplementation',
+            params: {
+                threadId: 'conv-owner-plan',
+                turnId: 'turn-plan-source',
+                planContent: 'Implement the synchronized plan'
+            }
+        }
+    });
+    await delay(60);
+    const pending = messages.filter(m => m.type === 'conversation_surface_snapshot').at(-1);
+    assert.equal(pending.snapshot.pendingPlanAction.requestId, 'owner-plan-raw-1');
+
+    ws.send(JSON.stringify({
+        type: 'follower_plan_response',
+        conversationId: 'conv-owner-plan',
+        requestId: 'owner-plan-raw-1',
+        input: 'Implement plan'
+    }));
+    await delay(120);
+
+    const turnStarts = g.codexService.requests.filter((entry) => entry.method === 'turn/start');
+    assert.ok(turnStarts.at(-1).params.input.some((part) => part.text === 'PLEASE IMPLEMENT THIS PLAN:\nImplement the synchronized plan'));
+    const ack = messages.find(m => m.type === 'follower_plan_response_sent');
+    assert.ok(ack);
+    const afterTurnStart = messages.filter(m => m.type === 'conversation_surface_snapshot').at(-1);
+    assert.equal(afterTurnStart.snapshot.pendingPlanAction.requestId, 'owner-plan-raw-1');
+
+    g.codexService.emit('notification', {
+        method: 'turn/started',
+        params: {
+            threadId: 'conv-owner-plan',
+            turn: {
+                id: 'turn-plan-implementation',
+                status: 'inProgress',
+                params: turnStarts.at(-1).params,
+                items: []
+            }
+        }
+    });
+    await delay(60);
+
+    const afterOwnerSnapshot = messages.filter(m => m.type === 'conversation_surface_snapshot').at(-1);
+    assert.equal(afterOwnerSnapshot.snapshot.pendingPlanAction, undefined);
+    assert.equal(afterOwnerSnapshot.snapshot.status, 'running');
+    ws.close();
+    await stopGateway(g);
+});
+
 test('follower_plan_response derives default collaboration mode from latest mode settings', async () => {
     const g = await setupGateway();
     g.ipcFeed.pushSnapshot('conv-1', {
@@ -974,7 +1111,9 @@ test('follower_plan_response derives default collaboration mode from latest mode
         mode: 'default',
         settings: { model: 'gpt-5.5', reasoning_effort: 'high', developer_instructions: null }
     });
-    assert.ok(messages.find(m => m.type === 'follower_plan_response_sent'));
+    const ack = messages.find(m => m.type === 'follower_plan_response_sent');
+    assert.ok(ack);
+    assert.equal(ack.requestId, 'r-plan');
     ws.close();
     await stopGateway(g);
 });
@@ -982,7 +1121,8 @@ test('follower_plan_response derives default collaboration mode from latest mode
 test('follower_plan_response forwards explicit user input response payload', async () => {
     const g = await setupGateway();
     g.ipcFeed.pushSnapshot('conv-1', {
-        conversationId: 'conv-1', status: 'waiting_for_input', items: []
+        conversationId: 'conv-1', status: 'waiting_for_input', items: [],
+        pendingUserInputAction: { requestId: '73', rawRequestId: 73 }
     });
 
     let captured = null;
@@ -1000,13 +1140,13 @@ test('follower_plan_response forwards explicit user input response payload', asy
     ws.send(JSON.stringify({
         type: 'follower_plan_response',
         conversationId: 'conv-1',
-        requestId: 'req-key',
+        requestId: '73',
         response
     }));
     await delay(100);
 
     assert.equal(captured.method, 'thread-follower-submit-user-input');
-    assert.equal(captured.params.requestId, 'req-key');
+    assert.equal(captured.params.requestId, 73);
     assert.deepEqual(captured.params.response, response);
     const ack = messages.find(m => m.type === 'follower_plan_response_sent');
     assert.ok(ack);
@@ -1145,6 +1285,75 @@ test('follower_start_goal sends /goal as ordinary follower turn', async () => {
     assert.equal(captured.method, 'thread-follower-start-turn');
     assert.equal(captured.params.turnStartParams.input[0].text, '/goal 完成同步链路');
     assert.ok(messages.find(m => m.type === 'follower_goal_sent'));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('owner fallback goal waits for owner goal snapshots before updating Android surface', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-owner-goal', {
+        conversationId: 'conv-owner-goal', status: 'completed', cwd: 'E:\\coding\\TermLink', items: []
+    });
+    g.ipcFeed._sendRequestHandler = () => ({ type: 'response', resultType: 'error', error: 'no-client-found' });
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-owner-goal' }));
+    await delay(50);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({ type: 'follower_start_goal', conversationId: 'conv-owner-goal', goal: '完成 Goal 控制验收' }));
+    await delay(150);
+
+    const activeGoalRequest = g.codexService.requests.find((entry) =>
+        entry.method === 'thread/goal/set' && entry.params.status === 'active'
+    );
+    assert.deepEqual(activeGoalRequest.params, {
+        threadId: 'conv-owner-goal',
+        objective: '完成 Goal 控制验收',
+        status: 'active'
+    });
+    const goalTurn = g.codexService.requests.find((entry) => entry.method === 'turn/start');
+    assert.ok(goalTurn.params.input.some((part) => part.text === '完成 Goal 控制验收'));
+    assert.equal(goalTurn.params.input.some((part) => part.text.startsWith('/goal ')), false);
+    assert.equal(messages.some(m => m.type === 'conversation_surface_snapshot' && m.snapshot.activeGoal?.objective === '完成 Goal 控制验收'), false);
+
+    g.codexService.emit('notification', {
+        method: 'thread/goal/updated',
+        params: {
+            threadId: 'conv-owner-goal',
+            goal: { threadId: 'conv-owner-goal', objective: '完成 Goal 控制验收', status: 'active' }
+        }
+    });
+    await delay(50);
+    assert.ok(messages.some(m => m.type === 'conversation_surface_snapshot' && m.snapshot.activeGoal?.objective === '完成 Goal 控制验收'));
+
+    g.codexService.emit('notification', {
+        method: 'turn/completed',
+        params: {
+            threadId: 'conv-owner-goal',
+            turn: { id: goalTurn.params.clientUserMessageId || 'turn-goal', status: 'completed', items: [] }
+        }
+    });
+    await delay(100);
+
+    const completedGoalRequest = g.codexService.requests.find((entry) =>
+        entry.method === 'thread/goal/set' && entry.params.status === 'complete'
+    );
+    assert.equal(completedGoalRequest.params.threadId, 'conv-owner-goal');
+    assert.equal(completedGoalRequest.params.objective, '完成 Goal 控制验收');
+    assert.equal(messages.filter(m => m.type === 'conversation_surface_snapshot').at(-1).snapshot.activeGoal?.objective, '完成 Goal 控制验收');
+
+    g.codexService.emit('notification', {
+        method: 'thread/goal/updated',
+        params: {
+            threadId: 'conv-owner-goal',
+            goal: { threadId: 'conv-owner-goal', objective: '完成 Goal 控制验收', status: 'complete' }
+        }
+    });
+    await delay(50);
+    const completedSnapshot = messages.filter(m => m.type === 'conversation_surface_snapshot').at(-1);
+    assert.equal(completedSnapshot.snapshot.activeGoal, undefined);
     ws.close();
     await stopGateway(g);
 });

@@ -45,6 +45,7 @@ import java.util.Locale
 import java.util.UUID
 
 private const val PLAN_PHASE_READY_FOR_CONFIRMATION = "plan_ready_for_confirmation"
+private const val PLAN_PHASE_EXECUTING_CONFIRMED_PLAN = "executing_confirmed_plan"
 
 internal data class ThreadReadyUiTransition(
     val currentTurnId: String?,
@@ -74,16 +75,30 @@ internal fun applyIpcStatusToUiState(
     state: CodexUiState,
     status: CodexIpcStatus
 ): CodexUiState {
+    val managedOwnerAvailable = state.ipcSurfaceSnapshot?.ownerKind.equals("termlink", ignoreCase = true)
     return state.copy(
         ipcOnline = status.online,
         ipcClientId = status.clientId,
-        followerActiveSendAllowed = if (status.online) {
+        followerActiveSendAllowed = if (status.online || managedOwnerAvailable) {
             state.followerActiveSendAllowed
         } else {
             false
         }
     )
 }
+
+internal fun shouldUseIpcFollowerTransportState(state: CodexUiState): Boolean {
+    val transportAvailable = state.ipcOnline ||
+        state.ipcSurfaceSnapshot?.ownerKind.equals("termlink", ignoreCase = true)
+    return transportAvailable &&
+        state.followerModeEnabled &&
+        state.followerActiveSendAllowed &&
+        !state.activeConversationId.isNullOrBlank()
+}
+
+internal fun shouldPromoteConnectionStateFromWebSocketMessage(
+    connectionState: ConnectionState
+): Boolean = connectionState != ConnectionState.CONNECTED
 
 internal fun resolveCodexStateThreadId(
     serverThreadId: String?,
@@ -336,6 +351,33 @@ internal fun resolveIpcFollowerApprovalDecision(
     }
 }
 
+internal fun buildDirectApprovalDecisionResult(
+    request: CodexServerRequest,
+    approved: Boolean
+): JSONObject? {
+    if (!request.responseMode.equals("decision", ignoreCase = true)) {
+        return null
+    }
+    if (request.method == "item/permissions/requestApproval") {
+        val requestedPermissions = request.params?.optJSONObject("permissions")
+        val permissions = if (approved && requestedPermissions != null) {
+            JSONObject(requestedPermissions.toString())
+        } else {
+            JSONObject()
+        }
+        return JSONObject()
+            .put("permissions", permissions)
+            .put("scope", "turn")
+    }
+    val decision = when (request.method) {
+        "item/commandExecution/requestApproval" -> if (approved) "accept" else "decline"
+        "item/fileChange/requestApproval" -> if (approved) "approve" else "decline"
+        "applyPatchApproval", "execCommandApproval" -> if (approved) "approved" else "denied"
+        else -> return null
+    }
+    return JSONObject().put("decision", decision)
+}
+
 internal fun mergePendingUserInput(
     existing: List<CodexServerRequest>,
     pending: CodexServerRequest?
@@ -361,8 +403,13 @@ internal fun mergePlanWorkflow(
 ): CodexPlanWorkflowState {
     if (action == null) return clearStaleIpcPlanWorkflow(current)
     val nextPlanContent = action.planContent ?: current.planContent
+    val isAwaitingOwnerSnapshot = current.phase == PLAN_PHASE_EXECUTING_CONFIRMED_PLAN &&
+        current.planRequestId != null &&
+        current.planRequestId == action.requestId
     return current.copy(
-        phase = if (action.canSubmit && !nextPlanContent.isNullOrBlank()) {
+        phase = if (isAwaitingOwnerSnapshot) {
+            PLAN_PHASE_EXECUTING_CONFIRMED_PLAN
+        } else if (action.canSubmit && !nextPlanContent.isNullOrBlank()) {
             PLAN_PHASE_READY_FOR_CONFIRMATION
         } else {
             current.phase
@@ -634,7 +681,6 @@ class CodexViewModel(
         private const val PLAN_PHASE_IDLE = "idle"
         private const val PLAN_PHASE_PLANNING = "planning"
         private const val PLAN_PHASE_AWAITING_USER_INPUT = "awaiting_user_input"
-        private const val PLAN_PHASE_EXECUTING_CONFIRMED_PLAN = "executing_confirmed_plan"
         private val ANSI_ESCAPE_REGEX = Regex("\\u001B\\[[;\\d?]*[ -/]*[@-~]")
     }
 
@@ -835,6 +881,12 @@ class CodexViewModel(
         )
     }
 
+    fun continueActiveGoal() {
+        val objective = _uiState.value.activeGoal?.objective?.trim().orEmpty()
+        if (objective.isEmpty()) return
+        startFollowerGoal(objective)
+    }
+
     fun newThread() {
         currentStreamingMessageId = null
         currentPlanStreamingMessageId = null
@@ -887,11 +939,24 @@ class CodexViewModel(
     }
 
     fun submitApprovalDecision(requestId: String, approved: Boolean) {
-        val request = findPendingServerRequest(requestId) ?: return
+        val request = findPendingServerRequest(requestId)
+        if (request == null) {
+            Log.w(TAG, "[approval][submit-skipped] pending request not found requestId=$requestId")
+            return
+        }
         if (isIpcFollowerRequest(request)) {
             val state = _uiState.value
             val conversationId = state.activeConversationId?.trim().orEmpty()
+            Log.i(
+                TAG,
+                "[approval][submit] transport=ipc_follower requestId=$requestId " +
+                    "requestKind=${request.requestKind} approved=$approved " +
+                    "conversationId=$conversationId ipcOnline=${state.ipcOnline} " +
+                    "followerModeEnabled=${state.followerModeEnabled} " +
+                    "activeSendAllowed=${state.followerActiveSendAllowed}"
+            )
             if (!shouldUseIpcFollowerTransport(state) || conversationId.isEmpty()) {
+                Log.w(TAG, "[approval][submit-skipped] IPC follower transport unavailable requestId=$requestId")
                 _uiState.update {
                     it.copy(errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable))
                 }
@@ -1685,6 +1750,10 @@ class CodexViewModel(
         val followerPlanRequestId = state.planWorkflow.planRequestId?.trim().orEmpty()
         val followerConversationId = state.activeConversationId?.trim().orEmpty()
         if (shouldUseIpcFollowerTransport(state) && followerPlanRequestId.isNotEmpty() && followerConversationId.isNotEmpty()) {
+            Log.i(
+                TAG,
+                "[plan][submit] requestId=$followerPlanRequestId conversationId=$followerConversationId"
+            )
             val sent = sendEnvelopeOrReportFailure(
                 payload = CodexClientMessages.followerPlanResponse(
                     conversationId = followerConversationId,
@@ -1699,7 +1768,9 @@ class CodexViewModel(
                     current.copy(
                         planMode = false,
                         interactionState = buildInteractionState(current, planMode = false),
-                        planWorkflow = buildEmptyPlanWorkflowState()
+                        planWorkflow = current.planWorkflow.copy(
+                            phase = PLAN_PHASE_EXECUTING_CONFIRMED_PLAN
+                        )
                     )
                 }
             }
@@ -2068,10 +2139,7 @@ class CodexViewModel(
     }
 
     private fun shouldUseIpcFollowerTransport(state: CodexUiState): Boolean =
-        state.ipcOnline &&
-            state.followerModeEnabled &&
-            state.followerActiveSendAllowed &&
-            !state.activeConversationId.isNullOrBlank()
+        shouldUseIpcFollowerTransportState(state)
 
     private fun buildFollowerTurnPayloadIfSupported(
         state: CodexUiState,
@@ -2374,6 +2442,12 @@ class CodexViewModel(
                             subscribeActiveConversationIfNeeded()
                         }
                         is WsEvent.Message -> {
+                            if (shouldPromoteConnectionStateFromWebSocketMessage(
+                                    connectionState = _uiState.value.connectionState
+                                )) {
+                                connectionManager.onConnected()
+                                subscribeActiveConversationIfNeeded()
+                            }
                             handleEnvelope(event.envelope)
                         }
                         is WsEvent.Closed -> {
@@ -2867,6 +2941,11 @@ class CodexViewModel(
 
             "follower_approval_response_sent" -> {
                 val requestId = json.optStringOrNullCompat("requestId").orEmpty()
+                Log.i(
+                    TAG,
+                    "[approval][ack] requestId=$requestId " +
+                        "conversationId=${json.optStringOrNullCompat("conversationId").orEmpty()}"
+                )
                 if (requestId.isNotEmpty()) {
                     _uiState.update { current ->
                         current.copy(
@@ -2877,7 +2956,11 @@ class CodexViewModel(
             }
 
             "follower_plan_response_sent" -> {
-                Log.d(TAG, "Follower plan response accepted")
+                Log.i(
+                    TAG,
+                    "[plan][ack] requestId=${json.optStringOrNullCompat("requestId").orEmpty()} " +
+                        "conversationId=${json.optStringOrNullCompat("conversationId").orEmpty()}"
+                )
             }
 
             "codex_response" -> {
@@ -2921,6 +3004,13 @@ class CodexViewModel(
                 _uiState.update {
                     it.copy(
                         errorMessage = rendered,
+                        planWorkflow = if (message == "Failed to send plan response" &&
+                            it.planWorkflow.phase == PLAN_PHASE_EXECUTING_CONFIRMED_PLAN
+                        ) {
+                            it.planWorkflow.copy(phase = PLAN_PHASE_READY_FOR_CONFIRMATION)
+                        } else {
+                            it.planWorkflow
+                        },
                         runtimePanel = it.runtimePanel.copy(
                             warning = rendered,
                             warningTone = "error"
@@ -3953,18 +4043,7 @@ class CodexViewModel(
     private fun buildApprovalDecisionResult(
         request: CodexServerRequest,
         approved: Boolean
-    ): JSONObject? {
-        if (request.responseMode != "decision") {
-            return null
-        }
-        val decision = when (request.method) {
-            "item/commandExecution/requestApproval" -> if (approved) "accept" else "decline"
-            "item/fileChange/requestApproval" -> if (approved) "approve" else "decline"
-            "applyPatchApproval", "execCommandApproval" -> if (approved) "approved" else "denied"
-            else -> return null
-        }
-        return JSONObject().put("decision", decision)
-    }
+    ): JSONObject? = buildDirectApprovalDecisionResult(request, approved)
 
     private fun buildUserInputResult(
         request: CodexServerRequest,

@@ -12,7 +12,7 @@
 - 创建时间：2026-06-29
 - 创建来源：用户 `/goal` 请求
 - 任务类型：feature / server-android / Codex IPC realtime sync
-- 当前 handoff：realtime-sync-core-stabilized-pending-owner-action-manual-smoke
+- 当前 handoff：completed-ready-for-closeout
 - 任务目标：只针对 TermLink 服务端与安卓端，完全遵照 `E:\coding\termlink-demo` 的技术实现改造 Codex 会话实时同步能力；`termlink-demo` 只读参考，以代码实现为准、`docs/技术文档.md` 为辅，禁止修改；服务端为 Codex 会话提供同步 Codex Desktop / VS Code Codex 扩展的能力，安卓端 Codex 会话作为展示端，所有获取信息与发送信息都通过服务端通信；安卓端页面布局与基础功能不得变动，功能不得减少。
 
 ## Supersede 记录
@@ -73,12 +73,14 @@ Allowed Files:
 - `src/services/codexIpcCodec.js`
 - `src/services/codexIpcConfig.js`
 - `src/services/codexIpcFeed.js`
+- `src/services/codexAppServerService.js`
 - `src/services/codexOwnerSurfaceTracker.js`
 - `src/services/codexIpcThreadStream.js`
 - `src/services/codexIpcTransport.js`
 - `src/services/codexThreadHub.js`
 - `src/ws/terminalGateway.js`
 - `tests/codexIpcClient.test.js`
+- `tests/codexAppServerService.test.js`
 - `tests/codexIpcCodec.test.js`
 - `tests/codexIpcConfig.test.js`
 - `tests/codexIpcFeed.test.js`
@@ -131,12 +133,14 @@ Forbidden Files:
   - `src/services/codexIpcCodec.js`
   - `src/services/codexIpcConfig.js`
   - `src/services/codexIpcFeed.js`
+  - `src/services/codexAppServerService.js`
   - `src/services/codexOwnerSurfaceTracker.js`
   - `src/services/codexIpcThreadStream.js`
   - `src/services/codexIpcTransport.js`
   - `src/services/codexThreadHub.js`
   - `src/ws/terminalGateway.js`
   - `tests/codexIpcClient.test.js`
+  - `tests/codexAppServerService.test.js`
   - `tests/codexIpcCodec.test.js`
   - `tests/codexIpcConfig.test.js`
   - `tests/codexIpcFeed.test.js`
@@ -172,6 +176,7 @@ Forbidden Files:
   - `src/ws/terminalGateway.js`：WebSocket / Codex IPC / runtime bridge 高风险文件；只允许改 Codex IPC follower/snapshot/action routing，禁止改 session 创建、ticket、PTY、workspace、mTLS、BasicAuth、terminal runtime lifecycle。
   - `src/services/codexIpc*.js`：Codex IPC 连接、编解码、feed、snapshot projection；必须保持 demo parity 和 conversation isolation。
   - `src/services/codexOwnerSurfaceTracker.js`：TermLink-managed Codex app-server owner surface projection；只允许承载 owner conversation state、pending request 与 normalized surface snapshot，不得改 session/store/auth/workspace 边界。
+  - `src/services/codexAppServerService.js`：TermLink-managed Codex app-server JSON-RPC request dispatch；只允许补充真实 owner approval / PLAN 请求识别，不得改进程生命周期、认证或 workspace 边界。
   - Android `CodexViewModel` / `CodexConnectionManager` / `CodexWebSocketClient` / `CodexWireModels`：只允许服务端通信与 state model 改造，不允许删除功能或改布局。
 - Locked contracts：
   - Sessions API、session summary DTO、`data/sessions.json`、6 小时 idle 保留、workspace boundary、WebSocket ticket / BasicAuth 语义均不得破坏。
@@ -184,6 +189,7 @@ Forbidden Files:
 - Unlock / widening conditions：
   - 2026-07-02 scope widening：用户明确要求 demo 已废弃 `CodexProxyBridge` 且 `OwnerSurfaceTracker` 必须加入 TermLink；根因排查确认当前 bug 来自 TermLink 缺少 owner surface tracker / owner-runtime 路由，导致 external Desktop / VS Code owner client 消失后只能继续走 IPC follower request 并触发 `no-client-found` / IPC unavailable。允许新增 `src/services/codexOwnerSurfaceTracker.js` 与 `tests/codexOwnerSurfaceTracker.test.js`，并在既有 `src/ws/terminalGateway.js`、`src/services/codexIpcFeed.js`、`tests/terminalGateway.codexIpc.test.js` 中做最小接线。风险：owner 与 external IPC surface 合并错误、pending request stale、误改旧 session runtime；验证方式：owner tracker unit tests、gateway no-client-found fallback / owner route targeted tests、服务 IPC/gateway targeted regression、`node --check` 与 `git diff --check`。
   - 2026-07-02 scope widening：用户明确指出 Android 历史任务 id 不是 IPC 通道 id，且 demo 的业务逻辑是“有 ipc-id 直接读；任务列表原来没有 ipc-id、后来产生 ipc-id 时主动刷新列表并更新”。根因排查确认 TermLink 的任务列表选择对象 `SessionSelection` 未携带 `lastCodexThreadId`，导致从任务列表打开 Codex session 时即使 session summary 已有 IPC id，也不能作为 `threadId` 传入 `CodexActivity`；同 cwd 多任务场景会退回 cwd/latest 猜测，从而出现 A/B 任务串线。允许最小修改 `SessionApiModels.kt`、`SessionsFragment.kt`、`MainShellActivity.kt` 与 `CodexActivity.kt`，仅传递/保持 `lastCodexThreadId`，禁止修改 Android layout/resource/navigation 结构。风险：native shell selection 与 CodexActivity restore state 不一致；验证方式：Android JVM 编译/测试、真机 A->B 或 explicit Intent smoke、logcat 中目标 conversation snapshot 与 session metadata 一致。
+  - 2026-07-10 scope widening：用户明确新增真实 owner 授权提权、PLAN 与 Goal 实时控制验收。排查确认 `src/services/codexAppServerService.js` 尚未把 `item/permissions/requestApproval` 和 `item/plan/requestImplementation` 交给 client/OwnerSurfaceTracker，导致真实 managed-owner 请求无法形成 Android pending snapshot。允许在该文件内做 additive method descriptor 修改，并在既有 `tests/codexAppServerService.test.js` 补对应 deferred request 分类回归；影响仅限真实 server request 分类。风险：未知请求被错误接管或响应模式错误；验证方式：descriptor unit/integration assertions、gateway owner approval/PLAN targeted tests、真实 owner smoke，并保持其它 app-server request 与进程生命周期不变。
   - 若 demo parity 必须修改 `public/**`、Android layout/resource、session persistence schema、auth/ticket、workspace 或 release/mTLS，必须停止并重新执行 `/lock-scope`，不得在实现中直接越界。
   - 若必须新增长期稳定 DTO / API 字段，需先记录影响面、兼容策略和验证方式，再按 Conditional Files 执行。
 
@@ -326,7 +332,7 @@ Implementation Plan:
 3. 已完成：服务端控制面。按 demo 实现收敛 follower send / goal / approval / plan / user input / interrupt routing，补 targeted Node tests；`tests/terminalGateway.codexIpc.test.js` 已可自然退出并 22/22 pass。
 4. 已完成：Android wire 与 state。更新 Android Codex wire model、ViewModel，使 live snapshot、follower mode、approval / permissions / file、PLAN、user input、goal、interrupt 与普通消息都经服务端 envelope 接入；无 Android layout/resource 改动。
 5. 已完成：Android UI binding preserve。仅复用现有 messages、pendingServerRequests、planWorkflow、runtime/status 与原操作入口接入新状态；页面布局、导航入口、基础功能和已有交互能力未减少。
-6. 当前步骤：核心实时同步已稳定，pending action 验收仍待完成。自动化回归、真实 IPC 只读链路 smoke、真实 dev server ticket/WebSocket 只读链路、Android IPC conversation list bootstrap、Android debug APK build、Android 真机只读/视觉 smoke、真实 Android active-send 写入式 smoke、Android A -> B -> A 切换、同一 Codex 任务最新 running 状态同步，以及可控 harness 下的 Android approval / PLAN -> 当前服务端 gateway 写入路径 smoke 已完成；真实 Desktop / VS Code owner 自然产生 pending approval / PLAN 的三端手动验证仍待可写测试会话。
+6. 已完成：真实 owner 控制面最终验收。真实 Desktop owner 产生的 approval、PLAN implementation confirmation 与 Goal 均已完成 Android 三端闭环；Approval 保持 numeric raw JSON-RPC requestId，PLAN 只在 owner 后续 snapshot 清除 pending，Goal 已验证 Android 启动与继续/恢复。Goal update / cancel / complete 没有 external owner IPC 客户端动作，未实现也未伪造。
 
 ## 回归检查项
 
@@ -401,3 +407,7 @@ Implementation Plan:
 - 2026-07-02：补充完整 A/B 真机切换 smoke。先通过真实 `/api/sessions` 创建临时 Codex session B（cwd=`E:\coding\LawAgent`），其初始 `lastCodexThreadId=null`；通过真实 WS 对 B 执行 `set_active_conversation` 到 running IPC `019f212f-91c5-7e71-917c-15816608ea16` 后，立即收到 `session_codex_thread_bound.lastCodexThreadId=019f212f-91c5-7e71-917c-15816608ea16`，随后 `/api/sessions` 与 `data/sessions.json` 均显示 B 已写回该 IPC id，证明“任务列表原来无 ipc-id、后续产生后服务端可被列表刷新拿到”的链路成立；Android `SessionsFragment` 在抽屉可见时 `onDrawerContentVisibilityChanged()` 立即刷新并启动 10 秒 auto-refresh，能拉取该 additive 字段。随后清 logcat 并在同一 `singleTask` `CodexActivity` 中连续 `am start`：A=`fd2237ed-5fbf-4adf-b050-a2724af9c1b8`/`019f17d4-40f4-78d0-a7e5-774dd9193c50`，B=`795ea194-b91b-493f-93d6-443f4ee3b4c1`/`019f212f-91c5-7e71-917c-15816608ea16`，再切回 A。logcat 证据：A 首次发 `thread/read reason=launch-hydrate threadId=019f17d4-40f4-78d0-a7e5-774dd9193c50`；B 发 `thread/read ... threadId=019f212f-91c5-7e71-917c-15816608ea16` 并持续收到 `IPC snapshot ... status=running items=95 -> 96`；回 A 后再次发 `thread/read ... threadId=019f17d4-40f4-78d0-a7e5-774dd9193c50` 并收到 `IPC snapshot ... status=running items=263`。`dumpsys activity` 显示当前 `ResumedActivity` 仍为 `CodexActivity`，服务端 active session 回到 A。随后删除临时 B，`/api/sessions` 与 `data/sessions.json` 恢复仅用户原有 A session。最终 WS 复验当前 TermLink conversation 为 `running`，item count 已增至 269，`codex_ipc_status.online=true` 且 `lastEventAt` 更新。computer-use 插件现已可发现，但其 skill 明确禁止自动化 Codex Desktop / Codex CLI / Codex 扩展，因此未执行 Windows UI 点击发送；该限制由真实 IPC/WS/Android 观测替代。
 - 2026-07-02：最终 Desktop/Codex 事件 smoke。使用 `codex_app.send_message_to_thread` 对同一个 Codex thread / IPC conversation `019f17d4-40f4-78d0-a7e5-774dd9193c50` 发送 `SMOKE_SYNC_20260702`，该路径不属于 Windows UI 自动化，规避 computer-use 对 Codex Desktop UI 的禁止规则。`codex_app.read_thread` 显示该 thread 中已有 delegation 输入与 `SMOKE_SYNC_OK_20260702` 回复；TermLink WS 连接同一 session 后，`codex_ipc_conversations` 显示 conversation 仍为 `running` 且 items=291，`conversation_surface_snapshot.snapshot.items[284].text=SMOKE_SYNC_OK_20260702`，并继续收到包含 smoke 文本的 `codex_ipc_sync_event`；真机 `MQS7N19402011743` 当前 `ResumedActivity=CodexActivity`，logcat 显示同一 conversation `IPC snapshot ... status=running items=290 -> 293`，`uiautomator dump` 可见包含 `SMOKE_SYNC_20260702` 与 `SMOKE_SYNC_OK_20260702` 的当前 Android Codex UI 文本；`/api/sessions` 显示用户原有 A session `activeConnections=1`、`lastCodexThreadId=019f17d4-40f4-78d0-a7e5-774dd9193c50`。由此覆盖“同一个任务打开时 Android 端可获取 Desktop/Codex 最新执行中状态”的最终验收。
 - 2026-07-10：用户再次手动确认实时同步可用。本轮将已完成核心固定为长期契约：IPC conversation id 的 session binding / Android 入口直传 / state 重订阅、A/B session 隔离和 TermLink owner fallback；新增服务端 IPC recovery conversation-list 回归，以及 Android non-null / null `codex_state.threadId` 的 selection / resubscribe 回归。验证：`node --test tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js` 37/37 pass；JDK21 下 `:app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelThreadReadyTest --tests com.termlink.app.codex.data.CodexIpcWireModelTest` BUILD SUCCESSFUL。真实 owner 授权提权与真实 owner PLAN 未经人工端到端验证，继续作为当前任务唯一的 pending action 验收项；任务保持 active，不能以核心稳定替代这两项验证。
+- 2026-07-11：继续 Goal 真机 smoke 并补齐两个控制面边界。Android `WsEvent.Opened` 使用无 replay 的 `MutableSharedFlow`，在 ViewModel collector 建立前可能丢失，造成 WebSocket 已打开且 snapshot 已到达时 UI 仍显示“连接中”；现收到有效 WebSocket message 时补做连接状态提升并重新订阅 active conversation，新增 JVM 回归。TermLink owner 直连 `item/permissions/requestApproval` 此前可投影到 Android、但 Android 仅能构造 command/file 的响应；现补齐原始 `permissions` 与 `scope=turn` 的接受/拒绝 payload，并新增 JVM 回归。真实设备 `MQS7N19402011743` 上，当前 conversation `019f17d4-40f4-78d0-a7e5-774dd9193c50` 持续收到 `activeGoal=true` snapshot，UIAutomator 确认“Codex 已连接”、`GOAL · usageLimited`、完整目标文本与“继续”控件；这证明 Goal 的 owner snapshot -> TermLink -> Android 展示链路仍成立。该 owner 处于 `usageLimited`，复跑“继续”未产生新 turn、pendingApproval 或 pendingPlanAction，故不能据此声称 Android -> owner Goal 启动、真实审批点击或真实 PLAN 实施已完成。验证：`node --test tests/codexAppServerService.test.js tests/codexOwnerSurfaceTracker.test.js tests/codexIpcThreadStream.test.js tests/terminalGateway.codexIpc.test.js` 74/74 pass；JDK21 下 `:app:testDebugUnitTest --tests "com.termlink.app.codex.*"` BUILD SUCCESSFUL；附带 Web shell 旧测试仍失败于对已不存在 `btn-codex-secondary-threads` 的断言，该 `public/**` surface 未被本任务修改且处于禁止范围。真实 owner 自然产生 pending approval / PLAN 的 Android 三端闭环仍是完成 gate。
+- 2026-07-11（续）：真机实际复现“服务和 IPC snapshot 均正常、Android 仍显示连接中”。原因是 `WsEvent.Message` 的实时到达已证明 WebSocket 可用，但原修复额外依赖滞后的 `wsClient.isConnected`；现改为 message 到达即提升连接态，重装 APK 后 UIAutomator 显示“Codex 已连接”、`GOAL · active`、完整 live objective 和启用的“继续”。对该控件执行一次真实 adb tap 后未收到 `follower_goal_sent`、owner 新 turn 或后续 Goal snapshot，页面保持现有 snapshot；因此只记录 Goal display 与连接恢复为真机通过，不把 Android -> owner Goal 控制标记为通过。Gateway 同时收紧 managed owner Goal 与 PLAN：`thread/goal/set` / PLAN `turn/start` 的 RPC 回执不再直接更新 tracker；分别只有 `thread/goal/updated` / `thread/goal/cleared` 与 owner `turn/started` notification 才能更新 Android surface。验证复跑：Node targeted 74/74；JDK21 Android Codex JVM tests BUILD SUCCESSFUL；debug APK BUILD SUCCESSFUL、安装到 `MQS7N19402011743`，本地服务 `/api/health` OK。真实 owner pendingApproval、pendingPlanAction 及其 Android 操作后的回传/清理仍为完成 gate。
+- 2026-07-13：完成真实 owner 控制面最终验收，conversation=`019f577e-06c8-7b42-8a4b-ddb627c18fba`，真机=`MQS7N19402011743`。Approval：owner command request `25` 经 snapshot 展示到 Android，Android 批准后 gateway 以 numeric raw requestId `25` 调用 `thread-follower-command-approval-decision`，owner revision 117 清除 pending，文件 `logs/TERMLINK_REAL_APPROVAL_ANDROID_20260713_E.tmp` 创建。根因修复为 `requestId` 仅用于 Android 字符串匹配，`rawRequestId` 保持 JSON-RPC 原始 number/string 类型；PLAN user-input 同样使用 raw id。PLAN：owner revision 307/308 产生真实 `pendingPlanAction`，Android 提交 request `implement-plan:019f579a-e513-7c40-a4ca-c4e6316575ca`，gateway 用同一 conversation 启动 implementation turn `019f579b-6f11-7913-9430-d6cc423d1a7c`，revision 340 清除 plan pending 并产生 command approval；Android 再批准 numeric raw requestId `32`，文件 `logs/TERMLINK_REAL_PLAN_ANDROID_20260713_F.tmp` 创建且 owner turn completed。修复 Android 在 envelope 写入成功后提前清 PLAN 的伪收敛：现在进入等待 owner snapshot 阶段，同一 pending snapshot 重放不重新弹窗，只有 owner snapshot 移除 pending 才清理。Goal：Android composer 发起 `/goal termlink_android_goal_smoke_20260713`，owner 新 turn `019f579c-c661-7a41-9ad1-58bad92540f8`，revision 397+ 投影 `activeGoal=true`，Android 展示同一 objective；owner 将缺少验收内容的 smoke goal 标为 blocked 后，Android 点击“继续”产生新 `/goal` turn `019f579d-9a0e-7992-ab64-9a25f5a38b98` 并按 owner 语义恢复。External owner IPC 当前只支持 Goal 启动与继续/恢复；update / cancel / complete 未暴露客户端动作，明确不伪造。验证：Node targeted 74/74，Android `:app:testDebugUnitTest` BUILD SUCCESSFUL，debug APK BUILD SUCCESSFUL并安装；未修改 demo、`public/**`、Android layout/resource/navigation/Manifest。任务进入 closeout。
+- 2026-07-15：修复 Desktop 正在执行 turn 时 Android 仍显示空闲/Goal“继续”的实时状态回归。真实 IPC snapshot 证明 owner 已改用 canonical `turnHistory.history.entitiesByKey + islands` 保存回合，并用 `threadRuntimeStatus` 表示实时运行态，而旧投影只读 `turns[]`；因此服务端日志持续出现 `activeGoal=true` 但 `status=unknown/items=0`，刷新只能依赖其它 hydrate 路径看到对话。修复后 `ThreadStreamTracker` 与 `buildDesktopSurfaceSnapshot` 同时兼容 legacy turns 和 canonical history，以 entity 内真实 `turnId` 去重合并，并以 `threadRuntimeStatus` 约束 active/idle；waiting approval/user-input/PLAN/Goal 的优先级保持不变。真实 IPC 复验：conversation `019f17d4-40f4-78d0-a7e5-774dd9193c50` 从修复前 `unknown/items=0` 恢复为 `running/items=417`，新活跃 conversation `019f6240-d360-7f82-8db8-16533dba552a` 为 `running/items=5`；blocked Goal conversation `019f613d-cc82-7973-a7c3-75c292e9df5a` 原始状态为 `threadRuntimeStatus=idle`、`goal.status=blocked`，真机继续显示“继续”属于正确收敛。通过显式 `-ProjectRoot E:\coding\TermLink` 重启本地服务，`/api/health` OK；真机 `MQS7N19402011743` 保持 `CodexActivity`、IPC online、exact active conversation selection。验证：新增定向 51/51，Node 相邻 Codex IPC/gateway 套件 149/149，JDK21 Android Codex JVM tests BUILD SUCCESSFUL，`git diff --check` 无 whitespace error（仅 CRLF warning）。未修改 Android UI、session schema、demo、`public/**` 或资源/导航；任务继续保持 completed-ready-for-closeout。

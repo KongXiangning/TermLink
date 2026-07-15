@@ -89,3 +89,72 @@ test('owner tracker consumes app-server turn notifications and message deltas', 
     assert.equal(event.surface.status, 'running');
     assert.ok(event.surface.items.some((item) => item.role === 'assistant' && item.text === 'hello from owner'));
 });
+
+test('owner tracker keeps responded approval pending until owner progress arrives', () => {
+    const tracker = new CodexOwnerSurfaceTracker();
+    tracker.registerExternalSurface('thread-response', {
+        conversationId: 'thread-response',
+        status: 'completed',
+        items: []
+    });
+    tracker.handleRequest('approval-response', 'item/permissions/requestApproval', {
+        threadId: 'thread-response',
+        permissions: { network: true }
+    });
+
+    assert.equal(tracker.markRequestResponseSent('approval-response', 'thread-response'), true);
+    assert.equal(tracker.peekSnapshot('thread-response').surface.pendingApproval.requestId, 'approval-response');
+
+    const progressed = tracker.handleNotification('turn/started', {
+        threadId: 'thread-response',
+        turn: { id: 'turn-response', status: 'inProgress', items: [] }
+    });
+    assert.equal(progressed.surface.pendingApproval, undefined);
+});
+
+test('owner tracker does not restore authoritative pending actions from the external seed', () => {
+    const tracker = new CodexOwnerSurfaceTracker();
+    tracker.registerExternalSurface('thread-seed', {
+        conversationId: 'thread-seed',
+        status: 'waiting_for_approval',
+        pendingApproval: { requestId: 'stale-approval' },
+        items: [{
+            key: 'seed:approval',
+            kind: 'approval_request',
+            requestId: 'stale-approval',
+            requestKind: 'command'
+        }]
+    });
+    tracker.handleRequest('live-approval', 'item/commandExecution/requestApproval', {
+        threadId: 'thread-seed',
+        command: 'echo live'
+    });
+
+    const resolved = tracker.resolveRequest('live-approval', 'thread-seed');
+    assert.equal(resolved.surface.pendingApproval, undefined);
+    assert.equal(resolved.surface.items.some((item) => item.requestId === 'stale-approval'), false);
+});
+
+test('owner tracker projects active goal and keeps completed goal from reviving from seed', () => {
+    const tracker = new CodexOwnerSurfaceTracker();
+    tracker.registerExternalSurface('thread-goal', {
+        conversationId: 'thread-goal',
+        status: 'completed',
+        activeGoal: { threadId: 'thread-goal', objective: 'stale goal', status: 'active' },
+        items: []
+    });
+
+    const active = tracker.applyThreadGoalUpdate('thread-goal', {
+        threadId: 'thread-goal',
+        objective: 'live goal',
+        status: 'active'
+    });
+    assert.equal(active.surface.activeGoal.objective, 'live goal');
+
+    const completed = tracker.applyThreadGoalUpdate('thread-goal', {
+        threadId: 'thread-goal',
+        objective: 'live goal',
+        status: 'complete'
+    });
+    assert.equal(completed.surface.activeGoal, undefined);
+});

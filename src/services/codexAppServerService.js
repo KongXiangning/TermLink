@@ -231,6 +231,22 @@ function describeServerRequestMethod(method) {
             handledByClient: true
         };
     }
+    if (normalizedMethod === 'item/permissions/requestApproval') {
+        return {
+            method: normalizedMethod,
+            requestKind: 'permissions',
+            responseMode: 'decision',
+            handledByClient: true
+        };
+    }
+    if (normalizedMethod === 'item/plan/requestImplementation') {
+        return {
+            method: normalizedMethod,
+            requestKind: 'plan',
+            responseMode: 'plan',
+            handledByClient: true
+        };
+    }
     if (normalizedMethod === 'applyPatchApproval') {
         return {
             method: normalizedMethod,

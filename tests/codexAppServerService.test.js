@@ -34,3 +34,11 @@ test('buildCodexAppServerArgs omits invalid override values', () => {
         '--analytics-default-enabled'
     ]);
 });
+
+test('managed owner defers permissions and plan implementation requests to the client', () => {
+    const service = new CodexAppServerService();
+
+    assert.equal(service.shouldDeferServerRequest('item/permissions/requestApproval'), true);
+    assert.equal(service.shouldDeferServerRequest('item/plan/requestImplementation'), true);
+    assert.equal(service.shouldDeferServerRequest('unknown/request'), false);
+});

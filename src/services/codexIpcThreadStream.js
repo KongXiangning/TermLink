@@ -90,12 +90,17 @@ class ThreadStreamTracker {
 // ── conversation summary ─────────────────────────────────────────────────────
 
 function summarizeConversationState(state) {
-    const turns = Array.isArray(state?.turns) ? state.turns : [];
+    const turns = extractConversationTurns(state);
     const latestTurn = turns.length > 0 ? summarizeTurn(turns[turns.length - 1]) : undefined;
     const inProgressTurnIds = turns
         .filter(t => { const s = asString(asRecord(t)?.status); return s === 'inProgress' || s === 'in_progress'; })
         .map(t => getTurnId(t)).filter(Boolean);
-    return { turnCount: turns.length, latestTurn, inProgressTurnIds };
+    return {
+        turnCount: turns.length,
+        latestTurn,
+        inProgressTurnIds,
+        threadRuntimeStatus: extractThreadRuntimeStatus(state)
+    };
 }
 
 function summarizeTurn(turn) {
@@ -108,6 +113,68 @@ function summarizeTurn(turn) {
 
 function getTurnId(turn) {
     return asString(asRecord(turn)?.turnId) ?? asString(asRecord(turn)?.id);
+}
+
+function extractConversationTurns(state) {
+    const directTurns = Array.isArray(state?.turns) ? state.turns : [];
+    const canonicalTurns = extractCanonicalHistoryTurns(state);
+    if (canonicalTurns.length === 0) return directTurns;
+    if (directTurns.length === 0) return canonicalTurns;
+
+    const merged = canonicalTurns.slice();
+    const indexes = new Map();
+    merged.forEach((turn, index) => {
+        const turnId = getTurnId(turn);
+        if (turnId) indexes.set(turnId, index);
+    });
+    for (const turn of directTurns) {
+        const turnId = getTurnId(turn);
+        const index = turnId ? indexes.get(turnId) : undefined;
+        if (index === undefined) {
+            merged.push(turn);
+            if (turnId) indexes.set(turnId, merged.length - 1);
+        } else {
+            merged[index] = turn;
+        }
+    }
+    return merged;
+}
+
+function extractCanonicalHistoryTurns(state) {
+    const turnHistory = asRecord(state?.turnHistory);
+    const history = asRecord(turnHistory?.history);
+    const entities = asRecord(history?.entitiesByKey);
+    if (!entities) return [];
+
+    const result = [];
+    const seenEntityKeys = new Set();
+    const seenTurnIds = new Set();
+    const appendEntity = (entityKey) => {
+        if (!entityKey || seenEntityKeys.has(entityKey)) return;
+        seenEntityKeys.add(entityKey);
+        const turn = asRecord(entities[entityKey]);
+        const turnId = getTurnId(turn);
+        if (!turn || !turnId || seenTurnIds.has(turnId)) return;
+        seenTurnIds.add(turnId);
+        result.push(turn);
+    };
+
+    const islands = Array.isArray(history?.islands) ? history.islands : [];
+    for (const islandValue of islands) {
+        const island = asRecord(islandValue);
+        const entries = Array.isArray(island?.entries) ? island.entries : [];
+        for (const entryValue of entries) {
+            const entry = asRecord(entryValue);
+            appendEntity(asString(entry?.value) ?? asString(entry?.key));
+        }
+    }
+    for (const entityKey of Object.keys(entities)) appendEntity(entityKey);
+    return result;
+}
+
+function extractThreadRuntimeStatus(state) {
+    const runtimeStatus = asRecord(state?.threadRuntimeStatus);
+    return asString(runtimeStatus?.type) ?? asString(state?.threadRuntimeStatus);
 }
 
 // ── JSON Patch ───────────────────────────────────────────────────────────────
@@ -214,7 +281,7 @@ function extractConversationId(value, seen = new Set()) {
  * @returns {object}
  */
 function buildDesktopSurfaceSnapshot(state, options = {}) {
-    const turns = Array.isArray(state?.turns) ? state.turns : [];
+    const turns = extractConversationTurns(state);
     const items = [];
     let statusBucket = createStatusBucket();
     let seq = 0;
@@ -308,12 +375,13 @@ function buildDesktopSurfaceSnapshot(state, options = {}) {
     const reqPlan = extractPendingPlanActionFromRequests(state);
     if (reqPlan) pendingPlanAction = pendingPlanAction ? { ...pendingPlanAction, ...reqPlan } : reqPlan;
 
+    const inferredStatus = inferThreadRuntimeStatus(state) ?? inferTurnStatus(turns);
     const status = options.status ??
         (pendingApproval ? 'waiting_for_approval' :
          reqUserInput ? 'waiting_for_input' :
-         inferTurnStatus(turns) === 'running' ? 'running' :
+         inferredStatus === 'running' ? 'running' :
          (pendingPlanAction || pendingGoalAction) ? 'waiting_for_input' :
-         inferTurnStatus(turns));
+         inferredStatus);
 
     return {
         conversationId: options.conversationId,
@@ -429,7 +497,9 @@ function normalizePendingApprovalRequest(req) {
     const params = asRecord(r?.params);
     const method = asString(r?.method);
     if (!r || !params || !method) return undefined;
-    const requestId = String(r.id);
+    const rawRequestId = r.id;
+    if (typeof rawRequestId !== 'string' && typeof rawRequestId !== 'number') return undefined;
+    const requestId = String(rawRequestId);
 
     if (method === 'item/commandExecution/requestApproval') {
         const actions = Array.isArray(params.commandActions) ? params.commandActions : [];
@@ -438,7 +508,7 @@ function normalizePendingApprovalRequest(req) {
         return {
             kind: 'command',
             requestId,
-            rawRequestId: requestId,
+            rawRequestId,
             method,
             requestKind: 'command',
             responseMode: 'decision',
@@ -455,7 +525,7 @@ function normalizePendingApprovalRequest(req) {
         return {
             kind: 'file',
             requestId,
-            rawRequestId: requestId,
+            rawRequestId,
             method,
             requestKind: 'file',
             responseMode: 'decision',
@@ -472,7 +542,7 @@ function normalizePendingApprovalRequest(req) {
         return {
             kind: 'permissions',
             requestId,
-            rawRequestId: requestId,
+            rawRequestId,
             method,
             requestKind: 'permissions',
             responseMode: 'decision',
@@ -633,8 +703,11 @@ function extractPendingUserInputRequestFromRequests(state) {
         if (!r || !params || r.method !== 'item/tool/requestUserInput') continue;
         const questions = Array.isArray(params.questions) ? params.questions : [];
         const summary = summarizeQuestions(questions);
+        const rawRequestId = r.id;
+        if (typeof rawRequestId !== 'string' && typeof rawRequestId !== 'number') continue;
         return {
-            requestId: String(r.id),
+            requestId: String(rawRequestId),
+            rawRequestId,
             method: 'item/tool/requestUserInput',
             requestKind: 'userInput',
             responseMode: 'answers',
@@ -658,7 +731,9 @@ function extractPendingPlanActionFromRequests(state) {
         if (!r || !params) continue;
 
         if (r.method === 'item/plan/requestImplementation') {
-            return { kind: 'plan_implementation', requestId: String(r.id), requestMethod: r.method, turnId: asString(params.turnId), planContent: asString(params.planContent), canSubmit: Boolean(params.turnId && params.planContent), raw: r };
+            const rawRequestId = r.id;
+            if (typeof rawRequestId !== 'string' && typeof rawRequestId !== 'number') continue;
+            return { kind: 'plan_implementation', requestId: String(rawRequestId), rawRequestId, requestMethod: r.method, turnId: asString(params.turnId), planContent: asString(params.planContent), canSubmit: Boolean(params.turnId && params.planContent), raw: r };
         }
     }
     return undefined;
@@ -891,6 +966,17 @@ function inferTurnStatus(turns) {
     }
     if (items.length > 0 && !status) return 'running';
     return 'unknown';
+}
+
+function inferThreadRuntimeStatus(state) {
+    const status = extractThreadRuntimeStatus(state);
+    if (status === 'active' || status === 'running' || status === 'inProgress' || status === 'in_progress') {
+        return 'running';
+    }
+    if (status === 'failed' || status === 'error' || status === 'cancelled') return 'failed';
+    if (status === 'interrupted') return 'interrupted';
+    if (status === 'idle' || status === 'completed' || status === 'done' || status === 'finished') return 'completed';
+    return undefined;
 }
 
 function isRunningTurnStatus(status) {

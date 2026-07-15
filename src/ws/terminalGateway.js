@@ -617,6 +617,12 @@ function resolveCodexServerRequestKind(method) {
     if (normalizedMethod === 'item/fileChange/requestApproval') {
         return 'file';
     }
+    if (normalizedMethod === 'item/permissions/requestApproval') {
+        return 'permissions';
+    }
+    if (normalizedMethod === 'item/plan/requestImplementation') {
+        return 'plan';
+    }
     if (normalizedMethod === 'applyPatchApproval') {
         return 'patch';
     }
@@ -627,7 +633,10 @@ function resolveCodexServerRequestKind(method) {
 }
 
 function resolveCodexServerRequestResponseMode(method) {
-    return resolveCodexServerRequestKind(method) === 'userInput' ? 'answers' : 'decision';
+    const requestKind = resolveCodexServerRequestKind(method);
+    if (requestKind === 'userInput') return 'answers';
+    if (requestKind === 'plan') return 'plan';
+    return 'decision';
 }
 
 function extractCodexServerRequestSummary(method, params) {
@@ -643,6 +652,14 @@ function extractCodexServerRequestSummary(method, params) {
     if (requestKind === 'patch') {
         const reason = isNonEmptyString(params && params.reason) ? params.reason.trim() : '';
         return reason || '';
+    }
+    if (requestKind === 'permissions') {
+        const reason = isNonEmptyString(params && params.reason) ? params.reason.trim() : '';
+        return reason || '';
+    }
+    if (requestKind === 'plan') {
+        const planContent = isNonEmptyString(params && params.planContent) ? params.planContent.trim() : '';
+        return planContent || '';
     }
     if (requestKind === 'userInput') {
         const questions = Array.isArray(params && params.questions) ? params.questions : [];
@@ -706,6 +723,8 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     const _ipcFollowerModes = new Map();
     /** @type {Map<string, string>} */
     const _ipcConversationLastStatus = new Map();
+    /** @type {Set<string>} */
+    const _ownerGoalCompletionInFlight = new Set();
 
     const _isIpcOnline = () => {
         if (!ipcFeed) return false;
@@ -1057,7 +1076,8 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             ? resumeResult.thread.id.trim()
             : conversationId;
         ownerSurfaceTracker.registerThreadResume(resumedThreadId, {
-            seedSurface: seedSurface || _getLatestIpcSnapshot(conversationId) || { conversationId }
+            seedSurface: seedSurface || _getLatestIpcSnapshot(conversationId) || { conversationId },
+            resumeResult
         });
         return resumedThreadId;
     };
@@ -1070,14 +1090,80 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 threadId,
                 ...turnStartParams
             });
-            ownerSurfaceTracker.adoptTurnStartResult(threadId, result, turnStartParams.clientUserMessageId);
+            if (isNonEmptyString(options.responseRequestId)) {
+                ownerSurfaceTracker.markRequestResponseSent(options.responseRequestId, threadId);
+            }
+            if (options.awaitOwnerSnapshot !== true) {
+                ownerSurfaceTracker.adoptTurnStartResult(threadId, result, turnStartParams.clientUserMessageId);
+            }
             sendWsEnvelope(ws, { type: options.successType || 'follower_message_sent', conversationId: threadId, acknowledged: true });
+            return true;
         } catch (error) {
             sendWsEnvelope(ws, {
                 type: 'error',
                 message: options.failureMessage || 'Failed to send owner message',
                 detail: error && error.message ? error.message : String(error)
             });
+            return false;
+        }
+    };
+
+    const _startOwnerGoal = async (ws, conversationId, objective, latestSnapshot, options = {}) => {
+        try {
+            const threadId = await _ensureOwnerConversation(conversationId, latestSnapshot);
+            await codexService.request('thread/goal/set', {
+                threadId,
+                objective: objective.trim(),
+                status: 'active'
+            });
+
+            const turnStartParams = buildFollowerTurnStartParams(objective.trim(), latestSnapshot || {});
+            await codexService.request('turn/start', {
+                threadId,
+                ...turnStartParams
+            });
+            sendWsEnvelope(ws, { type: options.successType || 'follower_goal_sent', conversationId: threadId, acknowledged: true });
+        } catch (error) {
+            sendWsEnvelope(ws, {
+                type: 'error',
+                message: options.failureMessage || 'Failed to start owner goal',
+                detail: error && error.message ? error.message : String(error)
+            });
+        }
+    };
+
+    const _startOwnerMessageOrGoal = async (ws, conversationId, input, latestSnapshot, options) => {
+        if (isNonEmptyString(options.ownerGoalObjective)) {
+            await _startOwnerGoal(ws, conversationId, options.ownerGoalObjective, latestSnapshot, options);
+            return;
+        }
+        await _startOwnerTurn(ws, conversationId, input, latestSnapshot, options);
+    };
+
+    const _completeOwnerGoalAfterTurn = async (threadId, turn) => {
+        if (!isNonEmptyString(threadId) || _ownerGoalCompletionInFlight.has(threadId)) return;
+        const turnStatus = isNonEmptyString(turn && turn.status) ? turn.status.trim().toLowerCase() : '';
+        if (turnStatus === 'failed' || turnStatus === 'interrupted' || turnStatus === 'cancelled' || turnStatus === 'canceled') {
+            return;
+        }
+        const snapshot = _getLatestOwnerSnapshot(threadId);
+        const activeGoal = snapshot && snapshot.activeGoal;
+        if (!activeGoal || !isNonEmptyString(activeGoal.objective)) return;
+
+        _ownerGoalCompletionInFlight.add(threadId);
+        try {
+            const completedGoal = {
+                ...(activeGoal.raw && typeof activeGoal.raw === 'object' ? activeGoal.raw : {}),
+                threadId,
+                objective: activeGoal.objective.trim(),
+                status: 'complete',
+                updatedAt: Math.floor(Date.now() / 1000)
+            };
+            await codexService.request('thread/goal/set', completedGoal);
+        } catch (error) {
+            console.warn('[gateway][codex][owner-goal-complete-failed]', error && error.message ? error.message : String(error));
+        } finally {
+            _ownerGoalCompletionInFlight.delete(threadId);
         }
     };
 
@@ -1119,7 +1205,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         }
 
         if (_shouldUseOwnerRuntime(conversationId)) {
-            await _startOwnerTurn(ws, conversationId, input, latest, options);
+            await _startOwnerMessageOrGoal(ws, conversationId, input, latest, options);
             return;
         }
 
@@ -1128,7 +1214,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             return;
         }
         if (!_isIpcOnline()) {
-            await _startOwnerTurn(ws, conversationId, input, latest, options);
+            await _startOwnerMessageOrGoal(ws, conversationId, input, latest, options);
             return;
         }
 
@@ -1141,7 +1227,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             sendWsEnvelope(ws, { type: options.successType || 'follower_message_sent', conversationId, acknowledged: true });
         } catch (error) {
             if (isNoClientFoundError(error)) {
-                await _startOwnerTurn(ws, conversationId, input, latest, options);
+                await _startOwnerMessageOrGoal(ws, conversationId, input, latest, options);
                 return;
             }
             sendWsEnvelope(ws, { type: 'error', message: options.failureMessage || 'Failed to send follower message', detail: error.message });
@@ -1160,7 +1246,8 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         await _handleFollowerSendMessage(ws, conversationId, `/goal ${goal.trim()}`, {
             successType: 'follower_goal_sent',
             failureMessage: 'Failed to start follower goal',
-            unavailableDetail: 'Enable codex-ipc to start follower goals.'
+            unavailableDetail: 'Enable codex-ipc to start follower goals.',
+            ownerGoalObjective: goal.trim()
         });
     };
 
@@ -1238,10 +1325,11 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
 
         if (_shouldUseOwnerRuntime(conversationId)) {
             try {
+                const ownerResult = buildOwnerApprovalResult(approval, decision, execpolicyAmendment);
                 codexService.respondToServerRequest(approval.rawRequestId, {
-                    result: { decision: decisionValue }
+                    result: ownerResult
                 });
-                ownerSurfaceTracker.resolveRequest(approval.rawRequestId, conversationId);
+                ownerSurfaceTracker.markRequestResponseSent(approval.rawRequestId, conversationId);
                 sendWsEnvelope(ws, { type: 'follower_approval_response_sent', conversationId, requestId, acknowledged: true });
             } catch (error) {
                 sendWsEnvelope(ws, { type: 'error', message: 'Failed to send owner approval response', detail: error.message });
@@ -1259,12 +1347,28 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         }
 
         try {
+            console.warn('[gateway][ipc][approval-response-send]', JSON.stringify({
+                conversationId,
+                requestId,
+                rawRequestId: approval.rawRequestId,
+                requestKind: approval.kind,
+                method: approval.method,
+                decision: typeof decisionValue === 'string' ? decisionValue : 'structured'
+            }));
             const response = await ipcFeed.sendRequest(approval.method, {
                 conversationId,
                 requestId: approval.rawRequestId,
                 decision: decisionValue
             });
             assertIpcSuccess(response);
+            console.warn('[gateway][ipc][approval-response-result]', JSON.stringify({
+                conversationId,
+                requestId,
+                rawRequestId: approval.rawRequestId,
+                method: approval.method,
+                responseType: response?.type,
+                resultType: response?.resultType
+            }));
             sendWsEnvelope(ws, { type: 'follower_approval_response_sent', conversationId, requestId, acknowledged: true });
         } catch (error) {
             sendWsEnvelope(ws, { type: 'error', message: 'Failed to send approval response', detail: error.message });
@@ -1287,6 +1391,17 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             const planAction = latest?.pendingPlanAction;
             const trimmedInput = typeof input === 'string' ? input.trim() : '';
             const livePlanRequestId = requestId || planAction?.requestId || '';
+            const rawPlanRequestId = resolveRawPendingRequestId(
+                latest?.pendingUserInputAction || planAction,
+                livePlanRequestId
+            );
+            console.info('[gateway][ipc][plan-response-send]', JSON.stringify({
+                conversationId,
+                requestId: livePlanRequestId || null,
+                rawRequestId: rawPlanRequestId ?? null,
+                requestMethod: planAction?.requestMethod || null,
+                action: hasExplicitResponse ? 'submit-user-input' : (isPlanAcceptInput(trimmedInput) ? 'implement' : 'feedback')
+            }));
 
             if (_shouldUseOwnerRuntime(conversationId)) {
                 if (!hasExplicitResponse && planAction && planAction.requestMethod === 'item/plan/requestImplementation' && isPlanAcceptInput(trimmedInput)) {
@@ -1300,7 +1415,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                     }
                     await _startOwnerTurn(ws, conversationId, buildPlanImplementationPrompt(planAction.planContent || trimmedInput), latest, {
                         successType: 'follower_plan_response_sent',
-                        failureMessage: 'Failed to send owner plan response'
+                        failureMessage: 'Failed to send owner plan response',
+                        responseRequestId: livePlanRequestId,
+                        awaitOwnerSnapshot: true
                     });
                     return;
                 }
@@ -1317,7 +1434,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                     ? explicitResponse
                     : buildPlanInputResponse(trimmedInput, questionId || requestId || livePlanRequestId);
                 codexService.respondToServerRequest(livePlanRequestId, { result: responsePayload });
-                ownerSurfaceTracker.resolveRequest(livePlanRequestId, conversationId);
+                ownerSurfaceTracker.markRequestResponseSent(livePlanRequestId, conversationId);
                 sendWsEnvelope(ws, { type: 'follower_plan_response_sent', conversationId, acknowledged: true });
                 return;
             }
@@ -1359,6 +1476,12 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                     turnStartParams: buildFollowerTurnStartParams(buildPlanImplementationPrompt(planContent), latest, { collaborationMode })
                 });
                 assertIpcSuccess(startRes);
+                console.info('[gateway][ipc][plan-response-result]', JSON.stringify({
+                    conversationId,
+                    requestId: livePlanRequestId || null,
+                    action: 'implement',
+                    resultType: startRes?.resultType || startRes?.type || null
+                }));
             } else {
                 // Regular text input for plan feedback.
                 if (!livePlanRequestId) {
@@ -1374,13 +1497,30 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                     : buildPlanInputResponse(trimmedInput, questionId || requestId || livePlanRequestId);
                 const res = await ipcFeed.sendRequest('thread-follower-submit-user-input', {
                     conversationId,
-                    requestId: livePlanRequestId,
+                    requestId: rawPlanRequestId,
                     response: responsePayload
                 });
                 assertIpcSuccess(res);
+                console.info('[gateway][ipc][plan-response-result]', JSON.stringify({
+                    conversationId,
+                    requestId: livePlanRequestId || null,
+                    rawRequestId: rawPlanRequestId ?? null,
+                    action: 'submit-user-input',
+                    resultType: res?.resultType || res?.type || null
+                }));
             }
-            sendWsEnvelope(ws, { type: 'follower_plan_response_sent', conversationId, acknowledged: true });
+            sendWsEnvelope(ws, {
+                type: 'follower_plan_response_sent',
+                conversationId,
+                requestId: livePlanRequestId || undefined,
+                acknowledged: true
+            });
         } catch (error) {
+            console.error('[gateway][ipc][plan-response-error]', JSON.stringify({
+                conversationId,
+                requestId: requestId || null,
+                message: error.message
+            }));
             sendWsEnvelope(ws, { type: 'error', message: 'Failed to send plan response', detail: error.message });
         }
     };
@@ -1422,14 +1562,22 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 ? candidate.kind.trim()
                 : (isNonEmptyString(candidate.approvalType) ? candidate.approvalType.trim() : ''));
         if (requestedKind && kind && requestedKind !== kind) return null;
-        const rawRequestId = isNonEmptyString(candidate.rawRequestId)
-            ? candidate.rawRequestId.trim()
+        const rawRequestId = isRawRequestId(candidate.rawRequestId)
+            ? candidate.rawRequestId
             : (raw && (typeof raw.id === 'string' || typeof raw.id === 'number')
                 ? raw.id
                 : (requestIds[0] || requested));
+        const requestMethod = isNonEmptyString(candidate.requestMethod)
+            ? candidate.requestMethod.trim()
+            : (isNonEmptyString(candidate.method)
+                ? candidate.method.trim()
+                : (raw && isNonEmptyString(raw.method) ? raw.method.trim() : ''));
+        const params = candidate.params && typeof candidate.params === 'object'
+            ? candidate.params
+            : (raw && raw.params && typeof raw.params === 'object' ? raw.params : undefined);
         const method = resolveApprovalResponseMethod(kind);
         return method && rawRequestId !== undefined && rawRequestId !== ''
-            ? { kind, rawRequestId, method, raw, params: candidate.params }
+            ? { kind, rawRequestId, method, requestMethod, raw, params }
             : null;
     }
 
@@ -1453,6 +1601,42 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 execpolicy_amendment: amendment
             }
         };
+    }
+
+    function isRawRequestId(value) {
+        return (typeof value === 'string' && value.trim() !== '') ||
+            (typeof value === 'number' && Number.isFinite(value));
+    }
+
+    function resolveRawPendingRequestId(candidate, requested) {
+        if (!candidate || typeof candidate !== 'object') return requested;
+        if (isRawRequestId(candidate.rawRequestId)) return candidate.rawRequestId;
+        const raw = candidate.raw && typeof candidate.raw === 'object' ? candidate.raw : null;
+        if (raw && isRawRequestId(raw.id)) return raw.id;
+        return requested;
+    }
+
+    function buildOwnerApprovalResult(approval, decision, execpolicyAmendment) {
+        if (approval.requestMethod === 'item/permissions/requestApproval') {
+            if (decision === 'accept' || decision === 'acceptForSession') {
+                return {
+                    permissions: extractRequestedPermissions(approval.params),
+                    scope: decision === 'acceptForSession' ? 'session' : 'turn'
+                };
+            }
+            return { permissions: {}, scope: 'turn' };
+        }
+        return {
+            decision: buildApprovalDecisionValue(decision, execpolicyAmendment, approval)
+        };
+    }
+
+    function extractRequestedPermissions(params) {
+        if (!params || typeof params !== 'object' || Array.isArray(params)) return {};
+        const permissions = params.permissions;
+        return permissions && typeof permissions === 'object' && !Array.isArray(permissions)
+            ? structuredClone(permissions)
+            : {};
     }
 
     function extractProposedExecpolicyAmendment(params) {
@@ -2195,6 +2379,12 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         }
 
         ownerSurfaceTracker.handleNotification(method, params);
+        if (method === 'turn/completed') {
+            const ownerThreadId = CodexAppServerService.extractThreadId(notification);
+            if (ownerThreadId && ownerSurfaceTracker.hasConversation(ownerThreadId)) {
+                void _completeOwnerGoalAfterTurn(ownerThreadId, params && params.turn);
+            }
+        }
 
         if (method === 'account/rateLimits/updated') {
             getConnectedCodexSessions().forEach((session) => {

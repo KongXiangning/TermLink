@@ -109,6 +109,7 @@ import com.termlink.app.R
 import com.termlink.app.codex.data.CodexSlashRegistry
 import com.termlink.app.codex.data.CodexServerRequest
 import com.termlink.app.codex.data.CodexServerRequestQuestion
+import com.termlink.app.codex.data.ActiveGoalInfo
 import com.termlink.app.codex.domain.ChatMessage
 import com.termlink.app.codex.domain.CodexPendingImageAttachment
 import com.termlink.app.codex.domain.CodexSkillEntry
@@ -176,6 +177,7 @@ fun CodexScreen(
     state: CodexUiState,
     onSendMessage: (String) -> Unit,
     onInterrupt: () -> Unit,
+    onContinueGoal: () -> Unit,
     onOpenSessions: () -> Unit,
     onOpenDocs: () -> Unit,
     onNewThread: () -> Unit,
@@ -406,6 +408,20 @@ fun CodexScreen(
                     info = info,
                     onRetry = onRetry,
                     onShowDiagnostics = onShowRuntimePanel
+                )
+            }
+            state.activeGoal?.takeIf { !it.objective.isNullOrBlank() }?.let { goal ->
+                val goalControlAvailable = state.connectionState == ConnectionState.CONNECTED &&
+                    state.followerModeEnabled &&
+                    state.followerActiveSendAllowed &&
+                    !state.activeConversationId.isNullOrBlank() &&
+                    (state.ipcOnline || state.ipcSurfaceSnapshot?.ownerKind.equals("termlink", ignoreCase = true))
+                ActiveGoalBand(
+                    goal = goal,
+                    isRunning = isStreaming,
+                    controlAvailable = goalControlAvailable,
+                    onContinue = onContinueGoal,
+                    onInterrupt = onInterrupt
                 )
             }
 
@@ -642,6 +658,53 @@ fun CodexScreen(
             onContinuePlanWorkflow = onContinuePlanWorkflow,
             onCancelPlanWorkflow = onCancelPlanWorkflow
         )
+    }
+}
+
+@Composable
+private fun ActiveGoalBand(
+    goal: ActiveGoalInfo,
+    isRunning: Boolean,
+    controlAvailable: Boolean,
+    onContinue: () -> Unit,
+    onInterrupt: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SurfaceRaised)
+            .border(width = 1.dp, color = SurfaceBorder)
+            .heightIn(min = 72.dp)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "GOAL · ${goal.status.orEmpty().ifBlank { "active" }}",
+                    color = AccentBlue,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = goal.objective.orEmpty(),
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            TextButton(
+                onClick = if (isRunning) onInterrupt else onContinue,
+                enabled = controlAvailable
+            ) {
+                Text(if (isRunning) "中断当前回合" else "继续")
+            }
+        }
     }
 }
 

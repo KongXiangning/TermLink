@@ -121,12 +121,13 @@
 ### 🔒 Codex 原生会话实时同步核心
 
 - 已锁定数据流：Codex Desktop / VS Code / Codex thread surface -> `codex-ipc` -> `CodexIpcFeed` 与 `CodexOwnerSurfaceTracker` -> `terminalGateway` normalized snapshot / conversation list -> Android WebSocket -> `CodexViewModel` / Codex UI。
+- owner snapshot 兼容：IPC conversation state 的回合来源必须同时兼容 legacy `turns[]` 与 canonical `turnHistory.history.entitiesByKey + islands`；canonical history 中的 local entity key 只用于排序/查找，normalized surface 仍使用实体内真实 `turnId`。`threadRuntimeStatus` 是当前 owner 运行态的权威来源：`active` 必须投影为 `running`，`idle` 不得被历史中残留的 `inProgress` turn 重新覆盖；Approval、user input、PLAN/Goal pending 仍按既有优先级投影为对应 waiting 状态。Android 不得自行根据 `activeGoal` 猜测运行或暂停。
 - Canonical id：`lastCodexThreadId` 和 `activeConversationId` 只能表示 IPC `conversationId`。session id、历史 task id、`cwd`、latest 时间戳只能参与“尚未绑定时”的候选选择，不能覆盖已经绑定的 conversation。
 - 绑定与恢复：`set_active_conversation` 成功后必须把 conversation id 回写为 session `lastCodexThreadId`，发送 `session_codex_thread_bound`，并让 Android 后续 sessions refresh 可读取该 additive 字段。Android 从 session 列表、启动参数、drawer restore 或 `session_info` 取得该字段时，必须直连对应 conversation，不得退回把历史 task id 当 IPC id。
 - Android 状态收敛：`threadId` 与 `activeConversationId` 在已选 IPC conversation 时保持同一 id；空 `codex_state.threadId` 不得清掉既有选择，非空新 thread id 必须更新选择并重新订阅。A/B session 切换后，旧 conversation snapshot 不得回写当前 UI。
 - owner 容错：`CodexOwnerSurfaceTracker` 是 TermLink 的正式 owner runtime；Desktop / VS Code owner 不存在、或 IPC offline 但仍有缓存 surface 时，gateway 必须可接管同一 conversation，后续 owner action 不得继续依赖已消失的外部 client。不得恢复 `CodexProxyBridge` 作为该容错路径。
 - 回归门：改动 `terminalGateway.js`、`codexOwnerSurfaceTracker.js`、Codex session DTO / selection，或 Android Codex ViewModel / Activity / Sessions entry 链路时，至少运行 `tests/codexOwnerSurfaceTracker.test.js`、`tests/terminalGateway.codexIpc.test.js`、Android Codex ViewModel/wire JVM tests；影响 selection / restore 时还必须补同机 A -> B -> A 真机 smoke。
-- 明确排除：真实 owner 自然产生的授权提权与 PLAN pending action 尚未完成人工端到端验收；不得因为本核心已稳定、或因为 harness / unit tests 通过，而宣称这两条动作链已验收。
+- owner 控制面：真实 owner Approval、PLAN implementation 与 Goal 启动/继续已完成人工端到端验收。投影给 Android 的 `requestId` 可字符串化用于 UI 匹配，但回传 owner 的 `rawRequestId` 必须保持 JSON-RPC 原始 number/string 类型；不得把 numeric id 转成 string 后提交。Approval、PLAN 与 Goal 的 RPC/IPC ack 只表示动作送达，Android pending/activeGoal 只能由 owner 后续 snapshot / notification 清理或更新。PLAN envelope 写入成功后应进入等待 owner snapshot 状态，不得本地清空或伪造 running/completed。External owner IPC 未提供 Goal update/cancel/complete 客户端动作，这些动作不属于当前稳定接口，不得伪造。
 
 ### 🔒 目录职责
 

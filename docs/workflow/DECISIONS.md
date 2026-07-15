@@ -57,6 +57,10 @@
 - 替代方案：重新让 Android 按 cwd/latest 或历史 task id 推断 conversation，或只依赖外部 Desktop / VS Code owner；当前均未采用。
 - 验证方式：`tests/codexOwnerSurfaceTracker.test.js`、`tests/terminalGateway.codexIpc.test.js`、Android Codex ViewModel/wire JVM tests，以及已完成的 Android A -> B -> A 和同任务实时同步手动 smoke。
 
+变更说明（2026-07-11）：控制面扩展为授权提权、PLAN 与 Goal 三类。Android 只以 owner 后续 snapshot / notification 更新 pending 或 activeGoal；`thread/goal/set` 等控制命令的 RPC 成功仅代表请求送达，不能被投影成 owner 已成功执行。三类真实 owner 人工闭环均未完成前继续排除在稳定区外。
+
+变更说明（2026-07-13）：真实 owner 人工闭环已完成，Approval、PLAN implementation、Goal 启动与继续/恢复进入稳定控制面。审批失效根因是 numeric JSON-RPC id 被字符串化；后续固定为 display `requestId` 与原类型 `rawRequestId` 双轨。PLAN 发送后不再清空 Android workflow，而是等待 owner snapshot 移除 pending。Goal 仅冻结 external owner IPC 已证明的启动与继续/恢复；update/cancel/complete 因协议无客户端动作继续排除，禁止用本地状态或普通文本伪造。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径

@@ -28,7 +28,7 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
             .sort((a, b) => b.timestamp - a.timestamp);
     }
 
-    registerExternalSurface(threadId, surface = {}) {
+    registerExternalSurface(threadId, surface = {}, options = {}) {
         const id = normalizeId(threadId || surface.conversationId);
         if (!id) {
             throw new Error('Owner conversation id is required.');
@@ -41,7 +41,9 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
                 hostId: LOCAL_HOST_ID,
                 revision: 0,
                 state: buildInitialState(id, surface),
-                seedSurface: clone(surface)
+                seedSurface: clone(surface),
+                authoritativeTransientFields: new Set(),
+                respondedRequestIds: new Set()
             };
             this._conversations.set(id, conversation);
         } else {
@@ -49,7 +51,7 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
             applySurfaceMetadata(conversation.state, surface);
         }
 
-        return this.broadcast(id);
+        return options.broadcast === false ? undefined : this.broadcast(id);
     }
 
     registerThreadStart(threadStartResult, options = {}) {
@@ -81,14 +83,34 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
             hostId: LOCAL_HOST_ID,
             revision: 0,
             state,
-            seedSurface: clone(surface)
+            seedSurface: clone(surface),
+            authoritativeTransientFields: new Set(),
+            respondedRequestIds: new Set()
         });
 
         return this.broadcast(threadId);
     }
 
     registerThreadResume(threadId, options = {}) {
-        return this.registerExternalSurface(threadId, options.seedSurface || options.surface || {});
+        const id = normalizeId(threadId);
+        if (!id) {
+            throw new Error('Owner conversation id is required.');
+        }
+        this.registerExternalSurface(id, options.seedSurface || options.surface || {}, { broadcast: false });
+        const conversation = this._conversations.get(id);
+        const resumeResult = asRecord(options.resumeResult);
+        const thread = asRecord(options.thread) || asRecord(resumeResult?.thread);
+        if (conversation && thread) {
+            applyThreadMetadata(conversation.state, thread);
+            const goal = extractThreadGoal(thread) || extractThreadGoal(resumeResult);
+            if (goal) {
+                applyGoalUpdate(conversation.state, goal);
+                conversation.authoritativeTransientFields.add('activeGoal');
+                conversation.authoritativeTransientFields.add('pendingGoalAction');
+            }
+            touch(conversation.state);
+        }
+        return this.broadcast(id);
     }
 
     adoptTurnStartResult(threadId, turnStartResult, clientUserMessageId) {
@@ -119,6 +141,8 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
         }
 
         applyTurnParams(conversation.state, asRecord(turn.params));
+        clearRespondedRequests(conversation);
+        markOwnerPendingActionsAuthoritative(conversation);
         conversation.state.threadRuntimeStatus = { type: 'active', activeFlags: [] };
         touch(conversation.state);
         return this.broadcast(conversation.threadId);
@@ -140,8 +164,9 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
         if (!conversation) return undefined;
         const record = asRecord(goal);
         if (record) {
-            conversation.state.currentGoal = clone(record);
-            conversation.state.threadGoal = clone(record);
+            applyGoalUpdate(conversation.state, record);
+            conversation.authoritativeTransientFields.add('activeGoal');
+            conversation.authoritativeTransientFields.add('pendingGoalAction');
             touch(conversation.state);
         }
         return options.broadcast === false ? undefined : this.broadcast(conversation.threadId);
@@ -163,6 +188,7 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
             const threadId = extractThreadId(params);
             if (!threadId) return undefined;
             return this.updateConversation(threadId, (conversation) => {
+                clearRespondedRequests(conversation);
                 conversation.state.threadRuntimeStatus = normalizeThreadRuntimeStatus(asRecord(params)?.status);
             });
         }
@@ -187,6 +213,8 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
             return this.updateConversation(threadId, (conversation) => {
                 delete conversation.state.currentGoal;
                 delete conversation.state.threadGoal;
+                conversation.authoritativeTransientFields.add('activeGoal');
+                conversation.authoritativeTransientFields.add('pendingGoalAction');
             });
         }
 
@@ -201,6 +229,7 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
             const turn = normalizeTurn(asRecord(asRecord(params)?.turn), fallback);
             if (!threadId || !turn) return undefined;
             return this.updateConversation(threadId, (conversation) => {
+                clearRespondedRequests(conversation);
                 upsertTurn(conversation.state, turn);
                 applyTurnParams(conversation.state, asRecord(turn.params));
                 conversation.state.threadRuntimeStatus = normalizedMethod === 'turn/started'
@@ -215,6 +244,7 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
             const item = asRecord(asRecord(params)?.item);
             if (!threadId || !turnId || !item) return undefined;
             return this.updateConversation(threadId, (conversation) => {
+                clearRespondedRequests(conversation);
                 const turn = ensureTurn(conversation.state, turnId);
                 upsertItem(turn, clone(item));
             });
@@ -224,6 +254,7 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
             const threadId = extractThreadId(params);
             if (!threadId) return undefined;
             return this.updateConversation(threadId, (conversation) => {
+                clearRespondedRequests(conversation);
                 appendDelta(conversation.state, params, 'agentMessage');
             });
         }
@@ -232,6 +263,7 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
             const threadId = extractThreadId(params);
             if (!threadId) return undefined;
             return this.updateConversation(threadId, (conversation) => {
+                clearRespondedRequests(conversation);
                 appendDelta(conversation.state, params, 'plan');
             });
         }
@@ -249,7 +281,19 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
                 ...requests.filter((request) => String(asRecord(request)?.id) !== String(id)),
                 { id, method, params: clone(params) }
             ];
+            markRequestTransientAuthority(conversation, method);
         });
+    }
+
+    markRequestResponseSent(id, threadId) {
+        const conversation = this._conversations.get(normalizeId(threadId));
+        if (!conversation) return false;
+        const requests = Array.isArray(conversation.state.requests) ? conversation.state.requests : [];
+        if (!requests.some((request) => String(asRecord(request)?.id) === String(id))) {
+            return false;
+        }
+        conversation.respondedRequestIds.add(String(id));
+        return true;
     }
 
     resolveRequest(id, threadId) {
@@ -259,9 +303,12 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
 
         for (const conversation of conversations) {
             const requests = Array.isArray(conversation.state.requests) ? conversation.state.requests : [];
+            const request = requests.find((candidate) => String(asRecord(candidate)?.id) === String(id));
             const next = requests.filter((request) => String(asRecord(request)?.id) !== String(id));
             if (next.length === requests.length) continue;
             conversation.state.requests = next;
+            conversation.respondedRequestIds.delete(String(id));
+            markRequestTransientAuthority(conversation, asString(asRecord(request)?.method));
             touch(conversation.state);
             return this.broadcast(conversation.threadId);
         }
@@ -317,7 +364,8 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
         });
         const mergedSurface = mergeSurfaces(conversation.seedSurface, surface, {
             ownerKind: 'termlink',
-            revision: conversation.revision
+            revision: conversation.revision,
+            authoritativeTransientFields: conversation.authoritativeTransientFields
         });
         const payload = {
             conversationId: conversation.threadId,
@@ -504,6 +552,61 @@ function applyThreadMetadata(state, thread) {
     if (thread.status) state.threadRuntimeStatus = normalizeThreadRuntimeStatus(thread.status);
 }
 
+function extractThreadGoal(thread) {
+    if (!thread) return undefined;
+    return asRecord(thread.goal) || asRecord(thread.threadGoal) || asRecord(thread.currentGoal);
+}
+
+function applyGoalUpdate(state, goal) {
+    state.currentGoal = clone(goal);
+    state.threadGoal = clone(goal);
+    const status = asString(goal.status);
+    if (status === 'complete' || status === 'completed') {
+        state.completedThreadGoal = clone(goal);
+    }
+}
+
+function requestTransientFields(method) {
+    if (method === 'item/plan/requestImplementation') return ['pendingPlanAction'];
+    if (method === 'item/tool/requestUserInput') return ['pendingUserInputAction'];
+    if (
+        method === 'item/commandExecution/requestApproval' ||
+        method === 'execCommandApproval' ||
+        method === 'item/fileChange/requestApproval' ||
+        method === 'applyPatchApproval' ||
+        method === 'item/permissions/requestApproval'
+    ) {
+        return ['pendingApproval'];
+    }
+    return [];
+}
+
+function markRequestTransientAuthority(conversation, method) {
+    for (const field of requestTransientFields(method)) {
+        conversation.authoritativeTransientFields.add(field);
+    }
+}
+
+function markOwnerPendingActionsAuthoritative(conversation) {
+    conversation.authoritativeTransientFields.add('pendingApproval');
+    conversation.authoritativeTransientFields.add('pendingPlanAction');
+    conversation.authoritativeTransientFields.add('pendingUserInputAction');
+}
+
+function clearRespondedRequests(conversation) {
+    if (!conversation.respondedRequestIds || conversation.respondedRequestIds.size === 0) return false;
+    const requests = Array.isArray(conversation.state.requests) ? conversation.state.requests : [];
+    const responded = conversation.respondedRequestIds;
+    for (const request of requests) {
+        if (responded.has(String(asRecord(request)?.id))) {
+            markRequestTransientAuthority(conversation, asString(asRecord(request)?.method));
+        }
+    }
+    conversation.state.requests = requests.filter((request) => !responded.has(String(asRecord(request)?.id)));
+    responded.clear();
+    return true;
+}
+
 function normalizeThreadRuntimeStatus(status) {
     const record = asRecord(status);
     const type = asString(record?.type) || asString(status);
@@ -534,27 +637,33 @@ function mergeTurnItems(left, right) {
 function mergeSurfaces(seed, owner, overrides = {}) {
     const base = seed && typeof seed === 'object' ? clone(seed) : {};
     const next = owner && typeof owner === 'object' ? clone(owner) : {};
-    const items = mergeSurfaceItems(base.items, next.items);
+    const authority = overrides.authoritativeTransientFields instanceof Set
+        ? overrides.authoritativeTransientFields
+        : new Set();
+    const { authoritativeTransientFields, ...surfaceOverrides } = overrides;
+    const items = mergeSurfaceItems(base.items, next.items, authority);
+    const chooseTransient = (field) => authority.has(field) ? next[field] : (next[field] || base[field]);
     return {
         ...base,
         ...next,
-        ...overrides,
+        ...surfaceOverrides,
         items,
-        ownerKind: overrides.ownerKind || next.ownerKind || base.ownerKind,
+        ownerKind: surfaceOverrides.ownerKind || next.ownerKind || base.ownerKind,
         status: next.status || base.status || 'unknown',
         updatedAt: next.updatedAt || Date.now(),
-        pendingApproval: next.pendingApproval || base.pendingApproval,
-        pendingPlanAction: next.pendingPlanAction || base.pendingPlanAction,
-        pendingUserInputAction: next.pendingUserInputAction || base.pendingUserInputAction,
-        pendingGoalAction: next.pendingGoalAction || base.pendingGoalAction,
-        activeGoal: next.activeGoal || base.activeGoal
+        pendingApproval: chooseTransient('pendingApproval'),
+        pendingPlanAction: chooseTransient('pendingPlanAction'),
+        pendingUserInputAction: chooseTransient('pendingUserInputAction'),
+        pendingGoalAction: chooseTransient('pendingGoalAction'),
+        activeGoal: chooseTransient('activeGoal')
     };
 }
 
-function mergeSurfaceItems(seedItems, ownerItems) {
+function mergeSurfaceItems(seedItems, ownerItems, authority = new Set()) {
     const result = [];
     const seen = new Set();
     for (const item of Array.isArray(seedItems) ? seedItems : []) {
+        if (isAuthoritativeTransientItem(item, authority)) continue;
         const key = asString(asRecord(item)?.key) || JSON.stringify(item);
         seen.add(key);
         result.push(clone(item));
@@ -573,6 +682,16 @@ function mergeSurfaceItems(seedItems, ownerItems) {
         }
     }
     return result;
+}
+
+function isAuthoritativeTransientItem(item, authority) {
+    const record = asRecord(item);
+    if (!record || record.kind !== 'approval_request') return false;
+    const method = asString(record.method);
+    const requestKind = asString(record.requestKind) || asString(record.approvalType);
+    const isUserInput = method === 'item/tool/requestUserInput' || requestKind === 'userInput';
+    if (isUserInput) return authority.has('pendingUserInputAction');
+    return authority.has('pendingApproval');
 }
 
 function extractThreadId(value) {

@@ -44,6 +44,10 @@ function snapshotBroadcast(conversationId, revision, turns, sourceClientId) {
     return { method: 'thread-stream-state-changed', sourceClientId, params: { conversationId, change: { type: 'snapshot', revision, conversationState: { turns: turns || [] } } } };
 }
 
+function stateSnapshotBroadcast(conversationId, revision, conversationState, sourceClientId) {
+    return { method: 'thread-stream-state-changed', sourceClientId, params: { conversationId, change: { type: 'snapshot', revision, conversationState } } };
+}
+
 /** Start feed + wait for the initial online status event. */
 async function startAndWaitOnline(feed) {
     const p = new Promise((resolve) => {
@@ -167,6 +171,41 @@ test('feed emits and caches demo-style sync events with surface projection', asy
     assert.equal(event.surface.revision, 7);
     assert.equal(feed.getRecentEvents().length, 1);
     assert.equal(feed.getRecentEvents()[0].surface.status, 'completed');
+    feed.stop();
+});
+
+test('feed maps canonical runtime state and history to a running surface', async () => {
+    enableIpc();
+    const client = new FakeClient();
+    const feed = new CodexIpcFeed({ client });
+    await startAndWaitOnline(feed);
+
+    const eventP = new Promise((resolve) => feed.once('event', resolve));
+    client.simulateBroadcast(stateSnapshotBroadcast('conv-canonical', 11, {
+        turns: [],
+        threadRuntimeStatus: { type: 'active', activeFlags: [] },
+        turnHistory: {
+            kind: 'canonical',
+            history: {
+                entitiesByKey: {
+                    'tail:local:1': {
+                        turnId: 'turn-live',
+                        status: 'inProgress',
+                        items: [{ type: 'agentMessage', phase: 'commentary', text: 'live update' }]
+                    }
+                },
+                islands: [{
+                    id: 'tail:1',
+                    entries: [{ key: 'tail:local:1', value: 'tail:local:1' }]
+                }]
+            }
+        }
+    }, 'desktop-owner'));
+    const event = await eventP;
+
+    assert.equal(event.surface.status, 'running');
+    assert.equal(event.surface.latestTurnId, 'turn-live');
+    assert.ok(event.surface.items.some((item) => item.text === 'live update'));
     feed.stop();
 });
 

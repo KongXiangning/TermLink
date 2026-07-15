@@ -265,6 +265,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                         state = uiState,
                         onSendMessage = viewModel::handleComposerSubmit,
                         onInterrupt = viewModel::interrupt,
+                        onContinueGoal = viewModel::continueActiveGoal,
                         onOpenSessions = ::openSessions,
                         onOpenDocs = ::openDocsWorkspace,
                         onNewThread = viewModel::newThread,

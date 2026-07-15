@@ -13,6 +13,7 @@ import com.termlink.app.codex.domain.ChatMessage
 import com.termlink.app.codex.domain.CodexPlanWorkflowState
 import com.termlink.app.codex.domain.CodexRuntimePanelState
 import com.termlink.app.codex.domain.CodexUiState
+import com.termlink.app.codex.domain.ConnectionState
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -198,6 +199,55 @@ class CodexViewModelThreadReadyTest {
         assertEquals("conv-live", next.activeConversationId)
         assertEquals(false, next.followerActiveSendAllowed)
         assertEquals(true, next.followerModeEnabled)
+    }
+
+    @Test
+    fun ipcOfflineStatusKeepsActiveSendForTermlinkOwner() {
+        val state = CodexUiState(
+            ipcOnline = true,
+            ipcClientId = "client-old",
+            activeConversationId = "conv-owner",
+            followerModeEnabled = true,
+            followerActiveSendAllowed = true,
+            ipcSurfaceSnapshot = surfaceSnapshot("conv-owner").copy(ownerKind = "termlink")
+        )
+
+        val next = applyIpcStatusToUiState(
+            state = state,
+            status = CodexIpcStatus(online = false, reason = "closed", clientId = null)
+        )
+
+        assertEquals(false, next.ipcOnline)
+        assertEquals(true, next.followerActiveSendAllowed)
+        assertTrue(shouldUseIpcFollowerTransportState(next))
+    }
+
+    @Test
+    fun ipcFollowerTransportRejectsOfflineExternalOwner() {
+        val state = CodexUiState(
+            ipcOnline = false,
+            activeConversationId = "conv-desktop",
+            followerModeEnabled = true,
+            followerActiveSendAllowed = true,
+            ipcSurfaceSnapshot = surfaceSnapshot("conv-desktop").copy(ownerKind = "desktop")
+        )
+
+        assertEquals(false, shouldUseIpcFollowerTransportState(state))
+    }
+
+    @Test
+    fun websocketMessageRestoresConnectedStateWhenOpenedEventWasMissed() {
+        assertTrue(
+            shouldPromoteConnectionStateFromWebSocketMessage(
+                connectionState = ConnectionState.CONNECTING
+            )
+        )
+        assertEquals(
+            false,
+            shouldPromoteConnectionStateFromWebSocketMessage(
+                connectionState = ConnectionState.CONNECTED
+            )
+        )
     }
 
     @Test
@@ -565,6 +615,24 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun directPermissionsApprovalPreservesRequestedPermissionsAndTurnScope() {
+        val request = ipcRequest("req-permissions", handledBy = "client").copy(
+            method = "item/permissions/requestApproval",
+            requestKind = "permissions",
+            responseMode = "decision",
+            params = JSONObject().put("permissions", JSONObject().put("network", true))
+        )
+
+        val accepted = buildDirectApprovalDecisionResult(request, true)
+        val rejected = buildDirectApprovalDecisionResult(request, false)
+
+        assertEquals(true, accepted?.getJSONObject("permissions")?.getBoolean("network"))
+        assertEquals("turn", accepted?.getString("scope"))
+        assertEquals(0, rejected?.getJSONObject("permissions")?.length())
+        assertEquals("turn", rejected?.getString("scope"))
+    }
+
+    @Test
     fun pendingApprovalMergeReplacesStaleIpcApprovalRequests() {
         val existing = listOf(
             ipcRequest("stale-approval").copy(
@@ -738,6 +806,36 @@ class CodexViewModelThreadReadyTest {
         val next = mergePlanWorkflow(current, null)
 
         assertEquals(CodexPlanWorkflowState(), next)
+    }
+
+    @Test
+    fun mergePlanWorkflowPreservesAwaitingOwnerPhaseForSamePendingRequest() {
+        val current = CodexPlanWorkflowState(
+            phase = "executing_confirmed_plan",
+            planContent = "Step 1",
+            latestPlanText = "Step 1",
+            confirmedPlanText = "Step 1",
+            canSubmitPlan = true,
+            planRequestId = "req-plan",
+            planRequestMethod = "item/plan/requestImplementation"
+        )
+        val action = PendingPlanActionInfo(
+            kind = "plan_implementation",
+            requestId = "req-plan",
+            requestMethod = "item/plan/requestImplementation",
+            questionId = null,
+            acceptedAnswer = null,
+            turnId = "turn-1",
+            planContent = "Step 1",
+            canSubmit = true,
+            unavailableReason = null,
+            raw = null
+        )
+
+        val next = mergePlanWorkflow(current, action)
+
+        assertEquals("executing_confirmed_plan", next.phase)
+        assertEquals("req-plan", next.planRequestId)
     }
 
     @Test

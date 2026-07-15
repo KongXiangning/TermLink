@@ -20,7 +20,8 @@
 - [x] legacy inventory 与 adopt-existing-project 首版治理基线
 - [x] Codex 多 skill 内联 token、附件摘要历史展示与 Web/Android 回看能力：任务 `20260508-001` 已完成 Web/Android 手动 smoke、Node/Android 回归和 session/thread 关联风险 smoke，确认 skill / file / image 上下文在发送前、流式中、完成后与跨 session/cwd 切换时都不再出现本轮已知回归
 - [x] 开源 release 安装 / 打包 / mTLS 工具交付面：任务 `20260513-001` 已完成跨平台 release 构建、Windows / Linux 安装脚本、direct server-side mTLS 安装期自动生成、nginx-side mTLS 独立工具、中英文部署文档收口，以及 Windows PM2 / Linux `systemd` host smoke 确认；`npm run android:check-release-config` 仍作为任务外已知失败保留
-- [x] Codex 原生会话实时同步核心：同一任务的 Android 实时状态同步、IPC conversation id 绑定回写与 Android 入口直传、A/B session 隔离、external owner 缺失时的 TermLink owner fallback 已完成自动化与真机手动验证；稳定边界见 `CONTRACTS.md` 的“Codex 原生会话实时同步核心”。真实 owner 授权提权和 PLAN 不在本稳定项内。
+- [x] Codex 原生会话实时同步核心：同一任务的 Android 实时状态同步、IPC conversation id 绑定回写与 Android 入口直传、A/B session 隔离、external owner 缺失时的 TermLink owner fallback 已完成自动化与真机手动验证；稳定边界见 `CONTRACTS.md` 的“Codex 原生会话实时同步核心”。真实 owner 授权提权、PLAN 和 Goal 控制不在本稳定项内。
+- [x] Codex Android 真实 owner 控制面：Approval、PLAN implementation、Goal 启动与继续/恢复已在真实 Desktop owner + TermLink gateway + Android 真机完成闭环；pending 与 activeGoal 只由 owner snapshot 收敛，raw JSON-RPC requestId 保持原始类型。Goal update/cancel/complete 因 external owner IPC 未提供客户端动作，不在稳定能力内。
 
 ## 🔨 正在开发
 
@@ -40,6 +41,7 @@
   - 2026-06-30 follow-up 7：再次对照 `termlink-demo` 当前 pending action 代码，确认 TermLink external IPC 路径已覆盖 demo 的 pending approval / PLAN 投影、external pending plan gate 与 response routing；demo 自带 app-server owner runtime 属于 demo 私有 owner 路径，本轮不搬迁。补齐 Android 拒绝 decision 兼容：当 live owner `availableDecisions` 只有 `reject` 而无 `decline` 时，Android 会发送 `reject`，否则按 `decline` / `cancel` / fallback `decline` 处理。验证：服务 IPC/gateway targeted 127/127 pass，Android Codex package JVM tests BUILD SUCCESSFUL，focused `CodexViewModelThreadReadyTest` BUILD SUCCESSFUL，`git diff --check` clean（仅 CRLF warning）。真实 owner 自然 pending action 仍未可得，三端 approval / PLAN 最终验收继续保留。
 
 - 2026-07-10 基线冻结：用户已人工确认同一 Codex 任务可实时同步到 Android。`lastCodexThreadId` canonical IPC id、`session_codex_thread_bound` 回写、session entry 直传、A/B session 隔离、`CodexOwnerSurfaceTracker` owner fallback 进入稳定基线并新增回归约束；真实 owner 授权提权与真实 owner PLAN 仍为未验收的独立 pending action，不得借本项标记完成。
+- [ ] 2026-07-11 Codex 实时控制面：已实现 managed owner 的 permissions / PLAN request 分类、raw requestId 路由和 Goal 生命周期请求，Android 以 normalized snapshot 展示 activeGoal；真实 owner 授权、PLAN、Goal 控制闭环仍待人工验收，不进入稳定区。
 
 ## 📋 待开发
 
@@ -51,7 +53,7 @@
 
 - `src/ws/terminalGateway.js` 责任过重，是高回归风险区域
 - Codex session / thread / task 链路中，已绑定 conversation 的实时同步、A/B 切换隔离与同一任务重入已完成真机验证；仍需观察尚未绑定 conversation 的跨 cwd 历史候选策略，以及真实 owner pending action 的端到端表现。
-- 后续新需求若触碰 Codex session / thread / task 状态逻辑，必须按 `CONTRACTS.md` 的实时同步核心回归门验证；不得以 cwd/latest 或历史 task id 替换已绑定 conversation，也不得将授权提权 / PLAN 视为已验收。
+- 后续新需求若触碰 Codex session / thread / task 状态逻辑，必须按 `CONTRACTS.md` 的实时同步核心回归门验证；不得以 cwd/latest 或历史 task id 替换已绑定 conversation，也不得将授权提权、PLAN 或 Goal 控制视为已验收。
 - 外部 consumer 是否依赖现有 API 仍是 unknown
 - `.codex/skills/` 在本仓库带有本地忽略语义，需持续注意 host guidance 漂移
 - workflow validation matrix 已明确绑定 Node tests、Android JVM unit 和 Android release config；integration / e2e / deploy 仍待补
@@ -103,6 +105,7 @@
 - 2026-06-17：完成 `20260617-001`（网页版 Codex 会话页按安卓端设计对齐）。9 files, +2191/−416。commit `647037b` + `a50cd03`。已验证 98/99 pass，1 个 sandbox 测试（条件路径，需更新选择器）。已归档。
 - 2026-06-19：完成 `20260618-001`（修复刷新重复新建 TERMINAL 会话）。commit `1cd85c6`。2 files, +411/−14。已验证 12/12 pass 目标测试 + 浏览器 smoke；full suite 预置 5 项失败不变。任务归档进行中。
 - 2026-06-29：切换到新任务 `20260629-001`（按 `termlink-demo` 改造服务端与安卓端 Codex 实时同步）。已完成 demo parity inventory 与服务端数据面：新增 IPC raw/sync events、surface metadata、goal/collaboration projection、offline status 去 stale clientId，未修改 demo、`public/**`、Android layout/resource、session/store/auth/deploy/workspace。验证：服务端 IPC targeted `node --test` 96/96 pass，`node --check` 通过，diff whitespace 检查无错误（仅 CRLF warning）。下一步进入服务端 follower send / goal / approval / plan / user input / interrupt 控制面。
+- 2026-07-13：`20260629-001` 真实 owner 控制面完成验收。Approval 真实 request `25` 与 PLAN 后续 approval request `32` 均以 numeric raw id 返回 owner并由后续 snapshot 清理；PLAN request `implement-plan:019f579a-e513-7c40-a4ca-c4e6316575ca` 从 Android 启动真实 implementation turn，最终创建 smoke 文件并 completed；Goal 从 Android `/goal` 启动后投影 live activeGoal，点击“继续”产生真实恢复 turn。Node targeted 74/74、Android JVM、debug APK 构建和真机安装通过。Goal update/cancel/complete 继续列为协议未支持，不作待修 bug，也不伪造。
 - 2026-06-29：完成 `20260629-001` 服务端控制面首轮。`terminalGateway` 已补 demo 风格 sync/action/status 事件、follower mode、goal `/goal` turn、interrupt、desktop-compatible start-turn context、PLAN implementation live external request gate 与 questionId answers payload；无 live surface snapshot 时普通 follower send / goal 不再本地伪造发送。验证：`node --check` gateway 与测试文件通过，服务 IPC targeted 96/96 pass，diff whitespace 检查无错误（仅 CRLF warning）；当时 gateway follower/control targeted runner 超时 124，后续已定位并修复。下一步进入 Android wire/state。
 - 2026-06-29：完成 `20260629-001` Android wire/state 与 UI binding preserve 自动化收口。Android 未改 layout/resource/navigation，复用现有 composer、approval、PLAN、interrupt 和 pending server request UI；新增 pending user input 服务端投影与 Android explicit answers response。验证：服务 IPC targeted 96/96 pass，Android JVM Codex package BUILD SUCCESSFUL，`git diff --check` 无 whitespace error（仅 CRLF warning）；真实 Desktop / VS Code IPC owner surface 与三端同步 smoke 待环境。
 - 2026-06-29：补强 `20260629-001` 服务端控制面自动化证据。修复 `tests/terminalGateway.codexIpc.test.js` runner 超时根因（测试 harness 误加载真实 `sessionManager` singleton 造成 process-wide interval/hooks）。后续对照当前 `termlink-demo` 代码确认：PLAN implementation 不应在缺 collaboration mode settings 时编造默认 settings，仅在 snapshot 已有 default mode 或 latest mode settings 时才切 default mode。验证：`node --test tests/terminalGateway.codexIpc.test.js` 通过且自然退出，服务 IPC targeted 通过，Android JVM Codex package BUILD SUCCESSFUL。
@@ -113,3 +116,4 @@
 - 2026-06-29：收紧 `20260629-001` Android 主动 follower gate。Android `shouldUseIpcFollowerTransport()` 改为同时要求 IPC online、active conversation、服务端 follower mode enabled 与 active send allowed，IPC-origin approval 在 gate 不满足时直接报告动作不可用，不回退到非 IPC request response；未改 UI layout/resource/navigation。验证：Android JVM Codex package BUILD SUCCESSFUL，`node --check src/ws/terminalGateway.js` 通过。
 - 2026-06-29：继续收紧 `20260629-001` Android 发送路由。已绑定 IPC conversation 且存在 IPC 上下文时，普通无附件/无 file mention/非 Plan mode 文本若 follower gate 不满足，将直接提示动作不可用，不再回退旧 `codex_turn` 触发 TermLink 本地 Codex turn；附件、file mention、Plan mode 旧路径保留以免减少功能。随后补齐 IPC offline 状态收敛：掉线时清空本地 `followerActiveSendAllowed`，保留 active conversation 以支持重连后继续订阅。进一步对齐 demo：服务端 active follower mode per-client 默认关闭，Android 在 active send allowed 时通过既有 envelope 显式开启，不新增 UI。新增纯函数单元测试覆盖阻断条件、附件/Plan mode 放行条件、offline 清许可、online 保持 gate、自动开启判断与 wire builder。验证：`CodexViewModelThreadReadyTest` / `CodexIpcWireModelTest` BUILD SUCCESSFUL，gateway IPC targeted 26/26 pass；真实 dev server follower-mode gate smoke 通过且未发送 turn。
 - 2026-06-29：`20260629-001` 当前工作树代码下的真实 dev server 只读集成 smoke 已补跑。通过 `.codex/skills/local-dev-server-control` 显式 `-ProjectRoot E:\coding\TermLink` 重启本地服务，`/api/health` OK；真实 `/api/ws-ticket` + WebSocket 连接后收到 `codex_ipc_status(online=true)`、87 条 sync event、5 个 conversation summary，订阅目标 conversation `019f0f6e-9952-70e3-80a5-2a339c445e61` 后收到 snapshot：`revision=23512`、`status=running`、`title=改造服务端和安卓端`、`cwd=E:\coding\TermLink`、`latestDefaultCollaborationMode.mode=default`。本轮仍未发送 turn / approval / PLAN 写入式请求。
+- 2026-07-15：修复 `20260629-001` 的 owner snapshot schema 演进回归。Codex IPC 当前完整 snapshot 使用 canonical `turnHistory` 承载回合、`threadRuntimeStatus` 承载实时运行态；TermLink normalized projection 现兼容 legacy/canonical 两种回合结构，并禁止历史 stale `inProgress` 覆盖 owner `idle`。真实服务复验活跃 conversation 已从 `unknown/items=0` 恢复为 `running/items=417`，blocked Goal 仍正确保持 idle/“继续”。Node 相邻套件 149/149、Android Codex JVM tests BUILD SUCCESSFUL，本地服务 health 与真机 IPC online 通过；任务状态保持 completed-ready-for-closeout。
