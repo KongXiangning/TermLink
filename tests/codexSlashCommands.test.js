@@ -39,12 +39,18 @@ test('parseComposerInput distinguishes text, empty, and slash commands', () => {
     });
 });
 
-test('slash registry resolves enabled commands and panel dispatch', () => {
+test('slash registry resolves enabled commands and direct thread dispatch', () => {
     const registry = createSlashRegistry();
     assert.equal(resolveSlashCommand({ registry, command: '/plan' }).dispatchKind, 'interaction_state');
     assert.equal(resolveSlashCommand({ registry, command: '/skill' }).availability, 'enabled');
-    assert.equal(resolveSlashCommand({ registry, command: '/skills' }).dispatchKind, 'open_panel');
-    assert.equal(resolveSlashCommand({ registry, command: '/compact' }).dispatchKind, 'open_panel');
+    assert.equal(resolveSlashCommand({ registry, command: '/skills' }), null);
+    assert.equal(resolveSlashCommand({ registry, command: '/compact' }).dispatchKind, 'thread_compact');
+    assert.equal(resolveSlashCommand({ registry, command: '/new' }).dispatchKind, 'thread_new');
+    assert.equal(resolveSlashCommand({ registry, command: '/fork' }).dispatchKind, 'thread_fork');
+    assert.equal(resolveSlashCommand({ registry, command: '/status' }).dispatchKind, 'status');
+    assert.equal(resolveSlashCommand({ registry, command: '/model' }), null);
+    assert.equal(resolveSlashCommand({ registry, command: '/mention' }), null);
+    assert.equal(resolveSlashCommand({ registry, command: '/fast' }), null);
 });
 
 test('getDiscoverableSlashCommands only returns enabled commands allowed by capabilities', () => {
@@ -54,12 +60,11 @@ test('getDiscoverableSlashCommands only returns enabled commands allowed by capa
             registry,
             capabilities: {
                 slashCommands: true,
-                slashModel: true,
                 slashPlan: false
             },
             query: '/'
         }).map((entry) => entry.command),
-        ['/model', '/fast']
+        ['/new', '/status']
     );
 });
 
@@ -70,7 +75,6 @@ test('getDiscoverableSlashCommands keeps /skill search scoped to the one-shot sk
             registry,
             capabilities: {
                 slashCommands: true,
-                slashModel: true,
                 slashPlan: true,
                 skillsList: true
             },
@@ -80,21 +84,21 @@ test('getDiscoverableSlashCommands keeps /skill search scoped to the one-shot sk
     );
 });
 
-test('getDiscoverableSlashCommands includes /skills and /compact when capabilities are enabled', () => {
+test('getDiscoverableSlashCommands exposes the supported Codex conversation actions only', () => {
     const registry = createSlashRegistry();
     assert.deepEqual(
         getDiscoverableSlashCommands({
             registry,
             capabilities: {
                 slashCommands: true,
-                slashModel: true,
                 slashPlan: true,
                 skillsList: true,
-                compact: true
+                compact: true,
+                historyResume: true
             },
             query: '/'
         }).map((entry) => entry.command),
-        ['/model', '/plan', '/skill', '/compact', '/skills', '/fast']
+        ['/plan', '/skill', '/compact', '/new', '/fork', '/status']
     );
 });
 

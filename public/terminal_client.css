@@ -990,10 +990,16 @@ body.codex-only #codex-composer {
     flex-direction: column;
     gap: 4px;
     min-height: 0;
-    max-height: clamp(220px, 42vh, 420px);
-    overflow-y: auto;
+    max-height: none;
+    overflow: visible;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+}
+
+/* Keep one scroll container for the expanded skills window. The list itself
+   must not grow past the card body and overlap the conversation/composer. */
+.codex-tools-card.is-expanded .codex-tools-card-body {
+    overflow-y: auto;
 }
 
 .codex-tools-skill-item {
@@ -1861,6 +1867,7 @@ body.codex-only #codex-log-stack {
     display: flex;
     flex-direction: column;
     gap: 0;
+    box-sizing: border-box;
     padding: 6px;
     border: 1px solid rgba(66, 82, 102, 0.5);
     border-radius: 20px;
@@ -1874,6 +1881,7 @@ body.codex-only #codex-log-stack {
     flex-direction: row;
     align-items: center;
     gap: 6px;
+    min-width: 0;
 }
 
 #codex-composer-surface:focus-within {
@@ -2919,11 +2927,12 @@ body.codex-only #codex-log-stack {
     flex: 1 1 auto;
     min-height: 24px;
     max-height: min(160px, 30vh);
+    box-sizing: border-box;
     border: none;
     border-radius: 0;
     background: transparent;
     color: #E7EDF6;
-    padding: 4px 0;
+    padding: 5px 8px;
     font-size: 13px;
     line-height: 1.5;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", sans-serif;

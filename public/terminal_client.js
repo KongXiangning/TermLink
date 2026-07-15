@@ -2983,6 +2983,9 @@ async function searchWorkspaceFiles(query) {
 
 function applySlashCommandSelection(command) {
     if (!codexInput) return;
+    const currentInput = getCodexInputRawText();
+    const slashToken = currentInput.match(/(^|\s)(\/[^\s]*)$/);
+    const slashPrefix = slashToken ? currentInput.slice(0, slashToken.index + slashToken[1].length) : '';
     const registryEntry = resolveExecutableCodexSlashCommand(command);
     if (!registryEntry) {
         codexInput.value = '';
@@ -2990,7 +2993,7 @@ function applySlashCommandSelection(command) {
         appendCodexLogEntry('error', buildUnsupportedSlashCommandMessage(), { meta: 'slash' });
         return;
     }
-    codexInput.value = registryEntry.command;
+    codexInput.value = slashPrefix + registryEntry.command;
     codexInput.focus();
     if (registryEntry.command === '/model' && codexQuickModel) {
         codexInput.value = '';
@@ -2999,34 +3002,40 @@ function applySlashCommandSelection(command) {
         return;
     }
     if (registryEntry.command === '/skill') {
-        codexInput.value = '/skill ';
+        codexInput.value = slashPrefix + '/skill ';
         void maybeLoadCodexSkills();
-        setSlashMenuState(true, '/skill ');
+        setSlashMenuState(true, slashPrefix + '/skill ');
         return;
     }
-    if (registryEntry.command === '/skills') {
-        codexInput.value = '';
+    if (registryEntry.command === '/plan') {
+        codexInput.value = slashPrefix;
         setSlashMenuState(false, '');
-        openCodexToolsPanel('skills');
+        setPlanMode(true);
+        codexInput.focus();
         return;
     }
     if (registryEntry.command === '/compact') {
-        codexInput.value = '';
+        codexInput.value = slashPrefix;
         setSlashMenuState(false, '');
-        openCodexToolsPanel('compact');
+        void requestCodexCompactCurrentThread();
         return;
     }
-    if (registryEntry.command === '/mention') {
-        codexInput.value = '@';
+    if (registryEntry.command === '/new') {
+        codexInput.value = slashPrefix;
         setSlashMenuState(false, '');
-        codexInput.focus();
-        codexInput.dispatchEvent(new Event('input', { bubbles: true }));
+        requestCodexNewThread();
         return;
     }
-    if (registryEntry.command === '/fast') {
-        codexInput.value = '';
+    if (registryEntry.command === '/fork') {
+        codexInput.value = slashPrefix;
         setSlashMenuState(false, '');
-        toggleFastMode();
+        void requestCodexForkCurrentThread();
+        return;
+    }
+    if (registryEntry.command === '/status') {
+        codexInput.value = slashPrefix;
+        setSlashMenuState(false, '');
+        appendCodexLogEntry('system', buildCodexStatusSummary(), { meta: 'status' });
         return;
     }
     setSlashMenuState(true, registryEntry.command);
@@ -3046,8 +3055,15 @@ function updateSlashMenuForInputValue() {
         }
     }
 
+    const slashToken = rawText.match(/(^|\s)(\/[^\s]*)$/);
+    if (!slashToken) {
+        setSlashMenuState(false, '');
+        setFileMentionMenuState(false);
+        return;
+    }
+    const slashQuery = slashToken[2];
     const parsed = slashApi && typeof slashApi.parseComposerInput === 'function'
-        ? slashApi.parseComposerInput(rawText)
+        ? slashApi.parseComposerInput(slashQuery)
         : { kind: 'text' };
     if (parsed.kind !== 'slash') {
         setSlashMenuState(false, '');
@@ -3638,17 +3654,14 @@ function clearCodexAlerts() {
 
 function shouldShowCodexToolsPanel() {
     return getActiveSessionMode() === 'codex'
-        && codexState.capabilities.skillsList === true;
+        && codexState.capabilities.compact === true;
 }
 
 function getDefaultCodexToolsPanelFocus() {
-    if (codexState.capabilities.skillsList === true) {
-        return 'skills';
-    }
     if (codexState.capabilities.compact === true) {
         return 'compact';
     }
-    return 'skills';
+    return 'compact';
 }
 
 function setCodexToolsPanelFocus(focus) {
@@ -3810,6 +3823,42 @@ function requestCodexCompactCurrentThread() {
         .finally(() => {
             renderCodexToolsPanel();
         });
+}
+
+function requestCodexForkCurrentThread() {
+    const threadId = typeof codexState.threadId === 'string' ? codexState.threadId.trim() : '';
+    if (!threadId) {
+        appendCodexLogEntry('error', t('codex.slash.forkNoThread'), { meta: 'slash' });
+        return Promise.resolve(null);
+    }
+    return requestCodexThreadMutation('fork', threadId).catch(() => null);
+}
+
+function buildCodexStatusSummary() {
+    const effective = codexState.nextTurnEffectiveCodexConfig && typeof codexState.nextTurnEffectiveCodexConfig === 'object'
+        ? codexState.nextTurnEffectiveCodexConfig
+        : {};
+    const parts = [
+        t('codex.slash.statusSummary', {
+            status: localizeCodexStatus(codexState.status),
+            thread: codexState.threadId || t('codex.slash.statusNoThread')
+        })
+    ];
+    if (effective.model) {
+        parts.push(t('codex.slash.statusModel', { value: effective.model }));
+    }
+    if (effective.reasoningEffort) {
+        parts.push(t('codex.slash.statusReasoning', { value: effective.reasoningEffort }));
+    }
+    if (effective.approvalPolicy) {
+        parts.push(t('codex.slash.statusPermissions', { value: effective.approvalPolicy }));
+    }
+    if (codexState.tokenUsageSummary) {
+        parts.push(codexState.tokenUsageSummary);
+    } else if (codexState.rateLimitSummary) {
+        parts.push(t('codex.notice.quota', { summary: codexState.rateLimitSummary }));
+    }
+    return parts.join(' | ');
 }
 
 function resolveCodexCompactThreadId(params) {
@@ -5783,17 +5832,6 @@ function handleCodexComposerSubmit(rawText) {
         return true;
     }
 
-    if (registryEntry.command === '/model') {
-        if (codexInput) {
-            codexInput.value = '';
-        }
-        if (codexQuickModel) {
-            void openCodexModelPicker();
-        }
-        setSlashMenuState(false, '');
-        return false;
-    }
-
     if (registryEntry.command === '/skill') {
         if (!parsed.argumentText) {
             if (codexInput) {
@@ -5815,40 +5853,40 @@ function handleCodexComposerSubmit(rawText) {
         return false;
     }
 
-    if (registryEntry.command === '/skills') {
-        if (codexInput) {
-            codexInput.value = '';
-        }
-        setSlashMenuState(false, '');
-        openCodexToolsPanel('skills');
-        return false;
-    }
 
     if (registryEntry.command === '/compact') {
         if (codexInput) {
             codexInput.value = '';
         }
         setSlashMenuState(false, '');
-        openCodexToolsPanel('compact');
+        void requestCodexCompactCurrentThread();
         return false;
     }
 
-    if (registryEntry.command === '/mention') {
-        if (codexInput) {
-            codexInput.value = '@';
-            codexInput.focus();
-            codexInput.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        setSlashMenuState(false, '');
-        return false;
-    }
-
-    if (registryEntry.command === '/fast') {
+    if (registryEntry.command === '/new') {
         if (codexInput) {
             codexInput.value = '';
         }
         setSlashMenuState(false, '');
-        toggleFastMode();
+        requestCodexNewThread();
+        return false;
+    }
+
+    if (registryEntry.command === '/fork') {
+        if (codexInput) {
+            codexInput.value = '';
+        }
+        setSlashMenuState(false, '');
+        void requestCodexForkCurrentThread();
+        return false;
+    }
+
+    if (registryEntry.command === '/status') {
+        if (codexInput) {
+            codexInput.value = '';
+        }
+        setSlashMenuState(false, '');
+        appendCodexLogEntry('system', buildCodexStatusSummary(), { meta: 'status' });
         return false;
     }
 

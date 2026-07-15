@@ -32,7 +32,7 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="btn-codex-interrupt"/);
     assert.match(html, /id="codex-history-panel"/);
     assert.match(html, /id="codex-runtime-panel"/);
-    assert.match(html, /id="codex-tools-panel"/);
+    assert.doesNotMatch(html, /id="codex-tools-panel"/);
     assert.match(html, /id="codex-alerts"/);
     assert.match(html, /id="btn-codex-history-refresh"/);
     assert.match(html, /id="btn-codex-new-thread"/);
@@ -45,6 +45,7 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="codex-image-inputs"/);
     assert.match(html, /id="codex-log"[\s\S]*id="codex-log-stack"/);
     assert.match(html, /id="codex-composer-surface"/);
+    assert.match(html, /id="codex-footer-plan-indicator"[^>]*hidden/);
     assert.match(html, /id="codex-composer-footer"/);
     assert.match(html, /id="codex-context-widget"/);
     assert.doesNotMatch(html, /id="codex-context-modal"/);
@@ -94,7 +95,6 @@ test('terminal client stylesheet supports secondary panels and sticky composer f
     assert.match(css, /\.codex-secondary-btn/);
     assert.match(css, /#codex-history-actions/);
     assert.match(css, /#codex-panel\.collapsed #codex-runtime-panel/);
-    assert.match(css, /#codex-panel\.collapsed #codex-tools-panel/);
     assert.match(css, /body\.codex-only\s*\{[\s\S]*overflow:\s*hidden/);
     assert.match(css, /body\.codex-only #terminal-shell\s*\{[\s\S]*height:\s*100%/);
     assert.match(css, /body\.codex-only #codex-panel\s*\{[\s\S]*overflow:\s*hidden/);
@@ -103,6 +103,8 @@ test('terminal client stylesheet supports secondary panels and sticky composer f
     assert.match(css, /body\.codex-only #codex-log-stack\s*\{[\s\S]*justify-content:\s*flex-end/);
     assert.match(css, /#codex-quick-controls/);
     assert.match(css, /#codex-tools-grid/);
+    assert.match(css, /#codex-tools-skills-list\s*\{[\s\S]*?max-height:\s*none[\s\S]*?overflow:\s*visible/);
+    assert.match(css, /\.codex-tools-card\.is-expanded #codex-tools-card-body|\.codex-tools-card\.is-expanded \.codex-tools-card-body/);
     assert.match(css, /#codex-composer-surface/);
     assert.match(css, /#codex-composer-footer/);
     assert.match(css, /\.codex-icon-btn/);
@@ -294,7 +296,6 @@ test('Phase 1: secondary panels in codex_client.html must have hidden attribute 
     // This ensures they are hidden before JS runs, preventing FOUC (Flash of Unstyled Content)
     assert.match(html, /<div\s+id="codex-history-panel"\s+[^>]*hidden/, 'codex-history-panel must have hidden attribute');
     assert.match(html, /<div\s+id="codex-runtime-panel"\s+[^>]*hidden/, 'codex-runtime-panel must have hidden attribute');
-    assert.match(html, /<div\s+id="codex-tools-panel"\s+[^>]*hidden/, 'codex-tools-panel must have hidden attribute');
     assert.match(html, /<div\s+id="codex-alerts"\s+[^>]*hidden/, 'codex-alert must have hidden attribute');
 });
 
@@ -309,9 +310,6 @@ test('Phase 1: terminal_client.js render functions must set hidden=true when sec
     assert.match(js, /codexRuntimePanel\.hidden\s*=\s*!\(.*syncCodexSecondaryPanelState\(\)\s*===\s*['"]runtime['"]\)/,
         'renderCodexRuntimePanel must set hidden=true when secondaryPanel !== "runtime"');
 
-    // renderCodexToolsPanel must set hidden when secondaryPanel !== 'tools'
-    assert.match(js, /codexToolsPanel\.hidden\s*=\s*!\(.*syncCodexSecondaryPanelState\(\)\s*===\s*['"]tools['"]\)/,
-        'renderCodexToolsPanel must set hidden=true when secondaryPanel !== "tools"');
 });
 
 test('Phase 1: codexState.secondaryPanel must default to "none" to ensure all panels hidden on cold start', () => {
@@ -409,6 +407,8 @@ test('Phase 2: terminal_client.js must parse model\/list and skills\/list payloa
     assert.match(js, /return cwd \? \{ limit: 50, cwd \} : \{ limit: 50 \}/);
     assert.match(js, /sendCodexBridgeRequest\('thread\/list', buildCodexThreadListParams\(\), \{ suppressErrorUi: opts\.silent === true \}\)/);
     assert.match(js, /codexInput\.value = '\/skill '/);
+    assert.match(js, /registryEntry\.command === '\/plan'[\s\S]*setPlanMode\(true\)/);
+    assert.match(js, /rawText\.match\(\/\(\^\|\\s\)\(\\\/\[\^\\s\]\*\)\$\//);
     assert.match(js, /const items = isSkillQuery\s*\?\s*\[\]/);
     assert.match(js, /codexSlashMenuEmpty\.hidden = isSkillQuery \? skillItems\.length > 0/);
     assert.match(js, /function applyCodexSkillSelection\(skillEntry\)/);
@@ -421,8 +421,10 @@ test('Phase 2: terminal_client.js must parse model\/list and skills\/list payloa
     assert.match(js, /if \(method === 'thread\/compacted'\)/);
     assert.match(js, /setCodexCompactStatus\(t\('codex\.compact\.alreadyDone'\), 'success'\)/);
     assert.match(js, /refreshCodexThreadSnapshot\(\{ force: true \}\)/);
-    assert.match(js, /openCodexToolsPanel\('skills'\)/);
-    assert.match(js, /openCodexToolsPanel\('compact'\)/);
+    assert.match(js, /function requestCodexForkCurrentThread\(\)/);
+    assert.match(js, /function buildCodexStatusSummary\(\)/);
+    assert.match(js, /registryEntry\.command === '\/compact'[\s\S]*requestCodexCompactCurrentThread\(\)/);
+    assert.doesNotMatch(js, /openCodexToolsPanel\('compact'\)/);
     assert.match(js, /function isExecutableCodexSlashCommand\(entry\)/);
     assert.match(js, /entry\.capabilityKey && codexState\.capabilities\[entry\.capabilityKey\] !== true/);
     assert.match(js, /const registryEntry = resolveExecutableCodexSlashCommand\(parsed\.command\)/);
@@ -445,8 +447,12 @@ test('Phase 2: terminal_client.js must parse model\/list and skills\/list payloa
     assert.doesNotMatch(js, /\['low', 'medium', 'high', 'xhigh'\]/);
     assert.doesNotMatch(js, /selectedValue && !optionValues\.includes\(selectedValue\)/);
     assert.match(slashJs, /command:\s*'\/skill'[\s\S]*availability:\s*'enabled'/);
-    assert.match(slashJs, /command:\s*'\/compact'[\s\S]*dispatchKind:\s*'open_panel'/);
-    assert.match(slashJs, /command:\s*'\/skills'[\s\S]*dispatchKind:\s*'open_panel'/);
+    assert.match(slashJs, /command:\s*'\/compact'[\s\S]*dispatchKind:\s*'thread_compact'/);
+    assert.match(slashJs, /command:\s*'\/new'[\s\S]*dispatchKind:\s*'thread_new'/);
+    assert.match(slashJs, /command:\s*'\/fork'[\s\S]*dispatchKind:\s*'thread_fork'/);
+    assert.match(slashJs, /command:\s*'\/status'[\s\S]*dispatchKind:\s*'status'/);
+    assert.doesNotMatch(slashJs, /command:\s*'\/skills'/);
+    assert.doesNotMatch(slashJs, /command:\s*'\/(model|mention|fast)'/);
 });
 
 test('terminal client reconnects and clears codex state when runtime session binding changes', () => {

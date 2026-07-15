@@ -147,17 +147,6 @@
     function createSlashRegistry() {
         return [
             {
-                command: '/model',
-                title: t('codex.slash.model'),
-                availability: 'enabled',
-                discoverability: ENABLED_DISCOVERABILITY,
-                argumentShape: 'none',
-                dispatchKind: 'next_turn_override',
-                capabilityBinding: 'model/list',
-                capabilityKey: 'slashModel',
-                statusText: ''
-            },
-            {
                 command: '/plan',
                 title: t('codex.slash.plan'),
                 availability: 'enabled',
@@ -185,41 +174,41 @@
                 availability: 'enabled',
                 discoverability: ENABLED_DISCOVERABILITY,
                 argumentShape: 'none',
-                dispatchKind: 'open_panel',
-                capabilityBinding: 'thread/compact/start + client-side',
+                dispatchKind: 'thread_compact',
+                capabilityBinding: 'thread/compact/start',
                 capabilityKey: 'compact',
                 statusText: ''
             },
             {
-                command: '/skills',
-                title: t('codex.slash.skills'),
+                command: '/new',
+                title: t('codex.slash.new'),
                 availability: 'enabled',
                 discoverability: ENABLED_DISCOVERABILITY,
                 argumentShape: 'none',
-                dispatchKind: 'open_panel',
-                capabilityBinding: 'skills/list + client-side',
-                capabilityKey: 'skillsList',
+                dispatchKind: 'thread_new',
+                capabilityBinding: 'codex_new_thread',
+                capabilityKey: '',
                 statusText: ''
             },
             {
-                command: '/mention',
-                title: t('codex.slash.mention'),
+                command: '/fork',
+                title: t('codex.slash.fork'),
                 availability: 'enabled',
                 discoverability: ENABLED_DISCOVERABILITY,
                 argumentShape: 'none',
-                dispatchKind: 'interaction_state',
-                capabilityBinding: 'client-side file mention',
-                capabilityKey: 'fileMentions',
+                dispatchKind: 'thread_fork',
+                capabilityBinding: 'thread/fork',
+                capabilityKey: 'historyResume',
                 statusText: ''
             },
             {
-                command: '/fast',
-                title: t('codex.slash.fast'),
+                command: '/status',
+                title: t('codex.slash.status'),
                 availability: 'enabled',
                 discoverability: ENABLED_DISCOVERABILITY,
                 argumentShape: 'none',
-                dispatchKind: 'next_turn_override',
-                capabilityBinding: 'client-side reasoning_effort toggle',
+                dispatchKind: 'status',
+                capabilityBinding: 'client-side session state',
                 capabilityKey: '',
                 statusText: ''
             }

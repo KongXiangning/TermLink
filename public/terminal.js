@@ -822,6 +822,7 @@ let retryCount = 0;
 const MAX_RETRIES = 3;
 
 let sessionId = getInitialSessionId();
+let initialSessionViewRestored = false;
 
 applyRuntimeConfig(initialInjectedConfig, false);
 
@@ -1487,6 +1488,30 @@ window.addEventListener('message', (e) => {
     }
 });
 
+function showCodexSession(session) {
+    if (!session) return;
+    var termView = document.getElementById('terminal-view');
+    var codexView = document.getElementById('codex-view');
+    if (termView) termView.style.display = 'none';
+    if (codexView) {
+        codexView.style.display = '';
+        var iframe = codexView.querySelector('iframe');
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.style.cssText = 'width:100%;height:100%;border:none;';
+            codexView.innerHTML = '';
+            codexView.appendChild(iframe);
+        }
+        var nextSrc = '/codex_client.html?sessionId=' + encodeURIComponent(session.id);
+        if (iframe.getAttribute('src') !== nextSrc) iframe.src = nextSrc;
+    }
+    sessionId = session.id;
+    setWorkspaceMode('codex');
+    setActiveSessionLabel(session.name || session.id);
+    localStorage.setItem('lastSessionId', session.id);
+    closeSidebar(false);
+}
+
 function switchSession(id) {
     // Only skip if it's the same session AND already connected (not initial load)
     var isFirstCall = !sessionId;
@@ -1500,25 +1525,7 @@ function switchSession(id) {
     fetch(getBaseUrl() + '/api/sessions').then(function (r) { return r.ok ? r.json() : []; }).then(function (sessions) {
         var s = sessions.find(function (sess) { return sess.id === id; });
         if (s && s.sessionMode === 'codex') {
-            // Codex session: show redesigned page in iframe
-            if (termView) termView.style.display = 'none';
-            if (codexView) {
-                codexView.style.display = '';
-                var iframe = codexView.querySelector('iframe');
-                if (!iframe) {
-                    iframe = document.createElement('iframe');
-                    iframe.style.cssText = 'width:100%;height:100%;border:none;';
-                    codexView.innerHTML = '';
-                    codexView.appendChild(iframe);
-                }
-                iframe.src = '/codex_client.html?sessionId=' + encodeURIComponent(id);
-            }
-            sessionId = id;
-            setWorkspaceMode('codex');
-            setActiveSessionLabel(s.name || id);
-            localStorage.setItem('lastSessionId', id);
-            // Close sidebar
-            closeSidebar(false);
+            showCodexSession(s);
             return;
         }
         // Terminal session flow
@@ -1556,6 +1563,7 @@ function switchSession(id) {
         // Close sidebar
         closeSidebar(false);
     }
+
 }
 
 // Load Sessions
@@ -1601,26 +1609,7 @@ async function loadSessions() {
 
             const openSession = function () {
                 if (s.sessionMode === 'codex') {
-                    // Codex session: show redesigned page in iframe
-                    var termView = document.getElementById('terminal-view');
-                    var codexView = document.getElementById('codex-view');
-                    if (termView) termView.style.display = 'none';
-                    if (codexView) {
-                        codexView.style.display = '';
-                        var iframe = codexView.querySelector('iframe');
-                        if (!iframe) {
-                            iframe = document.createElement('iframe');
-                            iframe.style.cssText = 'width:100%;height:100%;border:none;';
-                            codexView.innerHTML = '';
-                            codexView.appendChild(iframe);
-                        }
-                        iframe.src = '/codex_client.html?sessionId=' + encodeURIComponent(s.id);
-                    }
-                    sessionId = s.id;
-                    setWorkspaceMode('codex');
-                    setActiveSessionLabel(s.name || s.id);
-                    localStorage.setItem('lastSessionId', s.id);
-                    closeSidebar(false);
+                    showCodexSession(s);
                     return;
                 }
                 switchSession(s.id);
@@ -1643,6 +1632,14 @@ async function loadSessions() {
             li.appendChild(del);
             sessionList.appendChild(li);
         });
+
+        if (!initialSessionViewRestored && sessionId) {
+            const restoredSession = sessions.find(s => s.id === sessionId);
+            if (restoredSession && restoredSession.sessionMode === 'codex') {
+                showCodexSession(restoredSession);
+            }
+            initialSessionViewRestored = true;
+        }
 
         // Auto-switch safety
         if (sessionId && !sessions.find(s => s.id === sessionId)) {

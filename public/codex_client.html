@@ -97,29 +97,6 @@
                 </div>
                 <div id="codex-runtime-warning" hidden></div>
             </div>
-            <div id="codex-tools-panel" hidden>
-                <div id="codex-tools-header">
-                    <span id="codex-tools-title" data-i18n="codex.tools.title">Extended Tools</span>
-                </div>
-                <div id="codex-tools-grid">
-                    <section id="codex-tools-skills-card" class="codex-tools-card is-expanded" onclick="this.classList.toggle('is-expanded')">
-                        <div class="codex-tools-card-header">
-                            <span class="codex-tools-card-title" data-i18n="codex.tools.skillsBrowse">Skills Browse</span>
-                            <span id="codex-tools-skills-meta" class="codex-tools-card-meta"></span>
-                        </div>
-                        <div class="codex-tools-card-body">
-                            <p class="codex-tools-description" data-i18n="codex.tools.skillsDesc">Only the selected skill is activated; it won't auto-inject the full template prompt.</p>
-                            <!-- i18n: manually handled in JS (contains HTML) -->
-                            <div id="codex-tools-skills-empty" class="codex-tools-empty">Type <code>/skills</code> to browse available skills here.</div>
-                            <div id="codex-tools-skills-list" aria-live="polite"></div>
-                        </div>
-                    </section>
-                </div>
-                <div id="codex-tools-plan-row">
-                    <span class="codex-tools-card-title" data-i18n="codex.tools.planTitle">Plan Mode</span>
-                    <button id="btn-codex-tools-plan-toggle" class="codex-tools-toggle-btn" type="button" data-i18n="codex.tools.planOff">Off</button>
-                </div>
-            </div>
             <div id="codex-log" aria-live="polite">
                 <div id="codex-empty-state" hidden>
                     <span id="codex-watermark" data-i18n="codex.empty.watermark">CODEX</span>
@@ -187,6 +164,7 @@
                             <span class="capsule-label" data-i18n="codex.capsule.permissions">Permissions</span>
                             <span class="capsule-value" id="capsule-sandbox-value" data-i18n="codex.permissions.session">Session setting</span>
                         </button>
+                        <button class="codex-footer-plan-indicator" id="codex-footer-plan-indicator" type="button" hidden data-i18n="codex.plan.chipEnabled">Plan mode enabled</button>
                     </div>
                     <div id="codex-footer-spacer"></div>
                     <button id="codex-context-widget" class="codex-context-widget" type="button" hidden aria-label="View context window debug info" data-i18n="codex.context.widgetLabel" data-i18n-attr="aria-label">
