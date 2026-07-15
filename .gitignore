@@ -26,7 +26,6 @@ screenshot*.png
 gradle-local/
 .claude/
 .codex/
-AGENTS.md
 CLAUDE.md
 .codex/**/SKILL.md
 .codex/**/claude.md
