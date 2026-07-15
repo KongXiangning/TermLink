@@ -1,12 +1,18 @@
 {
-  "installDir": "",
+  "schemaVersion": 2,
+  "installDir": "/opt/termlink",
+  "configDir": "/etc/termlink",
+  "dataDir": "/var/lib/termlink",
+  "runUser": "termlink-user",
   "serviceName": "termlink",
   "autoStart": true,
   "port": 3010,
+  "bindAddress": "127.0.0.1",
+  "publicHost": "termlink.example.com",
   "auth": {
     "enabled": true,
     "user": "admin",
-    "pass": "admin"
+    "pass": "replace-with-a-strong-password"
   },
   "privilege": {
     "mode": "standard",
@@ -15,18 +21,27 @@
   "tls": {
     "mode": "off",
     "clientCertPolicy": "none",
-    "certDir": "./certs",
-    "serverCert": "./certs/server.crt",
-    "serverKey": "./certs/server.key",
-    "caCert": "./certs/client-ca.crt",
-    "proxySecret": ""
+    "certDir": "/etc/termlink/certs",
+    "serverCert": "/etc/termlink/certs/server.crt",
+    "serverKey": "/etc/termlink/certs/server.key",
+    "caCert": "/etc/termlink/certs/client-ca.crt",
+    "proxySecret": "replace-with-a-random-proxy-secret",
+    "serverSource": "generate",
+    "importCert": "",
+    "importKey": ""
   },
   "mtls": {
     "deployment": "none",
     "generateDirectServerCertificates": false,
+    "generateServerCertificates": false,
     "opensslPath": "openssl",
-    "serverOutputDir": "./certs",
-    "clientOutputDir": "./certs/clients",
+    "serverOutputDir": "/etc/termlink/certs",
+    "clientOutputDir": "/etc/termlink/certs/clients",
+    "clientName": "client",
     "clientP12Password": ""
+  },
+  "nginx": {
+    "listenPort": 443,
+    "configPath": "/etc/nginx/conf.d/termlink.conf"
   }
 }

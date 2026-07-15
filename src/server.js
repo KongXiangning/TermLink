@@ -47,6 +47,7 @@ if (!tlsConfig.enabled && tlsConfig.proxyMode !== 'off') {
 }
 
 const PORT = process.env.PORT || 3000;
+const BIND_HOST = process.env.TERMLINK_BIND_HOST || '';
 const authEnabled = process.env.AUTH_ENABLED === undefined
     ? true
     : process.env.AUTH_ENABLED.toLowerCase() !== 'false';
@@ -121,19 +122,27 @@ registerTerminalGateway(wss, { sessionManager, heartbeatMs: 30000, privilegeConf
 
 // Start IPC feed first, then listen — avoids a race where the feed's
 // initialize handshake completes after the first WebSocket client connects.
+function listen(callback) {
+    if (BIND_HOST) {
+        server.listen(PORT, BIND_HOST, callback);
+    } else {
+        server.listen(PORT, callback);
+    }
+}
+
 ipcFeed.start().then(() => {
-    server.listen(PORT, () => {
+    listen(() => {
         if (authEnabled && authUser === 'admin' && authPass === 'admin') {
             console.warn('[Security] AUTH is enabled but default credentials (admin/admin) are in use. Set AUTH_USER and AUTH_PASS for non-dev deployments.');
         }
         const proto = tlsConfig.enabled ? 'https' : 'http';
-        console.log(`Server started on ${proto}://localhost:${PORT}`);
+        console.log(`Server started on ${proto}://${BIND_HOST || 'localhost'}:${PORT}`);
     });
 }).catch(err => {
     console.warn('[server] IPC feed start failed:', err.message);
     // Still start the server even if IPC feed fails.
-    server.listen(PORT, () => {
+    listen(() => {
         const proto = tlsConfig.enabled ? 'https' : 'http';
-        console.log(`Server started on ${proto}://localhost:${PORT} (IPC unavailable)`);
+        console.log(`Server started on ${proto}://${BIND_HOST || 'localhost'}:${PORT} (IPC unavailable)`);
     });
 });

@@ -89,7 +89,30 @@ test('resolveDirectMtlsOptions rejects direct-server mTLS without direct TLS mod
                 clientCertPolicy: 'require'
             }
         })
-    }), /tls\.mode="direct"/);
+    }), /tls\.mode="direct" or tls\.mode="nginx"/);
+});
+
+test('resolveDirectMtlsOptions supports generated server and client artifacts for nginx', () => {
+    const installRoot = createTempDir();
+    const result = resolveDirectMtlsOptions({
+        installRoot,
+        config: createConfig({
+            tls: {
+                mode: 'nginx',
+                clientCertPolicy: 'require',
+                certDir: './certs'
+            },
+            mtls: {
+                deployment: 'nginx',
+                generateServerCertificates: true,
+                clientP12Password: 'fixed-password'
+            }
+        })
+    });
+
+    assert.equal(result.enabled, true);
+    assert.equal(result.tlsMode, 'nginx');
+    assert.equal(result.deployment, 'nginx');
 });
 
 test('generateDirectMtlsArtifacts creates the expected direct mTLS files', () => {

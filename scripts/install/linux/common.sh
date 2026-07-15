@@ -110,6 +110,12 @@ const directServerGeneration = (() => {
   if (typeof raw === 'boolean') return raw;
   return ['1', 'true', 'yes', 'on'].includes(String(raw).trim().toLowerCase());
 })();
+const serverGeneration = (() => {
+  const raw = mtls.generateServerCertificates;
+  if (raw === undefined || raw === null || raw === '') return false;
+  if (typeof raw === 'boolean') return raw;
+  return ['1', 'true', 'yes', 'on'].includes(String(raw).trim().toLowerCase());
+})();
 function fail(message) {
   console.error(message);
   process.exit(1);
@@ -122,11 +128,12 @@ if (!['off', 'direct', 'nginx'].includes(String(tls.mode || 'off'))) fail('tls.m
 if (!['none', 'request', 'require'].includes(String(tls.clientCertPolicy || 'none'))) fail('tls.clientCertPolicy must be one of: none, request, require.');
 if (!['none', 'direct-server', 'nginx'].includes(mtlsDeployment)) fail('mtls.deployment must be one of: none, direct-server, nginx.');
 if (directServerGeneration && mtlsDeployment !== 'direct-server') fail('mtls.generateDirectServerCertificates can only be true when mtls.deployment is "direct-server".');
+if (serverGeneration && !['direct', 'nginx'].includes(String(tls.mode || 'off'))) fail('mtls.generateServerCertificates requires tls.mode=direct or nginx.');
 if (mtlsDeployment === 'direct-server' && String(tls.mode || 'off') !== 'direct') fail('mtls.deployment=direct-server requires tls.mode=direct.');
 if (mtlsDeployment === 'direct-server' && !['request', 'require'].includes(String(tls.clientCertPolicy || 'none'))) {
   fail('mtls.deployment=direct-server requires tls.clientCertPolicy=request or require.');
 }
-if (!['standard', 'elevated'].includes(String(privilege.mode || 'standard'))) fail('privilege.mode must be one of: standard, elevated.');
+if (String(privilege.mode || 'standard') !== 'standard') fail('privilege.mode must be standard for the Linux release installer.');
 const certDir = tls.certDir ?? './certs';
 const envFields = [
   ['auth.user', config.auth?.user ?? 'admin'],
@@ -229,6 +236,10 @@ resolve_install_root() {
         candidate="$source_root/$candidate"
     fi
     [ -d "$candidate" ] || die "installDir does not exist: $candidate"
+
+    if [ -L "$candidate/current" ] && [ -d "$candidate/current" ]; then
+        candidate="$candidate/current"
+    fi
 
     local resolved
     resolved="$(cd "$candidate" >/dev/null 2>&1 && pwd)"

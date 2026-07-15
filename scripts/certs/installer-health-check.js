@@ -78,6 +78,10 @@ function main() {
         requestOptions.ca = fs.readFileSync(directMtls.caCertPath);
         requestOptions.pfx = fs.readFileSync(directMtls.clientP12Path);
         requestOptions.passphrase = fs.readFileSync(directMtls.clientPasswordPath, 'utf8').trim();
+    } else if (url.protocol === 'https:' && config.tls?.serverSource === 'import') {
+        // This probes the local listener, while an imported certificate may only
+        // be valid for its public DNS name or a private CA unavailable locally.
+        requestOptions.rejectUnauthorized = false;
     }
 
     const request = transport.get(url, requestOptions, (response) => {

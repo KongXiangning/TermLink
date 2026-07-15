@@ -104,8 +104,8 @@ npm run release:build
 | 目标 | 安装入口 | 自启状态 | 说明 |
 | --- | --- | --- | --- |
 | Windows | `powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\install-service.ps1 -ConfigPath .\termlink-install.config.json` | 正式支持 | 保持既有 `pm2` `fork` 基线 |
-| Linux（`systemd`） | `bash ./scripts/install/linux/install-service.sh --config ./termlink-install.config.json` | 正式支持 | 当前 Linux 自启仅正式支持 `systemd` |
-| Linux（无 `systemd`） | `bash ./scripts/install/linux/start.sh --foreground --config ./termlink-install.config.json` | 仅手动 fallback | 本轮不提供正式 auto-start 支持 |
+| Debian/Ubuntu（`systemd`，`amd64`/`arm64`） | `./install.sh` | 正式支持 | 交互安装、自动依赖与 systemd 服务 |
+| 其他 Linux 或无 `systemd` 环境 | — | 不支持 | Release 安装器会明确报出兼容性错误 |
 
 ### 3. release 安装配置文件
 
@@ -127,7 +127,8 @@ cp ./scripts/install/termlink-install.config.example.json ./termlink-install.con
 
 | 字段 | 允许值 | 作用 |
 | --- | --- | --- |
-| `installDir` | 空字符串或绝对路径 | 覆盖安装根目录 |
+| `installDir` / `configDir` / `dataDir` | 绝对路径 | 应用、配置和持久数据根目录 |
+| `runUser` | 已存在的本地用户 | systemd 服务身份，默认使用安装发起用户 |
 | `serviceName` | 字母、数字、`.`、`_`、`@`、`-` | 服务 / pm2 名称 |
 | `autoStart` | `true` / `false` | 安装时是否启用自启 |
 | `port` | 整数 | 服务端口 |
@@ -136,13 +137,15 @@ cp ./scripts/install/termlink-install.config.example.json ./termlink-install.con
 | `tls.clientCertPolicy` | `none`、`request`、`require` | 直连 TLS 的客户端证书策略 |
 | `mtls.deployment` | `none`、`direct-server`、`nginx` | 选择安装期 direct mTLS 或独立 nginx-side 工具 |
 | `mtls.generateDirectServerCertificates` | `true` / `false` | 是否由安装器生成 direct-server mTLS 证书 |
+| `mtls.generateServerCertificates` | `true` / `false` | 为 direct 或 Nginx 生成本地 CA、服务端证书和客户端证书包 |
+| `tls.serverSource` | `generate`、`import` | 生成本地服务端证书或导入 PEM 证书/私钥 |
 | `mtls.opensslPath` | 可执行路径 | 指定 OpenSSL 命令路径 |
 
 对外使用前，务必把 `AUTH_USER` / `AUTH_PASS` 改成非默认值。
 
 ### 4. Windows release 安装生命周期
 
-安装：
+从 GitHub Releases 下载 `termlink-linux-v*.tar.gz` 和 `SHA256SUMS`，校验并解压后执行：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\install-service.ps1 -ConfigPath .\termlink-install.config.json
@@ -181,8 +184,10 @@ Windows 安装器会：
 安装：
 
 ```bash
-bash ./scripts/install/linux/install-service.sh --config ./termlink-install.config.json
+./install.sh
 ```
+
+自动化安装可执行 `./install.sh --config ./termlink-install.config.json --non-interactive`；增加 `--dry-run` 可只校验并输出最终配置，不修改宿主机。
 
 健康检查：
 
@@ -205,9 +210,11 @@ bash ./scripts/install/linux/uninstall-service.sh --config ./termlink-install.co
 
 Linux 侧补充说明：
 
-- 正式自启路径**只支持 `systemd`**。
-- 安装器会同时写出 `.env`（Node / 前台运行读取）和 `.env.systemd`（systemd `EnvironmentFile=` 读取）。
-- 非 `systemd` 环境只能走 `start.sh --foreground` 明确手动 fallback，不应假设存在正式 auto-start。
+- 应用版本位于 `/opt/termlink/releases/<version>`，`/opt/termlink/current` 指向当前版本；配置和证书位于 `/etc/termlink`，持久数据位于 `/var/lib/termlink`。
+- systemd 服务使用执行 `sudo ./install.sh` 的用户运行，不启用 TermLink elevated 模式。
+- 升级保留外置配置、证书和数据；健康检查失败会恢复旧版本与配置。
+- 支持 HTTP、direct HTTPS 和 Nginx HTTPS；自动 mTLS 会交付客户端 PEM/P12、密码文件和公共 CA 路径。
+- 未启用 mTLS 时 BasicAuth 必须开启；启用 mTLS 后也只有显式确认才可关闭。
 
 ### 6. 选择 mTLS 部署方式
 

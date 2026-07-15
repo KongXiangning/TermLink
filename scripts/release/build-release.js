@@ -148,7 +148,8 @@ function createArchive(plan, outputDir) {
         return archivePath;
     }
 
-    runCommand('tar.exe', ['-czf', archivePath, '-C', DIST_ROOT, plan.artifactBaseName], { cwd: DIST_ROOT });
+    const tarCommand = process.platform === 'win32' ? 'tar.exe' : 'tar';
+    runCommand(tarCommand, ['-czf', archivePath, '-C', DIST_ROOT, plan.artifactBaseName], { cwd: DIST_ROOT });
     return archivePath;
 }
 

@@ -31,7 +31,7 @@ const SUPPORTED_PLATFORMS = Object.freeze({
         archiveExtension: '.tar.gz',
         buildEntry: 'npm run release:build:linux',
         deployStrategy: 'systemd',
-        existingFiles: ['setup-service.sh'],
+        existingFiles: ['install.sh', 'setup-service.sh'],
         plannedFiles: [
             { path: 'scripts/install/linux/install-service.sh', status: 'implemented-step3', step: 3, reason: 'Linux systemd install entry' },
             { path: 'scripts/install/linux/uninstall-service.sh', status: 'implemented-step3', step: 3, reason: 'Linux systemd uninstall entry' },
@@ -143,6 +143,7 @@ function getMaterializedReleaseEntries(platformKey) {
             { source: 'scripts/install/windows', target: 'scripts/install/windows', kind: 'directory' }
         ]
         : [
+            { source: 'install.sh', target: 'install.sh', kind: 'file' },
             { source: 'setup-service.sh', target: 'setup-service.sh', kind: 'file' },
             { source: 'scripts/install/linux', target: 'scripts/install/linux', kind: 'directory' }
         ];

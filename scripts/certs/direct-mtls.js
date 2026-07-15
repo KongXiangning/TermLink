@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const net = require('net');
 const { spawnSync } = require('child_process');
 
 function normalizeBoolean(value, defaultValue = false) {
@@ -37,11 +38,21 @@ function resolveInstallPath(installRoot, candidate, fallback) {
     return path.resolve(installRoot, raw);
 }
 
-function buildServerAltNames() {
+function buildServerAltNames(publicHost = '') {
     const entries = new Set(['DNS:localhost', 'IP:127.0.0.1']);
     const hostname = normalizeString(os.hostname());
     if (hostname && hostname.toLowerCase() !== 'localhost') {
         entries.add(`DNS:${hostname}`);
+    }
+    const requestedHost = normalizeString(publicHost);
+    if (requestedHost) {
+        if (net.isIP(requestedHost)) {
+            entries.add(`IP:${requestedHost}`);
+        } else if (/^(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$/.test(requestedHost)) {
+            entries.add(`DNS:${requestedHost}`);
+        } else {
+            throw new Error(`publicHost is not a valid DNS name or IP address: ${requestedHost}`);
+        }
     }
 
     const interfaces = os.networkInterfaces();
@@ -71,12 +82,13 @@ function resolveDirectMtlsOptions({ installRoot, config }) {
     const tlsMode = normalizeString(tls.mode, 'off').toLowerCase();
     const clientCertPolicy = normalizeString(tls.clientCertPolicy, 'none').toLowerCase();
     const deployment = normalizeString(mtls.deployment, 'none').toLowerCase();
-    const generateFlag = normalizeBoolean(mtls.generateDirectServerCertificates, false);
+    const generateFlag = normalizeBoolean(mtls.generateDirectServerCertificates, false)
+        || normalizeBoolean(mtls.generateServerCertificates, false);
 
     if (!['none', 'direct-server', 'nginx'].includes(deployment)) {
         throw new Error('mtls.deployment must be one of: none, direct-server, nginx.');
     }
-    if (generateFlag && deployment !== 'direct-server') {
+    if (normalizeBoolean(mtls.generateDirectServerCertificates, false) && deployment !== 'direct-server') {
         throw new Error('mtls.generateDirectServerCertificates can only be true when mtls.deployment is "direct-server".');
     }
 
@@ -106,17 +118,17 @@ function resolveDirectMtlsOptions({ installRoot, config }) {
         clientP12Password,
         serverSubject: '/CN=localhost',
         clientSubject: `/CN=${serviceName}-client`,
-        serverAltNames: buildServerAltNames()
+        serverAltNames: buildServerAltNames(config.publicHost)
     };
 
     if (!generationRequested) {
         return options;
     }
-    if (tlsMode !== 'direct') {
-        throw new Error('Direct server-side mTLS generation requires tls.mode="direct".');
+    if (!['direct', 'nginx'].includes(tlsMode)) {
+        throw new Error('Server certificate generation requires tls.mode="direct" or tls.mode="nginx".');
     }
-    if (!['request', 'require'].includes(clientCertPolicy)) {
-        throw new Error('Direct server-side mTLS generation requires tls.clientCertPolicy to be "request" or "require".');
+    if (deployment !== 'none' && !['request', 'require'].includes(clientCertPolicy)) {
+        throw new Error('mTLS certificate generation requires tls.clientCertPolicy to be "request" or "require".');
     }
 
     return options;

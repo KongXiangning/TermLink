@@ -45,8 +45,8 @@ Each layout includes `release-manifest.json` and `release-contents.txt`, plus th
 | Target | Install entry | Auto-start status | Notes |
 | --- | --- | --- | --- |
 | Windows | `powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\install-service.ps1 -ConfigPath .\termlink-install.config.json` | Supported | Keeps the existing `pm2` `fork` baseline |
-| Linux with `systemd` | `bash ./scripts/install/linux/install-service.sh --config ./termlink-install.config.json` | Supported | This is the only officially supported Linux auto-start path |
-| Linux without `systemd` | `bash ./scripts/install/linux/start.sh --foreground --config ./termlink-install.config.json` | Manual fallback only | Explicitly unsupported for auto-start in this release scope |
+| Debian/Ubuntu with `systemd` (`amd64`/`arm64`) | `./install.sh` | Supported | Interactive installer, dependency bootstrap, and systemd service |
+| Other Linux or non-systemd hosts | — | Unsupported | The Release installer stops with a compatibility error |
 
 ### 3. Release install config
 
@@ -68,7 +68,8 @@ Key fields:
 
 | Field | Allowed values | Purpose |
 | --- | --- | --- |
-| `installDir` | empty or absolute path | Overrides the release root used by the installer |
+| `installDir` / `configDir` / `dataDir` | absolute paths | Application, configuration, and persistent-data roots |
+| `runUser` | existing local user | systemd service identity; defaults to the invoking user |
 | `serviceName` | letters, numbers, `.`, `_`, `@`, `-` | Service / pm2 name |
 | `autoStart` | `true` / `false` | Enables or disables auto-start during install |
 | `port` | integer | Server port |
@@ -77,13 +78,15 @@ Key fields:
 | `tls.clientCertPolicy` | `none`, `request`, `require` | Direct TLS client-certificate policy |
 | `mtls.deployment` | `none`, `direct-server`, `nginx` | Chooses installer-managed direct mTLS or standalone nginx-side tooling |
 | `mtls.generateDirectServerCertificates` | `true` / `false` | Allows the installer to generate direct-server mTLS materials |
+| `mtls.generateServerCertificates` | `true` / `false` | Generates a local CA, server cert, and client bundle for direct or Nginx mode |
+| `tls.serverSource` | `generate`, `import` | Generates a local server cert or imports PEM cert/key files |
 | `mtls.opensslPath` | executable path | Overrides the OpenSSL command used by the tooling |
 
 Keep `AUTH_USER` / `AUTH_PASS` off their defaults before exposing the service beyond a trusted local machine.
 
 ### 4. Windows release install lifecycle
 
-Install:
+Download `termlink-linux-v*.tar.gz` and `SHA256SUMS` from GitHub Releases, verify and extract the archive, then run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\install-service.ps1 -ConfigPath .\termlink-install.config.json
@@ -122,8 +125,10 @@ The Windows installer:
 Install:
 
 ```bash
-bash ./scripts/install/linux/install-service.sh --config ./termlink-install.config.json
+./install.sh
 ```
+
+For automation, run `./install.sh --config ./termlink-install.config.json --non-interactive`. Add `--dry-run` to validate and print the effective configuration without changing the host.
 
 Health check:
 
@@ -146,9 +151,11 @@ bash ./scripts/install/linux/uninstall-service.sh --config ./termlink-install.co
 
 Linux-specific notes:
 
-- Official Linux auto-start support is **systemd only**.
-- The installer writes both `.env` (Node / foreground runtime) and `.env.systemd` (systemd `EnvironmentFile=`).
-- When `systemd` is unavailable, use `start.sh --foreground` as the explicit manual fallback instead of expecting auto-start support.
+- Application releases live under `/opt/termlink/releases/<version>` with `/opt/termlink/current`; configuration and certificates live under `/etc/termlink`, and persistent data under `/var/lib/termlink`.
+- The service runs as the user that invoked `sudo ./install.sh`; TermLink elevated mode is not enabled.
+- Upgrades preserve external configuration, certificates, and data. A failed health check restores the previous release and configuration.
+- HTTP, direct HTTPS, and Nginx HTTPS are supported. Generated mTLS provides client PEM/P12, its password file, and the public CA path.
+- BasicAuth is mandatory without mTLS and can only be disabled through explicit confirmation when mTLS is enabled.
 
 ### 6. Choose an mTLS deployment mode
 
