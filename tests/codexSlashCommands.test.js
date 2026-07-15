@@ -131,6 +131,11 @@ test('normalize helpers and effective config keep interaction and config boundar
     });
 });
 
+test('next-turn reasoning normalization preserves current max and ultra model options', () => {
+    assert.equal(normalizeNextTurnOverrides({ reasoningEffort: 'MAX' }).reasoningEffort, 'max');
+    assert.equal(normalizeNextTurnOverrides({ reasoningEffort: ' ultra ' }).reasoningEffort, 'ultra');
+});
+
 test('skill token helpers build Windows skill paths and strip tokens back out of composer text', () => {
     assert.deepEqual(buildSkillPathCandidates({
         cwd: 'E:/coding/TermLink/',
@@ -172,4 +177,3 @@ test('skill token helpers build Windows skill paths and strip tokens back out of
         'Investigate\n\nnow'
     );
 });
-

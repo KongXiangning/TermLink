@@ -244,6 +244,8 @@
   "codex.effort.medium": "Medium",
   "codex.effort.high": "High",
   "codex.effort.xhigh": "Very High",
+  "codex.effort.max": "Max",
+  "codex.effort.ultra": "Ultra",
   "codex.status.running": "Running",
   "codex.status.streaming": "Streaming",
   "codex.status.waitingApproval": "Waiting Approval",
@@ -539,5 +541,10 @@
   "codex.empty.watermark": "CODEX",
   "codex.capsule.model": "Model",
   "codex.capsule.reasoning": "Think",
-  "codex.capsule.sandbox": "Sandbox"
+  "codex.capsule.sandbox": "Sandbox",
+  "codex.capsule.permissions": "Permissions",
+  "codex.permissions.session": "Session setting",
+  "codex.permissions.ask": "Ask for approval",
+  "codex.permissions.readOnly": "Read only",
+  "codex.permissions.fullAccess": "Full access"
 }

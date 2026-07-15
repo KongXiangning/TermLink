@@ -11,7 +11,6 @@ const codexPanel = document.getElementById('codex-panel');
 const codexLog = document.getElementById('codex-log');
 const codexLogStack = document.getElementById('codex-log-stack');
 const codexStatusText = document.getElementById('codex-status-text');
-const codexStatusCwd = document.getElementById('codex-status-cwd');
 const codexCwdRow = document.getElementById('codex-status-cwd-row');
 const codexCwdPrefix = document.getElementById('codex-cwd-prefix');
 const codexCwdText = document.getElementById('codex-cwd-text');
@@ -41,7 +40,6 @@ const btnCodexSecondaryTools = document.getElementById('btn-codex-secondary-tool
 const btnCodexSecondaryNotices = document.getElementById('btn-codex-secondary-notices');
 const codexHistoryPanel = document.getElementById('codex-history-panel');
 const codexHistoryList = document.getElementById('codex-history-list');
-const codexBrandVersion = document.getElementById('codex-brand-version');
 const codexHistoryEmpty = document.getElementById('codex-history-empty');
 const codexRuntimePanel = document.getElementById('codex-runtime-panel');
 const codexRuntimeDiff = document.getElementById('codex-runtime-diff');
@@ -928,8 +926,25 @@ function getReasoningEffortLabels() {
         low: t('codex.effort.low'),
         medium: t('codex.effort.medium'),
         high: t('codex.effort.high'),
-        xhigh: t('codex.effort.xhigh')
+        xhigh: t('codex.effort.xhigh'),
+        max: t('codex.effort.max'),
+        ultra: t('codex.effort.ultra')
     };
+}
+
+function getPermissionModeOptions() {
+    return [
+        { id: '', label: t('codex.permissions.session') },
+        { id: 'workspace-write', label: t('codex.permissions.ask') },
+        { id: 'read-only', label: t('codex.permissions.readOnly') },
+        { id: 'danger-full-access', label: t('codex.permissions.fullAccess') }
+    ];
+}
+
+function getPermissionModeLabel(value) {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    const option = getPermissionModeOptions().find((entry) => entry.id === normalized);
+    return option ? option.label : (normalized || t('codex.permissions.session'));
 }
 
 function readInjectedConfig() {
@@ -1143,22 +1158,13 @@ function syncCodexSecondaryPanelState() {
 function renderCodexHeaderSummary() {
     const shellApi = getCodexShellViewApi();
 
-    // CWD display: new cwd-row format + legacy fallback
+    // Keep a single CWD display in the labeled PATH row.
     const cwd = codexState.cwd || '';
-    // Show cwd in brand version slot (fallback to "Codex")
-    if (codexBrandVersion) {
-        codexBrandVersion.textContent = cwd || 'Codex';
-        codexBrandVersion.hidden = false;
-    }
     if (codexCwdRow) {
         codexCwdRow.hidden = !cwd;
         if (cwd && codexCwdText) {
             codexCwdText.textContent = cwd;
         }
-    }
-    if (codexStatusCwd) {
-        codexStatusCwd.textContent = cwd;
-        codexStatusCwd.hidden = !cwd;
     }
 
     // Interrupt button
@@ -1200,10 +1206,6 @@ function setCodexCwd(rawCwd) {
         const display = rawCwd || '';
         codexCwdRow.hidden = !display;
         codexCwdText.textContent = display;
-    }
-    if (codexStatusCwd) {
-        codexStatusCwd.textContent = rawCwd || '';
-        codexStatusCwd.hidden = !rawCwd;
     }
     // Show docs button when cwd is available
     if (btnCodexHeaderDocs) {
@@ -2217,6 +2219,10 @@ function clearNextTurnOverrides() {
 // ── Capsule dropdown action wrappers ──
 function requestCodexSetModel(value) {
     setNextTurnOverrideValue('model', value);
+    const currentReasoningEffort = codexState.nextTurnOverrides.reasoningEffort;
+    if (currentReasoningEffort && !getReasoningOptionsForModel(resolveReasoningModelId()).includes(currentReasoningEffort)) {
+        setNextTurnOverrideValue('reasoningEffort', null);
+    }
     renderCodexQuickControls();
     renderCodexCapsuleBar();
 }
@@ -2520,13 +2526,20 @@ function renderCodexCapsuleBar() {
     if (!reVal && codexState.serverNextTurnConfigBase) {
         reVal = codexState.serverNextTurnConfigBase.reasoningEffort || '';
     }
-    if (capsuleReasoningValue) {
-        capsuleReasoningValue.textContent = reVal || t('codex.quick.default');
+    if (!reVal) {
+        var reasoningModel = findCodexModelEntry(resolveReasoningModelId());
+        reVal = reasoningModel ? reasoningModel.defaultReasoningEffort : '';
     }
-    // Update sandbox capsule
+    if (capsuleReasoningValue) {
+        capsuleReasoningValue.textContent = getReasoningEffortLabels()[reVal] || reVal || t('codex.quick.default');
+    }
+    // Display the current permission profile while preserving sandbox as the wire field.
     var sbVal = codexState.nextTurnOverrides.sandbox || '';
+    if (!sbVal && codexState.serverNextTurnConfigBase) {
+        sbVal = codexState.serverNextTurnConfigBase.sandboxMode || '';
+    }
     if (capsuleSandboxValue) {
-        capsuleSandboxValue.textContent = sbVal || t('codex.quick.sandbox');
+        capsuleSandboxValue.textContent = getPermissionModeLabel(sbVal);
     }
 }
 
@@ -2601,12 +2614,12 @@ function buildCapsuleDropdownItems(type) {
     if (type === 'reasoning') {
         var rItems = [];
         var currentRE = codexState.nextTurnOverrides.reasoningEffort || '';
-        var available = codexState.availableReasoningEfforts || [];
+        var available = getReasoningOptionsForModel(resolveReasoningModelId());
         available.forEach(function (r) {
             rItems.push({
-                label: r.label || r.id,
-                isSelected: r.id === currentRE,
-                onClick: function () { requestCodexSetReasoningEffort(r.id || null); }
+                label: getReasoningEffortLabels()[r] || r,
+                isSelected: r === currentRE,
+                onClick: function () { requestCodexSetReasoningEffort(r || null); }
             });
         });
         rItems.unshift({
@@ -2619,21 +2632,14 @@ function buildCapsuleDropdownItems(type) {
     if (type === 'sandbox') {
         var sItems = [];
         var currentSB = codexState.nextTurnOverrides.sandbox || '';
-        var modes = codexState.availableSandboxModes || [];
+        var modes = getPermissionModeOptions();
         modes.forEach(function (s) {
             sItems.push({
-                label: s.label || s.id,
+                label: s.label,
                 isSelected: (s.id || '') === currentSB,
                 onClick: function () { requestCodexSetSandboxMode(s.id || null); }
             });
         });
-        if (!currentSB) {
-            sItems.unshift({
-                label: t('codex.quick.sandbox'),
-                isSelected: true,
-                onClick: function () { requestCodexSetSandboxMode(null); }
-            });
-        }
         return sItems;
     }
     return [];

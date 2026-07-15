@@ -8,7 +8,7 @@
     }
 }(typeof globalThis !== 'undefined' ? globalThis : this, function createSlashCommandsApi() {
     const t = typeof globalThis !== 'undefined' && typeof globalThis.t === 'function' ? globalThis.t : (k) => k;
-    const VALID_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh']);
+    const VALID_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']);
     const ENABLED_DISCOVERABILITY = 'menu_visible_executable';
     const SKILL_TOKEN_REGEX = /\[\$([^\]\r\n]+)\]\(([^)\r\n]+)\)/g;
 

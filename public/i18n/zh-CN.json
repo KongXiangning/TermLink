@@ -244,6 +244,8 @@
   "codex.effort.medium": "中",
   "codex.effort.high": "高",
   "codex.effort.xhigh": "超高",
+  "codex.effort.max": "最大",
+  "codex.effort.ultra": "极致",
   "codex.status.running": "执行中",
   "codex.status.streaming": "输出中",
   "codex.status.waitingApproval": "等待审批",
@@ -539,5 +541,10 @@
   "codex.empty.watermark": "CODEX",
   "codex.capsule.model": "模型",
   "codex.capsule.reasoning": "推理",
-  "codex.capsule.sandbox": "沙盒"
+  "codex.capsule.sandbox": "沙盒",
+  "codex.capsule.permissions": "权限",
+  "codex.permissions.session": "会话设置",
+  "codex.permissions.ask": "请求批准",
+  "codex.permissions.readOnly": "只读",
+  "codex.permissions.fullAccess": "完全访问"
 }

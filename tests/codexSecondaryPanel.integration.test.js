@@ -59,7 +59,10 @@ function createTestDOM() {
                         <div id="codex-status-line">
                             <span id="codex-status-dot" aria-hidden="true"></span>
                             <span id="codex-status-text">Codex 空闲</span>
-                            <span id="codex-status-cwd" hidden></span>
+                            <span id="codex-status-cwd-row" hidden>
+                                <span id="codex-cwd-prefix">PATH</span>
+                                <span id="codex-cwd-text"></span>
+                            </span>
                         </div>
                         <div id="codex-meta-line">
                             <span id="codex-meta-text"></span>
@@ -224,6 +227,10 @@ function createTestDOM() {
                 </div>
                 <div id="codex-input" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="输入你的请求，让 Codex 帮你检查、修改或执行任务..."></div>
                 <div id="codex-composer-footer">
+                    <button id="btn-codex-capsule-attach" type="button">+</button>
+                    <button id="btn-codex-capsule-model" type="button"><span id="capsule-model-value">默认</span></button>
+                    <button id="btn-codex-capsule-reasoning" type="button"><span id="capsule-reasoning-value">默认</span></button>
+                    <button id="btn-codex-capsule-sandbox" type="button"><span id="capsule-sandbox-value">会话设置</span></button>
                     <button id="btn-codex-file-attach" class="codex-footer-action-btn" type="button">+</button>
                     <button id="btn-codex-slash-cmd" class="codex-footer-action-btn" type="button">/</button>
                     <div id="codex-image-actions" hidden>
@@ -1121,7 +1128,7 @@ test('Phase 4 Integration: thread list with untitled current thread clears stale
     });
 
     assert.equal(hooks.codexState.currentThreadTitle, '', 'empty thread title must clear stale cached header state');
-    assert.equal(window.document.getElementById('codex-status-cwd').hidden, true, 'status cwd must stay hidden without cwd');
+    assert.equal(window.document.getElementById('codex-status-cwd-row').hidden, true, 'PATH row must stay hidden without cwd');
 
     dom.window.close();
 });
@@ -1265,7 +1272,8 @@ test('Phase 4 Integration: malformed mixed-script thread title falls back to thr
     });
 
     assert.equal(hooks.codexState.currentThreadTitle, '');
-    assert.equal(window.document.getElementById('codex-status-cwd').textContent, 'E:\\coding\\TermLink');
+    assert.equal(window.document.getElementById('codex-status-cwd-row').hidden, false);
+    assert.equal(window.document.getElementById('codex-cwd-text').textContent, 'E:\\coding\\TermLink');
 
     dom.window.close();
 });
@@ -1902,18 +1910,110 @@ test('Phase 5 Integration: nested app-server token usage payload updates token s
     dom.window.close();
 });
 
-test('Phase 5 Integration: quick sandbox control writes next-turn sandbox override', async () => {
+test('Codex capsules use model reasoning metadata and effective permission data', async (t) => {
     const dom = createTestDOM();
     const { window } = dom;
+    t.after(() => dom.window.close());
     const hooks = loadTerminalClient(window);
 
-    const sandboxSelect = window.document.getElementById('codex-quick-sandbox');
-    sandboxSelect.value = 'danger-full-access';
-    sandboxSelect.dispatchEvent(new window.Event('change'));
+    hooks.applyRuntimeConfig({
+        serverUrl: 'http://127.0.0.1:3010',
+        sessionId: 'capsule-data-session',
+        authHeader: 'Basic test',
+        historyEnabled: true
+    }, false);
+    hooks.connect();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    const ws = hooks.getWebSocket();
+    ws.dispatchOpen();
+
+    ws.onmessage({ data: JSON.stringify({
+        type: 'session_info',
+        sessionId: 'capsule-data-session',
+        sessionMode: 'codex',
+        codexConfig: null
+    }) });
+    ws.onmessage({ data: JSON.stringify({
+        type: 'codex_capabilities',
+        capabilities: { modelConfig: true }
+    }) });
+
+    const modelRequest = ws.sent
+        .map((entry) => JSON.parse(entry))
+        .find((entry) => entry.type === 'codex_request' && entry.method === 'model/list');
+    assert.ok(modelRequest);
+    assert.deepEqual(modelRequest.params, {});
+
+    ws.onmessage({ data: JSON.stringify({
+        type: 'codex_response',
+        requestId: modelRequest.requestId,
+        method: 'model/list',
+        result: {
+            data: [{
+                id: 'gpt-current',
+                displayName: 'GPT Current',
+                isDefault: true,
+                defaultReasoningEffort: 'medium',
+                supportedReasoningEfforts: [
+                    { reasoningEffort: 'low' },
+                    { reasoningEffort: 'medium' },
+                    { reasoningEffort: 'high' },
+                    { reasoningEffort: 'xhigh' },
+                    { reasoningEffort: 'max' },
+                    { reasoningEffort: 'ultra' }
+                ]
+            }, {
+                id: 'gpt-limited',
+                displayName: 'GPT Limited',
+                supportedReasoningEfforts: [
+                    { reasoningEffort: 'low' },
+                    { reasoningEffort: 'medium' }
+                ]
+            }]
+        }
+    }) });
+    ws.onmessage({ data: JSON.stringify({
+        type: 'codex_state',
+        status: 'idle',
+        threadId: 'thread-capsule-data',
+        currentTurnId: '',
+        cwd: 'E:\\coding\\TermLink',
+        nextTurnEffectiveCodexConfig: {
+            model: 'gpt-current',
+            reasoningEffort: null,
+            approvalPolicy: 'on-request',
+            sandboxMode: 'workspace-write'
+        }
+    }) });
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    assert.equal(window.document.getElementById('capsule-reasoning-value').textContent, '中');
+    assert.equal(window.document.getElementById('capsule-sandbox-value').textContent, '请求批准');
+
+    window.document.getElementById('btn-codex-capsule-reasoning').click();
+    const reasoningItems = Array.from(window.document.querySelectorAll('#codex-capsule-dropdown-reasoning .codex-capsule-dropdown-item'));
+    assert.deepEqual(reasoningItems.map((item) => item.textContent), ['默认', '低', '中', '高', '超高', '最大', '极致']);
+    reasoningItems.at(-1).dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+    assert.equal(hooks.codexState.nextTurnOverrides.reasoningEffort, 'ultra');
+
+    window.document.getElementById('btn-codex-capsule-sandbox').click();
+    const permissionItems = Array.from(window.document.querySelectorAll('#codex-capsule-dropdown-sandbox .codex-capsule-dropdown-item'));
+    assert.deepEqual(permissionItems.map((item) => item.textContent), ['会话设置', '请求批准', '只读', '完全访问']);
+    permissionItems.at(-1).click();
 
     assert.equal(hooks.codexState.nextTurnOverrides.sandbox, 'danger-full-access');
 
-    dom.window.close();
+    window.document.getElementById('btn-codex-capsule-model').click();
+    const modelItems = Array.from(window.document.querySelectorAll('#codex-capsule-dropdown-model .codex-capsule-dropdown-item'));
+    assert.deepEqual(modelItems.map((item) => item.textContent), ['默认', 'GPT Current', 'GPT Limited']);
+    modelItems.at(-1).click();
+
+    assert.equal(hooks.codexState.nextTurnOverrides.model, 'gpt-limited');
+    assert.equal(hooks.codexState.nextTurnOverrides.reasoningEffort, null);
+    window.document.getElementById('btn-codex-capsule-reasoning').click();
+    const limitedReasoningItems = Array.from(window.document.querySelectorAll('#codex-capsule-dropdown-reasoning .codex-capsule-dropdown-item'));
+    assert.deepEqual(limitedReasoningItems.map((item) => item.textContent), ['默认', '低', '中']);
+
 });
 
 test('Phase 5 Integration: composer submit emits sandbox preset for approval flow', async () => {
