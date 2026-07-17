@@ -355,6 +355,51 @@ test('snapshot includes active goal and collaboration metadata without leaking r
     assert.equal(snap.turns, undefined);
 });
 
+test('snapshot projects current owner model reasoning and permissions with canonical sandbox mode', () => {
+    const snap = buildDesktopSurfaceSnapshot({
+        latestThreadSettings: {
+            model: 'gpt-5.6-sol',
+            effort: 'HIGH',
+            approvalPolicy: 'on-request',
+            sandboxPolicy: { type: 'workspaceWrite' },
+            collaborationMode: {
+                mode: 'default',
+                settings: { model: 'fallback-model', reasoning_effort: 'low' }
+            }
+        },
+        currentPermissions: {
+            approvalPolicy: 'never',
+            sandboxPolicy: { type: 'dangerFullAccess' }
+        },
+        turns: []
+    });
+
+    assert.deepEqual(snap.currentCodexConfig, {
+        model: 'gpt-5.6-sol',
+        reasoningEffort: 'high',
+        approvalPolicy: 'never',
+        sandboxMode: 'danger-full-access'
+    });
+});
+
+test('snapshot preserves unknown owner sandbox policy instead of defaulting it', () => {
+    const snap = buildDesktopSurfaceSnapshot({
+        latestReasoningEffort: 'medium',
+        currentPermissions: {
+            approvalPolicy: 'on-request',
+            sandboxPolicy: { type: 'externalSandbox' }
+        },
+        turns: []
+    });
+
+    assert.deepEqual(snap.currentCodexConfig, {
+        model: undefined,
+        reasoningEffort: 'medium',
+        approvalPolicy: 'on-request',
+        sandboxMode: 'external-sandbox'
+    });
+});
+
 // ── buildDesktopSurfaceSnapshot — status inference ───────────────────────────
 
 test('inProgress turn status maps to running', () => {

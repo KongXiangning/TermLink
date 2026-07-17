@@ -293,7 +293,10 @@
     <string name="codex_native_slash_model">选择模型</string>
     <string name="codex_native_slash_plan">进入计划模式</string>
     <string name="codex_native_slash_skill">选择技能</string>
-    <string name="codex_native_slash_compact">打开背景信息窗口</string>
+    <string name="codex_native_slash_compact">压缩上下文</string>
+    <string name="codex_native_slash_new">新建对话</string>
+    <string name="codex_native_slash_fork">分支当前对话</string>
+    <string name="codex_native_slash_fork_no_thread">当前没有可分支的对话。</string>
     <string name="codex_native_slash_skills">打开技能面板</string>
     <string name="codex_native_slash_mention">打开文件提及搜索</string>
     <string name="codex_native_slash_fast">切换快速推理</string>
@@ -396,6 +399,8 @@
     <string name="codex_native_tools_compact_action">确认压缩当前线程</string>
     <string name="codex_native_tools_compact_no_thread">当前还没有可压缩的线程，请先发送一条消息或恢复已有线程。</string>
     <string name="codex_native_tools_compact_requesting">正在请求压缩当前线程...</string>
+    <string name="codex_native_tools_compact_unavailable">当前服务器不支持压缩上下文。</string>
+    <string name="codex_native_tools_compact_submitted">已提交压缩上下文请求。</string>
     <string name="codex_native_tools_skills_title">技能浏览</string>
     <string name="codex_native_tools_skills_description">只会激活选中的技能，不会自动注入整段模板提示词。</string>
     <string name="codex_native_tools_skills_loading">正在加载技能…</string>

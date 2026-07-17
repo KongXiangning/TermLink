@@ -203,6 +203,7 @@ data class CodexUiState(
     val interactionState: CodexInteractionState? = null,
     val cwd: String? = null,
     val serverNextTurnConfigBase: CodexEffectiveConfig? = null,
+    val ownerCurrentCodexConfig: CodexEffectiveConfig? = null,
     val nextTurnEffectiveCodexConfig: CodexEffectiveConfig? = null,
     // Phase 2: slash commands & overrides
     val nextTurnOverrides: NextTurnOverrides = NextTurnOverrides(),
@@ -238,6 +239,7 @@ data class CodexUiState(
     val ipcClientId: String? = null,
     val followerModeEnabled: Boolean = true,
     val followerActiveSendAllowed: Boolean = false,
+    val awaitingNewThreadIpcSurface: Boolean = false,
     val activeConversationId: String? = null,
     val ipcSurfaceSnapshot: DesktopSurfaceSnapshot? = null,
     val activeGoal: ActiveGoalInfo? = null

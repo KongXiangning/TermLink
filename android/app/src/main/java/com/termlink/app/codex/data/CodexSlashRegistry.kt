@@ -18,13 +18,15 @@ object CodexSlashRegistry {
     )
 
     enum class ArgumentShape { NONE, FREE_TEXT, SINGLE_TOKEN }
-    enum class DispatchKind { NEXT_TURN_OVERRIDE, INTERACTION_STATE, OPEN_PANEL }
+    enum class DispatchKind { NEXT_TURN_OVERRIDE, INTERACTION_STATE, OPEN_PANEL, THREAD_ACTION }
 
     private val REGISTRY: List<SlashCommand> = listOf(
-        SlashCommand("/model", "codex_native_slash_model", ArgumentShape.NONE, DispatchKind.NEXT_TURN_OVERRIDE, "slashModel"),
+        SlashCommand("/model", "codex_native_slash_model", ArgumentShape.NONE, DispatchKind.NEXT_TURN_OVERRIDE, "slashModel", discoverable = false),
         SlashCommand("/plan", "codex_native_slash_plan", ArgumentShape.FREE_TEXT, DispatchKind.INTERACTION_STATE, "slashPlan"),
         SlashCommand("/skill", "codex_native_slash_skill", ArgumentShape.SINGLE_TOKEN, DispatchKind.INTERACTION_STATE, "skillsList"),
-        SlashCommand("/compact", "codex_native_slash_compact", ArgumentShape.NONE, DispatchKind.OPEN_PANEL, "compact"),
+        SlashCommand("/compact", "codex_native_slash_compact", ArgumentShape.NONE, DispatchKind.THREAD_ACTION, "compact"),
+        SlashCommand("/new", "codex_native_slash_new", ArgumentShape.NONE, DispatchKind.THREAD_ACTION, ""),
+        SlashCommand("/fork", "codex_native_slash_fork", ArgumentShape.NONE, DispatchKind.THREAD_ACTION, "historyResume"),
         SlashCommand("/skills", "codex_native_slash_skills", ArgumentShape.NONE, DispatchKind.OPEN_PANEL, "skillsList", discoverable = false),
         SlashCommand("/mention", "codex_native_slash_mention", ArgumentShape.NONE, DispatchKind.INTERACTION_STATE, "fileMentions"),
         SlashCommand("/fast", "codex_native_slash_fast", ArgumentShape.NONE, DispatchKind.NEXT_TURN_OVERRIDE, "")
@@ -197,6 +199,7 @@ object CodexSlashRegistry {
             "slashPlan" to (caps.slashPlan || caps.planModeSupported),
             "skillsList" to caps.skillsList,
             "compact" to caps.compact,
+            "historyResume" to caps.historyResume,
             "fileMentions" to caps.fileMentions
         )
     }

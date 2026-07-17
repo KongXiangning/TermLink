@@ -555,6 +555,11 @@ test('follower_send_message falls back to owner runtime when IPC owner is gone',
         status: 'completed',
         title: 'Orphaned owner',
         cwd: 'E:\\coding\\TermLink',
+        currentCodexConfig: {
+            reasoningEffort: 'medium',
+            approvalPolicy: 'never',
+            sandboxMode: 'danger-full-access'
+        },
         items: [
             { key: 'external:old', kind: 'message', role: 'assistant', phase: 'final_answer', text: 'old external answer' }
         ]
@@ -573,12 +578,28 @@ test('follower_send_message falls back to owner runtime when IPC owner is gone',
     ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-orphan' }));
     await delay(50);
     await enableFollowerMode(ws);
-    ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-orphan', input: 'take over locally' }));
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: 'conv-orphan',
+        input: 'take over locally',
+        turnConfig: {
+            reasoningEffort: 'high',
+            approvalPolicy: 'on-request',
+            sandboxMode: 'workspace-write'
+        }
+    }));
     await delay(150);
 
     assert.ok(messages.find(m => m.type === 'follower_message_sent' && m.conversationId === 'conv-orphan'));
     assert.ok(g.codexService.requests.find((entry) => entry.method === 'thread/resume' && entry.params.threadId === 'conv-orphan'));
-    assert.ok(g.codexService.requests.find((entry) => entry.method === 'turn/start' && entry.params.threadId === 'conv-orphan'));
+    const fallbackTurn = g.codexService.requests.find((entry) => entry.method === 'turn/start' && entry.params.threadId === 'conv-orphan');
+    assert.ok(fallbackTurn);
+    assert.equal(fallbackTurn.params.reasoningEffort, 'high');
+    assert.equal(fallbackTurn.params.askForApproval, 'on-request');
+    assert.equal(fallbackTurn.params.sandbox, 'workspace-write');
+    assert.equal(fallbackTurn.params.effort, undefined);
+    assert.equal(fallbackTurn.params.approvalPolicy, undefined);
+    assert.equal(fallbackTurn.params.sandboxPolicy, undefined);
     const ownerSnapshot = messages.filter(m => m.type === 'conversation_surface_snapshot').at(-1);
     assert.equal(ownerSnapshot.snapshot.ownerKind, 'termlink');
     assert.ok(ownerSnapshot.snapshot.items.some((item) => item.text === 'old external answer'));
@@ -1231,6 +1252,12 @@ test('follower_send_message includes desktop-compatible turn context', async () 
             mode: 'default',
             settings: { model: 'gpt-5.5', reasoning_effort: 'high', developer_instructions: null }
         },
+        currentCodexConfig: {
+            model: 'gpt-5.5',
+            reasoningEffort: 'high',
+            approvalPolicy: 'never',
+            sandboxMode: 'danger-full-access'
+        },
         items: []
     });
 
@@ -1259,6 +1286,61 @@ test('follower_send_message includes desktop-compatible turn context', async () 
         mode: 'default',
         settings: { model: 'gpt-5.5', reasoning_effort: 'high', developer_instructions: null }
     });
+    assert.equal(captured.params.turnStartParams.effort, 'high');
+    assert.equal(captured.params.turnStartParams.approvalPolicy, 'never');
+    assert.deepEqual(captured.params.turnStartParams.sandboxPolicy, { type: 'dangerFullAccess' });
+    assert.equal(captured.params.turnStartParams.reasoningEffort, undefined);
+    assert.equal(captured.params.turnStartParams.askForApproval, undefined);
+    assert.equal(captured.params.turnStartParams.sandbox, undefined);
+    assert.ok(messages.find(m => m.type === 'follower_message_sent'));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_send_message turnConfig overrides owner reasoning and permission for the next turn', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-override', {
+        conversationId: 'conv-override',
+        status: 'completed',
+        latestDefaultCollaborationMode: {
+            mode: 'default',
+            settings: { model: 'gpt-5.5', reasoning_effort: 'medium', developer_instructions: null }
+        },
+        currentCodexConfig: {
+            model: 'gpt-5.5',
+            reasoningEffort: 'medium',
+            approvalPolicy: 'never',
+            sandboxMode: 'danger-full-access'
+        },
+        items: []
+    });
+    let captured = null;
+    g.ipcFeed._sendRequestHandler = (method, params) => {
+        captured = { method, params };
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: 'conv-override',
+        input: 'Use selected config',
+        turnConfig: {
+            reasoningEffort: 'high',
+            approvalPolicy: 'on-failure',
+            sandboxMode: 'workspace-write'
+        }
+    }));
+    await delay(100);
+
+    assert.equal(captured.method, 'thread-follower-start-turn');
+    assert.equal(captured.params.turnStartParams.effort, 'high');
+    assert.equal(captured.params.turnStartParams.approvalPolicy, 'on-failure');
+    assert.deepEqual(captured.params.turnStartParams.sandboxPolicy, { type: 'workspaceWrite' });
+    assert.equal(captured.params.turnStartParams.collaborationMode.settings.reasoning_effort, 'high');
     assert.ok(messages.find(m => m.type === 'follower_message_sent'));
     ws.close();
     await stopGateway(g);

@@ -394,6 +394,7 @@ function buildDesktopSurfaceSnapshot(state, options = {}) {
         latestTurnId,
         latestCollaborationMode: extractLatestCollaborationMode(state),
         latestDefaultCollaborationMode: extractLatestDefaultCollaborationMode(state, turns),
+        currentCodexConfig: extractCurrentCodexConfig(state),
         items,
         activeGoal,
         pendingApproval,
@@ -401,6 +402,39 @@ function buildDesktopSurfaceSnapshot(state, options = {}) {
         pendingUserInputAction,
         pendingGoalAction
     };
+}
+
+function extractCurrentCodexConfig(state) {
+    const latestSettings = asRecord(state?.latestThreadSettings);
+    const currentPermissions = asRecord(state?.currentPermissions);
+    const collaborationMode = asRecord(latestSettings?.collaborationMode) ?? asRecord(state?.latestCollaborationMode);
+    const collaborationSettings = asRecord(collaborationMode?.settings);
+    const sandboxPolicy = asRecord(currentPermissions?.sandboxPolicy) ?? asRecord(latestSettings?.sandboxPolicy);
+
+    const model = asString(latestSettings?.model) ?? asString(collaborationSettings?.model);
+    const reasoningEffort = asString(latestSettings?.effort) ??
+        asString(state?.latestReasoningEffort) ??
+        asString(collaborationSettings?.reasoning_effort);
+    const approvalPolicy = asString(currentPermissions?.approvalPolicy) ?? asString(latestSettings?.approvalPolicy);
+    const sandboxMode = normalizeSandboxPolicyType(asString(sandboxPolicy?.type));
+
+    if (!model && !reasoningEffort && !approvalPolicy && !sandboxMode) return undefined;
+    return {
+        model,
+        reasoningEffort: reasoningEffort?.toLowerCase(),
+        approvalPolicy,
+        sandboxMode
+    };
+}
+
+function normalizeSandboxPolicyType(value) {
+    const normalized = value?.trim();
+    if (!normalized) return undefined;
+    return normalized
+        .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+        .replace(/[\s_]+/g, '-')
+        .replace(/-+/g, '-')
+        .toLowerCase();
 }
 
 function extractActiveGoal(state) {

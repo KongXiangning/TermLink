@@ -3548,6 +3548,7 @@ private fun FooterControls(
         ?: state.reasoningEffort
         ?: state.capabilities?.defaultReasoningEffort
     val activeSandboxMode = resolvedConcreteSandboxSelection(state)
+    val activeApprovalPolicy = resolvedApprovalPolicy(state)
     var attachmentMenuExpanded by remember { mutableStateOf(false) }
 
     Row(
@@ -3639,8 +3640,8 @@ private fun FooterControls(
                 if (state.capabilities?.sandboxSupported == true) {
                     QuickControlButton(
                         label = stringResource(R.string.codex_native_sandbox_label),
-                        text = activeSandboxMode?.let { sandboxFooterLabel(it) }.orEmpty(),
-                        maxTextWidth = 78.dp,
+                        text = permissionFooterLabel(activeSandboxMode, activeApprovalPolicy),
+                        maxTextWidth = 110.dp,
                         expanded = state.sandboxPickerVisible,
                         onClick = onShowSandboxPicker,
                         onDismiss = onHideSandboxPicker
@@ -3650,9 +3651,9 @@ private fun FooterControls(
                                 Text(
                                     text = dropdownSelectionLabel(
                                         stringResource(R.string.codex_native_sandbox_workspace_write),
-                                        activeSandboxMode == "workspace-write"
+                                        permissionPresetIsSelected(state, "workspace-write")
                                     ),
-                                    color = if (activeSandboxMode == "workspace-write") {
+                                    color = if (permissionPresetIsSelected(state, "workspace-write")) {
                                         SuccessColor
                                     } else {
                                         TextPrimary
@@ -3666,9 +3667,9 @@ private fun FooterControls(
                                 Text(
                                     text = dropdownSelectionLabel(
                                         stringResource(R.string.codex_native_sandbox_read_only),
-                                        activeSandboxMode == "read-only"
+                                        permissionPresetIsSelected(state, "read-only")
                                     ),
-                                    color = if (activeSandboxMode == "read-only") {
+                                    color = if (permissionPresetIsSelected(state, "read-only")) {
                                         SuccessColor
                                     } else {
                                         TextPrimary
@@ -3682,9 +3683,9 @@ private fun FooterControls(
                                 Text(
                                     text = dropdownSelectionLabel(
                                         stringResource(R.string.codex_native_sandbox_full_access),
-                                        activeSandboxMode == "danger-full-access"
+                                        permissionPresetIsSelected(state, "danger-full-access")
                                     ),
-                                    color = if (activeSandboxMode == "danger-full-access") {
+                                    color = if (permissionPresetIsSelected(state, "danger-full-access")) {
                                         SuccessColor
                                     } else {
                                         TextPrimary
@@ -4939,7 +4940,6 @@ private fun SandboxPickerSheet(
     onDismiss: () -> Unit,
     onSelectSandboxMode: (String?) -> Unit
 ) {
-    val selectedSandbox = resolvedConcreteSandboxSelection(state)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = SurfaceColor
@@ -4966,17 +4966,17 @@ private fun SandboxPickerSheet(
             Spacer(modifier = Modifier.height(14.dp))
             ModelPickerRow(
                 label = stringResource(R.string.codex_native_sandbox_workspace_write),
-                selected = selectedSandbox == "workspace-write",
+                selected = permissionPresetIsSelected(state, "workspace-write"),
                 onClick = { onSelectSandboxMode("workspace-write") }
             )
             ModelPickerRow(
                 label = stringResource(R.string.codex_native_sandbox_read_only),
-                selected = selectedSandbox == "read-only",
+                selected = permissionPresetIsSelected(state, "read-only"),
                 onClick = { onSelectSandboxMode("read-only") }
             )
             ModelPickerRow(
                 label = stringResource(R.string.codex_native_sandbox_full_access),
-                selected = selectedSandbox == "danger-full-access",
+                selected = permissionPresetIsSelected(state, "danger-full-access"),
                 onClick = { onSelectSandboxMode("danger-full-access") }
             )
 
@@ -5371,6 +5371,22 @@ private fun sandboxFooterLabel(value: String?): String = when (value?.trim()) {
     else -> stringResource(R.string.codex_native_sandbox_picker_default_short)
 }
 
+@Composable
+private fun permissionFooterLabel(sandboxMode: String?, approvalPolicy: String?): String {
+    val sandbox = sandboxMode?.trim().orEmpty()
+    if (sandbox.isEmpty()) return stringResource(R.string.codex_native_sandbox_picker_default_short)
+    val expectedApproval = expectedApprovalPolicyForSandbox(sandbox)
+    val sandboxLabel = if (expectedApproval == null) sandbox else sandboxFooterLabel(sandbox)
+    return if (
+        approvalPolicy.isNullOrBlank() ||
+        expectedApproval.equals(approvalPolicy.trim(), ignoreCase = true)
+    ) {
+        sandboxLabel
+    } else {
+        "$sandboxLabel · ${approvalPolicy.trim()}"
+    }
+}
+
 private fun resolvedConcreteModelSelection(state: CodexUiState): String? {
     return state.nextTurnOverrides.model?.takeIf { it.isNotBlank() }
         ?: state.nextTurnEffectiveCodexConfig?.model?.takeIf { it.isNotBlank() }
@@ -5383,6 +5399,26 @@ private fun resolvedConcreteSandboxSelection(state: CodexUiState): String? {
     return state.nextTurnOverrides.sandbox?.takeIf { it.isNotBlank() }
         ?: state.nextTurnEffectiveCodexConfig?.sandboxMode?.takeIf { it.isNotBlank() }
         ?: state.serverNextTurnConfigBase?.sandboxMode?.takeIf { it.isNotBlank() }
+}
+
+private fun resolvedApprovalPolicy(state: CodexUiState): String? {
+    return state.nextTurnEffectiveCodexConfig?.approvalPolicy?.takeIf { it.isNotBlank() }
+        ?: state.ownerCurrentCodexConfig?.approvalPolicy?.takeIf { it.isNotBlank() }
+        ?: state.serverNextTurnConfigBase?.approvalPolicy?.takeIf { it.isNotBlank() }
+}
+
+private fun permissionPresetIsSelected(state: CodexUiState, sandboxMode: String): Boolean {
+    val activeSandbox = resolvedConcreteSandboxSelection(state)
+    val activeApproval = resolvedApprovalPolicy(state)
+    val expectedApproval = expectedApprovalPolicyForSandbox(sandboxMode)
+    return activeSandbox.equals(sandboxMode, ignoreCase = true) &&
+        activeApproval.equals(expectedApproval, ignoreCase = true)
+}
+
+private fun expectedApprovalPolicyForSandbox(sandboxMode: String?): String? = when (sandboxMode?.trim()) {
+    "danger-full-access" -> "never"
+    "workspace-write", "read-only" -> "on-request"
+    else -> null
 }
 
 private fun dropdownSelectionLabel(label: String, selected: Boolean): String =
@@ -5507,6 +5543,8 @@ private fun slashTitle(command: String): String = when (command) {
     "/plan" -> stringResource(R.string.codex_native_slash_plan)
     "/skill" -> stringResource(R.string.codex_native_slash_skill)
     "/compact" -> stringResource(R.string.codex_native_slash_compact)
+    "/new" -> stringResource(R.string.codex_native_slash_new)
+    "/fork" -> stringResource(R.string.codex_native_slash_fork)
     "/skills" -> stringResource(R.string.codex_native_slash_skills)
     "/mention" -> stringResource(R.string.codex_native_slash_mention)
     "/fast" -> stringResource(R.string.codex_native_slash_fast)

@@ -51,6 +51,7 @@ class CodexIpcWireModelTest {
         {"type":"conversation_surface_snapshot","conversationId":"c1",
          "snapshot":{"conversationId":"c1","revision":3,"status":"running","updatedAt":1000,
          "latestTurnId":"t1",
+         "currentCodexConfig":{"model":"gpt-5.6","reasoningEffort":"HIGH","approvalPolicy":"never","sandboxMode":"danger-full-access"},
          "items":[
            {"key":"m1","kind":"message","role":"user","text":"hello","turnId":"t1"},
            {"key":"m2","kind":"message","role":"assistant","phase":"final_answer","text":"world","turnId":"t1"},
@@ -61,6 +62,10 @@ class CodexIpcWireModelTest {
         assertEquals("c1", snap.conversationId)
         assertEquals(3, snap.revision)
         assertEquals("running", snap.status)
+        assertEquals("gpt-5.6", snap.currentCodexConfig?.model)
+        assertEquals("high", snap.currentCodexConfig?.reasoningEffort)
+        assertEquals("never", snap.currentCodexConfig?.approvalPolicy)
+        assertEquals("danger-full-access", snap.currentCodexConfig?.sandboxMode)
         assertEquals(3, snap.items.size)
         assertEquals("message", snap.items[0].kind)
         assertEquals("user", snap.items[0].role)
@@ -203,6 +208,28 @@ class CodexIpcWireModelTest {
         assertEquals("follower_send_message", json.getString("type"))
         assertEquals("conv-1", json.getString("conversationId"))
         assertEquals("Hello from Android", json.getString("input"))
+        assertFalse(json.has("turnConfig"))
+    }
+
+    @Test
+    fun `followerSendMessage builder includes optional next turn config`() {
+        val msg = CodexClientMessages.followerSendMessage(
+            "conv-1",
+            "Use selected config",
+            CodexEffectiveConfig(
+                model = null,
+                reasoningEffort = "high",
+                personality = null,
+                approvalPolicy = "on-request",
+                sandboxMode = "workspace-write"
+            )
+        )
+        val turnConfig = JSONObject(msg).getJSONObject("turnConfig")
+
+        assertEquals("high", turnConfig.getString("reasoningEffort"))
+        assertEquals("on-request", turnConfig.getString("approvalPolicy"))
+        assertEquals("workspace-write", turnConfig.getString("sandboxMode"))
+        assertFalse(turnConfig.has("model"))
     }
 
     @Test

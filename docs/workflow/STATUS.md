@@ -24,6 +24,7 @@
 - [x] Codex Android 真实 owner 控制面：Approval、PLAN implementation、Goal 启动与继续/恢复已在真实 Desktop owner + TermLink gateway + Android 真机完成闭环；pending 与 activeGoal 只由 owner snapshot 收敛，raw JSON-RPC requestId 保持原始类型。Goal update/cancel/complete 因 external owner IPC 未提供客户端动作，不在稳定能力内。
 - [x] 网页版登录、配置/会话、共享视觉基线与 terminal-first 工作区：任务 `20260715-002` Steps 1-9 已完成并归档。新增 additive HttpOnly Cookie 登录并保留 Basic/API/WS 契约；配置、drawer/dialog、terminal status/focus/fit/reconnect/mobile input 和 workspace/Codex 兼容已收口。Edge 150 在 1440/768/390 三档真实渲染/交互 QA 通过，最终相关自动化 111/111 pass。
 - [x] Web Codex 推理强度、权限选项与单一路径展示：任务 `20260716-002` 已完成。推理选项按当前模型 metadata 驱动，权限展示映射既有 effective sandbox 配置并保持 turn envelope 兼容，头部仅保留带 `PATH` 标签的 cwd；任务定向测试 123/123、TD-004 confirmed narrow gate 125/125，既有 3020 Edge/WebSocket smoke 通过。
+- [x] Android Codex owner 实时配置与斜杠命令：任务 `20260718-001` 已完成。IPC owner `model/reasoning/approval/sandbox` 通过 additive snapshot 实时同步，Android next-turn override 经 follower/App Server 两条路径真实发送并由 owner snapshot 收敛；命令菜单隐藏 `/model`、新增 `/new`/`/fork`、`/compact` 直接执行。Node targeted 72/72、Android JVM 137/137、真机 `/new`/`/compact` 与 `low/read-only` 首回合通过；设备仅有一个 session，A -> B -> A 双 session 真机 smoke 未执行并保留为验证限制。
 
 ## 🔨 正在开发
 

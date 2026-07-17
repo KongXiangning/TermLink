@@ -165,6 +165,11 @@ class MockCodexService extends EventEmitter {
                 error.code = -32600;
                 return Promise.reject(error);
             }
+            if (params.threadId === 'thread-no-rollout') {
+                const error = new Error('-32600: no rollout found for thread id thread-no-rollout');
+                error.code = -32600;
+                return Promise.reject(error);
+            }
             return Promise.resolve({ turn: { id: `turn-${this.requests.length}` } });
         }
         if (method === 'thread/read') {
@@ -1811,6 +1816,62 @@ test('codex_turn clears stale missing thread and starts a fresh thread', async (
     assert.equal(turnStart.params.threadId, 'thread-2');
     assert.equal(session.codexState.threadId, 'thread-2');
     assert.equal(session.lastCodexThreadId, 'thread-2');
+    assert.equal(errorEnvelope, undefined);
+});
+
+test('codex_turn treats no rollout found as a stale empty thread and retries', async (t) => {
+    MockCodexService.instances.length = 0;
+    const registerTerminalGateway = loadGatewayWithMocks({
+        verifyWsUpgrade: () => true,
+        codexServiceClass: MockCodexService
+    });
+    const session = createSession('codex-session', {
+        cwd: 'D:\\workspace\\demo',
+        codexConfig: {
+            approvalPolicy: 'on-request',
+            sandboxMode: 'read-only'
+        },
+        codexState: {
+            threadId: 'thread-no-rollout',
+            currentTurnId: null,
+            status: 'idle',
+            pendingServerRequests: [],
+            tokenUsage: null,
+            rateLimitState: null,
+            threadExecutionContextSignature: '{"cwd":"D:\\\\workspace\\\\demo","approvalPolicy":"on-request","sandboxMode":"read-only"}'
+        }
+    });
+    session.lastCodexThreadId = 'thread-no-rollout';
+    const sessionManager = createSessionManager(session);
+    const wss = createMockWss();
+    const dispose = registerTerminalGateway(wss, {
+        sessionManager,
+        heartbeatMs: 3600000,
+        privilegeConfig: { isElevated: false, allowedIps: [], privilegeMode: 'standard' }
+    });
+    t.after(() => dispose());
+
+    const ws = createMockWs();
+    const req = { url: '/ws?sessionId=codex-session&ticket=dummy', headers: { host: 'localhost:3000' }, socket: { remoteAddress: '127.0.0.1' } };
+    await wss.getHandler('connection')(ws, req);
+
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_turn',
+        text: 'start after empty thread restart',
+        threadId: 'thread-no-rollout',
+        sandbox: 'read-only'
+    }));
+
+    const service = MockCodexService.instances[0];
+    const turnStartCalls = service.requests.filter((entry) => entry.method === 'turn/start');
+    const freshThreadStart = service.requests.find((entry) => entry.method === 'thread/start');
+    const errorEnvelope = ws.sent.find((entry) => entry.type === 'codex_error');
+
+    assert.equal(turnStartCalls.length, 2);
+    assert.ok(freshThreadStart, 'stale empty thread should be replaced with thread/start');
+    assert.notEqual(turnStartCalls.at(-1).params.threadId, 'thread-no-rollout');
+    assert.equal(session.codexState.threadId, turnStartCalls.at(-1).params.threadId);
+    assert.equal(session.lastCodexThreadId, turnStartCalls.at(-1).params.threadId);
     assert.equal(errorEnvelope, undefined);
 });
 

@@ -1085,7 +1085,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     const _startOwnerTurn = async (ws, conversationId, input, latestSnapshot, options = {}) => {
         try {
             const threadId = await _ensureOwnerConversation(conversationId, latestSnapshot);
-            const turnStartParams = buildFollowerTurnStartParams(input.trim(), latestSnapshot || {});
+            const turnStartParams = buildFollowerTurnStartParams(input.trim(), latestSnapshot || {}, {
+                ...options,
+                transport: 'app-server'
+            });
             const result = await codexService.request('turn/start', {
                 threadId,
                 ...turnStartParams
@@ -1117,7 +1120,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 status: 'active'
             });
 
-            const turnStartParams = buildFollowerTurnStartParams(objective.trim(), latestSnapshot || {});
+            const turnStartParams = buildFollowerTurnStartParams(objective.trim(), latestSnapshot || {}, {
+                transport: 'app-server'
+            });
             await codexService.request('turn/start', {
                 threadId,
                 ...turnStartParams
@@ -1221,7 +1226,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         try {
             const response = await ipcFeed.sendRequest('thread-follower-start-turn', {
                 conversationId,
-                turnStartParams: buildFollowerTurnStartParams(input.trim(), latest)
+                turnStartParams: buildFollowerTurnStartParams(input.trim(), latest, options)
             });
             assertIpcSuccess(response);
             sendWsEnvelope(ws, { type: options.successType || 'follower_message_sent', conversationId, acknowledged: true });
@@ -1685,10 +1690,26 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
 
     function buildFollowerTurnStartParams(input, snapshot, options = {}) {
         const { randomUUID } = require('node:crypto');
-        const collaborationMode = options.collaborationMode ||
+        const requestedConfig = normalizeFollowerTurnConfig(options.turnConfig);
+        const currentConfig = normalizeFollowerTurnConfig(snapshot?.currentCodexConfig);
+        const effectiveConfig = {
+            model: requestedConfig.model || currentConfig.model,
+            reasoningEffort: requestedConfig.reasoningEffort || currentConfig.reasoningEffort,
+            approvalPolicy: requestedConfig.approvalPolicy || currentConfig.approvalPolicy,
+            sandboxMode: requestedConfig.sandboxMode || currentConfig.sandboxMode
+        };
+        const baseCollaborationMode = options.collaborationMode ||
             snapshot?.latestDefaultCollaborationMode ||
             snapshot?.latestCollaborationMode;
-        return {
+        const collaborationMode = mergeFollowerCollaborationMode(baseCollaborationMode, effectiveConfig);
+        const permissionOverride = requestedConfig.sandboxMode
+            ? derivePermissionOverrideFromSandboxMode(requestedConfig.sandboxMode)
+            : null;
+        const approvalPolicy = requestedConfig.approvalPolicy ||
+            permissionOverride?.approvalPolicy ||
+            effectiveConfig.approvalPolicy;
+        const sandboxMode = permissionOverride?.sandboxMode || effectiveConfig.sandboxMode;
+        const baseParams = {
             clientUserMessageId: randomUUID(),
             input: buildTextInputSequence(input),
             attachments: [],
@@ -1697,8 +1718,56 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 cwd: snapshot.cwd,
                 runtimeWorkspaceRoots: [snapshot.cwd]
             } : {}),
+            ...(effectiveConfig.model ? { model: effectiveConfig.model } : {}),
             ...(collaborationMode ? { collaborationMode } : {})
         };
+        if (options.transport === 'app-server') {
+            return {
+                ...baseParams,
+                ...(effectiveConfig.reasoningEffort ? { reasoningEffort: effectiveConfig.reasoningEffort } : {}),
+                ...(approvalPolicy ? { askForApproval: approvalPolicy } : {}),
+                ...(sandboxMode ? { sandbox: sandboxMode } : {})
+            };
+        }
+        return {
+            ...baseParams,
+            ...(effectiveConfig.reasoningEffort ? { effort: effectiveConfig.reasoningEffort } : {}),
+            ...(approvalPolicy ? { approvalPolicy } : {}),
+            ...(sandboxMode ? { sandboxPolicy: { type: sandboxModeToOwnerPolicyType(sandboxMode) } } : {})
+        };
+    }
+
+    function normalizeFollowerTurnConfig(value) {
+        const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+        return {
+            model: isNonEmptyString(source.model) ? source.model.trim() : null,
+            reasoningEffort: isNonEmptyString(source.reasoningEffort)
+                ? source.reasoningEffort.trim().toLowerCase()
+                : null,
+            approvalPolicy: isNonEmptyString(source.approvalPolicy)
+                ? source.approvalPolicy.trim()
+                : null,
+            sandboxMode: isNonEmptyString(source.sandboxMode)
+                ? source.sandboxMode.trim()
+                : (isNonEmptyString(source.sandbox) ? source.sandbox.trim() : null)
+        };
+    }
+
+    function mergeFollowerCollaborationMode(value, effectiveConfig) {
+        const normalized = normalizeCollaborationMode(value);
+        if (!normalized) return null;
+        return {
+            mode: normalized.mode,
+            settings: {
+                ...normalized.settings,
+                model: effectiveConfig.model || normalized.settings.model,
+                reasoning_effort: effectiveConfig.reasoningEffort || normalized.settings.reasoning_effort
+            }
+        };
+    }
+
+    function sandboxModeToOwnerPolicyType(value) {
+        return String(value || '').trim().replace(/-([a-z0-9])/g, (_, part) => part.toUpperCase());
     }
 
     function buildTextInputSequence(text) {
@@ -1954,7 +2023,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         const message = error && error.message
             ? String(error.message)
             : String(error || '');
-        return /thread not found/i.test(message);
+        return /thread not found|no rollout found for thread id/i.test(message);
     };
 
     const clearStaleSessionThreadBinding = (session, threadId) => {
@@ -2679,7 +2748,9 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                     } else if (type === 'set_active_follower_mode') {
                         _setFollowerMode(ws, envelope.enabled === true);
                     } else if (type === 'follower_send_message') {
-                        _handleFollowerSendMessage(ws, envelope.conversationId, envelope.input).catch(err => console.error('[gateway][ipc][follower-send]', err));
+                        _handleFollowerSendMessage(ws, envelope.conversationId, envelope.input, {
+                            turnConfig: envelope.turnConfig
+                        }).catch(err => console.error('[gateway][ipc][follower-send]', err));
                     } else if (type === 'follower_start_goal') {
                         _handleFollowerStartGoal(ws, envelope.conversationId, envelope.goal).catch(err => console.error('[gateway][ipc][follower-goal]', err));
                     } else if (type === 'follower_interrupt_turn') {

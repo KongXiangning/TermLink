@@ -2,6 +2,7 @@ package com.termlink.app.codex
 
 import com.termlink.app.codex.data.CodexIpcStatus
 import com.termlink.app.codex.data.CodexFollowerMode
+import com.termlink.app.codex.data.CodexEffectiveConfig
 import com.termlink.app.codex.data.CodexIpcConversationSummary
 import com.termlink.app.codex.data.CodexServerRequest
 import com.termlink.app.codex.data.ActiveGoalInfo
@@ -14,6 +15,7 @@ import com.termlink.app.codex.domain.CodexPlanWorkflowState
 import com.termlink.app.codex.domain.CodexRuntimePanelState
 import com.termlink.app.codex.domain.CodexUiState
 import com.termlink.app.codex.domain.ConnectionState
+import com.termlink.app.codex.domain.NextTurnOverrides
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -21,6 +23,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CodexViewModelThreadReadyTest {
+
+    @Test
+    fun mobileSlashActionsDispatchModelNewForkAndCompactToExpectedHandlers() {
+        assertEquals(MobileSlashAction.SHOW_MODEL_PICKER, resolveMobileSlashAction("/model"))
+        assertEquals(MobileSlashAction.NEW_THREAD, resolveMobileSlashAction("/new"))
+        assertEquals(MobileSlashAction.FORK_THREAD, resolveMobileSlashAction("/fork"))
+        assertEquals(MobileSlashAction.COMPACT, resolveMobileSlashAction("/compact"))
+    }
 
     @Test
     fun threadReadyKeepsOptimisticUserTailBeforeAckOnFreshThread() {
@@ -175,6 +185,28 @@ class CodexViewModelThreadReadyTest {
                 isPlanMode = false,
                 hasAttachments = false,
                 hasFileMentions = true
+            )
+        )
+    }
+
+    @Test
+    fun awaitingNewThreadSurfaceUsesNormalFirstTurnTransport() {
+        val state = CodexUiState(
+            ipcOnline = true,
+            activeConversationId = "fresh-thread",
+            awaitingNewThreadIpcSurface = true,
+            followerModeEnabled = true,
+            followerActiveSendAllowed = true
+        )
+
+        assertEquals(false, shouldUseIpcFollowerTransportState(state))
+        assertEquals(
+            false,
+            shouldBlockPlainTextFallbackForIpcConversationState(
+                state = state,
+                isPlanMode = false,
+                hasAttachments = false,
+                hasFileMentions = false
             )
         )
     }
@@ -445,6 +477,86 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun awaitingNewThreadSelectionDoesNotFallbackToOldConversation() {
+        val conversations = listOf(
+            ipcConversation("conv-old", updatedAt = 300, cwd = "E:\\coding\\TermLink")
+        )
+
+        val selected = selectIpcConversationForUi(
+            conversations = conversations,
+            activeConversationId = "fresh-thread",
+            threadId = "fresh-thread",
+            cwd = "E:\\coding\\TermLink",
+            awaitingNewThreadIpcSurface = true
+        )
+
+        assertNull(selected)
+    }
+
+    @Test
+    fun awaitingNewThreadSelectionAcceptsOnlyExactNewConversation() {
+        val conversations = listOf(
+            ipcConversation("conv-old", updatedAt = 300, cwd = "E:\\coding\\TermLink"),
+            ipcConversation("fresh-thread", updatedAt = 100, cwd = "E:\\other")
+        )
+
+        val selected = selectIpcConversationForUi(
+            conversations = conversations,
+            activeConversationId = "fresh-thread",
+            threadId = "fresh-thread",
+            cwd = "E:\\coding\\TermLink",
+            awaitingNewThreadIpcSurface = true
+        )
+
+        assertEquals("fresh-thread", selected?.conversationId)
+    }
+
+    @Test
+    fun preparingIpcNewThreadDetachesOldSurfaceAndResetsOverrides() {
+        val sessionConfig = effectiveConfig(
+            reasoning = "medium",
+            sandbox = "read-only",
+            approval = "on-request"
+        )
+        val state = CodexUiState(
+            threadId = "conv-old",
+            activeConversationId = "conv-old",
+            ipcSurfaceSnapshot = surfaceSnapshot("conv-old"),
+            ownerCurrentCodexConfig = effectiveConfig(
+                reasoning = "high",
+                sandbox = "danger-full-access",
+                approval = "never"
+            ),
+            serverNextTurnConfigBase = sessionConfig,
+            nextTurnOverrides = NextTurnOverrides(
+                reasoningEffort = "low",
+                sandbox = "workspace-write"
+            )
+        )
+
+        val next = prepareIpcStateForNewThread(state)
+
+        assertNull(next.activeConversationId)
+        assertNull(next.ipcSurfaceSnapshot)
+        assertNull(next.ownerCurrentCodexConfig)
+        assertEquals(NextTurnOverrides(), next.nextTurnOverrides)
+        assertTrue(next.awaitingNewThreadIpcSurface)
+        assertEquals(sessionConfig, next.nextTurnEffectiveCodexConfig)
+        assertEquals(next, applyDesktopSurfaceSnapshotToUiState(next, surfaceSnapshot("conv-old")))
+    }
+
+    @Test
+    fun preparingNonIpcNewThreadPreservesLocalOverride() {
+        val overrides = NextTurnOverrides(reasoningEffort = "high", sandbox = "workspace-write")
+        val state = CodexUiState(activeConversationId = null, nextTurnOverrides = overrides)
+
+        val next = prepareIpcStateForNewThread(state)
+
+        assertEquals(overrides, next.nextTurnOverrides)
+        assertEquals(false, next.awaitingNewThreadIpcSurface)
+    }
+
+    @Test
     fun applyingSameIpcConversationSelectionKeepsExistingSurfaceState() {
         val state = CodexUiState(
             activeConversationId = "conv-live",
@@ -472,6 +584,8 @@ class CodexViewModelThreadReadyTest {
     fun applyingChangedIpcConversationSelectionClearsStaleIpcSurfaceState() {
         val state = CodexUiState(
             activeConversationId = "stale-conv",
+            ownerCurrentCodexConfig = effectiveConfig(reasoning = "high", sandbox = "danger-full-access", approval = "never"),
+            nextTurnOverrides = NextTurnOverrides(reasoningEffort = "low", sandbox = "read-only"),
             messages = listOf(ChatMessage(id = "m1", role = ChatMessage.Role.ASSISTANT, content = "stale")),
             ipcSurfaceSnapshot = surfaceSnapshot("stale-conv"),
             pendingServerRequests = listOf(
@@ -493,6 +607,8 @@ class CodexViewModelThreadReadyTest {
         assertEquals("conv-live", next.threadId)
         assertTrue(next.messages.isEmpty())
         assertNull(next.ipcSurfaceSnapshot)
+        assertNull(next.ownerCurrentCodexConfig)
+        assertEquals(NextTurnOverrides(), next.nextTurnOverrides)
         assertEquals(listOf("req-local"), next.pendingServerRequests.map { it.requestId })
         assertTrue(next.submittingServerRequestIds.isEmpty())
         assertNull(next.planWorkflow.planRequestId)
@@ -703,6 +819,12 @@ class CodexViewModelThreadReadyTest {
             title = "Live title",
             cwd = "E:\\coding\\TermLink",
             latestTurnId = "turn-1",
+            currentCodexConfig = effectiveConfig(
+                model = "gpt-owner",
+                reasoning = "high",
+                sandbox = "workspace-write",
+                approval = "on-request"
+            ),
             items = listOf(
                 SurfaceEntry(
                     key = "msg-user",
@@ -788,6 +910,76 @@ class CodexViewModelThreadReadyTest {
         assertEquals("完成同步", next.activeGoal?.objective)
         assertEquals("Live title", next.currentThreadTitle)
         assertEquals("E:\\coding\\TermLink", next.cwd)
+        assertEquals("high", next.ownerCurrentCodexConfig?.reasoningEffort)
+        assertEquals("gpt-owner", next.nextTurnEffectiveCodexConfig?.model)
+    }
+
+    @Test
+    fun ownerSnapshotConfirmsPendingOverridesOnlyWhenPermissionPairMatches() {
+        val state = CodexUiState(
+            activeConversationId = "conv-live",
+            serverNextTurnConfigBase = effectiveConfig(model = "gpt-session", reasoning = "medium"),
+            nextTurnOverrides = NextTurnOverrides(reasoningEffort = "high", sandbox = "workspace-write")
+        )
+        val matching = surfaceSnapshot("conv-live").copy(
+            currentCodexConfig = effectiveConfig(
+                reasoning = "high",
+                sandbox = "workspace-write",
+                approval = "on-request"
+            )
+        )
+
+        val confirmed = applyDesktopSurfaceSnapshotToUiState(state, matching)
+
+        assertEquals(NextTurnOverrides(), confirmed.nextTurnOverrides)
+        assertEquals("high", confirmed.nextTurnEffectiveCodexConfig?.reasoningEffort)
+        assertEquals("workspace-write", confirmed.nextTurnEffectiveCodexConfig?.sandboxMode)
+        assertEquals("on-request", confirmed.nextTurnEffectiveCodexConfig?.approvalPolicy)
+        assertEquals("gpt-session", confirmed.nextTurnEffectiveCodexConfig?.model)
+
+        val mismatchedApproval = applyDesktopSurfaceSnapshotToUiState(
+            state,
+            matching.copy(
+                currentCodexConfig = matching.currentCodexConfig?.copy(approvalPolicy = "never")
+            )
+        )
+        assertEquals("workspace-write", mismatchedApproval.nextTurnOverrides.sandbox)
+        assertEquals("high", mismatchedApproval.nextTurnEffectiveCodexConfig?.reasoningEffort)
+        assertEquals("on-request", mismatchedApproval.nextTurnEffectiveCodexConfig?.approvalPolicy)
+    }
+
+    @Test
+    fun missingOwnerConfigDoesNotClearPendingOverrides() {
+        val overrides = NextTurnOverrides(
+            model = "gpt-pending",
+            reasoningEffort = "high",
+            sandbox = "danger-full-access"
+        )
+
+        assertEquals(overrides, reconcileOwnerConfirmedOverrides(overrides, ownerConfig = null))
+    }
+
+    @Test
+    fun surfaceSnapshotFromAnotherConversationCannotReplaceActiveConfig() {
+        val ownerConfig = effectiveConfig(reasoning = "low", sandbox = "read-only", approval = "on-request")
+        val state = CodexUiState(
+            activeConversationId = "conv-a",
+            ownerCurrentCodexConfig = ownerConfig,
+            nextTurnEffectiveCodexConfig = ownerConfig
+        )
+
+        val next = applyDesktopSurfaceSnapshotToUiState(
+            state,
+            surfaceSnapshot("conv-b").copy(
+                currentCodexConfig = effectiveConfig(
+                    reasoning = "high",
+                    sandbox = "danger-full-access",
+                    approval = "never"
+                )
+            )
+        )
+
+        assertEquals(state, next)
     }
 
     @Test
@@ -887,6 +1079,19 @@ class CodexViewModelThreadReadyTest {
         pendingGoalAction = null,
         activeGoal = null,
         raw = JSONObject()
+    )
+
+    private fun effectiveConfig(
+        model: String? = null,
+        reasoning: String? = null,
+        sandbox: String? = null,
+        approval: String? = null
+    ): CodexEffectiveConfig = CodexEffectiveConfig(
+        model = model,
+        reasoningEffort = reasoning,
+        personality = null,
+        approvalPolicy = approval,
+        sandboxMode = sandbox
     )
 
     private fun ipcRequest(

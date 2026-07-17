@@ -138,6 +138,7 @@
 - owner 容错：`CodexOwnerSurfaceTracker` 是 TermLink 的正式 owner runtime；Desktop / VS Code owner 不存在、或 IPC offline 但仍有缓存 surface 时，gateway 必须可接管同一 conversation，后续 owner action 不得继续依赖已消失的外部 client。不得恢复 `CodexProxyBridge` 作为该容错路径。
 - 回归门：改动 `terminalGateway.js`、`codexOwnerSurfaceTracker.js`、Codex session DTO / selection，或 Android Codex ViewModel / Activity / Sessions entry 链路时，至少运行 `tests/codexOwnerSurfaceTracker.test.js`、`tests/terminalGateway.codexIpc.test.js`、Android Codex ViewModel/wire JVM tests；影响 selection / restore 时还必须补同机 A -> B -> A 真机 smoke。
 - owner 控制面：真实 owner Approval、PLAN implementation 与 Goal 启动/继续已完成人工端到端验收。投影给 Android 的 `requestId` 可字符串化用于 UI 匹配，但回传 owner 的 `rawRequestId` 必须保持 JSON-RPC 原始 number/string 类型；不得把 numeric id 转成 string 后提交。Approval、PLAN 与 Goal 的 RPC/IPC ack 只表示动作送达，Android pending/activeGoal 只能由 owner 后续 snapshot / notification 清理或更新。PLAN envelope 写入成功后应进入等待 owner snapshot 状态，不得本地清空或伪造 running/completed。External owner IPC 未提供 Goal update/cancel/complete 客户端动作，这些动作不属于当前稳定接口，不得伪造。
+- owner 实时配置：`conversation_surface_snapshot.snapshot.currentCodexConfig` 可选增量投影 owner 当前 `model/reasoningEffort/approvalPolicy/sandboxMode`；`follower_send_message.turnConfig` 可选增量表达下一回合选择。缺失字段或旧客户端必须保持兼容。Android 只接受 active conversation 的配置快照，显示优先级为 pending user override -> owner current -> session config -> capabilities default；权限必须由 approval 与 sandbox 共同判断，未知组合不得伪装预设。发送 ack 不代表生效，pending 只能在后续 owner snapshot 同时匹配相关字段时清除；conversation 切换和 `/new` 等待态不得接受旧 surface 回流。
 
 ### 🔒 目录职责
 

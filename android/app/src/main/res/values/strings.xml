@@ -293,7 +293,10 @@
     <string name="codex_native_slash_model">Choose model</string>
     <string name="codex_native_slash_plan">Enter plan mode</string>
     <string name="codex_native_slash_skill">Select skill</string>
-    <string name="codex_native_slash_compact">Open background info</string>
+    <string name="codex_native_slash_compact">Compress context</string>
+    <string name="codex_native_slash_new">Start a new thread</string>
+    <string name="codex_native_slash_fork">Fork current thread</string>
+    <string name="codex_native_slash_fork_no_thread">No current thread is available to fork.</string>
     <string name="codex_native_slash_skills">Open skills panel</string>
     <string name="codex_native_slash_mention">Open file mention search</string>
     <string name="codex_native_slash_fast">Switch fast reasoning</string>
@@ -396,6 +399,8 @@
     <string name="codex_native_tools_compact_action">Confirm compress current thread</string>
     <string name="codex_native_tools_compact_no_thread">No thread available to compress. Send a message or restore a thread first.</string>
     <string name="codex_native_tools_compact_requesting">Requesting compression for current thread...</string>
+    <string name="codex_native_tools_compact_unavailable">Context compression is unavailable on this server.</string>
+    <string name="codex_native_tools_compact_submitted">Context compression request submitted.</string>
     <string name="codex_native_tools_skills_title">Skills Browse</string>
     <string name="codex_native_tools_skills_description">Only the selected skill is activated; it won\'t auto-inject the full template prompt.</string>
     <string name="codex_native_tools_skills_loading">Loading skills…</string>

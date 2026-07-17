@@ -113,6 +113,14 @@ data class CodexEffectiveConfig(
     val approvalPolicy: String?,
     val sandboxMode: String?
 ) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        model?.let { put("model", it) }
+        reasoningEffort?.let { put("reasoningEffort", it) }
+        personality?.let { put("personality", it) }
+        approvalPolicy?.let { put("approvalPolicy", it) }
+        sandboxMode?.let { put("sandboxMode", it) }
+    }
+
     companion object {
         fun from(json: JSONObject?): CodexEffectiveConfig? {
             if (json == null) return null
@@ -580,6 +588,7 @@ data class DesktopSurfaceSnapshot(
     val title: String?,
     val cwd: String?,
     val latestTurnId: String?,
+    val currentCodexConfig: CodexEffectiveConfig? = null,
     val items: List<SurfaceEntry>,
     val pendingApproval: PendingApprovalInfo?,
     val pendingPlanAction: PendingPlanActionInfo?,
@@ -610,6 +619,7 @@ data class DesktopSurfaceSnapshot(
                 title = snapshot.optStringOrNull("title"),
                 cwd = snapshot.optStringOrNull("cwd"),
                 latestTurnId = snapshot.optStringOrNull("latestTurnId"),
+                currentCodexConfig = CodexEffectiveConfig.from(snapshot.optJSONObject("currentCodexConfig")),
                 items = itemList,
                 pendingApproval = PendingApprovalInfo.from(snapshot.optJSONObject("pendingApproval")),
                 pendingPlanAction = PendingPlanActionInfo.from(snapshot.optJSONObject("pendingPlanAction")),
@@ -791,10 +801,15 @@ object CodexClientMessages {
         .put("enabled", enabled)
         .toString()
 
-    fun followerSendMessage(conversationId: String, input: String): String = JSONObject()
+    fun followerSendMessage(
+        conversationId: String,
+        input: String,
+        turnConfig: CodexEffectiveConfig? = null
+    ): String = JSONObject()
         .put("type", "follower_send_message")
         .put("conversationId", conversationId)
         .put("input", input)
+        .apply { turnConfig?.let { put("turnConfig", it.toJson()) } }
         .toString()
 
     fun followerStartGoal(conversationId: String, goal: String): String = JSONObject()

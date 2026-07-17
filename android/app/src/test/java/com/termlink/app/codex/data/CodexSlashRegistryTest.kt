@@ -12,6 +12,7 @@ class CodexSlashRegistryTest {
         "slashPlan" to true,
         "skillsList" to true,
         "compact" to true,
+        "historyResume" to true,
         "fileMentions" to true
     )
 
@@ -20,7 +21,22 @@ class CodexSlashRegistryTest {
         val commands = CodexSlashRegistry.getDiscoverableCommands(capabilities).map { it.command }
 
         assertTrue(commands.contains("/skill"))
+        assertTrue(commands.contains("/new"))
+        assertTrue(commands.contains("/fork"))
+        assertTrue(commands.contains("/compact"))
         assertFalse(commands.contains("/skills"))
+        assertFalse(commands.contains("/model"))
+    }
+
+    @Test
+    fun hiddenModelCommandStillResolvesForManualInput() {
+        assertEquals("/model", CodexSlashRegistry.resolveSlashCommand("/model")?.command)
+        assertTrue(
+            CodexSlashRegistry.getDiscoverableCommands(
+                capabilities = capabilities,
+                query = "/model"
+            ).isEmpty()
+        )
     }
 
     @Test

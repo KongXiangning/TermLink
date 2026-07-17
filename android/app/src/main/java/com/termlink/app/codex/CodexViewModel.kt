@@ -47,6 +47,32 @@ import java.util.UUID
 private const val PLAN_PHASE_READY_FOR_CONFIRMATION = "plan_ready_for_confirmation"
 private const val PLAN_PHASE_EXECUTING_CONFIRMED_PLAN = "executing_confirmed_plan"
 
+internal enum class MobileSlashAction {
+    SHOW_MODEL_PICKER,
+    PLAN,
+    FAST,
+    SHOW_SKILLS,
+    COMPACT,
+    NEW_THREAD,
+    FORK_THREAD,
+    SKILL,
+    MENTION,
+    UNSUPPORTED
+}
+
+internal fun resolveMobileSlashAction(command: String): MobileSlashAction = when (command.trim().lowercase()) {
+    "/model" -> MobileSlashAction.SHOW_MODEL_PICKER
+    "/plan" -> MobileSlashAction.PLAN
+    "/fast" -> MobileSlashAction.FAST
+    "/skills" -> MobileSlashAction.SHOW_SKILLS
+    "/compact" -> MobileSlashAction.COMPACT
+    "/new" -> MobileSlashAction.NEW_THREAD
+    "/fork" -> MobileSlashAction.FORK_THREAD
+    "/skill" -> MobileSlashAction.SKILL
+    "/mention" -> MobileSlashAction.MENTION
+    else -> MobileSlashAction.UNSUPPORTED
+}
+
 internal data class ThreadReadyUiTransition(
     val currentTurnId: String?,
     val messages: List<ChatMessage>,
@@ -68,7 +94,9 @@ internal fun shouldBlockPlainTextFallbackForIpcConversationState(
     if (isPlanMode) return false
     if (hasAttachments || hasFileMentions) return false
     val hasIpcContext = state.ipcOnline || state.ipcClientId != null || state.ipcSurfaceSnapshot != null
-    return hasIpcContext && !state.activeConversationId.isNullOrBlank()
+    return hasIpcContext &&
+        !state.awaitingNewThreadIpcSurface &&
+        !state.activeConversationId.isNullOrBlank()
 }
 
 internal fun applyIpcStatusToUiState(
@@ -91,6 +119,7 @@ internal fun shouldUseIpcFollowerTransportState(state: CodexUiState): Boolean {
     val transportAvailable = state.ipcOnline ||
         state.ipcSurfaceSnapshot?.ownerKind.equals("termlink", ignoreCase = true)
     return transportAvailable &&
+        !state.awaitingNewThreadIpcSurface &&
         state.followerModeEnabled &&
         state.followerActiveSendAllowed &&
         !state.activeConversationId.isNullOrBlank()
@@ -159,9 +188,15 @@ internal fun selectIpcConversationForUi(
     conversations: List<CodexIpcConversationSummary>,
     activeConversationId: String?,
     threadId: String?,
-    cwd: String?
+    cwd: String?,
+    awaitingNewThreadIpcSurface: Boolean = false
 ): CodexIpcConversationSummary? {
     val active = activeConversationId?.trim().orEmpty()
+    val currentThread = threadId?.trim().orEmpty()
+    if (awaitingNewThreadIpcSurface) {
+        val awaitedThreadId = active.ifEmpty { currentThread }
+        return conversations.firstOrNull { it.conversationId == awaitedThreadId }
+    }
     if (active.isNotEmpty()) {
         conversations.firstOrNull { it.conversationId == active }?.let { return it }
     }
@@ -174,20 +209,23 @@ internal fun applyIpcConversationSelectionToUiState(
 ): CodexUiState {
     val selectedId = selected.conversationId.trim()
     val activeId = state.activeConversationId?.trim().orEmpty()
-    val switched = activeId.isNotEmpty() && activeId != selectedId
+    val switched = activeId != selectedId
     val hadIpcSurface = state.ipcSurfaceSnapshot != null
     val hasIpcPlanWorkflow = state.planWorkflow.planContent != null ||
         state.planWorkflow.canSubmitPlan ||
         state.planWorkflow.planRequestId != null ||
         state.planWorkflow.planRequestMethod != null ||
         state.planWorkflow.planQuestionId != null
-    return state.copy(
+    val updated = state.copy(
         threadId = selectedId,
         activeConversationId = selectedId,
+        awaitingNewThreadIpcSurface = false,
         currentThreadTitle = selected.title ?: state.currentThreadTitle,
         cwd = selected.cwd ?: state.cwd,
         status = selected.status.takeIf { it.isNotBlank() } ?: state.status,
         ipcSurfaceSnapshot = if (switched) null else state.ipcSurfaceSnapshot,
+        ownerCurrentCodexConfig = if (switched) null else state.ownerCurrentCodexConfig,
+        nextTurnOverrides = if (switched) NextTurnOverrides() else state.nextTurnOverrides,
         activeGoal = if (switched) null else state.activeGoal,
         messages = if (switched && hadIpcSurface) emptyList() else state.messages,
         pendingServerRequests = if (switched) {
@@ -202,6 +240,7 @@ internal fun applyIpcConversationSelectionToUiState(
             state.planWorkflow
         }
     )
+    return recalculateNextTurnEffectiveConfigForUiState(updated)
 }
 
 internal fun clearIpcConversationSelectionFromUiState(state: CodexUiState): CodexUiState {
@@ -211,9 +250,12 @@ internal fun clearIpcConversationSelectionFromUiState(state: CodexUiState): Code
         state.planWorkflow.planRequestId != null ||
         state.planWorkflow.planRequestMethod != null ||
         state.planWorkflow.planQuestionId != null
-    return state.copy(
+    val updated = state.copy(
         activeConversationId = null,
+        awaitingNewThreadIpcSurface = false,
         ipcSurfaceSnapshot = null,
+        ownerCurrentCodexConfig = null,
+        nextTurnOverrides = NextTurnOverrides(),
         activeGoal = null,
         followerModeEnabled = false,
         followerActiveSendAllowed = false,
@@ -224,17 +266,29 @@ internal fun clearIpcConversationSelectionFromUiState(state: CodexUiState): Code
         submittingServerRequestIds = emptySet(),
         planWorkflow = if (hasIpcPlanWorkflow) CodexPlanWorkflowState() else state.planWorkflow
     )
+    return recalculateNextTurnEffectiveConfigForUiState(updated)
 }
 
 internal fun applyDesktopSurfaceSnapshotToUiState(
     state: CodexUiState,
     snap: DesktopSurfaceSnapshot
 ): CodexUiState {
-    val convId = snap.conversationId ?: state.activeConversationId
-    return state.copy(
-        threadId = convId ?: state.threadId,
+    val convId = snap.conversationId?.trim().orEmpty()
+    val activeConversationId = state.activeConversationId?.trim().orEmpty()
+    if (convId.isEmpty() || activeConversationId.isEmpty() || convId != activeConversationId) {
+        return state
+    }
+    val confirmedOverrides = reconcileOwnerConfirmedOverrides(
+        overrides = state.nextTurnOverrides,
+        ownerConfig = snap.currentCodexConfig
+    )
+    val updated = state.copy(
+        threadId = convId,
         activeConversationId = convId,
+        awaitingNewThreadIpcSurface = false,
         ipcSurfaceSnapshot = snap,
+        ownerCurrentCodexConfig = snap.currentCodexConfig,
+        nextTurnOverrides = confirmedOverrides,
         status = snap.status,
         messages = mergeSurfaceItems(state.messages, snap.items),
         pendingServerRequests = mergePendingUserInput(
@@ -246,6 +300,106 @@ internal fun applyDesktopSurfaceSnapshotToUiState(
         currentThreadTitle = snap.title ?: state.currentThreadTitle,
         cwd = snap.cwd ?: state.cwd
     )
+    return recalculateNextTurnEffectiveConfigForUiState(updated)
+}
+
+internal fun reconcileOwnerConfirmedOverrides(
+    overrides: NextTurnOverrides,
+    ownerConfig: CodexEffectiveConfig?
+): NextTurnOverrides {
+    ownerConfig ?: return overrides
+    val modelConfirmed = valuesMatch(overrides.model, ownerConfig.model)
+    val reasoningConfirmed = valuesMatch(overrides.reasoningEffort, ownerConfig.reasoningEffort)
+    val permissionOverride = permissionConfigForSandboxOverride(overrides.sandbox)
+    val sandboxConfirmed = if (overrides.sandbox.isNullOrBlank()) {
+        false
+    } else if (permissionOverride != null) {
+        valuesMatch(permissionOverride.sandboxMode, ownerConfig.sandboxMode) &&
+            valuesMatch(permissionOverride.approvalPolicy, ownerConfig.approvalPolicy)
+    } else {
+        valuesMatch(overrides.sandbox, ownerConfig.sandboxMode)
+    }
+    return NextTurnOverrides(
+        model = if (modelConfirmed) null else overrides.model,
+        reasoningEffort = if (reasoningConfirmed) null else overrides.reasoningEffort,
+        sandbox = if (sandboxConfirmed) null else overrides.sandbox
+    )
+}
+
+internal fun recalculateNextTurnEffectiveConfigForUiState(state: CodexUiState): CodexUiState =
+    state.copy(nextTurnEffectiveCodexConfig = resolveNextTurnEffectiveCodexConfig(state))
+
+internal fun resolveNextTurnEffectiveCodexConfig(state: CodexUiState): CodexEffectiveConfig? {
+    val owner = state.ownerCurrentCodexConfig
+    val session = state.serverNextTurnConfigBase
+    val permissionOverride = permissionConfigForSandboxOverride(state.nextTurnOverrides.sandbox)
+    val config = CodexEffectiveConfig(
+        model = state.nextTurnOverrides.model ?: owner?.model ?: session?.model ?: state.model,
+        reasoningEffort = state.nextTurnOverrides.reasoningEffort
+            ?: owner?.reasoningEffort
+            ?: session?.reasoningEffort
+            ?: state.reasoningEffort
+            ?: state.capabilities?.defaultReasoningEffort,
+        personality = owner?.personality ?: session?.personality,
+        approvalPolicy = permissionOverride?.approvalPolicy ?: owner?.approvalPolicy ?: session?.approvalPolicy,
+        sandboxMode = permissionOverride?.sandboxMode
+            ?: state.nextTurnOverrides.sandbox
+            ?: owner?.sandboxMode
+            ?: session?.sandboxMode
+    )
+    return config.takeIf(CodexEffectiveConfig::hasAnyValue)
+}
+
+internal fun prepareIpcStateForNewThread(state: CodexUiState): CodexUiState {
+    val awaitingNewSurface = !state.activeConversationId.isNullOrBlank()
+    if (!awaitingNewSurface) return recalculateNextTurnEffectiveConfigForUiState(state)
+    return recalculateNextTurnEffectiveConfigForUiState(
+        state.copy(
+            activeConversationId = null,
+            awaitingNewThreadIpcSurface = awaitingNewSurface,
+            ipcSurfaceSnapshot = null,
+            ownerCurrentCodexConfig = null,
+            nextTurnOverrides = NextTurnOverrides(),
+            activeGoal = null
+        )
+    )
+}
+
+private fun valuesMatch(expected: String?, actual: String?): Boolean =
+    !expected.isNullOrBlank() && expected.trim().equals(actual?.trim(), ignoreCase = true)
+
+private fun CodexEffectiveConfig.hasAnyValue(): Boolean =
+    !model.isNullOrBlank() ||
+        !reasoningEffort.isNullOrBlank() ||
+        !personality.isNullOrBlank() ||
+        !approvalPolicy.isNullOrBlank() ||
+        !sandboxMode.isNullOrBlank()
+
+private fun permissionConfigForSandboxOverride(sandboxOverride: String?): CodexEffectiveConfig? {
+    return when (sandboxOverride?.trim()) {
+        "danger-full-access" -> CodexEffectiveConfig(
+            model = null,
+            reasoningEffort = null,
+            personality = null,
+            approvalPolicy = "never",
+            sandboxMode = "danger-full-access"
+        )
+        "workspace-write" -> CodexEffectiveConfig(
+            model = null,
+            reasoningEffort = null,
+            personality = null,
+            approvalPolicy = "on-request",
+            sandboxMode = "workspace-write"
+        )
+        "read-only" -> CodexEffectiveConfig(
+            model = null,
+            reasoningEffort = null,
+            personality = null,
+            approvalPolicy = "on-request",
+            sandboxMode = "read-only"
+        )
+        else -> null
+    }
 }
 
 internal fun mergeSurfaceItems(
@@ -746,7 +900,9 @@ class CodexViewModel(
                     errorMessage = null,
                     connectionState = ConnectionState.CONNECTING,
                     serverNextTurnConfigBase = null,
+                    ownerCurrentCodexConfig = null,
                     nextTurnEffectiveCodexConfig = null,
+                    nextTurnOverrides = NextTurnOverrides(),
                     planWorkflow = buildEmptyPlanWorkflowState(),
                     pendingFileMentions = emptyList(),
                     fileMentionMenuVisible = false,
@@ -810,7 +966,9 @@ class CodexViewModel(
                     errorMessage = null,
                     connectionState = ConnectionState.CONNECTING,
                     serverNextTurnConfigBase = null,
+                    ownerCurrentCodexConfig = null,
                     nextTurnEffectiveCodexConfig = null,
+                    nextTurnOverrides = NextTurnOverrides(),
                     planWorkflow = buildEmptyPlanWorkflowState(),
                     pendingServerRequests = emptyList(),
                     submittingServerRequestIds = emptySet(),
@@ -896,38 +1054,40 @@ class CodexViewModel(
         clearPendingThreadResync()
         clearPendingLaunchHydrate()
         _uiState.update {
-            it.copy(
-                threadId = null,
-                messages = emptyList(),
-                errorMessage = null,
-                planMode = false,
-                planWorkflow = buildEmptyPlanWorkflowState(),
-                pendingFileMentions = emptyList(),
-                fileMentionMenuVisible = false,
-                fileMentionQuery = "",
-                fileMentionResults = emptyList(),
-                fileMentionLoading = false,
-                pendingServerRequests = emptyList(),
-                submittingServerRequestIds = emptySet(),
-                runtimePanel = buildEmptyRuntimePanelState(),
-                noticesPanel = CodexNoticesPanelState(),
-                toolsPanel = it.toolsPanel.copy(
-                    compactSubmitting = false,
-                    compactStatusText = "",
-                    compactStatusTone = ""
-                ),
-                usagePanel = it.usagePanel.copy(
-                    visible = false,
-                    tokenUsageSummary = "",
-                    contextUsage = null
-                ),
-                pendingImageAttachments = emptyList(),
-                currentThreadTitle = "",
-                threadHistorySheetVisible = false,
-                threadHistoryActionThreadId = "",
-                threadHistoryActionKind = "",
-                threadRenameTargetId = "",
-                threadRenameDraft = ""
+            prepareIpcStateForNewThread(
+                it.copy(
+                    threadId = null,
+                    messages = emptyList(),
+                    errorMessage = null,
+                    planMode = false,
+                    planWorkflow = buildEmptyPlanWorkflowState(),
+                    pendingFileMentions = emptyList(),
+                    fileMentionMenuVisible = false,
+                    fileMentionQuery = "",
+                    fileMentionResults = emptyList(),
+                    fileMentionLoading = false,
+                    pendingServerRequests = emptyList(),
+                    submittingServerRequestIds = emptySet(),
+                    runtimePanel = buildEmptyRuntimePanelState(),
+                    noticesPanel = CodexNoticesPanelState(),
+                    toolsPanel = it.toolsPanel.copy(
+                        compactSubmitting = false,
+                        compactStatusText = "",
+                        compactStatusTone = ""
+                    ),
+                    usagePanel = it.usagePanel.copy(
+                        visible = false,
+                        tokenUsageSummary = "",
+                        contextUsage = null
+                    ),
+                    pendingImageAttachments = emptyList(),
+                    currentThreadTitle = "",
+                    threadHistorySheetVisible = false,
+                    threadHistoryActionThreadId = "",
+                    threadHistoryActionKind = "",
+                    threadRenameTargetId = "",
+                    threadRenameDraft = ""
+                )
             )
         }
         connectionManager.send(CodexClientMessages.codexNewThread())
@@ -1422,37 +1582,43 @@ class CodexViewModel(
     fun requestCompactCurrentThread() {
         val state = _uiState.value
         if (state.capabilities?.compact != true) {
+            val message = appContext.getString(R.string.codex_native_tools_compact_unavailable)
             _uiState.update {
                 it.copy(
                     toolsPanel = it.toolsPanel.copy(
-                        compactStatusText = "Compact is unavailable on this server.",
+                        compactStatusText = message,
                         compactStatusTone = "error"
                     )
                 )
             }
+            appendMessage(ChatMessage.Role.ERROR, message)
             return
         }
         val threadId = normalizeThreadId(state.threadId).orEmpty()
         if (threadId.isEmpty()) {
+            val message = appContext.getString(R.string.codex_native_tools_compact_no_thread)
             _uiState.update {
                 it.copy(
                     toolsPanel = it.toolsPanel.copy(
-                        compactStatusText = "Open a thread before requesting compact.",
+                        compactStatusText = message,
                         compactStatusTone = "error"
                     )
                 )
             }
+            appendMessage(ChatMessage.Role.ERROR, message)
             return
         }
+        val requestingMessage = appContext.getString(R.string.codex_native_tools_compact_requesting)
         _uiState.update {
             it.copy(
                 toolsPanel = it.toolsPanel.copy(
                     compactSubmitting = true,
-                    compactStatusText = "Requesting compact for the current thread…",
+                    compactStatusText = requestingMessage,
                     compactStatusTone = ""
                 )
             )
         }
+        appendMessage(ChatMessage.Role.SYSTEM, requestingMessage)
         connectionManager.send(
             CodexClientMessages.codexRequest(
                 action = "thread/compact/start",
@@ -1652,15 +1818,33 @@ class CodexViewModel(
             return
         }
 
-        when (entry.command) {
-            "/model" -> showModelPicker()
-            "/plan" -> handleSlashPlan(parsed.argumentText)
-            "/fast" -> toggleFastMode()
-            "/skills" -> showToolsPanel()
-            "/compact" -> showUsagePanel()
-            "/skill" -> handleSlashSkill(parsed.argumentText)
-            "/mention" -> appendMessage(ChatMessage.Role.SYSTEM, appContext.getString(R.string.codex_native_mention_shortcut_hint))
-            else -> appendMessage(ChatMessage.Role.SYSTEM, "${entry.command} is not yet supported on mobile")
+        when (resolveMobileSlashAction(entry.command)) {
+            MobileSlashAction.SHOW_MODEL_PICKER -> showModelPicker()
+            MobileSlashAction.PLAN -> handleSlashPlan(parsed.argumentText)
+            MobileSlashAction.FAST -> toggleFastMode()
+            MobileSlashAction.SHOW_SKILLS -> showToolsPanel()
+            MobileSlashAction.COMPACT -> requestCompactCurrentThread()
+            MobileSlashAction.NEW_THREAD -> newThread()
+            MobileSlashAction.FORK_THREAD -> {
+                val currentThreadId = normalizeThreadId(_uiState.value.threadId)
+                if (currentThreadId == null) {
+                    appendMessage(
+                        ChatMessage.Role.ERROR,
+                        appContext.getString(R.string.codex_native_slash_fork_no_thread)
+                    )
+                } else {
+                    forkThread(currentThreadId)
+                }
+            }
+            MobileSlashAction.SKILL -> handleSlashSkill(parsed.argumentText)
+            MobileSlashAction.MENTION -> appendMessage(
+                ChatMessage.Role.SYSTEM,
+                appContext.getString(R.string.codex_native_mention_shortcut_hint)
+            )
+            MobileSlashAction.UNSUPPORTED -> appendMessage(
+                ChatMessage.Role.SYSTEM,
+                "${entry.command} is not yet supported on mobile"
+            )
         }
     }
 
@@ -2151,7 +2335,16 @@ class CodexViewModel(
         if (!shouldUseIpcFollowerTransport(state) || conversationId.isEmpty()) return null
         if (isPlanMode) return null
         if (attachments.isNotEmpty() || state.pendingFileMentions.isNotEmpty()) return null
-        return CodexClientMessages.followerSendMessage(conversationId, prompt)
+        val overrides = state.nextTurnOverrides
+        val permissionOverride = permissionConfigForSandboxOverride(overrides.sandbox)
+        val turnConfig = CodexEffectiveConfig(
+            model = overrides.model,
+            reasoningEffort = overrides.reasoningEffort,
+            personality = null,
+            approvalPolicy = permissionOverride?.approvalPolicy,
+            sandboxMode = permissionOverride?.sandboxMode ?: overrides.sandbox
+        ).takeIf(CodexEffectiveConfig::hasAnyValue)
+        return CodexClientMessages.followerSendMessage(conversationId, prompt, turnConfig)
     }
 
     private fun shouldBlockPlainTextFallbackForIpcConversation(
@@ -2605,7 +2798,8 @@ class CodexViewModel(
                     conversations = conversations,
                     activeConversationId = previousConversationId,
                     threadId = currentThreadId,
-                    cwd = currentCwd
+                    cwd = currentCwd,
+                    awaitingNewThreadIpcSurface = _uiState.value.awaitingNewThreadIpcSurface
                 )
                 matchReason = when {
                     selected == null -> "none"
@@ -2620,8 +2814,11 @@ class CodexViewModel(
                 _uiState.update { current ->
                     val preferred = selected
                     if (preferred == null) {
-                        clearIpcConversationSelectionFromUiState(current)
-                    } else if (preferred.conversationId == current.activeConversationId?.trim().orEmpty()) {
+                        if (current.awaitingNewThreadIpcSurface) current else clearIpcConversationSelectionFromUiState(current)
+                    } else if (
+                        preferred.conversationId == current.activeConversationId?.trim().orEmpty() &&
+                        !current.awaitingNewThreadIpcSurface
+                    ) {
                         applyIpcConversationSelectionToUiState(current, preferred)
                     } else {
                         conversationToSubscribe = preferred.conversationId
@@ -2676,7 +2873,7 @@ class CodexViewModel(
                 val snap = DesktopSurfaceSnapshot.from(json)
                 val convId = snap.conversationId
                 val activeConv = _uiState.value.activeConversationId
-                val applied = convId != null && (activeConv == null || convId == activeConv)
+                val applied = convId != null && activeConv != null && convId == activeConv
                 if (applied) {
                     _uiState.update { current -> applyDesktopSurfaceSnapshotToUiState(current, snap) }
                 }
@@ -2727,9 +2924,17 @@ class CodexViewModel(
                         if (boundSessionId.isNotBlank() && boundSessionId != current.sessionId) {
                             current
                         } else {
-                            current.copy(
-                                threadId = conversationId,
-                                activeConversationId = conversationId
+                            val switched = current.activeConversationId?.trim().orEmpty().let {
+                                it.isNotEmpty() && it != conversationId
+                            }
+                            recalculateNextTurnEffectiveConfig(
+                                current.copy(
+                                    threadId = conversationId,
+                                    activeConversationId = conversationId,
+                                    ipcSurfaceSnapshot = if (switched) null else current.ipcSurfaceSnapshot,
+                                    ownerCurrentCodexConfig = if (switched) null else current.ownerCurrentCodexConfig,
+                                    nextTurnOverrides = if (switched) NextTurnOverrides() else current.nextTurnOverrides
+                                )
                             )
                         }
                     }
@@ -2757,6 +2962,9 @@ class CodexViewModel(
                         activeConversationId = current.activeConversationId,
                         currentThreadId = current.threadId
                     )
+                    val ipcConversationSwitched = current.activeConversationId?.trim().orEmpty().let { activeId ->
+                        activeId.isNotEmpty() && nextThreadId != null && activeId != nextThreadId
+                    }
                     // planMode is managed locally — never override from server codex_state
                     val nextPlanMode = current.planMode ?: false
                     val mergedInteractionState = mergeInteractionState(
@@ -2773,6 +2981,9 @@ class CodexViewModel(
                                 planMode = nextPlanMode,
                                 threadId = nextThreadId,
                                 activeConversationId = nextThreadId,
+                                ipcSurfaceSnapshot = if (ipcConversationSwitched) null else current.ipcSurfaceSnapshot,
+                                ownerCurrentCodexConfig = if (ipcConversationSwitched) null else current.ownerCurrentCodexConfig,
+                                nextTurnOverrides = if (ipcConversationSwitched) NextTurnOverrides() else current.nextTurnOverrides,
                                 currentTurnId = state.currentTurnId,
                                 currentThreadTitle = if (nextThreadId == null) {
                                     ""
@@ -2844,6 +3055,11 @@ class CodexViewModel(
                     syncExecutionWatch(
                         it.copy(
                             threadId = readyThreadId,
+                            activeConversationId = if (it.awaitingNewThreadIpcSurface) {
+                                readyThreadId
+                            } else {
+                                it.activeConversationId
+                            },
                             currentTurnId = transition.currentTurnId,
                             messages = transition.messages,
                             runtimePanel = transition.runtimePanel,
@@ -3227,15 +3443,19 @@ class CodexViewModel(
             }
             else -> ""
         }
+        val successMessage = detail.ifEmpty {
+            appContext.getString(R.string.codex_native_tools_compact_submitted)
+        }
         _uiState.update {
             it.copy(
                 toolsPanel = it.toolsPanel.copy(
                     compactSubmitting = false,
-                    compactStatusText = detail.ifEmpty { "Compact request submitted." },
+                    compactStatusText = successMessage,
                     compactStatusTone = if (detail.isEmpty()) "success" else ""
                 )
             )
         }
+        appendMessage(ChatMessage.Role.SYSTEM, successMessage)
     }
 
     private fun extractModelIds(source: org.json.JSONArray?, target: MutableList<String>) {
@@ -3301,6 +3521,7 @@ class CodexViewModel(
                         )
                     )
                 }
+                appendMessage(ChatMessage.Role.ERROR, message)
             }
             "thread/resume",
             "thread/read",
@@ -5829,67 +6050,7 @@ class CodexViewModel(
     }
 
     private fun recalculateNextTurnEffectiveConfig(state: CodexUiState): CodexUiState {
-        return state.copy(
-            nextTurnEffectiveCodexConfig = buildLocalNextTurnEffectiveConfig(state)
-        )
-    }
-
-    private fun buildLocalNextTurnEffectiveConfig(state: CodexUiState): CodexEffectiveConfig? {
-        val base = state.serverNextTurnConfigBase
-        val permissionOverride = derivePermissionOverrideFromSandbox(state.nextTurnOverrides.sandbox)
-        if (base != null) {
-            return base.copy(
-                model = state.nextTurnOverrides.model ?: base.model,
-                reasoningEffort = state.nextTurnOverrides.reasoningEffort ?: base.reasoningEffort,
-                approvalPolicy = permissionOverride?.approvalPolicy ?: base.approvalPolicy,
-                sandboxMode = permissionOverride?.sandboxMode ?: base.sandboxMode
-            )
-        }
-        val fallbackReasoning = state.reasoningEffort ?: state.capabilities?.defaultReasoningEffort
-        val sandboxMode = permissionOverride?.sandboxMode ?: state.nextTurnOverrides.sandbox
-        val approvalPolicy = permissionOverride?.approvalPolicy
-        if (
-            state.nextTurnOverrides.model.isNullOrBlank() &&
-            fallbackReasoning.isNullOrBlank() &&
-            sandboxMode.isNullOrBlank() &&
-            approvalPolicy.isNullOrBlank()
-        ) {
-            return null
-        }
-        return CodexEffectiveConfig(
-            model = state.nextTurnOverrides.model ?: state.model,
-            reasoningEffort = state.nextTurnOverrides.reasoningEffort ?: fallbackReasoning,
-            personality = null,
-            approvalPolicy = approvalPolicy,
-            sandboxMode = sandboxMode
-        )
-    }
-
-    private fun derivePermissionOverrideFromSandbox(sandboxOverride: String?): CodexEffectiveConfig? {
-        return when (sandboxOverride?.trim()) {
-            "danger-full-access" -> CodexEffectiveConfig(
-                model = null,
-                reasoningEffort = null,
-                personality = null,
-                approvalPolicy = "never",
-                sandboxMode = "danger-full-access"
-            )
-            "workspace-write" -> CodexEffectiveConfig(
-                model = null,
-                reasoningEffort = null,
-                personality = null,
-                approvalPolicy = "on-request",
-                sandboxMode = "workspace-write"
-            )
-            "read-only" -> CodexEffectiveConfig(
-                model = null,
-                reasoningEffort = null,
-                personality = null,
-                approvalPolicy = "on-request",
-                sandboxMode = "read-only"
-            )
-            else -> null
-        }
+        return recalculateNextTurnEffectiveConfigForUiState(state)
     }
 
     private fun parseSnapshotMessages(snapshot: CodexThreadSnapshot): List<ChatMessage> {
