@@ -50,6 +50,8 @@ test('codex client shell uses the Phase 1 conversation-first header and shared c
     assert.match(html, /id="codex-context-widget"/);
     assert.doesNotMatch(html, /id="codex-context-modal"/);
     assert.match(html, /id="codex-command-approval-modal"/);
+    assert.match(html, /id="codex-attachment-preview-modal"[^>]*hidden/);
+    assert.match(html, /id="codex-attachment-preview-download"[^>]*download/);
     assert.match(html, /id="codex-slash-menu"/);
     assert.match(html, /id="codex-history-actions"[\s\S]*id="btn-codex-history-refresh"[\s\S]*id="btn-codex-new-thread"/);
     assert.doesNotMatch(html, /id="btn-codex-permission-preset"/);
@@ -412,6 +414,10 @@ test('Phase 2: terminal_client.js must parse model\/list and skills\/list payloa
     assert.match(js, /const items = isSkillQuery\s*\?\s*\[\]/);
     assert.match(js, /codexSlashMenuEmpty\.hidden = isSkillQuery \? skillItems\.length > 0/);
     assert.match(js, /function applyCodexSkillSelection\(skillEntry\)/);
+    assert.match(js, /function openCodexAttachmentPreview\(attachment\)/);
+    assert.match(js, /function getCodexAttachmentContentUrl\(attachment, download\)/);
+    assert.ok(js.includes('kind: /\\.(png|jpe?g|gif|webp|svg)$/i.test(label || filePath)'));
+    assert.match(js, /chip\.addEventListener\('click', \(\) => openCodexAttachmentPreview\(attachment\)\)/);
     assert.match(js, /const rawToken = buildCodexSkillTokenText\(skillEntry\);/);
     assert.match(js, /if \(!buildCodexSkillTokenText\(skillEntry\) \|\| !codexInput\) \{\s*return;\s*\}/);
     assert.match(slashJs, /function buildSkillToken\(input\)/);

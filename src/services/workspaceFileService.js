@@ -327,6 +327,14 @@ async function readWorkspaceFile(workspaceRoot, requestedPath) {
     return readTextPreview(target, target.stats);
 }
 
+async function resolveWorkspaceFileContent(workspaceRoot, requestedPath) {
+    const target = await resolveWorkspaceTarget(workspaceRoot, requestedPath);
+    if (!target.stats.isFile()) {
+        throw new WorkspaceError('WORKSPACE_PATH_INVALID', 'Requested path must be a file.', 400);
+    }
+    return target;
+}
+
 async function readWorkspaceFileSegment(workspaceRoot, requestedPath, offset, length) {
     const target = await resolveWorkspaceTarget(workspaceRoot, requestedPath);
     if (!target.stats.isFile()) {
@@ -552,6 +560,7 @@ async function searchWorkspaceFiles(workspaceRoot, query, limit = 20) {
 module.exports = {
     listWorkspaceDirectory,
     readWorkspaceFile,
+    resolveWorkspaceFileContent,
     readWorkspaceFileSegment,
     readWorkspaceLimitedSegment,
     listPickerDirectories,

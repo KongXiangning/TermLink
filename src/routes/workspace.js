@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const {
     normalizeBooleanFlag,
     formatWorkspaceError
@@ -6,6 +7,7 @@ const {
 const {
     listWorkspaceDirectory,
     readWorkspaceFile,
+    resolveWorkspaceFileContent,
     readWorkspaceFileSegment,
     readWorkspaceLimitedSegment,
     listPickerDirectories
@@ -32,6 +34,18 @@ function mergeGitStatuses(entries, statusMap) {
         ...entry,
         gitStatus: statusMap.get(entry.name) || null
     }));
+}
+
+function getWorkspaceContentType(filePath) {
+    switch (path.extname(filePath).toLowerCase()) {
+    case '.png': return 'image/png';
+    case '.jpg': case '.jpeg': return 'image/jpeg';
+    case '.gif': return 'image/gif';
+    case '.webp': return 'image/webp';
+    case '.svg': return 'image/svg+xml';
+    case '.pdf': return 'application/pdf';
+    default: return 'application/octet-stream';
+    }
 }
 
 function createWorkspaceRouter(sessionManager) {
@@ -73,6 +87,21 @@ function createWorkspaceRouter(sessionManager) {
             const access = await resolveWorkspaceAccess(sessionManager, req.params.id);
             const payload = await readWorkspaceFile(access.workspaceRoot, req.query.path);
             return res.json(payload);
+        } catch (error) {
+            return sendWorkspaceError(res, error);
+        }
+    });
+
+    router.get('/sessions/:id/workspace/file-content', async (req, res) => {
+        try {
+            const access = await resolveWorkspaceAccess(sessionManager, req.params.id);
+            const target = await resolveWorkspaceFileContent(access.workspaceRoot, req.query.path);
+            const shouldDownload = normalizeBooleanFlag(req.query.download, false);
+            res.type(getWorkspaceContentType(target.realTargetPath));
+            if (shouldDownload) {
+                res.attachment(path.basename(target.realTargetPath));
+            }
+            return res.sendFile(target.realTargetPath);
         } catch (error) {
             return sendWorkspaceError(res, error);
         }

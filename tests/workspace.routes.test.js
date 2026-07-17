@@ -27,6 +27,18 @@ function createMockRes() {
         json(payload) {
             this.body = payload;
             return this;
+        },
+        type(value) {
+            this.contentType = value;
+            return this;
+        },
+        attachment(value) {
+            this.attachmentName = value;
+            return this;
+        },
+        sendFile(value) {
+            this.sentFile = value;
+            return this;
         }
     };
 }
@@ -192,6 +204,29 @@ test('workspace file endpoint supports full, truncated, segmented, and limited v
         assert.equal(res.body.viewMode, expectedMode);
         assert.equal(res.body.previewable, true);
     }
+});
+
+test('workspace file-content serves only workspace files and supports an explicit download disposition', async (t) => {
+    const temp = createTempWorkspace();
+    t.after(() => temp.cleanup());
+    const imagePath = path.join(temp.root, 'preview.png');
+    fs.writeFileSync(imagePath, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    const sessionManager = createSessionManager({
+        id: 'sess-content', sessionMode: 'codex', cwd: temp.root,
+        workspaceRoot: temp.root, workspaceRootSource: 'session_cwd'
+    });
+    const router = createWorkspaceRouter(sessionManager);
+    const handler = getRouteHandler(router, '/sessions/:id/workspace/file-content', 'get');
+    const inline = createMockRes();
+    await handler({ params: { id: 'sess-content' }, query: { path: 'preview.png' } }, inline);
+    assert.equal(inline.statusCode, 200);
+    assert.equal(inline.contentType, 'image/png');
+    assert.equal(inline.sentFile, imagePath);
+    assert.equal(inline.attachmentName, undefined);
+
+    const download = createMockRes();
+    await handler({ params: { id: 'sess-content' }, query: { path: 'preview.png', download: 'true' } }, download);
+    assert.equal(download.attachmentName, 'preview.png');
 });
 
 test('workspace diff returns unified diff for tracked changes and explicit feedback for untracked files', async (t) => {

@@ -1567,6 +1567,16 @@ body.codex-only #codex-log-stack {
     text-overflow: ellipsis;
 }
 
+button.codex-entry-chip {
+    cursor: pointer;
+    font: inherit;
+}
+
+.codex-attachment-preview-card { width: min(900px, calc(100vw - 32px)); max-height: min(82vh, 760px); }
+.codex-attachment-preview-body { min-height: 96px; max-height: 58vh; overflow: auto; border: 1px solid #2d3a4c; border-radius: 8px; background: #0d1117; }
+.codex-attachment-preview-image { display: block; max-width: 100%; max-height: 56vh; margin: 0 auto; object-fit: contain; }
+.codex-attachment-preview-text { margin: 0; padding: 14px; white-space: pre-wrap; overflow-wrap: anywhere; color: #c9d1d9; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
 .codex-entry-chip-skill {
     color: #7ee787;
     border-color: rgba(78, 222, 163, 0.25);

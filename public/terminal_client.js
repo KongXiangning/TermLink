@@ -118,6 +118,12 @@ const codexCommandApprovalCommand = document.getElementById('codex-command-appro
 const codexCommandApprovalRememberWrap = document.getElementById('codex-command-approval-remember-wrap');
 const codexCommandApprovalRemember = document.getElementById('codex-command-approval-remember');
 const btnCodexCommandApprovalReject = document.getElementById('btn-codex-command-approval-reject');
+const codexAttachmentPreviewModal = document.getElementById('codex-attachment-preview-modal');
+const codexAttachmentPreviewTitle = document.getElementById('codex-attachment-preview-title');
+const codexAttachmentPreviewStatus = document.getElementById('codex-attachment-preview-status');
+const codexAttachmentPreviewBody = document.getElementById('codex-attachment-preview-body');
+const codexAttachmentPreviewDownload = document.getElementById('codex-attachment-preview-download');
+const btnCodexAttachmentPreviewClose = document.getElementById('btn-codex-attachment-preview-close');
 const btnCodexCommandApprovalApprove = document.getElementById('btn-codex-command-approval-approve');
 const isCodexOnlyPage = !!(document.body && document.body.classList.contains('codex-only'));
 
@@ -436,6 +442,7 @@ function buildCodexImageAttachmentSummary(entry) {
         return {
             kind: 'image',
             label,
+            url: typeof entry.url === 'string' ? entry.url.trim() : '',
             dedupeKey: buildCodexAttachmentDedupeKey(localPath || label)
         };
     }
@@ -467,7 +474,7 @@ function buildCodexFileAttachmentSummary(entry) {
         return null;
     }
     return {
-        kind: 'file',
+        kind: /\.(png|jpe?g|gif|webp|svg)$/i.test(label || filePath) ? 'image' : 'file',
         label: label || filePath,
         path: filePath
     };
@@ -538,7 +545,8 @@ function renderCodexUserMessageContext(entry, presentation) {
     const contextNode = document.createElement('div');
     contextNode.className = 'codex-entry-context';
     presentation.attachments.forEach((attachment) => {
-        const chip = document.createElement('span');
+        const chip = document.createElement('button');
+        chip.type = 'button';
         chip.className = `codex-entry-chip codex-entry-chip-${attachment.kind}`;
         chip.textContent = attachment.kind === 'image'
             ? `🖼 ${attachment.label}`
@@ -546,10 +554,86 @@ function renderCodexUserMessageContext(entry, presentation) {
         chip.title = attachment.kind === 'image'
             ? attachment.label
             : (attachment.path || attachment.url || attachment.label);
+        chip.addEventListener('click', () => openCodexAttachmentPreview(attachment));
         contextNode.appendChild(chip);
     });
     const contentNode = entry.querySelector('.content');
     entry.insertBefore(contextNode, contentNode || null);
+}
+
+function getCodexWorkspaceRelativePath(filePath) {
+    const rawPath = typeof filePath === 'string' ? filePath.trim() : '';
+    const root = String(codexState.cwd || getConfiguredCodexCwd() || '').trim();
+    if (!rawPath || !root) return rawPath;
+    const normalizedPath = rawPath.replace(/\\/g, '/');
+    const normalizedRoot = root.replace(/\\/g, '/').replace(/\/+$/, '');
+    return normalizedPath.toLowerCase().startsWith(`${normalizedRoot.toLowerCase()}/`)
+        ? normalizedPath.slice(normalizedRoot.length + 1)
+        : rawPath;
+}
+
+function getCodexAttachmentContentUrl(attachment, download) {
+    if (attachment && attachment.url) return attachment.url;
+    const activeSessionId = sessionId;
+    const relativePath = getCodexWorkspaceRelativePath(attachment && attachment.path);
+    const basePath = serverUrl ? serverUrl.replace(/\/+$/, '') : '';
+    if (!activeSessionId || !relativePath) return '';
+    return `${basePath}/api/sessions/${encodeURIComponent(activeSessionId)}/workspace/file-content?path=${encodeURIComponent(relativePath)}${download ? '&download=true' : ''}`;
+}
+
+async function openCodexAttachmentPreview(attachment) {
+    if (!codexAttachmentPreviewModal || !attachment) return;
+    const sourceUrl = getCodexAttachmentContentUrl(attachment, false);
+    const downloadUrl = attachment.url || getCodexAttachmentContentUrl(attachment, true);
+    codexAttachmentPreviewModal.hidden = false;
+    codexAttachmentPreviewTitle.textContent = attachment.label || t('codex.attachment.preview');
+    codexAttachmentPreviewBody.replaceChildren();
+    codexAttachmentPreviewStatus.hidden = true;
+    codexAttachmentPreviewStatus.textContent = '';
+    codexAttachmentPreviewDownload.hidden = !downloadUrl;
+    codexAttachmentPreviewDownload.href = downloadUrl || '#';
+    codexAttachmentPreviewDownload.download = attachment.label || '';
+    if (!sourceUrl) {
+        codexAttachmentPreviewStatus.textContent = t('codex.attachment.unavailable');
+        codexAttachmentPreviewStatus.hidden = false;
+        return;
+    }
+    if (attachment.kind === 'image') {
+        const image = document.createElement('img');
+        image.className = 'codex-attachment-preview-image';
+        image.src = sourceUrl;
+        image.alt = attachment.label || '';
+        image.addEventListener('error', () => {
+            codexAttachmentPreviewStatus.textContent = t('codex.attachment.loadFailed');
+            codexAttachmentPreviewStatus.hidden = false;
+        });
+        codexAttachmentPreviewBody.appendChild(image);
+        return;
+    }
+    codexAttachmentPreviewStatus.textContent = t('codex.attachment.loading');
+    codexAttachmentPreviewStatus.hidden = false;
+    try {
+        const response = await fetch(`${sourceUrl.replace('/file-content?', '/file?')}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const preview = await response.json();
+        if (preview.previewable === false) {
+            codexAttachmentPreviewStatus.textContent = t('codex.attachment.binary');
+            return;
+        }
+        const content = document.createElement('pre');
+        content.className = 'codex-attachment-preview-text';
+        content.textContent = preview.content || '';
+        codexAttachmentPreviewBody.appendChild(content);
+        codexAttachmentPreviewStatus.hidden = true;
+    } catch (error) {
+        codexAttachmentPreviewStatus.textContent = t('codex.attachment.loadFailed');
+    }
+}
+
+function closeCodexAttachmentPreview() {
+    if (!codexAttachmentPreviewModal) return;
+    codexAttachmentPreviewModal.hidden = true;
+    codexAttachmentPreviewBody.replaceChildren();
 }
 
 function insertMentionTagAtCursor(file) {
@@ -7971,9 +8055,15 @@ document.querySelectorAll('[data-modal-dismiss]').forEach((node) => {
         const target = node.getAttribute('data-modal-dismiss');
         if (target === 'context-debug') {
             setCodexContextDebugModalOpen(false);
+        } else if (target === 'attachment-preview') {
+            closeCodexAttachmentPreview();
         }
     });
 });
+
+if (btnCodexAttachmentPreviewClose) {
+    btnCodexAttachmentPreviewClose.addEventListener('click', closeCodexAttachmentPreview);
+}
 
 if (btnCodexSend) {
     btnCodexSend.addEventListener('click', () => {
