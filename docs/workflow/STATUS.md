@@ -23,6 +23,7 @@
 - [x] Codex 原生会话实时同步核心：同一任务的 Android 实时状态同步、IPC conversation id 绑定回写与 Android 入口直传、A/B session 隔离、external owner 缺失时的 TermLink owner fallback 已完成自动化与真机手动验证；稳定边界见 `CONTRACTS.md` 的“Codex 原生会话实时同步核心”。真实 owner 授权提权、PLAN 和 Goal 控制不在本稳定项内。
 - [x] Codex Android 真实 owner 控制面：Approval、PLAN implementation、Goal 启动与继续/恢复已在真实 Desktop owner + TermLink gateway + Android 真机完成闭环；pending 与 activeGoal 只由 owner snapshot 收敛，raw JSON-RPC requestId 保持原始类型。Goal update/cancel/complete 因 external owner IPC 未提供客户端动作，不在稳定能力内。
 - [x] 网页版登录、配置/会话、共享视觉基线与 terminal-first 工作区：任务 `20260715-002` Steps 1-9 已完成并归档。新增 additive HttpOnly Cookie 登录并保留 Basic/API/WS 契约；配置、drawer/dialog、terminal status/focus/fit/reconnect/mobile input 和 workspace/Codex 兼容已收口。Edge 150 在 1440/768/390 三档真实渲染/交互 QA 通过，最终相关自动化 111/111 pass。
+- [x] Web Codex 推理强度、权限选项与单一路径展示：任务 `20260716-002` 已完成。推理选项按当前模型 metadata 驱动，权限展示映射既有 effective sandbox 配置并保持 turn envelope 兼容，头部仅保留带 `PATH` 标签的 cwd；任务定向测试 123/123、TD-004 confirmed narrow gate 125/125，既有 3020 Edge/WebSocket smoke 通过。
 
 ## 🔨 正在开发
 
@@ -84,6 +85,7 @@
 
 ## 最近更新记录
 
+- 2026-07-18：完成并归档 `20260716-002`。最终审查范围固定为 `d0cc650..f74f1d1`，后续 `01f96c4`、`ec895b2` 作为 scope-external 提交排除；scope / implementation / contracts review 与 report-only regression 全部通过，无 blocker。归档文件为 `TASKS/TASK-20260716-002-fix-web-codex-reasoning-permissions-data.md`。
 - 2026-07-16：完成 `20260715-002` 归档，归档文件为 `TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md`；`CURRENT_TASK.md` 已清理为 clean handoff 入口。新 browser authentication session 边界已同步到 `CONTRACTS.md`，touch focus restore 与 WSL/Windows browser-backed QA 经验已沉淀到 `LESSONS.md`。
 - 2026-07-16：完成 `20260715-002` Steps 8-9 和最终收口。Edge 150 真实浏览器验证覆盖 login/config/terminal 的 1440×900、768×1024、390×844 渲染、键盘/触屏、登录成败与 loading、xterm 输入/fit/reconnect、drawer/dialog focus、溢出、触控尺寸、reduced-motion、对比度和 console。三项视觉 finding（宽屏 toolbar/粗指针尺寸、touch focus restore、对比度）均已修复并复验。统一 task-base scope/implementation/contracts review clean，最终 111/111 tests 与 syntax/i18n/diff checks 通过，任务进入 closeout handoff。截图与报告位于 `C:\temp\termlink-visual-qa\`。
 - 2026-07-16：完成 `20260715-002` Step 7 跨页兼容与 review 链。Codex IPC stable UI 已去 inline layout 并接入双语，mobile controls/selector/message layout 收口；workspace 手机 pane/actions 与长路径适配完成；Codex legacy focus resets 不再吞掉 shared focus ring；sessions/terminal 共用 i18n ready Promise，避免 runtime drawer 显示 key。新增 cross-page regression，最终相关自动化 111/111 pass。主机无浏览器运行时，任务停在 Step 8 真实视觉 QA，未宣称像素证据完成。
