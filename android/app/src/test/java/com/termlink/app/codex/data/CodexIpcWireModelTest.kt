@@ -8,6 +8,23 @@ import org.junit.Assert.*
 class CodexIpcWireModelTest {
 
     @Test
+    fun `permission profile catalog preserves dynamic ids descriptions and availability`() {
+        val profiles = CodexPermissionProfileOption.listFrom(
+            JSONObject(
+                """{"data":[
+                  {"id":":workspace","description":"Workspace access","allowed":true},
+                  {"id":"team-safe","description":"Team policy","allowed":false}
+                ]}"""
+            )
+        )
+
+        assertEquals(listOf(":workspace", "team-safe"), profiles.map { it.id })
+        assertEquals("Workspace access", profiles.first().description)
+        assertTrue(profiles.first().allowed)
+        assertFalse(profiles.last().allowed)
+    }
+
+    @Test
     fun `model catalog keeps per-model reasoning metadata and filters hidden entries`() {
         val result = JSONObject(
             """
@@ -29,6 +46,41 @@ class CodexIpcWireModelTest {
         assertEquals("high", catalog.single().defaultReasoningEffort)
         assertEquals(listOf("low", "medium", "high"), catalog.single().supportedReasoningEfforts)
         assertTrue(catalog.single().isDefault)
+    }
+
+    @Test
+    fun `model catalog keeps user facing legacy models but filters internal hidden models`() {
+        val result = JSONObject(
+            """{"data":[
+              {"id":"gpt-current","displayName":"Current","hidden":false,
+               "defaultReasoningEffort":"medium","supportedReasoningEfforts":["medium"]},
+              {"id":"gpt-legacy","displayName":"Legacy","hidden":true,
+               "upgrade":"gpt-current","defaultReasoningEffort":"medium",
+               "supportedReasoningEfforts":["medium"],
+               "upgradeInfo":{"model":"gpt-current","migrationMarkdown":"Use the current model"}},
+              {"id":"internal-reviewer","displayName":"Internal","hidden":true,
+               "defaultReasoningEffort":"medium","supportedReasoningEfforts":["medium"]}
+            ]}"""
+        )
+
+        val catalog = CodexModelOption.listFrom(result)
+
+        assertEquals(listOf("gpt-current", "gpt-legacy"), catalog.map { it.id })
+        assertTrue(catalog.last().hidden)
+        assertEquals("gpt-current", catalog.last().upgradeModel)
+        assertEquals("Use the current model", catalog.last().upgradeMessage)
+    }
+
+    @Test
+    fun `model list request can opt into hidden catalog entries`() {
+        val request = JSONObject(
+            CodexClientMessages.codexRequest(
+                "model/list",
+                JSONObject().put("includeHidden", true)
+            )
+        )
+
+        assertTrue(request.getJSONObject("params").getBoolean("includeHidden"))
     }
 
     @Test
@@ -114,7 +166,7 @@ class CodexIpcWireModelTest {
         {"type":"conversation_surface_snapshot","conversationId":"c1",
          "snapshot":{"conversationId":"c1","revision":3,"status":"running","updatedAt":1000,
          "latestTurnId":"t1",
-         "currentCodexConfig":{"model":"gpt-5.6","reasoningEffort":"HIGH","approvalPolicy":"never","sandboxMode":"danger-full-access"},
+         "currentCodexConfig":{"model":"gpt-5.6","reasoningEffort":"HIGH","approvalPolicy":"never","sandboxMode":"danger-full-access","approvalsReviewer":"auto_review","activePermissionProfile":{"id":":workspace"}},
          "items":[
            {"key":"m1","kind":"message","role":"user","text":"hello","turnId":"t1"},
            {"key":"m2","kind":"message","role":"assistant","phase":"final_answer","text":"world","turnId":"t1"},
@@ -129,6 +181,8 @@ class CodexIpcWireModelTest {
         assertEquals("high", snap.currentCodexConfig?.reasoningEffort)
         assertEquals("never", snap.currentCodexConfig?.approvalPolicy)
         assertEquals("danger-full-access", snap.currentCodexConfig?.sandboxMode)
+        assertEquals("auto_review", snap.currentCodexConfig?.approvalsReviewer)
+        assertEquals(":workspace", snap.currentCodexConfig?.permissionProfile)
         assertEquals(3, snap.items.size)
         assertEquals("message", snap.items[0].kind)
         assertEquals("user", snap.items[0].role)
@@ -284,15 +338,40 @@ class CodexIpcWireModelTest {
                 reasoningEffort = "high",
                 personality = null,
                 approvalPolicy = "on-request",
-                sandboxMode = "workspace-write"
+                sandboxMode = null,
+                approvalsReviewer = "auto_review",
+                permissionProfile = ":workspace"
             )
         )
         val turnConfig = JSONObject(msg).getJSONObject("turnConfig")
 
         assertEquals("high", turnConfig.getString("reasoningEffort"))
         assertEquals("on-request", turnConfig.getString("approvalPolicy"))
-        assertEquals("workspace-write", turnConfig.getString("sandboxMode"))
+        assertEquals("auto_review", turnConfig.getString("approvalsReviewer"))
+        assertEquals(":workspace", turnConfig.getString("permissionProfile"))
+        assertFalse(turnConfig.has("sandboxMode"))
         assertFalse(turnConfig.has("model"))
+    }
+
+    @Test
+    fun `followerSendMessage builder preserves explicit config permission reset`() {
+        val msg = CodexClientMessages.followerSendMessage(
+            "conv-1",
+            "Use config permissions",
+            CodexEffectiveConfig(
+                model = null,
+                reasoningEffort = null,
+                personality = null,
+                approvalPolicy = null,
+                sandboxMode = null,
+                useConfigPermissions = true
+            )
+        )
+
+        val turnConfig = JSONObject(msg).getJSONObject("turnConfig")
+        assertTrue(turnConfig.getBoolean("useConfigPermissions"))
+        assertFalse(turnConfig.has("permissionProfile"))
+        assertFalse(turnConfig.has("sandboxMode"))
     }
 
     @Test

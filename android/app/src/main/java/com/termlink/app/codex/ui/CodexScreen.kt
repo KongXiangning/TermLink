@@ -115,6 +115,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.termlink.app.BuildConfig
 import com.termlink.app.R
+import com.termlink.app.codex.isOwnerConfigHydratingForUiState
 import com.termlink.app.codex.data.CodexSlashRegistry
 import com.termlink.app.codex.data.CodexServerRequest
 import com.termlink.app.codex.data.CodexServerRequestQuestion
@@ -127,6 +128,11 @@ import com.termlink.app.codex.domain.CodexUiState
 import com.termlink.app.codex.domain.ConnectionState
 import com.termlink.app.codex.domain.DebugServerRequestPreset
 import com.termlink.app.codex.domain.FileMention
+import com.termlink.app.codex.domain.PERMISSION_CHOICE_ASK
+import com.termlink.app.codex.domain.PERMISSION_CHOICE_AUTO_REVIEW
+import com.termlink.app.codex.domain.PERMISSION_CHOICE_CUSTOM
+import com.termlink.app.codex.domain.PERMISSION_CHOICE_FULL_ACCESS
+import com.termlink.app.codex.domain.PERMISSION_PROFILE_CHOICE_PREFIX
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -3487,6 +3493,7 @@ private fun FooterControls(
     onSubmit: () -> Unit,
     onInterrupt: () -> Unit
 ) {
+    val configHydrating = isOwnerConfigHydratingForUiState(state)
     val effectiveConfig = state.nextTurnEffectiveCodexConfig
     val activeModel = resolvedConcreteModelSelection(state)
     val activeModelMetadata = state.modelCatalog.firstOrNull { it.id == activeModel }
@@ -3496,16 +3503,36 @@ private fun FooterControls(
         ?: state.reasoningEffort
         ?: activeModelMetadata?.defaultReasoningEffort
         ?: state.capabilities?.defaultReasoningEffort?.takeIf { it.isNotBlank() }
-    val activeSandboxMode = resolvedConcreteSandboxSelection(state)
-    val activeApprovalPolicy = resolvedApprovalPolicy(state)
+    val activePermission = resolvedPermissionSelection(state)
     var addMenuExpanded by remember { mutableStateOf(false) }
     var configSheetExpanded by remember { mutableStateOf(false) }
-    val modelSummary = activeModelLabel ?: stringResource(R.string.codex_native_quick_default)
-    val reasoningSummary = activeReasoning?.let { reasoningEffortLabel(it) }
-        ?: stringResource(R.string.codex_native_quick_default)
-    val permissionSummary = sandboxFooterLabel(activeSandboxMode)
-    val permissionAccessibilityLabel = permissionFooterLabel(activeSandboxMode, activeApprovalPolicy)
-    val modelReasoningSummary = "${compactComposerModelLabel(modelSummary)} $reasoningSummary"
+    val loadingSummary = stringResource(R.string.codex_native_config_loading)
+    val modelSummary = if (configHydrating) {
+        loadingSummary
+    } else {
+        activeModelLabel ?: stringResource(R.string.codex_native_quick_default)
+    }
+    val reasoningSummary = if (configHydrating) {
+        loadingSummary
+    } else {
+        activeReasoning?.let { reasoningEffortLabel(it) }
+            ?: stringResource(R.string.codex_native_quick_default)
+    }
+    val permissionSummary = if (configHydrating) {
+        loadingSummary
+    } else {
+        permissionSelectionLabel(activePermission, short = true)
+    }
+    val permissionAccessibilityLabel = if (configHydrating) {
+        loadingSummary
+    } else {
+        permissionSelectionLabel(activePermission, short = false)
+    }
+    val modelReasoningSummary = if (configHydrating) {
+        loadingSummary
+    } else {
+        "${compactComposerModelLabel(modelSummary)} $reasoningSummary"
+    }
     val contextUsedPercent = displayedContextUsage(state)?.usedPercent?.coerceIn(0, 100)
 
     LaunchedEffect(slashMenuVisible) {
@@ -3570,9 +3597,11 @@ private fun FooterControls(
                 accessibilityLabel = permissionAccessibilityLabel,
                 active = state.sandboxPickerVisible,
                 onClick = {
-                    addMenuExpanded = false
-                    configSheetExpanded = false
-                    onShowSandboxPicker()
+                    if (!configHydrating) {
+                        addMenuExpanded = false
+                        configSheetExpanded = false
+                        onShowSandboxPicker()
+                    }
                 }
             )
         }
@@ -3585,8 +3614,10 @@ private fun FooterControls(
             active = configSheetExpanded || state.modelPickerVisible || state.reasoningPickerVisible,
             compact = state.planMode == true,
             onClick = {
-                addMenuExpanded = false
-                configSheetExpanded = true
+                if (!configHydrating) {
+                    addMenuExpanded = false
+                    configSheetExpanded = true
+                }
             }
         )
         ComposerSubmitButton(
@@ -4953,7 +4984,7 @@ private fun ModelPickerSheet(
                     com.termlink.app.codex.data.CodexModelOption(model, model)
                 }
             }
-            modelOptions.forEach { model ->
+            modelOptions.filterNot { it.hidden }.forEach { model ->
                 ModelPickerRow(
                     label = model.displayName,
                     secondary = model.description,
@@ -4962,10 +4993,41 @@ private fun ModelPickerSheet(
                 )
             }
 
+            val legacyModels = modelOptions.filter { it.hidden && !it.upgradeModel.isNullOrBlank() }
+            if (legacyModels.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.codex_native_model_picker_legacy_title),
+                    color = TextMuted,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 8.dp)
+                )
+                legacyModels.forEach { model ->
+                    val migrationText = model.upgradeMessage?.takeIf { it.isNotBlank() }
+                        ?.let(::plainModelMigrationText)
+                        ?: stringResource(
+                            R.string.codex_native_model_picker_legacy_replacement,
+                            model.upgradeModel.orEmpty()
+                        )
+                    ModelPickerRow(
+                        label = model.displayName,
+                        secondary = migrationText,
+                        selected = currentModel == model.id,
+                        enabled = false,
+                        onClick = {}
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
+
+private fun plainModelMigrationText(markdown: String): String = markdown
+    .replace(Regex("\\[([^]]+)]\\([^)]+\\)"), "$1")
+    .replace("`", "")
+    .replace("**", "")
+    .trim()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -4976,12 +5038,10 @@ private fun ReasoningPickerSheet(
 ) {
     val currentModel = resolvedConcreteModelSelection(state)
     val currentModelMetadata = state.modelCatalog.firstOrNull { it.id == currentModel }
-    val selectedEffort = state.nextTurnOverrides.reasoningEffort
     val effectiveEffort = state.nextTurnEffectiveCodexConfig?.reasoningEffort
         ?: state.reasoningEffort
         ?: currentModelMetadata?.defaultReasoningEffort
         ?: state.capabilities?.defaultReasoningEffort?.takeIf { it.isNotBlank() }
-    val defaultEffort = currentModelMetadata?.defaultReasoningEffort ?: effectiveEffort
     val options = currentModelMetadata?.supportedReasoningEfforts
         ?: state.capabilities?.reasoningEffortLevels.orEmpty()
     ModalBottomSheet(
@@ -5010,15 +5070,6 @@ private fun ReasoningPickerSheet(
             )
             Spacer(modifier = Modifier.height(14.dp))
 
-            ModelPickerRow(
-                label = stringResource(R.string.codex_native_reasoning_picker_default),
-                selected = selectedEffort.isNullOrBlank(),
-                secondary = defaultEffort
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let { reasoningEffortLabel(it) },
-                onClick = { onSelectReasoningEffort(null) }
-            )
-
             if (options.isEmpty()) {
                 Text(
                     text = stringResource(R.string.codex_native_reasoning_picker_empty),
@@ -5030,7 +5081,7 @@ private fun ReasoningPickerSheet(
                 options.forEach { effort ->
                     ModelPickerRow(
                         label = reasoningEffortLabel(effort),
-                        selected = selectedEffort == effort,
+                        selected = effectiveEffort.equals(effort, ignoreCase = true),
                         onClick = { onSelectReasoningEffort(effort) }
                     )
                 }
@@ -5048,6 +5099,16 @@ private fun SandboxPickerSheet(
     onDismiss: () -> Unit,
     onSelectSandboxMode: (String?) -> Unit
 ) {
+    val selected = resolvedPermissionSelection(state)
+    val modernPermissionControls = state.capabilities == null ||
+        state.capabilities.permissionProfiles ||
+        state.capabilities.approvalsReviewer
+    val selectedLegacySandbox = resolvedConcreteSandboxSelection(state)
+    val namedProfiles = state.permissionProfiles.filterNot {
+        it.id.equals(":read-only", ignoreCase = true) ||
+            it.id.equals(":workspace", ignoreCase = true) ||
+            it.id.equals(":danger-full-access", ignoreCase = true)
+    }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = SurfaceColor,
@@ -5062,32 +5123,116 @@ private fun SandboxPickerSheet(
                 .verticalScroll(rememberScrollState())
         ) {
             Text(
-                text = stringResource(R.string.codex_native_sandbox_picker_title),
+                text = stringResource(
+                    if (modernPermissionControls) {
+                        R.string.codex_native_permission_picker_title
+                    } else {
+                        R.string.codex_native_sandbox_picker_title
+                    }
+                ),
                 color = TextPrimary,
                 style = MaterialTheme.typography.titleMedium
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = stringResource(R.string.codex_native_sandbox_picker_subtitle),
+                text = stringResource(
+                    if (modernPermissionControls) {
+                        R.string.codex_native_permission_picker_subtitle
+                    } else {
+                        R.string.codex_native_sandbox_picker_subtitle
+                    }
+                ),
                 color = TextMuted,
                 fontSize = 13.sp
             )
             Spacer(modifier = Modifier.height(14.dp))
-            ModelPickerRow(
-                label = stringResource(R.string.codex_native_sandbox_workspace_write),
-                selected = permissionPresetIsSelected(state, "workspace-write"),
-                onClick = { onSelectSandboxMode("workspace-write") }
-            )
-            ModelPickerRow(
-                label = stringResource(R.string.codex_native_sandbox_read_only),
-                selected = permissionPresetIsSelected(state, "read-only"),
-                onClick = { onSelectSandboxMode("read-only") }
-            )
-            ModelPickerRow(
-                label = stringResource(R.string.codex_native_sandbox_full_access),
-                selected = permissionPresetIsSelected(state, "danger-full-access"),
-                onClick = { onSelectSandboxMode("danger-full-access") }
-            )
+            if (modernPermissionControls) {
+                ModelPickerRow(
+                    label = stringResource(R.string.codex_native_permission_ask),
+                    secondary = stringResource(R.string.codex_native_permission_ask_description),
+                    selected = selected.kind == PermissionSelectionKind.ASK,
+                    onClick = { onSelectSandboxMode(PERMISSION_CHOICE_ASK) }
+                )
+                ModelPickerRow(
+                    label = stringResource(R.string.codex_native_permission_auto_review),
+                    secondary = stringResource(R.string.codex_native_permission_auto_review_description),
+                    selected = selected.kind == PermissionSelectionKind.AUTO_REVIEW,
+                    onClick = { onSelectSandboxMode(PERMISSION_CHOICE_AUTO_REVIEW) }
+                )
+                ModelPickerRow(
+                    label = stringResource(R.string.codex_native_permission_full_access),
+                    secondary = stringResource(R.string.codex_native_permission_full_access_description),
+                    selected = selected.kind == PermissionSelectionKind.FULL_ACCESS,
+                    onClick = { onSelectSandboxMode(PERMISSION_CHOICE_FULL_ACCESS) }
+                )
+                ModelPickerRow(
+                    label = stringResource(R.string.codex_native_permission_custom),
+                    secondary = stringResource(R.string.codex_native_permission_custom_description),
+                    selected = selected.kind == PermissionSelectionKind.CUSTOM,
+                    onClick = { onSelectSandboxMode(PERMISSION_CHOICE_CUSTOM) }
+                )
+            } else {
+                ModelPickerRow(
+                    label = stringResource(R.string.codex_native_sandbox_picker_default),
+                    selected = selectedLegacySandbox.isNullOrBlank(),
+                    onClick = { onSelectSandboxMode(null) }
+                )
+                ModelPickerRow(
+                    label = stringResource(R.string.codex_native_sandbox_workspace_write),
+                    selected = selectedLegacySandbox.equals("workspace-write", ignoreCase = true),
+                    onClick = { onSelectSandboxMode("workspace-write") }
+                )
+                ModelPickerRow(
+                    label = stringResource(R.string.codex_native_sandbox_read_only),
+                    selected = selectedLegacySandbox.equals("read-only", ignoreCase = true),
+                    onClick = { onSelectSandboxMode("read-only") }
+                )
+                ModelPickerRow(
+                    label = stringResource(R.string.codex_native_sandbox_full_access),
+                    selected = selectedLegacySandbox.equals("danger-full-access", ignoreCase = true),
+                    onClick = { onSelectSandboxMode("danger-full-access") }
+                )
+            }
+
+            if (modernPermissionControls && state.permissionProfilesLoading) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = AccentBlue
+                    )
+                    Text(
+                        text = stringResource(R.string.codex_native_permission_profiles_loading),
+                        color = TextMuted,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+
+            if (modernPermissionControls && namedProfiles.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.codex_native_permission_profiles_title),
+                    color = TextMuted,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 8.dp)
+                )
+                namedProfiles.forEach { profile ->
+                    ModelPickerRow(
+                        label = profile.id,
+                        secondary = profile.description,
+                        selected = selected.kind == PermissionSelectionKind.PROFILE &&
+                            selected.profileId.equals(profile.id, ignoreCase = true),
+                        enabled = profile.allowed,
+                        onClick = {
+                            onSelectSandboxMode(PERMISSION_PROFILE_CHOICE_PREFIX + profile.id)
+                        }
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
         }
@@ -5099,6 +5244,7 @@ private fun ModelPickerRow(
     label: String,
     selected: Boolean,
     secondary: String? = null,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     Surface(
@@ -5106,7 +5252,8 @@ private fun ModelPickerRow(
             .fillMaxWidth()
             .padding(bottom = 8.dp)
             .heightIn(min = 48.dp)
-            .clickable(onClick = onClick),
+            .alpha(if (enabled) 1f else 0.48f)
+            .clickable(enabled = enabled, onClick = onClick),
         color = if (selected) AccentBlue.copy(alpha = 0.14f) else SurfaceRaised,
         shape = MaterialTheme.shapes.medium,
         border = BorderStroke(1.dp, if (selected) AccentBlue.copy(alpha = 0.7f) else SurfaceBorder)
@@ -5480,38 +5627,6 @@ private fun compactComposerModelLabel(value: String): String {
         .ifBlank { value }
 }
 
-@Composable
-private fun sandboxModeLabel(value: String?): String = when (value?.trim()) {
-    "workspace-write" -> stringResource(R.string.codex_native_sandbox_workspace_write)
-    "read-only" -> stringResource(R.string.codex_native_sandbox_read_only)
-    "danger-full-access" -> stringResource(R.string.codex_native_sandbox_full_access)
-    else -> stringResource(R.string.codex_native_sandbox_picker_default)
-}
-
-@Composable
-private fun sandboxFooterLabel(value: String?): String = when (value?.trim()) {
-    "workspace-write" -> stringResource(R.string.codex_native_sandbox_workspace_write_short)
-    "read-only" -> stringResource(R.string.codex_native_sandbox_read_only_short)
-    "danger-full-access" -> stringResource(R.string.codex_native_sandbox_full_access_short)
-    else -> stringResource(R.string.codex_native_sandbox_picker_default_short)
-}
-
-@Composable
-private fun permissionFooterLabel(sandboxMode: String?, approvalPolicy: String?): String {
-    val sandbox = sandboxMode?.trim().orEmpty()
-    if (sandbox.isEmpty()) return stringResource(R.string.codex_native_sandbox_picker_default_short)
-    val expectedApproval = expectedApprovalPolicyForSandbox(sandbox)
-    val sandboxLabel = if (expectedApproval == null) sandbox else sandboxFooterLabel(sandbox)
-    return if (
-        approvalPolicy.isNullOrBlank() ||
-        expectedApproval.equals(approvalPolicy.trim(), ignoreCase = true)
-    ) {
-        sandboxLabel
-    } else {
-        "$sandboxLabel · ${approvalPolicy.trim()}"
-    }
-}
-
 private fun resolvedConcreteModelSelection(state: CodexUiState): String? {
     return state.nextTurnOverrides.model?.takeIf { it.isNotBlank() }
         ?: state.nextTurnEffectiveCodexConfig?.model?.takeIf { it.isNotBlank() }
@@ -5532,18 +5647,88 @@ private fun resolvedApprovalPolicy(state: CodexUiState): String? {
         ?: state.serverNextTurnConfigBase?.approvalPolicy?.takeIf { it.isNotBlank() }
 }
 
-private fun permissionPresetIsSelected(state: CodexUiState, sandboxMode: String): Boolean {
-    val activeSandbox = resolvedConcreteSandboxSelection(state)
-    val activeApproval = resolvedApprovalPolicy(state)
-    val expectedApproval = expectedApprovalPolicyForSandbox(sandboxMode)
-    return activeSandbox.equals(sandboxMode, ignoreCase = true) &&
-        activeApproval.equals(expectedApproval, ignoreCase = true)
+private enum class PermissionSelectionKind {
+    ASK,
+    AUTO_REVIEW,
+    FULL_ACCESS,
+    CUSTOM,
+    PROFILE
 }
 
-private fun expectedApprovalPolicyForSandbox(sandboxMode: String?): String? = when (sandboxMode?.trim()) {
-    "danger-full-access" -> "never"
-    "workspace-write", "read-only" -> "on-request"
-    else -> null
+private data class PermissionSelection(
+    val kind: PermissionSelectionKind,
+    val profileId: String? = null
+)
+
+private fun resolvedPermissionSelection(state: CodexUiState): PermissionSelection {
+    if (state.nextTurnOverrides.useConfigPermissions ||
+        state.nextTurnEffectiveCodexConfig?.useConfigPermissions == true
+    ) {
+        return PermissionSelection(PermissionSelectionKind.CUSTOM)
+    }
+    val effective = state.nextTurnEffectiveCodexConfig
+    val profileId = state.nextTurnOverrides.permissionProfile?.takeIf { it.isNotBlank() }
+        ?: effective?.permissionProfile?.takeIf { it.isNotBlank() }
+        ?: state.ownerCurrentCodexConfig?.permissionProfile?.takeIf { it.isNotBlank() }
+        ?: state.serverNextTurnConfigBase?.permissionProfile?.takeIf { it.isNotBlank() }
+    val reviewer = state.nextTurnOverrides.approvalsReviewer?.takeIf { it.isNotBlank() }
+        ?: effective?.approvalsReviewer?.takeIf { it.isNotBlank() }
+        ?: state.ownerCurrentCodexConfig?.approvalsReviewer?.takeIf { it.isNotBlank() }
+        ?: state.serverNextTurnConfigBase?.approvalsReviewer?.takeIf { it.isNotBlank() }
+    val sandbox = resolvedConcreteSandboxSelection(state)
+    val approval = state.nextTurnOverrides.approvalPolicy?.takeIf { it.isNotBlank() }
+        ?: resolvedApprovalPolicy(state)
+    val pendingSandbox = state.nextTurnOverrides.sandbox
+    val pendingReviewer = state.nextTurnOverrides.approvalsReviewer
+
+    return when {
+        profileId.equals(":danger-full-access", ignoreCase = true) ->
+            PermissionSelection(PermissionSelectionKind.FULL_ACCESS)
+        profileId.equals(":workspace", ignoreCase = true) &&
+            reviewer.equals("auto_review", ignoreCase = true) ->
+            PermissionSelection(PermissionSelectionKind.AUTO_REVIEW)
+        profileId.equals(":workspace", ignoreCase = true) ->
+            PermissionSelection(PermissionSelectionKind.ASK)
+        !profileId.isNullOrBlank() ->
+            PermissionSelection(PermissionSelectionKind.PROFILE, profileId)
+        pendingReviewer.equals("auto_review", ignoreCase = true) ->
+            PermissionSelection(PermissionSelectionKind.AUTO_REVIEW)
+        pendingSandbox.equals("danger-full-access", ignoreCase = true) ->
+            PermissionSelection(PermissionSelectionKind.FULL_ACCESS)
+        pendingSandbox.equals("workspace-write", ignoreCase = true) ||
+            pendingSandbox.equals("read-only", ignoreCase = true) ->
+            PermissionSelection(PermissionSelectionKind.ASK)
+        state.capabilities?.permissionProfiles == true ->
+            PermissionSelection(PermissionSelectionKind.CUSTOM)
+        reviewer.equals("auto_review", ignoreCase = true) ->
+            PermissionSelection(PermissionSelectionKind.AUTO_REVIEW)
+        sandbox.equals("danger-full-access", ignoreCase = true) &&
+            approval.equals("never", ignoreCase = true) ->
+            PermissionSelection(PermissionSelectionKind.FULL_ACCESS)
+        (sandbox.equals("workspace-write", ignoreCase = true) ||
+            sandbox.equals("read-only", ignoreCase = true)) &&
+            approval.equals("on-request", ignoreCase = true) ->
+            PermissionSelection(PermissionSelectionKind.ASK)
+        else -> PermissionSelection(PermissionSelectionKind.CUSTOM)
+    }
+}
+
+@Composable
+private fun permissionSelectionLabel(selection: PermissionSelection, short: Boolean): String = when (selection.kind) {
+    PermissionSelectionKind.ASK -> stringResource(
+        if (short) R.string.codex_native_permission_ask_short else R.string.codex_native_permission_ask
+    )
+    PermissionSelectionKind.AUTO_REVIEW -> stringResource(
+        if (short) R.string.codex_native_permission_auto_review_short else R.string.codex_native_permission_auto_review
+    )
+    PermissionSelectionKind.FULL_ACCESS -> stringResource(
+        if (short) R.string.codex_native_permission_full_access_short else R.string.codex_native_permission_full_access
+    )
+    PermissionSelectionKind.CUSTOM -> stringResource(
+        if (short) R.string.codex_native_permission_custom_short else R.string.codex_native_permission_custom
+    )
+    PermissionSelectionKind.PROFILE -> selection.profileId
+        ?: stringResource(R.string.codex_native_permission_custom_short)
 }
 
 private fun dropdownSelectionLabel(label: String, selected: Boolean): String =

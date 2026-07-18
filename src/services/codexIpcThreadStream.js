@@ -410,20 +410,29 @@ function extractCurrentCodexConfig(state) {
     const collaborationMode = asRecord(latestSettings?.collaborationMode) ?? asRecord(state?.latestCollaborationMode);
     const collaborationSettings = asRecord(collaborationMode?.settings);
     const sandboxPolicy = asRecord(currentPermissions?.sandboxPolicy) ?? asRecord(latestSettings?.sandboxPolicy);
+    const activePermissionProfile = asRecord(currentPermissions?.activePermissionProfile) ??
+        asRecord(latestSettings?.activePermissionProfile);
 
     const model = asString(latestSettings?.model) ?? asString(collaborationSettings?.model);
     const reasoningEffort = asString(latestSettings?.effort) ??
         asString(state?.latestReasoningEffort) ??
         asString(collaborationSettings?.reasoning_effort);
     const approvalPolicy = asString(currentPermissions?.approvalPolicy) ?? asString(latestSettings?.approvalPolicy);
+    const approvalsReviewer = asString(currentPermissions?.approvalsReviewer) ??
+        asString(latestSettings?.approvalsReviewer);
+    const permissionProfile = asString(activePermissionProfile?.id);
     const sandboxMode = normalizeSandboxPolicyType(asString(sandboxPolicy?.type));
 
-    if (!model && !reasoningEffort && !approvalPolicy && !sandboxMode) return undefined;
+    if (!model && !reasoningEffort && !approvalPolicy && !sandboxMode && !approvalsReviewer && !permissionProfile) {
+        return undefined;
+    }
     return {
         model,
         reasoningEffort: reasoningEffort?.toLowerCase(),
         approvalPolicy,
-        sandboxMode
+        sandboxMode,
+        ...(approvalsReviewer ? { approvalsReviewer } : {}),
+        ...(permissionProfile ? { permissionProfile } : {})
     };
 }
 

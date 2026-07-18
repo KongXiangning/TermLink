@@ -75,7 +75,9 @@ data class CodexCapabilities(
     val compact: Boolean,
     val fileMentions: Boolean,
     val imageInputSupported: Boolean,
-    val maxImageSize: Long
+    val maxImageSize: Long,
+    val permissionProfiles: Boolean = false,
+    val approvalsReviewer: Boolean = false
 ) {
     companion object {
         fun from(json: JSONObject): CodexCapabilities {
@@ -100,8 +102,40 @@ data class CodexCapabilities(
                 compact = cap.optBoolean("compact", false),
                 fileMentions = cap.optBoolean("fileMentions", false),
                 imageInputSupported = cap.optBoolean("imageInputSupported", cap.optBoolean("imageInput", false)),
-                maxImageSize = cap.optLong("maxImageSize", cap.optLong("maxImageBytes", 0L))
+                maxImageSize = cap.optLong("maxImageSize", cap.optLong("maxImageBytes", 0L)),
+                permissionProfiles = cap.optBoolean("permissionProfiles", false),
+                approvalsReviewer = cap.optBoolean("approvalsReviewer", false)
             )
+        }
+    }
+}
+
+data class CodexPermissionProfileOption(
+    val id: String,
+    val description: String? = null,
+    val allowed: Boolean = true
+) {
+    companion object {
+        fun listFrom(result: Any?): List<CodexPermissionProfileOption> {
+            val entries = when (result) {
+                is JSONArray -> result
+                is JSONObject -> result.optJSONArray("data")
+                    ?: result.optJSONArray("profiles")
+                else -> null
+            } ?: return emptyList()
+            return buildList {
+                for (index in 0 until entries.length()) {
+                    val entry = entries.optJSONObject(index) ?: continue
+                    val id = entry.optStringOrNull("id") ?: continue
+                    add(
+                        CodexPermissionProfileOption(
+                            id = id,
+                            description = entry.optStringOrNull("description"),
+                            allowed = entry.optBoolean("allowed", true)
+                        )
+                    )
+                }
+            }.distinctBy(CodexPermissionProfileOption::id)
         }
     }
 }
@@ -112,7 +146,10 @@ data class CodexModelOption(
     val description: String? = null,
     val defaultReasoningEffort: String? = null,
     val supportedReasoningEfforts: List<String> = emptyList(),
-    val isDefault: Boolean = false
+    val isDefault: Boolean = false,
+    val hidden: Boolean = false,
+    val upgradeModel: String? = null,
+    val upgradeMessage: String? = null
 ) {
     companion object {
         fun listFrom(result: Any?): List<CodexModelOption> {
@@ -142,10 +179,14 @@ data class CodexModelOption(
         }
 
         private fun parse(json: JSONObject): CodexModelOption? {
-            if (json.optBoolean("hidden", false)) return null
             val id = json.optStringOrNull("id")
                 ?: json.optStringOrNull("model")
                 ?: return null
+            val hidden = json.optBoolean("hidden", false)
+            val upgradeInfo = json.optJSONObject("upgradeInfo")
+            val upgradeModel = upgradeInfo?.optStringOrNull("model")
+                ?: json.optStringOrNull("upgrade")
+            if (hidden && upgradeModel.isNullOrBlank()) return null
             return CodexModelOption(
                 id = id,
                 displayName = json.optStringOrNull("displayName") ?: id,
@@ -155,7 +196,11 @@ data class CodexModelOption(
                 supportedReasoningEfforts = parseReasoningEfforts(
                     json.optJSONArray("supportedReasoningEfforts")
                 ),
-                isDefault = json.optBoolean("isDefault", false)
+                isDefault = json.optBoolean("isDefault", false),
+                hidden = hidden,
+                upgradeModel = upgradeModel,
+                upgradeMessage = upgradeInfo?.optStringOrNull("migrationMarkdown")
+                    ?: upgradeInfo?.optStringOrNull("upgradeCopy")
             )
         }
 
@@ -181,7 +226,10 @@ data class CodexEffectiveConfig(
     val reasoningEffort: String?,
     val personality: String?,
     val approvalPolicy: String?,
-    val sandboxMode: String?
+    val sandboxMode: String?,
+    val approvalsReviewer: String? = null,
+    val permissionProfile: String? = null,
+    val useConfigPermissions: Boolean = false
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         model?.let { put("model", it) }
@@ -189,6 +237,9 @@ data class CodexEffectiveConfig(
         personality?.let { put("personality", it) }
         approvalPolicy?.let { put("approvalPolicy", it) }
         sandboxMode?.let { put("sandboxMode", it) }
+        approvalsReviewer?.let { put("approvalsReviewer", it) }
+        permissionProfile?.let { put("permissionProfile", it) }
+        if (useConfigPermissions) put("useConfigPermissions", true)
     }
 
     companion object {
@@ -199,7 +250,11 @@ data class CodexEffectiveConfig(
                 reasoningEffort = json.optStringOrNull("reasoningEffort")?.lowercase(),
                 personality = json.optStringOrNull("personality"),
                 approvalPolicy = json.optStringOrNull("approvalPolicy"),
-                sandboxMode = json.optStringOrNull("sandboxMode")
+                sandboxMode = json.optStringOrNull("sandboxMode"),
+                approvalsReviewer = json.optStringOrNull("approvalsReviewer"),
+                permissionProfile = json.optStringOrNull("permissionProfile")
+                    ?: json.optJSONObject("activePermissionProfile")?.optStringOrNull("id"),
+                useConfigPermissions = json.optBoolean("useConfigPermissions", false)
             )
         }
     }

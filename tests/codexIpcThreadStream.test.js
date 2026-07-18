@@ -369,6 +369,8 @@ test('snapshot projects current owner model reasoning and permissions with canon
         },
         currentPermissions: {
             approvalPolicy: 'never',
+            approvalsReviewer: 'auto_review',
+            activePermissionProfile: { id: ':workspace', extends: null },
             sandboxPolicy: { type: 'dangerFullAccess' }
         },
         turns: []
@@ -378,7 +380,9 @@ test('snapshot projects current owner model reasoning and permissions with canon
         model: 'gpt-5.6-sol',
         reasoningEffort: 'high',
         approvalPolicy: 'never',
-        sandboxMode: 'danger-full-access'
+        sandboxMode: 'danger-full-access',
+        approvalsReviewer: 'auto_review',
+        permissionProfile: ':workspace'
     });
 });
 

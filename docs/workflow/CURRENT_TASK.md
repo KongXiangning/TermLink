@@ -5,14 +5,14 @@
 - 任务 ID：20260718-002
 - 任务标题：美化 Android Codex 会话页与弹层交互
 - 任务 slug：android-codex-conversation-visual-refresh
-- 当前状态：completed_ready_for_closeout
-- 生命周期状态：completed_ready_for_closeout
+- 当前状态：implementation_complete_ready_for_close
+- 生命周期状态：active
 - 恢复需审查：false
 - 恢复审查原因：
 - 创建时间：2026-07-18
 - 创建来源：用户确认实施既定视觉改造计划
 - 任务类型：Android UI / UX refactor
-- 任务目标：以 412 × 915dp 为主稿、兼容 360 × 800dp，重组 Codex 会话页顶部入口、Goal/Plan 状态、Skills 选择、斜杠菜单、移动端选择器和弹窗，同时保持既有实时同步与命令契约不变。
+- 任务目标：以 412 × 915dp 为主稿、兼容 360 × 800dp，重组 Codex 会话页顶部入口、Goal/Plan 状态、Skills 选择、斜杠菜单、移动端选择器和弹窗；本轮 follow-up 进一步让模型、思考强度和权限完全由当前 Codex catalog/owner 配置驱动，消除异步回写跳动，并兼容隐藏旧模型与 Desktop 权限语义。
 
 ## 背景与上下文
 
@@ -42,6 +42,13 @@
 - composer 使用 Codex Desktop 参考图的左右分区：左侧 `+` 与权限，右侧模型/推理摘要、上下文和发送；Plan 仅在启用时显示紧凑状态，不恢复运行态或工具按钮。
 - 点击 `+` 后在按钮上方显示轻量锚定菜单，标题为“添加”，包含“文件和图片 / 目标 / 计划模式”三项及辅助说明；附件复用既有本地图片/文件选择，目标写入 `/goal ` 草稿并聚焦输入框，计划模式复用既有开关。
 - `+` 菜单、Slash、文件提及和选择 Sheet 互斥；菜单行触控高度不小于 48dp，点击外部、执行动作或 composer 状态切换时可关闭。
+- 思考强度 Sheet 不再显示独立“默认值”选项；必须直接在当前实际生效的 effort 行显示选中状态，owner 确认 pending override 后选中标记不得跳动。
+- 模型切换后必须按目标模型的 `supportedReasoningEfforts` 保留兼容 effort 或选择该模型真实默认值，不得等待 owner 拒绝/规范化后再回跳。
+- IPC conversation 配置未完成 owner snapshot 水合前，composer 不得先展示 catalog/session 临时默认值再切换；配置完成后一次性展示 owner-authoritative effective config。
+- 权限 Sheet 对齐 Desktop 语义，至少提供“请求批准”“替我审批”“完全访问”和“自定义（config.toml）”；“替我审批”必须使用真实 `approvalsReviewer=auto_review`，不得只换文案。
+- 权限 profile 列表从 Codex `permissionProfile/list` 动态获取，保留 named/custom profiles、allowed 状态和 active profile；旧服务端不支持时保持 legacy sandbox/approval 兼容。
+- 模型请求使用 Codex `model/list(includeHidden=true)`；普通可见模型正常选择，隐藏但带升级信息的旧模型（当前为 5.4/5.4-mini）可见并展示迁移说明，内部隐藏模型不得作为普通可选模型暴露。
+- `currentCodexConfig` 与 `follower_send_message.turnConfig` 以可选增量字段兼容 `approvalsReviewer` 和 `permissionProfile`；旧客户端、旧 snapshot 和缺失字段继续工作。
 
 ## 设计约束
 
@@ -69,9 +76,9 @@
 - `docs/workflow/CURRENT_TASK.md`
 - `android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt`
 - `android/app/src/main/java/com/termlink/app/codex/ui/CodexTheme.kt`
-- `android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt`（仅解析并保留 `model/list` 的模型展示名、默认/支持思考强度及默认标记）
-- `android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt`（仅为 UI state 增加模型目录元数据）
-- `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`（仅将既有 `model/list` 响应解析为模型目录并写入 UI state，不改变请求、选择或实时同步顺序）
+- `android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt`（解析模型/profile catalog，并保真可选 reviewer/profile/config-reset 字段）
+- `android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt`（为 UI state 增加模型/profile 目录及 additive 配置元数据）
+- `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`（请求动态 catalog、稳定 owner 水合、校正 effective effort 并构造下一回合配置）
 - `android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt`（仅用于恢复状态栏展示并移除已废弃的顶部 Sessions 点击回调，不改变导航、会话选择或恢复语义）
 - `android/app/src/main/res/values/strings.xml`
 - `android/app/src/main/res/values-zh/strings.xml`
@@ -84,27 +91,32 @@
 - `android/app/src/test/java/com/termlink/app/codex/data/CodexSlashRegistryTest.kt`（仅补既有命令可见性/兼容性回归）
 - `android/app/src/test/java/com/termlink/app/codex/data/CodexIpcWireModelTest.kt`（补模型目录形态与模型级思考强度解析回归）
 - `android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt`（仅补 `model/list` 写入 UI state 的回归）
+- `src/ws/terminalGateway.js`（仅扩展 model/profile catalog 请求与 follower 可选配置字段，不改变 canonical id、binding、owner fallback 或 pending snapshot-authoritative 语义）
+- `src/services/codexIpcThreadStream.js`（仅从 owner thread settings 保真投影 reviewer 与 active permission profile）
+- `tests/terminalGateway.codex.test.js`
+- `tests/terminalGateway.codexIpc.test.js`
+- `tests/codexIpcThreadStream.test.js`
 
 ### Conditional Files
 
 - `docs/workflow/STATUS.md`：仅在任务完成后由状态同步流程记录真实结果。
 - `docs/workflow/DECISIONS.md`：仅当产生超出用户已确认方案的长期产品决策时回写；当前预计无需。
-- `docs/workflow/CONTRACTS.md`：仅当发现并确认新的稳定 UI anchor/layout contract 时回写；当前预计无需。
+- `docs/workflow/CONTRACTS.md`：仅在 reviewer/profile 可选字段通过兼容回归后，由契约同步流程记录稳定 additive contract。
 
 ## 禁止修改范围
 
 ### Forbidden Files
 
-- `src/**`、`public/**`、HTTP / WebSocket / DTO / session 持久化代码与协议
+- 除 Allowed 中明确列出的 gateway/IPC projection 与 targeted tests 外，其余 `src/**`、`public/**`、HTTP/session 持久化代码与协议
 - 除 Allowed 中明确限定的状态栏与废弃回调清理外，Android navigation、Activity/Sessions 入口链路和非 Codex 页面
-- Codex realtime canonical conversation id、binding、owner fallback、pending snapshot-authoritative 语义，以及模型/推理/权限选择的请求发送与恢复优先级
+- Codex realtime canonical conversation id、binding、owner fallback 与 pending snapshot-authoritative 语义；本轮只扩展配置字段并修正已确认的展示/选择优先级，不改变 conversation 选择与恢复
 - Goal、Plan、runtime、Skills catalog 的底层业务数据和服务端行为
 - `.workflow-system/**`、生成目录、部署、认证和 release 配置
 - 未列入 Allowed / Conditional Files 的其他路径
 
 ## 范围锁定
 
-- 锁定为 Android Codex 会话页展示层、模型目录的本地保真解析、双语文案和必要的局部测试；不修改网络请求、服务端协议或选择/恢复状态机。
+- 初始锁定为 Android Codex 会话页展示层、模型目录的本地保真解析、双语文案和必要的局部测试；Step 16–20 经用户明确授权后按下述 widening 增加动态 catalog 请求与 additive reviewer/profile/config-reset 字段，conversation 选择/恢复状态机仍冻结。
 - Step 12 当前允许范围进一步缩小为 `CodexScreen.kt`、`CodexActivity.kt`、`values/strings.xml`、`values-zh/strings.xml` 与本任务记录；Activity 仅允许让单一系统附件选择器按现有 MIME 分流到既有图片附件或文件引用，ViewModel、wire/domain、theme、drawables 和 tests 本步全部冻结。
 - diff review target：`bbf1ff9bdf26a098ee5dbf703e296c2f70b628ef..working-tree`，包含 tracked 与本任务允许的 untracked files。
 - Safety mode：frozen-scope；只允许修改已列 Android Codex UI、本地 wire/domain/ViewModel 模型目录映射、strings/局部测试与任务文档。
@@ -114,12 +126,14 @@
 - Step 12 不允许为目录附件、语音输入或新的 Goal/Plan 协议扩大范围；若现有 callback 无法完成参考交互，停止并回问，不修改 Activity navigation/session restore、ViewModel、HTTP/WebSocket/DTO/session 或 realtime 状态机。Safety mode 继续为 `frozen-scope`；危险面只涉及权限入口的展示位置，approval/sandbox 组合、恢复优先级和提交语义保持冻结。
 - Step 14 进一步收敛为 `CodexScreen.kt`、中英文 strings 与本任务记录：只恢复独立 Slash 入口并迁移现有 Usage Panel 入口，不修改 Activity、ViewModel、Slash registry、状态模型、协议或数据源。
 - Step 12 的唯一 scope widening 为 `CodexActivity.readSelectedDocument`：原因是 Desktop 风格单一附件入口必须同时保留现有图片与文件能力；影响文件仅 `CodexActivity.kt`，风险是 MIME 分流错误，验证方式为 Kotlin 编译、图片/普通文件真机选择与既有附件摘要检查。除此之外 Activity navigation、session/restore 和 launcher 生命周期全部冻结。
+- Step 16–20 scope widening 原因：用户确认依次修复实际 effort 选中、配置跳动、Desktop 权限语义和隐藏模型兼容；影响限定为 Android Codex wire/domain/ViewModel/UI、gateway follower 参数、IPC thread settings 投影及 targeted tests。Safety mode=`guarded`，dangerous surface=`permissions`；不执行生产/部署/认证/持久化变更。风险为旧客户端字段兼容、permission profile 与 legacy sandbox 互斥、owner pending 清理错误；验证为 schema/runtime catalog 证据、Node targeted tests、Android JVM tests、assemble 和真机交互。任何 session schema/HTTP/public/navigation 扩张需再次解锁。
 
 ## 受影响的契约
 
 - Android Codex UI anchor：`SecondaryNavRow` 被移除，历史 successor anchor 为 `CodexHeader` 图标；runtime successor path 为 stalled diagnosis，Tools 无 successor 常驻入口，Skills successor anchor 为 `/skill`。
 - Behavior contract：`/skill`、`/skill <name>`、隐藏 `/skills`、`/plan`、`/compact`、历史面板、文档入口、Goal/Plan/approval 交互语义保持。
-- Android / WebSocket 依赖方向和 Codex realtime sync 冻结区不变；Android 只保留既有响应中的附加字段，不新增 wire/schema 字段。
+- Android / WebSocket 依赖方向和 Codex realtime sync 冻结区不变；新增字段均为现有 envelope 内的 optional additive 配置，不新增 transport 类型或持久化 schema。
+- Additive config contract：owner snapshot 与 follower turn config 可选增加 `approvalsReviewer`、`permissionProfile`；缺失时沿用既有 approval/sandbox 行为。`permissionProfile/list` 与 `model/list(includeHidden=true)` 仍通过既有 `codex_request/codex_response` envelope，不新增 transport 类型。
 - 兼容策略：向后兼容 string/object 两种模型目录项；服务端未提供模型级元数据时显式空状态，不回退为虚构选项；无 wire/schema migration。
 
 ## 已确认决策
@@ -133,20 +147,25 @@
 - 底部栏备选方案一：模型、思考强度、权限合并为单个状态摘要入口；统一配置 Sheet 只做入口汇总，三类实际选择仍复用各自既有 Sheet 和 callback。
 - 最新 Desktop 参考演进上一条展示决策：权限恢复为左侧直接入口，模型与真实思考强度合并为右侧摘要入口；`+` 取代独立附件按钮并汇总附件、Goal 草稿与 Plan 开关。三类配置数据源、选择 Sheet 和 callback 均保持不变。
 - Android 当前没有可发送到远端 Codex workspace 的本地目录上传契约，因此参考图中的“文件和文件夹”在本轮准确落地为“文件和图片”；不新增或伪造文件夹发送能力。
+- 思考强度不再用“默认”作为可见选项，直接勾选 effective effort；继承来源只保留为内部状态。
+- 权限按 Desktop 四类入口组织；请求批准与替我审批共享 workspace 边界但 reviewer 分别为 `user` / `auto_review`，完全访问使用 full-access 语义，自定义回到 owner/config 或动态 named profile。
+- 隐藏模型只在 Codex catalog 明确返回且具有面向用户的 upgrade 信息时作为旧模型兼容项展示；内部 reviewer 模型不得暴露。
 
 ## 决策分类
 
 ### Mechanical
 
 - header 回调迁移、现有 state 复用、菜单互斥、Bottom Sheet 选中态、尺寸/安全区、双语文案与测试更新。
+- effective effort 选中、模型-effort 兼容校正、可选字段解析/序列化、catalog/profile 动态列表、owner-confirmed pending reconciliation。
 
 ### Taste
 
 - 412 × 915dp 主稿、深色 surface、圆角/边框、紧凑 Goal 带、入口位置和弹层样式均由用户批准方案锁定。
+- 权限入口名称与顺序、移除“默认”effort 行、旧模型迁移说明均由用户本轮“按顺序都修复完成”确认。
 
 ### User challenge
 
-- 无；运行态/工具入口删除的产品取舍已明确，底层诊断能力保留。
+- reviewer/profile optional fields 扩展了既有配置契约；用户已在根因说明后明确授权四项全部修复。canonical id、binding、owner fallback 与 pending snapshot-authoritative 语义继续冻结。
 
 ## 待确认问题
 
@@ -164,6 +183,14 @@
 - Validation strategy：模型字符串/对象、隐藏项、string/object effort、默认 effort 和缺失元数据单测；JDK 21 JVM 全量、debug assemble、diff check；设备可用时验证 412/360 默认 footer 同时可见模型、思考强度、权限并打开两个 Sheet。
 - Open decisions：无。
 - External Documentation Gate：已补查 Context7 `/websites/composables_jetpack-compose_androidx_compose_material3_material3`；当前 Material 3 `DropdownMenu` 支持 `expanded`、`onDismissRequest`、offset/shape/color/border 与 `DropdownMenuItem` 的 text/onClick/leadingIcon/enabled/contentPadding，足以在现有依赖内实现锚定菜单，无需新增库或改变架构。
+- Follow-up architecture impact：Android `CodexEffectiveConfig` / `NextTurnOverrides` 增加 reviewer/profile 可选字段，gateway 和 IPC snapshot 只做 additive transport；permission/model catalog 继续复用 `codex_request/codex_response`。不改 session persistence、HTTP DTO 或 conversation identity。
+- Follow-up technical approach：Reasoning Sheet 以 effective effort 勾选并在模型切换时同步校正；IPC follower surface 未水合时显示配置加载态；`permissionProfile/list` 动态加载 profile，Desktop 三个常用入口映射到真实 approval/reviewer/profile 组合，自定义以显式 config reset 语义持续重申 `config.toml` 权限；`model/list` 传 `includeHidden=true`，解析 hidden/upgrade metadata，只把带 upgrade 的旧模型放入兼容区。
+- Follow-up data flow：Codex app-server catalog + owner thread settings -> gateway additive projection -> Android wire/state -> stable effective config -> picker；Android pending permission selection -> follower turnConfig -> gateway `turn/start` reviewer/profile 参数 -> owner snapshot exact match -> 清除 pending，UI 值保持不变。
+- Follow-up alternatives：不硬编码 5.4/5.4-mini；不把 auto review 简化为 sandbox；不向 Android暴露完整 `config/read`，避免泄露 MCP/本地配置；不持久化新 session 字段，当前 thread sticky settings 与 owner snapshot 作为事实源。
+- Follow-up compatibility：旧 model/profile catalog、旧 Android、旧 gateway 和缺字段 snapshot 均保持可用；permission profile 与 sandbox policy 互斥发送；无法识别的 owner 权限组合显示为自定义，不伪装预设。
+- Follow-up risks and rollback：主要风险为 profile/legacy 组合冲突、hydration 永久加载、隐藏内部模型泄露；分别以参数互斥、超时/无 owner fallback 和 upgrade metadata 过滤控制。回滚基于 `8a20b27`。
+- Follow-up validation：`codex app-server` 0.144.4 experimental schema 与 live catalog 已确认 `ModelListParams.includeHidden`、`permissionProfile/list`、`ThreadSettings.approvalsReviewer/activePermissionProfile`、`TurnStartParams.permissions/approvalsReviewer`；官方 Codex manual 确认 Desktop Ask/Approve-for-me/Full/custom 及 permission profile 语义。运行 Node targeted、Android targeted/full JVM、assemble、diff check 和真机四类配置交互。
+- Follow-up open decisions：无；体验顺序与行为已由用户确认。
 
 ## 审查问题队列
 
@@ -261,6 +288,12 @@
 13. [completed] 执行 JDK 21 Compose/JVM、双尺寸与真机菜单交互复核，生成最新主界面与 `+` 菜单截图。
 14. [completed] 恢复独立 Slash 快捷按钮，与 `+` 组成紧凑双图标组，并把上下文入口迁入 `+` 菜单。
 15. [completed] 执行 JDK 21 JVM/assemble、diff check 与 412dp/360dp 真机交互和截图复核。
+16. [completed] 修复 Reasoning Sheet 的 effective effort 选中与模型切换兼容校正，并补 Android 单测。
+17. [completed] 增加 owner 配置水合 gate，消除 catalog/session/owner 异步到达造成的 composer 跳动。
+18. [completed] 保真扩展 reviewer/active permission profile 投影与 follower 可选参数，补 Node/Android wire tests。
+19. [completed] 用动态 permission profile catalog 实现 Desktop 四类权限入口和自定义/named profile 展示。
+20. [completed] 请求并解析 hidden model/upgrade metadata，显示 5.4/5.4-mini 旧模型兼容区且过滤内部模型。
+21. [completed] 执行统一 diff review、contracts verification、Node/Android 回归、assemble 与可用真机视觉/交互 QA。
 
 ## 回归检查项
 
@@ -275,7 +308,11 @@
 - Goal、消息与工具执行项使用参考图中的全宽圆角卡片层级；消息卡内部包含角色头像、角色名、时间和正文，不能继续使用角色标签悬浮在气泡外的布局。
 - composer 使用单个大圆角容器承载输入区和底部快捷栏；附件、Slash、模型、推理、权限、Plan、上下文和发送按钮位于同一卡片内，系统导航区不得遮挡。
 - 权限快捷入口在 412dp/360dp 首屏直接可见，选择后仍通过既有 `onUpdatePermissions` 提交真实 approval/sandbox 组合。
-- 当前模型切换后，思考强度 Sheet 只显示该模型 `supportedReasoningEfforts`；支持字符串和 `{reasoningEffort}` 两种响应项，隐藏模型不进入目录，缺失数据不生成固定列表。
+- 当前模型切换后，思考强度 Sheet 只显示该模型 `supportedReasoningEfforts`；支持字符串和 `{reasoningEffort}` 两种响应项；普通隐藏内部模型不进入目录，只有带官方 upgrade metadata 的旧模型进入禁用兼容区，缺失数据不生成固定列表。
+- `node --test tests/codexIpcThreadStream.test.js tests/terminalGateway.codexIpc.test.js tests/terminalGateway.codex.test.js`
+- model catalog：`includeHidden=true`、visible/legacy/internal 分类、upgrade metadata 与当前隐藏模型展示。
+- permission catalog：Ask/user、Approve/auto_review、Full、Custom、named profile、allowed=false、profile/sandbox 互斥和旧字段兼容。
+- hydration：owner snapshot 到达前无临时默认值，pending 被 owner exact-confirm 后 UI model/effort/permission 保持稳定。
 
 ## 验证结果与剩余风险
 
@@ -301,12 +338,16 @@
 - 最新回归：JDK 21 `:app:testDebugUnitTest` 143/143、`:app:assembleDebug` 与 `git diff --check` 通过；Huawei VOG-AL00 完成 Goal 草稿和 Plan 切换真机点击验证。412 × 915dp 证据为 `termlink-desktop-composer-final-412x915.png`、`termlink-add-menu-final-412x915.png`、`termlink-plan-active-412x915.png`；360 × 780dp 证据为 `termlink-desktop-composer-final-360x780.png` 与 `termlink-add-menu-final-360x780.png`。设备已恢复物理 1080 × 2340 / 480dpi、stay-on=0。
 - Slash/上下文 follow-up 已完成：footer 左侧为 36dp `+ /` 双图标组，Slash active 有高亮；原 footer 上下文圆环移除，`+` 菜单末尾使用 19dp 进度环展示“上下文 · 已用 N%”，点击继续打开既有 Usage Panel。重复点击 `/` 保持单一斜杠，`+` 与 Slash 菜单互斥。
 - Follow-up 验证：JDK 21 `:app:testDebugUnitTest :app:assembleDebug` BUILD SUCCESSFUL，`git diff --check` 无 whitespace error。Huawei VOG-AL00 在物理 360 × 780dp 验证默认 footer、Slash 菜单、重复点击、上下文菜单项和 Usage Panel；在临时 412 × 915dp 验证默认与 Plan active 无溢出。视觉证据为 `termlink-slash-context-main-360x780.png`、`termlink-slash-menu-360x780.png`、`termlink-add-context-menu-360x780.png`、`termlink-slash-context-main-412x915.png`、`termlink-add-context-menu-412x915.png` 与 `termlink-plan-slash-main-412x915.png`。设备已恢复物理 1080 × 2340 / 480dpi、stay-on=0，临时 Plan 已关闭。
+- 动态配置 follow-up 已完成：Reasoning Sheet 不含“默认”行并直接勾选 effective `高`；`替我审批` 与 `自定义` 在 owner snapshot 连续到达后均保持稳定、不回跳，最终已恢复原“完全访问”；权限 Sheet 呈现请求批准/替我审批/完全访问/自定义四类 Desktop 语义，动态 named profile 保留 allowed 状态。
+- 模型目录 follow-up 已完成：请求 `model/list(includeHidden=true)`，真机显示当前可见 5.6 系列与禁用“旧模型”区的 GPT-5.4/GPT-5.4-Mini，并展示分别迁移到 5.6 Terra/Luna 的 app-server 文案；无 upgrade metadata 的内部隐藏模型未暴露。旧 app-server 拒绝 `includeHidden` 时会自动退回 legacy `model/list`。
+- 最终自动化：JDK 21 Android JVM 158/158、`:app:assembleDebug`、IPC/gateway targeted 73/73、gateway catalog targeted 2/2、两处 Node syntax check 与 `git diff --check 8a20b27` 均通过。广域 `node --test --test-force-exit` 运行 549 项，其中 532 pass / 17 fail；失败集中于仓库既有 broad gateway/session-id 基线（cwd/session harness 与旧字段断言），本任务直接影响的 IPC、catalog、reviewer/profile/config-reset 路径均由上述 targeted tests 通过。`npm run android:check-release-config` 仍因本地开发配置为 cleartext HTTP 失败，属于既有 release 环境门禁，不由本任务修改。
+- 最终真机：Huawei VOG-AL00 在物理 1080 × 2340 / 480dpi（约 360dp 宽）完成权限稳定切换、四类权限 Sheet、模型旧版区和 reasoning effective 选中验证；临时 `1236 × 2745 / 480dpi` 验证 412 × 915dp 主界面底栏无溢出。证据为 `codex-permission-desktop-modes-360.png`、`codex-model-legacy-360.png`、`codex-reasoning-effective-360.png`、`codex-main-412x915.png`；设备最终恢复 physical size/density 与 stay-on=0。
 
 ## 回滚点
 
-- Task start base：`bbf1ff9bdf26a098ee5dbf703e296c2f70b628ef`
-- Last reviewed checkpoint：2026-07-18 latest-reference task-base review + JDK 21 137/137 regression + dual-size real-device visual QA
-- Current diff review target：`bbf1ff9bdf26a098ee5dbf703e296c2f70b628ef..working-tree`（tracked + allowed untracked）
+- Task start base：`8a20b27`
+- Last reviewed checkpoint：`8a20b27`（上一轮视觉与 Slash/context follow-up 已提交且工作区 clean）
+- Current diff review target：`8a20b27..working-tree`（tracked + allowed untracked）
 
 ## 执行记录
 
@@ -327,3 +368,12 @@
 - 2026-07-18：Step 10–11 完成。Footer 将模型、思考强度和权限收敛为一个占满中间剩余空间的自适应摘要胶囊，并增加只负责入口汇总的统一配置 Bottom Sheet；三项实际数据源、选择 Sheet 与 callback 均未改变。Huawei VOG-AL00 在临时 412 × 915dp 下完整展示三项当前值并完成展开态截图，小屏证据同步保留；JDK 21 JVM 143/143、assembleDebug、`git diff --check` 通过，真机 size/density 与 stay-on 已恢复。
 - 2026-07-18：Step 12–13 完成。根据 Codex Desktop 参考将 composer footer 改为左右分区，权限恢复为左侧直接入口，模型/真实思考强度收敛到右侧摘要；`+` 锚定菜单承载文件和图片、Goal 草稿与 Plan 开关。真机在 412 × 915dp 和物理 360 × 780dp 下无横向溢出，Goal/Plan 菜单动作可用；同一 task-base review/contracts clean，JDK 21 JVM 143/143、assembleDebug 与 `git diff --check` 通过，任务进入待收尾状态。
 - 2026-07-18：Step 14–15 完成。恢复独立 Slash 快捷按钮并与 `+` 组成紧凑双图标组；移除 footer 上下文圆环，在 `+` 菜单末尾增加数据驱动的上下文进度项并复用既有 Usage Panel。JDK 21 JVM/assemble、task-base diff review 与 `git diff --check` 通过；360dp/412dp 真机覆盖默认、Slash active、重复点击、菜单互斥、上下文面板及 Plan active，设备状态已恢复。External Documentation Gate no-op：仅复用项目内已有 Compose 组件和稳定回调，无新增第三方 API 用法。
+- 2026-07-18：用户在四项根因说明后确认“按顺序都修复完成”，任务从待收尾重新进入 active。`/review-current-task` 与 `/lock-scope` 将范围扩大到 reviewer/profile additive config、动态 permission/model catalog 和稳定水合；diff target 重置为 clean checkpoint `8a20b27..working-tree`。当前 Codex 0.144.4 schema/live catalog 证明 `includeHidden`、`permissionProfile/list`、reviewer/profile thread settings 和 turn 参数均可用；未向 Android 暴露完整 config/read。
+- 2026-07-18：Step 16 完成。Reasoning Sheet 删除独立“默认”行并直接按 effective effort 勾选；模型切换在本地用目标模型真实 supported/default metadata 校正不兼容 effort，缺少 metadata 时不制造选项。JDK 21 `CodexViewModelThreadReadyTest` 通过；External Documentation Gate 复用本任务已记录的 live app-server schema/catalog evidence。
+- 2026-07-18：Step 17 完成。IPC online 且已有 active conversation 时，composer 配置控件等待同 conversation owner snapshot，再一次性展示 model/effort/permission；等待态显示“加载中”并阻止打开临时 picker，IPC offline 仍使用本地/session fallback。JDK 21 targeted ViewModel tests 与 Compose 编译通过。
+- 2026-07-18：Step 18 完成。Owner snapshot additive 投影 `approvalsReviewer/permissionProfile`，Android wire/effective config/pending reconciliation 保真处理两字段；follower turn 在 profile 存在时发送 `permissions` 与 reviewer，并确保不同时发送 sandbox policy。Node IPC 72/72、Android wire/ViewModel targeted tests 通过；canonical id、binding、owner fallback 和 snapshot-authoritative 清理语义未改。
+- 2026-07-18：Step 19 完成。Android 在权限 Sheet 打开时请求 `permissionProfile/list`，以 live built-in profiles 映射请求批准/替我审批/完全访问，并保留自定义与 allowed named profiles；gateway follower 同时兼容 modern/legacy turn start，profile 与 sandbox 互斥。review 捕获“自定义只清 pending、无法清 owner sticky permissions”的问题后，新增 additive `useConfigPermissions` 显式 null reset 并补回归；Node IPC targeted 增至 73/73。
+- 2026-07-18：Step 20 完成。`model/list` 使用 `includeHidden=true` 并兼容旧 app-server 无参回退；Android 解析 hidden/upgrade metadata，可见模型保持可选，只有带用户迁移说明的隐藏旧模型进入禁用兼容区。live catalog 确认 5.4 -> 5.6 Terra、5.4-mini -> 5.6 Luna，内部 `codex-auto-review` 被过滤。
+- 2026-07-18：Step 21 完成。`/review-diff`、`/review-implementation` 与 `/verify-contracts` 复核发现并修复旧 gateway 无 reviewer/profile capability 时仍展示现代但不可执行权限项的兼容问题，现自动回退 legacy sandbox 列表；复核后无当前任务 blocker。JDK 21 Android JVM 158/158、assembleDebug、Node IPC/gateway 73/73、catalog 2/2、syntax 与 diff check 通过。最新 APK 重装后 Huawei 真机覆盖 360dp 和 412 × 915dp；权限稳定、旧模型迁移、effective reasoning 选中均通过，设备设置和原“完全访问”选择已恢复。任务状态同步为 `implementation_complete_ready_for_close`。
+- 2026-07-18：Step 19 完成。网关白名单与 capabilities 增加 `permissionProfile/list`，按 session cwd 动态请求 profile；Android 权限 Sheet 对齐 Desktop 的“请求批准 / 替我审批 / 完全访问 / 自定义(config.toml)”顺序，并展示 allowed 的 named profiles。选择操作一次性替换 approval/reviewer/profile/sandbox 四元组，profile 存在时不发送 sandbox；旧服务不支持目录时回退 legacy sandbox。Node 定向网关测试、Android wire/ViewModel 定向测试及 Compose 编译通过。
+- 2026-07-18：Step 20 完成。Android `model/list` 请求启用 `includeHidden=true`，模型解析保留 hidden/upgrade/migration metadata；普通隐藏内部模型继续过滤，只有带 replacement 的旧模型进入不可选的“旧模型”区并显示迁移说明。当前会话若仍使用旧模型则保留其真实状态，但 capabilities 可选列表只含当前可用模型。Android wire/ViewModel 定向测试与 Compose 编译通过，网关定向测试确认 `includeHidden` 参数原样转发。

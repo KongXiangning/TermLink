@@ -4,6 +4,7 @@ import com.termlink.app.codex.data.CodexCapabilities
 import com.termlink.app.codex.data.CodexEffectiveConfig
 import com.termlink.app.codex.data.CodexInteractionState
 import com.termlink.app.codex.data.CodexModelOption
+import com.termlink.app.codex.data.CodexPermissionProfileOption
 import com.termlink.app.codex.data.CodexServerRequest
 import com.termlink.app.codex.data.DesktopSurfaceSnapshot
 import com.termlink.app.codex.data.ActiveGoalInfo
@@ -47,8 +48,18 @@ data class ChatMessage(
 data class NextTurnOverrides(
     val model: String? = null,
     val reasoningEffort: String? = null,
-    val sandbox: String? = null
+    val sandbox: String? = null,
+    val approvalPolicy: String? = null,
+    val approvalsReviewer: String? = null,
+    val permissionProfile: String? = null,
+    val useConfigPermissions: Boolean = false
 )
+
+const val PERMISSION_CHOICE_ASK = "permission:ask"
+const val PERMISSION_CHOICE_AUTO_REVIEW = "permission:auto-review"
+const val PERMISSION_CHOICE_FULL_ACCESS = "permission:full-access"
+const val PERMISSION_CHOICE_CUSTOM = "permission:custom"
+const val PERMISSION_PROFILE_CHOICE_PREFIX = "permission:profile:"
 
 /**
  * Collaboration mode sent with codex_turn for plan-mode turns.
@@ -200,6 +211,9 @@ data class CodexUiState(
     val executionWatch: CodexExecutionWatchState = CodexExecutionWatchState(),
     val capabilities: CodexCapabilities? = null,
     val modelCatalog: List<CodexModelOption> = emptyList(),
+    val permissionProfiles: List<CodexPermissionProfileOption> = emptyList(),
+    val permissionProfilesLoading: Boolean = false,
+    val permissionProfilesRequested: Boolean = false,
     val messages: List<ChatMessage> = emptyList(),
     val errorMessage: String? = null,
     val interactionState: CodexInteractionState? = null,

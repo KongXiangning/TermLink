@@ -1,10 +1,12 @@
 package com.termlink.app.codex
 
 import com.termlink.app.codex.data.CodexIpcStatus
+import com.termlink.app.codex.data.CodexCapabilities
 import com.termlink.app.codex.data.CodexFollowerMode
 import com.termlink.app.codex.data.CodexEffectiveConfig
 import com.termlink.app.codex.data.CodexIpcConversationSummary
 import com.termlink.app.codex.data.CodexModelOption
+import com.termlink.app.codex.data.CodexPermissionProfileOption
 import com.termlink.app.codex.data.CodexServerRequest
 import com.termlink.app.codex.data.ActiveGoalInfo
 import com.termlink.app.codex.data.DesktopSurfaceSnapshot
@@ -17,6 +19,11 @@ import com.termlink.app.codex.domain.CodexRuntimePanelState
 import com.termlink.app.codex.domain.CodexUiState
 import com.termlink.app.codex.domain.ConnectionState
 import com.termlink.app.codex.domain.NextTurnOverrides
+import com.termlink.app.codex.domain.PERMISSION_CHOICE_ASK
+import com.termlink.app.codex.domain.PERMISSION_CHOICE_AUTO_REVIEW
+import com.termlink.app.codex.domain.PERMISSION_CHOICE_CUSTOM
+import com.termlink.app.codex.domain.PERMISSION_CHOICE_FULL_ACCESS
+import com.termlink.app.codex.domain.PERMISSION_PROFILE_CHOICE_PREFIX
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -24,6 +31,126 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CodexViewModelThreadReadyTest {
+
+    @Test
+    fun permissionChoicesUseDynamicProfilesAndReplaceTheWholePermissionTuple() {
+        val state = CodexUiState(
+            permissionProfiles = listOf(
+                CodexPermissionProfileOption(":workspace"),
+                CodexPermissionProfileOption(":danger-full-access"),
+                CodexPermissionProfileOption("team-safe")
+            ),
+            nextTurnOverrides = NextTurnOverrides(
+                sandbox = "read-only",
+                approvalPolicy = "never",
+                approvalsReviewer = "auto_review"
+            )
+        )
+
+        assertEquals(
+            NextTurnOverrides(
+                approvalPolicy = "on-request",
+                approvalsReviewer = "user",
+                permissionProfile = ":workspace"
+            ),
+            nextTurnOverridesForPermissionSelection(state, PERMISSION_CHOICE_ASK)
+        )
+        assertEquals(
+            NextTurnOverrides(
+                approvalPolicy = "on-request",
+                approvalsReviewer = "auto_review",
+                permissionProfile = ":workspace"
+            ),
+            nextTurnOverridesForPermissionSelection(state, PERMISSION_CHOICE_AUTO_REVIEW)
+        )
+        assertEquals(
+            NextTurnOverrides(
+                approvalPolicy = "never",
+                approvalsReviewer = "user",
+                permissionProfile = ":danger-full-access"
+            ),
+            nextTurnOverridesForPermissionSelection(state, PERMISSION_CHOICE_FULL_ACCESS)
+        )
+        assertEquals(
+            NextTurnOverrides(permissionProfile = "team-safe"),
+            nextTurnOverridesForPermissionSelection(
+                state,
+                PERMISSION_PROFILE_CHOICE_PREFIX + "team-safe"
+            )
+        )
+        assertEquals(
+            NextTurnOverrides(useConfigPermissions = true),
+            nextTurnOverridesForPermissionSelection(state, PERMISSION_CHOICE_CUSTOM)
+        )
+    }
+
+    @Test
+    fun customPermissionChoiceSuppressesStickyOwnerPermissionValues() {
+        val state = CodexUiState(
+            ownerCurrentCodexConfig = effectiveConfig(
+                sandbox = "danger-full-access",
+                approval = "never",
+                reviewer = "user",
+                permissionProfile = ":danger-full-access"
+            ),
+            nextTurnOverrides = NextTurnOverrides(useConfigPermissions = true)
+        )
+
+        val effective = resolveNextTurnEffectiveCodexConfig(state)
+
+        assertTrue(effective?.useConfigPermissions == true)
+        assertNull(effective?.sandboxMode)
+        assertNull(effective?.approvalPolicy)
+        assertNull(effective?.approvalsReviewer)
+        assertNull(effective?.permissionProfile)
+        assertEquals(
+            state.nextTurnOverrides,
+            reconcileOwnerConfirmedOverrides(
+                state.nextTurnOverrides,
+                effectiveConfig(sandbox = "workspace-write", approval = "on-request")
+            )
+        )
+    }
+
+    @Test
+    fun permissionChoicesFallBackToLegacySandboxWhenProfilesAreUnavailable() {
+        val ask = nextTurnOverridesForPermissionSelection(CodexUiState(), PERMISSION_CHOICE_ASK)
+
+        assertEquals("workspace-write", ask.sandbox)
+        assertEquals("on-request", ask.approvalPolicy)
+        assertEquals("user", ask.approvalsReviewer)
+        assertNull(ask.permissionProfile)
+    }
+
+    @Test
+    fun legacyPermissionSelectionsClearModernPermissionFields() {
+        val state = CodexUiState(
+            nextTurnOverrides = NextTurnOverrides(
+                sandbox = "danger-full-access",
+                approvalPolicy = "never",
+                approvalsReviewer = "user",
+                permissionProfile = ":danger-full-access",
+                useConfigPermissions = true
+            )
+        )
+
+        val readOnly = nextTurnOverridesForPermissionSelection(state, "read-only")
+        assertEquals("read-only", readOnly.sandbox)
+        assertNull(readOnly.approvalPolicy)
+        assertNull(readOnly.approvalsReviewer)
+        assertNull(readOnly.permissionProfile)
+        assertTrue(!readOnly.useConfigPermissions)
+
+        val sessionDefault = nextTurnOverridesForPermissionSelection(
+            state.copy(nextTurnOverrides = readOnly),
+            null
+        )
+        assertNull(sessionDefault.sandbox)
+        assertNull(sessionDefault.approvalPolicy)
+        assertNull(sessionDefault.approvalsReviewer)
+        assertNull(sessionDefault.permissionProfile)
+        assertTrue(!sessionDefault.useConfigPermissions)
+    }
 
     @Test
     fun modelCatalogTransitionKeepsCurrentModelAndUsesItsActualDefaultReasoning() {
@@ -53,6 +180,33 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun modelCatalogKeepsActiveLegacyModelWithoutAdvertisingItAsSelectable() {
+        val state = CodexUiState(
+            model = "gpt-legacy",
+            capabilities = CodexCapabilities.from(JSONObject("""{"capabilities":{"models":[]}}"""))
+        )
+        val catalog = listOf(
+            CodexModelOption(
+                id = "gpt-current",
+                displayName = "Current",
+                isDefault = true
+            ),
+            CodexModelOption(
+                id = "gpt-legacy",
+                displayName = "Legacy",
+                hidden = true,
+                upgradeModel = "gpt-current"
+            )
+        )
+
+        val next = applyModelCatalogToUiState(state, catalog)
+
+        assertEquals("gpt-legacy", next.model)
+        assertEquals(listOf("gpt-current"), next.capabilities?.models)
+        assertEquals(listOf("gpt-current", "gpt-legacy"), next.modelCatalog.map { it.id })
+    }
+
+    @Test
     fun modelCatalogTransitionUsesServerDefaultWhenCurrentModelIsUnavailable() {
         val state = CodexUiState(model = "removed-model")
         val catalog = listOf(
@@ -64,6 +218,88 @@ class CodexViewModelThreadReadyTest {
 
         assertEquals("model-b", updated.model)
         assertTrue(updated.reasoningEffort.isNullOrBlank())
+    }
+
+    @Test
+    fun modelSelectionKeepsEffectiveEffortWhenTargetModelSupportsIt() {
+        val state = CodexUiState(
+            nextTurnEffectiveCodexConfig = effectiveConfig(
+                model = "model-a",
+                reasoning = "high"
+            ),
+            modelCatalog = listOf(
+                CodexModelOption(
+                    id = "model-b",
+                    displayName = "Model B",
+                    defaultReasoningEffort = "medium",
+                    supportedReasoningEfforts = listOf("low", "medium", "high")
+                )
+            )
+        )
+
+        val overrides = nextTurnOverridesForModelSelection(state, "model-b")
+
+        assertEquals("model-b", overrides.model)
+        assertNull(overrides.reasoningEffort)
+    }
+
+    @Test
+    fun modelSelectionUsesTargetDefaultWhenEffectiveEffortIsUnsupported() {
+        val state = CodexUiState(
+            nextTurnOverrides = NextTurnOverrides(reasoningEffort = "xhigh"),
+            modelCatalog = listOf(
+                CodexModelOption(
+                    id = "model-b",
+                    displayName = "Model B",
+                    defaultReasoningEffort = "medium",
+                    supportedReasoningEfforts = listOf("low", "medium", "high")
+                )
+            )
+        )
+
+        val overrides = nextTurnOverridesForModelSelection(state, "model-b")
+
+        assertEquals("model-b", overrides.model)
+        assertEquals("medium", overrides.reasoningEffort)
+    }
+
+    @Test
+    fun modelSelectionDoesNotInventEffortWhenTargetMetadataHasNoOptions() {
+        val state = CodexUiState(
+            nextTurnOverrides = NextTurnOverrides(reasoningEffort = "high"),
+            modelCatalog = listOf(CodexModelOption("model-b", "Model B"))
+        )
+
+        val overrides = nextTurnOverridesForModelSelection(state, "model-b")
+
+        assertEquals("model-b", overrides.model)
+        assertNull(overrides.reasoningEffort)
+    }
+
+    @Test
+    fun ownerConfigHydratesUntilMatchingActiveConversationSnapshotArrives() {
+        val waiting = CodexUiState(
+            ipcOnline = true,
+            followerModeEnabled = true,
+            activeConversationId = "conv-active",
+            ipcSurfaceSnapshot = surfaceSnapshot("conv-stale")
+        )
+
+        assertTrue(isOwnerConfigHydratingForUiState(waiting))
+
+        val hydrated = waiting.copy(ipcSurfaceSnapshot = surfaceSnapshot("conv-active"))
+        assertTrue(!isOwnerConfigHydratingForUiState(hydrated))
+    }
+
+    @Test
+    fun ownerConfigDoesNotBlockLocalFallbackWhenIpcIsOffline() {
+        val state = CodexUiState(
+            ipcOnline = false,
+            followerModeEnabled = true,
+            activeConversationId = "conv-active"
+        )
+
+        assertTrue(!isOwnerConfigHydratingForUiState(state))
     }
 
     @Test
@@ -1002,6 +1238,31 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun ownerSnapshotConfirmsPermissionProfileAndReviewerAtomically() {
+        val overrides = NextTurnOverrides(
+            approvalPolicy = "on-request",
+            approvalsReviewer = "auto_review",
+            permissionProfile = ":workspace"
+        )
+        val matchingOwner = effectiveConfig(
+            approval = "on-request",
+            reviewer = "auto_review",
+            permissionProfile = ":workspace"
+        )
+
+        assertEquals(
+            NextTurnOverrides(),
+            reconcileOwnerConfirmedOverrides(overrides, matchingOwner)
+        )
+
+        val mismatchedReviewer = matchingOwner.copy(approvalsReviewer = "user")
+        assertEquals(
+            overrides,
+            reconcileOwnerConfirmedOverrides(overrides, mismatchedReviewer)
+        )
+    }
+
+    @Test
     fun surfaceSnapshotFromAnotherConversationCannotReplaceActiveConfig() {
         val ownerConfig = effectiveConfig(reasoning = "low", sandbox = "read-only", approval = "on-request")
         val state = CodexUiState(
@@ -1127,13 +1388,17 @@ class CodexViewModelThreadReadyTest {
         model: String? = null,
         reasoning: String? = null,
         sandbox: String? = null,
-        approval: String? = null
+        approval: String? = null,
+        reviewer: String? = null,
+        permissionProfile: String? = null
     ): CodexEffectiveConfig = CodexEffectiveConfig(
         model = model,
         reasoningEffort = reasoning,
         personality = null,
         approvalPolicy = approval,
-        sandboxMode = sandbox
+        sandboxMode = sandbox,
+        approvalsReviewer = reviewer,
+        permissionProfile = permissionProfile
     )
 
     private fun ipcRequest(

@@ -25,6 +25,11 @@ import com.termlink.app.codex.domain.ConnectionState
 import com.termlink.app.codex.domain.DebugServerRequestPreset
 import com.termlink.app.codex.domain.FileMention
 import com.termlink.app.codex.domain.NextTurnOverrides
+import com.termlink.app.codex.domain.PERMISSION_CHOICE_ASK
+import com.termlink.app.codex.domain.PERMISSION_CHOICE_AUTO_REVIEW
+import com.termlink.app.codex.domain.PERMISSION_CHOICE_CUSTOM
+import com.termlink.app.codex.domain.PERMISSION_CHOICE_FULL_ACCESS
+import com.termlink.app.codex.domain.PERMISSION_PROFILE_CHOICE_PREFIX
 import com.termlink.app.codex.network.CodexConnectionManager
 import com.termlink.app.codex.network.WsEvent
 import com.termlink.app.data.BasicCredentialStore
@@ -311,18 +316,40 @@ internal fun reconcileOwnerConfirmedOverrides(
     val modelConfirmed = valuesMatch(overrides.model, ownerConfig.model)
     val reasoningConfirmed = valuesMatch(overrides.reasoningEffort, ownerConfig.reasoningEffort)
     val permissionOverride = permissionConfigForSandboxOverride(overrides.sandbox)
-    val sandboxConfirmed = if (overrides.sandbox.isNullOrBlank()) {
+    val hasPermissionOverride = !overrides.sandbox.isNullOrBlank() ||
+        !overrides.approvalPolicy.isNullOrBlank() ||
+        !overrides.approvalsReviewer.isNullOrBlank() ||
+        !overrides.permissionProfile.isNullOrBlank() ||
+        overrides.useConfigPermissions
+    val permissionConfirmed = if (!hasPermissionOverride) {
         false
-    } else if (permissionOverride != null) {
-        valuesMatch(permissionOverride.sandboxMode, ownerConfig.sandboxMode) &&
-            valuesMatch(permissionOverride.approvalPolicy, ownerConfig.approvalPolicy)
+    } else if (overrides.useConfigPermissions) {
+        // A null active profile does not prove that all sticky permission fields
+        // were reset to config.toml, so keep this explicit mode until the user
+        // chooses another permission mode or switches conversations.
+        false
+    } else if (!overrides.permissionProfile.isNullOrBlank()) {
+        valuesMatch(overrides.permissionProfile, ownerConfig.permissionProfile) &&
+            (overrides.approvalPolicy.isNullOrBlank() ||
+                valuesMatch(overrides.approvalPolicy, ownerConfig.approvalPolicy)) &&
+            (overrides.approvalsReviewer.isNullOrBlank() ||
+                valuesMatch(overrides.approvalsReviewer, ownerConfig.approvalsReviewer))
     } else {
-        valuesMatch(overrides.sandbox, ownerConfig.sandboxMode)
+        val expectedSandbox = permissionOverride?.sandboxMode ?: overrides.sandbox
+        val expectedApproval = overrides.approvalPolicy ?: permissionOverride?.approvalPolicy
+        (expectedSandbox.isNullOrBlank() || valuesMatch(expectedSandbox, ownerConfig.sandboxMode)) &&
+            (expectedApproval.isNullOrBlank() || valuesMatch(expectedApproval, ownerConfig.approvalPolicy)) &&
+            (overrides.approvalsReviewer.isNullOrBlank() ||
+                valuesMatch(overrides.approvalsReviewer, ownerConfig.approvalsReviewer))
     }
     return NextTurnOverrides(
         model = if (modelConfirmed) null else overrides.model,
         reasoningEffort = if (reasoningConfirmed) null else overrides.reasoningEffort,
-        sandbox = if (sandboxConfirmed) null else overrides.sandbox
+        sandbox = if (permissionConfirmed) null else overrides.sandbox,
+        approvalPolicy = if (permissionConfirmed) null else overrides.approvalPolicy,
+        approvalsReviewer = if (permissionConfirmed) null else overrides.approvalsReviewer,
+        permissionProfile = if (permissionConfirmed) null else overrides.permissionProfile,
+        useConfigPermissions = if (permissionConfirmed) false else overrides.useConfigPermissions
     )
 }
 
@@ -334,11 +361,14 @@ internal fun applyModelCatalogToUiState(
     catalog: List<CodexModelOption>
 ): CodexUiState {
     if (catalog.isEmpty()) return state
-    val modelIds = catalog.map(CodexModelOption::id)
+    val modelIds = catalog.filterNot(CodexModelOption::hidden).map(CodexModelOption::id)
+    val allModelIds = catalog.map(CodexModelOption::id)
     val selectedModel = state.model
-        ?.takeIf(modelIds::contains)
-        ?: catalog.firstOrNull { it.isDefault }?.id
-        ?: modelIds.first()
+        ?.takeIf(allModelIds::contains)
+        ?: catalog.firstOrNull { it.isDefault && !it.hidden }?.id
+        ?: modelIds.firstOrNull()
+        ?: state.model
+        ?: allModelIds.first()
     val selectedMetadata = catalog.firstOrNull { it.id == selectedModel }
     return recalculateNextTurnEffectiveConfigForUiState(
         state.copy(
@@ -351,10 +381,125 @@ internal fun applyModelCatalogToUiState(
     )
 }
 
+internal fun nextTurnOverridesForModelSelection(
+    state: CodexUiState,
+    model: String?
+): NextTurnOverrides {
+    val normalizedModel = model?.trim()?.takeIf(String::isNotEmpty)
+    val metadata = state.modelCatalog.firstOrNull { it.id == normalizedModel }
+    val supportedEfforts = metadata?.supportedReasoningEfforts.orEmpty()
+    val currentEffectiveEffort = state.nextTurnOverrides.reasoningEffort
+        ?: state.nextTurnEffectiveCodexConfig?.reasoningEffort
+        ?: state.ownerCurrentCodexConfig?.reasoningEffort
+        ?: state.serverNextTurnConfigBase?.reasoningEffort
+        ?: state.reasoningEffort
+    val nextReasoningOverride = when {
+        normalizedModel == null -> state.nextTurnOverrides.reasoningEffort
+        supportedEfforts.isEmpty() -> null
+        currentEffectiveEffort != null && supportedEfforts.any {
+            it.equals(currentEffectiveEffort, ignoreCase = true)
+        } -> state.nextTurnOverrides.reasoningEffort
+        else -> metadata?.defaultReasoningEffort
+            ?.takeIf { default -> supportedEfforts.any { it.equals(default, ignoreCase = true) } }
+            ?: supportedEfforts.first()
+    }
+    return state.nextTurnOverrides.copy(
+        model = normalizedModel,
+        reasoningEffort = nextReasoningOverride
+    )
+}
+
+internal fun nextTurnOverridesForPermissionSelection(
+    state: CodexUiState,
+    selection: String?
+): NextTurnOverrides {
+    val normalizedSelection = selection?.trim().orEmpty()
+    val workspaceProfile = state.permissionProfiles
+        .firstOrNull { it.allowed && it.id.equals(":workspace", ignoreCase = true) }
+        ?.id
+    val fullAccessProfile = state.permissionProfiles
+        .firstOrNull { it.allowed && it.id.equals(":danger-full-access", ignoreCase = true) }
+        ?.id
+    return when {
+        normalizedSelection.isEmpty() -> state.nextTurnOverrides.copy(
+            sandbox = null,
+            approvalPolicy = null,
+            approvalsReviewer = null,
+            permissionProfile = null,
+            useConfigPermissions = false
+        )
+        normalizedSelection == "workspace-write" ||
+            normalizedSelection == "read-only" ||
+            normalizedSelection == "danger-full-access" -> state.nextTurnOverrides.copy(
+            sandbox = normalizedSelection,
+            approvalPolicy = null,
+            approvalsReviewer = null,
+            permissionProfile = null,
+            useConfigPermissions = false
+        )
+        normalizedSelection == PERMISSION_CHOICE_ASK -> state.nextTurnOverrides.copy(
+            sandbox = if (workspaceProfile == null) "workspace-write" else null,
+            approvalPolicy = "on-request",
+            approvalsReviewer = "user",
+            permissionProfile = workspaceProfile,
+            useConfigPermissions = false
+        )
+        normalizedSelection == PERMISSION_CHOICE_AUTO_REVIEW -> state.nextTurnOverrides.copy(
+            sandbox = if (workspaceProfile == null) "workspace-write" else null,
+            approvalPolicy = "on-request",
+            approvalsReviewer = "auto_review",
+            permissionProfile = workspaceProfile,
+            useConfigPermissions = false
+        )
+        normalizedSelection == PERMISSION_CHOICE_FULL_ACCESS -> state.nextTurnOverrides.copy(
+            sandbox = if (fullAccessProfile == null) "danger-full-access" else null,
+            approvalPolicy = "never",
+            approvalsReviewer = "user",
+            permissionProfile = fullAccessProfile,
+            useConfigPermissions = false
+        )
+        normalizedSelection == PERMISSION_CHOICE_CUSTOM -> state.nextTurnOverrides.copy(
+            sandbox = null,
+            approvalPolicy = null,
+            approvalsReviewer = null,
+            permissionProfile = null,
+            useConfigPermissions = true
+        )
+        normalizedSelection.startsWith(PERMISSION_PROFILE_CHOICE_PREFIX) -> {
+            val profileId = normalizedSelection.removePrefix(PERMISSION_PROFILE_CHOICE_PREFIX)
+                .takeIf(String::isNotBlank)
+            state.nextTurnOverrides.copy(
+                sandbox = null,
+                approvalPolicy = null,
+                approvalsReviewer = null,
+                permissionProfile = profileId,
+                useConfigPermissions = false
+            )
+        }
+        else -> state.nextTurnOverrides
+    }
+}
+
+internal fun isOwnerConfigHydratingForUiState(state: CodexUiState): Boolean {
+    val activeConversationId = state.activeConversationId?.trim().orEmpty()
+    if (!state.ipcOnline || !state.followerModeEnabled || activeConversationId.isEmpty()) {
+        return false
+    }
+    if (state.awaitingNewThreadIpcSurface) return true
+    return state.ipcSurfaceSnapshot?.conversationId?.trim() != activeConversationId
+}
+
 internal fun resolveNextTurnEffectiveCodexConfig(state: CodexUiState): CodexEffectiveConfig? {
     val owner = state.ownerCurrentCodexConfig
     val session = state.serverNextTurnConfigBase
     val permissionOverride = permissionConfigForSandboxOverride(state.nextTurnOverrides.sandbox)
+    val selectedPermissionProfile = if (state.nextTurnOverrides.useConfigPermissions) {
+        null
+    } else {
+        state.nextTurnOverrides.permissionProfile
+            ?: owner?.permissionProfile
+            ?: session?.permissionProfile
+    }
     val config = CodexEffectiveConfig(
         model = state.nextTurnOverrides.model ?: owner?.model ?: session?.model ?: state.model,
         reasoningEffort = state.nextTurnOverrides.reasoningEffort
@@ -363,11 +508,33 @@ internal fun resolveNextTurnEffectiveCodexConfig(state: CodexUiState): CodexEffe
             ?: state.reasoningEffort
             ?: state.capabilities?.defaultReasoningEffort,
         personality = owner?.personality ?: session?.personality,
-        approvalPolicy = permissionOverride?.approvalPolicy ?: owner?.approvalPolicy ?: session?.approvalPolicy,
-        sandboxMode = permissionOverride?.sandboxMode
-            ?: state.nextTurnOverrides.sandbox
-            ?: owner?.sandboxMode
-            ?: session?.sandboxMode
+        approvalPolicy = if (state.nextTurnOverrides.useConfigPermissions) {
+            null
+        } else {
+            state.nextTurnOverrides.approvalPolicy
+                ?: permissionOverride?.approvalPolicy
+                ?: owner?.approvalPolicy
+                ?: session?.approvalPolicy
+        },
+        sandboxMode = if (state.nextTurnOverrides.useConfigPermissions) {
+            null
+        } else if (!selectedPermissionProfile.isNullOrBlank()) {
+            null
+        } else {
+            permissionOverride?.sandboxMode
+                ?: state.nextTurnOverrides.sandbox
+                ?: owner?.sandboxMode
+                ?: session?.sandboxMode
+        },
+        approvalsReviewer = if (state.nextTurnOverrides.useConfigPermissions) {
+            null
+        } else {
+            state.nextTurnOverrides.approvalsReviewer
+                ?: owner?.approvalsReviewer
+                ?: session?.approvalsReviewer
+        },
+        permissionProfile = selectedPermissionProfile,
+        useConfigPermissions = state.nextTurnOverrides.useConfigPermissions
     )
     return config.takeIf(CodexEffectiveConfig::hasAnyValue)
 }
@@ -395,7 +562,10 @@ private fun CodexEffectiveConfig.hasAnyValue(): Boolean =
         !reasoningEffort.isNullOrBlank() ||
         !personality.isNullOrBlank() ||
         !approvalPolicy.isNullOrBlank() ||
-        !sandboxMode.isNullOrBlank()
+        !sandboxMode.isNullOrBlank() ||
+        !approvalsReviewer.isNullOrBlank() ||
+        !permissionProfile.isNullOrBlank() ||
+        useConfigPermissions
 
 private fun permissionConfigForSandboxOverride(sandboxOverride: String?): CodexEffectiveConfig? {
     return when (sandboxOverride?.trim()) {
@@ -871,6 +1041,7 @@ class CodexViewModel(
     private val executionFeedbackSeen = mutableSetOf<String>()
     private var currentProfile: ServerProfile? = null
     private var mentionSearchGeneration: Long = 0L
+    private var legacyModelListFallbackRequested: Boolean = false
     /** Tracks whether the current thread had a plan-mode turn.
      *  The Codex API persists plan mode per-thread, so a subsequent
      *  non-plan turn on the same thread still produces plan output.
@@ -2061,6 +2232,7 @@ class CodexViewModel(
     }
 
     fun showSandboxPicker() {
+        maybeRequestPermissionProfiles()
         _uiState.update {
             closeSlashMenu(
                 it.copy(
@@ -2080,7 +2252,7 @@ class CodexViewModel(
         _uiState.update {
             recalculateNextTurnEffectiveConfig(
                 it.copy(
-                    nextTurnOverrides = it.nextTurnOverrides.copy(sandbox = sandboxMode),
+                    nextTurnOverrides = nextTurnOverridesForPermissionSelection(it, sandboxMode),
                     sandboxPickerVisible = false
                 )
             )
@@ -2110,7 +2282,7 @@ class CodexViewModel(
         _uiState.update {
             recalculateNextTurnEffectiveConfig(
                 it.copy(
-                    nextTurnOverrides = it.nextTurnOverrides.copy(model = model),
+                    nextTurnOverrides = nextTurnOverridesForModelSelection(it, model),
                     modelPickerVisible = false
                 )
             )
@@ -2363,8 +2535,15 @@ class CodexViewModel(
             model = overrides.model,
             reasoningEffort = overrides.reasoningEffort,
             personality = null,
-            approvalPolicy = permissionOverride?.approvalPolicy,
-            sandboxMode = permissionOverride?.sandboxMode ?: overrides.sandbox
+            approvalPolicy = overrides.approvalPolicy ?: permissionOverride?.approvalPolicy,
+            sandboxMode = if (overrides.permissionProfile.isNullOrBlank()) {
+                permissionOverride?.sandboxMode ?: overrides.sandbox
+            } else {
+                null
+            },
+            approvalsReviewer = overrides.approvalsReviewer,
+            permissionProfile = overrides.permissionProfile,
+            useConfigPermissions = overrides.useConfigPermissions
         ).takeIf(CodexEffectiveConfig::hasAnyValue)
         return CodexClientMessages.followerSendMessage(conversationId, prompt, turnConfig)
     }
@@ -2387,7 +2566,29 @@ class CodexViewModel(
         if (!caps.modelConfig || caps.models.isNotEmpty()) {
             return
         }
-        connectionManager.send(CodexClientMessages.codexRequest("model/list"))
+        connectionManager.send(
+            CodexClientMessages.codexRequest(
+                "model/list",
+                JSONObject().put("includeHidden", true)
+            )
+        )
+    }
+
+    private fun maybeRequestPermissionProfiles() {
+        val state = _uiState.value
+        if (state.capabilities?.permissionProfiles != true ||
+            state.permissionProfilesLoading ||
+            state.permissionProfilesRequested
+        ) {
+            return
+        }
+        _uiState.update {
+            it.copy(
+                permissionProfilesLoading = true,
+                permissionProfilesRequested = true
+            )
+        }
+        connectionManager.send(CodexClientMessages.codexRequest("permissionProfile/list"))
     }
 
     private fun searchFileMentions(query: String) {
@@ -3285,6 +3486,10 @@ class CodexViewModel(
                     handleModelListResponse(response.result)
                     return
                 }
+                "permissionProfile/list" -> {
+                    handlePermissionProfileListResponse(response.result)
+                    return
+                }
                 "thread/list" -> {
                     handleThreadListResponse(response.result)
                     return
@@ -3389,6 +3594,18 @@ class CodexViewModel(
         Log.i(TAG, "Loaded model list: ${catalog.map(CodexModelOption::id)}")
     }
 
+    private fun handlePermissionProfileListResponse(result: Any?) {
+        val profiles = CodexPermissionProfileOption.listFrom(result)
+        _uiState.update {
+            it.copy(
+                permissionProfiles = profiles,
+                permissionProfilesLoading = false,
+                permissionProfilesRequested = true
+            )
+        }
+        Log.i(TAG, "Loaded permission profiles: ${profiles.map(CodexPermissionProfileOption::id)}")
+    }
+
     private fun maybeLoadSkillCatalog() {
         val state = _uiState.value
         if (state.capabilities?.skillsList != true) return
@@ -3485,6 +3702,24 @@ class CodexViewModel(
             .trim()
             .ifEmpty { "Codex request failed." }
         when (method) {
+            "model/list" -> {
+                if (!legacyModelListFallbackRequested) {
+                    legacyModelListFallbackRequested = true
+                    Log.w(TAG, "Hidden model catalog unavailable; retrying legacy model/list: $message")
+                    connectionManager.send(CodexClientMessages.codexRequest("model/list"))
+                } else {
+                    appendMessage(ChatMessage.Role.ERROR, message)
+                }
+            }
+            "permissionProfile/list" -> {
+                _uiState.update {
+                    it.copy(
+                        permissionProfilesLoading = false,
+                        permissionProfilesRequested = true
+                    )
+                }
+                Log.w(TAG, "Permission profile catalog unavailable: $message")
+            }
             "thread/list" -> {
                 _uiState.update { it.copy(threadHistoryLoading = false) }
                 appendMessage(ChatMessage.Role.ERROR, message)

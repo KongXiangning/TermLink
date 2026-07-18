@@ -1330,18 +1330,59 @@ test('follower_send_message turnConfig overrides owner reasoning and permission 
         input: 'Use selected config',
         turnConfig: {
             reasoningEffort: 'high',
-            approvalPolicy: 'on-failure',
-            sandboxMode: 'workspace-write'
+            approvalPolicy: 'on-request',
+            approvalsReviewer: 'auto_review',
+            permissionProfile: ':workspace'
         }
     }));
     await delay(100);
 
     assert.equal(captured.method, 'thread-follower-start-turn');
     assert.equal(captured.params.turnStartParams.effort, 'high');
-    assert.equal(captured.params.turnStartParams.approvalPolicy, 'on-failure');
-    assert.deepEqual(captured.params.turnStartParams.sandboxPolicy, { type: 'workspaceWrite' });
+    assert.equal(captured.params.turnStartParams.approvalPolicy, 'on-request');
+    assert.equal(captured.params.turnStartParams.approvalsReviewer, 'auto_review');
+    assert.equal(captured.params.turnStartParams.permissions, ':workspace');
+    assert.equal(captured.params.turnStartParams.sandboxPolicy, undefined);
     assert.equal(captured.params.turnStartParams.collaborationMode.settings.reasoning_effort, 'high');
     assert.ok(messages.find(m => m.type === 'follower_message_sent'));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_send_message can reset sticky permission settings to config', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-config-permissions', {
+        conversationId: 'conv-config-permissions',
+        status: 'completed',
+        currentCodexConfig: {
+            approvalPolicy: 'never',
+            approvalsReviewer: 'user',
+            permissionProfile: ':danger-full-access'
+        },
+        items: []
+    });
+    let captured = null;
+    g.ipcFeed._sendRequestHandler = (method, params) => {
+        captured = { method, params };
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws } = await connectWs(g.port, sess.id);
+    await delay(100);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: 'conv-config-permissions',
+        input: 'Use config permissions',
+        turnConfig: { useConfigPermissions: true }
+    }));
+    await delay(100);
+
+    assert.equal(captured.params.turnStartParams.approvalPolicy, null);
+    assert.equal(captured.params.turnStartParams.approvalsReviewer, null);
+    assert.equal(captured.params.turnStartParams.permissions, null);
+    assert.equal(captured.params.turnStartParams.sandboxPolicy, null);
     ws.close();
     await stopGateway(g);
 });

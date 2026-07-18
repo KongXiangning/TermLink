@@ -546,6 +546,7 @@ const CODEX_REQUEST_METHOD_WHITELIST = new Set([
     'thread/unarchive',
     'thread/compact/start',
     'model/list',
+    'permissionProfile/list',
     'skills/list',
     'account/rateLimits/read'
 ]);
@@ -555,6 +556,8 @@ function buildCodexCapabilities() {
         historyList: true,
         historyResume: true,
         modelConfig: true,
+        permissionProfiles: true,
+        approvalsReviewer: true,
         rateLimitsRead: true,
         approvals: true,
         userInputRequest: true,
@@ -575,7 +578,9 @@ function isAllowedCodexRequestMethod(method) {
 
 function buildCodexRequestParams(method, params, session) {
     const normalizedMethod = isNonEmptyString(method) ? method.trim() : '';
-    if (normalizedMethod !== 'skills/list' && normalizedMethod !== 'thread/list') {
+    if (normalizedMethod !== 'skills/list' &&
+        normalizedMethod !== 'thread/list' &&
+        normalizedMethod !== 'permissionProfile/list') {
         return params;
     }
 
@@ -1692,11 +1697,23 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         const { randomUUID } = require('node:crypto');
         const requestedConfig = normalizeFollowerTurnConfig(options.turnConfig);
         const currentConfig = normalizeFollowerTurnConfig(snapshot?.currentCodexConfig);
+        const useConfigPermissions = requestedConfig.useConfigPermissions;
         const effectiveConfig = {
             model: requestedConfig.model || currentConfig.model,
             reasoningEffort: requestedConfig.reasoningEffort || currentConfig.reasoningEffort,
-            approvalPolicy: requestedConfig.approvalPolicy || currentConfig.approvalPolicy,
-            sandboxMode: requestedConfig.sandboxMode || currentConfig.sandboxMode
+            approvalPolicy: useConfigPermissions
+                ? null
+                : (requestedConfig.approvalPolicy || currentConfig.approvalPolicy),
+            sandboxMode: useConfigPermissions
+                ? null
+                : (requestedConfig.sandboxMode || currentConfig.sandboxMode),
+            approvalsReviewer: useConfigPermissions
+                ? null
+                : (requestedConfig.approvalsReviewer || currentConfig.approvalsReviewer),
+            permissionProfile: useConfigPermissions
+                ? null
+                : (requestedConfig.permissionProfile ||
+                    (requestedConfig.sandboxMode ? null : currentConfig.permissionProfile))
         };
         const baseCollaborationMode = options.collaborationMode ||
             snapshot?.latestDefaultCollaborationMode ||
@@ -1708,7 +1725,11 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         const approvalPolicy = requestedConfig.approvalPolicy ||
             permissionOverride?.approvalPolicy ||
             effectiveConfig.approvalPolicy;
-        const sandboxMode = permissionOverride?.sandboxMode || effectiveConfig.sandboxMode;
+        const approvalsReviewer = effectiveConfig.approvalsReviewer;
+        const permissionProfile = effectiveConfig.permissionProfile;
+        const sandboxMode = permissionProfile
+            ? null
+            : (permissionOverride?.sandboxMode || effectiveConfig.sandboxMode);
         const baseParams = {
             clientUserMessageId: randomUUID(),
             input: buildTextInputSequence(input),
@@ -1725,14 +1746,30 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             return {
                 ...baseParams,
                 ...(effectiveConfig.reasoningEffort ? { reasoningEffort: effectiveConfig.reasoningEffort } : {}),
+                ...(useConfigPermissions ? {
+                    askForApproval: null,
+                    approvalsReviewer: null,
+                    permissions: null,
+                    sandbox: null
+                } : {}),
                 ...(approvalPolicy ? { askForApproval: approvalPolicy } : {}),
+                ...(approvalsReviewer ? { approvalsReviewer } : {}),
+                ...(permissionProfile ? { permissions: permissionProfile } : {}),
                 ...(sandboxMode ? { sandbox: sandboxMode } : {})
             };
         }
         return {
             ...baseParams,
             ...(effectiveConfig.reasoningEffort ? { effort: effectiveConfig.reasoningEffort } : {}),
+            ...(useConfigPermissions ? {
+                approvalPolicy: null,
+                approvalsReviewer: null,
+                permissions: null,
+                sandboxPolicy: null
+            } : {}),
             ...(approvalPolicy ? { approvalPolicy } : {}),
+            ...(approvalsReviewer ? { approvalsReviewer } : {}),
+            ...(permissionProfile ? { permissions: permissionProfile } : {}),
             ...(sandboxMode ? { sandboxPolicy: { type: sandboxModeToOwnerPolicyType(sandboxMode) } } : {})
         };
     }
@@ -1747,6 +1784,13 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             approvalPolicy: isNonEmptyString(source.approvalPolicy)
                 ? source.approvalPolicy.trim()
                 : null,
+            approvalsReviewer: isNonEmptyString(source.approvalsReviewer)
+                ? source.approvalsReviewer.trim()
+                : null,
+            permissionProfile: isNonEmptyString(source.permissionProfile)
+                ? source.permissionProfile.trim()
+                : null,
+            useConfigPermissions: source.useConfigPermissions === true,
             sandboxMode: isNonEmptyString(source.sandboxMode)
                 ? source.sandboxMode.trim()
                 : (isNonEmptyString(source.sandbox) ? source.sandbox.trim() : null)

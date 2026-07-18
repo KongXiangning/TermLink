@@ -153,6 +153,13 @@ class MockCodexService extends EventEmitter {
                 ]
             });
         }
+        if (method === 'permissionProfile/list') {
+            return Promise.resolve({
+                data: [
+                    { id: ':workspace', description: 'Workspace access', allowed: true }
+                ]
+            });
+        }
         if (method === 'account/rateLimits/read') {
             return Promise.resolve({
                 remaining: 9,
@@ -361,6 +368,8 @@ test('session_info includes lastCodexThreadId metadata when available', async (t
         historyList: true,
         historyResume: true,
         modelConfig: true,
+        permissionProfiles: true,
+        approvalsReviewer: true,
         rateLimitsRead: true,
         approvals: true,
         userInputRequest: true,
@@ -570,13 +579,13 @@ test('codex_request thread/list preserves explicit cwd', async (t) => {
     assert.equal(threadListCall.params.cwd, 'E:\\other\\project');
 });
 
-test('codex_request forwards model/list, account/rateLimits/read, and thread/compact/start', async (t) => {
+test('codex_request forwards model/list, permissionProfile/list, rate limits, and compact', async (t) => {
     MockCodexService.instances.length = 0;
     const registerTerminalGateway = loadGatewayWithMocks({
         verifyWsUpgrade: () => true,
         codexServiceClass: MockCodexService
     });
-    const session = createSession('codex-session');
+    const session = createSession('codex-session', { cwd: 'E:\\work\\repo' });
     const sessionManager = createSessionManager(session);
     const wss = createMockWss();
     const dispose = registerTerminalGateway(wss, {
@@ -593,7 +602,13 @@ test('codex_request forwards model/list, account/rateLimits/read, and thread/com
     await ws.getHandler('message')(JSON.stringify({
         type: 'codex_request',
         requestId: 'req-model',
-        method: 'model/list'
+        method: 'model/list',
+        params: { includeHidden: true }
+    }));
+    await ws.getHandler('message')(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'req-permissions',
+        method: 'permissionProfile/list'
     }));
     await ws.getHandler('message')(JSON.stringify({
         type: 'codex_request',
@@ -610,11 +625,15 @@ test('codex_request forwards model/list, account/rateLimits/read, and thread/com
     }));
 
     const service = MockCodexService.instances[0];
-    assert.ok(service.requests.find((entry) => entry.method === 'model/list'));
+    const modelListCall = service.requests.find((entry) => entry.method === 'model/list');
+    const permissionListCall = service.requests.find((entry) => entry.method === 'permissionProfile/list');
+    assert.equal(modelListCall.params.includeHidden, true);
+    assert.equal(permissionListCall.params.cwd, session.cwd);
     assert.ok(service.requests.find((entry) => entry.method === 'account/rateLimits/read'));
     assert.ok(service.requests.find((entry) => entry.method === 'thread/compact/start'));
 
     const modelResponse = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-model');
+    const permissionResponse = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-permissions');
     const limitResponse = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-limits');
     const compactResponse = ws.sent.find((entry) => entry.type === 'codex_response' && entry.requestId === 'req-compact');
     assert.deepEqual(modelResponse.result, {
@@ -639,6 +658,9 @@ test('codex_request forwards model/list, account/rateLimits/read, and thread/com
         remaining: 9,
         limit: 10
     });
+    assert.deepEqual(permissionResponse.result.data, [
+        { id: ':workspace', description: 'Workspace access', allowed: true }
+    ]);
 });
 
 test('codex_request skills/list injects session cwd for legacy clients and preserves explicit cwds', async (t) => {
