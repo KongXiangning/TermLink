@@ -415,7 +415,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
     }
 
     private fun shouldHideStatusBar(): Boolean {
-        return false
+        return isActivityVisible
     }
 
     private fun updateStatusBarVisibility() {

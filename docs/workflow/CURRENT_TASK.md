@@ -24,6 +24,8 @@
 - 用户在最终视觉稿回归后指出：权限选择在默认 composer 中不可见，思考强度也没有读取当前模型的实际支持项；任务重新打开处理这两个功能性回归。
 - 用户确认查看底部栏“备选方案一”的真机效果：将模型、思考强度、权限合并为一个配置摘要胶囊，点击后打开统一配置 Bottom Sheet；本轮先以可交互真机实现和截图供视觉确认。
 - 用户随后提供 Codex Desktop composer 与 `+` 菜单参考图，要求 Android 输入框继续向该结构收敛：左侧为 `+` 与权限，右侧为模型/推理、上下文和发送；`+` 打开轻量浮层，承载附件、目标和计划模式快捷入口。
+- 用户在最终配置 follow-up 后指出 Codex 页面原有的顶部系统状态栏自动隐藏行为被恢复为常显，明确要求修订并恢复自动隐藏。
+- 用户验证状态栏已隐藏后进一步指出：会话内容仍保留整段顶部状态栏占位，顶部形成大块空白，要求让页面实际使用释放出的空间。
 
 ## 验收标准
 
@@ -49,12 +51,14 @@
 - 权限 profile 列表从 Codex `permissionProfile/list` 动态获取，保留 named/custom profiles、allowed 状态和 active profile；旧服务端不支持时保持 legacy sandbox/approval 兼容。
 - 模型请求使用 Codex `model/list(includeHidden=true)`；普通可见模型正常选择，隐藏但带升级信息的旧模型（当前为 5.4/5.4-mini）可见并展示迁移说明，内部隐藏模型不得作为普通可选模型暴露。
 - `currentCodexConfig` 与 `follower_send_message.turnConfig` 以可选增量字段兼容 `approvalsReviewer` 和 `permissionProfile`；旧客户端、旧 snapshot 和缺失字段继续工作。
+- `CodexActivity` 位于前台时自动隐藏手机顶部状态栏；Activity 离场时恢复显示，不能把隐藏状态泄漏到 Sessions、Workspace 或其他页面。
+- 状态栏隐藏时，Codex 根内容不得继续保留状态栏高度的 phantom inset；顶部渐变背景和 Header 应从窗口顶边开始布局，同时保留 Header 自身视觉间距、底部导航安全区和 IME 适配。
 
 ## 设计约束
 
 - Design mode：design-to-code + visual-qa
 - Design source：用户在 2026-07-18 消息中附带的 412 × 915 比例效果图、Codex Desktop composer 与 `+` 菜单三张参考图、当前 `CodexScreen` 与已实现交互状态
-- Design acceptance：深蓝渐变背景、16–20dp 全宽消息/Goal/composer 圆角卡、柔和边框和角色状态色；系统状态栏可见；顶部无汉堡与配额；composer 输入区和快捷栏一体化并采用 Desktop 参考的左右分区与轻量 `+` 菜单；48dp 最小语义触控尺寸、安全区与 IME 适配；412 × 915dp 主稿和 360 × 800dp 小屏；不得显示运行态、工具、设置按钮
+- Design acceptance：深蓝渐变背景、16–20dp 全宽消息/Goal/composer 圆角卡、柔和边框和角色状态色；Codex Activity 前台自动隐藏手机顶部系统状态栏、根内容占用释放出的顶部空间，离场恢复；顶部无汉堡与配额；composer 输入区和快捷栏一体化并采用 Desktop 参考的左右分区与轻量 `+` 菜单；48dp 最小语义触控尺寸、安全区与 IME 适配；412 × 915dp 主稿和 360 × 800dp 小屏；不得显示运行态、工具、设置按钮
 - Design evidence：Compose 编译与 JVM 回归、可用设备的 UIAutomator/截图和人工交互记录；设备不可用时明确记录限制，不伪造像素验收
 - Design open decisions：无；视觉入口与功能取舍已由用户确认
 
@@ -79,7 +83,7 @@
 - `android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt`（解析模型/profile catalog，并保真可选 reviewer/profile/config-reset 字段）
 - `android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt`（为 UI state 增加模型/profile 目录及 additive 配置元数据）
 - `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`（请求动态 catalog、稳定 owner 水合、校正 effective effort 并构造下一回合配置）
-- `android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt`（仅用于恢复状态栏展示并移除已废弃的顶部 Sessions 点击回调，不改变导航、会话选择或恢复语义）
+- `android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt`（恢复 Codex 前台自动隐藏、离场显示状态栏，并保留既有附件分流；不改变导航、会话选择或恢复语义）
 - `android/app/src/main/res/values/strings.xml`
 - `android/app/src/main/res/values-zh/strings.xml`
 - `android/app/src/main/res/drawable/ic_history_24.xml`（仅在现有资源无法准确表达历史入口时新增）
@@ -118,10 +122,10 @@
 
 - 初始锁定为 Android Codex 会话页展示层、模型目录的本地保真解析、双语文案和必要的局部测试；Step 16–20 经用户明确授权后按下述 widening 增加动态 catalog 请求与 additive reviewer/profile/config-reset 字段，conversation 选择/恢复状态机仍冻结。
 - Step 12 当前允许范围进一步缩小为 `CodexScreen.kt`、`CodexActivity.kt`、`values/strings.xml`、`values-zh/strings.xml` 与本任务记录；Activity 仅允许让单一系统附件选择器按现有 MIME 分流到既有图片附件或文件引用，ViewModel、wire/domain、theme、drawables 和 tests 本步全部冻结。
-- diff review target：`bbf1ff9bdf26a098ee5dbf703e296c2f70b628ef..working-tree`，包含 tracked 与本任务允许的 untracked files。
+- diff review target：`77752f9e95aaa752474f5cea3a82e1c688cd8285..working-tree`，只审查本次状态栏 follow-up 的 tracked changes；既有未跟踪 `artifacts/` 不属于本任务。
 - Safety mode：frozen-scope；只允许修改已列 Android Codex UI、本地 wire/domain/ViewModel 模型目录映射、strings/局部测试与任务文档。
 - Dangerous surfaces：permissions（仅入口布局可见性，approval/sandbox 语义和回调冻结）；不触及 production、database、authentication、payments、deployment、rollback 配置、CI/CD、monitoring、performance baseline、bulk delete、migration、force push 或 history rewrite。
-- Layout contract：历史入口从次级导航迁移到 header；header 不再保留汉堡；runtime/tools 常驻 anchor 删除，runtime 诊断兼容路径保留；composer、消息列表、Goal band 按参考图重排；Activity 只恢复系统状态栏可见性，不改变 navigation 父级或 Sessions 行为。
+- Layout contract：历史入口从次级导航迁移到 header；header 不再保留汉堡；runtime/tools 常驻 anchor 删除，runtime 诊断兼容路径保留；composer、消息列表、Goal band 按参考图重排；Activity 前台隐藏顶部状态栏、离场恢复，不改变 navigation 父级或 Sessions 行为。
 - Unlock / widening conditions：本次扩大原因是 Android 丢弃服务端已返回的模型级思考强度，影响文件限定为 `CodexWireModels.kt`、`CodexModels.kt`、`CodexViewModel.kt` 及对应 JVM 测试；风险为模型目录兼容形态和当前选择匹配，验证方式为字符串/对象两种目录解析、隐藏模型过滤、当前模型支持项与全量 JVM/assemble。任何 server/public/navigation 或权限状态机扩张均需用户重新授权并重新锁定范围。
 - Step 12 不允许为目录附件、语音输入或新的 Goal/Plan 协议扩大范围；若现有 callback 无法完成参考交互，停止并回问，不修改 Activity navigation/session restore、ViewModel、HTTP/WebSocket/DTO/session 或 realtime 状态机。Safety mode 继续为 `frozen-scope`；危险面只涉及权限入口的展示位置，approval/sandbox 组合、恢复优先级和提交语义保持冻结。
 - Step 14 进一步收敛为 `CodexScreen.kt`、中英文 strings 与本任务记录：只恢复独立 Slash 入口并迁移现有 Usage Panel 入口，不修改 Activity、ViewModel、Slash registry、状态模型、协议或数据源。
@@ -150,6 +154,7 @@
 - 思考强度不再用“默认”作为可见选项，直接勾选 effective effort；继承来源只保留为内部状态。
 - 权限按 Desktop 四类入口组织；请求批准与替我审批共享 workspace 边界但 reviewer 分别为 `user` / `auto_review`，完全访问使用 full-access 语义，自定义回到 owner/config 或动态 named profile。
 - 隐藏模型只在 Codex catalog 明确返回且具有面向用户的 upgrade 信息时作为旧模型兼容项展示；内部 reviewer 模型不得暴露。
+- Codex 页面恢复原有系统状态栏自动隐藏行为；用户本轮明确修订此前“状态栏可见”的视觉决定。
 
 ## 决策分类
 
@@ -191,6 +196,10 @@
 - Follow-up risks and rollback：主要风险为 profile/legacy 组合冲突、hydration 永久加载、隐藏内部模型泄露；分别以参数互斥、超时/无 owner fallback 和 upgrade metadata 过滤控制。回滚基于 `8a20b27`。
 - Follow-up validation：`codex app-server` 0.144.4 experimental schema 与 live catalog 已确认 `ModelListParams.includeHidden`、`permissionProfile/list`、`ThreadSettings.approvalsReviewer/activePermissionProfile`、`TurnStartParams.permissions/approvalsReviewer`；官方 Codex manual 确认 Desktop Ask/Approve-for-me/Full/custom 及 permission profile 语义。运行 Node targeted、Android targeted/full JVM、assemble、diff check 和真机四类配置交互。
 - Follow-up open decisions：无；体验顺序与行为已由用户确认。
+- Status-bar follow-up root cause：`8a20b27` 将 `CodexActivity.shouldHideStatusBar()` 从 `isActivityVisible` 改为固定 `false`；`onStart`、drawer opened/closed 均调用 `updateStatusBarVisibility()`，因此前台 Codex 页面确定性常显状态栏。ownership=`current_task_owned`，文件已在 Allowed Files，用户已明确确认行为修订；External Documentation Gate no-op，项目内 `setStatusBarHidden` 稳定 helper 与提交差异足以证明根因。
+- Status-bar follow-up plan：仅把 `shouldHideStatusBar()` 恢复为读取 `isActivityVisible`，保留 `onStop` 显式 `hidden=false` 和现有 transient-by-swipe 行为；不修改 Compose、安全区、导航、drawer 或系统栏共用 helper。回滚为恢复固定 `false`；验证为 JDK 21 JVM/assemble、Activity targeted tests、diff review 及真机前台隐藏/离场恢复。
+- Top-inset follow-up root cause：`CodexActivity.applySystemBarInsets()` 对 Compose 容器保持 0 顶部基础 padding，`Scaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0))` 也不注入系统栏空间；唯一顶部占位来自 `CodexScreen` 根 Column 的 `.statusBarsPadding()`。该 modifier 与“状态栏常显”一同由 `8a20b27` 引入，在恢复前台隐藏后仍保留状态栏高度，确定性造成用户看到的顶部大块空白。ownership=`current_task_owned`，`CodexScreen.kt` 已在 Allowed Files；External Documentation Gate no-op，本步只移除项目内既有 Compose modifier，不新增或质疑第三方 API 行为。
+- Top-inset follow-up plan：Architecture impact 仅限 Codex 根布局；删除根 Column 的 `.statusBarsPadding()` 及无用 import，让渐变背景与 Header 消费沉浸式窗口顶部空间，保留 Header 自身 8dp 内边距、Activity 的 cutout `SHORT_EDGES`、drawer 底部 inset、composer 底部安全距和 IME 逻辑。Alternative 为按状态栏可见性条件切换 padding，但当前 Activity 产品契约是前台持续隐藏且 transient reveal 应覆盖内容，额外状态桥接会扩大状态流并重新制造跳动，因此不采用。数据、session、导航与 realtime 状态流不变；回滚为恢复该 modifier；验证为 Compose 编译、Android JVM/assemble、diff/contracts review，并在设备可用时检查顶部无 phantom gap、离场恢复状态栏和 360/412 布局。
 
 ## 审查问题队列
 
@@ -294,6 +303,10 @@
 19. [completed] 用动态 permission profile catalog 实现 Desktop 四类权限入口和自定义/named profile 展示。
 20. [completed] 请求并解析 hidden model/upgrade metadata，显示 5.4/5.4-mini 旧模型兼容区且过滤内部模型。
 21. [completed] 执行统一 diff review、contracts verification、Node/Android 回归、assemble 与可用真机视觉/交互 QA。
+22. [completed] 恢复 CodexActivity 前台自动隐藏顶部状态栏，并以编译和 Activity 回归独立验证。
+23. [completed] 统一 review/contracts/regression 及 Codex 前台隐藏、离场恢复真机 smoke 已完成。
+24. [completed] 移除状态栏隐藏后残留的 Compose 顶部 phantom inset，并以 Compose 编译独立验证。
+25. [completed] 对顶部空间修复执行统一 review/contracts/regression，并完成 360dp/412dp 顶部布局和离场恢复真机 smoke。
 
 ## 回归检查项
 
@@ -342,12 +355,19 @@
 - 模型目录 follow-up 已完成：请求 `model/list(includeHidden=true)`，真机显示当前可见 5.6 系列与禁用“旧模型”区的 GPT-5.4/GPT-5.4-Mini，并展示分别迁移到 5.6 Terra/Luna 的 app-server 文案；无 upgrade metadata 的内部隐藏模型未暴露。旧 app-server 拒绝 `includeHidden` 时会自动退回 legacy `model/list`。
 - 最终自动化：JDK 21 Android JVM 158/158、`:app:assembleDebug`、IPC/gateway targeted 73/73、gateway catalog targeted 2/2、两处 Node syntax check 与 `git diff --check 8a20b27` 均通过。广域 `node --test --test-force-exit` 运行 549 项，其中 532 pass / 17 fail；失败集中于仓库既有 broad gateway/session-id 基线（cwd/session harness 与旧字段断言），本任务直接影响的 IPC、catalog、reviewer/profile/config-reset 路径均由上述 targeted tests 通过。`npm run android:check-release-config` 仍因本地开发配置为 cleartext HTTP 失败，属于既有 release 环境门禁，不由本任务修改。
 - 最终真机：Huawei VOG-AL00 在物理 1080 × 2340 / 480dpi（约 360dp 宽）完成权限稳定切换、四类权限 Sheet、模型旧版区和 reasoning effective 选中验证；临时 `1236 × 2745 / 480dpi` 验证 412 × 915dp 主界面底栏无溢出。证据为 `codex-permission-desktop-modes-360.png`、`codex-model-legacy-360.png`、`codex-reasoning-effective-360.png`、`codex-main-412x915.png`；设备最终恢复 physical size/density 与 stay-on=0。
+- 状态栏 follow-up 实现与 review：`CodexActivity.shouldHideStatusBar()` 恢复为 `isActivityVisible`；`onStart` 置 visible 后隐藏，drawer opened/closed 继续保持隐藏，`onStop` 置 invisible 并显式恢复显示。`77752f9e95aaa752474f5cea3a82e1c688cd8285..working-tree` 只包含 Activity 单行行为恢复和本任务记录，scope/implementation/contracts review clean；未修改 Compose、导航、session/restore、DTO 或服务端。
+- 状态栏 follow-up 自动化：JDK 21 `CodexActivityLaunchParamsTest`、Android JVM 158/158、`:app:assembleDebug`、owner/gateway targeted 45/45 与 `git diff --check 77752f9e95aaa752474f5cea3a82e1c688cd8285` 通过。External Documentation Gate no-op：仅恢复项目内已存在且仍由 Workspace/Settings 使用的 `setStatusBarHidden` 调用模式。
+- 状态栏 follow-up 真机限制：本地服务 `/api/health` 正常，但 `MQS7N19402011743` 持续为 ADB `offline`；已尝试 `adb reconnect offline`、重启 ADB daemon 与 24 秒 `wait-for-device`，均未上线。因此最新 APK 安装、Codex 前台隐藏截图及离场恢复 smoke 尚未完成，不能标记 Step 23 完成。
+- 顶部空间 follow-up 实现：删除 `CodexScreen` 根 Column 的 `.statusBarsPadding()` 及无用 import；Activity Compose 容器、Scaffold、Header 视觉内边距、cutout 模式、drawer/底部导航/IME 安全区均保持原样。JDK 21 `:app:compileDebugKotlin` BUILD SUCCESSFUL；External Documentation Gate no-op，本步只移除项目内既有 modifier，不新增第三方 API surface。
+- 顶部空间 follow-up review/contracts：沿用 `77752f9e95aaa752474f5cea3a82e1c688cd8285..working-tree`（tracked only，排除既有 `artifacts/`）；scope、design drift、implementation quality 与 locked contracts 检查 clean。产品 diff 仅为 Activity 单行前台可见性修复及 Screen 两行 modifier/import 删除，无 API、DTO、导航、session、owner 或 realtime 状态流变化。
+- 顶部空间 follow-up 自动化：JDK 21 Android JVM 158/158、`:app:assembleDebug`、owner/gateway targeted 45/45、`git diff --check` 全部通过；debug APK 已安装到 `MQS7N19402011743`。
+- 顶部空间 follow-up 真机：Huawei VOG-AL00 物理 1080 × 2340 / 480dpi（360dp）与临时 1236 × 2745 / 480dpi（412 × 915dp）下，Compose 容器均从 `y=0` 开始，Header 文本顶部均为 `y=68px`；历史状态栏可见基线为 `y=172px`，确认回收约 104px phantom inset。离开 Codex 到 launcher 后 status visibility flag 从 `0x9708` 恢复为 `0x8708`，重新进入后回到 `0x9708`。设备 size/density 已恢复物理值；该设备本轮 `screencap` 受系统策略返回黑帧，因此视觉证据使用 UIAutomator bounds，未把黑帧伪装成截图通过。
 
 ## 回滚点
 
 - Task start base：`8a20b27`
-- Last reviewed checkpoint：`8a20b27`（上一轮视觉与 Slash/context follow-up 已提交且工作区 clean）
-- Current diff review target：`8a20b27..working-tree`（tracked + allowed untracked）
+- Last reviewed checkpoint：`77752f9e95aaa752474f5cea3a82e1c688cd8285`（配置 follow-up 已提交；状态栏修复前 tracked 工作区 clean）
+- Current diff review target：`77752f9e95aaa752474f5cea3a82e1c688cd8285..working-tree`（仅 tracked changes；既有 `artifacts/` untracked 排除）
 
 ## 执行记录
 
@@ -377,3 +397,7 @@
 - 2026-07-18：Step 21 完成。`/review-diff`、`/review-implementation` 与 `/verify-contracts` 复核发现并修复旧 gateway 无 reviewer/profile capability 时仍展示现代但不可执行权限项的兼容问题，现自动回退 legacy sandbox 列表；复核后无当前任务 blocker。JDK 21 Android JVM 158/158、assembleDebug、Node IPC/gateway 73/73、catalog 2/2、syntax 与 diff check 通过。最新 APK 重装后 Huawei 真机覆盖 360dp 和 412 × 915dp；权限稳定、旧模型迁移、effective reasoning 选中均通过，设备设置和原“完全访问”选择已恢复。任务状态同步为 `implementation_complete_ready_for_close`。
 - 2026-07-18：Step 19 完成。网关白名单与 capabilities 增加 `permissionProfile/list`，按 session cwd 动态请求 profile；Android 权限 Sheet 对齐 Desktop 的“请求批准 / 替我审批 / 完全访问 / 自定义(config.toml)”顺序，并展示 allowed 的 named profiles。选择操作一次性替换 approval/reviewer/profile/sandbox 四元组，profile 存在时不发送 sandbox；旧服务不支持目录时回退 legacy sandbox。Node 定向网关测试、Android wire/ViewModel 定向测试及 Compose 编译通过。
 - 2026-07-18：Step 20 完成。Android `model/list` 请求启用 `includeHidden=true`，模型解析保留 hidden/upgrade/migration metadata；普通隐藏内部模型继续过滤，只有带 replacement 的旧模型进入不可选的“旧模型”区并显示迁移说明。当前会话若仍使用旧模型则保留其真实状态，但 capabilities 可选列表只含当前可用模型。Android wire/ViewModel 定向测试与 Compose 编译通过，网关定向测试确认 `includeHidden` 参数原样转发。
+- 2026-07-18：用户要求修订顶部系统状态栏常显回归，任务从 `implementation_complete_ready_for_close` 重新进入 active。只读调查由 `git show 8a20b27`、`git blame` 和 Activity 调用链确认根因是 `shouldHideStatusBar()` 固定返回 `false`；路由为 `current_task_owned`，最小修复限定 `CodexActivity.kt`，不触及导航、会话恢复、Compose 或协议。
+- 2026-07-18：Step 22 完成。`shouldHideStatusBar()` 恢复返回 `isActivityVisible`，保留 `onStop` 显式显示和 transient-by-swipe 行为；Activity 定向测试与 assembleDebug 通过。随后以 `77752f9e95aaa752474f5cea3a82e1c688cd8285..working-tree` 完成 scope、implementation、contracts 与 diff-aware regression：Android JVM 158/158、owner/gateway 45/45、diff check clean。Step 23 仅剩真机 smoke，设备 ADB offline，经重连/daemon restart/wait-for-device 仍未恢复，任务状态同步为 `implementation_complete_pending_device_smoke`。
+- 2026-07-18：用户确认状态栏已隐藏但顶部空间仍未被页面使用。只读调用链与 blame 确认 `8a20b27` 同时在 `CodexScreen` 根 Column 引入 `.statusBarsPadding()`；Activity/Scaffold 顶部 inset 均为 0，因此该 modifier 是唯一 phantom gap 来源。Step 24 删除该 modifier 和无用 import，Header 保留自身 8dp 视觉间距，JDK 21 Compose 编译通过；进入 Step 25 统一复核。
+- 2026-07-18：Step 25 完成。以同一 diff target 完成 scope、implementation、contracts 与 diff-aware regression，Android JVM 158/158、assembleDebug、owner/gateway 45/45、diff check 通过。最新 APK 在 Huawei 真机完成 360dp/412dp 顶部 bounds、前台隐藏和离场恢复验证，显示参数已恢复；任务同步为 `implementation_complete_ready_for_close`。

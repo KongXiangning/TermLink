@@ -32,7 +32,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.verticalScroll
@@ -404,7 +403,6 @@ fun CodexScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .widthIn(max = 960.dp)
-                .statusBarsPadding()
                 .align(Alignment.TopCenter)
         ) {
             CodexHeader(
