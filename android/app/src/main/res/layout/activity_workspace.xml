@@ -3,24 +3,25 @@
     android:id="@+id/workspace_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#07111B"
     android:orientation="vertical">
 
     <LinearLayout
         android:id="@+id/workspace_top_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#1F1F1F"
+        android:background="#0B1824"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="16dp"
+        android:paddingStart="12dp"
         android:paddingTop="0dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="8dp">
+        android:paddingEnd="12dp"
+        android:paddingBottom="6dp">
 
         <ImageButton
             android:id="@+id/btn_workspace_back"
-            android:layout_width="38dp"
-            android:layout_height="38dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/workspace_activity_back"
             android:padding="6dp"
@@ -31,7 +32,7 @@
             android:id="@+id/workspace_title_container"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
+            android:layout_marginStart="8dp"
             android:layout_weight="1"
             android:orientation="vertical">
 
@@ -40,8 +41,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/workspace_activity_title"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
+                android:textColor="#EDF5FF"
+                android:textSize="17sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -49,7 +50,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:textColor="#C8FFFFFF"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:textColor="#91A8BD"
                 android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>

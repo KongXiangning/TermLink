@@ -21,10 +21,14 @@
 
 - 名称：Workspace API
   - 路径 / 符号：`/api/sessions/:id/workspace/*`
-  - 当前语义：围绕 `workspaceRoot` 提供 meta/tree/file/status/diff 能力
+  - 当前语义：围绕 `workspaceRoot` 提供 meta/tree/file/status/diff/search/compare 只读能力
   - 不可破坏项：
     - 访问范围受 `workspaceRoot` 约束
     - diff/status 依赖 Git 根目录解析
+    - `GET .../search?q=&limit=` 只返回 workspace 相对路径，默认排除版本库、依赖与生成缓存目录，最多返回 100 项
+    - `GET .../compare?leftPath=&rightPath=` 只比较可解码文本；每侧上限 1MiB/50,000 行
+    - `GET .../diff?path=&baseline=head&format=structured` 返回 HEAD 与当前工作树（合并 staged/unstaged）的结构化比较；无新增参数时继续保持旧 diff 语义
+    - 新增路径参数必须继续经过 `resolveWorkspaceAccess()` 和 workspace resolver，符号链接解析后也不得越过 `workspaceRoot`
   - 备注：Codex Workspace 主链路已依赖
 
 - 名称：Workspace picker API
@@ -127,6 +131,7 @@
 - HTTP 创建 session -> `sessionManager` -> `sessionStore`
 - WebSocket 连接 -> `terminalGateway` -> `sessionManager` / `ptyService` / `codexAppServerService`
 - workspace 请求 -> `resolveWorkspaceAccess()` -> workspace services -> Git 状态 / diff
+- 文档工作区 UI -> `public/workspace.*` 共享只读状态机 -> Workspace HTTP API；Android `WorkspaceActivity` 仅承担原生顶栏、返回栈、认证/mTLS 文件下载和只读系统打开
 
 ### 🔒 Codex 原生会话实时同步核心
 

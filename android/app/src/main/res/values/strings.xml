@@ -173,6 +173,8 @@
     <string name="workspace_activity_subtitle">%1$s | Session %2$s</string>
     <string name="workspace_activity_invalid_session">Missing workspace session context.</string>
     <string name="workspace_activity_invalid_profile">Current profile cannot open Workspace.</string>
+    <string name="workspace_activity_open_failed">Unable to download or open this workspace file.</string>
+    <string name="workspace_activity_no_viewer">No installed app can open this file type.</string>
 
     <!-- Native Codex Activity (Phase 0) -->
     <string name="codex_native_title">Codex</string>

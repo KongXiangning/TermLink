@@ -6,6 +6,7 @@ const { JSDOM } = require('jsdom');
 
 const WORKSPACE_HTML = fs.readFileSync(path.join(__dirname, '..', 'public', 'workspace.html'), 'utf8');
 const WORKSPACE_JS = fs.readFileSync(path.join(__dirname, '..', 'public', 'workspace.js'), 'utf8');
+const MARKDOWN_IT_JS = fs.readFileSync(path.join(__dirname, '..', 'public', 'vendor', 'markdown-it', 'markdown-it.min.js'), 'utf8');
 
 function createResponse(ok, payload, status = ok ? 200 : 500) {
     return {
@@ -57,6 +58,9 @@ function createWorkspaceApp(options = {}) {
         return fetchImpl(record, window);
     };
     window.console = console;
+    let nextObjectUrl = 0;
+    window.URL.createObjectURL = options.createObjectURL || (() => `blob:workspace-${++nextObjectUrl}`);
+    window.URL.revokeObjectURL = options.revokeObjectURL || (() => {});
 
     // Provide i18n stub so workspace.js can call i18n.init() / t() safely
     window.i18n = {
@@ -67,7 +71,12 @@ function createWorkspaceApp(options = {}) {
         ready: true
     };
     window.t = window.i18n.t;
+    if (options.visualViewport) {
+        Object.defineProperty(window, 'innerHeight', { value: options.innerHeight || 900, configurable: true });
+        Object.defineProperty(window, 'visualViewport', { value: options.visualViewport, configurable: true });
+    }
 
+    window.eval(MARKDOWN_IT_JS);
     window.eval(WORKSPACE_JS);
     return {
         window,
@@ -78,6 +87,25 @@ function createWorkspaceApp(options = {}) {
         }
     };
 }
+
+test('workspace tracks the visual viewport so mobile sheets stay above the IME', async (t) => {
+    const visualViewport = { height: 500, offsetTop: 0, addEventListener() {} };
+    const app = createWorkspaceApp({ innerHeight: 900, visualViewport });
+    t.after(() => app.cleanup());
+    await flushUi();
+    assert.equal(app.document.documentElement.style.getPropertyValue('--workspace-viewport-height'), '500px');
+    assert.equal(app.document.documentElement.style.getPropertyValue('--workspace-viewport-bottom'), '400px');
+});
+
+test('workspace back closes an open picker before navigating the directory history', async (t) => {
+    const app = createWorkspaceApp();
+    t.after(() => app.cleanup());
+    await flushUi();
+    app.document.getElementById('btn-search').click();
+    assert.equal(app.document.getElementById('search-dialog').hasAttribute('open'), true);
+    assert.equal(app.window.__workspaceBack(), true);
+    assert.equal(app.document.getElementById('search-dialog').hasAttribute('open'), false);
+});
 
 test('workspace page boots with meta then tree and keeps viewer in empty state', async (t) => {
     const app = createWorkspaceApp({
@@ -113,8 +141,8 @@ test('workspace page boots with meta then tree and keeps viewer in empty state',
     assert.match(app.calls[0].url, /\/workspace\/meta$/);
     assert.match(app.calls[1].url, /\/workspace\/tree\?/);
     assert.equal(app.document.getElementById('current-dir-label').textContent, 'docs');
-    assert.equal(app.document.getElementById('viewer-title').textContent, 'workspace.viewer.noFile');
-    assert.equal(app.document.getElementById('viewer-empty').textContent, 'workspace.viewer.selectFile');
+    assert.equal(app.document.getElementById('viewer-title').textContent, 'No file selected');
+    assert.equal(app.document.getElementById('viewer-empty').textContent, 'Select a file to preview');
 });
 
 test('workspace page drops stale file responses when user selects another file', async (t) => {
@@ -233,13 +261,13 @@ test('workspace page keeps loaded content when diff request fails', async (t) =>
     await flushUi();
 
     assert.equal(app.document.getElementById('viewer-status').textContent, 'Diff service unavailable');
-    assert.equal(app.document.getElementById('viewer-empty').textContent, 'workspace.viewer.diffLoadFailed');
+    assert.equal(app.document.getElementById('viewer-empty').textContent, 'Unable to load comparison.');
 
     app.document.getElementById('btn-view-content').click();
     await flushUi();
 
     assert.equal(app.document.getElementById('viewer-body').textContent, 'stable content');
-    assert.equal(app.document.getElementById('viewer-mode-note').textContent, 'workspace.viewer.fullPreview');
+    assert.equal(app.document.getElementById('viewer-mode-note').textContent, 'Complete file');
 });
 
 test('workspace page appends truncated content when loading more', async (t) => {
@@ -299,7 +327,7 @@ test('workspace page appends truncated content when loading more', async (t) => 
     await flushUi();
 
     assert.equal(app.document.getElementById('viewer-body').textContent, 'head-tail');
-    assert.match(app.document.getElementById('viewer-mode-note').textContent, /truncatedPreview/);
+    assert.equal(app.document.getElementById('viewer-mode-note').textContent, 'Partial preview');
     assert.equal(app.document.getElementById('btn-load-more').hidden, true);
 });
 
@@ -460,4 +488,112 @@ test('workspace page clears stale more loading when switching to another file', 
     assert.equal(app.document.getElementById('viewer-body').textContent, 'beta-content');
     assert.equal(app.document.getElementById('btn-view-content').disabled, false);
     assert.equal(app.document.getElementById('btn-reload-file').disabled, false);
+});
+
+test('workspace page renders one structured comparison in unified and split layouts', async (t) => {
+    const app = createWorkspaceApp({
+        fetchImpl: async (record) => {
+            const url = new URL(record.url);
+            if (url.pathname.endsWith('/workspace/meta')) return createResponse(true, { workspaceRoot: '/repo', defaultEntryPath: '', isGitRepo: true });
+            if (url.pathname.endsWith('/workspace/tree')) return createResponse(true, { path: '', entries: [{ name: 'tracked.txt', path: 'tracked.txt', type: 'file', gitStatus: 'M' }] });
+            if (url.pathname.endsWith('/workspace/file')) return createResponse(true, { path: 'tracked.txt', name: 'tracked.txt', kind: 'text', previewable: true, viewMode: 'full', content: 'new\n' });
+            if (url.pathname.endsWith('/workspace/diff')) return createResponse(true, {
+                mode: 'git', hasChanges: true, stats: { additions: 1, deletions: 1, hunks: 1 },
+                hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, rows: [{ type: 'change', oldLine: 1, newLine: 1, oldText: 'old', newText: 'new' }] }]
+            });
+            throw new Error(`Unexpected request ${record.url}`);
+        }
+    });
+    t.after(() => app.cleanup());
+    await flushUi();
+    app.document.querySelector('.browser-item').click();
+    await flushUi();
+    app.document.getElementById('btn-view-diff').click();
+    await flushUi();
+
+    assert.equal(app.document.querySelector('.diff-row.split .old-cell').textContent, 'old');
+    assert.equal(app.document.querySelector('.diff-row.split .new-cell').textContent, 'new');
+    assert.match(app.document.getElementById('diff-summary').textContent, /\+1/);
+
+    app.document.getElementById('btn-diff-unified').click();
+    assert.equal(app.document.querySelector('.diff-row.unified .diff-cell').textContent, 'new');
+});
+
+test('workspace global search opens a relative-path result without leaking an absolute path', async (t) => {
+    const app = createWorkspaceApp({
+        fetchImpl: async (record) => {
+            const url = new URL(record.url);
+            if (url.pathname.endsWith('/workspace/meta')) return createResponse(true, { workspaceRoot: '/repo', defaultEntryPath: 'docs', isGitRepo: false });
+            if (url.pathname.endsWith('/workspace/tree')) return createResponse(true, { path: url.searchParams.get('path') || '', entries: [] });
+            if (url.pathname.endsWith('/workspace/search')) return createResponse(true, { entries: [{ name: 'guide.md', path: 'docs/nested/guide.md', parentPath: 'docs/nested', type: 'file' }] });
+            if (url.pathname.endsWith('/workspace/file')) return createResponse(true, { path: 'docs/nested/guide.md', name: 'guide.md', kind: 'markdown', previewable: true, viewMode: 'full', content: '# Guide' });
+            throw new Error(`Unexpected request ${record.url}`);
+        }
+    });
+    t.after(() => app.cleanup());
+    await flushUi();
+    app.document.getElementById('btn-search').click();
+    const input = app.document.getElementById('search-input'); input.value = 'guide'; input.dispatchEvent(new app.window.Event('input', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 220)); await flushUi();
+    const result = app.document.querySelector('#search-results .picker-item');
+    assert.equal(result.textContent.includes('/repo'), false);
+    assert.match(result.textContent, /docs\/nested\/guide\.md/);
+    result.click(); await flushUi();
+    assert.equal(app.document.getElementById('viewer-title').textContent, 'guide.md');
+    assert.equal(app.window.history.state.path, 'docs/nested/guide.md');
+});
+
+test('workspace Markdown preview disables raw HTML and dangerous link protocols', async (t) => {
+    const app = createWorkspaceApp({
+        fetchImpl: async (record) => {
+            const url = new URL(record.url);
+            if (url.pathname.endsWith('/workspace/meta')) return createResponse(true, { workspaceRoot: '/repo', defaultEntryPath: '', isGitRepo: false });
+            if (url.pathname.endsWith('/workspace/tree')) return createResponse(true, { path: '', entries: [{ name: 'README.md', path: 'README.md', type: 'file' }] });
+            if (url.pathname.endsWith('/workspace/file')) return createResponse(true, {
+                path: 'README.md', name: 'README.md', kind: 'markdown', previewable: true, viewMode: 'full',
+                content: '<script>window.pwned=true</script>\n[bad](javascript:alert(1))\n[good](docs/guide.md)'
+            });
+            throw new Error(`Unexpected request ${record.url}`);
+        }
+    });
+    t.after(() => app.cleanup());
+    await flushUi(); app.document.querySelector('.browser-item').click(); await flushUi();
+    const markdown = app.document.getElementById('markdown-viewer');
+    assert.equal(markdown.querySelector('script'), null);
+    assert.match(markdown.textContent, /<script>/);
+    assert.equal(Array.from(markdown.querySelectorAll('a')).some((anchor) => /^javascript:/i.test(anchor.getAttribute('href') || '')), false);
+    assert.equal(markdown.querySelector('a[href="docs/guide.md"]').textContent, 'good');
+});
+
+test('workspace revokes an image Blob URL when another file is selected', async (t) => {
+    const revoked = [];
+    const app = createWorkspaceApp({
+        revokeObjectURL: (url) => revoked.push(url),
+        fetchImpl: async (record) => {
+            const url = new URL(record.url);
+            if (url.pathname.endsWith('/workspace/meta')) return createResponse(true, { workspaceRoot: '/repo', defaultEntryPath: '', isGitRepo: false });
+            if (url.pathname.endsWith('/workspace/tree')) return createResponse(true, { path: '', entries: [{ name: 'image.png', path: 'image.png', type: 'file' }, { name: 'note.txt', path: 'note.txt', type: 'file' }] });
+            if (url.pathname.endsWith('/workspace/file')) {
+                const requested = url.searchParams.get('path');
+                return createResponse(true, requested === 'image.png'
+                    ? { path: requested, name: requested, kind: 'image', mimeType: 'image/png', size: 4, previewable: false }
+                    : { path: requested, name: requested, kind: 'text', previewable: true, viewMode: 'full', content: 'note' });
+            }
+            if (url.pathname.endsWith('/workspace/file-content')) return { ok: true, status: 200, async blob() { return new app.window.Blob(['png']); } };
+            throw new Error(`Unexpected request ${record.url}`);
+        }
+    });
+    t.after(() => app.cleanup());
+    await flushUi();
+    const buttons = app.document.querySelectorAll('.browser-item'); buttons[0].click(); await flushUi();
+    assert.equal(app.document.getElementById('viewer-image').src, 'blob:workspace-1');
+    buttons[1].click(); await flushUi();
+    assert.deepEqual(revoked, ['blob:workspace-1']);
+});
+
+test('workspace PDF loader pins the local worker and disables eval', () => {
+    assert.match(WORKSPACE_JS, /vendor\/pdfjs\/pdf\.worker\.mjs/);
+    assert.match(WORKSPACE_JS, /isEvalSupported:\s*false/);
+    assert.equal(WORKSPACE_JS.includes('https://cdnjs'), false);
+    assert.equal(WORKSPACE_JS.includes('https://unpkg'), false);
 });

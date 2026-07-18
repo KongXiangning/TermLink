@@ -112,6 +112,7 @@ async function getDirectoryStatusMap(options) {
     const relativeDirFromGitRoot = path.relative(gitRoot, rootTarget.realTargetPath);
     const normalizedDirPrefix = relativeDirFromGitRoot === '' ? '' : toPortableRelativePath(relativeDirFromGitRoot);
     const map = new Map();
+    const missingItems = [];
 
     const statusEntries = await getGitStatusEntries(sessionId, gitRoot);
     for (const item of statusEntries) {
@@ -123,7 +124,21 @@ async function getDirectoryStatusMap(options) {
             ? portablePath.slice(normalizedDirPrefix.length).replace(/^\/+/, '')
             : portablePath;
         const firstSegment = relativeInsideDir.split('/')[0];
-        if (!firstSegment || (entryNames && !entryNames.has(firstSegment))) {
+        if (!firstSegment) {
+            continue;
+        }
+        if (entryNames && !entryNames.has(firstSegment)) {
+            if (item.gitStatus === 'D' && !relativeInsideDir.includes('/')) {
+                missingItems.push({
+                    name: firstSegment,
+                    path: normalizedDirPrefix ? `${normalizedDirPrefix}/${firstSegment}` : firstSegment,
+                    type: 'file',
+                    hidden: firstSegment.startsWith('.'),
+                    gitStatus: 'D',
+                    exists: false,
+                    size: 0
+                });
+            }
             continue;
         }
         if (!map.has(firstSegment)) {
@@ -136,7 +151,7 @@ async function getDirectoryStatusMap(options) {
         gitStatus
     }));
 
-    return { isGitRepo: true, items, map };
+    return { isGitRepo: true, items, map, missingItems };
 }
 
 async function getFileDiff(options) {

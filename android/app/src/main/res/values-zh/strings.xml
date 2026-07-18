@@ -173,6 +173,8 @@
     <string name="workspace_activity_subtitle">%1$s | 会话 %2$s</string>
     <string name="workspace_activity_invalid_session">缺少工作区会话上下文。</string>
     <string name="workspace_activity_invalid_profile">当前配置无法打开工作区。</string>
+    <string name="workspace_activity_open_failed">无法下载或打开该工作区文件。</string>
+    <string name="workspace_activity_no_viewer">没有已安装的应用可以打开此文件类型。</string>
 
     <!-- 原生 Codex Activity (Phase 0) -->
     <string name="codex_native_title">Codex</string>

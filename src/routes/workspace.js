@@ -10,7 +10,9 @@ const {
     resolveWorkspaceFileContent,
     readWorkspaceFileSegment,
     readWorkspaceLimitedSegment,
-    listPickerDirectories
+    listPickerDirectories,
+    searchWorkspaceEntries,
+    getWorkspaceMimeType
 } = require('../services/workspaceFileService');
 const {
     resolveWorkspaceMeta,
@@ -20,6 +22,10 @@ const {
     getDirectoryStatusMap,
     getFileDiff
 } = require('../services/workspaceGitService');
+const {
+    compareWorkspaceFiles,
+    compareWorkspaceFileWithHead
+} = require('../services/workspaceCompareService');
 
 function sendWorkspaceError(res, error) {
     const formatted = formatWorkspaceError(error);
@@ -34,18 +40,6 @@ function mergeGitStatuses(entries, statusMap) {
         ...entry,
         gitStatus: statusMap.get(entry.name) || null
     }));
-}
-
-function getWorkspaceContentType(filePath) {
-    switch (path.extname(filePath).toLowerCase()) {
-    case '.png': return 'image/png';
-    case '.jpg': case '.jpeg': return 'image/jpeg';
-    case '.gif': return 'image/gif';
-    case '.webp': return 'image/webp';
-    case '.svg': return 'image/svg+xml';
-    case '.pdf': return 'application/pdf';
-    default: return 'application/octet-stream';
-    }
 }
 
 function createWorkspaceRouter(sessionManager) {
@@ -76,6 +70,7 @@ function createWorkspaceRouter(sessionManager) {
             return res.json({
                 path: tree.path,
                 entries: mergeGitStatuses(tree.entries, statusResult.map)
+                    .concat((statusResult.missingItems || []).filter((entry) => showHidden || !entry.hidden))
             });
         } catch (error) {
             return sendWorkspaceError(res, error);
@@ -97,7 +92,7 @@ function createWorkspaceRouter(sessionManager) {
             const access = await resolveWorkspaceAccess(sessionManager, req.params.id);
             const target = await resolveWorkspaceFileContent(access.workspaceRoot, req.query.path);
             const shouldDownload = normalizeBooleanFlag(req.query.download, false);
-            res.type(getWorkspaceContentType(target.realTargetPath));
+            res.type(getWorkspaceMimeType(target.realTargetPath));
             if (shouldDownload) {
                 res.attachment(path.basename(target.realTargetPath));
             }
@@ -162,10 +157,47 @@ function createWorkspaceRouter(sessionManager) {
     router.get('/sessions/:id/workspace/diff', async (req, res) => {
         try {
             const access = await resolveWorkspaceAccess(sessionManager, req.params.id);
+            if (String(req.query.baseline || '').toLowerCase() === 'head'
+                || String(req.query.format || '').toLowerCase() === 'structured') {
+                const payload = await compareWorkspaceFileWithHead({
+                    workspaceRoot: access.workspaceRoot,
+                    gitRoot: access.gitRoot,
+                    requestedPath: req.query.path
+                });
+                return res.json(payload);
+            }
             const payload = await getFileDiff({
                 workspaceRoot: access.workspaceRoot,
                 gitRoot: access.gitRoot,
                 requestedPath: req.query.path
+            });
+            return res.json(payload);
+        } catch (error) {
+            return sendWorkspaceError(res, error);
+        }
+    });
+
+    router.get('/sessions/:id/workspace/search', async (req, res) => {
+        try {
+            const access = await resolveWorkspaceAccess(sessionManager, req.params.id);
+            const entries = await searchWorkspaceEntries(
+                access.workspaceRoot,
+                req.query.q,
+                req.query.limit
+            );
+            return res.json({ entries });
+        } catch (error) {
+            return sendWorkspaceError(res, error);
+        }
+    });
+
+    router.get('/sessions/:id/workspace/compare', async (req, res) => {
+        try {
+            const access = await resolveWorkspaceAccess(sessionManager, req.params.id);
+            const payload = await compareWorkspaceFiles({
+                workspaceRoot: access.workspaceRoot,
+                leftPath: req.query.leftPath,
+                rightPath: req.query.rightPath
             });
             return res.json(payload);
         } catch (error) {

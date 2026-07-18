@@ -11,6 +11,41 @@ const {
     resolveWorkspaceTarget
 } = require('./workspacePathUtils');
 
+const WORKSPACE_SEARCH_EXCLUDED_DIRECTORIES = new Set([
+    '.git',
+    'node_modules',
+    'build',
+    'dist',
+    'out',
+    'target',
+    '.gradle',
+    '.next',
+    '.cache'
+]);
+
+const MIME_TYPES = new Map([
+    ['.bmp', 'image/bmp'],
+    ['.gif', 'image/gif'],
+    ['.ico', 'image/x-icon'],
+    ['.jpeg', 'image/jpeg'],
+    ['.jpg', 'image/jpeg'],
+    ['.png', 'image/png'],
+    ['.svg', 'image/svg+xml'],
+    ['.webp', 'image/webp'],
+    ['.pdf', 'application/pdf'],
+    ['.md', 'text/markdown'],
+    ['.markdown', 'text/markdown'],
+    ['.css', 'text/css'],
+    ['.csv', 'text/csv'],
+    ['.html', 'text/html'],
+    ['.htm', 'text/html'],
+    ['.js', 'text/javascript'],
+    ['.json', 'application/json'],
+    ['.xml', 'application/xml'],
+    ['.yaml', 'application/yaml'],
+    ['.yml', 'application/yaml']
+]);
+
 function isHiddenName(name) {
     return typeof name === 'string' && name.startsWith('.');
 }
@@ -113,6 +148,18 @@ function buildLanguageHint(filePath) {
     return 'text';
 }
 
+function getWorkspaceMimeType(filePath) {
+    return MIME_TYPES.get(path.extname(filePath).toLowerCase()) || 'application/octet-stream';
+}
+
+function getWorkspaceFileKind(filePath, binary) {
+    const extension = path.extname(filePath).toLowerCase();
+    if (extension === '.md' || extension === '.markdown') return 'markdown';
+    if (['.bmp', '.gif', '.ico', '.jpeg', '.jpg', '.png', '.svg', '.webp'].includes(extension)) return 'image';
+    if (extension === '.pdf') return 'pdf';
+    return binary ? 'binary' : 'text';
+}
+
 function decodeBuffer(buffer) {
     if (buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
         return { encoding: 'utf-8', content: buffer.slice(3).toString('utf8') };
@@ -170,17 +217,22 @@ function buildFileDescriptor(target, stats) {
         path: target.portablePath,
         name: path.basename(target.realTargetPath),
         size: stats.size,
-        languageHint: buildLanguageHint(target.realTargetPath)
+        languageHint: buildLanguageHint(target.realTargetPath),
+        mimeType: getWorkspaceMimeType(target.realTargetPath)
     };
 }
 
 async function readTextPreview(target, stats) {
     const descriptor = buildFileDescriptor(target, stats);
     const sample = await readBinarySample(target.realTargetPath);
-    if (detectBinaryFromSample(target.realTargetPath, sample)) {
+    const binary = detectBinaryFromSample(target.realTargetPath, sample);
+    const kind = getWorkspaceFileKind(target.realTargetPath, binary);
+    if (binary) {
         return {
-            path: descriptor.path,
-            name: descriptor.name,
+            ...descriptor,
+            kind,
+            encoding: null,
+            viewMode: kind,
             previewable: false,
             reason: 'binary_file'
         };
@@ -192,6 +244,7 @@ async function readTextPreview(target, stats) {
         const decoded = decodeBuffer(buffer);
         return {
             ...descriptor,
+            kind,
             encoding: decoded.encoding,
             viewMode: 'full',
             previewable: true,
@@ -210,6 +263,7 @@ async function readTextPreview(target, stats) {
         const returnedBytes = buffer.length;
         return {
             ...descriptor,
+            kind,
             encoding: decoded.encoding,
             viewMode: 'truncated',
             previewable: true,
@@ -230,6 +284,7 @@ async function readTextPreview(target, stats) {
         const decoded = decodeBuffer(buffer);
         return {
             ...descriptor,
+            kind,
             encoding: decoded.encoding,
             viewMode: 'segmented',
             previewable: true,
@@ -249,6 +304,7 @@ async function readTextPreview(target, stats) {
     const decoded = decodeBuffer(buffer);
     return {
         ...descriptor,
+        kind,
         encoding: decoded.encoding,
         viewMode: 'limited',
         previewable: true,
@@ -557,6 +613,79 @@ async function searchWorkspaceFiles(workspaceRoot, query, limit = 20) {
         }));
 }
 
+async function searchWorkspaceEntries(workspaceRoot, query, limit = 50) {
+    const rootTarget = await resolveWorkspaceTarget(workspaceRoot, '');
+    if (!rootTarget.stats.isDirectory()) {
+        return [];
+    }
+
+    const normalizedQuery = typeof query === 'string' ? query.trim().toLocaleLowerCase() : '';
+    const normalizedLimit = Math.min(Math.max(Number.parseInt(limit, 10) || 50, 1), 100);
+    if (!normalizedQuery) {
+        return [];
+    }
+
+    const results = [];
+    const pendingDirectories = [rootTarget.realTargetPath];
+    let scannedEntries = 0;
+    const maxScannedEntries = 20000;
+
+    while (pendingDirectories.length > 0 && scannedEntries < maxScannedEntries) {
+        const currentPath = pendingDirectories.shift();
+        let entries;
+        try {
+            entries = await fs.readdir(currentPath, { withFileTypes: true });
+        } catch (error) {
+            continue;
+        }
+
+        for (const entry of entries) {
+            scannedEntries += 1;
+            if (scannedEntries > maxScannedEntries) break;
+            if (entry.isDirectory()) {
+                if (!WORKSPACE_SEARCH_EXCLUDED_DIRECTORIES.has(entry.name)) {
+                    pendingDirectories.push(path.join(currentPath, entry.name));
+                }
+                continue;
+            }
+            if (!entry.isFile()) continue;
+
+            const fullPath = path.join(currentPath, entry.name);
+            const relativePath = toPortableRelativePath(path.relative(rootTarget.workspaceRootRealPath, fullPath));
+            if (!relativePath || relativePath.startsWith('../')) continue;
+            const lowerName = entry.name.toLocaleLowerCase();
+            const lowerPath = relativePath.toLocaleLowerCase();
+            let score = -1;
+            if (lowerName === normalizedQuery) score = 200;
+            else if (lowerName.startsWith(normalizedQuery)) score = 150;
+            else if (lowerName.includes(normalizedQuery)) score = 100;
+            else if (lowerPath.includes(normalizedQuery)) score = 50;
+            if (score < 0) continue;
+
+            let size = null;
+            try {
+                size = (await fs.stat(fullPath)).size;
+            } catch (error) {
+                // The entry may disappear during a search; retain a stable result without size.
+            }
+            results.push({
+                name: entry.name,
+                path: relativePath,
+                parentPath: toPortableRelativePath(path.dirname(relativePath) === '.' ? '' : path.dirname(relativePath)),
+                type: 'file',
+                size,
+                kind: getWorkspaceFileKind(fullPath, BINARY_EXTENSIONS.has(path.extname(fullPath).toLowerCase())),
+                score
+            });
+        }
+    }
+
+    return results
+        .sort((left, right) => right.score - left.score || left.path.length - right.path.length || left.path.localeCompare(right.path))
+        .slice(0, normalizedLimit)
+        .map(({ score, ...entry }) => entry);
+}
+
 module.exports = {
     listWorkspaceDirectory,
     readWorkspaceFile,
@@ -564,5 +693,10 @@ module.exports = {
     readWorkspaceFileSegment,
     readWorkspaceLimitedSegment,
     listPickerDirectories,
-    searchWorkspaceFiles
+    searchWorkspaceFiles,
+    searchWorkspaceEntries,
+    decodeBuffer,
+    detectBinaryFromSample,
+    getWorkspaceFileKind,
+    getWorkspaceMimeType
 };

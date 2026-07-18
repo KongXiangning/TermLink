@@ -143,6 +143,12 @@ test('workspace tree returns git status and respects hidden file toggle', async 
     execFileSync('git', ['-C', temp.root, 'add', 'tracked.txt'], { windowsHide: true });
     execFileSync('git', ['-C', temp.root, 'commit', '-m', 'init'], { windowsHide: true });
     fs.writeFileSync(path.join(temp.root, 'tracked.txt'), 'after\n');
+    fs.writeFileSync(path.join(temp.root, 'deleted.txt'), 'delete me\n');
+    fs.writeFileSync(path.join(temp.root, '.deleted-hidden.txt'), 'delete me too\n');
+    execFileSync('git', ['-C', temp.root, 'add', 'deleted.txt', '.deleted-hidden.txt'], { windowsHide: true });
+    execFileSync('git', ['-C', temp.root, 'commit', '-m', 'add deleted fixture'], { windowsHide: true });
+    fs.unlinkSync(path.join(temp.root, 'deleted.txt'));
+    fs.unlinkSync(path.join(temp.root, '.deleted-hidden.txt'));
     fs.writeFileSync(path.join(temp.root, '.hidden.txt'), 'secret\n');
     fs.writeFileSync(path.join(temp.root, 'untracked.txt'), 'new\n');
 
@@ -165,6 +171,9 @@ test('workspace tree returns git status and respects hidden file toggle', async 
     assert.equal(hiddenOff.body.entries.some((entry) => entry.name === '.hidden.txt'), false);
     assert.equal(hiddenOff.body.entries.find((entry) => entry.name === 'tracked.txt').gitStatus, 'M');
     assert.equal(hiddenOff.body.entries.find((entry) => entry.name === 'untracked.txt').gitStatus, '?');
+    assert.equal(hiddenOff.body.entries.find((entry) => entry.name === 'deleted.txt').gitStatus, 'D');
+    assert.equal(hiddenOff.body.entries.find((entry) => entry.name === 'deleted.txt').exists, false);
+    assert.equal(hiddenOff.body.entries.some((entry) => entry.name === '.deleted-hidden.txt'), false);
 
     const hiddenOn = createMockRes();
     await handler({
@@ -172,6 +181,7 @@ test('workspace tree returns git status and respects hidden file toggle', async 
         query: { path: '', showHidden: 'true' }
     }, hiddenOn);
     assert.equal(hiddenOn.body.entries.some((entry) => entry.name === '.hidden.txt'), true);
+    assert.equal(hiddenOn.body.entries.find((entry) => entry.name === '.deleted-hidden.txt').gitStatus, 'D');
 });
 
 test('workspace file endpoint supports full, truncated, segmented, and limited view modes', async (t) => {
@@ -259,6 +269,50 @@ test('workspace diff returns unified diff for tracked changes and explicit feedb
     await handler({ params: { id: 'sess-4' }, query: { path: 'untracked.txt' } }, untrackedRes);
     assert.equal(untrackedRes.statusCode, 200);
     assert.equal(untrackedRes.body.reason, 'untracked_file');
+});
+
+test('workspace search and structured comparison routes are additive and path-safe', async (t) => {
+    const temp = createTempWorkspace();
+    t.after(() => temp.cleanup());
+    initGitRepo(temp.root);
+    fs.mkdirSync(path.join(temp.root, 'docs'));
+    fs.writeFileSync(path.join(temp.root, 'docs', 'guide.md'), 'before\n');
+    fs.writeFileSync(path.join(temp.root, 'other.md'), 'other\n');
+    execFileSync('git', ['-C', temp.root, 'add', '.'], { windowsHide: true });
+    execFileSync('git', ['-C', temp.root, 'commit', '-m', 'init'], { windowsHide: true });
+    fs.writeFileSync(path.join(temp.root, 'docs', 'guide.md'), 'after\n');
+
+    const router = createWorkspaceRouter(createSessionManager({
+        id: 'sess-structured', sessionMode: 'codex', cwd: temp.root,
+        workspaceRoot: temp.root, workspaceRootSource: 'session_cwd'
+    }));
+
+    const search = createMockRes();
+    await getRouteHandler(router, '/sessions/:id/workspace/search', 'get')({
+        params: { id: 'sess-structured' }, query: { q: 'guide', limit: '999' }
+    }, search);
+    assert.equal(search.statusCode, 200);
+    assert.deepEqual(search.body.entries.map((entry) => entry.path), ['docs/guide.md']);
+    assert.equal(Object.hasOwn(search.body.entries[0], 'fsPath'), false);
+
+    const headDiff = createMockRes();
+    await getRouteHandler(router, '/sessions/:id/workspace/diff', 'get')({
+        params: { id: 'sess-structured' },
+        query: { path: 'docs/guide.md', baseline: 'head', format: 'structured' }
+    }, headDiff);
+    assert.equal(headDiff.statusCode, 200);
+    assert.equal(headDiff.body.mode, 'git');
+    assert.equal(headDiff.body.hunks[0].rows.some((row) => row.type === 'change'), true);
+
+    const compare = createMockRes();
+    await getRouteHandler(router, '/sessions/:id/workspace/compare', 'get')({
+        params: { id: 'sess-structured' },
+        query: { leftPath: 'docs/guide.md', rightPath: 'other.md' }
+    }, compare);
+    assert.equal(compare.statusCode, 200);
+    assert.equal(compare.body.mode, 'files');
+    assert.equal(compare.body.left.path, 'docs/guide.md');
+    assert.equal(compare.body.right.path, 'other.md');
 });
 
 test('workspace blocks path escape attempts outside workspace root', async (t) => {
