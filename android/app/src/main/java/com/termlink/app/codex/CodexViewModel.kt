@@ -329,6 +329,28 @@ internal fun reconcileOwnerConfirmedOverrides(
 internal fun recalculateNextTurnEffectiveConfigForUiState(state: CodexUiState): CodexUiState =
     state.copy(nextTurnEffectiveCodexConfig = resolveNextTurnEffectiveCodexConfig(state))
 
+internal fun applyModelCatalogToUiState(
+    state: CodexUiState,
+    catalog: List<CodexModelOption>
+): CodexUiState {
+    if (catalog.isEmpty()) return state
+    val modelIds = catalog.map(CodexModelOption::id)
+    val selectedModel = state.model
+        ?.takeIf(modelIds::contains)
+        ?: catalog.firstOrNull { it.isDefault }?.id
+        ?: modelIds.first()
+    val selectedMetadata = catalog.firstOrNull { it.id == selectedModel }
+    return recalculateNextTurnEffectiveConfigForUiState(
+        state.copy(
+            capabilities = state.capabilities?.copy(models = modelIds),
+            modelCatalog = catalog,
+            model = selectedModel,
+            reasoningEffort = state.reasoningEffort
+                ?: selectedMetadata?.defaultReasoningEffort
+        )
+    )
+}
+
 internal fun resolveNextTurnEffectiveCodexConfig(state: CodexUiState): CodexEffectiveConfig? {
     val owner = state.ownerCurrentCodexConfig
     val session = state.serverNextTurnConfigBase
@@ -3361,27 +3383,10 @@ class CodexViewModel(
     }
 
     private fun handleModelListResponse(result: Any?) {
-        val models = mutableListOf<String>()
-        when (result) {
-            is org.json.JSONArray -> extractModelIds(result, models)
-            is org.json.JSONObject -> {
-                extractModelIds(result.optJSONArray("data"), models)
-                extractModelIds(result.optJSONArray("models"), models)
-            }
-        }
-        if (models.isEmpty()) {
-            return
-        }
-        val distinctModels = models.distinct()
-        _uiState.update { state ->
-            recalculateNextTurnEffectiveConfig(
-                state.copy(
-                    capabilities = state.capabilities?.copy(models = distinctModels),
-                    model = state.model ?: distinctModels.firstOrNull()
-                )
-            )
-        }
-        Log.i(TAG, "Loaded model list: $distinctModels")
+        val catalog = CodexModelOption.listFrom(result)
+        if (catalog.isEmpty()) return
+        _uiState.update { state -> applyModelCatalogToUiState(state, catalog) }
+        Log.i(TAG, "Loaded model list: ${catalog.map(CodexModelOption::id)}")
     }
 
     private fun maybeLoadSkillCatalog() {
@@ -3456,19 +3461,6 @@ class CodexViewModel(
             )
         }
         appendMessage(ChatMessage.Role.SYSTEM, successMessage)
-    }
-
-    private fun extractModelIds(source: org.json.JSONArray?, target: MutableList<String>) {
-        if (source == null) return
-        for (index in 0 until source.length()) {
-            when (val entry = source.opt(index)) {
-                is String -> entry.trim().takeIf { it.isNotEmpty() }?.let(target::add)
-                is org.json.JSONObject -> {
-                    entry.optStringOrNullCompat("id")?.let(target::add)
-                        ?: entry.optStringOrNullCompat("model")?.let(target::add)
-                }
-            }
-        }
     }
 
     private fun requestThreadMutation(threadId: String, actionKind: String, method: String) {

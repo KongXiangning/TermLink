@@ -4,6 +4,7 @@ import com.termlink.app.codex.data.CodexIpcStatus
 import com.termlink.app.codex.data.CodexFollowerMode
 import com.termlink.app.codex.data.CodexEffectiveConfig
 import com.termlink.app.codex.data.CodexIpcConversationSummary
+import com.termlink.app.codex.data.CodexModelOption
 import com.termlink.app.codex.data.CodexServerRequest
 import com.termlink.app.codex.data.ActiveGoalInfo
 import com.termlink.app.codex.data.DesktopSurfaceSnapshot
@@ -23,6 +24,47 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CodexViewModelThreadReadyTest {
+
+    @Test
+    fun modelCatalogTransitionKeepsCurrentModelAndUsesItsActualDefaultReasoning() {
+        val state = CodexUiState(model = "model-b")
+        val catalog = listOf(
+            CodexModelOption(
+                id = "model-a",
+                displayName = "Model A",
+                defaultReasoningEffort = "low",
+                supportedReasoningEfforts = listOf("low", "medium"),
+                isDefault = true
+            ),
+            CodexModelOption(
+                id = "model-b",
+                displayName = "Model B",
+                defaultReasoningEffort = "high",
+                supportedReasoningEfforts = listOf("medium", "high")
+            )
+        )
+
+        val updated = applyModelCatalogToUiState(state, catalog)
+
+        assertEquals("model-b", updated.model)
+        assertEquals("high", updated.reasoningEffort)
+        assertEquals(catalog, updated.modelCatalog)
+        assertEquals("high", updated.nextTurnEffectiveCodexConfig?.reasoningEffort)
+    }
+
+    @Test
+    fun modelCatalogTransitionUsesServerDefaultWhenCurrentModelIsUnavailable() {
+        val state = CodexUiState(model = "removed-model")
+        val catalog = listOf(
+            CodexModelOption("model-a", "Model A"),
+            CodexModelOption("model-b", "Model B", isDefault = true)
+        )
+
+        val updated = applyModelCatalogToUiState(state, catalog)
+
+        assertEquals("model-b", updated.model)
+        assertTrue(updated.reasoningEffort.isNullOrBlank())
+    }
 
     @Test
     fun mobileSlashActionsDispatchModelNewForkAndCompactToExpectedHandlers() {

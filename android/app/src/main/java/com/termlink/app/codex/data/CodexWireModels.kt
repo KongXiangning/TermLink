@@ -84,8 +84,8 @@ data class CodexCapabilities(
                 models = cap.optJSONArray("models")?.toStringList() ?: emptyList(),
                 defaultModel = cap.optString("defaultModel", ""),
                 reasoningEffortLevels = cap.optJSONArray("reasoningEffortLevels")?.toStringList()
-                    ?: listOf("low", "medium", "high"),
-                defaultReasoningEffort = cap.optString("defaultReasoningEffort", "medium"),
+                    ?: emptyList(),
+                defaultReasoningEffort = cap.optString("defaultReasoningEffort", ""),
                 rateLimitsRead = cap.optBoolean("rateLimitsRead", false),
                 diffPlanReasoning = cap.optBoolean("diffPlanReasoning", false),
                 historyList = cap.optBoolean("historyList", false),
@@ -102,6 +102,76 @@ data class CodexCapabilities(
                 imageInputSupported = cap.optBoolean("imageInputSupported", cap.optBoolean("imageInput", false)),
                 maxImageSize = cap.optLong("maxImageSize", cap.optLong("maxImageBytes", 0L))
             )
+        }
+    }
+}
+
+data class CodexModelOption(
+    val id: String,
+    val displayName: String,
+    val description: String? = null,
+    val defaultReasoningEffort: String? = null,
+    val supportedReasoningEfforts: List<String> = emptyList(),
+    val isDefault: Boolean = false
+) {
+    companion object {
+        fun listFrom(result: Any?): List<CodexModelOption> {
+            val sources = when (result) {
+                is JSONArray -> listOf(result)
+                is JSONObject -> listOfNotNull(
+                    result.optJSONArray("data"),
+                    result.optJSONArray("models")
+                )
+                else -> emptyList()
+            }
+            if (sources.isEmpty()) return emptyList()
+
+            val models = buildList {
+                sources.forEach { entries ->
+                    for (index in 0 until entries.length()) {
+                        when (val entry = entries.opt(index)) {
+                            is String -> entry.trim().takeIf(String::isNotEmpty)?.let { id ->
+                                add(CodexModelOption(id = id, displayName = id))
+                            }
+                            is JSONObject -> parse(entry)?.let(::add)
+                        }
+                    }
+                }
+            }
+            return models.distinctBy { it.id }
+        }
+
+        private fun parse(json: JSONObject): CodexModelOption? {
+            if (json.optBoolean("hidden", false)) return null
+            val id = json.optStringOrNull("id")
+                ?: json.optStringOrNull("model")
+                ?: return null
+            return CodexModelOption(
+                id = id,
+                displayName = json.optStringOrNull("displayName") ?: id,
+                description = json.optStringOrNull("description"),
+                defaultReasoningEffort = json.optStringOrNull("defaultReasoningEffort")
+                    ?.lowercase(),
+                supportedReasoningEfforts = parseReasoningEfforts(
+                    json.optJSONArray("supportedReasoningEfforts")
+                ),
+                isDefault = json.optBoolean("isDefault", false)
+            )
+        }
+
+        private fun parseReasoningEfforts(source: JSONArray?): List<String> {
+            if (source == null) return emptyList()
+            return buildList {
+                for (index in 0 until source.length()) {
+                    val effort = when (val entry = source.opt(index)) {
+                        is String -> entry
+                        is JSONObject -> entry.optStringOrNull("reasoningEffort")
+                            ?: entry.optStringOrNull("effort")
+                        else -> null
+                    }
+                    effort?.trim()?.lowercase()?.takeIf(String::isNotEmpty)?.let(::add)
+                }
+            }.distinct()
         }
     }
 }

@@ -1,10 +1,73 @@
 package com.termlink.app.codex.data
 
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Test
 import org.junit.Assert.*
 
 class CodexIpcWireModelTest {
+
+    @Test
+    fun `model catalog keeps per-model reasoning metadata and filters hidden entries`() {
+        val result = JSONObject(
+            """
+            {"data":[
+              {"id":"gpt-visible","displayName":"GPT Visible","description":"Primary model",
+               "defaultReasoningEffort":"HIGH","isDefault":true,
+               "supportedReasoningEfforts":["low",{"reasoningEffort":"MEDIUM"},{"effort":"high"}]},
+              {"id":"gpt-hidden","hidden":true,"supportedReasoningEfforts":["high"]}
+            ]}
+            """
+        )
+
+        val catalog = CodexModelOption.listFrom(result)
+
+        assertEquals(1, catalog.size)
+        assertEquals("gpt-visible", catalog.single().id)
+        assertEquals("GPT Visible", catalog.single().displayName)
+        assertEquals("Primary model", catalog.single().description)
+        assertEquals("high", catalog.single().defaultReasoningEffort)
+        assertEquals(listOf("low", "medium", "high"), catalog.single().supportedReasoningEfforts)
+        assertTrue(catalog.single().isDefault)
+    }
+
+    @Test
+    fun `model catalog accepts string entries without inventing reasoning levels`() {
+        val catalog = CodexModelOption.listFrom(JSONArray().put("legacy-model"))
+
+        assertEquals(1, catalog.size)
+        assertEquals("legacy-model", catalog.single().displayName)
+        assertTrue(catalog.single().supportedReasoningEfforts.isEmpty())
+        assertNull(catalog.single().defaultReasoningEffort)
+    }
+
+    @Test
+    fun `model catalog merges data and models compatibility arrays by id`() {
+        val result = JSONObject(
+            """
+            {"data":[],"models":[
+              {"id":"compat-model","supportedReasoningEfforts":["medium","high"]},
+              {"id":"compat-model","supportedReasoningEfforts":["low"]}
+            ]}
+            """
+        )
+
+        val catalog = CodexModelOption.listFrom(result)
+
+        assertEquals(1, catalog.size)
+        assertEquals("compat-model", catalog.single().id)
+        assertEquals(listOf("medium", "high"), catalog.single().supportedReasoningEfforts)
+    }
+
+    @Test
+    fun `capabilities do not invent reasoning levels when absent`() {
+        val capabilities = CodexCapabilities.from(
+            JSONObject("""{"capabilities":{"models":["gpt-model"]}}""")
+        )
+
+        assertTrue(capabilities.reasoningEffortLevels.isEmpty())
+        assertEquals("", capabilities.defaultReasoningEffort)
+    }
 
     @Test
     fun `parse session info with last codex thread id`() {

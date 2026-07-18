@@ -251,22 +251,16 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                     contentWindowInsets = WindowInsets(0, 0, 0, 0)
                 ) { innerPadding ->
                     val uiState by viewModel.uiState.collectAsState()
-                    val imagePickerLauncher = rememberLauncherForActivityResult(
-                        contract = ActivityResultContracts.OpenDocument()
-                    ) { uri ->
-                        uri?.let { handlePickedDocument(it, DocumentPickerKind.IMAGE) }
-                    }
                     val filePickerLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.OpenDocument()
                     ) { uri ->
-                        uri?.let { handlePickedDocument(it, DocumentPickerKind.FILE) }
+                        uri?.let(::handlePickedDocument)
                     }
                     CodexScreen(
                         state = uiState,
                         onSendMessage = viewModel::handleComposerSubmit,
                         onInterrupt = viewModel::interrupt,
                         onContinueGoal = viewModel::continueActiveGoal,
-                        onOpenSessions = ::openSessions,
                         onOpenDocs = ::openDocsWorkspace,
                         onNewThread = viewModel::newThread,
                         onRetry = { retryConnection() },
@@ -315,9 +309,6 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                         onUpdateThreadRenameDraft = viewModel::updateThreadRenameDraft,
                         onCancelThreadRename = viewModel::cancelThreadRename,
                         onSubmitThreadRename = viewModel::submitThreadRename,
-                        onPickLocalImage = {
-                            imagePickerLauncher.launch(arrayOf("image/*"))
-                        },
                         onPickLocalFile = {
                             filePickerLauncher.launch(arrayOf("*/*"))
                         },
@@ -424,7 +415,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
     }
 
     private fun shouldHideStatusBar(): Boolean {
-        return isActivityVisible
+        return false
     }
 
     private fun updateStatusBarVisibility() {
@@ -597,9 +588,9 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         }
     }
 
-    private fun handlePickedDocument(uri: Uri, pickerKind: DocumentPickerKind) {
+    private fun handlePickedDocument(uri: Uri) {
         lifecycleScope.launch {
-            val selection = withContext(Dispatchers.IO) { readSelectedDocument(uri, pickerKind) }
+            val selection = withContext(Dispatchers.IO) { readSelectedDocument(uri) }
             when (selection) {
                 is SelectedDocument.Image -> {
                     viewModel.addLocalImageAttachment(
@@ -645,21 +636,10 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         val contentText: String
     )
 
-    private enum class DocumentPickerKind {
-        IMAGE,
-        FILE
-    }
-
-    private fun readSelectedDocument(uri: Uri, pickerKind: DocumentPickerKind): SelectedDocument? {
+    private fun readSelectedDocument(uri: Uri): SelectedDocument? {
         val resolver = applicationContext.contentResolver
         val label = queryDisplayName(uri) ?: uri.lastPathSegment?.substringAfterLast('/') ?: "Image"
         val mimeType = resolver.getType(uri)?.trim()?.takeIf { it.isNotBlank() }
-        if (pickerKind == DocumentPickerKind.FILE) {
-            return SelectedDocument.FileReference(
-                label = label,
-                uri = uri.toString()
-            )
-        }
         if (mimeType != null && mimeType.startsWith("image/", ignoreCase = true)) {
             val bytes = resolver.openInputStream(uri)?.use { input -> input.readBytes() } ?: return null
             val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)

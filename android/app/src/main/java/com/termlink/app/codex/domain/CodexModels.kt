@@ -3,6 +3,7 @@ package com.termlink.app.codex.domain
 import com.termlink.app.codex.data.CodexCapabilities
 import com.termlink.app.codex.data.CodexEffectiveConfig
 import com.termlink.app.codex.data.CodexInteractionState
+import com.termlink.app.codex.data.CodexModelOption
 import com.termlink.app.codex.data.CodexServerRequest
 import com.termlink.app.codex.data.DesktopSurfaceSnapshot
 import com.termlink.app.codex.data.ActiveGoalInfo
@@ -198,6 +199,7 @@ data class CodexUiState(
     val planWorkflow: CodexPlanWorkflowState = CodexPlanWorkflowState(),
     val executionWatch: CodexExecutionWatchState = CodexExecutionWatchState(),
     val capabilities: CodexCapabilities? = null,
+    val modelCatalog: List<CodexModelOption> = emptyList(),
     val messages: List<ChatMessage> = emptyList(),
     val errorMessage: String? = null,
     val interactionState: CodexInteractionState? = null,

@@ -25,6 +25,7 @@
 - [x] 网页版登录、配置/会话、共享视觉基线与 terminal-first 工作区：任务 `20260715-002` Steps 1-9 已完成并归档。新增 additive HttpOnly Cookie 登录并保留 Basic/API/WS 契约；配置、drawer/dialog、terminal status/focus/fit/reconnect/mobile input 和 workspace/Codex 兼容已收口。Edge 150 在 1440/768/390 三档真实渲染/交互 QA 通过，最终相关自动化 111/111 pass。
 - [x] Web Codex 推理强度、权限选项与单一路径展示：任务 `20260716-002` 已完成。推理选项按当前模型 metadata 驱动，权限展示映射既有 effective sandbox 配置并保持 turn envelope 兼容，头部仅保留带 `PATH` 标签的 cwd；任务定向测试 123/123、TD-004 confirmed narrow gate 125/125，既有 3020 Edge/WebSocket smoke 通过。
 - [x] Android Codex owner 实时配置与斜杠命令：任务 `20260718-001` 已完成。IPC owner `model/reasoning/approval/sandbox` 通过 additive snapshot 实时同步，Android next-turn override 经 follower/App Server 两条路径真实发送并由 owner snapshot 收敛；命令菜单隐藏 `/model`、新增 `/new`/`/fork`、`/compact` 直接执行。Node targeted 72/72、Android JVM 137/137、真机 `/new`/`/compact` 与 `low/read-only` 首回合通过；设备仅有一个 session，A -> B -> A 双 session 真机 smoke 未执行并保留为验证限制。
+- [x] Android Codex 会话页视觉与移动端弹层：任务 `20260718-002` 已完成实现与本地验收。会话页以 412 × 915dp 为主规格并兼容 360dp 小屏；按最终效果图恢复系统状态栏，header 仅保留连接/PATH、历史与文档，消息/工具执行改为全宽角色卡，composer 输入与快捷栏合并为单一圆角容器；runtime/tools 常驻按钮移除且 stall diagnosis 保留。Goal/Plan、Skills/Slash、选择 Sheet 与请求弹窗语义保持。后续修复权限入口横向裁切与 capability 冷启动时序隐藏，并让思考强度按当前模型 `model/list` metadata 驱动，不再生成固定选项；最终 composer 进一步对齐 Codex Desktop 左右分区，`+ /` 形成紧凑双图标组，`+` 锚定菜单承载文件和图片、Goal、Plan 与上下文用量，原 footer 上下文圆环移除。JDK 21 Android JVM 143/143、debug APK、diff check 及双尺寸 Huawei 真机视觉/交互 QA 通过。HTTP/WebSocket/DTO/session/realtime 契约未改。
 
 ## 🔨 正在开发
 
@@ -69,6 +70,7 @@
 - `20260513-001` 当前已完成 release 结构清单、Windows 安装脚本、Linux `systemd` / non-`systemd` 安装路径、direct mTLS 安装期自动生成、nginx-side mTLS 一键工具，以及 README / README.zh-CN / deployment guide 收口；步骤 7 也已补齐真实打包目录 / 压缩包、release layout 自动回归、packaged runtime `/api/health` smoke 与显式失败路径证据，但真实 Windows PM2 install-service 与 Linux `systemd` 主支持路径仍缺宿主实证，因此开源 release 交付面继续保持 blocked 而非 stable
 - `20260629-001` 仍处于 observing / manual-smoke-required：当前自动化证据覆盖服务端 IPC 数据面、控制面、Android wire/state、conversation list bootstrap、layout-preserving UI binding、demo 默认关闭 active follower mode gate、server active-send disabled gate 与 follower user-input requestId gate；此前 `tests/terminalGateway.codexIpc.test.js` follower/control runner 超时已定位为测试 harness 误加载真实 `sessionManager` singleton，现已修复并 28/28 pass。真实 Desktop / VS Code IPC 只读链路、真实 dev server ticket/WebSocket 只读链路、真实 dev server follower-mode gate smoke、真实 dev server 阻断路径 smoke、Android debug build、Android 真机只读/视觉 smoke、Android active-send 写入式 smoke、服务端重启后 Android 自动重连 smoke、stale approval requestId 根因复现与修复后无错误 smoke、真实 live 长文本同步 smoke，以及可控 harness 下 Android approval / PLAN -> 当前 gateway 写入路径 smoke 均已完成。最新真实 owner 尝试仍无法自然生成 pending approval / PLAN：PLAN 请求由 owner 直接文本回复完成，越界写入请求由 owner 直接执行完成且 smoke 文件已清理。因此真实 Desktop / VS Code owner 自然产生 pending approval / PLAN 的三端同步手动验证尚未完成，不得把 owner activation、Android 展示端全链路或三端同步写入稳定区。
 - `20260629-001` 补充观察：真实 live Android 长文本同步 smoke 已确认当前 running conversation 不再出现 assistant 文本只显示首字的问题；Android approval decision 现在会按 owner 暴露的可用接受/拒绝集合选择 `accept*` / `decline` / `reject` / `cancel`。剩余风险仍是缺真实 owner 自然生成 pending approval / PLAN 的三端写入式验证。
+- `20260718-002` 的真机连接 capability 仅暴露 `/new`、`/fast`，本轮设备状态也没有 active Goal/Plan，因此 Skills Sheet、Goal band、Plan confirm 未取得该连接下的动态截图；对应 Compose 分支、callback 与 slash registry 兼容已通过静态审查、编译和单测，后续具备完整 capabilities 的环境可补状态截图，但不构成当前实现阻断。
 
 ## ❌ 已移除 / 推迟
 
@@ -86,6 +88,7 @@
 
 ## 最近更新记录
 
+- 2026-07-18：按用户最终效果图完成 `20260718-002` 二次视觉对齐。系统状态栏恢复，顶部移除汉堡与配额，消息/工具执行统一全宽角色卡，composer 与快捷栏合并；页面无 runtime/tools 常驻按钮，历史/文档、stall diagnosis、Skills/Plan/Goal 交互语义保留。同一 task-base scope/implementation/contracts review clean；JDK 21 JVM 137/137、debug APK 与 diff check 通过；Huawei VOG-AL00 最终 360 × 780dp / 412 × 915dp 截图通过且显示参数已恢复。
 - 2026-07-18：完成并归档 `20260716-002`。最终审查范围固定为 `d0cc650..f74f1d1`，后续 `01f96c4`、`ec895b2` 作为 scope-external 提交排除；scope / implementation / contracts review 与 report-only regression 全部通过，无 blocker。归档文件为 `TASKS/TASK-20260716-002-fix-web-codex-reasoning-permissions-data.md`。
 - 2026-07-16：完成 `20260715-002` 归档，归档文件为 `TASKS/TASK-20260715-002-web-ui-layout-and-terminal-ux.md`；`CURRENT_TASK.md` 已清理为 clean handoff 入口。新 browser authentication session 边界已同步到 `CONTRACTS.md`，touch focus restore 与 WSL/Windows browser-backed QA 经验已沉淀到 `LESSONS.md`。
 - 2026-07-16：完成 `20260715-002` Steps 8-9 和最终收口。Edge 150 真实浏览器验证覆盖 login/config/terminal 的 1440×900、768×1024、390×844 渲染、键盘/触屏、登录成败与 loading、xterm 输入/fit/reconnect、drawer/dialog focus、溢出、触控尺寸、reduced-motion、对比度和 console。三项视觉 finding（宽屏 toolbar/粗指针尺寸、touch focus restore、对比度）均已修复并复验。统一 task-base scope/implementation/contracts review clean，最终 111/111 tests 与 syntax/i18n/diff checks 通过，任务进入 closeout handoff。截图与报告位于 `C:\temp\termlink-visual-qa\`。
