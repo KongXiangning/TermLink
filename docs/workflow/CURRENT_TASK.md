@@ -3,8 +3,8 @@
 ## 当前状态
 
 - 当前无活动任务。
-- 最近完成并归档：`20260718-003` 重写 Android/Web 共享文档工作区。
-- 归档文件：`TASKS/TASK-20260718-003-rewrite-shared-document-workspace.md`。
+- 最近完成并归档：`20260719-001` 修复 Android 文档阅读字号与移动端横向溢出。
+- 归档文件：`TASKS/TASK-20260719-001-fix-workspace-mobile-reading-scale.md`。
 
 ## 下一轮入口
 

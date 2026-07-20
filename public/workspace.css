@@ -26,7 +26,11 @@
 [hidden] { display: none !important; }
 
 * { box-sizing: border-box; }
-html, body { min-height: 100%; }
+html, body {
+    min-height: 100%;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
 body {
     margin: 0;
     color: var(--text);
@@ -181,11 +185,21 @@ body:not(.host-android) .workspace-main { min-height: calc(100vh - 184px); }
 .viewer-body { min-width: max-content; margin: 0; padding: 15px 18px; white-space: pre; font: 13px/1.65 "Cascadia Code", Consolas, monospace; color: #d9e8f7; background: transparent; }
 .viewer-body code { padding: 0; background: transparent !important; }
 
-.markdown-viewer { max-width: 880px; margin: 0 auto; padding: 16px 20px 70px; line-height: 1.72; color: #dce9f5; }
+.markdown-viewer {
+    width: 100%; min-width: 0; max-width: 880px; margin: 0 auto; padding: 16px 20px 70px;
+    color: #dce9f5; font-size: 15px; line-height: 1.68; overflow-wrap: anywhere;
+}
 .markdown-viewer h1, .markdown-viewer h2 { padding-bottom: .35em; border-bottom: 1px solid var(--border); }
+.markdown-viewer h1 { font-size: 1.72em; }
+.markdown-viewer h2 { font-size: 1.42em; }
+.markdown-viewer h3 { font-size: 1.18em; }
+.markdown-viewer ul, .markdown-viewer ol { padding-left: 1.65em; }
+.markdown-viewer li { min-width: 0; }
 .markdown-viewer a { color: #88aaff; }
-.markdown-viewer pre { overflow: auto; padding: 14px; border-radius: 12px; background: var(--code-bg); }
+.markdown-viewer pre { max-width: 100%; overflow: auto; padding: 14px; border-radius: 12px; background: var(--code-bg); white-space: pre; }
 .markdown-viewer code { font-family: "Cascadia Code", Consolas, monospace; }
+.markdown-viewer :not(pre) > code { font-size: .9em; white-space: break-spaces; overflow-wrap: anywhere; word-break: break-word; }
+.markdown-viewer table { display: block; max-width: 100%; overflow-x: auto; }
 .markdown-viewer blockquote { margin-left: 0; padding-left: 14px; border-left: 3px solid #5678c7; color: var(--muted); }
 .markdown-viewer img { max-width: 100%; border-radius: 12px; }
 
@@ -252,8 +266,20 @@ body:not(.host-android) .workspace-main { min-height: calc(100vh - 184px); }
     .viewer-primary-actions button { min-width: 0; padding: 0 7px; font-size: 12px; }
     .code-viewer, .image-stage, .pdf-stage { max-height: calc(100vh - 245px); }
     .line-numbers { min-width: 42px; }
-    .viewer-body { padding: 13px 14px; }
-    .markdown-viewer { padding: 10px 7px 60px; }
+    .code-viewer { display: block; }
+    .line-numbers { display: none; }
+    .viewer-body {
+        width: 100%; min-width: 0; padding: 12px;
+        white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
+        font-size: 12px; line-height: 1.58;
+    }
+    .markdown-viewer { padding: 9px 5px 60px; font-size: 13px; line-height: 1.62; }
+    .markdown-viewer h1 { margin: 1.1em 0 .65em; font-size: 22px; line-height: 1.3; }
+    .markdown-viewer h2 { margin: 1.35em 0 .65em; font-size: 19px; line-height: 1.35; }
+    .markdown-viewer h3 { margin: 1.25em 0 .55em; font-size: 16px; line-height: 1.4; }
+    .markdown-viewer ul, .markdown-viewer ol { padding-left: 20px; }
+    .markdown-viewer li + li { margin-top: .24em; }
+    .markdown-viewer pre { padding: 10px; font-size: 12px; line-height: 1.55; }
     .workspace-dialog {
         position: fixed;
         inset: auto 0 var(--workspace-viewport-bottom, 0px);

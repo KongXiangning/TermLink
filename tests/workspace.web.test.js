@@ -6,6 +6,7 @@ const { JSDOM } = require('jsdom');
 
 const WORKSPACE_HTML = fs.readFileSync(path.join(__dirname, '..', 'public', 'workspace.html'), 'utf8');
 const WORKSPACE_JS = fs.readFileSync(path.join(__dirname, '..', 'public', 'workspace.js'), 'utf8');
+const WORKSPACE_CSS = fs.readFileSync(path.join(__dirname, '..', 'public', 'workspace.css'), 'utf8');
 const MARKDOWN_IT_JS = fs.readFileSync(path.join(__dirname, '..', 'public', 'vendor', 'markdown-it', 'markdown-it.min.js'), 'utf8');
 
 function createResponse(ok, payload, status = ok ? 200 : 500) {
@@ -596,4 +597,13 @@ test('workspace PDF loader pins the local worker and disables eval', () => {
     assert.match(WORKSPACE_JS, /isEvalSupported:\s*false/);
     assert.equal(WORKSPACE_JS.includes('https://cdnjs'), false);
     assert.equal(WORKSPACE_JS.includes('https://unpkg'), false);
+});
+
+test('workspace mobile reading layout uses compact type without page zoom', () => {
+    assert.match(WORKSPACE_HTML, /user-scalable=no/);
+    assert.match(WORKSPACE_CSS, /-webkit-text-size-adjust:\s*100%/);
+    assert.match(WORKSPACE_CSS, /\.markdown-viewer\s*\{[^}]*font-size:\s*13px;[^}]*line-height:\s*1\.62/s);
+    assert.match(WORKSPACE_CSS, /\.markdown-viewer\s+:not\(pre\)\s*>\s*code\s*\{[^}]*overflow-wrap:\s*anywhere/s);
+    assert.match(WORKSPACE_CSS, /\.viewer-body\s*\{[^}]*white-space:\s*pre-wrap;[^}]*overflow-wrap:\s*anywhere/s);
+    assert.match(WORKSPACE_CSS, /\.line-numbers\s*\{\s*display:\s*none;/s);
 });

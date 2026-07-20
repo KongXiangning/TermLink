@@ -43,6 +43,11 @@ ui.xml
 # Playwright MCP runtime artifacts
 .playwright-mcp/
 
+# Local validation artifacts
+.playwright-cli/
+artifacts/
+output/
+
 # Temporary review / verification screenshots
 codex-ipc-*.png
 codex-drawer-*.png
