@@ -261,6 +261,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                         onSendMessage = viewModel::handleComposerSubmit,
                         onInterrupt = viewModel::interrupt,
                         onContinueGoal = viewModel::continueActiveGoal,
+                        onOpenSessions = ::openSessions,
                         onOpenDocs = ::openDocsWorkspace,
                         onNewThread = viewModel::newThread,
                         onRetry = { retryConnection() },

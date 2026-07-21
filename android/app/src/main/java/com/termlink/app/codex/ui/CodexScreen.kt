@@ -192,6 +192,7 @@ fun CodexScreen(
     onSendMessage: (String) -> Unit,
     onInterrupt: () -> Unit,
     onContinueGoal: () -> Unit,
+    onOpenSessions: () -> Unit,
     onOpenDocs: () -> Unit,
     onNewThread: () -> Unit,
     onRetry: () -> Unit,
@@ -408,6 +409,7 @@ fun CodexScreen(
             CodexHeader(
                 state = state,
                 isStreaming = isStreaming,
+                onOpenSessions = onOpenSessions,
                 onOpenThreadHistory = {
                     if (state.threadHistorySheetVisible) onHideThreadHistory() else onShowThreadHistory()
                 },
@@ -805,6 +807,7 @@ private fun ActiveGoalBand(
 private fun CodexHeader(
     state: CodexUiState,
     isStreaming: Boolean,
+    onOpenSessions: () -> Unit,
     onOpenThreadHistory: () -> Unit,
     onOpenDocs: () -> Unit,
     historyEnabled: Boolean,
@@ -871,9 +874,17 @@ private fun CodexHeader(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 84.dp)
-                    .padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+                    .padding(start = 8.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                GlobalActionChip(
+                    iconRes = R.drawable.ic_sessions_24,
+                    contentDescription = stringResource(R.string.codex_native_header_sessions),
+                    onClick = onOpenSessions,
+                    boxSize = 48.dp,
+                    iconSize = 22.dp
+                )
+                Spacer(modifier = Modifier.width(2.dp))
                 Box(
                     modifier = Modifier
                         .size(10.dp)
@@ -1856,6 +1867,11 @@ private fun MessageBubble(message: ChatMessage) {
         }
     }
 }
+
+internal fun resolveComposerSafeBottomPaddingPx(
+    reportedBottom: Int,
+    legacyGestureBottom: Int
+): Int = maxOf(reportedBottom, legacyGestureBottom, 0)
 
 @Composable
 private fun MessageAvatar(role: ChatMessage.Role) {
@@ -4225,7 +4241,10 @@ private fun InputComposer(
         val legacyGestureBottom = obscuredBottom.takeIf { value ->
             value in 1..96.dp.roundToPx()
         } ?: 0
-        maxOf(reportedBottom, legacyGestureBottom).toDp().coerceAtLeast(36.dp)
+        resolveComposerSafeBottomPaddingPx(
+            reportedBottom = reportedBottom,
+            legacyGestureBottom = legacyGestureBottom
+        ).toDp()
     }
 
     LaunchedEffect(state.planMode, state.planWorkflow.phase) {
@@ -4487,7 +4506,7 @@ private fun InputComposer(
                                 }
                                 submit()
                             },
-                        contentAlignment = Alignment.CenterStart
+                        contentAlignment = Alignment.TopStart
                     ) {
                         BasicTextField(
                             value = textFieldValue,

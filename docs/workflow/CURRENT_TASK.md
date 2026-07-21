@@ -3,8 +3,8 @@
 ## 当前状态
 
 - 当前无活动任务。
-- 最近完成并归档：`20260719-001` 修复 Android 文档阅读字号与移动端横向溢出。
-- 归档文件：`TASKS/TASK-20260719-001-fix-workspace-mobile-reading-scale.md`。
+- 最近完成并归档：`20260722-001` 修复 Android Codex 会话页入口与 composer 布局。
+- 归档文件：`TASKS/TASK-20260722-001-fix-android-codex-composer-layout.md`。
 
 ## 下一轮入口
 
