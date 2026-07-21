@@ -303,6 +303,37 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun missingOwnerSnapshotDoesNotBlockAvailableSessionFallback() {
+        val state = CodexUiState(
+            ipcOnline = true,
+            followerModeEnabled = true,
+            activeConversationId = "conv-active",
+            awaitingNewThreadIpcSurface = false,
+            ipcSurfaceSnapshot = null,
+            serverNextTurnConfigBase = effectiveConfig(
+                reasoning = "high",
+                sandbox = "danger-full-access",
+                approval = "never"
+            )
+        )
+
+        assertTrue(!isOwnerConfigHydratingForUiState(state))
+    }
+
+    @Test
+    fun explicitNewThreadTransitionStillBlocksUntilOwnerSnapshotArrives() {
+        val state = CodexUiState(
+            ipcOnline = true,
+            followerModeEnabled = true,
+            activeConversationId = "conv-new",
+            awaitingNewThreadIpcSurface = true,
+            ipcSurfaceSnapshot = null
+        )
+
+        assertTrue(isOwnerConfigHydratingForUiState(state))
+    }
+
+    @Test
     fun mobileSlashActionsDispatchModelNewForkAndCompactToExpectedHandlers() {
         assertEquals(MobileSlashAction.SHOW_MODEL_PICKER, resolveMobileSlashAction("/model"))
         assertEquals(MobileSlashAction.NEW_THREAD, resolveMobileSlashAction("/new"))
@@ -787,6 +818,65 @@ class CodexViewModelThreadReadyTest {
         )
 
         assertEquals("fresh-thread", selected?.conversationId)
+    }
+
+    @Test
+    fun explicitHistorySelectionRequiresExactIpcConversationAfterHydrationEnds() {
+        assertTrue(
+            shouldRequireExactIpcConversationSelection(
+                pinnedConversationId = "history-thread",
+                activeConversationId = "history-thread",
+                threadId = "history-thread"
+            )
+        )
+        assertTrue(
+            !shouldRequireExactIpcConversationSelection(
+                pinnedConversationId = null,
+                activeConversationId = "stale-thread",
+                threadId = "stale-thread"
+            )
+        )
+    }
+
+    @Test
+    fun historyResumeResponseKeepsWaitingOnlyUntilTargetStateArrives() {
+        assertTrue(
+            shouldAwaitIpcSurfaceAfterThreadResumeResponse(
+                targetThreadId = "history-thread",
+                pendingHydrationThreadId = "history-thread"
+            )
+        )
+        assertTrue(
+            !shouldAwaitIpcSurfaceAfterThreadResumeResponse(
+                targetThreadId = "history-thread",
+                pendingHydrationThreadId = null
+            )
+        )
+    }
+
+    @Test
+    fun matchingHistoryStateEndsResumeHydrationWithoutEndingNewThreadWait() {
+        assertTrue(
+            !resolveAwaitingIpcSurfaceAfterTargetState(
+                currentlyAwaiting = true,
+                pendingHistoryResumeThreadId = "history-thread",
+                incomingThreadId = "history-thread"
+            )
+        )
+        assertTrue(
+            resolveAwaitingIpcSurfaceAfterTargetState(
+                currentlyAwaiting = true,
+                pendingHistoryResumeThreadId = null,
+                incomingThreadId = "fresh-thread"
+            )
+        )
+        assertTrue(
+            resolveAwaitingIpcSurfaceAfterTargetState(
+                currentlyAwaiting = true,
+                pendingHistoryResumeThreadId = "history-thread",
+                incomingThreadId = null
+            )
+        )
     }
 
     @Test

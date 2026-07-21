@@ -1,6 +1,7 @@
 package com.termlink.app.codex
 
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -36,11 +37,13 @@ import com.termlink.app.data.BasicCredentialStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.SessionApiClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -89,6 +92,159 @@ internal data class ThreadReadMergeTransition(
     val currentTurnId: String?,
     val messages: List<ChatMessage>
 )
+
+internal data class CanonicalTurnRuntimeProjection(
+    val status: String,
+    val currentTurnId: String?,
+    val source: String
+)
+
+internal fun canonicalAgentPhaseIndicatesActivity(phase: String?): Boolean {
+    val normalized = phase
+        ?.trim()
+        ?.lowercase()
+        ?.replace("_", "")
+        ?.replace("-", "")
+        ?.replace(" ", "")
+        .orEmpty()
+    return normalized in setOf("analysis", "commentary", "tool", "toolcall")
+}
+
+internal fun shouldPreserveCanonicalActivityRuntime(
+    incomingStatus: String?,
+    currentStatus: String?,
+    matchingOwnerSurfaceAvailable: Boolean,
+    activityThreadId: String?,
+    targetThreadId: String?,
+    millisSinceCanonicalActivity: Long,
+    activityWindowMillis: Long = 30_000L
+): Boolean {
+    if (matchingOwnerSurfaceAvailable) return false
+    if (!currentStatus.equals("running", ignoreCase = true)) return false
+    val normalizedIncoming = incomingStatus
+        ?.trim()
+        ?.lowercase()
+        ?.replace("_", "")
+        ?.replace("-", "")
+        ?.replace(" ", "")
+        .orEmpty()
+    val incomingIsTerminal = normalizedIncoming in setOf(
+        "idle", "completed", "complete", "failed", "interrupted", "cancelled", "canceled"
+    )
+    return incomingIsTerminal &&
+        normalizeCodexThreadId(activityThreadId) == normalizeCodexThreadId(targetThreadId) &&
+        millisSinceCanonicalActivity in 0L..activityWindowMillis
+}
+
+internal fun projectCanonicalTurnRuntime(
+    threadStatus: String? = null,
+    turnStatus: String?,
+    turnId: String?,
+    matchingOwnerSurfaceAvailable: Boolean,
+    hasActiveItem: Boolean = false,
+    latestAgentPhase: String? = null,
+    canonicalSnapshotChanged: Boolean = false,
+    millisSinceCanonicalChange: Long = Long.MAX_VALUE,
+    activityWindowMillis: Long = 30_000L
+): CanonicalTurnRuntimeProjection? {
+    if (matchingOwnerSurfaceAvailable) return null
+    fun normalize(value: String?): String = value
+        ?.trim()
+        ?.lowercase()
+        ?.replace("_", "")
+        ?.replace("-", "")
+        ?.replace(" ", "")
+        .orEmpty()
+    val normalizedThreadStatus = normalize(threadStatus)
+    val normalizedTurnStatus = normalize(turnStatus)
+    val normalizedPhase = normalize(latestAgentPhase)
+    val explicitActive = normalizedThreadStatus in setOf("active", "running", "inprogress") ||
+        normalizedTurnStatus in setOf("inprogress", "running", "active", "started") ||
+        hasActiveItem
+    if (explicitActive) {
+        return CanonicalTurnRuntimeProjection(
+            status = "running",
+            currentTurnId = turnId?.trim()?.takeIf(String::isNotEmpty),
+            source = "canonical-explicit-active"
+        )
+    }
+    if (normalizedPhase == "finalanswer" || normalizedPhase == "final") {
+        return CanonicalTurnRuntimeProjection(
+            status = "idle",
+            currentTurnId = null,
+            source = "canonical-final-answer"
+        )
+    }
+    if (canonicalSnapshotChanged || millisSinceCanonicalChange <= activityWindowMillis) {
+        return CanonicalTurnRuntimeProjection(
+            status = "running",
+            currentTurnId = turnId?.trim()?.takeIf(String::isNotEmpty),
+            source = "canonical-activity"
+        )
+    }
+    val explicitTerminal = normalizedThreadStatus in setOf("idle", "completed", "complete", "failed", "interrupted") ||
+        normalizedTurnStatus in setOf("completed", "complete", "failed", "interrupted", "cancelled", "canceled")
+    return if (explicitTerminal) {
+        CanonicalTurnRuntimeProjection(
+            status = "idle",
+            currentTurnId = null,
+            source = "canonical-explicit-terminal"
+        )
+    } else {
+        null
+    }
+}
+
+private const val REMEMBERED_CONFIG_PREFS = "codex_task_config_overrides"
+
+internal fun rememberedTaskConfigKey(profileId: String?, threadId: String?): String? {
+    val profile = profileId?.trim()?.takeIf(String::isNotEmpty) ?: return null
+    val thread = normalizeCodexThreadId(threadId) ?: return null
+    return "$profile::$thread"
+}
+
+internal fun encodeRememberedNextTurnOverrides(overrides: NextTurnOverrides): String? {
+    val json = JSONObject()
+    overrides.model?.trim()?.takeIf(String::isNotEmpty)?.let { json.put("model", it) }
+    overrides.reasoningEffort?.trim()?.takeIf(String::isNotEmpty)?.let { json.put("reasoningEffort", it) }
+    overrides.sandbox?.trim()?.takeIf(String::isNotEmpty)?.let { json.put("sandbox", it) }
+    overrides.approvalPolicy?.trim()?.takeIf(String::isNotEmpty)?.let { json.put("approvalPolicy", it) }
+    overrides.approvalsReviewer?.trim()?.takeIf(String::isNotEmpty)?.let { json.put("approvalsReviewer", it) }
+    overrides.permissionProfile?.trim()?.takeIf(String::isNotEmpty)?.let { json.put("permissionProfile", it) }
+    if (overrides.useConfigPermissions) json.put("useConfigPermissions", true)
+    return json.takeIf { it.length() > 0 }?.toString()
+}
+
+internal fun decodeRememberedNextTurnOverrides(raw: String?): NextTurnOverrides {
+    if (raw.isNullOrBlank()) return NextTurnOverrides()
+    return runCatching {
+        val json = JSONObject(raw)
+        NextTurnOverrides(
+            model = json.optStringOrNullCompat("model"),
+            reasoningEffort = json.optStringOrNullCompat("reasoningEffort"),
+            sandbox = json.optStringOrNullCompat("sandbox"),
+            approvalPolicy = json.optStringOrNullCompat("approvalPolicy"),
+            approvalsReviewer = json.optStringOrNullCompat("approvalsReviewer"),
+            permissionProfile = json.optStringOrNullCompat("permissionProfile"),
+            useConfigPermissions = json.optBoolean("useConfigPermissions", false)
+        )
+    }.getOrDefault(NextTurnOverrides())
+}
+
+internal fun overridesForConversationSwitch(
+    currentConversationId: String?,
+    targetConversationId: String?,
+    currentOverrides: NextTurnOverrides,
+    rememberedOverrides: NextTurnOverrides
+): NextTurnOverrides {
+    if (normalizeCodexThreadId(currentConversationId) == normalizeCodexThreadId(targetConversationId)) {
+        return currentOverrides
+    }
+    val newConversationIsBeingCreated = normalizeCodexThreadId(currentConversationId) == null &&
+        encodeRememberedNextTurnOverrides(rememberedOverrides) == null &&
+        encodeRememberedNextTurnOverrides(currentOverrides) != null
+    return if (newConversationIsBeingCreated) currentOverrides else rememberedOverrides
+}
 
 internal fun shouldBlockPlainTextFallbackForIpcConversationState(
     state: CodexUiState,
@@ -206,6 +362,60 @@ internal fun selectIpcConversationForUi(
         conversations.firstOrNull { it.conversationId == active }?.let { return it }
     }
     return chooseInitialIpcConversationForUi(conversations, threadId, cwd)
+}
+
+internal fun shouldRequireExactIpcConversationSelection(
+    pinnedConversationId: String?,
+    activeConversationId: String?,
+    threadId: String?
+): Boolean {
+    val pinned = pinnedConversationId?.trim().orEmpty()
+    if (pinned.isEmpty()) return false
+    return pinned == activeConversationId?.trim().orEmpty() ||
+        pinned == threadId?.trim().orEmpty()
+}
+
+internal fun shouldAwaitIpcSurfaceAfterThreadResumeResponse(
+    targetThreadId: String?,
+    pendingHydrationThreadId: String?
+): Boolean {
+    val target = targetThreadId?.trim().orEmpty()
+    return target.isNotEmpty() && target == pendingHydrationThreadId?.trim().orEmpty()
+}
+
+internal fun resolveAwaitingIpcSurfaceAfterTargetState(
+    currentlyAwaiting: Boolean,
+    pendingHistoryResumeThreadId: String?,
+    incomingThreadId: String?
+): Boolean {
+    if (!currentlyAwaiting) return false
+    val pending = pendingHistoryResumeThreadId?.trim().orEmpty()
+    val incoming = incomingThreadId?.trim().orEmpty()
+    return !(pending.isNotEmpty() && pending == incoming)
+}
+
+internal fun shouldUseCanonicalThreadReadFallback(
+    threadId: String?,
+    activeConversationId: String?,
+    ipcOnline: Boolean,
+    matchingSurfaceAvailable: Boolean,
+    millisSinceMatchingSurface: Long,
+    staleAfterMillis: Long
+): Boolean {
+    val targetThreadId = normalizeCodexThreadId(threadId) ?: return false
+    val activeId = normalizeCodexThreadId(activeConversationId)
+    if (activeId != null && activeId != targetThreadId) return false
+    if (!ipcOnline || !matchingSurfaceAvailable) return true
+    return millisSinceMatchingSurface >= staleAfterMillis
+}
+
+internal fun shouldApplyCanonicalThreadReadResponse(
+    currentThreadId: String?,
+    incomingThreadId: String?
+): Boolean {
+    val current = normalizeCodexThreadId(currentThreadId)
+    val incoming = normalizeCodexThreadId(incomingThreadId)
+    return current == null || incoming == null || current == incoming
 }
 
 internal fun applyIpcConversationSelectionToUiState(
@@ -486,7 +696,9 @@ internal fun isOwnerConfigHydratingForUiState(state: CodexUiState): Boolean {
         return false
     }
     if (state.awaitingNewThreadIpcSurface) return true
-    return state.ipcSurfaceSnapshot?.conversationId?.trim() != activeConversationId
+    val snapshotConversationId = state.ipcSurfaceSnapshot?.conversationId?.trim()
+        ?: return false
+    return snapshotConversationId != activeConversationId
 }
 
 internal fun resolveNextTurnEffectiveCodexConfig(state: CodexUiState): CodexEffectiveConfig? {
@@ -1027,11 +1239,19 @@ class CodexViewModel(
         private const val PLAN_PHASE_IDLE = "idle"
         private const val PLAN_PHASE_PLANNING = "planning"
         private const val PLAN_PHASE_AWAITING_USER_INPUT = "awaiting_user_input"
+        private const val IPC_SURFACE_STALE_AFTER_MILLIS = 5_000L
+        private const val CANONICAL_FOLLOW_POLL_MILLIS = 2_000L
+        private const val IPC_RECOVERY_RESUBSCRIBE_MILLIS = 10_000L
+        private const val CANONICAL_ACTIVITY_WINDOW_MILLIS = 30_000L
         private val ANSI_ESCAPE_REGEX = Regex("\\u001B\\[[;\\d?]*[ -/]*[@-~]")
     }
 
     private val appContext = appContext.applicationContext
     private val connectionManager = CodexConnectionManager(viewModelScope, credentialStore, this.appContext)
+    private val rememberedTaskConfig = this.appContext.getSharedPreferences(
+        REMEMBERED_CONFIG_PREFS,
+        Context.MODE_PRIVATE
+    )
 
     private val _uiState = MutableStateFlow(CodexUiState())
     val uiState: StateFlow<CodexUiState> = _uiState.asStateFlow()
@@ -1054,6 +1274,15 @@ class CodexViewModel(
     private var launchHydratePending: Boolean = false
     private var launchHydrateTargetThreadId: String? = null
     private var launchHydrateInFlightThreadId: String? = null
+    private var pinnedIpcConversationId: String? = null
+    private var pendingHistoryResumeHydrationThreadId: String? = null
+    private var foregroundFollowJob: Job? = null
+    private var foregroundRecoveryReadInFlightThreadId: String? = null
+    private var lastIpcSurfaceReceivedAtElapsed: Long = 0L
+    private var lastRecoverySubscribeAtElapsed: Long = 0L
+    private var canonicalActivityThreadId: String? = null
+    private var canonicalLatestTurnFingerprint: Int? = null
+    private var lastCanonicalActivityAtElapsed: Long = 0L
 
     init {
         observeConnectionState()
@@ -1074,6 +1303,15 @@ class CodexViewModel(
         launchHydrateTargetThreadId = normalizeThreadId(params.threadId)
         launchHydrateInFlightThreadId = null
         val launchConversationId = normalizeThreadId(params.threadId)
+        val rememberedOverrides = loadRememberedTaskOverrides(launchConversationId, reason = "connect")
+        pinnedIpcConversationId = launchConversationId
+        pendingHistoryResumeHydrationThreadId = null
+        lastIpcSurfaceReceivedAtElapsed = 0L
+        lastRecoverySubscribeAtElapsed = 0L
+        canonicalActivityThreadId = null
+        canonicalLatestTurnFingerprint = null
+        lastCanonicalActivityAtElapsed = 0L
+        foregroundRecoveryReadInFlightThreadId = null
         val previousActiveConvId = _uiState.value.activeConversationId?.trim().orEmpty()
         Log.i(TAG, "[ipc][connect] starting connection: " +
             "launchConversationId=${launchConversationId.orEmpty()} " +
@@ -1095,7 +1333,7 @@ class CodexViewModel(
                     serverNextTurnConfigBase = null,
                     ownerCurrentCodexConfig = null,
                     nextTurnEffectiveCodexConfig = null,
-                    nextTurnOverrides = NextTurnOverrides(),
+                    nextTurnOverrides = rememberedOverrides,
                     planWorkflow = buildEmptyPlanWorkflowState(),
                     pendingFileMentions = emptyList(),
                     fileMentionMenuVisible = false,
@@ -1120,6 +1358,7 @@ class CodexViewModel(
                     threadRenameTargetId = "",
                     threadRenameDraft = "",
                     activeConversationId = launchConversationId,
+                    awaitingNewThreadIpcSurface = false,
                     ipcSurfaceSnapshot = null,
                     activeGoal = null,
                     followerModeEnabled = true,
@@ -1133,7 +1372,50 @@ class CodexViewModel(
     fun disconnect() {
         clearPendingOptimisticNewThreadTransition()
         clearPendingLaunchHydrate()
+        pendingHistoryResumeHydrationThreadId = null
         connectionManager.disconnect()
+    }
+
+    fun onHostVisible() {
+        subscribeActiveConversationIfNeeded()
+        requestForegroundRecoveryThreadRead(_uiState.value.threadId, reason = "activity-visible")
+        if (foregroundFollowJob?.isActive == true) return
+        foregroundFollowJob = viewModelScope.launch {
+            while (isActive) {
+                delay(CANONICAL_FOLLOW_POLL_MILLIS)
+                val state = _uiState.value
+                if (state.connectionState != ConnectionState.CONNECTED) continue
+                val targetThreadId = normalizeThreadId(state.threadId) ?: continue
+                val now = SystemClock.elapsedRealtime()
+                val matchingSurface = state.ipcSurfaceSnapshot?.conversationId?.trim() == targetThreadId
+                val sinceSurface = if (lastIpcSurfaceReceivedAtElapsed > 0L) {
+                    now - lastIpcSurfaceReceivedAtElapsed
+                } else {
+                    Long.MAX_VALUE
+                }
+                if (!shouldUseCanonicalThreadReadFallback(
+                        threadId = targetThreadId,
+                        activeConversationId = state.activeConversationId,
+                        ipcOnline = state.ipcOnline,
+                        matchingSurfaceAvailable = matchingSurface,
+                        millisSinceMatchingSurface = sinceSurface,
+                        staleAfterMillis = IPC_SURFACE_STALE_AFTER_MILLIS
+                    )) {
+                    continue
+                }
+                if (now - lastRecoverySubscribeAtElapsed >= IPC_RECOVERY_RESUBSCRIBE_MILLIS) {
+                    subscribeActiveConversationIfNeeded()
+                    lastRecoverySubscribeAtElapsed = now
+                }
+                requestForegroundRecoveryThreadRead(targetThreadId, reason = "foreground-ipc-recovery")
+            }
+        }
+    }
+
+    fun onHostHidden() {
+        foregroundFollowJob?.cancel()
+        foregroundFollowJob = null
+        foregroundRecoveryReadInFlightThreadId = null
     }
 
     fun setError(message: String) {
@@ -1246,6 +1528,8 @@ class CodexViewModel(
         clearPendingOptimisticNewThreadTransition()
         clearPendingThreadResync()
         clearPendingLaunchHydrate()
+        pinnedIpcConversationId = null
+        pendingHistoryResumeHydrationThreadId = null
         _uiState.update {
             prepareIpcStateForNewThread(
                 it.copy(
@@ -1922,6 +2206,8 @@ class CodexViewModel(
         if (normalizedThreadId.isEmpty()) return
         clearPendingOptimisticNewThreadTransition()
         clearPendingLaunchHydrate()
+        pinnedIpcConversationId = normalizedThreadId
+        pendingHistoryResumeHydrationThreadId = normalizedThreadId
         _uiState.update {
             it.copy(
                 threadHistoryActionThreadId = normalizedThreadId,
@@ -2221,14 +2507,16 @@ class CodexViewModel(
     }
 
     fun selectReasoningEffort(reasoningEffort: String?) {
-        _uiState.update {
+        _uiState.update { state ->
+            val remembered = loadRememberedTaskOverrides(state.threadId, reason = "select-reasoning-base")
             recalculateNextTurnEffectiveConfig(
-                it.copy(
-                    nextTurnOverrides = it.nextTurnOverrides.copy(reasoningEffort = reasoningEffort),
+                state.copy(
+                    nextTurnOverrides = remembered.copy(reasoningEffort = reasoningEffort),
                     reasoningPickerVisible = false
                 )
             )
         }
+        rememberCurrentTaskOverrides(reason = "select-reasoning")
     }
 
     fun showSandboxPicker() {
@@ -2249,14 +2537,17 @@ class CodexViewModel(
     }
 
     fun selectSandboxMode(sandboxMode: String?) {
-        _uiState.update {
+        _uiState.update { state ->
+            val remembered = loadRememberedTaskOverrides(state.threadId, reason = "select-permission-base")
+            val selectionState = state.copy(nextTurnOverrides = remembered)
             recalculateNextTurnEffectiveConfig(
-                it.copy(
-                    nextTurnOverrides = nextTurnOverridesForPermissionSelection(it, sandboxMode),
+                state.copy(
+                    nextTurnOverrides = nextTurnOverridesForPermissionSelection(selectionState, sandboxMode),
                     sandboxPickerVisible = false
                 )
             )
         }
+        rememberCurrentTaskOverrides(reason = "select-permission")
     }
 
     // ── Model picker ──────────────────────────────────────────────────
@@ -2279,14 +2570,17 @@ class CodexViewModel(
     }
 
     fun selectModel(model: String?) {
-        _uiState.update {
+        _uiState.update { state ->
+            val remembered = loadRememberedTaskOverrides(state.threadId, reason = "select-model-base")
+            val selectionState = state.copy(nextTurnOverrides = remembered)
             recalculateNextTurnEffectiveConfig(
-                it.copy(
-                    nextTurnOverrides = nextTurnOverridesForModelSelection(it, model),
+                state.copy(
+                    nextTurnOverrides = nextTurnOverridesForModelSelection(selectionState, model),
                     modelPickerVisible = false
                 )
             )
         }
+        rememberCurrentTaskOverrides(reason = "select-model")
         Log.i(TAG, "Model override: $model")
     }
 
@@ -2366,6 +2660,59 @@ class CodexViewModel(
         _uiState.update { state ->
             recalculateNextTurnEffectiveConfig(state.copy(nextTurnOverrides = overrides))
         }
+        rememberCurrentTaskOverrides(reason = "set-overrides")
+    }
+
+    private fun loadRememberedTaskOverrides(threadId: String?, reason: String): NextTurnOverrides {
+        val key = rememberedTaskConfigKey(currentProfile?.id, threadId) ?: return NextTurnOverrides()
+        val overrides = decodeRememberedNextTurnOverrides(rememberedTaskConfig.getString(key, null))
+        Log.i(
+            TAG,
+            "[config][remembered-load] reason=$reason threadId=${normalizeThreadId(threadId).orEmpty()} " +
+                "fields=${rememberedOverrideFieldSummary(overrides)}"
+        )
+        return overrides
+    }
+
+    private fun rememberCurrentTaskOverrides(reason: String) {
+        val state = _uiState.value
+        val key = rememberedTaskConfigKey(currentProfile?.id, state.threadId) ?: return
+        val encoded = encodeRememberedNextTurnOverrides(state.nextTurnOverrides)
+        rememberedTaskConfig.edit().apply {
+            if (encoded == null) remove(key) else putString(key, encoded)
+        }.apply()
+        Log.i(
+            TAG,
+            "[config][remembered-save] reason=$reason threadId=${normalizeThreadId(state.threadId).orEmpty()} " +
+                "fields=${rememberedOverrideFieldSummary(state.nextTurnOverrides)}"
+        )
+    }
+
+    private fun rememberedOverrideFieldSummary(overrides: NextTurnOverrides): String = buildList {
+        if (!overrides.model.isNullOrBlank()) add("model")
+        if (!overrides.reasoningEffort.isNullOrBlank()) add("reasoning")
+        if (!overrides.sandbox.isNullOrBlank()) add("sandbox")
+        if (!overrides.approvalPolicy.isNullOrBlank()) add("approval")
+        if (!overrides.approvalsReviewer.isNullOrBlank()) add("reviewer")
+        if (!overrides.permissionProfile.isNullOrBlank()) add("profile")
+        if (overrides.useConfigPermissions) add("config-permissions")
+    }.joinToString(",").ifEmpty { "none" }
+
+    private fun applyIpcConversationSelectionWithRememberedConfig(
+        state: CodexUiState,
+        selected: CodexIpcConversationSummary
+    ): CodexUiState {
+        val previousId = normalizeThreadId(state.activeConversationId)
+        val selectedState = applyIpcConversationSelectionToUiState(state, selected)
+        if (previousId == normalizeThreadId(selected.conversationId)) return selectedState
+        return recalculateNextTurnEffectiveConfig(
+            selectedState.copy(
+                nextTurnOverrides = loadRememberedTaskOverrides(
+                    selected.conversationId,
+                    reason = "ipc-selection"
+                )
+            )
+        )
     }
 
     // ── Internal: send turn with overrides ────────────────────────────
@@ -2717,7 +3064,9 @@ class CodexViewModel(
             kind = "image",
             label = attachment.label,
             path = null,
-            url = attachment.url.takeUnless { isLocalImage },
+            // Keep the data URL in the local message projection so the just-sent
+            // history chip remains openable before the server canonicalizes it.
+            url = attachment.url,
             source = if (isLocalImage) "local" else "remote",
             dedupeKey = if (isLocalImage) {
                 buildAttachmentDedupeKey(attachment.url.ifBlank { attachment.label })
@@ -2759,15 +3108,27 @@ class CodexViewModel(
                 val trimmed = line.trim()
                 when {
                     trimmed.startsWith("[image] ", ignoreCase = true) -> {
+                        val value = trimmed.substringAfter(']').trim()
+                        val isUri = value.startsWith("http://", ignoreCase = true) ||
+                            value.startsWith("https://", ignoreCase = true) ||
+                            value.startsWith("data:", ignoreCase = true) ||
+                            value.startsWith("content:", ignoreCase = true) ||
+                            value.startsWith("file:", ignoreCase = true)
                         CodexMessageAttachment(
                             kind = "image",
-                            label = trimmed.removePrefix("[image]").trim()
+                            label = value,
+                            path = value.takeUnless { isUri },
+                            url = value.takeIf { isUri },
+                            source = if (isUri) "remote" else "local"
                         )
                     }
                     trimmed.startsWith("[image-url] ", ignoreCase = true) -> {
+                        val value = trimmed.substringAfter(']').trim()
                         CodexMessageAttachment(
                             kind = "image",
-                            label = trimmed.removePrefix("[image-url]").trim()
+                            label = value,
+                            url = value,
+                            source = "remote"
                         )
                     }
                     else -> null
@@ -3015,6 +3376,11 @@ class CodexViewModel(
                 val previousConversationId = _uiState.value.activeConversationId?.trim().orEmpty()
                 val currentThreadId = _uiState.value.threadId?.trim().orEmpty()
                 val currentCwd = _uiState.value.cwd
+                val requiresExactSelection = shouldRequireExactIpcConversationSelection(
+                    pinnedConversationId = pinnedIpcConversationId,
+                    activeConversationId = previousConversationId,
+                    threadId = currentThreadId
+                )
                 // Trace selection reasoning
                 val matchReason: String
                 val selected: CodexIpcConversationSummary? = selectIpcConversationForUi(
@@ -3022,7 +3388,8 @@ class CodexViewModel(
                     activeConversationId = previousConversationId,
                     threadId = currentThreadId,
                     cwd = currentCwd,
-                    awaitingNewThreadIpcSurface = _uiState.value.awaitingNewThreadIpcSurface
+                    awaitingNewThreadIpcSurface = _uiState.value.awaitingNewThreadIpcSurface ||
+                        requiresExactSelection
                 )
                 matchReason = when {
                     selected == null -> "none"
@@ -3037,15 +3404,22 @@ class CodexViewModel(
                 _uiState.update { current ->
                     val preferred = selected
                     if (preferred == null) {
-                        if (current.awaitingNewThreadIpcSurface) current else clearIpcConversationSelectionFromUiState(current)
+                        if (current.awaitingNewThreadIpcSurface || requiresExactSelection) {
+                            conversationToSubscribe = current.activeConversationId?.trim()
+                                ?.takeIf { it.isNotEmpty() }
+                                ?: current.threadId?.trim()?.takeIf { it.isNotEmpty() }
+                            current
+                        } else {
+                            clearIpcConversationSelectionFromUiState(current)
+                        }
                     } else if (
                         preferred.conversationId == current.activeConversationId?.trim().orEmpty() &&
                         !current.awaitingNewThreadIpcSurface
                     ) {
-                        applyIpcConversationSelectionToUiState(current, preferred)
+                        applyIpcConversationSelectionWithRememberedConfig(current, preferred)
                     } else {
                         conversationToSubscribe = preferred.conversationId
-                        applyIpcConversationSelectionToUiState(current, preferred)
+                        applyIpcConversationSelectionWithRememberedConfig(current, preferred)
                     }
                 }
                 val newConversationId = _uiState.value.activeConversationId?.trim().orEmpty()
@@ -3098,6 +3472,7 @@ class CodexViewModel(
                 val activeConv = _uiState.value.activeConversationId
                 val applied = convId != null && activeConv != null && convId == activeConv
                 if (applied) {
+                    lastIpcSurfaceReceivedAtElapsed = SystemClock.elapsedRealtime()
                     _uiState.update { current -> applyDesktopSurfaceSnapshotToUiState(current, snap) }
                 }
                 Log.i(TAG, "[ipc][surface-snapshot] " +
@@ -3142,24 +3517,36 @@ class CodexViewModel(
                         ?: json.optStringOrNullCompat("conversationId")
                 )
                 if (conversationId != null) {
+                    val rememberedOverrides = loadRememberedTaskOverrides(
+                        conversationId,
+                        reason = "session-thread-bound"
+                    )
                     val previousConversationId = _uiState.value.activeConversationId.orEmpty()
+                    val appliesToCurrentSession = boundSessionId.isBlank() ||
+                        boundSessionId == _uiState.value.sessionId
                     _uiState.update { current ->
                         if (boundSessionId.isNotBlank() && boundSessionId != current.sessionId) {
                             current
                         } else {
-                            val switched = current.activeConversationId?.trim().orEmpty().let {
-                                it.isNotEmpty() && it != conversationId
-                            }
+                            val switched = normalizeThreadId(current.activeConversationId) != conversationId
                             recalculateNextTurnEffectiveConfig(
                                 current.copy(
                                     threadId = conversationId,
                                     activeConversationId = conversationId,
                                     ipcSurfaceSnapshot = if (switched) null else current.ipcSurfaceSnapshot,
                                     ownerCurrentCodexConfig = if (switched) null else current.ownerCurrentCodexConfig,
-                                    nextTurnOverrides = if (switched) NextTurnOverrides() else current.nextTurnOverrides
+                                    nextTurnOverrides = overridesForConversationSwitch(
+                                        currentConversationId = current.activeConversationId,
+                                        targetConversationId = conversationId,
+                                        currentOverrides = current.nextTurnOverrides,
+                                        rememberedOverrides = rememberedOverrides
+                                    )
                                 )
                             )
                         }
+                    }
+                    if (appliesToCurrentSession) {
+                        pinnedIpcConversationId = conversationId
                     }
                     Log.i(TAG, "[ipc][session-thread-bound] " +
                         "boundSessionId=$boundSessionId " +
@@ -3173,6 +3560,13 @@ class CodexViewModel(
                 val state = CodexState.from(json)
                 val previousThreadId = _uiState.value.threadId
                 val serverThreadId = state.threadId
+                val normalizedServerThreadId = normalizeThreadId(serverThreadId)
+                val rememberedServerOverrides = loadRememberedTaskOverrides(
+                    normalizedServerThreadId,
+                    reason = "codex-state"
+                )
+                val resolvesHistoryResumeHydration = normalizedServerThreadId != null &&
+                    normalizedServerThreadId == pendingHistoryResumeHydrationThreadId
                 val threadChanged = shouldResubscribeForCodexStateThreadChange(
                     previousThreadId = previousThreadId,
                     serverThreadId = serverThreadId
@@ -3185,9 +3579,25 @@ class CodexViewModel(
                         activeConversationId = current.activeConversationId,
                         currentThreadId = current.threadId
                     )
-                    val ipcConversationSwitched = current.activeConversationId?.trim().orEmpty().let { activeId ->
-                        activeId.isNotEmpty() && nextThreadId != null && activeId != nextThreadId
+                    val matchingOwnerSurfaceAvailable = current.ipcSurfaceSnapshot?.conversationId
+                        ?.let(::normalizeThreadId) == normalizeThreadId(nextThreadId) &&
+                        current.ipcSurfaceSnapshot != null
+                    val millisSinceCanonicalActivity = if (lastCanonicalActivityAtElapsed > 0L) {
+                        (SystemClock.elapsedRealtime() - lastCanonicalActivityAtElapsed).coerceAtLeast(0L)
+                    } else {
+                        Long.MAX_VALUE
                     }
+                    val preserveCanonicalRuntime = shouldPreserveCanonicalActivityRuntime(
+                        incomingStatus = state.status,
+                        currentStatus = current.status,
+                        matchingOwnerSurfaceAvailable = matchingOwnerSurfaceAvailable,
+                        activityThreadId = canonicalActivityThreadId,
+                        targetThreadId = nextThreadId,
+                        millisSinceCanonicalActivity = millisSinceCanonicalActivity,
+                        activityWindowMillis = CANONICAL_ACTIVITY_WINDOW_MILLIS
+                    )
+                    val ipcConversationSwitched = nextThreadId != null &&
+                        normalizeThreadId(current.activeConversationId) != nextThreadId
                     // planMode is managed locally — never override from server codex_state
                     val nextPlanMode = current.planMode ?: false
                     val mergedInteractionState = mergeInteractionState(
@@ -3197,17 +3607,31 @@ class CodexViewModel(
                     val nextState = syncExecutionWatch(
                         recalculateNextTurnEffectiveConfig(
                             current.copy(
-                                status = state.status,
+                                status = if (preserveCanonicalRuntime) current.status else state.status,
                                 model = state.model ?: current.model,
                                 reasoningEffort = state.reasoningEffort ?: current.reasoningEffort,
                                 sandbox = state.sandbox ?: current.sandbox,
                                 planMode = nextPlanMode,
                                 threadId = nextThreadId,
                                 activeConversationId = nextThreadId,
+                                awaitingNewThreadIpcSurface = resolveAwaitingIpcSurfaceAfterTargetState(
+                                    currentlyAwaiting = current.awaitingNewThreadIpcSurface,
+                                    pendingHistoryResumeThreadId = pendingHistoryResumeHydrationThreadId,
+                                    incomingThreadId = normalizedServerThreadId
+                                ),
                                 ipcSurfaceSnapshot = if (ipcConversationSwitched) null else current.ipcSurfaceSnapshot,
                                 ownerCurrentCodexConfig = if (ipcConversationSwitched) null else current.ownerCurrentCodexConfig,
-                                nextTurnOverrides = if (ipcConversationSwitched) NextTurnOverrides() else current.nextTurnOverrides,
-                                currentTurnId = state.currentTurnId,
+                                nextTurnOverrides = overridesForConversationSwitch(
+                                    currentConversationId = current.activeConversationId,
+                                    targetConversationId = nextThreadId,
+                                    currentOverrides = current.nextTurnOverrides,
+                                    rememberedOverrides = rememberedServerOverrides
+                                ),
+                                currentTurnId = if (preserveCanonicalRuntime) {
+                                    current.currentTurnId
+                                } else {
+                                    state.currentTurnId
+                                },
                                 currentThreadTitle = if (nextThreadId == null) {
                                     ""
                                 } else {
@@ -3235,6 +3659,12 @@ class CodexViewModel(
                         nextState
                     }
                 }
+                if (normalizedServerThreadId != null) {
+                    pinnedIpcConversationId = normalizedServerThreadId
+                }
+                if (resolvesHistoryResumeHydration) {
+                    pendingHistoryResumeHydrationThreadId = null
+                }
                 if (threadChanged) {
                     Log.i(TAG, "[ipc][codex-state][thread-changed] re-subscribing: " +
                         "from=$previousThreadId to=${serverThreadId.orEmpty()}")
@@ -3255,7 +3685,7 @@ class CodexViewModel(
                 }
                 Log.i(TAG, "[ipc][codex-state] threadId=${_uiState.value.threadId.orEmpty()} " +
                     "activeConversationId=${_uiState.value.activeConversationId.orEmpty()} " +
-                    "status=${state.status} " +
+                    "status=${state.status} appliedStatus=${_uiState.value.status} " +
                     "serverThreadId=${state.threadId.orEmpty()} " +
                     "ipcOnline=${_uiState.value.ipcOnline} " +
                     "note=threadId-may-differ-from-activeConversationId")
@@ -3264,6 +3694,7 @@ class CodexViewModel(
             "codex_thread_ready" -> {
                 val ready = CodexThreadReady.from(json)
                 val readyThreadId = normalizeThreadId(ready.threadId)
+                val wasAwaitingNewSurface = _uiState.value.awaitingNewThreadIpcSurface
                 _uiState.update {
                     val allowThreadIdSwitch = shouldAllowOptimisticTailAcrossThreadSwitch(
                         stateThreadId = it.threadId,
@@ -3294,6 +3725,12 @@ class CodexViewModel(
                         ),
                         markActivity = false
                     )
+                }
+                if (wasAwaitingNewSurface && readyThreadId != null) {
+                    pinnedIpcConversationId = readyThreadId
+                }
+                if (readyThreadId != null) {
+                    rememberCurrentTaskOverrides(reason = "thread-ready")
                 }
                 clearPendingOptimisticNewThreadTransitionIfResolved(readyThreadId)
                 Log.i(TAG, "Thread ready: $readyThreadId resumed=${ready.resumed}")
@@ -3701,6 +4138,11 @@ class CodexViewModel(
         val message = error.optString("message", "Codex request failed.")
             .trim()
             .ifEmpty { "Codex request failed." }
+        val foregroundRecoveryFailed = method == "thread/read" &&
+            foregroundRecoveryReadInFlightThreadId != null
+        if (foregroundRecoveryFailed) {
+            foregroundRecoveryReadInFlightThreadId = null
+        }
         when (method) {
             "model/list" -> {
                 if (!legacyModelListFallbackRequested) {
@@ -3750,14 +4192,37 @@ class CodexViewModel(
                 }
                 appendMessage(ChatMessage.Role.ERROR, message)
             }
+            "thread/read" -> {
+                if (foregroundRecoveryFailed) {
+                    Log.w(TAG, "Foreground thread/read recovery failed: $message")
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            threadHistoryLoading = false,
+                            threadHistoryActionThreadId = "",
+                            threadHistoryActionKind = ""
+                        )
+                    }
+                    appendMessage(ChatMessage.Role.ERROR, message)
+                }
+            }
             "thread/resume",
-            "thread/read",
             "thread/fork",
             "thread/archive",
             "thread/unarchive",
             "thread/name/set" -> {
+                if (method == "thread/resume") {
+                    pendingHistoryResumeHydrationThreadId = null
+                    pinnedIpcConversationId = _uiState.value.activeConversationId?.trim()
+                        ?.takeIf { it.isNotEmpty() }
+                }
                 _uiState.update {
                     it.copy(
+                        awaitingNewThreadIpcSurface = if (method == "thread/resume") {
+                            false
+                        } else {
+                            it.awaitingNewThreadIpcSurface
+                        },
                         threadHistoryLoading = false,
                         threadHistoryActionThreadId = "",
                         threadHistoryActionKind = "",
@@ -3792,13 +4257,34 @@ class CodexViewModel(
             return
         }
         val resumedThreadId = normalizeThreadId(thread.optStringOrNullCompat("id")).orEmpty()
+        val rememberedResumedOverrides = loadRememberedTaskOverrides(
+            resumedThreadId,
+            reason = "thread-resume"
+        )
         val resumedTitle = resolveThreadTitle(thread)
         threadHadPlanTurn = false
         clearPendingOptimisticNewThreadTransition()
         clearPendingThreadResync()
+        if (resumedThreadId.isNotEmpty()) {
+            pinnedIpcConversationId = resumedThreadId
+            lastIpcSurfaceReceivedAtElapsed = 0L
+            lastRecoverySubscribeAtElapsed = 0L
+            foregroundRecoveryReadInFlightThreadId = null
+        }
         _uiState.update { state ->
+            val targetThreadId = resumedThreadId.ifEmpty { state.threadId.orEmpty() }
+            val switchedConversation = targetThreadId.isNotEmpty() &&
+                state.activeConversationId?.trim().orEmpty() != targetThreadId
             state.copy(
-                threadId = resumedThreadId.ifEmpty { state.threadId },
+                threadId = targetThreadId.ifEmpty { state.threadId },
+                activeConversationId = targetThreadId.ifEmpty { state.activeConversationId },
+                awaitingNewThreadIpcSurface = shouldAwaitIpcSurfaceAfterThreadResumeResponse(
+                    targetThreadId = targetThreadId,
+                    pendingHydrationThreadId = pendingHistoryResumeHydrationThreadId
+                ),
+                ipcSurfaceSnapshot = if (switchedConversation) null else state.ipcSurfaceSnapshot,
+                ownerCurrentCodexConfig = if (switchedConversation) null else state.ownerCurrentCodexConfig,
+                nextTurnOverrides = if (switchedConversation) rememberedResumedOverrides else state.nextTurnOverrides,
                 currentThreadTitle = resumedTitle.ifBlank { state.currentThreadTitle },
                 threadHistoryActionThreadId = resumedThreadId.ifEmpty { state.threadHistoryActionThreadId },
                 threadHistoryActionKind = "resume",
@@ -3810,6 +4296,7 @@ class CodexViewModel(
             )
         }
         if (resumedThreadId.isNotEmpty()) {
+            subscribeActiveConversationIfNeeded()
             requestCanonicalThreadRead(resumedThreadId, reason = "thread-resume")
         } else {
             clearThreadHistoryAction()
@@ -3821,13 +4308,66 @@ class CodexViewModel(
     }
 
     private fun handleThreadReadResponse(result: Any?) {
+        val foregroundRecoveryResponse = foregroundRecoveryReadInFlightThreadId != null
         val thread = extractThreadResult(result) ?: run {
-            clearThreadHistoryAction()
+            foregroundRecoveryReadInFlightThreadId = null
+            if (!foregroundRecoveryResponse) {
+                clearThreadHistoryAction()
+            }
             return
         }
         val threadId = normalizeThreadId(thread.optStringOrNullCompat("id")).orEmpty()
+        if (threadId.isNotEmpty() && foregroundRecoveryReadInFlightThreadId == threadId) {
+            foregroundRecoveryReadInFlightThreadId = null
+        }
+        val currentThreadId = _uiState.value.threadId
+        if (!shouldApplyCanonicalThreadReadResponse(currentThreadId, threadId)) {
+            Log.w(
+                TAG,
+                "[thread/read][stale-response] ignored incomingThreadId=$threadId " +
+                    "currentThreadId=${currentThreadId.orEmpty()}"
+            )
+            return
+        }
         val threadTitle = resolveThreadTitle(thread)
         val turns = thread.optJSONArray("turns")
+        val latestTurn = latestCanonicalTurn(turns)
+        val latestTurnId = latestTurn?.optStringOrNullCompat("id")
+        val latestTurnStatus = latestTurn?.optStringOrNullCompat("status")
+        val threadStatus = canonicalThreadStatusType(thread)
+        val latestAgentPhase = latestCanonicalAgentPhase(latestTurn)
+        val hasActiveItem = canonicalTurnHasActiveItem(latestTurn)
+        val nowElapsed = SystemClock.elapsedRealtime()
+        val canonicalFingerprint = latestTurn?.toString()?.hashCode()
+        val normalizedReadThreadId = normalizeThreadId(threadId)
+        val canonicalSnapshotChanged = if (canonicalActivityThreadId != normalizedReadThreadId) {
+            canonicalActivityThreadId = normalizedReadThreadId
+            canonicalLatestTurnFingerprint = canonicalFingerprint
+            lastCanonicalActivityAtElapsed = if (
+                canonicalAgentPhaseIndicatesActivity(latestAgentPhase)
+            ) {
+                nowElapsed
+            } else {
+                0L
+            }
+            false
+        } else {
+            val changed = canonicalLatestTurnFingerprint != null &&
+                canonicalFingerprint != null &&
+                canonicalLatestTurnFingerprint != canonicalFingerprint
+            canonicalLatestTurnFingerprint = canonicalFingerprint
+            if (changed) lastCanonicalActivityAtElapsed = nowElapsed
+            changed
+        }
+        if (latestAgentPhase.equals("final_answer", ignoreCase = true) ||
+            latestAgentPhase.equals("final", ignoreCase = true)) {
+            lastCanonicalActivityAtElapsed = 0L
+        }
+        val millisSinceCanonicalChange = if (lastCanonicalActivityAtElapsed > 0L) {
+            (nowElapsed - lastCanonicalActivityAtElapsed).coerceAtLeast(0L)
+        } else {
+            Long.MAX_VALUE
+        }
         val hasTurns = turns != null
         val messages = if (hasTurns) {
             parseThreadTurns(turns)
@@ -3835,9 +4375,14 @@ class CodexViewModel(
             parseThreadMessages(thread.optJSONArray("messages"))
         }
         val hasMessages = hasTurns || thread.optJSONArray("messages") != null
+        val resolvesHistoryResumeHydration = threadId.isNotEmpty() &&
+            threadId == pendingHistoryResumeHydrationThreadId
         clearPendingThreadResync(threadId)
         clearPendingLaunchHydrate(threadId)
         _uiState.update { state ->
+            val completesHistoryResume = hasMessages &&
+                state.threadHistoryActionKind == "resume" &&
+                (state.threadHistoryActionThreadId.isBlank() || state.threadHistoryActionThreadId == threadId)
             val transition = if (hasMessages) {
                 buildThreadReadMergeTransition(
                     incomingThreadId = threadId,
@@ -3851,9 +4396,35 @@ class CodexViewModel(
                     messages = state.messages
                 )
             }
+            val ownerSurfaceThreadId = state.ipcSurfaceSnapshot?.conversationId
+                ?.let(::normalizeThreadId)
+            val transitionThreadId = normalizeThreadId(transition.threadId)
+            val matchingOwnerSurfaceAvailable = ownerSurfaceThreadId != null &&
+                ownerSurfaceThreadId == transitionThreadId
+            val runtimeProjection = projectCanonicalTurnRuntime(
+                threadStatus = threadStatus,
+                turnStatus = latestTurnStatus,
+                turnId = latestTurnId,
+                matchingOwnerSurfaceAvailable = matchingOwnerSurfaceAvailable,
+                hasActiveItem = hasActiveItem,
+                latestAgentPhase = latestAgentPhase,
+                canonicalSnapshotChanged = canonicalSnapshotChanged,
+                millisSinceCanonicalChange = millisSinceCanonicalChange,
+                activityWindowMillis = CANONICAL_ACTIVITY_WINDOW_MILLIS
+            )
             state.copy(
                 threadId = transition.threadId,
-                currentTurnId = transition.currentTurnId,
+                awaitingNewThreadIpcSurface = if (resolvesHistoryResumeHydration) {
+                    false
+                } else {
+                    state.awaitingNewThreadIpcSurface
+                },
+                status = runtimeProjection?.status ?: state.status,
+                currentTurnId = if (runtimeProjection != null) {
+                    runtimeProjection.currentTurnId
+                } else {
+                    transition.currentTurnId
+                },
                 currentThreadTitle = threadTitle.ifBlank {
                     resolveCurrentThreadTitle(
                         threadId = transition.threadId,
@@ -3878,12 +4449,41 @@ class CodexViewModel(
                     hasMessages -> CodexNoticesPanelState(visible = state.noticesPanel.visible)
                     else -> state.noticesPanel
                 },
-                threadHistorySheetVisible = if (hasMessages) false else state.threadHistorySheetVisible,
-                threadHistoryActionThreadId = "",
-                threadHistoryActionKind = "",
-                threadRenameTargetId = "",
-                threadRenameDraft = ""
+                threadHistorySheetVisible = if (completesHistoryResume) false else state.threadHistorySheetVisible,
+                threadHistoryActionThreadId = if (completesHistoryResume) "" else state.threadHistoryActionThreadId,
+                threadHistoryActionKind = if (completesHistoryResume) "" else state.threadHistoryActionKind,
+                threadRenameTargetId = if (completesHistoryResume) "" else state.threadRenameTargetId,
+                threadRenameDraft = if (completesHistoryResume) "" else state.threadRenameDraft
             )
+        }
+        val appliedState = _uiState.value
+        val appliedOwnerSurfaceThreadId = appliedState.ipcSurfaceSnapshot?.conversationId
+            ?.let(::normalizeThreadId)
+        val matchingOwnerSurfaceAvailable = appliedOwnerSurfaceThreadId != null &&
+            appliedOwnerSurfaceThreadId == normalizeThreadId(threadId)
+        val runtimeProjection = projectCanonicalTurnRuntime(
+            threadStatus = threadStatus,
+            turnStatus = latestTurnStatus,
+            turnId = latestTurnId,
+            matchingOwnerSurfaceAvailable = matchingOwnerSurfaceAvailable,
+            hasActiveItem = hasActiveItem,
+            latestAgentPhase = latestAgentPhase,
+            canonicalSnapshotChanged = canonicalSnapshotChanged,
+            millisSinceCanonicalChange = millisSinceCanonicalChange,
+            activityWindowMillis = CANONICAL_ACTIVITY_WINDOW_MILLIS
+        )
+        Log.i(
+            TAG,
+            "[runtime][thread-read] threadId=$threadId latestTurnId=${latestTurnId.orEmpty()} " +
+                "threadStatus=${threadStatus.orEmpty()} latestTurnStatus=${latestTurnStatus.orEmpty()} " +
+                "latestAgentPhase=${latestAgentPhase.orEmpty()} activeItem=$hasActiveItem " +
+                "snapshotChanged=$canonicalSnapshotChanged millisSinceChange=$millisSinceCanonicalChange " +
+                "matchingOwnerSurface=$matchingOwnerSurfaceAvailable " +
+                "projectedStatus=${runtimeProjection?.status ?: "preserved"} " +
+                "source=${runtimeProjection?.source ?: "preserved"}"
+        )
+        if (resolvesHistoryResumeHydration) {
+            pendingHistoryResumeHydrationThreadId = null
         }
         if (thread.has("tokenUsage")) {
             applyTokenUsagePayload(thread.opt("tokenUsage"))
@@ -4067,6 +4667,16 @@ class CodexViewModel(
                     .put("includeTurns", true)
             )
         )
+    }
+
+    private fun requestForegroundRecoveryThreadRead(threadId: String?, reason: String): Boolean {
+        val normalizedThreadId = normalizeThreadId(threadId) ?: return false
+        if (foregroundRecoveryReadInFlightThreadId == normalizedThreadId) return false
+        val sent = requestCanonicalThreadRead(normalizedThreadId, reason)
+        if (sent) {
+            foregroundRecoveryReadInFlightThreadId = normalizedThreadId
+        }
+        return sent
     }
 
     private fun scheduleCanonicalThreadRead(
@@ -6278,6 +6888,47 @@ class CodexViewModel(
 
     private fun recalculateNextTurnEffectiveConfig(state: CodexUiState): CodexUiState {
         return recalculateNextTurnEffectiveConfigForUiState(state)
+    }
+
+    private fun latestCanonicalTurn(turns: JSONArray?): JSONObject? {
+        if (turns == null) return null
+        for (index in turns.length() - 1 downTo 0) {
+            turns.optJSONObject(index)?.let { return it }
+        }
+        return null
+    }
+
+    private fun canonicalThreadStatusType(thread: JSONObject): String? {
+        return when (val raw = thread.opt("status")) {
+            is JSONObject -> raw.optStringOrNullCompat("type")
+            is String -> raw.trim().takeIf(String::isNotEmpty)
+            else -> null
+        }
+    }
+
+    private fun latestCanonicalAgentPhase(turn: JSONObject?): String? {
+        val items = turn?.optJSONArray("items") ?: return null
+        for (index in items.length() - 1 downTo 0) {
+            val item = items.optJSONObject(index) ?: continue
+            if (item.optString("type", "").equals("agentMessage", ignoreCase = true)) {
+                item.optStringOrNullCompat("phase")?.let { return it }
+            }
+        }
+        return null
+    }
+
+    private fun canonicalTurnHasActiveItem(turn: JSONObject?): Boolean {
+        val items = turn?.optJSONArray("items") ?: return false
+        for (index in 0 until items.length()) {
+            val status = items.optJSONObject(index)?.optStringOrNullCompat("status")
+                ?.trim()
+                ?.lowercase()
+                ?.replace("_", "")
+                ?.replace("-", "")
+                .orEmpty()
+            if (status in setOf("inprogress", "running", "active", "started")) return true
+        }
+        return false
     }
 
     private fun parseSnapshotMessages(snapshot: CodexThreadSnapshot): List<ChatMessage> {

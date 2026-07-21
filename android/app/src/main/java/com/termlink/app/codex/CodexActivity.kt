@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Rect
@@ -14,6 +15,7 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import android.util.Base64
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationCompat
+import androidx.core.content.FileProvider
 import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -41,6 +44,7 @@ import com.termlink.app.WorkspaceActivity
 import com.termlink.app.codex.domain.ChatMessage
 import com.termlink.app.codex.domain.CodexLaunchParams
 import com.termlink.app.codex.domain.FileMention
+import com.termlink.app.codex.domain.CodexMessageAttachment
 import com.termlink.app.codex.domain.CodexUiState
 import com.termlink.app.codex.domain.DebugServerRequestPreset
 import com.termlink.app.codex.ui.CodexScreen
@@ -94,6 +98,43 @@ internal fun resolveIntentLaunchThreadId(
         null
     }
 }
+
+internal fun resolveConversationWorkspacePath(rawPath: String?, cwd: String?): String? {
+    val raw = rawPath?.trim()?.replace('\\', '/')?.trimEnd('/').orEmpty()
+    if (raw.isBlank() || raw.contains("://")) {
+        return null
+    }
+    val isWindowsAbsolute = Regex("^[A-Za-z]:/").containsMatchIn(raw)
+    val isPosixAbsolute = raw.startsWith("/")
+    val normalizedCwd = cwd?.trim()?.replace('\\', '/')?.let {
+        if (it == "/") it else it.trimEnd('/')
+    }
+    val relative = when {
+        !isWindowsAbsolute && !isPosixAbsolute -> raw
+        isWindowsAbsolute -> {
+            val base = normalizedCwd
+                ?.takeIf { Regex("^[A-Za-z]:/").containsMatchIn(it) }
+                ?: return null
+            val prefix = "$base/"
+            if (!raw.startsWith(prefix, ignoreCase = true)) return null
+            raw.substring(prefix.length)
+        }
+        else -> {
+            val base = normalizedCwd?.takeIf { it.startsWith("/") } ?: return null
+            val prefix = if (base == "/") "/" else "$base/"
+            if (!raw.startsWith(prefix)) return null
+            raw.substring(prefix.length)
+        }
+    }
+    if (relative.isBlank() || relative.startsWith("/") || relative.split('/').any {
+            it.isBlank() || it == "." || it == ".." || it.equals(".git", ignoreCase = true)
+        }) {
+        return null
+    }
+    return relative
+}
+
+private const val MAX_CONVERSATION_DATA_BYTES = 25L * 1024L * 1024L
 
 internal fun mergeSameSessionLaunchParams(
     next: CodexLaunchParams,
@@ -263,6 +304,8 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                         onContinueGoal = viewModel::continueActiveGoal,
                         onOpenSessions = ::openSessions,
                         onOpenDocs = ::openDocsWorkspace,
+                        onOpenFileMention = ::openConversationFileMention,
+                        onOpenAttachment = ::openConversationAttachment,
                         onNewThread = viewModel::newThread,
                         onRetry = { retryConnection() },
                         onDismissError = { viewModel.clearError() },
@@ -344,6 +387,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             "ipcOnline=${state.ipcOnline} " +
             "sessionId=${state.sessionId} " +
             "cwd=${state.cwd.orEmpty()}")
+        viewModel.onHostVisible()
     }
 
     override fun onStop() {
@@ -354,6 +398,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             "ipcOnline=${state.ipcOnline} " +
             "sessionId=${state.sessionId}")
         isActivityVisible = false
+        viewModel.onHostHidden()
         setStatusBarHidden(hidden = false, anchor = drawerLayout)
         if (!isChangingConfigurations) {
             syncAttentionNotifications(null, viewModel.uiState.value)
@@ -470,6 +515,152 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                 defaultEntryPath = DOCS_DEFAULT_ENTRY_PATH
             )
         )
+    }
+
+    private fun openConversationFileMention(file: FileMention) {
+        openConversationPath(file.path, null)
+    }
+
+    private fun openConversationAttachment(attachment: CodexMessageAttachment) {
+        val candidate = attachment.url?.trim()?.takeIf { it.isNotBlank() }
+            ?: attachment.path?.trim()?.takeIf { it.isNotBlank() }
+        if (candidate == null) {
+            showConversationOpenError()
+            return
+        }
+        openConversationPath(candidate, mimeTypeForAttachment(attachment))
+    }
+
+    private fun openConversationPath(rawValue: String, requestedMimeType: String?) {
+        val value = rawValue.trim()
+        val uri = Uri.parse(value)
+        when (uri.scheme?.lowercase()) {
+            "http", "https", "mailto" -> openExternalConversationUri(uri)
+            "content", "file" -> openLocalConversationUri(uri, requestedMimeType)
+            "data" -> openDataConversationUri(uri, requestedMimeType)
+            else -> {
+                val relativePath = resolveConversationWorkspacePath(value, viewModel.uiState.value.cwd)
+                if (relativePath == null) {
+                    showConversationOpenError()
+                } else {
+                    openWorkspaceFile(relativePath)
+                }
+            }
+        }
+    }
+
+    private fun openWorkspaceFile(relativePath: String) {
+        val params = activeLaunchParams ?: return showConversationOpenError()
+        val sessionId = viewModel.uiState.value.sessionId.ifBlank { params.sessionId }
+        if (sessionId.isBlank()) {
+            showConversationOpenError()
+            return
+        }
+        startActivity(
+            WorkspaceActivity.newIntent(
+                context = this,
+                profileId = params.profileId,
+                sessionId = sessionId,
+                defaultEntryPath = DOCS_DEFAULT_ENTRY_PATH,
+                initialFilePath = relativePath
+            )
+        )
+    }
+
+    private fun openExternalConversationUri(uri: Uri) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+        } catch (error: RuntimeException) {
+            Log.w(TAG, "Failed to open Codex external attachment", error)
+            showConversationOpenError()
+        }
+    }
+
+    private fun openLocalConversationUri(uri: Uri, requestedMimeType: String?) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, requestedMimeType ?: contentResolver.getType(uri) ?: "*/*")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            })
+        } catch (error: RuntimeException) {
+            Log.w(TAG, "Failed to open Codex local attachment", error)
+            showConversationOpenError()
+        }
+    }
+
+    private fun openDataConversationUri(uri: Uri, requestedMimeType: String?) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val parsed = parseConversationDataUri(uri.toString())
+                val directory = java.io.File(cacheDir, "codex-open").apply { mkdirs() }
+                val extension = extensionForMimeType(parsed.mimeType ?: requestedMimeType)
+                val file = java.io.File(directory, "${System.currentTimeMillis()}$extension")
+                file.writeBytes(parsed.bytes)
+                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    openCachedConversationFile(file, parsed.mimeType ?: requestedMimeType ?: "application/octet-stream")
+                }
+            } catch (error: Exception) {
+                Log.w(TAG, "Failed to open Codex data attachment", error)
+                withContext(kotlinx.coroutines.Dispatchers.Main) { showConversationOpenError() }
+            }
+        }
+    }
+
+    private fun openCachedConversationFile(file: java.io.File, mimeType: String) {
+        try {
+            val contentUri = FileProvider.getUriForFile(
+                this,
+                "${com.termlink.app.BuildConfig.APPLICATION_ID}.fileprovider",
+                file
+            )
+            startActivity(Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(contentUri, mimeType)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            })
+        } catch (_: ActivityNotFoundException) {
+            showConversationOpenError()
+        } catch (error: IllegalArgumentException) {
+            Log.w(TAG, "Codex attachment cache is outside FileProvider roots", error)
+            showConversationOpenError()
+        }
+    }
+
+    private fun showConversationOpenError() {
+        Toast.makeText(this, getString(R.string.codex_native_attachment_open_failed), Toast.LENGTH_SHORT).show()
+    }
+
+    private fun mimeTypeForAttachment(attachment: CodexMessageAttachment): String? {
+        val value = attachment.url ?: attachment.path ?: return null
+        if (value.startsWith("data:", ignoreCase = true)) {
+            return value.substringAfter(':').substringBefore(';').takeIf { it.contains('/') }
+        }
+        return android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(
+            value.substringBefore('?').substringAfterLast('.', "").lowercase()
+        )
+    }
+
+    private data class ConversationDataUri(val mimeType: String?, val bytes: ByteArray)
+
+    private fun parseConversationDataUri(value: String): ConversationDataUri {
+        val commaIndex = value.indexOf(',')
+        require(value.startsWith("data:", ignoreCase = true) && commaIndex > 4)
+        val metadata = value.substring(5, commaIndex)
+        val payload = value.substring(commaIndex + 1)
+        val mimeType = metadata.substringBefore(';').takeIf { it.contains('/') }
+        val bytes = if (metadata.split(';').any { it.equals("base64", ignoreCase = true) }) {
+            Base64.decode(payload, Base64.DEFAULT)
+        } else {
+            Uri.decode(payload).toByteArray(Charsets.UTF_8)
+        }
+        require(bytes.isNotEmpty() && bytes.size.toLong() <= MAX_CONVERSATION_DATA_BYTES)
+        return ConversationDataUri(mimeType, bytes)
+    }
+
+    private fun extensionForMimeType(mimeType: String?): String {
+        val extension = mimeType?.takeIf { it.contains('/') }?.let {
+            android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(it)
+        }
+        return extension?.let { ".${it}" } ?: ".bin"
     }
 
     override fun getProfiles(): List<ServerProfile> {

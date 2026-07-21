@@ -78,4 +78,58 @@ class CodexActivityLaunchParamsTest {
         assertEquals("E:\\coding\\TermLink", merged.cwd)
         assertEquals("notification", merged.launchSource)
     }
+
+    @Test
+    fun conversationWorkspacePathKeepsSafeRelativePath() {
+        assertEquals(
+            "docs/readme.md",
+            resolveConversationWorkspacePath("docs\\readme.md", "E:\\coding\\TermLink")
+        )
+    }
+
+    @Test
+    fun conversationWorkspacePathMapsAbsolutePathInsideCwd() {
+        assertEquals(
+            "docs/readme.md",
+            resolveConversationWorkspacePath(
+                "e:/coding/termlink/docs/readme.md",
+                "E:\\coding\\TermLink"
+            )
+        )
+    }
+
+    @Test
+    fun conversationWorkspacePathMapsPosixAbsolutePathInsideCwd() {
+        assertEquals(
+            "docs/readme.md",
+            resolveConversationWorkspacePath(
+                "/srv/termlink/docs/readme.md",
+                "/srv/termlink"
+            )
+        )
+        assertEquals(
+            "srv/termlink/docs/readme.md",
+            resolveConversationWorkspacePath(
+                "/srv/termlink/docs/readme.md",
+                "/"
+            )
+        )
+    }
+
+    @Test
+    fun conversationWorkspacePathRejectsOutsideOrTraversalPaths() {
+        assertNull(
+            resolveConversationWorkspacePath(
+                "E:\\other\\secret.txt",
+                "E:\\coding\\TermLink"
+            )
+        )
+        assertNull(resolveConversationWorkspacePath("../secret.txt", "E:\\coding\\TermLink"))
+        assertNull(
+            resolveConversationWorkspacePath(
+                "/srv/termlink-other/secret.txt",
+                "/srv/termlink"
+            )
+        )
+    }
 }

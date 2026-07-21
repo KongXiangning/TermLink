@@ -1,6 +1,6 @@
 (function () {
     const state = {
-        sessionId: '', serverUrl: '', authHeader: '', defaultEntryPath: '', workspaceRoot: '', docsPath: '',
+        sessionId: '', serverUrl: '', authHeader: '', defaultEntryPath: '', initialFilePath: '', workspaceRoot: '', docsPath: '',
         hostSurface: 'web', currentDir: '', showHidden: true, treeEntries: [], selectedFilePath: '',
         selectedFileMeta: null, filePreview: null, diffPreview: null, activeView: 'content',
         markdownMode: 'rendered', diffLayout: window.innerWidth >= 900 ? 'split' : 'unified',
@@ -96,6 +96,7 @@
         state.serverUrl = String(config.serverUrl || '').replace(/\/+$/, '');
         state.authHeader = typeof config.authHeader === 'string' ? config.authHeader : '';
         state.defaultEntryPath = params.get('defaultEntryPath') || config.defaultEntryPath || '';
+        state.initialFilePath = config.initialFilePath || '';
         state.hostSurface = config.hostSurface === 'android' ? 'android' : 'web';
         document.body.classList.toggle('host-android', state.hostSurface === 'android');
     }
@@ -698,8 +699,22 @@
             el['workspace-title'].textContent = state.workspaceRoot ? state.workspaceRoot.split(/[\\/]/).filter(Boolean).pop() || state.workspaceRoot : 'Workspace';
             el['workspace-subtitle'].textContent = state.workspaceRoot || '';
             if (meta.disabledReason) { el['workspace-banner'].hidden = false; el['workspace-banner'].textContent = meta.disabledReason; }
-            await loadTree(state.defaultEntryPath || '');
-            writeHistory('directory', {}, true);
+            const initialFilePath = normalizeWorkspacePath(state.initialFilePath, '');
+            if (initialFilePath && initialFilePath !== state.initialFilePath) {
+                throw new Error('Invalid initial file path.');
+            }
+            if (initialFilePath) {
+                await loadTree(dirname(initialFilePath));
+                const entry = state.treeEntries.find((candidate) => candidate.path === initialFilePath) || {
+                    path: initialFilePath,
+                    name: initialFilePath.split('/').pop() || initialFilePath,
+                    type: 'file'
+                };
+                await openFile(entry, { pushHistory: true });
+            } else {
+                await loadTree(state.defaultEntryPath || '');
+                writeHistory('directory', {}, true);
+            }
         } catch (error) {
             el['workspace-banner'].hidden = false; el['workspace-banner'].textContent = error.message;
         }

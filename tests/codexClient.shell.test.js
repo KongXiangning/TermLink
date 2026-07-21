@@ -139,7 +139,7 @@ test('codex message appends target the inner log stack instead of the scroll con
     assert.match(js, /const logContainer = getCodexLogContainer\(\);[\s\S]*logContainer\.innerHTML = '';/);
 });
 
-test('localImage history summaries keep only safe labels in Web and Android display metadata', () => {
+test('localImage history summaries retain an openable source for Android display metadata', () => {
     const js = readPublicFile('terminal_client.js');
     const vm = readAndroidMainFile(path.join('codex', 'CodexViewModel.kt'));
 
@@ -153,7 +153,7 @@ test('localImage history summaries keep only safe labels in Web and Android disp
     );
     assert.match(
         vm,
-        /private fun buildMessageAttachmentSummary\([\s\S]*val isLocalImage = attachment\.type == "localImage"[\s\S]*path = null,[\s\S]*url = attachment\.url\.takeUnless \{ isLocalImage \}[\s\S]*source = if \(isLocalImage\) "local" else "remote"[\s\S]*dedupeKey = if \(isLocalImage\) \{[\s\S]*buildAttachmentDedupeKey\(attachment\.url\.ifBlank \{ attachment\.label \}\)/
+        /private fun buildMessageAttachmentSummary\([\s\S]*val isLocalImage = attachment\.type == "localImage"[\s\S]*path = null,[\s\S]*url = attachment\.url,[\s\S]*source = if \(isLocalImage\) "local" else "remote"[\s\S]*dedupeKey = if \(isLocalImage\) \{[\s\S]*buildAttachmentDedupeKey\(attachment\.url\.ifBlank \{ attachment\.label \}\)/
     );
 });
 
@@ -162,7 +162,7 @@ test('Android user message context chips use wrapping layout instead of horizont
 
     assert.match(
         screen,
-        /@OptIn\(ExperimentalLayoutApi::class\)[\s\S]*private fun MessageBubble\(message: ChatMessage\)/
+        /@OptIn\(ExperimentalLayoutApi::class\)[\s\S]*private fun MessageBubble\(\s*message: ChatMessage,/
     );
     assert.match(
         screen,
@@ -265,7 +265,7 @@ test('web keeps skill tokens inline while Android post-send bubbles render skill
 
     assert.match(
         screen,
-        /if \(message\.role == ChatMessage\.Role\.USER &&[\s\S]*message\.skills\.isNotEmpty\(\)[\s\S]*message\.fileMentions\.isNotEmpty\(\) \|\|[\s\S]*message\.attachments\.isNotEmpty\(\)/
+        /if \(message\.skills\.isNotEmpty\(\) \|\|[\s\S]*message\.fileMentions\.isNotEmpty\(\) \|\|[\s\S]*displayedAttachments\.isNotEmpty\(\)[\s\S]*if \(message\.role == ChatMessage\.Role\.USER\) \{[\s\S]*message\.skills\.forEach/
     );
     assert.match(
         screen,

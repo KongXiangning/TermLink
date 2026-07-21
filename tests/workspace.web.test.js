@@ -146,6 +146,47 @@ test('workspace page boots with meta then tree and keeps viewer in empty state',
     assert.equal(app.document.getElementById('viewer-empty').textContent, 'Select a file to preview');
 });
 
+test('workspace page opens an explicitly requested initial file', async (t) => {
+    const app = createWorkspaceApp({
+        config: {
+            sessionId: 'session-1',
+            serverUrl: 'https://example.test',
+            initialFilePath: 'docs/guide.md'
+        },
+        fetchImpl: async (record) => {
+            const url = new URL(record.url);
+            if (url.pathname.endsWith('/workspace/meta')) {
+                return createResponse(true, { workspaceRoot: '/repo', defaultEntryPath: 'docs' });
+            }
+            if (url.pathname.endsWith('/workspace/tree')) {
+                assert.equal(url.searchParams.get('path'), 'docs');
+                return createResponse(true, {
+                    path: 'docs',
+                    entries: [{ name: 'guide.md', path: 'docs/guide.md', type: 'file' }]
+                });
+            }
+            if (url.pathname.endsWith('/workspace/file')) {
+                assert.equal(url.searchParams.get('path'), 'docs/guide.md');
+                return createResponse(true, {
+                    path: 'docs/guide.md',
+                    name: 'guide.md',
+                    kind: 'markdown',
+                    previewable: true,
+                    viewMode: 'full',
+                    content: '# Guide'
+                });
+            }
+            throw new Error(`Unexpected request ${record.url}`);
+        }
+    });
+    t.after(() => app.cleanup());
+
+    await flushUi();
+
+    assert.equal(app.window.__workspaceDebugState.selectedFilePath, 'docs/guide.md');
+    assert.equal(app.document.getElementById('viewer-title').textContent, 'guide.md');
+});
+
 test('workspace page drops stale file responses when user selects another file', async (t) => {
     const firstFile = deferred();
     const secondFile = deferred();

@@ -120,6 +120,7 @@ import com.termlink.app.codex.data.CodexServerRequest
 import com.termlink.app.codex.data.CodexServerRequestQuestion
 import com.termlink.app.codex.data.ActiveGoalInfo
 import com.termlink.app.codex.domain.ChatMessage
+import com.termlink.app.codex.domain.CodexMessageAttachment
 import com.termlink.app.codex.domain.CodexPendingImageAttachment
 import com.termlink.app.codex.domain.CodexSkillEntry
 import com.termlink.app.codex.domain.CodexThreadHistoryEntry
@@ -194,6 +195,8 @@ fun CodexScreen(
     onContinueGoal: () -> Unit,
     onOpenSessions: () -> Unit,
     onOpenDocs: () -> Unit,
+    onOpenFileMention: (FileMention) -> Unit,
+    onOpenAttachment: (CodexMessageAttachment) -> Unit,
     onNewThread: () -> Unit,
     onRetry: () -> Unit,
     onDismissError: () -> Unit,
@@ -484,7 +487,11 @@ fun CodexScreen(
                             }
                         }
                         items(state.messages, key = { it.id }) { message ->
-                            MessageBubble(message = message)
+                            MessageBubble(
+                                message = message,
+                                onOpenFileMention = onOpenFileMention,
+                                onOpenAttachment = onOpenAttachment
+                            )
                         }
                         if (state.messages.isNotEmpty()) {
                             item(key = "_bottom_anchor") {
@@ -1741,7 +1748,11 @@ private fun formatHeaderCwdForDisplay(cwd: String): String {
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
-private fun MessageBubble(message: ChatMessage) {
+private fun MessageBubble(
+    message: ChatMessage,
+    onOpenFileMention: (FileMention) -> Unit,
+    onOpenAttachment: (CodexMessageAttachment) -> Unit
+) {
     if (message.collapsible) {
         CollapsibleExecutionItem(message)
         return
@@ -1750,6 +1761,17 @@ private fun MessageBubble(message: ChatMessage) {
     val label = roleLabel(message)
     val timeLabel = remember(message.timestamp) {
         SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(message.timestamp))
+    }
+    val markdownProjection = remember(message.role, message.content) {
+        if (message.role == ChatMessage.Role.ASSISTANT || message.role == ChatMessage.Role.SYSTEM) {
+            parseCodexMessageMarkdownLinks(message.content)
+        } else {
+            CodexMessageMarkdownProjection(message.content, emptyList())
+        }
+    }
+    val displayedAttachments = remember(message.attachments, markdownProjection.attachments) {
+        (message.attachments + markdownProjection.attachments)
+            .distinctBy(::messageAttachmentTargetKey)
     }
 
     Surface(
@@ -1789,10 +1811,9 @@ private fun MessageBubble(message: ChatMessage) {
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Column {
-                    if (message.role == ChatMessage.Role.USER &&
-                        (message.skills.isNotEmpty() ||
-                            message.fileMentions.isNotEmpty() ||
-                            message.attachments.isNotEmpty())
+                    if (message.skills.isNotEmpty() ||
+                        message.fileMentions.isNotEmpty() ||
+                        displayedAttachments.isNotEmpty()
                     ) {
                         FlowRow(
                             modifier = Modifier
@@ -1801,14 +1822,22 @@ private fun MessageBubble(message: ChatMessage) {
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            message.skills.forEach { skill ->
-                                UserMessageSkillChip(skillName = skill.name)
+                            if (message.role == ChatMessage.Role.USER) {
+                                message.skills.forEach { skill ->
+                                    UserMessageSkillChip(skillName = skill.name)
+                                }
                             }
                             message.fileMentions.forEach { mention ->
-                                StaticMentionChip(file = mention)
+                                StaticMentionChip(
+                                    file = mention,
+                                    onClick = { onOpenFileMention(mention) }
+                                )
                             }
-                            message.attachments.forEach { attachment ->
-                                StaticAttachmentChip(attachment = attachment)
+                            displayedAttachments.forEach { attachment ->
+                                StaticAttachmentChip(
+                                    attachment = attachment,
+                                    onClick = { onOpenAttachment(attachment) }
+                                )
                             }
                         }
                     }
@@ -1830,7 +1859,7 @@ private fun MessageBubble(message: ChatMessage) {
                                 ).text
                             } else {
                                 buildComposerAnnotatedString(
-                                    text = message.content,
+                                    text = markdownProjection.visibleText,
                                     mentions = message.fileMentions,
                                     textColor = spec.textColor
                                 )
@@ -1867,6 +1896,222 @@ private fun MessageBubble(message: ChatMessage) {
         }
     }
 }
+
+internal data class CodexMessageMarkdownProjection(
+    val visibleText: String,
+    val attachments: List<CodexMessageAttachment>
+)
+
+private data class CodexMessageMarkdownLineProjection(
+    val visibleText: String,
+    val attachments: List<CodexMessageAttachment>
+)
+
+internal fun parseCodexMessageMarkdownLinks(markdown: String): CodexMessageMarkdownProjection {
+    if (markdown.isBlank()) return CodexMessageMarkdownProjection(markdown, emptyList())
+
+    val visibleText = StringBuilder(markdown.length)
+    val attachments = mutableListOf<CodexMessageAttachment>()
+    var fenceMarker: String? = null
+    val lines = markdown.split('\n')
+    lines.forEachIndexed { index, line ->
+        val trimmed = line.trimStart()
+        val lineFenceMarker = when {
+            trimmed.startsWith("```") -> "```"
+            trimmed.startsWith("~~~") -> "~~~"
+            else -> null
+        }
+        if (lineFenceMarker != null) {
+            visibleText.append(line)
+            fenceMarker = if (fenceMarker == null) {
+                lineFenceMarker
+            } else if (fenceMarker == lineFenceMarker) {
+                null
+            } else {
+                fenceMarker
+            }
+        } else if (fenceMarker != null) {
+            visibleText.append(line)
+        } else {
+            val projection = parseCodexMessageMarkdownLine(line)
+            visibleText.append(projection.visibleText)
+            attachments += projection.attachments
+        }
+        if (index < lines.lastIndex) visibleText.append('\n')
+    }
+
+    return CodexMessageMarkdownProjection(
+        visibleText = visibleText.toString(),
+        attachments = attachments.distinctBy(::messageAttachmentTargetKey)
+    )
+}
+
+private fun parseCodexMessageMarkdownLine(line: String): CodexMessageMarkdownLineProjection {
+    val visibleText = StringBuilder(line.length)
+    val attachments = mutableListOf<CodexMessageAttachment>()
+    var cursor = 0
+    var inlineCodeTicks = 0
+    var suppressNextLinkBracket = false
+
+    while (cursor < line.length) {
+        val current = line[cursor]
+        if (current == '\\' && cursor + 1 < line.length) {
+            val escaped = line[cursor + 1]
+            visibleText.append(current).append(escaped)
+            suppressNextLinkBracket = escaped == '!' && cursor + 2 < line.length && line[cursor + 2] == '['
+            cursor += 2
+            continue
+        }
+        if (current == '`') {
+            val tickCount = line.substring(cursor).takeWhile { it == '`' }.length
+            visibleText.append(line, cursor, cursor + tickCount)
+            inlineCodeTicks = when {
+                inlineCodeTicks == 0 -> tickCount
+                tickCount == inlineCodeTicks -> 0
+                else -> inlineCodeTicks
+            }
+            cursor += tickCount
+            continue
+        }
+        if (inlineCodeTicks != 0) {
+            visibleText.append(current)
+            cursor += 1
+            continue
+        }
+        if (suppressNextLinkBracket && current == '[') {
+            visibleText.append(current)
+            suppressNextLinkBracket = false
+            cursor += 1
+            continue
+        }
+        suppressNextLinkBracket = false
+
+        val isImage = current == '!' && cursor + 1 < line.length && line[cursor + 1] == '['
+        val isLink = current == '['
+        if (!isImage && !isLink) {
+            visibleText.append(current)
+            cursor += 1
+            continue
+        }
+
+        val labelStart = cursor + if (isImage) 2 else 1
+        val labelEnd = findUnescapedCharacter(line, ']', labelStart)
+        if (labelEnd == -1 || labelEnd + 1 >= line.length || line[labelEnd + 1] != '(') {
+            visibleText.append(current)
+            cursor += 1
+            continue
+        }
+        val targetEnd = findClosingMarkdownParenthesis(line, labelEnd + 1)
+        if (targetEnd == -1) {
+            visibleText.append(current)
+            cursor += 1
+            continue
+        }
+
+        val rawTarget = line.substring(labelEnd + 2, targetEnd).trim()
+        val target = rawTarget
+            .removeSurrounding("<", ">")
+            .trim()
+        if (!isOpenableCodexMarkdownTarget(target)) {
+            visibleText.append(current)
+            cursor += 1
+            continue
+        }
+
+        val rawLabel = line.substring(labelStart, labelEnd).trim()
+        val label = rawLabel.ifBlank { markdownTargetFallbackLabel(target) }
+        visibleText.append(label)
+        attachments += codexMarkdownAttachment(
+            label = label,
+            target = target,
+            isImage = isImage
+        )
+        cursor = targetEnd + 1
+    }
+
+    return CodexMessageMarkdownLineProjection(
+        visibleText = visibleText.toString(),
+        attachments = attachments
+    )
+}
+
+private fun findUnescapedCharacter(text: String, character: Char, start: Int): Int {
+    var cursor = start
+    while (cursor < text.length) {
+        if (text[cursor] == '\\') {
+            cursor += 2
+            continue
+        }
+        if (text[cursor] == character) return cursor
+        cursor += 1
+    }
+    return -1
+}
+
+private fun findClosingMarkdownParenthesis(text: String, openIndex: Int): Int {
+    var cursor = openIndex + 1
+    var depth = 1
+    while (cursor < text.length) {
+        when (text[cursor]) {
+            '\\' -> cursor += 2
+            '(' -> {
+                depth += 1
+                cursor += 1
+            }
+            ')' -> {
+                depth -= 1
+                if (depth == 0) return cursor
+                cursor += 1
+            }
+            else -> cursor += 1
+        }
+    }
+    return -1
+}
+
+private fun isOpenableCodexMarkdownTarget(target: String): Boolean {
+    if (target.isBlank() || target.startsWith('#')) return false
+    if (Regex("^[A-Za-z]:[\\\\/]").containsMatchIn(target)) return true
+    val scheme = Regex("^([A-Za-z][A-Za-z0-9+.-]*):")
+        .find(target)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.lowercase(Locale.ROOT)
+        ?: return true
+    return scheme in setOf("http", "https", "data", "content", "file")
+}
+
+private fun markdownTargetFallbackLabel(target: String): String = target
+    .substringBefore('?')
+    .trimEnd('/', '\\')
+    .substringAfterLast('/')
+    .substringAfterLast('\\')
+    .ifBlank { target }
+
+private fun codexMarkdownAttachment(
+    label: String,
+    target: String,
+    isImage: Boolean
+): CodexMessageAttachment {
+    val isUri = target.startsWith("http://", ignoreCase = true) ||
+        target.startsWith("https://", ignoreCase = true) ||
+        target.startsWith("data:", ignoreCase = true) ||
+        target.startsWith("content:", ignoreCase = true) ||
+        target.startsWith("file:", ignoreCase = true)
+    return CodexMessageAttachment(
+        kind = if (isImage) "image" else "file",
+        label = label,
+        path = target.takeUnless { isUri },
+        url = target.takeIf { isUri },
+        source = "markdown",
+        dedupeKey = "markdown:${if (isImage) "image" else "file"}:$target"
+    )
+}
+
+private fun messageAttachmentTargetKey(attachment: CodexMessageAttachment): String =
+    (attachment.url ?: attachment.path ?: attachment.dedupeKey ?: attachment.label)
+        .trim()
+        .replace('\\', '/')
 
 internal fun resolveComposerSafeBottomPaddingPx(
     reportedBottom: Int,
@@ -4603,14 +4848,30 @@ private fun ComposerSkillChip(
 @Composable
 private fun StaticMentionChip(
     file: FileMention,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
 ) {
-    Row(modifier = modifier) {
+    val openLabel = stringResource(R.string.codex_native_open_attachment, file.label)
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(CodexBottomBarTokens.smallChipRadius))
+            .clickable(onClick = onClick)
+            .semantics {
+                contentDescription = openLabel
+                role = Role.Button
+            }
+    ) {
         SkillChipFrame {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Text(
+                    text = "↗",
+                    color = AccentBlue,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
                 Text(
                     text = "@",
                     color = AccentBlue,
@@ -4643,15 +4904,33 @@ private fun UserMessageSkillChip(
 
 @Composable
 private fun StaticAttachmentChip(
-    attachment: com.termlink.app.codex.domain.CodexMessageAttachment,
-    modifier: Modifier = Modifier
+    attachment: CodexMessageAttachment,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
 ) {
+    val openLabel = stringResource(R.string.codex_native_open_attachment, attachment.label)
     val isLocalImage = attachment.source == "local" ||
         (!attachment.path.isNullOrBlank() && attachment.url.isNullOrBlank())
-    Row(modifier = modifier) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(CodexBottomBarTokens.smallChipRadius))
+            .clickable(onClick = onClick)
+            .semantics {
+                contentDescription = openLabel
+                role = Role.Button
+            }
+    ) {
         SkillChipFrame {
             Text(
+                text = "↗",
+                color = AccentBlue,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
                 text = when {
+                    attachment.source == "markdown" || attachment.kind != "image" ->
+                        attachment.label
                     isLocalImage ->
                         stringResource(R.string.codex_native_image_local_chip, attachment.label)
                     else ->

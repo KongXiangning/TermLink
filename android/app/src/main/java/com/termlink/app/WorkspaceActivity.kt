@@ -50,6 +50,7 @@ class WorkspaceActivity : AppCompatActivity() {
     private var profileId: String = ""
     private var sessionId: String = ""
     private var defaultEntryPath: String = ""
+    private var initialFilePath: String = ""
     private var lastResolvedLocale: String = LocaleHelper.resolveWebViewLocale()
     private var rootView: View? = null
     private var topBarView: View? = null
@@ -93,6 +94,8 @@ class WorkspaceActivity : AppCompatActivity() {
             .ifBlank { intent?.getStringExtra(EXTRA_SESSION_ID).orEmpty() }
         defaultEntryPath = savedInstanceState?.getString(STATE_DEFAULT_ENTRY_PATH).orEmpty()
             .ifBlank { intent?.getStringExtra(EXTRA_DEFAULT_ENTRY_PATH).orEmpty() }
+        initialFilePath = savedInstanceState?.getString(STATE_INITIAL_FILE_PATH).orEmpty()
+            .ifBlank { intent?.getStringExtra(EXTRA_INITIAL_FILE_PATH).orEmpty() }
 
         if (sessionId.isBlank()) {
             Toast.makeText(this, getString(R.string.workspace_activity_invalid_session), Toast.LENGTH_SHORT).show()
@@ -152,6 +155,7 @@ class WorkspaceActivity : AppCompatActivity() {
         outState.putString(STATE_PROFILE_ID, profileId)
         outState.putString(STATE_SESSION_ID, sessionId)
         outState.putString(STATE_DEFAULT_ENTRY_PATH, defaultEntryPath)
+        outState.putString(STATE_INITIAL_FILE_PATH, initialFilePath)
         workspaceWebView?.saveState(outState)
         super.onSaveInstanceState(outState)
     }
@@ -282,6 +286,9 @@ class WorkspaceActivity : AppCompatActivity() {
         json.put("hostSurface", "android")
         if (defaultEntryPath.isNotBlank()) {
             json.put("defaultEntryPath", defaultEntryPath)
+        }
+        if (initialFilePath.isNotBlank()) {
+            json.put("initialFilePath", initialFilePath)
         }
         val authHeader = buildAuthHeader(profile)
         if (!authHeader.isNullOrBlank()) {
@@ -462,23 +469,29 @@ class WorkspaceActivity : AppCompatActivity() {
         const val EXTRA_PROFILE_ID = "profileId"
         const val EXTRA_SESSION_ID = "sessionId"
         const val EXTRA_DEFAULT_ENTRY_PATH = "defaultEntryPath"
+        const val EXTRA_INITIAL_FILE_PATH = "initialFilePath"
 
         fun newIntent(
             context: android.content.Context,
             profileId: String,
             sessionId: String,
-            defaultEntryPath: String? = null
+            defaultEntryPath: String? = null,
+            initialFilePath: String? = null
         ) = android.content.Intent(context, WorkspaceActivity::class.java).apply {
             putExtra(EXTRA_PROFILE_ID, profileId)
             putExtra(EXTRA_SESSION_ID, sessionId)
             defaultEntryPath?.takeIf { it.isNotBlank() }?.let {
                 putExtra(EXTRA_DEFAULT_ENTRY_PATH, it)
             }
+            initialFilePath?.takeIf { it.isNotBlank() }?.let {
+                putExtra(EXTRA_INITIAL_FILE_PATH, it)
+            }
         }
 
         private const val STATE_PROFILE_ID = "workspace_profile_id"
         private const val STATE_SESSION_ID = "workspace_session_id"
         private const val STATE_DEFAULT_ENTRY_PATH = "workspace_default_entry_path"
+        private const val STATE_INITIAL_FILE_PATH = "workspace_initial_file_path"
         private const val WORKSPACE_URL = "file:///android_asset/public/workspace.html?v=4"
         private const val WORKSPACE_BRIDGE_NAME = "TermLinkWorkspace"
         private const val WORKSPACE_OPEN_CACHE_DIRECTORY = "workspace-open"
