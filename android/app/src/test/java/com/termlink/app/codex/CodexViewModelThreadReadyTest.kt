@@ -26,6 +26,7 @@ import com.termlink.app.codex.domain.PERMISSION_CHOICE_FULL_ACCESS
 import com.termlink.app.codex.domain.PERMISSION_PROFILE_CHOICE_PREFIX
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -1063,13 +1064,117 @@ class CodexViewModelThreadReadyTest {
                     requestId = null,
                     raw = null
                 )
-            )
+            ),
+            surfaceStatus = "running",
+            latestTurnId = "turn-1"
         )
 
         assertEquals(1, merged.size)
         assertEquals(
             "我会在 D:\\ 根目录创建 s.xx。这个位置不在当前仓库可写范围内，需要走一次权限确认。",
             merged.single().content
+        )
+        assertTrue(merged.single().streaming)
+    }
+
+    @Test
+    fun surfaceOperationMapsToCollapsedToolAndTerminalSnapshotStopsStreaming() {
+        val merged = mergeSurfaceItems(
+            existing = emptyList(),
+            surfaceItems = listOf(
+                SurfaceEntry(
+                    key = "turn-1:operation:command:cmd-1",
+                    kind = "status",
+                    role = null,
+                    phase = null,
+                    text = "已运行命令：npm test",
+                    turnId = "turn-1",
+                    itemId = "cmd-1",
+                    statusType = "operation",
+                    operationType = "command",
+                    label = "已运行命令",
+                    detail = "$ npm test\n\n输出：\nPASS",
+                    operationStatus = "completed",
+                    approvalType = null,
+                    requestId = null,
+                    raw = null
+                ),
+                SurfaceEntry(
+                    key = "assistant-1",
+                    kind = "message",
+                    role = "assistant",
+                    phase = "final_answer",
+                    text = "done",
+                    turnId = "turn-1",
+                    itemId = "assistant-1",
+                    statusType = null,
+                    approvalType = null,
+                    requestId = null,
+                    raw = null
+                )
+            ),
+            surfaceStatus = "completed",
+            latestTurnId = "turn-1"
+        )
+
+        assertEquals(ChatMessage.Role.TOOL, merged[0].role)
+        assertTrue(merged[0].collapsible)
+        assertEquals("已运行命令", merged[0].collapsedLabel)
+        assertTrue(merged[0].content.contains("PASS"))
+        assertFalse(merged[1].streaming)
+    }
+
+    @Test
+    fun ipcOnlineDisablesLegacyExecutionWatchUntilExplicitDisconnect() {
+        val online = CodexUiState(
+            ipcOnline = true,
+            currentTurnId = "turn-live"
+        )
+        assertFalse(shouldTrackExecutionWatchForUiState(online))
+        val offline = online.copy(ipcOnline = false)
+        assertFalse(shouldTrackExecutionWatchForUiState(offline, ipcStatusObserved = false))
+        assertTrue(shouldTrackExecutionWatchForUiState(offline, ipcStatusObserved = true))
+        assertFalse(
+            shouldTrackExecutionWatchForUiState(
+                offline.copy(currentTurnId = null),
+                ipcStatusObserved = true
+            )
+        )
+        assertFalse(
+            shouldTrackExecutionWatchForUiState(
+                offline.copy(
+                    currentTurnId = null,
+                    pendingServerRequests = listOf(ipcRequest("pending"))
+                ),
+                ipcStatusObserved = true
+            )
+        )
+    }
+
+    @Test
+    fun matchingIpcSurfaceProtectsRuntimeFromIdleCodexStateWhileOnline() {
+        val surface = surfaceSnapshot("conv-live").copy(desynced = true)
+
+        assertTrue(
+            matchingIpcSurfaceProtectsRuntimeFromCodexState(
+                ipcOnline = true,
+                targetThreadId = "conv-live",
+                surface = surface
+            )
+        )
+        assertFalse(
+            matchingIpcSurfaceProtectsRuntimeFromCodexState(
+                ipcOnline = false,
+                targetThreadId = "conv-live",
+                surface = surface
+            )
+        )
+        assertFalse(
+            matchingIpcSurfaceProtectsRuntimeFromCodexState(
+                ipcOnline = true,
+                targetThreadId = "conv-other",
+                surface = surface
+            )
         )
     }
 
@@ -1265,9 +1370,10 @@ class CodexViewModelThreadReadyTest {
         assertEquals("conv-live", next.threadId)
         assertEquals(snapshot, next.ipcSurfaceSnapshot)
         assertEquals("waiting_for_input", next.status)
-        assertEquals(listOf("existing", "msg-user", "approval-msg"), next.messages.map { it.id })
-        assertEquals(ChatMessage.Role.USER, next.messages[1].role)
-        assertEquals(ChatMessage.Role.SYSTEM, next.messages[2].role)
+        assertEquals("turn-1", next.currentTurnId)
+        assertEquals(listOf("msg-user", "approval-msg"), next.messages.map { it.id })
+        assertEquals(ChatMessage.Role.USER, next.messages[0].role)
+        assertEquals(ChatMessage.Role.SYSTEM, next.messages[1].role)
         assertEquals(listOf("req-local", "req-approval", "req-input"), next.pendingServerRequests.map { it.requestId })
         assertEquals("ipc_follower", next.pendingServerRequests.first { it.requestId == "req-approval" }.handledBy)
         assertEquals("ipc_follower", next.pendingServerRequests.first { it.requestId == "req-input" }.handledBy)
@@ -1280,6 +1386,30 @@ class CodexViewModelThreadReadyTest {
         assertEquals("E:\\coding\\TermLink", next.cwd)
         assertEquals("high", next.ownerCurrentCodexConfig?.reasoningEffort)
         assertEquals("gpt-owner", next.nextTurnEffectiveCodexConfig?.model)
+    }
+
+    @Test
+    fun desyncedSurfaceOnlyMarksRecoveryStateWithoutReplacingLiveProjection() {
+        val state = CodexUiState(
+            activeConversationId = "conv-live",
+            threadId = "conv-live",
+            currentTurnId = "turn-live",
+            status = "running",
+            messages = listOf(
+                ChatMessage(id = "live", role = ChatMessage.Role.ASSISTANT, content = "live content", streaming = true)
+            )
+        )
+        val desynced = surfaceSnapshot("conv-live").copy(
+            desynced = true,
+            status = "idle"
+        )
+
+        val next = applyDesktopSurfaceSnapshotToUiState(state, desynced)
+
+        assertTrue(next.ipcSurfaceSnapshot?.desynced == true)
+        assertEquals("running", next.status)
+        assertEquals("turn-live", next.currentTurnId)
+        assertEquals("live content", next.messages.single().content)
     }
 
     @Test

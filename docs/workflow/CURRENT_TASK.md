@@ -42,24 +42,38 @@
 ## 允许修改范围
 
 - `docs/workflow/CURRENT_TASK.md`
+- `docs/workflow/CONTRACTS.md`
+- `docs/workflow/DECISIONS.md`
+- `docs/workflow/STATUS.md`
+- `src/services/codexIpcFeed.js`
+- `src/services/codexIpcClient.js`
+- `src/services/codexIpcThreadStream.js`
+- `src/ws/terminalGateway.js`
 - `android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt`
 - `android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt`
 - `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`
+- `android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt`
 - `android/app/src/main/java/com/termlink/app/WorkspaceActivity.kt`
 - `public/workspace.js`
 - `android/app/src/main/res/values/strings.xml`
 - `android/app/src/main/res/values-zh/strings.xml`
 - `android/app/src/test/java/com/termlink/app/codex/CodexActivityLaunchParamsTest.kt`
 - `android/app/src/test/java/com/termlink/app/codex/CodexViewModelHydrateFollowTest.kt`
+- `android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt`
+- `android/app/src/test/java/com/termlink/app/codex/data/CodexIpcWireModelTest.kt`
 - `android/app/src/test/java/com/termlink/app/codex/ui/CodexMessageMarkdownLinkParserTest.kt`
+- `tests/codexIpcFeed.test.js`
+- `tests/codexIpcClient.test.js`
+- `tests/codexIpcThreadStream.test.js`
+- `tests/terminalGateway.codexIpc.test.js`
 - `tests/codexClient.shell.test.js`
 - `tests/workspace.web.test.js`
 - 仅在验证需要时新增同目录下的 Android JVM 单测文件。
 
 ## 禁止修改范围
 
-- Codex WebSocket/IPC 协议、服务端路由、session metadata、消息 wire DTO 和发送协议。
-- CodexViewModel 的发送协议和消息 wire DTO；历史任务 ID 绑定、IPC 重订阅及只读恢复同步按本轮新增验收最小放行。
+- Codex IPC pipe/codec、服务端 HTTP 路由、session metadata 和 turn/approval 发送协议；IPC client 只允许补齐当前宿主要求的 follower subscription 与 discovery negative-ack，`terminalGateway` 只允许绑定 WebSocket active conversation 与 IPC follower subscription 生命周期。
+- CodexViewModel 的发送协议；历史任务 ID 绑定、IPC 重订阅、只读恢复同步、surface wire DTO 与 operation 展示按本轮新增验收最小放行。
 - Workspace 服务端鉴权、路径安全策略和已有文件下载接口。
 - 无关页面、布局、主题、资源和 workflow 生成输出。
 
@@ -67,19 +81,47 @@
 
 - `android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt`：只有发现必须补充打开所需的既有消息字段时才允许修改；默认不改。
 - `tests/**`：只有需要 Node 侧验证 Workspace 初始文件打开行为时才允许修改；默认优先使用 Android JVM 单测。
+- `android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt`：IPC 卡住提示若无法仅由 ViewModel 状态门禁关闭时才允许追加最小 UI 条件；默认不改现有布局和视觉样式。
 
 ## 受影响的契约
 
 - Android Codex UI callback contract：新增只读 UI 回调，用于把已解析的 FileMention/Attachment 交给 Activity；backward-compatible，仅由单一调用方实现。
 - Android ↔ Workspace WebView config：新增可选初始文件路径字段；缺省时保持旧行为，backward-compatible。
-- 不触碰 `docs/workflow/CONTRACTS.md` 锁定的服务端 API、WebSocket、IPC 或持久化契约。
+- 除下述用户确认的 normalized IPC surface additive extension 与 Android 权威仲裁外，不触碰 `docs/workflow/CONTRACTS.md` 其他锁定的服务端 API、WebSocket、IPC transport 或持久化契约。
 - 传播检查：Android CodexScreen → CodexActivity → WorkspaceActivity/public workspace.js；无其他消费者。
+- IPC normalized surface additive compatibility：snapshot 增加可选 `desynced`；现有 `kind=status` 条目可增加 operation 详情字段。旧 Web consumer 继续只读取 `text`，Android 新 consumer 读取可选详情；不新增消息 kind，不改变既有字段语义。
+- IPC authority arbitration：匹配且未失步的当前订阅周期 surface 是 Android 正文、turn 与运行态的唯一权威；canonical 只在明确离线、明确失步或当前订阅周期缺少目标 surface 时恢复，且不得用迟到响应覆盖已恢复的 IPC 权威状态。
+- IPC follower subscription compatibility：Android/WebSocket 选择 active conversation 后，gateway 必须让 `CodexIpcFeed` 按 conversation + host 广播 `thread-stream-following-changed(following=true)`；切换、断开与 feed 重连必须正确释放或重放订阅。未知 discovery request 必须立即返回 `canHandle=false`，不得让 owner 等待超时。该扩展不改变 named pipe framing、认证、session DTO 或 turn control RPC。
 
 ## 已确认决策
 
 - 复用现有 Workspace 文件预览和 `FileProvider` 系统打开能力，不引入新的文件传输 API。
 - 工作区绝对路径只有在能安全映射到当前 Codex cwd 时才转换为相对路径；不安全或无法映射的路径不静默猜测。
 - 图片 URL/data URL 使用系统默认打开器；打开失败沿用现有错误提示模式。
+- IPC 在线且当前订阅周期已有匹配 surface 后，不再根据静默时长降级或轮询；5 秒只作为等待首次 surface 的宽限期，恢复读取固定为 10 秒间隔。
+- execution-watch 只在 IPC 明确离线且存在 `currentTurnId` 时启用；IPC 在线（包括 desynced）禁用旧卡住提示。
+- 命令、文件变更和 MCP 调用按稳定 key 投影为单条默认折叠 operation，详情最多 12,000 字符；pending approval 不重复投影 operation。
+- Android App Codex IPC 实现固定为 conversation follower subscription、feed 重连重放、normalized surface 与 Android IPC authority 链路；canonical `thread/read` 仅为明确异常时的恢复读取，不得退回轮询模拟实时。
+
+## IPC 实时同步回归范围锁定（2026-07-22）
+
+- Safety mode：`frozen-scope`。本轮只允许上述 normalized surface、Android 仲裁与对应测试/治理文档；不涉及 production、database、permissions、authentication、payments、deployment、rollback、CI/CD、monitoring config、performance baseline、删除、迁移、force push 或 history rewrite。
+- Widening reason：当前任务第 10/14 条引入的前台 canonical recovery 把“surface 静默 5 秒”错误等同于“surface 缺失”，与锁定 IPC owner 权威契约冲突；完整恢复操作指令还需要 additive surface 字段。
+- Compatibility：只增加可选字段并复用 `kind=status`；旧 Android/Web 客户端忽略新字段后仍能显示简短 `text`，不改变 IPC transport、WebSocket envelope、session DTO 或发送 RPC。
+- Risk：多数据源竞态、迟到 `thread/read` 覆盖 IPC、operation payload 体积和 A/B 会话串线。通过 authority 状态机、当前订阅周期标记、稳定 key、单条截断和任务 ID 匹配门禁控制。
+- Verification：Node snapshot/patch/desync tests；Android authority/late-response/streaming/stall/operation/A-B tests；JDK 21 JVM + assemble；同一 `85e7dc6..working-tree` 范围审查、契约审查和真机 smoke。
+- Governance baseline：`85e7dc6..working-tree` 包含前一检查点已提交的 `STATUS.md` 完成项；因该项仍描述“surface 陈旧时轮询”且真实 Desktop/VS Code owner smoke 尚未完成，本轮将其纳入范围并按事实移回“正在开发”。
+- Unlock condition：若必须修改 `terminalGateway`、IPC transport、session metadata、发送协议、Web UI 或认证链路，立即停止并重新执行 `/lock-scope`，不得在实现中静默扩大。
+
+### IPC follower 订阅协议扩围（2026-07-22）
+
+- Safety mode：继续使用 `frozen-scope`。Dangerous surfaces 复核为无：不涉及 production、database、permissions、authentication、payments、deployment、rollback、CI/CD、monitoring config、performance baseline、删除、迁移、force push 或 history rewrite。
+- Widening reason：真机日志证明目标任务持续处于 `AWAITING_IPC_SURFACE` 并每 10 秒执行 `thread/read`；直接命名管道观测证明当前 Codex Desktop/VS Code 只在收到 `thread-stream-following-changed(following=true)` 后才向目标 client 定向发送 snapshot/patch。TermLink 当前从未发送该订阅，因此 Android 仲裁层无 IPC surface 可消费。
+- Allowed additions：仅增加 `src/services/codexIpcClient.js`、`src/ws/terminalGateway.js`、`tests/codexIpcClient.test.js`、`tests/terminalGateway.codexIpc.test.js`；原 Allowed Files 继续有效。Conditional Files 不变，未列出的文件仍禁止修改。
+- Contract impact：补齐既有 Codex IPC follower 协议的当前版本兼容，新增的是内部订阅生命周期和 discovery negative-ack；不改变 WebSocket envelope、normalized snapshot DTO、session persistence、turn/approval control payload 或 pipe framing。
+- Risk：重复订阅、A/B 切换时错误 unfollow、多个 Android/Web client 共享同一 conversation 时提前取消、IPC 重连后丢订阅，以及未知 discovery request 造成 owner 5 秒等待。通过 feed 引用计数/desired subscription、初始化完成后重放、gateway disconnect cleanup 和定向 Node 测试控制。
+- Verification：临时 observer 已证明手工发送 version 1 `following=true` 后约 166ms 收到目标 snapshot、后续收到 version 11 patch；实施后运行 IPC client/feed/gateway/owner/thread-stream Node 套件、JDK 21 Android JVM + assemble、`git diff --check 85e7dc6`，并在同一真机确认目标任务从 `AWAITING_IPC_SURFACE` 进入 `IPC_AUTHORITATIVE`、停止 `thread/read` 且文字随 patch 增长。
+- Unlock condition：如需改 pipe transport/codec、认证、session metadata、turn control RPC、Web UI 或 Codex 宿主文件，立即停止并再次扩围。
 
 ## 待确认问题
 
@@ -114,6 +156,40 @@ Implementation Plan（配置记忆与运行态回归）：
 - External Documentation Gate：已触发。真机发现独立 app-server 的 `thread/read` 可返回 stale `idle/interrupted` 后，通过 Context7 查询官方 `/openai/codex`，确认未加载的持久化 thread 状态不能代表另一个 owner 的实时运行态，且历史响应保留 assistant phase；据此采用 owner 优先的有界 activity fallback。
 - Handoff：decompose-task → implement-current-step。
 
+Implementation Plan（IPC 实时同步权威修复）：
+
+- Goal：恢复 IPC 对 Android 会话正文、turn 和运行态的唯一实时权威，移除按快照静默时间触发的 canonical 竞争，并恢复逐条可展开的操作记录。
+- Architecture impact：服务端仅扩展 `CodexIpcFeed -> DesktopSurfaceSnapshot` 的 normalized projection；Android 扩展 wire parser、foreground recovery 仲裁和消息投影。IPC pipe、gateway envelope、session metadata、发送 RPC 与 Web UI 不变。
+- Technical approach：Android 使用 `IPC_AUTHORITATIVE / AWAITING_IPC_SURFACE / IPC_DESYNCED / IPC_OFFLINE` 四态仲裁；前台/重连重订阅后等待 5 秒，缺少当前周期 surface 才每 10 秒恢复读取。权威 surface 到达后停止读取并在响应应用时再次检查 authority，阻止在途 canonical 覆盖。surface status item 增加 operation 可选字段，Android 映射为稳定 key 的折叠 TOOL message。
+- Alternatives considered：拒绝继续使用 5 秒 freshness window，因为正常长操作没有 surface patch 时也会被降级；拒绝新增 `operation` kind，因为现有 Web consumer 会忽略未知 kind；拒绝修改 gateway/canonical RPC，因为 additive surface 和 Android 仲裁已覆盖根因且变更面更小。
+- Data / state flow：IPC broadcast → tracker snapshot/patch + `desynced` → normalized surface → Android current subscription epoch → authoritative message/status/turn projection。只有 offline/desynced/missing-current-epoch 分支进入 `thread/read`；响应到达时若 authority 已恢复，仅补静态消息元数据，不改内容、运行态或 operation。
+- Compatibility：新增字段全部可选；旧 Web/Android 仍读取 `status.text`。操作详情只包含已识别字段，单条上限 12,000 字符并带截断标记；approval 保持独立且不重复产生 operation。
+- Risks and rollback：风险为订阅周期判断错误、迟到响应覆盖、operation payload 过大和会话串线。通过 epoch/fresh-surface 标记、apply-time authority guard、稳定 conversation/key 匹配和长度上限控制；回滚可独立撤销 additive projection 与 Android authority helpers，不涉及数据迁移。
+- Validation strategy：Node 覆盖 snapshot/patch/desync/operation；Android 覆盖静默不轮询、缺失/离线/失步恢复、迟到响应、idle 覆盖、streaming、stall 和 A/B 隔离；随后运行 JDK 21 JVM/assemble、IPC 相关 Node suites、diff/契约审查及真机长任务 smoke。
+- Open decisions：无；IPC 权威、卡住计时和操作展示方式均已由用户确认。External Documentation Gate 不触发，本方案只修复项目内状态仲裁和既有 normalized DTO，不依赖第三方 current behavior。
+- Handoff：decompose-task → implement-current-step。
+
+Implementation Plan（IPC follower 订阅协议修复）：
+
+- Goal：让 TermLink 在 Android/WebSocket 选择会话后按当前 Codex IPC 协议成为该 conversation 的真实 follower，从 owner 获取定向 snapshot/patch，消除 `conversationCount=0` 导致的 10 秒 canonical 整段刷新。
+- Architecture impact：`CodexIpcClient` 补当前 method version 与 discovery negative-ack；`CodexIpcFeed` 持有 conversation + host 的引用计数订阅并在 IPC 初始化完成后重放；`terminalGateway` 把 WebSocket active conversation 的切换/断开映射为 follow/unfollow。named pipe transport/codec、normalized DTO、session metadata、Android UI 和 turn control RPC 不变。
+- Technical approach：使用当前宿主已实现的 `thread-stream-following-changed` version 1，首次引用发送 `following=true`，最后引用释放时发送 `following=false`；feed 重连只重放仍有引用的 desired subscriptions。当前宿主的 `thread-stream-state-changed` method version 更新为 11。无已注册 handler 的 `client-discovery-request` 立即回复 `client-discovery-response { canHandle:false }`，避免 owner 等满 discovery timeout。
+- Alternatives considered：不在 gateway 每次 10 秒重订阅时盲发 broadcast，因为会制造重复 snapshot；不把 subscription 状态只放 gateway，因为 IPC client 重连时 gateway 未必收到新的 Android 选择事件；不继续缩短 `thread/read` 间隔，因为它仍不是实时 IPC，且会扩大竞态和负载。引用计数 + feed desired state 是最小且能覆盖多客户端与重连的方案。
+- Data / state flow：Android `set_active_conversation` → gateway acquire → feed desired subscription 0→1 → IPC `following=true` → Desktop/VS Code owner 记录 follower clientId → 定向 snapshot/patch → feed projection → gateway snapshot → Android `IPC_AUTHORITATIVE`。A→B 或 WebSocket close 执行 release；IPC reconnect 在新 clientId 初始化后重放所有 desired subscriptions。
+- Compatibility：旧 Codex 宿主若忽略未知 following broadcast，TermLink 仍进入现有 5 秒/10 秒 canonical fallback；旧 Android/WebSocket envelope 无变化。多个 Android/Web client 订阅同一 conversation 时只产生一份 IPC follower subscription，任一 client 断开不会提前 unfollow。
+- Risks and rollback：主要风险是引用泄漏、重复计数、A/B 切换提前取消和 reconnect 在 initialize 前发送。通过 same-id no-op、0→1/1→0 边界发送、WebSocket close cleanup、`client.initialized` gate 和单测约束。回滚只需撤销 client/feed/gateway 三处内部订阅逻辑，无数据迁移。
+- Validation strategy：Node 覆盖 method version、discovery negative-ack、feed 引用计数/重放、gateway A→B/重复选择/多 client/disconnect；随后运行 IPC client/feed/thread-stream/owner/gateway 套件、JDK 21 Android JVM + assemble、`git diff --check 85e7dc6`。真机必须观察目标 conversation 收到 snapshot/patch、authority 切换后停止 `thread/read`，并用连续 UI/logcat 证据确认 commentary 文本随 patch 增长。
+- Open decisions：无；属于恢复用户已确认 IPC 实时同步方向的 mechanical protocol compatibility 修复。
+- External Documentation Gate：已触发。Context7 `/openai/codex` 公开文档只覆盖 SDK streamed events/app-server schema，不包含 UI host 内部 IPC；不以公开文档缺口猜协议。本机已安装 VS Code `26.715.61943` 源码明确声明 `thread-stream-state-changed=11`、`thread-stream-following-changed=1`，owner 仅在 `followerClientIdsByConversationId` 非空时发送 patch；真实命名管道验证发送 version 1 `following=true` 后约 166ms 收到两个目标 snapshot，并在后续收到 version 11 patch。该 installed-source + live-frame evidence 直接覆盖当前运行版本，因此公开文档缺口不阻塞实现。
+- Handoff：decompose-task → implement-current-step。
+
+追加步骤（IPC follower 订阅协议）：
+
+1. `completed`：补齐 IPC client method version 与 discovery negative-ack，并以 client 单测验证 wire 输出（20/20 pass）。
+2. `completed`：在 feed 实现引用计数 follow/unfollow 与初始化后重放，并以 feed 单测验证重复订阅、多引用和重连（23/23 pass）。
+3. `completed`：在 gateway 绑定 active conversation 切换/断开生命周期，并以 gateway 单测验证 A→B、same-id、多 client 和 cleanup（41/41 pass）。
+4. `completed`：统一 `85e7dc6..working-tree` review/regression 已通过；当前 Desktop owner 真机持续收到真实 snapshot/patch，Android IPC 权威期间 `thread/read` 为 0，文字与 operation 均按稳定 key 原位更新。VS Code 单独超过 90 秒与主动断线/重连仍归入全任务 Step 17 的剩余交叉宿主验收。
+
 ## 审查问题队列
 
 - 是否误把服务端绝对路径当作 Android 本地路径打开。
@@ -124,6 +200,28 @@ Implementation Plan（配置记忆与运行态回归）：
 - Assistant 正文提取结果是否与既有结构化附件重复。
 - 历史任务恢复是否出现 `threadId` 已切换、`activeConversationId` 仍指向旧任务的分裂状态。
 - IPC 断线重连后 catalog 为空时是否错误选择同 cwd 的其他任务；恢复轮询是否在后台继续消耗资源或覆盖新任务响应。
+
+- Finding ID：IPC-REALTIME-F004
+  - Severity：P1
+  - Source：用户真机复现 + live pipe inspection
+  - Status：resolved
+  - File / symbol：`codexIpcClient.js` method versions/discovery；`codexIpcFeed.js` follower subscription；`terminalGateway.js` active conversation lifecycle
+  - Failure scenario：当前 Codex host 只向已通过 `thread-stream-following-changed(following=true)` 登记的 follower client 定向发送 snapshot/patch；TermLink 仅在 gateway 内记录 active conversation，未向 IPC owner 订阅，因此 feed catalog 恒为 0，Android 每 10 秒 `thread/read` 后整段刷新。
+  - Minimal fix direction：补 method version/discovery negative-ack；feed 引用计数持有并重放 desired subscription；gateway 切换/关闭时 acquire/release。
+  - Required test：client wire、feed refcount/reconnect、gateway A→B/same-id/multi-client/disconnect；真实 pipe + Android authority/patch smoke。
+  - Handoff：implement-current-step
+  - Resolution：已补齐当前宿主要求的 version 1 follower subscription、version 11 state stream compatibility 与 discovery negative-ack。gateway 选择会话后通过 feed 引用计数 acquire/release，IPC 重连后重放仍有效订阅；真机目标会话已从每 10 秒 canonical fallback 转为 `IPC_AUTHORITATIVE`，运行中连续收到 surface patch 且 logcat 中 `thread/read` 为 0。
+
+- Finding ID：IPC-REALTIME-F005
+  - Severity：P2
+  - Source：review-implementation
+  - Status：resolved
+  - File / symbol：`src/services/codexIpcClient.js` / `_handleMessage(client-discovery-request)`
+  - Failure scenario：client 未来注册真实 `client_discovery_request` handler 时，当前实现仍会在事件交给 handler 前无条件回复 `canHandle=false`，可能和 handler 的正向响应冲突；约束只授权对“未注册 handler 的未知 discovery”自动负确认。
+  - Minimal fix direction：仅在 `listenerCount('client_discovery_request') === 0` 时发送自动 negative-ack，仍把消息 emit 给现有诊断监听；有 handler 时由 handler 独占响应。
+  - Required test：保留无 handler 立即 `canHandle=false` 测试，并增加有 handler 时不自动发送 discovery response 的 client 单测。
+  - Handoff：implement-current-step
+  - Resolution：自动 negative-ack 现仅在 `listenerCount('client_discovery_request') === 0` 时发送；注册 handler 时由 handler 独占响应。client 目标测试 21/21、统一 IPC/owner/gateway 126/126 通过。
 
 - Finding ID：CFG-RUNTIME-F001
   - Severity：P1
@@ -136,11 +234,44 @@ Implementation Plan（配置记忆与运行态回归）：
   - Handoff：implement-current-step
   - Resolution：已实现 owner → explicit active → canonical activity → terminal/final 的优先级；真机在 stale `idle/interrupted` 下收到新 commentary 后记录 `snapshotChanged=true source=canonical-activity`，顶部显示“Codex · 流式输出中”且发送键切换为“中断”。
 
+- Finding ID：IPC-REALTIME-F001
+  - Severity：P1
+  - Source：review-implementation
+  - Status：resolved
+  - File / symbol：`CodexViewModel.kt` / `authorityModeForState`、`runForegroundRecoveryTick`、`shouldTrackExecutionWatchForUiState`
+  - Failure scenario：应用尚未收到首个 `codex_ipc_status` 时，默认 `ipcOnline=false` 会被当作“明确离线”，可能立即发起 canonical 恢复读取；同时旧 execution-watch 仍可由 pending request/PLAN 状态触发，而不是严格限定为“IPC 已明确离线且存在 currentTurnId”。
+  - Minimal fix direction：在 ViewModel 内记录本连接是否已观察到 IPC status；状态未知时不进入离线恢复。首次明确 offline 与 online→offline 均立即进入恢复；execution-watch 仅在已观察到明确 offline 且存在 currentTurnId 时启用。
+  - Required test：覆盖 IPC status 未知、在线但尚未绑定 conversation、明确离线有/无 currentTurnId、pending request 不单独启用 watch，以及首次 offline 可立即恢复的判定。
+  - Handoff：implement-current-step
+  - Resolution：新增连接级 `ipcStatusObserved` 门禁；未知状态不恢复，首次明确 offline 与 online→offline 立即恢复。execution-watch 现仅在已观察到 offline 且存在 currentTurnId 时启用，IPC online 无论是否已绑定 conversation 都关闭。
+
+- Finding ID：IPC-REALTIME-F002
+  - Severity：P2
+  - Source：review-implementation
+  - Status：resolved
+  - File / symbol：`codexIpcThreadStream.js` / `truncateOperationDetail`；`CodexViewModel.kt` / `truncateCanonicalOperationDetail`
+  - Failure scenario：operation 详情先截取 12,000 字符再追加截断标识，导致最终 wire/UI 详情超过已锁定的 12,000 字符上限；无原始 item id 的 operation 也没有投影稳定的合成 `itemId`。
+  - Minimal fix direction：把截断标识计入总长度上限，并为缺失原始 id 的 operation 使用与稳定 key 同源的合成 itemId；不传输原始对象。
+  - Required test：Node 与 Android JVM 测试断言截断后总长度不超过 12,000、包含标识，并验证无 id operation 的 key/itemId 在状态更新前后保持稳定。
+  - Handoff：implement-current-step
+  - Resolution：服务端与 canonical fallback 均把截断标识计入 12,000 总长度；无原始 id operation 使用 turn/type/index 合成稳定 itemId。Node/Android 边界测试通过。
+
+- Finding ID：IPC-REALTIME-F003
+  - Severity：P1
+  - Source：review-implementation + 真机 smoke
+  - Status：resolved
+  - File / symbol：`CodexViewModel.kt` / `maybeRequestLaunchHydrate`、`maybeRequestPendingThreadResync`、`handleThreadResumeResponse`、`scheduleCanonicalThreadRead`
+  - Failure scenario：真机首次连接在 IPC online 且无 surface 时，旧 `launch-hydrate` 在约 2 秒直接发送 `thread/read`，绕过 5 秒等待；thread resume、重连 resync 与 turn terminal 通知也仍可绕过四态和 10 秒间隔直接读取。
+  - Minimal fix direction：保留既有触发语义，但所有 canonical read 入口只唤醒统一的 `runForegroundRecoveryTick`；由该调度器独占检查 IPC status 已知、authority mode、5 秒宽限、10 秒间隔、前后台和 A/B id。
+  - Required test：静态/状态测试证明 ViewModel 除统一 recovery sender 外没有直接 `thread/read` 发送入口；JVM/assemble 后真机确认首次 online 缺 surface 不早于 5 秒、后续约 10 秒，进入后台停止。
+  - Handoff：implement-current-step
+  - Resolution：launch hydrate、thread resume、重连 resync 和 turn terminal 触发均只唤醒 `runForegroundRecoveryTick`；源码只剩该调度器内部一个 canonical sender。新版真机 IPC status online 后首次读取为 5.43 秒，第二次间隔 10.03 秒，后台无后续读取。
+
 ## 传播治理记录
 
 - Change Propagation Check：已执行初步检查；仅涉及 Android Codex UI、Activity 和 Workspace WebView 可选入口。
-- 需要更新 `CONTRACTS.md`：否。
-- 需要更新 `DECISIONS.md`：否；本轮采用已有架构决策。
+- 需要更新 `CONTRACTS.md`：是；已同步 IPC authority、operation additive DTO 与 execution-watch 门禁。
+- 需要更新 `DECISIONS.md`：是；已在 AD-004 记录用户确认的权威边界。
 - 兼容策略：backward-compatible。
 
 ## 实施步骤
@@ -156,6 +287,12 @@ Implementation Plan（配置记忆与运行态回归）：
 - [completed] 9. 修复任务级配置选择丢失，并补充配置来源日志和切换/重启回归测试。
 - [completed] 10. 在无 owner IPC surface 时由 canonical 最新 turn 驱动运行态，并补充状态来源日志与真机验证。
 - [completed] 11. 执行完整 JVM/assemble、diff/契约审查并同步任务记录。
+- [completed] 12. 扩展 IPC normalized surface 的 `desynced` 与逐条 operation 投影，并用 Node 单测验证 snapshot/patch/approval/截断兼容。
+- [completed] 13. 实现 Android 四态 IPC authority、前台恢复调度和迟到 canonical 响应门禁，并补状态时序单测。
+- [completed] 14. 将 IPC 增量消息和 operation 映射为 streaming/折叠 TOOL 条目，关闭 IPC 在线时的 execution-watch，并补 wire/消息合并单测。
+- [completed] 15. 使用 JDK 21 运行目标及全量 Android JVM/assemble、IPC Node 回归和 `git diff --check`，修复本轮引入的失败。
+- [completed] 16. 以 `85e7dc6..working-tree` 执行范围、实现、契约审查，回写最终验证结果和剩余真机风险。
+- [in_progress] 17. dev server 已恢复非空 owner surface，并完成 Desktop owner 超过 90 秒的 healthy IPC 增量、operation、零 canonical 轮询及短时服务重连后订阅重放 smoke；仍需补 VS Code owner 单独超过 90 秒，以及 IPC 离线超过 5 秒 → canonical fallback → 重连收到目标 surface 后立即停读的最终交叉宿主 smoke。
 
 ## 回归检查项
 
@@ -182,17 +319,33 @@ Implementation Plan（配置记忆与运行态回归）：
 - 任务级配置重启 smoke：最终包新进程日志两次记录 `[config][remembered-load] ... threadId=019f7359-6317-7422-8885-7268af73b80c fields=reasoning`，此前真机 `低 → 中 → force-stop → 中` 及恢复 `低 → force-stop → 低` 均通过；日志只记录字段名，不记录配置值或消息正文。
 - canonical runtime smoke：最终包重新打开当前任务时，首次 canonical 响应为 `latestAgentPhase=commentary millisSinceChange=0 projectedStatus=running`；随后 stale `codex_state status=idle` 的合并日志为 `appliedStatus=running`。UIAutomator 最终看到“Codex · 流式输出中”、“5.6 Sol 低”和“中断”，确认运行态不再被旧 gateway idle 覆盖。证据：`output/adb/final-state-merge.xml`。
 - 最终门禁（加入首次打开 activity grace 后）：JDK 21 `:app:testDebugUnitTest :app:assembleDebug` BUILD SUCCESSFUL；owner/gateway Node tests 45/45；`git diff --check` 退出码 0（仅现有 LF/CRLF 提示）。
+- IPC authority/follower 最终自动化：`node --test tests/codexIpcClient.test.js tests/codexIpcFeed.test.js tests/codexIpcThreadStream.test.js tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js` 126/126；JDK 21 `:app:testDebugUnitTest :app:assembleDebug` BUILD SUCCESSFUL；Workspace/Web 相关 Node 54/54；四个改动 Node 文件 `node --check` 与 `git diff --check 85e7dc6` 通过。
+- 真机 authority fallback：Huawei `MQS7N19402011743` 安装最终 APK 并打开本次 Desktop 任务 `019f8811-cf89-7d60-b6d2-a7f57872d98b`。IPC status online 后首次缺 surface canonical recovery 为 5.43 秒，后续间隔 10.03 秒；连续 110 秒显示“Codex · 流式输出中”且无“任务是否卡住”卡片，Home/onStop 后停止读取；canonical fallback 同屏显示默认折叠“工具执行/文件变更”卡片。
+- 真机 healthy Desktop IPC：根因修复后 dev server catalog 从 0 恢复为 2 个 conversation。Huawei `MQS7N19402011743` 打开当前 Desktop 任务 `019f8811-cf89-7d60-b6d2-a7f57872d98b`，超过 3 分钟持续记录 `status=running authority=IPC_AUTHORITATIVE`，surface 更新常见间隔约 0.6–2 秒、items 由 448 增至 460，期间 logcat 中 `thread/read` 为 0；UI 显示“Codex · 流式输出中”、当前命令/文件 operation 卡片和“中断”。
+- 文字原位增长证据：临时只读 follower 对同一 Desktop conversation 观测到稳定 `assistantKey=msg_0e34742caa94f8d5016a606fffde5c819a8ce19eeffead152a`，revision 159→165 在约 46ms 内文本长度依次 `24 → 48 → 71 → 96 → 120 → 126`；证明宿主正在发送同 key 增量 patch，而非 canonical 整段刷新。临时 follower 结束时已主动 `following=false` 并关闭。
+- 重连重放证据：dev server 代码重载时 Android 于 15:31:54 记录 `Connection reset`，15:31:55 WebSocket 重开，15:31:56 已重新收到同一 conversation 的 `status=running authority=IPC_AUTHORITATIVE` surface；后续继续增量且无 `thread/read`。该短时断线未超过 5 秒宽限，因此只证明 follower desired subscription 重放与恢复停读，不替代长离线 canonical fallback 验收。
+- 交叉宿主剩余验收：LawAgent conversation `019f8867-1d6a-7a53-ad71-784babf0adab` 已能取得 completed healthy surface 并在 Android 显示，但本轮没有可持续超过 90 秒的 VS Code running turn，也未主动破坏 IPC 连接，因此 VS Code 长任务与 offline→fallback→reconnect 时序继续保留为 Step 17，不写成通过。
 
 ## 回滚点
 
 - Task start base：85e7dc6
 - Last reviewed checkpoint：working tree vs `85e7dc6` after implementation and full-QA
-- Current diff review target：working tree vs `85e7dc6` + untracked parser test
-- Bugfix review target：working tree vs `85e7dc6` + `android/app/src/test/java/com/termlink/app/codex/ui/CodexMessageMarkdownLinkParserTest.kt`（包含当前任务全部未提交修改）。
+- Current diff review target：`85e7dc6..working-tree`（包含当前任务此前检查点提交与全部未提交修改，无 untracked 文件）。
+- Bugfix review target：`85e7dc6..working-tree`。
 - 回滚策略：仅回退本任务新增的 CURRENT_TASK、Codex 点击回调、Workspace 初始文件入口和相关文案/测试。
 
 ## 执行记录
 
+- 2026-07-22 IPC projection：normalized surface 顶层新增 `desynced`；command/fileChange/mcpToolCall 改为逐条 `kind=status/statusType=operation`，稳定 key、白名单详情和 12,000 字符截断均已实现。pending approval 不重复投影 operation。`node --test tests/codexIpcThreadStream.test.js tests/codexIpcFeed.test.js` 55/55 通过。External Documentation Gate 未触发，本步仅修改项目内 JSON 投影。
+- 2026-07-22 Android IPC authority：前台/重连进入 `AWAITING_IPC_SURFACE`，5 秒无当前周期 surface 后才恢复；offline/desynced 立即恢复，权威 surface 永不按静默时间降级。`thread/read` 在 apply-time 重新检查 authority，只允许补 user 静态 metadata；`codex_state` 不再覆盖权威 IPC 的 status/currentTurn/pending。JDK 21 HydrateFollow + ThreadReady + wire 目标测试 BUILD SUCCESSFUL。External Documentation Gate 未触发，本步只修复项目内状态仲裁。
+- 2026-07-22 Android projection/stall：权威全量 surface 按稳定 key 重建消息，running 最新 assistant 标记 streaming，terminal 清除；operation 映射为默认折叠 TOOL，canonical offline fallback 同样重建操作详情。IPC 在线且已绑定会话时 execution-watch 强制关闭，断线后 currentTurn 才可重新启用。JDK 21 三组目标测试 BUILD SUCCESSFUL；初次编译发现并修正一处 Kotlin 中文字符串插值错误，无方案变化。
+- 2026-07-22 IPC 回归：`node --test tests/codexIpcFeed.test.js tests/codexIpcThreadStream.test.js tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js` 100/100；JDK 21 `:app:testDebugUnitTest :app:assembleDebug` BUILD SUCCESSFUL；`node --check` 两个服务文件与 `git diff --check` 均通过。
+- 2026-07-22 review findings：F001 将 IPC status unknown 与明确 offline 分离并严格门禁 execution-watch；F002 修正 operation 12,000 总长度与 synthetic itemId；F003 将 launch/resume/resync/terminal canonical 读取全部收口到唯一恢复调度器。三项均在 Allowed Files 内完成并经 Node/JVM/真机时序复核。
+- 2026-07-22 healthy owner smoke blocked：本地服务和 Android 真机可用，但 IPC feed catalog 持续为 0，当前 Desktop task 只能经 canonical fallback 读取。Windows Computer Use skill 明确禁止自动操作 Codex Desktop 或 VS Code Codex extension，因此未绕过宿主限制制造会话；Desktop / VS Code 双 owner healthy surface 验收保留为 Step 17。
+- 2026-07-22 follower subscription root cause：当前 Codex Desktop/VS Code owner 只向已通过 `thread-stream-following-changed(following=true)` 登记的 client 定向发送 state snapshot/patch；TermLink 原实现只在 gateway 内保存 active conversation，从未向 owner acquire follower，导致 Android 永久停在 `AWAITING_IPC_SURFACE` 并每 10 秒 canonical 刷新。手工发送 version 1 follow 后约 166ms 收到目标 snapshot，直接证明 pipe 与 owner 正常、缺陷位于 TermLink 订阅生命周期。
+- 2026-07-22 follower subscription fix：`CodexIpcClient` 对齐 state v11/follow v1，并仅在没有 discovery handler 时立即 negative-ack；`CodexIpcFeed` 以 conversation+host 引用计数持有 desired subscription 并在初始化后重放；`terminalGateway` 在 active conversation A→B、same-id、WebSocket close 与 teardown 上 acquire/release。统一 Node 126/126、JDK 21 JVM/assemble、syntax/diff gates 与 Android healthy Desktop smoke 通过；VS Code 长任务和主动断线重连仍保留在 Step 17。
+- 2026-07-22 fixed implementation declaration：按用户明确要求，将 Android App Codex IPC 正式实现锁定为 follower subscription → reconnect replay → normalized surface → IPC authority；canonical 只作为异常恢复通道。契约与 AD-004 已同步，后续不得静默改回轮询架构。
+- 2026-07-22 final review：统一使用 `85e7dc6..working-tree`。范围审查覆盖 27 个当前任务文件且均在 Allowed/Conditional 范围；implementation review 的 F001/F002/F003/F004/F005 已 resolved，无剩余 critical/major finding；接口与架构契约核查确认仅有 backward-compatible additive surface 字段和内部 follower 生命周期，无 transport/codec/session/send 反向依赖。External Documentation Gate 对 follower 协议已由 Context7 公开文档缺口、本机安装宿主源码和真实 pipe frame 证据闭环。QA route 为 `current_task_owned`；自动化与 Desktop healthy owner 真机 smoke 通过，VS Code 长任务与主动断线重连保留 Step 17。
 - 2026-07-22：建立任务；确认当前静态 chip、既有 Workspace 文件打开能力和 `FileProvider` 配置。
 - 2026-07-22 bugfix：用户在历史任务“提交代码”复现 assistant 正文 `![修复后的 Codex 会话页](E:/coding/TermLink/output/adb/codex-layout-after-awake.png)` 被原样显示为地址。
 - 2026-07-22 sync bugfix：真机日志确认 Android 当前 `threadId` 与 `activeConversationId` 都等于当前 Codex task ID `019f7359-6317-7422-8885-7268af73b80c`；服务端 IPC 虽在线，但重连后的 conversation catalog 为 0、eventCount 为 0。另确认历史 `thread/resume` 只更新 `threadId`，未同步 active conversation 或重订阅。

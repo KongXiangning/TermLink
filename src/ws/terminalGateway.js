@@ -751,6 +751,23 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
 
     const _isFollowerModeEnabled = (ws) => _ipcFollowerModes.get(ws) === true;
 
+    const _followIpcConversation = (conversationId) => {
+        if (typeof ipcFeed?.followConversation !== 'function') return;
+        ipcFeed.followConversation(conversationId, 'local');
+    };
+
+    const _unfollowIpcConversation = (conversationId) => {
+        if (typeof ipcFeed?.unfollowConversation !== 'function') return;
+        ipcFeed.unfollowConversation(conversationId, 'local');
+    };
+
+    const _releaseActiveIpcConversation = (ws) => {
+        const conversationId = _ipcActiveConversations.get(ws);
+        if (!conversationId) return;
+        _ipcActiveConversations.delete(ws);
+        _unfollowIpcConversation(conversationId);
+    };
+
     const _sendFollowerMode = (ws) => {
         sendWsEnvelope(ws, {
             type: 'follower_mode_changed',
@@ -1034,9 +1051,17 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             return;
         }
         const normalizedConversationId = conversationId.trim();
-        _ipcActiveConversations.set(ws, normalizedConversationId);
+        const previousActiveConversationId = _ipcActiveConversations.get(ws) || null;
+        if (previousActiveConversationId !== normalizedConversationId) {
+            if (previousActiveConversationId) {
+                _unfollowIpcConversation(previousActiveConversationId);
+            }
+            _ipcActiveConversations.set(ws, normalizedConversationId);
+            _followIpcConversation(normalizedConversationId);
+        }
         console.warn('[gateway][ipc][set-active-conversation]', JSON.stringify({
             conversationId: normalizedConversationId,
+            previousActiveConversationId,
             sessionId: session?.id || null,
             sessionMode: session?.sessionMode || null,
             previousThreadId: session && isNonEmptyString(session.lastCodexThreadId) ? session.lastCodexThreadId.trim() : null
@@ -3207,7 +3232,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             });
 
             ws.on('close', (code, reason) => {
-                _ipcActiveConversations.delete(ws);
+                _releaseActiveIpcConversation(ws);
                 _ipcFollowerModes.delete(ws);
                 sessionManager.removeConnection(session, ws);
                 // Log connection end for elevated mode
@@ -3260,8 +3285,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         codexService.removeListener('fatal', handleCodexFatal);
         codexService.removeListener('stderr', handleCodexStderr);
         codexService.removeListener('server_request', handleCodexServerRequest);
+        for (const ws of Array.from(_ipcActiveConversations.keys())) {
+            _releaseActiveIpcConversation(ws);
+        }
         if (ipcFeed) { ipcFeed.removeAllListeners(); }
-        _ipcActiveConversations.clear();
         _ipcFollowerModes.clear();
         _ipcConversationLastStatus.clear();
         for (const session of sessionManager.sessions.values()) {

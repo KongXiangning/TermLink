@@ -61,6 +61,12 @@
 
 变更说明（2026-07-13）：真实 owner 人工闭环已完成，Approval、PLAN implementation、Goal 启动与继续/恢复进入稳定控制面。审批失效根因是 numeric JSON-RPC id 被字符串化；后续固定为 display `requestId` 与原类型 `rawRequestId` 双轨。PLAN 发送后不再清空 Android workflow，而是等待 owner snapshot 移除 pending。Goal 仅冻结 external owner IPC 已证明的启动与继续/恢复；update/cancel/complete 因协议无客户端动作继续排除，禁止用本地状态或普通文本伪造。
 
+变更说明（2026-07-22）：用户确认 Android 在 IPC 在线且已收到当前订阅周期目标 surface 后，IPC 必须持续作为正文、turn 与运行态的唯一权威，快照静默时长不得触发 canonical 轮询。canonical 只允许在 IPC 明确离线、revision/patch 明确失步，或重连/前台重订阅后仍缺少当前周期目标 surface 时恢复；新 surface 到达后必须停止恢复并拒绝迟到响应覆盖。旧 execution-watch 只允许在 IPC 明确离线且存在当前 turn 时启用。normalized surface 可用 backward-compatible additive 字段投影逐条命令、文件变更和 MCP 详情，继续复用现有 `status` kind，旧客户端只读摘要即可兼容。上述权威边界、卡住提示门禁和 DTO 兼容方式不得被后续实现静默改回基于时间的新鲜度竞争。
+
+变更说明（2026-07-22，follower compatibility）：当前 Codex Desktop / VS Code host 对 thread state 使用定向 follower 分发，TermLink 不能只保存 WebSocket active conversation 后被动等待 catalog。gateway 必须把 active conversation 生命周期映射为 feed 的引用计数 follow/unfollow，feed 在 IPC initialize/reconnect 后重放 desired subscriptions，client 对未处理 discovery 立即返回 `canHandle=false`。该选择的原因是 live pipe 已证明手工 `following=true` 后约 166ms 即收到目标 snapshot，且同 key assistant 文本在连续 revision 中原位增长；继续增加 canonical 轮询频率不能恢复实时性。后续不得静默删除 follower acquire/replay/cleanup 或退回“观察 IPC + 定时 thread/read”架构；若宿主协议版本再次演进，必须以当前安装宿主和真实 frame 证据更新兼容层，并保持 transport/session/send 契约不变。
+
+变更说明（2026-07-22，Android App IPC 固定声明）：用户明确要求固定 App 端 Codex IPC 实现。正式实现锁定为 conversation follower subscription + reconnect replay + normalized surface + Android IPC authority 四段链路；canonical `thread/read` 仅为有边界的恢复通道，不属于实时实现。此后不得以缩短轮询周期、快照静默判定或 gateway connected/idle 状态重新定义 App 实时同步。若 Codex host 协议演进导致当前 method version 或 follower envelope 变化，只允许在保持上述数据流和 authority 语义的前提下更新兼容适配；改变该架构必须由用户重新确认并同步 `CONTRACTS.md`。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径

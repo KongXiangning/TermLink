@@ -54,6 +54,8 @@ import java.util.UUID
 
 private const val PLAN_PHASE_READY_FOR_CONFIRMATION = "plan_ready_for_confirmation"
 private const val PLAN_PHASE_EXECUTING_CONFIRMED_PLAN = "executing_confirmed_plan"
+private const val OPERATION_DETAIL_MAX_LENGTH = 12_000
+private const val OPERATION_DETAIL_TRUNCATION_MARKER = "\n\n…（详情已截断）"
 
 internal enum class MobileSlashAction {
     SHOW_MODEL_PICKER,
@@ -98,6 +100,25 @@ internal data class CanonicalTurnRuntimeProjection(
     val currentTurnId: String?,
     val source: String
 )
+
+internal enum class IpcAuthorityMode {
+    IPC_AUTHORITATIVE,
+    AWAITING_IPC_SURFACE,
+    IPC_DESYNCED,
+    IPC_OFFLINE
+}
+
+internal fun resolveIpcAuthorityMode(
+    ipcOnline: Boolean,
+    matchingSurfaceAvailable: Boolean,
+    surfaceDesynced: Boolean,
+    awaitingFreshSurface: Boolean
+): IpcAuthorityMode = when {
+    !ipcOnline -> IpcAuthorityMode.IPC_OFFLINE
+    matchingSurfaceAvailable && surfaceDesynced -> IpcAuthorityMode.IPC_DESYNCED
+    matchingSurfaceAvailable && !awaitingFreshSurface -> IpcAuthorityMode.IPC_AUTHORITATIVE
+    else -> IpcAuthorityMode.AWAITING_IPC_SURFACE
+}
 
 internal fun canonicalAgentPhaseIndicatesActivity(phase: String?): Boolean {
     val normalized = phase
@@ -397,16 +418,45 @@ internal fun resolveAwaitingIpcSurfaceAfterTargetState(
 internal fun shouldUseCanonicalThreadReadFallback(
     threadId: String?,
     activeConversationId: String?,
-    ipcOnline: Boolean,
-    matchingSurfaceAvailable: Boolean,
-    millisSinceMatchingSurface: Long,
-    staleAfterMillis: Long
+    authorityMode: IpcAuthorityMode,
+    millisSinceAuthorityModeEntered: Long,
+    surfaceWaitGraceMillis: Long,
+    ipcStatusObserved: Boolean = true
 ): Boolean {
+    if (!ipcStatusObserved) return false
     val targetThreadId = normalizeCodexThreadId(threadId) ?: return false
     val activeId = normalizeCodexThreadId(activeConversationId)
     if (activeId != null && activeId != targetThreadId) return false
-    if (!ipcOnline || !matchingSurfaceAvailable) return true
-    return millisSinceMatchingSurface >= staleAfterMillis
+    return when (authorityMode) {
+        IpcAuthorityMode.IPC_AUTHORITATIVE -> false
+        IpcAuthorityMode.IPC_OFFLINE,
+        IpcAuthorityMode.IPC_DESYNCED -> true
+        IpcAuthorityMode.AWAITING_IPC_SURFACE ->
+            millisSinceAuthorityModeEntered >= surfaceWaitGraceMillis
+    }
+}
+
+internal fun matchingIpcSurfaceProtectsRuntimeFromCodexState(
+    ipcOnline: Boolean,
+    targetThreadId: String?,
+    surface: DesktopSurfaceSnapshot?
+): Boolean = ipcOnline &&
+    normalizeCodexThreadId(targetThreadId) != null &&
+    normalizeCodexThreadId(targetThreadId) == normalizeCodexThreadId(surface?.conversationId)
+
+internal fun mergeCanonicalStaticMetadataIntoAuthoritativeMessages(
+    authoritativeMessages: List<ChatMessage>,
+    canonicalMessages: List<ChatMessage>
+): List<ChatMessage> = authoritativeMessages.map { authoritative ->
+    if (authoritative.role != ChatMessage.Role.USER) return@map authoritative
+    val canonical = canonicalMessages.firstOrNull { candidate ->
+        candidate.role == ChatMessage.Role.USER &&
+            (candidate.id == authoritative.id || candidate.content.trim() == authoritative.content.trim())
+    } ?: return@map authoritative
+    mergeCanonicalUserMessageMetadataForUi(
+        canonical = authoritative,
+        local = canonical
+    )
 }
 
 internal fun shouldApplyCanonicalThreadReadResponse(
@@ -493,6 +543,9 @@ internal fun applyDesktopSurfaceSnapshotToUiState(
     if (convId.isEmpty() || activeConversationId.isEmpty() || convId != activeConversationId) {
         return state
     }
+    if (snap.desynced) {
+        return state.copy(ipcSurfaceSnapshot = snap)
+    }
     val confirmedOverrides = reconcileOwnerConfirmedOverrides(
         overrides = state.nextTurnOverrides,
         ownerConfig = snap.currentCodexConfig
@@ -505,7 +558,17 @@ internal fun applyDesktopSurfaceSnapshotToUiState(
         ownerCurrentCodexConfig = snap.currentCodexConfig,
         nextTurnOverrides = confirmedOverrides,
         status = snap.status,
-        messages = mergeSurfaceItems(state.messages, snap.items),
+        currentTurnId = resolveSurfaceCurrentTurnId(
+            status = snap.status,
+            latestTurnId = snap.latestTurnId,
+            currentTurnId = state.currentTurnId
+        ),
+        messages = mergeSurfaceItems(
+            existing = state.messages,
+            surfaceItems = snap.items,
+            surfaceStatus = snap.status,
+            latestTurnId = snap.latestTurnId
+        ),
         pendingServerRequests = mergePendingUserInput(
             mergePendingApproval(state.pendingServerRequests, snap.pendingApproval),
             snap.pendingUserInputAction
@@ -808,45 +871,220 @@ private fun permissionConfigForSandboxOverride(sandboxOverride: String?): CodexE
 
 internal fun mergeSurfaceItems(
     existing: List<ChatMessage>,
-    surfaceItems: List<SurfaceEntry>
+    surfaceItems: List<SurfaceEntry>,
+    surfaceStatus: String = "unknown",
+    latestTurnId: String? = null
 ): List<ChatMessage> {
-    if (surfaceItems.isEmpty()) return existing
-    val merged = existing.toMutableList()
-    val seenKeys = existing.map { it.id }.toMutableSet()
-    for (entry in surfaceItems) {
-        val key = entry.key
-        if (key.isBlank()) continue
-        val existingIndex = merged.indexOfFirst { it.id == key }
-        if (existingIndex >= 0) {
-            val text = entry.text
-            if (text != null && text != merged[existingIndex].content) {
-                merged[existingIndex] = merged[existingIndex].copy(
-                    content = text,
-                    streaming = false
-                )
+    val existingById = existing.associateBy { it.id }
+    val latestAssistantKey = if (surfaceStatus.equals("running", ignoreCase = true)) {
+        surfaceItems.lastOrNull { entry ->
+            entry.kind == "message" &&
+                entry.role != "user" &&
+                (latestTurnId.isNullOrBlank() || entry.turnId == latestTurnId)
+        }?.key
+    } else {
+        null
+    }
+    return surfaceItems.mapNotNull { entry ->
+        val key = entry.key.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        val existingMessage = existingById[key] ?: if (entry.kind == "message" && entry.role == "user") {
+            existing.firstOrNull { candidate ->
+                candidate.role == ChatMessage.Role.USER &&
+                    candidate.content.trim() == entry.text.orEmpty().trim()
             }
-            continue
+        } else {
+            null
         }
-        if (key in seenKeys) continue
-        seenKeys.add(key)
+        val isOperation = entry.kind == "status" && entry.statusType == "operation"
         val role = when (entry.kind) {
             "message" -> when (entry.role) {
                 "user" -> ChatMessage.Role.USER
                 else -> ChatMessage.Role.ASSISTANT
             }
-            "status", "approval_request" -> ChatMessage.Role.SYSTEM
+            "status" -> if (isOperation) ChatMessage.Role.TOOL else ChatMessage.Role.SYSTEM
+            "approval_request" -> ChatMessage.Role.SYSTEM
             else -> ChatMessage.Role.ASSISTANT
         }
-        merged.add(
-            ChatMessage(
-                id = key,
-                role = role,
-                content = entry.text ?: "",
-                streaming = false
-            )
+        val projected = ChatMessage(
+            id = key,
+            role = role,
+            content = if (isOperation) {
+                entry.detail ?: entry.text ?: ""
+            } else {
+                entry.text ?: ""
+            },
+            timestamp = existingMessage?.timestamp ?: System.currentTimeMillis(),
+            streaming = key == latestAssistantKey,
+            collapsible = isOperation,
+            collapsedLabel = if (isOperation) {
+                entry.label ?: entry.text ?: "操作详情"
+            } else {
+                ""
+            }
         )
+        if (role == ChatMessage.Role.USER && existingMessage != null) {
+            mergeCanonicalUserMessageMetadataForUi(
+                canonical = projected,
+                local = existingMessage
+            )
+        } else {
+            projected
+        }
     }
-    return merged
+}
+
+internal fun resolveSurfaceCurrentTurnId(
+    status: String?,
+    latestTurnId: String?,
+    currentTurnId: String?
+): String? {
+    val normalized = status?.trim()?.lowercase().orEmpty()
+    return when (normalized) {
+        "running", "waiting_for_approval", "waiting_for_input" ->
+            normalizeCodexThreadId(latestTurnId) ?: currentTurnId
+        "completed", "done", "finished", "failed", "error", "cancelled", "canceled", "interrupted", "idle" -> null
+        else -> currentTurnId
+    }
+}
+
+internal fun canonicalOperationMessageForUi(
+    item: JSONObject,
+    turnId: String?,
+    itemIndex: Int
+): ChatMessage? {
+    val type = item.optString("type", "")
+    val operationType = when (type) {
+        "commandExecution" -> "command"
+        "fileChange" -> "file_change"
+        "mcpToolCall" -> "mcp_tool"
+        else -> return null
+    }
+    val status = item.optStringOrNullCompat("status")
+    if (status.equals("pending_approval", ignoreCase = true) ||
+        status.equals("awaiting_approval", ignoreCase = true)) {
+        return null
+    }
+    val itemId = item.optStringOrNullCompat("id") ?: itemIndex.toString()
+    val (label, detail) = when (operationType) {
+        "command" -> buildCanonicalCommandOperation(item, status)
+        "file_change" -> buildCanonicalFileOperation(item, status)
+        else -> buildCanonicalMcpOperation(item, status)
+    }
+    return ChatMessage(
+        id = "canonical-operation:${turnId.orEmpty()}:$operationType:$itemId",
+        role = ChatMessage.Role.TOOL,
+        content = truncateCanonicalOperationDetail(detail),
+        collapsible = true,
+        collapsedLabel = label
+    )
+}
+
+private fun buildCanonicalCommandOperation(item: JSONObject, status: String?): Pair<String, String> {
+    val command = item.optStringOrNullCompat("command").orEmpty()
+    val label = operationLabelForStatus("命令", status)
+    val lines = mutableListOf<String>()
+    if (command.isNotEmpty()) lines.add("$ $command")
+    appendCanonicalDetail(lines, "工作目录", item.opt("cwd"))
+    appendCanonicalDetail(lines, "提示", item.opt("prompt"))
+    appendCanonicalBlock(lines, "输出", item.opt("output"))
+    appendCanonicalBlock(lines, "聚合输出", item.opt("aggregatedOutput"))
+    val result = item.optJSONObject("result")
+    appendCanonicalBlock(lines, "标准输出", result?.opt("stdout"))
+    appendCanonicalBlock(lines, "标准错误", result?.opt("stderr") ?: item.opt("stderr"))
+    appendCanonicalBlock(lines, "结果", result?.opt("output") ?: result?.opt("result"))
+    appendCanonicalDetail(lines, "退出码", item.opt("exitCode") ?: result?.opt("exitCode"))
+    appendCanonicalDetail(lines, "状态", status)
+    return label to (lines.joinToString("\n\n").ifBlank { label })
+}
+
+private fun buildCanonicalFileOperation(item: JSONObject, status: String?): Pair<String, String> {
+    val label = operationLabelForStatus("文件变更", status)
+    val lines = mutableListOf<String>()
+    val changes = item.optJSONArray("changes")
+    if (changes != null) {
+        for (index in 0 until changes.length()) {
+            val change = changes.optJSONObject(index) ?: continue
+            val path = change.optStringOrNullCompat("path").orEmpty()
+            val kind = change.optStringOrNullCompat("type")
+                ?: change.optStringOrNullCompat("changeType")
+                ?: change.optStringOrNullCompat("kind")
+            if (path.isNotEmpty()) lines.add(if (kind.isNullOrBlank()) path else "$kind: $path")
+        }
+    }
+    appendCanonicalDetail(lines, "摘要", item.opt("summary"))
+    appendCanonicalBlock(lines, "补丁", item.opt("patch"))
+    appendCanonicalBlock(lines, "输出", item.opt("output"))
+    appendCanonicalBlock(lines, "内容", item.opt("text"))
+    appendCanonicalDetail(lines, "状态", status)
+    return label to (lines.joinToString("\n\n").ifBlank { label })
+}
+
+private fun buildCanonicalMcpOperation(item: JSONObject, status: String?): Pair<String, String> {
+    val label = operationLabelForStatus("工具调用", status)
+    val lines = mutableListOf<String>()
+    val server = item.optStringOrNullCompat("server")
+        ?: item.optStringOrNullCompat("serverName")
+    val tool = item.optStringOrNullCompat("name")
+        ?: item.optStringOrNullCompat("toolName")
+    appendCanonicalDetail(lines, "服务", server)
+    appendCanonicalDetail(lines, "工具", tool)
+    appendCanonicalBlock(
+        lines,
+        "参数",
+        item.opt("arguments").takeUnless { it == null || it == JSONObject.NULL }
+            ?: item.opt("args").takeUnless { it == null || it == JSONObject.NULL }
+            ?: item.opt("input").takeUnless { it == null || it == JSONObject.NULL }
+            ?: item.opt("toolParams").takeUnless { it == null || it == JSONObject.NULL }
+            ?: item.opt("tool_params")
+    )
+    appendCanonicalBlock(lines, "输出", item.opt("output"))
+    appendCanonicalBlock(lines, "结果", item.opt("result"))
+    appendCanonicalBlock(lines, "错误", item.opt("error"))
+    appendCanonicalDetail(lines, "状态", status)
+    return label to (lines.joinToString("\n\n").ifBlank { label })
+}
+
+private fun operationLabelForStatus(subject: String, status: String?): String = when {
+    status.equals("failed", ignoreCase = true) || status.equals("error", ignoreCase = true) -> "$subject 失败"
+    status.equals("in_progress", ignoreCase = true) ||
+        status.equals("inProgress", ignoreCase = true) ||
+        status.equals("running", ignoreCase = true) -> "${subject}进行中"
+    else -> subject
+}
+
+private fun appendCanonicalDetail(lines: MutableList<String>, label: String, value: Any?) {
+    renderCanonicalOperationValue(value)?.let { lines.add("$label：$it") }
+}
+
+private fun appendCanonicalBlock(lines: MutableList<String>, label: String, value: Any?) {
+    renderCanonicalOperationValue(value)?.let { lines.add("$label：\n$it") }
+}
+
+private fun renderCanonicalOperationValue(value: Any?): String? = when (value) {
+    null, JSONObject.NULL -> null
+    is String -> value.takeIf { it.isNotEmpty() }
+    is Number, is Boolean -> value.toString()
+    is JSONObject -> value.toString(2)
+    is JSONArray -> value.toString(2)
+    else -> null
+}
+
+private fun truncateCanonicalOperationDetail(value: String): String =
+    if (value.length <= OPERATION_DETAIL_MAX_LENGTH) {
+        value
+    } else {
+        value.take(OPERATION_DETAIL_MAX_LENGTH - OPERATION_DETAIL_TRUNCATION_MARKER.length) +
+            OPERATION_DETAIL_TRUNCATION_MARKER
+    }
+
+internal fun shouldTrackExecutionWatchForUiState(
+    state: CodexUiState,
+    ipcStatusObserved: Boolean = true
+): Boolean {
+    if (state.errorMessage != null || state.connectionState == ConnectionState.ERROR) {
+        return false
+    }
+    return ipcStatusObserved && !state.ipcOnline && !state.currentTurnId.isNullOrBlank()
 }
 
 internal fun mergePendingApproval(
@@ -1239,8 +1477,9 @@ class CodexViewModel(
         private const val PLAN_PHASE_IDLE = "idle"
         private const val PLAN_PHASE_PLANNING = "planning"
         private const val PLAN_PHASE_AWAITING_USER_INPUT = "awaiting_user_input"
-        private const val IPC_SURFACE_STALE_AFTER_MILLIS = 5_000L
-        private const val CANONICAL_FOLLOW_POLL_MILLIS = 2_000L
+        private const val IPC_SURFACE_WAIT_GRACE_MILLIS = 5_000L
+        private const val IPC_RECOVERY_TICK_MILLIS = 1_000L
+        private const val IPC_RECOVERY_READ_INTERVAL_MILLIS = 10_000L
         private const val IPC_RECOVERY_RESUBSCRIBE_MILLIS = 10_000L
         private const val CANONICAL_ACTIVITY_WINDOW_MILLIS = 30_000L
         private val ANSI_ESCAPE_REGEX = Regex("\\u001B\\[[;\\d?]*[ -/]*[@-~]")
@@ -1278,7 +1517,12 @@ class CodexViewModel(
     private var pendingHistoryResumeHydrationThreadId: String? = null
     private var foregroundFollowJob: Job? = null
     private var foregroundRecoveryReadInFlightThreadId: String? = null
-    private var lastIpcSurfaceReceivedAtElapsed: Long = 0L
+    private var foregroundHostVisible: Boolean = false
+    private var ipcStatusObserved: Boolean = false
+    private var awaitingFreshIpcSurface: Boolean = false
+    private var matchingIpcSurfaceDesynced: Boolean = false
+    private var ipcAuthorityModeEnteredAtElapsed: Long = 0L
+    private var lastRecoveryReadAtElapsed: Long = 0L
     private var lastRecoverySubscribeAtElapsed: Long = 0L
     private var canonicalActivityThreadId: String? = null
     private var canonicalLatestTurnFingerprint: Int? = null
@@ -1306,7 +1550,11 @@ class CodexViewModel(
         val rememberedOverrides = loadRememberedTaskOverrides(launchConversationId, reason = "connect")
         pinnedIpcConversationId = launchConversationId
         pendingHistoryResumeHydrationThreadId = null
-        lastIpcSurfaceReceivedAtElapsed = 0L
+        ipcStatusObserved = false
+        awaitingFreshIpcSurface = false
+        matchingIpcSurfaceDesynced = false
+        ipcAuthorityModeEnteredAtElapsed = 0L
+        lastRecoveryReadAtElapsed = 0L
         lastRecoverySubscribeAtElapsed = 0L
         canonicalActivityThreadId = null
         canonicalLatestTurnFingerprint = null
@@ -1373,49 +1621,110 @@ class CodexViewModel(
         clearPendingOptimisticNewThreadTransition()
         clearPendingLaunchHydrate()
         pendingHistoryResumeHydrationThreadId = null
+        ipcStatusObserved = false
         connectionManager.disconnect()
     }
 
     fun onHostVisible() {
+        foregroundHostVisible = true
+        val now = SystemClock.elapsedRealtime()
+        if (!ipcStatusObserved) {
+            ipcAuthorityModeEnteredAtElapsed = now
+            lastRecoveryReadAtElapsed = 0L
+        } else if (_uiState.value.ipcOnline) {
+            beginAwaitingFreshIpcSurface(now)
+        } else {
+            ipcAuthorityModeEnteredAtElapsed = now
+            lastRecoveryReadAtElapsed = 0L
+        }
         subscribeActiveConversationIfNeeded()
-        requestForegroundRecoveryThreadRead(_uiState.value.threadId, reason = "activity-visible")
+        runForegroundRecoveryTick(now)
         if (foregroundFollowJob?.isActive == true) return
         foregroundFollowJob = viewModelScope.launch {
             while (isActive) {
-                delay(CANONICAL_FOLLOW_POLL_MILLIS)
-                val state = _uiState.value
-                if (state.connectionState != ConnectionState.CONNECTED) continue
-                val targetThreadId = normalizeThreadId(state.threadId) ?: continue
-                val now = SystemClock.elapsedRealtime()
-                val matchingSurface = state.ipcSurfaceSnapshot?.conversationId?.trim() == targetThreadId
-                val sinceSurface = if (lastIpcSurfaceReceivedAtElapsed > 0L) {
-                    now - lastIpcSurfaceReceivedAtElapsed
-                } else {
-                    Long.MAX_VALUE
-                }
-                if (!shouldUseCanonicalThreadReadFallback(
-                        threadId = targetThreadId,
-                        activeConversationId = state.activeConversationId,
-                        ipcOnline = state.ipcOnline,
-                        matchingSurfaceAvailable = matchingSurface,
-                        millisSinceMatchingSurface = sinceSurface,
-                        staleAfterMillis = IPC_SURFACE_STALE_AFTER_MILLIS
-                    )) {
-                    continue
-                }
-                if (now - lastRecoverySubscribeAtElapsed >= IPC_RECOVERY_RESUBSCRIBE_MILLIS) {
-                    subscribeActiveConversationIfNeeded()
-                    lastRecoverySubscribeAtElapsed = now
-                }
-                requestForegroundRecoveryThreadRead(targetThreadId, reason = "foreground-ipc-recovery")
+                delay(IPC_RECOVERY_TICK_MILLIS)
+                runForegroundRecoveryTick(SystemClock.elapsedRealtime())
             }
         }
     }
 
     fun onHostHidden() {
+        foregroundHostVisible = false
         foregroundFollowJob?.cancel()
         foregroundFollowJob = null
         foregroundRecoveryReadInFlightThreadId = null
+    }
+
+    private fun beginAwaitingFreshIpcSurface(nowElapsed: Long = SystemClock.elapsedRealtime()) {
+        awaitingFreshIpcSurface = true
+        matchingIpcSurfaceDesynced = false
+        ipcAuthorityModeEnteredAtElapsed = nowElapsed
+        lastRecoveryReadAtElapsed = 0L
+    }
+
+    private fun noteMatchingIpcSurface(
+        snap: DesktopSurfaceSnapshot,
+        nowElapsed: Long = SystemClock.elapsedRealtime()
+    ) {
+        awaitingFreshIpcSurface = false
+        matchingIpcSurfaceDesynced = snap.desynced
+        ipcAuthorityModeEnteredAtElapsed = if (snap.desynced) nowElapsed else 0L
+        if (!snap.desynced) {
+            lastRecoveryReadAtElapsed = 0L
+        }
+    }
+
+    private fun authorityModeForState(
+        state: CodexUiState,
+        targetThreadId: String? = state.threadId
+    ): IpcAuthorityMode {
+        if (!ipcStatusObserved) return IpcAuthorityMode.AWAITING_IPC_SURFACE
+        val target = normalizeThreadId(targetThreadId)
+        val matchingSurface = target != null &&
+            normalizeThreadId(state.ipcSurfaceSnapshot?.conversationId) == target
+        return resolveIpcAuthorityMode(
+            ipcOnline = state.ipcOnline,
+            matchingSurfaceAvailable = matchingSurface,
+            surfaceDesynced = matchingSurface &&
+                (state.ipcSurfaceSnapshot?.desynced == true || matchingIpcSurfaceDesynced),
+            awaitingFreshSurface = awaitingFreshIpcSurface
+        )
+    }
+
+    private fun runForegroundRecoveryTick(nowElapsed: Long) {
+        if (!foregroundHostVisible) return
+        val state = _uiState.value
+        if (state.connectionState != ConnectionState.CONNECTED) return
+        val targetThreadId = normalizeThreadId(state.threadId) ?: return
+        val authorityMode = authorityModeForState(state, targetThreadId)
+        val millisSinceModeEntered = if (ipcAuthorityModeEnteredAtElapsed > 0L) {
+            (nowElapsed - ipcAuthorityModeEnteredAtElapsed).coerceAtLeast(0L)
+        } else {
+            Long.MAX_VALUE
+        }
+        if (!shouldUseCanonicalThreadReadFallback(
+                threadId = targetThreadId,
+                activeConversationId = state.activeConversationId,
+                authorityMode = authorityMode,
+                millisSinceAuthorityModeEntered = millisSinceModeEntered,
+                surfaceWaitGraceMillis = IPC_SURFACE_WAIT_GRACE_MILLIS,
+                ipcStatusObserved = ipcStatusObserved
+            )) {
+            return
+        }
+        if (state.ipcOnline &&
+            nowElapsed - lastRecoverySubscribeAtElapsed >= IPC_RECOVERY_RESUBSCRIBE_MILLIS) {
+            subscribeActiveConversationIfNeeded()
+            lastRecoverySubscribeAtElapsed = nowElapsed
+        }
+        val recoveryDue = lastRecoveryReadAtElapsed == 0L ||
+            nowElapsed - lastRecoveryReadAtElapsed >= IPC_RECOVERY_READ_INTERVAL_MILLIS
+        if (recoveryDue && requestForegroundRecoveryThreadRead(
+                targetThreadId,
+                reason = "foreground-ipc-recovery:${authorityMode.name.lowercase()}"
+            )) {
+            lastRecoveryReadAtElapsed = nowElapsed
+        }
     }
 
     fun setError(message: String) {
@@ -3216,6 +3525,9 @@ class CodexViewModel(
                     when (event) {
                         is WsEvent.Opened -> {
                             connectionManager.onConnected()
+                            if (_uiState.value.ipcOnline) {
+                                beginAwaitingFreshIpcSurface()
+                            }
                             subscribeActiveConversationIfNeeded()
                         }
                         is WsEvent.Message -> {
@@ -3361,10 +3673,28 @@ class CodexViewModel(
             // ── IPC realtime sync messages ──
             "codex_ipc_status" -> {
                 val status = CodexIpcStatus.from(json)
+                val hadObservedStatus = ipcStatusObserved
                 val wasOnline = _uiState.value.ipcOnline
-                _uiState.update { applyIpcStatusToUiState(it, status) }
+                ipcStatusObserved = true
+                _uiState.update {
+                    syncExecutionWatch(
+                        applyIpcStatusToUiState(it, status),
+                        markActivity = false
+                    )
+                }
+                if (status.online && (!hadObservedStatus || !wasOnline)) {
+                    beginAwaitingFreshIpcSurface()
+                    subscribeActiveConversationIfNeeded()
+                } else if (!status.online && (!hadObservedStatus || wasOnline)) {
+                    awaitingFreshIpcSurface = false
+                    matchingIpcSurfaceDesynced = false
+                    ipcAuthorityModeEnteredAtElapsed = SystemClock.elapsedRealtime()
+                    lastRecoveryReadAtElapsed = 0L
+                    runForegroundRecoveryTick(SystemClock.elapsedRealtime())
+                }
                 Log.i(TAG, "[ipc][status] " +
                     "online=${status.online} " +
+                    "hadObservedStatus=$hadObservedStatus " +
                     "wasOnline=$wasOnline " +
                     "clientId=${status.clientId.orEmpty()} " +
                     "activeConversationId=${_uiState.value.activeConversationId.orEmpty()}")
@@ -3423,7 +3753,11 @@ class CodexViewModel(
                     }
                 }
                 val newConversationId = _uiState.value.activeConversationId?.trim().orEmpty()
-                val switched = previousConversationId.isNotEmpty() && newConversationId.isNotEmpty() && previousConversationId != newConversationId
+                val targetChanged = newConversationId.isNotEmpty() && previousConversationId != newConversationId
+                val switched = previousConversationId.isNotEmpty() && targetChanged
+                if (targetChanged) {
+                    beginAwaitingFreshIpcSurface()
+                }
                 Log.i(TAG, "[ipc][conversations-received] " +
                     "conversationCount=${conversations.size} " +
                     "availableIds=${conversations.map { it.conversationId }} " +
@@ -3472,8 +3806,13 @@ class CodexViewModel(
                 val activeConv = _uiState.value.activeConversationId
                 val applied = convId != null && activeConv != null && convId == activeConv
                 if (applied) {
-                    lastIpcSurfaceReceivedAtElapsed = SystemClock.elapsedRealtime()
-                    _uiState.update { current -> applyDesktopSurfaceSnapshotToUiState(current, snap) }
+                    noteMatchingIpcSurface(snap)
+                    _uiState.update { current ->
+                        syncExecutionWatch(
+                            applyDesktopSurfaceSnapshotToUiState(current, snap),
+                            markActivity = true
+                        )
+                    }
                 }
                 Log.i(TAG, "[ipc][surface-snapshot] " +
                     "conv=$convId " +
@@ -3483,7 +3822,9 @@ class CodexViewModel(
                     "items=${snap.items.size} " +
                     "hasPendingApproval=${snap.pendingApproval != null} " +
                     "hasPendingPlan=${snap.pendingPlanAction != null} " +
-                    "hasActiveGoal=${snap.activeGoal != null}")
+                    "hasActiveGoal=${snap.activeGoal != null} " +
+                    "desynced=${snap.desynced} " +
+                    "authority=${authorityModeForState(_uiState.value, convId)}")
                 if (!applied && convId != null && activeConv != null) {
                     Log.w(TAG, "[ipc][mismatch] surface snapshot not applied: " +
                         "pushedConv=$convId != activeConv=$activeConv")
@@ -3547,6 +3888,12 @@ class CodexViewModel(
                     }
                     if (appliesToCurrentSession) {
                         pinnedIpcConversationId = conversationId
+                        if (normalizeThreadId(previousConversationId) != conversationId) {
+                            if (_uiState.value.ipcOnline) {
+                                beginAwaitingFreshIpcSurface()
+                            }
+                            subscribeActiveConversationIfNeeded()
+                        }
                     }
                     Log.i(TAG, "[ipc][session-thread-bound] " +
                         "boundSessionId=$boundSessionId " +
@@ -3579,18 +3926,22 @@ class CodexViewModel(
                         activeConversationId = current.activeConversationId,
                         currentThreadId = current.threadId
                     )
-                    val matchingOwnerSurfaceAvailable = current.ipcSurfaceSnapshot?.conversationId
-                        ?.let(::normalizeThreadId) == normalizeThreadId(nextThreadId) &&
-                        current.ipcSurfaceSnapshot != null
+                    val ipcAuthorityMode = authorityModeForState(current, nextThreadId)
+                    val ipcAuthoritative = ipcAuthorityMode == IpcAuthorityMode.IPC_AUTHORITATIVE
+                    val ipcSurfaceProtectsRuntime = matchingIpcSurfaceProtectsRuntimeFromCodexState(
+                        ipcOnline = current.ipcOnline,
+                        targetThreadId = nextThreadId,
+                        surface = current.ipcSurfaceSnapshot
+                    )
                     val millisSinceCanonicalActivity = if (lastCanonicalActivityAtElapsed > 0L) {
                         (SystemClock.elapsedRealtime() - lastCanonicalActivityAtElapsed).coerceAtLeast(0L)
                     } else {
                         Long.MAX_VALUE
                     }
-                    val preserveCanonicalRuntime = shouldPreserveCanonicalActivityRuntime(
+                    val preserveCanonicalRuntime = ipcSurfaceProtectsRuntime || shouldPreserveCanonicalActivityRuntime(
                         incomingStatus = state.status,
                         currentStatus = current.status,
-                        matchingOwnerSurfaceAvailable = matchingOwnerSurfaceAvailable,
+                        matchingOwnerSurfaceAvailable = false,
                         activityThreadId = canonicalActivityThreadId,
                         targetThreadId = nextThreadId,
                         millisSinceCanonicalActivity = millisSinceCanonicalActivity,
@@ -3644,10 +3995,18 @@ class CodexViewModel(
                                 interactionState = mergedInteractionState,
                                 cwd = state.cwd ?: current.cwd,
                                 serverNextTurnConfigBase = state.nextTurnEffectiveCodexConfig,
-                                pendingServerRequests = state.pendingServerRequests.filter { request ->
-                                    request.handledBy.equals("client", ignoreCase = true)
+                                pendingServerRequests = if (ipcAuthoritative) {
+                                    current.pendingServerRequests
+                                } else {
+                                    state.pendingServerRequests.filter { request ->
+                                        request.handledBy.equals("client", ignoreCase = true)
+                                    }
                                 },
-                                submittingServerRequestIds = emptySet()
+                                submittingServerRequestIds = if (ipcAuthoritative) {
+                                    current.submittingServerRequestIds
+                                } else {
+                                    emptySet()
+                                }
                             )
                         ),
                         markActivity = true
@@ -3666,6 +4025,7 @@ class CodexViewModel(
                     pendingHistoryResumeHydrationThreadId = null
                 }
                 if (threadChanged) {
+                    beginAwaitingFreshIpcSurface()
                     Log.i(TAG, "[ipc][codex-state][thread-changed] re-subscribing: " +
                         "from=$previousThreadId to=${serverThreadId.orEmpty()}")
                     subscribeActiveConversationIfNeeded()
@@ -4267,7 +4627,14 @@ class CodexViewModel(
         clearPendingThreadResync()
         if (resumedThreadId.isNotEmpty()) {
             pinnedIpcConversationId = resumedThreadId
-            lastIpcSurfaceReceivedAtElapsed = 0L
+            if (_uiState.value.ipcOnline) {
+                beginAwaitingFreshIpcSurface()
+            } else {
+                awaitingFreshIpcSurface = false
+                matchingIpcSurfaceDesynced = false
+                ipcAuthorityModeEnteredAtElapsed = SystemClock.elapsedRealtime()
+                lastRecoveryReadAtElapsed = 0L
+            }
             lastRecoverySubscribeAtElapsed = 0L
             foregroundRecoveryReadInFlightThreadId = null
         }
@@ -4297,7 +4664,7 @@ class CodexViewModel(
         }
         if (resumedThreadId.isNotEmpty()) {
             subscribeActiveConversationIfNeeded()
-            requestCanonicalThreadRead(resumedThreadId, reason = "thread-resume")
+            runForegroundRecoveryTick(SystemClock.elapsedRealtime())
         } else {
             clearThreadHistoryAction()
         }
@@ -4329,6 +4696,10 @@ class CodexViewModel(
             )
             return
         }
+        val ipcAuthoritativeAtResponse = authorityModeForState(
+            _uiState.value,
+            threadId
+        ) == IpcAuthorityMode.IPC_AUTHORITATIVE
         val threadTitle = resolveThreadTitle(thread)
         val turns = thread.optJSONArray("turns")
         val latestTurn = latestCanonicalTurn(turns)
@@ -4340,7 +4711,9 @@ class CodexViewModel(
         val nowElapsed = SystemClock.elapsedRealtime()
         val canonicalFingerprint = latestTurn?.toString()?.hashCode()
         val normalizedReadThreadId = normalizeThreadId(threadId)
-        val canonicalSnapshotChanged = if (canonicalActivityThreadId != normalizedReadThreadId) {
+        val canonicalSnapshotChanged = if (ipcAuthoritativeAtResponse) {
+            false
+        } else if (canonicalActivityThreadId != normalizedReadThreadId) {
             canonicalActivityThreadId = normalizedReadThreadId
             canonicalLatestTurnFingerprint = canonicalFingerprint
             lastCanonicalActivityAtElapsed = if (
@@ -4359,8 +4732,9 @@ class CodexViewModel(
             if (changed) lastCanonicalActivityAtElapsed = nowElapsed
             changed
         }
-        if (latestAgentPhase.equals("final_answer", ignoreCase = true) ||
-            latestAgentPhase.equals("final", ignoreCase = true)) {
+        if (!ipcAuthoritativeAtResponse &&
+            (latestAgentPhase.equals("final_answer", ignoreCase = true) ||
+                latestAgentPhase.equals("final", ignoreCase = true))) {
             lastCanonicalActivityAtElapsed = 0L
         }
         val millisSinceCanonicalChange = if (lastCanonicalActivityAtElapsed > 0L) {
@@ -4380,10 +4754,23 @@ class CodexViewModel(
         clearPendingThreadResync(threadId)
         clearPendingLaunchHydrate(threadId)
         _uiState.update { state ->
+            val ipcAuthoritative = authorityModeForState(
+                state,
+                threadId
+            ) == IpcAuthorityMode.IPC_AUTHORITATIVE
             val completesHistoryResume = hasMessages &&
                 state.threadHistoryActionKind == "resume" &&
                 (state.threadHistoryActionThreadId.isBlank() || state.threadHistoryActionThreadId == threadId)
-            val transition = if (hasMessages) {
+            val transition = if (hasMessages && ipcAuthoritative) {
+                ThreadReadMergeTransition(
+                    threadId = threadId.ifEmpty { state.threadId },
+                    currentTurnId = state.currentTurnId,
+                    messages = mergeCanonicalStaticMetadataIntoAuthoritativeMessages(
+                        authoritativeMessages = state.messages,
+                        canonicalMessages = messages
+                    )
+                )
+            } else if (hasMessages) {
                 buildThreadReadMergeTransition(
                     incomingThreadId = threadId,
                     canonicalMessages = messages,
@@ -4396,11 +4783,7 @@ class CodexViewModel(
                     messages = state.messages
                 )
             }
-            val ownerSurfaceThreadId = state.ipcSurfaceSnapshot?.conversationId
-                ?.let(::normalizeThreadId)
-            val transitionThreadId = normalizeThreadId(transition.threadId)
-            val matchingOwnerSurfaceAvailable = ownerSurfaceThreadId != null &&
-                ownerSurfaceThreadId == transitionThreadId
+            val matchingOwnerSurfaceAvailable = ipcAuthoritative
             val runtimeProjection = projectCanonicalTurnRuntime(
                 threadStatus = threadStatus,
                 turnStatus = latestTurnStatus,
@@ -4434,6 +4817,7 @@ class CodexViewModel(
                 },
                 messages = transition.messages,
                 runtimePanel = when {
+                    ipcAuthoritative -> state.runtimePanel
                     hasTurns -> buildRuntimePanelStateFromTurns(
                         turns = turns,
                         visible = state.runtimePanel.visible
@@ -4442,6 +4826,7 @@ class CodexViewModel(
                     else -> state.runtimePanel
                 },
                 noticesPanel = when {
+                    ipcAuthoritative -> state.noticesPanel
                     hasTurns -> buildNoticesPanelStateFromTurns(
                         turns = turns,
                         visible = state.noticesPanel.visible
@@ -4457,10 +4842,8 @@ class CodexViewModel(
             )
         }
         val appliedState = _uiState.value
-        val appliedOwnerSurfaceThreadId = appliedState.ipcSurfaceSnapshot?.conversationId
-            ?.let(::normalizeThreadId)
-        val matchingOwnerSurfaceAvailable = appliedOwnerSurfaceThreadId != null &&
-            appliedOwnerSurfaceThreadId == normalizeThreadId(threadId)
+        val matchingOwnerSurfaceAvailable =
+            authorityModeForState(appliedState, threadId) == IpcAuthorityMode.IPC_AUTHORITATIVE
         val runtimeProjection = projectCanonicalTurnRuntime(
             threadStatus = threadStatus,
             turnStatus = latestTurnStatus,
@@ -4612,17 +4995,7 @@ class CodexViewModel(
         if (threadResyncInFlightThreadId == normalizedThreadId) {
             return
         }
-        val sent = connectionManager.send(
-            CodexClientMessages.codexRequest(
-                action = "thread/read",
-                params = JSONObject()
-                    .put("threadId", normalizedThreadId)
-                    .put("includeTurns", true)
-            )
-        )
-        if (sent) {
-            threadResyncInFlightThreadId = normalizedThreadId
-        }
+        runForegroundRecoveryTick(SystemClock.elapsedRealtime())
     }
 
     private fun maybeRequestLaunchHydrate(observedThreadId: String?) {
@@ -4632,11 +5005,8 @@ class CodexViewModel(
             observedThreadId = observedThreadId,
             inFlightThreadId = launchHydrateInFlightThreadId
         ) ?: return
-        val sent = requestCanonicalThreadRead(targetThreadId, reason = "launch-hydrate")
-        if (sent) {
-            launchHydrateTargetThreadId = targetThreadId
-            launchHydrateInFlightThreadId = targetThreadId
-        }
+        if (normalizeThreadId(_uiState.value.threadId) != targetThreadId) return
+        runForegroundRecoveryTick(SystemClock.elapsedRealtime())
     }
 
     private fun clearPendingLaunchHydrate(threadId: String? = null) {
@@ -4681,7 +5051,6 @@ class CodexViewModel(
 
     private fun scheduleCanonicalThreadRead(
         threadId: String?,
-        reason: String,
         delayMillis: Long = 250L
     ) {
         val normalizedThreadId = normalizeThreadId(threadId) ?: return
@@ -4694,7 +5063,7 @@ class CodexViewModel(
             if (normalizeThreadId(state.threadId) != normalizedThreadId) {
                 return@launch
             }
-            requestCanonicalThreadRead(normalizedThreadId, reason)
+            runForegroundRecoveryTick(SystemClock.elapsedRealtime())
         }
     }
 
@@ -4876,6 +5245,14 @@ class CodexViewModel(
                                 content = item.optString("text", "")
                             )
                         )
+                    }
+                    "commandExecution", "fileChange", "mcpToolCall" -> {
+                        canonicalOperationMessageForUi(
+                            item = item,
+                            turnId = turn.optStringOrNullCompat("id")
+                                ?: turn.optStringOrNullCompat("turnId"),
+                            itemIndex = itemIndex
+                        )?.let(result::add)
                     }
                 }
                 maybeRequestModelList()
@@ -5351,8 +5728,7 @@ class CodexViewModel(
                     val state = _uiState.value
                     if (hadActiveTurn) {
                         scheduleCanonicalThreadRead(
-                            threadId = state.threadId,
-                            reason = "thread-idle"
+                            threadId = state.threadId
                         )
                     }
                     maybeRequestPendingThreadResync(
@@ -5392,8 +5768,7 @@ class CodexViewModel(
                     )
                 }
                 scheduleCanonicalThreadRead(
-                    threadId = _uiState.value.threadId,
-                    reason = "turn-completed"
+                    threadId = _uiState.value.threadId
                 )
             }
 
@@ -7118,16 +7493,10 @@ class CodexViewModel(
     }
 
     private fun shouldTrackExecutionWatch(state: CodexUiState): Boolean {
-        if (state.errorMessage != null || state.connectionState == ConnectionState.ERROR) {
-            return false
-        }
-        if (state.pendingServerRequests.isNotEmpty()) {
-            return true
-        }
-        if (state.planWorkflow.phase == PLAN_PHASE_AWAITING_USER_INPUT) {
-            return true
-        }
-        return !state.currentTurnId.isNullOrBlank()
+        return shouldTrackExecutionWatchForUiState(
+            state = state,
+            ipcStatusObserved = ipcStatusObserved
+        )
     }
 
     // ── IPC surface snapshot merge helpers ────────────────────────────

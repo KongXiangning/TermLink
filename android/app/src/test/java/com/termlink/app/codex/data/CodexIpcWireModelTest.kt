@@ -164,18 +164,19 @@ class CodexIpcWireModelTest {
     fun `parse surface snapshot with messages`() {
         val json = JSONObject("""
         {"type":"conversation_surface_snapshot","conversationId":"c1",
-         "snapshot":{"conversationId":"c1","revision":3,"status":"running","updatedAt":1000,
+         "snapshot":{"conversationId":"c1","revision":3,"desynced":true,"status":"running","updatedAt":1000,
          "latestTurnId":"t1",
          "currentCodexConfig":{"model":"gpt-5.6","reasoningEffort":"HIGH","approvalPolicy":"never","sandboxMode":"danger-full-access","approvalsReviewer":"auto_review","activePermissionProfile":{"id":":workspace"}},
          "items":[
            {"key":"m1","kind":"message","role":"user","text":"hello","turnId":"t1"},
            {"key":"m2","kind":"message","role":"assistant","phase":"final_answer","text":"world","turnId":"t1"},
-           {"key":"s1","kind":"status","statusType":"commands","text":"已运行 2 条命令","turnId":"t1"}
+           {"key":"s1","kind":"status","statusType":"operation","operationType":"command","label":"已运行命令","text":"已运行命令：npm test","detail":"$ npm test\n\nPASS","operationStatus":"completed","itemId":"cmd-1","turnId":"t1"}
          ]}}
         """)
         val snap = DesktopSurfaceSnapshot.from(json)
         assertEquals("c1", snap.conversationId)
         assertEquals(3, snap.revision)
+        assertTrue(snap.desynced)
         assertEquals("running", snap.status)
         assertEquals("gpt-5.6", snap.currentCodexConfig?.model)
         assertEquals("high", snap.currentCodexConfig?.reasoningEffort)
@@ -191,7 +192,11 @@ class CodexIpcWireModelTest {
         assertEquals("assistant", snap.items[1].role)
         assertEquals("final_answer", snap.items[1].phase)
         assertEquals("status", snap.items[2].kind)
-        assertEquals("commands", snap.items[2].statusType)
+        assertEquals("operation", snap.items[2].statusType)
+        assertEquals("command", snap.items[2].operationType)
+        assertEquals("已运行命令", snap.items[2].label)
+        assertTrue(snap.items[2].detail!!.contains("PASS"))
+        assertEquals("completed", snap.items[2].operationStatus)
         assertNull(snap.pendingApproval)
         assertNull(snap.pendingPlanAction)
     }

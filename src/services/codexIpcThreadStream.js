@@ -15,6 +15,9 @@ function asNumber(value) {
     return typeof value === 'number' ? value : undefined;
 }
 
+const MAX_OPERATION_DETAIL_LENGTH = 12_000;
+const OPERATION_DETAIL_TRUNCATION_MARKER = '\n\n…（详情已截断）';
+
 function structuredClone(value) {
     // Simple deep clone sufficient for JSON-shaped conversation state.
     return JSON.parse(JSON.stringify(value));
@@ -277,7 +280,7 @@ function extractConversationId(value, seen = new Set()) {
  * Only includes fields Android needs for display — raw state stays server-side.
  *
  * @param {Record<string, unknown>|undefined} state
- * @param {{conversationId?: string, revision?: number, status?: string, ownerKind?: string, title?: string, cwd?: string}} [options]
+ * @param {{conversationId?: string, revision?: number, status?: string, ownerKind?: string, title?: string, cwd?: string, desynced?: boolean}} [options]
  * @returns {object}
  */
 function buildDesktopSurfaceSnapshot(state, options = {}) {
@@ -308,7 +311,8 @@ function buildDesktopSurfaceSnapshot(state, options = {}) {
         }
         const turnItems = Array.isArray(r?.items) ? r.items : [];
 
-        for (const item of turnItems) {
+        for (let itemIndex = 0; itemIndex < turnItems.length; itemIndex++) {
+            const item = turnItems[itemIndex];
             const ir = asRecord(item);
             if (!ir) continue;
             const itemType = asString(ir.type);
@@ -339,6 +343,14 @@ function buildDesktopSurfaceSnapshot(state, options = {}) {
                 items.push(...flushStatusBucket(statusBucket, ++seq, turnId));
                 statusBucket = createStatusBucket();
                 items.push(visible);
+                continue;
+            }
+
+            const operation = toOperationEntry(ir, turnId, itemType, itemIndex);
+            if (operation) {
+                items.push(...flushStatusBucket(statusBucket, ++seq, turnId));
+                statusBucket = createStatusBucket();
+                items.push(operation);
                 continue;
             }
 
@@ -386,6 +398,7 @@ function buildDesktopSurfaceSnapshot(state, options = {}) {
     return {
         conversationId: options.conversationId,
         revision: options.revision,
+        desynced: options.desynced === true,
         ownerKind: options.ownerKind,
         status,
         updatedAt: Date.now(),
@@ -954,21 +967,149 @@ function toVisibleEntry(item, turnId) {
     return undefined;
 }
 
+function toOperationEntry(item, turnId, itemType, itemIndex) {
+    const operationType = operationTypeForItem(itemType);
+    if (!operationType) return undefined;
+
+    const itemId = asString(item.id);
+    const keySuffix = itemId ?? String(itemIndex);
+    const stableItemId = itemId ?? `${turnId ?? 'turn'}:${operationType}:${itemIndex}`;
+    const operationStatus = asString(item.status);
+    const { label, text, detail } = buildOperationPresentation(item, operationType, operationStatus);
+    return {
+        key: `${turnId ?? 'turn'}:operation:${operationType}:${keySuffix}`,
+        kind: 'status',
+        statusType: 'operation',
+        operationType,
+        label,
+        text,
+        detail: truncateOperationDetail(detail),
+        operationStatus,
+        turnId,
+        itemId: stableItemId
+    };
+}
+
+function operationTypeForItem(itemType) {
+    if (itemType === 'commandExecution') return 'command';
+    if (itemType === 'fileChange') return 'file_change';
+    if (itemType === 'mcpToolCall') return 'mcp_tool';
+    return undefined;
+}
+
+function buildOperationPresentation(item, operationType, operationStatus) {
+    if (operationType === 'command') return buildCommandOperation(item, operationStatus);
+    if (operationType === 'file_change') return buildFileChangeOperation(item, operationStatus);
+    return buildMcpOperation(item, operationStatus);
+}
+
+function buildCommandOperation(item, operationStatus) {
+    const command = asString(item.command) ?? extractText(item.command) ?? '';
+    const label = operationStatus === 'failed' || operationStatus === 'error' ? '命令执行失败' :
+        operationStatus === 'in_progress' || operationStatus === 'inProgress' || operationStatus === 'running' ? '正在运行命令' :
+        '已运行命令';
+    const lines = [];
+    if (command) lines.push(`$ ${command}`);
+    appendKnownDetail(lines, '工作目录', item.cwd);
+    appendKnownDetail(lines, '提示', item.prompt);
+    appendKnownBlock(lines, '输出', item.output);
+    appendKnownBlock(lines, '聚合输出', item.aggregatedOutput);
+    const result = asRecord(item.result);
+    appendKnownBlock(lines, '标准输出', result?.stdout);
+    appendKnownBlock(lines, '标准错误', result?.stderr ?? item.stderr);
+    appendKnownBlock(lines, '结果', result?.output ?? result?.result);
+    appendKnownDetail(lines, '退出码', item.exitCode ?? result?.exitCode);
+    appendKnownDetail(lines, '状态', operationStatus);
+    return {
+        label,
+        text: command ? `${label}：${command}` : label,
+        detail: lines.join('\n\n') || label
+    };
+}
+
+function buildFileChangeOperation(item, operationStatus) {
+    const changes = Array.isArray(item.changes) ? item.changes : [];
+    const paths = changes.map(change => asString(asRecord(change)?.path)).filter(Boolean);
+    const label = operationStatus === 'failed' || operationStatus === 'error' ? '文件变更失败' :
+        operationStatus === 'in_progress' || operationStatus === 'inProgress' || operationStatus === 'running' ? '正在修改文件' :
+        '已修改文件';
+    const lines = [];
+    for (const changeValue of changes) {
+        const change = asRecord(changeValue);
+        if (!change) continue;
+        const path = asString(change.path);
+        const changeType = asString(change.type) ?? asString(change.changeType) ?? asString(change.kind);
+        if (path) lines.push(changeType ? `${changeType}: ${path}` : path);
+    }
+    appendKnownDetail(lines, '摘要', item.summary);
+    appendKnownBlock(lines, '补丁', item.patch);
+    appendKnownBlock(lines, '输出', item.output);
+    appendKnownBlock(lines, '内容', item.text);
+    appendKnownDetail(lines, '状态', operationStatus);
+    return {
+        label,
+        text: paths.length > 0 ? `${label}：${paths.join(', ')}` : label,
+        detail: lines.join('\n\n') || label
+    };
+}
+
+function buildMcpOperation(item, operationStatus) {
+    const server = resolveServerName(item) ?? asString(item.server);
+    const toolName = resolveToolName(item) ?? asString(item.name);
+    const displayName = [server, toolName].filter(Boolean).join(' / ');
+    const label = operationStatus === 'failed' || operationStatus === 'error' ? '工具调用失败' :
+        operationStatus === 'in_progress' || operationStatus === 'inProgress' || operationStatus === 'running' ? '正在调用工具' :
+        '已调用工具';
+    const lines = [];
+    appendKnownDetail(lines, '服务', server);
+    appendKnownDetail(lines, '工具', toolName);
+    appendKnownBlock(lines, '参数', item.arguments ?? item.args ?? item.input ?? item.toolParams ?? item.tool_params);
+    appendKnownBlock(lines, '输出', item.output);
+    appendKnownBlock(lines, '结果', item.result);
+    appendKnownBlock(lines, '错误', item.error);
+    appendKnownDetail(lines, '状态', operationStatus);
+    return {
+        label,
+        text: displayName ? `${label}：${displayName}` : label,
+        detail: lines.join('\n\n') || label
+    };
+}
+
+function appendKnownDetail(lines, label, value) {
+    const rendered = renderKnownValue(value);
+    if (rendered) lines.push(`${label}：${rendered}`);
+}
+
+function appendKnownBlock(lines, label, value) {
+    const rendered = renderKnownValue(value);
+    if (rendered) lines.push(`${label}：\n${rendered}`);
+}
+
+function renderKnownValue(value) {
+    if (value === undefined || value === null || value === '') return undefined;
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (Array.isArray(value) || asRecord(value)) {
+        try { return JSON.stringify(value, null, 2); }
+        catch (_) { return undefined; }
+    }
+    return undefined;
+}
+
+function truncateOperationDetail(value) {
+    if (value.length <= MAX_OPERATION_DETAIL_LENGTH) return value;
+    return value.slice(0, MAX_OPERATION_DETAIL_LENGTH - OPERATION_DETAIL_TRUNCATION_MARKER.length) +
+        OPERATION_DETAIL_TRUNCATION_MARKER;
+}
+
 // ── status bucket ────────────────────────────────────────────────────────────
 
 function createStatusBucket() {
-    return { commands: 0, files: new Set(), tools: new Map(), contexts: 0, images: 0, todos: 0, errors: 0 };
+    return { contexts: 0, images: 0, todos: 0, errors: 0 };
 }
 
 function collectStatus(bucket, item, itemType) {
     switch (itemType) {
-        case 'commandExecution': bucket.commands++; break;
-        case 'fileChange': {
-            const changes = Array.isArray(item.changes) ? item.changes : [];
-            for (const c of changes) { const p = asString(asRecord(c)?.path); if (p) bucket.files.add(p); }
-            break;
-        }
-        case 'mcpToolCall': { const s = prettifyTool(asString(item.server)); bucket.tools.set(s, (bucket.tools.get(s) ?? 0) + 1); break; }
         case 'contextCompaction': bucket.contexts++; break;
         case 'imageView': bucket.images++; break;
         case 'todo-list': bucket.todos++; break;
@@ -978,9 +1119,6 @@ function collectStatus(bucket, item, itemType) {
 
 function flushStatusBucket(bucket, seq, turnId) {
     const entries = [];
-    if (bucket.commands > 0) entries.push({ key: `${turnId ?? 'turn'}:status:cmd:${seq}`, kind: 'status', statusType: 'commands', text: `已运行 ${bucket.commands} 条命令`, turnId });
-    if (bucket.files.size > 0) entries.push({ key: `${turnId ?? 'turn'}:status:files:${seq}`, kind: 'status', statusType: 'files', text: `已编辑 ${bucket.files.size} 个文件`, turnId });
-    for (const [server] of bucket.tools) entries.push({ key: `${turnId ?? 'turn'}:status:tool:${server}:${seq}`, kind: 'status', statusType: 'tool', text: `已使用 ${server}`, turnId });
     if (bucket.contexts > 0) entries.push({ key: `${turnId ?? 'turn'}:status:ctx:${seq}`, kind: 'status', statusType: 'context', text: '上下文已自动压缩', turnId });
     if (bucket.images > 0) entries.push({ key: `${turnId ?? 'turn'}:status:img:${seq}`, kind: 'status', statusType: 'image', text: `已查看 ${bucket.images} 张图片`, turnId });
     if (bucket.todos > 0) entries.push({ key: `${turnId ?? 'turn'}:status:todo:${seq}`, kind: 'status', statusType: 'todo', text: '已更新任务清单', turnId });

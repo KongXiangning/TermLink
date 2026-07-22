@@ -23,7 +23,9 @@ const CONTROL_METHODS = [
 ];
 
 const KNOWN_METHOD_VERSIONS = {
-    'thread-stream-state-changed': 7,
+    'thread-stream-state-changed': 11,
+    'thread-stream-following-changed': 1,
+    'thread-stream-following-status-requested': 1,
     'thread-read-state-changed': 1,
     'thread-archived': 2,
     'thread-unarchived': 1,
@@ -326,6 +328,13 @@ class CodexIpcClient extends EventEmitter {
                 return;
 
             case 'client-discovery-request':
+                if (this.listenerCount('client_discovery_request') === 0) {
+                    this._sendMessage({
+                        type: 'client-discovery-response',
+                        requestId: message.requestId,
+                        response: { canHandle: false }
+                    });
+                }
                 this.emit('client_discovery_request', message);
                 return;
 

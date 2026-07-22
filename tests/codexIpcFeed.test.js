@@ -14,14 +14,18 @@ class FakeClient extends EventEmitter {
         this._clientId = opts.clientId || 'fake-client-1';
         this._connectFails = opts.connectFails || false;
         this.connectCount = 0;
+        this.initialized = false;
+        this.broadcasts = [];
     }
     get clientId() { return this._clientId; }
     async connect() {
         this.connectCount += 1;
         if (this._connectFails) throw new Error('pipe unavailable');
         this.emit('connect', { pipePath: '\\\\.\\pipe\\codex-ipc' });
+        this.initialized = true;
     }
-    close() { this.emit('close', { hadError: false }); }
+    close() { this.initialized = false; this.emit('close', { hadError: false }); }
+    sendBroadcast(method, params) { this.broadcasts.push({ method, params }); }
     simulateBroadcast(message) { this.emit('broadcast', message); }
     simulateMessageIn(message) { this.emit('message_in', message); }
     simulateMessageOut(message) { this.emit('message_out', message); }
@@ -148,6 +152,92 @@ test('feed emits snapshot on thread-stream-state-changed broadcast', async () =>
     assert.equal(snap.conversationId, 'conv-1');
     assert.equal(snap.revision, 1);
     assert.equal(snap.surface.conversationId, 'conv-1');
+    assert.equal(snap.surface.desynced, false);
+    feed.stop();
+});
+
+test('feed sends following only on first acquire and unfollows on final release', async () => {
+    enableIpc();
+    const client = new FakeClient();
+    const feed = new CodexIpcFeed({ client });
+    await startAndWaitOnline(feed);
+
+    assert.equal(feed.followConversation(' conv-follow '), true);
+    assert.equal(feed.followConversation('conv-follow'), true);
+    assert.deepEqual(client.broadcasts, [{
+        method: 'thread-stream-following-changed',
+        params: { conversationId: 'conv-follow', hostId: 'local', following: true }
+    }]);
+
+    assert.equal(feed.unfollowConversation('conv-follow'), true);
+    assert.equal(client.broadcasts.length, 1, 'one remaining reference must keep IPC following active');
+    assert.equal(feed.unfollowConversation('conv-follow'), true);
+    assert.deepEqual(client.broadcasts[1], {
+        method: 'thread-stream-following-changed',
+        params: { conversationId: 'conv-follow', hostId: 'local', following: false }
+    });
+    feed.stop();
+});
+
+test('feed replays desired following after IPC reconnect initializes a new client session', async () => {
+    enableIpc();
+    const client = new FakeClient();
+    const feed = new CodexIpcFeed({ client, reconnectDelayMs: 10 });
+    await startAndWaitOnline(feed);
+    feed.followConversation('conv-reconnect', 'local');
+    assert.equal(client.broadcasts.length, 1);
+
+    client.close();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    assert.ok(client.connectCount >= 2);
+    assert.deepEqual(client.broadcasts[1], {
+        method: 'thread-stream-following-changed',
+        params: { conversationId: 'conv-reconnect', hostId: 'local', following: true }
+    });
+    feed.stop();
+});
+
+test('feed stores following requested before initialization and sends it once connect completes', async () => {
+    enableIpc();
+    const client = new FakeClient();
+    const feed = new CodexIpcFeed({ client });
+    assert.equal(feed.followConversation('conv-before-start'), true);
+    assert.equal(client.broadcasts.length, 0);
+
+    await startAndWaitOnline(feed);
+    assert.deepEqual(client.broadcasts, [{
+        method: 'thread-stream-following-changed',
+        params: { conversationId: 'conv-before-start', hostId: 'local', following: true }
+    }]);
+    feed.stop();
+});
+
+test('feed exposes desync on revision mismatch and clears it on the next full snapshot', async () => {
+    enableIpc();
+    const client = new FakeClient();
+    const feed = new CodexIpcFeed({ client });
+    await startAndWaitOnline(feed);
+
+    let snapshotP = new Promise((resolve) => feed.once('snapshot', resolve));
+    client.simulateBroadcast(snapshotBroadcast('conv-desync', 3, []));
+    await snapshotP;
+
+    snapshotP = new Promise((resolve) => feed.once('snapshot', resolve));
+    client.simulateBroadcast({
+        method: 'thread-stream-state-changed',
+        params: {
+            conversationId: 'conv-desync',
+            change: { type: 'patches', revision: 5, baseRevision: 4, patches: [] }
+        }
+    });
+    const desynced = await snapshotP;
+    assert.equal(desynced.surface.desynced, true);
+
+    snapshotP = new Promise((resolve) => feed.once('snapshot', resolve));
+    client.simulateBroadcast(snapshotBroadcast('conv-desync', 6, []));
+    const recovered = await snapshotP;
+    assert.equal(recovered.surface.desynced, false);
     feed.stop();
 });
 

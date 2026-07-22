@@ -175,6 +175,28 @@ test('sendBroadcast emits message_out for the sent IPC envelope', async () => {
     assert.equal(out.params.conversationId, 'conv-out');
 });
 
+test('current thread stream broadcasts use host-compatible method versions', async () => {
+    const { client, transport } = createTestClient({ reconnect: false });
+    const { peer } = setupPeer(transport);
+    await client.connect();
+
+    const broadcasts = [];
+    peer.on('message', (msg) => {
+        if (msg?.type === 'broadcast') broadcasts.push(msg);
+    });
+
+    client.sendBroadcast('thread-stream-following-changed', {
+        conversationId: 'conv-follow', hostId: 'local', following: true
+    });
+    client.sendBroadcast('thread-stream-state-changed', {
+        conversationId: 'conv-follow', hostId: 'local', change: { type: 'snapshot', revision: 1 }
+    });
+    await delay(10);
+
+    assert.equal(broadcasts[0].version, 1);
+    assert.equal(broadcasts[1].version, 11);
+});
+
 // ── sendRequest ──────────────────────────────────────────────────────────
 
 test('thread-follower-interrupt-turn uses demo-compatible method version', async () => {
@@ -382,6 +404,69 @@ test('incoming messages emit message_in before routing', async () => {
     assert.equal(msg.type, 'broadcast');
     assert.equal(msg.method, 'thread-stream-state-changed');
     assert.equal(msg.params.conversationId, 'conv-in');
+});
+
+test('client discovery request is rejected immediately when TermLink has no handler', async () => {
+    const { client, transport } = createTestClient({ reconnect: false });
+    const { peer } = setupPeer(transport);
+    await client.connect();
+
+    const responsePromise = new Promise((resolve) => {
+        peer.on('message', (msg) => {
+            if (msg?.type === 'client-discovery-response') resolve(msg);
+        });
+    });
+    peer.send({
+        type: 'client-discovery-request',
+        requestId: 'discovery-1',
+        request: {
+            type: 'request',
+            requestId: 'nested-1',
+            sourceClientId: 'desktop-owner',
+            version: 0,
+            method: 'ide-context',
+            params: { workspaceRoot: 'E:\\coding\\TermLink' }
+        }
+    });
+
+    const response = await responsePromise;
+    assert.deepEqual(response, {
+        type: 'client-discovery-response',
+        requestId: 'discovery-1',
+        response: { canHandle: false }
+    });
+});
+
+test('client discovery handler owns the response when one is registered', async () => {
+    const { client, transport } = createTestClient({ reconnect: false });
+    const { peer } = setupPeer(transport);
+    await client.connect();
+
+    const outgoing = [];
+    peer.on('message', (message) => outgoing.push(message));
+    const requestPromise = new Promise((resolve) => {
+        client.once('client_discovery_request', resolve);
+    });
+    peer.send({
+        type: 'client-discovery-request',
+        requestId: 'discovery-handled',
+        request: {
+            type: 'request',
+            requestId: 'nested-handled',
+            sourceClientId: 'desktop-owner',
+            version: 0,
+            method: 'ide-context',
+            params: { workspaceRoot: 'E:\\coding\\TermLink' }
+        }
+    });
+
+    const request = await requestPromise;
+    await delay(10);
+    assert.equal(request.requestId, 'discovery-handled');
+    assert.equal(
+        outgoing.some((message) => message?.type === 'client-discovery-response'),
+        false
+    );
 });
 
 // ── response routing ─────────────────────────────────────────────────────

@@ -19,6 +19,8 @@ class FakeIpcFeed extends EventEmitter {
         this._snapshots = new Map();
         this._allowActiveSend = opts.allowActiveSend !== undefined ? opts.allowActiveSend : true;
         this._sendRequestHandler = opts.sendRequestHandler || null;
+        this.followCalls = [];
+        this.unfollowCalls = [];
     }
     get online() { return this._online; }
     get clientId() { return this._clientId; }
@@ -50,6 +52,8 @@ class FakeIpcFeed extends EventEmitter {
     setOnline(v) { this._online = v; }
     pushSnapshot(conversationId, surface) { this._snapshots.set(conversationId, surface); this.emit('snapshot', { conversationId, surface }); }
     pushStatus(status) { this.emit('status', status); }
+    followConversation(conversationId, hostId) { this.followCalls.push({ conversationId, hostId }); return true; }
+    unfollowConversation(conversationId, hostId) { this.unfollowCalls.push({ conversationId, hostId }); return true; }
     async sendRequest(method, params) {
         if (this._sendRequestHandler) return this._sendRequestHandler(method, params);
         return { type: 'response', resultType: 'success', method, result: { ok: true } };
@@ -279,6 +283,7 @@ test('set_active_conversation succeeds and snapshot is pushed to matching client
     assert.equal(bound.sessionId, sess.id);
     assert.equal(bound.conversationId, 'conv-1');
     assert.equal(bound.lastCodexThreadId, 'conv-1');
+    assert.deepEqual(g.ipcFeed.followCalls, [{ conversationId: 'conv-1', hostId: 'local' }]);
 
     // Push a snapshot for a different conversation — should NOT arrive.
     g.ipcFeed.pushSnapshot('conv-other', { conversationId: 'conv-other', status: 'running', items: [] });
@@ -1346,6 +1351,58 @@ test('follower_send_message turnConfig overrides owner reasoning and permission 
     assert.equal(captured.params.turnStartParams.collaborationMode.settings.reasoning_effort, 'high');
     assert.ok(messages.find(m => m.type === 'follower_message_sent'));
     ws.close();
+    await stopGateway(g);
+});
+
+test('active conversation lifecycle avoids duplicate follow and switches A to B atomically', async () => {
+    const g = await setupGateway();
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-a' }));
+    await delay(30);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-a' }));
+    await delay(30);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-b' }));
+    await delay(30);
+
+    assert.deepEqual(g.ipcFeed.followCalls, [
+        { conversationId: 'conv-a', hostId: 'local' },
+        { conversationId: 'conv-b', hostId: 'local' }
+    ]);
+    assert.deepEqual(g.ipcFeed.unfollowCalls, [
+        { conversationId: 'conv-a', hostId: 'local' }
+    ]);
+
+    await new Promise((resolve) => { ws.once('close', resolve); ws.close(); });
+    await delay(20);
+    assert.deepEqual(g.ipcFeed.unfollowCalls, [
+        { conversationId: 'conv-a', hostId: 'local' },
+        { conversationId: 'conv-b', hostId: 'local' }
+    ]);
+    await stopGateway(g);
+});
+
+test('each WebSocket acquires and releases its own shared conversation reference', async () => {
+    const g = await setupGateway();
+    const s1 = await g.sm.createSession({ name: 'one' });
+    const s2 = await g.sm.createSession({ name: 'two' });
+    const c1 = await connectWs(g.port, s1.id);
+    const c2 = await connectWs(g.port, s2.id);
+    await delay(100);
+
+    c1.ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-shared' }));
+    c2.ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-shared' }));
+    await delay(50);
+    assert.equal(g.ipcFeed.followCalls.filter((entry) => entry.conversationId === 'conv-shared').length, 2);
+
+    await new Promise((resolve) => { c1.ws.once('close', resolve); c1.ws.close(); });
+    await delay(20);
+    assert.equal(g.ipcFeed.unfollowCalls.filter((entry) => entry.conversationId === 'conv-shared').length, 1);
+    await new Promise((resolve) => { c2.ws.once('close', resolve); c2.ws.close(); });
+    await delay(20);
+    assert.equal(g.ipcFeed.unfollowCalls.filter((entry) => entry.conversationId === 'conv-shared').length, 2);
     await stopGateway(g);
 });
 

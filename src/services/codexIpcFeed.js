@@ -30,6 +30,8 @@ class CodexIpcFeed extends EventEmitter {
         this._rawEvents = [];
         this._sequence = 0;
         this._rawSequence = 0;
+        /** @type {Map<string, {conversationId: string, hostId: string, refCount: number}>} */
+        this._desiredFollowing = new Map();
 
         this._started = false;
         this._closed = false;
@@ -211,6 +213,37 @@ class CodexIpcFeed extends EventEmitter {
         return this._client.sendBroadcast(method, params);
     }
 
+    followConversation(conversationId, hostId = 'local') {
+        const subscription = normalizeFollowingSubscription(conversationId, hostId);
+        if (!subscription) return false;
+        const current = this._desiredFollowing.get(subscription.key);
+        if (current) {
+            current.refCount += 1;
+            return true;
+        }
+        this._desiredFollowing.set(subscription.key, {
+            conversationId: subscription.conversationId,
+            hostId: subscription.hostId,
+            refCount: 1
+        });
+        this._sendFollowingChanged(subscription, true);
+        return true;
+    }
+
+    unfollowConversation(conversationId, hostId = 'local') {
+        const subscription = normalizeFollowingSubscription(conversationId, hostId);
+        if (!subscription) return false;
+        const current = this._desiredFollowing.get(subscription.key);
+        if (!current) return false;
+        if (current.refCount > 1) {
+            current.refCount -= 1;
+            return true;
+        }
+        this._desiredFollowing.delete(subscription.key);
+        this._sendFollowingChanged(subscription, false);
+        return true;
+    }
+
     /**
      * Check whether the active send gate is satisfied.
      */
@@ -251,7 +284,8 @@ class CodexIpcFeed extends EventEmitter {
         const surface = buildDesktopSurfaceSnapshot(state, {
             conversationId,
             revision: projection.revision,
-            status: inferStatusFromProjection(projection)
+            status: inferStatusFromProjection(projection),
+            desynced: Boolean(projection.desynced)
         });
 
         console.warn('[codex-ipc][feed][broadcast] received thread-stream-state-changed', JSON.stringify({
@@ -353,6 +387,7 @@ class CodexIpcFeed extends EventEmitter {
 
         try {
             await this._client.connect();
+            this._replayDesiredFollowing();
             console.warn('[codex-ipc][feed][connect] IPC connection established', JSON.stringify({
                 clientId: this.clientId,
                 pipePath: this._config.pipePath,
@@ -393,6 +428,38 @@ class CodexIpcFeed extends EventEmitter {
         }, this._reconnectDelayMs);
         if (typeof this._reconnectTimer.unref === 'function') {
             this._reconnectTimer.unref();
+        }
+    }
+
+    _replayDesiredFollowing() {
+        for (const subscription of this._desiredFollowing.values()) {
+            this._sendFollowingChanged(subscription, true);
+        }
+    }
+
+    _sendFollowingChanged(subscription, following) {
+        if (!this._client?.initialized) return false;
+        try {
+            this._client.sendBroadcast('thread-stream-following-changed', {
+                conversationId: subscription.conversationId,
+                hostId: subscription.hostId,
+                following
+            });
+            console.warn('[codex-ipc][feed][following]', JSON.stringify({
+                conversationId: subscription.conversationId,
+                hostId: subscription.hostId,
+                following,
+                clientId: this.clientId
+            }));
+            return true;
+        } catch (error) {
+            console.warn('[codex-ipc][feed][following-failed]', JSON.stringify({
+                conversationId: subscription.conversationId,
+                hostId: subscription.hostId,
+                following,
+                error: error instanceof Error ? error.message : String(error)
+            }));
+            return false;
         }
     }
 
@@ -444,6 +511,18 @@ function inferStatusFromProjection(projection) {
     if (latestStatus === 'failed' || latestStatus === 'error' || latestStatus === 'cancelled') return 'failed';
     if (latestStatus === 'interrupted') return 'interrupted';
     return undefined;
+}
+
+function normalizeFollowingSubscription(conversationId, hostId) {
+    if (typeof conversationId !== 'string' || !conversationId.trim()) return null;
+    if (typeof hostId !== 'string' || !hostId.trim()) return null;
+    const normalizedConversationId = conversationId.trim();
+    const normalizedHostId = hostId.trim();
+    return {
+        key: `${normalizedHostId}\u0000${normalizedConversationId}`,
+        conversationId: normalizedConversationId,
+        hostId: normalizedHostId
+    };
 }
 
 function extractConversationId(value, seen = new Set()) {

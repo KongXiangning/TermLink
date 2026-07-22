@@ -580,6 +580,10 @@ data class SurfaceEntry(
     val turnId: String?,
     val itemId: String?,
     val statusType: String?,
+    val operationType: String? = null,
+    val label: String? = null,
+    val detail: String? = null,
+    val operationStatus: String? = null,
     val approvalType: String?,
     val requestId: String?,
     val raw: JSONObject?
@@ -594,6 +598,10 @@ data class SurfaceEntry(
             turnId = json.optStringOrNull("turnId"),
             itemId = json.optStringOrNull("itemId"),
             statusType = json.optStringOrNull("statusType"),
+            operationType = json.optStringOrNull("operationType"),
+            label = json.optStringOrNull("label"),
+            detail = json.optStringOrNull("detail"),
+            operationStatus = json.optStringOrNull("operationStatus"),
             approvalType = json.optStringOrNull("approvalType"),
             requestId = json.optStringOrNull("requestId"),
             raw = json.optJSONObject("raw")
@@ -720,7 +728,8 @@ data class DesktopSurfaceSnapshot(
     val pendingUserInputAction: CodexServerRequest?,
     val pendingGoalAction: PendingGoalActionInfo?,
     val activeGoal: ActiveGoalInfo?,
-    val raw: JSONObject
+    val raw: JSONObject,
+    val desynced: Boolean = false
 ) {
     companion object {
         fun from(json: JSONObject): DesktopSurfaceSnapshot {
@@ -751,7 +760,8 @@ data class DesktopSurfaceSnapshot(
                 pendingUserInputAction = pendingUserInputJson?.let { CodexServerRequest.from(it) },
                 pendingGoalAction = PendingGoalActionInfo.from(snapshot.optJSONObject("pendingGoalAction")),
                 activeGoal = ActiveGoalInfo.from(snapshot.optJSONObject("activeGoal")),
-                raw = json
+                raw = json,
+                desynced = snapshot.optBoolean("desynced", false)
             )
         }
     }

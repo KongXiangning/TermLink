@@ -158,23 +158,67 @@ test('commentary phase is included as assistant message', () => {
 
 // ── buildDesktopSurfaceSnapshot — status ─────────────────────────────────────
 
-test('commandExecution items are collapsed into status', () => {
+test('commandExecution items are projected as stable detailed operations', () => {
     const state = { turns: [{ turnId: 't1', items: [
-        { type: 'commandExecution', command: 'ls', status: 'completed' },
-        { type: 'commandExecution', command: 'pwd', status: 'completed' }
+        {
+            type: 'commandExecution',
+            id: 'cmd-1',
+            command: 'npm test',
+            cwd: 'E:/coding/TermLink',
+            status: 'completed',
+            aggregatedOutput: 'PASS',
+            result: { stdout: '98 tests', stderr: '', exitCode: 0 },
+            secretInternalField: 'must-not-leak'
+        }
     ] }] };
     const snap = buildDesktopSurfaceSnapshot(state);
-    const st = snap.items.filter(i => i.kind === 'status');
-    assert.ok(st.some(s => s.text.includes('已运行 2 条命令')));
+    const operation = snap.items.find(i => i.statusType === 'operation');
+    assert.equal(operation.key, 't1:operation:command:cmd-1');
+    assert.equal(operation.operationType, 'command');
+    assert.equal(operation.operationStatus, 'completed');
+    assert.match(operation.text, /npm test/);
+    assert.match(operation.detail, /E:\/coding\/TermLink/);
+    assert.match(operation.detail, /98 tests/);
+    assert.doesNotMatch(operation.detail, /must-not-leak/);
 });
 
-test('fileChange items are collapsed into file status', () => {
+test('fileChange and mcpToolCall items preserve recognized details', () => {
     const state = { turns: [{ turnId: 't1', items: [
-        { type: 'fileChange', changes: [{ path: 'a.js' }, { path: 'b.js' }] }
+        { type: 'fileChange', id: 'file-1', status: 'completed', changes: [{ path: 'a.js', type: 'update' }], patch: '@@ changed' },
+        { type: 'mcpToolCall', id: 'tool-1', server: 'github', name: 'get_issue', status: 'completed', arguments: { issue: 42 }, result: { title: 'Bug' } }
     ] }] };
     const snap = buildDesktopSurfaceSnapshot(state);
-    const st = snap.items.filter(i => i.kind === 'status');
-    assert.ok(st.some(s => s.text.includes('已编辑 2 个文件')));
+    const operations = snap.items.filter(i => i.statusType === 'operation');
+    assert.equal(operations.length, 2);
+    assert.deepEqual(operations.map(i => i.operationType), ['file_change', 'mcp_tool']);
+    assert.match(operations[0].detail, /a\.js/);
+    assert.match(operations[0].detail, /@@ changed/);
+    assert.match(operations[1].detail, /get_issue/);
+    assert.match(operations[1].detail, /"issue": 42/);
+    assert.match(operations[1].detail, /"title": "Bug"/);
+});
+
+test('operation fallback keys remain stable across patches and detail is bounded', () => {
+    const tracker = new ThreadStreamTracker();
+    tracker.applyBroadcast(makeBroadcast('snapshot', {
+        conversationId: 'conv-op',
+        change: {
+            type: 'snapshot', revision: 1,
+            conversationState: { turns: [{ turnId: 't1', items: [{ type: 'commandExecution', command: 'long', status: 'in_progress', output: 'a'.repeat(13_000) }] }] }
+        }
+    }));
+    const before = buildDesktopSurfaceSnapshot(tracker.getConversationState('conv-op')).items.find(i => i.statusType === 'operation');
+    tracker.applyBroadcast(makeBroadcast('patches', {
+        conversationId: 'conv-op',
+        change: { type: 'patches', revision: 2, baseRevision: 1, patches: [{ op: 'replace', path: ['turns', 0, 'items', 0, 'status'], value: 'completed' }] }
+    }));
+    const after = buildDesktopSurfaceSnapshot(tracker.getConversationState('conv-op')).items.find(i => i.statusType === 'operation');
+    assert.equal(before.key, after.key);
+    assert.equal(before.itemId, 't1:command:0');
+    assert.equal(before.itemId, after.itemId);
+    assert.equal(after.operationStatus, 'completed');
+    assert.ok(after.detail.length <= 12_000);
+    assert.match(after.detail, /详情已截断/);
 });
 
 // ── buildDesktopSurfaceSnapshot — approval ───────────────────────────────────
@@ -189,6 +233,7 @@ test('pending command approval appears as approval_request', () => {
     assert.equal(snap.pendingApproval.kind, 'command');
     const ar = snap.items.filter(i => i.kind === 'approval_request');
     assert.ok(ar.length >= 1);
+    assert.equal(snap.items.some(i => i.statusType === 'operation'), false);
 });
 
 test('request-based approval is detected from state.requests', () => {
