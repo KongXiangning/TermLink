@@ -492,6 +492,9 @@
     <string name="codex_native_panel_hide">隐藏</string>
     <string name="codex_native_quick_default">默认</string>
     <string name="codex_native_plan_mode_chip">计划模式</string>
+    <string name="codex_quota_notification_channel">Codex 额度状态</string>
+    <string name="codex_quota_notification_channel_desc">常驻显示最近一次可用的 Codex 额度</string>
+    <string name="codex_quota_notification_title">Codex 额度</string>
     <string name="codex_native_attention_channel">Codex 关注事项</string>
     <string name="codex_native_attention_channel_desc">后台审批、计划、任务完成和任务错误提醒</string>
     <string name="codex_native_attention_title_command_approval">需要命令确认</string>

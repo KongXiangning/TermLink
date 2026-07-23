@@ -12,7 +12,9 @@ import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.util.Base64
 import android.util.Log
 import android.widget.Toast
@@ -152,6 +154,129 @@ internal fun mergeSameSessionLaunchParams(
     )
 }
 
+internal fun shouldRequestCodexBatteryOptimizationExemption(
+    sdkInt: Int,
+    activityVisible: Boolean,
+    taskActive: Boolean,
+    alreadyExempt: Boolean,
+    requestAttempted: Boolean
+): Boolean {
+    return sdkInt >= Build.VERSION_CODES.M &&
+        activityVisible &&
+        taskActive &&
+        !alreadyExempt &&
+        !requestAttempted
+}
+
+internal fun buildCodexForegroundServiceSignature(
+    status: String,
+    sessionId: String?,
+    threadId: String?
+): String {
+    return listOf(
+        status.trim().lowercase(),
+        sessionId?.trim().orEmpty(),
+        normalizeCodexLaunchThreadId(threadId).orEmpty()
+    ).joinToString("|")
+}
+
+internal fun formatCodexQuotaNotificationText(
+    summary: String,
+    remainingLabel: String,
+    resetsPrefix: String,
+    retryPrefix: String,
+    localizeWindow: (String) -> String = { it.trim() },
+    formatExtraScopes: (Int) -> String = { "+$it" }
+): String {
+    if (summary.isBlank()) return ""
+    return summary.split('|').mapNotNull { part ->
+        val trimmed = part.trim()
+        when {
+            trimmed.isBlank() -> null
+            trimmed.startsWith("↺") -> {
+                val retryValue = trimmed.removePrefix("↺").trim()
+                retryValue.takeIf { it.isNotBlank() }?.let {
+                    "$retryPrefix $it".trim()
+                }
+            }
+            trimmed.startsWith("⏱") -> {
+                val resetHint = cleanCodexQuotaResetHint(trimmed)
+                resetHint.takeIf { it.isNotBlank() }?.let {
+                    "${resetsPrefix.trim()} $it".trim()
+                }
+            }
+            else -> {
+                val extraScopesMatch = Regex("""^\+(\d+)$""").matchEntire(trimmed)
+                if (extraScopesMatch != null) {
+                    return@mapNotNull extraScopesMatch.groupValues[1]
+                        .toIntOrNull()
+                        ?.let(formatExtraScopes)
+                }
+
+                val remainingMatch = Regex("""^([^\s:]+):(\d+(?:/\d+)?)$""").matchEntire(trimmed)
+                if (remainingMatch != null) {
+                    return@mapNotNull buildString {
+                        append(localizeWindow(remainingMatch.groupValues[1]))
+                        append(' ')
+                        append(remainingMatch.groupValues[2])
+                        append(' ')
+                        append(remainingLabel)
+                    }.trim()
+                }
+
+                val percentResetMatch = Regex("""^(\S+)\s+(\d{1,3})%\s+(.+)$""").matchEntire(trimmed)
+                if (percentResetMatch != null) {
+                    val usedPercent = percentResetMatch.groupValues[2]
+                        .toIntOrNull()
+                        ?.coerceIn(0, 100)
+                        ?: return@mapNotNull trimmed
+                    val resetHint = cleanCodexQuotaResetHint(percentResetMatch.groupValues[3])
+                    return@mapNotNull buildString {
+                        append(localizeWindow(percentResetMatch.groupValues[1]))
+                        append(' ')
+                        append(100 - usedPercent)
+                        append("% ")
+                        append(remainingLabel)
+                        if (resetHint.isNotBlank()) {
+                            append(" · ")
+                            append(resetsPrefix.trim())
+                            append(' ')
+                            append(resetHint)
+                        }
+                    }.trim()
+                }
+
+                val percentMatch = Regex("""^(\S+)\s+(\d{1,3})%$""").matchEntire(trimmed)
+                if (percentMatch != null) {
+                    val usedPercent = percentMatch.groupValues[2]
+                        .toIntOrNull()
+                        ?.coerceIn(0, 100)
+                        ?: return@mapNotNull trimmed
+                    return@mapNotNull buildString {
+                        append(localizeWindow(percentMatch.groupValues[1]))
+                        append(' ')
+                        append(100 - usedPercent)
+                        append("% ")
+                        append(remainingLabel)
+                    }.trim()
+                }
+
+                trimmed
+            }
+        }
+    }.joinToString(" · ")
+}
+
+private fun cleanCodexQuotaResetHint(value: String): String {
+    return value
+        .trim()
+        .removePrefix("⏱")
+        .removePrefix("resets ")
+        .removePrefix("重置 ")
+        .removePrefix("重置")
+        .trim()
+}
+
 /**
  * Native Codex entry point — Phase 1.
  *
@@ -180,6 +305,8 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         private const val DEFAULT_CODEX_CWD = "E:\\coding\\TermLink"
         private const val DOCS_DEFAULT_ENTRY_PATH = "docs"
         private const val REQUEST_CODE_NOTIFICATION_PERMISSION = 10003
+        private const val QUOTA_CHANNEL_ID = "codex_quota_status"
+        private const val NOTIF_ID_QUOTA = 9202
         private const val ATTENTION_CHANNEL_ID = "codex_task_attention"
         private const val ATTENTION_NOTIFICATION_GROUP = "codex_attention"
         private const val NOTIF_ID_APPROVAL = 9301
@@ -218,7 +345,10 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
     private lateinit var sessionApiClient: SessionApiClient
     private var activeLaunchParams: CodexLaunchParams? = null
     private var codexForegroundServiceActive: Boolean = false
+    private var codexForegroundServiceSignature: String? = null
+    private var batteryOptimizationRequestAttempted: Boolean = false
     private var isActivityVisible: Boolean = false
+    private var quotaNotificationSignature: String? = null
     private var previousUiState: CodexUiState? = null
     private val activeAttentionKeys = mutableMapOf<Int, String>()
     private var drawerLayout: DrawerLayout? = null
@@ -387,6 +517,10 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             "ipcOnline=${state.ipcOnline} " +
             "sessionId=${state.sessionId} " +
             "cwd=${state.cwd.orEmpty()}")
+        maybeRequestBatteryOptimizationExemption(
+            state = state,
+            normalizedStatus = resolveForegroundServiceStatus(state)
+        )
         viewModel.onHostVisible()
     }
 
@@ -964,6 +1098,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         lifecycleScope.launch {
             viewModel.uiState.collect { state ->
                 syncForegroundService(state)
+                syncQuotaNotification(state)
                 syncAttentionNotifications(previousUiState, state)
                 previousUiState = state
                 if (state.sessionExpired) {
@@ -993,23 +1128,201 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
     private fun syncForegroundService(state: CodexUiState) {
         val normalized = resolveForegroundServiceStatus(state)
         if (CodexTaskForegroundService.isActiveStatus(normalized)) {
+            maybeRequestBatteryOptimizationExemption(state, normalized)
             if (isActivityVisible && !hasNotificationPermission()) {
                 requestNotificationPermissionIfNeeded()
             }
-            runCatching {
+            val signature = buildCodexForegroundServiceSignature(
+                status = normalized,
+                sessionId = state.sessionId,
+                threadId = resolveCodexTargetThreadId(state.threadId, state.activeConversationId)
+            )
+            if (codexForegroundServiceActive && codexForegroundServiceSignature == signature) {
+                return
+            }
+            val started = runCatching {
                 CodexTaskForegroundService.start(
                     this,
                     normalized,
-                    buildCodexTaskNotificationIntent()
+                    buildCodexTaskNotificationIntent(state)
                 )
+            }.onFailure { error ->
+                Log.e(
+                    TAG,
+                    "[keepalive] failed to start foreground service; status=$normalized",
+                    error
+                )
+            }.isSuccess
+            if (started) {
+                codexForegroundServiceActive = true
+                codexForegroundServiceSignature = signature
             }
-            codexForegroundServiceActive = true
             return
         }
         if (codexForegroundServiceActive) {
-            runCatching { CodexTaskForegroundService.stop(this) }
+            runCatching {
+                CodexTaskForegroundService.stop(this)
+            }.onFailure { error ->
+                Log.e(TAG, "[keepalive] failed to stop foreground service", error)
+            }
             codexForegroundServiceActive = false
+            codexForegroundServiceSignature = null
         }
+    }
+
+    private fun maybeRequestBatteryOptimizationExemption(
+        state: CodexUiState,
+        normalizedStatus: String
+    ) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return
+        }
+        val powerManager = getSystemService(PowerManager::class.java) ?: return
+        val alreadyExempt = powerManager.isIgnoringBatteryOptimizations(packageName)
+        if (!shouldRequestCodexBatteryOptimizationExemption(
+                sdkInt = Build.VERSION.SDK_INT,
+                activityVisible = isActivityVisible,
+                taskActive = CodexTaskForegroundService.isActiveStatus(normalizedStatus),
+                alreadyExempt = alreadyExempt,
+                requestAttempted = batteryOptimizationRequestAttempted
+            )
+        ) {
+            return
+        }
+
+        batteryOptimizationRequestAttempted = true
+        val packageUri = Uri.parse("package:$packageName")
+        val requestIntent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, packageUri)
+        runCatching {
+            startActivity(requestIntent)
+        }.onSuccess {
+            Log.i(
+                TAG,
+                "[keepalive] requested battery optimization exemption; " +
+                    "threadId=${state.threadId.orEmpty()}"
+            )
+        }.onFailure { requestError ->
+            Log.w(
+                TAG,
+                "[keepalive] direct battery optimization request unavailable; opening settings",
+                requestError
+            )
+            runCatching {
+                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            }.onFailure { settingsError ->
+                Log.e(TAG, "[keepalive] battery optimization settings unavailable", settingsError)
+            }
+        }
+    }
+
+    private fun syncQuotaNotification(state: CodexUiState) {
+        val summary = state.usagePanel.rateLimitSummary.trim()
+        if (summary.isBlank()) {
+            getSystemService(NotificationManager::class.java)?.cancel(NOTIF_ID_QUOTA)
+            quotaNotificationSignature = null
+            return
+        }
+        if (!hasNotificationPermission()) {
+            quotaNotificationSignature = null
+            return
+        }
+
+        val contentText = formatCodexQuotaNotificationText(
+            summary = summary,
+            remainingLabel = getString(R.string.codex_native_status_quota_remaining),
+            resetsPrefix = getString(R.string.codex_native_status_quota_resets_prefix),
+            retryPrefix = getString(R.string.codex_native_status_quota_retry_prefix),
+            localizeWindow = ::localizeQuotaNotificationWindow,
+            formatExtraScopes = {
+                getString(R.string.codex_native_status_quota_extra_scopes, it)
+            }
+        )
+        if (contentText.isBlank()) {
+            getSystemService(NotificationManager::class.java)?.cancel(NOTIF_ID_QUOTA)
+            quotaNotificationSignature = null
+            return
+        }
+
+        val signature = listOf(
+            contentText,
+            state.sessionId,
+            resolveCodexTargetThreadId(state.threadId, state.activeConversationId).orEmpty()
+        ).joinToString("|")
+        if (quotaNotificationSignature == signature) {
+            return
+        }
+
+        ensureQuotaNotificationChannel()
+        val builder = NotificationCompat.Builder(this, QUOTA_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(getString(R.string.codex_quota_notification_title))
+            .setContentText(contentText)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(contentText))
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setShowWhen(false)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+        buildCodexTaskNotificationIntent(state)?.let { tapIntent ->
+            builder.setContentIntent(
+                PendingIntent.getActivity(
+                    this,
+                    NOTIF_ID_QUOTA,
+                    tapIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            )
+        }
+        val posted = runCatching {
+            getSystemService(NotificationManager::class.java)
+                ?.notify(NOTIF_ID_QUOTA, builder.build())
+        }.onFailure { error ->
+            Log.w(TAG, "[quota-notification] failed to post current quota", error)
+        }.isSuccess
+        if (posted) {
+            quotaNotificationSignature = signature
+        }
+    }
+
+    private fun localizeQuotaNotificationWindow(raw: String): String {
+        val normalized = raw.trim().lowercase()
+        return when {
+            normalized in setOf("5h", "300m", "300min", "300mins", "300minutes") ->
+                getString(R.string.codex_native_status_quota_window_five_hours)
+            normalized in setOf("168h", "7d", "1w", "one-week", "one_week", "oneweek") ->
+                getString(R.string.codex_native_status_quota_window_one_week)
+            normalized in setOf("p", "primary") ->
+                getString(R.string.codex_native_status_quota_window_primary)
+            normalized in setOf("s", "secondary") ->
+                getString(R.string.codex_native_status_quota_window_secondary)
+            Regex("""^\d+m$""").matches(normalized) ->
+                getString(
+                    R.string.codex_native_status_quota_window_minutes,
+                    normalized.removeSuffix("m").toIntOrNull() ?: return raw.trim()
+                )
+            Regex("""^\d+h$""").matches(normalized) ->
+                getString(
+                    R.string.codex_native_status_quota_window_hours,
+                    normalized.removeSuffix("h").toIntOrNull() ?: return raw.trim()
+                )
+            else -> raw.trim()
+        }
+    }
+
+    private fun ensureQuotaNotificationChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return
+        }
+        val channel = NotificationChannel(
+            QUOTA_CHANNEL_ID,
+            getString(R.string.codex_quota_notification_channel),
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = getString(R.string.codex_quota_notification_channel_desc)
+            setShowBadge(false)
+        }
+        getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
     }
 
     private fun syncAttentionNotifications(previousState: CodexUiState?, state: CodexUiState) {
@@ -1050,15 +1363,17 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         }
     }
 
-    private fun buildCodexTaskNotificationIntent(): Intent? {
+    private fun buildCodexTaskNotificationIntent(
+        state: CodexUiState = viewModel.uiState.value
+    ): Intent? {
         val params = activeLaunchParams ?: return null
         return newIntent(
             context = this,
             profileId = params.profileId,
-            sessionId = params.sessionId,
+            sessionId = state.sessionId.ifBlank { params.sessionId },
             sessionMode = SessionMode.CODEX.wireValue,
-            cwd = viewModel.uiState.value.cwd ?: params.cwd,
-            threadId = resolveCodexTargetThreadId(viewModel.uiState.value.threadId, params.threadId),
+            cwd = state.cwd ?: params.cwd,
+            threadId = resolveCodexTargetThreadId(state.threadId, params.threadId),
             launchSource = "notification"
         ).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP

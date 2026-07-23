@@ -30,6 +30,8 @@
 12. 从历史列表切换到无 IPC surface 的任务、再切回原任务时，`thread/resume` 响应不得覆盖此前已到达的目标任务 `codex_state` 配置或重新进入无终点的水合状态；两次切换后配置入口均须可用。
 13. Android 对某一任务手动选择的权限、模型和思考强度必须按任务记忆；在 owner IPC surface 缺失时，切走再切回或重启 App 后仍显示上次选择，不能退回另一个 session 的瞬时值。owner surface 恢复后仍按既有优先级确认并收敛。
 14. owner IPC surface 缺失但 canonical `thread/read` 正在同步进行中的 turn 时，会话页必须显示“运行中”并提供中断入口；最新 turn 进入终态后恢复为空闲。匹配的 owner surface 存在时继续以 owner `threadRuntimeStatus` 为权威。
+15. Android 通知权限已开启时，活跃 Codex 任务退到后台必须由前台服务维持进程；设备进入 Doze 前若 App 尚未获得电池优化豁免，应在可见 Activity 中提供一次系统授权入口。授权后深度待机不得暂停任务 WebSocket；未授权时必须保留可恢复行为和明确诊断，不得假装仅有通知即可绕过 Doze。
+16. Android 在取得额度遥测后发布独立的低优先级 ongoing 状态通知，显示本地化后的当前剩余额度与重置时间；额度变化时原位更新，点击返回当前 Codex 会话。该通知不新增轮询、不延长 foreground service 生命周期，通知权限缺失或额度不可用时不发布过期占位。
 
 ## 设计约束
 
@@ -53,6 +55,7 @@
 - `android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt`
 - `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`
 - `android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt`
+- `android/app/src/main/AndroidManifest.xml`
 - `android/app/src/main/java/com/termlink/app/WorkspaceActivity.kt`
 - `public/workspace.js`
 - `android/app/src/main/res/values/strings.xml`
@@ -103,6 +106,20 @@
 - 命令、文件变更和 MCP 调用按稳定 key 投影为单条默认折叠 operation，详情最多 12,000 字符；pending approval 不重复投影 operation。
 - Android App Codex IPC 实现固定为 conversation follower subscription、feed 重连重放、normalized surface 与 Android IPC authority 链路；canonical `thread/read` 仅为明确异常时的恢复读取，不得退回轮询模拟实时。
 
+### Doze 保活修复决策分类（2026-07-24）
+
+- Mechanical：使用 Android 标准 `PowerManager.isIgnoringBatteryOptimizations` 检查与系统电池优化豁免确认 action；只在活跃任务且 Activity 可见时发起，已豁免/不支持/本 Activity 已尝试时 no-op；foreground service 相同任务与状态不重复 start，启动失败必须记录。
+- Taste：系统确认框文案和交互由 Android 提供；项目仅补中英文诊断/说明，沿用现有 Codex 通知语气，不新增自定义视觉选择。
+- User challenge：无。用户要求恢复后台保活与既有 foreground service 方向一致；豁免仍需用户在系统 UI 明确确认，不静默改变系统设置。
+- 待确认项：无阻塞项。若用户拒绝豁免，保留现有 foreground service 和退出 Doze 后自动重连，不把拒绝视为错误。
+
+### 常驻额度通知决策分类（2026-07-24）
+
+- Mechanical：复用 `CodexUiState.usagePanel.rateLimitSummary` 的现有响应式更新，使用独立低优先级 notification channel + 固定 notification ID + `setOngoing(true)` 原位发布；相同内容去重，空值不发布。
+- Taste：通知标题固定为“Codex 额度”，正文沿用会话页的“窗口 + 剩余百分比 + 重置时间”语义；不与审批/错误高优先级提醒混组，不新增设置开关。
+- User challenge：无。用户已明确要求常驻通知显示当前额度；实现不改变既有前台服务保活边界，也不以状态通知伪装后台执行。
+- 待确认项：无阻塞项。Android 系统仍保留通知权限与通知频道控制权；强停、清除数据或用户关闭频道后应用不得绕过系统选择。
+
 ## IPC 实时同步回归范围锁定（2026-07-22）
 
 - Safety mode：`frozen-scope`。本轮只允许上述 normalized surface、Android 仲裁与对应测试/治理文档；不涉及 production、database、permissions、authentication、payments、deployment、rollback、CI/CD、monitoring config、performance baseline、删除、迁移、force push 或 history rewrite。
@@ -122,6 +139,30 @@
 - Risk：重复订阅、A/B 切换时错误 unfollow、多个 Android/Web client 共享同一 conversation 时提前取消、IPC 重连后丢订阅，以及未知 discovery request 造成 owner 5 秒等待。通过 feed 引用计数/desired subscription、初始化完成后重放、gateway disconnect cleanup 和定向 Node 测试控制。
 - Verification：临时 observer 已证明手工发送 version 1 `following=true` 后约 166ms 收到目标 snapshot、后续收到 version 11 patch；实施后运行 IPC client/feed/gateway/owner/thread-stream Node 套件、JDK 21 Android JVM + assemble、`git diff --check 85e7dc6`，并在同一真机确认目标任务从 `AWAITING_IPC_SURFACE` 进入 `IPC_AUTHORITATIVE`、停止 `thread/read` 且文字随 patch 增长。
 - Unlock condition：如需改 pipe transport/codec、认证、session metadata、turn control RPC、Web UI 或 Codex 宿主文件，立即停止并再次扩围。
+
+### Android Doze 保活权限扩围（2026-07-24）
+
+- Goal：修复通知权限已开启、foreground service 仍存活，但深度 Doze 暂停 WebSocket 网络导致 Android 实时跟随失活的问题。
+- Safety mode：`guarded`。本轮新增触及 Android battery-optimization permission；系统豁免只能由用户在系统确认框中授权，不静默修改设备设置。生产、认证、支付、部署、数据库、删除、迁移、force push 与 history rewrite 均不涉及。
+- Evidence：Huawei `MQS7N19402011743` 后台 2 分钟中进程与 notification 9201 均存活；强制 `mState=IDLE` 后 surface 最后停在 02:52:06，退出 Doze 后 02:52:38 立即恢复，证明丢失的是网络而非通知或进程。设备当前不在 device-idle whitelist。Android 官方文档明确 Doze 会暂停网络访问，foreground service 不能单独绕过。
+- Allowed additions：`android/app/src/main/AndroidManifest.xml`；原 Allowed Files 中的 `CodexActivity.kt`、中英文 strings、`CodexActivityLaunchParamsTest.kt`、`CURRENT_TASK.md` 继续有效。
+- Forbidden Files：服务端 IPC/WebSocket、session DTO、发送协议、其他页面与 workflow generated 输出保持禁止；不得引入 FCM、常驻 wake lock、定时唤醒、厂商私有 API 或静默更改系统电池设置。
+- Conditional Files：`android/app/src/main/java/com/termlink/app/CodexTaskForegroundService.kt` 仅在 Activity 侧无法消除重复 start 或无法记录启动失败时放行；实施前需给出定向测试证据。默认不修改。
+- Contract impact：不改变网络协议或通知 DTO；新增 Android 运行权限声明与用户可拒绝的系统授权流程。拒绝或不支持该系统动作时仍使用现有 foreground service + reconnect，不崩溃。
+- Risk：豁免请求打扰用户、不同 OEM 设置页不一致、重复弹框，以及前台服务重复启动。通过只在活跃任务且 Activity 可见时检查、系统已豁免即 no-op、进程内去重、异常日志和系统 action fallback 控制。
+- Verification：JDK 21 JVM/assemble、Manifest/字符串与纯函数测试、`git diff --check 85e7dc6`；真机先撤销临时豁免并强制 Doze 复现断流，再通过系统框授权，重复强制 Doze 验证 surface 继续更新，最后恢复设备 battery/device-idle 状态。
+- Change Propagation Check：影响集合仅为 `CodexActivity → Android PowerManager/Settings → CodexTaskForegroundService`；通知点击、IPC authority、session selection 与服务端不变。
+- Unlock / widening condition：若标准 Android 电池优化豁免仍无法覆盖 Huawei 后台限制，只记录为 OEM 手工设置风险；未经再次扩围不得接入厂商私有 Intent、后台自启动 API 或 FCM。
+
+### Android 常驻额度通知范围锁定（2026-07-24）
+
+- Goal：在 Android 通知栏持续展示最近一次有效的当前 Codex 额度，并随既有额度事件更新。
+- Safety mode：`frozen-scope`。只允许修改既有 Allowed Files 中的 `CodexActivity.kt`、中英文 strings、`CodexActivityLaunchParamsTest.kt` 与 `CURRENT_TASK.md`；不修改 foreground service、Manifest、ViewModel、IPC/HTTP/WebSocket 或服务端。
+- Dangerous surfaces：无新增权限、认证、生产、部署、数据库、迁移、删除、force push 或 history rewrite；沿用已授权的 `POST_NOTIFICATIONS`。
+- Compatibility：新通知使用独立 channel/ID，不覆盖活跃任务 notification 9201 或 attention notification 9301-9305；既有 foreground service 生命周期、通知点击参数、IPC authority 和额度请求频率保持不变。
+- Risk：通知显示原始 used-percent、额度暂缺时残留旧值、频繁重复 notify、与高优先级提醒混淆。通过本地化 remaining 转换、空值取消/不发布、内容签名去重及独立低优先级 channel 控制。
+- Change Propagation Check：影响集合仅为 `CodexUiState.usagePanel.rateLimitSummary → CodexActivity → NotificationManager`；不触碰公共 DTO、共享协议或持久层。
+- Unlock / widening condition：如需开机自启动、后台主动拉取额度、长期 foreground service、通知设置页或服务端字段，必须重新执行 `/lock-scope` 并单独确认资源与产品行为。
 
 ## 待确认问题
 
@@ -189,6 +230,44 @@ Implementation Plan（IPC follower 订阅协议修复）：
 2. `completed`：在 feed 实现引用计数 follow/unfollow 与初始化后重放，并以 feed 单测验证重复订阅、多引用和重连（23/23 pass）。
 3. `completed`：在 gateway 绑定 active conversation 切换/断开生命周期，并以 gateway 单测验证 A→B、same-id、多 client 和 cleanup（41/41 pass）。
 4. `completed`：统一 `85e7dc6..working-tree` review/regression 已通过；当前 Desktop owner 真机持续收到真实 snapshot/patch，Android IPC 权威期间 `thread/read` 为 0，文字与 operation 均按稳定 key 原位更新。VS Code 单独超过 90 秒与主动断线/重连仍归入全任务 Step 17 的剩余交叉宿主验收。
+
+Implementation Plan（Android Doze 保活修复，2026-07-24）：
+
+- Goal：让通知权限开启的活跃 Codex 任务在熄屏进入 Doze 后仍可维持自托管 WebSocket，而不是只保住进程与通知。
+- Architecture impact：沿用现有 `CodexActivity → CodexTaskForegroundService`；新增标准 Android battery-optimization exemption 用户确认，不引入新服务、FCM、wake lock 或服务端协议。
+- Technical approach：Manifest 声明 `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`；Activity 在活跃任务且可见时检查 `PowerManager`，未豁免则每个 Activity 实例最多发起一次系统确认，直接 action 不可用时回退到电池优化设置列表。foreground service 用 status + session + thread signature 去重，仅在签名变化时 start/update，并对失败写日志；仍只停止当前 Activity 自己已启动的服务，避免误停另一入口 owner。
+- Alternatives considered：通知权限只能控制通知可见性，不能解除 Doze 网络限制；wake lock 在 Doze 中会被忽略；WorkManager 不适合持续 WebSocket；FCM 不适合当前自托管双向终端链路。标准豁免是当前架构内最小可验证修复。
+- Compatibility：Android 6 以下 no-op；已豁免设备不弹框；用户拒绝或系统 action 不可用时不崩溃并保持现有重连；通知 ID、channel、点击恢复参数和 IPC wire 不变。
+- Risks and rollback：主要风险是重复系统提示、OEM 设置差异和错误去重导致通知目标陈旧。通过 Activity 实例级 attempt gate、任务签名包含 session/thread、fallback settings action 和定向测试控制；回滚仅撤销 Manifest permission 与 Activity 检查/去重。
+- Validation strategy：JDK 21 目标/全量 JVM + assemble；真机先在未豁免状态强制 Doze 复现 surface 停止，再通过系统框授权并重复 force-idle，确认服务、进程和 surface 均持续；退出时恢复 battery/device-idle 状态。
+- External Documentation Gate：已触发。Context7 官方 Android 文档确认 foreground service 的启动/停止契约；Android Developers Doze 文档明确 deep idle 暂停网络且建议持久实时连接使用受支持的唤醒方式，并列出无法使用 FCM、核心功能依赖其他实时服务时可申请电池优化豁免。
+- Handoff：decompose-task → implement-current-step。
+
+Implementation Plan（Android 常驻额度通知，2026-07-24）：
+
+- Goal：使用 Android ongoing notification 展示现有额度遥测的当前值，并在额度事件到达时原位更新。
+- Architecture impact：仅在 `CodexActivity` 增加额度通知投影和 channel 管理；输入继续来自 `CodexUiState.usagePanel.rateLimitSummary`，不修改 ViewModel、网络请求、IPC DTO 或 foreground service。
+- Technical approach：把现有 compact summary 纯函数转换为本地化的“额度窗口 + 剩余 + 重置/重试”文本；有通知权限且摘要有效时，以固定 ID 发布 `setOngoing(true)`、silent、low-priority、status-category 通知，相同显示文本不重复 notify；摘要清空时取消，点击复用当前会话 notification intent。
+- Alternatives considered：不把额度塞进活跃任务 foreground notification，因为空闲时它会随服务停止且无法满足常驻展示；不让 foreground service 为额度永久运行，因为展示静态状态不构成持续后台任务；不新增定时请求，因为已有 `account/rateLimits/read/updated` 状态流足以驱动更新。
+- Data / state flow：既有 rate-limit response/notification → ViewModel `rateLimitSummary` → Activity collector → 本地化纯函数 → NotificationManager fixed ID update。
+- Compatibility：新 channel/ID 与保活、审批、完成通知隔离；通知权限缺失时 no-op；旧 Android 继续使用 NotificationCompat；没有额度遥测时不显示误导性占位。
+- Risks and rollback：主要风险是 used-percent 被误显示为 remaining、旧摘要残留和通知刷屏。通过与会话页相同的 `100-used` 规则、空值取消和显示签名去重控制；回滚仅移除 Activity 投影与新增字符串。
+- Validation strategy：JVM 单测覆盖 5h/one-week percent 转换、reset/retry、remaining/limit 与空值；JDK 21 目标/全量 JVM + assemble、`git diff --check 85e7dc6`；真机确认通知常驻、额度文本正确、点击恢复当前会话且不影响 notification 9201。
+- Open decisions：无；文案/语义直接沿用现有额度面板，属于用户已确认方向内的 mechanical 实现。
+- External Documentation Gate：已触发。Context7 官方 Android Developers `/websites/developer_android` 确认 Notification 是由 `NotificationManager` 展示的持久通知对象，foreground service 的 `startForeground` 是“服务正在执行持续后台任务”时附带 ongoing notification 的专用契约；本功能只展示已有状态，因此使用独立 NotificationManager ongoing notification，不为额度额外启动 foreground service。
+- Handoff：decompose-task → implement-current-step。
+
+追加步骤（Android 常驻额度通知）：
+
+1. `completed`：实现额度摘要本地化、独立 ongoing notification channel/ID、内容去重与点击恢复。
+2. `completed`：补充纯函数 JVM 测试和中英文资源。
+3. `completed`：JDK 21 JVM/assemble/diff gates 通过；已授权真机确认 notification 9202 常驻、额度正文正确、点击恢复当前会话且不影响 notification 9201。
+
+追加步骤（Android Doze 保活修复）：
+
+1. `completed`：真机后台 2 分钟确认进程与 foreground service 未被杀；强制 deep idle 复现 surface 停止，退出 Doze 后恢复，排除通知权限和进程保活。
+2. `completed`：实现标准电池优化豁免提示、foreground service 去重/失败日志及纯函数回归；最终 APK 已在真机弹出系统“是否关闭电池优化”确认框。
+3. `completed`：JDK 21 自动化与实现审查通过；用户允许系统豁免后，真机在 `mState=IDLE/charging=false` 中仍于 03:07:29 收到新 surface（items 199→200），授权态 force-idle 对照通过。
 
 ## 审查问题队列
 
@@ -293,6 +372,8 @@ Implementation Plan（IPC follower 订阅协议修复）：
 - [completed] 15. 使用 JDK 21 运行目标及全量 Android JVM/assemble、IPC Node 回归和 `git diff --check`，修复本轮引入的失败。
 - [completed] 16. 以 `85e7dc6..working-tree` 执行范围、实现、契约审查，回写最终验证结果和剩余真机风险。
 - [in_progress] 17. dev server 已恢复非空 owner surface，并完成 Desktop owner 超过 90 秒的 healthy IPC 增量、operation、零 canonical 轮询及短时服务重连后订阅重放 smoke；仍需补 VS Code owner 单独超过 90 秒，以及 IPC 离线超过 5 秒 → canonical fallback → 重连收到目标 surface 后立即停读的最终交叉宿主 smoke。
+- [completed] 18. 修复通知权限开启但 deep Doze 暂停 WebSocket 的后台保活缺陷，增加标准电池优化豁免提示并消除 foreground service 重复 start。
+- [completed] 19. JDK 21 自动化、最终 APK 安装、未授权/已授权强制 Doze 对照及统一 diff/契约审查均通过。
 
 ## 回归检查项
 
@@ -325,6 +406,11 @@ Implementation Plan（IPC follower 订阅协议修复）：
 - 文字原位增长证据：临时只读 follower 对同一 Desktop conversation 观测到稳定 `assistantKey=msg_0e34742caa94f8d5016a606fffde5c819a8ce19eeffead152a`，revision 159→165 在约 46ms 内文本长度依次 `24 → 48 → 71 → 96 → 120 → 126`；证明宿主正在发送同 key 增量 patch，而非 canonical 整段刷新。临时 follower 结束时已主动 `following=false` 并关闭。
 - 重连重放证据：dev server 代码重载时 Android 于 15:31:54 记录 `Connection reset`，15:31:55 WebSocket 重开，15:31:56 已重新收到同一 conversation 的 `status=running authority=IPC_AUTHORITATIVE` surface；后续继续增量且无 `thread/read`。该短时断线未超过 5 秒宽限，因此只证明 follower desired subscription 重放与恢复停读，不替代长离线 canonical fallback 验收。
 - 交叉宿主剩余验收：LawAgent conversation `019f8867-1d6a-7a53-ad71-784babf0adab` 已能取得 completed healthy surface 并在 Android 显示，但本轮没有可持续超过 90 秒的 VS Code running turn，也未主动破坏 IPC 连接，因此 VS Code 长任务与 offline→fallback→reconnect 时序继续保留为 Step 17，不写成通过。
+- Doze 保活根因对照：未豁免真机强制 `mState=IDLE` 后，PID 与 notification 9201/foreground service 全程存在，但 IPC surface 于 02:52:06 停止；`deviceidle unforce`/`battery reset` 后 02:52:38 自动恢复。设备状态已恢复为 charging + ACTIVE。
+- Doze 保活自动化：JDK 21 `:app:testDebugUnitTest` 全量与 `:app:assembleDebug` 均 BUILD SUCCESSFUL；新增测试覆盖 SDK、Activity 可见性、任务活跃、已豁免、已尝试矩阵，以及 status/session/thread service signature。`git diff --check 85e7dc6` 通过。
+- Doze 保活真机实现：最终 Debug APK 已安装到 Huawei `MQS7N19402011743`；用户允许系统“关闭电池优化”后，device-idle whitelist 出现 `user,com.termlink.app,10281`。真机在 `mState=IDLE/charging=false` 中仍连续收到新 IPC surface，并于 03:07:29 将 items 199 增至 200；PID 未变、foreground notification 9201 保持、service `lastStartId=1`。验证结束后已执行 `deviceidle unforce`、`battery reset` 并唤醒屏幕。
+- 常驻额度通知自动化：JDK 21 `CodexActivityLaunchParamsTest` 13/13（0 failure），全量 `:app:testDebugUnitTest :app:assembleDebug` BUILD SUCCESSFUL，`git diff --check 85e7dc6` 通过；测试覆盖 used→remaining 百分比转换、重置/重试、remaining/limit、额外范围和空摘要。
+- 常驻额度通知真机：Huawei `MQS7N19402011743` 已安装最终 Debug APK。`dumpsys notification --noredact` 记录 notification 9202、channel `codex_quota_status`、flags `0xa`（ongoing + only-alert-once）、category `status`、`mFgServiceShown=false`，正文为“一周 69% 剩余 · 重置 07/29 16:38”；notification 9201 同时保持独立。通知栏点击 9202 后回到当前 `CodexActivity`，9202 未被自动取消。
 
 ## 回滚点
 
@@ -359,8 +445,21 @@ Implementation Plan（IPC follower 订阅协议修复）：
 - 2026-07-22 runtime 真机复核：新 commentary 同步后日志为 `snapshotChanged=true projectedStatus=running source=canonical-activity`，UIAutomator 看到“Codex · 流式输出中”和“中断”；无新活动时按 30 秒窗口收敛，`final_answer` 立即收敛 idle。
 - 2026-07-22 config restart smoke：真机将当前任务思考强度“低 → 中”，日志保存 `fields=reasoning`；`am force-stop` 后新进程连接日志加载同字段，底栏仍为“5.6 Sol 中”。随后恢复“低”，再次强停重开后底栏为“5.6 Sol 低”。
 - 2026-07-22 final runtime reopen：首次打开正在进行但无 owner surface 的任务时，若 latest agent phase 为 analysis/commentary/tool，则启动 30 秒有界观察窗；内容继续变化时续期，final/明确终态在窗口结束后回落 idle。另修复后到的 stale `codex_state idle` 覆盖 canonical running/currentTurnId；最终包日志为 `status=idle appliedStatus=running`，UI 端到端显示“Codex · 流式输出中”和“中断”。
+- 2026-07-24 Doze keepalive：通知与 foreground service 只能保进程，不能绕过 deep Doze 的网络暂停；真机强制 idle 已复现“service 在、surface 停”的根因。Manifest 新增标准电池优化豁免声明，CodexActivity 只在可见活跃任务中发起系统确认并提供 settings fallback；相同 status/session/thread 不再重复 start，失败写日志且不误停另一入口 owner。用户授权后，真机在 deep idle 中继续收到 items 199→200 的 IPC patch；最终 APK、JDK 21 JVM/assemble、未授权/授权对照及 diff/契约审查均通过。
+- 2026-07-24 quota notification：`CodexActivity` 复用现有 rate-limit state 发布独立 ongoing notification 9202；显示文本与会话页一致地把 used percent 转换为 remaining percent，额度事件到达时按内容/会话签名原位更新，空值取消且不新增轮询或 foreground service。Context7 Android Developers 证据、JDK 21 自动化和 Huawei 真机通知/点击 smoke 均通过。
 
 ## Bug 调查报告
+
+### Android 通知开启但后台失活（2026-07-24）
+
+- Symptom：系统通知权限已开启，活跃任务通知也可见，但熄屏/长时间后台后 Android 不再实时收到任务进展，表现为“保活丢失”。
+- Reproduction：Huawei `MQS7N19402011743` 打开正在运行的 Desktop owner task 后退到后台；普通充电场景 2 分钟内进程、service 与 surface 正常。执行 `dumpsys battery unplug` 与 `dumpsys deviceidle force-idle` 后，service 仍为 `isForeground=true`、notification 9201 仍存在，但 surface 在 02:52:06 后停止；`deviceidle unforce`/`battery reset` 后 02:52:38 恢复。
+- Root cause：通知权限只决定通知是否可见，foreground service 只提高进程存活优先级；应用当前不在 device-idle whitelist，也没有电池优化豁免入口。Android deep Doze 会暂停网络，因此承载 IPC follower 的 WebSocket 被冻住。现有 Activity 还会对每次普通 UI 状态更新重复 `startService`，且把启动异常静默吞掉，增加了误判和诊断困难。
+- Evidence：强制 Doze 期间 `mState=IDLE`，同一 PID 和 foreground notification 始终存在，唯独 IPC surface 停止；退出后无需重启进程即恢复，证明不是通知关闭、service 被杀或服务端任务停止。官方 Android Developers Doze 文档明确列出 “Suspends network access”。
+- Ownership assessment：`current_task_owned`。当前任务已锁定 Android IPC authority、foreground recovery 与长任务真机 smoke；缺陷直接阻断其后台实时同步验收。
+- Minimal fix path：标准 Android 电池优化豁免系统确认 + Activity 可见/活跃/实例级去重；foreground service start 按任务状态签名去重并记录失败。不引入 FCM、wake lock、厂商私有接口或协议变更。
+- Regression check：纯函数覆盖 SDK/可见性/活跃态/已豁免/已尝试矩阵和 service signature；JDK 21 JVM/assemble；真机授权前后 force-idle 对照并恢复设备状态。
+- External Documentation Gate：已触发并完成；证据来源为 Context7 官方 Android API 与 Android Developers Doze/foreground service 文档。
 
 - Symptom：结构化图片附件与 file mention 已能点击，但 assistant 正文中的 Markdown 图片仍显示完整语法和路径。
 - Reproduction：打开包含上述 assistant Markdown 图片语法的历史任务；消息卡片显示普通文本，没有可点击附件 chip。

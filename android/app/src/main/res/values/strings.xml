@@ -492,6 +492,9 @@
     <string name="codex_native_panel_hide">Hide</string>
     <string name="codex_native_quick_default">Default</string>
     <string name="codex_native_plan_mode_chip">Plan Mode</string>
+    <string name="codex_quota_notification_channel">Codex Quota Status</string>
+    <string name="codex_quota_notification_channel_desc">Ongoing status showing the latest available Codex quota</string>
+    <string name="codex_quota_notification_title">Codex Quota</string>
     <string name="codex_native_attention_channel">Codex Attention</string>
     <string name="codex_native_attention_channel_desc">Background alerts for approval, planning, task completion, and task errors</string>
     <string name="codex_native_attention_title_command_approval">Command approval needed</string>
