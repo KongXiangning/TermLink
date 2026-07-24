@@ -2348,8 +2348,9 @@ private fun MessageAvatar(role: ChatMessage.Role) {
 @Composable
 private fun CollapsibleExecutionItem(message: ChatMessage) {
     var expanded by remember { mutableStateOf(false) }
+    val isCommandBatch = message.operationType == "command" && message.operationBatchSize > 1
     val executionRoleLabel = roleLabel(message)
-    val collapsedLabel = if (message.operationType == "command" && message.operationBatchSize > 1) {
+    val collapsedLabel = if (isCommandBatch) {
         stringResource(R.string.codex_native_exec_ran_multiple_commands)
     } else {
         message.collapsedLabel.ifBlank {
@@ -2376,24 +2377,26 @@ private fun CollapsibleExecutionItem(message: ChatMessage) {
         ) {
             MessageAvatar(role = ChatMessage.Role.TOOL)
             Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = executionRoleLabel,
-                        color = TextSecondary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = timeLabel,
-                        color = TextMuted,
-                        fontSize = 10.sp
-                    )
+                if (!isCommandBatch) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = executionRoleLabel,
+                            color = TextSecondary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = timeLabel,
+                            color = TextMuted,
+                            fontSize = 10.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
-                Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = if (expanded) "▾" else "▸",

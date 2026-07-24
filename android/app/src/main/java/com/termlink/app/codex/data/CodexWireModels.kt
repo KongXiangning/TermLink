@@ -458,6 +458,14 @@ data class CodexTurnAttachment(
     val path: String? = null,
     val url: String? = null
 ) {
+    companion object {
+        fun from(json: JSONObject): CodexTurnAttachment = CodexTurnAttachment(
+            type = json.optString("type", "file"),
+            path = json.optStringOrNull("path"),
+            url = json.optStringOrNull("url")
+        )
+    }
+
     fun toJson(): JSONObject = JSONObject()
         .put("type", type)
         .apply {
@@ -584,6 +592,7 @@ data class SurfaceEntry(
     val label: String? = null,
     val detail: String? = null,
     val operationStatus: String? = null,
+    val attachments: List<CodexTurnAttachment> = emptyList(),
     val approvalType: String?,
     val requestId: String?,
     val raw: JSONObject?
@@ -602,6 +611,14 @@ data class SurfaceEntry(
             label = json.optStringOrNull("label"),
             detail = json.optStringOrNull("detail"),
             operationStatus = json.optStringOrNull("operationStatus"),
+            attachments = json.optJSONArray("attachments")?.let { array ->
+                buildList {
+                    for (index in 0 until array.length()) {
+                        val attachment = array.optJSONObject(index) ?: continue
+                        add(CodexTurnAttachment.from(attachment))
+                    }
+                }
+            }.orEmpty(),
             approvalType = json.optStringOrNull("approvalType"),
             requestId = json.optStringOrNull("requestId"),
             raw = json.optJSONObject("raw")

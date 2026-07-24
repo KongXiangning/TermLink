@@ -919,6 +919,7 @@ internal fun mergeSurfaceItems(
             } else {
                 entry.text ?: ""
             },
+            attachments = surfaceEntryAttachmentsForUi(entry),
             timestamp = existingMessage?.timestamp ?: System.currentTimeMillis(),
             streaming = key == latestAssistantKey,
             collapsible = isOperation,
@@ -941,11 +942,45 @@ internal fun mergeSurfaceItems(
             projected
         }
     }
-    return collapseCompletedCommandBatchesForUi(projectedMessages)
+    val collapsibleTurnIds = if (surfaceStatus.equals("running", ignoreCase = true) ||
+        surfaceStatus.equals("waiting_for_approval", ignoreCase = true) ||
+        surfaceStatus.equals("waiting_for_input", ignoreCase = true)
+    ) {
+        val activeTurnId = latestTurnId?.trim().orEmpty()
+        if (activeTurnId.isBlank()) {
+            emptySet()
+        } else {
+            projectedMessages.mapNotNull { it.operationTurnId }
+                .map(String::trim)
+                .filter { it.isNotBlank() && it != activeTurnId }
+                .toSet()
+        }
+    } else {
+        null
+    }
+    return collapseCompletedCommandBatchesForUi(projectedMessages, collapsibleTurnIds)
 }
 
+private fun surfaceEntryAttachmentsForUi(entry: SurfaceEntry): List<CodexMessageAttachment> =
+    entry.attachments.mapNotNull { attachment ->
+        val target = attachment.url?.trim()?.takeIf { it.isNotBlank() }
+            ?: attachment.path?.trim()?.takeIf { it.isNotBlank() }
+            ?: return@mapNotNull null
+        val label = target.substringBefore('?').substringBefore('#')
+            .substringAfterLast('/').substringAfterLast('\\')
+            .takeIf { it.isNotBlank() } ?: "图片"
+        CodexMessageAttachment(
+            kind = attachment.type.ifBlank { "image" },
+            label = label,
+            path = attachment.path,
+            url = attachment.url,
+            source = "surface"
+        )
+    }
+
 internal fun collapseCompletedCommandBatchesForUi(
-    messages: List<ChatMessage>
+    messages: List<ChatMessage>,
+    collapsibleTurnIds: Set<String>? = null
 ): List<ChatMessage> {
     if (messages.size < 2) return messages
     val result = mutableListOf<ChatMessage>()
@@ -971,7 +1006,9 @@ internal fun collapseCompletedCommandBatchesForUi(
             endExclusive += 1
         }
         val batch = messages.subList(index, endExclusive)
-        val shouldCollapse = batch.size >= 2 && batch.all { message ->
+        val shouldCollapse = batch.size >= 2 &&
+            (collapsibleTurnIds == null || turnId in collapsibleTurnIds) &&
+            batch.all { message ->
             isTerminalCommandOperationStatus(message.operationStatus)
         }
         if (!shouldCollapse) {
@@ -1059,6 +1096,34 @@ internal fun canonicalOperationMessageForUi(
         operationStatus = status,
         operationTurnId = turnId,
         operationBatchSize = 1
+    )
+}
+
+internal fun canonicalImageViewMessageForUi(
+    item: JSONObject,
+    turnId: String?,
+    itemIndex: Int
+): ChatMessage? {
+    val target = item.optStringOrNullCompat("path")?.trim()
+        ?.takeIf { it.isNotBlank() }
+        ?: item.optStringOrNullCompat("url")?.trim()?.takeIf { it.isNotBlank() }
+        ?: return null
+    val label = target.substringBefore('?').substringBefore('#')
+        .substringAfterLast('/').substringAfterLast('\\')
+        .takeIf { it.isNotBlank() } ?: "图片"
+    return ChatMessage(
+        id = "canonical-image:${turnId.orEmpty()}:$itemIndex",
+        role = ChatMessage.Role.SYSTEM,
+        content = "已查看图片",
+        attachments = listOf(
+            CodexMessageAttachment(
+                kind = "image",
+                label = label,
+                path = item.optStringOrNullCompat("path"),
+                url = item.optStringOrNullCompat("url"),
+                source = "canonical"
+            )
+        )
     )
 }
 
@@ -1261,9 +1326,18 @@ internal fun mergePendingUserInput(
     existing: List<CodexServerRequest>,
     pending: CodexServerRequest?
 ): List<CodexServerRequest> {
-    if (pending == null) return existing
-    return upsertPendingServerRequest(existing, pending.copy(handledBy = "ipc_follower"))
+    // The IPC surface contains the authoritative *single* user-input request.
+    // Once the owner has accepted an answer it is omitted from the next
+    // snapshot. Do not retain the old follower request (and its submitting
+    // dialog) while preserving unrelated canonical/client requests.
+    val withoutStaleIpcUserInputs = existing.filterNot { it.isIpcFollowerUserInputRequest() }
+    if (pending == null) return withoutStaleIpcUserInputs
+    return withoutStaleIpcUserInputs + pending.copy(handledBy = "ipc_follower")
 }
+
+private fun CodexServerRequest.isIpcFollowerUserInputRequest(): Boolean =
+    handledBy.equals("ipc_follower", ignoreCase = true) &&
+        responseMode.equals("answers", ignoreCase = true)
 
 internal fun upsertPendingServerRequest(
     current: List<CodexServerRequest>,
@@ -2085,7 +2159,30 @@ class CodexViewModel(
     }
 
     fun rejectUserInputRequest(requestId: String) {
-        if (findPendingServerRequest(requestId) == null) return
+        val request = findPendingServerRequest(requestId) ?: return
+        if (isIpcFollowerRequest(request)) {
+            val state = _uiState.value
+            val conversationId = state.activeConversationId?.trim().orEmpty()
+            if (!shouldUseIpcFollowerTransport(state) || conversationId.isEmpty()) {
+                Log.w(TAG, "[user-input][reject-skipped] IPC follower transport unavailable requestId=$requestId")
+                _uiState.update {
+                    it.copy(errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable))
+                }
+                return
+            }
+            val sent = sendEnvelopeOrReportFailure(
+                payload = CodexClientMessages.followerPlanResponse(
+                    conversationId = conversationId,
+                    input = "取消",
+                    requestId = requestId,
+                    questionId = request.questions.firstOrNull()?.id
+                ),
+                errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+            )
+            if (!sent) return
+            markServerRequestSubmitting(requestId)
+            return
+        }
         val error = JSONObject().put("message", "User input request cancelled by user.")
         if (isDebugServerRequest(requestId)) {
             markServerRequestSubmitting(requestId)
@@ -5289,9 +5386,15 @@ class CodexViewModel(
             return emptyList()
         }
         val result = mutableListOf<ChatMessage>()
+        val collapsibleTurnIds = mutableSetOf<String>()
         for (turnIndex in 0 until turns.length()) {
             val turn = turns.optJSONObject(turnIndex) ?: continue
             val items = turn.optJSONArray("items") ?: continue
+            val turnId = turn.optStringOrNullCompat("id")
+                ?: turn.optStringOrNullCompat("turnId")
+            if (isTerminalTurnStatusForUi(turn.optStringOrNullCompat("status"))) {
+                turnId?.takeIf { it.isNotBlank() }?.let(collapsibleTurnIds::add)
+            }
             for (itemIndex in 0 until items.length()) {
                 val item = items.optJSONObject(itemIndex) ?: continue
                 when (item.optString("type", "")) {
@@ -5340,8 +5443,14 @@ class CodexViewModel(
                     "commandExecution", "fileChange", "mcpToolCall" -> {
                         canonicalOperationMessageForUi(
                             item = item,
-                            turnId = turn.optStringOrNullCompat("id")
-                                ?: turn.optStringOrNullCompat("turnId"),
+                            turnId = turnId,
+                            itemIndex = itemIndex
+                        )?.let(result::add)
+                    }
+                    "imageView" -> {
+                        canonicalImageViewMessageForUi(
+                            item = item,
+                            turnId = turnId,
                             itemIndex = itemIndex
                         )?.let(result::add)
                     }
@@ -5349,8 +5458,14 @@ class CodexViewModel(
                 maybeRequestModelList()
             }
         }
-        return collapseCompletedCommandBatchesForUi(result)
+        return collapseCompletedCommandBatchesForUi(result, collapsibleTurnIds)
     }
+
+    private fun isTerminalTurnStatusForUi(status: String?): Boolean =
+        status?.trim()?.lowercase() in setOf(
+            "completed", "complete", "done", "finished", "failed", "error",
+            "cancelled", "canceled", "interrupted"
+        )
 
     private fun extractUserMessageText(item: JSONObject): String {
         val content = item.optJSONArray("content") ?: return ""
@@ -7637,7 +7752,7 @@ class CodexViewModel(
                 _uiState.update { current ->
                     current.copy(
                         activeConversationId = conversationId.ifEmpty { current.activeConversationId },
-                        pendingServerRequests = upsertPendingServerRequest(current.pendingServerRequests, request)
+                        pendingServerRequests = mergePendingUserInput(current.pendingServerRequests, request)
                     )
                 }
             }

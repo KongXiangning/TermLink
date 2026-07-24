@@ -8,6 +8,7 @@ import com.termlink.app.codex.data.CodexIpcConversationSummary
 import com.termlink.app.codex.data.CodexModelOption
 import com.termlink.app.codex.data.CodexPermissionProfileOption
 import com.termlink.app.codex.data.CodexServerRequest
+import com.termlink.app.codex.data.CodexTurnAttachment
 import com.termlink.app.codex.data.ActiveGoalInfo
 import com.termlink.app.codex.data.DesktopSurfaceSnapshot
 import com.termlink.app.codex.data.PendingApprovalInfo
@@ -32,6 +33,69 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CodexViewModelThreadReadyTest {
+
+    @Test
+    fun imageSurfaceEntryProjectsOpenableAttachment() {
+        val merged = mergeSurfaceItems(
+            existing = emptyList(),
+            surfaceItems = listOf(
+                SurfaceEntry(
+                    key = "turn-1:status:img:1",
+                    kind = "status",
+                    role = null,
+                    phase = null,
+                    text = "已查看 1 张图片",
+                    turnId = "turn-1",
+                    itemId = null,
+                    statusType = "image",
+                    attachments = listOf(
+                        CodexTurnAttachment(type = "image", path = "E:/coding/TermLink/docs/diagram.png")
+                    ),
+                    approvalType = null,
+                    requestId = null,
+                    raw = null
+                )
+            )
+        )
+
+        assertEquals(1, merged.size)
+        assertEquals("diagram.png", merged.single().attachments.single().label)
+        assertEquals("E:/coding/TermLink/docs/diagram.png", merged.single().attachments.single().path)
+    }
+
+    @Test
+    fun runningSurfaceKeepsCompletedCommandItemsSeparateUntilTurnFinishes() {
+        val entries = listOf("cmd-1", "cmd-2").map { id ->
+            SurfaceEntry(
+                key = "turn-1:operation:command:$id",
+                kind = "status",
+                role = null,
+                phase = null,
+                text = "已运行命令",
+                turnId = "turn-1",
+                itemId = id,
+                statusType = "operation",
+                operationType = "command",
+                label = "已运行命令",
+                detail = id,
+                operationStatus = "completed",
+                approvalType = null,
+                requestId = null,
+                raw = null
+            )
+        }
+
+        val projected = mergeSurfaceItems(
+            existing = emptyList(),
+            surfaceItems = entries,
+            surfaceStatus = "running",
+            latestTurnId = "turn-1"
+        )
+
+        assertEquals(2, projected.size)
+        assertEquals(1, projected[0].operationBatchSize)
+        assertEquals(1, projected[1].operationBatchSize)
+    }
 
     @Test
     fun permissionChoicesUseDynamicProfilesAndReplaceTheWholePermissionTuple() {
@@ -1619,6 +1683,46 @@ class CodexViewModelThreadReadyTest {
         val next = mergePlanWorkflow(current, null)
 
         assertEquals(current, next)
+    }
+
+    @Test
+    fun ipcSurfaceClearingUserInputRemovesStaleFollowerRequestButPreservesCanonicalRequests() {
+        val canonical = ipcRequest("req-canonical", handledBy = "client")
+        val current = listOf(ipcRequest("req-old"), canonical)
+
+        val next = mergePendingUserInput(current, null)
+
+        assertEquals(listOf("req-canonical"), next.map { it.requestId })
+        assertEquals("client", next.single().handledBy)
+    }
+
+    @Test
+    fun ipcSurfaceUserInputReplacesPreviousFollowerRequest() {
+        val next = mergePendingUserInput(
+            listOf(ipcRequest("req-old")),
+            ipcRequest("req-new")
+        )
+
+        assertEquals(listOf("req-new"), next.map { it.requestId })
+        assertEquals("ipc_follower", next.single().handledBy)
+    }
+
+    @Test
+    fun completedIpcUserInputSnapshotRemovesDialogRequestFromUiState() {
+        val state = CodexUiState(
+            activeConversationId = "conv-live",
+            threadId = "conv-live",
+            pendingServerRequests = listOf(ipcRequest("req-input")),
+            submittingServerRequestIds = setOf("req-input")
+        )
+
+        val next = applyDesktopSurfaceSnapshotToUiState(
+            state,
+            surfaceSnapshot("conv-live")
+        )
+
+        assertTrue(next.pendingServerRequests.isEmpty())
+        assertEquals(setOf("req-input"), next.submittingServerRequestIds)
     }
 
     private fun ipcConversation(

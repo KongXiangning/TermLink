@@ -61,6 +61,53 @@ class CodexViewModelHydrateFollowTest {
     }
 
     @Test
+    fun completedCommandsDoNotCollapseWhileTheirTurnIsStillRunning() {
+        val commands = listOf(
+            ChatMessage(
+                id = "cmd-1",
+                role = ChatMessage.Role.TOOL,
+                content = "npm test",
+                collapsible = true,
+                collapsedLabel = "已运行命令",
+                operationType = "command",
+                operationStatus = "completed",
+                operationTurnId = "turn-1",
+                operationBatchSize = 1
+            ),
+            ChatMessage(
+                id = "cmd-2",
+                role = ChatMessage.Role.TOOL,
+                content = "npm run lint",
+                collapsible = true,
+                collapsedLabel = "已运行命令",
+                operationType = "command",
+                operationStatus = "completed",
+                operationTurnId = "turn-1",
+                operationBatchSize = 1
+            )
+        )
+
+        val projected = collapseCompletedCommandBatchesForUi(commands, emptySet())
+
+        assertEquals(2, projected.size)
+        assertEquals(1, projected[0].operationBatchSize)
+        assertEquals(1, projected[1].operationBatchSize)
+    }
+
+    @Test
+    fun canonicalImageViewKeepsItsPathAsAnOpenableAttachment() {
+        val message = canonicalImageViewMessageForUi(
+            item = JSONObject("""{"type":"imageView","path":"E:/coding/TermLink/docs/diagram.png"}"""),
+            turnId = "turn-1",
+            itemIndex = 0
+        )
+
+        assertEquals(ChatMessage.Role.SYSTEM, message?.role)
+        assertEquals("E:/coding/TermLink/docs/diagram.png", message?.attachments?.single()?.path)
+        assertEquals("diagram.png", message?.attachments?.single()?.label)
+    }
+
+    @Test
     fun canonicalFallbackOperationDetailIncludesMarkerWithinHardLimit() {
         val message = canonicalOperationMessageForUi(
             item = JSONObject()

@@ -1105,22 +1105,43 @@ function truncateOperationDetail(value) {
 // ── status bucket ────────────────────────────────────────────────────────────
 
 function createStatusBucket() {
-    return { contexts: 0, images: 0, todos: 0, errors: 0 };
+    return { contexts: 0, images: [], todos: 0, errors: 0 };
 }
 
 function collectStatus(bucket, item, itemType) {
     switch (itemType) {
         case 'contextCompaction': bucket.contexts++; break;
-        case 'imageView': bucket.images++; break;
+        case 'imageView': bucket.images.push(extractImageViewAttachment(item)); break;
         case 'todo-list': bucket.todos++; break;
         case 'error': bucket.errors++; break;
     }
 }
 
+function extractImageViewAttachment(item) {
+    const path = asString(item?.path);
+    const url = asString(item?.url);
+    if (!path && !url) return undefined;
+    return {
+        type: 'image',
+        ...(path ? { path } : {}),
+        ...(url ? { url } : {})
+    };
+}
+
 function flushStatusBucket(bucket, seq, turnId) {
     const entries = [];
     if (bucket.contexts > 0) entries.push({ key: `${turnId ?? 'turn'}:status:ctx:${seq}`, kind: 'status', statusType: 'context', text: '上下文已自动压缩', turnId });
-    if (bucket.images > 0) entries.push({ key: `${turnId ?? 'turn'}:status:img:${seq}`, kind: 'status', statusType: 'image', text: `已查看 ${bucket.images} 张图片`, turnId });
+    if (bucket.images.length > 0) {
+        const attachments = bucket.images.filter(Boolean);
+        entries.push({
+            key: `${turnId ?? 'turn'}:status:img:${seq}`,
+            kind: 'status',
+            statusType: 'image',
+            text: `已查看 ${bucket.images.length} 张图片`,
+            turnId,
+            ...(attachments.length > 0 ? { attachments } : {})
+        });
+    }
     if (bucket.todos > 0) entries.push({ key: `${turnId ?? 'turn'}:status:todo:${seq}`, kind: 'status', statusType: 'todo', text: '已更新任务清单', turnId });
     if (bucket.errors > 0) entries.push({ key: `${turnId ?? 'turn'}:status:err:${seq}`, kind: 'status', statusType: 'error', text: `出现 ${bucket.errors} 个错误`, turnId });
     return entries;

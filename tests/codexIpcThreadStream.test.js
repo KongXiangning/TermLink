@@ -156,6 +156,22 @@ test('commentary phase is included as assistant message', () => {
     assert.equal(msgs[0].phase, 'commentary');
 });
 
+test('imageView status preserves image targets for the Android attachment surface', () => {
+    const snap = buildDesktopSurfaceSnapshot({ turns: [{
+        turnId: 't-image',
+        items: [
+            { type: 'imageView', id: 'img-1', path: 'E:/coding/TermLink/docs/diagram.png' },
+            { type: 'imageView', id: 'img-2', path: 'E:/coding/TermLink/docs/other.png' }
+        ]
+    }] });
+    const image = snap.items.find(item => item.statusType === 'image');
+    assert.equal(image.text, '已查看 2 张图片');
+    assert.deepEqual(image.attachments, [
+        { type: 'image', path: 'E:/coding/TermLink/docs/diagram.png' },
+        { type: 'image', path: 'E:/coding/TermLink/docs/other.png' }
+    ]);
+});
+
 // ── buildDesktopSurfaceSnapshot — status ─────────────────────────────────────
 
 test('commandExecution items are projected as stable detailed operations', () => {
