@@ -22,6 +22,17 @@
   - `bun run workflow:sync --host codex --write`
   - `bun run workflow:health`
 
+## Codex IPC 实时同步冻结区
+
+- 任何可能触及 Codex IPC、实时会话同步、conversation 绑定/恢复、owner surface、Android Codex 状态仲裁或下列核心文件的任务，在分析、规划或修改前必须先读：
+  - `docs/workflow/CONTRACTS.md` 的“🔒 Codex 原生会话实时同步核心”
+  - `docs/workflow/DECISIONS.md` 的 `AD-004`
+- App 端固定数据流为：`active conversation → gateway follower acquire → CodexIpcFeed desired subscription/reconnect replay → Codex host 定向 snapshot/patch → Android IPC authority`。healthy IPC surface 是正文、operation、当前 turn 与运行态的唯一实时来源。
+- canonical `thread/read` 只允许作为明确 offline、desynced 或当前订阅周期缺少目标 surface 时的有界恢复通道；禁止把定时轮询、snapshot 静默超时、cwd/task 猜测、`codex_state=idle` 或其他第二数据源改造成实时权威。
+- 默认不得重构、替换、删除或绕过 follower acquire/release、desired subscription、reconnect replay、normalized surface、canonical id/binding、owner fallback、Android IPC authority 与 A/B 隔离。宿主协议演进时只允许保持上述数据流和权威语义的最小兼容适配。
+- 若需求确实需要改变上述架构，必须停止实现并取得用户明确确认，然后先执行 `/lock-scope`，同步 `DECISIONS.md` 与 `CONTRACTS.md`，并把 follower lifecycle、authority arbitration、A/B 隔离、长任务和重连真机回归列为强制门禁；不得在普通 bugfix、UI 修改或“简化代码”中顺手改变。
+- 重点受保护文件包括：`src/services/codexIpcClient.js`、`src/services/codexIpcFeed.js`、`src/services/codexIpcThreadStream.js`、`src/services/codexOwnerSurfaceTracker.js`、`src/ws/terminalGateway.js`，以及 Android Codex 的 wire、selection、ViewModel、Activity 和 Sessions 入口链路。
+
 ## Scope
 
 - 适用范围：`E:\coding\TermLink`
