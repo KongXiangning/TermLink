@@ -171,11 +171,26 @@
             document.body.scrollTop = 0;
         }
     }
+    function routeStorageKey() {
+        return `termlink.workspace.route.${encodeURIComponent(state.serverUrl || location.origin)}.${encodeURIComponent(state.sessionId)}`;
+    }
+    function saveRoute(snapshot) {
+        if (!snapshot || snapshot.workspace !== true || !state.sessionId) return;
+        try { localStorage.setItem(routeStorageKey(), JSON.stringify(snapshot)); } catch (error) { /* storage may be unavailable */ }
+    }
+    function readSavedRoute() {
+        if (!state.sessionId) return null;
+        try {
+            const snapshot = JSON.parse(localStorage.getItem(routeStorageKey()) || 'null');
+            return snapshot && snapshot.workspace === true ? snapshot : null;
+        } catch (error) { return null; }
+    }
     function routeSnapshot(type, extra) { return { workspace: true, type, dir: state.currentDir, ...extra }; }
     function writeHistory(type, extra, replace) {
         const snapshot = routeSnapshot(type, extra);
         if (replace) history.replaceState(snapshot, '', location.href);
         else history.pushState(snapshot, '', location.href);
+        saveRoute(snapshot);
     }
 
     function renderBreadcrumbs() {
@@ -654,6 +669,7 @@
 
     async function restoreRoute(route) {
         if (!route || !route.workspace) { setPage('browser'); return; }
+        saveRoute(route);
         if (route.type === 'directory') await loadTree(route.dir || '');
         else if (route.type === 'file') {
             if (state.currentDir !== route.dir) await loadTree(route.dir || '');
@@ -703,7 +719,10 @@
             if (initialFilePath && initialFilePath !== state.initialFilePath) {
                 throw new Error('Invalid initial file path.');
             }
-            if (initialFilePath) {
+            const savedRoute = initialFilePath ? null : readSavedRoute();
+            if (savedRoute) {
+                await restoreRoute(savedRoute);
+            } else if (initialFilePath) {
                 await loadTree(dirname(initialFilePath));
                 const entry = state.treeEntries.find((candidate) => candidate.path === initialFilePath) || {
                     path: initialFilePath,

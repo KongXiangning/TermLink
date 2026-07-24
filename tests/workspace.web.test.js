@@ -50,6 +50,10 @@ function createWorkspaceApp(options = {}) {
         serverUrl: 'https://example.test',
         authHeader: 'Bearer token'
     };
+    if (options.savedRoute) {
+        const routeKey = `termlink.workspace.route.${encodeURIComponent(window.__TERMLINK_CONFIG__.serverUrl || window.location.origin)}.${encodeURIComponent(window.__TERMLINK_CONFIG__.sessionId)}`;
+        window.localStorage.setItem(routeKey, JSON.stringify(options.savedRoute));
+    }
     window.fetch = async (url, init = {}) => {
         const record = {
             url: String(url),
@@ -144,6 +148,31 @@ test('workspace page boots with meta then tree and keeps viewer in empty state',
     assert.equal(app.document.getElementById('current-dir-label').textContent, 'docs');
     assert.equal(app.document.getElementById('viewer-title').textContent, 'No file selected');
     assert.equal(app.document.getElementById('viewer-empty').textContent, 'Select a file to preview');
+});
+
+test('workspace restores the last saved file route after reopening', async (t) => {
+    const app = createWorkspaceApp({
+        savedRoute: { workspace: true, type: 'file', dir: 'docs', path: 'docs/guide.md', name: 'guide.md' },
+        fetchImpl: async (record) => {
+            const url = new URL(record.url);
+            if (url.pathname.endsWith('/workspace/meta')) return createResponse(true, { workspaceRoot: '/repo', defaultEntryPath: 'docs' });
+            if (url.pathname.endsWith('/workspace/tree')) {
+                assert.equal(url.searchParams.get('path'), 'docs');
+                return createResponse(true, { path: 'docs', entries: [{ name: 'guide.md', path: 'docs/guide.md', type: 'file' }] });
+            }
+            if (url.pathname.endsWith('/workspace/file')) return createResponse(true, {
+                path: 'docs/guide.md', name: 'guide.md', kind: 'markdown', previewable: true, viewMode: 'full', content: '# Guide'
+            });
+            throw new Error(`Unexpected request ${record.url}`);
+        }
+    });
+    t.after(() => app.cleanup());
+
+    await flushUi();
+
+    assert.equal(app.window.__workspaceDebugState.currentDir, 'docs');
+    assert.equal(app.window.__workspaceDebugState.selectedFilePath, 'docs/guide.md');
+    assert.equal(app.document.getElementById('viewer-title').textContent, 'guide.md');
 });
 
 test('workspace page opens an explicitly requested initial file', async (t) => {

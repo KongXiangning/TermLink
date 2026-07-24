@@ -111,7 +111,7 @@ class WorkspaceActivity : AppCompatActivity() {
         }
 
         backButton?.setOnClickListener {
-            onBackPressedDispatcher.onBackPressed()
+            finish()
         }
         findViewById<TextView>(R.id.workspace_toolbar_subtitle).text = getString(
             R.string.workspace_activity_subtitle,
@@ -141,7 +141,7 @@ class WorkspaceActivity : AppCompatActivity() {
             webViewBaseMarginBottom = params.bottomMargin
         }
         configureWebView(webView)
-        registerBackNavigation(webView)
+        registerBackNavigation()
         applySystemBarInsets()
 
         if (savedInstanceState != null) {
@@ -297,19 +297,10 @@ class WorkspaceActivity : AppCompatActivity() {
         return json
     }
 
-    private fun registerBackNavigation(webView: WebView) {
+    private fun registerBackNavigation() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                webView.evaluateJavascript(
-                    "Boolean(window.__workspaceBack && window.__workspaceBack())"
-                ) { handled ->
-                    if (handled == "true") {
-                        return@evaluateJavascript
-                    }
-                    isEnabled = false
-                    onBackPressedDispatcher.onBackPressed()
-                    isEnabled = true
-                }
+                finish()
             }
         })
     }
