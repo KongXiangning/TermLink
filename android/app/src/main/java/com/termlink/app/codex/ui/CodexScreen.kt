@@ -2,6 +2,17 @@ package com.termlink.app.codex.ui
 
 import android.graphics.Rect
 import android.graphics.Point
+import android.graphics.Typeface
+import android.os.Build
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.BackgroundColorSpan
+import android.text.style.ForegroundColorSpan
+import android.util.TypedValue
+import android.view.ActionMode
+import android.view.Menu
+import android.view.MenuItem
+import android.widget.TextView
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -69,6 +80,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,6 +91,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
@@ -110,6 +123,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.termlink.app.BuildConfig
@@ -259,6 +273,8 @@ fun CodexScreen(
     var lastStreamAutoScrollAtMillis by remember { mutableStateOf(0L) }
     var stallNowMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var debugInjectorVisible by remember { mutableStateOf(false) }
+    var selectedTextContext by remember { mutableStateOf<CodexSelectedTextContext?>(null) }
+    val selectedTextOwnerKey = state.activeConversationId ?: state.threadId ?: state.sessionId
     val bottomAnchorIndex = state.messages.size
     val atLatestPosition by remember(listState, bottomAnchorIndex) {
         derivedStateOf { isMessageListAtBottom(listState, bottomAnchorIndex) }
@@ -359,6 +375,9 @@ fun CodexScreen(
             suppressAutoFollowPause = false
         }
         lastStreamAutoScrollAtMillis = nowMillis
+    }
+    LaunchedEffect(selectedTextOwnerKey) {
+        selectedTextContext = null
     }
     LaunchedEffect(
         state.executionWatch.active,
@@ -489,6 +508,11 @@ fun CodexScreen(
                         items(state.messages, key = { it.id }) { message ->
                             MessageBubble(
                                 message = message,
+                                onAddSelectionToTask = { selectedText ->
+                                    selectedTextContext = CodexSelectedTextContext(
+                                        text = selectedText
+                                    )
+                                },
                                 onOpenFileMention = onOpenFileMention,
                                 onOpenAttachment = onOpenAttachment
                             )
@@ -502,6 +526,8 @@ fun CodexScreen(
 
                     InputComposer(
                         state = state,
+                        selectedTextContext = selectedTextContext,
+                        onClearSelectedTextContext = { selectedTextContext = null },
                         enabled = state.connectionState == ConnectionState.CONNECTED,
                         isStreaming = isStreaming,
                         slashMenuVisible = state.slashMenuVisible,
@@ -1750,6 +1776,7 @@ private fun formatHeaderCwdForDisplay(cwd: String): String {
 @OptIn(ExperimentalLayoutApi::class)
 private fun MessageBubble(
     message: ChatMessage,
+    onAddSelectionToTask: (String) -> Unit,
     onOpenFileMention: (FileMention) -> Unit,
     onOpenAttachment: (CodexMessageAttachment) -> Unit
 ) {
@@ -1773,7 +1800,6 @@ private fun MessageBubble(
         (message.attachments + markdownProjection.attachments)
             .distinctBy(::messageAttachmentTargetKey)
     }
-
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -1849,31 +1875,24 @@ private fun MessageBubble(
                             modifier = Modifier.padding(bottom = 4.dp)
                         )
                     }
-                    SelectionContainer {
-                        Text(
-                            text = if (message.role == ChatMessage.Role.USER) {
-                                buildComposerTransformedText(
-                                    text = message.content,
-                                    mentions = message.fileMentions,
-                                    textColor = spec.textColor
-                                ).text
-                            } else {
-                                buildComposerAnnotatedString(
-                                    text = markdownProjection.visibleText,
-                                    mentions = message.fileMentions,
-                                    textColor = spec.textColor
-                                )
-                            },
-                            color = spec.textColor,
-                            fontSize = 13.sp,
-                            lineHeight = 20.sp,
-                            fontFamily = if (message.role == ChatMessage.Role.TOOL) {
-                                FontFamily.Monospace
-                            } else {
-                                FontFamily.Default
-                            }
-                        )
-                    }
+                    SelectableMessageText(
+                        text = if (message.role == ChatMessage.Role.USER) {
+                            buildComposerTransformedText(
+                                text = message.content,
+                                mentions = message.fileMentions,
+                                textColor = spec.textColor
+                            ).text
+                        } else {
+                            buildComposerAnnotatedString(
+                                text = markdownProjection.visibleText,
+                                mentions = message.fileMentions,
+                                textColor = spec.textColor
+                            )
+                        },
+                        textColor = spec.textColor,
+                        monospace = message.role == ChatMessage.Role.TOOL,
+                        onAddToTask = onAddSelectionToTask
+                    )
                 }
                 if (message.streaming) {
                     Row(
@@ -1895,6 +1914,188 @@ private fun MessageBubble(
             }
         }
     }
+}
+private const val CodexCopySelectionMenuItemId = 0x544C0001
+private const val CodexAddSelectionToTaskMenuItemId = 0x544C0002
+private const val CodexSelectAllMenuItemId = 0x544C0003
+
+private data class CodexSelectedTextContext(
+    val text: String
+)
+
+@Composable
+private fun SelectableMessageText(
+    text: AnnotatedString,
+    textColor: Color,
+    monospace: Boolean,
+    onAddToTask: (String) -> Unit
+) {
+    val copyLabel = stringResource(R.string.codex_native_selection_copy)
+    val addToTaskLabel = stringResource(R.string.codex_native_selection_add_to_task)
+    val selectAllLabel = stringResource(R.string.codex_native_selection_select_all)
+    val currentCopyLabel = rememberUpdatedState(copyLabel)
+    val currentAddToTaskLabel = rememberUpdatedState(addToTaskLabel)
+    val currentSelectAllLabel = rememberUpdatedState(selectAllLabel)
+    val currentOnAddToTask = rememberUpdatedState(onAddToTask)
+
+    AndroidView(
+        modifier = Modifier.fillMaxWidth(),
+        factory = { context ->
+            TextView(context).apply {
+                setTextIsSelectable(true)
+                includeFontPadding = false
+                setPadding(0, 0, 0, 0)
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                highlightColor = AccentBlue.copy(alpha = 0.42f).toArgb()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    textSelectHandle?.mutate()?.setTint(AccentBlue.toArgb())
+                    textSelectHandleLeft?.mutate()?.setTint(AccentBlue.toArgb())
+                    textSelectHandleRight?.mutate()?.setTint(AccentBlue.toArgb())
+                }
+                setLineSpacing(
+                    TypedValue.applyDimension(
+                        TypedValue.COMPLEX_UNIT_SP,
+                        7f,
+                        resources.displayMetrics
+                    ),
+                    1f
+                )
+                val selectionActionModeCallback = CodexMessageSelectionActionModeCallback(
+                    textView = this,
+                    copyLabel = { currentCopyLabel.value },
+                    addToTaskLabel = { currentAddToTaskLabel.value },
+                    selectAllLabel = { currentSelectAllLabel.value },
+                    onAddToTask = { selectedText -> currentOnAddToTask.value(selectedText) }
+                )
+                customSelectionActionModeCallback = selectionActionModeCallback
+                setOnLongClickListener {
+                    selectionActionModeCallback.reopenForCurrentSelection()
+                }
+            }
+        },
+        update = { textView ->
+            textView.setTextColor(textColor.toArgb())
+            textView.typeface = if (monospace) Typeface.MONOSPACE else Typeface.DEFAULT
+            if (textView.tag != text) {
+                textView.text = text.toAndroidSpannable()
+                textView.tag = text
+            }
+        }
+    )
+}
+
+private class CodexMessageSelectionActionModeCallback(
+    private val textView: TextView,
+    private val copyLabel: () -> String,
+    private val addToTaskLabel: () -> String,
+    private val selectAllLabel: () -> String,
+    private val onAddToTask: (String) -> Unit
+) : ActionMode.Callback {
+    private var activeActionMode: ActionMode? = null
+
+    override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
+        activeActionMode = mode
+        prepareMenu(menu)
+        return true
+    }
+
+    override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
+        prepareMenu(menu)
+        return true
+    }
+
+    override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
+        return when (item.itemId) {
+            CodexCopySelectionMenuItemId -> {
+                textView.onTextContextMenuItem(android.R.id.copy)
+                true
+            }
+            CodexAddSelectionToTaskMenuItemId -> {
+                selectedText()?.let(onAddToTask)
+                mode.finish()
+                true
+            }
+            CodexSelectAllMenuItemId -> {
+                textView.onTextContextMenuItem(android.R.id.selectAll)
+                true
+            }
+            else -> false
+        }
+    }
+
+    override fun onDestroyActionMode(mode: ActionMode) {
+        if (activeActionMode === mode) {
+            activeActionMode = null
+        }
+    }
+
+    fun reopenForCurrentSelection(): Boolean {
+        if (selectedText() == null) {
+            return false
+        }
+        activeActionMode?.let { mode ->
+            mode.invalidate()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                mode.invalidateContentRect()
+            }
+            return true
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            textView.startActionMode(this, ActionMode.TYPE_FLOATING)
+        } else {
+            textView.startActionMode(this)
+        }
+        return true
+    }
+
+    private fun prepareMenu(menu: Menu) {
+        menu.clear()
+        menu.add(Menu.NONE, CodexCopySelectionMenuItemId, 0, copyLabel())
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+        menu.add(Menu.NONE, CodexAddSelectionToTaskMenuItemId, 1, addToTaskLabel())
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+        menu.add(Menu.NONE, CodexSelectAllMenuItemId, 2, selectAllLabel())
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
+    }
+
+    private fun selectedText(): String? {
+        val start = minOf(textView.selectionStart, textView.selectionEnd)
+            .coerceAtLeast(0)
+        val end = maxOf(textView.selectionStart, textView.selectionEnd)
+            .coerceAtMost(textView.text.length)
+        return if (start < end) {
+            textView.text.subSequence(start, end).toString()
+        } else {
+            null
+        }
+    }
+}
+
+private fun AnnotatedString.toAndroidSpannable(): CharSequence {
+    val spannable = SpannableString(text)
+    spanStyles.forEach { range ->
+        val start = range.start.coerceIn(0, text.length)
+        val end = range.end.coerceIn(start, text.length)
+        if (start == end) return@forEach
+        if (range.item.color != Color.Unspecified) {
+            spannable.setSpan(
+                ForegroundColorSpan(range.item.color.toArgb()),
+                start,
+                end,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+        if (range.item.background != Color.Unspecified) {
+            spannable.setSpan(
+                BackgroundColorSpan(range.item.background.toArgb()),
+                start,
+                end,
+                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+    }
+    return spannable
 }
 
 internal data class CodexMessageMarkdownProjection(
@@ -4440,6 +4641,8 @@ private fun ApprovalDebugSheet(
 @Composable
 private fun InputComposer(
     state: CodexUiState,
+    selectedTextContext: CodexSelectedTextContext?,
+    onClearSelectedTextContext: () -> Unit,
     enabled: Boolean,
     isStreaming: Boolean,
     slashMenuVisible: Boolean,
@@ -4634,18 +4837,27 @@ private fun InputComposer(
 
     fun submit(): Boolean {
         val submittedText = textFieldValue.text.trim()
+        val submissionText = buildCodexSelectedTextTaskPrompt(
+            selectedText = selectedTextContext?.text,
+            draft = submittedText
+        )
         if (
             !enabled ||
             isStreaming ||
-            (submittedText.isBlank() && pendingMentions.isEmpty() && pendingImageAttachments.isEmpty())
+            (
+                submissionText.isBlank() &&
+                    pendingMentions.isEmpty() &&
+                    pendingImageAttachments.isEmpty()
+                )
         ) {
             return false
         }
         if (handleLocalSlashShortcut(submittedText)) {
             return true
         }
-        onSend(submittedText)
+        onSend(submissionText)
         textFieldValue = TextFieldValue("")
+        onClearSelectedTextContext()
         onHideSlashMenu()
         onHideFileMentionMenu()
         onComposerTextChanged("")
@@ -4690,10 +4902,18 @@ private fun InputComposer(
                         }
                         onSend(command)
                         textFieldValue = TextFieldValue("")
+                        onClearSelectedTextContext()
                         onHideSlashMenu()
                         onHideFileMentionMenu()
                         onComposerTextChanged("")
                     }
+                )
+            }
+
+            selectedTextContext?.let { selectedText ->
+                SelectedTextContextCard(
+                    selectedText = selectedText.text,
+                    onRemove = onClearSelectedTextContext
                 )
             }
 
@@ -4793,6 +5013,7 @@ private fun InputComposer(
                     Spacer(modifier = Modifier.height(8.dp))
                     val canSubmit = enabled && (
                         textFieldValue.text.isNotBlank() ||
+                            !selectedTextContext?.text.isNullOrBlank() ||
                             pendingMentions.isNotEmpty() ||
                             pendingImageAttachments.isNotEmpty()
                         )
@@ -4820,6 +5041,88 @@ private fun InputComposer(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SelectedTextContextCard(
+    selectedText: String,
+    onRemove: () -> Unit
+) {
+    val removeLabel = stringResource(R.string.codex_native_selected_text_remove)
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, end = 12.dp, top = 8.dp),
+        color = SurfaceRaised,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, SurfaceBorder.copy(alpha = 0.8f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.codex_native_selected_text_title),
+                    color = TextMuted,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(5.dp))
+                Text(
+                    text = selectedText,
+                    color = TextPrimary,
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(SurfaceColor)
+                    .clickable(onClick = onRemove)
+                    .semantics {
+                        contentDescription = removeLabel
+                        role = Role.Button
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "×",
+                    color = TextSecondary,
+                    fontSize = 18.sp,
+                    lineHeight = 18.sp
+                )
+            }
+        }
+    }
+}
+
+internal fun buildCodexSelectedTextTaskPrompt(
+    selectedText: String?,
+    draft: String
+): String {
+    val normalizedSelection = selectedText?.trim()?.takeIf { it.isNotEmpty() }
+    val normalizedDraft = draft.trim()
+    if (normalizedSelection == null) return normalizedDraft
+
+    val quotedSelection = normalizedSelection
+        .lineSequence()
+        .joinToString(separator = "\n") { line ->
+            if (line.isEmpty()) ">" else "> $line"
+        }
+    return if (normalizedDraft.isEmpty()) {
+        quotedSelection
+    } else {
+        "$quotedSelection\n\n$normalizedDraft"
     }
 }
 

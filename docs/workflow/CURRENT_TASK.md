@@ -33,11 +33,16 @@
 15. Android 通知权限已开启时，活跃 Codex 任务退到后台必须由前台服务维持进程；设备进入 Doze 前若 App 尚未获得电池优化豁免，应在可见 Activity 中提供一次系统授权入口。授权后深度待机不得暂停任务 WebSocket；未授权时必须保留可恢复行为和明确诊断，不得假装仅有通知即可绕过 Doze。
 16. Android 在取得额度遥测后发布独立的低优先级 ongoing 状态通知，显示本地化后的当前剩余额度与重置时间；额度变化时原位更新，点击返回当前 Codex 会话。该通知不新增轮询、不延长 foreground service 生命周期，通知权限缺失或额度不可用时不发布过期占位。
 17. Android Codex 同一 turn 内连续的一批 command operation 在全部进入终态后合并为一条默认收起的“运行了多个命令”摘要；展开后仍可查看每条命令详情。批次仍有命令运行时不得提前合并，单条命令、跨 turn 命令及被非命令消息分隔的命令保持原有独立展示。
+18. 消息正文只使用一套文本选择工具栏：选中文字后提供“复制”“添加到任务”“全选”，不得再同时弹出消息级 DropdownMenu 和系统复制菜单；拖动选择手柄时工具栏可隐藏，但选区必须保留。
+19. “全选”仅覆盖当前单条 Codex 文本回答正文，不包含相邻 command operation、文件 chip、时间、角色标题或内部 Markdown 目标。
+20. 文件提及和附件只保留点击直接打开；长按文件 chip 不弹出消息菜单，也不把消息中的其他文件批量列入菜单。
+21. “添加到任务”把当前选中文字作为可移除的“所选文本”上下文展示在 composer，并在下一次发送时与输入内容一并提交；发送、切换会话或手动移除后不得残留。输入框继续保留剪切、粘贴、复制、全选的系统编辑菜单。
 
 ## 设计约束
 
 - Design mode：design-system
 - Design source：沿用当前 Codex 深色消息卡片、蓝色 chip 和 WorkspaceActivity 既有打开反馈；本轮无外部 mockup 或视觉稿。
+- Design source 补充：用户提供的 Codex Desktop 选区工具栏与“所选文本”composer 卡片截图（2026-07-24）；TermLink 只实现复制、添加到任务、全选，不实现更多详情或侧边聊天提问。
 - Design acceptance：可点击 chip 保持现有尺寸和布局，增加明确的打开语义/无障碍描述，不引入新的页面样式。
 - Design evidence：现有 `CodexScreen.kt` 的 `SkillChipFrame`、`StaticMentionChip`、`StaticAttachmentChip` 及 WorkspaceActivity 的系统打开实现。
 - Design open decisions：无；“打开”优先复用 Workspace 预览或系统默认应用，未要求应用内新建图片查看器。
@@ -194,6 +199,20 @@
 9. 历史任务切换按乱序安全状态转换处理：若目标任务的 `codex_state` 已先完成绑定，后到的 `thread/resume` 只合并历史结果，不重新开启 IPC surface 等待；若响应先到，则目标任务的后续 `codex_state` 负责结束配置水合。
 10. 使用 Android 私有偏好按 profile + task/thread ID 保存用户明确选择的 next-turn overrides；任务恢复时优先装载该任务的记忆值，owner surface 到达后沿用既有 owner-confirmed reconciliation 并同步更新记忆。
 11. canonical `thread/read` 合并时，在没有匹配 owner surface 的前提下读取最新 turn 的状态并投影到页面运行态；增加只记录任务 ID、来源和状态摘要的诊断日志，避免记录正文或敏感配置。
+
+Implementation Plan（Android Codex 文本选择菜单修复，2026-07-24）：
+
+- Goal：统一消息正文的文本选择与操作菜单，移除消息级文件菜单，并把选中文字以“所选文本”上下文加入下一次任务输入。
+- Architecture impact：只修改 `CodexScreen` 的消息正文渲染和 composer 本地状态、`CodexActivity` 已新增但不再需要的整条消息剪贴板回调、中英文资源及 UI 纯函数测试；不进入 ViewModel、wire、IPC、会话绑定或发送协议。
+- Technical approach：移除消息卡片外层 `combinedClickable + DropdownMenu`；消息正文改为可选择的原生 `TextView`，通过单一 selection `ActionMode` 保留复制/全选并加入“添加到任务”，过滤剪切、粘贴、搜索等非本轮动作。文件 chip 继续只处理 click。`CodexScreen` hoist 一份 task-scoped selected-text context，composer 展示可移除预览；发送时用稳定文本 envelope 合并上下文与用户输入，随后清空。
+- Alternatives considered：不继续叠加 Compose `DropdownMenu`，因为它与 `SelectionContainer` 的 TextToolbar 分属两个状态机，已实证产生双菜单和选区重置；不升级 Compose，也不修改输入框工具栏；不新增 selected-text wire DTO，避免改变发送协议。
+- Data / state flow：TextView selection → ActionMode“添加到任务” → `CodexSelectedTextContext` → composer preview → submit envelope → 既有 `onSendMessage(String)`；复制/全选留在同一个原生 selection ActionMode 内。
+- Compatibility：Markdown 链接仍使用当前 visible projection，文件/附件 click callback 不变；command operation 继续走独立折叠卡；输入框 `BasicTextField` 不包自定义 toolbar，继续使用剪切/粘贴/复制/全选。
+- Risks and rollback：主要风险是 TextView 更新清掉流式消息选区、ActionMode 注入 OEM 差异和 composer 上下文未清理。通过仅在正文实际变化时更新 TextView、只保留稳定 Android menu ID、会话切换/发送/移除三条清理路径和真机 smoke 控制；回滚可恢复 Compose `Text`，不涉及数据迁移。
+- Validation strategy：纯函数覆盖选区 envelope、空输入、换行和边界；JDK 21 `:app:testDebugUnitTest :app:assembleDebug`、`git diff --check`；真机验证选择/拖柄/重新唤出/复制/添加/全选、文件 click、输入框编辑菜单。
+- Open decisions：无；菜单项、文件交互、选区范围和 composer 卡片形态均由用户本轮截图与文字明确确认。
+- External Documentation Gate：已通过 Context7 `/websites/developer_android_develop_ui_compose` 核对 `SelectionContainer` 只提供标准选择/复制；本地锁定的 Compose UI 1.6.8 API 进一步确认 `TextToolbar.showMenu` 只有 copy/paste/cut/select-all 四个固定 callback，无法可靠加入自定义“添加到任务”，因此使用 Android 原生 selectable TextView 的 ActionMode 扩展，不升级依赖。
+- Handoff：decompose-task → implement-current-step。
 
 Implementation Plan（配置记忆与运行态回归）：
 
@@ -456,6 +475,12 @@ Implementation Plan（Android 多命令批次折叠，2026-07-24）：
 - 回滚策略：仅回退本任务新增的 CURRENT_TASK、Codex 点击回调、Workspace 初始文件入口和相关文案/测试。
 
 ## 执行记录
+
+### Android Codex 文本选择菜单修复（2026-07-24）
+
+1. `completed`：完成已确认的 selection/composer 设计实现：移除消息级长按 DropdownMenu 和整条消息复制回调；正文接入单一原生 selection ActionMode，限定复制、添加到任务、全选；文件 chip 保持 click-only；实现 composer“所选文本”预览、移除、发送合并与会话切换清理，并补中英文资源和纯函数单测。目标 `CodexSelectedTextContextTest` 与 `:app:compileDebugKotlin` 已通过；复用本任务 Context7 + 本地 Compose 1.6.8 API evidence，无新增第三方 API 假设。
+2. `completed`：JDK 21 `:app:testDebugUnitTest :app:assembleDebug` 与定向 `CodexSelectedTextContextTest --rerun-tasks` 均通过，`git diff --check` 通过；范围核查确认无 IPC、ViewModel、wire 或服务端 diff。
+3. `completed`：Huawei VOG-AL00（Android 10）真机确认只有一套原生浮动工具栏，顺序为复制/添加到任务/全选；全选只覆盖单条回答正文；添加后显示可移除“所选文本”卡；拖柄扩大选区后再次长按不再重置选区；复制后工具栏正常关闭。文件 chip 代码路径保持 click-only，composer `BasicTextField` 未接入自定义菜单；当前 turn 持续运行期间输入框禁用，因此输入框编辑菜单以未改动路径完成静态回归。
 
 - 2026-07-22 IPC projection：normalized surface 顶层新增 `desynced`；command/fileChange/mcpToolCall 改为逐条 `kind=status/statusType=operation`，稳定 key、白名单详情和 12,000 字符截断均已实现。pending approval 不重复投影 operation。`node --test tests/codexIpcThreadStream.test.js tests/codexIpcFeed.test.js` 55/55 通过。External Documentation Gate 未触发，本步仅修改项目内 JSON 投影。
 - 2026-07-22 Android IPC authority：前台/重连进入 `AWAITING_IPC_SURFACE`，5 秒无当前周期 surface 后才恢复；offline/desynced 立即恢复，权威 surface 永不按静默时间降级。`thread/read` 在 apply-time 重新检查 authority，只允许补 user 静态 metadata；`codex_state` 不再覆盖权威 IPC 的 status/currentTurn/pending。JDK 21 HydrateFollow + ThreadReady + wire 目标测试 BUILD SUCCESSFUL。External Documentation Gate 未触发，本步只修复项目内状态仲裁。

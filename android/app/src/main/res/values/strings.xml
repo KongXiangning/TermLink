@@ -482,6 +482,11 @@
     <string name="codex_native_image_local_chip">Local Image: %1$s</string>
     <string name="codex_native_image_url_chip">Image URL</string>
     <string name="codex_native_open_attachment">Open %1$s</string>
+    <string name="codex_native_selection_copy">Copy</string>
+    <string name="codex_native_selection_add_to_task">Add to task</string>
+    <string name="codex_native_selection_select_all">Select all</string>
+    <string name="codex_native_selected_text_title">Selected text</string>
+    <string name="codex_native_selected_text_remove">Remove selected text</string>
     <string name="codex_native_attachment_open_failed">Unable to open this conversation attachment.</string>
     <string name="codex_native_image_sheet_title">Add image</string>
     <string name="codex_native_image_sheet_subtitle">Attach a local image or add an image URL for the next turn.</string>
