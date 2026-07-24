@@ -1121,7 +1121,62 @@ class CodexViewModelThreadReadyTest {
         assertTrue(merged[0].collapsible)
         assertEquals("已运行命令", merged[0].collapsedLabel)
         assertTrue(merged[0].content.contains("PASS"))
+        assertEquals("command", merged[0].operationType)
+        assertEquals("completed", merged[0].operationStatus)
+        assertEquals("turn-1", merged[0].operationTurnId)
+        assertEquals(1, merged[0].operationBatchSize)
         assertFalse(merged[1].streaming)
+    }
+
+    @Test
+    fun completedCommandsInSameTurnCollapseIntoOneStableBatch() {
+        val first = commandOperationMessage("cmd-1", "turn-1", "completed", "$ npm test")
+        val second = commandOperationMessage("cmd-2", "turn-1", "failed", "$ npm run lint")
+
+        val collapsed = collapseCompletedCommandBatchesForUi(listOf(first, second))
+
+        assertEquals(1, collapsed.size)
+        assertEquals("command-batch:turn-1:cmd-1", collapsed.single().id)
+        assertEquals(2, collapsed.single().operationBatchSize)
+        assertEquals("completed", collapsed.single().operationStatus)
+        assertTrue(collapsed.single().content.contains("$ npm test"))
+        assertTrue(collapsed.single().content.contains("$ npm run lint"))
+
+        val expandedBatch = collapseCompletedCommandBatchesForUi(
+            listOf(first, second, commandOperationMessage("cmd-3", "turn-1", "completed", "$ git status"))
+        )
+        assertEquals("command-batch:turn-1:cmd-1", expandedBatch.single().id)
+        assertEquals(3, expandedBatch.single().operationBatchSize)
+    }
+
+    @Test
+    fun commandBatchWaitsForAllCommandsToFinish() {
+        val messages = listOf(
+            commandOperationMessage("cmd-1", "turn-1", "completed", "$ npm test"),
+            commandOperationMessage("cmd-2", "turn-1", "running", "$ npm run lint")
+        )
+
+        val projected = collapseCompletedCommandBatchesForUi(messages)
+
+        assertEquals(messages, projected)
+    }
+
+    @Test
+    fun commandBatchDoesNotCrossTurnOrNonCommandBoundary() {
+        val first = commandOperationMessage("cmd-1", "turn-1", "completed", "$ npm test")
+        val assistant = ChatMessage(
+            id = "assistant-1",
+            role = ChatMessage.Role.ASSISTANT,
+            content = "继续处理"
+        )
+        val second = commandOperationMessage("cmd-2", "turn-1", "completed", "$ npm run lint")
+        val third = commandOperationMessage("cmd-3", "turn-2", "completed", "$ git status")
+
+        val projected = collapseCompletedCommandBatchesForUi(
+            listOf(first, assistant, second, third)
+        )
+
+        assertEquals(listOf(first, assistant, second, third), projected)
     }
 
     @Test
@@ -1636,5 +1691,22 @@ class CodexViewModelThreadReadyTest {
         questions = emptyList(),
         params = null,
         defaultResult = null
+    )
+
+    private fun commandOperationMessage(
+        id: String,
+        turnId: String,
+        status: String,
+        content: String
+    ): ChatMessage = ChatMessage(
+        id = id,
+        role = ChatMessage.Role.TOOL,
+        content = content,
+        collapsible = true,
+        collapsedLabel = "已运行命令",
+        operationType = "command",
+        operationStatus = status,
+        operationTurnId = turnId,
+        operationBatchSize = 1
     )
 }

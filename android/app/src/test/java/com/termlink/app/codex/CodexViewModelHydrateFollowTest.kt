@@ -27,6 +27,37 @@ class CodexViewModelHydrateFollowTest {
         assertTrue(message?.collapsible == true)
         assertTrue(message?.content?.contains("npm test") == true)
         assertTrue(message?.content?.contains("PASS") == true)
+        assertEquals("command", message?.operationType)
+        assertEquals("completed", message?.operationStatus)
+        assertEquals("turn-1", message?.operationTurnId)
+        assertEquals(1, message?.operationBatchSize)
+    }
+
+    @Test
+    fun canonicalFallbackCommandsUseTheSameCompletedBatchProjection() {
+        val commands = listOf(
+            canonicalOperationMessageForUi(
+                item = JSONObject(
+                    """{"type":"commandExecution","id":"cmd-1","command":"npm test","status":"completed","output":"PASS"}"""
+                ),
+                turnId = "turn-1",
+                itemIndex = 0
+            ),
+            canonicalOperationMessageForUi(
+                item = JSONObject(
+                    """{"type":"commandExecution","id":"cmd-2","command":"npm run lint","status":"completed","output":"OK"}"""
+                ),
+                turnId = "turn-1",
+                itemIndex = 1
+            )
+        ).filterNotNull()
+
+        val collapsed = collapseCompletedCommandBatchesForUi(commands)
+
+        assertEquals(1, collapsed.size)
+        assertEquals(2, collapsed.single().operationBatchSize)
+        assertTrue(collapsed.single().content.contains("npm test"))
+        assertTrue(collapsed.single().content.contains("npm run lint"))
     }
 
     @Test

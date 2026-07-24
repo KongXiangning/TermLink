@@ -885,9 +885,15 @@ internal fun mergeSurfaceItems(
     } else {
         null
     }
-    return surfaceItems.mapNotNull { entry ->
+    val projectedMessages = surfaceItems.mapNotNull { entry ->
         val key = entry.key.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-        val existingMessage = existingById[key] ?: if (entry.kind == "message" && entry.role == "user") {
+        val existingBatchId = entry.turnId
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { turnId -> "command-batch:$turnId:$key" }
+        val existingMessage = existingById[key]
+            ?: existingBatchId?.let(existingById::get)
+            ?: if (entry.kind == "message" && entry.role == "user") {
             existing.firstOrNull { candidate ->
                 candidate.role == ChatMessage.Role.USER &&
                     candidate.content.trim() == entry.text.orEmpty().trim()
@@ -920,7 +926,11 @@ internal fun mergeSurfaceItems(
                 entry.label ?: entry.text ?: "操作详情"
             } else {
                 ""
-            }
+            },
+            operationType = entry.operationType.takeIf { isOperation },
+            operationStatus = entry.operationStatus.takeIf { isOperation },
+            operationTurnId = entry.turnId.takeIf { isOperation },
+            operationBatchSize = if (isOperation) 1 else 0
         )
         if (role == ChatMessage.Role.USER && existingMessage != null) {
             mergeCanonicalUserMessageMetadataForUi(
@@ -931,6 +941,75 @@ internal fun mergeSurfaceItems(
             projected
         }
     }
+    return collapseCompletedCommandBatchesForUi(projectedMessages)
+}
+
+internal fun collapseCompletedCommandBatchesForUi(
+    messages: List<ChatMessage>
+): List<ChatMessage> {
+    if (messages.size < 2) return messages
+    val result = mutableListOf<ChatMessage>()
+    var index = 0
+    while (index < messages.size) {
+        val first = messages[index]
+        val turnId = first.operationTurnId?.trim().orEmpty()
+        if (first.operationType != "command" || turnId.isBlank()) {
+            result += first
+            index += 1
+            continue
+        }
+
+        var endExclusive = index + 1
+        while (endExclusive < messages.size) {
+            val candidate = messages[endExclusive]
+            if (
+                candidate.operationType != "command" ||
+                candidate.operationTurnId?.trim() != turnId
+            ) {
+                break
+            }
+            endExclusive += 1
+        }
+        val batch = messages.subList(index, endExclusive)
+        val shouldCollapse = batch.size >= 2 && batch.all { message ->
+            isTerminalCommandOperationStatus(message.operationStatus)
+        }
+        if (!shouldCollapse) {
+            result.addAll(batch)
+            index = endExclusive
+            continue
+        }
+
+        val content = batch
+            .map { it.content.trim() }
+            .filter { it.isNotBlank() }
+            .joinToString("\n\n")
+        result += first.copy(
+            id = "command-batch:$turnId:${first.id}",
+            content = content,
+            streaming = false,
+            operationStatus = "completed",
+            operationBatchSize = batch.size
+        )
+        index = endExclusive
+    }
+    return result
+}
+
+private fun isTerminalCommandOperationStatus(status: String?): Boolean {
+    return status?.trim()?.lowercase() in setOf(
+        "completed",
+        "complete",
+        "done",
+        "finished",
+        "succeeded",
+        "success",
+        "failed",
+        "error",
+        "cancelled",
+        "canceled",
+        "interrupted"
+    )
 }
 
 internal fun resolveSurfaceCurrentTurnId(
@@ -975,7 +1054,11 @@ internal fun canonicalOperationMessageForUi(
         role = ChatMessage.Role.TOOL,
         content = truncateCanonicalOperationDetail(detail),
         collapsible = true,
-        collapsedLabel = label
+        collapsedLabel = label,
+        operationType = operationType,
+        operationStatus = status,
+        operationTurnId = turnId,
+        operationBatchSize = 1
     )
 }
 
@@ -1357,6 +1440,14 @@ internal fun messageConvergenceKeyForUi(message: ChatMessage): String = buildStr
     append(message.collapsible)
     append('|')
     append(message.collapsedLabel.trim())
+    append('|')
+    append(message.operationType.orEmpty())
+    append('|')
+    append(message.operationStatus.orEmpty())
+    append('|')
+    append(message.operationTurnId.orEmpty())
+    append('|')
+    append(message.operationBatchSize)
     append('|')
     append(message.activeSkill.orEmpty())
     append('|')
@@ -5258,7 +5349,7 @@ class CodexViewModel(
                 maybeRequestModelList()
             }
         }
-        return result
+        return collapseCompletedCommandBatchesForUi(result)
     }
 
     private fun extractUserMessageText(item: JSONObject): String {

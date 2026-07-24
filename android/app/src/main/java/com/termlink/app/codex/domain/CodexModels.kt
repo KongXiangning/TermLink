@@ -36,7 +36,11 @@ data class ChatMessage(
     val timestamp: Long = System.currentTimeMillis(),
     val streaming: Boolean = false,
     val collapsible: Boolean = false,
-    val collapsedLabel: String = ""
+    val collapsedLabel: String = "",
+    val operationType: String? = null,
+    val operationStatus: String? = null,
+    val operationTurnId: String? = null,
+    val operationBatchSize: Int = 0
 ) {
     enum class Role { USER, ASSISTANT, SYSTEM, TOOL, ERROR }
 }

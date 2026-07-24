@@ -2148,6 +2148,13 @@ private fun MessageAvatar(role: ChatMessage.Role) {
 private fun CollapsibleExecutionItem(message: ChatMessage) {
     var expanded by remember { mutableStateOf(false) }
     val executionRoleLabel = roleLabel(message)
+    val collapsedLabel = if (message.operationType == "command" && message.operationBatchSize > 1) {
+        stringResource(R.string.codex_native_exec_ran_multiple_commands)
+    } else {
+        message.collapsedLabel.ifBlank {
+            message.toolName.orEmpty().ifBlank { executionRoleLabel }
+        }
+    }
     val timeLabel = remember(message.timestamp) {
         SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(message.timestamp))
     }
@@ -2194,9 +2201,7 @@ private fun CollapsibleExecutionItem(message: ChatMessage) {
                         modifier = Modifier.padding(end = 7.dp)
                     )
                     Text(
-                        text = message.collapsedLabel.ifBlank {
-                            message.toolName.orEmpty().ifBlank { executionRoleLabel }
-                        },
+                        text = collapsedLabel,
                         color = TextPrimary,
                         fontSize = 13.sp,
                         lineHeight = 18.sp,
@@ -2204,7 +2209,7 @@ private fun CollapsibleExecutionItem(message: ChatMessage) {
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                if (!expanded && message.content.isNotBlank()) {
+                if (!expanded && message.operationBatchSize <= 1 && message.content.isNotBlank()) {
                     Text(
                         text = message.content.lines().first(),
                         color = TextSecondary,

@@ -32,6 +32,7 @@
 14. owner IPC surface 缺失但 canonical `thread/read` 正在同步进行中的 turn 时，会话页必须显示“运行中”并提供中断入口；最新 turn 进入终态后恢复为空闲。匹配的 owner surface 存在时继续以 owner `threadRuntimeStatus` 为权威。
 15. Android 通知权限已开启时，活跃 Codex 任务退到后台必须由前台服务维持进程；设备进入 Doze 前若 App 尚未获得电池优化豁免，应在可见 Activity 中提供一次系统授权入口。授权后深度待机不得暂停任务 WebSocket；未授权时必须保留可恢复行为和明确诊断，不得假装仅有通知即可绕过 Doze。
 16. Android 在取得额度遥测后发布独立的低优先级 ongoing 状态通知，显示本地化后的当前剩余额度与重置时间；额度变化时原位更新，点击返回当前 Codex 会话。该通知不新增轮询、不延长 foreground service 生命周期，通知权限缺失或额度不可用时不发布过期占位。
+17. Android Codex 同一 turn 内连续的一批 command operation 在全部进入终态后合并为一条默认收起的“运行了多个命令”摘要；展开后仍可查看每条命令详情。批次仍有命令运行时不得提前合并，单条命令、跨 turn 命令及被非命令消息分隔的命令保持原有独立展示。
 
 ## 设计约束
 
@@ -164,6 +165,17 @@
 - Change Propagation Check：影响集合仅为 `CodexUiState.usagePanel.rateLimitSummary → CodexActivity → NotificationManager`；不触碰公共 DTO、共享协议或持久层。
 - Unlock / widening condition：如需开机自启动、后台主动拉取额度、长期 foreground service、通知设置页或服务端字段，必须重新执行 `/lock-scope` 并单独确认资源与产品行为。
 
+### Android 多命令批次折叠范围锁定（2026-07-24）
+
+- Goal：把同一 turn 内连续且全部结束的多条 command operation 收敛为截图所示的单条“运行了多个命令”折叠摘要，同时保留展开详情。
+- Safety mode：`frozen-scope`。只允许修改既有 Allowed Files 中的 `CodexViewModel.kt`、`CodexScreen.kt`、中英文 strings、`CodexViewModelThreadReadyTest.kt`、`CodexViewModelHydrateFollowTest.kt`、`CURRENT_TASK.md`，以及条件放行 `CodexModels.kt` 的 operation 展示元数据；不修改服务端、wire DTO、IPC follower、canonical 协议或发送链路。
+- Dangerous surfaces：无。不存在权限、认证、生产、部署、数据库、迁移、删除、force push、history rewrite、CI/CD、监控或性能基线变更。
+- Conditional evidence：当前 `ChatMessage` 只有 `collapsible/collapsedLabel`，缺少 operation type/status/turn/batch size，无法可靠区分“同 turn 已终态命令批次”和运行中/跨 turn/非命令项；因此放行 `CodexModels.kt` 仅新增带默认值的 UI 展示元数据。
+- Compatibility：新增 `ChatMessage` 字段均有默认值；普通消息、单条 operation、文件/MCP operation、旧 canonical fallback 与现有调用点保持兼容。IPC `SurfaceEntry` 和服务端 normalized surface 不变。
+- Risk：运行中批次被提前折叠、跨 turn 串组、失败命令丢失、批次增长导致 key 抖动、展开详情顺序变化。通过“连续 command run + 同一非空 turnId + 全部 terminal + 至少两条”门禁、首条稳定 group ID 和顺序拼接详情控制。
+- Change Propagation Check：影响集合仅为 `SurfaceEntry/canonical item → ChatMessage operation metadata → batch projection → CollapsibleExecutionItem`；不触碰锁定公共 DTO、IPC transport 或 session 状态。
+- Unlock / widening condition：如需服务端直接生成批次、改变 normalized surface schema、跨 commentary 聚合、持久化展开状态或重做卡片视觉，必须重新执行 `/lock-scope` 并确认产品边界。
+
 ## 待确认问题
 
 - 无阻塞问题。
@@ -256,6 +268,26 @@ Implementation Plan（Android 常驻额度通知，2026-07-24）：
 - Open decisions：无；文案/语义直接沿用现有额度面板，属于用户已确认方向内的 mechanical 实现。
 - External Documentation Gate：已触发。Context7 官方 Android Developers `/websites/developer_android` 确认 Notification 是由 `NotificationManager` 展示的持久通知对象，foreground service 的 `startForeground` 是“服务正在执行持续后台任务”时附带 ongoing notification 的专用契约；本功能只展示已有状态，因此使用独立 NotificationManager ongoing notification，不为额度额外启动 foreground service。
 - Handoff：decompose-task → implement-current-step。
+
+Implementation Plan（Android 多命令批次折叠，2026-07-24）：
+
+- Goal：同一 turn 的连续 command operation 全部结束后，以单条“运行了多个命令”默认折叠展示，展开保留完整命令详情。
+- Architecture impact：只扩展 Android UI model 和 ViewModel 投影；IPC surface/canonical item 在映射为 `ChatMessage` 时补 operation type/status/turnId，统一批次 helper 同时服务 healthy IPC 与 canonical fallback，Compose 只根据 batch size 隐藏收起态的首行预览。
+- Technical approach：先把连续、同 turn 的 command run 收集为候选；候选至少两条且 status 全部为 completed/success/failed/cancelled/interrupted 等终态时，生成以首条 ID 为锚点的稳定 group message，详情按原序拼接，label 使用本地化“运行了多个命令”。存在 running/unknown、turnId 为空、跨 turn 或中间夹有非 command 时原样输出。
+- Alternatives considered：不按中文 label 或 message ID 字符串猜 operation 类型，因为会受本地化和 key 格式影响；不在服务端聚合，因为这是 Android 展示行为且会扩大稳定 surface 契约；不只在 Compose 临时分组，因为 canonical/IPC 数据源和稳定 key/status 边界应在 ViewModel 层统一。
+- Data / state flow：surface/canonical operation → `ChatMessage.operation*` → `collapseCompletedCommandBatchesForUi` → grouped `ChatMessage` → `CollapsibleExecutionItem`。
+- Compatibility：新增字段默认空/0；单条与非 command 卡片保持旧行为；批次展开内容仍是原详情，不丢 command/output/exit status；消息顺序不变。
+- Risks and rollback：风险集中在 terminal status 集合与分组边界；以纯函数矩阵测试覆盖完成/运行中/跨 turn/分隔项/失败终态/稳定 ID。回滚只需移除 metadata、helper 和批次预览条件。
+- Validation strategy：JDK 21 目标/全量 JVM + assemble、`git diff --check HEAD`；真机在当前会话确认连续已完成命令显示“运行了多个命令”、默认无首命令预览、点击可展开全部详情，运行中命令仍独立可见。
+- Open decisions：无；文案和收起形态由用户截图明确确认。
+- External Documentation Gate：未触发；只修改项目内 Kotlin 状态投影和 Compose 既有折叠组件，不新增或改变第三方 library/framework/API 当前用法。
+- Handoff：decompose-task → implement-current-step。
+
+追加步骤（Android 多命令批次折叠）：
+
+1. `completed`：补 operation UI metadata 与统一批次折叠 helper，接入 IPC/canonical 两条投影。
+2. `completed`：更新折叠 UI 和中英文“运行了多个命令”文案，补边界 JVM 测试。
+3. `completed`：运行 JDK 21 自动化、diff review，并安装真机验证默认折叠与展开详情。
 
 追加步骤（Android 常驻额度通知）：
 
@@ -374,6 +406,7 @@ Implementation Plan（Android 常驻额度通知，2026-07-24）：
 - [in_progress] 17. dev server 已恢复非空 owner surface，并完成 Desktop owner 超过 90 秒的 healthy IPC 增量、operation、零 canonical 轮询及短时服务重连后订阅重放 smoke；仍需补 VS Code owner 单独超过 90 秒，以及 IPC 离线超过 5 秒 → canonical fallback → 重连收到目标 surface 后立即停读的最终交叉宿主 smoke。
 - [completed] 18. 修复通知权限开启但 deep Doze 暂停 WebSocket 的后台保活缺陷，增加标准电池优化豁免提示并消除 foreground service 重复 start。
 - [completed] 19. JDK 21 自动化、最终 APK 安装、未授权/已授权强制 Doze 对照及统一 diff/契约审查均通过。
+- [completed] 20. 将同 turn 连续且全部终态的 command operation 合并为“运行了多个命令”折叠摘要，完成 JVM、assemble、diff/契约审查与真机折叠/展开 smoke。
 
 ## 回归检查项
 
@@ -411,6 +444,8 @@ Implementation Plan（Android 常驻额度通知，2026-07-24）：
 - Doze 保活真机实现：最终 Debug APK 已安装到 Huawei `MQS7N19402011743`；用户允许系统“关闭电池优化”后，device-idle whitelist 出现 `user,com.termlink.app,10281`。真机在 `mState=IDLE/charging=false` 中仍连续收到新 IPC surface，并于 03:07:29 将 items 199 增至 200；PID 未变、foreground notification 9201 保持、service `lastStartId=1`。验证结束后已执行 `deviceidle unforce`、`battery reset` 并唤醒屏幕。
 - 常驻额度通知自动化：JDK 21 `CodexActivityLaunchParamsTest` 13/13（0 failure），全量 `:app:testDebugUnitTest :app:assembleDebug` BUILD SUCCESSFUL，`git diff --check 85e7dc6` 通过；测试覆盖 used→remaining 百分比转换、重置/重试、remaining/limit、额外范围和空摘要。
 - 常驻额度通知真机：Huawei `MQS7N19402011743` 已安装最终 Debug APK。`dumpsys notification --noredact` 记录 notification 9202、channel `codex_quota_status`、flags `0xa`（ongoing + only-alert-once）、category `status`、`mFgServiceShown=false`，正文为“一周 69% 剩余 · 重置 07/29 16:38”；notification 9201 同时保持独立。通知栏点击 9202 后回到当前 `CodexActivity`，9202 未被自动取消。
+- 多命令批次折叠自动化：JDK 21 目标测试 `CodexViewModelThreadReadyTest` 68/68、`CodexViewModelHydrateFollowTest` 28/28；全量 `:app:testDebugUnitTest :app:assembleDebug` BUILD SUCCESSFUL，`git diff --check HEAD` 通过。覆盖同 turn 已完成/失败终态、running 不提前合并、跨 turn、非命令分隔、稳定批次 ID 与 canonical fallback。
+- 多命令批次折叠真机：Huawei `MQS7N19402011743` 安装最终 Debug APK 后，UIAutomator 折叠态读取到“运行了多个命令”，且不显示该批次首命令预览；点击卡片后可见命令详情节点由 2 增至 4，确认批次详情仍可展开。证据：`output/termlink-command-batch-after-run.xml`、`output/termlink-command-batch-expanded.xml`。
 
 ## 回滚点
 
@@ -447,6 +482,7 @@ Implementation Plan（Android 常驻额度通知，2026-07-24）：
 - 2026-07-22 final runtime reopen：首次打开正在进行但无 owner surface 的任务时，若 latest agent phase 为 analysis/commentary/tool，则启动 30 秒有界观察窗；内容继续变化时续期，final/明确终态在窗口结束后回落 idle。另修复后到的 stale `codex_state idle` 覆盖 canonical running/currentTurnId；最终包日志为 `status=idle appliedStatus=running`，UI 端到端显示“Codex · 流式输出中”和“中断”。
 - 2026-07-24 Doze keepalive：通知与 foreground service 只能保进程，不能绕过 deep Doze 的网络暂停；真机强制 idle 已复现“service 在、surface 停”的根因。Manifest 新增标准电池优化豁免声明，CodexActivity 只在可见活跃任务中发起系统确认并提供 settings fallback；相同 status/session/thread 不再重复 start，失败写日志且不误停另一入口 owner。用户授权后，真机在 deep idle 中继续收到 items 199→200 的 IPC patch；最终 APK、JDK 21 JVM/assemble、未授权/授权对照及 diff/契约审查均通过。
 - 2026-07-24 quota notification：`CodexActivity` 复用现有 rate-limit state 发布独立 ongoing notification 9202；显示文本与会话页一致地把 used percent 转换为 remaining percent，额度事件到达时按内容/会话签名原位更新，空值取消且不新增轮询或 foreground service。Context7 Android Developers 证据、JDK 21 自动化和 Huawei 真机通知/点击 smoke 均通过。
+- 2026-07-24 command batch collapse：Android ViewModel 以连续 command、同一非空 turnId、至少两条且全部 terminal 为门禁，统一收敛 IPC 与 canonical 投影；批次 ID 锚定首条 operation，Compose 收起态只显示本地化“运行了多个命令”，展开保留顺序拼接的全部详情。`HEAD..working-tree` 范围、实现和契约审查 clean；不改变 wire DTO、IPC authority、服务端或发送链路，External Documentation Gate 未触发。JDK 21 自动化与 Huawei 真机折叠/展开 smoke 通过。
 
 ## Bug 调查报告
 

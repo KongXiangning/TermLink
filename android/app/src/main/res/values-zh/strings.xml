@@ -267,6 +267,7 @@
     <string name="codex_native_plan_workflow_cancel">取消</string>
     <string name="codex_native_plan_execution_log">执行确认计划</string>
     <string name="codex_native_exec_ran_command">已运行命令</string>
+    <string name="codex_native_exec_ran_multiple_commands">运行了多个命令</string>
     <string name="codex_native_exec_edited_file">已编辑文件</string>
     <string name="codex_native_exec_created_file">已创建文件</string>
     <string name="codex_native_exec_deleted_file">已删除文件</string>
