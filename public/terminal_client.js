@@ -1066,6 +1066,24 @@ function applySessionModeLayout() {
     }
 }
 
+function applyUiTheme(config) {
+    const dark = !config || config.uiTheme !== 'light';
+    const root = document.documentElement;
+    if (root) {
+        root.classList.toggle('theme-dark', dark);
+        root.classList.toggle('theme-light', !dark);
+    }
+    if (document.body) {
+        document.body.classList.toggle('theme-dark', dark);
+        document.body.classList.toggle('theme-light', !dark);
+    }
+    if (term && term.options) {
+        term.options.theme = dark
+            ? { background: '#0C151F', foreground: '#E7EDF6', cursor: '#4EDEA3', selectionBackground: '#344354' }
+            : { background: '#F5F7FA', foreground: '#17212B', cursor: '#2F6FEB', selectionBackground: '#D3DDE8' };
+    }
+}
+
 function getNativeBridge() {
     return window.TerminalEventBridge;
 }
@@ -7112,6 +7130,7 @@ function applyRuntimeConfig(config, forceReconnect) {
     if (!config || typeof config !== 'object') return;
     hasReceivedRuntimeConfig = true;
     runtimeConfig = config;
+    applyUiTheme(config);
     applySessionModeLayout();
 
     const previousServerUrl = serverUrl;

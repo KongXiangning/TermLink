@@ -12,6 +12,17 @@
         <item name="android:windowMinWidthMinor">92%</item>
     </style>
 
+    <style name="Theme.TermLink.PreferenceBottomSheet" parent="Theme.MaterialComponents.DayNight.BottomSheetDialog">
+        <item name="android:windowBackground">@color/sessions_surface</item>
+        <item name="android:colorBackground">@color/sessions_surface</item>
+        <item name="colorSurface">@color/sessions_surface</item>
+        <item name="colorOnSurface">@color/sessions_text_primary</item>
+        <item name="colorPrimary">@color/sessions_primary</item>
+        <item name="android:textColorPrimary">@color/sessions_text_primary</item>
+        <item name="android:textColorSecondary">@color/sessions_text_secondary</item>
+        <item name="android:backgroundDimAmount">0.32</item>
+    </style>
+
     <style name="Widget.TermLink.SettingsInputLayout" parent="Widget.TermLink.SessionInputLayout" />
 
     <style name="Widget.TermLink.SettingsButton.Primary" parent="Widget.MaterialComponents.Button">

@@ -154,25 +154,25 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-private val BgColor = Color(0xFF0C151F)
-private val SurfaceColor = Color(0xFF172230)
-private val SurfaceRaised = Color(0xFF182633)
-private val SurfaceBorder = Color(0xFF344354)
-private val AccentBlue = Color(0xFF4E8EFF)
-private val ContextBlue = Color(0xFF7FC7FF)
-private val TextPrimary = Color(0xFFE7EDF6)
-private val TextSecondary = Color(0xFFB9C5D4)
-private val TextMuted = Color(0xFF7D8A9B)
-private val SuccessColor = Color(0xFF4EDEA3)
-private val RunningColor = Color(0xFF3FB950)
-private val WarningColor = Color(0xFFE4B66A)
-private val SystemColor = Color(0xFFE4B66A)
-private val ErrorColor = Color(0xFFFF7B72)
-private val UserBg = Color(0xFF172332)
-private val AssistantBg = Color(0xFF16212E)
-private val SystemBg = Color(0x1A5E4A20)
-private val ToolBg = Color(0xFF141F2A)
-private val ErrorBg = Color(0x1A6E1F1A)
+private val BgColor: Color get() = CodexPaletteHolder.current.background
+private val SurfaceColor: Color get() = CodexPaletteHolder.current.surface
+private val SurfaceRaised: Color get() = CodexPaletteHolder.current.surfaceRaised
+private val SurfaceBorder: Color get() = CodexPaletteHolder.current.border
+private val AccentBlue: Color get() = if (CodexPaletteHolder.current === CodexLightPalette) Color(0xFF2F6FEB) else Color(0xFF4E8EFF)
+private val ContextBlue: Color get() = CodexPaletteHolder.current.context
+private val TextPrimary: Color get() = CodexPaletteHolder.current.textPrimary
+private val TextSecondary: Color get() = CodexPaletteHolder.current.textSecondary
+private val TextMuted: Color get() = CodexPaletteHolder.current.textMuted
+private val SuccessColor: Color get() = CodexPaletteHolder.current.success
+private val RunningColor: Color get() = CodexPaletteHolder.current.running
+private val WarningColor: Color get() = CodexPaletteHolder.current.warning
+private val SystemColor: Color get() = CodexPaletteHolder.current.warning
+private val ErrorColor: Color get() = CodexPaletteHolder.current.error
+private val UserBg: Color get() = CodexPaletteHolder.current.userBackground
+private val AssistantBg: Color get() = CodexPaletteHolder.current.assistantBackground
+private val SystemBg: Color get() = CodexPaletteHolder.current.systemBackground
+private val ToolBg: Color get() = CodexPaletteHolder.current.toolBackground
+private val ErrorBg: Color get() = CodexPaletteHolder.current.errorBackground
 private const val RuntimeStallThresholdMillis = 90_000L
 private const val RuntimeStallRefreshMillis = 5_000L
 private const val StreamingAutoScrollThrottleMillis = 120L
@@ -415,9 +415,9 @@ fun CodexScreen(
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF0A141E),
-                        Color(0xFF101B27),
-                        Color(0xFF0A141D)
+                        BgColor,
+                        SurfaceColor,
+                        BgColor
                     )
                 )
             )

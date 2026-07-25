@@ -19,6 +19,21 @@
     --codex-error: #FF7B72;
 }
 
+:root.theme-light {
+    --codex-bg: #F5F7FA;
+    --codex-surface: #FFFFFF;
+    --codex-surface-raised: #EEF2F7;
+    --codex-text: #17212B;
+    --codex-text-secondary: #526273;
+    --codex-text-muted: #6B7785;
+    --codex-border: #D3DDE8;
+    --codex-accent: #168A67;
+    --codex-primary: #2F6FEB;
+    --codex-context: #2A73A8;
+    --codex-warning: #A66A00;
+    --codex-error: #C73535;
+}
+
 * {
     -webkit-tap-highlight-color: transparent;
     -webkit-focus-ring-color: transparent;
@@ -3326,4 +3341,60 @@ body.viewport-compact #codex-quick-controls {
     body.viewport-compact #codex-footer-left {
         gap: 8px;
     }
+}
+
+/* Native Android can switch the embedded terminal/Codex surface at runtime. */
+html.theme-light,
+body.theme-light,
+body.theme-light #terminal-shell,
+body.theme-light #terminal-main,
+body.theme-light #terminal-container {
+    background-color: var(--codex-bg) !important;
+    color: var(--codex-text) !important;
+}
+
+body.theme-light #toolbar,
+body.theme-light #input-overlay,
+body.theme-light #codex-panel,
+body.theme-light #codex-top-bar,
+body.theme-light #codex-log,
+body.theme-light #codex-composer,
+body.theme-light #codex-composer-surface,
+body.theme-light #codex-history-panel,
+body.theme-light #codex-runtime-panel,
+body.theme-light #codex-plan-workflow,
+body.theme-light #codex-sheet-panel,
+body.theme-light #codex-command-approval-modal,
+body.theme-light #codex-attachment-preview-modal,
+body.theme-light #codex-context-debug-modal,
+body.theme-light #codex-image-prompt {
+    background-color: var(--codex-surface) !important;
+    color: var(--codex-text) !important;
+    border-color: var(--codex-border) !important;
+}
+
+body.theme-light #status-overlay {
+    background: rgba(255, 255, 255, 0.94) !important;
+    color: var(--codex-text) !important;
+    border: 1px solid var(--codex-border);
+}
+
+body.theme-light #terminal-container .xterm-viewport,
+body.theme-light #terminal-container .xterm-screen,
+body.theme-light #terminal-container .xterm-rows {
+    background-color: var(--codex-bg) !important;
+}
+
+body.theme-light input,
+body.theme-light textarea,
+body.theme-light select,
+body.theme-light button {
+    color: var(--codex-text) !important;
+    border-color: var(--codex-border);
+}
+
+body.theme-light .codex-header-icon-btn:hover,
+body.theme-light .codex-footer-capsule:hover,
+body.theme-light .codex-sheet-option:hover {
+    background-color: var(--codex-surface-raised) !important;
 }

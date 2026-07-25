@@ -540,6 +540,13 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         super.onStop()
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && isActivityVisible) {
+            updateStatusBarVisibility()
+        }
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)

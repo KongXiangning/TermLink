@@ -68,6 +68,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import com.termlink.app.util.LocaleHelper
 import com.termlink.app.util.ProfileRestoreStateCleaner
+import com.termlink.app.util.UiPreferences
 import com.termlink.app.util.setStatusBarHidden
 import com.termlink.app.util.statusBarSafeTopInset
 
@@ -863,7 +864,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             lastSessionId,
             currentSessionMode().wireValue,
             currentSessionCwd().orEmpty(),
-            "true"
+            UiPreferences.theme(applicationContext),
+            isAppDarkTheme().toString()
         ).joinToString("|")
     }
 
@@ -890,6 +892,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         json.put("sessionId", lastSessionId)
         json.put("activeProfile", activeProfileJson)
         json.put("historyEnabled", true)
+        json.put("uiTheme", if (isAppDarkTheme()) "dark" else "light")
 
         // Inject auth header so WebView JS can authenticate fetch() calls
         if (profile != null && profile.authType == com.termlink.app.data.AuthType.BASIC) {
@@ -905,6 +908,15 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         }
 
         return json.toString()
+    }
+
+    private fun isAppDarkTheme(): Boolean {
+        return when (UiPreferences.theme(applicationContext)) {
+            UiPreferences.THEME_DARK -> true
+            UiPreferences.THEME_LIGHT -> false
+            else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                Configuration.UI_MODE_NIGHT_YES
+        }
     }
 
     private fun resolveInjectedServerUrl(profile: ServerProfile?): String {

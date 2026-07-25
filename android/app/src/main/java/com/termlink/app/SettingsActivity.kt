@@ -99,6 +99,13 @@ class SettingsActivity : AppCompatActivity(), SettingsFragment.Callbacks {
         super.onStop()
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && statusBarsHidden) {
+            rootView?.let { setStatusBarHidden(hidden = true, anchor = it) }
+        }
+    }
+
     override fun getServerConfigState(): ServerConfigState {
         return serverConfigStore.loadState()
     }

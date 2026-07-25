@@ -2,6 +2,7 @@ package com.termlink.app.ui.settings
 
 import android.app.Activity
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
@@ -14,6 +15,8 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.PopupWindow
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
@@ -27,9 +30,12 @@ import com.termlink.app.data.AuthType
 import com.termlink.app.data.ServerConfigState
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.TerminalType
+import com.termlink.app.util.UiPreferences
+import com.termlink.app.util.setStatusBarHidden
 import java.io.File
 import java.util.Locale
 import java.util.UUID
+import kotlin.math.roundToInt
 
 class SettingsFragment : Fragment(R.layout.fragment_settings) {
 
@@ -71,6 +77,8 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
     private lateinit var profilesContainer: LinearLayout
     private lateinit var mtlsStatusText: TextView
     private lateinit var insecureTransportWarningText: TextView
+    private lateinit var themeValueText: TextView
+    private lateinit var languageValueText: TextView
     private var activeMtlsDialogState: MtlsDialogState? = null
 
     private val mtlsCertificatePickerLauncher =
@@ -106,6 +114,15 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         profilesContainer = view.findViewById(R.id.profiles_container)
         mtlsStatusText = view.findViewById(R.id.settings_mtls_status)
         insecureTransportWarningText = view.findViewById(R.id.settings_insecure_transport_warning)
+        themeValueText = view.findViewById(R.id.settings_theme_value)
+        languageValueText = view.findViewById(R.id.settings_language_value)
+        view.findViewById<View>(R.id.settings_theme_row).setOnClickListener { anchor ->
+            showThemePreferencePopup(anchor)
+        }
+        view.findViewById<View>(R.id.settings_language_row).setOnClickListener { anchor ->
+            showLanguagePreferencePopup(anchor)
+        }
+        renderUiPreferenceValues()
         view.findViewById<Button>(R.id.btn_add_profile).setOnClickListener {
             showProfileDialog(null)
         }
@@ -113,6 +130,124 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         renderMtlsBuildStatus()
         refreshState()
     }
+
+    override fun onResume() {
+        super.onResume()
+        if (::themeValueText.isInitialized) {
+            renderUiPreferenceValues()
+        }
+    }
+
+    private fun renderUiPreferenceValues() {
+        val context = requireContext()
+        themeValueText.text = when (UiPreferences.theme(context)) {
+            UiPreferences.THEME_LIGHT -> getString(R.string.settings_theme_light)
+            UiPreferences.THEME_DARK -> getString(R.string.settings_theme_dark)
+            else -> getString(R.string.settings_theme_system)
+        }
+        languageValueText.text = when (UiPreferences.language(context)) {
+            UiPreferences.LANGUAGE_ZH -> getString(R.string.settings_language_zh)
+            UiPreferences.LANGUAGE_EN -> getString(R.string.settings_language_en)
+            else -> getString(R.string.settings_language_system)
+        }
+    }
+
+    private fun showThemePreferencePopup(anchor: View) {
+        showPreferencePopup(
+            anchor = anchor,
+            selectedValue = UiPreferences.theme(requireContext()),
+            options = listOf(
+                UiPreferences.THEME_SYSTEM to R.string.settings_theme_system,
+                UiPreferences.THEME_LIGHT to R.string.settings_theme_light,
+                UiPreferences.THEME_DARK to R.string.settings_theme_dark
+            )
+        ) { value ->
+            UiPreferences.setTheme(requireContext(), value)
+            UiPreferences.apply(requireContext())
+            requireActivity().recreate()
+        }
+    }
+
+    private fun showLanguagePreferencePopup(anchor: View) {
+        showPreferencePopup(
+            anchor = anchor,
+            selectedValue = UiPreferences.language(requireContext()),
+            options = listOf(
+                UiPreferences.LANGUAGE_SYSTEM to R.string.settings_language_system,
+                UiPreferences.LANGUAGE_ZH to R.string.settings_language_zh,
+                UiPreferences.LANGUAGE_EN to R.string.settings_language_en
+            )
+        ) { value ->
+            UiPreferences.setLanguage(requireContext(), value)
+            UiPreferences.apply(requireContext())
+            requireActivity().recreate()
+        }
+    }
+
+    private fun showPreferencePopup(
+        anchor: View,
+        selectedValue: String,
+        options: List<Pair<String, Int>>,
+        onSelected: (String) -> Unit
+    ) {
+        val content = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8.dpToPx(), 8.dpToPx(), 8.dpToPx(), 8.dpToPx())
+            background = ContextCompat.getDrawable(
+                requireContext(),
+                R.drawable.bg_settings_preference_popup
+            )
+        }
+        val popup = PopupWindow(
+            content,
+            anchor.width.coerceAtLeast(240.dpToPx()),
+            (options.size * 52 + 16).dpToPx(),
+            false
+        ).apply {
+            setBackgroundDrawable(ContextCompat.getDrawable(requireContext(), R.drawable.bg_settings_preference_popup))
+            isOutsideTouchable = true
+            isTouchable = true
+            elevation = 12.dpToPx().toFloat()
+            setOnDismissListener {
+                requireActivity().window.decorView.post {
+                    if (!isDetached) {
+                        requireActivity().window.decorView.let { root ->
+                            requireActivity().setStatusBarHidden(hidden = true, anchor = root)
+                        }
+                    }
+                }
+            }
+        }
+        options.forEach { (value, labelRes) ->
+            RadioButton(requireContext()).apply {
+                text = getString(labelRes)
+                isChecked = value == selectedValue
+                minHeight = 52.dpToPx()
+                setTextColor(ContextCompat.getColor(context, R.color.sessions_text_primary))
+                buttonTintList = ColorStateList.valueOf(
+                    ContextCompat.getColor(context, R.color.sessions_primary)
+                )
+                setOnClickListener {
+                    popup.dismiss()
+                    onSelected(value)
+                }
+                content.addView(this, LinearLayout.LayoutParams(-1, 52.dpToPx()).apply {
+                    setMargins(0, 0, 0, 2.dpToPx())
+                })
+            }
+        }
+        popup.showAsDropDown(anchor, 0, 4.dpToPx())
+        anchor.post {
+            if (!isDetached) {
+                requireActivity().window.decorView.let { root ->
+                    requireActivity().setStatusBarHidden(hidden = true, anchor = root)
+                }
+            }
+        }
+    }
+
+    private fun Int.dpToPx(): Int =
+        (this * resources.displayMetrics.density).roundToInt()
 
     private fun refreshState() {
         val state = callbacks?.getServerConfigState() ?: return
