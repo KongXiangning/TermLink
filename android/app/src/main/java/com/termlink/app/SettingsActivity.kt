@@ -42,10 +42,11 @@ class SettingsActivity : AppCompatActivity(), SettingsFragment.Callbacks {
     private var fragmentContainerBasePaddingTop: Int = 0
     private var fragmentContainerBasePaddingRight: Int = 0
     private var fragmentContainerBasePaddingBottom: Int = 0
+    private var statusBarsHidden: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, true)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         setContentView(R.layout.activity_settings)
 
@@ -85,6 +86,7 @@ class SettingsActivity : AppCompatActivity(), SettingsFragment.Callbacks {
 
     override fun onStart() {
         super.onStart()
+        statusBarsHidden = true
         setStatusBarHidden(hidden = true, anchor = rootView)
         rootView?.post {
             rootView?.let(ViewCompat::requestApplyInsets)
@@ -92,6 +94,7 @@ class SettingsActivity : AppCompatActivity(), SettingsFragment.Callbacks {
     }
 
     override fun onStop() {
+        statusBarsHidden = false
         setStatusBarHidden(hidden = false, anchor = rootView)
         super.onStop()
     }
@@ -159,7 +162,11 @@ class SettingsActivity : AppCompatActivity(), SettingsFragment.Callbacks {
         val root = rootView ?: return
         ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val safeTopInset = insets.statusBarSafeTopInset()
+            val safeTopInset = if (statusBarsHidden) {
+                0
+            } else {
+                insets.statusBarSafeTopInset()
+            }
             topBarView?.setPadding(
                 topBarBasePaddingLeft,
                 topBarBasePaddingTop + safeTopInset,

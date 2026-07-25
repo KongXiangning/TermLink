@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <style name="Theme.TermLink.SettingsDialog" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
+        <item name="android:windowBackground">@color/sessions_surface</item>
+        <item name="android:colorBackground">@color/sessions_surface</item>
+        <item name="colorSurface">@color/sessions_surface</item>
+        <item name="colorOnSurface">@color/sessions_text_primary</item>
+        <item name="colorPrimary">@color/sessions_primary</item>
+        <item name="android:textColorPrimary">@color/sessions_text_primary</item>
+        <item name="android:textColorSecondary">@color/sessions_text_secondary</item>
+        <item name="android:windowMinWidthMajor">92%</item>
+        <item name="android:windowMinWidthMinor">92%</item>
+    </style>
+
+    <style name="Widget.TermLink.SettingsInputLayout" parent="Widget.TermLink.SessionInputLayout" />
+
     <style name="Widget.TermLink.SettingsButton.Primary" parent="Widget.MaterialComponents.Button">
         <item name="android:layout_height">40dp</item>
         <item name="android:minHeight">40dp</item>

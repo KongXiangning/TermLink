@@ -22,6 +22,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.termlink.app.R
+import com.google.android.material.textfield.TextInputLayout
 import com.termlink.app.data.AuthType
 import com.termlink.app.data.ServerConfigState
 import com.termlink.app.data.ServerProfile
@@ -51,10 +52,12 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         val profileId: String,
         val existingProfile: ServerProfile?,
         val mtlsCheck: CheckBox,
+        val materialContainer: LinearLayout,
         val statusText: TextView,
         val chooseButton: Button,
         val removeButton: Button,
         val passwordInput: EditText,
+        val passwordLayout: TextInputLayout,
         val existingCertificatePresent: Boolean,
         val existingPasswordPresent: Boolean,
         var stagedCertificateFile: File? = null,
@@ -145,6 +148,13 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
                 false
             )
             val isDefault = profile.id == state.activeProfileId
+            itemView.setBackgroundResource(
+                if (isDefault) {
+                    R.drawable.bg_settings_surface_card_active
+                } else {
+                    R.drawable.bg_settings_surface_card
+                }
+            )
             itemView.findViewById<TextView>(R.id.profile_name).text =
                 if (isDefault) {
                     getString(R.string.settings_profile_name_active, profile.name)
@@ -231,7 +241,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
     }
 
     private fun showDeleteConfirmation(profile: ServerProfile) {
-        val dialog = AlertDialog.Builder(requireContext())
+        val dialog = AlertDialog.Builder(requireContext(), R.style.Theme_TermLink_SettingsDialog)
             .setTitle(getString(R.string.settings_delete_profile))
             .setMessage(getString(R.string.settings_delete_profile_confirm, profile.name))
             .setNegativeButton(android.R.string.cancel, null)
@@ -256,10 +266,12 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         val inputBaseUrl = dialogView.findViewById<EditText>(R.id.input_profile_base_url)
         val inputAllowedHosts = dialogView.findViewById<EditText>(R.id.input_profile_allowed_hosts)
         val mtlsCheck = dialogView.findViewById<CheckBox>(R.id.checkbox_profile_mtls)
+        val mtlsMaterialContainer = dialogView.findViewById<LinearLayout>(R.id.mtls_material_container)
         val mtlsStatusText = dialogView.findViewById<TextView>(R.id.text_profile_mtls_certificate_status)
         val mtlsChooseButton = dialogView.findViewById<Button>(R.id.btn_profile_mtls_choose_certificate)
         val mtlsRemoveButton = dialogView.findViewById<Button>(R.id.btn_profile_mtls_remove_certificate)
         val inputMtlsPassword = dialogView.findViewById<EditText>(R.id.input_profile_mtls_password)
+        val mtlsPasswordLayout = dialogView.findViewById<TextInputLayout>(R.id.layout_profile_mtls_password)
         val terminalTypeSpinner = dialogView.findViewById<Spinner>(R.id.spinner_profile_terminal_type)
         val authSpinner = dialogView.findViewById<Spinner>(R.id.spinner_profile_auth_type)
         val basicContainer = dialogView.findViewById<LinearLayout>(R.id.basic_auth_container)
@@ -274,18 +286,18 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
 
         terminalTypeSpinner.adapter = ArrayAdapter(
             requireContext(),
-            android.R.layout.simple_spinner_item,
+            R.layout.item_session_spinner,
             terminalTypeOptions
         ).also {
-            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            it.setDropDownViewResource(R.layout.item_session_spinner_dropdown)
         }
 
         authSpinner.adapter = ArrayAdapter(
             requireContext(),
-            android.R.layout.simple_spinner_item,
+            R.layout.item_session_spinner,
             authOptions
         ).also {
-            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            it.setDropDownViewResource(R.layout.item_session_spinner_dropdown)
         }
 
         if (existing != null) {
@@ -307,7 +319,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
             authSpinner.setSelection(authOptions.indexOf(AuthType.NONE.name).coerceAtLeast(0))
         }
 
-        val dialog = AlertDialog.Builder(requireContext())
+        val dialog = AlertDialog.Builder(requireContext(), R.style.Theme_TermLink_SettingsDialog)
             .setTitle(
                 if (existing == null) {
                     getString(R.string.settings_add_profile)
@@ -324,10 +336,12 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
             profileId = profileId,
             existingProfile = existing,
             mtlsCheck = mtlsCheck,
+            materialContainer = mtlsMaterialContainer,
             statusText = mtlsStatusText,
             chooseButton = mtlsChooseButton,
             removeButton = mtlsRemoveButton,
             passwordInput = inputMtlsPassword,
+            passwordLayout = mtlsPasswordLayout,
             existingCertificatePresent = existingCertificatePresent,
             existingPasswordPresent = existingPasswordPresent
         )
@@ -359,9 +373,6 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         })
 
         mtlsCheck.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked && !hasEffectiveCertificate(mtlsDialogState)) {
-                launchMtlsCertificatePicker(mtlsDialogState, revertToggleOnCancel = true)
-            }
             if (!isChecked) {
                 mtlsDialogState.revertToggleOnCancel = false
             }
@@ -402,9 +413,6 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
                 )
             }
             updateMtlsUi(mtlsDialogState)
-            if (existing == null && mtlsCheck.isChecked && !hasEffectiveCertificate(mtlsDialogState)) {
-                launchMtlsCertificatePicker(mtlsDialogState, revertToggleOnCancel = true)
-            }
         }
 
         dialog.show()
@@ -583,7 +591,12 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         } else {
             View.GONE
         }
-        state.passwordInput.hint = if (
+        state.materialContainer.visibility = if (state.mtlsCheck.isChecked) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
+        state.passwordLayout.placeholderText = if (
             state.existingPasswordPresent &&
             state.stagedCertificateFile == null &&
             !state.certificateRemoved
@@ -592,6 +605,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         } else {
             getString(R.string.settings_profile_mtls_password_hint)
         }
+        state.passwordInput.hint = null
         if (decision.validationError != MtlsValidationError.PASSWORD_REQUIRED) {
             state.passwordInput.error = null
         }

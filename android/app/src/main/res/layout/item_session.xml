@@ -6,7 +6,7 @@
     android:layout_height="wrap_content"
     android:layout_marginTop="8dp"
     app:cardBackgroundColor="@color/sessions_card_bg"
-    app:cardCornerRadius="10dp"
+    app:cardCornerRadius="16dp"
     app:strokeColor="@color/sessions_card_stroke"
     app:strokeWidth="1dp">
 
@@ -14,7 +14,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="11dp">
+        android:padding="13dp">
 
         <TextView
             android:id="@+id/session_name"
@@ -28,7 +28,7 @@
             android:id="@+id/session_meta_primary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="6dp"
             android:textColor="@color/sessions_text_secondary"
             android:textSize="12sp" />
 
@@ -36,21 +36,21 @@
             android:id="@+id/session_meta_secondary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
+            android:layout_marginTop="3dp"
             android:textColor="@color/sessions_text_muted"
             android:textSize="12sp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="12dp"
             android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_open_session"
                 style="@style/Widget.TermLink.SessionButton.OpenOutlined"
                 android:layout_width="0dp"
-                android:layout_weight="1"
+                android:layout_weight="1.25"
                 android:text="@string/sessions_open"
                 android:textColor="@color/sessions_primary"
                 app:rippleColor="@color/sessions_primary"
@@ -62,7 +62,7 @@
                 style="@style/Widget.TermLink.SessionButton.SecondaryText"
                 android:layout_width="0dp"
                 android:layout_marginStart="6dp"
-                android:layout_weight="1"
+                android:layout_weight="0.75"
                 android:text="@string/sessions_rename"
                 android:textColor="@color/sessions_text_secondary" />
 
@@ -70,8 +70,8 @@
                 android:id="@+id/btn_delete_session"
                 style="@style/Widget.TermLink.SessionButton.DangerText"
                 android:layout_width="0dp"
-                android:layout_marginStart="6dp"
-                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_weight="0.75"
                 android:text="@string/sessions_delete" />
         </LinearLayout>
     </LinearLayout>

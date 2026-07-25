@@ -14,7 +14,7 @@
             android:id="@+id/shell_top_bar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="#1F1F1F"
+        android:background="@color/sessions_bg"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:paddingStart="8dp"
@@ -91,5 +91,6 @@
         android:layout_width="340dp"
         android:layout_height="match_parent"
         android:layout_gravity="start"
-        android:background="#121212" />
+        android:background="@color/sessions_bg"
+        android:elevation="12dp" />
 </androidx.drawerlayout.widget.DrawerLayout>

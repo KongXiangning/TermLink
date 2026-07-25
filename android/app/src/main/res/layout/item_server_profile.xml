@@ -6,21 +6,21 @@
     android:layout_marginBottom="10dp"
     android:background="@drawable/bg_settings_surface_card"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:padding="14dp">
 
     <TextView
         android:id="@+id/profile_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textColor="@color/sessions_text_primary"
-        android:textSize="15sp"
+        android:textSize="16sp"
         android:textStyle="bold" />
 
     <TextView
         android:id="@+id/profile_base_url"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
+        android:layout_marginTop="4dp"
         android:textColor="@color/sessions_text_secondary"
         android:textSize="12sp" />
 
@@ -28,14 +28,14 @@
         android:id="@+id/profile_meta"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="8dp"
         android:textColor="@color/sessions_text_muted"
         android:textSize="12sp" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="12dp"
         android:orientation="horizontal">
 
         <com.google.android.material.button.MaterialButton

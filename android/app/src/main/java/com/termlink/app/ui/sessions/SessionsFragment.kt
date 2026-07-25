@@ -965,10 +965,10 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         }
         val adapter = ArrayAdapter(
             requireContext(),
-            android.R.layout.simple_spinner_item,
+            R.layout.item_session_spinner,
             profileLabels
         )
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        adapter.setDropDownViewResource(R.layout.item_session_spinner_dropdown)
         spinnerProfile.adapter = adapter
         val currentProfileIndex = profiles.indexOfFirst { it.id == currentSelection.profileId }
         if (currentProfileIndex >= 0) {
@@ -977,10 +977,10 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
         val modeAdapter = ArrayAdapter(
             requireContext(),
-            android.R.layout.simple_spinner_item,
+            R.layout.item_session_spinner,
             mutableListOf<String>()
         )
-        modeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        modeAdapter.setDropDownViewResource(R.layout.item_session_spinner_dropdown)
         spinnerMode.adapter = modeAdapter
         var isUpdatingCreateDialogModeUi = false
         var lastModeProfileId: String? = null
@@ -1113,7 +1113,7 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         }
         updateCreateDialogModeUi(rebuildModeOptions = true)
 
-        val dialog = AlertDialog.Builder(requireContext())
+        val dialog = AlertDialog.Builder(requireContext(), R.style.Theme_TermLink_SessionDialog)
             .setTitle(getString(R.string.sessions_create_title))
             .setView(dialogView)
             .setNegativeButton(android.R.string.cancel, null)
@@ -1241,7 +1241,7 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             }
         }
 
-        val dialog = AlertDialog.Builder(requireContext())
+        val dialog = AlertDialog.Builder(requireContext(), R.style.Theme_TermLink_SessionDialog)
             .setTitle(getString(R.string.workspace_picker_title))
             .setView(dialogView)
             .setNegativeButton(android.R.string.cancel, null)
@@ -1298,7 +1298,7 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     }
 
     private fun showDeleteDialog(profile: ServerProfile, session: SessionSummary) {
-        AlertDialog.Builder(requireContext())
+        AlertDialog.Builder(requireContext(), R.style.Theme_TermLink_SessionDialog)
             .setTitle(getString(R.string.sessions_delete_title))
             .setMessage(getString(R.string.sessions_delete_confirm, session.name))
             .setNegativeButton(android.R.string.cancel, null)
@@ -1348,7 +1348,7 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         input.setText(initialValue)
         input.setSelection(input.text.length)
 
-        val dialog = AlertDialog.Builder(requireContext())
+        val dialog = AlertDialog.Builder(requireContext(), R.style.Theme_TermLink_SessionDialog)
             .setTitle(title)
             .setView(dialogView)
             .setNegativeButton(android.R.string.cancel, null)

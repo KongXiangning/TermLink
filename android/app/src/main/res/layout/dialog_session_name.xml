@@ -1,22 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingTop="6dp">
+    android:paddingTop="4dp">
 
-    <TextView
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.TermLink.SessionInputLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/sessions_name_label"
-        android:textSize="13sp" />
+        android:hint="@string/sessions_name_label"
+        app:placeholderText="@string/sessions_name_hint">
 
-    <EditText
-        android:id="@+id/input_session_name"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="@string/sessions_name_hint"
-        android:inputType="textCapSentences"
-        android:maxLength="64"
-        android:minHeight="48dp" />
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/input_session_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textCapSentences"
+            android:maxLength="64"
+            android:minHeight="52dp"
+            android:textColor="@color/sessions_text_primary" />
+    </com.google.android.material.textfield.TextInputLayout>
 </LinearLayout>

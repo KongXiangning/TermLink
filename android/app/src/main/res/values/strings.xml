@@ -93,6 +93,9 @@
     <string name="terminal_error_mtls_apply">Failed to apply mTLS credentials.</string>
     <string name="terminal_error_auth_missing_credentials">Basic auth credentials are missing or invalid for this server.</string>
     <string name="settings_profiles_title">Server Profiles</string>
+    <string name="settings_profiles_subtitle">Manage endpoints, authentication, and certificate access in one place.</string>
+    <string name="settings_security_section">Security status</string>
+    <string name="settings_profiles_section">Configured endpoints</string>
     <string name="settings_add_profile">Add Profile</string>
     <string name="settings_edit_profile">Edit</string>
     <string name="settings_delete_profile">Delete</string>

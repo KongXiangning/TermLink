@@ -93,6 +93,9 @@
     <string name="terminal_error_mtls_apply">应用 mTLS 凭据失败。</string>
     <string name="terminal_error_auth_missing_credentials">此服务器的 Basic 认证凭据缺失或无效。</string>
     <string name="settings_profiles_title">服务器配置</string>
+    <string name="settings_profiles_subtitle">集中管理服务器地址、认证方式和证书访问权限。</string>
+    <string name="settings_security_section">安全状态</string>
+    <string name="settings_profiles_section">已配置的端点</string>
     <string name="settings_add_profile">添加配置</string>
     <string name="settings_edit_profile">编辑</string>
     <string name="settings_delete_profile">删除</string>

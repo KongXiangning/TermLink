@@ -1,8 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <style name="Theme.TermLink.SessionDialog" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
+        <item name="android:windowBackground">@color/sessions_surface</item>
+        <item name="android:colorBackground">@color/sessions_surface</item>
+        <item name="colorSurface">@color/sessions_surface</item>
+        <item name="colorOnSurface">@color/sessions_text_primary</item>
+        <item name="colorPrimary">@color/sessions_primary</item>
+        <item name="android:textColorPrimary">@color/sessions_text_primary</item>
+        <item name="android:textColorSecondary">@color/sessions_text_secondary</item>
+        <item name="android:windowMinWidthMajor">92%</item>
+        <item name="android:windowMinWidthMinor">92%</item>
+    </style>
+
+    <style name="Widget.TermLink.SessionInputLayout" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="boxStrokeColor">@color/sessions_primary</item>
+        <item name="boxStrokeWidth">1dp</item>
+        <item name="boxStrokeWidthFocused">2dp</item>
+        <item name="boxCornerRadiusTopStart">14dp</item>
+        <item name="boxCornerRadiusTopEnd">14dp</item>
+        <item name="boxCornerRadiusBottomStart">14dp</item>
+        <item name="boxCornerRadiusBottomEnd">14dp</item>
+        <item name="hintTextColor">@color/sessions_text_muted</item>
+        <item name="android:textColorHint">@color/sessions_text_muted</item>
+    </style>
+
     <style name="Widget.TermLink.SessionButton.OpenOutlined" parent="Widget.MaterialComponents.Button.OutlinedButton">
         <item name="android:layout_height">38dp</item>
-        <item name="android:minHeight">38dp</item>
+        <item name="android:minHeight">40dp</item>
         <item name="android:minWidth">76dp</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:textSize">12sp</item>
@@ -11,7 +35,7 @@
 
     <style name="Widget.TermLink.SessionButton.SecondaryText" parent="Widget.MaterialComponents.Button.TextButton">
         <item name="android:layout_height">38dp</item>
-        <item name="android:minHeight">38dp</item>
+        <item name="android:minHeight">40dp</item>
         <item name="android:minWidth">72dp</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:textSize">12sp</item>
