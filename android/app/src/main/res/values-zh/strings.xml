@@ -103,6 +103,12 @@
     <string name="settings_language_system">跟随系统</string>
     <string name="settings_language_zh">简体中文</string>
     <string name="settings_language_en">English</string>
+    <string name="settings_screen_timeout_label">息屏时间</string>
+    <string name="settings_screen_timeout_system">跟随系统</string>
+    <string name="settings_screen_timeout_seconds">%1$d 秒</string>
+    <string name="settings_screen_timeout_minutes">%1$d 分钟</string>
+    <string name="settings_screen_timeout_follows_system">%1$s（系统更长，实际按 %2$s）</string>
+    <string name="settings_screen_timeout_foreground_hint">只有长于系统设置的值才能延长前台亮屏；后台始终按系统设置。</string>
     <string name="settings_preference_theme_title">外观模式</string>
     <string name="settings_preference_language_title">语言</string>
     <string name="settings_security_section">安全状态</string>

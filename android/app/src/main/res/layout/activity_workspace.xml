@@ -3,14 +3,14 @@
     android:id="@+id/workspace_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#07111B"
+    android:background="@color/sessions_bg"
     android:orientation="vertical">
 
     <LinearLayout
         android:id="@+id/workspace_top_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#0B1824"
+        android:background="@color/sessions_bg"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="12dp"
@@ -26,7 +26,7 @@
             android:contentDescription="@string/workspace_activity_back"
             android:padding="6dp"
             android:src="@drawable/ic_arrow_back_24"
-            android:tint="@android:color/white" />
+            android:tint="@color/sessions_text_primary" />
 
         <LinearLayout
             android:id="@+id/workspace_title_container"
@@ -41,7 +41,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/workspace_activity_title"
-                android:textColor="#EDF5FF"
+                android:textColor="@color/sessions_text_primary"
                 android:textSize="17sp"
                 android:textStyle="bold" />
 
@@ -52,7 +52,7 @@
                 android:layout_marginTop="2dp"
                 android:maxLines="1"
                 android:ellipsize="end"
-                android:textColor="#91A8BD"
+                android:textColor="@color/sessions_text_secondary"
                 android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>

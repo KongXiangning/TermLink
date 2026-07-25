@@ -8,7 +8,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.termlink.app.util.UiPreferences
 
 internal data class CodexPalette(
     val background: Color,
@@ -120,7 +122,12 @@ private val CodexShapes = Shapes(
 
 @Composable
 fun CodexTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
+    val context = LocalContext.current
+    val dark = when (UiPreferences.theme(context)) {
+        UiPreferences.THEME_DARK -> true
+        UiPreferences.THEME_LIGHT -> false
+        else -> isSystemInDarkTheme()
+    }
     CodexPaletteHolder.current = if (dark) CodexDarkPalette else CodexLightPalette
     MaterialTheme(
         colorScheme = if (dark) CodexDarkColorScheme else CodexLightColorScheme,

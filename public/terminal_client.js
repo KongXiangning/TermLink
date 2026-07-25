@@ -1067,7 +1067,12 @@ function applySessionModeLayout() {
 }
 
 function applyUiTheme(config) {
-    const dark = !config || config.uiTheme !== 'light';
+    // Interactive terminal sessions stay dark-only. Codex web fallback may
+    // still follow the application preference when sessionMode is codex.
+    const sessionMode = config && typeof config.sessionMode === 'string'
+        ? config.sessionMode.trim().toLowerCase()
+        : 'terminal';
+    const dark = sessionMode !== 'codex' || !config || config.uiTheme !== 'light';
     const root = document.documentElement;
     if (root) {
         root.classList.toggle('theme-dark', dark);
@@ -1081,6 +1086,9 @@ function applyUiTheme(config) {
         term.options.theme = dark
             ? { background: '#0C151F', foreground: '#E7EDF6', cursor: '#4EDEA3', selectionBackground: '#344354' }
             : { background: '#F5F7FA', foreground: '#17212B', cursor: '#2F6FEB', selectionBackground: '#D3DDE8' };
+        if (typeof term.refresh === 'function' && term.rows > 0) {
+            term.refresh(0, term.rows - 1);
+        }
     }
 }
 

@@ -60,6 +60,8 @@ import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.SessionMode
 import com.termlink.app.ui.sessions.SessionsFragment
 import com.termlink.app.util.setStatusBarHidden
+import com.termlink.app.util.ScreenTimeoutController
+import com.termlink.app.util.UiPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -363,6 +365,8 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
     private var sessionsDrawerBasePaddingRight: Int = 0
     private var sessionsDrawerBasePaddingBottom: Int = 0
     private var drawerSelection: SessionSelection? = null
+    private var appliedThemePreference: String? = null
+    private lateinit var screenTimeoutController: ScreenTimeoutController
     private val drawerListener = object : DrawerLayout.SimpleDrawerListener() {
         override fun onDrawerSlide(drawerView: android.view.View, slideOffset: Float) {
             if (drawerView.id == R.id.codex_sessions_drawer_container && slideOffset > 0f) {
@@ -387,6 +391,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        screenTimeoutController = ScreenTimeoutController(this, window)
         enableEdgeToEdge()
         setContentView(R.layout.activity_codex)
         drawerLayout = findViewById(R.id.codex_root_drawer)
@@ -504,6 +509,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             return
         }
         isActivityVisible = true
+        screenTimeoutController.onVisible()
         cancelAttentionNotifications()
         updateStatusBarVisibility()
         drawerLayout?.post {
@@ -532,12 +538,30 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             "ipcOnline=${state.ipcOnline} " +
             "sessionId=${state.sessionId}")
         isActivityVisible = false
+        screenTimeoutController.onHidden()
         viewModel.onHostHidden()
         setStatusBarHidden(hidden = false, anchor = drawerLayout)
         if (!isChangingConfigurations) {
             syncAttentionNotifications(null, viewModel.uiState.value)
         }
         super.onStop()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val currentThemePreference = UiPreferences.theme(this)
+        val previousThemePreference = appliedThemePreference
+        appliedThemePreference = currentThemePreference
+        if (previousThemePreference != null && previousThemePreference != currentThemePreference) {
+            // Settings is a separate Activity. Recreate this host when the
+            // preference changes so Compose reapplies the saved palette.
+            recreate()
+        }
+    }
+
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        screenTimeoutController.onUserInteraction()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -574,6 +598,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
 
     override fun onDestroy() {
         drawerLayout?.removeDrawerListener(drawerListener)
+        screenTimeoutController.dispose()
         super.onDestroy()
         if (::viewModel.isInitialized) {
             viewModel.disconnect()

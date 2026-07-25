@@ -23,6 +23,28 @@
     --shadow: 0 18px 46px rgba(0, 0, 0, 0.28);
 }
 
+:root.theme-light {
+    color-scheme: light;
+    --bg: #F5F7FA;
+    --bg-deep: #EAF0F6;
+    --surface: rgba(255, 255, 255, 0.96);
+    --surface-strong: #FFFFFF;
+    --surface-soft: rgba(238, 242, 247, 0.92);
+    --border: rgba(92, 116, 140, 0.22);
+    --border-strong: rgba(72, 101, 129, 0.34);
+    --text: #17212B;
+    --muted: #526273;
+    --faint: #6B7785;
+    --accent: #2F6FEB;
+    --accent-soft: rgba(47, 111, 235, 0.12);
+    --green: #168A67;
+    --green-soft: rgba(22, 138, 103, 0.12);
+    --orange: #A66A00;
+    --red: #C73535;
+    --code-bg: #EEF2F7;
+    --shadow: 0 14px 34px rgba(42, 65, 88, 0.14);
+}
+
 [hidden] { display: none !important; }
 
 * { box-sizing: border-box; }
@@ -40,6 +62,13 @@ body {
         radial-gradient(circle at -10% 34%, rgba(36, 153, 132, 0.1), transparent 30%),
         linear-gradient(180deg, #0b1824 0%, var(--bg) 52%, var(--bg-deep) 100%);
     overflow-x: hidden;
+}
+
+body.theme-light {
+    background:
+        radial-gradient(circle at 86% -8%, rgba(79, 124, 255, 0.12), transparent 34%),
+        radial-gradient(circle at -10% 34%, rgba(22, 138, 103, 0.07), transparent 30%),
+        linear-gradient(180deg, #FFFFFF 0%, var(--bg) 52%, var(--bg-deep) 100%);
 }
 button, input { font: inherit; }
 button { color: inherit; }
@@ -124,7 +153,12 @@ button.active, .primary-button { border-color: rgba(79,124,255,.55); background:
 .workspace-banner { margin-top: 10px; color: #f7c56d; border-color: rgba(242,165,49,.25); }
 .pane-status.is-loading { color: #f7c56d; }
 .pane-status.is-error { color: #ff9ca3; border-color: rgba(255,107,117,.28); background: rgba(255,107,117,.08); }
-.viewer-mode-note { color: #a8c0ff; border-color: rgba(79,124,255,.22); background: rgba(79,124,255,.08); }
+.viewer-mode-note {
+    display: inline-flex; width: fit-content; max-width: 100%;
+    margin: 4px 0; padding: 6px 10px;
+    color: #a8c0ff; border-color: rgba(79,124,255,.22); background: rgba(79,124,255,.08);
+    font-size: 12px; line-height: 1.3; cursor: default; user-select: text;
+}
 
 .workspace-main {
     display: grid; grid-template-columns: minmax(270px, 330px) minmax(0, 1fr); gap: 12px;
@@ -139,6 +173,7 @@ body:not(.host-android) .workspace-main { min-height: calc(100vh - 184px); }
 .workspace-viewer { display: flex; flex-direction: column; min-height: 0; }
 .pane-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 3px 3px 13px; }
 .pane-title { margin-top: 4px; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
+.viewer-meta-kind { color: #88aaff; font-weight: 700; }
 .viewer-heading { min-width: 0; }
 .viewer-header { border-bottom: 1px solid var(--border); }
 .viewer-primary-actions { flex-wrap: wrap; justify-content: flex-end; }
@@ -305,3 +340,113 @@ body:not(.host-android) .workspace-main { min-height: calc(100vh - 184px); }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
+.workspace-mobile-title { display: none; min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 700; color: var(--text); }
+.viewer-path { min-width: 0; margin-top: 6px; }
+.path-disclosure { min-height: 32px; max-width: 100%; display: inline-flex; align-items: center; gap: 7px; padding: 0 9px; border-radius: 999px; background: var(--surface-soft); color: var(--muted); font-size: 11px; }
+.path-disclosure-label { flex: 0 0 auto; color: var(--faint); font-weight: 700; }
+.path-disclosure-summary { min-width: 0; max-width: min(55vw, 420px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.path-disclosure-chevron { color: var(--faint); font-size: 14px; line-height: 1; }
+.viewer-path-details { display: flex; align-items: flex-start; gap: 8px; margin-top: 7px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-soft); }
+.viewer-path-details code { min-width: 0; flex: 1; color: var(--text); font: 11px/1.45 "Cascadia Code", Consolas, monospace; overflow-wrap: anywhere; }
+.viewer-path-details .compact-button { flex: 0 0 auto; min-height: 32px; }
+
+/* Android workspace theme overrides for legacy hard-coded dark surfaces. */
+body.theme-light .workspace-header,
+body.theme-light .workspace-toolbar,
+body.theme-light .workspace-pane,
+body.theme-light .dialog-card {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+}
+
+body.theme-light .workspace-toolbar {
+    background: rgba(255, 255, 255, 0.9) !important;
+}
+
+body.theme-light button,
+body.theme-light .toggle {
+    background: var(--surface-soft);
+    color: var(--text);
+    border-color: var(--border);
+}
+
+body.theme-light button:hover:not(:disabled) {
+    background: #E3EEFF;
+    border-color: var(--border-strong);
+}
+
+body.theme-light .workspace-pane,
+body.theme-light .workspace-header {
+    background: linear-gradient(180deg, #FFFFFF, #F3F6FA) !important;
+}
+
+body.theme-light .viewer-meta-kind { color: var(--accent); }
+
+body.theme-light .code-viewer,
+body.theme-light .diff-body,
+body.theme-light .image-stage,
+body.theme-light .pdf-stage,
+body.theme-light .segmented-control,
+body.theme-light .search-input {
+    background: var(--code-bg) !important;
+    color: var(--text) !important;
+}
+
+body.theme-light .viewer-body,
+body.theme-light .markdown-viewer,
+body.theme-light .diff-row,
+body.theme-light .legacy-diff {
+    color: var(--text) !important;
+}
+
+body.theme-light .line-numbers,
+body.theme-light .diff-hunk-header {
+    background: #E4EAF2 !important;
+    color: #526273 !important;
+}
+
+body.theme-light .markdown-viewer pre,
+body.theme-light .empty-state {
+    background: #E8EDF3 !important;
+    color: var(--text) !important;
+}
+
+body.theme-light .hljs {
+    color: #17212B;
+    background: #EEF2F7;
+}
+
+body.theme-light .workspace-dialog::backdrop {
+    background: rgba(23, 33, 43, 0.32);
+}
+
+.workspace-more-dialog { max-height: min(760px, calc(100% - 24px)); }
+.more-section { display: flex; flex-direction: column; gap: 8px; }
+.more-section + .more-section { padding-top: 10px; border-top: 1px solid var(--border); }
+.more-section h3 { margin: 0; color: var(--muted); font-size: 12px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
+.more-action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.more-action-grid button, .more-toggle { min-height: 44px; padding: 0 11px; display: flex; align-items: center; justify-content: flex-start; gap: 7px; text-align: left; }
+.more-action-grid button.active { border-color: rgba(79,124,255,.55); background: var(--accent-soft); }
+.more-toggle { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-soft); color: var(--text); cursor: pointer; }
+.more-toggle input { accent-color: var(--accent); }
+
+@media (max-width: 899px) {
+    body.host-android .workspace-toolbar { gap: 4px; }
+    body.host-android .workspace-breadcrumbs,
+    body.host-android .workspace-toolbar > .toolbar-actions { display: none; }
+    body.host-android .workspace-mobile-title { display: block; }
+    body:not(.host-android) .workspace-mobile-title,
+    body:not(.host-android) #btn-workspace-more { display: none !important; }
+    body.host-android .viewer-primary-actions,
+    body.host-android #text-toolbar,
+    body.host-android .media-toolbar,
+    body.host-android .diff-toolbar { display: none !important; }
+    body.host-android .viewer-path { display: block; }
+    body.host-android .workspace-more-dialog { max-height: min(86vh, calc(var(--workspace-viewport-height, 100vh) - 8px)); }
+    body.host-android .workspace-more-dialog .dialog-card { gap: 10px; overflow-y: auto; }
+    body.host-android .path-disclosure { max-width: 100%; }
+    body.host-android .path-disclosure-summary { max-width: min(62vw, 320px); }
+}
+
+body:not(.host-android) .viewer-path { display: none !important; }

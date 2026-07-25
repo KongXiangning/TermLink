@@ -3381,7 +3381,9 @@ body.theme-light #status-overlay {
 
 body.theme-light #terminal-container .xterm-viewport,
 body.theme-light #terminal-container .xterm-screen,
-body.theme-light #terminal-container .xterm-rows {
+body.theme-light #terminal-container .xterm,
+body.theme-light #terminal-container .xterm-rows,
+body.theme-light #terminal-container canvas {
     background-color: var(--codex-bg) !important;
 }
 

@@ -20,6 +20,7 @@ import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.ui.settings.SettingsFragment
 import com.termlink.app.util.ProfileRestoreStateCleaner
+import com.termlink.app.util.ScreenTimeoutController
 import com.termlink.app.util.setStatusBarHidden
 import com.termlink.app.util.statusBarSafeTopInset
 import com.termlink.app.web.WebViewClientCertCacheInvalidator
@@ -43,9 +44,11 @@ class SettingsActivity : AppCompatActivity(), SettingsFragment.Callbacks {
     private var fragmentContainerBasePaddingRight: Int = 0
     private var fragmentContainerBasePaddingBottom: Int = 0
     private var statusBarsHidden: Boolean = false
+    private lateinit var screenTimeoutController: ScreenTimeoutController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        screenTimeoutController = ScreenTimeoutController(this, window)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         setContentView(R.layout.activity_settings)
@@ -86,6 +89,7 @@ class SettingsActivity : AppCompatActivity(), SettingsFragment.Callbacks {
 
     override fun onStart() {
         super.onStart()
+        screenTimeoutController.onVisible()
         statusBarsHidden = true
         setStatusBarHidden(hidden = true, anchor = rootView)
         rootView?.post {
@@ -94,9 +98,24 @@ class SettingsActivity : AppCompatActivity(), SettingsFragment.Callbacks {
     }
 
     override fun onStop() {
+        screenTimeoutController.onHidden()
         statusBarsHidden = false
         setStatusBarHidden(hidden = false, anchor = rootView)
         super.onStop()
+    }
+
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        screenTimeoutController.onUserInteraction()
+    }
+
+    override fun onScreenTimeoutChanged() {
+        screenTimeoutController.onPreferenceChanged()
+    }
+
+    override fun onDestroy() {
+        screenTimeoutController.dispose()
+        super.onDestroy()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

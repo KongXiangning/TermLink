@@ -32,7 +32,9 @@ import com.termlink.app.data.TerminalType
 import com.termlink.app.util.horizontalSafeInsets
 import com.termlink.app.util.LocaleHelper
 import com.termlink.app.util.setStatusBarHidden
+import com.termlink.app.util.ScreenTimeoutController
 import com.termlink.app.util.statusBarSafeTopInset
+import com.termlink.app.util.UiPreferences
 import com.termlink.app.web.MtlsWebViewClient
 import org.json.JSONObject
 import okhttp3.OkHttpClient
@@ -73,9 +75,11 @@ class WorkspaceActivity : AppCompatActivity() {
         .followSslRedirects(true)
         .build()
     private lateinit var mtlsOkHttpSupport: MtlsOkHttpSupport
+    private lateinit var screenTimeoutController: ScreenTimeoutController
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        screenTimeoutController = ScreenTimeoutController(this, window)
         enableEdgeToEdge()
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         setContentView(R.layout.activity_workspace)
@@ -171,6 +175,7 @@ class WorkspaceActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        screenTimeoutController.onVisible()
         setStatusBarHidden(hidden = true, anchor = rootView)
         rootView?.post {
             rootView?.let(ViewCompat::requestApplyInsets)
@@ -178,11 +183,18 @@ class WorkspaceActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
+        screenTimeoutController.onHidden()
         setStatusBarHidden(hidden = false, anchor = rootView)
         super.onStop()
     }
 
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        screenTimeoutController.onUserInteraction()
+    }
+
     override fun onDestroy() {
+        screenTimeoutController.dispose()
         if (isFinishing) {
             workspaceWebView?.destroy()
             workspaceWebView = null
@@ -284,6 +296,7 @@ class WorkspaceActivity : AppCompatActivity() {
         json.put("sessionId", sessionId)
         json.put("serverUrl", profile?.baseUrl.orEmpty())
         json.put("hostSurface", "android")
+        json.put("uiTheme", if (isAppDarkTheme()) "dark" else "light")
         if (defaultEntryPath.isNotBlank()) {
             json.put("defaultEntryPath", defaultEntryPath)
         }
@@ -297,10 +310,28 @@ class WorkspaceActivity : AppCompatActivity() {
         return json
     }
 
+    private fun isAppDarkTheme(): Boolean {
+        return when (UiPreferences.theme(applicationContext)) {
+            UiPreferences.THEME_DARK -> true
+            UiPreferences.THEME_LIGHT -> false
+            else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                Configuration.UI_MODE_NIGHT_YES
+        }
+    }
+
     private fun registerBackNavigation() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                finish()
+                val webView = workspaceWebView
+                if (webView == null) {
+                    finish()
+                    return
+                }
+                webView.evaluateJavascript(
+                    "(window.__workspaceBack && window.__workspaceBack() === true)"
+                ) { handled ->
+                    if (handled != "true" && !isFinishing) finish()
+                }
             }
         })
     }
@@ -483,7 +514,7 @@ class WorkspaceActivity : AppCompatActivity() {
         private const val STATE_SESSION_ID = "workspace_session_id"
         private const val STATE_DEFAULT_ENTRY_PATH = "workspace_default_entry_path"
         private const val STATE_INITIAL_FILE_PATH = "workspace_initial_file_path"
-        private const val WORKSPACE_URL = "file:///android_asset/public/workspace.html?v=4"
+        private const val WORKSPACE_URL = "file:///android_asset/public/workspace.html?v=5"
         private const val WORKSPACE_BRIDGE_NAME = "TermLinkWorkspace"
         private const val WORKSPACE_OPEN_CACHE_DIRECTORY = "workspace-open"
         private const val MAX_WORKSPACE_OPEN_BYTES = 25L * 1024L * 1024L

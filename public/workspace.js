@@ -5,7 +5,7 @@
         selectedFileMeta: null, filePreview: null, diffPreview: null, activeView: 'content',
         markdownMode: 'rendered', diffLayout: window.innerWidth >= 900 ? 'split' : 'unified',
         imageScale: 1, imageFit: true, objectUrl: '', pdfDocument: null, pdfRenderTask: null,
-        pdfPage: 1, pdfScale: 1.15, pdfFit: true, booted: false,
+        pdfPage: 1, pdfScale: 1.15, pdfFit: true, pathExpanded: false, booted: false,
         loading: { tree: false, file: false, diff: false, more: false },
         seq: { tree: 0, file: 0, diff: 0, more: 0, search: 0, media: 0 }
     };
@@ -13,9 +13,9 @@
     const el = {};
     const byId = (id) => document.getElementById(id);
     const ids = [
-        'workspace-title', 'workspace-subtitle', 'workspace-banner', 'workspace-breadcrumbs', 'workspace-main',
+        'workspace-title', 'workspace-subtitle', 'workspace-banner', 'workspace-breadcrumbs', 'workspace-main', 'workspace-mobile-title',
         'current-dir-label', 'browser-count', 'browser-list', 'browser-status', 'browser-empty',
-        'viewer-kind', 'viewer-title', 'viewer-meta', 'viewer-status', 'viewer-mode-note', 'viewer-empty',
+        'viewer-kind', 'viewer-title', 'viewer-meta', 'viewer-status', 'viewer-mode-note', 'viewer-empty', 'viewer-path', 'viewer-path-toggle', 'viewer-path-summary', 'viewer-path-details', 'viewer-path-text', 'btn-copy-path',
         'viewer-surface', 'viewer-body', 'viewer-code', 'line-numbers', 'text-viewer', 'text-toolbar',
         'markdown-mode', 'markdown-viewer', 'image-viewer', 'viewer-image', 'pdf-viewer', 'pdf-canvas',
         'pdf-page', 'pdf-pages', 'binary-viewer', 'binary-name', 'binary-meta', 'diff-viewer', 'diff-summary',
@@ -25,6 +25,9 @@
         'btn-image-fit', 'btn-image-actual', 'btn-image-plus', 'btn-pdf-prev', 'btn-pdf-next', 'btn-pdf-minus',
         'btn-pdf-fit', 'btn-pdf-plus', 'btn-open-binary', 'btn-diff-unified', 'btn-diff-split',
         'btn-load-more', 'btn-prev-segment', 'btn-next-segment', 'btn-limited-head', 'btn-limited-tail',
+        'btn-workspace-more', 'workspace-more-dialog', 'btn-more-search', 'btn-more-docs', 'btn-more-root', 'btn-more-up', 'btn-more-refresh', 'toggle-more-hidden',
+        'more-file-section', 'btn-more-content', 'btn-more-head-diff', 'btn-more-compare', 'btn-more-reload', 'more-content-section', 'more-text-actions', 'more-image-actions', 'more-pdf-actions', 'more-diff-actions',
+        'btn-more-copy', 'btn-more-markdown-preview', 'btn-more-markdown-source', 'btn-more-image-minus', 'btn-more-image-fit', 'btn-more-image-actual', 'btn-more-image-plus', 'btn-more-pdf-prev', 'btn-more-pdf-fit', 'btn-more-pdf-next', 'btn-more-pdf-minus', 'btn-more-pdf-plus', 'btn-more-diff-unified', 'btn-more-diff-split',
         'search-dialog', 'search-input', 'search-status', 'search-results', 'compare-dialog',
         'compare-left-label', 'compare-search-input', 'compare-status', 'compare-results'
     ];
@@ -32,9 +35,10 @@
 
     const COPY = {
         en: {
-            branding: 'DOCUMENT WORKSPACE', readonly: 'Read only', docs: 'Docs', root: 'Root', up: 'Up', hidden: 'Hidden',
+            branding: 'DOCUMENT WORKSPACE', readonly: 'Read only', docs: 'Docs', root: 'Root', up: 'Up', refresh: 'Refresh', hidden: 'Hidden',
             directory: 'Directory', emptyDirectory: 'This directory is empty', preview: 'Preview', content: 'Content',
-            headDiff: 'HEAD diff', compare: 'Compare', selectFile: 'Select a file to preview',
+            headDiff: 'HEAD diff', compare: 'Compare', reload: 'Reload', more: 'More', path: 'Path', copyPath: 'Copy path',
+            directoryActions: 'Directory', fileActions: 'File', contentActions: 'Current content', selectFile: 'Select a file to preview',
             selectFileHint: 'Text, Markdown, images and PDF are supported.', rendered: 'Preview', source: 'Source', copy: 'Copy',
             fit: 'Fit', fitWidth: 'Fit width', openExternal: 'Download / open', unified: 'Unified', split: 'Side by side',
             loadMore: 'Load more', previous: 'Previous', next: 'Next', head: 'Head', tail: 'Tail', workspace: 'Workspace',
@@ -47,9 +51,10 @@
             folder: 'Directory', emptyFolder: 'Empty directory'
         },
         zh: {
-            branding: '文档工作区', readonly: '只读', docs: '文档', root: '根目录', up: '上一级', hidden: '隐藏文件',
+            branding: '文档工作区', readonly: '只读', docs: '文档', root: '根目录', up: '上一级', refresh: '刷新', hidden: '隐藏文件',
             directory: '目录', emptyDirectory: '当前目录为空', preview: '预览', content: '内容', headDiff: '与 HEAD 比较',
-            compare: '比较', selectFile: '选择文件进行预览', selectFileHint: '支持文本、Markdown、图片和 PDF。',
+            compare: '比较', reload: '重新加载', more: '更多', path: '路径', copyPath: '复制路径',
+            directoryActions: '目录操作', fileActions: '文件操作', contentActions: '当前内容', selectFile: '选择文件进行预览', selectFileHint: '支持文本、Markdown、图片和 PDF。',
             rendered: '预览', source: '源码', copy: '复制', fit: '适应', fitWidth: '适应宽度', openExternal: '下载 / 系统打开',
             unified: '单栏', split: '双栏', loadMore: '加载更多', previous: '上一段', next: '下一段', head: '文件头', tail: '文件尾',
             workspace: '工作区', searchFiles: '搜索文件', searchPlaceholder: '按文件名或路径搜索', chooseRightFile: '选择另一个文件',
@@ -88,9 +93,17 @@
     }
 
     function readConfig() { return window.__TERMLINK_CONFIG__ && typeof window.__TERMLINK_CONFIG__ === 'object' ? window.__TERMLINK_CONFIG__ : {}; }
+    function applyUiTheme(config) {
+        const dark = !config || config.uiTheme !== 'light';
+        document.documentElement.classList.toggle('theme-dark', dark);
+        document.documentElement.classList.toggle('theme-light', !dark);
+        document.body.classList.toggle('theme-dark', dark);
+        document.body.classList.toggle('theme-light', !dark);
+    }
     function applyConfig(config) {
         if (!config || typeof config !== 'object') return;
         window.__TERMLINK_CONFIG__ = config;
+        applyUiTheme(config);
         const params = new URLSearchParams(location.search);
         state.sessionId = params.get('sessionId') || config.sessionId || '';
         state.serverUrl = String(config.serverUrl || '').replace(/\/+$/, '');
@@ -141,6 +154,22 @@
         node.textContent = message || '';
         node.classList.toggle('is-loading', tone === 'loading');
         node.classList.toggle('is-error', tone === 'error');
+    }
+    function setViewerMeta(parts, accentPart) {
+        const node = el['viewer-meta'];
+        if (!node) return;
+        node.replaceChildren();
+        let accentApplied = false;
+        parts.filter(Boolean).forEach((part, index) => {
+            if (index) node.append(document.createTextNode(' · '));
+            const value = document.createElement('span');
+            value.textContent = String(part);
+            if (!accentApplied && accentPart && String(part) === String(accentPart)) {
+                value.className = 'viewer-meta-kind';
+                accentApplied = true;
+            }
+            node.append(value);
+        });
     }
     function formatSize(size) {
         if (!Number.isFinite(size)) return '';
@@ -261,6 +290,7 @@
             state.currentDir = payload.path || '';
             state.treeEntries = Array.isArray(payload.entries) ? payload.entries : [];
             el['current-dir-label'].textContent = state.currentDir || '/';
+            setPathExpanded(false);
             renderBreadcrumbs(); renderEntries(); setPage('browser');
             if (options.pushHistory) writeHistory('directory', {}, false);
             setStatus(el['browser-status'], '');
@@ -289,6 +319,34 @@
         if (message) el['viewer-empty'].textContent = message;
         el['viewer-surface'].hidden = !!message;
     }
+    function summarizePath(path) {
+        const normalized = String(path || '').replace(/\\/g, '/');
+        const parts = normalized.split('/').filter(Boolean);
+        if (parts.length <= 2) return normalized || '/';
+        return `…/${parts.slice(-2).join('/')}`;
+    }
+    function setPathExpanded(expanded) {
+        state.pathExpanded = !!expanded;
+        if (!el['viewer-path-toggle'] || !el['viewer-path-details']) return;
+        el['viewer-path-toggle'].setAttribute('aria-expanded', String(state.pathExpanded));
+        el['viewer-path-details'].hidden = !state.pathExpanded;
+        const chevron = el['viewer-path-toggle'].querySelector('.path-disclosure-chevron');
+        if (chevron) chevron.textContent = state.pathExpanded ? '⌃' : '⌄';
+    }
+    function updateMobileHeader() {
+        if (!el['workspace-mobile-title']) return;
+        const page = el['workspace-main'] && el['workspace-main'].dataset.page;
+        const title = page === 'viewer' && state.selectedFilePath
+            ? (state.filePreview && state.filePreview.name) || state.selectedFileMeta?.name || state.selectedFilePath.split('/').pop()
+            : state.currentDir || '/';
+        el['workspace-mobile-title'].textContent = title || copy('workspace');
+    }
+    function syncMoreButton(moreId, sourceId) {
+        const more = el[moreId]; const source = el[sourceId];
+        if (!more || !source) return;
+        more.disabled = !!source.disabled;
+        more.classList.toggle('active', source.classList.contains('active'));
+    }
     function renderControls() {
         const selected = !!state.selectedFilePath;
         el['btn-root'].disabled = state.currentDir === '' || state.loading.tree;
@@ -298,18 +356,60 @@
         el['btn-view-diff'].disabled = !selected || state.loading.diff;
         el['btn-compare-files'].disabled = !selected;
         el['btn-reload-file'].disabled = !selected || state.loading.file || state.loading.diff || state.loading.more;
+        const preview = state.filePreview || {};
+        const kind = preview.kind || (preview.previewable === false ? 'binary' : 'text');
+        const isText = !!state.filePreview && (kind === 'text' || kind === 'markdown');
+        const isMarkdown = kind === 'markdown';
+        const isImage = kind === 'image';
+        const isPdf = kind === 'pdf';
+        const isDiff = state.activeView === 'diff' && !!state.diffPreview;
         el['btn-view-content'].classList.toggle('active', state.activeView === 'content');
         el['btn-view-diff'].classList.toggle('active', state.activeView === 'diff' && state.diffPreview && state.diffPreview.mode === 'git');
         el['btn-compare-files'].classList.toggle('active', state.activeView === 'diff' && state.diffPreview && state.diffPreview.mode === 'files');
         el['btn-diff-unified'].classList.toggle('active', state.diffLayout === 'unified');
         el['btn-diff-split'].classList.toggle('active', state.diffLayout === 'split');
-        const preview = state.filePreview || {};
         el['btn-load-more'].hidden = !(state.activeView === 'content' && preview.viewMode === 'truncated' && preview.hasMore);
         el['btn-prev-segment'].hidden = !(state.activeView === 'content' && preview.viewMode === 'segmented');
         el['btn-next-segment'].hidden = !(state.activeView === 'content' && preview.viewMode === 'segmented');
         el['btn-limited-head'].hidden = !(state.activeView === 'content' && preview.viewMode === 'limited');
         el['btn-limited-tail'].hidden = !(state.activeView === 'content' && preview.viewMode === 'limited');
         el['viewer-actions'].hidden = Array.from(el['viewer-actions'].children).every((button) => button.hidden);
+        if (el['btn-copy']) el['btn-copy'].disabled = !isText;
+        if (el['viewer-path']) el['viewer-path'].hidden = !selected || !state.selectedFilePath;
+        if (selected && state.selectedFilePath) {
+            el['viewer-path-summary'].textContent = summarizePath(state.selectedFilePath);
+            el['viewer-path-text'].textContent = state.selectedFilePath;
+        } else {
+            setPathExpanded(false);
+        }
+
+        if (el['more-file-section']) el['more-file-section'].hidden = !selected;
+        if (el['more-content-section']) el['more-content-section'].hidden = !state.filePreview;
+        if (el['more-text-actions']) el['more-text-actions'].hidden = !isText;
+        if (el['btn-more-markdown-preview']) el['btn-more-markdown-preview'].hidden = !isMarkdown;
+        if (el['btn-more-markdown-source']) el['btn-more-markdown-source'].hidden = !isMarkdown;
+        if (el['more-image-actions']) el['more-image-actions'].hidden = !isImage;
+        if (el['more-pdf-actions']) el['more-pdf-actions'].hidden = !isPdf;
+        if (el['more-diff-actions']) el['more-diff-actions'].hidden = !isDiff;
+        if (el['more-content-section']) {
+            const contentGroups = ['more-text-actions', 'more-image-actions', 'more-pdf-actions', 'more-diff-actions'];
+            el['more-content-section'].hidden = !state.filePreview || contentGroups.every((id) => el[id].hidden);
+        }
+        syncMoreButton('btn-more-docs', 'btn-docs');
+        syncMoreButton('btn-more-root', 'btn-root');
+        syncMoreButton('btn-more-up', 'btn-up');
+        syncMoreButton('btn-more-refresh', 'btn-refresh');
+        syncMoreButton('btn-more-content', 'btn-view-content');
+        syncMoreButton('btn-more-head-diff', 'btn-view-diff');
+        syncMoreButton('btn-more-compare', 'btn-compare-files');
+        syncMoreButton('btn-more-reload', 'btn-reload-file');
+        syncMoreButton('btn-more-copy', 'btn-copy');
+        syncMoreButton('btn-more-markdown-preview', 'btn-markdown-preview');
+        syncMoreButton('btn-more-markdown-source', 'btn-markdown-source');
+        syncMoreButton('btn-more-diff-unified', 'btn-diff-unified');
+        syncMoreButton('btn-more-diff-split', 'btn-diff-split');
+        if (el['toggle-more-hidden']) el['toggle-more-hidden'].checked = el['toggle-hidden'].checked;
+        updateMobileHeader();
     }
 
     function renderLineNumbers(content, offset = 0) {
@@ -420,8 +520,15 @@
         const preview = state.filePreview;
         if (!preview) { setViewerEmpty(tr('workspace.viewer.selectFile', 'selectFile')); renderControls(); return; }
         setViewerEmpty(''); setStatus(el['viewer-status'], '');
-        el['viewer-kind'].textContent = String(preview.kind || 'text').toUpperCase();
-        const note = previewNote(preview); el['viewer-mode-note'].hidden = !note; el['viewer-mode-note'].textContent = note;
+        // The file type is already present in the metadata line (for example
+        // “markdown · utf-8 · 641 B”); keep the title area focused on the file.
+        el['viewer-kind'].hidden = true;
+        const note = previewNote(preview);
+        // A full preview is the normal state, so do not spend a row on a
+        // redundant “完整预览” badge. Keep the note for truncated/segmented/
+        // limited files where it explains why the content is partial.
+        el['viewer-mode-note'].hidden = !note || preview.viewMode === 'full';
+        el['viewer-mode-note'].textContent = note;
         const kind = preview.kind || (preview.previewable === false ? 'binary' : 'text');
         if (kind === 'markdown') renderMarkdown(preview);
         else if (kind === 'image') void renderImage(preview);
@@ -436,8 +543,11 @@
         state.seq.diff += 1; state.seq.more += 1; disposeMedia();
         state.loading.diff = false; state.loading.more = false;
         state.selectedFilePath = entry.path; state.selectedFileMeta = entry; state.filePreview = null; state.diffPreview = null;
-        state.activeView = 'content'; state.loading.file = true; renderEntries(); setPage('viewer');
-        el['viewer-title'].textContent = entry.name || entry.path; el['viewer-meta'].textContent = entry.path;
+        state.activeView = 'content'; state.pathExpanded = false; state.loading.file = true; renderEntries(); setPage('viewer');
+        el['viewer-title'].textContent = entry.name || entry.path;
+        el['viewer-kind'].hidden = true;
+        setViewerMeta(state.hostSurface === 'android' ? [] : [entry.path]);
+        el['viewer-path-summary'].textContent = summarizePath(entry.path); el['viewer-path-text'].textContent = entry.path;
         setViewerEmpty(''); hideViewerModes(); setStatus(el['viewer-status'], copy('loading'), 'loading'); renderControls();
         if (options.pushHistory) writeHistory('file', { path: entry.path, name: entry.name || entry.path }, false);
         try {
@@ -445,8 +555,15 @@
             if (requestId !== state.seq.file || state.selectedFilePath !== entry.path) return;
             state.filePreview = { ...payload, path: payload.path || entry.path, name: payload.name || entry.name || entry.path };
             el['viewer-title'].textContent = state.filePreview.name;
-            const details = [state.filePreview.path, state.filePreview.languageHint, state.filePreview.encoding, formatSize(state.filePreview.size)].filter(Boolean);
-            el['viewer-meta'].textContent = details.length > 1 ? details.join(' · ') : state.filePreview.path;
+            const details = [
+                state.hostSurface === 'android' ? null : state.filePreview.path,
+                state.filePreview.languageHint,
+                state.filePreview.encoding,
+                formatSize(state.filePreview.size)
+            ].filter(Boolean);
+            setViewerMeta(details, state.filePreview.languageHint);
+            el['viewer-path-summary'].textContent = summarizePath(state.filePreview.path);
+            el['viewer-path-text'].textContent = state.filePreview.path;
             renderContent();
         } catch (error) {
             if (requestId === state.seq.file) { setStatus(el['viewer-status'], error.message, 'error'); setViewerEmpty(error.message); }
@@ -458,9 +575,10 @@
     async function openDeletedFile(entry, options = {}) {
         state.seq.file += 1; state.seq.diff += 1; state.seq.more += 1; disposeMedia();
         state.selectedFilePath = entry.path; state.selectedFileMeta = entry; state.filePreview = null; state.diffPreview = null;
-        state.activeView = 'diff'; state.loading.file = false; setPage('viewer'); renderEntries();
+        state.activeView = 'diff'; state.pathExpanded = false; state.loading.file = false; setPage('viewer'); renderEntries();
         el['viewer-title'].textContent = entry.name || entry.path;
-        el['viewer-meta'].textContent = `${entry.path} · deleted`;
+        setViewerMeta(state.hostSurface === 'android' ? ['deleted'] : [entry.path, 'deleted']);
+        el['viewer-path-summary'].textContent = summarizePath(entry.path); el['viewer-path-text'].textContent = entry.path;
         if (options.pushHistory !== false) writeHistory('file', { path: entry.path, name: entry.name || entry.path, deleted: true }, false);
         await loadHeadDiff();
     }
@@ -504,6 +622,7 @@
         const payload = state.diffPreview;
         if (!payload) return;
         state.activeView = 'diff'; hideViewerModes(); setViewerEmpty(''); el['diff-viewer'].hidden = false;
+        el['viewer-kind'].hidden = false;
         el['viewer-kind'].textContent = payload.mode === 'files' ? copy('compare').toUpperCase() : 'GIT · HEAD';
         el['viewer-mode-note'].hidden = true;
         if (Array.isArray(payload.hunks)) renderStructuredDiff(payload); else renderLegacyDiff(payload.diffText || '');
@@ -605,6 +724,18 @@
 
     function openSearchDialog() { openDialog(el['search-dialog']); el['search-input'].value = ''; el['search-results'].replaceChildren(); setStatus(el['search-status'], copy('searchHint')); setTimeout(() => el['search-input'].focus(), 0); }
     function openCompareDialog() { if (!state.selectedFilePath) return; openDialog(el['compare-dialog']); el['compare-left-label'].textContent = state.selectedFilePath; el['compare-search-input'].value = ''; el['compare-results'].replaceChildren(); setStatus(el['compare-status'], copy('searchHint')); setTimeout(() => el['compare-search-input'].focus(), 0); }
+    function openMoreDialog() { renderControls(); openDialog(el['workspace-more-dialog']); }
+    function closeMoreDialog() { closeDialog(el['workspace-more-dialog']); }
+    async function copyPath() {
+        const path = state.selectedFilePath || (state.filePreview && state.filePreview.path) || '';
+        if (!path) return;
+        try {
+            await navigator.clipboard.writeText(path);
+            setStatus(el['viewer-status'], copy('copied'));
+        } catch (error) {
+            setStatus(el['viewer-status'], copy('copyFailed'), 'error');
+        }
+    }
     function debounce(fn, wait) { let timer; return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), wait); }; }
 
     async function openBinary() {
@@ -630,6 +761,9 @@
         el['btn-up'].addEventListener('click', () => void loadTree(dirname(state.currentDir), { pushHistory: true }));
         el['toggle-hidden'].addEventListener('change', () => { state.showHidden = el['toggle-hidden'].checked; void loadTree(state.currentDir); });
         el['btn-mobile-back'].addEventListener('click', () => workspaceBack()); el['btn-search'].addEventListener('click', openSearchDialog);
+        el['btn-workspace-more'].addEventListener('click', openMoreDialog);
+        el['viewer-path-toggle'].addEventListener('click', () => setPathExpanded(!state.pathExpanded));
+        el['btn-copy-path'].addEventListener('click', () => void copyPath());
         el['btn-view-content'].addEventListener('click', renderContent); el['btn-view-diff'].addEventListener('click', () => void loadHeadDiff());
         el['btn-compare-files'].addEventListener('click', openCompareDialog);
         el['btn-reload-file'].addEventListener('click', () => state.selectedFileMeta && void openFile(state.selectedFileMeta));
@@ -655,6 +789,22 @@
         el['btn-open-binary'].addEventListener('click', () => void openBinary());
         el['btn-diff-unified'].addEventListener('click', () => { state.diffLayout = 'unified'; renderDiff(); });
         el['btn-diff-split'].addEventListener('click', () => { state.diffLayout = 'split'; renderDiff(); });
+        const moreProxyActions = {
+            'btn-more-search': 'btn-search', 'btn-more-docs': 'btn-docs', 'btn-more-root': 'btn-root', 'btn-more-up': 'btn-up', 'btn-more-refresh': 'btn-refresh',
+            'btn-more-content': 'btn-view-content', 'btn-more-head-diff': 'btn-view-diff', 'btn-more-compare': 'btn-compare-files', 'btn-more-reload': 'btn-reload-file',
+            'btn-more-copy': 'btn-copy', 'btn-more-markdown-preview': 'btn-markdown-preview', 'btn-more-markdown-source': 'btn-markdown-source',
+            'btn-more-image-minus': 'btn-image-minus', 'btn-more-image-fit': 'btn-image-fit', 'btn-more-image-actual': 'btn-image-actual', 'btn-more-image-plus': 'btn-image-plus',
+            'btn-more-pdf-prev': 'btn-pdf-prev', 'btn-more-pdf-fit': 'btn-pdf-fit', 'btn-more-pdf-next': 'btn-pdf-next', 'btn-more-pdf-minus': 'btn-pdf-minus', 'btn-more-pdf-plus': 'btn-pdf-plus',
+            'btn-more-diff-unified': 'btn-diff-unified', 'btn-more-diff-split': 'btn-diff-split'
+        };
+        Object.entries(moreProxyActions).forEach(([moreId, sourceId]) => {
+            el[moreId].addEventListener('click', () => { closeMoreDialog(); el[sourceId].click(); });
+        });
+        el['toggle-more-hidden'].addEventListener('change', (event) => {
+            closeMoreDialog();
+            el['toggle-hidden'].checked = event.target.checked;
+            void loadTree(state.currentDir);
+        });
         el['search-input'].addEventListener('input', debounce((event) => void runSearch(event.target.value, el['search-results'], el['search-status'], 'open'), 180));
         el['compare-search-input'].addEventListener('input', debounce((event) => void runSearch(event.target.value, el['compare-results'], el['compare-status'], 'compare'), 180));
         el['markdown-viewer'].addEventListener('click', (event) => {
@@ -679,6 +829,10 @@
         else if (route.type === 'compare') { if (state.selectedFilePath !== route.leftPath) await openFile({ path: route.leftPath, name: String(route.leftPath).split('/').pop() }); await loadFileComparison(route.rightPath, { pushHistory: false }); }
     }
     function workspaceBack() {
+        if (el['workspace-more-dialog'].hasAttribute('open')) {
+            closeMoreDialog();
+            return true;
+        }
         if (el['search-dialog'].hasAttribute('open')) {
             closeDialog(el['search-dialog']);
             if (document.activeElement && typeof document.activeElement.blur === 'function') document.activeElement.blur();

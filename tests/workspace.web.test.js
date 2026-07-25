@@ -636,6 +636,35 @@ test('workspace Markdown preview disables raw HTML and dangerous link protocols'
     assert.equal(markdown.querySelector('a[href="docs/guide.md"]').textContent, 'good');
 });
 
+test('workspace Markdown mode buttons switch between rendered preview and source', async (t) => {
+    const app = createWorkspaceApp({
+        fetchImpl: async (record) => {
+            const url = new URL(record.url);
+            if (url.pathname.endsWith('/workspace/meta')) return createResponse(true, { workspaceRoot: '/repo', defaultEntryPath: '', isGitRepo: false });
+            if (url.pathname.endsWith('/workspace/tree')) return createResponse(true, { path: '', entries: [{ name: 'README.md', path: 'README.md', type: 'file' }] });
+            if (url.pathname.endsWith('/workspace/file')) return createResponse(true, {
+                path: 'README.md', name: 'README.md', kind: 'markdown', previewable: true, viewMode: 'full',
+                languageHint: 'markdown', encoding: 'utf-8', size: 16, content: '# Heading\n\nbody'
+            });
+            throw new Error(`Unexpected request ${record.url}`);
+        }
+    });
+    t.after(() => app.cleanup());
+    await flushUi(); app.document.querySelector('.browser-item').click(); await flushUi();
+
+    assert.equal(app.document.getElementById('viewer-kind').hidden, true);
+    assert.equal(app.document.querySelector('#viewer-meta .viewer-meta-kind').textContent, 'markdown');
+    assert.equal(app.document.getElementById('markdown-viewer').hidden, false);
+
+    app.document.getElementById('btn-more-markdown-source').click(); await flushUi();
+    assert.equal(app.document.getElementById('text-viewer').hidden, false);
+    assert.equal(app.document.getElementById('markdown-viewer').hidden, true);
+
+    app.document.getElementById('btn-more-markdown-preview').click(); await flushUi();
+    assert.equal(app.document.getElementById('markdown-viewer').hidden, false);
+    assert.equal(app.document.getElementById('text-viewer').hidden, true);
+});
+
 test('workspace revokes an image Blob URL when another file is selected', async (t) => {
     const revoked = [];
     const app = createWorkspaceApp({

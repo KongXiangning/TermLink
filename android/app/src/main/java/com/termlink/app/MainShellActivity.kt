@@ -68,6 +68,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import com.termlink.app.util.LocaleHelper
 import com.termlink.app.util.ProfileRestoreStateCleaner
+import com.termlink.app.util.ScreenTimeoutController
 import com.termlink.app.util.UiPreferences
 import com.termlink.app.util.setStatusBarHidden
 import com.termlink.app.util.statusBarSafeTopInset
@@ -137,8 +138,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var sessionsDrawerBasePaddingRight: Int = 0
     private var sessionsDrawerBasePaddingBottom: Int = 0
     private var rootInsetsView: View? = null
-    private var idleHandler: android.os.Handler? = null
-    private var idleTimeoutRunnable: Runnable? = null
+    private lateinit var screenTimeoutController: ScreenTimeoutController
     private var isActivityVisible: Boolean = false
     private var workspaceMetaSeq: Int = 0
     private var workspaceMetaTargetKey: String = ""
@@ -147,7 +147,6 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var workspaceEntryStableResolution: Boolean = false
     private var workspaceEntryDisabledReason: String? = null
     private var returnToNativeCodex: Boolean = false
-    private val IDLE_DIM_DELAY_MS = 2 * 60 * 1000L // 2 minutes
     private val drawerListener = object : DrawerLayout.SimpleDrawerListener() {
         override fun onDrawerOpened(drawerView: View) {
             if (drawerView.id == R.id.shell_sessions_drawer_container) {
@@ -172,10 +171,9 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        screenTimeoutController = ScreenTimeoutController(this, window)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        idleHandler = android.os.Handler(mainLooper)
-        idleTimeoutRunnable = Runnable { onIdleTimeout() }
         
         setContentView(R.layout.activity_main_shell)
         drawerLayout = findViewById(R.id.shell_root_drawer)
@@ -285,11 +283,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             loadedTerminalSignature = ""
             lastInjectedConfigSignature = null
         }
-        idleHandler?.removeCallbacksAndMessages(null)
-        disableKeepScreenOn()
+        screenTimeoutController.dispose()
         backgroundExecutor.shutdownNow()
-        idleHandler = null
-        idleTimeoutRunnable = null
         isActivityVisible = false
         super.onDestroy()
     }
@@ -297,8 +292,8 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     override fun onResume() {
         super.onResume()
         isActivityVisible = true
+        screenTimeoutController.onVisible()
         updateStatusBarVisibility()
-        markUserActive()
         val insetsView = rootInsetsView ?: return
         insetsView.post {
             ViewCompat.requestApplyInsets(insetsView)
@@ -310,8 +305,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     override fun onPause() {
         isActivityVisible = false
         setStatusBarHidden(hidden = false, anchor = rootInsetsView)
-        idleHandler?.removeCallbacksAndMessages(null)
-        disableKeepScreenOn()
+        screenTimeoutController.onHidden()
         super.onPause()
     }
 
@@ -369,7 +363,11 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     override fun onUserInteraction() {
         super.onUserInteraction()
-        markUserActive()
+        screenTimeoutController.onUserInteraction()
+    }
+
+    override fun onScreenTimeoutChanged() {
+        screenTimeoutController.onPreferenceChanged()
     }
 
     override fun getOrCreateTerminalWebView(): WebView {
@@ -749,32 +747,6 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         }
     }
 
-    private fun markUserActive() {
-        if (!isActivityVisible) return
-        enableKeepScreenOn()
-        rescheduleIdleTimeout()
-    }
-
-    private fun rescheduleIdleTimeout() {
-        val handler = idleHandler ?: return
-        val timeout = idleTimeoutRunnable ?: return
-        handler.removeCallbacks(timeout)
-        handler.postDelayed(timeout, IDLE_DIM_DELAY_MS)
-    }
-
-    private fun onIdleTimeout() {
-        if (!isActivityVisible) return
-        disableKeepScreenOn()
-    }
-
-    private fun enableKeepScreenOn() {
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-    }
-
-    private fun disableKeepScreenOn() {
-        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-    }
-
     private fun showMainFragment(tag: String) {
         val fm = supportFragmentManager
         val target = fm.findFragmentByTag(tag) ?: createMainFragmentForTag(tag)
@@ -864,8 +836,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             lastSessionId,
             currentSessionMode().wireValue,
             currentSessionCwd().orEmpty(),
-            UiPreferences.theme(applicationContext),
-            isAppDarkTheme().toString()
+            effectiveTerminalUiTheme()
         ).joinToString("|")
     }
 
@@ -892,7 +863,10 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         json.put("sessionId", lastSessionId)
         json.put("activeProfile", activeProfileJson)
         json.put("historyEnabled", true)
-        json.put("uiTheme", if (isAppDarkTheme()) "dark" else "light")
+        // The interactive terminal is intentionally dark-only. Codex web
+        // fallback still follows the app preference, while native Codex and
+        // Workspace keep their own theme handling.
+        json.put("uiTheme", effectiveTerminalUiTheme())
 
         // Inject auth header so WebView JS can authenticate fetch() calls
         if (profile != null && profile.authType == com.termlink.app.data.AuthType.BASIC) {
@@ -916,6 +890,14 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             UiPreferences.THEME_LIGHT -> false
             else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
                 Configuration.UI_MODE_NIGHT_YES
+        }
+    }
+
+    private fun effectiveTerminalUiTheme(): String {
+        return if (currentSessionMode() == SessionMode.TERMINAL || isAppDarkTheme()) {
+            "dark"
+        } else {
+            "light"
         }
     }
 

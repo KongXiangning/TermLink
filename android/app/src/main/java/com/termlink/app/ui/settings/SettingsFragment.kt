@@ -17,6 +17,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.PopupWindow
+import android.widget.SeekBar
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
@@ -52,6 +53,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         fun hasMtlsPassword(profileId: String): Boolean
         fun putMtlsPassword(profileId: String, password: String)
         fun removeMtlsPassword(profileId: String)
+        fun onScreenTimeoutChanged() = Unit
     }
 
     private data class MtlsDialogState(
@@ -79,6 +81,8 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
     private lateinit var insecureTransportWarningText: TextView
     private lateinit var themeValueText: TextView
     private lateinit var languageValueText: TextView
+    private lateinit var screenTimeoutValueText: TextView
+    private lateinit var screenTimeoutSeekBar: SeekBar
     private var activeMtlsDialogState: MtlsDialogState? = null
 
     private val mtlsCertificatePickerLauncher =
@@ -116,12 +120,28 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         insecureTransportWarningText = view.findViewById(R.id.settings_insecure_transport_warning)
         themeValueText = view.findViewById(R.id.settings_theme_value)
         languageValueText = view.findViewById(R.id.settings_language_value)
+        screenTimeoutValueText = view.findViewById(R.id.settings_screen_timeout_value)
+        screenTimeoutSeekBar = view.findViewById(R.id.settings_screen_timeout_seekbar)
         view.findViewById<View>(R.id.settings_theme_row).setOnClickListener { anchor ->
             showThemePreferencePopup(anchor)
         }
         view.findViewById<View>(R.id.settings_language_row).setOnClickListener { anchor ->
             showLanguagePreferencePopup(anchor)
         }
+        screenTimeoutSeekBar.max = UiPreferences.SCREEN_TIMEOUT_MAX_PROGRESS
+        screenTimeoutSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    UiPreferences.setScreenTimeoutProgress(requireContext(), progress)
+                    callbacks?.onScreenTimeoutChanged()
+                    renderScreenTimeoutValue()
+                }
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+
+            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+        })
         renderUiPreferenceValues()
         view.findViewById<Button>(R.id.btn_add_profile).setOnClickListener {
             showProfileDialog(null)
@@ -149,6 +169,45 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
             UiPreferences.LANGUAGE_ZH -> getString(R.string.settings_language_zh)
             UiPreferences.LANGUAGE_EN -> getString(R.string.settings_language_en)
             else -> getString(R.string.settings_language_system)
+        }
+        renderScreenTimeoutValue()
+    }
+
+    private fun renderScreenTimeoutValue() {
+        if (!::screenTimeoutValueText.isInitialized || !::screenTimeoutSeekBar.isInitialized) {
+            return
+        }
+        val progress = UiPreferences.screenTimeoutProgress(requireContext())
+        screenTimeoutSeekBar.progress = progress
+        val configuredLabel = when (progress) {
+            UiPreferences.SCREEN_TIMEOUT_SYSTEM_PROGRESS ->
+                getString(R.string.settings_screen_timeout_system)
+            else -> {
+                val totalSeconds = progress * UiPreferences.SCREEN_TIMEOUT_STEP_SECONDS
+                formatScreenTimeoutLabel(totalSeconds * 1_000L)
+            }
+        }
+        val configuredMillis = UiPreferences.screenTimeoutMillisForProgress(progress)
+        val systemMillis = UiPreferences.systemScreenTimeoutMillis(requireContext())
+        screenTimeoutValueText.text = if (
+            configuredMillis != null && systemMillis != null && configuredMillis <= systemMillis
+        ) {
+            getString(
+                R.string.settings_screen_timeout_follows_system,
+                configuredLabel,
+                formatScreenTimeoutLabel(systemMillis)
+            )
+        } else {
+            configuredLabel
+        }
+    }
+
+    private fun formatScreenTimeoutLabel(timeoutMillis: Long): String {
+        val totalSeconds = (timeoutMillis / 1_000L).coerceAtLeast(1L).toInt()
+        return if (totalSeconds % 60 == 0) {
+            getString(R.string.settings_screen_timeout_minutes, totalSeconds / 60)
+        } else {
+            getString(R.string.settings_screen_timeout_seconds, totalSeconds)
         }
     }
 

@@ -31,7 +31,8 @@
 - [x] Android Codex Header / composer 布局回归 follow-up：任务 `20260722-001` 已完成。恢复左侧会话管理 drawer 入口，移除无实际系统 inset 时强制产生的 36dp composer 底部空白，并在不改变 composer 外框高度的前提下把提示、光标和首行改为顶部起笔。Android JVM 163/163、owner/gateway targeted 45/45、debug APK、360/412dp Huawei 真机 drawer/IME/视觉 smoke 通过；三键导航非零 inset 由单测覆盖，未切换系统导航模式补人工截图。
 ## 🔨 正在开发
 
-- [ ] Android Codex 对话图片/文件直达与 IPC 实时同步修复：任务 `20260722-002` 的代码实现与当前 Desktop owner 回归已完成。根因是 TermLink 未按当前宿主协议发送 `thread-stream-following-changed`，不是 IPC pipe 不工作；现已由 gateway/feed 引用计数订阅、IPC 重连重放和仅对未知 discovery 的 negative-ack 补齐。Desktop healthy surface 成为正文/turn/运行态唯一权威，真机超过 3 分钟持续收到 patch、operation 与 running 状态，logcat 中 `thread/read` 为 0；同一 assistant key 的文本长度已在连续 revision 中原位 `24 → 48 → 71 → 96 → 120 → 126`。IPC/owner/gateway Node 126/126、Workspace/Web 54/54、JDK 21 Android JVM/debug APK、syntax/diff gates 通过。VS Code owner 单独超过 90 秒和主动 offline→fallback→reconnect 时序尚未执行，因此本项保持开发中，Step 17 继续承载剩余交叉宿主验收。
+- [x] Android Codex 对话图片/文件直达与 IPC 实时同步修复：任务 `20260722-002` 已由用户确认完成并归档；既有 IPC/owner/gateway、Workspace/Web、JDK 21 Android JVM/debug APK 和 Huawei 真机验证结果保留在归档文件中。后续 Codex IPC 需求仍须遵守既有 authority/follower 契约。
+- [x] Android App 前台独立息屏时间：任务 `20260726-001` 已完成偏好设置和前台息屏控制；仅长于系统值的档位延长前台亮屏，短于或等于系统值时由系统接管，后台始终按系统执行。JDK 21 Android JVM/Debug APK 验证通过，真实设备定时等待 smoke 作为未执行的手工观察项保留。
 - [x] `20260615-002` 网页版 Codex IPC 实时同步会话页：已完成并归档。commit `9603ea7`。
 - [x] `20260616-001` 网页版 SPA 统一 shell + Codex 会话整合：已完成实现、review、regression。`terminal.html` 改造为 SPA shell，`terminal.js` 零改动。commit `32c4659`。
 - [ ] `20260615-001` Codex IPC Android 实时同步：paused_blocked（缺 Desktop IPC 环境 manual smoke）。

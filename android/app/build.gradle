@@ -169,8 +169,29 @@ task removeLegacyLocalDebugConfig(type: Delete) {
     delete file('src/main/assets/local-debug-config.json')
 }
 
+// The Android shell loads the Web UI from the ignored Capacitor asset mirror.
+// Keep the theme-aware terminal/workspace clients in that mirror in sync with
+// the tracked sources whenever Gradle packages the APK.
+task syncThemeWebAssets(type: Copy) {
+    from(rootProject.projectDir.parentFile) {
+        include 'public/terminal_client.js'
+        include 'public/terminal_client.css'
+        include 'public/workspace.js'
+        include 'public/workspace.css'
+        include 'public/workspace.html'
+        eachFile { details -> details.path = details.path.replaceFirst('^public/', '') }
+    }
+    into file('src/main/assets/public')
+}
+
 tasks.matching { it.name == 'preBuild' }.configureEach {
     dependsOn removeLegacyLocalDebugConfig
+}
+
+tasks.matching {
+    it.name == 'mergeDebugAssets' || it.name == 'mergeReleaseAssets' || it.name == 'processDebugMainResources'
+}.configureEach {
+    dependsOn syncThemeWebAssets
 }
 
 tasks.matching { it.name == 'mergeDebugAssets' || it.name == 'processDebugMainResources' }.configureEach {
