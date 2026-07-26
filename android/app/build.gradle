@@ -29,6 +29,7 @@ def readBuildConfigValue = { String key, String defaultValue ->
 def debugServerBaseUrl = readBuildConfigValue('TERMLINK_DEBUG_BASE_URL', '')
 def debugServerUsername = readBuildConfigValue('TERMLINK_DEBUG_BASIC_USERNAME', '')
 def debugServerPassword = readBuildConfigValue('TERMLINK_DEBUG_BASIC_PASSWORD', '')
+def releaseDiagnosticsEnabled = readBuildConfigValue('TERMLINK_ANDROID_DIAGNOSTICS_ENABLED', 'false').toBoolean()
 
 android {
     namespace = "com.termlink.app"
@@ -57,8 +58,12 @@ android {
         }
     }
     buildTypes {
+        debug {
+            buildConfigField "boolean", "PERSISTENT_DIAGNOSTICS_ENABLED", "true"
+        }
         release {
             minifyEnabled false
+            buildConfigField "boolean", "PERSISTENT_DIAGNOSTICS_ENABLED", releaseDiagnosticsEnabled.toString()
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }

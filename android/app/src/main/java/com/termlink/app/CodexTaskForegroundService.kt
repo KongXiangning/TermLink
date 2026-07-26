@@ -13,6 +13,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import com.termlink.app.util.PersistentDiagnosticLog
 
 /**
  * Foreground service that keeps the Android process alive while a Codex task
@@ -70,6 +71,7 @@ class CodexTaskForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        PersistentDiagnosticLog.event("notification", "android.notification.service.created", critical = true)
         ensureNotificationChannel()
         // Immediately satisfy the foreground-service contract in onCreate()
         // to prevent RemoteServiceException on EMUI/slow devices where
@@ -87,12 +89,14 @@ class CodexTaskForegroundService : Service() {
                 startForeground(NOTIFICATION_ID, notification)
             }
         } catch (e: Exception) {
+            PersistentDiagnosticLog.error("notification", "android.notification.service.start_failed", e, critical = true)
             Log.e(TAG, "startForeground in onCreate failed", e)
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val status = intent?.getStringExtra(EXTRA_STATUS) ?: "running"
+        PersistentDiagnosticLog.event("notification", "android.notification.update.requested", mapOf("status" to status), critical = true)
         latestTapIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent?.getParcelableExtra(EXTRA_TAP_INTENT, Intent::class.java)
         } else {
@@ -105,6 +109,7 @@ class CodexTaskForegroundService : Service() {
             val nm = getSystemService(NotificationManager::class.java)
             nm?.notify(NOTIFICATION_ID, notification)
         } catch (e: Exception) {
+            PersistentDiagnosticLog.error("notification", "android.notification.update_failed", e, mapOf("status" to status), critical = true)
             Log.e(TAG, "notification update failed", e)
         }
         if (!isActiveStatus(status)) {
@@ -123,6 +128,7 @@ class CodexTaskForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        PersistentDiagnosticLog.event("notification", "android.notification.service.destroyed", critical = true)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } else {

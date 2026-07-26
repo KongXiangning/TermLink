@@ -2,7 +2,7 @@
 title: 开发与调试指南
 status: active
 owner: @maintainer
-last_updated: 2026-05-02
+last_updated: 2026-07-26
 source_of_truth: code
 related_code: [src/server.js, public/terminal_client.html, android/app/src/main/java/com/termlink/app/MainShellActivity.kt]
 related_docs: [docs/guides/android-development.md, docs/guides/deployment.md, docs/ops/ops-checklist.md]
@@ -129,6 +129,33 @@ android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ## 6. 常见排查入口
+
+## 6.1 持久诊断日志（已覆盖的临时问题）
+
+诊断日志默认在 Debug APK 与本地开发服务中启用，Release APK/生产服务默认关闭；启用时只写入结构化 JSONL，自动滚动保留约 10MiB（Android）或 50MiB（服务端）。日志不写入提示词、命令正文、输出内容、凭据、ticket、证书或附件内容。使用 `adb install -r` 更新 APK 时不会清除 App 私有目录，因此日志会跨版本保留。
+
+日志位置：
+
+| 端 | 文件 | 主要覆盖 |
+| --- | --- | --- |
+| Android | `files/diagnostics/termlink-diagnostics.jsonl[.1-.4]`（App 私有目录） | Codex 生命周期/新建、模型与权限目录请求、审批确认、会话列表/创建/删除、HTTP 耗时、通知服务、主线程卡顿、终端滚动手势、WebView 白屏相关生命周期 |
+| 服务端 | `logs/diagnostics/termlink-diagnostics.jsonl[.1-.4]` | `/sessions` 列表/创建/删除、Codex 请求耗时、IPC feed 连接/重连/订阅、Follower 发消息、审批发送与确认 |
+
+开启开关：
+
+```text
+TERMLINK_DIAGNOSTICS_ENABLED=true             # 服务端；生产环境需显式开启
+TERMLINK_DIAGNOSTICS_PATH=./logs/diagnostics/termlink-diagnostics.jsonl
+TERMLINK_ANDROID_DIAGNOSTICS_ENABLED=true    # Release APK 构建时可通过 Gradle/env 开启
+```
+
+采集设备与服务端日志（不会清理或覆盖源日志）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ./scripts/diagnostics/collect-known-issue-logs.ps1
+```
+
+采集目录会生成 `manifest.json`、`android/`、`server/` 与按时间排序的 `timeline.jsonl`。各事件的稳定名称以 `android.*` 或 `server.*` 开头，可按问题编号在 `tmp/codex-known-issues-20260726.md` 的映射表中筛选。
 
 ### Sessions 401
 

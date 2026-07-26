@@ -1241,6 +1241,9 @@ if (terminalContainer && isTouchDevice) {
     let activeTouchId = null;
     let touchStartY = 0;
     let lastTouchY = 0;
+    let touchStartedAt = 0;
+    let touchMoveCount = 0;
+    let touchScrollDelta = 0;
     let draggedSinceTouchStart = false;
     const DRAG_THRESHOLD_PX = 6;
 
@@ -1299,6 +1302,9 @@ if (terminalContainer && isTouchDevice) {
         activeTouchId = touch.identifier;
         touchStartY = touch.clientY;
         lastTouchY = touch.clientY;
+        touchStartedAt = Date.now();
+        touchMoveCount = 0;
+        touchScrollDelta = 0;
         draggedSinceTouchStart = false;
     }, passiveTouchStartOptions);
 
@@ -1322,12 +1328,24 @@ if (terminalContainer && isTouchDevice) {
         e.preventDefault();
         e.stopPropagation();
         viewport.scrollTop -= deltaY;
+        touchMoveCount += 1;
+        touchScrollDelta += deltaY;
         lastTouchY = touch.clientY;
         suppressNextClickFocus = true;
         suppressFocusUntil = Date.now() + 280;
     }, activeTouchOptions);
 
     terminalContainer.addEventListener('touchend', (e) => {
+        if (touchStartedAt > 0) {
+            // Keep this prefix stable: Android captures only this bounded diagnostic payload.
+            console.info('[TERMLINK_DIAG]', JSON.stringify({
+                event: 'android.terminal.scroll.gesture',
+                durationMs: Math.max(0, Date.now() - touchStartedAt),
+                dragged: draggedSinceTouchStart,
+                moveCount: touchMoveCount,
+                scrollDeltaPx: Math.round(touchScrollDelta)
+            }));
+        }
         activeTouchId = null;
         if (draggedSinceTouchStart) {
             e.preventDefault();
@@ -1352,6 +1370,9 @@ if (terminalContainer && isTouchDevice) {
     }, activeTouchOptions);
 
     terminalContainer.addEventListener('touchcancel', () => {
+        touchStartedAt = 0;
+        touchMoveCount = 0;
+        touchScrollDelta = 0;
         activeTouchId = null;
         draggedSinceTouchStart = false;
     }, passiveTouchStartOptions);

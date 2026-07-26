@@ -6,6 +6,7 @@ const { isIpAllowed, normalizeIp } = require('../utils/ipCheck');
 const { generateAuditTraceId } = require('../utils/auditTrace');
 const { resolveConnectionSecurity } = require('../utils/connectionSecurity');
 const { getAuditService } = require('../services/auditService');
+const { diagnosticLog } = require('../services/diagnosticLog');
 const CodexAppServerService = require('../services/codexAppServerService');
 const { CodexThreadHub } = require('../services/codexThreadHub');
 const { CodexOwnerSurfaceTracker } = require('../services/codexOwnerSurfaceTracker');
@@ -1203,6 +1204,12 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     };
 
     const _handleFollowerSendMessage = async (ws, conversationId, input, options = {}) => {
+        diagnosticLog.event('server', 'server.ipc.follower_send.requested', {
+            conversationIdPresent: isNonEmptyString(conversationId),
+            inputLength: typeof input === 'string' ? input.trim().length : 0,
+            followerMode: _isFollowerModeEnabled(ws),
+            ipcOnline: _isIpcOnline()
+        }, 'info');
         if (!_isIpcActiveSendAllowed() || !_isFollowerModeEnabled(ws)) {
             sendWsEnvelope(ws, { type: 'error', message: 'Active send is not allowed', detail: 'Enable TERMLINK_CODEX_IPC_ENABLED + ALLOW_ACTIVE + CONFIRM_SEND.' });
             return;
@@ -1259,8 +1266,16 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 turnStartParams: buildFollowerTurnStartParams(input.trim(), latest, options)
             });
             assertIpcSuccess(response);
+            diagnosticLog.event('server', 'server.ipc.follower_send.acknowledged', {
+                conversationIdPresent: true,
+                responseType: response && response.type
+            });
             sendWsEnvelope(ws, { type: options.successType || 'follower_message_sent', conversationId, acknowledged: true });
         } catch (error) {
+            diagnosticLog.error('server', 'server.ipc.follower_send.failed', error, {
+                conversationIdPresent: isNonEmptyString(conversationId),
+                noClientFallback: isNoClientFoundError(error)
+            });
             if (isNoClientFoundError(error)) {
                 await _startOwnerMessageOrGoal(ws, conversationId, input, latest, options);
                 return;
@@ -1341,6 +1356,13 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     };
 
     const _handleFollowerApprovalResponse = async (ws, conversationId, decision, requestId, requestKind, execpolicyAmendment) => {
+        diagnosticLog.event('server', 'server.ipc.approval.requested', {
+            conversationIdPresent: isNonEmptyString(conversationId),
+            requestIdPresent: isNonEmptyString(requestId),
+            requestKind: isNonEmptyString(requestKind) ? requestKind : 'unknown',
+            followerMode: _isFollowerModeEnabled(ws),
+            ipcOnline: _isIpcOnline()
+        }, 'info');
         if (!_isIpcActiveSendAllowed() || !_isFollowerModeEnabled(ws)) {
             sendWsEnvelope(ws, { type: 'error', message: 'IPC is not available for active send' });
             return;
@@ -1365,8 +1387,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                     result: ownerResult
                 });
                 ownerSurfaceTracker.markRequestResponseSent(approval.rawRequestId, conversationId);
+                diagnosticLog.event('server', 'server.ipc.approval.acknowledged', { transport: 'owner', conversationIdPresent: true }, 'info');
                 sendWsEnvelope(ws, { type: 'follower_approval_response_sent', conversationId, requestId, acknowledged: true });
             } catch (error) {
+                diagnosticLog.error('server', 'server.ipc.approval.failed', error, { transport: 'owner' });
                 sendWsEnvelope(ws, { type: 'error', message: 'Failed to send owner approval response', detail: error.message });
             }
             return;
@@ -1396,6 +1420,11 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                 decision: decisionValue
             });
             assertIpcSuccess(response);
+            diagnosticLog.event('server', 'server.ipc.approval.acknowledged', {
+                transport: 'ipc',
+                conversationIdPresent: true,
+                responseType: response?.type
+            }, 'info');
             console.warn('[gateway][ipc][approval-response-result]', JSON.stringify({
                 conversationId,
                 requestId,
@@ -1406,6 +1435,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             }));
             sendWsEnvelope(ws, { type: 'follower_approval_response_sent', conversationId, requestId, acknowledged: true });
         } catch (error) {
+            diagnosticLog.error('server', 'server.ipc.approval.failed', error, { transport: 'ipc' });
             sendWsEnvelope(ws, { type: 'error', message: 'Failed to send approval response', detail: error.message });
         }
     };
@@ -2836,6 +2866,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         // Client-initiated heartbeat - mark connection as alive
                         ws.isAlive = true;
                     } else if (type === 'codex_new_thread') {
+                        diagnosticLog.event('server', 'server.codex.new_thread.requested', {
+                            sessionIdPresent: Boolean(session && session.id),
+                            hasCwd: isNonEmptyString(envelope.cwd)
+                        }, 'info');
                         await ensureCodexServiceForSession(session);
                         const threadId = await ensureCodexThreadForSession(session, {
                             forceNewThread: true,
@@ -2844,6 +2878,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         sendWsEnvelope(ws, {
                             type: 'codex_thread_ready',
                             threadId
+                        });
+                        diagnosticLog.event('server', 'server.codex.new_thread.ready', {
+                            sessionIdPresent: Boolean(session && session.id),
+                            threadIdPresent: isNonEmptyString(threadId)
                         });
                     } else if (type === 'codex_turn') {
                         const text = isNonEmptyString(envelope.text) ? envelope.text.trim() : '';
@@ -3112,6 +3150,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                         });
                     } else if (type === 'codex_request') {
                         const method = isNonEmptyString(envelope.method) ? envelope.method : null;
+                        diagnosticLog.event('server', 'server.codex.request.received', {
+                            method: method || 'missing',
+                            requestIdPresent: isNonEmptyString(envelope.requestId)
+                        });
                         if (!method) {
                             sendWsEnvelope(ws, {
                                 type: 'codex_response',
@@ -3135,7 +3177,14 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             return;
                         }
                         const requestParams = buildCodexRequestParams(method, envelope.params, session);
-                        const response = await codexService.request(method, requestParams);
+                        const requestStartedAt = Date.now();
+                        try {
+                            const response = await codexService.request(method, requestParams);
+                            diagnosticLog.event('server', 'server.codex.request.completed', {
+                                method,
+                                durationMs: Date.now() - requestStartedAt,
+                                responsePresent: response !== null && response !== undefined
+                            });
                         if (method === 'account/rateLimits/read') {
                             console.info('[CODEX][account/rateLimits/read] Response:', JSON.stringify(response, null, 2));
                         }
@@ -3203,6 +3252,13 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                             method,
                             result: response
                         });
+                        } catch (error) {
+                            diagnosticLog.error('server', 'server.codex.request.failed', error, {
+                                method,
+                                durationMs: Date.now() - requestStartedAt
+                            });
+                            throw error;
+                        }
                     }
                 } catch (e) {
                     if (envelope && envelope.type === 'codex_request') {

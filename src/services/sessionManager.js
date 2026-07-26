@@ -1,6 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const SessionStore = require('../repositories/sessionStore');
 const PtyService = require('./ptyService');
+const { diagnosticLog } = require('./diagnosticLog');
 
 const DEFAULT_IDLE_TIMEOUT_MS = 6 * 60 * 60 * 1000; // 6 hours
 const DEFAULT_CLEANUP_INTERVAL_MS = 60 * 1000;
@@ -91,6 +92,11 @@ class SessionManager {
     }
 
     async createSession(options = {}) {
+        diagnosticLog.event('server', 'server.sessions.create.requested', {
+            sessionMode: options.sessionMode,
+            hasCwd: Boolean(options.cwd),
+            sessionCount: this.sessions.size
+        });
         this.ensureCapacityForNewSession();
 
         const id = uuidv4();
@@ -113,6 +119,11 @@ class SessionManager {
         this.ensurePtyForSession(session);
         this.sessions.set(id, session);
         this.schedulePersist();
+        diagnosticLog.event('server', 'server.sessions.create.completed', {
+            sessionMode: session.sessionMode,
+            sessionIdPresent: true,
+            sessionCount: this.sessions.size
+        });
         return session;
     }
 
@@ -209,8 +220,13 @@ class SessionManager {
             }
             this.sessions.delete(id);
             this.schedulePersist();
+            diagnosticLog.event('server', 'server.sessions.delete.completed', {
+                sessionIdPresent: Boolean(id),
+                sessionCount: this.sessions.size
+            }, 'info');
             return true;
         }
+        diagnosticLog.event('server', 'server.sessions.delete.missing', { sessionIdPresent: Boolean(id) }, 'warn');
         return false;
     }
 

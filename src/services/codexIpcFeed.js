@@ -3,6 +3,7 @@
 const { EventEmitter } = require('node:events');
 const { ThreadStreamTracker, buildDesktopSurfaceSnapshot } = require('./codexIpcThreadStream');
 const { readIpcConfig } = require('./codexIpcConfig');
+const { diagnosticLog } = require('./diagnosticLog');
 
 class CodexIpcFeed extends EventEmitter {
     /**
@@ -28,6 +29,7 @@ class CodexIpcFeed extends EventEmitter {
         this._snapshotCache = new Map();
         this._syncEvents = [];
         this._rawEvents = [];
+        this._diagnosticSurfaceSignatures = new Map();
         this._sequence = 0;
         this._rawSequence = 0;
         /** @type {Map<string, {conversationId: string, hostId: string, refCount: number}>} */
@@ -78,6 +80,7 @@ class CodexIpcFeed extends EventEmitter {
         if (this._started) return;
         this._started = true;
         this._closed = false;
+        diagnosticLog.event('server', 'server.ipc_feed.start', { enabled: this._config.enabled });
 
         if (!this._config.enabled) {
             this._emitStatus({ online: false, reason: 'disabled' });
@@ -226,6 +229,11 @@ class CodexIpcFeed extends EventEmitter {
             hostId: subscription.hostId,
             refCount: 1
         });
+        diagnosticLog.event('server', 'server.ipc_feed.follow', {
+            conversationIdPresent: true,
+            hostId: subscription.hostId,
+            desiredCount: this._desiredFollowing.size
+        });
         this._sendFollowingChanged(subscription, true);
         return true;
     }
@@ -240,6 +248,11 @@ class CodexIpcFeed extends EventEmitter {
             return true;
         }
         this._desiredFollowing.delete(subscription.key);
+        diagnosticLog.event('server', 'server.ipc_feed.unfollow', {
+            conversationIdPresent: true,
+            hostId: subscription.hostId,
+            desiredCount: this._desiredFollowing.size
+        });
         this._sendFollowingChanged(subscription, false);
         return true;
     }
@@ -263,6 +276,11 @@ class CodexIpcFeed extends EventEmitter {
             connectedAt: Date.now(),
             lastError: undefined
         });
+        diagnosticLog.event('server', 'server.ipc_feed.connected', {
+            clientIdPresent: Boolean(this.clientId),
+            desiredCount: this._desiredFollowing.size,
+            connectAttempts: this._connectAttempts
+        }, 'info');
     }
 
     _onClientMessageIn(message) {
@@ -341,6 +359,10 @@ class CodexIpcFeed extends EventEmitter {
             eventCount: this._sequence
         }));
         this._online = false;
+        diagnosticLog.event('server', 'server.ipc_feed.disconnected', {
+            eventCount: this._sequence,
+            desiredCount: this._desiredFollowing.size
+        }, 'warn');
         this._emitStatus({ online: false, reconnecting: true, reason: 'disconnected', clientId: undefined });
         this._scheduleReconnect();
     }
@@ -353,6 +375,32 @@ class CodexIpcFeed extends EventEmitter {
             eventCount: this._sequence
         }));
         this._online = false;
+        diagnosticLog.error('server', 'server.ipc_feed.error', error, {
+            eventCount: this._sequence,
+            desiredCount: this._desiredFollowing.size
+        });
+
+        const diagnosticSignature = JSON.stringify({
+            status: surface.status || 'unknown',
+            hasActiveGoal: Boolean(surface.activeGoal),
+            hasPendingApproval: Boolean(surface.pendingApproval),
+            hasPendingPlanAction: Boolean(surface.pendingPlanAction),
+            desynced: Boolean(projection.desynced),
+            itemCount: Array.isArray(surface.items) ? surface.items.length : 0
+        });
+        if (this._diagnosticSurfaceSignatures.get(conversationId) !== diagnosticSignature) {
+            this._diagnosticSurfaceSignatures.set(conversationId, diagnosticSignature);
+            diagnosticLog.event('server', 'server.ipc.surface.changed', {
+                conversationIdPresent: true,
+                status: surface.status || 'unknown',
+                revision: projection.revision,
+                itemCount: Array.isArray(surface.items) ? surface.items.length : 0,
+                hasActiveGoal: Boolean(surface.activeGoal),
+                hasPendingApproval: Boolean(surface.pendingApproval),
+                hasPendingPlanAction: Boolean(surface.pendingPlanAction),
+                desynced: Boolean(projection.desynced)
+            });
+        }
         this._status = {
             ...this._status,
             online: false,

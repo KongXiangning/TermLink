@@ -267,6 +267,10 @@
     <string name="codex_native_header_settings">Settings</string>
     <string name="codex_native_header_docs">Docs</string>
     <string name="codex_native_header_path_prefix">PATH ·</string>
+    <string name="codex_native_header_path_open">Open full working directory path</string>
+    <string name="codex_native_header_path_title">Working directory</string>
+    <string name="codex_native_header_path_copy">Copy full path</string>
+    <string name="codex_native_header_path_copied">Path copied</string>
     <string name="codex_native_goal_title">Goal · %1$s</string>
     <string name="codex_native_goal_status">GOAL · %1$s</string>
     <string name="codex_native_goal_continue">Continue</string>

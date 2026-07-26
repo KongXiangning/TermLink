@@ -267,6 +267,10 @@
     <string name="codex_native_header_settings">设置</string>
     <string name="codex_native_header_docs">文档</string>
     <string name="codex_native_header_path_prefix">PATH ·</string>
+    <string name="codex_native_header_path_open">查看完整工作目录路径</string>
+    <string name="codex_native_header_path_title">工作目录</string>
+    <string name="codex_native_header_path_copy">复制完整路径</string>
+    <string name="codex_native_header_path_copied">路径已复制</string>
     <string name="codex_native_goal_title">Goal · %1$s</string>
     <string name="codex_native_goal_status">GOAL · %1$s</string>
     <string name="codex_native_goal_continue">继续</string>

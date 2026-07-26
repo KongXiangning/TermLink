@@ -61,6 +61,7 @@ import com.termlink.app.data.SessionMode
 import com.termlink.app.ui.sessions.SessionsFragment
 import com.termlink.app.util.setStatusBarHidden
 import com.termlink.app.util.ScreenTimeoutController
+import com.termlink.app.util.PersistentDiagnosticLog
 import com.termlink.app.util.UiPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
@@ -391,6 +392,12 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        PersistentDiagnosticLog.event(
+            "codex_activity",
+            "android.codex.lifecycle.on_create",
+            mapOf("restoredState" to (savedInstanceState != null)),
+            critical = true
+        )
         screenTimeoutController = ScreenTimeoutController(this, window)
         enableEdgeToEdge()
         setContentView(R.layout.activity_codex)
@@ -517,6 +524,17 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         }
         // Log task loading on resume (after lock/unlock)
         val state = viewModel.uiState.value
+        PersistentDiagnosticLog.event(
+            "codex_activity",
+            "android.codex.lifecycle.on_start",
+            mapOf(
+                "threadIdPresent" to !state.threadId.isNullOrBlank(),
+                "conversationIdPresent" to !state.activeConversationId.isNullOrBlank(),
+                "ipcOnline" to state.ipcOnline,
+                "sessionIdPresent" to state.sessionId.isNotBlank()
+            ),
+            critical = true
+        )
         Log.i(TAG, "[lifecycle][onStart] activity visible, current task: " +
             "threadId=${state.threadId.orEmpty()} " +
             "activeConversationId=${state.activeConversationId.orEmpty()} " +
@@ -532,6 +550,17 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
 
     override fun onStop() {
         val state = viewModel.uiState.value
+        PersistentDiagnosticLog.event(
+            "codex_activity",
+            "android.codex.lifecycle.on_stop",
+            mapOf(
+                "threadIdPresent" to !state.threadId.isNullOrBlank(),
+                "conversationIdPresent" to !state.activeConversationId.isNullOrBlank(),
+                "ipcOnline" to state.ipcOnline,
+                "changingConfigurations" to isChangingConfigurations
+            ),
+            critical = true
+        )
         Log.i(TAG, "[lifecycle][onStop] activity hidden, active task: " +
             "threadId=${state.threadId.orEmpty()} " +
             "activeConversationId=${state.activeConversationId.orEmpty()} " +
@@ -549,6 +578,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
 
     override fun onResume() {
         super.onResume()
+        PersistentDiagnosticLog.event("codex_activity", "android.codex.lifecycle.on_resume", critical = true)
         val currentThemePreference = UiPreferences.theme(this)
         val previousThemePreference = appliedThemePreference
         appliedThemePreference = currentThemePreference
@@ -566,6 +596,11 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        PersistentDiagnosticLog.event(
+            "codex_activity",
+            "android.codex.lifecycle.window_focus",
+            mapOf("hasFocus" to hasFocus, "visible" to isActivityVisible)
+        )
         if (hasFocus && isActivityVisible) {
             updateStatusBarVisibility()
         }
@@ -573,6 +608,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        PersistentDiagnosticLog.event("codex_activity", "android.codex.lifecycle.new_intent", critical = true)
         setIntent(intent)
         val params = resolveParams() ?: return
         if (targetsSameSession(params, activeLaunchParams)) {
@@ -1037,6 +1073,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
      * auto-create a codex session via the HTTP API.
      */
     private fun resolveAndConnect() {
+        PersistentDiagnosticLog.event("codex_activity", "android.codex.resolve_connect.started")
         val params = resolveParams()
         if (params != null) {
             startConnection(params)
@@ -1064,6 +1101,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
             when (result) {
                 is ApiResult.Success -> {
                     val ref = result.value
+                    PersistentDiagnosticLog.event("codex_activity", "android.codex.resolve_connect.auto_created", mapOf("sessionIdPresent" to ref.id.isNotBlank()))
                     val newParams = CodexLaunchParams(
                         profileId = profile.id,
                         sessionId = ref.id,
@@ -1075,6 +1113,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                     startConnection(newParams)
                 }
                 is ApiResult.Failure -> {
+                    PersistentDiagnosticLog.error("codex_activity", "android.codex.resolve_connect.failed", result.error.cause ?: IllegalStateException(result.error.message), mapOf("source" to "auto_create", "errorCode" to result.error.code))
                     Log.e(TAG, "Session create failed: ${result.error}")
                     viewModel.setError(
                         getString(com.termlink.app.R.string.codex_native_session_failed)
@@ -1103,6 +1142,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
     private fun startConnection(params: CodexLaunchParams) {
         val profile = resolveProfile(params.profileId)
         if (profile == null) {
+            PersistentDiagnosticLog.event("codex_activity", "android.codex.resolve_connect.profile_missing", mapOf("launchSource" to params.launchSource), level = "error", critical = true)
             Log.w(TAG, "Launch profile missing: ${params.profileId}; launchSource=${params.launchSource}")
             if (params.launchSource == "restore") {
                 clearPersistedLaunchSelection()
@@ -1124,6 +1164,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
         syncActivityIntent(params)
         persistActiveLaunchSelection(params)
         viewModel.connect(profile, params)
+        PersistentDiagnosticLog.event("codex_activity", "android.codex.resolve_connect.connected", mapOf("launchSource" to params.launchSource, "sessionIdPresent" to params.sessionId.isNotBlank()), critical = true)
     }
 
     private fun observeUiState() {

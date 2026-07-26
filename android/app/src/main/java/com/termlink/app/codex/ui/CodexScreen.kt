@@ -1,5 +1,8 @@
 package com.termlink.app.codex.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.graphics.Rect
 import android.graphics.Point
 import android.graphics.Typeface
@@ -97,6 +100,7 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
@@ -273,6 +277,7 @@ fun CodexScreen(
     var lastStreamAutoScrollAtMillis by remember { mutableStateOf(0L) }
     var stallNowMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var debugInjectorVisible by remember { mutableStateOf(false) }
+    var pathSheetVisible by remember { mutableStateOf(false) }
     var selectedTextContext by remember { mutableStateOf<CodexSelectedTextContext?>(null) }
     val selectedTextOwnerKey = state.activeConversationId ?: state.threadId ?: state.sessionId
     val bottomAnchorIndex = state.messages.size
@@ -438,6 +443,7 @@ fun CodexScreen(
                 onOpenDocs = onOpenDocs,
                 historyEnabled = state.capabilities?.historyList == true,
                 docsEnabled = state.sessionId.isNotBlank(),
+                onOpenPath = { pathSheetVisible = true },
                 onShowDebugInjector = { debugInjectorVisible = true }
             )
 
@@ -698,6 +704,13 @@ fun CodexScreen(
         )
     }
 
+    if (pathSheetVisible && !state.cwd.isNullOrBlank()) {
+        PathBottomSheet(
+            path = state.cwd.orEmpty(),
+            onDismiss = { pathSheetVisible = false }
+        )
+    }
+
     if (BuildConfig.DEBUG && debugInjectorVisible) {
         ApprovalDebugSheet(
             onDismiss = { debugInjectorVisible = false },
@@ -833,6 +846,7 @@ private fun ActiveGoalBand(
             }
         }
     }
+
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -845,8 +859,10 @@ private fun CodexHeader(
     onOpenDocs: () -> Unit,
     historyEnabled: Boolean,
     docsEnabled: Boolean,
+    onOpenPath: () -> Unit,
     onShowDebugInjector: () -> Unit
 ) {
+    val pathOpenDescription = stringResource(R.string.codex_native_header_path_open)
     val statusLabel = when {
         state.connectionState == ConnectionState.CONNECTING && state.sessionId.isBlank() ->
             stringResource(R.string.codex_native_creating_session)
@@ -944,7 +960,17 @@ private fun CodexHeader(
                         val displayCwd = formatHeaderCwdForDisplay(cwd)
                         Spacer(modifier = Modifier.height(5.dp))
                         Row(
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(onClick = onOpenPath)
+                                .semantics {
+                                    contentDescription = pathOpenDescription
+                                    role = Role.Button
+                                }
+                                .padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
                                 text = stringResource(R.string.codex_native_header_path_prefix),
@@ -952,14 +978,20 @@ private fun CodexHeader(
                                 fontSize = 12.sp,
                                 lineHeight = 16.sp
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = displayCwd,
                                 color = TextSecondary,
                                 fontSize = 12.sp,
                                 lineHeight = 16.sp,
+                                modifier = Modifier.weight(1f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "›",
+                                color = TextMuted,
+                                fontSize = 16.sp,
+                                lineHeight = 16.sp
                             )
                         }
                     }
@@ -987,6 +1019,80 @@ private fun CodexHeader(
                     )
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PathBottomSheet(
+    path: String,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var copied by remember(path) { mutableStateOf(false) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = SurfaceColor,
+        shape = MaterialTheme.shapes.extraLarge
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.codex_native_header_path_title),
+                color = TextPrimary,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            SelectionContainer {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = BgColor,
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, SurfaceBorder.copy(alpha = 0.8f))
+                ) {
+                    Text(
+                        text = path,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp),
+                        color = TextPrimary,
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+            TextButton(
+                onClick = {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                    clipboard?.setPrimaryClip(
+                        ClipData.newPlainText(
+                            context.getString(R.string.codex_native_header_path_title),
+                            path
+                        )
+                    )
+                    copied = true
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = stringResource(
+                        if (copied) {
+                            R.string.codex_native_header_path_copied
+                        } else {
+                            R.string.codex_native_header_path_copy
+                        }
+                    ),
+                    color = AccentBlue,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
         }
     }
 }
@@ -1750,26 +1856,19 @@ private fun ModalActionButton(
 }
 
 private fun formatHeaderCwdForDisplay(cwd: String): String {
-    val normalized = cwd.trim().replace('\\', '/')
-    if (normalized.contains('/')) {
-        return normalized
-    }
-    val withDriveSeparator = normalized.replace(Regex("^([A-Za-z]):(?=[^/])"), "$1:/")
-    val suffix = withDriveSeparator.substringAfter(":/", "")
-    if (suffix.isBlank() || suffix.contains('/')) {
-        return withDriveSeparator
-    }
-    val firstUppercaseIndex = suffix.indexOfFirst { it.isUpperCase() }
-    if (firstUppercaseIndex <= 0) {
-        return withDriveSeparator
-    }
-    return buildString {
-        append(withDriveSeparator.substringBefore(":/"))
-        append(":/")
-        append(suffix.substring(0, firstUppercaseIndex))
-        append('/')
-        append(suffix.substring(firstUppercaseIndex))
-    }
+    val trimmed = cwd.trim()
+    if (trimmed.isBlank()) return ""
+    val windowsPath = trimmed.replace('/', '\\')
+    val driveRoot = Regex("^[A-Za-z]:\\\\").find(windowsPath)?.value
+    val root = driveRoot ?: if (windowsPath.startsWith("\\")) "\\" else ""
+    val relative = windowsPath.removePrefix(root).trim('\\')
+    val parts = relative.split('\\').filter { it.isNotBlank() }
+    if (parts.isEmpty() || windowsPath.length <= 12) return windowsPath
+    // The header has history/docs actions on the right, so even two directory
+    // segments can be clipped on a 412dp screen. Keep the current directory
+    // visible and leave the complete value to the path sheet.
+    val suffix = parts.last()
+    return if (root.isNotBlank()) "$root…\\$suffix" else "…\\$suffix"
 }
 
 @Composable
@@ -4510,29 +4609,36 @@ private fun ComposerSubmitButton(
     val description = stringResource(
         if (interrupting) R.string.codex_native_interrupt else R.string.codex_native_send
     )
-    Surface(
+    Box(
         modifier = Modifier
-            .size(46.dp)
+            // Keep a comfortable touch target while reducing the visible
+            // circle so it no longer dominates the compact composer footer.
+            .size(44.dp)
             .semantics {
                 contentDescription = description
                 role = Role.Button
             }
             .clickable(enabled = enabled, onClick = onClick),
-        color = when {
-            interrupting -> ErrorColor.copy(alpha = 0.9f)
-            enabled -> AccentBlue
-            else -> SurfaceRaised
-        },
-        shape = CircleShape
+        contentAlignment = Alignment.Center
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Text(
-                text = if (interrupting) "■" else "↑",
-                color = if (enabled) Color.White else TextMuted,
-                fontSize = if (interrupting) 13.sp else 24.sp,
-                lineHeight = 24.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+        Surface(
+            modifier = Modifier.size(40.dp),
+            color = when {
+                interrupting -> ErrorColor.copy(alpha = 0.9f)
+                enabled -> AccentBlue
+                else -> SurfaceRaised
+            },
+            shape = CircleShape
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = if (interrupting) "■" else "↑",
+                    color = if (enabled) Color.White else TextMuted,
+                    fontSize = if (interrupting) 12.sp else 21.sp,
+                    lineHeight = 22.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }

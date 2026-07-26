@@ -40,6 +40,7 @@ import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.SessionSummary
 import com.termlink.app.data.TerminalType
 import com.termlink.app.util.horizontalSafeInsets
+import com.termlink.app.util.PersistentDiagnosticLog
 import com.termlink.app.util.statusBarSafeTopInset
 import java.text.DateFormat
 import java.util.concurrent.ConcurrentHashMap
@@ -201,6 +202,7 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
     override fun onResume() {
         super.onResume()
+        PersistentDiagnosticLog.event("sessions", "android.sessions.lifecycle.on_resume", critical = true)
         if (shouldRefreshWhileVisible()) {
             startAutoRefresh()
             refreshSessions(showSpinner = false)
@@ -266,6 +268,12 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
         profiles = cb.getProfiles()
         currentSelection = cb.getCurrentSelection()
+        PersistentDiagnosticLog.event(
+            "sessions",
+            "android.sessions.refresh.started",
+            mapOf("profileCount" to profiles.size, "showSpinner" to showSpinner),
+            critical = true
+        )
         renderProfileSummary()
 
         if (profiles.isEmpty()) {
@@ -290,6 +298,11 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         executor.execute {
             if (shouldAttemptFirstPaint) {
                 val firstPaintSnapshot = buildGroupsFromCache(profilesSnapshot)
+                PersistentDiagnosticLog.event(
+                    "sessions",
+                    "android.sessions.refresh.cache_first_paint",
+                    mapOf("groupCount" to firstPaintSnapshot.groups.size)
+                )
                 postFirstPaint(Runnable {
                     if (SessionFirstPaintGate.shouldApply(
                             isLatestRefreshRequest = refreshRequestTracker.isActiveRefresh(requestId),
@@ -312,6 +325,15 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
             val nextGroups = fetchProfileGroups(profilesSnapshot)
             val fetchedAt = System.currentTimeMillis()
+            PersistentDiagnosticLog.event(
+                "sessions",
+                "android.sessions.refresh.remote_complete",
+                mapOf(
+                    "groupCount" to nextGroups.size,
+                    "errorCount" to nextGroups.count { it.error != null }
+                ),
+                critical = true
+            )
             if (refreshRequestTracker.isActiveRefresh(requestId)) {
                 persistRemoteGroupsToCache(nextGroups, fetchedAt)
             }
@@ -523,6 +545,12 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         sessionMode: SessionMode,
         cwd: String?
     ): ApiResult<SessionRef> {
+        PersistentDiagnosticLog.event(
+            "sessions",
+            "android.sessions.create.requested",
+            mapOf("profileId" to profile.id, "mode" to sessionMode.wireValue),
+            critical = true
+        )
         if (profile.terminalType == TerminalType.EXTERNAL_WEB) {
             val created = externalSessionStore.create(profile.id, name)
             return ApiResult.Success(
@@ -584,6 +612,12 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     }
 
     private fun deleteSessionForProfile(profile: ServerProfile, sessionId: String): ApiResult<Unit> {
+        PersistentDiagnosticLog.event(
+            "sessions",
+            "android.sessions.delete.requested",
+            mapOf("profileId" to profile.id, "sessionIdPresent" to sessionId.isNotBlank()),
+            critical = true
+        )
         if (profile.terminalType == TerminalType.EXTERNAL_WEB) {
             val deleted = externalSessionStore.delete(profile.id, sessionId)
             return if (deleted) {

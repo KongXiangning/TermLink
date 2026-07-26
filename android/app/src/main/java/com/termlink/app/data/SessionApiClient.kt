@@ -1,11 +1,13 @@
 package com.termlink.app.data
 
 import android.content.Context
+import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
+import com.termlink.app.util.PersistentDiagnosticLog
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.ProtocolException
@@ -314,6 +316,12 @@ class SessionApiClient(context: Context) {
         endpointPath: String,
         body: String?
     ): ApiResult<String> {
+        val requestStartedAt = SystemClock.elapsedRealtime()
+        PersistentDiagnosticLog.event(
+            "http",
+            "android.http.request.started",
+            mapOf("method" to method, "endpoint" to endpointPath.substringBefore('?'))
+        )
         val contextResult = buildRequestContext(profile)
         val requestContext = when (contextResult) {
             is ApiResult.Failure -> return contextResult
@@ -406,6 +414,17 @@ class SessionApiClient(context: Context) {
                 }
 
                 Log.d(TAG, "Response $statusCode from $currentUrl")
+                PersistentDiagnosticLog.event(
+                    "http",
+                    "android.http.request.completed",
+                    mapOf(
+                        "method" to method,
+                        "endpoint" to endpointPath.substringBefore('?'),
+                        "statusCode" to statusCode,
+                        "durationMs" to (SystemClock.elapsedRealtime() - requestStartedAt)
+                    ),
+                    level = if (statusCode in 200..299) "info" else "warn"
+                )
                 val responseBody = readResponseBody(connection, statusCode)
                 return if (statusCode in 200..299) {
                     ApiResult.Success(responseBody)
@@ -414,6 +433,12 @@ class SessionApiClient(context: Context) {
                     ApiResult.Failure(mapHttpError(statusCode, responseBody, wwwAuthenticate, profile))
                 }
             } catch (ex: IOException) {
+                PersistentDiagnosticLog.error(
+                    "http",
+                    "android.http.request.failed",
+                    ex,
+                    mapOf("method" to method, "endpoint" to endpointPath.substringBefore('?'), "durationMs" to (SystemClock.elapsedRealtime() - requestStartedAt))
+                )
                 return ApiResult.Failure(
                     SessionApiError(
                         code = SessionApiErrorCode.NETWORK_ERROR,
@@ -422,6 +447,12 @@ class SessionApiClient(context: Context) {
                     )
                 )
             } catch (ex: Exception) {
+                PersistentDiagnosticLog.error(
+                    "http",
+                    "android.http.request.failed",
+                    ex,
+                    mapOf("method" to method, "endpoint" to endpointPath.substringBefore('?'), "durationMs" to (SystemClock.elapsedRealtime() - requestStartedAt))
+                )
                 return ApiResult.Failure(
                     SessionApiError(
                         code = SessionApiErrorCode.UNKNOWN,

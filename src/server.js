@@ -18,6 +18,7 @@ const { CodexIpcFeed } = require('./services/codexIpcFeed');
 const { parsePrivilegeConfig, validateElevatedEnabled } = require('./config/privilegeConfig');
 const { runSecurityGates } = require('./config/securityGates');
 const { getAuditService } = require('./services/auditService');
+const { diagnosticLog } = require('./services/diagnosticLog');
 const { parseTlsConfig, validateTlsConfig, buildHttpsOptions } = require('./config/tlsConfig');
 const { createConnectionSecurityMiddleware } = require('./utils/connectionSecurity');
 
@@ -53,6 +54,13 @@ const authEnabled = process.env.AUTH_ENABLED === undefined
     : process.env.AUTH_ENABLED.toLowerCase() !== 'false';
 const authUser = process.env.AUTH_USER || 'admin';
 const authPass = process.env.AUTH_PASS || 'admin';
+
+diagnosticLog.event('server', 'server.process.started', {
+    nodeEnv: process.env.NODE_ENV || 'development',
+    port: Number(PORT),
+    bindHost: BIND_HOST || 'all',
+    ipcEnabled: process.env.TERMLINK_CODEX_IPC_ENABLED === '1'
+}, 'info');
 
 // Security gate validation for elevated mode
 if (privilegeConfig.isElevated) {

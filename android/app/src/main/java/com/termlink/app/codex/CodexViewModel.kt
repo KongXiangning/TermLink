@@ -36,6 +36,7 @@ import com.termlink.app.codex.network.WsEvent
 import com.termlink.app.data.BasicCredentialStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.SessionApiClient
+import com.termlink.app.util.PersistentDiagnosticLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -1726,6 +1727,17 @@ class CodexViewModel(
         lastCanonicalActivityAtElapsed = 0L
         foregroundRecoveryReadInFlightThreadId = null
         val previousActiveConvId = _uiState.value.activeConversationId?.trim().orEmpty()
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.connect.started",
+            mapOf(
+                "sessionId" to params.sessionId,
+                "threadIdPresent" to !launchConversationId.isNullOrBlank(),
+                "launchSource" to params.launchSource,
+                "previousActiveConversationPresent" to previousActiveConvId.isNotBlank(),
+                "profileId" to profile.id
+            )
+        )
         Log.i(TAG, "[ipc][connect] starting connection: " +
             "launchConversationId=${launchConversationId.orEmpty()} " +
             "launchThreadId=${params.threadId.orEmpty()} " +
@@ -1995,6 +2007,16 @@ class CodexViewModel(
     }
 
     fun newThread() {
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.new.requested",
+            mapOf(
+                "source" to "view_model",
+                "hadActiveConversation" to !_uiState.value.activeConversationId.isNullOrBlank(),
+                "ipcOnline" to _uiState.value.ipcOnline
+            ),
+            critical = true
+        )
         currentStreamingMessageId = null
         currentPlanStreamingMessageId = null
         executionFeedbackSeen.clear()
@@ -2041,7 +2063,14 @@ class CodexViewModel(
                 )
             )
         }
-        connectionManager.send(CodexClientMessages.codexNewThread())
+        val sent = connectionManager.send(CodexClientMessages.codexNewThread())
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.new.sent",
+            mapOf("sent" to sent, "ipcOnline" to _uiState.value.ipcOnline),
+            level = if (sent) "info" else "warn",
+            critical = true
+        )
     }
 
     fun setCwd(cwd: String) {
@@ -2050,6 +2079,12 @@ class CodexViewModel(
     }
 
     fun submitApprovalDecision(requestId: String, approved: Boolean) {
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.approval.clicked",
+            mapOf("requestIdPresent" to requestId.isNotBlank(), "approved" to approved),
+            critical = true
+        )
         val request = findPendingServerRequest(requestId)
         if (request == null) {
             Log.w(TAG, "[approval][submit-skipped] pending request not found requestId=$requestId")
@@ -2164,6 +2199,13 @@ class CodexViewModel(
             val state = _uiState.value
             val conversationId = state.activeConversationId?.trim().orEmpty()
             if (!shouldUseIpcFollowerTransport(state) || conversationId.isEmpty()) {
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.approval.send.unavailable",
+                    mapOf("transport" to "ipc_follower", "ipcOnline" to state.ipcOnline),
+                    level = "warn",
+                    critical = true
+                )
                 Log.w(TAG, "[user-input][reject-skipped] IPC follower transport unavailable requestId=$requestId")
                 _uiState.update {
                     it.copy(errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable))
@@ -2180,6 +2222,12 @@ class CodexViewModel(
                 errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
             )
             if (!sent) return
+            PersistentDiagnosticLog.event(
+                "codex",
+                "android.approval.sent",
+                mapOf("transport" to "ipc_follower", "sent" to true),
+                critical = true
+            )
             markServerRequestSubmitting(requestId)
             return
         }
@@ -2197,6 +2245,12 @@ class CodexViewModel(
             errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
         )
         if (!sent) return
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.approval.sent",
+            mapOf("transport" to "codex", "sent" to true),
+            critical = true
+        )
         markServerRequestSubmitting(requestId)
     }
 
@@ -2684,6 +2738,11 @@ class CodexViewModel(
     fun refreshThreadHistory() {
         val state = _uiState.value
         if (state.capabilities?.historyList != true) return
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.history.refresh.started",
+            mapOf("hasCwd" to !state.cwd.isNullOrBlank(), "ipcOnline" to state.ipcOnline)
+        )
         val params = JSONObject().put("limit", 50)
         val cwd = state.cwd?.trim().orEmpty()
         if (cwd.isNotEmpty()) {
@@ -3004,6 +3063,12 @@ class CodexViewModel(
     }
 
     fun selectReasoningEffort(reasoningEffort: String?) {
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.config.selected",
+            mapOf("kind" to "reasoning", "valuePresent" to !reasoningEffort.isNullOrBlank()),
+            critical = true
+        )
         _uiState.update { state ->
             val remembered = loadRememberedTaskOverrides(state.threadId, reason = "select-reasoning-base")
             recalculateNextTurnEffectiveConfig(
@@ -3034,6 +3099,12 @@ class CodexViewModel(
     }
 
     fun selectSandboxMode(sandboxMode: String?) {
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.config.selected",
+            mapOf("kind" to "permission", "value" to sandboxMode.orEmpty()),
+            critical = true
+        )
         _uiState.update { state ->
             val remembered = loadRememberedTaskOverrides(state.threadId, reason = "select-permission-base")
             val selectionState = state.copy(nextTurnOverrides = remembered)
@@ -3067,6 +3138,12 @@ class CodexViewModel(
     }
 
     fun selectModel(model: String?) {
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.config.selected",
+            mapOf("kind" to "model", "valuePresent" to !model.isNullOrBlank()),
+            critical = true
+        )
         _uiState.update { state ->
             val remembered = loadRememberedTaskOverrides(state.threadId, reason = "select-model-base")
             val selectionState = state.copy(nextTurnOverrides = remembered)
@@ -3410,11 +3487,18 @@ class CodexViewModel(
         if (!caps.modelConfig || caps.models.isNotEmpty()) {
             return
         }
-        connectionManager.send(
+        PersistentDiagnosticLog.event("codex", "android.codex.model_catalog.requested")
+        val sent = connectionManager.send(
             CodexClientMessages.codexRequest(
                 "model/list",
                 JSONObject().put("includeHidden", true)
             )
+        )
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.model_catalog.sent",
+            mapOf("sent" to sent),
+            level = if (sent) "info" else "warn"
         )
     }
 
@@ -3432,7 +3516,14 @@ class CodexViewModel(
                 permissionProfilesRequested = true
             )
         }
-        connectionManager.send(CodexClientMessages.codexRequest("permissionProfile/list"))
+        PersistentDiagnosticLog.event("codex", "android.codex.permission_catalog.requested")
+        val sent = connectionManager.send(CodexClientMessages.codexRequest("permissionProfile/list"))
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.permission_catalog.sent",
+            mapOf("sent" to sent),
+            level = if (sent) "info" else "warn"
+        )
     }
 
     private fun searchFileMentions(query: String) {
@@ -3677,6 +3768,15 @@ class CodexViewModel(
     private fun observeConnectionState() {
         viewModelScope.launch {
             connectionManager.connectionState.collect { nextState ->
+                val previousState = _uiState.value.connectionState
+                if (previousState != nextState) {
+                    PersistentDiagnosticLog.event(
+                        "codex",
+                        "android.codex.connection.state_changed",
+                        mapOf("from" to previousState.name, "to" to nextState.name),
+                        critical = true
+                    )
+                }
                 _uiState.update { current ->
                     syncExecutionWatch(
                         current.copy(
@@ -3864,6 +3964,17 @@ class CodexViewModel(
                 val hadObservedStatus = ipcStatusObserved
                 val wasOnline = _uiState.value.ipcOnline
                 ipcStatusObserved = true
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.codex.ipc.status",
+                    mapOf(
+                        "online" to status.online,
+                        "hadObservedStatus" to hadObservedStatus,
+                        "wasOnline" to wasOnline,
+                        "clientIdPresent" to !status.clientId.isNullOrBlank()
+                    ),
+                    level = if (status.online) "info" else "warn"
+                )
                 _uiState.update {
                     syncExecutionWatch(
                         applyIpcStatusToUiState(it, status),
@@ -3919,6 +4030,16 @@ class CodexViewModel(
                     selected.hasActiveGoal -> "hasActiveGoal"
                     else -> "fallback-most-recent"
                 }
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.codex.ipc.conversation_selection",
+                    mapOf(
+                        "conversationCount" to conversations.size,
+                        "selected" to (selected != null),
+                        "matchReason" to matchReason,
+                        "requiresExactSelection" to requiresExactSelection
+                    )
+                )
                 _uiState.update { current ->
                     val preferred = selected
                     if (preferred == null) {
@@ -4574,8 +4695,12 @@ class CodexViewModel(
 
     private fun handleModelListResponse(result: Any?) {
         val catalog = CodexModelOption.listFrom(result)
-        if (catalog.isEmpty()) return
+        if (catalog.isEmpty()) {
+            PersistentDiagnosticLog.event("codex", "android.codex.model_catalog.loaded", mapOf("count" to 0), level = "warn")
+            return
+        }
         _uiState.update { state -> applyModelCatalogToUiState(state, catalog) }
+        PersistentDiagnosticLog.event("codex", "android.codex.model_catalog.loaded", mapOf("count" to catalog.size))
         Log.i(TAG, "Loaded model list: ${catalog.map(CodexModelOption::id)}")
     }
 
@@ -4588,6 +4713,12 @@ class CodexViewModel(
                 permissionProfilesRequested = true
             )
         }
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.permission_catalog.loaded",
+            mapOf("count" to profiles.size),
+            level = if (profiles.isEmpty()) "warn" else "info"
+        )
         Log.i(TAG, "Loaded permission profiles: ${profiles.map(CodexPermissionProfileOption::id)}")
     }
 

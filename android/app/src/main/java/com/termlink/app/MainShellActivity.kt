@@ -68,6 +68,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import com.termlink.app.util.LocaleHelper
 import com.termlink.app.util.ProfileRestoreStateCleaner
+import com.termlink.app.util.PersistentDiagnosticLog
 import com.termlink.app.util.ScreenTimeoutController
 import com.termlink.app.util.UiPreferences
 import com.termlink.app.util.setStatusBarHidden
@@ -429,6 +430,23 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         webView.webChromeClient = object : android.webkit.WebChromeClient() {
             override fun onConsoleMessage(message: android.webkit.ConsoleMessage?): Boolean {
                 message ?: return false
+                val consoleText = message.message()
+                if (consoleText.startsWith("[TERMLINK_DIAG]")) {
+                    runCatching {
+                        val payload = consoleText.removePrefix("[TERMLINK_DIAG]").trim()
+                        val json = JSONObject(payload)
+                        val eventName = json.optString("event").takeIf { it.isNotBlank() }
+                        if (eventName != null) {
+                            val fields = mutableMapOf<String, Any?>()
+                            json.keys().forEach { key ->
+                                if (key != "event") fields[key] = json.opt(key)
+                            }
+                            PersistentDiagnosticLog.event("webview", eventName, fields)
+                        }
+                    }.onFailure { error ->
+                        PersistentDiagnosticLog.error("webview", "android.webview.diagnostic_parse_failed", error)
+                    }
+                }
                 val logTag = "WebViewConsole"
                 when (message.messageLevel()) {
                     android.webkit.ConsoleMessage.MessageLevel.ERROR -> {

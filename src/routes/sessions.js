@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs/promises');
 const { searchWorkspaceFiles } = require('../services/workspaceFileService');
 const { resolveWorkspaceAccess } = require('../services/workspaceContextResolver');
+const { diagnosticLog } = require('../services/diagnosticLog');
 const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
 const {
     normalizeSessionMode,
@@ -166,7 +167,9 @@ function createSessionsRouter(sessionManager) {
     const router = express.Router();
 
     router.get('/sessions', (req, res) => {
-        res.json(sessionManager.listSessions());
+        const sessions = sessionManager.listSessions();
+        diagnosticLog.event('server', 'server.http.sessions.list', { count: sessions.length });
+        res.json(sessions);
     });
 
     router.post('/sessions', async (req, res) => {
@@ -178,6 +181,11 @@ function createSessionsRouter(sessionManager) {
         try {
             await validateSessionCwd(parsed.value.cwd);
             const session = await sessionManager.createSession(parsed.value);
+            diagnosticLog.event('server', 'server.http.sessions.create.completed', {
+                sessionMode: parsed.value.sessionMode,
+                hasCwd: Boolean(parsed.value.cwd),
+                sessionIdPresent: Boolean(session && session.id)
+            }, 'info');
             res.json(buildSessionResponse(session));
         } catch (e) {
             if (e && e.status === 400) {
@@ -191,6 +199,9 @@ function createSessionsRouter(sessionManager) {
                 });
             }
             console.error('Failed to create session:', e);
+            diagnosticLog.error('server', 'server.http.sessions.create.failed', e, {
+                sessionMode: parsed.value.sessionMode
+            });
             return res.status(500).json({ error: 'Failed to create session' });
         }
     });
@@ -220,6 +231,10 @@ function createSessionsRouter(sessionManager) {
     router.delete('/sessions/:id', (req, res) => {
         const { id } = req.params;
         const success = sessionManager.deleteSession(id);
+        diagnosticLog.event('server', 'server.http.sessions.delete', {
+            sessionIdPresent: Boolean(id),
+            success
+        }, success ? 'info' : 'warn');
         if (success) {
             return res.json({ status: 'ok' });
         }
