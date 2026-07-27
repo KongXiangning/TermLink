@@ -300,17 +300,17 @@ interface IpcPatch {
 **patch 解析/验证** (`asPatchList()`)：
 - 不支持的 `op`（非 `add`/`remove`/`replace`）→ 该 patch 被静默丢弃
 - 非法 `path`（非数组）→ 该 patch 被静默丢弃
-- 目标 `op` 缺少 `value` → 该 patch 被静默丢弃
+- `asPatchList()` 不校验 `value`；`add`/`replace` 缺少 `value` 时仍会进入应用阶段，实际应用时会因克隆 `undefined` 失败而抛错；`remove` 不需要 `value`
 - 如果**全部** patch 都被丢弃，`asPatchList()` 返回 `undefined`（patchList 为空）
-- tracker 在 `patchList === undefined` 时：**仍接受新 revision**，保持 `desynced: false`，但**状态未应用任何变化**
+- 在已有 state 且没有 revision mismatch 时，tracker 遇到 `patchList === undefined` 仍会接受新 revision，保持 `desynced: false`，但**状态未应用任何变化**
 
 **patch 应用** (`applyPatches()`)：
 - 只有 `patchList` 非空且经 `asPatchList()` 洗白成功的 patch 才会进入 `applyPatches()`
-- `applyPatches()` 内部抛出异常（如 patch 结果不是 object）→ 设置 `desynced: true`，且**保留旧 state（不更新为新 revision）**
+- `applyPatches()` 内部抛出异常（如 patch 结果不是 object）→ 设置 `desynced: true` 并保留旧 state，但 tracker 记录的 `revision` 仍更新为该消息携带的新 revision
 
-参见 `src/services/codexIpcThreadStream.js:63-74` 和 `src/services/codexIpcThreadStream.js:185-196`。
+参见 `src/services/codexIpcThreadStream.js:63-81` 和 `src/services/codexIpcThreadStream.js:185-215`。
 
-> **对 history/cache 实施的影响**：当前实现存在"revision 前进但状态未应用"的静默缺口——全部 patch 被丢弃时，tracker 接受新 revision 而不报 desynced。实施缓存时不能依赖 tracker 的 `desynced` 作为 fail-closed 保证。
+> **对 history/cache 实施的影响**：当前实现存在"revision 前进但状态未应用"的静默缺口——在已有 state 且没有 revision mismatch 的前提下，全部 patch 被丢弃时 tracker 接受新 revision 而不报 desynced。实施缓存时不能依赖 tracker 的 `desynced` 作为 fail-closed 保证。
 
 ### 7.5 `conversationState` 的性质
 
@@ -324,9 +324,10 @@ snapshot
      └─ replace { hostId, revision, state, desynced:false }
 
 patches
-  ├─ 没有已有 state                         ─► desynced
-  ├─ 已有 revision 与 baseRevision 明确不等  ─► desynced
-  ├─ patch 解析/应用失败                     ─► desynced
+  ├─ 没有已有 state                         ─► desynced；记录收到的 revision
+  ├─ 已有 revision 与 baseRevision 明确不等  ─► desynced；保留旧 state，记录收到的 revision
+  ├─ 全部 patch 在解析阶段被丢弃             ─► desynced:false；保留旧 state，记录收到的 revision
+  ├─ patch 应用抛错                          ─► desynced；保留旧 state，记录收到的 revision
   └─ 成功                                   ─► 更新 state/revision
 ```
 
