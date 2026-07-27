@@ -7,7 +7,7 @@
 - 任务 slug：codex-single-authority-owner-control-plane
 - 当前状态：in_progress
 - 生命周期状态：active
-- 当前 handoff：implement-current-step
+- 当前 handoff：manual-smoke
 - 恢复需审查：false
 - 恢复审查原因：
 - Task start base：8f84867
@@ -97,7 +97,7 @@
 - `follower_send_message` additive：`clientRequestId`、`attachments`、`interactionState`、`collaborationMode`，保留 `conversationId/input/turnConfig`。
 - 新增 `follower_route_state`：`clientRequestId/conversationId/phase/authority?/turnId?/detailCode?`。
 - 新增 `codex_thread_recovery_required`：一次性 `recoveryId/clientRequestId/conversationId/reason/actions[]`。
-- 新增客户端 `codex_thread_recovery_response`：`recoveryId/action=retry|fork|new|cancel`。
+- 新增客户端 `codex_thread_recovery_action`：`recoveryId/action=retry|fork|new|cancel`。
 - IPC client/feed 增加内部 request-handler 注册与 discovery 应答 API；只为当前 TermLink Owner conversation 声明可处理。
 
 ## 已确认决策
@@ -184,14 +184,14 @@ Implementation Plan：
 
 ## 实施步骤
 
-- [in_progress] 1. IPC client/feed request handler、discovery negative-ack 与 capability status；以 client/feed unit tests 独立验证。
-- [pending] 2. Owner start/resume/fork 注册、stream/read/cache 广播与 authority ledger；以 Owner/Gateway tests 验证新任务可发现和单权威。
-- [pending] 3. Owner incoming control proxy：start/interrupt/approval/user-input/settings/compact/steer；以每 method request/response tests 验证 raw ID 与错误隔离。
-- [pending] 4. 完整 follower input、route-state、Plan default 恢复与 legacy Owner 注册；以 Gateway tests 验证 Plan/附件/提及/Skill 及 no-client/offline fallback。
-- [pending] 5. 删除静默新线程并实现一次性 recovery intent；以 retry/fork/new/cancel、重复响应、A/B/close tests 验证。
-- [pending] 6. Android additive wire、pending draft、route-state 与 recovery ViewModel；以 JVM tests 验证 exact ID、去重和草稿恢复。
-- [pending] 7. 基于已确认设计实现 Compose recovery dialog 与 route status；不改变 composer 尺寸。
-- [pending] 8. 同步 CONTRACTS/AD-004/STATUS/bug 记录，执行自动化与 JDK 21 APK 构建。
+- [completed] 1. IPC client/feed request handler、discovery negative-ack 与 capability status；client/feed tests 已覆盖 handler 注册、成功/错误应答和 disposal。
+- [completed] 2. Owner start/resume/fork 注册、stream/read/cache 广播与 authority ledger；Owner/Gateway tests 已覆盖新任务发现和单权威。
+- [completed] 3. Owner incoming control proxy：start/interrupt/approval/user-input/settings/compact/steer；已覆盖各 method 路由与未实现方法不注册。
+- [completed] 4. 完整 follower input、route-state、Plan default 恢复与 legacy Owner 注册；Plan/图片/文件提及/Skill 已共用结构化 turn input。
+- [completed] 5. 删除静默新线程并实现一次性 recovery intent；thread-not-found 不再 start，新建/分叉/重试/取消由显式 recovery action 驱动。
+- [completed] 6. Android additive wire、pending draft、route-state 与 recovery ViewModel；全量 JVM tests 已通过。
+- [completed] 7. 基于已确认设计实现 Compose recovery dialog 与 route status；composer 尺寸未改变。
+- [completed] 8. 已同步 CONTRACTS/AD-004/STATUS，Node 151/151、Android JVM tests、debug APK、diff check 与 staged sensitive scan 全部通过。
 - [pending] 9. 独立 visual QA 与 Windows Desktop/VS Code 双宿主真机 smoke；输出截图/日志证据后才允许完成。
 
 ## 回归门
@@ -224,3 +224,4 @@ Implementation Plan：
 - 2026-07-27：提交上一诊断任务归档 `e5db14e`。
 - 2026-07-27：提交阶段一 IPC-first / Owner-fallback checkpoint `8f84867`；自动化通过但 Windows 手动 smoke 失败，未合并 Main。
 - 2026-07-27：因目标、Allowed Files 与验收标准失效，使用 `/supersede-current-task` 建立本替代任务；继承旧任务 resolved findings 与 partial diff ownership，当前 handoff 为 `review-current-task`。
+- 2026-07-27：完成统一 authority router、rich follower input、显式新任务 Owner 广播、Owner 反向控制面、turn authority ledger、canonical recovery 确认和 Android route-state/UI。Node IPC/Gateway suites 151/151、JDK 21 Android 全量 JVM tests与 debug APK通过；Windows Desktop / VS Code 手动验收尚未执行，因此任务保持 active/in_progress 且不得合并 Main。

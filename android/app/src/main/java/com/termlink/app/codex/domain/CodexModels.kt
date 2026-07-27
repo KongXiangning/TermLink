@@ -135,6 +135,12 @@ data class CodexPlanWorkflowState(
     val planQuestionId: String? = null
 )
 
+data class CodexThreadRecoveryState(
+    val recoveryId: String,
+    val reason: String,
+    val forkAvailable: Boolean
+)
+
 data class CodexExecutionWatchState(
     val active: Boolean = false,
     val runningSinceMillis: Long = 0L,
@@ -255,10 +261,15 @@ data class CodexUiState(
     val threadRenameTargetId: String = "",
     val threadRenameDraft: String = "",
     // ── IPC realtime sync state ──
+    val ipcSupported: Boolean = false,
     val ipcOnline: Boolean = false,
     val ipcClientId: String? = null,
     val followerModeEnabled: Boolean = true,
     val followerActiveSendAllowed: Boolean = false,
+    val followerRouteState: String? = null,
+    val followerRouteRequestId: String? = null,
+    val threadRecovery: CodexThreadRecoveryState? = null,
+    val composerRecoveryText: String? = null,
     val awaitingNewThreadIpcSurface: Boolean = false,
     val activeConversationId: String? = null,
     val ipcSurfaceSnapshot: DesktopSurfaceSnapshot? = null,

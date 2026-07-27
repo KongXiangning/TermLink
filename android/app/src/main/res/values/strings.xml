@@ -200,6 +200,14 @@
     <string name="codex_native_title">Codex</string>
     <string name="codex_native_status_idle">Idle</string>
     <string name="codex_native_status_connecting">Connecting…</string>
+    <string name="codex_native_status_waiting_host">Connecting to Codex host…</string>
+    <string name="codex_native_status_sending">Sending…</string>
+    <string name="codex_native_thread_recovery_title">Conversation recovery required</string>
+    <string name="codex_native_thread_recovery_message">The original conversation could not be continued. Choose how to proceed; TermLink will not silently replace it.</string>
+    <string name="codex_native_thread_recovery_retry">Retry original conversation</string>
+    <string name="codex_native_thread_recovery_fork">Fork with context</string>
+    <string name="codex_native_thread_recovery_new">Create blank conversation</string>
+    <string name="codex_native_thread_recovery_cancel">Cancel and restore draft</string>
     <string name="codex_native_status_connected">Connected</string>
     <string name="codex_native_status_reconnecting">Reconnecting…</string>
     <string name="codex_native_status_error">Connection error</string>

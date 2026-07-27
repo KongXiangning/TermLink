@@ -92,6 +92,7 @@ class CodexIpcClient extends EventEmitter {
         this._initialized = false;
         this._decoder = new IpcFrameDecoder();
         this._pendingRequests = new Map();
+        this._requestHandlers = new Map();
         this._reconnectTimer = null;
         this._disposed = false;
 
@@ -234,6 +235,41 @@ class CodexIpcClient extends EventEmitter {
         });
     }
 
+    /**
+     * Register an incoming IPC request handler.
+     *
+     * Multiple consumers may register the same method. Discovery and request
+     * routing use the first handler whose canHandle predicate succeeds.
+     *
+     * @param {string} method
+     * @param {(params: unknown, request: object) => boolean|Promise<boolean>} canHandle
+     * @param {(request: object) => unknown|Promise<unknown>} handle
+     * @returns {() => void}
+     */
+    addRequestHandler(method, canHandle, handle) {
+        if (typeof method !== 'string' || !method.trim()) {
+            throw new TypeError('codex-ipc request handler method is required');
+        }
+        if (typeof canHandle !== 'function' || typeof handle !== 'function') {
+            throw new TypeError('codex-ipc request handler requires canHandle and handle functions');
+        }
+        const normalizedMethod = method.trim();
+        const registration = { canHandle, handle };
+        const handlers = this._requestHandlers.get(normalizedMethod) || [];
+        handlers.push(registration);
+        this._requestHandlers.set(normalizedMethod, handlers);
+        return () => {
+            const current = this._requestHandlers.get(normalizedMethod);
+            if (!current) return;
+            const next = current.filter((candidate) => candidate !== registration);
+            if (next.length > 0) {
+                this._requestHandlers.set(normalizedMethod, next);
+            } else {
+                this._requestHandlers.delete(normalizedMethod);
+            }
+        };
+    }
+
     // ── transport lifecycle ──────────────────────────────────────────────
 
     _attachTransport() {
@@ -324,17 +360,12 @@ class CodexIpcClient extends EventEmitter {
                 return;
 
             case 'request':
+                void this._handleIncomingRequest(message);
                 this.emit('request', message);
                 return;
 
             case 'client-discovery-request':
-                if (this.listenerCount('client_discovery_request') === 0) {
-                    this._sendMessage({
-                        type: 'client-discovery-response',
-                        requestId: message.requestId,
-                        response: { canHandle: false }
-                    });
-                }
+                void this._handleDiscoveryRequest(message);
                 this.emit('client_discovery_request', message);
                 return;
 
@@ -361,6 +392,65 @@ class CodexIpcClient extends EventEmitter {
         this._pendingRequests.delete(requestId);
         pending.resolve(message);
         this.emit('response', message);
+    }
+
+    async _resolveRequestHandler(request) {
+        if (!request || typeof request.method !== 'string') return null;
+        const handlers = this._requestHandlers.get(request.method) || [];
+        if ((request.version ?? 0) !== getMethodVersion(request.method)) return null;
+        for (const handler of handlers) {
+            try {
+                if (await handler.canHandle(request.params, request)) {
+                    return handler;
+                }
+            } catch (_) {
+                // A broken predicate must not claim discovery or block later handlers.
+            }
+        }
+        return null;
+    }
+
+    async _handleDiscoveryRequest(message) {
+        const request = message && message.request;
+        const handler = await this._resolveRequestHandler(request);
+        this._sendMessage({
+            type: 'client-discovery-response',
+            requestId: message && message.requestId,
+            response: { canHandle: Boolean(handler) }
+        });
+    }
+
+    async _handleIncomingRequest(message) {
+        const handler = await this._resolveRequestHandler(message);
+        if (!handler) {
+            this._sendMessage({
+                type: 'response',
+                requestId: message && message.requestId,
+                resultType: 'error',
+                error: (message?.version ?? 0) !== getMethodVersion(message?.method)
+                    ? 'request-version-mismatch'
+                    : 'no-handler-for-request'
+            });
+            return;
+        }
+        try {
+            const result = await handler.handle(message);
+            this._sendMessage({
+                type: 'response',
+                requestId: message.requestId,
+                resultType: 'success',
+                method: message.method,
+                handledByClientId: this._clientId,
+                result
+            });
+        } catch (error) {
+            this._sendMessage({
+                type: 'response',
+                requestId: message.requestId,
+                resultType: 'error',
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
     }
 
     // ── internal helpers ─────────────────────────────────────────────────

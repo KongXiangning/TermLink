@@ -449,6 +449,8 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                         onOpenFileMention = ::openConversationFileMention,
                         onOpenAttachment = ::openConversationAttachment,
                         onNewThread = viewModel::newThread,
+                        onResolveThreadRecovery = viewModel::resolveThreadRecovery,
+                        onConsumeComposerRecoveryText = viewModel::consumeComposerRecoveryText,
                         onRetry = { retryConnection() },
                         onDismissError = { viewModel.clearError() },
                         onShowSlashMenu = viewModel::showSlashMenu,

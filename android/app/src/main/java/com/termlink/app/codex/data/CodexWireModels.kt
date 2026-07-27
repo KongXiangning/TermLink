@@ -563,7 +563,9 @@ data class CodexServerRequestEnvelope(
 // ── IPC DTOs ────────────────────────────────────────────────────────────
 
 data class CodexIpcStatus(
+    val supported: Boolean = false,
     val online: Boolean,
+    val activeSendAllowed: Boolean = false,
     val reason: String?,
     val clientId: String?
 ) {
@@ -571,7 +573,9 @@ data class CodexIpcStatus(
         fun from(json: JSONObject): CodexIpcStatus {
             val status = json.optJSONObject("status") ?: json
             return CodexIpcStatus(
+                supported = status.optBoolean("supported", false),
                 online = status.optBoolean("online", false),
+                activeSendAllowed = status.optBoolean("activeSendAllowed", false),
                 reason = status.optStringOrNull("reason"),
                 clientId = status.optStringOrNull("clientId")
             )
@@ -916,6 +920,12 @@ object CodexClientMessages {
         .put("type", "codex_new_thread")
         .toString()
 
+    fun codexThreadRecoveryAction(recoveryId: String, action: String): String = JSONObject()
+        .put("type", "codex_thread_recovery_action")
+        .put("recoveryId", recoveryId)
+        .put("action", action)
+        .toString()
+
     fun codexThreadRead(threadId: String): String = JSONObject()
         .put("type", "codex_thread_read")
         .put("threadId", threadId)
@@ -956,12 +966,29 @@ object CodexClientMessages {
     fun followerSendMessage(
         conversationId: String,
         input: String,
-        turnConfig: CodexEffectiveConfig? = null
+        turnConfig: CodexEffectiveConfig? = null,
+        clientRequestId: String? = null,
+        attachments: List<CodexTurnAttachment>? = null,
+        interactionState: CodexInteractionState? = null,
+        collaborationMode: JSONObject? = null
     ): String = JSONObject()
         .put("type", "follower_send_message")
         .put("conversationId", conversationId)
         .put("input", input)
-        .apply { turnConfig?.let { put("turnConfig", it.toJson()) } }
+        .apply {
+            clientRequestId?.let { put("clientRequestId", it) }
+            turnConfig?.let { put("turnConfig", it.toJson()) }
+            if (!attachments.isNullOrEmpty()) {
+                put(
+                    "attachments",
+                    JSONArray().apply {
+                        attachments.forEach { put(it.toJson()) }
+                    }
+                )
+            }
+            interactionState?.let { put("interactionState", it.toJson()) }
+            collaborationMode?.let { put("collaborationMode", it) }
+        }
         .toString()
 
     fun followerStartGoal(conversationId: String, goal: String): String = JSONObject()

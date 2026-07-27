@@ -16,6 +16,7 @@ class FakeClient extends EventEmitter {
         this.connectCount = 0;
         this.initialized = false;
         this.broadcasts = [];
+        this.requestHandlers = [];
     }
     get clientId() { return this._clientId; }
     async connect() {
@@ -26,6 +27,13 @@ class FakeClient extends EventEmitter {
     }
     close() { this.initialized = false; this.emit('close', { hadError: false }); }
     sendBroadcast(method, params) { this.broadcasts.push({ method, params }); }
+    addRequestHandler(method, canHandle, handle) {
+        const registration = { method, canHandle, handle };
+        this.requestHandlers.push(registration);
+        return () => {
+            this.requestHandlers = this.requestHandlers.filter((candidate) => candidate !== registration);
+        };
+    }
     simulateBroadcast(message) { this.emit('broadcast', message); }
     simulateMessageIn(message) { this.emit('message_in', message); }
     simulateMessageOut(message) { this.emit('message_out', message); }
@@ -88,6 +96,26 @@ test('feed emits online status on client connect', async () => {
     await startAndWaitOnline(feed);
     assert.equal(feed.online, true);
     assert.equal(feed.getStatus().clientId, 'fake-client-1');
+    feed.stop();
+});
+
+test('feed installs and disposes request handlers registered before start', async () => {
+    enableIpc();
+    const client = new FakeClient();
+    const feed = new CodexIpcFeed({ client });
+    const dispose = feed.addRequestHandler(
+        'thread/read',
+        (params) => params?.threadId === 'conv-owned',
+        async () => ({ thread: { id: 'conv-owned' } })
+    );
+
+    assert.equal(client.requestHandlers.length, 1);
+    await startAndWaitOnline(feed);
+    assert.equal(client.requestHandlers.length, 1, 'start must not install the same handler twice');
+    assert.equal(await client.requestHandlers[0].canHandle({ threadId: 'conv-owned' }), true);
+
+    dispose();
+    assert.equal(client.requestHandlers.length, 0);
     feed.stop();
 });
 

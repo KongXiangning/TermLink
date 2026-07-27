@@ -69,6 +69,8 @@
 
 变更说明（2026-07-27，IPC-first / owner-fallback 第一阶段）：用户确认 Windows 当前支持环境继续以 Desktop / VS Code IPC 为第一权威，不引入共享 app-server daemon，也不降级或删除既有 IPC 通道。已绑定任务缺当前周期 surface 时使用既有 5 秒 grace；到期仍优先尝试 external IPC，只允许 `no-client-found` 或 IPC offline 触发 TermLink owner 接管，任意其他错误不自动 fallback/retry。owner 接管后当前打开周期保持单一权威；只有新 WebSocket 首次打开或 A→B→A 重新进入且 owner 已终态、无 pending/active goal 时才重新仲裁。第一阶段只处理问题 #10；跨宿主可见性、完成后暂时消失和图片历史恢复（#11–#13）继续暂缓。
 
+变更说明（2026-07-27，单权威路由与 Owner 控制面）：用户在 Windows 手动 smoke 中确认第一阶段仍存在 authority 分裂，因此将 #10 扩大为完整服务端 authority router。已绑定任务的普通文本、Goal、Plan、图片、文件提及和 Skill 一律提交 follower intent；Android 不再选择 transport。显式新建由 TermLink app-server 创建 canonical thread，并注册为可被 Desktop / VS Code discovery、继续、停止、审批、提交用户输入、更新设置、compact 和 steer 的 IPC Owner。每个真实 turn 固定记录 IPC 或 Owner authority，所有后续控制操作沿同一 authority，运行中禁止自动切换。系统触发的 thread 替换一律改为 retry / fork / new / cancel 确认，确认前不得改变 canonical id 或丢弃草稿。该决策的原因是“App 显示 Owner running、Desktop 无 surface、停止却走 IPC”的实测已经证明发送、显示与控制分路不可接受；后续不得恢复 Android capability 分流、后台静默 `thread/start`、进程扫描猜宿主或以轮询伪造实时状态。共享 app-server daemon 继续不采用，直至证明 Desktop / VS Code 可稳定共享并经过新的显式架构决策。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径

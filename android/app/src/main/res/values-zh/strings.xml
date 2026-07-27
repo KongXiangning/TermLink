@@ -200,6 +200,14 @@
     <string name="codex_native_title">Codex</string>
     <string name="codex_native_status_idle">空闲</string>
     <string name="codex_native_status_connecting">连接中…</string>
+    <string name="codex_native_status_waiting_host">正在连接 Codex 宿主…</string>
+    <string name="codex_native_status_sending">正在发送…</string>
+    <string name="codex_native_thread_recovery_title">需要恢复会话</string>
+    <string name="codex_native_thread_recovery_message">原任务无法继续。请选择处理方式；TermLink 不会静默替换任务线程。</string>
+    <string name="codex_native_thread_recovery_retry">重试原任务</string>
+    <string name="codex_native_thread_recovery_fork">Fork 并保留上下文</string>
+    <string name="codex_native_thread_recovery_new">创建空白任务</string>
+    <string name="codex_native_thread_recovery_cancel">取消并恢复草稿</string>
     <string name="codex_native_status_connected">已连接</string>
     <string name="codex_native_status_reconnecting">重连中…</string>
     <string name="codex_native_status_error">连接错误</string>

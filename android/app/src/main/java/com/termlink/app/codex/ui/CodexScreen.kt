@@ -216,6 +216,8 @@ fun CodexScreen(
     onOpenFileMention: (FileMention) -> Unit,
     onOpenAttachment: (CodexMessageAttachment) -> Unit,
     onNewThread: () -> Unit,
+    onResolveThreadRecovery: (String) -> Unit,
+    onConsumeComposerRecoveryText: () -> Unit,
     onRetry: () -> Unit,
     onDismissError: () -> Unit,
     onShowSlashMenu: (String) -> Unit,
@@ -545,6 +547,8 @@ fun CodexScreen(
                         attachmentInputEnabled = state.capabilities?.imageInputSupported == true ||
                             state.capabilities?.fileMentions == true,
                         pendingImageAttachments = state.pendingImageAttachments,
+                        composerRecoveryText = state.composerRecoveryText,
+                        onConsumeComposerRecoveryText = onConsumeComposerRecoveryText,
                         onSend = { text ->
                             autoFollowEnabled = true
                             onSendMessage(text)
@@ -721,7 +725,15 @@ fun CodexScreen(
         )
     }
 
-    blockingApprovalRequest?.let { request ->
+    state.threadRecovery?.let { recovery ->
+        ThreadRecoveryDialog(
+            reason = recovery.reason,
+            forkAvailable = recovery.forkAvailable,
+            onAction = onResolveThreadRecovery
+        )
+    }
+
+    if (state.threadRecovery == null) blockingApprovalRequest?.let { request ->
         CommandApprovalDialog(
             request = request,
             submitting = state.submittingServerRequestIds.contains(request.requestId),
@@ -747,6 +759,54 @@ fun CodexScreen(
             onCancelPlanWorkflow = onCancelPlanWorkflow
         )
     }
+}
+
+@Composable
+private fun ThreadRecoveryDialog(
+    reason: String,
+    forkAvailable: Boolean,
+    onAction: (String) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = { onAction("cancel") },
+        containerColor = SurfaceRaised,
+        titleContentColor = TextPrimary,
+        textContentColor = TextSecondary,
+        title = {
+            Text(stringResource(R.string.codex_native_thread_recovery_title))
+        },
+        text = {
+            Column {
+                Text(stringResource(R.string.codex_native_thread_recovery_message))
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = reason,
+                    color = TextMuted,
+                    fontSize = 12.sp
+                )
+            }
+        },
+        confirmButton = {
+            Column(horizontalAlignment = Alignment.End) {
+                TextButton(onClick = { onAction("retry") }) {
+                    Text(stringResource(R.string.codex_native_thread_recovery_retry))
+                }
+                if (forkAvailable) {
+                    TextButton(onClick = { onAction("fork") }) {
+                        Text(stringResource(R.string.codex_native_thread_recovery_fork))
+                    }
+                }
+                TextButton(onClick = { onAction("new") }) {
+                    Text(stringResource(R.string.codex_native_thread_recovery_new))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { onAction("cancel") }) {
+                Text(stringResource(R.string.codex_native_thread_recovery_cancel))
+            }
+        }
+    )
 }
 
 @Composable
@@ -866,6 +926,10 @@ private fun CodexHeader(
     val statusLabel = when {
         state.connectionState == ConnectionState.CONNECTING && state.sessionId.isBlank() ->
             stringResource(R.string.codex_native_creating_session)
+        state.followerRouteState == "waiting_for_surface" ->
+            stringResource(R.string.codex_native_status_waiting_host)
+        state.followerRouteState == "accepted" || state.followerRouteState == "routed" ->
+            stringResource(R.string.codex_native_status_sending)
         state.planWorkflow.phase == "planning" ->
             stringResource(R.string.codex_native_plan_workflow_title_planning)
         state.planWorkflow.phase == "awaiting_user_input" ->
@@ -891,6 +955,8 @@ private fun CodexHeader(
     }
 
     val statusColor = when {
+        state.followerRouteState == "waiting_for_surface" -> WarningColor
+        state.followerRouteState == "accepted" || state.followerRouteState == "routed" -> AccentBlue
         state.planWorkflow.phase == "planning" -> AccentBlue
         state.planWorkflow.phase == "awaiting_user_input" -> WarningColor
         state.planWorkflow.phase == "plan_ready_for_confirmation" -> SuccessColor
@@ -4762,6 +4828,8 @@ private fun InputComposer(
     pendingMentions: List<FileMention>,
     attachmentInputEnabled: Boolean,
     pendingImageAttachments: List<CodexPendingImageAttachment>,
+    composerRecoveryText: String?,
+    onConsumeComposerRecoveryText: () -> Unit,
     onSend: (String) -> Unit,
     hasInterruptibleTurn: Boolean,
     onInterrupt: () -> Unit,
@@ -5150,6 +5218,18 @@ private fun InputComposer(
                 }
             }
         }
+    }
+
+    LaunchedEffect(composerRecoveryText) {
+        val restoredText = composerRecoveryText?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        textFieldValue = TextFieldValue(
+            text = restoredText,
+            selection = TextRange(restoredText.length)
+        )
+        onComposerTextChanged(restoredText)
+        onConsumeComposerRecoveryText()
+        composerFocusRequester.requestFocus()
+        keyboardController?.show()
     }
 }
 

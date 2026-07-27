@@ -22,6 +22,8 @@ class FakeIpcFeed extends EventEmitter {
         this._replayOnFollow = opts.replayOnFollow !== undefined ? opts.replayOnFollow : true;
         this.followCalls = [];
         this.unfollowCalls = [];
+        this.broadcastCalls = [];
+        this.requestHandlers = new Map();
     }
     get online() { return this._online; }
     get clientId() { return this._clientId; }
@@ -65,6 +67,24 @@ class FakeIpcFeed extends EventEmitter {
         return true;
     }
     unfollowConversation(conversationId, hostId) { this.unfollowCalls.push({ conversationId, hostId }); return true; }
+    sendBroadcast(method, params) {
+        this.broadcastCalls.push({ method, params });
+        return true;
+    }
+    addRequestHandler(method, canHandle, handle) {
+        this.requestHandlers.set(method, { canHandle, handle });
+        return () => this.requestHandlers.delete(method);
+    }
+    async dispatchIncomingRequest(method, params) {
+        const registration = this.requestHandlers.get(method);
+        if (!registration || !await registration.canHandle(params, { method, params })) {
+            return { canHandle: false };
+        }
+        return {
+            canHandle: true,
+            result: await registration.handle({ method, params, requestId: `incoming-${method}` })
+        };
+    }
     async sendRequest(method, params) {
         if (this._sendRequestHandler) return this._sendRequestHandler(method, params);
         return { type: 'response', resultType: 'success', method, result: { ok: true } };
@@ -96,12 +116,21 @@ function loadGateway() {
             fakeCodexServices.push(this);
         }
         start() { return Promise.resolve(); }
+        ensureStarted() { return Promise.resolve(false); }
         stop() {}
         request(method, params) {
             this.requests.push({ method, params });
             if (this.requestHandler) return this.requestHandler(method, params);
             if (method === 'thread/resume') {
                 return Promise.resolve({ thread: { id: params.threadId, cwd: 'E:\\coding\\TermLink' } });
+            }
+            if (method === 'thread/start') {
+                return Promise.resolve({
+                    thread: {
+                        id: `thread-new-${this.requests.filter((entry) => entry.method === 'thread/start').length}`,
+                        cwd: params?.cwd || 'E:\\coding\\TermLink'
+                    }
+                });
             }
             if (method === 'turn/start') {
                 const text = Array.isArray(params.input)
@@ -174,6 +203,13 @@ function createFakeSessionManager() {
             const list = connections.get(session.id);
             if (list) { const idx = list.indexOf(ws); if (idx >= 0) list.splice(idx, 1); }
         },
+        broadcast(session, envelope) {
+            const list = connections.get(session.id) || [];
+            for (const ws of list) {
+                if (ws.readyState === 1) ws.send(JSON.stringify(envelope));
+            }
+        },
+        schedulePersist() {},
         getSession(id) { return sessions.get(id); },
         createSession(opts) {
             const { randomUUID } = require('node:crypto');
@@ -850,6 +886,22 @@ test('follower_send_message falls back to owner runtime when IPC owner is gone',
     assert.ok(ownerSnapshot.snapshot.items.some((item) => item.text === 'old external answer'));
     assert.ok(ownerSnapshot.snapshot.items.some((item) => item.text === 'take over locally'));
     assert.equal(messages.some(m => m.type === 'error' && /no-client-found/i.test(String(m.detail || ''))), false);
+
+    ws.send(JSON.stringify({
+        type: 'follower_interrupt_turn',
+        conversationId: 'conv-orphan'
+    }));
+    await delay(80);
+    assert.ok(g.codexService.requests.find((entry) =>
+        entry.method === 'turn/interrupt' &&
+        entry.params.threadId === 'conv-orphan' &&
+        entry.params.turnId === 'turn-1'
+    ));
+    assert.ok(messages.find((message) =>
+        message.type === 'follower_turn_interrupted' &&
+        message.conversationId === 'conv-orphan'
+    ));
+
     ws.close();
     await stopGateway(g);
 });
@@ -1997,6 +2049,317 @@ test('set_active_follower_mode true is rejected when active send is not configur
     assert.ok(messages.find(m => m.type === 'follower_mode_changed' && m.enabled === false && m.activeSendAllowed === false));
     assert.ok(messages.find(m => m.type === 'error' && m.message === 'Active follower mode is not available'));
     assert.ok(messages.find(m => m.type === 'error' && m.message === 'Active send is not allowed'));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('explicit new thread is registered as a TermLink IPC owner and invalidates recent conversations', async () => {
+    const g = await setupGateway();
+    const sess = await g.sm.createSession({ name: 'new owner' });
+    sess.cwd = 'E:\\coding\\TermLink';
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(80);
+
+    ws.send(JSON.stringify({ type: 'codex_new_thread' }));
+    await delay(120);
+
+    const ready = messages.find((message) => message.type === 'codex_thread_ready');
+    assert.ok(ready?.threadId);
+    assert.ok(g.ipcFeed.broadcastCalls.find((call) =>
+        call.method === 'thread-stream-state-changed' &&
+        call.params?.conversationId === ready.threadId
+    ));
+    assert.ok(g.ipcFeed.broadcastCalls.find((call) =>
+        call.method === 'thread-read-state-changed' &&
+        call.params?.conversationId === ready.threadId
+    ));
+    assert.ok(g.ipcFeed.broadcastCalls.find((call) =>
+        call.method === 'query-cache-invalidate' &&
+        call.params?.queryKey?.[0] === 'recent-conversations'
+    ));
+    const ownerSummary = messages
+        .filter((message) => message.type === 'codex_ipc_conversations')
+        .flatMap((message) => message.conversations || [])
+        .find((conversation) => conversation.conversationId === ready.threadId);
+    assert.equal(ownerSummary?.ownerKind, 'termlink');
+
+    ws.close();
+    await stopGateway(g);
+});
+
+test('owner request handlers keep Desktop controls on the TermLink app-server authority', async () => {
+    const g = await setupGateway();
+    const sess = await g.sm.createSession({ name: 'owner controls' });
+    sess.cwd = 'E:\\coding\\TermLink';
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(80);
+    ws.send(JSON.stringify({ type: 'codex_new_thread' }));
+    await delay(100);
+    const threadId = messages.find((message) => message.type === 'codex_thread_ready')?.threadId;
+    assert.ok(threadId);
+
+    const start = await g.ipcFeed.dispatchIncomingRequest('thread-follower-start-turn', {
+        conversationId: threadId,
+        turnStartParams: {
+            clientUserMessageId: 'desktop-user-1',
+            input: [{ type: 'text', text: 'continue from desktop', text_elements: [] }]
+        }
+    });
+    assert.equal(start.canHandle, true);
+    assert.ok(g.codexService.requests.find((request) =>
+        request.method === 'turn/start' &&
+        request.params.threadId === threadId
+    ));
+
+    const interrupt = await g.ipcFeed.dispatchIncomingRequest('thread-follower-interrupt-turn', {
+        conversationId: threadId,
+        turnId: start.result.turn.id
+    });
+    assert.equal(interrupt.canHandle, true);
+    assert.ok(g.codexService.requests.find((request) =>
+        request.method === 'turn/interrupt' &&
+        request.params.threadId === threadId &&
+        request.params.turnId === start.result.turn.id
+    ));
+
+    await g.ipcFeed.dispatchIncomingRequest('thread-follower-update-thread-settings', {
+        conversationId: threadId,
+        threadSettings: {
+            collaborationMode: {
+                mode: 'default',
+                settings: { model: 'gpt-5.4', reasoning_effort: 'medium' }
+            }
+        }
+    });
+    await g.ipcFeed.dispatchIncomingRequest('thread-follower-compact-thread', {
+        conversationId: threadId
+    });
+    await g.ipcFeed.dispatchIncomingRequest('thread-follower-steer-turn', {
+        conversationId: threadId,
+        expectedTurnId: start.result.turn.id,
+        input: [{ type: 'text', text: 'steer from desktop', text_elements: [] }]
+    });
+    await g.ipcFeed.dispatchIncomingRequest('thread/read', {
+        conversationId: threadId,
+        includeTurns: true
+    });
+    assert.ok(g.codexService.requests.find((request) =>
+        request.method === 'thread/settings/update' && request.params.threadId === threadId
+    ));
+    assert.ok(g.codexService.requests.find((request) =>
+        request.method === 'thread/compact/start' && request.params.threadId === threadId
+    ));
+    assert.ok(g.codexService.requests.find((request) =>
+        request.method === 'turn/steer' &&
+        request.params.expectedTurnId === start.result.turn.id
+    ));
+    assert.ok(g.codexService.requests.find((request) =>
+        request.method === 'thread/read' && request.params.threadId === threadId
+    ));
+
+    g.codexService.emit('server_request', {
+        requestId: 'desktop-owner-approval',
+        handledBy: 'client',
+        message: {
+            method: 'item/commandExecution/requestApproval',
+            params: {
+                threadId,
+                command: 'echo desktop-owner'
+            }
+        }
+    });
+    await delay(30);
+    const approval = await g.ipcFeed.dispatchIncomingRequest(
+        'thread-follower-command-approval-decision',
+        {
+            conversationId: threadId,
+            requestId: 'desktop-owner-approval',
+            decision: 'accept'
+        }
+    );
+    assert.equal(approval.canHandle, true);
+    assert.deepEqual(g.codexService.responses.at(-1), {
+        requestId: 'desktop-owner-approval',
+        response: { result: { decision: 'accept' } }
+    });
+
+    g.codexService.emit('server_request', {
+        requestId: 'desktop-owner-input',
+        handledBy: 'client',
+        message: {
+            method: 'item/tool/requestUserInput',
+            params: {
+                threadId,
+                questions: [{ id: 'question-1', question: 'Continue?' }]
+            }
+        }
+    });
+    await delay(30);
+    const userInput = await g.ipcFeed.dispatchIncomingRequest(
+        'thread-follower-submit-user-input',
+        {
+            conversationId: threadId,
+            requestId: 'desktop-owner-input',
+            response: {
+                answers: {
+                    'question-1': { answers: ['yes'] }
+                }
+            }
+        }
+    );
+    assert.equal(userInput.canHandle, true);
+    assert.equal(g.codexService.responses.at(-1).requestId, 'desktop-owner-input');
+    assert.equal(g.ipcFeed.requestHandlers.has('thread-follower-edit-last-user-turn'), false);
+    assert.equal(g.ipcFeed.requestHandlers.has('thread-follower-submit-mcp-server-elicitation-response'), false);
+    assert.equal(g.ipcFeed.requestHandlers.has('thread-follower-set-queued-follow-ups-state'), false);
+
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower message carries plan, image and skill input through one authority route', async () => {
+    let captured;
+    let requestCount = 0;
+    const ipcFeed = new FakeIpcFeed({
+        sendRequestHandler: async (method, params) => {
+            requestCount += 1;
+            captured = { method, params };
+            return {
+                type: 'response',
+                resultType: 'success',
+                method,
+                result: { turn: { id: 'turn-rich-input' } }
+            };
+        }
+    });
+    ipcFeed.pushSnapshot('conv-rich-input', {
+        conversationId: 'conv-rich-input',
+        status: 'completed',
+        cwd: 'E:\\coding\\TermLink',
+        items: []
+    });
+    const g = await setupGateway({ ipcFeed });
+    const sess = await g.sm.createSession({ name: 'rich follower' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(80);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-rich-input' }));
+    await enableFollowerMode(ws);
+
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: 'conv-rich-input',
+        clientRequestId: 'android-rich-1',
+        input: '@docs/plan.md\\nReview the attached screenshot',
+        attachments: [{ type: 'image', url: 'https://example.com/screenshot.png' }],
+        interactionState: { planMode: true, activeSkill: 'adb-real-device-debug' },
+        collaborationMode: {
+            mode: 'plan',
+            settings: { model: 'gpt-5.4', reasoning_effort: 'high' }
+        }
+    }));
+    await delay(160);
+
+    assert.equal(captured.method, 'thread-follower-start-turn');
+    assert.equal(captured.params.conversationId, 'conv-rich-input');
+    assert.equal(captured.params.turnStartParams.collaborationMode.mode, 'plan');
+    assert.ok(captured.params.turnStartParams.input.find((entry) =>
+        entry.type === 'text' && entry.text.includes('@docs/plan.md')
+    ));
+    assert.ok(captured.params.turnStartParams.input.find((entry) =>
+        entry.type === 'skill' && entry.name === 'adb-real-device-debug'
+    ));
+    assert.ok(captured.params.turnStartParams.input.find((entry) =>
+        entry.type === 'image' && entry.url === 'https://example.com/screenshot.png'
+    ));
+    const routeStates = messages
+        .filter((message) => message.type === 'follower_route_state')
+        .map((message) => message.state);
+    assert.deepEqual(routeStates.slice(-3), ['accepted', 'routed', 'turn_started']);
+    assert.ok(messages
+        .filter((message) => message.type === 'follower_route_state')
+        .every((message) => message.phase === message.state));
+
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: 'conv-rich-input',
+        clientRequestId: 'android-rich-1',
+        input: 'duplicate must not start another turn'
+    }));
+    await delay(80);
+    assert.equal(requestCount, 1);
+    assert.ok(messages.find((message) =>
+        message.type === 'follower_message_sent' &&
+        message.clientRequestId === 'android-rich-1' &&
+        message.replayed === true
+    ));
+
+    ws.close();
+    await stopGateway(g);
+});
+
+test('missing owner thread requires confirmation and never silently starts a replacement', async () => {
+    const ipcFeed = new FakeIpcFeed({ online: false });
+    const g = await setupGateway({ ipcFeed });
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/resume') {
+            const error = new Error(`thread not found: ${params.threadId}`);
+            error.code = -32600;
+            throw error;
+        }
+        return { ok: true };
+    };
+    const sess = await g.sm.createSession({ name: 'recovery required' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(80);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-missing-owner' }));
+    await enableFollowerMode(ws);
+
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: 'conv-missing-owner',
+        clientRequestId: 'recover-request-1',
+        input: 'do not lose this draft'
+    }));
+    await delay(160);
+
+    const recovery = messages.find((message) =>
+        message.type === 'codex_thread_recovery_required' &&
+        message.conversationId === 'conv-missing-owner'
+    );
+    assert.ok(recovery?.recoveryId);
+    assert.equal(recovery.forkAvailable, false);
+    assert.deepEqual(recovery.actions, ['retry', 'new', 'cancel']);
+    assert.equal(
+        g.codexService.requests.filter((request) => request.method === 'thread/start').length,
+        0
+    );
+
+    const secondClient = await connectWs(g.port, sess.id);
+    secondClient.ws.send(JSON.stringify({
+        type: 'codex_thread_recovery_action',
+        recoveryId: recovery.recoveryId,
+        action: 'cancel'
+    }));
+    await delay(80);
+    assert.ok(secondClient.messages.find((message) =>
+        message.type === 'codex_error' &&
+        message.code === 'CODEX_THREAD_RECOVERY_EXPIRED'
+    ));
+
+    ws.send(JSON.stringify({
+        type: 'codex_thread_recovery_action',
+        recoveryId: recovery.recoveryId,
+        action: 'cancel'
+    }));
+    await delay(80);
+    const resolved = messages.find((message) =>
+        message.type === 'codex_thread_recovery_resolved' &&
+        message.recoveryId === recovery.recoveryId
+    );
+    assert.equal(resolved?.action, 'cancel');
+    assert.equal(resolved?.draft?.input, 'do not lose this draft');
+
+    secondClient.ws.close();
     ws.close();
     await stopGateway(g);
 });

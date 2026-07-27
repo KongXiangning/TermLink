@@ -34,6 +34,8 @@ class CodexIpcFeed extends EventEmitter {
         this._rawSequence = 0;
         /** @type {Map<string, {conversationId: string, hostId: string, refCount: number}>} */
         this._desiredFollowing = new Map();
+        /** @type {Set<{method: string, canHandle: Function, handle: Function, disposeClient: Function|null}>} */
+        this._requestHandlerRegistrations = new Set();
 
         this._started = false;
         this._closed = false;
@@ -68,7 +70,13 @@ class CodexIpcFeed extends EventEmitter {
     }
 
     getStatus() {
-        return { ...this._status, online: this._online, clientId: this._online ? this.clientId : this._status.clientId };
+        return {
+            ...this._status,
+            supported: process.platform === 'win32' && this._config.enabled === true,
+            online: this._online,
+            activeSendAllowed: this.allowActiveSend,
+            clientId: this._online ? this.clientId : this._status.clientId
+        };
     }
 
     /**
@@ -91,6 +99,7 @@ class CodexIpcFeed extends EventEmitter {
             const { CodexIpcClient } = require('./codexIpcClient');
             this._client = new CodexIpcClient({ reconnect: false });
         }
+        this._installRequestHandlers();
 
         this._client.on('message_in', this._onClientMessageIn);
         this._client.on('message_out', this._onClientMessageOut);
@@ -216,6 +225,24 @@ class CodexIpcFeed extends EventEmitter {
         return this._client.sendBroadcast(method, params);
     }
 
+    addRequestHandler(method, canHandle, handle) {
+        const registration = {
+            method,
+            canHandle,
+            handle,
+            disposeClient: null
+        };
+        this._requestHandlerRegistrations.add(registration);
+        this._installRequestHandler(registration);
+        return () => {
+            this._requestHandlerRegistrations.delete(registration);
+            if (typeof registration.disposeClient === 'function') {
+                registration.disposeClient();
+                registration.disposeClient = null;
+            }
+        };
+    }
+
     followConversation(conversationId, hostId = 'local') {
         const subscription = normalizeFollowingSubscription(conversationId, hostId);
         if (!subscription) return false;
@@ -318,6 +345,28 @@ class CodexIpcFeed extends EventEmitter {
             desynced: Boolean(projection.desynced)
         }));
 
+        const diagnosticSignature = JSON.stringify({
+            status: surface.status || 'unknown',
+            hasActiveGoal: Boolean(surface.activeGoal),
+            hasPendingApproval: Boolean(surface.pendingApproval),
+            hasPendingPlanAction: Boolean(surface.pendingPlanAction),
+            desynced: Boolean(projection.desynced),
+            itemCount: Array.isArray(surface.items) ? surface.items.length : 0
+        });
+        if (this._diagnosticSurfaceSignatures.get(conversationId) !== diagnosticSignature) {
+            this._diagnosticSurfaceSignatures.set(conversationId, diagnosticSignature);
+            diagnosticLog.event('server', 'server.ipc.surface.changed', {
+                conversationIdPresent: true,
+                status: surface.status || 'unknown',
+                revision: projection.revision,
+                itemCount: Array.isArray(surface.items) ? surface.items.length : 0,
+                hasActiveGoal: Boolean(surface.activeGoal),
+                hasPendingApproval: Boolean(surface.pendingApproval),
+                hasPendingPlanAction: Boolean(surface.pendingPlanAction),
+                desynced: Boolean(projection.desynced)
+            });
+        }
+
         // Cache the snapshot.
         let cache = this._snapshotCache.get(conversationId);
         if (!cache) {
@@ -379,28 +428,6 @@ class CodexIpcFeed extends EventEmitter {
             eventCount: this._sequence,
             desiredCount: this._desiredFollowing.size
         });
-
-        const diagnosticSignature = JSON.stringify({
-            status: surface.status || 'unknown',
-            hasActiveGoal: Boolean(surface.activeGoal),
-            hasPendingApproval: Boolean(surface.pendingApproval),
-            hasPendingPlanAction: Boolean(surface.pendingPlanAction),
-            desynced: Boolean(projection.desynced),
-            itemCount: Array.isArray(surface.items) ? surface.items.length : 0
-        });
-        if (this._diagnosticSurfaceSignatures.get(conversationId) !== diagnosticSignature) {
-            this._diagnosticSurfaceSignatures.set(conversationId, diagnosticSignature);
-            diagnosticLog.event('server', 'server.ipc.surface.changed', {
-                conversationIdPresent: true,
-                status: surface.status || 'unknown',
-                revision: projection.revision,
-                itemCount: Array.isArray(surface.items) ? surface.items.length : 0,
-                hasActiveGoal: Boolean(surface.activeGoal),
-                hasPendingApproval: Boolean(surface.pendingApproval),
-                hasPendingPlanAction: Boolean(surface.pendingPlanAction),
-                desynced: Boolean(projection.desynced)
-            });
-        }
         this._status = {
             ...this._status,
             online: false,
@@ -483,6 +510,28 @@ class CodexIpcFeed extends EventEmitter {
         for (const subscription of this._desiredFollowing.values()) {
             this._sendFollowingChanged(subscription, true);
         }
+    }
+
+    _installRequestHandlers() {
+        for (const registration of this._requestHandlerRegistrations) {
+            this._installRequestHandler(registration);
+        }
+    }
+
+    _installRequestHandler(registration) {
+        if (
+            !registration ||
+            typeof registration.disposeClient === 'function' ||
+            !this._client ||
+            typeof this._client.addRequestHandler !== 'function'
+        ) {
+            return;
+        }
+        registration.disposeClient = this._client.addRequestHandler(
+            registration.method,
+            registration.canHandle,
+            registration.handle
+        );
     }
 
     _sendFollowingChanged(subscription, following) {

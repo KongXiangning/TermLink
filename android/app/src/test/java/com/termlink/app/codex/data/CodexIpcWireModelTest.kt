@@ -143,9 +143,11 @@ class CodexIpcWireModelTest {
 
     @Test
     fun `parse ipc status online`() {
-        val json = JSONObject("""{"type":"codex_ipc_status","status":{"online":true,"clientId":"ipc-1"}}""")
+        val json = JSONObject("""{"type":"codex_ipc_status","status":{"supported":true,"online":true,"activeSendAllowed":true,"clientId":"ipc-1"}}""")
         val status = CodexIpcStatus.from(json)
+        assertTrue(status.supported)
         assertTrue(status.online)
+        assertTrue(status.activeSendAllowed)
         assertEquals("ipc-1", status.clientId)
         assertNull(status.reason)
     }
@@ -324,6 +326,16 @@ class CodexIpcWireModelTest {
     }
 
     @Test
+    fun `thread recovery action builder`() {
+        val json = JSONObject(
+            CodexClientMessages.codexThreadRecoveryAction("recovery-1", "cancel")
+        )
+        assertEquals("codex_thread_recovery_action", json.getString("type"))
+        assertEquals("recovery-1", json.getString("recoveryId"))
+        assertEquals("cancel", json.getString("action"))
+    }
+
+    @Test
     fun `followerSendMessage builder`() {
         val msg = CodexClientMessages.followerSendMessage("conv-1", "Hello from Android")
         val json = JSONObject(msg)
@@ -331,6 +343,30 @@ class CodexIpcWireModelTest {
         assertEquals("conv-1", json.getString("conversationId"))
         assertEquals("Hello from Android", json.getString("input"))
         assertFalse(json.has("turnConfig"))
+    }
+
+    @Test
+    fun `followerSendMessage builder carries one request id and rich turn input`() {
+        val msg = CodexClientMessages.followerSendMessage(
+            conversationId = "conv-rich",
+            input = "@docs/plan.md\nReview image",
+            clientRequestId = "request-rich-1",
+            attachments = listOf(
+                CodexTurnAttachment(type = "image", url = "https://example.com/image.png")
+            ),
+            interactionState = CodexInteractionState(planMode = true, activeSkill = "review"),
+            collaborationMode = CodexClientMessages.buildCollaborationMode(
+                mode = "plan",
+                model = "gpt-5.4",
+                reasoningEffort = "high"
+            )
+        )
+        val json = JSONObject(msg)
+
+        assertEquals("request-rich-1", json.getString("clientRequestId"))
+        assertEquals("image", json.getJSONArray("attachments").getJSONObject(0).getString("type"))
+        assertEquals("review", json.getJSONObject("interactionState").getString("activeSkill"))
+        assertEquals("plan", json.getJSONObject("collaborationMode").getString("mode"))
     }
 
     @Test

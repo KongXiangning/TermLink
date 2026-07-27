@@ -19,6 +19,7 @@ import com.termlink.app.codex.domain.CodexRuntimePanelState
 import com.termlink.app.codex.domain.CodexSkillEntry
 import com.termlink.app.codex.domain.CodexSkillReference
 import com.termlink.app.codex.domain.CodexThreadHistoryEntry
+import com.termlink.app.codex.domain.CodexThreadRecoveryState
 import com.termlink.app.codex.domain.CodexToolsPanelState
 import com.termlink.app.codex.domain.CodexUiState
 import com.termlink.app.codex.domain.CodexUsagePanelState
@@ -270,12 +271,10 @@ internal fun overridesForConversationSwitch(
 
 internal fun shouldBlockPlainTextFallbackForIpcConversationState(
     state: CodexUiState,
-    isPlanMode: Boolean,
-    hasAttachments: Boolean,
-    hasFileMentions: Boolean
+    @Suppress("UNUSED_PARAMETER") isPlanMode: Boolean,
+    @Suppress("UNUSED_PARAMETER") hasAttachments: Boolean,
+    @Suppress("UNUSED_PARAMETER") hasFileMentions: Boolean
 ): Boolean {
-    if (isPlanMode) return false
-    if (hasAttachments || hasFileMentions) return false
     val hasIpcContext = state.ipcOnline || state.ipcClientId != null || state.ipcSurfaceSnapshot != null
     return hasIpcContext &&
         !state.awaitingNewThreadIpcSurface &&
@@ -287,6 +286,7 @@ internal fun applyIpcStatusToUiState(
     status: CodexIpcStatus
 ): CodexUiState {
     return state.copy(
+        ipcSupported = status.supported,
         ipcOnline = status.online,
         ipcClientId = status.clientId
     )
@@ -1920,6 +1920,23 @@ class CodexViewModel(
         _uiState.update { it.copy(errorMessage = null) }
     }
 
+    fun resolveThreadRecovery(action: String) {
+        val recovery = _uiState.value.threadRecovery ?: return
+        val normalizedAction = action.trim().lowercase()
+        if (normalizedAction !in setOf("retry", "fork", "new", "cancel")) return
+        sendEnvelopeOrReportFailure(
+            payload = CodexClientMessages.codexThreadRecoveryAction(
+                recoveryId = recovery.recoveryId,
+                action = normalizedAction
+            ),
+            errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+        )
+    }
+
+    fun consumeComposerRecoveryText() {
+        _uiState.update { it.copy(composerRecoveryText = null) }
+    }
+
     fun setCreatingSession() {
         _uiState.update {
             recalculateNextTurnEffectiveConfig(
@@ -2905,11 +2922,23 @@ class CodexViewModel(
             sendTurnWithOverrides("/goal $objective")
             return
         }
+        val clientRequestId = UUID.randomUUID().toString()
         val sent = sendEnvelopeOrReportFailure(
-            payload = CodexClientMessages.followerStartGoal(conversationId, objective),
+            payload = CodexClientMessages.followerSendMessage(
+                conversationId = conversationId,
+                input = "/goal $objective",
+                clientRequestId = clientRequestId,
+                interactionState = state.interactionState
+            ),
             errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
         )
         if (!sent) return
+        _uiState.update {
+            it.copy(
+                followerRouteState = "accepted",
+                followerRouteRequestId = clientRequestId
+            )
+        }
     }
 
     private fun handleSlashSkill(argumentText: String) {
@@ -3338,17 +3367,18 @@ class CodexViewModel(
             )
         } else null
 
-        // Codex API persists plan mode per-thread. If the current thread had
-        // a plan-mode turn, a subsequent non-plan turn must start on a new
-        // thread to avoid inheriting the plan-mode context.
-        val effectiveForceNewThread = forceNewThread ||
-            (!isPlanMode && threadHadPlanTurn)
+        // A plan turn does not change the canonical conversation. The next
+        // ordinary turn explicitly sends the default collaboration mode
+        // instead of silently replacing the thread.
+        val effectiveForceNewThread = forceNewThread
 
         val followerPayload = buildFollowerTurnPayloadIfSupported(
             state = state,
             prompt = prompt,
             isPlanMode = isPlanMode,
-            attachments = attachments
+            attachments = attachments,
+            interactionState = turnInteractionState,
+            collaborationMode = collaborationMode
         )
         val sentViaIpcFollower = followerPayload != null
         if (followerPayload == null && shouldBlockPlainTextFallbackForIpcConversation(state, isPlanMode, attachments)) {
@@ -3446,12 +3476,12 @@ class CodexViewModel(
         state: CodexUiState,
         prompt: String,
         isPlanMode: Boolean,
-        attachments: List<CodexTurnAttachment>
+        attachments: List<CodexTurnAttachment>,
+        interactionState: CodexInteractionState,
+        collaborationMode: JSONObject?
     ): String? {
         val conversationId = state.activeConversationId?.trim().orEmpty()
         if (!shouldUseIpcFollowerSendTransportState(state) || conversationId.isEmpty()) return null
-        if (isPlanMode) return null
-        if (attachments.isNotEmpty() || state.pendingFileMentions.isNotEmpty()) return null
         val overrides = state.nextTurnOverrides
         val permissionOverride = permissionConfigForSandboxOverride(overrides.sandbox)
         val turnConfig = CodexEffectiveConfig(
@@ -3468,7 +3498,21 @@ class CodexViewModel(
             permissionProfile = overrides.permissionProfile,
             useConfigPermissions = overrides.useConfigPermissions
         ).takeIf(CodexEffectiveConfig::hasAnyValue)
-        return CodexClientMessages.followerSendMessage(conversationId, prompt, turnConfig)
+        return CodexClientMessages.followerSendMessage(
+            conversationId = conversationId,
+            input = prompt,
+            turnConfig = turnConfig,
+            clientRequestId = UUID.randomUUID().toString(),
+            attachments = attachments,
+            interactionState = interactionState,
+            collaborationMode = if (isPlanMode) collaborationMode else {
+                CodexClientMessages.buildCollaborationMode(
+                    mode = "default",
+                    model = state.nextTurnOverrides.model ?: state.model,
+                    reasoningEffort = state.nextTurnOverrides.reasoningEffort ?: state.reasoningEffort
+                )
+            }
+        )
     }
 
     private fun shouldBlockPlainTextFallbackForIpcConversation(
@@ -4150,6 +4194,94 @@ class CodexViewModel(
                     "conversationId=${json.optStringOrNullCompat("conversationId").orEmpty()} " +
                     "status=$statusJson " +
                     "previousStatus=$previousJson")
+            }
+
+            "follower_route_state" -> {
+                val routeConversationId = normalizeThreadId(
+                    json.optStringOrNullCompat("conversationId")
+                )
+                val activeConversationId = normalizeThreadId(_uiState.value.activeConversationId)
+                if (routeConversationId != null && routeConversationId == activeConversationId) {
+                val routeState = json.optString("state", json.optString("phase", "")).trim()
+                    val requestId = json.optStringOrNullCompat("clientRequestId")
+                    val turnId = json.optStringOrNullCompat("turnId")
+                    _uiState.update { current ->
+                        current.copy(
+                            followerRouteState = routeState.takeUnless {
+                                it == "turn_started" || it == "failed"
+                            },
+                            followerRouteRequestId = requestId.takeUnless {
+                                routeState == "turn_started" || routeState == "failed"
+                            },
+                            status = if (routeState == "turn_started") "running" else current.status,
+                            currentTurnId = if (routeState == "turn_started") {
+                                turnId ?: current.currentTurnId
+                            } else {
+                                current.currentTurnId
+                            }
+                        )
+                    }
+                    Log.i(
+                        TAG,
+                        "[ipc][route-state] conversationId=$routeConversationId " +
+                            "requestId=${requestId.orEmpty()} state=$routeState " +
+                            "authority=${json.optStringOrNullCompat("authority").orEmpty()}"
+                    )
+                }
+            }
+
+            "codex_thread_recovery_required" -> {
+                val recoveryId = json.optStringOrNullCompat("recoveryId")
+                if (!recoveryId.isNullOrBlank()) {
+                    _uiState.update { current ->
+                        current.copy(
+                            followerRouteState = "recovery_required",
+                            threadRecovery = CodexThreadRecoveryState(
+                                recoveryId = recoveryId,
+                                reason = json.optString("reason", "thread_recovery_required"),
+                                forkAvailable = json.optBoolean("forkAvailable", false)
+                            )
+                        )
+                    }
+                }
+            }
+
+            "codex_thread_recovery_resolved" -> {
+                val action = json.optString("action", "").trim()
+                val draft = json.optJSONObject("draft")
+                val draftOptions = draft?.optJSONObject("options")
+                val draftInput = draft?.optStringOrNullCompat("input")
+                val draftAttachments = draftOptions?.optJSONArray("attachments")
+                    ?: draft?.optJSONArray("attachments")
+                val restoredAttachments = buildList {
+                    if (draftAttachments != null) {
+                        for (index in 0 until draftAttachments.length()) {
+                            val attachment = draftAttachments.optJSONObject(index) ?: continue
+                            val url = attachment.optStringOrNullCompat("url") ?: continue
+                            add(
+                                CodexPendingImageAttachment(
+                                    id = UUID.randomUUID().toString(),
+                                    type = attachment.optString("type", "image"),
+                                    label = url.substringAfterLast('/').ifBlank { "image" },
+                                    url = url
+                                )
+                            )
+                        }
+                    }
+                }
+                _uiState.update { current ->
+                    current.copy(
+                        followerRouteState = null,
+                        followerRouteRequestId = null,
+                        threadRecovery = null,
+                        composerRecoveryText = if (action == "cancel") draftInput else null,
+                        pendingImageAttachments = if (action == "cancel" && restoredAttachments.isNotEmpty()) {
+                            restoredAttachments
+                        } else {
+                            current.pendingImageAttachments
+                        }
+                    )
+                }
             }
 
             "conversation_action_required" -> {

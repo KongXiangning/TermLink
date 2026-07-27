@@ -528,14 +528,14 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
-    fun plainTextFallbackBlockDoesNotApplyToAttachmentsOrPlanMode() {
+    fun ipcConversationNeverFallsBackToLegacyTurnForPlanAttachmentsOrMentions() {
         val state = CodexUiState(
             ipcOnline = true,
             activeConversationId = "conv-live"
         )
 
         assertEquals(
-            false,
+            true,
             shouldBlockPlainTextFallbackForIpcConversationState(
                 state = state,
                 isPlanMode = true,
@@ -544,7 +544,7 @@ class CodexViewModelThreadReadyTest {
             )
         )
         assertEquals(
-            false,
+            true,
             shouldBlockPlainTextFallbackForIpcConversationState(
                 state = state,
                 isPlanMode = false,
@@ -553,7 +553,7 @@ class CodexViewModelThreadReadyTest {
             )
         )
         assertEquals(
-            false,
+            true,
             shouldBlockPlainTextFallbackForIpcConversationState(
                 state = state,
                 isPlanMode = false,

@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { randomUUID } = require('node:crypto');
 const { verifyWsUpgrade } = require('../auth/basicAuth');
 const { isIpAllowed, normalizeIp } = require('../utils/ipCheck');
 const { generateAuditTraceId } = require('../utils/auditTrace');
@@ -706,7 +707,6 @@ function buildPendingServerRequestSnapshot(state) {
         .map((entry) => ({
             requestId: entry.requestId,
             method: isNonEmptyString(entry.method) ? entry.method.trim() : 'unknown',
-            handledBy: 'client',
             requestKind: isNonEmptyString(entry.requestKind) ? entry.requestKind.trim() : resolveCodexServerRequestKind(entry.method),
             responseMode: isNonEmptyString(entry.responseMode) ? entry.responseMode.trim() : resolveCodexServerRequestResponseMode(entry.method),
             summary: isNonEmptyString(entry.summary) ? entry.summary.trim() : null,
@@ -742,8 +742,20 @@ function registerTerminalGateway(wss, {
     const _ipcSurfaceWaiters = new Map();
     /** @type {Set<string>} */
     const _followerSendInFlight = new Set();
+    /** @type {Map<string, { conversationId: string, status: 'resolving'|'started', authority?: string, turnId?: string | null, successType?: string }>} */
+    const _followerRequestLedger = new Map();
     /** @type {Set<string>} */
     const _ownerGoalCompletionInFlight = new Set();
+    /** @type {Map<string, { conversationId: string, turnId: string | null, authority: 'ipc' | 'owner', status: string, cycleGeneration: number | null }>} */
+    const _authorityLedger = new Map();
+    /** @type {Set<string>} */
+    const _ownerReadStateBroadcasted = new Set();
+    /** @type {Map<string, string[]>} */
+    const _followerAttachmentTempFiles = new Map();
+    /** @type {Map<string, { sessionId: string, conversationId: string | null, reason: string, draft: object, forkAvailable: boolean }>} */
+    const _pendingThreadRecoveries = new Map();
+    /** @type {Array<() => void>} */
+    const _ipcRequestHandlerDisposers = [];
     let _lastIpcOnline = Boolean(ipcFeed && (
         typeof ipcFeed.isOnline === 'function' ? ipcFeed.isOnline() : ipcFeed.online
     ));
@@ -755,9 +767,17 @@ function registerTerminalGateway(wss, {
     };
 
     const _getIpcStatus = () => {
-        if (!ipcFeed) return { online: false };
-        if (typeof ipcFeed.getStatus === 'function') return ipcFeed.getStatus();
-        return { online: Boolean(ipcFeed.online), clientId: ipcFeed.clientId };
+        const status = !ipcFeed
+            ? {}
+            : (typeof ipcFeed.getStatus === 'function'
+                ? ipcFeed.getStatus()
+                : { online: Boolean(ipcFeed.online), clientId: ipcFeed.clientId });
+        return {
+            ...status,
+            supported: typeof status.supported === 'boolean' ? status.supported : Boolean(ipcFeed),
+            online: Boolean(status.online),
+            activeSendAllowed: _isIpcActiveSendAllowed()
+        };
     };
 
     const _isIpcActiveSendAllowed = () => {
@@ -1016,6 +1036,15 @@ function registerTerminalGateway(wss, {
         const previousStatus = _ipcConversationLastStatus.get(conversationId);
         if (authoritativeSurface && status) {
             _ipcConversationLastStatus.set(conversationId, status);
+            const ledger = _authorityLedger.get(conversationId);
+            if (ledger && (status === 'completed' || status === 'interrupted' || status === 'failed')) {
+                _recordAuthority(conversationId, ledger.authority, 'terminal', surface?.latestTurnId || ledger.turnId);
+                const tempFilePaths = _followerAttachmentTempFiles.get(conversationId);
+                if (tempFilePaths) {
+                    _followerAttachmentTempFiles.delete(conversationId);
+                    void cleanupAttachmentTempFiles(tempFilePaths);
+                }
+            }
         }
 
         let sentCount = 0;
@@ -1151,17 +1180,32 @@ function registerTerminalGateway(wss, {
         if (ipcFeed && _isIpcOnline() && typeof ipcFeed.sendBroadcast === 'function') {
             try {
                 ipcFeed.sendBroadcast('thread-stream-state-changed', event.payload);
+                if (!_ownerReadStateBroadcasted.has(event.conversationId)) {
+                    _ownerReadStateBroadcasted.add(event.conversationId);
+                    ipcFeed.sendBroadcast('thread-read-state-changed', {
+                        conversationId: event.conversationId,
+                        hasUnreadTurn: true
+                    });
+                    ipcFeed.sendBroadcast('query-cache-invalidate', {
+                        queryKey: ['recent-conversations']
+                    });
+                    ipcFeed.sendBroadcast('query-cache-invalidate', {
+                        queryKey: ['recent-conversations-meta']
+                    });
+                }
             } catch (error) {
                 console.warn('[gateway][codex][owner-surface-broadcast-failed]', error && error.message ? error.message : String(error));
             }
         }
+        _broadcastConversationsToAll(_buildConversations());
     });
 
     const _buildConversations = () => {
-        if (!ipcFeed) return [];
         const snapshotMap = new Map();
-        for (const s of ipcFeed.getRecentSnapshots()) {
-            snapshotMap.set(s.conversationId, s);
+        if (typeof ipcFeed?.getRecentSnapshots === 'function') {
+            for (const s of ipcFeed.getRecentSnapshots()) {
+                snapshotMap.set(s.conversationId, s);
+            }
         }
         for (const s of ownerSurfaceTracker.getRecentSnapshots()) {
             snapshotMap.set(s.conversationId, s);
@@ -1195,12 +1239,11 @@ function registerTerminalGateway(wss, {
     };
 
     const _broadcastIpcStatus = (ws) => {
-        if (!ipcFeed) return;
         sendWsEnvelope(ws, {
             type: 'codex_ipc_status',
             status: _getIpcStatus()
         });
-        if (typeof ipcFeed.getRecentEvents === 'function') {
+        if (typeof ipcFeed?.getRecentEvents === 'function') {
             for (const event of ipcFeed.getRecentEvents()) {
                 sendWsEnvelope(ws, { type: 'codex_ipc_sync_event', event });
             }
@@ -1238,8 +1281,12 @@ function registerTerminalGateway(wss, {
             }
             const enteringExistingSharedCycle = _activeIpcSubscriberCount(normalizedConversationId) > 0;
             const ownerSurface = _getLatestOwnerSnapshot(normalizedConversationId);
-            if (_isOwnerSurfaceSafelyReleasable(ownerSurface)) {
+            const ownerAuthority = _authorityLedger.get(normalizedConversationId);
+            const isFreshlyCreatedOwner = ownerAuthority?.authority === 'owner' &&
+                ownerAuthority.status === 'created';
+            if (!isFreshlyCreatedOwner && _isOwnerSurfaceSafelyReleasable(ownerSurface)) {
                 ownerSurfaceTracker.releaseConversation(normalizedConversationId);
+                _authorityLedger.delete(normalizedConversationId);
                 diagnosticLog.event('server', 'server.codex.owner.released', {
                     conversationIdPresent: true,
                     reason: previousActiveConversationId ? 'conversation-reentered' : 'websocket-first-open',
@@ -1247,6 +1294,9 @@ function registerTerminalGateway(wss, {
                 }, 'info');
             }
             _ipcActiveConversations.set(ws, normalizedConversationId);
+            if (isFreshlyCreatedOwner) {
+                _recordAuthority(normalizedConversationId, 'owner', 'idle');
+            }
             if (!enteringExistingSharedCycle) {
                 _beginIpcSubscriptionCycle(
                     normalizedConversationId,
@@ -1254,6 +1304,14 @@ function registerTerminalGateway(wss, {
                 );
             }
             _followIpcConversation(normalizedConversationId);
+            if (codexService && typeof codexService.ensureStarted === 'function') {
+                void codexService.ensureStarted().catch((error) => {
+                    diagnosticLog.error('server', 'server.codex.runtime.prewarm_failed', error, {
+                        conversationIdPresent: true,
+                        sessionIdPresent: Boolean(session?.id)
+                    });
+                });
+            }
         }
         console.warn('[gateway][ipc][set-active-conversation]', JSON.stringify({
             conversationId: normalizedConversationId,
@@ -1295,6 +1353,293 @@ function registerTerminalGateway(wss, {
 
     const _shouldUseOwnerRuntime = (conversationId) => ownerSurfaceTracker.hasConversation(conversationId);
 
+    const _emitFollowerRouteState = (ws, clientRequestId, conversationId, state, details = {}) => {
+        if (!isNonEmptyString(clientRequestId)) return;
+        sendWsEnvelope(ws, {
+            type: 'follower_route_state',
+            clientRequestId: clientRequestId.trim(),
+            conversationId,
+            state,
+            phase: state,
+            ...details
+        });
+    };
+
+    const _followerRequestKey = (ws, clientRequestId) => (
+        `${isNonEmptyString(ws?.sessionId) ? ws.sessionId.trim() : 'anonymous'}:${clientRequestId}`
+    );
+
+    const _recordFollowerRequestStarted = (
+        requestKey,
+        conversationId,
+        authority,
+        turnId,
+        successType
+    ) => {
+        if (!isNonEmptyString(requestKey)) return;
+        _followerRequestLedger.set(requestKey, {
+            conversationId,
+            status: 'started',
+            authority,
+            turnId: isNonEmptyString(turnId) ? turnId.trim() : null,
+            successType
+        });
+        while (_followerRequestLedger.size > 512) {
+            const oldestKey = _followerRequestLedger.keys().next().value;
+            if (!oldestKey) break;
+            _followerRequestLedger.delete(oldestKey);
+        }
+    };
+
+    const _sendThreadRecoveryRequired = (ws, {
+        conversationId,
+        reason,
+        draft,
+        forkAvailable = false,
+        clientRequestId = null
+    }) => {
+        const recoveryId = randomUUID();
+        const normalizedConversationId = isNonEmptyString(conversationId)
+            ? conversationId.trim()
+            : null;
+        _pendingThreadRecoveries.set(recoveryId, {
+            ws,
+            sessionId: ws.sessionId,
+            conversationId: normalizedConversationId,
+            reason,
+            draft: draft && typeof draft === 'object' ? structuredClone(draft) : {},
+            forkAvailable: Boolean(forkAvailable),
+            resolving: false
+        });
+        _emitFollowerRouteState(
+            ws,
+            clientRequestId,
+            normalizedConversationId,
+            'recovery_required',
+            { recoveryId, reason }
+        );
+        sendWsEnvelope(ws, {
+            type: 'codex_thread_recovery_required',
+            recoveryId,
+            conversationId: normalizedConversationId,
+            reason,
+            forkAvailable: Boolean(forkAvailable),
+            actions: [
+                'retry',
+                ...(forkAvailable ? ['fork'] : []),
+                'new',
+                'cancel'
+            ],
+            draft
+        });
+        return recoveryId;
+    };
+
+    const _recordAuthority = (conversationId, authority, status, turnId = null) => {
+        const cycle = _ipcConversationSubscriptionCycles.get(conversationId);
+        const record = {
+            conversationId,
+            turnId: isNonEmptyString(turnId) ? turnId.trim() : null,
+            authority,
+            status,
+            cycleGeneration: cycle ? cycle.generation : null
+        };
+        _authorityLedger.set(conversationId, record);
+        return record;
+    };
+
+    const _getAuthority = (conversationId) => {
+        const record = _authorityLedger.get(conversationId);
+        if (record && (record.status === 'running' || record.status === 'waiting')) {
+            return record.authority;
+        }
+        return _shouldUseOwnerRuntime(conversationId) ? 'owner' : 'ipc';
+    };
+
+    const _extractIpcConversationId = (params) => {
+        if (!params || typeof params !== 'object') return null;
+        if (isNonEmptyString(params.conversationId)) return params.conversationId.trim();
+        if (isNonEmptyString(params.threadId)) return params.threadId.trim();
+        if (params.thread && typeof params.thread === 'object' && isNonEmptyString(params.thread.id)) {
+            return params.thread.id.trim();
+        }
+        return null;
+    };
+
+    const _buildOwnerTurnParamsFromFollower = (params) => {
+        const source = params && typeof params === 'object' ? params : {};
+        const sandboxPolicyType = source.sandboxPolicy && typeof source.sandboxPolicy === 'object'
+            ? source.sandboxPolicy.type
+            : null;
+        return {
+            ...source,
+            ...(isNonEmptyString(source.effort) && !isNonEmptyString(source.reasoningEffort)
+                ? { reasoningEffort: source.effort }
+                : {}),
+            ...(isNonEmptyString(source.approvalPolicy) && !isNonEmptyString(source.askForApproval)
+                ? { askForApproval: source.approvalPolicy }
+                : {}),
+            ...(isNonEmptyString(sandboxPolicyType) && !isNonEmptyString(source.sandbox)
+                ? { sandbox: sandboxPolicyType }
+                : {})
+        };
+    };
+
+    const _handleOwnerIpcRequest = async (method, request) => {
+        const params = request && request.params && typeof request.params === 'object'
+            ? request.params
+            : {};
+        const conversationId = _extractIpcConversationId(params);
+        if (!conversationId || !_shouldUseOwnerRuntime(conversationId)) {
+            throw new Error('no-owner-conversation');
+        }
+
+        if (method === 'thread/read') {
+            return codexService.request('thread/read', {
+                threadId: conversationId,
+                includeTurns: params.includeTurns !== false
+            });
+        }
+
+        if (method === 'thread-follower-start-turn') {
+            const turnStartParams = _buildOwnerTurnParamsFromFollower(params.turnStartParams);
+            const result = await codexService.request('turn/start', {
+                threadId: conversationId,
+                ...turnStartParams
+            });
+            ownerSurfaceTracker.adoptTurnStartResult(
+                conversationId,
+                result,
+                turnStartParams.clientUserMessageId
+            );
+            const turnId = result?.turn?.id || result?.turn?.turnId || null;
+            _recordAuthority(conversationId, 'owner', 'running', turnId);
+            return result;
+        }
+
+        if (method === 'thread-follower-interrupt-turn') {
+            const ledger = _authorityLedger.get(conversationId);
+            const snapshot = _getLatestOwnerSnapshot(conversationId);
+            const turnId = isNonEmptyString(params.turnId)
+                ? params.turnId.trim()
+                : (ledger?.turnId || snapshot?.latestTurnId || null);
+            if (!isNonEmptyString(turnId)) {
+                throw new Error('Owner conversation has no active turn.');
+            }
+            const result = await codexService.request('turn/interrupt', {
+                threadId: conversationId,
+                turnId
+            });
+            _recordAuthority(conversationId, 'owner', 'interrupting', turnId);
+            return result;
+        }
+
+        if (
+            method === 'thread-follower-command-approval-decision' ||
+            method === 'thread-follower-file-approval-decision' ||
+            method === 'thread-follower-permissions-request-approval-response'
+        ) {
+            const snapshot = _getLatestOwnerSnapshot(conversationId);
+            const requestKind = method.includes('permissions')
+                ? 'permissions'
+                : (method.includes('file-approval') ? 'file' : 'command');
+            const approval = resolvePendingApprovalResponseTarget(
+                snapshot,
+                params.requestId,
+                requestKind
+            );
+            if (!approval) {
+                throw new Error('No matching owner approval request was found.');
+            }
+            codexService.respondToServerRequest(approval.rawRequestId, {
+                result: buildOwnerApprovalResult(
+                    approval,
+                    params.decision,
+                    params.execpolicyAmendment
+                )
+            });
+            ownerSurfaceTracker.markRequestResponseSent(approval.rawRequestId, conversationId);
+            return { acknowledged: true };
+        }
+
+        if (method === 'thread-follower-submit-user-input') {
+            if (!isRawRequestId(params.requestId)) {
+                throw new Error('Owner user-input request id is required.');
+            }
+            codexService.respondToServerRequest(params.requestId, {
+                result: params.response && typeof params.response === 'object'
+                    ? params.response
+                    : {}
+            });
+            ownerSurfaceTracker.markRequestResponseSent(params.requestId, conversationId);
+            return { acknowledged: true };
+        }
+
+        if (method === 'thread-follower-update-thread-settings') {
+            const threadSettings = params.threadSettings && typeof params.threadSettings === 'object'
+                ? params.threadSettings
+                : {};
+            const result = await codexService.request('thread/settings/update', {
+                threadId: conversationId,
+                ...threadSettings
+            });
+            ownerSurfaceTracker.applyThreadSettingsUpdate(conversationId, threadSettings);
+            return result;
+        }
+
+        if (method === 'thread-follower-compact-thread') {
+            return codexService.request('thread/compact/start', {
+                threadId: conversationId
+            });
+        }
+
+        if (method === 'thread-follower-steer-turn') {
+            const ledger = _authorityLedger.get(conversationId);
+            const expectedTurnId = isNonEmptyString(params.expectedTurnId)
+                ? params.expectedTurnId.trim()
+                : (isNonEmptyString(params.turnId) ? params.turnId.trim() : ledger?.turnId);
+            if (!isNonEmptyString(expectedTurnId)) {
+                throw new Error('Owner steer requires the active turn id.');
+            }
+            return codexService.request('turn/steer', {
+                threadId: conversationId,
+                expectedTurnId,
+                input: Array.isArray(params.input) ? params.input : []
+            });
+        }
+
+        throw new Error(`Unsupported owner IPC method: ${method}`);
+    };
+
+    if (typeof ipcFeed?.addRequestHandler === 'function') {
+        const ownerRequestMethods = [
+            'thread/read',
+            'thread-follower-start-turn',
+            'thread-follower-interrupt-turn',
+            'thread-follower-command-approval-decision',
+            'thread-follower-file-approval-decision',
+            'thread-follower-permissions-request-approval-response',
+            'thread-follower-submit-user-input',
+            'thread-follower-update-thread-settings',
+            'thread-follower-compact-thread',
+            'thread-follower-steer-turn'
+        ];
+        for (const method of ownerRequestMethods) {
+            _ipcRequestHandlerDisposers.push(ipcFeed.addRequestHandler(
+                method,
+                (params) => {
+                    const conversationId = _extractIpcConversationId(params);
+                    return Boolean(
+                        _isIpcActiveSendAllowed() &&
+                        conversationId &&
+                        _shouldUseOwnerRuntime(conversationId)
+                    );
+                },
+                (request) => _handleOwnerIpcRequest(method, request)
+            ));
+        }
+    }
+
     const _ensureOwnerConversation = async (conversationId, seedSurface) => {
         if (!isNonEmptyString(conversationId)) {
             throw new Error('Owner conversation id is required.');
@@ -1316,6 +1661,12 @@ function registerTerminalGateway(wss, {
     const _startOwnerTurn = async (ws, conversationId, input, latestSnapshot, options = {}) => {
         try {
             const threadId = await _ensureOwnerConversation(conversationId, latestSnapshot);
+            if (threadId !== conversationId) {
+                const session = getSessionById(sessionManager, ws.sessionId);
+                if (session) {
+                    _handleSetActiveConversation(ws, session, threadId);
+                }
+            }
             const turnStartParams = buildFollowerTurnStartParams(input.trim(), latestSnapshot || {}, {
                 ...options,
                 transport: 'app-server'
@@ -1330,21 +1681,70 @@ function registerTerminalGateway(wss, {
             if (options.awaitOwnerSnapshot !== true) {
                 ownerSurfaceTracker.adoptTurnStartResult(threadId, result, turnStartParams.clientUserMessageId);
             }
-            sendWsEnvelope(ws, { type: options.successType || 'follower_message_sent', conversationId: threadId, acknowledged: true });
-            return true;
+            const turnId = result?.turn?.id || result?.turn?.turnId || null;
+            _recordAuthority(threadId, 'owner', 'running', turnId);
+            _recordFollowerRequestStarted(
+                options.requestKey,
+                threadId,
+                'owner',
+                turnId,
+                options.successType || 'follower_message_sent'
+            );
+            _emitFollowerRouteState(ws, options.clientRequestId, threadId, 'turn_started', {
+                authority: 'owner',
+                turnId
+            });
+            sendWsEnvelope(ws, {
+                type: options.successType || 'follower_message_sent',
+                conversationId: threadId,
+                clientRequestId: options.clientRequestId,
+                turnId,
+                acknowledged: true
+            });
+            return { threadId, turnId, result };
         } catch (error) {
+            if (isThreadNotFoundError(error)) {
+                _sendThreadRecoveryRequired(ws, {
+                    conversationId,
+                    reason: 'thread_not_found',
+                    clientRequestId: options.clientRequestId,
+                    forkAvailable: false,
+                    draft: {
+                        transport: 'follower',
+                        clientRequestId: options.clientRequestId,
+                        input,
+                        options: {
+                            attachments: options.attachments,
+                            interactionState: options.interactionState,
+                            collaborationMode: options.collaborationMode,
+                            turnConfig: options.turnConfig
+                        }
+                    }
+                });
+                return null;
+            }
+            _emitFollowerRouteState(ws, options.clientRequestId, conversationId, 'failed', {
+                authority: 'owner',
+                detail: error && error.message ? error.message : String(error)
+            });
             sendWsEnvelope(ws, {
                 type: 'error',
                 message: options.failureMessage || 'Failed to send owner message',
                 detail: error && error.message ? error.message : String(error)
             });
-            return false;
+            return null;
         }
     };
 
     const _startOwnerGoal = async (ws, conversationId, objective, latestSnapshot, options = {}) => {
         try {
             const threadId = await _ensureOwnerConversation(conversationId, latestSnapshot);
+            if (threadId !== conversationId) {
+                const session = getSessionById(sessionManager, ws.sessionId);
+                if (session) {
+                    _handleSetActiveConversation(ws, session, threadId);
+                }
+            }
             await codexService.request('thread/goal/set', {
                 threadId,
                 objective: objective.trim(),
@@ -1354,12 +1754,36 @@ function registerTerminalGateway(wss, {
             const turnStartParams = buildFollowerTurnStartParams(objective.trim(), latestSnapshot || {}, {
                 transport: 'app-server'
             });
-            await codexService.request('turn/start', {
+            const result = await codexService.request('turn/start', {
                 threadId,
                 ...turnStartParams
             });
-            sendWsEnvelope(ws, { type: options.successType || 'follower_goal_sent', conversationId: threadId, acknowledged: true });
+            ownerSurfaceTracker.adoptTurnStartResult(threadId, result, turnStartParams.clientUserMessageId);
+            const turnId = result?.turn?.id || result?.turn?.turnId || null;
+            _recordAuthority(threadId, 'owner', 'running', turnId);
+            _recordFollowerRequestStarted(
+                options.requestKey,
+                threadId,
+                'owner',
+                turnId,
+                options.successType || 'follower_goal_sent'
+            );
+            _emitFollowerRouteState(ws, options.clientRequestId, threadId, 'turn_started', {
+                authority: 'owner',
+                turnId
+            });
+            sendWsEnvelope(ws, {
+                type: options.successType || 'follower_goal_sent',
+                conversationId: threadId,
+                clientRequestId: options.clientRequestId,
+                turnId,
+                acknowledged: true
+            });
         } catch (error) {
+            _emitFollowerRouteState(ws, options.clientRequestId, conversationId, 'failed', {
+                authority: 'owner',
+                detail: error && error.message ? error.message : String(error)
+            });
             sendWsEnvelope(ws, {
                 type: 'error',
                 message: options.failureMessage || 'Failed to start owner goal',
@@ -1404,12 +1828,24 @@ function registerTerminalGateway(wss, {
     };
 
     const _handleFollowerSendMessage = async (ws, conversationId, input, options = {}) => {
+        const clientRequestId = isNonEmptyString(options.clientRequestId)
+            ? options.clientRequestId.trim()
+            : randomUUID();
+        options = { ...options, clientRequestId };
+        const normalizedInput = typeof input === 'string' ? input.trim() : '';
+        const goalMatch = normalizedInput.match(/^\/goal\s+([\s\S]+)$/i);
+        if (!isNonEmptyString(options.ownerGoalObjective) && goalMatch) {
+            options.ownerGoalObjective = goalMatch[1].trim();
+        }
         diagnosticLog.event('server', 'server.ipc.follower_send.requested', {
             conversationIdPresent: isNonEmptyString(conversationId),
-            inputLength: typeof input === 'string' ? input.trim().length : 0,
+            inputLength: normalizedInput.length,
+            clientRequestIdPresent: true,
             followerMode: _isFollowerModeEnabled(ws),
             ipcOnline: _isIpcOnline()
         }, 'info');
+        const normalizedAttachments = normalizeTurnAttachments(options.attachments);
+        const normalizedInteractionState = normalizeInteractionState(options.interactionState);
         if (!_isIpcActiveSendAllowed() || !_isFollowerModeEnabled(ws)) {
             sendWsEnvelope(ws, { type: 'error', message: 'Active send is not allowed', detail: 'Enable TERMLINK_CODEX_IPC_ENABLED + ALLOW_ACTIVE + CONFIRM_SEND.' });
             return;
@@ -1418,12 +1854,20 @@ function registerTerminalGateway(wss, {
             sendWsEnvelope(ws, { type: 'error', message: 'No active conversation', detail: 'Set an active conversation before sending messages.' });
             return;
         }
-        if (typeof input !== 'string' || !input.trim()) {
+        if (
+            !normalizedInput &&
+            normalizedAttachments.length === 0 &&
+            !isNonEmptyString(normalizedInteractionState.activeSkill)
+        ) {
             sendWsEnvelope(ws, { type: 'error', message: 'Input cannot be empty', detail: 'Provide non-empty message text.' });
             return;
         }
         const normalizedConversationId = conversationId.trim();
+        _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'accepted');
         if (_getActiveConversationId(ws) !== normalizedConversationId) {
+            _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'failed', {
+                detail: 'Conversation is not active'
+            });
             sendWsEnvelope(ws, {
                 type: 'error',
                 message: 'Conversation is not active',
@@ -1431,7 +1875,42 @@ function registerTerminalGateway(wss, {
             });
             return;
         }
+        const requestKey = _followerRequestKey(ws, clientRequestId);
+        const priorRequest = _followerRequestLedger.get(requestKey);
+        if (priorRequest?.conversationId !== undefined) {
+            if (
+                priorRequest.conversationId === normalizedConversationId
+                && priorRequest.status === 'started'
+            ) {
+                _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'turn_started', {
+                    authority: priorRequest.authority,
+                    turnId: priorRequest.turnId,
+                    replayed: true
+                });
+                sendWsEnvelope(ws, {
+                    type: priorRequest.successType || options.successType || 'follower_message_sent',
+                    conversationId: normalizedConversationId,
+                    clientRequestId,
+                    turnId: priorRequest.turnId,
+                    acknowledged: true,
+                    replayed: true
+                });
+                return;
+            }
+            _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'failed', {
+                detail: 'Client request is already being resolved'
+            });
+            sendWsEnvelope(ws, {
+                type: 'error',
+                message: 'Client request is already being resolved',
+                detail: 'Reuse of a pending clientRequestId is not allowed.'
+            });
+            return;
+        }
         if (_followerSendInFlight.has(normalizedConversationId)) {
+            _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'failed', {
+                detail: 'Message send is already being resolved'
+            });
             sendWsEnvelope(ws, {
                 type: 'error',
                 message: 'Message send is already being resolved',
@@ -1439,12 +1918,20 @@ function registerTerminalGateway(wss, {
             });
             return;
         }
+        _followerRequestLedger.set(requestKey, {
+            conversationId: normalizedConversationId,
+            status: 'resolving'
+        });
+        options = { ...options, requestKey };
         _followerSendInFlight.add(normalizedConversationId);
         try {
             let authority = _shouldUseOwnerRuntime(normalizedConversationId) ? 'owner' : 'ipc';
             let latest = _getLatestConversationSnapshot(normalizedConversationId);
 
             if (authority === 'ipc' && !latest && _isIpcOnline()) {
+                _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'waiting_for_surface', {
+                    authority: 'ipc'
+                });
                 diagnosticLog.event('server', 'server.ipc.follower_send.waiting_for_surface', {
                     conversationIdPresent: true,
                     routeStage: 'surface-grace',
@@ -1472,14 +1959,34 @@ function registerTerminalGateway(wss, {
                 });
                 return;
             }
+            const preparedTurnInput = await buildTurnInput(
+                normalizedInput,
+                normalizedAttachments,
+                normalizedInteractionState,
+                latest?.cwd || getSessionById(sessionManager, ws.sessionId)?.cwd
+            );
+            options = {
+                ...options,
+                preparedInput: preparedTurnInput.input,
+                collaborationMode: options.collaborationMode
+            };
+            if (preparedTurnInput.tempFilePaths.length > 0) {
+                _followerAttachmentTempFiles.set(normalizedConversationId, [
+                    ...(_followerAttachmentTempFiles.get(normalizedConversationId) || []),
+                    ...preparedTurnInput.tempFilePaths
+                ]);
+            }
 
             if (authority === 'owner') {
+                _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'routed', {
+                    authority: 'owner'
+                });
                 diagnosticLog.event('server', 'server.ipc.follower_send.routed', {
                     conversationIdPresent: true,
                     authority: 'owner',
                     routeStage: 'sticky-owner'
                 }, 'info');
-                await _startOwnerMessageOrGoal(ws, normalizedConversationId, input, latest, options);
+                await _startOwnerMessageOrGoal(ws, normalizedConversationId, normalizedInput, latest, options);
                 return;
             }
 
@@ -1496,22 +2003,44 @@ function registerTerminalGateway(wss, {
                 conversationId: normalizedConversationId
             };
             if (!_isIpcOnline()) {
+                _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'routed', {
+                    authority: 'owner'
+                });
                 diagnosticLog.event('server', 'server.ipc.follower_send.routed', {
                     conversationIdPresent: true,
                     authority: 'owner',
                     routeStage: 'ipc-offline-fallback',
                     currentCycleSurface: Boolean(latest)
                 }, 'warn');
-                await _startOwnerMessageOrGoal(ws, normalizedConversationId, input, fallbackSeed, options);
+                await _startOwnerMessageOrGoal(ws, normalizedConversationId, normalizedInput, fallbackSeed, options);
                 return;
             }
 
             try {
+                _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'routed', {
+                    authority: 'ipc'
+                });
                 const response = await ipcFeed.sendRequest('thread-follower-start-turn', {
                     conversationId: normalizedConversationId,
-                    turnStartParams: buildFollowerTurnStartParams(input.trim(), latest || {}, options)
+                    turnStartParams: buildFollowerTurnStartParams(normalizedInput, latest || {}, options)
                 });
                 assertIpcSuccess(response);
+                const turnId = response?.result?.turn?.id ||
+                    response?.result?.turn?.turnId ||
+                    response?.result?.turnId ||
+                    null;
+                _recordAuthority(normalizedConversationId, 'ipc', 'running', turnId);
+                _recordFollowerRequestStarted(
+                    requestKey,
+                    normalizedConversationId,
+                    'ipc',
+                    turnId,
+                    options.successType || 'follower_message_sent'
+                );
+                _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'turn_started', {
+                    authority: 'ipc',
+                    turnId
+                });
                 diagnosticLog.event('server', 'server.ipc.follower_send.acknowledged', {
                     conversationIdPresent: true,
                     authority: 'ipc',
@@ -1522,6 +2051,8 @@ function registerTerminalGateway(wss, {
                 sendWsEnvelope(ws, {
                     type: options.successType || 'follower_message_sent',
                     conversationId: normalizedConversationId,
+                    clientRequestId,
+                    turnId,
                     acknowledged: true
                 });
             } catch (error) {
@@ -1534,14 +2065,21 @@ function registerTerminalGateway(wss, {
                     errorType: error?.constructor?.name || typeof error
                 });
                 if (noClientFallback) {
+                    _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'routed', {
+                        authority: 'owner'
+                    });
                     diagnosticLog.event('server', 'server.ipc.follower_send.routed', {
                         conversationIdPresent: true,
                         authority: 'owner',
                         routeStage: 'no-client-found-fallback'
                     }, 'warn');
-                    await _startOwnerMessageOrGoal(ws, normalizedConversationId, input, fallbackSeed, options);
+                    await _startOwnerMessageOrGoal(ws, normalizedConversationId, normalizedInput, fallbackSeed, options);
                     return;
                 }
+                _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'failed', {
+                    authority: 'ipc',
+                    detail: error && error.message ? error.message : String(error)
+                });
                 sendWsEnvelope(ws, {
                     type: 'error',
                     message: options.failureMessage || 'Failed to send follower message',
@@ -1549,6 +2087,9 @@ function registerTerminalGateway(wss, {
                 });
             }
         } finally {
+            if (_followerRequestLedger.get(requestKey)?.status === 'resolving') {
+                _followerRequestLedger.delete(requestKey);
+            }
             _followerSendInFlight.delete(normalizedConversationId);
         }
     };
@@ -1581,7 +2122,9 @@ function registerTerminalGateway(wss, {
         }
 
         const latest = _getLatestConversationSnapshot(conversationId);
-        if (!latest || latest.status !== 'running') {
+        const ledger = _authorityLedger.get(conversationId);
+        const isRunning = latest?.status === 'running' || ledger?.status === 'running';
+        if (!isRunning) {
             sendWsEnvelope(ws, {
                 type: 'error',
                 message: 'Conversation is not running',
@@ -1590,12 +2133,15 @@ function registerTerminalGateway(wss, {
             return;
         }
 
-        if (_shouldUseOwnerRuntime(conversationId)) {
+        const authority = _getAuthority(conversationId);
+        const activeTurnId = ledger?.turnId || latest?.latestTurnId || null;
+        if (authority === 'owner') {
             try {
                 await codexService.request('turn/interrupt', {
                     threadId: conversationId,
-                    ...(isNonEmptyString(latest.latestTurnId) ? { turnId: latest.latestTurnId } : {})
+                    ...(isNonEmptyString(activeTurnId) ? { turnId: activeTurnId } : {})
                 });
+                _recordAuthority(conversationId, 'owner', 'interrupting', activeTurnId);
                 sendWsEnvelope(ws, { type: 'follower_turn_interrupted', conversationId, acknowledged: true });
             } catch (error) {
                 sendWsEnvelope(ws, { type: 'error', message: 'Failed to interrupt owner turn', detail: error.message });
@@ -1615,9 +2161,10 @@ function registerTerminalGateway(wss, {
         try {
             const response = await ipcFeed.sendRequest('thread-follower-interrupt-turn', {
                 conversationId,
-                ...(isNonEmptyString(latest.latestTurnId) ? { turnId: latest.latestTurnId } : {})
+                ...(isNonEmptyString(activeTurnId) ? { turnId: activeTurnId } : {})
             });
             assertIpcSuccess(response);
+            _recordAuthority(conversationId, 'ipc', 'interrupting', activeTurnId);
             sendWsEnvelope(ws, { type: 'follower_turn_interrupted', conversationId, acknowledged: true });
         } catch (error) {
             sendWsEnvelope(ws, { type: 'error', message: 'Failed to interrupt follower turn', detail: error.message });
@@ -2018,7 +2565,6 @@ function registerTerminalGateway(wss, {
     }
 
     function buildFollowerTurnStartParams(input, snapshot, options = {}) {
-        const { randomUUID } = require('node:crypto');
         const requestedConfig = normalizeFollowerTurnConfig(options.turnConfig);
         const currentConfig = normalizeFollowerTurnConfig(snapshot?.currentCodexConfig);
         const useConfigPermissions = requestedConfig.useConfigPermissions;
@@ -2056,7 +2602,9 @@ function registerTerminalGateway(wss, {
             : (permissionOverride?.sandboxMode || effectiveConfig.sandboxMode);
         const baseParams = {
             clientUserMessageId: randomUUID(),
-            input: buildTextInputSequence(input),
+            input: Array.isArray(options.preparedInput)
+                ? structuredClone(options.preparedInput)
+                : buildTextInputSequence(input),
             attachments: [],
             commentAttachments: [],
             ...(isNonEmptyString(snapshot?.cwd) ? {
@@ -2580,14 +3128,14 @@ function registerTerminalGateway(wss, {
                     code: resumeError && resumeError.code ? resumeError.code : null
                 }));
                 if (isThreadNotFoundError(resumeError)) {
-                    clearStaleSessionThreadBinding(session, preferredThreadId);
-                    console.warn('[gateway][codex][preferred-thread-stale-cleared]', JSON.stringify({
-                        sessionId: session.id,
-                        preferredThreadId
-                    }));
-                } else {
-                    throw resumeError;
+                    const recoveryError = new Error('The selected Codex thread could not be resumed.');
+                    recoveryError.code = 'CODEX_THREAD_RECOVERY_REQUIRED';
+                    recoveryError.reason = 'thread_not_found';
+                    recoveryError.threadId = preferredThreadId;
+                    recoveryError.forkAvailable = false;
+                    throw recoveryError;
                 }
+                throw resumeError;
             }
         }
 
@@ -2629,6 +3177,15 @@ function registerTerminalGateway(wss, {
                     error: resumeError && resumeError.message ? resumeError.message : String(resumeError),
                     code: resumeError && resumeError.code ? resumeError.code : null
                 }));
+                if (isThreadNotFoundError(resumeError)) {
+                    const recoveryError = new Error('The bound Codex thread is no longer available.');
+                    recoveryError.code = 'CODEX_THREAD_RECOVERY_REQUIRED';
+                    recoveryError.reason = 'thread_not_found';
+                    recoveryError.threadId = state.threadId;
+                    recoveryError.forkAvailable = false;
+                    throw recoveryError;
+                }
+                throw resumeError;
             }
         }
 
@@ -2647,6 +3204,14 @@ function registerTerminalGateway(wss, {
         if (!isNonEmptyString(threadId)) {
             throw new Error('Codex thread/start did not return thread id.');
         }
+        ownerSurfaceTracker.registerThreadStart(threadStartResult, {
+            seedSurface: {
+                conversationId: threadId,
+                cwd: requestedCwd,
+                status: 'completed'
+            }
+        });
+        _recordAuthority(threadId, 'owner', 'created');
 
         resetSessionCodexRuntimeState(session, { clearThreadModel: true });
         state.threadId = threadId;
@@ -2793,8 +3358,26 @@ function registerTerminalGateway(wss, {
         }
 
         ownerSurfaceTracker.handleNotification(method, params);
+        const ownerNotificationThreadId = CodexAppServerService.extractThreadId(notification);
+        if (ownerNotificationThreadId && ownerSurfaceTracker.hasConversation(ownerNotificationThreadId)) {
+            if (method === 'turn/started') {
+                _recordAuthority(
+                    ownerNotificationThreadId,
+                    'owner',
+                    'running',
+                    params?.turn?.id || params?.turn?.turnId || null
+                );
+            } else if (method === 'turn/completed') {
+                _recordAuthority(
+                    ownerNotificationThreadId,
+                    'owner',
+                    'terminal',
+                    params?.turn?.id || params?.turn?.turnId || null
+                );
+            }
+        }
         if (method === 'turn/completed') {
-            const ownerThreadId = CodexAppServerService.extractThreadId(notification);
+            const ownerThreadId = ownerNotificationThreadId;
             if (ownerThreadId && ownerSurfaceTracker.hasConversation(ownerThreadId)) {
                 void _completeOwnerGoalAfterTurn(ownerThreadId, params && params.turn);
             }
@@ -3092,8 +3675,127 @@ function registerTerminalGateway(wss, {
                         _handleSetActiveConversation(ws, session, envelope.conversationId);
                     } else if (type === 'set_active_follower_mode') {
                         _setFollowerMode(ws, envelope.enabled === true);
+                    } else if (type === 'codex_thread_recovery_action') {
+                        const recoveryId = isNonEmptyString(envelope.recoveryId)
+                            ? envelope.recoveryId.trim()
+                            : '';
+                        const action = isNonEmptyString(envelope.action)
+                            ? envelope.action.trim().toLowerCase()
+                            : '';
+                        const recovery = _pendingThreadRecoveries.get(recoveryId);
+                        if (!recovery || recovery.ws !== ws || recovery.sessionId !== session.id) {
+                            sendWsEnvelope(ws, {
+                                type: 'codex_error',
+                                code: 'CODEX_THREAD_RECOVERY_EXPIRED',
+                                message: 'The thread recovery request is no longer available.'
+                            });
+                            return;
+                        }
+                        if (
+                            recovery.draft?.transport === 'follower'
+                            && recovery.conversationId
+                            && _getActiveConversationId(ws) !== recovery.conversationId
+                        ) {
+                            sendWsEnvelope(ws, {
+                                type: 'codex_error',
+                                code: 'CODEX_THREAD_RECOVERY_CONVERSATION_CHANGED',
+                                message: 'The active conversation changed before recovery was confirmed.'
+                            });
+                            return;
+                        }
+                        if (recovery.resolving) {
+                            sendWsEnvelope(ws, {
+                                type: 'codex_error',
+                                code: 'CODEX_THREAD_RECOVERY_IN_PROGRESS',
+                                message: 'The thread recovery action is already in progress.'
+                            });
+                            return;
+                        }
+                        if (!['retry', 'fork', 'new', 'cancel'].includes(action)) {
+                            sendWsEnvelope(ws, {
+                                type: 'codex_error',
+                                code: 'CODEX_THREAD_RECOVERY_ACTION_INVALID',
+                                message: 'Unsupported thread recovery action.'
+                            });
+                            return;
+                        }
+                        if (action === 'fork' && !recovery.forkAvailable) {
+                            sendWsEnvelope(ws, {
+                                type: 'codex_error',
+                                code: 'CODEX_THREAD_RECOVERY_FORK_UNAVAILABLE',
+                                message: 'The source thread cannot be forked.'
+                            });
+                            return;
+                        }
+                        if (action === 'cancel') {
+                            _pendingThreadRecoveries.delete(recoveryId);
+                            sendWsEnvelope(ws, {
+                                type: 'codex_thread_recovery_resolved',
+                                recoveryId,
+                                action,
+                                draft: recovery.draft
+                            });
+                            return;
+                        }
+
+                        recovery.resolving = true;
+                        try {
+                            let targetConversationId = recovery.conversationId;
+                            if (action === 'fork') {
+                                const forkResult = await codexService.request('thread/fork', {
+                                    threadId: recovery.conversationId
+                                });
+                                targetConversationId = forkResult?.thread?.id || null;
+                                if (!isNonEmptyString(targetConversationId)) {
+                                    throw new Error('Codex thread/fork did not return thread id.');
+                                }
+                                ownerSurfaceTracker.registerThreadStart(forkResult, {
+                                    seedSurface: {
+                                        conversationId: targetConversationId,
+                                        cwd: session.cwd,
+                                        status: 'completed'
+                                    }
+                                });
+                                _recordAuthority(targetConversationId, 'owner', 'created');
+                            } else if (action === 'new') {
+                                targetConversationId = await ensureCodexThreadForSession(session, {
+                                    forceNewThread: true,
+                                    cwd: session.cwd
+                                });
+                            }
+                            if (!isNonEmptyString(targetConversationId)) {
+                                throw new Error('Thread recovery did not produce a canonical conversation id.');
+                            }
+
+                            _pendingThreadRecoveries.delete(recoveryId);
+                            _handleSetActiveConversation(ws, session, targetConversationId);
+                            sendWsEnvelope(ws, {
+                                type: 'codex_thread_recovery_resolved',
+                                recoveryId,
+                                action,
+                                conversationId: targetConversationId
+                            });
+                            if (recovery.draft?.transport === 'follower') {
+                                await _handleFollowerSendMessage(
+                                    ws,
+                                    targetConversationId,
+                                    recovery.draft.input,
+                                    {
+                                        ...recovery.draft.options,
+                                        clientRequestId: recovery.draft.clientRequestId || randomUUID()
+                                    }
+                                );
+                            }
+                        } catch (recoveryError) {
+                            recovery.resolving = false;
+                            throw recoveryError;
+                        }
                     } else if (type === 'follower_send_message') {
                         _handleFollowerSendMessage(ws, envelope.conversationId, envelope.input, {
+                            clientRequestId: envelope.clientRequestId,
+                            attachments: envelope.attachments,
+                            interactionState: envelope.interactionState,
+                            collaborationMode: envelope.collaborationMode,
                             turnConfig: envelope.turnConfig
                         }).catch(err => console.error('[gateway][ipc][follower-send]', err));
                     } else if (type === 'follower_start_goal') {
@@ -3171,21 +3873,12 @@ function registerTerminalGateway(wss, {
                                 if (!isThreadNotFoundError(threadModelError)) {
                                     throw threadModelError;
                                 }
-                                clearStaleSessionThreadBinding(session, initialThreadId);
-                                initialThreadId = await ensureCodexThreadForSession(session, {
-                                    forceNewThread: true,
-                                    cwd: envelope.cwd,
-                                    codexConfig: nextTurnEffectiveConfig
-                                });
-                                console.warn('[gateway][codex][thread-model-stale-thread-retry]', JSON.stringify({
-                                    sessionId: session.id,
-                                    staleThreadId: envelope.threadId || null,
-                                    freshThreadId: initialThreadId
-                                }));
-                                threadModelState = {
-                                    threadId: initialThreadId,
-                                    model: normalizeModelName(process.env.TERMLINK_CODEX_MODEL)
-                                };
+                                const recoveryError = new Error('The selected thread model cannot be loaded because the thread is missing.');
+                                recoveryError.code = 'CODEX_THREAD_RECOVERY_REQUIRED';
+                                recoveryError.reason = 'thread_model_not_found';
+                                recoveryError.threadId = initialThreadId;
+                                recoveryError.forkAvailable = false;
+                                throw recoveryError;
                             }
                         }
                         let threadId = threadModelState && isNonEmptyString(threadModelState.threadId)
@@ -3208,6 +3901,7 @@ function registerTerminalGateway(wss, {
                         );
                         const turnStartPayload = {
                             threadId,
+                            clientUserMessageId: randomUUID(),
                             input: turnInput.input,
                             model: collaborationMode ? undefined : effectiveModel || undefined,
                             reasoningEffort: collaborationMode ? undefined : effectiveReasoningEffort || undefined,
@@ -3223,36 +3917,31 @@ function registerTerminalGateway(wss, {
                         try {
                             turnStartResponse = await codexService.request('turn/start', turnStartPayload);
                         } catch (turnStartError) {
+                            await cleanupAttachmentTempFiles(turnInput.tempFilePaths);
                             if (isThreadNotFoundError(turnStartError)) {
-                                clearStaleSessionThreadBinding(session, threadId);
-                                try {
-                                    threadId = await ensureCodexThreadForSession(session, {
-                                        forceNewThread: true,
-                                        cwd: envelope.cwd,
-                                        codexConfig: nextTurnEffectiveConfig
-                                    });
-                                } catch (threadStartError) {
-                                    await cleanupAttachmentTempFiles(turnInput.tempFilePaths);
-                                    throw threadStartError;
-                                }
-                                turnStartPayload.threadId = threadId;
-                                console.warn('[gateway][codex][turn-stale-thread-retry]', JSON.stringify({
-                                    sessionId: session.id,
-                                    staleThreadId: initialThreadId,
-                                    freshThreadId: threadId
-                                }));
-                                try {
-                                    turnStartResponse = await codexService.request('turn/start', turnStartPayload);
-                                } catch (retryError) {
-                                    await cleanupAttachmentTempFiles(turnInput.tempFilePaths);
-                                    throw retryError;
-                                }
-                            } else {
-                                await cleanupAttachmentTempFiles(turnInput.tempFilePaths);
-                                throw turnStartError;
+                                const recoveryError = new Error('The selected Codex thread disappeared before the turn could start.');
+                                recoveryError.code = 'CODEX_THREAD_RECOVERY_REQUIRED';
+                                recoveryError.reason = 'turn_start_thread_not_found';
+                                recoveryError.threadId = threadId;
+                                recoveryError.forkAvailable = false;
+                                throw recoveryError;
                             }
+                            throw turnStartError;
                         }
 
+                        if (ownerSurfaceTracker.hasConversation(threadId)) {
+                            ownerSurfaceTracker.adoptTurnStartResult(
+                                threadId,
+                                turnStartResponse,
+                                turnStartPayload.clientUserMessageId
+                            );
+                            _recordAuthority(
+                                threadId,
+                                'owner',
+                                'running',
+                                turnStartResponse?.turn?.id || turnStartResponse?.turn?.turnId || null
+                            );
+                        }
                         codexState.threadId = threadId;
                         codexState.currentTurnId = turnStartResponse && turnStartResponse.turn
                             ? turnStartResponse.turn.id || null
@@ -3507,6 +4196,26 @@ function registerTerminalGateway(wss, {
                         }
                     }
                 } catch (e) {
+                    if (e && e.code === 'CODEX_THREAD_RECOVERY_REQUIRED') {
+                        _sendThreadRecoveryRequired(ws, {
+                            conversationId: e.threadId || envelope?.threadId || ensureSessionCodexState(session).threadId,
+                            reason: e.reason || 'thread_recovery_required',
+                            forkAvailable: e.forkAvailable === true,
+                            draft: {
+                                transport: 'legacy',
+                                input: envelope?.text || '',
+                                attachments: envelope?.attachments || [],
+                                interactionState: envelope?.interactionState || null,
+                                collaborationMode: envelope?.collaborationMode || null,
+                                turnConfig: {
+                                    model: envelope?.model || null,
+                                    reasoningEffort: envelope?.reasoningEffort || null,
+                                    sandbox: envelope?.sandbox || null
+                                }
+                            }
+                        });
+                        return;
+                    }
                     if (envelope && envelope.type === 'codex_request') {
                         sendWsEnvelope(ws, {
                             type: 'codex_response',
@@ -3536,6 +4245,11 @@ function registerTerminalGateway(wss, {
             ws.on('close', (code, reason) => {
                 _releaseActiveIpcConversation(ws);
                 _ipcFollowerModes.delete(ws);
+                for (const [recoveryId, recovery] of _pendingThreadRecoveries.entries()) {
+                    if (recovery.ws === ws) {
+                        _pendingThreadRecoveries.delete(recoveryId);
+                    }
+                }
                 sessionManager.removeConnection(session, ws);
                 // Log connection end for elevated mode
                 if (isElevated && auditService) {
@@ -3593,10 +4307,24 @@ function registerTerminalGateway(wss, {
         for (const conversationId of Array.from(_ipcConversationSubscriptionCycles.keys())) {
             _closeIpcSubscriptionCycle(conversationId, 'gateway-teardown');
         }
+        for (const dispose of _ipcRequestHandlerDisposers.splice(0)) {
+            try {
+                dispose();
+            } catch (_) {
+                // Best-effort IPC request-handler cleanup during shutdown.
+            }
+        }
         if (ipcFeed) { ipcFeed.removeAllListeners(); }
         _ipcFollowerModes.clear();
         _ipcConversationLastStatus.clear();
         _followerSendInFlight.clear();
+        _authorityLedger.clear();
+        _ownerReadStateBroadcasted.clear();
+        _pendingThreadRecoveries.clear();
+        for (const tempFilePaths of _followerAttachmentTempFiles.values()) {
+            void cleanupAttachmentTempFiles(tempFilePaths);
+        }
+        _followerAttachmentTempFiles.clear();
         for (const session of sessionManager.sessions.values()) {
             void cleanupAllSessionAttachmentTempFiles(session);
         }

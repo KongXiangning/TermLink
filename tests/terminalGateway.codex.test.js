@@ -2,6 +2,15 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const EventEmitter = require('node:events');
 const fs = require('node:fs');
+const path = require('node:path');
+
+const TEST_WORKSPACE_CWD = path.join(process.cwd(), 'docs');
+const TEST_ZERO_CONTEXT_CWD = process.cwd();
+const executionContextSignature = (cwd, approvalPolicy, sandboxMode) => JSON.stringify({
+    cwd,
+    approvalPolicy,
+    sandboxMode
+});
 
 function loadGatewayWithMocks({ verifyWsUpgrade, codexServiceClass }) {
     const authPath = require.resolve('../src/auth/basicAuth');
@@ -122,7 +131,7 @@ class MockCodexService extends EventEmitter {
         this.requests.push({ method, params });
         if (method === 'thread/start') {
             const threadId = `thread-${this.requests.length}`;
-            if (params && params.cwd === 'D:\\workspace\\zero-context') {
+            if (params && params.cwd === TEST_ZERO_CONTEXT_CWD) {
                 return Promise.resolve({
                     thread: {
                         id: threadId,
@@ -299,7 +308,7 @@ test('codex_new_thread falls back to session cwd when request omits cwd', async 
         verifyWsUpgrade: () => true,
         codexServiceClass: MockCodexService
     });
-    const session = createSession('codex-session', { cwd: 'D:\\workspace\\demo' });
+    const session = createSession('codex-session', { cwd: TEST_WORKSPACE_CWD });
     const sessionManager = createSessionManager(session);
     const wss = createMockWss();
     const dispose = registerTerminalGateway(wss, {
@@ -318,9 +327,9 @@ test('codex_new_thread falls back to session cwd when request omits cwd', async 
     const service = MockCodexService.instances[0];
     const threadStart = service.requests.find((entry) => entry.method === 'thread/start');
     assert.ok(threadStart, 'thread/start should be invoked');
-    assert.equal(threadStart.params.cwd, 'D:\\workspace\\demo');
-    assert.equal(threadStart.params.approvalPolicy, 'never');
-    assert.equal(threadStart.params.askForApproval, 'never');
+    assert.equal(threadStart.params.cwd, TEST_WORKSPACE_CWD);
+    assert.equal(threadStart.params.approvalPolicy, 'on-request');
+    assert.equal(threadStart.params.askForApproval, 'on-request');
     assert.equal(threadStart.params.sandbox, 'workspace-write');
     assert.equal(threadStart.params.sandboxMode, 'workspace-write');
     assert.equal(session.lastCodexThreadId, 'thread-1');
@@ -512,7 +521,7 @@ test('codex_request thread/list injects session cwd when request omits cwd', asy
         verifyWsUpgrade: () => true,
         codexServiceClass: MockCodexService
     });
-    const session = createSession('codex-session', { cwd: 'D:\\workspace\\demo' });
+    const session = createSession('codex-session', { cwd: TEST_WORKSPACE_CWD });
     const sessionManager = createSessionManager(session);
     const wss = createMockWss();
     const dispose = registerTerminalGateway(wss, {
@@ -539,7 +548,7 @@ test('codex_request thread/list injects session cwd when request omits cwd', asy
     const threadListCall = service.requests.find((entry) => entry.method === 'thread/list');
     assert.ok(threadListCall, 'thread/list should be forwarded');
     assert.equal(threadListCall.params.limit, 50);
-    assert.equal(threadListCall.params.cwd, 'D:\\workspace\\demo');
+    assert.equal(threadListCall.params.cwd, TEST_WORKSPACE_CWD);
 });
 
 test('codex_request thread/list preserves explicit cwd', async (t) => {
@@ -548,7 +557,7 @@ test('codex_request thread/list preserves explicit cwd', async (t) => {
         verifyWsUpgrade: () => true,
         codexServiceClass: MockCodexService
     });
-    const session = createSession('codex-session', { cwd: 'D:\\workspace\\demo' });
+    const session = createSession('codex-session', { cwd: TEST_WORKSPACE_CWD });
     const sessionManager = createSessionManager(session);
     const wss = createMockWss();
     const dispose = registerTerminalGateway(wss, {
@@ -1037,7 +1046,7 @@ test('thread/resume seeds execution context so matching sandbox turns keep using
         codexServiceClass: MockCodexService
     });
     const session = createSession('codex-session', {
-        cwd: 'D:\\workspace\\demo',
+        cwd: TEST_WORKSPACE_CWD,
         codexConfig: {
             approvalPolicy: 'never',
             sandboxMode: 'danger-full-access'
@@ -1090,7 +1099,7 @@ test('thread/resume seeds execution context so matching sandbox turns keep using
     assert.equal(turnStart.params.threadId, 'thread-existing');
     assert.equal(
         session.codexState.threadExecutionContextSignature,
-        '{"cwd":"D:\\\\workspace\\\\demo","approvalPolicy":"never","sandboxMode":"danger-full-access"}'
+        executionContextSignature(TEST_WORKSPACE_CWD, 'never', 'danger-full-access')
     );
 });
 
@@ -1101,7 +1110,7 @@ test('thread/start seeds codex_state token usage when app-server returns latestT
         codexServiceClass: MockCodexService
     });
     const session = createSession('codex-session', {
-        cwd: 'D:\\workspace\\zero-context'
+        cwd: TEST_ZERO_CONTEXT_CWD
     });
     const sessionManager = createSessionManager(session);
     const wss = createMockWss();
@@ -1262,7 +1271,7 @@ test('codex_set_interaction_state is persisted into codex_state snapshots', asyn
         model: null,
         reasoningEffort: null,
         personality: null,
-        approvalPolicy: 'never',
+        approvalPolicy: 'on-request',
         sandboxMode: 'workspace-write'
     });
 });
@@ -1605,7 +1614,7 @@ test('codex_turn starts a fresh thread when the stored execution context no long
         codexServiceClass: MockCodexService
     });
     const session = createSession('codex-session', {
-        cwd: 'D:\\workspace\\demo',
+        cwd: TEST_WORKSPACE_CWD,
         codexConfig: {
             defaultModel: 'gpt-5.4',
             approvalPolicy: 'never',
@@ -1618,7 +1627,7 @@ test('codex_turn starts a fresh thread when the stored execution context no long
             pendingServerRequests: [],
             tokenUsage: null,
             rateLimitState: null,
-            threadExecutionContextSignature: '{"cwd":"D:\\\\workspace\\\\demo","approvalPolicy":"on-request","sandboxMode":"workspace-write"}'
+            threadExecutionContextSignature: executionContextSignature(TEST_WORKSPACE_CWD, 'on-request', 'workspace-write')
         }
     });
     const sessionManager = createSessionManager(session);
@@ -1651,7 +1660,7 @@ test('codex_turn starts a fresh thread when the stored execution context no long
     assert.equal(session.codexState.threadId, 'thread-1');
     assert.equal(
         session.codexState.threadExecutionContextSignature,
-        '{"cwd":"D:\\\\workspace\\\\demo","approvalPolicy":"never","sandboxMode":"danger-full-access"}'
+        executionContextSignature(TEST_WORKSPACE_CWD, 'never', 'danger-full-access')
     );
 });
 
@@ -1723,7 +1732,7 @@ test('codex_turn rebinds an existing thread after runtime restart instead of sta
         codexServiceClass: MockCodexService
     });
     const session = createSession('codex-session', {
-        cwd: 'D:\\workspace\\demo',
+        cwd: TEST_WORKSPACE_CWD,
         codexConfig: {
             approvalPolicy: 'never',
             sandboxMode: 'danger-full-access'
@@ -1776,18 +1785,18 @@ test('codex_turn rebinds an existing thread after runtime restart instead of sta
     assert.equal(turnStart.params.sandbox, 'workspace-write');
     assert.equal(
         session.codexState.threadExecutionContextSignature,
-        '{"cwd":"D:\\\\workspace\\\\demo","approvalPolicy":"on-request","sandboxMode":"workspace-write"}'
+        executionContextSignature(TEST_WORKSPACE_CWD, 'on-request', 'workspace-write')
     );
 });
 
-test('codex_turn clears stale missing thread and starts a fresh thread', async (t) => {
+test('codex_turn requires confirmation instead of replacing a stale missing thread', async (t) => {
     MockCodexService.instances.length = 0;
     const registerTerminalGateway = loadGatewayWithMocks({
         verifyWsUpgrade: () => true,
         codexServiceClass: MockCodexService
     });
     const session = createSession('codex-session', {
-        cwd: 'D:\\workspace\\demo',
+        cwd: TEST_WORKSPACE_CWD,
         codexConfig: {
             approvalPolicy: 'never',
             sandboxMode: 'danger-full-access'
@@ -1829,26 +1838,25 @@ test('codex_turn clears stale missing thread and starts a fresh thread', async (
     ));
     const threadStart = service.requests.find((entry) => entry.method === 'thread/start');
     const turnStartCalls = service.requests.filter((entry) => entry.method === 'turn/start');
-    const turnStart = turnStartCalls.at(-1);
-    const errorEnvelope = ws.sent.find((entry) => entry.type === 'codex_error');
+    const recoveryEnvelope = ws.sent.find((entry) => entry.type === 'codex_thread_recovery_required');
 
-    assert.ok(staleProbe, 'stale thread should be detected before falling back');
-    assert.ok(threadStart, 'missing preferred thread should fall back to thread/start');
-    assert.ok(turnStart, 'turn/start should run on the fresh thread');
-    assert.equal(turnStart.params.threadId, 'thread-2');
-    assert.equal(session.codexState.threadId, 'thread-2');
-    assert.equal(session.lastCodexThreadId, 'thread-2');
-    assert.equal(errorEnvelope, undefined);
+    assert.ok(staleProbe, 'stale thread should be detected before recovery is offered');
+    assert.equal(threadStart, undefined, 'missing preferred thread must not silently call thread/start');
+    assert.equal(turnStartCalls.length, 0);
+    assert.equal(session.codexState.threadId, 'thread-missing');
+    assert.equal(session.lastCodexThreadId, 'thread-missing');
+    assert.equal(recoveryEnvelope?.conversationId, 'thread-missing');
+    assert.deepEqual(recoveryEnvelope?.actions, ['retry', 'new', 'cancel']);
 });
 
-test('codex_turn treats no rollout found as a stale empty thread and retries', async (t) => {
+test('codex_turn requires confirmation when the rollout is missing', async (t) => {
     MockCodexService.instances.length = 0;
     const registerTerminalGateway = loadGatewayWithMocks({
         verifyWsUpgrade: () => true,
         codexServiceClass: MockCodexService
     });
     const session = createSession('codex-session', {
-        cwd: 'D:\\workspace\\demo',
+        cwd: TEST_WORKSPACE_CWD,
         codexConfig: {
             approvalPolicy: 'on-request',
             sandboxMode: 'read-only'
@@ -1887,14 +1895,14 @@ test('codex_turn treats no rollout found as a stale empty thread and retries', a
     const service = MockCodexService.instances[0];
     const turnStartCalls = service.requests.filter((entry) => entry.method === 'turn/start');
     const freshThreadStart = service.requests.find((entry) => entry.method === 'thread/start');
-    const errorEnvelope = ws.sent.find((entry) => entry.type === 'codex_error');
+    const recoveryEnvelope = ws.sent.find((entry) => entry.type === 'codex_thread_recovery_required');
 
-    assert.equal(turnStartCalls.length, 2);
-    assert.ok(freshThreadStart, 'stale empty thread should be replaced with thread/start');
-    assert.notEqual(turnStartCalls.at(-1).params.threadId, 'thread-no-rollout');
-    assert.equal(session.codexState.threadId, turnStartCalls.at(-1).params.threadId);
-    assert.equal(session.lastCodexThreadId, turnStartCalls.at(-1).params.threadId);
-    assert.equal(errorEnvelope, undefined);
+    assert.equal(turnStartCalls.length, 1);
+    assert.equal(freshThreadStart, undefined, 'missing rollout must not silently call thread/start');
+    assert.equal(session.codexState.threadId, 'thread-no-rollout');
+    assert.equal(session.lastCodexThreadId, 'thread-no-rollout');
+    assert.equal(recoveryEnvelope?.conversationId, 'thread-no-rollout');
+    assert.deepEqual(recoveryEnvelope?.actions, ['retry', 'new', 'cancel']);
 });
 
 test('codex_turn does not treat non-thread-not-found -32600 errors as stale threads', async (t) => {
@@ -1904,7 +1912,7 @@ test('codex_turn does not treat non-thread-not-found -32600 errors as stale thre
         codexServiceClass: MockCodexService
     });
     const session = createSession('codex-session', {
-        cwd: 'D:\\workspace\\demo',
+        cwd: TEST_WORKSPACE_CWD,
         codexConfig: {
             approvalPolicy: 'never',
             sandboxMode: 'danger-full-access'
@@ -1960,7 +1968,7 @@ test('codex_turn reuses the active session thread for consecutive normal turns',
         codexServiceClass: MockCodexService
     });
     const session = createSession('codex-session', {
-        cwd: 'D:\\workspace\\demo',
+        cwd: TEST_WORKSPACE_CWD,
         codexConfig: {
             approvalPolicy: 'never',
             sandboxMode: 'danger-full-access'

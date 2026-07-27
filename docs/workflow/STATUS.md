@@ -31,7 +31,7 @@
 - [x] Android Codex Header / composer 布局回归 follow-up：任务 `20260722-001` 已完成。恢复左侧会话管理 drawer 入口，移除无实际系统 inset 时强制产生的 36dp composer 底部空白，并在不改变 composer 外框高度的前提下把提示、光标和首行改为顶部起笔。Android JVM 163/163、owner/gateway targeted 45/45、debug APK、360/412dp Huawei 真机 drawer/IME/视觉 smoke 通过；三键导航非零 inset 由单测覆盖，未切换系统导航模式补人工截图。
 ## 🔨 正在开发
 
-- [ ] Windows Codex IPC-first / Owner-fallback 第一阶段修复：任务 `20260727-001` 的产品实现、审查、契约核对和自动化回归已完成。Gateway 现按 current-cycle freshness 执行 5 秒 grace、IPC-first、仅 `no-client-found`/offline owner fallback，并在 owner 接管后保持单一权威；Android 已绑定普通文本/Goal 可在 offline/awaiting surface 时交给 Gateway，审批/Plan/附件等路径不变。targeted Node 55/55、TD-004 narrow gate 137/137、JDK 21 Android 全量 JVM tests、debug APK 和 diff check 通过；仍待可控任务上的 Windows Desktop / VS Code 写入式 smoke，#11–#13 不在本轮。
+- [ ] Codex 单权威路由与 TermLink Owner 控制面修复：任务 `20260727-002` 已完成服务端 authority router、完整 follower input、显式新任务 Owner 广播、Owner incoming control proxy、turn authority ledger、禁止静默换线程，以及 Android route-state / recovery confirmation 的实现。Node IPC/Gateway 回归 151/151 与 JDK 21 Android 全量 JVM tests、debug APK 已通过；仍需 diff/sensitive scan 和 Windows Desktop / VS Code 双宿主写入式 smoke。当前只能记为 in-development，未合并 Main；旧任务 `20260727-001` 已 superseded。
 - [x] Android Codex 对话图片/文件直达与 IPC 实时同步修复：任务 `20260722-002` 已由用户确认完成并归档；既有 IPC/owner/gateway、Workspace/Web、JDK 21 Android JVM/debug APK 和 Huawei 真机验证结果保留在归档文件中。后续 Codex IPC 需求仍须遵守既有 authority/follower 契约。
 - [x] Android App 前台独立息屏时间：任务 `20260726-001` 已完成偏好设置和前台息屏控制；仅长于系统值的档位延长前台亮屏，短于或等于系统值时由系统接管，后台始终按系统执行。JDK 21 Android JVM/Debug APK 验证通过，真实设备定时等待 smoke 作为未执行的手工观察项保留。
 - [x] `20260615-002` 网页版 Codex IPC 实时同步会话页：已完成并归档。commit `9603ea7`。

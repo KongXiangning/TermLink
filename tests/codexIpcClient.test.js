@@ -437,15 +437,20 @@ test('client discovery request is rejected immediately when TermLink has no hand
     });
 });
 
-test('client discovery handler owns the response when one is registered', async () => {
+test('client discovery reports canHandle only for a matching registered handler', async () => {
     const { client, transport } = createTestClient({ reconnect: false });
     const { peer } = setupPeer(transport);
     await client.connect();
 
-    const outgoing = [];
-    peer.on('message', (message) => outgoing.push(message));
-    const requestPromise = new Promise((resolve) => {
-        client.once('client_discovery_request', resolve);
+    const dispose = client.addRequestHandler(
+        'thread/read',
+        (params) => params?.threadId === 'conv-owned',
+        async () => ({ thread: { id: 'conv-owned' } })
+    );
+    const responsePromise = new Promise((resolve) => {
+        peer.on('message', (message) => {
+            if (message?.type === 'client-discovery-response') resolve(message);
+        });
     });
     peer.send({
         type: 'client-discovery-request',
@@ -455,18 +460,82 @@ test('client discovery handler owns the response when one is registered', async 
             requestId: 'nested-handled',
             sourceClientId: 'desktop-owner',
             version: 0,
-            method: 'ide-context',
-            params: { workspaceRoot: 'E:\\coding\\TermLink' }
+            method: 'thread/read',
+            params: { threadId: 'conv-owned' }
         }
     });
 
-    const request = await requestPromise;
-    await delay(10);
-    assert.equal(request.requestId, 'discovery-handled');
-    assert.equal(
-        outgoing.some((message) => message?.type === 'client-discovery-response'),
-        false
+    const response = await responsePromise;
+    assert.deepEqual(response, {
+        type: 'client-discovery-response',
+        requestId: 'discovery-handled',
+        response: { canHandle: true }
+    });
+    dispose();
+});
+
+test('incoming request is handled once and returns a targeted success response', async () => {
+    const { client, transport } = createTestClient({ reconnect: false });
+    const { peer } = setupPeer(transport);
+    await client.connect();
+
+    let handled = 0;
+    client.addRequestHandler(
+        'thread/read',
+        (params) => params?.threadId === 'conv-owned',
+        async (request) => {
+            handled += 1;
+            return { thread: { id: request.params.threadId } };
+        }
     );
+    const responsePromise = new Promise((resolve) => {
+        peer.on('message', (message) => {
+            if (message?.type === 'response' && message.requestId === 'read-owned') resolve(message);
+        });
+    });
+    peer.send({
+        type: 'request',
+        requestId: 'read-owned',
+        sourceClientId: 'desktop-owner',
+        targetClientId: client.clientId,
+        version: 0,
+        method: 'thread/read',
+        params: { threadId: 'conv-owned' }
+    });
+
+    const response = await responsePromise;
+    assert.equal(handled, 1);
+    assert.equal(response.resultType, 'success');
+    assert.equal(response.method, 'thread/read');
+    assert.equal(response.handledByClientId, client.clientId);
+    assert.deepEqual(response.result, { thread: { id: 'conv-owned' } });
+});
+
+test('incoming request returns an explicit error when no handler claims it', async () => {
+    const { client, transport } = createTestClient({ reconnect: false });
+    const { peer } = setupPeer(transport);
+    await client.connect();
+
+    client.addRequestHandler('thread/read', () => false, async () => {
+        throw new Error('must not run');
+    });
+    const responsePromise = new Promise((resolve) => {
+        peer.on('message', (message) => {
+            if (message?.type === 'response' && message.requestId === 'read-unowned') resolve(message);
+        });
+    });
+    peer.send({
+        type: 'request',
+        requestId: 'read-unowned',
+        sourceClientId: 'desktop-owner',
+        version: 0,
+        method: 'thread/read',
+        params: { threadId: 'conv-other' }
+    });
+
+    const response = await responsePromise;
+    assert.equal(response.resultType, 'error');
+    assert.equal(response.error, 'no-handler-for-request');
 });
 
 // ── response routing ─────────────────────────────────────────────────────
