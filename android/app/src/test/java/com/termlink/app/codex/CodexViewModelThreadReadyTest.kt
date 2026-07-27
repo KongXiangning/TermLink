@@ -564,7 +564,7 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
-    fun awaitingNewThreadSurfaceUsesNormalFirstTurnTransport() {
+    fun newThreadWithoutCanonicalBindingUsesNormalFirstTurnTransport() {
         val state = CodexUiState(
             ipcOnline = true,
             activeConversationId = "fresh-thread",
@@ -586,10 +586,11 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
-    fun ipcOfflineStatusClearsActiveSendButKeepsConversation() {
+    fun ipcOfflineStatusPreservesGrantedActiveSendCapability() {
         val state = CodexUiState(
             ipcOnline = true,
             ipcClientId = "client-old",
+            threadId = "conv-live",
             activeConversationId = "conv-live",
             followerModeEnabled = true,
             followerActiveSendAllowed = true
@@ -603,8 +604,9 @@ class CodexViewModelThreadReadyTest {
         assertEquals(false, next.ipcOnline)
         assertEquals(null, next.ipcClientId)
         assertEquals("conv-live", next.activeConversationId)
-        assertEquals(false, next.followerActiveSendAllowed)
+        assertEquals(true, next.followerActiveSendAllowed)
         assertEquals(true, next.followerModeEnabled)
+        assertTrue(shouldUseIpcFollowerSendTransportState(next))
     }
 
     @Test
@@ -612,6 +614,7 @@ class CodexViewModelThreadReadyTest {
         val state = CodexUiState(
             ipcOnline = true,
             ipcClientId = "client-old",
+            threadId = "conv-owner",
             activeConversationId = "conv-owner",
             followerModeEnabled = true,
             followerActiveSendAllowed = true,
@@ -629,16 +632,45 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
-    fun ipcFollowerTransportRejectsOfflineExternalOwner() {
+    fun ipcFollowerSendTransportDelegatesOfflineExternalOwnerToGateway() {
         val state = CodexUiState(
             ipcOnline = false,
+            threadId = "conv-desktop",
             activeConversationId = "conv-desktop",
             followerModeEnabled = true,
             followerActiveSendAllowed = true,
             ipcSurfaceSnapshot = surfaceSnapshot("conv-desktop").copy(ownerKind = "desktop")
         )
 
+        assertTrue(shouldUseIpcFollowerSendTransportState(state))
         assertEquals(false, shouldUseIpcFollowerTransportState(state))
+    }
+
+    @Test
+    fun ipcFollowerTransportAcceptsBoundThreadWhileAwaitingFreshSurface() {
+        val state = CodexUiState(
+            ipcOnline = true,
+            threadId = "conv-bound",
+            activeConversationId = "conv-bound",
+            awaitingNewThreadIpcSurface = true,
+            followerModeEnabled = true,
+            followerActiveSendAllowed = true
+        )
+
+        assertTrue(shouldUseIpcFollowerSendTransportState(state))
+    }
+
+    @Test
+    fun ipcFollowerTransportRejectsMismatchedThreadBinding() {
+        val state = CodexUiState(
+            ipcOnline = true,
+            threadId = "conv-a",
+            activeConversationId = "conv-b",
+            followerModeEnabled = true,
+            followerActiveSendAllowed = true
+        )
+
+        assertEquals(false, shouldUseIpcFollowerSendTransportState(state))
     }
 
     @Test
@@ -1045,6 +1077,33 @@ class CodexViewModelThreadReadyTest {
         assertEquals(listOf("req-local"), next.pendingServerRequests.map { it.requestId })
         assertTrue(next.submittingServerRequestIds.isEmpty())
         assertNull(next.planWorkflow.planRequestId)
+    }
+
+    @Test
+    fun cachedConversationCatalogStatusDoesNotBecomeRuntimeAuthority() {
+        val state = CodexUiState(
+            activeConversationId = "conv-old",
+            threadId = "conv-old",
+            status = "idle"
+        )
+
+        val next = applyIpcConversationSelectionToUiState(
+            state = state,
+            selected = ipcConversation(
+                conversationId = "conv-cached-running",
+                updatedAt = 400,
+                cwd = "E:\\coding\\TermLink"
+            ).copy(status = "running")
+        )
+
+        assertEquals("conv-cached-running", next.activeConversationId)
+        assertEquals("idle", next.status)
+
+        val withHealthySurface = applyDesktopSurfaceSnapshotToUiState(
+            state = next,
+            snap = surfaceSnapshot("conv-cached-running").copy(status = "running", desynced = false)
+        )
+        assertEquals("running", withHealthySurface.status)
     }
 
     @Test

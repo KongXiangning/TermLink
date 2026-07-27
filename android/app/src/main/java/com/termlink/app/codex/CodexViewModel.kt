@@ -286,15 +286,9 @@ internal fun applyIpcStatusToUiState(
     state: CodexUiState,
     status: CodexIpcStatus
 ): CodexUiState {
-    val managedOwnerAvailable = state.ipcSurfaceSnapshot?.ownerKind.equals("termlink", ignoreCase = true)
     return state.copy(
         ipcOnline = status.online,
-        ipcClientId = status.clientId,
-        followerActiveSendAllowed = if (status.online || managedOwnerAvailable) {
-            state.followerActiveSendAllowed
-        } else {
-            false
-        }
+        ipcClientId = status.clientId
     )
 }
 
@@ -306,6 +300,15 @@ internal fun shouldUseIpcFollowerTransportState(state: CodexUiState): Boolean {
         state.followerModeEnabled &&
         state.followerActiveSendAllowed &&
         !state.activeConversationId.isNullOrBlank()
+}
+
+internal fun shouldUseIpcFollowerSendTransportState(state: CodexUiState): Boolean {
+    val activeConversationId = normalizeCodexThreadId(state.activeConversationId) ?: return false
+    val threadId = normalizeCodexThreadId(state.threadId) ?: return false
+    return activeConversationId == threadId &&
+        state.followerModeEnabled &&
+        state.followerActiveSendAllowed &&
+        activeConversationId.isNotEmpty()
 }
 
 internal fun shouldPromoteConnectionStateFromWebSocketMessage(
@@ -488,7 +491,6 @@ internal fun applyIpcConversationSelectionToUiState(
         awaitingNewThreadIpcSurface = false,
         currentThreadTitle = selected.title ?: state.currentThreadTitle,
         cwd = selected.cwd ?: state.cwd,
-        status = selected.status.takeIf { it.isNotBlank() } ?: state.status,
         ipcSurfaceSnapshot = if (switched) null else state.ipcSurfaceSnapshot,
         ownerCurrentCodexConfig = if (switched) null else state.ownerCurrentCodexConfig,
         nextTurnOverrides = if (switched) NextTurnOverrides() else state.nextTurnOverrides,
@@ -2899,7 +2901,7 @@ class CodexViewModel(
         }
         val state = _uiState.value
         val conversationId = state.activeConversationId?.trim().orEmpty()
-        if (!shouldUseIpcFollowerTransport(state) || conversationId.isEmpty()) {
+        if (!shouldUseIpcFollowerSendTransportState(state) || conversationId.isEmpty()) {
             sendTurnWithOverrides("/goal $objective")
             return
         }
@@ -3447,7 +3449,7 @@ class CodexViewModel(
         attachments: List<CodexTurnAttachment>
     ): String? {
         val conversationId = state.activeConversationId?.trim().orEmpty()
-        if (!shouldUseIpcFollowerTransport(state) || conversationId.isEmpty()) return null
+        if (!shouldUseIpcFollowerSendTransportState(state) || conversationId.isEmpty()) return null
         if (isPlanMode) return null
         if (attachments.isNotEmpty() || state.pendingFileMentions.isNotEmpty()) return null
         val overrides = state.nextTurnOverrides

@@ -15,6 +15,12 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
         return this._conversations.has(normalizeId(threadId));
     }
 
+    releaseConversation(threadId) {
+        const id = normalizeId(threadId);
+        if (!id) return false;
+        return this._conversations.delete(id);
+    }
+
     getRecentSnapshots() {
         return Array.from(this._conversations.values())
             .map((conversation) => {

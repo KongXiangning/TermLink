@@ -158,3 +158,22 @@ test('owner tracker projects active goal and keeps completed goal from reviving 
     });
     assert.equal(completed.surface.activeGoal, undefined);
 });
+
+test('owner tracker releases only the requested conversation', () => {
+    const tracker = new CodexOwnerSurfaceTracker();
+    tracker.registerExternalSurface('thread-release', {
+        conversationId: 'thread-release',
+        status: 'completed',
+        items: []
+    });
+    tracker.registerExternalSurface('thread-keep', {
+        conversationId: 'thread-keep',
+        status: 'running',
+        items: []
+    });
+
+    assert.equal(tracker.releaseConversation('thread-release'), true);
+    assert.equal(tracker.hasConversation('thread-release'), false);
+    assert.equal(tracker.hasConversation('thread-keep'), true);
+    assert.equal(tracker.releaseConversation('thread-release'), false);
+});

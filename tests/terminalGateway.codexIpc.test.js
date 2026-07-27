@@ -19,6 +19,7 @@ class FakeIpcFeed extends EventEmitter {
         this._snapshots = new Map();
         this._allowActiveSend = opts.allowActiveSend !== undefined ? opts.allowActiveSend : true;
         this._sendRequestHandler = opts.sendRequestHandler || null;
+        this._replayOnFollow = opts.replayOnFollow !== undefined ? opts.replayOnFollow : true;
         this.followCalls = [];
         this.unfollowCalls = [];
     }
@@ -51,8 +52,18 @@ class FakeIpcFeed extends EventEmitter {
     }
     setOnline(v) { this._online = v; }
     pushSnapshot(conversationId, surface) { this._snapshots.set(conversationId, surface); this.emit('snapshot', { conversationId, surface }); }
-    pushStatus(status) { this.emit('status', status); }
-    followConversation(conversationId, hostId) { this.followCalls.push({ conversationId, hostId }); return true; }
+    pushStatus(status) {
+        if (typeof status?.online === 'boolean') this._online = status.online;
+        this.emit('status', status);
+    }
+    followConversation(conversationId, hostId) {
+        this.followCalls.push({ conversationId, hostId });
+        const surface = this._snapshots.get(conversationId);
+        if (this._online && this._replayOnFollow && surface) {
+            queueMicrotask(() => this.emit('snapshot', { conversationId, surface }));
+        }
+        return true;
+    }
     unfollowConversation(conversationId, hostId) { this.unfollowCalls.push({ conversationId, hostId }); return true; }
     async sendRequest(method, params) {
         if (this._sendRequestHandler) return this._sendRequestHandler(method, params);
@@ -182,7 +193,12 @@ async function setupGateway(opts = {}) {
     const server = http.createServer((_req, res) => { res.writeHead(200); res.end('ok'); });
     const wss = new WebSocketServer({ noServer: true });
 
-    const teardown = registerTerminalGateway(wss, { sessionManager: sm, heartbeatMs: 99999, ipcFeed });
+    const teardown = registerTerminalGateway(wss, {
+        sessionManager: sm,
+        heartbeatMs: 99999,
+        ipcFeed,
+        ipcSurfaceWaitGraceMs: opts.ipcSurfaceWaitGraceMs ?? 40
+    });
 
     return new Promise((resolve) => {
         server.listen(0, '127.0.0.1', () => {
@@ -314,9 +330,11 @@ test('latest snapshot is replayed on set_active_conversation', async () => {
     await delay(50);
 
     const snaps = messages.filter(m => m.type === 'conversation_surface_snapshot');
-    assert.equal(snaps.length, 1, 'should replay cached snapshot');
+    assert.equal(snaps.length, 2, 'should replay cached display state and then the current-cycle surface');
     assert.equal(snaps[0].conversationId, 'conv-cached');
     assert.equal(snaps[0].snapshot.status, 'running');
+    assert.equal(snaps[0].snapshot.desynced, true);
+    assert.equal(snaps[1].snapshot.desynced, false);
     ws.close();
     await stopGateway(g);
 });
@@ -510,7 +528,7 @@ test('follower_send_message blocked when conversation is running', async () => {
     await stopGateway(g);
 });
 
-test('follower_send_message blocked when IPC offline', async () => {
+test('follower_send_message falls back to owner when IPC is offline without a surface', async () => {
     const g = await setupGateway({ ipcFeed: new FakeIpcFeed({ online: false }) });
 
     const sess = await g.sm.createSession({ name: 'test' });
@@ -521,15 +539,17 @@ test('follower_send_message blocked when IPC offline', async () => {
     await delay(50);
     await enableFollowerMode(ws);
     ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-1', input: 'test' }));
-    await delay(100);
+    await delay(150);
 
-    const err = messages.find(m => m.type === 'error' && m.message.includes('not online'));
-    assert.ok(err, 'should block send when IPC offline');
+    assert.ok(g.codexService.requests.find((entry) => entry.method === 'thread/resume' && entry.params.threadId === 'conv-1'));
+    assert.ok(g.codexService.requests.find((entry) => entry.method === 'turn/start' && entry.params.threadId === 'conv-1'));
+    assert.ok(messages.find(m => m.type === 'follower_message_sent' && m.conversationId === 'conv-1'));
+    assert.equal(messages.some(m => m.type === 'error' && m.message.includes('not online')), false);
     ws.close();
     await stopGateway(g);
 });
 
-test('follower_send_message blocked without a live conversation snapshot', async () => {
+test('follower_send_message tries IPC after the current-cycle surface grace expires', async () => {
     const g = await setupGateway();
 
     let capturedMethod = null;
@@ -542,13 +562,233 @@ test('follower_send_message blocked without a live conversation snapshot', async
     const { ws, messages } = await connectWs(g.port, sess.id);
     await delay(100);
 
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-missing' }));
+    await delay(10);
     await enableFollowerMode(ws);
-    ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-missing', input: 'Should be blocked' }));
+    ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-missing', input: 'Send after grace' }));
     await delay(100);
 
-    assert.equal(capturedMethod, null);
-    const err = messages.find(m => m.type === 'error' && m.message === 'Conversation is not live');
-    assert.ok(err, 'should block send without a live surface snapshot');
+    assert.equal(capturedMethod, 'thread-follower-start-turn');
+    assert.ok(messages.find(m => m.type === 'follower_message_sent' && m.conversationId === 'conv-missing'));
+    assert.equal(messages.some(m => m.type === 'error' && m.message === 'Conversation is not live'), false);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_send_message uses a surface that arrives inside the current-cycle grace', async () => {
+    const g = await setupGateway({ ipcSurfaceWaitGraceMs: 250 });
+    let captured = null;
+    g.ipcFeed._sendRequestHandler = (method, params) => {
+        captured = { method, params };
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-delayed' }));
+    await delay(10);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: 'conv-delayed',
+        input: 'use delayed surface'
+    }));
+    setTimeout(() => {
+        g.ipcFeed.pushSnapshot('conv-delayed', {
+            conversationId: 'conv-delayed',
+            status: 'completed',
+            cwd: 'E:\\coding\\delayed',
+            items: []
+        });
+    }, 15);
+    await delay(120);
+
+    assert.equal(captured.method, 'thread-follower-start-turn');
+    assert.equal(captured.params.turnStartParams.cwd, 'E:\\coding\\delayed');
+    assert.equal(g.codexService.requests.length, 0);
+    assert.ok(messages.find(m => m.type === 'follower_message_sent'));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('desynced current-cycle surface stays display-only until a healthy surface arrives', async () => {
+    const g = await setupGateway({ ipcSurfaceWaitGraceMs: 250 });
+    let captured = null;
+    g.ipcFeed._sendRequestHandler = (method, params) => {
+        captured = { method, params };
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-desynced' }));
+    await delay(10);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: 'conv-desynced',
+        input: 'wait for healthy authority'
+    }));
+    setTimeout(() => {
+        g.ipcFeed.pushSnapshot('conv-desynced', {
+            conversationId: 'conv-desynced',
+            status: 'running',
+            cwd: 'E:\\coding\\stale',
+            desynced: true,
+            pendingApproval: { requestId: 'stale-approval' },
+            items: []
+        });
+    }, 15);
+    setTimeout(() => {
+        g.ipcFeed.pushSnapshot('conv-desynced', {
+            conversationId: 'conv-desynced',
+            status: 'completed',
+            cwd: 'E:\\coding\\healthy',
+            desynced: false,
+            pendingApproval: { requestId: 'healthy-approval' },
+            items: []
+        });
+    }, 45);
+    await delay(140);
+
+    assert.equal(captured.method, 'thread-follower-start-turn');
+    assert.equal(captured.params.turnStartParams.cwd, 'E:\\coding\\healthy');
+    assert.equal(g.codexService.requests.length, 0);
+    assert.equal(messages.some(m =>
+        m.type === 'conversation_action_required' &&
+        m.payload?.requestId === 'stale-approval'
+    ), false);
+    assert.ok(messages.find(m =>
+        m.type === 'conversation_action_required' &&
+        m.payload?.requestId === 'healthy-approval'
+    ));
+    assert.equal(messages.some(m => m.type === 'conversation_status_changed'), false);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_send_message does not owner-fallback for an arbitrary IPC error', async () => {
+    const g = await setupGateway();
+    g.ipcFeed._sendRequestHandler = () => ({
+        type: 'response',
+        resultType: 'error',
+        error: 'e is not iterable'
+    });
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-ipc-error' }));
+    await delay(10);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: 'conv-ipc-error',
+        input: 'do not retry me'
+    }));
+    await delay(120);
+
+    assert.equal(g.codexService.requests.some((entry) => entry.method === 'thread/resume'), false);
+    assert.equal(g.codexService.requests.some((entry) => entry.method === 'turn/start'), false);
+    assert.ok(messages.find(m => m.type === 'error' && m.detail === 'e is not iterable'));
+    assert.equal(messages.some(m => m.type === 'follower_message_sent'), false);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_send_message serializes routing per conversation', async () => {
+    const g = await setupGateway();
+    let ipcSendCount = 0;
+    g.ipcFeed._sendRequestHandler = async (method) => {
+        ipcSendCount++;
+        await delay(30);
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-serialized' }));
+    await delay(10);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: 'conv-serialized',
+        input: 'first'
+    }));
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: 'conv-serialized',
+        input: 'second'
+    }));
+    await delay(150);
+
+    assert.equal(ipcSendCount, 1);
+    assert.equal(messages.filter(m => m.type === 'follower_message_sent').length, 1);
+    assert.ok(messages.find(m => m.type === 'error' && m.message === 'Message send is already being resolved'));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('follower_send_message stops routing when WebSocket closes during surface grace', async () => {
+    const g = await setupGateway({ ipcSurfaceWaitGraceMs: 200 });
+    let ipcSendCount = 0;
+    g.ipcFeed._sendRequestHandler = (method) => {
+        ipcSendCount++;
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws } = await connectWs(g.port, sess.id);
+    await delay(100);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-close-during-grace' }));
+    await delay(10);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: 'conv-close-during-grace',
+        input: 'must not be sent'
+    }));
+    await new Promise((resolve) => {
+        ws.once('close', resolve);
+        ws.close();
+    });
+    await delay(230);
+
+    assert.equal(ipcSendCount, 0);
+    assert.equal(g.codexService.requests.some((entry) => entry.method === 'thread/resume'), false);
+    assert.equal(g.codexService.requests.some((entry) => entry.method === 'turn/start'), false);
+    await stopGateway(g);
+});
+
+test('follower_send_message stops routing when active conversation changes during surface grace', async () => {
+    const g = await setupGateway({ ipcSurfaceWaitGraceMs: 200 });
+    let ipcSendCount = 0;
+    g.ipcFeed._sendRequestHandler = (method) => {
+        ipcSendCount++;
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws } = await connectWs(g.port, sess.id);
+    await delay(100);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-a-during-grace' }));
+    await delay(10);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: 'conv-a-during-grace',
+        input: 'must stay isolated'
+    }));
+    await delay(20);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-b-during-grace' }));
+    await delay(230);
+
+    assert.equal(ipcSendCount, 0);
+    assert.equal(g.codexService.requests.some((entry) => entry.method === 'thread/resume'), false);
+    assert.equal(g.codexService.requests.some((entry) => entry.method === 'turn/start'), false);
     ws.close();
     await stopGateway(g);
 });
@@ -685,6 +925,104 @@ test('owner-owned conversation sends through app-server while IPC is offline', a
     assert.ok(turnStarts[1].params.input.some((part) => part.text === 'second local turn'));
     assert.ok(messages.find(m => m.type === 'follower_message_sent'));
     assert.equal(messages.some(m => m.type === 'error' && m.message === 'IPC is not online'), false);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('owner remains authoritative while running and is released only after terminal re-entry', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-owner-sticky', {
+        conversationId: 'conv-owner-sticky',
+        status: 'completed',
+        cwd: 'E:\\coding\\TermLink',
+        items: [{ key: 'external:seed', kind: 'message', role: 'assistant', text: 'external seed' }]
+    });
+    let ipcMode = 'no-client';
+    let ipcSendCount = 0;
+    g.ipcFeed._sendRequestHandler = (method) => {
+        ipcSendCount++;
+        if (ipcMode === 'no-client') {
+            return { type: 'response', resultType: 'error', method, error: 'no-client-found' };
+        }
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-owner-sticky' }));
+    await delay(50);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: 'conv-owner-sticky',
+        input: 'take owner'
+    }));
+    await delay(150);
+
+    assert.equal(ipcSendCount, 1);
+    assert.equal(g.codexService.requests.filter((entry) => entry.method === 'turn/start').length, 1);
+    assert.equal(messages.filter(m => m.type === 'conversation_surface_snapshot').at(-1).snapshot.ownerKind, 'termlink');
+    assert.equal(messages.filter(m => m.type === 'conversation_surface_snapshot').at(-1).snapshot.status, 'running');
+
+    const ownerSnapshotCount = messages.filter(m => m.type === 'conversation_surface_snapshot').length;
+    g.ipcFeed.pushSnapshot('conv-owner-sticky', {
+        conversationId: 'conv-owner-sticky',
+        status: 'completed',
+        cwd: 'E:\\coding\\TermLink',
+        items: Array.from({ length: 20 }, (_, index) => ({
+            key: `external:${index}`,
+            kind: 'message',
+            role: 'assistant',
+            text: `external ${index}`
+        }))
+    });
+    await delay(50);
+    assert.equal(
+        messages.filter(m => m.type === 'conversation_surface_snapshot').length,
+        ownerSnapshotCount,
+        'external IPC surface must not overwrite a running owner surface'
+    );
+
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-other-sticky' }));
+    await delay(20);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-owner-sticky' }));
+    await delay(50);
+    const runningReopen = messages.filter(m =>
+        m.type === 'conversation_surface_snapshot' &&
+        m.conversationId === 'conv-owner-sticky'
+    ).at(-1);
+    assert.equal(runningReopen.snapshot.ownerKind, 'termlink');
+    assert.equal(runningReopen.snapshot.status, 'running');
+
+    g.codexService.emit('notification', {
+        method: 'turn/completed',
+        params: {
+            threadId: 'conv-owner-sticky',
+            turn: { id: 'turn-1', status: 'completed', items: [] }
+        }
+    });
+    await delay(50);
+    ipcMode = 'success';
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-other-sticky' }));
+    await delay(20);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-owner-sticky' }));
+    await delay(50);
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: 'conv-owner-sticky',
+        input: 'back to IPC'
+    }));
+    await delay(100);
+
+    assert.equal(ipcSendCount, 2);
+    assert.equal(g.codexService.requests.filter((entry) => entry.method === 'turn/start').length, 1);
+    const reopenedSnapshots = messages.filter(m =>
+        m.type === 'conversation_surface_snapshot' &&
+        m.conversationId === 'conv-owner-sticky'
+    );
+    assert.equal(reopenedSnapshots.at(-1).snapshot.ownerKind, undefined);
+    assert.ok(messages.find(m => m.type === 'follower_message_sent' && m.conversationId === 'conv-owner-sticky'));
     ws.close();
     await stopGateway(g);
 });
@@ -986,6 +1324,8 @@ test('follower_approval_response rejects unmatched request ids without sending a
     const { ws, messages } = await connectWs(g.port, sess.id);
     await delay(100);
 
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
+    await delay(50);
     await enableFollowerMode(ws);
     ws.send(JSON.stringify({ type: 'follower_approval_response', conversationId: 'conv-1', decision: 'accept', requestId: 'missing-request', requestKind: 'command' }));
     await delay(100);
@@ -1161,6 +1501,8 @@ test('follower_plan_response forwards explicit user input response payload', asy
     const { ws, messages } = await connectWs(g.port, sess.id);
     await delay(100);
 
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
+    await delay(50);
     await enableFollowerMode(ws);
     const response = { answers: { confirm: { answers: ['Approve'] } } };
     ws.send(JSON.stringify({
@@ -1276,6 +1618,8 @@ test('follower_send_message includes desktop-compatible turn context', async () 
     const { ws, messages } = await connectWs(g.port, sess.id);
     await delay(100);
 
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
+    await delay(50);
     await enableFollowerMode(ws);
     ws.send(JSON.stringify({ type: 'follower_send_message', conversationId: 'conv-1', input: 'Hello with context' }));
     await delay(100);
@@ -1328,6 +1672,8 @@ test('follower_send_message turnConfig overrides owner reasoning and permission 
     const sess = await g.sm.createSession({ name: 'test' });
     const { ws, messages } = await connectWs(g.port, sess.id);
     await delay(100);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-override' }));
+    await delay(50);
     await enableFollowerMode(ws);
     ws.send(JSON.stringify({
         type: 'follower_send_message',
@@ -1427,6 +1773,8 @@ test('follower_send_message can reset sticky permission settings to config', asy
     const sess = await g.sm.createSession({ name: 'test' });
     const { ws } = await connectWs(g.port, sess.id);
     await delay(100);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-config-permissions' }));
+    await delay(50);
     await enableFollowerMode(ws);
     ws.send(JSON.stringify({
         type: 'follower_send_message',
@@ -1458,6 +1806,8 @@ test('follower_start_goal sends /goal as ordinary follower turn', async () => {
     const { ws, messages } = await connectWs(g.port, sess.id);
     await delay(100);
 
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
+    await delay(50);
     await enableFollowerMode(ws);
     ws.send(JSON.stringify({ type: 'follower_start_goal', conversationId: 'conv-1', goal: '完成同步链路' }));
     await delay(100);
@@ -1557,6 +1907,8 @@ test('follower_interrupt_turn sends thread-follower-interrupt-turn with latest t
     const { ws, messages } = await connectWs(g.port, sess.id);
     await delay(100);
 
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-1' }));
+    await delay(50);
     await enableFollowerMode(ws);
     ws.send(JSON.stringify({ type: 'follower_interrupt_turn', conversationId: 'conv-1' }));
     await delay(100);

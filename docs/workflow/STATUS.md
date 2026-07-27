@@ -31,6 +31,7 @@
 - [x] Android Codex Header / composer 布局回归 follow-up：任务 `20260722-001` 已完成。恢复左侧会话管理 drawer 入口，移除无实际系统 inset 时强制产生的 36dp composer 底部空白，并在不改变 composer 外框高度的前提下把提示、光标和首行改为顶部起笔。Android JVM 163/163、owner/gateway targeted 45/45、debug APK、360/412dp Huawei 真机 drawer/IME/视觉 smoke 通过；三键导航非零 inset 由单测覆盖，未切换系统导航模式补人工截图。
 ## 🔨 正在开发
 
+- [ ] Windows Codex IPC-first / Owner-fallback 第一阶段修复：任务 `20260727-001` 的产品实现、审查、契约核对和自动化回归已完成。Gateway 现按 current-cycle freshness 执行 5 秒 grace、IPC-first、仅 `no-client-found`/offline owner fallback，并在 owner 接管后保持单一权威；Android 已绑定普通文本/Goal 可在 offline/awaiting surface 时交给 Gateway，审批/Plan/附件等路径不变。targeted Node 55/55、TD-004 narrow gate 137/137、JDK 21 Android 全量 JVM tests、debug APK 和 diff check 通过；仍待可控任务上的 Windows Desktop / VS Code 写入式 smoke，#11–#13 不在本轮。
 - [x] Android Codex 对话图片/文件直达与 IPC 实时同步修复：任务 `20260722-002` 已由用户确认完成并归档；既有 IPC/owner/gateway、Workspace/Web、JDK 21 Android JVM/debug APK 和 Huawei 真机验证结果保留在归档文件中。后续 Codex IPC 需求仍须遵守既有 authority/follower 契约。
 - [x] Android App 前台独立息屏时间：任务 `20260726-001` 已完成偏好设置和前台息屏控制；仅长于系统值的档位延长前台亮屏，短于或等于系统值时由系统接管，后台始终按系统执行。JDK 21 Android JVM/Debug APK 验证通过，真实设备定时等待 smoke 作为未执行的手工观察项保留。
 - [x] `20260615-002` 网页版 Codex IPC 实时同步会话页：已完成并归档。commit `9603ea7`。
@@ -92,6 +93,8 @@
 
 ## 最近更新记录
 
+- 2026-07-27：`20260727-001` 第一阶段产品实现和自动化收口。current-cycle desynced cache 仅展示，Gateway 在 grace 后 IPC 成功保持 IPC、仅 no-client/offline owner fallback；owner sticky、terminal re-entry release、单 conversation 发送串行、WebSocket close 与 A→B 竞态隔离均有回归覆盖。Node 55/55 + 137/137、Android JVM/debug APK、scope/implementation/contracts/diff checks clean；真实 Desktop / VS Code 写入 smoke 待可控任务。
+- 2026-07-27：归档 `20260726-002` 持久诊断日志任务（commit `e9f2a6e`），创建 `20260727-001`。新任务按用户确认锁定为 IPC-first、5 秒 current-cycle surface 等待、仅 no-client/offline owner fallback、当前打开周期 owner sticky；共享 app-server daemon 与问题 #11–#13 明确排除。
 - 2026-07-19：完成 `20260719-001` 文档阅读字号与横向裁切修复。根因是 Markdown 继承 16px 且长 token 缺换行，手动缩放又改变整页 viewport。现改为内容级小字号/换行，保持工具栏和触控尺寸；360/412 Playwright、134/134 窄门禁、Android debug 安装及 VOG-AL00 真机自然比例验证通过。
 - 2026-07-18：完成 `20260718-003` 文档工作区重写并进入归档。服务端新增受限全局搜索、类型描述和结构化 HEAD/双文件 compare；共享 Web 页面完成移动钻取/宽屏双栏、类型化预览和两种 diff；Android 完成原生返回、认证系统打开与 IME resize。最终相关自动化 152/152、workspace focused 47/47、JDK 21 JVM/debug APK、资源同步、syntax/diff checks、1440/412/360 Playwright 与 Huawei WebView 150 真机验证通过；Release mode none，未部署或触发回滚。
 - 2026-07-18：按用户最终效果图完成 `20260718-002` 二次视觉对齐。系统状态栏恢复，顶部移除汉堡与配额，消息/工具执行统一全宽角色卡，composer 与快捷栏合并；页面无 runtime/tools 常驻按钮，历史/文档、stall diagnosis、Skills/Plan/Goal 交互语义保留。同一 task-base scope/implementation/contracts review clean；JDK 21 JVM 137/137、debug APK 与 diff check 通过；Huawei VOG-AL00 最终 360 × 780dp / 412 × 915dp 截图通过且显示参数已恢复。

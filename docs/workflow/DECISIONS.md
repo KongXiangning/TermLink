@@ -67,6 +67,8 @@
 
 变更说明（2026-07-22，Android App IPC 固定声明）：用户明确要求固定 App 端 Codex IPC 实现。正式实现锁定为 conversation follower subscription + reconnect replay + normalized surface + Android IPC authority 四段链路；canonical `thread/read` 仅为有边界的恢复通道，不属于实时实现。此后不得以缩短轮询周期、快照静默判定或 gateway connected/idle 状态重新定义 App 实时同步。若 Codex host 协议演进导致当前 method version 或 follower envelope 变化，只允许在保持上述数据流和 authority 语义的前提下更新兼容适配；改变该架构必须由用户重新确认并同步 `CONTRACTS.md`。
 
+变更说明（2026-07-27，IPC-first / owner-fallback 第一阶段）：用户确认 Windows 当前支持环境继续以 Desktop / VS Code IPC 为第一权威，不引入共享 app-server daemon，也不降级或删除既有 IPC 通道。已绑定任务缺当前周期 surface 时使用既有 5 秒 grace；到期仍优先尝试 external IPC，只允许 `no-client-found` 或 IPC offline 触发 TermLink owner 接管，任意其他错误不自动 fallback/retry。owner 接管后当前打开周期保持单一权威；只有新 WebSocket 首次打开或 A→B→A 重新进入且 owner 已终态、无 pending/active goal 时才重新仲裁。第一阶段只处理问题 #10；跨宿主可见性、完成后暂时消失和图片历史恢复（#11–#13）继续暂缓。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径

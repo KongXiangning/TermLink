@@ -714,7 +714,14 @@ function buildPendingServerRequestSnapshot(state) {
         }));
 }
 
-function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, privilegeConfig, tlsConfig = {}, ipcFeed }) {
+function registerTerminalGateway(wss, {
+    sessionManager,
+    heartbeatMs = 30000,
+    privilegeConfig,
+    tlsConfig = {},
+    ipcFeed,
+    ipcSurfaceWaitGraceMs = 5000
+}) {
     const isElevated = privilegeConfig && privilegeConfig.isElevated;
     const allowedIps = privilegeConfig ? privilegeConfig.allowedIps : [];
     const auditService = isElevated ? getAuditService() : null;
@@ -729,8 +736,17 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     const _ipcFollowerModes = new Map();
     /** @type {Map<string, string>} */
     const _ipcConversationLastStatus = new Map();
+    /** @type {Map<string, { generation: number, startedAt: number, surface: object | null, receivedAt: number | null, reason: string }>} */
+    const _ipcConversationSubscriptionCycles = new Map();
+    /** @type {Map<string, Set<{ finish: (surface: object | null) => void }>>} */
+    const _ipcSurfaceWaiters = new Map();
+    /** @type {Set<string>} */
+    const _followerSendInFlight = new Set();
     /** @type {Set<string>} */
     const _ownerGoalCompletionInFlight = new Set();
+    let _lastIpcOnline = Boolean(ipcFeed && (
+        typeof ipcFeed.isOnline === 'function' ? ipcFeed.isOnline() : ipcFeed.online
+    ));
 
     const _isIpcOnline = () => {
         if (!ipcFeed) return false;
@@ -762,11 +778,69 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         ipcFeed.unfollowConversation(conversationId, 'local');
     };
 
+    const _activeIpcSubscriberCount = (conversationId) => {
+        let count = 0;
+        for (const activeConversationId of _ipcActiveConversations.values()) {
+            if (activeConversationId === conversationId) count++;
+        }
+        return count;
+    };
+
+    const _finishIpcSurfaceWaiters = (conversationId, surface = null) => {
+        const waiters = _ipcSurfaceWaiters.get(conversationId);
+        if (!waiters) return;
+        _ipcSurfaceWaiters.delete(conversationId);
+        for (const waiter of waiters) {
+            waiter.finish(surface);
+        }
+    };
+
+    const _beginIpcSubscriptionCycle = (conversationId, reason) => {
+        if (!isNonEmptyString(conversationId)) return null;
+        const normalizedConversationId = conversationId.trim();
+        const previous = _ipcConversationSubscriptionCycles.get(normalizedConversationId);
+        _finishIpcSurfaceWaiters(normalizedConversationId, null);
+        const cycle = {
+            generation: (previous?.generation || 0) + 1,
+            startedAt: Date.now(),
+            surface: null,
+            receivedAt: null,
+            reason: isNonEmptyString(reason) ? reason.trim() : 'unknown'
+        };
+        _ipcConversationSubscriptionCycles.set(normalizedConversationId, cycle);
+        diagnosticLog.event('server', 'server.ipc.subscription_cycle.started', {
+            conversationIdPresent: true,
+            generation: cycle.generation,
+            reason: cycle.reason,
+            ipcOnline: _isIpcOnline()
+        }, 'info');
+        return cycle;
+    };
+
+    const _closeIpcSubscriptionCycle = (conversationId, reason) => {
+        if (!isNonEmptyString(conversationId)) return;
+        const normalizedConversationId = conversationId.trim();
+        const cycle = _ipcConversationSubscriptionCycles.get(normalizedConversationId);
+        _ipcConversationSubscriptionCycles.delete(normalizedConversationId);
+        _finishIpcSurfaceWaiters(normalizedConversationId, null);
+        if (cycle) {
+            diagnosticLog.event('server', 'server.ipc.subscription_cycle.closed', {
+                conversationIdPresent: true,
+                generation: cycle.generation,
+                reason: isNonEmptyString(reason) ? reason.trim() : 'unknown',
+                hadCurrentSurface: Boolean(cycle.surface)
+            }, 'info');
+        }
+    };
+
     const _releaseActiveIpcConversation = (ws) => {
         const conversationId = _ipcActiveConversations.get(ws);
         if (!conversationId) return;
         _ipcActiveConversations.delete(ws);
         _unfollowIpcConversation(conversationId);
+        if (_activeIpcSubscriberCount(conversationId) === 0) {
+            _closeIpcSubscriptionCycle(conversationId, 'last-subscriber-left');
+        }
     };
 
     const _sendFollowerMode = (ws) => {
@@ -798,6 +872,80 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         return null;
     };
 
+    const _getCurrentCycleIpcSnapshot = (conversationId) => {
+        if (!isNonEmptyString(conversationId)) return null;
+        return _ipcConversationSubscriptionCycles.get(conversationId.trim())?.surface || null;
+    };
+
+    const _recordCurrentCycleIpcSnapshot = (conversationId, surface) => {
+        if (!isNonEmptyString(conversationId) || !surface || typeof surface !== 'object') return false;
+        const normalizedConversationId = conversationId.trim();
+        const cycle = _ipcConversationSubscriptionCycles.get(normalizedConversationId);
+        if (!cycle || _activeIpcSubscriberCount(normalizedConversationId) === 0) return false;
+        if (surface.desynced === true) {
+            diagnosticLog.event('server', 'server.ipc.subscription_cycle.desynced_surface_ignored', {
+                conversationIdPresent: true,
+                generation: cycle.generation,
+                status: isNonEmptyString(surface.status) ? surface.status.trim() : 'unknown'
+            }, 'warn');
+            return false;
+        }
+        cycle.surface = { ...surface, desynced: false };
+        cycle.receivedAt = Date.now();
+        _finishIpcSurfaceWaiters(normalizedConversationId, cycle.surface);
+        diagnosticLog.event('server', 'server.ipc.subscription_cycle.surface_received', {
+            conversationIdPresent: true,
+            generation: cycle.generation,
+            waitMs: Math.max(0, cycle.receivedAt - cycle.startedAt),
+            status: isNonEmptyString(surface.status) ? surface.status.trim() : 'unknown'
+        }, 'info');
+        return true;
+    };
+
+    const _waitForCurrentCycleIpcSnapshot = (ws, conversationId) => {
+        const normalizedConversationId = isNonEmptyString(conversationId) ? conversationId.trim() : '';
+        const cycle = normalizedConversationId
+            ? _ipcConversationSubscriptionCycles.get(normalizedConversationId)
+            : null;
+        if (!cycle) return Promise.resolve(null);
+        if (cycle.surface) return Promise.resolve(cycle.surface);
+        const remainingMs = Math.max(0, ipcSurfaceWaitGraceMs - (Date.now() - cycle.startedAt));
+        if (remainingMs === 0 || !_isIpcOnline()) return Promise.resolve(null);
+
+        return new Promise((resolve) => {
+            let finished = false;
+            const waiter = {
+                finish(surface) {
+                    if (finished) return;
+                    finished = true;
+                    clearTimeout(timer);
+                    if (ws && typeof ws.removeListener === 'function') {
+                        ws.removeListener('close', handleClose);
+                    }
+                    const currentWaiters = _ipcSurfaceWaiters.get(normalizedConversationId);
+                    if (currentWaiters) {
+                        currentWaiters.delete(waiter);
+                        if (currentWaiters.size === 0) {
+                            _ipcSurfaceWaiters.delete(normalizedConversationId);
+                        }
+                    }
+                    resolve(surface || null);
+                }
+            };
+            const handleClose = () => waiter.finish(null);
+            const timer = setTimeout(() => waiter.finish(null), remainingMs);
+            let waiters = _ipcSurfaceWaiters.get(normalizedConversationId);
+            if (!waiters) {
+                waiters = new Set();
+                _ipcSurfaceWaiters.set(normalizedConversationId, waiters);
+            }
+            waiters.add(waiter);
+            if (ws && typeof ws.once === 'function') {
+                ws.once('close', handleClose);
+            }
+        });
+    };
+
     const _getLatestOwnerSnapshot = (conversationId) => {
         if (!isNonEmptyString(conversationId)) return null;
         const event = ownerSurfaceTracker.peekSnapshot(conversationId);
@@ -806,11 +954,24 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
 
     const _getLatestConversationSnapshot = (conversationId) => {
         const ownerSurface = _getLatestOwnerSnapshot(conversationId);
-        const ipcSurface = _getLatestIpcSnapshot(conversationId);
-        if (ownerSurface && ipcSurface) {
-            return chooseRicherConversationSurface(ownerSurface, ipcSurface);
-        }
-        return ownerSurface || ipcSurface || null;
+        if (ownerSurface) return ownerSurface;
+        return _getCurrentCycleIpcSnapshot(conversationId);
+    };
+
+    const _isOwnerSurfaceSafelyReleasable = (surface) => {
+        if (!surface || typeof surface !== 'object') return false;
+        const status = isNonEmptyString(surface.status) ? surface.status.trim().toLowerCase() : '';
+        const terminal = status === 'completed' ||
+            status === 'failed' ||
+            status === 'interrupted' ||
+            status === 'cancelled' ||
+            status === 'canceled';
+        return terminal &&
+            !surface.pendingApproval &&
+            !surface.pendingPlanAction &&
+            !surface.pendingUserInputAction &&
+            !surface.pendingGoalAction &&
+            !surface.activeGoal;
     };
 
     const _emitConversationActionRequired = (ws, conversationId, surface) => {
@@ -850,9 +1011,10 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
     };
 
     const _pushConversationSurfaceSnapshot = (conversationId, surface) => {
+        const authoritativeSurface = surface?.desynced !== true;
         const status = isNonEmptyString(surface?.status) ? surface.status : 'unknown';
         const previousStatus = _ipcConversationLastStatus.get(conversationId);
-        if (status) {
+        if (authoritativeSurface && status) {
             _ipcConversationLastStatus.set(conversationId, status);
         }
 
@@ -864,7 +1026,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
 
             sendWsEnvelope(client, { type: 'conversation_surface_snapshot', conversationId, snapshot: surface });
             sentCount++;
-            if (previousStatus && previousStatus !== status) {
+            if (authoritativeSurface && previousStatus && previousStatus !== status) {
                 sendWsEnvelope(client, {
                     type: 'conversation_status_changed',
                     conversationId,
@@ -872,13 +1034,16 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
                     previousStatus
                 });
             }
-            _emitConversationActionRequired(client, conversationId, surface);
+            if (authoritativeSurface) {
+                _emitConversationActionRequired(client, conversationId, surface);
+            }
         }
         console.warn('[gateway][ipc][surface-snapshot-pushed]', JSON.stringify({
             conversationId,
             status,
             previousStatus: previousStatus || null,
-            statusChanged: Boolean(previousStatus && previousStatus !== status),
+            statusChanged: Boolean(authoritativeSurface && previousStatus && previousStatus !== status),
+            authoritativeSurface,
             sentToSubscribers: sentCount
         }));
         if (sentCount === 0) {
@@ -897,6 +1062,14 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
 
     if (ipcFeed) {
         ipcFeed.on('status', (status) => {
+            const isOnline = status?.online === true;
+            if (isOnline && !_lastIpcOnline) {
+                const activeConversationIds = new Set(_ipcActiveConversations.values());
+                for (const conversationId of activeConversationIds) {
+                    _beginIpcSubscriptionCycle(conversationId, 'ipc-reconnected');
+                }
+            }
+            _lastIpcOnline = isOnline;
             let sentCount = 0;
             for (const client of wss.clients) {
                 if (client.readyState === 1) { // WebSocket.OPEN
@@ -925,15 +1098,23 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         });
 
         ipcFeed.on('snapshot', ({ conversationId, surface }) => {
+            const currentCycleSurface = _recordCurrentCycleIpcSnapshot(conversationId, surface);
             console.warn('[gateway][ipc][snapshot-push]', JSON.stringify({
                 conversationId,
                 status: surface.status || 'unknown',
                 itemCount: Array.isArray(surface.items) ? surface.items.length : 0,
                 hasActiveGoal: Boolean(surface.activeGoal),
                 hasPendingApproval: Boolean(surface.pendingApproval),
-                hasPendingPlanAction: Boolean(surface.pendingPlanAction)
+                hasPendingPlanAction: Boolean(surface.pendingPlanAction),
+                currentCycleSurface,
+                ignoredForAndroidByOwner: ownerSurfaceTracker.hasConversation(conversationId)
             }));
-            _pushConversationSurfaceSnapshot(conversationId, surface);
+            if (!ownerSurfaceTracker.hasConversation(conversationId)) {
+                _pushConversationSurfaceSnapshot(
+                    conversationId,
+                    currentCycleSurface ? _getCurrentCycleIpcSnapshot(conversationId) : { ...surface, desynced: true }
+                );
+            }
         });
 
         ipcFeed.on('event', (event) => {
@@ -966,9 +1147,6 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         if (!event || !isNonEmptyString(event.conversationId) || !event.surface) {
             return;
         }
-        if (ipcFeed && typeof ipcFeed.hasRicherExternalSurface === 'function' && ipcFeed.hasRicherExternalSurface(event.conversationId, event.surface)) {
-            return;
-        }
         _pushConversationSurfaceSnapshot(event.conversationId, event.surface);
         if (ipcFeed && _isIpcOnline() && typeof ipcFeed.sendBroadcast === 'function') {
             try {
@@ -986,10 +1164,7 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             snapshotMap.set(s.conversationId, s);
         }
         for (const s of ownerSurfaceTracker.getRecentSnapshots()) {
-            const existing = snapshotMap.get(s.conversationId);
-            snapshotMap.set(s.conversationId, existing
-                ? { ...s, surface: chooseRicherConversationSurface(s.surface, existing.surface), timestamp: Math.max(s.timestamp || 0, existing.timestamp || 0) }
-                : s);
+            snapshotMap.set(s.conversationId, s);
         }
         return Array.from(snapshotMap.values()).map(s => ({
             conversationId: s.conversationId,
@@ -1055,9 +1230,29 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         const previousActiveConversationId = _ipcActiveConversations.get(ws) || null;
         if (previousActiveConversationId !== normalizedConversationId) {
             if (previousActiveConversationId) {
+                _ipcActiveConversations.delete(ws);
                 _unfollowIpcConversation(previousActiveConversationId);
+                if (_activeIpcSubscriberCount(previousActiveConversationId) === 0) {
+                    _closeIpcSubscriptionCycle(previousActiveConversationId, 'conversation-changed');
+                }
+            }
+            const enteringExistingSharedCycle = _activeIpcSubscriberCount(normalizedConversationId) > 0;
+            const ownerSurface = _getLatestOwnerSnapshot(normalizedConversationId);
+            if (_isOwnerSurfaceSafelyReleasable(ownerSurface)) {
+                ownerSurfaceTracker.releaseConversation(normalizedConversationId);
+                diagnosticLog.event('server', 'server.codex.owner.released', {
+                    conversationIdPresent: true,
+                    reason: previousActiveConversationId ? 'conversation-reentered' : 'websocket-first-open',
+                    status: ownerSurface.status
+                }, 'info');
             }
             _ipcActiveConversations.set(ws, normalizedConversationId);
+            if (!enteringExistingSharedCycle) {
+                _beginIpcSubscriptionCycle(
+                    normalizedConversationId,
+                    previousActiveConversationId ? 'conversation-changed' : 'websocket-first-open'
+                );
+            }
             _followIpcConversation(normalizedConversationId);
         }
         console.warn('[gateway][ipc][set-active-conversation]', JSON.stringify({
@@ -1083,11 +1278,16 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             }
         }
 
-        // Replay latest cached snapshot if available.
-        const latest = _getLatestConversationSnapshot(normalizedConversationId);
+        // Owner/current-cycle snapshots are authoritative. Older IPC cache is
+        // display-only until this subscription cycle receives a fresh surface.
+        const authoritative = _getLatestConversationSnapshot(normalizedConversationId);
+        const cached = authoritative || _getLatestIpcSnapshot(normalizedConversationId);
+        const latest = authoritative || (cached ? { ...cached, desynced: true } : null);
         if (latest) {
             sendWsEnvelope(ws, { type: 'conversation_surface_snapshot', conversationId: normalizedConversationId, snapshot: latest });
-            _emitConversationActionRequired(ws, normalizedConversationId, latest);
+            if (latest.desynced !== true) {
+                _emitConversationActionRequired(ws, normalizedConversationId, latest);
+            }
         }
         _sendFollowerMode(ws);
     };
@@ -1222,65 +1422,134 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
             sendWsEnvelope(ws, { type: 'error', message: 'Input cannot be empty', detail: 'Provide non-empty message text.' });
             return;
         }
-
-        // Running gate: block start-turn when conversation is running.
-        const latest = _getLatestConversationSnapshot(conversationId);
-        if (!latest && !_shouldUseOwnerRuntime(conversationId) && ipcFeed && !_isIpcOnline()) {
-            sendWsEnvelope(ws, { type: 'error', message: 'IPC is not online', detail: 'Cannot send message while IPC is disconnected.' });
-            return;
-        }
-        if (!latest) {
+        const normalizedConversationId = conversationId.trim();
+        if (_getActiveConversationId(ws) !== normalizedConversationId) {
             sendWsEnvelope(ws, {
                 type: 'error',
-                message: 'Conversation is not live',
-                detail: 'Wait for a live IPC surface snapshot before starting a follower turn.'
+                message: 'Conversation is not active',
+                detail: 'Select this conversation before sending a follower message.'
             });
             return;
         }
-        if (!canStartFollowerTurn(latest?.status)) {
+        if (_followerSendInFlight.has(normalizedConversationId)) {
             sendWsEnvelope(ws, {
                 type: 'error',
-                message: 'Conversation is still running',
-                detail: 'Wait for the current turn to finish before starting a new follower turn.'
+                message: 'Message send is already being resolved',
+                detail: 'Wait for the current send routing decision to finish.'
             });
             return;
         }
-
-        if (_shouldUseOwnerRuntime(conversationId)) {
-            await _startOwnerMessageOrGoal(ws, conversationId, input, latest, options);
-            return;
-        }
-
-        if (!ipcFeed) {
-            sendWsEnvelope(ws, { type: 'error', message: 'IPC feed is not available', detail: options.unavailableDetail || 'Enable codex-ipc to send follower messages.' });
-            return;
-        }
-        if (!_isIpcOnline()) {
-            await _startOwnerMessageOrGoal(ws, conversationId, input, latest, options);
-            return;
-        }
-
+        _followerSendInFlight.add(normalizedConversationId);
         try {
-            const response = await ipcFeed.sendRequest('thread-follower-start-turn', {
-                conversationId,
-                turnStartParams: buildFollowerTurnStartParams(input.trim(), latest, options)
-            });
-            assertIpcSuccess(response);
-            diagnosticLog.event('server', 'server.ipc.follower_send.acknowledged', {
-                conversationIdPresent: true,
-                responseType: response && response.type
-            });
-            sendWsEnvelope(ws, { type: options.successType || 'follower_message_sent', conversationId, acknowledged: true });
-        } catch (error) {
-            diagnosticLog.error('server', 'server.ipc.follower_send.failed', error, {
-                conversationIdPresent: isNonEmptyString(conversationId),
-                noClientFallback: isNoClientFoundError(error)
-            });
-            if (isNoClientFoundError(error)) {
-                await _startOwnerMessageOrGoal(ws, conversationId, input, latest, options);
+            let authority = _shouldUseOwnerRuntime(normalizedConversationId) ? 'owner' : 'ipc';
+            let latest = _getLatestConversationSnapshot(normalizedConversationId);
+
+            if (authority === 'ipc' && !latest && _isIpcOnline()) {
+                diagnosticLog.event('server', 'server.ipc.follower_send.waiting_for_surface', {
+                    conversationIdPresent: true,
+                    routeStage: 'surface-grace',
+                    timeoutMs: ipcSurfaceWaitGraceMs
+                }, 'info');
+                latest = await _waitForCurrentCycleIpcSnapshot(ws, normalizedConversationId);
+                if (_shouldUseOwnerRuntime(normalizedConversationId)) {
+                    authority = 'owner';
+                    latest = _getLatestOwnerSnapshot(normalizedConversationId);
+                }
+            }
+            if (ws.readyState !== 1 || _getActiveConversationId(ws) !== normalizedConversationId) {
+                diagnosticLog.event('server', 'server.ipc.follower_send.cancelled', {
+                    conversationIdPresent: true,
+                    routeStage: ws.readyState !== 1 ? 'websocket-closed' : 'active-conversation-changed'
+                }, 'info');
                 return;
             }
-            sendWsEnvelope(ws, { type: 'error', message: options.failureMessage || 'Failed to send follower message', detail: error.message });
+
+            if (latest && !canStartFollowerTurn(latest.status)) {
+                sendWsEnvelope(ws, {
+                    type: 'error',
+                    message: 'Conversation is still running',
+                    detail: 'Wait for the current turn to finish before starting a new follower turn.'
+                });
+                return;
+            }
+
+            if (authority === 'owner') {
+                diagnosticLog.event('server', 'server.ipc.follower_send.routed', {
+                    conversationIdPresent: true,
+                    authority: 'owner',
+                    routeStage: 'sticky-owner'
+                }, 'info');
+                await _startOwnerMessageOrGoal(ws, normalizedConversationId, input, latest, options);
+                return;
+            }
+
+            if (!ipcFeed) {
+                sendWsEnvelope(ws, {
+                    type: 'error',
+                    message: 'IPC feed is not available',
+                    detail: options.unavailableDetail || 'Enable codex-ipc to send follower messages.'
+                });
+                return;
+            }
+
+            const fallbackSeed = _getLatestIpcSnapshot(normalizedConversationId) || {
+                conversationId: normalizedConversationId
+            };
+            if (!_isIpcOnline()) {
+                diagnosticLog.event('server', 'server.ipc.follower_send.routed', {
+                    conversationIdPresent: true,
+                    authority: 'owner',
+                    routeStage: 'ipc-offline-fallback',
+                    currentCycleSurface: Boolean(latest)
+                }, 'warn');
+                await _startOwnerMessageOrGoal(ws, normalizedConversationId, input, fallbackSeed, options);
+                return;
+            }
+
+            try {
+                const response = await ipcFeed.sendRequest('thread-follower-start-turn', {
+                    conversationId: normalizedConversationId,
+                    turnStartParams: buildFollowerTurnStartParams(input.trim(), latest || {}, options)
+                });
+                assertIpcSuccess(response);
+                diagnosticLog.event('server', 'server.ipc.follower_send.acknowledged', {
+                    conversationIdPresent: true,
+                    authority: 'ipc',
+                    routeStage: latest ? 'current-cycle-surface' : 'surface-timeout',
+                    responseType: response && response.type,
+                    resultType: response && response.resultType
+                });
+                sendWsEnvelope(ws, {
+                    type: options.successType || 'follower_message_sent',
+                    conversationId: normalizedConversationId,
+                    acknowledged: true
+                });
+            } catch (error) {
+                const noClientFallback = isNoClientFoundError(error);
+                diagnosticLog.error('server', 'server.ipc.follower_send.failed', error, {
+                    conversationIdPresent: true,
+                    authority: 'ipc',
+                    routeStage: latest ? 'current-cycle-surface' : 'surface-timeout',
+                    noClientFallback,
+                    errorType: error?.constructor?.name || typeof error
+                });
+                if (noClientFallback) {
+                    diagnosticLog.event('server', 'server.ipc.follower_send.routed', {
+                        conversationIdPresent: true,
+                        authority: 'owner',
+                        routeStage: 'no-client-found-fallback'
+                    }, 'warn');
+                    await _startOwnerMessageOrGoal(ws, normalizedConversationId, input, fallbackSeed, options);
+                    return;
+                }
+                sendWsEnvelope(ws, {
+                    type: 'error',
+                    message: options.failureMessage || 'Failed to send follower message',
+                    detail: error && error.message ? error.message : String(error)
+                });
+            }
+        } finally {
+            _followerSendInFlight.delete(normalizedConversationId);
         }
     };
 
@@ -1912,29 +2181,6 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
 
     function isDefaultCollaborationMode(mode) {
         return Boolean(mode && typeof mode === 'object' && !Array.isArray(mode) && mode.mode === 'default');
-    }
-
-    function chooseRicherConversationSurface(left, right) {
-        if (!left) return right || null;
-        if (!right) return left;
-        return surfaceContentScore(left) >= surfaceContentScore(right) ? left : right;
-    }
-
-    function surfaceContentScore(surface) {
-        if (!surface || typeof surface !== 'object') return 0;
-        const items = Array.isArray(surface.items) ? surface.items : [];
-        let score = items.length * 10;
-        for (const item of items) {
-            if (item && typeof item === 'object' && typeof item.text === 'string') {
-                score += Math.min(item.text.length, 200);
-            }
-        }
-        if (surface.pendingApproval) score += 1000;
-        if (surface.pendingPlanAction) score += 900;
-        if (surface.pendingUserInputAction) score += 800;
-        if (surface.activeGoal) score += 100;
-        if (surface.status === 'running') score += 50;
-        return score;
     }
 
     function isNoClientFoundError(error) {
@@ -3344,9 +3590,13 @@ function registerTerminalGateway(wss, { sessionManager, heartbeatMs = 30000, pri
         for (const ws of Array.from(_ipcActiveConversations.keys())) {
             _releaseActiveIpcConversation(ws);
         }
+        for (const conversationId of Array.from(_ipcConversationSubscriptionCycles.keys())) {
+            _closeIpcSubscriptionCycle(conversationId, 'gateway-teardown');
+        }
         if (ipcFeed) { ipcFeed.removeAllListeners(); }
         _ipcFollowerModes.clear();
         _ipcConversationLastStatus.clear();
+        _followerSendInFlight.clear();
         for (const session of sessionManager.sessions.values()) {
             void cleanupAllSessionAttachmentTempFiles(session);
         }
