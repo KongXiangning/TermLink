@@ -8,7 +8,7 @@
 >
 > 核验日期：2026-07-28
 >
-> 权威 schema 来源：`codex-rs/app-server-protocol/schema/typescript/`（由 `codex app-server generate-ts --out DIR` 生成，与运行时版本严格一致）
+> 权威 schema 来源：对应 Codex 二进制生成的 TypeScript/JSON Schema。`codex app-server generate-ts --out DIR` 默认只生成 stable surface；TermLink 当前启用 `experimentalApi`，因此涉及实验接口时还必须对照 `codex app-server generate-ts --out DIR --experimental` 与源码上的 `#[experimental(...)]`。
 
 ---
 
@@ -72,13 +72,13 @@ HTTP `/readyz`、`/healthz` 端点是 `--listen ws://` 模式下的基本健康�
 
 **Method**: `thread/start` | **Direction**: Client → Server | **Params**: `ThreadStartParams` | **Response**: `ThreadStartResponse`
 
-**Params 核心字段**（完整定义见 `schema/typescript/v2/ThreadStartParams.ts`）:
+**Params 主要字段**（当前 stable + TermLink 使用的 experimental 字段；完整定义应由对应运行版本分别生成 stable/experimental schema）：
 
 ```typescript
 interface ThreadStartParams {
   model?: string | null;
   modelProvider?: string | null;
-  allowProviderModelFallback?: boolean;
+  allowProviderModelFallback?: boolean;       // experimental
   serviceTier?: string | null | undefined;  // double option
   cwd?: string | null;
   runtimeWorkspaceRoots?: string[] | null;  // experimental
@@ -91,30 +91,32 @@ interface ThreadStartParams {
   developerInstructions?: string | null;
   personality?: Personality | null;
   ephemeral?: boolean | null;
-  historyMode?: ThreadHistoryMode | null;   // experimental: "legacy" | "paginated"
+  historyMode?: ThreadHistoryMode | null;     // experimental: "legacy" | "paginated"
   threadSource?: ThreadSource | null;
-  environments?: TurnEnvironmentParams[] | null;
-  dynamicTools?: DynamicToolSpec[] | null;
-  selectedCapabilityRoots?: SelectedCapabilityRoot[] | null;
+  environments?: TurnEnvironmentParams[] | null;             // experimental
+  dynamicTools?: DynamicToolSpec[] | null;                    // experimental
+  selectedCapabilityRoots?: SelectedCapabilityRoot[] | null; // experimental
 }
 ```
+
+`permissions` 与 legacy `sandbox` 互斥；选择 named permission profile 时不能同时发送 `sandbox`。同一规则也适用于 `thread/resume` 和 `thread/fork`。
 
 **Response**:
 
 ```typescript
 interface ThreadStartResponse {
-  thread: Thread;          // 含 turns=[]，只有 thread/resume、thread/read、thread/fork 时 turns 才填充
+  thread: Thread;          // thread/start 通常为 turns=[]；resume/read/fork/rollback 的对应响应可填充 turns
   model: string;
   modelProvider: string;
-  serviceTier?: string | null;
+  serviceTier: string | null;
   cwd: string;
-  runtimeWorkspaceRoots: string[];
+  runtimeWorkspaceRoots?: string[]; // experimental；未协商能力时字段会被过滤
   instructionSources: string[];
   approvalPolicy: AskForApproval;
   approvalsReviewer: ApprovalsReviewer;
   sandbox: SandboxPolicy;
-  activePermissionProfile?: ActivePermissionProfile | null;
-  reasoningEffort?: ReasoningEffort | null;
+  activePermissionProfile?: ActivePermissionProfile | null; // experimental；未协商时过滤
+  reasoningEffort: ReasoningEffort | null;
 }
 ```
 
@@ -122,27 +124,28 @@ interface ThreadStartResponse {
 
 **Method**: `thread/resume` | **Params**: `ThreadResumeParams` | **Response**: `ThreadResumeResponse`
 
-**Params**:
+**Params 主要字段**：
 
 ```typescript
 interface ThreadResumeParams {
   threadId: string;   // 必填
-  history?: ResponseItem[] | null;                                    // [UNSTABLE]
-  path?: string | null;
+  history?: ResponseItem[] | null;                    // experimental / unstable
+  path?: string | null;                               // experimental / unstable
   model?: string | null;
   modelProvider?: string | null;
   serviceTier?: string | null | undefined;
   cwd?: string | null;
+  runtimeWorkspaceRoots?: string[] | null;             // experimental
   approvalPolicy?: AskForApproval | null;
   approvalsReviewer?: ApprovalsReviewer | null;
   sandbox?: SandboxMode | null;
-  permissions?: string | null;
+  permissions?: string | null;                         // experimental
   config?: Record<string, any> | null;
   baseInstructions?: string | null;
   developerInstructions?: string | null;
   personality?: Personality | null;
-  excludeTurns?: boolean;            // 为 true 时 thread.turns 为空
-  initialTurnsPage?: ThreadResumeInitialTurnsPageParams | null;
+  excludeTurns?: boolean;                              // experimental；为 true 时 thread.turns 为空
+  initialTurnsPage?: ThreadResumeInitialTurnsPageParams | null; // experimental
 }
 ```
 
@@ -151,9 +154,9 @@ interface ThreadResumeParams {
 ```typescript
 interface ThreadResumeResponse {
   // ... 继承 ThreadStartResponse 的字段
-  initialTurnsPage?: TurnsPage | null;
-  turnsBackwardsCursor?: string | null;
-  itemsBackwardsCursor?: string | null;
+  initialTurnsPage?: TurnsPage | null;       // experimental
+  turnsBackwardsCursor?: string | null;      // experimental
+  itemsBackwardsCursor?: string | null;      // experimental
 }
 ```
 
@@ -185,12 +188,23 @@ interface ThreadForkParams {
   threadId: string;
   lastTurnId?: string | null;
   beforeTurnId?: string | null;  // experimental
-  path?: string | null;
+  path?: string | null;          // experimental / unstable
   model?: string | null;
+  modelProvider?: string | null;
+  serviceTier?: string | null | undefined;
   cwd?: string | null;
+  runtimeWorkspaceRoots?: string[] | null; // experimental
+  approvalPolicy?: AskForApproval | null;
+  approvalsReviewer?: ApprovalsReviewer | null;
+  sandbox?: SandboxMode | null;
+  permissions?: string | null;             // experimental
+  config?: Record<string, any> | null;
+  baseInstructions?: string | null;
+  developerInstructions?: string | null;
   ephemeral?: boolean;
-  excludeTurns?: boolean;
-  deferGoalContinuation?: boolean;
+  threadSource?: ThreadSource | null;
+  excludeTurns?: boolean;        // experimental
+  deferGoalContinuation?: boolean; // experimental
 }
 ```
 
@@ -220,6 +234,8 @@ interface ThreadListParams {
 
 **Method**: `thread/turns/list` | **Params**: `ThreadTurnsListParams` | **Response**: `ThreadTurnsListResponse`
 
+该方法是 **experimental**，连接必须在 `initialize.capabilities.experimentalApi=true` 后调用。`thread/items/list` 同样是 experimental。
+
 ```typescript
 interface ThreadTurnsListParams {
   threadId: string;
@@ -239,9 +255,9 @@ interface ThreadTurnsListParams {
 | `thread/delete` | `{ threadId }` | `{}` | 删除 |
 | `thread/unsubscribe` | `{ threadId }` | `{ status: ThreadUnsubscribeStatus }` | 取消订阅 |
 | `thread/name/set` | `{ threadId, name }` | `{}` | 设置标题 |
-| `thread/settings/update` | `ThreadSettingsUpdateParams` | `{}` | 更新线程设置 |
-| `thread/goal/set` | `{ threadId, objective, status, tokenBudget? }` | `{ goal: ThreadGoal }` | 设置 Goal |
-| `thread/goal/get` | `{ threadId }` | `{ goal?: ThreadGoal }` | 获取 Goal |
+| `thread/settings/update` | `ThreadSettingsUpdateParams` | `{}` | 更新线程设置；experimental |
+| `thread/goal/set` | `{ threadId, objective?, status?, tokenBudget? }` | `{ goal: ThreadGoal }` | 设置/更新 Goal；除 `threadId` 外字段均可选 |
+| `thread/goal/get` | `{ threadId }` | `{ goal: ThreadGoal \| null }` | 获取 Goal |
 | `thread/goal/clear` | `{ threadId }` | `{ cleared: boolean }` | 清除 Goal |
 | `thread/compact/start` | `{ threadId }` | `{}` | 压缩线程 |
 | `thread/rollback` | `{ threadId, numTurns }` | `{ thread: Thread }` | DEPRECATED |
@@ -253,7 +269,7 @@ interface ThreadTurnsListParams {
 
 > **协议文件**: `app-server-protocol/src/protocol/v2/thread_data.rs`
 >
-> 完整 TypeScript schema: `schema/typescript/v2/Thread.ts`
+> Stable TypeScript schema: `schema/typescript/v2/Thread.ts`。下列标为 experimental 的字段只在能力开启且使用 experimental schema 时出现。
 
 ### 3.1 Thread
 
@@ -261,29 +277,29 @@ interface ThreadTurnsListParams {
 interface Thread {
   id: string;                        // UUIDv7
   sessionId: string;
-  forkedFromId?: string | null;
-  parentThreadId?: string | null;
+  forkedFromId: string | null;
+  parentThreadId: string | null;
   preview: string;
   ephemeral: boolean;
   isPinned: boolean;
-  historyMode: ThreadHistoryMode;    // "legacy" | "paginated"
+  historyMode?: ThreadHistoryMode;   // experimental；"legacy" | "paginated"
   modelProvider: string;
   createdAt: number;                 // unix 秒
   updatedAt: number;                 // unix 秒
-  recencyAt?: number | null;         // unix 秒
+  recencyAt: number | null;          // unix 秒
   status: ThreadStatus;
-  path?: string | null;
+  path: string | null;
   cwd: string;
   cliVersion: string;
   source: SessionSource;
-  threadSource?: ThreadSource | null;
-  name?: string | null;
-  agentNickname?: string | null;
-  agentRole?: string | null;
-  gitInfo?: GitInfo | null;
+  threadSource: ThreadSource | null;
+  name: string | null;
+  agentNickname: string | null;
+  agentRole: string | null;
+  gitInfo: GitInfo | null;
   turns: Turn[];                     // 仅在特定响应中填充
-  canAcceptDirectInput?: boolean | null;
-  extra?: ThreadExtra | null;
+  canAcceptDirectInput?: boolean | null; // experimental
+  extra?: ThreadExtra | null;            // experimental
 }
 ```
 
@@ -306,10 +322,10 @@ interface Turn {
   items: ThreadItem[];
   itemsView: "notLoaded" | "summary" | "full";
   status: TurnStatus;
-  error?: TurnError | null;
-  startedAt?: number | null;         // unix 秒
-  completedAt?: number | null;       // unix 秒
-  durationMs?: number | null;
+  error: TurnError | null;
+  startedAt: number | null;          // unix 秒
+  completedAt: number | null;        // unix 秒
+  durationMs: number | null;
 }
 ```
 
@@ -335,6 +351,7 @@ interface TurnStartParams {
   clientUserMessageId?: string | null;
   input: UserInput[];
   cwd?: string | null;
+  runtimeWorkspaceRoots?: string[] | null; // experimental
   model?: string | null;
   serviceTier?: string | null | undefined;
   effort?: ReasoningEffort | null;
@@ -346,9 +363,11 @@ interface TurnStartParams {
   permissions?: string | null;
   personality?: Personality | null;
   collaborationMode?: CollaborationMode | null;
-  environments?: TurnEnvironmentParams[] | null;
+  environments?: TurnEnvironmentParams[] | null; // experimental
 }
 ```
+
+`permissions` 与 `sandboxPolicy` 互斥。TermLink 的 `useConfigPermissions` 是 gateway 自有 reset 信号，不是 app-server 字段；gateway 会把它转换为不同时发送 permission profile 与 sandbox override 的 wire 参数。
 
 ### 4.2 UserInput 枚举
 
@@ -393,6 +412,8 @@ interface TurnInterruptParams {
 
 > **权威定义**: `schema/typescript/v2/ThreadItem.ts`
 
+下列 union 是便于阅读和容错消费的摘要，`?` 表示集成方应允许字段缺失；它不替代生成 schema 对“必有但可为 null”与“可省略”的精确区分。构造请求或做严格校验时必须使用对应运行版本生成的类型。
+
 ```typescript
 type ThreadItem =
   | { type: "userMessage";       id: string; clientId?: string | null; content: UserInput[] }
@@ -436,7 +457,7 @@ type ThreadItem =
 | `thread/unarchived` | `{ threadId }` | 取消归档 |
 | `thread/closed` | `{ threadId }` | 线程关闭 |
 | `thread/name/updated` | `{ threadId, threadName? }` | 标题改变 |
-| `thread/goal/updated` | `{ threadId, turnId?, goal }` | Goal 更新 |
+| `thread/goal/updated` | `{ threadId, turnId: string \| null, goal }` | Goal 更新 |
 | `thread/goal/cleared` | `{ threadId }` | Goal 清除 |
 | `thread/settings/updated` | `{ threadId, threadSettings }` | 线程设置改变 |
 | `thread/tokenUsage/updated` | `{ threadId, turnId, tokenUsage }` | Token 用量更新 |
@@ -448,7 +469,7 @@ type ThreadItem =
 | `turn/started` | `{ threadId, turn }` | Turn 开始 |
 | `turn/completed` | `{ threadId, turn }` | Turn 完成 |
 | `turn/diff/updated` | `{ threadId, turnId, diff }` | Turn diff 更新 |
-| `turn/plan/updated` | `{ threadId, turnId, explanation?, plan }` | Plan 更新 |
+| `turn/plan/updated` | `{ threadId, turnId, explanation: string \| null, plan }` | Plan 更新 |
 
 ### 6.3 Item 生命周期
 
@@ -476,6 +497,8 @@ type ThreadItem =
 
 以下交互是 **server→client JSON-RPC request**（带 id），不是 notification。客户端通过返回匹配 id 的 JSON-RPC response 来响应。
 
+`RequestId` 的 wire 类型是 `string | number`。客户端可以额外保存字符串化 ID 供 UI 匹配，但 response 的 `id` 必须原样使用收到的原始类型；不能把 numeric id 转成字符串后回传。
+
 ```typescript
 // 来自 schema/typescript/ServerRequest.ts:19
 type ServerRequest =
@@ -497,19 +520,35 @@ interface CommandExecutionRequestApprovalParams {
   itemId: string;
   startedAtMs: number;
   approvalId?: string | null;
-  environmentId?: string | null;
+  environmentId: string | null;
   reason?: string | null;
   command?: string | null;
   cwd?: string | null;
   commandActions?: CommandAction[] | null;
-  availableDecisions?: CommandExecutionApprovalDecision[] | null;
+  availableDecisions?: CommandExecutionApprovalDecision[] | null; // experimental
   // experimental 字段略
 }
 
 // Client → Server (匹配 request id 的 JSON-RPC response)
 interface CommandExecutionRequestApprovalResponse {
-  decision: "accept" | "decline" | "cancel" | "acceptWithExecpolicyAmendment";
+  decision: CommandExecutionApprovalDecision;
 }
+
+type CommandExecutionApprovalDecision =
+  | "accept"
+  | "acceptForSession"
+  | {
+      acceptWithExecpolicyAmendment: {
+        execpolicy_amendment: string[];
+      };
+    }
+  | {
+      applyNetworkPolicyAmendment: {
+        network_policy_amendment: NetworkPolicyAmendment;
+      };
+    }
+  | "decline"
+  | "cancel";
 ```
 
 **文件变更审批**:
@@ -524,8 +563,37 @@ interface FileChangeRequestApprovalParams {
   reason?: string | null;
   grantRoot?: string | null;
 }
-// Client → Server: { decision: "accept" | "decline" | "cancel" }
+type FileChangeApprovalDecision =
+  | "accept"
+  | "acceptForSession"
+  | "decline"
+  | "cancel";
+
+// Client → Server: { decision: FileChangeApprovalDecision }
 ```
+
+**权限审批**：
+
+```typescript
+interface PermissionsRequestApprovalParams {
+  threadId: string;
+  turnId: string;
+  itemId: string;
+  environmentId: string | null;
+  startedAtMs: number;
+  cwd: string;
+  reason: string | null;
+  permissions: RequestPermissionProfile;
+}
+
+interface PermissionsRequestApprovalResponse {
+  permissions: GrantedPermissionProfile;
+  scope: "turn" | "session";
+  strictAutoReview?: boolean;
+}
+```
+
+权限审批 response 不是 `{ decision: "accept" | ... }`。如果 UI 只表达 accept/decline，Owner adapter 必须把它转换为上述 `{ permissions, scope }`，不能把 IPC follower 的 `decision` shape 直接写进 app-server response。
 
 **用户输入请求**:
 
@@ -536,7 +604,7 @@ interface ToolRequestUserInputParams {
   turnId: string;
   itemId: string;
   questions: ToolRequestUserInputQuestion[];
-  autoResolutionMs?: number | null;
+  autoResolutionMs: number | null;
 }
 // Client → Server: { answers: Record<string, { answers: string[] }> }
 ```
@@ -589,6 +657,8 @@ type AskForApproval =
 ```typescript
 type ApprovalsReviewer = "user" | "auto_review";  // "guardian_subagent" 是 auto_review 的兼容别名
 ```
+
+`guardian_subagent` 是反序列化兼容输入；新客户端应发送 canonical 值 `auto_review`。
 
 ### 8.4 SandboxMode
 
@@ -653,6 +723,24 @@ interface InitializeResponse {
 
 在收到 `initialize` response 之后，客户端必须发送 `initialized` notification（无 params）才能开始正常通信。在此之前的任何其他请求会被 `"Not initialized"` 错误拒绝。
 
+### 10.4 Stable 与 experimental 的运行时边界
+
+- `experimentalApi` 缺省为 `false`。
+- 设置为 `true` 后，当前连接才可以调用 experimental method，并接收未被过滤的 experimental response/notification 字段。
+- schema 生成默认过滤 experimental API；需要完整匹配 TermLink 当前连接时使用 `generate-ts --experimental` 或 `generate-json-schema --experimental`。
+- experimental method/字段不应被视为跨 Codex 版本稳定契约，升级后必须重新生成 schema 并回归。
+
+TermLink 当前 managed app-server 客户端明确发送：
+
+```json
+{
+  "capabilities": {
+    "experimentalApi": true,
+    "optOutNotificationMethods": []
+  }
+}
+```
+
 ---
 
 ## 11. TermLink 实施计划接口映射
@@ -698,4 +786,4 @@ interface InitializeResponse {
 
 ---
 
-> 本文档以 `codex-rs/app-server-protocol/schema/typescript/` 目录下的生成 TypeScript schema 为权威字段定义。所有方法名使用 `/` 分隔符，字段名使用 Rust snake_case（与 wire JSON 的 camelCase 或 kebab-case 是一一对应的 serde 映射）。有疑问时应以对应 Codex 版本的 `codex app-server generate-ts --out DIR` 输出为准。
+> 本文档以对应 Codex 运行版本生成的 TypeScript/JSON Schema 为权威字段定义。Rust 源码成员通常使用 `snake_case`，但 app-server wire 经 `serde(rename_all = "camelCase")` 后通常使用 `camelCase`；`text_elements`、`execpolicy_amendment` 和 granular approval 内部键等显式定义是例外，必须按生成 schema 原样发送。Stable 客户端使用 `codex app-server generate-ts --out DIR`；TermLink 当前 experimental 连接还必须核对 `codex app-server generate-ts --out DIR --experimental`。

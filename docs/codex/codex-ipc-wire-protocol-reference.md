@@ -3,6 +3,7 @@
 > 用途：为 [`codex-surface-memory-history-cache-implementation-plan.md`](./codex-surface-memory-history-cache-implementation-plan.md) 提供可核验的协议边界。  
 > Codex 源码基线：`openai/codex` `main`，提交 `bd2de422aa287b97b06ca6425a10935bcf1b3731`（2026-07-27）。  
 > TermLink 基线：分支 `codex/codex-runtime-authority-fix`，提交 `43ebedd8e14ad512bf7ccb4f46a67720d0f657f4` 加当前工作树。  
+> 历史实测基线：`E:\coding\Termlink-demo` 的 `docs/技术文档.md`、`logs/codex-ipc/**` 与 2026-06-11 VS Code Extension bundle 提取结果。
 > 核验日期：2026-07-28。
 
 ## 1. 结论与证据边界
@@ -12,13 +13,13 @@
 | 层 | 定义方 | 本文可信度 | 说明 |
 |---|---|---|---|
 | IPC framing 与通用 envelope | Codex IPC broker；开源 TUI 客户端可交叉验证一部分 | 已由 Codex 与 TermLink 源码共同验证 | 4-byte LE 长度前缀、UTF-8 JSON、request/response/broadcast/discovery |
-| Owner/Follower method 和版本 | Codex Desktop / VS Code 所在 IPC 生态 | 以 TermLink 当前兼容表为准 | 不是 app-server 公开 JSON-RPC，也不是开源仓库承诺的稳定协议 |
+| Owner/Follower method 和版本 | Codex Desktop / VS Code 所在 IPC 生态 | Termlink-demo 抓包/bundle 与 TermLink 当前兼容表共同验证 | 不是 app-server 公开 JSON-RPC，也不是开源仓库承诺的稳定协议；必须记录宿主时期 |
 | normalized surface | TermLink | 已由 TermLink 当前源码验证 | Android 消费的派生 DTO；不是 Codex 原生 wire schema |
 
 重要结论：
 
 1. `thread-stream-state-changed` 是 Codex IPC broadcast，不是 `codex app-server` JSON-RPC notification。
-2. `thread/read` 是 app-server JSON-RPC；不得列入 IPC method/version 表。
+2. `thread/read` 的规范语义来自 app-server JSON-RPC；不得列入 Codex Owner/Follower method/version 表。TermLink Owner 当前可额外接受 version 0 的同名 IPC proxy request，但这是 TermLink Owner 适配能力，不是上游 IPC registry 证明。
 3. IPC 的 `conversationState` 是 Owner surface 的不透明状态树，不等同于 app-server `Thread` DTO。
 4. TermLink `DesktopSurface` 是本地投影。其 `kind`、`status`、`pending*`、`updatedAt` 等字段不能反推为 Codex wire 契约。
 5. 开源 Codex 仓库没有给出完整 Owner/Follower method registry；下文版本表只表示 TermLink 当前适配版本。
@@ -115,6 +116,7 @@ interface IpcResponse {
   requestId: string;
   method?: string;
   resultType?: "success" | "error";
+  handledByClientId?: string;
   result?: unknown;
   error?: string;
 }
@@ -144,6 +146,17 @@ Codex TUI 对无法处理的普通 request 返回：
 ```
 
 对 discovery request 则返回 `canHandle: false`。TermLink 也必须立即 negative-ack 未注册路由，不能等待 Owner 超时。
+
+从 2026-06-11 Extension bundle 提取的 broker 实现还可观察到以下路由错误：
+
+| `error` | 发生条件 |
+|---|---|
+| `no-client-found` | discovery 后没有客户端声明可处理，或指定 target 不可用 |
+| `request-timeout` | 已转发请求在 broker 超时内没有 response |
+| `client-disconnected` | 已选中的处理客户端在完成前断开 |
+| `server-closed` | broker 关闭时仍有 pending request |
+
+这些文本是已观察的兼容行为，不是公开稳定错误码。按 TermLink 当前 authority 契约，只有明确的 `no-client-found`（或 IPC offline）允许进入 Owner fallback；`request-timeout`、`client-disconnected` 等其他 IPC 错误不得自动切换 authority。升级宿主后必须重新验证。
 
 ## 5. IPC 初始化
 
@@ -181,11 +194,11 @@ TermLink 连接 broker 后首先发送 version 0 的 `initialize` request：
 
 下表来自 `src/services/codexIpcClient.js::KNOWN_METHOD_VERSIONS`。它是当前客户端兼容配置，不是 Codex 公布的永久 registry。
 
-| Method | Version | TermLink 当前用途 |
+| Method | Version | TermLink 当前语义/状态 |
 |---|---:|---|
 | `thread-stream-state-changed` | 11 | Owner surface snapshot / patches |
 | `thread-stream-following-changed` | 1 | follower acquire/release 投影 |
-| `thread-stream-following-status-requested` | 1 | Owner 查询 following 状态 |
+| `thread-stream-following-status-requested` | 1 | 兼容版本已登记；当前未注册业务 handler |
 | `thread-read-state-changed` | 1 | IPC read-state 通知 |
 | `thread-archived` | 2 | 归档广播 |
 | `thread-unarchived` | 1 | 取消归档广播 |
@@ -194,16 +207,28 @@ TermLink 连接 broker 后首先发送 version 0 的 `initialize` request：
 | `thread-follower-interrupt-turn` | 2 | interrupt 当前 turn |
 | `thread-follower-compact-thread` | 1 | compact |
 | `thread-follower-update-thread-settings` | 1 | 更新 next-turn 设置 |
-| `thread-follower-edit-last-user-turn` | 1 | 编辑最后用户 turn |
+| `thread-follower-edit-last-user-turn` | 1 | 兼容版本已登记；当前 Owner control 未实现 |
 | `thread-follower-command-approval-decision` | 1 | 命令审批 |
 | `thread-follower-file-approval-decision` | 1 | 文件审批 |
 | `thread-follower-permissions-request-approval-response` | 1 | 权限审批 |
 | `thread-follower-submit-user-input` | 1 | 回答 request user input |
-| `thread-follower-submit-mcp-server-elicitation-response` | 1 | MCP elicitation 响应 |
-| `thread-follower-set-queued-follow-ups-state` | 1 | queued follow-ups 状态 |
-| `thread-queued-followups-changed` | 1 | queued follow-ups 广播 |
+| `thread-follower-submit-mcp-server-elicitation-response` | 1 | 兼容版本已登记；当前 Owner control 未实现 |
+| `thread-follower-set-queued-follow-ups-state` | 1 | 兼容版本已登记；当前 Owner control 未实现 |
+| `thread-queued-followups-changed` | 1 | queued follow-ups 广播兼容版本；当前无业务消费 |
 
 `initialize` 没在该表中，TermLink 的 `getMethodVersion()` 因而回落为 `0`。
+
+该表是 version registry，不等同于“全部功能已实现”。当前 TermLink Owner control 实际注册 start-turn、interrupt、command/file/permissions approval、submit-user-input、update-thread-settings、compact、steer 和 `thread/read`；未实现的 control request 必须在 discovery 阶段返回 `canHandle:false` 或立即 negative-ack，不能因为出现在版本表中就声明可处理。
+
+### 6.1 已观察到的版本漂移
+
+| 证据时期/来源 | `thread-stream-state-changed` | `thread-follower-interrupt-turn` | 结论 |
+|---|---:|---:|---|
+| 2026-06-11 VS Code Extension bundle 与抓包 | 7 | 1 | 历史宿主证据 |
+| Termlink-demo 后续兼容表 | 7 | 2 | Demo 适配曾单独升级 interrupt |
+| TermLink 当前兼容表 | 11 | 2 | 当前项目适配值 |
+
+因此不能因旧抓包为 `7/1` 就把当前表改回旧值，也不能把当前 `11/2` 当作永久 registry。发布或升级 Codex Desktop / VS Code Extension 时，至少要重新核验 state broadcast 与所有主动 follower request 的 version。
 
 以下 control methods 只有在三层开关都开启时才允许发送：
 
@@ -213,7 +238,7 @@ TERMLINK_CODEX_IPC_ALLOW_ACTIVE=1
 TERMLINK_CODEX_IPC_CONFIRM_SEND=1
 ```
 
-method version mismatch 的具体 broker 错误字符串未由开源 Codex 定义；集成代码不应依赖某个未经捕获验证的固定文本。
+当前 Extension bundle、Termlink-demo/TermLink 客户端以及开源 Codex TUI 都识别 `request-version-mismatch`。它是有直接实现证据的当前兼容文本，但仍不是上游公开稳定错误码；集成代码不应假定未来版本永远保持该字符串。
 
 ## 7. `thread-stream-state-changed`
 
@@ -274,6 +299,31 @@ TermLink 当前只实现 `add`、`remove`、`replace` 三种操作。path 使用
 
 `conversationState` 是 **Owner surface 的不透明状态树**。TermLink 从中提取 turns、items、requests、threadGoal 等子树以构建 surface，但整个对象的 schema 和版本由 Owner 定义。它不能直接等价于 app-server 的 `Thread`/`Turn`/`ThreadItem` DTO，也不是 `ThreadHistoryBuilder.finish()` 的输出。
 
+### 7.6 TermLink tracker 状态机
+
+```text
+snapshot
+  └─ deep-clone conversationState
+     └─ replace { hostId, revision, state, desynced:false }
+
+patches
+  ├─ 没有已有 state                         ─► desynced
+  ├─ 已有 revision 与 baseRevision 明确不等  ─► desynced
+  ├─ patch 解析/应用失败                     ─► desynced
+  └─ 成功                                   ─► 更新 state/revision
+```
+
+当已有 revision 或 `baseRevision` 任一缺失时，当前 tracker 不会凭空判定 mismatch。若 history/cache 协议要求严格连续性，应在 TermLink 自有 DTO 中增加 source epoch / subscription-cycle barrier，不能假定原始 IPC 永远携带完整 revision。
+
+### 7.7 当前兼容的 history 形状
+
+TermLink 当前同时兼容：
+
+1. legacy `turns[]`；
+2. canonical `turnHistory.history.entitiesByKey + islands`。
+
+canonical history 的 entity key 只用于局部排序/查找。normalized surface 和持久缓存必须优先使用实体内部真实 `turnId`，不能把 local entity key 当作 canonical turn id。
+
 ## 8. TermLink 派生 surface（非 Codex wire DTO）
 
 以下 surface 结构是 TermLink 从 `conversationState` 本地构建的 **派生投影**。它供 Android 客户端实时展示，**不是 Codex wire 契约**。
@@ -296,11 +346,15 @@ interface DesktopSurface {
   revision?: number;
   desynced: boolean;
   ownerKind?: string;
-  status: string;
+  status?: "running" | "completed" | "failed" | "interrupted"
+         | "waiting_for_approval" | "waiting_for_input" | string;
   updatedAt: number;
   title?: string;
   cwd?: string;
   latestTurnId?: string;
+  latestCollaborationMode?: unknown;
+  latestDefaultCollaborationMode?: unknown;
+  currentCodexConfig?: CurrentCodexConfig;
   items: SurfaceItem[];
   activeGoal?: ActiveGoal;
   pendingApproval?: PendingApproval;
@@ -308,61 +362,186 @@ interface DesktopSurface {
   pendingUserInputAction?: PendingUserInputAction;
   pendingGoalAction?: PendingGoalAction;
 }
+
+interface PendingAction {
+  requestId?: string;                  // UI 匹配形式
+  rawRequestId?: string | number;      // 回传 Owner 时使用
+  method?: string;
+  requestMethod?: string;
+  raw?: unknown;
+}
+
+interface CurrentCodexConfig {
+  model?: string;
+  reasoningEffort?: string;
+  approvalPolicy?: string;
+  sandboxMode?: string;
+  approvalsReviewer?: string;
+  permissionProfile?: string;
+}
+
+interface ActiveGoal {
+  threadId?: string;
+  objective?: string;
+  status: string;
+  tokenBudget?: number;
+  tokensUsed?: number;
+  timeUsedSeconds?: number;
+  createdAt?: number;
+  updatedAt?: number;
+  raw: Record<string, unknown>;
+}
+
+interface PendingApproval extends PendingAction {}
+interface PendingPlanAction extends PendingAction {}
+interface PendingUserInputAction extends PendingAction {}
+interface PendingGoalAction extends PendingAction {}
 ```
 
 ### 8.2 SurfaceItem 种类
 
 ```ts
-type SurfaceItemKind = "message" | "plan_prompt" | "goal_prompt" | "approval_request" | "status";
+type SurfaceItem =
+  | { kind: "message"; key: string; role: "user" | "assistant"; text: string; turnId?: string; itemId?: string }
+  | { kind: "plan_prompt" | "goal_prompt"; key: string; text: string; turnId?: string; itemId?: string }
+  | { kind: "approval_request"; key: string; text: string; requestId?: string; rawRequestId?: string | number }
+  | {
+      kind: "status";
+      key: string;
+      statusType: string;
+      text: string;
+      operationType?: string;
+      operationStatus?: string;
+      label?: string;
+      detail?: string;
+      attachments?: Array<{ type: "image"; path?: string; url?: string }>;
+    };
 ```
 
-各 item shape 参考 `buildDesktopSurfaceSnapshot()` 中各 `to*Entry()` 函数的输出。
-Android 侧由此 surface 驱动正文展示与审批/Plan/Goal 交互。
+各 item 的扩展字段参考 `buildDesktopSurfaceSnapshot()` 中各 `to*Entry()` 函数的输出。`key` 可能是 TermLink fallback，`updatedAt` 来自 `Date.now()`；两者均不能无条件作为跨版本 canonical identity/content hash。Android 侧由此 surface 驱动正文展示与审批/Plan/Goal 交互。
 
-## 9. 审批、Plan、Goal、图片在 IPC 通道上的参数
+## 9. follower subscription 生命周期
 
-### 9.1 审批
+固定实时数据流：
+
+```text
+active conversation
+  → gateway follower acquire
+  → CodexIpcFeed desired subscription
+  → thread-stream-following-changed({ conversationId, hostId, following:true })
+  → Codex host 定向 snapshot/patch
+  → Android IPC authority
+```
+
+当前 TermLink 必须保持：
+
+- same-id 重选不重复 acquire；
+- A→B 时释放 A 并 acquire B；
+- WebSocket close / gateway teardown 时 release；
+- 多客户端共享同一 conversation 时，只有最后一个引用释放才发送 `following:false`；
+- IPC 重连并重新 initialize 成功后，重放仍有效的 desired subscriptions；
+- A→B→A 或 owner 切换后的旧 source snapshot 不得写回当前 Android UI。
+
+`thread-stream-following-changed` 是 broadcast，当前 TermLink 发送的 version 为 1，params 为：
+
+```ts
+{
+  conversationId: string;
+  hostId: string;
+  following: boolean;
+}
+```
+
+该生命周期既是实时 authority 前提，也是 history baseline barrier 的前提；baseline/recovery 只能补历史，不能夺取 healthy 当前 subscription cycle 的正文、operation、turn 或运行态权威。
+
+## 10. follower 控制、审批、Plan、Goal 与图片
+
+Follower control method 是发给当前 Owner 的 IPC request。只有当前 Owner 是 TermLink managed app-server 时，gateway 才把它翻译成 app-server JSON-RPC：
+
+| IPC follower method | TermLink Owner 对应处理 |
+|---|---|
+| `thread-follower-start-turn` | `turn/start` |
+| `thread-follower-steer-turn` | `turn/steer` |
+| `thread-follower-interrupt-turn` | `turn/interrupt` |
+| `thread-follower-update-thread-settings` | `thread/settings/update` |
+| `thread-follower-compact-thread` | `thread/compact/start` |
+| approval / user-input response | 对原 app-server server request 发送匹配原始 id 的 JSON-RPC response |
+
+这不是对 Desktop / VS Code Owner 内部实现的全局一对一规定。`thread/read` 仍是独立 app-server recovery API，不属于 follower control。
+
+### 10.1 发起、steer 与中断 turn
+
+普通 follower 输入的最小请求为：
+
+```ts
+{
+  conversationId: string;
+  turnStartParams: {
+    clientUserMessageId: string;
+    input: UserInput[];
+    // cwd/model/effort/collaborationMode/permissions 等为当前实现的可选透传字段
+  };
+}
+```
+
+当前 turn 已结束时使用 `thread-follower-start-turn`。当前 turn 仍为 `running` 时不得重复 start；补充要求应使用 `thread-follower-steer-turn`（`{ conversationId, expectedTurnId, input }`）、对应 user-input request 或 queued follow-up。中断使用 `{ conversationId, turnId? }`，缺省 turn id 只能由同一 authority 的当前 ledger/surface 补齐。
+
+### 10.2 审批
 
 审批通过 `thread-stream-state-changed` surface 中的 `pendingApproval` 表达存在。
 Android 通过以下 IPC request 发送决定（TermLink 作为 follower 路由到 Owner）：
 
 | IPC Method | Version | 关键 params |
 |---|---|---|
-| `thread-follower-command-approval-decision` | 1 | `{ conversationId, requestId, decision, execpolicyAmendment? }` |
+| `thread-follower-command-approval-decision` | 1 | `{ conversationId, requestId: rawRequestId, decision }` |
 | `thread-follower-file-approval-decision` | 1 | `{ conversationId, requestId, decision }` |
 | `thread-follower-permissions-request-approval-response` | 1 | `{ conversationId, requestId, decision }` |
 | `thread-follower-submit-user-input` | 1 | `{ conversationId, requestId, response }` |
 
-`requestId` 来自 surface 中的 `pendingApproval.requestId`、`pendingUserInputAction.requestId` 等字段。
+所有方法的 `requestId` 都必须优先使用 pending action 中的 `rawRequestId: string | number`；字符串化的 `requestId` 只用于 Android/UI 匹配。
 
-### 9.2 Plan
+命令审批中的 execpolicy amendment 位于结构化 `decision` 内，而不是 IPC params 的独立顶层字段：
+
+```ts
+{
+  acceptWithExecpolicyAmendment: {
+    execpolicy_amendment: string[];
+  };
+}
+```
+
+`thread-follower-permissions-request-approval-response` 的 `decision` 是 Owner/Follower 层的控制值；若 Owner 是 TermLink，Owner runtime 再把它转换为 app-server 的 `{ permissions, scope, strictAutoReview? }` response。两层 shape 不可混用。
+
+### 10.3 Plan
 
 Plan 通过 `thread-stream-state-changed` surface 中的两种形式出现：
 
 - `items[].kind === "plan_prompt"`（来自 `ThreadItem::Plan` 或 agentMessage 中的 `<proposed_plan>` 包裹）
 - `pendingPlanAction`（来自 Owner state 中 `requests[]` 的 `item/plan/requestImplementation`）
 
-Plan 发送走 `turn/start`，由 Owner（或 TermLink Owner runtime）转换为 app-server JSON-RPC。不在 IPC 通道上有独立的 Plan API。
+点击实施计划时，IPC follower 先按需要发送 `thread-follower-update-thread-settings` 将 collaboration mode 恢复为 default，再发送 `thread-follower-start-turn`，其 `turnStartParams.input` 包含实施计划提示。只有 TermLink 自己是 Owner 时才由 gateway 转换为 app-server `thread/settings/update` + `turn/start`。IPC 通道没有名为 `turn/start` 的直接方法，也没有独立的 Plan implementation API。
 
-### 9.3 Goal
+只有当前 live surface 中真实存在 `requests[].method === "item/plan/requestImplementation"` 的 pending action 才能提交实施动作；从历史文本重建出的 Plan 不能伪造成 live request。发送成功只表示 Owner 收到，pending 必须等待后续 Owner snapshot 清理。
+
+### 10.4 Goal
 
 Goal 通过 surface 中的两种形式出现：
 
 - `activeGoal`（来自 Owner state 中 `threadGoal` 或 `currentGoal`）
 - `items[].kind === "goal_prompt"`（TermLink 从 `/goal` 前缀或 `<codex_internal_context source="goal">` 的用户消息中识别）
 
-Goal 设置由 TermLink Owner runtime 转换为 `thread/goal/set` JSON-RPC；不在 IPC 通道上有独立的 Goal API。
+TermLink 自己是 Owner 时，Goal 设置由 Owner runtime 转换为 `thread/goal/set` JSON-RPC；外部 Owner 路径则作为 follower intent/turn input 路由。当前外部 Owner IPC 没有已验证的 Goal update/cancel/complete 客户端方法，不得虚构为稳定 IPC API。
 
-### 9.4 图片
+### 10.5 图片
 
 图片出现在 surface `items` 中的两种形式：
 
 - `items[].kind === "status"` 且 `statusType === "image"` 时，`attachments` 包含 `{ type: "image", path?, url? }`
 - 或作为 `userMessage` content 中的 `UserInput::Image` / `UserInput::LocalImage`
 
-图片通过 `turn/start` 的 `input` 数组发送给 Owner（`UserInput` 的 `image` / `localImage` variant）。不在 IPC 通道上有独立的图片上传 API。
+IPC follower 通过 `thread-follower-start-turn.turnStartParams.input` 把图片作为 `UserInput` 的 `image` / `localImage` variant 交给 Owner；TermLink 自己是 Owner 时才转换为 app-server `turn/start.input`。IPC 通道没有独立的图片上传方法。
 
-## 10. 当前文件索引
+## 11. 当前文件索引
 
 | 文件 | 内容 |
 | --- | --- |
@@ -378,6 +557,19 @@ Goal 设置由 TermLink Owner runtime 转换为 `thread/goal/set` JSON-RPC；不
 | `TermLink src/services/codexIpcThreadStream.js` | `ThreadStreamTracker` — snapshot/patch apply；`buildDesktopSurfaceSnapshot` |
 | `TermLink src/services/codexIpcFeed.js` | `CodexIpcFeed` — surface 缓存、event ring、following 管理 |
 | `TermLink src/ws/terminalGateway.js` | Gateway — IPC request handler 注册、Owner 路由 |
+| `Termlink-demo docs/技术文档.md` | 已验证的 owner/follower、发送、Plan、审批与故障经验 |
+| `Termlink-demo logs/codex-ipc/bundle-analysis.md` | 2026-06-11 Extension broker、framing、路由错误与历史 method/version 证据 |
+
+## 12. Codex/Extension 升级核验清单
+
+升级后至少重新核验：
+
+1. IPC endpoint、framing 与大小限制；
+2. `thread-stream-state-changed` version 以及 snapshot/patch shape；
+3. follower subscription method、params 与 reconnect replay；
+4. 所有主动 follower method version、request params 与 approval decision 值域；
+5. `conversationState` 中 legacy/canonical history 与 request shape；
+6. Desktop 与 VS Code 分别执行长任务、审批、Plan、断线重连和 A→B→A smoke。
 
 ---
 
