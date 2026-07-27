@@ -58,6 +58,8 @@ TermLink 当前默认值：
 
 TermLink 可用 `TERMLINK_CODEX_IPC_PIPE_PATH` 覆盖端点。连接使用 raw stream socket，不做 WebSocket upgrade。
 
+> **上游实际路径**（来自 `codex-rs/tui/src/ide_context/ipc.rs`）：Codex TUI 在 Unix 上的首选路径是 `$CODEX_HOME/ipc/ipc.sock`（见 `primary_ipc_socket_path()`）。`/tmp/codex-ipc/ipc.sock` 和 `/tmp/codex-ipc/ipc-<uid>.sock` 是旧版兼容路径（见 `legacy_ipc_socket_paths()`）。TermLink 当前使用的默认 Unix 路径 `/tmp/codex-ipc/ipc.sock` 与遗留路径一致，但不是上游首选的 `$CODEX_HOME` 路径。Windows named pipe `\\.\pipe\codex-ipc` 与上游一致。
+
 ### 3.2 帧格式
 
 ```text
@@ -215,7 +217,17 @@ method version mismatch 的具体 broker 错误字符串未由开源 Codex 定�
 
 ## 7. `thread-stream-state-changed`
 
-### 7.1 TermLink 实际消费的最小形状
+### 7.1 归属
+
+`thread-stream-state-changed` 是 **Codex IPC broker/Owner 发出的 broadcast**。
+
+它**不是**：
+- app-server 的 JSON-RPC notification（app-server 公开 schema 中没有此方法）
+- TermLink 对 app-server WebSocket 事件重新包装后的产物
+
+TermLink `CodexIpcFeed._onClientBroadcast()` 消费 IPC 通道上的 `thread-stream-state-changed` message。Feed 不对该消息做协议层重组——它解析原始 payload 中的 `conversationId`、`change.type`、`revision` 等字段，将 patches 应用到本地 tracker state，再从中构建派生 surface。
+
+### 7.2 TermLink 实际消费的最小形状
 
 ```ts
 interface ThreadStreamStateChanged {
@@ -250,38 +262,33 @@ interface IpcPatch {
 }
 ```
 
-TermLink 为兼容不同宿主，会递归查找 `conversationId`、`conversation_id`、`threadId` 或 `thread_id`。这是一项容错策略，不表示四个字段都是规范同义字段。
+### 7.3 `revision` 的有效范围
 
-`path` 是 token 数组；TermLink 的 patch applicator 不是通用 RFC 6902 实现。目前只处理 `add`、`remove`、`replace`，因此本文不把它标成“完整 RFC 6902”。
+`revision` 只能在**同一订阅/连接来源周期 (source epoch)** 内比较。当前 wire 没有稳定的 `sourceEpoch` 字段，因此跨重连或跨 Owner 切换后的 revision 不能作为全局单调序列。实施计划中新增 `sourceEpoch` 正是为了解决这一局限。
 
-### 7.2 tracker 状态机
+### 7.4 Patch 格式警告
 
-```text
-snapshot
-  └─ deep-clone conversationState
-     └─ replace { hostId, revision, state, desynced:false }
+TermLink 当前只实现 `add`、`remove`、`replace` 三种操作。path 使用字符串/数字 token 数组，不是 RFC 6902 定义的 `/` 分隔 JSON Pointer 字符串。这是自定义/受限 patch dialect，不应以 "JSON Patch (RFC 6902)" 描述。
 
-patches
-  ├─ 没有已有 state                         ─► desynced
-  ├─ 已有 revision 与 baseRevision 明确不等  ─► desynced
-  ├─ patch 解析/应用失败                     ─► desynced
-  └─ 成功                                   ─► 更新 state/revision
-```
+### 7.5 `conversationState` 的性质
 
-注意：当任一侧 revision 缺失时，当前实现不会凭空判 mismatch。缓存协议若要求严格连续性，必须在 TermLink 新 DTO 中显式定义，不能假定原 IPC 永远携带 revision。
+`conversationState` 是 **Owner surface 的不透明状态树**。TermLink 从中提取 turns、items、requests、threadGoal 等子树以构建 surface，但整个对象的 schema 和版本由 Owner 定义。它不能直接等价于 app-server 的 `Thread`/`Turn`/`ThreadItem` DTO，也不是 `ThreadHistoryBuilder.finish()` 的输出。
 
-### 7.3 `conversationState` 的两种 history 形状
+## 8. TermLink 派生 surface（非 Codex wire DTO）
 
-TermLink 当前兼容：
+以下 surface 结构是 TermLink 从 `conversationState` 本地构建的 **派生投影**。它供 Android 客户端实时展示，**不是 Codex wire 契约**。
 
-1. legacy `turns[]`；
-2. canonical `turnHistory.history.entitiesByKey + islands`。
+关键派生记号：
 
-当两者同时存在时，先按 canonical islands / entity key 排序，再用实体内部真实 `turnId` 与 legacy turns 合并。`entitiesByKey` 的局部 key 不能作为持久 `turnId` 或缓存主键。
+- `updatedAt`：来自 `Date.now()`，不是 Codex 时间戳
+- `key` 字段：可能由 TermLink 合成 fallback（`${turnId}:${itemType}:${seq}`）
+- `status`：由 TermLink 本地推断（合并 `threadRuntimeStatus` 和 `turns[]` 状态）
+- `pending*` 字段：TermLink 归一化后的 pending action 表示
+- `items[]`：同时合并 legacy `turns[]` 和 canonical `turnHistory.history`，由 TermLink 排序/去重
 
-## 8. TermLink normalized surface
+参见 `src/services/codexIpcThreadStream.js::buildDesktopSurfaceSnapshot()`。
 
-`buildDesktopSurfaceSnapshot()` 将不透明 Owner state 投影为 Android 所需 DTO。该 DTO 是 TermLink 契约：
+### 8.1 Surface 顶层
 
 ```ts
 interface DesktopSurface {
@@ -289,145 +296,89 @@ interface DesktopSurface {
   revision?: number;
   desynced: boolean;
   ownerKind?: string;
-  status?: "running" | "completed" | "failed" | "interrupted"
-         | "waiting_for_approval" | "waiting_for_input" | string;
-  updatedAt: number; // TermLink 本地投影时间，不是 canonical event time
+  status: string;
+  updatedAt: number;
   title?: string;
   cwd?: string;
   latestTurnId?: string;
-  latestCollaborationMode?: unknown;
-  latestDefaultCollaborationMode?: unknown;
-  currentCodexConfig?: CurrentCodexConfig;
   items: SurfaceItem[];
-  activeGoal?: unknown;
-  pendingApproval?: PendingAction;
-  pendingPlanAction?: PendingAction;
-  pendingUserInputAction?: PendingAction;
-  pendingGoalAction?: PendingAction;
+  activeGoal?: ActiveGoal;
+  pendingApproval?: PendingApproval;
+  pendingPlanAction?: PendingPlanAction;
+  pendingUserInputAction?: PendingUserInputAction;
+  pendingGoalAction?: PendingGoalAction;
 }
-
-type SurfaceItem =
-  | { kind: "message"; key: string; role: "user" | "assistant"; text: string; turnId?: string; itemId?: string }
-  | { kind: "plan_prompt" | "goal_prompt"; key: string; text: string; turnId?: string; itemId?: string }
-  | { kind: "approval_request"; key: string; text: string; rawRequestId?: string | number }
-  | { kind: "status"; key: string; statusType: string; text: string };
 ```
 
-字段语义：
+### 8.2 SurfaceItem 种类
 
-- `items[].key` 是当前 UI reducer key；只有存在 Codex `itemId` 时才适合直接作为历史 identity。
-- fallback key 可能由 turn、类型、文本片段和顺序拼成，不能无条件当作跨版本 canonical key。
-- `updatedAt` 来自 `Date.now()`，每次重建都会变化，禁止进入 canonical content hash。
-- `raw`、`params`、operation detail 等字段可能很大；实施 history cache 时应 canonicalize 并只保留展示必需字段。
-- `rawRequestId` 保留 JSON-RPC request id 的原始 `string | number` 类型；响应 pending action 时不能用显示层字符串替代它。
-
-状态仲裁顺序与冻结契约一致：pending approval、pending user input、`threadRuntimeStatus=active`、plan/goal waiting、最后 turn 状态。`threadRuntimeStatus=idle` 不能被历史残留的 `inProgress` 重新覆盖为 running。
-
-## 9. follower subscription 生命周期
-
-固定数据流：
-
-```text
-active conversation
-  → gateway follower acquire
-  → CodexIpcFeed desired subscription
-  → thread-stream-following-changed(following=true)
-  → Owner 定向 snapshot/patch
-  → Android IPC authority
+```ts
+type SurfaceItemKind = "message" | "plan_prompt" | "goal_prompt" | "approval_request" | "status";
 ```
 
-必须保持：
+各 item shape 参考 `buildDesktopSurfaceSnapshot()` 中各 `to*Entry()` 函数的输出。
+Android 侧由此 surface 驱动正文展示与审批/Plan/Goal 交互。
 
-- same-id 重选不重复 acquire；
-- A→B 先释放 A，再 acquire B；
-- WebSocket close / gateway teardown release；
-- 多 client 引用计数到零才发送 `following=false`；
-- IPC 重连 initialize 成功后重放 desired subscriptions；
-- A→B→A 的旧 snapshot 不能写回当前 Android UI。
+## 9. 审批、Plan、Goal、图片在 IPC 通道上的参数
 
-这也是 history baseline barrier 的前置条件：baseline 只补历史，不能夺取 healthy 当前 subscription cycle 的实时 authority。
+### 9.1 审批
 
-## 10. IPC control 与 app-server request 的关系
+审批通过 `thread-stream-state-changed` surface 中的 `pendingApproval` 表达存在。
+Android 通过以下 IPC request 发送决定（TermLink 作为 follower 路由到 Owner）：
 
-Follower control method 是交给当前 Owner 的 IPC request。若 Owner 是 TermLink，gateway 才可能把它翻译为 app-server JSON-RPC，例如：
+| IPC Method | Version | 关键 params |
+|---|---|---|
+| `thread-follower-command-approval-decision` | 1 | `{ conversationId, requestId, decision, execpolicyAmendment? }` |
+| `thread-follower-file-approval-decision` | 1 | `{ conversationId, requestId, decision }` |
+| `thread-follower-permissions-request-approval-response` | 1 | `{ conversationId, requestId, decision }` |
+| `thread-follower-submit-user-input` | 1 | `{ conversationId, requestId, response }` |
 
-| IPC follower method | TermLink Owner 可能调用的 app-server method |
-|---|---|
-| `thread-follower-start-turn` | `turn/start` |
-| `thread-follower-steer-turn` | `turn/steer` |
-| `thread-follower-interrupt-turn` | `turn/interrupt` |
-| `thread-follower-update-thread-settings` | `thread/settings/update` |
-| `thread-follower-compact-thread` | `thread/compact/start` |
-| approval / user-input response | 对原 app-server server request 发送 JSON-RPC response |
+`requestId` 来自 surface 中的 `pendingApproval.requestId`、`pendingUserInputAction.requestId` 等字段。
 
-这不是协议层的一对一全局映射：Desktop / VS Code Owner 可以使用自己的内部执行路径。`thread/read` 仍是独立 app-server recovery API。
+### 9.2 Plan
 
-## 11. 对 memory/history cache 计划的直接约束
+Plan 通过 `thread-stream-state-changed` surface 中的两种形式出现：
 
-### 11.1 当前可确认事实
+- `items[].kind === "plan_prompt"`（来自 `ThreadItem::Plan` 或 agentMessage 中的 `<proposed_plan>` 包裹）
+- `pendingPlanAction`（来自 Owner state 中 `requests[]` 的 `item/plan/requestImplementation`）
 
-- snapshot 含完整 `conversationState`，长会话体积会随 history 增长。
-- patches 必须依赖对应 conversation 的已知 base state。
-- normalized surface 当前也是完整 `items[]` 投影。
-- 同一 raw state、normalized surface、gateway envelope 若被多 ring/cache 同时保留，会形成显著对象放大。
-- `revision` 只应在同一来源周期内比较；当前 wire 没有一个可由 TermLink 永久信任的 `sourceEpoch` 字段。
+Plan 发送走 `turn/start`，由 Owner（或 TermLink Owner runtime）转换为 app-server JSON-RPC。不在 IPC 通道上有独立的 Plan API。
 
-### 11.2 计划必须新增、而非假装已有的字段
+### 9.3 Goal
 
-以下均是 TermLink history sync v1 的设计字段，不是当前 Codex IPC wire：
+Goal 通过 surface 中的两种形式出现：
 
-- `sourceEpoch`；
-- subscription-cycle token / barrier；
-- canonical item payload/hash/root；
-- history manifest/delta/ack；
-- Android SQLite checkpoint；
-- media SHA-256 URL。
+- `activeGoal`（来自 Owner state 中 `threadGoal` 或 `currentGoal`）
+- `items[].kind === "goal_prompt"`（TermLink 从 `/goal` 前缀或 `<codex_internal_context source="goal">` 的用户消息中识别）
 
-新字段必须放在 TermLink WebSocket/history DTO 中并做 capability negotiation；不要修改、包裹或重新解释 Codex IPC 原始 frame。
+Goal 设置由 TermLink Owner runtime 转换为 `thread/goal/set` JSON-RPC；不在 IPC 通道上有独立的 Goal API。
 
-### 11.3 canonicalization 禁区
+### 9.4 图片
 
-不得进入稳定 content hash：
+图片出现在 surface `items` 中的两种形式：
 
-- `updatedAt`、接收时间、sequence；
-- raw surface 的临时 local entity key；
-- pending request id；
-- source client id、host id、source epoch、subscription cycle；
-- 仅用于 UI 的 fallback `items[].key`。
+- `items[].kind === "status"` 且 `statusType === "image"` 时，`attachments` 包含 `{ type: "image", path?, url? }`
+- 或作为 `userMessage` content 中的 `UserInput::Image` / `UserInput::LocalImage`
 
-优先 identity：真实 `conversationId` → 真实 `turnId` → 真实 `itemId`。缺少真实 item id 的 provisional item 必须显式标记，并允许后续由 `clientUserMessageId` 或 canonical item 收敛。
+图片通过 `turn/start` 的 `input` 数组发送给 Owner（`UserInput` 的 `image` / `localImage` variant）。不在 IPC 通道上有独立的图片上传 API。
 
-## 12. 核验索引
+## 10. 当前文件索引
 
-### Codex 源码
+| 文件 | 内容 |
+| --- | --- |
+| `codex-rs/tui/src/ide_context/ipc.rs` | 上游 TUI IPC transport — frame size, socket paths, 连接逻辑 |
+| `codex-rs/app-server/README.md` | app-server 官方 README — transport、initialize 流程、API 概览 |
+| `codex-rs/app-server-protocol/schema/typescript/ServerNotification.ts` | 生成的完整 notification method union |
+| `codex-rs/app-server-protocol/schema/typescript/ClientRequest.ts` | 生成的完整 client→server request method union |
+| `codex-rs/app-server-protocol/schema/typescript/ServerRequest.ts` | 生成的完整 server→client request method union |
+| `TermLink src/services/codexIpcTransport.js` | Windows named pipe / Unix socket 建立 |
+| `TermLink src/services/codexIpcCodec.js` | 帧编解码, length-prefix framing |
+| `TermLink src/services/codexIpcConfig.js` | `TERMLINK_CODEX_IPC_*` 环境变量解析 |
+| `TermLink src/services/codexIpcClient.js` | IPC client — connect/initialize/sendRequest/sendBroadcast/路由；`KNOWN_METHOD_VERSIONS` |
+| `TermLink src/services/codexIpcThreadStream.js` | `ThreadStreamTracker` — snapshot/patch apply；`buildDesktopSurfaceSnapshot` |
+| `TermLink src/services/codexIpcFeed.js` | `CodexIpcFeed` — surface 缓存、event ring、following 管理 |
+| `TermLink src/ws/terminalGateway.js` | Gateway — IPC request handler 注册、Owner 路由 |
 
-| 文件 | 已核验事实 |
-|---|---|
-| `codex-rs/tui/src/ide_context/ipc.rs` | endpoint、4-byte LE framing、request/response/broadcast/discovery、negative ack、`thread-stream-state-changed` 样例 |
-| `codex-rs/app-server/README.md` | app-server JSON-RPC、传输、initialize/initialized、thread/turn API |
-| `codex-rs/app-server-protocol/src/protocol/v2/**` | app-server DTO；不定义本 IPC surface |
+---
 
-### TermLink 源码
-
-| 文件 | 已核验事实 |
-|---|---|
-| `src/services/codexIpcCodec.js` | framing 与本地大小限制 |
-| `src/services/codexIpcTransport.js` | raw named pipe / Unix socket transport |
-| `src/services/codexIpcConfig.js` | 环境变量与 active-send gate |
-| `src/services/codexIpcClient.js` | envelope、initialize、method versions、request routing |
-| `src/services/codexIpcThreadStream.js` | snapshot/patch tracker、legacy/canonical history 兼容、normalized surface |
-| `src/services/codexIpcFeed.js` | desired subscription、reconnect replay、surface/event caches |
-| `src/ws/terminalGateway.js` | follower acquire/release、Owner translation、Android WebSocket DTO |
-
-## 13. 升级核验清单
-
-Codex 升级后至少重新核验：
-
-1. framing 与 endpoint 是否改变；
-2. `thread-stream-state-changed` version 和 snapshot/patch shape；
-3. canonical `turnHistory` 结构及实体内 `turnId`；
-4. follower method versions 与 approval decision 值域；
-5. app-server 生成 schema 中 thread/read、pagination、UserInput 变化；
-6. Desktop 与 VS Code 各做长任务、断线重连和 A→B→A smoke。
-
-本文不把观测到的 IPC 方法写成上游稳定保证；发生不兼容时应做最小适配，并保持现有 authority/follower 架构不变。
+> 本文以 Codex 开源仓库和 TermLink 当前源码为共同基线，明确区分了上游 wire 事实、TermLink 兼容快照和派生 surface 三层内容。

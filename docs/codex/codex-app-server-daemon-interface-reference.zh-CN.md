@@ -140,7 +140,7 @@ Unix Domain Socket
 CODEX_HOME/app-server-daemon/
 ```
 
-公开约定文件：
+当前实现会使用以下文件（daemon 整体标记为 experimental，这些文件是当前实现状态，不是稳定第三方协议约定）：
 
 | 文件 | 用途 |
 |---|---|
@@ -955,7 +955,7 @@ JSON：
 }
 ```
 
-`expiresAt` 的单位在该 daemon crate 中没有额外说明，应以对应版本 App Server 协议为准。
+`expiresAt` 为 Unix 秒时间戳（参见 `app-server/README.md` 的 Remote Control 部分）。
 
 ---
 
@@ -1747,6 +1747,8 @@ Plan、用户提问、审批、Goal、Thread、Turn 等均属于完整 App Serve
 
 ## 20.4 对 TermLink / Owner Surface 的边界
 
+> **注意**：以下为建议性分层架构，不是当前 TermLink 事实拓扑。TermLink 当前的冻结实时链路是 Owner/Follower IPC surface；daemon 不在现有实时 authority 数据流中。此图描述的是一个可选的未来进程管理集成方向。
+
 推荐边界：
 
 ```text
@@ -1847,10 +1849,12 @@ Owner/Follower IPC
 Surface 缓存
 ```
 
-对 TermLink 等第三方 Surface，正确接入方式是：
+对 TermLink 等第三方 Surface，一种建议性分层思路是：
 
 ```text
 daemon 管进程
 app-server 管会话
 codex-ipc adapter 管 Surface 协同
 ```
+
+此分层是建议性的架构方向，不是 Codex 上游保证的稳定集成契约，也不是 TermLink 当前已经完整采用的拓扑。TermLink 现有实时链路直接通过 Owner/Follower IPC 工作，不依赖 daemon 层。若未来引入 daemon 作为进程管理入口，应在保持当前实时数据流不变的前提下增加。
