@@ -59,7 +59,11 @@ TermLink 当前默认值：
 
 TermLink 可用 `TERMLINK_CODEX_IPC_PIPE_PATH` 覆盖端点。连接使用 raw stream socket，不做 WebSocket upgrade。
 
-> **上游实际路径**（来自 `codex-rs/tui/src/ide_context/ipc.rs`）：Codex TUI 在 Unix 上的首选路径是 `$CODEX_HOME/ipc/ipc.sock`（见 `primary_ipc_socket_path()`）。`/tmp/codex-ipc/ipc.sock` 和 `/tmp/codex-ipc/ipc-<uid>.sock` 是旧版兼容路径（见 `legacy_ipc_socket_paths()`）。TermLink 当前使用的默认 Unix 路径 `/tmp/codex-ipc/ipc.sock` 与遗留路径一致，但不是上游首选的 `$CODEX_HOME` 路径。Windows named pipe `\\.\pipe\codex-ipc` 与上游一致。
+> **上游实际路径**（来自 `codex-rs/tui/src/ide_context/ipc.rs`）：Codex TUI 在 Unix 上的首选路径是 `$CODEX_HOME/ipc/ipc.sock`（见 `primary_ipc_socket_path()`）。Legacy 路径按 uid 区分：
+> - `uid == 0`（root）：候选为 `/tmp/codex-ipc/ipc.sock` 和 `/tmp/codex-ipc/ipc-0.sock`
+> - 非 root：候选**只有** `/tmp/codex-ipc/ipc-<uid>.sock`（没有不带 uid 后缀的 plain `ipc.sock`）
+>
+> TermLink 当前固定使用 `/tmp/codex-ipc/ipc.sock`（见 `src/services/codexIpcTransport.js:8`）。因此在非 root Unix 环境，TermLink 不仅没有使用上游首选路径，甚至不匹配上游的 legacy 候选。Windows named pipe `\\.\pipe\codex-ipc` 与上游一致。
 
 ### 3.2 帧格式
 
@@ -291,9 +295,22 @@ interface IpcPatch {
 
 `revision` 只能在**同一订阅/连接来源周期 (source epoch)** 内比较。当前 wire 没有稳定的 `sourceEpoch` 字段，因此跨重连或跨 Owner 切换后的 revision 不能作为全局单调序列。实施计划中新增 `sourceEpoch` 正是为了解决这一局限。
 
-### 7.4 Patch 格式警告
+### 7.4 Patch 格式与失败语义
 
-TermLink 当前只实现 `add`、`remove`、`replace` 三种操作。path 使用字符串/数字 token 数组，不是 RFC 6902 定义的 `/` 分隔 JSON Pointer 字符串。这是自定义/受限 patch dialect，不应以 "JSON Patch (RFC 6902)" 描述。
+**patch 解析/验证** (`asPatchList()`)：
+- 不支持的 `op`（非 `add`/`remove`/`replace`）→ 该 patch 被静默丢弃
+- 非法 `path`（非数组）→ 该 patch 被静默丢弃
+- 目标 `op` 缺少 `value` → 该 patch 被静默丢弃
+- 如果**全部** patch 都被丢弃，`asPatchList()` 返回 `undefined`（patchList 为空）
+- tracker 在 `patchList === undefined` 时：**仍接受新 revision**，保持 `desynced: false`，但**状态未应用任何变化**
+
+**patch 应用** (`applyPatches()`)：
+- 只有 `patchList` 非空且经 `asPatchList()` 洗白成功的 patch 才会进入 `applyPatches()`
+- `applyPatches()` 内部抛出异常（如 patch 结果不是 object）→ 设置 `desynced: true`，且**保留旧 state（不更新为新 revision）**
+
+参见 `src/services/codexIpcThreadStream.js:63-74` 和 `src/services/codexIpcThreadStream.js:185-196`。
+
+> **对 history/cache 实施的影响**：当前实现存在"revision 前进但状态未应用"的静默缺口——全部 patch 被丢弃时，tracker 接受新 revision 而不报 desynced。实施缓存时不能依赖 tracker 的 `desynced` 作为 fail-closed 保证。
 
 ### 7.5 `conversationState` 的性质
 
@@ -322,7 +339,7 @@ TermLink 当前同时兼容：
 1. legacy `turns[]`；
 2. canonical `turnHistory.history.entitiesByKey + islands`。
 
-canonical history 的 entity key 只用于局部排序/查找。normalized surface 和持久缓存必须优先使用实体内部真实 `turnId`，不能把 local entity key 当作 canonical turn id。
+canonical history 的 entity key 只用于按来源顺序遍历和去重：islands[].entries 先顺序加入，再补 Object.keys(entitiesByKey) 中未出现的 key；不基于时间/turnId/entity key 做全局排序。normalized surface 和持久缓存必须优先使用实体内部真实 `turnId`，不能把 local entity key 当作 canonical turn id。
 
 ## 8. TermLink 派生 surface（非 Codex wire DTO）
 
@@ -334,7 +351,7 @@ canonical history 的 entity key 只用于局部排序/查找。normalized surfa
 - `key` 字段：可能由 TermLink 合成 fallback（`${turnId}:${itemType}:${seq}`）
 - `status`：由 TermLink 本地推断（合并 `threadRuntimeStatus` 和 `turns[]` 状态）
 - `pending*` 字段：TermLink 归一化后的 pending action 表示
-- `items[]`：同时合并 legacy `turns[]` 和 canonical `turnHistory.history`，由 TermLink 排序/去重
+- `items[]`：同时合并 legacy `turns[]` 和 canonical `turnHistory.history`，按 turnId 覆盖或追加（不基于时间/实体 key 做全局排序）
 
 参见 `src/services/codexIpcThreadStream.js::buildDesktopSurfaceSnapshot()`。
 

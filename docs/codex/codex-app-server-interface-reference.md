@@ -38,7 +38,7 @@ struct JSONRPCRequest {
 ### 1.2 连接流程
 
 1. **Client → Server**: `initialize` request (`clientInfo` + `capabilities`)
-2. **Server → Client**: `initialize` response (`user_agent`, `codex_home`, `platform_family`, `platform_os`)
+2. **Server → Client**: `initialize` response (`userAgent`, `codexHome`, `platformFamily`, `platformOs`)
 3. **Client → Server**: `initialized` notification（必需！在此之前的任何其他请求会被拒绝）
 
 来自 [README.md](E:\coding\github\codex\codex-rs\app-server\README.md)："Immediately after opening a transport connection, send an `initialize` request with your client metadata, then emit an `initialized` notification. Any other request on that connection before this handshake gets rejected."
@@ -56,7 +56,7 @@ struct JSONRPCRequest {
 
 HTTP `/readyz`、`/healthz` 端点是 `--listen ws://` 模式下的基本健康探针，不是 RPC transport。
 
-> **对 TermLink 的关键边界**：`codex-app-server-daemon` 是 app-server 的生命周期管理器。TermLink 当前的 Owner/Follower IPC 实时链路 **不经过** daemon——它直接使用 Codex IPC broker（Windows named pipe / Unix socket）。TermLink 作为 Owner 时通过 app-server JSON-RPC（stdio 或 Unix socket WebSocket）调用 `thread/read`、`turn/start` 等 RPC。
+> **对 TermLink 的关键边界**：`codex-app-server-daemon` 是 app-server 的生命周期管理器。TermLink 当前的 Owner/Follower IPC 实时链路 **不经过** daemon——它直接使用 Codex IPC broker（Windows named pipe / Unix socket）。TermLink 当作为 Owner 并通过 app-server JSON-RPC 调用 `thread/read`、`turn/start` 等 RPC 时，当前 managed Owner 实现**只使用 `--listen stdio://`**（见 `src/services/codexAppServerService.js:156`）。Unix socket 是 Codex app-server 上游支持的能力/未来可选路径，不是当前 TermLink Owner transport 事实。
 
 ---
 
@@ -216,7 +216,7 @@ interface ThreadForkParams {
 interface ThreadListParams {
   cursor?: string | null;
   limit?: number | null;
-  sortKey?: "createdAt" | "updatedAt" | "recencyAt" | null;
+  sortKey?: "created_at" | "updated_at" | "recency_at" | null;
   sortDirection?: "asc" | "desc" | null;
   modelProviders?: string[] | null;
   sourceKinds?: ThreadSourceKind[] | null;
@@ -360,9 +360,9 @@ interface TurnStartParams {
   approvalPolicy?: AskForApproval | null;
   approvalsReviewer?: ApprovalsReviewer | null;
   sandboxPolicy?: SandboxPolicy | null;
-  permissions?: string | null;
+  permissions?: string | null;              // experimental
   personality?: Personality | null;
-  collaborationMode?: CollaborationMode | null;
+  collaborationMode?: CollaborationMode | null;  // experimental
   environments?: TurnEnvironmentParams[] | null; // experimental
 }
 ```
@@ -457,9 +457,9 @@ type ThreadItem =
 | `thread/unarchived` | `{ threadId }` | 取消归档 |
 | `thread/closed` | `{ threadId }` | 线程关闭 |
 | `thread/name/updated` | `{ threadId, threadName? }` | 标题改变 |
-| `thread/goal/updated` | `{ threadId, turnId: string \| null, goal }` | Goal 更新 |
+| `thread/goal/updated` | `{ threadId, turnId?: string \| null, goal }` | Goal 更新 |
 | `thread/goal/cleared` | `{ threadId }` | Goal 清除 |
-| `thread/settings/updated` | `{ threadId, threadSettings }` | 线程设置改变 |
+| `thread/settings/updated` | `{ threadId, threadSettings }` | 线程设置改变（experimental） |
 | `thread/tokenUsage/updated` | `{ threadId, turnId, tokenUsage }` | Token 用量更新 |
 
 ### 6.2 Turn 生命周期
@@ -497,6 +497,8 @@ type ThreadItem =
 
 以下交互是 **server→client JSON-RPC request**（带 id），不是 notification。客户端通过返回匹配 id 的 JSON-RPC response 来响应。
 
+> **稳定与实验边界**：`item/commandExecution/requestApproval` 和 `item/fileChange/requestApproval` 是当前稳定审批接口。`item/tool/requestUserInput` 及其 params/response 类型标记为 **experimental**（参见 `codex-rs/app-server-protocol/src/protocol/v2/item.rs:1628`），不应与稳定审批接口混为一谈；stable-only 客户端不应依赖其 schema 或行为。
+
 `RequestId` 的 wire 类型是 `string | number`。客户端可以额外保存字符串化 ID 供 UI 匹配，但 response 的 `id` 必须原样使用收到的原始类型；不能把 numeric id 转成字符串后回传。
 
 ```typescript
@@ -504,7 +506,7 @@ type ThreadItem =
 type ServerRequest =
   | { method: "item/commandExecution/requestApproval"; id: RequestId; params: CommandExecutionRequestApprovalParams }
   | { method: "item/fileChange/requestApproval";       id: RequestId; params: FileChangeRequestApprovalParams }
-  | { method: "item/tool/requestUserInput";            id: RequestId; params: ToolRequestUserInputParams }
+  | { method: "item/tool/requestUserInput";            id: RequestId; params: ToolRequestUserInputParams }  // experimental
   | { method: "item/permissions/requestApproval";      id: RequestId; params: PermissionsRequestApprovalParams }
   | { method: "item/tool/call";                        id: RequestId; params: DynamicToolCallParams }
   | // ... mcpServer/elicitation/request, attestation/generate, 等
@@ -655,7 +657,9 @@ type AskForApproval =
 ### 8.3 ApprovalsReviewer
 
 ```typescript
-type ApprovalsReviewer = "user" | "auto_review";  // "guardian_subagent" 是 auto_review 的兼容别名
+// 精确生成的 wire 类型（来自 schema/typescript/v2/ApprovalsReviewer.ts）:
+type ApprovalsReviewer = "user" | "auto_review" | "guardian_subagent";
+// "guardian_subagent" 是 "auto_review" 的兼容输入别名；新客户端应发送 "auto_review"
 ```
 
 `guardian_subagent` 是反序列化兼容输入；新客户端应发送 canonical 值 `auto_review`。
