@@ -1,4 +1,4 @@
-# Codex 长会话内存、背压与 Android 历史缓存实施计划
+﻿# Codex 长会话内存、背压与 Android 历史缓存实施计划
 
 > 文档用途：直接交给 GPT-5.6 Luna 按步骤实施。
 >
@@ -308,17 +308,34 @@ tracker.applyBroadcast(message, {
 })
 ```
 
-5. tracker 必须在修改内部 state 前执行以下门禁：
-   - entry 不存在：
-     - snapshot：接受并建立 epoch baseline；
-     - patches：不套用，不建立可继续应用 patch 的假 baseline，只返回 `desynced=true` 信号。
-   - entry 属于同一 connection/epoch，且同名 identity 字段无明确冲突：
-     - `revision <= entry.revision`：返回 `ignored=true`，不能修改 state/revision；
-     - snapshot：以较新 revision 完整替换；
-     - patches：仅当 `baseRevision == entry.revision` 才应用，否则只标记 desynced，不修改旧 state。
-   - connection generation 不同，或同名 identity 字段明确冲突：
-      - snapshot：作为新 epoch baseline 完整替换；
-      - patches：不能应用到旧 epoch state；保留原 entry 的 state、epoch、revision 完全不变，只返回 desynced 信号并等待新 epoch snapshot。
+5. tracker 必须在修改内部 state 前执行以下门禁。revision 和 baseRevision 在 wire 上均为可选字段，代码不能假设它们总是存在：
+	   a. revision/baseRevision 的类型判定：
+	      - 只有 `typeof revision === 'number' && Number.isFinite(revision)` 才视为有效 revision；
+	      - 只有 `typeof baseRevision === 'number' && Number.isFinite(baseRevision)` 才视为有效 baseRevision；
+	      - 不满足条件视为「缺失」。
+	   b. entry 不存在：
+	      - snapshot：接受并建立 epoch baseline。保存 revision 时若 revision 有效则 `revisionKnown=true`；缺失则 `revisionKnown=false`。revision 缺失时不与旧 revision 比较，也不能作为后续 patch 的 baseRevision 基准。
+	      - patches：不套用，不建立可继续应用 patch 的假 baseline，只返回 `desynced=true` 信号。
+	   c. entry 属于同一 connection/epoch，且同名 identity 字段无明确冲突：
+	      - revision 有效且 `entry.revisionKnown === true` 且 `revision <= entry.revision`：返回 `ignored=true`，不能修改 state/revision。
+	      - snapshot：以较新 revision 完整替换。revision 缺失时仍接受（snapshot 自包含基线），设为 `revisionKnown=false`。
+	      - patches：必须同时满足以下全部条件才可应用：
+	        1. revision 有效；
+	        2. baseRevision 有效；
+	        3. `entry.revisionKnown === true`；
+	        4. `baseRevision === entry.revision`；
+	        5. `revision > entry.revision`。
+	        任一条件不满足：拒绝 patch，不修改旧 state、epoch 和 revision，标记 desynced，等待下一份完整 snapshot。不得用 `thread/read`、轮询或旧 surface 猜测补齐 revision。
+	   d. connection generation 不同，或同名 identity 字段明确冲突：
+	      - snapshot：作为新 epoch baseline 完整替换。revision 有效则 `revisionKnown=true`，否则 `false`。
+	      - patches：不能应用到旧 epoch state；保留原 entry 的 state、epoch、revision 完全不变，只返回 desynced 信号并等待新 epoch snapshot。
+	   e. tracker entry 增加内部字段：
+	      ```js
+	      {
+	          revisionKnown: boolean  // true: revision 有效且可用于后续 patch 比较
+	      }
+	      ```
+	      该字段不暴露给 Gateway 或 Android。
 6. 不引入 `pendingEpoch`、`pendingRevision` 或第二份 tracker state。epoch 不同的 patch 直接拒绝，不能为后续 patch 创建任何可应用基础。
 7. tracker 返回 `ignored=true` 时，Feed 不构造 surface、不写 cache、不 emit event/status。
 8. tracker 返回 `desynced=true` 且 `stateChanged=false` 时：
@@ -806,6 +823,11 @@ maxWsBufferedBytes
 15. patch 在 entry 已知的同名 `sourceClientId` 或 `hostId` 上明确冲突时被拒绝，且不能修改旧 state/epoch/revision。
 16. 同一 connection 中 identity 从缺失变为可用时只补充 identity，不把 `unknown` 当成旧 Owner。
 17. IPC reconnect 增加 connection generation；旧连接迟到 patch 不能套用到新连接 baseline。
+	18. snapshot 缺少 revision：接受并建立 baseline，`revisionKnown=false`。
+	19. patch 缺少 revision：拒绝 patch，标记 desynced，不修改旧 state/epoch/revision。
+	20. patch 缺少 baseRevision：拒绝 patch，标记 desynced，不修改旧 state/epoch/revision。
+	21. revision 为非数字（`null`/`undefined`/`"abc"`/`NaN`）：视为缺失，按对应 change type 规则处理。
+	22. `entry.revisionKnown=true` 时：`baseRevision === entry.revision` 且 `revision > entry.revision` 的正常 patch 成功应用。
 
 ### 10.2 Scheduler tests
 
@@ -1146,6 +1168,7 @@ CREATE TABLE sync_pages (
     sync_id TEXT NOT NULL,
     sequence INTEGER NOT NULL,
     page_index INTEGER NOT NULL,
+    page_hash TEXT NOT NULL,
     received_at INTEGER NOT NULL,
     PRIMARY KEY (sync_id, sequence, page_index)
 );
@@ -1357,6 +1380,42 @@ Server → Android：
 - `baselineComplete` 表示本次 canonical baseline 是否允许生成 delete，不表示单个 delta page 是否发送完毕；页面完成度只由 `pageIndex/pageCount` 判断。
 -重复页面必须内容一致；同 page key 内容不一致时终止 sync。
 - WebSocket 保证有序传输，因此不做页面重发；断线后废弃旧 sync，由 Android 发起新 sync。
+
+	#### Page hash 计算
+
+	`pageHash` 使用 canonical JSON 计算 SHA-256（小写 hex）。覆盖以下字段：
+
+	```text
+	syncId
+	sequence
+	pageIndex
+	pageCount
+	baseRoot
+	targetRoot
+	baselineComplete
+	fullOrderIncluded
+	upserts[]           (保留 wire array 顺序)
+	deletes[]           (保留 wire array 顺序)
+	canonicalOrder[]    (保留 wire array 顺序)
+	```
+
+	不包含 `pageHash` 自身。
+
+	#### 页面接收事务
+
+	每页在一个短 SQLite transaction 中处理：
+
+	1. 校验 envelope 并重新计算 `pageHash`。
+	2. 查询 `sync_pages` 中相同 `(syncId, sequence, pageIndex)`：
+	   - 已存在且 `page_hash` 相同：直接幂等成功，不重写 staging。
+	   - 已存在但 `page_hash` 不同：终止本轮同步；清理该 sync 的 `sync_sessions`、`sync_pages`、`sync_staging` 和 `sync_order` 四张表的数据。
+	3. 页面记录不存在：
+	   - 先清理同 `(syncId, sequence, pageIndex)` 可能因崩溃遗留的 orphan staging 行；
+	   - `pageIndex === 0` 时同时清理该 sync 已有的 `sync_order`（新 sequence 的 order 替换旧 order）；
+	   - 写入 staging/order；
+	   - 最后在同一事务写入 `sync_pages` marker（含 `page_hash`）。
+
+	不需要新增逐页 ACK、断线续传或重传协议。
 
 #### History page 发送背压
 
@@ -1890,6 +1949,10 @@ Wire attachment 使用：
 8. `DesktopSurface.updatedAt`、receivedAt、projection/scheduler 时间均不进入 payload。
 9. Codex 持久 message/item/turn 稳定时间在两次读取中相同时可以保留。
 10.只有接收时间或 legacy/app-server 精度无法无损统一时省略时间，不补造当前时间。
+	11. `projectCanonicalHistory` 对等价的 IPC legacy turns、IPC canonical turnHistory 和 app-server ThreadItem 输入，产生相同的 ordered item keys、canonical payload、item hash 和 conversation root。
+	12. turnHistory 的 islands 顺序与 entities 补充顺序在输入不变时产生确定性的 position。
+	13. 相同 turnId 的 live turn 覆盖 canonical turn 内容后不产生重复 turn。
+	14. pending action、approval、Goal runtime、synthetic status、surface updatedAt 和 raw 协议对象不出现在 canonical items 中。
 
 ### 21.2 Sync service
 
@@ -1919,6 +1982,10 @@ Wire attachment 使用：
 24. paginated cursor重复、页面失败、summary/notLoaded items、method-not-found、取消或超过10,000 items时保持 partial，只产生 upsert。
 25. ephemeral thread只有当前完整 IPC snapshot或从 start起完整跟踪的Owner state可成为 complete；否则返回 `ephemeral_history_not_recoverable` 且禁止 delete。
 26. paginated/ephemeral 的明确 Invalid Request不会触发 `thread/resume`、新建线程或循环重试。
+	27. pageHash 相同页面重复到达：幂等成功，不重写 staging。
+	28. pageHash 不同页面重复到达：终止同步并清理四张 staging/session 表。
+	29. page 0 重写同一 sync 的旧 sync_order。
+	30. 崩溃后残留 orphan staging 在新页面到来时被清理。
 
 ### 21.3 Android JVM cache/reducer tests
 
