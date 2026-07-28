@@ -1,4 +1,4 @@
-﻿# Codex 长会话内存、背压与 Android 历史缓存实施计划
+# Codex 长会话内存、背压与 Android 历史缓存实施计划
 
 > 文档用途：直接交给 GPT-5.6 Luna 按步骤实施。
 >
@@ -966,6 +966,7 @@ strings.xml / values-zh/strings.xml
     position: number,
     itemType: string,
     role: string | null,
+    clientRequestId: string | null,
     payloadJson: string,
     contentHash: string,
     identityStability: "stable" | "unstable",
@@ -978,7 +979,7 @@ strings.xml / values-zh/strings.xml
 严格按以下顺序选择：
 
 1. canonical `item.id`；
-2. `clientUserMessageId`；
+2. 归一化后的 `clientRequestId`（来源可以是 app-server `UserMessage.clientId`，或现有 IPC/TermLink 链路中的 `clientUserMessageId`/`clientRequestId`）；
 3. approval/user-input/plan request 的 `requestId`；
 4. tool/MCP 的 `callId`；
 5.协议明确保证位置不变的 message slot：
@@ -1056,6 +1057,70 @@ contentHash = lowercase hex SHA-256(UTF-8(payloadJson))
 
 Wire 发送 `payloadJson` 原字符串。Android 保存该字符串，不重新生成 JSON 后再比较。
 
+#### 12.2.1 `projectCanonicalHistory` — 归一化投影器
+
+新增纯函数：
+
+```js
+projectCanonicalHistory({ sourceKind, sourceData, positionOffset = 0 })
+```
+
+它只服务于持久历史和 conversation root 计算，不替换现有实时 UI surface projector。调用方必须传入完整的来源容器，不得把单个 turn/item 冒充为完整 history。该函数接收三类输入并产生归一化的 canonical history item 数组：
+
+**输入类型**（`sourceKind`）：
+
+```text
+"ipc_surface"            完整 IPC conversation state；其中可同时包含 turns[] 与 turnHistory
+"app_server_thread"      app-server Thread；读取其 turns[]
+"app_server_turns_page"  单页 ThreadTurnsListResponse.data；按页面顺序传入
+```
+
+`positionOffset` 仅供分页读取使用：调用方每投影完一页，就用累计 canonical item数量作为下一页 offset，并按页序追加结果；不得在每页从 0 重新编号。IPC surface和完整 Thread固定传 0。
+
+**归一化规则**：
+
+1. `ipc_surface` 先在函数内部合并同一 surface 的 `turns[]` 与 `turnHistory`；调用方不得分别投影后自行拼接。总体顺序：
+   - `turnHistory`：按 islands[].entries 的出现顺序加入，再追加 Object.keys(entitiesByKey) 中尚未出现的 entity key；
+   - `turns[]` 与 `turnHistory` 具有相同 turnId 时：保留 canonical turn 的位置，使用 direct/live turn 的最新内容覆盖；
+   - direct-only turn 追加到末尾。
+2. 同一 turn 内按稳定 item ID 去重：live item 覆盖对应 key 的旧内容，保留原 canonical 位置；live-only item 追加到该 turn 末尾。
+3. 只映射当前实际支持的类型：
+   - user message；
+   - assistant commentary/final answer；
+   - Plan；
+   - command/file change/MCP operation；
+   - attachment、file mention、skill。
+4. app-server Codex user item 的 `clientId`，以及现有 IPC/TermLink user item中明确存在的 `clientUserMessageId`/`clientRequestId`，统一映射为 `clientRequestId`；字段不存在时输出 `null`，不得按正文或时间猜测。它随 canonical item进入 delta和SQLite，并按第 12.1 节参与稳定 key选择。
+5. 以下内容**不得**参与持久 history root：
+   - pending action；
+   - approval 等即时控制状态；
+   - Goal runtime；
+   - synthetic status；
+   - surface `updatedAt`（`Date.now()` 生成）；
+   - 接收时间和投影时间；
+   - raw 协议对象。
+
+**输出**：
+
+```js
+[
+    {
+        itemKey: string,
+        turnId: string | null,
+        position: number,
+        itemType: string,
+        role: string | null,
+        clientRequestId: string | null,
+        payloadJson: string,
+        contentHash: string,         // lowercase hex SHA-256
+        identityStability: "stable" | "unstable"
+    },
+    ...
+]
+```
+
+不扩展成通用 DTO、CRDT 或新的跨进程模型。
+
 ### 12.3 Conversation root
 
 按 position 排序后：
@@ -1077,19 +1142,31 @@ Android 只需要使用服务端提供的 `itemKey/contentHash` 重算 root。
 
 ### 12.4 Provisional item
 
-Android 发送消息后建立：
+Android 发送消息后建立 provisional item。当前实现中 Android 的 optimistic message ID、`clientRequestId` 和 Gateway 生成的 `clientUserMessageId` 可能是三个不同 UUID，按 ID 收敛必然失败。全链路必须只使用一个 ID。
+
+**ID 生成与传递规则**：
+
+1. Android 在构建 provisional message **之前**只生成一次 `clientRequestId`。
+2. 该 ID 同时作为：
+   - provisional message 的本地标识；
+   - follower envelope 的 `clientRequestId`；
+   - `turn/start` 的 `clientUserMessageId`。
+3. Gateway 不再为同一消息额外生成 `clientUserMessageId`。
+4. 如果旧客户端没有提供 ID，Gateway 生成一次，并在整个发送、fallback、recovery、retry 链路复用。
+5. canonical projector 将 app-server Codex user item中的 `clientId`（当前 Codex `UserMessage` item的实际关联字段），以及 IPC/TermLink链路明确携带的同一发送 ID统一映射为 `clientRequestId`。
+
+**替换规则**：
 
 ```kotlin
 provisional = true
 clientRequestId = ...
 ```
 
-规则：
-
 - provisional item 不参与 canonical root；
-- canonical surface 出现相同 `clientUserMessageId` 或 `clientRequestId` 后替换 provisional；
--发送失败时保留为失败草稿；
--禁止根据文本和时间近似匹配。
+- canonical surface 出现相同 `clientRequestId` 后替换 provisional；
+- 发送失败时保留为失败草稿；
+- 禁止根据文本、时间或相邻位置进行模糊匹配；
+- 不需要额外建立 ID 映射数据库。
 
 ## 13. Android SQLite schema
 
@@ -1159,6 +1236,7 @@ CREATE TABLE sync_sessions (
     base_root TEXT,
     target_root TEXT NOT NULL,
     page_count INTEGER NOT NULL,
+    baseline_complete INTEGER NOT NULL DEFAULT 0,
     full_order_included INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     expires_at INTEGER NOT NULL
@@ -1183,6 +1261,7 @@ CREATE TABLE sync_staging (
     position INTEGER,
     item_type TEXT,
     role TEXT,
+    client_request_id TEXT,
     payload_json TEXT,
     content_hash TEXT,
     payload_bytes INTEGER,
@@ -1276,7 +1355,8 @@ Android → Server：
   "cacheSchemaVersion": 1,
   "checkpoint": {
     "rootHash": "hex-or-null",
-    "itemCount": 1500
+    "itemCount": 1500,
+    "complete": false
   }
 }
 ```
@@ -1288,6 +1368,7 @@ Android → Server：
 -新 syncId 取消旧 sync，不允许两个同步同时提交。
 - `syncId` 必须是合法 UUID，最大长度 64。
 - conversationId 最大长度 128。
+- `checkpoint.complete` 必须是 boolean；旧客户端缺失时按 `false` 处理。
 -每个 WebSocket 最多一个 active history sync。
 
 ### 14.3 Manifest request
@@ -1349,6 +1430,7 @@ Server → Android：
   "sequence": 1,
   "pageIndex": 0,
   "pageCount": 3,
+  "pageHash": "<lowercase-hex-sha256>",
   "baseRoot": "...",
   "targetRoot": "...",
   "fullOrderIncluded": true,
@@ -1360,6 +1442,7 @@ Server → Android：
       "position": 0,
       "itemType": "message",
       "role": "assistant",
+      "clientRequestId": null,
       "payloadJson": "...",
       "contentHash": "..."
     }
@@ -1381,41 +1464,47 @@ Server → Android：
 -重复页面必须内容一致；同 page key 内容不一致时终止 sync。
 - WebSocket 保证有序传输，因此不做页面重发；断线后废弃旧 sync，由 Android 发起新 sync。
 
-	#### Page hash 计算
+#### Page hash 计算
 
-	`pageHash` 使用 canonical JSON 计算 SHA-256（小写 hex）。覆盖以下字段：
+`pageHash` 使用第 12.2 节相同的 canonical JSON 规则，将结果编码为 UTF-8 后计算 SHA-256（小写 hex）。`payloadJson` 在此处是不可再解析的普通字符串；Android 不得把它解析后重新序列化。覆盖以下字段：
 
-	```text
-	syncId
-	sequence
-	pageIndex
-	pageCount
-	baseRoot
-	targetRoot
-	baselineComplete
-	fullOrderIncluded
-	upserts[]           (保留 wire array 顺序)
-	deletes[]           (保留 wire array 顺序)
-	canonicalOrder[]    (保留 wire array 顺序)
-	```
+```text
+syncId
+sequence
+pageIndex
+pageCount
+baseRoot
+targetRoot
+baselineComplete
+fullOrderIncluded
+upserts[]           (保留 wire array 顺序，包含 clientRequestId)
+deletes[]           (保留 wire array 顺序)
+canonicalOrder[]    (保留 wire array 顺序)
+```
 
-	不包含 `pageHash` 自身。
+不包含 `pageHash` 自身。Node 与 Android 必须共同读取同一份 golden fixture：
 
-	#### 页面接收事务
+```text
+android/app/src/test/resources/codex_history_page_hash_v1.json
+```
 
-	每页在一个短 SQLite transaction 中处理：
+fixture 至少包含对象 key 顺序不同但 hash 相同、数组顺序改变导致 hash 不同、`payloadJson` 含嵌套 JSON 字符串，以及任一字段改变导致 hash 不同的向量。禁止两端各自维护一份期望值。
 
-	1. 校验 envelope 并重新计算 `pageHash`。
-	2. 查询 `sync_pages` 中相同 `(syncId, sequence, pageIndex)`：
-	   - 已存在且 `page_hash` 相同：直接幂等成功，不重写 staging。
-	   - 已存在但 `page_hash` 不同：终止本轮同步；清理该 sync 的 `sync_sessions`、`sync_pages`、`sync_staging` 和 `sync_order` 四张表的数据。
-	3. 页面记录不存在：
-	   - 先清理同 `(syncId, sequence, pageIndex)` 可能因崩溃遗留的 orphan staging 行；
-	   - `pageIndex === 0` 时同时清理该 sync 已有的 `sync_order`（新 sequence 的 order 替换旧 order）；
-	   - 写入 staging/order；
-	   - 最后在同一事务写入 `sync_pages` marker（含 `page_hash`）。
+#### 页面接收事务
 
-	不需要新增逐页 ACK、断线续传或重传协议。
+每页在一个短 SQLite transaction 中处理：
+
+1. 校验 envelope 并重新计算 `pageHash`。
+2. 查询 `sync_pages` 中相同 `(syncId, sequence, pageIndex)`：
+   - 已存在且 `page_hash` 相同：直接幂等成功，不重写 staging。
+   - 已存在但 `page_hash` 不同：终止本轮同步；清理该 sync 的 `sync_sessions`、`sync_pages`、`sync_staging` 和 `sync_order` 四张表的数据。
+3. 页面记录不存在：
+   - 先清理同 `(syncId, sequence, pageIndex)` 可能因崩溃遗留的 orphan staging 行；
+   - `pageIndex === 0` 时同时清理该 sync 已有的 `sync_order`（新 sequence 的 order 替换旧 order）；
+   - 写入 staging/order；
+   - 最后在同一事务写入 `sync_pages` marker（含 `page_hash`）。
+
+不需要新增逐页 ACK、断线续传或重传协议。
 
 #### History page 发送背压
 
@@ -1461,7 +1550,7 @@ Server → Android：
   "type": "conversation_history_sync_state",
   "syncId": "uuid",
   "conversationId": "...",
-  "state": "loading_baseline|awaiting_manifest|sending_delta|live|offline|failed",
+  "state": "loading_baseline|awaiting_manifest|sending_delta|partial|live|offline|failed",
   "detailCode": "optional_machine_code"
 }
 ```
@@ -1486,7 +1575,7 @@ Server → Android：
 优先级：
 
 1. TermLink Owner 且服务端能够证明 Owner history baseline 完整：使用 Owner state。
-2.当前订阅周期 fresh IPC surface 且服务端内部确认存在完整 raw snapshot baseline：使用该 surface。
+2.当前订阅周期 fresh IPC surface：可作为 live/UI baseline；只有协议或 host implementation明确保证“包含全部历史”，且该契约由当前 schema/fixture覆盖时，才可同时作为完整 history baseline。
 3.否则进入下述 canonical read 分支；不得无条件执行 `thread/read(includeTurns=true)`。
 
 不得仅凭旧 cached IPC surface 生成删除操作。
@@ -1495,8 +1584,9 @@ Server → Android：
 
 完整性只在服务端内部记录，不新增 Android 必须理解的公开 `complete` surface 字段：
 
-- raw `change.type === "snapshot"` 成功建立 tracker baseline后，entry 标记 `historyBaselineComplete=true`；
--同 epoch 后续连续 patches继承该完整性；
+- raw `change.type === "snapshot"` 只证明 patch 基线已建立，不证明 opaque `conversationState` 包含全部持久历史；默认标记 `historyBaselineComplete=false`；
+-只有协议或 host implementation明确保证该来源包含全部历史，并由当前 schema/fixture覆盖该契约时，该 snapshot 才可标记 complete。当前 IPC wire没有通用完整性标志，不得猜测字段或仅凭 `snapshot` 类型升级；
+-同 epoch 后续连续 patches只能继承 entry 已有的完整性，不能把 partial snapshot升级为 complete；
 - entry 缺失、epoch 不同 patch、revision失步、旧 cache或 `desynced=true` 时完整性为 false；
 - `thread/read`、paginated list 或 Owner state 只有满足本节的“完整性证明”后才视为 complete；RPC 成功本身不等于完整。
 
@@ -1512,7 +1602,7 @@ historyBaselineKind:
     "new_thread_tracked"
   | "legacy_full_read"
   | "paginated_full_read"
-  | "ipc_full_snapshot"
+  | "ipc_explicit_full_snapshot"
   | "partial_seed"
 ```
 
@@ -1532,6 +1622,7 @@ historyBaselineKind:
 4. 从 partial seed 开始收到后续增量，只能证明“seed 之后连续”，不能反向证明 seed 之前历史完整；因此不得自动升级为 complete。
 5. Owner release/re-register、canonical id变化、history mode变化或读取失败时清除完整性证明；不得沿用旧 registration 的 complete。
 6. 只有 `complete=true` 的 baseline 可以生成 deletes 或 authoritative canonicalOrder；partial baseline只能 upsert它实际拥有的 item。
+7. `ipc_explicit_full_snapshot` 仅供将来存在并验证了明确完整性契约的 IPC 来源使用；当前 opaque snapshot 默认必须落入 `partial_seed`。
 
 #### 15.2.2 Legacy 与未知 history mode
 
@@ -1612,14 +1703,14 @@ TermLink 当前 app-server 连接已启用 `initialize.capabilities.experimental
 ephemeral thread没有可依赖的持久 rollout：
 
 1. 当前 Owner 从 `thread/start` 起完整跟踪：使用 `new_thread_tracked` baseline。
-2. 当前周期存在完整 IPC snapshot：使用 `ipc_full_snapshot` baseline。
+2. 当前周期 IPC snapshot 只有具备第 15.2 节要求的显式完整性证明时，才使用 `ipc_explicit_full_snapshot` baseline；普通 raw snapshot仍为 partial。
 3. 两者都不存在：baseline为 partial/unavailable。
 4. 不调用 `thread/read(includeTurns=true)` 重试，不调用 `thread/resume`，不创建替代线程。
 5. partial/unavailable 时立即展示已有 SQLite缓存和当前 live增量，但禁止 deletes，并向 history sync状态返回可诊断原因 `ephemeral_history_not_recoverable`。
 
 ### 15.3 快速路径
 
-服务端计算：
+快速路径只适用于 `historyBaselineComplete=true`。服务端计算：
 
 ```text
 canonicalRoot
@@ -1632,6 +1723,7 @@ canonicalItemCount
 schemaVersion 相同
 && rootHash 相同
 && itemCount 相同
+&& Android checkpoint.complete == true
 ```
 
 则：
@@ -1639,6 +1731,10 @@ schemaVersion 相同
 -不传 manifest；
 -不传正文；
 -返回 `state=live`。
+
+如果服务端 baseline complete、root/count相同，但 Android checkpoint仍为 `complete=false`，服务端发送零 upsert/delete、`baselineComplete=true`、`baseRoot==targetRoot` 的单页 delta，使 Android在校验相同 root后原子升级 `conversations.complete=1`，不能只返回 `live` 丢失完整性升级。
+
+partial baseline 不得拿自身 root 与 Android checkpoint 走此快速路径，因为 Android 可能保留了该 baseline 看不到的旧 item。partial 必须请求 manifest，并按第 15.4 节生成可验证的 merged target；成功提交后返回 `state=partial`、`detailCode=baseline_partial`。
 
 ### 15.4 Manifest diff
 
@@ -1649,7 +1745,7 @@ localMap = Android manifest itemKey -> contentHash
 canonicalMap = canonical itemKey -> contentHash
 ```
 
-计算：
+complete baseline 计算：
 
 ```text
 upserts =
@@ -1666,9 +1762,21 @@ orderChanged =
 规则：
 
 -只有 complete baseline 才能发送 deletes；
--部分 baseline 只能 upsert；
-- orderChanged 时发送完整 canonicalOrder；
+-只有 complete baseline 的 orderChanged 才发送完整 authoritative `canonicalOrder`；
 -顺序相同则不发送 canonicalOrder。
+
+partial baseline 不使用上述 `canonicalMap` 缺项推导删除或完整顺序，固定采用以下 merged target 算法：
+
+1. Android manifest 只包含当前正式、非 provisional items，顺序即本地 position 顺序；服务端以该顺序建立 `mergedOrder`。
+2. partial source 中已存在于 manifest 的 key 保留本地位置，只在 hash 不同或正文缺失时生成 upsert。
+3. partial source 中不存在于 manifest 的 key，按 partial source 内的稳定顺序追加到 `mergedOrder` 末尾并生成 upsert；不得声称知道它相对于不可见历史的 canonical 位置。
+4. 每个 upsert 的 `position` 必须写成该 item 在 `mergedOrder` 中的最终位置。未触及的 Android item保留原位置。
+5. `deletes=[]`、`fullOrderIncluded=false`，且不得携带 `canonicalOrder`。
+6. `baseRoot` 是收到 manifest 时 Android 当前 checkpoint root；`targetRoot` 使用 `mergedOrder` 中全部 item 的最终 content hash按第 12.3 节计算，不能使用 partial source 自身的 root。
+7. delta 固定携带 `baselineComplete=false`。Android 成功提交 merged target后保存该 `targetRoot`，同时保持 `conversations.complete=0`；服务端收到 ack后发送 `state=partial`、`detailCode=baseline_partial` 收敛本轮同步。
+8. 后续取得 complete baseline 时，重新执行完整 manifest diff，届时才允许删除、authoritative order，并在提交后将 `conversations.complete=1`。
+
+partial source没有任何可投影 item时仍发送 `state=partial`，不发送空 delta冒充 complete；Android 保留原 checkpoint。以上规则保证 partial 同步也有唯一、可重算的 target root，同时不删除来源无法证明缺失的历史。
 
 ## 16. Baseline 与实时 IPC 的 barrier
 
@@ -1698,15 +1806,15 @@ baseline 读取期间可能继续收到 surface。不能排队保存全部事件
 
 1.开始 baseline 前先监听 surface。
 2.任何新 surface 只替换 `latestObservedSurface`。
-3. baseline 计算出 root R1 后发送 delta。
+3. baseline 完整时计算 canonical root R1；baseline partial时根据 Android manifest与第 15.4 节的 merged target算法计算 R1，然后发送 delta。
 4.Android 在 SQLite staging 收齐页面。
 5.Android 检查当前 root 等于 baseRoot。
 6.短事务执行 upsert/delete/order。
 7.Android 重算 root；等于 targetRoot 才 commit。
 8.Android ack R1。
 9.服务端把 R1 与最新 observed surface 重新比较。
-10.若最新 root 为 R2，发送 `baseRoot=R1,targetRoot=R2` 的下一条 delta。
-11.无差异后进入 live。
+10.若最新 baseline complete，按 canonical diff计算 R2；若仍是 partial，则继续以已确认的 R1/manifest状态和最新 partial source计算新的 merged target R2。发送 `baseRoot=R1,targetRoot=R2` 的下一条 delta。
+11.无差异且 baseline complete后进入 `live`；仍不能证明完整时进入 `partial`，不得仅因 chained delta 已追平就升级为 `live`。
 
 任一步开始前都要复核：
 
@@ -1742,12 +1850,12 @@ WebSocket 仍为 OPEN
 5.全部页面到齐后检查 `baseRoot == conversations.root_hash`。
 6.不相等：清 staging，发送新的 sync request。
 7.相等：开始 SQLite transaction。
-8. upsert canonical items。
+8. upsert canonical items，包括原样保存 `clientRequestId`；partial delta 使用服务端给出的 merged target position。
 9. delete 仅删除 `provisional=0` 的指定 key。
 10.如果有 canonicalOrder，批量更新 position。
 11.重算非 provisional item root。
 12. root 不等于 targetRoot：rollback。
-13. root 相等：更新 conversations checkpoint，commit。
+13. root 相等：更新 conversations checkpoint；`baselineComplete=true` 时写 `complete=1`，否则写 `complete=0`，然后 commit。
 14. commit 后再更新 Compose state。
 15.发送 ack。
 
@@ -1806,6 +1914,7 @@ enum class CodexHistorySyncState {
     CACHE_ONLY,
     LOADING_BASELINE,
     REPAIRING,
+    PARTIAL,
     LIVE,
     OFFLINE,
     FAILED
@@ -1817,6 +1926,7 @@ enum class CodexHistorySyncState {
 -缓存存在：立即显示，顶部用轻量状态提示“正在同步”。
 -离线：显示“离线缓存 · 上次同步时间”。
 -同步成功：状态提示自动消失。
+- partial baseline提交成功：保留缓存并显示“部分历史已同步”；它不改变 healthy IPC/Owner 的实时 authority，后续取得完整 baseline后再进入 `LIVE`。
 -同步失败：保留缓存和“重试”入口。
 -不得因为进入同步状态清空 message list。
 - runtime、approval、Plan、Goal 继续来自实时 surface，不从 SQLite 恢复为 active；具体仲裁遵循第 18.1 节。
@@ -1872,7 +1982,7 @@ data/codex-media/
 
 写入：
 
-1.解析 data URL 或读取明确的 localImage path。
+1.解析 data URL，或读取服务端自身生成且位于可信目录中的 `localImage.path`。
 2.限制单文件大小，默认 25MiB。
 3.验证 MIME 为允许的图片类型。
 4.计算 SHA-256。
@@ -1881,6 +1991,13 @@ data/codex-media/
 7.同 hash 已存在时复用。
 
 禁止使用用户提供文件名拼接路径。
+
+`localImage.path` 的信任边界固定为：
+
+-先执行 realpath/等价规范化，再判断路径是否位于 Codex media目录或 TermLink服务端自有临时图片目录内；
+-拒绝客户端提供的任意绝对路径、包含 `..` 的逃逸路径，以及通过符号链接/目录联接逃出可信根目录的路径；
+-路径校验通过后仍执行大小、MIME 与内容 hash校验；不能因为位于可信目录就跳过内容校验；
+-不使用客户端文件名决定目标文件名或扩展名。
 
 ### 20.2 app-server input
 
@@ -1949,10 +2066,11 @@ Wire attachment 使用：
 8. `DesktopSurface.updatedAt`、receivedAt、projection/scheduler 时间均不进入 payload。
 9. Codex 持久 message/item/turn 稳定时间在两次读取中相同时可以保留。
 10.只有接收时间或 legacy/app-server 精度无法无损统一时省略时间，不补造当前时间。
-	11. `projectCanonicalHistory` 对等价的 IPC legacy turns、IPC canonical turnHistory 和 app-server ThreadItem 输入，产生相同的 ordered item keys、canonical payload、item hash 和 conversation root。
-	12. turnHistory 的 islands 顺序与 entities 补充顺序在输入不变时产生确定性的 position。
-	13. 相同 turnId 的 live turn 覆盖 canonical turn 内容后不产生重复 turn。
-	14. pending action、approval、Goal runtime、synthetic status、surface updatedAt 和 raw 协议对象不出现在 canonical items 中。
+11. `projectCanonicalHistory` 对等价的完整 IPC surface、app-server Thread 和 `ThreadTurnsListResponse.data` 输入，产生相同的 ordered item keys、canonical payload、item hash 和 conversation root。
+12. 同一 IPC surface 同时包含 turns 与 turnHistory 时由 projector内部合并；islands顺序与 entities补充顺序在输入不变时产生确定性的 position。
+13. 相同 turnId 的 live turn覆盖 canonical turn内容后不产生重复 turn。
+14. pending action、approval、Goal runtime、synthetic status、surface updatedAt 和 raw协议对象不出现在 canonical items中。
+15. Codex user item 的 `clientId` 稳定映射为 canonical `clientRequestId`；非 user item输出 null。
 
 ### 21.2 Sync service
 
@@ -1974,18 +2092,19 @@ Wire attachment 使用：
 16. `bufferedAmount` 超过 high-water时暂停，恢复到 low-water后继续。
 17. history背压超时只取消 history sync，不关闭可继续承载实时控制事件的 WebSocket。
 18. A→B、断线或selection generation变化会清除 history page timer、当前页和生成游标。
-19. raw full snapshot建立内部 complete baseline；patch-only/desynced entry不能生成 delete。
+19. 普通 raw IPC snapshot只建立 patch基线，默认仍为 partial且不能生成 delete；只有 fixture验证过的显式完整性证明才可建立 `ipc_explicit_full_snapshot`。
 20.新建空 Owner 从 `thread/start` 起完整跟踪时可建立 `new_thread_tracked` complete baseline。
 21. `registerExternalSurface()` 普通 seed、resume/fork partial seed和旧 cache默认不完整，连续增量不能自动把它升级为 complete。
 22. legacy persisted thread 的 `thread/read(includeTurns=true)` 全量成功后才允许 delete。
 23. paginated thread 不调用 `thread/read(includeTurns=true)`；使用 `thread/turns/list(itemsView=full)` 逐页到 `nextCursor=null` 后才完整。
 24. paginated cursor重复、页面失败、summary/notLoaded items、method-not-found、取消或超过10,000 items时保持 partial，只产生 upsert。
-25. ephemeral thread只有当前完整 IPC snapshot或从 start起完整跟踪的Owner state可成为 complete；否则返回 `ephemeral_history_not_recoverable` 且禁止 delete。
+25. ephemeral thread只有具备显式完整性证明的 IPC snapshot或从 start起完整跟踪的Owner state可成为 complete；普通 raw snapshot仍返回 `ephemeral_history_not_recoverable` 且禁止 delete。
 26. paginated/ephemeral 的明确 Invalid Request不会触发 `thread/resume`、新建线程或循环重试。
-	27. pageHash 相同页面重复到达：幂等成功，不重写 staging。
-	28. pageHash 不同页面重复到达：终止同步并清理四张 staging/session 表。
-	29. page 0 重写同一 sync 的旧 sync_order。
-	30. 崩溃后残留 orphan staging 在新页面到来时被清理。
+27. partial baseline总是请求 manifest；已有 item保留本地顺序，新 item按 partial顺序追加，delta不含 delete/canonicalOrder，targetRoot等于 merged target root。
+28. partial chained delta继续从已 ack的 merged root收敛；不能把 partial source root直接作为 targetRoot。
+29. 后续完整 baseline可以从 partial checkpoint生成 delete/order，并把 complete状态升级。
+30. delta中的 `clientRequestId` 与 canonical item一致，并被计入 pageHash输入。
+31. Node pageHash生成器读取共用 golden fixture，验证 canonical key排序、UTF-8、数组顺序与 opaque `payloadJson`字符串。
 
 ### 21.3 Android JVM cache/reducer tests
 
@@ -2005,6 +2124,11 @@ Wire attachment 使用：
 12. cached/live同 key冲突时 live正文与顺序获胜，缓存只补静态元数据。
 13. desynced通知不覆盖最后一份 healthy live正文。
 14. offline且没有 live surface时显示缓存与 provisional/failed draft。
+15. `clientRequestId` 经 delta、staging和正式 items原样保留，并只替换相同 ID 的 provisional item。
+16. partial merged delta提交后的 root等于 targetRoot且 `complete=0`；后续 complete delta提交后变为 `complete=1`。
+17. Kotlin pageHash实现读取与 Node相同的 `codex_history_page_hash_v1.json`，所有向量与 Node结果一致。
+18. pageHash相同页面重复到达时幂等成功且不重写 staging；同 page key而 hash不同则终止同步并清理四张 staging/session表。
+19. page 0重写同一 sync的旧 `sync_order`；崩溃后遗留 orphan staging在新页面到来时被清理。
 
 ### 21.4 媒体
 
@@ -2015,6 +2139,7 @@ Wire attachment 使用：
 5. Android 下载后 hash 校验。
 6. turn 完成后稳定媒体仍存在。
 7.重载历史后 Android、Desktop、VS Code 能打开图片。
+8.客户端任意绝对路径、`..` 路径和 symlink/junction 逃逸均被拒绝；可信临时图片路径仍可持久化。
 
 ### 21.5 安装后的人工端到端验收
 
@@ -2140,7 +2265,11 @@ Android 验证边界：
 19. IPC patch只能继承 snapshot建立的 epoch；不得恢复 `sourceClientId || hostId || "unknown"` 逐消息计算。
 20. paginated/ephemeral history不得被强行送入 `thread/read(includeTurns=true)`；无法证明完整时只能 upsert。
 21. canonical hash禁止使用 surface/接收/投影当前时间。
-22. 每步报告：
+22. 普通 raw IPC snapshot不得仅因 `change.type="snapshot"` 被标记为完整；没有验证过的显式证明时必须保持 partial。
+23. partial delta的 targetRoot必须从 Android manifest与 partial upsert组成的 merged target计算，禁止使用 partial source自身 root，也禁止携带 delete或 authoritative order。
+24. canonical `clientRequestId` 必须贯通 projector、wire、pageHash、staging、正式 items与 provisional替换链路。
+25. Node与Android pageHash必须读取同一份 golden fixture；不得以两套各自通过的测试代替跨语言一致性。
+26. 每步报告：
     -修改文件；
     -算法落点；
     -新增测试；
@@ -2164,6 +2293,10 @@ Android 验证边界：
 -Plan、用户提问、审批和Goal控制事件在去除raw对象后仍可完整展示和安全提交；
 -同一 IPC snapshot baseline后的缺 identity patch不会造成 source epoch跳变；
 -paginated/ephemeral/legacy baseline均按各自能力分支处理，partial baseline不产生delete；
+-普通 raw IPC snapshot不会被误判为完整；只有经验证的显式完整性证明才允许 IPC snapshot生成delete；
+- partial baseline能以 merged target root完成提交与ack，保留未知历史及其顺序，并在后续完整 baseline到达时正确升级；
+- `clientRequestId` 从Android发送意图贯通到canonical user item、delta和SQLite，能够精确替换provisional item；
+- Node与Android对共用 pageHash golden vectors产生完全一致的结果；
 -同一语义surface在不同投影时刻生成相同canonical root；
 -图片重载后三端仍可访问；
 -Owner/follower、Plan、Goal、approval、interrupt 和 A→B→A 全部回归通过；
