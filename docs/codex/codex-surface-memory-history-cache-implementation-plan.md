@@ -97,12 +97,41 @@ ipcConnectionGeneration = 服务端进程内从 0 开始的整数
 每次 CodexIpcFeed._onClientConnect 成功时：
     ipcConnectionGeneration += 1
 
-sourceEpoch =
-    "ipc:"
-    + ipcConnectionGeneration
-    + ":"
-    + (sourceClientId || hostId || "unknown")
+每个 conversation 的完整 snapshot 第一次建立 baseline 时：
+    conversationEpochId = randomUUID()
+    sourceEpoch =
+        "ipc:"
+        + ipcConnectionGeneration
+        + ":"
+        + conversationEpochId
 ```
+
+`sourceClientId` 和 `hostId` 只作为同一连接内识别明确 Owner 变化的诊断身份，不能再参与逐条消息的 fallback 字符串拼接。tracker entry 必须分别保存：
+
+```js
+{
+    sourceEpoch,
+    connectionGeneration,
+    sourceClientId: string | null,
+    hostId: string | null,
+    revision,
+    state
+}
+```
+
+IPC snapshot/patch 的身份规则固定如下：
+
+1. 完整 snapshot 建立 baseline：
+   - entry 不存在，或 `connectionGeneration` 不同：生成新的 `conversationEpochId/sourceEpoch`；
+   - entry 属于同一连接，且 incoming 与 entry 在各自同名字段上没有冲突：沿用原 `sourceEpoch`；
+   - entry 和 incoming 都有非空 `sourceClientId` 且值不同，或都有非空 `hostId` 且值不同：这是明确来源变化；snapshot 生成新 epoch 并完整替换 baseline；
+   - entry 缺少某个身份字段而 snapshot 新提供该字段：补充该字段，不因此切换 epoch。
+2. patch 不能创建或重算 epoch：
+   - patch 必须继承现有 entry 的 `sourceEpoch`；
+   - patch 缺少 `sourceClientId`、缺少 `hostId`，或只提供 entry 尚未知的字段时，不得切换到另一个 fallback 值，也不得生成新 epoch；
+   - patch 和 entry 在同一个已知身份字段上明确冲突时，拒绝该 patch，保留旧 state/epoch/revision，标记 desynced 并等待该来源的完整 snapshot；
+   - 不允许拿 incoming `hostId` 和 entry `sourceClientId` 比较，也不允许反向比较。两个字段属于不同命名空间。
+3. `sourceClientId`、`hostId` 和 `"unknown"` 不得形成可逐消息跳变的 `sourceKey`。缺失身份表示“本条没有更多证据”，不是“Owner 已变成 unknown”。
 
 TermLink Owner 来源：
 
@@ -123,6 +152,7 @@ Owner release 后不需要长期保存 generation counter。重新注册时生�
 - `sourceEpoch` 在服务端内部必须存在于 tracker entry、latest surface cache、history sync state 和 WebSocket snapshot。
 - `sourceEpoch` 是 additive 字段；旧 Android 可忽略。
 - revision 只能在 `sourceEpoch` 完全相同时比较。
+- IPC patch 永远复用已经接受的 snapshot epoch；没有 snapshot baseline 的 patch 不得生成 epoch。
 - current subscription cycle 和 source epoch 是不同概念：
   - subscription cycle 决定 surface 是否允许成为 Android 实时权威；
   - source epoch 决定 revision 是否可以比较。
@@ -220,7 +250,11 @@ Map<conversationId, {
     surface,
     timestamp,
     revision,
-    sourceClientId,
+    sourceEpoch,
+    connectionGeneration,
+    sourceClientId: string | null,
+    hostId: string | null,
+    historyBaselineComplete,
     itemCount,
     status
 }>
@@ -230,7 +264,14 @@ Map<conversationId, {
 
 ```js
 _latestExternalSurfaceByConversation
-// Map<conversationId, { surface, sourceClientId, timestamp }>
+// Map<conversationId, {
+//   surface,
+//   sourceEpoch,
+//   connectionGeneration,
+//   sourceClientId,
+//   hostId,
+//   timestamp
+// }>
 
 _lastStatusFingerprint
 // string | null
@@ -250,25 +291,34 @@ _cacheStats
    - conversationId；
    - change type；
    - revision/baseRevision；
-   - sourceClientId/hostId。
-3. 按第 3.2 节生成 `sourceEpoch`。
+   - message envelope 的 `sourceClientId`；
+   - params/state 中的 `hostId`；
+   - 当前 `ipcConnectionGeneration`。
+3. 按第 3.2 节解析 identity：
+   - snapshot 可以建立或替换 epoch baseline；
+   - patch 只能继承已有 entry 的 epoch；
+   - 缺失字段不使用 `sourceClientId || hostId || "unknown"` 回退。
 4. 调用：
 
 ```js
-tracker.applyBroadcast(message, { sourceEpoch })
+tracker.applyBroadcast(message, {
+    connectionGeneration,
+    sourceClientId,
+    hostId
+})
 ```
 
 5. tracker 必须在修改内部 state 前执行以下门禁：
    - entry 不存在：
      - snapshot：接受并建立 epoch baseline；
      - patches：不套用，不建立可继续应用 patch 的假 baseline，只返回 `desynced=true` 信号。
-   - entry epoch 与 incoming epoch 相同：
+   - entry 属于同一 connection/epoch，且同名 identity 字段无明确冲突：
      - `revision <= entry.revision`：返回 `ignored=true`，不能修改 state/revision；
      - snapshot：以较新 revision 完整替换；
      - patches：仅当 `baseRevision == entry.revision` 才应用，否则只标记 desynced，不修改旧 state。
-   - entry epoch 与 incoming epoch 不同：
-     - snapshot：作为新 epoch baseline 完整替换；
-     - patches：不能应用到旧 epoch state；保留原 entry 的 state、epoch、revision 完全不变，只返回 desynced 信号并等待新 epoch snapshot。
+   - connection generation 不同，或同名 identity 字段明确冲突：
+      - snapshot：作为新 epoch baseline 完整替换；
+      - patches：不能应用到旧 epoch state；保留原 entry 的 state、epoch、revision 完全不变，只返回 desynced 信号并等待新 epoch snapshot。
 6. 不引入 `pendingEpoch`、`pendingRevision` 或第二份 tracker state。epoch 不同的 patch 直接拒绝，不能为后续 patch 创建任何可应用基础。
 7. tracker 返回 `ignored=true` 时，Feed 不构造 surface、不写 cache、不 emit event/status。
 8. tracker 返回 `desynced=true` 且 `stateChanged=false` 时：
@@ -483,8 +533,101 @@ _ipcSelectionGenerations
 - 如果存在背压，terminal snapshot 仍只能替换 pending，不能绕过 hard limit。
 - `conversation_status_changed`、`conversation_action_required`、`follower_route_state` 等小型控制事件使用 `sendControl()` 立即发送，不进入 snapshot latest-wins slot。
 - 即使控制事件先到，最终 snapshot 仍保留在 pending，缓冲恢复后必须送达。
-- `sendControl()` 不得携带完整 surface、projection、正文或附件，只发送现有轻量控制字段。
+- `sendControl()` 不得携带完整 surface、完整历史消息列表、projection、附件二进制、data URL 或原始 Codex/IPC JSON-RPC 对象；它允许携带经过白名单投影且有明确大小上限的 pending-action 语义 payload。Plan 内容、问题与选项、审批描述和 Goal 摘要属于控制操作必须展示的语义字段，不得以“正文”为由删除。
 - 控制事件继续携带 `conversationId`；Android 必须沿用当前 active conversation 精确匹配，拒绝 A→B 后迟到的 A 控制事件。
+
+#### 7.4.1 `sendControl()` payload 契约
+
+新增纯函数：
+
+```js
+projectConversationActionPayload(actionType, pendingAction)
+```
+
+只允许输出以下白名单字段：
+
+```text
+通用：
+  kind
+  requestId
+  rawRequestId
+  requestMethod / method
+  requestKind
+  turnId
+  title
+  summary
+  description
+  canSubmit
+  handledBy
+
+Plan：
+  planContent
+
+用户提问：
+  responseMode
+  questionCount
+  questions[]:
+    id
+    header
+    question
+    isOther
+    isSecret
+    options[]:
+      label
+      description
+      value
+
+审批：
+  approvalType
+  command
+  cwd
+  reason
+  paths[]
+  changes[] 的可见 path/summary
+  availableDecisions[]
+  proposedExecpolicyAmendment 的可见摘要
+
+Goal：
+  objective
+  status
+  allowedActions[]
+```
+
+明确禁止输出：
+
+```text
+raw
+params 原对象
+conversationState
+surface
+projection
+turns/items 历史数组
+attachments 原对象或二进制/data URL
+任意未列入白名单的嵌套字段
+```
+
+大小门禁：
+
+```text
+MAX_CONTROL_ENVELOPE_BYTES = 256 * 1024
+```
+
+执行顺序固定为：
+
+1. 先按 action type 构建白名单对象，不能先 clone 整个 pending action 再删除部分字段。
+2. 只对可见说明文本应用现有安全字符串裁剪；`requestId/rawRequestId`、question id、option value 和 available decision 不得截断或改写。
+3. 序列化白名单 envelope 一次并按 UTF-8 字节数检查。
+4. 未超限：立即发送。
+5. 超限：
+   - 不得静默删除问题、选项、审批决定或 Plan 尾部后继续允许确认；
+   - 发送同 conversation/requestId 的轻量 `conversation_action_required`，标记 `payloadState="oversize"`、`canSubmit=false` 和可本地化错误码 `action_payload_too_large`；
+   - 保留服务端 tracker 中的完整 pending action，不清除、不自动拒绝、不自动执行；
+   - Android 展示“操作内容过大，暂不可在 App 确认”，禁止提交该 action；
+   - Gateway 为该 `(conversationId, requestId)` 记录只到 pending action 清除为止的 `clientSubmissionBlocked=true`；旧 Android 即使仍提交响应，也必须返回 `action_payload_too_large`，不得把不可完整展示的操作转发给 Owner；
+   - 后续 authoritative surface 或宿主处理结果仍按现有规则收敛。
+6. Android 的审批/Plan/用户提问响应只提交 requestId 和用户选择；Gateway 必须按 requestId 重新查询当前 authoritative pending action，再沿 authority ledger 转发，不能信任客户端回传 Plan 正文、命令或选项定义。
+
+`rawRequestId` 必须保持原始 number/string 类型，继续遵守现有 owner 控制面契约；白名单投影不能把 numeric id 字符串化后用于实际响应。
 
 ### 7.5 生命周期
 
@@ -658,6 +801,11 @@ maxWsBufferedBytes
 10.新 epoch patch 没有 snapshot baseline 时只产生 desynced，不套用旧 state。
 11.新 epoch snapshot 建立 baseline 后，该 epoch patches 才能继续。
 12.新 epoch patch 被拒绝后，原 entry 的 state、epoch 和 revision 均保持不变。
+13. snapshot 携带 `sourceClientId`、后续 patch 只携带同一 Owner 的 `hostId` 时，patch 继承原 epoch，不进入 desynced。
+14. snapshot 只携带 `hostId`、后续 patch 缺少全部 identity 时，patch 继承原 epoch。
+15. patch 在 entry 已知的同名 `sourceClientId` 或 `hostId` 上明确冲突时被拒绝，且不能修改旧 state/epoch/revision。
+16. 同一 connection 中 identity 从缺失变为可用时只补充 identity，不把 `unknown` 当成旧 Owner。
+17. IPC reconnect 增加 connection generation；旧连接迟到 patch 不能套用到新连接 baseline。
 
 ### 10.2 Scheduler tests
 
@@ -675,6 +823,11 @@ maxWsBufferedBytes
 10.一个慢客户端不影响另一个正常客户端。
 11. A→B 时 cancel A，A 的 timer 即使触发也不能发送。
 12.旧 selection generation 的 pending snapshot 被拒绝。
+13. `sendControl()` 的 Plan payload保留 `planContent/requestId/turnId`，但不包含 `raw/params/surface/projection`。
+14.用户提问 payload保留问题、选项和稳定 value；numeric `rawRequestId` 保持 number。
+15.审批 payload保留命令/路径/决定，但不包含附件二进制和 raw protocol对象。
+16.控制 envelope 超过 256KiB 时不发送可提交的截断 action，而是发送 `payloadState=oversize/canSubmit=false`。
+17.控制事件不进入 snapshot pending slot，不会覆盖或取消待发送的最终 snapshot。
 
 ### 10.3 Gateway tests
 
@@ -687,6 +840,11 @@ maxWsBufferedBytes
 5. Owner sticky 和 current-cycle freshness 不回归。
 6. A→B→A 不会把 A 的 pending snapshot 发给 B。
 7. pending approval/Plan/user input 控制事件不进入 snapshot 合并队列，且仍只作用于 active conversation。
+8. `conversation_action_required` 使用白名单 projector；现有 pending action中的 `raw` 和整个 `params` 不出现在 WebSocket envelope。
+9. Plan、用户提问、审批和 Goal 的 Android 必需语义字段仍完整可用。
+10. Android 响应只带 requestId/用户选择时，Gateway 从当前 authoritative tracker重新解析 action，并沿原 authority ledger转发。
+11. oversize action不能自动执行、自动拒绝或清除服务端 pending。
+12.旧客户端尝试提交 oversize action时，Gateway返回 `action_payload_too_large`，Owner不收到响应。
 
 ### 10.4 压力验收
 
@@ -840,7 +998,10 @@ unstable item 的处理：
   - sourceClientId；
   - receivedAt；
   - transport timestamp；
-  - debug metadata。
+  - debug metadata；
+  - TermLink `DesktopSurface.updatedAt`；
+  - snapshot 创建时间、projection 创建时间和 scheduler 时间；
+  -任何由 `Date.now()`、`System.currentTimeMillis()` 或接收时刻临时生成的值。
 
 保留以下语义字段：
 
@@ -851,7 +1012,18 @@ unstable item 的处理：
 -文件提及；
 - skill；
 -附件 hash/path/url/mime；
--可见时间戳（如果 UI 实际展示）。
+- Codex 持久协议中属于具体 message/item/turn、并且跨重新读取保持不变的稳定语义时间戳。
+
+时间字段判定规则：
+
+1. 只有同时满足下列条件才可进入 canonical payload：
+   - 时间值直接来自 Codex 持久化 thread/turn/item 数据；
+   - 同一个 canonical item 重新执行 `thread/read` 或 history page读取时值不变；
+   - UI 确实把该时间作为该条消息/操作的语义时间展示。
+2. thread 顶层的 `updatedAt/recencyAt` 不得复制进每个 item payload，也不得参与 conversation root；它们属于目录元数据。
+3. `DesktopSurface.updatedAt` 当前由 `buildDesktopSurfaceSnapshot()` 使用 `Date.now()` 生成，必须无条件排除。
+4. 只有接收时间而没有 Codex 持久时间的 item，不补造时间字段；Android 可以在展示层临时显示接收时间，但该值不能写入 canonical payload/hash。
+5. legacy surface 与 app-server thread 对同一 item 的时间精度不同且无法无损归一时，canonicalizer 应省略该时间，而不是用秒/毫秒猜测转换后参与 hash。
 
 输出：
 
@@ -1254,9 +1426,9 @@ Server → Android：
 
 优先级：
 
-1. TermLink Owner 且 Owner surface 是完整状态：使用 Owner state。
-2.当前订阅周期 fresh IPC surface 且服务端内部确认存在完整 snapshot baseline：使用该 surface。
-3.否则执行一次 `thread/read(includeTurns=true)`。
+1. TermLink Owner 且服务端能够证明 Owner history baseline 完整：使用 Owner state。
+2.当前订阅周期 fresh IPC surface 且服务端内部确认存在完整 raw snapshot baseline：使用该 surface。
+3.否则进入下述 canonical read 分支；不得无条件执行 `thread/read(includeTurns=true)`。
 
 不得仅凭旧 cached IPC surface 生成删除操作。
 
@@ -1267,9 +1439,124 @@ Server → Android：
 - raw `change.type === "snapshot"` 成功建立 tracker baseline后，entry 标记 `historyBaselineComplete=true`；
 -同 epoch 后续连续 patches继承该完整性；
 - entry 缺失、epoch 不同 patch、revision失步、旧 cache或 `desynced=true` 时完整性为 false；
-- `thread/read` 成功返回完整 thread/turn/items时，该次 projector baseline视为 complete。
+- `thread/read`、paginated list 或 Owner state 只有满足本节的“完整性证明”后才视为 complete；RPC 成功本身不等于完整。
 
 当 healthy IPC 已经成为当前实时权威，而 history service为了空缓存或修复执行 `thread/read` 时，该响应只能进入 history比较/SQLite缓存通道，禁止调用现有 surface UI apply路径、禁止覆盖正文、运行态或 pending action。
+
+#### 15.2.1 Owner baseline 完整性
+
+Owner tracker entry 增加内部字段：
+
+```js
+historyBaselineComplete: boolean
+historyBaselineKind:
+    "new_thread_tracked"
+  | "legacy_full_read"
+  | "paginated_full_read"
+  | "ipc_full_snapshot"
+  | "partial_seed"
+```
+
+判定规则：
+
+1. `thread/start` 创建的新空线程：
+   - 已取得 canonical `thread.id`；
+   - 已从创建响应开始注册 Owner；
+   - 注册前不存在需要恢复的历史 turns；
+   - 后续所有 app-server notifications 均由该 tracker 连续处理；
+   - 满足以上条件时可标记 `new_thread_tracked/complete=true`。
+2. `thread/resume` 或 `thread/fork`：
+   - 不能仅因 RPC 成功或响应里存在部分 `turns` 就标记 complete；
+   - legacy history 只有响应明确包含未排除的完整 turns，或完成一次 `thread/read(includeTurns=true)` 后才标记 `legacy_full_read`；
+   - paginated history 只有第 15.2.3 节全部页面读取、校验并投影完成后才标记 `paginated_full_read`。
+3. `registerExternalSurface()`、旧 cached surface、用于启动 Owner 的 seed surface默认标记 `partial_seed/complete=false`。
+4. 从 partial seed 开始收到后续增量，只能证明“seed 之后连续”，不能反向证明 seed 之前历史完整；因此不得自动升级为 complete。
+5. Owner release/re-register、canonical id变化、history mode变化或读取失败时清除完整性证明；不得沿用旧 registration 的 complete。
+6. 只有 `complete=true` 的 baseline 可以生成 deletes 或 authoritative canonicalOrder；partial baseline只能 upsert它实际拥有的 item。
+
+#### 15.2.2 Legacy 与未知 history mode
+
+canonical read 固定流程：
+
+1. 先调用一次只读元数据请求：
+
+```json
+{
+  "method": "thread/read",
+  "params": {
+    "threadId": "<canonical-id>",
+    "includeTurns": false
+  }
+}
+```
+
+2. 读取 `thread.ephemeral` 和 experimental `thread.historyMode`：
+   - `ephemeral=true`：进入第 15.2.4 节；
+   - `historyMode="paginated"`：进入第 15.2.3 节；
+   - `historyMode="legacy"`：调用 `thread/read(includeTurns=true)`；
+   - `historyMode` 缺失：允许尝试一次 `thread/read(includeTurns=true)`，但必须根据结果决定完整性。
+3. legacy `thread/read(includeTurns=true)` 只有在：
+   - RPC 成功；
+   - 返回 canonical thread id 精确匹配；
+   - `thread.turns` 是数组；
+   - 请求期间没有被取消或切换 selection generation；
+   - projector 完整处理全部 turns/items；
+   才标记 complete。
+4. 如果返回明确错误 `paginated threads do not support thread/read(includeTurns=true)`，不得作为一般失败重试；立即切换到第 15.2.3 节。
+5. 如果返回明确错误 `ephemeral threads do not support includeTurns`，进入第 15.2.4 节。
+6. 其他错误保持 baseline partial，禁止 delete，不得通过 `thread/resume` 取得读取权威，也不得静默新建线程。
+
+#### 15.2.3 Paginated history
+
+`thread/read(includeTurns=true)` 对 paginated thread 会返回 Invalid Request，不能作为该模式的 baseline API。
+
+TermLink 当前 app-server 连接已启用 `initialize.capabilities.experimentalApi=true`。paginated baseline 使用 experimental `thread/turns/list`：
+
+```json
+{
+  "method": "thread/turns/list",
+  "params": {
+    "threadId": "<canonical-id>",
+    "cursor": null,
+    "limit": 100,
+    "sortDirection": "asc",
+    "itemsView": "full"
+  }
+}
+```
+
+分页算法：
+
+1. 第一页 `cursor=null`。
+2. 每页验证：
+   - 当前 sync state 中的 canonical conversation id、syncId 和 selection generation仍与发起请求时一致；`ThreadTurnsListResponse` 本身不回显 thread id，不能从响应中伪造 identity 校验；
+   - `data` 是数组；
+   - turn id 和 item id通过 canonicalizer规则；
+   - `nextCursor` 为空或为非空字符串。
+3. `nextCursor` 非空时请求下一页；维护 `seenCursors`，重复 cursor立即失败，防止无限循环。
+4. 页面按服务端 `sortDirection="asc"` 的返回顺序追加；不能再按客户端时间重排。
+5. `itemsView="full"` 必须返回每个 turn 的完整 projected items。若当前 Codex 版本只返回 summary/notLoaded，baseline保持 partial；不得根据摘要生成 delete。
+6. 累计 canonical items 超过本计划的 10,000 安全上限时停止分页，返回 `history_too_large`，保留旧缓存并按 partial处理。
+7. 每次只生成/投影当前页；允许保留当前页和下一页，不得把全部原始响应页面同时留在内存。
+8. selection generation变化、WebSocket断开、sync取消或 capability失效时立即停止分页并释放页面引用。
+9. 只有 `nextCursor=null`、所有页校验成功、未超限且 full items 全部投影完成，才标记 `paginated_full_read/complete=true`。
+10. `thread/turns/list` method-not-found、experimental capability不可用、任一页失败或取消时：
+    - baseline保持 partial；
+    - 已取得的 item可以作为 upsert候选；
+    -不得生成 deletes或完整 canonicalOrder；
+    -不得改走 `thread/resume`，避免取得写 Owner 或破坏现有 IPC authority。
+
+`thread/items/list` 不是第一版构建完整 baseline 的必经步骤；只有经当前版本 schema/测试证明 `thread/turns/list(itemsView="full")` 仍缺少实施所需 item时才条件启用，并遵循相同 cursor、上限、取消和 complete门禁。
+
+#### 15.2.4 Ephemeral history
+
+ephemeral thread没有可依赖的持久 rollout：
+
+1. 当前 Owner 从 `thread/start` 起完整跟踪：使用 `new_thread_tracked` baseline。
+2. 当前周期存在完整 IPC snapshot：使用 `ipc_full_snapshot` baseline。
+3. 两者都不存在：baseline为 partial/unavailable。
+4. 不调用 `thread/read(includeTurns=true)` 重试，不调用 `thread/resume`，不创建替代线程。
+5. partial/unavailable 时立即展示已有 SQLite缓存和当前 live增量，但禁止 deletes，并向 history sync状态返回可诊断原因 `ephemeral_history_not_recoverable`。
 
 ### 15.3 快速路径
 
@@ -1599,6 +1886,10 @@ Wire attachment 使用：
 4.缺稳定 ID 的 streaming item 标记 unstable，且不进入 history root。
 5. terminal/full baseline 后 unstable item 的 final key 稳定。
 6.顺序变化改变 conversation root。
+7.同一语义 surface 在两个不同 `Date.now()` 时刻投影，payload hash和conversation root完全相同。
+8. `DesktopSurface.updatedAt`、receivedAt、projection/scheduler 时间均不进入 payload。
+9. Codex 持久 message/item/turn 稳定时间在两次读取中相同时可以保留。
+10.只有接收时间或 legacy/app-server 精度无法无损统一时省略时间，不补造当前时间。
 
 ### 21.2 Sync service
 
@@ -1621,6 +1912,13 @@ Wire attachment 使用：
 17. history背压超时只取消 history sync，不关闭可继续承载实时控制事件的 WebSocket。
 18. A→B、断线或selection generation变化会清除 history page timer、当前页和生成游标。
 19. raw full snapshot建立内部 complete baseline；patch-only/desynced entry不能生成 delete。
+20.新建空 Owner 从 `thread/start` 起完整跟踪时可建立 `new_thread_tracked` complete baseline。
+21. `registerExternalSurface()` 普通 seed、resume/fork partial seed和旧 cache默认不完整，连续增量不能自动把它升级为 complete。
+22. legacy persisted thread 的 `thread/read(includeTurns=true)` 全量成功后才允许 delete。
+23. paginated thread 不调用 `thread/read(includeTurns=true)`；使用 `thread/turns/list(itemsView=full)` 逐页到 `nextCursor=null` 后才完整。
+24. paginated cursor重复、页面失败、summary/notLoaded items、method-not-found、取消或超过10,000 items时保持 partial，只产生 upsert。
+25. ephemeral thread只有当前完整 IPC snapshot或从 start起完整跟踪的Owner state可成为 complete；否则返回 `ephemeral_history_not_recoverable` 且禁止 delete。
+26. paginated/ephemeral 的明确 Invalid Request不会触发 `thread/resume`、新建线程或循环重试。
 
 ### 21.3 Android JVM cache/reducer tests
 
@@ -1771,7 +2069,11 @@ Android 验证边界：
 15. epoch不同的 patch必须直接拒绝并保持旧 tracker entry完全不变，不得自行增加 pending epoch状态机。
 16. history delta必须逐页懒发送并受 `bufferedAmount` 门禁，不得预先序列化整个 sequence。
 17. 不把本轮扩展成十万 items、独立 order分页、逐页 ack、断线续传或通用消息 CRDT。
-18. 每步报告：
+18. `sendControl()` 必须保留白名单内的 Plan/问题/审批/Goal 语义，删除 raw 协议对象；不得为减小 payload 删除用户作出决定所需的信息。
+19. IPC patch只能继承 snapshot建立的 epoch；不得恢复 `sourceClientId || hostId || "unknown"` 逐消息计算。
+20. paginated/ephemeral history不得被强行送入 `thread/read(includeTurns=true)`；无法证明完整时只能 upsert。
+21. canonical hash禁止使用 surface/接收/投影当前时间。
+22. 每步报告：
     -修改文件；
     -算法落点；
     -新增测试；
@@ -1792,6 +2094,10 @@ Android 验证边界：
 -迟到的 history commit不会覆盖 healthy IPC/Owner正文；
 -缓存差异可通过 manifest/delta 自动修复；
 -history delta背压不会阻塞或关闭仍可用的实时控制通道；
+-Plan、用户提问、审批和Goal控制事件在去除raw对象后仍可完整展示和安全提交；
+-同一 IPC snapshot baseline后的缺 identity patch不会造成 source epoch跳变；
+-paginated/ephemeral/legacy baseline均按各自能力分支处理，partial baseline不产生delete；
+-同一语义surface在不同投影时刻生成相同canonical root；
 -图片重载后三端仍可访问；
 -Owner/follower、Plan、Goal、approval、interrupt 和 A→B→A 全部回归通过；
 -第 21.5 节人工安装测试全部通过并有记录；

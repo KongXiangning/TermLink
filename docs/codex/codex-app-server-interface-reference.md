@@ -173,11 +173,34 @@ interface ThreadReadParams {
 
 ```typescript
 interface ThreadReadResponse {
-  thread: Thread;  // includeTurns=true 时 thread.turns 填充
+  thread: Thread;  // 仅在该 history mode 支持完整读取时由 includeTurns=true 填充
 }
 ```
 
+`includeTurns=true` 不是所有线程都可用的通用完整历史接口：
+
+- legacy、持久化 thread：支持；成功响应中的 `thread.turns` 可用于完整读取。
+- paginated thread：当前上游实现明确返回 Invalid Request，错误文本为 `paginated threads do not support thread/read(includeTurns=true)`；必须改用 experimental `thread/turns/list` 分页读取。
+- ephemeral thread：当前上游实现明确返回 Invalid Request，错误文本为 `ephemeral threads do not support includeTurns`；历史只能来自仍存活的完整 live/Owner state。
+- `includeTurns=false` 仍可用于读取 thread 元数据和判断 `ephemeral/historyMode`。`historyMode` 是 experimental 字段，未启用 experimental schema 时可能缺失。
+
 **TermLink 使用约束**：`thread/read` 是 app-server JSON-RPC，不是 Codex IPC Owner/Follower 协议方法。在 TermLink 中仅作为 bounded recovery path——offline / desynced / 缺少目标 surface 时才调用。禁止定时轮询。healthy IPC surface 在线时，其响应只能进入 history/SQLite 缓存，不能覆盖实时正文/运行态/pending action。
+
+TermLink history baseline 必须分支处理：
+
+```text
+legacy persistent
+  → thread/read(includeTurns=true)
+
+paginated
+  → thread/turns/list(sortDirection="asc", itemsView="full")
+  → 跟随 nextCursor 到末页
+
+ephemeral
+  → 仅使用可证明完整的当前 IPC/Owner live state
+```
+
+RPC 成功不等于 baseline 完整；只有完整读取/分页到末页并通过 identity、cursor、items view 和数量上限校验后，才允许生成删除操作。
 
 ### 2.4 `thread/fork` — 分叉线程
 
@@ -754,7 +777,7 @@ TermLink 当前 managed app-server 客户端明确发送：
 | "thread/start" → canonical ID | `thread/start` | `v2/thread.rs` |
 | "thread/resume" → canonical ID | `thread/resume` | `v2/thread.rs` |
 | "thread/fork" → canonical ID | `thread/fork` | `v2/thread.rs` |
-| "thread/read(includeTurns=true)" | `thread/read` | `v2/thread.rs` |
+| legacy 持久线程完整读取 | `thread/read(includeTurns=true)` | `v2/thread.rs`；paginated/ephemeral 不支持 |
 | itemKey (稳定 identity) | `ThreadItem.id()` | `v2/item.rs` |
 | turnId | `Turn.id` | `v2/thread_data.rs` |
 | itemType | `ThreadItem` tag | `v2/item.rs` |
@@ -765,7 +788,7 @@ TermLink 当前 managed app-server 客户端明确发送：
 | Plan 进度 | `item/plan/delta` notification | `v2/item.rs` |
 | Goal 管理 | `thread/goal/set`, `thread/goal/get`, `thread/goal/clear` | `v2/thread.rs` |
 | 会话目录 | `thread/list` | `v2/thread.rs` |
-| 分页加载 | `thread/turns/list`, `thread/items/list` | `v2/thread.rs` |
+| paginated 完整读取 | `thread/turns/list(itemsView="full")`，必要时条件使用 `thread/items/list` | `v2/thread.rs`；experimental |
 | 历史模式 | `ThreadHistoryMode` ("legacy" \| "paginated") | `v2/thread_data.rs` |
 
 ---
