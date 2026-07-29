@@ -191,15 +191,24 @@ test('current thread stream broadcasts use host-compatible method versions', asy
     client.sendBroadcast('thread-stream-state-changed', {
         conversationId: 'conv-follow', hostId: 'local', change: { type: 'snapshot', revision: 1 }
     });
+    client.sendBroadcast('thread-read-state-changed', {
+        conversationId: 'conv-follow', hostId: 'local', hasUnreadTurn: true
+    });
     await delay(10);
 
     assert.equal(broadcasts[0].version, 1);
     assert.equal(broadcasts[1].version, 11);
+    const readStateBroadcast = broadcasts.find(
+        (broadcast) => broadcast.method === 'thread-read-state-changed',
+    );
+    assert.ok(readStateBroadcast);
+    assert.equal(readStateBroadcast.version, 2);
+    assert.equal(readStateBroadcast.params.hostId, 'local');
 });
 
 // ── sendRequest ──────────────────────────────────────────────────────────
 
-test('thread-follower-interrupt-turn uses demo-compatible method version', async () => {
+test('thread-follower-interrupt-turn uses current-host-compatible method version', async () => {
     let capturedRequest = null;
     const { client, transport } = createTestClient({ reconnect: false });
     setupPeer(transport, (msg, peer) => {
@@ -222,7 +231,7 @@ test('thread-follower-interrupt-turn uses demo-compatible method version', async
     });
 
     assert.equal(capturedRequest.method, 'thread-follower-interrupt-turn');
-    assert.equal(capturedRequest.version, 2);
+    assert.equal(capturedRequest.version, 3);
 });
 
 test('sendRequest resolves with the response message', async () => {

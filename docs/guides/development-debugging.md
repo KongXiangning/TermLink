@@ -152,10 +152,29 @@ TERMLINK_ANDROID_DIAGNOSTICS_ENABLED=true    # Release APK 构建时可通过 Gr
 采集设备与服务端日志（不会清理或覆盖源日志）：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./scripts/diagnostics/collect-known-issue-logs.ps1
+powershell -ExecutionPolicy Bypass -File ./scripts/diagnostics/collect-known-issue-logs.ps1 -Serial da34332c
 ```
 
 采集目录会生成 `manifest.json`、`android/`、`server/` 与按时间排序的 `timeline.jsonl`。各事件的稳定名称以 `android.*` 或 `server.*` 开头，可按问题编号在 `tmp/codex-known-issues-20260726.md` 的映射表中筛选。
+
+Codex 发送与跨端同步使用脱敏短 hash 关联：按同一 `conversationKey`、`clientRequestKey`、`threadKey` 依次筛选 `android.codex.turn.* → server.ipc.follower_send.* → server.ipc.surface.* → android.codex.ipc.surface.received`。模型/权限“数据已到但界面仍加载”优先比较 `*.catalog.loaded` 与 `*.catalog.ui_applied`；图片恢复问题比较 `server.codex.attachment.*`、thread snapshot 与 surface delivery。完整事件及代码位置记录在 `tmp/codex-known-issues-20260726.md`。
+
+新增诊断事件位置：
+
+| 链路 | 事件 | 实现位置 |
+| --- | --- | --- |
+| Android 发送 | `android.codex.turn.send.requested/sent/rejected/failed/acknowledged`、`android.codex.turn.route_state` | `CodexViewModel.sendTurnWithOverrides()` 与 WebSocket envelope handler |
+| Android 展示 | `android.codex.model_catalog.ui_applied`、`android.codex.permission_catalog.ui_applied` | `CodexViewModel.handleModelListResponse()`、`handlePermissionProfileListResponse()` |
+| Android 恢复 | `android.codex.thread.resume.requested/sent`、`thread.ready`、`thread.snapshot.applied` | `CodexViewModel.resumeThread()` 与 thread snapshot handler |
+| Android 错误/审批 | `android.codex.websocket.error`、`android.codex.request.failed`、`android.approval.clicked/sent/acknowledged/failed` | `CodexViewModel` 通用错误及审批 handler |
+| 服务端路由 | `server.ipc.follower_send.requested/rejected/waiting_for_surface/routed/acknowledged/failed/unhandled` | `terminalGateway._handleFollowerSendMessage()` 与 WebSocket dispatch |
+| 服务端同步 | `server.ipc.surface.delivery`、`server.ipc.catalog.broadcast`、`server.codex.owner.surface_broadcast/failed` | `terminalGateway` surface、catalog 与 Owner broadcast 路径 |
+| 服务端恢复 | `server.codex.request.received/completed/failed` | `terminalGateway` 的 `codex_request` handler |
+| 服务端附件 | `server.codex.attachment.resolved/media_store_failed/cleanup` | `resolveTurnInputAttachments()` 与 `cleanupAttachmentTempFiles()` |
+| IPC surface | `server.ipc.surface.changed/status_transition/projection_desynced` | `codexIpcFeed` surface projection/cache handler |
+| 脱敏与采集 | `shortHash()/stableKey()`、safe aggregate allowlist、`-Serial` | `PersistentDiagnosticLog.kt`、`diagnosticLog.js`、`collect-known-issue-logs.ps1` |
+
+上述 ID 均只保存 SHA-256 短 hash；附件仅保留数量、类型和处理状态。原始 ID、prompt、命令、路径、URL、图片数据、payload 和凭据仍会被脱敏。
 
 ### Sessions 401
 

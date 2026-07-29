@@ -1,7 +1,8 @@
 param(
     [string]$OutputDirectory = "",
     [string]$PackageName = "com.termlink.app",
-    [string]$ServerLogDirectory = "logs/diagnostics"
+    [string]$ServerLogDirectory = "logs/diagnostics",
+    [string]$Serial = "da34332c"
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,9 +20,10 @@ function Write-Manifest {
     $manifest = [ordered]@{
         collectedAt = (Get-Date).ToUniversalTime().ToString("o")
         packageName = $PackageName
+        deviceSerial = $Serial
         outputDirectory = (Resolve-Path $OutputDirectory).Path
         sourcesArePreserved = $true
-        appSource = "adb shell run-as $PackageName files/diagnostics/termlink-diagnostics.jsonl*"
+        appSource = "adb -s $Serial shell run-as $PackageName files/diagnostics/termlink-diagnostics.jsonl*"
         serverSource = $ServerLogDirectory
     }
     $manifest | ConvertTo-Json | Set-Content -Encoding UTF8 (Join-Path $OutputDirectory "manifest.json")
@@ -30,7 +32,7 @@ function Write-Manifest {
 function Collect-AppFile([string]$remoteName) {
     $safeName = Split-Path $remoteName -Leaf
     $target = Join-Path $appDirectory $safeName
-    $bytes = & adb exec-out run-as $PackageName cat "files/diagnostics/$remoteName" 2>$null
+    $bytes = & adb -s $Serial exec-out run-as $PackageName cat "files/diagnostics/$remoteName" 2>$null
     if ($LASTEXITCODE -eq 0 -and $null -ne $bytes) {
         [System.IO.File]::WriteAllBytes($target, [System.Text.Encoding]::UTF8.GetBytes(($bytes -join "`n")))
         return $true
@@ -39,11 +41,11 @@ function Collect-AppFile([string]$remoteName) {
 }
 
 Write-Manifest
-$packageCheck = & adb shell pm path $PackageName 2>$null
+$packageCheck = & adb -s $Serial shell pm path $PackageName 2>$null
 if ($LASTEXITCODE -eq 0 -and $packageCheck) {
     $remoteFiles = @("termlink-diagnostics.jsonl") + (1..4 | ForEach-Object { "termlink-diagnostics.jsonl.$_" })
     foreach ($remoteFile in $remoteFiles) { [void](Collect-AppFile $remoteFile) }
-    & adb logcat -d -v threadtime -t 20000 -s TermLinkDiag:V CodexNative:V WebViewConsole:V *:S | Set-Content -Encoding UTF8 (Join-Path $appDirectory "logcat.txt")
+    & adb -s $Serial logcat -d -v threadtime -t 20000 -s TermLinkDiag:V CodexNative:V WebViewConsole:V *:S | Set-Content -Encoding UTF8 (Join-Path $appDirectory "logcat.txt")
 } else {
     "adb device/package unavailable" | Set-Content -Encoding UTF8 (Join-Path $appDirectory "unavailable.txt")
 }

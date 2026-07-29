@@ -8,6 +8,7 @@ const DEFAULT_PATH = './logs/diagnostics/termlink-diagnostics.jsonl';
 const MAX_TEXT_LENGTH = 1200;
 const MAX_STACK_LENGTH = 8000;
 const SENSITIVE_KEY = /(prompt|command|output|password|passwd|secret|authorization|ticket|access.?token|private.?key|certificate|attachment|raw|payload|body|content)/i;
+const SAFE_AGGREGATE_KEY = /^(attachmentCount|attachmentTypes|fileMentionCount|textLength|itemCount|messageCount|turnCount|durationMs|waitMs|revision|baseRevision|sourceEpoch|rawMetadataCount|syncMetadataCount)$/;
 const SENSITIVE_TEXT = /(authorization|password|passwd|secret|ticket|access[_-]?token|private[_-]?key|certificate)\s*[:=]\s*[^\s,;]+/gi;
 
 function parseBoolean(value, fallback) {
@@ -24,7 +25,7 @@ function sanitizeText(value, maxLength = MAX_TEXT_LENGTH) {
 }
 
 function sanitizeValue(key, value) {
-    if (SENSITIVE_KEY.test(String(key))) return '<redacted>';
+    if (SENSITIVE_KEY.test(String(key)) && !SAFE_AGGREGATE_KEY.test(String(key))) return '<redacted>';
     if (value === null || value === undefined) return null;
     if (typeof value === 'boolean' || typeof value === 'number') return value;
     if (typeof value === 'string') return sanitizeText(value);
@@ -47,6 +48,12 @@ function safeFields(fields = {}) {
         if (sanitized !== null && sanitized !== undefined) result[key] = sanitized;
     }
     return result;
+}
+
+function stableKey(value) {
+    const normalized = String(value ?? '').trim();
+    if (!normalized) return null;
+    return crypto.createHash('sha256').update(normalized, 'utf8').digest('hex').slice(0, 16);
 }
 
 class DiagnosticLog {
@@ -166,5 +173,6 @@ module.exports = {
     DiagnosticLog,
     diagnosticLog,
     sanitizeText,
-    safeFields
+    safeFields,
+    stableKey
 };

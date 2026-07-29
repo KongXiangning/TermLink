@@ -3,7 +3,7 @@
 const { EventEmitter } = require('node:events');
 const { buildDesktopSurfaceSnapshot } = require('./codexIpcThreadStream');
 
-const LOCAL_HOST_ID = 'termlink-local';
+const LOCAL_HOST_ID = 'local';
 
 class CodexOwnerSurfaceTracker extends EventEmitter {
     constructor() {
@@ -123,12 +123,12 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
         return this.broadcast(id);
     }
 
-    adoptTurnStartResult(threadId, turnStartResult, clientUserMessageId) {
+    adoptTurnStartResult(threadId, turnStartResult, clientUserMessageId, turnStartParams) {
         const conversation = this._conversations.get(normalizeId(threadId));
         if (!conversation) return undefined;
 
         const result = asRecord(turnStartResult);
-        const turn = normalizeTurn(asRecord(result?.turn), 'inProgress');
+        const turn = normalizeTurn(asRecord(result?.turn), 'inProgress', turnStartParams);
         if (!turn) return undefined;
 
         const pendingTurnId = clientUserMessageId ? `pending:${clientUserMessageId}` : null;
@@ -464,14 +464,16 @@ function buildPendingTurn(clientUserMessageId, input, cwd) {
     };
 }
 
-function normalizeTurn(turn, fallbackStatus) {
+function normalizeTurn(turn, fallbackStatus, fallbackParams) {
     if (!turn) return undefined;
     const turnId = asString(turn.id) || asString(turn.turnId);
     if (!turnId) return undefined;
+    const params = asRecord(turn.params) || asRecord(fallbackParams);
     return {
         ...clone(turn),
         turnId,
         status: asString(turn.status) || fallbackStatus,
+        ...(params ? { params: mergeTurnParams(undefined, params) } : {}),
         items: Array.isArray(turn.items) ? clone(turn.items) : []
     };
 }
@@ -501,11 +503,28 @@ function upsertTurn(state, turn) {
             ...previous,
             ...clone(turn),
             turnId,
+            params: mergeTurnParams(asRecord(previous.params), asRecord(turn.params)),
             items: mergeTurnItems(previous.items, turn.items)
         };
     } else {
-        turns.push(clone(turn));
+        turns.push({
+            ...clone(turn),
+            params: mergeTurnParams(undefined, asRecord(turn.params))
+        });
     }
+}
+
+function mergeTurnParams(previous, incoming) {
+    const previousParams = asRecord(previous) || {};
+    const incomingParams = asRecord(incoming) || {};
+    const input = Array.isArray(incomingParams.input)
+        ? clone(incomingParams.input)
+        : (Array.isArray(previousParams.input) ? clone(previousParams.input) : []);
+    return {
+        ...clone(previousParams),
+        ...clone(incomingParams),
+        input
+    };
 }
 
 function upsertItem(turn, item) {

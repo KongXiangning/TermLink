@@ -400,6 +400,26 @@ internal fun shouldRequireExactIpcConversationSelection(
         pinned == threadId?.trim().orEmpty()
 }
 
+internal data class SessionThreadBindingDecision(
+    val appliesToCurrentSession: Boolean,
+    val shouldSendActiveConversationSelection: Boolean
+)
+
+internal fun resolveSessionThreadBindingDecision(
+    boundSessionId: String?,
+    currentSessionId: String?
+): SessionThreadBindingDecision {
+    val bound = boundSessionId?.trim().orEmpty()
+    val current = currentSessionId?.trim().orEmpty()
+    val appliesToCurrentSession = bound.isEmpty() || bound == current
+    return SessionThreadBindingDecision(
+        appliesToCurrentSession = appliesToCurrentSession,
+        // session_codex_thread_bound acknowledges a selection the client already sent.
+        // Echoing it creates a self-sustaining A/B selection loop when older acks are queued.
+        shouldSendActiveConversationSelection = false
+    )
+}
+
 internal fun shouldAwaitIpcSurfaceAfterThreadResumeResponse(
     targetThreadId: String?,
     pendingHydrationThreadId: String?
@@ -1694,6 +1714,7 @@ class CodexViewModel(
     private val executionFeedbackSeen = mutableSetOf<String>()
     private var currentProfile: ServerProfile? = null
     private var mentionSearchGeneration: Long = 0L
+    private var modelCatalogRequestGeneration: Long = 0L
     private var legacyModelListFallbackRequested: Boolean = false
     /** Tracks whether the current thread had a plan-mode turn.
      *  The Codex API persists plan mode per-thread, so a subsequent
@@ -2042,7 +2063,29 @@ class CodexViewModel(
 
     fun interrupt() {
         val state = _uiState.value
-        if (shouldUseIpcFollowerTransport(state)) {
+        val useFollowerTransport = shouldUseIpcFollowerTransport(state)
+        val interruptRequestId = UUID.randomUUID().toString()
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.interrupt.requested",
+            mapOf(
+                "interruptRequestKey" to PersistentDiagnosticLog.shortHash(interruptRequestId),
+                "conversationKey" to PersistentDiagnosticLog.shortHash(state.activeConversationId),
+                "turnKey" to PersistentDiagnosticLog.shortHash(state.currentTurnId),
+                "transport" to if (useFollowerTransport) "follower" else "legacy",
+                "authority" to authorityModeForState(state, state.activeConversationId).name,
+                "status" to state.status,
+                "ipcOnline" to state.ipcOnline,
+                "ipcClientIdPresent" to (state.ipcClientId != null),
+                "followerModeEnabled" to state.followerModeEnabled,
+                "followerActiveSendAllowed" to state.followerActiveSendAllowed,
+                "surfaceStatus" to state.ipcSurfaceSnapshot?.status,
+                "surfaceDesynced" to (state.ipcSurfaceSnapshot?.desynced == true),
+                "surfaceRevision" to state.ipcSurfaceSnapshot?.revision,
+                "sourceEpoch" to state.ipcSurfaceSnapshot?.sourceEpoch
+            )
+        )
+        if (useFollowerTransport) {
             sendEnvelopeOrReportFailure(
                 payload = CodexClientMessages.followerInterruptTurn(state.activeConversationId!!),
                 errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
@@ -2146,11 +2189,24 @@ class CodexViewModel(
         PersistentDiagnosticLog.event(
             "codex",
             "android.approval.clicked",
-            mapOf("requestIdPresent" to requestId.isNotBlank(), "approved" to approved),
+            mapOf(
+                "requestKey" to PersistentDiagnosticLog.shortHash(requestId),
+                "approved" to approved,
+                "conversationKey" to PersistentDiagnosticLog.shortHash(_uiState.value.activeConversationId)
+            ),
             critical = true
         )
         val request = findPendingServerRequest(requestId)
         if (request == null) {
+            PersistentDiagnosticLog.event(
+                "codex",
+                "android.approval.failed",
+                mapOf(
+                    "requestKey" to PersistentDiagnosticLog.shortHash(requestId),
+                    "reason" to "pending_request_missing"
+                ),
+                level = "error"
+            )
             Log.w(TAG, "[approval][submit-skipped] pending request not found requestId=$requestId")
             return
         }
@@ -2183,6 +2239,16 @@ class CodexViewModel(
                 errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
             )
             if (!sent) return
+            PersistentDiagnosticLog.event(
+                "codex",
+                "android.approval.sent",
+                mapOf(
+                    "requestKey" to PersistentDiagnosticLog.shortHash(requestId),
+                    "conversationKey" to PersistentDiagnosticLog.shortHash(conversationId),
+                    "transport" to "ipc_follower",
+                    "approved" to approved
+                )
+            )
             markServerRequestSubmitting(requestId)
             return
         }
@@ -2824,6 +2890,16 @@ class CodexViewModel(
     fun resumeThread(threadId: String) {
         val normalizedThreadId = threadId.trim()
         if (normalizedThreadId.isEmpty()) return
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.thread.resume.requested",
+            mapOf(
+                "threadKey" to PersistentDiagnosticLog.shortHash(normalizedThreadId),
+                "previousThreadKey" to PersistentDiagnosticLog.shortHash(_uiState.value.threadId),
+                "activeConversationKey" to PersistentDiagnosticLog.shortHash(_uiState.value.activeConversationId),
+                "ipcOnline" to _uiState.value.ipcOnline
+            )
+        )
         clearPendingOptimisticNewThreadTransition()
         clearPendingLaunchHydrate()
         pinnedIpcConversationId = normalizedThreadId
@@ -2834,11 +2910,20 @@ class CodexViewModel(
                 threadHistoryActionKind = "resume"
             )
         }
-        connectionManager.send(
+        val sent = connectionManager.send(
             CodexClientMessages.codexRequest(
                 action = "thread/resume",
                 params = JSONObject().put("threadId", normalizedThreadId)
             )
+        )
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.thread.resume.sent",
+            mapOf(
+                "threadKey" to PersistentDiagnosticLog.shortHash(normalizedThreadId),
+                "sent" to sent
+            ),
+            level = if (sent) "info" else "warn"
         )
     }
 
@@ -3406,6 +3491,27 @@ class CodexViewModel(
         val effectiveModel = state.nextTurnOverrides.model ?: state.model
         val effectiveReasoning = state.nextTurnOverrides.reasoningEffort ?: state.reasoningEffort
 
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.turn.send.requested",
+            mapOf(
+                "clientRequestKey" to PersistentDiagnosticLog.shortHash(clientRequestId),
+                "conversationKey" to PersistentDiagnosticLog.shortHash(state.activeConversationId),
+                "threadKey" to PersistentDiagnosticLog.shortHash(state.threadId),
+                "transportCandidate" to if (shouldUseIpcFollowerTransport(state)) "follower" else "legacy",
+                "ipcOnline" to state.ipcOnline,
+                "surfaceStatus" to state.ipcSurfaceSnapshot?.status,
+                "surfaceRevision" to state.ipcSurfaceSnapshot?.revision,
+                "attachmentCount" to attachments.size,
+                "attachmentTypes" to attachments.map { it.type }.distinct(),
+                "fileMentionCount" to state.pendingFileMentions.size,
+                "textLength" to text.length,
+                "planMode" to isPlanMode,
+                "modelPresent" to !effectiveModel.isNullOrBlank(),
+                "reasoningPresent" to !effectiveReasoning.isNullOrBlank()
+            )
+        )
+
         val collaborationMode = if (isPlanMode) {
             CodexClientMessages.buildCollaborationMode(
                 model = effectiveModel,
@@ -3429,6 +3535,19 @@ class CodexViewModel(
         )
         val sentViaIpcFollower = followerPayload != null
         if (followerPayload == null && shouldBlockPlainTextFallbackForIpcConversation(state, isPlanMode, attachments)) {
+            PersistentDiagnosticLog.event(
+                "codex",
+                "android.codex.turn.send.rejected",
+                mapOf(
+                    "clientRequestKey" to PersistentDiagnosticLog.shortHash(clientRequestId),
+                    "conversationKey" to PersistentDiagnosticLog.shortHash(state.activeConversationId),
+                    "reason" to "ipc_fallback_blocked",
+                    "attachmentCount" to attachments.size,
+                    "surfaceStatus" to state.ipcSurfaceSnapshot?.status,
+                    "surfaceDesynced" to (state.ipcSurfaceSnapshot?.desynced == true)
+                ),
+                level = "warn"
+            )
             _uiState.update {
                 it.copy(errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable))
             }
@@ -3449,8 +3568,33 @@ class CodexViewModel(
             errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
         )
         if (!sent) {
+            PersistentDiagnosticLog.event(
+                "codex",
+                "android.codex.turn.send.failed",
+                mapOf(
+                    "clientRequestKey" to PersistentDiagnosticLog.shortHash(clientRequestId),
+                    "conversationKey" to PersistentDiagnosticLog.shortHash(state.activeConversationId),
+                    "transport" to if (sentViaIpcFollower) "follower" else "legacy",
+                    "reason" to "websocket_send_rejected",
+                    "attachmentCount" to attachments.size
+                ),
+                level = "error"
+            )
             return false
         }
+
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.turn.send.sent",
+            mapOf(
+                "clientRequestKey" to PersistentDiagnosticLog.shortHash(clientRequestId),
+                "conversationKey" to PersistentDiagnosticLog.shortHash(state.activeConversationId),
+                "threadKey" to PersistentDiagnosticLog.shortHash(state.threadId),
+                "transport" to if (sentViaIpcFollower) "follower" else "legacy",
+                "attachmentCount" to attachments.size,
+                "fileMentionCount" to state.pendingFileMentions.size
+            )
+        )
 
         if (!sentViaIpcFollower) {
             // Update plan-turn tracking: set flag if this was a plan turn,
@@ -3577,11 +3721,18 @@ class CodexViewModel(
     }
 
     private fun maybeRequestModelList() {
-        val caps = _uiState.value.capabilities ?: return
+        val state = _uiState.value
+        val caps = state.capabilities ?: return
         if (!caps.modelConfig || caps.models.isNotEmpty()) {
             return
         }
-        PersistentDiagnosticLog.event("codex", "android.codex.model_catalog.requested")
+        val generation = ++modelCatalogRequestGeneration
+        PersistentDiagnosticLog.event("codex", "android.codex.model_catalog.requested", mapOf(
+            "generation" to generation,
+            "connectionState" to state.connectionState.name,
+            "activeConversationKey" to PersistentDiagnosticLog.shortHash(state.activeConversationId),
+            "capabilityModelCount" to caps.models.size
+        ))
         val sent = connectionManager.send(
             CodexClientMessages.codexRequest(
                 "model/list",
@@ -3591,7 +3742,7 @@ class CodexViewModel(
         PersistentDiagnosticLog.event(
             "codex",
             "android.codex.model_catalog.sent",
-            mapOf("sent" to sent),
+            mapOf("sent" to sent, "generation" to generation),
             level = if (sent) "info" else "warn"
         )
     }
@@ -4269,6 +4420,30 @@ class CodexViewModel(
                 val activeConv = _uiState.value.activeConversationId
                 val applied = convId != null && activeConv != null && convId == activeConv
                 if (applied) {
+                    val current = _uiState.value
+                    val previousStatus = current.ipcSurfaceSnapshot?.status
+                    val terminal = snap.status.trim().lowercase() in setOf(
+                        "completed", "failed", "interrupted", "cancelled", "canceled"
+                    )
+                    if (snap.desynced || terminal || previousStatus?.equals(snap.status, ignoreCase = true) != true) {
+                        PersistentDiagnosticLog.event(
+                            "codex",
+                            "android.codex.ipc.surface.received",
+                            mapOf(
+                                "conversationKey" to PersistentDiagnosticLog.shortHash(convId),
+                                "activeConversationKey" to PersistentDiagnosticLog.shortHash(activeConv),
+                                "applied" to true,
+                                "status" to snap.status,
+                                "previousStatus" to previousStatus,
+                                "desynced" to snap.desynced,
+                                "revision" to snap.revision,
+                                "sourceEpoch" to snap.sourceEpoch,
+                                "latestTurnIdPresent" to !snap.latestTurnId.isNullOrBlank(),
+                                "ownerKind" to snap.ownerKind
+                            ),
+                            level = if (snap.desynced) "warn" else "info"
+                        )
+                    }
                     noteMatchingIpcSurface(snap)
                     _uiState.update { current ->
                         syncExecutionWatch(
@@ -4335,6 +4510,19 @@ class CodexViewModel(
                         "[ipc][route-state] conversationId=$routeConversationId " +
                             "requestId=${requestId.orEmpty()} state=$routeState " +
                             "authority=${json.optStringOrNullCompat("authority").orEmpty()}"
+                    )
+                    PersistentDiagnosticLog.event(
+                        "codex",
+                        "android.codex.turn.route_state",
+                        mapOf(
+                            "conversationKey" to PersistentDiagnosticLog.shortHash(routeConversationId),
+                            "clientRequestKey" to PersistentDiagnosticLog.shortHash(requestId),
+                            "turnKey" to PersistentDiagnosticLog.shortHash(turnId),
+                            "state" to routeState,
+                            "authority" to json.optStringOrNullCompat("authority"),
+                            "detail" to json.optStringOrNullCompat("detail")
+                        ),
+                        level = if (routeState == "failed" || routeState == "recovery_required") "warn" else "info"
                     )
                 }
             }
@@ -4415,10 +4603,12 @@ class CodexViewModel(
                         reason = "session-thread-bound"
                     )
                     val previousConversationId = _uiState.value.activeConversationId.orEmpty()
-                    val appliesToCurrentSession = boundSessionId.isBlank() ||
-                        boundSessionId == _uiState.value.sessionId
+                    val bindingDecision = resolveSessionThreadBindingDecision(
+                        boundSessionId = boundSessionId,
+                        currentSessionId = _uiState.value.sessionId
+                    )
                     _uiState.update { current ->
-                        if (boundSessionId.isNotBlank() && boundSessionId != current.sessionId) {
+                        if (!bindingDecision.appliesToCurrentSession) {
                             current
                         } else {
                             val switched = normalizeThreadId(current.activeConversationId) != conversationId
@@ -4438,9 +4628,12 @@ class CodexViewModel(
                             )
                         }
                     }
-                    if (appliesToCurrentSession) {
+                    if (bindingDecision.appliesToCurrentSession) {
                         pinnedIpcConversationId = conversationId
-                        if (normalizeThreadId(previousConversationId) != conversationId) {
+                        if (
+                            bindingDecision.shouldSendActiveConversationSelection &&
+                            normalizeThreadId(previousConversationId) != conversationId
+                        ) {
                             if (_uiState.value.ipcOnline) {
                                 beginAwaitingFreshIpcSurface()
                             }
@@ -4606,6 +4799,15 @@ class CodexViewModel(
             "codex_thread_ready" -> {
                 val ready = CodexThreadReady.from(json)
                 val readyThreadId = normalizeThreadId(ready.threadId)
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.codex.thread.ready",
+                    mapOf(
+                        "threadKey" to PersistentDiagnosticLog.shortHash(readyThreadId),
+                        "resumed" to ready.resumed,
+                        "activeConversationKey" to PersistentDiagnosticLog.shortHash(_uiState.value.activeConversationId)
+                    )
+                )
                 val wasAwaitingNewSurface = _uiState.value.awaitingNewThreadIpcSurface
                 _uiState.update {
                     val allowThreadIdSwitch = shouldAllowOptimisticTailAcrossThreadSwitch(
@@ -4652,6 +4854,16 @@ class CodexViewModel(
                 val snapshot = CodexThreadSnapshot.from(json)
                 val snapshotThreadId = normalizeThreadId(snapshot.threadId)
                 val canonicalMessages = parseSnapshotMessages(snapshot)
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.codex.thread.snapshot.applied",
+                    mapOf(
+                        "threadKey" to PersistentDiagnosticLog.shortHash(snapshotThreadId),
+                        "messageCount" to canonicalMessages.size,
+                        "previousMessageCount" to _uiState.value.messages.size,
+                        "activeConversationKey" to PersistentDiagnosticLog.shortHash(_uiState.value.activeConversationId)
+                    )
+                )
                 clearPendingThreadResync(snapshotThreadId)
                 clearPendingLaunchHydrate(snapshotThreadId)
                 _uiState.update { state ->
@@ -4721,10 +4933,31 @@ class CodexViewModel(
 
             "follower_turn_interrupted" -> {
                 Log.d(TAG, "Follower interrupt ack")
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.codex.interrupt.acknowledged",
+                    mapOf(
+                        "conversationKey" to PersistentDiagnosticLog.shortHash(json.optStringOrNullCompat("conversationId")),
+                        "acknowledged" to json.optBoolean("acknowledged", false),
+                        "status" to _uiState.value.status,
+                        "turnIdPresent" to (_uiState.value.currentTurnId != null)
+                    )
+                )
             }
 
             "follower_message_sent", "follower_goal_sent" -> {
                 Log.d(TAG, "Follower turn accepted: ${envelope.type}")
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.codex.turn.send.acknowledged",
+                    mapOf(
+                        "type" to envelope.type,
+                        "conversationKey" to PersistentDiagnosticLog.shortHash(json.optStringOrNullCompat("conversationId")),
+                        "clientRequestKey" to PersistentDiagnosticLog.shortHash(json.optStringOrNullCompat("clientRequestId")),
+                        "turnKey" to PersistentDiagnosticLog.shortHash(json.optStringOrNullCompat("turnId")),
+                        "replayed" to json.optBoolean("replayed", false)
+                    )
+                )
             }
 
             "follower_approval_response_sent" -> {
@@ -4741,6 +4974,15 @@ class CodexViewModel(
                         )
                     }
                 }
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.approval.acknowledged",
+                    mapOf(
+                        "requestKey" to PersistentDiagnosticLog.shortHash(requestId),
+                        "conversationKey" to PersistentDiagnosticLog.shortHash(json.optStringOrNullCompat("conversationId")),
+                        "acknowledged" to json.optBoolean("acknowledged", false)
+                    )
+                )
             }
 
             "follower_plan_response_sent" -> {
@@ -4758,6 +5000,18 @@ class CodexViewModel(
 
             "codex_error" -> {
                 val error = CodexError.from(json)
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.codex.websocket.error",
+                    mapOf(
+                        "code" to error.code,
+                        "message" to error.message,
+                        "conversationKey" to PersistentDiagnosticLog.shortHash(_uiState.value.activeConversationId),
+                        "threadKey" to PersistentDiagnosticLog.shortHash(_uiState.value.threadId),
+                        "routeState" to _uiState.value.followerRouteState
+                    ),
+                    level = "error"
+                )
                 if (error.code == "CODEX_NO_ACTIVE_TURN") {
                     _uiState.update {
                         syncExecutionWatch(
@@ -4788,6 +5042,37 @@ class CodexViewModel(
                 val message = json.optString("message", "Codex request failed")
                 val detail = json.opt("detail")?.toString()?.takeIf { it.isNotBlank() }
                 val rendered = if (detail.isNullOrBlank()) message else "$message: $detail"
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.codex.websocket.error",
+                    mapOf(
+                        "message" to message,
+                        "detail" to detail,
+                        "conversationKey" to PersistentDiagnosticLog.shortHash(_uiState.value.activeConversationId),
+                        "threadKey" to PersistentDiagnosticLog.shortHash(_uiState.value.threadId),
+                        "routeState" to _uiState.value.followerRouteState,
+                        "requestKey" to PersistentDiagnosticLog.shortHash(_uiState.value.followerRouteRequestId)
+                    ),
+                    level = "error"
+                )
+                if (message.contains("interrupt", ignoreCase = true) ||
+                    detail?.contains("no-client-found", ignoreCase = true) == true
+                ) {
+                    PersistentDiagnosticLog.event(
+                        "codex",
+                        "android.codex.interrupt.failed",
+                        mapOf(
+                            "conversationKey" to PersistentDiagnosticLog.shortHash(_uiState.value.activeConversationId),
+                            "turnKey" to PersistentDiagnosticLog.shortHash(_uiState.value.currentTurnId),
+                            "message" to message,
+                            "detail" to detail,
+                            "status" to _uiState.value.status,
+                            "surfaceStatus" to _uiState.value.ipcSurfaceSnapshot?.status,
+                            "surfaceDesynced" to (_uiState.value.ipcSurfaceSnapshot?.desynced == true)
+                        ),
+                        level = "error"
+                    )
+                }
                 appendMessage(ChatMessage.Role.ERROR, rendered)
                 _uiState.update {
                     it.copy(
@@ -4939,11 +5224,27 @@ class CodexViewModel(
     private fun handleModelListResponse(result: Any?) {
         val catalog = CodexModelOption.listFrom(result)
         if (catalog.isEmpty()) {
-            PersistentDiagnosticLog.event("codex", "android.codex.model_catalog.loaded", mapOf("count" to 0), level = "warn")
+            PersistentDiagnosticLog.event("codex", "android.codex.model_catalog.loaded", mapOf(
+                "count" to 0,
+                "generation" to modelCatalogRequestGeneration,
+                "uiModelCount" to _uiState.value.capabilities?.models?.size,
+                "displayState" to "empty"
+            ), level = "warn")
             return
         }
         _uiState.update { state -> applyModelCatalogToUiState(state, catalog) }
-        PersistentDiagnosticLog.event("codex", "android.codex.model_catalog.loaded", mapOf("count" to catalog.size))
+        PersistentDiagnosticLog.event("codex", "android.codex.model_catalog.loaded", mapOf(
+            "count" to catalog.size,
+            "generation" to modelCatalogRequestGeneration,
+            "modelKeys" to catalog.map { PersistentDiagnosticLog.shortHash(it.id) },
+            "displayState" to "loaded"
+        ))
+        PersistentDiagnosticLog.event("codex", "android.codex.model_catalog.ui_applied", mapOf(
+            "uiModelCount" to _uiState.value.capabilities?.models?.size,
+            "selectedModelPresent" to !_uiState.value.model.isNullOrBlank(),
+            "selectedOverridePresent" to !_uiState.value.nextTurnOverrides.model.isNullOrBlank(),
+            "displayState" to if (_uiState.value.capabilities?.models?.isNotEmpty() == true) "loaded" else "empty"
+        ))
         Log.i(TAG, "Loaded model list: ${catalog.map(CodexModelOption::id)}")
     }
 
@@ -4959,8 +5260,23 @@ class CodexViewModel(
         PersistentDiagnosticLog.event(
             "codex",
             "android.codex.permission_catalog.loaded",
-            mapOf("count" to profiles.size),
+            mapOf(
+                "count" to profiles.size,
+                "profileKeys" to profiles.map { PersistentDiagnosticLog.shortHash(it.id) },
+                "selectedPermissionPresent" to !_uiState.value.nextTurnOverrides.permissionProfile.isNullOrBlank(),
+                "displayState" to if (profiles.isNotEmpty()) "loaded" else "empty"
+            ),
             level = if (profiles.isEmpty()) "warn" else "info"
+        )
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.permission_catalog.ui_applied",
+            mapOf(
+                "uiProfileCount" to _uiState.value.permissionProfiles.size,
+                "selectedPermissionPresent" to !_uiState.value.nextTurnOverrides.permissionProfile.isNullOrBlank(),
+                "loading" to _uiState.value.permissionProfilesLoading,
+                "displayState" to if (_uiState.value.permissionProfiles.isNotEmpty()) "loaded" else "empty"
+            )
         )
         Log.i(TAG, "Loaded permission profiles: ${profiles.map(CodexPermissionProfileOption::id)}")
     }
@@ -5060,6 +5376,18 @@ class CodexViewModel(
         val message = error.optString("message", "Codex request failed.")
             .trim()
             .ifEmpty { "Codex request failed." }
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.request.failed",
+            mapOf(
+                "method" to method,
+                "message" to message,
+                "threadKey" to PersistentDiagnosticLog.shortHash(_uiState.value.threadId),
+                "activeConversationKey" to PersistentDiagnosticLog.shortHash(_uiState.value.activeConversationId),
+                "routeState" to _uiState.value.followerRouteState
+            ),
+            level = "error"
+        )
         val foregroundRecoveryFailed = method == "thread/read" &&
             foregroundRecoveryReadInFlightThreadId != null
         if (foregroundRecoveryFailed) {

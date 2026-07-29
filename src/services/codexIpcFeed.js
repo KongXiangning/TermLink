@@ -3,7 +3,7 @@
 const { EventEmitter } = require('node:events');
 const { ThreadStreamTracker, buildDesktopSurfaceSnapshot } = require('./codexIpcThreadStream');
 const { readIpcConfig } = require('./codexIpcConfig');
-const { diagnosticLog } = require('./diagnosticLog');
+const { diagnosticLog, stableKey } = require('./diagnosticLog');
 
 const MAX_METADATA_BYTES = 256 * 1024;
 const DIAGNOSTIC_INTERVAL_MS = 30_000;
@@ -348,8 +348,21 @@ class CodexIpcFeed extends EventEmitter {
             projection,
             conversationId
         });
+        const previous = this._snapshotCache.get(conversationId);
 
         if (projection.desynced && !projection.stateChanged) {
+            diagnosticLog.event('server', 'server.ipc.surface.projection_desynced', {
+                conversationKey: stableKey(conversationId),
+                changeType: projection.changeType || null,
+                revision: projection.revision,
+                baseRevision: projection.baseRevision,
+                previousRevision: previous?.revision,
+                sourceEpoch: projection.sourceEpoch || null,
+                sourceClientIdPresent: Boolean(projection.sourceClientId || sourceClientId),
+                hostIdPresent: Boolean(projection.hostId || hostId),
+                connectionGeneration: projection.connectionGeneration,
+                desyncReason: projection.desyncReason || 'unknown'
+            }, 'warn');
             this._appendMetadata(this._syncEvents, event, 'sync');
             this._status = { ...this._status, eventCount: this._sequence, lastEventAt: receivedAt };
             this.emit('event', event);
@@ -396,7 +409,6 @@ class CodexIpcFeed extends EventEmitter {
             itemCount: Array.isArray(surface.items) ? surface.items.length : 0,
             status: surface.status
         };
-        const previous = this._snapshotCache.get(conversationId);
         this._snapshotCache.set(conversationId, record);
         this._cacheStats.conversationCount = this._snapshotCache.size;
         this._cacheStats.latestSurfaceCount = this._snapshotCache.size;
@@ -416,6 +428,18 @@ class CodexIpcFeed extends EventEmitter {
         this._appendMetadata(this._syncEvents, event, 'sync');
         this._status = { ...this._status, eventCount: this._sequence, lastEventAt: receivedAt };
         this._recordSurfaceDiagnostics(conversationId, surface, projection);
+        if (previous?.status !== surface.status || isTerminalSurfaceStatus(surface.status)) {
+            diagnosticLog.event('server', 'server.ipc.surface.status_transition', {
+                conversationKey: stableKey(conversationId),
+                previousStatus: previous?.status || null,
+                status: surface.status || 'unknown',
+                latestTurnIdPresent: Boolean(surface.latestTurnId),
+                revision: projection.revision,
+                sourceEpoch: projection.sourceEpoch || null,
+                connectionGeneration: projection.connectionGeneration,
+                desynced: false
+            });
+        }
         this.emit('event', event);
         this.emit('snapshot', { conversationId, surface, revision: projection.revision });
     }
@@ -630,7 +654,7 @@ class CodexIpcFeed extends EventEmitter {
         if (this._diagnosticSurfaceSignatures.get(conversationId) === diagnosticSignature) return;
         this._diagnosticSurfaceSignatures.set(conversationId, diagnosticSignature);
         diagnosticLog.event('server', 'server.ipc.surface.changed', {
-            conversationIdPresent: true,
+            conversationKey: stableKey(conversationId),
             status: surface.status || 'unknown',
             revision: projection.revision,
             sourceEpoch: projection.sourceEpoch,
@@ -702,6 +726,11 @@ function estimateBytes(value) {
     } catch (_) {
         return 0;
     }
+}
+
+function isTerminalSurfaceStatus(status) {
+    return ['completed', 'failed', 'interrupted', 'cancelled', 'canceled']
+        .includes(typeof status === 'string' ? status.trim().toLowerCase() : '');
 }
 
 function inferStatusFromProjection(projection) {

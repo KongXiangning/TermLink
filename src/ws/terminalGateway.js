@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { randomUUID } = require('node:crypto');
+const { randomUUID, createHash } = require('node:crypto');
 const { verifyWsUpgrade } = require('../auth/basicAuth');
 const { isIpAllowed, normalizeIp } = require('../utils/ipCheck');
 const { generateAuditTraceId } = require('../utils/auditTrace');
@@ -53,6 +53,19 @@ function areJsonLikeValuesEqual(left, right) {
 function sendWsEnvelope(ws, envelope) {
     if (!ws || ws.readyState !== 1) return;
     ws.send(JSON.stringify(envelope));
+}
+
+function diagnosticKey(value) {
+    if (!isNonEmptyString(value)) return null;
+    return createHash('sha256').update(value.trim()).digest('hex').slice(0, 16);
+}
+
+function diagnosticAttachmentSummary(attachments) {
+    const list = Array.isArray(attachments) ? attachments : [];
+    return {
+        attachmentCount: list.length,
+        attachmentTypes: [...new Set(list.map((item) => item && item.type).filter(isNonEmptyString))]
+    };
 }
 
 function isTerminalSurface(surface) {
@@ -419,14 +432,23 @@ async function materializeLocalImageAttachment(url) {
 async function resolveTurnInputAttachments(attachments, mediaStore = null) {
     const resolved = [];
     const tempFilePaths = [];
-    for (const entry of normalizeTurnAttachments(attachments)) {
+    const normalized = normalizeTurnAttachments(attachments);
+    let mediaStoreCount = 0;
+    let mediaStoreFailureCount = 0;
+    let tempMaterializedCount = 0;
+    for (const entry of normalized) {
         if (entry.type === 'localImage' && isNonEmptyString(entry.url)) {
             if (mediaStore && typeof mediaStore.put === 'function') {
                 try {
                     const stored = await mediaStore.put({ dataUrl: entry.url });
                     resolved.push({ type: 'localImage', path: stored.filePath });
+                    mediaStoreCount++;
                     continue;
-                } catch (_) {
+                } catch (error) {
+                    mediaStoreFailureCount++;
+                    diagnosticLog.error('server', 'server.codex.attachment.media_store_failed', error, {
+                        type: entry.type
+                    });
                     // Fall back to the existing temporary path behavior.
                 }
             }
@@ -437,10 +459,21 @@ async function resolveTurnInputAttachments(attachments, mediaStore = null) {
                     path: tempPath
                 });
                 tempFilePaths.push(tempPath);
+                tempMaterializedCount++;
                 continue;
             }
         }
         resolved.push(entry);
+    }
+    if (normalized.length > 0 || mediaStoreFailureCount > 0) {
+        diagnosticLog.event('server', 'server.codex.attachment.resolved', {
+            attachmentCount: normalized.length,
+            attachmentTypes: [...new Set(normalized.map((entry) => entry.type).filter(isNonEmptyString))],
+            resolvedCount: resolved.length,
+            mediaStoreCount,
+            mediaStoreFailureCount,
+            tempMaterializedCount
+        }, mediaStoreFailureCount > 0 ? 'warn' : 'info');
     }
     return { attachments: resolved, tempFilePaths };
 }
@@ -505,18 +538,31 @@ async function cleanupAttachmentTempFiles(filePaths) {
     if (!Array.isArray(filePaths) || filePaths.length === 0) {
         return;
     }
+    let deletedCount = 0;
+    let missingCount = 0;
+    let failedCount = 0;
     await Promise.all(filePaths.map(async (filePath) => {
         if (!isNonEmptyString(filePath)) {
             return;
         }
         try {
             await fs.promises.unlink(filePath);
+            deletedCount++;
         } catch (error) {
-            if (!error || error.code !== 'ENOENT') {
+            if (error && error.code === 'ENOENT') {
+                missingCount++;
+            } else {
+                failedCount++;
                 console.warn('Failed to clean temporary Codex image file:', filePath, error && error.message ? error.message : error);
             }
         }
     }));
+    diagnosticLog.event('server', 'server.codex.attachment.cleanup', {
+        requestedCount: filePaths.length,
+        deletedCount,
+        missingCount,
+        failedCount
+    }, failedCount > 0 ? 'warn' : 'info');
 }
 
 function rememberTurnAttachmentTempFiles(session, turnId, filePaths) {
@@ -772,6 +818,8 @@ function registerTerminalGateway(wss, {
     const _authorityLedger = new Map();
     /** @type {Set<string>} */
     const _ownerReadStateBroadcasted = new Set();
+    /** @type {Map<string, Set<'created'|'first-turn'|'terminal'>>} */
+    const _ownerDiscoveryInvalidationStages = new Map();
     /** @type {Map<string, string[]>} */
     const _followerAttachmentTempFiles = new Map();
     /** @type {Map<string, { sessionId: string, conversationId: string | null, reason: string, draft: object, forkAvailable: boolean }>} */
@@ -879,7 +927,7 @@ function registerTerminalGateway(wss, {
         };
         _ipcConversationSubscriptionCycles.set(normalizedConversationId, cycle);
         diagnosticLog.event('server', 'server.ipc.subscription_cycle.started', {
-            conversationIdPresent: true,
+            conversationKey: diagnosticKey(normalizedConversationId),
             generation: cycle.generation,
             reason: cycle.reason,
             ipcOnline: _isIpcOnline()
@@ -895,7 +943,7 @@ function registerTerminalGateway(wss, {
         _finishIpcSurfaceWaiters(normalizedConversationId, null);
         if (cycle) {
             diagnosticLog.event('server', 'server.ipc.subscription_cycle.closed', {
-                conversationIdPresent: true,
+                conversationKey: diagnosticKey(normalizedConversationId),
                 generation: cycle.generation,
                 reason: isNonEmptyString(reason) ? reason.trim() : 'unknown',
                 hadCurrentSurface: Boolean(cycle.surface)
@@ -956,7 +1004,7 @@ function registerTerminalGateway(wss, {
         if (!cycle || _activeIpcSubscriberCount(normalizedConversationId) === 0) return false;
         if (surface.desynced === true) {
             diagnosticLog.event('server', 'server.ipc.subscription_cycle.desynced_surface_ignored', {
-                conversationIdPresent: true,
+                conversationKey: diagnosticKey(normalizedConversationId),
                 generation: cycle.generation,
                 status: isNonEmptyString(surface.status) ? surface.status.trim() : 'unknown'
             }, 'warn');
@@ -966,7 +1014,7 @@ function registerTerminalGateway(wss, {
         cycle.receivedAt = Date.now();
         _finishIpcSurfaceWaiters(normalizedConversationId, cycle.surface);
         diagnosticLog.event('server', 'server.ipc.subscription_cycle.surface_received', {
-            conversationIdPresent: true,
+            conversationKey: diagnosticKey(normalizedConversationId),
             generation: cycle.generation,
             waitMs: Math.max(0, cycle.receivedAt - cycle.startedAt),
             status: isNonEmptyString(surface.status) ? surface.status.trim() : 'unknown'
@@ -1039,6 +1087,7 @@ function registerTerminalGateway(wss, {
             status === 'cancelled' ||
             status === 'canceled';
         return terminal &&
+            isNonEmptyString(surface.latestTurnId) &&
             !surface.pendingApproval &&
             !surface.pendingPlanAction &&
             !surface.pendingUserInputAction &&
@@ -1142,6 +1191,17 @@ function registerTerminalGateway(wss, {
             authoritativeSurface,
             sentToSubscribers: sentCount
         }));
+        diagnosticLog.event('server', 'server.ipc.surface.delivery', {
+            conversationKey: diagnosticKey(conversationId),
+            status,
+            previousStatus: previousStatus || null,
+            authoritativeSurface,
+            subscriberCount: sentCount,
+            itemCount: Array.isArray(surface?.items) ? surface.items.length : 0,
+            revision: surface?.revision,
+            sourceEpoch: surface?.sourceEpoch,
+            ownerKind: surface?.ownerKind || null
+        }, sentCount === 0 ? 'warn' : 'info');
         if (sentCount === 0) {
             const subscribedIds = [];
             for (const client of wss.clients) {
@@ -1245,11 +1305,18 @@ function registerTerminalGateway(wss, {
         });
     }
 
-        ownerSurfaceTracker.on('broadcast', (event) => {
+    ownerSurfaceTracker.on('broadcast', (event) => {
         if (!event || !isNonEmptyString(event.conversationId) || !event.surface) {
             return;
         }
         _pushConversationSurfaceSnapshot(event.conversationId, event.surface);
+        diagnosticLog.event('server', 'server.codex.owner.surface_broadcast', {
+            conversationKey: diagnosticKey(event.conversationId),
+            status: event.surface.status || 'unknown',
+            turnKey: diagnosticKey(event.surface.latestTurnId),
+            itemCount: Array.isArray(event.surface.items) ? event.surface.items.length : 0,
+            ipcOnline: _isIpcOnline()
+        });
         historySyncService.registerBaseline(
             event.conversationId,
             'ipc_surface',
@@ -1260,20 +1327,41 @@ function registerTerminalGateway(wss, {
             try {
                 ipcFeed.sendBroadcast('thread-stream-state-changed', event.payload);
                 if (!_ownerReadStateBroadcasted.has(event.conversationId)) {
-                    _ownerReadStateBroadcasted.add(event.conversationId);
                     ipcFeed.sendBroadcast('thread-read-state-changed', {
                         conversationId: event.conversationId,
+                        hostId: event.payload.hostId,
                         hasUnreadTurn: true
                     });
+                    _ownerReadStateBroadcasted.add(event.conversationId);
+                }
+
+                const hasTurn = isNonEmptyString(event.surface.latestTurnId);
+                const invalidationStage = !hasTurn
+                    ? 'created'
+                    : (isTerminalSurface(event.surface) ? 'terminal' : 'first-turn');
+                const invalidatedStages = _ownerDiscoveryInvalidationStages.get(event.conversationId) || new Set();
+                if (!invalidatedStages.has(invalidationStage)) {
                     ipcFeed.sendBroadcast('query-cache-invalidate', {
                         queryKey: ['recent-conversations']
                     });
                     ipcFeed.sendBroadcast('query-cache-invalidate', {
                         queryKey: ['recent-conversations-meta']
                     });
+                    invalidatedStages.add(invalidationStage);
+                    _ownerDiscoveryInvalidationStages.set(event.conversationId, invalidatedStages);
+                    diagnosticLog.event('server', 'server.codex.owner.discovery_invalidation', {
+                        conversationKey: diagnosticKey(event.conversationId),
+                        stage: invalidationStage,
+                        status: event.surface.status || 'unknown',
+                        turnKey: diagnosticKey(event.surface.latestTurnId)
+                    });
                 }
             } catch (error) {
                 console.warn('[gateway][codex][owner-surface-broadcast-failed]', error && error.message ? error.message : String(error));
+                diagnosticLog.error('server', 'server.codex.owner.surface_broadcast_failed', error, {
+                    conversationKey: diagnosticKey(event.conversationId),
+                    status: event.surface.status || 'unknown'
+                });
             }
         }
         _broadcastConversationsToAll(_buildConversations());
@@ -1333,6 +1421,13 @@ function registerTerminalGateway(wss, {
                 sent++;
             }
         }
+        diagnosticLog.event('server', 'server.ipc.catalog.broadcast', {
+            conversationCount: conversations.length,
+            conversationKeys: conversations.slice(0, 20).map((item) => diagnosticKey(item.conversationId)),
+            sentClientCount: sent,
+            runningCount: conversations.filter((item) => item.status === 'running').length,
+            ownerCount: conversations.filter((item) => item.ownerKind).length
+        }, sent === 0 ? 'warn' : 'info');
         return sent;
     };
 
@@ -1612,7 +1707,8 @@ function registerTerminalGateway(wss, {
             ownerSurfaceTracker.adoptTurnStartResult(
                 conversationId,
                 result,
-                turnStartParams.clientUserMessageId
+                turnStartParams.clientUserMessageId,
+                turnStartParams
             );
             const turnId = result?.turn?.id || result?.turn?.turnId || null;
             _recordAuthority(conversationId, 'owner', 'running', turnId);
@@ -1781,10 +1877,23 @@ function registerTerminalGateway(wss, {
                 ownerSurfaceTracker.markRequestResponseSent(options.responseRequestId, threadId);
             }
             if (options.awaitOwnerSnapshot !== true) {
-                ownerSurfaceTracker.adoptTurnStartResult(threadId, result, turnStartParams.clientUserMessageId);
+                ownerSurfaceTracker.adoptTurnStartResult(
+                    threadId,
+                    result,
+                    turnStartParams.clientUserMessageId,
+                    turnStartParams
+                );
             }
             const turnId = result?.turn?.id || result?.turn?.turnId || null;
             _recordAuthority(threadId, 'owner', 'running', turnId);
+            diagnosticLog.event('server', 'server.ipc.follower_send.acknowledged', {
+                conversationKey: diagnosticKey(threadId),
+                clientRequestKey: diagnosticKey(options.clientRequestId),
+                turnKey: diagnosticKey(turnId),
+                authority: 'owner',
+                routeStage: _shouldUseOwnerRuntime(conversationId) ? 'sticky-owner' : 'owner-resume',
+                ...diagnosticAttachmentSummary(options.attachments)
+            });
             _recordFollowerRequestStarted(
                 options.requestKey,
                 threadId,
@@ -1806,6 +1915,13 @@ function registerTerminalGateway(wss, {
             return { threadId, turnId, result };
         } catch (error) {
             if (isThreadNotFoundError(error)) {
+                diagnosticLog.error('server', 'server.ipc.follower_send.failed', error, {
+                    conversationKey: diagnosticKey(conversationId),
+                    clientRequestKey: diagnosticKey(options.clientRequestId),
+                    authority: 'owner',
+                    routeStage: 'owner-thread-recovery',
+                    ...diagnosticAttachmentSummary(options.attachments)
+                });
                 _sendThreadRecoveryRequired(ws, {
                     conversationId,
                     reason: 'thread_not_found',
@@ -1825,6 +1941,13 @@ function registerTerminalGateway(wss, {
                 });
                 return null;
             }
+            diagnosticLog.error('server', 'server.ipc.follower_send.failed', error, {
+                conversationKey: diagnosticKey(conversationId),
+                clientRequestKey: diagnosticKey(options.clientRequestId),
+                authority: 'owner',
+                routeStage: 'owner-turn-start',
+                ...diagnosticAttachmentSummary(options.attachments)
+            });
             _emitFollowerRouteState(ws, options.clientRequestId, conversationId, 'failed', {
                 authority: 'owner',
                 detail: error && error.message ? error.message : String(error)
@@ -1860,7 +1983,12 @@ function registerTerminalGateway(wss, {
                 threadId,
                 ...turnStartParams
             });
-            ownerSurfaceTracker.adoptTurnStartResult(threadId, result, turnStartParams.clientUserMessageId);
+            ownerSurfaceTracker.adoptTurnStartResult(
+                threadId,
+                result,
+                turnStartParams.clientUserMessageId,
+                turnStartParams
+            );
             const turnId = result?.turn?.id || result?.turn?.turnId || null;
             _recordAuthority(threadId, 'owner', 'running', turnId);
             _recordFollowerRequestStarted(
@@ -1939,20 +2067,33 @@ function registerTerminalGateway(wss, {
         if (!isNonEmptyString(options.ownerGoalObjective) && goalMatch) {
             options.ownerGoalObjective = goalMatch[1].trim();
         }
-        diagnosticLog.event('server', 'server.ipc.follower_send.requested', {
-            conversationIdPresent: isNonEmptyString(conversationId),
-            inputLength: normalizedInput.length,
-            clientRequestIdPresent: true,
-            followerMode: _isFollowerModeEnabled(ws),
-            ipcOnline: _isIpcOnline()
-        }, 'info');
         const normalizedAttachments = normalizeTurnAttachments(options.attachments);
         const normalizedInteractionState = normalizeInteractionState(options.interactionState);
+        diagnosticLog.event('server', 'server.ipc.follower_send.requested', {
+            conversationKey: diagnosticKey(conversationId),
+            inputLength: normalizedInput.length,
+            clientRequestKey: diagnosticKey(clientRequestId),
+            followerMode: _isFollowerModeEnabled(ws),
+            ipcOnline: _isIpcOnline(),
+            ...diagnosticAttachmentSummary(normalizedAttachments),
+            fileMentionCount: Array.isArray(normalizedInteractionState.fileMentions)
+                ? normalizedInteractionState.fileMentions.length
+                : 0
+        }, 'info');
         if (!_isIpcActiveSendAllowed() || !_isFollowerModeEnabled(ws)) {
+            diagnosticLog.event('server', 'server.ipc.follower_send.rejected', {
+                conversationKey: diagnosticKey(conversationId),
+                clientRequestKey: diagnosticKey(clientRequestId),
+                reason: 'active_send_unavailable'
+            }, 'warn');
             sendWsEnvelope(ws, { type: 'error', message: 'Active send is not allowed', detail: 'Enable TERMLINK_CODEX_IPC_ENABLED + ALLOW_ACTIVE + CONFIRM_SEND.' });
             return;
         }
         if (typeof conversationId !== 'string' || !conversationId.trim()) {
+            diagnosticLog.event('server', 'server.ipc.follower_send.rejected', {
+                clientRequestKey: diagnosticKey(clientRequestId),
+                reason: 'missing_conversation'
+            }, 'warn');
             sendWsEnvelope(ws, { type: 'error', message: 'No active conversation', detail: 'Set an active conversation before sending messages.' });
             return;
         }
@@ -1961,12 +2102,23 @@ function registerTerminalGateway(wss, {
             normalizedAttachments.length === 0 &&
             !isNonEmptyString(normalizedInteractionState.activeSkill)
         ) {
+            diagnosticLog.event('server', 'server.ipc.follower_send.rejected', {
+                conversationKey: diagnosticKey(conversationId),
+                clientRequestKey: diagnosticKey(clientRequestId),
+                reason: 'empty_input',
+                ...diagnosticAttachmentSummary(normalizedAttachments)
+            }, 'warn');
             sendWsEnvelope(ws, { type: 'error', message: 'Input cannot be empty', detail: 'Provide non-empty message text.' });
             return;
         }
         const normalizedConversationId = conversationId.trim();
         _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'accepted');
         if (_getActiveConversationId(ws) !== normalizedConversationId) {
+            diagnosticLog.event('server', 'server.ipc.follower_send.rejected', {
+                conversationKey: diagnosticKey(normalizedConversationId),
+                clientRequestKey: diagnosticKey(clientRequestId),
+                reason: 'conversation_not_active'
+            }, 'warn');
             _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'failed', {
                 detail: 'Conversation is not active'
             });
@@ -2002,6 +2154,11 @@ function registerTerminalGateway(wss, {
             _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'failed', {
                 detail: 'Client request is already being resolved'
             });
+            diagnosticLog.event('server', 'server.ipc.follower_send.rejected', {
+                conversationKey: diagnosticKey(normalizedConversationId),
+                clientRequestKey: diagnosticKey(clientRequestId),
+                reason: 'duplicate_client_request'
+            }, 'warn');
             sendWsEnvelope(ws, {
                 type: 'error',
                 message: 'Client request is already being resolved',
@@ -2013,6 +2170,11 @@ function registerTerminalGateway(wss, {
             _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'failed', {
                 detail: 'Message send is already being resolved'
             });
+            diagnosticLog.event('server', 'server.ipc.follower_send.rejected', {
+                conversationKey: diagnosticKey(normalizedConversationId),
+                clientRequestKey: diagnosticKey(clientRequestId),
+                reason: 'conversation_send_in_flight'
+            }, 'warn');
             sendWsEnvelope(ws, {
                 type: 'error',
                 message: 'Message send is already being resolved',
@@ -2035,7 +2197,8 @@ function registerTerminalGateway(wss, {
                     authority: 'ipc'
                 });
                 diagnosticLog.event('server', 'server.ipc.follower_send.waiting_for_surface', {
-                    conversationIdPresent: true,
+                    conversationKey: diagnosticKey(normalizedConversationId),
+                    clientRequestKey: diagnosticKey(clientRequestId),
                     routeStage: 'surface-grace',
                     timeoutMs: ipcSurfaceWaitGraceMs
                 }, 'info');
@@ -2047,7 +2210,8 @@ function registerTerminalGateway(wss, {
             }
             if (ws.readyState !== 1 || _getActiveConversationId(ws) !== normalizedConversationId) {
                 diagnosticLog.event('server', 'server.ipc.follower_send.cancelled', {
-                    conversationIdPresent: true,
+                    conversationKey: diagnosticKey(normalizedConversationId),
+                    clientRequestKey: diagnosticKey(clientRequestId),
                     routeStage: ws.readyState !== 1 ? 'websocket-closed' : 'active-conversation-changed'
                 }, 'info');
                 return;
@@ -2085,7 +2249,8 @@ function registerTerminalGateway(wss, {
                     authority: 'owner'
                 });
                 diagnosticLog.event('server', 'server.ipc.follower_send.routed', {
-                    conversationIdPresent: true,
+                    conversationKey: diagnosticKey(normalizedConversationId),
+                    clientRequestKey: diagnosticKey(clientRequestId),
                     authority: 'owner',
                     routeStage: 'sticky-owner'
                 }, 'info');
@@ -2110,7 +2275,8 @@ function registerTerminalGateway(wss, {
                     authority: 'owner'
                 });
                 diagnosticLog.event('server', 'server.ipc.follower_send.routed', {
-                    conversationIdPresent: true,
+                    conversationKey: diagnosticKey(normalizedConversationId),
+                    clientRequestKey: diagnosticKey(clientRequestId),
                     authority: 'owner',
                     routeStage: 'ipc-offline-fallback',
                     currentCycleSurface: Boolean(latest)
@@ -2145,9 +2311,12 @@ function registerTerminalGateway(wss, {
                     turnId
                 });
                 diagnosticLog.event('server', 'server.ipc.follower_send.acknowledged', {
-                    conversationIdPresent: true,
+                    conversationKey: diagnosticKey(normalizedConversationId),
+                    clientRequestKey: diagnosticKey(clientRequestId),
+                    turnKey: diagnosticKey(turnId),
                     authority: 'ipc',
                     routeStage: latest ? 'current-cycle-surface' : 'surface-timeout',
+                    ...diagnosticAttachmentSummary(normalizedAttachments),
                     responseType: response && response.type,
                     resultType: response && response.resultType
                 });
@@ -2161,10 +2330,12 @@ function registerTerminalGateway(wss, {
             } catch (error) {
                 const noClientFallback = isNoClientFoundError(error);
                 diagnosticLog.error('server', 'server.ipc.follower_send.failed', error, {
-                    conversationIdPresent: true,
+                    conversationKey: diagnosticKey(normalizedConversationId),
+                    clientRequestKey: diagnosticKey(clientRequestId),
                     authority: 'ipc',
                     routeStage: latest ? 'current-cycle-surface' : 'surface-timeout',
                     noClientFallback,
+                    ...diagnosticAttachmentSummary(normalizedAttachments),
                     errorType: error?.constructor?.name || typeof error
                 });
                 if (noClientFallback) {
@@ -2172,7 +2343,8 @@ function registerTerminalGateway(wss, {
                         authority: 'owner'
                     });
                     diagnosticLog.event('server', 'server.ipc.follower_send.routed', {
-                        conversationIdPresent: true,
+                        conversationKey: diagnosticKey(normalizedConversationId),
+                        clientRequestKey: diagnosticKey(clientRequestId),
                         authority: 'owner',
                         routeStage: 'no-client-found-fallback'
                     }, 'warn');
@@ -2226,8 +2398,27 @@ function registerTerminalGateway(wss, {
 
         const latest = _getLatestConversationSnapshot(conversationId);
         const ledger = _authorityLedger.get(conversationId);
+        const authority = _getAuthority(conversationId);
+        diagnosticLog.event('server', 'server.ipc.interrupt.requested', {
+            conversationKey: diagnosticKey(conversationId),
+            authority,
+            ledgerStatus: ledger?.status || null,
+            ledgerTurnIdPresent: Boolean(ledger?.turnId),
+            latestStatus: latest?.status || null,
+            latestTurnIdPresent: Boolean(latest?.latestTurnId),
+            latestDesynced: latest?.desynced === true,
+            ipcOnline: _isIpcOnline(),
+            followerMode: _isFollowerModeEnabled(ws)
+        });
         const isRunning = latest?.status === 'running' || ledger?.status === 'running';
         if (!isRunning) {
+            diagnosticLog.event('server', 'server.ipc.interrupt.rejected_not_running', {
+                conversationKey: diagnosticKey(conversationId),
+                authority,
+                ledgerStatus: ledger?.status || null,
+                latestStatus: latest?.status || null,
+                latestDesynced: latest?.desynced === true
+            }, 'warn');
             sendWsEnvelope(ws, {
                 type: 'error',
                 message: 'Conversation is not running',
@@ -2236,17 +2427,31 @@ function registerTerminalGateway(wss, {
             return;
         }
 
-        const authority = _getAuthority(conversationId);
         const activeTurnId = ledger?.turnId || latest?.latestTurnId || null;
         if (authority === 'owner') {
             try {
+                diagnosticLog.event('server', 'server.ipc.interrupt.routed', {
+                    conversationKey: diagnosticKey(conversationId),
+                    authority: 'owner',
+                    turnKey: diagnosticKey(activeTurnId)
+                });
                 await codexService.request('turn/interrupt', {
                     threadId: conversationId,
                     ...(isNonEmptyString(activeTurnId) ? { turnId: activeTurnId } : {})
                 });
                 _recordAuthority(conversationId, 'owner', 'interrupting', activeTurnId);
+                diagnosticLog.event('server', 'server.ipc.interrupt.acknowledged', {
+                    conversationKey: diagnosticKey(conversationId),
+                    authority: 'owner',
+                    turnKey: diagnosticKey(activeTurnId)
+                });
                 sendWsEnvelope(ws, { type: 'follower_turn_interrupted', conversationId, acknowledged: true });
             } catch (error) {
+                diagnosticLog.error('server', 'server.ipc.interrupt.failed', error, {
+                    conversationKey: diagnosticKey(conversationId),
+                    authority: 'owner',
+                    turnKey: diagnosticKey(activeTurnId)
+                });
                 sendWsEnvelope(ws, { type: 'error', message: 'Failed to interrupt owner turn', detail: error.message });
             }
             return;
@@ -2262,22 +2467,41 @@ function registerTerminalGateway(wss, {
         }
 
         try {
+            diagnosticLog.event('server', 'server.ipc.interrupt.routed', {
+                conversationKey: diagnosticKey(conversationId),
+                authority: 'ipc',
+                turnKey: diagnosticKey(activeTurnId),
+                ipcOnline: true
+            });
             const response = await ipcFeed.sendRequest('thread-follower-interrupt-turn', {
                 conversationId,
                 ...(isNonEmptyString(activeTurnId) ? { turnId: activeTurnId } : {})
             });
             assertIpcSuccess(response);
             _recordAuthority(conversationId, 'ipc', 'interrupting', activeTurnId);
+            diagnosticLog.event('server', 'server.ipc.interrupt.acknowledged', {
+                conversationKey: diagnosticKey(conversationId),
+                authority: 'ipc',
+                turnKey: diagnosticKey(activeTurnId),
+                responseType: response?.type || null,
+                resultType: response?.resultType || null
+            });
             sendWsEnvelope(ws, { type: 'follower_turn_interrupted', conversationId, acknowledged: true });
         } catch (error) {
+            diagnosticLog.error('server', 'server.ipc.interrupt.failed', error, {
+                conversationKey: diagnosticKey(conversationId),
+                authority: 'ipc',
+                turnKey: diagnosticKey(activeTurnId),
+                ipcOnline: _isIpcOnline()
+            });
             sendWsEnvelope(ws, { type: 'error', message: 'Failed to interrupt follower turn', detail: error.message });
         }
     };
 
     const _handleFollowerApprovalResponse = async (ws, conversationId, decision, requestId, requestKind, execpolicyAmendment) => {
         diagnosticLog.event('server', 'server.ipc.approval.requested', {
-            conversationIdPresent: isNonEmptyString(conversationId),
-            requestIdPresent: isNonEmptyString(requestId),
+            conversationKey: diagnosticKey(conversationId),
+            requestKey: diagnosticKey(requestId),
             requestKind: isNonEmptyString(requestKind) ? requestKind : 'unknown',
             followerMode: _isFollowerModeEnabled(ws),
             ipcOnline: _isIpcOnline()
@@ -2306,10 +2530,18 @@ function registerTerminalGateway(wss, {
                     result: ownerResult
                 });
                 ownerSurfaceTracker.markRequestResponseSent(approval.rawRequestId, conversationId);
-                diagnosticLog.event('server', 'server.ipc.approval.acknowledged', { transport: 'owner', conversationIdPresent: true }, 'info');
+                diagnosticLog.event('server', 'server.ipc.approval.acknowledged', {
+                    transport: 'owner',
+                    conversationKey: diagnosticKey(conversationId),
+                    requestKey: diagnosticKey(requestId)
+                }, 'info');
                 sendWsEnvelope(ws, { type: 'follower_approval_response_sent', conversationId, requestId, acknowledged: true });
             } catch (error) {
-                diagnosticLog.error('server', 'server.ipc.approval.failed', error, { transport: 'owner' });
+                diagnosticLog.error('server', 'server.ipc.approval.failed', error, {
+                    transport: 'owner',
+                    conversationKey: diagnosticKey(conversationId),
+                    requestKey: diagnosticKey(requestId)
+                });
                 sendWsEnvelope(ws, { type: 'error', message: 'Failed to send owner approval response', detail: error.message });
             }
             return;
@@ -2341,7 +2573,8 @@ function registerTerminalGateway(wss, {
             assertIpcSuccess(response);
             diagnosticLog.event('server', 'server.ipc.approval.acknowledged', {
                 transport: 'ipc',
-                conversationIdPresent: true,
+                conversationKey: diagnosticKey(conversationId),
+                requestKey: diagnosticKey(requestId),
                 responseType: response?.type
             }, 'info');
             console.warn('[gateway][ipc][approval-response-result]', JSON.stringify({
@@ -2354,7 +2587,11 @@ function registerTerminalGateway(wss, {
             }));
             sendWsEnvelope(ws, { type: 'follower_approval_response_sent', conversationId, requestId, acknowledged: true });
         } catch (error) {
-            diagnosticLog.error('server', 'server.ipc.approval.failed', error, { transport: 'ipc' });
+            diagnosticLog.error('server', 'server.ipc.approval.failed', error, {
+                transport: 'ipc',
+                conversationKey: diagnosticKey(conversationId),
+                requestKey: diagnosticKey(requestId)
+            });
             sendWsEnvelope(ws, { type: 'error', message: 'Failed to send approval response', detail: error.message });
         }
     };
@@ -3917,7 +4154,14 @@ function registerTerminalGateway(wss, {
                             interactionState: envelope.interactionState,
                             collaborationMode: envelope.collaborationMode,
                             turnConfig: envelope.turnConfig
-                        }).catch(err => console.error('[gateway][ipc][follower-send]', err));
+                        }).catch(err => {
+                            console.error('[gateway][ipc][follower-send]', err);
+                            diagnosticLog.error('server', 'server.ipc.follower_send.unhandled', err, {
+                                conversationKey: diagnosticKey(envelope.conversationId),
+                                clientRequestKey: diagnosticKey(envelope.clientRequestId),
+                                ...diagnosticAttachmentSummary(envelope.attachments)
+                            });
+                        });
                     } else if (type === 'follower_start_goal') {
                         _handleFollowerStartGoal(ws, envelope.conversationId, envelope.goal).catch(err => console.error('[gateway][ipc][follower-goal]', err));
                     } else if (type === 'follower_interrupt_turn') {
@@ -3935,7 +4179,7 @@ function registerTerminalGateway(wss, {
                         ws.isAlive = true;
                     } else if (type === 'codex_new_thread') {
                         diagnosticLog.event('server', 'server.codex.new_thread.requested', {
-                            sessionIdPresent: Boolean(session && session.id),
+                            sessionKey: diagnosticKey(session && session.id),
                             hasCwd: isNonEmptyString(envelope.cwd)
                         }, 'info');
                         await ensureCodexServiceForSession(session);
@@ -3948,8 +4192,8 @@ function registerTerminalGateway(wss, {
                             threadId
                         });
                         diagnosticLog.event('server', 'server.codex.new_thread.ready', {
-                            sessionIdPresent: Boolean(session && session.id),
-                            threadIdPresent: isNonEmptyString(threadId)
+                            sessionKey: diagnosticKey(session && session.id),
+                            threadKey: diagnosticKey(threadId)
                         });
                     } else if (type === 'codex_turn') {
                         const text = isNonEmptyString(envelope.text) ? envelope.text.trim() : '';
@@ -4054,7 +4298,8 @@ function registerTerminalGateway(wss, {
                             ownerSurfaceTracker.adoptTurnStartResult(
                                 threadId,
                                 turnStartResponse,
-                                turnStartPayload.clientUserMessageId
+                                turnStartPayload.clientUserMessageId,
+                                turnStartPayload
                             );
                             _recordAuthority(
                                 threadId,
@@ -4208,7 +4453,9 @@ function registerTerminalGateway(wss, {
                         const method = isNonEmptyString(envelope.method) ? envelope.method : null;
                         diagnosticLog.event('server', 'server.codex.request.received', {
                             method: method || 'missing',
-                            requestIdPresent: isNonEmptyString(envelope.requestId)
+                            requestKey: diagnosticKey(envelope.requestId),
+                            sessionKey: diagnosticKey(session && session.id),
+                            threadKey: diagnosticKey(envelope?.params?.threadId)
                         });
                         if (!method) {
                             sendWsEnvelope(ws, {
@@ -4239,7 +4486,14 @@ function registerTerminalGateway(wss, {
                             diagnosticLog.event('server', 'server.codex.request.completed', {
                                 method,
                                 durationMs: Date.now() - requestStartedAt,
-                                responsePresent: response !== null && response !== undefined
+                                responsePresent: response !== null && response !== undefined,
+                                requestKey: diagnosticKey(envelope.requestId),
+                                sessionKey: diagnosticKey(session && session.id),
+                                threadKey: diagnosticKey(
+                                    response?.thread?.id || requestParams?.threadId || ensureSessionCodexState(session).threadId
+                                ),
+                                turnKey: diagnosticKey(response?.turn?.id),
+                                turnCount: Array.isArray(response?.thread?.turns) ? response.thread.turns.length : null
                             });
                         if (method === 'account/rateLimits/read') {
                             console.info('[CODEX][account/rateLimits/read] Response:', JSON.stringify(response, null, 2));
@@ -4311,7 +4565,10 @@ function registerTerminalGateway(wss, {
                         } catch (error) {
                             diagnosticLog.error('server', 'server.codex.request.failed', error, {
                                 method,
-                                durationMs: Date.now() - requestStartedAt
+                                durationMs: Date.now() - requestStartedAt,
+                                requestKey: diagnosticKey(envelope.requestId),
+                                sessionKey: diagnosticKey(session && session.id),
+                                threadKey: diagnosticKey(requestParams?.threadId)
                             });
                             throw error;
                         }
@@ -4442,6 +4699,7 @@ function registerTerminalGateway(wss, {
         _followerSendInFlight.clear();
         _authorityLedger.clear();
         _ownerReadStateBroadcasted.clear();
+        _ownerDiscoveryInvalidationStages.clear();
         _pendingThreadRecoveries.clear();
         for (const tempFilePaths of _followerAttachmentTempFiles.values()) {
             void cleanupAttachmentTempFiles(tempFilePaths);

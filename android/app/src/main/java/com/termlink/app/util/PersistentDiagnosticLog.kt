@@ -8,8 +8,10 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -25,6 +27,7 @@ object PersistentDiagnosticLog {
     private const val MAX_ROTATED_FILES = 4
     private const val MAX_TEXT_LENGTH = 1200
     private const val MAX_STACK_LENGTH = 8000
+    private const val WRITER_THREAD_NAME = "termlink-diagnostic-writer"
     private val sensitiveKey = Regex(
         "prompt|command|output|password|passwd|secret|authorization|ticket|access.?token|private.?key|certificate|attachment|raw|payload|body|content",
         RegexOption.IGNORE_CASE
@@ -33,10 +36,13 @@ object PersistentDiagnosticLog {
         "(authorization|password|passwd|secret|ticket|access[_-]?token|private[_-]?key|certificate)\\s*[:=]\\s*[^\\s,;]+",
         RegexOption.IGNORE_CASE
     )
+    private val safeAggregateKey = Regex(
+        "^(attachmentCount|attachmentTypes|fileMentionCount|textLength|itemCount|messageCount|turnCount|durationMs|waitMs|revision|baseRevision|sourceEpoch)$"
+    )
     private val lock = Any()
     private val sequence = AtomicLong(0L)
     private val writer = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "termlink-diagnostic-writer").apply { isDaemon = true }
+        Thread(runnable, WRITER_THREAD_NAME).apply { isDaemon = true }
     }
     private var initialized = false
     private var enabled = false
@@ -79,6 +85,17 @@ object PersistentDiagnosticLog {
     }
 
     fun isEnabled(): Boolean = enabled && initialized && currentFile != null
+
+    /** Stable, non-reversible correlation key for cross-process diagnostics. */
+    fun shortHash(value: String?): String? {
+        val normalized = value?.trim().orEmpty()
+        if (normalized.isEmpty()) return null
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(normalized.toByteArray(StandardCharsets.UTF_8))
+        return digest.take(8).joinToString("") { byte ->
+            (byte.toInt() and 0xff).toString(16).padStart(2, '0')
+        }
+    }
 
     fun event(
         component: String,
@@ -143,7 +160,7 @@ object PersistentDiagnosticLog {
     }
 
     private fun sanitizeValue(key: String, value: Any?): Any? {
-        if (sensitiveKey.containsMatchIn(key)) return "<redacted>"
+        if (sensitiveKey.containsMatchIn(key) && !safeAggregateKey.matches(key)) return "<redacted>"
         return when (value) {
             null -> null
             is Boolean, is Number -> value
@@ -202,6 +219,9 @@ object PersistentDiagnosticLog {
         if (uncaughtHandlerInstalled) return
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            if (thread.name != WRITER_THREAD_NAME) {
+                runCatching { writer.submit { }.get(500, TimeUnit.MILLISECONDS) }
+            }
             error(
                 "app",
                 "android.uncaught_exception",

@@ -2053,7 +2053,7 @@ test('set_active_follower_mode true is rejected when active send is not configur
     await stopGateway(g);
 });
 
-test('explicit new thread is registered as a TermLink IPC owner and invalidates recent conversations', async () => {
+test('explicit new thread invalidates Desktop discovery at created, first-turn, and terminal lifecycle stages', async () => {
     const g = await setupGateway();
     const sess = await g.sm.createSession({ name: 'new owner' });
     sess.cwd = 'E:\\coding\\TermLink';
@@ -2067,21 +2067,118 @@ test('explicit new thread is registered as a TermLink IPC owner and invalidates 
     assert.ok(ready?.threadId);
     assert.ok(g.ipcFeed.broadcastCalls.find((call) =>
         call.method === 'thread-stream-state-changed' &&
-        call.params?.conversationId === ready.threadId
+        call.params?.conversationId === ready.threadId &&
+        call.params?.hostId === 'local'
     ));
     assert.ok(g.ipcFeed.broadcastCalls.find((call) =>
         call.method === 'thread-read-state-changed' &&
-        call.params?.conversationId === ready.threadId
+        call.params?.conversationId === ready.threadId &&
+        call.params?.hostId === 'local'
     ));
     assert.ok(g.ipcFeed.broadcastCalls.find((call) =>
         call.method === 'query-cache-invalidate' &&
         call.params?.queryKey?.[0] === 'recent-conversations'
     ));
+    const countBroadcasts = (method) => g.ipcFeed.broadcastCalls.filter((call) => call.method === method).length;
+    assert.equal(countBroadcasts('thread-read-state-changed'), 1);
+    assert.equal(countBroadcasts('query-cache-invalidate'), 2);
+
+    const startedNotification = {
+        method: 'turn/started',
+        params: {
+            threadId: ready.threadId,
+            turn: { id: 'turn-discovery-1', status: 'inProgress', items: [] }
+        }
+    };
+    g.codexService.emit('notification', startedNotification);
+    await delay(40);
+    assert.equal(countBroadcasts('thread-read-state-changed'), 1);
+    assert.equal(countBroadcasts('query-cache-invalidate'), 4);
+
+    g.codexService.emit('notification', startedNotification);
+    await delay(40);
+    assert.equal(countBroadcasts('thread-read-state-changed'), 1);
+    assert.equal(countBroadcasts('query-cache-invalidate'), 4);
+
+    g.codexService.emit('notification', {
+        method: 'turn/completed',
+        params: {
+            threadId: ready.threadId,
+            turn: { id: 'turn-discovery-1', status: 'completed', items: [] }
+        }
+    });
+    await delay(40);
+    assert.equal(countBroadcasts('thread-read-state-changed'), 1);
+    assert.equal(countBroadcasts('query-cache-invalidate'), 6);
+
     const ownerSummary = messages
         .filter((message) => message.type === 'codex_ipc_conversations')
         .flatMap((message) => message.conversations || [])
         .find((conversation) => conversation.conversationId === ready.threadId);
     assert.equal(ownerSummary?.ownerKind, 'termlink');
+
+    ws.close();
+    await stopGateway(g);
+});
+
+test('new blank owner remains tracked through first selection and materializes its first turn', async () => {
+    const g = await setupGateway();
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/start') {
+            return {
+                thread: {
+                    id: 'thread-new-blank-owner',
+                    cwd: params?.cwd || 'E:\\coding\\TermLink'
+                }
+            };
+        }
+        if (method === 'turn/start') {
+            return {
+                turn: {
+                    id: 'turn-new-blank-owner',
+                    status: 'inProgress',
+                    items: []
+                }
+            };
+        }
+        return { ok: true };
+    };
+    const sess = await g.sm.createSession({ name: 'new blank owner' });
+    sess.cwd = 'E:\\coding\\TermLink';
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(80);
+
+    ws.send(JSON.stringify({ type: 'codex_new_thread' }));
+    await delay(100);
+    const threadId = messages.find((message) => message.type === 'codex_thread_ready')?.threadId;
+    assert.equal(threadId, 'thread-new-blank-owner');
+
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: threadId }));
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: threadId,
+        clientRequestId: 'new-blank-first-turn',
+        input: 'materialize the blank owner'
+    }));
+    await delay(140);
+
+    const turnStart = g.codexService.requests.find((request) =>
+        request.method === 'turn/start' &&
+        request.params.threadId === threadId
+    );
+    assert.ok(turnStart);
+    assert.ok(turnStart.params.input.some((part) => part.text === 'materialize the blank owner'));
+    assert.ok(messages.find((message) =>
+        message.type === 'follower_message_sent' &&
+        message.conversationId === threadId
+    ));
+    const ownerSurface = messages.filter((message) =>
+        message.type === 'conversation_surface_snapshot' &&
+        message.conversationId === threadId
+    ).at(-1);
+    assert.equal(ownerSurface?.snapshot.ownerKind, 'termlink');
+    assert.equal(ownerSurface?.snapshot.status, 'running');
 
     ws.close();
     await stopGateway(g);

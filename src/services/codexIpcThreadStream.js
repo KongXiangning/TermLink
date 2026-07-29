@@ -173,7 +173,15 @@ class ThreadStreamTracker {
                 ...summarizeConversationState(entry?.state),
                 stateChanged: !desynced,
                 ignored: false,
-                desynced
+                desynced,
+                desyncReason: desynced ? getPatchDesyncReason({
+                    entry,
+                    connectionChanged,
+                    identityConflict,
+                    revision,
+                    baseRevision,
+                    patchList
+                }) : undefined
             };
         }
 
@@ -517,6 +525,20 @@ function buildDesktopSurfaceSnapshot(state, options = {}) {
 
 function finiteNumber(value) {
     return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function getPatchDesyncReason({ entry, connectionChanged, identityConflict, revision, baseRevision, patchList }) {
+    if (!entry) return 'missing_snapshot_baseline';
+    if (connectionChanged) return 'connection_generation_changed';
+    if (identityConflict) return 'source_identity_conflict';
+    if (!entry.state) return 'missing_snapshot_state';
+    if (!entry.revisionKnown) return 'missing_revision_baseline';
+    if (revision === undefined) return 'missing_patch_revision';
+    if (baseRevision === undefined) return 'missing_patch_base_revision';
+    if (baseRevision !== entry.revision) return 'patch_base_revision_mismatch';
+    if (revision <= entry.revision) return 'patch_revision_not_advanced';
+    if (!patchList) return 'invalid_patch_list';
+    return 'patch_apply_failed';
 }
 
 function asNullableString(value) {

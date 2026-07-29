@@ -203,12 +203,12 @@ TermLink 连接 broker 后首先发送 version 0 的 `initialize` request：
 | `thread-stream-state-changed` | 11 | Owner surface snapshot / patches |
 | `thread-stream-following-changed` | 1 | follower acquire/release 投影 |
 | `thread-stream-following-status-requested` | 1 | 兼容版本已登记；当前未注册业务 handler |
-| `thread-read-state-changed` | 1 | IPC read-state 通知 |
+| `thread-read-state-changed` | 2 | IPC read-state 通知；Desktop-facing params 使用 `hostId=local` |
 | `thread-archived` | 2 | 归档广播 |
 | `thread-unarchived` | 1 | 取消归档广播 |
 | `thread-follower-start-turn` | 1 | follower 发起 turn |
 | `thread-follower-steer-turn` | 1 | steer 当前 turn |
-| `thread-follower-interrupt-turn` | 2 | interrupt 当前 turn |
+| `thread-follower-interrupt-turn` | 3 | interrupt 当前 turn |
 | `thread-follower-compact-thread` | 1 | compact |
 | `thread-follower-update-thread-settings` | 1 | 更新 next-turn 设置 |
 | `thread-follower-edit-last-user-turn` | 1 | 兼容版本已登记；当前 Owner control 未实现 |
@@ -226,13 +226,14 @@ TermLink 连接 broker 后首先发送 version 0 的 `initialize` request：
 
 ### 6.1 已观察到的版本漂移
 
-| 证据时期/来源 | `thread-stream-state-changed` | `thread-follower-interrupt-turn` | 结论 |
-|---|---:|---:|---|
-| 2026-06-11 VS Code Extension bundle 与抓包 | 7 | 1 | 历史宿主证据 |
-| Termlink-demo 后续兼容表 | 7 | 2 | Demo 适配曾单独升级 interrupt |
-| TermLink 当前兼容表 | 11 | 2 | 当前项目适配值 |
+| 证据时期/来源 | `thread-stream-state-changed` | `thread-read-state-changed` | `thread-follower-interrupt-turn` | 结论 |
+|---|---:|---:|---:|---|
+| 2026-06-11 VS Code Extension bundle 与抓包 | 7 | 1 | 1 | 历史宿主证据 |
+| Termlink-demo 后续兼容表 | 7 | 1 | 2 | Demo 适配曾单独升级 interrupt |
+| 2026-07-29 Codex Desktop `26.721.4979` / VS Code Extension `26.721.41059` bundle | 11 | 2 | 3 | 当前双宿主证据 |
+| TermLink 当前兼容表 | 11 | 2 | 3 | 当前项目适配值 |
 
-因此不能因旧抓包为 `7/1` 就把当前表改回旧值，也不能把当前 `11/2` 当作永久 registry。发布或升级 Codex Desktop / VS Code Extension 时，至少要重新核验 state broadcast 与所有主动 follower request 的 version。
+因此不能因旧抓包为 `7/1/1` 就把当前表改回旧值，也不能把当前 `11/2/3` 当作永久 registry。发布或升级 Codex Desktop / VS Code Extension 时，至少要重新核验 state/read broadcast 与所有主动 follower request 的 version。
 
 以下 control methods 只有在三层开关都开启时才允许发送：
 

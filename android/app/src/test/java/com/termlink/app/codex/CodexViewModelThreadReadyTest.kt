@@ -936,6 +936,29 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun sessionThreadBindingAcknowledgementAppliesWithoutEchoingSelection() {
+        val matching = resolveSessionThreadBindingDecision(
+            boundSessionId = "session-1",
+            currentSessionId = "session-1"
+        )
+        val legacyUnscoped = resolveSessionThreadBindingDecision(
+            boundSessionId = null,
+            currentSessionId = "session-1"
+        )
+        val foreign = resolveSessionThreadBindingDecision(
+            boundSessionId = "session-2",
+            currentSessionId = "session-1"
+        )
+
+        assertTrue(matching.appliesToCurrentSession)
+        assertFalse(matching.shouldSendActiveConversationSelection)
+        assertTrue(legacyUnscoped.appliesToCurrentSession)
+        assertFalse(legacyUnscoped.shouldSendActiveConversationSelection)
+        assertFalse(foreign.appliesToCurrentSession)
+        assertFalse(foreign.shouldSendActiveConversationSelection)
+    }
+
+    @Test
     fun historyResumeResponseKeepsWaitingOnlyUntilTargetStateArrives() {
         assertTrue(
             shouldAwaitIpcSurfaceAfterThreadResumeResponse(

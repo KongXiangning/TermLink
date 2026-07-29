@@ -36,10 +36,81 @@ test('owner tracker keeps seeded external surface and appends owner turn surface
 
     assert.equal(event.surface.ownerKind, 'termlink');
     assert.equal(event.surface.conversationId, 'thread-1');
+    assert.equal(event.payload.hostId, 'local');
+    assert.equal(event.payload.change.conversationState.hostId, 'local');
     assert.equal(event.surface.cwd, 'E:\\coding\\TermLink');
     assert.equal(event.surface.latestDefaultCollaborationMode.mode, 'default');
     assert.ok(event.surface.items.some((item) => item.key === 'external:assistant' && item.text === 'existing answer'));
     assert.ok(event.surface.items.some((item) => item.role === 'user' && item.text === 'new owner input'));
+});
+
+test('owner tracker restores required turn params when turn/start omits them', () => {
+    const tracker = new CodexOwnerSurfaceTracker();
+    tracker.registerThreadStart({
+        thread: { id: 'thread-without-response-params', cwd: 'E:\\coding\\TermLink' }
+    }, {
+        seedSurface: {
+            conversationId: 'thread-without-response-params',
+            cwd: 'E:\\coding\\TermLink',
+            status: 'completed'
+        }
+    });
+
+    const event = tracker.adoptTurnStartResult(
+        'thread-without-response-params',
+        {
+            turn: {
+                id: 'turn-without-response-params',
+                status: 'inProgress',
+                items: []
+            }
+        },
+        'client-message-without-response-params',
+        {
+            cwd: 'E:\\coding\\TermLink',
+            clientUserMessageId: 'client-message-without-response-params',
+            input: [{ type: 'text', text: 'contract-safe input' }]
+        }
+    );
+
+    const turn = event.payload.change.conversationState.turns[0];
+    assert.equal(turn.params.cwd, 'E:\\coding\\TermLink');
+    assert.deepEqual(turn.params.input, [{ type: 'text', text: 'contract-safe input' }]);
+});
+
+test('owner tracker preserves turn input when a later notification omits params', () => {
+    const tracker = new CodexOwnerSurfaceTracker();
+    tracker.registerExternalSurface('thread-notification-params', {
+        conversationId: 'thread-notification-params',
+        status: 'completed',
+        items: []
+    });
+    tracker.adoptTurnStartResult(
+        'thread-notification-params',
+        {
+            turn: {
+                id: 'turn-notification-params',
+                status: 'inProgress',
+                items: []
+            }
+        },
+        'client-notification-params',
+        {
+            input: [{ type: 'text', text: 'preserved input' }]
+        }
+    );
+
+    const event = tracker.handleNotification('turn/completed', {
+        threadId: 'thread-notification-params',
+        turn: {
+            id: 'turn-notification-params',
+            status: 'completed',
+            items: []
+        }
+    });
+
+    const turn = event.payload.change.conversationState.turns[0];
+    assert.deepEqual(turn.params.input, [{ type: 'text', text: 'preserved input' }]);
 });
 
 test('owner tracker projects pending approval request and resolves it', () => {
