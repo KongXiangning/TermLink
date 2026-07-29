@@ -156,6 +156,59 @@ test('commentary phase is included as assistant message', () => {
     assert.equal(msgs[0].phase, 'commentary');
 });
 
+test('missing snapshot revision cannot become a patch baseline', () => {
+    const tracker = new ThreadStreamTracker();
+    const baseline = tracker.applyBroadcast(makeBroadcast('snapshot', {
+        conversationId: 'conv-missing-revision',
+        change: { type: 'snapshot', conversationState: { turns: [] } }
+    }), { connectionGeneration: 1, sourceClientId: 'desktop-a', hostId: 'host-a' });
+    const patch = tracker.applyBroadcast(makeBroadcast('patches', {
+        conversationId: 'conv-missing-revision',
+        change: { type: 'patches', revision: 2, baseRevision: 0, patches: [] }
+    }), { connectionGeneration: 1, sourceClientId: 'desktop-a', hostId: 'host-a' });
+
+    assert.equal(baseline.revisionKnown, false);
+    assert.equal(patch.desynced, true);
+    assert.deepEqual(tracker.getConversationState('conv-missing-revision'), { turns: [] });
+});
+
+test('identity-conflicting patch is rejected without changing epoch or state', () => {
+    const tracker = new ThreadStreamTracker();
+    const baseline = tracker.applyBroadcast(makeBroadcast('snapshot', {
+        conversationId: 'conv-identity',
+        change: { type: 'snapshot', revision: 1, conversationState: { turns: [] } }
+    }), { connectionGeneration: 2, sourceClientId: 'desktop-a', hostId: 'host-a' });
+    const patch = tracker.applyBroadcast(makeBroadcast('patches', {
+        conversationId: 'conv-identity',
+        change: { type: 'patches', revision: 2, baseRevision: 1, patches: [{ op: 'add', path: ['turns', 0], value: { id: 'must-not-apply' } }] }
+    }), { connectionGeneration: 2, sourceClientId: 'desktop-b', hostId: 'host-a' });
+
+    assert.equal(patch.desynced, true);
+    assert.equal(patch.sourceEpoch, baseline.sourceEpoch);
+    assert.equal(patch.stateChanged, false);
+    assert.deepEqual(tracker.getConversationState('conv-identity'), { turns: [] });
+});
+
+test('new snapshot source creates a new epoch while stale snapshot is ignored', () => {
+    const tracker = new ThreadStreamTracker();
+    const first = tracker.applyBroadcast(makeBroadcast('snapshot', {
+        conversationId: 'conv-epoch',
+        change: { type: 'snapshot', revision: 4, conversationState: { turns: [{ id: 'first' }] } }
+    }), { connectionGeneration: 3, sourceClientId: 'desktop-a', hostId: 'host-a' });
+    const stale = tracker.applyBroadcast(makeBroadcast('snapshot', {
+        conversationId: 'conv-epoch',
+        change: { type: 'snapshot', revision: 3, conversationState: { turns: [{ id: 'stale' }] } }
+    }), { connectionGeneration: 3, sourceClientId: 'desktop-a', hostId: 'host-a' });
+    const replacement = tracker.applyBroadcast(makeBroadcast('snapshot', {
+        conversationId: 'conv-epoch',
+        change: { type: 'snapshot', revision: 1, conversationState: { turns: [{ id: 'replacement' }] } }
+    }), { connectionGeneration: 3, sourceClientId: 'desktop-b', hostId: 'host-a' });
+
+    assert.equal(stale.ignored, true);
+    assert.notEqual(replacement.sourceEpoch, first.sourceEpoch);
+    assert.equal(tracker.getConversationState('conv-epoch').turns[0].id, 'replacement');
+});
+
 test('imageView status preserves image targets for the Android attachment surface', () => {
     const snap = buildDesktopSurfaceSnapshot({ turns: [{
         turnId: 't-image',

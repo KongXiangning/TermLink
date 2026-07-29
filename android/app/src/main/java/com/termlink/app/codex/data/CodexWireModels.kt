@@ -110,6 +110,99 @@ data class CodexCapabilities(
     }
 }
 
+data class CodexHistoryCapability(
+    val version: Int,
+    val manifestPageSize: Int,
+    val deltaMaxItems: Int,
+    val deltaMaxBytes: Int,
+    val syncInactivityTimeoutMs: Long
+) {
+    companion object {
+        fun from(status: JSONObject?): CodexHistoryCapability? {
+            val json = (status?.optJSONObject("capabilities") ?: status)?.optJSONObject("historySync") ?: return null
+            if (json.optInt("version", 0) != 1) return null
+            return CodexHistoryCapability(json.optInt("version"), json.optInt("manifestPageSize", 200), json.optInt("deltaMaxItems", 100), json.optInt("deltaMaxBytes", 262144), json.optLong("syncInactivityTimeoutMs", 30000))
+        }
+    }
+}
+
+data class CodexHistorySyncCheckpoint(
+    val rootHash: String?,
+    val itemCount: Int,
+    val complete: Boolean
+) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("rootHash", rootHash ?: JSONObject.NULL)
+        put("itemCount", itemCount)
+        put("complete", complete)
+    }
+}
+
+data class CodexHistorySyncRequest(
+    val syncId: String,
+    val conversationId: String,
+    val checkpoint: CodexHistorySyncCheckpoint
+) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("type", "conversation_history_sync_request")
+        put("syncId", syncId)
+        put("conversationId", conversationId)
+        put("cacheSchemaVersion", 1)
+        put("checkpoint", checkpoint.toJson())
+    }
+}
+
+data class CodexHistorySyncStateMessage(
+    val syncId: String,
+    val conversationId: String,
+    val state: String,
+    val detailCode: String?
+) {
+    companion object {
+        fun from(json: JSONObject): CodexHistorySyncStateMessage = CodexHistorySyncStateMessage(
+            json.optString("syncId", ""), json.optString("conversationId", ""), json.optString("state", "failed"), json.optStringOrNull("detailCode")
+        )
+    }
+}
+
+data class CodexHistoryDeltaWire(
+    val page: CodexHistoryDeltaPage
+) {
+    companion object {
+        fun from(json: JSONObject): CodexHistoryDeltaWire? {
+            val syncId = json.optStringOrNull("syncId") ?: return null
+            val conversationId = json.optStringOrNull("conversationId") ?: return null
+            val page = CodexHistoryDeltaPage(
+                syncId = syncId,
+                conversationId = conversationId,
+                sequence = json.optInt("sequence", 0),
+                pageIndex = json.optInt("pageIndex", 0),
+                pageCount = json.optInt("pageCount", 0),
+                pageHash = json.optString("pageHash", ""),
+                baseRoot = json.optStringOrNull("baseRoot"),
+                targetRoot = json.optString("targetRoot", ""),
+                baselineComplete = json.optBoolean("baselineComplete", false),
+                fullOrderIncluded = json.optBoolean("fullOrderIncluded", false),
+                canonicalOrder = json.optJSONArray("canonicalOrder")?.toStringList() ?: emptyList(),
+                upserts = parseItems(json.optJSONArray("upserts")),
+                deletes = json.optJSONArray("deletes")?.toStringList() ?: emptyList()
+            )
+            return CodexHistoryDeltaWire(page)
+        }
+
+        private fun parseItems(array: JSONArray?): List<CodexHistoryItem> {
+            if (array == null) return emptyList()
+            return buildList {
+                for (index in 0 until array.length()) {
+                    val item = array.optJSONObject(index) ?: continue
+                    val key = item.optStringOrNull("itemKey") ?: continue
+                    add(CodexHistoryItem(key, item.optStringOrNull("turnId"), item.optInt("position", 0), item.optString("itemType", "message"), item.optStringOrNull("role"), item.optStringOrNull("clientRequestId"), item.optString("payloadJson", ""), item.optString("contentHash", "")))
+                }
+            }
+        }
+    }
+}
+
 data class CodexPermissionProfileOption(
     val id: String,
     val description: String? = null,
@@ -750,7 +843,8 @@ data class DesktopSurfaceSnapshot(
     val pendingGoalAction: PendingGoalActionInfo?,
     val activeGoal: ActiveGoalInfo?,
     val raw: JSONObject,
-    val desynced: Boolean = false
+    val desynced: Boolean = false,
+    val sourceEpoch: String? = null
 ) {
     companion object {
         fun from(json: JSONObject): DesktopSurfaceSnapshot {
@@ -782,7 +876,8 @@ data class DesktopSurfaceSnapshot(
                 pendingGoalAction = PendingGoalActionInfo.from(snapshot.optJSONObject("pendingGoalAction")),
                 activeGoal = ActiveGoalInfo.from(snapshot.optJSONObject("activeGoal")),
                 raw = json,
-                desynced = snapshot.optBoolean("desynced", false)
+                desynced = snapshot.optBoolean("desynced", false),
+                sourceEpoch = snapshot.optStringOrNull("sourceEpoch")
             )
         }
     }
@@ -846,6 +941,25 @@ data class CodexIpcConversationSummary(
 // ── Client → Server builders ──────────────────────────────────────────
 
 object CodexClientMessages {
+
+    fun historySyncRequest(request: CodexHistorySyncRequest): String = request.toJson().toString()
+
+    fun historyManifestPage(syncId: String, conversationId: String, pageIndex: Int, lastPage: Boolean, items: JSONArray): String = JSONObject()
+        .put("type", "conversation_history_manifest_page")
+        .put("syncId", syncId)
+        .put("conversationId", conversationId)
+        .put("pageIndex", pageIndex)
+        .put("lastPage", lastPage)
+        .put("items", items)
+        .toString()
+
+    fun historySyncAck(syncId: String, conversationId: String, targetRoot: String, sequence: Int): String = JSONObject()
+        .put("type", "conversation_history_sync_ack")
+        .put("syncId", syncId)
+        .put("conversationId", conversationId)
+        .put("targetRoot", targetRoot)
+        .put("sequence", sequence)
+        .toString()
 
     fun heartbeat(): String = JSONObject()
         .put("type", "client_heartbeat")

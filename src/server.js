@@ -8,6 +8,7 @@ const http = require('http');
 const https = require('https');
 const WebSocket = require('ws');
 const path = require('path');
+const os = require('os');
 const basicAuth = require('./auth/basicAuth');
 const createHealthRouter = require('./routes/health');
 const createSessionsRouter = require('./routes/sessions');
@@ -21,6 +22,8 @@ const { getAuditService } = require('./services/auditService');
 const { diagnosticLog } = require('./services/diagnosticLog');
 const { parseTlsConfig, validateTlsConfig, buildHttpsOptions } = require('./config/tlsConfig');
 const { createConnectionSecurityMiddleware } = require('./utils/connectionSecurity');
+const createCodexMediaRouter = require('./routes/codexMedia');
+const { CodexMediaStore } = require('./services/codexMediaStore');
 
 // Parse privilege configuration
 const privilegeConfig = parsePrivilegeConfig();
@@ -94,6 +97,10 @@ if (privilegeConfig.isElevated) {
 }
 
 const app = express();
+const codexMediaStore = new CodexMediaStore({
+    trustedTempRoots: [path.join(os.tmpdir(), 'termlink-codex-images')]
+});
+void codexMediaStore.init();
 const server = tlsConfig.enabled
     ? https.createServer(buildHttpsOptions(tlsConfig), app)
     : http.createServer(app);
@@ -119,6 +126,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.use('/api', createSessionsRouter(sessionManager));
 app.use('/api', createWorkspaceRouter(sessionManager));
 app.use('/api', createHealthRouter({ privilegeConfig, tlsConfig }));
+app.use('/api', createCodexMediaRouter({ mediaStore: codexMediaStore }));
 
 // WebSocket ticket endpoint — must be AFTER basicAuth middleware
 const { issueWsTicket } = require('./auth/basicAuth');
@@ -129,7 +137,7 @@ app.get('/api/ws-ticket', (req, res) => {
 // ── IPC feed: connect to codex-ipc when enabled ──
 const ipcFeed = new CodexIpcFeed();
 
-registerTerminalGateway(wss, { sessionManager, heartbeatMs: 30000, privilegeConfig, tlsConfig, ipcFeed });
+registerTerminalGateway(wss, { sessionManager, heartbeatMs: 30000, privilegeConfig, tlsConfig, ipcFeed, mediaStore: codexMediaStore });
 
 // Start IPC feed first, then listen — avoids a race where the feed's
 // initialize handshake completes after the first WebSocket client connects.

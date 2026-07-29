@@ -46,6 +46,8 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
                 threadId: id,
                 hostId: LOCAL_HOST_ID,
                 revision: 0,
+                historyBaselineComplete: false,
+                historyBaselineKind: 'partial_seed',
                 state: buildInitialState(id, surface),
                 seedSurface: clone(surface),
                 authoritativeTransientFields: new Set(),
@@ -88,6 +90,8 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
             threadId,
             hostId: LOCAL_HOST_ID,
             revision: 0,
+            historyBaselineComplete: true,
+            historyBaselineKind: 'new_thread_tracked',
             state,
             seedSurface: clone(surface),
             authoritativeTransientFields: new Set(),
@@ -331,6 +335,15 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
         const id = normalizeId(threadId);
         if (!id || !this._conversations.has(id)) return undefined;
         return this.buildEvent(id);
+    }
+
+    getHistoryBaseline(threadId) {
+        const conversation = this._conversations.get(normalizeId(threadId));
+        if (!conversation) return undefined;
+        return {
+            complete: conversation.historyBaselineComplete === true,
+            kind: conversation.historyBaselineKind || 'partial_seed'
+        };
     }
 
     updateConversation(threadId, update) {

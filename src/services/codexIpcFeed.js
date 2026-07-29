@@ -5,6 +5,9 @@ const { ThreadStreamTracker, buildDesktopSurfaceSnapshot } = require('./codexIpc
 const { readIpcConfig } = require('./codexIpcConfig');
 const { diagnosticLog } = require('./diagnosticLog');
 
+const MAX_METADATA_BYTES = 256 * 1024;
+const DIAGNOSTIC_INTERVAL_MS = 30_000;
+
 class CodexIpcFeed extends EventEmitter {
     /**
      * @param {object} [options]
@@ -21,14 +24,22 @@ class CodexIpcFeed extends EventEmitter {
         this._config = config;
         this._client = options.client || null;
         this._tracker = options.tracker || new ThreadStreamTracker();
-        this._maxSnapshots = options.maxSnapshots || 20;
         this._maxEvents = options.maxEvents || 200;
         this._reconnectDelayMs = options.reconnectDelayMs || config.reconnectDelayMs || 1500;
 
-        /** @type {Map<string, Array<{surface: object, timestamp: number}>>} */
+        /** @type {Map<string, object>} */
         this._snapshotCache = new Map();
+        this._latestExternalSurfaceByConversation = new Map();
         this._syncEvents = [];
         this._rawEvents = [];
+        this._metadataBytes = { sync: 0, raw: 0 };
+        this._cacheStats = {
+            conversationCount: 0,
+            latestSurfaceCount: 0,
+            estimatedSurfaceBytes: 0,
+            syncMetadataCount: 0,
+            rawMetadataCount: 0
+        };
         this._diagnosticSurfaceSignatures = new Map();
         this._sequence = 0;
         this._rawSequence = 0;
@@ -49,6 +60,9 @@ class CodexIpcFeed extends EventEmitter {
         };
         this._connectAttempts = 0;
         this._reconnectTimer = null;
+        this._diagnosticTimer = null;
+        this._ipcConnectionGeneration = 0;
+        this._lastStatusFingerprint = null;
 
         // bound handlers for client events
         this._onClientConnect = this._onClientConnect.bind(this);
@@ -99,6 +113,7 @@ class CodexIpcFeed extends EventEmitter {
             const { CodexIpcClient } = require('./codexIpcClient');
             this._client = new CodexIpcClient({ reconnect: false });
         }
+        this._startDiagnostics();
         this._installRequestHandlers();
 
         this._client.on('message_in', this._onClientMessageIn);
@@ -121,6 +136,10 @@ class CodexIpcFeed extends EventEmitter {
             clearTimeout(this._reconnectTimer);
             this._reconnectTimer = null;
         }
+        if (this._diagnosticTimer) {
+            clearInterval(this._diagnosticTimer);
+            this._diagnosticTimer = null;
+        }
         if (this._client) {
             this._client.removeListener('message_in', this._onClientMessageIn);
             this._client.removeListener('message_out', this._onClientMessageOut);
@@ -140,9 +159,7 @@ class CodexIpcFeed extends EventEmitter {
      * @returns {object|undefined}
      */
     getLatestSnapshot(conversationId) {
-        const cache = this._snapshotCache.get(conversationId);
-        if (!cache || cache.length === 0) return undefined;
-        return cache[cache.length - 1].surface;
+        return this._snapshotCache.get(conversationId)?.surface;
     }
 
     /**
@@ -151,11 +168,8 @@ class CodexIpcFeed extends EventEmitter {
      */
     getRecentSnapshots() {
         const result = [];
-        for (const [conversationId, cache] of this._snapshotCache.entries()) {
-            if (cache.length > 0) {
-                const latest = cache[cache.length - 1];
-                result.push({ conversationId, surface: latest.surface, timestamp: latest.timestamp });
-            }
+        for (const [conversationId, latest] of this._snapshotCache.entries()) {
+            if (latest) result.push({ conversationId, surface: latest.surface, timestamp: latest.timestamp });
         }
         result.sort((a, b) => b.timestamp - a.timestamp);
         return result;
@@ -170,15 +184,7 @@ class CodexIpcFeed extends EventEmitter {
     }
 
     hasRicherExternalSurface(conversationId, candidate) {
-        const ownClientId = this.clientId;
-        const externalSurface = this._syncEvents
-            .filter((event) =>
-                event.threadId === conversationId &&
-                event.surface &&
-                event.sourceClientId &&
-                event.sourceClientId !== ownClientId)
-            .at(-1)
-            ?.surface;
+        const externalSurface = this._latestExternalSurfaceByConversation.get(conversationId)?.surface;
 
         return Boolean(
             externalSurface &&
@@ -188,17 +194,15 @@ class CodexIpcFeed extends EventEmitter {
 
     hasExternalPendingPlanAction(conversationId, requestId) {
         if (!requestId) return false;
-        const ownClientId = this.clientId;
-        return this._syncEvents.some((event) =>
-            event.threadId === conversationId &&
-            event.sourceClientId &&
-            event.sourceClientId !== ownClientId &&
-            event.surface?.pendingPlanAction?.requestId === requestId);
+        return this._latestExternalSurfaceByConversation.get(conversationId)
+            ?.surface?.pendingPlanAction?.requestId === requestId;
     }
 
     clearRecentEvents() {
         this._syncEvents.length = 0;
         this._rawEvents.length = 0;
+        this._metadataBytes.sync = 0;
+        this._metadataBytes.raw = 0;
         this._sequence = 0;
         this._rawSequence = 0;
         this._status = {
@@ -206,7 +210,7 @@ class CodexIpcFeed extends EventEmitter {
             eventCount: 0,
             lastEventAt: undefined
         };
-        this.emit('status', this.getStatus());
+        this._emitStatus({});
     }
 
     /**
@@ -295,6 +299,7 @@ class CodexIpcFeed extends EventEmitter {
     // ── client event handlers ────────────────────────────────────────────
 
     _onClientConnect() {
+        this._ipcConnectionGeneration += 1;
         this._online = true;
         this._emitStatus({
             online: true,
@@ -321,84 +326,98 @@ class CodexIpcFeed extends EventEmitter {
     _onClientBroadcast(message) {
         if (message.method !== 'thread-stream-state-changed') return;
 
-        const projection = this._tracker.applyBroadcast(message);
+        const sourceClientId = typeof message.sourceClientId === 'string' && message.sourceClientId.trim()
+            ? message.sourceClientId.trim()
+            : null;
+        const hostId = extractHostId(message.params);
+        const projection = this._tracker.applyBroadcast(message, {
+            connectionGeneration: this._ipcConnectionGeneration,
+            sourceClientId,
+            hostId
+        });
         if (!projection || !projection.conversationId) return;
 
         const conversationId = projection.conversationId;
+        if (projection.ignored) return;
+
+        const receivedAt = Date.now();
+        const event = createSyncEvent({
+            sequence: ++this._sequence,
+            receivedAt,
+            message,
+            projection,
+            conversationId
+        });
+
+        if (projection.desynced && !projection.stateChanged) {
+            this._appendMetadata(this._syncEvents, event, 'sync');
+            this._status = { ...this._status, eventCount: this._sequence, lastEventAt: receivedAt };
+            this.emit('event', event);
+            const cachedSurface = this._snapshotCache.get(conversationId)?.surface;
+            if (cachedSurface) {
+                this.emit('snapshot', {
+                    conversationId,
+                    surface: { ...cachedSurface, desynced: true },
+                    revision: cachedSurface.revision,
+                    sourceEpoch: cachedSurface.sourceEpoch,
+                    desynced: true
+                });
+            }
+            return;
+        }
+
+        if (!projection.stateChanged) return;
         const state = this._tracker.getConversationState(conversationId);
         const surface = buildDesktopSurfaceSnapshot(state, {
             conversationId,
             revision: projection.revision,
+            sourceEpoch: projection.sourceEpoch,
             status: inferStatusFromProjection(projection),
-            desynced: Boolean(projection.desynced)
+            desynced: false
         });
+        surface.sourceEpoch = projection.sourceEpoch;
+        event.itemCount = Array.isArray(surface.items) ? surface.items.length : 0;
+        event.hasActiveGoal = Boolean(surface.activeGoal);
+        event.hasPendingApproval = Boolean(surface.pendingApproval);
+        event.hasPendingPlanAction = Boolean(surface.pendingPlanAction);
+        event.hasPendingUserInputAction = Boolean(surface.pendingUserInputAction);
+        event.status = surface.status;
 
-        console.warn('[codex-ipc][feed][broadcast] received thread-stream-state-changed', JSON.stringify({
-            conversationId,
+        const timestamp = receivedAt;
+        const record = {
+            surface,
+            timestamp,
             revision: projection.revision,
-            status: surface.status || 'unknown',
+            sourceEpoch: projection.sourceEpoch,
+            connectionGeneration: projection.connectionGeneration ?? this._ipcConnectionGeneration,
+            sourceClientId: projection.sourceClientId ?? sourceClientId,
+            hostId: projection.hostId ?? hostId,
+            historyBaselineComplete: surface.historyBaselineComplete,
             itemCount: Array.isArray(surface.items) ? surface.items.length : 0,
-            sourceClientId: message.sourceClientId || undefined,
-            hasActiveGoal: Boolean(surface.activeGoal),
-            hasPendingApproval: Boolean(surface.pendingApproval),
-            hasPendingPlanAction: Boolean(surface.pendingPlanAction),
-            desynced: Boolean(projection.desynced)
-        }));
+            status: surface.status
+        };
+        const previous = this._snapshotCache.get(conversationId);
+        this._snapshotCache.set(conversationId, record);
+        this._cacheStats.conversationCount = this._snapshotCache.size;
+        this._cacheStats.latestSurfaceCount = this._snapshotCache.size;
+        this._cacheStats.estimatedSurfaceBytes += estimateBytes(surface) - estimateBytes(previous?.surface);
 
-        const diagnosticSignature = JSON.stringify({
-            status: surface.status || 'unknown',
-            hasActiveGoal: Boolean(surface.activeGoal),
-            hasPendingApproval: Boolean(surface.pendingApproval),
-            hasPendingPlanAction: Boolean(surface.pendingPlanAction),
-            desynced: Boolean(projection.desynced),
-            itemCount: Array.isArray(surface.items) ? surface.items.length : 0
-        });
-        if (this._diagnosticSurfaceSignatures.get(conversationId) !== diagnosticSignature) {
-            this._diagnosticSurfaceSignatures.set(conversationId, diagnosticSignature);
-            diagnosticLog.event('server', 'server.ipc.surface.changed', {
-                conversationIdPresent: true,
-                status: surface.status || 'unknown',
-                revision: projection.revision,
-                itemCount: Array.isArray(surface.items) ? surface.items.length : 0,
-                hasActiveGoal: Boolean(surface.activeGoal),
-                hasPendingApproval: Boolean(surface.pendingApproval),
-                hasPendingPlanAction: Boolean(surface.pendingPlanAction),
-                desynced: Boolean(projection.desynced)
+        if (record.sourceClientId !== this.clientId) {
+            this._latestExternalSurfaceByConversation.set(conversationId, {
+                surface,
+                sourceEpoch: record.sourceEpoch,
+                connectionGeneration: record.connectionGeneration,
+                sourceClientId: record.sourceClientId,
+                hostId: record.hostId,
+                timestamp
             });
         }
 
-        // Cache the snapshot.
-        let cache = this._snapshotCache.get(conversationId);
-        if (!cache) {
-            cache = [];
-            this._snapshotCache.set(conversationId, cache);
-        }
-        cache.push({ surface, timestamp: Date.now() });
-        if (cache.length > this._maxSnapshots) {
-            cache.splice(0, cache.length - this._maxSnapshots);
-        }
-
-        const event = {
-            sequence: ++this._sequence,
-            receivedAt: Date.now(),
-            method: message.method,
-            threadId: conversationId,
-            sourceClientId: message.sourceClientId,
-            projection,
-            surface
-        };
-        this._syncEvents.push(event);
-        this._pruneEventCache(this._syncEvents);
-
-        this._status = {
-            ...this._status,
-            eventCount: this._sequence,
-            lastEventAt: event.receivedAt
-        };
-
+        this._appendMetadata(this._syncEvents, event, 'sync');
+        this._status = { ...this._status, eventCount: this._sequence, lastEventAt: receivedAt };
+        this._recordSurfaceDiagnostics(conversationId, surface, projection);
         this.emit('event', event);
         this.emit('snapshot', { conversationId, surface, revision: projection.revision });
-        this.emit('status', this.getStatus());
     }
 
     _onClientClose() {
@@ -428,14 +447,12 @@ class CodexIpcFeed extends EventEmitter {
             eventCount: this._sequence,
             desiredCount: this._desiredFollowing.size
         });
-        this._status = {
-            ...this._status,
+        this._emitStatus({
             online: false,
             reconnecting: true,
             lastError: detail,
             clientId: undefined
-        };
-        this.emit('status', this.getStatus());
+        });
         this.emit('error', error);
         this._scheduleReconnect();
     }
@@ -443,22 +460,33 @@ class CodexIpcFeed extends EventEmitter {
     // ── internal ─────────────────────────────────────────────────────────
 
     _emitStatus(status) {
-        this._online = Boolean(status.online);
+        this._online = Object.prototype.hasOwnProperty.call(status, 'online')
+            ? Boolean(status.online)
+            : this._online;
         this._status = { ...this._status, ...status, online: this._online };
-        this.emit('status', this.getStatus());
+        const current = this.getStatus();
+        const fingerprint = JSON.stringify([
+            current.supported,
+            current.online,
+            current.activeSendAllowed,
+            current.clientId ?? null,
+            current.reason ?? null,
+            current.reconnecting ?? false
+        ]);
+        if (fingerprint === this._lastStatusFingerprint) return;
+        this._lastStatusFingerprint = fingerprint;
+        this.emit('status', current);
     }
 
     async _connect() {
         if (this._closed || this._connecting || !this._client) return;
         this._connecting = true;
         this._connectAttempts += 1;
-        this._status = {
-            ...this._status,
+        this._emitStatus({
             reconnecting: true,
             connectAttempts: this._connectAttempts,
             pipePath: this._client.getPipePath ? this._client.getPipePath() : this._config.pipePath
-        };
-        this.emit('status', this.getStatus());
+        });
 
         try {
             await this._client.connect();
@@ -575,20 +603,106 @@ class CodexIpcFeed extends EventEmitter {
             conversationId: extractConversationId(message),
             clientType: typeof paramRecord?.clientType === 'string' ? paramRecord.clientType : undefined,
             status: typeof paramRecord?.status === 'string' ? paramRecord.status : undefined,
-            message
         };
-        this._rawEvents.push(event);
-        this._pruneEventCache(this._rawEvents);
+        this._appendMetadata(this._rawEvents, event, 'raw');
     }
 
-    _pruneEventCache(cache) {
-        if (cache.length > this._maxEvents) {
-            cache.splice(0, cache.length - this._maxEvents);
+    _appendMetadata(cache, event, kind) {
+        const bytes = estimateBytes(event);
+        cache.push(event);
+        this._metadataBytes[kind] += bytes;
+        while (cache.length > this._maxEvents || this._metadataBytes[kind] > MAX_METADATA_BYTES) {
+            const removed = cache.shift();
+            this._metadataBytes[kind] -= estimateBytes(removed);
         }
+        this._cacheStats[`${kind}MetadataCount`] = cache.length;
+    }
+
+    _recordSurfaceDiagnostics(conversationId, surface, projection) {
+        const diagnosticSignature = JSON.stringify({
+            status: surface.status || 'unknown',
+            hasActiveGoal: Boolean(surface.activeGoal),
+            hasPendingApproval: Boolean(surface.pendingApproval),
+            hasPendingPlanAction: Boolean(surface.pendingPlanAction),
+            desynced: Boolean(projection.desynced),
+            itemCount: Array.isArray(surface.items) ? surface.items.length : 0
+        });
+        if (this._diagnosticSurfaceSignatures.get(conversationId) === diagnosticSignature) return;
+        this._diagnosticSurfaceSignatures.set(conversationId, diagnosticSignature);
+        diagnosticLog.event('server', 'server.ipc.surface.changed', {
+            conversationIdPresent: true,
+            status: surface.status || 'unknown',
+            revision: projection.revision,
+            sourceEpoch: projection.sourceEpoch,
+            itemCount: Array.isArray(surface.items) ? surface.items.length : 0,
+            hasActiveGoal: Boolean(surface.activeGoal),
+            hasPendingApproval: Boolean(surface.pendingApproval),
+            hasPendingPlanAction: Boolean(surface.pendingPlanAction),
+            desynced: Boolean(projection.desynced)
+        });
+    }
+
+    _startDiagnostics() {
+        if (this._diagnosticTimer) return;
+        this._diagnosticTimer = setInterval(() => {
+            const usage = process.memoryUsage();
+            diagnosticLog.event('server', 'server.ipc_feed.memory', {
+                rss: usage.rss,
+                heapUsed: usage.heapUsed,
+                heapTotal: usage.heapTotal,
+                external: usage.external,
+                arrayBuffers: usage.arrayBuffers,
+                conversationCount: this._snapshotCache.size,
+                latestSurfaceCount: this._snapshotCache.size,
+                syncMetadataCount: this._syncEvents.length,
+                rawMetadataCount: this._rawEvents.length,
+                desiredFollowingCount: this._desiredFollowing.size
+            });
+        }, DIAGNOSTIC_INTERVAL_MS);
+        if (typeof this._diagnosticTimer.unref === 'function') this._diagnosticTimer.unref();
     }
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+
+function createSyncEvent({ sequence, receivedAt, message, projection, conversationId }) {
+    return {
+        sequence,
+        receivedAt,
+        method: message.method,
+        threadId: conversationId,
+        sourceClientId: projection.sourceClientId ?? null,
+        sourceEpoch: projection.sourceEpoch,
+        revision: projection.revision,
+        status: inferStatusFromProjection(projection),
+        itemCount: Array.isArray(projection.latestTurn?.items) ? projection.latestTurn.items.length : undefined,
+        desynced: Boolean(projection.desynced),
+        hasActiveGoal: Boolean(projection.activeGoal),
+        hasPendingApproval: Boolean(projection.hasPendingApproval),
+        hasPendingPlanAction: Boolean(projection.hasPendingPlanAction),
+        hasPendingUserInputAction: Boolean(projection.hasPendingUserInputAction)
+    };
+}
+
+function extractHostId(value, seen = new Set()) {
+    if (!value || typeof value !== 'object' || seen.has(value)) return null;
+    seen.add(value);
+    if (typeof value.hostId === 'string' && value.hostId.trim()) return value.hostId.trim();
+    for (const nested of Object.values(value)) {
+        const found = extractHostId(nested, seen);
+        if (found) return found;
+    }
+    return null;
+}
+
+function estimateBytes(value) {
+    if (value === undefined) return 0;
+    try {
+        return Buffer.byteLength(JSON.stringify(value), 'utf8');
+    } catch (_) {
+        return 0;
+    }
+}
 
 function inferStatusFromProjection(projection) {
     if (projection.desynced) return undefined;

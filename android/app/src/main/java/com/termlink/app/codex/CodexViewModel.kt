@@ -547,7 +547,10 @@ internal fun applyDesktopSurfaceSnapshotToUiState(
         return state
     }
     if (snap.desynced) {
-        return state.copy(ipcSurfaceSnapshot = snap)
+        return state.copy(
+            ipcSurfaceSnapshot = state.ipcSurfaceSnapshot ?: snap,
+            liveAuthoritativeDesynced = true
+        )
     }
     val confirmedOverrides = reconcileOwnerConfirmedOverrides(
         overrides = state.nextTurnOverrides,
@@ -558,6 +561,9 @@ internal fun applyDesktopSurfaceSnapshotToUiState(
         activeConversationId = convId,
         awaitingNewThreadIpcSurface = false,
         ipcSurfaceSnapshot = snap,
+        liveAuthoritativeConversationId = convId,
+        liveAuthoritativeDesynced = false,
+        historySyncState = "live",
         ownerCurrentCodexConfig = snap.currentCodexConfig,
         nextTurnOverrides = confirmedOverrides,
         status = snap.status,
@@ -962,6 +968,25 @@ internal fun mergeSurfaceItems(
         null
     }
     return collapseCompletedCommandBatchesForUi(projectedMessages, collapsibleTurnIds)
+}
+
+private fun decodeCachedHistoryItem(item: CodexHistoryItem): ChatMessage? {
+    return runCatching {
+        val payload = JSONObject(item.payloadJson)
+        val role = when (item.role?.lowercase() ?: payload.optString("role", "assistant").lowercase()) {
+            "user" -> ChatMessage.Role.USER
+            "tool", "command", "file_change" -> ChatMessage.Role.TOOL
+            "system" -> ChatMessage.Role.SYSTEM
+            else -> ChatMessage.Role.ASSISTANT
+        }
+        ChatMessage(
+            id = item.itemKey,
+            role = role,
+            content = payload.optString("text", payload.optString("content", payload.optString("summary", ""))),
+            contentType = item.itemType,
+            clientRequestId = item.clientRequestId
+        )
+    }.getOrNull()
 }
 
 private fun surfaceEntryAttachmentsForUi(entry: SurfaceEntry): List<CodexMessageAttachment> =
@@ -1655,6 +1680,7 @@ class CodexViewModel(
 
     private val appContext = appContext.applicationContext
     private val connectionManager = CodexConnectionManager(viewModelScope, credentialStore, this.appContext)
+    private val historyCacheStore = CodexConversationCacheStore(this.appContext)
     private val rememberedTaskConfig = this.appContext.getSharedPreferences(
         REMEMBERED_CONFIG_PREFS,
         Context.MODE_PRIVATE
@@ -1682,6 +1708,8 @@ class CodexViewModel(
     private var launchHydrateTargetThreadId: String? = null
     private var launchHydrateInFlightThreadId: String? = null
     private var pinnedIpcConversationId: String? = null
+    private var historySyncInFlightConversationId: String? = null
+    private var historyCapability: CodexHistoryCapability? = null
     private var pendingHistoryResumeHydrationThreadId: String? = null
     private var foregroundFollowJob: Job? = null
     private var foregroundRecoveryReadInFlightThreadId: String? = null
@@ -1792,6 +1820,23 @@ class CodexViewModel(
                     followerActiveSendAllowed = false
                 )
             )
+        }
+        if (!launchConversationId.isNullOrBlank()) {
+            viewModelScope.launch(Dispatchers.IO) {
+                val cached = runCatching { historyCacheStore.readConversation(profile.id, launchConversationId) }.getOrNull()
+                if (cached != null && cached.items.isNotEmpty()) {
+                    val cachedMessages = cached.items.sortedBy { it.position }.mapNotNull(::decodeCachedHistoryItem)
+                    _uiState.update { state ->
+                        if (state.activeConversationId?.trim() == launchConversationId || state.threadId?.trim() == launchConversationId) {
+                            state.copy(
+                                cachedCanonicalMessages = cachedMessages,
+                                messages = if (state.liveAuthoritativeConversationId == null) cachedMessages else state.messages,
+                                historySyncState = "loading_baseline"
+                            )
+                        } else state
+                    }
+                }
+            }
         }
         connectionManager.connect(profile, params.sessionId)
     }
@@ -3343,12 +3388,13 @@ class CodexViewModel(
             )
         }
         val prompt = buildPromptWithMentions(text, state.pendingFileMentions)
+        val clientRequestId = UUID.randomUUID().toString()
         val displayText = displayTextOverride ?: buildDisplayText(
             text = text,
             mentions = state.pendingFileMentions
         )
         val userMsg = ChatMessage(
-            id = UUID.randomUUID().toString(),
+            id = clientRequestId,
             role = ChatMessage.Role.USER,
             content = displayText,
             fileMentions = state.pendingFileMentions,
@@ -3378,7 +3424,8 @@ class CodexViewModel(
             isPlanMode = isPlanMode,
             attachments = attachments,
             interactionState = turnInteractionState,
-            collaborationMode = collaborationMode
+            collaborationMode = collaborationMode,
+            clientRequestId = clientRequestId
         )
         val sentViaIpcFollower = followerPayload != null
         if (followerPayload == null && shouldBlockPlainTextFallbackForIpcConversation(state, isPlanMode, attachments)) {
@@ -3478,7 +3525,8 @@ class CodexViewModel(
         isPlanMode: Boolean,
         attachments: List<CodexTurnAttachment>,
         interactionState: CodexInteractionState,
-        collaborationMode: JSONObject?
+        collaborationMode: JSONObject?,
+        clientRequestId: String
     ): String? {
         val conversationId = state.activeConversationId?.trim().orEmpty()
         if (!shouldUseIpcFollowerSendTransportState(state) || conversationId.isEmpty()) return null
@@ -3502,7 +3550,7 @@ class CodexViewModel(
             conversationId = conversationId,
             input = prompt,
             turnConfig = turnConfig,
-            clientRequestId = UUID.randomUUID().toString(),
+            clientRequestId = clientRequestId,
             attachments = attachments,
             interactionState = interactionState,
             collaborationMode = if (isPlanMode) collaborationMode else {
@@ -3932,6 +3980,25 @@ class CodexViewModel(
         connectionManager.send(CodexClientMessages.setActiveConversation(conversationId))
     }
 
+    private fun maybeRequestHistorySync(conversationId: String?) {
+        val normalizedConversationId = conversationId?.trim()?.takeIf { it.isNotEmpty() } ?: return
+        val profile = currentProfile ?: return
+        if (historySyncInFlightConversationId == normalizedConversationId) return
+        val capability = historyCapability ?: return
+        if (capability.version != 1) return
+        historySyncInFlightConversationId = normalizedConversationId
+        viewModelScope.launch(Dispatchers.IO) {
+            val cached = runCatching { historyCacheStore.readConversation(profile.id, normalizedConversationId) }.getOrNull()
+            val checkpoint = cached?.checkpoint ?: CodexConversationCheckpoint(profile.id, normalizedConversationId)
+            val request = CodexHistorySyncRequest(
+                syncId = UUID.randomUUID().toString(),
+                conversationId = normalizedConversationId,
+                checkpoint = CodexHistorySyncCheckpoint(checkpoint.rootHash, checkpoint.itemCount, checkpoint.complete)
+            )
+            connectionManager.send(CodexClientMessages.historySyncRequest(request))
+        }
+    }
+
     private fun handleEnvelope(envelope: CodexWsEnvelope) {
         val json = envelope.raw
         when (envelope.type) {
@@ -4007,6 +4074,7 @@ class CodexViewModel(
             // ── IPC realtime sync messages ──
             "codex_ipc_status" -> {
                 val status = CodexIpcStatus.from(json)
+                historyCapability = CodexHistoryCapability.from(json.optJSONObject("status"))
                 val hadObservedStatus = ipcStatusObserved
                 val wasOnline = _uiState.value.ipcOnline
                 ipcStatusObserved = true
@@ -4037,6 +4105,7 @@ class CodexViewModel(
                     lastRecoveryReadAtElapsed = 0L
                     runForegroundRecoveryTick(SystemClock.elapsedRealtime())
                 }
+                if (status.online) maybeRequestHistorySync(_uiState.value.activeConversationId)
                 Log.i(TAG, "[ipc][status] " +
                     "online=${status.online} " +
                     "hadObservedStatus=$hadObservedStatus " +
@@ -4109,6 +4178,7 @@ class CodexViewModel(
                 }
                 val newConversationId = _uiState.value.activeConversationId?.trim().orEmpty()
                 val targetChanged = newConversationId.isNotEmpty() && previousConversationId != newConversationId
+                if (targetChanged) historySyncInFlightConversationId = null
                 val switched = previousConversationId.isNotEmpty() && targetChanged
                 if (targetChanged) {
                     beginAwaitingFreshIpcSurface()
@@ -4136,6 +4206,44 @@ class CodexViewModel(
 
             "codex_ipc_sync_event" -> {
                 // Android consumes normalized conversation snapshots; raw sync events are diagnostics.
+            }
+
+            "conversation_history_sync_state" -> {
+                val syncState = CodexHistorySyncStateMessage.from(json)
+                if (syncState.conversationId == _uiState.value.activeConversationId) {
+                    if (syncState.state == "live" || syncState.state == "partial" || syncState.state == "failed") {
+                        historySyncInFlightConversationId = null
+                    }
+                    _uiState.update { it.copy(historySyncState = syncState.state) }
+                }
+            }
+
+            "conversation_history_delta" -> {
+                val delta = CodexHistoryDeltaWire.from(json)?.page ?: return
+                val activeConversationId = _uiState.value.activeConversationId
+                val endpointId = currentProfile?.id
+                if (endpointId == null || delta.conversationId != activeConversationId) return
+                viewModelScope.launch(Dispatchers.IO) {
+                    val result = runCatching { historyCacheStore.applyDeltaPage(endpointId, delta) }
+                        .getOrDefault(CodexConversationCacheStore.PageApplyResult.REJECTED)
+                    when (result) {
+                        CodexConversationCacheStore.PageApplyResult.COMMITTED,
+                        CodexConversationCacheStore.PageApplyResult.IDEMPOTENT -> {
+                            val cached = historyCacheStore.readConversation(endpointId, delta.conversationId)
+                            val cachedMessages = cached?.items?.sortedBy { it.position }?.mapNotNull(::decodeCachedHistoryItem).orEmpty()
+                            _uiState.update { state ->
+                                state.copy(
+                                    cachedCanonicalMessages = cachedMessages,
+                                    messages = if (state.liveAuthoritativeConversationId == null || state.liveAuthoritativeDesynced) cachedMessages else state.messages,
+                                    historySyncState = if (delta.baselineComplete) "live" else "partial"
+                                )
+                            }
+                            connectionManager.send(CodexClientMessages.historySyncAck(delta.syncId, delta.conversationId, delta.targetRoot, delta.sequence))
+                        }
+                        CodexConversationCacheStore.PageApplyResult.STAGED -> Unit
+                        else -> _uiState.update { it.copy(historySyncState = "failed") }
+                    }
+                }
             }
 
             "output" -> {
@@ -4168,6 +4276,7 @@ class CodexViewModel(
                             markActivity = true
                         )
                     }
+                    if (!snap.desynced) maybeRequestHistorySync(convId)
                 }
                 Log.i(TAG, "[ipc][surface-snapshot] " +
                     "conv=$convId " +

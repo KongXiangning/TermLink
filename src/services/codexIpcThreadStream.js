@@ -1,5 +1,7 @@
 'use strict';
 
+const { randomUUID } = require('node:crypto');
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function asRecord(value) {
@@ -27,7 +29,7 @@ function structuredClone(value) {
 
 class ThreadStreamTracker {
     constructor() {
-        /** @type {Map<string, {hostId?: string, revision?: number, state?: Record<string, unknown>, desynced?: boolean}>} */
+        /** @type {Map<string, {hostId?: string|null, sourceClientId?: string|null, sourceEpoch: string, connectionGeneration: number, revision?: number, revisionKnown: boolean, state?: Record<string, unknown>, desynced?: boolean}>} */
         this._conversations = new Map();
     }
 
@@ -36,53 +38,149 @@ class ThreadStreamTracker {
      * @param {{method: string, params?: unknown}} message
      * @returns {object|undefined} projection summary, or undefined if not applicable
      */
-    applyBroadcast(message) {
+    applyBroadcast(message, metadata = {}) {
         if (message.method !== 'thread-stream-state-changed') return undefined;
 
         const params = asRecord(message.params);
         const conversationId = extractConversationId(params);
-        const hostId = asString(params?.hostId);
+        const sourceClientId = asNullableString(metadata.sourceClientId ?? message.sourceClientId);
+        const hostId = asNullableString(metadata.hostId ?? extractHostId(params));
+        const connectionGeneration = Number.isInteger(metadata.connectionGeneration)
+            ? metadata.connectionGeneration
+            : 0;
         const change = asRecord(params?.change);
         const changeType = asString(change?.type);
-        const revision = asNumber(change?.revision);
+        const revision = finiteNumber(change?.revision);
 
         if (!conversationId || !changeType) {
-            return { kind: 'thread-stream-state-changed', conversationId, hostId, changeType, revision };
+            return {
+                kind: 'thread-stream-state-changed',
+                conversationId,
+                hostId,
+                sourceClientId,
+                changeType,
+                revision,
+                stateChanged: false,
+                desynced: true
+            };
         }
 
+        const entry = this._conversations.get(conversationId);
+        const identityConflict = entry && hasIdentityConflict(entry, { sourceClientId, hostId });
+        const connectionChanged = entry && entry.connectionGeneration !== connectionGeneration;
+
         if (changeType === 'snapshot') {
+            if (
+                entry &&
+                !connectionChanged &&
+                !identityConflict &&
+                revision !== undefined &&
+                entry.revisionKnown === true &&
+                revision <= entry.revision
+            ) {
+                return {
+                    kind: 'thread-stream-state-changed',
+                    conversationId,
+                    hostId: entry.hostId,
+                    sourceClientId: entry.sourceClientId,
+                    sourceEpoch: entry.sourceEpoch,
+                    connectionGeneration: entry.connectionGeneration,
+                    changeType,
+                    revision,
+                    revisionKnown: entry.revisionKnown,
+                    ignored: true,
+                    stateChanged: false,
+                    desynced: false
+                };
+            }
             const snapshot = asRecord(change?.conversationState);
             const nextState = snapshot ? structuredClone(snapshot) : undefined;
-            this._conversations.set(conversationId, { hostId, revision, state: nextState, desynced: false });
+            const sourceEpoch = !entry || connectionChanged || identityConflict
+                ? createIpcSourceEpoch(connectionGeneration)
+                : entry.sourceEpoch;
+            const nextEntry = {
+                hostId: entry && !hostId ? entry.hostId : hostId,
+                sourceClientId: entry && !sourceClientId ? entry.sourceClientId : sourceClientId,
+                sourceEpoch,
+                connectionGeneration,
+                revision,
+                revisionKnown: revision !== undefined,
+                state: nextState,
+                desynced: false
+            };
+            this._conversations.set(conversationId, nextEntry);
             return {
-                kind: 'thread-stream-state-changed', conversationId, hostId, changeType, revision,
-                ...summarizeConversationState(nextState), desynced: false
+                kind: 'thread-stream-state-changed', conversationId,
+                hostId: nextEntry.hostId,
+                sourceClientId: nextEntry.sourceClientId,
+                sourceEpoch,
+                connectionGeneration,
+                changeType,
+                revision,
+                revisionKnown: nextEntry.revisionKnown,
+                stateChanged: true,
+                ...summarizeConversationState(nextState),
+                desynced: false
             };
         }
 
         if (changeType === 'patches') {
-            const baseRevision = asNumber(change?.baseRevision);
+            const baseRevision = finiteNumber(change?.baseRevision);
             const patchList = asPatchList(change?.patches);
-            const entry = this._conversations.get(conversationId);
-            const revisionMismatch = entry?.revision !== undefined && baseRevision !== undefined && entry.revision !== baseRevision;
-            let desynced = revisionMismatch || !entry?.state;
+            const canApply = Boolean(
+                entry &&
+                !connectionChanged &&
+                !identityConflict &&
+                entry.state &&
+                entry.revisionKnown &&
+                revision !== undefined &&
+                baseRevision !== undefined &&
+                baseRevision === entry.revision &&
+                revision > entry.revision &&
+                patchList
+            );
             let nextState = entry?.state;
-
-            if (!desynced && nextState && patchList) {
-                try { nextState = applyPatches(nextState, patchList); }
-                catch (_) { desynced = true; }
+            let desynced = !canApply;
+            if (canApply) {
+                try {
+                    nextState = applyPatches(structuredClone(entry.state), patchList);
+                } catch (_) {
+                    desynced = true;
+                }
             }
 
-            this._conversations.set(conversationId, { hostId, revision, state: desynced ? entry?.state : nextState, desynced });
+            if (!desynced) {
+                const nextEntry = {
+                    ...entry,
+                    sourceClientId: entry.sourceClientId || sourceClientId,
+                    hostId: entry.hostId || hostId,
+                    revision,
+                    revisionKnown: true,
+                    state: nextState,
+                    desynced: false
+                };
+                this._conversations.set(conversationId, nextEntry);
+            }
             return {
-                kind: 'thread-stream-state-changed', conversationId, hostId, changeType, revision, baseRevision,
+                kind: 'thread-stream-state-changed', conversationId,
+                hostId: entry?.hostId ?? hostId,
+                sourceClientId: entry?.sourceClientId ?? sourceClientId,
+                sourceEpoch: entry?.sourceEpoch,
+                connectionGeneration: entry?.connectionGeneration ?? connectionGeneration,
+                changeType, revision, baseRevision,
                 patchCount: patchList?.length ?? 0,
                 patchPaths: patchList?.map(p => formatPatchPath(p.path)),
-                ...summarizeConversationState(desynced ? entry?.state : nextState), desynced
+                ...summarizeConversationState(entry?.state),
+                stateChanged: !desynced,
+                ignored: false,
+                desynced
             };
         }
 
-        return { kind: 'thread-stream-state-changed', conversationId, hostId, changeType, revision };
+        return {
+            kind: 'thread-stream-state-changed', conversationId, hostId, sourceClientId,
+            changeType, revision, stateChanged: false, desynced: false
+        };
     }
 
     getConversationState(conversationId) {
@@ -415,6 +513,36 @@ function buildDesktopSurfaceSnapshot(state, options = {}) {
         pendingUserInputAction,
         pendingGoalAction
     };
+}
+
+function finiteNumber(value) {
+    return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function asNullableString(value) {
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function extractHostId(value, seen = new Set()) {
+    if (!value || typeof value !== 'object' || seen.has(value)) return null;
+    seen.add(value);
+    if (typeof value.hostId === 'string' && value.hostId.trim()) return value.hostId.trim();
+    for (const nested of Object.values(value)) {
+        const found = extractHostId(nested, seen);
+        if (found) return found;
+    }
+    return null;
+}
+
+function hasIdentityConflict(entry, incoming) {
+    return Boolean(
+        (entry.sourceClientId && incoming.sourceClientId && entry.sourceClientId !== incoming.sourceClientId) ||
+        (entry.hostId && incoming.hostId && entry.hostId !== incoming.hostId)
+    );
+}
+
+function createIpcSourceEpoch(connectionGeneration) {
+    return `ipc:${connectionGeneration}:${randomUUID()}`;
 }
 
 function extractCurrentCodexConfig(state) {

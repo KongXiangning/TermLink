@@ -285,10 +285,14 @@ test('feed emits and caches demo-style sync events with surface projection', asy
     assert.equal(event.method, 'thread-stream-state-changed');
     assert.equal(event.threadId, 'conv-1');
     assert.equal(event.sourceClientId, 'desktop-owner');
-    assert.equal(event.surface.conversationId, 'conv-1');
-    assert.equal(event.surface.revision, 7);
+    assert.equal(event.sourceEpoch.startsWith('ipc:'), true);
+    assert.equal(event.itemCount, 1);
+    assert.equal(event.surface, undefined);
+    assert.equal(event.projection, undefined);
+    assert.equal(feed.getLatestSnapshot('conv-1').conversationId, 'conv-1');
+    assert.equal(feed.getLatestSnapshot('conv-1').revision, 7);
     assert.equal(feed.getRecentEvents().length, 1);
-    assert.equal(feed.getRecentEvents()[0].surface.status, 'completed');
+    assert.equal(feed.getRecentEvents()[0].surface, undefined);
     feed.stop();
 });
 
@@ -321,9 +325,10 @@ test('feed maps canonical runtime state and history to a running surface', async
     }, 'desktop-owner'));
     const event = await eventP;
 
-    assert.equal(event.surface.status, 'running');
-    assert.equal(event.surface.latestTurnId, 'turn-live');
-    assert.ok(event.surface.items.some((item) => item.text === 'live update'));
+    const latest = feed.getLatestSnapshot('conv-canonical');
+    assert.equal(latest.status, 'running');
+    assert.equal(latest.latestTurnId, 'turn-live');
+    assert.ok(latest.items.some((item) => item.text === 'live update'));
     feed.stop();
 });
 

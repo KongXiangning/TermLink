@@ -13,6 +13,12 @@ const { CodexThreadHub } = require('../services/codexThreadHub');
 const { CodexOwnerSurfaceTracker } = require('../services/codexOwnerSurfaceTracker');
 const { normalizeCodexConfig } = require('../repositories/sessionStore');
 const { summarizeSessionConnections } = require('../services/sessionManager');
+const {
+    CodexWsSnapshotScheduler,
+    MAX_CONTROL_ENVELOPE_BYTES,
+    projectConversationActionPayload
+} = require('../services/codexWsSnapshotScheduler');
+const { CodexHistorySyncService } = require('../services/codexHistorySyncService');
 const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
 
 function closeSocket(ws, code, reason) {
@@ -47,6 +53,11 @@ function areJsonLikeValuesEqual(left, right) {
 function sendWsEnvelope(ws, envelope) {
     if (!ws || ws.readyState !== 1) return;
     ws.send(JSON.stringify(envelope));
+}
+
+function isTerminalSurface(surface) {
+    const status = typeof surface?.status === 'string' ? surface.status.toLowerCase() : '';
+    return ['completed', 'failed', 'interrupted', 'cancelled', 'canceled'].includes(status);
 }
 
 function getSessionById(sessionManager, sessionId) {
@@ -405,11 +416,20 @@ async function materializeLocalImageAttachment(url) {
     return tempPath;
 }
 
-async function resolveTurnInputAttachments(attachments) {
+async function resolveTurnInputAttachments(attachments, mediaStore = null) {
     const resolved = [];
     const tempFilePaths = [];
     for (const entry of normalizeTurnAttachments(attachments)) {
         if (entry.type === 'localImage' && isNonEmptyString(entry.url)) {
+            if (mediaStore && typeof mediaStore.put === 'function') {
+                try {
+                    const stored = await mediaStore.put({ dataUrl: entry.url });
+                    resolved.push({ type: 'localImage', path: stored.filePath });
+                    continue;
+                } catch (_) {
+                    // Fall back to the existing temporary path behavior.
+                }
+            }
             const tempPath = await materializeLocalImageAttachment(entry.url);
             if (tempPath) {
                 resolved.push({
@@ -453,7 +473,7 @@ async function resolveSkillInputPath(cwd, skillName) {
     return candidates[0] || null;
 }
 
-async function buildTurnInput(text, attachments, interactionState, cwd) {
+async function buildTurnInput(text, attachments, interactionState, cwd, mediaStore = null) {
     const input = [];
     if (isNonEmptyString(text)) {
         input.push({
@@ -471,7 +491,7 @@ async function buildTurnInput(text, attachments, interactionState, cwd) {
             path: skillPath
         });
     }
-    const resolvedAttachments = await resolveTurnInputAttachments(attachments);
+    const resolvedAttachments = await resolveTurnInputAttachments(attachments, mediaStore);
     resolvedAttachments.attachments.forEach((entry) => {
         input.push(entry);
     });
@@ -720,7 +740,8 @@ function registerTerminalGateway(wss, {
     privilegeConfig,
     tlsConfig = {},
     ipcFeed,
-    ipcSurfaceWaitGraceMs = 5000
+    ipcSurfaceWaitGraceMs = 5000,
+    mediaStore = null
 }) {
     const isElevated = privilegeConfig && privilegeConfig.isElevated;
     const allowedIps = privilegeConfig ? privilegeConfig.allowedIps : [];
@@ -732,6 +753,7 @@ function registerTerminalGateway(wss, {
     // ── IPC feed integration ──────────────────────────────────────────────
     /** @type {Map<import('ws').WebSocket, string>} */
     const _ipcActiveConversations = new Map();
+    const _ipcSelectionGenerations = new WeakMap();
     /** @type {Map<import('ws').WebSocket, boolean>} */
     const _ipcFollowerModes = new Map();
     /** @type {Map<string, string>} */
@@ -756,6 +778,23 @@ function registerTerminalGateway(wss, {
     const _pendingThreadRecoveries = new Map();
     /** @type {Array<() => void>} */
     const _ipcRequestHandlerDisposers = [];
+    const _conversationCatalogFingerprints = new Map();
+    const snapshotScheduler = new CodexWsSnapshotScheduler({
+        intervalMs: 25,
+        isStillActive: (ws, conversationId, selectionGeneration) => (
+            _ipcActiveConversations.get(ws) === conversationId &&
+            (_ipcSelectionGenerations.get(ws) || 0) === selectionGeneration
+        )
+    });
+    const historySyncService = new CodexHistorySyncService({
+        send: (ws, envelope) => {
+            if (envelope.type === 'conversation_history_delta') {
+                sendWsEnvelope(ws, envelope);
+            } else {
+                snapshotScheduler.sendControl(ws, envelope);
+            }
+        }
+    });
     let _lastIpcOnline = Boolean(ipcFeed && (
         typeof ipcFeed.isOnline === 'function' ? ipcFeed.isOnline() : ipcFeed.online
     ));
@@ -776,7 +815,18 @@ function registerTerminalGateway(wss, {
             ...status,
             supported: typeof status.supported === 'boolean' ? status.supported : Boolean(ipcFeed),
             online: Boolean(status.online),
-            activeSendAllowed: _isIpcActiveSendAllowed()
+            activeSendAllowed: _isIpcActiveSendAllowed(),
+            capabilities: {
+                ...(status.capabilities || {}),
+                historySync: {
+                    version: 1,
+                    manifestPageSize: 200,
+                    deltaMaxItems: 100,
+                    deltaMaxBytes: 256 * 1024,
+                    syncInactivityTimeoutMs: 30_000
+                },
+                codexMedia: { version: 1, maxBytes: 25 * 1024 * 1024 }
+            }
         };
     };
 
@@ -855,6 +905,8 @@ function registerTerminalGateway(wss, {
 
     const _releaseActiveIpcConversation = (ws) => {
         const conversationId = _ipcActiveConversations.get(ws);
+        snapshotScheduler.dispose(ws);
+        _ipcSelectionGenerations.delete(ws);
         if (!conversationId) return;
         _ipcActiveConversations.delete(ws);
         _unfollowIpcConversation(conversationId);
@@ -996,37 +1048,44 @@ function registerTerminalGateway(wss, {
 
     const _emitConversationActionRequired = (ws, conversationId, surface) => {
         if (!surface || typeof surface !== 'object') return;
-        if (surface.pendingApproval) {
-            sendWsEnvelope(ws, {
+        const sendAction = (actionType, pendingAction) => {
+            const payload = projectConversationActionPayload(actionType, pendingAction);
+            const envelope = {
                 type: 'conversation_action_required',
                 conversationId,
-                actionType: 'approval',
-                payload: surface.pendingApproval
+                actionType,
+                payload
+            };
+            if (Buffer.byteLength(JSON.stringify(envelope), 'utf8') <= MAX_CONTROL_ENVELOPE_BYTES) {
+                snapshotScheduler.sendControl(ws, envelope);
+                return;
+            }
+            snapshotScheduler.sendControl(ws, {
+                type: 'conversation_action_required',
+                conversationId,
+                actionType,
+                payload: {
+                    requestId: payload.requestId,
+                    rawRequestId: payload.rawRequestId,
+                    requestMethod: payload.requestMethod || payload.method,
+                    requestKind: payload.requestKind,
+                    payloadState: 'oversize',
+                    canSubmit: false,
+                    errorCode: 'action_payload_too_large'
+                }
             });
+        };
+        if (surface.pendingApproval) {
+            sendAction('approval', surface.pendingApproval);
         }
         if (surface.pendingPlanAction) {
-            sendWsEnvelope(ws, {
-                type: 'conversation_action_required',
-                conversationId,
-                actionType: 'plan',
-                payload: surface.pendingPlanAction
-            });
+            sendAction('plan', surface.pendingPlanAction);
         }
         if (surface.pendingUserInputAction) {
-            sendWsEnvelope(ws, {
-                type: 'conversation_action_required',
-                conversationId,
-                actionType: 'user_input',
-                payload: surface.pendingUserInputAction
-            });
+            sendAction('user_input', surface.pendingUserInputAction);
         }
         if (surface.pendingGoalAction) {
-            sendWsEnvelope(ws, {
-                type: 'conversation_action_required',
-                conversationId,
-                actionType: 'goal',
-                payload: surface.pendingGoalAction
-            });
+            sendAction('goal', surface.pendingGoalAction);
         }
     };
 
@@ -1053,10 +1112,8 @@ function registerTerminalGateway(wss, {
             const activeConv = _ipcActiveConversations.get(client);
             if (activeConv !== conversationId) continue;
 
-            sendWsEnvelope(client, { type: 'conversation_surface_snapshot', conversationId, snapshot: surface });
-            sentCount++;
             if (authoritativeSurface && previousStatus && previousStatus !== status) {
-                sendWsEnvelope(client, {
+                snapshotScheduler.sendControl(client, {
                     type: 'conversation_status_changed',
                     conversationId,
                     status,
@@ -1066,6 +1123,16 @@ function registerTerminalGateway(wss, {
             if (authoritativeSurface) {
                 _emitConversationActionRequired(client, conversationId, surface);
             }
+            snapshotScheduler.offer(
+                client,
+                conversationId,
+                { type: 'conversation_surface_snapshot', conversationId, snapshot: surface },
+                {
+                    priority: isTerminalSurface(surface) ? 'terminal' : 'normal',
+                    selectionGeneration: _ipcSelectionGenerations.get(client) || 0
+                }
+            );
+            sentCount++;
         }
         console.warn('[gateway][ipc][surface-snapshot-pushed]', JSON.stringify({
             conversationId,
@@ -1102,7 +1169,7 @@ function registerTerminalGateway(wss, {
             let sentCount = 0;
             for (const client of wss.clients) {
                 if (client.readyState === 1) { // WebSocket.OPEN
-                    sendWsEnvelope(client, { type: 'codex_ipc_status', status });
+                    sendWsEnvelope(client, { type: 'codex_ipc_status', status: _getIpcStatus() });
                     sentCount++;
                 }
             }
@@ -1127,6 +1194,12 @@ function registerTerminalGateway(wss, {
         });
 
         ipcFeed.on('snapshot', ({ conversationId, surface }) => {
+            historySyncService.registerBaseline(
+                conversationId,
+                'ipc_surface',
+                { turns: [{ id: surface.latestTurnId || 'surface', status: surface.status, items: Array.isArray(surface.items) ? surface.items : [] }] },
+                { complete: surface.historyBaselineComplete === true, sourceEpoch: surface.sourceEpoch }
+            );
             const currentCycleSurface = _recordCurrentCycleIpcSnapshot(conversationId, surface);
             console.warn('[gateway][ipc][snapshot-push]', JSON.stringify({
                 conversationId,
@@ -1172,11 +1245,17 @@ function registerTerminalGateway(wss, {
         });
     }
 
-    ownerSurfaceTracker.on('broadcast', (event) => {
+        ownerSurfaceTracker.on('broadcast', (event) => {
         if (!event || !isNonEmptyString(event.conversationId) || !event.surface) {
             return;
         }
         _pushConversationSurfaceSnapshot(event.conversationId, event.surface);
+        historySyncService.registerBaseline(
+            event.conversationId,
+            'ipc_surface',
+            { turns: [{ id: event.surface.latestTurnId || 'owner-surface', status: event.surface.status, items: Array.isArray(event.surface.items) ? event.surface.items : [] }] },
+            { complete: event.surface.historyBaselineComplete === true, sourceEpoch: event.surface.sourceEpoch }
+        );
         if (ipcFeed && _isIpcOnline() && typeof ipcFeed.sendBroadcast === 'function') {
             try {
                 ipcFeed.sendBroadcast('thread-stream-state-changed', event.payload);
@@ -1228,6 +1307,25 @@ function registerTerminalGateway(wss, {
 
     const _broadcastConversationsToAll = (conversations) => {
         if (!conversations || conversations.length === 0) return 0;
+        const nextFingerprints = new Map(conversations.map((conversation) => [
+            conversation.conversationId,
+            JSON.stringify({
+                conversationId: conversation.conversationId,
+                status: conversation.status,
+                title: conversation.title,
+                cwd: conversation.cwd,
+                ownerKind: conversation.ownerKind,
+                hasActiveGoal: conversation.hasActiveGoal,
+                hasPendingApproval: conversation.hasPendingApproval,
+                hasPendingPlanAction: conversation.hasPendingPlanAction,
+                hasPendingUserInputAction: conversation.hasPendingUserInputAction
+            })
+        ]));
+        const changed = nextFingerprints.size !== _conversationCatalogFingerprints.size ||
+            Array.from(nextFingerprints.entries()).some(([id, fingerprint]) => _conversationCatalogFingerprints.get(id) !== fingerprint);
+        if (!changed) return 0;
+        _conversationCatalogFingerprints.clear();
+        for (const [id, fingerprint] of nextFingerprints) _conversationCatalogFingerprints.set(id, fingerprint);
         let sent = 0;
         for (const client of wss.clients) {
             if (client.readyState === 1) {
@@ -1243,11 +1341,6 @@ function registerTerminalGateway(wss, {
             type: 'codex_ipc_status',
             status: _getIpcStatus()
         });
-        if (typeof ipcFeed?.getRecentEvents === 'function') {
-            for (const event of ipcFeed.getRecentEvents()) {
-                sendWsEnvelope(ws, { type: 'codex_ipc_sync_event', event });
-            }
-        }
         const conversations = _buildConversations();
         if (conversations.length > 0) {
             sendWsEnvelope(ws, { type: 'codex_ipc_conversations', conversations });
@@ -1272,8 +1365,12 @@ function registerTerminalGateway(wss, {
         const normalizedConversationId = conversationId.trim();
         const previousActiveConversationId = _ipcActiveConversations.get(ws) || null;
         if (previousActiveConversationId !== normalizedConversationId) {
+            historySyncService.cancel(ws);
+            const nextSelectionGeneration = (_ipcSelectionGenerations.get(ws) || 0) + 1;
+            _ipcSelectionGenerations.set(ws, nextSelectionGeneration);
             if (previousActiveConversationId) {
                 _ipcActiveConversations.delete(ws);
+                snapshotScheduler.cancel(ws, previousActiveConversationId);
                 _unfollowIpcConversation(previousActiveConversationId);
                 if (_activeIpcSubscriberCount(previousActiveConversationId) === 0) {
                     _closeIpcSubscriptionCycle(previousActiveConversationId, 'conversation-changed');
@@ -1342,7 +1439,12 @@ function registerTerminalGateway(wss, {
         const cached = authoritative || _getLatestIpcSnapshot(normalizedConversationId);
         const latest = authoritative || (cached ? { ...cached, desynced: true } : null);
         if (latest) {
-            sendWsEnvelope(ws, { type: 'conversation_surface_snapshot', conversationId: normalizedConversationId, snapshot: latest });
+            snapshotScheduler.offer(
+                ws,
+                normalizedConversationId,
+                { type: 'conversation_surface_snapshot', conversationId: normalizedConversationId, snapshot: latest },
+                { priority: 'terminal', selectionGeneration: _ipcSelectionGenerations.get(ws) || 0 }
+            );
             if (latest.desynced !== true) {
                 _emitConversationActionRequired(ws, normalizedConversationId, latest);
             }
@@ -1963,7 +2065,8 @@ function registerTerminalGateway(wss, {
                 normalizedInput,
                 normalizedAttachments,
                 normalizedInteractionState,
-                latest?.cwd || getSessionById(sessionManager, ws.sessionId)?.cwd
+                latest?.cwd || getSessionById(sessionManager, ws.sessionId)?.cwd,
+                mediaStore
             );
             options = {
                 ...options,
@@ -2601,7 +2704,7 @@ function registerTerminalGateway(wss, {
             ? null
             : (permissionOverride?.sandboxMode || effectiveConfig.sandboxMode);
         const baseParams = {
-            clientUserMessageId: randomUUID(),
+            clientUserMessageId: isNonEmptyString(options.clientRequestId) ? options.clientRequestId.trim() : randomUUID(),
             input: Array.isArray(options.preparedInput)
                 ? structuredClone(options.preparedInput)
                 : buildTextInputSequence(input),
@@ -3673,6 +3776,23 @@ function registerTerminalGateway(wss, {
 
                     if (type === 'set_active_conversation') {
                         _handleSetActiveConversation(ws, session, envelope.conversationId);
+                    } else if (type === 'conversation_history_sync_request') {
+                        const conversationId = isNonEmptyString(envelope.conversationId) ? envelope.conversationId.trim() : '';
+                        if (!conversationId || _getActiveConversationId(ws) !== conversationId) {
+                            sendWsEnvelope(ws, { type: 'conversation_history_sync_state', syncId: envelope.syncId || null, conversationId, state: 'failed', detailCode: 'conversation_not_active' });
+                        } else {
+                            historySyncService.startSync({
+                                ws,
+                                conversationId,
+                                syncId: envelope.syncId,
+                                checkpoint: envelope.checkpoint || {},
+                                selectionGeneration: _ipcSelectionGenerations.get(ws) || 0
+                            });
+                        }
+                    } else if (type === 'conversation_history_manifest_page') {
+                        historySyncService.handleManifestPage(ws, envelope);
+                    } else if (type === 'conversation_history_sync_ack') {
+                        historySyncService.handleAck(ws, envelope);
                     } else if (type === 'set_active_follower_mode') {
                         _setFollowerMode(ws, envelope.enabled === true);
                     } else if (type === 'codex_thread_recovery_action') {
@@ -3897,11 +4017,12 @@ function registerTerminalGateway(wss, {
                             text,
                             attachments,
                             turnInteractionState,
-                            envelope.cwd || session.cwd
+                            envelope.cwd || session.cwd,
+                            mediaStore
                         );
                         const turnStartPayload = {
                             threadId,
-                            clientUserMessageId: randomUUID(),
+                            clientUserMessageId: isNonEmptyString(envelope.clientRequestId) ? envelope.clientRequestId.trim() : randomUUID(),
                             input: turnInput.input,
                             model: collaborationMode ? undefined : effectiveModel || undefined,
                             reasoningEffort: collaborationMode ? undefined : effectiveReasoningEffort || undefined,
@@ -4244,6 +4365,7 @@ function registerTerminalGateway(wss, {
 
             ws.on('close', (code, reason) => {
                 _releaseActiveIpcConversation(ws);
+                historySyncService.cancel(ws);
                 _ipcFollowerModes.delete(ws);
                 for (const [recoveryId, recovery] of _pendingThreadRecoveries.entries()) {
                     if (recovery.ws === ws) {

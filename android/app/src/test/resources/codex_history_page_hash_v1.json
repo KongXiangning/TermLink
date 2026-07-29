@@ -1,0 +1,32 @@
+{
+  "vectors": [
+    {
+      "name": "unicode_and_opaque_payload",
+      "page": {
+        "syncId": "00000000-0000-4000-8000-000000000001",
+        "sequence": 3,
+        "pageIndex": 0,
+        "pageCount": 1,
+        "baseRoot": null,
+        "targetRoot": "root-target",
+        "baselineComplete": true,
+        "fullOrderIncluded": true,
+        "upserts": [
+          {
+            "itemKey": "turn-1:item-1",
+            "turnId": "turn-1",
+            "position": 0,
+            "itemType": "user_message",
+            "role": "user",
+            "clientRequestId": "req-1",
+            "payloadJson": "{\"text\":\"你好\"}",
+            "contentHash": "hash-item-1"
+          }
+        ],
+        "deletes": [],
+        "canonicalOrder": ["turn-1:item-1"]
+      },
+      "expectedPageHash": "aad7f033cf22333799cf1d3ddb02c65cae819e6792fea982699a3b1de479d7a6"
+    }
+  ]
+}
