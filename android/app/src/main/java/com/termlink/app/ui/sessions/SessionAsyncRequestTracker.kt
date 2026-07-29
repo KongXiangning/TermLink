@@ -52,6 +52,16 @@ internal class SessionAsyncRequestTracker {
     fun canStartAction(): Boolean = !hasInFlightWork()
 
     @Synchronized
+    fun canStartActionWhileRefreshing(): Boolean = !actionInFlight
+
+    @Synchronized
+    fun invalidateRefreshForAction() {
+        nextRefreshRequestId += 1
+        activeRefreshRequestId = nextRefreshRequestId
+        refreshInFlight = false
+    }
+
+    @Synchronized
     fun startAction(): Int {
         nextActionRequestId += 1
         activeActionRequestId = nextActionRequestId

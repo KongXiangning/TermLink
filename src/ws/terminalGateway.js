@@ -1700,6 +1700,11 @@ function registerTerminalGateway(wss, {
 
         if (method === 'thread-follower-start-turn') {
             const turnStartParams = _buildOwnerTurnParamsFromFollower(params.turnStartParams);
+            diagnosticLog.event('server', 'server.ipc.owner_turn.config_resolved', {
+                conversationKey: diagnosticKey(conversationId),
+                authority: 'owner',
+                ...diagnosticTurnStartParamFields(turnStartParams)
+            });
             const result = await codexService.request('turn/start', {
                 threadId: conversationId,
                 ...turnStartParams
@@ -1868,6 +1873,12 @@ function registerTerminalGateway(wss, {
             const turnStartParams = buildFollowerTurnStartParams(input.trim(), latestSnapshot || {}, {
                 ...options,
                 transport: 'app-server'
+            });
+            diagnosticLog.event('server', 'server.ipc.owner_turn.config_resolved', {
+                conversationKey: diagnosticKey(threadId),
+                clientRequestKey: diagnosticKey(options.clientRequestId),
+                authority: 'owner',
+                ...diagnosticTurnStartParamFields(turnStartParams)
             });
             const result = await codexService.request('turn/start', {
                 threadId,
@@ -2078,7 +2089,8 @@ function registerTerminalGateway(wss, {
             ...diagnosticAttachmentSummary(normalizedAttachments),
             fileMentionCount: Array.isArray(normalizedInteractionState.fileMentions)
                 ? normalizedInteractionState.fileMentions.length
-                : 0
+                : 0,
+            ...diagnosticFollowerConfigFields(options.turnConfig, 'requested')
         }, 'info');
         if (!_isIpcActiveSendAllowed() || !_isFollowerModeEnabled(ws)) {
             diagnosticLog.event('server', 'server.ipc.follower_send.rejected', {
@@ -2289,9 +2301,16 @@ function registerTerminalGateway(wss, {
                 _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'routed', {
                     authority: 'ipc'
                 });
+                const turnStartParams = buildFollowerTurnStartParams(normalizedInput, latest || {}, options);
+                diagnosticLog.event('server', 'server.ipc.follower_send.config_resolved', {
+                    conversationKey: diagnosticKey(normalizedConversationId),
+                    clientRequestKey: diagnosticKey(clientRequestId),
+                    authority: 'ipc',
+                    ...diagnosticTurnStartParamFields(turnStartParams)
+                });
                 const response = await ipcFeed.sendRequest('thread-follower-start-turn', {
                     conversationId: normalizedConversationId,
-                    turnStartParams: buildFollowerTurnStartParams(normalizedInput, latest || {}, options)
+                    turnStartParams
                 });
                 assertIpcSuccess(response);
                 const turnId = response?.result?.turn?.id ||
@@ -2984,6 +3003,38 @@ function registerTerminalGateway(wss, {
             ...(permissionProfile ? { permissions: permissionProfile } : {}),
             ...(sandboxMode ? { sandboxPolicy: { type: sandboxModeToOwnerPolicyType(sandboxMode) } } : {})
         };
+    }
+
+    function diagnosticFollowerConfigFields(config, prefix = 'config') {
+        const normalized = normalizeFollowerTurnConfig(config);
+        return {
+            [`${prefix}Model`]: normalized.model,
+            [`${prefix}ReasoningEffort`]: normalized.reasoningEffort,
+            [`${prefix}ApprovalPolicy`]: normalized.approvalPolicy,
+            [`${prefix}ApprovalsReviewer`]: normalized.approvalsReviewer,
+            [`${prefix}PermissionProfile`]: normalized.permissionProfile,
+            [`${prefix}SandboxMode`]: normalized.sandboxMode,
+            [`${prefix}UsesConfigPermissions`]: normalized.useConfigPermissions
+        };
+    }
+
+    function diagnosticTurnStartParamFields(params, prefix = 'resolved') {
+        const source = params && typeof params === 'object' ? params : {};
+        return diagnosticFollowerConfigFields({
+            model: source.model,
+            reasoningEffort: source.reasoningEffort || source.effort,
+            approvalPolicy: source.approvalPolicy || source.askForApproval,
+            approvalsReviewer: source.approvalsReviewer,
+            permissionProfile: source.permissions,
+            sandboxMode: source.sandbox || source.sandboxMode ||
+                (source.sandboxPolicy && typeof source.sandboxPolicy === 'object'
+                    ? source.sandboxPolicy.type
+                    : null),
+            useConfigPermissions: source.approvalPolicy === null ||
+                source.askForApproval === null ||
+                source.permissions === null ||
+                source.sandboxPolicy === null
+        }, prefix);
     }
 
     function normalizeFollowerTurnConfig(value) {

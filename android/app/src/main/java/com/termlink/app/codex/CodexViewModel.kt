@@ -3490,6 +3490,8 @@ class CodexViewModel(
         val isPlanMode = forcePlanMode || state.planMode == true
         val effectiveModel = state.nextTurnOverrides.model ?: state.model
         val effectiveReasoning = state.nextTurnOverrides.reasoningEffort ?: state.reasoningEffort
+        val effectiveTurnConfig = state.nextTurnEffectiveCodexConfig
+            ?: resolveNextTurnEffectiveCodexConfig(state)
 
         PersistentDiagnosticLog.event(
             "codex",
@@ -3508,7 +3510,16 @@ class CodexViewModel(
                 "textLength" to text.length,
                 "planMode" to isPlanMode,
                 "modelPresent" to !effectiveModel.isNullOrBlank(),
-                "reasoningPresent" to !effectiveReasoning.isNullOrBlank()
+                "reasoningPresent" to !effectiveReasoning.isNullOrBlank(),
+                "effectiveApprovalPolicy" to effectiveTurnConfig?.approvalPolicy,
+                "effectiveSandboxMode" to effectiveTurnConfig?.sandboxMode,
+                "effectiveApprovalsReviewer" to effectiveTurnConfig?.approvalsReviewer,
+                "effectivePermissionProfile" to effectiveTurnConfig?.permissionProfile,
+                "usesConfigPermissions" to (effectiveTurnConfig?.useConfigPermissions == true),
+                "overrideApprovalPolicy" to state.nextTurnOverrides.approvalPolicy,
+                "overrideSandboxMode" to state.nextTurnOverrides.sandbox,
+                "overridePermissionProfile" to state.nextTurnOverrides.permissionProfile,
+                "overrideUsesConfigPermissions" to state.nextTurnOverrides.useConfigPermissions
             )
         )
 

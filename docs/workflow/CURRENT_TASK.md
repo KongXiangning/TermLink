@@ -127,6 +127,16 @@
   空白 Owner 必须等到存在真实 `latestTurnId` 后才可按终态释放；Owner tracker 必须用请求侧
   turn params 补齐/保留 Desktop 所需的 `turn.params.input`。不改变 authority 选择、follower
   lifecycle、canonical 格式、定时策略或实时数据源。
+- Scope widening（2026-07-30，会话生命周期与权限诊断）：用户要求修复断线端点删除最后一个
+  缓存会话失败，并确认完全访问提权问题需要记录“最终生效权限映射”。仅放行
+  `android/app/src/main/java/com/termlink/app/ui/sessions/SessionsFragment.kt`、
+  `android/app/src/main/java/com/termlink/app/ui/sessions/SessionAsyncRequestTracker.kt`、
+  `android/app/src/test/java/com/termlink/app/ui/sessions/SessionAsyncRequestTrackerTest.kt`、
+  `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`、
+  `src/ws/terminalGateway.js` 与对应任务记录/定向测试。删除修复只把网络失败或远端 404
+  作为本地缓存删除的幂等成功，不修改 HTTP、session DTO、服务端会话持久化或 IPC authority；
+  权限日志只记录脱敏的 model/reasoning/approvalPolicy/sandbox/permissionProfile 及
+  config.toml 回退标记，不记录 prompt、命令、路径、附件内容或凭据。
 - Change Propagation Check：命中 additive WebSocket event、IPC request/discovery、Android wire DTO 和冻结 authority contract；强制验证 direct consumers、A/B、长任务、重连、Approval 原始 requestId 与旧客户端忽略新字段。
 
 ## Public / Internal Interface Changes
@@ -285,6 +295,12 @@ Implementation Plan：
   空白 task 首次选择/首条消息物化、响应缺 params 和终态通知缺 params。真机新任务
   `019faeff-1dee-7b50-8fa9-7c23b5ffa32b` 已完成 App 首发与终态收敛，Desktop 旧崩溃 task
   的手动打开和 VS Code 发现仍归入 9f。
+- [completed] 9j. 修复断线端点删除最后一个缓存会话：网络失败或远端 404 进入本地缓存幂等删除，
+  非幂等认证/服务端错误继续显示；补齐删除完成、fallback、失败和刷新占用诊断。已修复
+  删除点击被进行中的离线刷新静默拦截的问题：删除会使旧刷新失效，避免旧结果覆盖本地删除。同步补充
+  Android 与 Gateway 的最终权限映射日志，记录 approvalPolicy、sandbox、permissionProfile
+  与 config.toml 回退标记。Node 定向回归 54/54、JDK 21 Android JVM tests、debug APK
+  构建与 `git diff --check` 均通过；设备 `da34332c` 当前离线，未进行安装或真机复验。
 
 ## 回归门
 
@@ -389,3 +405,16 @@ Implementation Plan：
   App 从 ready 到 running 再于 01:50:51 收敛 completed；同一 Desktop 在 created /
   first-turn / terminal 三阶段分别执行 `thread/list`，期间无新 error boundary。由于桌面控制规范
   禁止自动点击 Codex Desktop；用户随后完成 9f 人工复验，确认旧 task 可打开、新任务可刷新，#11 已关闭。
+- 2026-07-30：完成步骤 9j。断线端点删除现在对网络失败/404 采用本地缓存幂等成功，避免最后一个
+  stale session 在 cache-first 首屏和下一次打开时回流；`android.sessions.delete.*` 与
+  `android.sessions.action.rejected_busy` 可区分远端成功、本地 fallback、真实失败和刷新占用。
+  #3 的证据链补齐为 `android.codex.turn.send.requested`（Android 最终配置）→
+  `server.ipc.follower_send.requested/config_resolved` 或 `server.ipc.owner_turn.config_resolved`
+  （Gateway 解析配置）→后续 approval 事件。Node `terminalGateway.codexIpc` + diagnosticLog
+  54/54，JDK 21 `:app:testDebugUnitTest :app:assembleDebug`，`node --check` 和
+  `git diff --check` 全部通过；设备 `da34332c` 暂不可用，待下次安装后复现验证。
+- 2026-07-30：根据设备 `da34332c` 的真实日志补修 9j：用户点击删除时同时存在两个 `/sessions`
+  请求，其中离线请求尚未超时，`android.sessions.action.rejected_busy` 导致删除请求未发出。
+  删除动作现在允许打断正在刷新的旧请求，并使其回调失效；新增 `SessionAsyncRequestTracker`
+  单测覆盖旧刷新回调不能覆盖删除结果。JDK 21 `:app:testDebugUnitTest :app:assembleDebug`
+  与 `git diff --check` 通过。

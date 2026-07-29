@@ -167,7 +167,10 @@ Codex 发送与跨端同步使用脱敏短 hash 关联：按同一 `conversation
 | Android 展示 | `android.codex.model_catalog.ui_applied`、`android.codex.permission_catalog.ui_applied` | `CodexViewModel.handleModelListResponse()`、`handlePermissionProfileListResponse()` |
 | Android 恢复 | `android.codex.thread.resume.requested/sent`、`thread.ready`、`thread.snapshot.applied` | `CodexViewModel.resumeThread()` 与 thread snapshot handler |
 | Android 错误/审批 | `android.codex.websocket.error`、`android.codex.request.failed`、`android.approval.clicked/sent/acknowledged/failed` | `CodexViewModel` 通用错误及审批 handler |
+| Android 权限最终映射 | `android.codex.turn.send.requested` 中的 `effectiveApprovalPolicy/effectiveSandboxMode/effectivePermissionProfile/usesConfigPermissions` | `CodexViewModel.sendTurnWithOverrides()`，用于确认“完全访问”实际下发值 |
+| Android 会话删除 | `android.sessions.delete.requested/completed/local_fallback/failed`、`android.sessions.action.rejected_busy`、`android.sessions.refresh.cancelled_for_action` | `SessionsFragment.deleteSessionForProfile()`、`runAction()` 与请求追踪器；断线/404 本地缓存幂等删除，及删除打断旧刷新 |
 | 服务端路由 | `server.ipc.follower_send.requested/rejected/waiting_for_surface/routed/acknowledged/failed/unhandled` | `terminalGateway._handleFollowerSendMessage()` 与 WebSocket dispatch |
+| 服务端权限最终映射 | `server.ipc.follower_send.config_resolved`、`server.ipc.owner_turn.config_resolved` | `terminalGateway` follower IPC/Owner `turn/start` 前，记录 requested 与 resolved 配置 |
 | 服务端同步 | `server.ipc.surface.delivery`、`server.ipc.catalog.broadcast`、`server.codex.owner.surface_broadcast/failed` | `terminalGateway` surface、catalog 与 Owner broadcast 路径 |
 | 服务端恢复 | `server.codex.request.received/completed/failed` | `terminalGateway` 的 `codex_request` handler |
 | 服务端附件 | `server.codex.attachment.resolved/media_store_failed/cleanup` | `resolveTurnInputAttachments()` 与 `cleanupAttachmentTempFiles()` |

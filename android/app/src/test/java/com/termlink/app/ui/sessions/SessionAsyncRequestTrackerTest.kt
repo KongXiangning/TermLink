@@ -99,4 +99,17 @@ class SessionAsyncRequestTrackerTest {
         assertTrue(tracker.completeRefresh(refreshRequestId))
         assertTrue(tracker.canStartAction())
     }
+
+    @Test
+    fun deleteActionCanCancelRefreshWithoutAllowingStaleRefreshCallback() {
+        val tracker = SessionAsyncRequestTracker()
+        val refreshRequestId = tracker.startRefresh()
+
+        assertTrue(tracker.canStartActionWhileRefreshing())
+        tracker.invalidateRefreshForAction()
+
+        assertFalse(tracker.completeRefresh(refreshRequestId))
+        assertTrue(tracker.canStartActionWhileRefreshing())
+        assertTrue(tracker.completeAction(tracker.startAction()))
+    }
 }

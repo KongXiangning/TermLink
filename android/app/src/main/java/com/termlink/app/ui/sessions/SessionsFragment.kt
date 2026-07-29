@@ -631,7 +631,61 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
                 )
             }
         }
-        return sessionApiClient.deleteSession(profile, sessionId)
+        return when (val result = sessionApiClient.deleteSession(profile, sessionId)) {
+            is ApiResult.Success -> {
+                PersistentDiagnosticLog.event(
+                    "sessions",
+                    "android.sessions.delete.completed",
+                    mapOf(
+                        "profileId" to profile.id,
+                        "sessionIdPresent" to sessionId.isNotBlank(),
+                        "remote" to true,
+                        "localFallback" to false
+                    ),
+                    critical = true
+                )
+                result
+            }
+            is ApiResult.Failure -> {
+                // A disconnected endpoint cannot acknowledge DELETE, but the
+                // cached row is still a user-owned local representation. Treat
+                // network loss and an already-missing remote row as idempotent
+                // local deletion so the last stale session does not return on
+                // the next cache-first render. Auth/config/server failures are
+                // intentionally kept visible instead of being hidden.
+                val localFallback = result.error.code == SessionApiErrorCode.NETWORK_ERROR ||
+                    result.error.code == SessionApiErrorCode.NOT_FOUND
+                if (localFallback) {
+                    PersistentDiagnosticLog.event(
+                        "sessions",
+                        "android.sessions.delete.local_fallback",
+                        mapOf(
+                            "profileId" to profile.id,
+                            "sessionIdPresent" to sessionId.isNotBlank(),
+                            "errorCode" to result.error.code.name,
+                            "httpStatus" to result.error.httpStatus
+                        ),
+                        level = "warn",
+                        critical = true
+                    )
+                    ApiResult.Success(Unit)
+                } else {
+                    PersistentDiagnosticLog.event(
+                        "sessions",
+                        "android.sessions.delete.failed",
+                        mapOf(
+                            "profileId" to profile.id,
+                            "sessionIdPresent" to sessionId.isNotBlank(),
+                            "errorCode" to result.error.code.name,
+                            "httpStatus" to result.error.httpStatus
+                        ),
+                        level = "error",
+                        critical = true
+                    )
+                    result
+                }
+            }
+        }
     }
 
     private fun applyLocalSessionMutation(
@@ -1339,6 +1393,7 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             .setPositiveButton(R.string.sessions_delete_title) { _, _ ->
                 runAction(
                     action = { deleteSessionForProfile(profile, session.id) },
+                    allowWhileRefreshing = true,
                     onSuccess = {
                         if (session.id == currentSelection.sessionId &&
                             profile.id == currentSelection.profileId
@@ -1406,10 +1461,37 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
 
     private fun <T> runAction(
         action: () -> ApiResult<T>,
+        allowWhileRefreshing: Boolean = false,
         onSuccess: (T) -> Unit
     ) {
-        if (!isViewActive || !refreshRequestTracker.canStartAction()) {
+        if (!isViewActive) {
+            PersistentDiagnosticLog.event("sessions", "android.sessions.action.ignored_view_inactive")
             return
+        }
+        val canStart = if (allowWhileRefreshing) {
+            refreshRequestTracker.canStartActionWhileRefreshing()
+        } else {
+            refreshRequestTracker.canStartAction()
+        }
+        if (!canStart) {
+            PersistentDiagnosticLog.event(
+                "sessions",
+                "android.sessions.action.rejected_busy",
+                mapOf("allowWhileRefreshing" to allowWhileRefreshing),
+                level = "warn",
+                critical = true
+            )
+            return
+        }
+        if (allowWhileRefreshing) {
+            refreshRequestTracker.invalidateRefreshForAction()
+            PersistentDiagnosticLog.event(
+                "sessions",
+                "android.sessions.refresh.cancelled_for_action",
+                mapOf("action" to "delete"),
+                level = "info",
+                critical = true
+            )
         }
         val requestId = refreshRequestTracker.startAction()
         swipeRefresh.isRefreshing = true
