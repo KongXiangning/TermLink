@@ -549,7 +549,23 @@ Goal 通过 surface 中的两种形式出现：
 - `activeGoal`（来自 Owner state 中 `threadGoal` 或 `currentGoal`）
 - `items[].kind === "goal_prompt"`（TermLink 从 `/goal` 前缀或 `<codex_internal_context source="goal">` 的用户消息中识别）
 
-TermLink 自己是 Owner 时，Goal 设置由 Owner runtime 转换为 `thread/goal/set` JSON-RPC；外部 Owner 路径则作为 follower intent/turn input 路由。当前外部 Owner IPC 没有已验证的 Goal update/cancel/complete 客户端方法，不得虚构为稳定 IPC API。
+Android 的 Goal intent 仍使用统一的 WebSocket `follower_send_message` envelope；在保留 `input: "/goal <objective>"` 的同时，可附带 additive 字段：
+
+```ts
+{
+  type: "follower_send_message";
+  conversationId: string;
+  clientRequestId?: string;
+  input: string;
+  goalObjective?: string; // trim 后的非空 objective
+  turnConfig?: object;
+  interactionState?: object;
+  collaborationMode?: object;
+  attachments?: object[];
+}
+```
+
+Gateway 优先使用 `goalObjective`，并与严格的 `/goal <objective>` 解析结果校验一致性；不一致或空 objective 必须拒绝。TermLink 自己是 Owner 时，Goal 设置由 Owner runtime 转换为 `thread/goal/set` JSON-RPC，随后只等待真实 `thread/goal/updated` / `cleared` notification 投影为 `activeGoal`；不能用 RPC ack 或用户消息本地伪造 activeGoal。managed Owner 的 `turn/start` 使用纯 objective 文本，同时保留 turn config、collaboration mode 和结构化输入。外部 Owner 路径则继续作为 `thread-follower-start-turn` 的 `/goal <objective>` follower intent 路由。当前外部 Owner IPC 没有已验证的 Goal update/cancel/complete 客户端方法，不得虚构为稳定 IPC API。
 
 ### 10.5 图片
 

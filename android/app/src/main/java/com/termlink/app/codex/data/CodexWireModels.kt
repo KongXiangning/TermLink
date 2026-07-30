@@ -1084,7 +1084,8 @@ object CodexClientMessages {
         clientRequestId: String? = null,
         attachments: List<CodexTurnAttachment>? = null,
         interactionState: CodexInteractionState? = null,
-        collaborationMode: JSONObject? = null
+        collaborationMode: JSONObject? = null,
+        goalObjective: String? = null
     ): String = JSONObject()
         .put("type", "follower_send_message")
         .put("conversationId", conversationId)
@@ -1102,6 +1103,7 @@ object CodexClientMessages {
             }
             interactionState?.let { put("interactionState", it.toJson()) }
             collaborationMode?.let { put("collaborationMode", it) }
+            goalObjective?.trim()?.takeIf { it.isNotEmpty() }?.let { put("goalObjective", it) }
         }
         .toString()
 

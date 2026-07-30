@@ -3050,28 +3050,26 @@ class CodexViewModel(
             return
         }
         val state = _uiState.value
-        val conversationId = state.activeConversationId?.trim().orEmpty()
-        if (!shouldUseIpcFollowerSendTransportState(state) || conversationId.isEmpty()) {
-            sendTurnWithOverrides("/goal $objective")
+        if (!shouldUseIpcFollowerSendTransportState(state)) {
+            PersistentDiagnosticLog.event(
+                "codex",
+                "android.codex.goal.intent.failed",
+                mapOf(
+                    "conversationKey" to PersistentDiagnosticLog.shortHash(state.activeConversationId),
+                    "goalKey" to PersistentDiagnosticLog.shortHash(objective),
+                    "objectiveLength" to objective.length,
+                    "reason" to "follower_transport_unavailable",
+                    "followerModeEnabled" to state.followerModeEnabled,
+                    "activeSendAllowed" to state.followerActiveSendAllowed
+                ),
+                level = "warn"
+            )
+            _uiState.update {
+                it.copy(errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable))
+            }
             return
         }
-        val clientRequestId = UUID.randomUUID().toString()
-        val sent = sendEnvelopeOrReportFailure(
-            payload = CodexClientMessages.followerSendMessage(
-                conversationId = conversationId,
-                input = "/goal $objective",
-                clientRequestId = clientRequestId,
-                interactionState = state.interactionState
-            ),
-            errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
-        )
-        if (!sent) return
-        _uiState.update {
-            it.copy(
-                followerRouteState = "accepted",
-                followerRouteRequestId = clientRequestId
-            )
-        }
+        sendTurnWithOverrides("/goal $objective", goalObjective = objective)
     }
 
     private fun handleSlashSkill(argumentText: String) {
@@ -3460,7 +3458,8 @@ class CodexViewModel(
         forcePlanMode: Boolean = false,
         forceNewThread: Boolean = false,
         clearPlanModeAfterSend: Boolean = true,
-        displayTextOverride: String? = null
+        displayTextOverride: String? = null,
+        goalObjective: String? = null
     ): Boolean {
         val state = _uiState.value
         if (text.isBlank() && state.pendingFileMentions.isEmpty() && state.pendingImageAttachments.isEmpty()) return false
@@ -3511,6 +3510,9 @@ class CodexViewModel(
                 "attachmentTypes" to attachments.map { it.type }.distinct(),
                 "fileMentionCount" to state.pendingFileMentions.size,
                 "textLength" to text.length,
+                "intentKind" to if (goalObjective.isNullOrBlank()) "message" else "goal",
+                "goalKey" to PersistentDiagnosticLog.shortHash(goalObjective),
+                "objectiveLength" to goalObjective?.trim()?.length,
                 "planMode" to isPlanMode,
                 "modelPresent" to !effectiveModel.isNullOrBlank(),
                 "reasoningPresent" to !effectiveReasoning.isNullOrBlank(),
@@ -3545,7 +3547,8 @@ class CodexViewModel(
             attachments = attachments,
             interactionState = turnInteractionState,
             collaborationMode = collaborationMode,
-            clientRequestId = clientRequestId
+            clientRequestId = clientRequestId,
+            goalObjective = goalObjective
         )
         val sentViaIpcFollower = followerPayload != null
         if (followerPayload == null && shouldBlockPlainTextFallbackForIpcConversation(state, isPlanMode, attachments)) {
@@ -3684,7 +3687,8 @@ class CodexViewModel(
         attachments: List<CodexTurnAttachment>,
         interactionState: CodexInteractionState,
         collaborationMode: JSONObject?,
-        clientRequestId: String
+        clientRequestId: String,
+        goalObjective: String? = null
     ): String? {
         val conversationId = state.activeConversationId?.trim().orEmpty()
         if (!shouldUseIpcFollowerSendTransportState(state) || conversationId.isEmpty()) return null
@@ -3717,7 +3721,8 @@ class CodexViewModel(
                     model = state.nextTurnOverrides.model ?: state.model,
                     reasoningEffort = state.nextTurnOverrides.reasoningEffort ?: state.reasoningEffort
                 )
-            }
+            },
+            goalObjective = goalObjective
         )
     }
 

@@ -38,6 +38,21 @@ function isNonEmptyString(value) {
     return typeof value === 'string' && value.trim().length > 0;
 }
 
+function normalizeGoalObjective(value) {
+    if (!isNonEmptyString(value)) return null;
+    return value.trim();
+}
+
+function parseGoalObjective(input) {
+    if (typeof input !== 'string') return null;
+    const match = input.trim().match(/^\/goal(?:\s+([\s\S]*))?$/i);
+    return match ? normalizeGoalObjective(match[1]) : null;
+}
+
+function isGoalDirective(input) {
+    return typeof input === 'string' && /^\/goal(?:\s|$)/i.test(input.trim());
+}
+
 function compactForLog(value, maxLength = 4000) {
     const text = typeof value === 'string' ? value : JSON.stringify(value ?? null);
     if (text.length <= maxLength) {
@@ -1947,7 +1962,8 @@ function registerTerminalGateway(wss, {
                             attachments: options.attachments,
                             interactionState: options.interactionState,
                             collaborationMode: options.collaborationMode,
-                            turnConfig: options.turnConfig
+                            turnConfig: options.turnConfig,
+                            goalObjective: options.goalObjective
                         }
                     }
                 });
@@ -1982,13 +1998,30 @@ function registerTerminalGateway(wss, {
                     _handleSetActiveConversation(ws, session, threadId);
                 }
             }
+            diagnosticLog.event('server', 'server.codex.goal.set.requested', {
+                conversationKey: diagnosticKey(threadId),
+                clientRequestKey: diagnosticKey(options.clientRequestId),
+                goalKey: diagnosticKey(objective),
+                objectiveLength: objective.trim().length,
+                authority: 'owner'
+            });
             await codexService.request('thread/goal/set', {
                 threadId,
                 objective: objective.trim(),
                 status: 'active'
             });
 
+            diagnosticLog.event('server', 'server.codex.goal.set.acknowledged', {
+                conversationKey: diagnosticKey(threadId),
+                clientRequestKey: diagnosticKey(options.clientRequestId),
+                goalKey: diagnosticKey(objective),
+                objectiveLength: objective.trim().length,
+                authority: 'owner'
+            });
+
             const turnStartParams = buildFollowerTurnStartParams(objective.trim(), latestSnapshot || {}, {
+                ...options,
+                preparedInput: replaceGoalTextInput(options.preparedInput, objective.trim()),
                 transport: 'app-server'
             });
             const result = await codexService.request('turn/start', {
@@ -2022,6 +2055,35 @@ function registerTerminalGateway(wss, {
                 acknowledged: true
             });
         } catch (error) {
+            if (isThreadNotFoundError(error)) {
+                diagnosticLog.error('server', 'server.codex.goal.set.failed', error, {
+                    conversationKey: diagnosticKey(conversationId),
+                    clientRequestKey: diagnosticKey(options.clientRequestId),
+                    goalKey: diagnosticKey(objective),
+                    objectiveLength: objective.trim().length,
+                    authority: 'owner',
+                    routeStage: 'owner-goal-recovery'
+                });
+                _sendThreadRecoveryRequired(ws, {
+                    conversationId,
+                    reason: 'thread_not_found',
+                    clientRequestId: options.clientRequestId,
+                    forkAvailable: false,
+                    draft: {
+                        transport: 'follower',
+                        clientRequestId: options.clientRequestId,
+                        input: `/goal ${objective.trim()}`,
+                        options: {
+                            attachments: options.attachments,
+                            interactionState: options.interactionState,
+                            collaborationMode: options.collaborationMode,
+                            turnConfig: options.turnConfig,
+                            goalObjective: objective.trim()
+                        }
+                    }
+                });
+                return;
+            }
             _emitFollowerRouteState(ws, options.clientRequestId, conversationId, 'failed', {
                 authority: 'owner',
                 detail: error && error.message ? error.message : String(error)
@@ -2035,8 +2097,8 @@ function registerTerminalGateway(wss, {
     };
 
     const _startOwnerMessageOrGoal = async (ws, conversationId, input, latestSnapshot, options) => {
-        if (isNonEmptyString(options.ownerGoalObjective)) {
-            await _startOwnerGoal(ws, conversationId, options.ownerGoalObjective, latestSnapshot, options);
+        if (isNonEmptyString(options.goalObjective)) {
+            await _startOwnerGoal(ws, conversationId, options.goalObjective, latestSnapshot, options);
             return;
         }
         await _startOwnerTurn(ws, conversationId, input, latestSnapshot, options);
@@ -2073,18 +2135,58 @@ function registerTerminalGateway(wss, {
         const clientRequestId = isNonEmptyString(options.clientRequestId)
             ? options.clientRequestId.trim()
             : randomUUID();
-        options = { ...options, clientRequestId };
         const normalizedInput = typeof input === 'string' ? input.trim() : '';
-        const goalMatch = normalizedInput.match(/^\/goal\s+([\s\S]+)$/i);
-        if (!isNonEmptyString(options.ownerGoalObjective) && goalMatch) {
-            options.ownerGoalObjective = goalMatch[1].trim();
+        const explicitGoalObjective = options.goalObjective !== undefined
+            ? normalizeGoalObjective(options.goalObjective)
+            : normalizeGoalObjective(options.ownerGoalObjective);
+        const parsedGoalObjective = parseGoalObjective(normalizedInput);
+        if (isGoalDirective(normalizedInput) && !parsedGoalObjective) {
+            sendWsEnvelope(ws, {
+                type: 'error',
+                message: 'Goal objective is empty',
+                detail: 'Enter a goal objective before starting a goal.'
+            });
+            return;
         }
+        if (options.goalObjective !== undefined && !explicitGoalObjective) {
+            sendWsEnvelope(ws, {
+                type: 'error',
+                message: 'Goal objective is empty',
+                detail: 'Enter a goal objective before starting a goal.'
+            });
+            return;
+        }
+        if (explicitGoalObjective && parsedGoalObjective && explicitGoalObjective !== parsedGoalObjective) {
+            diagnosticLog.event('server', 'server.codex.goal.intent.rejected', {
+                conversationKey: diagnosticKey(conversationId),
+                clientRequestKey: diagnosticKey(clientRequestId),
+                reason: 'goal_intent_mismatch',
+                explicitGoalKey: diagnosticKey(explicitGoalObjective),
+                parsedGoalKey: diagnosticKey(parsedGoalObjective)
+            }, 'warn');
+            sendWsEnvelope(ws, {
+                type: 'error',
+                message: 'Goal objective does not match input',
+                detail: 'The explicit goal objective must match the /goal input.'
+            });
+            return;
+        }
+        const goalObjective = explicitGoalObjective || parsedGoalObjective;
+        options = {
+            ...options,
+            clientRequestId,
+            goalObjective,
+            ownerGoalObjective: goalObjective
+        };
         const normalizedAttachments = normalizeTurnAttachments(options.attachments);
         const normalizedInteractionState = normalizeInteractionState(options.interactionState);
         diagnosticLog.event('server', 'server.ipc.follower_send.requested', {
             conversationKey: diagnosticKey(conversationId),
             inputLength: normalizedInput.length,
             clientRequestKey: diagnosticKey(clientRequestId),
+            intentKind: goalObjective ? 'goal' : 'message',
+            goalKey: diagnosticKey(goalObjective),
+            objectiveLength: goalObjective ? goalObjective.length : 0,
             followerMode: _isFollowerModeEnabled(ws),
             ipcOnline: _isIpcOnline(),
             ...diagnosticAttachmentSummary(normalizedAttachments),
@@ -2402,7 +2504,7 @@ function registerTerminalGateway(wss, {
             successType: 'follower_goal_sent',
             failureMessage: 'Failed to start follower goal',
             unavailableDetail: 'Enable codex-ipc to start follower goals.',
-            ownerGoalObjective: goal.trim()
+            goalObjective: goal.trim()
         });
     };
 
@@ -3086,6 +3188,19 @@ function registerTerminalGateway(wss, {
         }];
     }
 
+    function replaceGoalTextInput(preparedInput, objective) {
+        const input = Array.isArray(preparedInput)
+            ? structuredClone(preparedInput)
+            : buildTextInputSequence(objective);
+        const textPart = input.find((part) => part && part.type === 'text');
+        if (textPart) {
+            textPart.text = objective;
+            if (!Array.isArray(textPart.text_elements)) textPart.text_elements = [];
+            return input;
+        }
+        return [...buildTextInputSequence(objective), ...input];
+    }
+
     function buildPlanImplementationPrompt(planContent) {
         return `PLEASE IMPLEMENT THIS PLAN:\n${String(planContent || '').trim()}`;
     }
@@ -3751,6 +3866,21 @@ function registerTerminalGateway(wss, {
 
         ownerSurfaceTracker.handleNotification(method, params);
         const ownerNotificationThreadId = CodexAppServerService.extractThreadId(notification);
+        if (method === 'thread/goal/updated' || method === 'thread/goal/cleared') {
+            const goal = params && typeof params.goal === 'object' ? params.goal : null;
+            const goalObjective = normalizeGoalObjective(goal?.objective);
+            const ownerSurface = ownerNotificationThreadId
+                ? _getLatestOwnerSnapshot(ownerNotificationThreadId)
+                : null;
+            diagnosticLog.event('server', 'server.codex.goal.notification.received', {
+                conversationKey: diagnosticKey(ownerNotificationThreadId),
+                goalKey: diagnosticKey(goalObjective),
+                objectiveLength: goalObjective ? goalObjective.length : 0,
+                status: goal?.status || (method === 'thread/goal/cleared' ? 'cleared' : null),
+                hasActiveGoal: Boolean(ownerSurface?.activeGoal),
+                ownerKind: ownerSurface?.ownerKind || null
+            });
+        }
         if (ownerNotificationThreadId && ownerSurfaceTracker.hasConversation(ownerNotificationThreadId)) {
             if (method === 'turn/started') {
                 _recordAuthority(
@@ -4243,7 +4373,8 @@ function registerTerminalGateway(wss, {
                             attachments: envelope.attachments,
                             interactionState: envelope.interactionState,
                             collaborationMode: envelope.collaborationMode,
-                            turnConfig: envelope.turnConfig
+                            turnConfig: envelope.turnConfig,
+                            goalObjective: envelope.goalObjective
                         }).catch(err => {
                             console.error('[gateway][ipc][follower-send]', err);
                             diagnosticLog.error('server', 'server.ipc.follower_send.unhandled', err, {
