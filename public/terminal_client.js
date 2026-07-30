@@ -7,6 +7,9 @@ const btnToggleInput = document.getElementById('btn-toggle-input');
 const btnClear = document.getElementById('btn-clear');
 const btnClose = document.getElementById('btn-close');
 const btnSend = document.getElementById('btn-send');
+const terminalSelectionMenu = document.getElementById('terminal-selection-menu');
+const btnTerminalSelectionCopy = document.getElementById('btn-terminal-selection-copy');
+const btnTerminalSelectionPaste = document.getElementById('btn-terminal-selection-paste');
 const codexPanel = document.getElementById('codex-panel');
 const codexLog = document.getElementById('codex-log');
 const codexLogStack = document.getElementById('codex-log-stack');
@@ -7313,6 +7316,145 @@ function focusTerminal() {
     setTimeout(() => term.focus(), 20);
 }
 
+function hideTerminalSelectionMenu(clearSelection = false) {
+    if (terminalSelectionMenu) {
+        terminalSelectionMenu.hidden = true;
+    }
+    if (clearSelection && term && typeof term.clearSelection === 'function') {
+        term.clearSelection();
+    }
+}
+
+function writeTerminalClipboard(text) {
+    const value = String(text || '');
+    if (!value) return Promise.resolve(false);
+    const nativeBridge = getNativeBridge();
+    if (nativeBridge && typeof nativeBridge.setClipboardText === 'function') {
+        try {
+            nativeBridge.setClipboardText(value);
+            return Promise.resolve(true);
+        } catch (_) {
+            // Fall through to the browser clipboard implementations.
+        }
+    }
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        return navigator.clipboard.writeText(value).then(() => true).catch(() => {
+            // file:// WebViews can reject navigator.clipboard. Fall back to a
+            // transient textarea so copy still works without changing input
+            // or scroll handling.
+            const textarea = document.createElement('textarea');
+            textarea.value = value;
+            textarea.setAttribute('readonly', '');
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            let copied = false;
+            try { copied = document.execCommand('copy'); } catch (_) { copied = false; }
+            textarea.remove();
+            return copied;
+        });
+    }
+    return Promise.resolve(false);
+}
+
+function readTerminalClipboard() {
+    const nativeBridge = getNativeBridge();
+    if (nativeBridge && typeof nativeBridge.getClipboardText === 'function') {
+        try {
+            return Promise.resolve(String(nativeBridge.getClipboardText() || ''));
+        } catch (_) {
+            // Fall through to navigator.clipboard below.
+        }
+    }
+    if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
+        return Promise.reject(new Error('Clipboard read is unavailable'));
+    }
+    return navigator.clipboard.readText();
+}
+
+function copyTerminalSelection() {
+    const selection = term && typeof term.getSelection === 'function'
+        ? term.getSelection()
+        : '';
+    if (!selection) {
+        hideTerminalSelectionMenu();
+        return;
+    }
+    writeTerminalClipboard(selection).then((copied) => {
+        if (!copied) {
+            notifyNativeError('CLIPBOARD_WRITE_FAILED', 'Clipboard write failed');
+        }
+        hideTerminalSelectionMenu();
+        focusTerminal();
+    });
+}
+
+function pasteTerminalClipboard() {
+    readTerminalClipboard().then((text) => {
+        if (!text) return;
+        if (term && typeof term.paste === 'function') {
+            term.paste(text);
+        } else if (ws && ws.readyState === WebSocket.OPEN) {
+            sendMessage({ type: 'input', data: text });
+        }
+    }).catch((err) => {
+        notifyNativeError('CLIPBOARD_READ_FAILED', err && err.message ? err.message : 'Clipboard access failed');
+    }).finally(() => {
+        hideTerminalSelectionMenu();
+        focusTerminal();
+    });
+}
+
+function showTerminalSelectionMenu(clientX, clientY) {
+    if (!terminalSelectionMenu || !term || typeof term.getSelection !== 'function') return;
+    const selection = term.getSelection();
+    if (btnTerminalSelectionCopy) {
+        btnTerminalSelectionCopy.disabled = !selection;
+    }
+    terminalSelectionMenu.hidden = false;
+    // Keep the menu outside the flex/overflow terminal shell and position it
+    // in viewport coordinates. This prevents the popup from being clipped by
+    // the terminal scroll surface or the keyboard-resized shell.
+    terminalSelectionMenu.style.pointerEvents = 'auto';
+    const menuRect = terminalSelectionMenu.getBoundingClientRect();
+    const margin = 8;
+    const viewportWidth = Math.max(0, window.innerWidth || document.documentElement.clientWidth);
+    const viewportHeight = Math.max(0, window.innerHeight || document.documentElement.clientHeight);
+    const x = Math.max(margin, Math.min(Number(clientX) - menuRect.width / 2, viewportWidth - menuRect.width - margin));
+    const y = Math.max(margin, Math.min(Number(clientY) - menuRect.height - 12, viewportHeight - menuRect.height - margin));
+    terminalSelectionMenu.style.left = `${Math.round(Number.isFinite(x) ? x : margin)}px`;
+    terminalSelectionMenu.style.top = `${Math.round(Number.isFinite(y) ? y : margin)}px`;
+    console.info('[TERMLINK_DIAG]', JSON.stringify({
+        event: 'android.terminal.selection.menu',
+        visible: !terminalSelectionMenu.hidden,
+        width: Math.round(menuRect.width),
+        height: Math.round(menuRect.height),
+        left: terminalSelectionMenu.style.left,
+        top: terminalSelectionMenu.style.top,
+        viewportWidth,
+        viewportHeight
+    }));
+}
+
+if (btnTerminalSelectionCopy) {
+    btnTerminalSelectionCopy.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        copyTerminalSelection();
+    });
+}
+if (btnTerminalSelectionPaste) {
+    btnTerminalSelectionPaste.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        pasteTerminalClipboard();
+    });
+}
+if (terminalSelectionMenu) {
+    terminalSelectionMenu.addEventListener('click', (event) => event.stopPropagation());
+}
+
 const shortcutInput = (window.TerminalShortcutInput && typeof window.TerminalShortcutInput.createModifierState === 'function')
     ? window.TerminalShortcutInput
     : null;
@@ -8055,17 +8197,9 @@ document.querySelectorAll('.key').forEach((btn) => {
         }
 
         if (!key && btn.id === 'btn-paste') {
-            try {
-                const text = await navigator.clipboard.readText();
-                if (text && ws && ws.readyState === WebSocket.OPEN) {
-                    sendMessage({ type: 'input', data: text });
-                }
-            } catch (err) {
-                notifyNativeError('CLIPBOARD_READ_FAILED', err && err.message ? err.message : 'Clipboard access failed');
-            }
+            await pasteTerminalClipboard();
             btn.classList.add('active');
             setTimeout(() => btn.classList.remove('active'), 90);
-            focusTerminal();
             return;
         }
 
@@ -8555,6 +8689,9 @@ if (terminalContainer && isTouchDevice) {
     let touchMoveCount = 0;
     let touchScrollDelta = 0;
     let draggedSinceTouchStart = false;
+    let longPressTimer = 0;
+    let longPressTriggered = false;
+    const LONG_PRESS_DELAY_MS = 520;
     const DRAG_THRESHOLD_PX = 6;
     const scrollTarget = terminalContainer.querySelector('.xterm-viewport') || terminalContainer;
     // Listen on the outer container in capture phase. Listening only on
@@ -8633,6 +8770,41 @@ if (terminalContainer && isTouchDevice) {
         return null;
     };
 
+    const cancelLongPress = () => {
+        if (longPressTimer) window.clearTimeout(longPressTimer);
+        longPressTimer = 0;
+    };
+
+    const selectPressedTerminalRow = (touch) => {
+        if (!term || typeof term.selectLines !== 'function') return false;
+        const screen = terminalContainer.querySelector('.xterm-screen') || terminalContainer;
+        const rect = screen.getBoundingClientRect();
+        if (!rect.width || !rect.height || touch.clientY < rect.top || touch.clientY > rect.bottom) return false;
+        const rowHeight = rect.height / Math.max(1, term.rows || 1);
+        const row = Math.max(0, Math.min((term.rows || 1) - 1, Math.floor((touch.clientY - rect.top) / rowHeight)));
+        const viewportY = term.buffer && term.buffer.active && Number.isFinite(term.buffer.active.viewportY)
+            ? term.buffer.active.viewportY
+            : 0;
+        const bufferRow = viewportY + row;
+        try {
+            // Selecting through xterm's public API keeps the rendered terminal
+            // and its existing scroll viewport intact. A long press selects
+            // the complete row; normal drags still use the code below solely
+            // for scrolling, as before.
+            term.selectLines(bufferRow, bufferRow);
+            console.info('[TERMLINK_DIAG]', JSON.stringify({
+                event: 'android.terminal.selection.long_press',
+                row,
+                bufferRow,
+                selectedLength: (term.getSelection() || '').length,
+                viewportY
+            }));
+            return !!term.getSelection();
+        } catch (_) {
+            return false;
+        }
+    };
+
     touchTarget.style.touchAction = 'none';
 
     touchTarget.addEventListener('touchstart', (e) => {
@@ -8640,6 +8812,8 @@ if (terminalContainer && isTouchDevice) {
         if (!touch) return;
         e.stopImmediatePropagation();
         stopMomentum();
+        cancelLongPress();
+        hideTerminalSelectionMenu();
         activeTouchId = touch.identifier;
         touchStartY = touch.clientY;
         lastTouchY = touch.clientY;
@@ -8648,6 +8822,22 @@ if (terminalContainer && isTouchDevice) {
         touchMoveCount = 0;
         touchScrollDelta = 0;
         draggedSinceTouchStart = false;
+        longPressTriggered = false;
+        const pressX = touch.clientX;
+        const pressY = touch.clientY;
+        longPressTimer = window.setTimeout(() => {
+            longPressTimer = 0;
+            if (activeTouchId === touch.identifier && !draggedSinceTouchStart) {
+                const pressPoint = { clientX: pressX, clientY: pressY };
+                longPressTriggered = selectPressedTerminalRow(pressPoint);
+                if (longPressTriggered) {
+                    closeSoftKeyboard();
+                    suppressNextClickFocus = true;
+                    suppressFocusUntil = Date.now() + 700;
+                    showTerminalSelectionMenu(pressX, pressY);
+                }
+            }
+        }, LONG_PRESS_DELAY_MS);
     }, passiveTouchStartOptions);
 
     touchTarget.addEventListener('touchmove', (e) => {
@@ -8655,9 +8845,25 @@ if (terminalContainer && isTouchDevice) {
         const touch = resolveTrackedTouch(e.touches) || resolveTrackedTouch(e.changedTouches);
         if (!touch) return;
 
+        // Closing the soft keyboard after a long press can produce one
+        // synthetic move as the WebView viewport is resized. Do not let that
+        // move enter the normal scroll path and dismiss the selection menu.
+        // A long-press selection is already complete; the next touchend will
+        // consume the gesture without changing terminal scrolling.
+        if (longPressTriggered) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return;
+        }
+
         const deltaYFromStart = touch.clientY - touchStartY;
         if (!draggedSinceTouchStart && Math.abs(deltaYFromStart) >= DRAG_THRESHOLD_PX) {
             draggedSinceTouchStart = true;
+            cancelLongPress();
+            if (longPressTriggered) {
+                longPressTriggered = false;
+                hideTerminalSelectionMenu();
+            }
         }
         if (!draggedSinceTouchStart) return;
 
@@ -8680,6 +8886,7 @@ if (terminalContainer && isTouchDevice) {
 
     touchTarget.addEventListener('touchend', (e) => {
         const viewport = scrollTarget;
+        cancelLongPress();
         e.stopImmediatePropagation();
         console.info('[TERMLINK_DIAG]', JSON.stringify({
             event: 'android.terminal.scroll.gesture',
@@ -8706,6 +8913,16 @@ if (terminalContainer && isTouchDevice) {
             return;
         }
 
+        if (longPressTriggered) {
+            e.preventDefault();
+            e.stopPropagation();
+            longPressTriggered = false;
+            activeTouchId = null;
+            suppressNextClickFocus = true;
+            suppressFocusUntil = Date.now() + 700;
+            return;
+        }
+
         const now = Date.now();
         if (now - lastTapAt < 450) {
             e.preventDefault();
@@ -8720,6 +8937,7 @@ if (terminalContainer && isTouchDevice) {
     }, activeTouchOptions);
 
     touchTarget.addEventListener('touchcancel', (e) => {
+        cancelLongPress();
         e.stopImmediatePropagation();
         stopMomentum();
         touchStartedAt = 0;
@@ -8728,7 +8946,15 @@ if (terminalContainer && isTouchDevice) {
         activeTouchId = null;
         lastTouchAt = 0;
         draggedSinceTouchStart = false;
+        longPressTriggered = false;
     }, passiveTouchStartOptions);
+
+    terminalContainer.addEventListener('contextmenu', (e) => {
+        if (term && typeof term.hasSelection === 'function' && term.hasSelection()) {
+            e.preventDefault();
+            showTerminalSelectionMenu(e.clientX, e.clientY);
+        }
+    }, touchListenerCapture);
 
     terminalContainer.addEventListener('dblclick', () => {
         const now = Date.now();

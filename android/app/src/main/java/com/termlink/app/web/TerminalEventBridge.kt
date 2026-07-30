@@ -1,10 +1,14 @@
 package com.termlink.app.web
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.webkit.JavascriptInterface
 
 class TerminalEventBridge(
+    private val context: Context,
     private val listener: Listener,
     private val mainHandler: Handler = Handler(Looper.getMainLooper())
 ) {
@@ -43,6 +47,22 @@ class TerminalEventBridge(
         dispatchOnMain {
             listener.onRequestHideKeyboard()
         }
+    }
+
+    /** Clipboard access for the local terminal WebView. navigator.clipboard is
+     * unavailable on some Android file:// WebViews, while the native service
+     * remains available and is scoped to this trusted app surface. */
+    @JavascriptInterface
+    fun setClipboardText(text: String?) {
+        val value = text.orEmpty()
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        clipboard?.setPrimaryClip(ClipData.newPlainText("TermLink terminal", value))
+    }
+
+    @JavascriptInterface
+    fun getClipboardText(): String {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        return clipboard?.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
     }
 
     @JavascriptInterface

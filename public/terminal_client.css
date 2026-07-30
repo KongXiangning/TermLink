@@ -72,6 +72,7 @@ body {
     width: 100%;
     height: 100%;
     min-height: 0;
+    position: relative;
 }
 
 body.terminal-only:not(.codex-only) #codex-panel {
@@ -3053,6 +3054,52 @@ button.codex-entry-chip {
 
 body .xterm .xterm-viewport {
     -webkit-overflow-scrolling: touch !important;
+}
+
+/* Long-press actions are shown by terminal_client.js after it has selected
+   the pressed row through xterm's public selection API. Keep this menu out of
+   the terminal scroll hit target so the existing drag handling is unchanged. */
+.terminal-selection-menu {
+    position: fixed;
+    z-index: 10000;
+    display: flex;
+    gap: 2px;
+    min-height: 44px;
+    padding: 4px;
+    border: 1px solid rgba(148, 163, 184, 0.42);
+    border-radius: 10px;
+    background: rgba(24, 32, 43, 0.98);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.36);
+    pointer-events: auto;
+    max-width: calc(100vw - 16px);
+}
+
+.terminal-selection-menu[hidden] {
+    display: none;
+}
+
+.terminal-selection-menu button {
+    min-width: 72px;
+    min-height: 36px;
+    padding: 6px 12px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #f1f5f9;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.terminal-selection-menu button:active,
+.terminal-selection-menu button:focus-visible {
+    background: rgba(82, 139, 255, 0.28);
+    outline: none;
+}
+
+.terminal-selection-menu button:disabled {
+    color: rgba(241, 245, 249, 0.42);
+    cursor: default;
 }
 
 /* On touch devices xterm's rendered rows must not become the hit target.

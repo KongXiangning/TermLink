@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>TermLink Terminal</title>
     <link rel="stylesheet" href="ui-foundation.css?v=2">
-    <link rel="stylesheet" href="terminal_client.css?v=77">
+    <link rel="stylesheet" href="terminal_client.css?v=79">
     <link rel="stylesheet" href="lib/xterm.css">
     <script src="lib/xterm.js"></script>
     <script src="lib/xterm-addon-fit.js"></script>
@@ -57,6 +57,10 @@
             </div>
         </div>
     </div>
+    <div id="terminal-selection-menu" class="terminal-selection-menu" hidden role="menu" aria-label="Terminal selection actions">
+        <button id="btn-terminal-selection-copy" type="button" role="menuitem">复制</button>
+        <button id="btn-terminal-selection-paste" type="button" role="menuitem">粘贴</button>
+    </div>
     <script src="lib/codex_bootstrap.js?v=2"></script>
     <script src="lib/codex_history_view.js?v=2"></script>
     <script src="lib/codex_shell_view.js?v=1"></script>
@@ -64,7 +68,7 @@
     <script src="lib/codex_settings_view.js?v=3"></script>
     <script src="lib/codex_runtime_view.js?v=4"></script>
     <script src="lib/codex_approval_view.js?v=3"></script>
-    <script src="terminal_client.js?v=78"></script>
+    <script src="terminal_client.js?v=81"></script>
 </body>
 
 </html>

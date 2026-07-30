@@ -406,7 +406,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         if (BuildConfig.DEBUG && DEBUG_CLEAR_TERMINAL_CACHE_ON_LOAD) {
             webView.clearCache(true)
         }
-        terminalEventBridge = TerminalEventBridge(this)
+        terminalEventBridge = TerminalEventBridge(this, this)
         webView.addJavascriptInterface(terminalEventBridge, JS_BRIDGE_NAME)
         webView.webViewClient = object : MtlsWebViewClient(
             appContext = applicationContext,
@@ -1974,7 +1974,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             putExtra(EXTRA_RETURN_TO_NATIVE_CODEX, returnToNativeCodex)
         }
 
-        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=78"
+        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=81"
         private const val CODEX_URL = "file:///android_asset/public/codex_client.html?v=90"
         private const val ABOUT_BLANK_URL = "about:blank"
         private const val DEBUG_CLEAR_TERMINAL_CACHE_ON_LOAD = false
