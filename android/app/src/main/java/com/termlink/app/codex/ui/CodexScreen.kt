@@ -3,10 +3,12 @@ package com.termlink.app.codex.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.Rect
 import android.graphics.Point
 import android.graphics.Typeface
 import android.os.Build
+import android.speech.RecognizerIntent
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.BackgroundColorSpan
@@ -16,6 +18,8 @@ import android.view.ActionMode
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.TextView
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -4169,6 +4173,8 @@ private fun FooterControls(
     onPickLocalFile: () -> Unit,
     onPrepareAddMenu: () -> Unit,
     onInsertSlash: () -> Unit,
+    voiceInputAvailable: Boolean,
+    onVoiceInput: () -> Unit,
     canSubmit: Boolean,
     hasInterruptibleTurn: Boolean,
     onSubmit: () -> Unit,
@@ -4222,7 +4228,8 @@ private fun FooterControls(
 
     Row(
         modifier = Modifier
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(3.dp)
     ) {
@@ -4243,7 +4250,7 @@ private fun FooterControls(
                     expanded = addMenuExpanded,
                     attachmentEnabled = imageInputEnabled,
                     planActive = state.planMode == true,
-                    goalActive = state.goalMode,
+                    goalActive = state.goalMode || state.activeGoal != null,
                     contextUsedPercent = contextUsedPercent,
                     onDismiss = { addMenuExpanded = false },
                     onPickAttachment = {
@@ -4290,10 +4297,13 @@ private fun FooterControls(
         if (state.planMode == true) {
             FooterPlanIndicatorButton(onClick = onTogglePlanMode)
         }
-        if (state.goalMode) {
-            FooterGoalIndicatorButton(onClick = onToggleGoalMode)
+        if (state.goalMode || state.activeGoal != null) {
+            FooterGoalIndicatorButton(
+                interactive = state.goalMode,
+                onClick = onToggleGoalMode
+            )
         }
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.width(4.dp))
         ModelReasoningButton(
             text = modelReasoningSummary,
             active = configSheetExpanded || state.modelPickerVisible || state.reasoningPickerVisible,
@@ -4304,6 +4314,10 @@ private fun FooterControls(
                     configSheetExpanded = true
                 }
             }
+        )
+        ComposerVoiceInputButton(
+            enabled = voiceInputAvailable,
+            onClick = onVoiceInput
         )
         ComposerSubmitButton(
             enabled = canSubmit || hasInterruptibleTurn,
@@ -4324,6 +4338,35 @@ private fun FooterControls(
                 configSheetExpanded = false
                 onShowReasoningPicker()
             }
+        )
+    }
+}
+
+@Composable
+private fun ComposerVoiceInputButton(
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val description = stringResource(
+        if (enabled) R.string.codex_native_voice_input
+        else R.string.codex_native_voice_input_unavailable
+    )
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .semantics {
+                contentDescription = description
+                role = Role.Button
+            }
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_mic_24),
+            contentDescription = null,
+            tint = if (enabled) TextPrimary else TextMuted.copy(alpha = 0.45f),
+            modifier = Modifier.size(20.dp)
         )
     }
 }
@@ -4628,12 +4671,15 @@ private fun FooterPlanIndicatorButton(onClick: () -> Unit) {
 }
 
 @Composable
-private fun FooterGoalIndicatorButton(onClick: () -> Unit) {
+private fun FooterGoalIndicatorButton(
+    interactive: Boolean,
+    onClick: () -> Unit
+) {
     val contentDescription = stringResource(R.string.codex_native_goal_mode_chip)
     Surface(
         modifier = Modifier
             .heightIn(min = 34.dp)
-            .clickable(onClick = onClick)
+            .clickable(enabled = interactive, onClick = onClick)
             .semantics {
                 this.contentDescription = contentDescription
                 role = Role.Button
@@ -4936,6 +4982,7 @@ private fun InputComposer(
     onClearActiveSkill: () -> Unit = {}
 ) {
     var textFieldValue by remember { mutableStateOf(TextFieldValue("")) }
+    val context = LocalContext.current
     val composerFocusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val localView = LocalView.current
@@ -5101,6 +5148,27 @@ private fun InputComposer(
         syncComposerMenus(nextValue.text)
         composerFocusRequester.requestFocus()
         keyboardController?.show()
+    }
+
+    val voiceInputIntent = remember {
+        Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_PROMPT, context.getString(R.string.codex_native_voice_input_prompt))
+        }
+    }
+    val voiceInputAvailable = remember(voiceInputIntent) {
+        voiceInputIntent.resolveActivity(context.packageManager) != null
+    }
+    val voiceInputLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()
+                ?.takeIf { it.isNotBlank() }
+                ?.let(::insertComposerText)
+        }
     }
 
     fun submit(): Boolean {
@@ -5301,6 +5369,8 @@ private fun InputComposer(
                             onHideFileMentionMenu()
                         },
                         onInsertSlash = { insertComposerText("/") },
+                        voiceInputAvailable = voiceInputAvailable,
+                        onVoiceInput = { voiceInputLauncher.launch(voiceInputIntent) },
                         canSubmit = canSubmit,
                         hasInterruptibleTurn = hasInterruptibleTurn,
                         onSubmit = { submit() },

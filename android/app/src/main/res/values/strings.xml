@@ -537,6 +537,9 @@
     <string name="codex_native_quick_default">Default</string>
     <string name="codex_native_plan_mode_chip">Plan Mode</string>
     <string name="codex_native_goal_mode_chip">Goal Mode</string>
+    <string name="codex_native_voice_input">Voice input</string>
+    <string name="codex_native_voice_input_unavailable">Voice input is unavailable on this device</string>
+    <string name="codex_native_voice_input_prompt">Speak your message</string>
     <string name="codex_native_thread_badge_goal">Goal</string>
     <string name="codex_native_thread_goal_objective">Goal: %1$s</string>
     <string name="codex_quota_notification_channel">Codex Quota Status</string>

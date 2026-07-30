@@ -537,6 +537,9 @@
     <string name="codex_native_quick_default">默认</string>
     <string name="codex_native_plan_mode_chip">计划模式</string>
     <string name="codex_native_goal_mode_chip">目标模式</string>
+    <string name="codex_native_voice_input">语音输入</string>
+    <string name="codex_native_voice_input_unavailable">此设备不支持语音输入</string>
+    <string name="codex_native_voice_input_prompt">请说出消息内容</string>
     <string name="codex_native_thread_badge_goal">目标</string>
     <string name="codex_native_thread_goal_objective">目标：%1$s</string>
     <string name="codex_quota_notification_channel">Codex 额度状态</string>
