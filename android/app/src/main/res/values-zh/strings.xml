@@ -31,6 +31,7 @@
     <string name="sessions_cache_stale">刷新失败，显示最近可用会话。</string>
     <string name="sessions_cache_last_synced">%1$s\n上次同步: %2$s</string>
     <string name="sessions_group_error">[%1$s] %2$s</string>
+    <string name="sessions_group_offline">已离线</string>
     <string name="sessions_group_empty">此配置下暂无会话。</string>
     <string name="sessions_group_header">%1$s (%2$s)</string>
     <string name="sessions_group_count">%1$d 个会话</string>

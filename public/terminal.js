@@ -34,7 +34,7 @@ try {
     term = new Terminal({
         cursorBlink: true,
         macOptionIsMeta: true,
-        scrollback: 1000,
+        scrollback: 5000,
         fontSize: 14,
         fontFamily: 'Menlo, Monaco, "Courier New", monospace',
         theme: { background: '#000000', foreground: '#ffffff' }
@@ -1241,11 +1241,16 @@ if (terminalContainer && isTouchDevice) {
     let activeTouchId = null;
     let touchStartY = 0;
     let lastTouchY = 0;
+    let lastTouchAt = 0;
     let touchStartedAt = 0;
     let touchMoveCount = 0;
     let touchScrollDelta = 0;
     let draggedSinceTouchStart = false;
     const DRAG_THRESHOLD_PX = 6;
+    const scrollTarget = terminalContainer.querySelector('.xterm-viewport') || terminalContainer;
+    const touchTarget = terminalContainer.querySelector('.xterm-screen') || terminalContainer;
+    let momentumFrame = 0;
+    let momentumVelocity = 0;
 
     const closeSoftKeyboard = () => {
         const activeEl = document.activeElement;
@@ -1277,10 +1282,33 @@ if (terminalContainer && isTouchDevice) {
         callNativeBridge('requestHideKeyboard', []);
     };
 
-    const getViewport = () => terminalContainer.querySelector('.xterm-viewport');
     const touchListenerCapture = { capture: true };
     const passiveTouchStartOptions = { passive: true, capture: true };
     const activeTouchOptions = { passive: false, capture: true };
+
+    const stopMomentum = () => {
+        if (momentumFrame) cancelAnimationFrame(momentumFrame);
+        momentumFrame = 0;
+        momentumVelocity = 0;
+    };
+
+    const runMomentum = () => {
+        if (Math.abs(momentumVelocity) < 0.08) {
+            momentumFrame = 0;
+            momentumVelocity = 0;
+            return;
+        }
+        const before = scrollTarget.scrollTop;
+        scrollTarget.scrollTop -= momentumVelocity * 16;
+        const moved = scrollTarget.scrollTop - before;
+        if (Math.abs(moved) < 0.5) {
+            momentumFrame = 0;
+            momentumVelocity = 0;
+            return;
+        }
+        momentumVelocity *= 0.94;
+        momentumFrame = requestAnimationFrame(runMomentum);
+    };
 
     const resolveTrackedTouch = (touchList) => {
         if (!touchList || activeTouchId === null) return null;
@@ -1292,29 +1320,27 @@ if (terminalContainer && isTouchDevice) {
         return null;
     };
 
-    const isViewportScrollable = (viewport) => (
-        !!viewport && viewport.scrollHeight > viewport.clientHeight + 1
-    );
+    touchTarget.style.touchAction = 'none';
 
-    terminalContainer.addEventListener('touchstart', (e) => {
+    touchTarget.addEventListener('touchstart', (e) => {
         const touch = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
         if (!touch) return;
+        e.stopImmediatePropagation();
+        stopMomentum();
         activeTouchId = touch.identifier;
         touchStartY = touch.clientY;
         lastTouchY = touch.clientY;
+        lastTouchAt = Date.now();
         touchStartedAt = Date.now();
         touchMoveCount = 0;
         touchScrollDelta = 0;
         draggedSinceTouchStart = false;
     }, passiveTouchStartOptions);
 
-    terminalContainer.addEventListener('touchmove', (e) => {
+    touchTarget.addEventListener('touchmove', (e) => {
         if (activeTouchId === null) return;
         const touch = resolveTrackedTouch(e.touches) || resolveTrackedTouch(e.changedTouches);
         if (!touch) return;
-
-        const viewport = getViewport();
-        if (!isViewportScrollable(viewport)) return;
 
         const deltaYFromStart = touch.clientY - touchStartY;
         if (!draggedSinceTouchStart && Math.abs(deltaYFromStart) >= DRAG_THRESHOLD_PX) {
@@ -1326,16 +1352,22 @@ if (terminalContainer && isTouchDevice) {
         if (deltaY === 0) return;
 
         e.preventDefault();
-        e.stopPropagation();
-        viewport.scrollTop -= deltaY;
+        e.stopImmediatePropagation();
         touchMoveCount += 1;
         touchScrollDelta += deltaY;
         lastTouchY = touch.clientY;
+        scrollTarget.scrollTop -= deltaY;
+        const now = Date.now();
+        const elapsedMs = Math.max(1, now - lastTouchAt);
+        lastTouchAt = now;
+        momentumVelocity = Math.max(-2.5, Math.min(2.5, deltaY / Math.max(1, Math.min(32, elapsedMs))));
         suppressNextClickFocus = true;
         suppressFocusUntil = Date.now() + 280;
     }, activeTouchOptions);
 
-    terminalContainer.addEventListener('touchend', (e) => {
+    touchTarget.addEventListener('touchend', (e) => {
+        const viewport = scrollTarget;
+        e.stopImmediatePropagation();
         if (touchStartedAt > 0) {
             // Keep this prefix stable: Android captures only this bounded diagnostic payload.
             console.info('[TERMLINK_DIAG]', JSON.stringify({
@@ -1343,16 +1375,22 @@ if (terminalContainer && isTouchDevice) {
                 durationMs: Math.max(0, Date.now() - touchStartedAt),
                 dragged: draggedSinceTouchStart,
                 moveCount: touchMoveCount,
-                scrollDeltaPx: Math.round(touchScrollDelta)
+                gestureDeltaPx: Math.round(touchScrollDelta),
+                nativeScrollTop: viewport ? Math.round(viewport.scrollTop) : null,
+                nativeScrollHeight: viewport ? Math.round(viewport.scrollHeight) : null,
+                nativeClientHeight: viewport ? Math.round(viewport.clientHeight) : null
             }));
         }
         activeTouchId = null;
+        lastTouchAt = 0;
+        touchStartedAt = 0;
         if (draggedSinceTouchStart) {
-            e.preventDefault();
-            e.stopPropagation();
             draggedSinceTouchStart = false;
             suppressNextClickFocus = true;
             suppressFocusUntil = Date.now() + 280;
+            lastTapAt = 0;
+            stopMomentum();
+            momentumFrame = requestAnimationFrame(runMomentum);
             return;
         }
 
@@ -1369,11 +1407,14 @@ if (terminalContainer && isTouchDevice) {
         lastTapAt = now;
     }, activeTouchOptions);
 
-    terminalContainer.addEventListener('touchcancel', () => {
+    touchTarget.addEventListener('touchcancel', (e) => {
+        e.stopImmediatePropagation();
+        stopMomentum();
         touchStartedAt = 0;
         touchMoveCount = 0;
         touchScrollDelta = 0;
         activeTouchId = null;
+        lastTouchAt = 0;
         draggedSinceTouchStart = false;
     }, passiveTouchStartOptions);
 
@@ -1384,13 +1425,15 @@ if (terminalContainer && isTouchDevice) {
         suppressFocusUntil = now + 420;
     }, touchListenerCapture);
 
-    terminalContainer.addEventListener('click', () => {
+    terminalContainer.addEventListener('click', (e) => {
         const now = Date.now();
         const termTextarea = term && term.textarea;
         if (!termTextarea) return;
 
         if (suppressNextClickFocus) {
             suppressNextClickFocus = false;
+            e.preventDefault();
+            e.stopPropagation();
             return;
         }
         if (now < suppressFocusUntil) {

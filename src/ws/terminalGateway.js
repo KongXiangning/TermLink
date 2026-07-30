@@ -3992,6 +3992,12 @@ function registerTerminalGateway(wss, {
             };
 
             sessionId = session.id;
+            // PTY startup output can arrive while the connection handshake is
+            // still being sent. Keep it in the PTY snapshot until session_info
+            // and terminal_snapshot have reached the client, then resume the
+            // live broadcast stream. This prevents a pre-session output event
+            // from being written under the temporary `default` history key.
+            session.suppressPtyOutput = true;
             sessionManager.addConnection(session, ws);
             const pty = session.ptyService;
             syncSessionThreadBinding(session);
@@ -4026,6 +4032,28 @@ function registerTerminalGateway(wss, {
                     : null,
                 codexConfig: getStoredSessionCodexConfig(session)
             }));
+
+            // A PTY can already be alive when Android attaches (for example
+            // after returning to the terminal from another screen). Replaying
+            // its bounded output tail lets the client paint the prompt and
+            // current screen immediately, without injecting an Enter key.
+            if ((session.sessionMode || 'terminal') !== 'codex') {
+                const terminalSnapshot = typeof sessionManager.getTerminalOutputSnapshot === 'function'
+                    ? sessionManager.getTerminalOutputSnapshot(session)
+                    : '';
+                diagnosticLog.event('terminal', 'server.terminal.attach.snapshot', {
+                    sessionIdPresent: Boolean(session.id),
+                    sessionMode: session.sessionMode || 'terminal',
+                    snapshotLength: terminalSnapshot.length
+                });
+                if (terminalSnapshot) {
+                    sendWsEnvelope(ws, {
+                        type: 'terminal_snapshot',
+                        data: terminalSnapshot
+                    });
+                }
+            }
+            session.suppressPtyOutput = false;
             sendWsEnvelope(ws, {
                 type: 'codex_capabilities',
                 capabilities: buildCodexCapabilities()

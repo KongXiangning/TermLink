@@ -179,6 +179,7 @@ task removeLegacyLocalDebugConfig(type: Delete) {
 // the tracked sources whenever Gradle packages the APK.
 task syncThemeWebAssets(type: Copy) {
     from(rootProject.projectDir.parentFile) {
+        include 'public/terminal_client.html'
         include 'public/terminal_client.js'
         include 'public/terminal_client.css'
         include 'public/workspace.js'

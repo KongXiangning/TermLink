@@ -157,6 +157,13 @@ class SessionManager {
         this.schedulePersist();
     }
 
+    getTerminalOutputSnapshot(session) {
+        if (!session || !session.ptyService || typeof session.ptyService.getOutputSnapshot !== 'function') {
+            return '';
+        }
+        return session.ptyService.getOutputSnapshot();
+    }
+
     removeConnection(session, ws) {
         session.connections = session.connections.filter(c => c !== ws);
         if (session.connections.length === 0) {
@@ -346,6 +353,8 @@ class SessionManager {
             connections: [],
             ptyService: new PtyService(),
             ptyInitialized: false,
+            suppressPtyOutput: false,
+            ptyFirstDataLogged: false,
             privilegeMetadata: privilegeMetadata || null,
             codexState: {
                 threadId: null,
@@ -374,14 +383,28 @@ class SessionManager {
     ensurePtyForSession(session) {
         if (session.ptyInitialized) return;
 
-        session.ptyService.spawn();
         session.ptyService.onData((data) => {
+            if (!session.ptyFirstDataLogged) {
+                session.ptyFirstDataLogged = true;
+                diagnosticLog.event('terminal', 'server.terminal.pty.first_output', {
+                    sessionIdPresent: Boolean(session.id),
+                    sessionMode: session.sessionMode || 'terminal',
+                    dataLength: typeof data === 'string' ? data.length : 0,
+                    suppressed: session.suppressPtyOutput === true
+                });
+            }
+            if (session.suppressPtyOutput) {
+                return;
+            }
             this.broadcast(session, {
                 type: 'output',
                 sessionId: session.id,
                 data: data
             });
         });
+        // Register the data listener before spawning so the shell's startup
+        // banner/prompt cannot be lost in the small spawn-to-listener gap.
+        session.ptyService.spawn();
         session.ptyInitialized = true;
     }
 

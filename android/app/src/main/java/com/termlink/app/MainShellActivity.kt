@@ -337,6 +337,19 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
                 reloadTerminalSurfaceIfNeeded(forceReload = false)
             }
         }
+        if (currentScreen == ScreenMode.TERMINAL) {
+            val webView = terminalWebView
+            webView?.requestLayout()
+            // Orientation/configuration callbacks may arrive before the
+            // WebView has its final measured width. Notify after several
+            // layout passes so terminal PTY columns converge to portrait
+            // dimensions instead of retaining the landscape width.
+            listOf(0L, 120L, 360L, 720L).forEach { delay ->
+                (webView ?: rootInsetsView)?.postDelayed({
+                    notifyTerminalViewportChanged()
+                }, delay)
+            }
+        }
     }
 
     @Deprecated("Deprecated in Java")
@@ -1961,7 +1974,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             putExtra(EXTRA_RETURN_TO_NATIVE_CODEX, returnToNativeCodex)
         }
 
-        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=67"
+        private const val TERMINAL_URL = "file:///android_asset/public/terminal_client.html?v=78"
         private const val CODEX_URL = "file:///android_asset/public/codex_client.html?v=90"
         private const val ABOUT_BLANK_URL = "about:blank"
         private const val DEBUG_CLEAR_TERMINAL_CACHE_ON_LOAD = false

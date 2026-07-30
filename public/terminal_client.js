@@ -808,7 +808,7 @@ if (isCodexOnlyPage) {
         term = new Terminal({
             cursorBlink: true,
             macOptionIsMeta: true,
-            scrollback: 1000,
+            scrollback: 5000,
             fontSize: 14,
             fontFamily: 'Menlo, Monaco, "Courier New", monospace',
             theme: { background: '#000000', foreground: '#ffffff' }
@@ -833,16 +833,21 @@ window.onerror = function (msg, source, lineno, colno, error) {
 const HISTORY_STORAGE_PREFIX = 'termLinkClientHistory:';
 const HISTORY_MAX_LINES = 1000;
 
-let runtimeConfig = readInjectedConfig();
-// Default serverUrl to current origin whenever no config is provided
+const initialRuntimeConfig = readInjectedConfig();
+let runtimeConfig = initialRuntimeConfig;
+// Native Android injects the real server URL after the file:// page starts.
+// Never treat the asset origin as a usable WebSocket endpoint; doing so causes
+// a false first connection/error before the real config arrives.
 let inIframe = window.self !== window.top;
-let serverUrl = runtimeConfig.serverUrl || location.origin || '';
+let serverUrl = initialRuntimeConfig.serverUrl || (
+    location.protocol === 'file:' ? '' : (location.origin || '')
+);
 let sessionId = '';
 let authHeader = '';
 let historyEnabled = true;
 let historyState = { lines: [], tail: '' };
 let activeHistoryKey = '';
-let hasReceivedRuntimeConfig = false;
+let hasReceivedRuntimeConfig = Object.keys(initialRuntimeConfig).length > 0;
 
 let ws = null;
 let reconnectTimer = null;
@@ -851,6 +856,8 @@ const maxReconnectInterval = 30000;
 let clientHeartbeatTimer = null;
 const CLIENT_HEARTBEAT_INTERVAL_MS = 25000; // Send heartbeat every 25 seconds (before server's 30s timeout)
 const CODEX_NEW_THREAD_TIMEOUT_MS = 10000;
+let initialTerminalRedrawTimer = 0;
+let initialTerminalInputSeen = false;
 let isConnecting = false;
 let retryCount = 0;
 const MAX_RETRIES = 3;
@@ -7184,12 +7191,121 @@ function sendMessage(msg) {
     }
 }
 
-function sendResize() {
+function stopInitialTerminalRedraw() {
+    if (initialTerminalRedrawTimer) {
+        window.clearTimeout(initialTerminalRedrawTimer);
+        initialTerminalRedrawTimer = 0;
+    }
+}
+
+function scheduleInitialTerminalRedraw() {
+    stopInitialTerminalRedraw();
+    initialTerminalInputSeen = false;
+    if (isCodexOnlyPage || runtimeConfig.sessionMode === 'codex') return;
+
+    // PowerShell/ConPTY can expose only a cursor-control sequence for the
+    // first few seconds while the profile and prompt are starting. Ctrl+L is
+    // a non-destructive redraw request (unlike Enter, it cannot execute a
+    // partially typed command). Only send it if the terminal is still blank.
+    initialTerminalRedrawTimer = window.setTimeout(() => {
+        initialTerminalRedrawTimer = 0;
+        if (initialTerminalInputSeen || !term) return;
+        const activeBuffer = term.buffer && term.buffer.active;
+        const visibleText = activeBuffer && typeof activeBuffer.getLine === 'function'
+            ? Array.from({ length: Math.min(activeBuffer.length || 0, term.rows || 0) })
+                .map((_, index) => activeBuffer.getLine(index)?.translateToString(true) || '')
+                .join('')
+                .trim()
+            : '';
+        if (visibleText) return;
+        console.info('[TERMLINK_DIAG]', JSON.stringify({
+            event: 'android.terminal.initial_redraw',
+            method: 'ctrl_l'
+        }));
+        sendMessage({ type: 'input', data: '\f' });
+    }, 2200);
+}
+
+function fitTerminalToViewport() {
+    if (!fitAddon || !term || isCodexOnlyPage) return;
+
+    // PowerShell's `ls`/Get-ChildItem table formatter drops the final Name
+    // column when the PTY is too narrow. On Android portrait screens the
+    // previous 14px font produced only ~47 columns, so the list looked
+    // truncated even though PTY resize was working. Reduce the terminal font
+    // only on narrow screens until the formatter has a usable column budget.
+    const viewportWidth = terminalContainer ? terminalContainer.clientWidth : window.innerWidth;
+    const narrowScreen = viewportWidth > 0 && viewportWidth <= 600;
+    const minimumFontSize = viewportWidth > 0 && viewportWidth <= 380 ? 9 : 10;
+    if (narrowScreen && typeof term.options?.fontSize === 'number') {
+        let fontSize = Math.min(14, term.options.fontSize);
+        fitAddon.fit();
+        let dimensions = fitAddon.proposeDimensions();
+        while (dimensions && dimensions.cols < 64 && fontSize > minimumFontSize) {
+            fontSize = Math.max(minimumFontSize, Math.round((fontSize - 0.5) * 10) / 10);
+            term.options.fontSize = fontSize;
+            fitAddon.fit();
+            dimensions = fitAddon.proposeDimensions();
+        }
+        return dimensions;
+    }
+
+    if (typeof term.options?.fontSize === 'number' && term.options.fontSize !== 14) {
+        term.options.fontSize = 14;
+    }
     fitAddon.fit();
-    const dims = fitAddon.proposeDimensions();
+    return fitAddon.proposeDimensions();
+}
+
+function sendResize() {
+    const dims = fitTerminalToViewport();
     if (dims) {
         sendMessage({ type: 'resize', cols: dims.cols, rows: dims.rows });
+        const signature = `${dims.cols}x${dims.rows}:${terminalContainer ? terminalContainer.clientWidth : 0}x${terminalContainer ? terminalContainer.clientHeight : 0}`;
+        if (signature !== lastTerminalResizeSignature) {
+            lastTerminalResizeSignature = signature;
+            console.info('[TERMLINK_DIAG]', JSON.stringify({
+                event: 'android.terminal.resize',
+                cols: dims.cols,
+                rows: dims.rows,
+                containerWidth: terminalContainer ? terminalContainer.clientWidth : null,
+                containerHeight: terminalContainer ? terminalContainer.clientHeight : null,
+                innerWidth: window.innerWidth,
+                innerHeight: window.innerHeight
+            }));
+        }
     }
+}
+
+let lastTerminalResizeSignature = '';
+let terminalResizeFrame = 0;
+let terminalResizeWatch = 0;
+function scheduleTerminalResize() {
+    if (terminalResizeFrame) return;
+    const requestFrame = typeof window.requestAnimationFrame === 'function'
+        ? window.requestAnimationFrame.bind(window)
+        : callback => window.setTimeout(callback, 16);
+    terminalResizeFrame = requestFrame(() => {
+        terminalResizeFrame = 0;
+        sendResize();
+    });
+}
+
+function startTerminalResizeWatch() {
+    if (terminalResizeWatch || typeof window.setInterval !== 'function') return;
+    // Android can dispatch configuration changes before the WebView has
+    // committed its final viewport. Keep a short-lived, low-cost watch so the
+    // PTY receives the final portrait columns instead of the previous
+    // landscape width. The observer/event handlers remain the fast path.
+    let remainingChecks = 12;
+    terminalResizeWatch = window.setInterval(() => {
+        scheduleTerminalResize();
+        remainingChecks -= 1;
+        if (remainingChecks <= 0) {
+            window.clearInterval(terminalResizeWatch);
+            terminalResizeWatch = 0;
+        }
+    }, 120);
 }
 
 function focusTerminal() {
@@ -7316,6 +7432,11 @@ function handleLocalViewportScrollKey(key) {
 function connect() {
     if (isConnecting) return;
 
+    if (location.protocol === 'file:' && !hasReceivedRuntimeConfig) {
+        showStatus(t('codex.status.waitingConfig'));
+        return;
+    }
+
     if (!serverUrl) {
         // During startup, native config injection may not have arrived yet.
         // Avoid surfacing a false error before first config delivery.
@@ -7372,6 +7493,11 @@ function connect() {
             resetCodexBootstrapState();
             hideStatus();
             sendResize();
+            startTerminalResizeWatch();
+            scheduleInitialTerminalRedraw();
+            [80, 240, 600].forEach((delay) => {
+                window.setTimeout(scheduleTerminalResize, delay);
+            });
             startClientHeartbeat();
             notifyNativeConnectionState('connected', `Connected via ${transportLabel}`);
             if (codexState.status !== 'running') {
@@ -7392,6 +7518,21 @@ function connect() {
                         : String(envelope.data ?? '');
                     term.write(output);
                     appendHistoryChunk(output);
+                    return;
+                }
+                if (envelope.type === 'terminal_snapshot') {
+                    const snapshot = typeof envelope.data === 'string'
+                        ? envelope.data
+                        : String(envelope.data ?? '');
+                    // Prefer the local history when it is available. The
+                    // server snapshot is primarily for a fresh/recreated
+                    // WebView whose PTY is already running.
+                    const hasLocalHistory = historyState.lines.length > 0 || historyState.tail.length > 0;
+                    if (snapshot && !hasLocalHistory) {
+                        term.reset();
+                        term.write(snapshot);
+                        appendHistoryChunk(snapshot);
+                    }
                     return;
                 }
                 if (envelope.type === 'session_info') {
@@ -7690,6 +7831,7 @@ function connect() {
             console.log('[JS] WebSocket CLOSED:', event.code, event.reason);
             isConnecting = false;
             stopClientHeartbeat();
+            stopInitialTerminalRedraw();
             rejectPendingCodexBridgeRequests(
                 `Codex bridge closed (${event.code}).`,
                 'CODEX_BRIDGE_CLOSED'
@@ -7843,22 +7985,35 @@ function warmupHttpsForWs(normalizedBaseUrl) {
 term.onData((data) => {
     const payload = resolveTypedInputWithModifiers(data);
     if (!payload) return;
+    initialTerminalInputSeen = true;
+    stopInitialTerminalRedraw();
     sendMessage({ type: 'input', data: payload });
 });
 
 // ── Keyboard / viewport resize handling ─────────────────
-window.addEventListener('resize', () => {
+const handleTerminalViewportResize = () => {
+    fitTerminalToViewport();
     updateViewportLayoutState();
-    sendResize();
-});
+    scheduleTerminalResize();
+};
+
+window.addEventListener('resize', handleTerminalViewportResize);
 
 if (window.visualViewport && typeof window.visualViewport.addEventListener === 'function') {
-    window.visualViewport.addEventListener('resize', updateViewportLayoutState);
+    window.visualViewport.addEventListener('resize', handleTerminalViewportResize);
+}
+
+if (typeof ResizeObserver === 'function' && terminalContainer) {
+    const terminalResizeObserver = new ResizeObserver(handleTerminalViewportResize);
+    terminalResizeObserver.observe(terminalContainer);
+}
+
+if (typeof screen !== 'undefined' && screen.orientation && typeof screen.orientation.addEventListener === 'function') {
+    screen.orientation.addEventListener('change', handleTerminalViewportResize);
 }
 
 window.__onNativeViewportChanged = function () {
-    updateViewportLayoutState();
-    sendResize();
+    handleTerminalViewportResize();
 };
 
 function setQuickToolbarVisible(visible) {
@@ -7879,6 +8034,10 @@ window.__setQuickToolbarVisible = function(visible) {
 
 setQuickToolbarVisible(true);
 sendResize();
+startTerminalResizeWatch();
+[0, 120, 360, 720, 1200].forEach((delay) => {
+    window.setTimeout(scheduleTerminalResize, delay);
+});
 refreshModifierButtons();
 renderModifierButtonState();
 
@@ -8391,8 +8550,20 @@ if (terminalContainer && isTouchDevice) {
     let activeTouchId = null;
     let touchStartY = 0;
     let lastTouchY = 0;
+    let lastTouchAt = 0;
+    let touchStartedAt = 0;
+    let touchMoveCount = 0;
+    let touchScrollDelta = 0;
     let draggedSinceTouchStart = false;
     const DRAG_THRESHOLD_PX = 6;
+    const scrollTarget = terminalContainer.querySelector('.xterm-viewport') || terminalContainer;
+    // Listen on the outer container in capture phase. Listening only on
+    // `.xterm-screen` still lets xterm's row/selection handlers participate
+    // for touches that begin on a rendered line, which is exactly the common
+    // case when a long `ls` fills the portrait screen.
+    const touchTarget = terminalContainer;
+    let momentumFrame = 0;
+    let momentumVelocity = 0;
 
     const closeSoftKeyboard = () => {
         const activeEl = document.activeElement;
@@ -8424,10 +8595,33 @@ if (terminalContainer && isTouchDevice) {
         callNativeBridge('requestHideKeyboard', []);
     };
 
-    const getViewport = () => terminalContainer.querySelector('.xterm-viewport');
     const touchListenerCapture = { capture: true };
     const passiveTouchStartOptions = { passive: true, capture: true };
     const activeTouchOptions = { passive: false, capture: true };
+
+    const stopMomentum = () => {
+        if (momentumFrame) cancelAnimationFrame(momentumFrame);
+        momentumFrame = 0;
+        momentumVelocity = 0;
+    };
+
+    const runMomentum = () => {
+        if (Math.abs(momentumVelocity) < 0.08) {
+            momentumFrame = 0;
+            momentumVelocity = 0;
+            return;
+        }
+        const before = scrollTarget.scrollTop;
+        scrollTarget.scrollTop -= momentumVelocity * 16;
+        const moved = scrollTarget.scrollTop - before;
+        if (Math.abs(moved) < 0.5) {
+            momentumFrame = 0;
+            momentumVelocity = 0;
+            return;
+        }
+        momentumVelocity *= 0.94;
+        momentumFrame = requestAnimationFrame(runMomentum);
+    };
 
     const resolveTrackedTouch = (touchList) => {
         if (!touchList || activeTouchId === null) return null;
@@ -8439,26 +8633,27 @@ if (terminalContainer && isTouchDevice) {
         return null;
     };
 
-    const isViewportScrollable = (viewport) => (
-        !!viewport && viewport.scrollHeight > viewport.clientHeight + 1
-    );
+    touchTarget.style.touchAction = 'none';
 
-    terminalContainer.addEventListener('touchstart', (e) => {
+    touchTarget.addEventListener('touchstart', (e) => {
         const touch = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
         if (!touch) return;
+        e.stopImmediatePropagation();
+        stopMomentum();
         activeTouchId = touch.identifier;
         touchStartY = touch.clientY;
         lastTouchY = touch.clientY;
+        lastTouchAt = Date.now();
+        touchStartedAt = Date.now();
+        touchMoveCount = 0;
+        touchScrollDelta = 0;
         draggedSinceTouchStart = false;
     }, passiveTouchStartOptions);
 
-    terminalContainer.addEventListener('touchmove', (e) => {
+    touchTarget.addEventListener('touchmove', (e) => {
         if (activeTouchId === null) return;
         const touch = resolveTrackedTouch(e.touches) || resolveTrackedTouch(e.changedTouches);
         if (!touch) return;
-
-        const viewport = getViewport();
-        if (!isViewportScrollable(viewport)) return;
 
         const deltaYFromStart = touch.clientY - touchStartY;
         if (!draggedSinceTouchStart && Math.abs(deltaYFromStart) >= DRAG_THRESHOLD_PX) {
@@ -8470,21 +8665,44 @@ if (terminalContainer && isTouchDevice) {
         if (deltaY === 0) return;
 
         e.preventDefault();
-        e.stopPropagation();
-        viewport.scrollTop -= deltaY;
+        e.stopImmediatePropagation();
+        touchMoveCount += 1;
+        touchScrollDelta += deltaY;
         lastTouchY = touch.clientY;
+        scrollTarget.scrollTop -= deltaY;
+        const now = Date.now();
+        const elapsedMs = Math.max(1, now - lastTouchAt);
+        lastTouchAt = now;
+        momentumVelocity = Math.max(-2.5, Math.min(2.5, deltaY / Math.max(1, Math.min(32, elapsedMs))));
         suppressNextClickFocus = true;
         suppressFocusUntil = Date.now() + 280;
     }, activeTouchOptions);
 
-    terminalContainer.addEventListener('touchend', (e) => {
+    touchTarget.addEventListener('touchend', (e) => {
+        const viewport = scrollTarget;
+        e.stopImmediatePropagation();
+        console.info('[TERMLINK_DIAG]', JSON.stringify({
+            event: 'android.terminal.scroll.gesture',
+            durationMs: touchStartedAt > 0 ? Math.max(0, Date.now() - touchStartedAt) : 0,
+            dragged: draggedSinceTouchStart,
+            moveCount: touchMoveCount,
+            gestureDeltaPx: Math.round(touchScrollDelta),
+            nativeScrollTop: viewport ? Math.round(viewport.scrollTop) : null,
+            nativeScrollHeight: viewport ? Math.round(viewport.scrollHeight) : null,
+            nativeClientHeight: viewport ? Math.round(viewport.clientHeight) : null
+        }));
         activeTouchId = null;
+        lastTouchAt = 0;
+        touchStartedAt = 0;
+        touchMoveCount = 0;
+        touchScrollDelta = 0;
         if (draggedSinceTouchStart) {
-            e.preventDefault();
-            e.stopPropagation();
             draggedSinceTouchStart = false;
             suppressNextClickFocus = true;
             suppressFocusUntil = Date.now() + 280;
+            lastTapAt = 0;
+            stopMomentum();
+            momentumFrame = requestAnimationFrame(runMomentum);
             return;
         }
 
@@ -8501,8 +8719,14 @@ if (terminalContainer && isTouchDevice) {
         lastTapAt = now;
     }, activeTouchOptions);
 
-    terminalContainer.addEventListener('touchcancel', () => {
+    touchTarget.addEventListener('touchcancel', (e) => {
+        e.stopImmediatePropagation();
+        stopMomentum();
+        touchStartedAt = 0;
+        touchMoveCount = 0;
+        touchScrollDelta = 0;
         activeTouchId = null;
+        lastTouchAt = 0;
         draggedSinceTouchStart = false;
     }, passiveTouchStartOptions);
 
@@ -8513,12 +8737,14 @@ if (terminalContainer && isTouchDevice) {
         suppressFocusUntil = now + 420;
     }, touchListenerCapture);
 
-    terminalContainer.addEventListener('click', () => {
+    terminalContainer.addEventListener('click', (e) => {
         const now = Date.now();
         const termTextarea = term && term.textarea;
         if (!termTextarea) return;
         if (suppressNextClickFocus) {
             suppressNextClickFocus = false;
+            e.preventDefault();
+            e.stopPropagation();
             return;
         }
         if (now < suppressFocusUntil) {

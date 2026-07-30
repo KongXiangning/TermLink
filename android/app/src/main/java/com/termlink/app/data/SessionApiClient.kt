@@ -24,7 +24,9 @@ class SessionApiClient(context: Context) {
             profile = profile,
             method = "GET",
             endpointPath = "/sessions",
-            body = null
+            body = null,
+            connectTimeoutMs = SESSION_LIST_CONNECT_TIMEOUT_MS,
+            readTimeoutMs = SESSION_LIST_READ_TIMEOUT_MS
         )
         return when (response) {
             is ApiResult.Failure -> response
@@ -314,7 +316,9 @@ class SessionApiClient(context: Context) {
         profile: ServerProfile,
         method: String,
         endpointPath: String,
-        body: String?
+        body: String?,
+        connectTimeoutMs: Int = DEFAULT_CONNECT_TIMEOUT_MS,
+        readTimeoutMs: Int = DEFAULT_READ_TIMEOUT_MS
     ): ApiResult<String> {
         val requestStartedAt = SystemClock.elapsedRealtime()
         PersistentDiagnosticLog.event(
@@ -339,8 +343,8 @@ class SessionApiClient(context: Context) {
                 (currentUrl.openConnection() as HttpURLConnection).apply {
                     instanceFollowRedirects = false
                     setRequestMethodCompat(this, currentMethod)
-                    connectTimeout = 5000
-                    readTimeout = 10000
+                    connectTimeout = connectTimeoutMs
+                    readTimeout = readTimeoutMs
                     setRequestProperty("Accept", "application/json")
                 }
             } catch (ex: IOException) {
@@ -642,6 +646,10 @@ class SessionApiClient(context: Context) {
     companion object {
         private const val TAG = "TermLink-SessionApi"
         private const val MAX_REDIRECTS = 5
+        private const val DEFAULT_CONNECT_TIMEOUT_MS = 5000
+        private const val DEFAULT_READ_TIMEOUT_MS = 10000
+        private const val SESSION_LIST_CONNECT_TIMEOUT_MS = 2000
+        private const val SESSION_LIST_READ_TIMEOUT_MS = 3000
         private val REDIRECT_STATUS_CODES = setOf(301, 302, 303, 307, 308)
     }
 }

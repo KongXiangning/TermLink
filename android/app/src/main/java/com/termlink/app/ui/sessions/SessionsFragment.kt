@@ -46,6 +46,7 @@ import java.text.DateFormat
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.atomic.AtomicLong
 
 open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
@@ -768,7 +769,19 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     }
 
     protected open fun postCacheWrite(task: Runnable) {
-        executor.execute(task)
+        if (executor.isShutdown || executor.isTerminated) return
+        try {
+            executor.execute(task)
+        } catch (_: RejectedExecutionException) {
+            // A refresh callback can race Fragment.onDestroy(), which shuts
+            // down the cache executor. Dropping that stale write is safe; it
+            // must never crash the process during terminal reconnect/exit.
+            PersistentDiagnosticLog.event(
+                "sessions",
+                "android.sessions.cache_write.dropped_after_destroy",
+                level = "warn"
+            )
+        }
     }
 
     private fun writeMutatedRemoteProfileCache(group: ProfileGroupResult) {
@@ -850,14 +863,19 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
     }
 
     private fun renderGroupedSessions(groups: List<ProfileGroupResult>) {
-        groupedSessions = groups
+        // Normalize both remote and cached responses so newest activity is
+        // always shown first, independent of server response order.
+        val orderedGroups = groups.map { group ->
+            group.copy(sessions = SessionSummaryOrdering.normalize(group.sessions))
+        }
+        groupedSessions = orderedGroups
         errorText.visibility = View.GONE
         listContainer.removeAllViews()
 
-        val availableSelections = groups.flatMap { group ->
+        val availableSelections = orderedGroups.flatMap { group ->
             group.sessions.map { buildSelection(group.profile.id, it) }
         }
-        val hasGroupErrors = groups.any { it.error != null }
+        val hasGroupErrors = orderedGroups.any { it.error != null }
         val selectionFallbackAllowed = groups.isNotEmpty() && !hasGroupErrors
         val selectionExists = availableSelections.any {
             it.profileId == currentSelection.profileId && it.sessionId == currentSelection.sessionId
@@ -875,7 +893,7 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
         val normalBackgroundColor = ContextCompat.getColor(requireContext(), R.color.sessions_card_bg)
 
         var totalSessions = 0
-        groups.forEach { group ->
+        orderedGroups.forEach { group ->
             val groupView = layoutInflater.inflate(
                 R.layout.item_profile_group_card,
                 listContainer,
@@ -897,11 +915,15 @@ open class SessionsFragment : Fragment(R.layout.fragment_sessions) {
             val groupLoadError = group.error
             if (groupLoadError != null) {
                 groupCount.text = getString(R.string.sessions_group_count, 0)
-                groupError.text = getString(
-                    R.string.sessions_group_error,
-                    groupLoadError.code.name,
-                    toDisplayErrorMessage(groupLoadError)
-                )
+                groupError.text = if (groupLoadError.code == SessionApiErrorCode.NETWORK_ERROR) {
+                    getString(R.string.sessions_group_offline)
+                } else {
+                    getString(
+                        R.string.sessions_group_error,
+                        groupLoadError.code.name,
+                        toDisplayErrorMessage(groupLoadError)
+                    )
+                }
                 groupError.visibility = View.VISIBLE
                 groupEmpty.visibility = View.GONE
                 groupSessionsContainer.visibility = View.GONE

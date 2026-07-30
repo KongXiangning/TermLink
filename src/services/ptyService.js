@@ -5,6 +5,11 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { withWindowsPtyOptions } = require('./ptySpawnOptions');
 
+// Keep a bounded in-memory tail so a client attaching to an already-running
+// shell can reconstruct the initial screen without sending a synthetic Enter.
+// The buffer is intentionally session-local and is never persisted to disk.
+const MAX_OUTPUT_BUFFER_LENGTH = 256 * 1024;
+
 function hasCommand(command) {
     const checker = os.platform() === 'win32' ? 'where' : 'which';
     try {
@@ -54,10 +59,19 @@ function resolveShell() {
     return 'bash';
 }
 
-function resolveShellArgs() {
+function resolveShellArgs(shell = '') {
     const rawArgs = (process.env.PTY_SHELL_ARGS || '').trim();
-    if (!rawArgs) return [];
-    return rawArgs.split(/\s+/).filter(Boolean);
+    if (rawArgs) return rawArgs.split(/\s+/).filter(Boolean);
+
+    // PowerShell's default logo/update check can block the first prompt for
+    // several seconds on a mobile WebView. Keep the normal profile and
+    // commands, but suppress only the startup logo so the prompt is painted
+    // immediately. Explicit PTY_SHELL_ARGS still has full control.
+    if (os.platform() === 'win32' && /(?:^|[\\/])(pwsh|powershell)(?:\.exe)?$/i.test(shell)) {
+        return ['-NoLogo'];
+    }
+
+    return [];
 }
 
 function findKnownWindowsPwshPath() {
@@ -98,14 +112,19 @@ function findKnownWindowsPwshPath() {
 class PtyService {
     constructor() {
         this.shell = resolveShell();
-        this.shellArgs = resolveShellArgs();
+        this.shellArgs = resolveShellArgs(this.shell);
         this.ptyProcess = null;
+        this.outputBuffer = '';
+        this.dataListeners = [];
     }
 
     spawn(cols, rows) {
         if (this.ptyProcess) {
             this.kill();
         }
+
+        // A new PTY has a new screen; do not replay output from a prior shell.
+        this.outputBuffer = '';
 
         // Force tmux session named 'main' by default, or attach if exists
         // -A: attach to existing session if it exists
@@ -122,13 +141,33 @@ class PtyService {
             env: process.env
         }));
 
+        // Attach listeners immediately after spawn. Keeping the listener
+        // registrations separately also lets SessionManager register before
+        // spawning, eliminating the startup-output race.
+        this.dataListeners.forEach((listener) => {
+            this.ptyProcess.on('data', listener);
+        });
+
         return this.ptyProcess;
     }
 
     onData(callback) {
+        if (typeof callback !== 'function') return;
+        const listener = (data) => {
+            const chunk = typeof data === 'string' ? data : String(data ?? '');
+            if (chunk) {
+                this.outputBuffer = `${this.outputBuffer}${chunk}`.slice(-MAX_OUTPUT_BUFFER_LENGTH);
+            }
+            callback(data);
+        };
+        this.dataListeners.push(listener);
         if (this.ptyProcess) {
-            this.ptyProcess.on('data', callback);
+            this.ptyProcess.on('data', listener);
         }
+    }
+
+    getOutputSnapshot() {
+        return this.outputBuffer;
     }
 
     write(data) {
