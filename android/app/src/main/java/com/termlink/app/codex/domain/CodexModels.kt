@@ -119,7 +119,8 @@ data class CodexThreadHistoryEntry(
     val title: String,
     val archived: Boolean = false,
     val lastActiveAt: Long? = null,
-    val createdAt: Long? = null
+    val createdAt: Long? = null,
+    val goalObjective: String? = null
 )
 
 data class CodexPlanWorkflowState(
@@ -222,6 +223,7 @@ data class CodexUiState(
     val reasoningEffort: String? = null,
     val sandbox: Boolean? = null,
     val planMode: Boolean? = null,
+    val goalMode: Boolean = false,
     val planWorkflow: CodexPlanWorkflowState = CodexPlanWorkflowState(),
     val executionWatch: CodexExecutionWatchState = CodexExecutionWatchState(),
     val capabilities: CodexCapabilities? = null,

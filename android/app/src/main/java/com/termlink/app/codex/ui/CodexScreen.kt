@@ -240,6 +240,7 @@ fun CodexScreen(
     onHideSandboxPicker: () -> Unit,
     onSelectSandboxMode: (String?) -> Unit,
     onTogglePlanMode: () -> Unit,
+    onToggleGoalMode: () -> Unit,
     onExecuteConfirmedPlan: () -> Unit,
     onContinuePlanWorkflow: () -> Unit,
     onCancelPlanWorkflow: () -> Unit,
@@ -593,6 +594,7 @@ fun CodexScreen(
                             onShowSandboxPicker()
                         },
                         onTogglePlanMode = onTogglePlanMode,
+                        onToggleGoalMode = onToggleGoalMode,
                         onShowUsagePanel = onShowUsagePanel,
                         onClearActiveSkill = onClearActiveSkill
                     )
@@ -3828,6 +3830,16 @@ private fun ThreadHistoryItem(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+                entry.goalObjective?.takeIf { it.isNotBlank() }?.let { objective ->
+                    Text(
+                        text = stringResource(R.string.codex_native_thread_goal_objective, objective),
+                        color = AccentBlue,
+                        fontSize = 10.sp,
+                        lineHeight = 14.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     if (isCurrent) {
                         HistoryBadge(
@@ -3839,6 +3851,12 @@ private fun ThreadHistoryItem(
                         HistoryBadge(
                             label = stringResource(R.string.codex_native_thread_badge_archived),
                             emphasized = false
+                        )
+                    }
+                    if (!entry.goalObjective.isNullOrBlank()) {
+                        HistoryBadge(
+                            label = stringResource(R.string.codex_native_thread_badge_goal),
+                            emphasized = isCurrent
                         )
                     }
                     if (isItemBusy) {
@@ -4115,12 +4133,12 @@ private fun FooterControls(
     onShowReasoningPicker: () -> Unit,
     onShowSandboxPicker: () -> Unit,
     onTogglePlanMode: () -> Unit,
+    onToggleGoalMode: () -> Unit,
     slashMenuVisible: Boolean,
     onShowUsagePanel: () -> Unit,
     onPickLocalFile: () -> Unit,
     onPrepareAddMenu: () -> Unit,
     onInsertSlash: () -> Unit,
-    onStartGoalDraft: () -> Unit,
     canSubmit: Boolean,
     hasInterruptibleTurn: Boolean,
     onSubmit: () -> Unit,
@@ -4195,15 +4213,16 @@ private fun FooterControls(
                     expanded = addMenuExpanded,
                     attachmentEnabled = imageInputEnabled,
                     planActive = state.planMode == true,
+                    goalActive = state.goalMode,
                     contextUsedPercent = contextUsedPercent,
                     onDismiss = { addMenuExpanded = false },
                     onPickAttachment = {
                         addMenuExpanded = false
                         onPickLocalFile()
                     },
-                    onStartGoalDraft = {
+                    onToggleGoalMode = {
                         addMenuExpanded = false
-                        onStartGoalDraft()
+                        onToggleGoalMode()
                     },
                     onTogglePlanMode = {
                         addMenuExpanded = false
@@ -4241,11 +4260,14 @@ private fun FooterControls(
         if (state.planMode == true) {
             FooterPlanIndicatorButton(onClick = onTogglePlanMode)
         }
+        if (state.goalMode) {
+            FooterGoalIndicatorButton(onClick = onToggleGoalMode)
+        }
         Spacer(modifier = Modifier.weight(1f))
         ModelReasoningButton(
             text = modelReasoningSummary,
             active = configSheetExpanded || state.modelPickerVisible || state.reasoningPickerVisible,
-            compact = state.planMode == true,
+            compact = state.planMode == true || state.goalMode,
             onClick = {
                 if (!configHydrating) {
                     addMenuExpanded = false
@@ -4337,10 +4359,11 @@ private fun ComposerAddMenu(
     expanded: Boolean,
     attachmentEnabled: Boolean,
     planActive: Boolean,
+    goalActive: Boolean,
     contextUsedPercent: Int?,
     onDismiss: () -> Unit,
     onPickAttachment: () -> Unit,
-    onStartGoalDraft: () -> Unit,
+    onToggleGoalMode: () -> Unit,
     onTogglePlanMode: () -> Unit,
     onShowContext: () -> Unit
 ) {
@@ -4368,7 +4391,8 @@ private fun ComposerAddMenu(
             title = stringResource(R.string.codex_native_add_menu_goal),
             description = stringResource(R.string.codex_native_add_menu_goal_hint),
             iconRes = R.drawable.ic_goal_24,
-            onClick = onStartGoalDraft
+            active = goalActive,
+            onClick = onToggleGoalMode
         )
         ComposerAddMenuItem(
             title = stringResource(R.string.codex_native_add_menu_plan),
@@ -4564,6 +4588,37 @@ private fun FooterPlanIndicatorButton(onClick: () -> Unit) {
             Text(
                 text = stringResource(R.string.codex_native_plan_mode),
                 color = SuccessColor,
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun FooterGoalIndicatorButton(onClick: () -> Unit) {
+    val contentDescription = stringResource(R.string.codex_native_goal_mode_chip)
+    Surface(
+        modifier = Modifier
+            .heightIn(min = 34.dp)
+            .clickable(onClick = onClick)
+            .semantics {
+                this.contentDescription = contentDescription
+                role = Role.Button
+            },
+        color = AccentBlue.copy(alpha = 0.14f),
+        shape = RoundedCornerShape(CodexBottomBarTokens.chipRadius),
+        border = BorderStroke(1.dp, AccentBlue.copy(alpha = 0.35f))
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = stringResource(R.string.codex_native_add_menu_goal),
+                color = AccentBlue,
                 fontSize = 11.sp,
                 lineHeight = 13.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -4846,6 +4901,7 @@ private fun InputComposer(
     onShowReasoningPicker: () -> Unit,
     onShowSandboxPicker: () -> Unit,
     onTogglePlanMode: () -> Unit,
+    onToggleGoalMode: () -> Unit,
     onShowUsagePanel: () -> Unit,
     onClearActiveSkill: () -> Unit = {}
 ) {
@@ -4877,11 +4933,11 @@ private fun InputComposer(
         ).toDp()
     }
 
-    LaunchedEffect(state.planMode, state.planWorkflow.phase) {
-        val shouldFocusComposer = state.planMode == true && (
+    LaunchedEffect(state.goalMode, state.planMode, state.planWorkflow.phase) {
+        val shouldFocusComposer = state.goalMode || (state.planMode == true && (
             state.planWorkflow.phase == "planning" ||
                 state.planWorkflow.phase == "awaiting_user_input"
-            )
+            ))
         if (shouldFocusComposer) {
             composerFocusRequester.requestFocus()
             keyboardController?.show()
@@ -4899,6 +4955,11 @@ private fun InputComposer(
         }
         val mentionParseText = composerRawTextForMentionParsing(rawText, mentionParseMentions)
         onComposerTextChanged(mentionParseText)
+        if (state.goalMode) {
+            onHideSlashMenu()
+            onHideFileMentionMenu()
+            return
+        }
         if (CodexSlashRegistry.parseFileMentionInput(mentionParseText) != null) {
             onHideSlashMenu()
             return
@@ -5201,6 +5262,7 @@ private fun InputComposer(
                         onShowReasoningPicker = onShowReasoningPicker,
                         onShowSandboxPicker = onShowSandboxPicker,
                         onTogglePlanMode = onTogglePlanMode,
+                        onToggleGoalMode = onToggleGoalMode,
                         slashMenuVisible = slashMenuVisible,
                         onShowUsagePanel = onShowUsagePanel,
                         onPickLocalFile = onPickLocalFile,
@@ -5209,7 +5271,6 @@ private fun InputComposer(
                             onHideFileMentionMenu()
                         },
                         onInsertSlash = { insertComposerText("/") },
-                        onStartGoalDraft = { insertComposerText("/goal ") },
                         canSubmit = canSubmit,
                         hasInterruptibleTurn = hasInterruptibleTurn,
                         onSubmit = { submit() },

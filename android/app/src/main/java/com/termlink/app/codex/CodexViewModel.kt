@@ -219,6 +219,7 @@ internal fun projectCanonicalTurnRuntime(
 }
 
 private const val REMEMBERED_CONFIG_PREFS = "codex_task_config_overrides"
+private const val GOAL_HISTORY_PREFS = "codex_goal_history"
 
 internal fun rememberedTaskConfigKey(profileId: String?, threadId: String?): String? {
     val profile = profileId?.trim()?.takeIf(String::isNotEmpty) ?: return null
@@ -515,6 +516,7 @@ internal fun applyIpcConversationSelectionToUiState(
         ownerCurrentCodexConfig = if (switched) null else state.ownerCurrentCodexConfig,
         nextTurnOverrides = if (switched) NextTurnOverrides() else state.nextTurnOverrides,
         activeGoal = if (switched) null else state.activeGoal,
+        goalMode = if (switched) false else state.goalMode,
         messages = if (switched && hadIpcSurface) emptyList() else state.messages,
         pendingServerRequests = if (switched) {
             state.pendingServerRequests.filterNot { it.handledBy.equals("ipc_follower", ignoreCase = true) }
@@ -545,6 +547,7 @@ internal fun clearIpcConversationSelectionFromUiState(state: CodexUiState): Code
         ownerCurrentCodexConfig = null,
         nextTurnOverrides = NextTurnOverrides(),
         activeGoal = null,
+        goalMode = false,
         followerModeEnabled = false,
         followerActiveSendAllowed = false,
         messages = if (hadIpcSurface) emptyList() else state.messages,
@@ -1705,6 +1708,10 @@ class CodexViewModel(
         REMEMBERED_CONFIG_PREFS,
         Context.MODE_PRIVATE
     )
+    private val goalHistoryStore = this.appContext.getSharedPreferences(
+        GOAL_HISTORY_PREFS,
+        Context.MODE_PRIVATE
+    )
 
     private val _uiState = MutableStateFlow(CodexUiState())
     val uiState: StateFlow<CodexUiState> = _uiState.asStateFlow()
@@ -1810,6 +1817,7 @@ class CodexViewModel(
                     ownerCurrentCodexConfig = null,
                     nextTurnEffectiveCodexConfig = null,
                     nextTurnOverrides = rememberedOverrides,
+                    goalMode = false,
                     planWorkflow = buildEmptyPlanWorkflowState(),
                     pendingFileMentions = emptyList(),
                     fileMentionMenuVisible = false,
@@ -2051,6 +2059,11 @@ class CodexViewModel(
      */
     fun handleComposerSubmit(rawText: String) {
         hideFileMentionMenu()
+        if (_uiState.value.goalMode) {
+            startFollowerGoal(rawText)
+            hideSlashMenu()
+            return
+        }
         val parsed = CodexSlashRegistry.parseComposerInput(rawText)
         when (parsed) {
             is CodexSlashRegistry.ParsedInput.Empty -> sendTurnWithOverrides("")
@@ -2143,6 +2156,7 @@ class CodexViewModel(
                     messages = emptyList(),
                     errorMessage = null,
                     planMode = false,
+                    goalMode = false,
                     planWorkflow = buildEmptyPlanWorkflowState(),
                     pendingFileMentions = emptyList(),
                     fileMentionMenuVisible = false,
@@ -3043,11 +3057,13 @@ class CodexViewModel(
         }
     }
 
-    private fun startFollowerGoal(argumentText: String) {
+    private fun startFollowerGoal(argumentText: String): Boolean {
         val objective = argumentText.trim()
+            .replaceFirst(Regex("^/goal(?:\\s+|$)", RegexOption.IGNORE_CASE), "")
+            .trim()
         if (objective.isEmpty()) {
             appendMessage(ChatMessage.Role.SYSTEM, "Goal objective is required.")
-            return
+            return false
         }
         val state = _uiState.value
         if (!shouldUseIpcFollowerSendTransportState(state)) {
@@ -3067,9 +3083,13 @@ class CodexViewModel(
             _uiState.update {
                 it.copy(errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable))
             }
-            return
+            return false
         }
-        sendTurnWithOverrides("/goal $objective", goalObjective = objective)
+        val sent = sendTurnWithOverrides("/goal $objective", goalObjective = objective)
+        if (sent) {
+            _uiState.update { it.copy(goalMode = false) }
+        }
+        return sent
     }
 
     private fun handleSlashSkill(argumentText: String) {
@@ -3105,6 +3125,7 @@ class CodexViewModel(
         _uiState.update { state ->
             state.copy(
                 planMode = true,
+                goalMode = false,
                 interactionState = buildInteractionState(state, planMode = true),
                 planWorkflow = state.planWorkflow.copy(
                     phase = PLAN_PHASE_PLANNING,
@@ -3397,6 +3418,23 @@ class CodexViewModel(
             recalculateNextTurnEffectiveConfig(state.copy(nextTurnOverrides = overrides))
         }
         rememberCurrentTaskOverrides(reason = "set-overrides")
+    }
+
+    fun toggleGoalMode() {
+        val current = _uiState.value
+        if (current.goalMode) {
+            _uiState.update { it.copy(goalMode = false) }
+            return
+        }
+        if (current.planMode == true) {
+            closePlanMode(clearWorkflow = true)
+        }
+        _uiState.update {
+            it.copy(
+                goalMode = true,
+                errorMessage = null
+            )
+        }
     }
 
     private fun loadRememberedTaskOverrides(threadId: String?, reason: String): NextTurnOverrides {
@@ -4479,10 +4517,16 @@ class CodexViewModel(
                         )
                     }
                     noteMatchingIpcSurface(snap)
-                    _uiState.update { current ->
-                        syncExecutionWatch(
-                            applyDesktopSurfaceSnapshotToUiState(current, snap),
+                    snap.activeGoal?.objective?.trim()?.takeIf { it.isNotEmpty() }?.let { objective ->
+                        rememberGoalHistory(convId, objective)
+                    }
+                    _uiState.update { state ->
+                        val updated = syncExecutionWatch(
+                            applyDesktopSurfaceSnapshotToUiState(state, snap),
                             markActivity = true
+                        )
+                        updated.copy(
+                            threadHistoryEntries = mergeGoalHistoryEntries(updated.threadHistoryEntries)
                         )
                     }
                     if (!snap.desynced) maybeRequestHistorySync(convId)
@@ -6072,11 +6116,12 @@ class CodexViewModel(
                         item.opt("createdAt")
                             ?: item.opt("created_at")
                             ?: item.opt("created")
-                    )
+                    ),
+                    goalObjective = null
                 )
             )
         }
-        return entries.sortedWith(
+        return mergeGoalHistoryEntries(entries).sortedWith(
             compareByDescending<CodexThreadHistoryEntry> { entry -> entry.lastActiveAt ?: Long.MIN_VALUE }
                 .thenByDescending { entry -> entry.createdAt ?: Long.MIN_VALUE }
                 .thenBy { entry -> entry.id }
@@ -6195,6 +6240,29 @@ class CodexViewModel(
             }
         }
         return collapseCompletedCommandBatchesForUi(result, collapsibleTurnIds)
+    }
+
+    private fun goalHistoryKey(threadId: String?): String? =
+        rememberedTaskConfigKey(currentProfile?.id, threadId)
+
+    private fun rememberGoalHistory(threadId: String?, objective: String) {
+        val key = goalHistoryKey(threadId) ?: return
+        val normalizedObjective = objective.trim().takeIf { it.isNotEmpty() } ?: return
+        goalHistoryStore.edit().putString(key, normalizedObjective).apply()
+    }
+
+    private fun mergeGoalHistoryEntries(
+        entries: List<CodexThreadHistoryEntry>
+    ): List<CodexThreadHistoryEntry> = entries.map { entry ->
+        if (!entry.goalObjective.isNullOrBlank()) {
+            entry
+        } else {
+            entry.copy(
+                goalObjective = goalHistoryKey(entry.id)?.let { key ->
+                    goalHistoryStore.getString(key, null)
+                }
+            )
+        }
     }
 
     private fun isTerminalTurnStatusForUi(status: String?): Boolean =
@@ -8118,6 +8186,7 @@ class CodexViewModel(
         _uiState.update { current ->
             current.copy(
                 planMode = planMode,
+                goalMode = if (planMode) false else current.goalMode,
                 interactionState = buildInteractionState(current, planMode)
             )
         }
