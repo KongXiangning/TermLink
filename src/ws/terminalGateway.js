@@ -49,10 +49,6 @@ function parseGoalObjective(input) {
     return match ? normalizeGoalObjective(match[1]) : null;
 }
 
-function isGoalDirective(input) {
-    return typeof input === 'string' && /^\/goal(?:\s|$)/i.test(input.trim());
-}
-
 function compactForLog(value, maxLength = 4000) {
     const text = typeof value === 'string' ? value : JSON.stringify(value ?? null);
     if (text.length <= maxLength) {
@@ -829,7 +825,6 @@ function registerTerminalGateway(wss, {
     /** @type {Map<string, { conversationId: string, status: 'resolving'|'started', authority?: string, turnId?: string | null, successType?: string }>} */
     const _followerRequestLedger = new Map();
     /** @type {Set<string>} */
-    const _ownerGoalCompletionInFlight = new Set();
     /** @type {Map<string, { conversationId: string, turnId: string | null, authority: 'ipc' | 'owner', status: string, cycleGeneration: number | null }>} */
     const _authorityLedger = new Map();
     /** @type {Set<string>} */
@@ -2104,51 +2099,17 @@ function registerTerminalGateway(wss, {
         await _startOwnerTurn(ws, conversationId, input, latestSnapshot, options);
     };
 
-    const _completeOwnerGoalAfterTurn = async (threadId, turn) => {
-        if (!isNonEmptyString(threadId) || _ownerGoalCompletionInFlight.has(threadId)) return;
-        const turnStatus = isNonEmptyString(turn && turn.status) ? turn.status.trim().toLowerCase() : '';
-        if (turnStatus === 'failed' || turnStatus === 'interrupted' || turnStatus === 'cancelled' || turnStatus === 'canceled') {
-            return;
-        }
-        const snapshot = _getLatestOwnerSnapshot(threadId);
-        const activeGoal = snapshot && snapshot.activeGoal;
-        if (!activeGoal || !isNonEmptyString(activeGoal.objective)) return;
-
-        _ownerGoalCompletionInFlight.add(threadId);
-        try {
-            const completedGoal = {
-                ...(activeGoal.raw && typeof activeGoal.raw === 'object' ? activeGoal.raw : {}),
-                threadId,
-                objective: activeGoal.objective.trim(),
-                status: 'complete',
-                updatedAt: Math.floor(Date.now() / 1000)
-            };
-            await codexService.request('thread/goal/set', completedGoal);
-        } catch (error) {
-            console.warn('[gateway][codex][owner-goal-complete-failed]', error && error.message ? error.message : String(error));
-        } finally {
-            _ownerGoalCompletionInFlight.delete(threadId);
-        }
-    };
-
     const _handleFollowerSendMessage = async (ws, conversationId, input, options = {}) => {
         const clientRequestId = isNonEmptyString(options.clientRequestId)
             ? options.clientRequestId.trim()
             : randomUUID();
         const normalizedInput = typeof input === 'string' ? input.trim() : '';
+        const hasExplicitGoalIntent = options.goalObjective !== undefined || options.ownerGoalObjective !== undefined;
         const explicitGoalObjective = options.goalObjective !== undefined
             ? normalizeGoalObjective(options.goalObjective)
             : normalizeGoalObjective(options.ownerGoalObjective);
         const parsedGoalObjective = parseGoalObjective(normalizedInput);
-        if (isGoalDirective(normalizedInput) && !parsedGoalObjective) {
-            sendWsEnvelope(ws, {
-                type: 'error',
-                message: 'Goal objective is empty',
-                detail: 'Enter a goal objective before starting a goal.'
-            });
-            return;
-        }
-        if (options.goalObjective !== undefined && !explicitGoalObjective) {
+        if (hasExplicitGoalIntent && !explicitGoalObjective) {
             sendWsEnvelope(ws, {
                 type: 'error',
                 message: 'Goal objective is empty',
@@ -2171,7 +2132,7 @@ function registerTerminalGateway(wss, {
             });
             return;
         }
-        const goalObjective = explicitGoalObjective || parsedGoalObjective;
+        const goalObjective = hasExplicitGoalIntent ? explicitGoalObjective : null;
         options = {
             ...options,
             clientRequestId,
@@ -2400,6 +2361,32 @@ function registerTerminalGateway(wss, {
                 return;
             }
 
+            if (goalObjective) {
+                const detailCode = 'GOAL_EXTERNAL_OWNER_UNSUPPORTED';
+                diagnosticLog.event('server', 'server.codex.goal.intent.rejected', {
+                    conversationKey: diagnosticKey(normalizedConversationId),
+                    clientRequestKey: diagnosticKey(clientRequestId),
+                    goalKey: diagnosticKey(goalObjective),
+                    objectiveLength: goalObjective.length,
+                    authority: 'ipc',
+                    reason: 'external_owner_goal_unsupported'
+                }, 'warn');
+                _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'failed', {
+                    authority: 'ipc',
+                    detailCode
+                });
+                sendWsEnvelope(ws, {
+                    type: 'error',
+                    code: detailCode,
+                    message: '该任务当前由 Desktop 或 VS Code 执行，现有协议不支持从 App 开启 Goal。',
+                    detail: '请在原宿主开启，或在 App 中新建 Goal 任务。',
+                    conversationId: normalizedConversationId,
+                    clientRequestId,
+                    goalObjective
+                });
+                return;
+            }
+
             try {
                 _emitFollowerRouteState(ws, clientRequestId, normalizedConversationId, 'routed', {
                     authority: 'ipc'
@@ -2506,6 +2493,108 @@ function registerTerminalGateway(wss, {
             unavailableDetail: 'Enable codex-ipc to start follower goals.',
             goalObjective: goal.trim()
         });
+    };
+
+    const _handleFollowerGoalControl = async (ws, conversationId, action) => {
+        const normalizedConversationId = isNonEmptyString(conversationId) ? conversationId.trim() : '';
+        const normalizedAction = isNonEmptyString(action) ? action.trim().toLowerCase() : '';
+        if (!normalizedConversationId) {
+            sendWsEnvelope(ws, {
+                type: 'error',
+                message: 'No active conversation',
+                detail: 'Set an active conversation before controlling a goal.'
+            });
+            return;
+        }
+        if (normalizedAction !== 'pause' && normalizedAction !== 'resume') {
+            sendWsEnvelope(ws, {
+                type: 'error',
+                message: 'Unsupported Goal action',
+                detail: 'Only pause and resume are supported.'
+            });
+            return;
+        }
+        if (!_isIpcActiveSendAllowed() || !_isFollowerModeEnabled(ws)) {
+            sendWsEnvelope(ws, {
+                type: 'error',
+                message: 'Active send is not allowed',
+                detail: 'Enable TERMLINK_CODEX_IPC_ENABLED + ALLOW_ACTIVE + CONFIRM_SEND.'
+            });
+            return;
+        }
+        if (_getActiveConversationId(ws) !== normalizedConversationId) {
+            sendWsEnvelope(ws, {
+                type: 'error',
+                message: 'Conversation is not active',
+                detail: 'Select this conversation before controlling its Goal.'
+            });
+            return;
+        }
+        if (!_shouldUseOwnerRuntime(normalizedConversationId)) {
+            sendWsEnvelope(ws, {
+                type: 'error',
+                code: 'GOAL_EXTERNAL_OWNER_CONTROL_UNSUPPORTED',
+                message: '该 Goal 当前由 Desktop 或 VS Code 执行，现有协议不支持从 App 暂停或恢复。',
+                detail: '请在启动 Goal 的原宿主中控制。',
+                conversationId: normalizedConversationId
+            });
+            return;
+        }
+
+        const targetStatus = normalizedAction === 'pause' ? 'paused' : 'active';
+        try {
+            await codexService.request('thread/goal/set', {
+                threadId: normalizedConversationId,
+                status: targetStatus
+            });
+
+            let turnInterrupted = false;
+            let interruptWarning = null;
+            if (normalizedAction === 'pause') {
+                const latest = _getLatestOwnerSnapshot(normalizedConversationId);
+                const ledger = _authorityLedger.get(normalizedConversationId);
+                const isRunning = latest?.status === 'running' || ledger?.status === 'running';
+                const turnId = ledger?.turnId || latest?.latestTurnId || null;
+                if (isRunning) {
+                    try {
+                        await codexService.request('turn/interrupt', {
+                            threadId: normalizedConversationId,
+                            ...(isNonEmptyString(turnId) ? { turnId } : {})
+                        });
+                        _recordAuthority(normalizedConversationId, 'owner', 'interrupting', turnId);
+                        turnInterrupted = true;
+                    } catch (error) {
+                        interruptWarning = error && error.message ? error.message : String(error);
+                        diagnosticLog.error('server', 'server.codex.goal.pause_interrupt.failed', error, {
+                            conversationKey: diagnosticKey(normalizedConversationId),
+                            authority: 'owner',
+                            turnKey: diagnosticKey(turnId)
+                        });
+                    }
+                }
+            }
+
+            sendWsEnvelope(ws, {
+                type: 'follower_goal_control_ack',
+                conversationId: normalizedConversationId,
+                action: normalizedAction,
+                status: targetStatus,
+                acknowledged: true,
+                ...(normalizedAction === 'pause' ? { turnInterrupted } : {}),
+                ...(interruptWarning ? { warning: interruptWarning } : {})
+            });
+        } catch (error) {
+            diagnosticLog.error('server', 'server.codex.goal.control.failed', error, {
+                conversationKey: diagnosticKey(normalizedConversationId),
+                authority: 'owner',
+                action: normalizedAction
+            });
+            sendWsEnvelope(ws, {
+                type: 'error',
+                message: `Failed to ${normalizedAction} owner Goal`,
+                detail: error && error.message ? error.message : String(error)
+            });
+        }
     };
 
     const _handleFollowerInterruptTurn = async (ws, conversationId) => {
@@ -3898,13 +3987,6 @@ function registerTerminalGateway(wss, {
                 );
             }
         }
-        if (method === 'turn/completed') {
-            const ownerThreadId = ownerNotificationThreadId;
-            if (ownerThreadId && ownerSurfaceTracker.hasConversation(ownerThreadId)) {
-                void _completeOwnerGoalAfterTurn(ownerThreadId, params && params.turn);
-            }
-        }
-
         if (method === 'account/rateLimits/updated') {
             getConnectedCodexSessions().forEach((session) => {
                 const stateChanged = updateCodexStateFromNotification(session, method, params);
@@ -4385,6 +4467,8 @@ function registerTerminalGateway(wss, {
                         });
                     } else if (type === 'follower_start_goal') {
                         _handleFollowerStartGoal(ws, envelope.conversationId, envelope.goal).catch(err => console.error('[gateway][ipc][follower-goal]', err));
+                    } else if (type === 'follower_goal_control') {
+                        _handleFollowerGoalControl(ws, envelope.conversationId, envelope.action).catch(err => console.error('[gateway][ipc][follower-goal-control]', err));
                     } else if (type === 'follower_interrupt_turn') {
                         _handleFollowerInterruptTurn(ws, envelope.conversationId).catch(err => console.error('[gateway][ipc][follower-interrupt]', err));
                     } else if (type === 'follower_approval_response') {

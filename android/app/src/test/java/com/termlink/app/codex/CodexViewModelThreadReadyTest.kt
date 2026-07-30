@@ -33,6 +33,32 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CodexViewModelThreadReadyTest {
+    @Test
+    fun goalControlUsesResumeOnlyForPausedGoal() {
+        assertEquals("resume", goalControlActionForStatus("paused"))
+        assertEquals("resume", goalControlActionForStatus("PAUSED"))
+        assertEquals("pause", goalControlActionForStatus("active"))
+        assertEquals("pause", goalControlActionForStatus("blocked"))
+        assertEquals("pause", goalControlActionForStatus(null))
+    }
+
+    @Test
+    fun newThreadConversationSelectionPreservesPendingGoalMode() {
+        val state = CodexUiState(
+            activeConversationId = null,
+            awaitingNewThreadIpcSurface = true,
+            goalMode = true,
+            composerRecoveryText = "验证新 Goal"
+        )
+        val selected = ipcConversation("conv-new-goal", updatedAt = 100)
+
+        val next = applyIpcConversationSelectionToUiState(state, selected)
+
+        assertTrue(next.goalMode)
+        assertEquals("验证新 Goal", next.composerRecoveryText)
+        assertFalse(next.awaitingNewThreadIpcSurface)
+    }
+
 
     @Test
     fun imageSurfaceEntryProjectsOpenableAttachment() {

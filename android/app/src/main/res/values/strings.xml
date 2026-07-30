@@ -283,6 +283,11 @@
     <string name="codex_native_goal_title">Goal · %1$s</string>
     <string name="codex_native_goal_status">GOAL · %1$s</string>
     <string name="codex_native_goal_continue">Continue</string>
+    <string name="codex_native_goal_pause">Pause Goal</string>
+    <string name="codex_native_goal_external_control_unavailable">Control this Goal in the Desktop or VS Code host that started it</string>
+    <string name="codex_native_goal_external_owner_title">Goal cannot be started here</string>
+    <string name="codex_native_goal_external_owner_message">This conversation is currently running in Desktop or VS Code. The current protocol cannot start Goal from the App. Start it in the original host, or create a new Goal conversation in the App.</string>
+    <string name="codex_native_goal_external_owner_new">Create Goal conversation in App</string>
     <string name="codex_native_goal_expand">Expand goal</string>
     <string name="codex_native_goal_collapse">Collapse goal</string>
     <string name="codex_native_input_hint_plan">Ask anything...</string>

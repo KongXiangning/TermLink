@@ -277,6 +277,7 @@ data class CodexUiState(
     val followerRouteRequestId: String? = null,
     val threadRecovery: CodexThreadRecoveryState? = null,
     val composerRecoveryText: String? = null,
+    val goalOwnerRequiredObjective: String? = null,
     val awaitingNewThreadIpcSurface: Boolean = false,
     val activeConversationId: String? = null,
     val ipcSurfaceSnapshot: DesktopSurfaceSnapshot? = null,

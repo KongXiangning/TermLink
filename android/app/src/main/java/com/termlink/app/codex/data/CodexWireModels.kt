@@ -1113,6 +1113,12 @@ object CodexClientMessages {
         .put("goal", goal)
         .toString()
 
+    fun followerGoalControl(conversationId: String, action: String): String = JSONObject()
+        .put("type", "follower_goal_control")
+        .put("conversationId", conversationId)
+        .put("action", action)
+        .toString()
+
     fun followerInterruptTurn(conversationId: String): String = JSONObject()
         .put("type", "follower_interrupt_turn")
         .put("conversationId", conversationId)

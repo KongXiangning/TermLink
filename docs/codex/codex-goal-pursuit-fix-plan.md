@@ -2,7 +2,7 @@
 
 ## 1. 文档信息
 
-- 文档状态：实施前计划
+- 文档状态：实施中（2026-07-31 Owner 能力分级修订）
 - 编写日期：2026-07-30
 - 对应问题：`tmp/codex-known-issues-20260726.md` #15、#16
 - 主要问题：Android 发起 `/goal` 后只出现“设为目标”消息标记，没有形成真实 Goal 状态；Android
@@ -14,6 +14,22 @@
 - 权威边界：若本文与上述冻结契约冲突，以 `CONTRACTS.md` 的“Codex 原生会话实时同步核心”和
   `DECISIONS.md` AD-004 为准
 
+### 1.1 2026-07-31 真实性复核结论
+
+以下结论取代本文后续所有与其冲突的旧描述：
+
+- TermLink 只有在自己承载该 canonical thread 的 app-server writer/runtime 时，才能直接调用
+  `thread/goal/set|get|clear` 创建和控制真实 Goal；
+- 当前已验证 external follower IPC 没有 Goal set/pause/resume/clear 方法；
+- semantic Goal 在 healthy Desktop / VS Code Owner 下必须明确返回不支持，禁止再通过
+  `thread-follower-start-turn("/goal ...")` 伪装成成功；
+- 普通消息正文即使是 `/goal ...`，只要没有显式 `goalObjective`，仍按普通消息处理，不能被 Gateway
+  猜成 Goal intent；
+- IPC offline 时可沿既有受控 fallback 尝试同一 thread 的 `thread/resume`；writer conflict 或其他
+  resume 失败必须原样失败，不能抢占、静默新建或启动第二 Owner；
+- external Owner 的真实 Goal 可以继续通过权威 surface 被观察，但 App 不能暂停/恢复；TermLink Owner
+  的暂停使用 `thread/goal/set(paused)`，恢复使用 `thread/goal/set(active)`。
+
 ## 2. 目标
 
 把 Android 的 Goal 操作恢复为真实、可同步、可恢复的 Owner Goal 生命周期，而不是把
@@ -22,10 +38,11 @@
 完成后的标准链路应为：
 
 ```text
-Android「追求目标」/ /goal / 继续 Goal
+Android「追求目标」
   → follower_send_message（带 Goal 语义和 clientRequestId）
   → TermLink Gateway authority router
-  → 当前唯一 Owner 设置 Goal
+  → TermLink Owner：thread/goal/set
+  → external Owner：明确不支持，并提供用户确认后的 App 新建 Goal 任务入口
   → Owner 返回 thread/goal/updated
   → normalized surface.activeGoal
   → Android ActiveGoalBand
@@ -68,8 +85,9 @@ Android「追求目标」/ /goal / 继续 Goal
 3. Goal 控制条显示：
    - 目标摘要；
    - Goal 状态；
-   - 当前 turn 运行时显示“中断”；
-   - Goal 存在但当前无 turn 运行时显示“继续”；
+   - TermLink Owner 的非 paused Goal 显示“暂停”；
+   - TermLink Owner 的 paused Goal 显示“继续/恢复”；
+   - external Owner Goal 只读显示，并提示在原宿主控制；
    - 长目标可展开/收起。
 4. Desktop / VS Code 在同一 canonical thread 中显示官方 Goal 工具栏。
 5. 切换任务、重连、杀进程重开后，控制条只由当前任务真实 `activeGoal` 恢复。
@@ -182,17 +200,13 @@ Android 当前出现“设为目标”而没有控制条，直接说明至少形
   4. Owner tracker adopt；
   5. authority ledger 与 route-state 更新。
 
-#### Goal 文本识别
+#### Goal 语义识别
 
 - 文件：`src/ws/terminalGateway.js`
 - 位置：约 `2072-2081`
-- 当前 `_handleFollowerSendMessage()` 使用：
-
-```js
-/^\/goal\s+([\s\S]+)$/i
-```
-
-识别 Goal，并写入 `options.ownerGoalObjective`。
+- `_handleFollowerSendMessage()` 只把显式 additive `goalObjective` 视为 Goal intent；
+- `/goal <objective>` 文本只用于与显式字段做一致性校验，不再单独升级为 Goal；
+- 没有 `goalObjective` 的 `/goal ...` 保持普通消息语义。
 
 #### authority 选择
 
@@ -200,9 +214,9 @@ Android 当前出现“设为目标”而没有控制条，直接说明至少形
 - 位置：约 `2205-2339`
 - 当前行为：
   - `_shouldUseOwnerRuntime(conversationId)` 为真时走 TermLink Owner；
-  - external IPC Owner 在线时走 `thread-follower-start-turn`；
-  - external IPC 输入仍为 `/goal <objective>`；
-  - IPC offline 或明确 fallback 条件才进入 TermLink Owner。
+  - external IPC Owner 在线时 semantic Goal 明确返回 `GOAL_EXTERNAL_OWNER_UNSUPPORTED`；
+  - 不发送 `thread-follower-start-turn`，也不调用本地 `thread/goal/set`；
+  - IPC offline 才沿既有 fallback 尝试进入 TermLink Owner；resume/writer conflict 不兜底新建。
 
 #### 兼容 Goal 事件
 
@@ -239,13 +253,14 @@ Android 当前出现“设为目标”而没有控制条，直接说明至少形
   - `/goal ...` turn 只能生成 `goal_prompt` / `pendingGoalAction`；
   - `currentGoal` 才生成 `activeGoal`。
 
-### 6.6 当前 Gateway 测试语义
+### 6.6 旧 Gateway 测试语义（已撤销）
 
 - 文件：`tests/terminalGateway.codexIpc.test.js`
 - 位置：约 `1847-1941`
-- 当前测试明确：
-  - external Owner 的 `follower_start_goal` 被转换为普通
-    `thread-follower-start-turn("/goal ...")`；
+- 2026-07-31 前的旧测试曾断言 external Owner 的 `follower_start_goal` 被转换为普通
+  `thread-follower-start-turn("/goal ...")`。该断言只能证明普通 turn 送达，不能证明真实 Goal，现已删除并
+  替换为 `GOAL_EXTERNAL_OWNER_UNSUPPORTED` 契约测试。
+- 当前仍保留并验证：
   - managed Owner 使用 `thread/goal/set`；
   - `thread/goal/set` RPC 返回后、`thread/goal/updated` 到达前，不能伪造 `activeGoal`；
   - notification 到达后 surface 才包含 `activeGoal`。
@@ -309,6 +324,9 @@ sendMessage({
 - 行为：
   - managed Demo Owner：调用 `startDemoOwnerGoal()`；
   - 非 Demo Owner：退化为普通 `/goal <objective>` follower input。
+
+后者只会形成普通 turn，不是 external Owner 的真实 Goal 能力，因此不能复制为 TermLink 的成功路径；
+Demo 能正常形成真实 Goal 的可复用部分是前者的 managed Owner 路径。
 
 ### 7.3 Demo managed Owner Goal
 
@@ -581,8 +599,8 @@ goalObjective?: string
 - 可选 additive 字段；
 - 表示本次 turn 是 Goal start/continue intent；
 - 不替代 `input`，以保持 external Owner 和旧服务端兼容；
-- 旧客户端不发送时，Gateway 继续解析 `/goal <objective>`；
-- 旧服务端忽略该字段后，仍可以发送普通 follower turn。
+- 旧客户端不发送时，正文按普通 follower turn 处理；
+- 旧服务端忽略该 additive 字段时不会获得真实 Goal 保证，因此不得把普通 turn ack 当成 Goal 成功。
 
 ### 11.2 为什么不把 `follower_start_goal` 恢复为 Android 主事件
 
@@ -607,11 +625,11 @@ follower_start_goal
 
 ### 11.3 Goal objective 规范化规则
 
-Gateway 使用以下优先级：
+Gateway 使用以下规则：
 
-1. 非空 `goalObjective`；
-2. `input` 中严格匹配的 `/goal <objective>`；
-3. 否则不是 Goal intent。
+1. envelope 明确携带 `goalObjective` 时才进入 Goal intent；
+2. `input` 中严格匹配的 `/goal <objective>` 只用于校验显式字段；
+3. 未携带 `goalObjective` 时一律是普通消息 intent。
 
 必须处理：
 
@@ -631,7 +649,7 @@ if (explicitGoal && parsedGoal && explicitGoal !== parsedGoal) {
   throw goalIntentMismatch();
 }
 
-const goalObjective = explicitGoal || parsedGoal || null;
+const goalObjective = hasExplicitGoalIntent ? explicitGoal : null;
 options = {
   ...options,
   goalObjective,
@@ -671,7 +689,8 @@ _handleFollowerSendMessage(ws, envelope.conversationId, envelope.input, {
 在 `_handleFollowerSendMessage()` 最前部完成：
 
 - explicit `goalObjective`；
-- legacy `/goal` parse；
+- explicit `goalObjective` presence；
+- `/goal` 仅用于 explicit intent 一致性校验；
 - mismatch 拒绝；
 - `options.goalObjective` 写回；
 - 诊断字段写入。
@@ -767,29 +786,14 @@ const turnStartParams = buildFollowerTurnStartParams(
 
 #### 修改点 E：external Owner
 
-继续调用：
+semantic Goal 不调用任何外部 start-turn 或本地 Goal RPC，返回：
 
 ```text
-thread-follower-start-turn
+GOAL_EXTERNAL_OWNER_UNSUPPORTED
 ```
 
-并保持：
-
-```text
-input = /goal <objective>
-```
-
-原因：
-
-- 当前没有经过验证的专用 external Goal method；
-- external Owner 必须继续拥有同一 turn authority；
-- TermLink 不能通过本地 app-server 抢占。
-
-成功标准不是 IPC ack，而是后续 external surface 出现：
-
-```text
-threadGoal 或 currentGoal
-```
+Android 显示明确说明，并提供用户确认后的“在 App 新建 Goal 任务”。新建只沿既有 `/new` canonical
+thread 路径，并恢复 Goal 草稿；不自动提交、不静默分叉。
 
 #### 修改点 F：兼容入口
 
@@ -949,22 +953,14 @@ CodexClientMessages.followerSendMessage(
 
 Goal 不应因为使用专用 helper 而绕过正常 next-turn 配置。
 
-#### `continueActiveGoal()`
+#### `continueActiveGoal()` / Goal control
 
-继续使用：
-
-```text
-当前 activeGoal.objective
-  → startFollowerGoal(objective)
-```
-
-但必须满足：
-
-- `activeGoal` 来自当前 conversation；
-- 当前没有运行 turn；
-- control gate 可用；
-- 不生成新的本地 activeGoal；
-- route 失败后原控制条保留。
+- 只在当前 surface `ownerKind=termlink` 时发送 `follower_goal_control`；
+- paused Goal 发送 `action=resume`，服务端只调用 `thread/goal/set(active)`；
+- 其他非终态 Goal 发送 `action=pause`，服务端先调用 `thread/goal/set(paused)`，存在运行 turn 时再
+  直接调用同一 Owner 的 `turn/interrupt`；
+- external Owner Goal 控件禁用，不转发、不降级为普通 turn；
+- UI 状态仍只等待真实 Goal notification/snapshot，不根据 control ack 乐观改写。
 
 #### surface 应用
 
@@ -994,8 +990,9 @@ activeGoal = snap.activeGoal
 - 最小高度：保持当前约 58dp；
 - 不改变 composer 高度；
 - 目标一行省略，点击展开；
-- running：按钮执行 interrupt；
-- 非 running 且 activeGoal 存在：按钮执行 continue；
+- TermLink Owner 非 paused Goal：按钮执行真实 pause；
+- TermLink Owner paused Goal：按钮执行真实 resume；
+- external Owner：按钮禁用并提示在原宿主控制；
 - control gate 不满足：控制按钮禁用，但 Goal 状态仍可见；
 - complete/cleared：由 state 移除后隐藏；
 - 仅 `goal_prompt`：不显示。
@@ -1037,10 +1034,10 @@ android.codex.goal.control.interrupt
 |---|---|---|---|
 | 无 | 任意 | 隐藏 | 无 |
 | 仅 `goal_prompt` | 任意 | 隐藏 | 无 |
-| active | running | 显示 | 中断 |
-| active | idle/completed turn | 显示 | 继续 |
-| blocked | idle | 显示 | 继续 |
-| paused | idle | 显示 | 继续 |
+| active | running | 显示 | 暂停 Goal 并中断当前 turn |
+| active | idle/completed turn | 显示 | 暂停 Goal |
+| blocked | idle | 显示 | 暂停 Goal |
+| paused | idle | 显示 | 恢复 Goal |
 | budgetLimited / usageLimited | idle | 显示状态；是否允许继续由 control gate 决定 | 继续或禁用 |
 | complete/completed | idle | 等待权威 surface 后隐藏 | 无 |
 | cleared | idle | 隐藏 | 无 |
@@ -1118,16 +1115,18 @@ android/app/src/test/java/com/termlink/app/codex/
 7. `thread/goal/updated(blocked)` 后控制所需状态保留。
 8. `thread/goal/updated(complete)` 后 `activeGoal` 消失。
 9. `thread/goal/cleared` 后 `activeGoal` 消失。
-10. external Owner 只调用 `thread-follower-start-turn`，不调用本地
-    `thread/goal/set`。
+10. external Owner semantic Goal 不调用 `thread-follower-start-turn`，也不调用本地
+    `thread/goal/set`，返回结构化不支持错误。
 11. external Owner 后续 snapshot 出现 Goal 时可以投影。
 12. external Owner 只有 `/goal` user item 时仍只有 `goal_prompt`。
 13. `follower_start_goal` compatibility alias 与 `follower_send_message` 共用一个 router。
 14. 同一个 `clientRequestId` 重放不会启动第二个 Goal turn。
-15. `goalObjective` 与 `/goal` objective 不一致时明确失败。
+15. `goalObjective` 与 `/goal` objective 不一致时明确失败；没有 `goalObjective` 的普通 `/goal` 文本
+    不被 Goal 分支拦截。
 16. Goal objective 为空时明确失败。
-17. IPC offline/no-client fallback 后 managed Owner Goal 仍使用同 canonical thread。
-18. route 过程中 active conversation 改变时取消，不把 Goal写入新任务。
+17. IPC offline fallback 后 managed Owner Goal 仍使用同 canonical thread；writer conflict 不新建。
+18. Owner pause 的 RPC 顺序为 Goal paused 后 turn interrupt；resume 不产生新 `turn/start`。
+19. route 过程中 active conversation 改变时取消，不把 Goal写入新任务。
 
 ### 16.2 Owner Surface Tracker
 
@@ -1237,20 +1236,14 @@ android\gradlew.bat :app:assembleDebug
 ### 18.4 external Owner 场景
 
 1. 打开由 Desktop Owner 正在维护的任务；
-2. App 发起 Goal；
+2. App 发起 semantic Goal；
 3. 记录：
    - `ownerKind=ipc`；
-   - `thread-follower-start-turn` method/version；
-   - host ack；
-   - 后续 snapshot 是否含 Goal；
-4. 如果出现 `currentGoal/threadGoal`：
-   - Android 显示控制条；
-   - Desktop 工具栏一致；
-5. 如果没有：
-   - 保留日志；
-   - 不启动第二 Owner；
-   - 不本地伪造；
-   - 将 external Goal semantic method 作为新的 scope/协议问题处理。
+   - 未发送 `thread-follower-start-turn`；
+   - 收到 `GOAL_EXTERNAL_OWNER_UNSUPPORTED`；
+   - Android 出现“在 App 新建 Goal 任务”确认入口；
+4. 对 external Owner 已存在的 `currentGoal/threadGoal`：Android 只读显示控制条，pause/resume 禁用；
+5. 全程不启动第二 Owner、不本地伪造、不静默新建。
 
 ### 18.5 视觉验收
 
@@ -1413,7 +1406,7 @@ git diff --check
 - 真实 `thread/goal/updated` 形成 normalized `activeGoal`；
 - Android 显示现有 Goal 控制条；
 - Desktop / VS Code 在同 canonical thread 显示官方 Goal 工具栏；
-- Goal continue/interrupt 沿当前 turn authority；
+- TermLink Owner Goal pause/resume 使用真实 Goal RPC，external Owner Goal 只读；
 - `goal_prompt` 不再被误认为 active Goal；
 - A→B→A、重连、App 进程恢复不串 Goal；
 - `/goal` 与 `+` 菜单走同一业务链；

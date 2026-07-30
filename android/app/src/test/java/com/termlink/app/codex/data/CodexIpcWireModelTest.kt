@@ -453,6 +453,15 @@ class CodexIpcWireModelTest {
     }
 
     @Test
+    fun `followerGoalControl builder`() {
+        val msg = CodexClientMessages.followerGoalControl("conv-1", "pause")
+        val json = JSONObject(msg)
+        assertEquals("follower_goal_control", json.getString("type"))
+        assertEquals("conv-1", json.getString("conversationId"))
+        assertEquals("pause", json.getString("action"))
+    }
+
+    @Test
     fun `followerInterruptTurn builder`() {
         val msg = CodexClientMessages.followerInterruptTurn("conv-1")
         val json = JSONObject(msg)

@@ -1844,13 +1844,13 @@ test('follower_send_message can reset sticky permission settings to config', asy
     await stopGateway(g);
 });
 
-test('follower_start_goal sends /goal as ordinary follower turn', async () => {
+test('semantic follower goal is rejected for a healthy external owner without starting a turn', async () => {
     const g = await setupGateway();
     g.ipcFeed.pushSnapshot('conv-1', { conversationId: 'conv-1', status: 'completed', items: [] });
 
-    let captured = null;
+    const captured = [];
     g.ipcFeed._sendRequestHandler = (method, params) => {
-        captured = { method, params };
+        captured.push({ method, params });
         return { type: 'response', resultType: 'success', method };
     };
 
@@ -1864,19 +1864,58 @@ test('follower_start_goal sends /goal as ordinary follower turn', async () => {
     ws.send(JSON.stringify({ type: 'follower_start_goal', conversationId: 'conv-1', goal: '完成同步链路' }));
     await delay(100);
 
+    assert.equal(captured.length, 0);
+    assert.equal(g.codexService.requests.some((entry) => entry.method === 'thread/goal/set'), false);
+    const rejected = messages.find(m => m.type === 'error' && m.code === 'GOAL_EXTERNAL_OWNER_UNSUPPORTED');
+    assert.equal(rejected.goalObjective, '完成同步链路');
+    assert.match(rejected.message, /Desktop|VS Code/);
+    assert.ok(messages.find(m =>
+        m.type === 'follower_route_state' &&
+        m.phase === 'failed' &&
+        m.detailCode === 'GOAL_EXTERNAL_OWNER_UNSUPPORTED'
+    ));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('plain /goal text without goalObjective remains an ordinary follower message', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-plain-goal', {
+        conversationId: 'conv-plain-goal', status: 'completed', items: []
+    });
+
+    let captured = null;
+    g.ipcFeed._sendRequestHandler = (method, params) => {
+        captured = { method, params };
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-plain-goal' }));
+    await delay(50);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: 'conv-plain-goal',
+        input: '/goal 这只是普通文本'
+    }));
+    await delay(100);
+
     assert.equal(captured.method, 'thread-follower-start-turn');
-    assert.equal(captured.params.turnStartParams.input[0].text, '/goal 完成同步链路');
-    assert.ok(messages.find(m => m.type === 'follower_goal_sent'));
+    assert.equal(captured.params.turnStartParams.input[0].text, '/goal 这只是普通文本');
+    assert.ok(messages.find(m => m.type === 'follower_message_sent'));
+    assert.equal(messages.some(m => m.code === 'GOAL_EXTERNAL_OWNER_UNSUPPORTED'), false);
     ws.close();
     await stopGateway(g);
 });
 
 test('owner fallback goal waits for owner goal snapshots before updating Android surface', async () => {
-    const g = await setupGateway();
+    const g = await setupGateway({ ipcFeed: new FakeIpcFeed({ online: false }) });
     g.ipcFeed.pushSnapshot('conv-owner-goal', {
         conversationId: 'conv-owner-goal', status: 'completed', cwd: 'E:\\coding\\TermLink', items: []
     });
-    g.ipcFeed._sendRequestHandler = () => ({ type: 'response', resultType: 'error', error: 'no-client-found' });
 
     const sess = await g.sm.createSession({ name: 'test' });
     const { ws, messages } = await connectWs(g.port, sess.id);
@@ -1896,6 +1935,7 @@ test('owner fallback goal waits for owner goal snapshots before updating Android
         status: 'active'
     });
     const goalTurn = g.codexService.requests.find((entry) => entry.method === 'turn/start');
+    assert.equal(g.codexService.requests.filter((entry) => entry.method === 'turn/start').length, 1);
     assert.ok(goalTurn.params.input.some((part) => part.text === '完成 Goal 控制验收'));
     assert.equal(goalTurn.params.input.some((part) => part.text.startsWith('/goal ')), false);
     assert.equal(messages.some(m => m.type === 'conversation_surface_snapshot' && m.snapshot.activeGoal?.objective === '完成 Goal 控制验收'), false);
@@ -1922,8 +1962,7 @@ test('owner fallback goal waits for owner goal snapshots before updating Android
     const completedGoalRequest = g.codexService.requests.find((entry) =>
         entry.method === 'thread/goal/set' && entry.params.status === 'complete'
     );
-    assert.equal(completedGoalRequest.params.threadId, 'conv-owner-goal');
-    assert.equal(completedGoalRequest.params.objective, '完成 Goal 控制验收');
+    assert.equal(completedGoalRequest, undefined);
     assert.equal(messages.filter(m => m.type === 'conversation_surface_snapshot').at(-1).snapshot.activeGoal?.objective, '完成 Goal 控制验收');
 
     g.codexService.emit('notification', {
@@ -1936,6 +1975,147 @@ test('owner fallback goal waits for owner goal snapshots before updating Android
     await delay(50);
     const completedSnapshot = messages.filter(m => m.type === 'conversation_surface_snapshot').at(-1);
     assert.equal(completedSnapshot.snapshot.activeGoal, undefined);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('offline Goal fallback stops on writer conflict without starting or replacing a thread', async () => {
+    const g = await setupGateway({ ipcFeed: new FakeIpcFeed({ online: false }) });
+    g.ipcFeed.pushSnapshot('conv-writer-conflict', {
+        conversationId: 'conv-writer-conflict', status: 'completed', cwd: 'E:\\coding\\TermLink', items: []
+    });
+    g.codexService.requestHandler = (method) => {
+        if (method === 'thread/resume') {
+            return Promise.reject(new Error('thread writer conflict: active writer exists'));
+        }
+        return Promise.resolve({ ok: true });
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-writer-conflict' }));
+    await delay(50);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_start_goal',
+        conversationId: 'conv-writer-conflict',
+        goal: '不得抢占 writer'
+    }));
+    await delay(100);
+
+    assert.equal(g.codexService.requests.filter((entry) => entry.method === 'thread/resume').length, 1);
+    assert.equal(g.codexService.requests.some((entry) => entry.method === 'thread/start'), false);
+    assert.equal(g.codexService.requests.some((entry) => entry.method === 'turn/start'), false);
+    assert.equal(g.codexService.requests.some((entry) => entry.method === 'thread/goal/set'), false);
+    assert.ok(messages.find(m =>
+        m.type === 'error' && /writer conflict/i.test(String(m.detail))
+    ));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('TermLink owner Goal pause sets paused before interrupt and resume only sets active', async () => {
+    const g = await setupGateway({ ipcFeed: new FakeIpcFeed({ online: false }) });
+    g.ipcFeed.pushSnapshot('conv-owner-goal-control', {
+        conversationId: 'conv-owner-goal-control', status: 'completed', cwd: 'E:\\coding\\TermLink', items: []
+    });
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-owner-goal-control' }));
+    await delay(50);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_start_goal',
+        conversationId: 'conv-owner-goal-control',
+        goal: '验证真实暂停恢复'
+    }));
+    await delay(150);
+
+    const beforePause = g.codexService.requests.length;
+    ws.send(JSON.stringify({
+        type: 'follower_goal_control',
+        conversationId: 'conv-owner-goal-control',
+        action: 'pause'
+    }));
+    await delay(100);
+
+    assert.deepEqual(g.codexService.requests.slice(beforePause, beforePause + 2), [
+        {
+            method: 'thread/goal/set',
+            params: { threadId: 'conv-owner-goal-control', status: 'paused' }
+        },
+        {
+            method: 'turn/interrupt',
+            params: { threadId: 'conv-owner-goal-control', turnId: 'turn-1' }
+        }
+    ]);
+    assert.ok(messages.find(m =>
+        m.type === 'follower_goal_control_ack' &&
+        m.action === 'pause' &&
+        m.status === 'paused' &&
+        m.turnInterrupted === true
+    ));
+
+    const turnStartCountBeforeResume = g.codexService.requests.filter((entry) => entry.method === 'turn/start').length;
+    ws.send(JSON.stringify({
+        type: 'follower_goal_control',
+        conversationId: 'conv-owner-goal-control',
+        action: 'resume'
+    }));
+    await delay(100);
+
+    assert.deepEqual(g.codexService.requests.at(-1), {
+        method: 'thread/goal/set',
+        params: { threadId: 'conv-owner-goal-control', status: 'active' }
+    });
+    assert.equal(
+        g.codexService.requests.filter((entry) => entry.method === 'turn/start').length,
+        turnStartCountBeforeResume
+    );
+    assert.ok(messages.find(m =>
+        m.type === 'follower_goal_control_ack' &&
+        m.action === 'resume' &&
+        m.status === 'active'
+    ));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('external owner Goal control is rejected without IPC or local Goal mutation', async () => {
+    const g = await setupGateway();
+    g.ipcFeed.pushSnapshot('conv-external-goal-control', {
+        conversationId: 'conv-external-goal-control',
+        status: 'completed',
+        activeGoal: { objective: '外部 Goal', status: 'paused' },
+        items: []
+    });
+    const captured = [];
+    g.ipcFeed._sendRequestHandler = (method, params) => {
+        captured.push({ method, params });
+        return { type: 'response', resultType: 'success', method };
+    };
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-external-goal-control' }));
+    await delay(50);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_goal_control',
+        conversationId: 'conv-external-goal-control',
+        action: 'resume'
+    }));
+    await delay(100);
+
+    assert.equal(captured.length, 0);
+    assert.equal(g.codexService.requests.some((entry) => entry.method === 'thread/goal/set'), false);
+    assert.ok(messages.find(m =>
+        m.type === 'error' && m.code === 'GOAL_EXTERNAL_OWNER_CONTROL_UNSUPPORTED'
+    ));
     ws.close();
     await stopGateway(g);
 });

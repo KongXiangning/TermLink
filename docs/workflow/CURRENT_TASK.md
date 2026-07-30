@@ -28,7 +28,7 @@
 
 - 现有 App 发送由 Android 在 follower 与 `codex_turn` 之间分流，控制动作又由 Gateway 根据当前 surface/IPC 状态重新选路，导致发送、显示、停止和审批可能使用不同权威。
 - `E:\coding\Termlink-demo` 已证明：TermLink app-server 创建 canonical thread 后，只要注册为 IPC Owner、广播完整 surface、thread-read 状态并失效 recent-conversations 缓存，Desktop/VS Code 无需重启即可发现。
-- Codex app-server 的 `thread/start`、`thread/resume`、`thread/fork` 是 canonical ID 唯一合法来源；app-server 本身不承担跨客户端线程锁，单权威必须由 Gateway 与 IPC Owner 广播保证。
+- Codex app-server 的 `thread/start`、`thread/resume`、`thread/fork` 是 canonical ID 唯一合法来源；同一 app-server 进程允许多连接订阅，但不同 app-server 进程对持久化 thread 存在 writer lock。单权威同时依赖 writer/runtime 获取成功、Gateway ledger 与 IPC Owner 广播，writer conflict 不得抢占或静默新建。
 - 目标：App 只提交任务意图，Gateway 统一完成激活、IPC-first 仲裁、Owner fallback、显式新建、控制路由和 surface 广播；运行中禁止自动切换 authority 或静默更换 canonical thread。
 
 ## 验收标准
@@ -62,6 +62,7 @@
 - `tests/terminalGateway.codexIpc.test.js`
 - `android/app/src/test/java/com/termlink/app/codex/**`
 - `docs/codex/codex-ipc-wire-protocol-reference.md`
+- `docs/codex/codex-goal-pursuit-fix-plan.md`
 - `docs/workflow/CURRENT_TASK.md`
 - `tmp/codex-known-issues-20260726.md`
 
@@ -137,7 +138,53 @@
   作为本地缓存删除的幂等成功，不修改 HTTP、session DTO、服务端会话持久化或 IPC authority；
   权限日志只记录脱敏的 model/reasoning/approvalPolicy/sandbox/permissionProfile 及
   config.toml 回退标记，不记录 prompt、命令、路径、附件内容或凭据。
+- Scope widening（2026-07-31，Goal Owner 能力分级）：用户依据公开 Codex Goal API、跨进程
+  writer lock、当前安装宿主 follower method 清单及两次真机失败，确认撤销“external Owner 可通过
+  普通 `/goal` 开启真实 Goal”的旧结论。本轮放行既有 Goal/Gateway/Android Allowed Files、定向测试
+  以及 `docs/codex/codex-goal-pursuit-fix-plan.md`：只允许按显式 `goalObjective` 拒绝 external Owner
+  Goal、为 TermLink Owner 增加直接 `thread/goal/set(paused|active)` 控制、提供用户确认后的 App 新建
+  Goal 任务入口，并同步已确认文档边界。禁止修改 follower acquire/release、desired subscription、
+  reconnect replay、snapshot/patch、healthy IPC authority、普通消息 start-turn、现有 interrupt、
+  Desktop/VS Code owner/follower 关系或新增虚构 external Goal method。验证必须证明普通 `/goal` 文本
+  未被语义拦截、普通 IPC 消息/interrupt/重连不回归，且 writer conflict 不触发抢占或静默新线程。
 - Change Propagation Check：命中 additive WebSocket event、IPC request/discovery、Android wire DTO 和冻结 authority contract；强制验证 direct consumers、A/B、长任务、重连、Approval 原始 requestId 与旧客户端忽略新字段。
+
+## 实现方案
+
+Implementation Plan（2026-07-31，Goal Owner 能力分级与真实暂停/恢复）：
+
+- Goal：保留 TermLink Owner 的真实 Goal 路径，停止把 external Owner 的语义 Goal 降级成普通
+  `/goal` turn；为 TermLink Owner 补齐真实 pause/resume，并让用户可显式选择在 App 新建 Goal 任务。
+- Architecture impact：仅在 Gateway 既有 authority router 判定后处理 `goalObjective` 分支，并增加
+  TermLink Owner 专用 Goal control WebSocket envelope；不改变 follower lifecycle、desired subscription、
+  reconnect replay、snapshot/patch、healthy IPC authority、普通消息 start-turn 或现有 interrupt 路由。
+- Technical approach：仅当 envelope 明确携带非空 `goalObjective` 时视为 Goal 意图；external IPC
+  authority 返回结构化 `GOAL_EXTERNAL_OWNER_UNSUPPORTED`，不发送 start-turn；IPC offline 继续按既有
+  fallback 尝试 owner resume，失败或 writer conflict 原样返回且不新建。Owner pause 先执行
+  `thread/goal/set(paused)`，存在运行 turn 时再直接 `turn/interrupt`；resume 只执行
+  `thread/goal/set(active)`，不重复 objective 或 `turn/start`。Android 仅在 `ownerKind=termlink` 时启用
+  Goal 控制，并为 external Owner 拒绝显示“在 App 新建 Goal 任务”确认入口。
+- Alternatives considered：不新增或猜测 external Goal follower method；不使用普通 start-turn 探测
+  external Owner，因为该探测本身可能启动假 Goal；不启动第二 app-server，不通过 thread/read 轮询或
+  surface 静默超时接管；不整体回滚已验证的 `goalObjective`、Owner Goal、真实通知和历史投影基础。
+- Data / state flow：Android semantic Goal -> Gateway authority router；TermLink Owner -> app-server Goal
+  RPC -> 真实 `thread/goal/updated|cleared` -> Owner surface -> Android；external Owner -> 结构化不支持
+  错误 -> 用户确认新建后沿既有 `/new` 创建 canonical thread 并恢复 Goal 草稿。普通 `/goal` 文本没有
+  `goalObjective` 时仍是普通消息。Goal 历史只由真实 snapshot/notification 记忆，不从消息文本推断。
+- Compatibility：所有新字段/客户端 envelope 均为 additive；旧客户端仍可显示通用 error；普通消息、
+  普通 `/goal` 文本、interrupt、approval、Plan、附件、A/B 和 reconnect 行为保持原路由。
+- Risks and rollback：首次 Goal 仍保留当前 `thread/goal/set(active) + turn/start`，通过测试和人工 trace
+  门禁验证只产生一个首 turn；若真实 trace 证明重复，只在后续证据驱动修复中调整，不在本步猜测删除。
+  pause 已成功但 interrupt 失败时保持 Goal paused 并明确返回部分失败，避免恢复 active 触发继续执行。
+- Validation strategy：Node 精确测试覆盖 semantic external 拒绝、普通 `/goal` 不误伤、offline Owner
+  fallback、pause/resume RPC 顺序、external control 拒绝、首 turn 唯一和真实 completion；Android JVM
+  覆盖 wire builder/状态动作；限定 IPC/Gateway 回归确认普通消息、interrupt 和同步链不变。真机只由用户
+  在 `MQS7N19402011743` 人工测试，不自动安装或操作其他设备。
+- Open decisions：无。暂停语义已由用户确认采用“先 paused，再 interrupt 当前 turn”；Goal 编辑/删除
+  继续暂缓；完整 external Owner Goal 控制等待上游提供可验证协议。
+- External Documentation Gate：复用本任务已记录的公开 Codex Goal API/runtime、跨进程 writer lock、
+  当前安装 Desktop/VS Code follower method 清单与真机失败证据；本步不新增第三方 API 或推测能力。
+- Handoff：`decompose-task`。
 
 ## Public / Internal Interface Changes
 
@@ -153,7 +200,7 @@
 - `IPC-first → 5 秒 fresh-surface grace → no-client/offline Owner fallback → 当前打开周期 Owner sticky`。
 - 服务端只判断实际 IPC bus、fresh surface 和 discovery 结果，不扫描宿主进程。
 - 用户明确新建可直接创建；任何系统触发的 canonical thread 替换必须确认。
-- app-server 不视为跨客户端锁；单任务单权威由 Gateway ledger 与 Owner IPC 广播实现。
+- 同一 app-server 内多连接不等于 Owner 转移；不同 app-server 进程存在 writer lock。单任务单权威由成功获取的 writer/runtime、Gateway ledger 与 Owner IPC 广播共同保证。
 - 新建 Owner 必须同时广播 stream surface、thread-read state 与 recent-conversations 缓存失效。
 - 当前 checkpoint 仅为基础，不得在最终验收前合并 Main。
 
@@ -302,6 +349,21 @@ Implementation Plan：
   与 config.toml 回退标记。Node 定向回归 54/54、JDK 21 Android JVM tests、debug APK
   构建与 `git diff --check` 均通过；设备 `da34332c` 当前离线，未进行安装或真机复验。
 
+- [completed] 10a. 删除普通 `turn/completed` 自动写 Goal complete 的副作用；Goal 终态只接受真实
+  `thread/goal/*` notification/snapshot，精确测试已覆盖。
+- [completed] 10b. 完成 Goal 生命周期服务端定向回归和限定契约审查；仓库 CRLF/LF 混合噪音不做
+  整文件换行转换。
+- [pending] 10c. 用户在测试手机上使用全新 task/objective 人工验证真实 Goal 启动、暂停/恢复和终态标识。
+- [completed] 11a. 按显式 `goalObjective` 拒绝 healthy external Owner 的 Goal 启动；普通 `/goal`
+  文本仍走普通消息。IPC offline fallback 只尝试 resume，writer conflict 不抢占、不静默新建。
+- [completed] 11b. TermLink Owner Goal pause/resume 改为真实 `thread/goal/set(paused|active)`；Android
+  external Owner Goal 只读，并提供显式“在 App 新建 Goal 任务”确认入口，不自动提交或分叉。
+- [completed] 11c. 同步 Goal 计划、wire reference、冻结契约与 AD-004，撤销 external Owner
+  可通过普通 `/goal` 启动真实 Goal 的失效结论。
+- [pending] 11d. 限定实现/契约审查和 Node IPC/Gateway 回归已完成；Android JVM/assemble 因当前
+  WSL 无可用 Linux Android build-tools、Windows Gradle 入口不可调用而未执行，保留给 Windows JDK 21
+  环境及用户真机人工测试。不得据此宣称 Android 编译或视觉验收通过。
+
 ## 回归门
 
 - `node --test tests/codexIpcClient.test.js tests/codexIpcFeed.test.js tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js`
@@ -323,8 +385,8 @@ Implementation Plan：
 ## 回滚点
 
 - Task start base：`8f84867`
-- Last reviewed checkpoint：`8f84867`
-- Current diff review target：`8f84867..working-tree`
+- Last reviewed checkpoint：`5399ff5`
+- Current diff review target：`5399ff5..working-tree`
 - 回滚策略：保留 `e5db14e` 与 `8f84867`，只回退本替代任务后续提交；无数据库、session 或 rollout 迁移。
 
 ## 执行记录
@@ -423,3 +485,53 @@ Implementation Plan：
 - 2026-07-30：根据最新真机复验关闭问题 #1（新建任务/模型选择异常）：`/new` 与历史任务新建入口的
   模型、权限目录均能正常加载和选择，未再观察到持续 loading 或闪退。问题 #3、#4、#9 当前均无法
   复现，已在临时问题记录中标记为“暂不可复现、继续观察”，不视为已修复。
+- 2026-07-31：Goal 生命周期修复拆为三个独立步骤。步骤 10a（当前）：只保留 Gateway 删除
+  `turn/completed -> thread/goal/set(complete)` 的实现，并补强精确测试，验证普通 turn 结束后
+  active Goal 仍等待真实 notification。步骤 10b：执行 Node 语法、Owner/Gateway 定向回归及限定
+  diff/契约审查。步骤 10c：构建 debug APK，仅安装到 `MQS7N19402011743`，由用户使用全新任务和
+  全新 objective 人工验证真实 Goal 启动、暂停/恢复、正常结束标识；既有 completed/paused Goal
+  只用于历史状态复核，不作为新 Goal 启动样本。
+- 2026-07-31：完成步骤 10a。Gateway 已移除普通 `turn/completed` 自动调用
+  `thread/goal/set(status=complete)` 的副作用及对应 in-flight 状态；精确测试确认 turn 完成后
+  `activeGoal` 保持，直到真实 `thread/goal/updated(status=complete)` 才清除。定向测试 1/1 通过。
+  本步不涉及新的第三方 current behavior，复用当前安装宿主 bundle、真实 rollout 与既有契约证据；
+  下一 handoff 为步骤 10b。
+- 2026-07-31：完成步骤 10b 并完成步骤 10c 的安装部分。`node --check
+  src/ws/terminalGateway.js` 与 Owner/Gateway 定向回归 62/62 通过；限定 diff、实现质量和契约审查
+  clean，未新增接口、DTO、IPC method、authority 路由或第二 Owner。仓库既有 CRLF 使普通
+  `git diff --check` 把测试文件整文件误报为 trailing whitespace，本次语义 diff 未新增该问题，
+  未为消除噪音进行整文件换行转换。JDK 21 debug APK 构建成功，并通过显式序列号仅安装到
+  `MQS7N19402011743`，ADB 返回 `Success`；未启动 App，其他设备未被操作。本地开发服务
+  `http://127.0.0.1:3010/api/health` 为 OK。剩余步骤仅为用户在全新任务、全新 objective 上人工验证
+  Goal active、暂停/恢复和真实完成标识；完成前本任务保持 `in_progress/manual-smoke`。
+- 2026-07-31：根据用户确认的 Goal Owner 能力分级，新增步骤 11a-11d。11a 只修改 Gateway 与精确
+  Node 测试：按显式 `goalObjective` 拒绝 external Owner、保留 offline Owner fallback、增加 Owner
+  pause/resume 控制并证明普通消息/普通 `/goal` 不误伤。11b 只修改 Android wire/state/已确认 UI：
+  发送真实 Goal control、external Owner 控制禁用并提供显式 App 新建 Goal 任务确认。11c 同步 Goal
+  计划及 AD-004/冻结契约中的已失效结论。11d 使用同一 diff review target `5399ff5..worktree`
+  完成限定 review、contract verification 和自动回归；真机人工验证保持独立，不自动安装。
+- 2026-07-31：完成步骤 11a。Gateway 现在只按显式 `goalObjective` 识别 Goal；healthy external
+  Owner 返回 `GOAL_EXTERNAL_OWNER_UNSUPPORTED`，不会调用 IPC start-turn 或本地 Goal RPC；普通
+  `/goal` 文本仍走普通 follower message。IPC offline 继续尝试同 thread Owner fallback，writer
+  conflict 精确测试证明不会 `thread/start`、`turn/start` 或设置 Goal。TermLink Owner 新增 pause/resume：
+  pause 的精确顺序为 `thread/goal/set(paused)` 后 `turn/interrupt`，resume 只调用
+  `thread/goal/set(active)`。服务端 Goal 精确测试 6/6 通过；相邻 IPC/Gateway/Owner 定向回归
+  151/151 通过，未修改 IPC client/feed/thread stream/Owner tracker。
+- 2026-07-31：完成步骤 11b 的实现。Android Goal 控制只在权威 surface `ownerKind=termlink` 时启用，
+  paused 发送 resume，其他非终态发送 pause；external Goal 保持只读并显示原宿主控制提示。external
+  Goal 启动拒绝使用确认对话框提供“在 App 新建 Goal 任务”，确认后沿既有 `/new` 创建 canonical
+  task 并恢复 Goal mode/objective 草稿，取消也恢复草稿，不自动提交。新增 wire/action 与新任务模式
+  保留 JVM 测试；当前 WSL 有 JDK 21，但 Windows Android SDK build-tools 在 Linux 下缺少可执行
+  `aapt`，Android Gradle 在依赖解析阶段被环境阻塞，尚未形成编译通过证据。
+- 2026-07-31：完成步骤 11c。Goal 计划、IPC wire reference、`CONTRACTS.md` 与 AD-004 已同步：
+  撤销 2026-07-13 external Goal start/continue 稳定结论，区分同进程多连接与跨进程 writer lock，
+  冻结 TermLink Owner/full Goal、external Owner/read-only Goal 和无 Owner/offline fallback 能力边界。
+  `STATUS.md` 未更新，等待 Windows/JDK 21 编译和用户真机人工验收。
+- 2026-07-31：步骤 11d 的服务端与契约部分完成。以 `5399ff5..working-tree` 为限定审查口径，
+  `terminalGateway`、IPC client/feed/thread stream、Owner tracker 五组 Node 回归 152/152 通过；
+  protected IPC core 文件语义 diff 为零，普通 follower message、既有 interrupt、acquire/release、
+  desired subscription、reconnect replay 和 snapshot/patch 未改。`git diff --check` 仍受仓库既有
+  CRLF/LF 混合影响而整文件误报，本轮未归一化用户文件。Android release-config 检查按当前开发配置
+  正确拒绝 HTTP/cleartext 发布值；WSL 缺少可执行的 Linux Android build-tools 且不能调用 Windows
+  Gradle，因此 Android JVM/assemble 与 Compose 视觉验证未完成。未构建 APK、未安装或操作设备，
+  下一 handoff 继续为 Windows JDK 21 编译及用户人工 smoke。

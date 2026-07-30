@@ -565,7 +565,27 @@ Android 的 Goal intent 仍使用统一的 WebSocket `follower_send_message` env
 }
 ```
 
-Gateway 优先使用 `goalObjective`，并与严格的 `/goal <objective>` 解析结果校验一致性；不一致或空 objective 必须拒绝。TermLink 自己是 Owner 时，Goal 设置由 Owner runtime 转换为 `thread/goal/set` JSON-RPC，随后只等待真实 `thread/goal/updated` / `cleared` notification 投影为 `activeGoal`；不能用 RPC ack 或用户消息本地伪造 activeGoal。managed Owner 的 `turn/start` 使用纯 objective 文本，同时保留 turn config、collaboration mode 和结构化输入。外部 Owner 路径则继续作为 `thread-follower-start-turn` 的 `/goal <objective>` follower intent 路由。当前外部 Owner IPC 没有已验证的 Goal update/cancel/complete 客户端方法，不得虚构为稳定 IPC API。
+只有 envelope 显式携带 `goalObjective` 时，Gateway 才把请求视为 Goal intent；严格的 `/goal <objective>` 解析结果只用于与显式字段做一致性校验。没有 `goalObjective` 的 `/goal ...` 正文仍是普通 follower message，不能被 Gateway 猜成 Goal。不一致或显式空 objective 必须拒绝。
+
+TermLink 自己是 Owner 时，Goal 设置由 Owner runtime 转换为 `thread/goal/set` JSON-RPC，随后只等待真实 `thread/goal/updated` / `cleared` notification 投影为 `activeGoal`；不能用 RPC ack、普通 turn completion 或用户消息本地伪造 activeGoal。managed Owner 的首次 `turn/start` 使用纯 objective 文本，同时保留 turn config、collaboration mode 和结构化输入。
+
+healthy external Owner 下没有已验证的 Goal follower action。semantic Goal 必须返回
+`GOAL_EXTERNAL_OWNER_UNSUPPORTED`，不得发送 `thread-follower-start-turn("/goal ...")`，也不得调用第二个本地 app-server。Android 可以只读显示 external surface 中真实存在的 Goal，并继续使用既有 `thread-follower-interrupt-turn` 中断当前 turn，但不能从 App 启动、pause、resume、clear 或 edit Goal。
+
+TermLink Owner 的 Goal 生命周期控制使用 additive WebSocket envelope：
+
+```ts
+{
+  type: "follower_goal_control";
+  conversationId: string;
+  action: "pause" | "resume";
+}
+```
+
+它不是 external IPC method。Gateway 只在当前 authority 为 TermLink Owner 时处理：`pause` 先调用
+`thread/goal/set({ threadId, status: "paused" })`，存在运行 turn 时再调用同一 app-server 的
+`turn/interrupt`；`resume` 只调用 `thread/goal/set({ threadId, status: "active" })`，不得重复 objective
+或 `turn/start`。控制 ack 仍不修改 Android `activeGoal`，最终状态只来自后续权威 surface。
 
 ### 10.5 图片
 

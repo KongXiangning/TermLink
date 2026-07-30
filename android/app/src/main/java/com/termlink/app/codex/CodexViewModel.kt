@@ -303,6 +303,9 @@ internal fun shouldUseIpcFollowerTransportState(state: CodexUiState): Boolean {
         !state.activeConversationId.isNullOrBlank()
 }
 
+internal fun goalControlActionForStatus(status: String?): String =
+    if (status.equals("paused", ignoreCase = true)) "resume" else "pause"
+
 internal fun shouldUseIpcFollowerSendTransportState(state: CodexUiState): Boolean {
     val activeConversationId = normalizeCodexThreadId(state.activeConversationId) ?: return false
     val threadId = normalizeCodexThreadId(state.threadId) ?: return false
@@ -516,7 +519,7 @@ internal fun applyIpcConversationSelectionToUiState(
         ownerCurrentCodexConfig = if (switched) null else state.ownerCurrentCodexConfig,
         nextTurnOverrides = if (switched) NextTurnOverrides() else state.nextTurnOverrides,
         activeGoal = if (switched) null else state.activeGoal,
-        goalMode = if (switched) false else state.goalMode,
+        goalMode = if (switched && !state.awaitingNewThreadIpcSurface) false else state.goalMode,
         messages = if (switched && hadIpcSurface) emptyList() else state.messages,
         pendingServerRequests = if (switched) {
             state.pendingServerRequests.filterNot { it.handledBy.equals("ipc_follower", ignoreCase = true) }
@@ -1994,7 +1997,17 @@ class CodexViewModel(
     }
 
     fun clearError() {
-        _uiState.update { it.copy(errorMessage = null) }
+        _uiState.update { current ->
+            val pendingGoalObjective = current.goalOwnerRequiredObjective
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+            current.copy(
+                errorMessage = null,
+                goalOwnerRequiredObjective = null,
+                goalMode = if (pendingGoalObjective != null) true else current.goalMode,
+                composerRecoveryText = pendingGoalObjective ?: current.composerRecoveryText
+            )
+        }
     }
 
     fun resolveThreadRecovery(action: String) {
@@ -2124,12 +2137,24 @@ class CodexViewModel(
     }
 
     fun continueActiveGoal() {
-        val objective = _uiState.value.activeGoal?.objective?.trim().orEmpty()
-        if (objective.isEmpty()) return
-        startFollowerGoal(objective)
+        val state = _uiState.value
+        val activeGoal = state.activeGoal ?: return
+        val conversationId = state.activeConversationId?.trim().orEmpty()
+        val isTermLinkOwner = state.ipcSurfaceSnapshot?.ownerKind.equals("termlink", ignoreCase = true)
+        if (conversationId.isEmpty() || !isTermLinkOwner || !shouldUseIpcFollowerTransport(state)) return
+        sendEnvelopeOrReportFailure(
+            payload = CodexClientMessages.followerGoalControl(
+                conversationId = conversationId,
+                action = goalControlActionForStatus(activeGoal.status)
+            ),
+            errorMessage = appContext.getString(R.string.codex_native_connection_action_unavailable)
+        )
     }
 
     fun newThread() {
+        val pendingGoalObjective = _uiState.value.goalOwnerRequiredObjective
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
         PersistentDiagnosticLog.event(
             "codex",
             "android.codex.new.requested",
@@ -2156,7 +2181,9 @@ class CodexViewModel(
                     messages = emptyList(),
                     errorMessage = null,
                     planMode = false,
-                    goalMode = false,
+                    goalMode = pendingGoalObjective != null,
+                    goalOwnerRequiredObjective = null,
+                    composerRecoveryText = pendingGoalObjective ?: it.composerRecoveryText,
                     planWorkflow = buildEmptyPlanWorkflowState(),
                     pendingFileMentions = emptyList(),
                     fileMentionMenuVisible = false,
@@ -5038,6 +5065,13 @@ class CodexViewModel(
                 )
             }
 
+            "follower_goal_control_ack" -> {
+                Log.d(TAG, "Owner Goal control accepted: ${json.optString("action", "")}")
+                json.optStringOrNullCompat("warning")?.let { warning ->
+                    _uiState.update { current -> current.copy(errorMessage = warning) }
+                }
+            }
+
             "follower_approval_response_sent" -> {
                 val requestId = json.optStringOrNullCompat("requestId").orEmpty()
                 Log.i(
@@ -5119,6 +5153,19 @@ class CodexViewModel(
             "error" -> {
                 val message = json.optString("message", "Codex request failed")
                 val detail = json.opt("detail")?.toString()?.takeIf { it.isNotBlank() }
+                val errorCode = json.optStringOrNullCompat("code")
+                if (errorCode == "GOAL_EXTERNAL_OWNER_UNSUPPORTED") {
+                    val objective = json.optStringOrNullCompat("goalObjective")
+                    if (!objective.isNullOrBlank()) {
+                        _uiState.update { current ->
+                            current.copy(
+                                errorMessage = null,
+                                goalOwnerRequiredObjective = objective.trim()
+                            )
+                        }
+                        return
+                    }
+                }
                 val rendered = if (detail.isNullOrBlank()) message else "$message: $detail"
                 PersistentDiagnosticLog.event(
                     "codex",

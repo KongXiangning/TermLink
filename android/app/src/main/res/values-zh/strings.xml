@@ -283,6 +283,11 @@
     <string name="codex_native_goal_title">Goal · %1$s</string>
     <string name="codex_native_goal_status">GOAL · %1$s</string>
     <string name="codex_native_goal_continue">继续</string>
+    <string name="codex_native_goal_pause">暂停 Goal</string>
+    <string name="codex_native_goal_external_control_unavailable">请在启动此 Goal 的 Desktop 或 VS Code 中控制</string>
+    <string name="codex_native_goal_external_owner_title">无法在 App 中开启 Goal</string>
+    <string name="codex_native_goal_external_owner_message">该任务当前由 Desktop 或 VS Code 执行，现有协议不支持从 App 开启 Goal。请在原宿主开启，或在 App 中新建 Goal 任务。</string>
+    <string name="codex_native_goal_external_owner_new">在 App 新建 Goal 任务</string>
     <string name="codex_native_goal_expand">展开目标</string>
     <string name="codex_native_goal_collapse">收起目标</string>
     <string name="codex_native_input_hint_plan">问任何问题...</string>

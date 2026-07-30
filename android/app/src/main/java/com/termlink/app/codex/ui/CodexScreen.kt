@@ -469,13 +469,12 @@ fun CodexScreen(
                     state.followerModeEnabled &&
                     state.followerActiveSendAllowed &&
                     !state.activeConversationId.isNullOrBlank() &&
-                    (state.ipcOnline || state.ipcSurfaceSnapshot?.ownerKind.equals("termlink", ignoreCase = true))
+                    state.ipcSurfaceSnapshot?.ownerKind.equals("termlink", ignoreCase = true)
                 ActiveGoalBand(
                     goal = goal,
                     isRunning = isStreaming,
                     controlAvailable = goalControlAvailable,
-                    onContinue = onContinueGoal,
-                    onInterrupt = onInterrupt
+                    onContinue = onContinueGoal
                 )
             }
 
@@ -735,6 +734,13 @@ fun CodexScreen(
         )
     }
 
+    state.goalOwnerRequiredObjective?.let {
+        GoalOwnerRequiredDialog(
+            onCreateNew = onNewThread,
+            onCancel = onDismissError
+        )
+    }
+
     if (state.threadRecovery == null) blockingApprovalRequest?.let { request ->
         CommandApprovalDialog(
             request = request,
@@ -816,12 +822,12 @@ private fun ActiveGoalBand(
     goal: ActiveGoalInfo,
     isRunning: Boolean,
     controlAvailable: Boolean,
-    onContinue: () -> Unit,
-    onInterrupt: () -> Unit
+    onContinue: () -> Unit
 ) {
     var expanded by remember(goal.objective) { mutableStateOf(false) }
+    val isPaused = goal.status.equals("paused", ignoreCase = true)
     val controlDescription = stringResource(
-        if (isRunning) R.string.codex_native_interrupt else R.string.codex_native_goal_continue
+        if (isPaused) R.string.codex_native_goal_continue else R.string.codex_native_goal_pause
     )
     Surface(
         modifier = Modifier
@@ -870,7 +876,9 @@ private fun ActiveGoalBand(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = if (isRunning) {
+                    text = if (!controlAvailable) {
+                        stringResource(R.string.codex_native_goal_external_control_unavailable)
+                    } else if (isRunning) {
                         stringResource(R.string.codex_native_status_running)
                     } else {
                         goal.status.orEmpty().ifBlank { stringResource(R.string.codex_native_status_idle) }
@@ -891,7 +899,7 @@ private fun ActiveGoalBand(
                     }
                     .clickable(
                         enabled = controlAvailable,
-                        onClick = if (isRunning) onInterrupt else onContinue
+                        onClick = onContinue
                     ),
                 color = Color.Transparent,
                 shape = CircleShape,
@@ -899,9 +907,9 @@ private fun ActiveGoalBand(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (isRunning) "■" else "▶",
+                        text = if (isPaused) "▶" else "■",
                         color = if (controlAvailable) TextPrimary else TextMuted,
-                        fontSize = if (isRunning) 12.sp else 14.sp,
+                        fontSize = if (isPaused) 14.sp else 12.sp,
                         lineHeight = 16.sp
                     )
                 }
@@ -909,6 +917,28 @@ private fun ActiveGoalBand(
         }
     }
 
+}
+
+@Composable
+private fun GoalOwnerRequiredDialog(
+    onCreateNew: () -> Unit,
+    onCancel: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text(stringResource(R.string.codex_native_goal_external_owner_title)) },
+        text = { Text(stringResource(R.string.codex_native_goal_external_owner_message)) },
+        confirmButton = {
+            TextButton(onClick = onCreateNew) {
+                Text(stringResource(R.string.codex_native_goal_external_owner_new))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCancel) {
+                Text(stringResource(R.string.codex_native_thread_recovery_cancel))
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
