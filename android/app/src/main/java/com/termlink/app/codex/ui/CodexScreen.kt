@@ -6084,14 +6084,12 @@ private fun ModelPickerRow(
 }
 
 private fun extractSlashQuery(text: String): String? {
-    val trimmed = text.trim()
-    if (!trimmed.startsWith("/")) {
-        return null
-    }
-    if (trimmed.contains(' ')) {
-        return null
-    }
-    return trimmed.lowercase()
+    // Match only the slash token currently being typed at the end of the
+    // composer. This keeps commands discoverable after normal text (for
+    // example, "请检查 /pla") while avoiding a false menu for the goal
+    // draft's trailing space ("/goal ").
+    val match = Regex("(^|\\s)(/[^\\s]*)$").find(text) ?: return null
+    return match.groupValues[2].lowercase()
 }
 
 private fun composerRawTextForMentionParsing(
