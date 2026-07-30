@@ -29,6 +29,7 @@ import com.termlink.app.data.MtlsOkHttpSupport
 import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.TerminalType
+import com.termlink.app.data.SessionApiClient
 import com.termlink.app.util.horizontalSafeInsets
 import com.termlink.app.util.LocaleHelper
 import com.termlink.app.util.setStatusBarHidden
@@ -48,6 +49,7 @@ class WorkspaceActivity : AppCompatActivity() {
 
     private lateinit var serverConfigStore: ServerConfigStore
     private lateinit var basicCredentialStore: BasicCredentialStore
+    private lateinit var sessionApiClient: SessionApiClient
     private var workspaceWebView: WebView? = null
     private var profileId: String = ""
     private var sessionId: String = ""
@@ -86,6 +88,7 @@ class WorkspaceActivity : AppCompatActivity() {
 
         serverConfigStore = ServerConfigStore(applicationContext)
         basicCredentialStore = BasicCredentialStore(applicationContext)
+        sessionApiClient = SessionApiClient(applicationContext)
         mtlsOkHttpSupport = MtlsOkHttpSupport(applicationContext)
         cleanupWorkspaceOpenCache()
         rootView = findViewById(R.id.workspace_root)
@@ -112,6 +115,10 @@ class WorkspaceActivity : AppCompatActivity() {
             Toast.makeText(this, getString(R.string.workspace_activity_invalid_profile), Toast.LENGTH_SHORT).show()
             finish()
             return
+        }
+        workspaceIoExecutor.execute {
+            sessionApiClient.ensureClientRegistration(profile)
+            runOnUiThread { workspaceWebView?.let(::injectWorkspaceConfig) }
         }
 
         backButton?.setOnClickListener {
@@ -295,6 +302,7 @@ class WorkspaceActivity : AppCompatActivity() {
         val profile = resolveProfile()
         json.put("sessionId", sessionId)
         json.put("serverUrl", profile?.baseUrl.orEmpty())
+        json.put("registrationId", profile?.let { sessionApiClient.registrationId(it) } ?: JSONObject.NULL)
         json.put("hostSurface", "android")
         json.put("uiTheme", if (isAppDarkTheme()) "dark" else "light")
         if (defaultEntryPath.isNotBlank()) {
@@ -387,7 +395,10 @@ class WorkspaceActivity : AppCompatActivity() {
             .build()
         val request = Request.Builder()
             .url(requestUrl)
-            .apply { buildAuthHeader(profile)?.let { header("Authorization", it) } }
+            .apply {
+                buildAuthHeader(profile)?.let { header("Authorization", it) }
+                sessionApiClient.registrationId(profile)?.let { header("X-TermLink-Registration-Id", it) }
+            }
             .get()
             .build()
         val client = mtlsOkHttpSupport.configure(workspaceHttpClient, profile, requestUrl.toString())

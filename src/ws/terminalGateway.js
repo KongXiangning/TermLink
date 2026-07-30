@@ -787,7 +787,8 @@ function registerTerminalGateway(wss, {
     tlsConfig = {},
     ipcFeed,
     ipcSurfaceWaitGraceMs = 5000,
-    mediaStore = null
+    mediaStore = null,
+    registrationManager = null
 }) {
     const isElevated = privilegeConfig && privilegeConfig.isElevated;
     const allowedIps = privilegeConfig ? privilegeConfig.allowedIps : [];
@@ -3960,18 +3961,28 @@ function registerTerminalGateway(wss, {
             const url = new URL(req.url, `http://${req.headers.host}`);
             const sessionIdProvided = url.searchParams.has('sessionId');
             sessionId = sessionIdProvided ? url.searchParams.get('sessionId') : null;
+            const registrationId = url.searchParams.get('registrationId') || null;
+            if (registrationId && registrationManager && !registrationManager.isActive(registrationId)) {
+                closeSocket(ws, 4403, 'Client registration is invalid or revoked');
+                return;
+            }
 
             let session;
             if (sessionIdProvided) {
-                session = sessionManager.getSession(sessionId);
+                session = typeof sessionManager.getSessionForRegistration === 'function'
+                    ? sessionManager.getSessionForRegistration(sessionId, registrationId)
+                    : sessionManager.getSession(sessionId);
                 if (!session) {
-                    closeSocket(ws, 4404, 'Session not found or expired');
+                    closeSocket(ws, registrationId ? 4403 : 4404, registrationId
+                        ? 'Session is not owned by this client registration'
+                        : 'Session not found or expired');
                     return;
                 }
             } else {
                 // Create session with privilege metadata
                 session = await sessionManager.createSession({
                     name: 'Default Session',
+                    registrationId,
                     privilegeMetadata: {
                         privilegeLevel,
                         connectedBy: req.user || 'unknown',

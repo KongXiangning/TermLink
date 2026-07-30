@@ -18,6 +18,9 @@ import com.termlink.app.data.MtlsCertificateStore
 import com.termlink.app.data.ServerConfigState
 import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
+import com.termlink.app.data.TerminalType
+import com.termlink.app.data.SessionApiClient
+import com.termlink.app.data.SessionListCacheStore
 import com.termlink.app.ui.settings.SettingsFragment
 import com.termlink.app.util.ProfileRestoreStateCleaner
 import com.termlink.app.util.ScreenTimeoutController
@@ -31,6 +34,8 @@ class SettingsActivity : AppCompatActivity(), SettingsFragment.Callbacks {
     private lateinit var basicCredentialStore: BasicCredentialStore
     private lateinit var mtlsCertificateStore: MtlsCertificateStore
     private lateinit var externalSessionStore: ExternalSessionStore
+    private lateinit var sessionApiClient: SessionApiClient
+    private lateinit var sessionListCacheStore: SessionListCacheStore
     private lateinit var webViewClientCertCacheInvalidator: WebViewClientCertCacheInvalidator
     private var rootView: View? = null
     private var topBarView: View? = null
@@ -75,6 +80,8 @@ class SettingsActivity : AppCompatActivity(), SettingsFragment.Callbacks {
         basicCredentialStore = BasicCredentialStore(applicationContext)
         mtlsCertificateStore = MtlsCertificateStore(applicationContext)
         externalSessionStore = ExternalSessionStore(applicationContext)
+        sessionApiClient = SessionApiClient(applicationContext)
+        sessionListCacheStore = SessionListCacheStore(applicationContext)
         webViewClientCertCacheInvalidator = WebViewClientCertCacheInvalidator()
 
         applySystemBarInsets()
@@ -131,13 +138,27 @@ class SettingsActivity : AppCompatActivity(), SettingsFragment.Callbacks {
 
     override fun onUpsertProfile(profile: ServerProfile): ServerConfigState {
         val state = serverConfigStore.upsertProfile(profile)
+        if (profile.terminalType == TerminalType.TERMLINK_WS) {
+            Thread { sessionApiClient.ensureClientRegistration(profile) }
+                .apply { isDaemon = true; start() }
+        }
         invalidateWebViewClientCertPreferencesAfterCommittedChange()
         return state
     }
 
     override fun onDeleteProfile(profileId: String): ServerConfigState {
+        val deletedProfile = serverConfigStore.loadState().profiles.firstOrNull { it.id == profileId }
+        if (deletedProfile != null) {
+            Thread {
+                sessionApiClient.removeRegistration(deletedProfile)
+                basicCredentialStore.removePassword(profileId)
+            }
+                .apply { isDaemon = true; start() }
+        } else {
+            basicCredentialStore.removePassword(profileId)
+        }
+        if (deletedProfile != null) sessionListCacheStore.removeProfileContext(deletedProfile)
         externalSessionStore.deleteByProfile(profileId)
-        basicCredentialStore.removePassword(profileId)
         val state = serverConfigStore.deleteProfile(profileId)
         ProfileRestoreStateCleaner.clearDeletedProfileState(applicationContext, profileId, state)
         invalidateWebViewClientCertPreferencesAfterCommittedChange()

@@ -1,6 +1,6 @@
 (function () {
     const state = {
-        sessionId: '', serverUrl: '', authHeader: '', defaultEntryPath: '', initialFilePath: '', workspaceRoot: '', docsPath: '',
+        sessionId: '', serverUrl: '', authHeader: '', registrationId: '', defaultEntryPath: '', initialFilePath: '', workspaceRoot: '', docsPath: '',
         hostSurface: 'web', currentDir: '', showHidden: true, treeEntries: [], selectedFilePath: '',
         selectedFileMeta: null, filePreview: null, diffPreview: null, activeView: 'content',
         markdownMode: 'rendered', diffLayout: window.innerWidth >= 900 ? 'split' : 'unified',
@@ -108,6 +108,7 @@
         state.sessionId = params.get('sessionId') || config.sessionId || '';
         state.serverUrl = String(config.serverUrl || '').replace(/\/+$/, '');
         state.authHeader = typeof config.authHeader === 'string' ? config.authHeader : '';
+        state.registrationId = typeof config.registrationId === 'string' ? config.registrationId : '';
         state.defaultEntryPath = params.get('defaultEntryPath') || config.defaultEntryPath || '';
         state.initialFilePath = config.initialFilePath || '';
         state.hostSurface = config.hostSurface === 'android' ? 'android' : 'web';
@@ -124,6 +125,7 @@
     }
     async function fetchJson(suffix, query) {
         const headers = state.authHeader ? { Authorization: state.authHeader } : {};
+        if (state.registrationId) headers['X-TermLink-Registration-Id'] = state.registrationId;
         const response = await fetch(apiUrl(suffix, query), { headers });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
@@ -137,12 +139,14 @@
     }
     async function fetchBlob(pathName) {
         const headers = state.authHeader ? { Authorization: state.authHeader } : {};
+        if (state.registrationId) headers['X-TermLink-Registration-Id'] = state.registrationId;
         const response = await fetch(apiUrl('file-content', { path: pathName }), { headers });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.blob();
     }
     async function fetchArrayBuffer(pathName) {
         const headers = state.authHeader ? { Authorization: state.authHeader } : {};
+        if (state.registrationId) headers['X-TermLink-Registration-Id'] = state.registrationId;
         const response = await fetch(apiUrl('file-content', { path: pathName }), { headers });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.arrayBuffer();

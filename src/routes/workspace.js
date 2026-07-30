@@ -42,12 +42,24 @@ function mergeGitStatuses(entries, statusMap) {
     }));
 }
 
-function createWorkspaceRouter(sessionManager) {
+function createWorkspaceRouter(sessionManager, registrationManager = null) {
     const router = express.Router();
+    router.use((req, res, next) => {
+        const value = req.headers && (req.headers['x-termlink-registration-id'] || req.headers['X-TermLink-Registration-Id']);
+        const id = typeof value === 'string' && value.trim() ? value.trim() : null;
+        if (id && registrationManager && !registrationManager.isActive(id)) {
+            return res.status(403).json({ error: 'Client registration is invalid or revoked.', code: 'REGISTRATION_INVALID' });
+        }
+        req.registrationId = id;
+        return next();
+    });
+    const registrationId = (req) => {
+        return req.registrationId || null;
+    };
 
     router.get('/sessions/:id/workspace/meta', async (req, res) => {
         try {
-            const payload = await resolveWorkspaceMeta(sessionManager, req.params.id);
+            const payload = await resolveWorkspaceMeta(sessionManager, req.params.id, registrationId(req));
             return res.json(payload);
         } catch (error) {
             return sendWorkspaceError(res, error);
@@ -56,7 +68,7 @@ function createWorkspaceRouter(sessionManager) {
 
     router.get('/sessions/:id/workspace/tree', async (req, res) => {
         try {
-            const access = await resolveWorkspaceAccess(sessionManager, req.params.id);
+            const access = await resolveWorkspaceAccess(sessionManager, req.params.id, registrationId(req));
             const showHidden = normalizeBooleanFlag(req.query.showHidden, true);
             const tree = await listWorkspaceDirectory(access.workspaceRoot, req.query.path, { showHidden });
             const statusResult = await getDirectoryStatusMap({
@@ -79,7 +91,7 @@ function createWorkspaceRouter(sessionManager) {
 
     router.get('/sessions/:id/workspace/file', async (req, res) => {
         try {
-            const access = await resolveWorkspaceAccess(sessionManager, req.params.id);
+            const access = await resolveWorkspaceAccess(sessionManager, req.params.id, registrationId(req));
             const payload = await readWorkspaceFile(access.workspaceRoot, req.query.path);
             return res.json(payload);
         } catch (error) {
@@ -89,7 +101,7 @@ function createWorkspaceRouter(sessionManager) {
 
     router.get('/sessions/:id/workspace/file-content', async (req, res) => {
         try {
-            const access = await resolveWorkspaceAccess(sessionManager, req.params.id);
+            const access = await resolveWorkspaceAccess(sessionManager, req.params.id, registrationId(req));
             const target = await resolveWorkspaceFileContent(access.workspaceRoot, req.query.path);
             const shouldDownload = normalizeBooleanFlag(req.query.download, false);
             res.type(getWorkspaceMimeType(target.realTargetPath));
@@ -104,7 +116,7 @@ function createWorkspaceRouter(sessionManager) {
 
     router.get('/sessions/:id/workspace/file-segment', async (req, res) => {
         try {
-            const access = await resolveWorkspaceAccess(sessionManager, req.params.id);
+            const access = await resolveWorkspaceAccess(sessionManager, req.params.id, registrationId(req));
             const payload = await readWorkspaceFileSegment(
                 access.workspaceRoot,
                 req.query.path,
@@ -119,7 +131,7 @@ function createWorkspaceRouter(sessionManager) {
 
     router.get('/sessions/:id/workspace/file-limited', async (req, res) => {
         try {
-            const access = await resolveWorkspaceAccess(sessionManager, req.params.id);
+            const access = await resolveWorkspaceAccess(sessionManager, req.params.id, registrationId(req));
             const payload = await readWorkspaceLimitedSegment(
                 access.workspaceRoot,
                 req.query.path,
@@ -133,7 +145,7 @@ function createWorkspaceRouter(sessionManager) {
 
     router.get('/sessions/:id/workspace/status', async (req, res) => {
         try {
-            const access = await resolveWorkspaceAccess(sessionManager, req.params.id);
+            const access = await resolveWorkspaceAccess(sessionManager, req.params.id, registrationId(req));
             const showHidden = normalizeBooleanFlag(req.query.showHidden, true);
             const tree = await listWorkspaceDirectory(access.workspaceRoot, req.query.path, { showHidden });
             const statusResult = await getDirectoryStatusMap({
@@ -156,7 +168,7 @@ function createWorkspaceRouter(sessionManager) {
 
     router.get('/sessions/:id/workspace/diff', async (req, res) => {
         try {
-            const access = await resolveWorkspaceAccess(sessionManager, req.params.id);
+            const access = await resolveWorkspaceAccess(sessionManager, req.params.id, registrationId(req));
             if (String(req.query.baseline || '').toLowerCase() === 'head'
                 || String(req.query.format || '').toLowerCase() === 'structured') {
                 const payload = await compareWorkspaceFileWithHead({
@@ -179,7 +191,7 @@ function createWorkspaceRouter(sessionManager) {
 
     router.get('/sessions/:id/workspace/search', async (req, res) => {
         try {
-            const access = await resolveWorkspaceAccess(sessionManager, req.params.id);
+            const access = await resolveWorkspaceAccess(sessionManager, req.params.id, registrationId(req));
             const entries = await searchWorkspaceEntries(
                 access.workspaceRoot,
                 req.query.q,
@@ -193,7 +205,7 @@ function createWorkspaceRouter(sessionManager) {
 
     router.get('/sessions/:id/workspace/compare', async (req, res) => {
         try {
-            const access = await resolveWorkspaceAccess(sessionManager, req.params.id);
+            const access = await resolveWorkspaceAccess(sessionManager, req.params.id, registrationId(req));
             const payload = await compareWorkspaceFiles({
                 workspaceRoot: access.workspaceRoot,
                 leftPath: req.query.leftPath,

@@ -163,16 +163,36 @@ function parsePatchSessionPayload(body, session) {
     return { value: parsed };
 }
 
-function createSessionsRouter(sessionManager) {
+function getRegistrationId(req) {
+    const value = req && req.headers
+        ? (req.headers['x-termlink-registration-id'] || req.headers['X-TermLink-Registration-Id'])
+        : null;
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function ensureRegistration(req, res, registrationManager) {
+    const registrationId = getRegistrationId(req);
+    if (registrationId && registrationManager && !registrationManager.isActive(registrationId)) {
+        res.status(403).json({ error: 'Client registration is invalid or revoked.', code: 'REGISTRATION_INVALID' });
+        return null;
+    }
+    return registrationId;
+}
+
+function createSessionsRouter(sessionManager, registrationManager = null) {
     const router = express.Router();
 
     router.get('/sessions', (req, res) => {
-        const sessions = sessionManager.listSessions();
+        const registrationId = ensureRegistration(req, res, registrationManager);
+        if (registrationId === null && getRegistrationId(req)) return;
+        const sessions = sessionManager.listSessions(registrationId);
         diagnosticLog.event('server', 'server.http.sessions.list', { count: sessions.length });
         res.json(sessions);
     });
 
     router.post('/sessions', async (req, res) => {
+        const registrationId = ensureRegistration(req, res, registrationManager);
+        if (registrationId === null && getRegistrationId(req)) return;
         const parsed = parseCreateSessionPayload(req.body);
         if (parsed.error) {
             return res.status(400).json({ error: parsed.error });
@@ -180,7 +200,10 @@ function createSessionsRouter(sessionManager) {
 
         try {
             await validateSessionCwd(parsed.value.cwd);
-            const session = await sessionManager.createSession(parsed.value);
+            const createOptions = registrationId
+                ? { ...parsed.value, registrationId }
+                : parsed.value;
+            const session = await sessionManager.createSession(createOptions);
             diagnosticLog.event('server', 'server.http.sessions.create.completed', {
                 sessionMode: parsed.value.sessionMode,
                 hasCwd: Boolean(parsed.value.cwd),
@@ -208,7 +231,11 @@ function createSessionsRouter(sessionManager) {
 
     router.patch('/sessions/:id', (req, res) => {
         const { id } = req.params;
-        const existingSession = sessionManager.getSession(id);
+        const registrationId = ensureRegistration(req, res, registrationManager);
+        if (registrationId === null && getRegistrationId(req)) return;
+        const existingSession = typeof sessionManager.getSessionForRegistration === 'function'
+            ? sessionManager.getSessionForRegistration(id, registrationId)
+            : sessionManager.getSession(id);
         if (!existingSession) {
             return res.status(404).json({ error: 'Session not found' });
         }
@@ -230,7 +257,12 @@ function createSessionsRouter(sessionManager) {
 
     router.delete('/sessions/:id', (req, res) => {
         const { id } = req.params;
-        const success = sessionManager.deleteSession(id);
+        const registrationId = ensureRegistration(req, res, registrationManager);
+        if (registrationId === null && getRegistrationId(req)) return;
+        const owned = typeof sessionManager.getSessionForRegistration === 'function'
+            ? sessionManager.getSessionForRegistration(id, registrationId)
+            : sessionManager.getSession(id);
+        const success = Boolean(owned) && sessionManager.deleteSession(id);
         diagnosticLog.event('server', 'server.http.sessions.delete', {
             sessionIdPresent: Boolean(id),
             success
@@ -243,7 +275,12 @@ function createSessionsRouter(sessionManager) {
 
     router.get('/sessions/:id/workspace/files', async (req, res) => {
         const { id } = req.params;
-        if (!sessionManager.getSession(id)) {
+        const registrationId = ensureRegistration(req, res, registrationManager);
+        if (registrationId === null && getRegistrationId(req)) return;
+        const session = typeof sessionManager.getSessionForRegistration === 'function'
+            ? sessionManager.getSessionForRegistration(id, registrationId)
+            : sessionManager.getSession(id);
+        if (!session) {
             return res.status(404).json({ error: 'Session not found' });
         }
 
@@ -251,7 +288,7 @@ function createSessionsRouter(sessionManager) {
         const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
 
         try {
-            const access = await resolveWorkspaceAccess(sessionManager, id);
+            const access = await resolveWorkspaceAccess(sessionManager, id, registrationId);
             const files = await searchWorkspaceFiles(access.workspaceRoot, query, limit);
             return res.json({ files });
         } catch (error) {

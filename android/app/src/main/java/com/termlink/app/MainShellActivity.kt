@@ -50,6 +50,7 @@ import com.termlink.app.data.ServerConfigState
 import com.termlink.app.data.ServerConfigStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.SessionApiClient
+import com.termlink.app.data.SessionListCacheStore
 import com.termlink.app.data.SessionMode
 import com.termlink.app.data.SessionSelection
 import com.termlink.app.data.TerminalType
@@ -100,6 +101,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private lateinit var mtlsCertificateStore: MtlsCertificateStore
     private lateinit var externalSessionStore: ExternalSessionStore
     private lateinit var sessionApiClient: SessionApiClient
+    private lateinit var sessionListCacheStore: SessionListCacheStore
     private lateinit var webViewClientCertCacheInvalidator: WebViewClientCertCacheInvalidator
     private val backgroundExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private var serverConfigState: ServerConfigState? = null
@@ -117,6 +119,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
     private var lastToastSignature: String = ""
     private var lastToastAtMs: Long = 0L
     private var lastInjectedConfigSignature: String? = null
+    private var registrationEnsureInFlightProfileId: String = ""
     private var terminalStatusText: String = ""
     private var currentPrivilegeLevel: String = "STANDARD"
     private var lastResolvedLocale: String = LocaleHelper.resolveWebViewLocale()
@@ -213,6 +216,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         mtlsCertificateStore = MtlsCertificateStore(applicationContext)
         externalSessionStore = ExternalSessionStore(applicationContext)
         sessionApiClient = SessionApiClient(applicationContext)
+        sessionListCacheStore = SessionListCacheStore(applicationContext)
         webViewClientCertCacheInvalidator = WebViewClientCertCacheInvalidator()
         syncProfileState(serverConfigStore.loadState(), inject = false)
         currentTerminalProfileId = resolveInitialProfileId()
@@ -649,14 +653,26 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
 
     override fun onUpsertProfile(profile: ServerProfile): ServerConfigState {
         val state = serverConfigStore.upsertProfile(profile)
+        if (profile.terminalType == TerminalType.TERMLINK_WS) {
+            backgroundExecutor.execute { sessionApiClient.ensureClientRegistration(profile) }
+        }
         syncProfileState(state, inject = false)
         invalidateWebViewClientCertPreferencesAfterCommittedChange()
         return state
     }
 
     override fun onDeleteProfile(profileId: String): ServerConfigState {
+        val deletedProfile = serverConfigStore.loadState().profiles.firstOrNull { it.id == profileId }
+        if (deletedProfile != null) {
+            backgroundExecutor.execute {
+                sessionApiClient.removeRegistration(deletedProfile)
+                basicCredentialStore.removePassword(profileId)
+            }
+        } else {
+            basicCredentialStore.removePassword(profileId)
+        }
+        if (deletedProfile != null) sessionListCacheStore.removeProfileContext(deletedProfile)
         externalSessionStore.deleteByProfile(profileId)
-        basicCredentialStore.removePassword(profileId)
         val state = serverConfigStore.deleteProfile(profileId)
         ProfileRestoreStateCleaner.clearDeletedProfileState(applicationContext, profileId, state)
         if (currentTerminalProfileId == profileId) {
@@ -828,6 +844,30 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             currentTerminalProfileId = activeProfile?.id.orEmpty()
             persistLastProfileId(currentTerminalProfileId)
         }
+        val profileForRegistration = activeProfile
+        if (profileForRegistration != null &&
+            profileForRegistration.terminalType == TerminalType.TERMLINK_WS &&
+            sessionApiClient.registrationId(profileForRegistration) == null &&
+            registrationEnsureInFlightProfileId != profileForRegistration.id
+        ) {
+            registrationEnsureInFlightProfileId = profileForRegistration.id
+            backgroundExecutor.execute {
+                val result = sessionApiClient.ensureClientRegistration(profileForRegistration)
+                runOnUiThread {
+                    if (registrationEnsureInFlightProfileId == profileForRegistration.id) {
+                        registrationEnsureInFlightProfileId = ""
+                    }
+                    if (result is com.termlink.app.data.ApiResult.Success &&
+                        currentTerminalProfileId == profileForRegistration.id
+                    ) {
+                        lastInjectedConfigSignature = null
+                        if (inject && currentScreen == ScreenMode.TERMINAL) {
+                            reloadTerminalSurfaceIfNeeded(forceReload = false)
+                        }
+                    }
+                }
+            }
+        }
         if (inject && currentScreen == ScreenMode.TERMINAL) {
             reloadTerminalSurfaceIfNeeded(forceReload = false)
         }
@@ -867,6 +907,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
             lastSessionId,
             currentSessionMode().wireValue,
             currentSessionCwd().orEmpty(),
+            profile?.let { sessionApiClient.registrationId(it) }.orEmpty(),
             effectiveTerminalUiTheme()
         ).joinToString("|")
     }
@@ -892,6 +933,7 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         json.put("cwd", currentSessionCwd())
         json.put("serverUrl", resolveInjectedServerUrl(profile))
         json.put("sessionId", lastSessionId)
+        json.put("registrationId", profile?.let { sessionApiClient.registrationId(it) } ?: JSONObject.NULL)
         json.put("activeProfile", activeProfileJson)
         json.put("historyEnabled", true)
         // The interactive terminal is intentionally dark-only. Codex web

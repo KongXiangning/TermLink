@@ -18,6 +18,7 @@ const {
     normalizeLastCodexThreadId,
     normalizeCodexConfig
 } = SessionStore;
+const LEGACY_SESSION_GRACE_MS = SessionStore.LEGACY_SESSION_GRACE_MS;
 
 function parsePositiveIntEnv(name, defaultValue, minValue) {
     const raw = process.env[name];
@@ -113,7 +114,9 @@ class SessionManager {
             workspaceRoot: options.workspaceRoot,
             workspaceRootSource: options.workspaceRootSource,
             lastCodexThreadId: options.lastCodexThreadId,
-            codexConfig: options.codexConfig
+            codexConfig: options.codexConfig,
+            registrationId: options.registrationId,
+            legacyExpiresAt: options.legacyExpiresAt
         });
 
         this.ensurePtyForSession(session);
@@ -135,8 +138,17 @@ class SessionManager {
         return session;
     }
 
-    listSessions() {
-        return Array.from(this.sessions.values()).map((session) => this.buildSessionSummary(session));
+    getSessionForRegistration(id, registrationId) {
+        const session = this.sessions.get(id);
+        if (!session) return null;
+        if (!registrationId) return session;
+        return session.registrationId === registrationId ? session : null;
+    }
+
+    listSessions(registrationId = null) {
+        return Array.from(this.sessions.values())
+            .filter((session) => !registrationId || session.registrationId === registrationId)
+            .map((session) => this.buildSessionSummary(session));
     }
 
     broadcast(session, envelope) {
@@ -237,9 +249,25 @@ class SessionManager {
         return false;
     }
 
+    markRegistrationDeleted(registrationId) {
+        const expiresAt = Date.now() + LEGACY_SESSION_GRACE_MS;
+        let changed = false;
+        for (const session of this.sessions.values()) {
+            if (session.registrationId !== registrationId) continue;
+            session.legacyExpiresAt = expiresAt;
+            changed = true;
+        }
+        if (changed) this.schedulePersist();
+    }
+
     cleanupIdleSessions() {
         const now = Date.now();
         for (const [id, session] of this.sessions.entries()) {
+            if (session.legacyExpiresAt && now >= session.legacyExpiresAt) {
+                console.log(`Cleaning up expired legacy session: ${id}`);
+                this.deleteSession(id);
+                continue;
+            }
             if (session.connections.length === 0 && (now - session.lastActiveAt > this.idleTimeoutMs)) {
                 console.log(`Cleaning up idle session: ${id}`);
                 this.deleteSession(id);
@@ -302,9 +330,16 @@ class SessionManager {
                 workspaceRoot: record.workspaceRoot,
                 workspaceRootSource: record.workspaceRootSource,
                 lastCodexThreadId: record.lastCodexThreadId,
-                codexConfig: record.codexConfig
+                codexConfig: record.codexConfig,
+                registrationId: record.registrationId,
+                legacyExpiresAt: record.legacyExpiresAt
             });
             this.sessions.set(session.id, session);
+        }
+        if (records.some((record) => Number.isFinite(record.legacyExpiresAt))) {
+            // Persist the one-time legacy grace deadline so server restarts do
+            // not extend old unowned sessions indefinitely.
+            this.schedulePersist();
         }
 
         console.log(`[SessionManager] Restored ${records.length} persisted sessions.`);
@@ -322,7 +357,9 @@ class SessionManager {
         workspaceRoot,
         workspaceRootSource,
         lastCodexThreadId,
-        codexConfig
+        codexConfig,
+        registrationId,
+        legacyExpiresAt
     }) {
         const normalizedSessionMode = normalizeSessionMode(sessionMode);
         const normalizedCwd = normalizeSessionCwd(cwd);
@@ -350,6 +387,10 @@ class SessionManager {
             codexConfig: normalizeCodexConfig(codexConfig, {
                 requirePolicyAndSandbox: false
             }),
+            registrationId: typeof registrationId === 'string' && registrationId.trim()
+                ? registrationId.trim()
+                : null,
+            legacyExpiresAt: Number.isFinite(legacyExpiresAt) ? Number(legacyExpiresAt) : null,
             connections: [],
             ptyService: new PtyService(),
             ptyInitialized: false,
@@ -481,7 +522,9 @@ class SessionManager {
             lastCodexThreadId: normalizeLastCodexThreadId(s.lastCodexThreadId),
             codexConfig: normalizeCodexConfig(s.codexConfig, {
                 requirePolicyAndSandbox: false
-            })
+            }),
+            registrationId: s.registrationId || null,
+            legacyExpiresAt: Number.isFinite(s.legacyExpiresAt) ? s.legacyExpiresAt : null
         }));
     }
 

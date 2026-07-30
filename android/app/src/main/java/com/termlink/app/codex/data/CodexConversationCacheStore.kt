@@ -92,6 +92,33 @@ class CodexConversationCacheStore(context: Context) : SQLiteOpenHelper(
         return CodexHistoryCacheView(checkpoint, items)
     }
 
+    /** Read the newest cached copy by task ID when a profile was re-added. */
+    fun readConversationByConversationId(conversationId: String): CodexHistoryCacheView? {
+        val db = readableDatabase
+        val checkpoint = db.query(
+            "conversations", null, "conversation_id=?", arrayOf(conversationId), null, null,
+            "last_opened_at DESC", "1"
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) return null
+            CodexConversationCheckpoint(
+                cursor.getString(cursor.getColumnIndexOrThrow("endpoint_id")),
+                cursor.getString(cursor.getColumnIndexOrThrow("conversation_id")),
+                cursor.getInt(cursor.getColumnIndexOrThrow("schema_version")),
+                cursor.getString(cursor.getColumnIndexOrThrow("root_hash")),
+                cursor.getInt(cursor.getColumnIndexOrThrow("item_count")),
+                cursor.getInt(cursor.getColumnIndexOrThrow("complete")) != 0,
+                cursor.getLongOrNull("last_synced_at"),
+                cursor.getLong(cursor.getColumnIndexOrThrow("last_opened_at"))
+            )
+        }
+        val items = mutableListOf<CodexHistoryItem>()
+        db.query(
+            "items", null, "endpoint_id=? AND conversation_id=?",
+            arrayOf(checkpoint.endpointId, checkpoint.conversationId), null, null, "position ASC"
+        ).use { cursor -> while (cursor.moveToNext()) items += cursor.toItem() }
+        return CodexHistoryCacheView(checkpoint, items)
+    }
+
     fun upsertProvisional(endpointId: String, conversationId: String, item: CodexHistoryItem) {
         require(item.provisional)
         writableDatabase.insertWithOnConflict("items", null, item.values(endpointId, conversationId), SQLiteDatabase.CONFLICT_REPLACE)

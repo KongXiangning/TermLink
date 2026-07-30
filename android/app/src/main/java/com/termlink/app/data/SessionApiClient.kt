@@ -18,6 +18,8 @@ class SessionApiClient(context: Context) {
 
     private val mtlsHttpSupport = MtlsHttpSupport(context.applicationContext)
     private val basicCredentialStore = BasicCredentialStore(context.applicationContext)
+    private val clientRegistrationStore = ClientRegistrationStore(context.applicationContext)
+    private val mtlsCertificateStore = MtlsCertificateStore(context.applicationContext)
 
     fun listSessions(profile: ServerProfile): ApiResult<List<SessionSummary>> {
         val response = request(
@@ -31,6 +33,30 @@ class SessionApiClient(context: Context) {
         return when (response) {
             is ApiResult.Failure -> response
             is ApiResult.Success -> parseSessions(response.value)
+        }
+    }
+
+    fun registrationId(profile: ServerProfile): String? {
+        return clientRegistrationStore.get(profile.id)
+            ?.takeIf { it.fingerprint == registrationFingerprint(profile) }
+            ?.registrationId
+    }
+
+    fun ensureClientRegistration(profile: ServerProfile): ApiResult<String> = ensureRegistration(profile)
+
+    fun removeRegistration(profile: ServerProfile) {
+        synchronized(registrationLock) {
+            val cached = clientRegistrationStore.get(profile.id)
+            clientRegistrationStore.remove(profile.id)
+            if (cached != null) {
+                request(
+                    profile = profile,
+                    method = "DELETE",
+                    endpointPath = "/client-registrations/${cached.registrationId}",
+                    body = null,
+                    skipRegistration = true
+                )
+            }
         }
     }
 
@@ -318,7 +344,8 @@ class SessionApiClient(context: Context) {
         endpointPath: String,
         body: String?,
         connectTimeoutMs: Int = DEFAULT_CONNECT_TIMEOUT_MS,
-        readTimeoutMs: Int = DEFAULT_READ_TIMEOUT_MS
+        readTimeoutMs: Int = DEFAULT_READ_TIMEOUT_MS,
+        skipRegistration: Boolean = false
     ): ApiResult<String> {
         val requestStartedAt = SystemClock.elapsedRealtime()
         PersistentDiagnosticLog.event(
@@ -332,8 +359,16 @@ class SessionApiClient(context: Context) {
             is ApiResult.Success -> contextResult.value
         }
 
-        var currentUrl = buildApiUrl(requestContext.apiBaseUri, endpointPath)
-        Log.d(TAG, "Request $method $currentUrl auth=${requestContext.authorizationHeader != null}")
+        val effectiveContext = if (skipRegistration || endpointPath.startsWith("/client-registrations")) {
+            requestContext
+        } else {
+            when (val registrationResult = ensureRegistration(profile)) {
+                is ApiResult.Failure -> return registrationResult
+                is ApiResult.Success -> requestContext.copy(registrationId = registrationResult.value)
+            }
+        }
+        var currentUrl = buildApiUrl(effectiveContext.apiBaseUri, endpointPath)
+        Log.d(TAG, "Request $method $currentUrl auth=${effectiveContext.authorizationHeader != null} registration=${effectiveContext.registrationId != null}")
         var currentMethod = method
         var currentBody = body
         var redirectCount = 0
@@ -357,8 +392,11 @@ class SessionApiClient(context: Context) {
                 )
             }
 
-            requestContext.authorizationHeader?.let { authHeader ->
+            effectiveContext.authorizationHeader?.let { authHeader ->
                 connection.setRequestProperty("Authorization", authHeader)
+            }
+            effectiveContext.registrationId?.let { registrationId ->
+                connection.setRequestProperty("X-TermLink-Registration-Id", registrationId)
             }
 
             if (currentBody != null) {
@@ -561,6 +599,70 @@ class SessionApiClient(context: Context) {
         return ApiResult.Success(RequestContext(apiBaseUri = apiBaseUri, authorizationHeader = authorizationHeader))
     }
 
+    private fun ensureRegistration(profile: ServerProfile): ApiResult<String> {
+        return synchronized(registrationLock) {
+            ensureRegistrationLocked(profile)
+        }
+    }
+
+    private fun ensureRegistrationLocked(profile: ServerProfile): ApiResult<String> {
+        val fingerprint = registrationFingerprint(profile)
+        val cached = clientRegistrationStore.get(profile.id)
+        if (cached != null && cached.fingerprint == fingerprint && cached.registrationId.isNotBlank()) {
+            return ApiResult.Success(cached.registrationId)
+        }
+
+        if (cached != null && cached.registrationId.isNotBlank()) {
+            // A changed endpoint/auth/mTLS identity must not keep the old
+            // registration namespace alive for the updated profile.
+            request(
+                profile = profile,
+                method = "DELETE",
+                endpointPath = "/client-registrations/${cached.registrationId}",
+                body = null,
+                skipRegistration = true
+            )
+        }
+
+        val payload = JSONObject().put("clientType", "android").toString()
+        val response = request(
+            profile = profile,
+            method = "POST",
+            endpointPath = "/client-registrations",
+            body = payload,
+            skipRegistration = true
+        )
+        return when (response) {
+            is ApiResult.Failure -> response
+            is ApiResult.Success -> runCatching {
+                val id = JSONObject(response.value.ifBlank { "{}" }).optString("registrationId").trim()
+                if (id.isBlank()) {
+                    ApiResult.Failure(SessionApiError(SessionApiErrorCode.PARSE_ERROR, "Missing client registration id."))
+                } else {
+                    clientRegistrationStore.put(profile.id, ClientRegistration(id, fingerprint))
+                    ApiResult.Success(id)
+                }
+            }.getOrElse {
+                ApiResult.Failure(
+                    SessionApiError(
+                        code = SessionApiErrorCode.PARSE_ERROR,
+                        message = "Failed to parse client registration.",
+                        cause = it
+                    )
+                )
+            }
+        }
+    }
+
+    private fun registrationFingerprint(profile: ServerProfile): String {
+        return listOf(
+            profile.baseUrl.trim(), profile.authType.name, profile.basicUsername.trim(),
+            profile.mtlsEnabled, profile.mtlsCertificateDisplayName.trim(),
+            mtlsCertificateStore.getCertificateLastModified(profile.id),
+            mtlsCertificateStore.hasPassword(profile.id)
+        ).joinToString("|")
+    }
+
     private fun buildApiUrl(apiBaseUri: URI, endpointPath: String): URL {
         val normalizedPath = endpointPath.trim().removePrefix("/")
         return URL("${apiBaseUri.toString().trimEnd('/')}/$normalizedPath")
@@ -640,7 +742,8 @@ class SessionApiClient(context: Context) {
 
     private data class RequestContext(
         val apiBaseUri: URI,
-        val authorizationHeader: String?
+        val authorizationHeader: String?,
+        val registrationId: String? = null
     )
 
     companion object {
@@ -650,6 +753,8 @@ class SessionApiClient(context: Context) {
         private const val DEFAULT_READ_TIMEOUT_MS = 10000
         private const val SESSION_LIST_CONNECT_TIMEOUT_MS = 2000
         private const val SESSION_LIST_READ_TIMEOUT_MS = 3000
+        /** Process-wide single-flight lock shared by shell, sessions and Codex clients. */
+        private val registrationLock = Any()
         private val REDIRECT_STATUS_CODES = setOf(301, 302, 303, 307, 308)
     }
 }

@@ -65,8 +65,11 @@ function getExistingWorkspaceRoot(session) {
     return workspaceRoot || null;
 }
 
-async function resolveWorkspaceMeta(sessionManager, sessionId) {
-    const session = ensureSessionExists(sessionManager, sessionId);
+async function resolveWorkspaceMeta(sessionManager, sessionId, registrationId = null) {
+    const session = registrationId && typeof sessionManager.getSessionForRegistration === 'function'
+        ? sessionManager.getSessionForRegistration(sessionId, registrationId)
+        : ensureSessionExists(sessionManager, sessionId);
+    if (!session) throw new WorkspaceError('WORKSPACE_SESSION_NOT_FOUND', 'Session not found.', 404);
     ensureCodexSession(session);
 
     const workspaceRoot = ensureWorkspaceRoot(sessionManager, session);
@@ -102,8 +105,11 @@ async function resolveWorkspaceMeta(sessionManager, sessionId) {
     };
 }
 
-async function resolveWorkspaceAccess(sessionManager, sessionId) {
-    const session = ensureSessionExists(sessionManager, sessionId);
+async function resolveWorkspaceAccess(sessionManager, sessionId, registrationId = null) {
+    const session = registrationId && typeof sessionManager.getSessionForRegistration === 'function'
+        ? sessionManager.getSessionForRegistration(sessionId, registrationId)
+        : ensureSessionExists(sessionManager, sessionId);
+    if (!session) throw new WorkspaceError('WORKSPACE_SESSION_NOT_FOUND', 'Session not found.', 404);
     ensureCodexSession(session);
 
     const workspaceRoot = getExistingWorkspaceRoot(session);

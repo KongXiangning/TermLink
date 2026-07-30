@@ -12,8 +12,10 @@ const os = require('os');
 const basicAuth = require('./auth/basicAuth');
 const createHealthRouter = require('./routes/health');
 const createSessionsRouter = require('./routes/sessions');
+const createClientRegistrationsRouter = require('./routes/clientRegistrations');
 const createWorkspaceRouter = require('./routes/workspace');
 const sessionManager = require('./services/sessionManager');
+const clientRegistrationManager = require('./services/clientRegistrationManager');
 const registerTerminalGateway = require('./ws/terminalGateway');
 const { CodexIpcFeed } = require('./services/codexIpcFeed');
 const { parsePrivilegeConfig, validateElevatedEnabled } = require('./config/privilegeConfig');
@@ -112,7 +114,7 @@ app.use(express.json());
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-TermLink-Registration-Id");
     if (req.method === 'OPTIONS') return res.sendStatus(200);
     next();
 });
@@ -123,8 +125,9 @@ app.get('/api/auth/session', basicAuth.sessionHandler);
 app.use(basicAuth);
 app.post('/api/auth/logout', basicAuth.logoutHandler);
 app.use(express.static(path.join(__dirname, '../public')));
-app.use('/api', createSessionsRouter(sessionManager));
-app.use('/api', createWorkspaceRouter(sessionManager));
+app.use('/api', createClientRegistrationsRouter({ registrationManager: clientRegistrationManager, sessionManager }));
+app.use('/api', createSessionsRouter(sessionManager, clientRegistrationManager));
+app.use('/api', createWorkspaceRouter(sessionManager, clientRegistrationManager));
 app.use('/api', createHealthRouter({ privilegeConfig, tlsConfig }));
 app.use('/api', createCodexMediaRouter({ mediaStore: codexMediaStore }));
 
@@ -137,7 +140,15 @@ app.get('/api/ws-ticket', (req, res) => {
 // ── IPC feed: connect to codex-ipc when enabled ──
 const ipcFeed = new CodexIpcFeed();
 
-registerTerminalGateway(wss, { sessionManager, heartbeatMs: 30000, privilegeConfig, tlsConfig, ipcFeed, mediaStore: codexMediaStore });
+registerTerminalGateway(wss, {
+    sessionManager,
+    heartbeatMs: 30000,
+    privilegeConfig,
+    tlsConfig,
+    ipcFeed,
+    mediaStore: codexMediaStore,
+    registrationManager: clientRegistrationManager
+});
 
 // Start IPC feed first, then listen — avoids a race where the feed's
 // initialize handshake completes after the first WebSocket client connects.

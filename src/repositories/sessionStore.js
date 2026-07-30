@@ -2,7 +2,8 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
 
-const STORE_VERSION = 2;
+const STORE_VERSION = 3;
+const LEGACY_SESSION_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 
 const VALID_SESSION_MODES = new Set(['terminal', 'codex']);
 const VALID_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh']);
@@ -137,7 +138,9 @@ class SessionStore {
             const raw = fs.readFileSync(this.filePath, 'utf8');
             const parsed = JSON.parse(raw);
             const records = Array.isArray(parsed.sessions) ? parsed.sessions : [];
-            return this._normalizeRecords(records);
+            return this._normalizeRecords(records, {
+                legacyGrace: Number(parsed.version || 0) < STORE_VERSION
+            });
         } catch (e) {
             this.logger.warn(`[SessionStore] Failed to load store ${this.filePath}: ${e.message}`);
             return [];
@@ -190,7 +193,7 @@ class SessionStore {
         }, null, 2);
     }
 
-    _normalizeRecords(records) {
+    _normalizeRecords(records, options = {}) {
         const now = Date.now();
         const normalized = [];
 
@@ -213,6 +216,12 @@ class SessionStore {
             const codexConfig = normalizeCodexConfig(record.codexConfig, {
                 requirePolicyAndSandbox: sessionMode === 'codex'
             });
+            const registrationId = typeof record.registrationId === 'string' && record.registrationId.trim()
+                ? record.registrationId.trim()
+                : null;
+            const legacyExpiresAt = Number.isFinite(record.legacyExpiresAt)
+                ? Number(record.legacyExpiresAt)
+                : (options.legacyGrace && !registrationId ? now + LEGACY_SESSION_GRACE_MS : null);
 
             if (sessionMode === 'codex') {
                 const cwdExists = isExistingDirectoryPath(cwd);
@@ -225,7 +234,7 @@ class SessionStore {
                 }
             }
 
-            normalized.push({
+            const normalizedRecord = {
                 id: record.id,
                 name,
                 createdAt,
@@ -237,7 +246,10 @@ class SessionStore {
                 workspaceRootSource,
                 lastCodexThreadId,
                 codexConfig
-            });
+            };
+            if (registrationId) normalizedRecord.registrationId = registrationId;
+            if (legacyExpiresAt) normalizedRecord.legacyExpiresAt = legacyExpiresAt;
+            normalized.push(normalizedRecord);
         }
 
         return normalized;
@@ -252,3 +264,4 @@ module.exports.normalizeCodexConfig = normalizeCodexConfig;
 module.exports.createDefaultCodexConfig = createDefaultCodexConfig;
 module.exports.normalizeWorkspaceRoot = normalizeWorkspaceRoot;
 module.exports.normalizeWorkspaceRootSource = normalizeWorkspaceRootSource;
+module.exports.LEGACY_SESSION_GRACE_MS = LEGACY_SESSION_GRACE_MS;

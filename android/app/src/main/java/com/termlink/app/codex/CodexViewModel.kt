@@ -1699,7 +1699,7 @@ class CodexViewModel(
     }
 
     private val appContext = appContext.applicationContext
-    private val connectionManager = CodexConnectionManager(viewModelScope, credentialStore, this.appContext)
+    private val connectionManager = CodexConnectionManager(viewModelScope, credentialStore, sessionApiClient, this.appContext)
     private val historyCacheStore = CodexConversationCacheStore(this.appContext)
     private val rememberedTaskConfig = this.appContext.getSharedPreferences(
         REMEMBERED_CONFIG_PREFS,
@@ -1844,7 +1844,10 @@ class CodexViewModel(
         }
         if (!launchConversationId.isNullOrBlank()) {
             viewModelScope.launch(Dispatchers.IO) {
-                val cached = runCatching { historyCacheStore.readConversation(profile.id, launchConversationId) }.getOrNull()
+                val cached = runCatching {
+                    historyCacheStore.readConversation(profile.id, launchConversationId)
+                        ?: historyCacheStore.readConversationByConversationId(launchConversationId)
+                }.getOrNull()
                 if (cached != null && cached.items.isNotEmpty()) {
                     val cachedMessages = cached.items.sortedBy { it.position }.mapNotNull(::decodeCachedHistoryItem)
                     _uiState.update { state ->
@@ -4085,8 +4088,19 @@ class CodexViewModel(
                         }
                         is WsEvent.Closed -> {
                             markPendingThreadResyncIfNeeded(_uiState.value)
-                            if (event.code == 4404 || event.reason.contains("Session not found or expired", ignoreCase = true)) {
-                                val message = "Session not found or expired"
+                            val registrationSessionMismatch = event.code == 4403 && (
+                                event.reason.contains("not owned", ignoreCase = true) ||
+                                    event.reason.contains("registration", ignoreCase = true)
+                                )
+                            if (event.code == 4404 ||
+                                event.reason.contains("Session not found or expired", ignoreCase = true) ||
+                                registrationSessionMismatch
+                            ) {
+                                val message = if (registrationSessionMismatch) {
+                                    "Session is not owned by this client registration"
+                                } else {
+                                    "Session not found or expired"
+                                }
                 _uiState.update {
                     it.copy(
                         errorMessage = message,
@@ -4150,7 +4164,10 @@ class CodexViewModel(
         if (capability.version != 1) return
         historySyncInFlightConversationId = normalizedConversationId
         viewModelScope.launch(Dispatchers.IO) {
-            val cached = runCatching { historyCacheStore.readConversation(profile.id, normalizedConversationId) }.getOrNull()
+            val cached = runCatching {
+                historyCacheStore.readConversation(profile.id, normalizedConversationId)
+                    ?: historyCacheStore.readConversationByConversationId(normalizedConversationId)
+            }.getOrNull()
             val checkpoint = cached?.checkpoint ?: CodexConversationCheckpoint(profile.id, normalizedConversationId)
             val request = CodexHistorySyncRequest(
                 syncId = UUID.randomUUID().toString(),
@@ -4392,6 +4409,7 @@ class CodexViewModel(
                         CodexConversationCacheStore.PageApplyResult.COMMITTED,
                         CodexConversationCacheStore.PageApplyResult.IDEMPOTENT -> {
                             val cached = historyCacheStore.readConversation(endpointId, delta.conversationId)
+                                ?: historyCacheStore.readConversationByConversationId(delta.conversationId)
                             val cachedMessages = cached?.items?.sortedBy { it.position }?.mapNotNull(::decodeCachedHistoryItem).orEmpty()
                             _uiState.update { state ->
                                 state.copy(

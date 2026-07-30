@@ -9,6 +9,8 @@ import com.termlink.app.data.AuthType
 import com.termlink.app.data.BasicCredentialStore
 import com.termlink.app.data.MtlsOkHttpSupport
 import com.termlink.app.data.ServerProfile
+import com.termlink.app.data.SessionApiClient
+import com.termlink.app.data.ApiResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -35,6 +37,7 @@ import kotlin.math.min
 class CodexConnectionManager(
     private val scope: CoroutineScope,
     private val credentialStore: BasicCredentialStore,
+    private val sessionApiClient: SessionApiClient,
     appContext: Context
 ) {
     companion object {
@@ -134,10 +137,14 @@ class CodexConnectionManager(
 
         scope.launch(Dispatchers.IO) {
             try {
-                val wsUrl = buildWsUrl(baseUrl, sessionId)
+                val registrationId = when (val result = sessionApiClient.ensureClientRegistration(p)) {
+                    is ApiResult.Success -> result.value
+                    is ApiResult.Failure -> throw IllegalStateException(result.error.message)
+                }
+                val wsUrl = buildWsUrl(baseUrl, sessionId, registrationId)
                 val authHeader = buildAuthHeader(p)
                 val transportClient = mtlsOkHttpSupport.configure(baseHttpClient, p, baseUrl)
-                val finalUrl = fetchTicketUrl(baseUrl, authHeader, wsUrl, transportClient)
+                val finalUrl = fetchTicketUrl(baseUrl, authHeader, registrationId, wsUrl, transportClient)
                 val headers = mutableMapOf<String, String>()
                 // OkHttp doesn't support Authorization header on WS upgrade in all
                 // environments, but the ticket param handles auth for us.
@@ -185,7 +192,7 @@ class CodexConnectionManager(
 
     // ── URL helpers (mirrors terminal_client.js buildWsUrl) ──────────
 
-    private fun buildWsUrl(baseUrl: String, sessionId: String): String {
+    private fun buildWsUrl(baseUrl: String, sessionId: String, registrationId: String): String {
         val uri = URI(baseUrl.trimEnd('/'))
         val wsScheme = when (uri.scheme?.lowercase()) {
             "https" -> "wss"
@@ -196,9 +203,10 @@ class CodexConnectionManager(
         if (path.isNotEmpty() && path != "/" && !path.endsWith("/")) {
             path = "$path/"
         }
-        val query = if (sessionId.isNotBlank()) {
-            "sessionId=${URLEncoder.encode(sessionId, "UTF-8")}"
-        } else null
+        val queryParts = mutableListOf<String>()
+        if (sessionId.isNotBlank()) queryParts += "sessionId=${URLEncoder.encode(sessionId, "UTF-8")}"
+        if (registrationId.isNotBlank()) queryParts += "registrationId=${URLEncoder.encode(registrationId, "UTF-8")}"
+        val query = queryParts.joinToString("&").takeIf { it.isNotBlank() }
         return URI(wsScheme, null, uri.host, uri.port, path, query, null).toString()
     }
 
@@ -221,6 +229,7 @@ class CodexConnectionManager(
     private fun fetchTicketUrl(
         baseUrl: String,
         authHeader: String?,
+        registrationId: String,
         wsUrl: String,
         httpClient: OkHttpClient
     ): String {
@@ -228,6 +237,7 @@ class CodexConnectionManager(
         return try {
             val reqBuilder = Request.Builder().url(ticketEndpoint).get()
             authHeader?.let { reqBuilder.addHeader("Authorization", it) }
+            if (registrationId.isNotBlank()) reqBuilder.addHeader("X-TermLink-Registration-Id", registrationId)
             httpClient.newCall(reqBuilder.build()).execute().use { response ->
                 if (response.isSuccessful) {
                     val body = response.body?.string().orEmpty()

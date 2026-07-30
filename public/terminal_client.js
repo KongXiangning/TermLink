@@ -846,6 +846,7 @@ let serverUrl = initialRuntimeConfig.serverUrl || (
     location.protocol === 'file:' ? '' : (location.origin || '')
 );
 let sessionId = '';
+let registrationId = '';
 let authHeader = '';
 let historyEnabled = true;
 let historyState = { lines: [], tail: '' };
@@ -3085,6 +3086,10 @@ async function searchWorkspaceFiles(query) {
         const fetchOpts = {};
         if (authHeader) {
             fetchOpts.headers = { 'Authorization': authHeader };
+        }
+        if (registrationId) {
+            fetchOpts.headers = fetchOpts.headers || {};
+            fetchOpts.headers['X-TermLink-Registration-Id'] = registrationId;
         }
         const resp = await fetch(url, fetchOpts);
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -6967,7 +6972,7 @@ function normalizeServerUrl(rawUrl) {
     return normalized;
 }
 
-function buildWsUrl(baseUrl, targetSessionId) {
+function buildWsUrl(baseUrl, targetSessionId, targetRegistrationId = registrationId) {
     const normalizedBaseUrl = normalizeServerUrl(baseUrl);
     if (!normalizedBaseUrl) {
         throw new Error('Missing base URL');
@@ -6998,6 +7003,11 @@ function buildWsUrl(baseUrl, targetSessionId) {
     } else {
         parsed.searchParams.delete('sessionId');
     }
+    if (targetRegistrationId && String(targetRegistrationId).trim()) {
+        parsed.searchParams.set('registrationId', String(targetRegistrationId).trim());
+    } else {
+        parsed.searchParams.delete('registrationId');
+    }
     return parsed.toString();
 }
 
@@ -7022,6 +7032,9 @@ function buildJsonFetchOptions(method, body) {
     };
     if (authHeader) {
         headers.Authorization = authHeader;
+    }
+    if (registrationId) {
+        headers['X-TermLink-Registration-Id'] = registrationId;
     }
     return {
         method,
@@ -7129,7 +7142,9 @@ function clearPersistedSessionBinding() {
 }
 
 function recoverFromMissingSession(event) {
-    if (!event || event.code !== 4404 || !sessionId) {
+    const ownershipMismatch = event && event.code === 4403 &&
+        typeof event.reason === 'string' && event.reason.toLowerCase().includes('not owned');
+    if (!event || (!((event.code === 4404) || ownershipMismatch)) || !sessionId) {
         return false;
     }
     clearTimeout(reconnectTimer);
@@ -7153,6 +7168,7 @@ function applyRuntimeConfig(config, forceReconnect) {
 
     const previousServerUrl = serverUrl;
     const previousSessionId = sessionId;
+    const previousRegistrationId = registrationId;
     const previousHistoryEnabled = historyEnabled;
     const previousCwd = getConfiguredCodexCwd();
 
@@ -7160,6 +7176,7 @@ function applyRuntimeConfig(config, forceReconnect) {
         serverUrl = normalizeServerUrl(config.serverUrl || location.origin);
     }
     sessionId = typeof config.sessionId === 'string' ? config.sessionId.trim() : '';
+    registrationId = typeof config.registrationId === 'string' ? config.registrationId.trim() : '';
     authHeader = typeof config.authHeader === 'string' ? config.authHeader : '';
     historyEnabled = resolveHistoryEnabled(config);
 
@@ -7168,7 +7185,7 @@ function applyRuntimeConfig(config, forceReconnect) {
     }
 
     const serverChanged = serverUrl !== previousServerUrl;
-    const sessionChanged = sessionId !== previousSessionId;
+    const sessionChanged = sessionId !== previousSessionId || registrationId !== previousRegistrationId;
     const cwdChanged = getConfiguredCodexCwd() !== previousCwd;
     if (ws && ws.readyState === WebSocket.OPEN && cwdChanged) {
         const nextCwd = getConfiguredCodexCwd();
@@ -7596,7 +7613,7 @@ function connect() {
     let normalizedBaseUrl = '';
     try {
         normalizedBaseUrl = normalizeServerUrl(serverUrl);
-        wsUrl = buildWsUrl(serverUrl, sessionId);
+        wsUrl = buildWsUrl(serverUrl, sessionId, registrationId);
     } catch (error) {
         const detail = error && error.message ? error.message : 'Invalid websocket URL';
         notifyNativeConnectionState('error', detail);
@@ -8023,6 +8040,10 @@ function connect() {
             const fetchOpts = {};
             if (authHeader) {
                 fetchOpts.headers = { 'Authorization': authHeader };
+            }
+            if (registrationId) {
+                fetchOpts.headers = fetchOpts.headers || {};
+                fetchOpts.headers['X-TermLink-Registration-Id'] = registrationId;
             }
 
             console.log('[JS] Fetching WS ticket from:', ticketUrl);
