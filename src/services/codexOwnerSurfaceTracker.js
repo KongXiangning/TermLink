@@ -21,6 +21,42 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
         return this._conversations.delete(id);
     }
 
+    setFollower(threadId, clientId, following) {
+        const conversation = this._conversations.get(normalizeId(threadId));
+        const normalizedClientId = normalizeId(clientId);
+        if (!conversation || !normalizedClientId) return false;
+        const followers = ensureFollowerClientIds(conversation);
+        if (following === false) return followers.delete(normalizedClientId);
+        const previousSize = followers.size;
+        followers.add(normalizedClientId);
+        return followers.size !== previousSize;
+    }
+
+    getFollowerClientIds(threadId) {
+        const conversation = this._conversations.get(normalizeId(threadId));
+        return conversation ? Array.from(ensureFollowerClientIds(conversation)) : [];
+    }
+
+    removeFollowerClient(clientId) {
+        const normalizedClientId = normalizeId(clientId);
+        if (!normalizedClientId) return 0;
+        let removed = 0;
+        for (const conversation of this._conversations.values()) {
+            if (ensureFollowerClientIds(conversation).delete(normalizedClientId)) removed += 1;
+        }
+        return removed;
+    }
+
+    clearFollowers() {
+        let cleared = 0;
+        for (const conversation of this._conversations.values()) {
+            const followers = ensureFollowerClientIds(conversation);
+            cleared += followers.size;
+            followers.clear();
+        }
+        return cleared;
+    }
+
     getRecentSnapshots() {
         return Array.from(this._conversations.values())
             .map((conversation) => {
@@ -51,7 +87,8 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
                 state: buildInitialState(id, surface),
                 seedSurface: clone(surface),
                 authoritativeTransientFields: new Set(),
-                respondedRequestIds: new Set()
+                respondedRequestIds: new Set(),
+                followerClientIds: new Set()
             };
             this._conversations.set(id, conversation);
         } else {
@@ -95,7 +132,8 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
             state,
             seedSurface: clone(surface),
             authoritativeTransientFields: new Set(),
-            respondedRequestIds: new Set()
+            respondedRequestIds: new Set(),
+            followerClientIds: new Set()
         });
 
         return this.broadcast(threadId);
@@ -764,6 +802,13 @@ function shortId(value) {
 function normalizeId(value) {
     const text = asString(value);
     return text || null;
+}
+
+function ensureFollowerClientIds(conversation) {
+    if (!(conversation.followerClientIds instanceof Set)) {
+        conversation.followerClientIds = new Set();
+    }
+    return conversation.followerClientIds;
 }
 
 function asRecord(value) {

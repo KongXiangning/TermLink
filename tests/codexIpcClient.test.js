@@ -159,6 +159,45 @@ test('sendBroadcast sends a well-formed broadcast frame', async () => {
     assert.equal(bc.method, 'test-method');
     assert.deepEqual(bc.params, { key: 'value' });
     assert.equal(bc.sourceClientId, 'test-client-42');
+    assert.equal(Object.hasOwn(bc, 'targetClientIds'), false);
+});
+
+test('sendBroadcast can target current IPC client ids without changing params', async () => {
+    const { client, transport } = createTestClient({ reconnect: false });
+    const { peer } = setupPeer(transport);
+    await client.connect();
+
+    const bcPromise = new Promise((resolve) => {
+        peer.on('message', (msg) => {
+            if (msg?.type === 'broadcast' && msg.method === 'thread-stream-state-changed') resolve(msg);
+        });
+    });
+
+    assert.equal(client.sendBroadcast(
+        'thread-stream-state-changed',
+        { conversationId: 'conv-owned', change: { type: 'snapshot', revision: 7 } },
+        { targetClientIds: [' desktop-client ', 'desktop-client', 'vscode-client'] }
+    ), true);
+
+    const bc = await bcPromise;
+    assert.deepEqual(bc.targetClientIds, ['desktop-client', 'vscode-client']);
+    assert.equal(bc.params.conversationId, 'conv-owned');
+    assert.equal(bc.params.change.revision, 7);
+});
+
+test('sendBroadcast skips an explicitly empty target set', async () => {
+    const { client, transport } = createTestClient({ reconnect: false });
+    const { peer } = setupPeer(transport);
+    await client.connect();
+
+    const broadcasts = [];
+    peer.on('message', (msg) => {
+        if (msg?.type === 'broadcast') broadcasts.push(msg);
+    });
+
+    assert.equal(client.sendBroadcast('thread-stream-state-changed', {}, { targetClientIds: [] }), false);
+    await delay(10);
+    assert.deepEqual(broadcasts, []);
 });
 
 test('sendBroadcast emits message_out for the sent IPC envelope', async () => {

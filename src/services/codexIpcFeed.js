@@ -224,9 +224,9 @@ class CodexIpcFeed extends EventEmitter {
         return this._client.sendRequest(method, params);
     }
 
-    sendBroadcast(method, params) {
+    sendBroadcast(method, params, options) {
         if (!this._client) throw new Error('IPC client is not available');
-        return this._client.sendBroadcast(method, params);
+        return this._client.sendBroadcast(method, params, options);
     }
 
     addRequestHandler(method, canHandle, handle) {
@@ -324,6 +324,10 @@ class CodexIpcFeed extends EventEmitter {
     }
 
     _onClientBroadcast(message) {
+        this.emit('broadcast', message);
+        if (message.method === 'thread-stream-following-status-requested') {
+            this._respondToFollowingStatusRequest(message);
+        }
         if (message.method !== 'thread-stream-state-changed') return;
 
         const sourceClientId = typeof message.sourceClientId === 'string' && message.sourceClientId.trim()
@@ -586,14 +590,28 @@ class CodexIpcFeed extends EventEmitter {
         );
     }
 
-    _sendFollowingChanged(subscription, following) {
+    _respondToFollowingStatusRequest(message) {
+        const subscription = normalizeFollowingSubscription(
+            extractConversationId(message?.params),
+            extractHostId(message?.params)
+        );
+        const sourceClientId = typeof message?.sourceClientId === 'string'
+            ? message.sourceClientId.trim()
+            : '';
+        if (!subscription || !sourceClientId || sourceClientId === this.clientId) return false;
+        const desired = this._desiredFollowing.get(subscription.key);
+        if (!desired) return false;
+        return this._sendFollowingChanged(desired, true, { targetClientIds: [sourceClientId] });
+    }
+
+    _sendFollowingChanged(subscription, following, options) {
         if (!this._client?.initialized) return false;
         try {
             this._client.sendBroadcast('thread-stream-following-changed', {
                 conversationId: subscription.conversationId,
                 hostId: subscription.hostId,
                 following
-            });
+            }, options);
             console.warn('[codex-ipc][feed][following]', JSON.stringify({
                 conversationId: subscription.conversationId,
                 hostId: subscription.hostId,

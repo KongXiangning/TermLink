@@ -831,10 +831,14 @@ function registerTerminalGateway(wss, {
     const _ownerReadStateBroadcasted = new Set();
     /** @type {Map<string, Set<'created'|'first-turn'|'terminal'>>} */
     const _ownerDiscoveryInvalidationStages = new Map();
+    /** @type {Set<string>} */
+    const _ownerFollowerStatusRequested = new Set();
     /** @type {Map<string, string[]>} */
     const _followerAttachmentTempFiles = new Map();
     /** @type {Map<string, { sessionId: string, conversationId: string | null, reason: string, draft: object, forkAvailable: boolean }>} */
     const _pendingThreadRecoveries = new Map();
+    /** @type {Map<string, { ws: import('ws').WebSocket, clientRequestId: string | null }>} */
+    const _pendingOwnerGoalStarts = new Map();
     /** @type {Array<() => void>} */
     const _ipcRequestHandlerDisposers = [];
     const _conversationCatalogFingerprints = new Map();
@@ -1227,13 +1231,99 @@ function registerTerminalGateway(wss, {
         }
     };
 
+    const _requestOwnerFollowerStatus = (conversationId) => {
+        if (
+            !ipcFeed ||
+            !_isIpcOnline() ||
+            !ownerSurfaceTracker.hasConversation(conversationId) ||
+            _ownerFollowerStatusRequested.has(conversationId)
+        ) {
+            return false;
+        }
+        try {
+            const sent = ipcFeed.sendBroadcast('thread-stream-following-status-requested', {
+                conversationId,
+                hostId: 'local'
+            });
+            if (sent !== false) _ownerFollowerStatusRequested.add(conversationId);
+            return sent !== false;
+        } catch (error) {
+            diagnosticLog.error('server', 'server.codex.owner.follower_status_request_failed', error, {
+                conversationKey: diagnosticKey(conversationId)
+            });
+            return false;
+        }
+    };
+
+    const _handleIpcBroadcast = (message) => {
+        if (!message || typeof message !== 'object') return;
+        if (message.method === 'thread-stream-following-changed') {
+            const params = message.params && typeof message.params === 'object' ? message.params : {};
+            const conversationId = isNonEmptyString(params.conversationId)
+                ? params.conversationId.trim()
+                : null;
+            const sourceClientId = isNonEmptyString(message.sourceClientId)
+                ? message.sourceClientId.trim()
+                : null;
+            if (
+                params.hostId !== 'local' ||
+                typeof params.following !== 'boolean' ||
+                !conversationId ||
+                !sourceClientId ||
+                sourceClientId === ipcFeed?.clientId ||
+                !ownerSurfaceTracker.hasConversation(conversationId)
+            ) {
+                return;
+            }
+            ownerSurfaceTracker.setFollower(conversationId, sourceClientId, params.following);
+            if (params.following === false) return;
+            const event = ownerSurfaceTracker.peekSnapshot(conversationId);
+            if (!event?.payload) return;
+            try {
+                ipcFeed.sendBroadcast('thread-stream-state-changed', event.payload, {
+                    targetClientIds: [sourceClientId]
+                });
+                diagnosticLog.event('server', 'server.codex.owner.follower_snapshot', {
+                    conversationKey: diagnosticKey(conversationId),
+                    followerClientIdPresent: true,
+                    revision: event.payload.change?.revision
+                });
+            } catch (error) {
+                diagnosticLog.error('server', 'server.codex.owner.follower_snapshot_failed', error, {
+                    conversationKey: diagnosticKey(conversationId),
+                    followerClientIdPresent: true
+                });
+            }
+            return;
+        }
+        if (message.method === 'client-status-changed') {
+            const params = message.params && typeof message.params === 'object' ? message.params : {};
+            if (params.status === 'disconnected' && isNonEmptyString(params.clientId)) {
+                ownerSurfaceTracker.removeFollowerClient(params.clientId);
+            }
+            return;
+        }
+        if (message.method === 'ipc-connection-reset') {
+            ownerSurfaceTracker.clearFollowers();
+            _ownerFollowerStatusRequested.clear();
+        }
+    };
+
     if (ipcFeed) {
+        ipcFeed.on('broadcast', _handleIpcBroadcast);
         ipcFeed.on('status', (status) => {
             const isOnline = status?.online === true;
+            if (!isOnline) {
+                ownerSurfaceTracker.clearFollowers();
+                _ownerFollowerStatusRequested.clear();
+            }
             if (isOnline && !_lastIpcOnline) {
                 const activeConversationIds = new Set(_ipcActiveConversations.values());
                 for (const conversationId of activeConversationIds) {
                     _beginIpcSubscriptionCycle(conversationId, 'ipc-reconnected');
+                }
+                for (const { conversationId } of ownerSurfaceTracker.getRecentSnapshots()) {
+                    _requestOwnerFollowerStatus(conversationId);
                 }
             }
             _lastIpcOnline = isOnline;
@@ -1336,7 +1426,14 @@ function registerTerminalGateway(wss, {
         );
         if (ipcFeed && _isIpcOnline() && typeof ipcFeed.sendBroadcast === 'function') {
             try {
-                ipcFeed.sendBroadcast('thread-stream-state-changed', event.payload);
+                const followerClientIds = ownerSurfaceTracker.getFollowerClientIds(event.conversationId);
+                if (followerClientIds.length > 0) {
+                    ipcFeed.sendBroadcast('thread-stream-state-changed', event.payload, {
+                        targetClientIds: followerClientIds
+                    });
+                } else {
+                    _requestOwnerFollowerStatus(event.conversationId);
+                }
                 if (!_ownerReadStateBroadcasted.has(event.conversationId)) {
                     ipcFeed.sendBroadcast('thread-read-state-changed', {
                         conversationId: event.conversationId,
@@ -1489,6 +1586,7 @@ function registerTerminalGateway(wss, {
                 ownerAuthority.status === 'created';
             if (!isFreshlyCreatedOwner && _isOwnerSurfaceSafelyReleasable(ownerSurface)) {
                 ownerSurfaceTracker.releaseConversation(normalizedConversationId);
+                _ownerFollowerStatusRequested.delete(normalizedConversationId);
                 _authorityLedger.delete(normalizedConversationId);
                 diagnosticLog.event('server', 'server.codex.owner.released', {
                     conversationIdPresent: true,
@@ -1985,8 +2083,11 @@ function registerTerminalGateway(wss, {
     };
 
     const _startOwnerGoal = async (ws, conversationId, objective, latestSnapshot, options = {}) => {
+        let ownerGoalThreadId = conversationId;
+        let pendingGoalStart = null;
         try {
             const threadId = await _ensureOwnerConversation(conversationId, latestSnapshot);
+            ownerGoalThreadId = threadId;
             if (threadId !== conversationId) {
                 const session = getSessionById(sessionManager, ws.sessionId);
                 if (session) {
@@ -2000,6 +2101,18 @@ function registerTerminalGateway(wss, {
                 objectiveLength: objective.trim().length,
                 authority: 'owner'
             });
+            pendingGoalStart = {
+                ws,
+                clientRequestId: isNonEmptyString(options.clientRequestId)
+                    ? options.clientRequestId.trim()
+                    : null
+            };
+            _pendingOwnerGoalStarts.set(threadId, pendingGoalStart);
+            while (_pendingOwnerGoalStarts.size > 128) {
+                const oldestThreadId = _pendingOwnerGoalStarts.keys().next().value;
+                if (!oldestThreadId) break;
+                _pendingOwnerGoalStarts.delete(oldestThreadId);
+            }
             await codexService.request('thread/goal/set', {
                 threadId,
                 objective: objective.trim(),
@@ -2014,23 +2127,11 @@ function registerTerminalGateway(wss, {
                 authority: 'owner'
             });
 
-            const turnStartParams = buildFollowerTurnStartParams(objective.trim(), latestSnapshot || {}, {
-                ...options,
-                preparedInput: replaceGoalTextInput(options.preparedInput, objective.trim()),
-                transport: 'app-server'
-            });
-            const result = await codexService.request('turn/start', {
-                threadId,
-                ...turnStartParams
-            });
-            ownerSurfaceTracker.adoptTurnStartResult(
-                threadId,
-                result,
-                turnStartParams.clientUserMessageId,
-                turnStartParams
-            );
-            const turnId = result?.turn?.id || result?.turn?.turnId || null;
-            _recordAuthority(threadId, 'owner', 'running', turnId);
+            // Setting an active Goal schedules the first Goal turn itself. A second
+            // explicit turn/start races that runtime and creates a parallel turn.
+            // Keep the RPC acknowledgement separate from the authoritative turn
+            // identity, which arrives through turn/started notification/surface.
+            const turnId = null;
             _recordFollowerRequestStarted(
                 options.requestKey,
                 threadId,
@@ -2038,10 +2139,6 @@ function registerTerminalGateway(wss, {
                 turnId,
                 options.successType || 'follower_goal_sent'
             );
-            _emitFollowerRouteState(ws, options.clientRequestId, threadId, 'turn_started', {
-                authority: 'owner',
-                turnId
-            });
             sendWsEnvelope(ws, {
                 type: options.successType || 'follower_goal_sent',
                 conversationId: threadId,
@@ -2050,6 +2147,9 @@ function registerTerminalGateway(wss, {
                 acknowledged: true
             });
         } catch (error) {
+            if (_pendingOwnerGoalStarts.get(ownerGoalThreadId) === pendingGoalStart) {
+                _pendingOwnerGoalStarts.delete(ownerGoalThreadId);
+            }
             if (isThreadNotFoundError(error)) {
                 diagnosticLog.error('server', 'server.codex.goal.set.failed', error, {
                     conversationKey: diagnosticKey(conversationId),
@@ -3277,19 +3377,6 @@ function registerTerminalGateway(wss, {
         }];
     }
 
-    function replaceGoalTextInput(preparedInput, objective) {
-        const input = Array.isArray(preparedInput)
-            ? structuredClone(preparedInput)
-            : buildTextInputSequence(objective);
-        const textPart = input.find((part) => part && part.type === 'text');
-        if (textPart) {
-            textPart.text = objective;
-            if (!Array.isArray(textPart.text_elements)) textPart.text_elements = [];
-            return input;
-        }
-        return [...buildTextInputSequence(objective), ...input];
-    }
-
     function buildPlanImplementationPrompt(planContent) {
         return `PLEASE IMPLEMENT THIS PLAN:\n${String(planContent || '').trim()}`;
     }
@@ -3958,6 +4045,7 @@ function registerTerminalGateway(wss, {
         if (method === 'thread/goal/updated' || method === 'thread/goal/cleared') {
             const goal = params && typeof params.goal === 'object' ? params.goal : null;
             const goalObjective = normalizeGoalObjective(goal?.objective);
+            const goalStatus = isNonEmptyString(goal?.status) ? goal.status.trim() : null;
             const ownerSurface = ownerNotificationThreadId
                 ? _getLatestOwnerSnapshot(ownerNotificationThreadId)
                 : null;
@@ -3965,13 +4053,46 @@ function registerTerminalGateway(wss, {
                 conversationKey: diagnosticKey(ownerNotificationThreadId),
                 goalKey: diagnosticKey(goalObjective),
                 objectiveLength: goalObjective ? goalObjective.length : 0,
-                status: goal?.status || (method === 'thread/goal/cleared' ? 'cleared' : null),
+                status: goalStatus || (method === 'thread/goal/cleared' ? 'cleared' : null),
                 hasActiveGoal: Boolean(ownerSurface?.activeGoal),
                 ownerKind: ownerSurface?.ownerKind || null
             });
+            if (ownerNotificationThreadId && (
+                method === 'thread/goal/cleared' ||
+                (goalStatus && goalStatus !== 'active')
+            )) {
+                const pendingGoalStart = _pendingOwnerGoalStarts.get(ownerNotificationThreadId);
+                if (pendingGoalStart) {
+                    _pendingOwnerGoalStarts.delete(ownerNotificationThreadId);
+                    _emitFollowerRouteState(
+                        pendingGoalStart.ws,
+                        pendingGoalStart.clientRequestId,
+                        ownerNotificationThreadId,
+                        'failed',
+                        {
+                            authority: 'owner',
+                            detailCode: 'GOAL_START_ENDED_BEFORE_TURN'
+                        }
+                    );
+                }
+            }
         }
         if (ownerNotificationThreadId && ownerSurfaceTracker.hasConversation(ownerNotificationThreadId)) {
             if (method === 'turn/started') {
+                const pendingGoalStart = _pendingOwnerGoalStarts.get(ownerNotificationThreadId);
+                if (pendingGoalStart) {
+                    _pendingOwnerGoalStarts.delete(ownerNotificationThreadId);
+                    _emitFollowerRouteState(
+                        pendingGoalStart.ws,
+                        pendingGoalStart.clientRequestId,
+                        ownerNotificationThreadId,
+                        'turn_started',
+                        {
+                            authority: 'owner',
+                            turnId: params?.turn?.id || params?.turn?.turnId || null
+                        }
+                    );
+                }
                 _recordAuthority(
                     ownerNotificationThreadId,
                     'owner',
@@ -3979,6 +4100,7 @@ function registerTerminalGateway(wss, {
                     params?.turn?.id || params?.turn?.turnId || null
                 );
             } else if (method === 'turn/completed') {
+                _pendingOwnerGoalStarts.delete(ownerNotificationThreadId);
                 _recordAuthority(
                     ownerNotificationThreadId,
                     'owner',
@@ -4934,6 +5056,11 @@ function registerTerminalGateway(wss, {
                         _pendingThreadRecoveries.delete(recoveryId);
                     }
                 }
+                for (const [conversationId, pendingGoalStart] of _pendingOwnerGoalStarts.entries()) {
+                    if (pendingGoalStart.ws === ws) {
+                        _pendingOwnerGoalStarts.delete(conversationId);
+                    }
+                }
                 sessionManager.removeConnection(session, ws);
                 // Log connection end for elevated mode
                 if (isElevated && auditService) {
@@ -5005,6 +5132,7 @@ function registerTerminalGateway(wss, {
         _authorityLedger.clear();
         _ownerReadStateBroadcasted.clear();
         _ownerDiscoveryInvalidationStages.clear();
+        _ownerFollowerStatusRequested.clear();
         _pendingThreadRecoveries.clear();
         for (const tempFilePaths of _followerAttachmentTempFiles.values()) {
             void cleanupAttachmentTempFiles(tempFilePaths);

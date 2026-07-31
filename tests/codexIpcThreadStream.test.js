@@ -445,6 +445,73 @@ test('goal input turn is rendered and exposes pendingGoalAction while running', 
     assert.equal(snap.status, 'running');
 });
 
+test('automatic Goal continuation projects the persisted objective without a synthetic user message', () => {
+    const state = {
+        threadRuntimeStatus: { type: 'active', activeFlags: [] },
+        threadGoal: {
+            threadId: 'thread-auto-goal',
+            objective: '显示自动续跑目标',
+            status: 'active'
+        },
+        turns: [{
+            turnId: 'turn-auto-goal',
+            status: 'completed',
+            items: [{ type: 'agentMessage', phase: 'final_answer', text: '自动续跑回答' }]
+        }]
+    };
+
+    const snap = buildDesktopSurfaceSnapshot(state);
+    const goalEntries = snap.items.filter((item) => (
+        item.kind === 'goal_prompt' && item.text === '显示自动续跑目标'
+    ));
+    assert.equal(goalEntries.length, 1);
+    assert.equal(goalEntries[0].raw.source, 'thread-goal');
+    assert.equal(snap.items[0].kind, 'goal_prompt');
+    assert.equal(snap.items.some((item) => item.kind === 'message' && item.role === 'user'), false);
+    assert.ok(snap.items.some((item) => item.role === 'assistant' && item.text === '自动续跑回答'));
+});
+
+test('completed persisted Goal remains a history prompt but is not activeGoal', () => {
+    const state = {
+        completedThreadGoal: {
+            threadId: 'thread-completed-goal',
+            objective: '保留已完成目标记录',
+            status: 'complete',
+            timeUsedSeconds: 12
+        },
+        turns: [{ turnId: 'turn-completed-goal', status: 'completed', items: [] }]
+    };
+
+    const snap = buildDesktopSurfaceSnapshot(state);
+    assert.equal(snap.activeGoal, undefined);
+    assert.equal(
+        snap.items.filter((item) => item.kind === 'goal_prompt' && item.text === '保留已完成目标记录').length,
+        1
+    );
+});
+
+test('persisted Goal objective does not duplicate an existing Goal input entry', () => {
+    const state = {
+        currentGoal: {
+            threadId: 'thread-goal-input',
+            objective: '复用已有目标输入',
+            status: 'active'
+        },
+        turns: [{
+            turnId: 'turn-goal-input',
+            status: 'inProgress',
+            params: { input: '/goal 复用已有目标输入' },
+            items: []
+        }]
+    };
+
+    const snap = buildDesktopSurfaceSnapshot(state);
+    const goalEntries = snap.items.filter((item) => item.kind === 'goal_prompt');
+    assert.equal(goalEntries.length, 1);
+    assert.equal(goalEntries[0].turnId, 'turn-goal-input');
+    assert.ok(snap.pendingGoalAction);
+});
+
 test('snapshot includes active goal and collaboration metadata without leaking raw turns', () => {
     const state = {
         title: 'Desktop conversation',

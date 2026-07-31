@@ -26,7 +26,10 @@ class FakeClient extends EventEmitter {
         this.initialized = true;
     }
     close() { this.initialized = false; this.emit('close', { hadError: false }); }
-    sendBroadcast(method, params) { this.broadcasts.push({ method, params }); }
+    sendBroadcast(method, params, options) {
+        this.broadcasts.push({ method, params, ...(options === undefined ? {} : { options }) });
+        return true;
+    }
     addRequestHandler(method, canHandle, handle) {
         const registration = { method, canHandle, handle };
         this.requestHandlers.push(registration);
@@ -491,6 +494,89 @@ test('broadcasts other than thread-stream-state-changed do not emit snapshot', a
     client.simulateBroadcast({ method: 'thread-read-state-changed', params: {} });
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(emitted, false);
+    feed.stop();
+});
+
+test('feed exposes incoming lifecycle broadcasts without projecting a snapshot', async () => {
+    enableIpc();
+    const client = new FakeClient();
+    const feed = new CodexIpcFeed({ client });
+    await startAndWaitOnline(feed);
+
+    let snapshotEmitted = false;
+    feed.on('snapshot', () => { snapshotEmitted = true; });
+    const incoming = {
+        type: 'broadcast',
+        method: 'thread-stream-following-changed',
+        sourceClientId: 'desktop-follower',
+        params: { conversationId: 'conv-owned', hostId: 'local', following: true }
+    };
+    const broadcastP = new Promise((resolve) => feed.once('broadcast', resolve));
+    client.simulateBroadcast(incoming);
+
+    assert.equal(await broadcastP, incoming);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(snapshotEmitted, false);
+    feed.stop();
+});
+
+test('feed forwards targeted broadcast options to the IPC client', async () => {
+    enableIpc();
+    const client = new FakeClient();
+    const feed = new CodexIpcFeed({ client });
+    await startAndWaitOnline(feed);
+
+    assert.equal(feed.sendBroadcast(
+        'thread-stream-state-changed',
+        { conversationId: 'conv-owned' },
+        { targetClientIds: ['desktop-follower'] }
+    ), true);
+    assert.deepEqual(client.broadcasts.at(-1), {
+        method: 'thread-stream-state-changed',
+        params: { conversationId: 'conv-owned' },
+        options: { targetClientIds: ['desktop-follower'] }
+    });
+    feed.stop();
+});
+
+test('feed re-announces an existing desired subscription to a requesting owner', async () => {
+    enableIpc();
+    const client = new FakeClient({ clientId: 'termlink-follower' });
+    const feed = new CodexIpcFeed({ client });
+    await startAndWaitOnline(feed);
+    feed.followConversation('conv-follow-status', 'local');
+
+    client.simulateBroadcast({
+        type: 'broadcast',
+        method: 'thread-stream-following-status-requested',
+        sourceClientId: 'desktop-owner',
+        params: { conversationId: 'conv-follow-status', hostId: 'local' }
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.deepEqual(client.broadcasts.at(-1), {
+        method: 'thread-stream-following-changed',
+        params: { conversationId: 'conv-follow-status', hostId: 'local', following: true },
+        options: { targetClientIds: ['desktop-owner'] }
+    });
+    feed.stop();
+});
+
+test('feed does not claim following status for an untracked conversation', async () => {
+    enableIpc();
+    const client = new FakeClient({ clientId: 'termlink-follower' });
+    const feed = new CodexIpcFeed({ client });
+    await startAndWaitOnline(feed);
+
+    client.simulateBroadcast({
+        type: 'broadcast',
+        method: 'thread-stream-following-status-requested',
+        sourceClientId: 'desktop-owner',
+        params: { conversationId: 'conv-not-followed', hostId: 'local' }
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.deepEqual(client.broadcasts, []);
     feed.stop();
 });
 

@@ -7,7 +7,7 @@
 - 任务 slug：codex-single-authority-owner-control-plane
 - 当前状态：in_progress
 - 生命周期状态：active
-- 当前 handoff：manual-smoke
+- 当前 handoff：user-manual-validation
 - 恢复需审查：false
 - 恢复审查原因：
 - Task start base：8f84867
@@ -148,8 +148,129 @@
   Desktop/VS Code owner/follower 关系或新增虚构 external Goal method。验证必须证明普通 `/goal` 文本
   未被语义拦截、普通 IPC 消息/interrupt/重连不回归，且 writer conflict 不触发抢占或静默新线程。
 - Change Propagation Check：命中 additive WebSocket event、IPC request/discovery、Android wire DTO 和冻结 authority contract；强制验证 direct consumers、A/B、长任务、重连、Approval 原始 requestId 与旧客户端忽略新字段。
+- Scope widening（2026-07-31，TermLink 接入 IPC Owner 调查）：设备 `da34332c` 的 canonical rollout
+  `019fb482-d31b-7312-aeae-6739c8025db6` 证明，同一 active Goal 先由 TermLink managed runtime 启动
+  turn `6577d297-39d6-42df-ba9a-9d30735554ed`，Desktop resume 后又以自身权限上下文启动 turn
+  `1864cbda-1909-44c9-807c-5896ca88b044`。公开 Codex 源码与本地行为共同证明
+  `thread/goal/set(active)` 和 active Goal 的 `thread/resume` 都会触发 idle continuation，而
+  `ThreadGoalSetParams` 不包含 host/owner 绑定字段。用户已明确授权改变当前 Owner 冻结边界，先调查并在
+  有真实协议证据时实现“TermLink 成为 codex-ipc Router 可识别 Owner”；不得再用 `turn/start` 延迟、
+  Goal 状态抖动、第二 app-server 或本地伪状态规避跨宿主并发。
+- 本轮新增 Allowed Files：`src/services/codexIpcClient.js`、`src/services/codexIpcFeed.js`、
+  `src/services/codexIpcTransport.js`、`src/services/codexIpcCodec.js`、
+  `src/services/codexIpcConfig.js`、`src/services/codexOwnerSurfaceTracker.js`、
+  `src/ws/terminalGateway.js`，对应的 `tests/codexIpc*.test.js`、
+  `tests/codexOwnerSurfaceTracker.test.js`、`tests/terminalGateway.codexIpc.test.js`，以及
+  `docs/codex/codex-ipc-wire-protocol-reference.md`、`docs/codex/codex-goal-pursuit-fix-plan.md`、
+  `docs/workflow/CURRENT_TASK.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/CONTRACTS.md`。
+- 本轮新增 Conditional Files：`src/services/codexAppServerService.js` 仅在真实 Owner 注册协议要求
+  app-server 生命周期/identity 配合且精确测试证明现有 API 不足时放行；Android Codex wire/ViewModel/UI
+  仅在服务端 Owner role 需要新增用户可见状态或兼容字段时放行，且必须先重新锁定具体文件。条件未满足前
+  一律禁止修改。
+- 本轮新增 Forbidden Files / behaviors：HTTP、session DTO/持久化、Workspace、Terminal、部署、认证、
+  Desktop/VS Code 安装文件和上游 Codex 源码保持禁止；不得改普通消息
+  `thread-follower-start-turn`、现有 interrupt/approval/Plan 行为、Android healthy IPC authority、
+  normalized snapshot/patch 语义或 canonical binding；不得猜测或自创 Owner acquire/transfer/release
+  method。若当前宿主协议只允许 Desktop/VS Code 内部 Owner 且没有第三方注册入口，调查必须 fail closed，
+  回到产品能力限制，不得实现近似方案。
+- Safety mode：继续使用 `guarded`。Dangerous surfaces 扩展为 IPC Router Owner identity、跨进程
+  runtime 唯一性、active Goal 自动 continuation、follower lifecycle、reconnect replay、A/B 隔离与
+  writer/runtime continuity。实现门禁必须覆盖普通消息、普通 turn interrupt、Owner/follower 重连、
+  A→B→A、长 Goal、Desktop/VS Code 打开同一 Goal 线程及“一次 Goal 只有一个真实 turn”。
+- Locked contract unlock：仅解锁 `CONTRACTS.md`“Codex 原生会话实时同步核心”中
+  TermLink Owner 不参与 external IPC Router 的既有假设；healthy IPC 单实时权威、desired subscription、
+  snapshot/patch 与 canonical binding 仍保持冻结。代码修改前必须先把真实协议证据、兼容策略和失败回退
+  同步到 AD-004 与 CONTRACTS；协议证据不足时不得进入实现。
+- Scope widening（2026-07-31，Goal 用户消息投影）：设备人工验证确认 Desktop 原生任务记录存在真实
+  “目标完成耗时”，但 App 与共享 Desktop surface 只显示思考/回答，不显示 Goal 发起信息。静态最小复现
+  证明 `thread/goal/set(active)` 的自动续跑使用 Codex 内部 `source=goal` 上下文，不产生普通
+  `userMessage` 或 `turn.params.input`；当前 `buildDesktopSurfaceSnapshot()` 因而没有可投影的用户项，
+  且终态 Goal 被 `activeGoal` 正确排除后没有历史目标项。仅放行
+  `src/services/codexIpcThreadStream.js` 与 `tests/codexIpcThreadStream.test.js`：从真实
+  `threadGoal/currentGoal/completedThreadGoal` 投影已有类型 `goal_prompt`，并按 objective 去重已有
+  turn 输入；不得从 `/goal` 文本猜测，不改 Goal RPC、Owner/follower、authority、snapshot/patch
+  仲裁或 Android 数据源。风险是重复目标项和终态误显示为 active，验证必须覆盖 active、complete、已有
+  `turn.params.input` 去重及普通消息不受影响；Android 保持无代码变化。
 
 ## 实现方案
+
+Bug 调查报告（2026-07-31，TermLink Owner follower 握手缺失）：
+
+- Symptom：App 新建并启动真实 Goal 后，Desktop 打开同一 canonical thread 会再启动一个 Goal turn；
+  停止只结束其中一个 turn，TermLink Goal 又会在模型真实写入 complete 后从 App 消失。
+- Reproduction：设备 `da34332c` 的 thread
+  `019fb482-d31b-7312-aeae-6739c8025db6` 同时出现 TermLink managed turn
+  `6577d297-39d6-42df-ba9a-9d30735554ed` 与带 Desktop context 的 turn
+  `1864cbda-1909-44c9-807c-5896ca88b044`。
+- Root cause hypothesis：TermLink 已持有 app-server writer/runtime 并广播 Owner surface，但没有按当前宿主
+  IPC 协议处理 `thread-stream-following-changed`，因此 Desktop 选择该 thread 后得不到 TermLink Owner
+  的即时定向 snapshot，仍执行自身 `thread/resume`，把本地 stream role 设为 owner；active Goal 的 resume
+  随后自动 `continue_if_idle()`，形成第二 runtime/turn。
+- Evidence：
+  - 当前 VS Code 扩展 `26.727.40816` 的 `IpcRouter` 只用 `initialize(clientType)` 注册 clientId；Router
+    没有 thread owner acquire/transfer/release method，而是通过 discovery 把 follower request 发给声明
+    `canHandle` 的客户端。
+  - 扩展 request handler 的 `canHandle` 明确为
+    `getThreadRole(hostId, conversationId) === "owner"`；webview 中 `thread-role-for-host` 又只检查本地
+    `getStreamRole(thread)?.role`。
+  - 宿主只在自己的 `thread/start`、`thread/resume` 或 fork 成功后把本地 role 写为 owner；收到其他
+    client 的 `thread-stream-state-changed(snapshot)` 后写为 follower，并保存 `ownerClientId`。
+  - follower 激活 conversation 时广播
+    `thread-stream-following-changed({conversationId, hostId, following:true})`；owner 登记该
+    `sourceClientId` 并立即向它定向发送当前 snapshot，后续 patch/snapshot 也只发给已登记 follower。
+  - TermLink 当前 `CodexIpcFeed._onClientBroadcast` 除 `thread-stream-state-changed` 外全部忽略；Gateway
+    因而收不到 follow/unfollow，`CodexOwnerSurfaceTracker` 也没有 follower client registry。TermLink 虽
+    全局广播 owner snapshot并代理 follower control request，但缺少建立 follower role 的关键握手。
+  - 公开 Codex Goal runtime 已确认 active Goal 的 set 与 resume 都会调用 `continue_if_idle()`；这解释了
+    握手失败后 Desktop resume 必然可能产生第二 turn，而不是 Android 本地状态造成。
+- Ownership assessment：`current_task_owned`。根因和最小修复文件均已包含在步骤 13b 的 Allowed Files；
+  paused task `20260615-001` 是已被当前 active task 继承/替代的历史包，不是本轮应恢复的独立 owner。
+- Ownership evidence：live `CURRENT_TASK` 已持有 Goal 单权威与 TermLink Owner 控制面；当前 working tree
+  的 12a/12b 仅消除了 TermLink 自身显式第二次 `turn/start`，真机仍证明 Desktop resume 产生第二 turn；
+  历史 paused package 的 remaining acceptance 已由本任务后续架构演进接管。
+- Recommended route：`current_task_owned`。
+- Recommended handoff：`plan-implementation`。
+- Minimal fix path：为既有 IPC broadcast 增加可选 `targetClientIds`；Feed 把真实 incoming broadcast
+  以只读事件交给 Gateway；TermLink Owner 按 conversation 维护 follower clientId 集合，收到 follow=true
+  时立即用当前 revision 定向回 snapshot，follow=false、client disconnected、IPC reset 或 Owner release
+  时成对清理；后续 Owner snapshot 只定向给当前 follower。不得增加虚构 acquire method或更改 snapshot
+  内容、Goal API、普通 follower request 和 Android authority。
+- Regression check：精确覆盖 follow 后即时定向 snapshot、unfollow/断线后不再投递、重连新 clientId
+  重新登记、非 Owner conversation 不应答，以及 Goal set 后 Desktop follow 只形成 follower；同时重跑
+  IPC client/feed/Owner/Gateway 四组测试和普通消息/interrupt/重连/A→B→A 门禁。
+- External Documentation Gate：不以未公开的稳定 API 文档为依据；证据来自当前安装宿主 bundle 的真实
+  method/version/状态机、项目当前实现、真实 rollout 与公开 Codex Goal runtime 源码。实现只复用已证实
+  wire shape，不猜测不存在的 method。
+
+Implementation Plan（2026-07-31，TermLink IPC Owner follower 握手）：
+
+- Goal：让 Desktop/VS Code 在打开 TermLink Owner thread 时，先通过当前 codex-ipc follow handshake
+  获得 TermLink 定向 snapshot 并成为 follower，阻止其对 active Goal 再执行 owner resume。
+- Architecture impact：保持 Router、app-server、Android 与 Goal API 分层不变；只补齐 TermLink 现有
+  `IpcClient -> IpcFeed -> Gateway -> OwnerSurfaceTracker` Owner 方向的已存在协议角色。
+- Technical approach：`sendBroadcast` 增加可选 `targetClientIds` 且缺省行为不变；Feed 继续按原路径消费
+  stream state，同时只读上抛 follow/status/client lifecycle broadcast；Owner tracker 保存 follower set；
+  Gateway 仅在 `hostId=local`、conversation 被 TermLink Owner tracker 持有时接受 follow，按真实
+  `sourceClientId` 定向发当前 snapshot。Owner 后续 surface 只发给登记 follower；query invalidation 和
+  read state 维持现有语义。IPC reset/disconnect 清掉不可复用 clientId，等待宿主重放 follow。
+- Alternatives considered：不新增 owner acquire/transfer method，因为真实 Router 不存在；不继续全局
+  snapshot 期待宿主偶然收到，因为它绕过 follower 生命周期且无法保证 resume 前到达；不延迟 Goal、暂停
+  Goal 或修改 active continuation，因为这些只掩盖第二 Owner。
+- Data / state flow：Desktop selection -> follow broadcast -> TermLink Feed broadcast event -> Gateway 验证
+  local host + Owner tracker -> follower registry -> targeted owner snapshot -> Desktop stream role=follower ->
+  后续 control 经现有 discovery/request handler 回到 TermLink app-server。
+- Compatibility：不带 options 的所有 broadcast frame保持原 shape；普通 follower desired subscription、
+  reconnect replay、snapshot/patch projection、canonical id、Android healthy IPC authority、普通消息与
+  interrupt method/version均不改变。非 Owner conversation 的 follow 继续由真实 external Owner处理。
+- Risks and rollback：主要风险是 stale clientId、把 follower snapshot 发给错误 host/conversation，或误将
+  TermLink 自己的 follower subscription 当成 Owner 注册。通过 sourceClientId、hostId、Owner tracker
+  presence、targeted frame和 disconnect/reset 清理约束；回滚只涉及本批 additive handler/registry，不需
+  回滚 Goal 数据或 canonical thread。
+- Validation strategy：先做 client targeted-frame 单测、Feed broadcast passthrough 单测，再做 Owner
+  registry/Gateway follow handshake精确测试；最后执行四组 Node 定向回归。真机人工测试仍只安装到用户
+  指定的另一台测试手机，并同时保持 Desktop/VS Code 打开观察一次 Goal 是否只有一个真实 turn。
+- Open decisions：无。用户已授权 TermLink 参与真实 IPC Owner 协议；若实现发现必须修改上游宿主或抢占
+  healthy Owner，立即停止并重新确认。
 
 Implementation Plan（2026-07-31，Goal Owner 能力分级与真实暂停/恢复）：
 
@@ -173,8 +294,10 @@ Implementation Plan（2026-07-31，Goal Owner 能力分级与真实暂停/恢复
   `goalObjective` 时仍是普通消息。Goal 历史只由真实 snapshot/notification 记忆，不从消息文本推断。
 - Compatibility：所有新字段/客户端 envelope 均为 additive；旧客户端仍可显示通用 error；普通消息、
   普通 `/goal` 文本、interrupt、approval、Plan、附件、A/B 和 reconnect 行为保持原路由。
-- Risks and rollback：首次 Goal 仍保留当前 `thread/goal/set(active) + turn/start`，通过测试和人工 trace
-  门禁验证只产生一个首 turn；若真实 trace 证明重复，只在后续证据驱动修复中调整，不在本步猜测删除。
+- Risks and rollback：设备 `da34332c` 与 app-server trace 已证明首次 Goal 的
+  `thread/goal/set(active)` 会自动启动真实 Goal turn，随后显式 `turn/start` 会再创建第二个并行 turn；
+  后续只保留 `thread/goal/set(active)`，首 turn、running 状态和 turnId 继续由真实 notification/surface
+  投影。若自动启动未发生，Goal set RPC 仍只作为已接受回执，不伪造 running，需由真实 surface 暴露失败。
   pause 已成功但 interrupt 失败时保持 Goal paused 并明确返回部分失败，避免恢复 active 触发继续执行。
 - Validation strategy：Node 精确测试覆盖 semantic external 拒绝、普通 `/goal` 不误伤、offline Owner
   fallback、pause/resume RPC 顺序、external control 拒绝、首 turn 唯一和真实 completion；Android JVM
@@ -184,6 +307,25 @@ Implementation Plan（2026-07-31，Goal Owner 能力分级与真实暂停/恢复
   继续暂缓；完整 external Owner Goal 控制等待上游提供可验证协议。
 - External Documentation Gate：复用本任务已记录的公开 Codex Goal API/runtime、跨进程 writer lock、
   当前安装 Desktop/VS Code follower method 清单与真机失败证据；本步不新增第三方 API 或推测能力。
+- Handoff：`decompose-task`。
+
+Implementation Plan（2026-07-31，Goal 自动续跑用户消息投影修复）：
+
+- Goal：让真实 Goal 的 objective 在自动续跑没有普通 `userMessage` 时仍进入 App 与 Desktop 共享 surface；
+  Goal 完成后保留可识别的目标项，但不把终态重新显示为 `activeGoal`。
+- Architecture impact：只扩展既有 normalized surface 的 `goal_prompt` 投影，不增加实时数据源、轮询、
+  canonical read、IPC method 或 Android authority；目标来源限定为真实 `threadGoal/currentGoal/
+  completedThreadGoal` 状态。
+- Technical approach：在 `buildDesktopSurfaceSnapshot()` 中从真实 Goal 状态生成稳定 `goal_prompt`；若
+  turn 已有同 objective 的真实 Goal 输入项则去重。`extractActiveGoal()` 继续按当前规则排除
+  `complete/completed`，普通 `userMessage` 和普通 `/goal` 文本路径不改。
+- Alternatives considered：不伪造 `userMessage`，因为 Codex 自动续跑的内部 context 不是用户实际发送的
+  普通 turn；不改 Android wire/UI，因为现有 `goal_prompt` 已可由 App 消费；不修改 Owner tracker、
+  Gateway、Goal RPC 或 follower handshake。
+- Validation strategy：新增 active Goal 无 `userMessage`、complete Goal 历史投影、已有 Goal 输入去重三条
+  `codexIpcThreadStream` 精确测试；再重跑 IPC/Gateway 定向回归与语法检查。真机只由用户安装到指定的另
+  一台测试手机进行人工复验，ADB 日志若当前环境无 `adb` 则明确记录为证据缺口。
+- Open decisions：无；Goal toolbar 的 active/paused 控制语义保持现有实现。
 - Handoff：`decompose-task`。
 
 ## Public / Internal Interface Changes
@@ -211,11 +353,20 @@ Implementation Plan（2026-07-31，Goal Owner 能力分级与真实暂停/恢复
   一次性 recovery intent、测试夹具、Owner 广播与缓存失效。
 - Taste：恢复弹窗沿用现有骨架、动作顺序为 retry → fork → new → cancel、路由等待复用现有状态区域；均已由用户计划确认。
 - User challenge：IPC-first、Owner sticky、完整 Owner 控制面、禁止静默换线程、checkpoint 不合并 Main；均为用户明确方向，不允许实现中改写。
-- 待确认 Taste / User challenge：无。
+- 2026-07-31 Owner 接入决策分类：
+  - Mechanical：从已安装 Desktop/VS Code bundle 提取 method/version/payload/role 生命周期；按真实 wire
+    contract 增加兼容 codec/client 状态与精确测试；断开时成对释放；不改变 snapshot 内容语义。
+  - Taste：没有新增 UI、命名或交互口味选择；本阶段默认不修改 Android。
+  - User challenge：用户已授权解除“TermLink 不参与 external IPC Router Owner”的旧边界，但没有授权
+    猜测协议、修改上游宿主、抢占健康 Owner 或降低 healthy IPC 单权威。若真实协议没有第三方 Owner
+    注册入口，必须停止实现并回报不可行，不能用暂停 Goal、延迟 turn 或隐藏第二 turn 替代。
+- 待确认 Taste / User challenge：当前无；只有调查证明必须修改 Desktop/VS Code 上游或改变 healthy
+  Owner 抢占规则时，才重新请求用户授权。
 
 ## 待确认问题
 
-- 无。用户已确认单权威方向、Owner 完整控制面、自动换线程确认和 checkpoint 提交策略。
+- 当前无。用户已确认单权威方向、Owner 完整控制面、自动换线程确认、checkpoint 提交策略及 TermLink
+  IPC Owner 接入调查；是否存在可供第三方使用的真实 Owner 注册入口由步骤 13c 取证决定。
 
 ## 设计约束
 
@@ -363,6 +514,39 @@ Implementation Plan：
 - [pending] 11d. 限定实现/契约审查和 Node IPC/Gateway 回归已完成；Android JVM/assemble 因当前
   WSL 无可用 Linux Android build-tools、Windows Gradle 入口不可调用而未执行，保留给 Windows JDK 21
   环境及用户真机人工测试。不得据此宣称 Android 编译或视觉验收通过。
+- [completed] 12a. 根据设备 `da34332c` 与 app-server trace 修复首次 Goal 双 turn：TermLink Owner
+  创建 Goal 只调用 `thread/goal/set(active)`，删除后续显式 `turn/start`；真实 `turn/started`
+  notification/surface 继续负责 turnId 与运行态，增加精确回归证明一次 Goal 请求没有显式第二 turn。
+- [completed] 12b. 复核本轮 Goal-only diff、冻结契约与定向 Node 回归。Desktop 作为 follower 删除
+  TermLink Owner Goal 未产生
+  `thread/goal/cleared`，继续按既有“external Goal 只读、编辑/删除暂缓”边界处理，不引入虚构 follower API
+  或用 external surface 覆盖 TermLink Owner。
+- [pending] 12c. 用户再用测试机人工验证同一任务只存在一个 turn，停止后无隐藏任务；完成前不得把本轮
+  Goal 双 turn 真机回归标记为通过。
+- [completed] 13a. 记录最近的已提交 Goal 恢复基线 `0de2aca`。该提交最接近当前目标，包含真实
+  TermLink Owner Goal、external Owner 明确拒绝以及真实 pause/resume；但仍存在
+  `thread/goal/set(active) + turn/start` 双 turn 缺陷，只能作为恢复/对照基线，不能称为已验证正确版本。
+- [completed] 13b. 根据用户授权重新执行 scope lock：允许调查 TermLink 注册为 codex-ipc Router
+  Owner 的真实协议与最小实现，继续冻结普通 follower 消息、interrupt、healthy IPC authority、
+  snapshot/patch、canonical binding 和非 Goal 业务。
+- [completed] 13c. 从当前安装 Desktop/VS Code bundle、TermLink IPC client 和公开 Codex 源码提取
+  Owner 注册、role 查询、stale cleanup、断开释放及 follower 路由的真实 wire contract；没有真实
+  acquire/register 协议证据则停止实现并给出能力边界。
+- [completed] 13d. 同步 AD-004 与 CONTRACTS：Owner 不是 Router 全局锁；TermLink 必须处理真实
+  follow/unfollow 并定向 snapshot，禁止新增虚构 acquire/transfer method。
+- [completed] 13e. 为 IPC client/feed 增加可选定向 broadcast 与 incoming lifecycle broadcast 只读事件，
+  精确测试证明不带 options 的普通广播和现有 desired subscription/replay 完全不变。
+- [completed] 13f. 为 Owner tracker/Gateway 增加 follower client registry、follow 即时定向 snapshot 与
+  disconnect/reset/release 清理；只处理 TermLink Owner conversation，不接管 external Owner。
+- [completed] 13g. 使用统一 diff target `5399ff5..working-tree` 完成实现审查、契约核验与四组 Node
+  定向回归。审查中发现并修复 `IPC-OWNER-FOLLOW-F001`；四组 IPC/Gateway 回归 124/124、TD-004
+  邻接窄门 137/137 通过。
+- [completed] 13i. 修复 Goal 自动续跑没有普通 `userMessage` 时的 normalized surface 投影：从真实
+  Goal 状态生成已有类型 `goal_prompt`，完成状态保留目标项但不恢复 `activeGoal`；补齐
+  `codexIpcThreadStream` 精确测试，并确认普通消息、Goal 输入去重和既有 IPC/Owner 回归不变。
+- [pending] 13h. 执行人工双宿主 Goal smoke：App 新建 Goal 后 Desktop/VS Code
+  打开只能观察/作为 follower，一次 Goal 仅一个真实 turn，pause/interrupt/complete/history 一致；
+  同时验证普通消息、interrupt、重连、A→B→A 和长任务无回归。
 
 ## 回归门
 
@@ -372,6 +556,38 @@ Implementation Plan：
 - JDK 21 `android\gradlew.bat :app:assembleDebug`
 - `git diff --check` 与 staged sensitive scan。
 - Windows Desktop / VS Code：已有任务普通/Plan/图片/提及，新任务即时发现，双向 continue/stop/approval，无宿主 Owner fallback，重连 Owner sticky，recovery confirmation，A→B→A。
+
+## 审查问题队列
+
+- Finding ID：GOAL-START-F001
+  - Severity：P2 / major
+  - Source：`review-implementation`（12a，diff target `0de2aca..working-tree` 的 Goal-only 文件）
+  - Status：resolved
+  - File / symbol：`src/ws/terminalGateway.js::_startOwnerGoal` 与 owner `turn/started` notification bridge
+  - Failure scenario：`thread/goal/set(active)` RPC 已接受但真实 Goal turn 尚未发出 `turn/started` 时，
+    Gateway 立即记录 running 并发送 `follower_route_state(turn_started, turnId=null)`。
+  - Minimal fix direction：在 Goal 分支仅记录请求已接受；把 route `turn_started` 和真实 turnId 绑定到
+    同一 conversation 后续首个 Owner `turn/started` notification，并在完成、失败或 WebSocket 关闭时清理
+    有界 pending 记录。不修改 Android、IPC feed/client 或普通 turn 路由。
+  - Required test：Goal set 成功后、真实 notification 前不得产生 `turn_started` route；收到唯一真实
+    `turn/started` 后只发一次并携带该 turnId；仍保持显式 `turn/start` 数量为 0，五组相邻回归通过。
+  - Handoff：implement-current-step
+
+- Finding ID：IPC-OWNER-FOLLOW-F001
+  - Severity：P2 / major
+  - Source：`review-implementation`（13g，diff target `5399ff5..working-tree`）
+  - Status：resolved
+  - File / symbol：`src/ws/terminalGateway.js::_handleIpcBroadcast` 与
+    `_requestOwnerFollowerStatus`
+  - Failure scenario：IPC follow 帧缺少布尔 `following` 时当前实现会按 `true` 登记未知 follower；
+    follow 即时 snapshot 或 IPC online 后 status request 在 socket/active-send 状态刚变化时抛错，会从
+    EventEmitter 回调向外传播，可能中断后续 IPC 消息处理。
+  - Minimal fix direction：只接受显式 `following=true|false`；对 Gateway 发出的 status request 和即时
+    targeted snapshot 做局部异常收敛并记录诊断，不改变 follower registry、broadcast DTO、重连 replay、
+    snapshot 内容或 authority 选择。
+  - Required test：缺少/非法 `following` 不登记、不回复；targeted snapshot 与 status request 发送抛错时
+    广播/状态事件处理不抛出，Owner conversation 保持可用；四组 IPC/Gateway 定向回归继续通过。
+  - Handoff：implement-current-step
 
 ## 传播治理记录
 
@@ -387,6 +603,11 @@ Implementation Plan：
 - Task start base：`8f84867`
 - Last reviewed checkpoint：`5399ff5`
 - Current diff review target：`5399ff5..working-tree`
+- Goal 最近恢复基线：`0de2aca`（`fix(codex): enforce goal owner capability boundaries`）。这是最近的
+  已提交、最接近目标的对照点，但包含已确认的首次 Goal 双 turn 缺陷，不是 known-good。
+- 当前未提交的 12a/12b 变更删除了显式 `turn/start`，可避免 TermLink 自身重复启动，但真机证明
+  Desktop resume 仍会启动第二 turn；该 diff 不得提交为修复，也不得在未完成 Owner 调查前用
+  `git reset`、`checkout` 或整树回滚处理。
 - 回滚策略：保留 `e5db14e` 与 `8f84867`，只回退本替代任务后续提交；无数据库、session 或 rollout 迁移。
 
 ## 执行记录
@@ -535,3 +756,86 @@ Implementation Plan：
   正确拒绝 HTTP/cleartext 发布值；WSL 缺少可执行的 Linux Android build-tools 且不能调用 Windows
   Gradle，因此 Android JVM/assemble 与 Compose 视觉验证未完成。未构建 APK、未安装或操作设备，
   下一 handoff 继续为 Windows JDK 21 编译及用户人工 smoke。
+- 2026-07-31：用户使用设备 `da34332c` 复验发现同一 Goal 同时运行两个 turn，停止只结束其中一个，
+  另一个持续后台执行。服务端持久日志确认 `thread/goal/set(active)` 后先出现自动 Goal turn，随后
+  Gateway 显式 `turn/start` 又返回另一个 turnId；interrupt 只路由到当时 ledger 的最新 turn。
+  同轮 Desktop 删除操作没有向 TermLink Owner 产生 `thread/goal/cleared`，Owner 仅收到真实
+  `thread/goal/updated(status=paused)`，因此 App 保留 Goal 显示符合当前 Owner 权威与 external Goal
+  只读边界。修复拆为 12a/12b：当前只移除 Goal 分支的重复 `turn/start` 并补精确测试，不修改普通
+  message/interrupt、follower lifecycle、snapshot/patch 或 healthy IPC authority；本步复用真实本地
+  app-server trace，不新增第三方 current behavior 假设。
+- 2026-07-31：完成步骤 12a。`_startOwnerGoal` 在真实 `thread/goal/set(active)` 成功后不再显式调用
+  `turn/start`，也不再用第二个 RPC 结果伪造 Goal turn；请求仍返回 `follower_goal_sent` 接受回执，真实
+  turnId 与 running surface 由后续 `turn/started` notification 投影。精确测试模拟 app-server 自动
+  Goal turn，确认一次 Goal 请求的显式 `turn/start` 数量为 0、真实 turnId 可进入 surface、普通 turn
+  完成不会伪造 Goal complete，pause 仍按真实 turnId 执行 paused 后 interrupt。`node --check` 与 Goal
+  定向测试 7/7 通过；本步未修改 Android、IPC client/feed/thread stream、Owner tracker 或普通消息/
+  interrupt 路由。下一 handoff 为步骤 12b 的限定审查与回归。
+- 2026-07-31：完成步骤 12b。限定审查先发现 `GOAL-START-F001`：初版删除显式 `turn/start` 后仍在
+  Goal set RPC 回执处发送 `turn_started`，违反“RPC ack 不伪造 running”的冻结契约。现增加有界
+  `_pendingOwnerGoalStarts`，Goal set 只返回接受回执；同一 conversation 的真实 Owner
+  `turn/started` notification 才发送一次带真实 turnId 的 route state，重复 notification 不重复回执，
+  Goal 提前进入非 active 状态、turn 终止或 WebSocket 关闭会清理 pending。该 finding 已 resolved。
+  Goal 精确测试 7/7、IPC client/feed/thread stream/Owner tracker/Gateway 五组回归 152/152、语法检查
+  均通过；未修改 Android、IPC client/feed/thread stream、Owner tracker、普通消息或 interrupt 路由。
+  `git diff --check` 继续被测试文件既有 CRLF/LF 混合整文件误报，本轮未做换行归一化。限定契约审查
+  clean：healthy IPC authority、follower lifecycle、snapshot/patch、external Goal 只读边界均未改变。
+  剩余 12c 为用户真机人工验证，不自动安装或操作设备。
+- 2026-07-31：步骤 12c 失败。设备 rollout 证明删除显式 `turn/start` 后仍有两个真实 turn：第一个来自
+  TermLink managed runtime，第二个包含明确的 Codex Desktop context 与 disabled/danger-full-access
+  权限。目标“从1打印到1000”在 7 秒后由第一个模型真实调用 `update_goal(status=complete)`，所以
+  activeGoal 消失不是 Android 伪清理；两个 runtime 随后仍分别生成最终输出。公开 Codex
+  `thread_goal_processor` / Goal runtime 同时证明 active set 和 active resume 都会自动
+  `continue_if_idle()`，且 Goal set 协议没有 Owner 参数。用户授权解除 TermLink Owner 不参与 external
+  Router 的既有限制，进入步骤 13 的真实 IPC Owner 协议调查；在完成前不提交当前 12a/12b diff。
+- 2026-07-31：完成步骤 13c 根因调查。当前 VS Code 扩展 `26.727.40816` 的真实 bundle 证明 IPC
+  Router 只有 client initialize/discovery/forward，不存在 thread owner acquire/transfer/release；宿主
+  Owner role 是 start/resume/fork 成功后的本地 stream role，其他 surface 通过
+  `thread-stream-following-changed` 与 owner 的定向 snapshot 建立 follower。TermLink 已代理 owner
+  control request并广播 surface，但 Feed 忽略 follow/unfollow，Owner tracker 无 follower registry，
+  因而 Desktop 选择 thread 后未及时成为 follower并继续 resume active Goal。最小修复已收敛为定向
+  broadcast + follower registry/清理，不修改 Goal runtime、普通 follower action、Android authority、
+  snapshot 内容或 canonical binding；下一步先同步 AD-004/CONTRACTS，再进入 13e。
+- 2026-07-31：完成步骤 13d。AD-004 已记录用户确认的真实 Owner 参与决策：Router 不授予 thread
+  owner，TermLink 仅在自身 start/resume/fork 成功承载 writer/runtime 后处理 follower handshake；
+  CONTRACTS 已锁定 follow/unfollow、定向 snapshot、stale clientId 清理和禁止抢占 healthy external
+  Owner 的兼容边界。没有修改上游 Desktop/VS Code、Android、Goal API、普通 follower action 或
+  canonical binding；当前步骤转入 13e 的 IPC client/feed 最小协议原语实现。
+- 2026-07-31：完成步骤 13e。`CodexIpcClient.sendBroadcast` 新增可选 `targetClientIds`，省略 options
+  时 frame shape 与旧行为不变，显式空目标集合不发送；`CodexIpcFeed` 原样转发 options，并只读上抛
+  incoming lifecycle broadcast，非 stream-state broadcast 仍不产生 snapshot。`node --check` 通过，
+  client/feed 定向测试 51/51 通过；本步未修改 Owner/Gateway 业务、desired subscription/replay、
+  snapshot projection、Goal、Android 或普通 follower control，下一步进入 13f。
+- 2026-07-31：完成步骤 13f。Owner tracker 按 conversation 维护 follower clientId；Gateway 只为
+  `hostId=local` 且由 TermLink Owner tracker 持有的 thread 接受 follow，立即向真实 source client
+  定向回当前 revision snapshot，后续 Owner surface只投递给当前 follower。无 follower 时按真实宿主
+  协议发送一次 following-status request；Feed 仅对自己已持有的 desired subscription 定向重报。
+  unfollow、client disconnected、IPC offline/reset 与 Owner release均清理 stale clientId，unknown
+  external Owner conversation 不应答。语法检查及 Feed/Owner/Gateway 定向测试 97/97 通过；未修改
+  Android、Goal API、普通 follower control、snapshot 内容或 canonical binding，下一步进入 13g。
+- 2026-07-31：完成步骤 13g。统一 diff target 为 `5399ff5..working-tree`；scope review 确认本轮
+  11 个实现、测试和治理文件均在重新锁定的 Allowed/Conditional 范围内，未触碰 Android、HTTP、
+  session 持久化、Workspace、Terminal、部署、数据库、CI 或视觉层。implementation review 发现
+  `IPC-OWNER-FOLLOW-F001`：缺失布尔 `following` 会被误认成 true，且握手发送异常可能从 EventEmitter
+  回调外溢；现已改为只接受显式 boolean，并局部收敛 status request / targeted snapshot 发送异常，
+  3 个精确用例通过。契约核验通过：旧 `sendBroadcast(method, params)` 帧保持不变，新增定向 options
+  向后兼容；desired subscription/reconnect replay、normalized snapshot、canonical binding、普通消息、
+  interrupt 和 healthy external IPC authority 未改变。四组 IPC/Gateway 全量定向测试 124/124、TD-004
+  邻接窄门 137/137 通过，相关 JavaScript 语法检查通过。External Documentation Gate 不触发：实现只用
+  项目内 IPC wrapper 与步骤 13c 已取证的当前安装宿主协议，没有新增第三方 API 用法。`git diff --check`
+  仍被工作区既有 CRLF/LF 整文件行尾噪音阻塞，本轮未批量归一化；未进入 staged/commit，因此未运行
+  staged sensitive scan。Android 本轮无代码变化，JDK 21 编译/测试不重复执行。剩余步骤 13h 必须由
+  另一台测试手机配合 Desktop/VS Code 做双宿主人工 Goal smoke；完成前不得宣称真机问题已修复。
+- 2026-07-31：用户在新任务上的人工复验确认 Desktop 原生仍显示真实“目标完成耗时”，但 Goal 自动续跑
+  没有普通 `userMessage`，App 与共享 surface 只收到思考/回答。当前 Linux 环境没有 `adb`，未将设备
+  日志当作已采集证据；依据官方 Goal runtime 的内部 `source=goal` context 和本地最小复现，根因收敛为
+  normalized surface 只读取 `turn.params.input`/`userMessage`，没有从真实 `threadGoal/currentGoal/
+  completedThreadGoal`补 `goal_prompt`。按 scope widening 仅放行 `codexIpcThreadStream.js` 与精确测试，
+  不伪造 raw `userMessage`、不修改 Android、Owner/follower、Goal RPC 或 authority。
+- 2026-07-31：完成步骤 13i。`buildDesktopSurfaceSnapshot()` 现在从真实 Goal state 投影稳定
+  `goal_prompt`，终态仍保持 `activeGoal=undefined`，已有同 objective 的 Goal turn input 不重复；新增
+  精确测试 42/42 通过。随后重跑 IPC client/feed/thread-stream/Owner/Gateway 五组定向回归 166/166、
+  TD-004 邻接窄门 137/137，相关 JavaScript 语法检查通过。`git diff --check` 仍被仓库既有 CRLF/LF
+  混合行尾整文件误报，未做换行归一化。该修复覆盖 App normalized surface；Desktop 原生 transcript
+  仍不被伪造为普通 user message，若普通手动消息也缺失需下一轮提供 raw snapshot/notification 证据。
+  13h 双宿主 Goal 人工 smoke 仍 pending，不能据此宣称真机问题全部关闭。

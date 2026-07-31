@@ -466,6 +466,17 @@ function buildDesktopSurfaceSnapshot(state, options = {}) {
     }
     items.push(...flushStatusBucket(statusBucket, ++seq));
 
+    // Goal continuation turns use Codex internal context rather than a visible
+    // userMessage/turn.params.input. Keep the real persisted objective visible
+    // without manufacturing a user turn. Terminal Goals remain history-only;
+    // extractActiveGoal() still intentionally omits them from active controls.
+    const persistedGoalEntry = toPersistedGoalEntry(state);
+    if (persistedGoalEntry && !items.some((item) => (
+        item.kind === 'goal_prompt' && item.text === persistedGoalEntry.text
+    ))) {
+        items.unshift(persistedGoalEntry);
+    }
+
     // Check requests[] for pending items
     const reqApproval = extractPendingApprovalFromRequests(state);
     if (reqApproval) {
@@ -1009,6 +1020,32 @@ function toGoalInputEntry(turn, turnId) {
             status: asString(turn?.status)
         }
     };
+}
+
+function toPersistedGoalEntry(state) {
+    const persisted = extractPersistedGoal(state);
+    if (!persisted) return undefined;
+    const goal = persisted.record;
+    return {
+        key: `thread-goal:${hashText(persisted.objective)}`,
+        kind: 'goal_prompt',
+        text: persisted.objective,
+        raw: {
+            source: 'thread-goal',
+            threadId: asString(goal.threadId),
+            status: asString(goal.status)
+        }
+    };
+}
+
+function extractPersistedGoal(state) {
+    for (const candidate of [state?.threadGoal, state?.currentGoal, state?.completedThreadGoal]) {
+        const record = asRecord(candidate);
+        const objective = asString(record?.objective)?.trim();
+        const status = asString(record?.status)?.trim();
+        if (record && objective && status) return { record, objective };
+    }
+    return undefined;
 }
 
 function extractGoalObjective(inputText) {

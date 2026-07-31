@@ -248,3 +248,36 @@ test('owner tracker releases only the requested conversation', () => {
     assert.equal(tracker.hasConversation('thread-keep'), true);
     assert.equal(tracker.releaseConversation('thread-release'), false);
 });
+
+test('owner tracker registers and clears follower client ids per conversation', () => {
+    const tracker = new CodexOwnerSurfaceTracker();
+    tracker.registerExternalSurface('thread-follow-a', { status: 'running', items: [] });
+    tracker.registerExternalSurface('thread-follow-b', { status: 'running', items: [] });
+
+    assert.equal(tracker.setFollower('thread-follow-a', ' desktop-client ', true), true);
+    assert.equal(tracker.setFollower('thread-follow-a', 'desktop-client', true), false);
+    assert.equal(tracker.setFollower('thread-follow-a', 'vscode-client', true), true);
+    assert.equal(tracker.setFollower('thread-follow-b', 'desktop-client', true), true);
+    assert.deepEqual(tracker.getFollowerClientIds('thread-follow-a'), [
+        'desktop-client',
+        'vscode-client'
+    ]);
+
+    assert.equal(tracker.removeFollowerClient('desktop-client'), 2);
+    assert.deepEqual(tracker.getFollowerClientIds('thread-follow-a'), ['vscode-client']);
+    assert.deepEqual(tracker.getFollowerClientIds('thread-follow-b'), []);
+    assert.equal(tracker.setFollower('thread-follow-a', 'vscode-client', false), true);
+    assert.deepEqual(tracker.getFollowerClientIds('thread-follow-a'), []);
+});
+
+test('owner tracker clears stale followers without releasing owner conversations', () => {
+    const tracker = new CodexOwnerSurfaceTracker();
+    tracker.registerExternalSurface('thread-follow-clear', { status: 'running', items: [] });
+    tracker.setFollower('thread-follow-clear', 'desktop-client', true);
+    tracker.setFollower('thread-follow-clear', 'vscode-client', true);
+
+    assert.equal(tracker.clearFollowers(), 2);
+    assert.deepEqual(tracker.getFollowerClientIds('thread-follow-clear'), []);
+    assert.equal(tracker.hasConversation('thread-follow-clear'), true);
+    assert.equal(tracker.clearFollowers(), 0);
+});

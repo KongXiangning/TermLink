@@ -58,6 +58,7 @@ class FakeIpcFeed extends EventEmitter {
         if (typeof status?.online === 'boolean') this._online = status.online;
         this.emit('status', status);
     }
+    pushBroadcast(message) { this.emit('broadcast', message); }
     followConversation(conversationId, hostId) {
         this.followCalls.push({ conversationId, hostId });
         const surface = this._snapshots.get(conversationId);
@@ -67,8 +68,8 @@ class FakeIpcFeed extends EventEmitter {
         return true;
     }
     unfollowConversation(conversationId, hostId) { this.unfollowCalls.push({ conversationId, hostId }); return true; }
-    sendBroadcast(method, params) {
-        this.broadcastCalls.push({ method, params });
+    sendBroadcast(method, params, options) {
+        this.broadcastCalls.push({ method, params, ...(options === undefined ? {} : { options }) });
         return true;
     }
     addRequestHandler(method, canHandle, handle) {
@@ -1934,10 +1935,13 @@ test('owner fallback goal waits for owner goal snapshots before updating Android
         objective: '完成 Goal 控制验收',
         status: 'active'
     });
-    const goalTurn = g.codexService.requests.find((entry) => entry.method === 'turn/start');
-    assert.equal(g.codexService.requests.filter((entry) => entry.method === 'turn/start').length, 1);
-    assert.ok(goalTurn.params.input.some((part) => part.text === '完成 Goal 控制验收'));
-    assert.equal(goalTurn.params.input.some((part) => part.text.startsWith('/goal ')), false);
+    assert.equal(g.codexService.requests.some((entry) => entry.method === 'turn/start'), false);
+    const goalAccepted = messages.find((message) => message.type === 'follower_goal_sent');
+    assert.equal(goalAccepted.acknowledged, true);
+    assert.equal(goalAccepted.turnId, null);
+    assert.equal(messages.some((message) => (
+        message.type === 'follower_route_state' && message.phase === 'turn_started'
+    )), false);
     assert.equal(messages.some(m => m.type === 'conversation_surface_snapshot' && m.snapshot.activeGoal?.objective === '完成 Goal 控制验收'), false);
 
     g.codexService.emit('notification', {
@@ -1949,12 +1953,44 @@ test('owner fallback goal waits for owner goal snapshots before updating Android
     });
     await delay(50);
     assert.ok(messages.some(m => m.type === 'conversation_surface_snapshot' && m.snapshot.activeGoal?.objective === '完成 Goal 控制验收'));
+    assert.equal(messages.some((message) => (
+        message.type === 'follower_route_state' && message.phase === 'turn_started'
+    )), false);
+
+    g.codexService.emit('notification', {
+        method: 'turn/started',
+        params: {
+            threadId: 'conv-owner-goal',
+            turn: { id: 'turn-goal-runtime', status: 'inProgress', items: [] }
+        }
+    });
+    await delay(50);
+    const goalTurnStartedRoutes = messages.filter((message) => (
+        message.type === 'follower_route_state' && message.phase === 'turn_started'
+    ));
+    assert.equal(goalTurnStartedRoutes.length, 1);
+    assert.equal(goalTurnStartedRoutes[0].turnId, 'turn-goal-runtime');
+    assert.equal(
+        messages.filter(m => m.type === 'conversation_surface_snapshot').at(-1).snapshot.latestTurnId,
+        'turn-goal-runtime'
+    );
+    g.codexService.emit('notification', {
+        method: 'turn/started',
+        params: {
+            threadId: 'conv-owner-goal',
+            turn: { id: 'turn-goal-runtime', status: 'inProgress', items: [] }
+        }
+    });
+    await delay(25);
+    assert.equal(messages.filter((message) => (
+        message.type === 'follower_route_state' && message.phase === 'turn_started'
+    )).length, 1);
 
     g.codexService.emit('notification', {
         method: 'turn/completed',
         params: {
             threadId: 'conv-owner-goal',
-            turn: { id: goalTurn.params.clientUserMessageId || 'turn-goal', status: 'completed', items: [] }
+            turn: { id: 'turn-goal-runtime', status: 'completed', items: [] }
         }
     });
     await delay(100);
@@ -2034,6 +2070,27 @@ test('TermLink owner Goal pause sets paused before interrupt and resume only set
     }));
     await delay(150);
 
+    assert.equal(g.codexService.requests.some((entry) => entry.method === 'turn/start'), false);
+    g.codexService.emit('notification', {
+        method: 'thread/goal/updated',
+        params: {
+            threadId: 'conv-owner-goal-control',
+            goal: {
+                threadId: 'conv-owner-goal-control',
+                objective: '验证真实暂停恢复',
+                status: 'active'
+            }
+        }
+    });
+    g.codexService.emit('notification', {
+        method: 'turn/started',
+        params: {
+            threadId: 'conv-owner-goal-control',
+            turn: { id: 'turn-goal-runtime', status: 'inProgress', items: [] }
+        }
+    });
+    await delay(50);
+
     const beforePause = g.codexService.requests.length;
     ws.send(JSON.stringify({
         type: 'follower_goal_control',
@@ -2049,7 +2106,7 @@ test('TermLink owner Goal pause sets paused before interrupt and resume only set
         },
         {
             method: 'turn/interrupt',
-            params: { threadId: 'conv-owner-goal-control', turnId: 'turn-1' }
+            params: { threadId: 'conv-owner-goal-control', turnId: 'turn-goal-runtime' }
         }
     ]);
     assert.ok(messages.find(m =>
@@ -2246,10 +2303,29 @@ test('explicit new thread invalidates Desktop discovery at created, first-turn, 
     const ready = messages.find((message) => message.type === 'codex_thread_ready');
     assert.ok(ready?.threadId);
     assert.ok(g.ipcFeed.broadcastCalls.find((call) =>
-        call.method === 'thread-stream-state-changed' &&
+        call.method === 'thread-stream-following-status-requested' &&
         call.params?.conversationId === ready.threadId &&
         call.params?.hostId === 'local'
     ));
+    assert.equal(g.ipcFeed.broadcastCalls.some((call) =>
+        call.method === 'thread-stream-state-changed' &&
+        call.params?.conversationId === ready.threadId
+    ), false, 'owner snapshot waits for an explicitly registered follower');
+
+    g.ipcFeed.pushBroadcast({
+        type: 'broadcast',
+        method: 'thread-stream-following-changed',
+        sourceClientId: 'desktop-follower',
+        params: { conversationId: ready.threadId, hostId: 'local', following: true }
+    });
+    await delay(20);
+    const initialFollowerSnapshot = g.ipcFeed.broadcastCalls.find((call) =>
+        call.method === 'thread-stream-state-changed' &&
+        call.params?.conversationId === ready.threadId
+    );
+    assert.deepEqual(initialFollowerSnapshot?.options, {
+        targetClientIds: ['desktop-follower']
+    });
     assert.ok(g.ipcFeed.broadcastCalls.find((call) =>
         call.method === 'thread-read-state-changed' &&
         call.params?.conversationId === ready.threadId &&
@@ -2274,6 +2350,11 @@ test('explicit new thread invalidates Desktop discovery at created, first-turn, 
     await delay(40);
     assert.equal(countBroadcasts('thread-read-state-changed'), 1);
     assert.equal(countBroadcasts('query-cache-invalidate'), 4);
+    const firstTurnSnapshot = g.ipcFeed.broadcastCalls.filter((call) =>
+        call.method === 'thread-stream-state-changed' &&
+        call.params?.conversationId === ready.threadId
+    ).at(-1);
+    assert.deepEqual(firstTurnSnapshot?.options, { targetClientIds: ['desktop-follower'] });
 
     g.codexService.emit('notification', startedNotification);
     await delay(40);
@@ -2296,6 +2377,168 @@ test('explicit new thread invalidates Desktop discovery at created, first-turn, 
         .flatMap((message) => message.conversations || [])
         .find((conversation) => conversation.conversationId === ready.threadId);
     assert.equal(ownerSummary?.ownerKind, 'termlink');
+
+    ws.close();
+    await stopGateway(g);
+});
+
+test('TermLink owner targets current followers and stops after unfollow or disconnect', async () => {
+    const g = await setupGateway();
+    const sess = await g.sm.createSession({ name: 'owner followers' });
+    sess.cwd = 'E:\\coding\\TermLink';
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(80);
+    ws.send(JSON.stringify({ type: 'codex_new_thread' }));
+    await delay(100);
+    const threadId = messages.find((message) => message.type === 'codex_thread_ready')?.threadId;
+    assert.ok(threadId);
+
+    for (const sourceClientId of ['desktop-follower', 'vscode-follower']) {
+        g.ipcFeed.pushBroadcast({
+            type: 'broadcast',
+            method: 'thread-stream-following-changed',
+            sourceClientId,
+            params: { conversationId: threadId, hostId: 'local', following: true }
+        });
+    }
+    await delay(20);
+    g.codexService.emit('notification', {
+        method: 'turn/started',
+        params: { threadId, turn: { id: 'turn-owner-followers', status: 'inProgress', items: [] } }
+    });
+    await delay(30);
+    let latest = g.ipcFeed.broadcastCalls.filter((call) =>
+        call.method === 'thread-stream-state-changed' && call.params?.conversationId === threadId
+    ).at(-1);
+    assert.deepEqual(latest?.options, {
+        targetClientIds: ['desktop-follower', 'vscode-follower']
+    });
+
+    g.ipcFeed.pushBroadcast({
+        type: 'broadcast',
+        method: 'thread-stream-following-changed',
+        sourceClientId: 'desktop-follower',
+        params: { conversationId: threadId, hostId: 'local', following: false }
+    });
+    g.codexService.emit('notification', {
+        method: 'item/started',
+        params: {
+            threadId,
+            turnId: 'turn-owner-followers',
+            item: { id: 'item-owner-followers', type: 'agentMessage', text: '' }
+        }
+    });
+    await delay(30);
+    latest = g.ipcFeed.broadcastCalls.filter((call) =>
+        call.method === 'thread-stream-state-changed' && call.params?.conversationId === threadId
+    ).at(-1);
+    assert.deepEqual(latest?.options, { targetClientIds: ['vscode-follower'] });
+
+    const targetedCount = g.ipcFeed.broadcastCalls.filter((call) =>
+        call.method === 'thread-stream-state-changed' && call.params?.conversationId === threadId
+    ).length;
+    g.ipcFeed.pushBroadcast({
+        type: 'broadcast',
+        method: 'client-status-changed',
+        sourceClientId: 'router',
+        params: { clientId: 'vscode-follower', clientType: 'vscode', status: 'disconnected' }
+    });
+    g.codexService.emit('notification', {
+        method: 'turn/completed',
+        params: { threadId, turn: { id: 'turn-owner-followers', status: 'completed', items: [] } }
+    });
+    await delay(30);
+    assert.equal(g.ipcFeed.broadcastCalls.filter((call) =>
+        call.method === 'thread-stream-state-changed' && call.params?.conversationId === threadId
+    ).length, targetedCount);
+
+    const beforeUnknownFollow = g.ipcFeed.broadcastCalls.length;
+    g.ipcFeed.pushBroadcast({
+        type: 'broadcast',
+        method: 'thread-stream-following-changed',
+        sourceClientId: 'desktop-follower',
+        params: { conversationId: 'external-owner-thread', hostId: 'local', following: true }
+    });
+    await delay(20);
+    assert.equal(g.ipcFeed.broadcastCalls.length, beforeUnknownFollow);
+
+    ws.close();
+    await stopGateway(g);
+});
+
+test('TermLink owner ignores malformed following state instead of registering a follower', async () => {
+    const g = await setupGateway();
+    const sess = await g.sm.createSession({ name: 'owner malformed follower' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(80);
+    ws.send(JSON.stringify({ type: 'codex_new_thread' }));
+    await delay(100);
+    const threadId = messages.find((message) => message.type === 'codex_thread_ready')?.threadId;
+    assert.ok(threadId);
+
+    g.ipcFeed.pushBroadcast({
+        type: 'broadcast',
+        method: 'thread-stream-following-changed',
+        sourceClientId: 'malformed-follower',
+        params: { conversationId: threadId, hostId: 'local' }
+    });
+    g.codexService.emit('notification', {
+        method: 'turn/started',
+        params: { threadId, turn: { id: 'turn-malformed-follower', status: 'inProgress', items: [] } }
+    });
+    await delay(30);
+
+    assert.equal(g.ipcFeed.broadcastCalls.some((call) => (
+        call.method === 'thread-stream-state-changed' &&
+        call.params?.conversationId === threadId
+    )), false);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('TermLink owner contains follower handshake send failures and remains usable', async () => {
+    const g = await setupGateway();
+    const sess = await g.sm.createSession({ name: 'owner follower send failure' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(80);
+    ws.send(JSON.stringify({ type: 'codex_new_thread' }));
+    await delay(100);
+    const threadId = messages.find((message) => message.type === 'codex_thread_ready')?.threadId;
+    assert.ok(threadId);
+
+    const originalSendBroadcast = g.ipcFeed.sendBroadcast.bind(g.ipcFeed);
+    g.ipcFeed.sendBroadcast = (method, params, options) => {
+        if (method === 'thread-stream-state-changed') throw new Error('simulated snapshot send failure');
+        return originalSendBroadcast(method, params, options);
+    };
+    assert.doesNotThrow(() => g.ipcFeed.pushBroadcast({
+        type: 'broadcast',
+        method: 'thread-stream-following-changed',
+        sourceClientId: 'desktop-follower',
+        params: { conversationId: threadId, hostId: 'local', following: true }
+    }));
+
+    g.ipcFeed.sendBroadcast = originalSendBroadcast;
+    g.codexService.emit('notification', {
+        method: 'turn/started',
+        params: { threadId, turn: { id: 'turn-after-send-failure', status: 'inProgress', items: [] } }
+    });
+    await delay(30);
+    const recoveredSnapshot = g.ipcFeed.broadcastCalls.filter((call) => (
+        call.method === 'thread-stream-state-changed' &&
+        call.params?.conversationId === threadId
+    )).at(-1);
+    assert.deepEqual(recoveredSnapshot?.options, { targetClientIds: ['desktop-follower'] });
+
+    g.ipcFeed.pushStatus({ online: false });
+    g.ipcFeed.sendBroadcast = (method, params, options) => {
+        if (method === 'thread-stream-following-status-requested') {
+            throw new Error('simulated status request failure');
+        }
+        return originalSendBroadcast(method, params, options);
+    };
+    assert.doesNotThrow(() => g.ipcFeed.pushStatus({ online: true, clientId: 'termlink-ipc' }));
+    g.ipcFeed.sendBroadcast = originalSendBroadcast;
 
     ws.close();
     await stopGateway(g);

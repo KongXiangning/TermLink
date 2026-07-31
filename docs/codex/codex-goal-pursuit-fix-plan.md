@@ -99,7 +99,7 @@ Android「追求目标」
 
 | 表达 | 来源 | 语义 | 是否显示 Goal 控制条 |
 |---|---|---|---|
-| `items[].kind = "goal_prompt"` | `/goal` 文本或 Goal internal context | 用户曾经请求设置 Goal，是消息/历史标记 | 否 |
+| `items[].kind = "goal_prompt"` | `/goal` 文本、Goal internal context 或真实持久化 Goal state | 用户曾经请求设置 Goal，是消息/历史标记 | 否 |
 | `surface.activeGoal` | Owner state 的 `threadGoal` / `currentGoal` | Owner 已确认的真实非终态 Goal | 是 |
 
 Android 当前出现“设为目标”而没有控制条，直接说明至少形成了 `goal_prompt`，但没有可靠形成或应用
@@ -459,7 +459,24 @@ Demo 能正常形成真实 Goal 的可复用部分是前者的 managed Owner 路
 
 因此 Android 控制条缺失是正确的保护行为，而不是 UI 应该无条件显示却没有显示。
 
-### 9.2 仍需用日志区分的两条分支
+### 9.2 2026-07-31 人工复验：自动续跑不产生普通用户消息
+
+用户在全新任务中确认：Desktop 原生任务记录仍显示真实“目标完成耗时”，但 App 与共享 surface 中发起
+Goal 的信息没有以普通用户消息出现，只看到模型思考和回答。当前环境无法使用 `adb` 读取该次设备日志，
+因此以下结论来自代码路径和可重复的 normalized projection 最小测试：
+
+- 官方 Goal runtime 的自动续跑使用内部 `source=goal` context，不产生 `userMessage` 或普通
+  `turn.params.input`；这不是普通消息丢失。
+- `threadGoal/currentGoal/completedThreadGoal` 是真实 Goal 状态；终态不应重新写入 `activeGoal`，但可以
+  投影为已有 `goal_prompt` 历史项。
+- TermLink 已在 `buildDesktopSurfaceSnapshot()` 中按真实 Goal state 补投影 `goal_prompt`，并与已有
+  Goal 输入按 objective 去重；不会从 `/goal` 文本猜测，也不会伪造 raw `userMessage` 或第二个 turn。
+- Desktop/VS Code 原生 surface 仍由宿主根据 raw `conversationState` 和真实 Goal state 显示官方 Goal
+  工具栏/完成记录；TermLink 不修改宿主 transcript 语义。若后续确认“普通手动消息”（而非 Goal 自动
+  context）也从首个 snapshot 就缺失，必须提供该 raw snapshot/notification 证据后另行定位，不能把它
+  与 Goal internal context 混为一谈。
+
+### 9.3 仍需用日志区分的两条分支
 
 #### 分支 A：失败任务是 TermLink managed Owner
 

@@ -178,16 +178,25 @@ class CodexIpcClient extends EventEmitter {
      *
      * @param {string} method
      * @param {unknown} [params]
+     * @param {{targetClientIds?: string[]}} [options]
      */
-    sendBroadcast(method, params) {
+    sendBroadcast(method, params, options = {}) {
         this._assertActiveSendAllowed(method);
+        const targetClientIds = Array.isArray(options.targetClientIds)
+            ? Array.from(new Set(options.targetClientIds.filter(
+                (clientId) => typeof clientId === 'string' && clientId.trim()
+            ).map((clientId) => clientId.trim())))
+            : null;
+        if (targetClientIds && targetClientIds.length === 0) return false;
         this._sendMessage({
             type: 'broadcast',
             method,
             sourceClientId: this._clientId,
             version: getMethodVersion(method),
-            params
+            params,
+            ...(targetClientIds ? { targetClientIds } : {})
         });
+        return true;
     }
 
     /**
