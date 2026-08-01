@@ -31,7 +31,7 @@
 - [x] Android Codex Header / composer 布局回归 follow-up：任务 `20260722-001` 已完成。恢复左侧会话管理 drawer 入口，移除无实际系统 inset 时强制产生的 36dp composer 底部空白，并在不改变 composer 外框高度的前提下把提示、光标和首行改为顶部起笔。Android JVM 163/163、owner/gateway targeted 45/45、debug APK、360/412dp Huawei 真机 drawer/IME/视觉 smoke 通过；三键导航非零 inset 由单测覆盖，未切换系统导航模式补人工截图。
 ## 🔨 正在开发
 
-- [ ] Codex 单权威路由与 TermLink Owner 控制面修复：任务 `20260727-002` 已完成服务端 authority router、完整 follower input、显式新任务 Owner 广播、Owner incoming control proxy、turn authority ledger、禁止静默换线程，以及 Android route-state / recovery confirmation 的实现。Node IPC/Gateway 回归 151/151 与 JDK 21 Android 全量 JVM tests、debug APK 已通过；仍需 diff/sensitive scan 和 Windows Desktop / VS Code 双宿主写入式 smoke。当前只能记为 in-development，未合并 Main；旧任务 `20260727-001` 已 superseded。
+- [ ] Codex 单权威路由与 TermLink Owner 控制面修复：任务 `20260727-002` 已完成服务端 authority router、完整 follower input、显式新任务 Owner 广播、Owner incoming control proxy、turn authority ledger、禁止静默换线程，以及 Android route-state / recovery confirmation 的实现；本轮 Owner re-entry/history continuity 最小修复也已验证（Node 172/172、Android focused JVM 81/81、JDK 21 APK 构建安装启动、真机 A→B→A smoke）。仍需 Windows Desktop / VS Code 双宿主写入式 smoke 与完整 Goal 长任务验收，当前继续记为 in-development / observing，未合并 Main；旧任务 `20260727-001` 已 superseded。
 - [x] Android Codex 对话图片/文件直达与 IPC 实时同步修复：任务 `20260722-002` 已由用户确认完成并归档；既有 IPC/owner/gateway、Workspace/Web、JDK 21 Android JVM/debug APK 和 Huawei 真机验证结果保留在归档文件中。后续 Codex IPC 需求仍须遵守既有 authority/follower 契约。
 - [x] Android App 前台独立息屏时间：任务 `20260726-001` 已完成偏好设置和前台息屏控制；仅长于系统值的档位延长前台亮屏，短于或等于系统值时由系统接管，后台始终按系统执行。JDK 21 Android JVM/Debug APK 验证通过，真实设备定时等待 smoke 作为未执行的手工观察项保留。
 - [x] `20260615-002` 网页版 Codex IPC 实时同步会话页：已完成并归档。commit `9603ea7`。
@@ -93,9 +93,10 @@
 
 ## 最近更新记录
 
-- 2026-08-02：用户报告会话 `019fbe25-0c1c-73f3-b9e5-391d72ab37ea` 单次人工验证成功；该结果仅记为
-  Owner/Goal surface 修复的 observing 锚点，不提升为 stable。13h 双宿主、多轮 Goal、普通消息/interrupt、
-  重连、A→B→A 与长任务验证仍未完成；Android follow-up 源码变更也尚未重新构建或安装 APK。
+- 2026-08-02：针对会话 `019fbe25-0c1c-73f3-b9e5-391d72ab37ea` 的重开问题完成根因收敛：终态 Owner 无外部 healthy
+  surface 时不得释放，Android 切换后的旧 live authority/history delta 不得回写当前会话。Node 172/172、Android
+  focused JVM 81/81、JDK 21 APK 真机构建安装启动及 A→B→A smoke 通过；服务端已重启。该结论进入 `CONTRACTS.md`
+  与 `DECISIONS.md`，但双宿主、多轮 Goal、重连和长任务仍未完成，因此保持 observing/in-development。
 - 2026-07-27：`20260727-001` 第一阶段产品实现和自动化收口。current-cycle desynced cache 仅展示，Gateway 在 grace 后 IPC 成功保持 IPC、仅 no-client/offline owner fallback；owner sticky、terminal re-entry release、单 conversation 发送串行、WebSocket close 与 A→B 竞态隔离均有回归覆盖。Node 55/55 + 137/137、Android JVM/debug APK、scope/implementation/contracts/diff checks clean；真实 Desktop / VS Code 写入 smoke 待可控任务。
 - 2026-07-27：归档 `20260726-002` 持久诊断日志任务（commit `e9f2a6e`），创建 `20260727-001`。新任务按用户确认锁定为 IPC-first、5 秒 current-cycle surface 等待、仅 no-client/offline owner fallback、当前打开周期 owner sticky；共享 app-server daemon 与问题 #11–#13 明确排除。
 - 2026-07-19：完成 `20260719-001` 文档阅读字号与横向裁切修复。根因是 Markdown 继承 16px 且长 token 缺换行，手动缩放又改变整页 viewport。现改为内容级小字号/换行，保持工具栏和触控尺寸；360/412 Playwright、134/134 窄门禁、Android debug 安装及 VOG-AL00 真机自然比例验证通过。

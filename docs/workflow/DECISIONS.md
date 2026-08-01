@@ -75,6 +75,8 @@
 
 变更说明（2026-07-27，单权威路由与 Owner 控制面）：用户在 Windows 手动 smoke 中确认第一阶段仍存在 authority 分裂，因此将 #10 扩大为完整服务端 authority router。已绑定任务的普通文本、Goal、Plan、图片、文件提及和 Skill 一律提交 follower intent；Android 不再选择 transport。显式新建由 TermLink app-server 创建 canonical thread，并注册为可被 Desktop / VS Code discovery、继续、停止、审批、提交用户输入、更新设置、compact 和 steer 的 IPC Owner。每个真实 turn 固定记录 IPC 或 Owner authority，所有后续控制操作沿同一 authority，运行中禁止自动切换。系统触发的 thread 替换一律改为 retry / fork / new / cancel 确认，确认前不得改变 canonical id 或丢弃草稿。该决策的原因是“App 显示 Owner running、Desktop 无 surface、停止却走 IPC”的实测已经证明发送、显示与控制分路不可接受；后续不得恢复 Android capability 分流、后台静默 `thread/start`、进程扫描猜宿主或以轮询伪造实时状态。共享 app-server daemon 继续不采用，直至证明 Desktop / VS Code 可稳定共享并经过新的显式架构决策。
 
+变更说明（2026-08-02，Owner re-entry / history continuity）：本轮用户验证确认，之前固定的 IPC-first 与 Owner sticky 边界还需要补上“终态 Owner 的安全释放门槛”和“切换后的历史写回隔离”。决策固定为：A→B→A 重新进入时，终态 TermLink Owner 只有在目标 conversation 已有非 `desynced` 的 healthy external IPC surface 时才能释放；没有该 surface 时必须保留 Owner raw surface、turn history 与 settings，禁止删除后用不完整 fallback 重建。Android conversation 切换/恢复必须清理旧 conversation 的 canonical history cache 与 live authority，并在异步 history delta 最终写回 UI 前重新校验 active conversation，旧 delta 不得覆盖当前会话。原因是仅按 terminal status 释放 Owner 会使 Desktop 重开得到缺少 `settings` 的恢复状态，而 Android 旧 live authority 与异步 history delta 会让切换后的正文消失。该补充不改变 IPC lifecycle、desired subscription/reconnect replay、healthy IPC authority、canonical binding、Goal RPC 或 Owner/Android 的 authority 语义；后续不得把 cache/history delta 变成实时权威，也不得以轮询或静默 thread/read 替代该隔离。该结论已由 Node 172/172、Android focused JVM 81/81、JDK 21 APK 真机构建安装启动及 A→B→A smoke 验证，并在普通 Goal/UI 修改中不得静默撤销。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径
