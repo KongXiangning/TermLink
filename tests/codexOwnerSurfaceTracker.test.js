@@ -113,6 +113,133 @@ test('owner tracker preserves turn input when a later notification omits params'
     assert.deepEqual(turn.params.input, [{ type: 'text', text: 'preserved input' }]);
 });
 
+test('owner raw snapshot restores Desktop turn params from a real user item', () => {
+    const tracker = new CodexOwnerSurfaceTracker();
+    tracker.registerExternalSurface('thread-desktop-params', {
+        conversationId: 'thread-desktop-params',
+        cwd: 'E:\\coding\\TermLink',
+        status: 'completed',
+        items: []
+    });
+
+    const event = tracker.handleNotification('turn/started', {
+        threadId: 'thread-desktop-params',
+        turn: {
+            id: 'turn-desktop-params',
+            status: 'inProgress',
+            items: [{
+                type: 'userMessage',
+                id: 'user-desktop-params',
+                content: [{ type: 'text', text: '真实用户消息' }]
+            }]
+        }
+    });
+
+    const turn = event.payload.change.conversationState.turns[0];
+    assert.equal(turn.turnId, 'turn-desktop-params');
+    assert.equal(turn.params.cwd, 'E:\\coding\\TermLink');
+    assert.deepEqual(turn.params.input, [{ type: 'text', text: '真实用户消息', text_elements: [] }]);
+    assert.deepEqual(turn.params.attachments, []);
+    assert.deepEqual(turn.params.commentAttachments, []);
+    assert.deepEqual(turn.params.runtimeWorkspaceRoots, ['E:\\coding\\TermLink']);
+    assert.equal(turn.diff, null);
+});
+
+test('owner Goal snapshot keeps the real Goal state without fabricating a user message', () => {
+    const tracker = new CodexOwnerSurfaceTracker();
+    tracker.registerExternalSurface('thread-desktop-goal', {
+        conversationId: 'thread-desktop-goal',
+        status: 'completed',
+        items: []
+    });
+    tracker.handleNotification('turn/started', {
+        threadId: 'thread-desktop-goal',
+        turn: { id: 'goal-turn', status: 'inProgress', items: [] }
+    });
+
+    const event = tracker.applyThreadGoalUpdate('thread-desktop-goal', {
+        threadId: 'thread-desktop-goal',
+        objective: '真实 Goal 目标',
+        status: 'active'
+    });
+    const state = event.payload.change.conversationState;
+
+    assert.equal(state.threadGoal.objective, '真实 Goal 目标');
+    assert.equal(state.currentGoal.objective, '真实 Goal 目标');
+    assert.deepEqual(state.turns[0].params.input, [{
+        type: 'text',
+        text: '真实 Goal 目标',
+        text_elements: []
+    }]);
+    assert.equal(state.turns.some((turn) => (
+        Array.isArray(turn.items) && turn.items.some((item) => item.type === 'userMessage')
+    )), false);
+    assert.equal(event.surface.items.filter((item) => item.kind === 'goal_prompt').length, 1);
+});
+
+test('owner raw snapshot prunes only terminal Goal empty in-progress placeholders', () => {
+    const tracker = new CodexOwnerSurfaceTracker();
+    tracker.registerExternalSurface('thread-desktop-goal-complete', {
+        conversationId: 'thread-desktop-goal-complete',
+        status: 'completed',
+        items: []
+    });
+    tracker.handleNotification('turn/started', {
+        threadId: 'thread-desktop-goal-complete',
+        turn: { id: 'goal-placeholder', status: 'inProgress', items: [] }
+    });
+    tracker.applyThreadGoalUpdate('thread-desktop-goal-complete', {
+        threadId: 'thread-desktop-goal-complete',
+        objective: '完成后的目标',
+        status: 'complete'
+    });
+
+    const event = tracker.handleNotification('thread/status/changed', {
+        threadId: 'thread-desktop-goal-complete',
+        status: { type: 'idle' }
+    });
+
+    assert.deepEqual(event.payload.change.conversationState.turns, []);
+    assert.equal(event.payload.change.conversationState.threadGoal.status, 'complete');
+    assert.equal(event.surface.activeGoal, undefined);
+    assert.ok(event.surface.items.some((item) => item.kind === 'goal_prompt' && item.text === '完成后的目标'));
+});
+
+test('owner completed Goal projects its objective into the real terminal turn', () => {
+    const tracker = new CodexOwnerSurfaceTracker();
+    tracker.registerExternalSurface('thread-desktop-goal-turn', {
+        conversationId: 'thread-desktop-goal-turn',
+        status: 'completed',
+        items: []
+    });
+    tracker.handleNotification('turn/started', {
+        threadId: 'thread-desktop-goal-turn',
+        turn: {
+            id: 'goal-turn',
+            status: 'completed',
+            items: [{ type: 'agentMessage', text: '任务已完成' }]
+        }
+    });
+    tracker.applyThreadGoalUpdate('thread-desktop-goal-turn', {
+        threadId: 'thread-desktop-goal-turn',
+        objective: '完成后的真实任务',
+        status: 'complete'
+    });
+
+    const event = tracker.handleNotification('thread/status/changed', {
+        threadId: 'thread-desktop-goal-turn',
+        status: { type: 'idle' }
+    });
+    const turn = event.payload.change.conversationState.turns[0];
+
+    assert.deepEqual(turn.params.input, [{
+        type: 'text',
+        text: '完成后的真实任务',
+        text_elements: []
+    }]);
+    assert.equal(turn.items.some((item) => item.type === 'userMessage'), false);
+});
+
 test('owner tracker projects pending approval request and resolves it', () => {
     const tracker = new CodexOwnerSurfaceTracker();
     tracker.registerExternalSurface('thread-approval', {

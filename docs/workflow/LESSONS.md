@@ -102,6 +102,12 @@
   - 触发信号：`requestCodexNewThread()` 或普通发送立即失败；`connect()` 进一步报“缺少服务器地址”；页面状态看似 idle/ready，但 `ws` 没有真正建立。
   - 应对动作：先在浏览器上下文检查 `serverUrl`、`sessionId`、`ws.readyState`；必要时调用 `__applyTerminalConfig({ serverUrl, sessionId, authHeader, sessionMode, cwd })` 建立真实连接，再继续 Web smoke 与 DOM/截图取证。
 
+- 场景：Codex Goal 自动续跑来自内部 `source=goal` context，raw turn 可能没有普通 `userMessage` 或 `params.input`；Desktop 因此缺少 Goal 发起信息，而 Android 的 `goal_prompt` 若没有显式 `role` 会被默认显示为 ASSISTANT。
+  - 结论：兼容投影只能从真实 `threadGoal/currentGoal/completedThreadGoal` 取得 objective，写入 cloned Owner raw snapshot 中已有真实 turn 的 `params.input`，不得伪造普通 `userMessage`；Android 对 `goal_prompt` 必须显式映射为 USER。该修复保持 IPC authority、follower lifecycle、Goal RPC 和实时数据源不变。
+  - 触发信号：Desktop 缺少已发布 Goal 信息、App 把用户目标标为 Codex；raw snapshot 有真实 Goal 字段但没有普通 user item/input，normalized entry 的 kind 为 `goal_prompt` 且没有 role。
+  - 应对动作：先对照真实 rollout、Desktop bundle 和 Android role switch，做最小兼容投影并覆盖 active/complete/去重/空占位边界；一次人工成功只记录为 observing 锚点，不据此跳过双宿主、多轮、重连和长任务复验。
+  - Source：`20260727-002` / 13i–13k / 2026-08-02 single-success observation
+
 ## 后端与服务
 
 - 场景：

@@ -90,6 +90,31 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun goalPromptSurfaceEntryKeepsUserOrigin() {
+        val merged = mergeSurfaceItems(
+            existing = emptyList(),
+            surfaceItems = listOf(
+                SurfaceEntry(
+                    key = "thread-goal:objective",
+                    kind = "goal_prompt",
+                    role = null,
+                    phase = null,
+                    text = "真实 Goal 目标",
+                    turnId = "turn-goal",
+                    itemId = null,
+                    statusType = null,
+                    approvalType = null,
+                    requestId = null,
+                    raw = null
+                )
+            )
+        )
+
+        assertEquals(ChatMessage.Role.USER, merged.single().role)
+        assertEquals("真实 Goal 目标", merged.single().content)
+    }
+
+    @Test
     fun runningSurfaceKeepsCompletedCommandItemsSeparateUntilTurnFinishes() {
         val entries = listOf("cmd-1", "cmd-2").map { id ->
             SurfaceEntry(

@@ -191,6 +191,18 @@
   turn 输入；不得从 `/goal` 文本猜测，不改 Goal RPC、Owner/follower、authority、snapshot/patch
   仲裁或 Android 数据源。风险是重复目标项和终态误显示为 active，验证必须覆盖 active、complete、已有
   `turn.params.input` 去重及普通消息不受影响；Android 保持无代码变化。
+- Scope widening（2026-08-01，共享 Owner raw surface 的 Desktop 兼容投影）：人工复验进一步确认
+  Goal 的真实 `threadGoal/currentGoal` 已能进入 Owner 的 raw `conversationState`（Desktop 终态能显示
+ 真实目标耗时），当前剩余问题是 Owner 自建/合并的 turn 可能缺少 Desktop 要求的 `turnId`、`params`
+  和请求参数；demo 已有真实验证的广播前标准化路径。仅放行
+  `src/services/codexOwnerSurfaceTracker.js` 与 `tests/codexOwnerSurfaceTracker.test.js`：在 Owner
+  snapshot 广播前对现有真实 turn 做兼容标准化，补齐缺失的 `params.cwd/input/attachments/`
+  `commentAttachments/runtimeWorkspaceRoots/diff`，并在真实用户 item 存在时从其内容恢复 input；Goal
+  字段只做 `threadGoal/currentGoal/completedThreadGoal` 兼容同步，终态 Goal 的空 inProgress placeholder
+  才可按 demo 已验证条件清理。禁止新增 `goal`/`goal_prompt` raw wire 字段、伪造 `userMessage`、新增
+  follower method、改变 Goal RPC、authority、follower lifecycle、snapshot/patch 或 Android 数据源。
+  风险是误修改 raw Owner payload 或删除真实 turn，验证必须覆盖真实 user item、Goal 自动续跑无 user item、
+  complete placeholder、Desktop raw 字段和既有 IPC/Gateway 回归。
 
 ## 实现方案
 
@@ -386,6 +398,7 @@ Implementation Plan（2026-07-31，Goal 自动续跑用户消息投影修复）�
 - Performance baseline：任务选择后不新增轮询；fresh-surface grace 保持 5 秒。
 - Rollback / recovery：回退本任务在 `8f84867` 之后的提交即可恢复阶段一 checkpoint；不涉及数据迁移。
 - Release evidence：最终测试、APK 构建和双宿主手动 smoke 记录。
+- 当前实际观察（2026-08-02）：用户报告会话 `019fbe25-0c1c-73f3-b9e5-391d72ab37ea` 单次人工验证成功；该结果仅作为 observing 锚点，不等同于双宿主、多轮 Goal、重连、A→B→A 或长任务全链路验收。
 
 ## 实施方案
 
@@ -544,6 +557,16 @@ Implementation Plan：
 - [completed] 13i. 修复 Goal 自动续跑没有普通 `userMessage` 时的 normalized surface 投影：从真实
   Goal 状态生成已有类型 `goal_prompt`，完成状态保留目标项但不恢复 `activeGoal`；补齐
   `codexIpcThreadStream` 精确测试，并确认普通消息、Goal 输入去重和既有 IPC/Owner 回归不变。
+- [completed] 13j. 修复共享 Owner raw snapshot 的 Desktop 兼容投影：广播前仅对现有真实 turns
+  补齐 Desktop 所需的 `turnId`、`params.cwd/input/attachments/commentAttachments/runtimeWorkspaceRoots`
+  和 `diff`；`input` 只从真实 `userMessage` 恢复，不为 Goal 自动续跑伪造用户消息。同步保留真实
+  `threadGoal/currentGoal/completedThreadGoal` 字段，并只清理已完成 Goal 的空 `inProgress` 占位 turn。
+  Owner surface 精确测试与 IPC/Gateway 相邻回归共 169/169 通过，未修改 Android、IPC lifecycle、
+  authority 或 Goal RPC；Desktop/VS Code 双宿主人工 smoke 仍待用户验证。
+- [completed] 13k. 针对后续人工反馈补齐 Android `goal_prompt` 的显式 USER 角色映射，避免未声明
+  `role` 时落入 ASSISTANT；只改变该 normalized surface 条目的展示归因，不改变 IPC authority、
+  lifecycle、Goal RPC 或实时数据源。对应 Android focused JVM test 通过；本次 Android 源码 follow-up
+  未重新构建或安装 APK，因此不能把它当作新的 APK 级验证证据。
 - [pending] 13h. 执行人工双宿主 Goal smoke：App 新建 Goal 后 Desktop/VS Code
   打开只能观察/作为 follower，一次 Goal 仅一个真实 turn，pause/interrupt/complete/history 一致；
   同时验证普通消息、interrupt、重连、A→B→A 和长任务无回归。
@@ -839,3 +862,14 @@ Implementation Plan：
   混合行尾整文件误报，未做换行归一化。该修复覆盖 App normalized surface；Desktop 原生 transcript
   仍不被伪造为普通 user message，若普通手动消息也缺失需下一轮提供 raw snapshot/notification 证据。
   13h 双宿主 Goal 人工 smoke 仍 pending，不能据此宣称真机问题全部关闭。
+- 2026-08-01：完成步骤 13j。Owner 广播前新增只作用于 cloned raw snapshot 的 Desktop 兼容标准化：
+  对已有真实 turn 补齐 `turnId`、Desktop 所需 params 和 `diff`，仅从真实 `userMessage` 内容恢复缺失
+  `params.input`；Goal 自动续跑没有 user item 时保持无伪造消息。真实 Goal 字段只做
+  `threadGoal/currentGoal/completedThreadGoal` 兼容同步，完成 Goal 的空 `inProgress` 占位只在 runtime
+  已终态且无 item/input 时清理。新增 3 条 Owner raw snapshot 精确测试；IPC client/feed/thread-stream/
+  Owner/Gateway 五组回归 169/169、Owner 单测 14/14、语法检查通过。实现未修改 Android、IPC lifecycle、
+  authority、snapshot/patch 或 Goal RPC；13h 双宿主人工 smoke 仍待用户执行。
+- 2026-08-02：用户报告会话 `019fbe25-0c1c-73f3-b9e5-391d72ab37ea` 的本次人工验证成功，
+  将当前 Owner/Goal surface 修复固定为一个 single-success observing 锚点。该证据不扩大为完整
+  双宿主或多场景通过；后续若再出现显示/归因错误，先以本次 raw Owner 投影约束、`goal_prompt` USER
+  角色映射和“未伪造普通 userMessage”的边界作为对照，再补充新的复现证据。

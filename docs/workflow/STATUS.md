@@ -93,6 +93,9 @@
 
 ## 最近更新记录
 
+- 2026-08-02：用户报告会话 `019fbe25-0c1c-73f3-b9e5-391d72ab37ea` 单次人工验证成功；该结果仅记为
+  Owner/Goal surface 修复的 observing 锚点，不提升为 stable。13h 双宿主、多轮 Goal、普通消息/interrupt、
+  重连、A→B→A 与长任务验证仍未完成；Android follow-up 源码变更也尚未重新构建或安装 APK。
 - 2026-07-27：`20260727-001` 第一阶段产品实现和自动化收口。current-cycle desynced cache 仅展示，Gateway 在 grace 后 IPC 成功保持 IPC、仅 no-client/offline owner fallback；owner sticky、terminal re-entry release、单 conversation 发送串行、WebSocket close 与 A→B 竞态隔离均有回归覆盖。Node 55/55 + 137/137、Android JVM/debug APK、scope/implementation/contracts/diff checks clean；真实 Desktop / VS Code 写入 smoke 待可控任务。
 - 2026-07-27：归档 `20260726-002` 持久诊断日志任务（commit `e9f2a6e`），创建 `20260727-001`。新任务按用户确认锁定为 IPC-first、5 秒 current-cycle surface 等待、仅 no-client/offline owner fallback、当前打开周期 owner sticky；共享 app-server daemon 与问题 #11–#13 明确排除。
 - 2026-07-19：完成 `20260719-001` 文档阅读字号与横向裁切修复。根因是 Markdown 继承 16px 且长 token 缺换行，手动缩放又改变整页 viewport。现改为内容级小字号/换行，保持工具栏和触控尺寸；360/412 Playwright、134/134 窄门禁、Android debug 安装及 VOG-AL00 真机自然比例验证通过。

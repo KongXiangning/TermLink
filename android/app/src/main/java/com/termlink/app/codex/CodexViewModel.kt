@@ -944,6 +944,7 @@ internal fun mergeSurfaceItems(
             }
             "status" -> if (isOperation) ChatMessage.Role.TOOL else ChatMessage.Role.SYSTEM
             "approval_request" -> ChatMessage.Role.SYSTEM
+            "goal_prompt" -> ChatMessage.Role.USER
             else -> ChatMessage.Role.ASSISTANT
         }
         val projected = ChatMessage(

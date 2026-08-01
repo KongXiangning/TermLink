@@ -412,6 +412,7 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
         }
 
         const state = clone(conversation.state);
+        normalizeStateForDesktop(state);
         const surface = buildDesktopSurfaceSnapshot(state, {
             conversationId: conversation.threadId,
             revision: conversation.revision,
@@ -440,6 +441,153 @@ class CodexOwnerSurfaceTracker extends EventEmitter {
             surface: mergedSurface
         };
     }
+}
+
+function normalizeStateForDesktop(state) {
+    normalizeGoalFieldsForDesktop(state);
+
+    const turns = Array.isArray(state.turns) ? state.turns : [];
+    state.turns = turns;
+    const cwd = asString(state.cwd);
+
+    for (const turn of turns) {
+        const record = asRecord(turn);
+        if (!record) continue;
+
+        const turnId = asString(record.turnId) || asString(record.id);
+        if (turnId && !asString(record.turnId)) record.turnId = turnId;
+
+        const params = asRecord(record.params) || {};
+        if (cwd && !asString(params.cwd)) params.cwd = cwd;
+        const inferredInput = extractTurnInput(record);
+        if (!Array.isArray(params.input) || (params.input.length === 0 && inferredInput.length > 0)) {
+            params.input = inferredInput;
+        }
+        if (!Array.isArray(params.attachments)) params.attachments = [];
+        if (!Array.isArray(params.commentAttachments)) params.commentAttachments = [];
+        if (!Array.isArray(params.runtimeWorkspaceRoots)) {
+            params.runtimeWorkspaceRoots = cwd ? [cwd] : [];
+        }
+        record.params = params;
+
+        if (!('diff' in record)) record.diff = null;
+    }
+
+    pruneTerminalEmptyInProgressTurns(state);
+    projectGoalInputForDesktop(state);
+}
+
+function normalizeGoalFieldsForDesktop(state) {
+    const goal = asRecord(state.threadGoal) || asRecord(state.currentGoal);
+    if (!goal) return;
+
+    if (!asRecord(state.threadGoal)) state.threadGoal = clone(goal);
+    if (!asRecord(state.currentGoal)) state.currentGoal = clone(goal);
+
+    const status = asString(goal.status);
+    if ((status === 'complete' || status === 'completed') && !asRecord(state.completedThreadGoal)) {
+        state.completedThreadGoal = clone(goal);
+    }
+}
+
+function pruneTerminalEmptyInProgressTurns(state) {
+    const runtimeStatus = asRecord(state.threadRuntimeStatus);
+    const runtimeType = asString(runtimeStatus?.type);
+    if (runtimeType !== 'idle' && runtimeType !== 'completed') return;
+
+    const goal = asRecord(state.threadGoal) ||
+        asRecord(state.currentGoal) ||
+        asRecord(state.completedThreadGoal);
+    const goalStatus = asString(goal?.status);
+    if (goalStatus !== 'complete' && goalStatus !== 'completed') return;
+
+    const turns = Array.isArray(state.turns) ? state.turns : [];
+    while (turns.length > 0) {
+        const last = asRecord(turns[turns.length - 1]);
+        if (!last) return;
+
+        const turnStatus = asString(last.status);
+        if (turnStatus !== 'inProgress' && turnStatus !== 'in_progress') return;
+
+        const items = Array.isArray(last.items) ? last.items : [];
+        const input = Array.isArray(asRecord(last.params)?.input)
+            ? asRecord(last.params).input
+            : [];
+        if (items.length > 0 || input.length > 0) return;
+
+        turns.pop();
+    }
+}
+
+function projectGoalInputForDesktop(state) {
+    const goal = asRecord(state.threadGoal) ||
+        asRecord(state.currentGoal) ||
+        asRecord(state.completedThreadGoal);
+    const objective = asString(goal?.objective);
+    if (!objective) return;
+
+    const goalStatus = asString(goal?.status);
+    const turns = Array.isArray(state.turns) ? state.turns : [];
+    if (turns.some((turn) => {
+        const input = extractInputText(asRecord(asRecord(turn)?.params)?.input);
+        return input && input.includes(objective);
+    })) return;
+
+    for (let index = turns.length - 1; index >= 0; index -= 1) {
+        const record = asRecord(turns[index]);
+        if (!record) continue;
+
+        const params = asRecord(record.params) || {};
+        if (Array.isArray(params.input) && params.input.length > 0) continue;
+
+        const items = Array.isArray(record.items) ? record.items : [];
+        if (items.some((item) => asString(asRecord(item)?.type) === 'userMessage')) continue;
+        if (items.length === 0 && (goalStatus === 'complete' || goalStatus === 'completed')) continue;
+
+        // Desktop derives the initial user entry from turn.params.input. This
+        // is a Goal compatibility projection only; keep the raw turn free of a
+        // fabricated userMessage item.
+        params.input = buildTextInputSequence(objective);
+        record.params = params;
+        return;
+    }
+}
+
+function extractInputText(input) {
+    if (typeof input === 'string') return asString(input);
+    if (!Array.isArray(input)) return undefined;
+
+    const parts = input
+        .map((part) => asRecord(part))
+        .map((part) => asString(part?.text) || asString(part?.content))
+        .filter(Boolean);
+    return parts.length > 0 ? parts.join('\n') : undefined;
+}
+
+function extractTurnInput(turn) {
+    const items = Array.isArray(turn.items) ? turn.items : [];
+    const userMessage = items
+        .map((item) => asRecord(item))
+        .find((item) => asString(item?.type) === 'userMessage');
+    const text = extractItemText(userMessage);
+    return text ? buildTextInputSequence(text) : [];
+}
+
+function extractItemText(item) {
+    const record = asRecord(item);
+    if (!record) return undefined;
+
+    const direct = asString(record.text) || asString(record.message);
+    if (direct) return direct;
+
+    if (typeof record.content === 'string') return asString(record.content);
+    if (!Array.isArray(record.content)) return undefined;
+
+    const parts = record.content
+        .map((part) => asRecord(part))
+        .map((part) => asString(part?.text) || asString(part?.content))
+        .filter(Boolean);
+    return parts.length > 0 ? parts.join('\n') : undefined;
 }
 
 function buildInitialState(threadId, surface = {}) {
