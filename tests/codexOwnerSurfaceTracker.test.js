@@ -44,6 +44,32 @@ test('owner tracker keeps seeded external surface and appends owner turn surface
     assert.ok(event.surface.items.some((item) => item.role === 'user' && item.text === 'new owner input'));
 });
 
+test('owner tracker leaves missing titles to Codex default naming and preserves real thread names', () => {
+    const tracker = new CodexOwnerSurfaceTracker();
+    const defaultTitleEvent = tracker.registerThreadStart({
+        thread: { id: 'thread-default-title' }
+    }, {
+        seedSurface: {
+            conversationId: 'thread-default-title',
+            status: 'completed'
+        }
+    });
+
+    assert.equal(defaultTitleEvent.surface.title, undefined);
+    assert.doesNotMatch(JSON.stringify(defaultTitleEvent.surface), /TermLink owner/i);
+
+    const realTitleEvent = tracker.registerThreadStart({
+        thread: { id: 'thread-real-title', name: '真实默认标题' }
+    }, {
+        seedSurface: {
+            conversationId: 'thread-real-title',
+            status: 'completed'
+        }
+    });
+
+    assert.equal(realTitleEvent.surface.title, '真实默认标题');
+});
+
 test('owner tracker restores required turn params when turn/start omits them', () => {
     const tracker = new CodexOwnerSurfaceTracker();
     tracker.registerThreadStart({

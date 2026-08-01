@@ -1110,6 +1110,12 @@ function registerTerminalGateway(wss, {
             !surface.activeGoal;
     };
 
+    const _hasHealthyExternalIpcSurface = (conversationId) => {
+        const surface = _getLatestIpcSnapshot(conversationId);
+        if (!surface || typeof surface !== 'object' || surface.desynced === true) return false;
+        return String(surface.ownerKind || '').trim().toLowerCase() !== 'termlink';
+    };
+
     const _emitConversationActionRequired = (ws, conversationId, surface) => {
         if (!surface || typeof surface !== 'object') return;
         const sendAction = (actionType, pendingAction) => {
@@ -1584,7 +1590,15 @@ function registerTerminalGateway(wss, {
             const ownerAuthority = _authorityLedger.get(normalizedConversationId);
             const isFreshlyCreatedOwner = ownerAuthority?.authority === 'owner' &&
                 ownerAuthority.status === 'created';
-            if (!isFreshlyCreatedOwner && _isOwnerSurfaceSafelyReleasable(ownerSurface)) {
+            // A terminal Owner is only releasable when an external healthy
+            // surface is already available. Without it, deleting the Owner
+            // state would make A->B->A reopen with an empty history and force
+            // the next fallback to rebuild an incomplete conversation state.
+            if (
+                !isFreshlyCreatedOwner &&
+                _isOwnerSurfaceSafelyReleasable(ownerSurface) &&
+                _hasHealthyExternalIpcSurface(normalizedConversationId)
+            ) {
                 ownerSurfaceTracker.releaseConversation(normalizedConversationId);
                 _ownerFollowerStatusRequested.delete(normalizedConversationId);
                 _authorityLedger.delete(normalizedConversationId);

@@ -1080,6 +1080,52 @@ test('owner remains authoritative while running and is released only after termi
     await stopGateway(g);
 });
 
+test('terminal owner remains available on re-entry when no external surface exists', async () => {
+    const g = await setupGateway({ ipcSurfaceWaitGraceMs: 20 });
+    g.ipcFeed._sendRequestHandler = () => ({
+        type: 'response',
+        resultType: 'error',
+        error: 'no-client-found'
+    });
+
+    const sess = await g.sm.createSession({ name: 'test' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(80);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-owner-retained' }));
+    await delay(20);
+    await enableFollowerMode(ws);
+    ws.send(JSON.stringify({
+        type: 'follower_send_message',
+        conversationId: 'conv-owner-retained',
+        input: 'retain this owner history'
+    }));
+    await delay(100);
+
+    g.codexService.emit('notification', {
+        method: 'turn/completed',
+        params: {
+            threadId: 'conv-owner-retained',
+            turn: { id: 'turn-1', status: 'completed', items: [] }
+        }
+    });
+    await delay(40);
+
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-other-retained' }));
+    await delay(20);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-owner-retained' }));
+    await delay(50);
+
+    const reopened = messages.filter((message) =>
+        message.type === 'conversation_surface_snapshot' &&
+        message.conversationId === 'conv-owner-retained'
+    ).at(-1);
+    assert.equal(reopened.snapshot.ownerKind, 'termlink');
+    assert.ok(reopened.snapshot.items.some((item) => item.text === 'retain this owner history'));
+
+    ws.close();
+    await stopGateway(g);
+});
+
 test('owner pending approval response is resolved through app-server instead of IPC', async () => {
     const g = await setupGateway();
     g.ipcFeed.pushSnapshot('conv-owner-approval', {

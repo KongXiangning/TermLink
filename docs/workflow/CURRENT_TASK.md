@@ -203,6 +203,18 @@
   follower method、改变 Goal RPC、authority、follower lifecycle、snapshot/patch 或 Android 数据源。
   风险是误修改 raw Owner payload 或删除真实 turn，验证必须覆盖真实 user item、Goal 自动续跑无 user item、
   complete placeholder、Desktop raw 字段和既有 IPC/Gateway 回归。
+- Scope widening（2026-08-02，Goal 会话内呈现与默认标题）：用户明确这是产品呈现变更而非故障修复，
+  要求把 Goal 标记从任务历史列表移到会话中已有的 `goal_prompt` 消息，并停止显示 TermLink 合成的
+  `TermLink owner <id>` 标题。仅使用既有 Allowed Files 中的 Android Codex UI/模型/字符串/定向测试，
+  以及 `src/services/codexOwnerSurfaceTracker.js` 与对应测试；保留真实 surface 的 Goal 投影、真实
+  `thread.name` 和 Goal 历史数据，不改变 IPC authority、Owner lifecycle、canonical binding、Goal RPC
+  或 raw wire。禁止新增伪造普通用户消息、从历史列表继续渲染 Goal 文案，或用新的标题猜测/轮询替代
+  Codex 默认命名。
+- Scope widening（2026-08-02，A→B→A 恢复连续性）：用户补充 Desktop 恢复报缺失 `settings`、App
+  切换后正文消失，允许在既有 Gateway Owner surface 与 Android selection/history 入口做最小恢复修复。
+  仅放行 `src/ws/terminalGateway.js`、`tests/terminalGateway.codexIpc.test.js`、既有 Android
+  `CodexViewModel.kt` 与 focused test；不改变 IPC lifecycle、healthy external authority、canonical
+  binding、Owner/Goal RPC 或页面标识方案。
 
 ## 实现方案
 
@@ -473,6 +485,22 @@ Implementation Plan：
     Android logcat 与服务端持久日志直接证明，不依赖第三方 current behavior。
 - Open decisions：无。
 
+Implementation Plan（2026-08-02，Goal 会话内标记与默认标题）：
+
+- Goal：让 Goal 目标在会话正文中作为真实 `goal_prompt` 消息显示，并在该消息头提供紧凑的 Goal 标记；
+  任务历史列表恢复为普通任务条目布局。TermLink Owner 只传播 Codex 返回的真实标题，缺少标题时留给
+  Codex/客户端默认命名逻辑处理。
+- Technical approach：Android `mergeSurfaceItems()` 为 `goal_prompt` 保留消息类型，`MessageBubble` 仅对
+  该类型在消息头渲染 Goal badge；移除 `ThreadHistoryItem` 的 Goal 文案与
+  badge，但不删除目标记忆/缓存字段。Owner tracker 去掉无真实标题时的合成 fallback，保留 `thread.name`
+  和已有 surface title。
+- Compatibility：继续使用既有 normalized surface 和 `goal_prompt`，不伪造 `userMessage`，不改变 role、
+  IPC/Owner 路由、authority、Goal RPC、历史同步和任务选择协议；普通消息、Plan、操作项和已有标题不变。
+- Validation strategy：Android focused JVM test 验证 `goal_prompt` 仍为 USER 且携带 `contentType`；Node
+  Owner test 验证无真实标题时不出现 `TermLink owner` 合成标题、真实标题仍保留；运行定向 Node/Android
+  回归、JavaScript 语法检查与 `git diff --check`。
+- Open decisions：无；消息内使用紧凑 badge，目标正文仍由真实 `goal_prompt` 条目提供。
+
 ## 实施步骤
 
 - [completed] 1. IPC client/feed request handler、discovery negative-ack 与 capability status；client/feed tests 已覆盖 handler 注册、成功/错误应答和 disposal。
@@ -570,6 +598,15 @@ Implementation Plan：
 - [pending] 13h. 执行人工双宿主 Goal smoke：App 新建 Goal 后 Desktop/VS Code
   打开只能观察/作为 follower，一次 Goal 仅一个真实 turn，pause/interrupt/complete/history 一致；
   同时验证普通消息、interrupt、重连、A→B→A 和长任务无回归。
+- [completed] 14a. 将 Goal 标记从任务历史列表移入会话中的真实 `goal_prompt` 消息，并移除 TermLink Owner
+  的 `TermLink owner <id>` 合成标题；不改变 Goal surface、IPC/Owner lifecycle、authority 或 Goal RPC。
+  Owner 16/16、共享 IPC/Gateway/Goal Node 回归 171/171、JavaScript 语法检查和 Android JDK 21 focused
+  JVM test 均通过；未执行 APK 安装或双宿主人工 smoke。
+- [completed] 14b. 修复终态 Owner 在无外部 healthy surface 时被 A→B→A 释放，以及 Android 切换后旧
+  live authority/history delta 回写导致的正文消失；共享 Node 回归 172/172，Android focused JVM
+  81/81，服务端已重启，最新代码的 JDK 21 APK 已重新构建、安装并启动到
+  `MQS7N19402011743`；真机 A→B→A smoke 通过，启动后未见恢复异常或崩溃。
+  完整 `npm test` 运行至 304 秒超时，未见失败汇总；遗留测试进程已清理。
 
 ## 回归门
 
@@ -873,3 +910,7 @@ Implementation Plan：
   将当前 Owner/Goal surface 修复固定为一个 single-success observing 锚点。该证据不扩大为完整
   双宿主或多场景通过；后续若再出现显示/归因错误，先以本次 raw Owner 投影约束、`goal_prompt` USER
   角色映射和“未伪造普通 userMessage”的边界作为对照，再补充新的复现证据。
+- 2026-08-02：新增本轮恢复调查结论：终态 Owner 在 A→B→A 时若无外部 healthy surface 仍被释放，
+  会留下缺失 `settings` 的空恢复状态；Android 另有切换后旧 live authority 与异步 history delta
+  回写窗口。最小修复限定为 Gateway 外部 surface 门禁与 Android selection/history authority 隔离，
+  不改变 IPC lifecycle、healthy external authority 或 canonical id。

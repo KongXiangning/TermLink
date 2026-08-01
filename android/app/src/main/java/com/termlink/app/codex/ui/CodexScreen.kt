@@ -2025,6 +2025,10 @@ private fun MessageBubble(
                         fontWeight = FontWeight.Medium,
                         modifier = Modifier.weight(1f)
                     )
+                    if (message.contentType.equals("goal_prompt", ignoreCase = true)) {
+                        GoalMessageBadge()
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
                     Text(
                         text = timeLabel,
                         color = TextMuted,
@@ -2112,6 +2116,25 @@ private fun MessageBubble(
         }
     }
 }
+
+@Composable
+private fun GoalMessageBadge() {
+    Surface(
+        shape = RoundedCornerShape(5.dp),
+        color = AccentBlue.copy(alpha = 0.12f),
+        border = BorderStroke(1.dp, AccentBlue.copy(alpha = 0.32f))
+    ) {
+        Text(
+            text = stringResource(R.string.codex_native_message_badge_goal),
+            color = AccentBlue,
+            fontSize = 9.sp,
+            lineHeight = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        )
+    }
+}
+
 private const val CodexCopySelectionMenuItemId = 0x544C0001
 private const val CodexAddSelectionToTaskMenuItemId = 0x544C0002
 private const val CodexSelectAllMenuItemId = 0x544C0003
@@ -3860,16 +3883,6 @@ private fun ThreadHistoryItem(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                entry.goalObjective?.takeIf { it.isNotBlank() }?.let { objective ->
-                    Text(
-                        text = stringResource(R.string.codex_native_thread_goal_objective, objective),
-                        color = AccentBlue,
-                        fontSize = 10.sp,
-                        lineHeight = 14.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     if (isCurrent) {
                         HistoryBadge(
@@ -3881,12 +3894,6 @@ private fun ThreadHistoryItem(
                         HistoryBadge(
                             label = stringResource(R.string.codex_native_thread_badge_archived),
                             emphasized = false
-                        )
-                    }
-                    if (!entry.goalObjective.isNullOrBlank()) {
-                        HistoryBadge(
-                            label = stringResource(R.string.codex_native_thread_badge_goal),
-                            emphasized = isCurrent
                         )
                     }
                     if (isItemBusy) {

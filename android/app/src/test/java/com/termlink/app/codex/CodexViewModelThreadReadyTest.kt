@@ -111,6 +111,7 @@ class CodexViewModelThreadReadyTest {
         )
 
         assertEquals(ChatMessage.Role.USER, merged.single().role)
+        assertEquals("goal_prompt", merged.single().contentType)
         assertEquals("真实 Goal 目标", merged.single().content)
     }
 
@@ -1125,6 +1126,9 @@ class CodexViewModelThreadReadyTest {
             activeConversationId = "stale-conv",
             ownerCurrentCodexConfig = effectiveConfig(reasoning = "high", sandbox = "danger-full-access", approval = "never"),
             nextTurnOverrides = NextTurnOverrides(reasoningEffort = "low", sandbox = "read-only"),
+            cachedCanonicalMessages = listOf(ChatMessage(id = "cached-stale", role = ChatMessage.Role.ASSISTANT, content = "stale cache")),
+            liveAuthoritativeConversationId = "stale-conv",
+            liveAuthoritativeDesynced = true,
             messages = listOf(ChatMessage(id = "m1", role = ChatMessage.Role.ASSISTANT, content = "stale")),
             ipcSurfaceSnapshot = surfaceSnapshot("stale-conv"),
             pendingServerRequests = listOf(
@@ -1147,6 +1151,9 @@ class CodexViewModelThreadReadyTest {
         assertTrue(next.messages.isEmpty())
         assertNull(next.ipcSurfaceSnapshot)
         assertNull(next.ownerCurrentCodexConfig)
+        assertTrue(next.cachedCanonicalMessages.isEmpty())
+        assertNull(next.liveAuthoritativeConversationId)
+        assertFalse(next.liveAuthoritativeDesynced)
         assertEquals(NextTurnOverrides(), next.nextTurnOverrides)
         assertEquals(listOf("req-local"), next.pendingServerRequests.map { it.requestId })
         assertTrue(next.submittingServerRequestIds.isEmpty())
@@ -1200,6 +1207,27 @@ class CodexViewModelThreadReadyTest {
         assertNull(next.planWorkflow.planContent)
         assertEquals(false, next.planWorkflow.canSubmitPlan)
         assertNull(next.planWorkflow.planQuestionId)
+    }
+
+    @Test
+    fun historyDeltaMustMatchActiveConversationAndNeverUseOldLiveAuthority() {
+        val switched = CodexUiState(
+            activeConversationId = "conv-b",
+            liveAuthoritativeConversationId = "conv-a"
+        )
+
+        assertFalse(shouldApplyHistoryDeltaToUiState(switched, "conv-a"))
+        assertTrue(shouldApplyHistoryDeltaToUiState(switched, "conv-b"))
+        assertFalse(shouldReplaceMessagesFromHistoryDeltaForUiState(switched, "conv-b"))
+
+        val awaitingSurface = switched.copy(liveAuthoritativeConversationId = null)
+        assertTrue(shouldReplaceMessagesFromHistoryDeltaForUiState(awaitingSurface, "conv-b"))
+
+        val desynced = switched.copy(
+            liveAuthoritativeConversationId = "conv-b",
+            liveAuthoritativeDesynced = true
+        )
+        assertTrue(shouldReplaceMessagesFromHistoryDeltaForUiState(desynced, "conv-b"))
     }
 
     @Test

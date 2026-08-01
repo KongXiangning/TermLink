@@ -598,7 +598,7 @@ function buildInitialState(threadId, surface = {}) {
         hostId: LOCAL_HOST_ID,
         turns: [],
         requests: [],
-        title: asString(surface.title) || `TermLink owner ${shortId(threadId)}`,
+        title: asString(surface.title),
         cwd: asString(surface.cwd),
         createdAt: now,
         updatedAt: now,
@@ -940,11 +940,6 @@ function touch(state) {
     const now = Date.now();
     state.updatedAt = now;
     state.recencyAt = now;
-}
-
-function shortId(value) {
-    const text = String(value || '');
-    return text.length <= 8 ? text : text.slice(0, 8);
 }
 
 function normalizeId(value) {

@@ -496,6 +496,25 @@ internal fun shouldApplyCanonicalThreadReadResponse(
     return current == null || incoming == null || current == incoming
 }
 
+internal fun shouldApplyHistoryDeltaToUiState(
+    state: CodexUiState,
+    conversationId: String?
+): Boolean {
+    val active = normalizeCodexThreadId(state.activeConversationId)
+    val incoming = normalizeCodexThreadId(conversationId)
+    return active != null && active == incoming
+}
+
+internal fun shouldReplaceMessagesFromHistoryDeltaForUiState(
+    state: CodexUiState,
+    conversationId: String?
+): Boolean {
+    if (!shouldApplyHistoryDeltaToUiState(state, conversationId)) return false
+    val incoming = normalizeCodexThreadId(conversationId) ?: return false
+    val live = normalizeCodexThreadId(state.liveAuthoritativeConversationId)
+    return live == null || (live == incoming && state.liveAuthoritativeDesynced)
+}
+
 internal fun applyIpcConversationSelectionToUiState(
     state: CodexUiState,
     selected: CodexIpcConversationSummary
@@ -517,6 +536,10 @@ internal fun applyIpcConversationSelectionToUiState(
         cwd = selected.cwd ?: state.cwd,
         ipcSurfaceSnapshot = if (switched) null else state.ipcSurfaceSnapshot,
         ownerCurrentCodexConfig = if (switched) null else state.ownerCurrentCodexConfig,
+        cachedCanonicalMessages = if (switched) emptyList() else state.cachedCanonicalMessages,
+        liveAuthoritativeConversationId = if (switched) null else state.liveAuthoritativeConversationId,
+        liveAuthoritativeDesynced = if (switched) false else state.liveAuthoritativeDesynced,
+        historySyncState = if (switched) "cache_only" else state.historySyncState,
         nextTurnOverrides = if (switched) NextTurnOverrides() else state.nextTurnOverrides,
         activeGoal = if (switched) null else state.activeGoal,
         goalMode = if (switched && !state.awaitingNewThreadIpcSurface) false else state.goalMode,
@@ -548,6 +571,10 @@ internal fun clearIpcConversationSelectionFromUiState(state: CodexUiState): Code
         awaitingNewThreadIpcSurface = false,
         ipcSurfaceSnapshot = null,
         ownerCurrentCodexConfig = null,
+        cachedCanonicalMessages = emptyList(),
+        liveAuthoritativeConversationId = null,
+        liveAuthoritativeDesynced = false,
+        historySyncState = "cache_only",
         nextTurnOverrides = NextTurnOverrides(),
         activeGoal = null,
         goalMode = false,
@@ -955,6 +982,7 @@ internal fun mergeSurfaceItems(
             } else {
                 entry.text ?: ""
             },
+            contentType = entry.kind.takeIf { it == "goal_prompt" } ?: "text",
             attachments = surfaceEntryAttachmentsForUi(entry),
             timestamp = existingMessage?.timestamp ?: System.currentTimeMillis(),
             streaming = key == latestAssistantKey,
@@ -4483,16 +4511,30 @@ class CodexViewModel(
                                 ?: historyCacheStore.readConversationByConversationId(delta.conversationId)
                             val cachedMessages = cached?.items?.sortedBy { it.position }?.mapNotNull(::decodeCachedHistoryItem).orEmpty()
                             _uiState.update { state ->
-                                state.copy(
-                                    cachedCanonicalMessages = cachedMessages,
-                                    messages = if (state.liveAuthoritativeConversationId == null || state.liveAuthoritativeDesynced) cachedMessages else state.messages,
-                                    historySyncState = if (delta.baselineComplete) "live" else "partial"
-                                )
+                                if (!shouldApplyHistoryDeltaToUiState(state, delta.conversationId)) {
+                                    state
+                                } else {
+                                    state.copy(
+                                        cachedCanonicalMessages = cachedMessages,
+                                        messages = if (shouldReplaceMessagesFromHistoryDeltaForUiState(state, delta.conversationId)) {
+                                            cachedMessages
+                                        } else {
+                                            state.messages
+                                        },
+                                        historySyncState = if (delta.baselineComplete) "live" else "partial"
+                                    )
+                                }
                             }
                             connectionManager.send(CodexClientMessages.historySyncAck(delta.syncId, delta.conversationId, delta.targetRoot, delta.sequence))
                         }
                         CodexConversationCacheStore.PageApplyResult.STAGED -> Unit
-                        else -> _uiState.update { it.copy(historySyncState = "failed") }
+                        else -> _uiState.update { state ->
+                            if (shouldApplyHistoryDeltaToUiState(state, delta.conversationId)) {
+                                state.copy(historySyncState = "failed")
+                            } else {
+                                state
+                            }
+                        }
                     }
                 }
             }
@@ -4823,6 +4865,10 @@ class CodexViewModel(
                                 ),
                                 ipcSurfaceSnapshot = if (ipcConversationSwitched) null else current.ipcSurfaceSnapshot,
                                 ownerCurrentCodexConfig = if (ipcConversationSwitched) null else current.ownerCurrentCodexConfig,
+                                cachedCanonicalMessages = if (ipcConversationSwitched) emptyList() else current.cachedCanonicalMessages,
+                                liveAuthoritativeConversationId = if (ipcConversationSwitched) null else current.liveAuthoritativeConversationId,
+                                liveAuthoritativeDesynced = if (ipcConversationSwitched) false else current.liveAuthoritativeDesynced,
+                                historySyncState = if (ipcConversationSwitched) "cache_only" else current.historySyncState,
                                 nextTurnOverrides = overridesForConversationSwitch(
                                     currentConversationId = current.activeConversationId,
                                     targetConversationId = nextThreadId,
@@ -5667,6 +5713,10 @@ class CodexViewModel(
                 ),
                 ipcSurfaceSnapshot = if (switchedConversation) null else state.ipcSurfaceSnapshot,
                 ownerCurrentCodexConfig = if (switchedConversation) null else state.ownerCurrentCodexConfig,
+                cachedCanonicalMessages = if (switchedConversation) emptyList() else state.cachedCanonicalMessages,
+                liveAuthoritativeConversationId = if (switchedConversation) null else state.liveAuthoritativeConversationId,
+                liveAuthoritativeDesynced = if (switchedConversation) false else state.liveAuthoritativeDesynced,
+                historySyncState = if (switchedConversation) "cache_only" else state.historySyncState,
                 nextTurnOverrides = if (switchedConversation) rememberedResumedOverrides else state.nextTurnOverrides,
                 currentThreadTitle = resumedTitle.ifBlank { state.currentThreadTitle },
                 threadHistoryActionThreadId = resumedThreadId.ifEmpty { state.threadHistoryActionThreadId },
