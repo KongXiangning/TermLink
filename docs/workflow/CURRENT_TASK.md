@@ -225,6 +225,10 @@
   采用用户确认的最小 fallback：选择历史任务后立即关闭弹窗；仅用于列表按钮禁用的 action 标记保留至
   `thread/resume` 响应后清理，同时保留 `pendingHistoryResumeHydrationThreadId`、canonical selection 与
   IPC authority。不得改动恢复协议或实时数据源。
+- Scope clarification（2026-08-02，Android 历史刷新滚动）：用户补充任务历史弹窗在刷新得到新顶部任务后
+  仍保留旧滚动位置，导致新任务不可见。仅放行 `CodexScreen.kt`、Android UI focused test 与本任务记录；
+  刷新完成且首条任务 ID 变化时将历史内层列表回到第 0 项，普通刷新、初次打开、空结果和失败结果不强制
+  跳转。不得修改 `thread/list` 请求/响应、会话选择、IPC authority、Owner lifecycle 或实时数据源。
 
 ## 实现方案
 
@@ -504,6 +508,9 @@ Implementation Plan（2026-08-02，Goal 会话内标记与默认标题）：
   可读标题兜底；只做空白折叠与有限长度处理，不从 ID、cwd、时间或消息历史自行推断标题。
 - History resume follow-up：历史项点击采用“立即关闭列表弹窗”的兼容路径；不引入并发恢复队列，也不改变
   `thread/resume`、surface hydration 或 canonical/IPC 状态机。
+- History refresh follow-up：历史列表使用独立 `LazyListState`；以 `threadHistoryLoading` 划分刷新周期，
+  记录刷新前首条任务 ID，仅在刷新完成后首条任务 ID 变化时调用 `scrollToItem(0)`，不改变列表数据或
+  刷新请求链路。
 - Technical approach：Android `mergeSurfaceItems()` 为 `goal_prompt` 保留消息类型，`MessageBubble` 仅对
   该类型在消息头渲染 Goal badge；移除 `ThreadHistoryItem` 的 Goal 文案与
   badge，但不删除目标记忆/缓存字段。Owner tracker 去掉无真实标题时的合成 fallback，保留 `thread.name`
@@ -631,6 +638,10 @@ Implementation Plan（2026-08-02，Goal 会话内标记与默认标题）：
   状态；补齐 ViewModel focused 回归并完成真机交互复验。Android JDK 21 focused 与全量 JVM 回归均通过
   （244/244），debug APK 已重新构建、安装并启动；真机选择“测试 收到”后弹窗立即关闭，恢复后重新打开
   历史列表时其他任务的“打开”按钮均为可用状态。
+- [in_progress] 14e. 修复 Android 任务历史刷新得到新顶部任务后列表不自动回顶：为历史内层列表维护独立
+  `LazyListState`，按刷新周期比较首条任务 ID，补齐 UI 纯函数 focused 回归，并完成 JDK 21 Android
+  全量回归、APK 构建安装和真机刷新滚动验证。实现与自动化验证已完成；真机已确认首条不变时保持原
+  滚动位置，外部并发新首条任务的人工场景因当前设备没有可安全操作的第二任务源仍待复验。
 
 ## 回归门
 
@@ -950,3 +961,10 @@ Implementation Plan（2026-08-02，Goal 会话内标记与默认标题）：
   action，未改变恢复协议、surface hydration、canonical selection 或 IPC authority。focused 与全量 Android
   JVM 回归 244/244，JDK 21 debug APK 构建/安装/启动通过；真机正确点击历史项确认弹窗关闭，恢复后重新打开
   历史列表确认其他“打开”按钮可用。本轮无服务端修改，不需要重启服务。
+- 2026-08-02：完成步骤 14e 的实现与自动化验证。`ThreadHistorySheet` 现在持有独立
+  `LazyListState`，刷新开始记录首条任务 ID，刷新完成且首条 ID 变化时调用 `scrollToItem(0)`；首次打开、
+  首条未变、空结果和失败结果不强制跳转。新增 UI 纯函数 4 条边界测试；JDK 21 Android JVM 全量
+  248/248、debug APK 构建/安装/启动通过。设备 `MQS7N19402011743` 已确认滚动到中下部后刷新且首条
+  未变化时保持滚动位置，并创建测试会话 `history_scroll_test` 确认历史排序显示正常。由于历史面板遮罩
+  阻止同一 App 在面板打开时发送第二任务，外部并发新首条的人工回顶场景尚待用户或第二任务源复验；本轮
+  未修改服务端，不需要重启服务。

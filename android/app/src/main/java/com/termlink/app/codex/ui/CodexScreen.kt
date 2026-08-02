@@ -181,6 +181,14 @@ private const val RuntimeStallThresholdMillis = 90_000L
 private const val RuntimeStallRefreshMillis = 5_000L
 private const val StreamingAutoScrollThrottleMillis = 120L
 
+internal fun shouldReturnThreadHistoryToTopAfterRefresh(
+    refreshWasActive: Boolean,
+    previousTopEntryId: String?,
+    currentTopEntryId: String?
+): Boolean = refreshWasActive &&
+    !currentTopEntryId.isNullOrBlank() &&
+    currentTopEntryId != previousTopEntryId
+
 private object CodexBottomBarTokens {
     val composerRadius = 20.dp
     val chipRadius = 16.dp
@@ -3599,6 +3607,33 @@ private fun ThreadHistorySheet(
     onSubmitRename: () -> Unit,
     onNewThread: () -> Unit
 ) {
+    val historyListState = rememberLazyListState()
+    val currentTopEntryId = state.threadHistoryEntries.firstOrNull()?.id
+    var refreshWasActive by remember { mutableStateOf(false) }
+    var refreshBaselineTopEntryId by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(state.threadHistoryLoading, currentTopEntryId) {
+        if (state.threadHistoryLoading) {
+            if (!refreshWasActive) {
+                refreshBaselineTopEntryId = currentTopEntryId
+                refreshWasActive = true
+            }
+            return@LaunchedEffect
+        }
+        if (!refreshWasActive) return@LaunchedEffect
+
+        val shouldReturnToTop = shouldReturnThreadHistoryToTopAfterRefresh(
+            refreshWasActive = refreshWasActive,
+            previousTopEntryId = refreshBaselineTopEntryId,
+            currentTopEntryId = currentTopEntryId
+        )
+        refreshWasActive = false
+        refreshBaselineTopEntryId = currentTopEntryId
+        if (shouldReturnToTop) {
+            historyListState.scrollToItem(0)
+        }
+    }
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -3665,6 +3700,7 @@ private fun ThreadHistorySheet(
                 }
                 else -> {
                     LazyColumn(
+                        state = historyListState,
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(max = 280.dp),
