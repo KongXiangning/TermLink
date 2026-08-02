@@ -60,6 +60,8 @@ private const val OPERATION_DETAIL_MAX_LENGTH = 12_000
 private const val OPERATION_DETAIL_TRUNCATION_MARKER = "\n\n…（详情已截断）"
 private const val THREAD_HISTORY_PREVIEW_MAX_LENGTH = 160
 
+internal const val CODEX_FAST_MODE_REASONING_EFFORT = "low"
+
 internal enum class MobileSlashAction {
     SHOW_MODEL_PICKER,
     PLAN,
@@ -100,6 +102,24 @@ internal fun resolveCodexThreadHistoryTitleForUi(thread: JSONObject?): String {
         .take(THREAD_HISTORY_PREVIEW_MAX_LENGTH - 1)
         .trimEnd()
         .plus("…")
+}
+
+internal fun isFastReasoningEffort(reasoningEffort: String?): Boolean =
+    reasoningEffort?.trim()?.equals(CODEX_FAST_MODE_REASONING_EFFORT, ignoreCase = true) == true
+
+internal fun isFastModeActive(state: CodexUiState): Boolean {
+    return isFastReasoningEffort(state.nextTurnOverrides.reasoningEffort)
+}
+
+internal fun nextTurnOverridesForFastModeToggle(state: CodexUiState): NextTurnOverrides {
+    val fastModeActive = isFastModeActive(state)
+    return state.nextTurnOverrides.copy(
+        reasoningEffort = if (fastModeActive) {
+            null
+        } else {
+            CODEX_FAST_MODE_REASONING_EFFORT
+        }
+    )
 }
 
 internal data class ThreadReadyUiTransition(
@@ -672,7 +692,10 @@ internal fun reconcileOwnerConfirmedOverrides(
 ): NextTurnOverrides {
     ownerConfig ?: return overrides
     val modelConfirmed = valuesMatch(overrides.model, ownerConfig.model)
-    val reasoningConfirmed = valuesMatch(overrides.reasoningEffort, ownerConfig.reasoningEffort)
+    // Keep an explicit low override so Fast mode remains visibly selected after the Owner
+    // confirms the same turn config; a default/Owner low value without this override is not Fast mode.
+    val reasoningConfirmed = valuesMatch(overrides.reasoningEffort, ownerConfig.reasoningEffort) &&
+        !isFastReasoningEffort(overrides.reasoningEffort)
     val permissionOverride = permissionConfigForSandboxOverride(overrides.sandbox)
     val hasPermissionOverride = !overrides.sandbox.isNullOrBlank() ||
         !overrides.approvalPolicy.isNullOrBlank() ||
@@ -1743,7 +1766,6 @@ class CodexViewModel(
 
     companion object {
         private const val TAG = "CodexViewModel"
-        private const val FAST_MODE_EFFORT = "low"
         private const val DEBUG_REQUEST_PREFIX = "debug-request-"
         private const val PLAN_PHASE_IDLE = "idle"
         private const val PLAN_PHASE_PLANNING = "planning"
@@ -3289,17 +3311,19 @@ class CodexViewModel(
     fun toggleFastMode() {
         var enabled = false
         _uiState.update { state ->
-            val current = state.nextTurnOverrides.reasoningEffort
-            val isFastNow = current == FAST_MODE_EFFORT
-            val newEffort = if (isFastNow) null else FAST_MODE_EFFORT
-            enabled = !isFastNow
-            Log.i(TAG, "Fast mode: ${!isFastNow} (reasoning: $newEffort)")
+            val nextOverrides = nextTurnOverridesForFastModeToggle(state)
+            enabled = isFastReasoningEffort(nextOverrides.reasoningEffort)
+            Log.i(
+                TAG,
+                "Fast mode: $enabled (reasoning: ${nextOverrides.reasoningEffort})"
+            )
             recalculateNextTurnEffectiveConfig(
                 state.copy(
-                    nextTurnOverrides = state.nextTurnOverrides.copy(reasoningEffort = newEffort)
+                    nextTurnOverrides = nextOverrides
                 )
             )
         }
+        rememberCurrentTaskOverrides(reason = "toggle-fast-mode")
         appendMessage(
             ChatMessage.Role.SYSTEM,
             appContext.getString(

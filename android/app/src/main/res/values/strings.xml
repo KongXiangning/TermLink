@@ -333,6 +333,9 @@
     <string name="codex_native_add_menu_plan">Plan mode</string>
     <string name="codex_native_add_menu_plan_hint">Plan before making changes</string>
     <string name="codex_native_add_menu_plan_on_hint">Plan mode is on</string>
+    <string name="codex_native_add_menu_fast">Fast mode</string>
+    <string name="codex_native_add_menu_fast_hint">Use fastest reasoning for the next message</string>
+    <string name="codex_native_add_menu_fast_on_hint">Fast mode is on</string>
     <string name="codex_native_add_menu_context">Context</string>
     <string name="codex_native_add_menu_context_hint">%1$d%% used · View tokens and rate limits</string>
     <string name="codex_native_add_menu_context_hint_empty">View token stats and rate limits</string>
@@ -537,6 +540,7 @@
     <string name="codex_native_quick_default">Default</string>
     <string name="codex_native_plan_mode_chip">Plan Mode</string>
     <string name="codex_native_goal_mode_chip">Goal Mode</string>
+    <string name="codex_native_fast_mode_chip">Fast mode</string>
     <string name="codex_native_message_badge_goal">Goal</string>
     <string name="codex_native_thread_badge_goal">Goal</string>
     <string name="codex_native_thread_goal_objective">Goal: %1$s</string>

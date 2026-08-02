@@ -132,6 +132,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.termlink.app.BuildConfig
 import com.termlink.app.R
+import com.termlink.app.codex.isFastModeActive
 import com.termlink.app.codex.isOwnerConfigHydratingForUiState
 import com.termlink.app.codex.data.CodexSlashRegistry
 import com.termlink.app.codex.data.CodexServerRequest
@@ -249,6 +250,7 @@ fun CodexScreen(
     onSelectSandboxMode: (String?) -> Unit,
     onTogglePlanMode: () -> Unit,
     onToggleGoalMode: () -> Unit,
+    onToggleFastMode: () -> Unit,
     onExecuteConfirmedPlan: () -> Unit,
     onContinuePlanWorkflow: () -> Unit,
     onCancelPlanWorkflow: () -> Unit,
@@ -602,6 +604,7 @@ fun CodexScreen(
                         },
                         onTogglePlanMode = onTogglePlanMode,
                         onToggleGoalMode = onToggleGoalMode,
+                        onToggleFastMode = onToggleFastMode,
                         onShowUsagePanel = onShowUsagePanel,
                         onClearActiveSkill = onClearActiveSkill
                     )
@@ -4207,6 +4210,7 @@ private fun FooterControls(
     onShowSandboxPicker: () -> Unit,
     onTogglePlanMode: () -> Unit,
     onToggleGoalMode: () -> Unit,
+    onToggleFastMode: () -> Unit,
     slashMenuVisible: Boolean,
     onShowUsagePanel: () -> Unit,
     onPickLocalFile: () -> Unit,
@@ -4242,6 +4246,7 @@ private fun FooterControls(
         activeReasoning?.let { reasoningEffortLabel(it) }
             ?: stringResource(R.string.codex_native_quick_default)
     }
+    val fastModeActive = !configHydrating && isFastModeActive(state)
     val permissionSummary = if (configHydrating) {
         loadingSummary
     } else {
@@ -4287,6 +4292,8 @@ private fun FooterControls(
                     attachmentEnabled = imageInputEnabled,
                     planActive = state.planMode == true,
                     goalActive = state.goalMode,
+                    fastModeActive = fastModeActive,
+                    fastModeEnabled = !configHydrating,
                     contextUsedPercent = contextUsedPercent,
                     onDismiss = { addMenuExpanded = false },
                     onPickAttachment = {
@@ -4300,6 +4307,10 @@ private fun FooterControls(
                     onTogglePlanMode = {
                         addMenuExpanded = false
                         onTogglePlanMode()
+                    },
+                    onToggleFastMode = {
+                        addMenuExpanded = false
+                        onToggleFastMode()
                     },
                     onShowContext = {
                         addMenuExpanded = false
@@ -4336,11 +4347,14 @@ private fun FooterControls(
         if (state.goalMode) {
             FooterGoalIndicatorButton(onClick = onToggleGoalMode)
         }
+        if (fastModeActive) {
+            FooterFastIndicatorButton(onClick = onToggleFastMode)
+        }
         Spacer(modifier = Modifier.weight(1f))
         ModelReasoningButton(
             text = modelReasoningSummary,
             active = configSheetExpanded || state.modelPickerVisible || state.reasoningPickerVisible,
-            compact = state.planMode == true || state.goalMode,
+            compact = state.planMode == true || state.goalMode || fastModeActive,
             onClick = {
                 if (!configHydrating) {
                     addMenuExpanded = false
@@ -4433,11 +4447,14 @@ private fun ComposerAddMenu(
     attachmentEnabled: Boolean,
     planActive: Boolean,
     goalActive: Boolean,
+    fastModeActive: Boolean,
+    fastModeEnabled: Boolean,
     contextUsedPercent: Int?,
     onDismiss: () -> Unit,
     onPickAttachment: () -> Unit,
     onToggleGoalMode: () -> Unit,
     onTogglePlanMode: () -> Unit,
+    onToggleFastMode: () -> Unit,
     onShowContext: () -> Unit
 ) {
     DropdownMenu(
@@ -4476,6 +4493,17 @@ private fun ComposerAddMenu(
             active = planActive,
             glyph = "☼",
             onClick = onTogglePlanMode
+        )
+        ComposerAddMenuItem(
+            title = stringResource(R.string.codex_native_add_menu_fast),
+            description = stringResource(
+                if (fastModeActive) R.string.codex_native_add_menu_fast_on_hint
+                else R.string.codex_native_add_menu_fast_hint
+            ),
+            iconRes = R.drawable.ic_fast_24,
+            enabled = fastModeEnabled,
+            active = fastModeActive,
+            onClick = onToggleFastMode
         )
         ComposerAddMenuItem(
             title = stringResource(R.string.codex_native_add_menu_context),
@@ -4696,6 +4724,32 @@ private fun FooterGoalIndicatorButton(onClick: () -> Unit) {
                 lineHeight = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun FooterFastIndicatorButton(onClick: () -> Unit) {
+    val contentDescription = stringResource(R.string.codex_native_fast_mode_chip)
+    Surface(
+        modifier = Modifier
+            .size(34.dp)
+            .clickable(onClick = onClick)
+            .semantics {
+                this.contentDescription = contentDescription
+                role = Role.Button
+            },
+        color = WarningColor.copy(alpha = 0.14f),
+        shape = RoundedCornerShape(CodexBottomBarTokens.chipRadius),
+        border = BorderStroke(1.dp, WarningColor.copy(alpha = 0.35f))
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                painter = painterResource(R.drawable.ic_fast_24),
+                contentDescription = null,
+                tint = WarningColor,
+                modifier = Modifier.size(18.dp)
             )
         }
     }
@@ -4975,6 +5029,7 @@ private fun InputComposer(
     onShowSandboxPicker: () -> Unit,
     onTogglePlanMode: () -> Unit,
     onToggleGoalMode: () -> Unit,
+    onToggleFastMode: () -> Unit,
     onShowUsagePanel: () -> Unit,
     onClearActiveSkill: () -> Unit = {}
 ) {
@@ -5336,6 +5391,7 @@ private fun InputComposer(
                         onShowSandboxPicker = onShowSandboxPicker,
                         onTogglePlanMode = onTogglePlanMode,
                         onToggleGoalMode = onToggleGoalMode,
+                        onToggleFastMode = onToggleFastMode,
                         slashMenuVisible = slashMenuVisible,
                         onShowUsagePanel = onShowUsagePanel,
                         onPickLocalFile = onPickLocalFile,

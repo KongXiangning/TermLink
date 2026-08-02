@@ -474,6 +474,7 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                         onSelectSandboxMode = viewModel::selectSandboxMode,
                         onTogglePlanMode = viewModel::togglePlanMode,
                         onToggleGoalMode = viewModel::toggleGoalMode,
+                        onToggleFastMode = viewModel::toggleFastMode,
                         onExecuteConfirmedPlan = viewModel::executeConfirmedPlan,
                         onContinuePlanWorkflow = viewModel::continuePlanWorkflow,
                         onCancelPlanWorkflow = viewModel::cancelPlanWorkflow,

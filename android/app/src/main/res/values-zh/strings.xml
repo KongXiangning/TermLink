@@ -333,6 +333,9 @@
     <string name="codex_native_add_menu_plan">计划模式</string>
     <string name="codex_native_add_menu_plan_hint">先规划，再执行更改</string>
     <string name="codex_native_add_menu_plan_on_hint">计划模式已开启</string>
+    <string name="codex_native_add_menu_fast">快速模式</string>
+    <string name="codex_native_add_menu_fast_hint">下一次发送使用最快推理</string>
+    <string name="codex_native_add_menu_fast_on_hint">快速模式已开启</string>
     <string name="codex_native_add_menu_context">上下文</string>
     <string name="codex_native_add_menu_context_hint">已用 %1$d%% · 查看 Token 与速率限制</string>
     <string name="codex_native_add_menu_context_hint_empty">查看 Token 统计与速率限制</string>
@@ -537,6 +540,7 @@
     <string name="codex_native_quick_default">默认</string>
     <string name="codex_native_plan_mode_chip">计划模式</string>
     <string name="codex_native_goal_mode_chip">目标模式</string>
+    <string name="codex_native_fast_mode_chip">快速模式</string>
     <string name="codex_native_message_badge_goal">目标</string>
     <string name="codex_native_thread_badge_goal">目标</string>
     <string name="codex_native_thread_goal_objective">目标：%1$s</string>

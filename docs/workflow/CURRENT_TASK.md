@@ -54,8 +54,10 @@
 - `android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt`
 - `android/app/src/main/java/com/termlink/app/codex/domain/CodexModels.kt`
 - `android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt`
+- `android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt`（仅快速模式回调 wiring）
 - `android/app/src/main/res/values/strings.xml`
 - `android/app/src/main/res/values-zh/strings.xml`
+- `android/app/src/main/res/drawable/ic_fast_24.xml`
 - `tests/codexIpcClient.test.js`
 - `tests/codexIpcFeed.test.js`
 - `tests/codexOwnerSurfaceTracker.test.js`
@@ -229,6 +231,18 @@
   仍保留旧滚动位置，导致新任务不可见。仅放行 `CodexScreen.kt`、Android UI focused test 与本任务记录；
   刷新完成且首条任务 ID 变化时将历史内层列表回到第 0 项，普通刷新、初次打开、空结果和失败结果不强制
   跳转。不得修改 `thread/list` 请求/响应、会话选择、IPC authority、Owner lifecycle 或实时数据源。
+- Scope clarification（2026-08-02，Android 快速模式）：用户要求在加号菜单提供 Fast mode，选中后在底部工具栏
+  以图标显示，并与模型、思考强度、权限一样沿现有配置链路同步。沿用 Desktop 已确认的
+  `reasoningEffort=low` 语义，复用 `nextTurnOverrides`、记忆配置、follower `turnConfig` 和 Owner
+  snapshot reconciliation；不新增 fast IPC 字段、WebSocket 字段、服务端 RPC 或第二实时数据源。仅放行
+  `CodexViewModel.kt`、`CodexScreen.kt`、`CodexActivity.kt`（仅 wiring `toggleFastMode`，不改 Activity
+  lifecycle）、双语字符串、必要 drawable、Android focused test 与本任务记录；不得修改 IPC lifecycle、
+  authority、canonical binding、Owner RPC 或 Goal/历史链路。
+- Scope lock conclusion（2026-08-02，Android 快速模式）：将 `CodexActivity.kt` 从 Conditional 转为本轮
+  Allowed 仅因 Compose 顶层需要绑定 `viewModel::toggleFastMode` 回调；影响限于一个 wiring 参数，风险为
+  回调遗漏导致入口编译或点击链路不可用，未放行 Activity lifecycle、返回键或会话恢复逻辑；已通过 JDK 21
+  Kotlin 编译、全量 JVM 回归、APK 安装启动及真机菜单/图标/发送冒烟验证。其余 Conditional/Forbidden
+  文件保持原锁定状态。
 
 ## 实现方案
 
@@ -522,6 +536,25 @@ Implementation Plan（2026-08-02，Goal 会话内标记与默认标题）：
   回归、JavaScript 语法检查与 `git diff --check`。
 - Open decisions：无；消息内使用紧凑 badge，目标正文仍由真实 `goal_prompt` 条目提供。
 
+Implementation Plan（2026-08-02，Android 快速模式）：
+
+- Goal：在加号菜单增加快速模式入口；开启后底部工具栏显示紧凑的闪电图标，并让下一回合使用与 Desktop
+  相同的最快推理配置。
+- Technical approach：把现有 ViewModel 的 `low` 常量和切换判断提取为可测试的内部 helper；切换时保存当前
+  task 的 `NextTurnOverrides`，保持模型、思考强度和权限字段不被覆盖。快速图标只表示显式的 `low` 快速覆盖，
+  不把默认/Owner 回退到 `low` 误判为用户已开启；Owner snapshot 确认显式快速覆盖后继续保留该覆盖，直到用户
+  再次关闭。Compose 只新增回调 wiring、菜单项和 icon-only footer indicator。
+- Sync boundary：不添加 `fast` wire/config 字段；`reasoningEffort=low` 继续经现有 follower `turnConfig`
+  → Gateway/Owner → Desktop surface 路径同步，Android 仍只消费 healthy IPC surface 的配置权威。
+- Compatibility：保留 `/fast` slash action 和现有系统提示；普通模型、思考强度、权限、Plan、Goal、附件、
+  IPC authority、Owner lifecycle 和 canonical binding 不变。
+- Validation strategy：focused JVM 覆盖 low 语义、大小写、切换保留其他 override、默认 low 不误亮以及显式
+  override 的 Owner confirmation 保留；
+  JDK 21 Android 全量 JVM、debug APK 构建安装启动；真机确认加号菜单入口、底部图标和一次发送前配置同步，
+  能力允许时观察 Desktop/Owner 配置回显。
+- External Documentation Gate：不触发；本轮只复用仓库已有 Desktop 实现和既有 Android/Owner 配置契约。
+- Open decisions：无。
+
 ## 实施步骤
 
 - [completed] 1. IPC client/feed request handler、discovery negative-ack 与 capability status；client/feed tests 已覆盖 handler 注册、成功/错误应答和 disposal。
@@ -642,6 +675,10 @@ Implementation Plan（2026-08-02，Goal 会话内标记与默认标题）：
   `LazyListState`，按刷新周期比较首条任务 ID，补齐 UI 纯函数 focused 回归，并完成 JDK 21 Android
   全量回归、APK 构建安装和真机刷新滚动验证。实现与自动化验证已完成；真机已确认首条不变时保持原
   滚动位置，外部并发新首条任务的人工场景因当前设备没有可安全操作的第二任务源仍待复验。
+- [completed] 14f. 在 Android 加号菜单增加快速模式，并在底部工具栏以图标展示；沿用
+  `reasoningEffort=low` 与既有 next-turn/Owner surface 同步，不新增 IPC 或服务端协议字段。待完成 focused
+  JVM、JDK 21 Android 全量回归、APK 安装启动及真机菜单/图标/同步冒烟均已完成；步骤 14e 的外部并发
+  新首条人工场景仍作为独立未验证项保留。Desktop/VS Code 独立视觉回显本轮未单独打开验收。
 
 ## 回归门
 
@@ -968,3 +1005,11 @@ Implementation Plan（2026-08-02，Goal 会话内标记与默认标题）：
   未变化时保持滚动位置，并创建测试会话 `history_scroll_test` 确认历史排序显示正常。由于历史面板遮罩
   阻止同一 App 在面板打开时发送第二任务，外部并发新首条的人工回顶场景尚待用户或第二任务源复验；本轮
   未修改服务端，不需要重启服务。
+- 2026-08-02：完成步骤 14f。Android 加号菜单新增快速模式，沿用 Desktop 的
+  `reasoningEffort=low`，显式快速覆盖在 Owner 确认后继续保留，默认/Owner 回退到 `low` 不误显示快速图标；
+  新增底部闪电图标、双语文案和 Activity/ViewModel/UI wiring，未新增 IPC/服务端字段。快速模式 focused
+  测试与 Android JDK 21 全量 JVM 回归 254/254 通过，debug APK 构建、安装、启动通过。设备
+  `MQS7N19402011743` 已确认默认 low 不显示图标、加号菜单存在快速模式、显式选择后菜单勾选和底部闪电图标
+  出现；发送 `FAST_MODE_SYNC_SMOKE` 后 route 日志完成 `accepted → waiting_for_surface → routed →
+  turn_started`，消息回到同一任务。因 3010 健康检查失败，本轮按 skill 重启了本地开发服务；没有修改服务端
+  源码。Desktop/VS Code 独立回显未在本轮单独验收，步骤 14e 的外部并发新首条人工场景也仍未验证。
