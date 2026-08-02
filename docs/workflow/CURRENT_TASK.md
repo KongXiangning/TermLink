@@ -215,6 +215,16 @@
   仅放行 `src/ws/terminalGateway.js`、`tests/terminalGateway.codexIpc.test.js`、既有 Android
   `CodexViewModel.kt` 与 focused test；不改变 IPC lifecycle、healthy external authority、canonical
   binding、Owner/Goal RPC 或页面标识方案。
+- Scope clarification（2026-08-02，Android 历史标题）：用户补充 App 任务历史中出现大量 ID，而 Desktop
+  对同一批会话显示可读标题。已从本地 `thread/list` 原始响应确认：这些条目的 `name` 为空，但服务端已提供
+  可读的 `preview`；仅放行既有 Android history parser 与 focused test，使用 `title/name` 优先、服务端
+  `preview` 单行有限长度兜底，完全缺少可读字段时才保留 ID。不得新增请求、轮询、标题猜测或改变会话选择、
+  IPC authority、Owner lifecycle、canonical binding 与实时数据源。
+- Scope clarification（2026-08-02，Android 历史打开弹窗）：用户补充点击历史任务后列表弹窗仍停留，且
+  action 状态会禁用其他“打开”按钮。根因限定在既有 Android `CodexViewModel.kt` 的 history resume UI 状态；
+  采用用户确认的最小 fallback：选择历史任务后立即关闭弹窗；仅用于列表按钮禁用的 action 标记保留至
+  `thread/resume` 响应后清理，同时保留 `pendingHistoryResumeHydrationThreadId`、canonical selection 与
+  IPC authority。不得改动恢复协议或实时数据源。
 
 ## 实现方案
 
@@ -490,6 +500,10 @@ Implementation Plan（2026-08-02，Goal 会话内标记与默认标题）：
 - Goal：让 Goal 目标在会话正文中作为真实 `goal_prompt` 消息显示，并在该消息头提供紧凑的 Goal 标记；
   任务历史列表恢复为普通任务条目布局。TermLink Owner 只传播 Codex 返回的真实标题，缺少标题时留给
   Codex/客户端默认命名逻辑处理。
+- History title follow-up：Android 任务历史解析沿用服务端返回的 `preview` 作为无 `title/name` 条目的
+  可读标题兜底；只做空白折叠与有限长度处理，不从 ID、cwd、时间或消息历史自行推断标题。
+- History resume follow-up：历史项点击采用“立即关闭列表弹窗”的兼容路径；不引入并发恢复队列，也不改变
+  `thread/resume`、surface hydration 或 canonical/IPC 状态机。
 - Technical approach：Android `mergeSurfaceItems()` 为 `goal_prompt` 保留消息类型，`MessageBubble` 仅对
   该类型在消息头渲染 Goal badge；移除 `ThreadHistoryItem` 的 Goal 文案与
   badge，但不删除目标记忆/缓存字段。Owner tracker 去掉无真实标题时的合成 fallback，保留 `thread.name`
@@ -607,6 +621,16 @@ Implementation Plan（2026-08-02，Goal 会话内标记与默认标题）：
   81/81，服务端已重启，最新代码的 JDK 21 APK 已重新构建、安装并启动到
   `MQS7N19402011743`；真机 A→B→A smoke 通过，启动后未见恢复异常或崩溃。
   完整 `npm test` 运行至 304 秒超时，未见失败汇总；遗留测试进程已清理。
+- [completed] 14c. 修复 Android 任务历史在 `thread/list` 条目无 `name/title` 时错误回退到 UUID：保留
+  真实标题优先级，并以服务端已有 `preview` 生成稳定的单行有限长度标题；补齐 focused JVM 回归，
+  不改变历史选择、恢复、IPC 或 Owner 链路。
+  本次 Android JDK 21 全量 JVM 回归 243/243、debug APK 构建安装启动通过；设备
+  `MQS7N19402011743` 的任务历史面板已显示可读 `preview`，已有真实名称保持不变。
+- [completed] 14d. 修复 Android 历史任务点击后弹窗不关闭且其他任务无法继续打开：选择任务时立即隐藏
+  history sheet，保留恢复中的 action 直到 `thread/resume` 响应后清理，同时保留 hydration/canonical/IPC
+  状态；补齐 ViewModel focused 回归并完成真机交互复验。Android JDK 21 focused 与全量 JVM 回归均通过
+  （244/244），debug APK 已重新构建、安装并启动；真机选择“测试 收到”后弹窗立即关闭，恢复后重新打开
+  历史列表时其他任务的“打开”按钮均为可用状态。
 
 ## 回归门
 
@@ -914,3 +938,15 @@ Implementation Plan（2026-08-02，Goal 会话内标记与默认标题）：
   会留下缺失 `settings` 的空恢复状态；Android 另有切换后旧 live authority 与异步 history delta
   回写窗口。最小修复限定为 Gateway 外部 surface 门禁与 Android selection/history authority 隔离，
   不改变 IPC lifecycle、healthy external authority 或 canonical id。
+- 2026-08-02：新增历史标题根因证据：本地 `thread/list` 条目普遍同时出现 `name=null` 与可读 `preview`，
+  Android 原解析只读 `title/name` 后直接使用 ID，造成 App 与 Desktop 标识差异。后续实现只消费该响应中
+  已存在的 `preview`，不新增恢复通道或第二数据源。
+- 2026-08-02：完成步骤 14c。Android history parser 现在按 `title/name → preview → id` 解析标题，
+  `preview` 仅做空白折叠和 160 字符上限；新增显式名称优先与预览兜底边界测试。JDK 21 Android JVM
+  全量 243/243、debug APK 构建/安装/启动通过，真机历史面板确认 UUID 条目已显示可读预览；服务端未重启，
+  因本次没有修改 Gateway、Owner 或协议链路。
+- 2026-08-02：完成步骤 14d。根因是 Android history sheet 只在部分 `thread/read` 路径关闭，而 resume
+  action 又会统一禁用列表操作；`resumeThread()` 现在选择任务后立即隐藏弹窗，`thread/resume` 响应后清理
+  action，未改变恢复协议、surface hydration、canonical selection 或 IPC authority。focused 与全量 Android
+  JVM 回归 244/244，JDK 21 debug APK 构建/安装/启动通过；真机正确点击历史项确认弹窗关闭，恢复后重新打开
+  历史列表确认其他“打开”按钮可用。本轮无服务端修改，不需要重启服务。

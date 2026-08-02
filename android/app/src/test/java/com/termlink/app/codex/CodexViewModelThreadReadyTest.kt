@@ -34,6 +34,54 @@ import org.junit.Test
 
 class CodexViewModelThreadReadyTest {
     @Test
+    fun historyTitleFallsBackToNormalizedPreviewWhenExplicitNameIsMissing() {
+        val title = resolveCodexThreadHistoryTitleForUi(
+            JSONObject()
+                .put("id", "thread-preview")
+                .put("title", JSONObject.NULL)
+                .put("name", JSONObject.NULL)
+                .put("preview", "  first line\nsecond\tline  ")
+        )
+
+        assertEquals("first line second line", title)
+    }
+
+    @Test
+    fun historyTitlePrefersExplicitNameAndBoundsPreviewFallback() {
+        val namedTitle = resolveCodexThreadHistoryTitleForUi(
+            JSONObject()
+                .put("name", "真实任务名称")
+                .put("preview", "should not replace the explicit name")
+        )
+        val longPreviewTitle = resolveCodexThreadHistoryTitleForUi(
+            JSONObject().put("preview", "x".repeat(200))
+        )
+
+        assertEquals("真实任务名称", namedTitle)
+        assertEquals(160, longPreviewTitle.length)
+        assertTrue(longPreviewTitle.endsWith("…"))
+    }
+
+    @Test
+    fun historyResumeSelectionDismissesSheetButKeepsResumeActionUntilResponse() {
+        val state = CodexUiState(
+            threadHistorySheetVisible = true,
+            threadHistoryActionThreadId = "thread-target",
+            threadHistoryActionKind = "resume",
+            threadRenameTargetId = "thread-target",
+            threadRenameDraft = "draft"
+        )
+
+        val next = dismissThreadHistoryForResumeSelection(state)
+
+        assertFalse(next.threadHistorySheetVisible)
+        assertEquals("thread-target", next.threadHistoryActionThreadId)
+        assertEquals("resume", next.threadHistoryActionKind)
+        assertEquals("", next.threadRenameTargetId)
+        assertEquals("", next.threadRenameDraft)
+    }
+
+    @Test
     fun goalControlUsesResumeOnlyForPausedGoal() {
         assertEquals("resume", goalControlActionForStatus("paused"))
         assertEquals("resume", goalControlActionForStatus("PAUSED"))

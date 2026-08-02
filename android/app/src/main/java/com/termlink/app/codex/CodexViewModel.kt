@@ -58,6 +58,7 @@ private const val PLAN_PHASE_READY_FOR_CONFIRMATION = "plan_ready_for_confirmati
 private const val PLAN_PHASE_EXECUTING_CONFIRMED_PLAN = "executing_confirmed_plan"
 private const val OPERATION_DETAIL_MAX_LENGTH = 12_000
 private const val OPERATION_DETAIL_TRUNCATION_MARKER = "\n\n…（详情已截断）"
+private const val THREAD_HISTORY_PREVIEW_MAX_LENGTH = 160
 
 internal enum class MobileSlashAction {
     SHOW_MODEL_PICKER,
@@ -83,6 +84,22 @@ internal fun resolveMobileSlashAction(command: String): MobileSlashAction = when
     "/skill" -> MobileSlashAction.SKILL
     "/mention" -> MobileSlashAction.MENTION
     else -> MobileSlashAction.UNSUPPORTED
+}
+
+internal fun resolveCodexThreadHistoryTitleForUi(thread: JSONObject?): String {
+    thread ?: return ""
+    thread.optStringOrNullCompat("title")?.let { return it }
+    thread.optStringOrNullCompat("name")?.let { return it }
+    val preview = thread.optStringOrNullCompat("preview")
+        ?.replace(Regex("\\s+"), " ")
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+        ?: return ""
+    if (preview.length <= THREAD_HISTORY_PREVIEW_MAX_LENGTH) return preview
+    return preview
+        .take(THREAD_HISTORY_PREVIEW_MAX_LENGTH - 1)
+        .trimEnd()
+        .plus("…")
 }
 
 internal data class ThreadReadyUiTransition(
@@ -589,6 +606,12 @@ internal fun clearIpcConversationSelectionFromUiState(state: CodexUiState): Code
     )
     return recalculateNextTurnEffectiveConfigForUiState(updated)
 }
+
+internal fun dismissThreadHistoryForResumeSelection(state: CodexUiState): CodexUiState = state.copy(
+    threadHistorySheetVisible = false,
+    threadRenameTargetId = "",
+    threadRenameDraft = ""
+)
 
 internal fun applyDesktopSurfaceSnapshotToUiState(
     state: CodexUiState,
@@ -2978,7 +3001,7 @@ class CodexViewModel(
         pinnedIpcConversationId = normalizedThreadId
         pendingHistoryResumeHydrationThreadId = normalizedThreadId
         _uiState.update {
-            it.copy(
+            dismissThreadHistoryForResumeSelection(it).copy(
                 threadHistoryActionThreadId = normalizedThreadId,
                 threadHistoryActionKind = "resume"
             )
@@ -5719,8 +5742,8 @@ class CodexViewModel(
                 historySyncState = if (switchedConversation) "cache_only" else state.historySyncState,
                 nextTurnOverrides = if (switchedConversation) rememberedResumedOverrides else state.nextTurnOverrides,
                 currentThreadTitle = resumedTitle.ifBlank { state.currentThreadTitle },
-                threadHistoryActionThreadId = resumedThreadId.ifEmpty { state.threadHistoryActionThreadId },
-                threadHistoryActionKind = "resume",
+                threadHistoryActionThreadId = "",
+                threadHistoryActionKind = "",
                 planWorkflow = buildEmptyPlanWorkflowState(),
                 runtimePanel = buildEmptyRuntimePanelState(visible = state.runtimePanel.visible),
                 noticesPanel = CodexNoticesPanelState(visible = state.noticesPanel.visible),
@@ -6195,7 +6218,7 @@ class CodexViewModel(
             entries.add(
                 CodexThreadHistoryEntry(
                     id = threadId,
-                    title = resolveThreadTitle(item).ifBlank { threadId },
+                    title = resolveCodexThreadHistoryTitleForUi(item).ifBlank { threadId },
                     archived = item.optBoolean("archived", item.optBoolean("isArchived", false)),
                     lastActiveAt = normalizeHistoryTimestamp(
                         item.opt("lastActiveAt")
