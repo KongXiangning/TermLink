@@ -56,3 +56,11 @@ sessions-*.png
 spa-terminal-*.png
 terminal-*.png
 termlink-demo-ipc-online.png
+
+# Design reference images (keep the accompanying documentation trackable)
+data/design-picture/*.png
+data/design-picture/*.jpg
+data/design-picture/*.jpeg
+data/design-picture/*.gif
+data/design-picture/*.webp
+data/design-picture/*.svg

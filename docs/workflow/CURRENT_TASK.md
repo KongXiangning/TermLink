@@ -8,6 +8,9 @@
 - 当前状态：in_progress
 - 生命周期状态：active
 - 当前 handoff：user-manual-validation
+- 当前子任务：2026-08-03 Android 大历史加载、离线缓存、媒体分层与存储管理修复规划
+- 专项实施计划：`docs/codex/codex-android-history-cache-media-recovery-plan.md`
+- 子任务授权状态：plan-only；本轮只锁定范围和计划，尚未授权修改业务代码
 - 恢复需审查：false
 - 恢复审查原因：
 - Task start base：8f84867
@@ -43,6 +46,12 @@
 8. 同一 `clientRequestId` 最多启动一个 turn；路由失败或取消可恢复 composer 草稿、附件与配置。
 9. `codex_ipc_status` 可区分 supported/online/active-send；路由阶段由服务端事件驱动，Android 不伪造 running。
 10. 保持 follower lifecycle、desired subscription/reconnect replay、desynced display-only、Owner sticky、A/B 隔离、session/HTTP/rollout 兼容。
+11. Android 冷启动、断网或服务不可用时，先显示当前服务已缓存的任务列表和全部已同步正文；缓存不得跨 home/local profile 串用。
+12. 首次和差量历史同步都使用 manifest、受限分页和逐页 ack；任何 history WebSocket envelope 不得超过 256 KiB，媒体 data URL 不得进入历史/控制帧。
+13. A→B→A 或快速连续选择时，旧任务的 RPC 结果、history page、DB 写回和媒体下载在 stringify/send/UI commit 前被 generation 门禁拒绝。
+14. 屏幕附近缩略图自动预取；原图默认不后台自动下载，可在设置中开启“仅 Wi-Fi 自动下载原图”，主动查看始终显示下载进度。
+15. 手机缓存不设总量上限、不自动淘汰；设置页可按服务和任务查看正文/缩略图/原图占用并手动清理，清理不影响凭据或远端任务。
+16. 缓存和 delta 只负责静态历史/离线首屏；healthy IPC surface 继续是正文实时 tail、operation、当前 turn 和运行态的唯一权威。
 
 ## 允许修改范围
 
@@ -65,6 +74,33 @@
 - `android/app/src/test/java/com/termlink/app/codex/**`
 - `docs/codex/codex-ipc-wire-protocol-reference.md`
 - `docs/codex/codex-goal-pursuit-fix-plan.md`
+- `docs/codex/codex-android-history-cache-media-recovery-plan.md`
+- `src/services/codexHistoryCanonicalizer.js`
+- `src/services/codexHistorySyncService.js`
+- `src/services/codexMediaStore.js`
+- `src/services/codexHistoryBaselineProvider.js`（新增）
+- `src/services/codexMobileSurfaceProjector.js`（新增）
+- `src/routes/codexMedia.js`
+- `src/server.js`
+- `tests/codexHistoryCanonicalizer.test.js`
+- `tests/codexHistorySyncService.test.js`
+- `tests/codexMediaStore.test.js`
+- `tests/codexHistoryBaselineProvider.test.js`（新增）
+- `tests/codexMobileSurfaceProjector.test.js`（新增）
+- `android/app/src/main/java/com/termlink/app/codex/data/CodexConversationCacheStore.kt`
+- `android/app/src/main/java/com/termlink/app/codex/data/CodexHistoryCacheModels.kt`
+- `android/app/src/main/java/com/termlink/app/codex/network/CodexWebSocketClient.kt`
+- `android/app/src/main/java/com/termlink/app/codex/network/CodexMediaClient.kt`
+- `android/app/src/main/java/com/termlink/app/codex/network/CodexNetworkPolicy.kt`（新增）
+- `android/app/src/main/java/com/termlink/app/codex/storage/**`（新增，仅 Codex 本地缓存统计/清理）
+- `android/app/src/main/java/com/termlink/app/util/UiPreferences.kt`
+- `android/app/src/main/java/com/termlink/app/ui/settings/SettingsFragment.kt`
+- `android/app/src/main/java/com/termlink/app/ui/settings/CodexStorageManagementActivity.kt`（新增）
+- `android/app/src/main/java/com/termlink/app/SettingsActivity.kt`（仅存储入口 wiring）
+- `android/app/src/main/res/layout/fragment_settings.xml`
+- `android/app/src/main/AndroidManifest.xml`（仅存储 Activity 与网络状态权限）
+- `android/app/src/androidTest/java/com/termlink/app/codex/**`
+- `android/app/src/androidTest/java/com/termlink/app/ui/settings/**`
 - `docs/workflow/CURRENT_TASK.md`
 - `tmp/codex-known-issues-20260726.md`
 
@@ -75,6 +111,10 @@
 - `docs/workflow/STATUS.md`：仅在最终回归与 Windows 手动验收后同步实际状态。
 - `android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt`：只有恢复确认需要 Activity 级系统返回或文件 URI 生命周期时放行；默认由 Compose/ViewModel完成。
 - `src/services/codexAppServerService.js`：只有现有 request/notification API 无法代理 Owner 控制方法且测试给出证据时放行；不得改变 stdio 生命周期。
+- `package.json`、`package-lock.json`：仅在服务器 Node >=18.17 和 Windows/Linux x64 安装验证门禁确认后，
+  放行锁定 `sharp@0.34.x`；不得升级到不支持 Node 18 的 `sharp@0.35`，不得顺带更新其他依赖。
+- `scripts/release/**`、release tests：仅当 `sharp` 的 Windows/Linux optional dependency 无法按现有 release
+  流程正确交付且有复现证据时重新锁定具体文件；条件未满足前禁止修改。
 
 ## 禁止修改范围
 
@@ -84,6 +124,12 @@
 - 不删除或绕过 follower acquire/release、desired subscription、reconnect replay、normalized surface、canonical binding 或 Android IPC authority。
 - 不通过 Desktop/VS Code 进程扫描、cwd/标题/时间猜测、定时 `thread/read` 或旧 surface 推断 Owner 可达。
 - 不实现 edit-last、MCP elicitation或 queued follow-ups；这些方法必须明确 `canHandle=false`。
+- 不修改 `src/services/codexIpcClient.js`、`src/services/codexIpcFeed.js`、
+  `src/services/codexIpcThreadStream.js`、`src/services/codexOwnerSurfaceTracker.js` 的冻结数据流来实现缓存；
+  新 history/media 只能通过 Gateway 外围兼容适配接入。
+- 不把 cache、thread index、manifest/delta、canonical `thread/read` 或媒体下载状态提升为实时权威。
+- 不设置手机 Codex 缓存总量上限，不实现 LRU/按时间/低空间自动删除；低空间只能停止新写入并提示用户手动清理。
+- 不修改 Nginx、mTLS、WireGuard、Desktop/VS Code、上游 Codex、rollout、HTTP auth/session DTO 或远端任务删除/归档语义。
 - 未列入 Allowed/Conditional 的文件默认禁止修改。
 
 ## Scope Lock
@@ -243,8 +289,46 @@
   回调遗漏导致入口编译或点击链路不可用，未放行 Activity lifecycle、返回键或会话恢复逻辑；已通过 JDK 21
   Kotlin 编译、全量 JVM 回归、APK 安装启动及真机菜单/图标/发送冒烟验证。其余 Conditional/Forbidden
   文件保持原锁定状态。
+- Scope widening（2026-08-03，Android 大历史/媒体缓存事故）：用户要求依据测试机 `da34332c`、
+  服务端和 Nginx 事故日志，把大 `thread/read`、任务列表卡死、切换后 stale 响应、空缓存同步和内联媒体
+  收敛为完整修复计划，并确认：手机缓存无总量上限、只手动按服务/任务清理；附近缩略图自动预取；
+  “仅 Wi-Fi 自动下载原图”默认关闭；离线正文和已下载附件全部保留。本次执行 `/lock-scope` 与
+  `/plan-implementation` 只写计划，不修改业务代码。实现阶段使用新的 history baseline/media adapter、
+  Android SQLite v2 和存储管理页面；`terminalGateway.js` 只允许 additive generation/cancel/compact-response
+  wiring，禁止改变 authority router。完整文件、协议、迁移、验证和回滚见
+  `docs/codex/codex-android-history-cache-media-recovery-plan.md`。
+- Safety mode（2026-08-03 子任务）：`guarded`。Dangerous surfaces 为 frozen IPC authority、A/B selection、
+  history schema migration、媒体认证/缓存清理、Android 主线程与 WebSocket 背压。
+- Adapter boundary：历史/媒体改动强制落在 `CodexHistoryBaselineProvider`、
+  `CodexMobileSurfaceProjector`、`CodexHistorySyncService` 和 Android cache/storage repository；不得直接改写
+  IPC client/feed/thread-stream/Owner tracker 的稳定入口。若适配层无法实现，必须重新取得用户架构授权，
+  不能静默穿透冻结区。
 
 ## 实现方案
+
+Implementation Plan（2026-08-03，Android 历史缓存/媒体分层）：
+
+- Goal：消除完整历史和 base64 媒体形成的超大 WebSocket 响应，接通服务隔离的任务列表/正文缓存、
+  manifest/delta、缩略图/原图与手动存储管理，使冷启动、离线和任务切换始终可用且有进度。
+- Architecture impact：新增 Gateway 外围 history/media adapter、Android SQLite v2 和设置页存储管理；
+  healthy IPC surface、follower lifecycle、Owner fallback、canonical binding 和 Android authority 不变。
+- Technical approach：metadata-only resume；服务端内部 baseline 构造；manifest + 受限 page + per-page ack；
+  generation 贯穿 RPC/DB/UI；任务索引 cache-first；媒体 content-addressed externalization；320px WebP 缩略图；
+  Android profile-aware Basic/mTLS 下载和服务/任务引用计数清理。
+- Alternatives considered：不缓存 raw `thread/read`；不以原图代替缩略图；不通过增加 timeout/重试或
+  Nginx 参数掩盖大响应；不把缓存/轮询升级为实时权威；不自动淘汰用户明确要求保留的数据。
+- Data / state flow：本地 index/history 首屏 -> 既有 follower subscribe -> history manifest/delta 静态修复 ->
+  healthy IPC live tail；媒体从 canonical payload 抽离后经认证 HTTP 分层下载。
+- Compatibility：wire 只做 capability-gated additive 扩展；SQLite 1→2 只增表/列；旧客户端继续原行为，
+  新 Android 面对不支持安全 history sync 的旧服务端显示明确限制而不自动 full read。
+- Risks and rollback：主要风险为 schema migration、跨 profile 串缓存、stale async commit、native thumbnail
+  依赖和清理共享媒体；通过 additive migration、endpoint+conversation 主键、generation、引用表和分阶段
+  capability gate 回滚。详细策略见专项文档。
+- Validation strategy：Node 合成 70 MiB fixture/字节上限/adapter tests，Android JDK 21 JVM + instrumentation +
+  APK，`da34332c` 上 home mTLS/local WireGuard/离线/重启/A→B→A/缩略图/原图/清理矩阵，并重跑冻结 IPC/Owner 回归。
+- Open decisions：无产品待确认项。`sharp@0.34.x` 的 Node >=18.17 与 Windows/Linux release 是实施前技术门禁，
+  失败时阻断缩略图阶段，不降低为原图自动传输。
+- Detailed plan：`docs/codex/codex-android-history-cache-media-recovery-plan.md`。
 
 Bug 调查报告（2026-07-31，TermLink Owner follower 握手缺失）：
 
@@ -679,6 +763,22 @@ Implementation Plan（2026-08-02，Android 快速模式）：
   `reasoningEffort=low` 与既有 next-turn/Owner surface 同步，不新增 IPC 或服务端协议字段。待完成 focused
   JVM、JDK 21 Android 全量回归、APK 安装启动及真机菜单/图标/同步冒烟均已完成；步骤 14e 的外部并发
   新首条人工场景仍作为独立未验证项保留。Desktop/VS Code 独立视觉回显本轮未单独打开验收。
+- [pending] 15a. Phase A：补 manifest-required、selection generation、取消、metadata-only resume 和
+  专用 history recovery；新 Android 停止 raw full `thread/read`，完成 70 MiB fixture/256 KiB envelope 门禁。
+- [pending] 15b. Phase B1：SQLite v1→v2 additive migration、服务隔离任务索引、cache-first 列表/正文、
+  manifest/delta/per-page ack/payload chunk；中断只清 staging，已提交缓存全部保留。
+- [pending] 15c. Phase B2：完成 cache/live 仲裁和 A→B→A generation 门禁；旧 history delta、DB commit 和
+  media job 均不能覆盖当前任务，healthy IPC 继续是唯一实时权威。
+- [pending] 15d. Phase C：服务端历史/移动 surface 媒体 externalization、磁盘 metadata rebuild、
+  `sharp@0.34.x` 缩略图，以及 Android Basic/mTLS 认证下载、附近预取和原图进度。
+- [pending] 15e. Phase D：设置页“仅 Wi-Fi 自动下载原图”（默认关闭）和 Codex 存储管理；按服务/任务
+  展示正文/缩略图/原图/共享可回收字节并手动清理，不删除凭据或远端任务。
+- [pending] 15f. Phase E 自动回归：Node history/media/gateway + frozen IPC/Owner targeted、TD-004 窄门，
+  Android JDK 21 JVM/instrumentation/assembleDebug、migration/low-disk/no-auto-eviction 检查。
+- [pending] 15g. 在 `da34332c` 完成 home mTLS/local WireGuard/离线/冷启动/中途重启/A→B→A/
+  缩略图/原图/存储清理真机矩阵，并保留日志、frame size、内存和截图证据。
+- [pending] 15h. 所有阶段通过后再同步 CONTRACTS/AD-004/STATUS 和最终交付摘要；任一阶段命中冻结区、
+  Node/release 依赖门禁或数据迁移不可逆风险时停止，不进入下一阶段。
 
 ## 回归门
 
@@ -729,6 +829,17 @@ Implementation Plan（2026-08-02，Android 快速模式）：
 - Owner fallback：保留阶段一边界并扩展完整输入和控制，不扩大 fallback 错误匹配。
 - A/B isolation：route/recovery intent 与 active WebSocket/conversation 双重校验。
 - Change Propagation Check：必须同步 CONTRACTS、AD-004、Android wire tests、IPC client/feed tests 和 Windows 双宿主验收。
+- 2026-08-03 change start set：raw `thread/read/resume` Android 响应、history sync v1、Android cache store、
+  media store/client、任务历史列表和 Settings 存储入口。
+- Evidence aggregation：代码与真机 DB 共同确认 manifest-required 消费缺失、缓存表为空、raw 大响应、
+  base64 未抽离和 switch 后 stale read；影响跨 Gateway/Android storage/network/UI/settings，多 direct consumers。
+- Complexity assessment：over-limit，forced strategy=`enforce_adapter_boundary`；保留现有 Gateway/IPC/Owner
+  直接入口，新语义集中到 history baseline/media projector/cache repository，禁止原地改写冻结对象。
+- Staged migration plan：A 传输止血 -> B 缓存/index -> C 媒体 -> D 存储 UI -> E 真机/兼容；每阶段声明
+  runtime capability、验证和退出条件，详见专项文档第 10 节。
+- Linked regression record：`codex-history-continuity-20260803`；前序 14b 只修复 Owner re-entry 和旧 delta
+  UI 隔离，本次事故新增 raw payload/空 manifest/media/list index 链路，因此禁止再做单点 timeout 或末端 stale
+  判断补丁，必须按 staged adapter plan 收敛。
 
 ## 回滚点
 
@@ -1013,3 +1124,9 @@ Implementation Plan（2026-08-02，Android 快速模式）：
   出现；发送 `FAST_MODE_SYNC_SMOKE` 后 route 日志完成 `accepted → waiting_for_surface → routed →
   turn_started`，消息回到同一任务。因 3010 健康检查失败，本轮按 skill 重启了本地开发服务；没有修改服务端
   源码。Desktop/VS Code 独立回显未在本轮单独验收，步骤 14e 的外部并发新首条人工场景也仍未验证。
+- 2026-08-03：完成 Android 大历史加载事故的 `/lock-scope` 与 `/plan-implementation` 文档阶段。
+  用户确认手机缓存无总量上限且只手动按服务/任务清理、附近缩略图自动预取、“仅 Wi-Fi 自动下载原图”
+  默认关闭、离线正文和已下载附件全部保留。新增专项计划
+  `docs/codex/codex-android-history-cache-media-recovery-plan.md`，明确 Gateway adapter、SQLite v2、
+  history manifest/page ack、selection generation、媒体 externalization、存储管理、回归和回滚；本轮未修改
+  业务代码、服务配置或设备状态，实施步骤 15a–15h 全部保持 pending。
