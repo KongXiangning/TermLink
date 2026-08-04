@@ -85,3 +85,25 @@ test('mobile realtime projection keeps a bounded live tail instead of full histo
     assert.ok(Buffer.byteLength(JSON.stringify(projected), 'utf8') <= MOBILE_REALTIME_SURFACE_MAX_BYTES);
     assert.equal(source.items.length, 1_500);
 });
+
+test('mobile realtime deadline projection redacts inline media after bounding the live tail', async () => {
+    const source = {
+        conversationId: 'conversation',
+        revision: 12,
+        status: 'running',
+        items: Array.from({ length: 1_500 }, (_, index) => ({
+            key: `item-${index}`,
+            kind: 'message',
+            text: index === 1_499 ? `latest ${PNG_DATA_URL}` : `message-${index}`
+        }))
+    };
+    const projected = await projectMobileRealtimeSurface(source, {
+        mediaStore: null,
+        redactInlineMedia: true
+    });
+    assert.equal(projected.revision, 12);
+    assert.equal(projected.items.at(-1).key, 'item-1499');
+    assert.equal(containsImageDataUrl(projected), false);
+    assert.doesNotMatch(JSON.stringify(projected), /data:image/i);
+    assert.ok(Buffer.byteLength(JSON.stringify(projected), 'utf8') <= MOBILE_REALTIME_SURFACE_MAX_BYTES);
+});

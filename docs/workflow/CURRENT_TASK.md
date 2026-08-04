@@ -7,8 +7,8 @@
 - 任务 slug：codex-single-authority-owner-control-plane
 - 当前状态：in_progress
 - 生命周期状态：active
-- 当前 handoff：manual-smoke-required（Android history/media 实现已完成；15g 真机矩阵待用户手动验收，15h 待验收结果回写）
-- 当前子任务：2026-08-03 Android 大历史加载、离线缓存、媒体分层与存储管理修复实施（实现完成，最终验收交由用户手动执行）
+- 当前 handoff：manual-smoke-required（15i P0 自动修复与契约回归已完成；15g 手动验收与 15h 收尾保持 pending）
+- 当前子任务：等待用户按既定 15g 矩阵验证已部署版本；P0 Gateway 投影活性修复已完成但尚未部署
 - 专项实施计划：`docs/codex/codex-android-history-cache-media-recovery-plan.md`
 - 子任务授权状态：implementation-authorized；用户已明确授权按步骤 15a–15h 分阶段实施，15a–15f 实现/自动化记录完成，15g/15h 等待用户手动验收，不再由 agent 继续跑真机矩阵
 - 恢复需审查：false
@@ -371,6 +371,38 @@ Implementation Plan（2026-08-03，Android 历史缓存/媒体分层）：
 - Open decisions：无产品待确认项。`sharp@0.34.x` 的 Node >=18.17 与 Windows/Linux release 是实施前技术门禁，
   失败时阻断缩略图阶段，不降低为原图自动传输。
 - Detailed plan：`docs/codex/codex-android-history-cache-media-recovery-plan.md`。
+
+Implementation Plan（2026-08-05，P0 IPC 移动 surface 投影活性）：
+
+- Goal：保留 healthy IPC 唯一实时权威、单 in-flight/latest-pending 的有界派生投影和既有 WebSocket
+  背压边界，同时保证持续流式 revision 下 Android 在有限时间内持续收到单调、不倒退的正文 surface。
+- Architecture impact：只修改 Gateway 的 Android 移动 surface 派生队列和移动实时投影的轻量降级入口；
+  不修改 follower acquire/release、desired subscription/reconnect replay、normalized surface、Owner fallback、
+  canonical binding、Android IPC authority 或 `thread/read` 恢复边界。
+- Technical approach：队列继续串行执行 expensive 媒体 externalization，并只保留一个最新 pending；完成结果只与
+  `lastPublishedRevision` 比较，较新结果必须发布，不再要求完成时仍等于 `latestReceivedRevision`。每个
+  client/conversation 从首个未发布 revision 起设置 500ms 可见期限；期限到达时从最新 raw IPC surface 生成
+  无媒体 I/O、移除 data URL 的 bounded live-tail，以 terminal priority 交给既有 snapshot scheduler。完整投影
+  随后只可补充相同 revision；低于已发布 revision 的迟到结果必须丢弃。
+- Alternatives considered：不移除有界队列、不逐 revision 并行媒体投影、不扩大 snapshot 大小、不提高
+  `thread/read` 频率；仅删除 absolute-latest guard 不能覆盖投影自身卡住的最大可见延迟，因此不采用。
+- Data / state flow：authoritative IPC surface -> per-client/conversation latest-pending projection ->
+  monotonic publish guard -> existing `CodexWsSnapshotScheduler` -> Android IPC authority；deadline fallback 只是
+  同一 IPC revision 的轻量表示，不形成缓存或第二实时数据源。
+- Compatibility：WebSocket envelope 和 Android DTO 不变；非 Android client 不变；媒体完整投影仍保留，轻量
+  fallback 只在 deadline 内 full projection 未完成时出现，并继续遵守 192 KiB live-tail/256 KiB envelope 边界。
+- Risks and rollback：风险是 timeout fallback 与 full projection 竞态、A→B→A 后旧投影回流及下游 scheduler
+  再次合并中间 revision；通过 selectionGeneration、strict lower-revision reject、same-revision enrichment 和
+  intermediate terminal-priority flush 控制。回滚限定于本 P0 的 Gateway/projector/test diff，无数据迁移。
+- Validation strategy：精确测试覆盖“处理中已出现更新 revision 时仍发布已完成中间结果”、持续慢媒体投影在
+  deadline 内发布最新脱敏轻量 surface、发布 revision 不倒退、pending 仍 latest-only；随后运行 Gateway、
+  projector、scheduler、IPC client/feed、Owner 定向回归和 JavaScript syntax/diff 检查。
+- Open decisions：无。500ms 是本轮 Gateway projection 可见性硬期限；WebSocket 实际发送仍服从既有背压保护。
+- External Documentation Gate：不触发；根因与修复均为项目内业务队列、投影和 scheduler 逻辑，不依赖第三方
+  current behavior。
+- P0 diff review target：`git diff HEAD -- src/ws/terminalGateway.js src/services/codexMobileSurfaceProjector.js
+  tests/terminalGateway.codexIpc.test.js tests/codexMobileSurfaceProjector.test.js docs/workflow/CURRENT_TASK.md`；
+  基线为 `HEAD=6a6c39f`，不包含现有 Android working-tree 修改和真机诊断 fixture。
 
 Bug 调查报告（2026-07-31，TermLink Owner follower 握手缺失）：
 
@@ -921,6 +953,9 @@ Implementation Plan（2026-08-02，Android 快速模式）：
   `AD-004` 的 healthy IPC 唯一实时权威语义；`DECISIONS.md` 的 TD-005 仍保持用户确认的“不设总量上限/不自动淘汰/
   手动清理/缩略图预取/原图默认关闭”决策。待用户完成 15g 手动验收并回传结果后，再将 15g/15h 标记完成；
   agent 不再自行补跑最终测试。
+- [completed] 15i. P0 恢复 IPC 移动 surface 投影活性：保留单 in-flight/latest-pending 和既有 scheduler
+  背压，改为按 last-published revision 单调交付已完成投影，并增加 500ms 脱敏轻量 fallback；精确回归必须
+  证明持续 revision 不再无限饥饿、迟到结果不倒退、A/B selection generation 和 IPC authority 不变。
 
 ## 回归门
 
@@ -1497,3 +1532,17 @@ fixture。随后重跑 Node 211/211、JDK 21 Android JVM、JavaScript syntax 和
   `onOpenThreadHistory` 局部名，导致编译报 `Unresolved reference`；已改接 `CodexScreen` 现有的
   `onShowThreadHistory`，未改变历史状态机、Goal 逻辑或冻结 IPC 链路。JDK 21 下
   `:app:compileDebugKotlin` 与 `:app:testDebugUnitTest` 均 `BUILD SUCCESSFUL`。后续真机/网络验收及 Goal 工具栏问题按用户要求另行处理。
+- 2026-08-05（15i P0 投影活性修复）：确认饥饿发生在 Gateway 的 Android 派生投影队列：媒体投影完成后旧逻辑
+  要求该工作仍是绝对最新 revision，持续流式更新会使每个完成结果都被丢弃，直到输入静默后才可能发布。修复后仍保持
+  单 in-flight/latest-pending 和 healthy IPC 唯一实时权威，但完成结果只与 last-published revision 比较；处理中间
+  revision 以 terminal priority 单调发布，迟到的低 revision 被拒绝，相同 revision 的完整媒体投影只可升级轻量表示。
+  首个未发布 revision 同时启动 500ms 可见期限，超时从最新 raw IPC surface 生成 bounded live-tail、无媒体 I/O、
+  无 data URL 的轻量表示；接近期限的完整结果也绕过 25ms 常规合并窗口，实际发送仍服从既有 WebSocket 背压/断连边界。
+  A→B→A 继续由 queue close 与 selection generation 隔离，未修改 follower、reconnect replay、canonical binding、Owner
+  fallback、Android authority 或 `thread/read` 恢复语义。最终 review target 为 `HEAD=6a6c39f` 上列出的 5 个 P0 文件，
+  范围/实现/契约审查无阻断 finding；工作区既有 Android 修改和真机 fixture 未纳入、未改写。
+- 2026-08-05（15i 验证）：最终源代码下 Node history/baseline/media/projector/route、Gateway scheduler、IPC
+  client/feed 与 Owner 聚焦集合 174/174 通过；新增用例证明 revision 1 处理期间到达 2/3 时实际交付为 `[1,3]`，以及
+  revision 10 慢投影未完成时 deadline 先发布脱敏 revision 11、随后 10 不会倒灌。JDK 21
+  `:app:testDebugUnitTest --no-daemon` 为 `BUILD SUCCESSFUL`；JavaScript syntax 与 `git diff --check` 通过（仅保留
+  仓库既有 LF/CRLF 提示）。本轮未部署或重启 home/local 服务，因此线上生效仍需部署后按 15g 手动矩阵确认。

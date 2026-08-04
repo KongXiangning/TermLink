@@ -85,7 +85,8 @@ async function projectMobileRealtimeSurface(
     {
         mediaStore = null,
         maxItems = MOBILE_REALTIME_SURFACE_MAX_ITEMS,
-        maxBytes = MOBILE_REALTIME_SURFACE_MAX_BYTES
+        maxBytes = MOBILE_REALTIME_SURFACE_MAX_BYTES,
+        redactInlineMedia = false
     } = {}
 ) {
     if (!surface || typeof surface !== 'object' || Array.isArray(surface)) return {};
@@ -99,7 +100,9 @@ async function projectMobileRealtimeSurface(
     reduced.itemsTruncated = tailItems.length < sourceItems.length;
     let projected = mediaStore
         ? await projectMobileSurface(reduced, { mediaStore, maxNodes: Math.max(10_000, tailItems.length * 200) })
-        : reduced;
+        : redactInlineMedia
+            ? redactImageDataUrls(reduced, Math.max(10_000, tailItems.length * 200))
+            : reduced;
     projected = sanitizeRealtimeSurface(projected);
     while (Array.isArray(projected.items) && projected.items.length > 1 &&
         safeJsonByteLength(projected) > maxBytes) {

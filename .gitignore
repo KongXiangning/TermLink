@@ -14,6 +14,8 @@ data/sessions.json
 data/sessions.json.tmp
 data/*.json
 data/*.json.tmp
+# Runtime-generated Codex media cache; committed legacy assets remain tracked.
+data/codex-media/**
 ops-local/nginx/code.kongxn.com-442.conf
 ops-local/nginx/opencode.kongxn.com-442.conf
 skills/android-local-build-debug/local-config.ps1
@@ -47,6 +49,15 @@ ui.xml
 .playwright-cli/
 artifacts/
 output/
+
+# Real-device diagnostic exports. Keep them under artifacts/ when retained;
+# also ignore legacy root-level captures from adb/manual investigation.
+.codex-device-*.jsonl
+.codex-device-*.sqlite
+.codex-device-*.xml
+.codex-device-*.png
+.codex-history-*.png
+.codex-history-*.log
 
 # Temporary review / verification screenshots
 codex-ipc-*.png

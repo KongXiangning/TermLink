@@ -24,8 +24,7 @@ const { CodexHistoryBaselineProvider } = require('../services/codexHistoryBaseli
 const {
     projectMobileSurface,
     projectMobileRealtimeSurface,
-    containsImageDataUrl,
-    redactImageDataUrls
+    containsImageDataUrl
 } = require('../services/codexMobileSurfaceProjector');
 const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
 // History recovery is a bounded fallback, not a second long-lived request
@@ -33,6 +32,12 @@ const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
 // instead of holding the Android task in loading state for the app-server's
 // generic 120s RPC timeout.
 const HISTORY_RECOVERY_TIMEOUT_MS = 30_000;
+const CODEX_SNAPSHOT_FLUSH_INTERVAL_MS = 25;
+// Expensive media externalization must not make a continuously changing IPC
+// surface invisible to Android. This deadline only bounds the derived mobile
+// projection; the authoritative IPC surface and WebSocket backpressure rules
+// remain unchanged.
+const MOBILE_SURFACE_MAX_VISIBLE_LATENCY_MS = 500;
 
 function closeSocket(ws, code, reason) {
     try {
@@ -1068,7 +1073,9 @@ function registerTerminalGateway(wss, {
     ipcFeed,
     ipcSurfaceWaitGraceMs = 5000,
     mediaStore = null,
-    registrationManager = null
+    registrationManager = null,
+    mobileSurfaceProjector = projectMobileRealtimeSurface,
+    mobileSurfaceMaxVisibleLatencyMs = MOBILE_SURFACE_MAX_VISIBLE_LATENCY_MS
 }) {
     const isElevated = privilegeConfig && privilegeConfig.isElevated;
     const allowedIps = privilegeConfig ? privilegeConfig.allowedIps : [];
@@ -1113,10 +1120,15 @@ function registerTerminalGateway(wss, {
     const _conversationCatalogFingerprints = new Map();
     // Derived mobile projections can be expensive for a large surface. Keep
     // one in-flight projection per client/conversation and replace only the
-    // pending value when the IPC host emits another revision.
+    // pending value when the IPC host emits another revision. A lightweight
+    // deadline projection keeps live IPC progress visible while the expensive
+    // media projection remains bounded.
     const _mobileSurfaceProjectionQueues = new WeakMap();
+    const mobileProjectionDeadlineMs = Number.isFinite(Number(mobileSurfaceMaxVisibleLatencyMs))
+        ? Math.max(1, Number(mobileSurfaceMaxVisibleLatencyMs))
+        : MOBILE_SURFACE_MAX_VISIBLE_LATENCY_MS;
     const snapshotScheduler = new CodexWsSnapshotScheduler({
-        intervalMs: 25,
+        intervalMs: CODEX_SNAPSHOT_FLUSH_INTERVAL_MS,
         isStillActive: (ws, conversationId, selectionGeneration) => (
             _ipcActiveConversations.get(ws) === conversationId &&
             (_ipcSelectionGenerations.get(ws) || 0) === selectionGeneration
@@ -1130,27 +1142,18 @@ function registerTerminalGateway(wss, {
             snapshotScheduler.sendControl(ws, buildOversizeEnvelopeError(envelope));
         }
     });
-    const _mobileSurfaceProjectionRevisions = new WeakMap();
     const _surfaceBaselineRevisions = new Map();
     const _surfaceBaselinePromises = new Map();
     const _surfaceBaselineQueues = new Map();
 
     const _offerSurfaceSnapshot = (client, conversationId, surface, options = {}) => {
-        let revisions = _mobileSurfaceProjectionRevisions.get(client);
-        if (!revisions) {
-            revisions = new Map();
-            _mobileSurfaceProjectionRevisions.set(client, revisions);
-        }
-        const revision = (revisions.get(conversationId) || 0) + 1;
-        revisions.set(conversationId, revision);
-        const offer = (snapshot) => snapshotScheduler.offer(
-            client,
-            conversationId,
-            { type: 'conversation_surface_snapshot', conversationId, snapshot },
-            options
-        );
         if (client?.codexClientType !== 'android') {
-            offer(surface);
+            snapshotScheduler.offer(
+                client,
+                conversationId,
+                { type: 'conversation_surface_snapshot', conversationId, snapshot: surface },
+                options
+            );
             return;
         }
         let queues = _mobileSurfaceProjectionQueues.get(client);
@@ -1158,31 +1161,149 @@ function registerTerminalGateway(wss, {
             queues = new Map();
             _mobileSurfaceProjectionQueues.set(client, queues);
         }
-        let queue = queues.get(conversationId);
-        if (!queue) {
-            queue = createLatestOnlyAsyncQueue(async ({ surface: pendingSurface, revision: pendingRevision }) => {
+        let projectionState = queues.get(conversationId);
+        if (!projectionState) {
+            let closed = false;
+            let latestEntry = null;
+            let nextRevision = 0;
+            let lastPublishedRevision = 0;
+            let lastPublishedQuality = 0;
+            let unpublishedSince = null;
+            let deadlineTimer = null;
+            let deadlineProjectionActive = false;
+
+            const clearDeadlineTimer = () => {
+                if (!deadlineTimer) return;
+                clearTimeout(deadlineTimer);
+                deadlineTimer = null;
+            };
+
+            const publishProjected = (entry, projected, quality) => {
+                if (closed || !entry) return false;
+                const qualityRank = quality === 'full' ? 2 : 1;
+                if (entry.revision < lastPublishedRevision) return false;
+                if (entry.revision === lastPublishedRevision && qualityRank <= lastPublishedQuality) return false;
+
+                const isIntermediate = entry.revision < (latestEntry?.revision || entry.revision);
+                const deadlineImminent = unpublishedSince !== null &&
+                    Date.now() + CODEX_SNAPSHOT_FLUSH_INTERVAL_MS >=
+                        unpublishedSince + mobileProjectionDeadlineMs;
+                const accepted = snapshotScheduler.offer(
+                    client,
+                    conversationId,
+                    { type: 'conversation_surface_snapshot', conversationId, snapshot: projected },
+                    {
+                        ...entry.options,
+                        // A completed intermediate result and a deadline
+                        // fallback must cross the downstream coalescer now;
+                        // otherwise the scheduler could recreate starvation.
+                        priority: quality === 'deadline' || isIntermediate || deadlineImminent
+                            ? 'terminal'
+                            : entry.options?.priority
+                    }
+                );
+                if (!accepted) return false;
+
+                if (entry.revision > lastPublishedRevision) {
+                    lastPublishedRevision = entry.revision;
+                    lastPublishedQuality = qualityRank;
+                } else {
+                    // A full projection may enrich a deadline fallback for the
+                    // same IPC revision, but no lower revision may ever return.
+                    lastPublishedQuality = qualityRank;
+                }
+                if (!latestEntry || lastPublishedRevision >= latestEntry.revision) {
+                    unpublishedSince = null;
+                    clearDeadlineTimer();
+                }
+                return true;
+            };
+
+            const scheduleVisibleDeadline = () => {
+                if (closed || deadlineTimer || deadlineProjectionActive) return;
+                if (!latestEntry || latestEntry.revision <= lastPublishedRevision) return;
+                unpublishedSince ??= latestEntry.receivedAt;
+                const delayMs = Math.max(0, unpublishedSince + mobileProjectionDeadlineMs - Date.now());
+                deadlineTimer = setTimeout(() => {
+                    deadlineTimer = null;
+                    const candidate = latestEntry;
+                    if (closed || !candidate || candidate.revision <= lastPublishedRevision) return;
+                    deadlineProjectionActive = true;
+                    void mobileSurfaceProjector(candidate.surface, {
+                        mediaStore: null,
+                        redactInlineMedia: true
+                    }).then((projected) => {
+                        const published = publishProjected(candidate, projected, 'deadline');
+                        if (published) {
+                            diagnosticLog.event('server', 'server.codex.media.projection_deadline_fallback', {
+                                conversationKey: diagnosticKey(conversationId),
+                                clientType: client.codexClientType,
+                                projectionRevision: candidate.revision,
+                                maxVisibleLatencyMs: mobileProjectionDeadlineMs
+                            }, 'warn');
+                        }
+                    }).catch((error) => {
+                        diagnosticLog.error('server', 'server.codex.media.project_failed', error, {
+                            conversationKey: diagnosticKey(conversationId),
+                            clientType: client.codexClientType,
+                            projectionKind: 'deadline'
+                        });
+                    }).finally(() => {
+                        deadlineProjectionActive = false;
+                        scheduleVisibleDeadline();
+                    });
+                }, delayMs);
+                if (typeof deadlineTimer.unref === 'function') deadlineTimer.unref();
+            };
+
+            const queue = createLatestOnlyAsyncQueue(async (entry) => {
                 let projected;
+                let quality = 'full';
                 try {
-                    projected = await projectMobileRealtimeSurface(pendingSurface, { mediaStore });
+                    projected = await mobileSurfaceProjector(entry.surface, { mediaStore });
                 } catch (error) {
                     diagnosticLog.error('server', 'server.codex.media.project_failed', error, {
                         conversationKey: diagnosticKey(conversationId),
                         clientType: client.codexClientType
                     });
-                    projected = await projectMobileRealtimeSurface(redactImageDataUrls(pendingSurface), { mediaStore: null });
+                    quality = 'deadline';
+                    projected = await mobileSurfaceProjector(entry.surface, {
+                        mediaStore: null,
+                        redactInlineMedia: true
+                    });
                 }
-                if (_mobileSurfaceProjectionRevisions.get(client)?.get(conversationId) === pendingRevision) {
-                    offer(projected);
-                }
+                publishProjected(entry, projected, quality);
+                scheduleVisibleDeadline();
             });
-            queues.set(conversationId, queue);
+
+            projectionState = {
+                offer(nextSurface, nextOptions) {
+                    if (closed) return;
+                    const entry = {
+                        surface: nextSurface,
+                        options: nextOptions,
+                        revision: ++nextRevision,
+                        receivedAt: Date.now()
+                    };
+                    latestEntry = entry;
+                    unpublishedSince ??= entry.receivedAt;
+                    scheduleVisibleDeadline();
+                    void queue.enqueue(entry).catch((error) => {
+                        diagnosticLog.error('server', 'server.codex.media.project_failed', error, {
+                            conversationKey: diagnosticKey(conversationId),
+                            clientType: client.codexClientType
+                        });
+                    });
+                },
+                close() {
+                    closed = true;
+                    clearDeadlineTimer();
+                    queue.close();
+                }
+            };
+            queues.set(conversationId, projectionState);
         }
-        void queue.enqueue({ surface, revision }).catch((error) => {
-            diagnosticLog.error('server', 'server.codex.media.project_failed', error, {
-                conversationKey: diagnosticKey(conversationId),
-                clientType: client.codexClientType
-            });
-        });
+        projectionState.offer(surface, options);
     };
 
     const _shouldPreserveRecoveryBaseline = (baseline, incomingSurface) => {
@@ -5850,4 +5971,5 @@ module.exports.projectMetadataOnlyThreadResponse = projectMetadataOnlyThreadResp
 module.exports.projectMetadataOnlyThreadListResponse = projectMetadataOnlyThreadListResponse;
 module.exports.sendWsEnvelope = sendWsEnvelope;
 module.exports.MAX_WS_ENVELOPE_BYTES = MAX_WS_ENVELOPE_BYTES;
+module.exports.MOBILE_SURFACE_MAX_VISIBLE_LATENCY_MS = MOBILE_SURFACE_MAX_VISIBLE_LATENCY_MS;
 module.exports.createLatestOnlyAsyncQueue = createLatestOnlyAsyncQueue;

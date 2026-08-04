@@ -322,7 +322,9 @@ async function setupGateway(opts = {}) {
         ipcFeed,
         ipcSurfaceWaitGraceMs: opts.ipcSurfaceWaitGraceMs ?? 40,
         mediaStore: opts.mediaStore ?? null,
-        registrationManager: opts.registrationManager ?? null
+        registrationManager: opts.registrationManager ?? null,
+        mobileSurfaceProjector: opts.mobileSurfaceProjector,
+        mobileSurfaceMaxVisibleLatencyMs: opts.mobileSurfaceMaxVisibleLatencyMs
     });
 
     return new Promise((resolve) => {
@@ -574,6 +576,111 @@ test('Android IPC surface delivery sends only a bounded live tail', async () => 
     );
     assert.ok(snapshot.snapshot.items.length < 1_500);
     assert.equal(snapshot.snapshot.items.at(-1).key, 'item-1499');
+    ws.close();
+    await stopGateway(g);
+});
+
+test('Android projection publishes completed intermediate revisions monotonically while newer revisions are pending', async () => {
+    const registrationId = 'android-monotonic-projection';
+    let releaseFirst;
+    let markFirstStarted;
+    const firstStarted = new Promise((resolve) => { markFirstStarted = resolve; });
+    const firstBlocked = new Promise((resolve) => { releaseFirst = resolve; });
+    const g = await setupGateway({
+        registrationManager: {
+            isActive: (id) => id === registrationId,
+            get: (id) => id === registrationId ? { clientType: 'android' } : null
+        },
+        mobileSurfaceMaxVisibleLatencyMs: 5_000,
+        mobileSurfaceProjector: async (surface) => {
+            if (surface.revision === 1) {
+                markFirstStarted();
+                await firstBlocked;
+            }
+            return { ...surface, items: Array.isArray(surface.items) ? surface.items.slice() : [] };
+        }
+    });
+    const sess = await g.sm.createSession({ name: 'android-monotonic-projection' });
+    const { ws, messages } = await connectWs(g.port, sess.id, registrationId);
+    await delay(80);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-monotonic' }));
+    await delay(40);
+    messages.length = 0;
+
+    g.ipcFeed.pushSnapshot('conv-monotonic', {
+        conversationId: 'conv-monotonic', revision: 1, status: 'running',
+        items: [{ key: 'rev-1', kind: 'message', role: 'assistant', text: 'one' }]
+    });
+    await firstStarted;
+    g.ipcFeed.pushSnapshot('conv-monotonic', {
+        conversationId: 'conv-monotonic', revision: 2, status: 'running',
+        items: [{ key: 'rev-2', kind: 'message', role: 'assistant', text: 'two' }]
+    });
+    g.ipcFeed.pushSnapshot('conv-monotonic', {
+        conversationId: 'conv-monotonic', revision: 3, status: 'running',
+        items: [{ key: 'rev-3', kind: 'message', role: 'assistant', text: 'three' }]
+    });
+    releaseFirst();
+    await delay(140);
+
+    const revisions = messages
+        .filter((message) => message.type === 'conversation_surface_snapshot')
+        .map((message) => message.snapshot.revision);
+    assert.deepEqual(revisions, [1, 3]);
+    assert.ok(revisions.every((revision, index) => index === 0 || revision >= revisions[index - 1]));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('Android projection deadline publishes the latest redacted IPC surface while full projection is blocked', async () => {
+    const registrationId = 'android-projection-deadline';
+    const { projectMobileRealtimeSurface } = require('../src/services/codexMobileSurfaceProjector');
+    const imageDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+    let releaseFull;
+    const fullBlocked = new Promise((resolve) => { releaseFull = resolve; });
+    const g = await setupGateway({
+        registrationManager: {
+            isActive: (id) => id === registrationId,
+            get: (id) => id === registrationId ? { clientType: 'android' } : null
+        },
+        mobileSurfaceMaxVisibleLatencyMs: 40,
+        mobileSurfaceProjector: async (surface, options) => {
+            if (options?.redactInlineMedia === true) {
+                return projectMobileRealtimeSurface(surface, options);
+            }
+            await fullBlocked;
+            return projectMobileRealtimeSurface(surface, { mediaStore: null, redactInlineMedia: true });
+        }
+    });
+    const sess = await g.sm.createSession({ name: 'android-projection-deadline' });
+    const { ws, messages } = await connectWs(g.port, sess.id, registrationId);
+    await delay(80);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-deadline' }));
+    await delay(40);
+    messages.length = 0;
+
+    g.ipcFeed.pushSnapshot('conv-deadline', {
+        conversationId: 'conv-deadline', revision: 10, status: 'running',
+        items: [{ key: 'rev-10', kind: 'message', role: 'assistant', text: `visible ${imageDataUrl}` }]
+    });
+    await delay(10);
+    g.ipcFeed.pushSnapshot('conv-deadline', {
+        conversationId: 'conv-deadline', revision: 11, status: 'running',
+        items: [{ key: 'rev-11', kind: 'message', role: 'assistant', text: `latest ${imageDataUrl}` }]
+    });
+    await delay(110);
+
+    let snapshots = messages.filter((message) => message.type === 'conversation_surface_snapshot');
+    assert.ok(snapshots.length >= 1, 'deadline fallback must keep the authoritative IPC surface visible');
+    assert.equal(snapshots[0].snapshot.revision, 11);
+    assert.doesNotMatch(JSON.stringify(snapshots[0]), /data:image/i);
+    releaseFull();
+    await delay(80);
+
+    snapshots = messages.filter((message) => message.type === 'conversation_surface_snapshot');
+    const revisions = snapshots.map((message) => message.snapshot.revision);
+    assert.equal(revisions.includes(10), false, 'a delayed older full projection must not overwrite revision 11');
+    assert.ok(revisions.every((revision, index) => index === 0 || revision >= revisions[index - 1]));
     ws.close();
     await stopGateway(g);
 });
