@@ -102,7 +102,7 @@ const app = express();
 const codexMediaStore = new CodexMediaStore({
     trustedTempRoots: [path.join(os.tmpdir(), 'termlink-codex-images')]
 });
-void codexMediaStore.init();
+const codexMediaStoreReady = codexMediaStore.init();
 const server = tlsConfig.enabled
     ? https.createServer(buildHttpsOptions(tlsConfig), app)
     : http.createServer(app);
@@ -160,19 +160,21 @@ function listen(callback) {
     }
 }
 
-ipcFeed.start().then(() => {
-    listen(() => {
-        if (authEnabled && authUser === 'admin' && authPass === 'admin') {
-            console.warn('[Security] AUTH is enabled but default credentials (admin/admin) are in use. Set AUTH_USER and AUTH_PASS for non-dev deployments.');
-        }
-        const proto = tlsConfig.enabled ? 'https' : 'http';
-        console.log(`Server started on ${proto}://${BIND_HOST || 'localhost'}:${PORT}`);
+Promise.resolve()
+    .then(() => codexMediaStoreReady)
+    .then(() => ipcFeed.start().catch((err) => {
+        console.warn('[server] IPC feed start failed:', err.message);
+        return null;
+    }))
+    .then(() => {
+        listen(() => {
+            if (authEnabled && authUser === 'admin' && authPass === 'admin') {
+                console.warn('[Security] AUTH is enabled but default credentials (admin/admin) are in use. Set AUTH_USER and AUTH_PASS for non-dev deployments.');
+            }
+            const proto = tlsConfig.enabled ? 'https' : 'http';
+            console.log(`Server started on ${proto}://${BIND_HOST || 'localhost'}:${PORT}`);
+        });
+    })
+    .catch((err) => {
+        console.error('[server] Media store initialization failed; server not started:', err && err.message ? err.message : String(err));
     });
-}).catch(err => {
-    console.warn('[server] IPC feed start failed:', err.message);
-    // Still start the server even if IPC feed fails.
-    listen(() => {
-        const proto = tlsConfig.enabled ? 'https' : 'http';
-        console.log(`Server started on ${proto}://${BIND_HOST || 'localhost'}:${PORT} (IPC unavailable)`);
-    });
-});

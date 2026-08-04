@@ -2,6 +2,7 @@ package com.termlink.app.codex
 
 import com.termlink.app.codex.data.CodexIpcStatus
 import com.termlink.app.codex.data.CodexCapabilities
+import com.termlink.app.codex.data.CodexConversationCheckpoint
 import com.termlink.app.codex.data.CodexFollowerMode
 import com.termlink.app.codex.data.CodexEffectiveConfig
 import com.termlink.app.codex.data.CodexIpcConversationSummary
@@ -79,6 +80,51 @@ class CodexViewModelThreadReadyTest {
         assertEquals("resume", next.threadHistoryActionKind)
         assertEquals("", next.threadRenameTargetId)
         assertEquals("", next.threadRenameDraft)
+    }
+
+    @Test
+    fun historySyncAfterSurfaceOnlyRunsForInitialOrTerminalTransition() {
+        assertTrue(shouldRequestHistorySyncAfterSurface(null, "running", desynced = false))
+        assertTrue(shouldRequestHistorySyncAfterSurface("running", "completed", desynced = false))
+        assertFalse(shouldRequestHistorySyncAfterSurface("running", "running", desynced = false))
+        assertFalse(shouldRequestHistorySyncAfterSurface("completed", "completed", desynced = false))
+        assertFalse(shouldRequestHistorySyncAfterSurface(null, "running", desynced = true))
+    }
+
+    @Test
+    fun inconsistentCompleteHistoryCheckpointIsDowngradedForRepair() {
+        val checkpoint = normalizeHistoryCheckpointForAvailableItems(
+            checkpoint = CodexConversationCheckpoint(
+                endpointId = "home",
+                conversationId = "thread-a",
+                rootHash = "stale-root",
+                itemCount = 12,
+                complete = true
+            ),
+            availableDurableItemCount = 0
+        )
+
+        assertNull(checkpoint.rootHash)
+        assertEquals(0, checkpoint.itemCount)
+        assertFalse(checkpoint.complete)
+    }
+
+    @Test
+    fun completeHistoryCheckpointRemainsFastPathEligibleWhenRowsMatch() {
+        val checkpoint = normalizeHistoryCheckpointForAvailableItems(
+            checkpoint = CodexConversationCheckpoint(
+                endpointId = "home",
+                conversationId = "thread-a",
+                rootHash = "root",
+                itemCount = 12,
+                complete = true
+            ),
+            availableDurableItemCount = 12
+        )
+
+        assertEquals("root", checkpoint.rootHash)
+        assertEquals(12, checkpoint.itemCount)
+        assertTrue(checkpoint.complete)
     }
 
     @Test
@@ -1036,6 +1082,73 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun pendingHistorySelectionSuppressesUnscopedAndForeignSessionEvents() {
+        assertTrue(
+            shouldSuppressExplicitHistorySessionEvent(
+                pendingHistoryResumeThreadId = "history-thread",
+                pinnedConversationId = "history-thread",
+                activeConversationId = "history-thread",
+                incomingConversationId = null
+            )
+        )
+        assertTrue(
+            shouldSuppressExplicitHistorySessionEvent(
+                pendingHistoryResumeThreadId = "history-thread",
+                pinnedConversationId = "history-thread",
+                activeConversationId = "history-thread",
+                incomingConversationId = "old-thread"
+            )
+        )
+        assertFalse(
+            shouldSuppressExplicitHistorySessionEvent(
+                pendingHistoryResumeThreadId = "history-thread",
+                pinnedConversationId = "history-thread",
+                activeConversationId = "history-thread",
+                incomingConversationId = "history-thread"
+            )
+        )
+    }
+
+    @Test
+    fun settledPinnedSelectionStillRejectsLateForeignIdButAllowsGlobalEvents() {
+        assertTrue(
+            shouldSuppressExplicitHistorySessionEvent(
+                pendingHistoryResumeThreadId = null,
+                pinnedConversationId = "history-thread",
+                activeConversationId = "history-thread",
+                incomingConversationId = "old-thread"
+            )
+        )
+        assertFalse(
+            shouldSuppressExplicitHistorySessionEvent(
+                pendingHistoryResumeThreadId = null,
+                pinnedConversationId = "history-thread",
+                activeConversationId = "history-thread",
+                incomingConversationId = null
+            )
+        )
+    }
+
+    @Test
+    fun forwardedPayloadThreadIdExtractionAcceptsNestedTurnAndItemShapes() {
+        assertEquals(
+            "nested-thread",
+            extractCodexThreadIdFromPayload(
+                raw = JSONObject(),
+                params = JSONObject()
+                    .put("turn", JSONObject().put("thread", JSONObject().put("id", "nested-thread")))
+            )
+        )
+        assertEquals(
+            "item-thread",
+            extractCodexThreadIdFromPayload(
+                raw = JSONObject(),
+                params = JSONObject().put("item", JSONObject().put("threadId", "item-thread"))
+            )
+        )
+    }
+
+    @Test
     fun sessionThreadBindingAcknowledgementAppliesWithoutEchoingSelection() {
         val matching = resolveSessionThreadBindingDecision(
             boundSessionId = "session-1",
@@ -1209,6 +1322,26 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun applyingChangedSelectionClearsCachedMessagesEvenBeforeNewSurfaceArrives() {
+        val state = CodexUiState(
+            activeConversationId = "conv-a",
+            messages = listOf(ChatMessage(id = "a", role = ChatMessage.Role.ASSISTANT, content = "A")),
+            cachedCanonicalMessages = listOf(ChatMessage(id = "cached-a", role = ChatMessage.Role.ASSISTANT, content = "A")),
+            ipcSurfaceSnapshot = null,
+            liveAuthoritativeConversationId = null
+        )
+
+        val next = applyIpcConversationSelectionToUiState(
+            state,
+            ipcConversation("conv-b", updatedAt = 500)
+        )
+
+        assertTrue(next.messages.isEmpty())
+        assertTrue(next.cachedCanonicalMessages.isEmpty())
+        assertEquals("cache_only", next.historySyncState)
+    }
+
+    @Test
     fun cachedConversationCatalogStatusDoesNotBecomeRuntimeAuthority() {
         val state = CodexUiState(
             activeConversationId = "conv-old",
@@ -1276,6 +1409,68 @@ class CodexViewModelThreadReadyTest {
             liveAuthoritativeDesynced = true
         )
         assertTrue(shouldReplaceMessagesFromHistoryDeltaForUiState(desynced, "conv-b"))
+    }
+
+    @Test
+    fun boundedLiveSurfaceKeepsCachedHistoryBaseAndAuthoritativeTail() {
+        val state = CodexUiState(
+            activeConversationId = "conv-a",
+            liveAuthoritativeConversationId = "conv-a",
+            messages = listOf(
+                ChatMessage(
+                    id = "tail",
+                    role = ChatMessage.Role.ASSISTANT,
+                    content = "实时尾部",
+                    streaming = true
+                ),
+                ChatMessage(
+                    id = "live-only",
+                    role = ChatMessage.Role.TOOL,
+                    content = "实时操作"
+                )
+            )
+        )
+        val cached = listOf(
+            ChatMessage(id = "old", role = ChatMessage.Role.ASSISTANT, content = "历史正文"),
+            ChatMessage(id = "tail", role = ChatMessage.Role.ASSISTANT, content = "旧尾部")
+        )
+
+        val merged = mergeCachedHistoryIntoLiveMessagesForUi(state, "conv-a", cached)
+
+        assertEquals(listOf("old", "tail", "live-only"), merged.map { it.id })
+        assertEquals("实时尾部", merged[1].content)
+        assertTrue(merged[1].streaming)
+        assertEquals("实时操作", merged[2].content)
+    }
+
+    @Test
+    fun cacheFirstSelectionShowsCached正文BeforeLiveSurfaceArrives() {
+        val state = CodexUiState(
+            activeConversationId = "conv-a",
+            liveAuthoritativeConversationId = null,
+            messages = emptyList()
+        )
+        val cached = listOf(
+            ChatMessage(id = "old", role = ChatMessage.Role.ASSISTANT, content = "缓存正文")
+        )
+
+        val merged = mergeCachedHistoryIntoLiveMessagesForUi(state, "conv-a", cached)
+
+        assertEquals(cached, merged)
+    }
+
+    @Test
+    fun cachedHistoryDoesNotCarryStaleLiveSurfaceAcrossConversationSelection() {
+        val state = CodexUiState(
+            activeConversationId = "conv-b",
+            liveAuthoritativeConversationId = "conv-a",
+            messages = listOf(ChatMessage("a-tail", ChatMessage.Role.ASSISTANT, "A"))
+        )
+        val cached = listOf(ChatMessage("b-old", ChatMessage.Role.ASSISTANT, "B"))
+
+        val merged = mergeCachedHistoryIntoLiveMessagesForUi(state, "conv-b", cached)
+
+        assertEquals(listOf("b-old"), merged.map { it.id })
     }
 
     @Test
@@ -1348,6 +1543,61 @@ class CodexViewModelThreadReadyTest {
             merged.single().content
         )
         assertTrue(merged.single().streaming)
+    }
+
+    @Test
+    fun surfaceMergeRetainsCachedMessagesOutsideTheBoundedLiveTail() {
+        val existing = listOf(
+            ChatMessage(
+                id = "cached-old",
+                role = ChatMessage.Role.USER,
+                content = "历史正文"
+            ),
+            ChatMessage(
+                id = "tail-old",
+                role = ChatMessage.Role.ASSISTANT,
+                content = "旧尾部"
+            )
+        )
+
+        val merged = mergeSurfaceItems(
+            existing = existing,
+            surfaceItems = listOf(
+                SurfaceEntry(
+                    key = "tail-old",
+                    kind = "message",
+                    role = "assistant",
+                    phase = "commentary",
+                    text = "更新后的尾部",
+                    turnId = "turn-1",
+                    itemId = "tail-old",
+                    statusType = null,
+                    approvalType = null,
+                    requestId = null,
+                    raw = null
+                ),
+                SurfaceEntry(
+                    key = "tail-new",
+                    kind = "message",
+                    role = "assistant",
+                    phase = "final_answer",
+                    text = "最新尾部",
+                    turnId = "turn-1",
+                    itemId = "tail-new",
+                    statusType = null,
+                    approvalType = null,
+                    requestId = null,
+                    raw = null
+                )
+            ),
+            surfaceStatus = "completed",
+            latestTurnId = "turn-1",
+            preserveExisting = true
+        )
+
+        assertEquals(listOf("cached-old", "tail-old", "tail-new"), merged.map { it.id })
+        assertEquals("历史正文", merged[0].content)
+        assertEquals("更新后的尾部", merged[1].content)
     }
 
     @Test

@@ -3,6 +3,8 @@ package com.termlink.app.codex.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Rect
 import android.graphics.Point
 import android.graphics.Typeface
@@ -22,6 +24,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -81,6 +84,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -94,6 +98,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.isShiftPressed
@@ -153,7 +158,9 @@ import com.termlink.app.codex.domain.PERMISSION_CHOICE_CUSTOM
 import com.termlink.app.codex.domain.PERMISSION_CHOICE_FULL_ACCESS
 import com.termlink.app.codex.domain.PERMISSION_PROFILE_CHOICE_PREFIX
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -189,6 +196,26 @@ internal fun shouldReturnThreadHistoryToTopAfterRefresh(
 ): Boolean = refreshWasActive &&
     !currentTopEntryId.isNullOrBlank() &&
     currentTopEntryId != previousTopEntryId
+
+internal fun codexHistoryHydrationLabel(
+    syncState: String,
+    hasConversation: Boolean,
+    hasMessages: Boolean = true
+): String? {
+    if (!hasConversation) return null
+    return when (syncState.trim().lowercase(Locale.ROOT)) {
+        "cache_only" -> "历史正文：等待缓存或服务端恢复…"
+        "loading_baseline" -> "历史正文：加载中…"
+        "repairing" -> "历史正文：校验并修复中…"
+        "partial" -> "历史正文：已显示部分，正在补齐…"
+        "failed" -> "历史正文：恢复失败，仍可切换其他任务"
+        // A fast-path `live` ACK can arrive before the asynchronous SQLite
+        // read finishes. Keep the otherwise blank screen diagnosable instead
+        // of making a successful sync look like a frozen page.
+        "live" -> if (!hasMessages) "历史正文：已同步，当前暂无可显示正文" else null
+        else -> "历史正文：同步中…"
+    }
+}
 
 private object CodexBottomBarTokens {
     val composerRadius = 20.dp
@@ -454,7 +481,12 @@ fun CodexScreen(
                     if (state.threadHistorySheetVisible) onHideThreadHistory() else onShowThreadHistory()
                 },
                 onOpenDocs = onOpenDocs,
-                historyEnabled = state.capabilities?.historyList == true,
+                // The history drawer is also the cache/offline entry point.  Do not
+                // disable it merely because the current server has not advertised
+                // thread/list yet: the ViewModel has already loaded the endpoint-
+                // isolated local index, and showThreadHistory() only refreshes the
+                // remote list when that capability is present.
+                historyEnabled = true,
                 docsEnabled = state.sessionId.isNotBlank(),
                 onOpenPath = { pathSheetVisible = true },
                 onShowDebugInjector = { debugInjectorVisible = true }
@@ -488,6 +520,21 @@ fun CodexScreen(
                 )
             }
 
+            val hydrationLabel = codexHistoryHydrationLabel(
+                syncState = state.historySyncState,
+                hasConversation = !state.activeConversationId.isNullOrBlank()
+            )
+            if (state.messages.isNotEmpty() &&
+                hydrationLabel != null &&
+                (state.historySyncState != "cache_only" || state.connectionState != ConnectionState.CONNECTED)
+            ) {
+                HistoryHydrationBanner(
+                    label = hydrationLabel,
+                    syncState = state.historySyncState,
+                    onOpenHistory = onShowThreadHistory
+                )
+            }
+
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -513,19 +560,58 @@ fun CodexScreen(
                                         .fillMaxWidth(),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        text = "CODEX",
-                                        color = TextMuted.copy(alpha = 0.18f),
-                                        fontSize = 32.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 6.sp
-                                    )
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text(
+                                            text = "CODEX",
+                                            color = TextMuted.copy(alpha = 0.18f),
+                                            fontSize = 32.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 6.sp
+                                        )
+                                        codexHistoryHydrationLabel(
+                                            syncState = state.historySyncState,
+                                            hasConversation = !state.activeConversationId.isNullOrBlank(),
+                                            hasMessages = state.messages.isNotEmpty()
+                                        )?.let { label ->
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                if (state.historySyncState in setOf(
+                                                        "loading_baseline", "repairing", "partial"
+                                                    )
+                                                ) {
+                                                    CircularProgressIndicator(
+                                                        modifier = Modifier.size(12.dp),
+                                                        color = TextSecondary,
+                                                        strokeWidth = 1.5.dp
+                                                    )
+                                                }
+                                                Text(
+                                                    text = label,
+                                                    color = when (state.historySyncState) {
+                                                        "failed" -> WarningColor
+                                                        "partial" -> TextSecondary
+                                                        else -> TextMuted
+                                                    },
+                                                    fontSize = 11.sp,
+                                                    textAlign = TextAlign.Center
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                         items(state.messages, key = { it.id }) { message ->
                             MessageBubble(
                                 message = message,
+                                mediaDownloadHash = state.mediaDownloadHash,
+                                mediaDownloadBytes = state.mediaDownloadBytes,
+                                mediaDownloadTotalBytes = state.mediaDownloadTotalBytes,
                                 onAddSelectionToTask = { selectedText ->
                                     selectedTextContext = CodexSelectedTextContext(
                                         text = selectedText
@@ -1337,6 +1423,54 @@ private fun RuntimeStallBanner(
 }
 
 @Composable
+private fun HistoryHydrationBanner(
+    label: String,
+    syncState: String,
+    onOpenHistory: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        color = if (syncState == "failed") ErrorBg else SystemBg,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(
+            1.dp,
+            if (syncState == "failed") WarningColor.copy(alpha = 0.45f)
+            else SurfaceBorder
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (syncState in setOf("loading_baseline", "repairing", "partial")) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    color = TextSecondary,
+                    strokeWidth = 1.5.dp
+                )
+            }
+            Text(
+                text = label,
+                color = if (syncState == "failed") WarningColor else TextSecondary,
+                fontSize = 11.sp,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(
+                onClick = onOpenHistory,
+                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+            ) {
+                Text("任务列表", fontSize = 11.sp)
+            }
+        }
+    }
+}
+
+@Composable
 private fun ReturnToLatestButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -1984,11 +2118,24 @@ private fun formatHeaderCwdForDisplay(cwd: String): String {
 @OptIn(ExperimentalLayoutApi::class)
 private fun MessageBubble(
     message: ChatMessage,
+    mediaDownloadHash: String? = null,
+    mediaDownloadBytes: Long = 0L,
+    mediaDownloadTotalBytes: Long? = null,
     onAddSelectionToTask: (String) -> Unit,
     onOpenFileMention: (FileMention) -> Unit,
     onOpenAttachment: (CodexMessageAttachment) -> Unit
 ) {
-    if (message.collapsible) {
+    // Collapsed command batches must not hide an image/file chip: the chip is
+    // the user's only entry point for thumbnail/original download and its
+    // progress. Plain command-only batches keep the existing compact layout.
+    val markdownProjection = remember(message.role, message.content) {
+        if (message.role == ChatMessage.Role.ASSISTANT || message.role == ChatMessage.Role.SYSTEM) {
+            parseCodexMessageMarkdownLinks(message.content)
+        } else {
+            CodexMessageMarkdownProjection(message.content, emptyList())
+        }
+    }
+    if (message.collapsible && message.attachments.isEmpty() && markdownProjection.attachments.isEmpty()) {
         CollapsibleExecutionItem(message)
         return
     }
@@ -1996,13 +2143,6 @@ private fun MessageBubble(
     val label = roleLabel(message)
     val timeLabel = remember(message.timestamp) {
         SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(message.timestamp))
-    }
-    val markdownProjection = remember(message.role, message.content) {
-        if (message.role == ChatMessage.Role.ASSISTANT || message.role == ChatMessage.Role.SYSTEM) {
-            parseCodexMessageMarkdownLinks(message.content)
-        } else {
-            CodexMessageMarkdownProjection(message.content, emptyList())
-        }
     }
     val displayedAttachments = remember(message.attachments, markdownProjection.attachments) {
         (message.attachments + markdownProjection.attachments)
@@ -2074,6 +2214,9 @@ private fun MessageBubble(
                             displayedAttachments.forEach { attachment ->
                                 StaticAttachmentChip(
                                     attachment = attachment,
+                                    downloadHash = mediaDownloadHash,
+                                    downloadBytes = mediaDownloadBytes,
+                                    downloadTotalBytes = mediaDownloadTotalBytes,
                                     onClick = { onOpenAttachment(attachment) }
                                 )
                             }
@@ -3680,6 +3823,37 @@ private fun ThreadHistorySheet(
                 }
             }
 
+            Text(
+                text = when (state.threadHistoryStatus) {
+                    "syncing" -> "同步任务列表…"
+                    "offline" -> "离线缓存 · 网络恢复后可重试"
+                    "live" -> "已与服务同步"
+                    else -> "本地缓存"
+                },
+                color = when (state.threadHistoryStatus) {
+                    "offline" -> WarningColor
+                    "live" -> SuccessColor
+                    else -> TextMuted
+                },
+                fontSize = 10.sp,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            codexHistoryHydrationLabel(
+                syncState = state.historySyncState,
+                hasConversation = !state.activeConversationId.isNullOrBlank()
+            )?.let { detailLabel ->
+                Text(
+                    text = detailLabel,
+                    color = when (state.historySyncState) {
+                        "failed" -> WarningColor
+                        "partial" -> TextSecondary
+                        else -> TextMuted
+                    },
+                    fontSize = 10.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
             when {
@@ -3714,7 +3888,6 @@ private fun ThreadHistorySheet(
                                 state = state,
                                 entry = entry,
                                 isCurrent = entry.id == state.threadId,
-                                historyResumeSupported = state.capabilities?.historyResume == true,
                                 actionThreadId = state.threadHistoryActionThreadId,
                                 actionKind = state.threadHistoryActionKind,
                                 onResumeThread = onResumeThread,
@@ -3740,7 +3913,6 @@ private fun ThreadHistoryItem(
     state: CodexUiState,
     entry: CodexThreadHistoryEntry,
     isCurrent: Boolean,
-    historyResumeSupported: Boolean,
     actionThreadId: String,
     actionKind: String,
     onResumeThread: (String) -> Unit,
@@ -3771,7 +3943,10 @@ private fun ThreadHistoryItem(
                     else -> stringResource(R.string.codex_native_thread_open)
                 },
                 primary = true,
-                enabled = !renameEditing && !isCurrent && historyResumeSupported && !isBusy,
+                // A history entry is already a locally selectable task. The remote
+                // historyResume capability only controls the optional freshness
+                // request made after the cached selection is shown.
+                enabled = !renameEditing && !isCurrent && !isBusy,
                 onClick = { onResumeThread(entry.id) }
             )
         )
@@ -5592,6 +5767,9 @@ private fun UserMessageSkillChip(
 @Composable
 private fun StaticAttachmentChip(
     attachment: CodexMessageAttachment,
+    downloadHash: String? = null,
+    downloadBytes: Long = 0L,
+    downloadTotalBytes: Long? = null,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
@@ -5608,6 +5786,7 @@ private fun StaticAttachmentChip(
             }
     ) {
         SkillChipFrame {
+            AttachmentThumbnail(attachment.localPath)
             Text(
                 text = "↗",
                 color = AccentBlue,
@@ -5630,7 +5809,68 @@ private fun StaticAttachmentChip(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = 240.dp)
             )
+            codexMediaDownloadProgressLabel(
+                attachmentHash = attachment.contentHash,
+                downloadHash = downloadHash,
+                downloadedBytes = downloadBytes,
+                totalBytes = downloadTotalBytes
+            )?.let { progress ->
+                val progressDescription = stringResource(
+                    R.string.codex_native_media_download_progress,
+                    progress
+                )
+                Text(
+                    text = progress,
+                    color = TextSecondary,
+                    fontSize = 10.sp,
+                    modifier = Modifier.semantics {
+                        contentDescription = progressDescription
+                    }
+                )
+            }
         }
+    }
+}
+
+/**
+ * Keeps the attachment-chip progress contract deterministic and testable.
+ * A matching hash is required so an A→B selection cannot paint progress on a
+ * different attachment; an unknown total remains visibly in progress.
+ */
+fun codexMediaDownloadProgressLabel(
+    attachmentHash: String?,
+    downloadHash: String?,
+    downloadedBytes: Long,
+    totalBytes: Long?
+): String? {
+    if (attachmentHash.isNullOrBlank() ||
+        downloadHash.isNullOrBlank() ||
+        !attachmentHash.equals(downloadHash, ignoreCase = true)
+    ) {
+        return null
+    }
+    return totalBytes?.takeIf { it > 0L }?.let {
+        "${((downloadedBytes.coerceAtLeast(0L) * 100L) / it).coerceIn(0L, 100L)}%"
+    } ?: "…"
+}
+
+@Composable
+private fun AttachmentThumbnail(path: String?) {
+    val bitmap by produceState<Bitmap?>(initialValue = null, key1 = path) {
+        value = if (path.isNullOrBlank()) {
+            null
+        } else {
+            withContext(Dispatchers.IO) { BitmapFactory.decodeFile(path) }
+        }
+    }
+    bitmap?.let {
+        Image(
+            bitmap = it.asImageBitmap(),
+            contentDescription = null,
+            modifier = Modifier
+                .size(28.dp)
+                .clip(RoundedCornerShape(6.dp))
+        )
     }
 }
 

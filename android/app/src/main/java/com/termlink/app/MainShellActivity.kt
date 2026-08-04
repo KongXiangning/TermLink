@@ -388,6 +388,10 @@ class MainShellActivity : AppCompatActivity(), TerminalWebViewHost, TerminalEven
         screenTimeoutController.onPreferenceChanged()
     }
 
+    override fun onOpenCodexStorage() {
+        startActivity(Intent(this, com.termlink.app.ui.settings.CodexStorageManagementActivity::class.java))
+    }
+
     override fun getOrCreateTerminalWebView(): WebView {
         val existing = terminalWebView
         if (existing != null) {

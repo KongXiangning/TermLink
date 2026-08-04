@@ -3,7 +3,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
-const { CodexWsSnapshotScheduler, projectConversationActionPayload } = require('../src/services/codexWsSnapshotScheduler');
+const {
+    CodexWsSnapshotScheduler,
+    MAX_WS_ENVELOPE_BYTES,
+    projectConversationActionPayload
+} = require('../src/services/codexWsSnapshotScheduler');
 
 class FakeWs extends EventEmitter {
     constructor() { super(); this.readyState = 1; this.bufferedAmount = 0; this.sent = []; this.closed = null; }
@@ -48,6 +52,20 @@ test('scheduler waits at high water and closes only after hard-limit timeout', (
     now += 101;
     scheduler.flush(ws);
     assert.equal(ws.closed?.code, 1013);
+});
+
+test('scheduler never sends an oversized snapshot and reports it through the bounded channel', () => {
+    const ws = new FakeWs();
+    const oversized = { type: 'conversation_surface_snapshot', data: 'x'.repeat(MAX_WS_ENVELOPE_BYTES) };
+    const rejected = [];
+    const scheduler = new CodexWsSnapshotScheduler({
+        isStillActive: () => true,
+        onOversize: (_ws, envelope) => rejected.push(envelope.type)
+    });
+    scheduler.offer(ws, 'conv-a', oversized, { priority: 'terminal' });
+    assert.deepEqual(ws.sent, []);
+    assert.deepEqual(rejected, ['conversation_surface_snapshot']);
+    assert.equal(scheduler.getStats().oversizedDropped, 1);
 });
 
 test('action projection omits raw protocol payload and preserves numeric raw request id', () => {

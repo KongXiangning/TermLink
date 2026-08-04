@@ -1,20 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <application
-        android:networkSecurityConfig="@xml/debug_network_security_config">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!--
+        MIUI blocks instrumentation from launching a non-exported target
+        activity. Keep the production declaration non-exported; debug only
+        exposes the local storage screen so its injected-cache UI tests can
+        run on a real device.
+    -->
+    <application>
         <activity
-            android:name="com.termlink.app.ui.sessions.SessionsFragmentTestActivity"
-            android:exported="false"
-            android:theme="@style/AppTheme.Shell" />
+            android:name=".ui.settings.CodexStorageManagementActivity"
+            android:exported="true"
+            tools:replace="android:exported" />
+        <!-- Debug-only Compose media progress fixture; never packaged in release. -->
         <activity
-            android:name="com.termlink.app.ui.settings.SettingsFragmentTestActivity"
-            android:exported="false"
-            android:theme="@style/AppTheme.Shell" />
-        <activity
-            android:name="com.termlink.app.mtls.MtlsValidationTestActivity"
-            android:exported="false"
-            android:theme="@style/AppTheme.Shell" />
+            android:name=".codex.ui.CodexMediaProgressTestActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
     </application>
-
 </manifest>

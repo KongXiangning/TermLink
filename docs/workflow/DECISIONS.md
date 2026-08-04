@@ -77,6 +77,21 @@
 
 变更说明（2026-08-02，Owner re-entry / history continuity）：本轮用户验证确认，之前固定的 IPC-first 与 Owner sticky 边界还需要补上“终态 Owner 的安全释放门槛”和“切换后的历史写回隔离”。决策固定为：A→B→A 重新进入时，终态 TermLink Owner 只有在目标 conversation 已有非 `desynced` 的 healthy external IPC surface 时才能释放；没有该 surface 时必须保留 Owner raw surface、turn history 与 settings，禁止删除后用不完整 fallback 重建。Android conversation 切换/恢复必须清理旧 conversation 的 canonical history cache 与 live authority，并在异步 history delta 最终写回 UI 前重新校验 active conversation，旧 delta 不得覆盖当前会话。原因是仅按 terminal status 释放 Owner 会使 Desktop 重开得到缺少 `settings` 的恢复状态，而 Android 旧 live authority 与异步 history delta 会让切换后的正文消失。该补充不改变 IPC lifecycle、desired subscription/reconnect replay、healthy IPC authority、canonical binding、Goal RPC 或 Owner/Android 的 authority 语义；后续不得把 cache/history delta 变成实时权威，也不得以轮询或静默 thread/read 替代该隔离。该结论已由 Node 172/172、Android focused JVM 81/81、JDK 21 APK 真机构建安装启动及 A→B→A smoke 验证，并在普通 Goal/UI 修改中不得静默撤销。
 
+变更说明（2026-08-04，history recovery 卡死收敛）：用户再次复现历史任务打开后无提示、随后任务切换失效。决策固定为：Gateway 的完整 canonical recovery baseline 使用独立 source kind，后续不完整 realtime surface 只能作为 live tail，不能覆盖该静态基线；Android history sync/recovery 以协议活动重置有限 watchdog，服务端或传输无响应时必须进入可见失败/缓存态并保持任务可切换；旧 gateway 未回显 `selectionGeneration` 时，迟到的 metadata `thread/resume` 也必须按当前 pinned selection 拒绝。该补充仍保持 `active conversation → follower acquire → desired subscription/reconnect replay → host surface → Android IPC authority` 不变，不把 cache、history 或 watchdog 提升为实时权威。
+
+变更说明（2026-08-04，history selection stale session-event quarantine）：用户继续复现切换后无提示且后续任务不可打开。确认 cache-first 选择期间旧 session 仍可能排队发送通知、turn/server-request ack、conversation action/status、thread recovery 或无 id 状态；这些事件不得以当前到达顺序改写 pending/pinned conversation，也不得让旧 `thread/resume` error 清除选择保护。Android 现以同一显式选择 guard 在 ViewModel 事件入口丢弃旧事件，并保持旧 gateway 无 generation 时的有界 recovery 提示；`CodexActivity` 的选择持久化只接受已受保护的当前状态。该补充只改变客户端 stale-event 仲裁与可见恢复状态，不改变 IPC follower acquire/reconnect replay、healthy IPC authority、Owner lifecycle、Goal/Plan/Approval、媒体策略或远端任务语义。
+
+变更说明（2026-08-04，history selection protection lifecycle）：补充规定 pending history selection 的隔离
+必须有界收口：目标 `thread/resume` 成功、匹配 `thread/read`、history sync 终态或 protection watchdog 到期
+后释放无 id 事件隔离；`pinnedConversationId` 仍继续拒绝带错误 conversation id 的迟到事件。该补充只是
+客户端 stale-event 生命周期修复，不改变 frozen IPC/feed/Owner authority、follower/reconnect、Goal/Plan/Approval、
+媒体策略或远端任务语义。
+
+变更说明（2026-08-04，history fast-path checkpoint 与能力位竞态）：为避免“已同步但正文为空”的静默假成功，Android
+history 请求在使用 `complete` checkpoint 前必须核对本地 durable item 行数；不一致即走 manifest/delta 修复。历史抽屉
+在能力位尚未到达时仍允许显式 metadata refresh，仅明确声明不支持时跳过。该决定只影响 cache/history adapter 和用户
+可见状态，不提升 cache 为实时权威、不改变 IPC/feed/Owner/Goal/远端任务语义。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径
@@ -118,6 +133,32 @@
 - 影响范围：`STATUS.md` 风险描述、`DECISIONS.md` 本条目、后续 deferred fix 任务包、验证矩阵的实际 gate 执行面
 - 替代方案：继续保持 full suite 为唯一 gate（拒绝——gate 实际不可用）；直接降级 `node --test` 为非 blocker（拒绝——丢失 6 个 passing 文件的覆盖）；不拆分直接修复 hanging 文件（拒绝——超出当前 investigation-only 任务范围，需要独立修复任务）
 - 验证方式：`tmp\20260511-001-step2\*` 中 14 组 meta 文件记录了各子集的 pass/hung 结果；confirmed subset 已通过 `tmp\20260511-001-step4\confirmed-narrow-gate.meta.txt` 的 6 文件组合 gate 验证，其中 `sessionStore.metadata`、`terminal_shortcut_input`、`codexSecondaryPanel.integration` 已单文件验证通过，`tlsConfig/workspace.routes/workspace.web` 已通过 3 文件组合验证
+
+### TD-005: Android Codex 历史缓存按服务/任务手动管理，不设总量上限或自动淘汰
+
+- 状态：accepted
+- 背景：用户确认手机需要保留离线可用的全部已同步正文和已下载附件，并通过设置页自行管理空间。
+- 决策：缓存不设置总量上限，不执行 LRU、按时间或按空间压力自动删除；设置页必须提供服务级和任务级占用统计及手动清理。屏幕附近的缩略图自动预取；原图后台自动下载默认关闭，可配置为仅 Wi‑Fi 自动下载；用户主动打开原图时允许在任意网络下载并显示进度。
+- 原因：保留完整离线历史的可用性，同时把删除行为和网络/流量成本交给用户明确控制。
+- 约束：
+  - 不得在后台、升级、低磁盘或同步失败路径静默清理历史正文、缩略图或原图。
+  - 清理任务只删除该服务/任务的本地缓存；共享媒体仅在无其他引用时删除，不影响其他服务、远端任务、凭据或 IPC authority。
+  - 默认 Wi‑Fi 原图开关必须保持关闭；任何改变默认值或引入自动淘汰都需要新的用户确认。
+- 影响范围：Android Codex SQLite v3 cache、媒体引用/文件、Codex 存储管理页、Wi‑Fi 原图策略和 history/media sync。
+- 替代方案：固定容量或自动 LRU 淘汰；当前因会破坏用户确认的“离线保留全部”方向而不采用。
+- 验证方式：`docs/codex/codex-android-history-cache-media-recovery-plan.md` 的真机矩阵与 JDK 21 Android JVM 回归；
+  原图客户端进度、共享媒体引用清理原语和隔离存储管理 UI 已由真机 direct runner 覆盖；2026-08-04 又在
+  `da34332c` 上分别经 home 域名+mTLS、local 局域网 IP/port 完成真实 HTTP 原图下载（`OK (1 test)`，两端
+  hash/长度/解码/进度/`.part` 通过）；Android 另以 `OK (2)` 覆盖原图原子进度和已缓存缩略图不重复联网。
+  这只关闭真实服务 HTTP 子项，不等价于把隔离 fixture 当作生产缓存 destructive smoke；随后在 `da34332c` 上
+  以 debug-only fixture 渲染实际 `CodexScreen` 并由真实 `UiAutomator` 点击“打开 proof.png”，
+  `CodexMediaProgressUiInstrumentationTest` 为 `OK (1 test)`，界面显示“媒体下载进度 50%”，截图已写入
+  `android/app/build/outputs/screenshots/codex-media-progress-after.png`。该证据关闭 UI 点击/进度 wiring 门禁，
+  生产缓存 destructive smoke 与事故 Goal 完整基线仍按安全/运行态边界不执行；WireGuard 不作为独立门禁。
+
+变更说明（2026-08-04，网络路径验收口径）：用户明确 WireGuard 仅用于非局域网访问；本轮测试在同一局域网内，
+local 以 IP/port 直连，home 以域名+mTLS 作为认证层对照。WireGuard 与域名+Nginx 都归为可能抖动或受限的
+传输路径变量，不要求额外复现“WireGuard 未接通”作为修复门禁，也不把该网络变量与 mTLS 认证层混为一谈。
 
 ### TD-003: 现有架构文档继续保留在当前项目路径，不因 workflow bucket 升级而强制迁移
 

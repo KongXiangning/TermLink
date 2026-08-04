@@ -6,6 +6,92 @@ const http = require('node:http');
 const { WebSocketServer } = require('ws');
 const { EventEmitter } = require('node:events');
 
+test('metadata-only history projection strips turns and inline media from the mobile response', () => {
+    const registerTerminalGateway = loadGateway();
+    const response = registerTerminalGateway.projectMetadataOnlyThreadResponse({
+        thread: {
+            id: 'conversation',
+            title: 'large history',
+            turns: [{ id: 'turn', items: [{ type: 'agentMessage', text: 'x'.repeat(1024) }] }],
+            turnHistory: { entitiesByKey: { turn: { id: 'turn' } } },
+            conversationState: { turns: [{ id: 'turn' }] },
+            tokenUsage: { total: 3 }
+        }
+    });
+    assert.equal(response.metadataOnly, true);
+    assert.deepEqual(response.thread, {
+        id: 'conversation',
+        title: 'large history',
+        tokenUsage: { total: 3 }
+    });
+    assert.deepEqual(
+        registerTerminalGateway.projectMetadataOnlyThreadResponse({ data: [{ turns: ['must not leak'] }] }),
+        { thread: {}, metadataOnly: true }
+    );
+});
+
+test('metadata-only Android thread list strips turns and attachments', () => {
+    const registerTerminalGateway = loadGateway();
+    const result = registerTerminalGateway.projectMetadataOnlyThreadListResponse({
+        data: [{
+            id: 'thread-1',
+            title: 'History',
+            cwd: 'E:\\workspace',
+            turns: [{ items: [{ text: 'must not cross the list response' }] }],
+            attachments: [{ bytes: 'x'.repeat(1024) }]
+        }],
+        total: 1
+    });
+    assert.deepEqual(result, {
+        total: 1,
+        data: [{ id: 'thread-1', title: 'History', cwd: 'E:\\workspace' }]
+    });
+});
+
+test('Android WebSocket envelopes are rejected before an oversized response is sent', () => {
+    const registerTerminalGateway = loadGateway();
+    const sent = [];
+    const closed = [];
+    const ws = {
+        readyState: 1,
+        codexClientType: 'android',
+        send(payload) { sent.push(JSON.parse(payload)); },
+        close(code, reason) { closed.push({ code, reason }); }
+    };
+    const accepted = registerTerminalGateway.sendWsEnvelope(ws, {
+        type: 'codex_response',
+        requestId: 'large-read',
+        method: 'thread/list',
+        result: { data: [{ preview: 'x'.repeat(registerTerminalGateway.MAX_WS_ENVELOPE_BYTES) }] }
+    });
+    assert.equal(accepted, false);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].error?.code, 'CODEX_ENVELOPE_TOO_LARGE');
+    assert.equal(closed.length, 0);
+});
+
+test('Gateway projection queue serializes work and keeps only the newest pending revision', async () => {
+    const registerTerminalGateway = loadGateway();
+    const started = [];
+    let releaseFirst;
+    const firstFinished = new Promise((resolve) => { releaseFirst = resolve; });
+    const queue = registerTerminalGateway.createLatestOnlyAsyncQueue(async (value) => {
+        started.push(value);
+        if (value === 'first') await firstFinished;
+    });
+
+    const first = queue.enqueue('first');
+    await new Promise((resolve) => setImmediate(resolve));
+    const replaced = queue.enqueue('replaced');
+    const newest = queue.enqueue('newest');
+    releaseFirst();
+
+    const results = await Promise.all([first, replaced, newest]);
+    assert.deepEqual(started, ['first', 'newest']);
+    assert.equal(results[1].skipped, true);
+    assert.equal(results[2].skipped, false);
+});
+
 const activeGateways = new Set();
 const fakeCodexServices = [];
 
@@ -234,7 +320,9 @@ async function setupGateway(opts = {}) {
         sessionManager: sm,
         heartbeatMs: 99999,
         ipcFeed,
-        ipcSurfaceWaitGraceMs: opts.ipcSurfaceWaitGraceMs ?? 40
+        ipcSurfaceWaitGraceMs: opts.ipcSurfaceWaitGraceMs ?? 40,
+        mediaStore: opts.mediaStore ?? null,
+        registrationManager: opts.registrationManager ?? null
     });
 
     return new Promise((resolve) => {
@@ -272,10 +360,11 @@ test.after(async () => {
     }
 });
 
-function connectWs(port, sessionId) {
+function connectWs(port, sessionId, registrationId = null) {
     const WebSocket = require('ws');
     return new Promise((resolve, reject) => {
-        const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?sessionId=${sessionId}`);
+        const suffix = registrationId ? `&registrationId=${encodeURIComponent(registrationId)}` : '';
+        const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?sessionId=${sessionId}${suffix}`);
         const messages = [];
         ws.on('open', () => resolve({ ws, messages, nextMsg: () => new Promise(r => { ws.once('message', d => r(JSON.parse(d.toString()))); }) }));
         ws.on('message', (d) => messages.push(JSON.parse(d.toString())));
@@ -301,6 +390,98 @@ test('IPC status is sent on WebSocket connect when feed is online', async () => 
     const statusMsg = messages.find(m => m.type === 'codex_ipc_status');
     assert.ok(statusMsg, 'codex_ipc_status should be present');
     assert.equal(statusMsg.status.online, true);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('Android legacy full thread/read is refused without touching the app-server response', async () => {
+    const registrationId = 'android-registration';
+    const g = await setupGateway({
+        registrationManager: {
+            isActive: (id) => id === registrationId,
+            get: (id) => id === registrationId ? { clientType: 'android' } : null
+        }
+    });
+    const sess = await g.sm.createSession({ name: 'android-bounded-history' });
+    sess.codexState.threadId = 'thread-large';
+    const { ws, messages } = await connectWs(g.port, sess.id, registrationId);
+    await delay(100);
+    const requestCount = g.codexService.requests.length;
+    ws.send(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'legacy-read',
+        method: 'thread/read',
+        params: { threadId: 'thread-large' }
+    }));
+    await delay(80);
+    const error = messages.find((message) => message.type === 'codex_response' && message.requestId === 'legacy-read');
+    assert.equal(error?.error?.code, 'CODEX_HISTORY_METADATA_REQUIRED');
+    assert.equal(g.codexService.requests.length, requestCount);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('history recovery builds a canonical baseline inside the Gateway', async () => {
+    const g = await setupGateway();
+    const sess = await g.sm.createSession({ name: 'history-recovery' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-recovery' }));
+    await delay(50);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174005',
+        conversationId: 'conv-recovery',
+        selectionGeneration: 1
+    }));
+    await delay(100);
+    const recovery = messages.find((message) => message.type === 'conversation_history_recovery_state');
+    assert.equal(recovery?.state, 'ready');
+    assert.equal(recovery?.conversationId, 'conv-recovery');
+    assert.equal(recovery?.clientSelectionGeneration, 1);
+    assert.ok(g.codexService.requests.some((entry) => entry.method === 'thread/read' && entry.params.threadId === 'conv-recovery'));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('history sync waits for an in-flight media projection baseline', async () => {
+    const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+    const mediaStore = {
+        async put() {
+            await delay(35);
+            return {
+                contentHash: 'a'.repeat(64),
+                mimeType: 'image/png',
+                byteSize: 68,
+                mediaPath: '/api/codex/media/' + 'a'.repeat(64)
+            };
+        },
+        async ensureThumbnail() { return null; }
+    };
+    const g = await setupGateway({ mediaStore });
+    const sess = await g.sm.createSession({ name: 'history-baseline-race' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(80);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-race' }));
+    await delay(40);
+    g.ipcFeed.pushSnapshot('conv-race', {
+        conversationId: 'conv-race',
+        latestTurnId: 'turn-race',
+        status: 'completed',
+        historyBaselineComplete: true,
+        items: [{ key: 'item-race', kind: 'message', role: 'assistant', text: `image ${dataUrl}` }]
+    });
+    ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174006',
+        conversationId: 'conv-race',
+        selectionGeneration: 1,
+        cacheSchemaVersion: 2,
+        checkpoint: { rootHash: null, itemCount: 0, complete: false }
+    }));
+    await delay(180);
+    assert.equal(messages.some((message) => message.type === 'conversation_history_sync_state' && message.detailCode === 'history_unavailable'), false);
+    assert.ok(messages.some((message) => message.type === 'conversation_history_manifest_required'));
     ws.close();
     await stopGateway(g);
 });
@@ -351,6 +532,48 @@ test('set_active_conversation succeeds and snapshot is pushed to matching client
     assert.equal(snaps.length, 1);
     assert.equal(snaps[0].conversationId, 'conv-1');
     assert.equal(snaps[0].snapshot.status, 'completed');
+    ws.close();
+    await stopGateway(g);
+});
+
+test('Android IPC surface delivery sends only a bounded live tail', async () => {
+    const registrationId = 'android-tail-registration';
+    const g = await setupGateway({
+        registrationManager: {
+            isActive: (id) => id === registrationId,
+            get: (id) => id === registrationId ? { clientType: 'android' } : null
+        }
+    });
+    const sess = await g.sm.createSession({ name: 'android-tail' });
+    const { ws, messages } = await connectWs(g.port, sess.id, registrationId);
+    await delay(80);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-large-tail' }));
+    await delay(40);
+    messages.length = 0;
+
+    g.ipcFeed.pushSnapshot('conv-large-tail', {
+        conversationId: 'conv-large-tail',
+        status: 'running',
+        latestTurnId: 'turn-latest',
+        historyBaselineComplete: true,
+        items: Array.from({ length: 1_500 }, (_, index) => ({
+            key: `item-${index}`,
+            kind: 'message',
+            role: index % 2 === 0 ? 'user' : 'assistant',
+            turnId: index === 1_499 ? 'turn-latest' : `turn-${index}`,
+            text: `message-${index}`
+        }))
+    });
+    await delay(120);
+
+    const snapshot = messages.filter((message) => message.type === 'conversation_surface_snapshot').at(-1);
+    assert.ok(snapshot, 'Android should receive a live surface snapshot');
+    assert.ok(
+        Buffer.byteLength(JSON.stringify(snapshot), 'utf8') <= 256 * 1024,
+        'live surface envelope must stay within the WebSocket budget'
+    );
+    assert.ok(snapshot.snapshot.items.length < 1_500);
+    assert.equal(snapshot.snapshot.items.at(-1).key, 'item-1499');
     ws.close();
     await stopGateway(g);
 });

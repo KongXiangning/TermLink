@@ -728,6 +728,16 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
     }
 
     private fun openConversationAttachment(attachment: CodexMessageAttachment) {
+        if (!attachment.contentHash.isNullOrBlank()) {
+            viewModel.downloadOriginalAttachment(attachment) { file ->
+                if (file != null) {
+                    openCachedConversationFile(file, attachment.mimeType ?: mimeTypeForAttachment(attachment) ?: "image/*")
+                } else {
+                    showConversationOpenError()
+                }
+            }
+            return
+        }
         val candidate = attachment.url?.trim()?.takeIf { it.isNotBlank() }
             ?: attachment.path?.trim()?.takeIf { it.isNotBlank() }
         if (candidate == null) {
@@ -1193,7 +1203,14 @@ class CodexActivity : AppCompatActivity(), SessionsFragment.Callbacks {
                 val updatedParams = params.copy(
                     sessionId = state.sessionId.ifBlank { params.sessionId },
                     cwd = state.cwd ?: params.cwd,
-                    threadId = normalizeCodexLaunchThreadId(state.threadId)
+                    // activeConversationId is the canonical user selection.
+                    // Prefer it when persisting launch state so a stale
+                    // session event cannot make the next cold start reopen the
+                    // conversation that was bound before an A→B switch.
+                    threadId = resolveCodexTargetThreadId(
+                        explicitThreadId = state.activeConversationId,
+                        fallbackThreadId = state.threadId
+                    )
                 )
                 activeLaunchParams = updatedParams
                 syncActivityIntent(updatedParams)

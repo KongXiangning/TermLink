@@ -21,6 +21,7 @@ import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.TerminalType
 import com.termlink.app.data.SessionApiClient
 import com.termlink.app.data.SessionListCacheStore
+import com.termlink.app.codex.data.CodexConversationCacheStore
 import com.termlink.app.ui.settings.SettingsFragment
 import com.termlink.app.util.ProfileRestoreStateCleaner
 import com.termlink.app.util.ScreenTimeoutController
@@ -120,6 +121,10 @@ class SettingsActivity : AppCompatActivity(), SettingsFragment.Callbacks {
         screenTimeoutController.onPreferenceChanged()
     }
 
+    override fun onOpenCodexStorage() {
+        startActivity(Intent(this, com.termlink.app.ui.settings.CodexStorageManagementActivity::class.java))
+    }
+
     override fun onDestroy() {
         screenTimeoutController.dispose()
         super.onDestroy()
@@ -149,6 +154,16 @@ class SettingsActivity : AppCompatActivity(), SettingsFragment.Callbacks {
     override fun onDeleteProfile(profileId: String): ServerConfigState {
         val deletedProfile = serverConfigStore.loadState().profiles.firstOrNull { it.id == profileId }
         if (deletedProfile != null) {
+            Thread {
+                CodexConversationCacheStore(applicationContext).use { store ->
+                    store.upsertServiceMetadata(
+                        endpointId = deletedProfile.id,
+                        displayName = deletedProfile.name,
+                        origin = deletedProfile.baseUrl,
+                        profilePresent = false
+                    )
+                }
+            }.apply { isDaemon = true; start() }
             Thread {
                 sessionApiClient.removeRegistration(deletedProfile)
                 basicCredentialStore.removePassword(profileId)

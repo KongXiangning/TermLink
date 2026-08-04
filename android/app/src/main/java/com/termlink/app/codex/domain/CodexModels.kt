@@ -102,7 +102,14 @@ data class CodexMessageAttachment(
     val path: String? = null,
     val url: String? = null,
     val source: String? = null,
-    val dedupeKey: String? = null
+    val dedupeKey: String? = null,
+    val contentHash: String? = null,
+    val thumbnailHash: String? = null,
+    val thumbnailUrl: String? = null,
+    val mimeType: String? = null,
+    val byteSize: Long? = null,
+    val thumbnailUnavailable: Boolean = false,
+    val localPath: String? = null
 )
 
 data class CodexPendingImageAttachment(
@@ -120,7 +127,9 @@ data class CodexThreadHistoryEntry(
     val archived: Boolean = false,
     val lastActiveAt: Long? = null,
     val createdAt: Long? = null,
-    val goalObjective: String? = null
+    val goalObjective: String? = null,
+    val preview: String? = null,
+    val cwd: String? = null
 )
 
 data class CodexPlanWorkflowState(
@@ -263,10 +272,14 @@ data class CodexUiState(
     val threadHistoryEntries: List<CodexThreadHistoryEntry> = emptyList(),
     val threadHistorySheetVisible: Boolean = false,
     val threadHistoryLoading: Boolean = false,
+    val threadHistoryStatus: String = "cache_only",
     val threadHistoryActionThreadId: String = "",
     val threadHistoryActionKind: String = "",
     val threadRenameTargetId: String = "",
     val threadRenameDraft: String = "",
+    val mediaDownloadHash: String? = null,
+    val mediaDownloadBytes: Long = 0L,
+    val mediaDownloadTotalBytes: Long? = null,
     // ── IPC realtime sync state ──
     val ipcSupported: Boolean = false,
     val ipcOnline: Boolean = false,

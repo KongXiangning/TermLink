@@ -54,6 +54,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         fun putMtlsPassword(profileId: String, password: String)
         fun removeMtlsPassword(profileId: String)
         fun onScreenTimeoutChanged() = Unit
+        fun onOpenCodexStorage() = Unit
     }
 
     private data class MtlsDialogState(
@@ -83,6 +84,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
     private lateinit var languageValueText: TextView
     private lateinit var screenTimeoutValueText: TextView
     private lateinit var screenTimeoutSeekBar: SeekBar
+    private lateinit var autoOriginalsWifiSwitch: android.widget.Switch
     private var activeMtlsDialogState: MtlsDialogState? = null
 
     private val mtlsCertificatePickerLauncher =
@@ -122,6 +124,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         languageValueText = view.findViewById(R.id.settings_language_value)
         screenTimeoutValueText = view.findViewById(R.id.settings_screen_timeout_value)
         screenTimeoutSeekBar = view.findViewById(R.id.settings_screen_timeout_seekbar)
+        autoOriginalsWifiSwitch = view.findViewById(R.id.settings_auto_originals_wifi_switch)
         view.findViewById<View>(R.id.settings_theme_row).setOnClickListener { anchor ->
             showThemePreferencePopup(anchor)
         }
@@ -142,6 +145,13 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
 
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         })
+        autoOriginalsWifiSwitch.isChecked = UiPreferences.autoDownloadOriginalsWifiOnly(requireContext())
+        autoOriginalsWifiSwitch.setOnCheckedChangeListener { _, checked ->
+            UiPreferences.setAutoDownloadOriginalsWifiOnly(requireContext(), checked)
+        }
+        view.findViewById<View>(R.id.settings_codex_storage_row).setOnClickListener {
+            callbacks?.onOpenCodexStorage()
+        }
         renderUiPreferenceValues()
         view.findViewById<Button>(R.id.btn_add_profile).setOnClickListener {
             showProfileDialog(null)
@@ -155,6 +165,9 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         super.onResume()
         if (::themeValueText.isInitialized) {
             renderUiPreferenceValues()
+            if (::autoOriginalsWifiSwitch.isInitialized) {
+                autoOriginalsWifiSwitch.isChecked = UiPreferences.autoDownloadOriginalsWifiOnly(requireContext())
+            }
         }
     }
 

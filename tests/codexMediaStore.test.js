@@ -22,3 +22,21 @@ test('media store rejects paths outside trusted roots', async () => {
     const store = await new CodexMediaStore({ rootDir: root }).init();
     await assert.rejects(() => store.put({ path: path.join(os.tmpdir(), 'missing-image.png') }), /media_path_not_allowed/);
 });
+
+test('media store rebuilds metadata and creates a bounded thumbnail', async () => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-media-'));
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
+    const first = await new CodexMediaStore({ rootDir: root }).init();
+    const metadata = await first.put({ bytes: png, mimeType: 'image/png' });
+    const thumbnail = await first.ensureThumbnail(metadata.contentHash);
+    assert.ok(thumbnail);
+    assert.equal(thumbnail.mimeType, 'image/webp');
+    assert.ok(thumbnail.byteSize <= 256 * 1024);
+
+    const restarted = await new CodexMediaStore({ rootDir: root }).init();
+    const reopened = await restarted.open(metadata.contentHash);
+    assert.equal(reopened?.contentHash, metadata.contentHash);
+    const reopenedThumbnail = await restarted.open(metadata.contentHash, 'thumbnail');
+    assert.equal(reopenedThumbnail?.mimeType, 'image/webp');
+    assert.equal(reopenedThumbnail?.contentHash, thumbnail.thumbnailHash);
+});

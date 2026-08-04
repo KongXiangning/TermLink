@@ -1,6 +1,10 @@
 'use strict';
 
-const MAX_CONTROL_ENVELOPE_BYTES = 256 * 1024;
+// Keep every history/control WebSocket envelope below the Android parser
+// budget.  This is deliberately shared by the scheduler and the gateway
+// send helper so a snapshot cannot bypass the control-envelope limit.
+const MAX_WS_ENVELOPE_BYTES = 256 * 1024;
+const MAX_CONTROL_ENVELOPE_BYTES = MAX_WS_ENVELOPE_BYTES;
 
 class CodexWsSnapshotScheduler {
     constructor({
@@ -11,7 +15,8 @@ class CodexWsSnapshotScheduler {
         hardLimitDurationMs = 15_000,
         now = Date.now,
         serialize = JSON.stringify,
-        isStillActive
+        isStillActive,
+        onOversize
     } = {}) {
         this.intervalMs = intervalMs;
         this.highWaterBytes = highWaterBytes;
@@ -21,12 +26,21 @@ class CodexWsSnapshotScheduler {
         this.now = now;
         this.serialize = serialize;
         this.isStillActive = typeof isStillActive === 'function' ? isStillActive : () => true;
+        this.onOversize = typeof onOversize === 'function' ? onOversize : null;
         this._slots = new WeakMap();
         this._activeSockets = new Set();
         this._timers = new Set();
         this._backpressured = new WeakMap();
         this._closeListeners = new WeakMap();
-        this._stats = { offered: 0, sent: 0, coalesced: 0, dropped: 0, controlSent: 0, closedForBackpressure: 0 };
+        this._stats = {
+            offered: 0,
+            sent: 0,
+            coalesced: 0,
+            dropped: 0,
+            oversizedDropped: 0,
+            controlSent: 0,
+            closedForBackpressure: 0
+        };
     }
 
     offer(ws, conversationId, envelope, options = {}) {
@@ -87,7 +101,7 @@ class CodexWsSnapshotScheduler {
     sendControl(ws, envelope) {
         if (!ws || ws.readyState !== 1) return false;
         const serialized = this.serialize(envelope);
-        if (Buffer.byteLength(serialized, 'utf8') > MAX_CONTROL_ENVELOPE_BYTES) return false;
+        if (Buffer.byteLength(serialized, 'utf8') > MAX_WS_ENVELOPE_BYTES) return false;
         try {
             ws.send(serialized);
             this._stats.controlSent += 1;
@@ -184,6 +198,17 @@ class CodexWsSnapshotScheduler {
             serialized = this.serialize(slot.envelope);
         } catch (_) {
             this.cancel(ws, conversationId);
+            return;
+        }
+        if (Buffer.byteLength(serialized, 'utf8') > MAX_WS_ENVELOPE_BYTES) {
+            slots.delete(conversationId);
+            if (slots.size === 0) this._activeSockets.delete(ws);
+            this._stats.oversizedDropped += 1;
+            try {
+                this.onOversize?.(ws, slot.envelope);
+            } catch (_) {
+                // An oversize diagnostic must never take down the scheduler.
+            }
             return;
         }
         slots.delete(conversationId);
@@ -297,6 +322,7 @@ function clipVisibleText(value, maxLength = 12_000) {
 
 module.exports = {
     CodexWsSnapshotScheduler,
+    MAX_WS_ENVELOPE_BYTES,
     MAX_CONTROL_ENVELOPE_BYTES,
     projectConversationActionPayload
 };

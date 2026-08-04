@@ -11,6 +11,7 @@ object UiPreferences {
     private const val KEY_THEME = "theme"
     private const val KEY_LANGUAGE = "language"
     private const val KEY_SCREEN_TIMEOUT_PROGRESS = "screen_timeout_progress"
+    private const val KEY_AUTO_DOWNLOAD_ORIGINALS_WIFI_ONLY = "auto_download_originals_wifi_only"
 
     const val THEME_SYSTEM = "system"
     const val THEME_LIGHT = "light"
@@ -62,6 +63,18 @@ object UiPreferences {
                 KEY_SCREEN_TIMEOUT_PROGRESS,
                 progress.coerceIn(SCREEN_TIMEOUT_SYSTEM_PROGRESS, SCREEN_TIMEOUT_MAX_PROGRESS)
             )
+            .apply()
+    }
+
+    /** Default false: originals are never auto-prefetched unless explicitly enabled. */
+    fun autoDownloadOriginalsWifiOnly(context: Context): Boolean =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(KEY_AUTO_DOWNLOAD_ORIGINALS_WIFI_ONLY, false)
+
+    fun setAutoDownloadOriginalsWifiOnly(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_AUTO_DOWNLOAD_ORIGINALS_WIFI_ONLY, enabled)
             .apply()
     }
 

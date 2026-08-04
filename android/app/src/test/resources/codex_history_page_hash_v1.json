@@ -27,6 +27,34 @@
         "canonicalOrder": ["turn-1:item-1"]
       },
       "expectedPageHash": "aad7f033cf22333799cf1d3ddb02c65cae819e6792fea982699a3b1de479d7a6"
+    },
+    {
+      "name": "slash_in_opaque_payload",
+      "page": {
+        "syncId": "00000000-0000-4000-8000-000000000002",
+        "sequence": 1,
+        "pageIndex": 0,
+        "pageCount": 1,
+        "baseRoot": null,
+        "targetRoot": "root-slash",
+        "baselineComplete": true,
+        "fullOrderIncluded": false,
+        "upserts": [
+          {
+            "itemKey": "item",
+            "turnId": "turn",
+            "position": 0,
+            "itemType": "message",
+            "role": null,
+            "clientRequestId": null,
+            "payloadJson": "{\"text\":\"https://example.com/a/b\"}",
+            "contentHash": "hash"
+          }
+        ],
+        "deletes": [],
+        "canonicalOrder": []
+      },
+      "expectedPageHash": "aad5771a5c882b2a84ba559de236dc6377c3226a9990c364e3dad1eea6ba9837"
     }
   ]
 }

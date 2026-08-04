@@ -3,8 +3,11 @@ package com.termlink.app.codex.network
 import android.util.Log
 import com.termlink.app.codex.data.CodexWsEnvelope
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -50,6 +53,14 @@ class CodexWebSocketClient {
     )
     val events: SharedFlow<WsEvent> = _events
 
+    /**
+     * History pages use a lossless channel. They must not share the bounded
+     * realtime/control buffer because dropping a page can leave a sync stuck
+     * waiting for a page that will never be acknowledged.
+     */
+    private val _historyEvents = Channel<WsEvent>(capacity = Channel.UNLIMITED)
+    val historyEvents: Flow<WsEvent> = _historyEvents.receiveAsFlow()
+
     val isConnected: Boolean
         get() = webSocket != null
 
@@ -75,6 +86,10 @@ class CodexWebSocketClient {
     fun disconnect(code: Int = 1000, reason: String = "client disconnect") {
         webSocket?.close(code, reason)
         webSocket = null
+        while (_historyEvents.tryReceive().isSuccess) {
+            // Drop pages queued by the connection being torn down. The
+            // ViewModel generation gate rejects any event already in flight.
+        }
     }
 
     /** Release OkHttp thread pools. Call once when the manager is done. */
@@ -91,6 +106,18 @@ class CodexWebSocketClient {
     private inner class Listener(private val gen: Long) : WebSocketListener() {
         private fun isStale() = gen != generation
 
+        private fun rejectOversizedMessage(webSocket: WebSocket, text: String) {
+            val error = IllegalStateException(
+                "Codex WebSocket message exceeds ${CodexWsEnvelope.MAX_ENVELOPE_BYTES} bytes"
+            )
+            Log.w(TAG, "Rejecting oversized WebSocket message (chars=${text.length})")
+            // Surface the failure through the normal reconnect path, then use
+            // RFC 6455 1009 so OkHttp does not continue accepting more frames
+            // from a peer that violated the bounded protocol.
+            _events.tryEmit(WsEvent.Failure(error, 1009))
+            webSocket.close(1009, "Codex message too large")
+        }
+
         override fun onOpen(webSocket: WebSocket, response: Response) {
             if (isStale()) return
             Log.i(TAG, "WebSocket opened (protocol=${response.protocol})")
@@ -99,9 +126,18 @@ class CodexWebSocketClient {
 
         override fun onMessage(webSocket: WebSocket, text: String) {
             if (isStale()) return
+            if (!CodexWsEnvelope.isWithinMaxEnvelopeBytes(text)) {
+                rejectOversizedMessage(webSocket, text)
+                return
+            }
             val envelope = CodexWsEnvelope.parse(text)
             if (envelope != null) {
-                _events.tryEmit(WsEvent.Message(envelope))
+                val event = WsEvent.Message(envelope)
+                if (isHistoryEnvelope(envelope.type)) {
+                    _historyEvents.trySend(event)
+                } else {
+                    _events.tryEmit(event)
+                }
             } else {
                 Log.w(TAG, "Unparseable WS message: ${text.take(200)}")
             }
@@ -128,4 +164,12 @@ class CodexWebSocketClient {
             _events.tryEmit(WsEvent.Failure(t, response?.code))
         }
     }
+
+    private fun isHistoryEnvelope(type: String): Boolean =
+        type == "conversation_history_manifest_required" ||
+            type == "conversation_history_recovery_state" ||
+            type == "conversation_history_sync_state" ||
+            type == "conversation_history_delta" ||
+            type == "conversation_history_payload_chunk" ||
+            type == "conversation_history_progress"
 }

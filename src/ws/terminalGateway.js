@@ -15,11 +15,24 @@ const { normalizeCodexConfig } = require('../repositories/sessionStore');
 const { summarizeSessionConnections } = require('../services/sessionManager');
 const {
     CodexWsSnapshotScheduler,
+    MAX_WS_ENVELOPE_BYTES,
     MAX_CONTROL_ENVELOPE_BYTES,
     projectConversationActionPayload
 } = require('../services/codexWsSnapshotScheduler');
 const { CodexHistorySyncService } = require('../services/codexHistorySyncService');
+const { CodexHistoryBaselineProvider } = require('../services/codexHistoryBaselineProvider');
+const {
+    projectMobileSurface,
+    projectMobileRealtimeSurface,
+    containsImageDataUrl,
+    redactImageDataUrls
+} = require('../services/codexMobileSurfaceProjector');
 const SESSION_CAPACITY_ERROR_CODE = 'SESSION_CAPACITY_EXCEEDED';
+// History recovery is a bounded fallback, not a second long-lived request
+// queue.  A stale/expired Desktop owner must produce an observable failure
+// instead of holding the Android task in loading state for the app-server's
+// generic 120s RPC timeout.
+const HISTORY_RECOVERY_TIMEOUT_MS = 30_000;
 
 function closeSocket(ws, code, reason) {
     try {
@@ -36,6 +49,28 @@ function getClientIp(req) {
 
 function isNonEmptyString(value) {
     return typeof value === 'string' && value.trim().length > 0;
+}
+
+function withHistoryRecoveryTimeout(promise, timeoutMs = HISTORY_RECOVERY_TIMEOUT_MS) {
+    let timer = null;
+    return new Promise((resolve, reject) => {
+        timer = setTimeout(() => {
+            const error = new Error('Codex history recovery timed out.');
+            error.code = 'HISTORY_RECOVERY_TIMEOUT';
+            reject(error);
+        }, timeoutMs);
+        if (typeof timer.unref === 'function') timer.unref();
+        Promise.resolve(promise).then(
+            (value) => {
+                if (timer) clearTimeout(timer);
+                resolve(value);
+            },
+            (error) => {
+                if (timer) clearTimeout(timer);
+                reject(error);
+            }
+        );
+    });
 }
 
 function normalizeGoalObjective(value) {
@@ -61,9 +96,243 @@ function areJsonLikeValuesEqual(left, right) {
     return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
 }
 
+/**
+ * Run at most one asynchronous projection for a key and retain only the
+ * newest pending value.  IPC remains the source of truth; this queue only
+ * bounds Gateway-side derived work when a host emits a burst of revisions.
+ * Replaced values resolve as skipped so callers can safely attach cleanup
+ * handlers without creating unhandled promise rejections.
+ */
+function createLatestOnlyAsyncQueue(run) {
+    if (typeof run !== 'function') throw new TypeError('run must be a function');
+    let active = false;
+    let closed = false;
+    let pending = null;
+
+    const drain = async () => {
+        while (!closed && pending) {
+            const current = pending;
+            pending = null;
+            try {
+                const result = await run(current.value);
+                current.resolve({ skipped: false, result });
+            } catch (error) {
+                current.reject(error);
+            }
+        }
+        active = false;
+    };
+
+    return {
+        enqueue(value) {
+            if (closed) return Promise.resolve({ skipped: true });
+            if (pending) {
+                pending.resolve({ skipped: true });
+            }
+            const promise = new Promise((resolve, reject) => {
+                pending = { value, resolve, reject };
+            });
+            if (!active) {
+                active = true;
+                void drain().catch((error) => {
+                    // `run` errors belong to the individual value. This is a
+                    // final guard for an unexpected queue implementation error.
+                    const current = pending;
+                    pending = null;
+                    active = false;
+                    current?.reject(error);
+                });
+            }
+            return promise;
+        },
+        close() {
+            closed = true;
+            if (pending) {
+                pending.resolve({ skipped: true });
+                pending = null;
+            }
+        },
+        get active() {
+            return active;
+        },
+        get pending() {
+            return Boolean(pending);
+        }
+    };
+}
+
+const BOUNDED_WS_ENVELOPE_TYPES = new Set([
+    'conversation_surface_snapshot',
+    'codex_thread_snapshot',
+    'codex_response',
+    'conversation_history_manifest_required',
+    'conversation_history_recovery_state',
+    'conversation_history_sync_state',
+    'conversation_history_delta',
+    'conversation_history_payload_chunk',
+    'conversation_history_progress'
+]);
+
+function isAndroidCodexClient(ws) {
+    return String(ws?.codexClientType || '').trim().toLowerCase() === 'android';
+}
+
+function isBoundedWsEnvelope(envelope) {
+    const type = typeof envelope?.type === 'string' ? envelope.type : '';
+    return BOUNDED_WS_ENVELOPE_TYPES.has(type) || type.startsWith('conversation_history_');
+}
+
+function buildOversizeEnvelopeError(envelope) {
+    if (envelope?.type === 'codex_response') {
+        return {
+            type: 'codex_response',
+            requestId: envelope.requestId || null,
+            method: envelope.method || null,
+            selectionGeneration: Number.isSafeInteger(envelope.selectionGeneration)
+                ? envelope.selectionGeneration
+                : undefined,
+            error: {
+                code: 'CODEX_ENVELOPE_TOO_LARGE',
+                message: 'Codex response exceeded the mobile WebSocket envelope limit; history will be recovered in bounded pages.'
+            }
+        };
+    }
+    if (typeof envelope?.type === 'string' && envelope.type.startsWith('conversation_history_')) {
+        return {
+            type: 'conversation_history_sync_state',
+            syncId: envelope.syncId || null,
+            conversationId: envelope.conversationId || null,
+            state: 'failed',
+            detailCode: 'envelope_too_large',
+            selectionGeneration: Number.isSafeInteger(envelope.selectionGeneration)
+                ? envelope.selectionGeneration
+                : 0,
+            clientSelectionGeneration: Number.isSafeInteger(envelope.clientSelectionGeneration)
+                ? envelope.clientSelectionGeneration
+                : 0
+        };
+    }
+    return {
+        type: 'codex_error',
+        code: 'CODEX_ENVELOPE_TOO_LARGE',
+        message: 'Codex response exceeded the mobile WebSocket envelope limit; history will be recovered in bounded pages.',
+        detailCode: 'envelope_too_large',
+        originalType: typeof envelope?.type === 'string' ? envelope.type : null
+    };
+}
+
 function sendWsEnvelope(ws, envelope) {
     if (!ws || ws.readyState !== 1) return;
-    ws.send(JSON.stringify(envelope));
+    let serialized;
+    try {
+        serialized = JSON.stringify(envelope);
+    } catch (_) {
+        return false;
+    }
+    const byteLength = Buffer.byteLength(serialized, 'utf8');
+    // The bounded history/snapshot protocol is shared by all clients.  An
+    // Android client additionally applies the same cap to codex responses so
+    // a legacy fallback can never recreate the old full-thread OOM path.
+    const bounded = isBoundedWsEnvelope(envelope) || isAndroidCodexClient(ws);
+    if (bounded && byteLength > MAX_WS_ENVELOPE_BYTES) {
+        const fallback = buildOversizeEnvelopeError(envelope);
+        const fallbackSerialized = JSON.stringify(fallback);
+        try {
+            if (Buffer.byteLength(fallbackSerialized, 'utf8') <= MAX_WS_ENVELOPE_BYTES && ws.readyState === 1) {
+                ws.send(fallbackSerialized);
+            }
+            if (isAndroidCodexClient(ws) && envelope?.type !== 'codex_response') {
+                closeSocket(ws, 1009, 'Codex WebSocket message too large');
+            }
+        } catch (_) {
+            // Best effort: the connection may already be closing.
+        }
+        return false;
+    }
+    try {
+        ws.send(serialized);
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+function projectMetadataOnlyThreadResponse(response) {
+    if (!response || typeof response !== 'object' || !response.thread || typeof response.thread !== 'object') {
+        return { thread: {}, metadataOnly: true };
+    }
+    const scalarKeys = new Set([
+        'id', 'threadId', 'title', 'name', 'cwd', 'status', 'state', 'archived',
+        'createdAt', 'updatedAt', 'latestTurnId', 'currentTurnId', 'model',
+        'reasoningEffort', 'approvalPolicy', 'sandboxMode'
+    ]);
+    const thread = {};
+    for (const key of scalarKeys) {
+        const value = response.thread[key];
+        if (value !== undefined && value !== null &&
+            ['string', 'number', 'boolean'].includes(typeof value)) {
+            thread[key] = value;
+        }
+    }
+    if (response.thread.tokenUsage && typeof response.thread.tokenUsage === 'object') {
+        const tokenUsageJson = JSON.stringify(response.thread.tokenUsage);
+        if (Buffer.byteLength(tokenUsageJson, 'utf8') <= 16 * 1024) {
+            thread.tokenUsage = response.thread.tokenUsage;
+        }
+    }
+    return { thread, metadataOnly: true };
+}
+
+const THREAD_LIST_METADATA_KEYS = new Set([
+    'id', 'threadId', 'title', 'name', 'cwd', 'archived', 'isArchived',
+    'createdAt', 'created_at', 'created', 'updatedAt', 'updated_at',
+    'lastActiveAt', 'last_active_at', 'lastUpdatedAt', 'last_updated_at',
+    'lastMessageAt', 'last_message_at', 'modifiedAt', 'modified_at', 'mtime',
+    'preview', 'summary', 'status', 'state'
+]);
+
+function projectMetadataOnlyThreadListItem(item) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+    const result = {};
+    for (const key of THREAD_LIST_METADATA_KEYS) {
+        const value = item[key];
+        if (value === undefined || value === null) continue;
+        if (typeof value === 'string') {
+            result[key] = value.length <= 4096 ? value : `${value.slice(0, 4096)}…`;
+        } else if (typeof value === 'number' || typeof value === 'boolean') {
+            result[key] = value;
+        }
+    }
+    return result;
+}
+
+/**
+ * Thread-list responses are metadata only for Android.  In particular, do
+ * not forward turns/items/attachments hidden inside each list entry: those
+ * fields were the second legacy path capable of producing a multi-megabyte
+ * WebSocket frame before the cache/history channel was introduced.
+ */
+function projectMetadataOnlyThreadListResponse(response) {
+    if (Array.isArray(response)) return response.map(projectMetadataOnlyThreadListItem).filter(Boolean);
+    if (!response || typeof response !== 'object') return { data: [] };
+    const output = {};
+    for (const [key, value] of Object.entries(response)) {
+        if (key === 'data' || key === 'threads') continue;
+        if (value === null || typeof value === 'number' || typeof value === 'boolean') {
+            output[key] = value;
+        } else if (typeof value === 'string') {
+            output[key] = value.length <= 4096 ? value : `${value.slice(0, 4096)}…`;
+        }
+    }
+    const listKey = Array.isArray(response.data)
+        ? 'data'
+        : Array.isArray(response.threads)
+            ? 'threads'
+            : null;
+    output[listKey || 'data'] = (listKey ? response[listKey] : [])
+        .map(projectMetadataOnlyThreadListItem)
+        .filter(Boolean);
+    return output;
 }
 
 function diagnosticKey(value) {
@@ -842,21 +1111,208 @@ function registerTerminalGateway(wss, {
     /** @type {Array<() => void>} */
     const _ipcRequestHandlerDisposers = [];
     const _conversationCatalogFingerprints = new Map();
+    // Derived mobile projections can be expensive for a large surface. Keep
+    // one in-flight projection per client/conversation and replace only the
+    // pending value when the IPC host emits another revision.
+    const _mobileSurfaceProjectionQueues = new WeakMap();
     const snapshotScheduler = new CodexWsSnapshotScheduler({
         intervalMs: 25,
         isStillActive: (ws, conversationId, selectionGeneration) => (
             _ipcActiveConversations.get(ws) === conversationId &&
             (_ipcSelectionGenerations.get(ws) || 0) === selectionGeneration
-        )
+        ),
+        onOversize: (ws, envelope) => {
+            diagnosticLog.event('server', 'server.codex.ws.envelope_rejected', {
+                clientType: ws?.codexClientType || null,
+                type: envelope?.type || null,
+                limitBytes: MAX_WS_ENVELOPE_BYTES
+            }, 'warn');
+            snapshotScheduler.sendControl(ws, buildOversizeEnvelopeError(envelope));
+        }
     });
+    const _mobileSurfaceProjectionRevisions = new WeakMap();
+    const _surfaceBaselineRevisions = new Map();
+    const _surfaceBaselinePromises = new Map();
+    const _surfaceBaselineQueues = new Map();
+
+    const _offerSurfaceSnapshot = (client, conversationId, surface, options = {}) => {
+        let revisions = _mobileSurfaceProjectionRevisions.get(client);
+        if (!revisions) {
+            revisions = new Map();
+            _mobileSurfaceProjectionRevisions.set(client, revisions);
+        }
+        const revision = (revisions.get(conversationId) || 0) + 1;
+        revisions.set(conversationId, revision);
+        const offer = (snapshot) => snapshotScheduler.offer(
+            client,
+            conversationId,
+            { type: 'conversation_surface_snapshot', conversationId, snapshot },
+            options
+        );
+        if (client?.codexClientType !== 'android') {
+            offer(surface);
+            return;
+        }
+        let queues = _mobileSurfaceProjectionQueues.get(client);
+        if (!queues) {
+            queues = new Map();
+            _mobileSurfaceProjectionQueues.set(client, queues);
+        }
+        let queue = queues.get(conversationId);
+        if (!queue) {
+            queue = createLatestOnlyAsyncQueue(async ({ surface: pendingSurface, revision: pendingRevision }) => {
+                let projected;
+                try {
+                    projected = await projectMobileRealtimeSurface(pendingSurface, { mediaStore });
+                } catch (error) {
+                    diagnosticLog.error('server', 'server.codex.media.project_failed', error, {
+                        conversationKey: diagnosticKey(conversationId),
+                        clientType: client.codexClientType
+                    });
+                    projected = await projectMobileRealtimeSurface(redactImageDataUrls(pendingSurface), { mediaStore: null });
+                }
+                if (_mobileSurfaceProjectionRevisions.get(client)?.get(conversationId) === pendingRevision) {
+                    offer(projected);
+                }
+            });
+            queues.set(conversationId, queue);
+        }
+        void queue.enqueue({ surface, revision }).catch((error) => {
+            diagnosticLog.error('server', 'server.codex.media.project_failed', error, {
+                conversationKey: diagnosticKey(conversationId),
+                clientType: client.codexClientType
+            });
+        });
+    };
+
+    const _shouldPreserveRecoveryBaseline = (baseline, incomingSurface) => {
+        if (!baseline || baseline.sourceKind !== 'history_recovery') return false;
+        // An owner/IPC surface is a bounded live tail. It is never allowed to
+        // replace a full recovery baseline; the live tail is delivered through
+        // conversation_surface_snapshot separately. A later explicit recovery
+        // request can refresh this static baseline when needed.
+        return incomingSurface?.historyBaselineComplete !== true;
+    };
+
+    const _registerSurfaceBaseline = (conversationId, surface, sourceKind = 'ipc_surface') => {
+        const existingBaseline = historySyncService?.getBaseline(conversationId);
+        if (_shouldPreserveRecoveryBaseline(existingBaseline, surface)) {
+            diagnosticLog.event('server', 'server.codex.history.baseline_preserved', {
+                conversationKey: diagnosticKey(conversationId),
+                existingSourceKind: existingBaseline.sourceKind,
+                existingItemCount: Array.isArray(existingBaseline.items) ? existingBaseline.items.length : 0,
+                incomingSourceKind: sourceKind,
+                incomingItemCount: Array.isArray(surface?.items) ? surface.items.length : 0,
+                reason: 'realtime_surface_cannot_replace_recovery_baseline'
+            }, 'info');
+            return Promise.resolve({ skipped: true, preserved: true });
+        }
+        const revision = (_surfaceBaselineRevisions.get(conversationId) || 0) + 1;
+        _surfaceBaselineRevisions.set(conversationId, revision);
+        let queue = _surfaceBaselineQueues.get(conversationId);
+        if (!queue) {
+            queue = createLatestOnlyAsyncQueue(async ({ surface: pendingSurface, sourceKind: pendingSourceKind, revision: pendingRevision }) => {
+                const sourceData = {
+                    turns: [{
+                        id: pendingSurface?.latestTurnId || 'surface',
+                        status: pendingSurface?.status,
+                        items: Array.isArray(pendingSurface?.items) ? pendingSurface.items : []
+                    }]
+                };
+                const projected = mediaStore
+                    ? await projectMobileSurface(sourceData, { mediaStore })
+                    : sourceData;
+                if (_surfaceBaselineRevisions.get(conversationId) !== pendingRevision) return;
+                if (mediaStore && containsImageDataUrl(projected)) {
+                    const error = new Error('IPC surface still contains an image data URL after projection.');
+                    error.code = 'HISTORY_MEDIA_NOT_EXTERNALIZED';
+                    throw error;
+                }
+                const currentBaseline = historySyncService.getBaseline(conversationId);
+                if (_shouldPreserveRecoveryBaseline(currentBaseline, pendingSurface)) {
+                    diagnosticLog.event('server', 'server.codex.history.baseline_preserved', {
+                        conversationKey: diagnosticKey(conversationId),
+                        existingSourceKind: currentBaseline.sourceKind,
+                        existingItemCount: Array.isArray(currentBaseline.items) ? currentBaseline.items.length : 0,
+                        incomingSourceKind: pendingSourceKind,
+                        incomingItemCount: Array.isArray(pendingSurface?.items) ? pendingSurface.items.length : 0,
+                        reason: 'realtime_projection_completed_after_recovery'
+                    }, 'info');
+                    return;
+                }
+                historySyncService.registerBaseline(conversationId, pendingSourceKind, projected, {
+                    complete: pendingSurface?.historyBaselineComplete === true,
+                    sourceEpoch: pendingSurface?.sourceEpoch
+                });
+                diagnosticLog.event('server', 'server.codex.history.baseline_registered', {
+                    conversationKey: diagnosticKey(conversationId),
+                    sourceKind: pendingSourceKind,
+                    itemCount: Array.isArray(projected?.turns)
+                        ? projected.turns.reduce((count, turn) => count + (Array.isArray(turn?.items) ? turn.items.length : 0), 0)
+                        : 0,
+                    complete: pendingSurface?.historyBaselineComplete === true
+                }, 'info');
+            });
+            _surfaceBaselineQueues.set(conversationId, queue);
+        }
+        const promise = queue.enqueue({ surface, sourceKind, revision });
+        _surfaceBaselinePromises.set(conversationId, { revision, promise });
+        void promise.catch((error) => diagnosticLog.error('server', 'server.codex.history.baseline_projection_failed', error, {
+            conversationKey: diagnosticKey(conversationId),
+            sourceKind
+        })).finally(() => {
+            const pending = _surfaceBaselinePromises.get(conversationId);
+            if (pending?.revision === revision) _surfaceBaselinePromises.delete(conversationId);
+        });
+        return promise;
+    };
+    const _awaitSurfaceBaseline = async (conversationId) => {
+        const existing = historySyncService.getBaseline(conversationId);
+        if (existing) return existing;
+        const pending = _surfaceBaselinePromises.get(conversationId);
+        if (!pending) return historySyncService.getBaseline(conversationId);
+        try {
+            await pending.promise;
+        } catch (_) {
+            // The caller will receive the bounded recovery code below. The
+            // projection error is already recorded without exposing payloads.
+        }
+        return historySyncService.getBaseline(conversationId);
+    };
     const historySyncService = new CodexHistorySyncService({
+        isStillActive: (ws, conversationId, selectionGeneration) => (
+            _ipcActiveConversations.get(ws) === conversationId &&
+            (_ipcSelectionGenerations.get(ws) || 0) === selectionGeneration
+        ),
         send: (ws, envelope) => {
-            if (envelope.type === 'conversation_history_delta') {
+            diagnosticLog.event('server', 'server.codex.history.outbound', {
+                conversationKey: diagnosticKey(envelope?.conversationId),
+                type: envelope?.type || null,
+                syncId: envelope?.syncId || null,
+                pageIndex: Number.isInteger(envelope?.pageIndex) ? envelope.pageIndex : null,
+                pageCount: Number.isInteger(envelope?.pageCount) ? envelope.pageCount : null,
+                pageHash: typeof envelope?.pageHash === 'string' ? envelope.pageHash.slice(0, 16) : null,
+                targetRoot: typeof envelope?.targetRoot === 'string' ? envelope.targetRoot.slice(0, 16) : null,
+                baseRoot: typeof envelope?.baseRoot === 'string' ? envelope.baseRoot.slice(0, 16) : null,
+                baselineComplete: envelope?.baselineComplete === true,
+                fullOrderIncluded: envelope?.fullOrderIncluded === true,
+                canonicalOrderCount: Array.isArray(envelope?.canonicalOrder) ? envelope.canonicalOrder.length : 0,
+                upsertCount: Array.isArray(envelope?.upserts) ? envelope.upserts.length : 0,
+                chunkBytes: typeof envelope?.data === 'string' ? Buffer.byteLength(envelope.data, 'utf8') : 0
+            }, 'info');
+            if (envelope.type === 'conversation_history_delta' || envelope.type === 'conversation_history_payload_chunk') {
                 sendWsEnvelope(ws, envelope);
             } else {
                 snapshotScheduler.sendControl(ws, envelope);
             }
         }
+    });
+    const historyBaselineProvider = new CodexHistoryBaselineProvider({
+        readThread: (conversationId) => codexService.request('thread/read', {
+            threadId: conversationId,
+            includeTurns: true
+        }, HISTORY_RECOVERY_TIMEOUT_MS + 1_000),
+        mediaStore
     });
     let _lastIpcOnline = Boolean(ipcFeed && (
         typeof ipcFeed.isOnline === 'function' ? ipcFeed.isOnline() : ipcFeed.online
@@ -886,7 +1342,13 @@ function registerTerminalGateway(wss, {
                     manifestPageSize: 200,
                     deltaMaxItems: 100,
                     deltaMaxBytes: 256 * 1024,
-                    syncInactivityTimeoutMs: 30_000
+                    syncInactivityTimeoutMs: 30_000,
+                    recovery: true,
+                    selectionGeneration: true,
+                    perPageAck: true,
+                    payloadChunks: true,
+                    payloadChunkMaxBytes: 128 * 1024,
+                    maxEnvelopeBytes: 256 * 1024
                 },
                 codexMedia: { version: 1, maxBytes: 25 * 1024 * 1024 }
             }
@@ -966,14 +1428,38 @@ function registerTerminalGateway(wss, {
         }
     };
 
+    /**
+     * Stop derived baseline work once the last Android follower leaves a
+     * conversation. The registered history baseline remains available for
+     * bounded recovery; only queued/in-flight projection work is retired.
+     * Keep the revision counter monotonic so a late promise from the retired
+     * queue cannot match the first revision of a newly-created A→B→A queue.
+     */
+    const _disposeSurfaceBaselineQueue = (conversationId) => {
+        if (!isNonEmptyString(conversationId)) return;
+        const normalizedConversationId = conversationId.trim();
+        const queue = _surfaceBaselineQueues.get(normalizedConversationId);
+        if (queue) {
+            queue.close();
+            _surfaceBaselineQueues.delete(normalizedConversationId);
+        }
+        _surfaceBaselinePromises.delete(normalizedConversationId);
+    };
+
     const _releaseActiveIpcConversation = (ws) => {
         const conversationId = _ipcActiveConversations.get(ws);
         snapshotScheduler.dispose(ws);
         _ipcSelectionGenerations.delete(ws);
+        const projectionQueues = _mobileSurfaceProjectionQueues.get(ws);
+        if (conversationId && projectionQueues) {
+            projectionQueues.get(conversationId)?.close();
+            projectionQueues.delete(conversationId);
+        }
         if (!conversationId) return;
         _ipcActiveConversations.delete(ws);
         _unfollowIpcConversation(conversationId);
         if (_activeIpcSubscriberCount(conversationId) === 0) {
+            _disposeSurfaceBaselineQueue(conversationId);
             _closeIpcSubscriptionCycle(conversationId, 'last-subscriber-left');
         }
     };
@@ -1193,15 +1679,10 @@ function registerTerminalGateway(wss, {
             if (authoritativeSurface) {
                 _emitConversationActionRequired(client, conversationId, surface);
             }
-            snapshotScheduler.offer(
-                client,
-                conversationId,
-                { type: 'conversation_surface_snapshot', conversationId, snapshot: surface },
-                {
-                    priority: isTerminalSurface(surface) ? 'terminal' : 'normal',
-                    selectionGeneration: _ipcSelectionGenerations.get(client) || 0
-                }
-            );
+            _offerSurfaceSnapshot(client, conversationId, surface, {
+                priority: isTerminalSurface(surface) ? 'terminal' : 'normal',
+                selectionGeneration: _ipcSelectionGenerations.get(client) || 0
+            });
             sentCount++;
         }
         console.warn('[gateway][ipc][surface-snapshot-pushed]', JSON.stringify({
@@ -1361,12 +1842,7 @@ function registerTerminalGateway(wss, {
         });
 
         ipcFeed.on('snapshot', ({ conversationId, surface }) => {
-            historySyncService.registerBaseline(
-                conversationId,
-                'ipc_surface',
-                { turns: [{ id: surface.latestTurnId || 'surface', status: surface.status, items: Array.isArray(surface.items) ? surface.items : [] }] },
-                { complete: surface.historyBaselineComplete === true, sourceEpoch: surface.sourceEpoch }
-            );
+            _registerSurfaceBaseline(conversationId, surface, 'ipc_surface');
             const currentCycleSurface = _recordCurrentCycleIpcSnapshot(conversationId, surface);
             console.warn('[gateway][ipc][snapshot-push]', JSON.stringify({
                 conversationId,
@@ -1424,12 +1900,7 @@ function registerTerminalGateway(wss, {
             itemCount: Array.isArray(event.surface.items) ? event.surface.items.length : 0,
             ipcOnline: _isIpcOnline()
         });
-        historySyncService.registerBaseline(
-            event.conversationId,
-            'ipc_surface',
-            { turns: [{ id: event.surface.latestTurnId || 'owner-surface', status: event.surface.status, items: Array.isArray(event.surface.items) ? event.surface.items : [] }] },
-            { complete: event.surface.historyBaselineComplete === true, sourceEpoch: event.surface.sourceEpoch }
-        );
+        _registerSurfaceBaseline(event.conversationId, event.surface, 'ipc_surface');
         if (ipcFeed && _isIpcOnline() && typeof ipcFeed.sendBroadcast === 'function') {
             try {
                 const followerClientIds = ownerSurfaceTracker.getFollowerClientIds(event.conversationId);
@@ -1657,10 +2128,10 @@ function registerTerminalGateway(wss, {
         const cached = authoritative || _getLatestIpcSnapshot(normalizedConversationId);
         const latest = authoritative || (cached ? { ...cached, desynced: true } : null);
         if (latest) {
-            snapshotScheduler.offer(
+            _offerSurfaceSnapshot(
                 ws,
                 normalizedConversationId,
-                { type: 'conversation_surface_snapshot', conversationId: normalizedConversationId, snapshot: latest },
+                latest,
                 { priority: 'terminal', selectionGeneration: _ipcSelectionGenerations.get(ws) || 0 }
             );
             if (latest.desynced !== true) {
@@ -4358,6 +4829,10 @@ function registerTerminalGateway(wss, {
             // from being written under the temporary `default` history key.
             session.suppressPtyOutput = true;
             sessionManager.addConnection(session, ws);
+            // Resolve the registration type before any initial replay is
+            // written.  Android must receive the bounded protocol from the
+            // first frame, not only after the message listener is installed.
+            ws.codexClientType = registrationManager?.get(registrationId)?.clientType || null;
             const pty = session.ptyService;
             syncSessionThreadBinding(session);
             ws.connectionSecurity = connectionSecurity;
@@ -4375,7 +4850,7 @@ function registerTerminalGateway(wss, {
                 });
             }
 
-            ws.send(JSON.stringify({
+            sendWsEnvelope(ws, {
                 type: 'session_info',
                 sessionId: session.id,
                 name: session.name,
@@ -4390,7 +4865,7 @@ function registerTerminalGateway(wss, {
                     ? session.lastCodexThreadId
                     : null,
                 codexConfig: getStoredSessionCodexConfig(session)
-            }));
+            });
 
             // A PTY can already be alive when Android attaches (for example
             // after returning to the terminal from another screen). Replaying
@@ -4451,23 +4926,180 @@ function registerTerminalGateway(wss, {
 
                     if (type === 'set_active_conversation') {
                         _handleSetActiveConversation(ws, session, envelope.conversationId);
+                    } else if (type === 'conversation_history_recovery_request') {
+                        const conversationId = isNonEmptyString(envelope.conversationId) ? envelope.conversationId.trim() : '';
+                        const currentSelectionGeneration = _ipcSelectionGenerations.get(ws) || 0;
+                        const clientSelectionGeneration = Number.isSafeInteger(envelope.selectionGeneration) && envelope.selectionGeneration >= 0
+                            ? envelope.selectionGeneration
+                            : 0;
+                        if (!conversationId || _getActiveConversationId(ws) !== conversationId) {
+                            sendWsEnvelope(ws, {
+                                type: 'conversation_history_recovery_state',
+                                syncId: envelope.syncId || null,
+                                conversationId,
+                                state: 'failed',
+                                detailCode: 'conversation_not_active',
+                                selectionGeneration: currentSelectionGeneration,
+                                clientSelectionGeneration
+                            });
+                        } else {
+                            try {
+                                const baseline = await withHistoryRecoveryTimeout(
+                                    historyBaselineProvider.build(conversationId)
+                                );
+                                if (
+                                    _getActiveConversationId(ws) !== conversationId ||
+                                    (_ipcSelectionGenerations.get(ws) || 0) !== currentSelectionGeneration
+                                ) {
+                                    return;
+                                }
+                                historySyncService.registerBaselineItems(conversationId, baseline.items, {
+                                    complete: baseline.complete,
+                                    baselineSourceKind: 'history_recovery',
+                                    sourceEpoch: baseline.sourceEpoch
+                                });
+                                sendWsEnvelope(ws, {
+                                    type: 'conversation_history_recovery_state',
+                                    syncId: envelope.syncId || null,
+                                    conversationId,
+                                    state: 'ready',
+                                    rootHash: baseline.rootHash,
+                                    itemCount: baseline.items.length,
+                                    complete: baseline.complete,
+                                    selectionGeneration: currentSelectionGeneration,
+                                    clientSelectionGeneration
+                                });
+                            } catch (error) {
+                                const timedOut = error && (
+                                    error.code === 'HISTORY_RECOVERY_TIMEOUT' ||
+                                    /timed out/i.test(String(error.message || ''))
+                                );
+                                const detailCode = error && error.code === 'HISTORY_RECOVERY_BASELINE_TOO_LARGE'
+                                    ? 'history_recovery_too_large'
+                                    : timedOut
+                                        ? 'history_recovery_timeout'
+                                        : 'history_recovery_failed';
+                                sendWsEnvelope(ws, {
+                                    type: 'conversation_history_recovery_state',
+                                    syncId: envelope.syncId || null,
+                                    conversationId,
+                                    state: 'failed',
+                                    detailCode,
+                                    selectionGeneration: currentSelectionGeneration,
+                                    clientSelectionGeneration
+                                });
+                                diagnosticLog.error('server', 'server.codex.history.recovery.failed', error, {
+                                    conversationKey: diagnosticKey(conversationId),
+                                    selectionGeneration: currentSelectionGeneration,
+                                    clientSelectionGeneration
+                                });
+                            }
+                        }
                     } else if (type === 'conversation_history_sync_request') {
                         const conversationId = isNonEmptyString(envelope.conversationId) ? envelope.conversationId.trim() : '';
+                        diagnosticLog.event('server', 'server.codex.history.sync.request_received', {
+                            conversationKey: diagnosticKey(conversationId),
+                            syncId: envelope.syncId || null,
+                            active: Boolean(conversationId && _getActiveConversationId(ws) === conversationId),
+                            selectionGeneration: _ipcSelectionGenerations.get(ws) || 0,
+                            clientSelectionGeneration: envelope.selectionGeneration || 0,
+                            cacheSchemaVersion: envelope.cacheSchemaVersion || 1
+                        }, 'info');
                         if (!conversationId || _getActiveConversationId(ws) !== conversationId) {
-                            sendWsEnvelope(ws, { type: 'conversation_history_sync_state', syncId: envelope.syncId || null, conversationId, state: 'failed', detailCode: 'conversation_not_active' });
+                            sendWsEnvelope(ws, {
+                                type: 'conversation_history_sync_state',
+                                syncId: envelope.syncId || null,
+                                conversationId,
+                                state: 'failed',
+                                detailCode: 'conversation_not_active',
+                                selectionGeneration: _ipcSelectionGenerations.get(ws) || 0,
+                                clientSelectionGeneration: envelope.selectionGeneration || 0
+                            });
                         } else {
-                            historySyncService.startSync({
+                            // Snapshot projection is asynchronous when media
+                            // bytes must be externalized. Wait for that one
+                            // bounded baseline job so an immediate Android
+                            // sync request cannot race it and report a false
+                            // history_unavailable result. A stuck projection
+                            // must still terminate the request with a visible
+                            // recovery state instead of leaving Android in
+                            // loading_baseline forever.
+                            try {
+                                await withHistoryRecoveryTimeout(
+                                    _awaitSurfaceBaseline(conversationId),
+                                    HISTORY_RECOVERY_TIMEOUT_MS
+                                );
+                            } catch (error) {
+                                const detailCode = error?.code === 'HISTORY_RECOVERY_TIMEOUT'
+                                    ? 'history_baseline_timeout'
+                                    : 'history_baseline_failed';
+                                sendWsEnvelope(ws, {
+                                    type: 'conversation_history_sync_state',
+                                    syncId: envelope.syncId || null,
+                                    conversationId,
+                                    state: 'failed',
+                                    detailCode,
+                                    selectionGeneration: _ipcSelectionGenerations.get(ws) || 0,
+                                    clientSelectionGeneration: envelope.selectionGeneration || 0
+                                });
+                                diagnosticLog.error('server', 'server.codex.history.baseline_wait_failed', error, {
+                                    conversationKey: diagnosticKey(conversationId),
+                                    syncId: envelope.syncId || null,
+                                    detailCode
+                                });
+                                return;
+                            }
+                            if (_getActiveConversationId(ws) !== conversationId) return;
+                            const result = historySyncService.startSync({
                                 ws,
                                 conversationId,
                                 syncId: envelope.syncId,
                                 checkpoint: envelope.checkpoint || {},
-                                selectionGeneration: _ipcSelectionGenerations.get(ws) || 0
+                                cacheSchemaVersion: envelope.cacheSchemaVersion,
+                                selectionGeneration: _ipcSelectionGenerations.get(ws) || 0,
+                                clientSelectionGeneration: envelope.selectionGeneration
                             });
+                            diagnosticLog.event('server', 'server.codex.history.sync.started', {
+                                conversationKey: diagnosticKey(conversationId),
+                                syncId: envelope.syncId || null,
+                                ok: result.ok,
+                                state: result.state || null,
+                                detailCode: result.detailCode || null
+                            }, 'info');
+                            if (!result.ok) {
+                                sendWsEnvelope(ws, {
+                                    type: 'conversation_history_sync_state',
+                                    syncId: envelope.syncId || null,
+                                    conversationId,
+                                    state: 'failed',
+                                    detailCode: result.detailCode || 'history_unavailable',
+                                    selectionGeneration: _ipcSelectionGenerations.get(ws) || 0,
+                                    clientSelectionGeneration: envelope.selectionGeneration || 0
+                                });
+                            }
                         }
                     } else if (type === 'conversation_history_manifest_page') {
-                        historySyncService.handleManifestPage(ws, envelope);
+                        const result = historySyncService.handleManifestPage(ws, envelope);
+                        diagnosticLog.event('server', 'server.codex.history.manifest_page_received', {
+                            conversationKey: diagnosticKey(envelope.conversationId),
+                            syncId: envelope.syncId || null,
+                            pageIndex: envelope.pageIndex,
+                            lastPage: envelope.lastPage === true,
+                            itemCount: Array.isArray(envelope.items) ? envelope.items.length : 0,
+                            ok: result.ok,
+                            pending: result.pending === true,
+                            detailCode: result.detailCode || null
+                        }, 'info');
                     } else if (type === 'conversation_history_sync_ack') {
-                        historySyncService.handleAck(ws, envelope);
+                        const result = historySyncService.handleAck(ws, envelope);
+                        diagnosticLog.event('server', 'server.codex.history.ack_received', {
+                            conversationKey: diagnosticKey(envelope.conversationId),
+                            syncId: envelope.syncId || null,
+                            pageIndex: envelope.pageIndex,
+                            ok: result.ok,
+                            state: result.state || null,
+                            detailCode: result.detailCode || null
+                        }, 'info');
                     } else if (type === 'set_active_follower_mode') {
                         _setFollowerMode(ws, envelope.enabled === true);
                     } else if (type === 'codex_thread_recovery_action') {
@@ -4867,6 +5499,20 @@ function registerTerminalGateway(wss, {
                             });
                             return;
                         }
+                        // This legacy command used to forward the complete
+                        // app-server thread in one frame.  Android history is
+                        // now cache/sync driven, so refuse that path rather
+                        // than allowing an unbounded snapshot to reach the
+                        // generic JSON parser.  Desktop/legacy clients keep
+                        // the existing command semantics for compatibility.
+                        if (isAndroidCodexClient(ws)) {
+                            sendWsEnvelope(ws, {
+                                type: 'codex_error',
+                                code: 'CODEX_HISTORY_METADATA_REQUIRED',
+                                message: 'Android history recovery uses bounded cache synchronization.'
+                            });
+                            return;
+                        }
                         const response = await codexService.request('thread/read', {
                             threadId: codexState.threadId,
                             includeTurns: true
@@ -4921,9 +5567,36 @@ function registerTerminalGateway(wss, {
                             return;
                         }
                         const requestParams = buildCodexRequestParams(method, envelope.params, session);
+                        const metadataOnlyHistoryRequest = (
+                            method === 'thread/resume' || method === 'thread/read' || method === 'thread/list'
+                        ) && (
+                            envelope.historyMode === 'metadata' ||
+                            (isAndroidCodexClient(ws) && method === 'thread/list')
+                        );
+                        if (isAndroidCodexClient(ws) &&
+                            (method === 'thread/resume' || method === 'thread/read') &&
+                            !metadataOnlyHistoryRequest) {
+                            sendWsEnvelope(ws, {
+                                type: 'codex_response',
+                                requestId: envelope.requestId || null,
+                                method,
+                                error: {
+                                    code: 'CODEX_HISTORY_METADATA_REQUIRED',
+                                    message: 'Android history recovery requires historyMode=metadata.'
+                                }
+                            });
+                            return;
+                        }
+                        const upstreamRequestParams = metadataOnlyHistoryRequest && requestParams && typeof requestParams === 'object'
+                            ? (() => {
+                                const next = { ...requestParams };
+                                delete next.historyMode;
+                                return next;
+                            })()
+                            : requestParams;
                         const requestStartedAt = Date.now();
                         try {
-                            const response = await codexService.request(method, requestParams);
+                            const response = await codexService.request(method, upstreamRequestParams);
                             diagnosticLog.event('server', 'server.codex.request.completed', {
                                 method,
                                 durationMs: Date.now() - requestStartedAt,
@@ -4997,12 +5670,21 @@ function registerTerminalGateway(wss, {
                             codexState.currentTurnId = response.turn.id;
                             codexState.status = 'running';
                         }
-                        sendWsEnvelope(ws, {
+                        const clientResponse = metadataOnlyHistoryRequest
+                            ? method === 'thread/list'
+                                ? projectMetadataOnlyThreadListResponse(response)
+                                : projectMetadataOnlyThreadResponse(response)
+                            : response;
+                        const responseEnvelope = {
                             type: 'codex_response',
                             requestId: envelope.requestId || null,
                             method,
-                            result: response
-                        });
+                            result: clientResponse
+                        };
+                        if (Number.isSafeInteger(envelope.selectionGeneration) && envelope.selectionGeneration >= 0) {
+                            responseEnvelope.selectionGeneration = envelope.selectionGeneration;
+                        }
+                        sendWsEnvelope(ws, responseEnvelope);
                         } catch (error) {
                             diagnosticLog.error('server', 'server.codex.request.failed', error, {
                                 method,
@@ -5036,7 +5718,7 @@ function registerTerminalGateway(wss, {
                         return;
                     }
                     if (envelope && envelope.type === 'codex_request') {
-                        sendWsEnvelope(ws, {
+                        const errorEnvelope = {
                             type: 'codex_response',
                             requestId: envelope.requestId || null,
                             method: envelope.method || null,
@@ -5045,7 +5727,11 @@ function registerTerminalGateway(wss, {
                                 message: e && e.message ? e.message : 'Codex request failed.',
                                 data: e.data || null
                             }
-                        });
+                        };
+                        if (Number.isSafeInteger(envelope.selectionGeneration) && envelope.selectionGeneration >= 0) {
+                            errorEnvelope.selectionGeneration = envelope.selectionGeneration;
+                        }
+                        sendWsEnvelope(ws, errorEnvelope);
                         return;
                     }
                     if (envelope && typeof envelope.type === 'string' && envelope.type.startsWith('codex_')) {
@@ -5160,3 +5846,8 @@ function registerTerminalGateway(wss, {
 }
 
 module.exports = registerTerminalGateway;
+module.exports.projectMetadataOnlyThreadResponse = projectMetadataOnlyThreadResponse;
+module.exports.projectMetadataOnlyThreadListResponse = projectMetadataOnlyThreadListResponse;
+module.exports.sendWsEnvelope = sendWsEnvelope;
+module.exports.MAX_WS_ENVELOPE_BYTES = MAX_WS_ENVELOPE_BYTES;
+module.exports.createLatestOnlyAsyncQueue = createLatestOnlyAsyncQueue;

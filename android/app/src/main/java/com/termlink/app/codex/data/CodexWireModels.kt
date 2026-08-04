@@ -13,6 +13,12 @@ private fun JSONObject.optStringOrNull(key: String): String? =
             .takeIf { it.isNotEmpty() && !it.equals("null", ignoreCase = true) }
     }
 
+private fun JSONObject.optIntOrNull(key: String): Int? =
+    if (!has(key) || isNull(key)) null else optInt(key).takeIf { it > 0 }
+
+private fun JSONObject.optLongOrNull(key: String): Long? =
+    if (!has(key) || isNull(key)) null else optLong(key).takeIf { it > 0L }
+
 /**
  * Thin envelope for all Codex WebSocket messages.
  * The gateway always wraps payloads in `{ "type": "...", ... }`.
@@ -22,7 +28,22 @@ data class CodexWsEnvelope(
     val raw: JSONObject
 ) {
     companion object {
+        /** Maximum UTF-8 size accepted for one bounded WebSocket envelope. */
+        const val MAX_ENVELOPE_BYTES: Int = 256 * 1024
+
+        /**
+         * Check the byte budget before constructing JSONObject.  The cheap
+         * UTF-16 length guard avoids allocating another byte array for an
+         * already oversized OkHttp String; only messages near the limit are
+         * encoded to account for multi-byte UTF-8 text.
+         */
+        fun isWithinMaxEnvelopeBytes(text: String): Boolean {
+            if (text.length > MAX_ENVELOPE_BYTES) return false
+            return text.toByteArray(Charsets.UTF_8).size <= MAX_ENVELOPE_BYTES
+        }
+
         fun parse(text: String): CodexWsEnvelope? {
+            if (!isWithinMaxEnvelopeBytes(text)) return null
             return try {
                 val json = JSONObject(text)
                 val type = json.optString("type", "").trim()
@@ -108,6 +129,7 @@ data class CodexCapabilities(
             )
         }
     }
+
 }
 
 data class CodexHistoryCapability(
@@ -115,13 +137,31 @@ data class CodexHistoryCapability(
     val manifestPageSize: Int,
     val deltaMaxItems: Int,
     val deltaMaxBytes: Int,
-    val syncInactivityTimeoutMs: Long
+    val syncInactivityTimeoutMs: Long,
+    val recovery: Boolean = false,
+    val selectionGeneration: Boolean = false,
+    val perPageAck: Boolean = false,
+    val payloadChunks: Boolean = false,
+    val payloadChunkMaxBytes: Int = 131072,
+    val maxEnvelopeBytes: Int = 262144
 ) {
     companion object {
         fun from(status: JSONObject?): CodexHistoryCapability? {
             val json = (status?.optJSONObject("capabilities") ?: status)?.optJSONObject("historySync") ?: return null
             if (json.optInt("version", 0) != 1) return null
-            return CodexHistoryCapability(json.optInt("version"), json.optInt("manifestPageSize", 200), json.optInt("deltaMaxItems", 100), json.optInt("deltaMaxBytes", 262144), json.optLong("syncInactivityTimeoutMs", 30000))
+            return CodexHistoryCapability(
+                version = json.optInt("version"),
+                manifestPageSize = json.optInt("manifestPageSize", 200),
+                deltaMaxItems = json.optInt("deltaMaxItems", 100),
+                deltaMaxBytes = json.optInt("deltaMaxBytes", 262144),
+                syncInactivityTimeoutMs = json.optLong("syncInactivityTimeoutMs", 30000),
+                recovery = json.optBoolean("recovery", false),
+                selectionGeneration = json.optBoolean("selectionGeneration", false),
+                perPageAck = json.optBoolean("perPageAck", false),
+                payloadChunks = json.optBoolean("payloadChunks", false),
+                payloadChunkMaxBytes = json.optInt("payloadChunkMaxBytes", 131072),
+                maxEnvelopeBytes = json.optInt("maxEnvelopeBytes", 262144)
+            )
         }
     }
 }
@@ -141,14 +181,39 @@ data class CodexHistorySyncCheckpoint(
 data class CodexHistorySyncRequest(
     val syncId: String,
     val conversationId: String,
-    val checkpoint: CodexHistorySyncCheckpoint
+    val checkpoint: CodexHistorySyncCheckpoint,
+    val selectionGeneration: Long = 0L,
+    val cacheSchemaVersion: Int = 1
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("type", "conversation_history_sync_request")
         put("syncId", syncId)
         put("conversationId", conversationId)
-        put("cacheSchemaVersion", 1)
+        put("cacheSchemaVersion", cacheSchemaVersion.coerceIn(1, 2))
         put("checkpoint", checkpoint.toJson())
+        put("selectionGeneration", selectionGeneration.coerceAtLeast(0L))
+    }
+}
+
+data class CodexHistoryManifestRequired(
+    val syncId: String,
+    val conversationId: String,
+    val pageSize: Int,
+    val selectionGeneration: Long,
+    val clientSelectionGeneration: Long
+) {
+    companion object {
+        fun from(json: JSONObject): CodexHistoryManifestRequired? {
+            val syncId = json.optStringOrNull("syncId") ?: return null
+            val conversationId = json.optStringOrNull("conversationId") ?: return null
+            return CodexHistoryManifestRequired(
+                syncId = syncId,
+                conversationId = conversationId,
+                pageSize = json.optInt("pageSize", 200).coerceIn(1, 2_000),
+                selectionGeneration = json.optLong("selectionGeneration", 0L),
+                clientSelectionGeneration = json.optLong("clientSelectionGeneration", 0L)
+            )
+        }
     }
 }
 
@@ -156,11 +221,18 @@ data class CodexHistorySyncStateMessage(
     val syncId: String,
     val conversationId: String,
     val state: String,
-    val detailCode: String?
+    val detailCode: String?,
+    val selectionGeneration: Long,
+    val clientSelectionGeneration: Long
 ) {
     companion object {
         fun from(json: JSONObject): CodexHistorySyncStateMessage = CodexHistorySyncStateMessage(
-            json.optString("syncId", ""), json.optString("conversationId", ""), json.optString("state", "failed"), json.optStringOrNull("detailCode")
+            syncId = json.optString("syncId", ""),
+            conversationId = json.optString("conversationId", ""),
+            state = json.optString("state", "failed"),
+            detailCode = json.optStringOrNull("detailCode"),
+            selectionGeneration = json.optLong("selectionGeneration", 0L),
+            clientSelectionGeneration = json.optLong("clientSelectionGeneration", 0L)
         )
     }
 }
@@ -185,7 +257,8 @@ data class CodexHistoryDeltaWire(
                 fullOrderIncluded = json.optBoolean("fullOrderIncluded", false),
                 canonicalOrder = json.optJSONArray("canonicalOrder")?.toStringList() ?: emptyList(),
                 upserts = parseItems(json.optJSONArray("upserts")),
-                deletes = json.optJSONArray("deletes")?.toStringList() ?: emptyList()
+                deletes = json.optJSONArray("deletes")?.toStringList() ?: emptyList(),
+                selectionGeneration = json.optLong("clientSelectionGeneration", json.optLong("selectionGeneration", 0L))
             )
             return CodexHistoryDeltaWire(page)
         }
@@ -196,9 +269,51 @@ data class CodexHistoryDeltaWire(
                 for (index in 0 until array.length()) {
                     val item = array.optJSONObject(index) ?: continue
                     val key = item.optStringOrNull("itemKey") ?: continue
-                    add(CodexHistoryItem(key, item.optStringOrNull("turnId"), item.optInt("position", 0), item.optString("itemType", "message"), item.optStringOrNull("role"), item.optStringOrNull("clientRequestId"), item.optString("payloadJson", ""), item.optString("contentHash", "")))
+                    add(CodexHistoryItem(
+                        itemKey = key,
+                        turnId = item.optStringOrNull("turnId"),
+                        position = item.optInt("position", 0),
+                        itemType = item.optString("itemType", "message"),
+                        role = item.optStringOrNull("role"),
+                        clientRequestId = item.optStringOrNull("clientRequestId"),
+                        payloadJson = item.optString("payloadJson", ""),
+                        contentHash = item.optString("contentHash", ""),
+                        payloadHash = item.optStringOrNull("payloadHash"),
+                        payloadBytes = if (item.has("payloadBytes") && !item.isNull("payloadBytes")) item.optInt("payloadBytes") else null,
+                        payloadChunkCount = item.optInt("payloadChunkCount", 0)
+                    ))
                 }
             }
+        }
+    }
+}
+
+data class CodexHistoryPayloadChunkWire(
+    val chunk: CodexHistoryPayloadChunk
+) {
+    companion object {
+        fun from(json: JSONObject): CodexHistoryPayloadChunkWire? {
+            val syncId = json.optStringOrNull("syncId") ?: return null
+            val conversationId = json.optStringOrNull("conversationId") ?: return null
+            val itemKey = json.optStringOrNull("itemKey") ?: return null
+            val payloadHash = json.optStringOrNull("payloadHash") ?: return null
+            val data = json.optString("data", "")
+            if (json.optInt("chunkCount", 0) <= 0) return null
+            return CodexHistoryPayloadChunkWire(CodexHistoryPayloadChunk(
+                syncId = syncId,
+                conversationId = conversationId,
+                sequence = json.optInt("sequence", 0),
+                pageIndex = json.optInt("pageIndex", 0),
+                targetRoot = json.optString("targetRoot", ""),
+                baselineComplete = json.optBoolean("baselineComplete", false),
+                itemKey = itemKey,
+                chunkIndex = json.optInt("chunkIndex", -1),
+                chunkCount = json.optInt("chunkCount", 0),
+                payloadHash = payloadHash,
+                payloadBytes = json.optInt("payloadBytes", -1),
+                data = data,
+                selectionGeneration = json.optLong("clientSelectionGeneration", json.optLong("selectionGeneration", 0L))
+            ))
         }
     }
 }
@@ -549,14 +664,23 @@ data class CodexResponse(
 data class CodexTurnAttachment(
     val type: String,
     val path: String? = null,
-    val url: String? = null
+    val url: String? = null,
+    val media: CodexMediaDescriptor? = null
 ) {
     companion object {
-        fun from(json: JSONObject): CodexTurnAttachment = CodexTurnAttachment(
-            type = json.optString("type", "file"),
-            path = json.optStringOrNull("path"),
-            url = json.optStringOrNull("url")
-        )
+        fun from(json: JSONObject): CodexTurnAttachment {
+            val media = json.optJSONObject("media")
+                ?: json.optJSONObject("descriptor")
+                ?: json.optJSONObject("url")
+                    ?.takeIf { it.has("contentHash") || it.has("originalPath") }
+                ?: json.takeIf { it.has("contentHash") || it.has("originalPath") }
+            return CodexTurnAttachment(
+                type = json.optString("type", if (media != null) "image" else "file"),
+                path = json.optStringOrNull("path"),
+                url = json.optString("url", "").takeIf { it.isNotBlank() && json.opt("url") !is JSONObject },
+                media = media?.let(CodexMediaDescriptor::from)
+            )
+        }
     }
 
     fun toJson(): JSONObject = JSONObject()
@@ -564,7 +688,54 @@ data class CodexTurnAttachment(
         .apply {
             path?.let { put("path", it) }
             url?.let { put("url", it) }
+            media?.let { put("media", it.toJson()) }
         }
+}
+
+data class CodexMediaDescriptor(
+    val contentHash: String,
+    val mimeType: String,
+    val byteSize: Long,
+    val width: Int? = null,
+    val height: Int? = null,
+    val originalPath: String? = null,
+    val thumbnailHash: String? = null,
+    val thumbnailPath: String? = null,
+    val thumbnailByteSize: Long? = null,
+    val thumbnailUnavailable: Boolean = false
+) {
+    companion object {
+        fun from(json: JSONObject): CodexMediaDescriptor? {
+            val hash = json.optString("contentHash", "").trim()
+            if (!Regex("^[0-9a-fA-F]{64}$").matches(hash)) return null
+            return CodexMediaDescriptor(
+                contentHash = hash.lowercase(),
+                mimeType = json.optString("mimeType", "image/*"),
+                byteSize = json.optLong("byteSize", 0L).coerceAtLeast(0L),
+                width = json.optIntOrNull("width"),
+                height = json.optIntOrNull("height"),
+                originalPath = json.optStringOrNull("originalPath"),
+                thumbnailHash = json.optStringOrNull("thumbnailHash"),
+                thumbnailPath = json.optStringOrNull("thumbnailPath"),
+                thumbnailByteSize = json.optLongOrNull("thumbnailByteSize"),
+                thumbnailUnavailable = json.optBoolean("thumbnailUnavailable", false)
+            )
+        }
+    }
+
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("kind", "image")
+        put("contentHash", contentHash)
+        put("mimeType", mimeType)
+        put("byteSize", byteSize)
+        width?.let { put("width", it) }
+        height?.let { put("height", it) }
+        originalPath?.let { put("originalPath", it) }
+        thumbnailHash?.let { put("thumbnailHash", it) }
+        thumbnailPath?.let { put("thumbnailPath", it) }
+        thumbnailByteSize?.let { put("thumbnailByteSize", it) }
+        if (thumbnailUnavailable) put("thumbnailUnavailable", true)
+    }
 }
 
 data class CodexError(
@@ -844,7 +1015,8 @@ data class DesktopSurfaceSnapshot(
     val activeGoal: ActiveGoalInfo?,
     val raw: JSONObject,
     val desynced: Boolean = false,
-    val sourceEpoch: String? = null
+    val sourceEpoch: String? = null,
+    val itemsTruncated: Boolean = false
 ) {
     companion object {
         fun from(json: JSONObject): DesktopSurfaceSnapshot {
@@ -877,7 +1049,8 @@ data class DesktopSurfaceSnapshot(
                 activeGoal = ActiveGoalInfo.from(snapshot.optJSONObject("activeGoal")),
                 raw = json,
                 desynced = snapshot.optBoolean("desynced", false),
-                sourceEpoch = snapshot.optStringOrNull("sourceEpoch")
+                sourceEpoch = snapshot.optStringOrNull("sourceEpoch"),
+                itemsTruncated = snapshot.optBoolean("itemsTruncated", false)
             )
         }
     }
@@ -944,21 +1117,38 @@ object CodexClientMessages {
 
     fun historySyncRequest(request: CodexHistorySyncRequest): String = request.toJson().toString()
 
-    fun historyManifestPage(syncId: String, conversationId: String, pageIndex: Int, lastPage: Boolean, items: JSONArray): String = JSONObject()
+    fun historyRecoveryRequest(syncId: String, conversationId: String, selectionGeneration: Long): String = JSONObject()
+        .put("type", "conversation_history_recovery_request")
+        .put("syncId", syncId)
+        .put("conversationId", conversationId)
+        .put("selectionGeneration", selectionGeneration.coerceAtLeast(0L))
+        .toString()
+
+    fun historyManifestPage(
+        syncId: String,
+        conversationId: String,
+        pageIndex: Int,
+        lastPage: Boolean,
+        items: JSONArray,
+        selectionGeneration: Long = 0L
+    ): String = JSONObject()
         .put("type", "conversation_history_manifest_page")
         .put("syncId", syncId)
         .put("conversationId", conversationId)
         .put("pageIndex", pageIndex)
         .put("lastPage", lastPage)
+        .put("clientSelectionGeneration", selectionGeneration.coerceAtLeast(0L))
         .put("items", items)
         .toString()
 
-    fun historySyncAck(syncId: String, conversationId: String, targetRoot: String, sequence: Int): String = JSONObject()
+    fun historySyncAck(syncId: String, conversationId: String, targetRoot: String, sequence: Int, pageIndex: Int = -1, selectionGeneration: Long = 0L): String = JSONObject()
         .put("type", "conversation_history_sync_ack")
         .put("syncId", syncId)
         .put("conversationId", conversationId)
         .put("targetRoot", targetRoot)
         .put("sequence", sequence)
+        .put("pageIndex", pageIndex)
+        .put("clientSelectionGeneration", selectionGeneration.coerceAtLeast(0L))
         .toString()
 
     fun heartbeat(): String = JSONObject()
@@ -1010,11 +1200,18 @@ object CodexClientMessages {
             .put("settings", settings)
     }
 
-    fun codexRequest(action: String, params: JSONObject? = JSONObject()): String {
+    fun codexRequest(
+        action: String,
+        params: JSONObject? = JSONObject(),
+        historyMode: String? = null,
+        selectionGeneration: Long? = null
+    ): String {
         val json = JSONObject()
             .put("type", "codex_request")
             .put("method", action)
             .put("params", params ?: JSONObject())
+        historyMode?.trim()?.takeIf { it.isNotEmpty() }?.let { json.put("historyMode", it) }
+        selectionGeneration?.let { json.put("selectionGeneration", it.coerceAtLeast(0L)) }
         return json.toString()
     }
 

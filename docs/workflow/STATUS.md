@@ -32,6 +32,22 @@
 ## 🔨 正在开发
 
 - [ ] Codex 单权威路由与 TermLink Owner 控制面修复：任务 `20260727-002` 已完成服务端 authority router、完整 follower input、显式新任务 Owner 广播、Owner incoming control proxy、turn authority ledger、禁止静默换线程，以及 Android route-state / recovery confirmation 的实现；本轮 Owner re-entry/history continuity 最小修复也已验证（Node 172/172、Android focused JVM 81/81、JDK 21 APK 构建安装启动、真机 A→B→A smoke）。仍需 Windows Desktop / VS Code 双宿主写入式 smoke 与完整 Goal 长任务验收，当前继续记为 in-development / observing，未合并 Main；旧任务 `20260727-001` 已 superseded。
+- [ ] Android Codex 大历史/离线缓存/媒体分层修复（`2026-08-03` 事故 follow-up）：15a–15f 实现与自动化记录完成，15g 实现完成但最终 home 域名+mTLS、local 局域网 IP/port、离线/重启/A→B→A、媒体进度和存储清理仍交由用户手动验收；WireGuard 不纳入矩阵。既有 Node/JDK/APK、direct runner 和 debug-only `CodexScreen` fixture 记录仅作实施期辅助证据，不替代手动结论。生产缓存未删除，agent 不再继续设备/网络验证；整体任务和本模块保持 observing（未发布/未合并 Main），事故 Goal 完整终态不是本轮门禁。
+- 2026-08-04：修复 history sync 最后一页 ACK 后残留 inactivity timer 的误报：最终 ACK 和 root/checkpoint 快路径现在
+  都关闭已完成 sync，避免 `partial/live` 后约 30 秒再发 `sync_timeout`。`da34332c` 的 home 域名+mTLS 重试链已在
+  15:27 得到 `manifest_required → delta_applied=COMMITTED → sync_state=live`，超过 30 秒未出现该 run 的 timeout；
+  旧日志中的 timeout 保留为修复前对照。聚焦 Node 集合为 167/167；真实服务 HTTP 原图已通过 home/local 双路径 runner，
+  但 UI 原图/跨服务 destructive smoke 和 home 完整基线仍开放，隔离 direct runner 已通过。
+- 2026-08-04：继续收敛历史任务“打开无提示、后续任务无法切换”的 stale owner 场景：完整 recovery baseline 现在
+  具有独立 source kind，不会被不完整 realtime 尾部覆盖；Android history sync/recovery watchdog 按协议活动
+  重新计时，服务端/WebSocket 不响应时进入可见失败或缓存态；manifest send、selection generation 切换和旧
+  metadata/session 状态均有失败/取消/拒绝路径。该修复仍未改变 frozen IPC authority、Owner lifecycle 或媒体策略，
+  15g/15h 继续等待用户手动回归。
+- 2026-08-04：媒体 job 并发注册改为线程安全 map，Android 原图客户端补充进度/hash/length/`.part`/原子落盘真机
+  instrumentation；存储层共享引用清理与存储管理任务/服务 UI 也用隔离数据库完成 direct runner 验证，结果为
+  `OK (1)`、`OK (1)`、`OK (2)`。随后在 `da34332c` 真实 home mTLS/local LAN 两路径各下载原图并通过 hash/长度/解码/进度
+  与 `.part` 清理，合并结果 `OK (1 test)`；测试后确认生产数据库和真实媒体目录未被删除。debug-only 实际 `CodexScreen`
+  点击/50% 进度已有证据；生产数据手动验收与 home 完整基线继续观察。
 - [x] Android Codex 对话图片/文件直达与 IPC 实时同步修复：任务 `20260722-002` 已由用户确认完成并归档；既有 IPC/owner/gateway、Workspace/Web、JDK 21 Android JVM/debug APK 和 Huawei 真机验证结果保留在归档文件中。后续 Codex IPC 需求仍须遵守既有 authority/follower 契约。
 - [x] Android App 前台独立息屏时间：任务 `20260726-001` 已完成偏好设置和前台息屏控制；仅长于系统值的档位延长前台亮屏，短于或等于系统值时由系统接管，后台始终按系统执行。JDK 21 Android JVM/Debug APK 验证通过，真实设备定时等待 smoke 作为未执行的手工观察项保留。
 - [x] `20260615-002` 网页版 Codex IPC 实时同步会话页：已完成并归档。commit `9603ea7`。
@@ -71,6 +87,7 @@
 - README 默认端口与代码默认值仍有冲突，说明 active docs 仍需持续对齐代码事实
 - `node --test` 当前在 `20260511-001` 中已确认不是单点挂起：`tests\sessionManager.codexConfig.test.js`、`tests\terminalGateway.codex.test.js` 与 `tests\terminalGateway.sessionid.test.js` 各自单独运行都会在 90 秒窗口内未退出；Step 3 已基于这 3 个独立 hanging surface 形成 gate split 决策（TD-004）：6 文件 passing subset 作为 confirmed narrow gate（`blocks-merge`），3 hanging 文件拆出为 deferred fix follow-up 任务。3 个 hanging 文件全部集中在 terminalGateway / sessionManager codex config 路径，与已知高风险区域重叠；在 follow-up 修复前，终端网关和 session codex 配置相关回归无法被自动化 gate 捕获
 - `npm run android:check-release-config` 当前对 checked-in 配置报错：release 要求 `server.cleartext=false` 且 `server.androidScheme=https`
+- Android Codex history/media follow-up 当前的可观测限制：`da34332c` 已验证 local 局域网路径、设备存储页显示 local 50 个任务、历史正文 10.8 MiB、缩略图 140 B、原图 0 B；原图客户端进度、共享引用清理原语、隔离存储 UI 和 debug-only 实际 `CodexScreen` 点击后 50% 进度均已有 direct runner 证据，真实服务 HTTP 原图路径也已分别经 home 域名+mTLS 与 local 局域网 IP/port 通过（长度/hash/进度/解码/`.part`）。仍需用户手动完成生产 home 完整基线、离线/重启/A→B→A、生产缓存 destructive smoke（按安全边界不由 agent 执行）和 frozen IPC 不回归验收。WireGuard 不作为独立验收门禁。
 - 网页版 IPC Codex 实时同步页 `public/codex_ipc.*` 已交付（`20260615-002`），需注意：该页面依赖 `src/services/codexIpc*.js` + `src/ws/terminalGateway.js` IPC 路由（`20260615-001` 产出），`20260615-001` 处于 paused_blocked。IPC online 三端同步场景待 Desktop IPC 环境 manual smoke。
 - `20260513-001` 当前已完成 release 结构清单、Windows 安装脚本、Linux `systemd` / non-`systemd` 安装路径、direct mTLS 安装期自动生成、nginx-side mTLS 一键工具，以及 README / README.zh-CN / deployment guide 收口；步骤 7 也已补齐真实打包目录 / 压缩包、release layout 自动回归、packaged runtime `/api/health` smoke 与显式失败路径证据，但真实 Windows PM2 install-service 与 Linux `systemd` 主支持路径仍缺宿主实证，因此开源 release 交付面继续保持 blocked 而非 stable
 - `20260629-001` 仍处于 observing / manual-smoke-required：当前自动化证据覆盖服务端 IPC 数据面、控制面、Android wire/state、conversation list bootstrap、layout-preserving UI binding、demo 默认关闭 active follower mode gate、server active-send disabled gate 与 follower user-input requestId gate；此前 `tests/terminalGateway.codexIpc.test.js` follower/control runner 超时已定位为测试 harness 误加载真实 `sessionManager` singleton，现已修复并 28/28 pass。真实 Desktop / VS Code IPC 只读链路、真实 dev server ticket/WebSocket 只读链路、真实 dev server follower-mode gate smoke、真实 dev server 阻断路径 smoke、Android debug build、Android 真机只读/视觉 smoke、Android active-send 写入式 smoke、服务端重启后 Android 自动重连 smoke、stale approval requestId 根因复现与修复后无错误 smoke、真实 live 长文本同步 smoke，以及可控 harness 下 Android approval / PLAN -> 当前 gateway 写入路径 smoke 均已完成。最新真实 owner 尝试仍无法自然生成 pending approval / PLAN：PLAN 请求由 owner 直接文本回复完成，越界写入请求由 owner 直接执行完成且 smoke 文件已清理。因此真实 Desktop / VS Code owner 自然产生 pending approval / PLAN 的三端同步手动验证尚未完成，不得把 owner activation、Android 展示端全链路或三端同步写入稳定区。
@@ -92,6 +109,24 @@
 - [ ] 清理已知 active docs 漂移（从 README 端口冲突开始）
 
 ## 最近更新记录
+
+- 2026-08-04：继续修复 Android 历史任务“已同步但正文为空、随后其他任务也无法打开”的 stale owner 场景。
+  历史选择现在在 cache-first `set_active_conversation` 排队后立即启动 bounded history sync，不再等待可能长期
+  无响应的 metadata-only `thread/resume`；`partial`/`history_unavailable` 每个 selection generation 最多触发一次
+  Gateway full-baseline recovery，内部 `thread/read` recovery 30 秒超时后回传明确失败状态；空白正文显示加载/修复/失败
+  阶段且不阻塞其他任务切换。未改 Goal 工具栏、WireGuard 或 frozen IPC authority；未执行设备、网络或生产验证。
+- 2026-08-04：同步 Android 大历史/离线缓存/媒体 follow-up 现状。`da34332c` 存储管理页已确认服务/任务统计与手动清理入口（local 50 个任务、正文 10.8 MiB、缩略图 140 B、原图 0 B），Wi‑Fi 原图默认关闭；正确 home session 的 mTLS/WSS、IPC authoritative surface 与 bounded history recovery 成功。历史入口已改为 cache/offline 可用，不再因远端 `historyList` 能力位尚未到达而置灰；历史 `resume/list` 请求也不再因 queued/sent 无响应永久锁住任务或显示“同步中”，重建安装后的真机历史抽屉可显示 50 条缓存任务。定向 Node 167/167、JDK 21 Android JVM、媒体/清理/存储 UI direct runner、debug-only 实际 `CodexScreen` 50% 原图进度点击证据与 debug APK 安装通过；真实 home/local HTTP 原图 runner 也通过。生产 home 完整基线、离线/重启/A→B→A、生产缓存 destructive smoke 和 frozen IPC 手动验收继续保持 observing，不写入稳定区。WireGuard 不作为独立门禁。
+- 2026-08-04：补记共享媒体清理实机证据。测试专用数据库/媒体目录下的 instrumentation 直接运行 `CodexConversationCacheStoreMediaCleanupTest` 为 `OK (1 test)`；生产数据库与两端真实缩略图目录未被触碰，测试资源由 teardown 删除。随后隔离设置页 `CodexStorageManagementActivityTest` 任务/服务两用例为 `OK (2 tests)`，媒体客户端进度用例为 `OK (1 test)`，真实服务 HTTP 原图 runner 也覆盖 home/local 两路径并通过。Gradle connected runner 只因下载 `netty-handler:4.1.93.Final` 时出现 `Illegal packet size` 未能启动，故不写成 Gradle connected 通过；真实 UI 原图可见进度、生产设置页 destructive smoke 及 home 完整基线终态仍保持 observing。
+- 2026-08-04：补记窄门复核。此前偶发的空白 Owner 用例单独运行和 `terminalGateway.codexIpc.test.js` 文件级均通过，相关 history/baseline/media/projector/route、Gateway、IPC、Owner 集合为 167/167；JDK 21 `:app:testDebugUnitTest --no-daemon` BUILD SUCCESSFUL，未改变 frozen IPC authority。只读诊断临时数据库副本已删除。
+- 2026-08-04：补记媒体代次门禁。历史页提交后按时间尾部预取最多 6 个缩略图（并发最多 3 个），临时失败可重试；主动原图进度和完成回调在
+  A→B 切换后拒绝旧下载写回。JDK 21 Android JVM 重新通过；该修复仍不代表主动原图真机进度和 destructive 设置 smoke 已关闭。
+- 2026-08-04：媒体门禁变更后的 debug APK 已重新安装到 `da34332c`；冷启动日志恢复 home `IPC_AUTHORITATIVE` bounded
+  surface，未见 FATAL/OOM 或缩略图预取异常。
+- 2026-08-04：媒体工具项折叠遗漏已修正：含结构化媒体或 Markdown 图片时保留附件 chip，普通无附件 command batch
+  仍折叠；JDK 21 JVM/debug APK 重建安装成功。主动原图进度和 destructive 设置 smoke 仍未宣称通过。
+- 2026-08-04：实现复核补上主动原图完成后的同一 `selectionGeneration`/conversation 门禁，A→B 切换时旧下载
+  不再把结果登记到当前 profile；Node focused 167/167、Gateway 文件级 69/69、JDK 21 `:app:testDebugUnitTest`
+  与 `:app:assembleDebugAndroidTest` 均通过。该修复不改变缓存保留、媒体协议或 frozen IPC authority。
 
 - 2026-08-02：针对会话 `019fbe25-0c1c-73f3-b9e5-391d72ab37ea` 的重开问题完成根因收敛：终态 Owner 无外部 healthy
   surface 时不得释放，Android 切换后的旧 live authority/history delta 不得回写当前会话。Node 172/172、Android
@@ -149,3 +184,8 @@
 - 2026-06-29：继续收紧 `20260629-001` Android 发送路由。已绑定 IPC conversation 且存在 IPC 上下文时，普通无附件/无 file mention/非 Plan mode 文本若 follower gate 不满足，将直接提示动作不可用，不再回退旧 `codex_turn` 触发 TermLink 本地 Codex turn；附件、file mention、Plan mode 旧路径保留以免减少功能。随后补齐 IPC offline 状态收敛：掉线时清空本地 `followerActiveSendAllowed`，保留 active conversation 以支持重连后继续订阅。进一步对齐 demo：服务端 active follower mode per-client 默认关闭，Android 在 active send allowed 时通过既有 envelope 显式开启，不新增 UI。新增纯函数单元测试覆盖阻断条件、附件/Plan mode 放行条件、offline 清许可、online 保持 gate、自动开启判断与 wire builder。验证：`CodexViewModelThreadReadyTest` / `CodexIpcWireModelTest` BUILD SUCCESSFUL，gateway IPC targeted 26/26 pass；真实 dev server follower-mode gate smoke 通过且未发送 turn。
 - 2026-06-29：`20260629-001` 当前工作树代码下的真实 dev server 只读集成 smoke 已补跑。通过 `.codex/skills/local-dev-server-control` 显式 `-ProjectRoot E:\coding\TermLink` 重启本地服务，`/api/health` OK；真实 `/api/ws-ticket` + WebSocket 连接后收到 `codex_ipc_status(online=true)`、87 条 sync event、5 个 conversation summary，订阅目标 conversation `019f0f6e-9952-70e3-80a5-2a339c445e61` 后收到 snapshot：`revision=23512`、`status=running`、`title=改造服务端和安卓端`、`cwd=E:\coding\TermLink`、`latestDefaultCollaborationMode.mode=default`。本轮仍未发送 turn / approval / PLAN 写入式请求。
 - 2026-07-15：修复 `20260629-001` 的 owner snapshot schema 演进回归。Codex IPC 当前完整 snapshot 使用 canonical `turnHistory` 承载回合、`threadRuntimeStatus` 承载实时运行态；TermLink normalized projection 现兼容 legacy/canonical 两种回合结构，并禁止历史 stale `inProgress` 覆盖 owner `idle`。真实服务复验活跃 conversation 已从 `unknown/items=0` 恢复为 `running/items=417`，blocked Goal 仍正确保持 idle/“继续”。Node 相邻套件 149/149、Android Codex JVM tests BUILD SUCCESSFUL，本地服务 health 与真机 IPC online 通过；任务状态保持 completed-ready-for-closeout。
+- 2026-08-04：补记最后一轮 Android history/media 复核。当前设备 serial 为 `MQS7N19402011743`；JDK 21 JVM、debug/test APK 构建和 Node 171/171 聚焦回归均通过。真机 mock media、共享引用清理、存储管理 UI 为 `OK (5 tests)`；真实服务 runner 先触发 `CodexConversationCacheStore.onOpen` 的幂等媒体表 repair，因当前 profile 没有已缓存 original hash 而明确 skip（`OK (1 test)`），不误报网络失败、不写入生产引用。覆盖安装后冷启动持续 `IPC_AUTHORITATIVE`，无新 OOM/FATAL/超大帧/同步 timeout。活动 Goal 的 `complete=0` 仍按远端 running/partial 记录，不是本轮阻塞；真实 UI 原图可见进度、生产 destructive 清理、事故大任务自然终态和既有 release config 失败继续保持 observing。
+- 2026-08-04：用户再次复现历史任务“打开”无响应。静态链路确认 `ThreadHistoryItem` 仍把本地打开按钮错误地绑定到 `capabilities.historyResume`；能力位缺失时点击回调不可达，导致 cache-first resume 修复未生效。现已移除该本地选择门禁，远端能力只控制可选刷新；Goal 与 frozen IPC/Owner 边界不变。等待用户手动复验，agent 不执行设备、网络或生产操作。
+- 2026-08-04：用户继续复现切换任务后无提示且后续任务不可打开。静态核对确认旧任务的 notification、turn/server-request ack、conversation action/status、thread recovery 和无 id session event 仍可能在 cache-first 切换窗口写回 Android，并由 `CodexActivity` 持久化错误 `threadId`。现已在既有 ViewModel/Activity 选择边界增加统一 stale session-event quarantine，并保护旧 gateway 无 generation 的 `thread/resume` error；不改 frozen IPC/Owner authority、Goal/Plan/Approval、媒体/缓存策略或 WireGuard。仅完成静态 `git diff --check`，当前 backend/APK 需重新部署后由用户手动复验。
+- 2026-08-04：追加静态审计发现 pending history selection 保护在目标 resume 成功、history sync 终态或旧 gateway 永不回包时可能不收口，长期隔离合法无 id 事件。现已增加目标 resume/read、history sync 终态和有界 protection watchdog 的释放路径；带 conversation id 的迟到旧事件仍由 pinned selection 拒绝，并新增 Android helper focused tests。仅完成静态 `git diff --check`，未运行 adb/构建/网络验证；backend/APK 重部署及 home mTLS/local LAN/A→B→A 仍待用户手动验收。
+- 2026-08-04：继续静态收敛“已同步但正文为空/历史列表无响应”：能力位未知时历史抽屉仍允许显式 metadata refresh；history 请求核对 `complete` checkpoint 与本地 durable item 行数，不一致即降级 incomplete 触发 manifest/delta；`live` 且正文为空的页面显示明确诊断文本。新增 Android helper/UI focused tests，当前只完成 `git diff --check`，未运行 adb/构建/网络；backend/APK 重部署及 home mTLS/local LAN/A→B→A 仍待用户手动验收。

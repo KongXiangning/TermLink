@@ -1,6 +1,8 @@
 package com.termlink.app.codex
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.SystemClock
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -33,11 +35,15 @@ import com.termlink.app.codex.domain.PERMISSION_CHOICE_CUSTOM
 import com.termlink.app.codex.domain.PERMISSION_CHOICE_FULL_ACCESS
 import com.termlink.app.codex.domain.PERMISSION_PROFILE_CHOICE_PREFIX
 import com.termlink.app.codex.network.CodexConnectionManager
+import com.termlink.app.codex.network.CodexMediaClient
+import com.termlink.app.codex.network.CodexMediaRequestKind
+import com.termlink.app.codex.network.CodexNetworkPolicy
 import com.termlink.app.codex.network.WsEvent
 import com.termlink.app.data.BasicCredentialStore
 import com.termlink.app.data.ServerProfile
 import com.termlink.app.data.SessionApiClient
 import com.termlink.app.util.PersistentDiagnosticLog
+import com.termlink.app.util.UiPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -47,12 +53,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import java.io.File
 
 private const val PLAN_PHASE_READY_FOR_CONFIRMATION = "plan_ready_for_confirmation"
 private const val PLAN_PHASE_EXECUTING_CONFIRMED_PLAN = "executing_confirmed_plan"
@@ -61,6 +74,36 @@ private const val OPERATION_DETAIL_TRUNCATION_MARKER = "\n\n…（详情已截�
 private const val THREAD_HISTORY_PREVIEW_MAX_LENGTH = 160
 
 internal const val CODEX_FAST_MODE_REASONING_EFFORT = "low"
+
+/**
+ * Transport failures caused by an unavailable network are expected while the
+ * app is offline.  They must not be appended as chat error cards: cached
+ * history remains usable and the connection status/retry affordance already
+ * communicates the transient state.
+ */
+internal fun isTransientWebSocketFailureMessage(message: String, code: Int?): Boolean {
+    if (code != null && code >= 400) {
+        return false
+    }
+    val normalized = message.trim().lowercase()
+    if (normalized.isEmpty()) {
+        return false
+    }
+    return normalized.contains("broken pipe") ||
+        normalized.contains("software caused connection abort") ||
+        normalized.contains("socket closed") ||
+        normalized.contains("connection reset") ||
+        normalized.contains("connection abort") ||
+        normalized.contains("closed channel") ||
+        normalized.contains("failed to connect") ||
+        normalized.contains("unable to resolve host") ||
+        normalized.contains("no route to host") ||
+        normalized.contains("network is unreachable") ||
+        normalized.contains("enetunreach") ||
+        normalized.contains("ehostunreach") ||
+        normalized.contains("connection timed out") ||
+        normalized.contains("connect timed out")
+}
 
 internal enum class MobileSlashAction {
     SHOW_MODEL_PICKER,
@@ -104,8 +147,28 @@ internal fun resolveCodexThreadHistoryTitleForUi(thread: JSONObject?): String {
         .plus("…")
 }
 
+internal fun resolveCodexThreadHistoryPreviewForCache(thread: JSONObject?): String? {
+    thread ?: return null
+    val value = listOf(
+        "preview", "lastMessage", "last_message", "summary", "message"
+    ).asSequence()
+        .mapNotNull { key -> thread.optStringOrNullCompat(key) }
+        .map { it.replace(Regex("\\s+"), " ").trim() }
+        .firstOrNull { it.isNotEmpty() }
+        ?: return null
+    return value.take(THREAD_HISTORY_PREVIEW_MAX_LENGTH)
+}
+
 internal fun isFastReasoningEffort(reasoningEffort: String?): Boolean =
     reasoningEffort?.trim()?.equals(CODEX_FAST_MODE_REASONING_EFFORT, ignoreCase = true) == true
+
+private fun sanitizeProfileOrigin(baseUrl: String): String? = runCatching {
+    val uri = java.net.URI(baseUrl.trim())
+    val scheme = uri.scheme?.lowercase() ?: return@runCatching null
+    val host = uri.host ?: return@runCatching null
+    val port = if (uri.port > 0) ":${uri.port}" else ""
+    "$scheme://$host$port"
+}.getOrNull()
 
 internal fun isFastModeActive(state: CodexUiState): Boolean {
     return isFastReasoningEffort(state.nextTurnOverrides.reasoningEffort)
@@ -441,6 +504,119 @@ internal fun shouldRequireExactIpcConversationSelection(
         pinned == threadId?.trim().orEmpty()
 }
 
+/**
+ * A history row selection is an explicit user intent.  While it is pending,
+ * and while the selected task remains pinned, an older session-level
+ * codex_state/binding/ready snapshot must not move the UI back to the task
+ * that happened to be bound before the click.
+ */
+internal fun shouldPreserveExplicitHistorySelection(
+    pendingHistoryResumeThreadId: String?,
+    pinnedConversationId: String? = null,
+    activeConversationId: String?,
+    incomingConversationId: String?
+): Boolean {
+    val pending = normalizeCodexThreadId(pendingHistoryResumeThreadId)
+        ?: normalizeCodexThreadId(pinnedConversationId)
+        ?: return false
+    val active = normalizeCodexThreadId(activeConversationId) ?: return false
+    val incoming = normalizeCodexThreadId(incomingConversationId) ?: return false
+    return pending == active && incoming != pending
+}
+
+/**
+ * Selection protection for session events that may not carry a conversation id.
+ *
+ * During a cache-first history switch the gateway can still be draining
+ * notifications for the conversation that was bound before the click.  A
+ * missing id is therefore ambiguous while the target selection is pending and
+ * must not be allowed to mutate the selected task either.
+ */
+internal fun shouldSuppressExplicitHistorySessionEvent(
+    pendingHistoryResumeThreadId: String?,
+    pinnedConversationId: String? = null,
+    activeConversationId: String?,
+    incomingConversationId: String?
+): Boolean {
+    val pending = normalizeCodexThreadId(pendingHistoryResumeThreadId)
+    val incoming = normalizeCodexThreadId(incomingConversationId)
+    if (pending != null) {
+        // The pending target is the user's latest explicit intent.  Keep it
+        // authoritative even if an older unguarded event has already made the
+        // UI's threadId/activeConversationId stale before this guard runs.
+        return incoming == null || incoming != pending
+    }
+    val target = normalizeCodexThreadId(pinnedConversationId) ?: return false
+    val active = normalizeCodexThreadId(activeConversationId) ?: return false
+    if (target != active) return false
+    // A null id is only suppressible during an explicit pending selection.
+    // Once the selection has settled, global/unscoped notifications remain
+    // valid even though the task stays pinned for stale-id protection.
+    return incoming != null && incoming != target
+}
+
+/**
+ * Match the gateway's thread-id extraction for forwarded notifications and
+ * server requests, while also accepting the nested shapes used by turn/item
+ * payloads from older Codex app-server versions.
+ */
+internal fun extractCodexThreadIdFromPayload(
+    raw: JSONObject?,
+    params: JSONObject?
+): String? {
+    val candidates = sequenceOf(
+        raw?.optStringOrNullCompat("threadId"),
+        raw?.optStringOrNullCompat("conversationId"),
+        params?.optStringOrNullCompat("threadId"),
+        params?.optStringOrNullCompat("conversationId"),
+        params?.optJSONObject("thread")?.optStringOrNullCompat("id"),
+        params?.optJSONObject("turn")?.optStringOrNullCompat("threadId"),
+        params?.optJSONObject("turn")?.optJSONObject("thread")?.optStringOrNullCompat("id"),
+        params?.optJSONObject("item")?.optStringOrNullCompat("threadId"),
+        params?.optJSONObject("item")?.optJSONObject("thread")?.optStringOrNullCompat("id")
+    )
+    return candidates.firstNotNullOfOrNull { normalizeCodexThreadId(it) }
+}
+
+/**
+ * A durable `complete` checkpoint is only a fast-path proof when the rows it
+ * describes are still present locally.  A process kill/migration or an older
+ * cache schema can leave the conversation row behind while its item rows are
+ * missing.  Sending that stale proof makes Gateway answer `live` without a
+ * delta, which is indistinguishable from a successful sync but leaves the UI
+ * with no正文.  Downgrade only this inconsistent checkpoint to an incomplete
+ * one; the normal manifest/delta path then repairs it without touching the
+ * remote task or the realtime authority.
+ */
+internal fun normalizeHistoryCheckpointForAvailableItems(
+    checkpoint: CodexConversationCheckpoint?,
+    availableDurableItemCount: Int
+): CodexHistorySyncCheckpoint {
+    val available = availableDurableItemCount.coerceAtLeast(0)
+    if (checkpoint == null) {
+        return CodexHistorySyncCheckpoint(
+            rootHash = null,
+            itemCount = 0,
+            complete = false
+        )
+    }
+    val inconsistentCompleteCheckpoint = checkpoint.complete &&
+        checkpoint.itemCount != available
+    return if (inconsistentCompleteCheckpoint) {
+        CodexHistorySyncCheckpoint(
+            rootHash = null,
+            itemCount = available,
+            complete = false
+        )
+    } else {
+        CodexHistorySyncCheckpoint(
+            rootHash = checkpoint.rootHash,
+            itemCount = checkpoint.itemCount.coerceAtLeast(0),
+            complete = checkpoint.complete
+        )
+    }
+}
+
 internal data class SessionThreadBindingDecision(
     val appliesToCurrentSession: Boolean,
     val shouldSendActiveConversationSelection: Boolean
@@ -552,6 +728,97 @@ internal fun shouldReplaceMessagesFromHistoryDeltaForUiState(
     return live == null || (live == incoming && state.liveAuthoritativeDesynced)
 }
 
+/**
+ * History is a static UI base while a healthy IPC surface is only the live
+ * tail.  Keep the base visible instead of storing it solely in
+ * [CodexUiState.cachedCanonicalMessages]; otherwise an active conversation
+ * with a bounded/truncated surface can never scroll back to older正文 or
+ * attachment chips.  The merge keeps authoritative live entries/tail and
+ * refuses to carry a stale surface from another conversation across A→B.
+ */
+internal fun mergeCachedHistoryIntoLiveMessagesForUi(
+    state: CodexUiState,
+    conversationId: String?,
+    cachedMessages: List<ChatMessage>
+): List<ChatMessage> {
+    if (!shouldApplyHistoryDeltaToUiState(state, conversationId)) return state.messages
+    if (cachedMessages.isEmpty()) return state.messages
+    val incoming = normalizeCodexThreadId(conversationId) ?: return state.messages
+    val live = normalizeCodexThreadId(state.liveAuthoritativeConversationId)
+    if (live == null || live != incoming || state.liveAuthoritativeDesynced) {
+        return cachedMessages
+    }
+    val liveById = state.messages.associateBy { it.id }
+    val consumedLiveIds = mutableSetOf<String>()
+    val merged = cachedMessages.map { cached ->
+        val liveMessage = liveById[cached.id]
+            ?: state.messages.firstOrNull { candidate ->
+                candidate.id !in consumedLiveIds &&
+                    candidate.role == ChatMessage.Role.USER &&
+                    cached.role == ChatMessage.Role.USER &&
+                    candidate.content.trim() == cached.content.trim()
+            }
+        if (liveMessage == null) {
+            cached
+        } else {
+            consumedLiveIds += liveMessage.id
+            mergeLiveMessageWithCachedMetadataForUi(liveMessage, cached)
+        }
+    }.toMutableList()
+    state.messages.forEach { liveMessage ->
+        if (liveMessage.id !in consumedLiveIds && merged.none { it.id == liveMessage.id }) {
+            merged += liveMessage
+        }
+    }
+    return merged
+}
+
+private fun mergeLiveMessageWithCachedMetadataForUi(
+    live: ChatMessage,
+    cached: ChatMessage
+): ChatMessage {
+    val attachments = (cached.attachments + live.attachments).distinctBy { attachment ->
+        attachment.dedupeKey
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?.lowercase()
+            ?: listOf(
+                attachment.kind.trim().lowercase(),
+                attachment.source.orEmpty().trim().lowercase(),
+                attachment.path.orEmpty().trim().lowercase(),
+                attachment.url.orEmpty().trim().lowercase(),
+                attachment.label.trim().lowercase()
+            ).joinToString("::")
+    }
+    return if (live.role == ChatMessage.Role.USER && cached.role == ChatMessage.Role.USER) {
+        mergeCanonicalUserMessageMetadataForUi(
+            canonical = live.copy(attachments = attachments),
+            local = cached
+        )
+    } else {
+        live.copy(
+            attachments = attachments,
+            fileMentions = (cached.fileMentions + live.fileMentions).distinctBy { it.path.trim().lowercase() },
+            activeSkill = live.activeSkill ?: cached.activeSkill,
+            skills = (cached.skills + live.skills).distinctBy {
+                "${it.name.trim().lowercase()}::${it.path.orEmpty().trim().lowercase()}"
+            }
+        )
+    }
+}
+
+internal fun shouldRequestHistorySyncAfterSurface(
+    previousStatus: String?,
+    currentStatus: String?,
+    desynced: Boolean
+): Boolean {
+    if (desynced) return false
+    if (previousStatus.isNullOrBlank()) return true
+    val terminalStatuses = setOf("completed", "failed", "interrupted", "cancelled", "canceled")
+    return previousStatus.trim().lowercase() !in terminalStatuses &&
+        currentStatus?.trim()?.lowercase() in terminalStatuses
+}
+
 internal fun applyIpcConversationSelectionToUiState(
     state: CodexUiState,
     selected: CodexIpcConversationSummary
@@ -559,7 +826,6 @@ internal fun applyIpcConversationSelectionToUiState(
     val selectedId = selected.conversationId.trim()
     val activeId = state.activeConversationId?.trim().orEmpty()
     val switched = activeId != selectedId
-    val hadIpcSurface = state.ipcSurfaceSnapshot != null
     val hasIpcPlanWorkflow = state.planWorkflow.planContent != null ||
         state.planWorkflow.canSubmitPlan ||
         state.planWorkflow.planRequestId != null ||
@@ -580,7 +846,7 @@ internal fun applyIpcConversationSelectionToUiState(
         nextTurnOverrides = if (switched) NextTurnOverrides() else state.nextTurnOverrides,
         activeGoal = if (switched) null else state.activeGoal,
         goalMode = if (switched && !state.awaitingNewThreadIpcSurface) false else state.goalMode,
-        messages = if (switched && hadIpcSurface) emptyList() else state.messages,
+        messages = if (switched) emptyList() else state.messages,
         pendingServerRequests = if (switched) {
             state.pendingServerRequests.filterNot { it.handledBy.equals("ipc_follower", ignoreCase = true) }
         } else {
@@ -652,6 +918,13 @@ internal fun applyDesktopSurfaceSnapshotToUiState(
         overrides = state.nextTurnOverrides,
         ownerConfig = snap.currentCodexConfig
     )
+    // A healthy IPC snapshot is a live tail, not proof that the static
+    // conversation history is complete.  Preserve cached正文 when the
+    // snapshot is empty, legacy/unmarked, or explicitly truncated; otherwise
+    // a long-idle owner can replace a valid cached task with a blank surface.
+    val preserveCachedHistory = snap.itemsTruncated ||
+        snap.items.isEmpty() ||
+        state.cachedCanonicalMessages.isNotEmpty()
     val updated = state.copy(
         threadId = convId,
         activeConversationId = convId,
@@ -659,7 +932,6 @@ internal fun applyDesktopSurfaceSnapshotToUiState(
         ipcSurfaceSnapshot = snap,
         liveAuthoritativeConversationId = convId,
         liveAuthoritativeDesynced = false,
-        historySyncState = "live",
         ownerCurrentCodexConfig = snap.currentCodexConfig,
         nextTurnOverrides = confirmedOverrides,
         status = snap.status,
@@ -672,7 +944,8 @@ internal fun applyDesktopSurfaceSnapshotToUiState(
             existing = state.messages,
             surfaceItems = snap.items,
             surfaceStatus = snap.status,
-            latestTurnId = snap.latestTurnId
+            latestTurnId = snap.latestTurnId,
+            preserveExisting = preserveCachedHistory
         ),
         pendingServerRequests = mergePendingUserInput(
             mergePendingApproval(state.pendingServerRequests, snap.pendingApproval),
@@ -981,7 +1254,8 @@ internal fun mergeSurfaceItems(
     existing: List<ChatMessage>,
     surfaceItems: List<SurfaceEntry>,
     surfaceStatus: String = "unknown",
-    latestTurnId: String? = null
+    latestTurnId: String? = null,
+    preserveExisting: Boolean = false
 ): List<ChatMessage> {
     val existingById = existing.associateBy { it.id }
     val latestAssistantKey = if (surfaceStatus.equals("running", ignoreCase = true)) {
@@ -1052,6 +1326,18 @@ internal fun mergeSurfaceItems(
             projected
         }
     }
+    // The Android IPC surface is intentionally a bounded live tail. Older
+    // messages are supplied by the history cache and must stay visible while
+    // the tail is reconciled. Replace entries represented by the surface,
+    // retain cache/live entries that are not in this snapshot, then append the
+    // authoritative projected tail in its server order.
+    val projectedKeys = projectedMessages.mapTo(mutableSetOf()) { it.id }
+    val retainedExisting = if (preserveExisting) {
+        existing.filter { it.id !in projectedKeys }
+    } else {
+        emptyList()
+    }
+    val mergedMessages = retainedExisting + projectedMessages
     val collapsibleTurnIds = if (surfaceStatus.equals("running", ignoreCase = true) ||
         surfaceStatus.equals("waiting_for_approval", ignoreCase = true) ||
         surfaceStatus.equals("waiting_for_input", ignoreCase = true)
@@ -1068,7 +1354,7 @@ internal fun mergeSurfaceItems(
     } else {
         null
     }
-    return collapseCompletedCommandBatchesForUi(projectedMessages, collapsibleTurnIds)
+    return collapseCompletedCommandBatchesForUi(mergedMessages, collapsibleTurnIds)
 }
 
 private fun decodeCachedHistoryItem(item: CodexHistoryItem): ChatMessage? {
@@ -1085,13 +1371,64 @@ private fun decodeCachedHistoryItem(item: CodexHistoryItem): ChatMessage? {
             role = role,
             content = payload.optString("text", payload.optString("content", payload.optString("summary", ""))),
             contentType = item.itemType,
-            clientRequestId = item.clientRequestId
+            clientRequestId = item.clientRequestId,
+            attachments = extractCachedMediaAttachments(payload)
         )
     }.getOrNull()
 }
 
+private fun extractCachedMediaAttachments(payload: JSONObject): List<CodexMessageAttachment> {
+    val result = mutableListOf<CodexMessageAttachment>()
+    fun visit(value: Any?) {
+        when (value) {
+            is JSONObject -> {
+                val descriptor = CodexMediaDescriptor.from(value)
+                if (descriptor != null) {
+                    result += CodexMessageAttachment(
+                        kind = "image",
+                        label = "图片",
+                        path = descriptor.originalPath,
+                        url = descriptor.originalPath,
+                        source = "history-media",
+                        dedupeKey = descriptor.contentHash,
+                        contentHash = descriptor.contentHash,
+                        thumbnailHash = descriptor.thumbnailHash,
+                        thumbnailUrl = descriptor.thumbnailPath,
+                        mimeType = descriptor.mimeType,
+                        byteSize = descriptor.byteSize,
+                        thumbnailUnavailable = descriptor.thumbnailUnavailable
+                    )
+                } else {
+                    val keys = value.keys()
+                    while (keys.hasNext()) visit(value.opt(keys.next()))
+                }
+            }
+            is JSONArray -> for (index in 0 until value.length()) visit(value.opt(index))
+        }
+    }
+    visit(payload)
+    return result.distinctBy { it.dedupeKey ?: it.url ?: it.path }
+}
+
 private fun surfaceEntryAttachmentsForUi(entry: SurfaceEntry): List<CodexMessageAttachment> =
     entry.attachments.mapNotNull { attachment ->
+        val media = attachment.media
+        if (media != null) {
+            return@mapNotNull CodexMessageAttachment(
+                kind = "image",
+                label = "图片",
+                path = media.originalPath,
+                url = media.originalPath,
+                source = "surface-media",
+                dedupeKey = media.contentHash,
+                contentHash = media.contentHash,
+                thumbnailHash = media.thumbnailHash,
+                thumbnailUrl = media.thumbnailPath,
+                mimeType = media.mimeType,
+                byteSize = media.byteSize,
+                thumbnailUnavailable = media.thumbnailUnavailable
+            )
+        }
         val target = attachment.url?.trim()?.takeIf { it.isNotBlank() }
             ?: attachment.path?.trim()?.takeIf { it.isNotBlank() }
             ?: return@mapNotNull null
@@ -1774,6 +2111,7 @@ class CodexViewModel(
         private const val IPC_RECOVERY_TICK_MILLIS = 1_000L
         private const val IPC_RECOVERY_READ_INTERVAL_MILLIS = 10_000L
         private const val IPC_RECOVERY_RESUBSCRIBE_MILLIS = 10_000L
+        private const val HISTORY_WATCHDOG_GRACE_MILLIS = 5_000L
         private const val CANONICAL_ACTIVITY_WINDOW_MILLIS = 30_000L
         private val ANSI_ESCAPE_REGEX = Regex("\\u001B\\[[;\\d?]*[ -/]*[@-~]")
     }
@@ -1815,6 +2153,35 @@ class CodexViewModel(
     private var pinnedIpcConversationId: String? = null
     private var historySyncInFlightConversationId: String? = null
     private var historyCapability: CodexHistoryCapability? = null
+    /** Client token carried by history envelopes to reject stale A→B→A work. */
+    private var historySelectionGeneration: Long = 0L
+    private var historyRecoveryInFlightConversationId: String? = null
+    /**
+     * A recovery request is bounded to one attempt per selected conversation.
+     * A partial surface is useful as a live tail, but it is not a complete
+     * static history baseline; without this guard each partial ACK would
+     * otherwise start another full upstream read.
+     */
+    private var historyRecoveryRequestedGeneration: Long = -1L
+    private var historyWatchdogJob: Job? = null
+    /**
+     * Cache-first selection protection must be finite.  A legacy gateway may
+     * accept thread/resume without ever returning a response; keeping the
+     * pending id forever would quarantine legitimate unscoped notifications
+     * for the selected conversation after the cache path has already settled.
+     */
+    private var historyResumeProtectionJob: Job? = null
+    private val pendingHistoryPages = mutableMapOf<String, CodexHistoryDeltaPage>()
+    private val historyApplyMutex = Mutex()
+    private var mediaClient: CodexMediaClient? = null
+    // Media jobs are scheduled from the main state flow but complete on
+    // Dispatchers.IO. Keep both registries concurrent so a fast A→B switch
+    // cannot race an old download's finally/remove with the new selection.
+    private val mediaJobs = ConcurrentHashMap<String, Job>()
+    private val mediaPrefetchSeen = ConcurrentHashMap.newKeySet<String>()
+    private val mediaPrefetchPermits = Semaphore(3)
+    private var threadListRequestProfileId: String? = null
+    private var threadListRequestGeneration: Long = 0L
     private var pendingHistoryResumeHydrationThreadId: String? = null
     private var foregroundFollowJob: Job? = null
     private var foregroundRecoveryReadInFlightThreadId: String? = null
@@ -1837,7 +2204,28 @@ class CodexViewModel(
     // ── Public actions ────────────────────────────────────────────────
 
     fun connect(profile: ServerProfile, params: CodexLaunchParams) {
+        mediaJobs.values.forEach { it.cancel() }
+        mediaJobs.clear()
+        mediaPrefetchSeen.clear()
+        mediaClient = runCatching {
+            CodexMediaClient.forProfile(
+                context = appContext,
+                profile = profile,
+                sessionApiClient = sessionApiClient,
+                cacheDir = appContext.filesDir
+            )
+        }.onFailure { error ->
+            Log.w(TAG, "Media client unavailable for profile ${profile.id}", error)
+        }.getOrNull()
         currentProfile = profile
+        viewModelScope.launch(Dispatchers.IO) {
+            historyCacheStore.upsertServiceMetadata(
+                endpointId = profile.id,
+                displayName = profile.name,
+                origin = sanitizeProfileOrigin(profile.baseUrl),
+                profilePresent = true
+            )
+        }
         currentStreamingMessageId = null
         currentPlanStreamingMessageId = null
         executionFeedbackSeen.clear()
@@ -1848,6 +2236,16 @@ class CodexViewModel(
         launchHydrateTargetThreadId = normalizeThreadId(params.threadId)
         launchHydrateInFlightThreadId = null
         val launchConversationId = normalizeThreadId(params.threadId)
+        historySelectionGeneration += 1L
+        historySyncInFlightConversationId = null
+        historyRecoveryInFlightConversationId = null
+        historyRecoveryRequestedGeneration = -1L
+        cancelHistoryWatchdog()
+        cancelHistoryResumeProtection()
+        pendingHistoryPages.clear()
+        historyCapability = null
+        threadListRequestProfileId = null
+        threadListRequestGeneration = historySelectionGeneration
         val rememberedOverrides = loadRememberedTaskOverrides(launchConversationId, reason = "connect")
         pinnedIpcConversationId = launchConversationId
         pendingHistoryResumeHydrationThreadId = null
@@ -1913,7 +2311,7 @@ class CodexViewModel(
                     currentThreadTitle = "",
                     threadHistoryEntries = emptyList(),
                     threadHistorySheetVisible = false,
-                    threadHistoryLoading = false,
+                    threadHistoryLoading = true,
                     threadHistoryActionThreadId = "",
                     threadHistoryActionKind = "",
                     threadRenameTargetId = "",
@@ -1927,23 +2325,50 @@ class CodexViewModel(
                 )
             )
         }
+        val cacheProfileId = profile.id
+        val cacheSessionId = params.sessionId
+        viewModelScope.launch(Dispatchers.IO) {
+            val cachedIndex = runCatching {
+                historyCacheStore.readThreadIndex(cacheProfileId)
+            }.getOrDefault(emptyList())
+            _uiState.update { state ->
+                if (currentProfile?.id != cacheProfileId || state.sessionId != cacheSessionId) {
+                    state
+                } else {
+                    state.copy(
+                        threadHistoryEntries = mergeGoalHistoryEntries(
+                            cachedIndex.map(::toUiThreadHistoryEntry)
+                        ),
+                        threadHistoryLoading = false
+                    )
+                }
+            }
+        }
         if (!launchConversationId.isNullOrBlank()) {
             viewModelScope.launch(Dispatchers.IO) {
                 val cached = runCatching {
                     historyCacheStore.readConversation(profile.id, launchConversationId)
-                        ?: historyCacheStore.readConversationByConversationId(launchConversationId)
                 }.getOrNull()
                 if (cached != null && cached.items.isNotEmpty()) {
-                    val cachedMessages = cached.items.sortedBy { it.position }.mapNotNull(::decodeCachedHistoryItem)
+                val cachedMessages = cached.items.sortedBy { it.position }.mapNotNull(::decodeCachedHistoryItem)
                     _uiState.update { state ->
                         if (state.activeConversationId?.trim() == launchConversationId || state.threadId?.trim() == launchConversationId) {
                             state.copy(
                                 cachedCanonicalMessages = cachedMessages,
-                                messages = if (state.liveAuthoritativeConversationId == null) cachedMessages else state.messages,
-                                historySyncState = "loading_baseline"
+                                messages = mergeCachedHistoryIntoLiveMessagesForUi(
+                                    state = state,
+                                    conversationId = launchConversationId,
+                                    cachedMessages = cachedMessages
+                                ),
+                                historySyncState = if (historyCapability?.version == 1) {
+                                    "loading_baseline"
+                                } else {
+                                    "cache_only"
+                                }
                             )
                         } else state
                     }
+                    scheduleMediaPrefetch(cachedMessages, historySelectionGeneration)
                 }
             }
         }
@@ -1954,8 +2379,311 @@ class CodexViewModel(
         clearPendingOptimisticNewThreadTransition()
         clearPendingLaunchHydrate()
         pendingHistoryResumeHydrationThreadId = null
+        advanceHistorySelectionGeneration("disconnect")
+        threadListRequestProfileId = null
         ipcStatusObserved = false
         connectionManager.disconnect()
+    }
+
+    /** Explicit user action: original media may be fetched on any network. */
+    fun downloadOriginalAttachment(
+        attachment: CodexMessageAttachment,
+        onCompleted: (File?) -> Unit = {}
+    ) {
+        val hash = attachment.contentHash?.trim()?.takeIf { it.matches(Regex("^[0-9a-fA-F]{64}$")) }
+            ?: return onCompleted(null)
+        val client = mediaClient ?: return onCompleted(null)
+        val selectionGeneration = historySelectionGeneration
+        val conversationId = (_uiState.value.activeConversationId ?: _uiState.value.threadId).orEmpty().trim()
+        viewModelScope.launch(Dispatchers.IO) {
+            val file = runCatching {
+                client.download(
+                    contentHash = hash,
+                    variant = CodexMediaVariant.ORIGINAL,
+                    expectedHash = hash,
+                    onProgress = { progress ->
+                        // A→B switches invalidate the old download's UI too;
+                        // never let an attachment from A paint progress over B.
+                        if (isCurrentHistorySelection(conversationId, selectionGeneration)) {
+                            _uiState.update {
+                                it.copy(
+                                    mediaDownloadHash = hash,
+                                    mediaDownloadBytes = progress.downloadedBytes,
+                                    mediaDownloadTotalBytes = progress.totalBytes
+                                )
+                            }
+                        }
+                    }
+                )
+            }.getOrNull()
+            if (file != null && isCurrentHistorySelection(conversationId, selectionGeneration)) {
+                val profile = currentProfile
+                if (profile != null) {
+                    historyCacheStore.upsertMediaBlob(
+                        CodexMediaBlobRecord(
+                            endpointId = profile.id,
+                            contentHash = hash.lowercase(),
+                            variant = CodexMediaVariant.ORIGINAL,
+                            mimeType = attachment.mimeType,
+                            byteSize = file.length(),
+                            localPath = file.absolutePath,
+                            state = "available",
+                            lastAccessedAt = System.currentTimeMillis()
+                        )
+                    )
+                    persistConversationMediaReference(
+                        endpointId = profile.id,
+                        conversationId = conversationId,
+                        contentHash = hash,
+                        thumbnailHash = attachment.thumbnailHash,
+                        generation = selectionGeneration
+                    )
+                }
+            }
+            withContext(Dispatchers.Main) {
+                _uiState.update {
+                    if (isCurrentHistorySelection(conversationId, selectionGeneration) &&
+                        it.mediaDownloadHash.equals(hash, ignoreCase = true)
+                    ) {
+                        it.copy(
+                            mediaDownloadHash = null,
+                            mediaDownloadBytes = 0L,
+                            mediaDownloadTotalBytes = null
+                        )
+                    } else {
+                        it
+                    }
+                }
+                onCompleted(
+                    file.takeIf { isCurrentHistorySelection(conversationId, selectionGeneration) }
+                )
+            }
+        }
+    }
+
+    private fun scheduleMediaPrefetch(messages: List<ChatMessage>, generation: Long = historySelectionGeneration) {
+        val client = mediaClient ?: return
+        val targetConversationId = (_uiState.value.activeConversationId ?: _uiState.value.threadId).orEmpty().trim()
+        // Messages are chronological; the tail is the initial viewport after
+        // selecting a task. Prefer it so nearby thumbnails are ready without
+        // scanning/dowloading the entire history.
+        val candidates = messages.asReversed().asSequence()
+            .flatMap { it.attachments.asSequence() }
+            .filter { it.contentHash?.matches(Regex("^[0-9a-fA-F]{64}$")) == true }
+            .filter { !it.thumbnailHash.isNullOrBlank() && it.localPath.isNullOrBlank() }
+            .distinctBy { it.contentHash }
+            .take(6)
+            .toList()
+        candidates.forEach { attachment ->
+            val contentHash = attachment.contentHash!!.lowercase()
+            val thumbnailHash = attachment.thumbnailHash!!.lowercase()
+            val key = "$generation:$contentHash:$thumbnailHash"
+            if (!mediaPrefetchSeen.add(key) || mediaJobs[key]?.isActive == true) return@forEach
+
+            // A committed thumbnail is usable offline.  Hydrate the UI from
+            // the content-addressed file before attempting any network call;
+            // download() remains the fallback when the file is missing or its
+            // bytes no longer match the descriptor hash.
+            val cachedThumbnail = runCatching {
+                client.cached(
+                    contentHash = contentHash,
+                    variant = CodexMediaVariant.THUMBNAIL,
+                    expectedHash = thumbnailHash
+                )
+            }.getOrNull()
+            if (cachedThumbnail != null) {
+                val currentConversationId = _uiState.value.threadId
+                if (currentConversationId.isNullOrBlank() ||
+                    !isCurrentHistorySelection(currentConversationId, generation)
+                ) {
+                    mediaPrefetchSeen.remove(key)
+                    return@forEach
+                }
+                _uiState.update { state ->
+                    if (isCurrentHistorySelection(currentConversationId, generation)) {
+                        state.copy(
+                            messages = updateAttachmentPath(state.messages, contentHash, cachedThumbnail.absolutePath),
+                            cachedCanonicalMessages = updateAttachmentPath(
+                                state.cachedCanonicalMessages,
+                                contentHash,
+                                cachedThumbnail.absolutePath
+                            )
+                        )
+                    } else {
+                        state
+                    }
+                }
+                persistMediaUsage(contentHash, thumbnailHash, cachedThumbnail, generation)
+                return@forEach
+            }
+
+            mediaJobs[key] = viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    val file = mediaPrefetchPermits.withPermit {
+                        client.download(
+                            contentHash = contentHash,
+                            variant = CodexMediaVariant.THUMBNAIL,
+                            expectedHash = thumbnailHash,
+                            isCancelled = {
+                                val currentConversationId = _uiState.value.threadId
+                                !isActive || currentConversationId.isNullOrBlank() ||
+                                    !isCurrentHistorySelection(currentConversationId, generation)
+                            }
+                        )
+                    }
+                    val currentConversationId = _uiState.value.threadId
+                    if (!currentConversationId.isNullOrBlank() && isCurrentHistorySelection(currentConversationId, generation)) {
+                        _uiState.update { state ->
+                            state.copy(
+                                messages = updateAttachmentPath(state.messages, contentHash, file.absolutePath),
+                                cachedCanonicalMessages = updateAttachmentPath(state.cachedCanonicalMessages, contentHash, file.absolutePath)
+                            )
+                        }
+                        persistMediaUsage(contentHash, thumbnailHash, file, generation)
+                    }
+                } catch (error: Exception) {
+                    // A transient network failure should be retried while this
+                    // selection generation remains active.
+                    mediaPrefetchSeen.remove(key)
+                    Log.w(TAG, "Thumbnail prefetch failed for ${PersistentDiagnosticLog.shortHash(contentHash)}", error)
+                } finally {
+                    mediaJobs.remove(key)
+                }
+            }
+        }
+        if (CodexNetworkPolicy.shouldDownload(
+                CodexMediaRequestKind.AUTO_ORIGINAL,
+                UiPreferences.autoDownloadOriginalsWifiOnly(appContext),
+                isWifiConnected()
+            )) {
+            val originalKey = "originals:$generation"
+            if (mediaJobs[originalKey]?.isActive != true) {
+                mediaJobs[originalKey] = viewModelScope.launch(Dispatchers.IO) {
+                    val profile = currentProfile
+                    try {
+                        candidates.forEach { attachment ->
+                            if (!isActive || targetConversationId.isBlank() ||
+                                !isCurrentHistorySelection(targetConversationId, generation)
+                            ) return@forEach
+                            val hash = attachment.contentHash?.lowercase() ?: return@forEach
+                            runCatching {
+                                client.download(
+                                    contentHash = hash,
+                                    variant = CodexMediaVariant.ORIGINAL,
+                                    expectedHash = hash,
+                                    isCancelled = {
+                                        !isActive || targetConversationId.isBlank() ||
+                                            !isCurrentHistorySelection(targetConversationId, generation)
+                                    }
+                                )
+                            }.onSuccess { file ->
+                                if (profile != null && isCurrentHistorySelection(targetConversationId, generation)) {
+                                    historyCacheStore.upsertMediaBlob(
+                                        CodexMediaBlobRecord(
+                                            endpointId = profile.id,
+                                            contentHash = hash,
+                                            variant = CodexMediaVariant.ORIGINAL,
+                                            mimeType = attachment.mimeType,
+                                            byteSize = file.length(),
+                                            localPath = file.absolutePath,
+                                            state = "available",
+                                            lastAccessedAt = System.currentTimeMillis()
+                                        )
+                                    )
+                                    persistConversationMediaReference(
+                                        endpointId = profile.id,
+                                        conversationId = targetConversationId,
+                                        contentHash = hash,
+                                        thumbnailHash = attachment.thumbnailHash,
+                                        generation = generation
+                                    )
+                                }
+                            }
+                        }
+                    } finally {
+                        mediaJobs.remove(originalKey)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun isWifiConnected(): Boolean {
+        val manager = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+        val capabilities = manager.getNetworkCapabilities(manager.activeNetwork) ?: return false
+        return capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+    }
+
+    private fun persistMediaUsage(
+        contentHash: String,
+        thumbnailHash: String,
+        file: File,
+        generation: Long
+    ) {
+        val profile = currentProfile ?: return
+        val conversationId = _uiState.value.threadId?.trim().orEmpty()
+        if (conversationId.isBlank() || !isCurrentHistorySelection(conversationId, generation)) return
+        val now = System.currentTimeMillis()
+        historyCacheStore.upsertMediaBlob(
+            CodexMediaBlobRecord(
+                endpointId = profile.id,
+                contentHash = thumbnailHash,
+                variant = CodexMediaVariant.THUMBNAIL,
+                mimeType = "image/webp",
+                byteSize = file.length(),
+                localPath = file.absolutePath,
+                state = "available",
+                lastAccessedAt = now
+            )
+        )
+        persistConversationMediaReference(
+            endpointId = profile.id,
+            conversationId = conversationId,
+            contentHash = contentHash,
+            thumbnailHash = thumbnailHash,
+            generation = generation
+        )
+    }
+
+    private fun persistConversationMediaReference(
+        endpointId: String,
+        conversationId: String,
+        contentHash: String,
+        thumbnailHash: String?,
+        generation: Long
+    ) {
+        if (conversationId.isBlank() || !isCurrentHistorySelection(conversationId, generation)) return
+        // A healthy IPC surface may intentionally expose only a bounded live
+        // tail while the complete static history lives in
+        // cachedCanonicalMessages. Scan both projections so an attachment in
+        // an older turn still contributes to task/service usage and cannot be
+        // deleted as an apparently unreferenced blob.
+        (_uiState.value.messages + _uiState.value.cachedCanonicalMessages)
+            .forEach { message ->
+                if (message.attachments.any { it.contentHash.equals(contentHash, ignoreCase = true) }) {
+                    historyCacheStore.upsertConversationMediaRef(
+                        endpointId = endpointId,
+                        conversationId = conversationId,
+                        itemKey = message.id,
+                        originalHash = contentHash,
+                        thumbnailHash = thumbnailHash
+                    )
+                }
+            }
+    }
+
+    private fun updateAttachmentPath(
+        messages: List<ChatMessage>,
+        contentHash: String,
+        localPath: String
+    ): List<ChatMessage> = messages.map { message ->
+        message.copy(
+            attachments = message.attachments.map { attachment ->
+                if (attachment.contentHash.equals(contentHash, ignoreCase = true)) {
+                    attachment.copy(localPath = localPath)
+                } else attachment
+            }
+        )
     }
 
     fun onHostVisible() {
@@ -2042,9 +2770,16 @@ class CodexViewModel(
                 millisSinceAuthorityModeEntered = millisSinceModeEntered,
                 surfaceWaitGraceMillis = IPC_SURFACE_WAIT_GRACE_MILLIS,
                 ipcStatusObserved = ipcStatusObserved
-            )) {
+        )) {
             return
         }
+        // A stale/expired Desktop or VS Code owner can leave the IPC feed
+        // online while no fresh surface exists for this conversation.  The
+        // metadata-only thread/read fallback cannot restore正文; explicitly
+        // kick the bounded history channel so Gateway can build the baseline
+        // internally and return it through manifest/delta.  The in-flight
+        // guard keeps this idempotent across recovery ticks.
+        maybeRequestHistorySync(targetThreadId)
         if (state.ipcOnline &&
             nowElapsed - lastRecoverySubscribeAtElapsed >= IPC_RECOVERY_RESUBSCRIBE_MILLIS) {
             subscribeActiveConversationIfNeeded()
@@ -2058,6 +2793,42 @@ class CodexViewModel(
             )) {
             lastRecoveryReadAtElapsed = nowElapsed
         }
+    }
+
+    private fun resetHistoryRecoveryAfterTransportLoss(reason: String) {
+        val hadPendingSync = historySyncInFlightConversationId != null ||
+            historyRecoveryInFlightConversationId != null
+        historySyncInFlightConversationId = null
+        historyRecoveryInFlightConversationId = null
+        historyRecoveryRequestedGeneration = -1L
+        cancelHistoryWatchdog()
+        if (!hadPendingSync) return
+        val activeConversationId = _uiState.value.activeConversationId?.trim().orEmpty()
+        _uiState.update { state ->
+            if (activeConversationId.isBlank() || state.activeConversationId?.trim() != activeConversationId) {
+                state
+            } else {
+                state.copy(
+                    historySyncState = if (
+                        state.cachedCanonicalMessages.isNotEmpty() || state.messages.isNotEmpty()
+                    ) {
+                        "cache_only"
+                    } else {
+                        "failed"
+                    }
+                )
+            }
+        }
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.history.transport_lost",
+            mapOf(
+                "conversationKey" to PersistentDiagnosticLog.shortHash(activeConversationId),
+                "generation" to historySelectionGeneration,
+                "reason" to reason
+            ),
+            level = "warn"
+        )
     }
 
     fun setError(message: String) {
@@ -2248,6 +3019,7 @@ class CodexViewModel(
         clearPendingLaunchHydrate()
         pinnedIpcConversationId = null
         pendingHistoryResumeHydrationThreadId = null
+        cancelHistoryResumeProtection()
         _uiState.update {
             prepareIpcStateForNewThread(
                 it.copy(
@@ -2516,19 +3288,7 @@ class CodexViewModel(
     }
 
     private fun isTransientWebSocketFailure(message: String, code: Int?): Boolean {
-        if (code != null && code >= 400) {
-            return false
-        }
-        val normalized = message.trim().lowercase()
-        if (normalized.isEmpty()) {
-            return false
-        }
-        return normalized.contains("broken pipe") ||
-            normalized.contains("software caused connection abort") ||
-            normalized.contains("socket closed") ||
-            normalized.contains("connection reset") ||
-            normalized.contains("connection abort") ||
-            normalized.contains("closed channel")
+        return isTransientWebSocketFailureMessage(message, code)
     }
 
     private fun isTransientConnectionMessage(message: String?): Boolean {
@@ -2763,9 +3523,10 @@ class CodexViewModel(
                 )
             )
         }
-        if (_uiState.value.capabilities?.historyList == true) {
-            refreshThreadHistory()
-        }
+        // The cache-backed drawer is usable before codex_capabilities arrives.
+        // Let an unknown capability probe the optional metadata endpoint; only
+        // an explicit server declaration of unsupported should suppress it.
+        refreshThreadHistory()
     }
 
     fun showRuntimePanel() {
@@ -2985,7 +3746,14 @@ class CodexViewModel(
 
     fun refreshThreadHistory() {
         val state = _uiState.value
-        if (state.capabilities?.historyList != true) return
+        // Capabilities can arrive after the first frame (and older gateways do
+        // not advertise the bit).  A null value must not disable the user's
+        // explicit history refresh; an explicit false still preserves the
+        // legacy unsupported-method behavior.
+        if (state.capabilities?.historyList == false) return
+        val profileId = currentProfile?.id ?: return
+        threadListRequestProfileId = profileId
+        threadListRequestGeneration = historySelectionGeneration
         PersistentDiagnosticLog.event(
             "codex",
             "android.codex.history.refresh.started",
@@ -2996,12 +3764,42 @@ class CodexViewModel(
         if (cwd.isNotEmpty()) {
             params.put("cwd", cwd)
         }
-        _uiState.update { it.copy(threadHistoryLoading = true) }
-        connectionManager.send(
+        _uiState.update { it.copy(threadHistoryLoading = true, threadHistoryStatus = "syncing") }
+        val sent = connectionManager.send(
             CodexClientMessages.codexRequest(
                 action = "thread/list",
-                params = params
+                params = params,
+                historyMode = "metadata",
+                selectionGeneration = threadListRequestGeneration
             )
+        )
+        // The endpoint-scoped index is already the usable list.  Do not leave
+        // the drawer in an endless "syncing" state when OkHttp accepts a frame
+        // but the network never returns a thread/list response.  A later live
+        // response still upgrades the status to "live" through the normal
+        // response handler, and generation checks continue to reject stale
+        // lists after A→B selection.
+        _uiState.update { current ->
+            if (current.threadHistoryLoading &&
+                threadListRequestGeneration == historySelectionGeneration
+            ) {
+                current.copy(
+                    threadHistoryLoading = false,
+                    threadHistoryStatus = if (sent) "cache_only" else "offline"
+                )
+            } else {
+                current
+            }
+        }
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.history.refresh.sent",
+            mapOf(
+                "sent" to sent,
+                "generation" to threadListRequestGeneration,
+                "entryCount" to _uiState.value.threadHistoryEntries.size
+            ),
+            level = if (sent) "info" else "warn"
         )
     }
 
@@ -3020,18 +3818,31 @@ class CodexViewModel(
         )
         clearPendingOptimisticNewThreadTransition()
         clearPendingLaunchHydrate()
+        advanceHistorySelectionGeneration("resume:$normalizedThreadId")
         pinnedIpcConversationId = normalizedThreadId
         pendingHistoryResumeHydrationThreadId = normalizedThreadId
-        _uiState.update {
-            dismissThreadHistoryForResumeSelection(it).copy(
-                threadHistoryActionThreadId = normalizedThreadId,
-                threadHistoryActionKind = "resume"
-            )
-        }
+        // History selection is cache-first.  The remote thread/resume request
+        // may be queued in OkHttp while the socket is offline (or never return
+        // after a network drop), so waiting for its response here would leave
+        // every history row disabled indefinitely.  Move the UI to the
+        // endpoint-scoped cached conversation immediately; the remote response
+        // remains an optional freshness/IPC re-entry path and is guarded by the
+        // selection generation below.
+        applyCachedHistorySelection(
+            conversationId = normalizedThreadId,
+            generation = historySelectionGeneration
+        )
+        // Do not make detail hydration depend on thread/resume.  A stale or
+        // expired Desktop/VS Code owner can leave that RPC queued forever;
+        // the bounded history channel is independent and can still hydrate
+        // the selected task (or report an explicit recovery state).
+        maybeRequestHistorySync(normalizedThreadId)
         val sent = connectionManager.send(
             CodexClientMessages.codexRequest(
                 action = "thread/resume",
-                params = JSONObject().put("threadId", normalizedThreadId)
+                params = JSONObject().put("threadId", normalizedThreadId),
+                historyMode = "metadata",
+                selectionGeneration = historySelectionGeneration
             )
         )
         PersistentDiagnosticLog.event(
@@ -3042,6 +3853,99 @@ class CodexViewModel(
                 "sent" to sent
             ),
             level = if (sent) "info" else "warn"
+        )
+        if (sent && isCurrentHistorySelection(normalizedThreadId, historySelectionGeneration)) {
+            armHistoryResumeProtection(
+                conversationId = normalizedThreadId,
+                generation = historySelectionGeneration
+            )
+        } else if (!sent && isCurrentHistorySelection(normalizedThreadId, historySelectionGeneration)) {
+            // Do not turn a transport miss into a blocking history action.  The
+            // cached task remains open and the next explicit refresh can retry
+            // after the service becomes reachable.
+            pendingHistoryResumeHydrationThreadId = null
+            cancelHistoryResumeProtection()
+            _uiState.update {
+                it.copy(
+                    threadHistoryStatus = "offline",
+                    threadHistoryActionThreadId = "",
+                    threadHistoryActionKind = ""
+                )
+            }
+        }
+    }
+
+    /**
+     * Switch to a cached history entry before waiting for thread/resume.
+     *
+     * This is deliberately limited to static history selection.  A healthy IPC
+     * surface remains the live authority: when the remote request succeeds it
+     * can still replace the cached base, and stale responses are rejected by
+     * [historySelectionGeneration].
+     */
+    private fun applyCachedHistorySelection(conversationId: String, generation: Long) {
+        val normalizedConversationId = normalizeThreadId(conversationId) ?: return
+        val entry = _uiState.value.threadHistoryEntries.firstOrNull {
+            normalizeThreadId(it.id) == normalizedConversationId
+        }
+        val selected = CodexIpcConversationSummary(
+            conversationId = normalizedConversationId,
+            status = "unknown",
+            updatedAt = entry?.lastActiveAt ?: 0L,
+            title = entry?.title?.trim()?.takeIf { it.isNotEmpty() } ?: normalizedConversationId,
+            cwd = entry?.cwd,
+            ownerKind = null,
+            latestTurnId = null,
+            itemCount = 0,
+            hasActiveGoal = false,
+            hasPendingApproval = false,
+            hasPendingPlanAction = false,
+            hasPendingUserInputAction = false
+        )
+        val previousConversationId = normalizeThreadId(_uiState.value.activeConversationId)
+        val switched = previousConversationId != normalizedConversationId
+        _uiState.update { state ->
+            val selectedState = dismissThreadHistoryForResumeSelection(
+                applyIpcConversationSelectionWithRememberedConfig(state, selected)
+            )
+            selectedState.copy(
+                threadHistoryStatus = "cache_only",
+                threadHistoryLoading = false,
+                threadHistoryActionThreadId = "",
+                threadHistoryActionKind = "",
+                errorMessage = if (switched) null else selectedState.errorMessage,
+                status = if (switched) "idle" else selectedState.status,
+                currentTurnId = if (switched) null else selectedState.currentTurnId,
+                interactionState = if (switched) null else selectedState.interactionState,
+                executionWatch = if (switched) CodexExecutionWatchState() else selectedState.executionWatch,
+                runtimePanel = if (switched) {
+                    buildEmptyRuntimePanelState(visible = selectedState.runtimePanel.visible)
+                } else {
+                    selectedState.runtimePanel
+                },
+                noticesPanel = if (switched) {
+                    CodexNoticesPanelState(visible = selectedState.noticesPanel.visible)
+                } else {
+                    selectedState.noticesPanel
+                },
+                pendingServerRequests = if (switched) emptyList() else selectedState.pendingServerRequests,
+                submittingServerRequestIds = if (switched) emptySet() else selectedState.submittingServerRequestIds
+            )
+        }
+        if (switched) {
+            beginAwaitingFreshIpcSurface()
+            subscribeActiveConversationIfNeeded()
+        }
+        hydrateCachedConversation(normalizedConversationId, generation)
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.thread.resume.cache_selected",
+            mapOf(
+                "threadKey" to PersistentDiagnosticLog.shortHash(normalizedConversationId),
+                "switched" to switched,
+                "hasIndexEntry" to (entry != null),
+                "generation" to generation
+            )
         )
     }
 
@@ -4233,6 +5137,7 @@ class CodexViewModel(
                             handleEnvelope(event.envelope)
                         }
                         is WsEvent.Closed -> {
+                            resetHistoryRecoveryAfterTransportLoss("websocket-closed:${event.code}")
                             markPendingThreadResyncIfNeeded(_uiState.value)
                             val registrationSessionMismatch = event.code == 4403 && (
                                 event.reason.contains("not owned", ignoreCase = true) ||
@@ -4260,6 +5165,7 @@ class CodexViewModel(
                         }
                         is WsEvent.Closing -> { /* handled by Closed */ }
                         is WsEvent.Failure -> {
+                            resetHistoryRecoveryAfterTransportLoss("websocket-failure:${event.code}")
                             markPendingThreadResyncIfNeeded(_uiState.value)
                             val message = event.throwable.message ?: "WebSocket failure"
                             if (isTransientWebSocketFailure(message, event.code)) {
@@ -4293,6 +5199,17 @@ class CodexViewModel(
                 }
             }
         }
+        viewModelScope.launch {
+            connectionManager.wsClient.historyEvents.collect { event ->
+                try {
+                    if (event is WsEvent.Message) {
+                        handleEnvelope(event.envelope)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error processing reliable history WS event", e)
+                }
+            }
+        }
     }
 
     private fun subscribeActiveConversationIfNeeded() {
@@ -4302,25 +5219,395 @@ class CodexViewModel(
         connectionManager.send(CodexClientMessages.setActiveConversation(conversationId))
     }
 
+    private fun advanceHistorySelectionGeneration(reason: String) {
+        val interruptedConversationId = historySyncInFlightConversationId
+        val interruptedEndpointId = currentProfile?.id
+        val interruptedSelectionGeneration = historySelectionGeneration
+        historySelectionGeneration = (historySelectionGeneration + 1L).coerceAtLeast(1L)
+        historySyncInFlightConversationId = null
+        historyRecoveryInFlightConversationId = null
+        historyRecoveryRequestedGeneration = -1L
+        cancelHistoryWatchdog()
+        cancelHistoryResumeProtection()
+        pendingHistoryPages.clear()
+        if (!interruptedEndpointId.isNullOrBlank() && !interruptedConversationId.isNullOrBlank()) {
+            viewModelScope.launch(Dispatchers.IO) {
+                runCatching {
+                    historyCacheStore.clearInterruptedSync(
+                        interruptedEndpointId,
+                        interruptedConversationId,
+                        interruptedSelectionGeneration
+                    )
+                }.onFailure { error ->
+                    Log.w(TAG, "Failed to clear interrupted history staging", error)
+                }
+            }
+        }
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.history.selection_generation_advanced",
+            mapOf("generation" to historySelectionGeneration, "reason" to reason)
+        )
+    }
+
+    private fun acceptsHistoryClientSelection(value: Long): Boolean {
+        val capability = historyCapability
+        return capability?.selectionGeneration != true || value == historySelectionGeneration
+    }
+
+    private fun isCurrentHistorySelection(conversationId: String, generation: Long): Boolean =
+        _uiState.value.activeConversationId?.trim() == conversationId &&
+            generation == historySelectionGeneration
+
+    private fun historyPageKey(syncId: String, pageIndex: Int): String = "$syncId:$pageIndex"
+
     private fun maybeRequestHistorySync(conversationId: String?) {
         val normalizedConversationId = conversationId?.trim()?.takeIf { it.isNotEmpty() } ?: return
         val profile = currentProfile ?: return
         if (historySyncInFlightConversationId == normalizedConversationId) return
         val capability = historyCapability ?: return
         if (capability.version != 1) return
+        val requestGeneration = historySelectionGeneration
         historySyncInFlightConversationId = normalizedConversationId
+        _uiState.update { state ->
+            if (isCurrentHistorySelection(normalizedConversationId, requestGeneration) &&
+                state.historySyncState != "repairing"
+            ) {
+                state.copy(historySyncState = "loading_baseline")
+            } else {
+                state
+            }
+        }
         viewModelScope.launch(Dispatchers.IO) {
             val cached = runCatching {
                 historyCacheStore.readConversation(profile.id, normalizedConversationId)
-                    ?: historyCacheStore.readConversationByConversationId(normalizedConversationId)
             }.getOrNull()
-            val checkpoint = cached?.checkpoint ?: CodexConversationCheckpoint(profile.id, normalizedConversationId)
+            val durableItemCount = cached?.items?.count { !it.provisional } ?: 0
+            val checkpoint = normalizeHistoryCheckpointForAvailableItems(
+                checkpoint = cached?.checkpoint,
+                availableDurableItemCount = durableItemCount
+            )
+            if (cached?.checkpoint?.complete == true &&
+                cached.checkpoint.itemCount != durableItemCount
+            ) {
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.codex.history.checkpoint_repair_required",
+                    mapOf(
+                        "conversationKey" to PersistentDiagnosticLog.shortHash(normalizedConversationId),
+                        "checkpointItemCount" to cached.checkpoint.itemCount,
+                        "availableDurableItemCount" to durableItemCount,
+                        "generation" to requestGeneration
+                    ),
+                    level = "warn"
+                )
+            }
             val request = CodexHistorySyncRequest(
                 syncId = UUID.randomUUID().toString(),
                 conversationId = normalizedConversationId,
-                checkpoint = CodexHistorySyncCheckpoint(checkpoint.rootHash, checkpoint.itemCount, checkpoint.complete)
+                checkpoint = checkpoint,
+                selectionGeneration = requestGeneration,
+                cacheSchemaVersion = if (capability.payloadChunks && capability.perPageAck) 2 else 1
             )
-            connectionManager.send(CodexClientMessages.historySyncRequest(request))
+            if (!isCurrentHistorySelection(normalizedConversationId, requestGeneration)) return@launch
+            val sent = connectionManager.send(CodexClientMessages.historySyncRequest(request))
+            if (!sent && isCurrentHistorySelection(normalizedConversationId, requestGeneration)) {
+                historySyncInFlightConversationId = null
+                cancelHistoryWatchdog()
+                _uiState.update { state ->
+                    if (isCurrentHistorySelection(normalizedConversationId, requestGeneration)) {
+                        state.copy(
+                            historySyncState = if (
+                                state.cachedCanonicalMessages.isNotEmpty() || state.messages.isNotEmpty()
+                            ) {
+                                "cache_only"
+                            } else {
+                                "failed"
+                            }
+                        )
+                    } else {
+                        state
+                    }
+                }
+            }
+            if (sent && isCurrentHistorySelection(normalizedConversationId, requestGeneration)) {
+                armHistoryWatchdog(normalizedConversationId, requestGeneration, "sync")
+            }
+            PersistentDiagnosticLog.event(
+                "codex",
+                "android.codex.history.sync_requested",
+                mapOf(
+                    "conversationKey" to PersistentDiagnosticLog.shortHash(normalizedConversationId),
+                    "generation" to requestGeneration,
+                    "cacheSchemaVersion" to request.cacheSchemaVersion,
+                    "sent" to sent,
+                    "historyPayloadChunks" to capability.payloadChunks,
+                    "historyPerPageAck" to capability.perPageAck
+                ),
+                level = if (sent) "info" else "warn"
+            )
+        }
+    }
+
+    private fun requestHistoryRecovery(conversationId: String): Boolean {
+        val normalizedConversationId = conversationId.trim().takeIf { it.isNotEmpty() } ?: return false
+        val capability = historyCapability ?: return false
+        if (!capability.recovery || historyRecoveryInFlightConversationId == normalizedConversationId) return false
+        if (_uiState.value.activeConversationId?.trim() != normalizedConversationId) return false
+        historyRecoveryInFlightConversationId = normalizedConversationId
+        _uiState.update { state ->
+            if (isCurrentHistorySelection(normalizedConversationId, historySelectionGeneration)) {
+                state.copy(historySyncState = "repairing")
+            } else {
+                state
+            }
+        }
+        val syncId = UUID.randomUUID().toString()
+        val sent = connectionManager.send(
+            CodexClientMessages.historyRecoveryRequest(
+                syncId = syncId,
+                conversationId = normalizedConversationId,
+                selectionGeneration = historySelectionGeneration
+            )
+        )
+        if (!sent) {
+            historyRecoveryInFlightConversationId = null
+            cancelHistoryWatchdog()
+        } else {
+            armHistoryWatchdog(normalizedConversationId, historySelectionGeneration, "recovery")
+        }
+        return sent
+    }
+
+    /**
+     * Escalate a partial/unavailable baseline once for the current selection.
+     * The recovery path performs a bounded server-side thread/read and feeds
+     * it back through the same manifest/delta protocol; it never becomes a
+     * second realtime authority and cannot loop on a running partial turn.
+     */
+    private fun requestHistoryRecoveryOnce(conversationId: String, reason: String): Boolean {
+        val normalizedConversationId = conversationId.trim().takeIf { it.isNotEmpty() } ?: return false
+        if (historyRecoveryRequestedGeneration == historySelectionGeneration) return false
+        if (_uiState.value.activeConversationId?.trim() != normalizedConversationId) return false
+        val sent = requestHistoryRecovery(normalizedConversationId)
+        if (sent) {
+            historyRecoveryRequestedGeneration = historySelectionGeneration
+            PersistentDiagnosticLog.event(
+                "codex",
+                "android.codex.history.recovery_requested",
+                mapOf(
+                    "conversationKey" to PersistentDiagnosticLog.shortHash(normalizedConversationId),
+                    "generation" to historySelectionGeneration,
+                    "reason" to reason
+                )
+            )
+        } else if (isCurrentHistorySelection(normalizedConversationId, historySelectionGeneration)) {
+            _uiState.update { state ->
+                state.copy(
+                    historySyncState = if (
+                        state.cachedCanonicalMessages.isNotEmpty() || state.messages.isNotEmpty()
+                    ) {
+                        "cache_only"
+                    } else {
+                        "failed"
+                    }
+                )
+            }
+        }
+        return sent
+    }
+
+    private fun historyWatchdogTimeoutMillis(): Long = (
+        historyCapability?.syncInactivityTimeoutMs ?: 30_000L
+    ).coerceIn(10_000L, 120_000L) + HISTORY_WATCHDOG_GRACE_MILLIS
+
+    private fun cancelHistoryWatchdog() {
+        historyWatchdogJob?.cancel()
+        historyWatchdogJob = null
+    }
+
+    private fun cancelHistoryResumeProtection() {
+        historyResumeProtectionJob?.cancel()
+        historyResumeProtectionJob = null
+    }
+
+    /**
+     * Keep the explicit history target authoritative while a remote resume is
+     * being drained, but never let a missing legacy response turn that
+     * protection into a permanent global event filter.  Pinned selection
+     * continues to protect against late events that do carry another id.
+     */
+    private fun armHistoryResumeProtection(
+        conversationId: String,
+        generation: Long
+    ) {
+        cancelHistoryResumeProtection()
+        historyResumeProtectionJob = viewModelScope.launch {
+            delay(historyWatchdogTimeoutMillis())
+            if (generation != historySelectionGeneration ||
+                _uiState.value.activeConversationId?.trim() != conversationId
+            ) {
+                return@launch
+            }
+            if (pendingHistoryResumeHydrationThreadId == conversationId) {
+                pendingHistoryResumeHydrationThreadId = null
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.codex.history.resume_protection_expired",
+                    mapOf(
+                        "conversationKey" to PersistentDiagnosticLog.shortHash(conversationId),
+                        "generation" to generation,
+                        "timeoutMs" to historyWatchdogTimeoutMillis()
+                    ),
+                    level = "warn"
+                )
+            }
+            historyResumeProtectionJob = null
+        }
+    }
+
+    /**
+     * OkHttp can accept a frame while the Gateway process or its IPC owner
+     * never produces a response.  The server has an inactivity timer for an
+     * already-started sync, but it cannot help when the request itself is
+     * lost before the handler starts.  Keep this watchdog inactivity-based so
+     * a large valid history transfer is not cut off by an absolute deadline.
+     */
+    private fun armHistoryWatchdog(
+        conversationId: String,
+        generation: Long,
+        phase: String
+    ) {
+        cancelHistoryWatchdog()
+        val timeoutMillis = historyWatchdogTimeoutMillis()
+        historyWatchdogJob = viewModelScope.launch {
+            delay(timeoutMillis)
+            if (!isCurrentHistorySelection(conversationId, generation)) return@launch
+            when (phase) {
+                "sync" -> {
+                    if (historySyncInFlightConversationId != conversationId) return@launch
+                    historySyncInFlightConversationId = null
+                    _uiState.update { state ->
+                        state.copy(
+                            historySyncState = if (
+                                state.cachedCanonicalMessages.isNotEmpty() || state.messages.isNotEmpty()
+                            ) "cache_only" else "failed"
+                        )
+                    }
+                    PersistentDiagnosticLog.event(
+                        "codex",
+                        "android.codex.history.sync_watchdog_timeout",
+                        mapOf(
+                            "conversationKey" to PersistentDiagnosticLog.shortHash(conversationId),
+                            "generation" to generation,
+                            "timeoutMs" to timeoutMillis
+                        ),
+                        level = "warn"
+                    )
+                    requestHistoryRecoveryOnce(conversationId, "sync-watchdog-timeout")
+                }
+                "recovery" -> {
+                    if (historyRecoveryInFlightConversationId != conversationId) return@launch
+                    historyRecoveryInFlightConversationId = null
+                    _uiState.update { state ->
+                        state.copy(
+                            // The cached正文 remains visible, but recovery has
+                            // definitively stopped.  Keep a terminal state so
+                            // the UI does not look as if it is silently waiting
+                            // forever for another server response.
+                            historySyncState = "failed"
+                        )
+                    }
+                    PersistentDiagnosticLog.event(
+                        "codex",
+                        "android.codex.history.recovery_watchdog_timeout",
+                        mapOf(
+                            "conversationKey" to PersistentDiagnosticLog.shortHash(conversationId),
+                            "generation" to generation,
+                            "timeoutMs" to timeoutMillis
+                        ),
+                        level = "warn"
+                    )
+                }
+            }
+        }
+    }
+
+    private fun noteHistoryProtocolActivity(conversationId: String, generation: Long) {
+        if (!isCurrentHistorySelection(conversationId, generation)) return
+        when {
+            historyRecoveryInFlightConversationId == conversationId ->
+                armHistoryWatchdog(conversationId, generation, "recovery")
+            historySyncInFlightConversationId == conversationId ->
+                armHistoryWatchdog(conversationId, generation, "sync")
+        }
+    }
+
+    private fun sendHistoryManifest(required: CodexHistoryManifestRequired) {
+        val profile = currentProfile ?: return
+        val activeConversationId = _uiState.value.activeConversationId?.trim()
+        if (activeConversationId != required.conversationId ||
+            required.clientSelectionGeneration != historySelectionGeneration
+        ) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val manifest = runCatching {
+                historyCacheStore.readConversationManifest(profile.id, required.conversationId)
+            }.getOrDefault(emptyList())
+            val pageSize = required.pageSize.coerceIn(1, 2_000)
+            val pages = if (manifest.isEmpty()) {
+                listOf(emptyList())
+            } else {
+                manifest.chunked(pageSize)
+            }
+            pages.forEachIndexed { index, pageItems ->
+                if (_uiState.value.activeConversationId?.trim() != required.conversationId ||
+                    required.clientSelectionGeneration != historySelectionGeneration
+                ) return@launch
+                val items = JSONArray().apply {
+                    pageItems.forEach { entry ->
+                        put(JSONObject().apply {
+                            put("itemKey", entry.itemKey)
+                            put("contentHash", entry.contentHash)
+                        })
+                    }
+                }
+                val sent = connectionManager.send(
+                    CodexClientMessages.historyManifestPage(
+                        syncId = required.syncId,
+                        conversationId = required.conversationId,
+                        pageIndex = index,
+                        lastPage = index == pages.lastIndex,
+                        items = items,
+                        selectionGeneration = required.clientSelectionGeneration
+                    )
+                )
+                if (!sent && isCurrentHistorySelection(
+                        required.conversationId,
+                        required.clientSelectionGeneration
+                    )
+                ) {
+                    historySyncInFlightConversationId = null
+                    cancelHistoryWatchdog()
+                    _uiState.update { state ->
+                        state.copy(
+                            historySyncState = if (
+                                state.cachedCanonicalMessages.isNotEmpty() || state.messages.isNotEmpty()
+                            ) "cache_only" else "failed"
+                        )
+                    }
+                    PersistentDiagnosticLog.event(
+                        "codex",
+                        "android.codex.history.manifest_send_failed",
+                        mapOf(
+                            "conversationKey" to PersistentDiagnosticLog.shortHash(required.conversationId),
+                            "generation" to required.clientSelectionGeneration,
+                            "pageIndex" to index
+                        ),
+                        level = "warn"
+                    )
+                    return@launch
+                }
+            }
         }
     }
 
@@ -4400,6 +5687,9 @@ class CodexViewModel(
             "codex_ipc_status" -> {
                 val status = CodexIpcStatus.from(json)
                 historyCapability = CodexHistoryCapability.from(json.optJSONObject("status"))
+                val historyStatus = json.optJSONObject("status")
+                    ?.optJSONObject("capabilities")
+                    ?.optJSONObject("historySync")
                 val hadObservedStatus = ipcStatusObserved
                 val wasOnline = _uiState.value.ipcOnline
                 ipcStatusObserved = true
@@ -4410,7 +5700,9 @@ class CodexViewModel(
                         "online" to status.online,
                         "hadObservedStatus" to hadObservedStatus,
                         "wasOnline" to wasOnline,
-                        "clientIdPresent" to !status.clientId.isNullOrBlank()
+                        "clientIdPresent" to !status.clientId.isNullOrBlank(),
+                        "historyCapabilityVersion" to (historyCapability?.version ?: 0),
+                        "historyStatusVersion" to (historyStatus?.optInt("version", 0) ?: 0)
                     ),
                     level = if (status.online) "info" else "warn"
                 )
@@ -4421,6 +5713,11 @@ class CodexViewModel(
                     )
                 }
                 if (status.online && (!hadObservedStatus || !wasOnline)) {
+                    // A reconnect starts a fresh bounded recovery opportunity
+                    // for the same selected task.  Keep the selection
+                    // generation for stale-page rejection, but do not let a
+                    // lost recovery frame permanently consume its one retry.
+                    historyRecoveryRequestedGeneration = -1L
                     beginAwaitingFreshIpcSurface()
                     subscribeActiveConversationIfNeeded()
                 } else if (!status.online && (!hadObservedStatus || wasOnline)) {
@@ -4503,10 +5800,15 @@ class CodexViewModel(
                 }
                 val newConversationId = _uiState.value.activeConversationId?.trim().orEmpty()
                 val targetChanged = newConversationId.isNotEmpty() && previousConversationId != newConversationId
-                if (targetChanged) historySyncInFlightConversationId = null
+                if (targetChanged) advanceHistorySelectionGeneration("ipc-selection:$newConversationId")
                 val switched = previousConversationId.isNotEmpty() && targetChanged
                 if (targetChanged) {
                     beginAwaitingFreshIpcSurface()
+                    // IPC conversation discovery can select the restored/default task
+                    // without going through thread/resume. Hydrate its endpoint-scoped
+                    // cache immediately so a bounded live surface never hides the
+                    // historical正文/attachments while the network path catches up.
+                    hydrateCachedConversation(newConversationId, historySelectionGeneration)
                 }
                 Log.i(TAG, "[ipc][conversations-received] " +
                     "conversationCount=${conversations.size} " +
@@ -4527,52 +5829,231 @@ class CodexViewModel(
                     Log.i(TAG, "[ipc][subscribe] sending set_active_conversation: $conversationId")
                     connectionManager.send(CodexClientMessages.setActiveConversation(conversationId))
                 }
+                if (targetChanged) {
+                    // IPC conversation discovery can select a task without a
+                    // thread/resume response.  Request its bounded detail
+                    // baseline explicitly; otherwise a long-idle owner can
+                    // leave the UI with only a "live" surface status and no
+                    // historical正文.
+                    maybeRequestHistorySync(newConversationId)
+                }
             }
 
             "codex_ipc_sync_event" -> {
                 // Android consumes normalized conversation snapshots; raw sync events are diagnostics.
             }
 
+            "conversation_history_manifest_required" -> {
+                val required = CodexHistoryManifestRequired.from(json) ?: return
+                if (required.conversationId != _uiState.value.activeConversationId ||
+                    !acceptsHistoryClientSelection(required.clientSelectionGeneration)
+                ) return
+                noteHistoryProtocolActivity(
+                    conversationId = required.conversationId,
+                    generation = required.clientSelectionGeneration
+                )
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.codex.history.manifest_required",
+                    mapOf(
+                        "conversationKey" to PersistentDiagnosticLog.shortHash(required.conversationId),
+                        "generation" to required.clientSelectionGeneration,
+                        "pageSize" to required.pageSize
+                    )
+                )
+                _uiState.update { it.copy(historySyncState = "repairing") }
+                sendHistoryManifest(required)
+            }
+
+            "conversation_history_recovery_state" -> {
+                val conversationId = json.optStringOrNullCompat("conversationId") ?: return
+                val clientGeneration = json.optLong("clientSelectionGeneration", 0L)
+                if (conversationId != _uiState.value.activeConversationId ||
+                    !acceptsHistoryClientSelection(clientGeneration)
+                ) return
+                cancelHistoryWatchdog()
+                historyRecoveryInFlightConversationId = null
+                val state = json.optString("state", "failed")
+                if (state == "ready") {
+                    _uiState.update { it.copy(historySyncState = "loading_baseline") }
+                    maybeRequestHistorySync(conversationId)
+                } else {
+                    historySyncInFlightConversationId = null
+                    _uiState.update { it.copy(historySyncState = "failed") }
+                }
+            }
+
             "conversation_history_sync_state" -> {
                 val syncState = CodexHistorySyncStateMessage.from(json)
-                if (syncState.conversationId == _uiState.value.activeConversationId) {
-                    if (syncState.state == "live" || syncState.state == "partial" || syncState.state == "failed") {
+                if (syncState.conversationId == _uiState.value.activeConversationId &&
+                    acceptsHistoryClientSelection(syncState.clientSelectionGeneration)
+                ) {
+                    noteHistoryProtocolActivity(
+                        conversationId = syncState.conversationId,
+                        generation = syncState.clientSelectionGeneration
+                    )
+                    PersistentDiagnosticLog.event(
+                        "codex",
+                        "android.codex.history.sync_state",
+                        mapOf(
+                            "conversationKey" to PersistentDiagnosticLog.shortHash(syncState.conversationId),
+                            "generation" to syncState.clientSelectionGeneration,
+                            "state" to syncState.state,
+                            "detailCode" to syncState.detailCode
+                        ),
+                        level = if (syncState.state == "failed") "warn" else "info"
+                    )
+                    val terminalSyncState = syncState.state == "live" ||
+                        syncState.state == "partial" ||
+                        syncState.state == "failed"
+                    if (terminalSyncState) {
                         historySyncInFlightConversationId = null
+                        cancelHistoryWatchdog()
+                        if (pendingHistoryResumeHydrationThreadId == syncState.conversationId) {
+                            // The independent history channel has reached a
+                            // terminal state for the selected task.  The
+                            // cache-first switch no longer needs a global
+                            // no-id event quarantine; pinned id checks still
+                            // reject late events from another conversation.
+                            pendingHistoryResumeHydrationThreadId = null
+                            cancelHistoryResumeProtection()
+                        }
                     }
                     _uiState.update { it.copy(historySyncState = syncState.state) }
+                    if (syncState.state == "partial") {
+                        // A partial baseline commits the available tail, but
+                        // it cannot prove that older正文 exists locally.
+                        // Escalate once to the bounded full-baseline provider
+                        // so a long-idle owner cannot leave this task blank.
+                        requestHistoryRecoveryOnce(syncState.conversationId, "partial-baseline")
+                    } else if (syncState.state == "failed" &&
+                        syncState.detailCode in setOf(
+                            "history_unavailable",
+                            "conversation_not_active",
+                            "history_baseline_timeout",
+                            "history_baseline_failed"
+                        )
+                    ) {
+                        requestHistoryRecoveryOnce(syncState.conversationId, syncState.detailCode ?: "sync-failed")
+                    }
                 }
             }
 
             "conversation_history_delta" -> {
-                val delta = CodexHistoryDeltaWire.from(json)?.page ?: return
+                val delta = CodexHistoryDeltaWire.from(json)?.page ?: run {
+                    PersistentDiagnosticLog.event(
+                        "codex",
+                        "android.codex.history.delta_parse_failed",
+                        mapOf("conversationKey" to PersistentDiagnosticLog.shortHash(json.optString("conversationId", ""))),
+                        level = "warn"
+                    )
+                    return
+                }
                 val activeConversationId = _uiState.value.activeConversationId
                 val endpointId = currentProfile?.id
-                if (endpointId == null || delta.conversationId != activeConversationId) return
+                if (endpointId == null || delta.conversationId != activeConversationId ||
+                    !acceptsHistoryClientSelection(delta.selectionGeneration)
+                ) return
+                noteHistoryProtocolActivity(
+                    conversationId = delta.conversationId,
+                    generation = delta.selectionGeneration
+                )
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.codex.history.delta_received",
+                    mapOf(
+                        "conversationKey" to PersistentDiagnosticLog.shortHash(delta.conversationId),
+                        "generation" to delta.selectionGeneration,
+                        "pageIndex" to delta.pageIndex,
+                        "pageCount" to delta.pageCount,
+                        "upsertCount" to delta.upserts.size,
+                        "deleteCount" to delta.deletes.size,
+                        "chunkedCount" to delta.upserts.count { it.payloadChunkCount > 0 },
+                        "pageHashMatches" to (CodexHistoryPageHasher.pageHash(delta) == delta.pageHash)
+                    )
+                )
+                val deltaSelectionGeneration = delta.selectionGeneration
+                pendingHistoryPages[historyPageKey(delta.syncId, delta.pageIndex)] = delta
                 viewModelScope.launch(Dispatchers.IO) {
-                    val result = runCatching { historyCacheStore.applyDeltaPage(endpointId, delta) }
+                    if (!isCurrentHistorySelection(delta.conversationId, deltaSelectionGeneration)) return@launch
+                    val result = runCatching { historyApplyMutex.withLock { historyCacheStore.applyDeltaPage(endpointId, delta) } }
                         .getOrDefault(CodexConversationCacheStore.PageApplyResult.REJECTED)
+                    PersistentDiagnosticLog.event(
+                        "codex",
+                        "android.codex.history.delta_applied",
+                        mapOf(
+                            "conversationKey" to PersistentDiagnosticLog.shortHash(delta.conversationId),
+                            "generation" to deltaSelectionGeneration,
+                            "pageIndex" to delta.pageIndex,
+                            "result" to result.name
+                        ),
+                        level = if (result == CodexConversationCacheStore.PageApplyResult.REJECTED || result == CodexConversationCacheStore.PageApplyResult.REJECTED_CONFLICT) "warn" else "info"
+                    )
+                    fun ackPage() {
+                        connectionManager.send(
+                            CodexClientMessages.historySyncAck(
+                                delta.syncId,
+                                delta.conversationId,
+                                delta.targetRoot,
+                                delta.sequence,
+                                delta.pageIndex,
+                                deltaSelectionGeneration
+                            )
+                        )
+                    }
                     when (result) {
-                        CodexConversationCacheStore.PageApplyResult.COMMITTED,
-                        CodexConversationCacheStore.PageApplyResult.IDEMPOTENT -> {
+                        CodexConversationCacheStore.PageApplyResult.COMMITTED -> {
+                            if (!isCurrentHistorySelection(delta.conversationId, deltaSelectionGeneration)) return@launch
                             val cached = historyCacheStore.readConversation(endpointId, delta.conversationId)
-                                ?: historyCacheStore.readConversationByConversationId(delta.conversationId)
+                            if (!isCurrentHistorySelection(delta.conversationId, deltaSelectionGeneration)) return@launch
                             val cachedMessages = cached?.items?.sortedBy { it.position }?.mapNotNull(::decodeCachedHistoryItem).orEmpty()
+                            if (!isCurrentHistorySelection(delta.conversationId, deltaSelectionGeneration)) return@launch
                             _uiState.update { state ->
-                                if (!shouldApplyHistoryDeltaToUiState(state, delta.conversationId)) {
+                                if (!isCurrentHistorySelection(delta.conversationId, deltaSelectionGeneration) ||
+                                    !shouldApplyHistoryDeltaToUiState(state, delta.conversationId)
+                                ) {
                                     state
                                 } else {
                                     state.copy(
                                         cachedCanonicalMessages = cachedMessages,
-                                        messages = if (shouldReplaceMessagesFromHistoryDeltaForUiState(state, delta.conversationId)) {
-                                            cachedMessages
-                                        } else {
-                                            state.messages
-                                        },
+                                        messages = mergeCachedHistoryIntoLiveMessagesForUi(
+                                            state = state,
+                                            conversationId = delta.conversationId,
+                                            cachedMessages = cachedMessages
+                                        ),
                                         historySyncState = if (delta.baselineComplete) "live" else "partial"
                                     )
                                 }
                             }
-                            connectionManager.send(CodexClientMessages.historySyncAck(delta.syncId, delta.conversationId, delta.targetRoot, delta.sequence))
+                            // A cold-start history page can be the first source
+                            // of media descriptors; prefetch the latest visible
+                            // tail as soon as that page is committed.
+                            scheduleMediaPrefetch(cachedMessages, deltaSelectionGeneration)
+                            ackPage()
+                        }
+                        CodexConversationCacheStore.PageApplyResult.READY -> ackPage()
+                        CodexConversationCacheStore.PageApplyResult.STALE -> Unit
+                        CodexConversationCacheStore.PageApplyResult.IDEMPOTENT -> {
+                            if (delta.pageIndex == delta.pageCount - 1) {
+                                if (!isCurrentHistorySelection(delta.conversationId, deltaSelectionGeneration)) return@launch
+                                val cached = historyCacheStore.readConversation(endpointId, delta.conversationId)
+                                val cachedMessages = cached?.items?.sortedBy { it.position }?.mapNotNull(::decodeCachedHistoryItem).orEmpty()
+                                _uiState.update { state ->
+                                    if (shouldApplyHistoryDeltaToUiState(state, delta.conversationId)) {
+                                        state.copy(
+                                            cachedCanonicalMessages = cachedMessages,
+                                            messages = mergeCachedHistoryIntoLiveMessagesForUi(
+                                                state = state,
+                                                conversationId = delta.conversationId,
+                                                cachedMessages = cachedMessages
+                                            ),
+                                            historySyncState = if (delta.baselineComplete) "live" else "partial"
+                                        )
+                                    } else state
+                                }
+                                scheduleMediaPrefetch(cachedMessages, deltaSelectionGeneration)
+                            }
+                            ackPage()
                         }
                         CodexConversationCacheStore.PageApplyResult.STAGED -> Unit
                         else -> _uiState.update { state ->
@@ -4583,6 +6064,90 @@ class CodexViewModel(
                             }
                         }
                     }
+                }
+            }
+
+            "conversation_history_payload_chunk" -> {
+                val chunk = CodexHistoryPayloadChunkWire.from(json)?.chunk ?: return
+                val endpointId = currentProfile?.id
+                if (endpointId == null || chunk.conversationId != _uiState.value.activeConversationId ||
+                    !acceptsHistoryClientSelection(chunk.selectionGeneration)
+                ) return
+                noteHistoryProtocolActivity(
+                    conversationId = chunk.conversationId,
+                    generation = chunk.selectionGeneration
+                )
+                val chunkSelectionGeneration = chunk.selectionGeneration
+                val page = pendingHistoryPages[historyPageKey(chunk.syncId, chunk.pageIndex)]
+                    ?: CodexHistoryDeltaPage(
+                        syncId = chunk.syncId,
+                        conversationId = chunk.conversationId,
+                        sequence = chunk.sequence,
+                        pageIndex = chunk.pageIndex,
+                        pageCount = chunk.pageIndex + 1,
+                        pageHash = "",
+                        baseRoot = null,
+                        targetRoot = chunk.targetRoot,
+                        baselineComplete = chunk.baselineComplete,
+                        fullOrderIncluded = false
+                    )
+                viewModelScope.launch(Dispatchers.IO) {
+                    if (!isCurrentHistorySelection(chunk.conversationId, chunkSelectionGeneration)) return@launch
+                    val result = runCatching { historyApplyMutex.withLock { historyCacheStore.applyPayloadChunk(endpointId, chunk) } }
+                        .getOrDefault(CodexConversationCacheStore.PageApplyResult.REJECTED)
+                    if (result == CodexConversationCacheStore.PageApplyResult.READY) {
+                        connectionManager.send(
+                            CodexClientMessages.historySyncAck(
+                                chunk.syncId,
+                                chunk.conversationId,
+                                page.targetRoot.ifBlank { chunk.targetRoot },
+                                chunk.sequence,
+                                chunk.pageIndex,
+                                chunkSelectionGeneration
+                            )
+                        )
+                        return@launch
+                    }
+                    if (result == CodexConversationCacheStore.PageApplyResult.STALE) return@launch
+                    if (result != CodexConversationCacheStore.PageApplyResult.COMMITTED &&
+                        result != CodexConversationCacheStore.PageApplyResult.IDEMPOTENT
+                    ) {
+                        if (result != CodexConversationCacheStore.PageApplyResult.STAGED) {
+                            _uiState.update { state ->
+                                if (shouldApplyHistoryDeltaToUiState(state, chunk.conversationId)) state.copy(historySyncState = "failed") else state
+                            }
+                        }
+                        return@launch
+                    }
+                    val cached = historyCacheStore.readConversation(endpointId, chunk.conversationId)
+                    if (!isCurrentHistorySelection(chunk.conversationId, chunkSelectionGeneration)) return@launch
+                    val cachedMessages = cached?.items?.sortedBy { it.position }?.mapNotNull(::decodeCachedHistoryItem).orEmpty()
+                    if (!isCurrentHistorySelection(chunk.conversationId, chunkSelectionGeneration)) return@launch
+                    _uiState.update { state ->
+                        if (!isCurrentHistorySelection(chunk.conversationId, chunkSelectionGeneration) ||
+                            !shouldApplyHistoryDeltaToUiState(state, chunk.conversationId)
+                        ) state else state.copy(
+                            cachedCanonicalMessages = cachedMessages,
+                            messages = mergeCachedHistoryIntoLiveMessagesForUi(
+                                state = state,
+                                conversationId = chunk.conversationId,
+                                cachedMessages = cachedMessages
+                            ),
+                            historySyncState = if (page.baselineComplete) "live" else "partial"
+                        )
+                    }
+                    scheduleMediaPrefetch(cachedMessages, chunkSelectionGeneration)
+                    connectionManager.send(
+                        CodexClientMessages.historySyncAck(
+                            chunk.syncId,
+                            chunk.conversationId,
+                            page.targetRoot.ifBlank { chunk.targetRoot },
+                            chunk.sequence,
+                            chunk.pageIndex,
+                            chunkSelectionGeneration
+                        )
+                    )
+                    pendingHistoryPages.remove(historyPageKey(chunk.syncId, chunk.pageIndex))
                 }
             }
 
@@ -4646,7 +6211,22 @@ class CodexViewModel(
                             threadHistoryEntries = mergeGoalHistoryEntries(updated.threadHistoryEntries)
                         )
                     }
-                    if (!snap.desynced) maybeRequestHistorySync(convId)
+                    if (shouldRequestHistorySyncAfterSurface(previousStatus, snap.status, snap.desynced)) {
+                        // A partial baseline is complete enough for this selection; do not
+                        // restart manifest sync on every streaming surface revision. A terminal
+                        // transition gets one final refresh so the committed cache includes the
+                        // completed turn, while reconnect/selection still trigger their own
+                        // requests through the existing paths.
+                        if (previousStatus?.trim()?.lowercase() !in setOf(
+                                "completed", "failed", "interrupted", "cancelled", "canceled"
+                            ) && snap.status.trim().lowercase() in setOf(
+                                "completed", "failed", "interrupted", "cancelled", "canceled"
+                            )
+                        ) {
+                            historySyncInFlightConversationId = null
+                        }
+                        maybeRequestHistorySync(convId)
+                    }
                 }
                 Log.i(TAG, "[ipc][surface-snapshot] " +
                     "conv=$convId " +
@@ -4666,6 +6246,23 @@ class CodexViewModel(
             }
 
             "conversation_status_changed" -> {
+                val statusConversationId = normalizeThreadId(
+                    json.optStringOrNullCompat("conversationId")
+                )
+                if (shouldSuppressExplicitHistorySessionEvent(
+                        pendingHistoryResumeThreadId = pendingHistoryResumeHydrationThreadId,
+                        pinnedConversationId = pinnedIpcConversationId,
+                        activeConversationId = _uiState.value.activeConversationId,
+                        incomingConversationId = statusConversationId
+                    )) {
+                    Log.w(
+                        TAG,
+                        "[history][selection-protected] ignoring stale conversation status " +
+                            "incoming=${statusConversationId.orEmpty()} " +
+                            "target=${pendingHistoryResumeHydrationThreadId.orEmpty()}"
+                    )
+                    return
+                }
                 applyConversationStatusChanged(json)
                 val statusJson = json.optStringOrNullCompat("status").orEmpty()
                 val previousJson = json.optStringOrNullCompat("previousStatus").orEmpty()
@@ -4723,6 +6320,23 @@ class CodexViewModel(
             }
 
             "codex_thread_recovery_required" -> {
+                val recoveryConversationId = normalizeThreadId(
+                    json.optStringOrNullCompat("conversationId")
+                )
+                if (shouldSuppressExplicitHistorySessionEvent(
+                        pendingHistoryResumeThreadId = pendingHistoryResumeHydrationThreadId,
+                        pinnedConversationId = pinnedIpcConversationId,
+                        activeConversationId = _uiState.value.activeConversationId,
+                        incomingConversationId = recoveryConversationId
+                    )) {
+                    Log.w(
+                        TAG,
+                        "[history][selection-protected] ignoring stale thread recovery " +
+                            "incoming=${recoveryConversationId.orEmpty()} " +
+                            "target=${pendingHistoryResumeHydrationThreadId.orEmpty()}"
+                    )
+                    return
+                }
                 val recoveryId = json.optStringOrNullCompat("recoveryId")
                 if (!recoveryId.isNullOrBlank()) {
                     _uiState.update { current ->
@@ -4779,6 +6393,19 @@ class CodexViewModel(
             "conversation_action_required" -> {
                 val convId = json.optStringOrNullCompat("conversationId").orEmpty()
                 val actionType = json.optString("actionType", "").trim()
+                if (shouldSuppressExplicitHistorySessionEvent(
+                        pendingHistoryResumeThreadId = pendingHistoryResumeHydrationThreadId,
+                        pinnedConversationId = pinnedIpcConversationId,
+                        activeConversationId = _uiState.value.activeConversationId,
+                        incomingConversationId = convId
+                    )) {
+                    Log.w(
+                        TAG,
+                        "[history][selection-protected] ignoring stale conversation action " +
+                            "incoming=$convId target=${pendingHistoryResumeHydrationThreadId.orEmpty()}"
+                    )
+                    return
+                }
                 Log.i(TAG, "[ipc][action-required] " +
                     "conversationId=$convId " +
                     "actionType=$actionType " +
@@ -4793,6 +6420,19 @@ class CodexViewModel(
                         ?: json.optStringOrNullCompat("conversationId")
                 )
                 if (conversationId != null) {
+                    if (shouldSuppressExplicitHistorySessionEvent(
+                            pendingHistoryResumeThreadId = pendingHistoryResumeHydrationThreadId,
+                            pinnedConversationId = pinnedIpcConversationId,
+                            activeConversationId = _uiState.value.activeConversationId,
+                            incomingConversationId = conversationId
+                        )) {
+                        Log.w(
+                            TAG,
+                            "[history][selection-protected] ignoring stale session binding " +
+                                "incoming=$conversationId target=${pendingHistoryResumeHydrationThreadId.orEmpty()}"
+                        )
+                        return
+                    }
                     val rememberedOverrides = loadRememberedTaskOverrides(
                         conversationId,
                         reason = "session-thread-bound"
@@ -4848,6 +6488,19 @@ class CodexViewModel(
                 val previousThreadId = _uiState.value.threadId
                 val serverThreadId = state.threadId
                 val normalizedServerThreadId = normalizeThreadId(serverThreadId)
+                if (shouldSuppressExplicitHistorySessionEvent(
+                        pendingHistoryResumeThreadId = pendingHistoryResumeHydrationThreadId,
+                        pinnedConversationId = pinnedIpcConversationId,
+                        activeConversationId = _uiState.value.activeConversationId,
+                        incomingConversationId = normalizedServerThreadId
+                    )) {
+                    Log.w(
+                        TAG,
+                        "[history][selection-protected] ignoring stale codex_state " +
+                            "incoming=${normalizedServerThreadId.orEmpty()} target=${pendingHistoryResumeHydrationThreadId.orEmpty()}"
+                    )
+                    return
+                }
                 val rememberedServerOverrides = loadRememberedTaskOverrides(
                     normalizedServerThreadId,
                     reason = "codex-state"
@@ -4913,6 +6566,7 @@ class CodexViewModel(
                                 ipcSurfaceSnapshot = if (ipcConversationSwitched) null else current.ipcSurfaceSnapshot,
                                 ownerCurrentCodexConfig = if (ipcConversationSwitched) null else current.ownerCurrentCodexConfig,
                                 cachedCanonicalMessages = if (ipcConversationSwitched) emptyList() else current.cachedCanonicalMessages,
+                                messages = if (ipcConversationSwitched) emptyList() else current.messages,
                                 liveAuthoritativeConversationId = if (ipcConversationSwitched) null else current.liveAuthoritativeConversationId,
                                 liveAuthoritativeDesynced = if (ipcConversationSwitched) false else current.liveAuthoritativeDesynced,
                                 historySyncState = if (ipcConversationSwitched) "cache_only" else current.historySyncState,
@@ -4967,6 +6621,7 @@ class CodexViewModel(
                 }
                 if (resolvesHistoryResumeHydration) {
                     pendingHistoryResumeHydrationThreadId = null
+                    cancelHistoryResumeProtection()
                 }
                 if (threadChanged) {
                     beginAwaitingFreshIpcSurface()
@@ -4998,6 +6653,19 @@ class CodexViewModel(
             "codex_thread_ready" -> {
                 val ready = CodexThreadReady.from(json)
                 val readyThreadId = normalizeThreadId(ready.threadId)
+                if (shouldSuppressExplicitHistorySessionEvent(
+                        pendingHistoryResumeThreadId = pendingHistoryResumeHydrationThreadId,
+                        pinnedConversationId = pinnedIpcConversationId,
+                        activeConversationId = _uiState.value.activeConversationId,
+                        incomingConversationId = readyThreadId
+                    )) {
+                    Log.w(
+                        TAG,
+                        "[history][selection-protected] ignoring stale codex_thread_ready " +
+                            "incoming=${readyThreadId.orEmpty()} target=${pendingHistoryResumeHydrationThreadId.orEmpty()}"
+                    )
+                    return
+                }
                 PersistentDiagnosticLog.event(
                     "codex",
                     "android.codex.thread.ready",
@@ -5052,6 +6720,19 @@ class CodexViewModel(
             "codex_thread_snapshot" -> {
                 val snapshot = CodexThreadSnapshot.from(json)
                 val snapshotThreadId = normalizeThreadId(snapshot.threadId)
+                if (shouldSuppressExplicitHistorySessionEvent(
+                        pendingHistoryResumeThreadId = pendingHistoryResumeHydrationThreadId,
+                        pinnedConversationId = pinnedIpcConversationId,
+                        activeConversationId = _uiState.value.activeConversationId,
+                        incomingConversationId = snapshotThreadId
+                    )) {
+                    Log.w(
+                        TAG,
+                        "[history][selection-protected] ignoring stale codex_thread_snapshot " +
+                            "incoming=${snapshotThreadId.orEmpty()} target=${pendingHistoryResumeHydrationThreadId.orEmpty()}"
+                    )
+                    return
+                }
                 val canonicalMessages = parseSnapshotMessages(snapshot)
                 PersistentDiagnosticLog.event(
                     "codex",
@@ -5101,6 +6782,19 @@ class CodexViewModel(
             "codex_turn_ack" -> {
                 val ack = CodexTurnAck.from(json)
                 val ackThreadId = normalizeThreadId(ack.threadId)
+                if (shouldSuppressExplicitHistorySessionEvent(
+                        pendingHistoryResumeThreadId = pendingHistoryResumeHydrationThreadId,
+                        pinnedConversationId = pinnedIpcConversationId,
+                        activeConversationId = _uiState.value.activeConversationId,
+                        incomingConversationId = ackThreadId
+                    )) {
+                    Log.w(
+                        TAG,
+                        "[history][selection-protected] ignoring stale codex_turn_ack " +
+                            "incoming=${ackThreadId.orEmpty()} target=${pendingHistoryResumeHydrationThreadId.orEmpty()}"
+                    )
+                    return
+                }
                 _uiState.update {
                     syncExecutionWatch(
                         it.copy(
@@ -5125,6 +6819,22 @@ class CodexViewModel(
             }
 
             "codex_interrupt_ack" -> {
+                val interruptThreadId = normalizeThreadId(
+                    json.optStringOrNullCompat("threadId")
+                )
+                if (shouldSuppressExplicitHistorySessionEvent(
+                        pendingHistoryResumeThreadId = pendingHistoryResumeHydrationThreadId,
+                        pinnedConversationId = pinnedIpcConversationId,
+                        activeConversationId = _uiState.value.activeConversationId,
+                        incomingConversationId = interruptThreadId
+                    )) {
+                    Log.w(
+                        TAG,
+                        "[history][selection-protected] ignoring stale codex_interrupt_ack " +
+                            "incoming=${interruptThreadId.orEmpty()} target=${pendingHistoryResumeHydrationThreadId.orEmpty()}"
+                    )
+                    return
+                }
                 Log.d(TAG, "Interrupt ack")
                 currentStreamingMessageId = null
                 currentPlanStreamingMessageId = null
@@ -5160,6 +6870,22 @@ class CodexViewModel(
             }
 
             "follower_goal_control_ack" -> {
+                val controlConversationId = normalizeThreadId(
+                    json.optStringOrNullCompat("conversationId")
+                )
+                if (shouldSuppressExplicitHistorySessionEvent(
+                        pendingHistoryResumeThreadId = pendingHistoryResumeHydrationThreadId,
+                        pinnedConversationId = pinnedIpcConversationId,
+                        activeConversationId = _uiState.value.activeConversationId,
+                        incomingConversationId = controlConversationId
+                    )) {
+                    Log.w(
+                        TAG,
+                        "[history][selection-protected] ignoring stale follower_goal_control_ack " +
+                            "incoming=${controlConversationId.orEmpty()} target=${pendingHistoryResumeHydrationThreadId.orEmpty()}"
+                    )
+                    return
+                }
                 Log.d(TAG, "Owner Goal control accepted: ${json.optString("action", "")}")
                 json.optStringOrNullCompat("warning")?.let { warning ->
                     _uiState.update { current -> current.copy(errorMessage = warning) }
@@ -5313,11 +7039,51 @@ class CodexViewModel(
 
             "codex_notification" -> {
                 val notif = CodexNotification.from(json)
+                val notificationThreadId = extractCodexThreadIdFromPayload(
+                    raw = notif.raw,
+                    params = notif.params
+                )
+                if (notif.method != "account/rateLimits/updated" &&
+                    shouldSuppressExplicitHistorySessionEvent(
+                        pendingHistoryResumeThreadId = pendingHistoryResumeHydrationThreadId,
+                        pinnedConversationId = pinnedIpcConversationId,
+                        activeConversationId = _uiState.value.activeConversationId,
+                        incomingConversationId = notificationThreadId
+                    )
+                ) {
+                    Log.w(
+                        TAG,
+                        "[history][selection-protected] ignoring stale codex_notification " +
+                            "method=${notif.method} incoming=${notificationThreadId.orEmpty()} " +
+                            "target=${pendingHistoryResumeHydrationThreadId.orEmpty()}"
+                    )
+                    return
+                }
                 handleCodexNotification(notif)
             }
 
             "codex_server_request" -> {
                 val requestEnvelope = CodexServerRequestEnvelope.from(json)
+                val requestThreadId = requestEnvelope?.let { envelope ->
+                    extractCodexThreadIdFromPayload(
+                        raw = envelope.raw,
+                        params = envelope.request.params
+                    )
+                }
+                if (shouldSuppressExplicitHistorySessionEvent(
+                        pendingHistoryResumeThreadId = pendingHistoryResumeHydrationThreadId,
+                        pinnedConversationId = pinnedIpcConversationId,
+                        activeConversationId = _uiState.value.activeConversationId,
+                        incomingConversationId = requestThreadId
+                    )) {
+                    Log.w(
+                        TAG,
+                        "[history][selection-protected] ignoring stale codex_server_request " +
+                            "incoming=${requestThreadId.orEmpty()} " +
+                            "target=${pendingHistoryResumeHydrationThreadId.orEmpty()}"
+                    )
+                    return
+                }
                 handleCodexServerRequest(requestEnvelope)
             }
 
@@ -5329,8 +7095,53 @@ class CodexViewModel(
 
     private fun handleCodexResponse(response: CodexResponse) {
         val method = response.method
+        if ((method == "thread/resume" || method == "thread/read") &&
+            response.raw.has("selectionGeneration") &&
+            response.raw.optLong("selectionGeneration", -1L) != historySelectionGeneration
+        ) {
+            Log.w(
+                TAG,
+                "[history][metadata-response][stale] method=$method " +
+                    "incomingGeneration=${response.raw.optLong("selectionGeneration", -1L)} " +
+                    "currentGeneration=$historySelectionGeneration"
+            )
+            return
+        }
+        if (method == "thread/list" && response.raw.has("selectionGeneration") &&
+            response.raw.optLong("selectionGeneration", -1L) != threadListRequestGeneration
+        ) {
+            Log.w(
+                TAG,
+                "[history][list-response][stale] ignored " +
+                    "incomingGeneration=${response.raw.optLong("selectionGeneration", -1L)} " +
+                    "requestGeneration=$threadListRequestGeneration"
+            )
+            return
+        }
         if (!method.isNullOrBlank()) {
             if (response.error != null) {
+                if (method == "thread/resume" &&
+                    !response.raw.has("selectionGeneration") &&
+                    shouldSuppressExplicitHistorySessionEvent(
+                        pendingHistoryResumeThreadId = pendingHistoryResumeHydrationThreadId,
+                        pinnedConversationId = pinnedIpcConversationId,
+                        activeConversationId = _uiState.value.activeConversationId,
+                        incomingConversationId = null
+                    )
+                ) {
+                    // A legacy gateway cannot identify which queued resume
+                    // failed.  While an explicit cache-first selection is
+                    // pending, do not let an older resume error clear the
+                    // target's protection; the bounded history watchdog will
+                    // surface a terminal recovery state if the current
+                    // request also fails.
+                    Log.w(
+                        TAG,
+                        "[history][selection-protected] ignoring unscoped legacy " +
+                            "thread/resume error target=${pendingHistoryResumeHydrationThreadId.orEmpty()}"
+                    )
+                    return
+                }
                 handleCodexRequestError(method, response.error)
                 return
             }
@@ -5348,6 +7159,18 @@ class CodexViewModel(
                     return
                 }
                 "thread/resume" -> {
+                    if (shouldIgnoreStaleThreadResumeResponse(response.result)) {
+                        val incomingThreadId = extractThreadResult(response.result)
+                            ?.optStringOrNullCompat("id")
+                        Log.w(
+                            TAG,
+                            "[history][metadata-response][stale] ignored thread/resume " +
+                                "incoming=${incomingThreadId.orEmpty()} " +
+                                "active=${_uiState.value.activeConversationId.orEmpty()} " +
+                                "target=${pendingHistoryResumeHydrationThreadId.orEmpty()}"
+                        )
+                        return
+                    }
                     handleThreadResumeResponse(response.result)
                     return
                 }
@@ -5632,7 +7455,7 @@ class CodexViewModel(
                 Log.w(TAG, "Permission profile catalog unavailable: $message")
             }
             "thread/list" -> {
-                _uiState.update { it.copy(threadHistoryLoading = false) }
+                _uiState.update { it.copy(threadHistoryLoading = false, threadHistoryStatus = "offline") }
                 appendMessage(ChatMessage.Role.ERROR, message)
             }
             "skills/list" -> {
@@ -5682,6 +7505,7 @@ class CodexViewModel(
             "thread/name/set" -> {
                 if (method == "thread/resume") {
                     pendingHistoryResumeHydrationThreadId = null
+                    cancelHistoryResumeProtection()
                     pinnedIpcConversationId = _uiState.value.activeConversationId?.trim()
                         ?.takeIf { it.isNotEmpty() }
                 }
@@ -5707,13 +7531,45 @@ class CodexViewModel(
 
     private fun handleThreadListResponse(result: Any?) {
         val entries = parseThreadHistoryEntries(result)
+        val profileId = currentProfile?.id
+        if (profileId == null || threadListRequestProfileId != profileId ||
+            threadListRequestGeneration != historySelectionGeneration
+        ) return
+        val refreshedAt = System.currentTimeMillis()
+        val cachedEntries = _uiState.value.threadHistoryEntries
+        val mergedEntries = mergeThreadHistoryEntries(cachedEntries, entries)
+        val indexEntries = entries.map { entry ->
+            val merged = mergeThreadHistoryEntry(cachedEntries.firstOrNull { it.id == entry.id }, entry)
+            CodexThreadIndexEntry(
+                endpointId = profileId,
+                conversationId = merged.id,
+                title = merged.title,
+                preview = merged.preview,
+                archived = merged.archived,
+                cwd = merged.cwd,
+                goalObjective = merged.goalObjective,
+                createdAt = merged.createdAt,
+                lastActiveAt = merged.lastActiveAt,
+                lastSeenAt = refreshedAt,
+                lastRemoteRefreshAt = refreshedAt,
+                source = "thread_list"
+            )
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                historyCacheStore.upsertThreadIndex(profileId, indexEntries, refreshedAt)
+            }.onFailure { error ->
+                Log.w(TAG, "Failed to persist Codex thread index", error)
+            }
+        }
         _uiState.update { state ->
             state.copy(
-                threadHistoryEntries = entries,
+                threadHistoryEntries = mergeGoalHistoryEntries(mergedEntries),
                 threadHistoryLoading = false,
+                threadHistoryStatus = "live",
                 currentThreadTitle = resolveCurrentThreadTitle(
                     threadId = state.threadId,
-                    entries = entries,
+                    entries = mergedEntries,
                     fallback = state.currentThreadTitle
                 )
             )
@@ -5761,6 +7617,7 @@ class CodexViewModel(
                 ipcSurfaceSnapshot = if (switchedConversation) null else state.ipcSurfaceSnapshot,
                 ownerCurrentCodexConfig = if (switchedConversation) null else state.ownerCurrentCodexConfig,
                 cachedCanonicalMessages = if (switchedConversation) emptyList() else state.cachedCanonicalMessages,
+                messages = if (switchedConversation) emptyList() else state.messages,
                 liveAuthoritativeConversationId = if (switchedConversation) null else state.liveAuthoritativeConversationId,
                 liveAuthoritativeDesynced = if (switchedConversation) false else state.liveAuthoritativeDesynced,
                 historySyncState = if (switchedConversation) "cache_only" else state.historySyncState,
@@ -5776,7 +7633,12 @@ class CodexViewModel(
             )
         }
         if (resumedThreadId.isNotEmpty()) {
+            hydrateCachedConversation(resumedThreadId, historySelectionGeneration)
             subscribeActiveConversationIfNeeded()
+            // Start detail hydration after thread/resume has established the
+            // selected upstream thread.  The list response is metadata-only;
+            // it must not be mistaken for the conversation正文.
+            maybeRequestHistorySync(resumedThreadId)
             runForegroundRecoveryTick(SystemClock.elapsedRealtime())
         } else {
             clearThreadHistoryAction()
@@ -5785,6 +7647,68 @@ class CodexViewModel(
             applyTokenUsagePayload(thread.opt("tokenUsage"))
         }
         refreshThreadHistory()
+        if (resumedThreadId.isNotEmpty() &&
+            resumedThreadId == pendingHistoryResumeHydrationThreadId
+        ) {
+            // The explicit target has now been acknowledged.  Keep the
+            // pinned conversation id for stale-id protection, but stop
+            // quarantining legitimate unscoped events from this conversation.
+            pendingHistoryResumeHydrationThreadId = null
+            cancelHistoryResumeProtection()
+        }
+    }
+
+    /**
+     * Older gateways did not echo selectionGeneration on metadata responses.
+     * Keep an explicit history selection authoritative even in that wire
+     * shape: a late resume result for the previously bound task must not move
+     * the UI back after the cache-first B selection is already visible.
+     */
+    private fun shouldIgnoreStaleThreadResumeResponse(result: Any?): Boolean {
+        val active = normalizeThreadId(_uiState.value.activeConversationId)
+        val incoming = extractThreadResult(result)
+            ?.optStringOrNullCompat("id")
+            ?.let(::normalizeThreadId)
+        return shouldSuppressExplicitHistorySessionEvent(
+            pendingHistoryResumeThreadId = pendingHistoryResumeHydrationThreadId,
+            pinnedConversationId = pinnedIpcConversationId,
+            activeConversationId = active,
+            incomingConversationId = incoming
+        )
+    }
+
+    private fun hydrateCachedConversation(conversationId: String, generation: Long) {
+        val profileId = currentProfile?.id ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val cached = runCatching {
+                historyCacheStore.readConversation(profileId, conversationId)
+            }.getOrNull() ?: return@launch
+            if (!isCurrentHistorySelection(conversationId, generation)) return@launch
+            val cachedMessages = cached.items
+                .sortedBy { it.position }
+                .mapNotNull(::decodeCachedHistoryItem)
+            if (cachedMessages.isEmpty()) return@launch
+            _uiState.update { state ->
+                if (!isCurrentHistorySelection(conversationId, generation)) {
+                    state
+                } else {
+                    state.copy(
+                        cachedCanonicalMessages = cachedMessages,
+                        messages = mergeCachedHistoryIntoLiveMessagesForUi(
+                            state = state,
+                            conversationId = conversationId,
+                            cachedMessages = cachedMessages
+                        ),
+                        historySyncState = if (historyCapability?.version == 1) {
+                            "loading_baseline"
+                        } else {
+                            "cache_only"
+                        }
+                    )
+                }
+            }
+            scheduleMediaPrefetch(cachedMessages, generation)
+        }
     }
 
     private fun handleThreadReadResponse(result: Any?) {
@@ -5799,6 +7723,19 @@ class CodexViewModel(
         val threadId = normalizeThreadId(thread.optStringOrNullCompat("id")).orEmpty()
         if (threadId.isNotEmpty() && foregroundRecoveryReadInFlightThreadId == threadId) {
             foregroundRecoveryReadInFlightThreadId = null
+        }
+        if (shouldSuppressExplicitHistorySessionEvent(
+                pendingHistoryResumeThreadId = pendingHistoryResumeHydrationThreadId,
+                pinnedConversationId = pinnedIpcConversationId,
+                activeConversationId = _uiState.value.activeConversationId,
+                incomingConversationId = threadId
+            )) {
+            Log.w(
+                TAG,
+                "[history][selection-protected] ignoring stale thread/read " +
+                    "incoming=$threadId target=${pendingHistoryResumeHydrationThreadId.orEmpty()}"
+            )
+            return
         }
         val currentThreadId = _uiState.value.threadId
         if (!shouldApplyCanonicalThreadReadResponse(currentThreadId, threadId)) {
@@ -5980,6 +7917,7 @@ class CodexViewModel(
         )
         if (resolvesHistoryResumeHydration) {
             pendingHistoryResumeHydrationThreadId = null
+            cancelHistoryResumeProtection()
         }
         if (thread.has("tokenUsage")) {
             applyTokenUsagePayload(thread.opt("tokenUsage"))
@@ -6147,7 +8085,9 @@ class CodexViewModel(
                 action = "thread/read",
                 params = JSONObject()
                     .put("threadId", normalizedThreadId)
-                    .put("includeTurns", true)
+                    .put("includeTurns", false),
+                historyMode = "metadata",
+                selectionGeneration = historySelectionGeneration
             )
         )
     }
@@ -6228,6 +8168,50 @@ class CodexViewModel(
         }
     }
 
+    private fun toUiThreadHistoryEntry(entry: CodexThreadIndexEntry): CodexThreadHistoryEntry =
+        CodexThreadHistoryEntry(
+            id = entry.conversationId,
+            title = entry.title.ifBlank { entry.preview ?: entry.conversationId },
+            archived = entry.archived,
+            lastActiveAt = entry.lastActiveAt,
+            createdAt = entry.createdAt,
+            goalObjective = entry.goalObjective,
+            preview = entry.preview,
+            cwd = entry.cwd
+        )
+
+    private fun mergeThreadHistoryEntries(
+        cached: List<CodexThreadHistoryEntry>,
+        remote: List<CodexThreadHistoryEntry>
+    ): List<CodexThreadHistoryEntry> {
+        val merged = LinkedHashMap<String, CodexThreadHistoryEntry>()
+        cached.forEach { entry -> merged[entry.id] = entry }
+        remote.forEach { entry ->
+            merged[entry.id] = mergeThreadHistoryEntry(merged[entry.id], entry)
+        }
+        return merged.values.sortedWith(
+            compareByDescending<CodexThreadHistoryEntry> { it.lastActiveAt ?: Long.MIN_VALUE }
+                .thenByDescending { it.createdAt ?: Long.MIN_VALUE }
+                .thenBy { it.id }
+        )
+    }
+
+    private fun mergeThreadHistoryEntry(
+        cached: CodexThreadHistoryEntry?,
+        remote: CodexThreadHistoryEntry
+    ): CodexThreadHistoryEntry {
+        if (cached == null) return remote
+        val remoteTitleIsOnlyId = remote.title == remote.id
+        return remote.copy(
+            title = if (remoteTitleIsOnlyId && cached.title != cached.id) cached.title else remote.title,
+            preview = remote.preview ?: cached.preview,
+            cwd = remote.cwd ?: cached.cwd,
+            goalObjective = remote.goalObjective ?: cached.goalObjective,
+            createdAt = remote.createdAt ?: cached.createdAt,
+            lastActiveAt = remote.lastActiveAt ?: cached.lastActiveAt
+        )
+    }
+
     private fun parseThreadHistoryEntries(result: Any?): List<CodexThreadHistoryEntry> {
         val source = when (result) {
             is JSONArray -> result
@@ -6262,7 +8246,9 @@ class CodexViewModel(
                             ?: item.opt("created_at")
                             ?: item.opt("created")
                     ),
-                    goalObjective = null
+                    goalObjective = null,
+                    preview = resolveCodexThreadHistoryPreviewForCache(item),
+                    cwd = item.optStringOrNullCompat("cwd")
                 )
             )
         }

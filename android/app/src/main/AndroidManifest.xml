@@ -46,6 +46,12 @@
             android:exported="false" />
 
         <activity
+            android:name=".ui.settings.CodexStorageManagementActivity"
+            android:label="@string/settings_codex_storage_label"
+            android:theme="@style/AppTheme.Shell"
+            android:exported="false" />
+
+        <activity
             android:name=".codex.CodexActivity"
             android:label="@string/codex_native_title"
             android:theme="@style/AppTheme.Shell"
@@ -73,6 +79,7 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
