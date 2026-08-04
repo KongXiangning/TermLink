@@ -31,6 +31,10 @@ class CodexViewModelHydrateFollowTest {
         assertEquals("completed", message?.operationStatus)
         assertEquals("turn-1", message?.operationTurnId)
         assertEquals(1, message?.operationBatchSize)
+        assertEquals(
+            listOf("canonical-operation:turn-1:command:cmd-1"),
+            message?.operationBatchMemberIds
+        )
     }
 
     @Test
@@ -56,6 +60,13 @@ class CodexViewModelHydrateFollowTest {
 
         assertEquals(1, collapsed.size)
         assertEquals(2, collapsed.single().operationBatchSize)
+        assertEquals(
+            listOf(
+                "canonical-operation:turn-1:command:cmd-1",
+                "canonical-operation:turn-1:command:cmd-2"
+            ),
+            collapsed.single().operationBatchMemberIds
+        )
         assertTrue(collapsed.single().content.contains("npm test"))
         assertTrue(collapsed.single().content.contains("npm run lint"))
     }

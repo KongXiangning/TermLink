@@ -7,8 +7,8 @@
 - 任务 slug：codex-single-authority-owner-control-plane
 - 当前状态：in_progress
 - 生命周期状态：active
-- 当前 handoff：manual-smoke-required（15i P0 自动修复与契约回归已完成；15g 手动验收与 15h 收尾保持 pending）
-- 当前子任务：等待用户按既定 15g 矩阵验证已部署版本；P0 Gateway 投影活性修复已完成但尚未部署
+- 当前 handoff：manual-smoke-required（15i/15j P0 自动修复与契约回归已完成；15g 手动验收与 15h 收尾保持 pending）
+- 当前子任务：等待用户按既定 15g 矩阵验证已部署版本；P0 Gateway 投影活性与 Android batch ID 修复已完成但尚未部署
 - 专项实施计划：`docs/codex/codex-android-history-cache-media-recovery-plan.md`
 - 子任务授权状态：implementation-authorized；用户已明确授权按步骤 15a–15h 分阶段实施，15a–15f 实现/自动化记录完成，15g/15h 等待用户手动验收，不再由 agent 继续跑真机矩阵
 - 恢复需审查：false
@@ -403,6 +403,68 @@ Implementation Plan（2026-08-05，P0 IPC 移动 surface 投影活性）：
 - P0 diff review target：`git diff HEAD -- src/ws/terminalGateway.js src/services/codexMobileSurfaceProjector.js
   tests/terminalGateway.codexIpc.test.js tests/codexMobileSurfaceProjector.test.js docs/workflow/CURRENT_TASK.md`；
   基线为 `HEAD=6a6c39f`，不包含现有 Android working-tree 修改和真机诊断 fixture。
+
+Implementation Plan（2026-08-05，P0 拆分缓存可用性与网络历史同步状态）：
+
+- Goal：完整或可读的 endpoint-scoped 缓存一旦从 SQLite 读取成功，正文立即进入可用状态；canonical history
+  的后台对账、修复、离线或失败不得再把已经可见的缓存/healthy IPC 正文降级成“历史正文：加载中”。A→B
+  选择必须在一次 UI state commit 中同时应用 B 的 conversation identity、缓存正文和缓存状态，且任何旧
+  endpoint/conversation/generation 的 hydrate、delta 或 sync state 都不能覆盖当前 live。
+- Architecture impact：只修改 Android Codex domain/UI state、ViewModel history reducer、Compose 状态文案和
+  定向 JVM 测试；不修改 Gateway、history wire、SQLite schema、follower acquire/release、desired subscription、
+  reconnect replay、Owner lifecycle、canonical recovery 条件或 healthy IPC authority。
+- Technical approach：
+  - 用两个强类型状态替换 UI 层单一字符串 `historySyncState`。缓存状态至少区分
+    `NOT_LOADED / LOADING / READY / MISSING / FAILED`，并独立携带 `complete/itemCount/lastSyncedAt`；网络历史状态
+    至少区分 `IDLE / SYNCING / REPAIRING / PARTIAL / SYNCED / OFFLINE / UNSUPPORTED / FAILED`，可携带
+    `detailCode/pageIndex/pageCount`。`READY` 只表示正文可立即使用，`complete` 才表示 canonical 静态基线完整。
+  - 缓存完整性复用既有 checkpoint，不增表：只有 `checkpoint.complete=true`、checkpoint itemCount 与本地
+    durable row 数一致、且 durable rows 均能解码时才标记 `READY + complete=true`；可解码的部分缓存标记
+    `READY + complete=false`，合法的完整空任务允许 `READY + complete=true + itemCount=0`，不存在记录为
+    `MISSING`，读取异常为 `FAILED`。
+  - 引入内部 selection key `{endpointId, conversationId, generation}`，缓存读取前、读取后和 `_uiState.update`
+    内各复核一次。所有 hydrate/delta/payload/sync/recovery/watchdog 写回都使用候选 state 与同一 key 判断，
+    不再只读取可在并发中变化的全局 `historySelectionGeneration`；home/local 即使 conversation id 相同也不能串写。
+  - 显式历史任务选择先增加 generation、登记 pinned/pending target，并在 IO 线程读取目标缓存；读取结束且 key
+    仍有效时，单次 `_uiState.update` 同时切换 `threadId/activeConversationId`、清理旧 surface/runtime、应用目标
+    `cachedCanonicalMessages/messages/cacheState` 并关闭历史面板。之后才订阅目标 follower、启动 bounded history
+    sync 和发送 metadata-only resume。读取期间只标记目标行，其他任务仍可选择；后一次选择使前一次结果失效。
+  - 冷启动和 IPC 自动选择复用同一 cache snapshot/reducer；若 healthy live 在缓存 decode 完成前到达，最终
+    update 必须读取最新候选 state，以“缓存静态基底 + 同 conversation healthy IPC live-last”合并，禁止
+    `messages = cachedMessages` 覆盖较新 revision。desynced/offline 时仍按既有规则只使用可用缓存/恢复结果。
+  - `maybeRequestHistorySync`、manifest、recovery 和 watchdog 只更新 network state；delta/payload 事务提交后只
+    重新计算 cache state并合并正文。`conversation_history_sync_state=live` 只表示网络对账终态，不能假定异步
+    SQLite read 已完成；网络失败/超时只降级 network state，不能把 `READY` 缓存改回 loading/failed。
+  - Compose 把中心正文状态与后台同步 banner 分开。无可见正文时才显示“正在读取手机缓存”或“本地无缓存，
+    正在从服务端恢复”；已有缓存或 healthy live 时正文保持 ready，后台只显示“服务端历史：同步/修复/部分/失败/
+    离线”，有 pageCount 时显示页进度。`SYNCED` 隐藏 banner；任何 spinner 必须对应真实 `LOADING/SYNCING/REPAIRING`
+    且由既有 watchdog 或终态事件收口，不再使用含义不明的“历史正文：加载中”。
+- Alternatives considered：不只把 `loading_baseline` 重命名为 `ready`，因为仍会保留一个字段被缓存与网络互相
+  覆盖；不以 `messages.isNotEmpty()` 直接推断缓存完整，因为消息可能仅来自 bounded live tail；不把 cache
+  提升为实时权威，不增加 `thread/read` 轮询，不为原子切换阻塞主线程读取 SQLite，也不让旧任务缓存暂时显示在
+  已切换后的新 conversation identity 下。
+- Data / state flow：用户选择目标 -> 生成 endpoint/conversation/generation key -> IO 读取并验证 checkpoint ->
+  单次提交目标 identity + cache snapshot -> follower subscribe / metadata resume / bounded history sync 并行推进 ->
+  network state 独立更新 -> delta 原子落库后刷新 cache snapshot -> 同 key healthy IPC live tail 最后覆盖。旧 key
+  在 DB、UI 或 send 边界命中均直接丢弃。
+- Compatibility：沿用现有 SQLite checkpoint、history capability/envelope、watchdog、settlement 和 recovery；无数据库
+  migration、无服务端部署要求、无 wire/HTTP/session DTO 变化。现有 `cachedCanonicalMessages`、
+  `liveAuthoritativeConversationId` 与 `ipcSurfaceSnapshot` 继续承担静态基底/实时权威，只收敛它们的 UI reducer。
+- Risks and rollback：主要风险是状态拆分后遗漏旧 `historySyncState` 写入、原子切换延迟 follower 订阅、完整空任务
+  被误判 missing、同 id 的 A→B→A 迟到结果通过，以及 cache merge 破坏 optimistic/operation 消息。通过编译期移除
+  旧字段、统一 selection key/reducer、完整空缓存 fixture、same-id newer-generation、cross-endpoint 和 live-before-
+  hydrate 精确回归控制；回滚只涉及 Android state/UI/test diff，不涉及数据迁移或服务端回退。
+- Validation strategy：新增 JVM 用例覆盖完整缓存 + 网络 syncing 时正文 ready、partial cache 可读、完整空任务、
+  无缓存、缓存读取失败、网络失败不降级 ready、live 先到/cache 后到不倒退、A→B→A 同 id 旧 generation 拒绝、
+  home/local 同 id 隔离、一次 state emission 不出现“B identity + A/空正文”；重跑 history ACK/watchdog/recovery、
+  cache/live merge、selection quarantine、batch ID 回归和完整 JDK 21 `:app:testDebugUnitTest`/debug APK。真机验证只看
+  Android：打开完整缓存任务不再显示正文 loading，快速 A→B→A、后台 sync 失败/离线仍可读、Desktop 流式更新期间
+  晚到 hydrate 不回退正文；不要求重启或修改 home/local 服务。
+- Open decisions：无。用户已经确认完整缓存直接 ready、网络同步独立显示以及 cache/live 权威边界；状态命名和
+  reducer 拆分属于 mechanical implementation。
+- External Documentation Gate：不触发；本方案只使用项目内既有 Kotlin StateFlow、SQLite adapter 和已锁定
+  IPC/history contract，不依赖第三方 current behavior。
+- Handoff：用户授权实施后进入 `decompose-task`；本计划阶段不修改 Android 代码。
 
 Bug 调查报告（2026-07-31，TermLink Owner follower 握手缺失）：
 
@@ -956,6 +1018,9 @@ Implementation Plan（2026-08-02，Android 快速模式）：
 - [completed] 15i. P0 恢复 IPC 移动 surface 投影活性：保留单 in-flight/latest-pending 和既有 scheduler
   背压，改为按 last-published revision 单调交付已完成投影，并增加 500ms 脱敏轻量 fallback；精确回归必须
   证明持续 revision 不再无限饥饿、迟到结果不倒退、A/B selection generation 和 IPC authority 不变。
+- [completed] 15j. P0 修复 Android command batch 重复 ID：为 UI batch 保存 constituent operation IDs，
+  合并缓存与 bounded IPC tail 时按成员关系去重，折叠后执行最终 message ID 去重，并覆盖真实崩溃 key、
+  partial tail、batch 扩展和非连续边界回归；不改变 IPC authority、wire/cache schema 或 LazyColumn key 语义。
 
 ## 回归门
 
@@ -1541,8 +1606,18 @@ fixture。随后重跑 Node 211/211、JDK 21 Android JVM、JavaScript syntax 和
   A→B→A 继续由 queue close 与 selection generation 隔离，未修改 follower、reconnect replay、canonical binding、Owner
   fallback、Android authority 或 `thread/read` 恢复语义。最终 review target 为 `HEAD=6a6c39f` 上列出的 5 个 P0 文件，
   范围/实现/契约审查无阻断 finding；工作区既有 Android 修改和真机 fixture 未纳入、未改写。
-- 2026-08-05（15i 验证）：最终源代码下 Node history/baseline/media/projector/route、Gateway scheduler、IPC
+ - 2026-08-05（15i 验证）：最终源代码下 Node history/baseline/media/projector/route、Gateway scheduler、IPC
   client/feed 与 Owner 聚焦集合 174/174 通过；新增用例证明 revision 1 处理期间到达 2/3 时实际交付为 `[1,3]`，以及
   revision 10 慢投影未完成时 deadline 先发布脱敏 revision 11、随后 10 不会倒灌。JDK 21
-  `:app:testDebugUnitTest --no-daemon` 为 `BUILD SUCCESSFUL`；JavaScript syntax 与 `git diff --check` 通过（仅保留
-  仓库既有 LF/CRLF 提示）。本轮未部署或重启 home/local 服务，因此线上生效仍需部署后按 15g 手动矩阵确认。
+   `:app:testDebugUnitTest --no-daemon` 为 `BUILD SUCCESSFUL`；JavaScript syntax 与 `git diff --check` 通过（仅保留
+   仓库既有 LF/CRLF 提示）。本轮未部署或重启 home/local 服务，因此线上生效仍需部署后按 15g 手动矩阵确认。
+- 2026-08-05（15j P0 batch ID 修复）：Android `ChatMessage` 增加仅 UI 投影使用的
+  `operationBatchMemberIds`；`mergeSurfaceItems` 在保留缓存时识别完整/部分 batch constituent 覆盖，
+  `collapseCompletedCommandBatchesForUi` 合并既有 batch 与新 operation 时保持稳定 batch ID、成员并集和正文，
+  折叠后再以 live-last 规则执行最终 ID 去重。新增真实崩溃 key
+  `command-batch:019fcd7b-153b-7553-97c0-cda30a86875d:019fcd7b-153b-7553-97c0-cda30a86875d:operation:command:exec-b5181be2-4547-4db5-a6c2-9e42808a56a3`
+  回归、partial bounded tail、非连续重复 batch 和 canonical operation provenance 断言；未修改 IPC/Gateway、
+  wire/cache schema、服务端 batch ID 或 Compose `key = message.id`。JDK 21 定向 Android JVM 129/129 与完整
+  `:app:testDebugUnitTest` 286/286 通过，`git diff --check --ignore-space-at-eol` 通过；尚未重新部署或执行真机滚动，
+  需在设备恢复在线后按既定手动矩阵验证。External Documentation Gate 不触发：本步仅修改项目内
+  Android domain/projection 业务逻辑和既有 JVM 测试，不新增第三方 API、SDK 或构建参数。

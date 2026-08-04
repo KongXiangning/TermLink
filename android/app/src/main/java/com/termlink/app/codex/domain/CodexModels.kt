@@ -41,7 +41,12 @@ data class ChatMessage(
     val operationType: String? = null,
     val operationStatus: String? = null,
     val operationTurnId: String? = null,
-    val operationBatchSize: Int = 0
+    val operationBatchSize: Int = 0,
+    /**
+     * Raw command operation ids represented by a collapsed UI batch.
+     * This is UI provenance only; it is not part of the IPC/cache wire model.
+     */
+    val operationBatchMemberIds: List<String> = emptyList()
 ) {
     enum class Role { USER, ASSISTANT, SYSTEM, TOOL, ERROR }
 }

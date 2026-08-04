@@ -819,6 +819,25 @@ internal fun shouldRequestHistorySyncAfterSurface(
         currentStatus?.trim()?.lowercase() in terminalStatuses
 }
 
+/**
+ * A foreground recovery tick can run once per second while an IPC surface is
+ * unavailable. A terminal history-sync response must therefore be a real
+ * per-selection gate, rather than only clearing the in-flight marker. Without
+ * this guard every `live` ACK immediately becomes another full sync request.
+ */
+internal fun shouldRequestHistorySyncForSelection(
+    conversationId: String?,
+    selectionGeneration: Long,
+    inFlightConversationId: String?,
+    settledConversationId: String?,
+    settledGeneration: Long
+): Boolean {
+    val normalizedConversationId = conversationId?.trim()?.takeIf { it.isNotEmpty() } ?: return false
+    if (inFlightConversationId?.trim() == normalizedConversationId) return false
+    return settledConversationId?.trim() != normalizedConversationId ||
+        settledGeneration != selectionGeneration
+}
+
 internal fun applyIpcConversationSelectionToUiState(
     state: CodexUiState,
     selected: CodexIpcConversationSummary
@@ -1250,6 +1269,53 @@ private fun permissionConfigForSandboxOverride(sandboxOverride: String?): CodexE
     }
 }
 
+private const val COMMAND_BATCH_ID_PREFIX_FOR_UI = "command-batch:"
+
+/**
+ * Returns the raw operation ids represented by a command message.  New
+ * collapsed batches carry the complete list; older in-memory messages are
+ * handled by recovering the anchor from their stable batch id.
+ */
+private fun commandOperationMemberIdsForUi(message: ChatMessage): List<String> {
+    if (message.operationType != "command") return emptyList()
+    val explicit = message.operationBatchMemberIds
+        .map(String::trim)
+        .filter(String::isNotEmpty)
+        .distinct()
+    if (explicit.isNotEmpty()) return explicit
+
+    val turnId = message.operationTurnId?.trim().orEmpty()
+    val batchPrefix = if (turnId.isNotEmpty()) {
+        "$COMMAND_BATCH_ID_PREFIX_FOR_UI$turnId:"
+    } else {
+        COMMAND_BATCH_ID_PREFIX_FOR_UI
+    }
+    val anchor = message.id.removePrefix(batchPrefix).trim()
+    return anchor.takeIf { it.isNotEmpty() }?.let(::listOf).orEmpty()
+}
+
+private fun isCommandBatchMessageForUi(message: ChatMessage): Boolean {
+    if (message.operationType != "command") return false
+    if (message.operationBatchSize > 1 || message.operationBatchMemberIds.size > 1) {
+        return true
+    }
+    val turnId = message.operationTurnId?.trim().orEmpty()
+    return turnId.isNotEmpty() &&
+        message.id.startsWith("$COMMAND_BATCH_ID_PREFIX_FOR_UI$turnId:")
+}
+
+/**
+ * The final Compose key safety net.  Live projection is appended after the
+ * retained cache, so a later value is the authoritative replacement while
+ * the first occurrence keeps the logical message's historical position.
+ */
+private fun deduplicateChatMessagesByIdForUi(messages: List<ChatMessage>): List<ChatMessage> {
+    if (messages.size < 2) return messages
+    val byId = linkedMapOf<String, ChatMessage>()
+    messages.forEach { message -> byId[message.id] = message }
+    return byId.values.toList()
+}
+
 internal fun mergeSurfaceItems(
     existing: List<ChatMessage>,
     surfaceItems: List<SurfaceEntry>,
@@ -1315,7 +1381,8 @@ internal fun mergeSurfaceItems(
             operationType = entry.operationType.takeIf { isOperation },
             operationStatus = entry.operationStatus.takeIf { isOperation },
             operationTurnId = entry.turnId.takeIf { isOperation },
-            operationBatchSize = if (isOperation) 1 else 0
+            operationBatchSize = if (isOperation) 1 else 0,
+            operationBatchMemberIds = if (isOperation) listOf(key) else emptyList()
         )
         if (role == ChatMessage.Role.USER && existingMessage != null) {
             mergeCanonicalUserMessageMetadataForUi(
@@ -1332,12 +1399,46 @@ internal fun mergeSurfaceItems(
     // retain cache/live entries that are not in this snapshot, then append the
     // authoritative projected tail in its server order.
     val projectedKeys = projectedMessages.mapTo(mutableSetOf()) { it.id }
-    val retainedExisting = if (preserveExisting) {
-        existing.filter { it.id !in projectedKeys }
+    val projectedOperationIds = projectedMessages
+        .filter { it.operationType == "command" }
+        .mapTo(mutableSetOf()) { it.id }
+    val existingCommandBatches = if (preserveExisting) {
+        existing.filter(::isCommandBatchMessageForUi)
     } else {
         emptyList()
     }
-    val mergedMessages = retainedExisting + projectedMessages
+    // A complete live tail can replace a cached batch safely.  With only a
+    // partial tail, retain the batch and suppress only operations already
+    // represented by it, otherwise bounded IPC snapshots would delete older
+    // cached command details.
+    val fullyCoveredBatchIds = existingCommandBatches
+        .filter { batch ->
+            batch.operationBatchMemberIds.isNotEmpty() &&
+                commandOperationMemberIdsForUi(batch).all(projectedOperationIds::contains)
+        }
+        .mapTo(mutableSetOf()) { it.id }
+    // A legacy batch has no complete provenance, so do not suppress unknown
+    // operations from it; the final ID dedupe is the safe compatibility path.
+    val partiallyRepresentedOperationIds = existingCommandBatches
+        .filter {
+            it.id !in fullyCoveredBatchIds &&
+                it.operationBatchMemberIds.isNotEmpty()
+        }
+        .flatMapTo(mutableSetOf()) { batch ->
+            commandOperationMemberIdsForUi(batch).filter(projectedOperationIds::contains)
+        }
+    val retainedExisting = if (preserveExisting) {
+        existing.filter { message ->
+            message.id !in projectedKeys && message.id !in fullyCoveredBatchIds
+        }
+    } else {
+        emptyList()
+    }
+    val projectedMessagesForMerge = projectedMessages.filterNot { message ->
+        message.operationType == "command" &&
+            message.id in partiallyRepresentedOperationIds
+    }
+    val mergedMessages = retainedExisting + projectedMessagesForMerge
     val collapsibleTurnIds = if (surfaceStatus.equals("running", ignoreCase = true) ||
         surfaceStatus.equals("waiting_for_approval", ignoreCase = true) ||
         surfaceStatus.equals("waiting_for_input", ignoreCase = true)
@@ -1354,7 +1455,16 @@ internal fun mergeSurfaceItems(
     } else {
         null
     }
-    return collapseCompletedCommandBatchesForUi(mergedMessages, collapsibleTurnIds)
+    val collapsedMessages = collapseCompletedCommandBatchesForUi(mergedMessages, collapsibleTurnIds)
+    val deduplicatedMessages = deduplicateChatMessagesByIdForUi(collapsedMessages)
+    if (deduplicatedMessages.size != collapsedMessages.size) {
+        Log.w(
+            "CodexViewModel",
+            "[ui][duplicate-message-id] collapsed=${collapsedMessages.size} " +
+                "deduplicated=${deduplicatedMessages.size}"
+        )
+    }
+    return deduplicatedMessages
 }
 
 private fun decodeCachedHistoryItem(item: CodexHistoryItem): ChatMessage? {
@@ -1448,7 +1558,7 @@ internal fun collapseCompletedCommandBatchesForUi(
     messages: List<ChatMessage>,
     collapsibleTurnIds: Set<String>? = null
 ): List<ChatMessage> {
-    if (messages.size < 2) return messages
+    if (messages.size < 2) return deduplicateChatMessagesByIdForUi(messages)
     val result = mutableListOf<ChatMessage>()
     var index = 0
     while (index < messages.size) {
@@ -1483,20 +1593,59 @@ internal fun collapseCompletedCommandBatchesForUi(
             continue
         }
 
-        val content = batch
+        val existingBatchIds = batch
+            .filter(::isCommandBatchMessageForUi)
+            .mapTo(mutableSetOf()) { it.id }
+        val existingBatchMemberIds = batch
+            .filter(::isCommandBatchMessageForUi)
+            .flatMapTo(mutableSetOf()) { commandOperationMemberIdsForUi(it) }
+        val batchContent = batch.filter { message ->
+            if (isCommandBatchMessageForUi(message)) {
+                existingBatchIds.remove(message.id)
+            } else {
+                message.id !in existingBatchMemberIds
+            }
+        }
+        val memberIds = batch
+            .flatMap(::commandOperationMemberIdsForUi)
+            .distinct()
+        val existingBatch = batch.firstOrNull(::isCommandBatchMessageForUi)
+        val batchId = existingBatch?.id
+            ?: "command-batch:$turnId:${memberIds.firstOrNull() ?: first.id}"
+        val legacyBatches = batch.filter {
+            isCommandBatchMessageForUi(it) && it.operationBatchMemberIds.isEmpty()
+        }
+        val legacyBatchMemberIds = legacyBatches
+            .flatMapTo(mutableSetOf()) { commandOperationMemberIdsForUi(it) }
+        val legacyBatchSize = legacyBatches.sumOf {
+            it.operationBatchSize.coerceAtLeast(1)
+        }
+        val newOperationCount = batch
+            .filterNot(::isCommandBatchMessageForUi)
+            .map { commandOperationMemberIdsForUi(it) }
+            .flatten()
+            .distinct()
+            .count { it !in legacyBatchMemberIds }
+        val representedSize = if (legacyBatches.isEmpty()) {
+            memberIds.size
+        } else {
+            maxOf(memberIds.size, legacyBatchSize + newOperationCount)
+        }
+        val content = batchContent
             .map { it.content.trim() }
             .filter { it.isNotBlank() }
             .joinToString("\n\n")
         result += first.copy(
-            id = "command-batch:$turnId:${first.id}",
+            id = batchId,
             content = content,
             streaming = false,
             operationStatus = "completed",
-            operationBatchSize = batch.size
+            operationBatchSize = representedSize,
+            operationBatchMemberIds = memberIds
         )
         index = endExclusive
     }
-    return result
+    return deduplicateChatMessagesByIdForUi(result)
 }
 
 private fun isTerminalCommandOperationStatus(status: String?): Boolean {
@@ -1561,7 +1710,8 @@ internal fun canonicalOperationMessageForUi(
         operationType = operationType,
         operationStatus = status,
         operationTurnId = turnId,
-        operationBatchSize = 1
+        operationBatchSize = 1,
+        operationBatchMemberIds = listOf("canonical-operation:${turnId.orEmpty()}:$operationType:$itemId")
     )
 }
 
@@ -2152,6 +2302,9 @@ class CodexViewModel(
     private var launchHydrateInFlightThreadId: String? = null
     private var pinnedIpcConversationId: String? = null
     private var historySyncInFlightConversationId: String? = null
+    /** Terminal history-sync responses are settled for one selection generation. */
+    private var historySyncSettledConversationId: String? = null
+    private var historySyncSettledGeneration: Long = -1L
     private var historyCapability: CodexHistoryCapability? = null
     /** Client token carried by history envelopes to reject stale A→B→A work. */
     private var historySelectionGeneration: Long = 0L
@@ -2238,6 +2391,7 @@ class CodexViewModel(
         val launchConversationId = normalizeThreadId(params.threadId)
         historySelectionGeneration += 1L
         historySyncInFlightConversationId = null
+        clearHistorySyncSettlement()
         historyRecoveryInFlightConversationId = null
         historyRecoveryRequestedGeneration = -1L
         cancelHistoryWatchdog()
@@ -2799,6 +2953,7 @@ class CodexViewModel(
         val hadPendingSync = historySyncInFlightConversationId != null ||
             historyRecoveryInFlightConversationId != null
         historySyncInFlightConversationId = null
+        clearHistorySyncSettlement()
         historyRecoveryInFlightConversationId = null
         historyRecoveryRequestedGeneration = -1L
         cancelHistoryWatchdog()
@@ -5225,6 +5380,7 @@ class CodexViewModel(
         val interruptedSelectionGeneration = historySelectionGeneration
         historySelectionGeneration = (historySelectionGeneration + 1L).coerceAtLeast(1L)
         historySyncInFlightConversationId = null
+        clearHistorySyncSettlement()
         historyRecoveryInFlightConversationId = null
         historyRecoveryRequestedGeneration = -1L
         cancelHistoryWatchdog()
@@ -5264,10 +5420,16 @@ class CodexViewModel(
     private fun maybeRequestHistorySync(conversationId: String?) {
         val normalizedConversationId = conversationId?.trim()?.takeIf { it.isNotEmpty() } ?: return
         val profile = currentProfile ?: return
-        if (historySyncInFlightConversationId == normalizedConversationId) return
+        val requestGeneration = historySelectionGeneration
+        if (!shouldRequestHistorySyncForSelection(
+                conversationId = normalizedConversationId,
+                selectionGeneration = requestGeneration,
+                inFlightConversationId = historySyncInFlightConversationId,
+                settledConversationId = historySyncSettledConversationId,
+                settledGeneration = historySyncSettledGeneration
+            )) return
         val capability = historyCapability ?: return
         if (capability.version != 1) return
-        val requestGeneration = historySelectionGeneration
         historySyncInFlightConversationId = normalizedConversationId
         _uiState.update { state ->
             if (isCurrentHistorySelection(normalizedConversationId, requestGeneration) &&
@@ -5313,6 +5475,7 @@ class CodexViewModel(
             val sent = connectionManager.send(CodexClientMessages.historySyncRequest(request))
             if (!sent && isCurrentHistorySelection(normalizedConversationId, requestGeneration)) {
                 historySyncInFlightConversationId = null
+                markHistorySyncSettled(normalizedConversationId, requestGeneration)
                 cancelHistoryWatchdog()
                 _uiState.update { state ->
                     if (isCurrentHistorySelection(normalizedConversationId, requestGeneration)) {
@@ -5426,6 +5589,16 @@ class CodexViewModel(
         historyWatchdogJob = null
     }
 
+    private fun clearHistorySyncSettlement() {
+        historySyncSettledConversationId = null
+        historySyncSettledGeneration = -1L
+    }
+
+    private fun markHistorySyncSettled(conversationId: String, generation: Long) {
+        historySyncSettledConversationId = conversationId.trim().takeIf { it.isNotEmpty() }
+        historySyncSettledGeneration = generation
+    }
+
     private fun cancelHistoryResumeProtection() {
         historyResumeProtectionJob?.cancel()
         historyResumeProtectionJob = null
@@ -5487,6 +5660,7 @@ class CodexViewModel(
                 "sync" -> {
                     if (historySyncInFlightConversationId != conversationId) return@launch
                     historySyncInFlightConversationId = null
+                    markHistorySyncSettled(conversationId, generation)
                     _uiState.update { state ->
                         state.copy(
                             historySyncState = if (
@@ -5587,6 +5761,10 @@ class CodexViewModel(
                     )
                 ) {
                     historySyncInFlightConversationId = null
+                    markHistorySyncSettled(
+                        required.conversationId,
+                        historySelectionGeneration
+                    )
                     cancelHistoryWatchdog()
                     _uiState.update { state ->
                         state.copy(
@@ -5713,6 +5891,7 @@ class CodexViewModel(
                     )
                 }
                 if (status.online && (!hadObservedStatus || !wasOnline)) {
+                    clearHistorySyncSettlement()
                     // A reconnect starts a fresh bounded recovery opportunity
                     // for the same selected task.  Keep the selection
                     // generation for stale-page rejection, but do not let a
@@ -5875,10 +6054,14 @@ class CodexViewModel(
                 historyRecoveryInFlightConversationId = null
                 val state = json.optString("state", "failed")
                 if (state == "ready") {
+                    // The recovery provider produced a new canonical baseline;
+                    // allow exactly one fresh manifest sync for this selection.
+                    clearHistorySyncSettlement()
                     _uiState.update { it.copy(historySyncState = "loading_baseline") }
                     maybeRequestHistorySync(conversationId)
                 } else {
                     historySyncInFlightConversationId = null
+                    markHistorySyncSettled(conversationId, historySelectionGeneration)
                     _uiState.update { it.copy(historySyncState = "failed") }
                 }
             }
@@ -5908,6 +6091,10 @@ class CodexViewModel(
                         syncState.state == "failed"
                     if (terminalSyncState) {
                         historySyncInFlightConversationId = null
+                        markHistorySyncSettled(
+                            conversationId = syncState.conversationId,
+                            generation = historySelectionGeneration
+                        )
                         cancelHistoryWatchdog()
                         if (pendingHistoryResumeHydrationThreadId == syncState.conversationId) {
                             // The independent history channel has reached a
@@ -6224,6 +6411,7 @@ class CodexViewModel(
                             )
                         ) {
                             historySyncInFlightConversationId = null
+                            clearHistorySyncSettlement()
                         }
                         maybeRequestHistorySync(convId)
                     }

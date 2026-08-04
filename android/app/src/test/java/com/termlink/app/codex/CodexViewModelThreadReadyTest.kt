@@ -92,6 +92,46 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun historySyncRequestIsSuppressedAfterTerminalAckForTheSameSelection() {
+        assertTrue(
+            shouldRequestHistorySyncForSelection(
+                conversationId = "conv-a",
+                selectionGeneration = 7L,
+                inFlightConversationId = null,
+                settledConversationId = null,
+                settledGeneration = -1L
+            )
+        )
+        assertFalse(
+            shouldRequestHistorySyncForSelection(
+                conversationId = "conv-a",
+                selectionGeneration = 7L,
+                inFlightConversationId = null,
+                settledConversationId = "conv-a",
+                settledGeneration = 7L
+            )
+        )
+        assertTrue(
+            shouldRequestHistorySyncForSelection(
+                conversationId = "conv-a",
+                selectionGeneration = 8L,
+                inFlightConversationId = null,
+                settledConversationId = "conv-a",
+                settledGeneration = 7L
+            )
+        )
+        assertFalse(
+            shouldRequestHistorySyncForSelection(
+                conversationId = "conv-a",
+                selectionGeneration = 8L,
+                inFlightConversationId = "conv-a",
+                settledConversationId = null,
+                settledGeneration = -1L
+            )
+        )
+    }
+
+    @Test
     fun inconsistentCompleteHistoryCheckpointIsDowngradedForRepair() {
         val checkpoint = normalizeHistoryCheckpointForAvailableItems(
             checkpoint = CodexConversationCheckpoint(
@@ -1670,6 +1710,122 @@ class CodexViewModelThreadReadyTest {
         )
         assertEquals("command-batch:turn-1:cmd-1", expandedBatch.single().id)
         assertEquals(3, expandedBatch.single().operationBatchSize)
+        assertEquals(listOf("cmd-1", "cmd-2", "cmd-3"), expandedBatch.single().operationBatchMemberIds)
+    }
+
+    @Test
+    fun realDuplicateCommandBatchKeyIsRemovedWhenCachedBatchMeetsLiveConstituents() {
+        val turnId = "019fcd7b-153b-7553-97c0-cda30a86875d"
+        val firstOperationId =
+            "$turnId:operation:command:exec-b5181be2-4547-4db5-a6c2-9e42808a56a3"
+        val secondOperationId = "$turnId:operation:command:exec-regression-second"
+        val crashedBatchId = "command-batch:$turnId:$firstOperationId"
+        val cachedBatch = commandOperationMessage(
+            id = crashedBatchId,
+            turnId = turnId,
+            status = "completed",
+            content = "cached command output"
+        ).copy(
+            operationBatchSize = 2,
+            // This is the pre-fix in-memory shape that caused the crash.
+            operationBatchMemberIds = emptyList()
+        )
+
+        val merged = mergeSurfaceItems(
+            existing = listOf(
+                cachedBatch,
+                ChatMessage(
+                    id = "history-boundary",
+                    role = ChatMessage.Role.ASSISTANT,
+                    content = "历史边界"
+                )
+            ),
+            surfaceItems = listOf(
+                surfaceCommandOperation(firstOperationId, turnId, "completed", "live first"),
+                surfaceCommandOperation(secondOperationId, turnId, "completed", "live second")
+            ),
+            surfaceStatus = "completed",
+            latestTurnId = turnId,
+            preserveExisting = true
+        )
+
+        assertEquals(1, merged.count { it.id == crashedBatchId })
+        assertEquals(2, merged.size)
+        assertEquals(crashedBatchId, merged.first().id)
+        assertEquals(2, merged.first().operationBatchSize)
+        assertEquals(
+            listOf(firstOperationId, secondOperationId),
+            merged.first().operationBatchMemberIds
+        )
+        assertEquals("live first\n\nlive second", merged.first().content)
+        assertEquals("history-boundary", merged[1].id)
+        assertEquals(merged.map { it.id }.distinct().size, merged.size)
+    }
+
+    @Test
+    fun partialLiveTailKeepsCachedBatchAndAddsOnlyNewCommand() {
+        val turnId = "turn-partial"
+        val firstOperationId = "$turnId:operation:command:exec-1"
+        val secondOperationId = "$turnId:operation:command:exec-2"
+        val thirdOperationId = "$turnId:operation:command:exec-3"
+        val cachedBatch = commandOperationMessage(
+            id = "command-batch:$turnId:$firstOperationId",
+            turnId = turnId,
+            status = "completed",
+            content = "cached first\n\ncached second"
+        ).copy(
+            operationBatchSize = 2,
+            operationBatchMemberIds = listOf(firstOperationId, secondOperationId)
+        )
+
+        val merged = mergeSurfaceItems(
+            existing = listOf(cachedBatch),
+            surfaceItems = listOf(
+                surfaceCommandOperation(firstOperationId, turnId, "completed", "live first"),
+                surfaceCommandOperation(thirdOperationId, turnId, "completed", "live third")
+            ),
+            surfaceStatus = "completed",
+            latestTurnId = turnId,
+            preserveExisting = true
+        )
+
+        assertEquals(1, merged.size)
+        assertEquals(3, merged.single().operationBatchSize)
+        assertEquals(
+            listOf(firstOperationId, secondOperationId, thirdOperationId),
+            merged.single().operationBatchMemberIds
+        )
+        assertTrue(merged.single().content.contains("cached second"))
+        assertTrue(merged.single().content.contains("live third"))
+    }
+
+    @Test
+    fun finalProjectionDedupeKeepsLatestDuplicateBatchAcrossBoundary() {
+        val turnId = "turn-final-dedupe"
+        val batchId = "command-batch:$turnId:op-1"
+        val first = commandOperationMessage(batchId, turnId, "completed", "old batch").copy(
+            operationBatchSize = 2,
+            operationBatchMemberIds = listOf("op-1", "op-2")
+        )
+        val second = first.copy(content = "new batch")
+
+        val merged = mergeSurfaceItems(
+            existing = listOf(
+                first,
+                ChatMessage(
+                    id = "boundary",
+                    role = ChatMessage.Role.ASSISTANT,
+                    content = "正文边界"
+                ),
+                second
+            ),
+            surfaceItems = emptyList(),
+            surfaceStatus = "completed",
+            preserveExisting = true
+        )
+
+        assertEquals(listOf(batchId, "boundary"), merged.map { it.id })
+        assertEquals("new batch", merged.first().content)
     }
 
     @Test
@@ -2270,6 +2426,30 @@ class CodexViewModelThreadReadyTest {
         operationType = "command",
         operationStatus = status,
         operationTurnId = turnId,
-        operationBatchSize = 1
+        operationBatchSize = 1,
+        operationBatchMemberIds = listOf(id)
+    )
+
+    private fun surfaceCommandOperation(
+        id: String,
+        turnId: String,
+        status: String,
+        detail: String
+    ): SurfaceEntry = SurfaceEntry(
+        key = id,
+        kind = "status",
+        role = null,
+        phase = null,
+        text = detail,
+        turnId = turnId,
+        itemId = id.substringAfterLast(":"),
+        statusType = "operation",
+        operationType = "command",
+        label = "已运行命令",
+        detail = detail,
+        operationStatus = status,
+        approvalType = null,
+        requestId = null,
+        raw = null
     )
 }
