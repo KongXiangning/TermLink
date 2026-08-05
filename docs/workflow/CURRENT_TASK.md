@@ -10,6 +10,7 @@
 - 当前 handoff：decompose-task（P0“首次 surface/replay 可达与无 owner 有界恢复”实施计划已完成；15g 手动验收与 15h 收尾继续保持 pending）
 - 当前子任务：等待把本计划拆成独立实施步骤；现阶段只完成设计，不修改 IPC、Gateway 或 Android 代码
 - 专项实施计划：`docs/codex/codex-android-history-cache-media-recovery-plan.md`
+- 历史尾部优先与缺口恢复专项计划：`docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md`
 - 子任务授权状态：plan-only-awaiting-implementation-authorization（仅针对本次新增的首次 surface/replay P0；既有
   15a–15h 授权与 15g/15h 手动验收状态不变）
 - 恢复需审查：false
@@ -77,6 +78,7 @@
 - `docs/codex/codex-ipc-wire-protocol-reference.md`
 - `docs/codex/codex-goal-pursuit-fix-plan.md`
 - `docs/codex/codex-android-history-cache-media-recovery-plan.md`
+- `docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md`（新增，仅本轮详细实施方案）
 - `src/services/codexHistoryCanonicalizer.js`
 - `src/services/codexHistorySyncService.js`
 - `src/services/codexWsSnapshotScheduler.js`
@@ -478,6 +480,22 @@ Scope clarification（2026-08-05，P0 首次 surface/replay 可达与无 owner �
 - 若实施时发现必须新增宿主 IPC owner discovery/acquire/transfer 协议，或必须改变现有 authority arbitration，立即停止并
   重新执行 `lock-scope`；不得把当前 `_requestOwnerFollowerStatus` 误用为外部 owner 探测，因为它服务于 TermLink Owner
   向 follower 查询/重放的反向链路。
+
+Scope widening（2026-08-05，历史 tail-first、增量断点与缺口恢复专项方案）：
+
+- 用户明确要求把此前关于 Codex historyMode 能力、最新约 200 个 canonical items 尾部优先、断点续传、IPC revision
+  语义、实时 patch 缺口和 Android durable history 缺口恢复的结论整理为新的完整实施方案，因此仅新增
+  `docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md`，并在本任务登记精确路径。
+- 本轮 Safety mode 继续为 `guarded`；危险面包括 frozen IPC authority、canonical baseline 完整性与删除/排序资格、
+  Android SQLite 范围迁移、Codex app-server 版本漂移和 A→B→A 迟到写回。本轮只写文档，不修改业务代码、数据库、
+  wire、测试、`CONTRACTS.md`、`DECISIONS.md` 或 `STATUS.md`。
+- 方案把工作分成三个独立授权阶段：P0 安全修复与 fail-closed 分轨、需要 additive SQLite range/segment migration 的
+  tail-first/静默回填、以及需要另行架构决策的 legacy 服务端持久索引/正文投影。后两者不得借 P0 实施授权静默落地。
+- 冻结数据流保持不变：`active conversation -> gateway follower acquire -> desired subscription/reconnect replay -> Codex host
+  targeted snapshot/patch -> Android IPC authority`；canonical/cache 只作为静态基底和有界修复，禁止新增第二实时权威、
+  第二 owner、轮询 authority、自动 resume/start 或 IPC authority 改写。
+- 文档门禁为路径/链接核对与 `git diff --check`；代码实施仍保持
+  `plan-only-awaiting-implementation-authorization`，下一 handoff 仍是 `decompose-task`。
 
 Implementation Plan（2026-08-05，P0 首次 surface/replay 可达与无 owner 有界恢复）：
 
