@@ -65,7 +65,7 @@ legacy 的正确路径统一为按目标分支（与 §7.3 同一决策表，避
 
 | 目标 | 动作 | 全量重放次数 |
 |---|---|---|
-| FULL_REQUIRED（需要完整恢复） | 5 秒后直接一次 `thread/read(includeTurns=true)`，成功后先下发 tail；older 持久化回填属 P0-B | 1 |
+| FULL_REQUIRED（需要完整恢复） | 5 秒后直接一次 `thread/read(includeTurns=true)`；整组 delta 原子提交，不承诺 tail-first 可见（tail 独立提交/显示与 older 持久化回填属 P0-B） | 1 |
 | TAIL_PARTIAL_ONLY（只需快速尾部） | 只一次 `thread/turns/list(desc, full)`，标记 partial，本 generation 不升级 full | 1 |
 | FULL_FAILED_EARLY（full 很早失败且预算充足） | 允许同 generation fallback 一次 tail list，保证 App 至少拿到尾部 | 至多 2 |
 | FULL_TIMEOUT（full 接近/达到剩余预算上限） | 进入 `CACHE_ONLY`/`FAILED`，不 fallback；后续新 recovery cycle 只能重试 manifest/tail，不再 full | 1 |
@@ -267,14 +267,20 @@ olderPageState:
 - 立即 acquire follower 并发送/重放 desired subscription。
 
 5 秒 grace 只门禁昂贵的 canonical full-baseline escalation，不门禁普通 manifest/tail history sync。自 selection 开始最多 35 秒，
-network sync 必须进入 `SYNCED`、`PARTIAL`、`CACHE_ONLY` 或 `FAILED`，停止无限 spinner；任务始终可切换。`SYNCED` 由
+network sync 必须进入 `SYNCED`、`PARTIAL`、`CACHE_ONLY`、`FAILED` 等**终态**之一，停止无限 spinner；任务始终可切换。`SYNCED` 由
 `conversation_history_sync_state.state` 表达“网络同步结束”，与 `baselineComplete`（缓存完整/delete-order 资格）独立：P0-A 的
-`baselineComplete=false` 只禁 delete/order 与缓存标 complete，不阻止成功同步进入 `SYNCED`。
+`baselineComplete=false` 只禁 delete/order 与缓存标 complete，不影响网络终态判定。终态按**结果**判定（见 §19.1）：本次可证明目标
+范围完整处理且无当前 cycle 待办 → `SYNCED`；仅 tail / unknown / 缺前缀中间段 / 运行态不稳定 → `PARTIAL`；失败/超时 →
+`FAILED`/`CACHE_ONLY`。`SYNCED` 与 `PARTIAL` 都是终态，都停止 spinner；`PARTIAL` 不再直接触发 full recovery（由独立 coordinator
+按 §7.3 资格决定）。
 
-实现前提：当前服务端把终态 sync-state 绑定 `baseline.complete`（`codexHistorySyncService.js` `handleAck` 的
-`baseline.complete ? 'live' : 'partial'`），不改它则 P0-A 到不了 `SYNCED`。P0-A 需在 `handleAck` 终态改发 `'synced'`（表达“同步
-结束”），`baselineComplete` 只经 delta 页面与 `detailCode='baseline_partial'` 传达缓存完整性——这是行为变更而非 schema 变更，属
-P0-A 服务端修改点（见 §19.1）。
+实现前提（服务端）：当前 `handleAck` 把终态 sync-state 绑定 `baseline.complete`（`baseline.complete ? 'live' : 'partial'`），需改为
+按上述结果判定终态（`'synced'`/`'partial'`/`'failed'`），`baselineComplete` 只经 delta 页面传达缓存完整性——行为变更而非 schema
+变更，属 P0-A 服务端修改点（见 §19.1）。
+
+结算收口（Android）：定义为终态的值（`synced`/`partial`/`failed`/`cache_only`/`offline`/`unsupported`）**全部进入同一 settlement
+分支**（清除 `historySyncInFlightConversationId`、`markHistorySyncSettled`、取消 watchdog、取消 resume protection）；`synced`/`partial`
+到达后必须取消 watchdog，避免后续 `sync_timeout` 或错误 recovery（见 §19.2/§20.4）。
 
 escalation 的超时必须用剩余预算，而不是固定 30 秒：`providerTimeout = min(30s, selectionDeadline - now - settlementMargin)`，
 其中 `selectionDeadline = selectionStartedAt + 35s`，预留约 1–2 秒 settlement margin 用于 JSON projection、媒体外置、WebSocket
@@ -337,8 +343,9 @@ conversation recovery lane：同一时刻不得并行发起 tail list 与 full r
 
 - 明确需要完整恢复（无 surface、无内存 baseline、需要 older 完整历史）：IPC 明确 offline 或 surface 明确 `desynced=true` 时
   **立即**执行（不等 5 秒）；仅“当前订阅周期缺 surface”情形才等 5 秒 grace。直接执行一次
-  `thread/read(includeTurns=true)`，本周期只重放一次；成功后从完整结果先下发 tail、注册为短期内存 baseline；按 App checkpoint
-  切 older segments（更旧段持久化）属 P0-B segment/order 模型，P0-A 只按需从内存提供更旧页。
+  `thread/read(includeTurns=true)`，本周期只重放一次；成功后以现有整组 delta 原子提交（Android 等全部 pages 到齐才
+  `commitStaging`，见 `CodexConversationCacheStore.kt`），**不承诺 tail-first 可见**；完整结果注册为短期内存 baseline，P0-A 只按需
+  从内存提供更旧页。tail 独立提交/立即显示与 older 持久化回填属 P0-B segment/order 模型。
 - 只需要快速尾部且允许 partial：只执行一次 `thread/turns/list(sortDirection="desc", itemsView="full")`，只 canonicalize/传输尾部
   目标范围，返回 `complete=false`、`hasMoreBefore=true/unknown`；本 generation 不自动升级 full read。不连续翻 older cursor 做
   静默全量回填，因为每页都触发 full rollout replay。
@@ -375,7 +382,9 @@ legacy full escalation 附加规则：
 配额模型（闭合“每 selection 一次 full”与“显式重试”的关系，对齐 CONTRACTS 冻结契约）：
 
 - `selectionGeneration`：只在任务/endpoint 选择真正变化时递增；重试不得为了重置配额而修改它。
-- `recoveryCycleId`：自动恢复或用户显式重试时递增，用于新 cycle 的有界截止与隔离。
+- `recoveryCycleId`：自动恢复或用户显式重试时递增，只作为 Gateway/Android 本地协调概念，用于新 cycle 的有界截止与隔离；
+  P0-A 不把它加入 wire。每个新 cycle 必须调用 `CodexHistorySyncService.startSync()` 取得新的 history `syncId`，Android 从现有
+  history envelope 登记该 active `syncId`；P0-A 的传输迟到隔离复用这个现有字段。
 - `automaticFullAttempt`：每 selection 最多一次——即 CONTRACTS/CURRENT_TASK 锁定的“每 selection generation 最多一次
   full-baseline recovery”，同一 selection 内不得再执行第二次 full。
 - 显式重试只能重试 manifest/tail/传输，不得再次 full：UI 文案必须写明“重试仅重试已加载范围”，不能暗示可重试 full。
@@ -541,9 +550,10 @@ order 模型闭合（P0-B 实施前必须选定，本方案选 A：`segment_rank
 - item↔segment 映射存储：在 `items` 表增加 `segment_id`（引用 segment）+ `within_segment_position`（段内升序）两列；唯一约束
   `(endpoint_id, conversation_id, segment_id, within_segment_position)`（endpoint 隔离必须进唯一键）。选 A 而非关联表，是因为有序读
   只需一次 JOIN、无额外关联表；它不是单表扫描。
-- 同 stable item key 出现在新旧 segment（supersede/rescan 重叠）：按本地提交顺序判定归属——后提交的 segment 胜出用于展示与 root，
-  不依赖上游 lineage watermark（TermLink 用自己的写入顺序裁决）；被取代 segment 的 item 在同一个 SQLite transaction 里原子解绑
-  （删除或标记 superseded），不得双写。
+- 同 stable item key 出现在新旧 segment（supersede/rescan 重叠）：按本地提交顺序判定归属——后提交的 segment 胜出用于展示与 root
+  （**仅限同一有效 recoveryCycleId 内**的 segment 替换）；跨 cycle 的迟到结果以新 recoveryCycleId 为准，旧 cycle 不得覆盖（见 §15
+  门禁）。不依赖上游 lineage watermark（TermLink 用自己的写入顺序裁决）；被取代 segment 的 item 在同一个 SQLite transaction 里
+  原子解绑（删除或标记 superseded），不得双写。
 - superseded segment：其 item 原子迁移/解绑完成后才可标记 superseded；任何中断回滚到事务前，不产生半迁移。
 - segment 替换规则：段内内容变化（reconcile/重扫/尾部增长）时不原地改写，而是原子写一个新 segment（`segment_id` 因纳入
   `segment_root`/`rootSchemaVersion` 而变化）并替换旧 segment；不引入通用 supersede lineage 图。这样“同内容→同 segment_id”可跨
@@ -841,8 +851,12 @@ tail-first segment 是现有 P0“无 schema 变化”之外的产品数据模�
 3. 清理 A 的未提交 staging；A 已提交 SQLite segments 保留。
 4. release A follower，acquire B follower；不关闭整个 WebSocket。
 5. 立即显示 B cache，并启动 B tail/subscription。
-6. A 的迟到 frame 在 stringify/send、Android parse/DB commit/UI reducer 前都由
-   `endpointId + conversationId + selectionGeneration` 拒绝。
+6. A 的迟到 frame 在 stringify/send、Android parse/DB commit/UI reducer 前都必须拒绝：P0-A 使用
+   `endpointId + conversationId + selectionGeneration + activeSyncId`，其中 `activeSyncId` 直接取现有 history wire 的 `syncId`；
+   同 selection 内开启新 recovery cycle 时必须由 `startSync()` 生成并由 Android 登记新的 active `syncId`，旧 `syncId` 的 delta、
+   payload chunk、ACK 与 sync-state
+   即使 `selectionGeneration` 相同也不得进入 staging、DB commit 或 UI reducer。P0-B 若后续新增 wire `recoveryCycleId`，只能作为
+   segment/recovery 级补充门禁，不能替代 P0-A 的现有 `syncId` 门禁。
 
 A -> B -> A 时，新 A generation 与旧 A generation 不同；conversation ID 相同也不能接纳旧响应。取消应尽量传到 provider，
 但即使上游 Codex 调用不能撤回，迟到结果也只能被丢弃，不能注册为当前 cycle 的 authoritative baseline。
@@ -930,6 +944,8 @@ P0-A 不承诺完整 tail-first segment UX，但为后续迁移提供安全 prov
 8. 顶部 inline loading/retry，cache/network/live 状态拆分。
 9. 若需在 healthy live 下把更旧静态 items 写入 cache（后台回填），必须先更新 CONTRACTS/DECISIONS（契约扩展为“仅 upsert 与
    live tail 不冲突的更旧静态 items”，不覆盖 live 正文），再实施；P0-A 严格按现有契约只补静态元数据。
+10. tail segment 独立提交与立即显示（网络 tail 先于 older 显示；P0-A 的整组 delta 原子提交是本项的降级形态，P0-A 不承诺
+    tail-first 可见）。
 
 P0-B 修改 Android DB schema 和产品交互，必须在 P0-A 后单独 review/授权，不能视为原 P0 的机械修复。
 
@@ -967,13 +983,17 @@ P0-B 修改 Android DB schema 和产品交互，必须在 P0-A 后单独 review/
   - legacy singleflight、baseline TTL/byte budget；
   - latest observed live marker 与 R1/R2 chained delta；
   - generation cancellation；
-  - sync-state 解耦：`handleAck` 终态由 `baseline.complete ? 'live' : 'partial'` 改为一律 `'synced'`（同步结束），缓存完整性由
-    `delta.baselineComplete` + `detailCode='baseline_partial'` 承载；P0-A 下 `'partial'` sync-state 不产出（缓存恒 partial 但同步已
-    结束），`'partial'` 值保留给后续“运行中 turn 暂未完整”的场景。
+  - sync-state 终态按结果判定：`handleAck` 不再用 `baseline.complete ? 'live' : 'partial'`，改为——本次可证明目标范围完整处理且
+    无当前 cycle 待办 → `'synced'`；仅 tail / unknown / 缺前缀中间段 / 运行态不稳定 → `'partial'`；失败/超时 → `'failed'`。`baselineComplete`
+    保持独立，只经 delta 页面传达缓存完整性，不参与网络终态判定。
   - `buildPartialMergedDiff` 尾部锚定守卫：以 canonical 位置为锚，只追加严格更新于本地最新项的 canonical 项
     （`canonicalPositions.get(itemKey) > localNewestPos`），跳过更旧前缀/中间缺口；本地为空（`localNewestPos=-1`）时全量 ascending
     初始化（见 §12.4 插入安全矩阵）。实现示例：`canonicalPositions = new Map(canonicalItems.map((item,i)=>[item.itemKey,i]))`；
     `localNewestPos = max(...)`；`isNewTail = pos > localNewestPos`；`!local && !isNewTail` 时 `continue`。
+  - P0-A 不新增或回显 `recoveryCycleId` wire 字段：复用 response/delta/payload/ACK 已有的 `syncId`；每个新 recovery cycle 由
+    `CodexHistorySyncService.startSync()` 生成新的 `syncId`，Gateway 路由、Android 登记为 active `syncId`，并在 staging、DB commit 与
+    UI reducer 前拒绝旧 `syncId`（见 §15 门禁）。P0-B 如需跨多个
+    sync 组织一个 segment recovery，才可在 additive wire 中另行增加 `recoveryCycleId`。
 - `src/ws/terminalGateway.js`
   - selection/subscription cycle；
   - additive history request/response routing；
@@ -990,10 +1010,15 @@ P0-B 修改 Android DB schema 和产品交互，必须在 P0-A 后单独 review/
 
 - `CodexWireModels.kt`：additive range/segment/cursor/anchor/priority/error 字段。
 - `CodexHistoryCacheModels.kt`：range checkpoint、segment、coverage 模型。
-- `CodexConversationCacheStore.kt`：schema migration、segment 原子提交、anchor 查询、跨 sync 幂等。
-- `CodexViewModel.kt`：cache/live-last 仲裁、tail dirty reconciliation、触发器、取消、滚动提升优先级、终态；P0-A 已完成同步进入
-  `SYNCED`（sync-state），`requestHistoryRecoveryOnce` 不再由每次 `'partial'` 触发，每 generation 一次 full recovery 由显式
-  `conversation_history_recovery_request` 流（§7.3 资格）触发。
+- `CodexConversationCacheStore.kt`：schema migration、segment 原子提交、anchor 查询、跨 sync 幂等；P0-A 在进入 staging 与 commit 前
+  校验页的现有 `syncId == activeSyncId`，旧 `syncId` 直接丢弃、不进入 staging。P0-B 新增 segment schema 后再叠加可选
+  `recoveryCycleId` 门禁。
+- `CodexViewModel.kt`：cache/live-last 仲裁、tail dirty reconciliation、触发器、取消、滚动提升优先级、终态；**结算收口**：终态值
+  （`synced`/`partial`/`failed`/`cache_only`/`offline`/`unsupported`）全部进入同一 settlement 分支（清除
+  `historySyncInFlightConversationId`、`markHistorySyncSettled`、取消 watchdog、取消 resume protection），`synced`/`partial` 到达必须
+  取消 watchdog、不出现后续 `sync_timeout`；`requestHistoryRecoveryOnce` 不再由 `'partial'` 触发，每 generation 一次 full recovery
+  由显式 `conversation_history_recovery_request` 流（§7.3 资格）触发；P0-A 迟到页在 UI reducer 前按现有 active `syncId` 拒绝，
+  不新增 `recoveryCycleId` wire 字段。
 - `CodexWebSocketClient.kt`：history reliable channel、ACK、priority/backpressure，不改变 live authority。
 - `CodexScreen.kt`：顶部 older inline loading/retry、stable key scroll anchor；spinner 仅对 `SYNCING/REPAIRING` 中间态显示，
   终态 `PARTIAL`/`SYNCED` 不转圈（PARTIAL 显示终态文案而非“正在补齐”）。
@@ -1048,7 +1073,11 @@ P0-B 修改 Android DB schema 和产品交互，必须在 P0-A 后单独 review/
 - home/local 同 conversation ID 不串 checkpoint、segment 或媒体。
 - live/control pending 时 background history 暂停；用户滚动 older page 仍低于 live/control。
 - task switch 清 pending chunk/timer/staging，已 committed page 保留。
+- 同一 selection 内 recovery cycle C1 → C2：C2 登记新的 active `syncId` 后，C1 的 delta、payload chunk、ACK、sync-state 在
+  staging/DB/UI 前全部拒绝；P0-A wire 无新增 `recoveryCycleId` 字段。
 - 35 秒前进入明确网络终态，无无限 loading/普通 thread/read 循环。
+- final ACK → `'synced'`/`'partial'` 终态 → 进入 settlement（取消 watchdog、`markHistorySyncSettled`）→ 35 秒后无 `sync_timeout`/无错误
+  recovery（Node/Android 联合回归，见 §6.2 结算收口）。
 
 ### 20.5 性能/资源实测
 
