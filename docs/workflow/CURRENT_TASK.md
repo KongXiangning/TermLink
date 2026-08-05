@@ -489,8 +489,14 @@ Scope widening（2026-08-05，历史 tail-first、增量断点与缺口恢复专
 - 本轮 Safety mode 继续为 `guarded`；危险面包括 frozen IPC authority、canonical baseline 完整性与删除/排序资格、
   Android SQLite 范围迁移、Codex app-server 版本漂移和 A→B→A 迟到写回。本轮只写文档，不修改业务代码、数据库、
   wire、测试、`CONTRACTS.md`、`DECISIONS.md` 或 `STATUS.md`。
-- 方案把工作分成三个独立授权阶段：P0 安全修复与 fail-closed 分轨、需要 additive SQLite range/segment migration 的
-  tail-first/静默回填、以及需要另行架构决策的 legacy 服务端持久索引/正文投影。后两者不得借 P0 实施授权静默落地。
+- 方案把工作分成四个独立授权阶段：
+  - P0-A：现有契约内修复（安全分轨与 fail-closed，不改 wire/schema）；
+  - P0-B：older static range（additive SQLite range/segment migration 的 tail-first/静默回填）；
+  - P0-C：terminal stable live-tail durable reconciliation（healthy live 下把已显示但未落库的 stable 尾部协调进 SQLite）；
+  - P1：另行架构决策的 legacy 服务端持久 tail/index。
+  P0-B、P0-C、P1 都不得借 P0 实施授权静默落地。P0-B 与 P0-C 都需分别授权并先同步 CONTRACTS/DECISIONS——尤其 P0-C 在
+  healthy live 下读取 canonical 正文写 SQLite，现有冻结契约（CONTRACTS:145）只允许 healthy surface 后补静态元数据，必须先
+  扩展契约（仅 upsert 与 live tail 不冲突的更旧/缺失静态 items，不覆盖 live 正文）再实施。
 - 冻结数据流保持不变：`active conversation -> gateway follower acquire -> desired subscription/reconnect replay -> Codex host
   targeted snapshot/patch -> Android IPC authority`；canonical/cache 只作为静态基底和有界修复，禁止新增第二实时权威、
   第二 owner、轮询 authority、自动 resume/start 或 IPC authority 改写。
@@ -535,17 +541,24 @@ Implementation Plan（2026-08-05，P0 首次 surface/replay 可达与无 owner �
      escalation——仅当当前 generation 在 5 秒后仍无 healthy surface、且 baseline 缺失、partial 或协议要求时，才通过
      `conversation_history_sync_request` 升级一次 `conversation_history_recovery_request`。所有请求、watchdog、响应和
      DB/UI commit 携带完整 `{endpointId, conversationId, selectionGeneration}`，A→B→A 的旧 A 结果也必须拒绝。
-  4. `src/services/codexHistorySyncService.js` / `src/services/codexHistoryBaselineProvider.js`：沿用现有 bounded
-     manifest/page/delta/ACK 与内部 `thread/read` baseline provider；同一 selection generation 只允许一次 full baseline
-     escalation。服务端内部 recovery timeout 按剩余预算计算：`min(30 秒, selectionDeadline - now - settlementMargin)`，
-     `selectionDeadline = selectionStartedAt + 35 秒`，预留约 1–2 秒结算时间用于 projection、chunk、ACK 与 SQLite 落库；
-     超时必须返回 `history_recovery_timeout`，客户端最迟在 35 秒 selection 硬截止前进入可见终态；传输无响应仍由客户端
-     watchdog 收口，不能无限旋转。
+  4. `src/services/codexHistorySyncService.js` / `src/services/codexHistoryBaselineProvider.js`：复用现有 bounded
+     manifest/page/delta/ACK 传输层，但把内部 baseline provider 替换为 mode-aware 分轨，不再用单一 `thread/read`
+     覆盖所有线程：
+     - paginated → `thread/items/list` / `thread/turns/list`，禁止走 full `thread/read`；
+     - legacy → 满足 canonical recovery 门禁（offline / `desynced=true` / 缺当前周期 surface）后一次
+       `thread/read(includeTurns=true)`；
+     - ephemeral/unknown → partial/unavailable，fail-closed。
+     同一 selection generation 只允许一次 full baseline escalation。服务端内部 recovery timeout 按剩余预算计算：
+     `min(30 秒, selectionDeadline - now - settlementMargin)`，`selectionDeadline = selectionStartedAt + 35 秒`，预留约
+     1–2 秒结算时间用于 projection、chunk、ACK 与 SQLite 落库；超时必须返回 `history_recovery_timeout`，客户端最迟在
+     35 秒 selection 硬截止前进入可见终态；传输无响应仍由客户端 watchdog 收口，不能无限旋转。
   5. Android state/UI：缓存与网络继续独立。可读缓存保持 `READY`；无缓存才显示“本地无缓存，正在从服务端恢复”。
      recovery timeout/failure 后停止 spinner，网络进入 `FAILED` 或 `CACHE_ONLY` 并显示明确原因，正文保留现有缓存/live，
      历史列表和任务切换保持可操作。UI 不显示未经证明的“无 owner”，只显示“尚未收到实时会话”及恢复状态。
-  6. Desktop 后到 surface：Gateway 记录当前 cycle 的首个 healthy surface并停止尚未开始的 recovery；已经在途的 canonical
-     响应只能补充同 generation 的静态历史/持久缓存，不能覆盖 live status、current turn、operation 或较新 revision。
+  6. Desktop 后到 surface：Gateway 记录当前 cycle 的首个 healthy surface并停止尚未开始的 recovery。P0-A 严格遵循现有契约
+     （CONTRACTS:145）：healthy surface 到达后，当前 waiter 不再应用 canonical 正文，已在途响应只能补静态元数据（user
+     attachment / mention / skill / title），不写 canonical 正文/持久正文缓存。把“仅 upsert 与 live tail 不冲突的更旧静态
+     items”写入缓存属 P0-B 契约扩展，须先更新 CONTRACTS/DECISIONS，本 P0 不实施。
      Android 统一按“canonical/cache 静态基底 + 同 conversation healthy IPC live-last”合并，revision 单调发布；bounded
      surface 不得删除未覆盖的历史正文。不得因 surface 到达执行 resume/start、owner acquire 或第二 runtime。
   7. Diagnostics：Gateway/feed 日志只记录 cycle/generation、匿名化 conversation key、connection generation、follow
@@ -562,10 +575,14 @@ Implementation Plan（2026-08-05，P0 首次 surface/replay 可达与无 owner �
 - State machine / deadlines：
   - Subscription：`CREATED -> FOLLOW_PENDING -> FOLLOW_ANNOUNCED -> SURFACE_RECEIVED`；disconnect 保留 desired intent，
     reconnect 进入新 connection generation 并重放。发送失败是可观测状态，不删除 desired subscription。
-  - Recovery：`IDLE -> (5 秒无 surface) SYNCING -> REPAIRING -> SYNCED | PARTIAL | CACHE_ONLY | FAILED`；每个
-    selection generation 最多一次 full baseline escalation。任务切换立即 cancel/quarantine 旧 recovery。
-  - healthy surface 可在任何 recovery 状态到达并成为唯一实时权威；它终止后续 escalation，但不能让迟到静态响应覆盖
-    live。没有缓存时，客户端 watchdog 必须以 `selectionStartedAt + 35 秒` 为硬截止时间，把未决网络状态收敛为终态。
+  - HistorySync（选择后立即启动，不等待 5 秒）：`IDLE -> SYNCING -> SYNCED | PARTIAL | FAILED`；任务切换立即
+    cancel/quarantine 旧 sync。
+  - FullRecovery（仅门禁一次 full-baseline escalation，按资格分支）：`WAITING_GRACE -> RECOVERING -> SYNCED | PARTIAL |
+    CACHE_ONLY | FAILED`，每 selection generation 最多一次。进入 RECOVERING 按契约分支（CONTRACTS:145）——
+    `OFFLINE / DESYNCED`（IPC 明确 offline 或 surface 明确 `desynced=true`）→ 立即 RECOVERING，不等 5 秒；
+    `AWAITING_SURFACE`（当前订阅周期缺 surface）→ 5 秒后仍无 surface 才 RECOVERING；`HEALTHY` → 禁止 escalation。
+  - healthy surface 可在任一状态到达并成为唯一实时权威；它终止后续 escalation，但不能让迟到静态响应覆盖 live。
+    没有缓存时，客户端 watchdog 必须以 `selectionStartedAt + 35 秒` 为硬截止时间，把未决网络状态收敛为终态。
 - Alternatives considered：
   - 不继续每 10 秒调用 `thread/read`，因为这会形成第二实时轮询源并放大服务端压力，仍无法证明 follower replay 可达。
   - 不用 `_requestOwnerFollowerStatus` 扫描或猜测外部 owner；现有协议方向相反，且“未收到 surface”不等于 owner 不存在。

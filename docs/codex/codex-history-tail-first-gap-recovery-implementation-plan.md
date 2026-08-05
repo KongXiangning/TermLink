@@ -68,7 +68,7 @@ legacy 的正确路径统一为按目标分支（与 §7.3 同一决策表，避
 | FULL_REQUIRED（需要完整恢复） | 5 秒后直接一次 `thread/read(includeTurns=true)`，成功后先下发 tail 再回填 older | 1 |
 | TAIL_PARTIAL_ONLY（只需快速尾部） | 只一次 `thread/turns/list(desc, full)`，标记 partial，本 generation 不升级 full | 1 |
 | FULL_FAILED_EARLY（full 很早失败且预算充足） | 允许同 generation fallback 一次 tail list，保证 App 至少拿到尾部 | 至多 2 |
-| FULL_TIMEOUT（full 接近/达到剩余预算上限） | 进入 `CACHE_ONLY`/`FAILED`，不 fallback，由后续新 recovery cycle 重试 | 1 |
+| FULL_TIMEOUT（full 接近/达到剩余预算上限） | 进入 `CACHE_ONLY`/`FAILED`，不 fallback；后续新 recovery cycle 只能重试 manifest/tail，不再 full | 1 |
 
 - 不用 cursor 连续请求很多 legacy older pages；每一页都会再次全量重放，复杂度接近 `页数 × 全历史`。
 - full read 若在时限和 envelope/内存护栏内成功，并严格证明完整，TermLink 才把它注册为短期内存 baseline；之后的尾部首包和
@@ -197,7 +197,7 @@ App 不直接连接 Codex；App 的历史网络请求发给 TermLink。历史的
 | 单一 `HistorySyncState` 同时表达缓存与网络 | 拆为 `cacheState`、`networkSyncState`、`liveState` 和 older range state |
 | sequence 级 ACK、不增加逐页 ACK | cache schema v2 已有 per-page ACK、payload chunks、page/hash/staging 完整性校验 |
 | 15 秒无 state 后回退 legacy hydrate | 已过时；使用 activity-aware watchdog、按剩余预算的 provider timeout（上限 30 秒）、35 秒 selection 硬截止和明确终态 |
-| 完整 baseline 一次性覆盖全部历史 | 扩展为 tail/segment/full coverage；只有完整 coverage proof 才能 delete/order |
+| 完整 baseline 一次性覆盖全部历史 | 扩展为 tail/segment/full coverage；coverage 只证明可离线展示，delete/order 需上游 snapshot token（当前不可得，一律 upsert-only） |
 
 旧 barrier 的核心规则继续有效：baseline 前先订阅 live、history 原子提交、同 key live 获胜、selection generation 改变后丢弃旧同步。
 
@@ -305,13 +305,21 @@ HistoryProviderResult {
 
 1. `thread/items/list(sortDirection="desc")` 从最新 item 开始，累计约 200 canonical items。
 2. 同时受首包 1–2 MiB 软目标约束（见 §8.1）；以 items/bytes 为准，不以屏幕文字行数或 turns 数量为准。
-3. API 单页 `limit` 不超过上游上限（当前按 100），不足 200 items 时读取有限多页。
+3. API 单页 `limit` 不超过上游上限（当前按 100），不足 200 items 时读取有限多页；完整 page 是不可分割单位，字节软目标只调小
+   下一次请求的 limit，不在页面中途截断（见 §8.1）。
 4. 必要时用 `thread/turns/list(itemsView="summary"/"notLoaded")` 补 turn status/边界元数据。
 5. `thread/turns/list(itemsView="full")` 只作为 capability 已证明后的兼容 fallback；一个 turn 很大时可能水合该 turn 的全部 items，
    不能默认它等价于 item-level bounded page。
 6. `thread/items/list` 直接读取持久 store，是 durable view；pinned 版本的 paginated `thread/turns/list` 也主要读取 store 并修正
    状态，没有 legacy turns/list 那样的 active turn 合并。因此运行中 paginated 线程的 streaming tail 必须由 healthy IPC surface
    补齐，terminal/stable 后再由 P0-C 静默协调进 SQLite，不能把 items/list 当实时源。
+
+desc 结果必须先归一化为时间正序再 canonicalize：`projectCanonicalHistory` 按输入顺序分配 position（`codexHistoryCanonicalizer.js:56`），
+直接喂 desc 会让最新项 position=0、全局反转，root/segment_rank/Android 展示顺序全错。规则：
+
+- items/list(desc)：把整个累计窗口恢复为 ascending 后再 canonicalize；
+- turns/list(desc)：只反转 turn 顺序，turn 内 items 保持原顺序；
+- older page：每页同样恢复 ascending 后再 prepend（见 §8.3）。
 
 对 descending 请求，`nextCursor` 继续向更旧方向分页；`backwardsCursor` 用于反向回到较新方向。不得把两者写反。
 
@@ -320,7 +328,8 @@ HistoryProviderResult {
 legacy 的 `thread/turns/list` 与 `thread/read(includeTurns=true)` 在服务端都会全量重放 rollout，因此本小节所有路径共用同一个
 conversation recovery lane：同一时刻不得并行发起 tail list 与 full read，否则同周期发生两次全量重放。按恢复目标分支：
 
-- 明确需要完整恢复（无 surface、无内存 baseline、需要 older 完整历史或 authoritative delete/order）：5 秒 grace 后直接执行一次
+- 明确需要完整恢复（无 surface、无内存 baseline、需要 older 完整历史）：IPC 明确 offline 或 surface 明确 `desynced=true` 时
+  **立即**执行（不等 5 秒）；仅“当前订阅周期缺 surface”情形才等 5 秒 grace。直接执行一次
   `thread/read(includeTurns=true)`，本周期只重放一次；成功后从完整结果先下发 tail，再按 App checkpoint 切 older segments，并把
   结果注册为短期内存 baseline。
 - 只需要快速尾部且允许 partial：只执行一次 `thread/turns/list(sortDirection="desc", itemsView="full")`，只 canonicalize/传输尾部
@@ -328,7 +337,14 @@ conversation recovery lane：同一时刻不得并行发起 tail list 与 full r
   静默全量回填，因为每页都触发 full rollout replay。
 - full read 很早失败且 35 秒总预算仍充足：允许同 generation fallback 一次 tail list，保证 App 至少拿到尾部。
 - full read 已接近或达到剩余预算上限（见 §6.2 `providerTimeout`）：不得同 generation 再 fallback tail（预算不足），直接进入
-  `CACHE_ONLY`/`FAILED`，由后续显式或新的 recovery cycle 重试。
+  `CACHE_ONLY`/`FAILED`，由后续显式或新的 recovery cycle 重试（仅 manifest/tail，不再 full，见配额模型）。
+
+grace 内时序闭合（无内存 baseline 的 legacy）：为避免“t=0 tail list、t=5 再 full read”的顺序双重全量重放，t=0 不做任何 legacy
+上游读取，只做 cache/manifest/mode probe（识别 historyMode，复用现有 manifest/page/delta/ACK 传输）；IPC 明确 offline 或 surface
+明确 `desynced=true` 时立即执行一次 full read（不受 5 秒约束）；仅“当前订阅周期缺 surface”情形才在 5 秒 grace 到期仍无 healthy
+surface 时直接执行一次 full read（不先 tail list）；5 秒内收到 healthy surface 时，若静态尾部仍需要（Android cache 缺尾部），只执行
+一次 tail list，本 selection 不升级 full read。已有内存 baseline 时不在此列，直接按 checkpoint 从 baseline 切片。对 legacy，普通
+bounded history sync 即上述 probe + manifest，不自动触发 legacy 上游读取。
 
 full escalation 与 tail list 都按 `conversation + provider identity + recovery purpose` 做 conversation-level singleflight：多个客户端
 的同目的请求共享一份能覆盖最大请求范围的结果，再按各自 checkpoint 切片，不并行读取多份同质 rollout。
@@ -349,15 +365,15 @@ legacy full escalation 附加规则：
 - baseline 只在最后 subscriber 离开后保留约 5 分钟，并受进程级 byte budget；超限优先释放无订阅的 oldest baseline。
 - 任何失败都回到 partial/cache-only，不重启普通 `thread/read` 循环。
 
-配额模型（闭合“每 selection 一次 full”与“显式重试”的关系）：
+配额模型（闭合“每 selection 一次 full”与“显式重试”的关系，对齐 CONTRACTS 冻结契约）：
 
 - `selectionGeneration`：只在任务/endpoint 选择真正变化时递增；重试不得为了重置配额而修改它。
 - `recoveryCycleId`：自动恢复或用户显式重试时递增，用于新 cycle 的有界截止与隔离。
-- `automaticFullAttempt`：每 selection 最多一次（即“每 generation 一次 full escalation”）。
-- `explicitFullAttempt`：每个用户显式授权的 recovery cycle 最多一次；仍需满足 canonical recovery eligibility、退避，并以新的
-  35 秒 cycle 截止运行。
-- 若坚持绝对“每 selection 只能 full 一次”，则用户重试只能重试 partial/tail，UI 文案必须写明“重试仅重试已加载范围”，不能暗示可
-  重试 full。
+- `automaticFullAttempt`：每 selection 最多一次——即 CONTRACTS/CURRENT_TASK 锁定的“每 selection generation 最多一次
+  full-baseline recovery”，同一 selection 内不得再执行第二次 full。
+- 显式重试只能重试 manifest/tail/传输，不得再次 full：UI 文案必须写明“重试仅重试已加载范围”，不能暗示可重试 full。
+- 若确需允许同一 selection 内第二次 full，必须先修改 CONTRACTS.md 与 CURRENT_TASK.md（含同 selection 绝对次数上限与至少
+  10 秒间隔），再在本方案落地；在此之前不提供第二次 full 的能力。
 
 ### 7.4 ephemeral 与 unknown
 
@@ -390,6 +406,10 @@ bootstrap 窗口软目标：先达到约 200 items 或约 1–2 MiB canonical pa
 此时仍允许该单个 item 进入窗口。真正的硬约束仍是每个 WebSocket envelope ≤ 256 KiB，并通过 64–96 KiB payload chunks 传输。200、
 1–2 MiB、64–96 KiB 是初始可配置值，需通过真实大任务测量收敛；协议语义应使用 item/byte cap，不写死视觉行数。
 
+上游完整 page 是不可分割的 checkpoint/commit 单位：一旦取得一页，必须完整 canonicalize、提交并 ACK 后才推进 cursor。字节软目标只
+用于动态调小下一次请求的 item limit，不得在页面中途截断丢弃剩余 items——否则保存该页 nextCursor 会永久遗漏页尾 items，保留旧
+cursor 则会整页重复。软目标最多允许多出一个完整上游 page；WebSocket 侧再拆成 64–96 KiB chunks。
+
 ### 8.2 首次打开时序
 
 ```text
@@ -411,7 +431,7 @@ tail 不必等待完整历史。即使旧历史尚未回填，最新信息也可
 
 1. 读取当前 conversation checkpoint 的 `nextOlderCursor` 与 `oldestAnchor`。
 2. 请求下一页，验证 conversation/source/mode/cursor 未改变。
-3. canonicalize，并验证与已提交 segment 的稳定 anchor 重叠或连续关系。
+3. canonicalize（先把该页恢复为时间正序，见 §7.2 归一化规则），并验证与已提交 segment 的稳定 anchor 重叠或连续关系。
 4. 在短 SQLite transaction 中提交 items、segment 和新 cursor。
 5. 检查 selection generation、live/control 背压和取消信号；满足才生成下一页。
 
@@ -427,7 +447,7 @@ paginated 可持续回填到 `nextCursor=null`。legacy 只有 full baseline 已
 - 正在恢复：顶部显示“正在恢复更早历史…”，不阻塞正文与任务切换。
 - 配额已用完、超时或模式不支持：显示“当前仅显示已加载范围”，并提供显式重试。
 - 用户触发的新 recovery 必须开启新的有界 recovery cycle（`recoveryCycleId++`，不修改 `selectionGeneration`），带 singleflight 与
-  取消语义；full 尝试受 `explicitFullAttempt` 配额约束（见 §7.3），不能重新打开循环分页。
+  取消语义；该重试只能重试 manifest/tail/传输，不得再次 full（每 selection 最多一次 full，见 §7.3），不能重新打开循环分页。
 
 ## 9. 如何保证下一次请求不重复计算
 
@@ -451,7 +471,8 @@ paginated 可持续回填到 `nextCursor=null`。legacy 只有 full baseline 已
 HistoryRangeCheckpoint {
   endpointId
   conversationId
-  checkpointSchemaVersion     // Android checkpoint/DB 格式版本：v1 全局 position、v2 segment 排序
+  checkpointSchemaVersion     // Android conversation checkpoint schema_version（真实库当前=2、全局 position）；
+                              //   segment 排序升级为 3，SQLite user_version 同步 3→4，不复用现有 v2
   rootSchemaVersion           // hash 算法版本，与 checkpointSchemaVersion 分开
   providerMode
   providerIdentityHash        // TermLink 自算 compatibility fingerprint（threadId/sessionId/forkedFromId/historyMode/
@@ -468,7 +489,7 @@ HistoryRangeCheckpoint {
   hasMoreBefore
   fullHistoryComplete
   tailDirty                   // durable tail gap：live tail 已显示但未落 SQLite，需 tail reconciliation
-  coverageDirty               // 早期历史改写/compaction：需完整 coverage audit
+  coverageRefreshRequired    // 早期历史改写/compaction：需完整覆盖扫描；扫描原子提交后可清除
   committedAt
 }
 ```
@@ -481,8 +502,9 @@ provider/lineage 身份，**不绑定 IPC sourceEpoch（连接级）或 selectio
 （`selectionGeneration`/`recoveryCycleId`）由每次请求携带，用于隔离与取消，不写入持久 cursor。否则每次重选/重连都会使持久断点
 失效。
 
-脏状态拆分：`tailDirty`（live tail 已显示但未落 SQLite，需 tail reconciliation）与 `coverageDirty`（早期历史改写/compaction，需完整
-coverage audit）是两个独立标志，只能由各自对应的工作清除，不能互相误清；`coverageDirty=true` 即表示需要一次完整 audit。
+脏状态拆分：`tailDirty`（live tail 已显示但未落 SQLite，需 tail reconciliation）与 `coverageRefreshRequired`（早期历史改写/compaction，
+需完整覆盖扫描）是两个独立标志，只能由各自对应的工作清除，不能互相误清。`coverageRefreshRequired=true` 表示需要一次完整覆盖扫描，
+扫描原子提交后即可清除——它不要求证明“旧段未变”（那是 `authoritativeSnapshotVerified`，当前恒 false，见 §12.2/§12.5）。
 
 ### 9.3 `history_segments` 表
 
@@ -492,7 +514,7 @@ coverage audit）是两个独立标志，只能由各自对应的工作清除，
 history_segments
   endpoint_id
   conversation_id
-  segment_id                // deterministic：由稳定 anchor/方向派生（如 hash(endpoint:conversation:direction:first_item_key:last_item_key)）
+  segment_id                // deterministic + content-addressed：hash(endpoint:conversation:direction:first_item_key:last_item_key:segment_root:rootSchemaVersion)
   segment_rank              // 全局时间序中该 segment 的位置；prepend 只改 segment 行，不逐 item 重写 position
   direction
   first_item_key / first_item_hash
@@ -509,15 +531,20 @@ order 模型闭合（P0-B 实施前必须选定，本方案选 A：`segment_rank
 - item 全局顺序 = `(segment_rank asc, within_segment_position asc)`；prepend 更旧 segment 只插入新 segment 行并重排 segment_rank，
   不逐 item 重写 position。正文查询与 root 计算都按 `JOIN segments` 后 `(segment_rank, within_segment_position)` 排序。
 - item↔segment 映射存储：在 `items` 表增加 `segment_id`（引用 segment）+ `within_segment_position`（段内升序）两列；唯一约束
-  `(conversation_id, segment_id, within_segment_position)`。选 A 而非关联表，是为了按会话顺序读正文保持单表扫描。
-- 同 stable item key 出现在新旧 segment（supersede/rescan 重叠）：按 lineage 关系判定归属——新 segment 胜出用于展示与 root；被取代
-  segment 的 item 在同一个 SQLite transaction 里原子解绑（删除或标记 superseded），不得双写。
+  `(endpoint_id, conversation_id, segment_id, within_segment_position)`（endpoint 隔离必须进唯一键）。选 A 而非关联表，是因为有序读
+  只需一次 JOIN、无额外关联表；它不是单表扫描。
+- 同 stable item key 出现在新旧 segment（supersede/rescan 重叠）：按本地提交顺序判定归属——后提交的 segment 胜出用于展示与 root，
+  不依赖上游 lineage watermark（TermLink 用自己的写入顺序裁决）；被取代 segment 的 item 在同一个 SQLite transaction 里原子解绑
+  （删除或标记 superseded），不得双写。
 - superseded segment：其 item 原子迁移/解绑完成后才可标记 superseded；任何中断回滚到事务前，不产生半迁移。
+- segment 替换规则：段内内容变化（reconcile/重扫/尾部增长）时不原地改写，而是原子写一个新 segment（`segment_id` 因纳入
+  `segment_root`/`rootSchemaVersion` 而变化）并替换旧 segment；不引入通用 supersede lineage 图。这样“同内容→同 segment_id”可跨
+  sync 幂等，“内容变了→新 segment_id→旧段 superseded”。
 - `buildConversationRoot` 需升级为 `rootSchemaVersion=2`，按上述顺序散列；v1 按全局 position 计算的 root 与 v2 不可比。
-- v1 position → v2 segment 迁移：把现有 items 的全局 position 映射为一个 full-coverage segment 的 `within_segment_position`，并先与
-  durable itemCount/root 核对；核对不过则保持 v1 语义或按 unknown partial 处理，不猜 order。
+- checkpoint schema_version 2→3 迁移（SQLite user_version 3→4）：把现有 items 的全局 position 映射为一个 full-coverage segment
+  的 `within_segment_position`，并先与 durable itemCount/root 核对；核对不过则保持旧语义或按 unknown partial 处理，不猜 order。
+  迁移测试必须以真实“DB v3 + checkpoint schema_version=2”状态为起点，不能从假想 v1 开始。
 - `checkpointSchemaVersion`（DB/checkpoint 格式）与 `rootSchemaVersion`（hash 算法）分开记录，避免把 DB 格式和 hash 算法版本耦合。
-- `segment_id` 必须 deterministic（由稳定 anchor/方向派生），否则 `segmentId + segmentRoot + pageHash` 无法实现跨 sync 幂等。
 
 item page、segment、cursor 和 checkpoint 必须在同一个 SQLite transaction 中提交。只有 transaction 成功，App 才 ACK；进程中断时
 staging 可丢弃，正式 segment 不回滚。
@@ -532,14 +559,14 @@ request {
   oldestAnchorKey/hash,
   nextOlderCursor,
   tailRoot, coverageRoot,
-  fullHistoryComplete, tailDirty, coverageDirty
+  fullHistoryComplete, tailDirty, coverageRefreshRequired
 }
 ```
 
 服务端处理：
 
 1. exact conversation/provider identity 匹配。
-2. 若 `fullHistoryComplete=true`、`tailDirty=false`、`coverageDirty=false`，且 provider/root schema identity 与 canonical complete
+2. 若 `fullHistoryComplete=true`、`tailDirty=false`、`coverageRefreshRequired=false`，且 provider/root schema identity 与 canonical complete
    root/itemCount 匹配，直接返回 synced，不重算 manifest。任一 dirty 未清都不走 fast path。
 3. 若只需 older page，优先从 `nextOlderCursor` 继续，并做 cursor-chain 校验：exact cursor token、provider/thread identity、page
    sequence、无重复 item key、page hash。上游 `nextCursor` 是排他游标（`include_anchor=false`，不重复返回上一页末 item），普通分页
@@ -600,6 +627,9 @@ revision 能立刻发现 patch 链断裂，但不能单独证明 SQLite 是否�
 5. 同 key 冲突时，SQLite 只更新静态 canonical 字段；当前 UI 中 live 内容、operation 和 running 状态获胜。
 6. anchor 在 bounded pages 内找不到时，升级为 segment manifest repair；仍不能基于 partial 响应删除已有 item。
 
+> 契约提示：本协调在 healthy live 下把 canonical 正文 upsert 进 SQLite，属于 §16/P0-B 描述的契约扩展（“仅 upsert 与 live tail
+> 不冲突的更旧静态 items”，不覆盖 live 正文），须先更新 CONTRACTS/DECISIONS 后再实施。
+
 “能收到新消息”只证明 Android 到 TermLink WebSocket 可能已恢复，不证明 Codex canonical app-server 当前可读。因此 reconciliation
 仍必须有 timeout、重试退避和明确 `PARTIAL/CACHE_ONLY/FAILED`，不能无限旋转。
 
@@ -621,7 +651,7 @@ tailDirty/desiredRevision 只保留最新值
 tail reconcile 完成后：
   若 desired 值未变化 -> clear tailDirty
   若期间又有新变化 -> 只再运行一轮
-coverageDirty 独立于 tail reconcile，只能由完整 coverage audit 清除
+coverageRefreshRequired 独立于 tail reconcile，完整覆盖扫描原子提交后可清除
 ```
 
 这样流式输出不会每个 revision 都写 SQLite，同时终态、切后台或任务切换前可做一次稳定 checkpoint。
@@ -661,62 +691,81 @@ tail/summary/unknown/unsupported 一律 partial。partial 只 upsert，不 delet
 
 ### 12.2 paginated complete
 
-“从 desc tail 连续分页到历史起点”等价于全量 item 扫描（10 万 items、每页 100 约为 1000 页），这是不可避免的完整性成本，不是普通
-增量同步成本。它只应在需要 authoritative delete/order、用户要求完整离线历史或后台完整回填时启动；tail-first 展示与首屏不依赖
-`fullHistoryComplete=true`。该扫描必须低优先级、可中断、可续传；本 generation 未完成就保持 partial，不因未完成而阻塞 live、
-任务切换或尾部使用。
+wire 表达约束（P0-A 边界）：现有 v2 协议只有 `baselineComplete`，且 `baselineComplete=true` 会同时生成 deletes 与 canonical order
+（`codexHistorySyncService.js:47`），Android 又直接把它写成 checkpoint complete（`CodexConversationCacheStore.kt:939`），root 还依赖
+item position/order（`codexHistoryCanonicalizer.js:19`）。因此 P0-A（不改 wire/schema）**无法表达“coverage complete 但禁
+delete/order”**：P0-A 一律 `baselineComplete=false`（upsert-only、不标 complete、不出 deletes/canonical order）。本节的
+`coverageLoaded` / `authoritativeSnapshotVerified` 显式拆分是 P0-B additive wire/schema 项，不在 P0-A 偷渡。
 
-必须区分两个不等价的结论：
+“从 desc tail 连续分页到历史起点”等价于全量 item 扫描（10 万 items、每页 100 约为 1000 页），这是不可避免的完整性成本，不是普通
+增量同步成本。它只应在用户要求完整离线历史或后台完整回填时启动；tail-first 展示与首屏不依赖 `fullHistoryComplete=true`。该扫描
+必须低优先级、可中断、可续传；本 generation 未完成就保持 partial，不因未完成而阻塞 live、任务切换或尾部使用。
+
+区分两个不等价的结论：
 
 - `coverageLoaded=true`：已连续分页到历史起点（`nextCursor=null`），覆盖范围完整，可离线展示——这是“走到过历史起点”的证明。
-- `authoritativeSnapshotVerified`：扫描期间没有同一时刻快照保证。当前上游 `thread/items/list` 只有 `data/next_cursor/backwards_cursor`，
-  没有 snapshot token 或 mutation sequence；分页按 created ordinal，较旧 item 可在扫描中途被 compaction/rollback 改写，因此连续翻到
-  `nextCursor=null` 得到的可能是一份从未在同一时刻存在过的混合 root。**delete/order 必须由 `authoritativeSnapshotVerified` 授权，
-  不能仅凭 `coverageLoaded`。**
+- `authoritativeSnapshotVerified`：**当前 provider 下恒为 false**。上游 `thread/items/list` 只有 `data/next_cursor/backwards_cursor`，
+  没有 snapshot token 或 mutation sequence；分页按 created ordinal，较旧 item 可在扫描中途被 compaction 改写，且“扫描期间无
+  mutation”在无 watermark 时不可证明。因此**任何 paginated 扫描都不能授权 delete/order**。
 
-`coverageLoaded=true` 才可 complete，但只有同时满足才可视为 `authoritativeSnapshotVerified`：
+`coverageLoaded=true` 才可 `complete=true`，但 complete 只表示“已走到历史起点、覆盖范围连续、无 payload 缺口”，条件为：
 
 - 从 desc tail 连续分页到历史起点，`nextCursor=null`；
 - cursor chain 连续：exact cursor token、provider/thread identity、page sequence、无重复 key、page hash（普通 nextCursor 排他，不
   做 anchor overlap；仅 bounded rescan 用 anchor overlap）；
 - 无 summary/notLoaded payload 缺口；
 - turn metadata/status coverage 在产品需要时也已校验；
-- 最终 coverage root 与 Android 原子提交结果一致；
-- 完整扫描期间没有已知 mutation 信号（见 §12.5），且扫描开始/结束的 provider identity/root fingerprint 一致。
+- 最终 coverage root 与 Android 原子提交结果一致。
 
-在上游提供 snapshot token 或 mutation watermark 之前，严格 delete/order 必须保持 fail-closed；两次静默扫描得到相同 root 只能作为
-操作性稳定证明，不能伪装成协议级严格证明。
+delete/global reorder 延后到上游提供真实 snapshot token / mutation watermark 后再单独设计；在此之前一律 upsert-only。两次静默扫描
+得到相同 root 只能作为操作性稳定证明，不能伪装成协议级严格证明。
 
 ### 12.3 legacy complete
 
-只有一次 exact full read 在时限/护栏内成功，所有 turns/items 为 Full、无截断/遗漏信号、identity 精确匹配，且 provider 能证明返回
-语义是完整 legacy rollout 时才可 complete。当前 running live tail 应单独标记 dirty/partial；“所有已返回 turns 都 terminal”以及
-“响应小于 70 MiB”都不是完整性证明。
+open decision：exact legacy full read 是否沿用现有 `baselineComplete=true -> deletes/canonical order` 语义，需单独裁决。默认与
+P0-A upsert-only 一致（`baselineComplete=false`，不标 complete、不出 deletes）；若需保留 legacy complete/delete 路径，必须先同步
+CONTRACTS/DECISIONS 并单独授权。
+
+若采用 P0-B additive 语义：一次 exact full read（单次 `thread/read(includeTurns=true)`）在时限/护栏内成功、所有 turns/items 为
+Full、无截断/遗漏信号、identity 精确匹配、provider 能证明返回语义是完整 legacy rollout 时，可标记覆盖完整（可离线展示）。当前
+running live tail 应单独标记 dirty/partial；“所有已返回 turns 都 terminal”以及“响应小于 70 MiB”都不是完整性证明。
+
+即使标记覆盖完整，也不授权 delete/order——现有 `baselineComplete -> manifest deletes` 的旧实现不得被复用；删除/全局重排与
+paginated 一样延后到上游提供 snapshot token / mutation watermark 后再单独设计（见 §12.4）。
 
 ### 12.4 delete/order 资格
 
-只有 `fullHistoryComplete=true` 且本次达到 `authoritativeSnapshotVerified`（见 §12.2，含扫描期间无 mutation、开始/结束
-fingerprint 一致）才允许：
+当前 provider 下（`thread/items/list` 无 snapshot token / mutation watermark，legacy full read 也无独立快照凭证），
+`authoritativeSnapshotVerified` 恒为 false，**delete/order 一律禁止**：
 
-- 删除远端已经明确不存在的 Android cache items；
-- 重建全局 authoritative order；
-- 标记完整历史 synced。
+- 不得因 paginated 扫描到达 `nextCursor=null` 或 legacy `complete=true`，就删除远端未出现的 Android cache items；
+- 不得重建全局 authoritative order；
+- 不得把 `complete=true` 误解为“可删除”的授权。
 
-任何 partial、tail、运行中、unknown、ephemeral 或 recovery timeout 都禁止删除既有离线历史。
+P0-A 落地方式：wire 只有 `baselineComplete` 且它必然触发 deletes，因此 P0-A 一律保持 `baselineComplete=false`，从机制上不产生
+deletes/canonical order；显式的 `authoritativeSnapshotVerified` 字段属 P0-B additive wire/schema，P0-A 不引入。
+
+删除/权威重排延后到上游提供真实 snapshot token / mutation watermark 后单独设计；在此之前全部 upsert-only。任何 partial、tail、
+运行中、unknown、ephemeral 或 recovery timeout 都禁止删除既有离线历史。
 
 ### 12.5 早期历史改写检测
 
 `thread/items/list` 公开路径按 created ordinal 分页且不暴露更新水印（app-server 调用内部 store 时 `after_updated_at_ordinal=None`），
 因此只靠“从 desc tail 读到 newestAnchor 即停”无法发现较旧 item 被 compaction 等事件改写。检测规则：
 
-- 已知真实 mutation 信号使 coverage dirty：`thread/compacted`（context compaction）、`thread/metadata/update`、`thread/name/set`、
-  `thread/settings/update`、`thread/goal/set`、deprecated `thread/rollback`，以及 fork/lineage 变化。每个信号按 capability gate 订阅；
-  不存在通用 “thread/updated” 通知。命中后标记 `coverageDirty=true`，触发可中断的完整 audit。
+- 真实正文改写信号是 item 级通知：`item/started` / `item/completed`，item `type=contextCompaction`（`thread/compacted` 已废弃，
+  见 common.rs）。命中后标记 `coverageRefreshRequired=true`，触发可中断的完整覆盖扫描。
+- 线程元数据通知（`thread/name/updated`、`thread/goal/updated`、`thread/settings/updated`、`thread/status/changed`）不代表历史正文
+  前缀被改写，不触发全历史 audit。
+- 不存在通用 “thread/updated” 正文通知；`thread/metadata/update`、`thread/name/set`、`thread/settings/update`、`thread/goal/set`、
+  `thread/rollback` 是客户端请求方法，不是可订阅的服务端 mutation 信号。
 - 缺少可靠 mutation 信号时，不能把“没收到信号”当作“未发生改写”：只能保持 audit required。
-- dirty 后执行可中断、低优先级、可续传的完整 audit（从历史起点重扫或做 authoritative root 对账），完成前保持 partial，不授权
-  delete/order。
-- 没有 mutation watermark 可依赖时，不能宣称“仅靠 tail anchor 已证明所有旧 segment 未变化”；只有完整 audit 通过或连续分页到
-  历史起点后，才可声称旧段未变。
+- 覆盖扫描可中断、低优先级、可续传（从历史起点重扫或做 authoritative root 对账），完成前保持 partial，不授权 delete/order；扫描
+  原子提交后清除 `coverageRefreshRequired`（覆盖已刷新）。
+- 没有 mutation watermark 可依赖时，不能宣称“仅靠 tail anchor 或连续分页到历史起点已证明所有旧 segment 未变化”；旧段未变需要
+  mutation watermark / snapshot token，当前不可得，因此 `authoritativeSnapshotVerified` 恒 false。清除 `coverageRefreshRequired`
+  只表示覆盖已刷新，不代表旧段未变。TermLink 重启且无内存 baseline 时同样不能声称已知道 canonical complete root，只能做
+  tail-to-anchor 验证或明确保持 partial。
 
 ## 13. Android 数据模型与 SQLite 迁移
 
@@ -727,6 +776,8 @@ tail-first segment 是现有 P0“无 schema 变化”之外的产品数据模�
 - 保留现有 conversations/items/media 和完整缓存；
 - 旧 `complete=true` checkpoint 可映射为单一 full-coverage segment，但必须先核对 durable itemCount/root；
 - 旧 `complete=false` 缓存映射为 unknown partial segment，不猜 hasMoreBefore/order；
+- 版本号：SQLite `user_version` 3→4、conversation checkpoint `schema_version` 2→3（segment 排序），不能复用现有 v2；
+  迁移测试必须以真实“DB v3 + checkpoint schema_version=2”为起点；
 - migration 失败不删除旧 DB，回到旧 cache reader 或明确缓存错误；
 - home/local endpoint 继续物理/逻辑隔离。
 
@@ -785,7 +836,9 @@ App 先打开、Desktop 后打开：
    `awaiting_surface`，不能推断“无 owner”。
 3. 5 秒后可按本方案启动一次有界 canonical full escalation；不启动第二 owner，不自动 resume/start。
 4. Desktop 打开该 conversation 后到达 healthy IPC surface，立即成为实时 authority。
-5. 未开始的 full escalation可取消；已经在途的 canonical 结果只允许补静态 cache。
+5. 未开始的 full escalation可取消。P0-A 严格遵循契约（CONTRACTS:145）：healthy surface 到达后当前 waiter 不再应用 canonical
+   正文，已在途 canonical 结果只能补静态元数据（attachment/mention/skill/title）。把“仅 upsert 与 live tail 不冲突的更旧静态
+   items”写入 cache 作为 P0-B 契约扩展，须先更新 CONTRACTS/DECISIONS 后再实施。
 6. 同 key 冲突时 live-last；迟到 canonical R1 不得让已显示的 R2/live 回退。
 7. terminal/stable trigger 再把静态 tail 协调进 SQLite。
 
@@ -829,7 +882,9 @@ provider/source identity
 
 1. provider historyMode/identity 探测与 paginated/legacy/ephemeral/unknown 分轨。
 2. paginated 禁止走 full thread/read；部署能力不确定时 fail-closed。
-3. 移除“所有返回 turns terminal 即 complete”的判断，建立严格 completeness proof。
+3. 移除“所有返回 turns terminal 即 complete”的判断。P0-A 不改 wire/schema：wire 只有 `baselineComplete` 且会触发 deletes，所有
+   upsert-only 结果保持 `baselineComplete=false`（不标 complete、不出 deletes/canonical order），见 §12.2/§12.4；
+   `coverageComplete`/`authoritativeSnapshotVerified` 显式拆分属 P0-B additive wire。
 4. App cache、普通 history sync、follower subscription 立即并行；5 秒只门禁 full escalation。
 5. 每 selection generation 一次 full escalation，provider timeout 按剩余预算计算（上限 30 秒）、35 秒 selection hard deadline。
 6. 删除 Android 每约 10 秒普通 thread/read recovery 循环。
@@ -841,28 +896,33 @@ P0-A 不承诺完整 tail-first segment UX，但为后续迁移提供安全 prov
 
 ### Phase P0-B：tail-first range/segment 与静默回填
 
-目标：实现用户要求的最新约 200 items 首屏、持久断点和按需 older loading。
+目标：实现用户要求的最新约 200 items 首屏、持久断点和按需 older loading；本阶段全部 upsert-only，delete/order 不在本阶段。
 
 1. additive Android range checkpoint/history_segments migration。
-2. additive wire：tail/segment/cursor/anchor/coverage/priority/cancel 字段。
+2. additive wire：tail/segment/cursor/anchor/coverage/priority/cancel 字段，并显式新增 `coverageComplete`/
+   `authoritativeSnapshotVerified`（替代 P0-A 的 `baselineComplete` 隐式语义，见 §12.2）。
 3. paginated item-level tail bootstrap 和 older pump。
 4. legacy tail partial；只有内存 full baseline 时做静默 older backfill。
 5. SQLite 原子 segment commit、跨 sync 幂等和 scroll-anchor prepend。
 6. Gateway history/control/live 优先级 scheduler 和 64–96 KiB chunk。
 7. selection generation 强取消与端到端迟到拒绝。
 8. 顶部 inline loading/retry，cache/network/live 状态拆分。
+9. 若需在 healthy live 下把更旧静态 items 写入 cache（后台回填），必须先更新 CONTRACTS/DECISIONS（契约扩展为“仅 upsert 与
+   live tail 不冲突的更旧静态 items”，不覆盖 live 正文），再实施；P0-A 严格按现有契约只补静态元数据。
 
 P0-B 修改 Android DB schema 和产品交互，必须在 P0-A 后单独 review/授权，不能视为原 P0 的机械修复。
 
 ### Phase P0-C：live-tail durable gap reconciliation
 
-目标：保证实时可见但未落库的 stable 信息最终补进 SQLite。
+目标：保证实时可见但未落库的 stable 信息最终补进 SQLite；本阶段 upsert-only，不因 reconcile 授权 delete/order。
 
-1. `tailDirty + desiredRevision` latest-only 协调器；`coverageDirty` 由完整 audit 独立处理。
+1. `tailDirty + desiredRevision` latest-only 协调器；`coverageRefreshRequired` 由完整覆盖扫描独立处理（原子提交后清除）。
 2. desync/reconnect/terminal/foreground/stable debounce triggers。
 3. newest anchor backward reconciliation 与 bounded segment repair。
 4. R1 ACK -> R2 chained delta；history commit 永不覆盖 healthy IPC。
 5. App background/task switch 前的稳定 checkpoint，running provisional item 不进入 complete root。
+6. P0-C 在 healthy live 下读取 canonical 正文写 SQLite，必须先更新 CONTRACTS/DECISIONS（契约扩展为“仅 upsert 与 live tail 不冲突的
+   更旧/缺失静态 items，不覆盖 live 正文”，见 CONTRACTS:145），再实施；P0-C 与 P0-B 分别授权，不得借任一阶段静默落地。
 
 ### Phase P1（可选，用户决策）：legacy 持久 tail/index
 
@@ -924,12 +984,16 @@ P0-B 修改 Android DB schema 和产品交互，必须在 P0-A 后单独 review/
 - ephemeral -> unsupported partial；只保留 cache/live。
 - unknown/method-not-found -> partial；禁 delete/order。
 - exact thread ID mismatch、summary/notLoaded、cursor repeat、timeout、cancel、size cap 均不能 complete。
+- paginated 扫描到 `nextCursor=null` 或 legacy `complete=true` 均不得触发远端 delete/global reorder
+  （`authoritativeSnapshotVerified` 恒 false，一律 upsert-only，见 §12.4）。
 - desc `nextCursor` 确实向 older 继续；方向错误测试必须失败。
+- 两页 desc fixture：先恢复 ascending 再 canonicalize，最终顺序为 oldest → newest（防止输入顺序反转，见 §7.2）。
 
 ### 20.2 Android range/cache
 
-- 旧 DB migration 保留完整/partial cache，不清空正文或媒体。
+- 旧 DB migration 保留完整/partial cache，不清空正文或媒体（从真实 DB v3 + checkpoint schema_version=2 起点）。
 - 无缓存时 tail 约 200 items 先提交，older 后到。
+- “目标恰好在页面中间”时整页提交、不重复不漏项（证明上游 page 不可分割语义，见 §8.1）。
 - 有完整缓存且 root 命中时零重复 page apply。
 - cursor 有效从断点继续；cursor 失效由 stable anchor bounded repair。
 - segment/page 重发幂等；transaction 中断不产生半提交 checkpoint。
