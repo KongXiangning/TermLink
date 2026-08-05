@@ -530,9 +530,10 @@ Implementation Plan（2026-08-05，P0 首次 surface/replay 可达与无 owner �
      recoveryState}`。先创建 cycle，再 acquire follow；只接受当前 endpoint/conversation/cycle 的 healthy surface。5 秒 grace
      内收到 surface 时不启动 canonical recovery；没有 surface 时仅把事实命名为 `awaiting_surface`，不能推断 `no_owner`。
   3. Android `CodexViewModel.kt`：删除/停用等待 surface 时每 10 秒重复普通 `thread/read` 的前台恢复循环。选择任务后先
-     原子应用目标缓存并发送 `set_active_conversation`；若当前 generation 在 5 秒 grace 后仍无 healthy surface，则复用
-     `conversation_history_sync_request`，仅在 baseline 缺失、partial 或协议要求时升级一次
-     `conversation_history_recovery_request`。所有请求、watchdog、响应和 DB/UI commit 携带完整
+     原子应用目标缓存，立即启动 bounded history sync/tail validation，并立即 acquire follower / 发送
+     `set_active_conversation`；5 秒 surface grace 只门禁一次 full-baseline recovery escalation——仅当当前 generation 在
+     5 秒后仍无 healthy surface、且 baseline 缺失、partial 或协议要求时，才通过 `conversation_history_sync_request`
+     升级一次 `conversation_history_recovery_request`。所有请求、watchdog、响应和 DB/UI commit 携带完整
      `{endpointId, conversationId, selectionGeneration}`，A→B→A 的旧 A 结果也必须拒绝。
   4. `src/services/codexHistorySyncService.js` / `src/services/codexHistoryBaselineProvider.js`：沿用现有 bounded
      manifest/page/delta/ACK 与内部 `thread/read` baseline provider；同一 selection generation 只允许一次 full baseline
@@ -551,7 +552,8 @@ Implementation Plan（2026-08-05，P0 首次 surface/replay 可达与无 owner �
      “迟到响应被隔离”。
 - Data / state flow：
   `选择任务 -> 原子恢复目标缓存 -> 创建 selection/subscription cycle -> 保存 desired follow -> 当前连接发送或重连重放
-  -> [5 秒内 healthy surface：IPC live] / [5 秒无 surface：一次 bounded history sync/recovery]
+  -> 立即启动 bounded history sync/tail validation；[5 秒内 healthy surface：IPC live] /
+     [5 秒无 surface：仅一次 full-baseline recovery escalation]
   -> recovery 成功/部分/失败/缓存模式终态 -> Desktop 后续打开 -> healthy IPC snapshot/patch -> live-last 对账`。
   cache readiness 与 network recovery 并行但互不降级；任一旧 endpoint/conversation/generation 事件在 IO 完成后和最终
   reducer commit 前都必须再次校验。

@@ -5,6 +5,7 @@
 > 日期：2026-08-05
 > 上位约束：`docs/workflow/CONTRACTS.md` 的“Codex 原生会话实时同步核心”、
 > `docs/workflow/DECISIONS.md` 的 `AD-004`
+> 权威层级：`CONTRACTS.md` > `CURRENT_TASK.md` > 本专项方案；本方案只细化、不覆盖冻结契约。
 > 关联方案：`docs/codex/codex-android-history-cache-media-recovery-plan.md`、
 > `docs/codex/codex-surface-memory-history-cache-implementation-plan.md`
 
@@ -300,27 +301,34 @@ HistoryProviderResult {
 4. 必要时用 `thread/turns/list(itemsView="summary"/"notLoaded")` 补 turn status/边界元数据。
 5. `thread/turns/list(itemsView="full")` 只作为 capability 已证明后的兼容 fallback；一个 turn 很大时可能水合该 turn 的全部 items，
    不能默认它等价于 item-level bounded page。
+6. `thread/items/list` 直接读取持久 store，是 durable view；pinned 版本的 paginated `thread/turns/list` 也主要读取 store 并修正
+   状态，没有 legacy turns/list 那样的 active turn 合并。因此运行中 paginated 线程的 streaming tail 必须由 healthy IPC surface
+   补齐，terminal/stable 后再由 P0-C 静默协调进 SQLite，不能把 items/list 当实时源。
 
 对 descending 请求，`nextCursor` 继续向更旧方向分页；`backwardsCursor` 用于反向回到较新方向。不得把两者写反。
 
-### 7.3 legacy：一次尾部 partial + 最多一次 full escalation
+### 7.3 legacy：按目标分支的 tail/full 恢复
 
-legacy tail bootstrap：
+legacy 的 `thread/turns/list` 与 `thread/read(includeTurns=true)` 在服务端都会全量重放 rollout，因此本小节所有路径共用同一个
+conversation recovery lane：同一时刻不得并行发起 tail list 与 full read，否则同周期发生两次全量重放。按恢复目标分支：
 
-- 调用一次 `thread/turns/list(sortDirection="desc", itemsView="full")`。
-- TermLink 只 canonicalize/传输尾部目标范围，返回 `complete=false`、`hasMoreBefore=true/unknown`。
-- 不连续翻 older cursor 做静默全量回填，因为每页都触发 full rollout replay。
+- 明确需要完整恢复（无 surface、无内存 baseline、需要 older 完整历史或 authoritative delete/order）：5 秒 grace 后直接执行一次
+  `thread/read(includeTurns=true)`，本周期只重放一次；成功后从完整结果先下发 tail，再按 App checkpoint 切 older segments，并把
+  结果注册为短期内存 baseline。
+- 只需要快速尾部且允许 partial：只执行一次 `thread/turns/list(sortDirection="desc", itemsView="full")`，只 canonicalize/传输尾部
+  目标范围，返回 `complete=false`、`hasMoreBefore=true/unknown`；本 generation 不自动升级 full read。不连续翻 older cursor 做
+  静默全量回填，因为每页都触发 full rollout replay。
+- full read 很早失败且 35 秒总预算仍充足：允许同 generation fallback 一次 tail list，保证 App 至少拿到尾部。
+- full read 已接近或达到 30 秒服务端 timeout：不得同 generation 再 fallback tail（预算不足），直接进入 `CACHE_ONLY`/`FAILED`，
+  由后续显式或新的 recovery cycle 重试。
 
-tail list 与 full read 必须共用同一 conversation recovery lane：如果 5 秒 grace 到期时 tail list 仍在执行，不能并行再发 full read；
-该 tail call 已占用本周期的 canonical upstream rebuild slot。tail 返回后，只有仍需要 older 完整恢复且 35 秒总预算足够时，才允许顺序
-升级一次 full read；否则保持 partial，并把 older 回填延后到后续明确的 idle/interactive recovery cycle。
+full escalation 与 tail list 都按 `conversation + provider identity + recovery purpose` 做 conversation-level singleflight：多个客户端
+的同目的请求共享一份能覆盖最大请求范围的结果，再按各自 checkpoint 切片，不并行读取多份同质 rollout。
 
-legacy full escalation：
+legacy full escalation 附加规则：
 
 - 只有当前 selection generation 尚未执行过 full escalation，且没有可复用内存 baseline 时允许一次。
-- 与同 conversation 的其他 client 请求 singleflight，共享结果，不并行读取多份 full thread。
 - 服务端内部 timeout 30 秒，selection 硬截止 35 秒；取消或切换后丢弃结果。
-- 成功后先从内存 baseline 发送 tail，再按 App checkpoint 切 older segments。
 - baseline 只在最后 subscriber 离开后保留约 5 分钟，并受进程级 byte budget；超限优先释放无订阅的 oldest baseline。
 - 任何失败都回到 partial/cache-only，不重启普通 `thread/read` 循环。
 
@@ -379,7 +387,12 @@ tail 不必等待完整历史。即使旧历史尚未回填，最新信息也可
 5. 检查 selection generation、live/control 背压和取消信号；满足才生成下一页。
 
 paginated 可持续回填到 `nextCursor=null`。legacy 只有 full baseline 已在 TermLink 内存时才允许从 baseline 静默回填；没有 full baseline
-时不对 Codex 连续翻 legacy pages。
+时不对 Codex 连续翻 legacy pages。此时用户向上滚动的行为按状态分支：
+
+- 尚未使用本 generation 的 recovery 配额且预算充足：滚动触发一次 interactive full escalation（有界、singleflight、可取消）。
+- 正在恢复：顶部显示“正在恢复更早历史…”，不阻塞正文与任务切换。
+- 配额已用完、超时或模式不支持：显示“当前仅显示已加载范围”，并提供显式重试。
+- 用户触发的新 recovery 必须开启新的有界 cycle（新 generation 或显式重试），带 singleflight 与取消语义，不能重新打开循环分页。
 
 ## 9. 如何保证下一次请求不重复计算
 
@@ -581,6 +594,11 @@ R2 仍是静态 canonical delta，不是第二实时流。若 canonical running 
 tail/summary/unknown/unsupported 一律 partial。partial 只 upsert，不 delete，不赋予 authoritative global order。
 
 ### 12.2 paginated complete
+
+“从 desc tail 连续分页到历史起点”等价于全量 item 扫描（10 万 items、每页 100 约为 1000 页），这是不可避免的完整性成本，不是普通
+增量同步成本。它只应在需要 authoritative delete/order、用户要求完整离线历史或后台完整回填时启动；tail-first 展示与首屏不依赖
+`fullHistoryComplete=true`。该扫描必须低优先级、可中断、可续传；本 generation 未完成就保持 partial，不因未完成而阻塞 live、
+任务切换或尾部使用。
 
 只有同时满足才可 complete：
 
