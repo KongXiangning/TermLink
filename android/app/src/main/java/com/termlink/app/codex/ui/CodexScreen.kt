@@ -148,6 +148,10 @@ import com.termlink.app.codex.domain.CodexMessageAttachment
 import com.termlink.app.codex.domain.CodexPendingImageAttachment
 import com.termlink.app.codex.domain.CodexSkillEntry
 import com.termlink.app.codex.domain.CodexThreadHistoryEntry
+import com.termlink.app.codex.domain.CodexHistoryCacheLoadState
+import com.termlink.app.codex.domain.CodexHistoryCacheUiState
+import com.termlink.app.codex.domain.CodexHistoryNetworkSyncState
+import com.termlink.app.codex.domain.CodexHistoryNetworkSyncUiState
 import com.termlink.app.codex.domain.CodexUiState
 import com.termlink.app.codex.domain.ConnectionState
 import com.termlink.app.codex.domain.DebugServerRequestPreset
@@ -197,23 +201,63 @@ internal fun shouldReturnThreadHistoryToTopAfterRefresh(
     !currentTopEntryId.isNullOrBlank() &&
     currentTopEntryId != previousTopEntryId
 
-internal fun codexHistoryHydrationLabel(
-    syncState: String,
+/**
+ * Center-of-screen copy for the local正文 read.  This intentionally never
+ * uses a network state: a ready cache must remain visible while the service is
+ * being reconciled in the background.
+ */
+internal fun codexHistoryBodyHydrationLabel(
+    cacheState: CodexHistoryCacheUiState,
+    networkState: CodexHistoryNetworkSyncUiState,
     hasConversation: Boolean,
-    hasMessages: Boolean = true
+    hasMessages: Boolean,
+    hasHealthyLive: Boolean
+): String? {
+    if (!hasConversation || hasMessages || hasHealthyLive || cacheState.ready) return null
+    return when (cacheState.loadState) {
+        CodexHistoryCacheLoadState.LOADING -> "正在读取手机缓存…"
+        CodexHistoryCacheLoadState.MISSING -> when (networkState.state) {
+            CodexHistoryNetworkSyncState.SYNCING,
+            CodexHistoryNetworkSyncState.REPAIRING -> "本地无缓存，正在从服务端恢复…"
+            CodexHistoryNetworkSyncState.OFFLINE -> "本地暂无历史正文（服务离线）"
+            else -> "本地暂无历史正文"
+        }
+        CodexHistoryCacheLoadState.FAILED -> "手机缓存读取失败，仍可切换其他任务"
+        CodexHistoryCacheLoadState.NOT_LOADED -> "正在准备历史正文…"
+        CodexHistoryCacheLoadState.READY -> null
+    }
+}
+
+/**
+ * Non-blocking status for canonical history reconciliation.  It is rendered
+ * separately from the local cache body state so a network failure cannot make
+ * already-readable正文 look like it is still loading.
+ */
+internal fun codexHistoryNetworkHydrationLabel(
+    networkState: CodexHistoryNetworkSyncUiState,
+    hasConversation: Boolean,
+    cacheReady: Boolean,
+    hasHealthyLive: Boolean
 ): String? {
     if (!hasConversation) return null
-    return when (syncState.trim().lowercase(Locale.ROOT)) {
-        "cache_only" -> "历史正文：等待缓存或服务端恢复…"
-        "loading_baseline" -> "历史正文：加载中…"
-        "repairing" -> "历史正文：校验并修复中…"
-        "partial" -> "历史正文：已显示部分，正在补齐…"
-        "failed" -> "历史正文：恢复失败，仍可切换其他任务"
-        // A fast-path `live` ACK can arrive before the asynchronous SQLite
-        // read finishes. Keep the otherwise blank screen diagnosable instead
-        // of making a successful sync look like a frozen page.
-        "live" -> if (!hasMessages) "历史正文：已同步，当前暂无可显示正文" else null
-        else -> "历史正文：同步中…"
+    val progress = if (networkState.pageIndex != null && networkState.pageCount != null) {
+        "（第 ${networkState.pageIndex + 1}/${networkState.pageCount} 页）"
+    } else {
+        ""
+    }
+    return when (networkState.state) {
+        CodexHistoryNetworkSyncState.SYNCING -> "服务端历史：同步中…$progress"
+        CodexHistoryNetworkSyncState.REPAIRING -> "服务端历史：校验并修复中…$progress"
+        CodexHistoryNetworkSyncState.PARTIAL -> "服务端历史：已显示部分，正在补齐…$progress"
+        CodexHistoryNetworkSyncState.FAILED -> "服务端历史：恢复失败，仍可切换其他任务"
+        CodexHistoryNetworkSyncState.OFFLINE -> if (cacheReady || hasHealthyLive) {
+            "服务端历史：离线，当前显示本地/实时内容"
+        } else {
+            "服务端历史：离线"
+        }
+        CodexHistoryNetworkSyncState.UNSUPPORTED -> "服务端历史：当前服务不支持恢复"
+        CodexHistoryNetworkSyncState.IDLE,
+        CodexHistoryNetworkSyncState.SYNCED -> null
     }
 }
 
@@ -520,17 +564,22 @@ fun CodexScreen(
                 )
             }
 
-            val hydrationLabel = codexHistoryHydrationLabel(
-                syncState = state.historySyncState,
-                hasConversation = !state.activeConversationId.isNullOrBlank()
+            val hasConversation = !state.activeConversationId.isNullOrBlank()
+            val hasHealthyLive = state.liveAuthoritativeConversationId?.trim() ==
+                state.activeConversationId?.trim() &&
+                !state.liveAuthoritativeDesynced
+            val networkHydrationLabel = codexHistoryNetworkHydrationLabel(
+                networkState = state.historyNetworkSyncState,
+                hasConversation = hasConversation,
+                cacheReady = state.historyCacheState.ready,
+                hasHealthyLive = hasHealthyLive
             )
-            if (state.messages.isNotEmpty() &&
-                hydrationLabel != null &&
-                (state.historySyncState != "cache_only" || state.connectionState != ConnectionState.CONNECTED)
+            if ((state.messages.isNotEmpty() || state.historyCacheState.ready || hasHealthyLive) &&
+                networkHydrationLabel != null
             ) {
                 HistoryHydrationBanner(
-                    label = hydrationLabel,
-                    syncState = state.historySyncState,
+                    label = networkHydrationLabel,
+                    networkState = state.historyNetworkSyncState.state,
                     onOpenHistory = onShowThreadHistory
                 )
             }
@@ -571,18 +620,22 @@ fun CodexScreen(
                                             fontWeight = FontWeight.Bold,
                                             letterSpacing = 6.sp
                                         )
-                                        codexHistoryHydrationLabel(
-                                            syncState = state.historySyncState,
-                                            hasConversation = !state.activeConversationId.isNullOrBlank(),
-                                            hasMessages = state.messages.isNotEmpty()
+                                        codexHistoryBodyHydrationLabel(
+                                            cacheState = state.historyCacheState,
+                                            networkState = state.historyNetworkSyncState,
+                                            hasConversation = hasConversation,
+                                            hasMessages = state.messages.isNotEmpty(),
+                                            hasHealthyLive = hasHealthyLive
                                         )?.let { label ->
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                                             ) {
-                                                if (state.historySyncState in setOf(
-                                                        "loading_baseline", "repairing", "partial"
-                                                    )
+                                                if (state.historyNetworkSyncState.state in setOf(
+                                                        CodexHistoryNetworkSyncState.SYNCING,
+                                                        CodexHistoryNetworkSyncState.REPAIRING,
+                                                        CodexHistoryNetworkSyncState.PARTIAL
+                                                    ) || state.historyCacheState.loadState == CodexHistoryCacheLoadState.LOADING
                                                 ) {
                                                     CircularProgressIndicator(
                                                         modifier = Modifier.size(12.dp),
@@ -592,9 +645,10 @@ fun CodexScreen(
                                                 }
                                                 Text(
                                                     text = label,
-                                                    color = when (state.historySyncState) {
-                                                        "failed" -> WarningColor
-                                                        "partial" -> TextSecondary
+                                                    color = when {
+                                                        state.historyCacheState.loadState == CodexHistoryCacheLoadState.FAILED ||
+                                                            state.historyNetworkSyncState.state == CodexHistoryNetworkSyncState.FAILED -> WarningColor
+                                                        state.historyNetworkSyncState.state == CodexHistoryNetworkSyncState.PARTIAL -> TextSecondary
                                                         else -> TextMuted
                                                     },
                                                     fontSize = 11.sp,
@@ -1425,18 +1479,18 @@ private fun RuntimeStallBanner(
 @Composable
 private fun HistoryHydrationBanner(
     label: String,
-    syncState: String,
+    networkState: CodexHistoryNetworkSyncState,
     onOpenHistory: () -> Unit
 ) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp),
-        color = if (syncState == "failed") ErrorBg else SystemBg,
+        color = if (networkState == CodexHistoryNetworkSyncState.FAILED) ErrorBg else SystemBg,
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(
             1.dp,
-            if (syncState == "failed") WarningColor.copy(alpha = 0.45f)
+            if (networkState == CodexHistoryNetworkSyncState.FAILED) WarningColor.copy(alpha = 0.45f)
             else SurfaceBorder
         )
     ) {
@@ -1447,7 +1501,12 @@ private fun HistoryHydrationBanner(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (syncState in setOf("loading_baseline", "repairing", "partial")) {
+            if (networkState in setOf(
+                    CodexHistoryNetworkSyncState.SYNCING,
+                    CodexHistoryNetworkSyncState.REPAIRING,
+                    CodexHistoryNetworkSyncState.PARTIAL
+                )
+            ) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(14.dp),
                     color = TextSecondary,
@@ -1456,7 +1515,7 @@ private fun HistoryHydrationBanner(
             }
             Text(
                 text = label,
-                color = if (syncState == "failed") WarningColor else TextSecondary,
+                color = if (networkState == CodexHistoryNetworkSyncState.FAILED) WarningColor else TextSecondary,
                 fontSize = 11.sp,
                 modifier = Modifier.weight(1f)
             )
@@ -3838,15 +3897,30 @@ private fun ThreadHistorySheet(
                 fontSize = 10.sp,
                 modifier = Modifier.padding(top = 4.dp)
             )
-            codexHistoryHydrationLabel(
-                syncState = state.historySyncState,
-                hasConversation = !state.activeConversationId.isNullOrBlank()
-            )?.let { detailLabel ->
+            val hasHistoryConversation = !state.activeConversationId.isNullOrBlank()
+            val hasHistoryHealthyLive = state.liveAuthoritativeConversationId?.trim() ==
+                state.activeConversationId?.trim() &&
+                !state.liveAuthoritativeDesynced
+            val historyNetworkLabel = codexHistoryNetworkHydrationLabel(
+                networkState = state.historyNetworkSyncState,
+                hasConversation = hasHistoryConversation,
+                cacheReady = state.historyCacheState.ready,
+                hasHealthyLive = hasHistoryHealthyLive
+            )
+            val historyCacheLabel = codexHistoryBodyHydrationLabel(
+                cacheState = state.historyCacheState,
+                networkState = state.historyNetworkSyncState,
+                hasConversation = hasHistoryConversation,
+                hasMessages = state.messages.isNotEmpty(),
+                hasHealthyLive = hasHistoryHealthyLive
+            )
+            (historyNetworkLabel ?: historyCacheLabel)?.let { detailLabel ->
                 Text(
                     text = detailLabel,
-                    color = when (state.historySyncState) {
-                        "failed" -> WarningColor
-                        "partial" -> TextSecondary
+                    color = when {
+                        state.historyNetworkSyncState.state == CodexHistoryNetworkSyncState.FAILED ||
+                            state.historyCacheState.loadState == CodexHistoryCacheLoadState.FAILED -> WarningColor
+                        state.historyNetworkSyncState.state == CodexHistoryNetworkSyncState.PARTIAL -> TextSecondary
                         else -> TextMuted
                     },
                     fontSize = 10.sp,
@@ -3925,6 +3999,7 @@ private fun ThreadHistoryItem(
 ) {
     val isBusy = actionThreadId.isNotBlank()
     val isItemBusy = actionThreadId == entry.id
+    val isHistorySelectionBusy = isBusy && actionKind == "resume"
     val renameEditing = state.threadRenameTargetId == entry.id
     val pendingLabel = when (actionKind) {
         "resume" -> stringResource(R.string.codex_native_thread_pending_opening)
@@ -3946,7 +4021,10 @@ private fun ThreadHistoryItem(
                 // A history entry is already a locally selectable task. The remote
                 // historyResume capability only controls the optional freshness
                 // request made after the cached selection is shown.
-                enabled = !renameEditing && !isCurrent && !isBusy,
+                // A cache-first selection is cancellable by choosing another
+                // task.  Mutation actions remain globally serialized below,
+                // but a stale local read must never freeze the history list.
+                enabled = !renameEditing && !isCurrent && (!isHistorySelectionBusy || !isItemBusy),
                 onClick = { onResumeThread(entry.id) }
             )
         )

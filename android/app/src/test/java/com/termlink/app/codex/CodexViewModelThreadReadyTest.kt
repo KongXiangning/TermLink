@@ -18,6 +18,8 @@ import com.termlink.app.codex.data.SurfaceEntry
 import com.termlink.app.codex.domain.ChatMessage
 import com.termlink.app.codex.domain.CodexPlanWorkflowState
 import com.termlink.app.codex.domain.CodexRuntimePanelState
+import com.termlink.app.codex.domain.CodexHistoryCacheLoadState
+import com.termlink.app.codex.domain.CodexHistoryNetworkSyncState
 import com.termlink.app.codex.domain.CodexUiState
 import com.termlink.app.codex.domain.ConnectionState
 import com.termlink.app.codex.domain.NextTurnOverrides
@@ -1378,7 +1380,8 @@ class CodexViewModelThreadReadyTest {
 
         assertTrue(next.messages.isEmpty())
         assertTrue(next.cachedCanonicalMessages.isEmpty())
-        assertEquals("cache_only", next.historySyncState)
+        assertEquals(CodexHistoryCacheLoadState.NOT_LOADED, next.historyCacheState.loadState)
+        assertEquals(CodexHistoryNetworkSyncState.IDLE, next.historyNetworkSyncState.state)
     }
 
     @Test

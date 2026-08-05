@@ -7,10 +7,11 @@
 - 任务 slug：codex-single-authority-owner-control-plane
 - 当前状态：in_progress
 - 生命周期状态：active
-- 当前 handoff：manual-smoke-required（15i/15j P0 自动修复与契约回归已完成；15g 手动验收与 15h 收尾保持 pending）
-- 当前子任务：等待用户按既定 15g 矩阵验证已部署版本；P0 Gateway 投影活性与 Android batch ID 修复已完成但尚未部署
+- 当前 handoff：decompose-task（P0“首次 surface/replay 可达与无 owner 有界恢复”实施计划已完成；15g 手动验收与 15h 收尾继续保持 pending）
+- 当前子任务：等待把本计划拆成独立实施步骤；现阶段只完成设计，不修改 IPC、Gateway 或 Android 代码
 - 专项实施计划：`docs/codex/codex-android-history-cache-media-recovery-plan.md`
-- 子任务授权状态：implementation-authorized；用户已明确授权按步骤 15a–15h 分阶段实施，15a–15f 实现/自动化记录完成，15g/15h 等待用户手动验收，不再由 agent 继续跑真机矩阵
+- 子任务授权状态：plan-only-awaiting-implementation-authorization（仅针对本次新增的首次 surface/replay P0；既有
+  15a–15h 授权与 15g/15h 手动验收状态不变）
 - 恢复需审查：false
 - 恢复审查原因：
 - Task start base：8f84867
@@ -464,7 +465,124 @@ Implementation Plan（2026-08-05，P0 拆分缓存可用性与网络历史同步
   reducer 拆分属于 mechanical implementation。
 - External Documentation Gate：不触发；本方案只使用项目内既有 Kotlin StateFlow、SQLite adapter 和已锁定
   IPC/history contract，不依赖第三方 current behavior。
-- Handoff：用户授权实施后进入 `decompose-task`；本计划阶段不修改 Android 代码。
+- Handoff：15k 已实施并通过 JDK 21 自动回归；后续仅保留部署后的真机手动验收，不再扩大本步骤修改范围。
+
+Scope clarification（2026-08-05，P0 首次 surface/replay 可达与无 owner 有界恢复）：
+
+- 用户明确要求为“App 先打开任务、Desktop 后打开任务”的首次 surface 缺失场景形成修复计划。现有 Allowed Files
+  已覆盖 `codexIpcFeed`、Gateway subscription cycle/history recovery、Android selection/cache/network state 及其测试，
+  因而本轮不需要扩大文件范围；本阶段仅更新计划文档，不实施代码。
+- 本计划受 AD-004 和“Codex 原生会话实时同步核心”冻结区约束：不能新增第二实时数据源、第二 owner 或 owner
+  takeover，不能把 canonical history 改造成轮询实时权威，也不能绕过 follower acquire/release、desired subscription、
+  reconnect replay、normalized surface、canonical binding 和 Android IPC authority。
+- 若实施时发现必须新增宿主 IPC owner discovery/acquire/transfer 协议，或必须改变现有 authority arbitration，立即停止并
+  重新执行 `lock-scope`；不得把当前 `_requestOwnerFollowerStatus` 误用为外部 owner 探测，因为它服务于 TermLink Owner
+  向 follower 查询/重放的反向链路。
+
+Implementation Plan（2026-08-05，P0 首次 surface/replay 可达与无 owner 有界恢复）：
+
+- Goal：当 App 先选择一个既有 canonical conversation、Desktop/VS Code 尚未打开或尚未成为该 conversation 的 IPC
+  surface producer 时，App 立即显示 endpoint/profile 隔离的可用缓存；证明本订阅周期的 follower intent 已发送或在重连后
+  重放；5 秒内仍未收到目标 healthy surface 时，每个 selection generation 只启动一次有界 canonical history recovery；
+  recovery 在明确期限内进入成功、部分、缓存模式或失败终态，任务始终可切换。Desktop 后续打开该 conversation 后，
+  新到 healthy IPC surface 仅按 live-last 规则对账和覆盖实时字段，不启动第二 owner，也不把缓存/canonical 提升为实时权威。
+- Confirmed current behavior / root-cause boundary：
+  - `CodexIpcFeed.followConversation()` 已先保存 desired subscription，再发送 `thread-stream-following-changed`；IPC reconnect
+    后 `_replayDesiredFollowing()` 会重放 desired set，收到 `thread-stream-following-status-requested` 时也会向请求方重申。
+    当前缺口是这些动作没有形成可关联 subscription cycle/connection generation 的可观测结果，Gateway 只能看到“5 秒内
+    是否收到 surface”，不能区分首次发送、重连重放和发送失败。
+  - Gateway 的 current-cycle freshness/waiter 能拒绝旧 surface，但现有 owner status query 只覆盖“TermLink 已是 Owner，
+    向外部 follower 询问状态”的方向；它不能证明或激活尚未打开该 thread 的 Desktop owner。计划只验证现有 follower
+    announcement/replay 是否可达，不臆造通用 owner 探测，更不据此启动 owner fallback。
+  - Android 当前 `foreground-ipc-recovery:awaiting_ipc_surface` 会约每 10 秒重复请求普通 `thread/read`。它既没有形成
+    selection-generation 级唯一 recovery，也会让“无 surface”长期停在不透明 loading。该重复路径必须收敛到现有有界
+    history sync/recovery 协议，而不是延长 Nginx/IPC 超时。
+- Architecture impact：不改变既有
+  `active conversation -> gateway follower acquire -> CodexIpcFeed desired subscription/reconnect replay -> Codex host targeted
+  snapshot/patch -> Android IPC authority`。只在 feed/Gateway 内增加订阅周期可观测状态和一次性恢复协调，在 Android
+  复用 15k 已拆分的 `cacheState`/`networkSyncState`；不增加 wire 实时权威、数据库 schema、app-server writer 或 Owner
+  surface producer。
+- Technical approach / modification points：
+  1. `src/services/codexIpcFeed.js`：为每个 desired follow 记录内部只读 announcement 状态，包括 conversation/host、
+     desired generation、IPC connection/client generation、首次/最近发送时间、触发来源（initial/reconnect/status-request）
+     和发送结果。即使 client 尚未 initialized 也必须保留 desired intent；连接成功后只按当前 connection generation 重放，
+     acquire ref-count 语义不变。对 Gateway 暴露结构化发送结果或内部事件，仅用于 cycle 协调和日志，不新增宿主 wire method。
+  2. `src/ws/terminalGateway.js`：扩展既有 IPC subscription cycle，而不是另建 scheduler。cycle 至少包含
+     `{selectionGeneration, cycleGeneration, followState, followConnectionGeneration, startedAt, firstHealthySurfaceAt,
+     recoveryState}`。先创建 cycle，再 acquire follow；只接受当前 endpoint/conversation/cycle 的 healthy surface。5 秒 grace
+     内收到 surface 时不启动 canonical recovery；没有 surface 时仅把事实命名为 `awaiting_surface`，不能推断 `no_owner`。
+  3. Android `CodexViewModel.kt`：删除/停用等待 surface 时每 10 秒重复普通 `thread/read` 的前台恢复循环。选择任务后先
+     原子应用目标缓存并发送 `set_active_conversation`；若当前 generation 在 5 秒 grace 后仍无 healthy surface，则复用
+     `conversation_history_sync_request`，仅在 baseline 缺失、partial 或协议要求时升级一次
+     `conversation_history_recovery_request`。所有请求、watchdog、响应和 DB/UI commit 携带完整
+     `{endpointId, conversationId, selectionGeneration}`，A→B→A 的旧 A 结果也必须拒绝。
+  4. `src/services/codexHistorySyncService.js` / `src/services/codexHistoryBaselineProvider.js`：沿用现有 bounded
+     manifest/page/delta/ACK 与内部 `thread/read` baseline provider；同一 selection generation 只允许一次 full baseline
+     escalation。服务端内部 recovery 30 秒未完成必须返回 `history_recovery_timeout`，客户端从 selection 开始最迟在
+     `5 秒 surface grace + 30 秒 recovery` 内进入可见终态；传输无响应仍由客户端 watchdog 收口，不能无限旋转。
+  5. Android state/UI：缓存与网络继续独立。可读缓存保持 `READY`；无缓存才显示“本地无缓存，正在从服务端恢复”。
+     recovery timeout/failure 后停止 spinner，网络进入 `FAILED` 或 `CACHE_ONLY` 并显示明确原因，正文保留现有缓存/live，
+     历史列表和任务切换保持可操作。UI 不显示未经证明的“无 owner”，只显示“尚未收到实时会话”及恢复状态。
+  6. Desktop 后到 surface：Gateway 记录当前 cycle 的首个 healthy surface并停止尚未开始的 recovery；已经在途的 canonical
+     响应只能补充同 generation 的静态历史/持久缓存，不能覆盖 live status、current turn、operation 或较新 revision。
+     Android 统一按“canonical/cache 静态基底 + 同 conversation healthy IPC live-last”合并，revision 单调发布；bounded
+     surface 不得删除未覆盖的历史正文。不得因 surface 到达执行 resume/start、owner acquire 或第二 runtime。
+  7. Diagnostics：Gateway/feed 日志只记录 cycle/generation、匿名化 conversation key、connection generation、follow
+     announcement source/result、grace/recovery/surface 延迟和终态，不记录正文或凭证。Android 记录 selection generation、
+     cache/network state 和 surface apply/reject reason，以便区分“follow 未发送”“已发送但无 surface”“恢复超时”和
+     “迟到响应被隔离”。
+- Data / state flow：
+  `选择任务 -> 原子恢复目标缓存 -> 创建 selection/subscription cycle -> 保存 desired follow -> 当前连接发送或重连重放
+  -> [5 秒内 healthy surface：IPC live] / [5 秒无 surface：一次 bounded history sync/recovery]
+  -> recovery 成功/部分/失败/缓存模式终态 -> Desktop 后续打开 -> healthy IPC snapshot/patch -> live-last 对账`。
+  cache readiness 与 network recovery 并行但互不降级；任一旧 endpoint/conversation/generation 事件在 IO 完成后和最终
+  reducer commit 前都必须再次校验。
+- State machine / deadlines：
+  - Subscription：`CREATED -> FOLLOW_PENDING -> FOLLOW_ANNOUNCED -> SURFACE_RECEIVED`；disconnect 保留 desired intent，
+    reconnect 进入新 connection generation 并重放。发送失败是可观测状态，不删除 desired subscription。
+  - Recovery：`IDLE -> (5 秒无 surface) SYNCING -> REPAIRING -> SYNCED | PARTIAL | CACHE_ONLY | FAILED`；每个
+    selection generation 最多一次 full baseline escalation。任务切换立即 cancel/quarantine 旧 recovery。
+  - healthy surface 可在任何 recovery 状态到达并成为唯一实时权威；它终止后续 escalation，但不能让迟到静态响应覆盖
+    live。没有缓存时，客户端 watchdog 必须以 `selectionStartedAt + 35 秒` 为硬截止时间，把未决网络状态收敛为终态。
+- Alternatives considered：
+  - 不继续每 10 秒调用 `thread/read`，因为这会形成第二实时轮询源并放大服务端压力，仍无法证明 follower replay 可达。
+  - 不用 `_requestOwnerFollowerStatus` 扫描或猜测外部 owner；现有协议方向相反，且“未收到 surface”不等于 owner 不存在。
+  - 不在 App/Gateway 自动启动第二 owner、resume thread 或抢 writer lock；这会违反单权威并重现重复 turn。
+  - 不无限等待 Desktop、不把 loading 文案换名后继续旋转、不通过增大 proxy timeout 掩盖终态缺失。
+  - 不让 canonical recovery 的结果直接替换 healthy IPC surface；它只提供静态历史基底。
+- Compatibility：保持现有 IPC host method、follower ref-count、desired replay、Owner surface、history capability/envelope、
+  SQLite schema 和旧 Gateway 降级行为。新增内部 observation 字段不进入宿主 wire；若 Android 连接不支持 history recovery，
+  应明确进入 `UNSUPPORTED/CACHE_ONLY`，不能回退为无界普通 `thread/read`。`codexIpcClient.js` 仅在无法取得稳定 connection
+  generation 时做最小只读适配；`codexOwnerSurfaceTracker.js` 预期不修改，除非测试证明现有反向 status 逻辑回归。
+- Risks and rollback：主要风险是 history sync 与 foreground recovery 双发、重连造成重复 acquire、A→B 后旧 A 恢复写回、
+  迟到 canonical 覆盖 live、把“无 surface”误报“无 owner”，以及 surface burst 的 Compose 卡顿被混入本修复。通过统一
+  once-per-generation gate、ref-count/connection-generation 测试、三处 selection key 校验、live-last reducer 和中性状态码
+  控制。回滚只撤销 cycle observation/recovery coordinator/Android reducer 与测试，不涉及 schema 或 wire migration。
+  已观察到的 surface 大批量到达导致渲染卡顿/ANR 属于相邻但独立问题，本计划不借机重构 Compose 列表；若它阻断最终
+  smoke，应单独记录和修复，不能放宽本 P0 的 authority 验收。
+- Validation strategy：
+  - Feed/Node：覆盖 client 未 initialized 时先 follow 后连接、disconnect/reconnect 重放、status-request reannounce、同一
+    conversation ref-count、A→B release/acquire；断言每个 connection generation 的 announcement 可观测且不丢 desired。
+  - Gateway/Node：覆盖 App 先选、5 秒无 surface、缓存 replay、一次 bounded recovery、30 秒 timeout、任务仍可切换；
+    healthy surface 在 grace 内到达时零 recovery；recovery 在途时 surface 后到，迟到 canonical 不能覆盖 live；A→B→A
+    旧 cycle 被拒绝；TermLink Owner follower status 的既有反向链路无回归，且整个流程没有 owner fallback/start/resume。
+  - Android/JVM：覆盖 cache ready + awaiting surface 正文仍 ready、无缓存进入 repairing、timeout 后 spinner 停止并显示
+    cache-only/failed、重复前台 `thread/read` 为零、每 generation 至多一次 full recovery、切换任务取消旧 watchdog、
+    Desktop 后到 surface live-last、相同 conversation ID 跨 home/local 不串状态，以及旧 Gateway capability 降级。
+  - 回归门禁：重跑现有 IPC authority、current-cycle freshness、reconnect replay、history ACK/watchdog/recovery、15i
+    projection liveness、15j batch unique ID、15k cache/live generation 全集；Android 命令使用 JDK 21。
+  - 真机 smoke：部署同一版本后，在 home(mTLS) 与 local(WireGuard/IP) 各验证一次：Desktop 未打开目标时 App 选择任务，
+    缓存立即显示或 5 秒后只触发一次恢复，不晚于 selection 后 35 秒出现明确终态；恢复期间可切换 A→B；随后
+    Desktop 打开目标，App
+    无需重启即收到 healthy surface，Desktop 新输出实时逐步出现，且无第二 turn/owner。保留 cycle 日志证明 follow 是
+    initial 发送还是 reconnect replay，而不是用网络连通性推断业务 surface 可达。
+- Open decisions：无。用户已明确 IPC authority、无第二 owner、无第二实时权威和有界恢复取舍；“没有本周期 surface”
+  统一按 `awaiting_surface` 处理，不宣称 owner 缺失。若宿主没有外部 owner discovery 能力，既定产品终态就是
+  cache/canonical 静态可读 + 明确恢复失败，等待未来 healthy IPC surface 对账。
+- External Documentation Gate：不触发。方案完全依据仓库冻结契约、当前实现和已采集真机日志；不依赖第三方 library
+  current behavior。若实施发现必须依赖新版宿主私有 IPC method，则先停止、取证并重新锁范围，不能猜测接口。
+- Handoff：执行 `decompose-task`，按“feed/replay 可观测性 -> Gateway cycle/一次性恢复 -> Android 去除重复 thread/read 与
+  状态收口 -> 定向自动回归 -> 部署后真机 smoke”拆分；在用户授权实施前不得修改代码。
 
 Bug 调查报告（2026-07-31，TermLink Owner follower 握手缺失）：
 
@@ -1021,6 +1139,9 @@ Implementation Plan（2026-08-02，Android 快速模式）：
 - [completed] 15j. P0 修复 Android command batch 重复 ID：为 UI batch 保存 constituent operation IDs，
   合并缓存与 bounded IPC tail 时按成员关系去重，折叠后执行最终 message ID 去重，并覆盖真实崩溃 key、
   partial tail、batch 扩展和非连续边界回归；不改变 IPC authority、wire/cache schema 或 LazyColumn key 语义。
+- [completed] 15k. P0 拆开 Android cacheReady 与 networkSync：引入 endpoint/conversation/generation selection key，
+  原子应用目标缓存，禁止旧 hydrate/delta/sync 状态覆盖新 generation 的 live；完整缓存直接 ready，网络同步状态
+  独立显示；补齐状态 reducer、UI 文案与定向 JVM 回归。
 
 ## 回归门
 
@@ -1619,5 +1740,17 @@ fixture。随后重跑 Node 211/211、JDK 21 Android JVM、JavaScript syntax 和
   回归、partial bounded tail、非连续重复 batch 和 canonical operation provenance 断言；未修改 IPC/Gateway、
   wire/cache schema、服务端 batch ID 或 Compose `key = message.id`。JDK 21 定向 Android JVM 129/129 与完整
   `:app:testDebugUnitTest` 286/286 通过，`git diff --check --ignore-space-at-eol` 通过；尚未重新部署或执行真机滚动，
-  需在设备恢复在线后按既定手动矩阵验证。External Documentation Gate 不触发：本步仅修改项目内
+需在设备恢复在线后按既定手动矩阵验证。External Documentation Gate 不触发：本步仅修改项目内
   Android domain/projection 业务逻辑和既有 JVM 测试，不新增第三方 API、SDK 或构建参数。
+- 2026-08-05（15k P0 cache/network 状态拆分）：Android `CodexUiState` 移除单一 `historySyncState`，改为
+  endpoint/conversation/generation 隔离的 `CodexHistoryCacheUiState` 与 `CodexHistoryNetworkSyncUiState`。
+  SQLite checkpoint、durable row 数量和正文解码共同判定本地 `READY/complete`；无记录为 `MISSING`、读取异常为
+  `FAILED`，完整空任务允许 `READY + complete=true + itemCount=0`。cache-first 任务选择现在先在 IO 读取目标缓存，
+  再以一次 UI state commit 同时应用目标 identity、正文、缓存状态并清理旧 surface/runtime；旧 generation 的 hydrate、
+  delta、payload、sync、recovery 和 watchdog 写回均被 key 拒绝。网络同步/修复/离线/失败只更新 network 状态，
+  不会把可读缓存重新显示为 loading；Compose 中心提示改为“正在读取手机缓存/本地无缓存，正在从服务端恢复”，
+  后台提示明确为“服务端历史：同步/修复/部分/失败/离线”，不再使用含义不明的“历史正文：加载中”。
+  新增 cache-ready + network-sync、local/remote 状态区分和 network failure 保留 ready cache 的 JVM 回归。
+  JDK 21 下 `:app:testDebugUnitTest` 与 `:app:assembleDebug` 均 `BUILD SUCCESSFUL`，`git diff --check` 通过；未安装或操作真机，
+  需设备在线后按 15g 手动矩阵确认视觉和 A→B→A/后台同步行为。External Documentation Gate 不触发：本步仅使用项目内
+  Kotlin StateFlow、SQLite adapter 和既有 history/IPC contract。

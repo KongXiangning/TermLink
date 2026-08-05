@@ -72,6 +72,53 @@ const val PERMISSION_CHOICE_CUSTOM = "permission:custom"
 const val PERMISSION_PROFILE_CHOICE_PREFIX = "permission:profile:"
 
 /**
+ * Local history availability is independent from the network reconciliation
+ * state.  READY means the decoded local正文 is safe to render; completeness
+ * is carried separately because a bounded/live tail can coexist with a
+ * partial static cache.
+ */
+enum class CodexHistoryCacheLoadState {
+    NOT_LOADED,
+    LOADING,
+    READY,
+    MISSING,
+    FAILED
+}
+
+data class CodexHistoryCacheUiState(
+    val conversationId: String? = null,
+    val generation: Long = 0L,
+    val loadState: CodexHistoryCacheLoadState = CodexHistoryCacheLoadState.NOT_LOADED,
+    val complete: Boolean = false,
+    val itemCount: Int = 0,
+    val lastSyncedAt: Long? = null,
+    val detailCode: String? = null
+) {
+    val ready: Boolean
+        get() = loadState == CodexHistoryCacheLoadState.READY
+}
+
+enum class CodexHistoryNetworkSyncState {
+    IDLE,
+    SYNCING,
+    REPAIRING,
+    PARTIAL,
+    SYNCED,
+    OFFLINE,
+    UNSUPPORTED,
+    FAILED
+}
+
+data class CodexHistoryNetworkSyncUiState(
+    val conversationId: String? = null,
+    val generation: Long = 0L,
+    val state: CodexHistoryNetworkSyncState = CodexHistoryNetworkSyncState.IDLE,
+    val detailCode: String? = null,
+    val pageIndex: Int? = null,
+    val pageCount: Int? = null
+)
+
+/**
  * Collaboration mode sent with codex_turn for plan-mode turns.
  * Shape: { mode: "plan", settings: { model, reasoning_effort } }
  */
@@ -232,7 +279,8 @@ data class CodexUiState(
     val cachedCanonicalMessages: List<ChatMessage> = emptyList(),
     val liveAuthoritativeConversationId: String? = null,
     val liveAuthoritativeDesynced: Boolean = false,
-    val historySyncState: String = "cache_only",
+    val historyCacheState: CodexHistoryCacheUiState = CodexHistoryCacheUiState(),
+    val historyNetworkSyncState: CodexHistoryNetworkSyncUiState = CodexHistoryNetworkSyncUiState(),
     val model: String? = null,
     val reasoningEffort: String? = null,
     val sandbox: Boolean? = null,
