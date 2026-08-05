@@ -65,14 +65,14 @@ legacy 的正确路径统一为按目标分支（与 §7.3 同一决策表，避
 
 | 目标 | 动作 | 全量重放次数 |
 |---|---|---|
-| FULL_REQUIRED（需要完整恢复） | 5 秒后直接一次 `thread/read(includeTurns=true)`，成功后先下发 tail 再回填 older | 1 |
+| FULL_REQUIRED（需要完整恢复） | 5 秒后直接一次 `thread/read(includeTurns=true)`，成功后先下发 tail；older 持久化回填属 P0-B | 1 |
 | TAIL_PARTIAL_ONLY（只需快速尾部） | 只一次 `thread/turns/list(desc, full)`，标记 partial，本 generation 不升级 full | 1 |
 | FULL_FAILED_EARLY（full 很早失败且预算充足） | 允许同 generation fallback 一次 tail list，保证 App 至少拿到尾部 | 至多 2 |
 | FULL_TIMEOUT（full 接近/达到剩余预算上限） | 进入 `CACHE_ONLY`/`FAILED`，不 fallback；后续新 recovery cycle 只能重试 manifest/tail，不再 full | 1 |
 
 - 不用 cursor 连续请求很多 legacy older pages；每一页都会再次全量重放，复杂度接近 `页数 × 全历史`。
 - full read 若在时限和 envelope/内存护栏内成功，并严格证明完整，TermLink 才把它注册为短期内存 baseline；之后的尾部首包和
-   older backfill 都从这份 baseline 切片，不再重复回源 Codex。
+   older backfill 都从这份 baseline 切片（更旧段持久化属 P0-B segment/order 模型），不再重复回源 Codex。
 - full read 超时、过大、失败或无法证明完整时，保留 partial tail/cache，禁止 delete/order，并在 35 秒硬截止前进入
    `PARTIAL`、`CACHE_ONLY` 或 `FAILED`。
 
@@ -267,7 +267,14 @@ olderPageState:
 - 立即 acquire follower 并发送/重放 desired subscription。
 
 5 秒 grace 只门禁昂贵的 canonical full-baseline escalation，不门禁普通 manifest/tail history sync。自 selection 开始最多 35 秒，
-network sync 必须进入 `SYNCED`、`PARTIAL`、`CACHE_ONLY` 或 `FAILED`，停止无限 spinner；任务始终可切换。
+network sync 必须进入 `SYNCED`、`PARTIAL`、`CACHE_ONLY` 或 `FAILED`，停止无限 spinner；任务始终可切换。`SYNCED` 由
+`conversation_history_sync_state.state` 表达“网络同步结束”，与 `baselineComplete`（缓存完整/delete-order 资格）独立：P0-A 的
+`baselineComplete=false` 只禁 delete/order 与缓存标 complete，不阻止成功同步进入 `SYNCED`。
+
+实现前提：当前服务端把终态 sync-state 绑定 `baseline.complete`（`codexHistorySyncService.js` `handleAck` 的
+`baseline.complete ? 'live' : 'partial'`），不改它则 P0-A 到不了 `SYNCED`。P0-A 需在 `handleAck` 终态改发 `'synced'`（表达“同步
+结束”），`baselineComplete` 只经 delta 页面与 `detailCode='baseline_partial'` 传达缓存完整性——这是行为变更而非 schema 变更，属
+P0-A 服务端修改点（见 §19.1）。
 
 escalation 的超时必须用剩余预算，而不是固定 30 秒：`providerTimeout = min(30s, selectionDeadline - now - settlementMargin)`，
 其中 `selectionDeadline = selectionStartedAt + 35s`，预留约 1–2 秒 settlement margin 用于 JSON projection、媒体外置、WebSocket
@@ -330,8 +337,8 @@ conversation recovery lane：同一时刻不得并行发起 tail list 与 full r
 
 - 明确需要完整恢复（无 surface、无内存 baseline、需要 older 完整历史）：IPC 明确 offline 或 surface 明确 `desynced=true` 时
   **立即**执行（不等 5 秒）；仅“当前订阅周期缺 surface”情形才等 5 秒 grace。直接执行一次
-  `thread/read(includeTurns=true)`，本周期只重放一次；成功后从完整结果先下发 tail，再按 App checkpoint 切 older segments，并把
-  结果注册为短期内存 baseline。
+  `thread/read(includeTurns=true)`，本周期只重放一次；成功后从完整结果先下发 tail、注册为短期内存 baseline；按 App checkpoint
+  切 older segments（更旧段持久化）属 P0-B segment/order 模型，P0-A 只按需从内存提供更旧页。
 - 只需要快速尾部且允许 partial：只执行一次 `thread/turns/list(sortDirection="desc", itemsView="full")`，只 canonicalize/传输尾部
   目标范围，返回 `complete=false`、`hasMoreBefore=true/unknown`；本 generation 不自动升级 full read。不连续翻 older cursor 做
   静默全量回填，因为每页都触发 full rollout replay。
@@ -435,11 +442,12 @@ tail 不必等待完整历史。即使旧历史尚未回填，最新信息也可
 4. 在短 SQLite transaction 中提交 items、segment 和新 cursor。
 5. 检查 selection generation、live/control 背压和取消信号；满足才生成下一页。
 
-paginated 可持续回填到 `nextCursor=null`。legacy 只有 full baseline 已在 TermLink 内存时才允许从 baseline 静默回填；没有 full baseline
-时不对 Codex 连续翻 legacy pages。此时用户向上滚动的行为按状态分支（canonical full read 受 CONTRACTS 门禁：仅 offline、surface
+paginated 可持续回填到 `nextCursor=null`。legacy 只有 full baseline 已在 TermLink 内存时才允许从 baseline 回填更旧历史；该更旧段
+持久化属 P0-B segment/order 模型，P0-A 只支持交互按需读取（不写更旧 SQLite 段）。没有 full baseline 时不对 Codex 连续翻 legacy
+pages。此时用户向上滚动的行为按状态分支（canonical full read 受 CONTRACTS 门禁：仅 offline、surface
 明确 `desynced=true`，或前台/重连重订阅后 5 秒仍缺当前周期目标 surface 时才能发起）：
 
-- 内存 baseline 已存在：从 baseline 静默/交互回填更旧历史，不触发新的 upstream full read。
+- 内存 baseline 已存在：从 baseline 交互回填更旧历史（P0-A 不持久化更旧段，持久化回填属 P0-B），不触发新的 upstream full read。
 - 无 baseline、且当前满足 canonical recovery eligibility（offline / `desynced=true` / 缺 surface，未用过本 generation 配额、预算
   充足）：滚动触发一次 interactive full escalation（有界、singleflight、可取消）。
 - healthy live surface 且无 baseline：显示“当前仅显示已加载范围”，不发起 full read（避免违反冻结契约）；如需更早历史，须先满足
@@ -745,6 +753,18 @@ paginated 一样延后到上游提供 snapshot token / mutation watermark 后再
 P0-A 落地方式：wire 只有 `baselineComplete` 且它必然触发 deletes，因此 P0-A 一律保持 `baselineComplete=false`，从机制上不产生
 deletes/canonical order；显式的 `authoritativeSnapshotVerified` 字段属 P0-B additive wire/schema，P0-A 不引入。
 
+P0-A 插入安全矩阵（防止“内容补齐但顺序错误”）：`buildPartialMergedDiff` 以手机现有顺序为基底、把所有缺失 canonical key 追加到
+末尾（`codexHistorySyncService.js:73`）。若手机只有最新 tail 而 full recovery 返回更旧历史，会得到“最新 tail → 更旧历史”的倒序，
+且 P0-A 禁 canonical global order、无法修正。因此 P0-A 的插入必须限定：
+
+- 本地为空：允许按 ascending canonical 顺序初始化；
+- 本地非空：只更新相同 key，或追加经 canonical 位置证明的**新尾部**（严格更新于本地最新项）；
+- 缺失前缀/中间段：保持 partial，不在 P0-A 插入；
+- older/middle gap 的正确插入交给 P0-B segment/order 模型（届时才可 prepend/重排）。
+
+由此 P0-A 的 full recovery **不持久化更旧段到 SQLite**（无 segment/order 模型，无法在 P0-A 正确排序），只负责更新同 key、补新
+尾部，并把完整历史灌入内存 baseline 供按需提供更旧页；更旧段的持久化回填整体延后到 P0-B。
+
 删除/权威重排延后到上游提供真实 snapshot token / mutation watermark 后单独设计；在此之前全部 upsert-only。任何 partial、tail、
 运行中、unknown、ephemeral 或 recovery timeout 都禁止删除既有离线历史。
 
@@ -890,7 +910,8 @@ provider/source identity
 6. 删除 Android 每约 10 秒普通 thread/read recovery 循环。
 7. follower initial/reconnect/status-request replay 增加内部可观测 cycle 状态。
 8. legacy tail/full recovery singleflight（共用 recovery lane，见 §7.3）；内存 baseline 增加 subscriber-aware 5 分钟 TTL 与 byte budget。
-9. 明确 `SYNCED/PARTIAL/CACHE_ONLY/FAILED` 终态；保持任务切换。
+9. 明确 `SYNCED/PARTIAL/CACHE_ONLY/FAILED` 终态；`SYNCED` 是 sync-state、与 `baselineComplete` 独立（`baselineComplete=false`
+   只禁 delete/order 与缓存标 complete，不阻止同步结束进入 `SYNCED`）；保持任务切换。
 
 P0-A 不承诺完整 tail-first segment UX，但为后续迁移提供安全 provider 和状态基础。
 
@@ -945,7 +966,14 @@ P0-B 修改 Android DB schema 和产品交互，必须在 P0-A 后单独 review/
   - priority/backpressure；
   - legacy singleflight、baseline TTL/byte budget；
   - latest observed live marker 与 R1/R2 chained delta；
-  - generation cancellation。
+  - generation cancellation；
+  - sync-state 解耦：`handleAck` 终态由 `baseline.complete ? 'live' : 'partial'` 改为一律 `'synced'`（同步结束），缓存完整性由
+    `delta.baselineComplete` + `detailCode='baseline_partial'` 承载；P0-A 下 `'partial'` sync-state 不产出（缓存恒 partial 但同步已
+    结束），`'partial'` 值保留给后续“运行中 turn 暂未完整”的场景。
+  - `buildPartialMergedDiff` 尾部锚定守卫：以 canonical 位置为锚，只追加严格更新于本地最新项的 canonical 项
+    （`canonicalPositions.get(itemKey) > localNewestPos`），跳过更旧前缀/中间缺口；本地为空（`localNewestPos=-1`）时全量 ascending
+    初始化（见 §12.4 插入安全矩阵）。实现示例：`canonicalPositions = new Map(canonicalItems.map((item,i)=>[item.itemKey,i]))`；
+    `localNewestPos = max(...)`；`isNewTail = pos > localNewestPos`；`!local && !isNewTail` 时 `continue`。
 - `src/ws/terminalGateway.js`
   - selection/subscription cycle；
   - additive history request/response routing；
@@ -963,9 +991,12 @@ P0-B 修改 Android DB schema 和产品交互，必须在 P0-A 后单独 review/
 - `CodexWireModels.kt`：additive range/segment/cursor/anchor/priority/error 字段。
 - `CodexHistoryCacheModels.kt`：range checkpoint、segment、coverage 模型。
 - `CodexConversationCacheStore.kt`：schema migration、segment 原子提交、anchor 查询、跨 sync 幂等。
-- `CodexViewModel.kt`：cache/live-last 仲裁、tail dirty reconciliation、触发器、取消、滚动提升优先级、终态。
+- `CodexViewModel.kt`：cache/live-last 仲裁、tail dirty reconciliation、触发器、取消、滚动提升优先级、终态；P0-A 已完成同步进入
+  `SYNCED`（sync-state），`requestHistoryRecoveryOnce` 不再由每次 `'partial'` 触发，每 generation 一次 full recovery 由显式
+  `conversation_history_recovery_request` 流（§7.3 资格）触发。
 - `CodexWebSocketClient.kt`：history reliable channel、ACK、priority/backpressure，不改变 live authority。
-- `CodexScreen.kt`：顶部 older inline loading/retry、stable key scroll anchor。
+- `CodexScreen.kt`：顶部 older inline loading/retry、stable key scroll anchor；spinner 仅对 `SYNCING/REPAIRING` 中间态显示，
+  终态 `PARTIAL`/`SYNCED` 不转圈（PARTIAL 显示终态文案而非“正在补齐”）。
 
 ### 19.3 测试
 
@@ -988,6 +1019,8 @@ P0-B 修改 Android DB schema 和产品交互，必须在 P0-A 后单独 review/
   （`authoritativeSnapshotVerified` 恒 false，一律 upsert-only，见 §12.4）。
 - desc `nextCursor` 确实向 older 继续；方向错误测试必须失败。
 - 两页 desc fixture：先恢复 ascending 再 canonicalize，最终顺序为 oldest → newest（防止输入顺序反转，见 §7.2）。
+- P0-A partial merge 顺序安全：本地只有最新 tail、baseline 含更旧历史时，只追加严格更新的新尾部、不插入更旧前缀/中间缺口
+  （防“最新 tail → 更旧历史”倒序，见 §12.4 插入安全矩阵）。
 
 ### 20.2 Android range/cache
 
