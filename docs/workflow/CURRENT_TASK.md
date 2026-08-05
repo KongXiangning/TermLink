@@ -530,15 +530,17 @@ Implementation Plan（2026-08-05，P0 首次 surface/replay 可达与无 owner �
      recoveryState}`。先创建 cycle，再 acquire follow；只接受当前 endpoint/conversation/cycle 的 healthy surface。5 秒 grace
      内收到 surface 时不启动 canonical recovery；没有 surface 时仅把事实命名为 `awaiting_surface`，不能推断 `no_owner`。
   3. Android `CodexViewModel.kt`：删除/停用等待 surface 时每 10 秒重复普通 `thread/read` 的前台恢复循环。选择任务后先
-     原子应用目标缓存，立即启动 bounded history sync/tail validation，并立即 acquire follower / 发送
-     `set_active_conversation`；5 秒 surface grace 只门禁一次 full-baseline recovery escalation——仅当当前 generation 在
-     5 秒后仍无 healthy surface、且 baseline 缺失、partial 或协议要求时，才通过 `conversation_history_sync_request`
-     升级一次 `conversation_history_recovery_request`。所有请求、watchdog、响应和 DB/UI commit 携带完整
-     `{endpointId, conversationId, selectionGeneration}`，A→B→A 的旧 A 结果也必须拒绝。
+     原子应用目标缓存，立即启动 bounded history sync/tail validation，并立即发送 `set_active_conversation`；Gateway 收到后
+     创建 subscription cycle 并经 `CodexIpcFeed` acquire follower。5 秒 surface grace 只门禁一次 full-baseline recovery
+     escalation——仅当当前 generation 在 5 秒后仍无 healthy surface、且 baseline 缺失、partial 或协议要求时，才通过
+     `conversation_history_sync_request` 升级一次 `conversation_history_recovery_request`。所有请求、watchdog、响应和
+     DB/UI commit 携带完整 `{endpointId, conversationId, selectionGeneration}`，A→B→A 的旧 A 结果也必须拒绝。
   4. `src/services/codexHistorySyncService.js` / `src/services/codexHistoryBaselineProvider.js`：沿用现有 bounded
      manifest/page/delta/ACK 与内部 `thread/read` baseline provider；同一 selection generation 只允许一次 full baseline
-     escalation。服务端内部 recovery 30 秒未完成必须返回 `history_recovery_timeout`，客户端从 selection 开始最迟在
-     `5 秒 surface grace + 30 秒 recovery` 内进入可见终态；传输无响应仍由客户端 watchdog 收口，不能无限旋转。
+     escalation。服务端内部 recovery timeout 按剩余预算计算：`min(30 秒, selectionDeadline - now - settlementMargin)`，
+     `selectionDeadline = selectionStartedAt + 35 秒`，预留约 1–2 秒结算时间用于 projection、chunk、ACK 与 SQLite 落库；
+     超时必须返回 `history_recovery_timeout`，客户端最迟在 35 秒 selection 硬截止前进入可见终态；传输无响应仍由客户端
+     watchdog 收口，不能无限旋转。
   5. Android state/UI：缓存与网络继续独立。可读缓存保持 `READY`；无缓存才显示“本地无缓存，正在从服务端恢复”。
      recovery timeout/failure 后停止 spinner，网络进入 `FAILED` 或 `CACHE_ONLY` 并显示明确原因，正文保留现有缓存/live，
      历史列表和任务切换保持可操作。UI 不显示未经证明的“无 owner”，只显示“尚未收到实时会话”及恢复状态。
@@ -583,7 +585,8 @@ Implementation Plan（2026-08-05，P0 首次 surface/replay 可达与无 owner �
 - Validation strategy：
   - Feed/Node：覆盖 client 未 initialized 时先 follow 后连接、disconnect/reconnect 重放、status-request reannounce、同一
     conversation ref-count、A→B release/acquire；断言每个 connection generation 的 announcement 可观测且不丢 desired。
-  - Gateway/Node：覆盖 App 先选、5 秒无 surface、缓存 replay、一次 bounded recovery、30 秒 timeout、任务仍可切换；
+  - Gateway/Node：覆盖 App 先选、5 秒无 surface、缓存 replay、一次 bounded recovery、剩余预算 provider timeout（grace 后仅约
+    28–29 秒 provider budget）、任务仍可切换；fallback 前预算不足时不得启动；35 秒前必须完成最终状态提交而非仅 RPC；
     healthy surface 在 grace 内到达时零 recovery；recovery 在途时 surface 后到，迟到 canonical 不能覆盖 live；A→B→A
     旧 cycle 被拒绝；TermLink Owner follower status 的既有反向链路无回归，且整个流程没有 owner fallback/start/resume。
   - Android/JVM：覆盖 cache ready + awaiting surface 正文仍 ready、无缓存进入 repairing、timeout 后 spinner 停止并显示
