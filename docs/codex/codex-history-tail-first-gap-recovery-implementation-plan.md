@@ -1025,14 +1025,35 @@ P0-B 修改 Android DB schema 和产品交互，必须在 P0-A 后单独 review/
 
 ### 19.3 测试
 
-- Node：provider/history/gateway/feed focused tests。
-- Android JVM：wire/cache/store/view-model/UI helper tests。
-- Android instrumentation：迁移、真实 SQLite range、scroll anchor、home/local 隔离。
-- 真机：home mTLS 与 local LAN 两条路径。
+- 确定性 Node/Android JVM 回归由 AI 在每个实现步骤执行；Android instrumentation、性能和真机验证按 §20.0 的成本与环境分层执行。
+- APK 构建、adb 安装、启动、logcat 和单设备 smoke 不是“只能人工”的项目；有设备和本地服务时由 AI 按项目 skill 执行，具体门槛和不能覆盖的范围见 §20.0、§20.6。
+- home mTLS、local LAN、Desktop/VS Code 双宿主和跨设备 owner 生命周期仍需要最终验收；AI 可以协助取证，但单设备结果不能替代双路径验收。
 
 ## 20. 验证矩阵
 
-### 20.1 capability 与 provider 自动回归
+### 20.0 验证责任、环境门槛与成本
+
+验证不按“是否真机”简单二分，而按 AI 能否稳定重复、是否依赖外部环境以及单次成本分层。每一层都必须记录实际执行者、环境和结果；没有满足环境门槛时记为 `BLOCKED(environment)`，不能记为通过。
+
+| 层级 | 执行责任 | 内容 | 频率与边界 |
+| --- | --- | --- | --- |
+| A：确定性自动验证（低成本） | AI 必须执行 | `git diff --check`；Node provider/history/gateway/feed focused tests；Android JVM wire/cache/store/ViewModel 测试；fixture 覆盖 mode 分轨、完整性 fail-closed、`syncId`/generation 隔离、终态结算、背压和幂等 | 每个实现步骤和每次相关代码修改后执行；失败即停止交付，不以真机 smoke 替代 |
+| B：环境受限自动验证（中成本） | AI 执行；APK 构建只需 JDK21/构建环境，adb 安装、启动、logcat 和 smoke 还需目标设备，本地网络场景另需本地服务 | debug APK 构建、adb 安装、启动、PID 过滤 logcat、单设备 local smoke（缓存首屏、任务切换、迟到同步拒绝、短断线后的补齐等可控场景） | Android/wire/UI 变更的 P0-A/P0-B 阶段出口至少各执行一次；只验证选定的一台设备和可控的 local 路径，不宣称覆盖 home mTLS、双宿主或双设备 |
+| C：高成本自动验证（按阶段执行） | AI 可执行但不作为每轮回归；有环境时优先由 AI 运行并留证 | Android instrumentation 全量矩阵、合成超大 paginated/legacy 性能与内存、server restart、长时间 backfill、网络故障组合和多轮 reconnect | 在 provider 分轨稳定后、阶段出口或发布候选各执行一次；不为每个小改动重复全量运行，单项超时/资源不足要保留未完成记录 |
+| D：最终产品验收（高成本/跨宿主） | 人工主责，AI 协助记录日志和复现步骤 | home（域名+mTLS）与 local（LAN）双路径；Desktop/VS Code 后开、follower/reconnect replay、owner 生命周期；真实长任务及 approval/Plan/user-input/interrupt；视觉体验和跨设备切换 | P0-A/P0-B/P0-C 阶段出口和发布前执行；这是双宿主/跨设备语义门禁，单设备 AI smoke 不能替代 |
+
+#### B 层 AI 真机执行所需 skills
+
+当当前环境存在目标 Android 设备时，AI 使用项目内 [android-local-build-debug](../../.codex/skills/android-local-build-debug/SKILL.md) skill 完成构建、安装、启动和 logcat；[adb-real-device-debug](../../.codex/skills/adb-real-device-debug/SKILL.md) 是同一套流程的兼容入口，可按宿主选择其一，不应并行执行两套流程。需要启动或检查 TermLink 本地开发服务时，先使用 [local-dev-server-control](../../.codex/skills/local-dev-server-control/SKILL.md)。
+
+执行门槛和证据要求如下：
+
+1. Android 构建使用 JDK 21（`D:\ProgramCode\openjdk\jdk-21`）。构建环境或 JDK 不可用时，APK build 记为 `BLOCKED(environment)`；adb 安装、logcat 和 smoke 还必须有目标设备；涉及网络的 local smoke 另需先确认本地服务固定在 `127.0.0.1:3010` 且健康检查可达。
+2. 设备优先选择 `da34332c`，其次 `MQS7N19402011743`；始终显式传递 `adb -s <serial>`，包名固定为 `com.termlink.app`。
+3. AI 至少保留 APK 构建结果、安装/启动结果、目标 serial、PID 过滤 logcat 和 smoke 场景结果；私有 URL 只放在 gitignored `local-config.ps1`，日志不得带凭据或正文。
+4. 单设备 smoke 通过只说明该设备和该路径可用；不能推导 home mTLS、Desktop owner、双宿主并发或另一台设备也通过。缺少这些环境时，D 层仍需人工补验。
+
+### 20.1 capability 与 provider 自动回归（A：AI 必须）
 
 - legacy -> 按目标分支：FULL_REQUIRED 仅一次 full；TAIL_PARTIAL_ONLY 仅一次 tail；FULL_FAILED_EARLY 可选一次 tail fallback；
   FULL_TIMEOUT 直接 `CACHE_ONLY`/`FAILED`；禁止多页 full replay loop。
@@ -1047,7 +1068,7 @@ P0-B 修改 Android DB schema 和产品交互，必须在 P0-A 后单独 review/
 - P0-A partial merge 顺序安全：本地只有最新 tail、baseline 含更旧历史时，只追加严格更新的新尾部、不插入更旧前缀/中间缺口
   （防“最新 tail → 更旧历史”倒序，见 §12.4 插入安全矩阵）。
 
-### 20.2 Android range/cache
+### 20.2 Android range/cache（A：AI 必须；全量 instrumentation 归 C 层）
 
 - 旧 DB migration 保留完整/partial cache，不清空正文或媒体（从真实 DB v3 + checkpoint schema_version=2 起点）。
 - 无缓存时 tail 约 200 items 先提交，older 后到。
@@ -1058,7 +1079,7 @@ P0-B 修改 Android DB schema 和产品交互，必须在 P0-A 后单独 review/
 - prepend older segment 后 scroll anchor 不跳。
 - cache ready + network backfill/failure 时正文始终可读。
 
-### 20.3 缺口与 live-last
+### 20.3 缺口与 live-last（A：AI 必须）
 
 - patch `100 -> base 102/rev 103` 被拒绝并 desync；full snapshot 103 可恢复。
 - full snapshot revision 跳跃不误报缺消息。
@@ -1067,7 +1088,7 @@ P0-B 修改 Android DB schema 和产品交互，必须在 P0-A 后单独 review/
 - running provisional item 不授权 complete/delete/order；terminal 后 stable tail 落库。
 - reconnect first healthy、foreground、terminal 触发器 latest-only 合并，不形成每 token 同步。
 
-### 20.4 取消、隔离和背压
+### 20.4 取消、隔离和背压（A：AI 必须）
 
 - A -> B -> A：旧 A generation 的 RPC/page/ACK/DB/UI 全拒绝。
 - home/local 同 conversation ID 不串 checkpoint、segment 或媒体。
@@ -1079,9 +1100,9 @@ P0-B 修改 Android DB schema 和产品交互，必须在 P0-A 后单独 review/
 - final ACK → `'synced'`/`'partial'` 终态 → 进入 settlement（取消 watchdog、`markHistorySyncSettled`）→ 35 秒后无 `sync_timeout`/无错误
   recovery（Node/Android 联合回归，见 §6.2 结算收口）。
 
-### 20.5 性能/资源实测
+### 20.5 性能/资源实测（C：阶段性高成本）
 
-用真实或合成大型 paginated/legacy thread 记录：
+这是 C 层高成本验证，不作为每个实现步骤的默认门禁。优先使用可重复的合成 fixture；真实大型任务和 server restart 只在阶段出口/发布候选执行。用真实或合成大型 paginated/legacy thread 记录：
 
 - time-to-cache-render、time-to-first-tail、time-to-full-backfill；
 - Codex full rollout replay 次数；
@@ -1090,11 +1111,25 @@ P0-B 修改 Android DB schema 和产品交互，必须在 P0-A 后单独 review/
 - WebSocket bufferedAmount、history pause 次数、live frame latency；
 - server restart 后 paginated、legacy 有/无 Android cache 的差异。
 
-指标必须按 provider mode 分开，不能用 paginated 的性能掩盖 legacy 的物理限制。
+指标必须按 provider mode 分开，不能用 paginated 的性能掩盖 legacy 的物理限制。若 AI 受资源、设备或运行时长限制未完成，应报告未完成的具体项和环境原因，不得用普通 focused tests 代替该项结论。
 
-### 20.6 真机门禁
+### 20.6 真机门禁分层
 
-home（域名+mTLS）和 local（LAN）各验证：
+#### 20.6.1 AI 可执行的单设备 smoke（B 层）
+
+设备和本地服务满足 §20.0 门槛时，AI 使用上述 skills 构建/安装/启动并采集 logcat，至少验证一条可控的 local 路径。以下项目可在单设备上执行并留证：
+
+1. App 先打开、缓存立即显示；随后注入/接收 live 后实时字段覆盖。
+2. 无缓存冷开：最新约 200 items 或当前 P0-A 的降级首屏先显示，older/backfill 不阻塞任务操作。
+3. A -> B -> A 快速切换：旧传输被取消或按 `syncId`/generation 拒绝，B 可操作。
+4. backfill 期间产生新消息：live/control 优先，history 暂停后恢复。
+5. 可控的短断线：恢复后对已提交缓存进行 bounded 补齐，UI 不因迟到历史回退。
+
+这组 smoke 只证明该 serial、该 build 和 local 配置下的单设备行为；不能代替下面的跨宿主门禁。
+
+#### 20.6.2 人工最终验收（D 层）
+
+home（域名+mTLS）和 local（LAN）两条路径各验证：
 
 1. App 先打开、Desktop 后打开；缓存立即显示，live 后到覆盖实时字段。
 2. 无缓存冷开：最新约 200 items 先显示，older 静默回填。
@@ -1104,6 +1139,8 @@ home（域名+mTLS）和 local（LAN）各验证：
 6. A -> B -> A 快速切换：旧传输真正取消/拒绝，B 可立即操作。
 7. reconnect replay、长任务、approval/Plan/user-input/interrupt 不回归。
 8. 无第二 owner、无 turn 重复、无 authority 切换、无自动 resume/start。
+
+第 1、7、8 项需要 Desktop/VS Code 作为另一宿主或需要跨设备/真实 owner 生命周期；第 2–6 项即使 AI 已完成单设备 smoke，也要在最终验收中确认真实网络、双路径和用户可见行为。若只完成 AI B 层，发布状态只能写“单设备 smoke 通过，D 层未完成”，不能写“真机门禁通过”。
 
 ## 21. 可观测性与隐私
 
