@@ -1016,6 +1016,103 @@ test('verified recovery baseline is reused after switching away and back', async
     await stopGateway(g);
 });
 
+test('changed metadata invalidates a reused no-owner recovery baseline', async () => {
+    const g = await setupGateway({
+        ipcFeed: new FakeIpcFeed({ online: false }),
+        ipcSurfaceWaitGraceMs: 1,
+        historySelectionDeadlineMs: 500,
+        historySettlementMarginMs: 10
+    });
+    const sess = await g.sm.createSession({ name: 'recovery-baseline-freshness' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    let metadataVersion = 1;
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/list') {
+            return {
+                data: [{
+                    id: params?.threadId || 'conv-freshness-a',
+                    updatedAt: metadataVersion,
+                    latestTurnId: `turn-${metadataVersion}`
+                }]
+            };
+        }
+        if (method === 'thread/read' && params?.includeTurns === false) {
+            return {
+                thread: {
+                    id: params.threadId,
+                    historyMode: 'legacy',
+                    updatedAt: metadataVersion,
+                    latestTurnId: `turn-${metadataVersion}`
+                }
+            };
+        }
+        if (method === 'thread/read' && params?.includeTurns === true) {
+            return {
+                thread: {
+                    id: params.threadId,
+                    historyMode: 'legacy',
+                    turns: []
+                }
+            };
+        }
+        return { ok: true };
+    };
+
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-freshness-a' }));
+    ws.send(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'freshness-metadata-1',
+        method: 'thread/list',
+        params: {},
+        historyMode: 'metadata',
+        selectionGeneration: 1
+    }));
+    await waitForMessage(messages, (message) => message.type === 'codex_response' && message.requestId === 'freshness-metadata-1');
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174026',
+        conversationId: 'conv-freshness-a',
+        selectionGeneration: 1
+    }));
+    const first = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174026', 1_000);
+    assert.equal(first?.state, 'ready');
+
+    metadataVersion = 2;
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-freshness-b' }));
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-freshness-a' }));
+    ws.send(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'freshness-metadata-2',
+        method: 'thread/list',
+        params: {},
+        historyMode: 'metadata',
+        selectionGeneration: 3
+    }));
+    await waitForMessage(messages, (message) => message.type === 'codex_response' && message.requestId === 'freshness-metadata-2');
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174027',
+        conversationId: 'conv-freshness-a',
+        selectionGeneration: 3
+    }));
+    const second = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174027', 1_000);
+    assert.equal(second?.state, 'ready');
+    assert.notEqual(second?.detailCode, 'reused_recovery_baseline');
+    assert.equal(
+        g.codexService.requests.filter((entry) =>
+            entry.method === 'thread/read' && entry.params.threadId === 'conv-freshness-a' && entry.params.includeTurns === true
+        ).length,
+        2
+    );
+    ws.close();
+    await stopGateway(g);
+});
+
 test('paginated recovery uses thread/turns/list after metadata mode probing', async () => {
     const g = await setupGateway({
         ipcSurfaceWaitGraceMs: 1,

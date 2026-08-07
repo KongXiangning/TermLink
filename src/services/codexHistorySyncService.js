@@ -435,6 +435,44 @@ function normalizeRecoveryPart(value, fallback) {
     return normalized || fallback;
 }
 
+function normalizeFreshnessValue(value) {
+    if (typeof value === 'string') {
+        const normalized = value.trim();
+        return normalized || null;
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+    return null;
+}
+
+/**
+ * Build an internal, metadata-only freshness token for a canonical thread.
+ * This is deliberately not a wire field: it only decides whether the
+ * process-local recovery baseline may be reused.  Missing metadata is
+ * unknown, not evidence that the baseline is current.
+ */
+function buildHistoryFreshnessToken(metadata) {
+    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
+    const timestampAliases = [
+        ['updatedAt', 'updated_at'],
+        ['lastActiveAt', 'last_active_at'],
+        ['lastUpdatedAt', 'last_updated_at'],
+        ['lastMessageAt', 'last_message_at'],
+        ['modifiedAt', 'modified_at'],
+        ['mtime']
+    ];
+    // Prefer one canonical timestamp instead of concatenating every field:
+    // thread/list and thread/read may expose different subsets of the same
+    // metadata, and subset differences must not cause a false refresh.
+    const timestamp = timestampAliases
+        .map((aliases) => aliases.map((key) => normalizeFreshnessValue(metadata[key])).find(Boolean) || null)
+        .find(Boolean) || null;
+    const turnId = [
+        'latestTurnId', 'latest_turn_id', 'lastTurnId', 'last_turn_id'
+    ].map((key) => normalizeFreshnessValue(metadata[key])).find(Boolean) || null;
+    if (timestamp === null && !turnId) return null;
+    return JSON.stringify({ timestamp, turnId });
+}
+
 function buildRecoveryKey({ conversationId, providerIdentity = 'default', purpose = 'full' } = {}) {
     const conversation = normalizeRecoveryPart(conversationId, '');
     const provider = normalizeRecoveryPart(providerIdentity, 'default');
@@ -500,6 +538,7 @@ class CodexHistorySyncService {
         this._baselineCleanupTimer = null;
         this._recoveryFlights = new Map();
         this._syncs = new WeakMap();
+        this._metadataFreshness = new Map();
     }
 
     registerBaseline(conversationId, sourceKind, sourceData, options = {}) {
@@ -518,6 +557,35 @@ class CodexHistorySyncService {
     getBaseline(conversationId) {
         this._pruneBaselines();
         return this._baselines.get(conversationId);
+    }
+
+    /**
+     * Observe a metadata-only canonical response.  A changed token marks an
+     * old recovery baseline stale; it does not alter IPC/live authority and
+     * does not start a recovery by itself.
+     */
+    observeCanonicalMetadata(conversationId, metadata) {
+        const normalizedConversationId = normalizeRecoveryPart(conversationId, '');
+        const token = buildHistoryFreshnessToken(metadata);
+        if (!normalizedConversationId || !token) {
+            return { observed: false, changed: false, token: null };
+        }
+        const now = this.now();
+        const previous = this._metadataFreshness.get(normalizedConversationId);
+        this._metadataFreshness.set(normalizedConversationId, { token, observedAt: now });
+        const baseline = this._baselines.get(normalizedConversationId);
+        let changed = false;
+        if (baseline && baseline.sourceKind === 'history_recovery' && baseline.freshnessToken !== token) {
+            baseline.stale = true;
+            baseline.staleReason = 'canonical_metadata_changed';
+            changed = previous?.token !== token || baseline.freshnessToken !== token;
+        }
+        return {
+            observed: true,
+            changed,
+            token,
+            previousToken: previous?.token || null
+        };
     }
 
     retainBaseline(conversationId) {
@@ -548,7 +616,8 @@ class CodexHistorySyncService {
                 subscriberCount: baseline.subscriberCount,
                 updatedAt: baseline.updatedAt,
                 lastSubscriberLeftAt: baseline.lastSubscriberLeftAt,
-                retainedUntil: baseline.retainedUntil
+                retainedUntil: baseline.retainedUntil,
+                stale: baseline.stale === true
             }))
         };
     }
@@ -661,6 +730,12 @@ class CodexHistorySyncService {
             sourceEpoch: options.sourceEpoch || null,
             syncOutcome: resolveSyncOutcome(options),
             syncOutcomeDetail: resolveSyncOutcomeDetail(options),
+            freshnessToken: options.freshnessToken || (
+                (options.baselineSourceKind || null) === 'history_recovery'
+                    ? this._metadataFreshness.get(conversationId)?.token || null
+                    : null
+            ),
+            stale: false,
             updatedAt,
             subscriberCount: 0,
             lastSubscriberLeftAt: updatedAt,
@@ -709,6 +784,11 @@ class CodexHistorySyncService {
 
     _pruneBaselines() {
         const now = this.now();
+        for (const [conversationId, freshness] of this._metadataFreshness.entries()) {
+            if (!freshness || now - freshness.observedAt >= this._baselineTtlMs) {
+                this._metadataFreshness.delete(conversationId);
+            }
+        }
         for (const baseline of this._allBaselines()) {
             if (baseline.subscriberCount === 0 &&
                 baseline.retainedUntil !== null &&
@@ -796,7 +876,8 @@ class CodexHistorySyncService {
                         sourceEpoch: result.sourceEpoch,
                         resultKind: result.resultKind,
                         syncOutcome: recoveryResultOutcome(result),
-                        syncOutcomeDetail: result.detailCode || null
+                        syncOutcomeDetail: result.detailCode || null,
+                        freshnessToken: this._metadataFreshness.get(flight.conversationId)?.token || null
                     });
                 }
             }
@@ -1214,6 +1295,7 @@ module.exports = {
     buildPartialMergedDiff,
     buildDeltaPages,
     buildRecoveryKey,
+    buildHistoryFreshnessToken,
     normalizeClientSelectionGeneration,
     normalizeCacheSchemaVersion,
     normalizeSyncOutcome,

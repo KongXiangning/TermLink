@@ -5581,7 +5581,8 @@ function registerTerminalGateway(wss, {
                                 if (
                                     reusableBaseline &&
                                     reusableBaseline.sourceKind === 'history_recovery' &&
-                                    Array.isArray(reusableBaseline.items)
+                                    Array.isArray(reusableBaseline.items) &&
+                                    reusableBaseline.stale !== true
                                 ) {
                                     cycle.recoveryState = 'ready';
                                     _sendHistoryRecoveryState(ws, {
@@ -6419,6 +6420,37 @@ function registerTerminalGateway(wss, {
                         const requestStartedAt = Date.now();
                         try {
                             const response = await codexService.request(upstreamMethod, upstreamRequestParams);
+                            if (metadataOnlyHistoryRequest) {
+                                const metadataEntries = method === 'thread/list'
+                                    ? (Array.isArray(response)
+                                        ? response
+                                        : Array.isArray(response?.data)
+                                            ? response.data
+                                            : Array.isArray(response?.threads)
+                                                ? response.threads
+                                                : [])
+                                    : response?.thread
+                                        ? [response.thread]
+                                        : [];
+                                for (const entry of metadataEntries) {
+                                    const metadata = entry?.thread && typeof entry.thread === 'object'
+                                        ? entry.thread
+                                        : entry;
+                                    const metadataConversationId = metadata?.id || metadata?.threadId || null;
+                                    if (!isNonEmptyString(metadataConversationId)) continue;
+                                    const observation = historySyncService.observeCanonicalMetadata(
+                                        metadataConversationId,
+                                        metadata
+                                    );
+                                    if (observation.observed && observation.changed) {
+                                        diagnosticLog.event('server', 'server.codex.history.recovery.baseline_invalidated', {
+                                            conversationKey: diagnosticKey(metadataConversationId),
+                                            method,
+                                            reason: 'canonical_metadata_changed'
+                                        }, 'info');
+                                    }
+                                }
+                            }
                             diagnosticLog.event('server', 'server.codex.request.completed', {
                                 method,
                                 upstreamMethod,

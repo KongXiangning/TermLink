@@ -7,8 +7,8 @@
 - 任务 slug：codex-single-authority-owner-control-plane
 - 当前状态：in_progress
 - 生命周期状态：active
-- 当前 handoff：review-diff（P0-B.0 文档/契约/回滚实施已完成，等待 B.0 diff review；通过后只进入 P0-B.1 Android v4 存储基础）
-- 当前子任务：P0-A.1 至 P0-A.6 已完成，目标真机 smoke 初步通过；P0-B 已授权，B.0 已实施并完成范围校验，B.1 待实施；P0-C/P1 未授权
+- 当前 handoff：implement-current-step（P0-B.1 Android v4 存储基础）
+- 当前子任务：P0-A.1 至 P0-A.6 已完成，目标真机 smoke 初步通过；P0-A no-owner freshness follow-up 已完成；P0-B.0 已完成，B.1 尚未开始；P0-C/P1 未授权
 - 专项实施计划：`docs/codex/codex-android-history-cache-media-recovery-plan.md`
 - 历史尾部优先与缺口恢复专项计划：`docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md`
 - 子任务授权状态：implementation-authorized（用户于 2026-08-06 授权 P0-A，于 2026-08-07 明确授权开始 P0-B；P0-C/P1、15g/15h 及既有人工验收状态不变）
@@ -385,6 +385,15 @@
     Gateway/Android DTO/old-client fallback；scheduler → history/live/control ordering 与冻结 IPC/Owner 回归；selection → syncId/generation/
     A→B→A。任一需要改变 healthy IPC authority、follower lifecycle、canonical binding 或 P0-C live-tail 协调的证据，必须停止并重新
     `lock-scope`，不能在 P0-B 内近似实现。
+
+- Scope widening（2026-08-08，P0-A no-owner canonical freshness follow-up）：用户明确授权在 P0-B.1 开始前修复
+  “无 Desktop/VS Code owner 时 A→B→A 复用过期 `history_recovery` baseline”问题。此次只允许修改
+  `src/services/codexHistorySyncService.js`、`src/ws/terminalGateway.js` 及对应 Node focused tests；使用现有
+  metadata-only `thread/list`/`thread/read` 响应记录内部 freshness token，token 变化时使 process-local recovery
+  baseline 失效，随后仍沿用现有 `selectionGeneration`、`syncId`、singleflight、35 秒 deadline 和每 generation 一次
+  bounded recovery。禁止新增 wire/schema、Android/SQLite 字段、定时轮询、第二实时权威、owner、resume/start 或修改
+  follower/reconnect/IPC authority。验证要求：token unchanged 复用一次、token changed 只触发一次新的 canonical recovery、
+  A→B→A 不接受旧 generation 结果；P0-B.1 文件与 range/segment 实现保持未开始。
 
 ## 实现方案
 
@@ -1325,6 +1334,11 @@ Implementation Plan（2026-08-02，Android 快速模式）：
 - [completed] P0-B.0. 范围、契约与回滚锁定：以 `4a78060` 为 P0-B phase base，实施提交为 `709309e`；已同步专项计划、CURRENT_TASK、CONTRACTS 与
   AD-004 变更说明；锁定最小 range wire、static older upsert-only、部署 capability 证据、scheduler-before-auto-pump、DB v4/v2
   fallback 与兼容回滚 APK。`git show --check 709309e`、工作树 `git diff --check` 通过；提交仅包含四份治理文档，未改业务代码、SQLite 或 wire。
+- [completed] P0-A.7. 无 owner canonical freshness 收口：metadata-only `thread/list`/`thread/read` 响应只在服务端内部记录
+  `updatedAt`/turn identity freshness token；token 变化时使 process-local `history_recovery` baseline 失效，仍沿用现有
+  `selectionGeneration`、`syncId`、singleflight、35 秒 deadline 与每 generation 一次 bounded recovery。token 不变继续复用；不改
+  wire/schema、Android/SQLite、IPC/feed、follower/reconnect、owner 或实时 authority。新增 Node focused 回归覆盖 token 稳定性、surface
+  baseline 不误失效、真实 `thread/list` no-owner A→B→A 只触发一次新的 canonical read；`node --check` 与 `git diff --check` 通过。
 - [pending] P0-B.1. Android v4 存储基础：只修改 cache store/models 与 JVM fixtures/tests；additive history_segments、item segment
   columns/index、range checkpoint schema 3、递减 segment_rank、旧 position/v2 fallback。用真实 v3 + checkpoint v2 fixture 验证：旧
   `complete=true` 即使 itemCount/root 一致，也只保留 v2 fast-path 语义，迁移后的 range 必须是 `legacy_unknown`/partial、

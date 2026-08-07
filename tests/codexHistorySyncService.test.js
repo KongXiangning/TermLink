@@ -9,10 +9,41 @@ const {
     buildPartialMergedDiff,
     buildDeltaPages,
     computeHistoryPageHash,
+    buildHistoryFreshnessToken,
     CodexHistorySyncService
 } = require('../src/services/codexHistorySyncService');
 
 function item(itemKey, contentHash = itemKey) { return { itemKey, contentHash, payloadJson: JSON.stringify({ itemKey }) }; }
+
+test('metadata freshness token is stable and ignores unavailable metadata', () => {
+    const first = buildHistoryFreshnessToken({ updatedAt: '2026-08-08T01:00:00Z', latestTurnId: 'turn-1' });
+    const equivalent = buildHistoryFreshnessToken({ updated_at: '2026-08-08T01:00:00Z', latest_turn_id: 'turn-1' });
+    assert.equal(first, equivalent);
+    assert.equal(buildHistoryFreshnessToken({ title: 'same title' }), null);
+    assert.equal(buildHistoryFreshnessToken({ currentTurnId: 'transient-runtime-turn' }), null);
+});
+
+test('changed canonical metadata invalidates only a recovery baseline', () => {
+    const service = new CodexHistorySyncService();
+    service.observeCanonicalMetadata('conv', { updatedAt: 100, latestTurnId: 'turn-1' });
+    const recovery = service.registerBaselineItems('conv', [item('cached')], {
+        baselineSourceKind: 'history_recovery'
+    });
+    assert.equal(recovery.stale, false);
+    assert.equal(recovery.freshnessToken, buildHistoryFreshnessToken({ updatedAt: 100, latestTurnId: 'turn-1' }));
+
+    const unchanged = service.observeCanonicalMetadata('conv', { updatedAt: 100, latestTurnId: 'turn-1' });
+    assert.equal(unchanged.changed, false);
+    assert.equal(service.getBaseline('conv').stale, false);
+
+    const changed = service.observeCanonicalMetadata('conv', { updatedAt: 101, latestTurnId: 'turn-2' });
+    assert.equal(changed.changed, true);
+    assert.equal(service.getBaseline('conv').stale, true);
+
+    service.registerBaselineItems('surface-conv', [item('surface')], { baselineSourceKind: 'ipc_surface' });
+    service.observeCanonicalMetadata('surface-conv', { updatedAt: 200, latestTurnId: 'turn-surface' });
+    assert.equal(service.getBaseline('surface-conv').stale, false);
+});
 
 test('complete manifest diff produces upserts, deletes and order only when needed', () => {
     const diff = buildManifestDiff({ localItems: [item('a'), item('old')], canonicalItems: [item('a'), item('b')], baselineComplete: true });
