@@ -446,6 +446,87 @@ test('Android legacy full thread/read is refused without touching the app-server
     await stopGateway(g);
 });
 
+test('Android metadata thread/resume is read-only upstream but keeps the legacy response method', async () => {
+    const registrationId = 'android-metadata-resume-registration';
+    const g = await setupGateway({
+        registrationManager: {
+            isActive: (id) => id === registrationId,
+            get: (id) => id === registrationId ? { clientType: 'android' } : null
+        }
+    });
+    const sess = await g.sm.createSession({ name: 'android-metadata-resume' });
+    const { ws, messages } = await connectWs(g.port, sess.id, registrationId);
+    await delay(80);
+
+    ws.send(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'metadata-resume',
+        method: 'thread/resume',
+        params: { threadId: 'thread-history-only', includeTurns: true },
+        historyMode: 'metadata',
+        selectionGeneration: 7
+    }));
+
+    const response = await waitForMessage(messages, (message) =>
+        message.type === 'codex_response' && message.requestId === 'metadata-resume'
+    );
+    assert.equal(response?.method, 'thread/resume');
+    assert.equal(response?.selectionGeneration, 7);
+    assert.deepEqual(response?.result, {
+        thread: {
+            id: 'thread-history-only',
+            historyMode: 'legacy'
+        },
+        metadataOnly: true
+    });
+
+    const upstreamRequests = g.codexService.requests.filter((entry) =>
+        entry.params?.threadId === 'thread-history-only'
+    );
+    assert.deepEqual(upstreamRequests, [{
+        method: 'thread/read',
+        params: {
+            threadId: 'thread-history-only',
+            includeTurns: false
+        }
+    }]);
+    assert.equal(sess.codexState.threadId, undefined, 'read-only metadata selection must not bind the session');
+    assert.equal(sess.lastCodexThreadId, undefined, 'read-only metadata selection must not claim last thread ownership');
+
+    ws.close();
+    await stopGateway(g);
+});
+
+test('non-Android metadata thread/resume remains a real upstream resume', async () => {
+    const g = await setupGateway();
+    const sess = await g.sm.createSession({ name: 'desktop-metadata-resume' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(80);
+
+    ws.send(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'desktop-metadata-resume',
+        method: 'thread/resume',
+        params: { threadId: 'thread-owner-resume' },
+        historyMode: 'metadata'
+    }));
+
+    const response = await waitForMessage(messages, (message) =>
+        message.type === 'codex_response' && message.requestId === 'desktop-metadata-resume'
+    );
+    assert.equal(response?.method, 'thread/resume');
+    assert.equal(response?.result?.thread?.id, 'thread-owner-resume');
+    assert.deepEqual(
+        g.codexService.requests.filter((entry) => entry.params?.threadId === 'thread-owner-resume'),
+        [{ method: 'thread/resume', params: { threadId: 'thread-owner-resume' } }]
+    );
+    assert.equal(sess.codexState.threadId, 'thread-owner-resume');
+    assert.equal(sess.lastCodexThreadId, 'thread-owner-resume');
+
+    ws.close();
+    await stopGateway(g);
+});
+
 test('history recovery builds a canonical baseline inside the Gateway', async () => {
     const g = await setupGateway();
     const sess = await g.sm.createSession({ name: 'history-recovery' });

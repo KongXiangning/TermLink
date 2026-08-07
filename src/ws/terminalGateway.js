@@ -6377,6 +6377,16 @@ function registerTerminalGateway(wss, {
                             envelope.historyMode === 'metadata' ||
                             (isAndroidCodexClient(ws) && method === 'thread/list')
                         );
+                        // Android history selection still uses the legacy
+                        // logical method name for wire compatibility, but it
+                        // must never claim the app-server writer/runtime.
+                        // Translate only that explicitly marked Android
+                        // metadata request; real owner resume paths (including
+                        // owner fallback) continue to use thread/resume.
+                        const metadataHistoryResumeRead = isAndroidCodexClient(ws) &&
+                            method === 'thread/resume' &&
+                            envelope.historyMode === 'metadata';
+                        const upstreamMethod = metadataHistoryResumeRead ? 'thread/read' : method;
                         if (isAndroidCodexClient(ws) &&
                             (method === 'thread/resume' || method === 'thread/read') &&
                             !metadataOnlyHistoryRequest) {
@@ -6391,18 +6401,28 @@ function registerTerminalGateway(wss, {
                             });
                             return;
                         }
-                        const upstreamRequestParams = metadataOnlyHistoryRequest && requestParams && typeof requestParams === 'object'
+                        const metadataRequestParams = metadataOnlyHistoryRequest && requestParams && typeof requestParams === 'object'
                             ? (() => {
                                 const next = { ...requestParams };
                                 delete next.historyMode;
                                 return next;
                             })()
                             : requestParams;
+                        const upstreamRequestParams = metadataHistoryResumeRead
+                            ? {
+                                ...(metadataRequestParams && typeof metadataRequestParams === 'object'
+                                    ? metadataRequestParams
+                                    : {}),
+                                includeTurns: false
+                            }
+                            : metadataRequestParams;
                         const requestStartedAt = Date.now();
                         try {
-                            const response = await codexService.request(method, upstreamRequestParams);
+                            const response = await codexService.request(upstreamMethod, upstreamRequestParams);
                             diagnosticLog.event('server', 'server.codex.request.completed', {
                                 method,
+                                upstreamMethod,
+                                metadataHistoryResumeRead,
                                 durationMs: Date.now() - requestStartedAt,
                                 responsePresent: response !== null && response !== undefined,
                                 requestKey: diagnosticKey(envelope.requestId),
@@ -6413,16 +6433,16 @@ function registerTerminalGateway(wss, {
                                 turnKey: diagnosticKey(response?.turn?.id),
                                 turnCount: Array.isArray(response?.thread?.turns) ? response.thread.turns.length : null
                             });
-                        if (method === 'account/rateLimits/read') {
+                        if (upstreamMethod === 'account/rateLimits/read') {
                             console.info('[CODEX][account/rateLimits/read] Response:', JSON.stringify(response, null, 2));
                         }
                         const codexState = ensureSessionCodexState(session);
-                        if (method === 'account/rateLimits/read') {
+                        if (upstreamMethod === 'account/rateLimits/read') {
                             codexState.rateLimitState = response || null;
                             emitCodexState(session);
                         }
                         if (
-                            method === 'thread/resume' &&
+                            upstreamMethod === 'thread/resume' &&
                             response &&
                             response.thread &&
                             isNonEmptyString(response.thread.id)
@@ -6444,7 +6464,7 @@ function registerTerminalGateway(wss, {
                             });
                             emitCodexState(session);
                         }
-                        if (method === 'thread/read') {
+                        if (upstreamMethod === 'thread/read') {
                             const readThreadId = response
                                 && response.thread
                                 && isNonEmptyString(response.thread.id)
@@ -6492,6 +6512,8 @@ function registerTerminalGateway(wss, {
                         } catch (error) {
                             diagnosticLog.error('server', 'server.codex.request.failed', error, {
                                 method,
+                                upstreamMethod,
+                                metadataHistoryResumeRead,
                                 durationMs: Date.now() - requestStartedAt,
                                 requestKey: diagnosticKey(envelope.requestId),
                                 sessionKey: diagnosticKey(session && session.id),

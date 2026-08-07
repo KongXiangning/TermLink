@@ -1959,3 +1959,17 @@ fixture。随后重跑 Node 211/211、JDK 21 Android JVM、JavaScript syntax 和
   `set_active_conversation` 现在只要携带有效的既有 `selectionGeneration` 就更新当前 WebSocket 的客户端 fence，不再只在任务 ID 变化时更新；这样 App
   resume/reconnect 后重新声明同一任务不会因沿用旧 client generation 被误判为 `stale_selection`。新增同任务重新声明回归，generation fence 定向集合
   `4/4` 通过；服务端已重启加载该修复。未新增 wire/schema 字段、recoveryCycleId、实时权威或 owner。
+- 2026-08-07（Android history metadata resume writer-lock 最小修复）：确认历史任务选择路径发送的逻辑
+  `thread/resume` 不应在 app-server 上执行真实 resume；否则会为 Android 连接取得 writer/runtime，阻断 Desktop/VS Code
+  打开同一任务。仅对 Android 注册连接且 `historyMode=metadata` 的该请求，在 Gateway 上游转换为
+  `thread/read({ threadId, includeTurns: false })`；返回 envelope 仍回显 `method=thread/resume` 和原有
+  `selectionGeneration`，因此旧 Android 客户端无需改 wire。状态处理按真实上游 `thread/read` 分支执行，不触发 resume 的
+  runtime reset、thread binding 或 `lastCodexThreadId` 回写，不启动第二 owner；非 Android metadata 请求和 owner fallback 的真实
+  `thread/resume` 保持不变。
+  新增 Android 转换/响应兼容与非 Android 保持真实 resume 两条 Gateway 回归；`tests/terminalGateway.codexIpc.test.js`
+  `89/89`、`tests/terminalGateway.threadHub.test.js` `6/6`、Gateway `node --check` 和 `git diff --check` 通过。
+  后续并发/串行完整重跑曾分别命中既有的 `owner request handlers` 首 turn 时序和
+  `latest snapshot is replayed on set_active_conversation` 断言，两个用例单独运行均通过；本次修复相关的 Android/非 Android
+  metadata 与 owner fallback 组合回归为 `4/4`。
+  `tests/terminalGateway.codex.test.js` 在当前 WSL 因缺少 `node-pty` Linux 原生模块于加载阶段失败，记为环境阻塞；未修改
+  IPC feed/authority、owner fallback、Android 业务代码、wire/schema 或外部依赖，External Documentation Gate 不触发。
