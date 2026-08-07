@@ -7,14 +7,15 @@
 - 任务 slug：codex-single-authority-owner-control-plane
 - 当前状态：in_progress
 - 生命周期状态：active
-- 当前 handoff：review-diff（P0-A.6 联合回归已执行并完成记录；等待整体 diff/implementation/contracts 复核）
-- 当前子任务：P0-A.1 至 P0-A.6 已完成实现与可执行的确定性自动回归；Android 工具链验证仍为环境阻塞，P0-B/P0-C/P1 未授权
+- 当前 handoff：implement-current-step（P0-B.0 准备与范围锁定已完成；下一步只实施 P0-B.1 Android v4 存储基础）
+- 当前子任务：P0-A.1 至 P0-A.6 已完成，目标真机 smoke 初步通过；P0-B 已授权并完成 B.0 文档准备，B.1 待实施；P0-C/P1 未授权
 - 专项实施计划：`docs/codex/codex-android-history-cache-media-recovery-plan.md`
 - 历史尾部优先与缺口恢复专项计划：`docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md`
-- 子任务授权状态：implementation-authorized（用户于 2026-08-06 明确授权开始实施历史 tail-first/gap-recovery 计划的 Phase P0-A；P0-B/P0-C/P1、15g/15h 及既有人工验收状态不变）
+- 子任务授权状态：implementation-authorized（用户于 2026-08-06 授权 P0-A，于 2026-08-07 明确授权开始 P0-B；P0-C/P1、15g/15h 及既有人工验收状态不变）
 - 恢复需审查：false
 - 恢复审查原因：
 - Task start base：8f84867
+- P0-B phase base：`4a78060`（P0-A 与重连 operation 顺序修复后的阶段 checkpoint）
 - Supersedes：`20260727-001 Windows Codex IPC-first / Owner-fallback 第一阶段修复`
 
 ## Supersede 记录
@@ -347,6 +348,44 @@
    authority arbitration、Goal/Plan/Approval、媒体/缓存策略、WireGuard 或远端任务；仍需 backend/APK
    重新部署并由用户手动复验。
 
+- Scope lock（2026-08-07，P0-B tail-first range/segment）：用户已授权 P0-B；阶段基线为 `4a78060`，Safety mode 继续为
+  `guarded`。本子锁定比任务顶部的历史 Allowed Files 更窄；P0-B 未列入下述当前/条件范围的文件默认禁止修改。
+  - **P0-B.0 Allowed Files（已完成，文档 only）**：
+    `docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md`、`docs/workflow/CURRENT_TASK.md`、
+    `docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`。
+  - **P0-B.1 当前 Allowed Files**：
+    `android/app/src/main/java/com/termlink/app/codex/data/CodexConversationCacheStore.kt`、
+    `android/app/src/main/java/com/termlink/app/codex/data/CodexHistoryCacheModels.kt`、
+    `android/app/src/test/java/com/termlink/app/codex/**`、`android/app/src/test/resources/**`，以及上述四份任务/契约文档。
+    本步只允许 DB user_version 3→4、checkpoint schema 2→3、additive segment/range 表列索引、旧 position/v2 fallback 和真实 v3
+    迁移 fixture；v3→v4 必须让异常回滚整个 upgrade transaction，禁止 catch 后把半迁移数据库标成 user_version 4；不得接 wire、
+    provider、Gateway、ViewModel 或 UI。现有 `items.position NOT NULL` 必须保留；新 range item 同时维护兼容 position 投影（older 在
+    当前 min position 前分配递减区间、new tail 在当前 max position 后分配递增区间），确保关闭 range 后 v2 reader 仍可
+    oldest→newest 展示。
+  - **Conditional Files（按步骤解锁）**：B.1 定向迁移/兼容测试通过后，B.2 才放行
+    `src/services/codexHistoryBaselineProvider.js`、`src/services/codexHistorySyncService.js`、`src/ws/terminalGateway.js`、
+    `android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt`、
+    `android/app/src/main/java/com/termlink/app/codex/network/CodexWebSocketClient.kt`、
+    `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt` 及其对应 Node/JVM tests；B.2 通过后，B.3 才允许在同一
+    文件面实现单页 older/cursor checkpoint；B.3 通过后，B.4 才放行 `src/services/codexWsSnapshotScheduler.js` 及其测试实现
+    history 主动让位和自动 pump；B.4 通过后，B.5 才放行 `CodexScreen.kt`、双语 strings 与 UI focused tests。每次解锁只针对
+    当前步骤，不允许把后一步实现提前混入。
+  - **证据门禁 Conditional Files**：`src/services/codexAppServerService.js` 仅在现有 request API 无法执行经部署证明的 capability
+    probe 且有失败测试时放行；`src/services/codexHistoryCanonicalizer.js` 仅在新增独立 range root adapter 必需时放行，必须保留现有
+    `buildConversationRoot`/v2 root 语义。`thread/items/list` 只有当前捆绑 app-server 实测或 method capability 证明支持时才能接入；
+    否则沿已接通的 `thread/turns/list` fail-closed。
+  - **P0-B Forbidden Files / behaviors**：`codexIpcClient.js`、`codexIpcFeed.js`、`codexIpcThreadStream.js`、
+    `codexOwnerSurfaceTracker.js`、session/HTTP/media/认证/部署/上游 Codex 均禁止；不得新增第二实时权威或 owner、自动 resume/start、
+    delete/global authoritative reorder、TermLink 持久正文副本、legacy 连续上游分页、`tailDirty`/`coverageRefreshRequired`/
+    `eventTimeMs`/`authoritativeSnapshotVerified`/新 cancel 或 `recoveryCycleId` wire。
+  - **Rollback lock**：保留旧 `position`、checkpoint v2 和旧 history 读写路径；`rangeSegments.enabled=false` 必须让 DB v4 新构建回到旧行为。
+    SQLite v4 不可依赖安装旧 v3 APK 降级；B.1 首次安装主测试设备前必须先在 DB 副本验证迁移，并准备 DB-v4-compatible、关闭
+    `rangeSegments` 的回滚 APK。条件未满足时不得开启 capability，也不得安装主测试设备。
+  - **Change propagation / dangerous surfaces**：Android storage schema → cache models/queries/migration tests/rollback build；range wire →
+    Gateway/Android DTO/old-client fallback；scheduler → history/live/control ordering 与冻结 IPC/Owner 回归；selection → syncId/generation/
+    A→B→A。任一需要改变 healthy IPC authority、follower lifecycle、canonical binding 或 P0-C live-tail 协调的证据，必须停止并重新
+    `lock-scope`，不能在 P0-B 内近似实现。
+
 ## 实现方案
 
 Implementation Plan（2026-08-03，Android 历史缓存/媒体分层）：
@@ -493,15 +532,17 @@ Scope widening（2026-08-05，历史 tail-first、增量断点与缺口恢复专
   - P0-B：older static range（additive SQLite range/segment migration 的 tail-first/静默回填）；
   - P0-C：terminal stable live-tail durable reconciliation（healthy live 下把已显示但未落库的 stable 尾部协调进 SQLite）；
   - P1：另行架构决策的 legacy 服务端持久 tail/index。
-  P0-B、P0-C、P1 都不得借 P0 实施授权静默落地。P0-B 与 P0-C 都需分别授权并先同步 CONTRACTS/DECISIONS——尤其 P0-C 在
-  healthy live 下读取 canonical 正文写 SQLite，现有冻结契约（CONTRACTS:145）只允许 healthy surface 后补静态元数据，必须先
-  扩展契约（仅 upsert 与 live tail 不冲突的更旧/缺失静态 items，不覆盖 live 正文）再实施。
+  当时 P0-B、P0-C、P1 都不得借 P0-A 实施授权静默落地；P0-B 已于 2026-08-07 单独授权并完成 CONTRACTS/DECISIONS 前置同步，
+  P0-C/P1 仍需分别授权。尤其 P0-C 在
+  healthy live 下读取 canonical 正文写 SQLite，当时冻结契约只允许 healthy surface 后补静态元数据；P0-B 的“更旧静态范围
+  upsert”已在 2026-08-07 单独扩展，P0-C 的 live-tail/缺失协调仍必须再次更新契约后才能实施。
 - 冻结数据流保持不变：`active conversation -> gateway follower acquire -> desired subscription/reconnect replay -> Codex host
   targeted snapshot/patch -> Android IPC authority`；canonical/cache 只作为静态基底和有界修复，禁止新增第二实时权威、
   第二 owner、轮询 authority、自动 resume/start 或 IPC authority 改写。
 - 文档门禁为路径/链接核对与 `git diff --check`；P0-A 已获 implementation-authorized 并按 A.1→A.6 分步执行，
   P0-A.6 的确定性 Node 回归已通过；Android JVM/APK 因当前工具链环境阻塞而未宣称通过，整体 diff/implementation/contracts 复核仍待执行。
-  P0-B/P0-C/P1、15g/15h 与既有人工双宿主验收仍保持 pending/未授权。
+  当时 P0-B/P0-C/P1、15g/15h 与既有人工双宿主验收保持 pending/未授权；其中 P0-B 授权状态已由 2026-08-07 的
+  P0-B scope lock 取代，P0-C/P1 仍未授权。
 
 Implementation Plan（2026-08-05，P0 首次 surface/replay 可达与无 owner 有界恢复）：
 
@@ -766,6 +807,37 @@ Implementation Plan（2026-07-31，Goal 自动续跑用户消息投影修复）�
 - Open decisions：无；Goal toolbar 的 active/paused 控制语义保持现有实现。
 - Handoff：`decompose-task`。
 
+Implementation Plan（2026-08-07，P0-B tail-first range/segment）：
+
+- Goal：在不改变 healthy IPC 单实时权威的前提下，让无缓存/尾部差距大的任务先持久化并显示最新约 200 canonical items，再按需或
+  静默回填更旧历史；持久范围 checkpoint 让下一次请求直接从缺口 cursor/anchor 继续，任务切换立即停止旧任务工作。
+- Architecture impact：Android SQLite user_version 3→4、conversation checkpoint schema 2→3；history WebSocket 只做 capability-gated
+  additive range 扩展。服务端不新增持久历史正文；cache/range 仍是静态基底，IPC surface 继续独占同 key live 内容、operation、当前
+  turn 与运行态。P0-C live-tail reconciliation 不在本阶段。
+- Technical approach：
+  1. 保留旧 position/v2 path，新建 segment/range 存储；旧 verified complete cache 迁为一个 coverage-complete segment，其余迁为
+     `legacy_unknown` partial。older prepend 使用递减 `segment_rank`，不重排既有 rows。
+  2. 最小 wire/capability 仅表达 schema、range/segment、anchors、nextOlderCursor、hasMoreBefore、coverageComplete；复用已有
+     syncId、selectionGeneration 与 Gateway cancel。
+  3. B.2 只打通最新尾部；B.3 只做单页 older；B.4 先证明 history 会给 live/control 让位，再启用自动 pump；B.5 才做滚动 UI。
+  4. paginated item-level method 依赖当前捆绑 app-server 的运行时证据；证据缺失时使用现有 turns/list，保持 partial/fail-closed。
+- Alternatives considered：不先实现自动 pump（当前 history 与 live 是独立 scheduler，可能抢占带宽）；不一次增加 P0-C dirty、事件时间、
+  恒 false authoritative proof 或 cancel/recovery-cycle 字段；不使用旧 APK 作为 DB v4 回滚；不为 legacy 连续调用 turns/list 制造多次
+  rollout full replay。
+- Data / state flow：`select G -> cache v2/v3 read -> follower acquire + bounded tail bootstrap -> atomic tail segment commit -> live-last`；
+  `near top -> one older request -> validate cursor/anchor/syncId/G -> atomic segment+cursor commit`；B.4 后才允许
+  `idle bandwidth -> next older page`。A→B 时 detach/cancel A waiter，旧 frame 在 staging/DB/UI 前拒绝。
+- Compatibility：`rangeSegments.enabled=false` 或旧 capability 使用原 v2 manifest/delta/position；DB v4 新 APK保留旧 reader/writer。旧 APK只用于
+  未迁移数据库的协议兼容，不能打开已升级 DB v4。P0-B 全程 upsert-only，coverageComplete 不触发 deletes/order。
+- Risks and rollback：主要风险为 v3→v4 不可逆 downgrade、错误 segment rank、cursor 方向/跨 sync 重复、history 抢占 live、任务切换迟到
+  写回。通过真实 v3 fixture、独立 range root、原子 transaction、active syncId+generation、scheduler 门禁和 DB-v4-compatible
+  kill-switch APK控制；首次主设备迁移前备份/副本演练。
+- Validation strategy：每步执行定向 Node/JVM tests；B.1 必测真实 v3→v4、validated/unknown migration、v2 fallback 和 transaction
+  rollback；B.2/B.3 测 capability fallback、desc/ascending、cursor/anchor、幂等和 A→B；B.4 测 control/live preemption 与 one-in-flight；
+  B.5 做 focused UI/scroll anchor；B.6 才做联合、JDK21 APK、ADB 单设备 smoke 和人工双路径/双宿主验收。
+- Open decisions：无阻塞 P0-B.1 的问题。legacy 持久 tail/index、默认 paginated、read-only worker 与 P0-C 均保持未授权。
+- Handoff：`implement-current-step`，只实施 P0-B.1；B.1 验收未通过不得进入 B.2。
+
 ## Public / Internal Interface Changes
 
 - `codex_ipc_status.status` additive：`supported`、`activeSendAllowed`，保留 `online/clientId/reason`。
@@ -774,6 +846,10 @@ Implementation Plan（2026-07-31，Goal 自动续跑用户消息投影修复）�
 - 新增 `codex_thread_recovery_required`：一次性 `recoveryId/clientRequestId/conversationId/reason/actions[]`。
 - 新增客户端 `codex_thread_recovery_action`：`recoveryId/action=retry|fork|new|cancel`。
 - IPC client/feed 增加内部 request-handler 注册与 discovery 应答 API；只为当前 TermLink Owner conversation 声明可处理。
+- P0-B planned additive interface（尚未实现）：顶层 `historySync.version` 保持 1，增加可选
+  `historySync.rangeSegments { enabled, version=1, cacheSchemaVersion=3 }` 协商；range envelope/request 只增加 range/segment id/kind、
+  newest/oldest anchors、nextOlderCursor、hasMoreBefore、coverageComplete，并继续携带已有 syncId 与 selectionGeneration。未协商时
+  保持现有 history v1 + cache schema v2 行为。
 
 ## 已确认决策
 
@@ -783,6 +859,10 @@ Implementation Plan（2026-07-31，Goal 自动续跑用户消息投影修复）�
 - 同一 app-server 内多连接不等于 Owner 转移；不同 app-server 进程存在 writer lock。单任务单权威由成功获取的 writer/runtime、Gateway ledger 与 Owner IPC 广播共同保证。
 - 新建 Owner 必须同时广播 stream surface、thread-read state 与 recent-conversations 缓存失效。
 - 当前 checkpoint 仅为基础，不得在最终验收前合并 Main。
+- P0-B 按 B.0→B.6 分段实施；SQLite v4 必须保留 v2/position fallback，并以 DB-v4-compatible kill-switch 构建回滚，不能依赖旧 APK
+  downgrade。
+- P0-B wire 采用最小 range 字段，自动 older pump 晚于 live/control 让位调度；未获部署能力证据时不接 `thread/items/list`。
+- P0-B 只允许 static older upsert，禁止 delete/order 与 live-tail reconciliation；P0-C 保持单独授权。
 
 ## 决策分类
 
@@ -803,15 +883,17 @@ Implementation Plan（2026-07-31，Goal 自动续跑用户消息投影修复）�
 
 ## 待确认问题
 
-- 当前无。用户已确认单权威方向、Owner 完整控制面、自动换线程确认、checkpoint 提交策略及 TermLink
-  IPC Owner 接入调查；是否存在可供第三方使用的真实 Owner 注册入口由步骤 13c 取证决定。
+- P0-B.1 当前无阻塞问题。用户已确认单权威、分段实施、additive range/segment migration 与 DB-v4-compatible 回滚方向。
+- 非阻塞且未授权：P0-C live-tail reconciliation、legacy 服务重启后的持久 tail/index、默认 paginated 新任务、独立 read-only
+  app-server worker；不得在 P0-B 中代答或预埋。
 
 ## 设计约束
 
-- Design mode：refactor
-- Design source：用户确认的“Codex 单权威路由与 Owner 控制面修复计划”。
-- Design acceptance：恢复确认使用现有 Codex 弹窗视觉骨架；四种动作按服务端 `actions[]` 条件显示；路由等待只更新现有状态区域，不改变 composer 尺寸或会话页整体布局。
-- Design evidence：Android JVM 状态测试 + 412×915dp 真机恢复弹窗/路由状态截图。
+- Design mode：design-system
+- Design source：用户确认的“Codex 单权威路由与 Owner 控制面修复计划”与当前 Codex 会话 UI。
+- Design acceptance：恢复确认继续使用现有 Codex 弹窗视觉骨架；P0-B.1–B.4 不改视觉，B.5 才允许在列表顶部增加 inline
+  loading/retry、接近顶部提升加载优先级，并以 stable item key 保持 prepend 后滚动锚点；不得新增常驻成功/失败条或改变 composer 尺寸。
+- Design evidence：既有 Android JVM 状态测试 + 412×915dp 真机恢复弹窗/路由状态截图；P0-B.5 需补 focused UI test 与真机滚动录屏/截图。
 - Design open decisions：无。
 
 ## 发布后验证
@@ -822,7 +904,8 @@ Implementation Plan（2026-07-31，Goal 自动续跑用户消息投影修复）�
 - Health checks：IPC online、fresh surface、Owner discovery、turn start/stop/approval 与 A→B→A。
 - Canary window：not-applicable
 - Performance baseline：任务选择后不新增轮询；fresh-surface grace 保持 5 秒。
-- Rollback / recovery：回退本任务在 `8f84867` 之后的提交即可恢复阶段一 checkpoint；不涉及数据迁移。
+- Rollback / recovery：P0-B 前基线为 `4a78060`。业务行为可通过 `rangeSegments.enabled=false` 回到 v2 history path；一旦 DB 已迁移到 v4，
+  只能使用理解 v4 且关闭 P0-B 的兼容构建回退，不能直接安装旧 v3 APK。首次主设备迁移前必须备份/副本演练。
 - Release evidence：最终测试、APK 构建和双宿主手动 smoke 记录。
 - 当前实际观察（2026-08-02）：用户报告会话 `019fbe25-0c1c-73f3-b9e5-391d72ab37ea` 单次人工验证成功；该结果仅作为 observing 锚点，不等同于双宿主、多轮 Goal、重连、A→B→A 或长任务全链路验收。
 
@@ -1223,7 +1306,7 @@ Implementation Plan（2026-08-02，Android 快速模式）：
   `git diff --check` 通过。按 JDK 21 实际尝试 Android `:app:testDebugUnitTest` 与 `:app:assembleDebug`，均因当前可见 SDK 的
   Build Tools 35.0.0 只有 Windows AAPT、缺少 Linux `aapt` 而 `BLOCKED(environment)`；当前无 `adb`，故未宣称 APK 安装或单设备 smoke。
   未把 Android 环境阻塞或 Windows Desktop/VS Code 双宿主人工验收写成通过；P0-A 的确定性自动回归完成，整体任务仍保持 active/in_progress，
-  下一 handoff 为 `review-diff`。
+  当时 handoff 为 `review-diff`；后续环境恢复、真机初步验证及 P0-B 授权已由顶部当前 handoff 与 P0-B.0 记录取代。
 - 2026-08-06：本轮环境恢复与验证更新（不改动 P0-A 代码语义）：本地开发服务凭据已写入被 `.gitignore` 忽略的 `.env`，
   Android 被忽略的 `android/local-debug-config.json` 已同步 local profile；`http://127.0.0.1:3010/api/health` 使用配置认证返回
   HTTP 200。JDK 21 Android JVM 全量 296/296 通过，debug APK 已重建并安装到 ADB 设备 `da34332c`，`CodexActivity` resumed，
@@ -1238,9 +1321,33 @@ Implementation Plan（2026-08-02，Android 快速模式）：
   不修改 wire/schema、IPC authority、follower/reconnect、owner 或 Gateway；新增 Android focused 回归通过，JDK 21
   `CodexViewModelHydrateFollowTest` 通过，debug APK 已构建并安装到 `da34332c`，启动后 PID 存活且无崩溃。原始“首次选择后等待无效、
   A→B→A 后成功”完整真机复现尚待用户在新 APK 上验证。
+- [completed] P0-B.0. 范围、契约与回滚锁定：以 `4a78060` 为 P0-B phase base，已同步专项计划、CURRENT_TASK、CONTRACTS 与
+  AD-004 变更说明；锁定最小 range wire、static older upsert-only、部署 capability 证据、scheduler-before-auto-pump、DB v4/v2
+  fallback 与兼容回滚 APK。仅修改文档，不改业务代码、SQLite 或 wire。
+- [pending] P0-B.1. Android v4 存储基础：只修改 cache store/models 与 JVM fixtures/tests；additive history_segments、item segment
+  columns/index、range checkpoint schema 3、递减 segment_rank、旧 position/v2 fallback。用真实 v3 + checkpoint v2 fixture 验证
+  validated complete、legacy_unknown partial、upgrade 异常不会留下 user_version 4 的半迁移库和 rangeSegments.enabled=false 旧路径；兼容回滚
+  构建未证明前不安装主测试设备。另以至少两页 older prepend fixture 验证兼容 position 不为空、不重排旧 rows，关闭 range 后 v2 reader
+  顺序仍正确；JDK 21 `assembleDebug` 产出默认关闭 range 的 DB-v4-compatible rollback candidate，只构建、不安装主测试设备。
+- [pending] P0-B.2. 最新尾部端到端垂直切片：在 B.1 通过后解锁最小 capability/range wire 与 provider/Gateway/Android 路径；只提交
+  最新约 200 items，不启动 older pump。`thread/items/list` 无部署能力证据时使用 turns/list 并保持 partial。
+- [pending] P0-B.3. 单页 older 与 durable checkpoint：用户按需一次一页，原子提交 items/segment/cursor/checkpoint；覆盖 cursor/anchor
+  失效、跨 sync 幂等、selectionGeneration + syncId 迟到拒绝，结束后不自动排下一页。
+- [pending] P0-B.4. live 优先调度与静默 pump：先证明 control/live pending 会阻止生成下一 history chunk、最多一个 history
+  page/chunk in-flight、任务切换强取消/隔离；然后才开启自动 older backfill。
+- [pending] P0-B.5. 滚动和状态 UI：顶部 inline loading/retry、接近顶部交互提升、stable-key scroll anchor；不新增常驻恢复结果条。
+- [pending] P0-B.6. 联合回归与启用：跨模块 Node/JVM、JDK 21 APK、ADB 单设备 smoke 与人工 home/local、Desktop/VS Code 验收；
+  DB-v4-compatible kill-switch 构建验证成功后才允许把 rangeSegments.enabled 设为 true。
 
 ## 回归门
 
+- P0-B.1 当前门禁：JDK 21 运行 cache store/model focused JVM tests；真实 v3 DB fixture 覆盖 v4 migration、validated/unknown
+  映射、旧 position/v2 fallback、两页 prepend 的兼容 position、unique index 与 transaction rollback；JDK 21 `assembleDebug` 产出
+  range 默认关闭的 DB-v4-compatible APK；`git diff --check`。本步不安装主测试设备。
+- P0-B.2–B.4 分步门禁：provider/Gateway/history sync Node tests + Android wire/ViewModel/cache JVM tests；B.4 必须增加 live/control
+  pending 优先、one-in-flight、任务切换取消与旧 sync 拒绝测试，未通过不得自动 pump。
+- P0-B.5–B.6：focused scroll-anchor/UI tests、JDK 21 debug APK；有设备时按 `adb-real-device-debug` skill 执行单设备 smoke，最终
+  home/local 与 Desktop/VS Code 双宿主语义由人工验收。
 - `node --test tests/codexIpcClient.test.js tests/codexIpcFeed.test.js tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js`
 - TD-004 confirmed narrow gate。
 - JDK 21 `android\gradlew.bat :app:testDebugUnitTest`
@@ -1299,18 +1406,30 @@ Implementation Plan（2026-08-02，Android 快速模式）：
 - Linked regression record：`codex-history-continuity-20260803`；前序 14b 只修复 Owner re-entry 和旧 delta
   UI 隔离，本次事故新增 raw payload/空 manifest/media/list index 链路，因此禁止再做单点 timeout 或末端 stale
   判断补丁，必须按 staged adapter plan 收敛。
+- P0-B change start set：Android DB v3/checkpoint v2/items.position、history capability/request/delta、baseline provider、history pump、
+  live snapshot scheduler、ViewModel selection/syncId 和 Compose message list。
+- P0-B Evidence aggregation：代码确认当前 DB user_version=3、checkpoint schema=2、history capability version=1、Android request 只允许
+  cache schema 1–2、Gateway 只接 `thread/turns/list`，且 history pump 与 live scheduler 相互独立；因此不能跳过 DB 兼容层、部署能力
+  gate 或 scheduler-before-pump。
+- P0-B Complexity assessment：cross-boundary storage/wire/Gateway/UI，继续采用 `recommend_task_split + enforce_compat_layer`；保留 v2 path，
+  按 B.0–B.6 staged migration，禁止一次提交全链路。
+- P0-B staged migration plan：B.0 docs-only/locked → B.1 DB v4 dormant → B.2 tail vertical slice → B.3 one-page older → B.4
+  scheduler + automatic pump → B.5 UI → B.6 enable；每步 runtime state、验证和 exit criteria 见“实施步骤”。
+- P0-B compatibility result：当前无 unresolved P0/P1 blocker；若 B.1 缺 DB-v4-compatible fallback、B.2 缺 deployed capability evidence，或
+  B.4 在 live priority 前启用 pump，则分别视为 migration/compatibility gate 未满足并阻止进入下一步。
 
 ## 回滚点
 
 - Task start base：`8f84867`
-- Last reviewed checkpoint：`5399ff5`
-- Current diff review target：`5399ff5..working-tree`
+- P0-B phase base：`4a78060`
+- Last reviewed checkpoint：`4a78060`
+- Current diff review target：`4a78060..working-tree`
 - Goal 最近恢复基线：`0de2aca`（`fix(codex): enforce goal owner capability boundaries`）。这是最近的
   已提交、最接近目标的对照点，但包含已确认的首次 Goal 双 turn 缺陷，不是 known-good。
-- 当前未提交的 12a/12b 变更删除了显式 `turn/start`，可避免 TermLink 自身重复启动，但真机证明
-  Desktop resume 仍会启动第二 turn；该 diff 不得提交为修复，也不得在未完成 Owner 调查前用
-  `git reset`、`checkout` 或整树回滚处理。
-- 回滚策略：保留 `e5db14e` 与 `8f84867`，只回退本替代任务后续提交；无数据库、session 或 rollout 迁移。
+- 历史 12a/12b 未提交状态已经由后续 Owner 修复与 checkpoint 接管，不再是当前 working-tree 回滚目标；禁止对用户既有提交执行
+  `git reset`、`checkout` 或整树回滚。
+- P0-B.0 只改文档，可按 `4a78060..working-tree` 精确回退文档 diff。P0-B.1 起将发生 SQLite v4 migration：保留旧 position/v2
+  reader/writer，通过 `rangeSegments.enabled=false` + DB-v4-compatible APK 回退行为；已迁移数据库不得依赖安装旧 v3 APK降级，也不得删除缓存。
 
 ## 执行记录
 
@@ -1973,3 +2092,7 @@ fixture。随后重跑 Node 211/211、JDK 21 Android JVM、JavaScript syntax 和
   metadata 与 owner fallback 组合回归为 `4/4`。
   `tests/terminalGateway.codex.test.js` 在当前 WSL 因缺少 `node-pty` Linux 原生模块于加载阶段失败，记为环境阻塞；未修改
   IPC feed/authority、owner fallback、Android 业务代码、wire/schema 或外部依赖，External Documentation Gate 不触发。
+- 2026-08-07（P0-B.0 准备完成）：用户确认 P0-B 采用分段实施。以 `4a78060` 为 phase base，完成专项计划、CURRENT_TASK、
+  CONTRACTS 与 AD-004 的一致性收口：DB v4 保留 v2/position fallback，回滚使用理解 v4 且关闭 rangeSegments 的兼容构建；最小
+  range wire 不预埋 P0-C/事件时间/恒 false proof/cancel-cycle 字段；当前部署的 items/list 必须实证；自动 older pump 晚于
+  live/control 让位调度。B.0 未修改业务代码、SQLite 或 wire；下一 handoff 为 `implement-current-step`，只进入 P0-B.1。

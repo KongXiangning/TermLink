@@ -165,6 +165,19 @@
  该 checkpoint 作为 history fast path 证明；不一致必须清空 root 并降级为 incomplete，重新走 manifest/delta 修复。
   能力位未知时，用户显式打开历史抽屉仍可发起 metadata `thread/list`，只有服务明确声明不支持时才跳过；这两条均是
   cache/history adapter 边界，不改变 healthy IPC authority 或远端任务语义。
+- P0-B 静态 range 扩展：在 capability 明确协商且 Android 使用 additive range/segment cache schema 时，history 通道可以在
+  healthy IPC surface 存在期间把**与当前 live tail 不冲突的更旧静态 canonical items**以 upsert-only 方式写入 SQLite，供离线展示和
+  向上滚动；该例外只扩展静态前缀覆盖，不允许 canonical history 覆盖同 key 的 live 正文、streaming 字段、operation、当前 turn、
+  pending action 或运行态。P0-B 的 `coverageComplete` 只表示已连续覆盖到历史起点，不授权 delete、全局 authoritative reorder 或把
+  range cache 提升为实时权威；当前上游没有 snapshot token/mutation watermark 时，authoritative snapshot proof 一律视为不存在。
+  capability 必须保留现有 `historySync.version=1`，以可选
+  `historySync.rangeSegments { enabled, version, cacheSchemaVersion }` 协商 range；不得用顶层 version bump 使旧 Android 拒绝整个 history
+  capability。旧客户端、对象缺失或 `enabled=false` 时必须继续使用既有 v2 manifest/delta/position 路径；DB v4 不得删除或放松
+  `items.position NOT NULL`，range writes 必须维护可供 v2 reader oldest→newest 排序的兼容 position 投影。自动 older backfill 只有在 history 能观察并
+  主动让位 control/live pending、每连接最多一个 history page/chunk in-flight、且 selectionGeneration + active syncId 能拒绝任务切换
+  后迟到结果时才允许开启；在此之前只允许一次 tail bootstrap 或用户按需的一页 older。`thread/items/list` 只有经当前捆绑 app-server
+  实测或 method capability 证明后才能使用，否则沿已接入的 `thread/turns/list` fail-closed。live tail 已显示但未落库、早期历史改写
+  检测与 chained reconciliation 属 P0-C，不得借 P0-B 预埋或启用第二实时同步链路。
 
 ### 🔒 目录职责
 

@@ -92,6 +92,21 @@ history 请求在使用 `complete` checkpoint 前必须核对本地 durable item
 在能力位尚未到达时仍允许显式 metadata refresh，仅明确声明不支持时跳过。该决定只影响 cache/history adapter 和用户
 可见状态，不提升 cache 为实时权威、不改变 IPC/feed/Owner/Goal/远端任务语义。
 
+变更说明（2026-08-07，P0-B tail-first range 分段实施与回滚）：用户在 P0-A 真机初步通过后授权进入 P0-B，并确认按
+`B.0 范围/回滚 → B.1 Android v4 存储 → B.2 最新尾部垂直切片 → B.3 单页 older → B.4 live 优先调度后自动回填 →
+B.5 滚动 UI → B.6 联合启用` 分段实施。P0-B 只扩展静态历史范围：healthy IPC 存在时可把不与 live tail 冲突的更旧
+canonical items upsert 到 SQLite，但同 key live 内容、operation、当前 turn 与运行态继续由 IPC 独占；全阶段禁止 delete 和
+authoritative global reorder。wire/schema 只加入 range/segment、anchors、nextOlderCursor、hasMoreBefore、coverageComplete 与能力版本；
+顶层 `historySync.version` 保持 1，通过可选 `historySync.rangeSegments { enabled, version, cacheSchemaVersion }` 协商，避免旧 Android
+拒绝整个 history capability。复用既有 selectionGeneration、syncId 和 Gateway cancel；`tailDirty`、`coverageRefreshRequired` 留给 P0-C，`eventTimeMs` 没有当前
+产品需求，`authoritativeSnapshotVerified` 在当前上游恒无 true 证据，均不在 P0-B 预埋。自动 older pump 必须晚于 history 对
+control/live 的主动让位门禁；`thread/items/list` 必须由当前捆绑 app-server 实测或 capability 证明，不能用上游 main 源码替代部署证据。
+Android 采用 additive SQLite user_version 3→4 / checkpoint schema 2→3，同时保留旧 position 与 v2 读写路径；设置
+`rangeSegments.enabled=false` 只回退行为，不能降级数据库，因此首次主设备迁移前必须备份/副本演练并准备一个理解 DB v4、但关闭 P0-B 的兼容回滚
+构建，直接安装只理解 v3 的旧 APK 不算回滚。该决策的原因是尾部首屏、可续传 older 和不重复计算需要 durable range checkpoint，
+但不能以此扩大实时 authority、一次性引入未使用协议语义，或让不可撤回的 schema migration 失去可操作回退。P0-C、legacy 服务重启后
+持久 tail/index、默认 paginated 新任务与独立 read-only worker 继续分别待授权。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径
