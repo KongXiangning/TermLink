@@ -117,6 +117,7 @@
     <string name="settings_security_section">Security status</string>
     <string name="settings_profiles_section">Configured endpoints</string>
     <string name="settings_codex_storage_label">Codex storage management</string>
+    <string name="settings_app_version">TermLink %1$s (code %2$d)</string>
     <string name="codex_storage_screen_title">Codex storage</string>
     <string name="codex_storage_retention_hint">Cached history and downloaded media are kept until you clear them manually.</string>
     <string name="codex_storage_no_cache">No Codex cache found.</string>

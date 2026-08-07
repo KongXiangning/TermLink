@@ -25,6 +25,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import com.termlink.app.BuildConfig
 import com.termlink.app.R
 import com.google.android.material.textfield.TextInputLayout
 import com.termlink.app.data.AuthType
@@ -83,6 +84,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
     private lateinit var themeValueText: TextView
     private lateinit var languageValueText: TextView
     private lateinit var screenTimeoutValueText: TextView
+    private lateinit var appVersionText: TextView
     private lateinit var screenTimeoutSeekBar: SeekBar
     private lateinit var autoOriginalsWifiSwitch: android.widget.Switch
     private var activeMtlsDialogState: MtlsDialogState? = null
@@ -123,6 +125,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         themeValueText = view.findViewById(R.id.settings_theme_value)
         languageValueText = view.findViewById(R.id.settings_language_value)
         screenTimeoutValueText = view.findViewById(R.id.settings_screen_timeout_value)
+        appVersionText = view.findViewById(R.id.settings_app_version)
         screenTimeoutSeekBar = view.findViewById(R.id.settings_screen_timeout_seekbar)
         autoOriginalsWifiSwitch = view.findViewById(R.id.settings_auto_originals_wifi_switch)
         view.findViewById<View>(R.id.settings_theme_row).setOnClickListener { anchor ->
@@ -153,6 +156,11 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
             callbacks?.onOpenCodexStorage()
         }
         renderUiPreferenceValues()
+        appVersionText.text = getString(
+            R.string.settings_app_version,
+            BuildConfig.VERSION_NAME,
+            BuildConfig.VERSION_CODE
+        )
         view.findViewById<Button>(R.id.btn_add_profile).setOnClickListener {
             showProfileDialog(null)
         }

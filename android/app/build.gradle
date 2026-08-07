@@ -2,7 +2,23 @@ apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 
 import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 import java.util.Properties
+
+def termlinkPackageFile = rootProject.file('../package.json')
+if (!termlinkPackageFile.isFile()) {
+    throw new GradleException("Missing TermLink release metadata: ${termlinkPackageFile}")
+}
+def termlinkPackage = new JsonSlurper().parse(termlinkPackageFile)
+def releaseVersion = termlinkPackage.version?.toString()?.trim()
+def androidVersionCodeValue = termlinkPackage.androidVersionCode
+if (!(releaseVersion ==~ /(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?/)) {
+    throw new GradleException("Invalid TermLink product version: ${releaseVersion}")
+}
+if (!(androidVersionCodeValue instanceof Number) || androidVersionCodeValue.intValue() < 1 || androidVersionCodeValue.intValue() > 2100000000) {
+    throw new GradleException("Invalid TermLink Android version code: ${androidVersionCodeValue}")
+}
+def androidVersionCode = androidVersionCodeValue.intValue()
 
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file('local.properties')
@@ -48,8 +64,8 @@ android {
         applicationId "com.termlink.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode androidVersionCode
+        versionName releaseVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

@@ -11,7 +11,11 @@ fi
 
 $PWSH -NoProfile -ExecutionPolicy Bypass -File "./scripts/git-sensitive-scan.ps1" -Staged
 
-# --- 2. Auto-rebuild CR INDEX when CR records are staged ---
+# --- 2. Release metadata consistency ---
+# Keep package.json, package-lock.json, and the Android build input aligned.
+npm run version:check
+
+# --- 3. Auto-rebuild CR INDEX when CR records are staged ---
 CR_CHANGED=$(git diff --cached --name-only -- 'docs/changes/records/CR-*.md' 2>/dev/null || true)
 if [ -n "$CR_CHANGED" ]; then
   echo "[pre-commit] CR records changed — rebuilding INDEX.md ..."
