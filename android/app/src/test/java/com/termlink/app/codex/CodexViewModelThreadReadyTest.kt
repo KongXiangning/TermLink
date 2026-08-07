@@ -1862,6 +1862,129 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun surfaceOperationUsesItemIdToKeepCachedOperationBeforeFinalAnswer() {
+        val turnId = "turn-cache-order"
+        val operationKey = "$turnId:operation:command:cmd-1"
+        val merged = mergeSurfaceItems(
+            existing = listOf(
+                ChatMessage(
+                    id = "cmd-1",
+                    role = ChatMessage.Role.ASSISTANT,
+                    content = "缓存中的命令"
+                ),
+                ChatMessage(
+                    id = "assistant-final",
+                    role = ChatMessage.Role.ASSISTANT,
+                    content = "最终回复"
+                )
+            ),
+            surfaceItems = listOf(
+                surfaceCommandOperation(operationKey, turnId, "completed", "实时命令详情"),
+                SurfaceEntry(
+                    key = "assistant-final",
+                    kind = "message",
+                    role = "assistant",
+                    phase = "final_answer",
+                    text = "最终回复",
+                    turnId = turnId,
+                    itemId = "assistant-final",
+                    statusType = null,
+                    approvalType = null,
+                    requestId = null,
+                    raw = null
+                )
+            ),
+            surfaceStatus = "completed",
+            latestTurnId = turnId,
+            preserveExisting = true
+        )
+
+        assertEquals(listOf("cmd-1", "assistant-final"), merged.map { it.id })
+        assertEquals("实时命令详情", merged.first().content)
+        assertEquals(1, merged.count { it.id == "cmd-1" })
+    }
+
+    @Test
+    fun cacheHydrationReconcilesLiveCommandBatchBeforeFinalAnswer() {
+        val conversationId = "conv-reconnect-order"
+        val turnId = "turn-reconnect-order"
+        val surfaceItems = listOf(
+            surfaceCommandOperation(
+                "$turnId:operation:command:cmd-1",
+                turnId,
+                "completed",
+                "实时命令一"
+            ),
+            surfaceCommandOperation(
+                "$turnId:operation:command:cmd-2",
+                turnId,
+                "completed",
+                "实时命令二"
+            ),
+            SurfaceEntry(
+                key = "assistant-final",
+                kind = "message",
+                role = "assistant",
+                phase = "final_answer",
+                text = "最终回复",
+                turnId = turnId,
+                itemId = "assistant-final",
+                statusType = null,
+                approvalType = null,
+                requestId = null,
+                raw = null
+            )
+        )
+        val snapshot = surfaceSnapshot(conversationId).copy(
+            status = "completed",
+            latestTurnId = turnId,
+            items = surfaceItems
+        )
+        val live = mergeSurfaceItems(
+            existing = emptyList(),
+            surfaceItems = surfaceItems,
+            surfaceStatus = "completed",
+            latestTurnId = turnId
+        )
+        val state = CodexUiState(
+            activeConversationId = conversationId,
+            liveAuthoritativeConversationId = conversationId,
+            ipcSurfaceSnapshot = snapshot,
+            messages = live
+        )
+        val cached = listOf(
+            ChatMessage(
+                id = "cmd-1",
+                role = ChatMessage.Role.ASSISTANT,
+                content = "缓存命令一"
+            ),
+            ChatMessage(
+                id = "cmd-2",
+                role = ChatMessage.Role.ASSISTANT,
+                content = "缓存命令二"
+            ),
+            ChatMessage(
+                id = "assistant-final",
+                role = ChatMessage.Role.ASSISTANT,
+                content = "最终回复"
+            )
+        )
+
+        val merged = mergeCachedHistoryIntoLiveMessagesForUi(
+            state = state,
+            conversationId = conversationId,
+            cachedMessages = cached
+        )
+
+        assertEquals(2, merged.size)
+        assertEquals("command", merged.first().operationType)
+        assertEquals(listOf("cmd-1", "cmd-2"), merged.first().operationBatchMemberIds)
+        assertEquals("assistant-final", merged[1].id)
+        assertTrue(merged.first().content.contains("实时命令一"))
+        assertTrue(merged.first().content.contains("实时命令二"))
+    }
+
+    @Test
     fun completedCommandsInSameTurnCollapseIntoOneStableBatch() {
         val first = commandOperationMessage("cmd-1", "turn-1", "completed", "$ npm test")
         val second = commandOperationMessage("cmd-2", "turn-1", "failed", "$ npm run lint")

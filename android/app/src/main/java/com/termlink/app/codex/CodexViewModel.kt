@@ -838,15 +838,42 @@ internal fun mergeCachedHistoryIntoLiveMessagesForUi(
     if (live == null || live != incoming || state.liveAuthoritativeDesynced) {
         return cachedMessages
     }
+
+    // A healthy surface can arrive before the history page.  Reconcile that
+    // surface against the cache using the same itemId-aware path as a later
+    // snapshot update.  Surface operation keys are namespaced with turnId,
+    // while canonical cache rows keep the raw item id; merging the two lists
+    // by ChatMessage.id alone would append the operation after the final
+    // answer when the cache read completes after reconnect.
+    val surface = state.ipcSurfaceSnapshot
+    if (surface != null &&
+        normalizeCodexThreadId(surface.conversationId) == incoming &&
+        !surface.desynced
+    ) {
+        val cachedKeys = cachedMessages.mapTo(mutableSetOf()) { it.id }
+        val liveOnly = state.messages.filter { message ->
+            historyItemAliasesForUiMessage(message).none(cachedKeys::contains)
+        }
+        return mergeSurfaceItems(
+            existing = cachedMessages + liveOnly,
+            surfaceItems = surface.items,
+            surfaceStatus = surface.status,
+            latestTurnId = surface.latestTurnId,
+            preserveExisting = true
+        )
+    }
+
     val liveById = state.messages.associateBy { it.id }
     val consumedLiveIds = mutableSetOf<String>()
     val merged = cachedMessages.map { cached ->
         val liveMessage = liveById[cached.id]
             ?: state.messages.firstOrNull { candidate ->
-                candidate.id !in consumedLiveIds &&
-                    candidate.role == ChatMessage.Role.USER &&
-                    cached.role == ChatMessage.Role.USER &&
-                    candidate.content.trim() == cached.content.trim()
+                candidate.id !in consumedLiveIds && (
+                    historyItemAliasesForUiMessage(candidate).contains(cached.id) ||
+                        candidate.role == ChatMessage.Role.USER &&
+                            cached.role == ChatMessage.Role.USER &&
+                            candidate.content.trim() == cached.content.trim()
+                    )
             }
         if (liveMessage == null) {
             cached
@@ -1480,6 +1507,37 @@ private fun permissionConfigForSandboxOverride(sandboxOverride: String?): CodexE
 private const val COMMAND_BATCH_ID_PREFIX_FOR_UI = "command-batch:"
 
 /**
+ * Return the stable cache ids represented by a UI/live message.  IPC
+ * operation entries use a presentation key such as
+ * `turn:operation:command:<itemId>`, whereas canonical history rows use the
+ * raw `<itemId>`.  A collapsed command batch may represent several such
+ * entries, so include both the batch members and their raw aliases.
+ */
+private fun historyItemAliasesForUiMessage(message: ChatMessage): Set<String> {
+    val aliases = linkedSetOf<String>()
+    val turnId = message.operationTurnId?.trim().orEmpty()
+    val operationType = message.operationType?.trim().orEmpty()
+    val operationPrefix = if (turnId.isNotEmpty() && operationType.isNotEmpty()) {
+        "$turnId:operation:$operationType:"
+    } else {
+        null
+    }
+    fun add(value: String?) {
+        val normalized = value?.trim()?.takeIf(String::isNotEmpty) ?: return
+        aliases += normalized
+        if (operationPrefix != null && normalized.startsWith(operationPrefix)) {
+            normalized.removePrefix(operationPrefix)
+                .trim()
+                .takeIf(String::isNotEmpty)
+                ?.let(aliases::add)
+        }
+    }
+    add(message.id)
+    message.operationBatchMemberIds.forEach(::add)
+    return aliases
+}
+
+/**
  * Returns the raw operation ids represented by a command message.  New
  * collapsed batches carry the complete list; older in-memory messages are
  * handled by recovering the anchor from their stable batch id.
@@ -1547,8 +1605,23 @@ internal fun mergeSurfaceItems(
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
             ?.let { turnId -> "command-batch:$turnId:$key" }
-        val existingMessage = existingById[key]
-            ?: existingBatchId?.let(existingById::get)
+        val isOperation = entry.kind == "status" && entry.statusType == "operation"
+        val entryItemId = entry.itemId?.trim()?.takeIf(String::isNotEmpty)
+        val exactExisting = existingById[key]
+        val batchExisting = existingBatchId?.let(existingById::get)
+        val itemIdExisting = if (isOperation) entryItemId?.let(existingById::get) else null
+        val batchMemberExisting = if (isOperation && entryItemId != null) {
+            existing.firstOrNull { candidate ->
+                isCommandBatchMessageForUi(candidate) &&
+                    historyItemAliasesForUiMessage(candidate).contains(entryItemId)
+            }
+        } else {
+            null
+        }
+        val existingMessage = exactExisting
+            ?: batchExisting
+            ?: itemIdExisting
+            ?: batchMemberExisting
             ?: if (entry.kind == "message" && entry.role == "user") {
             existing.firstOrNull { candidate ->
                 candidate.role == ChatMessage.Role.USER &&
@@ -1557,7 +1630,14 @@ internal fun mergeSurfaceItems(
         } else {
             null
         }
-        val isOperation = entry.kind == "status" && entry.statusType == "operation"
+        // Keep the canonical/raw cache id when itemId matched.  If an
+        // existing collapsed batch matched by its presentation key, retain
+        // the current key so its member-id accounting remains unchanged.
+        val projectedKey = when {
+            exactExisting != null || batchExisting != null -> key
+            itemIdExisting != null || batchMemberExisting != null -> entryItemId ?: key
+            else -> key
+        }
         val role = when (entry.kind) {
             "message" -> when (entry.role) {
                 "user" -> ChatMessage.Role.USER
@@ -1569,7 +1649,7 @@ internal fun mergeSurfaceItems(
             else -> ChatMessage.Role.ASSISTANT
         }
         val projected = ChatMessage(
-            id = key,
+            id = projectedKey,
             role = role,
             content = if (isOperation) {
                 entry.detail ?: entry.text ?: ""
@@ -1590,7 +1670,7 @@ internal fun mergeSurfaceItems(
             operationStatus = entry.operationStatus.takeIf { isOperation },
             operationTurnId = entry.turnId.takeIf { isOperation },
             operationBatchSize = if (isOperation) 1 else 0,
-            operationBatchMemberIds = if (isOperation) listOf(key) else emptyList()
+            operationBatchMemberIds = if (isOperation) listOf(projectedKey) else emptyList()
         )
         if (role == ChatMessage.Role.USER && existingMessage != null) {
             mergeCanonicalUserMessageMetadataForUi(
