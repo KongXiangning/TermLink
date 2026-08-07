@@ -150,7 +150,12 @@ function buildDeltaPages({
     maxBytes = DEFAULTS.deltaMaxBytes,
     enablePayloadChunks = false,
     payloadInlineMaxBytes = DEFAULTS.historyInlinePayloadBytes,
-    payloadChunkBytes = DEFAULTS.historyPayloadChunkBytes
+    payloadChunkBytes = DEFAULTS.historyPayloadChunkBytes,
+    // The page-size budget is the budget for the final WebSocket envelope,
+    // not just for the page body.  Keep this optional for callers that use
+    // the pure page builder; the sync service supplies the wrapper fields
+    // that _emit() adds at send time.
+    envelopeContext = null
 }) {
     const order = Array.isArray(canonicalOrder) ? canonicalOrder : undefined;
     const wireOptions = {
@@ -172,6 +177,12 @@ function buildDeltaPages({
     const pages = [];
     let pageUpserts = [];
     let pageDeletes = [];
+    // pageCount is only known after packing.  The number of entries is a
+    // conservative upper bound for the eventual page count, so reserving
+    // that many digits prevents the final pageCount field from invalidating
+    // an otherwise-fitting page.  pageHash is always a SHA-256 hex digest.
+    const pageCountUpperBound = Math.max(1, upserts.length + deletes.length);
+    const pageHashPlaceholder = '0'.repeat(64);
     const appendCandidate = (kind, value) => {
         const nextUpserts = kind === 'upsert' ? [...pageUpserts, value] : pageUpserts;
         const nextDeletes = kind === 'delete' ? [...pageDeletes, value] : pageDeletes;
@@ -181,7 +192,18 @@ function buildDeltaPages({
             upserts: nextUpserts.map((item) => item.wire), deletes: nextDeletes,
             ...(pages.length === 0 && order ? { canonicalOrder: order } : {})
         };
-        return Buffer.byteLength(JSON.stringify(draft), 'utf8') <= maxBytes && nextUpserts.length + nextDeletes.length <= maxItems;
+        const sizeCandidate = envelopeContext
+            ? {
+                type: 'conversation_history_delta',
+                conversationId: envelopeContext.conversationId,
+                ...draft,
+                pageCount: pageCountUpperBound,
+                pageHash: pageHashPlaceholder,
+                selectionGeneration: envelopeContext.selectionGeneration,
+                clientSelectionGeneration: envelopeContext.clientSelectionGeneration
+            }
+            : draft;
+        return Buffer.byteLength(JSON.stringify(sizeCandidate), 'utf8') <= maxBytes && nextUpserts.length + nextDeletes.length <= maxItems;
     };
     const flushPage = () => {
         if (!pageUpserts.length && !pageDeletes.length) return;
@@ -890,10 +912,19 @@ class CodexHistorySyncService {
                 targetRoot,
                 ...diff,
                 maxItems: this.options.deltaMaxItems,
-                maxBytes: this.options.deltaMaxBytes,
+                // deltaMaxBytes is the page budget; _emit() applies the
+                // actual envelope budget.  Use the stricter of the two so a
+                // custom configuration cannot reintroduce an oversized
+                // final envelope.
+                maxBytes: Math.min(this.options.deltaMaxBytes, this.options.historyMaxEnvelopeBytes),
                 enablePayloadChunks: state.supportsPayloadChunks,
                 payloadInlineMaxBytes: this.options.historyInlinePayloadBytes,
-                payloadChunkBytes: this.options.historyPayloadChunkBytes
+                payloadChunkBytes: this.options.historyPayloadChunkBytes,
+                envelopeContext: {
+                    conversationId: state.conversationId,
+                    selectionGeneration: state.selectionGeneration,
+                    clientSelectionGeneration: state.clientSelectionGeneration
+                }
             });
         } catch (error) {
             return this._fail(ws, state, error?.code || 'history_media_not_externalized');

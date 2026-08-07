@@ -70,6 +70,97 @@ test('delta pages share sequence roots and have deterministic page hashes', () =
     assert.equal(pages[0].pageHash, computeHistoryPageHash(pages[0]));
 });
 
+test('delta packing reserves the final history envelope wrapper', () => {
+    const upserts = Array.from({ length: 89 }, (_, index) => ({
+        ...item(`near-limit-${index}`, `hash-${index}`),
+        // This fixture fits the old page-body calculation but crosses the
+        // 256 KiB limit once the final envelope fields are added by _emit().
+        payloadJson: JSON.stringify({ text: 'x'.repeat(2_815) })
+    }));
+    const context = {
+        conversationId: '019f9ab0-0000-7000-8000-000000000001',
+        selectionGeneration: 3,
+        clientSelectionGeneration: 4
+    };
+    const pages = buildDeltaPages({
+        syncId: 'sync-near-envelope-limit',
+        sequence: 1,
+        baseRoot: null,
+        targetRoot: 'target',
+        upserts,
+        envelopeContext: context
+    });
+    assert.ok(pages.length > 1);
+    assert.ok(pages[0].upserts.length < upserts.length);
+    for (const page of pages) {
+        const envelope = {
+            type: 'conversation_history_delta',
+            conversationId: context.conversationId,
+            ...page,
+            selectionGeneration: context.selectionGeneration,
+            clientSelectionGeneration: context.clientSelectionGeneration
+        };
+        assert.ok(Buffer.byteLength(JSON.stringify(envelope), 'utf8') <= 256 * 1024);
+    }
+});
+
+test('sync service sends a near-limit history page without triggering envelope failure', () => {
+    const messages = [];
+    const service = new CodexHistorySyncService({ send: (_ws, message) => messages.push(message) });
+    const items = Array.from({ length: 89 }, (_, index) => ({
+        ...item(`service-near-limit-${index}`, `hash-${index}`),
+        payloadJson: JSON.stringify({ text: 'x'.repeat(2_815) })
+    }));
+    service.registerBaselineItems('conv', items, { complete: false, syncOutcome: 'synced' });
+    const ws = { readyState: 1, bufferedAmount: 0 };
+    const syncId = '123e4567-e89b-12d3-a456-426614174010';
+    service.startSync({
+        ws,
+        conversationId: 'conv',
+        syncId,
+        cacheSchemaVersion: 2,
+        checkpoint: { rootHash: null, complete: false }
+    });
+    service.handleManifestPage(ws, {
+        syncId,
+        conversationId: 'conv',
+        pageIndex: 0,
+        lastPage: true,
+        items: []
+    });
+    const deltaCount = () => messages.filter((message) => message.type === 'conversation_history_delta').length;
+    const first = messages.find((message) => message.type === 'conversation_history_delta');
+    assert.ok(first);
+    assert.ok(first.pageCount > 1);
+    for (let pageIndex = 0; pageIndex < first.pageCount; pageIndex += 1) {
+        const delta = messages.filter((message) => message.type === 'conversation_history_delta')[pageIndex];
+        assert.ok(delta);
+        assert.equal(delta.pageIndex, pageIndex);
+        assert.ok(Buffer.byteLength(JSON.stringify(delta), 'utf8') <= 256 * 1024);
+        if (pageIndex < first.pageCount - 1) {
+            assert.equal(service.handleAck(ws, {
+                syncId,
+                conversationId: 'conv',
+                sequence: 1,
+                pageIndex,
+                targetRoot: delta.targetRoot,
+                clientSelectionGeneration: 0
+            }).ok, true);
+        } else {
+            assert.equal(service.handleAck(ws, {
+                syncId,
+                conversationId: 'conv',
+                sequence: 1,
+                pageIndex,
+                targetRoot: delta.targetRoot,
+                clientSelectionGeneration: 0
+            }).state, 'synced');
+        }
+    }
+    assert.equal(deltaCount(), first.pageCount);
+    assert.equal(messages.some((message) => message.detailCode === 'history_envelope_too_large'), false);
+});
+
 test('history text containing an incomplete data-url prefix is not rejected as inline media', () => {
     const pages = buildDeltaPages({
         syncId: 'sync-text-data-url',
