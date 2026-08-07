@@ -315,6 +315,14 @@ class CodexIpcWireModelTest {
         val json = JSONObject(msg)
         assertEquals("set_active_conversation", json.getString("type"))
         assertEquals("conv-abc", json.getString("conversationId"))
+        assertTrue(!json.has("selectionGeneration"))
+    }
+
+    @Test
+    fun `setActiveConversation carries client selection generation when provided`() {
+        val msg = CodexClientMessages.setActiveConversation("conv-abc", 7L)
+        val json = JSONObject(msg)
+        assertEquals(7L, json.getLong("selectionGeneration"))
     }
 
     @Test

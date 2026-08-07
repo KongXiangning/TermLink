@@ -1264,10 +1264,14 @@ object CodexClientMessages {
 
     // ── IPC follower action builders ─────────────────────────────────
 
-    fun setActiveConversation(conversationId: String): String = JSONObject()
-        .put("type", "set_active_conversation")
-        .put("conversationId", conversationId)
-        .toString()
+    fun setActiveConversation(
+        conversationId: String,
+        selectionGeneration: Long? = null
+    ): String = JSONObject().apply {
+        put("type", "set_active_conversation")
+        put("conversationId", conversationId)
+        selectionGeneration?.let { put("selectionGeneration", it.coerceAtLeast(0L)) }
+    }.toString()
 
     fun setActiveFollowerMode(enabled: Boolean): String = JSONObject()
         .put("type", "set_active_follower_mode")

@@ -12,6 +12,7 @@ test('metadata-only history projection strips turns and inline media from the mo
         thread: {
             id: 'conversation',
             title: 'large history',
+            historyMode: 'paginated',
             turns: [{ id: 'turn', items: [{ type: 'agentMessage', text: 'x'.repeat(1024) }] }],
             turnHistory: { entitiesByKey: { turn: { id: 'turn' } } },
             conversationState: { turns: [{ id: 'turn' }] },
@@ -22,6 +23,7 @@ test('metadata-only history projection strips turns and inline media from the mo
     assert.deepEqual(response.thread, {
         id: 'conversation',
         title: 'large history',
+        historyMode: 'paginated',
         tokenUsage: { total: 3 }
     });
     assert.deepEqual(
@@ -219,6 +221,15 @@ function loadGateway() {
                     }
                 });
             }
+            if (method === 'thread/read') {
+                return Promise.resolve({
+                    thread: {
+                        id: params.threadId,
+                        historyMode: 'legacy',
+                        ...(params.includeTurns === true ? { turns: [] } : {})
+                    }
+                });
+            }
             if (method === 'turn/start') {
                 const text = Array.isArray(params.input)
                     ? params.input.map((part) => part && part.text).filter(Boolean).join('\n')
@@ -321,6 +332,8 @@ async function setupGateway(opts = {}) {
         heartbeatMs: 99999,
         ipcFeed,
         ipcSurfaceWaitGraceMs: opts.ipcSurfaceWaitGraceMs ?? 40,
+        historySelectionDeadlineMs: opts.historySelectionDeadlineMs,
+        historySettlementMarginMs: opts.historySettlementMarginMs,
         mediaStore: opts.mediaStore ?? null,
         registrationManager: opts.registrationManager ?? null,
         mobileSurfaceProjector: opts.mobileSurfaceProjector,
@@ -380,6 +393,16 @@ async function enableFollowerMode(ws) {
 }
 
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function waitForMessage(messages, predicate, timeoutMs = 1_000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const match = messages.find(predicate);
+        if (match) return match;
+        await delay(10);
+    }
+    return messages.find(predicate) || null;
+}
 
 // ── tests ────────────────────────────────────────────────────────────────────
 
@@ -441,7 +464,9 @@ test('history recovery builds a canonical baseline inside the Gateway', async ()
     assert.equal(recovery?.state, 'ready');
     assert.equal(recovery?.conversationId, 'conv-recovery');
     assert.equal(recovery?.clientSelectionGeneration, 1);
-    assert.ok(g.codexService.requests.some((entry) => entry.method === 'thread/read' && entry.params.threadId === 'conv-recovery'));
+    const historyReads = g.codexService.requests.filter((entry) => entry.method === 'thread/read' && entry.params.threadId === 'conv-recovery');
+    assert.ok(historyReads.some((entry) => entry.params.includeTurns === false), 'history mode probe should omit turns');
+    assert.ok(historyReads.some((entry) => entry.params.includeTurns === true), 'legacy recovery should request full turns');
     ws.close();
     await stopGateway(g);
 });
@@ -484,6 +509,720 @@ test('history sync waits for an in-flight media projection baseline', async () =
     await delay(180);
     assert.equal(messages.some((message) => message.type === 'conversation_history_sync_state' && message.detailCode === 'history_unavailable'), false);
     assert.ok(messages.some((message) => message.type === 'conversation_history_manifest_required'));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('Gateway gates one legacy full recovery behind the surface grace and uses one upstream read', async () => {
+    const g = await setupGateway({
+        ipcSurfaceWaitGraceMs: 25,
+        historySelectionDeadlineMs: 300,
+        historySettlementMarginMs: 10
+    });
+    const sess = await g.sm.createSession({ name: 'bounded-recovery' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-bounded-recovery' }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174010',
+        conversationId: 'conv-bounded-recovery',
+        selectionGeneration: 1
+    }));
+    await delay(120);
+
+    const recovery = messages.find((message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174010'
+    );
+    assert.equal(recovery?.state, 'ready');
+    assert.equal(
+        g.codexService.requests.filter((entry) =>
+            entry.method === 'thread/read' && entry.params.threadId === 'conv-bounded-recovery' && entry.params.includeTurns === true
+        ).length,
+        1,
+        'one selection generation must not replay legacy history twice'
+    );
+    assert.equal(
+        g.codexService.requests.filter((entry) =>
+            entry.method === 'thread/read' && entry.params.threadId === 'conv-bounded-recovery' && entry.params.includeTurns === false
+        ).length,
+        1,
+        'full recovery must perform one capability probe'
+    );
+    ws.close();
+    await stopGateway(g);
+});
+
+test('healthy surface arriving during grace skips canonical full recovery', async () => {
+    const g = await setupGateway({
+        ipcSurfaceWaitGraceMs: 80,
+        historySelectionDeadlineMs: 300,
+        historySettlementMarginMs: 10
+    });
+    const sess = await g.sm.createSession({ name: 'surface-wins-recovery' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-surface-wins' }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174011',
+        conversationId: 'conv-surface-wins',
+        selectionGeneration: 1
+    }));
+    await delay(15);
+    g.ipcFeed.pushSnapshot('conv-surface-wins', {
+        conversationId: 'conv-surface-wins',
+        latestTurnId: 'turn-surface-wins',
+        status: 'completed',
+        items: [{ key: 'surface-item', kind: 'message', role: 'assistant', text: 'live' }]
+    });
+    await delay(120);
+
+    const recovery = messages.find((message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174011'
+    );
+    assert.equal(recovery?.state, 'ready');
+    assert.equal(recovery?.detailCode, 'healthy_surface');
+    assert.equal(
+        g.codexService.requests.some((entry) =>
+            entry.method === 'thread/read' && entry.params.threadId === 'conv-surface-wins' && entry.params.includeTurns === true
+        ),
+        false,
+        'healthy IPC surface is the live authority and must prevent full canonical escalation'
+    );
+    ws.close();
+    await stopGateway(g);
+});
+
+test('desynced surface invalidates the cycle and escalates to canonical recovery', async () => {
+    const g = await setupGateway({
+        ipcSurfaceWaitGraceMs: 120,
+        historySelectionDeadlineMs: 500,
+        historySettlementMarginMs: 10
+    });
+    const sess = await g.sm.createSession({ name: 'desynced-surface-recovery' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-desynced-surface' }));
+    await delay(25);
+    g.ipcFeed.pushSnapshot('conv-desynced-surface', {
+        conversationId: 'conv-desynced-surface',
+        latestTurnId: 'turn-desynced-surface',
+        status: 'completed',
+        items: [{ key: 'live-before-desync', kind: 'message', role: 'assistant', text: 'before' }]
+    });
+    await delay(25);
+    g.ipcFeed.pushSnapshot('conv-desynced-surface', {
+        conversationId: 'conv-desynced-surface',
+        status: 'desynced',
+        desynced: true,
+        items: []
+    });
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174019',
+        conversationId: 'conv-desynced-surface',
+        selectionGeneration: 1
+    }));
+
+    const recovery = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174019', 1_000);
+    assert.equal(recovery?.state, 'ready');
+    assert.notEqual(recovery?.detailCode, 'healthy_surface');
+    assert.equal(
+        g.codexService.requests.filter((entry) =>
+            entry.method === 'thread/read' && entry.params.threadId === 'conv-desynced-surface' && entry.params.includeTurns === true
+        ).length,
+        1
+    );
+    ws.close();
+    await stopGateway(g);
+});
+
+test('offline status invalidates a previously healthy surface before recovery', async () => {
+    const g = await setupGateway({
+        ipcSurfaceWaitGraceMs: 120,
+        historySelectionDeadlineMs: 500,
+        historySettlementMarginMs: 10
+    });
+    const sess = await g.sm.createSession({ name: 'offline-surface-recovery' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-offline-surface' }));
+    await delay(25);
+    g.ipcFeed.pushSnapshot('conv-offline-surface', {
+        conversationId: 'conv-offline-surface',
+        latestTurnId: 'turn-offline-surface',
+        status: 'completed',
+        items: [{ key: 'live-before-offline', kind: 'message', role: 'assistant', text: 'before' }]
+    });
+    await delay(25);
+    g.ipcFeed.pushStatus({ online: false, clientId: null });
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174020',
+        conversationId: 'conv-offline-surface',
+        selectionGeneration: 1
+    }));
+
+    const recovery = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174020', 1_000);
+    assert.equal(recovery?.state, 'ready');
+    assert.notEqual(recovery?.detailCode, 'healthy_surface');
+    assert.equal(
+        g.codexService.requests.filter((entry) =>
+            entry.method === 'thread/read' && entry.params.threadId === 'conv-offline-surface' && entry.params.includeTurns === true
+        ).length,
+        1
+    );
+    ws.close();
+    await stopGateway(g);
+});
+
+test('a healthy surface winning grace does not consume the full recovery quota', async () => {
+    const g = await setupGateway({
+        ipcSurfaceWaitGraceMs: 100,
+        historySelectionDeadlineMs: 600,
+        historySettlementMarginMs: 10
+    });
+    const sess = await g.sm.createSession({ name: 'surface-quota' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-surface-quota' }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174021',
+        conversationId: 'conv-surface-quota',
+        selectionGeneration: 1
+    }));
+    await delay(20);
+    g.ipcFeed.pushSnapshot('conv-surface-quota', {
+        conversationId: 'conv-surface-quota',
+        latestTurnId: 'turn-surface-quota',
+        status: 'completed',
+        items: [{ key: 'surface-quota-item', kind: 'message', role: 'assistant', text: 'live' }]
+    });
+    const first = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174021', 1_000);
+    assert.equal(first?.state, 'ready');
+    assert.equal(first?.detailCode, 'healthy_surface');
+
+    g.ipcFeed.pushStatus({ online: false, clientId: null });
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174022',
+        conversationId: 'conv-surface-quota',
+        selectionGeneration: 1
+    }));
+    const second = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174022', 1_000);
+    assert.equal(second?.state, 'ready');
+    assert.notEqual(second?.detailCode, 'history_recovery_already_attempted');
+    assert.equal(
+        g.codexService.requests.filter((entry) =>
+            entry.method === 'thread/read' && entry.params.threadId === 'conv-surface-quota' && entry.params.includeTurns === true
+        ).length,
+        1
+    );
+    ws.close();
+    await stopGateway(g);
+});
+
+test('stale history sync failure preserves the original client selection generation', async () => {
+    const g = await setupGateway();
+    const sess = await g.sm.createSession({ name: 'stale-sync-generation' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-stale-sync' }));
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-other-selection' }));
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-stale-sync' }));
+    await delay(20);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174023',
+        conversationId: 'conv-stale-sync',
+        selectionGeneration: 1,
+        cacheSchemaVersion: 2,
+        checkpoint: { rootHash: null, itemCount: 0, complete: false }
+    }));
+    const failure = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_sync_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174023', 1_000);
+    assert.equal(failure?.state, 'failed');
+    assert.equal(failure?.detailCode, 'stale_selection');
+    assert.equal(failure?.selectionGeneration, 3);
+    assert.equal(failure?.clientSelectionGeneration, 1);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('client selection generation is re-established after a Gateway generation reset', async () => {
+    const g = await setupGateway({
+        ipcSurfaceWaitGraceMs: 1,
+        historySelectionDeadlineMs: 500,
+        historySettlementMarginMs: 10
+    });
+    const sess = await g.sm.createSession({ name: 'reconnect-selection-generation' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+
+    // The Android generation is connection-independent and may already be 7
+    // when a freshly restarted Gateway starts its own counter at 0.  The
+    // selection envelope is the existing fence used to bind that value to
+    // this active conversation.
+    ws.send(JSON.stringify({
+        type: 'set_active_conversation',
+        conversationId: 'conv-reconnect-generation',
+        selectionGeneration: 7
+    }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174026',
+        conversationId: 'conv-reconnect-generation',
+        selectionGeneration: 7
+    }));
+
+    const state = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174026', 1_000);
+    assert.equal(state?.state, 'ready');
+    assert.equal(state?.clientSelectionGeneration, 7);
+    assert.notEqual(state?.detailCode, 'stale_selection');
+    ws.close();
+    await stopGateway(g);
+});
+
+test('same-conversation reannounce refreshes the client selection generation', async () => {
+    const g = await setupGateway({
+        ipcSurfaceWaitGraceMs: 1,
+        historySelectionDeadlineMs: 500,
+        historySettlementMarginMs: 10
+    });
+    const sess = await g.sm.createSession({ name: 'same-conversation-selection-refresh' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+
+    ws.send(JSON.stringify({
+        type: 'set_active_conversation',
+        conversationId: 'conv-same-selection',
+        selectionGeneration: 7
+    }));
+    // The server conversation stays the same, but the Android local fence
+    // advances after resume.  The re-announce must refresh that fence.
+    ws.send(JSON.stringify({
+        type: 'set_active_conversation',
+        conversationId: 'conv-same-selection',
+        selectionGeneration: 8
+    }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174029',
+        conversationId: 'conv-same-selection',
+        selectionGeneration: 8
+    }));
+
+    const state = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174029', 1_000);
+    assert.equal(state?.state, 'ready');
+    assert.equal(state?.clientSelectionGeneration, 8);
+    assert.notEqual(state?.detailCode, 'stale_selection');
+    ws.close();
+    await stopGateway(g);
+});
+
+test('client selection generation still fences A→B→A requests', async () => {
+    const g = await setupGateway({
+        ipcSurfaceWaitGraceMs: 1,
+        historySelectionDeadlineMs: 500,
+        historySettlementMarginMs: 10
+    });
+    const sess = await g.sm.createSession({ name: 'client-selection-isolation' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+
+    ws.send(JSON.stringify({
+        type: 'set_active_conversation',
+        conversationId: 'conv-client-a',
+        selectionGeneration: 10
+    }));
+    ws.send(JSON.stringify({
+        type: 'set_active_conversation',
+        conversationId: 'conv-client-b',
+        selectionGeneration: 11
+    }));
+    ws.send(JSON.stringify({
+        type: 'set_active_conversation',
+        conversationId: 'conv-client-a',
+        selectionGeneration: 12
+    }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174027',
+        conversationId: 'conv-client-a',
+        selectionGeneration: 10
+    }));
+    const stale = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174027', 1_000);
+    assert.equal(stale?.state, 'failed');
+    assert.equal(stale?.detailCode, 'stale_selection');
+    assert.equal(stale?.selectionGeneration, 3);
+    assert.equal(stale?.clientSelectionGeneration, 10);
+
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174028',
+        conversationId: 'conv-client-a',
+        selectionGeneration: 12
+    }));
+    const current = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174028', 1_000);
+    assert.equal(current?.state, 'ready');
+    assert.equal(current?.clientSelectionGeneration, 12);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('verified recovery baseline is reused after switching away and back', async () => {
+    const g = await setupGateway({
+        ipcSurfaceWaitGraceMs: 1,
+        historySelectionDeadlineMs: 500,
+        historySettlementMarginMs: 10
+    });
+    const sess = await g.sm.createSession({ name: 'recovery-baseline-reuse' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-reuse-a' }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174024',
+        conversationId: 'conv-reuse-a',
+        selectionGeneration: 1
+    }));
+    const first = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174024', 1_000);
+    assert.equal(first?.state, 'ready');
+
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-reuse-b' }));
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-reuse-a' }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174025',
+        conversationId: 'conv-reuse-a',
+        selectionGeneration: 3
+    }));
+    const second = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174025', 1_000);
+    assert.equal(second?.state, 'ready');
+    assert.equal(second?.detailCode, 'reused_recovery_baseline');
+    assert.equal(
+        g.codexService.requests.filter((entry) =>
+            entry.method === 'thread/read' && entry.params.threadId === 'conv-reuse-a' && entry.params.includeTurns === true
+        ).length,
+        1
+    );
+    ws.close();
+    await stopGateway(g);
+});
+
+test('paginated recovery uses thread/turns/list after metadata mode probing', async () => {
+    const g = await setupGateway({
+        ipcSurfaceWaitGraceMs: 1,
+        historySelectionDeadlineMs: 500,
+        historySettlementMarginMs: 10
+    });
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && params.includeTurns === false) {
+            return {
+                thread: {
+                    id: params.threadId,
+                    historyMode: 'paginated'
+                }
+            };
+        }
+        if (method === 'thread/turns/list') {
+            return {
+                data: [{
+                    id: 'turn-paginated',
+                    status: 'completed',
+                    items: [{ id: 'item-paginated', type: 'agentMessage', text: 'tail' }]
+                }],
+                nextCursor: null
+            };
+        }
+        return { ok: true };
+    };
+    const sess = await g.sm.createSession({ name: 'paginated-recovery' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-paginated' }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174026',
+        conversationId: 'conv-paginated',
+        selectionGeneration: 1
+    }));
+    const ready = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174026', 1_000);
+    assert.equal(ready?.state, 'ready');
+    assert.equal(ready?.itemCount, 1);
+    assert.ok(g.codexService.requests.some((entry) =>
+        entry.method === 'thread/turns/list' &&
+        entry.params.threadId === 'conv-paginated' &&
+        entry.params.sortDirection === 'desc' &&
+        entry.params.itemsView === 'full'
+    ));
+    assert.equal(g.codexService.requests.some((entry) =>
+        entry.method === 'thread/read' && entry.params.includeTurns === true
+    ), false);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('healthy surface supersedes an in-flight full recovery and discards its late canonical result', async () => {
+    const g = await setupGateway({
+        ipcSurfaceWaitGraceMs: 1,
+        historySelectionDeadlineMs: 300,
+        historySettlementMarginMs: 10
+    });
+    let releaseFullRead;
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && params.includeTurns === true) {
+            return new Promise((resolve) => { releaseFullRead = () => resolve({
+                thread: { id: params.threadId, historyMode: 'legacy', turns: [] }
+            }); });
+        }
+        if (method === 'thread/read') {
+            return { thread: { id: params.threadId, historyMode: 'legacy' } };
+        }
+        return { ok: true };
+    };
+    const sess = await g.sm.createSession({ name: 'surface-supersedes-recovery' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-surface-supersedes' }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174017',
+        conversationId: 'conv-surface-supersedes',
+        selectionGeneration: 1
+    }));
+    await delay(30);
+    assert.equal(typeof releaseFullRead, 'function', 'full recovery should be in flight before the surface arrives');
+    g.ipcFeed.pushSnapshot('conv-surface-supersedes', {
+        conversationId: 'conv-surface-supersedes',
+        latestTurnId: 'turn-surface-supersedes',
+        status: 'running',
+        items: [{ key: 'live-item', kind: 'message', role: 'assistant', text: 'live wins' }]
+    });
+    releaseFullRead();
+    await delay(120);
+
+    const states = messages.filter((message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174017'
+    );
+    assert.equal(states.length, 1);
+    assert.equal(states[0].state, 'ready');
+    assert.equal(states[0].detailCode, 'healthy_surface');
+    ws.close();
+    await stopGateway(g);
+});
+
+test('duplicate recovery requests in one selection generation do not start a second full read', async () => {
+    const g = await setupGateway({
+        ipcSurfaceWaitGraceMs: 20,
+        historySelectionDeadlineMs: 300,
+        historySettlementMarginMs: 10
+    });
+    const sess = await g.sm.createSession({ name: 'single-recovery-attempt' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-one-attempt' }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174012',
+        conversationId: 'conv-one-attempt',
+        selectionGeneration: 1
+    }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174013',
+        conversationId: 'conv-one-attempt',
+        selectionGeneration: 1
+    }));
+    await delay(120);
+
+    assert.equal(
+        g.codexService.requests.filter((entry) =>
+            entry.method === 'thread/read' && entry.params.threadId === 'conv-one-attempt' && entry.params.includeTurns === true
+        ).length,
+        1
+    );
+    assert.ok(messages.some((message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174013' &&
+        message.state === 'failed' &&
+        message.detailCode === 'history_recovery_already_attempted'
+    ));
+    assert.ok(messages.some((message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174012' &&
+        message.state === 'ready'
+    ));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('selection hard deadline closes a hanging recovery with an explicit timeout', async () => {
+    const g = await setupGateway({
+        ipcSurfaceWaitGraceMs: 5,
+        historySelectionDeadlineMs: 70,
+        historySettlementMarginMs: 10
+    });
+    g.codexService.requestHandler = async (method) => {
+        if (method === 'thread/read') return new Promise(() => {});
+        return { ok: true };
+    };
+    const sess = await g.sm.createSession({ name: 'recovery-deadline' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-recovery-deadline' }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174014',
+        conversationId: 'conv-recovery-deadline',
+        selectionGeneration: 1
+    }));
+    await delay(110);
+
+    const timeoutStates = messages.filter((message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174014' &&
+        message.state === 'failed'
+    );
+    assert.equal(timeoutStates.length, 1);
+    assert.equal(timeoutStates[0].detailCode, 'history_recovery_timeout');
+    ws.close();
+    await stopGateway(g);
+});
+
+test('bounded projection budget closes a sync blocked behind a pending surface projection', async () => {
+    const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+    const g = await setupGateway({
+        ipcSurfaceWaitGraceMs: 5,
+        historySelectionDeadlineMs: 70,
+        historySettlementMarginMs: 10,
+        mediaStore: {
+            async put() {
+                return new Promise(() => {});
+            },
+            async ensureThumbnail() { return null; }
+        }
+    });
+    const sess = await g.sm.createSession({ name: 'sync-deadline' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-sync-deadline' }));
+    g.ipcFeed.pushSnapshot('conv-sync-deadline', {
+        conversationId: 'conv-sync-deadline',
+        latestTurnId: 'turn-sync-deadline',
+        status: 'completed',
+        items: [{ key: 'pending-media', kind: 'message', role: 'assistant', text: dataUrl }]
+    });
+    ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174018',
+        conversationId: 'conv-sync-deadline',
+        selectionGeneration: 1,
+        cacheSchemaVersion: 2,
+        checkpoint: { rootHash: null, itemCount: 0, complete: false }
+    }));
+    await delay(120);
+
+    const failures = messages.filter((message) =>
+        message.type === 'conversation_history_sync_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174018' &&
+        message.state === 'failed'
+    );
+    assert.equal(failures.length, 1);
+    assert.equal(failures[0].detailCode, 'history_baseline_timeout');
+    assert.equal(messages.some((message) =>
+        message.type === 'conversation_history_manifest_required' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174018'
+    ), false);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('A→B→A rejects the first recovery result and accepts only the new selection generation', async () => {
+    const g = await setupGateway({
+        ipcSurfaceWaitGraceMs: 1,
+        historySelectionDeadlineMs: 300,
+        historySettlementMarginMs: 10
+    });
+    let releaseFirstProbe;
+    let firstProbe = true;
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && firstProbe) {
+            firstProbe = false;
+            return new Promise((resolve) => { releaseFirstProbe = () => resolve({ thread: { id: params.threadId, historyMode: 'legacy', turns: [] } }); });
+        }
+        if (method === 'thread/read') {
+            return {
+                thread: {
+                    id: params.threadId,
+                    historyMode: 'legacy',
+                    ...(params.includeTurns === true ? { turns: [] } : {})
+                }
+            };
+        }
+        return { ok: true };
+    };
+    const sess = await g.sm.createSession({ name: 'selection-isolation' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-a-isolation' }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174015',
+        conversationId: 'conv-a-isolation',
+        selectionGeneration: 1
+    }));
+    await delay(20);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-b-isolation' }));
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-a-isolation' }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174016',
+        conversationId: 'conv-a-isolation',
+        selectionGeneration: 3
+    }));
+    await delay(60);
+    releaseFirstProbe?.();
+    await delay(100);
+
+    assert.equal(messages.some((message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174015' &&
+        message.state === 'ready'
+    ), false);
+    assert.ok(messages.some((message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174016' &&
+        message.state === 'ready'
+    ));
     ws.close();
     await stopGateway(g);
 });

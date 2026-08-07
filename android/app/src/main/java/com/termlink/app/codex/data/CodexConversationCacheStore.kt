@@ -722,7 +722,13 @@ class CodexConversationCacheStore(
                 "sync_id=? AND sequence=?", arrayOf(chunk.syncId, chunk.sequence.toString()), null, null, null
             ).use { cursor ->
                 if (!cursor.moveToFirst()) return PageApplyResult.REJECTED
-                arrayOf(cursor.getString(0), cursor.getString(1), cursor.getInt(2), cursor.getInt(3))
+                arrayOf(
+                    cursor.getString(0),
+                    cursor.getString(1),
+                    cursor.getInt(2),
+                    cursor.getInt(3),
+                    cursor.getInt(4)
+                )
             }
             if (session[0] != chunk.conversationId) return PageApplyResult.REJECTED
             if ((session[4] as Int) > chunk.selectionGeneration) return PageApplyResult.STALE

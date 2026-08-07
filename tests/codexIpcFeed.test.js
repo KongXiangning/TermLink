@@ -17,6 +17,8 @@ class FakeClient extends EventEmitter {
         this.initialized = false;
         this.broadcasts = [];
         this.requestHandlers = [];
+        this._sendBroadcastResult = opts.sendBroadcastResult;
+        this._sendBroadcastError = opts.sendBroadcastError || null;
     }
     get clientId() { return this._clientId; }
     async connect() {
@@ -27,8 +29,9 @@ class FakeClient extends EventEmitter {
     }
     close() { this.initialized = false; this.emit('close', { hadError: false }); }
     sendBroadcast(method, params, options) {
+        if (this._sendBroadcastError) throw this._sendBroadcastError;
         this.broadcasts.push({ method, params, ...(options === undefined ? {} : { options }) });
-        return true;
+        return this._sendBroadcastResult === undefined ? true : this._sendBroadcastResult;
     }
     addRequestHandler(method, canHandle, handle) {
         const registration = { method, canHandle, handle };
@@ -207,6 +210,97 @@ test('feed sends following only on first acquire and unfollows on final release'
         method: 'thread-stream-following-changed',
         params: { conversationId: 'conv-follow', hostId: 'local', following: false }
     });
+    feed.stop();
+});
+
+test('feed exposes initial and reconnect announcement generations without changing desired ref-count', async () => {
+    enableIpc();
+    const client = new FakeClient({ clientId: 'termlink-client' });
+    const feed = new CodexIpcFeed({ client, reconnectDelayMs: 10 });
+    const announcements = [];
+    feed.on('following_announcement', (event) => announcements.push(event));
+
+    assert.equal(feed.followConversation('conv-observe', 'local'), true);
+    const pending = feed.getFollowingState('conv-observe', 'local');
+    assert.equal(pending?.desiredGeneration, 1);
+    assert.equal(pending?.refCount, 1);
+    assert.equal(pending?.announcement.lastResult, 'not_initialized');
+
+    await startAndWaitOnline(feed);
+    const initial = announcements.at(-1);
+    assert.equal(initial?.source, 'initial');
+    assert.equal(initial?.result, 'sent');
+    assert.equal(initial?.connectionGeneration, 1);
+    assert.equal(initial?.desiredGeneration, 1);
+    assert.ok(initial?.sentAt);
+
+    assert.equal(feed.followConversation('conv-observe', 'local'), true);
+    assert.equal(feed.getFollowingState('conv-observe', 'local')?.refCount, 2);
+    assert.equal(feed.getFollowingState('conv-observe', 'local')?.desiredGeneration, 1);
+
+    client.close();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    const reconnect = announcements.at(-1);
+    assert.equal(reconnect?.source, 'reconnect');
+    assert.equal(reconnect?.result, 'sent');
+    assert.equal(reconnect?.connectionGeneration, 2);
+    assert.equal(reconnect?.desiredGeneration, 1);
+    const state = feed.getFollowingState('conv-observe', 'local');
+    assert.equal(state?.refCount, 2);
+    assert.equal(state?.announcement.lastSource, 'reconnect');
+    assert.equal(state?.announcement.lastResult, 'sent');
+    assert.equal(state?.announcement.sendCount, 2);
+    assert.equal(state?.announcement.attemptCount, 3);
+    assert.ok(state?.announcement.firstSentAt <= state?.announcement.lastSentAt);
+    feed.stop();
+});
+
+test('feed exposes a targeted status-request reannouncement without changing desired generation', async () => {
+    enableIpc();
+    const client = new FakeClient({ clientId: 'termlink-follower' });
+    const feed = new CodexIpcFeed({ client });
+    await startAndWaitOnline(feed);
+    feed.followConversation('conv-status-observe', 'local');
+    const initial = feed.getFollowingState('conv-status-observe', 'local');
+    const announcements = [];
+    feed.on('following_announcement', (event) => announcements.push(event));
+
+    client.simulateBroadcast({
+        type: 'broadcast',
+        method: 'thread-stream-following-status-requested',
+        sourceClientId: 'desktop-owner',
+        params: { conversationId: 'conv-status-observe', hostId: 'local' }
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const statusRequest = announcements.at(-1);
+    assert.equal(statusRequest?.source, 'status-request');
+    assert.equal(statusRequest?.result, 'sent');
+    assert.equal(statusRequest?.connectionGeneration, 1);
+    assert.equal(statusRequest?.desiredGeneration, initial?.desiredGeneration);
+    assert.equal(statusRequest?.targetClientCount, 1);
+    assert.equal(feed.getFollowingState('conv-status-observe', 'local')?.desiredGeneration, initial?.desiredGeneration);
+    assert.equal(feed.getFollowingState('conv-status-observe', 'local')?.announcement.sendCount, 2);
+    feed.stop();
+});
+
+test('feed records failed announcements while retaining desired intent', async () => {
+    enableIpc();
+    const client = new FakeClient({ sendBroadcastResult: false });
+    const feed = new CodexIpcFeed({ client });
+    const announcementP = new Promise((resolve) => feed.once('following_announcement', resolve));
+    await startAndWaitOnline(feed);
+    assert.equal(feed.followConversation('conv-send-failure', 'local'), true);
+
+    const announcement = await announcementP;
+    assert.equal(announcement.result, 'rejected');
+    assert.equal(announcement.source, 'initial');
+    assert.equal(announcement.connectionGeneration, 1);
+    const state = feed.getFollowingState('conv-send-failure', 'local');
+    assert.equal(state?.refCount, 1);
+    assert.equal(state?.announcement.lastResult, 'rejected');
+    assert.equal(state?.announcement.sendCount, 0);
+    assert.equal(state?.announcement.attemptCount, 1);
     feed.stop();
 });
 

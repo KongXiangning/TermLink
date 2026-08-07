@@ -1,7 +1,9 @@
 package com.termlink.app.codex.ui
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import com.termlink.app.codex.domain.CodexHistoryCacheLoadState
 import com.termlink.app.codex.domain.CodexHistoryCacheUiState
@@ -10,6 +12,25 @@ import com.termlink.app.codex.domain.CodexHistoryNetworkSyncUiState
 import com.termlink.app.codex.domain.CodexUiState
 
 class CodexScreenMediaProgressTest {
+    @Test
+    fun partialHistoryIsTerminalAndDoesNotShowSpinner() {
+        assertFalse(shouldShowCodexHistoryNetworkSpinner(CodexHistoryNetworkSyncState.PARTIAL))
+        assertTrue(shouldShowCodexHistoryNetworkSpinner(CodexHistoryNetworkSyncState.SYNCING))
+        assertTrue(shouldShowCodexHistoryNetworkSpinner(CodexHistoryNetworkSyncState.REPAIRING))
+        assertEquals(
+            null,
+            codexHistoryNetworkHydrationLabel(
+                networkState = CodexHistoryNetworkSyncUiState(
+                    conversationId = "conv-partial",
+                    state = CodexHistoryNetworkSyncState.PARTIAL
+                ),
+                hasConversation = true,
+                cacheReady = true,
+                hasHealthyLive = false
+            )
+        )
+    }
+
     @Test
     fun matchingDownloadShowsUnknownProgressUntilHeadersArrive() {
         assertEquals(
@@ -126,6 +147,44 @@ class CodexScreenMediaProgressTest {
                 networkState = network,
                 hasConversation = true,
                 hasMessages = false,
+                hasHealthyLive = false
+            )
+        )
+        assertEquals(
+            "本地暂无历史正文（服务端恢复失败）",
+            codexHistoryBodyHydrationLabel(
+                cacheState = cache,
+                networkState = network.copy(state = CodexHistoryNetworkSyncState.FAILED),
+                hasConversation = true,
+                hasMessages = false,
+                hasHealthyLive = false
+            )
+        )
+        assertEquals(
+            "本地暂无历史正文（当前为仅缓存模式）",
+            codexHistoryBodyHydrationLabel(
+                cacheState = cache,
+                networkState = network.copy(state = CodexHistoryNetworkSyncState.CACHE_ONLY),
+                hasConversation = true,
+                hasMessages = false,
+                hasHealthyLive = false
+            )
+        )
+    }
+
+    @Test
+    fun cacheOnlyHistoryIsTerminalAndDoesNotShowSpinner() {
+        val network = CodexHistoryNetworkSyncUiState(
+            conversationId = "conv-cache-only",
+            state = CodexHistoryNetworkSyncState.CACHE_ONLY
+        )
+        assertFalse(shouldShowCodexHistoryNetworkSpinner(network.state))
+        assertEquals(
+            null,
+            codexHistoryNetworkHydrationLabel(
+                networkState = network,
+                hasConversation = true,
+                cacheReady = true,
                 hasHealthyLive = false
             )
         )

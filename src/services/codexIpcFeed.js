@@ -62,6 +62,7 @@ class CodexIpcFeed extends EventEmitter {
         this._reconnectTimer = null;
         this._diagnosticTimer = null;
         this._ipcConnectionGeneration = 0;
+        this._desiredFollowingGeneration = 0;
         this._lastStatusFingerprint = null;
 
         // bound handlers for client events
@@ -183,6 +184,30 @@ class CodexIpcFeed extends EventEmitter {
         return this._rawEvents.slice();
     }
 
+    /**
+     * Return the current desired follower state and its last internal
+     * announcement result.  This is diagnostic state only; it does not
+     * expose a new IPC protocol or alter the desired ref-count.
+     * @param {string} conversationId
+     * @param {string} [hostId]
+     * @returns {object|null}
+     */
+    getFollowingState(conversationId, hostId = 'local') {
+        const subscription = normalizeFollowingSubscription(conversationId, hostId);
+        if (!subscription) return null;
+        const desired = this._desiredFollowing.get(subscription.key);
+        if (!desired) return null;
+        return cloneFollowingState(desired);
+    }
+
+    /**
+     * Return a snapshot of all active desired follower states for diagnostics.
+     * @returns {Array<object>}
+     */
+    getFollowingStates() {
+        return Array.from(this._desiredFollowing.values(), cloneFollowingState);
+    }
+
     hasRicherExternalSurface(conversationId, candidate) {
         const externalSurface = this._latestExternalSurfaceByConversation.get(conversationId)?.surface;
 
@@ -255,17 +280,23 @@ class CodexIpcFeed extends EventEmitter {
             current.refCount += 1;
             return true;
         }
-        this._desiredFollowing.set(subscription.key, {
+        const desiredGeneration = ++this._desiredFollowingGeneration;
+        const desired = {
+            key: subscription.key,
             conversationId: subscription.conversationId,
             hostId: subscription.hostId,
-            refCount: 1
-        });
+            refCount: 1,
+            desiredGeneration,
+            announcement: createFollowingAnnouncement(desiredGeneration)
+        };
+        this._desiredFollowing.set(subscription.key, desired);
         diagnosticLog.event('server', 'server.ipc_feed.follow', {
             conversationIdPresent: true,
             hostId: subscription.hostId,
-            desiredCount: this._desiredFollowing.size
+            desiredCount: this._desiredFollowing.size,
+            desiredGeneration: desired.desiredGeneration
         });
-        this._sendFollowingChanged(subscription, true);
+        this._sendFollowingChanged(subscription, true, undefined, 'initial');
         return true;
     }
 
@@ -284,7 +315,7 @@ class CodexIpcFeed extends EventEmitter {
             hostId: subscription.hostId,
             desiredCount: this._desiredFollowing.size
         });
-        this._sendFollowingChanged(subscription, false);
+        this._sendFollowingChanged(subscription, false, undefined, 'release');
         return true;
     }
 
@@ -563,8 +594,9 @@ class CodexIpcFeed extends EventEmitter {
     }
 
     _replayDesiredFollowing() {
+        const source = this._ipcConnectionGeneration <= 1 ? 'initial' : 'reconnect';
         for (const subscription of this._desiredFollowing.values()) {
-            this._sendFollowingChanged(subscription, true);
+            this._sendFollowingChanged(subscription, true, undefined, source);
         }
     }
 
@@ -601,33 +633,105 @@ class CodexIpcFeed extends EventEmitter {
         if (!subscription || !sourceClientId || sourceClientId === this.clientId) return false;
         const desired = this._desiredFollowing.get(subscription.key);
         if (!desired) return false;
-        return this._sendFollowingChanged(desired, true, { targetClientIds: [sourceClientId] });
+        return this._sendFollowingChanged(
+            desired,
+            true,
+            { targetClientIds: [sourceClientId] },
+            'status-request'
+        );
     }
 
-    _sendFollowingChanged(subscription, following, options) {
-        if (!this._client?.initialized) return false;
+    _sendFollowingChanged(subscription, following, options, source = 'initial') {
+        const attemptedAt = Date.now();
+        if (!this._client?.initialized) {
+            this._recordFollowingAnnouncement(subscription, following, source, 'not_initialized', attemptedAt, options);
+            return false;
+        }
         try {
-            this._client.sendBroadcast('thread-stream-following-changed', {
+            const accepted = this._client.sendBroadcast('thread-stream-following-changed', {
                 conversationId: subscription.conversationId,
                 hostId: subscription.hostId,
                 following
             }, options);
+            const result = accepted === false ? 'rejected' : 'sent';
+            this._recordFollowingAnnouncement(subscription, following, source, result, attemptedAt, options);
             console.warn('[codex-ipc][feed][following]', JSON.stringify({
                 conversationId: subscription.conversationId,
                 hostId: subscription.hostId,
                 following,
-                clientId: this.clientId
+                clientId: this.clientId,
+                connectionGeneration: this._ipcConnectionGeneration,
+                source,
+                result
             }));
-            return true;
+            return result === 'sent';
         } catch (error) {
+            this._recordFollowingAnnouncement(subscription, following, source, 'failed', attemptedAt, options);
             console.warn('[codex-ipc][feed][following-failed]', JSON.stringify({
                 conversationId: subscription.conversationId,
                 hostId: subscription.hostId,
                 following,
+                connectionGeneration: this._ipcConnectionGeneration,
+                source,
                 error: error instanceof Error ? error.message : String(error)
             }));
             return false;
         }
+    }
+
+    _recordFollowingAnnouncement(subscription, following, source, result, attemptedAt, options) {
+        if (!subscription || following !== true) return null;
+        const desired = this._desiredFollowing.get(subscription.key);
+        if (!desired) return null;
+        const announcement = desired.announcement || createFollowingAnnouncement(desired.desiredGeneration);
+        const targetClientIds = Array.isArray(options?.targetClientIds)
+            ? options.targetClientIds.filter((clientId) => typeof clientId === 'string' && clientId.trim()).map((clientId) => clientId.trim())
+            : [];
+        announcement.desiredGeneration = desired.desiredGeneration;
+        announcement.connectionGeneration = this._ipcConnectionGeneration || null;
+        announcement.clientId = normalizeObservableClientId(this.clientId);
+        announcement.lastAttemptAt = attemptedAt;
+        announcement.lastSource = source;
+        announcement.lastResult = result;
+        announcement.lastFollowing = following;
+        announcement.attemptCount += 1;
+        if (result === 'sent') {
+            announcement.sendCount += 1;
+            announcement.firstSentAt ??= attemptedAt;
+            announcement.lastSentAt = attemptedAt;
+        }
+        desired.announcement = announcement;
+        const event = {
+            conversationId: desired.conversationId,
+            hostId: desired.hostId,
+            desiredGeneration: desired.desiredGeneration,
+            refCount: desired.refCount,
+            connectionGeneration: announcement.connectionGeneration,
+            clientId: announcement.clientId,
+            source,
+            following,
+            result,
+            attemptedAt,
+            sentAt: result === 'sent' ? attemptedAt : null,
+            firstSentAt: announcement.firstSentAt,
+            lastSentAt: announcement.lastSentAt,
+            attemptCount: announcement.attemptCount,
+            sendCount: announcement.sendCount,
+            targetClientCount: targetClientIds.length
+        };
+        this.emit('following_announcement', event);
+        diagnosticLog.event('server', 'server.ipc_feed.following_announcement', {
+            conversationKey: stableKey(desired.conversationId),
+            hostId: desired.hostId,
+            desiredGeneration: desired.desiredGeneration,
+            refCount: desired.refCount,
+            connectionGeneration: announcement.connectionGeneration,
+            source,
+            result,
+            following,
+            targetClientCount: targetClientIds.length
+        }, result === 'sent' ? 'info' : 'warn');
+        return event;
     }
 
     _recordRawEvent(direction, message) {
@@ -811,6 +915,38 @@ function surfaceContentScore(surface) {
         (hasPendingApproval ? 500 : 0) +
         (hasFinal ? 50 : 0)
     );
+}
+
+function createFollowingAnnouncement(desiredGeneration) {
+    return {
+        desiredGeneration,
+        connectionGeneration: null,
+        clientId: null,
+        firstSentAt: null,
+        lastSentAt: null,
+        lastAttemptAt: null,
+        lastSource: null,
+        lastResult: 'pending',
+        lastFollowing: true,
+        attemptCount: 0,
+        sendCount: 0
+    };
+}
+
+function cloneFollowingState(desired) {
+    return {
+        conversationId: desired.conversationId,
+        hostId: desired.hostId,
+        refCount: desired.refCount,
+        desiredGeneration: desired.desiredGeneration,
+        announcement: { ...desired.announcement }
+    };
+}
+
+function normalizeObservableClientId(value) {
+    if (typeof value !== 'string') return null;
+    const normalized = value.trim();
+    return normalized && normalized !== 'initializing-client' ? normalized : null;
 }
 
 module.exports = { CodexIpcFeed };

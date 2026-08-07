@@ -7,12 +7,11 @@
 - 任务 slug：codex-single-authority-owner-control-plane
 - 当前状态：in_progress
 - 生命周期状态：active
-- 当前 handoff：decompose-task（P0“首次 surface/replay 可达与无 owner 有界恢复”实施计划已完成；15g 手动验收与 15h 收尾继续保持 pending）
-- 当前子任务：等待把本计划拆成独立实施步骤；现阶段只完成设计，不修改 IPC、Gateway 或 Android 代码
+- 当前 handoff：review-diff（P0-A.6 联合回归已执行并完成记录；等待整体 diff/implementation/contracts 复核）
+- 当前子任务：P0-A.1 至 P0-A.6 已完成实现与可执行的确定性自动回归；Android 工具链验证仍为环境阻塞，P0-B/P0-C/P1 未授权
 - 专项实施计划：`docs/codex/codex-android-history-cache-media-recovery-plan.md`
 - 历史尾部优先与缺口恢复专项计划：`docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md`
-- 子任务授权状态：plan-only-awaiting-implementation-authorization（仅针对本次新增的首次 surface/replay P0；既有
-  15a–15h 授权与 15g/15h 手动验收状态不变）
+- 子任务授权状态：implementation-authorized（用户于 2026-08-06 明确授权开始实施历史 tail-first/gap-recovery 计划的 Phase P0-A；P0-B/P0-C/P1、15g/15h 及既有人工验收状态不变）
 - 恢复需审查：false
 - 恢复审查原因：
 - Task start base：8f84867
@@ -500,8 +499,9 @@ Scope widening（2026-08-05，历史 tail-first、增量断点与缺口恢复专
 - 冻结数据流保持不变：`active conversation -> gateway follower acquire -> desired subscription/reconnect replay -> Codex host
   targeted snapshot/patch -> Android IPC authority`；canonical/cache 只作为静态基底和有界修复，禁止新增第二实时权威、
   第二 owner、轮询 authority、自动 resume/start 或 IPC authority 改写。
-- 文档门禁为路径/链接核对与 `git diff --check`；代码实施仍保持
-  `plan-only-awaiting-implementation-authorization`，下一 handoff 仍是 `decompose-task`。
+- 文档门禁为路径/链接核对与 `git diff --check`；P0-A 已获 implementation-authorized 并按 A.1→A.6 分步执行，
+  P0-A.6 的确定性 Node 回归已通过；Android JVM/APK 因当前工具链环境阻塞而未宣称通过，整体 diff/implementation/contracts 复核仍待执行。
+  P0-B/P0-C/P1、15g/15h 与既有人工双宿主验收仍保持 pending/未授权。
 
 Implementation Plan（2026-08-05，P0 首次 surface/replay 可达与无 owner 有界恢复）：
 
@@ -537,10 +537,11 @@ Implementation Plan（2026-08-05，P0 首次 surface/replay 可达与无 owner �
      内收到 surface 时不启动 canonical recovery；没有 surface 时仅把事实命名为 `awaiting_surface`，不能推断 `no_owner`。
   3. Android `CodexViewModel.kt`：删除/停用等待 surface 时每 10 秒重复普通 `thread/read` 的前台恢复循环。选择任务后先
      原子应用目标缓存，立即启动 bounded history sync/tail validation，并立即发送 `set_active_conversation`；Gateway 收到后
-     创建 subscription cycle 并经 `CodexIpcFeed` acquire follower。5 秒 surface grace 只门禁一次 full-baseline recovery
-     escalation——仅当当前 generation 在 5 秒后仍无 healthy surface、且 baseline 缺失、partial 或协议要求时，才通过
-     `conversation_history_sync_request` 升级一次 `conversation_history_recovery_request`。所有请求、watchdog、响应和
-     DB/UI commit 携带完整 `{endpointId, conversationId, selectionGeneration}`，A→B→A 的旧 A 结果也必须拒绝。
+     创建 subscription cycle 并经 `CodexIpcFeed` acquire follower。`conversation_history_sync_request` 不得等待 5 秒 grace；
+     5 秒 surface grace 只门禁一次 full-baseline recovery escalation——仅当当前 generation 在 grace 后仍无 healthy surface、
+     且 baseline 缺失、partial 或协议要求时，才单独发送一次 `conversation_history_recovery_request`（IPC offline 或明确
+     `desynced=true` 时按契约可立即 escalation）。所有请求、watchdog、响应和 DB/UI commit 携带完整
+     `{endpointId, conversationId, selectionGeneration}`，A→B→A 的旧 A 结果也必须拒绝。
   4. `src/services/codexHistorySyncService.js` / `src/services/codexHistoryBaselineProvider.js`：复用现有 bounded
      manifest/page/delta/ACK 传输层，但把内部 baseline provider 替换为 mode-aware 分轨，不再用单一 `thread/read`
      覆盖所有线程：
@@ -623,6 +624,13 @@ Implementation Plan（2026-08-05，P0 首次 surface/replay 可达与无 owner �
   current behavior。若实施发现必须依赖新版宿主私有 IPC method，则先停止、取证并重新锁范围，不能猜测接口。
 - Handoff：执行 `decompose-task`，按“feed/replay 可观测性 -> Gateway cycle/一次性恢复 -> Android 去除重复 thread/read 与
   状态收口 -> 定向自动回归 -> 部署后真机 smoke”拆分；在用户授权实施前不得修改代码。
+
+Implementation authorization（2026-08-06）：用户明确授权开始实施上述历史 tail-first/gap-recovery 计划的 Phase P0-A。
+本次实施严格限于 P0-A 的现有契约内修复：不改 wire/schema、不引入 `recoveryCycleId`、不改变 IPC authority/follower/reconnect
+replay、不启动第二 owner；P0-B、P0-C、P1 仍需分别授权。按一步一验拆为：P0-A.1 provider 分轨与 fail-closed；P0-A.2
+history sync 终态、`baselineComplete=false` 与 recovery singleflight/TTL；P0-A.3 Gateway cycle/一次性 full escalation
+与 35 秒截止；P0-A.4 follower announcement/reconnect replay 可观测性；P0-A.5 Android 去除重复普通 `thread/read` 与状态收口；
+P0-A.6 Node/Android 联合回归与文档收口。
 
 Bug 调查报告（2026-07-31，TermLink Owner follower 握手缺失）：
 
@@ -1182,6 +1190,54 @@ Implementation Plan（2026-08-02，Android 快速模式）：
 - [completed] 15k. P0 拆开 Android cacheReady 与 networkSync：引入 endpoint/conversation/generation selection key，
   原子应用目标缓存，禁止旧 hydrate/delta/sync 状态覆盖新 generation 的 live；完整缓存直接 ready，网络同步状态
   独立显示；补齐状态 reducer、UI 文案与定向 JVM 回归。
+- [completed] P0-A.1. Provider 分轨与 fail-closed：确认/读取 historyMode 与 exact thread identity；paginated 禁止
+  `thread/read(includeTurns=true)`，legacy/ephemeral/unknown 按能力安全降级；移除“所有返回 turn terminal 即 complete”，
+  P0-A 现有 wire 一律 `baselineComplete=false`。最小接线允许同步修改 Gateway 的 provider probe/legacy reader 注入和对应
+  `tests/terminalGateway.codexIpc.test.js` fixture；不在本步实现 Gateway cycle、5 秒门禁、full escalation 或 Android 行为。
+  已完成后续 provider、Gateway history 定向 Node 回归；P0-A.2 继续 pending。
+- [completed] P0-A.2. History sync 安全收口：按恢复结果进入 `SYNCED/PARTIAL/CACHE_ONLY/FAILED` 终态，终态取消 watchdog；
+  upsert-only 不触发 delete/order；同 conversation recovery singleflight、subscriber-aware TTL/byte budget；仅修改
+  `src/services/codexHistorySyncService.js` 与 `tests/codexHistorySyncService.test.js`。Gateway cycle 接线与 Android 终态
+  消费仍分别留给 P0-A.3/P0-A.5。
+- [completed] P0-A.3. Gateway cycle 与一次性 full escalation：Gateway 为每个 selection generation 建立 bounded cycle，保留
+  `selectionGeneration`/订阅 generation 关联并设置 35 秒 hard deadline；不延迟已有 history sync request，5 秒 grace 只门禁
+  full canonical recovery。在线且 grace 内收到 healthy surface 时跳过或 supersede canonical waiter；无 surface 时按剩余预算
+  至多发起一次 `startRecovery()`，复用现有 `syncId`、singleflight 和 selection/generation 门禁，迟到结果不得覆盖当前选择；
+  deadline/切换/释放会取消本选择的 waiter、sync 与 timer，并停止重复普通 `thread/read` recovery loop。仅修改
+  `src/ws/terminalGateway.js` 与 `tests/terminalGateway.codexIpc.test.js`；未修改 wire/schema、Android、IPC feed 或 owner authority。
+- [completed] P0-A.4. Follower announcement/reconnect replay 可观测性：记录 initial/reconnect/status-request 发送结果和
+  connection generation，保留 desired subscription/ref-count 与现有宿主 wire；仅修改 `src/services/codexIpcFeed.js` 及其测试。
+- [completed] P0-A.5. Android 状态收口：复用 cache/network state，选择后立即 sync，移除无 surface 时每约 10 秒普通
+  `thread/read` recovery；同步/恢复/manifest/delta/payload 在现有 wire `syncId` 上做 active-cycle 门禁，selection generation
+  切换和 reconnect 不接受旧 sync；`synced`/`partial`/`cache_only`/`failed`/`offline`/`unsupported` 统一停止 watchdog，PARTIAL
+  不再直接触发重复 full recovery，前台 bounded coordinator 仅按当前 surface/cache 状态和 generation 配额触发一次；中间页不再用
+  `baselineComplete` 冒充网络终态，Compose PARTIAL 文案不转圈。新增 ViewModel/UI focused tests。Node history/IPC/Gateway 联合集合
+  151/151 通过，JavaScript syntax 与 `git diff --check` 通过；Android JDK 21 JVM 命令因当前环境缺少 Android SDK（`sdk.dir` 指向
+  不存在目录，未找到 `adb`/SDK）记为 `BLOCKED(environment)`，未伪造通过；未修改 wire/schema、Gateway、IPC feed 或 owner authority。
+- 2026-08-06：修复 P0-A.5 审查发现：manifest 发送失败的清理、settlement、watchdog 和 UI 更新统一在主线程重新校验 active
+  `syncId`，迟到旧 sync 不再污染新 sync；Android 网络状态显式保留 `CACHE_ONLY`，不完整缓存和 cache-only 结果仍只允许
+  当前 generation 的一次 bounded recovery，无缓存恢复失败显示明确终态且不转圈。新增旧 manifest 失败竞态、cache-only 映射/恢复门禁、
+  无缓存失败 UI focused tests；Node 联合集合仍为 151/151，Android JVM 仍因 SDK build-tools 为 Windows `.exe` 且缺少可用
+  Linux AAPT 被 `BLOCKED(environment)`，未伪造通过。
+- [completed] P0-A.6. 联合回归与收口：P0-A/IPC/Gateway focused Node 集合 192/192、TD-004 confirmed narrow gate 137/137，
+  `git diff --check` 通过。按 JDK 21 实际尝试 Android `:app:testDebugUnitTest` 与 `:app:assembleDebug`，均因当前可见 SDK 的
+  Build Tools 35.0.0 只有 Windows AAPT、缺少 Linux `aapt` 而 `BLOCKED(environment)`；当前无 `adb`，故未宣称 APK 安装或单设备 smoke。
+  未把 Android 环境阻塞或 Windows Desktop/VS Code 双宿主人工验收写成通过；P0-A 的确定性自动回归完成，整体任务仍保持 active/in_progress，
+  下一 handoff 为 `review-diff`。
+- 2026-08-06：本轮环境恢复与验证更新（不改动 P0-A 代码语义）：本地开发服务凭据已写入被 `.gitignore` 忽略的 `.env`，
+  Android 被忽略的 `android/local-debug-config.json` 已同步 local profile；`http://127.0.0.1:3010/api/health` 使用配置认证返回
+  HTTP 200。JDK 21 Android JVM 全量 296/296 通过，debug APK 已重建并安装到 ADB 设备 `da34332c`，`CodexActivity` resumed，
+  PID 进程存活且未观察到应用崩溃、ANR 或 OOM。当前 TD-004 精确窄门实际为 120/120；上条历史记录中的 137/137 为旧测试计数，
+  不作为本轮结果。单设备启动/WSS smoke 通过，但设备仍保留既有 home profile，尚未执行可控 local 历史场景（缓存首屏、A→B→A、迟到同步、
+  短断线补齐）；不清除用户数据、不把 home 结果冒充 local 通过。Desktop/VS Code 双宿主及 home/local 最终人工验收仍 pending，
+  整体任务继续保持 active/in_progress。
+- 2026-08-07：修复真机复现的首次 recovery 时序竞态。前台 coordinator 之前可在
+  `set_active_conversation` 尚未由 Gateway 安装、且普通 history sync 尚未收口时直接发送 full recovery，导致该 generation
+  收到 `conversation_not_active` 后消耗一次性配额并长期停在失败；现在 recovery 继续复用现有 `syncId`/selection generation，
+  只有 active-subscription settle 完成且 awaiting-surface 路径的普通 sync 已有终态才升级，明确 offline/desynced 仍可在订阅门禁后立即升级。
+  不修改 wire/schema、IPC authority、follower/reconnect、owner 或 Gateway；新增 Android focused 回归通过，JDK 21
+  `CodexViewModelHydrateFollowTest` 通过，debug APK 已构建并安装到 `da34332c`，启动后 PID 存活且无崩溃。原始“首次选择后等待无效、
+  A→B→A 后成功”完整真机复现尚待用户在新 APK 上验证。
 
 ## 回归门
 
@@ -1794,3 +1850,112 @@ fixture。随后重跑 Node 211/211、JDK 21 Android JVM、JavaScript syntax 和
   JDK 21 下 `:app:testDebugUnitTest` 与 `:app:assembleDebug` 均 `BUILD SUCCESSFUL`，`git diff --check` 通过；未安装或操作真机，
   需设备在线后按 15g 手动矩阵确认视觉和 A→B→A/后台同步行为。External Documentation Gate 不触发：本步仅使用项目内
   Kotlin StateFlow、SQLite adapter 和既有 history/IPC contract。
+- 2026-08-06（P0-A.1 完成）：按用户授权实施历史 tail-first/gap-recovery Phase P0-A 的首个步骤。
+  `CodexHistoryBaselineProvider` 现在要求明确的 `legacy`/`paginated`/`ephemeral` 能力分支；已执行但缺失或未知
+  `historyMode` 直接 fail-closed，不把 paginated 线程降级为 full `thread/read`；paginated 没有 turns/items list reader 时明确
+  unsupported，ephemeral 明确 unsupported。probe identity 在 payload read 前校验，恢复响应必须匹配请求的 canonical conversation
+  ID，响应 mode 与 probe mode 矛盾时拒绝；“所有 turn terminal 即 complete”已删除，P0-A 返回始终保持
+  `complete=false`/upsert-only，并保留内部 `mode`/cursor 诊断字段。Gateway 已改为先调用
+  `thread/read(includeTurns=false)` 做 probe，再只为明确 legacy 调用 `includeTurns=true`；测试夹具和断言覆盖该顺序。
+  provider 定向回归 10/10、provider+history-sync 回归 22/22、Gateway history 定向回归 4/4、Gateway IPC 文件级回归 71/71，
+  `node --check src/services/codexHistoryBaselineProvider.js` 与 `git diff --check` 均通过。未修改 Android、IPC authority 或
+  wire/schema；P0-A.2 继续 pending。
+- 2026-08-06（P0-A.1 review finding 修复）：修复 `complete=false` 下 partial manifest 把 older/middle gap 追加到本地尾部的顺序风险；
+  只有本地最后一个 item 与 canonical position 重叠且新 item 严格位于其后时才允许追加，无法证明的 older/middle gap 保持 partial/upsert-only。
+  paginated provider 补齐 raw `thread/items/list` item page 与 `thread/turns/list` turn page 的 canonical 投影，desc 结果先恢复 ascending，
+  支持 page position offset，并严格保留显式 `nextCursor=null`，不再回退到 `backwardsCursor`。新增 older-gap、local-tail overlap、item-page desc、turn-page
+  desc、cursor-null 回归；provider/sync 定向回归 26/26、Gateway IPC 文件级串行回归 71/71、Node syntax 与限定 diff whitespace 检查通过。
+  Gateway 默认并发 runner 本次有 1 个既有时序用例偶发 70/71（`TermLink owner ignores malformed following state`），该用例串行及单测隔离均通过；不归因于本次 history 修改。
+  本次未提前实现 P0-A.2 的终态收口、recovery singleflight、subscriber-aware TTL/byte budget；P0-A.2 继续 pending。
+- 2026-08-06（P0-A.2 完成）：`CodexHistorySyncService` 不再以 `baseline.complete` 推断网络终态；内部 `syncOutcome` 与本次
+  manifest 是否仍有 older/middle 未覆盖范围分离，最终 ACK 可安全进入 `synced` 或 `partial`，两者都清理 page/inactivity watchdog，
+  `cache_only`/`failed` 也走同一结算路径。P0-A 的 partial diff 继续强制 `baselineComplete=false`、无 delete/canonical order；已有
+  complete checkpoint fast path 也改为 `synced`。同 conversation/provider/purpose 的 recovery 通过内部 singleflight lane 共享一个
+  producer；waiter 切换只 detach，最后一个 waiter 才 abort，迟到结果不再注册 baseline。baseline 增加订阅计数、最后 subscriber 离开后的
+  5 分钟 subscriber-aware TTL、进程 byte budget 和 oldest 无订阅 eviction，active subscriber 不被驱逐。新增终态独立性、range partial、cache-only、
+  checkpoint fast path、TTL/active retention、byte budget、singleflight detach/late-result 回归；`tests/codexHistorySyncService.test.js`
+  22/22 通过，provider+history-sync 定向集合 34/34 通过，`tests/terminalGateway.codexIpc.test.js` 串行回归 71/71 通过，Node syntax 与限定 diff whitespace
+  检查通过。P0-A.2 未修改 wire/schema、Gateway/Android、IPC authority；singleflight 的 Gateway cycle 接线仍由 P0-A.3 实施。
+- 2026-08-06（P0-A.2 review findings 1/2 修复）：仅修复两项已确认的同步语义风险。`buildPartialMergedDiff` 现在以所有本地/canonical
+  重叠项中的最大 canonical position 作为 append 边界；older/middle gap 不再因本地数组尾部顺序而被错误追加，无法证明为更新尾部的项继续保持
+  partial/upsert-only。`resolveSyncOutcome` 与 `recoveryResultOutcome` 现在优先尊重明确的负向覆盖证据（`hasMoreBefore=true`、
+  `coverageComplete=false`、tail/segment/partial 结果），不会让乐观的 `syncOutcome=synced` 掩盖仍缺失的历史范围；显式 `failed`/`cache_only` 仍保持原终态。
+  新增 older-gap 顺序与负向覆盖证据回归；`codexHistorySyncService` + baseline provider 定向集合 37/37，Node syntax 与限定 `git diff --check` 通过。
+  Gateway IPC 串行回归此前曾 71/71 通过，本次完整复跑出现既有时序用例 `latest snapshot is replayed on set_active_conversation` 70/71；该用例单独串行重跑
+  通过，未修改 Gateway，也不将其归因于本次 history 修复。未修改 wire/schema、Gateway/Android、IPC authority；Gateway recovery lane 接线、Android 终态消费、
+  结果元数据传递和 abort listener 清理等其他审查项按后续步骤保留。
+- 2026-08-06（P0-A.3 完成）：仅在 Gateway 接通 history selection cycle 与一次性 full escalation。每个 selection generation
+  记录订阅 generation、healthy surface、recovery 状态与 35 秒 hard deadline；已有普通 history sync request 仍按现有入口处理，
+  5 秒 grace 只控制 full canonical recovery。在线 grace 内收到 healthy IPC surface 时跳过或 supersede 正在等待的 canonical
+  waiter；无 surface 时按 selection 剩余预算至多调用一次 `CodexHistorySyncService.startRecovery()`，复用现有 `syncId`、singleflight
+  和 selection/generation 隔离。切换任务、释放会话和 deadline 会取消对应 waiter/sync/timer；迟到 canonical 结果不再向旧选择发送 ready
+  或覆盖 live。新增 Gateway 定向覆盖：grace 后单次 legacy read、healthy surface 抢占、重复 recovery 防重、35 秒截止、projection
+  有界预算与 A→B→A 隔离。`node --test --test-concurrency=1 tests/terminalGateway.codexIpc.test.js` 78/78，
+  `node --test --test-concurrency=1 tests/codexHistorySyncService.test.js tests/codexHistoryBaselineProvider.test.js` 37/37，
+  Gateway/相关源码 `node --check` 与 `git diff --check --no-ext-diff --no-textconv` 均通过。未修改 wire/schema、Android、IPC feed、
+  owner authority；P0-A.4/P0-A.5/P0-A.6 仍 pending。External Documentation Gate 不触发：本步只复用仓库已有 Node/WebSocket
+  与 history service API，没有新增或升级第三方依赖。
+- 2026-08-06（P0-A.3 review findings 修复）：严格限定在 `src/ws/terminalGateway.js` 与
+  `tests/terminalGateway.codexIpc.test.js`。desynced/offline 会清除当前周期的 surface，失效 surface 不再注册
+  IPC baseline；desync 保留等待者以允许后续 healthy surface 继续接管，恢复请求则绕过 grace，offline 直接进入
+  canonical recovery。full recovery 的一次性配额改为仅在实际调用 `startRecovery()` 前计数，healthy surface 或可复用的
+  `history_recovery` baseline 不消耗该配额；切换 generation 后在 TTL 内复用 verified recovery baseline，避免重复上游读取。
+  history sync failure 保留原始 `clientSelectionGeneration`，不会把旧请求错误标为当前 generation。新增失效 surface、配额不消耗、
+  stale generation 回显与跨 generation baseline 复用回归；Gateway 串行回归 83/83，provider/sync 回归 37/37，定向新增
+  回归 5/5，Node syntax 与限定 `git diff --check` 通过。未修改 wire/schema、Android、IPC feed、owner authority 或后续 P0-A 阶段。
+- 2026-08-06（P0-A.4 完成）：严格限定在 `src/services/codexIpcFeed.js` 与 `tests/codexIpcFeed.test.js`。为每个
+  desired follower 增加内部 `desiredGeneration`、当前 IPC `connectionGeneration`、client id、首次/最近发送时间、发送尝试/成功次数、
+  来源（`initial`/`reconnect`/`status-request`）和结果（`sent`/`rejected`/`failed`/`not_initialized`）的只读状态；通过
+  `following_announcement` 内部事件与 `getFollowingState(s)` 暴露给后续 Gateway cycle/诊断使用。未初始化时仍先保留 desired intent，
+  reconnect 只重放当前 desired set，ref-count 和 `thread-stream-following-changed` 宿主 wire 均未改变。新增初始发送、重连重放、
+  status-request 定向重申、发送失败保留 intent 与 generation/ref-count 隔离回归；feed 定向回归 31/31，IPC client/feed/Owner/Gateway
+  联合集合 155/155，Node syntax 与 `git diff --check --no-ext-diff --no-textconv` 通过。未修改 Gateway、Android、wire/schema、owner
+  authority 或 P0-A.5/P0-A.6。
+- 2026-08-06（P0-A.4 复核完成）：以当前工作树相对 `HEAD` 为 diff review target，聚焦本步 feed/test 增量并核对既有 P0-A.1–A.3 变更；范围、实现正确性、接口/架构契约均通过，未发现 critical/major 问题。P0-A.5 仍为下一实施步骤，P0-A.6 保持 pending。
+- 2026-08-06（P0-A.5 实施）：严格限定在既有 Android Codex ViewModel、CodexScreen 状态提示和 focused JVM tests。删除无 surface 前台
+  每约 10 秒普通 `thread/read` recovery；保留 bounded history sync/重订阅，并由一次性 generation coordinator 在无可读缓存、partial/失败或
+  明确 offline/desynced 时触发 full recovery。新增现有 history wire `syncId` 的 active-cycle 门禁：sync state、recovery state、manifest、delta、
+  payload 在 UI reducer、SQLite staging/commit 和 ACK 前都拒绝非当前 syncId；A→B→A/重连不会接受旧 sync。终态集合统一清理 in-flight、settlement、
+  watchdog/resume protection；PARTIAL 不再由 sync state 直接启动第二次 full recovery，中间页不以 `baselineComplete` 设置网络终态。Compose 只对
+  SYNCING/REPAIRING 转圈，PARTIAL 显示已结束文案。Node history/IPC/Gateway 联合集合 `151/151` 通过，`git diff --check` 通过；JDK 21 Android
+  JVM 任务因当前 WSL 环境没有 Android SDK（`local.properties` 的 sdk.dir 不存在）为 `BLOCKED(environment)`，未宣称通过。未修改 wire/schema、Gateway、
+  IPC feed、owner authority；下一步为 P0-A.5 review-diff/review-implementation/verify-contracts。
+- 2026-08-06（P0-A.6 联合回归与收口）：使用 Node v24.12.0 执行 P0-A provider/history-sync、IPC client/feed、Owner 与 Gateway
+  联合集合，结果 `192/192` 通过；TD-004 confirmed narrow gate 结果 `137/137` 通过；`git diff --check --no-ext-diff --no-textconv`
+  通过。使用 JDK 21 实际执行 Android `:app:testDebugUnitTest` 与 `:app:assembleDebug`，两者均在依赖解析阶段因当前 SDK
+  Build Tools 35.0.0 缺少 Linux `aapt`（仅有 Windows 可执行文件）失败，记录为 `BLOCKED(environment)`；当前环境无 `adb`，未执行
+  APK 安装、启动、logcat 或单设备 smoke。没有 staged 文件可供 staged sensitive scan 扫描；未修改 wire/schema、IPC authority、Owner 或
+  Android 业务代码。P0-A 的确定性自动回归完成，但 Android 工具链与 D 层双宿主人工验收仍未通过，整体任务保持 active/in_progress。
+- 2026-08-06（P0-A.5 真机失败复核与最小修复）：根据设备持久诊断和 Gateway 结构化日志复核人工验收失败。服务端在 Desktop
+  未打开目标任务时仍完成 `thread/resume` canonical recovery（例如 `recovery.ready`），实际阻断发生在 Android SQLite 保留了旧进程的
+  `sync_sessions`；新进程 generation 较小，delta 因旧 staging session 被判为 `STALE`，随后触发 selection deadline。`CodexViewModel`
+  在每次新 history sync 建立前调用现有 `clearInterruptedSync`，只清理目标任务的未完成 staging/session，已提交正文不受影响；设备复测同一任务后
+  `delta_applied=COMMITTED`，数据库中保留完整 1740 条正文，且没有残留 `sync_sessions`。同时，PARTIAL/CACHE_ONLY/FAILED 等终态不再渲染永久
+  “服务端历史：已显示部分”提示条；选择历史任务时可选的 `thread/resume` 错误不再追加误导性的“回复失败”消息，历史恢复通道仍独立结算。
+  新增对应 JVM helper 回归；JDK 21 `:app:testDebugUnitTest`、`:app:assembleDebug`、APK 安装和启动均成功，设备新进程日志确认
+  `history_unavailable → recovery_requested → manifest_required → delta_applied=COMMITTED → partial`，未发现当前复测中的
+  `android.codex.request.failed`/`android.codex.websocket.error`。Literal “回复失败”若仍出现，需要保留新的设备日志时间戳或截图，以区分任务本身的 failed item
+  与请求错误；本次不把历史中原有的失败 turn 改写为成功。Node 定向集合 `151/151`（P0-A 相关）和 `git diff --check` 通过；最终人工验收仍需
+  用户按“Desktop 不打开目标任务”场景再次确认。
+- 2026-08-07（目标会话媒体文本误判修复）：针对会话 `019fa9ab-4e84-7420-9f3a-3acaf188354c` 的 02:30 真机证据，服务端日志确认
+  history sync 连续以 `history_media_not_externalized` 失败；该线程历史包含代码文本 `data:image/...;base64,${...}`，不是可传输的
+  inline image，但旧 wire guard 只检查 data-URL 前缀，误将其整段历史判为媒体未外置。仅收紧
+  `src/services/codexHistorySyncService.js` 的 guard，使其要求至少存在 base64 字符，并新增对应回归；不改变 IPC authority、recovery
+  cycle、wire/schema 或 Android 状态机。`node --test tests/codexHistorySyncService.test.js` 27/27 通过。
+- 2026-08-07（12:37 无图片历史任务的 generation fence 修复）：设备会话
+  `019fc187-88d1-7990-b01e-efff949e6baf` 的精确日志显示，Android 本地 `selectionGeneration=7`，而 Gateway 重启后的连接周期为
+  `selectionGeneration=5`；普通 sync 和 recovery 均在进入 history service 前被 `stale_selection` 拒绝，因此 Desktop 打开后只有 IPC
+  surface 能显示，不能证明历史恢复成功。修复仅复用已有 `selectionGeneration` 字段：Android 在每次
+  `set_active_conversation` 同时发送本地 generation，Gateway 按 WebSocket/active conversation 记录该客户端 generation，再以服务端自己的
+  cycle generation 做内部 A/B 隔离；未升级客户端继续使用原 server-generation 校验。未新增 recoveryCycleId、wire/schema 字段、第二实时权威或第二 owner。
+  新增 Gateway 回归覆盖重启后 generation 重新绑定及带客户端 generation 的 A→B→A 迟到请求隔离；该集合 4/4 通过。JDK 21 下
+  `:app:testDebugUnitTest` 与 `:app:assembleDebug` 均成功，debug APK 已安装到 `da34332c`。安装后的真机选择任务
+  `019fa9ab-4e84-7420-9f3a-3acaf188354c`（Desktop 未打开）实测日志为
+  `history_unavailable → recovery_requested → manifest_required → delta_applied=COMMITTED → partial`，后续请求不再出现
+  `stale_selection`。随后在新 APK 上选择用户报告的 `019fc187-88d1-7990-b01e-efff949e6baf`，服务端记录
+  `clientSelectionGeneration=5` 且 history sync 正常进入 `manifest_required → delta_applied=COMMITTED → partial`，也未出现
+  `stale_selection`；该目标当时已有 4 条 complete 本地缓存，因此仍需用户在清除该会话缓存后的冷恢复场景做最终确认。服务端已重启至当前源代码，`git diff --check` 通过。
+- 2026-08-07（同任务恢复 generation 边界补强）：补充 Gateway 对“active conversation 未改变、但 Android 本地 selection generation 已递增”的处理。
+  `set_active_conversation` 现在只要携带有效的既有 `selectionGeneration` 就更新当前 WebSocket 的客户端 fence，不再只在任务 ID 变化时更新；这样 App
+  resume/reconnect 后重新声明同一任务不会因沿用旧 client generation 被误判为 `stale_selection`。新增同任务重新声明回归，generation fence 定向集合
+  `4/4` 通过；服务端已重启加载该修复。未新增 wire/schema 字段、recoveryCycleId、实时权威或 owner。

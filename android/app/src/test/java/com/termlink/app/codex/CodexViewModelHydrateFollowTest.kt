@@ -571,6 +571,50 @@ class CodexViewModelHydrateFollowTest {
     }
 
     @Test
+    fun foregroundHistoryRecoveryWaitsForActiveSubscriptionAndSettledSync() {
+        assertFalse(
+            shouldStartForegroundHistoryRecovery(
+                historyNeedsFullRecovery = true,
+                authorityMode = IpcAuthorityMode.AWAITING_IPC_SURFACE,
+                activeSubscriptionSettling = true,
+                historySyncSettled = false
+            )
+        )
+        assertFalse(
+            shouldStartForegroundHistoryRecovery(
+                historyNeedsFullRecovery = true,
+                authorityMode = IpcAuthorityMode.AWAITING_IPC_SURFACE,
+                activeSubscriptionSettling = false,
+                historySyncSettled = false
+            )
+        )
+        assertTrue(
+            shouldStartForegroundHistoryRecovery(
+                historyNeedsFullRecovery = true,
+                authorityMode = IpcAuthorityMode.AWAITING_IPC_SURFACE,
+                activeSubscriptionSettling = false,
+                historySyncSettled = true
+            )
+        )
+        assertTrue(
+            shouldStartForegroundHistoryRecovery(
+                historyNeedsFullRecovery = true,
+                authorityMode = IpcAuthorityMode.IPC_OFFLINE,
+                activeSubscriptionSettling = false,
+                historySyncSettled = false
+            )
+        )
+        assertFalse(
+            shouldStartForegroundHistoryRecovery(
+                historyNeedsFullRecovery = true,
+                authorityMode = IpcAuthorityMode.IPC_AUTHORITATIVE,
+                activeSubscriptionSettling = false,
+                historySyncSettled = true
+            )
+        )
+    }
+
+    @Test
     fun canonicalFollowFallbackYieldsPermanentlyToAuthoritativeIpcSurface() {
         assertFalse(
             shouldUseCanonicalThreadReadFallback(

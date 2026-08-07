@@ -103,6 +103,7 @@ enum class CodexHistoryNetworkSyncState {
     SYNCING,
     REPAIRING,
     PARTIAL,
+    CACHE_ONLY,
     SYNCED,
     OFFLINE,
     UNSUPPORTED,

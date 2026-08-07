@@ -23,9 +23,21 @@ const DEFAULTS = Object.freeze({
     historyMaxEnvelopeBytes: 256 * 1024,
     historyInlinePayloadBytes: 128 * 1024,
     historyPayloadChunkBytes: 96 * 1024,
-    historyPayloadChunkEnvelopeBytes: 128 * 1024
+    historyPayloadChunkEnvelopeBytes: 128 * 1024,
+    // Canonical baselines are process-local acceleration state.  They are
+    // retained only while a sync/recovery subscriber is attached, then for a
+    // bounded grace period so a second client can reuse the same result.
+    historyBaselineTtlMs: 5 * 60 * 1000,
+    historyBaselineByteBudget: 128 * 1024 * 1024
 });
-const INLINE_IMAGE_DATA_URL = /data:image\/[a-z0-9.+-]+;base64,/i;
+// A textual mention of a data-URL prefix (for example a code sample such as
+// `data:image/png;base64,${...}`) is not an inline image payload.  Requiring
+// at least one base64 character keeps the wire guard aligned with the
+// projector's embedded-data matcher and avoids rejecting otherwise safe
+// history text before it can reach the client.
+const INLINE_IMAGE_DATA_URL = /data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+/i;
+const TERMINAL_SYNC_STATES = new Set(['synced', 'partial', 'cache_only', 'failed']);
+const RECOVERY_PURPOSES = new Set(['full', 'tail']);
 
 function computeHistoryPageHash(page) {
     const input = {
@@ -62,7 +74,8 @@ function buildManifestDiff({ localItems = [], canonicalItems = [], baselineCompl
         deletes,
         canonicalOrder: orderChanged ? canonicalOrder : undefined,
         fullOrderIncluded: Boolean(orderChanged),
-        baselineComplete: Boolean(baselineComplete)
+        baselineComplete: Boolean(baselineComplete),
+        rangeComplete: true
     };
 }
 
@@ -70,9 +83,35 @@ function buildPartialMergedDiff({ localItems = [], canonicalItems = [], baseRoot
     const localMap = new Map(localItems.map((item) => [item.itemKey, item]));
     const mergedOrder = localItems.map((item) => item.itemKey);
     const upserts = [];
-    for (const item of canonicalItems) {
+    const canonicalPositions = new Map(canonicalItems.map((item, index) => [item.itemKey, canonicalPosition(item, index)]));
+    let localNewestCanonicalPosition = null;
+    for (const localItem of localItems) {
+        const position = canonicalPositions.get(localItem?.itemKey);
+        if (Number.isInteger(position) &&
+            (localNewestCanonicalPosition === null || position > localNewestCanonicalPosition)) {
+            localNewestCanonicalPosition = position;
+        }
+    }
+    let unresolvedRange = false;
+    for (const [index, item] of canonicalItems.entries()) {
         const local = localMap.get(item.itemKey);
-        if (!local) mergedOrder.push(item.itemKey);
+        if (!local) {
+            // A partial baseline cannot authorize arbitrary insertion.  Only
+            // append a missing item when the canonical position proves it is
+            // newer than every local item that overlaps the canonical range.
+            // Older/middle gaps stay partial until a range/order-capable
+            // protocol is available.
+            const position = canonicalPosition(item, index);
+            const isNewTail = localItems.length === 0 || (
+                localNewestCanonicalPosition !== null &&
+                position > localNewestCanonicalPosition
+            );
+            if (!isNewTail) {
+                unresolvedRange = true;
+                continue;
+            }
+            mergedOrder.push(item.itemKey);
+        }
         if (!local || local.contentHash !== item.contentHash) {
             upserts.push({ ...item, position: mergedOrder.indexOf(item.itemKey) });
         }
@@ -88,9 +127,14 @@ function buildPartialMergedDiff({ localItems = [], canonicalItems = [], baseRoot
         canonicalOrder: undefined,
         fullOrderIncluded: false,
         baselineComplete: false,
+        rangeComplete: !unresolvedRange,
         targetRoot: buildConversationRoot(mergedItems),
         baseRoot
     };
+}
+
+function canonicalPosition(item, fallback) {
+    return Number.isInteger(item?.position) ? item.position : fallback;
 }
 
 function buildDeltaPages({
@@ -109,6 +153,22 @@ function buildDeltaPages({
     payloadChunkBytes = DEFAULTS.historyPayloadChunkBytes
 }) {
     const order = Array.isArray(canonicalOrder) ? canonicalOrder : undefined;
+    const wireOptions = {
+        enablePayloadChunks,
+        payloadInlineMaxBytes,
+        payloadChunkBytes
+    };
+    // Convert each canonical item exactly once.  The previous implementation
+    // converted (and, for chunked payloads, split) every item once per packing
+    // candidate and again when the page was finalized.  With many large
+    // history items that made the synchronous manifest handler quadratic in
+    // payload size and blocked all later WebSocket frames on the Node event
+    // loop.  A prepared wire item keeps the existing envelope/hash semantics
+    // while making packing proportional to the actual payload bytes.
+    const preparedUpserts = upserts.map((item) => ({
+        source: item,
+        ...toWireItemWithChunks(item, wireOptions)
+    }));
     const pages = [];
     let pageUpserts = [];
     let pageDeletes = [];
@@ -118,33 +178,57 @@ function buildDeltaPages({
         const draft = {
             syncId, sequence, pageIndex: pages.length, pageCount: 0, baseRoot, targetRoot,
             baselineComplete, fullOrderIncluded: pages.length === 0 && Boolean(order),
-            upserts: nextUpserts.map((item) => toWireItem(item, {
-                enablePayloadChunks,
-                payloadInlineMaxBytes,
-                payloadChunkBytes
-            })), deletes: nextDeletes,
+            upserts: nextUpserts.map((item) => item.wire), deletes: nextDeletes,
             ...(pages.length === 0 && order ? { canonicalOrder: order } : {})
         };
         return Buffer.byteLength(JSON.stringify(draft), 'utf8') <= maxBytes && nextUpserts.length + nextDeletes.length <= maxItems;
     };
-    for (const item of upserts) {
+    const flushPage = () => {
+        if (!pageUpserts.length && !pageDeletes.length) return;
+        pages.push(makePage({
+            syncId,
+            sequence,
+            pageIndex: pages.length,
+            baseRoot,
+            targetRoot,
+            baselineComplete,
+            order,
+            preparedUpserts: pageUpserts,
+            deletes: pageDeletes
+        }));
+        pageUpserts = [];
+        pageDeletes = [];
+    };
+    for (const item of preparedUpserts) {
         if (!appendCandidate('upsert', item) && (pageUpserts.length || pageDeletes.length)) {
-            pages.push(makePage({ syncId, sequence, pageIndex: pages.length, baseRoot, targetRoot, baselineComplete, order, upserts: pageUpserts, deletes: pageDeletes, enablePayloadChunks, payloadInlineMaxBytes, payloadChunkBytes }));
-            pageUpserts = [];
-            pageDeletes = [];
+            flushPage();
         }
         pageUpserts.push(item);
     }
     for (const item of deletes) {
         if (!appendCandidate('delete', item) && (pageUpserts.length || pageDeletes.length)) {
-            pages.push(makePage({ syncId, sequence, pageIndex: pages.length, baseRoot, targetRoot, baselineComplete, order, upserts: pageUpserts, deletes: pageDeletes, enablePayloadChunks, payloadInlineMaxBytes, payloadChunkBytes }));
-            pageUpserts = [];
-            pageDeletes = [];
+            flushPage();
         }
         pageDeletes.push(item);
     }
     if (pageUpserts.length || pageDeletes.length || pages.length === 0) {
-        pages.push(makePage({ syncId, sequence, pageIndex: pages.length, baseRoot, targetRoot, baselineComplete, order, upserts: pageUpserts, deletes: pageDeletes, enablePayloadChunks, payloadInlineMaxBytes, payloadChunkBytes }));
+        flushPage();
+    }
+    if (pages.length === 0) {
+        // Preserve the existing empty-diff page.  The page carries the
+        // target root and lets the client ACK a partial/no-op reconciliation
+        // instead of waiting forever for a delta that cannot contain rows.
+        pages.push(makePage({
+            syncId,
+            sequence,
+            pageIndex: 0,
+            baseRoot,
+            targetRoot,
+            baselineComplete,
+            order,
+            preparedUpserts: [],
+            deletes: []
+        }));
     }
     const pageCount = pages.length;
     return pages.map((page) => {
@@ -155,9 +239,30 @@ function buildDeltaPages({
     });
 }
 
-function makePage({ syncId, sequence, pageIndex, baseRoot, targetRoot, baselineComplete, order, upserts, deletes, enablePayloadChunks = false, payloadInlineMaxBytes = DEFAULTS.historyInlinePayloadBytes, payloadChunkBytes = DEFAULTS.historyPayloadChunkBytes }) {
+function makePage({
+    syncId,
+    sequence,
+    pageIndex,
+    baseRoot,
+    targetRoot,
+    baselineComplete,
+    order,
+    upserts = [],
+    preparedUpserts,
+    deletes,
+    enablePayloadChunks = false,
+    payloadInlineMaxBytes = DEFAULTS.historyInlinePayloadBytes,
+    payloadChunkBytes = DEFAULTS.historyPayloadChunkBytes
+}) {
     const fullOrderIncluded = pageIndex === 0 && Array.isArray(order);
     const payloadChunks = [];
+    const prepared = Array.isArray(preparedUpserts)
+        ? preparedUpserts
+        : upserts.map((item) => toWireItemWithChunks(item, {
+            enablePayloadChunks,
+            payloadInlineMaxBytes,
+            payloadChunkBytes
+        }));
     const page = {
         syncId,
         sequence,
@@ -167,8 +272,7 @@ function makePage({ syncId, sequence, pageIndex, baseRoot, targetRoot, baselineC
         targetRoot,
         baselineComplete: Boolean(baselineComplete),
         fullOrderIncluded,
-        upserts: upserts.map((item) => {
-            const result = toWireItemWithChunks(item, { enablePayloadChunks, payloadInlineMaxBytes, payloadChunkBytes });
+        upserts: prepared.map((result) => {
             payloadChunks.push(...result.chunks.map((chunk) => ({ ...chunk, pageIndex })));
             return result.wire;
         }),
@@ -244,51 +348,479 @@ function splitUtf8(value, maxBytes) {
     return chunks;
 }
 
+function normalizeNonNegativeDuration(value, fallback) {
+    return Number.isFinite(Number(value)) && Number(value) >= 0
+        ? Number(value)
+        : fallback;
+}
+
+function normalizePositiveBudget(value, fallback) {
+    return Number.isFinite(Number(value)) && Number(value) > 0
+        ? Number(value)
+        : fallback;
+}
+
+function normalizeSyncOutcome(value, fallback = 'partial') {
+    const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    if (normalized === 'live') return 'synced';
+    if (normalized === 'offline' || normalized === 'unsupported') return 'cache_only';
+    return TERMINAL_SYNC_STATES.has(normalized) ? normalized : fallback;
+}
+
+function resolveSyncOutcome(options = {}) {
+    const explicit = options.syncOutcome ?? options.resultState ?? options.networkSyncState;
+    const explicitOutcome = explicit !== undefined && explicit !== null
+        ? normalizeSyncOutcome(explicit, options.complete ? 'synced' : 'partial')
+        : null;
+    const hasIncompleteRange = options.hasMoreBefore === true ||
+        options.coverageComplete === false ||
+        options.resultKind === 'tail' ||
+        options.resultKind === 'segment' ||
+        options.resultKind === 'partial';
+    if (hasIncompleteRange) {
+        // Negative coverage evidence is fail-closed.  Explicit transport
+        // failures/cache-only classification remain terminal as-is, but an
+        // optimistic SYNCED/LIVE result cannot hide an unserved range.
+        return explicitOutcome === 'failed' || explicitOutcome === 'cache_only'
+            ? explicitOutcome
+            : 'partial';
+    }
+    if (explicitOutcome) return explicitOutcome;
+    if (options.coverageComplete === true) return 'synced';
+    return options.complete === true ? 'synced' : 'partial';
+}
+
+function resolveSyncOutcomeDetail(options = {}) {
+    if (typeof options.syncOutcomeDetail === 'string' && options.syncOutcomeDetail.trim()) {
+        return options.syncOutcomeDetail.trim();
+    }
+    if (options.resultKind === 'tail' || options.resultKind === 'segment') return 'history_range_partial';
+    return null;
+}
+
+function estimateBaselineBytes({ conversationId, items, rootHash, sourceKind, sourceEpoch }) {
+    try {
+        return Buffer.byteLength(JSON.stringify({ conversationId, items, rootHash, sourceKind, sourceEpoch }), 'utf8');
+    } catch {
+        // A malformed/cyclic provider result must not evade the process byte
+        // budget.  It will be evicted before it can be used for a sync.
+        return Number.MAX_SAFE_INTEGER;
+    }
+}
+
+function normalizeRecoveryPart(value, fallback) {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    return normalized || fallback;
+}
+
+function buildRecoveryKey({ conversationId, providerIdentity = 'default', purpose = 'full' } = {}) {
+    const conversation = normalizeRecoveryPart(conversationId, '');
+    const provider = normalizeRecoveryPart(providerIdentity, 'default');
+    const recoveryPurpose = RECOVERY_PURPOSES.has(purpose) ? purpose : 'full';
+    return `${conversation}\u0000${provider}\u0000${recoveryPurpose}`;
+}
+
+function createRecoveryDetachedError() {
+    const error = new Error('History recovery waiter detached.');
+    error.code = 'history_recovery_waiter_detached';
+    return error;
+}
+
+function createRecoveryIdentityError(expected, actual) {
+    const error = new Error(`History recovery identity mismatch: expected ${expected}, received ${actual}.`);
+    error.code = 'history_recovery_identity_mismatch';
+    return error;
+}
+
+function recoveryResultOutcome(result) {
+    const explicit = result?.syncOutcome ?? result?.resultState ?? result?.networkSyncState;
+    const explicitOutcome = explicit !== undefined && explicit !== null
+        ? normalizeSyncOutcome(explicit, 'partial')
+        : null;
+    const hasIncompleteRange = result?.hasMoreBefore === true ||
+        result?.coverageComplete === false ||
+        result?.resultKind === 'tail' ||
+        result?.resultKind === 'segment' ||
+        result?.resultKind === 'partial';
+    if (hasIncompleteRange) {
+        return explicitOutcome === 'failed' || explicitOutcome === 'cache_only'
+            ? explicitOutcome
+            : 'partial';
+    }
+    if (explicitOutcome) return explicitOutcome;
+    return result?.resultKind === 'full' ? 'synced' : 'partial';
+}
+
 class CodexHistorySyncService {
     constructor({ send, now = Date.now, options = {}, isStillActive } = {}) {
         this.send = typeof send === 'function' ? send : () => {};
         this.now = now;
-        this.options = { ...DEFAULTS, ...options };
+        const optionObject = options && typeof options === 'object' ? options : {};
+        this.options = { ...DEFAULTS, ...optionObject };
+        const requestedBaselineTtl = Object.hasOwn(optionObject, 'historyBaselineTtlMs')
+            ? optionObject.historyBaselineTtlMs
+            : optionObject.baselineTtlMs;
+        const requestedBaselineBudget = Object.hasOwn(optionObject, 'historyBaselineByteBudget')
+            ? optionObject.historyBaselineByteBudget
+            : optionObject.baselineByteBudget;
+        this._baselineTtlMs = normalizeNonNegativeDuration(
+            requestedBaselineTtl ?? this.options.historyBaselineTtlMs,
+            DEFAULTS.historyBaselineTtlMs
+        );
+        this._baselineByteBudget = normalizePositiveBudget(
+            requestedBaselineBudget ?? this.options.historyBaselineByteBudget,
+            DEFAULTS.historyBaselineByteBudget
+        );
         this.isStillActive = typeof isStillActive === 'function' ? isStillActive : () => true;
         this._baselines = new Map();
+        this._retiredBaselines = new Set();
+        this._baselineBytes = 0;
+        this._baselineCleanupTimer = null;
+        this._recoveryFlights = new Map();
         this._syncs = new WeakMap();
     }
 
     registerBaseline(conversationId, sourceKind, sourceData, options = {}) {
         const items = projectCanonicalHistory({ sourceKind, sourceData });
-        const baseline = {
-            conversationId,
-            items,
-            rootHash: buildConversationRoot(items),
-            complete: Boolean(options.complete),
-            sourceKind: options.baselineSourceKind || sourceKind || null,
-            sourceEpoch: options.sourceEpoch || null,
-            updatedAt: this.now()
-        };
-        this._baselines.set(conversationId, baseline);
-        return baseline;
+        return this._storeBaseline(this._createBaseline(conversationId, items, {
+            ...options,
+            baselineSourceKind: options.baselineSourceKind || sourceKind || null
+        }));
     }
 
     registerBaselineItems(conversationId, items, options = {}) {
         const normalizedItems = Array.isArray(items) ? items.map((item) => ({ ...item })) : [];
-        const baseline = {
-            conversationId,
-            items: normalizedItems,
-            rootHash: buildConversationRoot(normalizedItems),
-            complete: Boolean(options.complete),
-            sourceKind: options.baselineSourceKind || null,
-            sourceEpoch: options.sourceEpoch || null,
-            updatedAt: this.now()
-        };
-        this._baselines.set(conversationId, baseline);
+        return this._storeBaseline(this._createBaseline(conversationId, normalizedItems, options));
+    }
+
+    getBaseline(conversationId) {
+        this._pruneBaselines();
+        return this._baselines.get(conversationId);
+    }
+
+    retainBaseline(conversationId) {
+        const baseline = this.getBaseline(conversationId);
+        if (!baseline || !this._retainBaseline(baseline)) return null;
         return baseline;
     }
 
-    getBaseline(conversationId) { return this._baselines.get(conversationId); }
+    releaseBaseline(conversationId, baseline = null) {
+        const candidate = baseline || this._baselines.get(conversationId);
+        if (!candidate || candidate.conversationId !== conversationId) return false;
+        const released = this._releaseBaseline(candidate);
+        this._pruneBaselines();
+        return released;
+    }
+
+    getBaselineStats() {
+        this._pruneBaselines();
+        return {
+            totalBytes: this._baselineBytes,
+            byteBudget: this._baselineByteBudget,
+            ttlMs: this._baselineTtlMs,
+            entries: this._allBaselines().map((baseline) => ({
+                conversationId: baseline.conversationId,
+                sourceKind: baseline.sourceKind,
+                itemCount: baseline.items.length,
+                byteSize: baseline.byteSize,
+                subscriberCount: baseline.subscriberCount,
+                updatedAt: baseline.updatedAt,
+                lastSubscriberLeftAt: baseline.lastSubscriberLeftAt,
+                retainedUntil: baseline.retainedUntil
+            }))
+        };
+    }
+
+    /**
+     * Share one provider read among clients that ask for the same
+     * conversation/provider/purpose.  A returned waiter can detach without
+     * cancelling other clients; only the last waiter aborts the producer.
+     * This is an internal service API.  It does not add a WebSocket field.
+     */
+    startRecovery({
+        conversationId,
+        providerIdentity = 'default',
+        purpose = 'full',
+        producer,
+        waiterId = randomUUID(),
+        signal
+    } = {}) {
+        if (typeof conversationId !== 'string' || !conversationId.trim() || typeof producer !== 'function') {
+            return { ok: false, detailCode: 'invalid_recovery_request' };
+        }
+        const normalizedConversationId = conversationId.trim();
+        const normalizedPurpose = RECOVERY_PURPOSES.has(purpose) ? purpose : 'full';
+        const key = buildRecoveryKey({ conversationId: normalizedConversationId, providerIdentity, purpose: normalizedPurpose });
+        let flight = this._recoveryFlights.get(key);
+        const shared = Boolean(flight);
+        if (!flight) {
+            const controller = new AbortController();
+            flight = {
+                key,
+                conversationId: normalizedConversationId,
+                providerIdentity: normalizeRecoveryPart(providerIdentity, 'default'),
+                purpose: normalizedPurpose,
+                producer,
+                controller,
+                waiters: new Map(),
+                startedAt: this.now(),
+                settled: false,
+                acceptResult: true
+            };
+            this._recoveryFlights.set(key, flight);
+            flight.promise = this._runRecoveryProducer(flight);
+            // Waiters receive the producer result through their own promises;
+            // keep the internal driver promise from becoming an unhandled
+            // rejection when a caller detaches or does not inspect it.
+            void flight.promise.catch(() => {});
+        }
+
+        let normalizedWaiterId = normalizeRecoveryPart(waiterId, randomUUID());
+        if (flight.waiters.has(normalizedWaiterId)) normalizedWaiterId = randomUUID();
+        let detached = false;
+        let resolveWaiter;
+        let rejectWaiter;
+        const promise = new Promise((resolve, reject) => {
+            resolveWaiter = resolve;
+            rejectWaiter = reject;
+        });
+        const waiter = {
+            resolve: resolveWaiter,
+            reject: rejectWaiter,
+            detach: () => {
+                if (detached) return false;
+                detached = true;
+                return this._detachRecoveryWaiter(flight, normalizedWaiterId);
+            }
+        };
+        flight.waiters.set(normalizedWaiterId, waiter);
+        if (signal && typeof signal.addEventListener === 'function') {
+            if (signal.aborted) waiter.detach();
+            else signal.addEventListener('abort', waiter.detach, { once: true });
+        }
+        return {
+            ok: true,
+            key,
+            waiterId: normalizedWaiterId,
+            shared,
+            promise,
+            detach: waiter.detach
+        };
+    }
+
+    getRecoveryFlight({ conversationId, providerIdentity = 'default', purpose = 'full' } = {}) {
+        const key = buildRecoveryKey({ conversationId, providerIdentity, purpose });
+        const flight = this._recoveryFlights.get(key);
+        if (!flight) return null;
+        return {
+            key,
+            conversationId: flight.conversationId,
+            providerIdentity: flight.providerIdentity,
+            purpose: flight.purpose,
+            waiterCount: flight.waiters.size,
+            startedAt: flight.startedAt,
+            settled: flight.settled
+        };
+    }
+
+    _createBaseline(conversationId, items, options = {}) {
+        const normalizedItems = Array.isArray(items) ? items : [];
+        const rootHash = buildConversationRoot(normalizedItems);
+        const updatedAt = this.now();
+        const baseline = {
+            conversationId,
+            items: normalizedItems,
+            rootHash,
+            // P0-A provider/recovery call sites pass false here.  This field
+            // remains the existing wire gate for delete/order and is
+            // independent from syncOutcome below.
+            complete: Boolean(options.complete),
+            sourceKind: options.baselineSourceKind || null,
+            sourceEpoch: options.sourceEpoch || null,
+            syncOutcome: resolveSyncOutcome(options),
+            syncOutcomeDetail: resolveSyncOutcomeDetail(options),
+            updatedAt,
+            subscriberCount: 0,
+            lastSubscriberLeftAt: updatedAt,
+            retainedUntil: updatedAt + this._baselineTtlMs,
+            byteSize: estimateBaselineBytes({
+                conversationId,
+                items: normalizedItems,
+                rootHash,
+                sourceKind: options.baselineSourceKind || null,
+                sourceEpoch: options.sourceEpoch || null
+            })
+        };
+        return baseline;
+    }
+
+    _storeBaseline(baseline) {
+        this._pruneBaselines();
+        const previous = this._baselines.get(baseline.conversationId);
+        if (previous) {
+            if (previous.subscriberCount > 0) this._retiredBaselines.add(previous);
+            else this._removeBaselineRecord(previous);
+        }
+        this._baselines.set(baseline.conversationId, baseline);
+        this._baselineBytes += baseline.byteSize;
+        this._pruneBaselines();
+        this._enforceBaselineBudget();
+        return baseline;
+    }
+
+    _allBaselines() {
+        const records = new Set(this._retiredBaselines);
+        for (const baseline of this._baselines.values()) records.add(baseline);
+        return Array.from(records);
+    }
+
+    _removeBaselineRecord(baseline) {
+        if (!baseline || baseline.removed) return false;
+        if (this._baselines.get(baseline.conversationId) === baseline) {
+            this._baselines.delete(baseline.conversationId);
+        }
+        this._retiredBaselines.delete(baseline);
+        baseline.removed = true;
+        this._baselineBytes = Math.max(0, this._baselineBytes - baseline.byteSize);
+        return true;
+    }
+
+    _pruneBaselines() {
+        const now = this.now();
+        for (const baseline of this._allBaselines()) {
+            if (baseline.subscriberCount === 0 &&
+                baseline.retainedUntil !== null &&
+                now >= baseline.retainedUntil) {
+                this._removeBaselineRecord(baseline);
+            }
+        }
+        this._enforceBaselineBudget();
+        this._scheduleBaselineCleanup();
+    }
+
+    _scheduleBaselineCleanup() {
+        if (this._baselineCleanupTimer) clearTimeout(this._baselineCleanupTimer);
+        let nextExpiry = null;
+        for (const baseline of this._allBaselines()) {
+            if (baseline.subscriberCount !== 0 || baseline.retainedUntil === null) continue;
+            nextExpiry = nextExpiry === null
+                ? baseline.retainedUntil
+                : Math.min(nextExpiry, baseline.retainedUntil);
+        }
+        if (nextExpiry === null) {
+            this._baselineCleanupTimer = null;
+            return;
+        }
+        const delay = Math.min(2_147_483_647, Math.max(0, nextExpiry - this.now()));
+        this._baselineCleanupTimer = setTimeout(() => {
+            this._baselineCleanupTimer = null;
+            this._pruneBaselines();
+        }, delay);
+        if (typeof this._baselineCleanupTimer.unref === 'function') this._baselineCleanupTimer.unref();
+    }
+
+    _enforceBaselineBudget() {
+        if (this._baselineBytes <= this._baselineByteBudget) return;
+        const candidates = this._allBaselines()
+            .filter((baseline) => baseline.subscriberCount === 0)
+            .sort((left, right) => {
+                const leftTime = left.lastSubscriberLeftAt ?? left.updatedAt;
+                const rightTime = right.lastSubscriberLeftAt ?? right.updatedAt;
+                return leftTime - rightTime;
+            });
+        for (const baseline of candidates) {
+            if (this._baselineBytes <= this._baselineByteBudget) break;
+            this._removeBaselineRecord(baseline);
+        }
+    }
+
+    _retainBaseline(baseline) {
+        if (!baseline || baseline.removed) return false;
+        baseline.subscriberCount += 1;
+        baseline.lastSubscriberLeftAt = null;
+        baseline.retainedUntil = null;
+        return true;
+    }
+
+    _releaseBaseline(baseline) {
+        if (!baseline || baseline.removed || baseline.subscriberCount <= 0) return false;
+        baseline.subscriberCount -= 1;
+        if (baseline.subscriberCount === 0) {
+            baseline.lastSubscriberLeftAt = this.now();
+            baseline.retainedUntil = baseline.lastSubscriberLeftAt + this._baselineTtlMs;
+        }
+        return true;
+    }
+
+    async _runRecoveryProducer(flight) {
+        let result;
+        try {
+            result = await flight.producer({
+                signal: flight.controller.signal,
+                conversationId: flight.conversationId,
+                providerIdentity: flight.providerIdentity,
+                purpose: flight.purpose
+            });
+            if (flight.acceptResult && flight.waiters.size > 0) {
+                const resultConversationId = result?.conversationId || result?.threadId || null;
+                if (resultConversationId && resultConversationId !== flight.conversationId) {
+                    throw createRecoveryIdentityError(flight.conversationId, resultConversationId);
+                }
+                const resultItems = Array.isArray(result?.items) ? result.items : null;
+                if (resultItems) {
+                    this.registerBaselineItems(flight.conversationId, resultItems, {
+                        complete: false,
+                        baselineSourceKind: result.sourceKind || result.providerMode || 'history_recovery',
+                        sourceEpoch: result.sourceEpoch,
+                        resultKind: result.resultKind,
+                        syncOutcome: recoveryResultOutcome(result),
+                        syncOutcomeDetail: result.detailCode || null
+                    });
+                }
+            }
+            this._settleRecoveryFlight(flight, null, result);
+            return result;
+        } catch (error) {
+            this._settleRecoveryFlight(flight, error);
+            throw error;
+        }
+    }
+
+    _settleRecoveryFlight(flight, error, result) {
+        if (!flight || flight.settled) return;
+        flight.settled = true;
+        if (this._recoveryFlights.get(flight.key) === flight) this._recoveryFlights.delete(flight.key);
+        const waiters = Array.from(flight.waiters.values());
+        flight.waiters.clear();
+        for (const waiter of waiters) {
+            if (error) waiter.reject(error);
+            else waiter.resolve(result);
+        }
+    }
+
+    _detachRecoveryWaiter(flight, waiterId) {
+        if (!flight || !flight.waiters.has(waiterId)) return false;
+        const waiter = flight.waiters.get(waiterId);
+        flight.waiters.delete(waiterId);
+        waiter.reject(createRecoveryDetachedError());
+        if (flight.waiters.size === 0 && !flight.settled) {
+            flight.acceptResult = false;
+            if (this._recoveryFlights.get(flight.key) === flight) this._recoveryFlights.delete(flight.key);
+            try {
+                flight.controller.abort();
+            } catch {
+                // AbortController.abort() is expected to be idempotent; a
+                // custom runtime should not break waiter detachment.
+            }
+        }
+        return true;
+    }
 
     startSync({ ws, conversationId, syncId = randomUUID(), checkpoint = {}, selectionGeneration = 0, clientSelectionGeneration = 0, cacheSchemaVersion = 1 } = {}) {
         if (!ws || !conversationId || !isUuid(syncId)) return { ok: false, detailCode: 'invalid_sync_id' };
         if (!this.isStillActive(ws, conversationId, selectionGeneration)) return { ok: false, detailCode: 'stale_selection' };
+        this._pruneBaselines();
+        if (this._syncs.get(ws)) this.cancel(ws);
         const baseline = this._baselines.get(conversationId);
         if (!baseline) return { ok: false, detailCode: 'history_unavailable' };
         const normalizedCacheSchemaVersion = normalizeCacheSchemaVersion(cacheSchemaVersion);
@@ -296,6 +828,10 @@ class CodexHistorySyncService {
             ws, conversationId, syncId, sequence: 1, selectionGeneration,
             clientSelectionGeneration: normalizeClientSelectionGeneration(clientSelectionGeneration),
             checkpoint: normalizeCheckpoint(checkpoint), baseline,
+            syncOutcome: normalizeSyncOutcome(baseline.syncOutcome, baseline.complete ? 'synced' : 'partial'),
+            syncOutcomeDetail: baseline.syncOutcomeDetail || null,
+            rangeIncomplete: false,
+            settled: false,
             cacheSchemaVersion: normalizedCacheSchemaVersion,
             supportsPayloadChunks: normalizedCacheSchemaVersion >= 2,
             perPageAck: normalizedCacheSchemaVersion >= 2,
@@ -305,14 +841,17 @@ class CodexHistorySyncService {
             activePageChunks: [],
             nextChunkIndex: 0
         };
+        if (!this._retainBaseline(baseline)) return { ok: false, detailCode: 'history_unavailable' };
         this._syncs.set(ws, state);
         this._armInactivityTimer(ws, state);
         if (baseline.complete && state.checkpoint.complete && baseline.rootHash === state.checkpoint.rootHash && baseline.items.length === state.checkpoint.itemCount) {
-            clearTimeout(state.inactivityTimer);
-            state.inactivityTimer = null;
-            this._emit(ws, state, { type: 'conversation_history_sync_state', syncId, conversationId, state: 'live' });
-            this.cancel(ws);
-            return { ok: true, state: 'live', sync: state };
+            this._settle(ws, state, 'synced');
+            return { ok: true, state: 'synced', sync: state };
+        }
+        if (state.syncOutcome === 'cache_only' || state.syncOutcome === 'failed') {
+            const detailCode = state.syncOutcomeDetail || (state.syncOutcome === 'failed' ? 'history_recovery_failed' : 'cache_only');
+            this._settle(ws, state, state.syncOutcome, detailCode);
+            return { ok: true, state: state.syncOutcome, sync: state };
         }
         state.awaitingManifest = true;
         this._emit(ws, state, { type: 'conversation_history_manifest_required', syncId, conversationId, reason: 'root_mismatch', pageSize: this.options.manifestPageSize });
@@ -336,6 +875,11 @@ class CodexHistorySyncService {
         const diff = state.baseline.complete
             ? buildManifestDiff({ localItems, canonicalItems: state.baseline.items, baselineComplete: true })
             : buildPartialMergedDiff({ localItems, canonicalItems: state.baseline.items, baseRoot: state.checkpoint.rootHash || null });
+        // `baselineComplete` controls only delete/order authority.  A safe
+        // upsert-only diff can still be a complete result for the requested
+        // range; an older/middle gap, however, must force PARTIAL even when a
+        // caller supplied an optimistic sync outcome.
+        state.rangeIncomplete = diff.rangeComplete === false;
         const targetRoot = diff.targetRoot || buildConversationRoot(state.baseline.items);
         let pagesOut;
         try {
@@ -385,31 +929,78 @@ class CodexHistorySyncService {
         }
         state.lastAckedRoot = ack.targetRoot;
         state.lastActivityAt = this.now();
-        this._armInactivityTimer(ws, state);
         const finalPage = !state.perPageAck || ack.pageIndex === state.pages.length - 1;
         if (finalPage) {
-            this._emit(ws, state, { type: 'conversation_history_sync_state', syncId: state.syncId, conversationId: state.conversationId, state: state.baseline.complete ? 'live' : 'partial', ...(state.baseline.complete ? {} : { detailCode: 'baseline_partial' }) });
-            // The final page ACK completes this sync even when the baseline is
-            // intentionally partial (for example, while a turn is running).
-            // Do not leave the inactivity timer armed or emit a misleading
-            // sync_timeout after the client has already committed the page.
-            this.cancel(ws);
+            const terminalState = this._terminalState(state);
+            const detailCode = terminalState === 'partial'
+                ? (state.rangeIncomplete
+                    ? 'history_range_partial'
+                    : state.syncOutcomeDetail || (!state.baseline.complete ? 'baseline_partial' : 'history_partial'))
+                : undefined;
+            this._settle(ws, state, terminalState, detailCode);
+            return { ok: true, state: terminalState };
         }
+        this._armInactivityTimer(ws, state);
         if (state.perPageAck && !finalPage) this._pumpPages(ws, state);
-        return { ok: true, state: state.baseline.complete ? 'live' : 'partial' };
+        return { ok: true, state: 'syncing' };
     }
 
     cancel(ws) {
         const state = this._syncs.get(ws);
+        if (state) this._teardownSync(ws, state);
+    }
+
+    _terminalState(state) {
+        if (state.rangeIncomplete) return 'partial';
+        return normalizeSyncOutcome(
+            state.syncOutcome,
+            state.baseline.complete ? 'synced' : 'partial'
+        );
+    }
+
+    _settle(ws, state, terminalState, detailCode) {
+        if (!state || this._syncs.get(ws) !== state) return false;
+        const normalizedState = normalizeSyncOutcome(terminalState, 'failed');
+        state.settled = true;
+        state.terminalState = normalizedState;
+        this._clearSyncTimers(state);
+        try {
+            return this._emit(ws, state, {
+                type: 'conversation_history_sync_state',
+                syncId: state.syncId,
+                conversationId: state.conversationId,
+                state: normalizedState,
+                ...(detailCode ? { detailCode } : {})
+            });
+        } finally {
+            this._teardownSync(ws, state);
+        }
+    }
+
+    _clearSyncTimers(state) {
         if (state?.pageTimer) clearTimeout(state.pageTimer);
         if (state?.inactivityTimer) clearTimeout(state.inactivityTimer);
-        this._syncs.delete(ws);
+        if (state) {
+            state.pageTimer = null;
+            state.inactivityTimer = null;
+        }
+    }
+
+    _teardownSync(ws, state) {
+        if (!state || state.released) return;
+        this._clearSyncTimers(state);
+        if (this._syncs.get(ws) === state) this._syncs.delete(ws);
+        state.released = true;
+        this._releaseBaseline(state.baseline);
+        this._pruneBaselines();
     }
 
     _armInactivityTimer(ws, state) {
+        if (!state || state.settled || this._syncs.get(ws) !== state) return;
         if (state.inactivityTimer) clearTimeout(state.inactivityTimer);
         state.inactivityTimer = setTimeout(() => {
             if (this._syncs.get(ws) !== state) return;
+            if (state.settled) return;
             if (this.now() - state.lastActivityAt >= this.options.syncInactivityTimeoutMs) {
                 this._fail(ws, state, 'sync_timeout');
             } else {
@@ -420,7 +1011,7 @@ class CodexHistorySyncService {
     }
 
     _pumpPages(ws, state) {
-        if (this._syncs.get(ws) !== state || state.awaitingManifest || !this._isCurrent(state)) return;
+        if (this._syncs.get(ws) !== state || state.settled || state.awaitingManifest || !this._isCurrent(state)) return;
         if (state.perPageAck && state.awaitingAckPageIndex !== null) {
             this._pumpPayloadChunks(ws, state);
             return;
@@ -461,7 +1052,7 @@ class CodexHistorySyncService {
     }
 
     _pumpPayloadChunks(ws, state) {
-        if (!state.perPageAck || this._syncs.get(ws) !== state || !this._isCurrent(state)) return;
+        if (!state.perPageAck || state.settled || this._syncs.get(ws) !== state || !this._isCurrent(state)) return;
         const chunks = state.activePageChunks || [];
         if (state.nextChunkIndex >= chunks.length) return;
         const bufferedAmount = Number(ws?.bufferedAmount) || 0;
@@ -503,6 +1094,7 @@ class CodexHistorySyncService {
     }
 
     _schedulePump(ws, state, delay) {
+        if (state.settled || this._syncs.get(ws) !== state) return;
         if (state.pageTimer) clearTimeout(state.pageTimer);
         state.pageTimer = setTimeout(() => {
             state.pageTimer = null;
@@ -512,12 +1104,23 @@ class CodexHistorySyncService {
     }
 
     _fail(ws, state, detailCode) {
-        if (state.pageTimer) clearTimeout(state.pageTimer);
-        if (state.inactivityTimer) clearTimeout(state.inactivityTimer);
-        if (this._isCurrent(state)) {
-            this._emit(ws, state, { type: 'conversation_history_sync_state', syncId: state.syncId, conversationId: state.conversationId, state: 'failed', detailCode });
+        if (!state || state.settled) return { ok: false, detailCode };
+        state.settled = true;
+        state.terminalState = 'failed';
+        this._clearSyncTimers(state);
+        try {
+            if (this._isCurrent(state)) {
+                this._emit(ws, state, {
+                    type: 'conversation_history_sync_state',
+                    syncId: state.syncId,
+                    conversationId: state.conversationId,
+                    state: 'failed',
+                    detailCode
+                });
+            }
+        } finally {
+            this._teardownSync(ws, state);
         }
-        this._syncs.delete(ws);
         return { ok: false, detailCode };
     }
 
@@ -579,8 +1182,10 @@ module.exports = {
     buildManifestDiff,
     buildPartialMergedDiff,
     buildDeltaPages,
+    buildRecoveryKey,
     normalizeClientSelectionGeneration,
     normalizeCacheSchemaVersion,
+    normalizeSyncOutcome,
     splitUtf8,
     toWireItem
 };

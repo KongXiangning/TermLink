@@ -219,7 +219,10 @@ internal fun codexHistoryBodyHydrationLabel(
         CodexHistoryCacheLoadState.MISSING -> when (networkState.state) {
             CodexHistoryNetworkSyncState.SYNCING,
             CodexHistoryNetworkSyncState.REPAIRING -> "本地无缓存，正在从服务端恢复…"
+            CodexHistoryNetworkSyncState.CACHE_ONLY -> "本地暂无历史正文（当前为仅缓存模式）"
+            CodexHistoryNetworkSyncState.FAILED -> "本地暂无历史正文（服务端恢复失败）"
             CodexHistoryNetworkSyncState.OFFLINE -> "本地暂无历史正文（服务离线）"
+            CodexHistoryNetworkSyncState.UNSUPPORTED -> "本地暂无历史正文（服务端不支持恢复）"
             else -> "本地暂无历史正文"
         }
         CodexHistoryCacheLoadState.FAILED -> "手机缓存读取失败，仍可切换其他任务"
@@ -248,18 +251,24 @@ internal fun codexHistoryNetworkHydrationLabel(
     return when (networkState.state) {
         CodexHistoryNetworkSyncState.SYNCING -> "服务端历史：同步中…$progress"
         CodexHistoryNetworkSyncState.REPAIRING -> "服务端历史：校验并修复中…$progress"
-        CodexHistoryNetworkSyncState.PARTIAL -> "服务端历史：已显示部分，正在补齐…$progress"
-        CodexHistoryNetworkSyncState.FAILED -> "服务端历史：恢复失败，仍可切换其他任务"
-        CodexHistoryNetworkSyncState.OFFLINE -> if (cacheReady || hasHealthyLive) {
-            "服务端历史：离线，当前显示本地/实时内容"
-        } else {
-            "服务端历史：离线"
-        }
-        CodexHistoryNetworkSyncState.UNSUPPORTED -> "服务端历史：当前服务不支持恢复"
+        // PARTIAL/CACHE_ONLY/FAILED/OFFLINE/UNSUPPORTED are terminal
+        // outcomes, not ongoing work.  The cache/body label already conveys a
+        // failure when there is no readable body; keeping a second terminal
+        // banner above an otherwise usable conversation makes it look stuck.
+        CodexHistoryNetworkSyncState.PARTIAL,
+        CodexHistoryNetworkSyncState.CACHE_ONLY,
+        CodexHistoryNetworkSyncState.FAILED,
+        CodexHistoryNetworkSyncState.OFFLINE,
+        CodexHistoryNetworkSyncState.UNSUPPORTED -> null
         CodexHistoryNetworkSyncState.IDLE,
         CodexHistoryNetworkSyncState.SYNCED -> null
     }
 }
+
+internal fun shouldShowCodexHistoryNetworkSpinner(
+    state: CodexHistoryNetworkSyncState
+): Boolean = state == CodexHistoryNetworkSyncState.SYNCING ||
+    state == CodexHistoryNetworkSyncState.REPAIRING
 
 private object CodexBottomBarTokens {
     val composerRadius = 20.dp
@@ -631,11 +640,8 @@ fun CodexScreen(
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                                             ) {
-                                                if (state.historyNetworkSyncState.state in setOf(
-                                                        CodexHistoryNetworkSyncState.SYNCING,
-                                                        CodexHistoryNetworkSyncState.REPAIRING,
-                                                        CodexHistoryNetworkSyncState.PARTIAL
-                                                    ) || state.historyCacheState.loadState == CodexHistoryCacheLoadState.LOADING
+                                                if (shouldShowCodexHistoryNetworkSpinner(state.historyNetworkSyncState.state) ||
+                                                    state.historyCacheState.loadState == CodexHistoryCacheLoadState.LOADING
                                                 ) {
                                                     CircularProgressIndicator(
                                                         modifier = Modifier.size(12.dp),
@@ -1501,11 +1507,7 @@ private fun HistoryHydrationBanner(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (networkState in setOf(
-                    CodexHistoryNetworkSyncState.SYNCING,
-                    CodexHistoryNetworkSyncState.REPAIRING,
-                    CodexHistoryNetworkSyncState.PARTIAL
-                )
+            if (shouldShowCodexHistoryNetworkSpinner(networkState)
             ) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(14.dp),

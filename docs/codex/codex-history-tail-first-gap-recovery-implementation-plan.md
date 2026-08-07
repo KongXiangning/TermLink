@@ -300,7 +300,7 @@ HistoryProviderResult {
   conversationId
   providerMode: paginated | legacy | ephemeral | unknown
   resultKind: tail | segment | full | unavailable
-  items
+  items                       // canonical items；每项携带 eventTimeMs（item 自身时间，缺失用 turn.startedAt 作稳定 fallback）
   newestAnchor
   oldestAnchor
   nextOlderCursor
@@ -935,7 +935,8 @@ P0-A 不承诺完整 tail-first segment UX，但为后续迁移提供安全 prov
 
 1. additive Android range checkpoint/history_segments migration。
 2. additive wire：tail/segment/cursor/anchor/coverage/priority/cancel 字段，并显式新增 `coverageComplete`/
-   `authoritativeSnapshotVerified`（替代 P0-A 的 `baselineComplete` 隐式语义，见 §12.2）。
+   `authoritativeSnapshotVerified`（替代 P0-A 的 `baselineComplete` 隐式语义，见 §12.2）与 `eventTimeMs`（canonical item 事件时间，
+   前瞻支持历史消息时间恢复，见 §7.1）。
 3. paginated item-level tail bootstrap 和 older pump。
 4. legacy tail partial；只有内存 full baseline 时做静默 older backfill。
 5. SQLite 原子 segment commit、跨 sync 幂等和 scroll-anchor prepend。

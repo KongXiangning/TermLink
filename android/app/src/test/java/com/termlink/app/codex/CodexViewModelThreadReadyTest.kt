@@ -134,6 +134,144 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun terminalHistorySyncStatesIncludePartialCacheOnlyAndCompatibilityValues() {
+        listOf("synced", "partial", "cache_only", "failed", "offline", "unsupported", "live", "complete")
+            .forEach { state ->
+                assertTrue("$state should close the bounded sync", isTerminalHistorySyncState(state))
+            }
+        assertFalse(isTerminalHistorySyncState("syncing"))
+        assertFalse(isTerminalHistorySyncState("repairing"))
+    }
+
+    @Test
+    fun historySyncEventsRequireTheCurrentWireSyncId() {
+        assertTrue(acceptsActiveHistorySyncId("sync-a", "sync-a"))
+        assertFalse(acceptsActiveHistorySyncId("sync-a", "sync-b"))
+        assertFalse(acceptsActiveHistorySyncId("sync-a", null))
+        assertFalse(acceptsActiveHistorySyncId(null, "sync-a"))
+        assertFalse(acceptsActiveHistorySyncId("  ", "sync-a"))
+    }
+
+    @Test
+    fun optionalHistoryResumeErrorsAreHiddenOnlyDuringExplicitSelection() {
+        assertTrue(
+            shouldSuppressHistoryResumeError(
+                method = "thread/resume",
+                pendingHistoryResumeThreadId = "thread-a"
+            )
+        )
+        assertFalse(
+            shouldSuppressHistoryResumeError(
+                method = "thread/read",
+                pendingHistoryResumeThreadId = "thread-a"
+            )
+        )
+        assertFalse(
+            shouldSuppressHistoryResumeError(
+                method = "thread/resume",
+                pendingHistoryResumeThreadId = null
+            )
+        )
+    }
+
+    @Test
+    fun historyUnavailableKeepsSelectionProtectionUntilRecoveryStarts() {
+        assertTrue(
+            shouldKeepHistoryResumeProtectionForSyncState(
+                state = "failed",
+                detailCode = "history_unavailable"
+            )
+        )
+        assertTrue(
+            shouldKeepHistoryResumeProtectionForSyncState(
+                state = "FAILED",
+                detailCode = "history_baseline_timeout"
+            )
+        )
+        assertFalse(
+            shouldKeepHistoryResumeProtectionForSyncState(
+                state = "partial",
+                detailCode = "baseline_partial"
+            )
+        )
+        assertFalse(
+            shouldKeepHistoryResumeProtectionForSyncState(
+                state = "failed",
+                detailCode = "history_recovery_failed"
+            )
+        )
+    }
+
+    @Test
+    fun lateManifestFailureCannotSettleANewerActiveSync() {
+        assertFalse(
+            shouldApplyHistoryManifestSendFailure(
+                selectionIsCurrent = true,
+                activeSyncId = "sync-new",
+                manifestSyncId = "sync-old"
+            )
+        )
+        assertTrue(
+            shouldApplyHistoryManifestSendFailure(
+                selectionIsCurrent = true,
+                activeSyncId = "sync-new",
+                manifestSyncId = "sync-new"
+            )
+        )
+        assertFalse(
+            shouldApplyHistoryManifestSendFailure(
+                selectionIsCurrent = false,
+                activeSyncId = "sync-old",
+                manifestSyncId = "sync-old"
+            )
+        )
+    }
+
+    @Test
+    fun cacheOnlyWireStateRemainsExplicitAndIncompleteCacheEscalates() {
+        assertEquals(
+            CodexHistoryNetworkSyncState.CACHE_ONLY,
+            mapHistoryNetworkSyncStateForUi("cache_only")
+        )
+        assertTrue(
+            shouldEscalateHistoryRecovery(
+                cacheReady = true,
+                cacheComplete = true,
+                networkState = mapHistoryNetworkSyncStateForUi("cache_only"),
+                authorityMode = IpcAuthorityMode.AWAITING_IPC_SURFACE
+            )
+        )
+        assertTrue(
+            shouldEscalateHistoryRecovery(
+                cacheReady = true,
+                cacheComplete = false,
+                networkState = CodexHistoryNetworkSyncState.SYNCED,
+                authorityMode = IpcAuthorityMode.AWAITING_IPC_SURFACE
+            )
+        )
+        assertFalse(
+            shouldEscalateHistoryRecovery(
+                cacheReady = true,
+                cacheComplete = true,
+                networkState = CodexHistoryNetworkSyncState.SYNCED,
+                authorityMode = IpcAuthorityMode.AWAITING_IPC_SURFACE
+            )
+        )
+    }
+
+    @Test
+    fun historyPagesKeepIntermediateProgressUntilTheTerminalSyncState() {
+        assertEquals(
+            CodexHistoryNetworkSyncState.SYNCING,
+            historySyncProgressState(CodexHistoryNetworkSyncState.PARTIAL)
+        )
+        assertEquals(
+            CodexHistoryNetworkSyncState.REPAIRING,
+            historySyncProgressState(CodexHistoryNetworkSyncState.REPAIRING)
+        )
+    }
+
+    @Test
     fun inconsistentCompleteHistoryCheckpointIsDowngradedForRepair() {
         val checkpoint = normalizeHistoryCheckpointForAvailableItems(
             checkpoint = CodexConversationCheckpoint(
