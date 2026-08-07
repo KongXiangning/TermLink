@@ -17,6 +17,7 @@ import com.termlink.app.codex.data.PendingPlanActionInfo
 import com.termlink.app.codex.data.SurfaceEntry
 import com.termlink.app.codex.domain.ChatMessage
 import com.termlink.app.codex.domain.CodexPlanWorkflowState
+import com.termlink.app.codex.domain.CodexThreadHistoryEntry
 import com.termlink.app.codex.domain.CodexRuntimePanelState
 import com.termlink.app.codex.domain.CodexHistoryCacheLoadState
 import com.termlink.app.codex.domain.CodexHistoryNetworkSyncState
@@ -36,6 +37,34 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CodexViewModelThreadReadyTest {
+    @Test
+    fun threadHistoryEntriesAreScopedToTheCurrentWorkspace() {
+        val entries = listOf(
+            CodexThreadHistoryEntry("same", "same", cwd = "E:\\coding\\TermLink\\"),
+            CodexThreadHistoryEntry("other", "other", cwd = "E:/other"),
+            CodexThreadHistoryEntry("unknown", "unknown")
+        )
+
+        val scoped = filterThreadHistoryEntriesForCwd(entries, " e:/coding/termlink ")
+
+        assertEquals(listOf("same"), scoped.map { it.id })
+    }
+
+    @Test
+    fun remoteThreadHistoryRowsWithoutCwdInheritTheScopedRequest() {
+        val scoped = scopeRemoteThreadHistoryEntriesForCwd(
+            listOf(
+                CodexThreadHistoryEntry("same", "same", cwd = "E:/coding/termlink"),
+                CodexThreadHistoryEntry("unknown", "unknown"),
+                CodexThreadHistoryEntry("other", "other", cwd = "E:/other")
+            ),
+            "E:\\coding\\TermLink\\"
+        )
+
+        assertEquals(listOf("same", "unknown"), scoped.map { it.id })
+        assertEquals("E:\\coding\\TermLink\\", scoped[1].cwd)
+    }
+
     @Test
     fun historyTitleFallsBackToNormalizedPreviewWhenExplicitNameIsMissing() {
         val title = resolveCodexThreadHistoryTitleForUi(

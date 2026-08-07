@@ -508,6 +508,56 @@ internal fun selectIpcConversationForUi(
     return chooseInitialIpcConversationForUi(conversations, threadId, cwd)
 }
 
+/**
+ * Thread history is scoped by the Codex working directory.  Codex can report
+ * the same path with Windows separators, POSIX separators, or a trailing
+ * separator, so compare a conservative normalized representation instead of
+ * the display value.
+ */
+internal fun normalizeThreadHistoryCwdForUi(cwd: String?): String =
+    cwd?.trim()
+        ?.replace('\\', '/')
+        ?.trimEnd('/')
+        ?.lowercase(Locale.ROOT)
+        .orEmpty()
+
+/**
+ * Keep cached task metadata inside the currently selected Codex workspace.
+ * An entry without cwd is intentionally excluded when a scope is known: old
+ * cache-migration rows must not leak into another workspace's task list.
+ */
+internal fun filterThreadHistoryEntriesForCwd(
+    entries: List<CodexThreadHistoryEntry>,
+    cwd: String?
+): List<CodexThreadHistoryEntry> {
+    val normalizedCwd = normalizeThreadHistoryCwdForUi(cwd)
+    if (normalizedCwd.isEmpty()) return entries
+    return entries.filter { entry ->
+        normalizeThreadHistoryCwdForUi(entry.cwd) == normalizedCwd
+    }
+}
+
+/**
+ * A thread/list request already carries the current cwd.  Some Codex
+ * versions omit cwd on individual metadata rows even though the request was
+ * correctly scoped; attach the request scope to those rows before caching.
+ */
+internal fun scopeRemoteThreadHistoryEntriesForCwd(
+    entries: List<CodexThreadHistoryEntry>,
+    cwd: String?
+): List<CodexThreadHistoryEntry> {
+    val normalizedCwd = normalizeThreadHistoryCwdForUi(cwd)
+    if (normalizedCwd.isEmpty()) return entries
+    return entries.mapNotNull { entry ->
+        val entryCwd = normalizeThreadHistoryCwdForUi(entry.cwd)
+        when {
+            entryCwd.isEmpty() -> entry.copy(cwd = cwd?.trim())
+            entryCwd == normalizedCwd -> entry
+            else -> null
+        }
+    }
+}
+
 internal fun shouldRequireExactIpcConversationSelection(
     pinnedConversationId: String?,
     activeConversationId: String?,
@@ -2503,6 +2553,7 @@ class CodexViewModel(
     private val mediaPrefetchPermits = Semaphore(3)
     private var threadListRequestProfileId: String? = null
     private var threadListRequestGeneration: Long = 0L
+    private var threadListRequestCwd: String? = null
     private var pendingHistoryResumeHydrationThreadId: String? = null
     private var activeConversationSubscriptionId: String? = null
     private var activeConversationSubscriptionGeneration: Long = -1L
@@ -2573,6 +2624,7 @@ class CodexViewModel(
         historyCapability = null
         threadListRequestProfileId = null
         threadListRequestGeneration = historySelectionGeneration
+        threadListRequestCwd = null
         val rememberedOverrides = loadRememberedTaskOverrides(launchConversationId, reason = "connect")
         pinnedIpcConversationId = launchConversationId
         pendingHistoryResumeHydrationThreadId = null
@@ -2675,7 +2727,10 @@ class CodexViewModel(
                 } else {
                     state.copy(
                         threadHistoryEntries = mergeGoalHistoryEntries(
-                            cachedIndex.map(::toUiThreadHistoryEntry)
+                            filterThreadHistoryEntriesForCwd(
+                                cachedIndex.map(::toUiThreadHistoryEntry),
+                                state.cwd
+                            )
                         ),
                         threadHistoryLoading = false
                     )
@@ -2724,6 +2779,7 @@ class CodexViewModel(
         pendingHistoryResumeHydrationThreadId = null
         advanceHistorySelectionGeneration("disconnect")
         threadListRequestProfileId = null
+        threadListRequestCwd = null
         ipcStatusObserved = false
         connectionManager.disconnect()
     }
@@ -3425,7 +3481,22 @@ class CodexViewModel(
 
     fun setCwd(cwd: String) {
         connectionManager.send(CodexClientMessages.codexSetCwd(cwd))
-        _uiState.update { it.copy(cwd = cwd) }
+        val previousCwd = _uiState.value.cwd
+        val cwdChanged = normalizeThreadHistoryCwdForUi(previousCwd) !=
+            normalizeThreadHistoryCwdForUi(cwd)
+        _uiState.update { state ->
+            state.copy(
+                cwd = cwd,
+                threadHistoryEntries = if (cwdChanged) {
+                    filterThreadHistoryEntriesForCwd(state.threadHistoryEntries, cwd)
+                } else {
+                    state.threadHistoryEntries
+                }
+            )
+        }
+        if (cwdChanged) {
+            refreshThreadHistory()
+        }
     }
 
     fun submitApprovalDecision(requestId: String, approved: Boolean) {
@@ -4107,6 +4178,7 @@ class CodexViewModel(
         val profileId = currentProfile?.id ?: return
         threadListRequestProfileId = profileId
         threadListRequestGeneration = historySelectionGeneration
+        threadListRequestCwd = state.cwd?.trim()?.takeIf { it.isNotEmpty() }
         PersistentDiagnosticLog.event(
             "codex",
             "android.codex.history.refresh.started",
@@ -4150,6 +4222,7 @@ class CodexViewModel(
             mapOf(
                 "sent" to sent,
                 "generation" to threadListRequestGeneration,
+                "cwdScoped" to !threadListRequestCwd.isNullOrBlank(),
                 "entryCount" to _uiState.value.threadHistoryEntries.size
             ),
             level = if (sent) "info" else "warn"
@@ -6328,6 +6401,10 @@ class CodexViewModel(
                 val condThreadIdBlank = _uiState.value.threadId.isNullOrBlank()
                 val condActiveConvBlank = _uiState.value.activeConversationId.isNullOrBlank()
                 val shouldAdoptBoundThread = condBoundThreadId && condThreadIdBlank && condActiveConvBlank
+                val previousCwd = _uiState.value.cwd
+                val nextCwd = info.cwd ?: previousCwd
+                val cwdChanged = normalizeThreadHistoryCwdForUi(previousCwd) !=
+                    normalizeThreadHistoryCwdForUi(nextCwd)
                 Log.i(TAG, "[ipc][session-info][decision] boundThreadId=${boundThreadId.orEmpty()} " +
                     "cond:boundThreadId=$condBoundThreadId threadIdBlank=$condThreadIdBlank activeConvBlank=$condActiveConvBlank " +
                     "→ shouldAdopt=$shouldAdoptBoundThread " +
@@ -6341,6 +6418,11 @@ class CodexViewModel(
                             sessionId = info.sessionId,
                             sessionName = info.sessionName,
                             cwd = info.cwd ?: it.cwd,
+                            threadHistoryEntries = if (cwdChanged) {
+                                filterThreadHistoryEntriesForCwd(it.threadHistoryEntries, nextCwd)
+                            } else {
+                                it.threadHistoryEntries
+                            },
                             threadId = if (shouldAdoptBoundThread) boundThreadId else it.threadId,
                             activeConversationId = if (shouldAdoptBoundThread) {
                                 boundThreadId
@@ -6350,6 +6432,9 @@ class CodexViewModel(
                         ),
                         markActivity = false
                     )
+                }
+                if (cwdChanged) {
+                    refreshThreadHistory()
                 }
                 conversationToSubscribe?.let { conversationId ->
                     connectionManager.send(
@@ -7479,6 +7564,10 @@ class CodexViewModel(
                     previousThreadId = previousThreadId,
                     serverThreadId = serverThreadId
                 )
+                val previousCwd = _uiState.value.cwd
+                val nextCwd = state.cwd ?: previousCwd
+                val cwdChanged = normalizeThreadHistoryCwdForUi(previousCwd) !=
+                    normalizeThreadHistoryCwdForUi(nextCwd)
                 _uiState.update { current ->
                     val wasIdle = current.status.equals("idle", ignoreCase = true)
                     val isIdle = state.status.equals("idle", ignoreCase = true)
@@ -7568,7 +7657,12 @@ class CodexViewModel(
                                     )
                                 },
                                 interactionState = mergedInteractionState,
-                                cwd = state.cwd ?: current.cwd,
+                                cwd = nextCwd,
+                                threadHistoryEntries = if (cwdChanged) {
+                                    filterThreadHistoryEntriesForCwd(current.threadHistoryEntries, nextCwd)
+                                } else {
+                                    current.threadHistoryEntries
+                                },
                                 serverNextTurnConfigBase = state.nextTurnEffectiveCodexConfig,
                                 pendingServerRequests = if (ipcAuthoritative) {
                                     current.pendingServerRequests
@@ -7592,6 +7686,9 @@ class CodexViewModel(
                     } else {
                         nextState
                     }
+                }
+                if (cwdChanged) {
+                    refreshThreadHistory()
                 }
                 if (normalizedServerThreadId != null) {
                     pinnedIpcConversationId = normalizedServerThreadId
@@ -8528,13 +8625,21 @@ class CodexViewModel(
     }
 
     private fun handleThreadListResponse(result: Any?) {
-        val entries = parseThreadHistoryEntries(result)
         val profileId = currentProfile?.id
         if (profileId == null || threadListRequestProfileId != profileId ||
-            threadListRequestGeneration != historySelectionGeneration
+            threadListRequestGeneration != historySelectionGeneration ||
+            normalizeThreadHistoryCwdForUi(threadListRequestCwd) !=
+                normalizeThreadHistoryCwdForUi(_uiState.value.cwd)
         ) return
+        val entries = scopeRemoteThreadHistoryEntriesForCwd(
+            parseThreadHistoryEntries(result),
+            threadListRequestCwd
+        )
         val refreshedAt = System.currentTimeMillis()
-        val cachedEntries = _uiState.value.threadHistoryEntries
+        val cachedEntries = filterThreadHistoryEntriesForCwd(
+            _uiState.value.threadHistoryEntries,
+            threadListRequestCwd
+        )
         val mergedEntries = mergeThreadHistoryEntries(cachedEntries, entries)
         val indexEntries = entries.map { entry ->
             val merged = mergeThreadHistoryEntry(cachedEntries.firstOrNull { it.id == entry.id }, entry)
