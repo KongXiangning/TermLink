@@ -162,7 +162,10 @@
   `thread/read`、history sync 终态或有界 protection watchdog 到期时释放；`pinnedConversationId` 对带错误 id 的
   迟到事件保护继续有效，不能把 cache-first 的恢复保护变成永久实时过滤器。
 - 历史检查点一致性：Android 只有在本地 durable item 行数与 `complete` checkpoint 的 `itemCount` 一致时，才可把
- 该 checkpoint 作为 history fast path 证明；不一致必须清空 root 并降级为 incomplete，重新走 manifest/delta 修复。
+ 该 checkpoint 作为旧 v2 history fast path 证明；不一致必须清空 root 并降级为 incomplete，重新走 manifest/delta 修复。该
+ fast-path 证明不等于 P0-B range coverage 证明：旧 SQLite v3/checkpoint v2 的 `complete=true` 不包含 provider/cursor/历史起点
+ provenance，不能仅凭 `complete=true` 或旧 `itemCount/rootHash` 一致把新 range 标为 `coverageComplete=true`；无法证明时必须保留为
+ `legacy_unknown`/partial，旧 v2 显示路径仍可继续使用。
   能力位未知时，用户显式打开历史抽屉仍可发起 metadata `thread/list`，只有服务明确声明不支持时才跳过；这两条均是
   cache/history adapter 边界，不改变 healthy IPC authority 或远端任务语义。
 - P0-B 静态 range 扩展：在 capability 明确协商且 Android 使用 additive range/segment cache schema 时，history 通道可以在

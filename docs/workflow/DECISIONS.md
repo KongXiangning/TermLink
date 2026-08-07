@@ -107,6 +107,14 @@ Android 采用 additive SQLite user_version 3→4 / checkpoint schema 2→3，�
 但不能以此扩大实时 authority、一次性引入未使用协议语义，或让不可撤回的 schema migration 失去可操作回退。P0-C、legacy 服务重启后
 持久 tail/index、默认 paginated 新任务与独立 read-only worker 继续分别待授权。
 
+变更说明（2026-08-08，旧 v3 checkpoint 的 range coverage 迁移边界）：确认 SQLite v3 / checkpoint v2 的 `complete=true` 只保留旧
+v2 fast-path 语义，不能自动证明 P0-B 新 range 已连续覆盖到历史起点。旧 checkpoint 没有 provider identity、cursor chain、history-origin
+或 coverage provenance；即使旧 `itemCount`/`rootHash` 与本地行一致，也只证明旧缓存自洽，不证明没有更旧或中间缺口。迁移必须
+fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但新 range checkpoint 在没有自身 coverage proof 时保持
+`legacy_unknown`/partial、`coverageComplete=false`，不得猜 `hasMoreBefore`、older cursor，也不得据此启用完整覆盖语义。只有后续
+带明确 range coverage proof 的新 checkpoint 才能设置 `coverageComplete=true`；本决定不改变 IPC authority、wire 顶层版本或 P0-B
+的 upsert-only/delete-order 边界。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径

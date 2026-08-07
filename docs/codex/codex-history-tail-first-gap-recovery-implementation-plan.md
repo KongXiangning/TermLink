@@ -570,9 +570,12 @@ order 模型闭合（P0-B.0 已选定 A：`segment_rank` 存 segment 表，item 
   sync 幂等，“内容变了→新 segment_id→旧段 superseded”。
 - 新增独立的 segment/range root（`rootSchemaVersion=2`）按上述顺序散列；保留 P0-A/v2 的 `buildConversationRoot` 与旧 root 快速路径，
   不原地改变其 hash 语义。两种 root 版本不可比较。
-- checkpoint schema_version 2→3 迁移（SQLite user_version 3→4）：把现有 items 的全局 position 映射为一个 full-coverage segment
-  的 `within_segment_position`，但只有旧 checkpoint `complete=true` 且 durable itemCount/root 核对通过时才标记 `coverageComplete=true`；
-  其他旧数据统一映射为保留原 position 顺序的 `legacy_unknown` partial segment，不猜 tail、hasMoreBefore 或完整性。
+- checkpoint schema_version 2→3 迁移（SQLite user_version 3→4）：把现有 items 的全局 position 映射为一个保留旧顺序的兼容
+  segment，并写入 `within_segment_position`。SQLite v3 / checkpoint v2 的 `complete=true` 只是旧 v2 fast-path 状态位，不携带
+  provider identity、cursor chain、history-origin 或 range coverage proof；即使 durable `itemCount`/旧 `rootHash` 核对通过，也只能
+  保留旧 `complete` 供 v2 reader 使用，**不能自动升级为新 range 的 `coverageComplete=true`**。普通旧 v3 数据没有可证明的 range
+  provenance 时统一映射为 `legacy_unknown` partial segment，`coverageComplete=false`，不猜 tail、`hasMoreBefore`、older cursor
+  或历史起点。只有后续写入、并带有自身 coverage proof 的新 range checkpoint 才能设置 `coverageComplete=true`。
   迁移测试必须以真实“DB v3 + checkpoint schema_version=2”状态为起点，不能从假想 v1 开始。
 - `checkpointSchemaVersion`（DB/checkpoint 格式）与 `rootSchemaVersion`（hash 算法）分开记录，避免把 DB 格式和 hash 算法版本耦合。
 
@@ -822,7 +825,9 @@ P0-A 插入安全矩阵（防止“内容补齐但顺序错误”）：`buildPar
 tail-first segment 是现有 P0“无 schema 变化”之外的产品数据模型扩展，应独立授权。迁移必须：
 
 - 保留现有 conversations/items/media 和完整缓存；
-- 旧 `complete=true` checkpoint 可映射为单一 full-coverage segment，但必须先核对 durable itemCount/root；
+- 旧 `complete=true` checkpoint 只能保留为 v2 compatibility bit；即使 durable itemCount/root 核对通过，也不能证明新 range 已覆盖到
+  历史起点，因此迁移后的 range segment 必须保持 `legacy_unknown`/partial。旧缓存仍可通过 v2 reader 显示；新 range 只有在自身提交的
+  coverage proof 成立后才能变为 `coverageComplete=true`；
 - 旧 `complete=false` 缓存映射为 unknown partial segment，不猜 hasMoreBefore/order；
 - 版本号：SQLite `user_version` 3→4、conversation checkpoint `schema_version` 2→3（segment 排序），不能复用现有 v2；
   迁移测试必须以真实“DB v3 + checkpoint schema_version=2”为起点；

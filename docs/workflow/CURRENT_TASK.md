@@ -7,8 +7,8 @@
 - 任务 slug：codex-single-authority-owner-control-plane
 - 当前状态：in_progress
 - 生命周期状态：active
-- 当前 handoff：implement-current-step（P0-B.0 准备与范围锁定已完成；下一步只实施 P0-B.1 Android v4 存储基础）
-- 当前子任务：P0-A.1 至 P0-A.6 已完成，目标真机 smoke 初步通过；P0-B 已授权并完成 B.0 文档准备，B.1 待实施；P0-C/P1 未授权
+- 当前 handoff：review-diff（P0-B.0 文档/契约/回滚实施已完成，等待 B.0 diff review；通过后只进入 P0-B.1 Android v4 存储基础）
+- 当前子任务：P0-A.1 至 P0-A.6 已完成，目标真机 smoke 初步通过；P0-B 已授权，B.0 已实施并完成范围校验，B.1 待实施；P0-C/P1 未授权
 - 专项实施计划：`docs/codex/codex-android-history-cache-media-recovery-plan.md`
 - 历史尾部优先与缺口恢复专项计划：`docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md`
 - 子任务授权状态：implementation-authorized（用户于 2026-08-06 授权 P0-A，于 2026-08-07 明确授权开始 P0-B；P0-C/P1、15g/15h 及既有人工验收状态不变）
@@ -815,8 +815,9 @@ Implementation Plan（2026-08-07，P0-B tail-first range/segment）：
   additive range 扩展。服务端不新增持久历史正文；cache/range 仍是静态基底，IPC surface 继续独占同 key live 内容、operation、当前
   turn 与运行态。P0-C live-tail reconciliation 不在本阶段。
 - Technical approach：
-  1. 保留旧 position/v2 path，新建 segment/range 存储；旧 verified complete cache 迁为一个 coverage-complete segment，其余迁为
-     `legacy_unknown` partial。older prepend 使用递减 `segment_rank`，不重排既有 rows。
+  1. 保留旧 position/v2 path，新建 segment/range 存储；旧 v3 `complete=true` 只保留旧 v2 fast-path 兼容位，不能自动证明新 range
+     coverage 完整，因此迁移后一律按 `legacy_unknown` partial（除非输入本身带明确 range coverage proof）；older prepend 使用递减
+     `segment_rank`，不重排既有 rows。
   2. 最小 wire/capability 仅表达 schema、range/segment、anchors、nextOlderCursor、hasMoreBefore、coverageComplete；复用已有
      syncId、selectionGeneration 与 Gateway cancel。
   3. B.2 只打通最新尾部；B.3 只做单页 older；B.4 先证明 history 会给 live/control 让位，再启用自动 pump；B.5 才做滚动 UI。
@@ -1321,12 +1322,13 @@ Implementation Plan（2026-08-02，Android 快速模式）：
   不修改 wire/schema、IPC authority、follower/reconnect、owner 或 Gateway；新增 Android focused 回归通过，JDK 21
   `CodexViewModelHydrateFollowTest` 通过，debug APK 已构建并安装到 `da34332c`，启动后 PID 存活且无崩溃。原始“首次选择后等待无效、
   A→B→A 后成功”完整真机复现尚待用户在新 APK 上验证。
-- [completed] P0-B.0. 范围、契约与回滚锁定：以 `4a78060` 为 P0-B phase base，已同步专项计划、CURRENT_TASK、CONTRACTS 与
+- [completed] P0-B.0. 范围、契约与回滚锁定：以 `4a78060` 为 P0-B phase base，实施提交为 `709309e`；已同步专项计划、CURRENT_TASK、CONTRACTS 与
   AD-004 变更说明；锁定最小 range wire、static older upsert-only、部署 capability 证据、scheduler-before-auto-pump、DB v4/v2
-  fallback 与兼容回滚 APK。仅修改文档，不改业务代码、SQLite 或 wire。
+  fallback 与兼容回滚 APK。`git show --check 709309e`、工作树 `git diff --check` 通过；提交仅包含四份治理文档，未改业务代码、SQLite 或 wire。
 - [pending] P0-B.1. Android v4 存储基础：只修改 cache store/models 与 JVM fixtures/tests；additive history_segments、item segment
-  columns/index、range checkpoint schema 3、递减 segment_rank、旧 position/v2 fallback。用真实 v3 + checkpoint v2 fixture 验证
-  validated complete、legacy_unknown partial、upgrade 异常不会留下 user_version 4 的半迁移库和 rangeSegments.enabled=false 旧路径；兼容回滚
+  columns/index、range checkpoint schema 3、递减 segment_rank、旧 position/v2 fallback。用真实 v3 + checkpoint v2 fixture 验证：旧
+  `complete=true` 即使 itemCount/root 一致，也只保留 v2 fast-path 语义，迁移后的 range 必须是 `legacy_unknown`/partial、
+  `coverageComplete=false`；只有带明确 range coverage proof 的新 checkpoint 才能标记完整。另验证 upgrade 异常不会留下 user_version 4 的半迁移库和 rangeSegments.enabled=false 旧路径；兼容回滚
   构建未证明前不安装主测试设备。另以至少两页 older prepend fixture 验证兼容 position 不为空、不重排旧 rows，关闭 range 后 v2 reader
   顺序仍正确；JDK 21 `assembleDebug` 产出默认关闭 range 的 DB-v4-compatible rollback candidate，只构建、不安装主测试设备。
 - [pending] P0-B.2. 最新尾部端到端垂直切片：在 B.1 通过后解锁最小 capability/range wire 与 provider/Gateway/Android 路径；只提交
@@ -1341,8 +1343,8 @@ Implementation Plan（2026-08-02，Android 快速模式）：
 
 ## 回归门
 
-- P0-B.1 当前门禁：JDK 21 运行 cache store/model focused JVM tests；真实 v3 DB fixture 覆盖 v4 migration、validated/unknown
-  映射、旧 position/v2 fallback、两页 prepend 的兼容 position、unique index 与 transaction rollback；JDK 21 `assembleDebug` 产出
+- P0-B.1 当前门禁：JDK 21 运行 cache store/model focused JVM tests；真实 v3 DB fixture 覆盖旧 `complete=true` 的 v2 fast-path 保留但
+  range `legacy_unknown`/partial 映射、显式 range proof 的完整映射、旧 position/v2 fallback、两页 prepend 的兼容 position、unique index 与 transaction rollback；JDK 21 `assembleDebug` 产出
   range 默认关闭的 DB-v4-compatible APK；`git diff --check`。本步不安装主测试设备。
 - P0-B.2–B.4 分步门禁：provider/Gateway/history sync Node tests + Android wire/ViewModel/cache JVM tests；B.4 必须增加 live/control
   pending 优先、one-in-flight、任务切换取消与旧 sync 拒绝测试，未通过不得自动 pump。
@@ -2096,3 +2098,13 @@ fixture。随后重跑 Node 211/211、JDK 21 Android JVM、JavaScript syntax 和
   CONTRACTS 与 AD-004 的一致性收口：DB v4 保留 v2/position fallback，回滚使用理解 v4 且关闭 rangeSegments 的兼容构建；最小
   range wire 不预埋 P0-C/事件时间/恒 false proof/cancel-cycle 字段；当前部署的 items/list 必须实证；自动 older pump 晚于
   live/control 让位调度。B.0 未修改业务代码、SQLite 或 wire；下一 handoff 为 `implement-current-step`，只进入 P0-B.1。
+- 2026-08-07（P0-B.0 implementation verification）：确认上述 B.0 已由提交 `709309e` 实施，提交文件仅为专项实施计划、
+  `CURRENT_TASK.md`、`CONTRACTS.md` 与 `DECISIONS.md`；required markers、DB v4/v2 fallback、最小 range wire、
+  scheduler-before-auto-pump 与部署能力证据边界均存在。`git show --check 709309e` 与当前工作树 `git diff --check` 通过，当前
+  工作树在本记录修改前干净；本步没有 `src/`、`android/`、SQLite、wire、IPC authority、owner 或第二实时权威变更。无开放的
+  P0-B.0 finding；交接改为 `review-diff`，审查通过后才实施 P0-B.1。
+- 2026-08-08（P0-B.0 兼容规则修订）：收敛旧 SQLite v3 / checkpoint v2 的 `complete=true` 迁移语义。该位只保留旧 v2
+  fast-path 兼容含义；即使旧 `itemCount/rootHash` 与本地行一致，也不能证明新 range 已连续覆盖到历史起点。没有自身
+  coverage proof 时，迁移后的 range 必须保持 `legacy_unknown`/partial、`coverageComplete=false`，不猜 tail、older cursor 或
+  `hasMoreBefore`；旧 position/v2 reader 仍可显示旧缓存。专项计划、`CONTRACTS.md`、`DECISIONS.md` 与本任务 B.1 门禁已同步，
+  未修改业务代码、SQLite、wire、IPC authority 或 owner；B.1 仍是下一步。
