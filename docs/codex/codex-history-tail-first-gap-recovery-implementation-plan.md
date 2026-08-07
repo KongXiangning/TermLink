@@ -839,7 +839,8 @@ tail-first segment 是现有 P0“无 schema 变化”之外的产品数据模�
   保留原文件；
 - 关闭 feature/capability 只能回退**行为**，不能把 DB user_version 4 降回 3。首次在主测试设备升级前必须备份数据库或在数据库副本上
   演练，并准备一个“理解 DB v4、但 `rangeSegments.enabled=false`”的兼容回滚 APK；直接安装只理解 v3 的旧 APK 不是有效回滚方案；
-- B.1 迁移在兼容回滚 APK/路径未通过测试前，不安装到主测试设备；
+- B.1 迁移在兼容回滚 APK/路径未通过测试前，不迁移主测试设备；真实 `connectedDebugAndroidTest` 只能运行在可清理的专用设备/模拟器。
+  instrumentation fixture 的数据库可以使用独立文件，但目标 APK 与 `*.test` APK 的部署仍会触及目标包，不能把它称为设备/包级隔离；
 - home/local endpoint 继续物理/逻辑隔离。
 
 ### 13.2 order 与滚动锚点
@@ -974,8 +975,9 @@ P0-B 已于 2026-08-07 获用户授权，按以下一步一验顺序实施；后
 0. **P0-B.0 范围、契约与回滚锁定（文档阶段）**：锁定 static older upsert、最小 range wire、SQLite v4/v2 fallback、兼容回滚 APK、
    runtime capability 证据和本节顺序；不改业务代码。本步骤完成后才进入 B.1。
 1. **P0-B.1 Android v4 存储基础**：additive `history_segments`、item segment columns、range checkpoint schema v3、递减
-   `segment_rank`、旧 `position`/v2 路径兼容和真实 v3 数据库迁移测试。`rangeSegments.enabled` 默认 false；兼容回滚路径未验证前不安装主测试设备。
-   B.1 退出前用 JDK 21 产出一个默认关闭 range 的 debug APK 作为 DB-v4-compatible rollback candidate，但只构建、不安装主测试设备。
+   `segment_rank`、旧 `position`/v2 路径兼容和真实 v3 数据库迁移测试。`rangeSegments.enabled` 默认 false；兼容回滚路径未验证前不迁移主测试设备，
+   connected instrumentation 只在专用设备/模拟器运行。B.1 退出前用 JDK 21 产出一个默认关闭 range 的 debug APK 作为 DB-v4-compatible
+   rollback candidate；主测试设备只走普通 APK smoke。
 2. **P0-B.2 最新尾部端到端垂直切片**：只增加最小 capability-gated range 字段——schema/capability、range/segment id/kind、
    newest/oldest anchor、`nextOlderCursor`、`hasMoreBefore`、`coverageComplete`；复用现有 `syncId + selectionGeneration`。paginated
    `thread/items/list` 必须由当前捆绑 app-server 实测/capability 证明，否则使用已接通的 turns page 并 fail-closed。只提交并显示最新
@@ -1117,6 +1119,9 @@ selection、syncId 与 Gateway cancel。只有真实测试证据证明不足时�
 
 ### 20.2 Android range/cache（A：AI 必须；全量 instrumentation 归 C 层）
 
+真实 Android instrumentation 是 APK 部署测试，不是只打开一个独立 SQLite 文件；目标 APK 和测试 APK 都会安装到设备。
+因此必须使用可清理的专用设备/模拟器，主测试设备只执行普通 APK smoke。独立 fixture 数据库只能隔离测试数据，不能隔离包安装/卸载副作用。
+
 - 旧 DB migration 保留完整/partial cache，不清空正文或媒体（从真实 DB v3 + checkpoint schema_version=2 起点）。
 - 无缓存时 tail 约 200 items 先提交，older 后到。
 - “目标恰好在页面中间”时整页提交、不重复不漏项（证明上游 page 不可分割语义，见 §8.1）。
@@ -1219,7 +1224,7 @@ home（域名+mTLS）和 local（LAN）两条路径各验证：
 - SQLite `user_version=4` 不能通过关闭 flag 自动降为 3。不得把“直接安装旧 APK”当作回滚：只理解 DB v3 的旧构建默认无法打开
   v4 数据库。
 - B.1 首次向主测试设备迁移前必须备份数据库或先在副本演练，并产出一个 DB-v4-compatible、`rangeSegments.enabled=false` 的回滚构建；
-  capability/kill switch 开启前验证该构建能读取旧 position/v2 checkpoint 并保持任务可切换。
+  capability/kill switch 开启前验证该构建能读取旧 position/v2 checkpoint 并保持任务可切换。真实 connected instrumentation 不得在主测试设备执行。
 - 旧 Android 只在数据库尚未迁移时作为协议兼容客户端；它可以忽略 additive wire 字段，但不是已迁移设备的数据库回滚工具。
 - TermLink 内存 baseline 可安全丢弃；重启不影响 Android durable cache。
 - 回滚不能把 partial 标 complete，不能为恢复旧行为执行 destructive cache cleanup。
@@ -1247,4 +1252,5 @@ P0-A 已完成并形成 `4a78060` 阶段基线；用户已于 2026-08-07 授权 
 3. 是否增加独立 read-only app-server worker；默认暂缓，不属于最小 P0-B。
 4. P0-C live-tail durable gap reconciliation；必须在 P0-B 完成后单独授权。
 
-下一 handoff：`implement-current-step`，只实施 P0-B.1 Android v4 存储基础；在其迁移/兼容回归通过前不得进入 B.2，也不得安装主测试设备。
+下一 handoff：`implement-current-step`，P0-B.1 已完成并冻结；进入 B.2 前保持 range capability 与自动 older pump 关闭。后续真实
+instrumentation 只使用专用设备/模拟器，不在主测试设备执行 connected instrumentation。

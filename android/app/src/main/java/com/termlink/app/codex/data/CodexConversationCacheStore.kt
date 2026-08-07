@@ -17,7 +17,7 @@ class CodexConversationCacheStore(
     context,
     databaseName,
     null,
-    3
+    CodexHistoryCacheSchema.DATABASE_VERSION
 ) {
     private data class MediaBlobCandidate(
         val endpointId: String,
@@ -32,9 +32,20 @@ class CodexConversationCacheStore(
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("""
             CREATE TABLE conversations (
-                endpoint_id TEXT NOT NULL, conversation_id TEXT NOT NULL, schema_version INTEGER NOT NULL,
+                endpoint_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
+                schema_version INTEGER NOT NULL DEFAULT 3,
                 root_hash TEXT, item_count INTEGER NOT NULL DEFAULT 0, complete INTEGER NOT NULL DEFAULT 0,
                 last_synced_at INTEGER, last_opened_at INTEGER NOT NULL, payload_bytes INTEGER NOT NULL DEFAULT 0,
+                root_schema_version INTEGER NOT NULL DEFAULT 1,
+                provider_mode TEXT, provider_identity_hash TEXT,
+                range_id TEXT, range_kind TEXT,
+                newest_anchor_key TEXT, newest_anchor_hash TEXT,
+                oldest_anchor_key TEXT, oldest_anchor_hash TEXT,
+                next_older_cursor TEXT, coverage_root TEXT,
+                has_more_before INTEGER,
+                coverage_complete INTEGER NOT NULL DEFAULT 0,
+                coverage_state TEXT NOT NULL DEFAULT 'legacy_unknown',
+                committed_at INTEGER,
                 PRIMARY KEY (endpoint_id, conversation_id)
             )
         """.trimIndent())
@@ -44,11 +55,13 @@ class CodexConversationCacheStore(
                 turn_id TEXT, position INTEGER NOT NULL, item_type TEXT NOT NULL, role TEXT,
                 payload_json TEXT NOT NULL, content_hash TEXT NOT NULL, payload_bytes INTEGER NOT NULL,
                 provisional INTEGER NOT NULL DEFAULT 0, client_request_id TEXT, updated_at INTEGER NOT NULL,
+                segment_id TEXT, within_segment_position INTEGER,
                 PRIMARY KEY (endpoint_id, conversation_id, item_key)
             )
         """.trimIndent())
         db.execSQL("CREATE INDEX idx_items_conversation_position ON items(endpoint_id, conversation_id, provisional, position)")
         db.execSQL("CREATE INDEX idx_items_client_request ON items(endpoint_id, conversation_id, client_request_id)")
+        createHistorySegmentsSchema(db)
         db.execSQL("""CREATE TABLE thread_index (
             endpoint_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
             title TEXT NOT NULL, preview TEXT, archived INTEGER NOT NULL DEFAULT 0,
@@ -145,6 +158,38 @@ class CodexConversationCacheStore(
         }
     }
 
+    private fun createHistorySegmentsSchema(db: SQLiteDatabase) {
+        db.execSQL("""CREATE TABLE IF NOT EXISTS history_segments (
+            endpoint_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
+            segment_id TEXT NOT NULL, segment_rank INTEGER NOT NULL,
+            direction TEXT NOT NULL,
+            first_item_key TEXT, first_item_hash TEXT,
+            last_item_key TEXT, last_item_hash TEXT,
+            segment_root TEXT, item_count INTEGER NOT NULL DEFAULT 0,
+            next_older_cursor TEXT,
+            state TEXT NOT NULL DEFAULT 'committed',
+            committed_at INTEGER,
+            PRIMARY KEY (endpoint_id, conversation_id, segment_id)
+        )""".trimIndent())
+        db.execSQL("""
+            CREATE INDEX IF NOT EXISTS idx_history_segments_order
+            ON history_segments(endpoint_id, conversation_id, state, segment_rank)
+        """.trimIndent())
+        db.execSQL("""
+            CREATE INDEX IF NOT EXISTS idx_history_segments_cursor
+            ON history_segments(endpoint_id, conversation_id, next_older_cursor)
+        """.trimIndent())
+        db.execSQL("""
+            CREATE INDEX IF NOT EXISTS idx_items_segment_order
+            ON items(endpoint_id, conversation_id, segment_id, within_segment_position)
+        """.trimIndent())
+        db.execSQL("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_items_segment_position_unique
+            ON items(endpoint_id, conversation_id, segment_id, within_segment_position)
+            WHERE segment_id IS NOT NULL AND within_segment_position IS NOT NULL
+        """.trimIndent())
+    }
+
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) {
             try {
@@ -234,7 +279,232 @@ class CodexConversationCacheStore(
                 Log.e("CodexHistoryCache", "SQLite v2→v3 media migration failed; preserving committed history", error)
             }
         }
+        if (oldVersion < 4) {
+            // Do not catch this migration. SQLiteOpenHelper runs onUpgrade in
+            // its upgrade transaction; propagating any DDL/backfill error is
+            // what keeps user_version at 3 and preserves the original DB.
+            migrateV3ToV4(db)
+        }
     }
+
+    /**
+     * Add the dormant range schema and project the old global position into a
+     * single, explicitly unverified segment. This method intentionally does
+     * not alter old `complete`, `root_hash`, or `position` values: those remain
+     * the v2 fast-path contract, while the new range coverage starts unknown.
+     */
+    private fun migrateV3ToV4(db: SQLiteDatabase) {
+        addColumnIfMissing(db, "conversations", "root_schema_version", "INTEGER NOT NULL DEFAULT 1")
+        addColumnIfMissing(db, "conversations", "provider_mode", "TEXT")
+        addColumnIfMissing(db, "conversations", "provider_identity_hash", "TEXT")
+        addColumnIfMissing(db, "conversations", "range_id", "TEXT")
+        addColumnIfMissing(db, "conversations", "range_kind", "TEXT")
+        addColumnIfMissing(db, "conversations", "newest_anchor_key", "TEXT")
+        addColumnIfMissing(db, "conversations", "newest_anchor_hash", "TEXT")
+        addColumnIfMissing(db, "conversations", "oldest_anchor_key", "TEXT")
+        addColumnIfMissing(db, "conversations", "oldest_anchor_hash", "TEXT")
+        addColumnIfMissing(db, "conversations", "next_older_cursor", "TEXT")
+        addColumnIfMissing(db, "conversations", "coverage_root", "TEXT")
+        addColumnIfMissing(db, "conversations", "has_more_before", "INTEGER")
+        addColumnIfMissing(db, "conversations", "coverage_complete", "INTEGER NOT NULL DEFAULT 0")
+        addColumnIfMissing(db, "conversations", "coverage_state", "TEXT NOT NULL DEFAULT 'legacy_unknown'")
+        addColumnIfMissing(db, "conversations", "committed_at", "INTEGER")
+        addColumnIfMissing(db, "items", "segment_id", "TEXT")
+        addColumnIfMissing(db, "items", "within_segment_position", "INTEGER")
+        createHistorySegmentsSchema(db)
+
+        val conversationRows = mutableListOf<Triple<String, String, Long?>>()
+        db.query(
+            "conversations",
+            arrayOf("endpoint_id", "conversation_id", "last_synced_at", "last_opened_at"),
+            null,
+            null,
+            null,
+            null,
+            "endpoint_id ASC, conversation_id ASC"
+        ).use { conversations ->
+            while (conversations.moveToNext()) {
+                conversationRows += Triple(
+                    conversations.getString(0),
+                    conversations.getString(1),
+                    conversations.getLongOrNull("last_synced_at")
+                        ?: conversations.getLongOrNull("last_opened_at")
+                )
+            }
+        }
+        conversationRows.forEach { (endpointId, conversationId, committedAt) ->
+                var itemCount = 0
+                var firstItemKey: String? = null
+                var firstItemHash: String? = null
+                var lastItemKey: String? = null
+                var lastItemHash: String? = null
+                val itemKeys = mutableListOf<String>()
+
+                db.query(
+                    "items",
+                    arrayOf("item_key", "content_hash", "position"),
+                    "endpoint_id=? AND conversation_id=?",
+                    arrayOf(endpointId, conversationId),
+                    null,
+                    null,
+                    "position ASC, item_key ASC"
+                ).use { items ->
+                    while (items.moveToNext()) {
+                        val itemKey = items.getString(0)
+                        val itemHash = items.getString(1)
+                        val position = items.getLong(2)
+                        check(position in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) {
+                            "legacy item position is outside Int range"
+                        }
+                        if (firstItemKey == null) {
+                            firstItemKey = itemKey
+                            firstItemHash = itemHash
+                        }
+                        lastItemKey = itemKey
+                        lastItemHash = itemHash
+                        itemKeys += itemKey
+                        itemCount += 1
+                    }
+                }
+                val segmentId = legacySegmentId(
+                    endpointId = endpointId,
+                    conversationId = conversationId,
+                    firstItemKey = firstItemKey,
+                    firstItemHash = firstItemHash,
+                    lastItemKey = lastItemKey,
+                    lastItemHash = lastItemHash,
+                    itemCount = itemCount
+                )
+                itemKeys.forEachIndexed { index, itemKey ->
+                    db.execSQL(
+                        "UPDATE items SET segment_id=?, within_segment_position=? WHERE endpoint_id=? AND conversation_id=? AND item_key=?",
+                        arrayOf(segmentId, index, endpointId, conversationId, itemKey)
+                    )
+                }
+
+                db.insertWithOnConflict(
+                    "history_segments",
+                    null,
+                    ContentValues().apply {
+                        put("endpoint_id", endpointId)
+                        put("conversation_id", conversationId)
+                        put("segment_id", segmentId)
+                        put("segment_rank", 0L)
+                        put("direction", "ascending")
+                        put("first_item_key", firstItemKey)
+                        put("first_item_hash", firstItemHash)
+                        put("last_item_key", lastItemKey)
+                        put("last_item_hash", lastItemHash)
+                        // The old root has no range provenance. Do not copy it
+                        // into segment_root or imply a coverage proof.
+                        putNull("segment_root")
+                        put("item_count", itemCount)
+                        putNull("next_older_cursor")
+                        put("state", "committed")
+                        put("committed_at", committedAt)
+                    },
+                    SQLiteDatabase.CONFLICT_REPLACE
+                )
+                db.execSQL(
+                    """UPDATE conversations SET schema_version=?, root_schema_version=?,
+                        provider_mode=NULL, provider_identity_hash=NULL, range_id=NULL, range_kind=NULL,
+                        newest_anchor_key=NULL, newest_anchor_hash=NULL, oldest_anchor_key=NULL,
+                        oldest_anchor_hash=NULL, next_older_cursor=NULL, coverage_root=NULL,
+                        has_more_before=NULL, coverage_complete=0, coverage_state=?,
+                        committed_at=COALESCE(last_synced_at, last_opened_at)
+                       WHERE endpoint_id=? AND conversation_id=?""".trimIndent(),
+                    arrayOf(
+                        CodexHistoryCacheSchema.CHECKPOINT_SCHEMA_VERSION,
+                        CodexHistoryCacheSchema.LEGACY_ROOT_SCHEMA_VERSION,
+                        CodexHistoryCacheSchema.LEGACY_UNKNOWN_COVERAGE,
+                        endpointId,
+                        conversationId
+                    )
+                )
+        }
+        verifyV4Schema(db)
+    }
+
+    private fun addColumnIfMissing(db: SQLiteDatabase, table: String, column: String, definition: String) {
+        if (tableHasColumn(db, table, column)) return
+        db.execSQL("ALTER TABLE $table ADD COLUMN $column $definition")
+    }
+
+    private fun tableHasColumn(db: SQLiteDatabase, table: String, column: String): Boolean {
+        return db.rawQuery("PRAGMA table_info($table)", null).use { cursor ->
+            val nameIndex = cursor.getColumnIndexOrThrow("name")
+            while (cursor.moveToNext()) {
+                if (cursor.getString(nameIndex) == column) return@use true
+            }
+            false
+        }
+    }
+
+    private fun verifyV4Schema(db: SQLiteDatabase) {
+        val requiredConversationColumns = setOf(
+            "schema_version", "root_schema_version", "provider_mode", "provider_identity_hash",
+            "range_id", "range_kind", "newest_anchor_key", "newest_anchor_hash", "oldest_anchor_key",
+            "oldest_anchor_hash", "next_older_cursor", "coverage_root", "has_more_before",
+            "coverage_complete", "coverage_state", "committed_at"
+        )
+        val requiredItemColumns = setOf("position", "segment_id", "within_segment_position")
+        check(tableColumns(db, "conversations").containsAll(requiredConversationColumns)) {
+            "v4 conversations schema is incomplete"
+        }
+        check(tableColumns(db, "items").containsAll(requiredItemColumns)) {
+            "v4 items schema is incomplete"
+        }
+        check(tableColumns(db, "history_segments").containsAll(
+            setOf(
+                "segment_id", "segment_rank", "direction", "first_item_key", "first_item_hash",
+                "last_item_key", "last_item_hash", "segment_root", "item_count", "next_older_cursor",
+                "state", "committed_at"
+            )
+        )) { "v4 history_segments schema is incomplete" }
+        val positionNotNull = db.rawQuery("PRAGMA table_info(items)", null).use { cursor ->
+            val nameIndex = cursor.getColumnIndexOrThrow("name")
+            val notNullIndex = cursor.getColumnIndexOrThrow("notnull")
+            var result = false
+            while (cursor.moveToNext()) {
+                if (cursor.getString(nameIndex) == "position") {
+                    result = cursor.getInt(notNullIndex) == 1
+                    break
+                }
+            }
+            result
+        }
+        check(positionNotNull) { "items.position must remain NOT NULL" }
+    }
+
+    private fun tableColumns(db: SQLiteDatabase, table: String): Set<String> =
+        db.rawQuery("PRAGMA table_info($table)", null).use { cursor ->
+            val nameIndex = cursor.getColumnIndexOrThrow("name")
+            buildSet {
+                while (cursor.moveToNext()) add(cursor.getString(nameIndex))
+            }
+        }
+
+    private fun legacySegmentId(
+        endpointId: String,
+        conversationId: String,
+        firstItemKey: String?,
+        firstItemHash: String?,
+        lastItemKey: String?,
+        lastItemHash: String?,
+        itemCount: Int
+    ): String = "legacy-${sha256(
+        listOf(
+            endpointId,
+            conversationId,
+            "ascending",
+            firstItemKey.orEmpty(),
+            firstItemHash.orEmpty(),
+            lastItemKey.orEmpty(),
+            lastItemHash.orEmpty(),
+            itemCount.toString(),
+            CodexHistoryCacheSchema.LEGACY_ROOT_SCHEMA_VERSION.toString()
+        ).joinToString(":")
+    )}".take(80)
 
     /** Read the service-isolated task list without loading正文 or media payloads. */
     fun readThreadIndex(endpointId: String, includeArchived: Boolean = true): List<CodexThreadIndexEntry> {
@@ -438,6 +708,7 @@ class CodexConversationCacheStore(
                 contentHashes = candidates.map { it.contentHash }.toSet()
             )
             val paths = deleteUnreferencedMedia(db, (candidates + sharedCandidates).distinct())
+            db.delete("history_segments", "endpoint_id=? AND conversation_id=?", arrayOf(endpointId, conversationId))
             db.delete("items", "endpoint_id=? AND conversation_id=?", arrayOf(endpointId, conversationId))
             db.delete("conversations", "endpoint_id=? AND conversation_id=?", arrayOf(endpointId, conversationId))
             db.delete("thread_index", "endpoint_id=? AND conversation_id=?", arrayOf(endpointId, conversationId))
@@ -461,6 +732,7 @@ class CodexConversationCacheStore(
                 contentHashes = candidates.map { it.contentHash }.toSet()
             )
             val paths = deleteUnreferencedMedia(db, (candidates + sharedCandidates).distinct())
+            db.delete("history_segments", "endpoint_id=?", arrayOf(endpointId))
             db.delete("items", "endpoint_id=?", arrayOf(endpointId))
             db.delete("conversations", "endpoint_id=?", arrayOf(endpointId))
             db.delete("thread_index", "endpoint_id=?", arrayOf(endpointId))
@@ -609,10 +881,34 @@ class CodexConversationCacheStore(
         ).use { cursor ->
             if (!cursor.moveToFirst()) return null
             CodexConversationCheckpoint(
-                endpointId, conversationId, cursor.getInt(cursor.getColumnIndexOrThrow("schema_version")),
-                cursor.getString(cursor.getColumnIndexOrThrow("root_hash")), cursor.getInt(cursor.getColumnIndexOrThrow("item_count")),
-                cursor.getInt(cursor.getColumnIndexOrThrow("complete")) != 0,
-                cursor.getLongOrNull("last_synced_at"), cursor.getLong(cursor.getColumnIndexOrThrow("last_opened_at"))
+                endpointId = endpointId,
+                conversationId = conversationId,
+                schemaVersion = cursor.getInt(cursor.getColumnIndexOrThrow("schema_version")),
+                rootHash = cursor.getStringOrNull("root_hash"),
+                itemCount = cursor.getInt(cursor.getColumnIndexOrThrow("item_count")),
+                complete = cursor.getInt(cursor.getColumnIndexOrThrow("complete")) != 0,
+                lastSyncedAt = cursor.getLongOrNull("last_synced_at"),
+                lastOpenedAt = cursor.getLong(cursor.getColumnIndexOrThrow("last_opened_at")),
+                rootSchemaVersion = cursor.getIntOrDefault(
+                    "root_schema_version",
+                    CodexHistoryCacheSchema.LEGACY_ROOT_SCHEMA_VERSION
+                ),
+                providerMode = cursor.getStringOrNull("provider_mode"),
+                providerIdentityHash = cursor.getStringOrNull("provider_identity_hash"),
+                rangeId = cursor.getStringOrNull("range_id"),
+                rangeKind = cursor.getStringOrNull("range_kind"),
+                newestAnchorKey = cursor.getStringOrNull("newest_anchor_key"),
+                newestAnchorHash = cursor.getStringOrNull("newest_anchor_hash"),
+                oldestAnchorKey = cursor.getStringOrNull("oldest_anchor_key"),
+                oldestAnchorHash = cursor.getStringOrNull("oldest_anchor_hash"),
+                nextOlderCursor = cursor.getStringOrNull("next_older_cursor"),
+                coverageRoot = cursor.getStringOrNull("coverage_root"),
+                hasMoreBefore = cursor.getIntOrNull("has_more_before")?.let { it != 0 },
+                coverageComplete = cursor.getIntOrDefault("coverage_complete", 0) != 0,
+                coverageState = CodexHistoryCoverageState.fromStorage(
+                    cursor.getStringOrNull("coverage_state")
+                ),
+                committedAt = cursor.getLongOrNull("committed_at")
             )
         }
         val items = mutableListOf<CodexHistoryItem>()
@@ -650,7 +946,8 @@ class CodexConversationCacheStore(
     fun upsertProvisional(endpointId: String, conversationId: String, item: CodexHistoryItem) {
         if (migrationFailed) return
         require(item.provisional)
-        writableDatabase.insertWithOnConflict("items", null, item.values(endpointId, conversationId), SQLiteDatabase.CONFLICT_REPLACE)
+        val db = writableDatabase
+        insertItemPreservingRangeMetadata(db, item.values(endpointId, conversationId))
     }
 
     fun applyDeltaPage(endpointId: String, page: CodexHistoryDeltaPage, now: Long = System.currentTimeMillis()): PageApplyResult {
@@ -839,6 +1136,7 @@ class CodexConversationCacheStore(
     }
 
     private fun commitStaging(db: SQLiteDatabase, endpointId: String, page: CodexHistoryDeltaPage, now: Long) {
+        val invalidateRange = hasIncompatibleV2Mutation(db, page)
         db.query("sync_staging", null, "sync_id=? AND sequence=?", arrayOf(page.syncId, page.sequence.toString()), null, null, null).use { cursor ->
             while (cursor.moveToNext()) {
                 val operation = cursor.getString(cursor.getColumnIndexOrThrow("operation"))
@@ -846,7 +1144,10 @@ class CodexConversationCacheStore(
                 if (operation == "delete") {
                     db.delete("items", "endpoint_id=? AND conversation_id=? AND item_key=? AND provisional=0", arrayOf(endpointId, page.conversationId, key))
                 } else {
-                    db.insertWithOnConflict("items", null, cursor.toStagedItemValues(endpointId, page.conversationId, now), SQLiteDatabase.CONFLICT_REPLACE)
+                    insertItemPreservingRangeMetadata(
+                        db,
+                        cursor.toStagedItemValues(endpointId, page.conversationId, now)
+                    )
                 }
             }
         }
@@ -862,12 +1163,135 @@ class CodexConversationCacheStore(
             arrayOf(now, page.syncId, page.sequence)
         )
         val count = db.rawQuery("SELECT COUNT(*) FROM items WHERE endpoint_id=? AND conversation_id=? AND provisional=0", arrayOf(endpointId, page.conversationId)).use { it.moveToFirst(); it.getInt(0) }
-        db.insertWithOnConflict("conversations", null, page.checkpointValues(endpointId, count, now), SQLiteDatabase.CONFLICT_REPLACE)
+        insertCheckpointPreservingRangeMetadata(
+            db,
+            page.checkpointValues(endpointId, count, now)
+        )
+        if (invalidateRange) {
+            invalidateRangeMetadata(db, endpointId, page.conversationId, now)
+        }
         db.delete("sync_staging", "sync_id=? AND sequence=?", arrayOf(page.syncId, page.sequence.toString()))
         db.delete("sync_payload_chunks", "sync_id=? AND sequence=?", arrayOf(page.syncId, page.sequence.toString()))
         db.delete("sync_pages", "sync_id=? AND sequence=?", arrayOf(page.syncId, page.sequence.toString()))
         db.delete("sync_order", "sync_id=? AND sequence=?", arrayOf(page.syncId, page.sequence.toString()))
         db.delete("sync_sessions", "sync_id=?", arrayOf(page.syncId))
+    }
+
+    /**
+     * The legacy v2 wire can carry delete/order authority. Those mutations
+     * change the range projection without carrying range provenance, so a
+     * previously committed range checkpoint must not remain reusable.
+     */
+    private fun hasIncompatibleV2Mutation(db: SQLiteDatabase, page: CodexHistoryDeltaPage): Boolean {
+        if (page.baselineComplete || page.fullOrderIncluded) return true
+        val hasFullOrder = db.rawQuery(
+            "SELECT COUNT(*) FROM sync_order WHERE sync_id=? AND sequence=?",
+            arrayOf(page.syncId, page.sequence.toString())
+        ).use { cursor -> cursor.moveToFirst(); cursor.getInt(0) > 0 }
+        if (hasFullOrder) return true
+        return db.rawQuery(
+            "SELECT 1 FROM sync_staging WHERE sync_id=? AND sequence=? AND operation='delete' LIMIT 1",
+            arrayOf(page.syncId, page.sequence.toString())
+        ).use { cursor -> cursor.moveToFirst() }
+    }
+
+    private fun invalidateRangeMetadata(db: SQLiteDatabase, endpointId: String, conversationId: String, committedAt: Long) {
+        db.execSQL(
+            "UPDATE history_segments SET state='superseded' WHERE endpoint_id=? AND conversation_id=?",
+            arrayOf(endpointId, conversationId)
+        )
+        db.execSQL(
+            "UPDATE items SET segment_id=NULL, within_segment_position=NULL WHERE endpoint_id=? AND conversation_id=?",
+            arrayOf(endpointId, conversationId)
+        )
+        db.execSQL(
+            """UPDATE conversations SET
+                root_schema_version=?, provider_mode=NULL, provider_identity_hash=NULL,
+                range_id=NULL, range_kind=NULL, newest_anchor_key=NULL, newest_anchor_hash=NULL,
+                oldest_anchor_key=NULL, oldest_anchor_hash=NULL, next_older_cursor=NULL,
+                coverage_root=NULL, has_more_before=NULL, coverage_complete=0,
+                coverage_state=?, committed_at=?
+               WHERE endpoint_id=? AND conversation_id=?""".trimIndent(),
+            arrayOf(
+                CodexHistoryCacheSchema.LEGACY_ROOT_SCHEMA_VERSION,
+                CodexHistoryCacheSchema.LEGACY_UNKNOWN_COVERAGE,
+                committedAt,
+                endpointId,
+                conversationId
+            )
+        )
+    }
+
+    /**
+     * The v2 path does not know about segments. Preserve an existing range
+     * mapping when it replaces the same stable item key, while allowing new
+     * v2 items to remain unmapped until a range-aware writer owns them.
+     */
+    private fun insertItemPreservingRangeMetadata(db: SQLiteDatabase, values: ContentValues) {
+        val endpointId = values.getAsString("endpoint_id") ?: return
+        val conversationId = values.getAsString("conversation_id") ?: return
+        val itemKey = values.getAsString("item_key") ?: return
+        val existing = db.query(
+            "items",
+            arrayOf("segment_id", "within_segment_position"),
+            "endpoint_id=? AND conversation_id=? AND item_key=?",
+            arrayOf(endpointId, conversationId, itemKey),
+            null,
+            null,
+            null
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) null else Pair(
+                cursor.getStringOrNull("segment_id"),
+                cursor.getIntOrNull("within_segment_position")
+            )
+        }
+        val merged = ContentValues(values)
+        if (existing != null && !merged.containsKey("segment_id")) {
+            merged.put("segment_id", existing.first)
+            existing.second?.let { merged.put("within_segment_position", it) }
+        }
+        db.insertWithOnConflict("items", null, merged, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    /**
+     * A v2 delta can still be used while range capability is disabled. Its
+     * legacy checkpoint update must not erase a durable range cursor/anchor
+     * that was written by a later range-aware path.
+     */
+    private fun insertCheckpointPreservingRangeMetadata(db: SQLiteDatabase, values: ContentValues) {
+        val endpointId = values.getAsString("endpoint_id") ?: return
+        val conversationId = values.getAsString("conversation_id") ?: return
+        val rangeColumns = listOf(
+            "root_schema_version", "provider_mode", "provider_identity_hash", "range_id", "range_kind",
+            "newest_anchor_key", "newest_anchor_hash", "oldest_anchor_key", "oldest_anchor_hash",
+            "next_older_cursor", "coverage_root", "has_more_before", "coverage_complete",
+            "coverage_state", "committed_at"
+        )
+        val existing = db.query(
+            "conversations",
+            rangeColumns.toTypedArray(),
+            "endpoint_id=? AND conversation_id=?",
+            arrayOf(endpointId, conversationId),
+            null,
+            null,
+            null
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) null else rangeColumns.mapIndexed { index, column ->
+                column to if (cursor.isNull(index)) null else cursor.getString(index)
+            }.toMap()
+        }
+        val merged = ContentValues(values)
+        existing?.forEach { (column, rawValue) ->
+            if (merged.containsKey(column)) return@forEach
+            when (column) {
+                "has_more_before", "coverage_complete", "root_schema_version" ->
+                    rawValue?.toIntOrNull()?.let { merged.put(column, it) } ?: merged.putNull(column)
+                "committed_at" ->
+                    rawValue?.toLongOrNull()?.let { merged.put(column, it) } ?: merged.putNull(column)
+                else -> if (rawValue == null) merged.putNull(column) else merged.put(column, rawValue)
+            }
+        }
+        db.insertWithOnConflict("conversations", null, merged, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
 }
@@ -942,7 +1366,7 @@ private fun quoteJsonString(value: String): String {
 private fun sha256(text: String): String = sha256(text.toByteArray(Charsets.UTF_8))
 private fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 private fun CodexHistoryDeltaPage.sessionValues(endpointId: String, now: Long) = ContentValues().apply { put("sync_id", syncId); put("endpoint_id", endpointId); put("conversation_id", conversationId); put("sequence", sequence); put("base_root", baseRoot); put("target_root", targetRoot); put("page_count", pageCount); put("baseline_complete", if (baselineComplete) 1 else 0); put("full_order_included", if (fullOrderIncluded) 1 else 0); put("selection_generation", selectionGeneration); put("created_at", now); put("expires_at", now + 30_000) }
-private fun CodexHistoryDeltaPage.checkpointValues(endpointId: String, count: Int, now: Long) = ContentValues().apply { put("endpoint_id", endpointId); put("conversation_id", conversationId); put("schema_version", 2); put("root_hash", targetRoot); put("item_count", count); put("complete", if (baselineComplete) 1 else 0); put("last_synced_at", now); put("last_opened_at", now) }
+private fun CodexHistoryDeltaPage.checkpointValues(endpointId: String, count: Int, now: Long) = ContentValues().apply { put("endpoint_id", endpointId); put("conversation_id", conversationId); put("schema_version", CodexHistoryCacheSchema.CHECKPOINT_SCHEMA_VERSION); put("root_hash", targetRoot); put("item_count", count); put("complete", if (baselineComplete) 1 else 0); put("last_synced_at", now); put("last_opened_at", now) }
 private fun CodexHistoryItem.values(endpointId: String, conversationId: String) = ContentValues().apply { put("endpoint_id", endpointId); put("conversation_id", conversationId); put("item_key", itemKey); put("turn_id", turnId); put("position", position); put("item_type", itemType); put("role", role); put("payload_json", payloadJson); put("content_hash", contentHash); put("payload_bytes", payloadJson.toByteArray().size); put("provisional", if (provisional) 1 else 0); put("client_request_id", clientRequestId); put("updated_at", System.currentTimeMillis()) }
 private fun CodexHistoryItem.stagingValues(page: CodexHistoryDeltaPage) = ContentValues().apply {
     put("sync_id", page.syncId); put("sequence", page.sequence); put("page_index", page.pageIndex); put("operation", "upsert")

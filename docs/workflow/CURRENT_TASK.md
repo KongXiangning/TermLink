@@ -7,8 +7,8 @@
 - 任务 slug：codex-single-authority-owner-control-plane
 - 当前状态：in_progress
 - 生命周期状态：active
-- 当前 handoff：implement-current-step（P0-B.1 Android v4 存储基础）
-- 当前子任务：P0-A.1 至 P0-A.6 已完成，目标真机 smoke 初步通过；P0-A no-owner freshness follow-up 已完成；P0-B.0 已完成，B.1 尚未开始；P0-C/P1 未授权
+- 当前 handoff：implement-current-step（P0-B.2 最新尾部垂直切片，尚未开始）
+- 当前子任务：P0-A.1 至 P0-A.6 已完成，目标真机 smoke 初步通过；P0-A no-owner freshness follow-up 已完成；P0-B.0 已完成，B.1 已完成并冻结，B.2 尚未开始；P0-C/P1 未授权
 - 专项实施计划：`docs/codex/codex-android-history-cache-media-recovery-plan.md`
 - 历史尾部优先与缺口恢复专项计划：`docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md`
 - 子任务授权状态：implementation-authorized（用户于 2026-08-06 授权 P0-A，于 2026-08-07 明确授权开始 P0-B；P0-C/P1、15g/15h 及既有人工验收状态不变）
@@ -356,7 +356,9 @@
   - **P0-B.1 当前 Allowed Files**：
     `android/app/src/main/java/com/termlink/app/codex/data/CodexConversationCacheStore.kt`、
     `android/app/src/main/java/com/termlink/app/codex/data/CodexHistoryCacheModels.kt`、
-    `android/app/src/test/java/com/termlink/app/codex/**`、`android/app/src/test/resources/**`，以及上述四份任务/契约文档。
+    `android/app/src/test/java/com/termlink/app/codex/**`、`android/app/src/test/resources/**`、
+    `android/app/src/androidTest/java/com/termlink/app/codex/data/CodexHistoryCacheMigrationInstrumentationTest.kt`，以及上述四份任务/契约文档。
+    该 instrumentation 文件是为真实 Android SQLite user_version 迁移/回滚/清理验证新增的最小条件放行，不接入业务 wire 或 runtime path。
     本步只允许 DB user_version 3→4、checkpoint schema 2→3、additive segment/range 表列索引、旧 position/v2 fallback 和真实 v3
     迁移 fixture；v3→v4 必须让异常回滚整个 upgrade transaction，禁止 catch 后把半迁移数据库标成 user_version 4；不得接 wire、
     provider、Gateway、ViewModel 或 UI。现有 `items.position NOT NULL` 必须保留；新 range item 同时维护兼容 position 投影（older 在
@@ -379,8 +381,10 @@
     delete/global authoritative reorder、TermLink 持久正文副本、legacy 连续上游分页、`tailDirty`/`coverageRefreshRequired`/
     `eventTimeMs`/`authoritativeSnapshotVerified`/新 cancel 或 `recoveryCycleId` wire。
   - **Rollback lock**：保留旧 `position`、checkpoint v2 和旧 history 读写路径；`rangeSegments.enabled=false` 必须让 DB v4 新构建回到旧行为。
-    SQLite v4 不可依赖安装旧 v3 APK 降级；B.1 首次安装主测试设备前必须先在 DB 副本验证迁移，并准备 DB-v4-compatible、关闭
-    `rangeSegments` 的回滚 APK。条件未满足时不得开启 capability，也不得安装主测试设备。
+    SQLite v4 不可依赖安装旧 v3 APK 降级；B.1 首次迁移主测试设备前必须先在 DB 副本验证迁移，并准备 DB-v4-compatible、关闭
+    `rangeSegments` 的回滚 APK。真实 `connectedDebugAndroidTest` 只能在可清理的专用设备/模拟器运行；instrumentation fixture 的数据库
+    可以隔离，但 APK 部署仍会触及目标包，不能把主测试设备当作隔离 instrumentation 设备。条件未满足时不得开启 capability，也不得
+    在主测试设备运行 connected instrumentation。
   - **Change propagation / dangerous surfaces**：Android storage schema → cache models/queries/migration tests/rollback build；range wire →
     Gateway/Android DTO/old-client fallback；scheduler → history/live/control ordering 与冻结 IPC/Owner 回归；selection → syncId/generation/
     A→B→A。任一需要改变 healthy IPC authority、follower lifecycle、canonical binding 或 P0-C live-tail 协调的证据，必须停止并重新
@@ -846,7 +850,7 @@ Implementation Plan（2026-08-07，P0-B tail-first range/segment）：
   rollback；B.2/B.3 测 capability fallback、desc/ascending、cursor/anchor、幂等和 A→B；B.4 测 control/live preemption 与 one-in-flight；
   B.5 做 focused UI/scroll anchor；B.6 才做联合、JDK21 APK、ADB 单设备 smoke 和人工双路径/双宿主验收。
 - Open decisions：无阻塞 P0-B.1 的问题。legacy 持久 tail/index、默认 paginated、read-only worker 与 P0-C 均保持未授权。
-- Handoff：`implement-current-step`，只实施 P0-B.1；B.1 验收未通过不得进入 B.2。
+- Handoff：`implement-current-step`，下一步只实施 P0-B.2；B.2 开始前保持 B.1 基线、range capability 和自动 older pump 不变。
 
 ## Public / Internal Interface Changes
 
@@ -1339,12 +1343,13 @@ Implementation Plan（2026-08-02，Android 快速模式）：
   `selectionGeneration`、`syncId`、singleflight、35 秒 deadline 与每 generation 一次 bounded recovery。token 不变继续复用；不改
   wire/schema、Android/SQLite、IPC/feed、follower/reconnect、owner 或实时 authority。新增 Node focused 回归覆盖 token 稳定性、surface
   baseline 不误失效、真实 `thread/list` no-owner A→B→A 只触发一次新的 canonical read；`node --check` 与 `git diff --check` 通过。
-- [pending] P0-B.1. Android v4 存储基础：只修改 cache store/models 与 JVM fixtures/tests；additive history_segments、item segment
+- [completed] P0-B.1. Android v4 存储基础：只修改 cache store/models 与 JVM fixtures/tests；additive history_segments、item segment
   columns/index、range checkpoint schema 3、递减 segment_rank、旧 position/v2 fallback。用真实 v3 + checkpoint v2 fixture 验证：旧
   `complete=true` 即使 itemCount/root 一致，也只保留 v2 fast-path 语义，迁移后的 range 必须是 `legacy_unknown`/partial、
   `coverageComplete=false`；只有带明确 range coverage proof 的新 checkpoint 才能标记完整。另验证 upgrade 异常不会留下 user_version 4 的半迁移库和 rangeSegments.enabled=false 旧路径；兼容回滚
-  构建未证明前不安装主测试设备。另以至少两页 older prepend fixture 验证兼容 position 不为空、不重排旧 rows，关闭 range 后 v2 reader
-  顺序仍正确；JDK 21 `assembleDebug` 产出默认关闭 range 的 DB-v4-compatible rollback candidate，只构建、不安装主测试设备。
+  构建未证明前不迁移主测试设备；真实 connected instrumentation 只在专用设备/模拟器运行。另以至少两页 older prepend fixture 验证兼容
+  position 不为空、不重排旧 rows，关闭 range 后 v2 reader 顺序仍正确；JDK 21 `assembleDebug` 产出默认关闭 range 的 DB-v4-compatible
+  rollback candidate，主测试设备只保留普通 APK smoke 路径。
 - [pending] P0-B.2. 最新尾部端到端垂直切片：在 B.1 通过后解锁最小 capability/range wire 与 provider/Gateway/Android 路径；只提交
   最新约 200 items，不启动 older pump。`thread/items/list` 无部署能力证据时使用 turns/list 并保持 partial。
 - [pending] P0-B.3. 单页 older 与 durable checkpoint：用户按需一次一页，原子提交 items/segment/cursor/checkpoint；覆盖 cursor/anchor
@@ -1355,11 +1360,27 @@ Implementation Plan（2026-08-02，Android 快速模式）：
 - [pending] P0-B.6. 联合回归与启用：跨模块 Node/JVM、JDK 21 APK、ADB 单设备 smoke 与人工 home/local、Desktop/VS Code 验收；
   DB-v4-compatible kill-switch 构建验证成功后才允许把 rangeSegments.enabled 设为 true。
 
+- 2026-08-08（P0-B.1 实施与审查修复）：严格限定在 Android cache store/models、JVM tests 与一个为真实 SQLite
+  user_version 迁移而条件放行的 instrumentation fixture；未扩大到 wire、Gateway、provider、ViewModel、UI、IPC/feed、Owner 或实时
+  authority。SQLite user_version 由 3 提升到 4；新增 additive range checkpoint 字段、`history_segments`、`items.segment_id`/
+  `within_segment_position` 与 segment-position 唯一索引；真实 v3/checkpoint v2 迁移保持旧 `complete/root/position`，新 range
+  coverage 固定为 `legacy_unknown`/`coverageComplete=false`，不猜 cursor、anchor 或 `hasMoreBefore`。修复了任务/服务清理遗留
+  `history_segments` 的问题；v2 发生 full-baseline、delete 或 order mutation 时，原子使旧 range segment superseded、清空映射和
+  coverage proof，普通 upsert-only 仍保留兼容映射。迁移会拒绝超出旧 Int 能力的 malformed position，并依赖 SQLite upgrade transaction
+  回滚。JVM model/position tests、真实 v3→v4/rollback/v2-order/cleanup/incompatible-v2 instrumentation 共 5/5、JDK 21
+  `:app:testDebugUnitTest`、`:app:assembleDebug`、`compileDebugAndroidTestKotlin` 与 `git diff --check` 均通过；本次实际在
+  `da34332c` 运行了隔离 fixture 数据库的 instrumentation，但 `connectedDebugAndroidTest` 同时部署了目标 APK 与
+  `com.termlink.app.test`，因此这不是设备/包级隔离测试，不能作为主测试设备安全证明，后续不得在主测试设备重复运行。未启用
+  range capability，也未做主流程人工 smoke。
+- 2026-08-08（P0-B.1 收口）：代码、migration/rollback/cleanup 回归和范围审查通过；B.1 已冻结。后续 Android instrumentation
+  只允许使用可清理的专用设备/模拟器，B.2 仍保持 pending，range capability 与自动 older pump 均未开启。
+
 ## 回归门
 
-- P0-B.1 当前门禁：JDK 21 运行 cache store/model focused JVM tests；真实 v3 DB fixture 覆盖旧 `complete=true` 的 v2 fast-path 保留但
+- P0-B.1 已完成门禁：JDK 21 运行 cache store/model focused JVM tests；真实 v3 DB fixture 覆盖旧 `complete=true` 的 v2 fast-path 保留但
   range `legacy_unknown`/partial 映射、显式 range proof 的完整映射、旧 position/v2 fallback、两页 prepend 的兼容 position、unique index 与 transaction rollback；JDK 21 `assembleDebug` 产出
-  range 默认关闭的 DB-v4-compatible APK；`git diff --check`。本步不安装主测试设备。
+  range 默认关闭的 DB-v4-compatible APK；真实 SQLite instrumentation 运行迁移、回滚、v2 顺序、任务/服务清理和不兼容 v2 mutation
+ 失效；`git diff --check`。本步不启用 range capability，不做主流程人工 smoke；connected instrumentation 仅允许在专用设备/模拟器运行。
 - P0-B.2–B.4 分步门禁：provider/Gateway/history sync Node tests + Android wire/ViewModel/cache JVM tests；B.4 必须增加 live/control
   pending 优先、one-in-flight、任务切换取消与旧 sync 拒绝测试，未通过不得自动 pump。
 - P0-B.5–B.6：focused scroll-anchor/UI tests、JDK 21 debug APK；有设备时按 `adb-real-device-debug` skill 执行单设备 smoke，最终
@@ -1402,6 +1423,44 @@ Implementation Plan（2026-08-02，Android 快速模式）：
   - Required test：缺少/非法 `following` 不登记、不回复；targeted snapshot 与 status request 发送抛错时
     广播/状态事件处理不抛出，Owner conversation 保持可用；四组 IPC/Gateway 定向回归继续通过。
   - Handoff：implement-current-step
+
+- Finding ID：P0-B1-CACHE-CLEAR-F001
+  - Severity：P1 / major
+  - Source：`review-implementation`（P0-B.1，Android storage working-tree + untracked tests）
+  - Status：resolved
+  - File / symbol：`CodexConversationCacheStore.clearConversationCache`、`clearServiceCache`
+  - Failure scenario：删除任务或服务的 `items`/`conversations` 后，v4 `history_segments` 仍保留旧 rank/cursor/anchor，后续同任务
+    重新打开可能继续使用已清理的 range 元数据。
+  - Minimal fix direction：在同一清理事务中按 conversation 或 endpoint 删除 `history_segments`。
+  - Required test：真实 Android SQLite 任务级与服务级清理后，目标 segment 不存在、其他 endpoint/task segment 保留；已由
+    `CodexHistoryCacheMigrationInstrumentationTest.clearingTaskAndServiceAlsoRemovesRangeSegments` 覆盖。
+  - Handoff：review-implementation
+
+- Finding ID：P0-B1-V2-RANGE-F001
+  - Severity：P1 / major
+  - Source：`review-implementation`（P0-B.1，Android storage working-tree + untracked tests）
+  - Status：resolved
+  - File / symbol：`CodexConversationCacheStore.commitStaging`、v2 item/checkpoint preservation helpers
+  - Failure scenario：v2 full-baseline、delete 或 full-order 变更只更新旧 `position`/正文，却继续保留 range segment mapping、cursor、
+    anchors 和 `coverageComplete`，使之后启用 range 时可能读取过期顺序或错误 coverage proof。
+  - Minimal fix direction：检测不兼容 v2 mutation；原子将旧 segment 标记 superseded、清空 item range mapping，并把 checkpoint
+    降为 `legacy_unknown`/`coverageComplete=false`；普通 upsert-only 仍保留兼容映射。
+  - Required test：真实 Android SQLite 执行带 delete/order 的 v2 delta 后，range proof、cursor、mapping 均失效；已由
+    `CodexHistoryCacheMigrationInstrumentationTest.incompatibleV2OrderAndDeleteInvalidateRangeMetadata` 覆盖。
+  - Handoff：review-implementation
+
+- Finding ID：P0-B1-TEST-EVIDENCE-F001
+  - Severity：P1 / major
+  - Source：`review-implementation`（P0-B.1，测试充分性）
+  - Status：resolved
+  - File / symbol：P0-B.1 migration/rollback/cleanup test gate
+  - Failure scenario：仅有纯 model/position tests 时，无法证明真实 SQLite DDL/backfill、upgrade rollback、v2 reader 或清理语义。
+  - Minimal fix direction：增加真实 v3 fixture instrumentation，覆盖迁移保留、malformed position 全事务回滚、两页 prepend v2 顺序、
+    task/service cleanup 和不兼容 v2 mutation。
+  - Required test：`connectedDebugAndroidTest` 应在专用设备/模拟器运行；本次在 `da34332c` 的新增类为 5/5，但该设备同时部署了
+    目标 APK 与 `com.termlink.app.test`，只作为 SQLite fixture 证据，不作为主测试设备安全隔离证据；JDK 21 `:app:testDebugUnitTest`、
+    `compileDebugAndroidTestKotlin` 与 `:app:assembleDebug` 通过。
+  - Handoff：review-implementation
 
 ## 传播治理记录
 
