@@ -205,6 +205,7 @@ data class CodexHistoryDeltaPage(
     val canonicalOrder: List<String> = emptyList(),
     val upserts: List<CodexHistoryItem> = emptyList(),
     val deletes: List<String> = emptyList(),
+    val range: CodexHistoryRangeMetadata? = null,
     /** Client-side selection token used to reject A→B→A stale pages. */
     val selectionGeneration: Long = 0L
 )

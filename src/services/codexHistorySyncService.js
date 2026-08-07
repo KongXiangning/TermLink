@@ -40,6 +40,10 @@ const TERMINAL_SYNC_STATES = new Set(['synced', 'partial', 'cache_only', 'failed
 const RECOVERY_PURPOSES = new Set(['full', 'tail']);
 
 function computeHistoryPageHash(page) {
+    // Keep the v1 page hash byte-compatible with old Android clients.  Range
+    // metadata is additive transport metadata in B.2 and is not yet owned by
+    // the durable page/checkpoint integrity chain; B.3 will extend that chain
+    // when the range writer starts persisting cursor/anchor state.
     const input = {
         syncId: page.syncId,
         sequence: page.sequence,
@@ -151,6 +155,7 @@ function buildDeltaPages({
     enablePayloadChunks = false,
     payloadInlineMaxBytes = DEFAULTS.historyInlinePayloadBytes,
     payloadChunkBytes = DEFAULTS.historyPayloadChunkBytes,
+    range = null,
     // The page-size budget is the budget for the final WebSocket envelope,
     // not just for the page body.  Keep this optional for callers that use
     // the pure page builder; the sync service supplies the wrapper fields
@@ -190,7 +195,8 @@ function buildDeltaPages({
             syncId, sequence, pageIndex: pages.length, pageCount: 0, baseRoot, targetRoot,
             baselineComplete, fullOrderIncluded: pages.length === 0 && Boolean(order),
             upserts: nextUpserts.map((item) => item.wire), deletes: nextDeletes,
-            ...(pages.length === 0 && order ? { canonicalOrder: order } : {})
+            ...(pages.length === 0 && order ? { canonicalOrder: order } : {}),
+            ...(range ? { range: normalizeRangeMetadata(range) } : {})
         };
         const sizeCandidate = envelopeContext
             ? {
@@ -215,6 +221,7 @@ function buildDeltaPages({
             targetRoot,
             baselineComplete,
             order,
+            range,
             preparedUpserts: pageUpserts,
             deletes: pageDeletes
         }));
@@ -248,6 +255,7 @@ function buildDeltaPages({
             targetRoot,
             baselineComplete,
             order,
+            range,
             preparedUpserts: [],
             deletes: []
         }));
@@ -269,6 +277,7 @@ function makePage({
     targetRoot,
     baselineComplete,
     order,
+    range = null,
     upserts = [],
     preparedUpserts,
     deletes,
@@ -299,7 +308,8 @@ function makePage({
             return result.wire;
         }),
         deletes,
-        ...(fullOrderIncluded ? { canonicalOrder: order } : {})
+        ...(fullOrderIncluded ? { canonicalOrder: order } : {}),
+        ...(range ? { range: normalizeRangeMetadata(range) } : {})
     };
     // Chunks are a server-side delivery queue, not part of the delta page
     // wire/hash. Keep them non-enumerable so legacy page serialization stays
@@ -387,6 +397,36 @@ function normalizeSyncOutcome(value, fallback = 'partial') {
     if (normalized === 'live') return 'synced';
     if (normalized === 'offline' || normalized === 'unsupported') return 'cache_only';
     return TERMINAL_SYNC_STATES.has(normalized) ? normalized : fallback;
+}
+
+function normalizeRangeMetadata(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const normalizeAnchor = (anchor) => {
+        if (!anchor || typeof anchor !== 'object' || Array.isArray(anchor)) return null;
+        const key = typeof anchor.key === 'string' && anchor.key.trim() ? anchor.key.trim() : null;
+        const hash = typeof anchor.hash === 'string' && anchor.hash.trim() ? anchor.hash.trim() : null;
+        return key && hash ? { key, hash } : null;
+    };
+    const rangeId = typeof value.rangeId === 'string' && value.rangeId.trim()
+        ? value.rangeId.trim()
+        : typeof value.segmentId === 'string' && value.segmentId.trim()
+            ? value.segmentId.trim()
+            : null;
+    if (!rangeId) return null;
+    return {
+        version: Number.isSafeInteger(value.version) && value.version > 0 ? value.version : 1,
+        segmentId: typeof value.segmentId === 'string' && value.segmentId.trim() ? value.segmentId.trim() : rangeId,
+        rangeId,
+        rangeKind: typeof value.rangeKind === 'string' && value.rangeKind.trim() ? value.rangeKind.trim() : 'tail',
+        newestAnchor: normalizeAnchor(value.newestAnchor),
+        oldestAnchor: normalizeAnchor(value.oldestAnchor),
+        nextOlderCursor: Object.prototype.hasOwnProperty.call(value, 'nextOlderCursor')
+            ? (value.nextOlderCursor === null || typeof value.nextOlderCursor === 'string' ? value.nextOlderCursor : null)
+            : null,
+        hasMoreBefore: value.hasMoreBefore === true,
+        coverageRoot: typeof value.coverageRoot === 'string' && value.coverageRoot.trim() ? value.coverageRoot.trim() : null,
+        coverageComplete: value.coverageComplete === true
+    };
 }
 
 function resolveSyncOutcome(options = {}) {
@@ -728,6 +768,10 @@ class CodexHistorySyncService {
             complete: Boolean(options.complete),
             sourceKind: options.baselineSourceKind || null,
             sourceEpoch: options.sourceEpoch || null,
+            resultKind: typeof options.resultKind === 'string' ? options.resultKind : null,
+            range: normalizeRangeMetadata(options.rangeMetadata || options.range),
+            hasMoreBefore: options.hasMoreBefore === true,
+            coverageComplete: options.coverageComplete === true,
             syncOutcome: resolveSyncOutcome(options),
             syncOutcomeDetail: resolveSyncOutcomeDetail(options),
             freshnessToken: options.freshnessToken || (
@@ -868,13 +912,16 @@ class CodexHistorySyncService {
                 if (resultConversationId && resultConversationId !== flight.conversationId) {
                     throw createRecoveryIdentityError(flight.conversationId, resultConversationId);
                 }
-                const resultItems = Array.isArray(result?.items) ? result.items : null;
+            const resultItems = Array.isArray(result?.items) ? result.items : null;
                 if (resultItems) {
                     this.registerBaselineItems(flight.conversationId, resultItems, {
                         complete: false,
                         baselineSourceKind: result.sourceKind || result.providerMode || 'history_recovery',
                         sourceEpoch: result.sourceEpoch,
                         resultKind: result.resultKind,
+                        rangeMetadata: result.range || result.rangeMetadata,
+                        hasMoreBefore: result.hasMoreBefore ?? result.range?.hasMoreBefore,
+                        coverageComplete: result.coverageComplete ?? result.range?.coverageComplete,
                         syncOutcome: recoveryResultOutcome(result),
                         syncOutcomeDetail: result.detailCode || null,
                         freshnessToken: this._metadataFreshness.get(flight.conversationId)?.token || null
@@ -919,25 +966,39 @@ class CodexHistorySyncService {
         return true;
     }
 
-    startSync({ ws, conversationId, syncId = randomUUID(), checkpoint = {}, selectionGeneration = 0, clientSelectionGeneration = 0, cacheSchemaVersion = 1 } = {}) {
+    startSync({ ws, conversationId, syncId = randomUUID(), checkpoint = {}, selectionGeneration = 0, clientSelectionGeneration = 0, cacheSchemaVersion = 1, rangeSegments = null } = {}) {
         if (!ws || !conversationId || !isUuid(syncId)) return { ok: false, detailCode: 'invalid_sync_id' };
         if (!this.isStillActive(ws, conversationId, selectionGeneration)) return { ok: false, detailCode: 'stale_selection' };
         this._pruneBaselines();
         if (this._syncs.get(ws)) this.cancel(ws);
         const baseline = this._baselines.get(conversationId);
         if (!baseline) return { ok: false, detailCode: 'history_unavailable' };
-        const normalizedCacheSchemaVersion = normalizeCacheSchemaVersion(cacheSchemaVersion);
+        const requestedRangeSegments = normalizeRangeCapability(rangeSegments);
+        const normalizedCacheSchemaVersion = normalizeCacheSchemaVersion(
+            cacheSchemaVersion,
+            requestedRangeSegments.enabled
+        );
+        const rangeEnabled = requestedRangeSegments.enabled && normalizedCacheSchemaVersion >= 3;
+        const rangeMetadata = rangeEnabled ? normalizeRangeMetadata(baseline.range) : null;
         const state = {
             ws, conversationId, syncId, sequence: 1, selectionGeneration,
             clientSelectionGeneration: normalizeClientSelectionGeneration(clientSelectionGeneration),
             checkpoint: normalizeCheckpoint(checkpoint), baseline,
             syncOutcome: normalizeSyncOutcome(baseline.syncOutcome, baseline.complete ? 'synced' : 'partial'),
             syncOutcomeDetail: baseline.syncOutcomeDetail || null,
-            rangeIncomplete: false,
+            rangeIncomplete: Boolean(rangeMetadata && (
+                rangeMetadata.hasMoreBefore ||
+                rangeMetadata.coverageComplete !== true ||
+                baseline.resultKind === 'tail' ||
+                baseline.resultKind === 'segment'
+            )),
             settled: false,
             cacheSchemaVersion: normalizedCacheSchemaVersion,
             supportsPayloadChunks: normalizedCacheSchemaVersion >= 2,
             perPageAck: normalizedCacheSchemaVersion >= 2,
+            rangeSegments: requestedRangeSegments,
+            rangeEnabled,
+            rangeMetadata,
             createdAt: this.now(), lastActivityAt: this.now(), awaitingManifest: false,
             lastAckedRoot: checkpoint.rootHash || null,
             awaitingAckPageIndex: null,
@@ -982,7 +1043,7 @@ class CodexHistorySyncService {
         // upsert-only diff can still be a complete result for the requested
         // range; an older/middle gap, however, must force PARTIAL even when a
         // caller supplied an optimistic sync outcome.
-        state.rangeIncomplete = diff.rangeComplete === false;
+        state.rangeIncomplete = state.rangeIncomplete || diff.rangeComplete === false;
         const targetRoot = diff.targetRoot || buildConversationRoot(state.baseline.items);
         let pagesOut;
         try {
@@ -1001,6 +1062,7 @@ class CodexHistorySyncService {
                 enablePayloadChunks: state.supportsPayloadChunks,
                 payloadInlineMaxBytes: this.options.historyInlinePayloadBytes,
                 payloadChunkBytes: this.options.historyPayloadChunkBytes,
+                range: state.rangeMetadata,
                 envelopeContext: {
                     conversationId: state.conversationId,
                     selectionGeneration: state.selectionGeneration,
@@ -1279,8 +1341,24 @@ function normalizeClientSelectionGeneration(value) {
     return Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
 
-function normalizeCacheSchemaVersion(value) {
-    return Number.isSafeInteger(value) && value >= 1 ? Math.min(value, 2) : 1;
+function normalizeCacheSchemaVersion(value, rangeEnabled = false) {
+    const maxVersion = rangeEnabled ? 3 : 2;
+    return Number.isSafeInteger(value) && value >= 1 ? Math.min(value, maxVersion) : 1;
+}
+
+function normalizeRangeCapability(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return { enabled: false, version: 0, cacheSchemaVersion: 0 };
+    }
+    const version = Number.isSafeInteger(value.version) && value.version > 0 ? value.version : 0;
+    const cacheSchemaVersion = Number.isSafeInteger(value.cacheSchemaVersion) && value.cacheSchemaVersion > 0
+        ? Math.min(value.cacheSchemaVersion, 3)
+        : 0;
+    return {
+        enabled: value.enabled === true && version === 1 && cacheSchemaVersion >= 3,
+        version,
+        cacheSchemaVersion
+    };
 }
 
 function sameClientSelectionGeneration(state, value) {
@@ -1298,6 +1376,7 @@ module.exports = {
     buildHistoryFreshnessToken,
     normalizeClientSelectionGeneration,
     normalizeCacheSchemaVersion,
+    normalizeRangeCapability,
     normalizeSyncOutcome,
     splitUtf8,
     toWireItem

@@ -337,7 +337,8 @@ async function setupGateway(opts = {}) {
         mediaStore: opts.mediaStore ?? null,
         registrationManager: opts.registrationManager ?? null,
         mobileSurfaceProjector: opts.mobileSurfaceProjector,
-        mobileSurfaceMaxVisibleLatencyMs: opts.mobileSurfaceMaxVisibleLatencyMs
+        mobileSurfaceMaxVisibleLatencyMs: opts.mobileSurfaceMaxVisibleLatencyMs,
+        historyRangeSegmentsEnabled: opts.historyRangeSegmentsEnabled === true
     });
 
     return new Promise((resolve) => {
@@ -417,6 +418,34 @@ test('IPC status is sent on WebSocket connect when feed is online', async () => 
     assert.equal(statusMsg.status.online, true);
     ws.close();
     await stopGateway(g);
+});
+
+test('history range capability is deployment-gated and remains additive', async () => {
+    const disabled = await setupGateway();
+    const disabledSession = await disabled.sm.createSession({ name: 'range-disabled' });
+    const disabledClient = await connectWs(disabled.port, disabledSession.id);
+    await delay(100);
+    const disabledStatus = disabledClient.messages.find((message) => message.type === 'codex_ipc_status');
+    assert.deepEqual(disabledStatus?.status?.capabilities?.historySync?.rangeSegments, {
+        enabled: false,
+        version: 1,
+        cacheSchemaVersion: 3
+    });
+    disabledClient.ws.close();
+    await stopGateway(disabled);
+
+    const enabled = await setupGateway({ historyRangeSegmentsEnabled: true });
+    const enabledSession = await enabled.sm.createSession({ name: 'range-enabled' });
+    const enabledClient = await connectWs(enabled.port, enabledSession.id);
+    await delay(100);
+    const enabledStatus = enabledClient.messages.find((message) => message.type === 'codex_ipc_status');
+    assert.deepEqual(enabledStatus?.status?.capabilities?.historySync?.rangeSegments, {
+        enabled: true,
+        version: 1,
+        cacheSchemaVersion: 3
+    });
+    enabledClient.ws.close();
+    await stopGateway(enabled);
 });
 
 test('Android legacy full thread/read is refused without touching the app-server response', async () => {
@@ -1164,6 +1193,83 @@ test('paginated recovery uses thread/turns/list after metadata mode probing', as
     assert.equal(g.codexService.requests.some((entry) =>
         entry.method === 'thread/read' && entry.params.includeTurns === true
     ), false);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('enabled range recovery returns only the bounded legacy tail', async () => {
+    const g = await setupGateway({
+        historyRangeSegmentsEnabled: true,
+        ipcSurfaceWaitGraceMs: 1,
+        historySelectionDeadlineMs: 500,
+        historySettlementMarginMs: 10
+    });
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && params.includeTurns === false) {
+            return {
+                thread: {
+                    id: params.threadId,
+                    historyMode: 'legacy'
+                }
+            };
+        }
+        if (method === 'thread/read' && params.includeTurns === true) {
+            return {
+                thread: {
+                    id: params.threadId,
+                    historyMode: 'legacy',
+                    turns: [{
+                        id: 'legacy-turn',
+                        status: 'completed',
+                        items: Array.from({ length: 250 }, (_, index) => ({
+                            id: `legacy-item-${index}`,
+                            type: 'agentMessage',
+                            text: `tail-${index}`
+                        }))
+                    }]
+                }
+            };
+        }
+        return { ok: true };
+    };
+    const sess = await g.sm.createSession({ name: 'range-legacy-recovery' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-range-legacy' }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174030',
+        conversationId: 'conv-range-legacy',
+        selectionGeneration: 1,
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 }
+    }));
+    const ready = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174030', 1_000);
+    assert.equal(ready?.state, 'ready');
+    assert.equal(ready?.itemCount, 200);
+    assert.equal(g.codexService.requests.filter((entry) =>
+        entry.method === 'thread/read' && entry.params.threadId === 'conv-range-legacy' && entry.params.includeTurns === true
+    ).length, 1);
+
+    // A later negotiated-off request must not reuse the range-only baseline
+    // as if it were a complete legacy baseline.
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-range-other' }));
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-range-legacy' }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174031',
+        conversationId: 'conv-range-legacy',
+        selectionGeneration: 3
+    }));
+    const fullReady = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174031', 1_000);
+    assert.equal(fullReady?.state, 'ready');
+    assert.equal(fullReady?.itemCount, 250);
+    assert.equal(g.codexService.requests.filter((entry) =>
+        entry.method === 'thread/read' && entry.params.threadId === 'conv-range-legacy' && entry.params.includeTurns === true
+    ).length, 2);
     ws.close();
     await stopGateway(g);
 });

@@ -1,12 +1,16 @@
 'use strict';
 
 const {
+    canonicalize,
+    hashPayload,
     projectCanonicalHistory,
     buildConversationRoot
 } = require('./codexHistoryCanonicalizer');
 const { projectMobileSurface, containsImageDataUrl } = require('./codexMobileSurfaceProjector');
 
 const DEFAULT_MAX_BASELINE_BYTES = 70 * 1024 * 1024;
+const DEFAULT_TAIL_ITEM_LIMIT = 200;
+const RANGE_SCHEMA_VERSION = 1;
 
 const HISTORY_MODES = Object.freeze({
     LEGACY: 'legacy',
@@ -127,12 +131,32 @@ class CodexHistoryBaselineProvider {
             error.code = 'HISTORY_RECOVERY_MEDIA_NOT_EXTERNALIZED';
             throw error;
         }
-        const items = mode === HISTORY_MODES.PAGINATED
+        const projectedItems = mode === HISTORY_MODES.PAGINATED
             ? projectPaginatedItems(projectedThread, readerOptions)
             : projectCanonicalHistory({
                 sourceKind: 'app_server_thread',
                 sourceData: projectedThread
             });
+        // Range is an additive capability, not a loose boolean hint.  Keep
+        // the provider fail-closed when a caller sends an unknown version or
+        // a cache schema that cannot persist range metadata.
+        const rangeRequested = isRangeCapabilityEnabled(options?.rangeSegments);
+        const tailItemLimit = normalizeTailItemLimit(options?.tailItemLimit);
+        const cursor = extractCursorState(response);
+        const items = rangeRequested
+            ? projectedItems.slice(Math.max(0, projectedItems.length - tailItemLimit))
+            : projectedItems;
+        const range = rangeRequested
+            ? buildTailRangeMetadata({
+                conversationId: normalizedConversationId,
+                mode,
+                items,
+                sourceItemCount: projectedItems.length,
+                nextOlderCursor: cursor.present ? cursor.value : null,
+                cursorPresent: cursor.present,
+                tailItemLimit
+            })
+            : null;
         return {
             conversationId: normalizedConversationId,
             mode,
@@ -142,7 +166,9 @@ class CodexHistoryBaselineProvider {
             // consumed by the existing sync service to authorize delete/order.
             complete: false,
             coverageComplete: false,
-            nextCursor: extractNextCursor(response),
+            nextCursor: cursor.value,
+            resultKind: rangeRequested ? 'tail' : 'full',
+            ...(range ? { range } : {}),
             sourceEpoch: `recovery:${this.now()}`,
             rawBytes
         };
@@ -268,9 +294,80 @@ function projectPaginatedItems(response, options = {}) {
 }
 
 function extractNextCursor(response) {
-    if (response && Object.prototype.hasOwnProperty.call(response, 'nextCursor')) return response.nextCursor ?? null;
-    if (response && Object.prototype.hasOwnProperty.call(response, 'next_cursor')) return response.next_cursor ?? null;
-    return null;
+    return extractCursorState(response).value;
+}
+
+function extractCursorState(response) {
+    if (response && Object.prototype.hasOwnProperty.call(response, 'nextCursor')) {
+        return { present: true, value: response.nextCursor ?? null };
+    }
+    if (response && Object.prototype.hasOwnProperty.call(response, 'next_cursor')) {
+        return { present: true, value: response.next_cursor ?? null };
+    }
+    return { present: false, value: null };
+}
+
+function normalizeTailItemLimit(value) {
+    return Number.isSafeInteger(value) && value > 0
+        ? Math.min(value, DEFAULT_TAIL_ITEM_LIMIT)
+        : DEFAULT_TAIL_ITEM_LIMIT;
+}
+
+function isRangeCapabilityEnabled(value) {
+    return Boolean(
+        value &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        value.enabled === true &&
+        value.version === RANGE_SCHEMA_VERSION &&
+        Number.isSafeInteger(value.cacheSchemaVersion) &&
+        value.cacheSchemaVersion >= 3
+    );
+}
+
+function buildTailRangeMetadata({
+    conversationId,
+    mode,
+    items,
+    sourceItemCount,
+    nextOlderCursor,
+    cursorPresent,
+    tailItemLimit
+}) {
+    const first = items[0] || null;
+    const last = items.at(-1) || null;
+    const hasMoreBefore = sourceItemCount > items.length ||
+        (mode === HISTORY_MODES.PAGINATED && (!cursorPresent || nextOlderCursor !== null));
+    const coverageRoot = buildConversationRoot(items);
+    const rangeId = hashPayload(canonicalize({
+        conversationId,
+        mode,
+        direction: 'older',
+        firstItemKey: first?.itemKey || null,
+        firstItemHash: first?.contentHash || null,
+        lastItemKey: last?.itemKey || null,
+        lastItemHash: last?.contentHash || null,
+        coverageRoot,
+        schemaVersion: RANGE_SCHEMA_VERSION
+    }));
+    return {
+        version: RANGE_SCHEMA_VERSION,
+        segmentId: rangeId,
+        rangeId,
+        rangeKind: 'tail',
+        newestAnchor: last
+            ? { key: last.itemKey, hash: last.contentHash }
+            : null,
+        oldestAnchor: first
+            ? { key: first.itemKey, hash: first.contentHash }
+            : null,
+        nextOlderCursor,
+        hasMoreBefore,
+        coverageRoot,
+        coverageComplete: false,
+        sourceItemCount,
+        itemLimit: tailItemLimit
+    };
 }
 
 function extractPaginatedEntries(response) {
@@ -366,8 +463,12 @@ function createUnsupportedError(code, message) {
 module.exports = {
     CodexHistoryBaselineProvider,
     DEFAULT_MAX_BASELINE_BYTES,
+    DEFAULT_TAIL_ITEM_LIMIT,
     safeJsonByteLength,
     isBaselineComplete,
     HISTORY_MODES,
-    normalizeHistoryMode
+    normalizeHistoryMode,
+    extractNextCursor,
+    buildTailRangeMetadata,
+    isRangeCapabilityEnabled
 };

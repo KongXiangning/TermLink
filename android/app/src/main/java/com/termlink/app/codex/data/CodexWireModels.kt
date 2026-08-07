@@ -143,7 +143,8 @@ data class CodexHistoryCapability(
     val perPageAck: Boolean = false,
     val payloadChunks: Boolean = false,
     val payloadChunkMaxBytes: Int = 131072,
-    val maxEnvelopeBytes: Int = 262144
+    val maxEnvelopeBytes: Int = 262144,
+    val rangeSegments: CodexHistoryRangeCapability? = null
 ) {
     companion object {
         fun from(status: JSONObject?): CodexHistoryCapability? {
@@ -160,22 +161,95 @@ data class CodexHistoryCapability(
                 perPageAck = json.optBoolean("perPageAck", false),
                 payloadChunks = json.optBoolean("payloadChunks", false),
                 payloadChunkMaxBytes = json.optInt("payloadChunkMaxBytes", 131072),
-                maxEnvelopeBytes = json.optInt("maxEnvelopeBytes", 262144)
+                maxEnvelopeBytes = json.optInt("maxEnvelopeBytes", 262144),
+                rangeSegments = CodexHistoryRangeCapability.from(json.optJSONObject("rangeSegments"))
             )
         }
     }
 }
 
+data class CodexHistoryRangeCapability(
+    val enabled: Boolean,
+    val version: Int,
+    val cacheSchemaVersion: Int
+) {
+    companion object {
+        fun from(json: JSONObject?): CodexHistoryRangeCapability? {
+            if (json == null) return null
+            return CodexHistoryRangeCapability(
+                enabled = json.optBoolean("enabled", false),
+                version = json.optInt("version", 0),
+                cacheSchemaVersion = json.optInt("cacheSchemaVersion", 0)
+            )
+        }
+    }
+}
+
+data class CodexHistoryRangeAnchor(
+    val key: String,
+    val hash: String
+)
+
+data class CodexHistoryRangeMetadata(
+    val version: Int,
+    val segmentId: String,
+    val rangeId: String,
+    val rangeKind: String,
+    val newestAnchor: CodexHistoryRangeAnchor?,
+    val oldestAnchor: CodexHistoryRangeAnchor?,
+    val nextOlderCursor: String?,
+    val hasMoreBefore: Boolean,
+    val coverageRoot: String?,
+    val coverageComplete: Boolean
+)
+
 data class CodexHistorySyncCheckpoint(
     val rootHash: String?,
     val itemCount: Int,
-    val complete: Boolean
+    val complete: Boolean,
+    val providerMode: String? = null,
+    val providerIdentityHash: String? = null,
+    val rangeId: String? = null,
+    val rangeKind: String? = null,
+    val newestAnchorKey: String? = null,
+    val newestAnchorHash: String? = null,
+    val oldestAnchorKey: String? = null,
+    val oldestAnchorHash: String? = null,
+    val nextOlderCursor: String? = null,
+    val coverageRoot: String? = null,
+    val hasMoreBefore: Boolean? = null,
+    val coverageComplete: Boolean = false
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("rootHash", rootHash ?: JSONObject.NULL)
         put("itemCount", itemCount)
         put("complete", complete)
+        providerMode?.let { put("providerMode", it) }
+        providerIdentityHash?.let { put("providerIdentityHash", it) }
+        rangeId?.let { put("rangeId", it) }
+        rangeKind?.let { put("rangeKind", it) }
+        newestAnchorKey?.let { put("newestAnchorKey", it) }
+        newestAnchorHash?.let { put("newestAnchorHash", it) }
+        oldestAnchorKey?.let { put("oldestAnchorKey", it) }
+        oldestAnchorHash?.let { put("oldestAnchorHash", it) }
+        coverageRoot?.let { put("coverageRoot", it) }
+        hasMoreBefore?.let { put("hasMoreBefore", it) }
+        // Keep the negotiated-off v1/v2 request shape unchanged.  The
+        // additive range proof is sent only when this checkpoint carries
+        // range provenance (or an explicit positive proof).
+        if (hasRangeMetadata() || coverageComplete) {
+            if (hasRangeMetadata()) {
+                put("nextOlderCursor", nextOlderCursor ?: JSONObject.NULL)
+            }
+            put("coverageComplete", coverageComplete)
+        }
     }
+
+    private fun hasRangeMetadata(): Boolean =
+        providerMode != null || providerIdentityHash != null || rangeId != null || rangeKind != null ||
+            newestAnchorKey != null || newestAnchorHash != null || oldestAnchorKey != null ||
+            oldestAnchorHash != null || nextOlderCursor != null || coverageRoot != null ||
+            hasMoreBefore != null
 }
 
 data class CodexHistorySyncRequest(
@@ -183,17 +257,29 @@ data class CodexHistorySyncRequest(
     val conversationId: String,
     val checkpoint: CodexHistorySyncCheckpoint,
     val selectionGeneration: Long = 0L,
-    val cacheSchemaVersion: Int = 1
+    val cacheSchemaVersion: Int = 1,
+    val rangeSegments: CodexHistoryRangeCapability? = null
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("type", "conversation_history_sync_request")
         put("syncId", syncId)
         put("conversationId", conversationId)
-        put("cacheSchemaVersion", cacheSchemaVersion.coerceIn(1, 2))
+        val range = rangeSegments?.takeIf { it.isWireEnabled() }
+        put("cacheSchemaVersion", cacheSchemaVersion.coerceIn(1, if (range != null) 3 else 2))
         put("checkpoint", checkpoint.toJson())
         put("selectionGeneration", selectionGeneration.coerceAtLeast(0L))
+        if (range != null) {
+            put("rangeSegments", JSONObject().apply {
+                put("enabled", true)
+                put("version", range.version)
+                put("cacheSchemaVersion", range.cacheSchemaVersion)
+            })
+        }
     }
 }
+
+private fun CodexHistoryRangeCapability.isWireEnabled(): Boolean =
+    enabled && version == 1 && cacheSchemaVersion >= 3
 
 data class CodexHistoryManifestRequired(
     val syncId: String,
@@ -258,6 +344,7 @@ data class CodexHistoryDeltaWire(
                 canonicalOrder = json.optJSONArray("canonicalOrder")?.toStringList() ?: emptyList(),
                 upserts = parseItems(json.optJSONArray("upserts")),
                 deletes = json.optJSONArray("deletes")?.toStringList() ?: emptyList(),
+                range = parseRange(json.optJSONObject("range")),
                 selectionGeneration = json.optLong("clientSelectionGeneration", json.optLong("selectionGeneration", 0L))
             )
             return CodexHistoryDeltaWire(page)
@@ -284,6 +371,30 @@ data class CodexHistoryDeltaWire(
                     ))
                 }
             }
+        }
+
+        private fun parseRange(json: JSONObject?): CodexHistoryRangeMetadata? {
+            if (json == null) return null
+            val segmentId = json.optStringOrNull("segmentId") ?: return null
+            val rangeId = json.optStringOrNull("rangeId") ?: segmentId
+            fun anchor(name: String): CodexHistoryRangeAnchor? {
+                val value = json.optJSONObject(name) ?: return null
+                val key = value.optStringOrNull("key") ?: return null
+                val hash = value.optStringOrNull("hash") ?: return null
+                return CodexHistoryRangeAnchor(key, hash)
+            }
+            return CodexHistoryRangeMetadata(
+                version = json.optInt("version", 1),
+                segmentId = segmentId,
+                rangeId = rangeId,
+                rangeKind = json.optString("rangeKind", "tail"),
+                newestAnchor = anchor("newestAnchor"),
+                oldestAnchor = anchor("oldestAnchor"),
+                nextOlderCursor = json.optStringOrNull("nextOlderCursor"),
+                hasMoreBefore = json.optBoolean("hasMoreBefore", false),
+                coverageRoot = json.optStringOrNull("coverageRoot"),
+                coverageComplete = json.optBoolean("coverageComplete", false)
+            )
         }
     }
 }
@@ -1117,12 +1228,25 @@ object CodexClientMessages {
 
     fun historySyncRequest(request: CodexHistorySyncRequest): String = request.toJson().toString()
 
-    fun historyRecoveryRequest(syncId: String, conversationId: String, selectionGeneration: Long): String = JSONObject()
-        .put("type", "conversation_history_recovery_request")
-        .put("syncId", syncId)
-        .put("conversationId", conversationId)
-        .put("selectionGeneration", selectionGeneration.coerceAtLeast(0L))
-        .toString()
+    fun historyRecoveryRequest(
+        syncId: String,
+        conversationId: String,
+        selectionGeneration: Long,
+        rangeSegments: CodexHistoryRangeCapability? = null
+    ): String = JSONObject().apply {
+        put("type", "conversation_history_recovery_request")
+        put("syncId", syncId)
+        put("conversationId", conversationId)
+        put("selectionGeneration", selectionGeneration.coerceAtLeast(0L))
+        val range = rangeSegments?.takeIf { it.isWireEnabled() }
+        if (range != null) {
+            put("rangeSegments", JSONObject().apply {
+                put("enabled", true)
+                put("version", range.version)
+                put("cacheSchemaVersion", range.cacheSchemaVersion)
+            })
+        }
+    }.toString()
 
     fun historyManifestPage(
         syncId: String,

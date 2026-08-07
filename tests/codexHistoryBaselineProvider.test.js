@@ -143,6 +143,58 @@ test('paginated turn pages reverse only turn order, not item order inside a turn
     assert.deepEqual(baseline.items.map((item) => item.itemKey), ['old-user', 'old-agent', 'new-item']);
 });
 
+test('range-enabled provider returns only the newest bounded tail with anchors', async () => {
+    const turns = [{
+        id: 'turn',
+        status: 'completed',
+        items: Array.from({ length: 250 }, (_, index) => ({
+            id: `item-${index}`,
+            type: index % 2 === 0 ? 'userMessage' : 'agentMessage',
+            text: `message-${index}`
+        }))
+    }];
+    const provider = new CodexHistoryBaselineProvider({
+        historyMode: 'legacy',
+        readThread: async () => ({ thread: { id: 'conv', turns } })
+    });
+
+    const baseline = await provider.build('conv', {
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 }
+    });
+    assert.equal(baseline.resultKind, 'tail');
+    assert.equal(baseline.items.length, 200);
+    assert.equal(baseline.items[0].itemKey.includes('item-50'), true);
+    assert.equal(baseline.items.at(-1).itemKey.includes('item-249'), true);
+    assert.equal(baseline.range.rangeKind, 'tail');
+    assert.equal(baseline.range.hasMoreBefore, true);
+    assert.equal(baseline.range.coverageComplete, false);
+    assert.equal(baseline.range.oldestAnchor.key, baseline.items[0].itemKey);
+    assert.equal(baseline.range.newestAnchor.key, baseline.items.at(-1).itemKey);
+});
+
+test('range provider stays on the legacy/full path for an invalid capability', async () => {
+    const turns = [{
+        id: 'turn',
+        status: 'completed',
+        items: Array.from({ length: 201 }, (_, index) => ({
+            id: `item-${index}`,
+            type: 'agentMessage',
+            text: `message-${index}`
+        }))
+    }];
+    const provider = new CodexHistoryBaselineProvider({
+        historyMode: 'legacy',
+        readThread: async () => ({ thread: { id: 'conv', turns } })
+    });
+
+    const baseline = await provider.build('conv', {
+        rangeSegments: { enabled: true, version: 2, cacheSchemaVersion: 3 }
+    });
+    assert.equal(baseline.resultKind, 'full');
+    assert.equal(baseline.items.length, 201);
+    assert.equal(baseline.range, undefined);
+});
+
 test('ephemeral history is explicitly unsupported', async () => {
     let reads = 0;
     const provider = new CodexHistoryBaselineProvider({

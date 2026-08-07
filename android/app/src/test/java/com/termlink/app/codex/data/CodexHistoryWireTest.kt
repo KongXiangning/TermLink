@@ -58,6 +58,26 @@ class CodexHistoryWireTest {
     }
 
     @Test
+    fun capabilityReadsRangeSegmentsWithoutChangingTopLevelVersion() {
+        val status = JSONObject().put(
+            "capabilities",
+            JSONObject().put(
+                "historySync",
+                JSONObject()
+                    .put("version", 1)
+                    .put("rangeSegments", JSONObject()
+                        .put("enabled", true)
+                        .put("version", 1)
+                        .put("cacheSchemaVersion", 3))
+            )
+        )
+        val capability = CodexHistoryCapability.from(status)
+        assertEquals(1, capability?.version)
+        assertTrue(capability?.rangeSegments?.enabled == true)
+        assertEquals(3, capability?.rangeSegments?.cacheSchemaVersion)
+    }
+
+    @Test
     fun manifestPageCarriesClientSelectionGenerationEvenWhenEmpty() {
         val message = JSONObject(
             CodexClientMessages.historyManifestPage(
@@ -90,6 +110,55 @@ class CodexHistoryWireTest {
     }
 
     @Test
+    fun syncRequestCarriesRangeCapabilityAndCheckpointAnchorsAdditively() {
+        val message = JSONObject(
+            CodexClientMessages.historySyncRequest(
+                CodexHistorySyncRequest(
+                    syncId = "sync",
+                    conversationId = "conversation",
+                    checkpoint = CodexHistorySyncCheckpoint(
+                        rootHash = "root",
+                        itemCount = 2,
+                        complete = false,
+                        rangeId = "range",
+                        rangeKind = "tail",
+                        newestAnchorKey = "new",
+                        newestAnchorHash = "new-hash",
+                        oldestAnchorKey = "old",
+                        oldestAnchorHash = "old-hash",
+                        nextOlderCursor = "cursor",
+                        hasMoreBefore = true,
+                        coverageComplete = false
+                    ),
+                    cacheSchemaVersion = 3,
+                    rangeSegments = CodexHistoryRangeCapability(true, 1, 3)
+                )
+            )
+        )
+        assertEquals(1, message.getJSONObject("rangeSegments").getInt("version"))
+        assertEquals(3, message.getInt("cacheSchemaVersion"))
+        assertEquals("range", message.getJSONObject("checkpoint").getString("rangeId"))
+        assertTrue(message.getJSONObject("checkpoint").getBoolean("hasMoreBefore"))
+    }
+
+    @Test
+    fun syncRequestWithoutRangeKeepsLegacySchemaAndCheckpointShape() {
+        val message = JSONObject(
+            CodexClientMessages.historySyncRequest(
+                CodexHistorySyncRequest(
+                    syncId = "sync",
+                    conversationId = "conversation",
+                    checkpoint = CodexHistorySyncCheckpoint(null, 0, false),
+                    cacheSchemaVersion = 3
+                )
+            )
+        )
+        assertEquals(2, message.getInt("cacheSchemaVersion"))
+        assertFalse(message.has("rangeSegments"))
+        assertFalse(message.getJSONObject("checkpoint").has("coverageComplete"))
+    }
+
+    @Test
     fun deltaParsesClientSelectionGenerationWithoutChangingPageHashInputs() {
         val json = JSONObject()
             .put("syncId", "sync")
@@ -111,6 +180,37 @@ class CodexHistoryWireTest {
             CodexHistoryPageHasher.pageHashPayload(page.copy(selectionGeneration = 0)),
             CodexHistoryPageHasher.pageHashPayload(page)
         )
+    }
+
+    @Test
+    fun deltaParsesOptionalRangeMetadata() {
+        val json = JSONObject()
+            .put("syncId", "sync")
+            .put("conversationId", "conversation")
+            .put("sequence", 1)
+            .put("pageIndex", 0)
+            .put("pageCount", 1)
+            .put("pageHash", "hash")
+            .put("baseRoot", JSONObject.NULL)
+            .put("targetRoot", "root")
+            .put("baselineComplete", false)
+            .put("fullOrderIncluded", false)
+            .put("upserts", JSONArray())
+            .put("deletes", JSONArray())
+            .put("range", JSONObject()
+                .put("version", 1)
+                .put("segmentId", "range")
+                .put("rangeId", "range")
+                .put("rangeKind", "tail")
+                .put("oldestAnchor", JSONObject().put("key", "old").put("hash", "old-hash"))
+                .put("newestAnchor", JSONObject().put("key", "new").put("hash", "new-hash"))
+                .put("nextOlderCursor", "cursor")
+                .put("hasMoreBefore", true)
+                .put("coverageComplete", false))
+        val range = CodexHistoryDeltaWire.from(json)!!.page.range
+        assertEquals("range", range?.rangeId)
+        assertEquals("old", range?.oldestAnchor?.key)
+        assertTrue(range?.hasMoreBefore == true)
     }
 
     @Test

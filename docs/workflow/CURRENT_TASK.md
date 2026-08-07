@@ -7,8 +7,8 @@
 - 任务 slug：codex-single-authority-owner-control-plane
 - 当前状态：in_progress
 - 生命周期状态：active
-- 当前 handoff：implement-current-step（P0-B.2 最新尾部垂直切片，尚未开始）
-- 当前子任务：P0-A.1 至 P0-A.6 已完成，目标真机 smoke 初步通过；P0-A no-owner freshness follow-up 已完成；P0-B.0 已完成，B.1 已完成并冻结，B.2 尚未开始；P0-C/P1 未授权
+- 当前 handoff：implement-current-step（P0-B.3 单页 older 与 durable checkpoint，尚未开始）
+- 当前子任务：P0-A.1 至 P0-A.6 已完成，目标真机 smoke 初步通过；P0-A no-owner freshness follow-up 已完成；P0-B.0、B.1、B.2 已完成并收口；B.3 尚未开始；P0-C/P1 未授权
 - 专项实施计划：`docs/codex/codex-android-history-cache-media-recovery-plan.md`
 - 历史尾部优先与缺口恢复专项计划：`docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md`
 - 子任务授权状态：implementation-authorized（用户于 2026-08-06 授权 P0-A，于 2026-08-07 明确授权开始 P0-B；P0-C/P1、15g/15h 及既有人工验收状态不变）
@@ -353,7 +353,7 @@
   - **P0-B.0 Allowed Files（已完成，文档 only）**：
     `docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md`、`docs/workflow/CURRENT_TASK.md`、
     `docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`。
-  - **P0-B.1 当前 Allowed Files**：
+  - **P0-B.1 Allowed Files（已完成）**：
     `android/app/src/main/java/com/termlink/app/codex/data/CodexConversationCacheStore.kt`、
     `android/app/src/main/java/com/termlink/app/codex/data/CodexHistoryCacheModels.kt`、
     `android/app/src/test/java/com/termlink/app/codex/**`、`android/app/src/test/resources/**`、
@@ -367,6 +367,7 @@
   - **Conditional Files（按步骤解锁）**：B.1 定向迁移/兼容测试通过后，B.2 才放行
     `src/services/codexHistoryBaselineProvider.js`、`src/services/codexHistorySyncService.js`、`src/ws/terminalGateway.js`、
     `android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt`、
+    `android/app/src/main/java/com/termlink/app/codex/data/CodexHistoryCacheModels.kt`（仅 transient delta range 字段，不改 store/schema）、
     `android/app/src/main/java/com/termlink/app/codex/network/CodexWebSocketClient.kt`、
     `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt` 及其对应 Node/JVM tests；B.2 通过后，B.3 才允许在同一
     文件面实现单页 older/cursor checkpoint；B.3 通过后，B.4 才放行 `src/services/codexWsSnapshotScheduler.js` 及其测试实现
@@ -389,6 +390,14 @@
     Gateway/Android DTO/old-client fallback；scheduler → history/live/control ordering 与冻结 IPC/Owner 回归；selection → syncId/generation/
     A→B→A。任一需要改变 healthy IPC authority、follower lifecycle、canonical binding 或 P0-C live-tail 协调的证据，必须停止并重新
     `lock-scope`，不能在 P0-B 内近似实现。
+  - **P0-B.2 当前 Allowed Files（已解锁）**：
+    `src/services/codexHistoryBaselineProvider.js`、`src/services/codexHistorySyncService.js`、`src/ws/terminalGateway.js`、
+    `android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt`、
+    `android/app/src/main/java/com/termlink/app/codex/network/CodexWebSocketClient.kt`、
+    `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt` 以及对应 Node/JVM tests。
+    本步只做 capability-gated 最新尾部垂直切片：最多发送/提交约 200 个 canonical items，并在 additive wire 上携带 range 元数据；
+    本步不把 range cursor/anchor 写入 durable checkpoint（留给 B.3），不得启动 older cursor 循环、自动 history pump、live/control
+    调度、顶部 UI 或 P0-C live-tail reconcile。
 
 - Scope widening（2026-08-08，P0-A no-owner canonical freshness follow-up）：用户明确授权在 P0-B.1 开始前修复
   “无 Desktop/VS Code owner 时 A→B→A 复用过期 `history_recovery` baseline”问题。此次只允许修改
@@ -1350,8 +1359,9 @@ Implementation Plan（2026-08-02，Android 快速模式）：
   构建未证明前不迁移主测试设备；真实 connected instrumentation 只在专用设备/模拟器运行。另以至少两页 older prepend fixture 验证兼容
   position 不为空、不重排旧 rows，关闭 range 后 v2 reader 顺序仍正确；JDK 21 `assembleDebug` 产出默认关闭 range 的 DB-v4-compatible
   rollback candidate，主测试设备只保留普通 APK smoke 路径。
-- [pending] P0-B.2. 最新尾部端到端垂直切片：在 B.1 通过后解锁最小 capability/range wire 与 provider/Gateway/Android 路径；只提交
-  最新约 200 items，不启动 older pump。`thread/items/list` 无部署能力证据时使用 turns/list 并保持 partial。
+- [completed] P0-B.2. 最新尾部端到端垂直切片：在 B.1 通过后解锁最小 capability/range wire 与 provider/Gateway/Android 路径；只提交
+  最新约 200 items，不启动 older pump。`thread/items/list` 无部署能力证据时继续使用已接通的 turns/list 并保持 partial；range capability 默认仍关闭，
+  B.3 前不把 cursor/anchor 写入 durable checkpoint。
 - [pending] P0-B.3. 单页 older 与 durable checkpoint：用户按需一次一页，原子提交 items/segment/cursor/checkpoint；覆盖 cursor/anchor
   失效、跨 sync 幂等、selectionGeneration + syncId 迟到拒绝，结束后不自动排下一页。
 - [pending] P0-B.4. live 优先调度与静默 pump：先证明 control/live pending 会阻止生成下一 history chunk、最多一个 history
@@ -2181,3 +2191,21 @@ fixture。随后重跑 Node 211/211、JDK 21 Android JVM、JavaScript syntax 和
   coverage proof 时，迁移后的 range 必须保持 `legacy_unknown`/partial、`coverageComplete=false`，不猜 tail、older cursor 或
   `hasMoreBefore`；旧 position/v2 reader 仍可显示旧缓存。专项计划、`CONTRACTS.md`、`DECISIONS.md` 与本任务 B.1 门禁已同步，
   未修改业务代码、SQLite、wire、IPC authority 或 owner；B.1 仍是下一步。
+- 2026-08-08（P0-B.2 实施）：严格限定在 B.2 当前 Allowed Files。BaselineProvider 在 capability 明确为
+  `rangeSegments {enabled:true, version:1, cacheSchemaVersion>=3}` 时，对 legacy 保持单次 full read 后只投影最新最多 200 个
+  canonical items；paginated 继续使用当前已接通的 `thread/turns/list` desc 页并 fail-closed，不接入未经部署证据证明的
+  `thread/items/list`。新增 range/segment id、kind、两端 anchor、`nextOlderCursor`（保留显式 null）、`hasMoreBefore`、
+  `coverageComplete` 的 additive wire/DTO；旧能力保持顶层 historySync v1、cache schema v1/v2 形状，服务端部署 gate 默认关闭。
+  range baseline 与 full baseline 不跨形态复用，分别复用既有 recovery singleflight 的 `tail`/`full` purpose；无 delete/order、无
+  older 循环、无自动 pump、无 live/control 调度、无 UI/P0-C，也未改 IPC/feed/Owner 或 SQLite store。B.2 只传递 transient range
+  元数据，durable cursor/anchor checkpoint 留给 B.3。Provider/Sync focused Node `47/47`、Gateway range focused `2/2`、JDK 21
+  `:app:testDebugUnitTest`、`:app:assembleDebug` 与 `git diff --check` 通过；合并 Gateway IPC 集合曾命中既有
+  `latest snapshot is replayed` 时序 flaky，单独重跑通过，未将其作为 B.2 专项通过依据。未安装 APK、未操作主测试设备，B.2
+  下一交接为 `review-implementation`。
+- 2026-08-08（P0-B.2 收口审查）：以当前工作树相对 `HEAD` 的 `git diff` 作为统一 review target。范围审查确认所有变更均在
+  B.2 Allowed Files 内；未触碰 IPC client/feed/thread stream、Owner tracker、CodexConversationCacheStore、UI、部署配置或第二实时
+  权威。实现审查确认 capability/version/schema fail-closed、desc→ascending 投影、显式 `nextOlderCursor=null`、legacy full 与
+  range tail baseline 不跨形态复用、selectionGeneration/syncId 仍为迟到隔离边界；未发现 critical/major correctness、兼容性或
+  资源生命周期问题。契约核对确认 healthy IPC 仍是唯一实时权威，range 仅是默认关闭的 static upsert-only additive path，delete/order、
+  older loop、自动 pump、live/control scheduler 与 P0-C 均未提前落地。B.2 定向 Node/JVM/APK 编译回归和 `git diff --check` 已通过；
+  合并 Gateway IPC 集合的既有单个时序 flaky 已单独重跑通过。B.2 已冻结，下一步仅在用户继续授权后实施 B.3。

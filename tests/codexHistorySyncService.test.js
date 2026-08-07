@@ -101,6 +101,90 @@ test('delta pages share sequence roots and have deterministic page hashes', () =
     assert.equal(pages[0].pageHash, computeHistoryPageHash(pages[0]));
 });
 
+test('range capability carries tail metadata without enabling delete or order', () => {
+    const messages = [];
+    const service = new CodexHistorySyncService({ send: (_ws, message) => messages.push(message) });
+    const tailItems = [item('old'), item('new')].map((entry, position) => ({ ...entry, position }));
+    service.registerBaselineItems('conv', tailItems, {
+        baselineSourceKind: 'history_recovery',
+        resultKind: 'tail',
+        rangeMetadata: {
+            version: 1,
+            segmentId: 'segment-tail',
+            rangeId: 'segment-tail',
+            rangeKind: 'tail',
+            oldestAnchor: { key: 'old', hash: 'old' },
+            newestAnchor: { key: 'new', hash: 'new' },
+            nextOlderCursor: 'older-cursor',
+            hasMoreBefore: true,
+            coverageRoot: 'tail-root',
+            coverageComplete: false
+        }
+    });
+    const ws = { readyState: 1, bufferedAmount: 0 };
+    const syncId = '123e4567-e89b-12d3-a456-426614174011';
+    service.startSync({
+        ws,
+        conversationId: 'conv',
+        syncId,
+        cacheSchemaVersion: 3,
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        checkpoint: { rootHash: null, complete: false }
+    });
+    service.handleManifestPage(ws, {
+        syncId,
+        conversationId: 'conv',
+        pageIndex: 0,
+        lastPage: true,
+        items: []
+    });
+    const delta = messages.find((message) => message.type === 'conversation_history_delta');
+    assert.ok(delta);
+    assert.deepEqual(delta.range, {
+        version: 1,
+        segmentId: 'segment-tail',
+        rangeId: 'segment-tail',
+        rangeKind: 'tail',
+        newestAnchor: { key: 'new', hash: 'new' },
+        oldestAnchor: { key: 'old', hash: 'old' },
+        nextOlderCursor: 'older-cursor',
+        hasMoreBefore: true,
+        coverageRoot: 'tail-root',
+        coverageComplete: false
+    });
+    assert.equal(delta.baselineComplete, false);
+    assert.deepEqual(delta.deletes, []);
+    assert.equal(delta.fullOrderIncluded, false);
+    assert.equal(service.handleAck(ws, {
+        syncId,
+        conversationId: 'conv',
+        sequence: 1,
+        pageIndex: 0,
+        targetRoot: delta.targetRoot,
+        clientSelectionGeneration: 0
+    }).state, 'partial');
+});
+
+test('schema v3 is capped to the legacy v2 path without a valid range capability', () => {
+    const service = new CodexHistorySyncService({ send: () => {} });
+    service.registerBaselineItems('conv', [item('one')], {
+        baselineSourceKind: 'history_recovery'
+    });
+    const ws = { readyState: 1, bufferedAmount: 0 };
+    const result = service.startSync({
+        ws,
+        conversationId: 'conv',
+        syncId: '123e4567-e89b-12d3-a456-426614174012',
+        cacheSchemaVersion: 3,
+        rangeSegments: { enabled: false, version: 1, cacheSchemaVersion: 3 },
+        checkpoint: { rootHash: null, complete: false }
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.sync.cacheSchemaVersion, 2);
+    assert.equal(result.sync.rangeEnabled, false);
+    service.cancel(ws);
+});
+
 test('delta packing reserves the final history envelope wrapper', () => {
     const upserts = Array.from({ length: 89 }, (_, index) => ({
         ...item(`near-limit-${index}`, `hash-${index}`),

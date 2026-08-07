@@ -88,6 +88,26 @@ function createHistoryRecoveryTimeoutError(detailCode = 'history_recovery_timeou
     return error;
 }
 
+function normalizeHistoryRangeCapability(value, serverEnabled = false) {
+    const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    const version = Number.isSafeInteger(source.version) ? source.version : 0;
+    const cacheSchemaVersion = Number.isSafeInteger(source.cacheSchemaVersion)
+        ? Math.min(source.cacheSchemaVersion, 3)
+        : 0;
+    return {
+        enabled: serverEnabled && source.enabled === true && version === 1 && cacheSchemaVersion >= 3,
+        version,
+        cacheSchemaVersion
+    };
+}
+
+function recoveryBaselineMatchesRange(baseline, rangeEnabled) {
+    if (!baseline || baseline.sourceKind !== 'history_recovery') return false;
+    const range = baseline.range && typeof baseline.range === 'object' ? baseline.range : null;
+    const isRangeBaseline = Boolean(range && typeof range.rangeId === 'string' && range.rangeId.trim());
+    return rangeEnabled ? isRangeBaseline : !isRangeBaseline;
+}
+
 function normalizeGoalObjective(value) {
     if (!isNonEmptyString(value)) return null;
     return value.trim();
@@ -1091,7 +1111,10 @@ function registerTerminalGateway(wss, {
     mediaStore = null,
     registrationManager = null,
     mobileSurfaceProjector = projectMobileRealtimeSurface,
-    mobileSurfaceMaxVisibleLatencyMs = MOBILE_SURFACE_MAX_VISIBLE_LATENCY_MS
+    mobileSurfaceMaxVisibleLatencyMs = MOBILE_SURFACE_MAX_VISIBLE_LATENCY_MS,
+    // B.2 ships the additive range path behind a deployment gate.  Keep it
+    // disabled until the later B.6 rollback/smoke gate explicitly enables it.
+    historyRangeSegmentsEnabled = false
 }) {
     const isElevated = privilegeConfig && privilegeConfig.isElevated;
     const allowedIps = privilegeConfig ? privilegeConfig.allowedIps : [];
@@ -1816,7 +1839,12 @@ function registerTerminalGateway(wss, {
                     perPageAck: true,
                     payloadChunks: true,
                     payloadChunkMaxBytes: 128 * 1024,
-                    maxEnvelopeBytes: 256 * 1024
+                    maxEnvelopeBytes: 256 * 1024,
+                    rangeSegments: {
+                        enabled: historyRangeSegmentsEnabled === true,
+                        version: 1,
+                        cacheSchemaVersion: 3
+                    }
                 },
                 codexMedia: { version: 1, maxBytes: 25 * 1024 * 1024 }
             }
@@ -5453,6 +5481,10 @@ function registerTerminalGateway(wss, {
                             ? envelope.selectionGeneration
                             : currentSelectionGeneration;
                         const syncId = isNonEmptyString(envelope.syncId) ? envelope.syncId.trim() : null;
+                        const rangeSegments = normalizeHistoryRangeCapability(
+                            envelope.rangeSegments,
+                            historyRangeSegmentsEnabled === true
+                        );
                         if (!conversationId || _getActiveConversationId(ws) !== conversationId) {
                             _sendHistoryRecoveryState(ws, {
                                 syncId,
@@ -5580,7 +5612,7 @@ function registerTerminalGateway(wss, {
                                 const reusableBaseline = historySyncService.getBaseline(conversationId);
                                 if (
                                     reusableBaseline &&
-                                    reusableBaseline.sourceKind === 'history_recovery' &&
+                                    recoveryBaselineMatchesRange(reusableBaseline, rangeSegments.enabled) &&
                                     Array.isArray(reusableBaseline.items) &&
                                     reusableBaseline.stale !== true
                                 ) {
@@ -5618,11 +5650,12 @@ function registerTerminalGateway(wss, {
                                 const waiter = historySyncService.startRecovery({
                                     conversationId,
                                     providerIdentity: HISTORY_RECOVERY_PROVIDER_IDENTITY,
-                                    purpose: 'full',
+                                    purpose: rangeSegments.enabled ? 'tail' : 'full',
                                     waiterId: `${ws.sessionId || 'anonymous'}:${currentSelectionGeneration}:${syncId || randomUUID()}`,
                                     producer: ({ signal }) => historyBaselineProvider.build(conversationId, {
                                         signal,
-                                        timeoutMs: providerTimeout
+                                        timeoutMs: providerTimeout,
+                                        rangeSegments
                                     })
                                 });
                                 if (!waiter.ok) {
@@ -5756,13 +5789,18 @@ function registerTerminalGateway(wss, {
                             ? envelope.selectionGeneration
                             : currentSelectionGeneration;
                         const syncId = isNonEmptyString(envelope.syncId) ? envelope.syncId.trim() : null;
+                        const rangeSegments = normalizeHistoryRangeCapability(
+                            envelope.rangeSegments,
+                            historyRangeSegmentsEnabled === true
+                        );
                         diagnosticLog.event('server', 'server.codex.history.sync.request_received', {
                             conversationKey: diagnosticKey(conversationId),
                             syncId,
                             active: Boolean(conversationId && _getActiveConversationId(ws) === conversationId),
                             selectionGeneration: currentSelectionGeneration,
                             clientSelectionGeneration,
-                            cacheSchemaVersion: envelope.cacheSchemaVersion || 1
+                            cacheSchemaVersion: envelope.cacheSchemaVersion || 1,
+                            rangeSegments: rangeSegments.enabled
                         }, 'info');
                         if (!conversationId || _getActiveConversationId(ws) !== conversationId) {
                             _sendHistorySyncFailure(ws, {
@@ -5862,6 +5900,7 @@ function registerTerminalGateway(wss, {
                                 syncId,
                                 checkpoint: envelope.checkpoint || {},
                                 cacheSchemaVersion: envelope.cacheSchemaVersion,
+                                rangeSegments,
                                 selectionGeneration: currentSelectionGeneration,
                                 clientSelectionGeneration
                             });
@@ -6710,3 +6749,4 @@ module.exports.sendWsEnvelope = sendWsEnvelope;
 module.exports.MAX_WS_ENVELOPE_BYTES = MAX_WS_ENVELOPE_BYTES;
 module.exports.MOBILE_SURFACE_MAX_VISIBLE_LATENCY_MS = MOBILE_SURFACE_MAX_VISIBLE_LATENCY_MS;
 module.exports.createLatestOnlyAsyncQueue = createLatestOnlyAsyncQueue;
+module.exports.normalizeHistoryRangeCapability = normalizeHistoryRangeCapability;

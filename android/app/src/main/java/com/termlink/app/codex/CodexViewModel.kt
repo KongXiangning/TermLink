@@ -671,13 +671,37 @@ internal fun normalizeHistoryCheckpointForAvailableItems(
         CodexHistorySyncCheckpoint(
             rootHash = null,
             itemCount = available,
-            complete = false
+            complete = false,
+            providerMode = checkpoint.providerMode,
+            providerIdentityHash = checkpoint.providerIdentityHash,
+            rangeId = checkpoint.rangeId,
+            rangeKind = checkpoint.rangeKind,
+            newestAnchorKey = checkpoint.newestAnchorKey,
+            newestAnchorHash = checkpoint.newestAnchorHash,
+            oldestAnchorKey = checkpoint.oldestAnchorKey,
+            oldestAnchorHash = checkpoint.oldestAnchorHash,
+            nextOlderCursor = checkpoint.nextOlderCursor,
+            coverageRoot = checkpoint.coverageRoot,
+            hasMoreBefore = checkpoint.hasMoreBefore,
+            coverageComplete = false
         )
     } else {
         CodexHistorySyncCheckpoint(
             rootHash = checkpoint.rootHash,
             itemCount = checkpoint.itemCount.coerceAtLeast(0),
-            complete = checkpoint.complete
+            complete = checkpoint.complete,
+            providerMode = checkpoint.providerMode,
+            providerIdentityHash = checkpoint.providerIdentityHash,
+            rangeId = checkpoint.rangeId,
+            rangeKind = checkpoint.rangeKind,
+            newestAnchorKey = checkpoint.newestAnchorKey,
+            newestAnchorHash = checkpoint.newestAnchorHash,
+            oldestAnchorKey = checkpoint.oldestAnchorKey,
+            oldestAnchorHash = checkpoint.oldestAnchorHash,
+            nextOlderCursor = checkpoint.nextOlderCursor,
+            coverageRoot = checkpoint.coverageRoot,
+            hasMoreBefore = checkpoint.hasMoreBefore,
+            coverageComplete = checkpoint.coverageComplete
         )
     }
 }
@@ -5993,7 +6017,14 @@ class CodexViewModel(
                 conversationId = normalizedConversationId,
                 checkpoint = checkpoint,
                 selectionGeneration = requestGeneration,
-                cacheSchemaVersion = if (capability.payloadChunks && capability.perPageAck) 2 else 1
+                cacheSchemaVersion = when {
+                    capability.rangeSegments?.enabled == true && capability.rangeSegments.cacheSchemaVersion >= 3 -> 3
+                    capability.payloadChunks && capability.perPageAck -> 2
+                    else -> 1
+                },
+                rangeSegments = capability.rangeSegments?.takeIf {
+                    it.enabled && it.version == 1 && it.cacheSchemaVersion >= 3
+                }
             )
             if (!isCurrentHistorySelection(normalizedConversationId, requestGeneration) ||
                 !acceptsActiveHistorySyncId(historySyncInFlightSyncId, request.syncId)
@@ -6039,7 +6070,8 @@ class CodexViewModel(
                     "cacheSchemaVersion" to request.cacheSchemaVersion,
                     "sent" to sent,
                     "historyPayloadChunks" to capability.payloadChunks,
-                    "historyPerPageAck" to capability.perPageAck
+                    "historyPerPageAck" to capability.perPageAck,
+                    "historyRangeSegments" to (request.rangeSegments?.enabled == true)
                 ),
                 level = if (sent) "info" else "warn"
             )
@@ -6081,7 +6113,10 @@ class CodexViewModel(
             CodexClientMessages.historyRecoveryRequest(
                 syncId = syncId,
                 conversationId = normalizedConversationId,
-                selectionGeneration = generation
+                selectionGeneration = generation,
+                rangeSegments = capability.rangeSegments?.takeIf {
+                    it.enabled && it.version == 1 && it.cacheSchemaVersion >= 3
+                }
             )
         )
         if (!sent) {
