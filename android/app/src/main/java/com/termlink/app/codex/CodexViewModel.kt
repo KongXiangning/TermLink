@@ -6078,6 +6078,111 @@ class CodexViewModel(
         }
     }
 
+    /**
+     * Request one older range page from an explicit user action. B.3 keeps
+     * this seam dormant until the scroll/UI phase wires it in: there is no
+     * automatic follow-up request after the page reaches a terminal state.
+     */
+    internal fun requestOlderHistoryPage(): Boolean {
+        val profile = currentProfile ?: return false
+        val conversationId = _uiState.value.activeConversationId?.trim()?.takeIf { it.isNotEmpty() } ?: return false
+        val capability = historyCapability ?: return false
+        val rangeCapability = capability.rangeSegments?.takeIf {
+            it.enabled && it.version == 1 && it.cacheSchemaVersion >= 3
+        } ?: return false
+        if (historyRecoveryInFlightConversationId == conversationId || historySyncInFlightConversationId == conversationId) return false
+        val generation = historySelectionGeneration
+        val key = historySelectionKeyOrNull(conversationId, generation) ?: return false
+        val syncId = UUID.randomUUID().toString()
+        historySyncInFlightConversationId = conversationId
+        historySyncInFlightSyncId = syncId
+        clearHistorySyncSettlement()
+        _uiState.update { state ->
+            if (isCurrentHistorySelection(key)) {
+                state.copy(
+                    historyNetworkSyncState = historyNetworkState(
+                        key,
+                        CodexHistoryNetworkSyncState.SYNCING
+                    )
+                )
+            } else state
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val cached = runCatching {
+                historyCacheStore.readConversation(profile.id, conversationId)
+            }.getOrNull()
+            val durableItemCount = cached?.items?.count { !it.provisional } ?: 0
+            val checkpoint = normalizeHistoryCheckpointForAvailableItems(
+                checkpoint = cached?.checkpoint,
+                availableDurableItemCount = durableItemCount
+            )
+            if (checkpoint.hasMoreBefore != true || checkpoint.nextOlderCursor.isNullOrBlank() ||
+                !isCurrentHistorySelection(conversationId, generation) ||
+                !acceptsActiveHistorySyncId(historySyncInFlightSyncId, syncId)
+            ) {
+                if (isCurrentHistorySelection(conversationId, generation) && acceptsActiveHistorySyncId(historySyncInFlightSyncId, syncId)) {
+                    historySyncInFlightConversationId = null
+                    historySyncInFlightSyncId = null
+                    markHistorySyncSettled(conversationId, generation)
+                    cancelHistoryWatchdog()
+                    _uiState.update { state ->
+                        if (isCurrentHistorySelection(key)) {
+                            state.copy(
+                                historyNetworkSyncState = historyNetworkState(
+                                    key,
+                                    CodexHistoryNetworkSyncState.PARTIAL,
+                                    detailCode = "history_no_older_page"
+                                )
+                            )
+                        } else state
+                    }
+                }
+                return@launch
+            }
+            val sent = connectionManager.send(
+                CodexClientMessages.historyOlderRequest(
+                    syncId = syncId,
+                    conversationId = conversationId,
+                    checkpoint = checkpoint,
+                    selectionGeneration = generation,
+                    rangeSegments = rangeCapability
+                )
+            )
+            if (sent && isCurrentHistorySelection(conversationId, generation) && acceptsActiveHistorySyncId(historySyncInFlightSyncId, syncId)) {
+                armHistoryWatchdog(conversationId, generation, "sync", syncId)
+            } else if (!sent && isCurrentHistorySelection(conversationId, generation) && acceptsActiveHistorySyncId(historySyncInFlightSyncId, syncId)) {
+                historySyncInFlightConversationId = null
+                historySyncInFlightSyncId = null
+                markHistorySyncSettled(conversationId, generation)
+                cancelHistoryWatchdog()
+                _uiState.update { state ->
+                    if (isCurrentHistorySelection(key)) {
+                        state.copy(
+                            historyNetworkSyncState = historyNetworkState(
+                                key,
+                                CodexHistoryNetworkSyncState.OFFLINE,
+                                detailCode = "history_older_send_failed"
+                            )
+                        )
+                    } else state
+                }
+            }
+            PersistentDiagnosticLog.event(
+                "codex",
+                "android.codex.history.older_requested",
+                mapOf(
+                    "conversationKey" to PersistentDiagnosticLog.shortHash(conversationId),
+                    "generation" to generation,
+                    "syncId" to PersistentDiagnosticLog.shortHash(syncId),
+                    "cursorPresent" to true,
+                    "sent" to sent
+                ),
+                level = if (sent) "info" else "warn"
+            )
+        }
+        return true
+    }
+
     private fun requestHistoryRecovery(conversationId: String): Boolean {
         val normalizedConversationId = conversationId.trim().takeIf { it.isNotEmpty() } ?: return false
         val capability = historyCapability ?: return false

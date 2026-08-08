@@ -172,6 +172,72 @@ test('range-enabled provider returns only the newest bounded tail with anchors',
     assert.equal(baseline.range.newestAnchor.key, baseline.items.at(-1).itemKey);
 });
 
+test('older range provider consumes only the explicit next cursor and returns one ascending segment', async () => {
+    let requestedOptions = null;
+    const provider = new CodexHistoryBaselineProvider({
+        probeThread: async () => ({ thread: { id: 'conv', historyMode: 'paginated' } }),
+        readPaginatedTurns: async (_conversationId, options) => {
+            requestedOptions = options;
+            return {
+                threadId: 'conv',
+                sortDirection: 'desc',
+                data: [
+                    { id: 'newer-old-page', status: 'completed', items: [{ id: 'newer-old-item', type: 'agentMessage', text: 'newer old' }] },
+                    { id: 'oldest-old-page', status: 'completed', items: [{ id: 'oldest-old-item', type: 'userMessage', text: 'oldest old' }] }
+                ],
+                nextCursor: 'older-again',
+                backwardsCursor: 'must-not-be-used'
+            };
+        }
+    });
+    const baseline = await provider.build('conv', {
+        cursor: 'older-cursor',
+        rangeKind: 'older',
+        providerIdentityHash: 'codex-app-server',
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 }
+    });
+    assert.equal(requestedOptions.cursor, 'older-cursor');
+    assert.equal(requestedOptions.sortDirection, 'desc');
+    assert.deepEqual(baseline.items.map((item) => item.itemKey), ['oldest-old-item', 'newer-old-item']);
+    assert.equal(baseline.resultKind, 'segment');
+    assert.equal(baseline.range.rangeKind, 'older');
+    assert.equal(baseline.range.nextOlderCursor, 'older-again');
+    assert.equal(baseline.range.providerMode, 'paginated');
+    assert.equal(baseline.range.providerIdentityHash, 'codex-app-server');
+});
+
+test('older range provider fails closed when next cursor is missing or invalid', async () => {
+    const invalidResponses = [
+        { label: 'missing', value: {} },
+        { label: 'empty', value: { nextCursor: '' } },
+        { label: 'wrong type', value: { nextCursor: 7 } },
+        { label: 'undefined', value: { nextCursor: undefined } }
+    ];
+    for (const { label, value } of invalidResponses) {
+        const provider = new CodexHistoryBaselineProvider({
+            probeThread: async () => ({ thread: { id: 'conv', historyMode: 'paginated' } }),
+            readPaginatedTurns: async () => ({
+                threadId: 'conv',
+                data: [{ id: `${label}-item`, type: 'agentMessage', text: label }],
+                ...value,
+                backwardsCursor: 'must-not-be-used'
+            })
+        });
+        await assert.rejects(
+            () => provider.build('conv', {
+                cursor: 'older-cursor',
+                rangeKind: 'older',
+                rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 }
+            }),
+            (error) => {
+                assert.equal(error.code, 'HISTORY_RECOVERY_OLDER_CURSOR_INVALID');
+                return true;
+            },
+            label
+        );
+    }
+});
+
 test('range provider stays on the legacy/full path for an invalid capability', async () => {
     const turns = [{
         id: 'turn',

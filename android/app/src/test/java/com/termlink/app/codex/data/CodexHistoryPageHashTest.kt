@@ -46,6 +46,52 @@ class CodexHistoryPageHashTest {
             assertEquals(vector.getString("name"), vector.getString("expectedPageHash"), CodexHistoryPageHasher.pageHash(pageModel))
         }
     }
+
+    @Test
+    fun rangePageHashMatchesNodeRangeVector() {
+        val page = CodexHistoryDeltaPage(
+            syncId = "123e4567-e89b-12d3-a456-426614174000",
+            conversationId = "fixture",
+            sequence = 1,
+            pageIndex = 0,
+            pageCount = 1,
+            pageHash = "",
+            baseRoot = "base",
+            targetRoot = "target",
+            baselineComplete = false,
+            fullOrderIncluded = false,
+            upserts = listOf(
+                CodexHistoryItem(
+                    itemKey = "older-1",
+                    turnId = "turn",
+                    position = 0,
+                    itemType = "message",
+                    role = "assistant",
+                    clientRequestId = null,
+                    payloadJson = "{\"text\":\"older\"}",
+                    contentHash = "hash"
+                )
+            ),
+            range = CodexHistoryRangeMetadata(
+                version = 1,
+                segmentId = "segment-1",
+                rangeId = "segment-1",
+                rangeKind = "older",
+                providerMode = "paginated",
+                providerIdentityHash = "codex-app-server",
+                newestAnchor = CodexHistoryRangeAnchor("older-1", "hash"),
+                oldestAnchor = CodexHistoryRangeAnchor("older-1", "hash"),
+                nextOlderCursor = "cursor-2",
+                hasMoreBefore = true,
+                coverageRoot = "target",
+                coverageComplete = false
+            )
+        )
+        assertEquals(
+            "4d0f895a3d5c103c7f15b1f078c0234d9d2830652c225a04d52fa8886750e42b",
+            CodexHistoryPageHasher.pageHash(page)
+        )
+    }
 }
 
 private fun JSONObject.optStringOrNull(key: String): String? =

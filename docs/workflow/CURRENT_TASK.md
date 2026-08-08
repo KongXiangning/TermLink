@@ -7,8 +7,8 @@
 - 任务 slug：codex-single-authority-owner-control-plane
 - 当前状态：in_progress
 - 生命周期状态：active
-- 当前 handoff：implement-current-step（P0-B.3 单页 older 与 durable checkpoint，尚未开始）
-- 当前子任务：P0-A.1 至 P0-A.6 已完成，目标真机 smoke 初步通过；P0-A no-owner freshness follow-up 已完成；P0-B.0、B.1、B.2 已完成并收口；B.3 尚未开始；P0-C/P1 未授权
+- 当前 handoff：review-implementation（P0-B.3 单页 older 与 durable checkpoint 已实现，待收口审查）
+- 当前子任务：P0-A.1 至 P0-A.6 已完成，目标真机 smoke 初步通过；P0-A no-owner freshness follow-up 已完成；P0-B.0、B.1、B.2、B.3 已完成并待本步审查；B.4 尚未开始；P0-C/P1 未授权
 - 专项实施计划：`docs/codex/codex-android-history-cache-media-recovery-plan.md`
 - 历史尾部优先与缺口恢复专项计划：`docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md`
 - 子任务授权状态：implementation-authorized（用户于 2026-08-06 授权 P0-A，于 2026-08-07 明确授权开始 P0-B；P0-C/P1、15g/15h 及既有人工验收状态不变）
@@ -1362,8 +1362,9 @@ Implementation Plan（2026-08-02，Android 快速模式）：
 - [completed] P0-B.2. 最新尾部端到端垂直切片：在 B.1 通过后解锁最小 capability/range wire 与 provider/Gateway/Android 路径；只提交
   最新约 200 items，不启动 older pump。`thread/items/list` 无部署能力证据时继续使用已接通的 turns/list 并保持 partial；range capability 默认仍关闭，
   B.3 前不把 cursor/anchor 写入 durable checkpoint。
-- [pending] P0-B.3. 单页 older 与 durable checkpoint：用户按需一次一页，原子提交 items/segment/cursor/checkpoint；覆盖 cursor/anchor
-  失效、跨 sync 幂等、selectionGeneration + syncId 迟到拒绝，结束后不自动排下一页。
+- [completed] P0-B.3. 单页 older 与 durable checkpoint：用户按需一次一页，原子提交 items/segment/cursor/checkpoint；覆盖 cursor/anchor
+  失效、跨 sync 幂等、selectionGeneration + syncId 迟到拒绝，结束后不自动排下一页。当前实现要求单个 provider page 能装入一个 history
+  delta envelope，超过预算 fail-closed；跨页 segment 事务留给 B.4/B.6 联合收口。
 - [pending] P0-B.4. live 优先调度与静默 pump：先证明 control/live pending 会阻止生成下一 history chunk、最多一个 history
   page/chunk in-flight、任务切换强取消/隔离；然后才开启自动 older backfill。
 - [pending] P0-B.5. 滚动和状态 UI：顶部 inline loading/retry、接近顶部交互提升、stable-key scroll anchor；不新增常驻恢复结果条。
@@ -1393,6 +1394,9 @@ Implementation Plan（2026-08-02，Android 快速模式）：
  失效；`git diff --check`。本步不启用 range capability，不做主流程人工 smoke；connected instrumentation 仅允许在专用设备/模拟器运行。
 - P0-B.2–B.4 分步门禁：provider/Gateway/history sync Node tests + Android wire/ViewModel/cache JVM tests；B.4 必须增加 live/control
   pending 优先、one-in-flight、任务切换取消与旧 sync 拒绝测试，未通过不得自动 pump。
+- P0-B.3 退出门禁：Node provider/history-sync `49/49`、Gateway IPC 文件级回归 `93/93`、Node syntax、`git diff --check`、JDK 21
+  `:app:compileDebugKotlin :app:compileDebugUnitTestKotlin :app:testDebugUnitTest` 和 `:app:compileDebugAndroidTestKotlin` 均通过；真实
+  connected instrumentation、APK 安装和人工/双宿主 smoke 不在本步宣称通过，range capability 与自动 older pump 继续关闭。
 - P0-B.5–B.6：focused scroll-anchor/UI tests、JDK 21 debug APK；有设备时按 `adb-real-device-debug` skill 执行单设备 smoke，最终
   home/local 与 Desktop/VS Code 双宿主语义由人工验收。
 - `node --test tests/codexIpcClient.test.js tests/codexIpcFeed.test.js tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js`
@@ -2209,3 +2213,23 @@ fixture。随后重跑 Node 211/211、JDK 21 Android JVM、JavaScript syntax 和
   资源生命周期问题。契约核对确认 healthy IPC 仍是唯一实时权威，range 仅是默认关闭的 static upsert-only additive path，delete/order、
   older loop、自动 pump、live/control scheduler 与 P0-C 均未提前落地。B.2 定向 Node/JVM/APK 编译回归和 `git diff --check` 已通过；
   合并 Gateway IPC 集合的既有单个时序 flaky 已单独重跑通过。B.2 已冻结，下一步仅在用户继续授权后实施 B.3。
+- 2026-08-08（P0-B.3 实施）：严格限定在 B.3 Allowed Files，未修改 IPC client/feed/thread stream、Owner tracker、IPC authority、
+  owner 生命周期、B.4 scheduler、自动 older pump、B.5 UI 或 P0-C。BaselineProvider 增加显式 `rangeKind=older` 分支：只消费
+  `nextCursor`，paginated desc 页恢复为 ascending，legacy older 直接 unsupported；range 元数据带 provider identity。Gateway 增加
+  `conversation_history_older_request`，校验 active conversation、selection generation、range capability、provider identity 和
+  durable cursor，按 conversation/range/cursor 做 bounded singleflight，并沿用已有 `syncId + selectionGeneration` 隔离；provider
+  读取使用有界 timeout，结果只进入一次 shared delta，不自动排下一页。HistorySyncService 增加单页 older lane：只发一页、upsert-only、
+  无 manifest/delete/order，ACK 后进入 PARTIAL 终态并清理 watchdog。Android range wire/store 增加 `range_json` staging 元数据、range
+  page hash、单页原子 segment/items/cursor/checkpoint commit；older segment 使用递减 `segment_rank` 和兼容 position prepend，跨 sync
+  同 segment 幂等，迟到 sync 由现有 syncId/generation 拒绝，并保留 tail checkpoint 的 newest anchor。ViewModel 只提供 dormant 的一次一页
+  request seam，当前没有 UI/自动调用；无 cursor 时明确 PARTIAL 并停止 watchdog。
+  定向回归：Node provider/history-sync `49/49`，Gateway IPC 文件级 `93/93`，Node syntax 与 `git diff --check` 通过；JDK 21
+  `:app:compileDebugKotlin :app:compileDebugUnitTestKotlin :app:testDebugUnitTest`、`:app:compileDebugAndroidTestKotlin` 均
+  `BUILD SUCCESSFUL`。Android 真实 SQLite instrumentation、APK 安装、ADB 单设备和人工/双宿主验收未在本步执行；range capability
+  与自动 older pump 保持关闭。下一 handoff 为 `review-implementation`，审查通过后才进入 B.4。
+- 2026-08-08（P0-B.3 审查修复）：仅修复 older cursor 进度与单页 coverage 权威边界。BaselineProvider 对 older 页要求上游明确提供
+  `nextCursor=null` 或非空字符串，缺失、空串、非字符串和 `undefined` 均 fail-closed；Gateway 拒绝非法/不一致的 cursor 状态，并拒绝
+  下一 cursor 与本次请求 cursor 相同，统一返回明确失败码，不进入 delta。HistorySyncService 对 older 页的顶层或 range
+  `coverageComplete=true` 一律拒绝，避免单页把 checkpoint 写成覆盖完整。新增 Provider、HistorySyncService 与 Gateway 回归；Node
+  provider/history-sync `51/51`、Gateway IPC 文件级 `94/94`，Node syntax 与 `git diff --check` 通过。未改 wire/schema、Android store、
+  IPC/Owner、B.4 scheduler、自动 older pump 或 UI；下一 handoff 为 `review-diff`，审查通过后才进入 B.4。

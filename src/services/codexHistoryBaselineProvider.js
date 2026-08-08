@@ -141,20 +141,34 @@ class CodexHistoryBaselineProvider {
         // the provider fail-closed when a caller sends an unknown version or
         // a cache schema that cannot persist range metadata.
         const rangeRequested = isRangeCapabilityEnabled(options?.rangeSegments);
+        const rangeKind = normalizeRangeKind(options?.rangeKind);
+        if (rangeRequested && rangeKind === 'older' && mode !== HISTORY_MODES.PAGINATED) {
+            throw createUnsupportedError(
+                'HISTORY_RECOVERY_OLDER_UNSUPPORTED',
+                'Older range pages require a paginated history provider.'
+            );
+        }
         const tailItemLimit = normalizeTailItemLimit(options?.tailItemLimit);
         const cursor = extractCursorState(response);
-        const items = rangeRequested
+        if (rangeRequested && rangeKind === 'older' && !isValidOlderCursorState(cursor)) {
+            const error = new Error('Older history response must include an explicit null or non-empty next cursor.');
+            error.code = 'HISTORY_RECOVERY_OLDER_CURSOR_INVALID';
+            throw error;
+        }
+        const items = rangeRequested && rangeKind === 'tail'
             ? projectedItems.slice(Math.max(0, projectedItems.length - tailItemLimit))
             : projectedItems;
         const range = rangeRequested
             ? buildTailRangeMetadata({
                 conversationId: normalizedConversationId,
                 mode,
+                rangeKind,
                 items,
                 sourceItemCount: projectedItems.length,
                 nextOlderCursor: cursor.present ? cursor.value : null,
                 cursorPresent: cursor.present,
-                tailItemLimit
+                tailItemLimit,
+                providerIdentityHash: options?.providerIdentityHash
             })
             : null;
         return {
@@ -167,7 +181,7 @@ class CodexHistoryBaselineProvider {
             complete: false,
             coverageComplete: false,
             nextCursor: cursor.value,
-            resultKind: rangeRequested ? 'tail' : 'full',
+            resultKind: rangeRequested ? (rangeKind === 'older' ? 'segment' : 'tail') : 'full',
             ...(range ? { range } : {}),
             sourceEpoch: `recovery:${this.now()}`,
             rawBytes
@@ -299,18 +313,34 @@ function extractNextCursor(response) {
 
 function extractCursorState(response) {
     if (response && Object.prototype.hasOwnProperty.call(response, 'nextCursor')) {
-        return { present: true, value: response.nextCursor ?? null };
+        return { present: true, value: response.nextCursor };
     }
     if (response && Object.prototype.hasOwnProperty.call(response, 'next_cursor')) {
-        return { present: true, value: response.next_cursor ?? null };
+        return { present: true, value: response.next_cursor };
     }
     return { present: false, value: null };
+}
+
+function isValidOlderCursorState(cursor) {
+    return Boolean(
+        cursor?.present === true &&
+        (cursor.value === null || (
+            typeof cursor.value === 'string' &&
+            cursor.value.trim().length > 0
+        ))
+    );
 }
 
 function normalizeTailItemLimit(value) {
     return Number.isSafeInteger(value) && value > 0
         ? Math.min(value, DEFAULT_TAIL_ITEM_LIMIT)
         : DEFAULT_TAIL_ITEM_LIMIT;
+}
+
+function normalizeRangeKind(value) {
+    return typeof value === 'string' && value.trim().toLowerCase() === 'older'
+        ? 'older'
+        : 'tail';
 }
 
 function isRangeCapabilityEnabled(value) {
@@ -328,21 +358,25 @@ function isRangeCapabilityEnabled(value) {
 function buildTailRangeMetadata({
     conversationId,
     mode,
+    rangeKind = 'tail',
     items,
     sourceItemCount,
     nextOlderCursor,
     cursorPresent,
-    tailItemLimit
+    tailItemLimit,
+    providerIdentityHash = null
 }) {
     const first = items[0] || null;
     const last = items.at(-1) || null;
-    const hasMoreBefore = sourceItemCount > items.length ||
-        (mode === HISTORY_MODES.PAGINATED && (!cursorPresent || nextOlderCursor !== null));
+    const hasMoreBefore = rangeKind === 'older'
+        ? mode === HISTORY_MODES.PAGINATED && nextOlderCursor !== null
+        : sourceItemCount > items.length ||
+            (mode === HISTORY_MODES.PAGINATED && (!cursorPresent || nextOlderCursor !== null));
     const coverageRoot = buildConversationRoot(items);
     const rangeId = hashPayload(canonicalize({
         conversationId,
         mode,
-        direction: 'older',
+        direction: rangeKind,
         firstItemKey: first?.itemKey || null,
         firstItemHash: first?.contentHash || null,
         lastItemKey: last?.itemKey || null,
@@ -354,7 +388,11 @@ function buildTailRangeMetadata({
         version: RANGE_SCHEMA_VERSION,
         segmentId: rangeId,
         rangeId,
-        rangeKind: 'tail',
+        rangeKind,
+        ...(providerIdentityHash ? {
+            providerMode: mode,
+            providerIdentityHash: String(providerIdentityHash)
+        } : {}),
         newestAnchor: last
             ? { key: last.itemKey, hash: last.contentHash }
             : null,
@@ -366,7 +404,7 @@ function buildTailRangeMetadata({
         coverageRoot,
         coverageComplete: false,
         sourceItemCount,
-        itemLimit: tailItemLimit
+        ...(rangeKind === 'tail' ? { itemLimit: tailItemLimit } : {})
     };
 }
 

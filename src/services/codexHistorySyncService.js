@@ -41,9 +41,9 @@ const RECOVERY_PURPOSES = new Set(['full', 'tail']);
 
 function computeHistoryPageHash(page) {
     // Keep the v1 page hash byte-compatible with old Android clients.  Range
-    // metadata is additive transport metadata in B.2 and is not yet owned by
-    // the durable page/checkpoint integrity chain; B.3 will extend that chain
-    // when the range writer starts persisting cursor/anchor state.
+    // metadata is included only for range-aware pages, so negotiated-off v1/v2
+    // pages retain their existing golden hash while a durable older page is
+    // protected together with its cursor/anchor metadata.
     const input = {
         syncId: page.syncId,
         sequence: page.sequence,
@@ -55,7 +55,8 @@ function computeHistoryPageHash(page) {
         fullOrderIncluded: Boolean(page.fullOrderIncluded),
         upserts: Array.isArray(page.upserts) ? page.upserts.map(toWireItem) : [],
         deletes: Array.isArray(page.deletes) ? page.deletes : [],
-        canonicalOrder: Array.isArray(page.canonicalOrder) ? page.canonicalOrder : []
+        canonicalOrder: Array.isArray(page.canonicalOrder) ? page.canonicalOrder : [],
+        ...(page.range ? { range: normalizeRangeMetadata(page.range) } : {})
     };
     return hashPayload(canonicalize(input));
 }
@@ -413,11 +414,19 @@ function normalizeRangeMetadata(value) {
             ? value.segmentId.trim()
             : null;
     if (!rangeId) return null;
+    const providerMode = typeof value.providerMode === 'string' && value.providerMode.trim()
+        ? value.providerMode.trim()
+        : null;
+    const providerIdentityHash = typeof value.providerIdentityHash === 'string' && value.providerIdentityHash.trim()
+        ? value.providerIdentityHash.trim()
+        : null;
     return {
         version: Number.isSafeInteger(value.version) && value.version > 0 ? value.version : 1,
         segmentId: typeof value.segmentId === 'string' && value.segmentId.trim() ? value.segmentId.trim() : rangeId,
         rangeId,
         rangeKind: typeof value.rangeKind === 'string' && value.rangeKind.trim() ? value.rangeKind.trim() : 'tail',
+        ...(providerMode ? { providerMode } : {}),
+        ...(providerIdentityHash ? { providerIdentityHash } : {}),
         newestAnchor: normalizeAnchor(value.newestAnchor),
         oldestAnchor: normalizeAnchor(value.oldestAnchor),
         nextOlderCursor: Object.prototype.hasOwnProperty.call(value, 'nextOlderCursor')
@@ -1022,6 +1031,130 @@ class CodexHistorySyncService {
         return { ok: true, state: 'awaiting_manifest', sync: state };
     }
 
+    /**
+     * Start exactly one user-requested older provider page.  This deliberately
+     * bypasses the manifest path: the provider has already validated the
+     * cursor and returned one ascending range segment.  The normal delta/ACK
+     * transport is reused, but no follow-up request is scheduled here.
+     */
+    startOlderPage({
+        ws,
+        conversationId,
+        syncId = randomUUID(),
+        checkpoint = {},
+        selectionGeneration = 0,
+        clientSelectionGeneration = 0,
+        cacheSchemaVersion = 3,
+        rangeSegments = null,
+        pageResult = null
+    } = {}) {
+        if (!ws || !conversationId || !isUuid(syncId)) return { ok: false, detailCode: 'invalid_sync_id' };
+        if (!this.isStillActive(ws, conversationId, selectionGeneration)) return { ok: false, detailCode: 'stale_selection' };
+        if (this._syncs.get(ws)) return { ok: false, detailCode: 'history_sync_in_progress' };
+        const requestedRangeSegments = normalizeRangeCapability(rangeSegments);
+        const normalizedCacheSchemaVersion = normalizeCacheSchemaVersion(cacheSchemaVersion, requestedRangeSegments.enabled);
+        if (!requestedRangeSegments.enabled || normalizedCacheSchemaVersion < 3) {
+            return { ok: false, detailCode: 'history_range_unsupported' };
+        }
+        const rangeMetadata = normalizeRangeMetadata(pageResult?.range);
+        const items = Array.isArray(pageResult?.items) ? pageResult.items : [];
+        if (!rangeMetadata || rangeMetadata.rangeKind !== 'older' || items.length === 0) {
+            return { ok: false, detailCode: 'history_older_page_invalid' };
+        }
+        if (
+            pageResult?.complete === true ||
+            pageResult?.coverageComplete === true ||
+            rangeMetadata.coverageComplete === true
+        ) {
+            return { ok: false, detailCode: 'history_older_page_authority_invalid' };
+        }
+        const normalizedCheckpoint = normalizeCheckpoint(checkpoint);
+        const baseline = this._createBaseline(conversationId, items, {
+            complete: false,
+            baselineSourceKind: 'history_older_page',
+            resultKind: 'segment',
+            rangeMetadata,
+            hasMoreBefore: rangeMetadata.hasMoreBefore,
+            coverageComplete: rangeMetadata.coverageComplete,
+            syncOutcome: 'partial',
+            syncOutcomeDetail: 'history_older_page'
+        });
+        const state = {
+            ws, conversationId, syncId, sequence: 1, selectionGeneration,
+            clientSelectionGeneration: normalizeClientSelectionGeneration(clientSelectionGeneration),
+            checkpoint: normalizedCheckpoint,
+            baseline,
+            syncOutcome: 'partial',
+            syncOutcomeDetail: 'history_older_page',
+            // A single older page never proves the complete history range in
+            // P0-B.3, even when its cursor reaches the remote beginning.
+            rangeIncomplete: true,
+            settled: false,
+            cacheSchemaVersion: normalizedCacheSchemaVersion,
+            supportsPayloadChunks: normalizedCacheSchemaVersion >= 2,
+            perPageAck: normalizedCacheSchemaVersion >= 2,
+            rangeSegments: requestedRangeSegments,
+            rangeEnabled: true,
+            rangeMetadata,
+            createdAt: this.now(), lastActivityAt: this.now(), awaitingManifest: false,
+            lastAckedRoot: normalizedCheckpoint.rootHash || null,
+            awaitingAckPageIndex: null,
+            activePageChunks: [],
+            nextChunkIndex: 0
+        };
+        if (!this._retainBaseline(baseline)) return { ok: false, detailCode: 'history_unavailable' };
+        try {
+            state.pages = buildDeltaPages({
+                syncId,
+                sequence: 1,
+                baseRoot: normalizedCheckpoint.coverageRoot || normalizedCheckpoint.rootHash || null,
+                targetRoot: rangeMetadata.coverageRoot || baseline.rootHash,
+                upserts: items,
+                deletes: [],
+                canonicalOrder: undefined,
+                baselineComplete: false,
+                // A provider page is one logical older request.  Let the
+                // envelope guard, rather than the normal manifest item cap,
+                // decide whether it must be rejected as too large.
+                maxItems: Math.max(this.options.deltaMaxItems, items.length),
+                maxBytes: Math.min(this.options.deltaMaxBytes, this.options.historyMaxEnvelopeBytes),
+                enablePayloadChunks: state.supportsPayloadChunks,
+                payloadInlineMaxBytes: this.options.historyInlinePayloadBytes,
+                payloadChunkBytes: this.options.historyPayloadChunkBytes,
+                range: rangeMetadata,
+                envelopeContext: {
+                    conversationId,
+                    selectionGeneration,
+                    clientSelectionGeneration: state.clientSelectionGeneration
+                }
+            });
+        } catch (error) {
+            this._releaseBaseline(baseline);
+            return { ok: false, detailCode: error?.code || 'history_older_page_invalid' };
+        }
+        if (!Array.isArray(state.pages) || state.pages.length === 0) {
+            this._releaseBaseline(baseline);
+            return { ok: false, detailCode: 'history_older_page_empty' };
+        }
+        if (state.pages.length !== 1) {
+            // P0-B.3 commits one provider page and its cursor atomically. Do
+            // not expose a multi-delta provider page until the later scheduler
+            // phase defines a cross-page segment transaction.
+            this._releaseBaseline(baseline);
+            return { ok: false, detailCode: 'history_older_page_too_large' };
+        }
+        state.nextPageIndex = 0;
+        state.backpressureSince = null;
+        state.awaitingManifest = false;
+        state.awaitingAckPageIndex = null;
+        state.activePageChunks = [];
+        state.nextChunkIndex = 0;
+        this._syncs.set(ws, state);
+        this._armInactivityTimer(ws, state);
+        this._pumpPages(ws, state);
+        return { ok: true, state: 'syncing', sync: state, pages: state.pages };
+    }
+
     handleManifestPage(ws, page) {
         const state = this._syncs.get(ws);
         if (!state || state.syncId !== page?.syncId || state.conversationId !== page?.conversationId) return { ok: false, detailCode: 'stale_sync' };
@@ -1326,10 +1459,29 @@ class CodexHistorySyncService {
 }
 
 function normalizeCheckpoint(checkpoint) {
+    const source = checkpoint && typeof checkpoint === 'object' ? checkpoint : {};
+    const normalizeString = (value) => typeof value === 'string' && value.trim() ? value.trim() : null;
+    const hasMoreBefore = Object.prototype.hasOwnProperty.call(source, 'hasMoreBefore')
+        ? (source.hasMoreBefore === null ? null : source.hasMoreBefore === true)
+        : null;
     return {
-        rootHash: typeof checkpoint.rootHash === 'string' ? checkpoint.rootHash : null,
-        itemCount: Number.isInteger(checkpoint.itemCount) ? checkpoint.itemCount : 0,
-        complete: checkpoint.complete === true
+        rootHash: typeof source.rootHash === 'string' ? source.rootHash : null,
+        itemCount: Number.isInteger(source.itemCount) ? source.itemCount : 0,
+        complete: source.complete === true,
+        providerMode: normalizeString(source.providerMode),
+        providerIdentityHash: normalizeString(source.providerIdentityHash),
+        rangeId: normalizeString(source.rangeId),
+        rangeKind: normalizeString(source.rangeKind),
+        newestAnchorKey: normalizeString(source.newestAnchorKey),
+        newestAnchorHash: normalizeString(source.newestAnchorHash),
+        oldestAnchorKey: normalizeString(source.oldestAnchorKey),
+        oldestAnchorHash: normalizeString(source.oldestAnchorHash),
+        nextOlderCursor: Object.prototype.hasOwnProperty.call(source, 'nextOlderCursor')
+            ? (source.nextOlderCursor === null || typeof source.nextOlderCursor === 'string' ? source.nextOlderCursor : null)
+            : null,
+        coverageRoot: normalizeString(source.coverageRoot),
+        hasMoreBefore,
+        coverageComplete: source.coverageComplete === true
     };
 }
 

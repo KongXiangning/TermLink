@@ -159,6 +159,41 @@ class CodexHistoryWireTest {
     }
 
     @Test
+    fun olderRequestCarriesDurableCheckpointAndNegotiatedRangeCapability() {
+        val message = JSONObject(
+            CodexClientMessages.historyOlderRequest(
+                syncId = "sync",
+                conversationId = "conversation",
+                checkpoint = CodexHistorySyncCheckpoint(
+                    rootHash = "tail-root",
+                    itemCount = 200,
+                    complete = false,
+                    providerMode = "paginated",
+                    providerIdentityHash = "codex-app-server",
+                    rangeId = "tail-range",
+                    rangeKind = "tail",
+                    oldestAnchorKey = "tail-old",
+                    oldestAnchorHash = "tail-old-hash",
+                    newestAnchorKey = "tail-new",
+                    newestAnchorHash = "tail-new-hash",
+                    nextOlderCursor = "older-cursor",
+                    coverageRoot = "tail-root",
+                    hasMoreBefore = true,
+                    coverageComplete = false
+                ),
+                selectionGeneration = 4,
+                rangeSegments = CodexHistoryRangeCapability(true, 1, 3)
+            )
+        )
+        assertEquals("conversation_history_older_request", message.getString("type"))
+        assertEquals(4L, message.getLong("selectionGeneration"))
+        assertEquals("older-cursor", message.getJSONObject("checkpoint").getString("nextOlderCursor"))
+        assertEquals("paginated", message.getJSONObject("checkpoint").getString("providerMode"))
+        assertEquals(3, message.getInt("cacheSchemaVersion"))
+        assertTrue(message.getJSONObject("rangeSegments").getBoolean("enabled"))
+    }
+
+    @Test
     fun deltaParsesClientSelectionGenerationWithoutChangingPageHashInputs() {
         val json = JSONObject()
             .put("syncId", "sync")
@@ -211,6 +246,28 @@ class CodexHistoryWireTest {
         assertEquals("range", range?.rangeId)
         assertEquals("old", range?.oldestAnchor?.key)
         assertTrue(range?.hasMoreBefore == true)
+    }
+
+    @Test
+    fun deltaParsesRangeProviderIdentity() {
+        val json = JSONObject()
+            .put("syncId", "sync")
+            .put("conversationId", "conversation")
+            .put("sequence", 1)
+            .put("pageIndex", 0)
+            .put("pageCount", 1)
+            .put("pageHash", "hash")
+            .put("targetRoot", "root")
+            .put("range", JSONObject()
+                .put("version", 1)
+                .put("segmentId", "range")
+                .put("rangeKind", "older")
+                .put("providerMode", "paginated")
+                .put("providerIdentityHash", "codex-app-server"))
+        val range = CodexHistoryDeltaWire.from(json)!!.page.range
+        assertEquals("older", range?.rangeKind)
+        assertEquals("paginated", range?.providerMode)
+        assertEquals("codex-app-server", range?.providerIdentityHash)
     }
 
     @Test

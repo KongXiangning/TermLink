@@ -75,7 +75,7 @@ class CodexConversationCacheStore(
             sync_id TEXT PRIMARY KEY, endpoint_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
             sequence INTEGER NOT NULL, base_root TEXT, target_root TEXT NOT NULL, page_count INTEGER NOT NULL,
             baseline_complete INTEGER NOT NULL DEFAULT 0, full_order_included INTEGER NOT NULL DEFAULT 0,
-            selection_generation INTEGER NOT NULL DEFAULT 0,
+            selection_generation INTEGER NOT NULL DEFAULT 0, range_json TEXT,
             created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL
         )""".trimIndent())
         db.execSQL("""CREATE TABLE sync_pages (
@@ -152,6 +152,7 @@ class CodexConversationCacheStore(
             )""".trimIndent())
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_media_refs_original ON conversation_media_refs(endpoint_id, original_hash)")
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_media_refs_thumbnail ON conversation_media_refs(endpoint_id, thumbnail_hash)")
+            addColumnIfMissing(db, "sync_sessions", "range_json", "TEXT")
         } catch (error: Exception) {
             migrationFailed = true
             Log.e("CodexHistoryCache", "SQLite additive media schema repair failed", error)
@@ -285,6 +286,9 @@ class CodexConversationCacheStore(
             // what keeps user_version at 3 and preserves the original DB.
             migrateV3ToV4(db)
         }
+        // B.3 adds only nullable staging metadata after the v4 storage
+        // baseline. Keeping this idempotent also covers pre-release v4 APKs.
+        addColumnIfMissing(db, "sync_sessions", "range_json", "TEXT")
     }
 
     /**
@@ -422,6 +426,7 @@ class CodexConversationCacheStore(
                     )
                 )
         }
+        addColumnIfMissing(db, "sync_sessions", "range_json", "TEXT")
         verifyV4Schema(db)
     }
 
@@ -461,6 +466,9 @@ class CodexConversationCacheStore(
                 "state", "committed_at"
             )
         )) { "v4 history_segments schema is incomplete" }
+        check(tableColumns(db, "sync_sessions").contains("range_json")) {
+            "v4 sync_sessions schema is incomplete"
+        }
         val positionNotNull = db.rawQuery("PRAGMA table_info(items)", null).use { cursor ->
             val nameIndex = cursor.getColumnIndexOrThrow("name")
             val notNullIndex = cursor.getColumnIndexOrThrow("notnull")
@@ -953,6 +961,10 @@ class CodexConversationCacheStore(
     fun applyDeltaPage(endpointId: String, page: CodexHistoryDeltaPage, now: Long = System.currentTimeMillis()): PageApplyResult {
         if (migrationFailed) return PageApplyResult.REJECTED
         if (CodexHistoryPageHasher.pageHash(page) != page.pageHash) return PageApplyResult.REJECTED
+        if (page.range != null && (
+                page.baselineComplete || page.fullOrderIncluded || page.deletes.isNotEmpty() ||
+                    page.pageCount != 1
+            )) return PageApplyResult.REJECTED
         val db = writableDatabase
         db.beginTransaction()
         try {
@@ -1015,7 +1027,7 @@ class CodexConversationCacheStore(
         db.beginTransaction()
         try {
             val session = db.query(
-                "sync_sessions", arrayOf("conversation_id", "target_root", "page_count", "baseline_complete", "selection_generation"),
+                "sync_sessions", arrayOf("conversation_id", "target_root", "page_count", "baseline_complete", "selection_generation", "range_json"),
                 "sync_id=? AND sequence=?", arrayOf(chunk.syncId, chunk.sequence.toString()), null, null, null
             ).use { cursor ->
                 if (!cursor.moveToFirst()) return PageApplyResult.REJECTED
@@ -1024,7 +1036,8 @@ class CodexConversationCacheStore(
                     cursor.getString(1),
                     cursor.getInt(2),
                     cursor.getInt(3),
-                    cursor.getInt(4)
+                    cursor.getInt(4),
+                    cursor.getStringOrNull("range_json")
                 )
             }
             if (session[0] != chunk.conversationId) return PageApplyResult.REJECTED
@@ -1044,7 +1057,7 @@ class CodexConversationCacheStore(
                     put("payload_hash", chunk.payloadHash); put("payload_bytes", chunk.payloadBytes); put("payload_data", chunk.data)
                 })
             }
-            val page = readStagedPage(db, chunk, session[1] as String, session[2] as Int, session[3] as Int)
+            val page = readStagedPage(db, chunk, session[1] as String, session[2] as Int, session[3] as Int, session[5] as String?)
             if (page != null && payloadsComplete(db, page)) {
                 materializePayloadChunks(db, page)
                 val received = db.rawQuery(
@@ -1064,7 +1077,7 @@ class CodexConversationCacheStore(
 
     enum class PageApplyResult { STAGED, READY, COMMITTED, IDEMPOTENT, STALE, REJECTED, REJECTED_CONFLICT }
 
-    private fun readStagedPage(db: SQLiteDatabase, chunk: CodexHistoryPayloadChunk, targetRoot: String, pageCount: Int, baselineComplete: Int): CodexHistoryDeltaPage? {
+    private fun readStagedPage(db: SQLiteDatabase, chunk: CodexHistoryPayloadChunk, targetRoot: String, pageCount: Int, baselineComplete: Int, rangeJson: String?): CodexHistoryDeltaPage? {
         val pageHash = db.query(
             "sync_pages", arrayOf("page_hash"), "sync_id=? AND sequence=? AND page_index=?",
             arrayOf(chunk.syncId, chunk.sequence.toString(), chunk.pageIndex.toString()), null, null, null
@@ -1085,7 +1098,8 @@ class CodexConversationCacheStore(
             syncId = chunk.syncId, conversationId = chunk.conversationId, sequence = chunk.sequence,
             pageIndex = chunk.pageIndex, pageCount = pageCount, pageHash = pageHash,
             baseRoot = null, targetRoot = targetRoot, baselineComplete = baselineComplete != 0,
-            fullOrderIncluded = false, upserts = upserts, deletes = deletes
+            fullOrderIncluded = false, upserts = upserts, deletes = deletes,
+            range = parseRangeMetadata(rangeJson)
         )
     }
 
@@ -1136,6 +1150,10 @@ class CodexConversationCacheStore(
     }
 
     private fun commitStaging(db: SQLiteDatabase, endpointId: String, page: CodexHistoryDeltaPage, now: Long) {
+        if (page.range != null) {
+            commitRangeStaging(db, endpointId, page, now)
+            return
+        }
         val invalidateRange = hasIncompatibleV2Mutation(db, page)
         db.query("sync_staging", null, "sync_id=? AND sequence=?", arrayOf(page.syncId, page.sequence.toString()), null, null, null).use { cursor ->
             while (cursor.moveToNext()) {
@@ -1175,6 +1193,206 @@ class CodexConversationCacheStore(
         db.delete("sync_pages", "sync_id=? AND sequence=?", arrayOf(page.syncId, page.sequence.toString()))
         db.delete("sync_order", "sync_id=? AND sequence=?", arrayOf(page.syncId, page.sequence.toString()))
         db.delete("sync_sessions", "sync_id=?", arrayOf(page.syncId))
+    }
+
+    /**
+     * Atomically commit one range page. The page is intentionally limited to
+     * one transport page by applyDeltaPage/startOlderPage, so the cursor and
+     * segment metadata advance together with all upserts. No delete/order
+     * authority is accepted on this path.
+     */
+    private fun commitRangeStaging(db: SQLiteDatabase, endpointId: String, page: CodexHistoryDeltaPage, now: Long) {
+        val range = page.range ?: throw IllegalArgumentException("range metadata required")
+        if (page.baselineComplete || page.fullOrderIncluded || page.deletes.isNotEmpty()) {
+            throw IllegalArgumentException("range pages are upsert-only")
+        }
+        val stagedItems = mutableListOf<CodexHistoryItem>()
+        db.query(
+            "sync_staging", null,
+            "sync_id=? AND sequence=? AND operation='upsert'",
+            arrayOf(page.syncId, page.sequence.toString()), null, null, "rowid ASC"
+        ).use { cursor ->
+            while (cursor.moveToNext()) stagedItems += cursor.toStagedItem()
+        }
+        if (stagedItems.isEmpty()) throw IllegalArgumentException("range page has no upserts")
+
+        val existingSegment = db.query(
+            "history_segments", null,
+            "endpoint_id=? AND conversation_id=? AND segment_id=?",
+            arrayOf(endpointId, page.conversationId, range.segmentId), null, null, null
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) null else mapOf(
+                "segmentRank" to cursor.getLong(cursor.getColumnIndexOrThrow("segment_rank")),
+                "itemCount" to cursor.getInt(cursor.getColumnIndexOrThrow("item_count")),
+                "segmentRoot" to cursor.getStringOrNull("segment_root"),
+                "state" to cursor.getString(cursor.getColumnIndexOrThrow("state"))
+            )
+        }
+        if (existingSegment != null && existingSegment["state"] != "committed") {
+            throw IllegalStateException("range segment is not committed")
+        }
+
+        val itemKeys = stagedItems.map { it.itemKey }.toSet()
+        val existingItems = mutableMapOf<String, Pair<String?, String>>()
+        itemKeys.forEach { key ->
+            db.query(
+                "items", arrayOf("segment_id", "content_hash"),
+                "endpoint_id=? AND conversation_id=? AND item_key=?",
+                arrayOf(endpointId, page.conversationId, key), null, null, null
+            ).use { cursor ->
+                if (cursor.moveToFirst()) {
+                    existingItems[key] = Pair(cursor.getStringOrNull("segment_id"), cursor.getString(cursor.getColumnIndexOrThrow("content_hash")))
+                }
+            }
+        }
+        existingItems.forEach { (key, existing) ->
+            val incoming = stagedItems.first { it.itemKey == key }
+            if (existing.second != incoming.contentHash && existing.first != range.segmentId) {
+                throw IllegalStateException("range item hash conflict")
+            }
+            if (existing.first != null && existing.first != range.segmentId && !existing.first!!.startsWith("legacy-")) {
+                throw IllegalStateException("range item segment conflict")
+            }
+        }
+        val displacedLegacySegments = existingItems.values
+            .mapNotNull { it.first }
+            .filter { it.startsWith("legacy-") && it != range.segmentId }
+            .toSet()
+
+        val segmentRank = (existingSegment?.get("segmentRank") as Long?) ?: run {
+            if (range.rangeKind == "older") {
+                val minRank = db.rawQuery(
+                    "SELECT MIN(segment_rank) FROM history_segments WHERE endpoint_id=? AND conversation_id=? AND state='committed'",
+                    arrayOf(endpointId, page.conversationId)
+                ).use { cursor -> if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else null }
+                CodexHistoryCacheSchema.SegmentRank.prepend(minRank)
+            } else {
+                val maxRank = db.rawQuery(
+                    "SELECT MAX(segment_rank) FROM history_segments WHERE endpoint_id=? AND conversation_id=? AND state='committed'",
+                    arrayOf(endpointId, page.conversationId)
+                ).use { cursor -> if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else null }
+                CodexHistoryCacheSchema.SegmentRank.append(maxRank)
+            }
+        }
+        val existingMin = db.rawQuery(
+            "SELECT MIN(position) FROM items WHERE endpoint_id=? AND conversation_id=? AND provisional=0",
+            arrayOf(endpointId, page.conversationId)
+        ).use { cursor -> if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getInt(0) else null }
+        val existingMax = db.rawQuery(
+            "SELECT MAX(position) FROM items WHERE endpoint_id=? AND conversation_id=? AND provisional=0",
+            arrayOf(endpointId, page.conversationId)
+        ).use { cursor -> if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getInt(0) else null }
+        val positions = if (range.rangeKind == "older") {
+            CodexHistoryCacheSchema.CompatiblePosition.prepend(existingMin, stagedItems.size)
+        } else {
+            CodexHistoryCacheSchema.CompatiblePosition.append(existingMax, stagedItems.size)
+        }
+        stagedItems.forEachIndexed { index, item ->
+            val existing = existingItems[item.itemKey]
+            if (existing?.first == range.segmentId) {
+                // A cross-sync replay of the same segment is idempotent. Keep
+                // its established position and only refresh the payload.
+                db.execSQL(
+                    "UPDATE items SET turn_id=?, item_type=?, role=?, client_request_id=?, payload_json=?, content_hash=?, payload_bytes=?, provisional=0, updated_at=? WHERE endpoint_id=? AND conversation_id=? AND item_key=?",
+                    arrayOf(item.turnId, item.itemType, item.role, item.clientRequestId, item.payloadJson, item.contentHash, item.payloadJson.toByteArray().size, now, endpointId, page.conversationId, item.itemKey)
+                )
+            } else {
+                val values = item.values(endpointId, page.conversationId).apply {
+                    put("position", positions[index])
+                    put("segment_id", range.segmentId)
+                    put("within_segment_position", index)
+                    put("updated_at", now)
+                    put("provisional", 0)
+                }
+                db.insertWithOnConflict("items", null, values, SQLiteDatabase.CONFLICT_REPLACE)
+            }
+        }
+        refreshLegacySegmentMetadata(db, endpointId, page.conversationId, displacedLegacySegments)
+        val first = stagedItems.first()
+        val last = stagedItems.last()
+        db.insertWithOnConflict("history_segments", null, ContentValues().apply {
+            put("endpoint_id", endpointId)
+            put("conversation_id", page.conversationId)
+            put("segment_id", range.segmentId)
+            put("segment_rank", segmentRank)
+            put("direction", if (range.rangeKind == "older") "older" else "tail")
+            put("first_item_key", range.oldestAnchor?.key ?: first.itemKey)
+            put("first_item_hash", range.oldestAnchor?.hash ?: first.contentHash)
+            put("last_item_key", range.newestAnchor?.key ?: last.itemKey)
+            put("last_item_hash", range.newestAnchor?.hash ?: last.contentHash)
+            put("segment_root", range.coverageRoot ?: page.targetRoot)
+            put("item_count", if (existingSegment == null) stagedItems.size else (existingSegment["itemCount"] as Int))
+            put("next_older_cursor", range.nextOlderCursor)
+            put("state", "committed")
+            put("committed_at", now)
+        }, SQLiteDatabase.CONFLICT_REPLACE)
+
+        val count = db.rawQuery(
+            "SELECT COUNT(*) FROM items WHERE endpoint_id=? AND conversation_id=? AND provisional=0",
+            arrayOf(endpointId, page.conversationId)
+        ).use { it.moveToFirst(); it.getInt(0) }
+        insertCheckpointPreservingRangeMetadata(db, page.checkpointValues(endpointId, count, now))
+        db.execSQL(
+            "INSERT OR REPLACE INTO sync_completed_pages(sync_id, sequence, page_index, page_hash, completed_at) SELECT sync_id, sequence, page_index, page_hash, ? FROM sync_pages WHERE sync_id=? AND sequence=?",
+            arrayOf(now, page.syncId, page.sequence)
+        )
+        db.delete("sync_staging", "sync_id=? AND sequence=?", arrayOf(page.syncId, page.sequence.toString()))
+        db.delete("sync_payload_chunks", "sync_id=? AND sequence=?", arrayOf(page.syncId, page.sequence.toString()))
+        db.delete("sync_pages", "sync_id=? AND sequence=?", arrayOf(page.syncId, page.sequence.toString()))
+        db.delete("sync_order", "sync_id=? AND sequence=?", arrayOf(page.syncId, page.sequence.toString()))
+        db.delete("sync_sessions", "sync_id=?", arrayOf(page.syncId))
+    }
+
+    /**
+     * A migrated v3 cache starts as one compatibility segment. When a new
+     * range page takes ownership of overlapping stable keys, keep that old
+     * segment's metadata truthful in the same transaction. An empty legacy
+     * segment is superseded; a partially retained one keeps its original rank
+     * and receives refreshed bounds/count.
+     */
+    private fun refreshLegacySegmentMetadata(
+        db: SQLiteDatabase,
+        endpointId: String,
+        conversationId: String,
+        segmentIds: Set<String>
+    ) {
+        segmentIds.forEach { segmentId ->
+            var count = 0
+            var firstKey: String? = null
+            var firstHash: String? = null
+            var lastKey: String? = null
+            var lastHash: String? = null
+            db.query(
+                "items",
+                arrayOf("item_key", "content_hash"),
+                "endpoint_id=? AND conversation_id=? AND segment_id=? AND provisional=0",
+                arrayOf(endpointId, conversationId, segmentId),
+                null,
+                null,
+                "within_segment_position ASC, item_key ASC"
+            ).use { cursor ->
+                while (cursor.moveToNext()) {
+                    if (firstKey == null) {
+                        firstKey = cursor.getString(0)
+                        firstHash = cursor.getString(1)
+                    }
+                    lastKey = cursor.getString(0)
+                    lastHash = cursor.getString(1)
+                    count += 1
+                }
+            }
+            if (count == 0) {
+                db.execSQL(
+                    "UPDATE history_segments SET state='superseded', item_count=0, first_item_key=NULL, first_item_hash=NULL, last_item_key=NULL, last_item_hash=NULL WHERE endpoint_id=? AND conversation_id=? AND segment_id=?",
+                    arrayOf(endpointId, conversationId, segmentId)
+                )
+            } else {
+                db.execSQL(
+                    "UPDATE history_segments SET item_count=?, first_item_key=?, first_item_hash=?, last_item_key=?, last_item_hash=? WHERE endpoint_id=? AND conversation_id=? AND segment_id=?",
+                    arrayOf(count, firstKey, firstHash, lastKey, lastHash, endpointId, conversationId, segmentId)
+                )
+            }
+        }
     }
 
     /**
@@ -1291,6 +1509,18 @@ class CodexConversationCacheStore(
                 else -> if (rawValue == null) merged.putNull(column) else merged.put(column, rawValue)
             }
         }
+        // An older page advances only the lower boundary of the durable
+        // range. Keep the newest anchor established by the tail checkpoint;
+        // replacing it with the page's local newest item would make the next
+        // tail validation start in the middle of the conversation.
+        if (merged.getAsString("range_kind") == "older") {
+            val existingNewestKey = existing?.get("newest_anchor_key") as? String
+            val existingNewestHash = existing?.get("newest_anchor_hash") as? String
+            if (!existingNewestKey.isNullOrBlank() && !existingNewestHash.isNullOrBlank()) {
+                merged.put("newest_anchor_key", existingNewestKey)
+                merged.put("newest_anchor_hash", existingNewestHash)
+            }
+        }
         db.insertWithOnConflict("conversations", null, merged, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
@@ -1316,6 +1546,22 @@ object CodexHistoryPageHasher {
                 }
             } }))
             put("deletes", JSONArray(page.deletes)); put("canonicalOrder", JSONArray(page.canonicalOrder))
+            page.range?.let { range ->
+                put("range", JSONObject().apply {
+                    put("version", range.version)
+                    put("segmentId", range.segmentId)
+                    put("rangeId", range.rangeId)
+                    put("rangeKind", range.rangeKind)
+                    range.providerMode?.let { put("providerMode", it) }
+                    range.providerIdentityHash?.let { put("providerIdentityHash", it) }
+                    put("newestAnchor", range.newestAnchor?.let { JSONObject().put("key", it.key).put("hash", it.hash) } ?: JSONObject.NULL)
+                    put("oldestAnchor", range.oldestAnchor?.let { JSONObject().put("key", it.key).put("hash", it.hash) } ?: JSONObject.NULL)
+                    put("nextOlderCursor", range.nextOlderCursor ?: JSONObject.NULL)
+                    put("hasMoreBefore", range.hasMoreBefore)
+                    put("coverageRoot", range.coverageRoot ?: JSONObject.NULL)
+                    put("coverageComplete", range.coverageComplete)
+                })
+            }
         }
         return canonicalJson(json)
     }
@@ -1365,8 +1611,76 @@ private fun quoteJsonString(value: String): String {
 
 private fun sha256(text: String): String = sha256(text.toByteArray(Charsets.UTF_8))
 private fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
-private fun CodexHistoryDeltaPage.sessionValues(endpointId: String, now: Long) = ContentValues().apply { put("sync_id", syncId); put("endpoint_id", endpointId); put("conversation_id", conversationId); put("sequence", sequence); put("base_root", baseRoot); put("target_root", targetRoot); put("page_count", pageCount); put("baseline_complete", if (baselineComplete) 1 else 0); put("full_order_included", if (fullOrderIncluded) 1 else 0); put("selection_generation", selectionGeneration); put("created_at", now); put("expires_at", now + 30_000) }
-private fun CodexHistoryDeltaPage.checkpointValues(endpointId: String, count: Int, now: Long) = ContentValues().apply { put("endpoint_id", endpointId); put("conversation_id", conversationId); put("schema_version", CodexHistoryCacheSchema.CHECKPOINT_SCHEMA_VERSION); put("root_hash", targetRoot); put("item_count", count); put("complete", if (baselineComplete) 1 else 0); put("last_synced_at", now); put("last_opened_at", now) }
+private fun CodexHistoryRangeMetadata.toWireJson() = JSONObject().apply {
+    put("version", version)
+    put("segmentId", segmentId)
+    put("rangeId", rangeId)
+    put("rangeKind", rangeKind)
+    providerMode?.let { put("providerMode", it) }
+    providerIdentityHash?.let { put("providerIdentityHash", it) }
+    put("newestAnchor", newestAnchor?.let { JSONObject().put("key", it.key).put("hash", it.hash) } ?: JSONObject.NULL)
+    put("oldestAnchor", oldestAnchor?.let { JSONObject().put("key", it.key).put("hash", it.hash) } ?: JSONObject.NULL)
+    put("nextOlderCursor", nextOlderCursor ?: JSONObject.NULL)
+    put("hasMoreBefore", hasMoreBefore)
+    put("coverageRoot", coverageRoot ?: JSONObject.NULL)
+    put("coverageComplete", coverageComplete)
+}
+
+private fun parseRangeMetadata(raw: String?): CodexHistoryRangeMetadata? {
+    if (raw.isNullOrBlank()) return null
+    val json = runCatching { JSONObject(raw) }.getOrNull() ?: return null
+    val segmentId = json.optString("segmentId", "").trim().takeIf { it.isNotEmpty() } ?: return null
+    val rangeId = json.optString("rangeId", segmentId).trim().ifEmpty { segmentId }
+    fun anchor(name: String): CodexHistoryRangeAnchor? {
+        val value = json.optJSONObject(name) ?: return null
+        val key = value.optString("key", "").takeIf { it.isNotEmpty() } ?: return null
+        val hash = value.optString("hash", "").takeIf { it.isNotEmpty() } ?: return null
+        return CodexHistoryRangeAnchor(key, hash)
+    }
+    return CodexHistoryRangeMetadata(
+        version = json.optInt("version", 1),
+        segmentId = segmentId,
+        rangeId = rangeId,
+        rangeKind = json.optString("rangeKind", "tail"),
+        providerMode = json.optString("providerMode", "").takeIf { it.isNotEmpty() },
+        providerIdentityHash = json.optString("providerIdentityHash", "").takeIf { it.isNotEmpty() },
+        newestAnchor = anchor("newestAnchor"),
+        oldestAnchor = anchor("oldestAnchor"),
+        nextOlderCursor = if (json.has("nextOlderCursor") && !json.isNull("nextOlderCursor")) json.optString("nextOlderCursor") else null,
+        hasMoreBefore = json.optBoolean("hasMoreBefore", false),
+        coverageRoot = if (json.has("coverageRoot") && !json.isNull("coverageRoot")) json.optString("coverageRoot") else null,
+        coverageComplete = json.optBoolean("coverageComplete", false)
+    )
+}
+
+private fun CodexHistoryDeltaPage.sessionValues(endpointId: String, now: Long) = ContentValues().apply { put("sync_id", syncId); put("endpoint_id", endpointId); put("conversation_id", conversationId); put("sequence", sequence); put("base_root", baseRoot); put("target_root", targetRoot); put("page_count", pageCount); put("baseline_complete", if (baselineComplete) 1 else 0); put("full_order_included", if (fullOrderIncluded) 1 else 0); put("selection_generation", selectionGeneration); put("range_json", range?.toWireJson()?.toString()); put("created_at", now); put("expires_at", now + 30_000) }
+private fun CodexHistoryDeltaPage.checkpointValues(endpointId: String, count: Int, now: Long) = ContentValues().apply {
+    put("endpoint_id", endpointId)
+    put("conversation_id", conversationId)
+    put("schema_version", CodexHistoryCacheSchema.CHECKPOINT_SCHEMA_VERSION)
+    put("root_hash", targetRoot)
+    put("item_count", count)
+    put("complete", if (baselineComplete) 1 else 0)
+    put("last_synced_at", now)
+    put("last_opened_at", now)
+    range?.let { metadata ->
+        put("root_schema_version", CodexHistoryCacheSchema.RANGE_ROOT_SCHEMA_VERSION)
+        metadata.providerMode?.let { put("provider_mode", it) } ?: putNull("provider_mode")
+        metadata.providerIdentityHash?.let { put("provider_identity_hash", it) } ?: putNull("provider_identity_hash")
+        put("range_id", metadata.rangeId)
+        put("range_kind", metadata.rangeKind)
+        metadata.newestAnchor?.key?.let { put("newest_anchor_key", it) } ?: putNull("newest_anchor_key")
+        metadata.newestAnchor?.hash?.let { put("newest_anchor_hash", it) } ?: putNull("newest_anchor_hash")
+        metadata.oldestAnchor?.key?.let { put("oldest_anchor_key", it) } ?: putNull("oldest_anchor_key")
+        metadata.oldestAnchor?.hash?.let { put("oldest_anchor_hash", it) } ?: putNull("oldest_anchor_hash")
+        metadata.nextOlderCursor?.let { put("next_older_cursor", it) } ?: putNull("next_older_cursor")
+        metadata.coverageRoot?.let { put("coverage_root", it) } ?: putNull("coverage_root")
+        put("has_more_before", if (metadata.hasMoreBefore) 1 else 0)
+        put("coverage_complete", if (metadata.coverageComplete) 1 else 0)
+        put("coverage_state", if (metadata.coverageComplete) CodexHistoryCacheSchema.COMPLETE_COVERAGE else CodexHistoryCacheSchema.PARTIAL_COVERAGE)
+        put("committed_at", now)
+    }
+}
 private fun CodexHistoryItem.values(endpointId: String, conversationId: String) = ContentValues().apply { put("endpoint_id", endpointId); put("conversation_id", conversationId); put("item_key", itemKey); put("turn_id", turnId); put("position", position); put("item_type", itemType); put("role", role); put("payload_json", payloadJson); put("content_hash", contentHash); put("payload_bytes", payloadJson.toByteArray().size); put("provisional", if (provisional) 1 else 0); put("client_request_id", clientRequestId); put("updated_at", System.currentTimeMillis()) }
 private fun CodexHistoryItem.stagingValues(page: CodexHistoryDeltaPage) = ContentValues().apply {
     put("sync_id", page.syncId); put("sequence", page.sequence); put("page_index", page.pageIndex); put("operation", "upsert")

@@ -196,6 +196,105 @@ class CodexHistoryCacheMigrationInstrumentationTest {
         }
     }
 
+    @Test
+    fun oneTailThenOneOlderRangePageCommitsCursorAndSegmentsAtomically() {
+        val store = CodexConversationCacheStore(context, databaseName)
+        try {
+            val tail = rangePage(
+                syncId = "123e4567-e89b-12d3-a456-426614174201",
+                rangeId = "tail-range",
+                rangeKind = "tail",
+                items = listOf("tail-0", "tail-1"),
+                nextOlderCursor = "older-cursor"
+            )
+            assertEquals(CodexConversationCacheStore.PageApplyResult.COMMITTED, store.applyDeltaPage("home", tail))
+
+            val older = rangePage(
+                syncId = "123e4567-e89b-12d3-a456-426614174202",
+                rangeId = "older-range",
+                rangeKind = "older",
+                items = listOf("older-0", "older-1"),
+                nextOlderCursor = "older-again"
+            )
+            assertEquals(CodexConversationCacheStore.PageApplyResult.COMMITTED, store.applyDeltaPage("home", older))
+
+            val view = requireNotNull(store.readConversation("home", "task-range"))
+            assertEquals(listOf("older-0", "older-1", "tail-0", "tail-1"), view.items.map { it.itemKey })
+            assertEquals("older-range", view.checkpoint.rangeId)
+            assertEquals("older-again", view.checkpoint.nextOlderCursor)
+            assertTrue(view.checkpoint.hasMoreBefore == true)
+            assertEquals("tail-1", view.checkpoint.newestAnchorKey)
+            assertEquals("hash-tail-1", view.checkpoint.newestAnchorHash)
+            assertEquals(CodexHistoryCoverageState.PARTIAL, view.checkpoint.coverageState)
+            assertFalse(view.checkpoint.complete)
+
+            val db = store.readableDatabase
+            assertEquals(2, scalarInt(db, "SELECT COUNT(*) FROM history_segments WHERE endpoint_id='home' AND conversation_id='task-range' AND state='committed'"))
+            assertEquals(-1L, scalarLong(db, "SELECT segment_rank FROM history_segments WHERE segment_id='older-range'"))
+            assertEquals(-2, scalarInt(db, "SELECT position FROM items WHERE item_key='older-0'"))
+            assertEquals(1, scalarInt(db, "SELECT position FROM items WHERE item_key='tail-1'"))
+
+            val replay = older.copy(
+                syncId = "123e4567-e89b-12d3-a456-426614174203",
+                pageHash = ""
+            ).let { it.copy(pageHash = CodexHistoryPageHasher.pageHash(it)) }
+            assertEquals(CodexConversationCacheStore.PageApplyResult.COMMITTED, store.applyDeltaPage("home", replay))
+            assertEquals(4, scalarInt(db, "SELECT COUNT(*) FROM items WHERE endpoint_id='home' AND conversation_id='task-range' AND provisional=0"))
+        } finally {
+            store.close()
+        }
+    }
+
+    private fun rangePage(
+        syncId: String,
+        rangeId: String,
+        rangeKind: String,
+        items: List<String>,
+        nextOlderCursor: String?
+    ): CodexHistoryDeltaPage {
+        val canonicalItems = items.mapIndexed { index, key ->
+            CodexHistoryItem(
+                itemKey = key,
+                turnId = "turn-$key",
+                position = index,
+                itemType = "message",
+                role = "assistant",
+                clientRequestId = null,
+                payloadJson = "{\"text\":\"$key\"}",
+                contentHash = "hash-$key"
+            )
+        }
+        val range = CodexHistoryRangeMetadata(
+            version = 1,
+            segmentId = rangeId,
+            rangeId = rangeId,
+            rangeKind = rangeKind,
+            providerMode = "paginated",
+            providerIdentityHash = "codex-app-server",
+            newestAnchor = CodexHistoryRangeAnchor(canonicalItems.last().itemKey, canonicalItems.last().contentHash),
+            oldestAnchor = CodexHistoryRangeAnchor(canonicalItems.first().itemKey, canonicalItems.first().contentHash),
+            nextOlderCursor = nextOlderCursor,
+            hasMoreBefore = nextOlderCursor != null,
+            coverageRoot = "root-$rangeId",
+            coverageComplete = false
+        )
+        val raw = CodexHistoryDeltaPage(
+            syncId = syncId,
+            conversationId = "task-range",
+            sequence = 1,
+            pageIndex = 0,
+            pageCount = 1,
+            pageHash = "",
+            baseRoot = null,
+            targetRoot = "root-$rangeId",
+            baselineComplete = false,
+            fullOrderIncluded = false,
+            upserts = canonicalItems,
+            range = range
+        )
+        return raw.copy(pageHash = CodexHistoryPageHasher.pageHash(raw))
+    }
+
     private fun createLegacyV3Database(
         malformedPosition: Long? = null,
         includeSecondConversation: Boolean = false

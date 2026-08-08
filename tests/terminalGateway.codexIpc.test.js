@@ -1197,6 +1197,148 @@ test('paginated recovery uses thread/turns/list after metadata mode probing', as
     await stopGateway(g);
 });
 
+test('one older request uses the persisted cursor once and settles through the shared delta path', async () => {
+    const g = await setupGateway({
+        historyRangeSegmentsEnabled: true,
+        ipcSurfaceWaitGraceMs: 1,
+        historySelectionDeadlineMs: 1_000,
+        historySettlementMarginMs: 10
+    });
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && params.includeTurns === false) {
+            return { thread: { id: params.threadId, historyMode: 'paginated' } };
+        }
+        if (method === 'thread/turns/list') {
+            return {
+                threadId: params.threadId,
+                sortDirection: 'desc',
+                data: [
+                    { id: 'newer-old', status: 'completed', items: [{ id: 'older-new', type: 'agentMessage', text: 'newer old' }] },
+                    { id: 'oldest-old', status: 'completed', items: [{ id: 'older-old', type: 'userMessage', text: 'oldest old' }] }
+                ],
+                nextCursor: null,
+                backwardsCursor: 'newer-must-not-be-used'
+            };
+        }
+        return { ok: true };
+    };
+    const sess = await g.sm.createSession({ name: 'older-page' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-older-page' }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_older_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174032',
+        conversationId: 'conv-older-page',
+        selectionGeneration: 1,
+        cacheSchemaVersion: 3,
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        checkpoint: {
+            rootHash: 'tail-root',
+            itemCount: 200,
+            complete: false,
+            providerMode: 'paginated',
+            providerIdentityHash: 'codex-app-server',
+            rangeId: 'tail-range',
+            rangeKind: 'tail',
+            oldestAnchorKey: 'tail-old',
+            oldestAnchorHash: 'tail-old-hash',
+            nextOlderCursor: 'older-cursor',
+            hasMoreBefore: true,
+            coverageRoot: 'tail-root',
+            coverageComplete: false
+        }
+    }));
+    const delta = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_delta' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174032', 1_000);
+    assert.equal(delta?.range?.rangeKind, 'older');
+    assert.equal(delta?.range?.nextOlderCursor, null);
+    assert.deepEqual(delta?.deletes, []);
+    assert.equal(delta?.fullOrderIncluded, false);
+    assert.equal(g.codexService.requests.filter((entry) =>
+        entry.method === 'thread/turns/list' && entry.params.cursor === 'older-cursor'
+    ).length, 1);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_sync_ack',
+        syncId: delta.syncId,
+        conversationId: delta.conversationId,
+        sequence: delta.sequence,
+        pageIndex: delta.pageIndex,
+        targetRoot: delta.targetRoot,
+        clientSelectionGeneration: 1
+    }));
+    const state = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_sync_state' && message.syncId === delta.syncId, 1_000);
+    assert.equal(state?.state, 'partial');
+    ws.close();
+    await stopGateway(g);
+});
+
+test('one older request fails closed when the provider repeats the requested cursor', async () => {
+    const g = await setupGateway({
+        historyRangeSegmentsEnabled: true,
+        ipcSurfaceWaitGraceMs: 1,
+        historySelectionDeadlineMs: 1_000,
+        historySettlementMarginMs: 10
+    });
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && params.includeTurns === false) {
+            return { thread: { id: params.threadId, historyMode: 'paginated' } };
+        }
+        if (method === 'thread/turns/list') {
+            return {
+                threadId: params.threadId,
+                sortDirection: 'desc',
+                data: [{ id: 'older-turn', status: 'completed', items: [{ id: 'older-item', type: 'agentMessage', text: 'older' }] }],
+                nextCursor: params.cursor
+            };
+        }
+        return { ok: true };
+    };
+    const sess = await g.sm.createSession({ name: 'older-repeat-cursor' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-older-repeat' }));
+    ws.send(JSON.stringify({
+        type: 'conversation_history_older_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174101',
+        conversationId: 'conv-older-repeat',
+        selectionGeneration: 1,
+        cacheSchemaVersion: 3,
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        checkpoint: {
+            rootHash: 'tail-root',
+            itemCount: 200,
+            complete: false,
+            providerMode: 'paginated',
+            providerIdentityHash: 'codex-app-server',
+            rangeId: 'tail-range',
+            rangeKind: 'tail',
+            oldestAnchorKey: 'tail-old',
+            oldestAnchorHash: 'tail-old-hash',
+            nextOlderCursor: 'older-cursor',
+            hasMoreBefore: true,
+            coverageRoot: 'tail-root',
+            coverageComplete: false
+        }
+    }));
+    const failure = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_sync_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174101', 1_000);
+    assert.equal(failure?.state, 'failed');
+    assert.equal(failure?.detailCode, 'history_older_cursor_repeat');
+    assert.equal(messages.some((message) =>
+        message.type === 'conversation_history_delta' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174101'
+    ), false);
+    assert.equal(g.codexService.requests.filter((entry) =>
+        entry.method === 'thread/turns/list' && entry.params.cursor === 'older-cursor'
+    ).length, 1);
+    ws.close();
+    await stopGateway(g);
+});
+
 test('enabled range recovery returns only the bounded legacy tail', async () => {
     const g = await setupGateway({
         historyRangeSegmentsEnabled: true,

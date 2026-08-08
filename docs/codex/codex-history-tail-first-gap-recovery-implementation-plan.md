@@ -1252,5 +1252,14 @@ P0-A 已完成并形成 `4a78060` 阶段基线；用户已于 2026-08-07 授权 
 3. 是否增加独立 read-only app-server worker；默认暂缓，不属于最小 P0-B。
 4. P0-C live-tail durable gap reconciliation；必须在 P0-B 完成后单独授权。
 
-下一 handoff：`implement-current-step`，P0-B.1 已完成并冻结；进入 B.2 前保持 range capability 与自动 older pump 关闭。后续真实
-instrumentation 只使用专用设备/模拟器，不在主测试设备执行 connected instrumentation。
+2026-08-08（P0-B.3 实施记录）：已实现一次用户触发的 paginated older page 与 durable range checkpoint。Provider 仅消费显式
+`nextCursor`，把 desc page 归一化为 ascending；Gateway 校验 range/provider/selection/cursor 并按 conversation+range+cursor
+singleflight，复用 `syncId + selectionGeneration`，有界读取后只发送一个 upsert-only delta，不自动请求下一页。Android 以
+`range_json` 保存 staging provenance，在同一 SQLite transaction 中提交 items、segment、兼容 position、cursor/checkpoint；older
+segment 使用递减 rank，跨 sync 同 segment 幂等，且 older commit 保留既有 tail 的 newest anchor。单页超过 envelope 或 provider/anchor
+不满足时 fail-closed。ViewModel 只提供 dormant 的一次一页请求 seam，未接 UI，未实现自动 pump、live/control scheduler、P0-C 或新的
+wire cancel/cycle 字段。Node provider/history-sync `49/49`、Gateway IPC `93/93`、JDK 21 Android JVM、AndroidTest 编译、syntax
+与 diff 检查通过；真实 connected instrumentation、ADB/APK smoke 和人工验收留给 B.6。
+
+下一 handoff：`review-implementation`，P0-B.3 已实现但尚未收口审查；保持 range capability 与自动 older pump 关闭。审查通过后才进入
+P0-B.4。后续真实 instrumentation 只使用专用设备/模拟器，不在主测试设备执行 connected instrumentation。

@@ -165,6 +165,105 @@ test('range capability carries tail metadata without enabling delete or order', 
     }).state, 'partial');
 });
 
+test('one older page emits one upsert-only delta and settles PARTIAL without a follow-up request', () => {
+    const messages = [];
+    const service = new CodexHistorySyncService({ send: (_ws, message) => messages.push(message) });
+    const ws = { readyState: 1, bufferedAmount: 0 };
+    const syncId = '123e4567-e89b-12d3-a456-426614174099';
+    const pageResult = {
+        conversationId: 'conv',
+        mode: 'paginated',
+        resultKind: 'segment',
+        complete: false,
+        items: [item('older-0'), item('older-1')].map((entry, position) => ({ ...entry, position })),
+        range: {
+            version: 1,
+            segmentId: 'segment-older',
+            rangeId: 'segment-older',
+            rangeKind: 'older',
+            providerMode: 'paginated',
+            providerIdentityHash: 'codex-app-server',
+            oldestAnchor: { key: 'older-0', hash: 'older-0' },
+            newestAnchor: { key: 'older-1', hash: 'older-1' },
+            nextOlderCursor: 'older-again',
+            hasMoreBefore: true,
+            coverageRoot: 'older-root',
+            coverageComplete: false
+        }
+    };
+    const result = service.startOlderPage({
+        ws,
+        conversationId: 'conv',
+        syncId,
+        checkpoint: {
+            rootHash: 'tail-root',
+            coverageRoot: 'tail-root',
+            rangeId: 'tail-segment',
+            hasMoreBefore: true,
+            nextOlderCursor: 'older-cursor'
+        },
+        cacheSchemaVersion: 3,
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        pageResult
+    });
+    assert.equal(result.ok, true);
+    const delta = messages.find((message) => message.type === 'conversation_history_delta');
+    assert.ok(delta);
+    assert.equal(delta.range.rangeKind, 'older');
+    assert.equal(delta.baselineComplete, false);
+    assert.deepEqual(delta.deletes, []);
+    assert.equal(delta.fullOrderIncluded, false);
+    const ack = service.handleAck(ws, {
+        syncId,
+        conversationId: 'conv',
+        sequence: 1,
+        pageIndex: 0,
+        targetRoot: delta.targetRoot,
+        clientSelectionGeneration: 0
+    });
+    assert.equal(ack.state, 'partial');
+    assert.equal(messages.filter((message) => message.type === 'conversation_history_delta').length, 1);
+    assert.equal(messages.filter((message) => message.type === 'conversation_history_manifest_required').length, 0);
+});
+
+test('one older page rejects any coverage-complete authority claim', () => {
+    const messages = [];
+    const service = new CodexHistorySyncService({ send: (_ws, message) => messages.push(message) });
+    const ws = { readyState: 1, bufferedAmount: 0 };
+    const result = service.startOlderPage({
+        ws,
+        conversationId: 'conv',
+        syncId: '123e4567-e89b-12d3-a456-426614174100',
+        checkpoint: {
+            rootHash: 'tail-root',
+            coverageRoot: 'tail-root',
+            rangeId: 'tail-segment',
+            hasMoreBefore: true,
+            nextOlderCursor: 'older-cursor'
+        },
+        cacheSchemaVersion: 3,
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        pageResult: {
+            complete: false,
+            coverageComplete: true,
+            items: [item('older-item')],
+            range: {
+                version: 1,
+                segmentId: 'segment-older-authority',
+                rangeId: 'segment-older-authority',
+                rangeKind: 'older',
+                nextOlderCursor: null,
+                hasMoreBefore: false,
+                coverageRoot: 'older-root',
+                coverageComplete: true
+            }
+        }
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.detailCode, 'history_older_page_authority_invalid');
+    assert.equal(messages.some((message) => message.type === 'conversation_history_delta'), false);
+});
+
 test('schema v3 is capped to the legacy v2 path without a valid range capability', () => {
     const service = new CodexHistorySyncService({ send: () => {} });
     service.registerBaselineItems('conv', [item('one')], {

@@ -195,6 +195,8 @@ data class CodexHistoryRangeMetadata(
     val segmentId: String,
     val rangeId: String,
     val rangeKind: String,
+    val providerMode: String? = null,
+    val providerIdentityHash: String? = null,
     val newestAnchor: CodexHistoryRangeAnchor?,
     val oldestAnchor: CodexHistoryRangeAnchor?,
     val nextOlderCursor: String?,
@@ -388,6 +390,8 @@ data class CodexHistoryDeltaWire(
                 segmentId = segmentId,
                 rangeId = rangeId,
                 rangeKind = json.optString("rangeKind", "tail"),
+                providerMode = json.optStringOrNull("providerMode"),
+                providerIdentityHash = json.optStringOrNull("providerIdentityHash"),
                 newestAnchor = anchor("newestAnchor"),
                 oldestAnchor = anchor("oldestAnchor"),
                 nextOlderCursor = json.optStringOrNull("nextOlderCursor"),
@@ -1227,6 +1231,26 @@ data class CodexIpcConversationSummary(
 object CodexClientMessages {
 
     fun historySyncRequest(request: CodexHistorySyncRequest): String = request.toJson().toString()
+
+    fun historyOlderRequest(
+        syncId: String,
+        conversationId: String,
+        checkpoint: CodexHistorySyncCheckpoint,
+        selectionGeneration: Long,
+        rangeSegments: CodexHistoryRangeCapability
+    ): String = JSONObject().apply {
+        put("type", "conversation_history_older_request")
+        put("syncId", syncId)
+        put("conversationId", conversationId)
+        put("checkpoint", checkpoint.toJson())
+        put("selectionGeneration", selectionGeneration.coerceAtLeast(0L))
+        put("cacheSchemaVersion", rangeSegments.cacheSchemaVersion.coerceAtLeast(3))
+        put("rangeSegments", JSONObject().apply {
+            put("enabled", true)
+            put("version", rangeSegments.version)
+            put("cacheSchemaVersion", rangeSegments.cacheSchemaVersion)
+        })
+    }.toString()
 
     fun historyRecoveryRequest(
         syncId: String,

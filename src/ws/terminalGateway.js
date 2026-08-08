@@ -1148,6 +1148,10 @@ function registerTerminalGateway(wss, {
     const _ipcHistorySyncContexts = new WeakMap();
     /** @type {WeakMap<import('ws').WebSocket, { waiter: { promise: Promise<unknown>, detach: () => boolean }, conversationId: string, selectionGeneration: number, syncId: string | null }>} */
     const _ipcHistoryRecoveryWaiters = new WeakMap();
+    // One bounded provider read per conversation/cursor. This is a server
+    // read deduplication lane only; it never creates an owner or a realtime
+    // authority and is cleared as soon as the one-page result settles.
+    const _historyOlderFlights = new Map();
     /** @type {Set<string>} */
     const _followerSendInFlight = new Set();
     /** @type {Map<string, { conversationId: string, status: 'resolving'|'started', authority?: string, turnId?: string | null, successType?: string }>} */
@@ -5655,7 +5659,8 @@ function registerTerminalGateway(wss, {
                                     producer: ({ signal }) => historyBaselineProvider.build(conversationId, {
                                         signal,
                                         timeoutMs: providerTimeout,
-                                        rangeSegments
+                                        rangeSegments,
+                                        providerIdentityHash: HISTORY_RECOVERY_PROVIDER_IDENTITY
                                     })
                                 });
                                 if (!waiter.ok) {
@@ -5920,6 +5925,162 @@ function registerTerminalGateway(wss, {
                                     selectionGeneration: currentSelectionGeneration,
                                     clientSelectionGeneration
                                 }, result.detailCode || 'history_unavailable');
+                            }
+                        }
+                    } else if (type === 'conversation_history_older_request') {
+                        const conversationId = isNonEmptyString(envelope.conversationId) ? envelope.conversationId.trim() : '';
+                        const currentSelectionGeneration = _ipcSelectionGenerations.get(ws) || 0;
+                        const hasClientSelectionGeneration = Object.prototype.hasOwnProperty.call(envelope, 'selectionGeneration');
+                        const clientSelectionGeneration = Number.isSafeInteger(envelope.selectionGeneration) && envelope.selectionGeneration >= 0
+                            ? envelope.selectionGeneration
+                            : currentSelectionGeneration;
+                        const syncId = isNonEmptyString(envelope.syncId) ? envelope.syncId.trim() : null;
+                        const rangeSegments = normalizeHistoryRangeCapability(
+                            envelope.rangeSegments,
+                            historyRangeSegmentsEnabled === true
+                        );
+                        const checkpoint = envelope.checkpoint && typeof envelope.checkpoint === 'object' && !Array.isArray(envelope.checkpoint)
+                            ? envelope.checkpoint
+                            : {};
+                        const cursor = typeof checkpoint.nextOlderCursor === 'string' && checkpoint.nextOlderCursor.trim()
+                            ? checkpoint.nextOlderCursor
+                            : null;
+                        const rangeId = typeof checkpoint.rangeId === 'string' && checkpoint.rangeId.trim()
+                            ? checkpoint.rangeId.trim()
+                            : null;
+                        const providerMode = typeof checkpoint.providerMode === 'string' && checkpoint.providerMode.trim()
+                            ? checkpoint.providerMode.trim()
+                            : null;
+                        const providerIdentityHash = typeof checkpoint.providerIdentityHash === 'string' && checkpoint.providerIdentityHash.trim()
+                            ? checkpoint.providerIdentityHash.trim()
+                            : null;
+                        const context = {
+                            syncId,
+                            conversationId,
+                            selectionGeneration: currentSelectionGeneration,
+                            clientSelectionGeneration
+                        };
+                        diagnosticLog.event('server', 'server.codex.history.older.request_received', {
+                            conversationKey: diagnosticKey(conversationId),
+                            syncId,
+                            selectionGeneration: currentSelectionGeneration,
+                            clientSelectionGeneration,
+                            rangeSegments: rangeSegments.enabled,
+                            hasCursor: Boolean(cursor),
+                            hasRangeId: Boolean(rangeId)
+                        }, 'info');
+                        const failOlder = (detailCode) => _sendHistorySyncFailure(ws, context, detailCode);
+                        if (!conversationId || _getActiveConversationId(ws) !== conversationId) {
+                            failOlder('conversation_not_active');
+                        } else if (!_clientSelectionGenerationMatches(
+                            ws,
+                            hasClientSelectionGeneration,
+                            clientSelectionGeneration,
+                            currentSelectionGeneration
+                        )) {
+                            failOlder('stale_selection');
+                        } else if (!rangeSegments.enabled || !cursor || checkpoint.hasMoreBefore !== true || !rangeId) {
+                            failOlder('history_older_unavailable');
+                        } else if (providerMode && providerMode !== 'paginated') {
+                            failOlder('history_older_unsupported');
+                        } else if (providerIdentityHash && providerIdentityHash !== HISTORY_RECOVERY_PROVIDER_IDENTITY) {
+                            failOlder('history_older_provider_mismatch');
+                        } else {
+                            const cycle = _getHistorySelectionCycle(ws);
+                            if (!cycle || !_isCurrentHistorySelectionCycle(ws, conversationId, currentSelectionGeneration)) {
+                                failOlder('stale_selection');
+                                return;
+                            }
+                            const flightKey = `${conversationId}\u0000${rangeId}\u0000${cursor}`;
+                            let flight = _historyOlderFlights.get(flightKey);
+                            if (!flight) {
+                                const providerPromise = withHistoryRecoveryTimeout(
+                                    historyBaselineProvider.build(conversationId, {
+                                        historyMode: 'paginated',
+                                        cursor,
+                                        rangeKind: 'older',
+                                        rangeSegments,
+                                        providerIdentityHash: HISTORY_RECOVERY_PROVIDER_IDENTITY,
+                                        timeoutMs: HISTORY_RECOVERY_TIMEOUT_MS
+                                    }),
+                                    HISTORY_RECOVERY_TIMEOUT_MS
+                                );
+                                flight = providerPromise;
+                                _historyOlderFlights.set(flightKey, flight);
+                                void flight.finally(() => {
+                                    if (_historyOlderFlights.get(flightKey) === flight) _historyOlderFlights.delete(flightKey);
+                                }).catch(() => {});
+                            }
+                            try {
+                                const result = await flight;
+                                if (!_isCurrentHistorySelectionCycle(ws, conversationId, currentSelectionGeneration)) {
+                                    failOlder('stale_selection');
+                                    return;
+                                }
+                                const resultRange = result?.range && typeof result.range === 'object' ? result.range : null;
+                                const resultItems = Array.isArray(result?.items) ? result.items : [];
+                                const sameAnchor = checkpoint.oldestAnchorKey && resultItems.some((item) => item?.itemKey === checkpoint.oldestAnchorKey);
+                                const anchorHash = sameAnchor
+                                    ? resultItems.find((item) => item?.itemKey === checkpoint.oldestAnchorKey)?.contentHash
+                                    : null;
+                                if (!resultRange || resultRange.rangeKind !== 'older' || resultItems.length === 0 ||
+                                    (sameAnchor && anchorHash !== checkpoint.oldestAnchorHash)) {
+                                    failOlder(sameAnchor ? 'history_older_anchor_conflict' : 'history_older_page_invalid');
+                                    return;
+                                }
+                                const nextOlderCursor = resultRange.nextOlderCursor;
+                                const cursorShapeValid = nextOlderCursor === null || (
+                                    typeof nextOlderCursor === 'string' && nextOlderCursor.trim().length > 0
+                                );
+                                const cursorStateConsistent = resultRange.hasMoreBefore === true
+                                    ? nextOlderCursor !== null
+                                    : nextOlderCursor === null;
+                                if (!cursorShapeValid || !cursorStateConsistent) {
+                                    failOlder('history_older_cursor_invalid');
+                                    return;
+                                }
+                                if (nextOlderCursor === cursor) {
+                                    failOlder('history_older_cursor_repeat');
+                                    return;
+                                }
+                                if (resultRange.providerIdentityHash && resultRange.providerIdentityHash !== HISTORY_RECOVERY_PROVIDER_IDENTITY) {
+                                    failOlder('history_older_provider_mismatch');
+                                    return;
+                                }
+                                const started = historySyncService.startOlderPage({
+                                    ws,
+                                    conversationId,
+                                    syncId,
+                                    checkpoint,
+                                    cacheSchemaVersion: envelope.cacheSchemaVersion,
+                                    rangeSegments,
+                                    selectionGeneration: currentSelectionGeneration,
+                                    clientSelectionGeneration,
+                                    pageResult: result
+                                });
+                                diagnosticLog.event('server', 'server.codex.history.older.started', {
+                                    conversationKey: diagnosticKey(conversationId),
+                                    syncId,
+                                    selectionGeneration: currentSelectionGeneration,
+                                    ok: started.ok,
+                                    state: started.state || null,
+                                    detailCode: started.detailCode || null,
+                                    itemCount: resultItems.length
+                                }, started.ok ? 'info' : 'warn');
+                                if (!started.ok) failOlder(started.detailCode || 'history_older_failed');
+                            } catch (error) {
+                                failOlder(error?.code === 'HISTORY_RECOVERY_TIMEOUT'
+                                    ? 'history_older_timeout'
+                                    : error?.code === 'HISTORY_RECOVERY_OLDER_UNSUPPORTED'
+                                        ? 'history_older_unsupported'
+                                        : error?.code === 'HISTORY_RECOVERY_OLDER_CURSOR_INVALID'
+                                            ? 'history_older_cursor_invalid'
+                                        : 'history_older_failed');
+                                diagnosticLog.error('server', 'server.codex.history.older.failed', error, {
+                                    conversationKey: diagnosticKey(conversationId),
+                                    syncId,
+                                    selectionGeneration: currentSelectionGeneration
+                                });
                             }
                         }
                     } else if (type === 'conversation_history_manifest_page') {
