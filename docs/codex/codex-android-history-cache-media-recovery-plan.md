@@ -886,3 +886,4 @@ HTTP 原图 runner 共同覆盖。
 - 历史 chunk 在 live/control surface 到达时暂停，实时 surface 完成后再继续；同一线程最多一个历史请求，切换任务后旧 pump 必须失效。
 - 不把原验证提交中的 per-revision eager fast-path、fingerprint stringify、verification sampler 或未经证明的“硬 500ms”承诺带回默认路径；不修改 `codexIpcFeed`、`codexIpcThreadStream`、`codexOwnerSurfaceTracker` 和 IPC authority。
 - 必须通过 Node focused tests、Android JVM/JDK 21 tests、约 3900 item 大历史的服务端内存/延迟观测，以及真机 cache-first、live 优先、A→B→A generation 隔离验证后，才能进入 P0-B5。
+- 2026-08-11 corrected slice：从 P0-B.3 基线重新接入服务端 snapshot cache read-through 与失败回源/非阻断持久化；移除原始 per-revision eager projection 和全量 projection fingerprint，保留 deadline fallback、scheduler 优先级及 Android segment/generation 原子提交。Node 集合 `190/190`、JDK 21 `:app:testDebugUnitTest`、`:app:assembleDebug` 通过；约 3900 item 真机内存、实时延迟、cache-first reopen 和 A→B→A 仍未完成。

@@ -561,6 +561,163 @@ test('snapshot history bypasses an unavailable Desktop IPC surface and commits t
     await stopGateway(g);
 });
 
+test('server snapshot cache hit streams without another Codex history read', async () => {
+    const cachedItems = [{
+        itemKey: 'cached-item',
+        contentHash: 'd'.repeat(64),
+        payload: { type: 'message', role: 'assistant', text: 'cached history' },
+        position: 0
+    }];
+    let readCount = 0;
+    let writeCount = 0;
+    const g = await setupGateway({
+        historySnapshotSegmentsEnabled: true,
+        historySnapshotStore: {
+            async init() {},
+            async read(scope) {
+                assert.deepEqual(scope, { profileKey: 'profile-cache', conversationId: 'conv-cache-hit' });
+                readCount += 1;
+                return {
+                    conversationId: 'conv-cache-hit',
+                    mode: 'legacy',
+                    items: cachedItems,
+                    rootHash: 'e'.repeat(64),
+                    snapshotMeta: { writtenAt: 1234 }
+                };
+            },
+            async write() {
+                writeCount += 1;
+                return { byteSize: 1 };
+            }
+        },
+        historySelectionDeadlineMs: 60
+    });
+    g.codexService.requestHandler = async () => {
+        throw new Error('cache hit must not request Codex history');
+    };
+    const sess = await g.sm.createSession({ name: 'snapshot-cache-hit' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(50);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-cache-hit' }));
+    await delay(20);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174207',
+        conversationId: 'conv-cache-hit',
+        selectionGeneration: 1,
+        cacheSchemaVersion: 3,
+        profileId: 'profile-cache',
+        checkpoint: { rootHash: null, itemCount: 0, complete: false },
+        serverSnapshotSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 }
+    }));
+    const start = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_segment_start' && message.syncId === '123e4567-e89b-12d3-a456-426614174207', 1_000);
+    assert.ok(start);
+    assert.deepEqual(start.upserts.map((entry) => entry.itemKey), ['cached-item']);
+    const commit = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_segment_commit' && message.syncId === start.syncId, 1_000);
+    assert.ok(commit);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_segment_ack',
+        syncId: start.syncId,
+        conversationId: start.conversationId,
+        sequence: start.sequence,
+        pageIndex: start.pageIndex,
+        segmentId: start.range.segmentId,
+        pageHash: start.pageHash,
+        targetRoot: start.targetRoot,
+        clientSelectionGeneration: 1
+    }));
+    const settled = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_sync_state' && message.syncId === start.syncId, 1_000);
+    assert.equal(settled?.state, 'synced');
+    assert.equal(readCount, 1);
+    assert.equal(writeCount, 0);
+    assert.equal(g.codexService.requests.length, 0);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('server snapshot cache failures fall back to Codex without failing the current transfer', async () => {
+    let readCount = 0;
+    let writeCount = 0;
+    const g = await setupGateway({
+        historySnapshotSegmentsEnabled: true,
+        historySnapshotStore: {
+            async init() {},
+            async read() {
+                readCount += 1;
+                throw new Error('temporary cache read failure');
+            },
+            async write() {
+                writeCount += 1;
+                throw new Error('temporary cache write failure');
+            }
+        },
+        historySelectionDeadlineMs: 60
+    });
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && params.includeTurns === false) {
+            return { thread: { id: params.threadId, historyMode: 'legacy' } };
+        }
+        if (method === 'thread/read' && params.includeTurns === true) {
+            return {
+                thread: {
+                    id: params.threadId,
+                    historyMode: 'legacy',
+                    turns: [{
+                        id: 'turn-cache-fallback',
+                        status: 'completed',
+                        items: [{ id: 'item-cache-fallback', type: 'agentMessage', text: 'source fallback' }]
+                    }]
+                }
+            };
+        }
+        throw new Error(`unexpected ${method}`);
+    };
+    const sess = await g.sm.createSession({ name: 'snapshot-cache-fallback' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(50);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-cache-fallback' }));
+    await delay(20);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174208',
+        conversationId: 'conv-cache-fallback',
+        selectionGeneration: 1,
+        cacheSchemaVersion: 3,
+        profileId: 'profile-cache-fallback',
+        checkpoint: { rootHash: null, itemCount: 0, complete: false },
+        serverSnapshotSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 }
+    }));
+    const start = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_segment_start' && message.syncId === '123e4567-e89b-12d3-a456-426614174208', 1_000);
+    assert.ok(start);
+    assert.deepEqual(start.upserts.map((entry) => entry.itemKey), ['item-cache-fallback']);
+    const commit = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_segment_commit' && message.syncId === start.syncId, 1_000);
+    assert.ok(commit);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_segment_ack',
+        syncId: start.syncId,
+        conversationId: start.conversationId,
+        sequence: start.sequence,
+        pageIndex: start.pageIndex,
+        segmentId: start.range.segmentId,
+        pageHash: start.pageHash,
+        targetRoot: start.targetRoot,
+        clientSelectionGeneration: 1
+    }));
+    const settled = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_sync_state' && message.syncId === start.syncId, 1_000);
+    assert.equal(settled?.state, 'synced');
+    assert.equal(readCount, 1);
+    assert.equal(writeCount, 1);
+    assert.ok(g.codexService.requests.some((request) => request.method === 'thread/read' && request.params.includeTurns === true));
+    ws.close();
+    await stopGateway(g);
+});
+
 test('server snapshot streams a paginated newest page before older pages and settles only after every segment ACK', async () => {
     const persisted = [];
     const cursors = [];
@@ -1045,8 +1202,8 @@ test('Android history yields while live surface projection is still pending', as
     await stopGateway(g);
 });
 
-test('Android fast live projection releases history while full media projection is pending', async () => {
-    const registrationId = 'android-fast-projection-history-gate';
+test('Android deadline projection releases history while full media projection is pending', async () => {
+    const registrationId = 'android-deadline-projection-history-gate';
     const { projectMobileRealtimeSurface } = require('../src/services/codexMobileSurfaceProjector');
     const imageDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
     let releaseFull;
@@ -1066,26 +1223,27 @@ test('Android fast live projection releases history while full media projection 
             await fullBlocked;
             return projectMobileRealtimeSurface(surface, { mediaStore: null, redactInlineMedia: true });
         },
+        mobileSurfaceMaxVisibleLatencyMs: 40,
         ipcSurfaceWaitGraceMs: 5
     });
-    const sess = await g.sm.createSession({ name: 'android-fast-projection-history-gate' });
+    const sess = await g.sm.createSession({ name: 'android-deadline-projection-history-gate' });
     const { ws, messages } = await connectWs(g.port, sess.id, registrationId);
     await delay(80);
-    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-fast-projection-gate' }));
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-deadline-projection-history-gate' }));
     await delay(40);
     messages.length = 0;
 
-    g.ipcFeed.pushSnapshot('conv-fast-projection-gate', {
-        conversationId: 'conv-fast-projection-gate',
+    g.ipcFeed.pushSnapshot('conv-deadline-projection-history-gate', {
+        conversationId: 'conv-deadline-projection-history-gate',
         revision: 1,
         status: 'running',
         historyBaselineComplete: true,
         items: [{ key: 'live-item', kind: 'message', role: 'assistant', text: `live ${imageDataUrl}` }]
     });
     const live = await waitForMessage(messages, (message) =>
-        message.type === 'conversation_surface_snapshot' && message.conversationId === 'conv-fast-projection-gate'
+        message.type === 'conversation_surface_snapshot' && message.conversationId === 'conv-deadline-projection-history-gate'
     );
-    assert.ok(live, 'the bounded redacted projection must publish before full media projection completes');
+    assert.ok(live, 'the deadline redacted projection must publish before full media projection completes');
     assert.doesNotMatch(JSON.stringify(live), /data:image/i);
     await fullStarted;
 
@@ -1093,7 +1251,7 @@ test('Android fast live projection releases history while full media projection 
     ws.send(JSON.stringify({
         type: 'conversation_history_sync_request',
         syncId,
-        conversationId: 'conv-fast-projection-gate',
+        conversationId: 'conv-deadline-projection-history-gate',
         selectionGeneration: 1,
         cacheSchemaVersion: 2,
         checkpoint: { rootHash: null, itemCount: 0, complete: false }
@@ -1105,7 +1263,7 @@ test('Android fast live projection releases history while full media projection 
     ws.send(JSON.stringify({
         type: 'conversation_history_manifest_page',
         syncId,
-        conversationId: 'conv-fast-projection-gate',
+        conversationId: 'conv-deadline-projection-history-gate',
         pageIndex: 0,
         lastPage: true,
         clientSelectionGeneration: 1,
@@ -2425,7 +2583,7 @@ test('Android IPC surface delivery sends only a bounded live tail', async () => 
     await stopGateway(g);
 });
 
-test('Android projection publishes completed intermediate revisions monotonically while newer revisions are pending', async () => {
+test('Android projection drops an active stale revision when a newer revision is pending', async () => {
     const registrationId = 'android-monotonic-projection';
     let releaseFirst;
     let markFirstStarted;
@@ -2471,13 +2629,13 @@ test('Android projection publishes completed intermediate revisions monotonicall
     const revisions = messages
         .filter((message) => message.type === 'conversation_surface_snapshot')
         .map((message) => message.snapshot.revision);
-    assert.deepEqual(revisions, [2, 3]);
+    assert.deepEqual(revisions, [3]);
     assert.ok(revisions.every((revision, index) => index === 0 || revision >= revisions[index - 1]));
     ws.close();
     await stopGateway(g);
 });
 
-test('Android fast projection publishes a redacted IPC surface while full projection is blocked', async () => {
+test('Android deadline fallback publishes a redacted IPC surface while full projection is blocked', async () => {
     const registrationId = 'android-projection-deadline';
     const { projectMobileRealtimeSurface } = require('../src/services/codexMobileSurfaceProjector');
     const imageDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';

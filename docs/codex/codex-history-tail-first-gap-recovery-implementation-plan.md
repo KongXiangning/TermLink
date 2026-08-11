@@ -1,6 +1,6 @@
 # Codex 历史尾部优先、增量断点与缺口恢复实施方案
 
-> 状态：implementation plan / plan-only，尚未获得代码实施授权
+> 状态：implementation plan / P0-B.4R corrected slice in implementation；P0-B.5、P0-C、P1 仍 pending
 > 所属任务：`20260727-002 Codex 单权威路由与 TermLink Owner 控制面修复`
 > 日期：2026-08-05
 > 上位约束：`docs/workflow/CONTRACTS.md` 的“Codex 原生会话实时同步核心”、
@@ -1292,6 +1292,8 @@ P0-B.4。后续真实 instrumentation 只使用专用设备/模拟器，不在�
 4. Android wire/cache/ViewModel 的 segment transaction、hash/root 校验和 ACK。
 5. 定向 Node/Android 回归后，再进行约 3900 项任务的真机 smoke；P0-B.5 不提前开始。
 
+当前 corrected slice 已完成服务端/Gateway 的重新接入：snapshot store 在显式 capability 下先读已验证的完整快照，未命中再回源；缓存读失败回源、写失败不阻断当前客户端；Gateway 不再为每个 IPC revision 启动 eager redacted projection，也不再对完整派生 projection 做全量 fingerprint stringify。Android 继续使用既有 segment transaction、hash/root、ACK 和 syncId/generation fence。真实大历史与设备门禁仍未完成。
+
 ### 25.4 重新验收
 
 - 静态功能：legacy full、paginated newest→older、snapshot persist、segment ACK、重连、A→B→A、旧客户端 fallback。
@@ -1299,3 +1301,4 @@ P0-B.4。后续真实 instrumentation 只使用专用设备/模拟器，不在�
 - 性能门禁：记录 itemCount、revision/update rate、RSS/heap、source/segment/ACK duration、重复 `thread/read` 次数和 live/control delay；
   不以单次 1 页/1 页或单元测试通过替代大历史长任务证据。
 - 回滚：关闭 B4R capability 后回到 B3 的 v2/range 兼容路径，保留已写入 snapshot/segment 数据，不降级 APK、不删除数据库。
+- 当前自动化证据：Node provider/history/snapshot/scheduler/projector/Gateway 串行集合 `190/190`，JDK 21 `:app:testDebugUnitTest` 与 `:app:assembleDebug` 均 `BUILD SUCCESSFUL`；需求同步脚本对既有 REQ 的严格校验因历史 front matter/path 解析问题失败，未改变本轮实现判断，已记录为 no-block。约 3900 项任务的 RSS/heap、source/segment/ACK duration、cache-first reopen、live/control delay 与重复 `thread/read` 仍待真机证据。

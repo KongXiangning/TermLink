@@ -1266,7 +1266,6 @@ function registerTerminalGateway(wss, {
             let nextRevision = 0;
             let lastPublishedRevision = 0;
             let lastPublishedQuality = 0;
-            let lastPublishedProjectionFingerprint = null;
             let unpublishedSince = null;
             let deadlineTimer = null;
             let deadlineProjectionActive = false;
@@ -1299,34 +1298,12 @@ function registerTerminalGateway(wss, {
                 const qualityRank = quality === 'full' ? 2 : 1;
                 if (entry.revision < lastPublishedRevision) return false;
                 if (entry.revision === lastPublishedRevision && qualityRank <= lastPublishedQuality) return false;
+                // The active projection may finish after newer IPC revisions
+                // have already replaced the pending queue entry. Do not put a
+                // stale surface back on the Android socket; the latest-only
+                // queue will publish the newest revision next.
+                if (entry.revision < (latestEntry?.revision || entry.revision)) return false;
 
-                let projectionFingerprint = null;
-                try {
-                    projectionFingerprint = JSON.stringify(projected ?? null);
-                } catch (_) {
-                    // The normal projector returns JSON-shaped data. If an
-                    // injected/failed adapter does not, retain the existing
-                    // send behavior instead of making fingerprinting a new
-                    // failure path.
-                }
-                if (entry.revision === lastPublishedRevision &&
-                    projectionFingerprint !== null &&
-                    projectionFingerprint === lastPublishedProjectionFingerprint
-                ) {
-                    // The fast redacted path and the full path are often
-                    // byte-identical for text-only surfaces. Mark the full
-                    // quality as observed without sending the same revision
-                    // twice over WebSocket.
-                    lastPublishedQuality = Math.max(lastPublishedQuality, qualityRank);
-                    if (!latestEntry || lastPublishedRevision >= latestEntry.revision) {
-                        unpublishedSince = null;
-                        clearDeadlineTimer();
-                        clearProjectionPending();
-                    }
-                    return true;
-                }
-
-                const isIntermediate = entry.revision < (latestEntry?.revision || entry.revision);
                 const deadlineImminent = unpublishedSince !== null &&
                     Date.now() + CODEX_SNAPSHOT_FLUSH_INTERVAL_MS >=
                         unpublishedSince + mobileProjectionDeadlineMs;
@@ -1336,10 +1313,10 @@ function registerTerminalGateway(wss, {
                     { type: 'conversation_surface_snapshot', conversationId, snapshot: projected },
                     {
                         ...entry.options,
-                        // A completed intermediate result and a deadline
-                        // fallback must cross the downstream coalescer now;
-                        // otherwise the scheduler could recreate starvation.
-                        priority: quality === 'deadline' || isIntermediate || deadlineImminent
+                        // A deadline fallback must cross the downstream
+                        // coalescer now; otherwise the scheduler could
+                        // recreate starvation while full projection is slow.
+                        priority: quality === 'deadline' || deadlineImminent
                             ? 'terminal'
                             : entry.options?.priority
                     }
@@ -1349,12 +1326,10 @@ function registerTerminalGateway(wss, {
                 if (entry.revision > lastPublishedRevision) {
                     lastPublishedRevision = entry.revision;
                     lastPublishedQuality = qualityRank;
-                    lastPublishedProjectionFingerprint = projectionFingerprint;
                 } else {
                     // A full projection may enrich a deadline fallback for the
                     // same IPC revision, but no lower revision may ever return.
                     lastPublishedQuality = qualityRank;
-                    lastPublishedProjectionFingerprint = projectionFingerprint;
                 }
                 if (!latestEntry || lastPublishedRevision >= latestEntry.revision) {
                     unpublishedSince = null;
@@ -1450,38 +1425,6 @@ function registerTerminalGateway(wss, {
                     unpublishedSince ??= entry.receivedAt;
                     scheduleVisibleDeadline();
 
-                    // The full media projection can legitimately take longer
-                    // than a live IPC update (for example when a tail carries
-                    // several inline images). Publish the bounded redacted
-                    // tail first so Android observes the authoritative live
-                    // state promptly; the full projection below may enrich
-                    // the same revision later. This is a derived mobile
-                    // projection only and never changes the IPC authority.
-                    const fastProjectionStartedAt = Date.now();
-                    void Promise.resolve(mobileSurfaceProjector(entry.surface, {
-                        mediaStore: null,
-                        redactInlineMedia: true
-                    })).then((projected) => {
-                        const published = publishProjected(entry, projected, 'deadline');
-                        if (published) {
-                            diagnosticLog.event('server', 'server.codex.media.projection_fast_path', {
-                                conversationKey: diagnosticKey(conversationId),
-                                clientType: client.codexClientType,
-                                projectionRevision: entry.revision,
-                                visibleLatencyMs: Math.max(0, Date.now() - fastProjectionStartedAt),
-                                fullProjectionPending: true
-                            }, 'info');
-                        }
-                    }).catch((error) => {
-                        diagnosticLog.error('server', 'server.codex.media.project_failed', error, {
-                            conversationKey: diagnosticKey(conversationId),
-                            clientType: client.codexClientType,
-                            projectionKind: 'fast'
-                        });
-                    }).finally(() => {
-                        clearProjectionPendingIfIdle(entry);
-                        scheduleVisibleDeadline();
-                    });
                     void queue.enqueue(entry).catch((error) => {
                         diagnosticLog.error('server', 'server.codex.media.project_failed', error, {
                             conversationKey: diagnosticKey(conversationId),
@@ -6230,6 +6173,51 @@ function registerTerminalGateway(wss, {
                             void (async () => {
                                 try {
                                     await historySnapshotStoreReady;
+                                    let cachedSnapshot = null;
+                                    if (typeof resolvedHistorySnapshotStore.read === 'function') {
+                                        try {
+                                            cachedSnapshot = await resolvedHistorySnapshotStore.read(snapshotScope);
+                                        } catch (error) {
+                                            // A cache read is an optimization, not
+                                            // the history authority. Fall back to
+                                            // the bounded Codex source scan when a
+                                            // local file is temporarily unreadable.
+                                            diagnosticLog.error('server', 'server.codex.history.snapshot.cache_read_failed', error, {
+                                                conversationKey: diagnosticKey(conversationId),
+                                                syncId
+                                            });
+                                        }
+                                    }
+                                    if (cachedSnapshot && Array.isArray(cachedSnapshot.items)) {
+                                        if (!_isCurrentHistorySelectionCycle(ws, conversationId, currentSelectionGeneration)) {
+                                            return;
+                                        }
+                                        const appended = historySyncService.appendSnapshotPage({
+                                            ws,
+                                            conversationId,
+                                            syncId,
+                                            selectionGeneration: currentSelectionGeneration,
+                                            items: cachedSnapshot.items,
+                                            isFinal: true
+                                        });
+                                        if (!appended.ok) {
+                                            const error = new Error('Cached history snapshot could not be queued.');
+                                            error.code = appended.detailCode || 'history_snapshot_cache_append_failed';
+                                            throw error;
+                                        }
+                                        diagnosticLog.event('server', 'server.codex.history.snapshot.cache_hit', {
+                                            conversationKey: diagnosticKey(conversationId),
+                                            syncId,
+                                            itemCount: cachedSnapshot.items.length,
+                                            rootHash: typeof cachedSnapshot.rootHash === 'string'
+                                                ? cachedSnapshot.rootHash.slice(0, 16)
+                                                : null,
+                                            writtenAt: Number.isFinite(cachedSnapshot.snapshotMeta?.writtenAt)
+                                                ? cachedSnapshot.snapshotMeta.writtenAt
+                                                : null
+                                        }, 'info');
+                                        return;
+                                    }
                                     const snapshot = await historyBaselineProvider.scanComplete(conversationId, {
                                         onPage: async (page) => {
                                             if (!_isCurrentHistorySelectionCycle(ws, conversationId, currentSelectionGeneration)) {
@@ -6260,16 +6248,29 @@ function registerTerminalGateway(wss, {
                                             }, 'info');
                                         }
                                     });
-                                    await resolvedHistorySnapshotStore.write(snapshotScope, snapshot);
-                                    diagnosticLog.event('server', 'server.codex.history.snapshot.persisted', {
-                                        conversationKey: diagnosticKey(conversationId),
-                                        syncId,
-                                        providerMode: snapshot.mode,
-                                        itemCount: snapshot.items.length,
-                                        sourceResponseBytes: snapshot.measurement?.sourceResponseBytes || snapshot.rawBytes || 0,
-                                        sourceReadDurationMs: snapshot.measurement?.sourceReadDurationMs ?? null,
-                                        providerDurationMs: snapshot.measurement?.providerDurationMs ?? null
-                                    }, 'info');
+                                    try {
+                                        await resolvedHistorySnapshotStore.write(snapshotScope, snapshot);
+                                        diagnosticLog.event('server', 'server.codex.history.snapshot.persisted', {
+                                            conversationKey: diagnosticKey(conversationId),
+                                            syncId,
+                                            providerMode: snapshot.mode,
+                                            itemCount: snapshot.items.length,
+                                            sourceResponseBytes: snapshot.measurement?.sourceResponseBytes || snapshot.rawBytes || 0,
+                                            sourceReadDurationMs: snapshot.measurement?.sourceReadDurationMs ?? null,
+                                            providerDurationMs: snapshot.measurement?.providerDurationMs ?? null
+                                        }, 'info');
+                                    } catch (error) {
+                                        // Persistence failure must not invalidate
+                                        // a source snapshot already queued for
+                                        // the current client. The next request
+                                        // may rebuild the cache while this
+                                        // transfer still completes normally.
+                                        diagnosticLog.error('server', 'server.codex.history.snapshot.persist_failed', error, {
+                                            conversationKey: diagnosticKey(conversationId),
+                                            syncId,
+                                            itemCount: Array.isArray(snapshot.items) ? snapshot.items.length : 0
+                                        });
+                                    }
                                 } catch (error) {
                                     if (error?.code === 'history_snapshot_stale_selection' ||
                                         !_isCurrentHistorySelectionCycle(ws, conversationId, currentSelectionGeneration)) {
