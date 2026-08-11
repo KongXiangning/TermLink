@@ -243,10 +243,12 @@ internal fun codexHistoryNetworkHydrationLabel(
     hasHealthyLive: Boolean
 ): String? {
     if (!hasConversation) return null
-    val progress = if (networkState.pageIndex != null && networkState.pageCount != null) {
-        "（第 ${networkState.pageIndex + 1}/${networkState.pageCount} 页）"
-    } else {
-        ""
+    val progress = when {
+        networkState.detailCode == "snapshot_segment_progress" && networkState.pageIndex != null ->
+            "（已完成第 ${networkState.pageIndex + 1} 个分段）"
+        networkState.pageIndex != null && networkState.pageCount != null ->
+            "（第 ${networkState.pageIndex + 1}/${networkState.pageCount} 页）"
+        else -> ""
     }
     return when (networkState.state) {
         CodexHistoryNetworkSyncState.SYNCING -> "服务端历史：同步中…$progress"

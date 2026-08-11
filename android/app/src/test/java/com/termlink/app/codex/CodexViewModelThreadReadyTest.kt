@@ -459,7 +459,8 @@ class CodexViewModelThreadReadyTest {
                 cacheReady = true,
                 cacheComplete = true,
                 networkState = mapHistoryNetworkSyncStateForUi("cache_only"),
-                authorityMode = IpcAuthorityMode.AWAITING_IPC_SURFACE
+                authorityMode = IpcAuthorityMode.AWAITING_IPC_SURFACE,
+                completeServerSnapshotCache = false
             )
         )
         assertTrue(
@@ -467,7 +468,8 @@ class CodexViewModelThreadReadyTest {
                 cacheReady = true,
                 cacheComplete = false,
                 networkState = CodexHistoryNetworkSyncState.SYNCED,
-                authorityMode = IpcAuthorityMode.AWAITING_IPC_SURFACE
+                authorityMode = IpcAuthorityMode.AWAITING_IPC_SURFACE,
+                completeServerSnapshotCache = false
             )
         )
         assertFalse(
@@ -475,7 +477,107 @@ class CodexViewModelThreadReadyTest {
                 cacheReady = true,
                 cacheComplete = true,
                 networkState = CodexHistoryNetworkSyncState.SYNCED,
-                authorityMode = IpcAuthorityMode.AWAITING_IPC_SURFACE
+                authorityMode = IpcAuthorityMode.AWAITING_IPC_SURFACE,
+                completeServerSnapshotCache = false
+            )
+        )
+    }
+
+    @Test
+    fun completeServerSnapshotSuppressesOnlyAwaitingSurfaceRecovery() {
+        assertFalse(
+            shouldEscalateHistoryRecovery(
+                cacheReady = true,
+                cacheComplete = true,
+                networkState = CodexHistoryNetworkSyncState.CACHE_ONLY,
+                authorityMode = IpcAuthorityMode.AWAITING_IPC_SURFACE,
+                completeServerSnapshotCache = true
+            )
+        )
+        assertTrue(
+            shouldEscalateHistoryRecovery(
+                cacheReady = true,
+                cacheComplete = true,
+                networkState = CodexHistoryNetworkSyncState.CACHE_ONLY,
+                authorityMode = IpcAuthorityMode.IPC_OFFLINE,
+                completeServerSnapshotCache = true
+            )
+        )
+        assertTrue(
+            shouldEscalateHistoryRecovery(
+                cacheReady = true,
+                cacheComplete = true,
+                networkState = CodexHistoryNetworkSyncState.CACHE_ONLY,
+                authorityMode = IpcAuthorityMode.IPC_DESYNCED,
+                completeServerSnapshotCache = true
+            )
+        )
+    }
+
+    @Test
+    fun onlyCompletedB4rServerSnapshotSegmentsPromoteTheCacheProof() {
+        assertTrue(
+            shouldPromoteCompleteServerSnapshotCache(
+                serverSnapshotSegmentsEnabled = true,
+                providerMode = "server_snapshot",
+                cacheCoverageComplete = true
+            )
+        )
+        assertFalse(
+            shouldPromoteCompleteServerSnapshotCache(
+                serverSnapshotSegmentsEnabled = false,
+                providerMode = "server_snapshot",
+                cacheCoverageComplete = true
+            )
+        )
+        assertFalse(
+            shouldPromoteCompleteServerSnapshotCache(
+                serverSnapshotSegmentsEnabled = true,
+                providerMode = "range_segments",
+                cacheCoverageComplete = true
+            )
+        )
+        assertFalse(
+            shouldPromoteCompleteServerSnapshotCache(
+                serverSnapshotSegmentsEnabled = true,
+                providerMode = "server_snapshot",
+                cacheCoverageComplete = false
+            )
+        )
+    }
+
+    @Test
+    fun b4rCoverageProofUsesRangeCoverageAndDurableRowsRatherThanLegacyComplete() {
+        assertTrue(
+            hasDurableHistoryCoverage(
+                coverageComplete = true,
+                checkpointItemCount = 1678,
+                durableItemCount = 1678,
+                decodedAllDurableRows = true
+            )
+        )
+        assertFalse(
+            hasDurableHistoryCoverage(
+                coverageComplete = false,
+                checkpointItemCount = 1678,
+                durableItemCount = 1678,
+                decodedAllDurableRows = true
+            )
+        )
+        assertFalse(
+            hasDurableHistoryCoverage(
+                coverageComplete = true,
+                checkpointItemCount = 1678,
+                durableItemCount = 1677,
+                decodedAllDurableRows = true
+            )
+        )
+        assertFalse(
+            hasDurableHistoryCoverage(
+                coverageComplete = true,
+                checkpointItemCount = 1678,
+                durableItemCount = 1678,
+                decodedAllDurableRows = false
             )
         )
     }

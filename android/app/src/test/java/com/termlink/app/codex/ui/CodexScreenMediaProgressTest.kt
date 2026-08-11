@@ -120,6 +120,38 @@ class CodexScreenMediaProgressTest {
     }
 
     @Test
+    fun serverSnapshotSegmentsShowCommittedSegmentProgressInsteadOfFakePageCount() {
+        assertEquals(
+            "服务端历史：同步中…（已完成第 24 个分段）",
+            codexHistoryNetworkHydrationLabel(
+                networkState = CodexHistoryNetworkSyncUiState(
+                    conversationId = "conv-snapshot",
+                    state = CodexHistoryNetworkSyncState.SYNCING,
+                    detailCode = "snapshot_segment_progress",
+                    pageIndex = 23
+                ),
+                hasConversation = true,
+                cacheReady = true,
+                hasHealthyLive = false
+            )
+        )
+        assertEquals(
+            "服务端历史：同步中…（第 1/1 页）",
+            codexHistoryNetworkHydrationLabel(
+                networkState = CodexHistoryNetworkSyncUiState(
+                    conversationId = "conv-v2",
+                    state = CodexHistoryNetworkSyncState.SYNCING,
+                    pageIndex = 0,
+                    pageCount = 1
+                ),
+                hasConversation = true,
+                cacheReady = true,
+                hasHealthyLive = false
+            )
+        )
+    }
+
+    @Test
     fun missingCacheClearlyNamesLocalAndRemoteStates() {
         val cache = CodexHistoryCacheUiState(
             conversationId = "conv-2",

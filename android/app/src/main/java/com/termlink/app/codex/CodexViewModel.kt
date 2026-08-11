@@ -1010,19 +1010,56 @@ internal fun shouldEscalateHistoryRecovery(
     cacheReady: Boolean,
     cacheComplete: Boolean,
     networkState: CodexHistoryNetworkSyncState,
-    authorityMode: IpcAuthorityMode
-): Boolean = !cacheReady ||
-    (cacheReady && !cacheComplete) ||
-    networkState in setOf(
-        CodexHistoryNetworkSyncState.PARTIAL,
-        CodexHistoryNetworkSyncState.CACHE_ONLY,
-        CodexHistoryNetworkSyncState.FAILED,
-        CodexHistoryNetworkSyncState.OFFLINE,
-        CodexHistoryNetworkSyncState.UNSUPPORTED
-    ) || authorityMode in setOf(
-        IpcAuthorityMode.IPC_OFFLINE,
-        IpcAuthorityMode.IPC_DESYNCED
-    )
+    authorityMode: IpcAuthorityMode,
+    completeServerSnapshotCache: Boolean
+): Boolean {
+    // A completed B4R snapshot is a complete static cache for this selection,
+    // not an IPC surface.  While still awaiting that surface, avoid reopening
+    // canonical history recovery; explicit offline/desynced paths retain their
+    // existing bounded recovery behavior.
+    if (completeServerSnapshotCache && authorityMode == IpcAuthorityMode.AWAITING_IPC_SURFACE) {
+        return false
+    }
+    return !cacheReady ||
+        (cacheReady && !cacheComplete) ||
+        networkState in setOf(
+            CodexHistoryNetworkSyncState.PARTIAL,
+            CodexHistoryNetworkSyncState.CACHE_ONLY,
+            CodexHistoryNetworkSyncState.FAILED,
+            CodexHistoryNetworkSyncState.OFFLINE,
+            CodexHistoryNetworkSyncState.UNSUPPORTED
+        ) || authorityMode in setOf(
+            IpcAuthorityMode.IPC_OFFLINE,
+            IpcAuthorityMode.IPC_DESYNCED
+        )
+}
+
+/**
+ * The final B4R segment has already been atomically committed to SQLite before
+ * its ACK is sent.  Promote only that proven server-snapshot completion so the
+ * following terminal sync state cannot race foreground recovery.  Generic v2
+ * pages and incomplete B4R segments deliberately do not earn this exemption.
+ */
+internal fun shouldPromoteCompleteServerSnapshotCache(
+    serverSnapshotSegmentsEnabled: Boolean,
+    providerMode: String?,
+    cacheCoverageComplete: Boolean
+): Boolean = serverSnapshotSegmentsEnabled &&
+    providerMode == "server_snapshot" &&
+    cacheCoverageComplete
+
+/**
+ * B4R coverage is proven by its own range checkpoint, not by the older v2
+ * `complete` bit.  Every durable row must also have decoded successfully.
+ */
+internal fun hasDurableHistoryCoverage(
+    coverageComplete: Boolean,
+    checkpointItemCount: Int,
+    durableItemCount: Int,
+    decodedAllDurableRows: Boolean
+): Boolean = coverageComplete &&
+    checkpointItemCount == durableItemCount &&
+    decodedAllDurableRows
 
 /**
  * Existing history wire syncId is the Android-side cycle fence.  A missing
@@ -2723,6 +2760,9 @@ class CodexViewModel(
     /** Target being read before an atomic history selection commit. */
     private var pendingHistorySelectionKey: CodexHistorySelectionKey? = null
     private var historyCapability: CodexHistoryCapability? = null
+    /** Set only after B4R proves a durable, complete static snapshot for this selection. */
+    @Volatile
+    private var completeServerSnapshotCacheSelectionKey: CodexHistorySelectionKey? = null
     /** Client token carried by history envelopes to reject stale A→B→A work. */
     private var historySelectionGeneration: Long = 0L
     private var historyRecoveryInFlightConversationId: String? = null
@@ -2844,6 +2884,7 @@ class CodexViewModel(
         pendingHistoryPages.clear()
         pendingHistorySnapshotSegments.clear()
         historyCapability = null
+        completeServerSnapshotCacheSelectionKey = null
         threadListRequestProfileId = null
         threadListRequestGeneration = historySelectionGeneration
         threadListRequestCwd = null
@@ -3400,7 +3441,11 @@ class CodexViewModel(
             cacheReady = state.historyCacheState.ready,
             cacheComplete = state.historyCacheState.complete,
             networkState = state.historyNetworkSyncState.state,
-            authorityMode = authorityMode
+            authorityMode = authorityMode,
+            completeServerSnapshotCache = hasCompleteServerSnapshotCache(
+                conversationId = targetThreadId,
+                generation = historySelectionGeneration
+            )
         )
         val historySyncSettled =
             historySyncSettledConversationId?.trim() == targetThreadId &&
@@ -6061,6 +6106,7 @@ class CodexViewModel(
         cancelHistoryResumeProtection()
         pendingHistoryPages.clear()
         pendingHistorySnapshotSegments.clear()
+        completeServerSnapshotCacheSelectionKey = null
         if (!interruptedEndpointId.isNullOrBlank() && !interruptedConversationId.isNullOrBlank()) {
             viewModelScope.launch(Dispatchers.IO) {
                 runCatching {
@@ -6102,6 +6148,15 @@ class CodexViewModel(
 
     private fun isCurrentHistorySelection(conversationId: String, generation: Long): Boolean =
         currentHistorySelectionKey(conversationId, generation)?.let(::isCurrentHistorySelection) == true
+
+    private fun hasCompleteServerSnapshotCache(conversationId: String, generation: Long): Boolean {
+        val snapshotSegments = historyCapability?.serverSnapshotSegments ?: return false
+        if (!snapshotSegments.enabled || snapshotSegments.version != 1 || snapshotSegments.cacheSchemaVersion < 3) {
+            return false
+        }
+        return completeServerSnapshotCacheSelectionKey ==
+            currentHistorySelectionKey(conversationId, generation)
+    }
 
     private fun historyPageKey(syncId: String, pageIndex: Int): String = "$syncId:$pageIndex"
 
@@ -6189,12 +6244,17 @@ class CodexViewModel(
             // A completed B4R static snapshot already contains the full local
             // history. P1 will add a separate quiet freshness probe; do not
             // reopen the old manifest/range lane on every task selection.
-            if (snapshotSegments != null && checkpoint.coverageComplete &&
-                checkpoint.itemCount == durableItemCount
+            if (shouldPromoteCompleteServerSnapshotCache(
+                    serverSnapshotSegmentsEnabled = snapshotSegments != null,
+                    providerMode = checkpoint.providerMode,
+                    cacheCoverageComplete = checkpoint.coverageComplete &&
+                        checkpoint.itemCount == durableItemCount
+                )
             ) {
                 if (isCurrentHistorySelection(normalizedConversationId, requestGeneration) &&
                     acceptsActiveHistorySyncId(historySyncInFlightSyncId, requestSyncId)
                 ) {
+                    completeServerSnapshotCacheSelectionKey = key
                     historySyncInFlightConversationId = null
                     historySyncInFlightSyncId = null
                     markHistorySyncSettled(normalizedConversationId, requestGeneration)
@@ -7446,7 +7506,11 @@ class CodexViewModel(
                 val pendingKey = historySnapshotSegmentKey(commit.syncId, commit.sequence)
                 val pending = pendingHistorySnapshotSegments[pendingKey] ?: return
                 val page = pending.page
-                if (commit.pageIndex != page.pageIndex || commit.segmentId != page.range?.segmentId ||
+                val range = page.range ?: run {
+                    pendingHistorySnapshotSegments.remove(pendingKey)
+                    return
+                }
+                if (commit.pageIndex != page.pageIndex || commit.segmentId != range.segmentId ||
                     commit.pageHash != page.pageHash || commit.targetRoot != page.targetRoot
                 ) {
                     pendingHistorySnapshotSegments.remove(pendingKey)
@@ -7534,6 +7598,29 @@ class CodexViewModel(
                         cached = cachedResult.getOrNull(),
                         readError = cachedResult.exceptionOrNull()
                     )
+                    val snapshotSegmentsEnabled = historyCapability?.serverSnapshotSegments?.let {
+                        it.enabled && it.version == 1 && it.cacheSchemaVersion >= 3
+                    } == true
+                    if (isCurrentHistorySelection(historyKey) &&
+                        acceptsActiveHistorySyncId(historySyncInFlightSyncId, commit.syncId) &&
+                        shouldPromoteCompleteServerSnapshotCache(
+                            serverSnapshotSegmentsEnabled = snapshotSegmentsEnabled,
+                            providerMode = range.providerMode,
+                            cacheCoverageComplete = snapshot.durableCoverageComplete
+                        )
+                    ) {
+                        completeServerSnapshotCacheSelectionKey = historyKey
+                        PersistentDiagnosticLog.event(
+                            "codex",
+                            "android.codex.history.snapshot_cache_completed_on_segment_commit",
+                            mapOf(
+                                "conversationKey" to PersistentDiagnosticLog.shortHash(commit.conversationId),
+                                "generation" to commit.selectionGeneration,
+                                "sequence" to commit.sequence,
+                                "itemCount" to snapshot.uiState.itemCount
+                            )
+                        )
+                    }
                     _uiState.update { state ->
                         if (!isCurrentHistorySelection(historyKey) ||
                             !acceptsActiveHistorySyncId(historySyncInFlightSyncId, commit.syncId) ||
@@ -7549,8 +7636,8 @@ class CodexViewModel(
                             historyNetworkSyncState = historyNetworkState(
                                 historyKey,
                                 historySyncProgressState(state.historyNetworkSyncState.state),
-                                pageIndex = 0,
-                                pageCount = 1
+                                detailCode = "snapshot_segment_progress",
+                                pageIndex = commit.sequence
                             )
                         )
                     }
@@ -9520,7 +9607,9 @@ class CodexViewModel(
 
     private data class DecodedHistoryCacheSnapshot(
         val messages: List<ChatMessage>,
-        val uiState: CodexHistoryCacheUiState
+        val uiState: CodexHistoryCacheUiState,
+        /** B4R's complete static-history proof; distinct from old v2 `complete`. */
+        val durableCoverageComplete: Boolean = false
     )
 
     private fun decodeHistoryCacheSnapshot(
@@ -9559,6 +9648,12 @@ class CodexViewModel(
         val complete = checkpoint.complete &&
             checkpoint.itemCount == durableItems.size &&
             decodedAllDurableRows
+        val durableCoverageComplete = hasDurableHistoryCoverage(
+            coverageComplete = checkpoint.coverageComplete,
+            checkpointItemCount = checkpoint.itemCount,
+            durableItemCount = durableItems.size,
+            decodedAllDurableRows = decodedAllDurableRows
+        )
         val loadState = if (decodedMessages.isEmpty() && durableItems.isNotEmpty()) {
             CodexHistoryCacheLoadState.FAILED
         } else {
@@ -9574,7 +9669,8 @@ class CodexViewModel(
                 itemCount = decodedDurableCount,
                 lastSyncedAt = checkpoint.lastSyncedAt,
                 detailCode = if (!decodedAllDurableRows) "cache_decode_partial" else null
-            )
+            ),
+            durableCoverageComplete = durableCoverageComplete
         )
     }
 
