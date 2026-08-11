@@ -2864,7 +2864,10 @@ function registerTerminalGateway(wss, {
                     type: 'session_codex_thread_bound',
                     sessionId: session.id,
                     conversationId: boundThreadId,
-                    lastCodexThreadId: boundThreadId
+                    lastCodexThreadId: boundThreadId,
+                    ...(hasValidClientSelectionGeneration
+                        ? { selectionGeneration: clientSelectionGeneration }
+                        : {})
                 });
             }
         }

@@ -46,7 +46,13 @@ data class ChatMessage(
      * Raw command operation ids represented by a collapsed UI batch.
      * This is UI provenance only; it is not part of the IPC/cache wire model.
      */
-    val operationBatchMemberIds: List<String> = emptyList()
+    val operationBatchMemberIds: List<String> = emptyList(),
+    /**
+     * Provider turn provenance used to reconcile a canonical history row with
+     * an IPC surface row when their provider item ids differ. This is UI-only
+     * metadata and is not persisted as part of the cache payload.
+     */
+    val sourceTurnId: String? = null
 ) {
     enum class Role { USER, ASSISTANT, SYSTEM, TOOL, ERROR }
 }

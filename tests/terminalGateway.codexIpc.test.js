@@ -2522,6 +2522,7 @@ test('set_active_conversation succeeds and snapshot is pushed to matching client
     assert.equal(bound.sessionId, sess.id);
     assert.equal(bound.conversationId, 'conv-1');
     assert.equal(bound.lastCodexThreadId, 'conv-1');
+    assert.equal(bound.selectionGeneration, undefined, 'legacy selection must not gain a generation field');
     assert.deepEqual(g.ipcFeed.followCalls, [{ conversationId: 'conv-1', hostId: 'local' }]);
 
     // Push a snapshot for a different conversation — should NOT arrive.
@@ -2579,6 +2580,28 @@ test('Android IPC surface delivery sends only a bounded live tail', async () => 
     );
     assert.ok(snapshot.snapshot.items.length < 1_500);
     assert.equal(snapshot.snapshot.items.at(-1).key, 'item-1499');
+    ws.close();
+    await stopGateway(g);
+});
+
+test('set_active_conversation echoes a valid client selection generation on the binding receipt', async () => {
+    const g = await setupGateway();
+    const sess = await g.sm.createSession({ name: 'generation-binding' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    ws.send(JSON.stringify({
+        type: 'set_active_conversation',
+        conversationId: 'conv-generation',
+        selectionGeneration: 37
+    }));
+    await delay(50);
+
+    const bound = messages.find(m => m.type === 'session_codex_thread_bound');
+    assert.ok(bound, 'binding event must be emitted for a newly selected Codex conversation');
+    assert.equal(bound.selectionGeneration, 37);
+    assert.notEqual(bound.selectionGeneration, 1, 'the receipt must echo the client generation, not the Gateway cycle');
+
     ws.close();
     await stopGateway(g);
 });

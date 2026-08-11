@@ -21,7 +21,9 @@ import com.termlink.app.codex.domain.CodexThreadHistoryEntry
 import com.termlink.app.codex.domain.CodexRuntimePanelState
 import com.termlink.app.codex.domain.CodexNoticesPanelState
 import com.termlink.app.codex.domain.CodexHistoryCacheLoadState
+import com.termlink.app.codex.domain.CodexHistoryCacheUiState
 import com.termlink.app.codex.domain.CodexHistoryNetworkSyncState
+import com.termlink.app.codex.domain.CodexHistoryNetworkSyncUiState
 import com.termlink.app.codex.domain.CodexUiState
 import com.termlink.app.codex.domain.ConnectionState
 import com.termlink.app.codex.domain.NextTurnOverrides
@@ -1452,6 +1454,61 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun resumedThreadReadyClearsMessagesFromAnotherSelectedConversation() {
+        val state = CodexUiState(
+            threadId = "conversation-b",
+            activeConversationId = "conversation-b",
+            currentTurnId = "turn-b",
+            messages = listOf(
+                ChatMessage(
+                    id = "b-answer",
+                    role = ChatMessage.Role.ASSISTANT,
+                    content = "B 正文"
+                )
+            ),
+            runtimePanel = CodexRuntimePanelState(visible = true, diff = "B diff")
+        )
+
+        val transition = buildThreadReadyUiTransition(
+            readyThreadId = "conversation-a",
+            resumed = true,
+            state = state
+        )
+
+        assertTrue(transition.messages.isEmpty())
+        assertEquals(CodexRuntimePanelState(visible = true), transition.runtimePanel)
+        assertNull(transition.currentTurnId)
+    }
+
+    @Test
+    fun resumedThreadReadyKeepsMessagesForTheSameSelectedConversation() {
+        val messages = listOf(
+            ChatMessage(
+                id = "a-answer",
+                role = ChatMessage.Role.ASSISTANT,
+                content = "A 正文"
+            )
+        )
+        val state = CodexUiState(
+            threadId = "conversation-a",
+            activeConversationId = "conversation-a",
+            currentTurnId = "turn-a",
+            messages = messages,
+            runtimePanel = CodexRuntimePanelState(visible = true, diff = "A diff")
+        )
+
+        val transition = buildThreadReadyUiTransition(
+            readyThreadId = "conversation-a",
+            resumed = true,
+            state = state
+        )
+
+        assertEquals(messages, transition.messages)
+        assertEquals(CodexRuntimePanelState(visible = true, diff = "A diff"), transition.runtimePanel)
+        assertEquals("turn-a", transition.currentTurnId)
+    }
+
+    @Test
     fun threadReadyKeepsOptimisticUserTailAcrossKnownNewThreadTransition() {
         val localUserMessage = ChatMessage(
             id = "local-user-2",
@@ -2020,6 +2077,31 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun sessionThreadBindingSelectionGenerationAcceptsMatchingRejectsLateAndKeepsLegacyCompatible() {
+        assertTrue(
+            shouldAcceptSessionThreadBoundSelectionGeneration(
+                hasSelectionGeneration = true,
+                selectionGeneration = 8L,
+                currentSelectionGeneration = 8L
+            )
+        )
+        assertFalse(
+            shouldAcceptSessionThreadBoundSelectionGeneration(
+                hasSelectionGeneration = true,
+                selectionGeneration = 7L,
+                currentSelectionGeneration = 8L
+            )
+        )
+        assertTrue(
+            shouldAcceptSessionThreadBoundSelectionGeneration(
+                hasSelectionGeneration = false,
+                selectionGeneration = null,
+                currentSelectionGeneration = 8L
+            )
+        )
+    }
+
+    @Test
     fun historyResumeResponseKeepsWaitingOnlyUntilTargetStateArrives() {
         assertTrue(
             shouldAwaitIpcSurfaceAfterThreadResumeResponse(
@@ -2256,6 +2338,314 @@ class CodexViewModelThreadReadyTest {
         assertEquals("running", next.status)
         assertEquals("conv-b", next.threadHistoryActionThreadId)
         assertEquals("resume", next.threadHistoryActionKind)
+    }
+
+    @Test
+    fun bindingSwitchFailsClosedUnlessBodyProvenanceBelongsToIncomingConversation() {
+        val incomingCache = listOf(
+            ChatMessage(
+                id = "a-cached",
+                role = ChatMessage.Role.ASSISTANT,
+                content = "A 缓存正文"
+            )
+        )
+        val state = CodexUiState(
+            activeConversationId = "conv-b",
+            threadId = "conv-b",
+            messages = listOf(
+                ChatMessage(
+                    id = "b-live",
+                    role = ChatMessage.Role.ASSISTANT,
+                    content = "B 实时正文"
+                )
+            ),
+            cachedCanonicalMessages = incomingCache,
+            historyCacheState = CodexHistoryCacheUiState(conversationId = "conv-a"),
+            historyNetworkSyncState = CodexHistoryNetworkSyncUiState(
+                conversationId = "conv-a",
+                generation = 17L,
+                state = CodexHistoryNetworkSyncState.PARTIAL,
+                detailCode = "older_page_in_flight",
+                pageIndex = 3,
+                pageCount = 7
+            ),
+            liveAuthoritativeConversationId = "conv-b",
+            ipcSurfaceSnapshot = surfaceSnapshot("conv-b")
+        )
+
+        val next = applyIpcConversationBindingToUiState(
+            state = state,
+            conversationId = "conv-a",
+            rememberedOverrides = NextTurnOverrides()
+        )
+
+        assertEquals("conv-a", next.activeConversationId)
+        assertEquals(incomingCache, next.messages)
+        assertEquals(incomingCache, next.cachedCanonicalMessages)
+        assertEquals(state.historyNetworkSyncState, next.historyNetworkSyncState)
+        assertNull(next.liveAuthoritativeConversationId)
+        assertNull(next.ipcSurfaceSnapshot)
+    }
+
+    @Test
+    fun healthyTargetSurfaceRestoresLiveAuthorityAndRebuildsTargetBody() {
+        val incomingCache = listOf(
+            ChatMessage(
+                id = "a-cached",
+                role = ChatMessage.Role.ASSISTANT,
+                content = "A 缓存正文"
+            )
+        )
+        val incomingSurfaceItem = SurfaceEntry(
+            key = "a-live",
+            kind = "message",
+            role = "assistant",
+            phase = "final_answer",
+            text = "A 实时尾部",
+            turnId = "turn-a",
+            itemId = "a-live",
+            statusType = null,
+            approvalType = null,
+            requestId = null,
+            raw = null
+        )
+        val state = CodexUiState(
+            activeConversationId = "conv-b",
+            threadId = "conv-b",
+            messages = listOf(
+                ChatMessage(
+                    id = "b-live",
+                    role = ChatMessage.Role.ASSISTANT,
+                    content = "B 实时正文"
+                )
+            ),
+            cachedCanonicalMessages = incomingCache,
+            historyCacheState = CodexHistoryCacheUiState(conversationId = "conv-a"),
+            liveAuthoritativeConversationId = "conv-b",
+            liveAuthoritativeDesynced = true,
+            ipcSurfaceSnapshot = surfaceSnapshot("conv-a").copy(
+                status = "completed",
+                latestTurnId = "turn-a",
+                desynced = false,
+                items = listOf(incomingSurfaceItem)
+            )
+        )
+
+        val next = applyIpcConversationBindingToUiState(
+            state = state,
+            conversationId = "conv-a",
+            rememberedOverrides = NextTurnOverrides()
+        )
+
+        assertEquals("conv-a", next.ipcSurfaceSnapshot?.conversationId)
+        assertEquals("conv-a", next.liveAuthoritativeConversationId)
+        assertFalse(next.liveAuthoritativeDesynced)
+        assertEquals(listOf("a-cached", "a-live"), next.messages.map { it.id })
+        assertTrue(next.messages.none { it.content.contains("B") })
+    }
+
+    @Test
+    fun foreignThreadIdentityClearsTaskRuntimeEvenWhenBodyIsEmpty() {
+        val incomingCache = listOf(
+            ChatMessage(
+                id = "a-cached",
+                role = ChatMessage.Role.ASSISTANT,
+                content = "A 缓存正文"
+            )
+        )
+        val state = CodexUiState(
+            activeConversationId = "conv-a",
+            threadId = "conv-b",
+            messages = emptyList(),
+            cachedCanonicalMessages = incomingCache,
+            historyCacheState = CodexHistoryCacheUiState(conversationId = "conv-a"),
+            historyNetworkSyncState = CodexHistoryNetworkSyncUiState(
+                conversationId = "conv-a",
+                generation = 21L,
+                state = CodexHistoryNetworkSyncState.PARTIAL,
+                detailCode = "a_in_flight",
+                pageIndex = 2,
+                pageCount = 6
+            ),
+            runtimePanel = CodexRuntimePanelState(visible = true, diff = "B diff"),
+            noticesPanel = CodexNoticesPanelState(visible = true, configWarningText = "B notice"),
+            ownerCurrentCodexConfig = effectiveConfig(
+                reasoning = "high",
+                sandbox = "danger-full-access",
+                approval = "never"
+            ),
+            pendingServerRequests = listOf(ipcRequest("b-request")),
+            submittingServerRequestIds = setOf("b-request"),
+            planWorkflow = CodexPlanWorkflowState(planRequestId = "b-plan"),
+            status = "running",
+            currentTurnId = "turn-b"
+        )
+
+        val next = applyIpcConversationBindingToUiState(
+            state = state,
+            conversationId = "conv-a",
+            rememberedOverrides = NextTurnOverrides()
+        )
+
+        assertEquals(incomingCache, next.messages)
+        assertEquals(incomingCache, next.cachedCanonicalMessages)
+        assertEquals(state.historyNetworkSyncState, next.historyNetworkSyncState)
+        assertEquals("", next.runtimePanel.diff)
+        assertEquals("", next.noticesPanel.configWarningText)
+        assertNull(next.ownerCurrentCodexConfig)
+        assertTrue(next.pendingServerRequests.isEmpty())
+        assertTrue(next.submittingServerRequestIds.isEmpty())
+        assertNull(next.planWorkflow.planRequestId)
+        assertEquals("idle", next.status)
+        assertNull(next.currentTurnId)
+    }
+
+    @Test
+    fun bindingSwitchClearsBodyWhenIncomingConversationHasNoProvenance() {
+        val next = applyIpcConversationBindingToUiState(
+            state = CodexUiState(
+                activeConversationId = "conv-b",
+                threadId = "conv-b",
+                messages = listOf(
+                    ChatMessage(
+                        id = "b-live",
+                        role = ChatMessage.Role.ASSISTANT,
+                        content = "B 实时正文"
+                    )
+                )
+            ),
+            conversationId = "conv-a",
+            rememberedOverrides = NextTurnOverrides()
+        )
+
+        assertEquals("conv-a", next.activeConversationId)
+        assertTrue(next.messages.isEmpty())
+        assertTrue(next.cachedCanonicalMessages.isEmpty())
+        assertNull(next.liveAuthoritativeConversationId)
+        assertNull(next.ipcSurfaceSnapshot)
+        assertEquals("conv-a", next.historyCacheState.conversationId)
+    }
+
+    @Test
+    fun matchingBindingPreservesRestoredConversationCacheVerbatim() {
+        val messages = listOf(
+            ChatMessage(
+                id = "a-cached",
+                role = ChatMessage.Role.ASSISTANT,
+                content = "A 正确正文"
+            )
+        )
+        val state = CodexUiState(
+            activeConversationId = "conv-a",
+            threadId = "conv-a",
+            messages = messages,
+            cachedCanonicalMessages = messages,
+            historyCacheState = CodexHistoryCacheUiState(conversationId = "conv-a"),
+            status = "idle"
+        )
+
+        val next = applyIpcConversationBindingToUiState(
+            state = state,
+            conversationId = "conv-a",
+            rememberedOverrides = NextTurnOverrides()
+        )
+
+        assertEquals(messages, next.messages)
+        assertEquals(messages, next.cachedCanonicalMessages)
+        assertEquals(state.status, next.status)
+    }
+
+    @Test
+    fun explicitAtoBtoASelectionRejectsLateForeignBodyAndKeepsARecovery() {
+        val initialA = CodexUiState(
+            activeConversationId = "conv-a",
+            threadId = "conv-a",
+            messages = listOf(ChatMessage("a", ChatMessage.Role.ASSISTANT, "A 正文"))
+        )
+        val selectedB = applyIpcConversationSelectionToUiState(
+            initialA,
+            ipcConversation("conv-b", updatedAt = 10)
+        ).copy(
+            messages = listOf(ChatMessage("b", ChatMessage.Role.ASSISTANT, "B 正文")),
+            cachedCanonicalMessages = listOf(ChatMessage("b-cache", ChatMessage.Role.ASSISTANT, "B 缓存")),
+            historyCacheState = CodexHistoryCacheUiState(conversationId = "conv-b"),
+            liveAuthoritativeConversationId = "conv-b"
+        )
+        val selectedA = applyIpcConversationSelectionToUiState(
+            selectedB,
+            ipcConversation("conv-a", updatedAt = 20)
+        )
+        val restoredA = selectedA.copy(
+            messages = listOf(ChatMessage("a-cache", ChatMessage.Role.ASSISTANT, "A 正确正文")),
+            cachedCanonicalMessages = listOf(
+                ChatMessage("a-cache", ChatMessage.Role.ASSISTANT, "A 正确正文")
+            ),
+            historyCacheState = CodexHistoryCacheUiState(conversationId = "conv-a")
+        )
+
+        assertTrue(
+            shouldSuppressExplicitHistorySessionEvent(
+                pendingHistoryResumeThreadId = null,
+                pinnedConversationId = "conv-a",
+                activeConversationId = "conv-a",
+                incomingConversationId = "conv-b"
+            )
+        )
+        assertFalse(
+            shouldApplyThreadReadyToCurrentSelection(
+                state = restoredA,
+                readyThreadId = "conv-b",
+                resumed = true
+            )
+        )
+        assertTrue(
+            applyIpcConversationBindingToUiState(
+                state = restoredA,
+                conversationId = "conv-a",
+                rememberedOverrides = NextTurnOverrides()
+            ).messages.single().content == "A 正确正文"
+        )
+        assertTrue(
+            buildThreadReadyUiTransition(
+                readyThreadId = "conv-b",
+                resumed = true,
+                state = restoredA
+            ).messages.isEmpty()
+        )
+    }
+
+    @Test
+    fun staleCachedHistoryWriterCannotCommitForeignSelectionProvenance() {
+        val key = CodexHistorySelectionKey("profile", "conv-a", 7L)
+        val pendingState = CodexUiState(
+            activeConversationId = "conv-b",
+            threadId = "conv-b",
+            historyCacheState = CodexHistoryCacheUiState(conversationId = "conv-b"),
+            liveAuthoritativeConversationId = "conv-b"
+        )
+        assertFalse(
+            shouldCommitCachedHistorySelectionToUiState(
+                state = pendingState,
+                key = key,
+                pendingKey = key,
+                currentEndpointId = "profile",
+                currentGeneration = 7L
+            )
+        )
+        assertTrue(
+            shouldCommitCachedHistorySelectionToUiState(
+                state = pendingState.copy(
+                    activeConversationId = "conv-a",
+                    threadId = "conv-a",
+                    historyCacheState = CodexHistoryCacheUiState(conversationId = "conv-a"),
+                    liveAuthoritativeConversationId = null
+                ),
+                key = key,
+                pendingKey = key,
+                currentEndpointId = "profile",
+                currentGeneration = 7L
+            )
+        )
     }
 
     @Test
@@ -2529,6 +2919,97 @@ class CodexViewModelThreadReadyTest {
             merged.single().content
         )
         assertTrue(merged.single().streaming)
+    }
+
+    @Test
+    fun surfaceMergeBridgesCanonicalAndIpcMessageIdsForSameTurn() {
+        val turnId = "turn-canonical-ipc-bridge"
+        val content = "最终回复正文"
+        val merged = mergeSurfaceItems(
+            existing = listOf(
+                ChatMessage(
+                    id = "item-canonical",
+                    role = ChatMessage.Role.ASSISTANT,
+                    content = content,
+                    sourceTurnId = turnId
+                )
+            ),
+            surfaceItems = listOf(
+                SurfaceEntry(
+                    key = "msg-ipc-surface",
+                    kind = "message",
+                    role = "assistant",
+                    phase = "final_answer",
+                    text = content,
+                    turnId = turnId,
+                    itemId = "msg-ipc-surface",
+                    statusType = null,
+                    approvalType = null,
+                    requestId = null,
+                    raw = null
+                )
+            ),
+            surfaceStatus = "completed",
+            latestTurnId = turnId,
+            preserveExisting = true
+        )
+
+        assertEquals(listOf("item-canonical"), merged.map { it.id })
+        assertEquals(content, merged.single().content)
+        assertEquals(turnId, merged.single().sourceTurnId)
+    }
+
+    @Test
+    fun cacheHydrationDoesNotReaddEquivalentIpcMessageAlias() {
+        val conversationId = "conv-canonical-ipc-bridge"
+        val turnId = "turn-canonical-ipc-bridge"
+        val content = "最终回复正文"
+        val surfaceItem = SurfaceEntry(
+            key = "msg-ipc-surface",
+            kind = "message",
+            role = "assistant",
+            phase = "final_answer",
+            text = content,
+            turnId = turnId,
+            itemId = "msg-ipc-surface",
+            statusType = null,
+            approvalType = null,
+            requestId = null,
+            raw = null
+        )
+        val state = CodexUiState(
+            activeConversationId = conversationId,
+            liveAuthoritativeConversationId = conversationId,
+            ipcSurfaceSnapshot = surfaceSnapshot(conversationId).copy(
+                status = "completed",
+                latestTurnId = turnId,
+                items = listOf(surfaceItem)
+            ),
+            messages = listOf(
+                ChatMessage(
+                    id = "msg-ipc-surface",
+                    role = ChatMessage.Role.ASSISTANT,
+                    content = content,
+                    sourceTurnId = turnId
+                )
+            )
+        )
+
+        val merged = mergeCachedHistoryIntoLiveMessagesForUi(
+            state = state,
+            conversationId = conversationId,
+            cachedMessages = listOf(
+                ChatMessage(
+                    id = "item-canonical",
+                    role = ChatMessage.Role.ASSISTANT,
+                    content = content,
+                    sourceTurnId = turnId
+                )
+            )
+        )
+
+        assertEquals(listOf("item-canonical"), merged.map { it.id })
+        assertEquals(content, merged.single().content)
     }
 
     @Test

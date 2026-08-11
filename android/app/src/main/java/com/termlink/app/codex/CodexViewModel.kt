@@ -219,6 +219,29 @@ internal data class CodexHistorySelectionKey(
     val generation: Long
 )
 
+internal fun shouldCommitCachedHistorySelectionToUiState(
+    state: CodexUiState,
+    key: CodexHistorySelectionKey,
+    pendingKey: CodexHistorySelectionKey?,
+    currentEndpointId: String?,
+    currentGeneration: Long
+): Boolean {
+    val targetId = normalizeCodexThreadId(key.conversationId) ?: return false
+    val activeId = normalizeCodexThreadId(state.activeConversationId)
+    val threadId = normalizeCodexThreadId(state.threadId)
+    val provenanceOwners = listOfNotNull(
+        normalizeCodexThreadId(state.historyCacheState.conversationId),
+        normalizeCodexThreadId(state.liveAuthoritativeConversationId),
+        normalizeCodexThreadId(state.ipcSurfaceSnapshot?.conversationId)
+    )
+    return pendingKey == key &&
+        currentEndpointId?.trim() == key.endpointId &&
+        currentGeneration == key.generation &&
+        activeId == targetId &&
+        (threadId == null || threadId == targetId) &&
+        provenanceOwners.none { it != targetId }
+}
+
 internal data class CanonicalTurnRuntimeProjection(
     val status: String,
     val currentTurnId: String?,
@@ -733,6 +756,15 @@ internal fun resolveSessionThreadBindingDecision(
     )
 }
 
+internal fun shouldAcceptSessionThreadBoundSelectionGeneration(
+    hasSelectionGeneration: Boolean,
+    selectionGeneration: Long?,
+    currentSelectionGeneration: Long
+): Boolean {
+    if (!hasSelectionGeneration) return true
+    return selectionGeneration == currentSelectionGeneration
+}
+
 internal fun shouldAwaitIpcSurfaceAfterThreadResumeResponse(
     targetThreadId: String?,
     pendingHydrationThreadId: String?
@@ -863,8 +895,17 @@ internal fun mergeCachedHistoryIntoLiveMessagesForUi(
     cachedMessages: List<ChatMessage>
 ): List<ChatMessage> {
     if (!shouldApplyHistoryDeltaToUiState(state, conversationId)) return state.messages
-    if (cachedMessages.isEmpty()) return state.messages
     val incoming = normalizeCodexThreadId(conversationId) ?: return state.messages
+    // `activeConversationId` alone is not enough during the small window in
+    // which a late ready/binding event can have rewritten the thread id.  Do
+    // not let a cache writer merge a body whose current thread identity is
+    // known to be another conversation.  Returning the target cache (also
+    // when it is empty) is the fail-closed path for that transition.
+    val currentThreadId = normalizeCodexThreadId(state.threadId)
+    if (currentThreadId != null && currentThreadId != incoming) {
+        return cachedMessages
+    }
+    if (cachedMessages.isEmpty()) return state.messages
     val live = normalizeCodexThreadId(state.liveAuthoritativeConversationId)
     if (live == null) {
         // A legacy/fallback turn can be optimistically visible before the
@@ -906,7 +947,10 @@ internal fun mergeCachedHistoryIntoLiveMessagesForUi(
     ) {
         val cachedKeys = cachedMessages.mapTo(mutableSetOf()) { it.id }
         val liveOnly = state.messages.filter { message ->
-            historyItemAliasesForUiMessage(message).none(cachedKeys::contains)
+            historyItemAliasesForUiMessage(message).none(cachedKeys::contains) &&
+                cachedMessages.none { cached ->
+                    areSameCanonicalAndSurfaceMessageForUi(cached, message)
+                }
         }
         return mergeSurfaceItems(
             existing = cachedMessages + liveOnly,
@@ -1442,6 +1486,133 @@ internal fun applyIpcConversationSelectionToUiState(
     return recalculateNextTurnEffectiveConfigForUiState(updated)
 }
 
+/**
+ * Apply the lightweight session binding acknowledgement without treating the
+ * acknowledgement itself as a content-ready signal.  A changed binding must
+ * still isolate the previous conversation immediately, while a matching
+ * binding is allowed to leave an already restored cache/live body untouched.
+ */
+internal fun applyIpcConversationBindingToUiState(
+    state: CodexUiState,
+    conversationId: String?,
+    rememberedOverrides: NextTurnOverrides
+): CodexUiState {
+    val targetId = normalizeCodexThreadId(conversationId) ?: return state
+    val activeId = normalizeCodexThreadId(state.activeConversationId)
+    val currentThreadId = normalizeCodexThreadId(state.threadId)
+    val cacheOwner = normalizeCodexThreadId(state.historyCacheState.conversationId)
+    val networkOwner = normalizeCodexThreadId(state.historyNetworkSyncState.conversationId)
+    val liveOwner = normalizeCodexThreadId(state.liveAuthoritativeConversationId)
+    val surfaceOwner = normalizeCodexThreadId(state.ipcSurfaceSnapshot?.conversationId)
+    val targetCache = cacheOwner == targetId
+    val targetLive = liveOwner == targetId
+    val targetSurface = surfaceOwner == targetId && state.ipcSurfaceSnapshot?.desynced != true
+    val foreignCache = cacheOwner != null && cacheOwner != targetId
+    val foreignLive = liveOwner != null && liveOwner != targetId
+    val foreignSurface = surfaceOwner != null && surfaceOwner != targetId
+    val foreignThreadIdentity = currentThreadId != null &&
+        currentThreadId != targetId
+    val bodyIsForeignOrUnproven = foreignCache || foreignLive || foreignSurface ||
+        foreignThreadIdentity
+    val targetCachedMessages = if (targetCache) state.cachedCanonicalMessages else emptyList()
+    val rebuiltTargetMessages = when {
+        targetSurface -> mergeSurfaceItems(
+            existing = targetCachedMessages,
+            surfaceItems = state.ipcSurfaceSnapshot?.items.orEmpty(),
+            surfaceStatus = state.ipcSurfaceSnapshot?.status ?: "unknown",
+            latestTurnId = state.ipcSurfaceSnapshot?.latestTurnId,
+            preserveExisting = true
+        )
+        targetCachedMessages.isNotEmpty() -> targetCachedMessages
+        targetLive && !foreignCache && !foreignSurface -> state.messages
+        else -> emptyList()
+    }
+    val switched = activeId != targetId
+    val keepExistingBody = !switched && !bodyIsForeignOrUnproven
+    val nextMessages = if (keepExistingBody) state.messages else rebuiltTargetMessages
+    val nextCache = if (targetCache) state.cachedCanonicalMessages else emptyList()
+    val nextSurface = state.ipcSurfaceSnapshot.takeIf { targetSurface }
+    val nextLiveOwner = if (targetSurface) {
+        targetId
+    } else {
+        liveOwner.takeIf { targetLive }
+    }
+    val nextLiveDesynced = if (targetSurface) {
+        false
+    } else if (nextLiveOwner == null) {
+        false
+    } else {
+        state.liveAuthoritativeDesynced
+    }
+    val nextCacheState = if (targetCache) {
+        state.historyCacheState
+    } else {
+        CodexHistoryCacheUiState(conversationId = targetId)
+    }
+    val nextNetworkState = if (networkOwner == targetId) {
+        state.historyNetworkSyncState
+    } else {
+        CodexHistoryNetworkSyncUiState(conversationId = targetId)
+    }
+    val nextRuntime = if (keepExistingBody) {
+        state.runtimePanel
+    } else {
+        CodexRuntimePanelState(visible = state.runtimePanel.visible)
+    }
+    val nextNotices = if (keepExistingBody) {
+        state.noticesPanel
+    } else {
+        CodexNoticesPanelState(visible = state.noticesPanel.visible)
+    }
+    val nextStatus = when {
+        keepExistingBody -> state.status
+        targetSurface -> state.ipcSurfaceSnapshot?.status ?: "idle"
+        else -> "idle"
+    }
+    val nextCurrentTurnId = when {
+        keepExistingBody -> state.currentTurnId
+        targetSurface -> resolveSurfaceCurrentTurnId(
+            status = state.ipcSurfaceSnapshot?.status ?: "idle",
+            latestTurnId = state.ipcSurfaceSnapshot?.latestTurnId,
+            currentTurnId = null
+        )
+        else -> null
+    }
+    val updated = state.copy(
+        threadId = targetId,
+        activeConversationId = targetId,
+        ipcSurfaceSnapshot = nextSurface,
+        ownerCurrentCodexConfig = if (keepExistingBody || targetSurface) {
+            state.ownerCurrentCodexConfig
+        } else {
+            null
+        },
+        cachedCanonicalMessages = nextCache,
+        liveAuthoritativeConversationId = nextLiveOwner,
+        liveAuthoritativeDesynced = nextLiveDesynced,
+        historyCacheState = nextCacheState,
+        historyNetworkSyncState = nextNetworkState,
+        nextTurnOverrides = overridesForConversationSwitch(
+            currentConversationId = state.activeConversationId,
+            targetConversationId = targetId,
+            currentOverrides = state.nextTurnOverrides,
+            rememberedOverrides = rememberedOverrides
+        ),
+        activeGoal = if (keepExistingBody) state.activeGoal else state.ipcSurfaceSnapshot
+            ?.takeIf { targetSurface }
+            ?.activeGoal,
+        status = nextStatus,
+        currentTurnId = nextCurrentTurnId,
+        messages = nextMessages,
+        runtimePanel = nextRuntime,
+        noticesPanel = nextNotices,
+        pendingServerRequests = if (keepExistingBody) state.pendingServerRequests else emptyList(),
+        submittingServerRequestIds = if (keepExistingBody) state.submittingServerRequestIds else emptySet(),
+        planWorkflow = if (keepExistingBody) state.planWorkflow else CodexPlanWorkflowState()
+    )
+    return recalculateNextTurnEffectiveConfigForUiState(updated)
+}
+
 internal fun clearIpcConversationSelectionFromUiState(state: CodexUiState): CodexUiState {
     val hadIpcSurface = state.ipcSurfaceSnapshot != null
     val hasIpcPlanWorkflow = state.planWorkflow.planContent != null ||
@@ -1912,6 +2083,40 @@ private fun historyItemAliasesForUiMessage(message: ChatMessage): Set<String> {
 }
 
 /**
+ * A normal message can have different ids in the canonical history cache and
+ * in the live IPC surface. Only bridge it when the provider turn, role, and
+ * normalized正文 all agree; deliberately do not use text-only deduplication.
+ */
+private fun areSameCanonicalAndSurfaceMessageForUi(
+    canonical: ChatMessage,
+    surface: ChatMessage
+): Boolean {
+    val canonicalTurnId = canonical.sourceTurnId?.trim().orEmpty()
+    val surfaceTurnId = surface.sourceTurnId?.trim().orEmpty()
+    val normalRole = canonical.role == ChatMessage.Role.USER ||
+        canonical.role == ChatMessage.Role.ASSISTANT
+    return canonicalTurnId.isNotEmpty() &&
+        canonicalTurnId == surfaceTurnId &&
+        normalRole &&
+        surface.role == canonical.role &&
+        canonical.operationType == null &&
+        surface.operationType == null &&
+        canonical.content.trim() == surface.content.trim()
+}
+
+private fun surfaceEntryRoleForUi(entry: SurfaceEntry, isOperation: Boolean): ChatMessage.Role =
+    when (entry.kind) {
+        "message" -> when (entry.role) {
+            "user" -> ChatMessage.Role.USER
+            else -> ChatMessage.Role.ASSISTANT
+        }
+        "status" -> if (isOperation) ChatMessage.Role.TOOL else ChatMessage.Role.SYSTEM
+        "approval_request" -> ChatMessage.Role.SYSTEM
+        "goal_prompt" -> ChatMessage.Role.USER
+        else -> ChatMessage.Role.ASSISTANT
+    }
+
+/**
  * Returns the raw operation ids represented by a command message.  New
  * collapsed batches carry the complete list; older in-memory messages are
  * handled by recovering the anchor from their stable batch id.
@@ -1981,6 +2186,7 @@ internal fun mergeSurfaceItems(
             ?.let { turnId -> "command-batch:$turnId:$key" }
         val isOperation = entry.kind == "status" && entry.statusType == "operation"
         val entryItemId = entry.itemId?.trim()?.takeIf(String::isNotEmpty)
+        val role = surfaceEntryRoleForUi(entry, isOperation)
         val exactExisting = existingById[key]
         val batchExisting = existingBatchId?.let(existingById::get)
         val itemIdExisting = if (isOperation) entryItemId?.let(existingById::get) else null
@@ -1992,7 +2198,25 @@ internal fun mergeSurfaceItems(
         } else {
             null
         }
-        val existingMessage = exactExisting
+        val bridgedExisting = if (entry.kind == "message" && !isOperation) {
+            val entryTurnId = entry.turnId?.trim().orEmpty()
+            val entryText = entry.text?.trim()
+            if (entryTurnId.isNotEmpty() && entryText != null) {
+                existing.firstOrNull { candidate ->
+                    candidate.id != key &&
+                        candidate.sourceTurnId?.trim() == entryTurnId &&
+                        candidate.role == role &&
+                        candidate.operationType == null &&
+                        candidate.content.trim() == entryText
+                }
+            } else {
+                null
+            }
+        } else {
+            null
+        }
+        val existingMessage = bridgedExisting
+            ?: exactExisting
             ?: batchExisting
             ?: itemIdExisting
             ?: batchMemberExisting
@@ -2008,19 +2232,10 @@ internal fun mergeSurfaceItems(
         // existing collapsed batch matched by its presentation key, retain
         // the current key so its member-id accounting remains unchanged.
         val projectedKey = when {
+            bridgedExisting != null -> bridgedExisting.id
             exactExisting != null || batchExisting != null -> key
             itemIdExisting != null || batchMemberExisting != null -> entryItemId ?: key
             else -> key
-        }
-        val role = when (entry.kind) {
-            "message" -> when (entry.role) {
-                "user" -> ChatMessage.Role.USER
-                else -> ChatMessage.Role.ASSISTANT
-            }
-            "status" -> if (isOperation) ChatMessage.Role.TOOL else ChatMessage.Role.SYSTEM
-            "approval_request" -> ChatMessage.Role.SYSTEM
-            "goal_prompt" -> ChatMessage.Role.USER
-            else -> ChatMessage.Role.ASSISTANT
         }
         val projected = ChatMessage(
             id = projectedKey,
@@ -2044,7 +2259,9 @@ internal fun mergeSurfaceItems(
             operationStatus = entry.operationStatus.takeIf { isOperation },
             operationTurnId = entry.turnId.takeIf { isOperation },
             operationBatchSize = if (isOperation) 1 else 0,
-            operationBatchMemberIds = if (isOperation) listOf(projectedKey) else emptyList()
+            operationBatchMemberIds = if (isOperation) listOf(projectedKey) else emptyList(),
+            sourceTurnId = entry.turnId?.trim()?.takeIf(String::isNotEmpty)
+                ?: existingMessage?.sourceTurnId
         )
         if (role == ChatMessage.Role.USER && existingMessage != null) {
             mergeCanonicalUserMessageMetadataForUi(
@@ -2172,7 +2389,8 @@ private fun decodeCachedHistoryItem(item: CodexHistoryItem): ChatMessage? {
             content = extractHistoryPayloadTextForUi(payload),
             contentType = item.itemType,
             clientRequestId = item.clientRequestId,
-            attachments = extractCachedMediaAttachments(payload)
+            attachments = extractCachedMediaAttachments(payload),
+            sourceTurnId = item.turnId?.trim()?.takeIf(String::isNotEmpty)
         )
     }.getOrNull()
 }
@@ -2715,6 +2933,29 @@ internal fun shouldPreserveCodexTailMessage(message: ChatMessage): Boolean {
     return message.content.isNotBlank() || message.streaming
 }
 
+/**
+ * A ready event has no selection generation of its own.  Accept it only when
+ * every already-known IPC identity agrees with the event, except for the
+ * explicit new-thread hand-off where the active identity is intentionally
+ * still empty.  This keeps a late foreign ready from rewriting the selected
+ * conversation's thread/body pairing.
+ */
+internal fun shouldApplyThreadReadyToCurrentSelection(
+    state: CodexUiState,
+    readyThreadId: String?,
+    resumed: Boolean
+): Boolean {
+    val incoming = normalizeCodexThreadId(readyThreadId)
+    if (state.awaitingNewThreadIpcSurface && !resumed) return true
+    if (incoming == null) return !resumed
+    val knownIds = listOfNotNull(
+        normalizeCodexThreadId(state.activeConversationId),
+        normalizeCodexThreadId(state.threadId)
+    ).distinct()
+    if (resumed && knownIds.isEmpty()) return false
+    return knownIds.isEmpty() || knownIds.all { it == incoming }
+}
+
 internal fun shouldPreserveLocalMessageTailForUi(
     threadId: String?,
     state: CodexUiState,
@@ -2745,12 +2986,25 @@ internal fun buildThreadReadyUiTransition(
     state: CodexUiState,
     allowThreadIdSwitch: Boolean = false
 ): ThreadReadyUiTransition {
-    val preserveLocalTail = shouldPreserveLocalMessageTailForUi(
-        threadId = readyThreadId,
+    val readyMatchesCurrentSelection = shouldApplyThreadReadyToCurrentSelection(
         state = state,
-        allowThreadIdSwitch = allowThreadIdSwitch
+        readyThreadId = readyThreadId,
+        resumed = resumed
     )
-    val keepOptimisticMessages = resumed || preserveLocalTail
+    val preserveLocalTail = if (resumed && !readyMatchesCurrentSelection) {
+        false
+    } else {
+        shouldPreserveLocalMessageTailForUi(
+            threadId = readyThreadId,
+            state = state,
+            allowThreadIdSwitch = allowThreadIdSwitch
+        )
+    }
+    // `resumed` only authorizes retaining the body when the ready event still
+    // belongs to the selected conversation.  A cross-thread resumed event is
+    // an identity boundary, not proof that the current messages are reusable.
+    val keepOptimisticMessages = preserveLocalTail ||
+        (resumed && readyMatchesCurrentSelection)
     return ThreadReadyUiTransition(
         currentTurnId = if (preserveLocalTail) state.currentTurnId else null,
         messages = if (keepOptimisticMessages) state.messages else emptyList(),
@@ -4904,10 +5158,13 @@ class CodexViewModel(
             )
             var completeServerSnapshotCache = false
             val committed = withContext(Dispatchers.Main.immediate) {
-                if (pendingHistorySelectionKey != key ||
-                    currentProfile?.id?.trim() != key.endpointId ||
-                    historySelectionGeneration != key.generation
-                ) {
+                if (!shouldCommitCachedHistorySelectionToUiState(
+                        state = _uiState.value,
+                        key = key,
+                        pendingKey = pendingHistorySelectionKey,
+                        currentEndpointId = currentProfile?.id,
+                        currentGeneration = historySelectionGeneration
+                    )) {
                     false
                 } else {
                     val previousConversationId = normalizeThreadId(_uiState.value.activeConversationId)
@@ -8758,6 +9015,25 @@ class CodexViewModel(
             }
 
             "session_codex_thread_bound" -> {
+                val hasSelectionGeneration = json.has("selectionGeneration")
+                val selectionGeneration = if (hasSelectionGeneration) {
+                    json.optLong("selectionGeneration", Long.MIN_VALUE)
+                } else {
+                    null
+                }
+                if (!shouldAcceptSessionThreadBoundSelectionGeneration(
+                        hasSelectionGeneration = hasSelectionGeneration,
+                        selectionGeneration = selectionGeneration,
+                        currentSelectionGeneration = historySelectionGeneration
+                    )) {
+                    Log.w(
+                        TAG,
+                        "[history][selection-protected] ignoring stale session binding generation " +
+                            "incoming=${selectionGeneration ?: "invalid"} " +
+                            "current=$historySelectionGeneration"
+                    )
+                    return
+                }
                 val boundSessionId = json.optStringOrNullCompat("sessionId").orEmpty()
                 val conversationId = normalizeThreadId(
                     json.optStringOrNullCompat("lastCodexThreadId")
@@ -8790,20 +9066,10 @@ class CodexViewModel(
                         if (!bindingDecision.appliesToCurrentSession) {
                             current
                         } else {
-                            val switched = normalizeThreadId(current.activeConversationId) != conversationId
-                            recalculateNextTurnEffectiveConfig(
-                                current.copy(
-                                    threadId = conversationId,
-                                    activeConversationId = conversationId,
-                                    ipcSurfaceSnapshot = if (switched) null else current.ipcSurfaceSnapshot,
-                                    ownerCurrentCodexConfig = if (switched) null else current.ownerCurrentCodexConfig,
-                                    nextTurnOverrides = overridesForConversationSwitch(
-                                        currentConversationId = current.activeConversationId,
-                                        targetConversationId = conversationId,
-                                        currentOverrides = current.nextTurnOverrides,
-                                        rememberedOverrides = rememberedOverrides
-                                    )
-                                )
+                            applyIpcConversationBindingToUiState(
+                                state = current,
+                                conversationId = conversationId,
+                                rememberedOverrides = rememberedOverrides
                             )
                         }
                     }
@@ -9028,6 +9294,20 @@ class CodexViewModel(
                         TAG,
                         "[history][selection-protected] ignoring stale codex_thread_ready " +
                             "incoming=${readyThreadId.orEmpty()} target=${pendingHistoryResumeHydrationThreadId.orEmpty()}"
+                    )
+                    return
+                }
+                if (!shouldApplyThreadReadyToCurrentSelection(
+                        state = _uiState.value,
+                        readyThreadId = readyThreadId,
+                        resumed = ready.resumed
+                    )) {
+                    Log.w(
+                        TAG,
+                        "[history][selection-protected] ignoring foreign codex_thread_ready " +
+                            "incoming=${readyThreadId.orEmpty()} " +
+                            "active=${_uiState.value.activeConversationId.orEmpty()} " +
+                            "thread=${_uiState.value.threadId.orEmpty()}"
                     )
                     return
                 }
