@@ -875,23 +875,14 @@ HTTP 原图 runner 共同覆盖。
 - frozen IPC/Owner/canonical/Approval/Plan/Goal 回归全部通过。
 - 专项 Node/Android 自动化、JDK 21 APK、真机日志和截图证据已写回 `CURRENT_TASK.md`。
 
-## 18. P0-B.4R 服务端当前快照与分段传输补充（2026-08-09）
+## 18. P0-B.4R corrected reimplementation（2026-08-11）
 
-本补充承接本计划的 cache-first/256 KiB/逐页 ACK/A→B→A 保护，不改动 frozen IPC authority。用户已确认旧 P0-B.4 的
-“仅 paginated native older”不能作为产品前提；服务端现在应把可读 canonical history 构建成一份当前原子快照，App 不再因 Codex 的
-internal history mode 决定能否先显示部分历史、再静默补齐。
+本节是从 P0-B.3 基线 `47de67c6e3cba64720c715ea4238679f642cc469` 重新实施的 B4R，工作分支为
+`codex/b4r-corrected-from-b3`。原 B4R 及其验证实验分支只作为审计对照，不直接作为本轮基线；完成后将把经过验证的修正版合并回 `main`，不覆盖旧分支。
 
-- snapshot 是服务端静态缓存，不是 Android live source：legacy 以一次 `thread/read(includeTurns=true)` 构建；paginated 可以 newest page
-  先作为 provisional tail、后台连续 older scan 后发布完整 snapshot。当前 P0 只在 Android 本地覆盖缺失/不完整时启动主动 B4R source scan；
-  已持久 `coverageComplete` 的任务再次打开直接 cache-first，不重传正文。quiet freshness probe、root 相同判断和服务端快照复用留给 P1。
-- Android 继续使用本计划已有的 history segment/checkpoint/SQLite transaction，但新的 server-snapshot capability 下改为收 `start / fragment /
-  commit` 三段帧；一个 logical segment 收齐、hash/root 校验且 generation/sync 仍匹配才事务提交并 ACK。部分 fragment 不持久化，不能让
-  process death 生成半段。
-- 逻辑 segment 以实际 JSON 字节切割（目标 96 KiB），fragment 最多 16 KiB，所有 envelope 继续小于等于 256 KiB；不是按固定 100/200
-  item 切割。旧 App/未协商能力继续走现有 v2 manifest/delta，数据库不需要为这项新增 destructive migration。
-- history 继续在 scheduler 低优先级 lane：live/control/live projection pending 时暂停；ACK/实际 handoff 驱动的 credit 使其最多占用约 100ms
-  可归因传输窗口。实时 IPC 的正文、operation、turn、running 和 pending action 不被 snapshot/segment 覆盖。
-- P0-C 仍未开始：live 只能让位/标记静态 dirty，不能在 B4R 自动触发 canonical reconciliation；B5 滚动 UI也不在本补充范围。
-
-完整算法、snapshot 文件边界、异常状态和验证矩阵以
-`docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md` 第 25 节与 `docs/workflow/CONTRACTS.md` 的 P0-B.4R 条款为准。
+- 本轮目标是为 `P0-B4R → P0-B5 → P0-C → P1` 提供可收口的历史快照/分段恢复能力，不另立一个 OOM 专项。内存、RSS、heap、事件循环阻塞、实时消息延迟和 GC 回落仍是 B4R 的强制回归门禁。
+- Android 只接收服务端的 manifest/segment/ACK/完成状态；分段必须按 generation、root/hash 和事务边界提交，旧任务或旧 generation 的迟到 page/ACK 不得写入当前会话。
+- 已完成且正文完整的本地 checkpoint 必须 cache-first；没有健康 Desktop IPC surface 不能因此再次触发同一份 canonical full history。确需修复时，必须由明确的 incomplete/desynced/缺失目标 surface 条件触发有界恢复。
+- 历史 chunk 在 live/control surface 到达时暂停，实时 surface 完成后再继续；同一线程最多一个历史请求，切换任务后旧 pump 必须失效。
+- 不把原验证提交中的 per-revision eager fast-path、fingerprint stringify、verification sampler 或未经证明的“硬 500ms”承诺带回默认路径；不修改 `codexIpcFeed`、`codexIpcThreadStream`、`codexOwnerSurfaceTracker` 和 IPC authority。
+- 必须通过 Node focused tests、Android JVM/JDK 21 tests、约 3900 item 大历史的服务端内存/延迟观测，以及真机 cache-first、live 优先、A→B→A generation 隔离验证后，才能进入 P0-B5。

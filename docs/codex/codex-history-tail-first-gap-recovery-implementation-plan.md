@@ -1,6 +1,6 @@
 # Codex 历史尾部优先、增量断点与缺口恢复实施方案
 
-> 状态：P0-B.4R implementation-authorized；2026-08-09 用户确认以“服务端当前快照 + 自适应静态分段”直接重设计旧 B4。旧 paginated-only B4 描述只保留兼容背景，和旧 P1 中重叠的 legacy 持久 tail/index 不再是后续独立阶段。
+> 状态：implementation plan / plan-only，尚未获得代码实施授权
 > 所属任务：`20260727-002 Codex 单权威路由与 TermLink Owner 控制面修复`
 > 日期：2026-08-05
 > 上位约束：`docs/workflow/CONTRACTS.md` 的“Codex 原生会话实时同步核心”、
@@ -176,16 +176,15 @@ App 不直接连接 Codex；App 的历史网络请求发给 TermLink。历史的
 
 | 数据 | 是否持久 | 当前位置/生命周期 |
 |---|---:|---|
-| canonical history baseline/items/payloadJson | 是，仅一份当前快照 | `data/codex-history-snapshots/`，按 endpoint/profile + conversation hash 隔离，临时文件 `fsync` 后原子 replace；损坏快照隔离并回源 |
+| canonical history baseline/items/payloadJson | 否，仅内存 | `CodexHistorySyncService._baselines`，进程重启丢失 |
 | active sync/page/delta 状态 | 否 | `_syncs`、WebSocket/client 生命周期 |
 | session 绑定元数据 | 是 | `data/sessions.json`，不含完整正文 |
 | externalized media | 是 | `data/codex-media/` |
 | App 历史正文 | 是 | Android `codex_conversations.db` |
 | canonical 完整 thread | 是 | Codex 自身持久化，不属于 TermLink 历史 DB |
 
-`CodexHistorySyncService._baselines` 仍可作为当前请求的内存加速层，但不再是重启后唯一来源。持久层只保存已完整构建、可校验 root 的
-一份 current snapshot；它不是实时源、不是历史归档、不是 metadata-only index，也不会替 Android 执行自动清理。旧 baseline 的 TTL/byte budget
-只影响内存加速，不能删除 current snapshot 或 Android 缓存。
+当前 `_baselines` 没有旧设计要求的“最后一个订阅者离开后 5 分钟释放”闭环。依赖 legacy 内存 baseline 作为短期索引前，
+必须补 TTL、subscriber ref 和总字节预算；这只影响服务端内存，不得触发 Android 缓存自动淘汰。
 
 ### 4.3 与旧 history/cache 方案的取代关系
 
@@ -917,9 +916,9 @@ App 先打开、Desktop 后打开：
 现有反向 owner status query 是 TermLink Owner 向 follower 查询状态的链路，不能用作外部 Desktop owner discovery，也不能据此
 宣称 owner 不存在。
 
-## 17. 服务端当前快照的边界
+## 17. 服务端持久索引的边界
 
-### 17.1 metadata-only index 的限制
+### 17.1 metadata-only index 能解决什么
 
 可选 per-thread index 若只保存：
 
@@ -932,20 +931,19 @@ provider/source identity
 ```
 
 它可以快速判断 Android 缺哪些范围，减少 manifest/coverage 计算，但 TermLink 重启后仍没有正文 payload。对 legacy 来说，Codex 没有
-随机 item read，最终提供最新正文仍可能触发 full rollout replay；因此它不足以满足本任务的 tail-first 产品目标。
+随机 item read，最终提供最新正文仍可能触发 full rollout replay。
 
-### 17.2 已确认选择：一份当前 canonical snapshot
+### 17.2 真正让 legacy 重启后也 tail-first 的选择
 
-用户已选择第 2/3 项的受限形式：TermLink 保存每个 endpoint/profile + conversation 的**一份当前完整 canonical snapshot**，而不是只保存
-metadata、多个历史版本或上游 raw rollout。文件以内容验证的 schema/root 元数据封装，写入过程为 unique temp -> write -> `fsync` -> atomic
-replace；读取失败、schema/root 自洽失败或截断时只 quarantine 当前文件，随后用 canonical source 重建。文件命名不泄露 canonical id，日志
-不记录正文；数据边界等同现有 Codex/media 本地文件。
+只有以下选择之一能消除该物理限制：
 
-当前 P0-B.4R 先把该文件作为安全的 current persistence result 保存；它尚不绕过 canonical source scan 直接向 App 发送，以免把没有
-freshness proof 的旧文件当作当前正文。Android 已持久 `coverageComplete` 且 durable item count 一致时会直接 cache-first，不发新的主动正文
-传输；P1 再单独定义静默 freshness probe、server snapshot read reuse 和跨设备增量策略。不把 `thread/read(includeTurns=false)`、`updatedAt`、
-`recencyAt` 或 JSONL 作为 freshness proof。对 paginated，newest page 可以在后台 full scan 完成前作为 provisional tail 发出，完整 scan
-连续读取 older cursor 到历史起点后才原子发布完整 snapshot。
+1. 上游 Codex 为 legacy 提供真正随机 tail/item seek；
+2. TermLink 持久保存至少最新 tail/segment 的 canonical payload；
+3. TermLink 持久保存第三份完整 canonical body/index；
+4. 直接解析 rollout 文件并维护 offset/index（强耦合上游私有格式，不推荐）。
+
+第 2/3 项会扩展“TermLink 不持久保存历史正文”的架构边界；第 4 项兼容和损坏风险高。它们都不是本 P0，必须由用户明确决策，
+先更新 `DECISIONS.md`/`CONTRACTS.md` 并重新 `lock-scope`。
 
 ## 18. 分阶段实施顺序
 
@@ -988,11 +986,9 @@ P0-B 已于 2026-08-07 获用户授权，按以下一步一验顺序实施；后
    顶层 history version 改成旧客户端会整体拒绝的 2。
 3. **P0-B.3 单页 older 与 durable checkpoint**：用户按需一次加载一页，原子提交 segment/items/cursor/checkpoint，覆盖 cursor/anchor
    失效、跨 sync 幂等和迟到拒绝；请求结束即停止，不做自动 background pump。
-4. **P0-B.4R 服务端快照、静态 segment 与 live 优先调度**：旧 B4 的“只对 paginated native cursor 自动 older”被直接替换。
-   legacy 完整 read、paginated newest-page + older scan 均在服务端构建一份 current snapshot；App 先收尾段，再按 snapshot 的实际编码字节
-   静默获取更旧 logical segments。每段独立 ACK/SQLite 原子提交，最大一个 logical segment in-flight；control/live/live projection pending
-   随时抢占。用 EWMA safe-goodput 和 <=100ms history burst 控制带宽，而不是固定 200 items 或直接依赖 WebSocket handoff。Android 完整
-   checkpoint 的再次打开不发主动正文传输；quiet freshness/root 对账留给 P1。P0-C 不因 live 自动启动 static reconcile。
+4. **P0-B.4 live 优先调度与静默 pump**：先使 history 在 control/live pending 时停止生成下一 chunk，限制最多一个 history
+   page/chunk in-flight，并证明任务切换会取消/隔离旧工作；门禁通过后才开启自动 older backfill。legacy 仅从已存在的内存 full baseline
+   回填，不对 Codex 连续翻 legacy pages。
 5. **P0-B.5 滚动和状态 UI**：接近顶部时把下一页提升为交互优先级，提供 inline loading/retry，prepend 后用 stable item key 保持
    scroll anchor；沿用 cache/network/live 状态拆分，单独做视觉与交互验证。
 6. **P0-B.6 联合回归与启用**：运行跨模块 Node/Android 回归、JDK 21 APK 构建、ADB 单设备 smoke 与人工 D 层验收；确认 DB v4
@@ -1014,12 +1010,10 @@ selection、syncId 与 Gateway cancel。只有真实测试证据证明不足时�
 6. P0-C 在 healthy live 下读取 canonical 正文写 SQLite，必须先更新 CONTRACTS/DECISIONS（契约扩展为“仅 upsert 与 live tail 不冲突的
    更旧/缺失静态 items，不覆盖 live 正文”，见 CONTRACTS:145），再实施；P0-C 与 P0-B 分别授权，不得借任一阶段静默落地。
 
-### Phase P1（已替代的重叠范围）
+### Phase P1（可选，用户决策）：legacy 持久 tail/index
 
-旧 P1 的“legacy 持久 tail/index”已被用户明确吸收进 P0-B.4R；不得再把同一份 current snapshot 重新列为 P1 阻塞项。P1 仍保留
-**quiet freshness probe、server current snapshot 的受限 read reuse、dirty/unknown 处理与跨设备增量通知**：必须先定义 probe 失败、离线、
-root comparison、缓存过期和 Android 不在线时的异常语义，不能把 metadata-only 值伪装成 freshness proof。多版本归档、服务端全局索引、
-跨机器同步、加密/key management 或 retention policy 也属于新的 P1+ 决策，必须重新立项。
+仅在“TermLink 重启后所有 legacy 也必须快速冷启动尾部”成为硬需求时进入。先决定保存 metadata-only index 还是 canonical tail payload，
+明确数据保留、磁盘管理、迁移、隐私和回滚，再修改冻结契约。
 
 ## 19. 预计修改点
 
@@ -1220,9 +1214,6 @@ home（域名+mTLS）和 local（LAN）两条路径各验证：
 ### 22.1 发布
 
 - wire 和 SQLite migration 全部 additive，服务端先兼容旧客户端，再发布 Android 新客户端。
-- P0-B.4R 单独使用 `TERMLINK_HISTORY_SNAPSHOT_SEGMENTS=1`；只有新 APK 显式发送 `historySync.serverSnapshotSegments` 才进入
-  `start/fragment/commit/ack` 静态 lane。关闭该变量后不初始化 snapshot store，旧 v2/range capability 保持原样；回滚不删除 Android DB 或
-  已保存 snapshot，也不要求降级 APK。
 - capability-gated 开启 paginated items/tail；legacy 先以 partial tail + bounded full recovery 发布。
 - Phase P0-A、P0-B、P0-C 分别有 feature flag/kill switch，不一次性绑定上线。
 - 先在 local 小流量/真实设备验证，再验证 home mTLS；最后扩大到大 legacy 任务。
@@ -1246,7 +1237,7 @@ home（域名+mTLS）和 local（LAN）两条路径各验证：
 - 不对 legacy cursor 连续分页制造 `N × full rollout replay`。
 - 不把 terminal turns、小响应或 RPC 成功误当完整证明。
 - 不在手机缓存设置最大空间或自动 LRU；继续按服务/任务手动清理。
-- 不保存多版本历史归档、raw Codex rollout/JSONL、跨 endpoint/profile 共享正文或服务端数据库；P0-B.4R 只保存经 root 校验的单份当前 canonical snapshot，且它永不成为 realtime authority。
+- 不在本 P0 持久保存 TermLink 第三份完整正文。
 - 不自动 resume/start，不抢占 writer，不启动 read/write 第二 app-server owner。
 
 ## 24. 待用户决策与实施 handoff
@@ -1254,14 +1245,12 @@ home（域名+mTLS）和 local（LAN）两条路径各验证：
 P0-A 已完成并形成 `4a78060` 阶段基线；用户已于 2026-08-07 授权 P0-B，并接受 additive Android
 `history_segments`/range checkpoint migration。P0-B.0 的范围、契约、最小 wire、步骤顺序与 DB v4 回滚已锁定。
 
-已确认并进入 P0-B.4R 的事项：
+仍未授权、也不阻塞 P0-B.1 的事项：
 
-1. legacy 服务重启后的快速静态尾部是当前 P0-B 目标，采用单份 current canonical snapshot，而非只持久 tail 或 metadata index。
-2. Android 本地覆盖缺失或不完整时执行 canonical full scan；metadata-only probe 不能证明完整性。paginated 可以 newest-page provisional bootstrap，完整快照仍由 older scan 到历史起点构建。已持久 `coverageComplete` 的再次打开只 cache-first，不发主动正文传输；quiet freshness/root 对账留给 P1。
-3. snapshot 按现有 Codex/media local trust boundary 保存，不新增 HTTP、数据库、加密/key management 或 raw rollout parser。
-4. P0-C live-tail durable gap reconciliation 继续独立；B4R 只让 live 抢占 history 调度或标记 dirty。
-
-仍未授权：默认把新建任务改为 paginated、独立 read-only app-server worker、多版本历史归档/跨机同步，以及 P0-C/P0-B.5 的功能性扩展。
+1. legacy 服务重启后的“瞬间尾部”是否成为硬需求；若是，需另行决定是否持久保存 canonical tail payload。
+2. 是否把新创建任务默认改为 paginated history mode；需要当前捆绑 app-server 与双宿主能力实证。
+3. 是否增加独立 read-only app-server worker；默认暂缓，不属于最小 P0-B。
+4. P0-C live-tail durable gap reconciliation；必须在 P0-B 完成后单独授权。
 
 2026-08-08（P0-B.3 实施记录）：已实现一次用户触发的 paginated older page 与 durable range checkpoint。Provider 仅消费显式
 `nextCursor`，把 desc page 归一化为 ascending；Gateway 校验 range/provider/selection/cursor 并按 conversation+range+cursor
@@ -1275,96 +1264,38 @@ wire cancel/cycle 字段。Node provider/history-sync `49/49`、Gateway IPC `93/
 下一 handoff：`review-implementation`，P0-B.3 已实现但尚未收口审查；保持 range capability 与自动 older pump 关闭。审查通过后才进入
 P0-B.4。后续真实 instrumentation 只使用专用设备/模拟器，不在主测试设备执行 connected instrumentation。
 
-## 25. 2026-08-09 P0-B.4R 服务端快照与自适应静态分段（当前实施基线）
+## 25. P0-B.4R corrected reimplementation（2026-08-11）
 
-本节优先于旧 §8.3、§17、§18 的 B4/P1 描述；保留旧内容仅用于解释现有 range schema 和兼容路径。
+本节覆盖原始 B4R 实施记录中尚未被可靠证明的部分，实施基线为 P0-B.3 提交
+`47de67c6e3cba64720c715ea4238679f642cc469`，分支为
+`codex/b4r-corrected-from-b3`。原始 `codex/codex-runtime-authority-fix` 只作为审计参考，不作为本节的父分支。
 
-### 25.1 状态与文件格式
+### 25.1 目标订正
 
-```text
-SnapshotKey = sha256(endpoint/profile identity + canonical conversationId)
-data/codex-history-snapshots/<SnapshotKey>.json
+- B4R 的产品目标仍是服务端 current snapshot、按实际字节自适应静态分段、live/control 优先和 generation 隔离，完成后进入 B5；
+  不把 OOM 单独拆成新的产品阶段。
+- 大历史的 RSS/heap、事件循环阻塞、实时可见延迟和停止后回落是 B4R 的强制回归门禁。
+- B4R 不创建或改写 Codex canonical item；IPC surface 仍由 Codex host/TermLink feed 提供，snapshot 只负责静态历史传输。
 
-SnapshotEnvelope {
-  version: 1,
-  scopeHash: sha256(profileKey + "\\0" + conversationId),
-  writtenAt: epochMs,
-  snapshot: CanonicalHistorySnapshot { conversationId, rootHash, items, ... }
-}
-```
+### 25.2 与原始 B4R/3bd experiment 的差异
 
-- 只有完整 canonical build 成功才写入；provisional paginated newest page 不落入 current snapshot。
-- 写入为 `open(wx)` temporary file、完整写入、`sync`、close、同目录 rename；替换期间旧 current 文件仍可读。读取校验
-  `version`、scope hash、conversation id、root 和 items；异常文件移入同目录 `.corrupt` quarantine（不读取/打印正文），后续回源。
-- 保存的是产品实际需要的 canonical static history，不保存 raw request/response、raw rollout JSONL、多个版本或全局索引。
-- `complete_at_snapshot`、`verified_current`、`dirty`、`unknown`、`likely_clean` 是不同状态。当前 P0-B.4R 只写 `complete_at_snapshot`；
-  `verified_current` 及 snapshot root comparison 要等 P1 的静默 freshness 任务定义后才可声称。`thread/read(false)` 仅是可选活动/模式 probe，
-  不能改变该判断。
+- 不直接引入 3bd 的 `server.codex.verification.*` instrumentation、逐次 fingerprint `JSON.stringify` 或默认开启的 eager fast-path。
+- 不修改 `codexIpcFeed`、`codexIpcThreadStream`、`codexOwnerSurfaceTracker` 的冻结数据流来实现 B4R。
+- live/control 优先通过既有 scheduler lane、live projection pending 和 bounded deadline fallback 实现；不能把“投影耗时未测出”写成 500ms 硬保证。
+- cache-first 的完整 checkpoint 必须在同一 selection/generation 下直接结算，不因缺少 Desktop IPC surface 重复触发同一份 canonical full read。
 
-### 25.2 打开与构建状态机
+### 25.3 重新实施顺序
 
-```text
-select(G, conversation)
-  -> cache-first Android SQLite + follower acquire / live authority concurrently
-  -> durable coverageComplete && local durable count matches
-       -> settle static lane cache-first (no active B4R body request)
-  -> otherwise explicit source build for this selection
-       legacy: full thread/read(true) -> static logical segments -> complete snapshot
-       paginated: newest native page -> provisional tail segment;
-                  older cursor scan -> older segments -> complete snapshot
-  -> successful full build atomically replaces server current snapshot
-```
+1. 服务端 snapshot store、source scan、原子写入/损坏隔离和 measurement。
+2. static segment fragment/commit/ACK 与实际字节上限；所有发送经过既有 history lane。
+3. Gateway capability、selection/generation、cache-first 和 legacy/paginated source 兼容。
+4. Android wire/cache/ViewModel 的 segment transaction、hash/root 校验和 ACK。
+5. 定向 Node/Android 回归后，再进行约 3900 项任务的真机 smoke；P0-B.5 不提前开始。
 
-- 每个 WebSocket selection 使用自己的 `syncId + selectionGeneration`；当前 P0 不承诺跨客户端 source-build singleflight。取消/切换后迟到
-  source page、segment、ACK 以及 Android DB/UI reducer 全部必须被 generation/sync 门禁拒绝。
-- paginated scan 的 cursor 只用于**服务端构建**，对 Android 不暴露为“必须原生 older 请求”的产品前提。cursor 重复、缺失、方向反转、page
-  hash/identity 异常均 fail-closed，不发布 complete snapshot。
-- legacy 的一次 full read 是一轮 build 的唯一 canonical source read；绝不用 Android older pump 对 legacy 做 `N × full rollout`。
-- source read 成功但 snapshot write 失败：服务端不发布 current 文件；本次已 ACK 的 Android logical segments 保留，静态 lane 以显式失败终态收束，
-  不得把失败文件当 current。source read 失败：显示已有 Android cache 并进入明确 `failed`/`cache_only` 语义，不删除任何 committed data。
+### 25.4 重新验收
 
-### 25.3 segment 与 fragment 算法
-
-1. 将 canonical items 先按全局 oldest -> newest 排序；传输计划从 newest 向 older 切片，保证第一完整 segment 是可立即显示的 tail。
-2. 对候选 item 序列编码 `history_segment_commit` 负载并测量真实 UTF-8 JSON bytes；二分/增量找到不超过 `96 KiB` 逻辑目标的最大连续 item
-   区间。不得以固定 100/200 item 数假设安全。
-3. 若单 item 的静态字段过大，commit 仅带稳定 descriptor，正文/附件引用拆为 `history_segment_fragment`（每个 fragment ≤16 KiB）；收端重组后
-   对 item hash 和 segment root 校验。任何 fragment 超限、序号重叠/缺口、hash/root 不匹配都会丢弃整个 logical segment。
-4. 每个 logical segment 的 `segmentId` 绑定 conversation、当前 `syncId + sequence`、range kind 和边界 keys/hashes；同一 sync 的重发可
-   幂等，跨 sync 不复用旧段身份。commit 只在所有 fragment 到齐后生效。WS envelope hard cap 256 KiB 比 96 KiB segment target 更高，仅作为
-   最后 fail-closed guard。
-5. Android 对一个 logical segment 在内存 staging 中 reassemble；只有 `start -> all fragments -> commit` 全部合法且仍匹配
-   `selectionGeneration + active syncId`，才在同一 SQLite transaction 提交 items、history_segments、compat position、checkpoint，再发送 ACK。
-
-### 25.4 live/control 优先与带宽信用
-
-```text
-safeGoodput = EWMA(ackedLogicalSegmentBytes / max(ackElapsedMs, 1))
-burstBytes  = clamp(1 KiB, min(preferredFragment, 16 KiB,
-                               floor(0.7 * safeGoodput * 100 ms)))
-```
-
-- 样本不足时使用协商 fragment cap（最多 16 KiB）；ACK 和实际 scheduler handoff 才更新样本，`ws.send` 返回不是“已送达”。
-- `control pending`、healthy live queued/in-flight 或 live projection pending 任一为真时不发送 history；恢复后先重新计算 credit。
-- segment ACK 前最多一个 logical segment in-flight，fragment 也按同一 credit 窗口发出；超时/ACK 缺失停止而不是堆积。
-- 100ms 是 history 允许占用的最大可归因 window，不是修改 IPC/live authority 的 latency timeout。实时 frame 继续沿原 direct path，不被封装成 history。
-
-### 25.5 wire、兼容与 Android 收口
-
-- capability：保留 `historySync.version=1`，增加 optional `serverSnapshotSegments.enabled/version=1`。没有该对象、版本不匹配、DB 不能表达
-  segment 或旧 APK 时，服务端继续 v2 manifest/delta，不发送新 start/fragment/commit event。
-- 新事件仅服务静态历史：`conversation_history_segment_start`、`conversation_history_segment_fragment`、
-  `conversation_history_segment_commit`、`conversation_history_segment_ack`、`conversation_history_snapshot_state`。所有 event 都含
-  conversation、sync、selection generation、snapshot/segment root 的脱敏可验证字段；不会改变 `conversation_surface_snapshot` 或 IPC event。
-- App 可在 `PARTIAL` 中继续读已提交 segments；最终 snapshot segment ACK 后进入 `SYNCED`，但 `SYNCED` 仍不表示 realtime authority 或
-  P0-C tail durability 已完成。旧 range older pump 在新 capability 下不再向 Codex 请求 older cursor；服务端自行继续静态 segments。
-
-### 25.6 验收与观测
-
-- 服务端：原子 replace/read/corruption quarantine、legacy full、paginated provisional+complete、真实字节分段、超大 item fragment、
-  envelope cap、ACK retry、disconnect、A→B→A、live/control priority。
-- Android：旧 v2 fallback、fragment/reorder/duplicate/reject、single-transaction commit、cache-first、generation/sync reject、终态 settlement。
-- 真机：大 legacy 历史首 tail 后静默更旧段；回填中产生 realtime/control；A→B→A；完整 Android checkpoint 的再次打开 cache-first；P1
-  freshness/root same/changed 不作为当前 B4R 验收。
-- 日志只记录 `snapshotKeyHash/providerMode/rootHash/itemCount/bytes/buildMs/segmentBytes/fragmentCount/ackMs/pauseReason/generation`，不记录正文、
-  cursor 原文、路径、凭据或 raw canonical id。
+- 静态功能：legacy full、paginated newest→older、snapshot persist、segment ACK、重连、A→B→A、旧客户端 fallback。
+- 实时边界：live/control/live-projection pending 时历史暂停，healthy IPC surface 不被静态 snapshot 覆盖。
+- 性能门禁：记录 itemCount、revision/update rate、RSS/heap、source/segment/ACK duration、重复 `thread/read` 次数和 live/control delay；
+  不以单次 1 页/1 页或单元测试通过替代大历史长任务证据。
+- 回滚：关闭 B4R capability 后回到 B3 的 v2/range 兼容路径，保留已写入 snapshot/segment 数据，不降级 APK、不删除数据库。

@@ -7,8 +7,11 @@
 - 任务 slug：codex-single-authority-owner-control-plane
 - 当前状态：in_progress
 - 生命周期状态：active
-- 当前 handoff：P0-B.4R 完整快照 cache-first 的 A→B→A 重复加载、persistent-desync recovery 可见状态与 healthy IPC 到达后的晚 recovery 已完成范围/实现/契约复核、完整 Android JVM 回归和真机复验；P0-B.4R 其余 live/control 抢占、未缓存大任务的 in-flight terminal surface 单次 source-read 与真实 paginated 手动门禁仍待完成。
-- 当前子任务：P0-A.1 至 P0-A.6 已完成，目标真机 smoke 初步通过；P0-A no-owner freshness follow-up 已完成；P0-B.0、B.1、B.2、B.3 已完成。旧 P0-B.4（仅 paginated range/Android older pump）已被 P0-B.4R 直接重设计：所有可读历史都由服务端完整/连续构建为当前快照，再按实际字节自适应分段传给 App；旧 paginated manual gate 作为兼容观察保留，不再是产品功能门槛。P0-B.5、P0-C 保持 pending；旧 P1 的 legacy 持久 tail/index 范围已吸收进 B4R。
+- 当前 handoff：implement-current-step（P0-B.4R corrected reimplementation）
+- 当前子任务：P0-A.1 至 P0-A.6、P0-B.0 至 P0-B.3 保持既有实施事实；原始 P0-B.4R 实现不作为本轮基线，当前从 `47de67c` 重新实施 corrected B4R；P0-B.5、P0-C、P1 保持 pending
+- 当前实施分支：`codex/b4r-corrected-from-b3`
+- 当前实施基线：`47de67c6e3cba64720c715ea4238679f642cc469`（P0-B.3）
+- 原始 B4R 参考分支：`codex/codex-runtime-authority-fix`（只读审计，不在其上追加实现）
 - 专项实施计划：`docs/codex/codex-android-history-cache-media-recovery-plan.md`
 - 历史尾部优先与缺口恢复专项计划：`docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md`
 - 子任务授权状态：implementation-authorized（用户于 2026-08-06 授权 P0-A，于 2026-08-07 明确授权开始 P0-B；P0-C/P1、15g/15h 及既有人工验收状态不变）
@@ -84,7 +87,6 @@
 - `src/services/codexWsSnapshotScheduler.js`
 - `src/services/codexMediaStore.js`
 - `src/services/codexHistoryBaselineProvider.js`（新增）
-- `src/services/codexHistorySnapshotStore.js`（新增；仅 endpoint/profile + conversation 哈希名下的一份当前静态快照、原子替换与损坏隔离）
 - `src/services/codexMobileSurfaceProjector.js`（新增）
 - `src/routes/codexMedia.js`
 - `src/server.js`
@@ -94,7 +96,6 @@
 - `tests/codexMediaStore.test.js`
 - `tests/codexMediaRoute.test.js`（新增）
 - `tests/codexHistoryBaselineProvider.test.js`（新增）
-- `tests/codexHistorySnapshotStore.test.js`（新增）
 - `tests/codexMobileSurfaceProjector.test.js`（新增）
 - `android/app/src/main/java/com/termlink/app/codex/data/CodexConversationCacheStore.kt`
 - `android/app/src/main/java/com/termlink/app/codex/data/CodexHistoryCacheModels.kt`
@@ -120,8 +121,8 @@
 
 ## 条件放行文件
 
-- `docs/workflow/CONTRACTS.md`：用户已明确确认 P0-B.4R 的静态快照/分段边界；本轮先同步这条生效架构规则，再实施。不得把它改写为第二实时权威。
-- `docs/workflow/DECISIONS.md`：用户已明确确认 P0-B.4R 直接重设计、当前快照文件、首次/覆盖不完整时完整扫描、混合 paginated bootstrap、完整本地 checkpoint 不主动重传及 P0-C 边界；本轮记录为 AD-005，保留 AD-004。
+- `docs/workflow/CONTRACTS.md`：实现稳定后同步 additive WebSocket、Owner 控制面、canonical recovery 与单权威规则。
+- `docs/workflow/DECISIONS.md`：实现稳定后扩展 AD-004，记录服务端 authority router、Owner discovery 和禁止静默新线程。
 - `docs/workflow/STATUS.md`：仅在最终回归与 Windows 手动验收后同步实际状态。
 - `android/app/src/main/java/com/termlink/app/codex/CodexActivity.kt`：媒体原图下载完成后的 FileProvider/系统打开属于本轮已放行的 Activity 级 URI 生命周期；不得借此修改 selection 或 IPC。
 - `src/services/codexAppServerService.js`：只有现有 request/notification API 无法代理 Owner 控制方法且测试给出证据时放行；不得改变 stdio 生命周期。
@@ -863,47 +864,6 @@ Implementation Plan（2026-08-07，P0-B tail-first range/segment）：
 - Open decisions：无阻塞 P0-B.1 的问题。legacy 持久 tail/index、默认 paginated、read-only worker 与 P0-C 均保持未授权。
 - Handoff：`implement-current-step`，下一步只实施 P0-B.2；B.2 开始前保持 B.1 基线、range capability 和自动 older pump 不变。
 
-Implementation Plan（2026-08-09，P0-B 真机 00:37 tail 分页失败最小修复）：
-
-- Goal：修复 paginated 冷恢复中约 200 条 tail 被服务端按旧 100 条 delta 上限拆成两页、Android 因 range 原子提交拒绝 `pageCount=2` 并最终等待到 `history_selection_deadline` 的失败链路；保持 range segment 单页原子提交契约不变。
-- Architecture impact：只调整 `src/services/codexHistorySyncService.js` 的 manifest diff page packing；不改变 Codex IPC authority、follower/reconnect、Gateway selection fence、Android SQLite range schema 或 wire 字段。`rangeKind=tail` 仍由同一个 history sync/ACK 结算，older page 的既有单页门禁不变。
-- Technical approach：在 `handleManifestPage` 中仅对 capability 已启用且 `rangeKind=tail` 的 baseline，将 `maxItems` 提升到 `max(deltaMaxItems, baseline.items.length)`，同时保留现有 `min(deltaMaxBytes, historyMaxEnvelopeBytes)` 字节预算；生成后强制 tail 只能得到一个 page，若字节预算仍无法容纳则 fail-closed 返回明确的 tail-page-too-large 终态，不向 Android 发送它无法原子提交的多页 range。新增 200-item tail 回归覆盖真实 `pageCount`、upsert 数量、range metadata 与 ACK。
-- Alternatives considered：不修改 Android 以跨多页 staging/cursor 提交，因为这会扩大 P0-B.3 原子事务边界；不把 tail 降回 100 条，因为违背 B.2 最新约 200 条首屏目标；不删除 `pageCount` 校验或放宽 range 多页接收，因为会让 cursor/anchor 只提交一部分。以上均不是本轮必要的 mechanical 修复。
-- Data / state flow：`baseline tail -> manifest diff -> one range delta page -> Android validate/hash/stage -> one ACK -> PARTIAL + older pump`；若单页 envelope 超限则在服务端终止，避免 Android 等待 watchdog。range disabled、legacy 或 cache schema<3 继续走原 v2 `deltaMaxItems` 路径。
-- Compatibility：旧客户端和未协商 range 的行为不变；现有 Android B4 range 单页校验无需改 APK。正常约 200 条 tail 的 wire shape 不变，只恢复为一个 page；超大 tail 从隐式 selection deadline 改为有界、可观测失败。
-- Risks and rollback：主要风险是放宽 item 数导致 envelope 过大或误作用于 older/legacy。通过只匹配 `rangeKind=tail`、保留字节上限、单页断言和 targeted test 限制；回滚只需撤销该服务端 page-packing 改动，或继续设置 `TERMLINK_HISTORY_RANGE_SEGMENTS=0` 回到 v2 history。
-- Validation strategy：先运行 `node --test tests/codexHistorySyncService.test.js` 与 `node --check`；确认本地 Windows 3010 服务重新加载当前代码后，再由用户按原流程重试 00:37 场景，重点观察 `history.delta_received pageCount=1 -> delta_applied=COMMITTED`、ACK/`PARTIAL` 及随后 older pump。无需重新编译或安装 APK。
-- Open decisions：无；External Documentation Gate 不触发，方案只依赖仓库已冻结的 range 原子提交契约和本次设备日志。
-- Handoff：`implement-current-step`，只修改 history sync 服务及对应 Node 回归测试。
-
-Implementation Plan（2026-08-09，P0-B.4 真机回归后的 tail envelope 边界修复，范围锁定）：
-
-- Goal：在保持 `rangeKind=tail` 单页原子提交和 B.4 older pump 不变的前提下，修复真实 200-item tail 因 payload JSON 合计超过 256 KiB 而无法进入单页的问题。
-- Scope：本轮只允许修改 `src/services/codexHistorySyncService.js` 与 `tests/codexHistorySyncService.test.js`；不修改 Android schema/wire/cache、Gateway、scheduler、older page、IPC，亦不进入 B.5/P0-C。
-- Technical approach：先沿用现有 tail page packing；若仅因 inline payload 造成单页超限，则按实际 wire 节省量排序，用二分查找把刚好足够的一组 payload 切换到已有 `payloadChunks`，保留 `pageCount=1` 和最终 envelope 预算检查；无法容纳时继续 fail-closed。
-- Alternatives considered：不把 tail 改成多页、不放宽 Android 原子校验、不固定降到 100 条、不修改 older pump；这些都会越过本轮 B.4 回归修复边界。
-- Validation strategy：新增大于 256 KiB、但可由既有 payload chunk 传输的 200-item tail 回归；运行 history sync 定向 Node 测试、语法/差异检查并重启 Windows 3010 服务，沿用当前 B4 APK 重新人工验证。
-- Handoff：`implement-current-step`，完成后只进入本轮服务端修复的 review/regression，不扩展 P0-B 其他阶段。
-
-### Implementation Plan（2026-08-09，Windows Codex P0-B.4 兼容与实时调度收口）
-
-- Goal：在不改变 P0-B.4 已冻结的 Codex IPC 实时权威链路、wire envelope 和 Android authority 的前提下，收口本轮真机发现的两个 B.4 阻断问题：range capability 开启时 legacy 线程不能被错误裁剪为 partial；历史 delta/chunk 不能在 WebSocket 写队列中连续排队，导致实时 surface 延迟。
-- Architecture impact：只涉及历史基线 provider、`CodexWsSnapshotScheduler`、`terminalGateway` 的历史帧适配和对应测试；不修改 follower acquire/release、desired subscription、reconnect replay、normalized surface、canonical binding、owner fallback、Android IPC authority、数据库迁移或 B.5 UI。
-- Technical approach：
-  1. capability 仍可协商，但只有 paginated 线程进入 tail/older range 语义；legacy 线程继续走 P0-A/v2 full 路径，不生成无法消费的 `hasMoreBefore`/range 元数据。
-  2. 为低优先级 history frame 增加单帧 WebSocket handoff；同一连接上一次只交给 socket 一个 history frame，control/live 仍可在当前 history write 完成后优先发送，下一历史帧必须等待上一帧和更高优先级工作完成。
-  3. 保持既有 page/chunk ACK、cursor、generation 和 surface authority 语义不变；只改变历史帧的发送调度，不改变协议内容。
-- Alternatives：直接把 page size 固定为 100、继续对 legacy 做分段、把历史帧伪装成 control、或改动 Android IPC authority/实时订阅都可能掩盖边界而扩大影响，均不采用；P0-B.5 滚动 UI 仍保持 pending。
-- Compatibility / rollback：`TERMLINK_HISTORY_RANGE_SEGMENTS=0` 和 legacy 线程继续使用原 full/v2 路径；paginated 的 B.2/B.3/B.4 range 行为保持不变。回滚只需移除本轮 provider/scheduler/gateway 的局部改动并重启服务，不删除数据库、不降级 APK。
-- Validation：先运行 provider、history sync、snapshot scheduler、terminal gateway 的 Node 回归和语法/diff 检查；服务端重启后用现有 B4 APK 复验 capability、legacy 历史和实时 surface。真机屏幕需保持唤醒；屏灭时华为电源管理会冻结 App/销毁 socket，这属于独立环境因素。
-- Handoff：先实现第 1 步并验证，再实现第 2 步；全部通过后只进入 B.4 review/regression，不启动 B.5。
-
-### 当前步骤拆解（2026-08-09，Windows Codex）
-
-1. 修复 legacy + range capability 的 provider 回退语义，并更新回归测试。
-2. 将 history delta/chunk 接入 scheduler 的低优先级单帧 handoff，补 scheduler/gateway 回归测试。
-3. 执行服务端聚焦回归、契约/差异审查和唤醒真机验证；若仍有失败，只继续处理 B.4，不提前进入 B.5。
-
 ## Public / Internal Interface Changes
 
 - `codex_ipc_status.status` additive：`supported`、`activeSendAllowed`，保留 `online/clientId/reason`。
@@ -1408,10 +1368,8 @@ Implementation Plan（2026-08-02，Android 快速模式）：
 - [completed] P0-B.3. 单页 older 与 durable checkpoint：用户按需一次一页，原子提交 items/segment/cursor/checkpoint；覆盖 cursor/anchor
   失效、跨 sync 幂等、selectionGeneration + syncId 迟到拒绝，结束后不自动排下一页。当前实现要求单个 provider page 能装入一个 history
   delta envelope，超过预算 fail-closed；跨页 segment 事务留给 B.4/B.6 联合收口。
-- [in_progress] P0-B.4. live 优先调度与静默 pump：已增加 scheduler 对 live snapshot/control pending 的观察门禁，history
-  pump 在生成下一 page/chunk 前主动让位；现有 per-page ACK 保持单 page/chunk in-flight，Android 自动 older pump 仅在 range
-  capability 已启用、上一页以 PARTIAL 终态且 durable checkpoint 仍有 `hasMoreBefore` 时逐页排队。任务切换/断线取消 pump
-  job、清理旧 sync-id 集合并继续复用 selectionGeneration + syncId 隔离；range capability 默认仍关闭，未开启 B5 UI。
+- [pending] P0-B.4. live 优先调度与静默 pump：先证明 control/live pending 会阻止生成下一 history chunk、最多一个 history
+  page/chunk in-flight、任务切换强取消/隔离；然后才开启自动 older backfill。
 - [pending] P0-B.5. 滚动和状态 UI：顶部 inline loading/retry、接近顶部交互提升、stable-key scroll anchor；不新增常驻恢复结果条。
 - [pending] P0-B.6. 联合回归与启用：跨模块 Node/JVM、JDK 21 APK、ADB 单设备 smoke 与人工 home/local、Desktop/VS Code 验收；
   DB-v4-compatible kill-switch 构建验证成功后才允许把 rangeSegments.enabled 设为 true。
@@ -2278,311 +2236,69 @@ fixture。随后重跑 Node 211/211、JDK 21 Android JVM、JavaScript syntax 和
   `coverageComplete=true` 一律拒绝，避免单页把 checkpoint 写成覆盖完整。新增 Provider、HistorySyncService 与 Gateway 回归；Node
   provider/history-sync `51/51`、Gateway IPC 文件级 `94/94`，Node syntax 与 `git diff --check` 通过。未改 wire/schema、Android store、
   IPC/Owner、B.4 scheduler、自动 older pump 或 UI；下一 handoff 为 `review-diff`，审查通过后才进入 B.4。
-- 2026-08-08（P0-B.4 实施）：严格限定在 live/history scheduler、HistorySyncService、Gateway 接线、Android ViewModel 低优先级
-  older pump 与 focused tests；未修改 IPC client/feed/thread stream、Owner tracker、IPC authority、SQLite schema、wire 字段、B5 UI
-  或 P0-C。`CodexWsSnapshotScheduler` 现在记录 control hand-off、live snapshot queued/in-flight 状态并提供内部
-  `canSendHistory()`；HistorySyncService 在生成下一 delta/page 或 payload chunk 前调用该门禁，control/live pending 时只保留
-  有界 timer，不创建下一 history frame。现有 per-page ACK 仍是单 page/chunk in-flight 边界。Android 仅对已启用的 range capability
-  追踪当前 `syncId`，上一 range/older sync 以 PARTIAL 终态且 durable checkpoint 仍有 `hasMoreBefore` 时延迟 250ms 排队一次 older
-  page；每页终态后才允许下一页，任务切换/断线取消 pump job 并清理旧 sync-id 集合，继续复用 selectionGeneration + syncId 拒绝迟到结果。
-  自动 pump 不改变默认关闭的 range capability，也不对 legacy 进行连续 Codex 分页。
-  Node scheduler/history focused 回归 `44/44`（含 live/control 让位、stale selection、历史单页 ACK），Gateway IPC 文件级回归 `94/94`，
-  Node syntax 与 `git diff --check` 通过。JDK 21 `:app:testDebugUnitTest`、`:app:compileDebugAndroidTestKotlin` 与完整 Kotlin 编译均
-  `BUILD SUCCESSFUL`；未安装 APK、未执行主测试设备/双宿主 smoke，本步等待 implementation review 后再进入 B5。
-- 2026-08-08（P0-B.4 review findings 修复）：修复 Android live surface 投影尚未完成时 older history 可以抢先发送的窗口。
-  Android projection 在异步任务开始前登记 scheduler-local `liveProjectionPending`，发布 live snapshot、关闭投影队列或确认 full/deadline
-  投影均已结束且无可发布结果时清除；`canSendHistory()` 在该标记存在时继续让位，Gateway 集成回归验证 projection 未发布前没有 history delta、发布后
-  live 先于 delta。Android older pump 收敛为生产 ViewModel 实际使用的 selection/generation 协调器：PARTIAL 且 durable
-  `hasMoreBefore` 才能延迟 250ms 排一页，上一页 terminal 前不排第二页，任务切换/断线取消，旧 generation 迟到结果不请求新页；新增
-  5 条协程协调器生命周期回归；range/older syncId 在发送前登记，避免极快终态先于登记而丢失 pump 续接。B4 的 control 优先边界明确保持窄范围，仅包含 Gateway 派生的 action/status projection；原始
-  `codex_ipc_status`、`codex_ipc_sync_event`、conversation catalog、follower route state 以及 approval/interrupt ACK 仍走原有
-  direct-send，不修改 IPC authority、owner、wire 或现有 IPC 实现。最终回归：scheduler/history `45/45`、Gateway IPC 串行 `95/95`，
-  JDK 21 `:app:testDebugUnitTest :app:compileDebugAndroidTestKotlin` `BUILD SUCCESSFUL`，Node syntax 与 `git diff --check` 通过；
-  未安装 APK/操作主设备，下一交接仍为 `review-implementation`，B5 保持 pending。
-  投影失败/超时生命周期细化后的受影响 Gateway 用例集合 `4/4`、scheduler gate 集合 `3/3` 通过；之后整文件重跑偶发命中既有
-  `latest snapshot is replayed on set_active_conversation` 或 `owner request handlers...` 时序用例，单独失败点均不在本次改动路径，未将其
-  归因于 B4。
-- 2026-08-09（Windows Codex 接管 WSL Codex 的 P0-B.4 真机复现）：确认 P0-A 及 P0-B.0–B.4 均由同一仓库的 WSL Codex 先前实施，本轮 Windows Codex 沿用任务 `20260727-002`、P0-B phase base `4a78060` 和既有 Allowed Files，不新建或重置任务。Windows 3010 服务已重启并加载 `TERMLINK_HISTORY_RANGE_SEGMENTS=1`，PID `101844` 监听；设备 `MQS7N19402011743` 使用已安装 B4 APK（`lastUpdateTime=2026-08-09 00:32:12`）。目标任务“美化安卓会话页(4)” canonical id 为 `019facd2-82cd-7a20-94f9-cf92c5f01573`。能力协商成功（`historyCapabilityVersion=1`、`historyRangeSegments=true`）；恢复链为 `history_unavailable → recovery_requested → manifest_required(pageSize=200) → delta_received(pageIndex=0/pageCount=1/upsert=200/chunked=3/pageHashMatches=true) → STAGED → partial`，payload ACK、SQLite segment commit 和 staging 清理均完成，未再出现 `history_tail_page_too_large`。只读 SQLite 显示该 checkpoint 为 `provider_mode=legacy`、`item_count=200`、`has_more_before=1`、`next_older_cursor=NULL`、segment `committed`，因此 Android 按 cursor 门禁不发送 `older_requested`，Gateway 即使收到也会拒绝 legacy older。该结果证明 B4 history chunk/ACK/commit 基础链路正常，但 P0-B 整体尚未达到验收：legacy 在 range enabled 时被错误截断，paginated older pump、本轮 live/control 让位和 A→B→A 迟到 page 尚未在合法 paginated 样本上完成真机验证。P0-B.5 保持 pending，不提前进入滚动 UI。
-- 2026-08-09（IPC surface 延迟问题登记）：同一轮真机观察到 App 与 3010 WSS 已连接、`ipc.status online=true`、目标 `set-active-conversation` 已发送；服务端推送的 live snapshot 属于 Desktop 当时仍打开的另一 conversation，目标没有对应 external healthy surface，日志中的 `snapshot has no subscriber` 与当前选择不匹配，暂不能归因于 IPC authority/follower 实现错误。用户另报告 IPC surface 实时同步感知延迟较大；后续调查必须沿 `host snapshot/patch → CodexIpcFeed → terminalGateway normalized projection/scheduler → Android WebSocket → ViewModel authority/UI apply` 记录各段时间戳，区分宿主未产生目标 surface、Gateway projection/backpressure、WebSocket 传输排队和 Android 渲染/落地延迟；在证据收敛前不得改用轮询或改变 IPC authority。
-- 2026-08-09（任务路由判断）：当前两个问题都属于本任务 P0-B.4 的实现/验证异常，最小修复不应扩展到 P0-B.5；继续 handoff 为 `investigate-root-cause → plan-implementation`。在 legacy 兼容修复和合法 paginated older/live 优先/generation 回归收口前，不把 B.4 标记 completed，也不宣称 B.0–B.4 真机验收全部通过。
 
-## 2026-08-09 Windows Codex B4 修复与收口证据
+## 2026-08-11 P0-B.4R corrected reimplementation（当前执行包）
 
-- **任务归属与边界**：P0-A.1–P0-A.6、P0-A follow-up 以及 P0-B.0–B.4 均由 WSL Codex 在本仓库、同一任务 `20260727-002` 下实施；Windows Codex 沿用该任务和 `P0-B phase base=4a78060`，没有新建、重置或回滚任务。当前两个故障均归类为 P0-B.4 的兼容/调度收口，不并入 P0-B.5；B5 未开始。
-- **diff review target**：采用当前工作树相对 `HEAD` 的 `git diff` 加空的 staged diff；无未跟踪文件。当前修改文件均在 `CURRENT_TASK.md` Allowed Files 内，未触碰 `codexIpcClient.js`、`codexIpcFeed.js`、`codexIpcThreadStream.js`、`codexOwnerSurfaceTracker.js`、HTTP/session/部署/数据库边界；review-diff、实现质量和契约核查未发现 critical/major 问题。
-- **历史兼容修复**：`rangeSegments.enabled=true` 只表示能力协商；BaselineProvider 现在仅对 `paginated` 产出 tail/older range 元数据，`legacy` 保留原 full/v2 `thread/read` 恢复路径。对真实目标“美化安卓会话页(4)”（canonical id `019facd2-82cd-7a20-94f9-cf92c5f01573`），当前服务在分段开启时已记录 `rangeSegments=true → recovery.ready(resultKind=full,itemCount=1729) → manifest/delta(pageCount=1)/ACK`，未再出现 `history_tail_page_too_large`；这同时解释了此前“没开分段能正常、开分段失败”的代码差异：不是 200 条本身，而是 legacy 被错误送进了需要单页原子提交的 tail 分支。
-- **实时延迟修复**：HistorySyncService 在生成/发送下一 history page 或 payload chunk 前服从 scheduler 的 live/control gate；WebSocket hand-off 被拒绝时回滚 page/chunk 索引，不消费历史。Android live surface 增加无媒体的 bounded redacted fast projection，full media projection 在后台继续 enrichment；同 revision 的重复投影被 fingerprint 去重，IPC authority、follower acquire/release、desired subscription/reconnect replay、normalized surface 和 Android authority 未改变。当前诊断中旧路径 fast projection 曾观测约 866–3817ms；优化后通常为 1–7ms，偶发 100–333ms，`surface.changed → surface.delivery` 近乎即时，未见 LAN/mTLS 传输排队证据。`surface_received.waitMs` 是订阅周期累计等待，不等同于每次 WebSocket 延迟。
-- **自动化验证**：`node --test --test-concurrency=1 tests/codexHistoryBaselineProvider.test.js tests/codexHistorySyncService.test.js tests/codexWsSnapshotScheduler.test.js tests/codexMobileSurfaceProjector.test.js tests/terminalGateway.codexIpc.test.js`：169/169 pass；5 个受影响 JS 文件 `node --check` 通过；`git diff --check` 通过（仅 CRLF 转换 warning）。
-- **Windows/真机验证**：3010 服务显式重启，最终 PID `89544`，`/api/health` HTTP 200，`tls=false`、`mtls=false`；使用当前已安装 B4 APK，未重新编译或安装 APK。设备 `MQS7N19402011743` 选择同一目标后确认分段开关关闭时 `rangeSegments=false`，仍完成 `recovery.ready(resultKind=full,itemCount=1729) → manifest/delta/ACK`。测试结束后 `.env` 已恢复 `TERMLINK_HISTORY_RANGE_SEGMENTS=0`，服务已重启；adb 临时 `stayon` 已恢复为 `false`。
-- **保留风险/下一步**：当前已收口的是 B4 的实现修复与兼容回归；完整 B4 手动验收还缺一个真实 `paginated` 且至少两页的 older 样本，以及该样本上的 live/control 让位和 A→B→A 迟到 page 证据，因此不把 P0-B.4–B.5 整体宣称完成。宿主没有产生目标 conversation 的新 IPC surface、初次订阅 grace、屏幕息屏后的厂商冻结仍属于上游/设备观察项；不能用轮询或第二数据源补偿。完成上述 B4 手动门禁后，才进入 P0-B.5 滚动 UI。
+### 目标与边界订正
 
-## 2026-08-09 服务端完整历史读取观测
+- 本轮主目标是重新实施 P0-B.4R，使后续阶段可以按 `P0-B.4R → P0-B.5 → P0-C → P1` 继续推进；不是另立一个 OOM 修复阶段。
+- 内存、RSS、heap、事件循环阻塞和实时 surface 延迟属于 B4R 的强制回归门禁。它们用于阻止把静态历史分段实现合入一个会破坏长任务运行的版本，但不授权顺手重构既有 IPC feed 全量数据流。
+- 原始 B4R 分支和 3bd verification experiment 仅作为审计/对照材料。本轮不直接 cherry-pick 3bd，不默认引入按 revision 的 eager fast-path、逐次 fingerprint stringify 或 verification sampler。
+- `3789/3998` 项大任务被视为真实压力场景；B4R 不生成 canonical item，只能在不改变 IPC 权威的前提下处理其静态历史和派生传输。
 
-- **新增可观测性**：Gateway 在真实 canonical history recovery 完成 source read 后记录 `server.codex.history.source_read.completed`，只含哈希 conversation key、source method/mode、probe/source/provider 耗时、source response bytes、source/returned item count 和规范化 baseline cache bytes；不记录历史正文，也不改变 Android wire。
-- **最大已知任务的只读源采样**：canonical id `019facd2-82cd-7a20-94f9-cf92c5f01573` 的同一 Codex app-server 通道返回 `thread/read(includeTurns=true)` 共 `9,177,200` bytes（`8.752 MiB`）、`128` turns、`1,729` items，metadata probe 为 `4 ms`，完整 source read 为 `1,192 ms`（独立 app-server bootstrap 为 `93 ms`，未计入 source read）。这是 Codex 规范 API 的完整历史响应大小，不等同于本机 `.codex` JSONL 事件转录文件大小。源响应包含 inline image data；真实 Gateway 会先外置媒体，下一次真实 recovery 的日志会同时给出实际 `baselineCacheBytes`。
-- **设计证据**：该冷读约 1.2 s，支持“服务端获得完整快照后缓存、再由 TermLink 进行 tail-first/older 分段传输”的方向；但当前 legacy 上游没有可用 cursor，不能把 1.2 s 线性声称为原生增量读取耗时。按此样本的平均值，200 items 的源数据约 `1.01 MiB`，已约为单个 `256 KiB` WS envelope 的四倍，故后续必须以实际序列化字节做自适应分段，不能以固定 200 条作为安全包边界。
+### 本轮 corrected B4R Allowed Files
 
-## 2026-08-09 P0-B.4R 直接重设计任务包
+以下是本轮比任务顶部历史清单更窄的子范围；未列出的文件仍禁止修改：
 
-### 复核结论
+- 服务端快照/分段：
+  - `src/server.js`
+  - `src/services/codexHistoryBaselineProvider.js`
+  - `src/services/codexHistorySnapshotStore.js`
+  - `src/services/codexHistorySyncService.js`
+  - `src/services/codexWsSnapshotScheduler.js`
+  - `src/services/codexMobileSurfaceProjector.js`
+  - `src/ws/terminalGateway.js`
+- Android history wire/cache/reducer：
+  - `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`
+  - `android/app/src/main/java/com/termlink/app/codex/data/CodexConversationCacheStore.kt`
+  - `android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt`
+  - `android/app/src/main/java/com/termlink/app/codex/network/CodexWebSocketClient.kt`
+  - `android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt`
+- 对应定向测试：
+  - `tests/codexHistoryBaselineProvider.test.js`
+  - `tests/codexHistorySnapshotStore.test.js`
+  - `tests/codexHistorySyncService.test.js`
+  - `tests/codexWsSnapshotScheduler.test.js`
+  - `tests/codexMobileSurfaceProjector.test.js`
+  - `tests/terminalGateway.codexIpc.test.js`
+  - `android/app/src/test/java/com/termlink/app/codex/**`
+- 本轮方案/执行记录：
+  - `docs/codex/codex-android-history-cache-media-recovery-plan.md`
+  - `docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md`
+  - `docs/workflow/CURRENT_TASK.md`
 
-- 本轮只有一个主目标：把 P0-B.4 从“上游 paginated 才可自动 older”的实现改为“TermLink 先构建并保存一份当前 canonical 静态快照，再对任何可读历史按实际字节静态分段传输”。这修复 legacy 线程在 `rangeSegments=true` 时退回 v2/full、无法实现尾部优先的结构性缺口。
-- 不 supersede 整个 `20260727-002`：P0-A 保留，P0-C 不提前实施，P0-B.5 不启动。旧 P1 的“legacy 持久 tail/index”只在其与当前快照重叠的部分被 B4R 吸收，并在文档中标明 superseded。
-- External Documentation Gate：不触发。本步只使用仓库已有 Node `fs`、WebSocket、SQLite 和项目内 Codex app-server wrapper；没有新增第三方库、SDK、CLI 或云服务的 current-behavior 依赖。
+### 本轮禁止与条件放行
 
-### P0-B.4R Scope Lock
+- 禁止修改：`src/services/codexIpcClient.js`、`src/services/codexIpcFeed.js`、`src/services/codexIpcThreadStream.js`、`src/services/codexOwnerSurfaceTracker.js` 的冻结数据流；禁止修改 HTTP/session/数据库 schema、部署配置、上游 Codex/rollout、P0-B.5 UI、P0-C reconciliation 和 P1 freshness。
+- 禁止把 snapshot/cache/manifest/delta/thread-read 提升为实时 authority；healthy IPC surface 仍是正文、operation、current turn 和运行态的唯一实时来源。
+- `docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/STATUS.md` 为条件放行：只有实现稳定、契约审查通过并有对应证据后，才同步 additive B4R 边界和状态；本步不覆盖 AD-004。
+- 若必须触碰上述禁止或条件文件，必须先记录原因、影响文件、风险和验证方式，重新执行 scope widening；不得静默扩大范围。
 
-- Safety mode：guarded。
-- Diff review target：`working-tree vs HEAD`（包含本轮已存在的 WSL B4 修改；后续 review 必须按 P0-B phase base `4a78060` 复核本任务链，而非把脏工作区误当空 diff）。
-- Allowed Files：`src/server.js`、`src/ws/terminalGateway.js`、`src/services/codexHistoryBaselineProvider.js`、`src/services/codexHistorySnapshotStore.js`、`src/services/codexHistorySyncService.js`、`src/services/codexWsSnapshotScheduler.js`、`src/services/codexHistoryCanonicalizer.js`（仅在 snapshot root 需复用时）、`android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`、`android/app/src/main/java/com/termlink/app/codex/data/CodexConversationCacheStore.kt`、`android/app/src/main/java/com/termlink/app/codex/data/CodexHistoryCacheModels.kt`、`android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt`、`android/app/src/main/java/com/termlink/app/codex/network/CodexWebSocketClient.kt`、对应 `tests/codexHistory*.test.js`、`tests/codexWsSnapshotScheduler.test.js`、`tests/terminalGateway.codexIpc.test.js`、`android/app/src/test/java/com/termlink/app/codex/**`，以及本任务列出的 workflow/专项文档。
-- Conditional Files：`docs/workflow/CONTRACTS.md` 与 `docs/workflow/DECISIONS.md` 已因用户的明确架构确认放行；只写 P0-B.4R 静态历史边界，不重写 AD-004。`data/codex-history-snapshots/**` 是运行时产生物，不纳入版本控制；仅允许由原子 replace/损坏隔离代码管理，禁止批量删除。若发现必须修改 IPC client/feed/thread stream/Owner tracker、session DTO/HTTP、Android schema migration 或 P0-C realtime reconciliation，立即停止并重新 `/lock-scope`。
-- Forbidden Files / surfaces：`src/services/codexIpcClient.js`、`src/services/codexIpcFeed.js`、`src/services/codexIpcThreadStream.js`、`src/services/codexOwnerSurfaceTracker.js`、session/HTTP/auth、`data/sessions.json`、部署/mTLS/WireGuard、Android selection ownership/IPC authority、P0-B.5 UI、P0-C dirty/reconcile。不得读 raw Codex JSONL 作为产品数据源，不得把持久快照或 metadata probe 提升为实时权威。
-- Dangerous surfaces：本地持久正文、256 KiB WebSocket 上限、缓存原子性、A→B→A isolation 和 realtime 让位。回滚为关闭 `serverSnapshotSegments` 能力/服务端开关并保留 Android DB，不删除快照或降级 APK；损坏快照只隔离单个文件后回源重建。
-- Change propagation：影响 Gateway capability/history event、Android wire/cache/ViewModel 和现有 history scheduler。兼容策略为 backward-compatible：旧客户端继续 v2 manifest/delta；新客户端只有显式能力协商成功才使用 server-snapshot segments。回归必须覆盖 history store、source build、segment fragment/ACK、generation、live/control priority、旧 client fallback、IPC frozen gates。
+### 实现方案与数据流
 
-### 决策分类
+1. 服务端在明确的 B4R capability 协商成功后，以当前 canonical source 构建单份 profile+conversation 隔离的 current snapshot；首次构建或本地快照覆盖不完整时回源，成功后原子替换。
+2. legacy source 采用 bounded full read；paginated source 先提供 newest provisional tail，再连续扫描 older 到起点；source page 可以排入静态 segment lane，但只有完整扫描成功才将文件标记 `complete_at_snapshot`。
+3. segment 通过既有 WebSocket history lane 传输，使用实际字节上限、fragment hard cap、每段 ACK、hash/root 校验和 `syncId + selectionGeneration` generation fence；live/control/live-projection pending 时历史暂停。
+4. Android 只有在片段完整、校验通过且 generation 仍匹配时，事务写入 checkpoint/items 并 ACK；完整 checkpoint 再次打开走 cache-first，不因缺少 Desktop IPC surface 重复触发同一份 canonical 全读。
+5. B4R 只派生静态历史传输，不覆盖 healthy IPC surface；A→B→A 的旧 source/page/ACK/DB 写回必须 fail-closed。
 
-- Mechanical：快照文件格式与原子写法、按实际编码字节分段、ACK/credit 调度、fragment reassembly、测试夹具、指标命名和损坏隔离。
-- Taste：无未确认项。App 不新增 B5 滚动 UI，只沿用已有静态状态显示。
-- User challenge（均已明确确认）：B4 直接重设计；持久化为每任务一份当前原子文件；首次或 Android 本地覆盖不完整时执行完整 canonical 扫描；paginated 使用“最新原生页先出 + 后台连续构建”混合启动；完整本地 checkpoint 的再次打开不发主动正文重传，静默 freshness probe 留给 P1；P0-C 仍只接收 dirty 标记，P0-B 不让 live 触发 canonical reconciliation；本地数据按现有 Codex/media 同一信任边界保存、不加新加密/HTTP API。
+### 验收门禁
 
-### P0-B.4R 实现方案与算法
+- Node：snapshot store、source build、segment fragment/ACK、scheduler priority、generation、legacy fallback、paginated older 和 Gateway IPC 定向回归全部通过。
+- Android：history wire/cache/ViewModel JVM tests 通过，JDK 21 编译成功；旧客户端仍能忽略 additive B4R 字段并走原 v2 history 路径。
+- 真实大历史：至少验证一个约 3900 项任务，记录 source scan、snapshot persist、segment ACK、cache-first reopen、重复 read 次数和实时 surface；要求服务不 OOM、不持续 RSS 爬升、不发生 history 覆盖 live。
+- 性能门禁：记录 surface itemCount、revision/update rate、RSS/heap、历史传输耗时和 live/control 可见延迟；不能用“测试通过”替代长任务运行证据。
 
-- 快照状态：`complete_at_snapshot` 只表示该文件是一次完整 canonical build 的原子结果；当前 P0-B.4R 不声称 `verified_current`，该状态及其 root 对账只在 P1 的静默 freshness 设计落地后才能使用。`dirty/unknown/likely_clean` 不能以 `thread/read(includeTurns=false)` 的 `updatedAt/recencyAt` 证明完整性。禁止 raw JSONL。每个 endpoint/profile + conversation 使用哈希目录，仅保留一份 current snapshot；写入 `*.tmp`、`fsync`、atomic rename，读取校验 schema/root，异常隔离后回源。
-- 构建：Android 本地 checkpoint 缺失或覆盖不完整时，legacy 用一次 `thread/read(includeTurns=true)` 规范化为完整快照；paginated 先取一页 newest 作为 provisional tail，同时后台向更旧 cursor 连续扫描到历史起点，再原子发布完整快照。每个 source page 可立即排入静态 segment 队列，因此 paginated 不等完整 scan 才显示 newest。成功全扫后服务端替换当前文件；当前 P0 不把该文件或 metadata probe 当作 freshness 证明，也不据此跳过首次 source scan。Android 已有 `coverageComplete` 且 durable count 一致时，cache-first 后不发新的主动 B4R 正文传输；P1 再补静默 freshness probe/增量策略。
-- 传输：新增 optional `historySync.serverSnapshotSegments={enabled:true,version:1}`，保留 `historySync.version=1` 和旧 v2 路径。逻辑 segment 以实际 JSON 序列化大小切割，目标 `96 KiB`（而非固定 200 items）；单条超大 item 走已有 payload fragment，fragment hard cap `16 KiB`，所有 history envelope 保持 `<=256 KiB`。App 只在一个逻辑 segment 的 start/fragments/commit 全部校验后，以一个 SQLite transaction 提交 item、segment 与 checkpoint，再 ACK；未完成片段仅内存暂存，进程重启可安全丢弃。
-- 调度：沿用 `CodexWsSnapshotScheduler` 的 history lane，绝不改变 live/control 的 direct authority path。每个 segment ACK 前最多一个 history logical segment；当 live/control pending 或 live projection pending 时立即暂停。`historyCredit = max(0, 0.7 * safeGoodput - liveBytesPerSecond - reserve)`，history burst `min(16 KiB, safeGoodput * 100 ms, historyCredit)`；每次 send 后由 ACK/实际 handoff 更新 safeGoodput 的 EWMA，若样本不足只发一个 fragment 后让位。由此任何 history 引入的额外 blocking 预算 `<=100 ms`，而不是把 socket handoff 误当作已送达。
-- 隔离与异常：每个 build/send 都携带 existing `selectionGeneration + syncId`；服务端在读取、切段、send、ACK 后均校验当前 selection，Android 在 fragment、commit、DB transaction/UI reducer 前再校验。cursor 重复、root/hash 不匹配、fragment 超限/缺失、snapshot 损坏、source timeout、ACK timeout、切换/断线都进入明确 partial/cache-only/failed，不能写半段、不能反转/重复、不能使旧 generation 写入当前任务。
-- P0-C 边界：live/IPC 在 B4R 中只抢占调度并可标记静态缓存 dirty；不因 live 自动发 canonical full scan、不把 snapshot 内容覆盖 healthy IPC、也不新增第二 owner/实时源。静默 freshness probe、dirty 后的 canonical refresh 和跨设备更新策略均留给 P1/P0-C 的后续显式任务。
+### 执行记录
 
-### B4R 启用与回滚
-
-- 服务端仅在 `TERMLINK_HISTORY_SNAPSHOT_SEGMENTS=1` 时初始化 snapshot store、公告 `historySync.serverSnapshotSegments` 并进入新 `start/fragment/commit/ack` lane；关闭或移除该变量后不创建快照目录、新旧客户端继续既有 v2/range capability 路径。
-- B4R 需要含本轮 Android wire/ViewModel 的新 APK 才会协商该 capability；现有旧 B4 APK 不会误入新路径。回滚只关闭服务端变量并重启服务，保留 Android DB 与既有 snapshot 文件，不降级 APK、不删除数据。
-
-### 当前步骤拆解（P0-B.4R）
-
-1. **已完成（自动化）**：服务端 snapshot store 与完整/混合 builder；Node store/provider 覆盖原子替换、损坏隔离、legacy full、paginated newest+older build、重复 probe 消除与 cursor fail-closed。
-2. **已完成（自动化）**：服务端 snapshot segment wire、实际字节切分、ACK/credit scheduler；Node history/gateway/scheduler 覆盖上限、live/control 抢占、超大 payload、重复 ACK、paginated ACK 串行与切换取消。
-3. **已完成（自动化）**：Android capability/wire、fragment reassembly 和原子 SQLite commit；JVM 覆盖 wire/ACK、range bootstrap 和 v2 fallback；handler 的 generation/active-sync 双门禁已由编译与 Gateway A→B→A 迟到源回归覆盖。
-4. **进行中**：端到端回归和真机：Node focused、JDK 21 Android JVM/APK 已运行；仍需真实 legacy 大历史先尾段/后台 segment、期间 live/control、A→B→A 人工验证。P0-C 与 B5 仍不得启动。
-
-### 实施记录（2026-08-09，P0-B.4R 进入实现）
-
-- 已按 `/review-current-task → /lock-scope → /classify-decisions → /plan-implementation → /decompose-task` 复核。范围扩大原因、影响文件、风险和回归已如上记录；用户已确认所有 user-challenge 决策，因此没有待回问的 Taste/User challenge。
-- 旧 B4 的 paginated-only 终端验收不再用来定义是否满足用户需求；它保留为现有兼容路径测试。B4R 的新验收是“任意可读大历史的服务端完整快照 + 尾段先到 + 静默分段 + live/control <=100 ms 让位 + generation 隔离”。
-- 已实现：`CodexHistorySnapshotStore` 以 profile+conversation 哈希隔离一份 current 文件、临时写入 `fsync` 后 replace，损坏文件改名 `.corrupt`；Gateway 在显式 B4R capability 下绕过“等待 Desktop surface”的静态恢复门禁，legacy 全读或 paginated newest-first scan 的 source page 直接排入独立 segment 队列，完整 scan 成功后才替换服务端 current file。legacy scan 复用 probe，避免额外 metadata round-trip。
-- 已实现：新的 `conversation_history_segment_start/fragment/commit/ack` 每段独立 ACK；逻辑段目标 96 KiB、fragment hard cap 16 KiB、WS hard cap 256 KiB。每一帧都经过既有 scheduler history lane；live/control/live projection pending 时在首帧、fragment 与 commit 之间均暂停。Android 只在片段完整、hash/root 校验且 `selectionGeneration + syncId` 仍匹配时，事务写入 segment/checkpoint 后 ACK；B4R bootstrap 清理旧 static ownership，healthy IPC authority 不变。
-- 自动化证据（2026-08-09）：`node --test --test-concurrency=1 tests/codexHistorySnapshotStore.test.js tests/codexHistoryBaselineProvider.test.js tests/codexHistorySyncService.test.js tests/codexWsSnapshotScheduler.test.js tests/terminalGateway.codexIpc.test.js` 已通过 `177/177`（包含 B4R 中段 live/control 暂停回归）。Gateway 回归覆盖无 Desktop surface 的 static recovery、paginated newest→older ACK 串行和 A→B→A 迟到 source 不写入；JDK 21 `:app:testDebugUnitTest` 的 history wire/range/ViewModel 定向集合通过。
-- 真机实证（2026-08-09，`da34332c`）：按用户依次打开的两个大 legacy 任务完成 B4R 协商、完整 source scan、server snapshot persist 和 segment ACK；分别为 `1729 items / 9,177,200 B / 26 ACK` 与 `1227 items / 8,731,695 B / 20 ACK`，两者最终均为 `synced`，App 无 segment/fragment rejection，随后再次打开可见 `snapshot_cache_complete`。这证明“任意可读 legacy 大历史的字节分段与落库”可用，但不覆盖 paginated。
-- 已发现、未收口：上述任务在 B4R 完成或 cache-first 重开后，缺 healthy Desktop IPC surface 会触发旧 `foreground-ipc-recovery`；Android 把完整 B4R cache 标为 `CACHE_ONLY`，而现有 full-recovery predicate 仍将该状态视为需要 canonical recovery，Gateway 因此额外执行一次 `thread/read`（实测分别重复读取约 `9.18 MB` 与 `8.73 MB`）。该 recovery 没有重传 B4R segment 或覆盖缓存，但违反“完整静态缓存再次打开不应再全量读”的性能目标；须在保持 IPC authority/离线-desynced 语义的前提下最小修复后，才能关闭 cache-first 人工门禁。
-- 未完成的验收：修复上述重复 recovery 后，用新 APK + `TERMLINK_HISTORY_SNAPSHOT_SEGMENTS=1` 对未缓存的大 legacy 任务验证尾段先到/后台 segment、分段中真实 live/control 抢占和真机 A→B→A；另需具备真实 paginated source 才能验证 newest→older。不得以旧 `rangeSegments` paginated 验证替代。
-
-### P0-B.4R 完整快照后的重复 foreground recovery 最小修复方案（2026-08-10）
-
-- Goal：当 B4R 已将完整静态快照持久化到 Android、且当前只是等待目标 healthy IPC surface 时，禁止旧 foreground coordinator 再发一次 `conversation_history_recovery_request`，避免 Gateway 重复执行完整 canonical `thread/read`；继续等待/重订阅 IPC surface，不把静态缓存提升为实时权威。
-- Architecture impact：仅收窄 `CodexViewModel` 前台 canonical-recovery 的资格判定，并在既有 Android focused JVM tests 固化。不会修改 Gateway、IPC client/feed/thread stream、Owner tracker、wire、SQLite schema、selection ownership 或 P0-C；`set_active_conversation`、desired subscription/reconnect replay 与 `subscribeActiveConversationIfNeeded()` 保持执行。
-- Technical approach：从**已协商 B4R capability**与该任务的完整/持久 cache checkpoint 派生一个内部 `b4rStaticSnapshotComplete` 标记，不能把任意旧 v2 的 `CACHE_ONLY` 当作同义条件。仅当 authority mode 为 `AWAITING_IPC_SURFACE` 且该标记为真时，令 full-recovery escalation 为 false；`IPC_OFFLINE`、`IPC_DESYNCED`、缓存不完整、能力未协商及旧 v2 `CACHE_ONLY` 继续沿现有恢复路径。该豁免只抑制多余 canonical history read，不停止订阅、不会伪造 IPC surface/运行态，也不声明 snapshot 当前新鲜。
-- Alternatives considered：全局移除 `CACHE_ONLY` 的 escalation 被拒绝，因为旧 v2/cache-only 仍可能缺历史；在 Gateway 忽略 recovery request 被拒绝，因为会掩盖 Android 的真实资格且扩散到其他客户端；把 B4R 缓存当作 IPC authority 被拒绝，违反 AD-004。
-- Data / state flow：`B4R segment ACK -> SQLite complete checkpoint -> cache-first reopen -> foreground tick -> [awaiting IPC + B4R complete: keep follower subscription, skip canonical recovery] / [offline|desynced|incomplete|old v2: existing bounded recovery] -> later healthy IPC surface remains live authority`。
-- Compatibility / rollback：旧 APK、未协商 B4R、B4R 不完整缓存和所有现有 offline/desynced 恢复语义保持不变；回滚只撤销该 Android predicate 分支，不需要删除快照、数据库或降级 APK。
-- Risks and validation：重点防止误把 generic `CACHE_ONLY` 静默为完成，或意外抑制明确 offline/desynced recovery。新增 focused tests 覆盖 B4R-complete+awaiting 抑制、旧 cache-only 仍恢复、B4R-complete+offline/desynced 仍恢复，并运行受影响 ViewModel/history JVM tests、`git diff --check` 与后续真机日志确认没有新的 `foreground-ipc-recovery` / duplicate `source_read`。External Documentation Gate：不触发；仅使用项目内既有状态机与已锁定契约。
-
-### P0-B.4R 完整快照后的重复 foreground recovery 当前步骤（2026-08-10）
-
-1. **已完成**：在 `CodexViewModel` 抽出/收窄 B4R complete 的 recovery eligibility，并在 Android focused JVM tests 覆盖 awaiting 抑制、generic cache-only 保持原行为、offline/desynced 不被抑制。输入是既有 B4R capability、cache checkpoint 与 authority mode；输出是不改变订阅链路的单点判定。
-2. **已完成**：以 JDK 21 运行 focused 与完整 Android JVM suite、构建 debug APK 并执行 `git diff --check`；真机用启用 B4R 的原有数据库先后重开两个完整大 history cache，服务端只记录 selection-cycle 等待/超时，不再出现重复 `foreground-ipc-recovery`、history sync 或 canonical source read。
-
-### 执行记录（2026-08-10，B4R duplicate foreground recovery 最小修复）
-
-- `CodexViewModel` 现在仅在 `serverSnapshotSegments` 当前仍已协商、并且本 selection 已经过 B4R `coverageComplete + durableItemCount` fast path 验证时，把 `AWAITING_IPC_SURFACE` 的 full-recovery escalation 置为 false；selection generation 前进或新的连接初始化都会清除该标记。旧 generic `CACHE_ONLY` 不会得到该标记，`IPC_OFFLINE`/`IPC_DESYNCED` 也不会被该豁免压住。follower subscribe/replay、surface 等待、Android IPC authority、Gateway 和 wire 未改。
-- focused JVM：JDK 21 执行 `:app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelThreadReadyTest`，`BUILD SUCCESSFUL`。新增断言覆盖 B4R complete + awaiting 不 escalation、相同 cache + offline/desynced 仍 escalation；既有 generic cache-only 用例显式传入 false 继续断言原行为。External Documentation Gate no-op：本步只修改项目内 Kotlin 状态机，不依赖第三方 current behavior。
-- 完整 Android 回归与构建：JDK 21 `:app:testDebugUnitTest`、`:app:assembleDebug` 均为 `BUILD SUCCESSFUL`；focused `CodexViewModelThreadReadyTest` 为 `117 tests / 0 failures`。`git diff --check` 通过（仅 CRLF 提示，无空白错误）。范围/实现/契约复核均 clean：没有 Gateway、wire、SQLite schema、IPC client/feed/thread stream/Owner tracker 或 Android IPC authority 改动。
-- 真机复验（2026-08-10，`da34332c`）：3010 服务健康，`TERMLINK_HISTORY_SNAPSHOT_SEGMENTS=1`、`TERMLINK_HISTORY_RANGE_SEGMENTS=0`；以 `adb install -r` 覆盖安装本修复 APK，未卸载 App、未清除 Android 数据库。打开“美化安卓会话页 (4)”（`aced9b03b033ccd3`）后，服务端在 `2026-08-09T16:19:41Z` 启动 selection cycle、`16:20:16Z` deadline；打开“美化安卓会话页 (2)”（`29a7d5eea119a061`）后，在 `16:26:17Z` 启动、`16:26:52Z` deadline。两段窗口内均没有该 conversation 的 `server.codex.history.sync.request_received`、`server.codex.history.recovery.requested` 或 `server.codex.history.source_read.completed`，因此不再重复读取此前的 `9.18 MB` / `8.73 MB` 完整 canonical history。UI 可直接呈现已缓存正文。
-- 保留事实（不在本最小修复范围内）：两个任务仍会在没有 Desktop owner surface 时经历 `selection_cycle.deadline`，App 也保持 follower 订阅/等待 IPC surface；这是 surface 可达性观察项，不是历史读失败。不得为此将静态 cache 升格为实时 authority，或用轮询/第二数据源掩盖。P0-B.4R 其余未缓存首次传输、live/control 让位、A→B→A 与真实 paginated manual gate 仍未据此关闭。
-
-### P0-B.4R 最终快照提交竞态与分段进度修复 Scope Lock（2026-08-10）
-
-- **用户授权目标**：修复未缓存/旧缓存任务在 B4R 首次完整快照刚完成后，因缺 healthy IPC surface 又额外触发一次 canonical recovery；同时消除 B4R 物理分段期间误导性的“第 1/1 页”提示。
-- **已验证根因**：`completeServerSnapshotCacheSelectionKey` 只在终态后下一次 `maybeRequestHistorySync()` 的异步 cache-first 读取中设置。最终 segment 的 SQLite 提交和 ACK 已完成后，`conversation_history_sync_state=synced` 先让前台恢复 coordinator 获得 settled 状态；其在异步读取写入 marker 前执行，故 `AWAITING_IPC_SURFACE` 仍会发 `foreground-ipc-recovery`。真机在“美化安卓会话页(3)”（9,405,256 B / 1,763 items / 27 segments）和“排查测试机服务连接卡住(3)”（1,872,831 B / 1,740 items / 24 segments）各复现一次。后者再次打开无新的 source read，证明首次完整快照与 cache-first 本身正常。
-- **Safety mode**：`guarded`；危险面为静态历史完整性、前台 canonical recovery 资格、A→B→A generation 隔离和 Android 可见进度，保持既有 frozen IPC authority 不变。
-- **Allowed Files（本微修）**：`android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`、`android/app/src/main/java/com/termlink/app/codex/ui/CodexScreen.kt`、`android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt`、`android/app/src/test/java/com/termlink/app/codex/ui/CodexScreenMediaProgressTest.kt`、`docs/workflow/CURRENT_TASK.md`。
-- **Forbidden Files / surfaces**：Gateway、history wire、snapshot store、SQLite schema/cache store、IPC client/feed/thread stream/Owner tracker、Android selection ownership、实时 authority、P0-C freshness/reconciliation、P0-B.5 滚动 UI、服务端/部署配置均不得修改。
-- **最小技术路径**：在已验证的 `server_snapshot` segment commit 成功写入并解码出 `coverageComplete + durable count` 一致的完整本地 checkpoint 后、发送该 segment ACK 前，同步标记当前 selection 的 B4R complete cache。这里的 B4R 完整证明明确使用 range `coverageComplete`，不误用旧 v2 的通用 `complete` 位。这样最终 `synced` 状态和随后的 foreground tick 必然看到该证明；generic v2 `CACHE_ONLY`、B4R 不完整缓存及 explicit offline/desynced 仍不受抑制。进度复用既有 UI state 的 internal `detailCode + pageIndex`，显示“已完成第 N 个分段”，不伪造未知的总 segment 数，也不扩展 WebSocket wire。
-- **Change propagation / compatibility**：无公共 API、wire、schema 或 Gateway 行为变化；健康 IPC 到达、follower 重订阅和 10 秒重订阅节奏保持。旧 v2 page progress 继续显示页号；只有 B4R `server_snapshot` commit 采用分段文案。
-- **决策分类**：Mechanical 为在 atomic segment commit 后建立已验证的 B4R complete marker、保持 offline/desynced 与 generic v2 分支不变、复用现有 internal UI state 表示 segment 序号及相应测试；Taste 为“已完成第 N 个分段”的中文措辞，用户已明确要求消除误导性 `1/1`，故采用该不伪造总数的表述；无新的 User challenge，未改变 AD-004/AD-005 的 authority、首次同步或 P1 freshness 方向。
-- **验证与 review target**：新增纯状态机 / UI label 定向断言，运行 JDK 21 focused 与完整 Android JVM test、APK build、`git diff --check`；以 `8d6a0b9..WORKTREE` 为统一 diff review target。真机复验必须对一个未缓存/旧缓存任务确认：首次 source read 只发生一次、最终 ACK 后无 `foreground-ipc-recovery` / duplicate `source_read`，且可见文案随 physical segment 序号变化。
-
-#### 实现方案（本微修）
-
-- **Goal**：让同一 B4R segment commit 的 durable completion 在其 ACK 与终态 sync state 之前可被 foreground recovery 判定看到，并将 B4R 物理 segment 的可见进度改为准确的已完成序号。
-- **Architecture impact**：只影响 Android `CodexViewModel` 的静态 history adapter 内部状态，以及 `CodexScreen` 对已有 `CodexHistoryNetworkSyncUiState` 的展示。healthy IPC surface、follower acquire/replay、canonical recovery 的 offline/desynced 资格和 Gateway 无变化。
-- **Technical approach**：在 `conversation_history_segment_commit` 的 SQLite apply 成功、`decodeHistoryCacheSnapshot()` 已证明 `checkpoint.coverageComplete + durable item count + decodable durable rows` 一致时，若当前 capability/segment 均为 B4R `server_snapshot`，立即将 `completeServerSnapshotCacheSelectionKey` 设为当前 key，再更新 UI 与发送 segment ACK。旧 v2 的 `checkpoint.complete` 只继续用于其既有 UI/cache 语义，不作为 B4R snapshot completion 的判据。将该 commit 的 network state 标为 internal `snapshot_segment_progress`，把 `commit.sequence` 放入已有 `pageIndex`；`CodexScreen` 遇到该 internal detail code 时渲染“已完成第 N 个分段”，不显示伪造的 `1/1` 页。终态 sync state 仍清除该 detail code。
-- **Alternatives considered**：仅在 terminal `sync_state` 后增加延迟被拒绝，仍依赖调度时序；在 Gateway 忽略 recovery 被拒绝，会掩盖 Android 资格并影响其他客户端；新增 wire totalSegments 被拒绝，当前源协议没有稳定总数且不需要为准确提示扩展协议；把任意 `CACHE_ONLY` 当完成被拒绝，会破坏 v2/incomplete recovery。
-- **Data / state flow**：`segment commit → atomic SQLite apply → local complete proof + B4R marker → UI “已完成第 N 个分段” → ACK → sync_state=synced → foreground tick sees marker / keeps subscription / skips only awaiting-surface canonical recovery`。`offline|desynced|generic cache-only|incomplete` 保留原路径。
-- **Compatibility / rollback**：旧 v2 page label 与 B4R wire 不变；无数据库迁移。回滚仅移除 ViewModel marker promotion 和 UI special label，既有 cache/IPC/服务端数据不受影响。
-- **Risk / validation**：风险是将非 B4R 完整 cache 误标，或把分段序号误用于 v2 page；以 capability + `providerMode=server_snapshot` + decoded durable completion 三重门禁，及 focused JVM assertions 防护。External Documentation Gate no-op：只使用项目内 Kotlin 状态、既有 Compose UI helper 和锁定协议，不依赖第三方 current behavior。
-- **Open decisions / handoff**：无待确认 taste 或 user challenge；进入 `/decompose-task`。
-
-#### 执行记录（本微修步骤拆解）
-
-1. **completed — 完成证明前移**：在 B4R `server_snapshot` segment 的 atomic local commit 后、ACK 前建立 complete marker；补充 ViewModel 定向断言，证明只有 B4R + durable complete 能建立该证明，generic/v2/incomplete 不会建立。验收：JDK 21 `:app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelThreadReadyTest` 已 `BUILD SUCCESSFUL`；不涉及第三方 current behavior。
-2. **completed — 准确分段状态文案**：在同一 B4R commit 写入 internal segment-progress detail 与序号；UI helper 仅对该 detail 渲染“已完成第 N 个分段”，原 page progress 不变。设计探索跳过：用户已明确要求准确、非伪造总数的提示；visual QA 独立留给步骤 3。验收：JDK 21 focused `CodexViewModelThreadReadyTest + CodexScreenMediaProgressTest` 已 `BUILD SUCCESSFUL`，包含“第 24 个分段”与保留 v2 `第 1/1 页` 断言。
-3. **deferred — 仅剩可见文案人工观察**：JDK 21 focused、完整 Android JVM、debug APK、diff/contract review 已通过；`da34332c` 的未缓存 21-segment snapshot 已证明最终 commit marker → `synced` 的顺序，且重开完整缓存没有新的 server source read。设备当时处于锁屏，不能绕过系统安全限制观察 Compose 的实际屏幕文案；分段文案已有精确 JVM helper 断言，待用户解锁后补一次非阻塞的可见 UI 观察。本项不阻塞下述同一 B4R 链路的当前 duplicate source-read 修复。
-
-#### 执行记录（2026-08-10，B4R 最终提交竞态与进度修复验证）
-
-- 完成标记改为在 B4R `server_snapshot` 的 atomic SQLite commit 后、ACK 前写入 `@Volatile completeServerSnapshotCacheSelectionKey`。其完整性使用 `coverageComplete + checkpoint itemCount == durable rows + 全部 durable rows 可解码` 证明，不再误用旧 v2 `complete` 位；generation、active sync id、capability 与 provider 门禁保持不变。
-- cache-first 快速路径也复用同一 `shouldPromoteCompleteServerSnapshotCache()` 条件，要求当前协商的 B4R capability、`providerMode=server_snapshot` 与完整覆盖；旧 range/v2 缓存不会被误标为可抑制 recovery 的完成快照。
-- B4R commit 的内部 network state 使用 `snapshot_segment_progress + commit.sequence`；UI 仅在该 internal detail code 下显示“已完成第 N 个分段”，普通 v2 页仍显示“第 N/M 页”。未新增 wire 字段或伪造总 segment 数。
-- 自动化：JDK 21 `:app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelThreadReadyTest --tests com.termlink.app.codex.ui.CodexScreenMediaProgressTest`、完整 `:app:testDebugUnitTest :app:assembleDebug` 均 `BUILD SUCCESSFUL`。新增断言覆盖 B4R coverage proof、awaiting-surface-only 抑制、offline/desynced 继续 recovery、provider 门禁及“已完成第 24 个分段”/既有“第 1/1 页”。`git diff --check 8d6a0b9` 通过（仅 CRLF 转换提示）。
-- 真机首次同步（`da34332c`，未缓存任务 `019fcdf9-ae17-75d0-b399-67f675869575`）：服务端仅 1 次 `sync.request_received`、1 次完整 source read（`1,593,626 B`，`1,271 ms`），Android/服务端完成 21 次 segment ACK。Android 在 `17:34:48.357Z` 记录 `snapshot_cache_completed_on_segment_commit(sequence=21,itemCount=1520)`，随后 `17:34:48.447Z` 才记录 `synced`；设备 SQLite 为 `schema=3,item_count=1520,provider_mode=server_snapshot,coverage_complete=1,coverage_state=complete,complete=0,segments=21,items=1520`，验证了 B4R 不能以旧 `complete` 位判定。
-- 真机缓存重开：以 `adb install -r` 覆盖安装最新 debug APK，未卸载或清除数据库；同一任务记录 `snapshot_cache_complete(itemCount=1520)`，服务端累计仍只有上述 1 次 sync/source read，未发生重新读取。设备锁屏使 Activity 很快 `onStop`，因此该条验证证明 cache-first 与服务端去重；前台 coordinator 的可见 UI 观察仍按本步骤保留。
-- 范围/契约复核：仅允许的 Android ViewModel/UI、两份定向测试及本任务文档发生改动；未改 Gateway、history wire、SQLite schema/cache store、IPC client/feed/thread stream/Owner tracker、selection/authority 或部署。P0-B.4R 的 live/control 抢占、A→B→A 和真实 paginated source 验收仍未关闭。
-- 交付边界：本次提交只固化上述 B4R 最终提交竞态、完整 cache-first 门禁与分段进度文案；锁屏导致的可见文案人工观察保留为后续非阻塞检查，不能据此把 P0-B.4R 整体标记完成。
-
-#### 审查问题队列（2026-08-10）
-
-- **Finding ID**：B4R-RACE-RF-001；**Severity**：P3；**Source**：`/review-diff`；**Status**：resolved；**File / symbol**：`CodexViewModel.kt` / `completeServerSnapshotCacheSelectionKey`。**Failure scenario**：实现已新增 segment commit 时的完成标记前移，但字段注释仍写成“仅由 durable-count fast path 设置”，会误导后续维护者将该同步路径误判为无效或删除。**Minimal fix direction**：把注释收敛为“B4R 已验证的完整静态快照”这一共同语义。**Required test**：现有 focused ViewModel test + 全量 Android JVM 回归。**Ownership assessment**：`current_task_owned`；位于本微修 Allowed Files，纯 mechanical 文档一致性修复，不涉及 paused package、范围扩大或契约变更。**Handoff**：`/implement-current-step`。
-- **Finding ID**：B4R-RACE-RF-002；**Severity**：P1；**Source**：`/review-implementation`；**Status**：resolved；**File / symbol**：`CodexViewModel.kt` / `completeServerSnapshotCacheSelectionKey`。**Failure scenario**：segment commit 在 `Dispatchers.IO` 写入该标记，foreground recovery tick 在主协程读取；普通 Kotlin `var` 跨 dispatcher 没有 JVM happens-before 保证，极端调度下最终 ACK 后主协程仍可读到旧值，从而复现本次 duplicate recovery。**Minimal fix direction**：仅将该跨 dispatcher 的单一完成标记声明为 `@Volatile`，保持所有 generation/capability 门禁、wire 与 IPC 路径不变。**Required test**：focused ViewModel test、完整 Android JVM、真机首次/旧缓存 snapshot 的无 recovery/source-read 事件链。**Ownership assessment**：`current_task_owned`；位于本微修 Allowed Files，纯 mechanical concurrency visibility 修复，无 paused owner、范围扩大或契约变更。**Handoff**：`/implement-current-step`。
-- **Finding ID**：B4R-RACE-RF-003；**Severity**：P1；**Source**：`/run-regression` 定向 Kotlin 编译；**Status**：resolved；**File / symbol**：`CodexViewModel.kt` / `conversation_history_segment_commit`。**Failure scenario**：该分支引用仅存在于 sibling `conversation_history_segment_start` 分支的 `range` 局部变量，Kotlin 编译报 `Unresolved reference: range`，阻断 APK 构建。**Minimal fix direction**：在 commit 分支从已验证的 `page.range` 显式取得 non-null local，缺失时沿既有 pending cleanup 路径拒绝 commit；随后用该 local 校验 segment id 和 provider mode。**Required test**：受影响 focused JVM、完整 Android JVM 与 debug APK build。**Ownership assessment**：`current_task_owned`；位于本微修 Allowed Files，机械编译修复，不涉及 paused owner、范围扩大或契约变更。**Handoff**：`/implement-current-step`。
-- **Finding ID**：B4R-RACE-RF-004；**Severity**：P1；**Source**：`/run-regression` 真机首次 B4R snapshot；**Status**：resolved；**File / symbol**：`CodexViewModel.kt` / `shouldPromoteCompleteServerSnapshotCache` 调用点。**Failure scenario**：未缓存任务 `019fc7ab-36ed-7df1-a098-3f82ee4f044d` 完成 23 个 `server_snapshot` segments 后，SQLite 明确为 `coverage_complete=1`、`coverage_state=complete`、`item_count=1678`，但旧 v2 字段 `complete=0`。当前前移条件误用 `snapshot.uiState.complete`，故没有写入 `snapshot_cache_completed_on_segment_commit`。在有 foreground tick 的真实无 IPC surface 场景，仍可能落回重复 recovery。**Minimal fix direction**：让 decoded snapshot 暴露 B4R 专用的 `coverageComplete + durable item count + decoded durable rows` 证明，并用它而非旧 v2 `complete` 位建立 marker。**Required test**：更新 focused predicate tests、完整 Android JVM、重新覆盖安装后对该任务的首次 snapshot 或等价未缓存任务核对 marker → synced 顺序且无 recovery/source read。**Ownership assessment**：`current_task_owned`；位于本微修 Allowed Files，根因已由真实 SQLite 与诊断链确认，纯 mechanical 语义修正，不涉及范围扩大、契约变化或 paused owner。**Handoff**：`/implement-current-step`。
-
-#### P0-B.4R in-flight terminal surface duplicate source-read 修复 Scope Lock（2026-08-10）
-
-- **用户授权目标**：修复真机验证中同一 selection generation 的 B4R 静态历史同步尚未提交时，IPC terminal surface 到达后重复发起完整 canonical source read 的问题；不以此改动 Gateway、实时 IPC 权威或 P0-C freshness 方向。
-- **已验证根因**：测试任务“重启服务端验证 Owner surface”（conversation `019fbba5-2e2a-7323-862c-b673d23e33a6`）在 generation `7` 中出现三次 `server.codex.history.sync.request_received/source_read.completed`：约 `18,690,411 B / 334 ms`、`18,690,752 B / 368 ms`、`18,690,891 B / 761 ms`。每次 B4R segment 仅 start、没有 ACK/commit。Android `conversation_surface_snapshot` 的旧 terminal-refresh 分支把 `historySyncInFlightConversationId/historySyncInFlightSyncId` 清空并 `clearHistorySyncSettlement()`，随后 `maybeRequestHistorySync()` 合理地认为没有 in-flight 而启动下一份完整 read。A→B→A 后的 generation `9` 最终 4 个 segment 正常 ACK/commit，证明 generation 隔离本身有效。
-- **Task ownership**：`current_task_owned`。live `CURRENT_TASK.md` 仍是 `active + active` 的唯一 owner；已盘点的 paused/interrupted 包没有同一任务 ID，不执行 resume/supersede。
-- **Safety mode**：`guarded`；危险面为 B4R 静态同步去重、selection generation 和 healthy IPC 的实时权威。该根因是已有 Android 状态机内的 mechanical 竞态，不需要新产品或架构决策。
-- **Allowed Files（本微修）**：`android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`、`android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt`、`docs/workflow/CURRENT_TASK.md`。
-- **Forbidden Files / surfaces**：Gateway、history wire、snapshot store、SQLite schema/cache store、IPC client/feed/thread stream/Owner tracker、Android selection ownership、healthy IPC authority、P0-C reconciliation、P0-B.5 UI、服务端/部署配置均不得修改。
-- **Change propagation / compatibility**：无公开 API、wire、schema 或 Gateway 行为变化。影响集是 Android IPC surface handler、已有 B4R history in-flight fences 和 focused JVM tests；兼容策略为 backward-compatible：非 B4R、没有实际 in-flight、非当前 selection、`IPC_OFFLINE`、`IPC_DESYNCED` 与旧 v2 terminal refresh 保持原行为。回滚仅撤销 Android gate，不删除数据库/快照、不降级 APK。
-
-#### 实现方案（P0-B.4R in-flight terminal surface duplicate source-read）
-
-- **Goal**：B4R server-snapshot 的同一当前 selection 仍有有效 `syncId` 在飞行时，surface 引发的首次/terminal history refresh 不得清空该 in-flight fence 或启动重复 sync；正在到达的 healthy IPC surface 继续照常投影为实时 authority。
-- **Architecture impact**：只在 `CodexViewModel` 的 `conversation_surface_snapshot` 旧 terminal-refresh 分支前增加一条纯资格判定；不改 `set_active_conversation`、follower acquire/replay、snapshot 投影、`maybeRequestHistorySync()` 的通用去重、Gateway 或 Android 的 authority arbitration。
-- **Technical approach**：抽取可单测的 predicate。仅当 `shouldRequestHistorySyncAfterSurface(...)` 为真、当前已协商 `serverSnapshotSegments(enabled, version=1, cacheSchemaVersion>=3)`、当前 selection 仍匹配、in-flight conversation 与 surface conversation 相等且 active `syncId` 非空时，defer 这一次 surface refresh。该条件为真时保留 in-flight/settled 状态，不调用 `maybeRequestHistorySync()`；否则完整保留原 terminal refresh 分支。记录一条无正文、只含短 hash/generation/status 的 defer 诊断，供真机复验核对。
-- **Alternatives considered**：全局删除 terminal refresh 被拒绝，会破坏旧 v2 的最终回合补齐；只按 conversation id 抑制被拒绝，A→B→A 时可能压住错误 selection；在 Gateway 合并/丢弃请求被拒绝，会掩盖 Android 状态错误并扩散到其他客户端；把 B4R cache 或 surface 升格为实时 authority 被拒绝，违反 AD-004。
-- **Data / state flow**：`B4R request(syncId) → IPC initial/terminal surface → [same current B4R in-flight: defer surface refresh, preserve syncId] → segment/ACK/terminal sync`；其他状态继续 `surface refresh → existing terminal clear (如适用) → maybeRequestHistorySync()`。live surface 的正文/turn/status 仍立即按既有路径投影。
-- **Compatibility / rollback**：B4R 正常完成、离线/失步 recovery、旧 v2 terminal refresh、无 active B4R sync 及其他 selection 全部保持既有行为。回滚为移除本 predicate 和诊断事件；不影响持久历史或服务端协议。
-- **Risk / validation**：重点防止错误抑制 terminal final refresh 或跨 selection 误命中。focused tests 覆盖当前 B4R in-flight 的 initial/terminal surface defer、capability 关闭/无 syncId/非当前 selection 不 defer；JDK 21 focused/完整 Android JVM、APK build 与 `git diff --check`；真机对未缓存大任务确认同 generation 只有一次 `sync.request_received/source_read.completed`，defer event 出现，A→B→A 仍无旧 generation commit。External Documentation Gate：no-op，本步只修改项目内 Kotlin 状态机，不新增或依赖第三方 current behavior。
-- **Open decisions / handoff**：无未确认 Taste 或 User challenge；按 `/decompose-task` 进入当前单步实现。
-
-#### 执行记录（P0-B.4R in-flight terminal surface duplicate source-read）
-
-1. **completed — Android in-flight gate 与定向回归**：新增 `shouldDeferHistoryRefreshForInFlightServerSnapshot()` 并接入 `conversation_surface_snapshot`；当且仅当当前 B4R `syncId` 正在飞行时 defer terminal/initial surface refresh，不再清空 in-flight 或调用二次 sync。focused `CodexViewModelThreadReadyTest` 以 JDK 21 通过 `120/120`，同时覆盖 initial terminal、`running→completed`、capability 关闭、空 syncId、非当前 selection、普通 running revision。
-2. **completed — JVM / APK 回归**：JDK 21 `:app:testDebugUnitTest :app:assembleDebug` 及其后的完整 `:app:testDebugUnitTest` 均 `BUILD SUCCESSFUL`（完整 JVM `334/334`）；`git diff --check 8899770` 通过。已用项目 `adb-real-device-debug` 流程对 `da34332c` 执行 `adb install -r` 覆盖安装并启动，`lastUpdateTime=2026-08-10 02:19:29`；未卸载 App、未清除数据库或服务端数据。
-3. **in_progress — 真机闭环（精确 surface 分支仍待验证）**：设备已解锁并完成正常历史入口验证；仍需要对新的未缓存大历史制造同 selection 内的 IPC terminal surface，确认服务端只允许一次 source read、Android 出现 `android.codex.history.surface_refresh_deferred`、live surface 仍完成投影，再执行 A→B→A 确认迟到的旧 generation 不 commit。不得把无 surface 的单页任务结果外推为该分支已通过。
-
-#### 执行记录（2026-08-10，in-flight terminal surface duplicate source-read 修复）
-
-- 实现：`conversation_surface_snapshot` 先计算既有 `shouldRequestHistorySyncAfterSurface()`，再仅在 `serverSnapshotSegments` 能力有效、当前 `selectionGeneration` 仍匹配、surface/in-flight conversation 一致且 active `syncId` 非空时 defer。defer 仍先按既有路径应用 live IPC surface，只跳过旧 terminal-refresh 对 `historySyncInFlight*` / settlement 的清空和下一次 `maybeRequestHistorySync()`；其余路径逐字保留既有行为。新增诊断事件只记录短 hash、generation、前后 status 与固定 reason，不记录正文或 syncId。
-- 自动化：JDK 21 focused `:app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelThreadReadyTest` 通过 `120/120`；完整 `:app:testDebugUnitTest` 通过 `334/334`；debug APK 在本轮代码完成后构建成功。External Documentation Gate no-op：diff 只改项目内 Kotlin 状态机/测试/任务记录，没有新增或质疑第三方 API、SDK、CLI、配置或云服务 current behavior。
-- Diff / implementation / contract review：统一 review target 为 `8899770..WORKTREE`。仅变更 `CodexViewModel.kt`、`CodexViewModelThreadReadyTest.kt`、`CURRENT_TASK.md`，均在本微修 Allowed Files 内；无 staged/untracked 文件、无 dangerous command、数据库、部署、CI/CD、HTTP、wire/DTO/schema 或视觉变更。实现保持 `active conversation → follower acquire → desired subscription/reconnect replay → host surface → Android IPC authority`，healthy surface 仍在 defer 前即时投影，故不需要更新 `CONTRACTS.md`/`DECISIONS.md`。
-- 真机准备：项目 `adb-real-device-debug` doctor 确认目标 `da34332c`（`23116PN5BC`）在线；使用 `adb install -r` 成功覆盖安装 APK 并启动。当前系统为 AOD/keyguard，不能以自动化绕过；安装后的 run `f83e3ce4-…` 只恢复了已有完整缓存任务，未启动新的 source-read 验证，故不得将真机闭环写成通过。
-- 真机验证补充（2026-08-10，设备已解锁）：通过 App“任务历史”正常入口打开“编译并安装 Android APK”（thread `019fdfb6-1eac-7012-b52a-9863a84eca3c`）。服务端仅记录一次 `thread/resume`、一次 `server.codex.history.sync.request_received`、一次 source read（`sourceResponseBytes=4372`、`sourceReadDurationMs=10`、`providerDurationMs=10`），随后一个 B4R segment 完成 ACK/commit；App generation `4` 仅有一次 `history.sync_requested`、一次 `snapshot_segment_started`，并以 `sync_state=synced` 结束。该任务没有匹配 IPC surface，因此本条证明正常恢复无重复 source read，但没有命中 `surface_refresh_deferred`，P0-B.4R 精确竞态与 A→B→A 仍未关闭。此前直达未加载任务 `019fd070-bba4-7650-a48f-8ccbfe8f83e9` 的失败原因为服务端真实返回 `thread not loaded`，不属于本修复回归。
-
-#### P0-B.4R cache-first A→B→A 重复加载回归 Scope Lock（2026-08-10）
-
-- **用户授权目标**：修复已完整落库的两个 B4R 历史任务来回切换时反复出现“服务端历史同步/校验”、重复读取同一份手机缓存及重复 recovery 的回归；不以此把本地静态缓存提升为 IPC 实时权威。
-- **已验证根因**：真机 `da34332c` 的 `8d6ac45d0f8fc814`（401 items）与 `169a35f2faf7a978`（611 items）均有 B4R `coverageComplete` 证明，却因旧 v2 checkpoint 的 `complete=0` 在 `thread.resume.cache_selected` 中每次记为 `cacheComplete=false`。`advanceHistorySelectionGeneration()` 清除内存 marker 后，cache-first 回调又先调用 `maybeRequestHistorySync()`，其先把 UI 置 `SYNCING`，异步重读 SQLite 后才重新发现完整快照。切换瞬间的目标 surface 先以 `desynced=true` 投递；对第二个任务，foreground coordinator 在健康 surface 到达前即发送 `foreground-ipc-recovery:ipc_desynced`，Gateway 进入 recovery grace，造成可见重复加载。服务端该窗口未产生新的 B4R source sync，但重复 `thread/resume`/recovery 已违反“完整覆盖只 cache-first”的 P0-B.4R 边界。
-- **Safety / scope**：`guarded`，仅修改 `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`、`android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt` 和本记录；禁止修改 Gateway、history wire、snapshot/cache store、SQLite schema、IPC client/feed/thread stream/Owner tracker、selection ownership、healthy IPC authority、P0-C/P1 freshness 或部署配置。
-- **最小技术路径**：把已解码的 `coverageComplete + durable count + all durable rows decoded` 投影为 Android UI 的“静态历史完成”位；仍仅由 `capability + providerMode=server_snapshot + coverage proof` 建立 B4R marker。cache-first commit 在回调前立即写 marker、settled 和 `CACHE_ONLY`，使之后的 `maybeRequestHistorySync()` 直接短路，而不是先进入 `SYNCING`。已完成 B4R cache 遇到 terminal surface 时仅抑制静态 history refresh，不影响 live surface 投影。对**同一新订阅**的临时 `IPC_DESYNCED`，仅在既有 5 秒 surface grace 内延后一次自动 recovery；超时、`IPC_OFFLINE`、非当前 subscription、旧 v2 或不完整缓存仍保持原有 recovery。
-- **兼容与验证**：无 wire/schema/API 变化；完整 B4R 静态历史不等于 fresh IPC，也不等于 P1 freshness proof。新增 focused 断言覆盖 complete snapshot 的 surface-refresh 抑制、只在匹配新订阅 grace 内延后 desync recovery、超时/离线/错任务仍恢复，以及 v2/B4R 静态完成投影。JDK 21 `CodexViewModelThreadReadyTest`、完整 `:app:testDebugUnitTest :app:assembleDebug` 已 `BUILD SUCCESSFUL`；锁定 IPC 回归 `node --test --test-concurrency=1 tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js` 为 `116/116` pass。debug APK 已 `adb install -r` 覆盖到 `da34332c`，未清除数据库。完整缓存任务在 5 秒 grace 后仍可发出**一次** bounded recovery；验收不再错误要求“绝不出现 recovery_requested”，而是要求保持 `CACHE_ONLY`、healthy surface 到达后取消本地 recovery、没有新的 `snapshot_cache_complete` 或 B4R source read，且迟到 recovery 不能写入当前 UI/缓存。
-
-#### P0-B.4R complete-cache recovery ready / healthy surface 闭环（2026-08-10）
-
-- **追加根因**：前一轮 cache-first 修复把 complete B4R static snapshot 正确短路为 `CACHE_ONLY`，但 persistent `IPC_DESYNCED` 超过既有 5 秒 grace 后，foreground coordinator 仍可合法发送一次 recovery。旧逻辑有两个缺口：(1) recovery `ready` 只清 settlement，未清 complete marker，随后的 `maybeRequestHistorySync()` 再次短路，无法让已产生的新 canonical baseline 刷新静态 cache；(2) healthy IPC surface 后没有清理 `historyRecoveryInFlight*` / watchdog，可能继续保持 `REPAIRING` 或接受晚到 recovery。coverage complete 只证明静态范围无缺口，不等于 canonical freshness。
-- **最小修复**：仅在当前 selection 的 matching recovery `ready` 且当前存在 complete B4R marker 时清 marker，再按既有 manifest/segment 路径请求一份新的静态基线；非 matching、failed 或非 complete 均不动 marker。matching healthy surface 仍先按原路径投影为 IPC authority，然后本地清 recovery sync-id/conversation/watchdog，将完整缓存归回 `CACHE_ONLY`（不完整 cache 保持 `PARTIAL`），使任何晚到 `recovery_state` 被既有 sync-id fence 拒绝。complete cache 的 recovery send-failed/failed/watchdog terminal 也保持 `CACHE_ONLY`，诊断仍记录失败，不伪装成重新加载中的历史。
-- **范围与契约**：仍只修改 `CodexViewModel.kt`、`CodexViewModelThreadReadyTest.kt` 与本记录；没有改 Gateway、history wire、缓存 schema/store、IPC client/feed/thread stream/Owner tracker、selection ownership、healthy IPC authority、P0-C/P1 或部署。兼容策略为 backward-compatible：新 predicate 只命中当前 selection + B4R complete cache + matching recovery/healthy surface；旧 v2、不完整 cache、`IPC_OFFLINE`、错任务和正常 static sync 保持既有路径。IPC 数据流仍为 `active conversation → follower acquire → desired subscription/reconnect replay → host surface → Android IPC authority`；没有新增实时权威、DTO 或 schema，因此 `CONTRACTS.md` / `DECISIONS.md` 无需变更。External Documentation Gate：no-op，diff 只使用项目内 Kotlin 状态机和既有 wrapper，不依赖第三方 current behavior。
-- **自动化与审查**：新增 focused 覆盖 matching/非 matching recovery-ready marker 失效、healthy/desynced/错任务 recovery cancellation、complete cache 的 `REPAIRING`/`FAILED` 状态映射；JDK 21 focused `:app:testDebugUnitTest --tests com.termlink.app.codex.CodexViewModelThreadReadyTest`、完整 `:app:testDebugUnitTest :app:assembleDebug` 均通过；冻结 Node IPC 回归为 `116/116` pass；`git diff --check 8899770` 通过。统一 review target 为 `8899770..WORKTREE`：仅三份 Allowed Files，未触及 staged/untracked、数据库、部署、CI/CD、wire/DTO/schema 或视觉资源；范围、实现和冻结契约审查均无 blocker。
-- **真机证据（`da34332c`，覆盖安装、不卸载/不清库）**：App run `15c13a17-7150-422a-a455-aca08636aaf9` 启动 B 样本“修复历史任务恢复失败”（hash `169a35f2faf7a978`，611 items）时，`snapshot_cache_complete` 后因 `desynced` 超过 grace 在 `19:36:07Z` 记录一次 `recovery_requested`，healthy surface 于 `19:36:11Z` 到达并记录 `recovery_cancelled_by_healthy_surface`。随后经正常“任务历史”执行 A→B→A：A“重启服务端验证 Owner surface”（hash `8d6ac45d0f8fc814`，401 items）与 B 分别在 generations `2/3/4` 记录 `thread.resume.cache_selected(cacheLoadState=READY, cacheComplete=true, cacheCoverageComplete=true, completeServerSnapshotCache=true)`；B generation `3` 再次出现一次 recovery request 后于约 1.6 秒内被 healthy surface 取消。三次 UIAutomator 检查均未出现以“服务端历史”“校验并修复”或“同步中”开头的可见提示，且 generation `2–4` 没有新的 `snapshot_cache_complete`。
-- **服务端观察与残留风险**：同一窗口服务端仅见 metadata `thread/resume`（`thread/read`, `turnCount=0`）及 B 的 late `server.codex.history.recovery.requested`；没有新的 `server.codex.history.source_read.completed` 或 B4R segment source sync。由于现有 wire 没有 App→Gateway recovery-cancel，Gateway 仍可能在 cycle deadline 时记录 `server.codex.history.selection_cycle.deadline`，该次字段为 `hadPendingRecovery=false`、`hadPendingSync=false`，不会写回 App 或触发 source read。这是现有 Gateway lifecycle 诊断残留，修复/降噪需要越出本微修冻结范围，不能在本轮顺手修改。完整 static cache 的静默 freshness probe / 持久化 live tail 仍是 P1 边界，不能把本次 cancellation 当成已实现 freshness。
-
-#### P0-B.4R cache-first 旧正文滞留交接修复（2026-08-10）
-
-- **Bug 调查报告**：用户在 `MQS7N19402011743` 来回切换历史任务时，目标任务的最后一段较长会使上一个任务的末段停留更久。最新 App run `3523f484-6c20-4869-bf8b-24faea3a8dcb` 中，`thread.resume.requested` 位于 `+6170ms`，而目标的 `thread.resume.cache_selected` 直到 `+7434ms` 才发生；这约 1.26 秒内 active conversation 和消息仍是上一个任务。`readConversation()` 会读取目标任务的全部 `items`（按 position 排序）并在完成后才作 UI commit，因此大型 payload / 末段会放大这个可见窗口。该 run 后续确实完成了 858 项 B4R static snapshot 的 SQLite 提交，故现象不能归因于“最后一段始终没有保存”。另一方面，healthy IPC surface 的后续 live tail 当前只写内存 UI、不写 history cache；那一层属于已明确分离的 P0-C durable gap reconciliation，不在本微修中实施。
-- **Ownership assessment / route**：`current_task_owned`。live `CURRENT_TASK.md` 仍为 active 唯一 owner；已读取的 `TASKS/paused/TASK-20260615-001-app-codex-ipc-realtime-sync.md` 是旧 IPC 接入任务、状态为 `paused_blocked`，且不拥有当前 B4R cache-first bug。最小修改仍完全位于当前微修的 `CodexViewModel.kt`、`CodexViewModelThreadReadyTest.kt` 和本记录，不需要 `/lock-scope`。
-
-#### 实现方案（P0-B.4R cache-first 旧正文滞留交接）
-
-- **Goal**：用户触发 A→B 后，B 的 identity 与“旧任务正文已退场”状态必须在开始 SQLite read 前同步提交；SQLite decode 完成后才把 B 的 static cache 原子合入 UI。不得等待磁盘读完才让 UI 从 A 切到 B。
-- **Architecture impact**：只调整 Android `CodexViewModel` 的 cache-first selection commit 时序。`active conversation → follower acquire → desired subscription/reconnect replay → host surface → Android IPC authority` 不变；不写 cache store、不改 history wire/Gateway，也不把 static cache 升格为实时 authority。
-- **Technical approach**：抽取可 JVM 单测的 pending selection reducer。收到 `resumeThread` 后、启动 `Dispatchers.IO` 的 `readConversation()` 前，同步应用既有 `applyIpcConversationSelectionWithRememberedConfig()` 与 history-drawer dismissal，并清理 A 任务的 messages、cached base、IPC/runtime/turn/error/request 状态。异步读完成后继续使用现有 `pendingHistorySelectionKey + generation + endpoint` fence；若仍为当前 selection，再合并 B 的 cache 与匹配的 live surface。网络 history sync / `thread/resume` 仍在完整 cache proof 已建立后沿原回调启动，避免破坏 B4R complete-cache 去重。
-- **Alternatives considered**：只在 Compose 层遮罩旧 messages 被拒绝，会留下 ViewModel 级 A 状态并无法覆盖非正文的 stale runtime；在 IO 前启动新的 history sync / recovery 被拒绝，会绕过 complete-cache marker 并可能重新引入重复 source read；同时实施 IPC live tail 落库被拒绝，属于 P0-C 且要求单独契约/范围授权。
-- **Compatibility / rollback**：同任务重复选择保留现有正文和 healthy surface；A→B→A 仍由当前 generation fence 拒绝迟到 B 结果；旧 v2、incomplete cache、offline/desynced 与 existing B4R recovery 资格不变。回滚仅移除 pending reducer 调用，不删除 SQLite、snapshot 或 APK 数据。
-- **Validation strategy**：新增 focused JVM 覆盖“IO 尚未返回时 A 的正文/运行态已清除、B 已成为 active selection”“同任务重复选择不清空”“B 的 cache commit 仍能与当前 healthy B surface 合并”；运行 JDK 21 focused ViewModel、完整 Android JVM、debug APK build、冻结 Node IPC gate、`git diff --check 8899770`。真机用同一已安装数据库执行长尾 A→B→A，确认点击后不再可见 A 的末段，且没有新的 B4R source read / old generation UI commit。
-- **Decision / External Documentation Gate**：全为 current-scope mechanical 状态时序修复；无 Taste 或 User challenge，且不依赖第三方 SDK/API 当前行为，External Documentation Gate no-op。统一 diff review target 继续为 `8899770..WORKTREE`。
-
-#### 执行记录（P0-B.4R cache-first 旧正文滞留交接）
-
-1. **completed — pending selection reducer + focused JVM**：在 cache read 发起前同步提交目标选择并清除旧任务 scoped UI；保持现有 async cache commit 与 generation fence。新增纯 reducer 用例覆盖 A→B 的旧正文/运行态立即退场、同任务重选不清空。首次编译发现 top-level reducer 误调用 ViewModel private helper，已改为等价的 `CodexRuntimePanelState(visible=...)`，不移动职责；JDK 21 focused `CodexViewModelThreadReadyTest` 已 `BUILD SUCCESSFUL`。
-2. **completed — Android build / frozen IPC regression**：JDK 21 完整 `:app:testDebugUnitTest :app:assembleDebug` 于 2026-08-10 通过（`BUILD SUCCESSFUL`）；锁定 Node 集合 `node --test --test-concurrency=1 tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js` 为 `116/116` pass；`git diff --check 8899770` 无 whitespace error（仅 Git 的既有 LF→CRLF 提示）。契约复核继续使用 `8899770..WORKTREE`：本微修没有改 public API、WebSocket/IPC DTO、SQLite schema/store、Gateway 或 realtime authority；现有 `pendingHistorySelectionKey + generation + endpoint` fence 仍原样保留。本项不进行视觉设计探索：页面设计、文案和导航均不变。
-3. **completed — 真机 A→B→A smoke（`MQS7N19402011743`）**：以 `adb install -r` 成功覆盖安装新 debug APK 并启动，未卸载、未清库。先直接从“任务历史”打开 A=`编译并安装 Android APK`（`019fdfb6-1eac-7012-b52a-9863a84eca3c`），UI 立即关闭历史面板并显示 A 的正文，而非先前任务的末段；随后执行 A→B→A，其中 B=`重启服务端验证 Owner surface`（`019fbba5-2e2a-7323-862c-b673d23e33a6`）。App 日志在 `04:25:06.376` 记录 B 的 `ipc-selection`，在 `04:25:09.663` 记录 A 的下一次 `ipc-selection`；最终等待后 UIAutomator 为 `finalHistorySheetTitleCount=0`，可见正文仍是 A 的“编译并安装成功…”，未出现 B 的 Owner-surface 正文。该真机路径未人为延迟 SQLite 回调，故“强制迟到 B cache callback”仍由既有 generation fence 与 focused JVM 覆盖；本次可见验收已确认旧正文不会在目标缓存读取窗口滞留。此 UI-only 微修未改服务端 source-read 路径，远端 source-read 无新增采样，保留前序 B4R 服务端证据；live tail durable persistence 仍留 P0-C。
-
-#### P0-B.4R 用户消息消失与配置栏闪烁修复（2026-08-10）
-
-- **根因**：Android 静态缓存解码对 `payload.content` 直接使用 `JSONObject.optString()`，真实 Codex payload 的结构化文本数组因此被渲染成 `[{"text":...}]`；当同一 conversation 的 IPC surface 进入 `desynced`、随后静态历史提交时，旧逻辑直接以缓存替换 UI，缓存尚未包含的实时用户尾部会消失。A→B 的 generation fence 和 cache-first identity 清除仍保留；配置栏的 loading 则是等待 fresh surface 时无条件触发，遮盖了已加载的目标任务记忆配置。
-- **最小修复**：新增与 JS `extractText` 语义一致的 Android 缓存文本递归投影（`text/content/input`、数组按顺序换行）；同 conversation 的 `desynced` cache commit 改为通过既有 canonical convergence 合并并保留 live tail，健康 surface 恢复后仍由 IPC authority 最终投影；目标已有 task-scoped remembered override 时，等待 surface 不再把 model/reasoning/permission 显示为 loading。没有修改服务端 payload、wire、SQLite schema/store、Gateway 或 IPC authority。
-- **自动化验证**：JDK 21 focused `CodexViewModelThreadReadyTest`、完整 `:app:testDebugUnitTest` 和 `:app:assembleDebug` 均 `BUILD SUCCESSFUL`；新增结构化缓存文本、desynced 用户尾部和目标记忆配置回归。冻结 Node IPC 集合串行重跑 `116/116` pass；第一次与 Android 并行执行时出现的 3 个 Node 时序失败单独串行重跑后消失，未归因于本改动。`git diff --check 8899770` 通过。
-- **真机准备**：按项目 `adb-real-device-debug` 流程将最新 debug APK 用 `adb install -r` 覆盖安装到 `da34332c`，`lastUpdateTime=2026-08-10 12:51:47`；未卸载 App、未清除数据库。设备当前为 `Dozing`/锁屏，安装后已启动但尚未完成新的手动 A→B→A 与当前任务用户消息复现；因此真机闭环仍标记待验证。3010 本机 `/api/health` 返回 `401`（认证保护），脚本拒绝重复启动已有 node 服务，没有执行重启或杀进程。
-
-#### P0-B.4R structured user payload / pending-surface tail 补充修复（2026-08-10）
-
-- **追加根因**：除了 B4R SQLite cache decoder 外，`thread/read` 的 `messages[].content` 路径仍对结构化 `JSONArray` 使用 `optString()`；`turns[].userMessage` 也有一套只识别数组中 `type=text` 的窄解析。于是同一 Codex 用户消息可能在缓存恢复、legacy `messages` 恢复和 turns 恢复之间出现不同结果，或显示为 JSON 数组文本。另一个可见丢失窗口是：当前任务已经选中但 fresh IPC surface 尚未建立时，legacy/fallback 发送形成的本地用户尾部会被 `liveAuthoritativeConversationId == null` 的静态 cache commit 直接替换掉。
-- **最小修复**：把 `thread/read` 的 `messages`、`turns[].userMessage` 与 SQLite cache 三条入口统一到 `extractHistoryPayloadTextForUi()`（递归读取 `text/content/input`，数组按顺序换行）；同一当前 conversation 在 IPC surface 尚未建立时也通过既有 convergence merge 保留本地尾部。错 conversation 的 live surface 仍直接丢弃，A→B→A generation fence、healthy IPC authority、服务端协议和持久化层不变。
-- **自动化验证**：新增 pending IPC surface 不覆盖 optimistic user tail 的 focused 用例，并保留结构化数组文本投影用例。JDK 21 focused `CodexViewModelThreadReadyTest`、完整 `:app:testDebugUnitTest :app:assembleDebug` 均 `BUILD SUCCESSFUL`；本次 focused XML 为 `133` tests、0 failures；冻结 Node IPC 回归串行 `116/116` pass；`git diff --check 8899770` 通过，源码无意外控制字符。
-- **真机安装与现状**：最新 debug APK 已于 `2026-08-10 13:06:45` 以 `adb install -r` 覆盖安装到 `da34332c`，未卸载、未清库。启动后的 `019fe225-0b53-75b0-bc2d-9364d6ddb9dd` 日志显示 remembered config 已加载、历史快照 `itemCount=901` 已完成、无 App FATAL/AndroidRuntime；当前首个 surface 仍是 `desynced=true`，因此需要用户在已解锁设备上复现目标消息/任务切换后再做最终真机闭环判定。3010 保持上一轮已运行服务，health 检查仍受认证返回 `401`，本轮没有重启服务。
-
-#### P0-B.4R Gateway baseline 阻塞与大 surface 内存放大修复 Scope Widening（2026-08-10）
-
-- **用户授权与原因**：用户明确授权从当前 Android 微修范围扩大到服务端 Gateway，要求精确到文件和函数。当前证据为：`src/ws/terminalGateway.js` 的 IPC snapshot 路径对完整 surface 反复执行 `projectMobileSurface(..., { mediaStore })`，恢复路径又在 `_awaitSurfaceBaseline()` 上等待；目标大任务的 `selection_cycle.deadline` 曾记录 `hadPendingRecovery=false`，旧服务进程最终在约 3.4 GB heap 进入 GC thrash 并以 `JavaScript heap out of memory` 退出。该修复只处理 Gateway 派生历史基线的阻塞/重复投影，不改变 IPC authority。
-- **本轮 Goal**：健康 IPC surface 到达后，App 的恢复 ready 不得等待完整历史/media projection；B4R server-snapshot lane 的静态历史必须继续由 `CodexHistorySnapshotStore`/`CodexHistoryBaselineProvider` 独立构建；legacy/range 兼容 lane 保留现有 v2/range 语义，并且任何仍需等待 baseline 的路径必须有明确 timeout/failure 与 generation cleanup。
-- **Safety mode**：`guarded`。
-- **Dangerous surfaces**：Codex realtime authority、Owner/follower lifecycle、历史恢复状态机、WebSocket backpressure、服务端内存/CPU 基线、rollback。不得修改部署、认证、数据库 schema 或生产配置。
-- **Allowed Files（本次严格 widening）**：
-  - `src/ws/terminalGateway.js`：只允许修改 `registerTerminalGateway()` 内下列局部函数/处理分支及其为这些分支新增的同一闭包私有 helper：
-    - `_registerSurfaceBaseline`
-    - `_awaitSurfaceBaseline`
-    - `_cancelHistorySelectionCycle`
-    - `_handleHistorySelectionDeadline`
-    - `conversation_history_recovery_request` 的 healthy-surface / baseline-wait 分支
-    - `conversation_history_sync_request` 的非 `serverSnapshotSegments` baseline-wait 分支
-    - 与上述生命周期直接相连的 `_markHistorySelectionSurface` 分支（仅当需要取消/隔离该 baseline wait 时）
-    - 不得改动 `ipcFeed`/`CodexIpcFeed` 的接收、normalized surface、follower acquire/release、Owner 广播、控制路由或 wire envelope 结构；`createLatestOnlyAsyncQueue` 本体默认只读，只有测试证明无法完成本修复时才可再次申请 widening。
-  - `tests/terminalGateway.codexIpc.test.js`：只新增或调整覆盖上述 Gateway 分支的定向测试，包括 healthy surface 不被 full media projection 阻塞、重复 snapshot 不造成无界 baseline 投影、baseline wait deadline 显式失败、A→B→A generation 隔离和既有 live/control 优先级。
-  - `docs/workflow/CURRENT_TASK.md`：记录本次 scope、实现方案、验证证据和剩余风险。
-- **Forbidden Files / surfaces（本次仍禁止）**：
-  - `src/services/codexIpcClient.js`、`src/services/codexIpcFeed.js`、`src/services/codexIpcThreadStream.js`、`src/services/codexOwnerSurfaceTracker.js`
-  - `src/services/codexMobileSurfaceProjector.js`、`src/services/codexHistorySyncService.js`、`src/services/codexHistoryBaselineProvider.js`、`src/services/codexHistorySnapshotStore.js`、`src/services/codexWsSnapshotScheduler.js`、`src/server.js`
-  - Android 源码、history wire/DTO、SQLite/cache store/schema、Codex raw JSONL 数据源、HTTP/session/auth、部署/mTLS/WireGuard、`data/**` 运行时数据
-  - `docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、P0-C freshness/reconciliation、P0-B.5 UI、任何第二实时权威或 Owner 语义变化
-- **Conditional Files**：无。若实现过程中发现必须改上述 Forbidden File、改变 history wire/state contract、取消现有 follower/Owner/Android authority，立即停止并重新执行 `/lock-scope`，不得在本轮静默扩大。
-- **最小实现方案**：
-  1. 在 Gateway 内把“健康实时 surface 已到达”和“静态 history baseline 已完成”分离；B4R `serverSnapshotSegments` lane 不再等待 live surface 的 full `projectMobileSurface` 才发送 `healthy_surface` recovery ready。
-  2. 对仍使用 v2/range baseline 的兼容分支，限制 live IPC baseline 的重复投影/等待生命周期；不改变 `historySyncService` 的 canonical item、hash、ACK、分页和 256 KiB envelope 语义。
-  3. selection deadline/cancel 必须识别 baseline wait，向对应 recovery/sync context 发送一次明确失败并清理 pending 状态；迟到 projection 只能被 generation fence 丢弃。
-  4. 不修改 `_offerSurfaceSnapshot` 的实时投影和 scheduler 抢占逻辑；live/control 仍优先，静态历史只能在有余量时运行。
-- **兼容与回滚**：不新增/修改 WebSocket 字段；旧客户端继续走原有 envelope。关闭 `TERMLINK_HISTORY_SNAPSHOT_SEGMENTS` 后 legacy/range 分支保持原有 provider/history wire 路径；回滚只需回退本次 Gateway/test commit，不清理 Android DB、snapshot 文件或媒体文件。
-- **验证门禁**：`node --test --test-concurrency=1 tests/terminalGateway.codexIpc.test.js`；必要时串行冻结 IPC 集合 `tests/codexOwnerSurfaceTracker.test.js tests/terminalGateway.codexIpc.test.js`；`git diff --check`。随后重启本地 3010，确认 `da34332c` 能建立 WebSocket、目标任务不出现无 pending waiter 的 deadline，且服务端 heap/CPU 不再随重复 IPC snapshot 单调增长。不得把一次服务重启当作修复证据。
-- **统一 diff review target**：本次以当前工作树相对任务 checkpoint `8899770` 的明确文件集合审查；既有 Android 三文件变更属于用户现有工作，不得被本 Gateway 微修覆盖、重写或纳入修复 diff。
-
-##### Gateway widening implementation record（2026-08-10）
-
-- **`src/ws/terminalGateway.js`**：
-  - `registerTerminalGateway._registerSurfaceBaseline`：B4R `serverSnapshotSegments` 开启时不再从每个 IPC full surface eager 启动 `projectMobileSurface(..., { mediaStore })`；旧客户端实际进入非 snapshot v2/range sync 时，才由 `conversation_history_sync_request` 分支以 `allowLegacyCompatibilityBaseline=true` 按需启动一次。legacy/range 仍保留同 conversation 的 revision/pending/existing baseline fence，迟到 projection 继续受 revision 约束。
-  - `registerTerminalGateway._markHistorySelectionSurface`、同闭包私有 helper `_armHistorySelectionDeadline`、`_handleHistorySelectionDeadline`：健康 surface 且没有 recovery/sync pending 时清理空闲 selection timer；后续真实 recovery/sync 请求重新开启当前操作的有限预算；baseline wait 到期时只向对应 recovery 返回一次 `history_recovery_timeout`，并记录 `hadPendingSurfaceBaseline`。
-  - `conversation_history_recovery_request` healthy-surface 分支及其 `history_recovery_waiter_detached` fallback：B4R 有 healthy IPC surface 时直接发已有 `healthy_surface` ready，不再等待完整 live history/media baseline；静态历史随后仍由 server snapshot lane 读取 Codex、分段、ACK 和持久化。
-  - `conversation_history_sync_request`：snapshot lane 将 selection deadline 置为已由 snapshot 自己管理；非 snapshot lane 先按需挂接当前 surface 的兼容 baseline，再在既有 projection budget 内等待，未改 history wire、ACK、分页或 live/control scheduler。
-- **`tests/terminalGateway.codexIpc.test.js`**：新增/调整了 B4R healthy recovery 不等待 full projection、B4R 不 eager projection、旧客户端按需兼容 projection、legacy live baseline 单次投影、健康 surface 不污染后续 recovery、baseline wait 显式超时等定向回归。
-- **本轮自动验证**：Gateway focused `104/104` pass；冻结 Owner/Gateway IPC 集合串行 `120/120` pass；`git diff --check` 通过（仅保留既有 Android/CURRENT_TASK 的 LF→CRLF 警告）。
-- **真机/服务 smoke 现状（设备重新上线后的复测）**：`da34332c` 已恢复 adb online，3010 PID `6972` 仍正常监听；App 重启后旧 session registration 被服务端按预期以 `4403 Session is not owned by this client registration` 拒绝，随后自动创建新 session 并重新建立 WebSocket。通过任务历史打开 `019fe225-0b53-75b0-bc2d-9364d6ddb9dd` 后，服务端 `thread/resume`（上游 `thread/read`）耗时 `7ms`；`169a35f2faf7a978` 的 IPC subscription 在 `12,397ms` 收到 healthy `IPC_AUTHORITATIVE` surface，`itemCount=3786`，随后增至 `3789`。本次观察没有 `selection_cycle.deadline`、`history_recovery_timeout`、`baseline_projection_failed` 或重复 baseline 事件，说明 Gateway 的 healthy-surface/recovery deadline 修复在该路径上通过。
-- **未通过的稳定性门禁**：同一任务仍处于 `running`，大 surface 持续产生 IPC revision。服务 PID `6972` 在打开目标前约 `88MB RSS / 13MB heap`，随后约 4 分钟升至 `1.58GB RSS / 194MB heap`（中途最高记录约 `1.64GB RSS`），`syncMetadataCount` 从 `1` 增至 `150`；事件计数为 `49` 次 fast-path、`48` 次 surface delivery，未见 deadline/recovery 错误。该证据不能归因于 `thread/read`、网络或 mTLS，且不能把本轮 Gateway 修复标记为整体收口：`CodexIpcFeed._onClientBroadcast` 仍通过 `ThreadStreamTracker.applyBroadcast` 深拷贝完整 state，再由 `buildDesktopSurfaceSnapshot` 遍历完整历史生成新 surface；Gateway 的 `_offerSurfaceSnapshot` 仍对每个大 revision 做派生投影。当前需要另开严格 scope，精确评估上述 upstream full-state copy/surface rebuild 与 active large-thread 更新的分配压力；本轮未修改这些冻结文件。
-
-##### 决策分类（Gateway widening）
-
-- **Mechanical**：把 healthy IPC recovery ready 与静态 baseline projection 解耦；限制同一 conversation 的 live baseline 重复投影；补齐 baseline wait 的 timeout、cancel、generation fence 和单次失败回传；使用现有 snapshot/provider/projector，不改 wire。
-- **User challenge / 已确认方向**：保留 `active conversation → follower acquire → desired subscription/reconnect replay → host surface → Android IPC authority`；B4R 静态历史仍由服务端 snapshot/provider 构建；本轮允许修改 Gateway，但只限上面列出的函数和处理分支。
-- **Taste**：无 UI、文案、视觉或产品偏好选择。
-- **待确认项**：无。若测试证明需要改 Forbidden File 或改变既有实时权威/历史 wire 语义，必须停止并重新回问，不得自动选择替代架构。
+- 2026-08-11：从 `47de67c` 创建 `codex/b4r-corrected-from-b3`；保留 `codex/pre-b4r-verification` 为回退基线，保留 `codex/codex-runtime-authority-fix` 为原始 B4R 审计分支。当前先完成 corrected scope lock 和文档订正，尚未重新接入 B4R 代码。

@@ -181,24 +181,6 @@
   后迟到结果时才允许开启；在此之前只允许一次 tail bootstrap 或用户按需的一页 older。`thread/items/list` 只有经当前捆绑 app-server
   实测或 method capability 证明后才能使用，否则沿已接入的 `thread/turns/list` fail-closed。live tail 已显示但未落库、早期历史改写
   检测与 chained reconciliation 属 P0-C，不得借 P0-B 预埋或启用第二实时同步链路。
-- P0-B.4R 服务端当前快照与静态分段：用户已明确确认，TermLink 可以在现有 Codex/media 的本地信任边界内，为每个
-  `endpoint/profile + conversationId` 持久保存**一份当前 canonical 静态快照**，用原子临时文件 + `fsync` + replace 发布，读取时校验 schema/root，
-  损坏时只隔离该文件并从 canonical source 重建。它不是新的 HTTP API、数据库、raw rollout/JSONL 解析器或实时权威；日志不得含正文，
-  只允许保存/日志脱敏的身份、root、计数、字节和耗时。`complete_at_snapshot` 只表示一次完整源扫描的原子结果；`verified_current` 尚未在
-  P0-B.4R 声称或使用，必须由未来一次有明确 freshness 设计的 canonical root comparison 才可成立。metadata-only
-  `thread/read(includeTurns=false)` 的 `updatedAt`/`recencyAt` 只能作排序/活动提示，不能跳过完整校验。Android 本地覆盖缺失或不完整时，legacy
-  以一次 `thread/read(includeTurns=true)` 构建；paginated 可先发 newest 原生页为 provisional tail、随后扫描更旧页构建完整快照。Android 已有
-  `coverageComplete` 且 durable count 一致时只 cache-first，不发新的主动 B4R 正文传输；静默 freshness probe、root 对账和服务端快照复用留给 P1。
-- P0-B.4R wire / 传输：顶层 `historySync.version=1` 不变，可选 additive
-  `historySync.serverSnapshotSegments { enabled, version=1 }` 仅在双方显式支持时启用，旧客户端继续 v2 manifest/delta/position。
-  segment 以**实际序列化字节**而非固定 item 数切分（逻辑目标 96 KiB）；单条大 payload 使用受限 fragment（单 fragment ≤16 KiB），每个 history
-  WebSocket envelope 仍必须 ≤256 KiB。一个逻辑 segment 只有在 Android 收齐、校验并用单一 SQLite transaction 提交后才 ACK；每个连接在
-  segment ACK 前最多一个 history logical segment in-flight。`selectionGeneration + syncId` 在 source build、send、ACK、fragment/commit、DB/UI
-  均必须拒绝旧任务；异常、断线、root/hash/fragment 不一致或 timeout 只能进入显式 partial/cache-only/failed，不能半提交、重排或覆盖 current task。
-- P0-B.4R realtime 让位：history 只使用既有 scheduler history lane，control/healthy IPC live/live projection 保持原直接 authority 路径。
-  history 发送以 ACK/实际 handoff 的 safe-goodput EWMA 计算 credit，单次 burst 不超过 `min(16 KiB, safeGoodput × 100ms, credit)`；有 control/live
-  pending 时立即暂停。因此 history 不得给实时 surface 增加超过 100ms 的可归因阻塞。B4R 中 live 只可抢占调度并标记静态快照 dirty；不自动触发
-  canonical reconciliation、不覆盖 healthy IPC 正文/operation/current turn/状态，也不提前实施 P0-C。
 
 ### 🔒 目录职责
 
