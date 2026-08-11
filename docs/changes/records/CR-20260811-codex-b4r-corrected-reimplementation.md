@@ -1,9 +1,9 @@
 ---
 title: P0-B.4R corrected snapshot and live projection reimplementation
-status: draft
+status: active
 record_id: CR-20260811-1458-codex-b4r-corrected-reimplementation
 req_id: REQ-20260516-codex-mobile-realtime-sync
-commit_ref: TBD
+commit_ref: baca633
 owner: @maintainer
 last_updated: 2026-08-11
 source_of_truth: code
