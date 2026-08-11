@@ -19,6 +19,7 @@ import com.termlink.app.codex.domain.ChatMessage
 import com.termlink.app.codex.domain.CodexPlanWorkflowState
 import com.termlink.app.codex.domain.CodexThreadHistoryEntry
 import com.termlink.app.codex.domain.CodexRuntimePanelState
+import com.termlink.app.codex.domain.CodexNoticesPanelState
 import com.termlink.app.codex.domain.CodexHistoryCacheLoadState
 import com.termlink.app.codex.domain.CodexHistoryNetworkSyncState
 import com.termlink.app.codex.domain.CodexUiState
@@ -29,6 +30,7 @@ import com.termlink.app.codex.domain.PERMISSION_CHOICE_AUTO_REVIEW
 import com.termlink.app.codex.domain.PERMISSION_CHOICE_CUSTOM
 import com.termlink.app.codex.domain.PERMISSION_CHOICE_FULL_ACCESS
 import com.termlink.app.codex.domain.PERMISSION_PROFILE_CHOICE_PREFIX
+import org.json.JSONArray
 import org.json.JSONObject
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -142,6 +144,309 @@ class CodexViewModelThreadReadyTest {
         assertFalse(shouldRequestHistorySyncAfterSurface("running", "running", desynced = false))
         assertFalse(shouldRequestHistorySyncAfterSurface("completed", "completed", desynced = false))
         assertFalse(shouldRequestHistorySyncAfterSurface(null, "running", desynced = true))
+    }
+
+    @Test
+    fun inFlightB4rServerSnapshotDefersOnlyMatchingSurfaceRefresh() {
+        assertTrue(
+            shouldDeferHistoryRefreshForInFlightServerSnapshot(
+                surfaceRequestsSync = shouldRequestHistorySyncAfterSurface(
+                    previousStatus = null,
+                    currentStatus = "completed",
+                    desynced = false
+                ),
+                serverSnapshotSegmentsEnabled = true,
+                surfaceConversationId = "conv-a",
+                activeConversationId = "conv-a",
+                inFlightConversationId = "conv-a",
+                inFlightSyncId = "sync-a",
+                currentSelectionMatches = true
+            )
+        )
+        assertTrue(
+            shouldDeferHistoryRefreshForInFlightServerSnapshot(
+                surfaceRequestsSync = shouldRequestHistorySyncAfterSurface(
+                    previousStatus = "running",
+                    currentStatus = "completed",
+                    desynced = false
+                ),
+                serverSnapshotSegmentsEnabled = true,
+                surfaceConversationId = "conv-a",
+                activeConversationId = "conv-a",
+                inFlightConversationId = "conv-a",
+                inFlightSyncId = "sync-a",
+                currentSelectionMatches = true
+            )
+        )
+        assertFalse(
+            shouldDeferHistoryRefreshForInFlightServerSnapshot(
+                surfaceRequestsSync = true,
+                serverSnapshotSegmentsEnabled = false,
+                surfaceConversationId = "conv-a",
+                activeConversationId = "conv-a",
+                inFlightConversationId = "conv-a",
+                inFlightSyncId = "sync-a",
+                currentSelectionMatches = true
+            )
+        )
+        assertFalse(
+            shouldDeferHistoryRefreshForInFlightServerSnapshot(
+                surfaceRequestsSync = true,
+                serverSnapshotSegmentsEnabled = true,
+                surfaceConversationId = "conv-a",
+                activeConversationId = "conv-a",
+                inFlightConversationId = "conv-a",
+                inFlightSyncId = "",
+                currentSelectionMatches = true
+            )
+        )
+        assertFalse(
+            shouldDeferHistoryRefreshForInFlightServerSnapshot(
+                surfaceRequestsSync = true,
+                serverSnapshotSegmentsEnabled = true,
+                surfaceConversationId = "conv-a",
+                activeConversationId = "conv-a",
+                inFlightConversationId = "conv-a",
+                inFlightSyncId = "sync-a",
+                currentSelectionMatches = false
+            )
+        )
+        assertFalse(
+            shouldDeferHistoryRefreshForInFlightServerSnapshot(
+                surfaceRequestsSync = shouldRequestHistorySyncAfterSurface(
+                    previousStatus = "running",
+                    currentStatus = "running",
+                    desynced = false
+                ),
+                serverSnapshotSegmentsEnabled = true,
+                surfaceConversationId = "conv-a",
+                activeConversationId = "conv-a",
+                inFlightConversationId = "conv-a",
+                inFlightSyncId = "sync-a",
+                currentSelectionMatches = true
+            )
+        )
+        assertFalse(
+            shouldDeferHistoryRefreshForInFlightServerSnapshot(
+                surfaceRequestsSync = true,
+                serverSnapshotSegmentsEnabled = true,
+                surfaceConversationId = "conv-b",
+                activeConversationId = "conv-a",
+                inFlightConversationId = "conv-a",
+                inFlightSyncId = "sync-a",
+                currentSelectionMatches = true
+            )
+        )
+    }
+
+    @Test
+    fun completedB4rServerSnapshotSuppressesLaterSurfaceRefreshOnlyForCurrentSelection() {
+        assertTrue(
+            shouldSuppressHistoryRefreshForCompleteServerSnapshot(
+                surfaceRequestsSync = true,
+                serverSnapshotSegmentsEnabled = true,
+                currentSelectionMatches = true,
+                completeServerSnapshotCache = true
+            )
+        )
+        assertFalse(
+            shouldSuppressHistoryRefreshForCompleteServerSnapshot(
+                surfaceRequestsSync = true,
+                serverSnapshotSegmentsEnabled = true,
+                currentSelectionMatches = false,
+                completeServerSnapshotCache = true
+            )
+        )
+        assertFalse(
+            shouldSuppressHistoryRefreshForCompleteServerSnapshot(
+                surfaceRequestsSync = true,
+                serverSnapshotSegmentsEnabled = false,
+                currentSelectionMatches = true,
+                completeServerSnapshotCache = true
+            )
+        )
+        assertFalse(
+            shouldSuppressHistoryRefreshForCompleteServerSnapshot(
+                surfaceRequestsSync = true,
+                serverSnapshotSegmentsEnabled = true,
+                currentSelectionMatches = true,
+                completeServerSnapshotCache = false
+            )
+        )
+    }
+
+    @Test
+    fun completeSnapshotDefersOnlyTheFreshSubscriptionDesyncWindow() {
+        assertTrue(
+            shouldDeferCompleteSnapshotRecoveryForFreshSubscription(
+                completeServerSnapshotCache = true,
+                authorityMode = IpcAuthorityMode.IPC_DESYNCED,
+                subscriptionConversationId = "conv-a",
+                subscriptionGeneration = 7L,
+                targetConversationId = "conv-a",
+                selectionGeneration = 7L,
+                subscriptionSentAtElapsed = 10_000L,
+                nowElapsed = 14_999L,
+                surfaceWaitGraceMillis = 5_000L
+            )
+        )
+        assertFalse(
+            shouldDeferCompleteSnapshotRecoveryForFreshSubscription(
+                completeServerSnapshotCache = true,
+                authorityMode = IpcAuthorityMode.IPC_DESYNCED,
+                subscriptionConversationId = "conv-a",
+                subscriptionGeneration = 7L,
+                targetConversationId = "conv-a",
+                selectionGeneration = 7L,
+                subscriptionSentAtElapsed = 10_000L,
+                nowElapsed = 15_000L,
+                surfaceWaitGraceMillis = 5_000L
+            )
+        )
+        assertFalse(
+            shouldDeferCompleteSnapshotRecoveryForFreshSubscription(
+                completeServerSnapshotCache = true,
+                authorityMode = IpcAuthorityMode.IPC_OFFLINE,
+                subscriptionConversationId = "conv-a",
+                subscriptionGeneration = 7L,
+                targetConversationId = "conv-a",
+                selectionGeneration = 7L,
+                subscriptionSentAtElapsed = 10_000L,
+                nowElapsed = 10_001L,
+                surfaceWaitGraceMillis = 5_000L
+            )
+        )
+        assertFalse(
+            shouldDeferCompleteSnapshotRecoveryForFreshSubscription(
+                completeServerSnapshotCache = true,
+                authorityMode = IpcAuthorityMode.IPC_DESYNCED,
+                subscriptionConversationId = "conv-b",
+                subscriptionGeneration = 7L,
+                targetConversationId = "conv-a",
+                selectionGeneration = 7L,
+                subscriptionSentAtElapsed = 10_000L,
+                nowElapsed = 10_001L,
+                surfaceWaitGraceMillis = 5_000L
+            )
+        )
+    }
+
+    @Test
+    fun recoveryReadyInvalidatesOnlyTheMatchingCompleteServerSnapshotCache() {
+        assertTrue(
+            shouldInvalidateCompleteServerSnapshotCacheForRecoveryReady(
+                recoveryState = " READY ",
+                recoveryMatchesCurrentSelection = true,
+                completeServerSnapshotCache = true
+            )
+        )
+        assertFalse(
+            shouldInvalidateCompleteServerSnapshotCacheForRecoveryReady(
+                recoveryState = "failed",
+                recoveryMatchesCurrentSelection = true,
+                completeServerSnapshotCache = true
+            )
+        )
+        assertFalse(
+            shouldInvalidateCompleteServerSnapshotCacheForRecoveryReady(
+                recoveryState = "ready",
+                recoveryMatchesCurrentSelection = false,
+                completeServerSnapshotCache = true
+            )
+        )
+        assertFalse(
+            shouldInvalidateCompleteServerSnapshotCacheForRecoveryReady(
+                recoveryState = "ready",
+                recoveryMatchesCurrentSelection = true,
+                completeServerSnapshotCache = false
+            )
+        )
+    }
+
+    @Test
+    fun healthySurfaceStopsOnlyTheMatchingRecoveryAndLeavesAStableHistoryState() {
+        assertTrue(
+            shouldCancelHistoryRecoveryForHealthySurface(
+                surfaceDesynced = false,
+                currentSelectionMatches = true,
+                surfaceConversationId = "conv-a",
+                activeConversationId = "conv-a",
+                recoveryConversationId = "conv-a"
+            )
+        )
+        assertFalse(
+            shouldCancelHistoryRecoveryForHealthySurface(
+                surfaceDesynced = true,
+                currentSelectionMatches = true,
+                surfaceConversationId = "conv-a",
+                activeConversationId = "conv-a",
+                recoveryConversationId = "conv-a"
+            )
+        )
+        assertFalse(
+            shouldCancelHistoryRecoveryForHealthySurface(
+                surfaceDesynced = false,
+                currentSelectionMatches = false,
+                surfaceConversationId = "conv-a",
+                activeConversationId = "conv-a",
+                recoveryConversationId = "conv-a"
+            )
+        )
+        assertFalse(
+            shouldCancelHistoryRecoveryForHealthySurface(
+                surfaceDesynced = false,
+                currentSelectionMatches = true,
+                surfaceConversationId = "conv-b",
+                activeConversationId = "conv-a",
+                recoveryConversationId = "conv-a"
+            )
+        )
+        assertEquals(
+            CodexHistoryNetworkSyncState.CACHE_ONLY,
+            historyNetworkStateAfterHealthySurfaceStopsRecovery(
+                cacheReady = true,
+                cacheComplete = true
+            )
+        )
+        assertEquals(
+            CodexHistoryNetworkSyncState.PARTIAL,
+            historyNetworkStateAfterHealthySurfaceStopsRecovery(
+                cacheReady = true,
+                cacheComplete = false
+            )
+        )
+        assertEquals(
+            CodexHistoryNetworkSyncState.IDLE,
+            historyNetworkStateAfterHealthySurfaceStopsRecovery(
+                cacheReady = false,
+                cacheComplete = false
+            )
+        )
+    }
+
+    @Test
+    fun completeSnapshotRecoveryKeepsTheCacheStateAcrossVisibleRecoveryTerminals() {
+        assertEquals(
+            CodexHistoryNetworkSyncState.CACHE_ONLY,
+            historyNetworkStateForCompleteServerSnapshotRecovery(
+                completeServerSnapshotCache = true,
+                otherwise = CodexHistoryNetworkSyncState.REPAIRING
+            )
+        )
+        assertEquals(
+            CodexHistoryNetworkSyncState.CACHE_ONLY,
+            historyNetworkStateForCompleteServerSnapshotRecovery(
+                completeServerSnapshotCache = true,
+                otherwise = CodexHistoryNetworkSyncState.FAILED
+            )
+        )
+        assertEquals(
+            CodexHistoryNetworkSyncState.OFFLINE,
+            historyNetworkStateForCompleteServerSnapshotRecovery(
+                completeServerSnapshotCache = false,
+                otherwise = CodexHistoryNetworkSyncState.OFFLINE
+            )
+        )
     }
 
     @Test
@@ -578,6 +883,28 @@ class CodexViewModelThreadReadyTest {
                 checkpointItemCount = 1678,
                 durableItemCount = 1678,
                 decodedAllDurableRows = false
+            )
+        )
+    }
+
+    @Test
+    fun staticCacheCompletionAcceptsEitherLegacyCheckpointOrDurableB4rCoverage() {
+        assertTrue(
+            isCompleteStaticHistoryCache(
+                legacyCheckpointComplete = true,
+                durableCoverageComplete = false
+            )
+        )
+        assertTrue(
+            isCompleteStaticHistoryCache(
+                legacyCheckpointComplete = false,
+                durableCoverageComplete = true
+            )
+        )
+        assertFalse(
+            isCompleteStaticHistoryCache(
+                legacyCheckpointComplete = false,
+                durableCoverageComplete = false
             )
         )
     }
@@ -1045,6 +1372,24 @@ class CodexViewModelThreadReadyTest {
         )
 
         assertTrue(isOwnerConfigHydratingForUiState(state))
+    }
+
+    @Test
+    fun rememberedTargetConfigRemainsVisibleWhileFreshOwnerSurfaceIsPending() {
+        val state = CodexUiState(
+            ipcOnline = true,
+            followerModeEnabled = true,
+            activeConversationId = "conv-target",
+            awaitingNewThreadIpcSurface = true,
+            nextTurnOverrides = NextTurnOverrides(
+                model = "gpt-5.6-sol",
+                reasoningEffort = "medium",
+                permissionProfile = ":workspace-write"
+            )
+        )
+
+        assertTrue(hasTargetRememberedConfigForUiState(state))
+        assertFalse(isOwnerConfigHydratingForUiState(state))
     }
 
     @Test
@@ -1846,6 +2191,74 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun pendingHistorySelectionEvictsPreviousTaskBeforeCacheReadCompletes() {
+        val state = CodexUiState(
+            activeConversationId = "conv-a",
+            threadId = "conv-a",
+            messages = listOf(ChatMessage(id = "a-last", role = ChatMessage.Role.ASSISTANT, content = "A 的长尾")),
+            cachedCanonicalMessages = listOf(ChatMessage(id = "a-cached", role = ChatMessage.Role.ASSISTANT, content = "A 缓存")),
+            ipcSurfaceSnapshot = surfaceSnapshot("conv-a"),
+            liveAuthoritativeConversationId = "conv-a",
+            errorMessage = "A 的旧错误",
+            status = "running",
+            currentTurnId = "turn-a",
+            runtimePanel = CodexRuntimePanelState(visible = true, diff = "A diff"),
+            noticesPanel = CodexNoticesPanelState(visible = true, configWarningText = "A notice"),
+            pendingServerRequests = listOf(ipcRequest("request-a")),
+            submittingServerRequestIds = setOf("request-a"),
+            threadHistorySheetVisible = true,
+            threadHistoryActionThreadId = "conv-a",
+            threadHistoryActionKind = "resume"
+        )
+
+        val selected = dismissThreadHistoryForResumeSelection(
+            applyIpcConversationSelectionToUiState(state, ipcConversation("conv-b", updatedAt = 500))
+        )
+        val next = preparePendingHistorySelectionUiState("conv-a", selected)
+
+        assertEquals("conv-b", next.activeConversationId)
+        assertEquals("conv-b", next.threadId)
+        assertTrue(next.messages.isEmpty())
+        assertTrue(next.cachedCanonicalMessages.isEmpty())
+        assertNull(next.ipcSurfaceSnapshot)
+        assertNull(next.liveAuthoritativeConversationId)
+        assertNull(next.errorMessage)
+        assertEquals("idle", next.status)
+        assertNull(next.currentTurnId)
+        assertEquals("", next.runtimePanel.diff)
+        assertEquals("", next.noticesPanel.configWarningText)
+        assertTrue(next.pendingServerRequests.isEmpty())
+        assertTrue(next.submittingServerRequestIds.isEmpty())
+        assertFalse(next.threadHistorySheetVisible)
+        assertEquals("", next.threadHistoryActionThreadId)
+        assertEquals("", next.threadHistoryActionKind)
+    }
+
+    @Test
+    fun pendingHistorySelectionKeepsCurrentTaskWhenItIsReselected() {
+        val state = CodexUiState(
+            activeConversationId = "conv-b",
+            threadId = "conv-b",
+            messages = listOf(ChatMessage(id = "b-last", role = ChatMessage.Role.ASSISTANT, content = "B 正文")),
+            cachedCanonicalMessages = listOf(ChatMessage(id = "b-cached", role = ChatMessage.Role.ASSISTANT, content = "B 缓存")),
+            status = "running",
+            threadHistoryActionThreadId = "conv-b",
+            threadHistoryActionKind = "resume"
+        )
+
+        val selected = dismissThreadHistoryForResumeSelection(
+            applyIpcConversationSelectionToUiState(state, ipcConversation("conv-b", updatedAt = 500))
+        )
+        val next = preparePendingHistorySelectionUiState("conv-b", selected)
+
+        assertEquals(listOf("b-last"), next.messages.map { it.id })
+        assertEquals(listOf("b-cached"), next.cachedCanonicalMessages.map { it.id })
+        assertEquals("running", next.status)
+        assertEquals("conv-b", next.threadHistoryActionThreadId)
+        assertEquals("resume", next.threadHistoryActionKind)
+    }
+
+    @Test
     fun cachedConversationCatalogStatusDoesNotBecomeRuntimeAuthority() {
         val state = CodexUiState(
             activeConversationId = "conv-old",
@@ -1945,6 +2358,75 @@ class CodexViewModelThreadReadyTest {
         assertEquals("实时尾部", merged[1].content)
         assertTrue(merged[1].streaming)
         assertEquals("实时操作", merged[2].content)
+    }
+
+    @Test
+    fun desyncedLiveSurfaceDoesNotEraseAUserTailWhenHistoryCacheLags() {
+        val state = CodexUiState(
+            activeConversationId = "conv-a",
+            threadId = "conv-a",
+            liveAuthoritativeConversationId = "conv-a",
+            liveAuthoritativeDesynced = true,
+            currentTurnId = "turn-new",
+            messages = listOf(
+                ChatMessage(id = "old", role = ChatMessage.Role.ASSISTANT, content = "历史正文"),
+                ChatMessage(id = "new-user", role = ChatMessage.Role.USER, content = "刚发送的用户消息")
+            )
+        )
+        val cached = listOf(
+            ChatMessage(id = "old", role = ChatMessage.Role.ASSISTANT, content = "历史正文")
+        )
+
+        val merged = mergeCachedHistoryIntoLiveMessagesForUi(state, "conv-a", cached)
+
+        assertEquals(listOf("old", "new-user"), merged.map { it.id })
+        assertEquals("刚发送的用户消息", merged.last().content)
+    }
+
+    @Test
+    fun pendingIpcSurfaceDoesNotEraseAnOptimisticUserTailWhenHistoryCacheLags() {
+        val state = CodexUiState(
+            activeConversationId = "conv-a",
+            threadId = "conv-a",
+            messages = listOf(
+                ChatMessage(id = "old", role = ChatMessage.Role.ASSISTANT, content = "历史正文"),
+                ChatMessage(id = "new-user", role = ChatMessage.Role.USER, content = "待确认的用户消息")
+            )
+        )
+        val cached = listOf(
+            ChatMessage(id = "old", role = ChatMessage.Role.ASSISTANT, content = "历史正文")
+        )
+
+        val merged = mergeCachedHistoryIntoLiveMessagesForUi(state, "conv-a", cached)
+
+        assertEquals(listOf("old", "new-user"), merged.map { it.id })
+        assertEquals("待确认的用户消息", merged.last().content)
+    }
+
+    @Test
+    fun cachedStructuredUserContentIsProjectedToTextInsteadOfJsonArray() {
+        val payload = JSONObject().put(
+            "content",
+            JSONArray()
+                .put(JSONObject().put("type", "text").put("text", "第一段"))
+                .put(JSONObject().put("type", "text").put("text", "第二段"))
+        )
+
+        assertEquals("第一段\n第二段", extractHistoryPayloadTextForUi(payload))
+    }
+
+    @Test
+    fun cachedHistoryTextFieldAndNestedInputRemainCompatible() {
+        assertEquals(
+            "普通文本",
+            extractHistoryPayloadTextForUi(JSONObject().put("text", "普通文本"))
+        )
+        assertEquals(
+            "嵌套输入",
+            extractHistoryPayloadTextForUi(
+                JSONObject().put("content", JSONObject().put("input", "嵌套输入"))
+            )
+        )
     }
 
     @Test

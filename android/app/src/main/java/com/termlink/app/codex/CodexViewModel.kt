@@ -866,8 +866,31 @@ internal fun mergeCachedHistoryIntoLiveMessagesForUi(
     if (cachedMessages.isEmpty()) return state.messages
     val incoming = normalizeCodexThreadId(conversationId) ?: return state.messages
     val live = normalizeCodexThreadId(state.liveAuthoritativeConversationId)
-    if (live == null || live != incoming || state.liveAuthoritativeDesynced) {
+    if (live == null) {
+        // A legacy/fallback turn can be optimistically visible before the
+        // first healthy surface for this selection.  It is still the same
+        // selected conversation, so a stale static cache must not erase that
+        // local tail while the IPC authority is being acquired.
+        return mergeCanonicalMessagesForUi(
+            canonicalMessages = cachedMessages,
+            currentMessages = state.messages,
+            preserveLocalTail = true
+        )
+    }
+    if (live != incoming) {
         return cachedMessages
+    }
+    if (state.liveAuthoritativeDesynced) {
+        // A desynced surface cannot replace the canonical cache, but the cache
+        // may still lag behind a user turn already projected by that same
+        // conversation.  Keep the matching live tail until a healthy surface
+        // or a newer canonical snapshot converges it; otherwise a history
+        // commit makes a just-sent user message disappear from the page.
+        return mergeCanonicalMessagesForUi(
+            canonicalMessages = cachedMessages,
+            currentMessages = state.messages,
+            preserveLocalTail = true
+        )
     }
 
     // A healthy surface can arrive before the history page.  Reconcile that
@@ -968,6 +991,111 @@ internal fun shouldRequestHistorySyncAfterSurface(
 }
 
 /**
+ * B4R obtains the static baseline from the already active server-snapshot
+ * segment stream.  A matching initial or terminal IPC surface must still be
+ * applied as live authority, but it must not discard that in-flight stream
+ * and start a second full source read for the same selection.
+ */
+internal fun shouldDeferHistoryRefreshForInFlightServerSnapshot(
+    surfaceRequestsSync: Boolean,
+    serverSnapshotSegmentsEnabled: Boolean,
+    surfaceConversationId: String?,
+    activeConversationId: String?,
+    inFlightConversationId: String?,
+    inFlightSyncId: String?,
+    currentSelectionMatches: Boolean
+): Boolean {
+    val conversationId = surfaceConversationId?.trim()?.takeIf { it.isNotEmpty() } ?: return false
+    return surfaceRequestsSync &&
+        serverSnapshotSegmentsEnabled &&
+        currentSelectionMatches &&
+        conversationId == activeConversationId?.trim() &&
+        conversationId == inFlightConversationId?.trim() &&
+        !inFlightSyncId.isNullOrBlank()
+}
+
+/**
+ * A completed B4R cache is already the authoritative static-history baseline
+ * for this selection.  A later terminal IPC surface may update the live
+ * projection, but must not reopen static history until P1 freshness probing
+ * exists.  This is deliberately narrower than the in-flight guard above:
+ * generic v2 and incomplete range caches still take their existing path.
+ */
+internal fun shouldSuppressHistoryRefreshForCompleteServerSnapshot(
+    surfaceRequestsSync: Boolean,
+    serverSnapshotSegmentsEnabled: Boolean,
+    currentSelectionMatches: Boolean,
+    completeServerSnapshotCache: Boolean
+): Boolean = surfaceRequestsSync &&
+    serverSnapshotSegmentsEnabled &&
+    currentSelectionMatches &&
+    completeServerSnapshotCache
+
+/**
+ * `coverageComplete` proves that the local B4R static range has no gap; it
+ * does not prove the upstream canonical snapshot is still current.  A
+ * matching recovery `ready` is the one bounded path that has actually
+ * produced a newer canonical baseline, so it must be allowed to replace the
+ * old static marker before the normal segment sync begins.
+ */
+internal fun shouldInvalidateCompleteServerSnapshotCacheForRecoveryReady(
+    recoveryState: String,
+    recoveryMatchesCurrentSelection: Boolean,
+    completeServerSnapshotCache: Boolean
+): Boolean = recoveryState.trim().equals("ready", ignoreCase = true) &&
+    recoveryMatchesCurrentSelection &&
+    completeServerSnapshotCache
+
+/**
+ * A healthy matching IPC surface is the realtime authority again.  A
+ * recovery started while the same selection was desynced must no longer keep
+ * the UI in a visible recovery state or accept a late recovery result as a
+ * second authority.
+ */
+internal fun shouldCancelHistoryRecoveryForHealthySurface(
+    surfaceDesynced: Boolean,
+    currentSelectionMatches: Boolean,
+    surfaceConversationId: String?,
+    activeConversationId: String?,
+    recoveryConversationId: String?
+): Boolean {
+    val surfaceId = normalizeCodexThreadId(surfaceConversationId) ?: return false
+    return !surfaceDesynced &&
+        currentSelectionMatches &&
+        surfaceId == normalizeCodexThreadId(activeConversationId) &&
+        surfaceId == normalizeCodexThreadId(recoveryConversationId)
+}
+
+/**
+ * Stopping recovery because IPC is healthy must not leave its spinner behind.
+ * Keep a complete static cache quiet; retain an honest partial state when
+ * only a readable prefix is available.
+ */
+internal fun historyNetworkStateAfterHealthySurfaceStopsRecovery(
+    cacheReady: Boolean,
+    cacheComplete: Boolean
+): CodexHistoryNetworkSyncState = when {
+    cacheReady && cacheComplete -> CodexHistoryNetworkSyncState.CACHE_ONLY
+    cacheReady -> CodexHistoryNetworkSyncState.PARTIAL
+    else -> CodexHistoryNetworkSyncState.IDLE
+}
+
+/**
+ * A complete B4R static cache remains usable when an IPC fallback request is
+ * pending, rejected or times out.  The request still occurs when contract
+ * conditions require it, but its transport state must not masquerade as a
+ * missing static history baseline.
+ */
+internal fun historyNetworkStateForCompleteServerSnapshotRecovery(
+    completeServerSnapshotCache: Boolean,
+    otherwise: CodexHistoryNetworkSyncState
+): CodexHistoryNetworkSyncState = if (completeServerSnapshotCache) {
+    CodexHistoryNetworkSyncState.CACHE_ONLY
+} else {
+    otherwise
+}
+
+/**
  * History sync states that close the current bounded request.  These values
  * are intentionally independent from baselineComplete: a partial/cache-only
  * result is still a terminal network outcome and must not leave the UI
@@ -1031,7 +1159,41 @@ internal fun shouldEscalateHistoryRecovery(
         ) || authorityMode in setOf(
             IpcAuthorityMode.IPC_OFFLINE,
             IpcAuthorityMode.IPC_DESYNCED
-        )
+    )
+}
+
+/**
+ * The first matching surface after A→B selection is intentionally delivered
+ * as desynced until the new subscription cycle observes the host again.  A
+ * proven B4R static cache gives that cycle one existing surface-grace window
+ * before canonical recovery.  This does not relax offline recovery and does
+ * not make a persistent desync permanent: the normal recovery path resumes
+ * once the bounded window expires.
+ */
+internal fun shouldDeferCompleteSnapshotRecoveryForFreshSubscription(
+    completeServerSnapshotCache: Boolean,
+    authorityMode: IpcAuthorityMode,
+    subscriptionConversationId: String?,
+    subscriptionGeneration: Long,
+    targetConversationId: String?,
+    selectionGeneration: Long,
+    subscriptionSentAtElapsed: Long,
+    nowElapsed: Long,
+    surfaceWaitGraceMillis: Long
+): Boolean {
+    if (!completeServerSnapshotCache || authorityMode != IpcAuthorityMode.IPC_DESYNCED) {
+        return false
+    }
+    val targetId = normalizeCodexThreadId(targetConversationId) ?: return false
+    if (normalizeCodexThreadId(subscriptionConversationId) != targetId ||
+        subscriptionGeneration != selectionGeneration ||
+        subscriptionSentAtElapsed <= 0L ||
+        surfaceWaitGraceMillis <= 0L
+    ) {
+        return false
+    }
+    val elapsed = (nowElapsed - subscriptionSentAtElapsed).coerceAtLeast(0L)
+    return elapsed < surfaceWaitGraceMillis
 }
 
 /**
@@ -1047,6 +1209,16 @@ internal fun shouldPromoteCompleteServerSnapshotCache(
 ): Boolean = serverSnapshotSegmentsEnabled &&
     providerMode == "server_snapshot" &&
     cacheCoverageComplete
+
+/**
+ * `complete` is the UI's static-history completeness bit, not an assertion
+ * that live IPC is fresh.  B4R's range coverage proof therefore joins the
+ * legacy v2 complete checkpoint after every durable row has decoded.
+ */
+internal fun isCompleteStaticHistoryCache(
+    legacyCheckpointComplete: Boolean,
+    durableCoverageComplete: Boolean
+): Boolean = legacyCheckpointComplete || durableCoverageComplete
 
 /**
  * B4R coverage is proven by its own range checkpoint, not by the older v2
@@ -1308,6 +1480,37 @@ internal fun dismissThreadHistoryForResumeSelection(state: CodexUiState): CodexU
     threadRenameDraft = ""
 )
 
+/**
+ * Cache-first history selection must not leave the previous task rendered
+ * while SQLite reads and decodes the target cache.  The target identity is
+ * already known at that point, so clear only the previous task-scoped UI now;
+ * the target static base still arrives through the existing guarded cache
+ * commit later.
+ */
+internal fun preparePendingHistorySelectionUiState(
+    previousConversationId: String?,
+    selectedState: CodexUiState
+): CodexUiState {
+    val switched = normalizeCodexThreadId(previousConversationId) !=
+        normalizeCodexThreadId(selectedState.activeConversationId)
+    if (!switched) return selectedState
+    return selectedState.copy(
+        threadHistoryStatus = "cache_only",
+        threadHistoryLoading = false,
+        threadHistoryActionThreadId = "",
+        threadHistoryActionKind = "",
+        errorMessage = null,
+        status = "idle",
+        currentTurnId = null,
+        interactionState = null,
+        executionWatch = CodexExecutionWatchState(),
+        runtimePanel = CodexRuntimePanelState(visible = selectedState.runtimePanel.visible),
+        noticesPanel = CodexNoticesPanelState(visible = selectedState.noticesPanel.visible),
+        pendingServerRequests = emptyList(),
+        submittingServerRequestIds = emptySet()
+    )
+}
+
 internal fun applyDesktopSurfaceSnapshotToUiState(
     state: CodexUiState,
     snap: DesktopSurfaceSnapshot
@@ -1548,10 +1751,26 @@ internal fun isOwnerConfigHydratingForUiState(state: CodexUiState): Boolean {
     if (!state.ipcOnline || !state.followerModeEnabled || activeConversationId.isEmpty()) {
         return false
     }
+    // A task switch loads its remembered task-scoped overrides synchronously
+    // before the fresh IPC surface arrives.  They are safe to show while the
+    // surface is settling; showing a generic loading value here causes the
+    // selected model/permission to flicker to loading and back on every A→B.
+    if (hasTargetRememberedConfigForUiState(state)) return false
     if (state.awaitingNewThreadIpcSurface) return true
     val snapshotConversationId = state.ipcSurfaceSnapshot?.conversationId?.trim()
         ?: return false
     return snapshotConversationId != activeConversationId
+}
+
+internal fun hasTargetRememberedConfigForUiState(state: CodexUiState): Boolean {
+    val overrides = state.nextTurnOverrides
+    return overrides.useConfigPermissions ||
+        !overrides.model.isNullOrBlank() ||
+        !overrides.reasoningEffort.isNullOrBlank() ||
+        !overrides.sandbox.isNullOrBlank() ||
+        !overrides.approvalPolicy.isNullOrBlank() ||
+        !overrides.approvalsReviewer.isNullOrBlank() ||
+        !overrides.permissionProfile.isNullOrBlank()
 }
 
 internal fun resolveNextTurnEffectiveCodexConfig(state: CodexUiState): CodexEffectiveConfig? {
@@ -1910,6 +2129,34 @@ internal fun mergeSurfaceItems(
     return deduplicatedMessages
 }
 
+internal fun extractHistoryPayloadTextForUi(payload: JSONObject): String {
+    fun extract(value: Any?): String? {
+        when (value) {
+            null, JSONObject.NULL -> return null
+            is String -> return value.trim().takeIf { it.isNotEmpty() }
+            is JSONArray -> {
+                val parts = buildList {
+                    for (index in 0 until value.length()) {
+                        extract(value.opt(index))?.let(::add)
+                    }
+                }
+                return parts.joinToString("\n").trim().takeIf { it.isNotEmpty() }
+            }
+            is JSONObject -> {
+                return extract(value.opt("text"))
+                    ?: extract(value.opt("content"))
+                    ?: extract(value.opt("input"))
+            }
+        }
+        return null
+    }
+
+    return extract(payload.opt("text"))
+        ?: extract(payload.opt("content"))
+        ?: extract(payload.opt("summary"))
+        ?: ""
+}
+
 private fun decodeCachedHistoryItem(item: CodexHistoryItem): ChatMessage? {
     return runCatching {
         val payload = JSONObject(item.payloadJson)
@@ -1922,7 +2169,7 @@ private fun decodeCachedHistoryItem(item: CodexHistoryItem): ChatMessage? {
         ChatMessage(
             id = item.itemKey,
             role = role,
-            content = payload.optString("text", payload.optString("content", payload.optString("summary", ""))),
+            content = extractHistoryPayloadTextForUi(payload),
             contentType = item.itemType,
             clientRequestId = item.clientRequestId,
             attachments = extractCachedMediaAttachments(payload)
@@ -3436,21 +3683,34 @@ class CodexViewModel(
             targetThreadId,
             historySelectionGeneration
         )
+        val completeServerSnapshotCache = hasCompleteServerSnapshotCache(
+            conversationId = targetThreadId,
+            generation = historySelectionGeneration
+        )
+        val deferCompleteSnapshotRecovery =
+            shouldDeferCompleteSnapshotRecoveryForFreshSubscription(
+                completeServerSnapshotCache = completeServerSnapshotCache,
+                authorityMode = authorityMode,
+                subscriptionConversationId = activeConversationSubscriptionId,
+                subscriptionGeneration = activeConversationSubscriptionGeneration,
+                targetConversationId = targetThreadId,
+                selectionGeneration = historySelectionGeneration,
+                subscriptionSentAtElapsed = activeConversationSubscriptionSentAtElapsed,
+                nowElapsed = nowElapsed,
+                surfaceWaitGraceMillis = IPC_SURFACE_WAIT_GRACE_MILLIS
+            )
         maybeRequestHistorySync(targetThreadId)
         val historyNeedsFullRecovery = shouldEscalateHistoryRecovery(
             cacheReady = state.historyCacheState.ready,
             cacheComplete = state.historyCacheState.complete,
             networkState = state.historyNetworkSyncState.state,
             authorityMode = authorityMode,
-            completeServerSnapshotCache = hasCompleteServerSnapshotCache(
-                conversationId = targetThreadId,
-                generation = historySelectionGeneration
-            )
+            completeServerSnapshotCache = completeServerSnapshotCache
         )
         val historySyncSettled =
             historySyncSettledConversationId?.trim() == targetThreadId &&
                 historySyncSettledGeneration == historySelectionGeneration
-        if (shouldStartForegroundHistoryRecovery(
+        if (!deferCompleteSnapshotRecovery && shouldStartForegroundHistoryRecovery(
                 historyNeedsFullRecovery = historyNeedsFullRecovery,
                 authorityMode = authorityMode,
                 activeSubscriptionSettling = activeSubscriptionSettling,
@@ -4622,6 +4882,17 @@ class CodexViewModel(
             hasPendingUserInputAction = false
         )
         pendingHistorySelectionKey = key
+        // Establish B as the selected task before its cache read starts.  The
+        // old implementation deferred this commit until the IO/decode result
+        // returned, visibly leaving A's final message on screen in proportion
+        // to B's cached payload size.
+        _uiState.update { state ->
+            val previousConversationId = state.activeConversationId
+            val selectedState = dismissThreadHistoryForResumeSelection(
+                applyIpcConversationSelectionWithRememberedConfig(state, selected)
+            )
+            preparePendingHistorySelectionUiState(previousConversationId, selectedState)
+        }
         viewModelScope.launch(Dispatchers.IO) {
             val cachedResult = runCatching {
                 historyCacheStore.readConversation(profileId, normalizedConversationId)
@@ -4631,6 +4902,7 @@ class CodexViewModel(
                 cached = cachedResult.getOrNull(),
                 readError = cachedResult.exceptionOrNull()
             )
+            var completeServerSnapshotCache = false
             val committed = withContext(Dispatchers.Main.immediate) {
                 if (pendingHistorySelectionKey != key ||
                     currentProfile?.id?.trim() != key.endpointId ||
@@ -4640,6 +4912,22 @@ class CodexViewModel(
                 } else {
                     val previousConversationId = normalizeThreadId(_uiState.value.activeConversationId)
                     val switched = previousConversationId != normalizedConversationId
+                    val snapshotSegmentsEnabled = historyCapability?.serverSnapshotSegments?.let {
+                        it.enabled && it.version == 1 && it.cacheSchemaVersion >= 3
+                    } == true
+                    completeServerSnapshotCache = shouldPromoteCompleteServerSnapshotCache(
+                        serverSnapshotSegmentsEnabled = snapshotSegmentsEnabled,
+                        providerMode = snapshot.providerMode,
+                        cacheCoverageComplete = snapshot.durableCoverageComplete
+                    )
+                    if (completeServerSnapshotCache) {
+                        // This is the durable B4R proof already stored on the
+                        // device.  Establish it before the selection callback
+                        // can schedule ordinary history sync or foreground
+                        // recovery for this generation.
+                        completeServerSnapshotCacheSelectionKey = key
+                        markHistorySyncSettled(normalizedConversationId, generation)
+                    }
                     _uiState.update { state ->
                         val selectedState = dismissThreadHistoryForResumeSelection(
                             applyIpcConversationSelectionWithRememberedConfig(state, selected)
@@ -4655,7 +4943,11 @@ class CodexViewModel(
                             historyCacheState = snapshot.uiState,
                             historyNetworkSyncState = historyNetworkState(
                                 key,
-                                CodexHistoryNetworkSyncState.IDLE
+                                if (completeServerSnapshotCache) {
+                                    CodexHistoryNetworkSyncState.CACHE_ONLY
+                                } else {
+                                    CodexHistoryNetworkSyncState.IDLE
+                                }
                             ),
                             threadHistoryStatus = "cache_only",
                             threadHistoryLoading = false,
@@ -4693,6 +4985,8 @@ class CodexViewModel(
                         "hasIndexEntry" to (entry != null),
                         "cacheLoadState" to snapshot.uiState.loadState.name,
                         "cacheComplete" to snapshot.uiState.complete,
+                        "cacheCoverageComplete" to snapshot.durableCoverageComplete,
+                        "completeServerSnapshotCache" to completeServerSnapshotCache,
                         "generation" to generation
                     )
                 )
@@ -6158,6 +6452,48 @@ class CodexViewModel(
             currentHistorySelectionKey(conversationId, generation)
     }
 
+    /**
+     * The recovery request cannot be cancelled remotely, but once the
+     * matching healthy surface is applied it must be locally quarantined.  A
+     * late `recovery_state` then fails its active sync-id fence and cannot
+     * reopen or overwrite the IPC-authoritative selection.
+     */
+    private fun stopHistoryRecoveryForHealthySurface(
+        conversationId: String,
+        generation: Long
+    ) {
+        val key = historySelectionKeyOrNull(conversationId, generation) ?: return
+        if (!isCurrentHistorySelection(key) ||
+            historyRecoveryInFlightConversationId?.trim() != conversationId
+        ) return
+        historyRecoveryInFlightConversationId = null
+        historyRecoveryInFlightSyncId = null
+        cancelHistoryWatchdog()
+        _uiState.update { state ->
+            if (isCurrentHistorySelection(key)) {
+                state.copy(
+                    historyNetworkSyncState = historyNetworkState(
+                        key,
+                        historyNetworkStateAfterHealthySurfaceStopsRecovery(
+                            cacheReady = state.historyCacheState.ready,
+                            cacheComplete = state.historyCacheState.complete
+                        )
+                    )
+                )
+            } else {
+                state
+            }
+        }
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.history.recovery_cancelled_by_healthy_surface",
+            mapOf(
+                "conversationKey" to PersistentDiagnosticLog.shortHash(conversationId),
+                "generation" to generation
+            )
+        )
+    }
+
     private fun historyPageKey(syncId: String, pageIndex: Int): String = "$syncId:$pageIndex"
 
     private fun historySnapshotSegmentKey(syncId: String, sequence: Int): String = "$syncId:segment:$sequence"
@@ -6182,6 +6518,29 @@ class CodexViewModel(
                 settledConversationId = historySyncSettledConversationId,
                 settledGeneration = historySyncSettledGeneration
         )) return
+        if (hasCompleteServerSnapshotCache(normalizedConversationId, requestGeneration)) {
+            // Cache-first selection has already proved the complete static
+            // B4R snapshot.  Keep its terminal local state stable instead of
+            // briefly advertising SYNCING and re-reading the same rows.
+            markHistorySyncSettled(normalizedConversationId, requestGeneration)
+            val completeSnapshotKey = historySelectionKeyOrNull(
+                normalizedConversationId,
+                requestGeneration
+            )
+            if (completeSnapshotKey != null) {
+                _uiState.update { state ->
+                    if (isCurrentHistorySelection(completeSnapshotKey)) {
+                        state.copy(
+                            historyNetworkSyncState = historyNetworkState(
+                                completeSnapshotKey,
+                                CodexHistoryNetworkSyncState.CACHE_ONLY
+                            )
+                        )
+                    } else state
+                }
+            }
+            return
+        }
         val capability = historyCapability ?: return
         val snapshotSegments = capability.serverSnapshotSegments?.takeIf {
             it.enabled && it.version == 1 && it.cacheSchemaVersion >= 3
@@ -6498,6 +6857,10 @@ class CodexViewModel(
         if (_uiState.value.activeConversationId?.trim() != normalizedConversationId) return false
         val generation = historySelectionGeneration
         val key = historySelectionKeyOrNull(normalizedConversationId, generation) ?: return false
+        val completeServerSnapshotCache = hasCompleteServerSnapshotCache(
+            normalizedConversationId,
+            generation
+        )
         if (historySyncInFlightConversationId == normalizedConversationId) {
             // A full recovery supersedes a still-running ordinary sync.  The
             // old wire id is quarantined before the recovery watchdog is
@@ -6513,7 +6876,10 @@ class CodexViewModel(
                 state.copy(
                     historyNetworkSyncState = historyNetworkState(
                         key,
-                        CodexHistoryNetworkSyncState.REPAIRING
+                        historyNetworkStateForCompleteServerSnapshotRecovery(
+                            completeServerSnapshotCache,
+                            CodexHistoryNetworkSyncState.REPAIRING
+                        )
                     )
                 )
             } else {
@@ -6541,7 +6907,10 @@ class CodexViewModel(
                     state.copy(
                         historyNetworkSyncState = historyNetworkState(
                             key,
-                            CodexHistoryNetworkSyncState.OFFLINE
+                            historyNetworkStateForCompleteServerSnapshotRecovery(
+                                completeServerSnapshotCache,
+                                CodexHistoryNetworkSyncState.OFFLINE
+                            )
                         )
                     )
                 } else state
@@ -6584,11 +6953,18 @@ class CodexViewModel(
             )
         } else if (isCurrentHistorySelection(normalizedConversationId, historySelectionGeneration)) {
             val key = historySelectionKeyOrNull(normalizedConversationId) ?: return false
+            val completeServerSnapshotCache = hasCompleteServerSnapshotCache(
+                normalizedConversationId,
+                historySelectionGeneration
+            )
             _uiState.update { state ->
                 state.copy(
                     historyNetworkSyncState = historyNetworkState(
                         key,
-                        CodexHistoryNetworkSyncState.FAILED
+                        historyNetworkStateForCompleteServerSnapshotRecovery(
+                            completeServerSnapshotCache,
+                            CodexHistoryNetworkSyncState.FAILED
+                        )
                     )
                 )
             }
@@ -6709,6 +7085,10 @@ class CodexViewModel(
                     ) return@launch
                     historyRecoveryInFlightConversationId = null
                     historyRecoveryInFlightSyncId = null
+                    val completeServerSnapshotCache = hasCompleteServerSnapshotCache(
+                        conversationId,
+                        generation
+                    )
                     _uiState.update { state ->
                         state.copy(
                             // The cached正文 remains visible, but recovery has
@@ -6717,7 +7097,10 @@ class CodexViewModel(
                             // forever for another server response.
                             historyNetworkSyncState = historyNetworkState(
                                 key,
-                                CodexHistoryNetworkSyncState.FAILED,
+                                historyNetworkStateForCompleteServerSnapshotRecovery(
+                                    completeServerSnapshotCache,
+                                    CodexHistoryNetworkSyncState.FAILED
+                                ),
                                 detailCode = "recovery_watchdog_timeout"
                             )
                         )
@@ -7216,7 +7599,31 @@ class CodexViewModel(
                 historyRecoveryInFlightConversationId = null
                 historyRecoveryInFlightSyncId = null
                 val state = json.optString("state", "failed")
-                if (state == "ready") {
+                val recoverySelectionMatches = isCurrentHistorySelection(
+                    conversationId,
+                    historySelectionGeneration
+                )
+                val completeServerSnapshotCache = hasCompleteServerSnapshotCache(
+                    conversationId,
+                    historySelectionGeneration
+                )
+                if (shouldInvalidateCompleteServerSnapshotCacheForRecoveryReady(
+                        recoveryState = state,
+                        recoveryMatchesCurrentSelection = recoverySelectionMatches,
+                        completeServerSnapshotCache = completeServerSnapshotCache
+                    )
+                ) {
+                    completeServerSnapshotCacheSelectionKey = null
+                    PersistentDiagnosticLog.event(
+                        "codex",
+                        "android.codex.history.complete_snapshot_cache_invalidated_for_recovery",
+                        mapOf(
+                            "conversationKey" to PersistentDiagnosticLog.shortHash(conversationId),
+                            "generation" to historySelectionGeneration
+                        )
+                    )
+                }
+                if (state.equals("ready", ignoreCase = true)) {
                     // The recovery provider produced a new canonical baseline;
                     // quarantine any older sync and allow exactly one fresh
                     // manifest sync for this selection.
@@ -7248,7 +7655,10 @@ class CodexViewModel(
                                 current.copy(
                                     historyNetworkSyncState = historyNetworkState(
                                         key,
-                                        CodexHistoryNetworkSyncState.FAILED
+                                        historyNetworkStateForCompleteServerSnapshotRecovery(
+                                            completeServerSnapshotCache,
+                                            CodexHistoryNetworkSyncState.FAILED
+                                        )
                                     )
                                 )
                             } else current
@@ -8045,6 +8455,9 @@ class CodexViewModel(
                 if (applied) {
                     val current = _uiState.value
                     val previousStatus = current.ipcSurfaceSnapshot?.status
+                    val currentSelectionMatches = convId?.let {
+                        isCurrentHistorySelection(it, historySelectionGeneration)
+                    } == true
                     val terminal = snap.status.trim().lowercase() in setOf(
                         "completed", "failed", "interrupted", "cancelled", "canceled"
                     )
@@ -8068,6 +8481,21 @@ class CodexViewModel(
                         )
                     }
                     noteMatchingIpcSurface(snap)
+                    convId?.let { surfaceConversationId ->
+                        if (shouldCancelHistoryRecoveryForHealthySurface(
+                                surfaceDesynced = snap.desynced,
+                                currentSelectionMatches = currentSelectionMatches,
+                                surfaceConversationId = surfaceConversationId,
+                                activeConversationId = activeConv,
+                                recoveryConversationId = historyRecoveryInFlightConversationId
+                            )
+                        ) {
+                            stopHistoryRecoveryForHealthySurface(
+                                conversationId = surfaceConversationId,
+                                generation = historySelectionGeneration
+                            )
+                        }
+                    }
                     snap.activeGoal?.objective?.trim()?.takeIf { it.isNotEmpty() }?.let { objective ->
                         rememberGoalHistory(convId, objective)
                     }
@@ -8080,12 +8508,57 @@ class CodexViewModel(
                             threadHistoryEntries = mergeGoalHistoryEntries(updated.threadHistoryEntries)
                         )
                     }
-                    if (shouldRequestHistorySyncAfterSurface(previousStatus, snap.status, snap.desynced)) {
+                    val surfaceRequestsHistorySync = shouldRequestHistorySyncAfterSurface(
+                        previousStatus,
+                        snap.status,
+                        snap.desynced
+                    )
+                    val snapshotSegmentsEnabled = historyCapability?.serverSnapshotSegments?.let {
+                        it.enabled && it.version == 1 && it.cacheSchemaVersion >= 3
+                    } == true
+                    val deferSurfaceHistoryRefresh = shouldDeferHistoryRefreshForInFlightServerSnapshot(
+                        surfaceRequestsSync = surfaceRequestsHistorySync,
+                        serverSnapshotSegmentsEnabled = snapshotSegmentsEnabled,
+                        surfaceConversationId = convId,
+                        activeConversationId = activeConv,
+                        inFlightConversationId = historySyncInFlightConversationId,
+                        inFlightSyncId = historySyncInFlightSyncId,
+                        currentSelectionMatches = currentSelectionMatches
+                    )
+                    val suppressCompletedSnapshotHistoryRefresh =
+                        shouldSuppressHistoryRefreshForCompleteServerSnapshot(
+                            surfaceRequestsSync = surfaceRequestsHistorySync,
+                            serverSnapshotSegmentsEnabled = snapshotSegmentsEnabled,
+                            currentSelectionMatches = currentSelectionMatches,
+                            completeServerSnapshotCache = convId?.let {
+                                hasCompleteServerSnapshotCache(it, historySelectionGeneration)
+                            } == true
+                        )
+                    if (surfaceRequestsHistorySync &&
+                        (deferSurfaceHistoryRefresh || suppressCompletedSnapshotHistoryRefresh)
+                    ) {
+                        val refreshReason = if (deferSurfaceHistoryRefresh) {
+                            "server_snapshot_in_flight"
+                        } else {
+                            "complete_server_snapshot_cache"
+                        }
+                        PersistentDiagnosticLog.event(
+                            "codex",
+                            "android.codex.history.surface_refresh_deferred",
+                            mapOf(
+                                "conversationKey" to PersistentDiagnosticLog.shortHash(convId),
+                                "generation" to historySelectionGeneration,
+                                "previousStatus" to previousStatus,
+                                "surfaceStatus" to snap.status,
+                                "reason" to refreshReason
+                            )
+                        )
+                    } else if (surfaceRequestsHistorySync) {
                         // A partial baseline is complete enough for this selection; do not
                         // restart manifest sync on every streaming surface revision. A terminal
-                        // transition gets one final refresh so the committed cache includes the
-                        // completed turn, while reconnect/selection still trigger their own
-                        // requests through the existing paths.
+                        // transition gets one final refresh unless the B4R static baseline is
+                        // in flight or already proven complete. Reconnect/selection still
+                        // trigger their own requests through the existing paths.
                         if (previousStatus?.trim()?.lowercase() !in setOf(
                                 "completed", "failed", "interrupted", "cancelled", "canceled"
                             ) && snap.status.trim().lowercase() in setOf(
@@ -9609,7 +10082,8 @@ class CodexViewModel(
         val messages: List<ChatMessage>,
         val uiState: CodexHistoryCacheUiState,
         /** B4R's complete static-history proof; distinct from old v2 `complete`. */
-        val durableCoverageComplete: Boolean = false
+        val durableCoverageComplete: Boolean = false,
+        val providerMode: String? = null
     )
 
     private fun decodeHistoryCacheSnapshot(
@@ -9645,7 +10119,7 @@ class CodexViewModel(
         val decodedDurableCount = durableItems.count { it.itemKey in decodedIds }
         val decodedAllDurableRows = decodedDurableCount == durableItems.size
         val checkpoint = cached.checkpoint
-        val complete = checkpoint.complete &&
+        val legacyCheckpointComplete = checkpoint.complete &&
             checkpoint.itemCount == durableItems.size &&
             decodedAllDurableRows
         val durableCoverageComplete = hasDurableHistoryCoverage(
@@ -9653,6 +10127,10 @@ class CodexViewModel(
             checkpointItemCount = checkpoint.itemCount,
             durableItemCount = durableItems.size,
             decodedAllDurableRows = decodedAllDurableRows
+        )
+        val complete = isCompleteStaticHistoryCache(
+            legacyCheckpointComplete = legacyCheckpointComplete,
+            durableCoverageComplete = durableCoverageComplete
         )
         val loadState = if (decodedMessages.isEmpty() && durableItems.isNotEmpty()) {
             CodexHistoryCacheLoadState.FAILED
@@ -9670,7 +10148,8 @@ class CodexViewModel(
                 lastSyncedAt = checkpoint.lastSyncedAt,
                 detailCode = if (!decodedAllDurableRows) "cache_decode_partial" else null
             ),
-            durableCoverageComplete = durableCoverageComplete
+            durableCoverageComplete = durableCoverageComplete,
+            providerMode = checkpoint.providerMode
         )
     }
 
@@ -10408,14 +10887,12 @@ class CodexViewModel(
         )
 
     private fun extractUserMessageText(item: JSONObject): String {
-        val content = item.optJSONArray("content") ?: return ""
-        for (index in 0 until content.length()) {
-            val part = content.optJSONObject(index) ?: continue
-            if (part.optString("type", "") == "text") {
-                return part.optString("text", "")
-            }
-        }
-        return ""
+        // Codex may expose user content as a structured array in both
+        // thread/read turns and the legacy messages shape.  Keep this path
+        // identical to the history-cache decoder so the same item cannot be
+        // rendered as a JSON array in one recovery mode and as text in
+        // another.
+        return extractHistoryPayloadTextForUi(item)
     }
 
     private fun extractUserMessageFileMentions(
@@ -12466,7 +12943,12 @@ class CodexViewModel(
                 "error" -> ChatMessage.Role.ERROR
                 else -> ChatMessage.Role.SYSTEM
             }
-            val content = msgJson.optString("content", "")
+            // `content` is a structured array for canonical Codex user
+            // messages.  Calling optString() on that array produces the
+            // literal JSON-array text that was visible after a
+            // cache/history reload; project it using the shared semantic
+            // decoder instead.
+            val content = extractHistoryPayloadTextForUi(msgJson)
             val fileMentions = if (role == ChatMessage.Role.USER) {
                 extractUserMessageFileMentions(
                     content = msgJson.optJSONArray("content"),

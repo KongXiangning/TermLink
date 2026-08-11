@@ -1205,6 +1205,144 @@ test('healthy surface arriving during grace skips canonical full recovery', asyn
     await stopGateway(g);
 });
 
+test('healthy surface settles the selection deadline without poisoning a later recovery request', async () => {
+    const g = await setupGateway({
+        ipcSurfaceWaitGraceMs: 5,
+        historySelectionDeadlineMs: 40,
+        historySettlementMarginMs: 5
+    });
+    const sess = await g.sm.createSession({ name: 'healthy-surface-settles-cycle' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-healthy-cycle' }));
+    g.ipcFeed.pushSnapshot('conv-healthy-cycle', {
+        conversationId: 'conv-healthy-cycle',
+        latestTurnId: 'turn-healthy-cycle',
+        status: 'completed',
+        items: [{ key: 'healthy-cycle-item', kind: 'message', role: 'assistant', text: 'live' }]
+    });
+    await delay(90);
+
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174026',
+        conversationId: 'conv-healthy-cycle',
+        selectionGeneration: 1
+    }));
+    const recovery = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174026', 500);
+    assert.equal(recovery?.state, 'ready');
+    assert.equal(recovery?.detailCode, 'healthy_surface');
+    ws.close();
+    await stopGateway(g);
+});
+
+test('server snapshot lane settles healthy recovery without waiting for full live baseline projection', async () => {
+    const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+    let mediaPutCalls = 0;
+    let releaseProjection;
+    const projectionBlocked = new Promise((resolve) => { releaseProjection = resolve; });
+    const g = await setupGateway({
+        historySnapshotSegmentsEnabled: true,
+        historySnapshotStore: {},
+        mediaStore: {
+            async put() {
+                mediaPutCalls += 1;
+                await projectionBlocked;
+                return {
+                    contentHash: 'c'.repeat(64),
+                    mimeType: 'image/png',
+                    byteSize: 68,
+                    mediaPath: '/api/codex/media/' + 'c'.repeat(64)
+                };
+            },
+            async ensureThumbnail() { return null; }
+        },
+        ipcSurfaceWaitGraceMs: 5,
+        historySelectionDeadlineMs: 300,
+        historySettlementMarginMs: 10
+    });
+    const sess = await g.sm.createSession({ name: 'snapshot-recovery-no-baseline-wait' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-snapshot-recovery' }));
+    g.ipcFeed.pushSnapshot('conv-snapshot-recovery', {
+        conversationId: 'conv-snapshot-recovery',
+        latestTurnId: 'turn-snapshot-recovery',
+        status: 'completed',
+        items: [{ key: 'snapshot-item', kind: 'message', role: 'assistant', text: `image ${dataUrl}` }]
+    });
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174023',
+        conversationId: 'conv-snapshot-recovery',
+        selectionGeneration: 1
+    }));
+
+    const recovery = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174023', 500);
+    assert.equal(recovery?.state, 'ready');
+    assert.equal(recovery?.detailCode, 'healthy_surface');
+    assert.equal(mediaPutCalls, 0, 'server snapshot recovery must not eagerly project the full live surface');
+
+    ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174025',
+        conversationId: 'conv-snapshot-recovery',
+        selectionGeneration: 1,
+        cacheSchemaVersion: 3,
+        checkpoint: { rootHash: null, itemCount: 0, complete: false }
+    }));
+    await delay(100);
+    assert.equal(mediaPutCalls, 1, 'legacy clients opt into one compatibility baseline only when they sync');
+    releaseProjection();
+    await delay(30);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('legacy live baseline projection is attempted only once per conversation', async () => {
+    const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+    let mediaPutCalls = 0;
+    const g = await setupGateway({
+        mediaStore: {
+            async put() {
+                mediaPutCalls += 1;
+                await delay(20);
+                return {
+                    contentHash: 'b'.repeat(64),
+                    mimeType: 'image/png',
+                    byteSize: 68,
+                    mediaPath: '/api/codex/media/' + 'b'.repeat(64)
+                };
+            },
+            async ensureThumbnail() { return null; }
+        }
+    });
+    const sess = await g.sm.createSession({ name: 'legacy-baseline-once' });
+    const { ws } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-baseline-once' }));
+    g.ipcFeed.pushSnapshot('conv-baseline-once', {
+        conversationId: 'conv-baseline-once',
+        latestTurnId: 'turn-baseline-once',
+        status: 'running',
+        items: [{ key: 'baseline-one', kind: 'message', role: 'assistant', text: dataUrl }]
+    });
+    g.ipcFeed.pushSnapshot('conv-baseline-once', {
+        conversationId: 'conv-baseline-once',
+        latestTurnId: 'turn-baseline-once',
+        status: 'running',
+        items: [{ key: 'baseline-two', kind: 'message', role: 'assistant', text: dataUrl }]
+    });
+    await delay(120);
+    assert.equal(mediaPutCalls, 1);
+    ws.close();
+    await stopGateway(g);
+});
+
 test('desynced surface invalidates the cycle and escalates to canonical recovery', async () => {
     const g = await setupGateway({
         ipcSurfaceWaitGraceMs: 120,
@@ -2039,6 +2177,49 @@ test('selection hard deadline closes a hanging recovery with an explicit timeout
     );
     assert.equal(timeoutStates.length, 1);
     assert.equal(timeoutStates[0].detailCode, 'history_recovery_timeout');
+    ws.close();
+    await stopGateway(g);
+});
+
+test('surface baseline recovery deadline emits an explicit timeout', async () => {
+    const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+    const g = await setupGateway({
+        ipcSurfaceWaitGraceMs: 5,
+        historySelectionDeadlineMs: 70,
+        historySettlementMarginMs: 10,
+        mediaStore: {
+            async put() {
+                return new Promise(() => {});
+            },
+            async ensureThumbnail() { return null; }
+        }
+    });
+    const sess = await g.sm.createSession({ name: 'surface-baseline-deadline' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-surface-baseline-deadline' }));
+    g.ipcFeed.pushSnapshot('conv-surface-baseline-deadline', {
+        conversationId: 'conv-surface-baseline-deadline',
+        latestTurnId: 'turn-surface-baseline-deadline',
+        status: 'completed',
+        items: [{ key: 'pending-baseline-media', kind: 'message', role: 'assistant', text: dataUrl }]
+    });
+    ws.send(JSON.stringify({
+        type: 'conversation_history_recovery_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174024',
+        conversationId: 'conv-surface-baseline-deadline',
+        selectionGeneration: 1
+    }));
+    const failure = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174024' &&
+        message.state === 'failed', 500);
+    assert.equal(failure?.detailCode, 'history_recovery_timeout');
+    assert.equal(messages.filter((message) =>
+        message.type === 'conversation_history_recovery_state' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174024' &&
+        message.state === 'failed'
+    ).length, 1);
     ws.close();
     await stopGateway(g);
 });

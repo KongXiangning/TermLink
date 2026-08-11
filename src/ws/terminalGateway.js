@@ -1510,11 +1510,44 @@ function registerTerminalGateway(wss, {
         return incomingSurface?.historyBaselineComplete !== true;
     };
 
-    const _registerSurfaceBaseline = (conversationId, surface, sourceKind = 'ipc_surface') => {
+    const _registerSurfaceBaseline = (
+        conversationId,
+        surface,
+        sourceKind = 'ipc_surface',
+        { allowLegacyCompatibilityBaseline = false } = {}
+    ) => {
         if (surface?.desynced === true) {
             return Promise.resolve({ skipped: true, reason: 'desynced_surface' });
         }
+        const isLiveIpcSurface = sourceKind === 'ipc_surface';
+        const serverSnapshotLaneEnabled = historySnapshotSegmentsEnabled === true && Boolean(resolvedHistorySnapshotStore);
+        if (isLiveIpcSurface && serverSnapshotLaneEnabled && allowLegacyCompatibilityBaseline !== true) {
+            // B4R clients obtain static history from the server-snapshot lane.
+            // Do not eagerly duplicate a potentially very large IPC surface
+            // into the legacy baseline/media projector. An older client that
+            // actually requests the v2/range lane opts into this projection
+            // from conversation_history_sync_request below.
+            return Promise.resolve({ skipped: true, reason: 'server_snapshot_lane' });
+        }
         const existingBaseline = historySyncService?.getBaseline(conversationId);
+        // The live surface is the realtime authority.  In the legacy/range
+        // compatibility lane it may still seed one bounded static baseline,
+        // but every later IPC revision is delivered through the live surface
+        // path and must not start another full media projection.  Without
+        // this fence, a large full snapshot can keep replacing the pending
+        // value forever and amplify memory/GC pressure on the Gateway.
+        if (isLiveIpcSurface && _surfaceBaselineRevisions.has(conversationId)) {
+            if (existingBaseline || _surfaceBaselinePromises.has(conversationId)) {
+                return Promise.resolve({ skipped: true, reason: 'live_baseline_already_attempted' });
+            }
+            // A TTL/budget prune or a failed projection removed the only
+            // baseline. Permit the next live revision to seed a new one, but
+            // never retry while the previous projection is still pending.
+            _surfaceBaselineRevisions.delete(conversationId);
+        }
+        if (isLiveIpcSurface && existingBaseline?.sourceKind === sourceKind) {
+            return Promise.resolve({ skipped: true, reason: 'live_baseline_exists' });
+        }
         if (_shouldPreserveRecoveryBaseline(existingBaseline, surface)) {
             diagnosticLog.event('server', 'server.codex.history.baseline_preserved', {
                 conversationKey: diagnosticKey(conversationId),
@@ -1747,6 +1780,15 @@ function registerTerminalGateway(wss, {
         cycle.deadlineTimer = null;
     };
 
+    const _armHistorySelectionDeadline = (ws, cycle) => {
+        if (!cycle || cycle.cancelled || cycle.deadlineReached) return;
+        _clearHistorySelectionDeadlineTimer(cycle);
+        cycle.startedAt = Date.now();
+        cycle.deadlineAt = cycle.startedAt + normalizedHistorySelectionDeadlineMs;
+        cycle.deadlineTimer = setTimeout(() => _handleHistorySelectionDeadline(ws, cycle), normalizedHistorySelectionDeadlineMs);
+        if (typeof cycle.deadlineTimer.unref === 'function') cycle.deadlineTimer.unref();
+    };
+
     const _detachHistoryRecoveryWaiter = (ws) => {
         const pending = _ipcHistoryRecoveryWaiters.get(ws);
         if (!pending) return false;
@@ -1830,6 +1872,7 @@ function registerTerminalGateway(wss, {
 
     const _handleHistorySelectionDeadline = (ws, cycle) => {
         if (_getHistorySelectionCycle(ws) !== cycle || cycle.cancelled || cycle.deadlineReached) return;
+        const recoveryStateBeforeDeadline = cycle.recoveryState;
         cycle.deadlineReached = true;
         cycle.recoveryState = 'failed';
         _clearHistorySelectionDeadlineTimer(cycle);
@@ -1850,6 +1893,27 @@ function registerTerminalGateway(wss, {
             });
         }
 
+        // A healthy-surface recovery can be waiting on the legacy/range
+        // baseline projection without having started a canonical recovery
+        // waiter.  Surface that state explicitly instead of recording a
+        // misleading deadline with hadPendingRecovery=false and leaving the
+        // Android client to infer what happened from a stale tail.
+        const pendingSurfaceBaseline = Boolean(
+            !pendingRecovery &&
+            cycle.recoveryInFlight &&
+            cycle.activeRecoverySyncId &&
+            (cycle.recoveryState === 'waiting_grace' || cycle.recoveryState === 'healthy')
+        );
+        if (pendingSurfaceBaseline) {
+            _sendHistoryRecoveryState(ws, {
+                syncId: cycle.activeRecoverySyncId,
+                conversationId: cycle.conversationId,
+                state: 'failed',
+                detailCode: 'history_recovery_timeout',
+                selectionGeneration: cycle.selectionGeneration
+            });
+        }
+
         const syncContext = _ipcHistorySyncContexts.get(ws);
         if (
             syncContext &&
@@ -1861,11 +1925,30 @@ function registerTerminalGateway(wss, {
             _sendHistorySyncFailure(ws, syncContext, 'history_selection_deadline');
         }
 
+        const idleHealthySelection = !pendingRecovery &&
+            !pendingSurfaceBaseline &&
+            !syncContext &&
+            Boolean(_getCurrentCycleIpcSnapshot(cycle.conversationId)) &&
+            (recoveryStateBeforeDeadline === 'healthy' ||
+                recoveryStateBeforeDeadline === 'ready' ||
+                recoveryStateBeforeDeadline === 'static_snapshot');
+        if (idleHealthySelection) {
+            // A shared subscription cycle may already have a healthy surface
+            // before this WebSocket starts its selection cycle, so
+            // _markHistorySelectionSurface() has no new event to clear the
+            // timer. Treat this as an idle settlement rather than a timeout.
+            cycle.deadlineReached = false;
+            cycle.recoveryState = recoveryStateBeforeDeadline;
+            cycle.deadlineAt = Number.POSITIVE_INFINITY;
+            return;
+        }
+
         diagnosticLog.event('server', 'server.codex.history.selection_cycle.deadline', {
             conversationKey: diagnosticKey(cycle.conversationId),
             selectionGeneration: cycle.selectionGeneration,
             deadlineMs: normalizedHistorySelectionDeadlineMs,
             hadPendingRecovery: Boolean(pendingRecovery),
+            hadPendingSurfaceBaseline: pendingSurfaceBaseline,
             hadPendingSync: Boolean(syncContext)
         }, 'warn');
     };
@@ -1926,6 +2009,14 @@ function registerTerminalGateway(wss, {
                 ) {
                     _detachHistoryRecoveryWaiter(ws);
                 }
+            }
+            if (!cycle.recoveryInFlight && !_ipcHistorySyncContexts.has(ws)) {
+                // A healthy live surface has settled the selection's realtime
+                // gate. Do not leave a one-shot selection timer behind to
+                // report a false deadline when no history operation exists.
+                // Any later recovery/sync request has its own bounded timeout.
+                _clearHistorySelectionDeadlineTimer(cycle);
+                cycle.deadlineAt = Number.POSITIVE_INFINITY;
             }
         }
     };
@@ -5690,6 +5781,14 @@ function registerTerminalGateway(wss, {
                                 });
                                 return;
                             }
+                            if (
+                                cycle.deadlineAt === Number.POSITIVE_INFINITY &&
+                                !cycle.recoveryInFlight &&
+                                !cycle.fullRecoveryAttempted &&
+                                !_ipcHistorySyncContexts.has(ws)
+                            ) {
+                                _armHistorySelectionDeadline(ws, cycle);
+                            }
                             if (cycle.deadlineReached || Date.now() >= cycle.deadlineAt) {
                                 _handleHistorySelectionDeadline(ws, cycle);
                                 if (!cycle.deadlineReached) cycle.deadlineReached = true;
@@ -5749,6 +5848,27 @@ function registerTerminalGateway(wss, {
                                 if (cycle.deadlineReached) return;
 
                                 if (currentSurface) {
+                                    if (historySnapshotSegmentsEnabled === true && resolvedHistorySnapshotStore) {
+                                        // B4R static history is built by the
+                                        // server-snapshot lane.  A healthy
+                                        // IPC surface is already sufficient to
+                                        // settle the realtime recovery gate;
+                                        // waiting for a full media projection
+                                        // here would make live readiness depend
+                                        // on the size of the whole thread.
+                                        cycle.recoveryState = 'healthy';
+                                        _sendHistoryRecoveryState(ws, {
+                                            syncId,
+                                            conversationId,
+                                            state: 'ready',
+                                            detailCode: 'healthy_surface',
+                                            itemCount: Array.isArray(currentSurface.items) ? currentSurface.items.length : 0,
+                                            complete: currentSurface.historyBaselineComplete === true,
+                                            selectionGeneration: currentSelectionGeneration,
+                                            clientSelectionGeneration
+                                        });
+                                        return;
+                                    }
                                     const surfaceBudget = Math.max(1, Math.min(
                                         HISTORY_RECOVERY_TIMEOUT_MS,
                                         _remainingHistorySelectionBudget(cycle) - normalizedHistorySettlementMarginMs
@@ -5895,6 +6015,21 @@ function registerTerminalGateway(wss, {
                                     _getCurrentCycleIpcSnapshot(conversationId)
                                 ) {
                                     try {
+                                        const currentSurface = _getCurrentCycleIpcSnapshot(conversationId);
+                                        if (historySnapshotSegmentsEnabled === true && resolvedHistorySnapshotStore) {
+                                            cycle.recoveryState = 'healthy';
+                                            _sendHistoryRecoveryState(ws, {
+                                                syncId,
+                                                conversationId,
+                                                state: 'ready',
+                                                detailCode: 'healthy_surface',
+                                                itemCount: Array.isArray(currentSurface?.items) ? currentSurface.items.length : 0,
+                                                complete: currentSurface?.historyBaselineComplete === true,
+                                                selectionGeneration: currentSelectionGeneration,
+                                                clientSelectionGeneration
+                                            });
+                                            return;
+                                        }
                                         const surfaceBudget = Math.max(1, Math.min(
                                             HISTORY_RECOVERY_TIMEOUT_MS,
                                             _remainingHistorySelectionBudget(cycle) - normalizedHistorySettlementMarginMs
@@ -5968,6 +6103,10 @@ function registerTerminalGateway(wss, {
                                 if (_isCurrentHistorySelectionCycle(ws, conversationId, currentSelectionGeneration)) {
                                     cycle.activeRecoverySyncId = null;
                                     cycle.recoveryInFlight = false;
+                                    if (cycle.recoveryState === 'healthy' || cycle.recoveryState === 'ready') {
+                                        _clearHistorySelectionDeadlineTimer(cycle);
+                                        cycle.deadlineAt = Number.POSITIVE_INFINITY;
+                                    }
                                 }
                             }
                         }
@@ -6049,6 +6188,7 @@ function registerTerminalGateway(wss, {
                             cycle.staticSnapshotActive = true;
                             cycle.recoveryState = 'static_snapshot';
                             _clearHistorySelectionDeadlineTimer(cycle);
+                            cycle.deadlineAt = Number.POSITIVE_INFINITY;
                             _ipcHistorySyncContexts.set(ws, {
                                 syncId,
                                 conversationId,
@@ -6167,6 +6307,14 @@ function registerTerminalGateway(wss, {
                                 }, 'stale_selection');
                                 return;
                             }
+                            if (
+                                cycle.deadlineAt === Number.POSITIVE_INFINITY &&
+                                !cycle.recoveryInFlight &&
+                                !cycle.fullRecoveryAttempted &&
+                                !_ipcHistorySyncContexts.has(ws)
+                            ) {
+                                _armHistorySelectionDeadline(ws, cycle);
+                            }
                             if (cycle.deadlineReached || Date.now() >= cycle.deadlineAt) {
                                 _handleHistorySelectionDeadline(ws, cycle);
                                 _sendHistorySyncFailure(ws, {
@@ -6192,6 +6340,15 @@ function registerTerminalGateway(wss, {
                             // recovery state instead of leaving Android in
                             // loading_baseline forever.
                             try {
+                                const currentSurface = _getCurrentCycleIpcSnapshot(conversationId);
+                                if (currentSurface) {
+                                    _registerSurfaceBaseline(
+                                        conversationId,
+                                        currentSurface,
+                                        'ipc_surface',
+                                        { allowLegacyCompatibilityBaseline: true }
+                                    );
+                                }
                                 const projectionBudget = Math.min(
                                     HISTORY_RECOVERY_TIMEOUT_MS,
                                     _remainingHistorySelectionBudget(cycle) - normalizedHistorySettlementMarginMs
