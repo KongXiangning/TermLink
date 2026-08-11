@@ -30,11 +30,33 @@ import com.termlink.app.codex.domain.PERMISSION_CHOICE_CUSTOM
 import com.termlink.app.codex.domain.PERMISSION_CHOICE_FULL_ACCESS
 import com.termlink.app.codex.domain.PERMISSION_PROFILE_CHOICE_PREFIX
 import org.json.JSONObject
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+private class FakeAutomaticOlderPumpScheduler {
+    data class Entry(
+        val delayMillis: Long,
+        val task: suspend () -> Unit,
+        var cancelled: Boolean = false
+    )
+
+    val entries = mutableListOf<Entry>()
+
+    fun schedule(delayMillis: Long, task: suspend () -> Unit): AutomaticOlderHistoryPumpHandle {
+        val entry = Entry(delayMillis, task)
+        entries += entry
+        return AutomaticOlderHistoryPumpHandle { entry.cancelled = true }
+    }
+
+    fun runNext() {
+        val entry = entries.removeFirstOrNull() ?: return
+        if (!entry.cancelled) runBlocking { entry.task() }
+    }
+}
 
 class CodexViewModelThreadReadyTest {
     @Test
@@ -160,6 +182,176 @@ class CodexViewModelThreadReadyTest {
                 settledGeneration = -1L
             )
         )
+    }
+
+    @Test
+    fun automaticOlderPumpOnlyContinuesAPartialRangeWithMoreBefore() {
+        assertTrue(
+            shouldScheduleAutomaticOlderHistoryPage(
+                rangeEnabled = true,
+                syncState = "partial",
+                rangeSync = true,
+                hasMoreBefore = true,
+                isCurrentSelection = true,
+                requestInFlight = false
+            )
+        )
+        assertFalse(
+            shouldScheduleAutomaticOlderHistoryPage(
+                rangeEnabled = true,
+                syncState = "synced",
+                rangeSync = true,
+                hasMoreBefore = true,
+                isCurrentSelection = true,
+                requestInFlight = false
+            )
+        )
+        assertFalse(
+            shouldScheduleAutomaticOlderHistoryPage(
+                rangeEnabled = true,
+                syncState = "partial",
+                rangeSync = true,
+                hasMoreBefore = false,
+                isCurrentSelection = true,
+                requestInFlight = false
+            )
+        )
+        assertFalse(
+            shouldScheduleAutomaticOlderHistoryPage(
+                rangeEnabled = true,
+                syncState = "partial",
+                rangeSync = true,
+                hasMoreBefore = true,
+                isCurrentSelection = false,
+                requestInFlight = false
+            )
+        )
+        assertFalse(
+            shouldScheduleAutomaticOlderHistoryPage(
+                rangeEnabled = true,
+                syncState = "partial",
+                rangeSync = true,
+                hasMoreBefore = true,
+                isCurrentSelection = true,
+                requestInFlight = true
+            )
+        )
+    }
+
+    @Test
+    fun automaticOlderPumpRequestsOnlyAfterTheDelayedCheckpointCheck() {
+        val scheduler = FakeAutomaticOlderPumpScheduler()
+        val coordinator = AutomaticOlderHistoryPumpCoordinator(scheduler::schedule)
+        var requests = 0
+        var current = true
+
+        assertTrue(
+            coordinator.schedule(
+                conversationId = "conv-a",
+                generation = 4L,
+                rangeEnabled = true,
+                syncState = "partial",
+                rangeSync = true,
+                isCurrentSelection = { current },
+                readHasMoreBefore = { true },
+                request = { requests += 1; true }
+            )
+        )
+        assertEquals(250L, scheduler.entries.single().delayMillis)
+        assertEquals(0, requests)
+        scheduler.runNext()
+        assertEquals(1, requests)
+    }
+
+    @Test
+    fun automaticOlderPumpDelayDoesNotSendAfterSelectionSwitch() {
+        val scheduler = FakeAutomaticOlderPumpScheduler()
+        val coordinator = AutomaticOlderHistoryPumpCoordinator(scheduler::schedule)
+        var current = true
+        var requests = 0
+        coordinator.schedule(
+            conversationId = "conv-a",
+            generation = 5L,
+            rangeEnabled = true,
+            syncState = "partial",
+            rangeSync = true,
+            isCurrentSelection = { current },
+            readHasMoreBefore = { true },
+            request = { requests += 1; true }
+        )
+        current = false
+        scheduler.runNext()
+        assertEquals(0, requests)
+    }
+
+    @Test
+    fun automaticOlderPumpCancellationStopsTransportLossContinuation() {
+        val scheduler = FakeAutomaticOlderPumpScheduler()
+        val coordinator = AutomaticOlderHistoryPumpCoordinator(scheduler::schedule)
+        var requests = 0
+        coordinator.schedule(
+            conversationId = "conv-a",
+            generation = 6L,
+            rangeEnabled = true,
+            syncState = "partial",
+            rangeSync = true,
+            isCurrentSelection = { true },
+            readHasMoreBefore = { true },
+            request = { requests += 1; true }
+        )
+        coordinator.cancel()
+        assertTrue(scheduler.entries.single().cancelled)
+        scheduler.runNext()
+        assertEquals(0, requests)
+    }
+
+    @Test
+    fun automaticOlderPumpWaitsForPreviousPageTerminalBeforeSchedulingNext() {
+        val scheduler = FakeAutomaticOlderPumpScheduler()
+        val coordinator = AutomaticOlderHistoryPumpCoordinator(scheduler::schedule)
+        var requests = 0
+        val readHasMoreBefore = suspend { true }
+        val schedule = {
+            coordinator.schedule(
+                conversationId = "conv-a",
+                generation = 7L,
+                rangeEnabled = true,
+                syncState = "partial",
+                rangeSync = true,
+                isCurrentSelection = { true },
+                readHasMoreBefore = readHasMoreBefore,
+                request = { requests += 1; true }
+            )
+        }
+        assertTrue(schedule())
+        scheduler.runNext()
+        assertEquals(1, requests)
+        assertEquals(false, schedule())
+        coordinator.markRequestFinished("conv-a", 7L)
+        assertTrue(schedule())
+        scheduler.runNext()
+        assertEquals(2, requests)
+    }
+
+    @Test
+    fun automaticOlderPumpRejectsLateSyncAfterASelectionGenerationChange() {
+        val scheduler = FakeAutomaticOlderPumpScheduler()
+        val coordinator = AutomaticOlderHistoryPumpCoordinator(scheduler::schedule)
+        var generation = 8L
+        var requests = 0
+        coordinator.schedule(
+            conversationId = "conv-a",
+            generation = generation,
+            rangeEnabled = true,
+            syncState = "partial",
+            rangeSync = true,
+            isCurrentSelection = { generation == 8L },
+            readHasMoreBefore = { true },
+            request = { requests += 1; true }
+        )
+        generation = 9L
+        scheduler.runNext()
+        assertEquals(0, requests)
     }
 
     @Test

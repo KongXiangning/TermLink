@@ -24,6 +24,12 @@ const DEFAULTS = Object.freeze({
     historyInlinePayloadBytes: 128 * 1024,
     historyPayloadChunkBytes: 96 * 1024,
     historyPayloadChunkEnvelopeBytes: 128 * 1024,
+    // P0-B.4R: a static snapshot is delivered as independently committed
+    // logical ranges. Payload fragments stay deliberately small so the
+    // scheduler can yield between them to live/control traffic.
+    historySnapshotSegmentBytes: 96 * 1024,
+    historySnapshotFragmentBytes: 16 * 1024,
+    historySnapshotInlinePayloadBytes: 8 * 1024,
     // Canonical baselines are process-local acceleration state.  They are
     // retained only while a sync/recovery subscriber is attached, then for a
     // bounded grace period so a second client can reuse the same result.
@@ -156,6 +162,7 @@ function buildDeltaPages({
     enablePayloadChunks = false,
     payloadInlineMaxBytes = DEFAULTS.historyInlinePayloadBytes,
     payloadChunkBytes = DEFAULTS.historyPayloadChunkBytes,
+    forcePayloadChunkItems = null,
     range = null,
     // The page-size budget is the budget for the final WebSocket envelope,
     // not just for the page body.  Keep this optional for callers that use
@@ -167,7 +174,8 @@ function buildDeltaPages({
     const wireOptions = {
         enablePayloadChunks,
         payloadInlineMaxBytes,
-        payloadChunkBytes
+        payloadChunkBytes,
+        forcePayloadChunkItems
     };
     // Convert each canonical item exactly once.  The previous implementation
     // converted (and, for chunked payloads, split) every item once per packing
@@ -270,6 +278,50 @@ function buildDeltaPages({
     });
 }
 
+function findMinimalPayloadChunkItems(upserts, wireOptions, buildPages, isAcceptable) {
+    if (!wireOptions?.enablePayloadChunks || !Array.isArray(upserts) || !upserts.length) return null;
+
+    const candidates = upserts.map((item, index) => {
+        const payloadJson = typeof item?.payloadJson === 'string' ? item.payloadJson : '';
+        const payloadBytes = Buffer.byteLength(payloadJson, 'utf8');
+        if (!payloadBytes || payloadBytes > wireOptions.payloadInlineMaxBytes || item?.itemKey === undefined) return null;
+
+        const inline = toWireItemWithChunks(item, wireOptions).wire;
+        if (inline.payloadJson !== payloadJson) return null;
+        const chunked = toWireItemWithChunks(item, {
+            ...wireOptions,
+            forcePayloadChunkItems: new Set([item.itemKey])
+        }).wire;
+        const inlineBytes = Buffer.byteLength(JSON.stringify(inline), 'utf8');
+        const chunkedBytes = Buffer.byteLength(JSON.stringify(chunked), 'utf8');
+        const savings = inlineBytes - chunkedBytes;
+        return savings > 0 ? { itemKey: item.itemKey, payloadBytes, savings, index } : null;
+    }).filter(Boolean).sort((left, right) =>
+        right.savings - left.savings || right.payloadBytes - left.payloadBytes || left.index - right.index
+    );
+
+    if (!candidates.length) return null;
+
+    // Chunk only the smallest prefix that makes the tail fit.  The packed
+    // page can only shrink as positive-savings candidates are added, so a
+    // binary search avoids rebuilding the history page once per item.
+    let low = 1;
+    let high = candidates.length;
+    let best = null;
+    while (low <= high) {
+        const middle = Math.floor((low + high) / 2);
+        const forcePayloadChunkItems = new Set(candidates.slice(0, middle).map((candidate) => candidate.itemKey));
+        const pages = buildPages(forcePayloadChunkItems);
+        if (isAcceptable(pages)) {
+            best = { pages };
+            high = middle - 1;
+        } else {
+            low = middle + 1;
+        }
+    }
+    return best;
+}
+
 function makePage({
     syncId,
     sequence,
@@ -323,7 +375,12 @@ function toWireItem(item, options = {}) {
     return toWireItemWithChunks(item, options).wire;
 }
 
-function toWireItemWithChunks(item, { enablePayloadChunks = false, payloadInlineMaxBytes = DEFAULTS.historyInlinePayloadBytes, payloadChunkBytes = DEFAULTS.historyPayloadChunkBytes } = {}) {
+function toWireItemWithChunks(item, {
+    enablePayloadChunks = false,
+    payloadInlineMaxBytes = DEFAULTS.historyInlinePayloadBytes,
+    payloadChunkBytes = DEFAULTS.historyPayloadChunkBytes,
+    forcePayloadChunkItems = null
+} = {}) {
     const payloadJson = typeof item.payloadJson === 'string' ? item.payloadJson : '';
     if (INLINE_IMAGE_DATA_URL.test(payloadJson)) {
         const error = new Error('History payload contains an image data URL.');
@@ -331,7 +388,8 @@ function toWireItemWithChunks(item, { enablePayloadChunks = false, payloadInline
         throw error;
     }
     const payloadBytes = Buffer.byteLength(payloadJson, 'utf8');
-    const shouldChunk = enablePayloadChunks && payloadBytes > payloadInlineMaxBytes;
+    const forcePayloadChunk = forcePayloadChunkItems instanceof Set && forcePayloadChunkItems.has(item.itemKey);
+    const shouldChunk = enablePayloadChunks && payloadBytes > 0 && (payloadBytes > payloadInlineMaxBytes || forcePayloadChunk);
     const chunks = shouldChunk ? splitUtf8(payloadJson, payloadChunkBytes) : [];
     const wire = {
         itemKey: item.itemKey,
@@ -379,6 +437,28 @@ function splitUtf8(value, maxBytes) {
     }
     if (current || !chunks.length) chunks.push(current);
     return chunks;
+}
+
+function historyDeltaEnvelopeFits(page, envelopeContext, maxBytes) {
+    const envelope = {
+        type: 'conversation_history_delta',
+        conversationId: envelopeContext.conversationId,
+        ...page,
+        selectionGeneration: envelopeContext.selectionGeneration,
+        clientSelectionGeneration: envelopeContext.clientSelectionGeneration
+    };
+    return Buffer.byteLength(JSON.stringify(envelope), 'utf8') <= maxBytes;
+}
+
+function snapshotSegmentEnvelopeBytes(page, envelopeContext) {
+    const envelope = {
+        type: 'conversation_history_segment_start',
+        conversationId: envelopeContext.conversationId,
+        ...page,
+        selectionGeneration: envelopeContext.selectionGeneration,
+        clientSelectionGeneration: envelopeContext.clientSelectionGeneration
+    };
+    return Buffer.byteLength(JSON.stringify(envelope), 'utf8');
 }
 
 function normalizeNonNegativeDuration(value, fallback) {
@@ -561,7 +641,7 @@ function recoveryResultOutcome(result) {
 }
 
 class CodexHistorySyncService {
-    constructor({ send, now = Date.now, options = {}, isStillActive } = {}) {
+    constructor({ send, now = Date.now, options = {}, isStillActive, canSendHistory, historyByteCredit, onHistoryAck } = {}) {
         this.send = typeof send === 'function' ? send : () => {};
         this.now = now;
         const optionObject = options && typeof options === 'object' ? options : {};
@@ -581,6 +661,15 @@ class CodexHistorySyncService {
             DEFAULTS.historyBaselineByteBudget
         );
         this.isStillActive = typeof isStillActive === 'function' ? isStillActive : () => true;
+        // A lower-priority history frame must not be created while the
+        // snapshot scheduler still has live/control work pending.  The
+        // callback is deliberately advisory and local to this socket; the
+        // existing ACK/generation checks remain the correctness boundary.
+        this.canSendHistory = typeof canSendHistory === 'function' ? canSendHistory : () => true;
+        this.historyByteCredit = typeof historyByteCredit === 'function'
+            ? historyByteCredit
+            : (_ws, preferredBytes) => preferredBytes;
+        this.onHistoryAck = typeof onHistoryAck === 'function' ? onHistoryAck : () => {};
         this._baselines = new Map();
         this._retiredBaselines = new Set();
         this._baselineBytes = 0;
@@ -1155,6 +1244,218 @@ class CodexHistorySyncService {
         return { ok: true, state: 'syncing', sync: state, pages: state.pages };
     }
 
+    /**
+     * Start the P0-B.4R static snapshot lane. Unlike `startSync`, this path
+     * never asks Android for a manifest and never grants delete/order
+     * authority. Every queued logical segment is a one-page range commit;
+     * later source pages may be appended while an upstream paginated scan is
+     * still progressing.
+     */
+    startSnapshotSegments({
+        ws,
+        conversationId,
+        syncId = randomUUID(),
+        checkpoint = {},
+        selectionGeneration = 0,
+        clientSelectionGeneration = 0,
+        cacheSchemaVersion = 3,
+        snapshotSegments = null,
+        initialItems = [],
+        initialFinal = false,
+        providerMode = 'server_snapshot'
+    } = {}) {
+        if (!ws || !conversationId || !isUuid(syncId)) return { ok: false, detailCode: 'invalid_sync_id' };
+        if (!this.isStillActive(ws, conversationId, selectionGeneration)) return { ok: false, detailCode: 'stale_selection' };
+        const capability = normalizeSnapshotSegmentsCapability(snapshotSegments);
+        const normalizedCacheSchemaVersion = normalizeSnapshotCacheSchemaVersion(cacheSchemaVersion, capability.enabled);
+        if (!capability.enabled || normalizedCacheSchemaVersion < 3) {
+            return { ok: false, detailCode: 'history_snapshot_segments_unsupported' };
+        }
+        if (this._syncs.get(ws)) this.cancel(ws);
+        const baseline = this._createBaseline(conversationId, [], {
+            complete: true,
+            coverageComplete: true,
+            baselineSourceKind: 'history_snapshot_stream',
+            resultKind: 'full',
+            syncOutcome: 'synced'
+        });
+        if (!this._retainBaseline(baseline)) return { ok: false, detailCode: 'history_unavailable' };
+        const state = {
+            ws,
+            conversationId,
+            syncId,
+            sequence: 1,
+            selectionGeneration,
+            clientSelectionGeneration: normalizeClientSelectionGeneration(clientSelectionGeneration),
+            checkpoint: normalizeCheckpoint(checkpoint),
+            baseline,
+            syncOutcome: 'synced',
+            syncOutcomeDetail: null,
+            rangeIncomplete: false,
+            settled: false,
+            cacheSchemaVersion: normalizedCacheSchemaVersion,
+            supportsPayloadChunks: true,
+            perPageAck: true,
+            createdAt: this.now(),
+            lastActivityAt: this.now(),
+            awaitingManifest: false,
+            lastAckedRoot: normalizeCheckpoint(checkpoint).rootHash || null,
+            awaitingAckPageIndex: null,
+            activePageChunks: [],
+            nextChunkIndex: 0,
+            snapshot: {
+                providerMode: normalizeSnapshotProviderMode(providerMode),
+                capability,
+                queue: [],
+                nextQueueIndex: 0,
+                awaiting: null,
+                coverageItems: [],
+                initialized: false,
+                finalized: false,
+                finalTargetRoot: null
+            }
+        };
+        this._syncs.set(ws, state);
+        this._armInactivityTimer(ws, state);
+        this._emit(ws, state, {
+            type: 'conversation_history_snapshot_state',
+            syncId,
+            conversationId,
+            state: 'building'
+        });
+        const appended = this.appendSnapshotPage({
+            ws,
+            conversationId,
+            syncId,
+            selectionGeneration,
+            items: initialItems,
+            isFinal: initialFinal
+        });
+        if (!appended.ok) return appended;
+        return { ok: true, state: initialFinal ? 'syncing' : 'streaming', sync: state, segments: appended.segments };
+    }
+
+    /** Queue one normalized native page (or a cached full snapshot) behind an existing static snapshot stream. */
+    appendSnapshotPage({
+        ws,
+        conversationId,
+        syncId,
+        selectionGeneration,
+        items = [],
+        isFinal = false
+    } = {}) {
+        const state = this._syncs.get(ws);
+        if (!state || !state.snapshot || state.syncId !== syncId || state.conversationId !== conversationId) {
+            return { ok: false, detailCode: 'stale_sync' };
+        }
+        if (!this._isCurrent(state) || selectionGeneration !== state.selectionGeneration) {
+            return { ok: false, detailCode: 'stale_selection' };
+        }
+        if (state.snapshot.finalized) return { ok: false, detailCode: 'history_snapshot_already_finalized' };
+        const sourceItems = Array.isArray(items) ? items.map((item) => ({ ...item })) : [];
+        let end = sourceItems.length;
+        const queued = [];
+        if (end === 0 && isFinal && !state.snapshot.initialized) {
+            const descriptor = this._buildSnapshotSegmentDescriptor(state, [], true);
+            if (!descriptor.ok) return this._fail(ws, state, descriptor.detailCode);
+            state.snapshot.queue.push(descriptor.segment);
+            queued.push(descriptor.segment);
+            state.snapshot.initialized = true;
+            state.sequence += 1;
+        }
+        while (end > 0) {
+            const descriptor = this._findLargestSnapshotSegment(state, sourceItems, end, isFinal);
+            if (!descriptor.ok) return this._fail(ws, state, descriptor.detailCode);
+            state.snapshot.queue.push(descriptor.segment);
+            queued.push(descriptor.segment);
+            const rangeKind = descriptor.segment.page.range?.rangeKind;
+            state.snapshot.coverageItems = rangeKind === 'older'
+                ? descriptor.segment.sourceItems.concat(state.snapshot.coverageItems)
+                : state.snapshot.coverageItems.concat(descriptor.segment.sourceItems);
+            state.snapshot.initialized = true;
+            state.sequence += 1;
+            end = descriptor.start;
+        }
+        if (isFinal) {
+            state.snapshot.finalized = true;
+            state.snapshot.finalTargetRoot = state.snapshot.coverageItems.length
+                ? buildConversationRoot(state.snapshot.coverageItems)
+                : queued.at(-1)?.page.targetRoot || buildConversationRoot([]);
+        }
+        state.lastActivityAt = this.now();
+        this._armInactivityTimer(ws, state);
+        this._pumpPages(ws, state);
+        return { ok: true, state: 'streaming', segments: queued };
+    }
+
+    /** Finish an otherwise empty/streamed source without accepting another page. */
+    finishSnapshotSegments({ ws, conversationId, syncId, selectionGeneration } = {}) {
+        return this.appendSnapshotPage({
+            ws,
+            conversationId,
+            syncId,
+            selectionGeneration,
+            items: [],
+            isFinal: true
+        });
+    }
+
+    failSnapshotSegments({ ws, conversationId, syncId, selectionGeneration, detailCode = 'history_snapshot_failed' } = {}) {
+        const state = this._syncs.get(ws);
+        if (!state || !state.snapshot || state.syncId !== syncId || state.conversationId !== conversationId) {
+            return { ok: false, detailCode: 'stale_sync' };
+        }
+        if (!this._isCurrent(state) || selectionGeneration !== state.selectionGeneration) {
+            return { ok: false, detailCode: 'stale_selection' };
+        }
+        return this._fail(ws, state, detailCode);
+    }
+
+    handleSnapshotSegmentAck(ws, ack) {
+        const state = this._syncs.get(ws);
+        if (!state || !state.snapshot || ack?.syncId !== state.syncId || ack?.conversationId !== state.conversationId) {
+            return { ok: false, detailCode: 'stale_sync' };
+        }
+        if (!this._isCurrent(state) || !sameClientSelectionGeneration(state, ack?.clientSelectionGeneration)) {
+            return { ok: false, detailCode: 'stale_selection' };
+        }
+        const awaiting = state.snapshot.awaiting;
+        if (!awaiting || awaiting.phase !== 'awaiting_ack') return this._fail(ws, state, 'snapshot_ack_unexpected');
+        const page = awaiting.segment.page;
+        if (
+            ack.sequence !== page.sequence ||
+            ack.pageIndex !== page.pageIndex ||
+            ack.segmentId !== page.range?.segmentId ||
+            ack.pageHash !== page.pageHash ||
+            ack.targetRoot !== page.targetRoot
+        ) {
+            return this._fail(ws, state, 'snapshot_ack_mismatch');
+        }
+        state.snapshot.awaiting = null;
+        state.lastAckedRoot = page.targetRoot;
+        const acknowledgedAt = this.now();
+        state.lastActivityAt = acknowledgedAt;
+        try {
+            this.onHistoryAck(ws, {
+                bytes: awaiting.segment.logicalBytes,
+                elapsedMs: Math.max(1, acknowledgedAt - (awaiting.startedAt || acknowledgedAt)),
+                conversationId: state.conversationId,
+                syncId: state.syncId,
+                sequence: page.sequence
+            });
+        } catch (_) {
+            // Receiver-side throughput telemetry is advisory only. A logging
+            // or scheduler observation failure must not affect integrity.
+        }
+        this._armInactivityTimer(ws, state);
+        this._pumpPages(ws, state);
+        return {
+            ok: true,
+            state: state.settled ? 'synced' : 'streaming',
+            final: state.snapshot.finalized && state.snapshot.nextQueueIndex >= state.snapshot.queue.length
+        };
+    }
+
     handleManifestPage(ws, page) {
         const state = this._syncs.get(ws);
         if (!state || state.syncId !== page?.syncId || state.conversationId !== page?.conversationId) return { ok: false, detailCode: 'stale_sync' };
@@ -1178,32 +1479,64 @@ class CodexHistorySyncService {
         // caller supplied an optimistic sync outcome.
         state.rangeIncomplete = state.rangeIncomplete || diff.rangeComplete === false;
         const targetRoot = diff.targetRoot || buildConversationRoot(state.baseline.items);
+        const atomicTail = state.rangeEnabled && state.rangeMetadata?.rangeKind === 'tail';
+        const pageBudget = Math.min(this.options.deltaMaxBytes, this.options.historyMaxEnvelopeBytes);
+        const wireOptions = {
+            enablePayloadChunks: state.supportsPayloadChunks,
+            payloadInlineMaxBytes: this.options.historyInlinePayloadBytes,
+            payloadChunkBytes: this.options.historyPayloadChunkBytes
+        };
+        const envelopeContext = {
+            conversationId: state.conversationId,
+            selectionGeneration: state.selectionGeneration,
+            clientSelectionGeneration: state.clientSelectionGeneration
+        };
+        const buildPages = (forcePayloadChunkItems = null) => buildDeltaPages({
+            syncId: state.syncId,
+            sequence: state.sequence,
+            baseRoot: state.checkpoint.rootHash || null,
+            targetRoot,
+            ...diff,
+            // A range tail is one logical provider segment and must be
+            // ACKed/committed atomically by the v3 cache.  Keep the
+            // legacy item cap for v2 and non-tail paths, but let the
+            // complete bounded tail fit in its single range page.
+            maxItems: atomicTail
+                ? Math.max(this.options.deltaMaxItems, state.baseline.items.length)
+                : this.options.deltaMaxItems,
+            // deltaMaxBytes is the page budget; _emit() applies the
+            // actual envelope budget.  Use the stricter of the two so a
+            // custom configuration cannot reintroduce an oversized final
+            // envelope.
+            maxBytes: pageBudget,
+            ...wireOptions,
+            forcePayloadChunkItems,
+            range: state.rangeMetadata,
+            envelopeContext
+        });
+        const isAcceptableAtomicTail = (candidatePages) =>
+            Array.isArray(candidatePages) && candidatePages.length === 1 &&
+            historyDeltaEnvelopeFits(candidatePages[0], envelopeContext, pageBudget);
         let pagesOut;
         try {
-            pagesOut = buildDeltaPages({
-                syncId: state.syncId,
-                sequence: state.sequence,
-                baseRoot: state.checkpoint.rootHash || null,
-                targetRoot,
-                ...diff,
-                maxItems: this.options.deltaMaxItems,
-                // deltaMaxBytes is the page budget; _emit() applies the
-                // actual envelope budget.  Use the stricter of the two so a
-                // custom configuration cannot reintroduce an oversized
-                // final envelope.
-                maxBytes: Math.min(this.options.deltaMaxBytes, this.options.historyMaxEnvelopeBytes),
-                enablePayloadChunks: state.supportsPayloadChunks,
-                payloadInlineMaxBytes: this.options.historyInlinePayloadBytes,
-                payloadChunkBytes: this.options.historyPayloadChunkBytes,
-                range: state.rangeMetadata,
-                envelopeContext: {
-                    conversationId: state.conversationId,
-                    selectionGeneration: state.selectionGeneration,
-                    clientSelectionGeneration: state.clientSelectionGeneration
-                }
-            });
+            pagesOut = buildPages();
+            if (atomicTail && !isAcceptableAtomicTail(pagesOut) && state.supportsPayloadChunks) {
+                const adapted = findMinimalPayloadChunkItems(
+                    diff.upserts,
+                    wireOptions,
+                    buildPages,
+                    isAcceptableAtomicTail
+                );
+                if (adapted) pagesOut = adapted.pages;
+            }
         } catch (error) {
             return this._fail(ws, state, error?.code || 'history_media_not_externalized');
+        }
+        if (atomicTail && !isAcceptableAtomicTail(pagesOut)) {
+            // The Android range transaction commits one provider segment at a
+            // time.  Do not send a multi-page tail that the client must reject
+            // after waiting for a selection watchdog timeout.
+            return this._fail(ws, state, 'history_tail_page_too_large');
         }
         state.pages = pagesOut;
         state.nextPageIndex = 0;
@@ -1317,13 +1650,278 @@ class CodexHistorySyncService {
         if (typeof state.inactivityTimer.unref === 'function') state.inactivityTimer.unref();
     }
 
+    _findLargestSnapshotSegment(state, sourceItems, end, isFinal) {
+        let low = 1;
+        let high = end;
+        let best = null;
+        let lastDetailCode = 'history_snapshot_segment_too_large';
+        // Byte size is monotonic for the prepared descriptors in practice;
+        // binary search keeps a legacy full read with thousands of items from
+        // repeatedly serializing the already accepted prefix.
+        while (low <= high) {
+            const count = Math.floor((low + high) / 2);
+            const start = end - count;
+            const candidate = this._buildSnapshotSegmentDescriptor(
+                state,
+                sourceItems.slice(start, end),
+                isFinal && start === 0
+            );
+            if (candidate.ok && candidate.fits) {
+                best = { ...candidate, start };
+                low = count + 1;
+            } else {
+                if (candidate.detailCode) lastDetailCode = candidate.detailCode;
+                high = count - 1;
+            }
+        }
+        return best || { ok: false, detailCode: lastDetailCode };
+    }
+
+    _buildSnapshotSegmentDescriptor(state, sourceItems, isFinal) {
+        const snapshot = state.snapshot;
+        const items = Array.isArray(sourceItems) ? sourceItems.map((item) => ({ ...item })) : [];
+        const rangeKind = snapshot.initialized ? 'older' : 'tail';
+        const beforeItems = snapshot.coverageItems;
+        const coverageItems = rangeKind === 'older'
+            ? items.concat(beforeItems)
+            : beforeItems.concat(items);
+        const baseRoot = buildConversationRoot(beforeItems);
+        const targetRoot = buildConversationRoot(coverageItems);
+        const first = items[0] || null;
+        const last = items.at(-1) || null;
+        const segmentId = hashPayload(canonicalize({
+            conversationId: state.conversationId,
+            syncId: state.syncId,
+            sequence: state.sequence,
+            rangeKind,
+            firstItemKey: first?.itemKey || null,
+            firstItemHash: first?.contentHash || null,
+            lastItemKey: last?.itemKey || null,
+            lastItemHash: last?.contentHash || null,
+            coverageRoot: targetRoot,
+            coverageComplete: isFinal === true,
+            version: 1
+        }));
+        const range = {
+            version: 1,
+            segmentId,
+            rangeId: segmentId,
+            rangeKind,
+            providerMode: snapshot.providerMode,
+            newestAnchor: last ? { key: last.itemKey, hash: last.contentHash } : null,
+            oldestAnchor: first ? { key: first.itemKey, hash: first.contentHash } : null,
+            nextOlderCursor: null,
+            hasMoreBefore: isFinal !== true,
+            coverageRoot: targetRoot,
+            coverageComplete: isFinal === true
+        };
+        let pages;
+        try {
+            pages = buildDeltaPages({
+                syncId: state.syncId,
+                sequence: state.sequence,
+                baseRoot,
+                targetRoot,
+                upserts: items,
+                deletes: [],
+                canonicalOrder: undefined,
+                baselineComplete: false,
+                maxItems: Math.max(1, items.length),
+                maxBytes: this.options.historySnapshotSegmentBytes,
+                enablePayloadChunks: true,
+                payloadInlineMaxBytes: this.options.historySnapshotInlinePayloadBytes,
+                payloadChunkBytes: this._snapshotFragmentBytes(state),
+                range,
+                envelopeContext: {
+                    conversationId: state.conversationId,
+                    selectionGeneration: state.selectionGeneration,
+                    clientSelectionGeneration: state.clientSelectionGeneration
+                }
+            });
+        } catch (error) {
+            return { ok: false, detailCode: error?.code || 'history_snapshot_segment_invalid' };
+        }
+        if (!Array.isArray(pages) || pages.length !== 1) {
+            return { ok: true, fits: false, detailCode: 'history_snapshot_segment_too_large' };
+        }
+        const page = pages[0];
+        const startBytes = snapshotSegmentEnvelopeBytes(page, {
+            conversationId: state.conversationId,
+            selectionGeneration: state.selectionGeneration,
+            clientSelectionGeneration: state.clientSelectionGeneration
+        });
+        const hardLimit = this.options.historyMaxEnvelopeBytes;
+        if (startBytes > hardLimit) {
+            return { ok: false, detailCode: 'history_snapshot_segment_too_large' };
+        }
+        const fitsLogicalBudget = startBytes <= this.options.historySnapshotSegmentBytes;
+        // An individual item can have unusually large metadata even after its
+        // payload is fragmented. It remains safe when under the hard mobile
+        // envelope cap; rejecting it would make an otherwise recoverable
+        // conversation permanently unavailable.
+        if (!fitsLogicalBudget && items.length > 1) {
+            return { ok: true, fits: false, detailCode: 'history_snapshot_segment_too_large' };
+        }
+        const fragments = Array.isArray(page.payloadChunks) ? page.payloadChunks : [];
+        if (fragments.some((fragment) => Buffer.byteLength(fragment.data || '', 'utf8') > this.options.historySnapshotFragmentBytes)) {
+            return { ok: false, detailCode: 'history_snapshot_fragment_too_large' };
+        }
+        return {
+            ok: true,
+            fits: true,
+            segment: {
+                page,
+                sourceItems: items,
+                fragments,
+                logicalBytes: startBytes
+            }
+        };
+    }
+
+    _historyLaneReady(ws, state) {
+        if (!this._canSendHistory(ws, state)) {
+            this._schedulePump(ws, state, this.options.historyPumpIntervalMs);
+            return false;
+        }
+        const bufferedAmount = Number(ws?.bufferedAmount) || 0;
+        const now = this.now();
+        if (bufferedAmount > this.options.historyHardLimitBytes) {
+            state.backpressureSince ||= now;
+            if (now - state.backpressureSince > this.options.historyHardLimitDurationMs) {
+                this._fail(ws, state, 'history_backpressure_timeout');
+            } else {
+                this._schedulePump(ws, state, 50);
+            }
+            return false;
+        }
+        if (bufferedAmount > this.options.historyHighWaterBytes ||
+            (state.backpressureSince && bufferedAmount > this.options.historyLowWaterBytes)) {
+            this._schedulePump(ws, state, 50);
+            return false;
+        }
+        state.backpressureSince = null;
+        return true;
+    }
+
+    _snapshotFragmentBytes(state) {
+        const preferred = this.options.historySnapshotFragmentBytes;
+        try {
+            const credit = Number(this.historyByteCredit(state.ws, preferred, state));
+            // The Android receiver accepts up to 16 KiB. Keep at least one
+            // UTF-8 byte progress unit even when a telemetry source is noisy.
+            return Number.isFinite(credit) && credit > 0
+                ? Math.max(1, Math.min(preferred, Math.floor(credit)))
+                : preferred;
+        } catch (_) {
+            return preferred;
+        }
+    }
+
+    _pumpSnapshotSegments(ws, state) {
+        const snapshot = state.snapshot;
+        if (!snapshot || state.settled || this._syncs.get(ws) !== state || !this._isCurrent(state)) return;
+        let awaiting = snapshot.awaiting;
+        if (!awaiting) {
+            if (snapshot.nextQueueIndex >= snapshot.queue.length) {
+                if (snapshot.finalized) this._settle(ws, state, 'synced');
+                return;
+            }
+            awaiting = {
+                segment: snapshot.queue[snapshot.nextQueueIndex],
+                phase: 'start',
+                nextFragmentIndex: 0,
+                startedAt: null
+            };
+            snapshot.nextQueueIndex += 1;
+            snapshot.awaiting = awaiting;
+        }
+        if (!this._historyLaneReady(ws, state)) return;
+        const page = awaiting.segment.page;
+        if (awaiting.phase === 'start') {
+            const sent = this._emit(ws, state, {
+                type: 'conversation_history_segment_start',
+                conversationId: state.conversationId,
+                ...page
+            });
+            if (!sent) {
+                snapshot.nextQueueIndex = Math.max(0, snapshot.nextQueueIndex - 1);
+                snapshot.awaiting = null;
+                this._schedulePump(ws, state, this.options.historyPumpIntervalMs);
+                return;
+            }
+            awaiting.phase = 'fragments';
+            awaiting.startedAt = this.now();
+            state.lastActivityAt = this.now();
+            this._schedulePump(ws, state, this.options.historyPumpIntervalMs);
+            return;
+        }
+        if (awaiting.phase === 'fragments') {
+            const fragment = awaiting.segment.fragments[awaiting.nextFragmentIndex];
+            if (!fragment) {
+                awaiting.phase = 'commit';
+                this._schedulePump(ws, state, this.options.historyPumpIntervalMs);
+                return;
+            }
+            const sent = this._emit(ws, state, {
+                type: 'conversation_history_segment_fragment',
+                conversationId: state.conversationId,
+                syncId: state.syncId,
+                sequence: page.sequence,
+                pageIndex: page.pageIndex,
+                targetRoot: page.targetRoot,
+                segmentId: page.range?.segmentId || null,
+                itemKey: fragment.itemKey,
+                chunkIndex: fragment.chunkIndex,
+                chunkCount: fragment.chunkCount,
+                payloadHash: fragment.payloadHash,
+                payloadBytes: fragment.payloadBytes,
+                data: fragment.data
+            }, this.options.historyMaxEnvelopeBytes);
+            if (!sent) {
+                this._schedulePump(ws, state, this.options.historyPumpIntervalMs);
+                return;
+            }
+            awaiting.nextFragmentIndex += 1;
+            state.lastActivityAt = this.now();
+            this._schedulePump(ws, state, this.options.historyPumpIntervalMs);
+            return;
+        }
+        if (awaiting.phase === 'commit') {
+            const sent = this._emit(ws, state, {
+                type: 'conversation_history_segment_commit',
+                conversationId: state.conversationId,
+                syncId: state.syncId,
+                sequence: page.sequence,
+                pageIndex: page.pageIndex,
+                segmentId: page.range?.segmentId || null,
+                pageHash: page.pageHash,
+                targetRoot: page.targetRoot
+            });
+            if (!sent) {
+                this._schedulePump(ws, state, this.options.historyPumpIntervalMs);
+                return;
+            }
+            awaiting.phase = 'awaiting_ack';
+            state.lastActivityAt = this.now();
+        }
+    }
+
     _pumpPages(ws, state) {
         if (this._syncs.get(ws) !== state || state.settled || state.awaitingManifest || !this._isCurrent(state)) return;
+        if (state.snapshot) {
+            this._pumpSnapshotSegments(ws, state);
+            return;
+        }
         if (state.perPageAck && state.awaitingAckPageIndex !== null) {
             this._pumpPayloadChunks(ws, state);
             return;
         }
         if (state.nextPageIndex >= state.pages.length) return;
+
+        if (!this._canSendHistory(ws, state)) {
+            this._schedulePump(ws, state, this.options.historyPumpIntervalMs);
+            return;
+        }
 
         const bufferedAmount = Number(ws?.bufferedAmount) || 0;
         const now = this.now();
@@ -1350,7 +1948,21 @@ class CodexHistorySyncService {
             state.nextChunkIndex = 0;
         }
         state.lastActivityAt = now;
-        if (!this._emit(ws, state, { type: 'conversation_history_delta', conversationId: state.conversationId, ...delta })) return;
+        const sent = this._emit(ws, state, { type: 'conversation_history_delta', conversationId: state.conversationId, ...delta });
+        if (!sent) {
+            // The scheduler may observe a live/control frame between the
+            // advisory gate above and the actual WebSocket hand-off. Do not
+            // consume a page (or leave an ACK fence armed) when that lower
+            // priority send was rejected.
+            state.nextPageIndex = Math.max(0, state.nextPageIndex - 1);
+            if (state.perPageAck) {
+                state.awaitingAckPageIndex = null;
+                state.activePageChunks = [];
+                state.nextChunkIndex = 0;
+            }
+            this._schedulePump(ws, state, this.options.historyPumpIntervalMs);
+            return;
+        }
         if (state.perPageAck) {
             this._pumpPayloadChunks(ws, state);
         } else {
@@ -1362,6 +1974,10 @@ class CodexHistorySyncService {
         if (!state.perPageAck || state.settled || this._syncs.get(ws) !== state || !this._isCurrent(state)) return;
         const chunks = state.activePageChunks || [];
         if (state.nextChunkIndex >= chunks.length) return;
+        if (!this._canSendHistory(ws, state)) {
+            this._schedulePump(ws, state, this.options.historyPumpIntervalMs);
+            return;
+        }
         const bufferedAmount = Number(ws?.bufferedAmount) || 0;
         const now = this.now();
         if (bufferedAmount > this.options.historyHardLimitBytes) {
@@ -1382,7 +1998,7 @@ class CodexHistorySyncService {
         const chunk = chunks[state.nextChunkIndex];
         state.nextChunkIndex += 1;
         state.lastActivityAt = now;
-        if (!this._emit(ws, state, {
+        const sent = this._emit(ws, state, {
             type: 'conversation_history_payload_chunk',
             conversationId: state.conversationId,
             syncId: state.syncId,
@@ -1396,7 +2012,14 @@ class CodexHistorySyncService {
             payloadHash: chunk.payloadHash,
             payloadBytes: chunk.payloadBytes,
             data: chunk.data
-        }, Math.min(this.options.historyMaxEnvelopeBytes, this.options.historyPayloadChunkEnvelopeBytes))) return;
+        }, Math.min(this.options.historyMaxEnvelopeBytes, this.options.historyPayloadChunkEnvelopeBytes));
+        if (!sent) {
+            // Keep the chunk index unchanged when the scheduler yielded the
+            // hand-off to a higher-priority live/control frame.
+            state.nextChunkIndex = Math.max(0, state.nextChunkIndex - 1);
+            this._schedulePump(ws, state, this.options.historyPumpIntervalMs);
+            return;
+        }
         if (state.nextChunkIndex < chunks.length) this._schedulePump(ws, state, this.options.historyPumpIntervalMs);
     }
 
@@ -1408,6 +2031,16 @@ class CodexHistorySyncService {
             this._pumpPages(ws, state);
         }, delay);
         if (typeof state.pageTimer.unref === 'function') state.pageTimer.unref();
+    }
+
+    _canSendHistory(ws, state) {
+        try {
+            return this.canSendHistory(ws, state) !== false;
+        } catch (_) {
+            // A scheduler observation failure must pause history rather than
+            // let a lower-priority frame bypass the live/control gate.
+            return false;
+        }
     }
 
     _fail(ws, state, detailCode) {
@@ -1453,8 +2086,7 @@ class CodexHistorySyncService {
             }
             return false;
         }
-        this.send(ws, next);
-        return true;
+        return this.send(ws, next) !== false;
     }
 }
 
@@ -1498,6 +2130,11 @@ function normalizeCacheSchemaVersion(value, rangeEnabled = false) {
     return Number.isSafeInteger(value) && value >= 1 ? Math.min(value, maxVersion) : 1;
 }
 
+function normalizeSnapshotCacheSchemaVersion(value, snapshotEnabled = false) {
+    const maxVersion = snapshotEnabled ? 3 : 2;
+    return Number.isSafeInteger(value) && value >= 1 ? Math.min(value, maxVersion) : 1;
+}
+
 function normalizeRangeCapability(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
         return { enabled: false, version: 0, cacheSchemaVersion: 0 };
@@ -1511,6 +2148,26 @@ function normalizeRangeCapability(value) {
         version,
         cacheSchemaVersion
     };
+}
+
+function normalizeSnapshotSegmentsCapability(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return { enabled: false, version: 0, cacheSchemaVersion: 0 };
+    }
+    const version = Number.isSafeInteger(value.version) && value.version > 0 ? value.version : 0;
+    const cacheSchemaVersion = Number.isSafeInteger(value.cacheSchemaVersion) && value.cacheSchemaVersion > 0
+        ? Math.min(value.cacheSchemaVersion, 3)
+        : 0;
+    return {
+        enabled: value.enabled === true && version === 1 && cacheSchemaVersion >= 3,
+        version,
+        cacheSchemaVersion
+    };
+}
+
+function normalizeSnapshotProviderMode(value) {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    return normalized || 'server_snapshot';
 }
 
 function sameClientSelectionGeneration(state, value) {
@@ -1529,6 +2186,9 @@ module.exports = {
     normalizeClientSelectionGeneration,
     normalizeCacheSchemaVersion,
     normalizeRangeCapability,
+    normalizeSnapshotCacheSchemaVersion,
+    normalizeSnapshotSegmentsCapability,
+    snapshotSegmentEnvelopeBytes,
     normalizeSyncOutcome,
     splitUtf8,
     toWireItem

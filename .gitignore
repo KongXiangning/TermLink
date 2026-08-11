@@ -16,6 +16,8 @@ data/*.json
 data/*.json.tmp
 # Runtime-generated Codex media cache; committed legacy assets remain tracked.
 data/codex-media/**
+# Runtime-generated canonical static history snapshots; may contain task history.
+data/codex-history-snapshots/**
 ops-local/nginx/code.kongxn.com-442.conf
 ops-local/nginx/opencode.kongxn.com-442.conf
 skills/android-local-build-debug/local-config.ps1

@@ -8,6 +8,98 @@ import org.junit.Test
 
 class CodexHistoryRangeStorageTest {
     @Test
+    fun anAlreadyCachedTailCanCommitRangeMetadataWithoutAPlaceholderItem() {
+        val page = CodexHistoryDeltaPage(
+            syncId = "sync",
+            conversationId = "conversation",
+            sequence = 1,
+            pageIndex = 0,
+            pageCount = 1,
+            pageHash = "hash",
+            baseRoot = "local-root",
+            targetRoot = "local-root",
+            baselineComplete = false,
+            fullOrderIncluded = false,
+            range = CodexHistoryRangeMetadata(
+                version = 1,
+                segmentId = "tail",
+                rangeId = "tail",
+                rangeKind = "tail",
+                newestAnchor = CodexHistoryRangeAnchor("new", "new-hash"),
+                oldestAnchor = CodexHistoryRangeAnchor("old", "old-hash"),
+                nextOlderCursor = "older",
+                hasMoreBefore = true,
+                coverageRoot = "tail-root",
+                coverageComplete = false
+            )
+        )
+
+        assertTrue(isMetadataOnlyRangePage(page))
+    }
+
+    @Test
+    fun anEmptyOlderPageIsNotAcceptedAsTailMetadataOnlyCommit() {
+        val page = CodexHistoryDeltaPage(
+            syncId = "sync",
+            conversationId = "conversation",
+            sequence = 1,
+            pageIndex = 0,
+            pageCount = 1,
+            pageHash = "hash",
+            baseRoot = "local-root",
+            targetRoot = "local-root",
+            baselineComplete = false,
+            fullOrderIncluded = false,
+            range = CodexHistoryRangeMetadata(
+                version = 1,
+                segmentId = "older",
+                rangeId = "older",
+                rangeKind = "older",
+                newestAnchor = CodexHistoryRangeAnchor("new", "new-hash"),
+                oldestAnchor = CodexHistoryRangeAnchor("old", "old-hash"),
+                nextOlderCursor = null,
+                hasMoreBefore = false,
+                coverageRoot = "older-root",
+                coverageComplete = false
+            )
+        )
+
+        assertFalse(isMetadataOnlyRangePage(page))
+    }
+
+    @Test
+    fun onlyServerSnapshotTailMayResetPreviousStaticRangeOwnership() {
+        val snapshotTail = CodexHistoryDeltaPage(
+            syncId = "sync",
+            conversationId = "conversation",
+            sequence = 1,
+            pageIndex = 0,
+            pageCount = 1,
+            pageHash = "hash",
+            baseRoot = "old-root",
+            targetRoot = "tail-root",
+            baselineComplete = false,
+            fullOrderIncluded = false,
+            range = CodexHistoryRangeMetadata(
+                version = 1,
+                segmentId = "snapshot-tail",
+                rangeId = "snapshot-tail",
+                rangeKind = "tail",
+                providerMode = "server_snapshot",
+                newestAnchor = null,
+                oldestAnchor = null,
+                nextOlderCursor = null,
+                hasMoreBefore = true,
+                coverageRoot = "tail-root",
+                coverageComplete = false
+            )
+        )
+        assertTrue(isServerSnapshotBootstrap(snapshotTail))
+        assertFalse(isServerSnapshotBootstrap(snapshotTail.copy(range = snapshotTail.range?.copy(rangeKind = "older"))))
+        assertFalse(isServerSnapshotBootstrap(snapshotTail.copy(range = snapshotTail.range?.copy(providerMode = "paginated"))))
+    }
+
+    @Test
     fun migratedLegacyCheckpointKeepsV2CompleteButDoesNotClaimRangeCoverage() {
         val checkpoint = CodexConversationCheckpoint(
             endpointId = "home",

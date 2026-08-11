@@ -78,6 +78,28 @@ class CodexHistoryWireTest {
     }
 
     @Test
+    fun capabilityReadsServerSnapshotSegmentsIndependentlyFromNativeRange() {
+        val status = JSONObject().put(
+            "capabilities",
+            JSONObject().put(
+                "historySync",
+                JSONObject()
+                    .put("version", 1)
+                    .put("serverSnapshotSegments", JSONObject()
+                        .put("enabled", true)
+                        .put("version", 1)
+                        .put("cacheSchemaVersion", 3)
+                        .put("segmentTargetBytes", 98304)
+                        .put("fragmentMaxBytes", 16384))
+            )
+        )
+        val capability = CodexHistoryCapability.from(status)
+        assertTrue(capability?.serverSnapshotSegments?.enabled == true)
+        assertEquals(98304, capability?.serverSnapshotSegments?.segmentTargetBytes)
+        assertEquals(16384, capability?.serverSnapshotSegments?.fragmentMaxBytes)
+    }
+
+    @Test
     fun manifestPageCarriesClientSelectionGenerationEvenWhenEmpty() {
         val message = JSONObject(
             CodexClientMessages.historyManifestPage(
@@ -139,6 +161,26 @@ class CodexHistoryWireTest {
         assertEquals(3, message.getInt("cacheSchemaVersion"))
         assertEquals("range", message.getJSONObject("checkpoint").getString("rangeId"))
         assertTrue(message.getJSONObject("checkpoint").getBoolean("hasMoreBefore"))
+    }
+
+    @Test
+    fun syncRequestCarriesServerSnapshotCapabilityAndProfileWithoutOlderRange() {
+        val message = JSONObject(
+            CodexClientMessages.historySyncRequest(
+                CodexHistorySyncRequest(
+                    syncId = "sync",
+                    conversationId = "conversation",
+                    checkpoint = CodexHistorySyncCheckpoint(null, 0, false),
+                    cacheSchemaVersion = 3,
+                    serverSnapshotSegments = CodexHistorySnapshotSegmentsCapability(true, 1, 3),
+                    profileId = "profile-a"
+                )
+            )
+        )
+        assertEquals(3, message.getInt("cacheSchemaVersion"))
+        assertTrue(message.getJSONObject("serverSnapshotSegments").getBoolean("enabled"))
+        assertEquals("profile-a", message.getString("profileId"))
+        assertFalse(message.has("rangeSegments"))
     }
 
     @Test
@@ -291,5 +333,37 @@ class CodexHistoryWireTest {
         assertEquals("root", chunk.targetRoot)
         assertEquals(2, chunk.chunkCount)
         assertEquals(7, chunk.selectionGeneration)
+    }
+
+    @Test
+    fun snapshotSegmentCommitCarriesDescriptorIdentityForAckValidation() {
+        val commit = CodexHistorySegmentCommit.from(
+            JSONObject()
+                .put("syncId", "sync")
+                .put("conversationId", "conversation")
+                .put("sequence", 4)
+                .put("pageIndex", 0)
+                .put("segmentId", "segment")
+                .put("pageHash", "a".repeat(64))
+                .put("targetRoot", "root")
+                .put("clientSelectionGeneration", 7)
+        )!!
+        assertEquals("segment", commit.segmentId)
+        assertEquals(4, commit.sequence)
+        assertEquals(7, commit.selectionGeneration)
+        val ack = JSONObject(
+            CodexClientMessages.historySegmentAck(
+                syncId = commit.syncId,
+                conversationId = commit.conversationId,
+                targetRoot = commit.targetRoot,
+                sequence = commit.sequence,
+                pageIndex = commit.pageIndex,
+                segmentId = commit.segmentId,
+                pageHash = commit.pageHash,
+                selectionGeneration = commit.selectionGeneration
+            )
+        )
+        assertEquals("conversation_history_segment_ack", ack.getString("type"))
+        assertEquals("segment", ack.getString("segmentId"))
     }
 }

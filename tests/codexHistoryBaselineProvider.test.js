@@ -34,6 +34,38 @@ test('baseline provider canonicalizes upstream thread without exposing raw respo
     assert.equal(baseline.sourceEpoch, 'recovery:123');
 });
 
+test('baseline provider reports source read timing and full response size separately from the probe', async () => {
+    let now = 1_000;
+    const provider = new CodexHistoryBaselineProvider({
+        probeThread: async () => {
+            now += 7;
+            return { thread: { id: 'conv', historyMode: 'legacy' } };
+        },
+        readLegacyThread: async () => {
+            now += 19;
+            return {
+                thread: {
+                    id: 'conv',
+                    turns: [{ id: 'turn', status: 'completed', items: [{ id: 'item', type: 'agentMessage', text: 'hello' }] }]
+                }
+            };
+        },
+        now: () => now
+    });
+
+    const baseline = await provider.build('conv');
+    assert.deepEqual(baseline.measurement, {
+        sourceMethod: 'thread/read',
+        providerMode: 'legacy',
+        probeDurationMs: 7,
+        sourceReadDurationMs: 19,
+        providerDurationMs: 26,
+        sourceResponseBytes: baseline.rawBytes,
+        sourceItemCount: 1,
+        returnedItemCount: 1
+    });
+});
+
 test('baseline provider fails closed when history mode is unknown without calling full read', async () => {
     let reads = 0;
     const provider = new CodexHistoryBaselineProvider({
@@ -143,7 +175,95 @@ test('paginated turn pages reverse only turn order, not item order inside a turn
     assert.deepEqual(baseline.items.map((item) => item.itemKey), ['old-user', 'old-agent', 'new-item']);
 });
 
-test('range-enabled provider returns only the newest bounded tail with anchors', async () => {
+test('complete paginated scan streams newest native page first and returns one chronological full snapshot', async () => {
+    const requests = [];
+    const streamed = [];
+    const provider = new CodexHistoryBaselineProvider({
+        probeThread: async () => ({ thread: { id: 'conv', historyMode: 'paginated' } }),
+        readPaginatedTurns: async (_conversationId, options) => {
+            requests.push(options.cursor || null);
+            if (!options.cursor) {
+                return {
+                    threadId: 'conv',
+                    sortDirection: 'desc',
+                    data: [{ id: 'new-turn', status: 'completed', items: [{ id: 'new', type: 'agentMessage', text: 'new' }] }],
+                    nextCursor: 'older-1'
+                };
+            }
+            return {
+                threadId: 'conv',
+                sortDirection: 'desc',
+                data: [{ id: 'old-turn', status: 'completed', items: [{ id: 'old', type: 'userMessage', text: 'old' }] }],
+                nextCursor: null
+            };
+        }
+    });
+
+    const snapshot = await provider.scanComplete('conv', {
+        onPage: async (page) => streamed.push({
+            keys: page.items.map((item) => item.itemKey),
+            initial: page.isInitial,
+            final: page.isFinal
+        })
+    });
+
+    assert.deepEqual(requests, [null, 'older-1']);
+    assert.deepEqual(streamed, [
+        { keys: ['new'], initial: true, final: false },
+        { keys: ['old'], initial: false, final: true }
+    ]);
+    assert.deepEqual(snapshot.items.map((item) => item.itemKey), ['old', 'new']);
+    assert.equal(snapshot.complete, true);
+    assert.equal(snapshot.coverageComplete, true);
+    assert.equal(snapshot.measurement.scanPageCount, 2);
+});
+
+test('complete paginated scan rejects a non-advancing cursor before inventing an older page', async () => {
+    const provider = new CodexHistoryBaselineProvider({
+        probeThread: async () => ({ thread: { id: 'conv', historyMode: 'paginated' } }),
+        readPaginatedTurns: async () => ({
+            threadId: 'conv',
+            data: [{ id: 'turn', status: 'completed', items: [{ id: 'item', type: 'agentMessage', text: 'x' }] }],
+            nextCursor: 'repeat'
+        })
+    });
+
+    await assert.rejects(
+        () => provider.scanComplete('conv'),
+        (error) => error.code === 'HISTORY_RECOVERY_PAGINATED_CURSOR_REPEAT'
+    );
+});
+
+test('complete legacy scan reuses its metadata probe before the full source read', async () => {
+    let probes = 0;
+    let reads = 0;
+    const provider = new CodexHistoryBaselineProvider({
+        probeThread: async () => {
+            probes += 1;
+            return { thread: { id: 'conv', historyMode: 'legacy' } };
+        },
+        readLegacyThread: async () => {
+            reads += 1;
+            return {
+                thread: {
+                    id: 'conv',
+                    historyMode: 'legacy',
+                    turns: [{ id: 'turn', items: [{ id: 'item', type: 'agentMessage', text: 'complete' }] }]
+                }
+            };
+        }
+    });
+
+    const snapshot = await provider.scanComplete('conv');
+
+    assert.equal(probes, 1);
+    assert.equal(reads, 1);
+    assert.equal(snapshot.complete, true);
+    assert.equal(snapshot.coverageComplete, true);
+    assert.deepEqual(snapshot.items.map((entry) => entry.itemKey), ['item']);
+});
+
+test('range-enabled legacy provider preserves the original full v2 path', async () => {
     const turns = [{
         id: 'turn',
         status: 'completed',
@@ -161,15 +281,11 @@ test('range-enabled provider returns only the newest bounded tail with anchors',
     const baseline = await provider.build('conv', {
         rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 }
     });
-    assert.equal(baseline.resultKind, 'tail');
-    assert.equal(baseline.items.length, 200);
-    assert.equal(baseline.items[0].itemKey.includes('item-50'), true);
+    assert.equal(baseline.resultKind, 'full');
+    assert.equal(baseline.items.length, 250);
+    assert.equal(baseline.items[0].itemKey.includes('item-0'), true);
     assert.equal(baseline.items.at(-1).itemKey.includes('item-249'), true);
-    assert.equal(baseline.range.rangeKind, 'tail');
-    assert.equal(baseline.range.hasMoreBefore, true);
-    assert.equal(baseline.range.coverageComplete, false);
-    assert.equal(baseline.range.oldestAnchor.key, baseline.items[0].itemKey);
-    assert.equal(baseline.range.newestAnchor.key, baseline.items.at(-1).itemKey);
+    assert.equal(baseline.range, undefined);
 });
 
 test('older range provider consumes only the explicit next cursor and returns one ascending segment', async () => {

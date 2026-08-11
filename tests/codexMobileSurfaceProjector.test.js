@@ -107,3 +107,24 @@ test('mobile realtime deadline projection redacts inline media after bounding th
     assert.doesNotMatch(JSON.stringify(projected), /data:image/i);
     assert.ok(Buffer.byteLength(JSON.stringify(projected), 'utf8') <= MOBILE_REALTIME_SURFACE_MAX_BYTES);
 });
+
+test('mobile realtime redaction bounds large tail items without quadratic trimming', async () => {
+    const largeText = 'x'.repeat(20_000);
+    const source = {
+        conversationId: 'conversation',
+        revision: 13,
+        status: 'running',
+        items: Array.from({ length: 300 }, (_, index) => ({
+            key: `item-${index}`,
+            kind: 'message',
+            text: `${largeText} ${index === 299 ? PNG_DATA_URL : ''}`
+        }))
+    };
+    const projected = await projectMobileRealtimeSurface(source, {
+        mediaStore: null,
+        redactInlineMedia: true
+    });
+    assert.equal(projected.items.at(-1).key, 'item-299');
+    assert.equal(containsImageDataUrl(projected), false);
+    assert.ok(Buffer.byteLength(JSON.stringify(projected), 'utf8') <= MOBILE_REALTIME_SURFACE_MAX_BYTES);
+});

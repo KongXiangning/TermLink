@@ -65,6 +65,7 @@ import kotlinx.coroutines.sync.withPermit
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
+import java.security.MessageDigest
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
@@ -76,6 +77,12 @@ private const val PLAN_PHASE_EXECUTING_CONFIRMED_PLAN = "executing_confirmed_pla
 private const val OPERATION_DETAIL_MAX_LENGTH = 12_000
 private const val OPERATION_DETAIL_TRUNCATION_MARKER = "\n\n…（详情已截断）"
 private const val THREAD_HISTORY_PREVIEW_MAX_LENGTH = 160
+private const val HISTORY_SNAPSHOT_FRAGMENT_MAX_BYTES = 16 * 1024
+
+private data class PendingHistorySnapshotSegment(
+    val page: CodexHistoryDeltaPage,
+    val fragments: MutableMap<String, MutableMap<Int, CodexHistoryPayloadChunk>> = mutableMapOf()
+)
 
 internal const val CODEX_FAST_MODE_REASONING_EFFORT = "low"
 
@@ -1085,6 +1092,93 @@ internal fun shouldRequestHistorySyncForSelection(
     if (inFlightConversationId?.trim() == normalizedConversationId) return false
     return settledConversationId?.trim() != normalizedConversationId ||
         settledGeneration != selectionGeneration
+}
+
+/**
+ * Automatic older backfill is a low-priority continuation of a range sync,
+ * never a retry loop for arbitrary PARTIAL states.  The caller supplies the
+ * durable checkpoint's `hasMoreBefore` bit after the previous page committed;
+ * generation and in-flight fences keep a task switch from reusing the old
+ * cursor.
+ */
+internal fun shouldScheduleAutomaticOlderHistoryPage(
+    rangeEnabled: Boolean,
+    syncState: String,
+    rangeSync: Boolean,
+    hasMoreBefore: Boolean,
+    isCurrentSelection: Boolean,
+    requestInFlight: Boolean
+): Boolean = rangeEnabled &&
+    rangeSync &&
+    syncState.trim().equals("partial", ignoreCase = true) &&
+    hasMoreBefore &&
+    isCurrentSelection &&
+    !requestInFlight
+
+/**
+ * Selection-scoped coordinator for the low-priority older-page continuation.
+ * The ViewModel supplies the real coroutine scheduler; the small abstraction
+ * keeps the delay, cancellation and one-request-at-a-time fences executable
+ * in JVM tests without constructing a networked ViewModel.
+ */
+internal fun interface AutomaticOlderHistoryPumpHandle {
+    fun cancel()
+}
+
+internal class AutomaticOlderHistoryPumpCoordinator(
+    private val schedule: (Long, suspend () -> Unit) -> AutomaticOlderHistoryPumpHandle,
+    private val delayMillis: Long = 250L
+) {
+    private data class PumpKey(val conversationId: String, val generation: Long)
+
+    private var scheduledHandle: AutomaticOlderHistoryPumpHandle? = null
+    private var requestKey: PumpKey? = null
+
+    fun schedule(
+        conversationId: String,
+        generation: Long,
+        rangeEnabled: Boolean,
+        syncState: String,
+        rangeSync: Boolean,
+        isCurrentSelection: () -> Boolean,
+        readHasMoreBefore: suspend () -> Boolean,
+        request: () -> Boolean
+    ): Boolean {
+        // Do not schedule work for a non-range or non-PARTIAL terminal. The
+        // durable hasMoreBefore bit is checked after the delay, immediately
+        // before the request, so a committed checkpoint is always current.
+        if (!rangeEnabled || !rangeSync || !syncState.trim().equals("partial", ignoreCase = true)) return false
+        if (scheduledHandle != null || requestKey != null) return false
+        val key = PumpKey(conversationId, generation)
+        val handle = schedule(delayMillis) task@{
+            scheduledHandle = null
+            if (!isCurrentSelection()) return@task
+            val hasMoreBefore = runCatching { readHasMoreBefore() }.getOrNull() ?: return@task
+            if (!isCurrentSelection()) return@task
+            if (!shouldScheduleAutomaticOlderHistoryPage(
+                    rangeEnabled = rangeEnabled,
+                    syncState = syncState,
+                    rangeSync = rangeSync,
+                    hasMoreBefore = hasMoreBefore,
+                    isCurrentSelection = true,
+                    requestInFlight = requestKey != null
+                )
+            ) return@task
+            if (request()) requestKey = key
+        }
+        scheduledHandle = handle
+        return true
+    }
+
+    fun markRequestFinished(conversationId: String, generation: Long) {
+        if (requestKey == PumpKey(conversationId, generation)) requestKey = null
+    }
+
+    fun cancel() {
+        scheduledHandle?.cancel()
+        scheduledHandle = null
+        requestKey = null
+    }
 }
 
 internal fun applyIpcConversationSelectionToUiState(
@@ -2577,6 +2671,10 @@ class CodexViewModel(
         // turns. Keep the first history request behind a small settle window
         // so a reconnect cannot be rejected as conversation_not_active.
         private const val HISTORY_SUBSCRIPTION_SETTLE_MILLIS = 300L
+        // Keep each silent older request discrete.  The server-side scheduler
+        // still decides whether its next frame may be generated when live or
+        // control work is pending.
+        private const val HISTORY_OLDER_PUMP_DELAY_MILLIS = 250L
         private const val HISTORY_WATCHDOG_GRACE_MILLIS = 5_000L
         private const val CANONICAL_ACTIVITY_WINDOW_MILLIS = 30_000L
         private val ANSI_ESCAPE_REGEX = Regex("\\u001B\\[[;\\d?]*[ -/]*[@-~]")
@@ -2631,6 +2729,20 @@ class CodexViewModel(
     private var historyRecoveryInFlightSyncId: String? = null
     private var historyActivationRetryGeneration: Long = -1L
     private var historySyncAfterSubscriptionJob: Job? = null
+    private val automaticOlderHistoryPump = AutomaticOlderHistoryPumpCoordinator(
+        delayMillis = HISTORY_OLDER_PUMP_DELAY_MILLIS,
+        schedule = { delayMillis, task ->
+            val job = viewModelScope.launch {
+                delay(delayMillis)
+                task()
+            }
+            AutomaticOlderHistoryPumpHandle { job.cancel() }
+        }
+    )
+    /** Sync ids whose terminal result may continue an enabled range pump. */
+    private val rangeHistorySyncIds = ConcurrentHashMap.newKeySet<String>()
+    /** Sync ids created by the one-page older request lane. */
+    private val olderHistorySyncIds = ConcurrentHashMap.newKeySet<String>()
     /**
      * A recovery request is bounded to one attempt per selected conversation.
      * A partial surface is useful as a live tail, but it is not a complete
@@ -2647,6 +2759,8 @@ class CodexViewModel(
      */
     private var historyResumeProtectionJob: Job? = null
     private val pendingHistoryPages = mutableMapOf<String, CodexHistoryDeltaPage>()
+    /** P0-B.4R fragments remain in memory until their one atomic range commit. */
+    private val pendingHistorySnapshotSegments = mutableMapOf<String, PendingHistorySnapshotSegment>()
     private val historyApplyMutex = Mutex()
     private var mediaClient: CodexMediaClient? = null
     // Media jobs are scheduled from the main state flow but complete on
@@ -2722,9 +2836,13 @@ class CodexViewModel(
         historyRecoveryRequestedGeneration = -1L
         historyActivationRetryGeneration = -1L
         cancelHistorySyncAfterSubscription()
+        cancelHistoryOlderPump()
+        rangeHistorySyncIds.clear()
+        olderHistorySyncIds.clear()
         cancelHistoryWatchdog()
         cancelHistoryResumeProtection()
         pendingHistoryPages.clear()
+        pendingHistorySnapshotSegments.clear()
         historyCapability = null
         threadListRequestProfileId = null
         threadListRequestGeneration = historySelectionGeneration
@@ -3315,6 +3433,9 @@ class CodexViewModel(
         historyRecoveryInFlightSyncId = null
         historyActivationRetryGeneration = -1L
         cancelHistorySyncAfterSubscription()
+        cancelHistoryOlderPump()
+        rangeHistorySyncIds.clear()
+        olderHistorySyncIds.clear()
         cancelHistoryWatchdog()
         if (!hadPendingSync) return
         val activeConversationId = _uiState.value.activeConversationId?.trim().orEmpty()
@@ -5823,6 +5944,60 @@ class CodexViewModel(
         activeConversationSubscriptionSentAtElapsed = 0L
     }
 
+    private fun cancelHistoryOlderPump() {
+        automaticOlderHistoryPump.cancel()
+    }
+
+    /**
+     * Continue one enabled range sync after its previous page settled.  The
+     * checkpoint is read only after the delay so a page committed by the
+     * reducer is the source of truth for `hasMoreBefore`/cursor.  There is no
+     * retry on failure and no second request while another sync id is active;
+     * task switching cancels this job through the selection generation fence.
+     */
+    private fun scheduleAutomaticOlderHistoryPage(
+        conversationId: String,
+        generation: Long,
+        syncState: String,
+        rangeSync: Boolean
+    ) {
+        val capability = historyCapability ?: return
+        val rangeCapability = capability.rangeSegments?.takeIf {
+            it.enabled && it.version == 1 && it.cacheSchemaVersion >= 3
+        } ?: return
+        automaticOlderHistoryPump.schedule(
+            conversationId = conversationId,
+            generation = generation,
+            rangeEnabled = rangeCapability.enabled && rangeCapability.version == 1,
+            syncState = syncState,
+            rangeSync = rangeSync,
+            isCurrentSelection = {
+                historySelectionGeneration == generation &&
+                    _uiState.value.activeConversationId?.trim() == conversationId &&
+                    historySyncInFlightConversationId == null &&
+                    historyRecoveryInFlightConversationId == null
+            },
+            readHasMoreBefore = {
+                val profile = currentProfile
+                if (profile == null) {
+                    false
+                } else {
+                    val cached = withContext(Dispatchers.IO) {
+                        runCatching {
+                            historyCacheStore.readConversation(profile.id, conversationId)
+                        }.getOrNull()
+                    }
+                    val durableItemCount = cached?.items?.count { !it.provisional } ?: 0
+                    normalizeHistoryCheckpointForAvailableItems(
+                        checkpoint = cached?.checkpoint,
+                        availableDurableItemCount = durableItemCount
+                    ).hasMoreBefore == true
+                }
+            },
+            request = { requestOlderHistoryPage(auto = true) }
+        )
+    }
+
     /**
      * The Gateway has to install the active follower before it can accept a
      * history envelope.  On reconnect the two sends can otherwise be handled
@@ -5879,9 +6054,13 @@ class CodexViewModel(
         historyRecoveryRequestedGeneration = -1L
         historyActivationRetryGeneration = -1L
         cancelHistorySyncAfterSubscription()
+        cancelHistoryOlderPump()
+        rangeHistorySyncIds.clear()
+        olderHistorySyncIds.clear()
         cancelHistoryWatchdog()
         cancelHistoryResumeProtection()
         pendingHistoryPages.clear()
+        pendingHistorySnapshotSegments.clear()
         if (!interruptedEndpointId.isNullOrBlank() && !interruptedConversationId.isNullOrBlank()) {
             viewModelScope.launch(Dispatchers.IO) {
                 runCatching {
@@ -5926,6 +6105,13 @@ class CodexViewModel(
 
     private fun historyPageKey(syncId: String, pageIndex: Int): String = "$syncId:$pageIndex"
 
+    private fun historySnapshotSegmentKey(syncId: String, sequence: Int): String = "$syncId:segment:$sequence"
+
+    private fun historySnapshotPayloadHash(value: String): String =
+        MessageDigest.getInstance("SHA-256")
+            .digest(value.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+
     private fun maybeRequestHistorySync(conversationId: String?) {
         val normalizedConversationId = conversationId?.trim()?.takeIf { it.isNotEmpty() } ?: return
         val profile = currentProfile ?: return
@@ -5942,6 +6128,9 @@ class CodexViewModel(
                 settledGeneration = historySyncSettledGeneration
         )) return
         val capability = historyCapability ?: return
+        val snapshotSegments = capability.serverSnapshotSegments?.takeIf {
+            it.enabled && it.version == 1 && it.cacheSchemaVersion >= 3
+        }
         val key = historySelectionKeyOrNull(normalizedConversationId, requestGeneration) ?: return
         if (capability.version != 1) {
             _uiState.update { state ->
@@ -5997,6 +6186,41 @@ class CodexViewModel(
                 checkpoint = cached?.checkpoint,
                 availableDurableItemCount = durableItemCount
             )
+            // A completed B4R static snapshot already contains the full local
+            // history. P1 will add a separate quiet freshness probe; do not
+            // reopen the old manifest/range lane on every task selection.
+            if (snapshotSegments != null && checkpoint.coverageComplete &&
+                checkpoint.itemCount == durableItemCount
+            ) {
+                if (isCurrentHistorySelection(normalizedConversationId, requestGeneration) &&
+                    acceptsActiveHistorySyncId(historySyncInFlightSyncId, requestSyncId)
+                ) {
+                    historySyncInFlightConversationId = null
+                    historySyncInFlightSyncId = null
+                    markHistorySyncSettled(normalizedConversationId, requestGeneration)
+                    cancelHistoryWatchdog()
+                    _uiState.update { state ->
+                        if (isCurrentHistorySelection(key)) {
+                            state.copy(
+                                historyNetworkSyncState = historyNetworkState(
+                                    key,
+                                    CodexHistoryNetworkSyncState.CACHE_ONLY
+                                )
+                            )
+                        } else state
+                    }
+                    PersistentDiagnosticLog.event(
+                        "codex",
+                        "android.codex.history.snapshot_cache_complete",
+                        mapOf(
+                            "conversationKey" to PersistentDiagnosticLog.shortHash(normalizedConversationId),
+                            "generation" to requestGeneration,
+                            "itemCount" to durableItemCount
+                        )
+                    )
+                }
+                return@launch
+            }
             if (cached?.checkpoint?.complete == true &&
                 cached.checkpoint.itemCount != durableItemCount
             ) {
@@ -6018,19 +6242,34 @@ class CodexViewModel(
                 checkpoint = checkpoint,
                 selectionGeneration = requestGeneration,
                 cacheSchemaVersion = when {
+                    snapshotSegments != null -> 3
                     capability.rangeSegments?.enabled == true && capability.rangeSegments.cacheSchemaVersion >= 3 -> 3
                     capability.payloadChunks && capability.perPageAck -> 2
                     else -> 1
                 },
-                rangeSegments = capability.rangeSegments?.takeIf {
+                // Snapshot segments use the v3 range persistence internally,
+                // but must not opt in to the old native-cursor older pump.
+                rangeSegments = if (snapshotSegments == null) capability.rangeSegments?.takeIf {
                     it.enabled && it.version == 1 && it.cacheSchemaVersion >= 3
-                }
+                } else null,
+                serverSnapshotSegments = snapshotSegments,
+                profileId = profile.id
             )
             if (!isCurrentHistorySelection(normalizedConversationId, requestGeneration) ||
                 !acceptsActiveHistorySyncId(historySyncInFlightSyncId, request.syncId)
             ) return@launch
             if (historyRecoveryInFlightConversationId == normalizedConversationId) return@launch
+            if (request.rangeSegments?.enabled == true) {
+                // Register the terminal-routing fence before the send. A
+                // loopback/test transport may deliver the first terminal
+                // state synchronously with send(), and that state must still
+                // be eligible to continue the older pump.
+                rangeHistorySyncIds += request.syncId
+            }
             val sent = connectionManager.send(CodexClientMessages.historySyncRequest(request))
+            if (!sent) {
+                rangeHistorySyncIds -= request.syncId
+            }
             if (!sent && isCurrentHistorySelection(normalizedConversationId, requestGeneration) &&
                 acceptsActiveHistorySyncId(historySyncInFlightSyncId, request.syncId)
             ) {
@@ -6071,7 +6310,8 @@ class CodexViewModel(
                     "sent" to sent,
                     "historyPayloadChunks" to capability.payloadChunks,
                     "historyPerPageAck" to capability.perPageAck,
-                    "historyRangeSegments" to (request.rangeSegments?.enabled == true)
+                    "historyRangeSegments" to (request.rangeSegments?.enabled == true),
+                    "historyServerSnapshotSegments" to (request.serverSnapshotSegments?.enabled == true)
                 ),
                 level = if (sent) "info" else "warn"
             )
@@ -6079,11 +6319,11 @@ class CodexViewModel(
     }
 
     /**
-     * Request one older range page from an explicit user action. B.3 keeps
-     * this seam dormant until the scroll/UI phase wires it in: there is no
-     * automatic follow-up request after the page reaches a terminal state.
+     * Request exactly one older range page.  B4 may invoke the same seam from
+     * the bounded background pump; it still never issues a second request
+     * until the previous page reaches a terminal sync state.
      */
-    internal fun requestOlderHistoryPage(): Boolean {
+    internal fun requestOlderHistoryPage(auto: Boolean = false): Boolean {
         val profile = currentProfile ?: return false
         val conversationId = _uiState.value.activeConversationId?.trim()?.takeIf { it.isNotEmpty() } ?: return false
         val capability = historyCapability ?: return false
@@ -6139,6 +6379,10 @@ class CodexViewModel(
                 }
                 return@launch
             }
+            // Record the one-page lane before send() for the same reason as
+            // the initial range request: a very fast terminal response must
+            // still release the coordinator's in-flight fence.
+            olderHistorySyncIds += syncId
             val sent = connectionManager.send(
                 CodexClientMessages.historyOlderRequest(
                     syncId = syncId,
@@ -6148,6 +6392,9 @@ class CodexViewModel(
                     rangeSegments = rangeCapability
                 )
             )
+            if (!sent) {
+                olderHistorySyncIds -= syncId
+            }
             if (sent && isCurrentHistorySelection(conversationId, generation) && acceptsActiveHistorySyncId(historySyncInFlightSyncId, syncId)) {
                 armHistoryWatchdog(conversationId, generation, "sync", syncId)
             } else if (!sent && isCurrentHistorySelection(conversationId, generation) && acceptsActiveHistorySyncId(historySyncInFlightSyncId, syncId)) {
@@ -6175,6 +6422,7 @@ class CodexViewModel(
                     "generation" to generation,
                     "syncId" to PersistentDiagnosticLog.shortHash(syncId),
                     "cursorPresent" to true,
+                    "automatic" to auto,
                     "sent" to sent
                 ),
                 level = if (sent) "info" else "warn"
@@ -6972,6 +7220,16 @@ class CodexViewModel(
                         level = if (syncState.state == "failed") "warn" else "info"
                     )
                     val terminalSyncState = isTerminalHistorySyncState(syncState.state)
+                    val rangeSyncForPump = terminalSyncState &&
+                        rangeHistorySyncIds.remove(syncState.syncId)
+                    val olderSyncForPump = terminalSyncState &&
+                        olderHistorySyncIds.remove(syncState.syncId)
+                    if (olderSyncForPump) {
+                        automaticOlderHistoryPump.markRequestFinished(
+                            conversationId = syncState.conversationId,
+                            generation = syncState.clientSelectionGeneration
+                        )
+                    }
                     val historyRecoveryEscalation = shouldKeepHistoryResumeProtectionForSyncState(
                         state = syncState.state,
                         detailCode = syncState.detailCode
@@ -7057,8 +7315,261 @@ class CodexViewModel(
                             } else current
                         }
                     }
+                    if (terminalSyncState &&
+                        (rangeSyncForPump || olderSyncForPump) &&
+                        !activationRetryScheduled
+                    ) {
+                        scheduleAutomaticOlderHistoryPage(
+                            conversationId = syncState.conversationId,
+                            generation = syncState.clientSelectionGeneration,
+                            syncState = syncState.state,
+                            rangeSync = rangeSyncForPump || olderSyncForPump
+                        )
+                    }
                     if (historyRecoveryEscalation && !activationRetryScheduled) {
                         requestHistoryRecoveryOnce(syncState.conversationId, syncState.detailCode ?: "sync-failed")
+                    }
+                }
+            }
+
+            "conversation_history_snapshot_state" -> {
+                val conversationId = json.optStringOrNullCompat("conversationId") ?: return
+                val syncId = json.optStringOrNullCompat("syncId") ?: return
+                val selectionGeneration = json.optLong(
+                    "clientSelectionGeneration",
+                    json.optLong("selectionGeneration", 0L)
+                )
+                if (conversationId != _uiState.value.activeConversationId ||
+                    !acceptsHistoryClientSelection(selectionGeneration) ||
+                    !acceptsActiveHistorySyncId(historySyncInFlightSyncId, syncId)
+                ) return
+                noteHistoryProtocolActivity(conversationId, selectionGeneration)
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.codex.history.snapshot_state",
+                    mapOf(
+                        "conversationKey" to PersistentDiagnosticLog.shortHash(conversationId),
+                        "generation" to selectionGeneration,
+                        "state" to json.optString("state", "unknown")
+                    )
+                )
+            }
+
+            "conversation_history_segment_start" -> {
+                val page = CodexHistoryDeltaWire.from(json)?.page ?: return
+                val endpointId = currentProfile?.id
+                val range = page.range
+                if (endpointId == null || page.conversationId != _uiState.value.activeConversationId ||
+                    !acceptsHistoryClientSelection(page.selectionGeneration) ||
+                    !acceptsActiveHistorySyncId(historySyncInFlightSyncId, page.syncId) ||
+                    range?.providerMode != "server_snapshot" || range?.segmentId.isNullOrBlank() ||
+                    page.pageCount != 1 || page.pageIndex != 0 || page.baselineComplete ||
+                    page.fullOrderIncluded || page.deletes.isNotEmpty() ||
+                    CodexHistoryPageHasher.pageHash(page) != page.pageHash
+                ) {
+                    PersistentDiagnosticLog.event(
+                        "codex",
+                        "android.codex.history.snapshot_segment_rejected",
+                        mapOf(
+                            "conversationKey" to PersistentDiagnosticLog.shortHash(page.conversationId),
+                            "sequence" to page.sequence
+                        ),
+                        level = "warn"
+                    )
+                    return
+                }
+                noteHistoryProtocolActivity(page.conversationId, page.selectionGeneration)
+                pendingHistorySnapshotSegments[historySnapshotSegmentKey(page.syncId, page.sequence)] =
+                    PendingHistorySnapshotSegment(page)
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.codex.history.snapshot_segment_started",
+                    mapOf(
+                        "conversationKey" to PersistentDiagnosticLog.shortHash(page.conversationId),
+                        "generation" to page.selectionGeneration,
+                        "sequence" to page.sequence,
+                        "segmentKey" to range.segmentId.take(16),
+                        "upsertCount" to page.upserts.size,
+                        "chunkedCount" to page.upserts.count { it.payloadChunkCount > 0 }
+                    )
+                )
+            }
+
+            "conversation_history_segment_fragment" -> {
+                val chunk = CodexHistoryPayloadChunkWire.from(json)?.chunk ?: return
+                if (chunk.conversationId != _uiState.value.activeConversationId ||
+                    !acceptsHistoryClientSelection(chunk.selectionGeneration) ||
+                    !acceptsActiveHistorySyncId(historySyncInFlightSyncId, chunk.syncId)
+                ) return
+                val pendingKey = historySnapshotSegmentKey(chunk.syncId, chunk.sequence)
+                val pending = pendingHistorySnapshotSegments[pendingKey] ?: return
+                val page = pending.page
+                val expected = page.upserts.firstOrNull { it.itemKey == chunk.itemKey }
+                val fragmentBytes = chunk.data.toByteArray(Charsets.UTF_8).size
+                val valid = expected != null && expected.payloadChunkCount > 0 &&
+                    chunk.pageIndex == page.pageIndex && chunk.targetRoot == page.targetRoot &&
+                    chunk.chunkIndex in 0 until expected.payloadChunkCount &&
+                    chunk.chunkCount == expected.payloadChunkCount &&
+                    chunk.payloadHash == expected.payloadHash &&
+                    chunk.payloadBytes == expected.payloadBytes &&
+                    fragmentBytes <= HISTORY_SNAPSHOT_FRAGMENT_MAX_BYTES
+                if (!valid) {
+                    pendingHistorySnapshotSegments.remove(pendingKey)
+                    PersistentDiagnosticLog.event(
+                        "codex",
+                        "android.codex.history.snapshot_fragment_rejected",
+                        mapOf(
+                            "conversationKey" to PersistentDiagnosticLog.shortHash(chunk.conversationId),
+                            "sequence" to chunk.sequence,
+                            "fragmentBytes" to fragmentBytes
+                        ),
+                        level = "warn"
+                    )
+                    return
+                }
+                val chunks = pending.fragments.getOrPut(chunk.itemKey) { mutableMapOf() }
+                val existing = chunks[chunk.chunkIndex]
+                if (existing != null && existing != chunk) {
+                    pendingHistorySnapshotSegments.remove(pendingKey)
+                    return
+                }
+                chunks[chunk.chunkIndex] = chunk
+                noteHistoryProtocolActivity(chunk.conversationId, chunk.selectionGeneration)
+            }
+
+            "conversation_history_segment_commit" -> {
+                val commit = CodexHistorySegmentCommit.from(json) ?: return
+                if (commit.conversationId != _uiState.value.activeConversationId ||
+                    !acceptsHistoryClientSelection(commit.selectionGeneration) ||
+                    !acceptsActiveHistorySyncId(historySyncInFlightSyncId, commit.syncId)
+                ) return
+                val pendingKey = historySnapshotSegmentKey(commit.syncId, commit.sequence)
+                val pending = pendingHistorySnapshotSegments[pendingKey] ?: return
+                val page = pending.page
+                if (commit.pageIndex != page.pageIndex || commit.segmentId != page.range?.segmentId ||
+                    commit.pageHash != page.pageHash || commit.targetRoot != page.targetRoot
+                ) {
+                    pendingHistorySnapshotSegments.remove(pendingKey)
+                    return
+                }
+                pendingHistorySnapshotSegments.remove(pendingKey)
+                noteHistoryProtocolActivity(commit.conversationId, commit.selectionGeneration)
+                val endpointId = currentProfile?.id ?: return
+                viewModelScope.launch(Dispatchers.IO) {
+                    if (!isCurrentHistorySelection(commit.conversationId, commit.selectionGeneration) ||
+                        !acceptsActiveHistorySyncId(historySyncInFlightSyncId, commit.syncId)
+                    ) return@launch
+                    val result = runCatching {
+                        val hydratedItems = page.upserts.map { item ->
+                            if (item.payloadChunkCount <= 0) {
+                                item
+                            } else {
+                                val fragments = pending.fragments[item.itemKey]
+                                    ?: throw IllegalStateException("snapshot payload fragments missing")
+                                if (fragments.size != item.payloadChunkCount ||
+                                    (0 until item.payloadChunkCount).any { it !in fragments }
+                                ) throw IllegalStateException("snapshot payload fragments incomplete")
+                                val payload = buildString {
+                                    for (index in 0 until item.payloadChunkCount) append(fragments.getValue(index).data)
+                                }
+                                if (payload.toByteArray(Charsets.UTF_8).size != item.payloadBytes ||
+                                    historySnapshotPayloadHash(payload) != item.payloadHash
+                                ) throw IllegalStateException("snapshot payload hash mismatch")
+                                item.copy(
+                                    payloadJson = payload,
+                                    payloadHash = null,
+                                    payloadBytes = null,
+                                    payloadChunkCount = 0
+                                )
+                            }
+                        }
+                        val localPageWithoutHash = page.copy(upserts = hydratedItems, pageHash = "")
+                        val localPage = localPageWithoutHash.copy(
+                            pageHash = CodexHistoryPageHasher.pageHash(localPageWithoutHash)
+                        )
+                        historyApplyMutex.withLock {
+                            if (!isCurrentHistorySelection(commit.conversationId, commit.selectionGeneration) ||
+                                !acceptsActiveHistorySyncId(historySyncInFlightSyncId, commit.syncId)
+                            ) {
+                                CodexConversationCacheStore.PageApplyResult.REJECTED
+                            } else {
+                                historyCacheStore.applyDeltaPage(endpointId, localPage)
+                            }
+                        }
+                    }.getOrDefault(CodexConversationCacheStore.PageApplyResult.REJECTED)
+                    if (result != CodexConversationCacheStore.PageApplyResult.COMMITTED &&
+                        result != CodexConversationCacheStore.PageApplyResult.IDEMPOTENT
+                    ) {
+                        if (result != CodexConversationCacheStore.PageApplyResult.STALE) {
+                            val historyKey = historySelectionKeyOrNull(
+                                commit.conversationId,
+                                commit.selectionGeneration
+                            )
+                            _uiState.update { state ->
+                                if (historyKey != null && isCurrentHistorySelection(historyKey) &&
+                                    acceptsActiveHistorySyncId(historySyncInFlightSyncId, commit.syncId)
+                                ) state.copy(
+                                    historyNetworkSyncState = historyNetworkState(
+                                        historyKey,
+                                        CodexHistoryNetworkSyncState.FAILED,
+                                        detailCode = "snapshot_segment_apply_failed"
+                                    )
+                                ) else state
+                            }
+                        }
+                        return@launch
+                    }
+                    val cachedResult = runCatching {
+                        historyCacheStore.readConversation(endpointId, commit.conversationId)
+                    }
+                    if (!isCurrentHistorySelection(commit.conversationId, commit.selectionGeneration) ||
+                        !acceptsActiveHistorySyncId(historySyncInFlightSyncId, commit.syncId)
+                    ) return@launch
+                    val historyKey = historySelectionKeyOrNull(
+                        commit.conversationId,
+                        commit.selectionGeneration
+                    ) ?: return@launch
+                    val snapshot = decodeHistoryCacheSnapshot(
+                        key = historyKey,
+                        cached = cachedResult.getOrNull(),
+                        readError = cachedResult.exceptionOrNull()
+                    )
+                    _uiState.update { state ->
+                        if (!isCurrentHistorySelection(historyKey) ||
+                            !acceptsActiveHistorySyncId(historySyncInFlightSyncId, commit.syncId) ||
+                            !shouldApplyHistoryDeltaToUiState(state, commit.conversationId)
+                        ) state else state.copy(
+                            cachedCanonicalMessages = snapshot.messages,
+                            messages = mergeCachedHistoryIntoLiveMessagesForUi(
+                                state = state,
+                                conversationId = commit.conversationId,
+                                cachedMessages = snapshot.messages
+                            ),
+                            historyCacheState = snapshot.uiState,
+                            historyNetworkSyncState = historyNetworkState(
+                                historyKey,
+                                historySyncProgressState(state.historyNetworkSyncState.state),
+                                pageIndex = 0,
+                                pageCount = 1
+                            )
+                        )
+                    }
+                    if (isCurrentHistorySelection(commit.conversationId, commit.selectionGeneration) &&
+                        acceptsActiveHistorySyncId(historySyncInFlightSyncId, commit.syncId)
+                    ) {
+                        scheduleMediaPrefetch(snapshot.messages, commit.selectionGeneration)
+                        connectionManager.send(
+                            CodexClientMessages.historySegmentAck(
+                                syncId = commit.syncId,
+                                conversationId = commit.conversationId,
+                                targetRoot = commit.targetRoot,
+                                sequence = commit.sequence,
+                                pageIndex = commit.pageIndex,
+                                segmentId = commit.segmentId,
+                                pageHash = commit.pageHash,
+                                selectionGeneration = commit.selectionGeneration
+                            )
+                        )
                     }
                 }
             }

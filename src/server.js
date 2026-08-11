@@ -26,6 +26,7 @@ const { parseTlsConfig, validateTlsConfig, buildHttpsOptions } = require('./conf
 const { createConnectionSecurityMiddleware } = require('./utils/connectionSecurity');
 const createCodexMediaRouter = require('./routes/codexMedia');
 const { CodexMediaStore } = require('./services/codexMediaStore');
+const { CodexHistorySnapshotStore } = require('./services/codexHistorySnapshotStore');
 
 // Parse privilege configuration
 const privilegeConfig = parsePrivilegeConfig();
@@ -54,6 +55,13 @@ if (!tlsConfig.enabled && tlsConfig.proxyMode !== 'off') {
 
 const PORT = process.env.PORT || 3000;
 const BIND_HOST = process.env.TERMLINK_BIND_HOST || '';
+// Range/segment history remains opt-in.  The Windows validation process can
+// set TERMLINK_HISTORY_RANGE_SEGMENTS=1 without changing the shared .env or
+// the default behavior used by other hosts.
+const historyRangeSegmentsEnabled = process.env.TERMLINK_HISTORY_RANGE_SEGMENTS === '1';
+// P0-B.4R static snapshot transport is independently gated so a rollback
+// does not change the existing native-cursor range experiment.
+const historySnapshotSegmentsEnabled = process.env.TERMLINK_HISTORY_SNAPSHOT_SEGMENTS === '1';
 const authEnabled = process.env.AUTH_ENABLED === undefined
     ? true
     : process.env.AUTH_ENABLED.toLowerCase() !== 'false';
@@ -103,6 +111,12 @@ const codexMediaStore = new CodexMediaStore({
     trustedTempRoots: [path.join(os.tmpdir(), 'termlink-codex-images')]
 });
 const codexMediaStoreReady = codexMediaStore.init();
+const codexHistorySnapshotStore = historySnapshotSegmentsEnabled
+    ? new CodexHistorySnapshotStore()
+    : null;
+const codexHistorySnapshotStoreReady = codexHistorySnapshotStore
+    ? codexHistorySnapshotStore.init()
+    : Promise.resolve(null);
 const server = tlsConfig.enabled
     ? https.createServer(buildHttpsOptions(tlsConfig), app)
     : http.createServer(app);
@@ -147,7 +161,10 @@ registerTerminalGateway(wss, {
     tlsConfig,
     ipcFeed,
     mediaStore: codexMediaStore,
-    registrationManager: clientRegistrationManager
+    registrationManager: clientRegistrationManager,
+    historyRangeSegmentsEnabled,
+    historySnapshotSegmentsEnabled,
+    historySnapshotStore: codexHistorySnapshotStore
 });
 
 // Start IPC feed first, then listen — avoids a race where the feed's
@@ -161,7 +178,7 @@ function listen(callback) {
 }
 
 Promise.resolve()
-    .then(() => codexMediaStoreReady)
+    .then(() => Promise.all([codexMediaStoreReady, codexHistorySnapshotStoreReady]))
     .then(() => ipcFeed.start().catch((err) => {
         console.warn('[server] IPC feed start failed:', err.message);
         return null;

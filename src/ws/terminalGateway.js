@@ -21,6 +21,7 @@ const {
 } = require('../services/codexWsSnapshotScheduler');
 const { CodexHistorySyncService } = require('../services/codexHistorySyncService');
 const { CodexHistoryBaselineProvider } = require('../services/codexHistoryBaselineProvider');
+const { CodexHistorySnapshotStore } = require('../services/codexHistorySnapshotStore');
 const {
     projectMobileSurface,
     projectMobileRealtimeSurface,
@@ -99,6 +100,26 @@ function normalizeHistoryRangeCapability(value, serverEnabled = false) {
         version,
         cacheSchemaVersion
     };
+}
+
+function normalizeHistorySnapshotSegmentsCapability(value, serverEnabled = false) {
+    const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    const version = Number.isSafeInteger(source.version) ? source.version : 0;
+    const cacheSchemaVersion = Number.isSafeInteger(source.cacheSchemaVersion)
+        ? Math.min(source.cacheSchemaVersion, 3)
+        : 0;
+    return {
+        enabled: serverEnabled && source.enabled === true && version === 1 && cacheSchemaVersion >= 3,
+        version,
+        cacheSchemaVersion
+    };
+}
+
+function normalizeHistorySnapshotProfileKey(value, fallback) {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (normalized && normalized.length <= 256) return normalized;
+    const fallbackValue = typeof fallback === 'string' ? fallback.trim() : '';
+    return fallbackValue && fallbackValue.length <= 256 ? fallbackValue : null;
 }
 
 function recoveryBaselineMatchesRange(baseline, rangeEnabled) {
@@ -205,6 +226,10 @@ const BOUNDED_WS_ENVELOPE_TYPES = new Set([
     'conversation_history_sync_state',
     'conversation_history_delta',
     'conversation_history_payload_chunk',
+    'conversation_history_snapshot_state',
+    'conversation_history_segment_start',
+    'conversation_history_segment_fragment',
+    'conversation_history_segment_commit',
     'conversation_history_progress'
 ]);
 
@@ -1114,7 +1139,12 @@ function registerTerminalGateway(wss, {
     mobileSurfaceMaxVisibleLatencyMs = MOBILE_SURFACE_MAX_VISIBLE_LATENCY_MS,
     // B.2 ships the additive range path behind a deployment gate.  Keep it
     // disabled until the later B.6 rollback/smoke gate explicitly enables it.
-    historyRangeSegmentsEnabled = false
+    historyRangeSegmentsEnabled = false,
+    // B4R has its own capability gate. It is independent from the older
+    // native-cursor experiment so deployments can roll the new static lane
+    // forward/back without changing the old B.2/B.4 behavior.
+    historySnapshotSegmentsEnabled = false,
+    historySnapshotStore = null
 }) {
     const isElevated = privilegeConfig && privilegeConfig.isElevated;
     const allowedIps = privilegeConfig ? privilegeConfig.allowedIps : [];
@@ -1122,6 +1152,12 @@ function registerTerminalGateway(wss, {
     const codexService = new CodexAppServerService();
     const threadHub = new CodexThreadHub();
     const ownerSurfaceTracker = new CodexOwnerSurfaceTracker();
+    const resolvedHistorySnapshotStore = historySnapshotStore || (
+        historySnapshotSegmentsEnabled === true ? new CodexHistorySnapshotStore() : null
+    );
+    const historySnapshotStoreReady = resolvedHistorySnapshotStore && typeof resolvedHistorySnapshotStore.init === 'function'
+        ? Promise.resolve(resolvedHistorySnapshotStore.init())
+        : Promise.resolve(resolvedHistorySnapshotStore);
 
     // ── IPC feed integration ──────────────────────────────────────────────
     /** @type {Map<import('ws').WebSocket, string>} */
@@ -1230,9 +1266,27 @@ function registerTerminalGateway(wss, {
             let nextRevision = 0;
             let lastPublishedRevision = 0;
             let lastPublishedQuality = 0;
+            let lastPublishedProjectionFingerprint = null;
             let unpublishedSince = null;
             let deadlineTimer = null;
             let deadlineProjectionActive = false;
+
+            const clearProjectionPending = () => {
+                snapshotScheduler.clearLiveProjectionPending(client, conversationId);
+            };
+
+            const clearProjectionPendingIfIdle = (entry) => {
+                if (closed || !entry || latestEntry !== entry) return;
+                if (entry.revision <= lastPublishedRevision ||
+                    (!queue.active && !queue.pending && !deadlineTimer && !deadlineProjectionActive)
+                ) {
+                    clearProjectionPending();
+                    if (entry.revision > lastPublishedRevision) {
+                        unpublishedSince = null;
+                        clearDeadlineTimer();
+                    }
+                }
+            };
 
             const clearDeadlineTimer = () => {
                 if (!deadlineTimer) return;
@@ -1245,6 +1299,32 @@ function registerTerminalGateway(wss, {
                 const qualityRank = quality === 'full' ? 2 : 1;
                 if (entry.revision < lastPublishedRevision) return false;
                 if (entry.revision === lastPublishedRevision && qualityRank <= lastPublishedQuality) return false;
+
+                let projectionFingerprint = null;
+                try {
+                    projectionFingerprint = JSON.stringify(projected ?? null);
+                } catch (_) {
+                    // The normal projector returns JSON-shaped data. If an
+                    // injected/failed adapter does not, retain the existing
+                    // send behavior instead of making fingerprinting a new
+                    // failure path.
+                }
+                if (entry.revision === lastPublishedRevision &&
+                    projectionFingerprint !== null &&
+                    projectionFingerprint === lastPublishedProjectionFingerprint
+                ) {
+                    // The fast redacted path and the full path are often
+                    // byte-identical for text-only surfaces. Mark the full
+                    // quality as observed without sending the same revision
+                    // twice over WebSocket.
+                    lastPublishedQuality = Math.max(lastPublishedQuality, qualityRank);
+                    if (!latestEntry || lastPublishedRevision >= latestEntry.revision) {
+                        unpublishedSince = null;
+                        clearDeadlineTimer();
+                        clearProjectionPending();
+                    }
+                    return true;
+                }
 
                 const isIntermediate = entry.revision < (latestEntry?.revision || entry.revision);
                 const deadlineImminent = unpublishedSince !== null &&
@@ -1269,14 +1349,17 @@ function registerTerminalGateway(wss, {
                 if (entry.revision > lastPublishedRevision) {
                     lastPublishedRevision = entry.revision;
                     lastPublishedQuality = qualityRank;
+                    lastPublishedProjectionFingerprint = projectionFingerprint;
                 } else {
                     // A full projection may enrich a deadline fallback for the
                     // same IPC revision, but no lower revision may ever return.
                     lastPublishedQuality = qualityRank;
+                    lastPublishedProjectionFingerprint = projectionFingerprint;
                 }
                 if (!latestEntry || lastPublishedRevision >= latestEntry.revision) {
                     unpublishedSince = null;
                     clearDeadlineTimer();
+                    clearProjectionPending();
                 }
                 return true;
             };
@@ -1310,8 +1393,12 @@ function registerTerminalGateway(wss, {
                             clientType: client.codexClientType,
                             projectionKind: 'deadline'
                         });
+                        // If neither the full queue nor a newer entry can
+                        // publish this candidate, do not leave history paused
+                        // forever on an irrecoverable projection failure.
                     }).finally(() => {
                         deadlineProjectionActive = false;
+                        clearProjectionPendingIfIdle(candidate);
                         scheduleVisibleDeadline();
                     });
                 }, delayMs);
@@ -1319,23 +1406,31 @@ function registerTerminalGateway(wss, {
             };
 
             const queue = createLatestOnlyAsyncQueue(async (entry) => {
-                let projected;
-                let quality = 'full';
                 try {
-                    projected = await mobileSurfaceProjector(entry.surface, { mediaStore });
+                    let projected;
+                    let quality = 'full';
+                    try {
+                        projected = await mobileSurfaceProjector(entry.surface, { mediaStore });
+                    } catch (error) {
+                        diagnosticLog.error('server', 'server.codex.media.project_failed', error, {
+                            conversationKey: diagnosticKey(conversationId),
+                            clientType: client.codexClientType
+                        });
+                        quality = 'deadline';
+                        projected = await mobileSurfaceProjector(entry.surface, {
+                            mediaStore: null,
+                            redactInlineMedia: true
+                        });
+                    }
+                    const published = publishProjected(entry, projected, quality);
+                    if (!published) clearProjectionPendingIfIdle(entry);
+                    scheduleVisibleDeadline();
                 } catch (error) {
-                    diagnosticLog.error('server', 'server.codex.media.project_failed', error, {
-                        conversationKey: diagnosticKey(conversationId),
-                        clientType: client.codexClientType
-                    });
-                    quality = 'deadline';
-                    projected = await mobileSurfaceProjector(entry.surface, {
-                        mediaStore: null,
-                        redactInlineMedia: true
-                    });
+                    // A failed full and fallback projection has no frame to
+                    // publish. The enqueue finally-handler below evaluates
+                    // the queue/deadline state before releasing the marker.
+                    throw error;
                 }
-                publishProjected(entry, projected, quality);
-                scheduleVisibleDeadline();
             });
 
             projectionState = {
@@ -1348,18 +1443,56 @@ function registerTerminalGateway(wss, {
                         receivedAt: Date.now()
                     };
                     latestEntry = entry;
+                    // Register before the async projector starts. Without
+                    // this marker, the history pump can create a lower
+                    // priority frame during the projection gap.
+                    snapshotScheduler.markLiveProjectionPending(client, conversationId);
                     unpublishedSince ??= entry.receivedAt;
                     scheduleVisibleDeadline();
+
+                    // The full media projection can legitimately take longer
+                    // than a live IPC update (for example when a tail carries
+                    // several inline images). Publish the bounded redacted
+                    // tail first so Android observes the authoritative live
+                    // state promptly; the full projection below may enrich
+                    // the same revision later. This is a derived mobile
+                    // projection only and never changes the IPC authority.
+                    const fastProjectionStartedAt = Date.now();
+                    void Promise.resolve(mobileSurfaceProjector(entry.surface, {
+                        mediaStore: null,
+                        redactInlineMedia: true
+                    })).then((projected) => {
+                        const published = publishProjected(entry, projected, 'deadline');
+                        if (published) {
+                            diagnosticLog.event('server', 'server.codex.media.projection_fast_path', {
+                                conversationKey: diagnosticKey(conversationId),
+                                clientType: client.codexClientType,
+                                projectionRevision: entry.revision,
+                                visibleLatencyMs: Math.max(0, Date.now() - fastProjectionStartedAt),
+                                fullProjectionPending: true
+                            }, 'info');
+                        }
+                    }).catch((error) => {
+                        diagnosticLog.error('server', 'server.codex.media.project_failed', error, {
+                            conversationKey: diagnosticKey(conversationId),
+                            clientType: client.codexClientType,
+                            projectionKind: 'fast'
+                        });
+                    }).finally(() => {
+                        clearProjectionPendingIfIdle(entry);
+                        scheduleVisibleDeadline();
+                    });
                     void queue.enqueue(entry).catch((error) => {
                         diagnosticLog.error('server', 'server.codex.media.project_failed', error, {
                             conversationKey: diagnosticKey(conversationId),
                             clientType: client.codexClientType
                         });
-                    });
+                    }).finally(() => clearProjectionPendingIfIdle(entry));
                 },
                 close() {
                     closed = true;
                     clearDeadlineTimer();
+                    clearProjectionPending();
                     queue.close();
                 }
             };
@@ -1470,6 +1603,18 @@ function registerTerminalGateway(wss, {
             _ipcActiveConversations.get(ws) === conversationId &&
             (_ipcSelectionGenerations.get(ws) || 0) === selectionGeneration
         ),
+        canSendHistory: (ws) => snapshotScheduler.canSendHistory(ws),
+        historyByteCredit: (ws, preferredBytes) => snapshotScheduler.getHistoryByteCredit(ws, preferredBytes),
+        onHistoryAck: (ws, observation) => {
+            const recorded = snapshotScheduler.recordHistoryAck(ws, observation);
+            if (recorded) {
+                diagnosticLog.event('server', 'server.codex.history.scheduler_ack', {
+                    bytes: observation.bytes,
+                    elapsedMs: observation.elapsedMs,
+                    ewmaBytesPerMs: Number(recorded.ewmaBytesPerMs.toFixed(3))
+                }, 'info');
+            }
+        },
         send: (ws, envelope) => {
             if (envelope?.type === 'conversation_history_sync_state') {
                 const syncState = typeof envelope.state === 'string' ? envelope.state.trim().toLowerCase() : '';
@@ -1495,10 +1640,16 @@ function registerTerminalGateway(wss, {
                 upsertCount: Array.isArray(envelope?.upserts) ? envelope.upserts.length : 0,
                 chunkBytes: typeof envelope?.data === 'string' ? Buffer.byteLength(envelope.data, 'utf8') : 0
             }, 'info');
-            if (envelope.type === 'conversation_history_delta' || envelope.type === 'conversation_history_payload_chunk') {
-                sendWsEnvelope(ws, envelope);
+            if (
+                envelope.type === 'conversation_history_delta' ||
+                envelope.type === 'conversation_history_payload_chunk' ||
+                envelope.type === 'conversation_history_segment_start' ||
+                envelope.type === 'conversation_history_segment_fragment' ||
+                envelope.type === 'conversation_history_segment_commit'
+            ) {
+                return snapshotScheduler.sendHistory(ws, envelope);
             } else {
-                snapshotScheduler.sendControl(ws, envelope);
+                return snapshotScheduler.sendControl(ws, envelope);
             }
         }
     });
@@ -1848,6 +1999,13 @@ function registerTerminalGateway(wss, {
                         enabled: historyRangeSegmentsEnabled === true,
                         version: 1,
                         cacheSchemaVersion: 3
+                    },
+                    serverSnapshotSegments: {
+                        enabled: historySnapshotSegmentsEnabled === true && Boolean(resolvedHistorySnapshotStore),
+                        version: 1,
+                        cacheSchemaVersion: 3,
+                        segmentTargetBytes: 96 * 1024,
+                        fragmentMaxBytes: 16 * 1024
                     }
                 },
                 codexMedia: { version: 1, maxBytes: 25 * 1024 * 1024 }
@@ -2124,6 +2282,10 @@ function registerTerminalGateway(wss, {
 
     const _emitConversationActionRequired = (ws, conversationId, surface) => {
         if (!surface || typeof surface !== 'object') return;
+        // B4's control-priority boundary is intentionally narrow: these are
+        // Gateway-derived action projections from the authoritative surface.
+        // Raw IPC status/sync/catalog frames, follower-route state and user
+        // action ACKs retain their existing direct-send paths.
         const sendAction = (actionType, pendingAction) => {
             const payload = projectConversationActionPayload(actionType, pendingAction);
             const envelope = {
@@ -2189,6 +2351,9 @@ function registerTerminalGateway(wss, {
             if (activeConv !== conversationId) continue;
 
             if (authoritativeSurface && previousStatus && previousStatus !== status) {
+                // Derived status projection participates in B4 control
+                // priority; raw codex_ipc_status/sync_event envelopes below
+                // remain outside this scheduler boundary.
                 snapshotScheduler.sendControl(client, {
                     type: 'conversation_status_changed',
                     conversationId,
@@ -5694,6 +5859,26 @@ function registerTerminalGateway(wss, {
                                     selectionGeneration: currentSelectionGeneration,
                                     clientSelectionGeneration
                                 });
+                                const measurement = result?.measurement && typeof result.measurement === 'object'
+                                    ? result.measurement
+                                    : null;
+                                if (measurement) {
+                                    diagnosticLog.event('server', 'server.codex.history.source_read.completed', {
+                                        conversationKey: diagnosticKey(conversationId),
+                                        syncId,
+                                        selectionGeneration: currentSelectionGeneration,
+                                        sourceMethod: measurement.sourceMethod || null,
+                                        providerMode: measurement.providerMode || null,
+                                        resultKind: result?.resultKind || null,
+                                        probeDurationMs: measurement.probeDurationMs,
+                                        sourceReadDurationMs: measurement.sourceReadDurationMs,
+                                        providerDurationMs: measurement.providerDurationMs,
+                                        sourceResponseBytes: measurement.sourceResponseBytes,
+                                        sourceItemCount: measurement.sourceItemCount,
+                                        returnedItemCount: measurement.returnedItemCount,
+                                        baselineCacheBytes: baseline.byteSize
+                                    }, 'info');
+                                }
                                 diagnosticLog.event('server', 'server.codex.history.recovery.ready', {
                                     conversationKey: diagnosticKey(conversationId),
                                     syncId,
@@ -5798,6 +5983,14 @@ function registerTerminalGateway(wss, {
                             envelope.rangeSegments,
                             historyRangeSegmentsEnabled === true
                         );
+                        const snapshotSegments = normalizeHistorySnapshotSegmentsCapability(
+                            envelope.serverSnapshotSegments,
+                            historySnapshotSegmentsEnabled === true && Boolean(resolvedHistorySnapshotStore)
+                        );
+                        const snapshotProfileKey = normalizeHistorySnapshotProfileKey(
+                            envelope.profileId,
+                            session?.id
+                        );
                         diagnosticLog.event('server', 'server.codex.history.sync.request_received', {
                             conversationKey: diagnosticKey(conversationId),
                             syncId,
@@ -5805,7 +5998,8 @@ function registerTerminalGateway(wss, {
                             selectionGeneration: currentSelectionGeneration,
                             clientSelectionGeneration,
                             cacheSchemaVersion: envelope.cacheSchemaVersion || 1,
-                            rangeSegments: rangeSegments.enabled
+                            rangeSegments: rangeSegments.enabled,
+                            serverSnapshotSegments: snapshotSegments.enabled
                         }, 'info');
                         if (!conversationId || _getActiveConversationId(ws) !== conversationId) {
                             _sendHistorySyncFailure(ws, {
@@ -5826,6 +6020,142 @@ function registerTerminalGateway(wss, {
                                 selectionGeneration: currentSelectionGeneration,
                                 clientSelectionGeneration
                             }, 'stale_selection');
+                        } else if (snapshotSegments.enabled) {
+                            const cycle = _getHistorySelectionCycle(ws);
+                            if (!cycle || !_isCurrentHistorySelectionCycle(ws, conversationId, currentSelectionGeneration)) {
+                                _sendHistorySyncFailure(ws, {
+                                    syncId,
+                                    conversationId,
+                                    selectionGeneration: currentSelectionGeneration,
+                                    clientSelectionGeneration
+                                }, 'stale_selection');
+                                return;
+                            }
+                            if (!snapshotProfileKey || !resolvedHistorySnapshotStore) {
+                                _sendHistorySyncFailure(ws, {
+                                    syncId,
+                                    conversationId,
+                                    selectionGeneration: currentSelectionGeneration,
+                                    clientSelectionGeneration
+                                }, 'history_snapshot_store_unavailable');
+                                return;
+                            }
+                            // Static history is intentionally independent of a
+                            // healthy Desktop owner surface. Do not let the
+                            // IPC-surface recovery deadline cancel an explicit
+                            // thread/read recovery for a task that Desktop has
+                            // never opened; selection/generation remains the
+                            // correctness fence.
+                            cycle.staticSnapshotActive = true;
+                            cycle.recoveryState = 'static_snapshot';
+                            _clearHistorySelectionDeadlineTimer(cycle);
+                            _ipcHistorySyncContexts.set(ws, {
+                                syncId,
+                                conversationId,
+                                selectionGeneration: currentSelectionGeneration,
+                                clientSelectionGeneration
+                            });
+                            const started = historySyncService.startSnapshotSegments({
+                                ws,
+                                conversationId,
+                                syncId,
+                                checkpoint: envelope.checkpoint || {},
+                                cacheSchemaVersion: envelope.cacheSchemaVersion,
+                                snapshotSegments,
+                                selectionGeneration: currentSelectionGeneration,
+                                clientSelectionGeneration,
+                                initialItems: [],
+                                initialFinal: false,
+                                providerMode: 'server_snapshot'
+                            });
+                            diagnosticLog.event('server', 'server.codex.history.snapshot.started', {
+                                conversationKey: diagnosticKey(conversationId),
+                                syncId,
+                                selectionGeneration: currentSelectionGeneration,
+                                ok: started.ok,
+                                detailCode: started.detailCode || null
+                            }, started.ok ? 'info' : 'warn');
+                            if (!started.ok) {
+                                const context = _ipcHistorySyncContexts.get(ws);
+                                _ipcHistorySyncContexts.delete(ws);
+                                _sendHistorySyncFailure(ws, context || {
+                                    syncId,
+                                    conversationId,
+                                    selectionGeneration: currentSelectionGeneration,
+                                    clientSelectionGeneration
+                                }, started.detailCode || 'history_snapshot_unavailable');
+                                return;
+                            }
+                            const snapshotScope = { profileKey: snapshotProfileKey, conversationId };
+                            void (async () => {
+                                try {
+                                    await historySnapshotStoreReady;
+                                    const snapshot = await historyBaselineProvider.scanComplete(conversationId, {
+                                        onPage: async (page) => {
+                                            if (!_isCurrentHistorySelectionCycle(ws, conversationId, currentSelectionGeneration)) {
+                                                const error = new Error('History snapshot selection is no longer current.');
+                                                error.code = 'history_snapshot_stale_selection';
+                                                throw error;
+                                            }
+                                            const appended = historySyncService.appendSnapshotPage({
+                                                ws,
+                                                conversationId,
+                                                syncId,
+                                                selectionGeneration: currentSelectionGeneration,
+                                                items: page.items,
+                                                isFinal: page.isFinal === true
+                                            });
+                                            if (!appended.ok) {
+                                                const error = new Error('History snapshot stream could not append a source page.');
+                                                error.code = appended.detailCode || 'history_snapshot_append_failed';
+                                                throw error;
+                                            }
+                                            diagnosticLog.event('server', 'server.codex.history.snapshot.page_queued', {
+                                                conversationKey: diagnosticKey(conversationId),
+                                                syncId,
+                                                sourcePageIndex: page.pageIndex,
+                                                itemCount: Array.isArray(page.items) ? page.items.length : 0,
+                                                initial: page.isInitial === true,
+                                                final: page.isFinal === true
+                                            }, 'info');
+                                        }
+                                    });
+                                    await resolvedHistorySnapshotStore.write(snapshotScope, snapshot);
+                                    diagnosticLog.event('server', 'server.codex.history.snapshot.persisted', {
+                                        conversationKey: diagnosticKey(conversationId),
+                                        syncId,
+                                        providerMode: snapshot.mode,
+                                        itemCount: snapshot.items.length,
+                                        sourceResponseBytes: snapshot.measurement?.sourceResponseBytes || snapshot.rawBytes || 0,
+                                        sourceReadDurationMs: snapshot.measurement?.sourceReadDurationMs ?? null,
+                                        providerDurationMs: snapshot.measurement?.providerDurationMs ?? null
+                                    }, 'info');
+                                } catch (error) {
+                                    if (error?.code === 'history_snapshot_stale_selection' ||
+                                        !_isCurrentHistorySelectionCycle(ws, conversationId, currentSelectionGeneration)) {
+                                        return;
+                                    }
+                                    const detailCode = error?.code === 'HISTORY_RECOVERY_TIMEOUT'
+                                        ? 'history_snapshot_timeout'
+                                        : String(error?.code || '').startsWith('HISTORY_RECOVERY_PAGINATED_')
+                                            ? 'history_snapshot_source_invalid'
+                                            : error?.code === 'HISTORY_RECOVERY_BASELINE_TOO_LARGE'
+                                                ? 'history_snapshot_too_large'
+                                                : 'history_snapshot_failed';
+                                    historySyncService.failSnapshotSegments({
+                                        ws,
+                                        conversationId,
+                                        syncId,
+                                        selectionGeneration: currentSelectionGeneration,
+                                        detailCode
+                                    });
+                                    diagnosticLog.error('server', 'server.codex.history.snapshot.failed', error, {
+                                        conversationKey: diagnosticKey(conversationId),
+                                        syncId,
+                                        detailCode
+                                    });
+                                }
+                            })();
                         } else {
                             const cycle = _getHistorySelectionCycle(ws);
                             if (!cycle || !_isCurrentHistorySelectionCycle(ws, conversationId, currentSelectionGeneration)) {
@@ -6105,6 +6435,17 @@ function registerTerminalGateway(wss, {
                             state: result.state || null,
                             detailCode: result.detailCode || null
                         }, 'info');
+                    } else if (type === 'conversation_history_segment_ack') {
+                        const result = historySyncService.handleSnapshotSegmentAck(ws, envelope);
+                        diagnosticLog.event('server', 'server.codex.history.snapshot.ack_received', {
+                            conversationKey: diagnosticKey(envelope.conversationId),
+                            syncId: envelope.syncId || null,
+                            sequence: envelope.sequence,
+                            segmentId: typeof envelope.segmentId === 'string' ? envelope.segmentId.slice(0, 16) : null,
+                            ok: result.ok,
+                            state: result.state || null,
+                            detailCode: result.detailCode || null
+                        }, result.ok ? 'info' : 'warn');
                     } else if (type === 'set_active_follower_mode') {
                         _setFollowerMode(ws, envelope.enabled === true);
                     } else if (type === 'codex_thread_recovery_action') {
@@ -6911,3 +7252,4 @@ module.exports.MAX_WS_ENVELOPE_BYTES = MAX_WS_ENVELOPE_BYTES;
 module.exports.MOBILE_SURFACE_MAX_VISIBLE_LATENCY_MS = MOBILE_SURFACE_MAX_VISIBLE_LATENCY_MS;
 module.exports.createLatestOnlyAsyncQueue = createLatestOnlyAsyncQueue;
 module.exports.normalizeHistoryRangeCapability = normalizeHistoryRangeCapability;
+module.exports.normalizeHistorySnapshotSegmentsCapability = normalizeHistorySnapshotSegmentsCapability;

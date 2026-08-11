@@ -144,7 +144,8 @@ data class CodexHistoryCapability(
     val payloadChunks: Boolean = false,
     val payloadChunkMaxBytes: Int = 131072,
     val maxEnvelopeBytes: Int = 262144,
-    val rangeSegments: CodexHistoryRangeCapability? = null
+    val rangeSegments: CodexHistoryRangeCapability? = null,
+    val serverSnapshotSegments: CodexHistorySnapshotSegmentsCapability? = null
 ) {
     companion object {
         fun from(status: JSONObject?): CodexHistoryCapability? {
@@ -162,7 +163,10 @@ data class CodexHistoryCapability(
                 payloadChunks = json.optBoolean("payloadChunks", false),
                 payloadChunkMaxBytes = json.optInt("payloadChunkMaxBytes", 131072),
                 maxEnvelopeBytes = json.optInt("maxEnvelopeBytes", 262144),
-                rangeSegments = CodexHistoryRangeCapability.from(json.optJSONObject("rangeSegments"))
+                rangeSegments = CodexHistoryRangeCapability.from(json.optJSONObject("rangeSegments")),
+                serverSnapshotSegments = CodexHistorySnapshotSegmentsCapability.from(
+                    json.optJSONObject("serverSnapshotSegments")
+                )
             )
         }
     }
@@ -180,6 +184,28 @@ data class CodexHistoryRangeCapability(
                 enabled = json.optBoolean("enabled", false),
                 version = json.optInt("version", 0),
                 cacheSchemaVersion = json.optInt("cacheSchemaVersion", 0)
+            )
+        }
+    }
+}
+
+/** P0-B.4R static snapshot segment capability, independent from native cursor range pages. */
+data class CodexHistorySnapshotSegmentsCapability(
+    val enabled: Boolean,
+    val version: Int,
+    val cacheSchemaVersion: Int,
+    val segmentTargetBytes: Int = 96 * 1024,
+    val fragmentMaxBytes: Int = 16 * 1024
+) {
+    companion object {
+        fun from(json: JSONObject?): CodexHistorySnapshotSegmentsCapability? {
+            if (json == null) return null
+            return CodexHistorySnapshotSegmentsCapability(
+                enabled = json.optBoolean("enabled", false),
+                version = json.optInt("version", 0),
+                cacheSchemaVersion = json.optInt("cacheSchemaVersion", 0),
+                segmentTargetBytes = json.optInt("segmentTargetBytes", 96 * 1024),
+                fragmentMaxBytes = json.optInt("fragmentMaxBytes", 16 * 1024)
             )
         }
     }
@@ -260,16 +286,20 @@ data class CodexHistorySyncRequest(
     val checkpoint: CodexHistorySyncCheckpoint,
     val selectionGeneration: Long = 0L,
     val cacheSchemaVersion: Int = 1,
-    val rangeSegments: CodexHistoryRangeCapability? = null
+    val rangeSegments: CodexHistoryRangeCapability? = null,
+    val serverSnapshotSegments: CodexHistorySnapshotSegmentsCapability? = null,
+    val profileId: String? = null
 ) {
     fun toJson(): JSONObject = JSONObject().apply {
         put("type", "conversation_history_sync_request")
         put("syncId", syncId)
         put("conversationId", conversationId)
         val range = rangeSegments?.takeIf { it.isWireEnabled() }
-        put("cacheSchemaVersion", cacheSchemaVersion.coerceIn(1, if (range != null) 3 else 2))
+        val snapshot = serverSnapshotSegments?.takeIf { it.isWireEnabled() }
+        put("cacheSchemaVersion", cacheSchemaVersion.coerceIn(1, if (range != null || snapshot != null) 3 else 2))
         put("checkpoint", checkpoint.toJson())
         put("selectionGeneration", selectionGeneration.coerceAtLeast(0L))
+        profileId?.trim()?.takeIf { it.isNotEmpty() }?.let { put("profileId", it) }
         if (range != null) {
             put("rangeSegments", JSONObject().apply {
                 put("enabled", true)
@@ -277,10 +307,20 @@ data class CodexHistorySyncRequest(
                 put("cacheSchemaVersion", range.cacheSchemaVersion)
             })
         }
+        if (snapshot != null) {
+            put("serverSnapshotSegments", JSONObject().apply {
+                put("enabled", true)
+                put("version", snapshot.version)
+                put("cacheSchemaVersion", snapshot.cacheSchemaVersion)
+            })
+        }
     }
 }
 
 private fun CodexHistoryRangeCapability.isWireEnabled(): Boolean =
+    enabled && version == 1 && cacheSchemaVersion >= 3
+
+private fun CodexHistorySnapshotSegmentsCapability.isWireEnabled(): Boolean =
     enabled && version == 1 && cacheSchemaVersion >= 3
 
 data class CodexHistoryManifestRequired(
@@ -429,6 +469,37 @@ data class CodexHistoryPayloadChunkWire(
                 data = data,
                 selectionGeneration = json.optLong("clientSelectionGeneration", json.optLong("selectionGeneration", 0L))
             ))
+        }
+    }
+}
+
+data class CodexHistorySegmentCommit(
+    val syncId: String,
+    val conversationId: String,
+    val sequence: Int,
+    val pageIndex: Int,
+    val segmentId: String,
+    val pageHash: String,
+    val targetRoot: String,
+    val selectionGeneration: Long
+) {
+    companion object {
+        fun from(json: JSONObject): CodexHistorySegmentCommit? {
+            val syncId = json.optStringOrNull("syncId") ?: return null
+            val conversationId = json.optStringOrNull("conversationId") ?: return null
+            val segmentId = json.optStringOrNull("segmentId") ?: return null
+            val pageHash = json.optStringOrNull("pageHash") ?: return null
+            val targetRoot = json.optStringOrNull("targetRoot") ?: return null
+            return CodexHistorySegmentCommit(
+                syncId = syncId,
+                conversationId = conversationId,
+                sequence = json.optInt("sequence", -1),
+                pageIndex = json.optInt("pageIndex", -1),
+                segmentId = segmentId,
+                pageHash = pageHash,
+                targetRoot = targetRoot,
+                selectionGeneration = json.optLong("clientSelectionGeneration", json.optLong("selectionGeneration", 0L))
+            )
         }
     }
 }
@@ -1296,6 +1367,27 @@ object CodexClientMessages {
         .put("targetRoot", targetRoot)
         .put("sequence", sequence)
         .put("pageIndex", pageIndex)
+        .put("clientSelectionGeneration", selectionGeneration.coerceAtLeast(0L))
+        .toString()
+
+    fun historySegmentAck(
+        syncId: String,
+        conversationId: String,
+        targetRoot: String,
+        sequence: Int,
+        pageIndex: Int,
+        segmentId: String,
+        pageHash: String,
+        selectionGeneration: Long = 0L
+    ): String = JSONObject()
+        .put("type", "conversation_history_segment_ack")
+        .put("syncId", syncId)
+        .put("conversationId", conversationId)
+        .put("targetRoot", targetRoot)
+        .put("sequence", sequence)
+        .put("pageIndex", pageIndex)
+        .put("segmentId", segmentId)
+        .put("pageHash", pageHash)
         .put("clientSelectionGeneration", selectionGeneration.coerceAtLeast(0L))
         .toString()
 

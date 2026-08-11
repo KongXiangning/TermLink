@@ -4,6 +4,8 @@ const DATA_IMAGE_URL = /^data:(image\/[a-z0-9.+-]+);base64,/i;
 const EXACT_DATA_IMAGE_URL = /^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=]+)$/i;
 const EMBEDDED_DATA_IMAGE_URL = /data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=]+)/ig;
 const EMBEDDED_DATA_IMAGE_URL_TEST = /data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=]+)/i;
+const IMAGE_DATA_URL_MARKER = /data:image\//i;
+const REDACTABLE_IMAGE_DATA_URL = /data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=\s]*/ig;
 const MOBILE_REALTIME_SURFACE_MAX_BYTES = 192 * 1024;
 const MOBILE_REALTIME_SURFACE_MAX_ITEMS = 256;
 const MOBILE_REALTIME_SURFACE_KEYS = [
@@ -91,6 +93,14 @@ async function projectMobileRealtimeSurface(
 ) {
     if (!surface || typeof surface !== 'object' || Array.isArray(surface)) return {};
     const sourceItems = Array.isArray(surface.items) ? surface.items : [];
+    if (!mediaStore && redactInlineMedia) {
+        // The fast/deadline path must not first materialize a large redacted
+        // copy and then repeatedly stringify it while trimming the oldest
+        // items.  That turns a bounded live tail into quadratic work and can
+        // block the Node event loop long enough to delay the very surface it
+        // is supposed to make visible.
+        return projectRedactedRealtimeSurface(surface, { maxItems, maxBytes });
+    }
     const tailItems = sourceItems.slice(-Math.max(1, maxItems));
     const reduced = {};
     for (const key of MOBILE_REALTIME_SURFACE_KEYS) {
@@ -112,6 +122,93 @@ async function projectMobileRealtimeSurface(
         projected.items = [];
     }
     return projected;
+}
+
+async function projectRedactedRealtimeSurface(
+    surface,
+    {
+        maxItems = MOBILE_REALTIME_SURFACE_MAX_ITEMS,
+        maxBytes = MOBILE_REALTIME_SURFACE_MAX_BYTES
+    } = {}
+) {
+    if (!surface || typeof surface !== 'object' || Array.isArray(surface)) return {};
+    const sourceItems = Array.isArray(surface.items) ? surface.items : [];
+    const normalizedMaxItems = Math.max(1, Number.isSafeInteger(maxItems) ? maxItems : MOBILE_REALTIME_SURFACE_MAX_ITEMS);
+    const normalizedMaxBytes = Math.max(1024, Number.isSafeInteger(maxBytes) ? maxBytes : MOBILE_REALTIME_SURFACE_MAX_BYTES);
+    const state = { nodes: 0 };
+    const reduced = {};
+    for (const key of MOBILE_REALTIME_SURFACE_KEYS) {
+        if (Object.prototype.hasOwnProperty.call(surface, key)) {
+            reduced[key] = boundRealtimeValue(surface[key], state);
+        }
+    }
+    // Reserve the same object shape used by the final result so the item
+    // budget below is exact up to commas between item JSON values.
+    reduced.items = [];
+    reduced.itemsTruncated = Boolean(surface.itemsTruncated) || sourceItems.length > normalizedMaxItems;
+    const baseBytes = safeJsonByteLength(reduced);
+    const selected = [];
+    let selectedItemBytes = 0;
+    const firstIndex = Math.max(0, sourceItems.length - normalizedMaxItems);
+    for (let index = sourceItems.length - 1; index >= firstIndex; index -= 1) {
+        const item = boundRealtimeValue(sourceItems[index], state);
+        const itemBytes = safeJsonByteLength(item);
+        const separatorBytes = selected.length > 0 ? 1 : 0;
+        if (baseBytes + selectedItemBytes + separatorBytes + itemBytes > normalizedMaxBytes) {
+            break;
+        }
+        selected.push({ item, itemBytes });
+        selectedItemBytes += itemBytes + separatorBytes;
+    }
+    reduced.items = selected.reverse().map(({ item }) => item);
+    reduced.itemsTruncated = Boolean(surface.itemsTruncated) || reduced.items.length < sourceItems.length;
+
+    // The incremental estimate above accounts for the JSON representation of
+    // `items: []`.  Keep one defensive exact check for unusual serializers or
+    // values whose JSON representation changed during sanitization; this is
+    // linear in the number of retained items and never rebuilds candidates.
+    while (reduced.items.length > 0 && safeJsonByteLength(reduced) > normalizedMaxBytes) {
+        reduced.items.shift();
+        reduced.itemsTruncated = true;
+    }
+    return reduced;
+}
+
+function boundRealtimeValue(value, state, depth = 0) {
+    state.nodes += 1;
+    if (state.nodes > 50_000 || depth >= 4) return null;
+    if (typeof value === 'string') return redactAndClipString(value, MOBILE_REALTIME_ITEM_STRING_BYTES);
+    if (value === null || typeof value !== 'object') return value;
+    if (Array.isArray(value)) {
+        const start = Math.max(0, value.length - 64);
+        const result = [];
+        for (let index = start; index < value.length; index += 1) {
+            result.push(boundRealtimeValue(value[index], state, depth + 1));
+        }
+        return result;
+    }
+    const result = {};
+    let keyCount = 0;
+    for (const key of Object.keys(value)) {
+        if (keyCount >= 32) break;
+        result[key] = boundRealtimeValue(value[key], state, depth + 1);
+        keyCount += 1;
+    }
+    return result;
+}
+
+function redactAndClipString(value, maxBytes) {
+    let text = String(value);
+    if (IMAGE_DATA_URL_MARKER.test(text)) {
+        text = text.replace(REDACTABLE_IMAGE_DATA_URL, '[图片数据不可用]');
+    }
+    const limit = Math.max(64, maxBytes);
+    if (Buffer.byteLength(text, 'utf8') <= limit) return text;
+    let clipped = text.slice(0, Math.max(0, limit - 3));
+    while (Buffer.byteLength(clipped, 'utf8') > limit - 3) {
+        clipped = clipped.slice(0, Math.max(0, clipped.length - 256));
+    }
+    return `${clipped}…`;
 }
 
 function containsImageDataUrl(value, maxNodes = 50_000) {

@@ -10,6 +10,7 @@ const { projectMobileSurface, containsImageDataUrl } = require('./codexMobileSur
 
 const DEFAULT_MAX_BASELINE_BYTES = 70 * 1024 * 1024;
 const DEFAULT_TAIL_ITEM_LIMIT = 200;
+const DEFAULT_MAX_SCAN_PAGES = 10_000;
 const RANGE_SCHEMA_VERSION = 1;
 
 const HISTORY_MODES = Object.freeze({
@@ -63,7 +64,8 @@ class CodexHistoryBaselineProvider {
                 : null;
     }
 
-    async build(conversationId, options = {}) {
+    async build(conversationId, options = {}, knownProbe = null) {
+        const buildStartedAt = this.now();
         const normalizedConversationId = typeof conversationId === 'string'
             ? conversationId.trim()
             : '';
@@ -73,7 +75,14 @@ class CodexHistoryBaselineProvider {
             throw error;
         }
 
-        const probe = await this._probe(normalizedConversationId, options);
+        // `scanComplete` already performed the required metadata probe.  A
+        // legacy full read must not add a second IPC round-trip before the
+        // actual (potentially large) source response.  The optional value is
+        // deliberately internal: normal callers retain the fail-closed probe.
+        const probe = knownProbe && typeof knownProbe === 'object'
+            ? knownProbe
+            : await this._probe(normalizedConversationId, options);
+        const probeDurationMs = elapsedMilliseconds(buildStartedAt, this.now());
         // Reject a contradictory metadata response before any payload read.
         // Apart from being safer, this avoids doing a full legacy replay for a
         // conversation that the probe already proved is not the requested one.
@@ -95,6 +104,11 @@ class CodexHistoryBaselineProvider {
         const readerOptions = mode === HISTORY_MODES.PAGINATED
             ? withDefaultPaginatedDirection(options)
             : options;
+        // This boundary is deliberately just the upstream history read. It
+        // excludes the metadata probe and all local projection/canonicalizing
+        // work so diagnostics can tell whether the source or TermLink itself
+        // dominates a cold recovery.
+        const sourceReadStartedAt = this.now();
         let response;
         if (mode === HISTORY_MODES.PAGINATED) {
             if (typeof this.readPaginatedTurns !== 'function') {
@@ -107,6 +121,7 @@ class CodexHistoryBaselineProvider {
             }
             response = await this.readLegacyThread(normalizedConversationId, options);
         }
+        const sourceReadDurationMs = elapsedMilliseconds(sourceReadStartedAt, this.now());
 
         const thread = unwrapThread(response);
         assertExactThreadIdentity(normalizedConversationId, extractResponseIdentity(response), 'response');
@@ -140,17 +155,23 @@ class CodexHistoryBaselineProvider {
         // Range is an additive capability, not a loose boolean hint.  Keep
         // the provider fail-closed when a caller sends an unknown version or
         // a cache schema that cannot persist range metadata.
-        const rangeRequested = isRangeCapabilityEnabled(options?.rangeSegments);
+        const rangeCapabilityRequested = isRangeCapabilityEnabled(options?.rangeSegments);
         const rangeKind = normalizeRangeKind(options?.rangeKind);
-        if (rangeRequested && rangeKind === 'older' && mode !== HISTORY_MODES.PAGINATED) {
+        if (rangeCapabilityRequested && rangeKind === 'older' && mode !== HISTORY_MODES.PAGINATED) {
             throw createUnsupportedError(
                 'HISTORY_RECOVERY_OLDER_UNSUPPORTED',
                 'Older range pages require a paginated history provider.'
             );
         }
+        // Capability negotiation is additive, but it must not change the
+        // legacy provider contract. Legacy thread/read has no cursor-bearing
+        // page boundary that Android can continue from, so a range-enabled
+        // legacy request stays on the original full/v2 path. Only paginated
+        // reads can safely produce tail/older metadata.
+        const rangeRequested = rangeCapabilityRequested && mode === HISTORY_MODES.PAGINATED;
         const tailItemLimit = normalizeTailItemLimit(options?.tailItemLimit);
         const cursor = extractCursorState(response);
-        if (rangeRequested && rangeKind === 'older' && !isValidOlderCursorState(cursor)) {
+        if (rangeCapabilityRequested && rangeKind === 'older' && !isValidOlderCursorState(cursor)) {
             const error = new Error('Older history response must include an explicit null or non-empty next cursor.');
             error.code = 'HISTORY_RECOVERY_OLDER_CURSOR_INVALID';
             throw error;
@@ -171,6 +192,7 @@ class CodexHistoryBaselineProvider {
                 providerIdentityHash: options?.providerIdentityHash
             })
             : null;
+        const providerDurationMs = elapsedMilliseconds(buildStartedAt, this.now());
         return {
             conversationId: normalizedConversationId,
             mode,
@@ -184,7 +206,204 @@ class CodexHistoryBaselineProvider {
             resultKind: rangeRequested ? (rangeKind === 'older' ? 'segment' : 'tail') : 'full',
             ...(range ? { range } : {}),
             sourceEpoch: `recovery:${this.now()}`,
-            rawBytes
+            rawBytes,
+            // Internal-only measurement. The Gateway consumes this for a
+            // sanitized diagnostic event; it is never put on the Android wire.
+            measurement: {
+                sourceMethod: mode === HISTORY_MODES.PAGINATED ? 'thread/turns/list' : 'thread/read',
+                providerMode: mode,
+                probeDurationMs,
+                sourceReadDurationMs,
+                providerDurationMs,
+                sourceResponseBytes: rawBytes,
+                sourceItemCount: projectedItems.length,
+                returnedItemCount: items.length
+            }
+        };
+    }
+
+    /**
+     * Read a complete static canonical snapshot.  This intentionally lives
+     * behind the explicit history-recovery boundary: it never observes or
+     * alters the IPC/live surface.  Paginated providers are scanned from the
+     * native newest page towards older cursors, while `onPage` receives each
+     * normalized page immediately so the transport may surface the newest
+     * static history before the complete snapshot is persisted.
+     */
+    async scanComplete(conversationId, options = {}) {
+        const buildStartedAt = this.now();
+        const normalizedConversationId = typeof conversationId === 'string'
+            ? conversationId.trim()
+            : '';
+        if (!normalizedConversationId) {
+            const error = new Error('History recovery requires conversationId.');
+            error.code = 'HISTORY_RECOVERY_INVALID_CONVERSATION';
+            throw error;
+        }
+        const onPage = typeof options.onPage === 'function' ? options.onPage : null;
+        const probe = await this._probe(normalizedConversationId, options);
+        const probeDurationMs = elapsedMilliseconds(buildStartedAt, this.now());
+        assertExactThreadIdentity(normalizedConversationId, extractResponseIdentity(probe.thread), 'probe');
+        const requestedMode = normalizeHistoryMode(options.historyMode);
+        const mode = probe.probed
+            ? probe.mode
+            : requestedMode !== HISTORY_MODES.UNKNOWN
+                ? requestedMode
+                : this.configuredHistoryMode;
+        if (mode === HISTORY_MODES.UNKNOWN) {
+            throw createUnsupportedError('HISTORY_RECOVERY_HISTORY_MODE_UNKNOWN', 'History mode is missing or unsupported.');
+        }
+        if (mode === HISTORY_MODES.EPHEMERAL) {
+            throw createUnsupportedError('HISTORY_RECOVERY_EPHEMERAL_UNSUPPORTED', 'Ephemeral threads do not support canonical history recovery.');
+        }
+
+        // Legacy Codex exposes only one full thread/read response. Preserve
+        // the existing reader/projection code and upgrade only its static
+        // coverage result; no range cursor is invented for this source.
+        if (mode === HISTORY_MODES.LEGACY) {
+            const baseline = await this.build(normalizedConversationId, {
+                ...options,
+                historyMode: mode,
+                rangeSegments: null
+            }, probe);
+            const snapshot = {
+                ...baseline,
+                complete: true,
+                coverageComplete: true,
+                resultKind: 'full',
+                nextCursor: null,
+                measurement: {
+                    ...baseline.measurement,
+                    scanPageCount: 1,
+                    returnedItemCount: baseline.items.length
+                }
+            };
+            if (onPage) {
+                await onPage({
+                    conversationId: normalizedConversationId,
+                    mode,
+                    items: snapshot.items,
+                    pageIndex: 0,
+                    isInitial: true,
+                    isFinal: true,
+                    sourceResponseBytes: snapshot.rawBytes
+                });
+            }
+            return snapshot;
+        }
+
+        if (typeof this.readPaginatedTurns !== 'function') {
+            throw createUnsupportedError('HISTORY_RECOVERY_PAGINATED_UNSUPPORTED', 'Paginated history requires a turns/items list reader.');
+        }
+        const maxPages = normalizeScanPageLimit(options.maxScanPages);
+        const sourceReadStartedAt = this.now();
+        let sourceReadDurationMs = 0;
+        let rawBytes = 0;
+        let cursor = null;
+        let pageIndex = 0;
+        let allItems = [];
+        let reachedBeginning = false;
+        const seenCursors = new Set();
+        while (pageIndex < maxPages) {
+            const readerOptions = withDefaultPaginatedDirection({
+                ...options,
+                ...(cursor !== null ? { cursor } : {})
+            });
+            const pageReadStartedAt = this.now();
+            const response = await this.readPaginatedTurns(normalizedConversationId, readerOptions);
+            sourceReadDurationMs += elapsedMilliseconds(pageReadStartedAt, this.now()) || 0;
+            assertExactThreadIdentity(normalizedConversationId, extractResponseIdentity(response), 'response');
+            const responseMode = extractHistoryMode(response);
+            if (responseMode !== HISTORY_MODES.UNKNOWN && responseMode !== mode) {
+                throw createUnsupportedError('HISTORY_RECOVERY_HISTORY_MODE_MISMATCH', 'History response mode does not match the probed mode.');
+            }
+            const pageBytes = safeJsonByteLength(response);
+            rawBytes += pageBytes;
+            if (rawBytes > this.maxBaselineBytes) {
+                const error = new Error('History snapshot exceeds the configured recovery limit.');
+                error.code = 'HISTORY_RECOVERY_BASELINE_TOO_LARGE';
+                error.rawBytes = rawBytes;
+                error.maxBytes = this.maxBaselineBytes;
+                throw error;
+            }
+            const projected = this.externalize ? await this.externalize(response || {}) : response || {};
+            if (containsImageDataUrl(projected)) {
+                const error = new Error('History snapshot still contains an image data URL after projection.');
+                error.code = 'HISTORY_RECOVERY_MEDIA_NOT_EXTERNALIZED';
+                throw error;
+            }
+            const pageItems = projectPaginatedItems(projected, readerOptions)
+                .map((item) => ({ ...item }));
+            const cursorState = extractCursorState(response);
+            if (!cursorState.present || !isValidOlderCursorState(cursorState)) {
+                const error = new Error('Paginated history scan requires an explicit null or non-empty next cursor.');
+                error.code = 'HISTORY_RECOVERY_PAGINATED_CURSOR_INVALID';
+                throw error;
+            }
+            const nextCursor = cursorState.value;
+            if (typeof nextCursor === 'string') {
+                if (seenCursors.has(nextCursor) || nextCursor === cursor) {
+                    const error = new Error('Paginated history scan cursor did not advance toward older history.');
+                    error.code = 'HISTORY_RECOVERY_PAGINATED_CURSOR_REPEAT';
+                    throw error;
+                }
+                seenCursors.add(nextCursor);
+            }
+            // Each native page is normalized ascending. Later native pages
+            // are older, so prepend them to retain the canonical chronology.
+            allItems = pageItems.concat(allItems);
+            if (onPage) {
+                await onPage({
+                    conversationId: normalizedConversationId,
+                    mode,
+                    items: pageItems,
+                    pageIndex,
+                    isInitial: pageIndex === 0,
+                    isFinal: nextCursor === null,
+                    sourceResponseBytes: pageBytes,
+                    nextOlderCursor: nextCursor
+                });
+            }
+            pageIndex += 1;
+            if (nextCursor === null) {
+                reachedBeginning = true;
+                break;
+            }
+            cursor = nextCursor;
+        }
+        if (!reachedBeginning) {
+            const error = new Error('Paginated history scan exceeded the configured page limit.');
+            error.code = 'HISTORY_RECOVERY_PAGINATED_PAGE_LIMIT';
+            error.maxPages = maxPages;
+            throw error;
+        }
+        const normalizedItems = allItems.map((item, position) => ({ ...item, position }));
+        const providerDurationMs = elapsedMilliseconds(buildStartedAt, this.now());
+        return {
+            conversationId: normalizedConversationId,
+            mode,
+            items: normalizedItems,
+            rootHash: buildConversationRoot(normalizedItems),
+            complete: true,
+            coverageComplete: true,
+            nextCursor: null,
+            resultKind: 'full',
+            sourceEpoch: `recovery:${this.now()}`,
+            rawBytes,
+            measurement: {
+                sourceMethod: 'thread/turns/list',
+                providerMode: mode,
+                probeDurationMs,
+                // `sourceReadStartedAt` is retained to make the intended
+                // measurement boundary explicit even when a deterministic
+                // test clock is used per page.
+                sourceReadDurationMs: sourceReadDurationMs || elapsedMilliseconds(sourceReadStartedAt, this.now()),
+                providerDurationMs,
+                sourceResponseBytes: rawBytes,
+                sourceItemCount: normalizedItems.length,
+                returnedItemCount: normalizedItems.length,
+                scanPageCount: pageIndex
+            }
         };
     }
 
@@ -224,6 +443,13 @@ function safeJsonByteLength(value) {
     } catch (_) {
         return Number.POSITIVE_INFINITY;
     }
+}
+
+function elapsedMilliseconds(startedAt, finishedAt) {
+    const start = Number(startedAt);
+    const finish = Number(finishedAt);
+    if (!Number.isFinite(start) || !Number.isFinite(finish)) return null;
+    return Math.max(0, Math.round(finish - start));
 }
 
 function normalizeHistoryMode(value) {
@@ -335,6 +561,12 @@ function normalizeTailItemLimit(value) {
     return Number.isSafeInteger(value) && value > 0
         ? Math.min(value, DEFAULT_TAIL_ITEM_LIMIT)
         : DEFAULT_TAIL_ITEM_LIMIT;
+}
+
+function normalizeScanPageLimit(value) {
+    return Number.isSafeInteger(value) && value > 0
+        ? Math.min(value, DEFAULT_MAX_SCAN_PAGES)
+        : DEFAULT_MAX_SCAN_PAGES;
 }
 
 function normalizeRangeKind(value) {

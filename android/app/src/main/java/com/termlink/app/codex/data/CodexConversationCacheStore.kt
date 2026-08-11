@@ -989,6 +989,12 @@ class CodexConversationCacheStore(
                 db.setTransactionSuccessful()
                 return PageApplyResult.IDEMPOTENT
             }
+            if (isServerSnapshotBootstrap(page)) {
+                // A server snapshot replaces previous static range ownership.
+                // Reset only after this new header passed integrity validation;
+                // an idempotent retransmit returned above never clears it.
+                resetStaticSnapshotRange(db, endpointId, page.conversationId)
+            }
             db.insertWithOnConflict("sync_sessions", null, page.sessionValues(endpointId, now), SQLiteDatabase.CONFLICT_REPLACE)
             if (page.pageIndex == 0) db.delete("sync_order", "sync_id=?", arrayOf(page.syncId))
             page.upserts.forEach { item ->
@@ -1149,6 +1155,13 @@ class CodexConversationCacheStore(
             }
     }
 
+    private fun resetStaticSnapshotRange(db: SQLiteDatabase, endpointId: String, conversationId: String) {
+        db.delete("history_segments", "endpoint_id=? AND conversation_id=?", arrayOf(endpointId, conversationId))
+        db.delete("items", "endpoint_id=? AND conversation_id=?", arrayOf(endpointId, conversationId))
+        db.delete("conversations", "endpoint_id=? AND conversation_id=?", arrayOf(endpointId, conversationId))
+        clearSyncRows(db, endpointId, conversationId)
+    }
+
     private fun commitStaging(db: SQLiteDatabase, endpointId: String, page: CodexHistoryDeltaPage, now: Long) {
         if (page.range != null) {
             commitRangeStaging(db, endpointId, page, now)
@@ -1214,7 +1227,20 @@ class CodexConversationCacheStore(
         ).use { cursor ->
             while (cursor.moveToNext()) stagedItems += cursor.toStagedItem()
         }
-        if (stagedItems.isEmpty()) throw IllegalArgumentException("range page has no upserts")
+        if (stagedItems.isEmpty()) {
+            if (!isMetadataOnlyRangePage(page)) {
+                throw IllegalArgumentException("range page has no upserts")
+            }
+            // A tail bootstrap can legitimately be a no-op when the canonical
+            // tail is already present in the migrated v2 cache.  The range
+            // metadata still carries the cursor/coverage proof needed by the
+            // next older request; moving or synthesizing an existing item here
+            // would change the compatible position projection and can reorder
+            // the old cache.  Keep the existing rows/legacy segment intact and
+            // commit only the checkpoint plus the protocol page completion.
+            commitMetadataOnlyRangeStaging(db, endpointId, page, now)
+            return
+        }
 
         val existingSegment = db.query(
             "history_segments", null,
@@ -1327,6 +1353,35 @@ class CodexConversationCacheStore(
             put("committed_at", now)
         }, SQLiteDatabase.CONFLICT_REPLACE)
 
+        val count = db.rawQuery(
+            "SELECT COUNT(*) FROM items WHERE endpoint_id=? AND conversation_id=? AND provisional=0",
+            arrayOf(endpointId, page.conversationId)
+        ).use { it.moveToFirst(); it.getInt(0) }
+        insertCheckpointPreservingRangeMetadata(db, page.checkpointValues(endpointId, count, now))
+        db.execSQL(
+            "INSERT OR REPLACE INTO sync_completed_pages(sync_id, sequence, page_index, page_hash, completed_at) SELECT sync_id, sequence, page_index, page_hash, ? FROM sync_pages WHERE sync_id=? AND sequence=?",
+            arrayOf(now, page.syncId, page.sequence)
+        )
+        db.delete("sync_staging", "sync_id=? AND sequence=?", arrayOf(page.syncId, page.sequence.toString()))
+        db.delete("sync_payload_chunks", "sync_id=? AND sequence=?", arrayOf(page.syncId, page.sequence.toString()))
+        db.delete("sync_pages", "sync_id=? AND sequence=?", arrayOf(page.syncId, page.sequence.toString()))
+        db.delete("sync_order", "sync_id=? AND sequence=?", arrayOf(page.syncId, page.sequence.toString()))
+        db.delete("sync_sessions", "sync_id=?", arrayOf(page.syncId))
+    }
+
+    /**
+     * A range tail may reconcile to zero upserts when all of its stable keys
+     * already exist locally.  This is still a real range commit: the durable
+     * cursor/anchors must advance even though no item row changes.  Segment
+     * ownership is deliberately left untouched because the wire page does not
+     * carry enough canonical keys to relabel an existing legacy segment safely.
+     */
+    private fun commitMetadataOnlyRangeStaging(
+        db: SQLiteDatabase,
+        endpointId: String,
+        page: CodexHistoryDeltaPage,
+        now: Long
+    ) {
         val count = db.rawQuery(
             "SELECT COUNT(*) FROM items WHERE endpoint_id=? AND conversation_id=? AND provisional=0",
             arrayOf(endpointId, page.conversationId)
@@ -1525,6 +1580,20 @@ class CodexConversationCacheStore(
     }
 
 }
+
+internal fun isMetadataOnlyRangePage(page: CodexHistoryDeltaPage): Boolean =
+    page.range?.rangeKind == "tail" &&
+        page.pageCount == 1 &&
+        !page.baselineComplete &&
+        !page.fullOrderIncluded &&
+        page.upserts.isEmpty() &&
+        page.deletes.isEmpty()
+
+internal fun isServerSnapshotBootstrap(page: CodexHistoryDeltaPage): Boolean =
+    page.range?.providerMode == "server_snapshot" &&
+        page.range.rangeKind == "tail" &&
+        page.pageIndex == 0 &&
+        page.pageCount == 1
 
 object CodexHistoryPageHasher {
     fun pageHash(page: CodexHistoryDeltaPage): String {

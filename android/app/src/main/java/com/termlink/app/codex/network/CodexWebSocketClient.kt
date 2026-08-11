@@ -171,5 +171,9 @@ class CodexWebSocketClient {
             type == "conversation_history_sync_state" ||
             type == "conversation_history_delta" ||
             type == "conversation_history_payload_chunk" ||
+            type == "conversation_history_snapshot_state" ||
+            type == "conversation_history_segment_start" ||
+            type == "conversation_history_segment_fragment" ||
+            type == "conversation_history_segment_commit" ||
             type == "conversation_history_progress"
 }

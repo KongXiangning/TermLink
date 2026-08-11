@@ -165,6 +165,175 @@ test('range capability carries tail metadata without enabling delete or order', 
     }).state, 'partial');
 });
 
+test('range tail no-op reconciliation emits an ACK-able metadata page', () => {
+    const messages = [];
+    const service = new CodexHistorySyncService({ send: (_ws, message) => messages.push(message) });
+    const tailItems = [item('old'), item('new')].map((entry, position) => ({ ...entry, position }));
+    service.registerBaselineItems('conv', tailItems, {
+        baselineSourceKind: 'history_recovery',
+        resultKind: 'tail',
+        rangeMetadata: {
+            version: 1,
+            segmentId: 'segment-tail-noop',
+            rangeId: 'segment-tail-noop',
+            rangeKind: 'tail',
+            oldestAnchor: { key: 'old', hash: 'old' },
+            newestAnchor: { key: 'new', hash: 'new' },
+            nextOlderCursor: 'older-cursor',
+            hasMoreBefore: true,
+            coverageRoot: 'tail-root',
+            coverageComplete: false
+        }
+    });
+    const ws = { readyState: 1, bufferedAmount: 0 };
+    const syncId = '123e4567-e89b-12d3-a456-426614174013';
+    service.startSync({
+        ws,
+        conversationId: 'conv',
+        syncId,
+        cacheSchemaVersion: 3,
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        checkpoint: { rootHash: 'local-root', itemCount: 2, complete: false }
+    });
+    service.handleManifestPage(ws, {
+        syncId,
+        conversationId: 'conv',
+        pageIndex: 0,
+        lastPage: true,
+        items: tailItems.map(({ itemKey, contentHash }) => ({ itemKey, contentHash }))
+    });
+
+    const delta = messages.find((message) => message.type === 'conversation_history_delta');
+    assert.ok(delta);
+    assert.equal(delta.upserts.length, 0);
+    assert.equal(delta.pageCount, 1);
+    assert.equal(delta.range.rangeKind, 'tail');
+    const ack = service.handleAck(ws, {
+        syncId,
+        conversationId: 'conv',
+        sequence: 1,
+        pageIndex: 0,
+        targetRoot: delta.targetRoot,
+        clientSelectionGeneration: 0
+    });
+    assert.equal(ack.state, 'partial');
+    assert.equal(messages.at(-1).type, 'conversation_history_sync_state');
+});
+
+test('range tail with the bounded 200-item baseline stays one atomic delta page', () => {
+    const messages = [];
+    const service = new CodexHistorySyncService({ send: (_ws, message) => messages.push(message) });
+    const tailItems = Array.from({ length: 200 }, (_, position) => ({
+        ...item(`tail-${position}`),
+        position
+    }));
+    service.registerBaselineItems('conv', tailItems, {
+        baselineSourceKind: 'history_recovery',
+        resultKind: 'tail',
+        rangeMetadata: {
+            version: 1,
+            segmentId: 'segment-tail-200',
+            rangeId: 'segment-tail-200',
+            rangeKind: 'tail',
+            oldestAnchor: { key: tailItems[0].itemKey, hash: tailItems[0].contentHash },
+            newestAnchor: { key: tailItems.at(-1).itemKey, hash: tailItems.at(-1).contentHash },
+            nextOlderCursor: 'older-cursor',
+            hasMoreBefore: true,
+            coverageRoot: 'tail-root-200',
+            coverageComplete: false
+        }
+    });
+    const ws = { readyState: 1, bufferedAmount: 0 };
+    const syncId = '123e4567-e89b-12d3-a456-426614174014';
+    service.startSync({
+        ws,
+        conversationId: 'conv',
+        syncId,
+        cacheSchemaVersion: 3,
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        checkpoint: { rootHash: null, complete: false }
+    });
+    service.handleManifestPage(ws, {
+        syncId,
+        conversationId: 'conv',
+        pageIndex: 0,
+        lastPage: true,
+        items: []
+    });
+
+    const deltas = messages.filter((message) => message.type === 'conversation_history_delta');
+    assert.equal(deltas.length, 1);
+    assert.equal(deltas[0].pageCount, 1);
+    assert.equal(deltas[0].upserts.length, 200);
+    assert.equal(deltas[0].range.rangeId, 'segment-tail-200');
+    assert.equal(service.handleAck(ws, {
+        syncId,
+        conversationId: 'conv',
+        sequence: 1,
+        pageIndex: 0,
+        targetRoot: deltas[0].targetRoot,
+        clientSelectionGeneration: 0
+    }).state, 'partial');
+});
+
+test('range tail adapts inline payloads to existing chunks before rejecting the atomic page', () => {
+    const messages = [];
+    const service = new CodexHistorySyncService({ send: (_ws, message) => messages.push(message) });
+    const tailItems = Array.from({ length: 200 }, (_, position) => ({
+        ...item(`chunked-tail-${position}`),
+        position,
+        // The aggregate is over the 256 KiB envelope budget, while each
+        // payload remains below the normal 128 KiB auto-chunk threshold.
+        payloadJson: JSON.stringify({ text: 'x'.repeat(2_000) })
+    }));
+    service.registerBaselineItems('conv', tailItems, {
+        baselineSourceKind: 'history_recovery',
+        resultKind: 'tail',
+        rangeMetadata: {
+            version: 1,
+            segmentId: 'segment-tail-chunks',
+            rangeId: 'segment-tail-chunks',
+            rangeKind: 'tail',
+            oldestAnchor: { key: tailItems[0].itemKey, hash: tailItems[0].contentHash },
+            newestAnchor: { key: tailItems.at(-1).itemKey, hash: tailItems.at(-1).contentHash },
+            nextOlderCursor: 'older-cursor',
+            hasMoreBefore: true,
+            coverageRoot: 'tail-root-chunks',
+            coverageComplete: false
+        }
+    });
+    const ws = { readyState: 1, bufferedAmount: 0 };
+    const syncId = '123e4567-e89b-12d3-a456-426614174015';
+    service.startSync({
+        ws,
+        conversationId: 'conv',
+        syncId,
+        cacheSchemaVersion: 3,
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        checkpoint: { rootHash: null, complete: false }
+    });
+
+    try {
+        const result = service.handleManifestPage(ws, {
+            syncId,
+            conversationId: 'conv',
+            pageIndex: 0,
+            lastPage: true,
+            items: []
+        });
+        assert.equal(result.ok, true);
+        const deltas = messages.filter((message) => message.type === 'conversation_history_delta');
+        assert.equal(deltas.length, 1);
+        assert.equal(deltas[0].pageCount, 1);
+        assert.equal(deltas[0].upserts.length, 200);
+        assert.ok(deltas[0].upserts.some((entry) => entry.payloadChunkCount > 0));
+        assert.ok(Buffer.byteLength(JSON.stringify(deltas[0]), 'utf8') <= 256 * 1024);
+        assert.ok(messages.some((message) => message.type === 'conversation_history_payload_chunk'));
+    } finally {
+        service.cancel(ws);
+    }
+});
+
 test('one older page emits one upsert-only delta and settles PARTIAL without a follow-up request', () => {
     const messages = [];
     const service = new CodexHistorySyncService({ send: (_ws, message) => messages.push(message) });
@@ -281,6 +450,186 @@ test('schema v3 is capped to the legacy v2 path without a valid range capability
     assert.equal(result.ok, true);
     assert.equal(result.sync.cacheSchemaVersion, 2);
     assert.equal(result.sync.rangeEnabled, false);
+    service.cancel(ws);
+});
+
+test('snapshot segment lane fragments payloads, commits one atomic range, then settles only after segment ACK', () => {
+    const messages = [];
+    const service = new CodexHistorySyncService({
+        send: (_ws, message) => messages.push(message),
+        options: {
+            historySnapshotInlinePayloadBytes: 1,
+            historySnapshotFragmentBytes: 16 * 1024
+        }
+    });
+    const ws = { readyState: 1, bufferedAmount: 0 };
+    const syncId = '123e4567-e89b-12d3-a456-426614174201';
+    const result = service.startSnapshotSegments({
+        ws,
+        conversationId: 'conv',
+        syncId,
+        cacheSchemaVersion: 3,
+        snapshotSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        initialItems: [{
+            ...item('snapshot-item'),
+            position: 0,
+            payloadJson: JSON.stringify({ text: 'x'.repeat(20_000) })
+        }],
+        initialFinal: true
+    });
+    assert.equal(result.ok, true);
+    for (let index = 0; index < 8; index += 1) {
+        const state = service._syncs.get(ws);
+        service._pumpPages(ws, state);
+    }
+    const start = messages.find((message) => message.type === 'conversation_history_segment_start');
+    assert.ok(start);
+    assert.equal(start.range.rangeKind, 'tail');
+    assert.equal(start.range.coverageComplete, true);
+    const fragments = messages.filter((message) => message.type === 'conversation_history_segment_fragment');
+    assert.ok(fragments.length >= 2);
+    assert.ok(fragments.every((message) => Buffer.byteLength(message.data, 'utf8') <= 16 * 1024));
+    assert.equal(messages.some((message) => message.type === 'conversation_history_segment_commit'), true);
+    const ack = service.handleSnapshotSegmentAck(ws, {
+        syncId,
+        conversationId: 'conv',
+        sequence: start.sequence,
+        pageIndex: start.pageIndex,
+        segmentId: start.range.segmentId,
+        pageHash: start.pageHash,
+        targetRoot: start.targetRoot,
+        clientSelectionGeneration: 0
+    });
+    assert.equal(ack.ok, true);
+    assert.equal(messages.at(-1).type, 'conversation_history_sync_state');
+    assert.equal(messages.at(-1).state, 'synced');
+});
+
+test('snapshot segment lane preserves newest-first delivery and prepends later older segments', () => {
+    const messages = [];
+    const service = new CodexHistorySyncService({
+        send: (_ws, message) => messages.push(message),
+        options: { historySnapshotSegmentBytes: 1_000, historySnapshotInlinePayloadBytes: 2_000 }
+    });
+    const ws = { readyState: 1, bufferedAmount: 0 };
+    const syncId = '123e4567-e89b-12d3-a456-426614174202';
+    const items = ['old', 'middle', 'new'].map((itemKey, position) => ({
+        ...item(itemKey),
+        position,
+        payloadJson: JSON.stringify({ text: itemKey.repeat(120) })
+    }));
+    const result = service.startSnapshotSegments({
+        ws,
+        conversationId: 'conv',
+        syncId,
+        cacheSchemaVersion: 3,
+        snapshotSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        initialItems: items,
+        initialFinal: true
+    });
+    assert.equal(result.ok, true);
+
+    let acknowledged = 0;
+    for (let guard = 0; guard < 80; guard += 1) {
+        const state = service._syncs.get(ws);
+        if (!state) break;
+        service._pumpPages(ws, state);
+        const commits = messages.filter((message) => message.type === 'conversation_history_segment_commit');
+        const commit = commits[acknowledged];
+        if (!commit) continue;
+        const start = messages.find((message) => message.type === 'conversation_history_segment_start' && message.sequence === commit.sequence);
+        service.handleSnapshotSegmentAck(ws, {
+            syncId,
+            conversationId: 'conv',
+            sequence: commit.sequence,
+            pageIndex: commit.pageIndex,
+            segmentId: commit.segmentId,
+            pageHash: commit.pageHash,
+            targetRoot: commit.targetRoot,
+            clientSelectionGeneration: 0
+        });
+        assert.ok(start);
+        acknowledged += 1;
+    }
+    const starts = messages.filter((message) => message.type === 'conversation_history_segment_start');
+    assert.ok(starts.length >= 2);
+    assert.equal(starts[0].range.rangeKind, 'tail');
+    assert.equal(starts.slice(1).every((message) => message.range.rangeKind === 'older'), true);
+    assert.equal(messages.at(-1).state, 'synced');
+});
+
+test('snapshot segment lane yields before its first frame while live/control work is pending', () => {
+    const messages = [];
+    let historyAllowed = false;
+    const service = new CodexHistorySyncService({
+        send: (_ws, message) => messages.push(message),
+        canSendHistory: () => historyAllowed
+    });
+    const ws = { readyState: 1, bufferedAmount: 0 };
+    const syncId = '123e4567-e89b-12d3-a456-426614174211';
+    const result = service.startSnapshotSegments({
+        ws,
+        conversationId: 'conv',
+        syncId,
+        cacheSchemaVersion: 3,
+        snapshotSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        initialItems: [{ ...item('live-yield'), position: 0 }],
+        initialFinal: true
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(messages.some((message) => message.type === 'conversation_history_snapshot_state'), true);
+    assert.equal(messages.some((message) => message.type === 'conversation_history_segment_start'), false);
+
+    historyAllowed = true;
+    service._pumpPages(ws, service._syncs.get(ws));
+
+    assert.equal(messages.some((message) => message.type === 'conversation_history_segment_start'), true);
+    service.cancel(ws);
+});
+
+test('snapshot segment lane pauses fragments and commit when live/control becomes pending mid-segment', () => {
+    const messages = [];
+    let historyAllowed = true;
+    const service = new CodexHistorySyncService({
+        send: (_ws, message) => messages.push(message),
+        canSendHistory: () => historyAllowed,
+        options: {
+            historySnapshotInlinePayloadBytes: 1,
+            historySnapshotFragmentBytes: 16 * 1024,
+            historyPumpIntervalMs: 1_000
+        }
+    });
+    const ws = { readyState: 1, bufferedAmount: 0 };
+    const result = service.startSnapshotSegments({
+        ws,
+        conversationId: 'conv',
+        syncId: '123e4567-e89b-12d3-a456-426614174212',
+        cacheSchemaVersion: 3,
+        snapshotSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        initialItems: [{
+            ...item('mid-segment-yield'),
+            position: 0,
+            payloadJson: JSON.stringify({ text: 'x'.repeat(20_000) })
+        }],
+        initialFinal: true
+    });
+    assert.equal(result.ok, true);
+    assert.equal(messages.filter((message) => message.type === 'conversation_history_segment_start').length, 1);
+
+    historyAllowed = false;
+    for (let index = 0; index < 4; index += 1) {
+        service._pumpPages(ws, service._syncs.get(ws));
+    }
+    assert.equal(messages.some((message) => message.type === 'conversation_history_segment_fragment'), false);
+    assert.equal(messages.some((message) => message.type === 'conversation_history_segment_commit'), false);
+
+    historyAllowed = true;
+    for (let index = 0; index < 12; index += 1) {
+        service._pumpPages(ws, service._syncs.get(ws));
+    }
+    assert.equal(messages.some((message) => message.type === 'conversation_history_segment_fragment'), true);
+    assert.equal(messages.some((message) => message.type === 'conversation_history_segment_commit'), true);
     service.cancel(ws);
 });
 
@@ -428,6 +777,85 @@ test('history delta pump pauses above high water without closing the websocket',
     await new Promise((resolve) => setTimeout(resolve, 80));
     assert.equal(messages.some((message) => message.type === 'conversation_history_delta'), true);
     assert.equal(ws.readyState, 1);
+    service.cancel(ws);
+});
+
+test('history pump yields to live/control priority before generating the next page', async () => {
+    const messages = [];
+    let higherPriorityPending = true;
+    const service = new CodexHistorySyncService({
+        send: (_ws, message) => messages.push(message),
+        canSendHistory: () => !higherPriorityPending,
+        options: { historyPumpIntervalMs: 5 }
+    });
+    service.registerBaseline('conv', 'app_server_thread', {
+        turns: [{ id: 't', status: 'completed', items: [{ id: 'i', type: 'agentMessage', text: 'hi' }] }]
+    }, { complete: true });
+    const ws = { readyState: 1, bufferedAmount: 0 };
+    const syncId = '123e4567-e89b-12d3-a456-42661417400b';
+    service.startSync({ ws, conversationId: 'conv', syncId, checkpoint: { rootHash: null, complete: false } });
+    service.handleManifestPage(ws, { syncId, conversationId: 'conv', pageIndex: 0, lastPage: true, items: [] });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(messages.some((message) => message.type === 'conversation_history_delta'), false);
+
+    higherPriorityPending = false;
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    assert.equal(messages.filter((message) => message.type === 'conversation_history_delta').length, 1);
+    service.cancel(ws);
+});
+
+test('history page is not consumed when the scheduler rejects the wire hand-off', async () => {
+    const messages = [];
+    let deltaAttempts = 0;
+    const service = new CodexHistorySyncService({
+        send: (_ws, message) => {
+            if (message.type === 'conversation_history_delta' && deltaAttempts++ === 0) return false;
+            messages.push(message);
+            return true;
+        },
+        options: { historyPumpIntervalMs: 5 }
+    });
+    service.registerBaseline('conv', 'app_server_thread', {
+        turns: [{ id: 't', status: 'completed', items: [{ id: 'i', type: 'agentMessage', text: 'hi' }] }]
+    }, { complete: true });
+    const ws = { readyState: 1, bufferedAmount: 0 };
+    const syncId = '123e4567-e89b-12d3-a456-42661417400d';
+    service.startSync({ ws, conversationId: 'conv', syncId, cacheSchemaVersion: 2, checkpoint: { rootHash: null, complete: false } });
+    service.handleManifestPage(ws, { syncId, conversationId: 'conv', pageIndex: 0, lastPage: true, items: [] });
+
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    assert.equal(deltaAttempts, 2);
+    assert.equal(messages.filter((message) => message.type === 'conversation_history_delta').length, 1);
+    service.cancel(ws);
+});
+
+test('history pump drops a stale selection before a deferred page is emitted', async () => {
+    const messages = [];
+    let active = true;
+    let historyAllowed = false;
+    const service = new CodexHistorySyncService({
+        send: (_ws, message) => messages.push(message),
+        isStillActive: () => active,
+        canSendHistory: () => historyAllowed,
+        options: { historyPumpIntervalMs: 5 }
+    });
+    service.registerBaseline('conv', 'app_server_thread', {
+        turns: [{ id: 't', status: 'completed', items: [{ id: 'i', type: 'agentMessage', text: 'hi' }] }]
+    }, { complete: true });
+    const ws = { readyState: 1, bufferedAmount: 0 };
+    const syncId = '123e4567-e89b-12d3-a456-42661417400c';
+    service.startSync({ ws, conversationId: 'conv', syncId, selectionGeneration: 4, checkpoint: { rootHash: null, complete: false } });
+    service.handleManifestPage(ws, {
+        syncId,
+        conversationId: 'conv',
+        pageIndex: 0,
+        lastPage: true,
+        items: []
+    });
+    active = false;
+    historyAllowed = true;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    assert.equal(messages.some((message) => message.type === 'conversation_history_delta'), false);
     service.cancel(ws);
 });
 

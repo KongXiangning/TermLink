@@ -338,7 +338,9 @@ async function setupGateway(opts = {}) {
         registrationManager: opts.registrationManager ?? null,
         mobileSurfaceProjector: opts.mobileSurfaceProjector,
         mobileSurfaceMaxVisibleLatencyMs: opts.mobileSurfaceMaxVisibleLatencyMs,
-        historyRangeSegmentsEnabled: opts.historyRangeSegmentsEnabled === true
+        historyRangeSegmentsEnabled: opts.historyRangeSegmentsEnabled === true,
+        historySnapshotSegmentsEnabled: opts.historySnapshotSegmentsEnabled === true,
+        historySnapshotStore: opts.historySnapshotStore ?? null
     });
 
     return new Promise((resolve) => {
@@ -446,6 +448,349 @@ test('history range capability is deployment-gated and remains additive', async 
     });
     enabledClient.ws.close();
     await stopGateway(enabled);
+});
+
+test('server snapshot history capability is independently deployment-gated', async () => {
+    const store = { init: async () => {}, write: async () => ({ byteSize: 1 }) };
+    const disabled = await setupGateway({ historySnapshotStore: store });
+    const disabledSession = await disabled.sm.createSession({ name: 'snapshot-disabled' });
+    const disabledClient = await connectWs(disabled.port, disabledSession.id);
+    await delay(80);
+    assert.equal(
+        disabledClient.messages.find((message) => message.type === 'codex_ipc_status')
+            ?.status?.capabilities?.historySync?.serverSnapshotSegments?.enabled,
+        false
+    );
+    disabledClient.ws.close();
+    await stopGateway(disabled);
+
+    const enabled = await setupGateway({ historySnapshotSegmentsEnabled: true, historySnapshotStore: store });
+    const enabledSession = await enabled.sm.createSession({ name: 'snapshot-enabled' });
+    const enabledClient = await connectWs(enabled.port, enabledSession.id);
+    await delay(80);
+    assert.deepEqual(
+        enabledClient.messages.find((message) => message.type === 'codex_ipc_status')
+            ?.status?.capabilities?.historySync?.serverSnapshotSegments,
+        { enabled: true, version: 1, cacheSchemaVersion: 3, segmentTargetBytes: 96 * 1024, fragmentMaxBytes: 16 * 1024 }
+    );
+    enabledClient.ws.close();
+    await stopGateway(enabled);
+});
+
+test('snapshot history bypasses an unavailable Desktop IPC surface and commits through segment ACK', async () => {
+    const persisted = [];
+    const g = await setupGateway({
+        historySnapshotSegmentsEnabled: true,
+        historySnapshotStore: {
+            async init() {},
+            async write(scope, snapshot) {
+                persisted.push({ scope, snapshot });
+                return { byteSize: 1 };
+            }
+        },
+        historySelectionDeadlineMs: 60
+    });
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && params.includeTurns === false) {
+            return { thread: { id: params.threadId, historyMode: 'legacy' } };
+        }
+        if (method === 'thread/read' && params.includeTurns === true) {
+            return {
+                thread: {
+                    id: params.threadId,
+                    historyMode: 'legacy',
+                    turns: [{
+                        id: 'turn-1',
+                        status: 'completed',
+                        items: [{ id: 'item-1', type: 'agentMessage', text: 'snapshot history' }]
+                    }]
+                }
+            };
+        }
+        throw new Error(`unexpected ${method}`);
+    };
+    const sess = await g.sm.createSession({ name: 'snapshot-history' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(50);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-snapshot' }));
+    await delay(20);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174203',
+        conversationId: 'conv-snapshot',
+        selectionGeneration: 1,
+        cacheSchemaVersion: 3,
+        profileId: 'profile-a',
+        checkpoint: { rootHash: null, itemCount: 0, complete: false },
+        serverSnapshotSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 }
+    }));
+    const start = await waitForMessage(
+        messages,
+        (message) => message.type === 'conversation_history_segment_start',
+        1_000
+    );
+    const commit = await waitForMessage(
+        messages,
+        (message) => message.type === 'conversation_history_segment_commit',
+        1_000
+    );
+    assert.ok(start);
+    assert.ok(commit);
+    assert.equal(messages.some((message) => message.type === 'conversation_history_manifest_required'), false);
+    assert.equal(messages.some((message) => message.type === 'conversation_history_sync_state' && message.detailCode === 'history_selection_deadline'), false);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_segment_ack',
+        syncId: start.syncId,
+        conversationId: start.conversationId,
+        sequence: start.sequence,
+        pageIndex: start.pageIndex,
+        segmentId: start.range.segmentId,
+        pageHash: start.pageHash,
+        targetRoot: start.targetRoot,
+        clientSelectionGeneration: 1
+    }));
+    const settled = await waitForMessage(
+        messages,
+        (message) => message.type === 'conversation_history_sync_state' && message.syncId === start.syncId,
+        1_000
+    );
+    assert.equal(settled?.state, 'synced');
+    assert.equal(persisted.length, 1);
+    assert.deepEqual(persisted[0].scope, { profileKey: 'profile-a', conversationId: 'conv-snapshot' });
+    ws.close();
+    await stopGateway(g);
+});
+
+test('server snapshot streams a paginated newest page before older pages and settles only after every segment ACK', async () => {
+    const persisted = [];
+    const cursors = [];
+    const g = await setupGateway({
+        historySnapshotSegmentsEnabled: true,
+        historySnapshotStore: {
+            async init() {},
+            async write(scope, snapshot) {
+                persisted.push({ scope, snapshot });
+                return { byteSize: 1 };
+            }
+        },
+        historySelectionDeadlineMs: 60
+    });
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && params.includeTurns === false) {
+            return { thread: { id: params.threadId, historyMode: 'paginated' } };
+        }
+        if (method === 'thread/turns/list') {
+            const cursor = Object.hasOwn(params, 'cursor') ? params.cursor : null;
+            cursors.push(cursor);
+            if (cursor === null) {
+                return {
+                    threadId: params.threadId,
+                    sortDirection: 'desc',
+                    data: [{
+                        id: 'turn-new',
+                        status: 'completed',
+                        items: [{ id: 'new', type: 'agentMessage', text: 'newest static page' }]
+                    }],
+                    nextCursor: 'older-1'
+                };
+            }
+            return {
+                threadId: params.threadId,
+                sortDirection: 'desc',
+                data: [{
+                    id: 'turn-old',
+                    status: 'completed',
+                    items: [{ id: 'old', type: 'userMessage', text: 'older static page' }]
+                }],
+                nextCursor: null
+            };
+        }
+        throw new Error(`unexpected ${method}`);
+    };
+    const sess = await g.sm.createSession({ name: 'snapshot-paginated-history' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(50);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-snapshot-paginated' }));
+    await delay(20);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174204',
+        conversationId: 'conv-snapshot-paginated',
+        selectionGeneration: 1,
+        cacheSchemaVersion: 3,
+        profileId: 'profile-a',
+        checkpoint: { rootHash: null, itemCount: 0, complete: false },
+        serverSnapshotSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 }
+    }));
+
+    const firstStart = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_segment_start' &&
+        message.conversationId === 'conv-snapshot-paginated', 1_000);
+    assert.ok(firstStart);
+    assert.equal(firstStart.range?.rangeKind, 'tail');
+    assert.deepEqual(firstStart.upserts.map((entry) => entry.itemKey), ['new']);
+    const firstCommit = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_segment_commit' &&
+        message.sequence === firstStart.sequence, 1_000);
+    assert.ok(firstCommit);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_segment_ack',
+        syncId: firstStart.syncId,
+        conversationId: firstStart.conversationId,
+        sequence: firstStart.sequence,
+        pageIndex: firstStart.pageIndex,
+        segmentId: firstStart.range.segmentId,
+        pageHash: firstStart.pageHash,
+        targetRoot: firstStart.targetRoot,
+        clientSelectionGeneration: 1
+    }));
+
+    const secondStart = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_segment_start' &&
+        message.conversationId === 'conv-snapshot-paginated' &&
+        message.sequence !== firstStart.sequence, 1_000);
+    assert.ok(secondStart);
+    assert.equal(secondStart.range?.rangeKind, 'older');
+    assert.equal(secondStart.range?.hasMoreBefore, false);
+    assert.equal(secondStart.range?.coverageComplete, true);
+    assert.deepEqual(secondStart.upserts.map((entry) => entry.itemKey), ['old']);
+    const secondCommit = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_segment_commit' &&
+        message.sequence === secondStart.sequence, 1_000);
+    assert.ok(secondCommit);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_segment_ack',
+        syncId: secondStart.syncId,
+        conversationId: secondStart.conversationId,
+        sequence: secondStart.sequence,
+        pageIndex: secondStart.pageIndex,
+        segmentId: secondStart.range.segmentId,
+        pageHash: secondStart.pageHash,
+        targetRoot: secondStart.targetRoot,
+        clientSelectionGeneration: 1
+    }));
+    const settled = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_sync_state' &&
+        message.syncId === firstStart.syncId, 1_000);
+    assert.equal(settled?.state, 'synced');
+    assert.deepEqual(cursors, [null, 'older-1']);
+    assert.equal(messages.some((message) => message.type === 'conversation_history_manifest_required'), false);
+    assert.equal(persisted.length, 1);
+    assert.deepEqual(persisted[0].snapshot.items.map((entry) => entry.itemKey), ['old', 'new']);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('late server snapshot source from A cannot write after A-to-B-to-A selection change', async () => {
+    const persisted = [];
+    let resolveFirstFullRead;
+    const firstFullReadStarted = new Promise((resolve) => { resolveFirstFullRead = resolve; });
+    let fullReadCount = 0;
+    const g = await setupGateway({
+        historySnapshotSegmentsEnabled: true,
+        historySnapshotStore: {
+            async init() {},
+            async write(scope, snapshot) {
+                persisted.push({ scope, snapshot });
+                return { byteSize: 1 };
+            }
+        },
+        historySelectionDeadlineMs: 60
+    });
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && params.includeTurns === false) {
+            return { thread: { id: params.threadId, historyMode: 'legacy' } };
+        }
+        if (method === 'thread/read' && params.includeTurns === true) {
+            fullReadCount += 1;
+            if (fullReadCount === 1) {
+                resolveFirstFullRead();
+                return new Promise((resolve) => {
+                    resolveFirstFullRead = () => resolve({
+                        thread: {
+                            id: params.threadId,
+                            historyMode: 'legacy',
+                            turns: [{ id: 'late-turn', items: [{ id: 'late-item', type: 'agentMessage', text: 'late A' }] }]
+                        }
+                    });
+                });
+            }
+            return {
+                thread: {
+                    id: params.threadId,
+                    historyMode: 'legacy',
+                    turns: [{ id: 'fresh-turn', items: [{ id: 'fresh-item', type: 'agentMessage', text: 'fresh A' }] }]
+                }
+            };
+        }
+        throw new Error(`unexpected ${method}`);
+    };
+    const sess = await g.sm.createSession({ name: 'snapshot-generation-isolation' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(50);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-a' }));
+    await delay(20);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174205',
+        conversationId: 'conv-a',
+        selectionGeneration: 1,
+        cacheSchemaVersion: 3,
+        profileId: 'profile-a',
+        checkpoint: { rootHash: null, itemCount: 0, complete: false },
+        serverSnapshotSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 }
+    }));
+    await firstFullReadStarted;
+
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-b' }));
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-a' }));
+    await delay(20);
+    resolveFirstFullRead();
+    await delay(100);
+
+    assert.equal(messages.some((message) =>
+        message.type === 'conversation_history_segment_start' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174205'
+    ), false);
+    assert.equal(persisted.length, 0);
+
+    ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174206',
+        conversationId: 'conv-a',
+        selectionGeneration: 3,
+        cacheSchemaVersion: 3,
+        profileId: 'profile-a',
+        checkpoint: { rootHash: null, itemCount: 0, complete: false },
+        serverSnapshotSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 }
+    }));
+    const start = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_segment_start' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174206', 1_000);
+    const commit = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_segment_commit' &&
+        message.syncId === start?.syncId, 1_000);
+    assert.ok(start);
+    assert.ok(commit);
+    assert.deepEqual(start.upserts.map((entry) => entry.itemKey), ['fresh-item']);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_segment_ack',
+        syncId: start.syncId,
+        conversationId: start.conversationId,
+        sequence: start.sequence,
+        pageIndex: start.pageIndex,
+        segmentId: start.range.segmentId,
+        pageHash: start.pageHash,
+        targetRoot: start.targetRoot,
+        clientSelectionGeneration: 3
+    }));
+    const settled = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_sync_state' && message.syncId === start.syncId, 1_000);
+    assert.equal(settled?.state, 'synced');
+    assert.equal(persisted.length, 1);
+    assert.deepEqual(persisted[0].snapshot.items.map((entry) => entry.itemKey), ['fresh-item']);
+    ws.close();
+    await stopGateway(g);
 });
 
 test('Android legacy full thread/read is refused without touching the app-server response', async () => {
@@ -619,6 +964,160 @@ test('history sync waits for an in-flight media projection baseline', async () =
     await delay(180);
     assert.equal(messages.some((message) => message.type === 'conversation_history_sync_state' && message.detailCode === 'history_unavailable'), false);
     assert.ok(messages.some((message) => message.type === 'conversation_history_manifest_required'));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('Android history yields while live surface projection is still pending', async () => {
+    const registrationId = 'android-live-projection-history-gate';
+    let releaseProjection;
+    let markProjectionStarted;
+    const projectionStarted = new Promise((resolve) => { markProjectionStarted = resolve; });
+    const projectionBlocked = new Promise((resolve) => { releaseProjection = resolve; });
+    const g = await setupGateway({
+        registrationManager: {
+            isActive: (id) => id === registrationId,
+            get: (id) => id === registrationId ? { clientType: 'android' } : null
+        },
+        mobileSurfaceProjector: async (surface) => {
+            markProjectionStarted();
+            await projectionBlocked;
+            return { ...surface, items: Array.isArray(surface.items) ? surface.items.slice() : [] };
+        },
+        ipcSurfaceWaitGraceMs: 5
+    });
+    const sess = await g.sm.createSession({ name: 'android-live-projection-history-gate' });
+    const { ws, messages } = await connectWs(g.port, sess.id, registrationId);
+    await delay(80);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-live-projection-gate' }));
+    await delay(40);
+    messages.length = 0;
+
+    g.ipcFeed.pushSnapshot('conv-live-projection-gate', {
+        conversationId: 'conv-live-projection-gate',
+        revision: 1,
+        status: 'running',
+        historyBaselineComplete: true,
+        items: [{ key: 'live-item', kind: 'message', role: 'assistant', text: 'live' }]
+    });
+    await projectionStarted;
+
+    const syncId = '123e4567-e89b-12d3-a456-426614174099';
+    ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request',
+        syncId,
+        conversationId: 'conv-live-projection-gate',
+        selectionGeneration: 1,
+        cacheSchemaVersion: 2,
+        checkpoint: { rootHash: null, itemCount: 0, complete: false }
+    }));
+    const manifest = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_manifest_required' && message.syncId === syncId
+    );
+    assert.ok(manifest, 'history must reach the manifest handshake while projection is pending');
+    ws.send(JSON.stringify({
+        type: 'conversation_history_manifest_page',
+        syncId,
+        conversationId: 'conv-live-projection-gate',
+        pageIndex: 0,
+        lastPage: true,
+        clientSelectionGeneration: 1,
+        items: []
+    }));
+    await delay(80);
+    assert.equal(
+        messages.some((message) => message.type === 'conversation_history_delta' && message.syncId === syncId),
+        false,
+        'older history must not pass the live projection gap'
+    );
+
+    releaseProjection();
+    const live = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_surface_snapshot' && message.conversationId === 'conv-live-projection-gate'
+    );
+    const delta = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_delta' && message.syncId === syncId
+    );
+    assert.ok(live, 'the projected live surface must be published');
+    assert.ok(delta, `history must resume after live publication: ${JSON.stringify(messages.map((message) => message.type))}`);
+    assert.ok(messages.indexOf(live) < messages.indexOf(delta));
+    ws.close();
+    await stopGateway(g);
+});
+
+test('Android fast live projection releases history while full media projection is pending', async () => {
+    const registrationId = 'android-fast-projection-history-gate';
+    const { projectMobileRealtimeSurface } = require('../src/services/codexMobileSurfaceProjector');
+    const imageDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+    let releaseFull;
+    let markFullStarted;
+    const fullStarted = new Promise((resolve) => { markFullStarted = resolve; });
+    const fullBlocked = new Promise((resolve) => { releaseFull = resolve; });
+    const g = await setupGateway({
+        registrationManager: {
+            isActive: (id) => id === registrationId,
+            get: (id) => id === registrationId ? { clientType: 'android' } : null
+        },
+        mobileSurfaceProjector: async (surface, options) => {
+            if (options?.redactInlineMedia === true) {
+                return projectMobileRealtimeSurface(surface, options);
+            }
+            markFullStarted();
+            await fullBlocked;
+            return projectMobileRealtimeSurface(surface, { mediaStore: null, redactInlineMedia: true });
+        },
+        ipcSurfaceWaitGraceMs: 5
+    });
+    const sess = await g.sm.createSession({ name: 'android-fast-projection-history-gate' });
+    const { ws, messages } = await connectWs(g.port, sess.id, registrationId);
+    await delay(80);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-fast-projection-gate' }));
+    await delay(40);
+    messages.length = 0;
+
+    g.ipcFeed.pushSnapshot('conv-fast-projection-gate', {
+        conversationId: 'conv-fast-projection-gate',
+        revision: 1,
+        status: 'running',
+        historyBaselineComplete: true,
+        items: [{ key: 'live-item', kind: 'message', role: 'assistant', text: `live ${imageDataUrl}` }]
+    });
+    const live = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_surface_snapshot' && message.conversationId === 'conv-fast-projection-gate'
+    );
+    assert.ok(live, 'the bounded redacted projection must publish before full media projection completes');
+    assert.doesNotMatch(JSON.stringify(live), /data:image/i);
+    await fullStarted;
+
+    const syncId = '123e4567-e89b-12d3-a456-426614174098';
+    ws.send(JSON.stringify({
+        type: 'conversation_history_sync_request',
+        syncId,
+        conversationId: 'conv-fast-projection-gate',
+        selectionGeneration: 1,
+        cacheSchemaVersion: 2,
+        checkpoint: { rootHash: null, itemCount: 0, complete: false }
+    }));
+    const manifest = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_manifest_required' && message.syncId === syncId
+    );
+    assert.ok(manifest);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_manifest_page',
+        syncId,
+        conversationId: 'conv-fast-projection-gate',
+        pageIndex: 0,
+        lastPage: true,
+        clientSelectionGeneration: 1,
+        items: []
+    }));
+    const delta = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_delta' && message.syncId === syncId
+    );
+    assert.ok(delta, 'history may resume after the bounded live surface is visible');
+
+    releaseFull();
+    await delay(80);
     ws.close();
     await stopGateway(g);
 });
@@ -1339,7 +1838,7 @@ test('one older request fails closed when the provider repeats the requested cur
     await stopGateway(g);
 });
 
-test('enabled range recovery returns only the bounded legacy tail', async () => {
+test('enabled range recovery preserves the full legacy baseline', async () => {
     const g = await setupGateway({
         historyRangeSegmentsEnabled: true,
         ipcSurfaceWaitGraceMs: 1,
@@ -1389,13 +1888,13 @@ test('enabled range recovery returns only the bounded legacy tail', async () => 
         message.type === 'conversation_history_recovery_state' &&
         message.syncId === '123e4567-e89b-12d3-a456-426614174030', 1_000);
     assert.equal(ready?.state, 'ready');
-    assert.equal(ready?.itemCount, 200);
+    assert.equal(ready?.itemCount, 250);
     assert.equal(g.codexService.requests.filter((entry) =>
         entry.method === 'thread/read' && entry.params.threadId === 'conv-range-legacy' && entry.params.includeTurns === true
     ).length, 1);
 
-    // A later negotiated-off request must not reuse the range-only baseline
-    // as if it were a complete legacy baseline.
+    // The first recovery is a normal full legacy baseline, so a later
+    // negotiated-off request may safely reuse it after A→B→A.
     ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-range-other' }));
     ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-range-legacy' }));
     ws.send(JSON.stringify({
@@ -1411,7 +1910,7 @@ test('enabled range recovery returns only the bounded legacy tail', async () => 
     assert.equal(fullReady?.itemCount, 250);
     assert.equal(g.codexService.requests.filter((entry) =>
         entry.method === 'thread/read' && entry.params.threadId === 'conv-range-legacy' && entry.params.includeTurns === true
-    ).length, 2);
+    ).length, 1);
     ws.close();
     await stopGateway(g);
 });
@@ -1791,13 +2290,13 @@ test('Android projection publishes completed intermediate revisions monotonicall
     const revisions = messages
         .filter((message) => message.type === 'conversation_surface_snapshot')
         .map((message) => message.snapshot.revision);
-    assert.deepEqual(revisions, [1, 3]);
+    assert.deepEqual(revisions, [2, 3]);
     assert.ok(revisions.every((revision, index) => index === 0 || revision >= revisions[index - 1]));
     ws.close();
     await stopGateway(g);
 });
 
-test('Android projection deadline publishes the latest redacted IPC surface while full projection is blocked', async () => {
+test('Android fast projection publishes a redacted IPC surface while full projection is blocked', async () => {
     const registrationId = 'android-projection-deadline';
     const { projectMobileRealtimeSurface } = require('../src/services/codexMobileSurfaceProjector');
     const imageDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
@@ -1837,14 +2336,15 @@ test('Android projection deadline publishes the latest redacted IPC surface whil
 
     let snapshots = messages.filter((message) => message.type === 'conversation_surface_snapshot');
     assert.ok(snapshots.length >= 1, 'deadline fallback must keep the authoritative IPC surface visible');
-    assert.equal(snapshots[0].snapshot.revision, 11);
-    assert.doesNotMatch(JSON.stringify(snapshots[0]), /data:image/i);
+    assert.equal(snapshots.at(-1).snapshot.revision, 11);
+    assert.doesNotMatch(JSON.stringify(snapshots.at(-1)), /data:image/i);
     releaseFull();
     await delay(80);
 
     snapshots = messages.filter((message) => message.type === 'conversation_surface_snapshot');
     const revisions = snapshots.map((message) => message.snapshot.revision);
-    assert.equal(revisions.includes(10), false, 'a delayed older full projection must not overwrite revision 11');
+    const latestRevisionIndex = revisions.lastIndexOf(11);
+    assert.equal(revisions.slice(latestRevisionIndex + 1).includes(10), false, 'a delayed older full projection must not overwrite revision 11');
     assert.ok(revisions.every((revision, index) => index === 0 || revision >= revisions[index - 1]));
     ws.close();
     await stopGateway(g);

@@ -874,3 +874,24 @@ HTTP 原图 runner 共同覆盖。
 - 存储管理能准确按服务/任务展示并安全清理，且没有任何自动淘汰。
 - frozen IPC/Owner/canonical/Approval/Plan/Goal 回归全部通过。
 - 专项 Node/Android 自动化、JDK 21 APK、真机日志和截图证据已写回 `CURRENT_TASK.md`。
+
+## 18. P0-B.4R 服务端当前快照与分段传输补充（2026-08-09）
+
+本补充承接本计划的 cache-first/256 KiB/逐页 ACK/A→B→A 保护，不改动 frozen IPC authority。用户已确认旧 P0-B.4 的
+“仅 paginated native older”不能作为产品前提；服务端现在应把可读 canonical history 构建成一份当前原子快照，App 不再因 Codex 的
+internal history mode 决定能否先显示部分历史、再静默补齐。
+
+- snapshot 是服务端静态缓存，不是 Android live source：legacy 以一次 `thread/read(includeTurns=true)` 构建；paginated 可以 newest page
+  先作为 provisional tail、后台连续 older scan 后发布完整 snapshot。当前 P0 只在 Android 本地覆盖缺失/不完整时启动主动 B4R source scan；
+  已持久 `coverageComplete` 的任务再次打开直接 cache-first，不重传正文。quiet freshness probe、root 相同判断和服务端快照复用留给 P1。
+- Android 继续使用本计划已有的 history segment/checkpoint/SQLite transaction，但新的 server-snapshot capability 下改为收 `start / fragment /
+  commit` 三段帧；一个 logical segment 收齐、hash/root 校验且 generation/sync 仍匹配才事务提交并 ACK。部分 fragment 不持久化，不能让
+  process death 生成半段。
+- 逻辑 segment 以实际 JSON 字节切割（目标 96 KiB），fragment 最多 16 KiB，所有 envelope 继续小于等于 256 KiB；不是按固定 100/200
+  item 切割。旧 App/未协商能力继续走现有 v2 manifest/delta，数据库不需要为这项新增 destructive migration。
+- history 继续在 scheduler 低优先级 lane：live/control/live projection pending 时暂停；ACK/实际 handoff 驱动的 credit 使其最多占用约 100ms
+  可归因传输窗口。实时 IPC 的正文、operation、turn、running 和 pending action 不被 snapshot/segment 覆盖。
+- P0-C 仍未开始：live 只能让位/标记静态 dirty，不能在 B4R 自动触发 canonical reconciliation；B5 滚动 UI也不在本补充范围。
+
+完整算法、snapshot 文件边界、异常状态和验证矩阵以
+`docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md` 第 25 节与 `docs/workflow/CONTRACTS.md` 的 P0-B.4R 条款为准。

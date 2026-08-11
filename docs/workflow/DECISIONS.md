@@ -115,6 +115,40 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 带明确 range coverage proof 的新 checkpoint 才能设置 `coverageComplete=true`；本决定不改变 IPC authority、wire 顶层版本或 P0-B
 的 upsert-only/delete-order 边界。
 
+### AD-005: P0-B.4 直接重设计为服务端当前快照与自适应静态分段
+
+- 状态：accepted（implementation-authorized，尚未标记为 stable）
+- 背景：真实 legacy 任务“美化安卓会话页(4)”的 canonical `thread/read(includeTurns=true)` 在约 1.2 秒返回 8.75 MiB / 1,729 canonical items，
+  但旧 B4 只在上游声明 `paginated` 时启用 range/older。结果是 range 开关关闭时 legacy v2/full 能恢复，开启时一度错误裁成 200-item tail，
+  修正后又退回整包传输；这既无法对所有大历史实现用户需要的“先显示一部分、后台静默补齐”，也把产品验收绑定到用户不可见、不可控制的
+  Codex history mode。
+- 决策：P0-B.4 直接重设计（P0-B.4R），不新建或 supersede 当前 P0 任务。TermLink 将每个 endpoint/profile + conversation 的完整
+  canonical 静态历史保存为一份当前原子快照；legacy 用一次 canonical full read 构建，paginated 使用“最新原生页先发 + 后台向更旧 cursor
+  连续构建”的混合启动。App 始终 cache-first：Android 本地覆盖缺失或不完整时执行这次完整 source scan 并发送静态 segments；已持久
+  `coverageComplete` 的本地缓存再次打开不发主动正文传输。服务端当前文件先作为安全持久化结果保存，不在 P0 声称其为实时新鲜或直接复用；
+  P1 再单独定义 quiet freshness probe、root 对账和跨设备/增量更新。快照只保留当前一份，不建设服务端关系数据库、全局历史索引或原始
+  rollout/JSONL 解析链路。
+- 原因：服务端与 Codex 同机，完整源读取的实测成本远低于把 5–9 MiB JSON 一次性推给 App；把“上游怎样分页”隔离在服务端后，App 的体验和
+  P0-B 语义不再依赖 Codex 内部 mode。当前先以本地完整 checkpoint 抑制重复主动传输，避免把已被证明不可靠的 metadata-only
+  `updatedAt`/`recencyAt` 伪装为完整历史 freshness；严格 root 对账将在 P1 按独立异常/离线策略设计。
+- 约束：
+  - healthy IPC surface 仍是实时正文、operation、current turn 与运行态的唯一权威；B4R 不能新增轮询、第二 owner 或用快照覆盖 live。
+  - local snapshot 的保存边界与现有 Codex/media 本地数据相同；不新增加密/key management、HTTP route，正文不得进入日志。
+  - `complete_at_snapshot` 不等于 `verified_current`；P0-B.4R 只保存前者，不声称后者。不得用 raw JSONL、metadata-only probe 或
+    `recencyAt` 伪造 freshness proof；P1 若引入 root comparison 必须另行锁定异常与离线语义。
+  - 新能力必须 additive：`historySync.version=1` 保持不变，旧客户端保留 v2；逻辑段按实际字节、fragment/WS envelope hard caps、ACK、
+    `selectionGeneration + syncId`、原子 Android commit 和 live/control 让位是硬门槛。
+  - P0-C 保持独立：live 可标记 dirty、可抢占调度，但不在 B4R 自动启动 canonical reconciliation；P0-B.5 UI 也不提前启动。
+- 影响范围：`codexHistoryBaselineProvider`、新增 `codexHistorySnapshotStore`、`codexHistorySyncService`、`codexWsSnapshotScheduler`、
+  `terminalGateway`、server capability、Android history wire/cache/ViewModel 与定向 Node/JVM tests；不改变 IPC client/feed/thread stream/Owner tracker、
+  session DTO、HTTP/auth、数据库迁移或 deployment。
+- 被替代项：旧 P0-B.4 “只有 paginated 连续 older pump 才能完整回填”的产品路径，以及 P1 中与之重叠的 legacy persistent tail/index 设想。
+  旧 paginated path 保留为兼容/回归观察，不再作为用户验收的前提。
+- 替代方案：继续固定 100/200 items、仅等上游 paginated、只存 metadata index、或解析 Codex raw rollout。前两者无法满足任意大历史的体验，
+  metadata-only 无正文，raw rollout 违反上游私有格式/稳定源边界，均不采用。
+- 验证方式：原子 store/read/corruption tests；legacy/paginated build/root tests；实际字节 segment/fragment/ACK tests；live/control ≤100ms
+  让位、A→B→A generation、旧客户端 v2 fallback、Android SQLite atomic commit/JDK21 tests；随后用真实大 legacy 历史和实时消息做设备验证。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径

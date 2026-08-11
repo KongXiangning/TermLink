@@ -16,7 +16,11 @@ class CodexWsSnapshotScheduler {
         now = Date.now,
         serialize = JSON.stringify,
         isStillActive,
-        onOversize
+        onOversize,
+        historyMaxBlockingMs = 100,
+        historyBurstMaxBytes = 16 * 1024,
+        historyMinBurstBytes = 1024,
+        historyEwmaAlpha = 0.25
     } = {}) {
         this.intervalMs = intervalMs;
         this.highWaterBytes = highWaterBytes;
@@ -27,10 +31,34 @@ class CodexWsSnapshotScheduler {
         this.serialize = serialize;
         this.isStillActive = typeof isStillActive === 'function' ? isStillActive : () => true;
         this.onOversize = typeof onOversize === 'function' ? onOversize : null;
+        this.historyMaxBlockingMs = normalizePositiveNumber(historyMaxBlockingMs, 100);
+        this.historyBurstMaxBytes = normalizePositiveNumber(historyBurstMaxBytes, 16 * 1024);
+        this.historyMinBurstBytes = Math.min(
+            this.historyBurstMaxBytes,
+            normalizePositiveNumber(historyMinBurstBytes, 1024)
+        );
+        this.historyEwmaAlpha = Math.min(1, Math.max(0.01, normalizePositiveNumber(historyEwmaAlpha, 0.25)));
         this._slots = new WeakMap();
         this._activeSockets = new Set();
         this._timers = new Set();
         this._backpressured = new WeakMap();
+        // History pages are a lower-priority producer than both live surface
+        // snapshots and control/action envelopes.  Keep a small amount of
+        // send-state here so the history pump can make that decision before
+        // it creates the next frame.  This is intentionally internal; it
+        // does not add a wire field or change IPC authority.
+        this._controlPending = new WeakMap();
+        this._liveInFlight = new WeakMap();
+        this._historyInFlight = new WeakMap();
+        // ACK observations come from the static-history service. They never
+        // influence live/control scheduling; they only select the size of a
+        // future lower-priority history fragment.
+        this._historyGoodput = new WeakMap();
+        // Android surface projection is derived work that may still be
+        // running before a snapshot can enter the normal coalescing slot.
+        // Keep an internal per-conversation marker so history cannot pass
+        // through that gap. This is scheduler-local state only.
+        this._liveProjectionPending = new WeakMap();
         this._closeListeners = new WeakMap();
         this._stats = {
             offered: 0,
@@ -39,6 +67,7 @@ class CodexWsSnapshotScheduler {
             dropped: 0,
             oversizedDropped: 0,
             controlSent: 0,
+            historySent: 0,
             closedForBackpressure: 0
         };
     }
@@ -102,13 +131,140 @@ class CodexWsSnapshotScheduler {
         if (!ws || ws.readyState !== 1) return false;
         const serialized = this.serialize(envelope);
         if (Buffer.byteLength(serialized, 'utf8') > MAX_WS_ENVELOPE_BYTES) return false;
+        this._incrementPending(this._controlPending, ws);
+        const clearPending = () => this._decrementPending(this._controlPending, ws);
         try {
-            ws.send(serialized);
+            // The callback is the ws library's hand-off boundary.  Until it
+            // fires, history must yield to this control frame.  Fake/test
+            // sockets may invoke it synchronously, which is also safe.
+            ws.send(serialized, clearPending);
             this._stats.controlSent += 1;
             return true;
         } catch (_) {
+            clearPending();
             return false;
         }
+    }
+
+    sendHistory(ws, envelope) {
+        if (!ws || ws.readyState !== 1 || !this.canSendHistory(ws)) return false;
+        let serialized;
+        try {
+            serialized = this.serialize(envelope);
+        } catch (_) {
+            return false;
+        }
+        if (Buffer.byteLength(serialized, 'utf8') > MAX_WS_ENVELOPE_BYTES) {
+            this._stats.oversizedDropped += 1;
+            try {
+                this.onOversize?.(ws, envelope);
+            } catch (_) {
+                // A bounded history diagnostic must never break the scheduler.
+            }
+            return false;
+        }
+        this._incrementPending(this._historyInFlight, ws);
+        const clearInFlight = () => this._decrementPending(this._historyInFlight, ws);
+        try {
+            // History is intentionally a lower-priority wire hand-off.  One
+            // frame may be in the ws queue, but the next frame must wait for
+            // its callback and for any live/control work to settle.
+            ws.send(serialized, () => {
+                clearInFlight();
+                this._stats.historySent += 1;
+            });
+            return true;
+        } catch (_) {
+            clearInFlight();
+            return false;
+        }
+    }
+
+    markLiveProjectionPending(ws, conversationId) {
+        if (!ws || ws.readyState !== 1 || typeof conversationId !== 'string' || !conversationId) {
+            return false;
+        }
+        let pending = this._liveProjectionPending.get(ws);
+        if (!pending) {
+            pending = new Set();
+            this._liveProjectionPending.set(ws, pending);
+        }
+        pending.add(conversationId);
+        return true;
+    }
+
+    clearLiveProjectionPending(ws, conversationId) {
+        if (!ws || typeof conversationId !== 'string' || !conversationId) return false;
+        const pending = this._liveProjectionPending.get(ws);
+        if (!pending || !pending.delete(conversationId)) return false;
+        if (pending.size === 0) this._liveProjectionPending.delete(ws);
+        return true;
+    }
+
+    /**
+     * Return whether a live/control frame is pending for this socket.
+     * History callers use this as a generation-local scheduling gate; it is
+     * not a second transport authority and never queues history itself.
+     */
+    hasPendingHigherPriority(ws) {
+        if (!ws || ws.readyState !== 1) return false;
+        if ((this._controlPending.get(ws) || 0) > 0 || (this._liveInFlight.get(ws) || 0) > 0) {
+            return true;
+        }
+        if ((this._liveProjectionPending.get(ws)?.size || 0) > 0) return true;
+        const slots = this._slots.get(ws);
+        return Boolean(slots && slots.size > 0);
+    }
+
+    canSendHistory(ws) {
+        return Boolean(
+            ws &&
+            ws.readyState === 1 &&
+            (this._historyInFlight.get(ws) || 0) === 0 &&
+            !this.hasPendingHigherPriority(ws)
+        );
+    }
+
+    /**
+     * Feed back one logical history segment ACK. `elapsedMs` is deliberately
+     * end-to-end from segment-start handoff to Android's atomic ACK, so the
+     * EWMA includes receiver/SQLite work as well as WebSocket delivery.
+     */
+    recordHistoryAck(ws, { bytes, elapsedMs } = {}) {
+        const byteCount = Number(bytes);
+        const elapsed = Number(elapsedMs);
+        if (!ws || !Number.isFinite(byteCount) || byteCount <= 0 || !Number.isFinite(elapsed) || elapsed <= 0) {
+            return null;
+        }
+        const sampleBytesPerMs = byteCount / elapsed;
+        const previous = this._historyGoodput.get(ws);
+        const ewmaBytesPerMs = previous
+            ? previous.ewmaBytesPerMs * (1 - this.historyEwmaAlpha) + sampleBytesPerMs * this.historyEwmaAlpha
+            : sampleBytesPerMs;
+        const observation = {
+            ewmaBytesPerMs,
+            observedAt: this.now(),
+            sampleBytes: byteCount,
+            sampleElapsedMs: elapsed
+        };
+        this._historyGoodput.set(ws, observation);
+        return { ...observation };
+    }
+
+    /**
+     * The safe history credit is 70% of observed goodput for a 100ms window,
+     * bounded by the configured logical fragment cap. With no sample, retain
+     * the protocol's conservative configured cap rather than delaying first
+     * history indefinitely.
+     */
+    getHistoryByteCredit(ws, preferredBytes = this.historyBurstMaxBytes) {
+        const preferred = Math.max(1, Math.min(this.historyBurstMaxBytes, Number(preferredBytes) || this.historyBurstMaxBytes));
+        const observation = this._historyGoodput.get(ws);
+        if (!observation || !Number.isFinite(observation.ewmaBytesPerMs) || observation.ewmaBytesPerMs <= 0) {
+            return preferred;
+        }
+        const safeBytes = Math.floor(observation.ewmaBytesPerMs * this.historyMaxBlockingMs * 0.7);
+        return Math.max(this.historyMinBurstBytes, Math.min(preferred, safeBytes));
     }
 
     dispose(ws) {
@@ -119,6 +275,11 @@ class CodexWsSnapshotScheduler {
         }
         this._activeSockets.delete(ws);
         this._backpressured.delete(ws);
+        this._controlPending.delete(ws);
+        this._liveInFlight.delete(ws);
+        this._historyInFlight.delete(ws);
+        this._historyGoodput.delete(ws);
+        this._liveProjectionPending.delete(ws);
         const listener = this._closeListeners.get(ws);
         if (listener && typeof ws.removeListener === 'function') ws.removeListener('close', listener);
         this._closeListeners.delete(ws);
@@ -214,8 +375,11 @@ class CodexWsSnapshotScheduler {
         slots.delete(conversationId);
         if (slots.size === 0) this._activeSockets.delete(ws);
         const sentAt = this.now();
+        this._incrementPending(this._liveInFlight, ws);
+        const clearInFlight = () => this._decrementPending(this._liveInFlight, ws);
         try {
             ws.send(serialized, () => {
+                clearInFlight();
                 this._stats.sent += 1;
                 const pending = this._slots.get(ws)?.get(conversationId);
                 if (pending) {
@@ -224,8 +388,19 @@ class CodexWsSnapshotScheduler {
                 }
             });
         } catch (_) {
+            clearInFlight();
             this._stats.dropped += 1;
         }
+    }
+
+    _incrementPending(map, ws) {
+        map.set(ws, (map.get(ws) || 0) + 1);
+    }
+
+    _decrementPending(map, ws) {
+        const next = (map.get(ws) || 0) - 1;
+        if (next > 0) map.set(ws, next);
+        else map.delete(ws);
     }
 
     _schedule(callback, delay) {
@@ -244,6 +419,11 @@ class CodexWsSnapshotScheduler {
         this._timers.delete(slot.timer);
         slot.timer = null;
     }
+}
+
+function normalizePositiveNumber(value, fallback) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback;
 }
 
 function projectConversationActionPayload(actionType, pendingAction) {

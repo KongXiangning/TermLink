@@ -15,6 +15,15 @@ class FakeWs extends EventEmitter {
     close(code, reason) { this.closed = { code, reason }; this.readyState = 3; this.emit('close'); }
 }
 
+class DeferredWs extends FakeWs {
+    constructor() { super(); this.pendingCallbacks = []; }
+    send(payload, callback) {
+        this.sent.push(JSON.parse(payload));
+        if (callback) this.pendingCallbacks.push(callback);
+    }
+    completeNextSend() { this.pendingCallbacks.shift()?.(); }
+}
+
 test('scheduler keeps only the latest snapshot for a websocket/conversation', () => {
     const ws = new FakeWs();
     const scheduler = new CodexWsSnapshotScheduler({ intervalMs: 1, isStillActive: () => true });
@@ -52,6 +61,80 @@ test('scheduler waits at high water and closes only after hard-limit timeout', (
     now += 101;
     scheduler.flush(ws);
     assert.equal(ws.closed?.code, 1013);
+});
+
+test('history gate yields while a live snapshot is queued or in flight', () => {
+    const ws = new DeferredWs();
+    const scheduler = new CodexWsSnapshotScheduler({ intervalMs: 1, isStillActive: () => true });
+    scheduler.offer(ws, 'conv-a', { revision: 1 }, { priority: 'terminal' });
+    assert.equal(scheduler.canSendHistory(ws), false);
+    ws.completeNextSend();
+    assert.equal(scheduler.canSendHistory(ws), true);
+
+    scheduler.offer(ws, 'conv-a', { revision: 2 });
+    assert.equal(scheduler.canSendHistory(ws), false);
+    scheduler.flush(ws);
+    assert.equal(scheduler.canSendHistory(ws), false);
+    ws.completeNextSend();
+    assert.equal(scheduler.canSendHistory(ws), true);
+});
+
+test('history gate yields while a control frame is awaiting websocket hand-off', () => {
+    const ws = new DeferredWs();
+    const scheduler = new CodexWsSnapshotScheduler({ isStillActive: () => true });
+    assert.equal(scheduler.sendControl(ws, { type: 'conversation_action_required' }), true);
+    assert.equal(scheduler.canSendHistory(ws), false);
+    ws.completeNextSend();
+    assert.equal(scheduler.canSendHistory(ws), true);
+});
+
+test('history wire hand-off is serialized while live can overtake the next history frame', () => {
+    const ws = new DeferredWs();
+    const scheduler = new CodexWsSnapshotScheduler({ isStillActive: () => true });
+
+    assert.equal(scheduler.sendHistory(ws, { type: 'conversation_history_delta', pageIndex: 0 }), true);
+    assert.equal(scheduler.canSendHistory(ws), false);
+    assert.equal(scheduler.sendHistory(ws, { type: 'conversation_history_delta', pageIndex: 1 }), false);
+
+    scheduler.offer(ws, 'conv-a', { type: 'conversation_surface_snapshot', revision: 1 }, { priority: 'terminal' });
+    assert.deepEqual(ws.sent.map((envelope) => envelope.type), [
+        'conversation_history_delta',
+        'conversation_surface_snapshot'
+    ]);
+
+    ws.completeNextSend();
+    assert.equal(scheduler.canSendHistory(ws), false);
+    ws.completeNextSend();
+    assert.equal(scheduler.canSendHistory(ws), true);
+    assert.equal(scheduler.sendHistory(ws, { type: 'conversation_history_delta', pageIndex: 1 }), true);
+});
+
+test('history gate yields while an Android surface projection is pending', () => {
+    const ws = new FakeWs();
+    const scheduler = new CodexWsSnapshotScheduler({ isStillActive: () => true });
+    assert.equal(scheduler.markLiveProjectionPending(ws, 'conv-a'), true);
+    assert.equal(scheduler.canSendHistory(ws), false);
+    assert.equal(scheduler.clearLiveProjectionPending(ws, 'conv-a'), true);
+    assert.equal(scheduler.canSendHistory(ws), true);
+});
+
+test('history ACK EWMA reduces future lower-priority fragment credit to a 100ms safe window', () => {
+    let now = 1_000;
+    const ws = new FakeWs();
+    const scheduler = new CodexWsSnapshotScheduler({
+        now: () => now,
+        historyMaxBlockingMs: 100,
+        historyBurstMaxBytes: 16 * 1024,
+        historyMinBurstBytes: 1024,
+        historyEwmaAlpha: 0.25
+    });
+    // 4 KiB in 100ms = 40 bytes/ms; 70% of the following 100ms budget is 2.8 KiB.
+    scheduler.recordHistoryAck(ws, { bytes: 4_000, elapsedMs: 100 });
+    assert.equal(scheduler.getHistoryByteCredit(ws, 16 * 1024), 2_800);
+    now += 1;
+    scheduler.recordHistoryAck(ws, { bytes: 8_000, elapsedMs: 100 });
+    // EWMA=(40*0.75)+(80*0.25)=50; safe budget=3.5 KiB.
+    assert.equal(scheduler.getHistoryByteCredit(ws, 16 * 1024), 3_500);
 });
 
 test('scheduler never sends an oversized snapshot and reports it through the bounded channel', () => {
