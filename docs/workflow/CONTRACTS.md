@@ -168,6 +168,7 @@
  `legacy_unknown`/partial，旧 v2 显示路径仍可继续使用。
   能力位未知时，用户显式打开历史抽屉仍可发起 metadata `thread/list`，只有服务明确声明不支持时才跳过；这两条均是
   cache/history adapter 边界，不改变 healthy IPC authority 或远端任务语义。
+- **canonical tail validation-only 例外（2026-08-12）**：healthy IPC 存在时，只有 Android 已协商 `historySync.tailValidation { enabled:true, version:1 }`、当前 selection 已有静态 complete checkpoint 且 checkpoint 带 newest anchor 时，才允许在该 selection 最多一次进行只读 canonical tail 验证。Gateway 只能复用已有 metadata：仅 `historyMode=paginated` 允许一次 `thread/turns/list(limit=1, sortDirection=desc, itemsView=full)`，源响应必须不超过 256 KiB；`legacy`、`unknown`、`ephemeral` 一律返回 `UNSUPPORTED`，零 full `thread/read`、零 `thread/turns/list`。缺 metadata/anchor、超时、超限或 stale selection 必须 `FAILED`，不回退 full read。该结果只含 `UP_TO_DATE` / `NEEDS_RECONCILE` / `UNSUPPORTED` / `FAILED`，不含 item、不得产生 manifest/delta/payload/baseline 写入，不得改变正文、UI、live authority、普通 history sync/recovery 或 SQLite；`NEEDS_RECONCILE` 仅为后续独立第 4 步的诊断事实。
 - P0-B 静态 range 扩展：在 capability 明确协商且 Android 使用 additive range/segment cache schema 时，history 通道可以在
   healthy IPC surface 存在期间把**与当前 live tail 不冲突的更旧静态 canonical items**以 upsert-only 方式写入 SQLite，供离线展示和
   向上滚动；该例外只扩展静态前缀覆盖，不允许 canonical history 覆盖同 key 的 live 正文、streaming 字段、operation、当前 turn、

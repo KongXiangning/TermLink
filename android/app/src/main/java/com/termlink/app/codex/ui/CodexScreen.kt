@@ -232,6 +232,27 @@ internal fun codexHistoryBodyHydrationLabel(
 }
 
 /**
+ * The body may temporarily come from a matching, bounded desynced surface
+ * while the healthy IPC stream converges.  Keep this visible to the user so
+ * the provisional body is never mistaken for canonical or live-authoritative
+ * state.
+ */
+internal fun codexProvisionalSurfaceLabel(
+    activeConversationId: String?,
+    surfaceConversationId: String?,
+    surfaceDesynced: Boolean,
+    hasMessages: Boolean
+): String? {
+    val activeId = activeConversationId?.trim().orEmpty()
+    val surfaceId = surfaceConversationId?.trim().orEmpty()
+    return if (hasMessages && surfaceDesynced && activeId.isNotEmpty() && activeId == surfaceId) {
+        "临时实时快照（待同步确认）"
+    } else {
+        null
+    }
+}
+
+/**
  * Non-blocking status for canonical history reconciliation.  It is rendered
  * separately from the local cache body state so a network failure cannot make
  * already-readable正文 look like it is still loading.
@@ -585,6 +606,12 @@ fun CodexScreen(
                 cacheReady = state.historyCacheState.ready,
                 hasHealthyLive = hasHealthyLive
             )
+            val provisionalSurfaceLabel = codexProvisionalSurfaceLabel(
+                activeConversationId = state.activeConversationId,
+                surfaceConversationId = state.ipcSurfaceSnapshot?.conversationId,
+                surfaceDesynced = state.ipcSurfaceSnapshot?.desynced == true,
+                hasMessages = state.messages.isNotEmpty()
+            )
             if ((state.messages.isNotEmpty() || state.historyCacheState.ready || hasHealthyLive) &&
                 networkHydrationLabel != null
             ) {
@@ -593,6 +620,23 @@ fun CodexScreen(
                     networkState = state.historyNetworkSyncState.state,
                     onOpenHistory = onShowThreadHistory
                 )
+            }
+            provisionalSurfaceLabel?.let { label ->
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    color = SystemBg,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, SurfaceBorder)
+                ) {
+                    Text(
+                        text = label,
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
+                    )
+                }
             }
 
             Box(

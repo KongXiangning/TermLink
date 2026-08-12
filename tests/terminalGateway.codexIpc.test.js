@@ -340,6 +340,7 @@ async function setupGateway(opts = {}) {
         mobileSurfaceMaxVisibleLatencyMs: opts.mobileSurfaceMaxVisibleLatencyMs,
         historyRangeSegmentsEnabled: opts.historyRangeSegmentsEnabled === true,
         historySnapshotSegmentsEnabled: opts.historySnapshotSegmentsEnabled === true,
+        historyTailValidationEnabled: opts.historyTailValidationEnabled !== false,
         historySnapshotStore: opts.historySnapshotStore ?? null
     });
 
@@ -1024,6 +1025,227 @@ test('Android metadata thread/resume is read-only upstream but keeps the legacy 
     assert.equal(sess.codexState.threadId, undefined, 'read-only metadata selection must not bind the session');
     assert.equal(sess.lastCodexThreadId, undefined, 'read-only metadata selection must not claim last thread ownership');
 
+    ws.close();
+    await stopGateway(g);
+});
+
+test('legacy tail validation returns UNSUPPORTED without a full read, turns read, or history transport', async () => {
+    const registrationId = 'android-tail-validation-legacy';
+    const g = await setupGateway({
+        registrationManager: {
+            isActive: (id) => id === registrationId,
+            get: (id) => id === registrationId ? { clientType: 'android' } : null
+        }
+    });
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && params.includeTurns === false) {
+            return { thread: { id: params.threadId, historyMode: 'legacy' } };
+        }
+        throw new Error(`unexpected canonical source call: ${method}`);
+    };
+    const sess = await g.sm.createSession({ name: 'tail-validation-legacy' });
+    const { ws, messages } = await connectWs(g.port, sess.id, registrationId);
+    await delay(60);
+    ws.send(JSON.stringify({
+        type: 'set_active_conversation',
+        conversationId: 'conv-tail-legacy',
+        selectionGeneration: 11
+    }));
+    await delay(25);
+    ws.send(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'tail-validation-legacy-metadata',
+        method: 'thread/resume',
+        params: { threadId: 'conv-tail-legacy' },
+        historyMode: 'metadata',
+        selectionGeneration: 11
+    }));
+    await waitForMessage(messages, (message) =>
+        message.type === 'codex_response' && message.requestId === 'tail-validation-legacy-metadata'
+    );
+    ws.send(JSON.stringify({
+        type: 'conversation_history_tail_validation_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174301',
+        conversationId: 'conv-tail-legacy',
+        selectionGeneration: 11,
+        tailValidation: { enabled: true, version: 1 },
+        checkpoint: { newestAnchorKey: 'item-9', newestAnchorHash: 'hash-9', complete: true }
+    }));
+
+    const settled = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_sync_state' &&
+        message.purpose === 'tail_validation' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174301'
+    );
+    assert.equal(settled?.state, 'unsupported');
+    assert.equal(settled?.detailCode, 'history_tail_validation_legacy_unsupported');
+    assert.equal(g.codexService.requests.filter((entry) => entry.method === 'thread/read' && entry.params.includeTurns === true).length, 0);
+    assert.equal(g.codexService.requests.filter((entry) => entry.method === 'thread/turns/list').length, 0);
+    assert.equal(messages.some((message) => [
+        'conversation_history_manifest_required',
+        'conversation_history_delta',
+        'conversation_history_payload_chunk',
+        'conversation_history_snapshot_state'
+    ].includes(message.type)), false);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('paginated tail validation compares one page and leaves normal history sync untouched', async () => {
+    const registrationId = 'android-tail-validation-paginated';
+    const g = await setupGateway({
+        registrationManager: {
+            isActive: (id) => id === registrationId,
+            get: (id) => id === registrationId ? { clientType: 'android' } : null
+        }
+    });
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && params.includeTurns === false) {
+            return { thread: { id: params.threadId, historyMode: 'paginated' } };
+        }
+        if (method === 'thread/turns/list') {
+            return {
+                threadId: params.threadId,
+                historyMode: 'paginated',
+                sortDirection: 'desc',
+                data: [{ itemKey: 'item-10', contentHash: 'hash-10', payloadJson: '{}' }],
+                nextCursor: 'older'
+            };
+        }
+        throw new Error(`unexpected canonical source call: ${method}`);
+    };
+    const sess = await g.sm.createSession({ name: 'tail-validation-paginated' });
+    const { ws, messages } = await connectWs(g.port, sess.id, registrationId);
+    await delay(60);
+    ws.send(JSON.stringify({
+        type: 'set_active_conversation',
+        conversationId: 'conv-tail-paginated',
+        selectionGeneration: 12
+    }));
+    await delay(25);
+    ws.send(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'tail-validation-paginated-metadata',
+        method: 'thread/resume',
+        params: { threadId: 'conv-tail-paginated' },
+        historyMode: 'metadata',
+        selectionGeneration: 12
+    }));
+    await waitForMessage(messages, (message) =>
+        message.type === 'codex_response' && message.requestId === 'tail-validation-paginated-metadata'
+    );
+    ws.send(JSON.stringify({
+        type: 'conversation_history_tail_validation_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174302',
+        conversationId: 'conv-tail-paginated',
+        selectionGeneration: 12,
+        tailValidation: { enabled: true, version: 1 },
+        checkpoint: { newestAnchorKey: 'item-10', newestAnchorHash: 'hash-10', complete: true }
+    }));
+
+    const settled = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_sync_state' &&
+        message.purpose === 'tail_validation' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174302'
+    );
+    assert.equal(settled?.state, 'up_to_date');
+    assert.deepEqual(g.codexService.requests.filter((entry) => entry.method === 'thread/turns/list'), [{
+        method: 'thread/turns/list',
+        params: {
+            threadId: 'conv-tail-paginated',
+            limit: 1,
+            sortDirection: 'desc',
+            itemsView: 'full'
+        }
+    }]);
+    assert.equal(g.codexService.requests.filter((entry) => entry.method === 'thread/read' && entry.params.includeTurns === true).length, 0);
+    assert.equal(messages.some((message) => message.type === 'conversation_history_delta'), false);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('tail validation fails without current metadata and drops a late A→B result', async () => {
+    const registrationId = 'android-tail-validation-stale';
+    let releaseTurns;
+    const turnsBlocked = new Promise((resolve) => { releaseTurns = resolve; });
+    const g = await setupGateway({
+        registrationManager: {
+            isActive: (id) => id === registrationId,
+            get: (id) => id === registrationId ? { clientType: 'android' } : null
+        }
+    });
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && params.includeTurns === false) {
+            return { thread: { id: params.threadId, historyMode: 'paginated' } };
+        }
+        if (method === 'thread/turns/list') {
+            await turnsBlocked;
+            return {
+                threadId: params.threadId,
+                historyMode: 'paginated',
+                sortDirection: 'desc',
+                data: [{ itemKey: 'item-10', contentHash: 'hash-10', payloadJson: '{}' }]
+            };
+        }
+        throw new Error(`unexpected canonical source call: ${method}`);
+    };
+    const sess = await g.sm.createSession({ name: 'tail-validation-stale' });
+    const { ws, messages } = await connectWs(g.port, sess.id, registrationId);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-tail-a', selectionGeneration: 21 }));
+    await delay(25);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_tail_validation_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174303',
+        conversationId: 'conv-tail-a',
+        selectionGeneration: 21,
+        tailValidation: { enabled: true, version: 1 },
+        checkpoint: { newestAnchorKey: 'item-10', newestAnchorHash: 'hash-10', complete: true }
+    }));
+    const missingMetadata = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_sync_state' &&
+        message.purpose === 'tail_validation' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174303'
+    );
+    assert.equal(missingMetadata?.state, 'failed');
+    assert.equal(missingMetadata?.detailCode, 'history_tail_validation_metadata_missing');
+    assert.equal(g.codexService.requests.length, 0);
+
+    ws.send(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'tail-validation-stale-metadata',
+        method: 'thread/resume',
+        params: { threadId: 'conv-tail-a' },
+        historyMode: 'metadata',
+        selectionGeneration: 21
+    }));
+    await waitForMessage(messages, (message) =>
+        message.type === 'codex_response' && message.requestId === 'tail-validation-stale-metadata'
+    );
+    ws.send(JSON.stringify({
+        type: 'conversation_history_tail_validation_request',
+        syncId: '123e4567-e89b-12d3-a456-426614174304',
+        conversationId: 'conv-tail-a',
+        selectionGeneration: 21,
+        tailValidation: { enabled: true, version: 1 },
+        checkpoint: { newestAnchorKey: 'item-10', newestAnchorHash: 'hash-10', complete: true }
+    }));
+    await delay(30);
+    assert.equal(g.codexService.requests.filter((entry) => entry.method === 'thread/turns/list').length, 1);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-tail-b', selectionGeneration: 22 }));
+    await waitForMessage(messages, (message) =>
+        message.type === 'session_codex_thread_bound' &&
+        message.conversationId === 'conv-tail-b' &&
+        message.selectionGeneration === 22
+    );
+    releaseTurns();
+    await delay(80);
+    assert.equal(messages.some((message) =>
+        message.type === 'conversation_history_sync_state' &&
+        message.purpose === 'tail_validation' &&
+        message.syncId === '123e4567-e89b-12d3-a456-426614174304'
+    ), false);
+    assert.equal(g.codexService.requests.filter((entry) => entry.method === 'thread/read' && entry.params.includeTurns === true).length, 0);
     ws.close();
     await stopGateway(g);
 });
@@ -2731,6 +2953,241 @@ test('latest snapshot is replayed on set_active_conversation', async () => {
     assert.equal(snaps[1].snapshot.desynced, false);
     ws.close();
     await stopGateway(g);
+});
+
+test('Android treats a preselection shared current-cycle IPC surface as provisional', async () => {
+    const registrationId = 'android-shared-current-cycle-provisional';
+    const conversationId = 'conv-shared-current-cycle-provisional';
+    const projectorCalls = [];
+    const ipcFeed = new FakeIpcFeed({ replayOnFollow: false });
+    let g;
+    let peerWs;
+    let androidWs;
+    try {
+        g = await setupGateway({
+            ipcFeed,
+            registrationManager: {
+                isActive: (id) => id === registrationId,
+                get: (id) => id === registrationId ? { clientType: 'android' } : null
+            },
+            mobileSurfaceProjector: async (surface, options) => {
+                projectorCalls.push({
+                    revision: surface.revision,
+                    desynced: surface.desynced === true,
+                    redacted: options?.redactInlineMedia === true
+                });
+                return { ...surface, items: Array.isArray(surface.items) ? surface.items.slice() : [] };
+            }
+        });
+        const sess = await g.sm.createSession({ name: 'android-shared-current-cycle-provisional' });
+        const peer = await connectWs(g.port, sess.id);
+        peerWs = peer.ws;
+        peer.ws.send(JSON.stringify({
+            type: 'set_active_conversation',
+            conversationId,
+            selectionGeneration: 1
+        }));
+        await delay(40);
+        ipcFeed.pushSnapshot(conversationId, {
+            conversationId,
+            revision: 41,
+            status: 'completed',
+            items: [{ key: 'shared-cache', kind: 'message', role: 'assistant', text: 'preselection shared cache' }]
+        });
+        await waitForMessage(peer.messages, (message) =>
+            message.type === 'conversation_surface_snapshot' &&
+            message.conversationId === conversationId &&
+            message.snapshot?.desynced !== true
+        );
+
+        const android = await connectWs(g.port, sess.id, registrationId);
+        androidWs = android.ws;
+        await delay(40);
+        android.messages.length = 0;
+        android.ws.send(JSON.stringify({
+            type: 'set_active_conversation',
+            conversationId,
+            selectionGeneration: 2
+        }));
+
+        const provisional = await waitForMessage(android.messages, (message) =>
+            message.type === 'conversation_surface_snapshot' &&
+            message.conversationId === conversationId,
+            250
+        );
+        assert.equal(provisional?.snapshot?.desynced, true,
+            'a healthy surface from before this Android selection is display-only, not selection-healthy');
+        assert.ok(projectorCalls.some((call) => call.revision === 41 && call.desynced && call.redacted),
+            'the preselection shared-cycle surface must use the bounded/redacted provisional path');
+
+        ipcFeed.pushSnapshot(conversationId, {
+            conversationId,
+            revision: 42,
+            status: 'completed',
+            items: [{ key: 'fresh-current-cycle', kind: 'message', role: 'assistant', text: 'fresh after selection' }]
+        });
+        const healthy = await waitForMessage(android.messages, (message) =>
+            message.type === 'conversation_surface_snapshot' &&
+            message.conversationId === conversationId &&
+            message.snapshot?.revision === 42 &&
+            message.snapshot?.desynced !== true
+        );
+        assert.ok(healthy, 'a feed surface received after selection must still establish healthy IPC authority');
+    } finally {
+        peerWs?.close();
+        androidWs?.close();
+        await stopGateway(g);
+    }
+});
+
+test('Android publishes cached desynced surface before a fresh healthy surface supersedes its full projection', async () => {
+    const registrationId = 'android-cached-desynced-fast-path';
+    const conversationId = 'conv-cached-desynced-fast-path';
+    let releaseCachedFull;
+    let markCachedProjectionStarted;
+    const cachedProjectionStarted = new Promise((resolve) => { markCachedProjectionStarted = resolve; });
+    const cachedFullBlocked = new Promise((resolve) => { releaseCachedFull = resolve; });
+    const projectorCalls = [];
+    const ipcFeed = new FakeIpcFeed({ replayOnFollow: false });
+    ipcFeed.pushSnapshot(conversationId, {
+        conversationId,
+        revision: 41,
+        status: 'completed',
+        items: [{ key: 'cached-tail', kind: 'message', role: 'assistant', text: 'cached tail' }]
+    });
+
+    let g;
+    let ws;
+    try {
+        g = await setupGateway({
+            ipcFeed,
+            registrationManager: {
+                isActive: (id) => id === registrationId,
+                get: (id) => id === registrationId ? { clientType: 'android' } : null
+            },
+            mobileSurfaceMaxVisibleLatencyMs: 5_000,
+            mobileSurfaceProjector: async (surface, options) => {
+                projectorCalls.push({ desynced: surface.desynced === true, redacted: options?.redactInlineMedia === true });
+                if (surface.desynced === true) markCachedProjectionStarted();
+                if (surface.desynced === true && options?.redactInlineMedia !== true) {
+                    await cachedFullBlocked;
+                }
+                return { ...surface, items: Array.isArray(surface.items) ? surface.items.slice() : [] };
+            }
+        });
+        const sess = await g.sm.createSession({ name: 'android-cached-desynced-fast-path' });
+        const connection = await connectWs(g.port, sess.id, registrationId);
+        ws = connection.ws;
+        const { messages } = connection;
+        await delay(80);
+
+        ws.send(JSON.stringify({
+            type: 'set_active_conversation',
+            conversationId,
+            selectionGeneration: 23
+        }));
+        await cachedProjectionStarted;
+        await new Promise((resolve) => setImmediate(resolve));
+
+        ipcFeed.pushSnapshot(conversationId, {
+            conversationId,
+            revision: 42,
+            status: 'completed',
+            items: [{ key: 'fresh-tail', kind: 'message', role: 'assistant', text: 'fresh tail' }]
+        });
+        await delay(80);
+
+        let snapshots = messages.filter((message) => message.type === 'conversation_surface_snapshot');
+        assert.equal(snapshots.at(0)?.snapshot.desynced, true,
+            'the cached display-only surface must reach Android before the later healthy surface');
+        assert.ok(projectorCalls.some((call) => call.desynced && call.redacted),
+            'the cached display-only surface must use the bounded redacted projection path');
+
+        releaseCachedFull();
+        releaseCachedFull = null;
+        await delay(100);
+
+        snapshots = messages.filter((message) => message.type === 'conversation_surface_snapshot');
+        assert.equal(snapshots.at(-1)?.snapshot.desynced, false,
+            'the fresh healthy surface must still converge after the provisional frame');
+    } finally {
+        releaseCachedFull?.();
+        ws?.close();
+        await stopGateway(g);
+    }
+});
+
+test('Android drops a late cached desynced projection after the healthy surface is published', async () => {
+    const registrationId = 'android-late-cached-desynced-fast-path';
+    const conversationId = 'conv-late-cached-desynced-fast-path';
+    let releaseProvisional;
+    let markProvisionalStarted;
+    const provisionalStarted = new Promise((resolve) => { markProvisionalStarted = resolve; });
+    const provisionalBlocked = new Promise((resolve) => { releaseProvisional = resolve; });
+    const ipcFeed = new FakeIpcFeed({ replayOnFollow: false });
+    ipcFeed.pushSnapshot(conversationId, {
+        conversationId,
+        revision: 51,
+        status: 'completed',
+        items: [{ key: 'cached-tail', kind: 'message', role: 'assistant', text: 'cached tail' }]
+    });
+
+    let g;
+    let ws;
+    try {
+        g = await setupGateway({
+            ipcFeed,
+            registrationManager: {
+                isActive: (id) => id === registrationId,
+                get: (id) => id === registrationId ? { clientType: 'android' } : null
+            },
+            mobileSurfaceMaxVisibleLatencyMs: 5_000,
+            mobileSurfaceProjector: async (surface, options) => {
+                if (surface.desynced === true && options?.redactInlineMedia === true) {
+                    markProvisionalStarted();
+                    await provisionalBlocked;
+                }
+                return { ...surface, items: Array.isArray(surface.items) ? surface.items.slice() : [] };
+            }
+        });
+        const sess = await g.sm.createSession({ name: 'android-late-cached-desynced-fast-path' });
+        const connection = await connectWs(g.port, sess.id, registrationId);
+        ws = connection.ws;
+        const { messages } = connection;
+        await delay(80);
+
+        ws.send(JSON.stringify({
+            type: 'set_active_conversation',
+            conversationId,
+            selectionGeneration: 29
+        }));
+        await provisionalStarted;
+
+        ipcFeed.pushSnapshot(conversationId, {
+            conversationId,
+            revision: 52,
+            status: 'completed',
+            items: [{ key: 'fresh-tail', kind: 'message', role: 'assistant', text: 'fresh tail' }]
+        });
+        await delay(80);
+
+        releaseProvisional();
+        releaseProvisional = null;
+        await delay(80);
+
+        const snapshots = messages.filter((message) => message.type === 'conversation_surface_snapshot');
+        const healthyIndex = snapshots.findIndex((message) => message.snapshot.desynced !== true);
+        assert.ok(healthyIndex >= 0, 'the fresh healthy surface must be published while the provisional projection is blocked');
+        assert.equal(
+            snapshots.slice(healthyIndex + 1).some((message) => message.snapshot.desynced === true),
+            false,
+            'a delayed provisional projection must not downgrade an already published healthy surface'
+        );
+    } finally {
+        releaseProvisional?.();
+        ws?.close();
+        await stopGateway(g);
+    }
 });
 
 test('IPC conversations list includes surface summary fields for Android bootstrap', async () => {

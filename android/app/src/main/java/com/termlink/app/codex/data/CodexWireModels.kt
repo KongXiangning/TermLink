@@ -145,7 +145,8 @@ data class CodexHistoryCapability(
     val payloadChunkMaxBytes: Int = 131072,
     val maxEnvelopeBytes: Int = 262144,
     val rangeSegments: CodexHistoryRangeCapability? = null,
-    val serverSnapshotSegments: CodexHistorySnapshotSegmentsCapability? = null
+    val serverSnapshotSegments: CodexHistorySnapshotSegmentsCapability? = null,
+    val tailValidation: CodexHistoryTailValidationCapability? = null
 ) {
     companion object {
         fun from(status: JSONObject?): CodexHistoryCapability? {
@@ -166,7 +167,8 @@ data class CodexHistoryCapability(
                 rangeSegments = CodexHistoryRangeCapability.from(json.optJSONObject("rangeSegments")),
                 serverSnapshotSegments = CodexHistorySnapshotSegmentsCapability.from(
                     json.optJSONObject("serverSnapshotSegments")
-                )
+                ),
+                tailValidation = CodexHistoryTailValidationCapability.from(json.optJSONObject("tailValidation"))
             )
         }
     }
@@ -206,6 +208,22 @@ data class CodexHistorySnapshotSegmentsCapability(
                 cacheSchemaVersion = json.optInt("cacheSchemaVersion", 0),
                 segmentTargetBytes = json.optInt("segmentTargetBytes", 96 * 1024),
                 fragmentMaxBytes = json.optInt("fragmentMaxBytes", 16 * 1024)
+            )
+        }
+    }
+}
+
+/** Read-only canonical-tail comparison capability; no history payload lane. */
+data class CodexHistoryTailValidationCapability(
+    val enabled: Boolean,
+    val version: Int
+) {
+    companion object {
+        fun from(json: JSONObject?): CodexHistoryTailValidationCapability? {
+            if (json == null) return null
+            return CodexHistoryTailValidationCapability(
+                enabled = json.optBoolean("enabled", false),
+                version = json.optInt("version", 0)
             )
         }
     }
@@ -317,11 +335,39 @@ data class CodexHistorySyncRequest(
     }
 }
 
+/**
+ * A private validation-only request. It deliberately carries no range,
+ * manifest, payload, or cache-write intent: Gateway only compares the local
+ * durable newest anchor with one verified bounded canonical page.
+ */
+data class CodexHistoryTailValidationRequest(
+    val syncId: String,
+    val conversationId: String,
+    val checkpoint: CodexHistorySyncCheckpoint,
+    val selectionGeneration: Long,
+    val tailValidation: CodexHistoryTailValidationCapability
+) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("type", "conversation_history_tail_validation_request")
+        put("syncId", syncId)
+        put("conversationId", conversationId)
+        put("checkpoint", checkpoint.toJson())
+        put("selectionGeneration", selectionGeneration.coerceAtLeast(0L))
+        put("tailValidation", JSONObject().apply {
+            put("enabled", true)
+            put("version", tailValidation.version)
+        })
+    }
+}
+
 private fun CodexHistoryRangeCapability.isWireEnabled(): Boolean =
     enabled && version == 1 && cacheSchemaVersion >= 3
 
 private fun CodexHistorySnapshotSegmentsCapability.isWireEnabled(): Boolean =
     enabled && version == 1 && cacheSchemaVersion >= 3
+
+private fun CodexHistoryTailValidationCapability.isWireEnabled(): Boolean =
+    enabled && version == 1
 
 data class CodexHistoryManifestRequired(
     val syncId: String,
@@ -351,7 +397,8 @@ data class CodexHistorySyncStateMessage(
     val state: String,
     val detailCode: String?,
     val selectionGeneration: Long,
-    val clientSelectionGeneration: Long
+    val clientSelectionGeneration: Long,
+    val purpose: String = "history_sync"
 ) {
     companion object {
         fun from(json: JSONObject): CodexHistorySyncStateMessage = CodexHistorySyncStateMessage(
@@ -360,7 +407,8 @@ data class CodexHistorySyncStateMessage(
             state = json.optString("state", "failed"),
             detailCode = json.optStringOrNull("detailCode"),
             selectionGeneration = json.optLong("selectionGeneration", 0L),
-            clientSelectionGeneration = json.optLong("clientSelectionGeneration", 0L)
+            clientSelectionGeneration = json.optLong("clientSelectionGeneration", 0L),
+            purpose = json.optString("purpose", "history_sync")
         )
     }
 }
@@ -1302,6 +1350,9 @@ data class CodexIpcConversationSummary(
 object CodexClientMessages {
 
     fun historySyncRequest(request: CodexHistorySyncRequest): String = request.toJson().toString()
+
+    fun historyTailValidationRequest(request: CodexHistoryTailValidationRequest): String =
+        request.toJson().toString()
 
     fun historyOlderRequest(
         syncId: String,

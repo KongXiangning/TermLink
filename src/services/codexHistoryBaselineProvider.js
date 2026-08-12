@@ -10,6 +10,7 @@ const { projectMobileSurface, containsImageDataUrl } = require('./codexMobileSur
 
 const DEFAULT_MAX_BASELINE_BYTES = 70 * 1024 * 1024;
 const DEFAULT_TAIL_ITEM_LIMIT = 200;
+const DEFAULT_TAIL_VALIDATION_MAX_RESPONSE_BYTES = 256 * 1024;
 const DEFAULT_MAX_SCAN_PAGES = 10_000;
 const RANGE_SCHEMA_VERSION = 1;
 
@@ -39,6 +40,7 @@ class CodexHistoryBaselineProvider {
         historyMode = null,
         now = Date.now,
         maxBaselineBytes = DEFAULT_MAX_BASELINE_BYTES,
+        maxTailValidationResponseBytes = DEFAULT_TAIL_VALIDATION_MAX_RESPONSE_BYTES,
         mediaStore = null,
         externalize = null
     } = {}) {
@@ -57,6 +59,10 @@ class CodexHistoryBaselineProvider {
         this.maxBaselineBytes = Number.isSafeInteger(maxBaselineBytes) && maxBaselineBytes > 0
             ? maxBaselineBytes
             : DEFAULT_MAX_BASELINE_BYTES;
+        this.maxTailValidationResponseBytes = Number.isSafeInteger(maxTailValidationResponseBytes) &&
+            maxTailValidationResponseBytes > 0
+            ? Math.min(maxTailValidationResponseBytes, DEFAULT_TAIL_VALIDATION_MAX_RESPONSE_BYTES)
+            : DEFAULT_TAIL_VALIDATION_MAX_RESPONSE_BYTES;
         this.externalize = typeof externalize === 'function'
             ? externalize
             : mediaStore
@@ -407,6 +413,123 @@ class CodexHistoryBaselineProvider {
         };
     }
 
+    /**
+     * Compare exactly one paginated canonical tail page with an already
+     * durable newest anchor. This deliberately does not reuse `build()` or
+     * `scanComplete()`: either route can create a baseline/full recovery,
+     * while validation-only must produce no items and never fall back to a
+     * legacy `thread/read(includeTurns=true)`.
+     */
+    async validateTail(conversationId, options = {}) {
+        const normalizedConversationId = typeof conversationId === 'string'
+            ? conversationId.trim()
+            : '';
+        if (!normalizedConversationId) {
+            return tailValidationResult('failed', 'history_tail_validation_invalid_conversation');
+        }
+
+        const mode = normalizeHistoryMode(options.historyMode);
+        if (mode === HISTORY_MODES.LEGACY ||
+            mode === HISTORY_MODES.UNKNOWN ||
+            mode === HISTORY_MODES.EPHEMERAL) {
+            return tailValidationResult('unsupported', `history_tail_validation_${mode}_unsupported`, {
+                providerMode: mode
+            });
+        }
+        if (mode !== HISTORY_MODES.PAGINATED) {
+            return tailValidationResult('unsupported', 'history_tail_validation_mode_unsupported', {
+                providerMode: mode
+            });
+        }
+
+        const anchor = normalizeTailValidationAnchor(options.checkpoint);
+        if (!anchor) {
+            return tailValidationResult('failed', 'history_tail_validation_anchor_missing', {
+                providerMode: mode
+            });
+        }
+        if (typeof this.readPaginatedTurns !== 'function') {
+            return tailValidationResult('unsupported', 'history_tail_validation_paginated_unsupported', {
+                providerMode: mode
+            });
+        }
+
+        const readerOptions = {
+            signal: options.signal,
+            timeoutMs: options.timeoutMs,
+            limit: 1,
+            sortDirection: 'desc',
+            itemsView: 'full'
+        };
+        let response;
+        try {
+            response = await this.readPaginatedTurns(normalizedConversationId, readerOptions);
+        } catch (_) {
+            return tailValidationResult('failed', 'history_tail_validation_source_failed', {
+                providerMode: mode,
+                sourceMethod: 'thread/turns/list'
+            });
+        }
+
+        try {
+            assertExactThreadIdentity(normalizedConversationId, extractResponseIdentity(response), 'response');
+        } catch (error) {
+            return tailValidationResult('failed', error?.code || 'history_tail_validation_identity_invalid', {
+                providerMode: mode,
+                sourceMethod: 'thread/turns/list'
+            });
+        }
+        const responseMode = extractHistoryMode(response);
+        if (responseMode !== HISTORY_MODES.UNKNOWN && responseMode !== mode) {
+            return tailValidationResult('failed', 'history_tail_validation_history_mode_mismatch', {
+                providerMode: mode,
+                sourceMethod: 'thread/turns/list'
+            });
+        }
+
+        const sourceResponseBytes = safeJsonByteLength(response);
+        if (sourceResponseBytes > this.maxTailValidationResponseBytes) {
+            return tailValidationResult('failed', 'history_tail_validation_response_too_large', {
+                providerMode: mode,
+                sourceMethod: 'thread/turns/list',
+                sourceResponseBytes
+            });
+        }
+
+        let items;
+        try {
+            // Do not call `externalize`: that media path is allowed to persist
+            // files, whereas a validation probe must remain wholly read-only.
+            items = projectPaginatedItems(response, readerOptions);
+        } catch (_) {
+            return tailValidationResult('failed', 'history_tail_validation_projection_failed', {
+                providerMode: mode,
+                sourceMethod: 'thread/turns/list',
+                sourceResponseBytes
+            });
+        }
+        const newest = items.at(-1);
+        if (!newest?.itemKey || !newest?.contentHash) {
+            return tailValidationResult('failed', 'history_tail_validation_remote_anchor_missing', {
+                providerMode: mode,
+                sourceMethod: 'thread/turns/list',
+                sourceResponseBytes,
+                sourceItemCount: items.length
+            });
+        }
+        const matches = newest.itemKey === anchor.key && newest.contentHash === anchor.hash;
+        return tailValidationResult(
+            matches ? 'up_to_date' : 'needs_reconcile',
+            matches ? 'history_tail_validation_anchor_match' : 'history_tail_validation_anchor_mismatch',
+            {
+                providerMode: mode,
+                sourceMethod: 'thread/turns/list',
+                sourceResponseBytes,
+                sourceItemCount: items.length
+            }
+        );
+    }
+
     async _probe(conversationId, options) {
         if (this.probeThread) {
             const response = await this.probeThread(conversationId, options);
@@ -427,6 +550,32 @@ class CodexHistoryBaselineProvider {
         }
         return { mode: this.configuredHistoryMode, thread: null, probed: false };
     }
+}
+
+function normalizeTailValidationAnchor(checkpoint) {
+    const source = checkpoint && typeof checkpoint === 'object' && !Array.isArray(checkpoint)
+        ? checkpoint
+        : null;
+    const key = typeof source?.newestAnchorKey === 'string' ? source.newestAnchorKey.trim() : '';
+    const hash = typeof source?.newestAnchorHash === 'string' ? source.newestAnchorHash.trim() : '';
+    return key && hash ? { key, hash } : null;
+}
+
+function tailValidationResult(state, detailCode, measurement = {}) {
+    return {
+        state,
+        detailCode,
+        measurement: {
+            providerMode: measurement.providerMode || null,
+            sourceMethod: measurement.sourceMethod || null,
+            sourceResponseBytes: Number.isSafeInteger(measurement.sourceResponseBytes)
+                ? measurement.sourceResponseBytes
+                : null,
+            sourceItemCount: Number.isSafeInteger(measurement.sourceItemCount)
+                ? measurement.sourceItemCount
+                : null
+        }
+    };
 }
 
 function isBaselineComplete(thread) {
@@ -734,6 +883,7 @@ module.exports = {
     CodexHistoryBaselineProvider,
     DEFAULT_MAX_BASELINE_BYTES,
     DEFAULT_TAIL_ITEM_LIMIT,
+    DEFAULT_TAIL_VALIDATION_MAX_RESPONSE_BYTES,
     safeJsonByteLength,
     isBaselineComplete,
     HISTORY_MODES,

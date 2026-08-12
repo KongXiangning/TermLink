@@ -100,6 +100,24 @@ class CodexHistoryWireTest {
     }
 
     @Test
+    fun capabilityReadsTailValidationAdditively() {
+        val status = JSONObject().put(
+            "capabilities",
+            JSONObject().put(
+                "historySync",
+                JSONObject()
+                    .put("version", 1)
+                    .put("tailValidation", JSONObject()
+                        .put("enabled", true)
+                        .put("version", 1))
+            )
+        )
+        val capability = CodexHistoryCapability.from(status)
+        assertTrue(capability?.tailValidation?.enabled == true)
+        assertEquals(1, capability?.tailValidation?.version)
+    }
+
+    @Test
     fun manifestPageCarriesClientSelectionGenerationEvenWhenEmpty() {
         val message = JSONObject(
             CodexClientMessages.historyManifestPage(
@@ -198,6 +216,52 @@ class CodexHistoryWireTest {
         assertEquals(2, message.getInt("cacheSchemaVersion"))
         assertFalse(message.has("rangeSegments"))
         assertFalse(message.getJSONObject("checkpoint").has("coverageComplete"))
+    }
+
+    @Test
+    fun tailValidationRequestIsExplicitAndDoesNotReuseHistorySyncType() {
+        val message = JSONObject(
+            CodexClientMessages.historyTailValidationRequest(
+                CodexHistoryTailValidationRequest(
+                    syncId = "validation-sync",
+                    conversationId = "conversation",
+                    checkpoint = CodexHistorySyncCheckpoint(
+                        rootHash = "root",
+                        itemCount = 10,
+                        complete = true,
+                        newestAnchorKey = "item-10",
+                        newestAnchorHash = "hash-10"
+                    ),
+                    selectionGeneration = 7,
+                    tailValidation = CodexHistoryTailValidationCapability(true, 1)
+                )
+            )
+        )
+        assertEquals("conversation_history_tail_validation_request", message.getString("type"))
+        assertEquals(7L, message.getLong("selectionGeneration"))
+        assertEquals("item-10", message.getJSONObject("checkpoint").getString("newestAnchorKey"))
+        assertTrue(message.getJSONObject("tailValidation").getBoolean("enabled"))
+        assertFalse(message.has("rangeSegments"))
+        assertFalse(message.has("serverSnapshotSegments"))
+    }
+
+    @Test
+    fun syncStateDefaultsToHistorySyncPurposeAndParsesTailValidationPurpose() {
+        val normal = CodexHistorySyncStateMessage.from(
+            JSONObject()
+                .put("syncId", "normal")
+                .put("conversationId", "conversation")
+                .put("state", "synced")
+        )
+        val validation = CodexHistorySyncStateMessage.from(
+            JSONObject()
+                .put("syncId", "validation")
+                .put("conversationId", "conversation")
+                .put("state", "unsupported")
+                .put("purpose", "tail_validation")
+        )
+        assertEquals("history_sync", normal.purpose)
+        assertEquals("tail_validation", validation.purpose)
     }
 
     @Test

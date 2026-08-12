@@ -602,6 +602,12 @@ function buildHistoryFreshnessToken(metadata) {
     return JSON.stringify({ timestamp, turnId });
 }
 
+function extractCanonicalHistoryMode(metadata) {
+    const value = metadata?.historyMode ?? metadata?.history_mode;
+    const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    return ['legacy', 'paginated', 'ephemeral'].includes(normalized) ? normalized : null;
+}
+
 function buildRecoveryKey({ conversationId, providerIdentity = 'default', purpose = 'full' } = {}) {
     const conversation = normalizeRecoveryPart(conversationId, '');
     const provider = normalizeRecoveryPart(providerIdentity, 'default');
@@ -705,12 +711,13 @@ class CodexHistorySyncService {
     observeCanonicalMetadata(conversationId, metadata) {
         const normalizedConversationId = normalizeRecoveryPart(conversationId, '');
         const token = buildHistoryFreshnessToken(metadata);
-        if (!normalizedConversationId || !token) {
-            return { observed: false, changed: false, token: null };
+        const historyMode = extractCanonicalHistoryMode(metadata);
+        if (!normalizedConversationId || (!token && !historyMode)) {
+            return { observed: false, changed: false, token: null, historyMode: null };
         }
         const now = this.now();
         const previous = this._metadataFreshness.get(normalizedConversationId);
-        this._metadataFreshness.set(normalizedConversationId, { token, observedAt: now });
+        this._metadataFreshness.set(normalizedConversationId, { token, historyMode, observedAt: now });
         const baseline = this._baselines.get(normalizedConversationId);
         let changed = false;
         if (baseline && baseline.sourceKind === 'history_recovery' && baseline.freshnessToken !== token) {
@@ -722,7 +729,27 @@ class CodexHistorySyncService {
             observed: true,
             changed,
             token,
-            previousToken: previous?.token || null
+            previousToken: previous?.token || null,
+            historyMode,
+            previousHistoryMode: previous?.historyMode || null
+        };
+    }
+
+    /**
+     * Return only metadata-derived validation inputs.  This deliberately does
+     * not expose a baseline or source payload, and callers must still apply
+     * their own selection/generation fences before issuing any read.
+     */
+    getCanonicalMetadataObservation(conversationId) {
+        const normalizedConversationId = normalizeRecoveryPart(conversationId, '');
+        if (!normalizedConversationId) return null;
+        this._pruneBaselines();
+        const observation = this._metadataFreshness.get(normalizedConversationId);
+        if (!observation) return null;
+        return {
+            historyMode: observation.historyMode || null,
+            observedAt: observation.observedAt,
+            token: observation.token || null
         };
     }
 

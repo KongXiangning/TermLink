@@ -263,7 +263,9 @@ test('complete legacy scan reuses its metadata probe before the full source read
     assert.deepEqual(snapshot.items.map((entry) => entry.itemKey), ['item']);
 });
 
-test('range-enabled legacy provider preserves the original full v2 path', async () => {
+test('legacy range-tail request is failure evidence, not bounded canonical tail capability', async () => {
+    let legacyFullReads = 0;
+    let paginatedReads = 0;
     const turns = [{
         id: 'turn',
         status: 'completed',
@@ -275,17 +277,131 @@ test('range-enabled legacy provider preserves the original full v2 path', async 
     }];
     const provider = new CodexHistoryBaselineProvider({
         historyMode: 'legacy',
-        readThread: async () => ({ thread: { id: 'conv', turns } })
+        readLegacyThread: async () => {
+            legacyFullReads += 1;
+            return { thread: { id: 'conv', historyMode: 'legacy', turns } };
+        },
+        readPaginatedTurns: async () => {
+            paginatedReads += 1;
+            throw new Error('legacy tail request must not be represented as a paginated source');
+        }
     });
 
     const baseline = await provider.build('conv', {
-        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 }
+        rangeSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 },
+        rangeKind: 'tail',
+        tailItemLimit: 1
     });
+
+    // This is intentionally a negative-capability regression. A full legacy
+    // thread/read response may be truncated later for transport, but it is
+    // not a bounded canonical tail source and therefore cannot satisfy the
+    // repair-sequence step-3 validation contract.
+    assert.equal(legacyFullReads, 1);
+    assert.equal(paginatedReads, 0);
     assert.equal(baseline.resultKind, 'full');
+    assert.equal(baseline.measurement.sourceMethod, 'thread/read');
     assert.equal(baseline.items.length, 250);
+    assert.equal(baseline.measurement.returnedItemCount, 250);
     assert.equal(baseline.items[0].itemKey.includes('item-0'), true);
     assert.equal(baseline.items.at(-1).itemKey.includes('item-249'), true);
     assert.equal(baseline.range, undefined);
+});
+
+test('tail validation fails closed as unsupported for legacy without any canonical source read', async () => {
+    let legacyFullReads = 0;
+    let paginatedReads = 0;
+    const provider = new CodexHistoryBaselineProvider({
+        readLegacyThread: async () => {
+            legacyFullReads += 1;
+            throw new Error('tail validation must not read legacy history');
+        },
+        readPaginatedTurns: async () => {
+            paginatedReads += 1;
+            throw new Error('tail validation must not read turns for legacy');
+        }
+    });
+
+    const result = await provider.validateTail('conv', {
+        historyMode: 'legacy',
+        checkpoint: { newestAnchorKey: 'item-1', newestAnchorHash: 'hash-1' }
+    });
+
+    assert.equal(result.state, 'unsupported');
+    assert.equal(result.detailCode, 'history_tail_validation_legacy_unsupported');
+    assert.equal(legacyFullReads, 0);
+    assert.equal(paginatedReads, 0);
+});
+
+test('paginated tail validation compares only the durable newest anchor', async () => {
+    let fullReads = 0;
+    const requests = [];
+    let remote = { itemKey: 'item-2', contentHash: 'hash-2', payloadJson: '{}' };
+    const provider = new CodexHistoryBaselineProvider({
+        readLegacyThread: async () => {
+            fullReads += 1;
+            throw new Error('paginated validation must not fall back to full history');
+        },
+        readPaginatedTurns: async (_conversationId, options) => {
+            requests.push(options);
+            return {
+                threadId: 'conv',
+                historyMode: 'paginated',
+                sortDirection: 'desc',
+                data: [remote],
+                nextCursor: 'older'
+            };
+        }
+    });
+
+    const checkpoint = { newestAnchorKey: 'item-2', newestAnchorHash: 'hash-2' };
+    const upToDate = await provider.validateTail('conv', { historyMode: 'paginated', checkpoint });
+    remote = { itemKey: 'item-3', contentHash: 'hash-3', payloadJson: '{}' };
+    const needsReconcile = await provider.validateTail('conv', { historyMode: 'paginated', checkpoint });
+
+    assert.equal(upToDate.state, 'up_to_date');
+    assert.equal(needsReconcile.state, 'needs_reconcile');
+    assert.equal(fullReads, 0);
+    assert.deepEqual(requests.map((entry) => ({
+        limit: entry.limit,
+        sortDirection: entry.sortDirection,
+        itemsView: entry.itemsView
+    })), [
+        { limit: 1, sortDirection: 'desc', itemsView: 'full' },
+        { limit: 1, sortDirection: 'desc', itemsView: 'full' }
+    ]);
+});
+
+test('tail validation fails closed before source read when anchor is absent and after an oversized paginated response', async () => {
+    let reads = 0;
+    const provider = new CodexHistoryBaselineProvider({
+        maxTailValidationResponseBytes: 64,
+        readPaginatedTurns: async () => {
+            reads += 1;
+            return {
+                threadId: 'conv',
+                historyMode: 'paginated',
+                sortDirection: 'desc',
+                data: [{ itemKey: 'item-2', contentHash: 'hash-2', payloadJson: 'x'.repeat(256) }]
+            };
+        }
+    });
+
+    const missingAnchor = await provider.validateTail('conv', {
+        historyMode: 'paginated',
+        checkpoint: {}
+    });
+    assert.equal(missingAnchor.state, 'failed');
+    assert.equal(missingAnchor.detailCode, 'history_tail_validation_anchor_missing');
+    assert.equal(reads, 0);
+
+    const oversized = await provider.validateTail('conv', {
+        historyMode: 'paginated',
+        checkpoint: { newestAnchorKey: 'item-2', newestAnchorHash: 'hash-2' }
+    });
+    assert.equal(oversized.state, 'failed');
+    assert.equal(oversized.detailCode, 'history_tail_validation_response_too_large');
+    assert.equal(reads, 1);
 });
 
 test('older range provider consumes only the explicit next cursor and returns one ascending segment', async () => {

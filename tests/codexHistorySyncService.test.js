@@ -45,6 +45,26 @@ test('changed canonical metadata invalidates only a recovery baseline', () => {
     assert.equal(service.getBaseline('surface-conv').stale, false);
 });
 
+test('metadata observation retains only the bounded history-mode hint for tail validation', () => {
+    let now = 100;
+    const service = new CodexHistorySyncService({ now: () => now, options: { historyBaselineTtlMs: 1_000 } });
+
+    const observed = service.observeCanonicalMetadata('conv', {
+        historyMode: 'paginated',
+        updatedAt: '2026-08-12T00:00:00Z'
+    });
+    assert.equal(observed.observed, true);
+    assert.equal(observed.historyMode, 'paginated');
+    assert.deepEqual(service.getCanonicalMetadataObservation('conv'), {
+        historyMode: 'paginated',
+        observedAt: 100,
+        token: buildHistoryFreshnessToken({ updatedAt: '2026-08-12T00:00:00Z' })
+    });
+
+    now = 1_100;
+    assert.equal(service.getCanonicalMetadataObservation('conv'), null);
+});
+
 test('complete manifest diff produces upserts, deletes and order only when needed', () => {
     const diff = buildManifestDiff({ localItems: [item('a'), item('old')], canonicalItems: [item('a'), item('b')], baselineComplete: true });
     assert.deepEqual(diff.upserts.map((entry) => entry.itemKey), ['b']);

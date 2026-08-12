@@ -111,9 +111,11 @@ Android 采用 additive SQLite user_version 3→4 / checkpoint schema 2→3，�
 v2 fast-path 语义，不能自动证明 P0-B 新 range 已连续覆盖到历史起点。旧 checkpoint 没有 provider identity、cursor chain、history-origin
 或 coverage provenance；即使旧 `itemCount`/`rootHash` 与本地行一致，也只证明旧缓存自洽，不证明没有更旧或中间缺口。迁移必须
 fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但新 range checkpoint 在没有自身 coverage proof 时保持
-`legacy_unknown`/partial、`coverageComplete=false`，不得猜 `hasMoreBefore`、older cursor，也不得据此启用完整覆盖语义。只有后续
-带明确 range coverage proof 的新 checkpoint 才能设置 `coverageComplete=true`；本决定不改变 IPC authority、wire 顶层版本或 P0-B
-的 upsert-only/delete-order 边界。
+ `legacy_unknown`/partial、`coverageComplete=false`，不得猜 `hasMoreBefore`、older cursor，也不得据此启用完整覆盖语义。只有后续
+ 带明确 range coverage proof 的新 checkpoint 才能设置 `coverageComplete=true`；本决定不改变 IPC authority、wire 顶层版本或 P0-B
+ 的 upsert-only/delete-order 边界。
+
+变更说明（2026-08-12，A→B→A canonical tail validation-only）：用户授权在当前 selection 已具有静态 complete checkpoint 时新增独立、能力门禁的只读 tail validation；该项不是 P0-B.3，也不实施 P0-C 或第 4 步 durable reconciliation。`completeServerSnapshotCache` 继续只表示静态覆盖完整，可跳过昂贵 full recovery，但永远不代表 latest canonical tail。Gateway 只能使用 Android metadata 已明确为 `paginated` 的 current source，并至多执行一次有 256 KiB 响应上限的 `thread/turns/list(limit=1, desc, full)`，用 durable newest anchor 比较后返回 `UP_TO_DATE` 或 `NEEDS_RECONCILE`。`legacy`、`unknown`、`ephemeral` 必须 `UNSUPPORTED`，零 full `thread/read`、零 paginated read；缺 anchor/metadata、超时、超限或 stale selection 必须 `FAILED`，不得回退读取完整历史。结果是 selection-scoped 私有诊断，不能携带正文、改写 IPC authority/UI/cache/SQLite/普通 history sync，`NEEDS_RECONCILE` 只记录后续第 4 步待处理事实。此窄例外不改变 follower lifecycle、desired subscription/reconnect replay、canonical binding、owner fallback 或 Android healthy IPC 实时权威；旧客户端忽略 additive capability / `purpose` 并保持既有行为。
 
 ## 🎨 口味决策
 

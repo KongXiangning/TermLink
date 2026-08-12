@@ -492,6 +492,78 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun canonicalTailValidationIsCapabilityGatedAndRunsAtMostOncePerSelection() {
+        val key = CodexHistorySelectionKey(
+            endpointId = "endpoint-a",
+            conversationId = "conv-a",
+            generation = 7L
+        )
+        fun decision(
+            healthy: Boolean = true,
+            metadataReady: CodexHistorySelectionKey? = key,
+            capabilityKnown: Boolean = true,
+            enabled: Boolean = true,
+            version: Int = 1,
+            inFlight: CodexHistorySelectionKey? = null,
+            settled: CodexHistorySelectionKey? = null
+        ) = canonicalTailValidationRequestDecision(
+            key = key,
+            completeStaticCache = true,
+            healthyIpcAuthority = healthy,
+            metadataReadyKey = metadataReady,
+            capabilityKnown = capabilityKnown,
+            capabilityEnabled = enabled,
+            capabilityVersion = version,
+            inFlightKey = inFlight,
+            settledKey = settled
+        )
+
+        assertEquals(
+            CanonicalTailValidationRequestDecision.WAIT_FOR_HEALTHY_IPC,
+            decision(healthy = false)
+        )
+        assertEquals(
+            CanonicalTailValidationRequestDecision.WAIT_FOR_CAPABILITY,
+            decision(capabilityKnown = false)
+        )
+        assertEquals(
+            CanonicalTailValidationRequestDecision.WAIT_FOR_METADATA,
+            decision(metadataReady = null)
+        )
+        assertEquals(
+            CanonicalTailValidationRequestDecision.SETTLE_UNSUPPORTED,
+            decision(enabled = false)
+        )
+        assertEquals(CanonicalTailValidationRequestDecision.REQUEST, decision())
+        assertEquals(CanonicalTailValidationRequestDecision.NOOP, decision(inFlight = key))
+        assertEquals(CanonicalTailValidationRequestDecision.NOOP, decision(settled = key))
+    }
+
+    @Test
+    fun canonicalTailValidationResultLaneIsDistinctFromOrdinaryHistorySync() {
+        assertTrue(isCanonicalTailValidationSyncPurpose("tail_validation"))
+        assertTrue(isCanonicalTailValidationSyncPurpose(" TAIL_VALIDATION "))
+        assertFalse(isCanonicalTailValidationSyncPurpose("history_sync"))
+        assertFalse(isCanonicalTailValidationSyncPurpose(null))
+        assertEquals(
+            CanonicalTailValidationOutcome.UP_TO_DATE,
+            canonicalTailValidationOutcomeFromWire("up_to_date")
+        )
+        assertEquals(
+            CanonicalTailValidationOutcome.NEEDS_RECONCILE,
+            canonicalTailValidationOutcomeFromWire("needs_reconcile")
+        )
+        assertEquals(
+            CanonicalTailValidationOutcome.UNSUPPORTED,
+            canonicalTailValidationOutcomeFromWire("unsupported")
+        )
+        assertEquals(
+            CanonicalTailValidationOutcome.FAILED,
+            canonicalTailValidationOutcomeFromWire("unexpected")
+        )
+    }
+
+    @Test
     fun automaticOlderPumpOnlyContinuesAPartialRangeWithMoreBefore() {
         assertTrue(
             shouldScheduleAutomaticOlderHistoryPage(
@@ -3673,7 +3745,7 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
-    fun desyncedSurfaceOnlyMarksRecoveryStateWithoutReplacingLiveProjection() {
+    fun desyncedSurfaceProjectsMatchingBodyWithoutReplacingRuntimeAuthority() {
         val state = CodexUiState(
             activeConversationId = "conv-live",
             threadId = "conv-live",
@@ -3681,11 +3753,29 @@ class CodexViewModelThreadReadyTest {
             status = "running",
             messages = listOf(
                 ChatMessage(id = "live", role = ChatMessage.Role.ASSISTANT, content = "live content", streaming = true)
+            ),
+            cachedCanonicalMessages = listOf(
+                ChatMessage(id = "cached", role = ChatMessage.Role.ASSISTANT, content = "cached content")
             )
+        )
+        val surfaceTail = SurfaceEntry(
+            key = "surface-tail",
+            kind = "message",
+            role = "assistant",
+            phase = "final_answer",
+            text = "desynced tail",
+            turnId = "turn-desynced",
+            itemId = "surface-tail",
+            statusType = null,
+            approvalType = null,
+            requestId = null,
+            raw = null
         )
         val desynced = surfaceSnapshot("conv-live").copy(
             desynced = true,
-            status = "idle"
+            status = "idle",
+            items = listOf(surfaceTail),
+            itemsTruncated = true
         )
 
         val next = applyDesktopSurfaceSnapshotToUiState(state, desynced)
@@ -3693,7 +3783,412 @@ class CodexViewModelThreadReadyTest {
         assertTrue(next.ipcSurfaceSnapshot?.desynced == true)
         assertEquals("running", next.status)
         assertEquals("turn-live", next.currentTurnId)
-        assertEquals("live content", next.messages.single().content)
+        assertEquals(listOf("live", "surface-tail"), next.messages.map { it.id })
+        assertEquals("desynced tail", next.messages.last().content)
+        assertEquals(listOf("cached"), next.cachedCanonicalMessages.map { it.id })
+        assertNull(next.liveAuthoritativeConversationId)
+        assertTrue(next.liveAuthoritativeDesynced)
+    }
+
+    @Test
+    fun emptyDesyncedSurfaceRetainsBodyAndDoesNotEraseCache() {
+        val messages = listOf(
+            ChatMessage(id = "cached", role = ChatMessage.Role.ASSISTANT, content = "cached content")
+        )
+        val state = CodexUiState(
+            activeConversationId = "conv-live",
+            threadId = "conv-live",
+            messages = messages,
+            cachedCanonicalMessages = messages
+        )
+
+        val next = applyDesktopSurfaceSnapshotToUiState(
+            state,
+            surfaceSnapshot("conv-live").copy(desynced = true, items = emptyList())
+        )
+
+        assertEquals(messages, next.messages)
+        assertEquals(messages, next.cachedCanonicalMessages)
+        assertTrue(next.liveAuthoritativeDesynced)
+    }
+
+    @Test
+    fun desyncedSurfaceBridgesCanonicalAndSurfaceIdsWithoutDuplicateBody() {
+        val cached = ChatMessage(
+            id = "item-1",
+            role = ChatMessage.Role.ASSISTANT,
+            content = "same answer",
+            sourceTurnId = "turn-1"
+        )
+        val surface = surfaceSnapshot("conv-live").copy(
+            desynced = true,
+            items = listOf(
+                SurfaceEntry(
+                    key = "msg-1",
+                    kind = "message",
+                    role = "assistant",
+                    phase = "final_answer",
+                    text = "same answer",
+                    turnId = "turn-1",
+                    itemId = "item-1",
+                    statusType = null,
+                    approvalType = null,
+                    requestId = null,
+                    raw = null
+                ),
+                SurfaceEntry(
+                    key = "msg-2",
+                    kind = "message",
+                    role = "assistant",
+                    phase = "final_answer",
+                    text = "new tail",
+                    turnId = "turn-1",
+                    itemId = "item-2",
+                    statusType = null,
+                    approvalType = null,
+                    requestId = null,
+                    raw = null
+                )
+            ),
+            itemsTruncated = true
+        )
+
+        val next = applyDesktopSurfaceSnapshotToUiState(
+            CodexUiState(
+                activeConversationId = "conv-live",
+                threadId = "conv-live",
+                messages = listOf(cached),
+                cachedCanonicalMessages = listOf(cached)
+            ),
+            surface
+        )
+
+        assertEquals(listOf("item-1", "msg-2"), next.messages.map { it.id })
+        assertEquals(listOf("same answer", "new tail"), next.messages.map { it.content })
+    }
+
+    @Test
+    fun cacheHydrationRetainsBlankFileChangeAlreadyProjectedByMatchingProvisionalSurface() {
+        val conversationId = "conv-provisional-hydrate"
+        val cached = ChatMessage(
+            id = "cached-body",
+            role = ChatMessage.Role.ASSISTANT,
+            content = "缓存正文"
+        )
+        val fileChange = SurfaceEntry(
+            key = "turn-provisional:operation:file_change:change-1",
+            kind = "status",
+            role = null,
+            phase = null,
+            text = null,
+            turnId = "turn-provisional",
+            itemId = "change-1",
+            statusType = "operation",
+            operationType = "file_change",
+            label = "文件变更",
+            detail = null,
+            operationStatus = "completed",
+            approvalType = null,
+            requestId = null,
+            raw = null
+        )
+        val provisional = surfaceSnapshot(conversationId).copy(
+            desynced = true,
+            status = "completed",
+            latestTurnId = "turn-provisional",
+            items = listOf(fileChange),
+            itemsTruncated = true
+        )
+        val afterProvisional = applyDesktopSurfaceSnapshotToUiState(
+            CodexUiState(
+                activeConversationId = conversationId,
+                threadId = conversationId,
+                messages = listOf(cached),
+                cachedCanonicalMessages = listOf(cached)
+            ),
+            provisional
+        )
+
+        assertEquals(
+            listOf(cached.id, fileChange.key),
+            afterProvisional.messages.map { it.id }
+        )
+        assertEquals("", afterProvisional.messages.last().content)
+        assertNull(afterProvisional.liveAuthoritativeConversationId)
+
+        val hydrated = mergeCachedHistoryIntoLiveMessagesForUi(
+            state = afterProvisional,
+            conversationId = conversationId,
+            cachedMessages = listOf(cached)
+        )
+
+        assertEquals(
+            listOf(cached.id, fileChange.key),
+            hydrated.map { it.id }
+        )
+        assertEquals(2, hydrated.map { it.id }.distinct().size)
+        assertEquals("", hydrated.last().content)
+        assertEquals("file_change", hydrated.last().operationType)
+    }
+
+    @Test
+    fun cacheHydrationDoesNotPreserveBlankFileChangeWithoutMatchingProvisionalSurface() {
+        val conversationId = "conv-provisional-hydrate"
+        val cached = ChatMessage(
+            id = "cached-body",
+            role = ChatMessage.Role.ASSISTANT,
+            content = "缓存正文"
+        )
+        val blankFileChange = ChatMessage(
+            id = "turn-provisional:operation:file_change:change-1",
+            role = ChatMessage.Role.TOOL,
+            content = "",
+            collapsible = true,
+            operationType = "file_change"
+        )
+
+        val hydrated = mergeCachedHistoryIntoLiveMessagesForUi(
+            state = CodexUiState(
+                activeConversationId = conversationId,
+                threadId = conversationId,
+                messages = listOf(cached, blankFileChange)
+            ),
+            conversationId = conversationId,
+            cachedMessages = listOf(cached)
+        )
+
+        assertEquals(listOf(cached.id), hydrated.map { it.id })
+    }
+
+    @Test
+    fun healthySurfaceConvergesAfterProvisionalDesyncedBody() {
+        val desyncedTail = SurfaceEntry(
+            key = "surface-tail",
+            kind = "message",
+            role = "assistant",
+            phase = "final_answer",
+            text = "desynced tail",
+            turnId = "turn-desynced",
+            itemId = "surface-tail",
+            statusType = null,
+            approvalType = null,
+            requestId = null,
+            raw = null
+        )
+        val initial = applyDesktopSurfaceSnapshotToUiState(
+            CodexUiState(
+                activeConversationId = "conv-live",
+                threadId = "conv-live",
+                messages = listOf(
+                    ChatMessage(id = "cached", role = ChatMessage.Role.ASSISTANT, content = "cached content")
+                ),
+                cachedCanonicalMessages = listOf(
+                    ChatMessage(id = "cached", role = ChatMessage.Role.ASSISTANT, content = "cached content")
+                )
+            ),
+            surfaceSnapshot("conv-live").copy(
+                desynced = true,
+                items = listOf(desyncedTail),
+                itemsTruncated = true
+            )
+        )
+
+        val healthy = applyDesktopSurfaceSnapshotToUiState(
+            initial,
+            surfaceSnapshot("conv-live").copy(
+                status = "completed",
+                latestTurnId = "turn-desynced",
+                items = listOf(desyncedTail),
+                desynced = false,
+                itemsTruncated = false
+            )
+        )
+
+        assertEquals("completed", healthy.status)
+        assertEquals("conv-live", healthy.liveAuthoritativeConversationId)
+        assertFalse(healthy.liveAuthoritativeDesynced)
+        assertEquals(listOf("cached", "surface-tail"), healthy.messages.map { it.id })
+    }
+
+    @Test
+    fun lateDesyncedSurfaceCannotDowngradeHealthySurfaceForSameConversation() {
+        val healthyEntry = SurfaceEntry(
+            key = "healthy-tail",
+            kind = "message",
+            role = "assistant",
+            phase = "final_answer",
+            text = "healthy tail",
+            turnId = "turn-healthy",
+            itemId = "healthy-tail",
+            statusType = null,
+            approvalType = null,
+            requestId = null,
+            raw = null
+        )
+        val healthySurface = surfaceSnapshot("conv-live").copy(
+            desynced = false,
+            status = "completed",
+            latestTurnId = "turn-healthy",
+            items = listOf(healthyEntry)
+        )
+        val state = CodexUiState(
+            activeConversationId = "conv-live",
+            threadId = "conv-live",
+            status = "completed",
+            currentTurnId = "turn-healthy",
+            messages = listOf(
+                ChatMessage(id = "healthy-tail", role = ChatMessage.Role.ASSISTANT, content = "healthy tail")
+            ),
+            ipcSurfaceSnapshot = healthySurface,
+            liveAuthoritativeConversationId = "conv-live",
+            liveAuthoritativeDesynced = false
+        )
+
+        val next = applyDesktopSurfaceSnapshotToUiState(
+            state,
+            surfaceSnapshot("conv-live").copy(
+                desynced = true,
+                status = "running",
+                latestTurnId = "turn-stale",
+                items = listOf(
+                    healthyEntry.copy(
+                        key = "stale-tail",
+                        itemId = "stale-tail",
+                        text = "stale tail",
+                        turnId = "turn-stale"
+                    )
+                )
+            )
+        )
+
+        assertEquals(healthySurface, next.ipcSurfaceSnapshot)
+        assertEquals("completed", next.status)
+        assertEquals("turn-healthy", next.currentTurnId)
+        assertEquals(listOf("healthy-tail"), next.messages.map { it.id })
+        assertEquals("conv-live", next.liveAuthoritativeConversationId)
+        assertFalse(next.liveAuthoritativeDesynced)
+    }
+
+    @Test
+    fun desyncedSurfaceFromAnotherConversationCannotEnterActiveBody() {
+        val state = CodexUiState(
+            activeConversationId = "conv-a",
+            threadId = "conv-a",
+            messages = listOf(
+                ChatMessage(id = "a-body", role = ChatMessage.Role.ASSISTANT, content = "A body")
+            ),
+            cachedCanonicalMessages = listOf(
+                ChatMessage(id = "a-cache", role = ChatMessage.Role.ASSISTANT, content = "A cache")
+            )
+        )
+
+        val next = applyDesktopSurfaceSnapshotToUiState(
+            state,
+            surfaceSnapshot("conv-b").copy(
+                desynced = true,
+                items = listOf(
+                    SurfaceEntry(
+                        key = "b-tail",
+                        kind = "message",
+                        role = "assistant",
+                        phase = "final_answer",
+                        text = "B tail",
+                        turnId = "turn-b",
+                        itemId = "b-tail",
+                        statusType = null,
+                        approvalType = null,
+                        requestId = null,
+                        raw = null
+                    )
+                )
+            )
+        )
+
+        assertEquals(state, next)
+    }
+
+    @Test
+    fun truncatedDesyncedSurfaceOnlyMergesTailAndNeverDeletesExistingBody() {
+        val existing = ChatMessage(id = "cached-body", role = ChatMessage.Role.ASSISTANT, content = "cached body")
+        val state = CodexUiState(
+            activeConversationId = "conv-live",
+            threadId = "conv-live",
+            messages = listOf(existing),
+            cachedCanonicalMessages = listOf(existing)
+        )
+
+        val next = applyDesktopSurfaceSnapshotToUiState(
+            state,
+            surfaceSnapshot("conv-live").copy(
+                desynced = true,
+                itemsTruncated = true,
+                items = listOf(
+                    SurfaceEntry(
+                        key = "surface-tail",
+                        kind = "message",
+                        role = "assistant",
+                        phase = "final_answer",
+                        text = "new tail",
+                        turnId = "turn-live",
+                        itemId = "surface-tail",
+                        statusType = null,
+                        approvalType = null,
+                        requestId = null,
+                        raw = null
+                    )
+                )
+            )
+        )
+
+        assertEquals(listOf("cached-body", "surface-tail"), next.messages.map { it.id })
+        assertEquals(listOf("cached-body"), next.cachedCanonicalMessages.map { it.id })
+        assertTrue(next.ipcSurfaceSnapshot?.itemsTruncated == true)
+    }
+
+    @Test
+    fun matchingBindingPreservesProvisionalDesyncedSurfaceWithoutPromotingAuthority() {
+        val surface = surfaceSnapshot("conv-live").copy(
+            desynced = true,
+            items = listOf(
+                SurfaceEntry(
+                    key = "surface-tail",
+                    kind = "message",
+                    role = "assistant",
+                    phase = "final_answer",
+                    text = "desynced tail",
+                    turnId = "turn-desynced",
+                    itemId = "surface-tail",
+                    statusType = null,
+                    approvalType = null,
+                    requestId = null,
+                    raw = null
+                )
+            )
+        )
+        val state = CodexUiState(
+            activeConversationId = "conv-live",
+            threadId = "conv-live",
+            messages = listOf(
+                ChatMessage(id = "surface-tail", role = ChatMessage.Role.ASSISTANT, content = "desynced tail")
+            ),
+            cachedCanonicalMessages = listOf(
+                ChatMessage(id = "cached", role = ChatMessage.Role.ASSISTANT, content = "cached content")
+            ),
+            historyCacheState = CodexHistoryCacheUiState(conversationId = "conv-live"),
+            ipcSurfaceSnapshot = surface,
+            liveAuthoritativeDesynced = true
+        )
+
+        val next = applyIpcConversationBindingToUiState(
+            state = state,
+            conversationId = "conv-live",
+            rememberedOverrides = NextTurnOverrides()
+        )
+
+        assertEquals(surface, next.ipcSurfaceSnapshot)
+        assertTrue(next.liveAuthoritativeDesynced)
+        assertNull(next.liveAuthoritativeConversationId)
+        assertEquals(state.messages, next.messages)
     }
 
     @Test

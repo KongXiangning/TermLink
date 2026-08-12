@@ -120,6 +120,43 @@ class CodexScreenMediaProgressTest {
     }
 
     @Test
+    fun provisionalSurfaceLabelOnlyShowsForMatchingDesyncedBody() {
+        assertEquals(
+            "临时实时快照（待同步确认）",
+            codexProvisionalSurfaceLabel(
+                activeConversationId = "conv-a",
+                surfaceConversationId = "conv-a",
+                surfaceDesynced = true,
+                hasMessages = true
+            )
+        )
+        assertNull(
+            codexProvisionalSurfaceLabel(
+                activeConversationId = "conv-a",
+                surfaceConversationId = "conv-a",
+                surfaceDesynced = false,
+                hasMessages = true
+            )
+        )
+        assertNull(
+            codexProvisionalSurfaceLabel(
+                activeConversationId = "conv-a",
+                surfaceConversationId = "conv-b",
+                surfaceDesynced = true,
+                hasMessages = true
+            )
+        )
+        assertNull(
+            codexProvisionalSurfaceLabel(
+                activeConversationId = "conv-a",
+                surfaceConversationId = "conv-a",
+                surfaceDesynced = true,
+                hasMessages = false
+            )
+        )
+    }
+
+    @Test
     fun serverSnapshotSegmentsShowCommittedSegmentProgressInsteadOfFakePageCount() {
         assertEquals(
             "服务端历史：同步中…（已完成第 24 个分段）",

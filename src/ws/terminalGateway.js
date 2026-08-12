@@ -115,6 +115,23 @@ function normalizeHistorySnapshotSegmentsCapability(value, serverEnabled = false
     };
 }
 
+function normalizeHistoryTailValidationCapability(value, serverEnabled = false) {
+    const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    const version = Number.isSafeInteger(source.version) ? source.version : 0;
+    return {
+        enabled: serverEnabled && source.enabled === true && version === 1,
+        version
+    };
+}
+
+function normalizeTailValidationHistoryMode(value) {
+    const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    if (normalized === 'legacy' || normalized === 'paginated' || normalized === 'ephemeral') {
+        return normalized;
+    }
+    return normalized ? 'unknown' : null;
+}
+
 function normalizeHistorySnapshotProfileKey(value, fallback) {
     const normalized = typeof value === 'string' ? value.trim() : '';
     if (normalized && normalized.length <= 256) return normalized;
@@ -1144,6 +1161,9 @@ function registerTerminalGateway(wss, {
     // native-cursor experiment so deployments can roll the new static lane
     // forward/back without changing the old B.2/B.4 behavior.
     historySnapshotSegmentsEnabled = false,
+    // Step 3 is a read-only diagnostic protocol. It is separately advertised
+    // so an old Android client never sends the additive validation request.
+    historyTailValidationEnabled = true,
     historySnapshotStore = null
 }) {
     const isElevated = privilegeConfig && privilegeConfig.isElevated;
@@ -1184,6 +1204,10 @@ function registerTerminalGateway(wss, {
     const _ipcHistorySyncContexts = new WeakMap();
     /** @type {WeakMap<import('ws').WebSocket, { waiter: { promise: Promise<unknown>, detach: () => boolean }, conversationId: string, selectionGeneration: number, syncId: string | null }>} */
     const _ipcHistoryRecoveryWaiters = new WeakMap();
+    /** @type {WeakMap<import('ws').WebSocket, { conversationId: string, selectionGeneration: number, clientSelectionGeneration: number, historyMode: string }>} */
+    const _ipcTailValidationMetadata = new WeakMap();
+    /** @type {WeakMap<import('ws').WebSocket, { syncId: string | null, conversationId: string, selectionGeneration: number }>} */
+    const _ipcTailValidationRequests = new WeakMap();
     // One bounded provider read per conversation/cursor. This is a server
     // read deduplication lane only; it never creates an owner or a realtime
     // authority and is cleared as soon as the one-page result settles.
@@ -1316,7 +1340,7 @@ function registerTerminalGateway(wss, {
                         // A deadline fallback must cross the downstream
                         // coalescer now; otherwise the scheduler could
                         // recreate starvation while full projection is slow.
-                        priority: quality === 'deadline' || deadlineImminent
+                        priority: quality === 'deadline' || quality === 'provisional' || deadlineImminent
                             ? 'terminal'
                             : entry.options?.priority
                     }
@@ -1408,6 +1432,29 @@ function registerTerminalGateway(wss, {
                 }
             });
 
+            const publishProvisional = (entry) => {
+                // A cached desynced surface is display-only. It must not wait
+                // behind media I/O because a fresh healthy surface commonly
+                // arrives during that work and replaces the latest-only queue
+                // entry before Android can render the cached tail. Reuse the
+                // bounded/redacted projector and the normal scheduler fence;
+                // this never promotes the frame to realtime authority.
+                void mobileSurfaceProjector(entry.surface, {
+                    mediaStore: null,
+                    redactInlineMedia: true
+                }).then((projected) => {
+                    const published = publishProjected(entry, projected, 'provisional');
+                    if (!published) clearProjectionPendingIfIdle(entry);
+                }).catch((error) => {
+                    diagnosticLog.error('server', 'server.codex.media.project_failed', error, {
+                        conversationKey: diagnosticKey(conversationId),
+                        clientType: client.codexClientType,
+                        projectionKind: 'provisional'
+                    });
+                    clearProjectionPendingIfIdle(entry);
+                });
+            };
+
             projectionState = {
                 offer(nextSurface, nextOptions) {
                     if (closed) return;
@@ -1423,6 +1470,10 @@ function registerTerminalGateway(wss, {
                     // priority frame during the projection gap.
                     snapshotScheduler.markLiveProjectionPending(client, conversationId);
                     unpublishedSince ??= entry.receivedAt;
+                    if (nextOptions?.provisional === true && nextSurface?.desynced === true) {
+                        publishProvisional(entry);
+                        return;
+                    }
                     scheduleVisibleDeadline();
 
                     void queue.enqueue(entry).catch((error) => {
@@ -1813,6 +1864,38 @@ function registerTerminalGateway(wss, {
         });
     };
 
+    // This shares the backward-compatible history state envelope but never
+    // enters the ordinary sync service. In particular it cannot create a
+    // manifest/delta/baseline or affect the normal history-sync settlement.
+    const _sendTailValidationState = (ws, context, result) => {
+        if (!context || !result) return false;
+        const envelope = {
+            type: 'conversation_history_sync_state',
+            purpose: 'tail_validation',
+            syncId: context.syncId || null,
+            conversationId: context.conversationId,
+            state: result.state || 'failed',
+            ...(result.detailCode ? { detailCode: result.detailCode } : {}),
+            selectionGeneration: context.selectionGeneration,
+            clientSelectionGeneration: context.clientSelectionGeneration
+        };
+        const sent = snapshotScheduler.sendControl(ws, envelope);
+        diagnosticLog.event('server', 'server.codex.history.tail_validation.settled', {
+            conversationKey: diagnosticKey(context.conversationId),
+            syncId: context.syncId || null,
+            selectionGeneration: context.selectionGeneration,
+            clientSelectionGeneration: context.clientSelectionGeneration,
+            state: envelope.state,
+            detailCode: envelope.detailCode || null,
+            sent,
+            providerMode: result.measurement?.providerMode || null,
+            sourceMethod: result.measurement?.sourceMethod || null,
+            sourceResponseBytes: result.measurement?.sourceResponseBytes ?? null,
+            sourceItemCount: result.measurement?.sourceItemCount ?? null
+        }, envelope.state === 'failed' ? 'warn' : 'info');
+        return sent;
+    };
+
     const _handleHistorySelectionDeadline = (ws, cycle) => {
         if (_getHistorySelectionCycle(ws) !== cycle || cycle.cancelled || cycle.deadlineReached) return;
         const recoveryStateBeforeDeadline = cycle.recoveryState;
@@ -2040,6 +2123,10 @@ function registerTerminalGateway(wss, {
                         cacheSchemaVersion: 3,
                         segmentTargetBytes: 96 * 1024,
                         fragmentMaxBytes: 16 * 1024
+                    },
+                    tailValidation: {
+                        enabled: historyTailValidationEnabled === true,
+                        version: 1
                     }
                 },
                 codexMedia: { version: 1, maxBytes: 25 * 1024 * 1024 }
@@ -2777,6 +2864,11 @@ function registerTerminalGateway(wss, {
         }
         const normalizedConversationId = conversationId.trim();
         const previousActiveConversationId = _ipcActiveConversations.get(ws) || null;
+        // A conversation may already be followed by another WebSocket. Keep
+        // the exact current-cycle surface that predated this selection so it
+        // can be replayed as display-only instead of being mistaken for a
+        // surface observed by this WebSocket's selection.
+        let sharedCurrentCycleSurfaceAtSelection = null;
         const hasValidClientSelectionGeneration = Number.isSafeInteger(clientSelectionGeneration) &&
             clientSelectionGeneration >= 0;
         // A client may re-announce the same conversation after a local
@@ -2803,6 +2895,9 @@ function registerTerminalGateway(wss, {
                 }
             }
             const enteringExistingSharedCycle = _activeIpcSubscriberCount(normalizedConversationId) > 0;
+            if (enteringExistingSharedCycle) {
+                sharedCurrentCycleSurfaceAtSelection = _getCurrentCycleIpcSnapshot(normalizedConversationId);
+            }
             const ownerSurface = _getLatestOwnerSnapshot(normalizedConversationId);
             const ownerAuthority = _authorityLedger.get(normalizedConversationId);
             const isFreshlyCreatedOwner = ownerAuthority?.authority === 'owner' &&
@@ -2872,17 +2967,32 @@ function registerTerminalGateway(wss, {
             }
         }
 
-        // Owner/current-cycle snapshots are authoritative. Older IPC cache is
-        // display-only until this subscription cycle receives a fresh surface.
-        const authoritative = _getLatestConversationSnapshot(normalizedConversationId);
-        const cached = authoritative || _getLatestIpcSnapshot(normalizedConversationId);
+        // Owner snapshots retain their existing authority semantics. A
+        // healthy current-cycle IPC surface shared by another WebSocket,
+        // however, predates this selection and is display-only here until a
+        // new feed event replaces that exact cycle object. Otherwise Android
+        // skips the desynced/provisional lane and waits behind full media
+        // projection even though the cached tail is already available.
+        const ownerSnapshot = _getLatestOwnerSnapshot(normalizedConversationId);
+        const currentCycleSurface = _getCurrentCycleIpcSnapshot(normalizedConversationId);
+        const currentCycleSurfaceIsPreselectionShared =
+            sharedCurrentCycleSurfaceAtSelection !== null &&
+            currentCycleSurface === sharedCurrentCycleSurfaceAtSelection;
+        const authoritative = ownerSnapshot || (
+            currentCycleSurfaceIsPreselectionShared ? null : currentCycleSurface
+        );
+        const cached = authoritative || currentCycleSurface || _getLatestIpcSnapshot(normalizedConversationId);
         const latest = authoritative || (cached ? { ...cached, desynced: true } : null);
         if (latest) {
             _offerSurfaceSnapshot(
                 ws,
                 normalizedConversationId,
                 latest,
-                { priority: 'terminal', selectionGeneration: _ipcSelectionGenerations.get(ws) || 0 }
+                {
+                    priority: 'terminal',
+                    selectionGeneration: _ipcSelectionGenerations.get(ws) || 0,
+                    provisional: latest.desynced === true
+                }
             );
             if (latest.desynced !== true) {
                 _emitConversationActionRequired(ws, normalizedConversationId, latest);
@@ -6056,6 +6166,124 @@ function registerTerminalGateway(wss, {
                                 }
                             }
                         }
+                    } else if (type === 'conversation_history_tail_validation_request') {
+                        const conversationId = isNonEmptyString(envelope.conversationId) ? envelope.conversationId.trim() : '';
+                        const currentSelectionGeneration = _ipcSelectionGenerations.get(ws) || 0;
+                        const hasClientSelectionGeneration = Object.prototype.hasOwnProperty.call(envelope, 'selectionGeneration');
+                        const clientSelectionGeneration = Number.isSafeInteger(envelope.selectionGeneration) && envelope.selectionGeneration >= 0
+                            ? envelope.selectionGeneration
+                            : currentSelectionGeneration;
+                        const syncId = isNonEmptyString(envelope.syncId) ? envelope.syncId.trim() : null;
+                        const tailValidation = normalizeHistoryTailValidationCapability(
+                            envelope.tailValidation,
+                            historyTailValidationEnabled === true
+                        );
+                        const context = {
+                            syncId,
+                            conversationId,
+                            selectionGeneration: currentSelectionGeneration,
+                            clientSelectionGeneration
+                        };
+                        diagnosticLog.event('server', 'server.codex.history.tail_validation.requested', {
+                            conversationKey: diagnosticKey(conversationId),
+                            syncId,
+                            selectionGeneration: currentSelectionGeneration,
+                            clientSelectionGeneration,
+                            active: Boolean(conversationId && _getActiveConversationId(ws) === conversationId),
+                            capabilityEnabled: tailValidation.enabled,
+                            capabilityVersion: tailValidation.version
+                        }, 'info');
+                        if (!conversationId || _getActiveConversationId(ws) !== conversationId) {
+                            _sendTailValidationState(ws, context, {
+                                state: 'failed',
+                                detailCode: 'conversation_not_active'
+                            });
+                        } else if (!_clientSelectionGenerationMatches(
+                            ws,
+                            hasClientSelectionGeneration,
+                            clientSelectionGeneration,
+                            currentSelectionGeneration
+                        ) || !_isCurrentHistorySelectionCycle(ws, conversationId, currentSelectionGeneration)) {
+                            _sendTailValidationState(ws, context, {
+                                state: 'failed',
+                                detailCode: 'stale_selection'
+                            });
+                        } else if (!tailValidation.enabled) {
+                            _sendTailValidationState(ws, context, {
+                                state: 'unsupported',
+                                detailCode: 'history_tail_validation_capability_unsupported'
+                            });
+                        } else {
+                            const previous = _ipcTailValidationRequests.get(ws);
+                            if (
+                                previous &&
+                                previous.conversationId === conversationId &&
+                                previous.selectionGeneration === currentSelectionGeneration
+                            ) {
+                                diagnosticLog.event('server', 'server.codex.history.tail_validation.duplicate_ignored', {
+                                    conversationKey: diagnosticKey(conversationId),
+                                    syncId,
+                                    selectionGeneration: currentSelectionGeneration
+                                }, 'warn');
+                                return;
+                            }
+                            const metadata = _ipcTailValidationMetadata.get(ws);
+                            if (
+                                !metadata ||
+                                metadata.conversationId !== conversationId ||
+                                metadata.selectionGeneration !== currentSelectionGeneration ||
+                                metadata.clientSelectionGeneration !== clientSelectionGeneration
+                            ) {
+                                _sendTailValidationState(ws, context, {
+                                    state: 'failed',
+                                    detailCode: 'history_tail_validation_metadata_missing'
+                                });
+                                return;
+                            }
+                            _ipcTailValidationRequests.set(ws, {
+                                syncId,
+                                conversationId,
+                                selectionGeneration: currentSelectionGeneration
+                            });
+                            let result;
+                            try {
+                                result = await withHistoryRecoveryTimeout(
+                                    historyBaselineProvider.validateTail(conversationId, {
+                                        historyMode: metadata.historyMode,
+                                        checkpoint: envelope.checkpoint,
+                                        timeoutMs: HISTORY_RECOVERY_TIMEOUT_MS
+                                    }),
+                                    HISTORY_RECOVERY_TIMEOUT_MS
+                                );
+                            } catch (error) {
+                                result = {
+                                    state: 'failed',
+                                    detailCode: error?.code === 'HISTORY_RECOVERY_TIMEOUT'
+                                        ? 'history_tail_validation_timeout'
+                                        : 'history_tail_validation_failed'
+                                };
+                            }
+                            const pending = _ipcTailValidationRequests.get(ws);
+                            if (
+                                !pending ||
+                                pending.syncId !== syncId ||
+                                !_isCurrentHistorySelectionCycle(ws, conversationId, currentSelectionGeneration) ||
+                                !_clientSelectionGenerationMatches(
+                                    ws,
+                                    true,
+                                    clientSelectionGeneration,
+                                    currentSelectionGeneration
+                                )
+                            ) {
+                                diagnosticLog.event('server', 'server.codex.history.tail_validation.stale_result_dropped', {
+                                    conversationKey: diagnosticKey(conversationId),
+                                    syncId,
+                                    selectionGeneration: currentSelectionGeneration
+                                }, 'info');
+                                return;
+                            }
+                            _sendTailValidationState(ws, context, result);
+                        }
                     } else if (type === 'conversation_history_sync_request') {
                         const conversationId = isNonEmptyString(envelope.conversationId) ? envelope.conversationId.trim() : '';
                         const currentSelectionGeneration = _ipcSelectionGenerations.get(ws) || 0;
@@ -7080,6 +7308,10 @@ function registerTerminalGateway(wss, {
                             envelope.historyMode === 'metadata' ||
                             (isAndroidCodexClient(ws) && method === 'thread/list')
                         );
+                        const metadataClientSelectionGeneration = Number.isSafeInteger(envelope.selectionGeneration) &&
+                            envelope.selectionGeneration >= 0
+                            ? envelope.selectionGeneration
+                            : null;
                         // Android history selection still uses the legacy
                         // logical method name for wire compatibility, but it
                         // must never claim the app-server writer/runtime.
@@ -7144,6 +7376,35 @@ function registerTerminalGateway(wss, {
                                         metadataConversationId,
                                         metadata
                                     );
+                                    // Tail validation can only reuse the
+                                    // exact Android metadata-resume response
+                                    // for the current client selection. A
+                                    // late A→B→A metadata response therefore
+                                    // never grants a source-read capability to
+                                    // the newer selection.
+                                    const metadataHistoryMode = normalizeTailValidationHistoryMode(
+                                        metadata?.historyMode ?? metadata?.history_mode
+                                    );
+                                    const currentSelectionGeneration = _ipcSelectionGenerations.get(ws) || 0;
+                                    if (
+                                        metadataHistoryResumeRead &&
+                                        metadataHistoryMode &&
+                                        metadataConversationId === _getActiveConversationId(ws) &&
+                                        metadataClientSelectionGeneration !== null &&
+                                        _clientSelectionGenerationMatches(
+                                            ws,
+                                            true,
+                                            metadataClientSelectionGeneration,
+                                            currentSelectionGeneration
+                                        )
+                                    ) {
+                                        _ipcTailValidationMetadata.set(ws, {
+                                            conversationId: metadataConversationId,
+                                            selectionGeneration: currentSelectionGeneration,
+                                            clientSelectionGeneration: metadataClientSelectionGeneration,
+                                            historyMode: metadataHistoryMode
+                                        });
+                                    }
                                     if (observation.observed && observation.changed) {
                                         diagnosticLog.event('server', 'server.codex.history.recovery.baseline_invalidated', {
                                             conversationKey: diagnosticKey(metadataConversationId),

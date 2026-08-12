@@ -78,11 +78,293 @@ private const val OPERATION_DETAIL_MAX_LENGTH = 12_000
 private const val OPERATION_DETAIL_TRUNCATION_MARKER = "\n\n…（详情已截断）"
 private const val THREAD_HISTORY_PREVIEW_MAX_LENGTH = 160
 private const val HISTORY_SNAPSHOT_FRAGMENT_MAX_BYTES = 16 * 1024
+private const val DIAGNOSTIC_MESSAGE_ID_SAMPLE_LIMIT = 8
+private const val DIAGNOSTIC_MESSAGE_ID_DELTA_LIMIT = 24
 
 private data class PendingHistorySnapshotSegment(
     val page: CodexHistoryDeltaPage,
     val fragments: MutableMap<String, MutableMap<Int, CodexHistoryPayloadChunk>> = mutableMapOf()
 )
+
+/**
+ * The UI state intentionally keeps one active conversation slot.  This trace
+ * records the ownership/count boundary around writes to that slot without
+ * changing the state transition itself.  Conversation identifiers are
+ * hashed by PersistentDiagnosticLog before they leave the process.
+ */
+private data class CodexUiStateDiagnosticTrace(
+    val activeConversationKey: String?,
+    val messageOwnerKey: String?,
+    val messageCount: Int,
+    val cacheOwnerKey: String?,
+    val cacheCount: Int,
+    val liveOwnerKey: String?,
+    val liveCount: Int,
+    val surfaceOwnerKey: String?,
+    val surfaceItemCount: Int,
+    val surfaceRevision: Int,
+    val surfaceDesynced: Boolean,
+    val surfaceItemsTruncated: Boolean,
+    val surfaceStatus: String?
+)
+
+private data class CodexMessageIdentityDelta(
+    val values: List<String>,
+    val totalCount: Int
+)
+
+private data class CodexMessageIdentityObservation(
+    val beforeDigest: String,
+    val afterDigest: String,
+    val beforeSample: String,
+    val afterSample: String,
+    val removed: CodexMessageIdentityDelta,
+    val added: CodexMessageIdentityDelta
+)
+
+private fun diagnosticMessageIdentity(message: ChatMessage): String {
+    val idHash = PersistentDiagnosticLog.shortHash(message.id).orEmpty()
+    val turnHash = PersistentDiagnosticLog.shortHash(
+        message.sourceTurnId ?: message.operationTurnId
+    ).orEmpty()
+    val textHash = PersistentDiagnosticLog.shortHash(message.content).orEmpty()
+    val memberHash = PersistentDiagnosticLog.shortHash(
+        message.operationBatchMemberIds.joinToString("\u001F")
+    ).orEmpty()
+    return listOf(
+        idHash,
+        message.role.name,
+        message.operationType.orEmpty(),
+        turnHash,
+        textHash,
+        message.operationBatchSize.toString(),
+        message.operationBatchMemberIds.size.toString(),
+        memberHash
+    ).joinToString(":")
+}
+
+private fun diagnosticMessageIdentitySample(identities: List<String>): String {
+    if (identities.size <= DIAGNOSTIC_MESSAGE_ID_SAMPLE_LIMIT * 2) {
+        return identities.joinToString(",")
+    }
+    return (identities.take(DIAGNOSTIC_MESSAGE_ID_SAMPLE_LIMIT) +
+        listOf("…") +
+        identities.takeLast(DIAGNOSTIC_MESSAGE_ID_SAMPLE_LIMIT))
+        .joinToString(",")
+}
+
+private fun diagnosticMessageIdentityDelta(
+    source: List<String>,
+    target: List<String>
+): CodexMessageIdentityDelta {
+    val remaining = target.groupingBy { it }.eachCount().toMutableMap()
+    val values = mutableListOf<String>()
+    var totalCount = 0
+    source.forEach { identity ->
+        val count = remaining[identity] ?: 0
+        if (count > 0) {
+            remaining[identity] = count - 1
+        } else {
+            totalCount += 1
+            if (values.size < DIAGNOSTIC_MESSAGE_ID_DELTA_LIMIT) {
+                values += identity
+            }
+        }
+    }
+    return CodexMessageIdentityDelta(values = values, totalCount = totalCount)
+}
+
+private fun observeMessageIdentities(
+    before: List<ChatMessage>,
+    after: List<ChatMessage>
+): CodexMessageIdentityObservation {
+    val beforeIdentities = before.map(::diagnosticMessageIdentity)
+    val afterIdentities = after.map(::diagnosticMessageIdentity)
+    return CodexMessageIdentityObservation(
+        beforeDigest = PersistentDiagnosticLog.shortHash(
+            beforeIdentities.joinToString("\u001F")
+        ).orEmpty(),
+        afterDigest = PersistentDiagnosticLog.shortHash(
+            afterIdentities.joinToString("\u001F")
+        ).orEmpty(),
+        beforeSample = diagnosticMessageIdentitySample(beforeIdentities),
+        afterSample = diagnosticMessageIdentitySample(afterIdentities),
+        removed = diagnosticMessageIdentityDelta(beforeIdentities, afterIdentities),
+        added = diagnosticMessageIdentityDelta(afterIdentities, beforeIdentities)
+    )
+}
+
+/**
+ * Central observation seam for every MutableStateFlow writer.  StateFlow's
+ * update{} helper uses compareAndSet(), so intercepting that operation covers
+ * the existing ViewModel writers without rewriting their behavior or call
+ * sites.  Direct value/emit/tryEmit writes are covered as well.
+ */
+private class CodexUiStateDiagnosticFlow(
+    private val delegate: MutableStateFlow<CodexUiState>,
+    private val selectionGeneration: () -> Long
+) : MutableStateFlow<CodexUiState> by delegate {
+    override var value: CodexUiState
+        get() = delegate.value
+        set(value) {
+            val before = delegate.value
+            delegate.value = value
+            recordWrite(before, value, "value_set")
+        }
+
+    override fun compareAndSet(expect: CodexUiState, update: CodexUiState): Boolean {
+        val updated = delegate.compareAndSet(expect, update)
+        if (updated) {
+            recordWrite(expect, update, "compare_and_set")
+        }
+        return updated
+    }
+
+    override suspend fun emit(value: CodexUiState) {
+        val before = delegate.value
+        delegate.emit(value)
+        recordWrite(before, value, "emit")
+    }
+
+    override fun tryEmit(value: CodexUiState): Boolean {
+        val before = delegate.value
+        val emitted = delegate.tryEmit(value)
+        if (emitted) {
+            recordWrite(before, value, "try_emit")
+        }
+        return emitted
+    }
+
+    private fun recordWrite(
+        before: CodexUiState,
+        after: CodexUiState,
+        operation: String
+    ) {
+        if (!PersistentDiagnosticLog.isEnabled()) return
+        val beforeTrace = traceOf(before)
+        val afterTrace = traceOf(after)
+        if (beforeTrace == afterTrace) return
+
+        val identityObservationReason = when {
+            beforeTrace.activeConversationKey != afterTrace.activeConversationKey ->
+                "active_conversation_changed"
+            afterTrace.messageCount < beforeTrace.messageCount ->
+                "message_count_decreased"
+            beforeTrace.messageCount != afterTrace.messageCount &&
+                (isTerminalCodexSurfaceStatus(beforeTrace.surfaceStatus) ||
+                    isTerminalCodexSurfaceStatus(afterTrace.surfaceStatus)) ->
+                "terminal_message_count_changed"
+            else -> null
+        }
+        val identityObservation = if (identityObservationReason != null) {
+            observeMessageIdentities(before.messages, after.messages)
+        } else {
+            null
+        }
+
+        val callsite = Throwable().stackTrace.firstOrNull { frame ->
+            frame.className.startsWith("com.termlink.app.codex.CodexViewModel")
+        }
+        val writer = callsite?.let { frame ->
+            "${frame.className.substringAfterLast('.')}.${frame.methodName}"
+        } ?: "unknown"
+        val reason = callsite?.let { frame ->
+            "ui_state_$operation@${frame.fileName ?: "unknown"}:${frame.lineNumber}"
+        } ?: "ui_state_$operation@unknown"
+
+        val fields = mutableMapOf<String, Any?>(
+            "writer" to writer,
+            "reason" to reason,
+            "operation" to operation,
+            "selectionGeneration" to selectionGeneration(),
+            "beforeActiveConversationKey" to beforeTrace.activeConversationKey,
+            "afterActiveConversationKey" to afterTrace.activeConversationKey,
+            "beforeMessageOwnerKey" to beforeTrace.messageOwnerKey,
+            "afterMessageOwnerKey" to afterTrace.messageOwnerKey,
+            "beforeMessageCount" to beforeTrace.messageCount,
+            "afterMessageCount" to afterTrace.messageCount,
+            "beforeCacheOwnerKey" to beforeTrace.cacheOwnerKey,
+            "afterCacheOwnerKey" to afterTrace.cacheOwnerKey,
+            "beforeCacheCount" to beforeTrace.cacheCount,
+            "afterCacheCount" to afterTrace.cacheCount,
+            "beforeLiveOwnerKey" to beforeTrace.liveOwnerKey,
+            "afterLiveOwnerKey" to afterTrace.liveOwnerKey,
+            "beforeLiveCount" to beforeTrace.liveCount,
+            "afterLiveCount" to afterTrace.liveCount,
+            "beforeSurfaceOwnerKey" to beforeTrace.surfaceOwnerKey,
+            "afterSurfaceOwnerKey" to afterTrace.surfaceOwnerKey,
+            "beforeSurfaceItemCount" to beforeTrace.surfaceItemCount,
+            "afterSurfaceItemCount" to afterTrace.surfaceItemCount,
+            "beforeSurfaceRevision" to beforeTrace.surfaceRevision,
+            "afterSurfaceRevision" to afterTrace.surfaceRevision,
+            "beforeSurfaceDesynced" to beforeTrace.surfaceDesynced,
+            "afterSurfaceDesynced" to afterTrace.surfaceDesynced,
+            "beforeSurfaceItemsTruncated" to beforeTrace.surfaceItemsTruncated,
+            "afterSurfaceItemsTruncated" to afterTrace.surfaceItemsTruncated,
+            "beforeSurfaceStatus" to beforeTrace.surfaceStatus,
+            "afterSurfaceStatus" to afterTrace.surfaceStatus
+        )
+        identityObservation?.let { observation ->
+            fields += mapOf(
+                "messageIdentityObserved" to true,
+                "messageIdentityObservationReason" to identityObservationReason,
+                "beforeMessageIdentityDigest" to observation.beforeDigest,
+                "afterMessageIdentityDigest" to observation.afterDigest,
+                "beforeMessageIdentitySample" to observation.beforeSample,
+                "afterMessageIdentitySample" to observation.afterSample,
+                "messageIdentityRemovedCount" to observation.removed.totalCount,
+                "messageIdentityRemoved" to observation.removed.values.joinToString(","),
+                "messageIdentityAddedCount" to observation.added.totalCount,
+                "messageIdentityAdded" to observation.added.values.joinToString(","),
+                "messageIdentityDeltaTruncated" to (
+                    observation.removed.totalCount > observation.removed.values.size ||
+                        observation.added.totalCount > observation.added.values.size
+                    )
+            )
+        }
+
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.ui_state.writer_trace",
+            fields
+        )
+    }
+
+    private fun traceOf(state: CodexUiState): CodexUiStateDiagnosticTrace {
+        val activeConversationId = state.activeConversationId
+        val liveOwner = state.liveAuthoritativeConversationId
+        val surface = state.ipcSurfaceSnapshot
+        return CodexUiStateDiagnosticTrace(
+            activeConversationKey = PersistentDiagnosticLog.shortHash(activeConversationId),
+            messageOwnerKey = PersistentDiagnosticLog.shortHash(activeConversationId ?: state.threadId),
+            messageCount = state.messages.size,
+            cacheOwnerKey = PersistentDiagnosticLog.shortHash(state.historyCacheState.conversationId),
+            cacheCount = state.cachedCanonicalMessages.size,
+            liveOwnerKey = PersistentDiagnosticLog.shortHash(liveOwner),
+            liveCount = if (liveOwner != null) state.messages.size else 0,
+            surfaceOwnerKey = PersistentDiagnosticLog.shortHash(surface?.conversationId),
+            surfaceItemCount = surface?.items?.size ?: 0,
+            surfaceRevision = surface?.revision ?: -1,
+            surfaceDesynced = surface?.desynced == true,
+            surfaceItemsTruncated = surface?.itemsTruncated == true,
+            surfaceStatus = surface?.status
+        )
+    }
+}
+
+private fun isTerminalCodexSurfaceStatus(status: String?): Boolean {
+    return status?.trim()?.lowercase() in setOf(
+        "completed",
+        "done",
+        "finished",
+        "failed",
+        "error",
+        "cancelled",
+        "canceled",
+        "interrupted",
+        "idle"
+    )
+}
 
 internal const val CODEX_FAST_MODE_REASONING_EFFORT = "low"
 
@@ -218,6 +500,66 @@ internal data class CodexHistorySelectionKey(
     val conversationId: String,
     val generation: Long
 )
+
+/**
+ * Step 3 keeps canonical-tail freshness entirely separate from the ordinary
+ * history-sync/recovery state machine.  These values are deliberately private
+ * to the selected conversation and are never rendered as a history-network
+ * state: `NEEDS_RECONCILE` is only the hand-off signal for the later durable
+ * reconciliation step.
+ */
+internal enum class CanonicalTailValidationOutcome {
+    UP_TO_DATE,
+    NEEDS_RECONCILE,
+    UNSUPPORTED,
+    FAILED
+}
+
+internal enum class CanonicalTailValidationRequestDecision {
+    NOOP,
+    WAIT_FOR_HEALTHY_IPC,
+    WAIT_FOR_CAPABILITY,
+    WAIT_FOR_METADATA,
+    SETTLE_UNSUPPORTED,
+    REQUEST
+}
+
+internal fun canonicalTailValidationOutcomeFromWire(state: String?): CanonicalTailValidationOutcome =
+    when (state?.trim()?.lowercase()) {
+        "up_to_date" -> CanonicalTailValidationOutcome.UP_TO_DATE
+        "needs_reconcile" -> CanonicalTailValidationOutcome.NEEDS_RECONCILE
+        "unsupported" -> CanonicalTailValidationOutcome.UNSUPPORTED
+        else -> CanonicalTailValidationOutcome.FAILED
+    }
+
+internal fun isCanonicalTailValidationSyncPurpose(purpose: String?): Boolean =
+    purpose?.trim()?.equals("tail_validation", ignoreCase = true) == true
+
+/**
+ * Pure gate used by the ViewModel and JVM regression tests.  It does not
+ * decide whether to reconcile; it only decides whether this selection can
+ * issue its one read-only validation intent.
+ */
+internal fun canonicalTailValidationRequestDecision(
+    key: CodexHistorySelectionKey?,
+    completeStaticCache: Boolean,
+    healthyIpcAuthority: Boolean,
+    metadataReadyKey: CodexHistorySelectionKey?,
+    capabilityKnown: Boolean,
+    capabilityEnabled: Boolean,
+    capabilityVersion: Int,
+    inFlightKey: CodexHistorySelectionKey?,
+    settledKey: CodexHistorySelectionKey?
+): CanonicalTailValidationRequestDecision = when {
+    key == null || !completeStaticCache || inFlightKey == key || settledKey == key ->
+        CanonicalTailValidationRequestDecision.NOOP
+    !healthyIpcAuthority -> CanonicalTailValidationRequestDecision.WAIT_FOR_HEALTHY_IPC
+    !capabilityKnown -> CanonicalTailValidationRequestDecision.WAIT_FOR_CAPABILITY
+    !capabilityEnabled || capabilityVersion != 1 ->
+        CanonicalTailValidationRequestDecision.SETTLE_UNSUPPORTED
+    metadataReadyKey != key -> CanonicalTailValidationRequestDecision.WAIT_FOR_METADATA
+    else -> CanonicalTailValidationRequestDecision.REQUEST
+}
 
 internal fun shouldCommitCachedHistorySelectionToUiState(
     state: CodexUiState,
@@ -907,16 +1249,38 @@ internal fun mergeCachedHistoryIntoLiveMessagesForUi(
     }
     if (cachedMessages.isEmpty()) return state.messages
     val live = normalizeCodexThreadId(state.liveAuthoritativeConversationId)
+    val matchingProvisionalSurface = state.ipcSurfaceSnapshot?.takeIf { surface ->
+        surface.desynced &&
+            normalizeCodexThreadId(surface.conversationId) == incoming
+    }
+    fun mergeCachedHistoryWithLocalTail(): List<ChatMessage> {
+        val merged = mergeCanonicalMessagesForUi(
+            canonicalMessages = cachedMessages,
+            currentMessages = state.messages,
+            preserveLocalTail = true
+        )
+        val provisionalSurface = matchingProvisionalSurface ?: return merged
+        // A matching desynced surface is display-only, but its items have
+        // already been projected into the active conversation.  A metadata
+        // hydrate may lag that snapshot; reproject the same bounded tail over
+        // the cache merge so the generic local-tail filter cannot remove blank
+        // operation items (for example TOOL:file_change) before healthy IPC
+        // converges.  This only returns messages and does not promote the
+        // provisional surface to live authority or durable history.
+        return mergeSurfaceItems(
+            existing = merged,
+            surfaceItems = provisionalSurface.items,
+            surfaceStatus = provisionalSurface.status,
+            latestTurnId = provisionalSurface.latestTurnId,
+            preserveExisting = true
+        )
+    }
     if (live == null) {
         // A legacy/fallback turn can be optimistically visible before the
         // first healthy surface for this selection.  It is still the same
         // selected conversation, so a stale static cache must not erase that
         // local tail while the IPC authority is being acquired.
-        return mergeCanonicalMessagesForUi(
-            canonicalMessages = cachedMessages,
-            currentMessages = state.messages,
-            preserveLocalTail = true
-        )
+        return mergeCachedHistoryWithLocalTail()
     }
     if (live != incoming) {
         return cachedMessages
@@ -927,11 +1291,7 @@ internal fun mergeCachedHistoryIntoLiveMessagesForUi(
         // conversation.  Keep the matching live tail until a healthy surface
         // or a newer canonical snapshot converges it; otherwise a history
         // commit makes a just-sent user message disappear from the page.
-        return mergeCanonicalMessagesForUi(
-            canonicalMessages = cachedMessages,
-            currentMessages = state.messages,
-            preserveLocalTail = true
-        )
+        return mergeCachedHistoryWithLocalTail()
     }
 
     // A healthy surface can arrive before the history page.  Reconcile that
@@ -1506,7 +1866,8 @@ internal fun applyIpcConversationBindingToUiState(
     val surfaceOwner = normalizeCodexThreadId(state.ipcSurfaceSnapshot?.conversationId)
     val targetCache = cacheOwner == targetId
     val targetLive = liveOwner == targetId
-    val targetSurface = surfaceOwner == targetId && state.ipcSurfaceSnapshot?.desynced != true
+    val targetSurface = surfaceOwner == targetId
+    val targetHealthySurface = targetSurface && state.ipcSurfaceSnapshot?.desynced != true
     val foreignCache = cacheOwner != null && cacheOwner != targetId
     val foreignLive = liveOwner != null && liveOwner != targetId
     val foreignSurface = surfaceOwner != null && surfaceOwner != targetId
@@ -1519,8 +1880,13 @@ internal fun applyIpcConversationBindingToUiState(
         targetSurface -> mergeSurfaceItems(
             existing = targetCachedMessages,
             surfaceItems = state.ipcSurfaceSnapshot?.items.orEmpty(),
-            surfaceStatus = state.ipcSurfaceSnapshot?.status ?: "unknown",
-            latestTurnId = state.ipcSurfaceSnapshot?.latestTurnId,
+            surfaceStatus = state.ipcSurfaceSnapshot
+                ?.takeIf { targetHealthySurface }
+                ?.status
+                ?: "unknown",
+            latestTurnId = state.ipcSurfaceSnapshot
+                ?.takeIf { targetHealthySurface }
+                ?.latestTurnId,
             preserveExisting = true
         )
         targetCachedMessages.isNotEmpty() -> targetCachedMessages
@@ -1532,17 +1898,16 @@ internal fun applyIpcConversationBindingToUiState(
     val nextMessages = if (keepExistingBody) state.messages else rebuiltTargetMessages
     val nextCache = if (targetCache) state.cachedCanonicalMessages else emptyList()
     val nextSurface = state.ipcSurfaceSnapshot.takeIf { targetSurface }
-    val nextLiveOwner = if (targetSurface) {
+    val nextLiveOwner = if (targetHealthySurface) {
         targetId
     } else {
         liveOwner.takeIf { targetLive }
     }
-    val nextLiveDesynced = if (targetSurface) {
-        false
-    } else if (nextLiveOwner == null) {
-        false
-    } else {
-        state.liveAuthoritativeDesynced
+    val nextLiveDesynced = when {
+        targetSurface && !targetHealthySurface -> true
+        targetHealthySurface -> false
+        nextLiveOwner == null -> false
+        else -> state.liveAuthoritativeDesynced
     }
     val nextCacheState = if (targetCache) {
         state.historyCacheState
@@ -1566,12 +1931,12 @@ internal fun applyIpcConversationBindingToUiState(
     }
     val nextStatus = when {
         keepExistingBody -> state.status
-        targetSurface -> state.ipcSurfaceSnapshot?.status ?: "idle"
+        targetHealthySurface -> state.ipcSurfaceSnapshot?.status ?: "idle"
         else -> "idle"
     }
     val nextCurrentTurnId = when {
         keepExistingBody -> state.currentTurnId
-        targetSurface -> resolveSurfaceCurrentTurnId(
+        targetHealthySurface -> resolveSurfaceCurrentTurnId(
             status = state.ipcSurfaceSnapshot?.status ?: "idle",
             latestTurnId = state.ipcSurfaceSnapshot?.latestTurnId,
             currentTurnId = null
@@ -1582,7 +1947,7 @@ internal fun applyIpcConversationBindingToUiState(
         threadId = targetId,
         activeConversationId = targetId,
         ipcSurfaceSnapshot = nextSurface,
-        ownerCurrentCodexConfig = if (keepExistingBody || targetSurface) {
+        ownerCurrentCodexConfig = if (keepExistingBody || targetHealthySurface) {
             state.ownerCurrentCodexConfig
         } else {
             null
@@ -1599,7 +1964,7 @@ internal fun applyIpcConversationBindingToUiState(
             rememberedOverrides = rememberedOverrides
         ),
         activeGoal = if (keepExistingBody) state.activeGoal else state.ipcSurfaceSnapshot
-            ?.takeIf { targetSurface }
+            ?.takeIf { targetHealthySurface }
             ?.activeGoal,
         status = nextStatus,
         currentTurnId = nextCurrentTurnId,
@@ -1682,6 +2047,47 @@ internal fun preparePendingHistorySelectionUiState(
     )
 }
 
+/**
+ * A desynced surface is a last-known, bounded body for the matching
+ * conversation.  It may be shown provisionally so cache-first selection does
+ * not fall back to an older durable tail, but it must not become the live
+ * authority or update the durable cache.  Keep the first retained surface
+ * stable until a healthy snapshot converges it; this preserves the existing
+ * healthy-surface-over-desynced ordering rule.
+ */
+internal fun applyDesyncedSurfaceBodyToUiState(
+    state: CodexUiState,
+    snap: DesktopSurfaceSnapshot
+): CodexUiState {
+    val snapshotConversationId = snap.conversationId?.trim().orEmpty()
+    val retainedSurface = state.ipcSurfaceSnapshot?.takeIf {
+        it.conversationId?.trim().orEmpty() == snapshotConversationId
+    }
+    // A delayed replay must never downgrade a healthy surface that has already
+    // converged for this conversation.  The next healthy surface remains the
+    // only writer allowed to advance live authority and runtime state.
+    if (retainedSurface?.desynced == false) return state
+
+    val provisionalMessages = if (retainedSurface != null || snap.items.isEmpty()) {
+        state.messages
+    } else {
+        mergeSurfaceItems(
+            existing = state.messages,
+            surfaceItems = snap.items,
+            // A desynced snapshot cannot authoritatively describe runtime
+            // status or the current turn.  Project body items only.
+            surfaceStatus = "unknown",
+            latestTurnId = null,
+            preserveExisting = true
+        )
+    }
+    return state.copy(
+        ipcSurfaceSnapshot = retainedSurface ?: snap,
+        liveAuthoritativeDesynced = true,
+        messages = provisionalMessages
+    )
+}
+
 internal fun applyDesktopSurfaceSnapshotToUiState(
     state: CodexUiState,
     snap: DesktopSurfaceSnapshot
@@ -1692,10 +2098,7 @@ internal fun applyDesktopSurfaceSnapshotToUiState(
         return state
     }
     if (snap.desynced) {
-        return state.copy(
-            ipcSurfaceSnapshot = state.ipcSurfaceSnapshot ?: snap,
-            liveAuthoritativeDesynced = true
-        )
+        return applyDesyncedSurfaceBodyToUiState(state, snap)
     }
     val confirmedOverrides = reconcileOwnerConfirmedOverrides(
         overrides = state.nextTurnOverrides,
@@ -3230,7 +3633,10 @@ class CodexViewModel(
         Context.MODE_PRIVATE
     )
 
-    private val _uiState = MutableStateFlow(CodexUiState())
+    private val _uiState = CodexUiStateDiagnosticFlow(
+        delegate = MutableStateFlow(CodexUiState()),
+        selectionGeneration = { historySelectionGeneration }
+    )
     val uiState: StateFlow<CodexUiState> = _uiState.asStateFlow()
 
     private var currentStreamingMessageId: String? = null
@@ -3264,6 +3670,22 @@ class CodexViewModel(
     /** Set only after B4R proves a durable, complete static snapshot for this selection. */
     @Volatile
     private var completeServerSnapshotCacheSelectionKey: CodexHistorySelectionKey? = null
+    /**
+     * Step 3 canonical-tail validation is intentionally not represented in
+     * CodexUiState.  It neither changes visible body/authority nor joins the
+     * ordinary history-sync/recovery lane; this private state only fences the
+     * one read-only intent and records its diagnostic result for the current
+     * selection.
+     */
+    private var tailValidationMetadataSelectionKey: CodexHistorySelectionKey? = null
+    private var tailValidationAwaitingMetadataKey: CodexHistorySelectionKey? = null
+    private var tailValidationInFlightKey: CodexHistorySelectionKey? = null
+    private var tailValidationInFlightSyncId: String? = null
+    private var tailValidationSettledKey: CodexHistorySelectionKey? = null
+    private var tailValidationOutcome: CanonicalTailValidationOutcome? = null
+    private var tailValidationDetailCode: String? = null
+    private var tailValidationDispatchJob: Job? = null
+    private var tailValidationWatchdogJob: Job? = null
     /** Client token carried by history envelopes to reject stale A→B→A work. */
     private var historySelectionGeneration: Long = 0L
     private var historyRecoveryInFlightConversationId: String? = null
@@ -5249,6 +5671,12 @@ class CodexViewModel(
                 )
                 withContext(Dispatchers.Main.immediate) {
                     onCommitted(key)
+                    if (completeServerSnapshotCache) {
+                        maybeRequestCanonicalTailValidation(
+                            normalizedConversationId,
+                            "static_cache_selected"
+                        )
+                    }
                 }
             }
         }
@@ -6658,6 +7086,7 @@ class CodexViewModel(
         pendingHistoryPages.clear()
         pendingHistorySnapshotSegments.clear()
         completeServerSnapshotCacheSelectionKey = null
+        clearCanonicalTailValidationState()
         if (!interruptedEndpointId.isNullOrBlank() && !interruptedConversationId.isNullOrBlank()) {
             viewModelScope.launch(Dispatchers.IO) {
                 runCatching {
@@ -6707,6 +7136,338 @@ class CodexViewModel(
         }
         return completeServerSnapshotCacheSelectionKey ==
             currentHistorySelectionKey(conversationId, generation)
+    }
+
+    /**
+     * Tail validation is permitted only after the selected task has a matching
+     * healthy IPC surface.  A desynced/provisional surface remains useful for
+     * display continuity, but it must not unlock canonical source reads.
+     */
+    private fun hasHealthyIpcAuthorityForCanonicalTailValidation(
+        key: CodexHistorySelectionKey
+    ): Boolean =
+        isCurrentHistorySelection(key) &&
+            authorityModeForState(_uiState.value, key.conversationId) == IpcAuthorityMode.IPC_AUTHORITATIVE
+
+    private fun clearCanonicalTailValidationState() {
+        tailValidationDispatchJob?.cancel()
+        tailValidationDispatchJob = null
+        tailValidationWatchdogJob?.cancel()
+        tailValidationWatchdogJob = null
+        tailValidationMetadataSelectionKey = null
+        tailValidationAwaitingMetadataKey = null
+        tailValidationInFlightKey = null
+        tailValidationInFlightSyncId = null
+        tailValidationSettledKey = null
+        tailValidationOutcome = null
+        tailValidationDetailCode = null
+    }
+
+    private fun cancelCanonicalTailValidationWatchdog() {
+        tailValidationWatchdogJob?.cancel()
+        tailValidationWatchdogJob = null
+    }
+
+    /**
+     * This intentionally never calls `maybeRequestHistorySync`, recovery, or
+     * a cache-store writer.  The only effect is an additive, one-page
+     * read-only Gateway intent for an already-complete static cache.
+     */
+    private fun maybeRequestCanonicalTailValidation(
+        conversationId: String?,
+        reason: String
+    ) {
+        val normalizedConversationId = conversationId?.trim()?.takeIf { it.isNotEmpty() } ?: return
+        val key = historySelectionKeyOrNull(normalizedConversationId, historySelectionGeneration) ?: return
+        val capability = historyCapability?.tailValidation
+        val decision = canonicalTailValidationRequestDecision(
+            key = key,
+            completeStaticCache = hasCompleteServerSnapshotCache(
+                normalizedConversationId,
+                historySelectionGeneration
+            ),
+            healthyIpcAuthority = hasHealthyIpcAuthorityForCanonicalTailValidation(key),
+            metadataReadyKey = tailValidationMetadataSelectionKey,
+            capabilityKnown = ipcStatusObserved,
+            capabilityEnabled = capability?.enabled == true,
+            capabilityVersion = capability?.version ?: 0,
+            inFlightKey = tailValidationInFlightKey,
+            settledKey = tailValidationSettledKey
+        )
+        when (decision) {
+            CanonicalTailValidationRequestDecision.NOOP -> Unit
+            CanonicalTailValidationRequestDecision.WAIT_FOR_HEALTHY_IPC -> {
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.codex.history.tail_validation.waiting_for_healthy_ipc",
+                    mapOf(
+                        "conversationKey" to PersistentDiagnosticLog.shortHash(normalizedConversationId),
+                        "generation" to key.generation,
+                        "reason" to reason
+                    )
+                )
+            }
+            CanonicalTailValidationRequestDecision.WAIT_FOR_CAPABILITY -> {
+                PersistentDiagnosticLog.event(
+                    "codex",
+                    "android.codex.history.tail_validation.waiting_for_capability",
+                    mapOf(
+                        "conversationKey" to PersistentDiagnosticLog.shortHash(normalizedConversationId),
+                        "generation" to key.generation,
+                        "reason" to reason
+                    )
+                )
+            }
+            CanonicalTailValidationRequestDecision.WAIT_FOR_METADATA -> {
+                if (tailValidationAwaitingMetadataKey != key) {
+                    tailValidationAwaitingMetadataKey = key
+                    PersistentDiagnosticLog.event(
+                        "codex",
+                        "android.codex.history.tail_validation.waiting_for_metadata",
+                        mapOf(
+                            "conversationKey" to PersistentDiagnosticLog.shortHash(normalizedConversationId),
+                            "generation" to key.generation,
+                            "reason" to reason
+                        )
+                    )
+                    armCanonicalTailValidationMetadataWatchdog(key)
+                }
+            }
+            CanonicalTailValidationRequestDecision.SETTLE_UNSUPPORTED -> {
+                settleCanonicalTailValidation(
+                    key = key,
+                    syncId = null,
+                    outcome = CanonicalTailValidationOutcome.UNSUPPORTED,
+                    detailCode = "history_tail_validation_capability_unsupported"
+                )
+            }
+            CanonicalTailValidationRequestDecision.REQUEST -> {
+                val tailValidationCapability = capability ?: return
+                val profile = currentProfile ?: return
+                val requestSyncId = UUID.randomUUID().toString()
+                tailValidationAwaitingMetadataKey = null
+                tailValidationInFlightKey = key
+                tailValidationInFlightSyncId = requestSyncId
+                tailValidationDispatchJob?.cancel()
+                tailValidationDispatchJob = viewModelScope.launch {
+                    val cachedResult = withContext(Dispatchers.IO) {
+                        runCatching {
+                            historyCacheStore.readConversation(profile.id, normalizedConversationId)
+                        }
+                    }
+                    if (!isCurrentHistorySelection(key) ||
+                        tailValidationInFlightKey != key ||
+                        tailValidationInFlightSyncId != requestSyncId
+                    ) {
+                        return@launch
+                    }
+                    val cached = cachedResult.getOrNull()
+                    val durableItemCount = cached?.items?.count { !it.provisional } ?: 0
+                    val checkpoint = normalizeHistoryCheckpointForAvailableItems(
+                        checkpoint = cached?.checkpoint,
+                        availableDurableItemCount = durableItemCount
+                    )
+                    if (checkpoint.newestAnchorKey.isNullOrBlank() || checkpoint.newestAnchorHash.isNullOrBlank()) {
+                        settleCanonicalTailValidation(
+                            key = key,
+                            syncId = requestSyncId,
+                            outcome = CanonicalTailValidationOutcome.FAILED,
+                            detailCode = if (cachedResult.isFailure) {
+                                "history_tail_validation_checkpoint_unavailable"
+                            } else {
+                                "history_tail_validation_anchor_missing"
+                            }
+                        )
+                        return@launch
+                    }
+                    val request = CodexHistoryTailValidationRequest(
+                        syncId = requestSyncId,
+                        conversationId = normalizedConversationId,
+                        checkpoint = checkpoint,
+                        selectionGeneration = key.generation,
+                        tailValidation = tailValidationCapability
+                    )
+                    val sent = connectionManager.send(
+                        CodexClientMessages.historyTailValidationRequest(request)
+                    )
+                    if (!sent) {
+                        settleCanonicalTailValidation(
+                            key = key,
+                            syncId = requestSyncId,
+                            outcome = CanonicalTailValidationOutcome.FAILED,
+                            detailCode = "history_tail_validation_send_failed"
+                        )
+                        return@launch
+                    }
+                    armCanonicalTailValidationWatchdog(key, requestSyncId)
+                    PersistentDiagnosticLog.event(
+                        "codex",
+                        "android.codex.history.tail_validation.requested",
+                        mapOf(
+                            "conversationKey" to PersistentDiagnosticLog.shortHash(normalizedConversationId),
+                            "syncId" to PersistentDiagnosticLog.shortHash(requestSyncId),
+                            "generation" to key.generation,
+                            "reason" to reason,
+                            "checkpointItemCount" to checkpoint.itemCount
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    private fun armCanonicalTailValidationWatchdog(
+        key: CodexHistorySelectionKey,
+        syncId: String
+    ) {
+        cancelCanonicalTailValidationWatchdog()
+        val timeoutMillis = historyWatchdogTimeoutMillis()
+        tailValidationWatchdogJob = viewModelScope.launch {
+            delay(timeoutMillis)
+            if (!isCurrentHistorySelection(key) ||
+                tailValidationInFlightKey != key ||
+                tailValidationInFlightSyncId != syncId
+            ) {
+                return@launch
+            }
+            tailValidationWatchdogJob = null
+            settleCanonicalTailValidation(
+                key = key,
+                syncId = syncId,
+                outcome = CanonicalTailValidationOutcome.FAILED,
+                detailCode = "history_tail_validation_timeout"
+            )
+        }
+    }
+
+    /**
+     * Android deliberately waits for the matching metadata-resume response so
+     * it cannot race Gateway's history-mode observation.  A lost response is
+     * still fail-closed: settle private FAILED instead of issuing an unsafe
+     * request or waiting forever.
+     */
+    private fun armCanonicalTailValidationMetadataWatchdog(key: CodexHistorySelectionKey) {
+        cancelCanonicalTailValidationWatchdog()
+        val timeoutMillis = historyWatchdogTimeoutMillis()
+        tailValidationWatchdogJob = viewModelScope.launch {
+            delay(timeoutMillis)
+            if (!isCurrentHistorySelection(key) ||
+                tailValidationAwaitingMetadataKey != key ||
+                tailValidationInFlightKey != null ||
+                tailValidationSettledKey == key
+            ) {
+                return@launch
+            }
+            tailValidationWatchdogJob = null
+            tailValidationAwaitingMetadataKey = null
+            settleCanonicalTailValidation(
+                key = key,
+                syncId = null,
+                outcome = CanonicalTailValidationOutcome.FAILED,
+                detailCode = "history_tail_validation_metadata_missing"
+            )
+        }
+    }
+
+    private fun settleCanonicalTailValidation(
+        key: CodexHistorySelectionKey,
+        syncId: String?,
+        outcome: CanonicalTailValidationOutcome,
+        detailCode: String?
+    ) {
+        if (!isCurrentHistorySelection(key)) return
+        if (syncId != null &&
+            (tailValidationInFlightKey != key || tailValidationInFlightSyncId != syncId)
+        ) {
+            PersistentDiagnosticLog.event(
+                "codex",
+                "android.codex.history.tail_validation.stale_result_ignored",
+                mapOf(
+                    "conversationKey" to PersistentDiagnosticLog.shortHash(key.conversationId),
+                    "syncId" to PersistentDiagnosticLog.shortHash(syncId),
+                    "generation" to key.generation,
+                    "outcome" to outcome.name
+                ),
+                level = "warn"
+            )
+            return
+        }
+        cancelCanonicalTailValidationWatchdog()
+        tailValidationDispatchJob = null
+        tailValidationInFlightKey = null
+        tailValidationInFlightSyncId = null
+        tailValidationSettledKey = key
+        tailValidationOutcome = outcome
+        tailValidationDetailCode = detailCode
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.history.tail_validation.result",
+            mapOf(
+                "conversationKey" to PersistentDiagnosticLog.shortHash(key.conversationId),
+                "syncId" to PersistentDiagnosticLog.shortHash(syncId),
+                "generation" to key.generation,
+                "outcome" to outcome.name,
+                "detailCode" to detailCode
+            ),
+            level = if (outcome == CanonicalTailValidationOutcome.NEEDS_RECONCILE ||
+                outcome == CanonicalTailValidationOutcome.FAILED
+            ) "warn" else "info"
+        )
+    }
+
+    private fun noteCanonicalTailValidationMetadataReady(response: CodexResponse) {
+        if (response.raw.optLong("selectionGeneration", -1L) != historySelectionGeneration) return
+        val conversationId = extractThreadResult(response.result)
+            ?.optStringOrNullCompat("id")
+            ?.let(::normalizeThreadId)
+            ?: return
+        val key = historySelectionKeyOrNull(conversationId, historySelectionGeneration) ?: return
+        if (!isCurrentHistorySelection(key)) return
+        tailValidationMetadataSelectionKey = key
+        tailValidationAwaitingMetadataKey = null
+        cancelCanonicalTailValidationWatchdog()
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.history.tail_validation.metadata_ready",
+            mapOf(
+                "conversationKey" to PersistentDiagnosticLog.shortHash(conversationId),
+                "generation" to key.generation
+            )
+        )
+        maybeRequestCanonicalTailValidation(conversationId, "metadata_response")
+    }
+
+    private fun handleCanonicalTailValidationState(syncState: CodexHistorySyncStateMessage) {
+        val key = historySelectionKeyOrNull(
+            syncState.conversationId,
+            syncState.clientSelectionGeneration
+        )
+        if (key == null ||
+            !isCurrentHistorySelection(key) ||
+            syncState.clientSelectionGeneration != historySelectionGeneration ||
+            tailValidationInFlightKey != key ||
+            tailValidationInFlightSyncId != syncState.syncId
+        ) {
+            PersistentDiagnosticLog.event(
+                "codex",
+                "android.codex.history.tail_validation.stale_state_ignored",
+                mapOf(
+                    "conversationKey" to PersistentDiagnosticLog.shortHash(syncState.conversationId),
+                    "syncId" to PersistentDiagnosticLog.shortHash(syncState.syncId),
+                    "generation" to syncState.clientSelectionGeneration,
+                    "state" to syncState.state,
+                    "detailCode" to syncState.detailCode
+                ),
+                level = "warn"
+            )
+            return
+        }
+        settleCanonicalTailValidation(
+            key = key,
+            syncId = syncState.syncId,
+            outcome = canonicalTailValidationOutcomeFromWire(syncState.state),
+            detailCode = syncState.detailCode ?: "history_tail_validation_state_invalid"
+        )
     }
 
     /**
@@ -6768,14 +7529,24 @@ class CodexViewModel(
         if (shouldWaitForActiveConversationSubscription(normalizedConversationId, requestGeneration)) {
             return
         }
-        if (!shouldRequestHistorySyncForSelection(
-                conversationId = normalizedConversationId,
-                selectionGeneration = requestGeneration,
-                inFlightConversationId = historySyncInFlightConversationId,
-                settledConversationId = historySyncSettledConversationId,
-                settledGeneration = historySyncSettledGeneration
-        )) return
         if (hasCompleteServerSnapshotCache(normalizedConversationId, requestGeneration)) {
+            // A complete static snapshot remains a normal-history fast path,
+            // but it is never proof that its newest canonical tail is fresh.
+            // Step 3 observes that question privately and must not reopen the
+            // manifest/range/recovery lane.
+            maybeRequestCanonicalTailValidation(
+                normalizedConversationId,
+                "complete_static_cache"
+            )
+            if (!shouldRequestHistorySyncForSelection(
+                    conversationId = normalizedConversationId,
+                    selectionGeneration = requestGeneration,
+                    inFlightConversationId = historySyncInFlightConversationId,
+                    settledConversationId = historySyncSettledConversationId,
+                    settledGeneration = historySyncSettledGeneration
+                )) {
+                return
+            }
             // Cache-first selection has already proved the complete static
             // B4R snapshot.  Keep its terminal local state stable instead of
             // briefly advertising SYNCING and re-reading the same rows.
@@ -6798,6 +7569,13 @@ class CodexViewModel(
             }
             return
         }
+        if (!shouldRequestHistorySyncForSelection(
+                conversationId = normalizedConversationId,
+                selectionGeneration = requestGeneration,
+                inFlightConversationId = historySyncInFlightConversationId,
+                settledConversationId = historySyncSettledConversationId,
+                settledGeneration = historySyncSettledGeneration
+        )) return
         val capability = historyCapability ?: return
         val snapshotSegments = capability.serverSnapshotSegments?.takeIf {
             it.enabled && it.version == 1 && it.cacheSchemaVersion >= 3
@@ -6858,8 +7636,9 @@ class CodexViewModel(
                 availableDurableItemCount = durableItemCount
             )
             // A completed B4R static snapshot already contains the full local
-            // history. P1 will add a separate quiet freshness probe; do not
-            // reopen the old manifest/range lane on every task selection.
+            // history. Step 3 validates canonical-tail freshness through its
+            // separate private lane; do not reopen the old manifest/range lane
+            // on every task selection.
             if (shouldPromoteCompleteServerSnapshotCache(
                     serverSnapshotSegmentsEnabled = snapshotSegments != null,
                     providerMode = checkpoint.providerMode,
@@ -6894,6 +7673,12 @@ class CodexViewModel(
                             "itemCount" to durableItemCount
                         )
                     )
+                    withContext(Dispatchers.Main.immediate) {
+                        maybeRequestCanonicalTailValidation(
+                            normalizedConversationId,
+                            "static_cache_promoted"
+                        )
+                    }
                 }
                 return@launch
             }
@@ -7926,6 +8711,14 @@ class CodexViewModel(
 
             "conversation_history_sync_state" -> {
                 val syncState = CodexHistorySyncStateMessage.from(json)
+                if (isCanonicalTailValidationSyncPurpose(syncState.purpose)) {
+                    // This is deliberately not a normal history-sync terminal:
+                    // do not touch history in-flight/settled fields, recovery,
+                    // UI state, cache rows, or SQLite.  It is only the private
+                    // Step 3 freshness observation for this selection.
+                    handleCanonicalTailValidationState(syncState)
+                    return
+                }
                 if (syncState.conversationId == _uiState.value.activeConversationId &&
                     acceptsHistoryClientSelection(syncState.clientSelectionGeneration) &&
                     acceptsActiveHistorySyncId(historySyncInFlightSyncId, syncState.syncId)
@@ -8311,6 +9104,12 @@ class CodexViewModel(
                     if (isCurrentHistorySelection(commit.conversationId, commit.selectionGeneration) &&
                         acceptsActiveHistorySyncId(historySyncInFlightSyncId, commit.syncId)
                     ) {
+                        withContext(Dispatchers.Main.immediate) {
+                            maybeRequestCanonicalTailValidation(
+                                commit.conversationId,
+                                "static_cache_segment_commit"
+                            )
+                        }
                         scheduleMediaPrefetch(snapshot.messages, commit.selectionGeneration)
                         connectionManager.send(
                             CodexClientMessages.historySegmentAck(
@@ -8763,6 +9562,16 @@ class CodexViewModel(
                         )
                         updated.copy(
                             threadHistoryEntries = mergeGoalHistoryEntries(updated.threadHistoryEntries)
+                        )
+                    }
+                    if (!snap.desynced && currentSelectionMatches) {
+                        // A matching healthy surface is the only IPC state
+                        // allowed to unlock the Step 3 read-only probe.  The
+                        // probe itself remains private and cannot modify this
+                        // surface, messages, or history-network state.
+                        maybeRequestCanonicalTailValidation(
+                            convId,
+                            "healthy_surface"
                         )
                     }
                     val surfaceRequestsHistorySync = shouldRequestHistorySyncAfterSurface(
@@ -9816,6 +10625,12 @@ class CodexViewModel(
                         )
                         return
                     }
+                    // Gateway records the matching metadata-resume history
+                    // mode before it emits this response.  Mark only this
+                    // exact generation ready; the later Step 3 request still
+                    // waits for a healthy IPC surface and a complete static
+                    // cache, and cannot touch ordinary history sync state.
+                    noteCanonicalTailValidationMetadataReady(response)
                     handleThreadResumeResponse(response.result)
                     return
                 }
