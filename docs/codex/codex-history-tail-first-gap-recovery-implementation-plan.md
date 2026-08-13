@@ -1302,3 +1302,117 @@ P0-B.4。后续真实 instrumentation 只使用专用设备/模拟器，不在�
   不以单次 1 页/1 页或单元测试通过替代大历史长任务证据。
 - 回滚：关闭 B4R capability 后回到 B3 的 v2/range 兼容路径，保留已写入 snapshot/segment 数据，不降级 APK、不删除数据库。
 - 当前自动化证据：Node provider/history/snapshot/scheduler/projector/Gateway 串行集合 `190/190`，JDK 21 `:app:testDebugUnitTest` 与 `:app:assembleDebug` 均 `BUILD SUCCESSFUL`；需求同步脚本对既有 REQ 的严格校验因历史 front matter/path 解析问题失败，未改变本轮实现判断，已记录为 no-block。约 3900 项任务的 RSS/heap、source/segment/ACK duration、cache-first reopen、live/control delay 与重复 `thread/read` 仍待真机证据。
+
+## 26. A→B→A 尾部连续性与完成态正文丢失：事实档案（2026-08-12）
+
+本节是本轮聊天、代码审查、writer trace 与真机采集的可审计索引，不是逐字聊天导出。它的目标是让后续实现不把阶段性猜测、用户纠正和已证实事实混淆。原始聊天上下文可能被宿主压缩；因此本节只把当前仍可见的用户陈述、工作区源码和可定位诊断作为长期事实基线。
+
+### 26.1 术语、问题边界与用户原始诉求
+
+- **A**：当前要回看的目标 conversation；**B**：用户临时切换到的另一任务。本文中的 A/B 只是切换角色，不绑定某个固定 ID。
+- **实时正文 / live body**：Android 当前 `_uiState.messages`、live authority 与 retained IPC surface 所显示的内存态；它不是 SQLite durable history。
+- **持久历史缓存 / durable cache**：按 `endpoint/profile + conversationId` 隔离的 Android SQLite 静态历史。它只可用于冷启动、离线或恢复首屏，不能取代 healthy IPC 的实时权威。
+- **desynced surface**：Gateway 保存的同一 conversation 的上一次 IPC surface。它只能作为 bounded、display-only 的临时正文，不能成为 healthy authority、运行态权威或 canonical history 写入源。
+
+用户报告的是两个必须分开处理的问题：
+
+1. **A→B→A 的尾部可见性延迟**：A 在实时 IPC 中已经显示到“10”，切去 B 再切回 A 时先显示旧缓存/旧尾部“9”，随后才显示“10”；每次重选均重复。正确业务语义不是“每次回来都重新读取完整历史”，而是应立即复用已拥有的同一 A 最新可显示状态，并由 fresh healthy surface 收敛。
+2. **完成后真实内容丢失**：A 在任务运行期间通过 IPC 显示正常；任务完成、切换到 B 再回 A 后，部分完成后的内容不在 SQLite 历史中，甚至用户消息也曾不可见。该问题与第 1 项不同；前者是“先旧后新”的可见性空档，后者是“最新 live tail 未 durable”的数据连续性缺口。
+3. `TOOL:command` 等后端同步记录也应最终进入可恢复历史，但用户已明确要求本轮不要顺带处理；它不是本次 desynced display 修复的验收范围。
+
+**反向澄清：**用户从未报告“B 的正文进入 A”。A/B conversation 与 generation fence 是必须保留的安全不变量，但不能再把它描述成本次复现事实或首因。
+
+### 26.2 已锁定的设计语义
+
+固定实时数据流为：
+
+`active conversation → Gateway follower acquire → CodexIpcFeed desired subscription/reconnect replay → host 定向 snapshot/patch → Android IPC authority`。
+
+healthy IPC surface 是正文、operation、当前 turn 和运行态的唯一**实时**权威。`thread/read` 只可在明确 offline、desynced 或当前订阅周期缺目标 surface 时做有界恢复，不能变成每次 A→B→A 的全量读取替代品。`thread/resume(historyMode=metadata)` 在 Gateway 会走 metadata `thread/read(includeTurns=false)`，它本身不等价于“加载完整正文”。
+
+因此正确的分层是：Codex canonical history 负责最终可恢复事实；IPC surface 负责低延迟实时显示；Gateway 可保存短期 surface；Android durable cache 负责静态/离线历史。IPC snapshot 可能 bounded 或 `itemsTruncated=true`，不可直接当作完整数据库事实；但同一 conversation 的 cached desynced surface 可以安全地作为临时显示层。
+
+### 26.3 早期判断的审查结论
+
+| 说法或假设 | 当前裁决 | 原因与后续约束 |
+| --- | --- | --- |
+| `session_codex_thread_bound` handler 是本次首因 | **未证实** | 它存在跨任务状态更新不完整的潜在风险，但正常 `resumeThread(A)` 已先将 active 设为 A 并清空旧 slot；若要证明“B 正文仍在 A”，还需要一条将身份改回 B 的中间事件，已有日志未证明。不可用绑定回执做 generation 匹配后的硬清空。 |
+| `codex_thread_ready(resumed=true)` 参与历史打开 | **不适用当前路径** | 服务端当前只在新建路径发送 `codex_thread_ready`，并不发送 `resumed=true`；历史打开走 metadata read。`buildThreadReadyUiTransition` 的跨线程保留风险仍是静态代码风险，但不是本次证据链。 |
+| 仅增加 selection generation 后收到绑定回执即可清正文 | **拒绝** | 协议当时不回显客户端 generation；即使回显也只能证明请求对应，不能证明此刻的正确 A 正文应被删除。真机已证明把 binding 当硬切换会扩大历史缺失。 |
+| merge 函数是首因 | **仅次生机制** | `mergeCachedHistoryIntoLiveMessagesForUi`、`mergeCanonicalMessagesForUi` 与 surface reducer 可能延续已进入的错误尾部，但不能解释同步清空后正文最初如何出现。 |
+| 服务端把 B surface 投递给 A | **未发现证据** | 采集中的 subscription、surface owner 与 conversation key 均对应选择的 A；此项只保留为通用防御测试，不作为用户报告。 |
+| 换掉 JavaScript 就会消除问题 | **否** | 根因跨 Gateway 异步调度、Android Kotlin reducer、IPC 协议和 durability boundary；换语言不会自动提供 conversation ownership、generation fence、原子合并或 freshness proof。需要修正状态模型与时序。 |
+
+### 26.4 修复前已确认的代码机制
+
+1. `CodexViewModel.applyCachedHistorySelection` 在 A→B 时主动清空当前 active slot 的 messages、cache、live authority 和 surface。这样做的目的，是避免单一 UI active slot 在 B 被选中后仍显示 A 的实时正文；它不是无意义删除，也不能简单取消。
+2. 该设计此前没有按 conversation 保留 A 的最后一份 live body；IPC surface 也不直接写 SQLite canonical history。于是回到 A 时只能先恢复旧 durable cache，再等待新的 IPC surface。
+3. Gateway 的 `_handleSetActiveConversation` 已会找到旧 A surface 并标记 `desynced=true`，但修复前 Android mobile full-media projection queue 会让 cached frame 被更快到来的 healthy frame 的 latest-only guard 抑制。Android 的临时正文 reducer 根本收不到该 frame，故 Android-only 修改不能稳定消除空档。
+4. `completeServerSnapshotCache=true` 只能说明某次静态 snapshot/checkpoint 自洽，**不能**证明任务完成后 live tail 已落入 SQLite。把它当成“不必做 tail validation/reconciliation”的理由，会遮蔽第 2 类真实丢失问题。
+5. 完成态 messages 数量下降（例如 operation/command batch 收敛）本身不等价于用户正文被删除；必须借 writer trace 的匿名 identity delta 区分。当前证据不能把所有完成态计数下降判成正文丢失。
+
+### 26.5 诊断证据时间线
+
+| 采集 / 会话 | 可复核观察 | 结论强度 |
+| --- | --- | --- |
+| `output/diagnostics/20260812-032735`，`019ff186-bdc6-75a0-8862-257bbf781cbc` | 完成时一度出现 `messages/live 95→49`，durable cache 仍为 `17`；A→B 清除 live；回 A 先恢复 `17`，matching desynced surface 后为 `20`，healthy 后仍为 `20`。这一模式在多个 generation 重复。 | **确认**：完成后的可见 tail 未被 durable cache 覆盖；切换清除后只能依赖 IPC 恢复。计数差中包含 `TOOL:command`/operation 收敛，不能据此量化用户正文具体丢失数。 |
+| `output/diagnostics/20260812-032735`，独立会话 `019fc5cf-3fcc-7ae3-9456-a4c0e292a054` | 运行到 completed 时 IPC surface 保持 87 项，而 Android durable cache 保持 55 项；A→B→A 中 desynced 可补可见尾部，cache 未随之持久化。 | **确认**：display continuity 与 durable tail 是独立问题。 |
+| `output/diagnostics/20260812-134632`，`019fef71-d5c9-78c0-ac8f-1d570566e6c2` 的旧实现 | 回选 A 后 fresh healthy A surface 很快到达；当时 Android 没有对应 cached desynced 临时正文投影。配合 Gateway 源码和后续失败回归，确认 cached frame 被 full-media latest-only 投影调度压制。 | **确认**：先前 Android-only reducer 未稳定收到 desynced frame；不是“应改为每次全量历史读取”。 |
+| `output/diagnostics/20260812-142119`，同一 `019fef…`，修复后 `da34332c` | 连续三次回到 A：cache-first 均为 `1284`；`desynced=true` 分别在 `06:20:09.094Z`、`06:20:16.663Z`、`06:20:29.676Z` 收到，writer 随后 `1284→1290`；约 `0.69s`、`0.60s`、`0.60s` 后 healthy 到达，三次均 `1290→1290`，只建立 live authority。缓存始终为 `1284`，且 desynced frame 标记 `itemsTruncated=true`。 | **确认**：同一 A 的临时 tail 已在 healthy 前实际显示；healthy 不再负责“补出正文”。同时 **确认未解决** durable tail 的 `1284/1290` 缺口。 |
+
+所有诊断均只记录脱敏短 key、计数、generation、revision、状态与匿名 identity digest；不把 prompt、命令正文、路径或凭据写入本档案。
+
+### 26.6 已实施的最小修复及其边界
+
+修复分为两个必要但不同的层次：
+
+1. **Android 临时正文 reducer**：`applyDesktopSurfaceSnapshotToUiState` 仅对 active conversation 匹配的 desynced surface 做 key/turnId 收敛的临时正文投影；保留 `desynced=true`，不更新 live authority、运行态、current turn、pending/config 或 durable cache。若已经有 healthy retained surface，迟到 desynced 不得降级它。UI 可提示“临时实时快照（待同步确认）”。
+2. **Gateway 投影可达性修复**：`_handleSetActiveConversation` 只为 cached desynced replay 增加 Gateway 私有 `provisional` 标记；Android mobile adapter 用既有 `mobileSurfaceProjector({ mediaStore: null, redactInlineMedia: true })` 立即生成 bounded/redacted display-only frame，不进入 full-media latest-only queue。发送仍经过已有 scheduler 的 active conversation + server selection generation fence；healthy surface 继续走原路径，迟到 provisional 由 revision/latest-entry guard 拒绝。
+
+此修复不改 IPC wire、`CodexIpcFeed`、follower acquire/release、desired subscription、reconnect replay、Owner lifecycle、SQLite schema 或 realtime authority。自动回归包括：
+
+- `Android publishes cached desynced surface before a fresh healthy surface supersedes its full projection`：修复前故意失败，修复后通过；
+- `Android drops a late cached desynced projection after the healthy surface is published`：证明不发生 healthy 后降级；
+- Gateway IPC `109/109`、`node --check src/ws/terminalGateway.js`、JDK 21 `:app:testDebugUnitTest --rerun-tasks` 与 debug APK build 全部通过；
+- `da34332c` 的上述三次真实 A→B→A writer trace 通过。
+
+### 26.7 当前结论：已解决、未解决与明确禁止的误修
+
+**已解决（本步骤验收通过）：**缓存的同一 A desynced IPC surface 能在 healthy surface 前到达并投影，故“固定旧尾部等待 healthy 才显示最新 tail”的可见性空档已经消除。`itemsTruncated=true` 的 provisional 只做 additive merge，不得删除已有正文。
+
+**未解决（P0-C，需单独授权与实现）：**任务完成或稳定后，Android 没有将可信的最新 canonical tail 有界、幂等、generation-fenced 地 reconciliate 进 SQLite。现有 `completeServerSnapshotCache` 也不能抑制这项 tail validation。目标不是每次切换 full `thread/read`，而是在 terminal/stable/foreground 等触发器下按 conversation single-flight 做 latest-only canonical tail reconciliation，并以原子 SQLite merge 保存成功结果；失败时保留旧 cache 并标记 partial，不允许空结果覆盖旧历史。
+
+**后续但不属于本修复：**用户消息与 `TOOL:command` 的 canonical 同步/落库完整性必须单列为历史模型与测试项；不能假设它们已经由 surface 临时显示自动解决。
+
+**不得再做：**不取消 A→B 时 active slot 的隔离清空；不把 desynced 标成 healthy；不把 IPC bounded snapshot 直接写成完整 canonical history；不把 binding 回执作为硬清空信号；不把每次回选改成 full history 读取；不在没有 identity/source 证据时修改 merge 或提高 payload 上限。
+
+### 26.8 后续实施顺序与验收口径
+
+1. 保持本节的 writer identity 观测，在 P0-C 前先确认完成态是否存在非 operation 的真实 message identity 移除。
+2. 实施 P0-C 的 terminal/stable live-tail durable reconciliation：canonical source → Gateway bounded tail → generation-fenced Android merge → atomic SQLite；该步骤必须独立测试 source freshness、失败保留和 A→B→A 迟到拒绝。
+3. 将 `completeServerSnapshotCache` 收敛为“可跳过昂贵 full recovery”，不得跳过 bounded tail validation；必要时再处理 Gateway snapshot freshness。
+4. 仅在证据证明 payload 截断造成尾部不可达时，才调整 192 KiB / surface tail / 分段策略；不能先把截断假定为根因。
+5. 对 P0-C 的真机验收：完成 A 并确认末尾 N；切 B 再回 A；应无需等待 fresh healthy 才显示 N，且关闭/重启/暂时 IPC 不可用后 SQLite cache 仍有 N。通过前不得声称“完成后正文丢失已修复”。
+
+### 26.9 源码与证据索引
+
+- Android selection 清空：`android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt` 的 `applyCachedHistorySelection`。
+- Android desynced 临时投影：同文件的 `applyDesktopSurfaceSnapshotToUiState`；合并边界见 `mergeCachedHistoryIntoLiveMessagesForUi` 与 `mergeCanonicalMessagesForUi`。
+- Gateway cached provisional 投影：`src/ws/terminalGateway.js` 的 `_handleSetActiveConversation`、Android mobile projection adapter 与 `publishProvisional`。
+- Gateway 回归：`tests/terminalGateway.codexIpc.test.js` 中上述两条 Android cached desynced 测试。
+- 运行记录：`docs/workflow/CURRENT_TASK.md` 的 2026-08-12 writer trace、desynced reducer、Gateway 投影可达性三步记录。
+- 原始采集目录：`output/diagnostics/20260812-032735`、`output/diagnostics/20260812-134632`、`output/diagnostics/20260812-142119`；应优先读取其中 Android `termlink-diagnostics.jsonl` 的 writer trace 与对应 server timeline，而不是仅凭 UI 观感重建时序。
+
+### 26.10 聊天纠正、授权与范围账本
+
+| 用户明确表达 | 对后续工作的约束 |
+| --- | --- |
+| “不应该每次切回来都重新取完整历史。” | 不得把 canonical full read 作为 A→B→A 的常规修复；优先 cache/live continuity 与 bounded tail validation。 |
+| “记录到 10 的延迟”和“完成后信息丢失”是两件事。 | 任何结论、测试和提交必须分别标注 display continuity 与 durable-tail persistence，不能用前者通过掩盖后者。 |
+| “我从来没报过 B 正文。” | 不得在问题描述、复现结论或交付摘要中声称发生过 B→A 串入；A/B fence 只作为安全回归。 |
+| 用户在分析阶段问“疑问？”并指出未授权修改。 | 仅提问、审查、解释或诊断不授权写代码；只有明确的“开始/执行/实施”才进入对应最小步骤。 |
+| 先建立 `WIP/known-broken` checkpoint，再补 writer 观测。 | 诊断代码应先保持 behavior-neutral，并将待提交代码的错误状态与正式修复隔离。 |
+| 用户授权了 desynced surface 的第二步，并在 Android-only 修复未生效后继续授权投影可达性修复。 | 当前只闭环 display-only provisional 路径；不得借机实施 P0-C、直接落库 IPC、修改工具记录或重构 frozen IPC flow。 |
+| 用户指出用户消息消失、`TOOL:command` 也应从后端记录，但要求“不要在现在处理”。 | 该项保留为后续 canonical history 范围，不纳入本次修复完成声明。 |
+
+后续新聊天、任务交接或上下文压缩后，应先读取本节、`docs/workflow/CURRENT_TASK.md` 和相应 diagnostics，再作根因或修复声明；若新日志与本节冲突，以可定位的新日志修订本节，并保留被推翻结论的原因。
