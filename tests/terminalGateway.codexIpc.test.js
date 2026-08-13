@@ -110,6 +110,8 @@ class FakeIpcFeed extends EventEmitter {
         this._replayOnFollow = opts.replayOnFollow !== undefined ? opts.replayOnFollow : true;
         this.followCalls = [];
         this.unfollowCalls = [];
+        this.retentionCalls = [];
+        this.releaseRetentionCalls = [];
         this.broadcastCalls = [];
         this.requestHandlers = new Map();
     }
@@ -156,6 +158,11 @@ class FakeIpcFeed extends EventEmitter {
         return true;
     }
     unfollowConversation(conversationId, hostId) { this.unfollowCalls.push({ conversationId, hostId }); return true; }
+    retainConversation(conversationId, hostId) { this.retentionCalls.push({ conversationId, hostId }); return true; }
+    releaseRetainedConversation(conversationId, hostId) {
+        this.releaseRetentionCalls.push({ conversationId, hostId });
+        return true;
+    }
     sendBroadcast(method, params, options) {
         this.broadcastCalls.push({ method, params, ...(options === undefined ? {} : { options }) });
         return true;
@@ -5157,6 +5164,62 @@ test('active conversation lifecycle avoids duplicate follow and switches A to B 
         { conversationId: 'conv-a', hostId: 'local' },
         { conversationId: 'conv-b', hostId: 'local' }
     ]);
+    await stopGateway(g);
+});
+
+test('server retention keeps a running conversation followed after App leaves and releases on healthy terminal', async () => {
+    const g = await setupGateway();
+    const sess = await g.sm.createSession({ name: 'retention' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    await delay(100);
+
+    g.ipcFeed.pushSnapshot('conv-retained-running', {
+        conversationId: 'conv-retained-running',
+        status: 'running',
+        items: [{ key: 'running-1', kind: 'message', text: 'still running' }]
+    });
+
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-retained-running' }));
+    await delay(30);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-other' }));
+    await delay(30);
+
+    assert.deepEqual(g.ipcFeed.retentionCalls, [
+        { conversationId: 'conv-retained-running', hostId: 'local' }
+    ]);
+    assert.equal(
+        g.ipcFeed.releaseRetentionCalls.some((entry) => entry.conversationId === 'conv-retained-running'),
+        false,
+        'leaving the App must not release a running conversation'
+    );
+
+    g.ipcFeed.pushSnapshot('conv-retained-running', {
+        conversationId: 'conv-retained-running',
+        status: 'running',
+        items: [{ key: 'running-2', kind: 'message', text: 'received while App viewed B' }]
+    });
+    await delay(20);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-retained-running' }));
+    await delay(50);
+    const replayed = messages.filter((message) => (
+        message.type === 'conversation_surface_snapshot' &&
+        message.conversationId === 'conv-retained-running'
+    )).at(-1);
+    assert.equal(replayed?.snapshot?.items?.[0]?.text, 'received while App viewed B');
+
+    g.ipcFeed.pushSnapshot('conv-retained-running', {
+        conversationId: 'conv-retained-running',
+        status: 'completed',
+        items: []
+    });
+    await delay(30);
+    assert.deepEqual(
+        g.ipcFeed.releaseRetentionCalls.filter((entry) => entry.conversationId === 'conv-retained-running'),
+        [{ conversationId: 'conv-retained-running', hostId: 'local' }]
+    );
+
+    await new Promise((resolve) => { ws.once('close', resolve); ws.close(); });
+    await delay(20);
     await stopGateway(g);
 });
 

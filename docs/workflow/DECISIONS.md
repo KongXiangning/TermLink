@@ -92,6 +92,8 @@ history 请求在使用 `complete` checkpoint 前必须核对本地 durable item
 在能力位尚未到达时仍允许显式 metadata refresh，仅明确声明不支持时跳过。该决定只影响 cache/history adapter 和用户
 可见状态，不提升 cache 为实时权威、不改变 IPC/feed/Owner/Goal/远端任务语义。
 
+变更说明（2026-08-14，服务端 retention 与 App follower 解耦）：用户授权路线图第 2 步，确认“App 当前是否打开 A”和“服务端是否继续跟踪仍在运行的 A”是两个不同生命周期。实现采用 additive server-retention 引用：App A→B、WebSocket close 或短暂离线只释放该 App follower；只要 conversation 尚未收到健康终态，Gateway 继续通过 `CodexIpcFeed` 保持该 conversation + host 的 desired following，并复用既有 IPC reconnect replay。只有 App follower 与 retention 引用同时归零才发送 `following=false`；健康 `completed/failed/interrupted/cancelled` surface 到达后释放 retention，feed 的最新 snapshot cache 保留。该决策不授权 Android、wire、SQLite、history/replay、P0-C、TTL/大小淘汰或重启策略改动；没有 App subscriber 时服务端仍不得把 retained surface 推送给 Android 或提升为第二实时权威。后续不得静默把 retention 改成全量任务订阅、定时轮询或跨会话回放。
+
 变更说明（2026-08-07，P0-B tail-first range 分段实施与回滚）：用户在 P0-A 真机初步通过后授权进入 P0-B，并确认按
 `B.0 范围/回滚 → B.1 Android v4 存储 → B.2 最新尾部垂直切片 → B.3 单页 older → B.4 live 优先调度后自动回填 →
 B.5 滚动 UI → B.6 联合启用` 分段实施。P0-B 只扩展静态历史范围：healthy IPC 存在时可把不与 live tail 冲突的更旧

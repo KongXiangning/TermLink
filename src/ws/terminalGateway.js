@@ -462,6 +462,12 @@ function isTerminalSurface(surface) {
     return ['completed', 'failed', 'interrupted', 'cancelled', 'canceled'].includes(status);
 }
 
+function isServerRetentionTerminalSurface(surface) {
+    if (!surface || typeof surface !== 'object' || surface.desynced === true) return false;
+    const status = typeof surface.status === 'string' ? surface.status.trim().toLowerCase() : '';
+    return ['completed', 'complete', 'failed', 'interrupted', 'cancelled', 'canceled'].includes(status);
+}
+
 function getSessionById(sessionManager, sessionId) {
     if (!sessionManager || !sessionManager.sessions || typeof sessionManager.sessions.get !== 'function') {
         return null;
@@ -1213,6 +1219,8 @@ function registerTerminalGateway(wss, {
     // ── IPC feed integration ──────────────────────────────────────────────
     /** @type {Map<import('ws').WebSocket, string>} */
     const _ipcActiveConversations = new Map();
+    /** @type {Set<string>} */
+    const _ipcRetainedConversations = new Set();
     const _ipcSelectionGenerations = new WeakMap();
     // Android keeps a monotonic selection generation for local A/B
     // isolation.  It is intentionally independent from the Gateway's own
@@ -2214,6 +2222,52 @@ function registerTerminalGateway(wss, {
         ipcFeed.unfollowConversation(conversationId, 'local');
     };
 
+    const _retainIpcConversation = (conversationId) => {
+        if (!isNonEmptyString(conversationId)) return false;
+        const normalizedConversationId = conversationId.trim();
+        if (_ipcRetainedConversations.has(normalizedConversationId)) return true;
+        if (typeof ipcFeed?.retainConversation !== 'function') {
+            diagnosticLog.event('server', 'server.ipc.retention.unsupported', {
+                conversationKey: diagnosticKey(normalizedConversationId),
+                reason: 'feed-retention-api-missing'
+            }, 'warn');
+            return false;
+        }
+        const retained = ipcFeed.retainConversation(normalizedConversationId, 'local');
+        if (retained === false) return false;
+        _ipcRetainedConversations.add(normalizedConversationId);
+        diagnosticLog.event('server', 'server.ipc.retention.started', {
+            conversationKey: diagnosticKey(normalizedConversationId)
+        }, 'info');
+        return true;
+    };
+
+    const _releaseIpcConversationRetention = (conversationId, reason) => {
+        if (!isNonEmptyString(conversationId)) return false;
+        const normalizedConversationId = conversationId.trim();
+        if (!_ipcRetainedConversations.has(normalizedConversationId)) return false;
+        try {
+            if (typeof ipcFeed?.releaseRetainedConversation === 'function') {
+                ipcFeed.releaseRetainedConversation(normalizedConversationId, 'local');
+            }
+        } finally {
+            _ipcRetainedConversations.delete(normalizedConversationId);
+        }
+        if (_activeIpcSubscriberCount(normalizedConversationId) === 0) {
+            _closeIpcSubscriptionCycle(normalizedConversationId, 'retention-terminal');
+        }
+        diagnosticLog.event('server', 'server.ipc.retention.released', {
+            conversationKey: diagnosticKey(normalizedConversationId),
+            reason: isNonEmptyString(reason) ? reason.trim() : 'unknown'
+        }, 'info');
+        return true;
+    };
+
+    const _isIpcConversationRetained = (conversationId) => {
+        if (!isNonEmptyString(conversationId)) return false;
+        return _ipcRetainedConversations.has(conversationId.trim());
+    };
+
     const _activeIpcSubscriberCount = (conversationId) => {
         let count = 0;
         for (const activeConversationId of _ipcActiveConversations.values()) {
@@ -2303,7 +2357,9 @@ function registerTerminalGateway(wss, {
         _unfollowIpcConversation(conversationId);
         if (_activeIpcSubscriberCount(conversationId) === 0) {
             _disposeSurfaceBaselineQueue(conversationId);
-            _closeIpcSubscriptionCycle(conversationId, 'last-subscriber-left');
+            if (!_isIpcConversationRetained(conversationId)) {
+                _closeIpcSubscriptionCycle(conversationId, 'last-subscriber-left');
+            }
         }
     };
 
@@ -2346,7 +2402,11 @@ function registerTerminalGateway(wss, {
         if (!isNonEmptyString(conversationId) || !surface || typeof surface !== 'object') return false;
         const normalizedConversationId = conversationId.trim();
         const cycle = _ipcConversationSubscriptionCycles.get(normalizedConversationId);
-        if (!cycle || _activeIpcSubscriberCount(normalizedConversationId) === 0) return false;
+        if (
+            !cycle ||
+            (_activeIpcSubscriberCount(normalizedConversationId) === 0 &&
+                !_isIpcConversationRetained(normalizedConversationId))
+        ) return false;
         if (surface.desynced === true) {
             cycle.surface = null;
             cycle.receivedAt = null;
@@ -2942,6 +3002,18 @@ function registerTerminalGateway(wss, {
         });
 
         ipcFeed.on('snapshot', ({ conversationId, surface }) => {
+            if (isServerRetentionTerminalSurface(surface)) {
+                _releaseIpcConversationRetention(conversationId, 'healthy-terminal-surface');
+            } else if (
+                (_activeIpcSubscriberCount(conversationId) > 0 || _isIpcConversationRetained(conversationId))
+            ) {
+                // A retained conversation may continue to receive live or
+                // desynced snapshots after the last App follower has left.
+                // Keep the retention reference while it is non-terminal;
+                // this is idempotent and does not create another host
+                // following announcement.
+                _retainIpcConversation(conversationId);
+            }
             _registerSurfaceBaseline(conversationId, surface, 'ipc_surface');
             const currentCycleSurface = _recordCurrentCycleIpcSnapshot(conversationId, surface);
             console.warn('[gateway][ipc][snapshot-push]', JSON.stringify({
@@ -3172,7 +3244,9 @@ function registerTerminalGateway(wss, {
                 snapshotScheduler.cancel(ws, previousActiveConversationId);
                 _unfollowIpcConversation(previousActiveConversationId);
                 if (_activeIpcSubscriberCount(previousActiveConversationId) === 0) {
-                    _closeIpcSubscriptionCycle(previousActiveConversationId, 'conversation-changed');
+                    if (!_isIpcConversationRetained(previousActiveConversationId)) {
+                        _closeIpcSubscriptionCycle(previousActiveConversationId, 'conversation-changed');
+                    }
                 }
             }
             const enteringExistingSharedCycle = _activeIpcSubscriberCount(normalizedConversationId) > 0;
@@ -3212,6 +3286,13 @@ function registerTerminalGateway(wss, {
                 );
             }
             _beginHistorySelectionCycle(ws, normalizedConversationId, nextSelectionGeneration);
+            const latestSurface = _getLatestIpcSnapshot(normalizedConversationId);
+            if (
+                latestSurface &&
+                !isServerRetentionTerminalSurface(latestSurface)
+            ) {
+                _retainIpcConversation(normalizedConversationId);
+            }
             _followIpcConversation(normalizedConversationId);
             if (codexService && typeof codexService.ensureStarted === 'function') {
                 void codexService.ensureStarted().catch((error) => {
@@ -8194,6 +8275,9 @@ function registerTerminalGateway(wss, {
         for (const ws of Array.from(_ipcActiveConversations.keys())) {
             _releaseActiveIpcConversation(ws);
         }
+        for (const conversationId of Array.from(_ipcRetainedConversations)) {
+            _releaseIpcConversationRetention(conversationId, 'gateway-teardown');
+        }
         for (const conversationId of Array.from(_ipcConversationSubscriptionCycles.keys())) {
             _closeIpcSubscriptionCycle(conversationId, 'gateway-teardown');
         }
@@ -8206,6 +8290,7 @@ function registerTerminalGateway(wss, {
         }
         if (ipcFeed) { ipcFeed.removeAllListeners(); }
         _ipcFollowerModes.clear();
+        _ipcRetainedConversations.clear();
         _ipcConversationLastStatus.clear();
         _followerSendInFlight.clear();
         _authorityLedger.clear();

@@ -213,6 +213,54 @@ test('feed sends following only on first acquire and unfollows on final release'
     feed.stop();
 });
 
+test('feed keeps host following while App and server-retention references overlap', async () => {
+    enableIpc();
+    const client = new FakeClient();
+    const feed = new CodexIpcFeed({ client, reconnectDelayMs: 10 });
+    await startAndWaitOnline(feed);
+
+    assert.equal(feed.retainConversation('conv-retained'), true);
+    assert.equal(feed.followConversation('conv-retained'), true);
+    assert.deepEqual(client.broadcasts, [{
+        method: 'thread-stream-following-changed',
+        params: { conversationId: 'conv-retained', hostId: 'local', following: true }
+    }]);
+    const retainedState = feed.getFollowingState('conv-retained');
+    assert.equal(retainedState?.refCount, 2);
+    assert.equal(retainedState?.followerRefCount, 1);
+    assert.equal(retainedState?.retentionRefCount, 1);
+    assert.equal(retainedState?.desiredGeneration, 1);
+
+    assert.equal(feed.unfollowConversation('conv-retained'), true);
+    assert.equal(client.broadcasts.length, 1, 'server retention keeps host following active');
+    assert.equal(feed.releaseRetainedConversation('conv-retained'), true);
+    assert.deepEqual(client.broadcasts[1], {
+        method: 'thread-stream-following-changed',
+        params: { conversationId: 'conv-retained', hostId: 'local', following: false }
+    });
+    assert.equal(feed.getFollowingState('conv-retained'), null);
+    feed.stop();
+});
+
+test('feed replays a server-retained conversation after IPC reconnect', async () => {
+    enableIpc();
+    const client = new FakeClient({ clientId: 'termlink-retention' });
+    const feed = new CodexIpcFeed({ client, reconnectDelayMs: 10 });
+    await startAndWaitOnline(feed);
+    feed.retainConversation('conv-retention-reconnect');
+
+    client.close();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    assert.ok(client.connectCount >= 2);
+    assert.deepEqual(client.broadcasts[1], {
+        method: 'thread-stream-following-changed',
+        params: { conversationId: 'conv-retention-reconnect', hostId: 'local', following: true }
+    });
+    feed.releaseRetainedConversation('conv-retention-reconnect');
+    feed.stop();
+});
+
 test('feed exposes initial and reconnect announcement generations without changing desired ref-count', async () => {
     enableIpc();
     const client = new FakeClient({ clientId: 'termlink-client' });

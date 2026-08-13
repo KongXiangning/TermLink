@@ -43,7 +43,7 @@ class CodexIpcFeed extends EventEmitter {
         this._diagnosticSurfaceSignatures = new Map();
         this._sequence = 0;
         this._rawSequence = 0;
-        /** @type {Map<string, {conversationId: string, hostId: string, refCount: number}>} */
+        /** @type {Map<string, {conversationId: string, hostId: string, refCount: number, followerRefCount: number, retentionRefCount: number}>} */
         this._desiredFollowing = new Map();
         /** @type {Set<{method: string, canHandle: Function, handle: Function, disposeClient: Function|null}>} */
         this._requestHandlerRegistrations = new Set();
@@ -278,6 +278,7 @@ class CodexIpcFeed extends EventEmitter {
         const current = this._desiredFollowing.get(subscription.key);
         if (current) {
             current.refCount += 1;
+            current.followerRefCount += 1;
             return true;
         }
         const desiredGeneration = ++this._desiredFollowingGeneration;
@@ -286,6 +287,8 @@ class CodexIpcFeed extends EventEmitter {
             conversationId: subscription.conversationId,
             hostId: subscription.hostId,
             refCount: 1,
+            followerRefCount: 1,
+            retentionRefCount: 0,
             desiredGeneration,
             announcement: createFollowingAnnouncement(desiredGeneration)
         };
@@ -305,18 +308,71 @@ class CodexIpcFeed extends EventEmitter {
         if (!subscription) return false;
         const current = this._desiredFollowing.get(subscription.key);
         if (!current) return false;
-        if (current.refCount > 1) {
-            current.refCount -= 1;
+        if (current.followerRefCount < 1) return false;
+        current.followerRefCount -= 1;
+        return this._releaseDesiredFollowingReference(subscription, current, 'release', 'server.ipc_feed.unfollow');
+    }
+
+    /**
+     * Retain a desired host subscription independently of any App/WebSocket
+     * follower.  This is intentionally a reference only: it does not expose
+     * a second authority or a new IPC protocol.  The existing desired
+     * subscription remains active until both reference classes are released.
+     * @param {string} conversationId
+     * @param {string} [hostId]
+     * @returns {boolean}
+     */
+    retainConversation(conversationId, hostId = 'local') {
+        const subscription = normalizeFollowingSubscription(conversationId, hostId);
+        if (!subscription) return false;
+        const current = this._desiredFollowing.get(subscription.key);
+        if (current) {
+            current.refCount += 1;
+            current.retentionRefCount += 1;
             return true;
         }
-        this._desiredFollowing.delete(subscription.key);
-        diagnosticLog.event('server', 'server.ipc_feed.unfollow', {
+        const desiredGeneration = ++this._desiredFollowingGeneration;
+        const desired = {
+            key: subscription.key,
+            conversationId: subscription.conversationId,
+            hostId: subscription.hostId,
+            refCount: 1,
+            followerRefCount: 0,
+            retentionRefCount: 1,
+            desiredGeneration,
+            announcement: createFollowingAnnouncement(desiredGeneration)
+        };
+        this._desiredFollowing.set(subscription.key, desired);
+        diagnosticLog.event('server', 'server.ipc_feed.retain', {
             conversationIdPresent: true,
             hostId: subscription.hostId,
-            desiredCount: this._desiredFollowing.size
+            desiredCount: this._desiredFollowing.size,
+            desiredGeneration: desired.desiredGeneration,
+            retentionRefCount: desired.retentionRefCount
         });
-        this._sendFollowingChanged(subscription, false, undefined, 'release');
+        this._sendFollowingChanged(subscription, true, undefined, 'retention');
         return true;
+    }
+
+    /**
+     * Release one server-retention reference.  A host-level following=false
+     * is emitted only after all App and retention references are gone.
+     * @param {string} conversationId
+     * @param {string} [hostId]
+     * @returns {boolean}
+     */
+    releaseRetainedConversation(conversationId, hostId = 'local') {
+        const subscription = normalizeFollowingSubscription(conversationId, hostId);
+        if (!subscription) return false;
+        const current = this._desiredFollowing.get(subscription.key);
+        if (!current || current.retentionRefCount < 1) return false;
+        current.retentionRefCount -= 1;
+        return this._releaseDesiredFollowingReference(
+            subscription,
+            current,
+            'retention-release',
+            'server.ipc_feed.release_retention'
+        );
     }
 
     /**
@@ -477,6 +533,22 @@ class CodexIpcFeed extends EventEmitter {
         }
         this.emit('event', event);
         this.emit('snapshot', { conversationId, surface, revision: projection.revision });
+    }
+
+    _releaseDesiredFollowingReference(subscription, current, source, eventName) {
+        if (current.refCount > 1) {
+            current.refCount -= 1;
+            return true;
+        }
+        this._desiredFollowing.delete(subscription.key);
+        diagnosticLog.event('server', eventName, {
+            conversationIdPresent: true,
+            hostId: subscription.hostId,
+            desiredCount: this._desiredFollowing.size,
+            source
+        });
+        this._sendFollowingChanged(subscription, false, undefined, source);
+        return true;
     }
 
     _onClientClose() {
@@ -938,6 +1010,8 @@ function cloneFollowingState(desired) {
         conversationId: desired.conversationId,
         hostId: desired.hostId,
         refCount: desired.refCount,
+        followerRefCount: desired.followerRefCount,
+        retentionRefCount: desired.retentionRefCount,
         desiredGeneration: desired.desiredGeneration,
         announcement: { ...desired.announcement }
     };
