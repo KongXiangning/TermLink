@@ -146,7 +146,8 @@ data class CodexHistoryCapability(
     val maxEnvelopeBytes: Int = 262144,
     val rangeSegments: CodexHistoryRangeCapability? = null,
     val serverSnapshotSegments: CodexHistorySnapshotSegmentsCapability? = null,
-    val tailValidation: CodexHistoryTailValidationCapability? = null
+    val tailValidation: CodexHistoryTailValidationCapability? = null,
+    val terminalReconcile: CodexHistoryTerminalReconcileCapability? = null
 ) {
     companion object {
         fun from(status: JSONObject?): CodexHistoryCapability? {
@@ -168,7 +169,10 @@ data class CodexHistoryCapability(
                 serverSnapshotSegments = CodexHistorySnapshotSegmentsCapability.from(
                     json.optJSONObject("serverSnapshotSegments")
                 ),
-                tailValidation = CodexHistoryTailValidationCapability.from(json.optJSONObject("tailValidation"))
+                tailValidation = CodexHistoryTailValidationCapability.from(json.optJSONObject("tailValidation")),
+                terminalReconcile = CodexHistoryTerminalReconcileCapability.from(
+                    json.optJSONObject("terminalReconcile")
+                )
             )
         }
     }
@@ -222,6 +226,26 @@ data class CodexHistoryTailValidationCapability(
         fun from(json: JSONObject?): CodexHistoryTailValidationCapability? {
             if (json == null) return null
             return CodexHistoryTailValidationCapability(
+                enabled = json.optBoolean("enabled", false),
+                version = json.optInt("version", 0)
+            )
+        }
+    }
+}
+
+/**
+ * P0-C capability for the completed-only durable lane. It is deliberately
+ * separate from tail validation: this lane may read legacy canonical history,
+ * but never becomes a realtime/UI authority.
+ */
+data class CodexHistoryTerminalReconcileCapability(
+    val enabled: Boolean,
+    val version: Int
+) {
+    companion object {
+        fun from(json: JSONObject?): CodexHistoryTerminalReconcileCapability? {
+            if (json == null) return null
+            return CodexHistoryTerminalReconcileCapability(
                 enabled = json.optBoolean("enabled", false),
                 version = json.optInt("version", 0)
             )
@@ -360,6 +384,34 @@ data class CodexHistoryTailValidationRequest(
     }
 }
 
+/**
+ * Completed-only P0-C request. The captured selection generation is a
+ * durable-cache fence, not a request to mutate that selection's UI state.
+ */
+data class CodexHistoryTerminalReconcileRequest(
+    val syncId: String,
+    val conversationId: String,
+    val checkpoint: CodexHistorySyncCheckpoint,
+    val selectionGeneration: Long,
+    val terminalEpoch: String,
+    val terminalReconcile: CodexHistoryTerminalReconcileCapability,
+    val cacheSchemaVersion: Int = 1
+) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("type", "conversation_history_terminal_reconcile_request")
+        put("syncId", syncId)
+        put("conversationId", conversationId)
+        put("checkpoint", checkpoint.toJson())
+        put("selectionGeneration", selectionGeneration.coerceAtLeast(0L))
+        put("terminalEpoch", terminalEpoch)
+        put("cacheSchemaVersion", cacheSchemaVersion.coerceIn(1, 3))
+        put("terminalReconcile", JSONObject().apply {
+            put("enabled", true)
+            put("version", terminalReconcile.version)
+        })
+    }
+}
+
 private fun CodexHistoryRangeCapability.isWireEnabled(): Boolean =
     enabled && version == 1 && cacheSchemaVersion >= 3
 
@@ -374,7 +426,9 @@ data class CodexHistoryManifestRequired(
     val conversationId: String,
     val pageSize: Int,
     val selectionGeneration: Long,
-    val clientSelectionGeneration: Long
+    val clientSelectionGeneration: Long,
+    val purpose: String = "history_sync",
+    val terminalEpoch: String? = null
 ) {
     companion object {
         fun from(json: JSONObject): CodexHistoryManifestRequired? {
@@ -385,7 +439,9 @@ data class CodexHistoryManifestRequired(
                 conversationId = conversationId,
                 pageSize = json.optInt("pageSize", 200).coerceIn(1, 2_000),
                 selectionGeneration = json.optLong("selectionGeneration", 0L),
-                clientSelectionGeneration = json.optLong("clientSelectionGeneration", 0L)
+                clientSelectionGeneration = json.optLong("clientSelectionGeneration", 0L),
+                purpose = json.optString("purpose", "history_sync"),
+                terminalEpoch = json.optStringOrNull("terminalEpoch")
             )
         }
     }
@@ -398,7 +454,8 @@ data class CodexHistorySyncStateMessage(
     val detailCode: String?,
     val selectionGeneration: Long,
     val clientSelectionGeneration: Long,
-    val purpose: String = "history_sync"
+    val purpose: String = "history_sync",
+    val terminalEpoch: String? = null
 ) {
     companion object {
         fun from(json: JSONObject): CodexHistorySyncStateMessage = CodexHistorySyncStateMessage(
@@ -408,13 +465,16 @@ data class CodexHistorySyncStateMessage(
             detailCode = json.optStringOrNull("detailCode"),
             selectionGeneration = json.optLong("selectionGeneration", 0L),
             clientSelectionGeneration = json.optLong("clientSelectionGeneration", 0L),
-            purpose = json.optString("purpose", "history_sync")
+            purpose = json.optString("purpose", "history_sync"),
+            terminalEpoch = json.optStringOrNull("terminalEpoch")
         )
     }
 }
 
 data class CodexHistoryDeltaWire(
-    val page: CodexHistoryDeltaPage
+    val page: CodexHistoryDeltaPage,
+    val purpose: String = "history_sync",
+    val terminalEpoch: String? = null
 ) {
     companion object {
         fun from(json: JSONObject): CodexHistoryDeltaWire? {
@@ -437,7 +497,11 @@ data class CodexHistoryDeltaWire(
                 range = parseRange(json.optJSONObject("range")),
                 selectionGeneration = json.optLong("clientSelectionGeneration", json.optLong("selectionGeneration", 0L))
             )
-            return CodexHistoryDeltaWire(page)
+            return CodexHistoryDeltaWire(
+                page = page,
+                purpose = json.optString("purpose", "history_sync"),
+                terminalEpoch = json.optStringOrNull("terminalEpoch")
+            )
         }
 
         private fun parseItems(array: JSONArray?): List<CodexHistoryItem> {
@@ -492,7 +556,9 @@ data class CodexHistoryDeltaWire(
 }
 
 data class CodexHistoryPayloadChunkWire(
-    val chunk: CodexHistoryPayloadChunk
+    val chunk: CodexHistoryPayloadChunk,
+    val purpose: String = "history_sync",
+    val terminalEpoch: String? = null
 ) {
     companion object {
         fun from(json: JSONObject): CodexHistoryPayloadChunkWire? {
@@ -502,21 +568,25 @@ data class CodexHistoryPayloadChunkWire(
             val payloadHash = json.optStringOrNull("payloadHash") ?: return null
             val data = json.optString("data", "")
             if (json.optInt("chunkCount", 0) <= 0) return null
-            return CodexHistoryPayloadChunkWire(CodexHistoryPayloadChunk(
-                syncId = syncId,
-                conversationId = conversationId,
-                sequence = json.optInt("sequence", 0),
-                pageIndex = json.optInt("pageIndex", 0),
-                targetRoot = json.optString("targetRoot", ""),
-                baselineComplete = json.optBoolean("baselineComplete", false),
-                itemKey = itemKey,
-                chunkIndex = json.optInt("chunkIndex", -1),
-                chunkCount = json.optInt("chunkCount", 0),
-                payloadHash = payloadHash,
-                payloadBytes = json.optInt("payloadBytes", -1),
-                data = data,
-                selectionGeneration = json.optLong("clientSelectionGeneration", json.optLong("selectionGeneration", 0L))
-            ))
+            return CodexHistoryPayloadChunkWire(
+                chunk = CodexHistoryPayloadChunk(
+                    syncId = syncId,
+                    conversationId = conversationId,
+                    sequence = json.optInt("sequence", 0),
+                    pageIndex = json.optInt("pageIndex", 0),
+                    targetRoot = json.optString("targetRoot", ""),
+                    baselineComplete = json.optBoolean("baselineComplete", false),
+                    itemKey = itemKey,
+                    chunkIndex = json.optInt("chunkIndex", -1),
+                    chunkCount = json.optInt("chunkCount", 0),
+                    payloadHash = payloadHash,
+                    payloadBytes = json.optInt("payloadBytes", -1),
+                    data = data,
+                    selectionGeneration = json.optLong("clientSelectionGeneration", json.optLong("selectionGeneration", 0L))
+                ),
+                purpose = json.optString("purpose", "history_sync"),
+                terminalEpoch = json.optStringOrNull("terminalEpoch")
+            )
         }
     }
 }
@@ -1354,6 +1424,9 @@ object CodexClientMessages {
     fun historyTailValidationRequest(request: CodexHistoryTailValidationRequest): String =
         request.toJson().toString()
 
+    fun historyTerminalReconcileRequest(request: CodexHistoryTerminalReconcileRequest): String =
+        request.toJson().toString()
+
     fun historyOlderRequest(
         syncId: String,
         conversationId: String,
@@ -1400,26 +1473,41 @@ object CodexClientMessages {
         pageIndex: Int,
         lastPage: Boolean,
         items: JSONArray,
-        selectionGeneration: Long = 0L
-    ): String = JSONObject()
-        .put("type", "conversation_history_manifest_page")
-        .put("syncId", syncId)
-        .put("conversationId", conversationId)
-        .put("pageIndex", pageIndex)
-        .put("lastPage", lastPage)
-        .put("clientSelectionGeneration", selectionGeneration.coerceAtLeast(0L))
-        .put("items", items)
-        .toString()
+        selectionGeneration: Long = 0L,
+        purpose: String? = null,
+        terminalEpoch: String? = null
+    ): String = JSONObject().apply {
+        put("type", "conversation_history_manifest_page")
+        put("syncId", syncId)
+        put("conversationId", conversationId)
+        put("pageIndex", pageIndex)
+        put("lastPage", lastPage)
+        put("clientSelectionGeneration", selectionGeneration.coerceAtLeast(0L))
+        put("items", items)
+        purpose?.trim()?.takeIf { it.isNotEmpty() }?.let { put("purpose", it) }
+        terminalEpoch?.trim()?.takeIf { it.isNotEmpty() }?.let { put("terminalEpoch", it) }
+    }.toString()
 
-    fun historySyncAck(syncId: String, conversationId: String, targetRoot: String, sequence: Int, pageIndex: Int = -1, selectionGeneration: Long = 0L): String = JSONObject()
-        .put("type", "conversation_history_sync_ack")
-        .put("syncId", syncId)
-        .put("conversationId", conversationId)
-        .put("targetRoot", targetRoot)
-        .put("sequence", sequence)
-        .put("pageIndex", pageIndex)
-        .put("clientSelectionGeneration", selectionGeneration.coerceAtLeast(0L))
-        .toString()
+    fun historySyncAck(
+        syncId: String,
+        conversationId: String,
+        targetRoot: String,
+        sequence: Int,
+        pageIndex: Int = -1,
+        selectionGeneration: Long = 0L,
+        purpose: String? = null,
+        terminalEpoch: String? = null
+    ): String = JSONObject().apply {
+        put("type", "conversation_history_sync_ack")
+        put("syncId", syncId)
+        put("conversationId", conversationId)
+        put("targetRoot", targetRoot)
+        put("sequence", sequence)
+        put("pageIndex", pageIndex)
+        put("clientSelectionGeneration", selectionGeneration.coerceAtLeast(0L))
+        purpose?.trim()?.takeIf { it.isNotEmpty() }?.let { put("purpose", it) }
+        terminalEpoch?.trim()?.takeIf { it.isNotEmpty() }?.let { put("terminalEpoch", it) }
+    }.toString()
 
     fun historySegmentAck(
         syncId: String,

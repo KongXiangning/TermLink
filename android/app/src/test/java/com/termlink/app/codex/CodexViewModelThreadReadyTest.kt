@@ -452,6 +452,68 @@ class CodexViewModelThreadReadyTest {
     }
 
     @Test
+    fun completeLocalCacheDefersStaleOrdinaryHistoryLaneUntilTerminalSurfaceIsKnown() {
+        val completeCache = CodexHistoryCacheUiState(
+            conversationId = "conv-a",
+            generation = 4L,
+            loadState = CodexHistoryCacheLoadState.READY,
+            complete = true,
+            itemCount = 796
+        )
+
+        assertTrue(
+            shouldDeferOrdinaryHistorySyncForCompleteLocalCache(
+                cacheState = completeCache,
+                activeConversationId = "conv-a",
+                conversationId = "conv-a",
+                selectionGeneration = 4L,
+                surfaceStatus = null,
+                surfaceDesynced = false
+            )
+        )
+        assertTrue(
+            shouldDeferOrdinaryHistorySyncForCompleteLocalCache(
+                cacheState = completeCache,
+                activeConversationId = "conv-a",
+                conversationId = "conv-a",
+                selectionGeneration = 4L,
+                surfaceStatus = "completed",
+                surfaceDesynced = false
+            )
+        )
+        assertFalse(
+            shouldDeferOrdinaryHistorySyncForCompleteLocalCache(
+                cacheState = completeCache,
+                activeConversationId = "conv-a",
+                conversationId = "conv-a",
+                selectionGeneration = 4L,
+                surfaceStatus = "running",
+                surfaceDesynced = false
+            )
+        )
+        assertFalse(
+            shouldDeferOrdinaryHistorySyncForCompleteLocalCache(
+                cacheState = completeCache.copy(generation = 3L),
+                activeConversationId = "conv-a",
+                conversationId = "conv-a",
+                selectionGeneration = 4L,
+                surfaceStatus = null,
+                surfaceDesynced = false
+            )
+        )
+        assertFalse(
+            shouldDeferOrdinaryHistorySyncForCompleteLocalCache(
+                cacheState = completeCache.copy(complete = false),
+                activeConversationId = "conv-a",
+                conversationId = "conv-a",
+                selectionGeneration = 4L,
+                surfaceStatus = null,
+                surfaceDesynced = false
+            )
+        )
+    }
+
+    @Test
     fun historySyncRequestIsSuppressedAfterTerminalAckForTheSameSelection() {
         assertTrue(
             shouldRequestHistorySyncForSelection(
@@ -561,6 +623,43 @@ class CodexViewModelThreadReadyTest {
             CanonicalTailValidationOutcome.FAILED,
             canonicalTailValidationOutcomeFromWire("unexpected")
         )
+    }
+
+    @Test
+    fun terminalReconcileUsesOnlyHealthyStableCompletedEpochsAndHasItsOwnPurpose() {
+        val completed = DesktopSurfaceSnapshot(
+            conversationId = "conv-a",
+            ownerKind = "ipc",
+            revision = 42,
+            status = "completed",
+            updatedAt = 1234L,
+            title = null,
+            cwd = null,
+            latestTurnId = "turn-a",
+            items = emptyList(),
+            pendingApproval = null,
+            pendingPlanAction = null,
+            pendingUserInputAction = null,
+            pendingGoalAction = null,
+            activeGoal = null,
+            raw = JSONObject(),
+            desynced = false,
+            sourceEpoch = "source-a"
+        )
+        assertEquals("source-a#turn-a", terminalReconcileEpoch(completed.sourceEpoch, completed.latestTurnId))
+        assertEquals(
+            terminalReconcileEpoch(completed.sourceEpoch, completed.latestTurnId),
+            terminalReconcileEpoch(completed.copy(revision = 43).sourceEpoch, completed.copy(revision = 43).latestTurnId)
+        )
+        assertTrue(isEligibleCompletedTerminalSurface(completed, currentTurnId = null))
+        assertFalse(isEligibleCompletedTerminalSurface(completed, currentTurnId = "turn-a"))
+        assertNull(resolveSurfaceCurrentTurnId("complete", "turn-a", "turn-a"))
+        assertFalse(isEligibleCompletedTerminalSurface(completed.copy(desynced = true), null))
+        assertFalse(isEligibleCompletedTerminalSurface(completed.copy(status = "failed"), null))
+        assertNull(terminalReconcileEpoch(null, completed.latestTurnId))
+        assertNull(terminalReconcileEpoch(completed.sourceEpoch, null))
+        assertTrue(isTerminalReconcileSyncPurpose("terminal_reconcile"))
+        assertFalse(isTerminalReconcileSyncPurpose("history_sync"))
     }
 
     @Test
@@ -3311,6 +3410,75 @@ class CodexViewModelThreadReadyTest {
         assertEquals("assistant-final", merged[1].id)
         assertTrue(merged.first().content.contains("实时命令一"))
         assertTrue(merged.first().content.contains("实时命令二"))
+    }
+
+    @Test
+    fun cacheHydrationPreservesDisplayedIdentitiesFromMatchingTruncatedHealthySurface() {
+        val conversationId = "conv-truncated-healthy-hydrate"
+        val turnId = "turn-truncated-healthy-hydrate"
+        val operationIds = listOf("cmd-1", "cmd-2", "cmd-3")
+            .map { "$turnId:operation:command:$it" }
+        val surfaceItems = operationIds.mapIndexed { index, operationId ->
+            surfaceCommandOperation(
+                id = operationId,
+                turnId = turnId,
+                status = "completed",
+                detail = "已显示命令 ${index + 1}"
+            )
+        } + SurfaceEntry(
+            key = "assistant-final",
+            kind = "message",
+            role = "assistant",
+            phase = "final_answer",
+            text = "最终回复",
+            turnId = turnId,
+            itemId = "assistant-final",
+            statusType = null,
+            approvalType = null,
+            requestId = null,
+            raw = null
+        )
+        val displayedMessages = operationIds.mapIndexed { index, operationId ->
+            commandOperationMessage(
+                id = operationId,
+                turnId = turnId,
+                status = "completed",
+                content = "已显示命令 ${index + 1}"
+            )
+        } + ChatMessage(
+            id = "assistant-final",
+            role = ChatMessage.Role.ASSISTANT,
+            content = "最终回复"
+        )
+        val state = CodexUiState(
+            activeConversationId = conversationId,
+            threadId = conversationId,
+            liveAuthoritativeConversationId = conversationId,
+            ipcSurfaceSnapshot = surfaceSnapshot(conversationId).copy(
+                status = "completed",
+                latestTurnId = turnId,
+                desynced = false,
+                items = surfaceItems,
+                itemsTruncated = true
+            ),
+            messages = displayedMessages
+        )
+
+        val hydrated = mergeCachedHistoryIntoLiveMessagesForUi(
+            state = state,
+            conversationId = conversationId,
+            cachedMessages = listOf(
+                ChatMessage(
+                    id = "assistant-final",
+                    role = ChatMessage.Role.ASSISTANT,
+                    content = "缓存中的最终回复"
+                )
+            )
+        )
+
+        assertEquals(displayedMessages.map { it.id }, hydrated.map { it.id })
+        assertEquals(hydrated.map { it.id }.distinct().size, hydrated.size)
+        assertEquals(operationIds.toSet(), hydrated.take(operationIds.size).map { it.id }.toSet())
     }
 
     @Test

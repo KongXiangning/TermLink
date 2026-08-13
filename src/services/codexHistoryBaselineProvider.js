@@ -247,7 +247,14 @@ class CodexHistoryBaselineProvider {
             throw error;
         }
         const onPage = typeof options.onPage === 'function' ? options.onPage : null;
-        const probe = await this._probe(normalizedConversationId, options);
+        // A completed-only Gateway lane may carry a metadata observation that
+        // was already identity-scoped to this conversation. Reuse it to avoid
+        // an otherwise redundant metadata read; the eventual full response is
+        // still independently identity/mode checked below.
+        const knownProbe = options.knownProbe && typeof options.knownProbe === 'object'
+            ? options.knownProbe
+            : null;
+        const probe = knownProbe || await this._probe(normalizedConversationId, options);
         const probeDurationMs = elapsedMilliseconds(buildStartedAt, this.now());
         assertExactThreadIdentity(normalizedConversationId, extractResponseIdentity(probe.thread), 'probe');
         const requestedMode = normalizeHistoryMode(options.historyMode);

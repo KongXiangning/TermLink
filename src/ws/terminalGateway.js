@@ -60,6 +60,25 @@ function isNonEmptyString(value) {
     return typeof value === 'string' && value.trim().length > 0;
 }
 
+function buildTerminalReconcileEpoch(surface) {
+    if (!surface || typeof surface !== 'object' || surface.desynced === true) return null;
+    const sourceEpoch = isNonEmptyString(surface.sourceEpoch) ? surface.sourceEpoch.trim() : null;
+    const latestTurnId = isNonEmptyString(surface.latestTurnId) ? surface.latestTurnId.trim() : null;
+    if (!sourceEpoch || !latestTurnId) return null;
+    // IPC revision changes on replay and on every surface update. It is a
+    // delivery fence, not a new completed canonical turn. The durable lane
+    // is keyed by the stable source epoch + terminal turn identity.
+    return `${sourceEpoch}#${latestTurnId}`;
+}
+
+function isHealthyCompletedTerminalSurface(surface, terminalEpoch = null) {
+    if (!surface || surface.desynced === true) return false;
+    const status = typeof surface.status === 'string' ? surface.status.trim().toLowerCase() : '';
+    if (status !== 'completed' && status !== 'complete') return false;
+    const observedEpoch = buildTerminalReconcileEpoch(surface);
+    return observedEpoch !== null && (terminalEpoch === null || observedEpoch === terminalEpoch);
+}
+
 function withHistoryRecoveryTimeout(promise, timeoutMs = HISTORY_RECOVERY_TIMEOUT_MS) {
     let timer = null;
     return new Promise((resolve, reject) => {
@@ -116,6 +135,15 @@ function normalizeHistorySnapshotSegmentsCapability(value, serverEnabled = false
 }
 
 function normalizeHistoryTailValidationCapability(value, serverEnabled = false) {
+    const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    const version = Number.isSafeInteger(source.version) ? source.version : 0;
+    return {
+        enabled: serverEnabled && source.enabled === true && version === 1,
+        version
+    };
+}
+
+function normalizeHistoryTerminalReconcileCapability(value, serverEnabled = false) {
     const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
     const version = Number.isSafeInteger(source.version) ? source.version : 0;
     return {
@@ -1164,6 +1192,9 @@ function registerTerminalGateway(wss, {
     // Step 3 is a read-only diagnostic protocol. It is separately advertised
     // so an old Android client never sends the additive validation request.
     historyTailValidationEnabled = true,
+    // P0-C is a completed-only durable lane for legacy conversations. It is
+    // independently negotiated and never runs as part of A→B selection.
+    historyTerminalReconcileEnabled = true,
     historySnapshotStore = null
 }) {
     const isElevated = privilegeConfig && privilegeConfig.isElevated;
@@ -1208,6 +1239,18 @@ function registerTerminalGateway(wss, {
     const _ipcTailValidationMetadata = new WeakMap();
     /** @type {WeakMap<import('ws').WebSocket, { syncId: string | null, conversationId: string, selectionGeneration: number }>} */
     const _ipcTailValidationRequests = new WeakMap();
+    /**
+     * Metadata is retained per observed selection only for the completed
+     * durable exception. Unlike Step 3's current-selection probe, P0-C may
+     * finish A after the user has selected B, so replacing this record on B
+     * must not erase A's already-authorized legacy mode.
+     * @type {WeakMap<import('ws').WebSocket, Map<string, { conversationId: string, selectionGeneration: number, clientSelectionGeneration: number, historyMode: string, observedAt: number }>>}
+     */
+    const _ipcTerminalReconcileMetadata = new WeakMap();
+    /** @type {WeakMap<import('ws').WebSocket, Map<string, object>>} */
+    const _ipcTerminalReconcileContexts = new WeakMap();
+    /** @type {Map<string, Promise<object>>} */
+    const _terminalReconcileProviderFlights = new Map();
     // One bounded provider read per conversation/cursor. This is a server
     // read deduplication lane only; it never creates an owner or a realtime
     // authority and is cleared as soon as the one-page result settles.
@@ -2127,6 +2170,10 @@ function registerTerminalGateway(wss, {
                     tailValidation: {
                         enabled: historyTailValidationEnabled === true,
                         version: 1
+                    },
+                    terminalReconcile: {
+                        enabled: historyTerminalReconcileEnabled === true,
+                        version: 1
                     }
                 },
                 codexMedia: { version: 1, maxBytes: 25 * 1024 * 1024 }
@@ -2378,6 +2425,223 @@ function registerTerminalGateway(wss, {
         return _getCurrentCycleIpcSnapshot(conversationId);
     };
 
+    const _getTerminalReconcileSourceSurface = (conversationId) =>
+        _getLatestIpcSnapshot(conversationId) || _getLatestConversationSnapshot(conversationId);
+
+    const _terminalReconcileMetadataKey = (conversationId, clientSelectionGeneration) =>
+        `${conversationId}\u0000${clientSelectionGeneration}`;
+
+    const _rememberTerminalReconcileMetadata = (ws, metadata) => {
+        if (!ws || !metadata || !isNonEmptyString(metadata.conversationId)) return;
+        let records = _ipcTerminalReconcileMetadata.get(ws);
+        if (!records) {
+            records = new Map();
+            _ipcTerminalReconcileMetadata.set(ws, records);
+        }
+        const normalized = {
+            conversationId: metadata.conversationId.trim(),
+            selectionGeneration: metadata.selectionGeneration,
+            clientSelectionGeneration: metadata.clientSelectionGeneration,
+            historyMode: metadata.historyMode,
+            observedAt: Date.now()
+        };
+        records.set(
+            _terminalReconcileMetadataKey(normalized.conversationId, normalized.clientSelectionGeneration),
+            normalized
+        );
+        // A socket has only a small number of concurrently useful selection
+        // records. Bound this retention rather than making A→B history mode
+        // state a process-wide cache.
+        while (records.size > 16) records.delete(records.keys().next().value);
+    };
+
+    const _getTerminalReconcileMetadata = (ws, conversationId, clientSelectionGeneration) =>
+        _ipcTerminalReconcileMetadata.get(ws)?.get(
+            _terminalReconcileMetadataKey(conversationId, clientSelectionGeneration)
+        ) || null;
+
+    const _getTerminalReconcileContexts = (ws, create = false) => {
+        let contexts = _ipcTerminalReconcileContexts.get(ws);
+        if (!contexts && create) {
+            contexts = new Map();
+            _ipcTerminalReconcileContexts.set(ws, contexts);
+        }
+        return contexts || null;
+    };
+
+    const _getTerminalReconcileContext = (ws, syncId) =>
+        _getTerminalReconcileContexts(ws)?.get(syncId) || null;
+
+    const _isTerminalReconcileContextCurrent = (context) => {
+        if (!context || context.settled) return false;
+        const stored = _getTerminalReconcileContext(context.ws, context.syncId);
+        if (stored !== context) return false;
+        const surface = _getTerminalReconcileSourceSurface(context.conversationId);
+        return isHealthyCompletedTerminalSurface(surface, context.terminalEpoch);
+    };
+
+    const _forgetTerminalReconcileContext = (context) => {
+        if (!context) return;
+        context.settled = true;
+        const contexts = _getTerminalReconcileContexts(context.ws);
+        if (contexts?.get(context.syncId) === context) {
+            contexts.delete(context.syncId);
+            if (contexts.size === 0) _ipcTerminalReconcileContexts.delete(context.ws);
+        }
+    };
+
+    const _cancelTerminalReconcilesForSocket = (ws) => {
+        const contexts = _getTerminalReconcileContexts(ws);
+        if (!contexts) return;
+        for (const context of contexts.values()) {
+            try {
+                context.service?.cancel(ws);
+            } catch (_) {
+                // Socket teardown is best-effort; the service's own timers
+                // and the provider's timeout remain bounded.
+            }
+            context.settled = true;
+        }
+        _ipcTerminalReconcileContexts.delete(ws);
+    };
+
+    const _sendTerminalReconcileState = (ws, context, state, detailCode = null) => {
+        if (!context) return false;
+        const envelope = {
+            type: 'conversation_history_sync_state',
+            purpose: 'terminal_reconcile',
+            syncId: context.syncId,
+            conversationId: context.conversationId,
+            state,
+            ...(detailCode ? { detailCode } : {}),
+            terminalEpoch: context.terminalEpoch,
+            selectionGeneration: context.selectionGeneration,
+            clientSelectionGeneration: context.clientSelectionGeneration
+        };
+        const sent = snapshotScheduler.sendControl(ws, envelope);
+        diagnosticLog.event('server', 'server.codex.history.terminal_reconcile.settled', {
+            conversationKey: diagnosticKey(context.conversationId),
+            syncId: context.syncId,
+            selectionGeneration: context.selectionGeneration,
+            clientSelectionGeneration: context.clientSelectionGeneration,
+            terminalEpoch: diagnosticKey(context.terminalEpoch),
+            state,
+            detailCode,
+            sent
+        }, state === 'synced' ? 'info' : 'warn');
+        return sent;
+    };
+
+    /**
+     * A terminal reconcile is authorized by one exact healthy terminal
+     * surface.  The active UI selection may legitimately have moved to B,
+     * but a new A source revision or a return to running must still stop A's
+     * background SQLite transaction immediately.  Do this at the source
+     * boundary rather than waiting for the history-service inactivity timer.
+     */
+    const _invalidateTerminalReconcilesForSourceSurface = (conversationId, surface) => {
+        if (!isNonEmptyString(conversationId) || surface?.desynced === true) return;
+        for (const ws of wss.clients) {
+            const contexts = _getTerminalReconcileContexts(ws);
+            if (!contexts) continue;
+            for (const context of Array.from(contexts.values())) {
+                if (context.conversationId !== conversationId || context.settled) continue;
+                if (isHealthyCompletedTerminalSurface(surface, context.terminalEpoch)) continue;
+                try {
+                    context.service?.cancel(ws);
+                } catch (_) {
+                    // The direct terminal-state path below remains the
+                    // fail-closed result even if a service cancellation hook
+                    // itself is unavailable.
+                }
+                _sendTerminalReconcileState(ws, context, 'failed', 'terminal_reconcile_epoch_stale');
+                _forgetTerminalReconcileContext(context);
+            }
+        }
+    };
+
+    const _createTerminalReconcileSyncService = (context) => new CodexHistorySyncService({
+        options: {
+            // Leave envelope headroom for the additive purpose/epoch fields;
+            // this keeps the existing 256 KiB wire ceiling fail-closed.
+            deltaMaxBytes: 255 * 1024,
+            historyMaxEnvelopeBytes: 255 * 1024
+        },
+        isStillActive: (ws, conversationId, selectionGeneration) =>
+            ws === context.ws &&
+            conversationId === context.conversationId &&
+            selectionGeneration === context.selectionGeneration &&
+            _isTerminalReconcileContextCurrent(context),
+        canSendHistory: (ws) => snapshotScheduler.canSendHistory(ws),
+        historyByteCredit: (ws, preferredBytes) => snapshotScheduler.getHistoryByteCredit(ws, preferredBytes),
+        onHistoryAck: (ws, observation) => {
+            const recorded = snapshotScheduler.recordHistoryAck(ws, observation);
+            if (recorded) {
+                diagnosticLog.event('server', 'server.codex.history.terminal_reconcile.scheduler_ack', {
+                    conversationKey: diagnosticKey(context.conversationId),
+                    bytes: observation.bytes,
+                    elapsedMs: observation.elapsedMs,
+                    ewmaBytesPerMs: Number(recorded.ewmaBytesPerMs.toFixed(3))
+                }, 'info');
+            }
+        },
+        send: (ws, envelope) => {
+            if (!_isTerminalReconcileContextCurrent(context)) return false;
+            const outbound = {
+                ...envelope,
+                purpose: 'terminal_reconcile',
+                terminalEpoch: context.terminalEpoch
+            };
+            const isTerminalState = outbound.type === 'conversation_history_sync_state' &&
+                ['synced', 'partial', 'cache_only', 'failed', 'offline', 'unsupported'].includes(
+                    String(outbound.state || '').trim().toLowerCase()
+                );
+            const sent = outbound.type === 'conversation_history_delta' ||
+                outbound.type === 'conversation_history_payload_chunk'
+                ? snapshotScheduler.sendHistory(ws, outbound)
+                : snapshotScheduler.sendControl(ws, outbound);
+            diagnosticLog.event('server', 'server.codex.history.terminal_reconcile.outbound', {
+                conversationKey: diagnosticKey(context.conversationId),
+                syncId: context.syncId,
+                type: outbound.type || null,
+                pageIndex: Number.isInteger(outbound.pageIndex) ? outbound.pageIndex : null,
+                pageCount: Number.isInteger(outbound.pageCount) ? outbound.pageCount : null,
+                upsertCount: Array.isArray(outbound.upserts) ? outbound.upserts.length : 0,
+                deleteCount: Array.isArray(outbound.deletes) ? outbound.deletes.length : 0,
+                state: outbound.state || null,
+                sent
+            }, sent ? 'info' : 'warn');
+            if (isTerminalState) _forgetTerminalReconcileContext(context);
+            return sent;
+        }
+    });
+
+    const _getTerminalReconcileProviderFlight = (context) => {
+        const key = `${context.conversationId}\u0000${context.terminalEpoch}`;
+        let flight = _terminalReconcileProviderFlights.get(key);
+        if (!flight) {
+            flight = withHistoryRecoveryTimeout(
+                historyBaselineProvider.scanComplete(context.conversationId, {
+                    historyMode: 'legacy',
+                    // The matching metadata resume already proved the mode.
+                    // The full response remains independently identity/mode
+                    // checked by the provider, so no second metadata read is
+                    // needed on this completed-only lane.
+                    knownProbe: { mode: 'legacy', thread: null, probed: false },
+                    timeoutMs: HISTORY_RECOVERY_TIMEOUT_MS
+                }),
+                HISTORY_RECOVERY_TIMEOUT_MS
+            );
+            _terminalReconcileProviderFlights.set(key, flight);
+            void flight.finally(() => {
+                if (_terminalReconcileProviderFlights.get(key) === flight) {
+                    _terminalReconcileProviderFlights.delete(key);
+                }
+            }).catch(() => {});
+        }
+        return flight;
+    };
+
     const _isOwnerSurfaceSafelyReleasable = (surface) => {
         if (!surface || typeof surface !== 'object') return false;
         const status = isNonEmptyString(surface.status) ? surface.status.trim().toLowerCase() : '';
@@ -2449,6 +2713,7 @@ function registerTerminalGateway(wss, {
     };
 
     const _pushConversationSurfaceSnapshot = (conversationId, surface) => {
+        _invalidateTerminalReconcilesForSourceSurface(conversationId, surface);
         const authoritativeSurface = surface?.desynced !== true;
         const status = isNonEmptyString(surface?.status) ? surface.status : 'unknown';
         const previousStatus = _ipcConversationLastStatus.get(conversationId);
@@ -6284,6 +6549,145 @@ function registerTerminalGateway(wss, {
                             }
                             _sendTailValidationState(ws, context, result);
                         }
+                    } else if (type === 'conversation_history_terminal_reconcile_request') {
+                        const conversationId = isNonEmptyString(envelope.conversationId) ? envelope.conversationId.trim() : '';
+                        const currentSelectionGeneration = _ipcSelectionGenerations.get(ws) || 0;
+                        const hasClientSelectionGeneration = Object.prototype.hasOwnProperty.call(envelope, 'selectionGeneration');
+                        const clientSelectionGeneration = Number.isSafeInteger(envelope.selectionGeneration) && envelope.selectionGeneration >= 0
+                            ? envelope.selectionGeneration
+                            : currentSelectionGeneration;
+                        const syncId = isNonEmptyString(envelope.syncId) ? envelope.syncId.trim() : null;
+                        const terminalEpoch = isNonEmptyString(envelope.terminalEpoch) ? envelope.terminalEpoch.trim() : null;
+                        const capability = normalizeHistoryTerminalReconcileCapability(
+                            envelope.terminalReconcile,
+                            historyTerminalReconcileEnabled === true
+                        );
+                        const context = {
+                            ws,
+                            syncId,
+                            conversationId,
+                            selectionGeneration: currentSelectionGeneration,
+                            clientSelectionGeneration,
+                            terminalEpoch,
+                            settled: false,
+                            service: null
+                        };
+                        diagnosticLog.event('server', 'server.codex.history.terminal_reconcile.requested', {
+                            conversationKey: diagnosticKey(conversationId),
+                            syncId,
+                            selectionGeneration: currentSelectionGeneration,
+                            clientSelectionGeneration,
+                            terminalEpoch: diagnosticKey(terminalEpoch),
+                            active: Boolean(conversationId && _getActiveConversationId(ws) === conversationId),
+                            capabilityEnabled: capability.enabled,
+                            capabilityVersion: capability.version
+                        }, 'info');
+                        if (!syncId || !conversationId || !terminalEpoch) {
+                            _sendTerminalReconcileState(ws, context, 'failed', 'terminal_reconcile_invalid_request');
+                        } else if (!capability.enabled) {
+                            _sendTerminalReconcileState(ws, context, 'unsupported', 'terminal_reconcile_capability_unsupported');
+                        } else {
+                            const metadata = _getTerminalReconcileMetadata(
+                                ws,
+                                conversationId,
+                                clientSelectionGeneration
+                            );
+                            const sourceSurface = _getTerminalReconcileSourceSurface(conversationId);
+                            const existing = _getTerminalReconcileContext(ws, syncId);
+                            const sameEpochInFlight = Array.from(_getTerminalReconcileContexts(ws)?.values() || [])
+                                .some((pending) =>
+                                    pending.conversationId === conversationId &&
+                                    pending.terminalEpoch === terminalEpoch &&
+                                    !pending.settled
+                                );
+                            if (existing) {
+                                _sendTerminalReconcileState(ws, context, 'failed', 'terminal_reconcile_duplicate_sync_id');
+                            } else if (sameEpochInFlight) {
+                                _sendTerminalReconcileState(ws, context, 'failed', 'terminal_reconcile_in_flight');
+                            } else if (!metadata || metadata.historyMode !== 'legacy') {
+                                _sendTerminalReconcileState(
+                                    ws,
+                                    context,
+                                    metadata ? 'unsupported' : 'failed',
+                                    metadata ? 'terminal_reconcile_history_mode_unsupported' : 'terminal_reconcile_metadata_missing'
+                                );
+                            } else if (!isHealthyCompletedTerminalSurface(sourceSurface, terminalEpoch)) {
+                                _sendTerminalReconcileState(ws, context, 'failed', 'terminal_reconcile_epoch_stale');
+                            } else {
+                                const contexts = _getTerminalReconcileContexts(ws, true);
+                                contexts.set(syncId, context);
+                                try {
+                                    const result = await _getTerminalReconcileProviderFlight(context);
+                                    if (!_isTerminalReconcileContextCurrent(context)) {
+                                        // A newer IPC surface may already
+                                        // have sent the terminal failure and
+                                        // removed this context while the
+                                        // bounded full source read was in
+                                        // flight. Never emit a duplicate
+                                        // state for that stale result.
+                                        if (!context.settled) {
+                                            _sendTerminalReconcileState(ws, context, 'failed', 'terminal_reconcile_epoch_stale');
+                                            _forgetTerminalReconcileContext(context);
+                                        }
+                                        return;
+                                    }
+                                    if (!result || !Array.isArray(result.items) || result.complete !== true || result.coverageComplete !== true) {
+                                        _sendTerminalReconcileState(ws, context, 'failed', 'terminal_reconcile_source_incomplete');
+                                        _forgetTerminalReconcileContext(context);
+                                        return;
+                                    }
+                                    const service = _createTerminalReconcileSyncService(context);
+                                    context.service = service;
+                                    service.registerBaselineItems(conversationId, result.items, {
+                                        complete: true,
+                                        coverageComplete: true,
+                                        baselineSourceKind: 'terminal_reconcile',
+                                        sourceEpoch: result.sourceEpoch || terminalEpoch,
+                                        resultKind: 'full',
+                                        syncOutcome: 'synced'
+                                    });
+                                    const started = service.startSync({
+                                        ws,
+                                        conversationId,
+                                        syncId,
+                                        checkpoint: envelope.checkpoint || {},
+                                        selectionGeneration: context.selectionGeneration,
+                                        clientSelectionGeneration: context.clientSelectionGeneration,
+                                        cacheSchemaVersion: envelope.cacheSchemaVersion || 1
+                                    });
+                                    diagnosticLog.event('server', 'server.codex.history.terminal_reconcile.sync_started', {
+                                        conversationKey: diagnosticKey(conversationId),
+                                        syncId,
+                                        terminalEpoch: diagnosticKey(terminalEpoch),
+                                        itemCount: result.items.length,
+                                        sourceResponseBytes: result.measurement?.sourceResponseBytes ?? null,
+                                        ok: started.ok,
+                                        state: started.state || null,
+                                        detailCode: started.detailCode || null
+                                    }, started.ok ? 'info' : 'warn');
+                                    if (!started.ok) {
+                                        _sendTerminalReconcileState(ws, context, 'failed', started.detailCode || 'terminal_reconcile_sync_start_failed');
+                                        _forgetTerminalReconcileContext(context);
+                                    }
+                                } catch (error) {
+                                    if (context.settled) return;
+                                    const detailCode = error?.code === 'HISTORY_RECOVERY_TIMEOUT'
+                                        ? 'terminal_reconcile_timeout'
+                                        : error?.code === 'HISTORY_RECOVERY_BASELINE_TOO_LARGE'
+                                            ? 'terminal_reconcile_source_too_large'
+                                            : error?.code === 'HISTORY_RECOVERY_HISTORY_MODE_MISMATCH'
+                                                ? 'terminal_reconcile_history_mode_mismatch'
+                                                : 'terminal_reconcile_source_failed';
+                                    _sendTerminalReconcileState(ws, context, 'failed', detailCode);
+                                    _forgetTerminalReconcileContext(context);
+                                    diagnosticLog.error('server', 'server.codex.history.terminal_reconcile.failed', error, {
+                                        conversationKey: diagnosticKey(conversationId),
+                                        syncId,
+                                        terminalEpoch: diagnosticKey(terminalEpoch)
+                                    });
+                                }
+                            }
+                        }
                     } else if (type === 'conversation_history_sync_request') {
                         const conversationId = isNonEmptyString(envelope.conversationId) ? envelope.conversationId.trim() : '';
                         const currentSelectionGeneration = _ipcSelectionGenerations.get(ws) || 0;
@@ -6803,7 +7207,15 @@ function registerTerminalGateway(wss, {
                             }
                         }
                     } else if (type === 'conversation_history_manifest_page') {
-                        const result = historySyncService.handleManifestPage(ws, envelope);
+                        const terminalPurpose = envelope?.purpose === 'terminal_reconcile';
+                        const terminalContext = terminalPurpose
+                            ? _getTerminalReconcileContext(ws, envelope.syncId)
+                            : null;
+                        const result = terminalPurpose
+                            ? (terminalContext?.service && envelope.terminalEpoch === terminalContext.terminalEpoch
+                                ? terminalContext.service.handleManifestPage(ws, envelope)
+                                : { ok: false, detailCode: 'terminal_reconcile_stale_sync' })
+                            : historySyncService.handleManifestPage(ws, envelope);
                         diagnosticLog.event('server', 'server.codex.history.manifest_page_received', {
                             conversationKey: diagnosticKey(envelope.conversationId),
                             syncId: envelope.syncId || null,
@@ -6812,17 +7224,27 @@ function registerTerminalGateway(wss, {
                             itemCount: Array.isArray(envelope.items) ? envelope.items.length : 0,
                             ok: result.ok,
                             pending: result.pending === true,
-                            detailCode: result.detailCode || null
+                            detailCode: result.detailCode || null,
+                            purpose: terminalContext ? 'terminal_reconcile' : 'history_sync'
                         }, 'info');
                     } else if (type === 'conversation_history_sync_ack') {
-                        const result = historySyncService.handleAck(ws, envelope);
+                        const terminalPurpose = envelope?.purpose === 'terminal_reconcile';
+                        const terminalContext = terminalPurpose
+                            ? _getTerminalReconcileContext(ws, envelope.syncId)
+                            : null;
+                        const result = terminalPurpose
+                            ? (terminalContext?.service && envelope.terminalEpoch === terminalContext.terminalEpoch
+                                ? terminalContext.service.handleAck(ws, envelope)
+                                : { ok: false, detailCode: 'terminal_reconcile_stale_sync' })
+                            : historySyncService.handleAck(ws, envelope);
                         diagnosticLog.event('server', 'server.codex.history.ack_received', {
                             conversationKey: diagnosticKey(envelope.conversationId),
                             syncId: envelope.syncId || null,
                             pageIndex: envelope.pageIndex,
                             ok: result.ok,
                             state: result.state || null,
-                            detailCode: result.detailCode || null
+                            detailCode: result.detailCode || null,
+                            purpose: terminalContext ? 'terminal_reconcile' : 'history_sync'
                         }, 'info');
                     } else if (type === 'conversation_history_segment_ack') {
                         const result = historySyncService.handleSnapshotSegmentAck(ws, envelope);
@@ -7398,12 +7820,14 @@ function registerTerminalGateway(wss, {
                                             currentSelectionGeneration
                                         )
                                     ) {
-                                        _ipcTailValidationMetadata.set(ws, {
+                                        const metadataRecord = {
                                             conversationId: metadataConversationId,
                                             selectionGeneration: currentSelectionGeneration,
                                             clientSelectionGeneration: metadataClientSelectionGeneration,
                                             historyMode: metadataHistoryMode
-                                        });
+                                        };
+                                        _ipcTailValidationMetadata.set(ws, metadataRecord);
+                                        _rememberTerminalReconcileMetadata(ws, metadataRecord);
                                     }
                                     if (observation.observed && observation.changed) {
                                         diagnosticLog.event('server', 'server.codex.history.recovery.baseline_invalidated', {
@@ -7571,6 +7995,7 @@ function registerTerminalGateway(wss, {
             ws.on('close', (code, reason) => {
                 _releaseActiveIpcConversation(ws);
                 historySyncService.cancel(ws);
+                _cancelTerminalReconcilesForSocket(ws);
                 _ipcFollowerModes.delete(ws);
                 for (const [recoveryId, recovery] of _pendingThreadRecoveries.entries()) {
                     if (recovery.ws === ws) {
@@ -7675,3 +8100,6 @@ module.exports.MOBILE_SURFACE_MAX_VISIBLE_LATENCY_MS = MOBILE_SURFACE_MAX_VISIBL
 module.exports.createLatestOnlyAsyncQueue = createLatestOnlyAsyncQueue;
 module.exports.normalizeHistoryRangeCapability = normalizeHistoryRangeCapability;
 module.exports.normalizeHistorySnapshotSegmentsCapability = normalizeHistorySnapshotSegmentsCapability;
+module.exports.normalizeHistoryTerminalReconcileCapability = normalizeHistoryTerminalReconcileCapability;
+module.exports.buildTerminalReconcileEpoch = buildTerminalReconcileEpoch;
+module.exports.isHealthyCompletedTerminalSurface = isHealthyCompletedTerminalSurface;

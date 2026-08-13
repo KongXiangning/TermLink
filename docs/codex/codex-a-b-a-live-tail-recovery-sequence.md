@@ -1,6 +1,6 @@
 # A→B→A 实时尾部恢复：修复序列第 3–6 步
 
-**状态：** 修复序列第 2 步与第 3 步均已完成并经真机验证；下一独立步骤是第 4 步 durable reconciliation。
+**状态：** 第 2、3 步已完成并经真机验证；第 4 步的 legacy terminal durable reconciliation 已完成自动实现与回归，等待真机 completed→A→B→A 验收。
 **范围：** 本文只记录已采集代码与真机日志得出的后续修复路线。它不修改、不替代，也不依赖 `codex-history-tail-first-gap-recovery-implementation-plan.md`；不使用 P0 编号。
 
 ## 目标
@@ -45,9 +45,9 @@
 ```text
 第 2 步：desynced surface 立即显示                         已完成
       ↓
-第 3 步：独立 canonical 尾部验证，判断缓存是否落后          下一步
-      ↓ 仅当结果为 NEEDS_RECONCILE
-第 4 步：读取 canonical 尾部并原子写入 A 的 SQLite 基线     持久化修复
+第 3 步：独立 canonical 尾部验证，判断缓存是否落后          已完成（legacy=UNSUPPORTED）
+      ↓ paginated 可由 NEEDS_RECONCILE 进入后续协调
+第 4 步：legacy 仅在稳定完成后 full reconcile 并原子写 A     自动实现完成，待真机
       ↓
 第 5 步：让 Gateway 快照缓存具备可验证的新鲜度              缓存加固
       ↓
@@ -115,32 +115,36 @@
 
 ### 要解决的问题
 
-第 3 步发现落后后，A 的 SQLite 仍需要由 canonical 来源补齐。否则任务完成后切走，最新内容仍只留在临时 IPC body 中。
+即使第 3 步不能对 legacy 给出 `NEEDS_RECONCILE`，A 的 SQLite 仍需要由 canonical 来源补齐。否则任务完成后切走，最新内容仍只留在临时 IPC body 中。
+
+当前 legacy 的第 4 步是用户已确认的独立终态例外，不伪装成第 3 步 validation：只有 matching healthy IPC surface 已稳定处于 `completed` / `complete`、`currentTurnId=null` 且同一 `sourceEpoch#revision` 连续 1,500ms 未变时，才允许一次完整 canonical reconciliation。它不在普通重新选择、running、desynced、失败/取消或每次 A→B→A 时运行。
 
 ### 最小实现边界
 
-1. 仅当第 3 步返回 `NEEDS_RECONCILE` 时，读取 canonical 尾部。
-2. 对 `(endpointId, conversationId)` 的 A 专属 SQLite 分区做幂等、原子、只增量的合并。
-3. 使用 per-conversation durable reconcile token/epoch，而不是把 UI `selectionGeneration` 当作数据库写入授权。
+1. paginated 来源未来仅在第 3 步返回 `NEEDS_RECONCILE` 后才可进入协调；当前 legacy 不具备可证明有界的 tail reader，因此只允许上述 terminal-only 例外。
+2. legacy 读取直达 canonical `thread/read(includeTurns=true)`，受 30s timeout、70MiB source-response、现有 256KiB envelope / 128KiB payload-chunk 上限保护，并绕过 `CodexHistorySnapshotStore`；不得从 IPC surface 直接写库。
+3. 对 `(endpointId, conversationId, terminalEpoch)` 的 A 专属 SQLite 分区复用既有 staging/hash/checkpoint 单事务提交；full canonical 结果可原子替换 A 的旧基线，过程中 B 分区不变。
+4. 使用 per-conversation durable reconcile token/epoch，而不是把 UI `selectionGeneration` 当作数据库写入授权。
    - `selectionGeneration` 仍只保护当前 UI；
    - 用户已切到 B 时，A 的已发起 canonical reconciliation 可以安全提交到 A 的数据库分区；
    - 该结果绝不能改 B 的 UI、live surface 或运行态。
-4. 首版只触发“稳定 completed 后”的 reconciliation；切换前、断线前、后台恢复等触发器后置。
-5. 空结果、截断结果、读取失败或过期 token 一律保留旧缓存并记录 partial/failed，不能删除旧历史。
+5. 首版只触发“稳定 completed 后”的 reconciliation；切换前、断线前、后台恢复等触发器后置。
+6. 新 turn、新 terminal revision、id mismatch、空/不完整结果、超时、超限、断线或过期 epoch 一律保留旧缓存并记录失败，不能删除旧历史。
 
 ### 相关代码
 
-- `CodexViewModel.kt` 的 `conversation_history_segment_commit` 与 `conversation_history_delta` 接收路径；
+- `src/ws/terminalGateway.js` 的 `_getTerminalReconcileProviderFlight`、`_createTerminalReconcileSyncService`、`_invalidateTerminalReconcilesForSourceSurface` 与 dedicated `conversation_history_terminal_reconcile_request`；
+- `CodexViewModel.kt` 的 `maybeScheduleTerminalReconcile`、`sendTerminalReconcileManifest`、terminal-reconcile delta/payload handlers；
 - `android/app/src/main/java/com/termlink/app/codex/data/CodexConversationCacheStore.kt` 的 per-conversation checkpoint 与 delta/range atomic commit；
-- 当前 commit 路径仅接受当前 active selection 的条件需要拆分为“UI 投影 fence”和“durable A partition fence”。
+- 当前 commit 路径已拆分为“UI 投影 fence”和“durable A partition fence”；terminal lane 不更新 `_uiState`。
 
 ### 验收
 
-1. A completed 后立即切 B；
-2. 第 3 步返回 `NEEDS_RECONCILE`；
-3. A 的 canonical tail 成功写入 SQLite，B UI 不发生变化；
+1. A completed 后等待至少 1.5 秒，再立即切 B；
+2. 仅此终态出现一次 `terminal_reconcile.requested` 与一次 legacy full `thread/read(includeTurns=true)`；普通 A→B→A 不增加第二次 full read；
+3. A 的 canonical tail 成功写入 SQLite，B 的 messages/cache/live authority 不发生变化；
 4. 关闭 IPC 或重启 App 后重新打开 A，SQLite 已包含尾部；
-5. 失败时旧 SQLite 内容仍完整保留。
+5. 新 turn / revision、超时、超限、id mismatch 或事务失败时旧 SQLite 内容仍完整保留。
 
 ## 修复序列第 5 步：Gateway snapshot freshness
 
@@ -198,14 +202,38 @@ Gateway snapshot store 当前只验证 scope、schema、结构和 `rootHash`；`
 - 不在每次重新选择时强制完整 `thread/read`；
 - 不先调整 192 KiB 上限来猜测根因。
 
-## 当前下一步
+## 当前状态与下一步
 
-第 3 步的自动与人工门槛均已通过。最新真机采集 `output/diagnostics/20260812-204034/` 中，目标会话 `019ff186-bdc6-75a0-8862-257bbf781cbc` 的 generation 3/5/7/9 各恰有一次 private `UNSUPPORTED`（当前 legacy）；没有 `thread/read(includeTurns=true)`、`thread/turns/list`、canonical recovery 或 SQLite 写入。matching provisional surface 均先将正文从 17 增至 41，随后 healthy surface 保持 41→41；同一 A 的 writer trace 未出现正文减少。metadata resume 的 `thread/read(includeTurns=false)` 仍是既有、允许的 metadata 读取，不能误判为 full read。
+第 3 步的自动与人工门槛均已通过。真机采集 `output/diagnostics/20260812-204034/` 中，目标会话 `019ff186-bdc6-75a0-8862-257bbf781cbc` 的 generation 3/5/7/9 各恰有一次 private `UNSUPPORTED`（当前 legacy）；没有 `thread/read(includeTurns=true)`、`thread/turns/list`、canonical recovery 或 SQLite 写入。matching provisional surface 均先将正文从 17 增至 41，随后 healthy surface 保持 41→41；同一 A 的 writer trace 未出现正文减少。metadata resume 的 `thread/read(includeTurns=false)` 仍是既有、允许的 metadata 读取，不能误判为 full read。
 
-下一步只能独立评估第 4 步：在第 3 步得到 `NEEDS_RECONCILE` 的可支持来源上，实施 bounded canonical tail 的 durable reconciliation。legacy 当前仅返回 `UNSUPPORTED`，因此不能借第 3 步偷偷触发完整读取、写 SQLite 或宣称完成态历史丢失已修复。
+第 4 步已按用户授权实现为独立 terminal-only durable lane，并完成一次返修：它不改变第 3 步 legacy `UNSUPPORTED`，只在稳定 completed 后获得一次 full-read 例外。自动门槛已覆盖 legacy source、A→B 后 A 分区提交、source epoch 失效、manifest 后失效、wire purpose/client generation，以及真实 SQLite 多页原子提交。返修 APK 已以保留数据方式安装到 `da34332c`。
+
+最新真机采集 `output/diagnostics/20260813-003538/` 已验证返修的两个核心保护成立：
+
+1. 回到 A 时，旧普通 snapshot 虽然仍可能返回 17 项，但不再把已恢复的 A cache 降回旧数量；A cache 保持 872，未出现终态协调结果被普通 lane 覆盖的 `796→17` 类回退。
+2. matching surface/hydrate 不再删减已经显示的 A 正文：正文按 `872→888→889` 收敛，后续晚到 hydrate 为 `889→906`，该 writer 的 `messageIdentityRemovedCount=0`，A cache 仍保持 872。A→B 时把当前 active slot 清为 0 仍是既定的跨任务隔离行为，不属于本次修复失败。
+
+因此，第 4 步的“普通旧 snapshot 不降级 A cache”和“hydrate 不删减已显示 surface item”门槛已通过，但第 4 步的整体用户体验验收尚未完成。未解决的剩余问题是：每次回切仍要等待 healthy IPC subscription 重新交付，服务端日志中一次等待约 3.0 秒（例如 subscription start 到 surface delivery）；同时存在一个较晚的 `hydrateCachedConversation` 更新。用户在 `019ff186-bdc6-75a0-8862-257bbf781cbc` 上仍能看到“临时实时快照（待同步确认）”提示。本阶段暂不修改 provisional 标记。
+
+下一步应另行锁定“healthy IPC subscription replay 等待与晚到 hydrate 调度”的最小诊断/修复范围；不得把它混入第 5、6 步，也不得先修改 provisional 标记。第 5 步 Gateway snapshot freshness 和第 6 步 IPC surface 截断/性能仍未开始。
+
+### 第 4 步人工门槛失败与返修（2026-08-12）
+
+`output/diagnostics/20260812-230841/timeline.jsonl` 证明第一次人工门槛后，重复 A→B→A 仍会再次同步，但原因不是每次选择都必须重新读取完整历史，而是第 4 步实现内部存在两个降级路径：
+
+1. terminal epoch 使用 `sourceEpoch#revision`，IPC replay/surface 更新改变 revision，导致同一 completed turn 在 generation 11、13 被当作两个终态，分别启动 `terminal_reconcile.sync_started`（`:8528`、`:8691`）。
+2. 普通 selection/foreground history lane 仍命中陈旧的 17 项 snapshot（`:8649` 及相邻事件），并在终态协调已经得到 796 项后由 Android 普通 writer 将 A cache `796→17`（`:8684`）；terminal lane 随后再次补回。该路径没有 B 混入，且第 2 步 provisional surface 本身仍正常。
+
+返修已锁定在第 4 步既有允许文件内：
+
+- Gateway 与 Android 以稳定 `sourceEpoch + latestTurnId` 标识一个 completed terminal turn，revision 只作传输版本，不再触发新的 durable reconcile；缺少稳定 turn identity 时 fail-closed。
+- matching terminal context 存在时，Android 隔离普通 history/recovery lane，清除其在途 sync-id、pending page 与 recovery fence；迟到普通结果不能覆盖 terminal A cache。terminal lane 仍使用已有 A 专属 staging/atomic commit，不改变 A→B 清空或 IPC authority。
+
+自动验证已通过：Node provider/Gateway `141/141`、JDK 21 Android JVM 全量、APK 构建与 `git diff --check`。最新真机结果已通过 cache 不降级与 hydrate 不删减门槛，但仍需单独处理 healthy IPC subscription 等待和晚到 hydrate；在该剩余问题收敛前不进入第 5/6 步。
 
 ## 证据与适用范围
 
 - 真机诊断：`output/diagnostics/20260812-142119/`；
+- 最新真机诊断：`output/diagnostics/20260813-003538/`；
 - 目标会话：`019fef71-d5c9-78c0-ac8f-1d570566e6c2`；
 - 本文只依赖当前项目内部代码、协议与采集日志，不依赖第三方库或外部 API 的 current behavior；无需外部文档取证。

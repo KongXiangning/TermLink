@@ -80,11 +80,57 @@ private const val THREAD_HISTORY_PREVIEW_MAX_LENGTH = 160
 private const val HISTORY_SNAPSHOT_FRAGMENT_MAX_BYTES = 16 * 1024
 private const val DIAGNOSTIC_MESSAGE_ID_SAMPLE_LIMIT = 8
 private const val DIAGNOSTIC_MESSAGE_ID_DELTA_LIMIT = 24
+private const val TERMINAL_RECONCILE_STABILITY_MILLIS = 1_500L
+private const val TERMINAL_RECONCILE_PURPOSE = "terminal_reconcile"
 
 private data class PendingHistorySnapshotSegment(
     val page: CodexHistoryDeltaPage,
     val fragments: MutableMap<String, MutableMap<Int, CodexHistoryPayloadChunk>> = mutableMapOf()
 )
+
+/**
+ * A completed-only durable context. It intentionally outlives an A→B
+ * selection change, but it is never an authority for either conversation's
+ * UI state.
+ */
+private data class TerminalReconcileKey(
+    val endpointId: String,
+    val conversationId: String,
+    val terminalEpoch: String
+)
+
+private data class TerminalReconcileContext(
+    val key: TerminalReconcileKey,
+    val selectionGeneration: Long,
+    val syncId: String,
+    var dispatchJob: Job? = null,
+    var watchdogJob: Job? = null,
+    var settled: Boolean = false,
+    var settledState: String? = null
+)
+
+internal fun isTerminalReconcileSyncPurpose(purpose: String?): Boolean =
+    purpose?.trim()?.equals(TERMINAL_RECONCILE_PURPOSE, ignoreCase = true) == true
+
+/**
+ * The source epoch + latest turn id identify one completed terminal turn.
+ * IPC revision is a delivery/version counter and must not create a new
+ * durable reconciliation for every replay of the same completed turn.
+ */
+internal fun terminalReconcileEpoch(sourceEpoch: String?, latestTurnId: String?): String? {
+    val normalizedEpoch = sourceEpoch?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    val normalizedTurnId = latestTurnId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    return "$normalizedEpoch#$normalizedTurnId"
+}
+
+internal fun isEligibleCompletedTerminalSurface(
+    surface: DesktopSurfaceSnapshot,
+    currentTurnId: String?
+): Boolean =
+        !surface.desynced &&
+        surface.status.trim().lowercase(Locale.ROOT) in setOf("completed", "complete") &&
+        currentTurnId.isNullOrBlank() &&
+        terminalReconcileEpoch(surface.sourceEpoch, surface.latestTurnId) != null
 
 /**
  * The UI state intentionally keeps one active conversation slot.  This trace
@@ -1249,9 +1295,10 @@ internal fun mergeCachedHistoryIntoLiveMessagesForUi(
     }
     if (cachedMessages.isEmpty()) return state.messages
     val live = normalizeCodexThreadId(state.liveAuthoritativeConversationId)
-    val matchingProvisionalSurface = state.ipcSurfaceSnapshot?.takeIf { surface ->
-        surface.desynced &&
-            normalizeCodexThreadId(surface.conversationId) == incoming
+    val matchingTruncatedSurfaceForHydrate = state.ipcSurfaceSnapshot?.takeIf { surface ->
+        normalizeCodexThreadId(surface.conversationId) == incoming &&
+            surface.itemsTruncated &&
+            (surface.desynced || live == incoming)
     }
     fun mergeCachedHistoryWithLocalTail(): List<ChatMessage> {
         val merged = mergeCanonicalMessagesForUi(
@@ -1259,7 +1306,37 @@ internal fun mergeCachedHistoryIntoLiveMessagesForUi(
             currentMessages = state.messages,
             preserveLocalTail = true
         )
-        val provisionalSurface = matchingProvisionalSurface ?: return merged
+        val hydrateSurface = matchingTruncatedSurfaceForHydrate
+        if (hydrateSurface != null && state.messages.isNotEmpty()) {
+            // Hydrate must not turn an already displayed bounded surface into
+            // a different representation (for example, 12 command items into
+            // 3 synthetic batches).  Start from the current displayed body,
+            // reproject the same surface without collapsing, then prepend only
+            // canonical rows that are not represented by that body.
+            val displayedSurfaceMessages = mergeSurfaceItems(
+                existing = state.messages,
+                surfaceItems = hydrateSurface.items,
+                surfaceStatus = hydrateSurface.status,
+                latestTurnId = hydrateSurface.latestTurnId,
+                preserveExisting = true,
+                preserveExistingItemIdentity = true
+            )
+            val missingCanonicalMessages = merged.filter { canonical ->
+                displayedSurfaceMessages.none { displayed ->
+                    displayed.id == canonical.id ||
+                        historyItemAliasesForUiMessage(displayed).contains(canonical.id) ||
+                        canonical.operationBatchMemberIds.any { memberId ->
+                            historyItemAliasesForUiMessage(displayed).contains(memberId)
+                        } ||
+                        areSameCanonicalAndSurfaceMessageForUi(canonical, displayed) ||
+                        messagesEquivalentForConvergenceForUi(canonical, displayed)
+                }
+            }
+            return deduplicateChatMessagesByIdForUi(
+                missingCanonicalMessages + displayedSurfaceMessages
+            )
+        }
+        val provisionalSurface = hydrateSurface?.takeIf { it.desynced } ?: return merged
         // A matching desynced surface is display-only, but its items have
         // already been projected into the active conversation.  A metadata
         // hydrate may lag that snapshot; reproject the same bounded tail over
@@ -1305,6 +1382,9 @@ internal fun mergeCachedHistoryIntoLiveMessagesForUi(
         normalizeCodexThreadId(surface.conversationId) == incoming &&
         !surface.desynced
     ) {
+        if (matchingTruncatedSurfaceForHydrate != null && state.messages.isNotEmpty()) {
+            return mergeCachedHistoryWithLocalTail()
+        }
         val cachedKeys = cachedMessages.mapTo(mutableSetOf()) { it.id }
         val liveOnly = state.messages.filter { message ->
             historyItemAliasesForUiMessage(message).none(cachedKeys::contains) &&
@@ -1434,6 +1514,35 @@ internal fun shouldSuppressHistoryRefreshForCompleteServerSnapshot(
     serverSnapshotSegmentsEnabled &&
     currentSelectionMatches &&
     completeServerSnapshotCache
+
+/**
+ * A locally complete cache is safe as the static display baseline even when
+ * it has no B4R coverage proof.  Do not let the first ordinary selection
+ * snapshot replace it before a fresh IPC surface tells us whether the task is
+ * still running or is eligible for terminal reconciliation.  This is not a
+ * freshness assertion: the terminal/tail lanes remain responsible for
+ * proving and updating the canonical tail.
+ */
+internal fun shouldDeferOrdinaryHistorySyncForCompleteLocalCache(
+    cacheState: CodexHistoryCacheUiState,
+    activeConversationId: String?,
+    conversationId: String?,
+    selectionGeneration: Long,
+    surfaceStatus: String?,
+    surfaceDesynced: Boolean
+): Boolean {
+    val target = normalizeCodexThreadId(conversationId) ?: return false
+    if (!cacheState.ready || !cacheState.complete ||
+        normalizeCodexThreadId(cacheState.conversationId) != target ||
+        normalizeCodexThreadId(activeConversationId) != target ||
+        cacheState.generation != selectionGeneration
+    ) return false
+    if (surfaceDesynced || surfaceStatus.isNullOrBlank()) return true
+    return surfaceStatus.trim().lowercase() in setOf(
+        "completed", "complete", "done", "finished",
+        "failed", "error", "cancelled", "canceled", "interrupted"
+    )
+}
 
 /**
  * `coverageComplete` proves that the local B4R static range has no gap; it
@@ -2569,7 +2678,8 @@ internal fun mergeSurfaceItems(
     surfaceItems: List<SurfaceEntry>,
     surfaceStatus: String = "unknown",
     latestTurnId: String? = null,
-    preserveExisting: Boolean = false
+    preserveExisting: Boolean = false,
+    preserveExistingItemIdentity: Boolean = false
 ): List<ChatMessage> {
     val existingById = existing.associateBy { it.id }
     val latestAssistantKey = if (surfaceStatus.equals("running", ignoreCase = true)) {
@@ -2711,7 +2821,8 @@ internal fun mergeSurfaceItems(
         }
     val retainedExisting = if (preserveExisting) {
         existing.filter { message ->
-            message.id !in projectedKeys && message.id !in fullyCoveredBatchIds
+            message.id !in projectedKeys &&
+                (preserveExistingItemIdentity || message.id !in fullyCoveredBatchIds)
         }
     } else {
         emptyList()
@@ -2737,7 +2848,15 @@ internal fun mergeSurfaceItems(
     } else {
         null
     }
-    val collapsedMessages = collapseCompletedCommandBatchesForUi(mergedMessages, collapsibleTurnIds)
+    val collapsedMessages = if (preserveExistingItemIdentity) {
+        // Cache hydrate must not change the identity of items that are already
+        // visible from the matching bounded surface.  In particular, turning
+        // several displayed command items into a synthetic batch would make
+        // the body appear to shrink even though no canonical row was deleted.
+        mergedMessages
+    } else {
+        collapseCompletedCommandBatchesForUi(mergedMessages, collapsibleTurnIds)
+    }
     val deduplicatedMessages = deduplicateChatMessagesByIdForUi(collapsedMessages)
     if (deduplicatedMessages.size != collapsedMessages.size) {
         Log.w(
@@ -2984,7 +3103,7 @@ internal fun resolveSurfaceCurrentTurnId(
     return when (normalized) {
         "running", "waiting_for_approval", "waiting_for_input" ->
             normalizeCodexThreadId(latestTurnId) ?: currentTurnId
-        "completed", "done", "finished", "failed", "error", "cancelled", "canceled", "interrupted", "idle" -> null
+        "completed", "complete", "done", "finished", "failed", "error", "cancelled", "canceled", "interrupted", "idle" -> null
         else -> currentTurnId
     }
 }
@@ -3686,6 +3805,14 @@ class CodexViewModel(
     private var tailValidationDetailCode: String? = null
     private var tailValidationDispatchJob: Job? = null
     private var tailValidationWatchdogJob: Job? = null
+    /**
+     * P0-C is a background durable lane. These contexts are keyed by the
+     * target cache partition and terminal epoch rather than by active UI
+     * selection, so an A→B change cannot redirect an already-started A write.
+     */
+    private val terminalReconcileContexts = ConcurrentHashMap<TerminalReconcileKey, TerminalReconcileContext>()
+    private val terminalReconcileContextsBySyncId = ConcurrentHashMap<String, TerminalReconcileContext>()
+    private val pendingTerminalReconcilePages = ConcurrentHashMap<String, CodexHistoryDeltaPage>()
     /** Client token carried by history envelopes to reject stale A→B→A work. */
     private var historySelectionGeneration: Long = 0L
     private var historyRecoveryInFlightConversationId: String? = null
@@ -7139,6 +7266,149 @@ class CodexViewModel(
     }
 
     /**
+     * A terminal reconciliation is the newer canonical source for this
+     * conversation while it is in flight or after it has settled synced.
+     * The ordinary selection snapshot lane must not race it with the older
+     * server snapshot and downgrade the durable cache again.
+     */
+    private fun terminalReconcileFenceForConversation(
+        conversationId: String
+    ): TerminalReconcileContext? {
+        val endpointId = currentProfile?.id?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        return terminalReconcileContexts.values
+            .filter { context ->
+                    context.key.endpointId == endpointId &&
+                    context.key.conversationId == conversationId &&
+                    (!context.settled || context.settledState?.equals("synced", ignoreCase = true) == true)
+            }
+            .maxByOrNull { it.key.terminalEpoch }
+    }
+
+    private fun deferOrdinaryHistoryLaneForTerminalReconcile(
+        conversationId: String,
+        generation: Long,
+        reason: String
+    ): Boolean {
+        val context = terminalReconcileFenceForConversation(conversationId) ?: return false
+        if (!isCurrentHistorySelection(conversationId, generation)) return false
+
+        // Quarantine any ordinary sync/recovery that was started before the
+        // matching healthy terminal surface arrived. Its late pages then fail
+        // the existing sync-id fence and cannot overwrite the terminal cache.
+        if (historySyncInFlightConversationId == conversationId) {
+            historySyncInFlightConversationId = null
+            historySyncInFlightSyncId = null
+            pendingHistoryPages.clear()
+            pendingHistorySnapshotSegments.clear()
+            rangeHistorySyncIds.clear()
+            olderHistorySyncIds.clear()
+            historySyncAfterSubscriptionJob?.cancel()
+            historySyncAfterSubscriptionJob = null
+        }
+        if (historyRecoveryInFlightConversationId == conversationId) {
+            historyRecoveryInFlightConversationId = null
+            historyRecoveryInFlightSyncId = null
+            cancelHistoryWatchdog()
+        }
+        historyRecoveryRequestedGeneration = generation
+        markHistorySyncSettled(conversationId, generation)
+        val key = historySelectionKeyOrNull(conversationId, generation)
+        if (key != null) {
+            _uiState.update { state ->
+                if (isCurrentHistorySelection(key)) {
+                    state.copy(
+                        historyNetworkSyncState = historyNetworkState(
+                            key,
+                            CodexHistoryNetworkSyncState.CACHE_ONLY
+                        )
+                    )
+                } else state
+            }
+        }
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.history.ordinary_lane_deferred_for_terminal_reconcile",
+            mapOf(
+                "conversationKey" to PersistentDiagnosticLog.shortHash(conversationId),
+                "generation" to generation,
+                "terminalEpoch" to PersistentDiagnosticLog.shortHash(context.key.terminalEpoch),
+                "terminalState" to context.settledState,
+                "reason" to reason
+            )
+        )
+        return true
+    }
+
+    /**
+     * A complete legacy cache is already the best static baseline available
+     * to the UI.  Until a fresh surface identifies the task as running, or a
+     * terminal context takes the fence, quarantine the ordinary snapshot lane
+     * so an older server snapshot cannot downgrade this conversation.
+     */
+    private fun deferOrdinaryHistoryLaneForCompleteLocalCache(
+        conversationId: String,
+        generation: Long,
+        surfaceStatus: String?,
+        surfaceDesynced: Boolean,
+        reason: String
+    ): Boolean {
+        val state = _uiState.value
+        if (!shouldDeferOrdinaryHistorySyncForCompleteLocalCache(
+                cacheState = state.historyCacheState,
+                activeConversationId = state.activeConversationId,
+                conversationId = conversationId,
+                selectionGeneration = generation,
+                surfaceStatus = surfaceStatus,
+                surfaceDesynced = surfaceDesynced
+            )
+        ) return false
+
+        if (historySyncInFlightConversationId == conversationId) {
+            historySyncInFlightConversationId = null
+            historySyncInFlightSyncId = null
+            pendingHistoryPages.clear()
+            pendingHistorySnapshotSegments.clear()
+            rangeHistorySyncIds.clear()
+            olderHistorySyncIds.clear()
+            historySyncAfterSubscriptionJob?.cancel()
+            historySyncAfterSubscriptionJob = null
+        }
+        if (historyRecoveryInFlightConversationId == conversationId) {
+            historyRecoveryInFlightConversationId = null
+            historyRecoveryInFlightSyncId = null
+            cancelHistoryWatchdog()
+        }
+        historyRecoveryRequestedGeneration = generation
+        markHistorySyncSettled(conversationId, generation)
+        val key = historySelectionKeyOrNull(conversationId, generation)
+        if (key != null) {
+            _uiState.update { current ->
+                if (isCurrentHistorySelection(key)) {
+                    current.copy(
+                        historyNetworkSyncState = historyNetworkState(
+                            key,
+                            CodexHistoryNetworkSyncState.CACHE_ONLY
+                        )
+                    )
+                } else current
+            }
+        }
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.history.ordinary_lane_deferred_for_complete_local_cache",
+            mapOf(
+                "conversationKey" to PersistentDiagnosticLog.shortHash(conversationId),
+                "generation" to generation,
+                "cacheItemCount" to state.historyCacheState.itemCount,
+                "surfaceStatus" to surfaceStatus,
+                "surfaceDesynced" to surfaceDesynced,
+                "reason" to reason
+            )
+        )
+        return true
+    }
+
+    /**
      * Tail validation is permitted only after the selected task has a matching
      * healthy IPC surface.  A desynced/provisional surface remains useful for
      * display continuity, but it must not unlock canonical source reads.
@@ -7148,6 +7418,402 @@ class CodexViewModel(
     ): Boolean =
         isCurrentHistorySelection(key) &&
             authorityModeForState(_uiState.value, key.conversationId) == IpcAuthorityMode.IPC_AUTHORITATIVE
+
+    private fun isTerminalReconcileContextCurrent(context: TerminalReconcileContext): Boolean =
+        !context.settled &&
+            terminalReconcileContexts[context.key] === context &&
+            terminalReconcileContextsBySyncId[context.syncId] === context &&
+            currentProfile?.id?.trim() == context.key.endpointId
+
+    private fun settleTerminalReconcile(
+        context: TerminalReconcileContext,
+        state: String,
+        detailCode: String?
+    ) {
+        if (terminalReconcileContexts[context.key] !== context || context.settled) return
+        context.settled = true
+        context.settledState = state
+        context.dispatchJob?.cancel()
+        context.dispatchJob = null
+        context.watchdogJob?.cancel()
+        context.watchdogJob = null
+        pendingTerminalReconcilePages.keys.removeIf { it.startsWith("${context.syncId}:") }
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.history.terminal_reconcile.settled",
+            mapOf(
+                "conversationKey" to PersistentDiagnosticLog.shortHash(context.key.conversationId),
+                "syncId" to PersistentDiagnosticLog.shortHash(context.syncId),
+                "generation" to context.selectionGeneration,
+                "terminalEpoch" to PersistentDiagnosticLog.shortHash(context.key.terminalEpoch),
+                "state" to state,
+                "detailCode" to detailCode
+            ),
+            level = if (state.equals("synced", ignoreCase = true)) "info" else "warn"
+        )
+    }
+
+    /**
+     * A terminal cache write is allowed to outlive the active UI selection,
+     * but only while its original terminal epoch remains intact. When A is
+     * still visible, re-check the local healthy surface before sending; when
+     * B is visible, Gateway repeats the same check against its source cache.
+     */
+    private fun canDispatchTerminalReconcile(context: TerminalReconcileContext): Boolean {
+        if (!isTerminalReconcileContextCurrent(context)) return false
+        val activeConversationId = _uiState.value.activeConversationId?.trim()
+        if (activeConversationId != context.key.conversationId) return true
+        val surface = _uiState.value.ipcSurfaceSnapshot ?: return false
+        return terminalReconcileEpoch(surface.sourceEpoch, surface.latestTurnId) == context.key.terminalEpoch &&
+            isEligibleCompletedTerminalSurface(surface, _uiState.value.currentTurnId)
+    }
+
+    private fun invalidateSupersededTerminalReconcile(
+        surface: DesktopSurfaceSnapshot
+    ) {
+        val conversationId = surface.conversationId?.trim()?.takeIf { it.isNotEmpty() } ?: return
+        val endpointId = currentProfile?.id?.trim()?.takeIf { it.isNotEmpty() } ?: return
+        val currentEpoch = terminalReconcileEpoch(surface.sourceEpoch, surface.latestTurnId)
+        terminalReconcileContexts.values
+            .filter { context ->
+                !context.settled &&
+                    context.key.endpointId == endpointId &&
+                    context.key.conversationId == conversationId &&
+                    (currentEpoch == null || context.key.terminalEpoch != currentEpoch ||
+                        !isEligibleCompletedTerminalSurface(surface, _uiState.value.currentTurnId))
+            }
+            .forEach { context ->
+                settleTerminalReconcile(context, "failed", "terminal_reconcile_epoch_superseded")
+            }
+    }
+
+    /**
+     * Start exactly once for a healthy completed terminal epoch. This is not
+     * part of selection hydration: the captured context may finish A's
+     * SQLite transaction after the user selects B, without touching B's UI.
+     */
+    private fun maybeScheduleTerminalReconcile(
+        surface: DesktopSurfaceSnapshot?,
+        reason: String
+    ) {
+        val snapshot = surface ?: return
+        val conversationId = snapshot.conversationId?.trim()?.takeIf { it.isNotEmpty() } ?: return
+        val profile = currentProfile ?: return
+        val selectionKey = historySelectionKeyOrNull(conversationId, historySelectionGeneration) ?: return
+        if (!isCurrentHistorySelection(selectionKey) ||
+            !isEligibleCompletedTerminalSurface(snapshot, _uiState.value.currentTurnId)
+        ) return
+        val capability = historyCapability?.terminalReconcile
+        if (capability == null || !capability.enabled || capability.version != 1) {
+            PersistentDiagnosticLog.event(
+                "codex",
+                "android.codex.history.terminal_reconcile.capability_unavailable",
+                mapOf(
+                    "conversationKey" to PersistentDiagnosticLog.shortHash(conversationId),
+                    "generation" to selectionKey.generation,
+                    "reason" to reason
+                )
+            )
+            return
+        }
+        // The Gateway only grants the legacy full-read exception from its own
+        // metadata observation. Do not race a just-opened conversation before
+        // that observation has completed.
+        if (tailValidationMetadataSelectionKey != selectionKey) {
+            PersistentDiagnosticLog.event(
+                "codex",
+                "android.codex.history.terminal_reconcile.waiting_for_metadata",
+                mapOf(
+                    "conversationKey" to PersistentDiagnosticLog.shortHash(conversationId),
+                    "generation" to selectionKey.generation,
+                    "reason" to reason
+                )
+            )
+            return
+        }
+        val terminalEpoch = terminalReconcileEpoch(snapshot.sourceEpoch, snapshot.latestTurnId) ?: return
+        val key = TerminalReconcileKey(profile.id, conversationId, terminalEpoch)
+        if (terminalReconcileContexts.containsKey(key)) return
+        val context = TerminalReconcileContext(
+            key = key,
+            selectionGeneration = selectionKey.generation,
+            syncId = UUID.randomUUID().toString()
+        )
+        if (terminalReconcileContexts.putIfAbsent(key, context) != null) return
+        terminalReconcileContextsBySyncId[context.syncId] = context
+        deferOrdinaryHistoryLaneForTerminalReconcile(
+            conversationId = conversationId,
+            generation = selectionKey.generation,
+            reason = "terminal_reconcile_started"
+        )
+        context.dispatchJob = viewModelScope.launch {
+            delay(TERMINAL_RECONCILE_STABILITY_MILLIS)
+            if (!canDispatchTerminalReconcile(context)) {
+                settleTerminalReconcile(context, "failed", "terminal_reconcile_epoch_stale")
+                return@launch
+            }
+            val cachedResult = withContext(Dispatchers.IO) {
+                runCatching { historyCacheStore.readConversation(context.key.endpointId, conversationId) }
+            }
+            if (!canDispatchTerminalReconcile(context)) {
+                settleTerminalReconcile(context, "failed", "terminal_reconcile_epoch_stale")
+                return@launch
+            }
+            if (cachedResult.isFailure) {
+                settleTerminalReconcile(context, "failed", "terminal_reconcile_cache_read_failed")
+                return@launch
+            }
+            val cached = cachedResult.getOrNull()
+            val checkpoint = normalizeHistoryCheckpointForAvailableItems(
+                checkpoint = cached?.checkpoint,
+                availableDurableItemCount = cached?.items?.count { !it.provisional } ?: 0
+            )
+            val request = CodexHistoryTerminalReconcileRequest(
+                syncId = context.syncId,
+                conversationId = conversationId,
+                checkpoint = checkpoint,
+                selectionGeneration = context.selectionGeneration,
+                terminalEpoch = context.key.terminalEpoch,
+                terminalReconcile = capability,
+                cacheSchemaVersion = when {
+                    historyCapability?.payloadChunks == true && historyCapability?.perPageAck == true -> 2
+                    else -> 1
+                }
+            )
+            if (!connectionManager.send(CodexClientMessages.historyTerminalReconcileRequest(request))) {
+                settleTerminalReconcile(context, "failed", "terminal_reconcile_send_failed")
+                return@launch
+            }
+            PersistentDiagnosticLog.event(
+                "codex",
+                "android.codex.history.terminal_reconcile.requested",
+                mapOf(
+                    "conversationKey" to PersistentDiagnosticLog.shortHash(conversationId),
+                    "syncId" to PersistentDiagnosticLog.shortHash(context.syncId),
+                    "generation" to context.selectionGeneration,
+                    "terminalEpoch" to PersistentDiagnosticLog.shortHash(context.key.terminalEpoch),
+                    "checkpointItemCount" to checkpoint.itemCount,
+                    "reason" to reason
+                )
+            )
+            context.watchdogJob = viewModelScope.launch {
+                delay(historyWatchdogTimeoutMillis())
+                if (isTerminalReconcileContextCurrent(context)) {
+                    settleTerminalReconcile(context, "failed", "terminal_reconcile_timeout")
+                }
+            }
+        }
+    }
+
+    private fun terminalReconcileContext(
+        syncId: String,
+        conversationId: String,
+        terminalEpoch: String?,
+        clientSelectionGeneration: Long? = null
+    ): TerminalReconcileContext? {
+        val context = terminalReconcileContextsBySyncId[syncId] ?: return null
+        if (context.key.conversationId != conversationId ||
+            context.key.terminalEpoch != terminalEpoch ||
+            (clientSelectionGeneration != null &&
+                clientSelectionGeneration != context.selectionGeneration) ||
+            !isTerminalReconcileContextCurrent(context)
+        ) return null
+        return context
+    }
+
+    private fun sendTerminalReconcileManifest(required: CodexHistoryManifestRequired) {
+        val context = terminalReconcileContext(
+            syncId = required.syncId,
+            conversationId = required.conversationId,
+            terminalEpoch = required.terminalEpoch,
+            clientSelectionGeneration = required.clientSelectionGeneration
+        ) ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val manifestResult = runCatching {
+                historyCacheStore.readConversationManifest(
+                    context.key.endpointId,
+                    context.key.conversationId
+                )
+            }
+            if (!isTerminalReconcileContextCurrent(context)) return@launch
+            if (manifestResult.isFailure) {
+                settleTerminalReconcile(context, "failed", "terminal_reconcile_manifest_read_failed")
+                return@launch
+            }
+            val pageSize = required.pageSize.coerceIn(1, 2_000)
+            val manifest = manifestResult.getOrDefault(emptyList())
+            val pages = manifest.takeIf { it.isNotEmpty() }?.chunked(pageSize) ?: listOf(emptyList())
+            for ((index, pageItems) in pages.withIndex()) {
+                if (!isTerminalReconcileContextCurrent(context)) return@launch
+                val items = JSONArray().apply {
+                    pageItems.forEach { entry ->
+                        put(JSONObject().apply {
+                            put("itemKey", entry.itemKey)
+                            put("contentHash", entry.contentHash)
+                        })
+                    }
+                }
+                val sent = connectionManager.send(
+                    CodexClientMessages.historyManifestPage(
+                        syncId = required.syncId,
+                        conversationId = required.conversationId,
+                        pageIndex = index,
+                        lastPage = index == pages.lastIndex,
+                        items = items,
+                        selectionGeneration = context.selectionGeneration,
+                        purpose = TERMINAL_RECONCILE_PURPOSE,
+                        terminalEpoch = context.key.terminalEpoch
+                    )
+                )
+                if (!sent) {
+                    settleTerminalReconcile(context, "failed", "terminal_reconcile_manifest_send_failed")
+                    return@launch
+                }
+            }
+            PersistentDiagnosticLog.event(
+                "codex",
+                "android.codex.history.terminal_reconcile.manifest_sent",
+                mapOf(
+                    "conversationKey" to PersistentDiagnosticLog.shortHash(context.key.conversationId),
+                    "syncId" to PersistentDiagnosticLog.shortHash(context.syncId),
+                    "itemCount" to manifest.size,
+                    "pageCount" to pages.size
+                )
+            )
+        }
+    }
+
+    private fun sendTerminalReconcileAck(
+        context: TerminalReconcileContext,
+        targetRoot: String,
+        sequence: Int,
+        pageIndex: Int
+    ) {
+        if (!isTerminalReconcileContextCurrent(context)) return
+        if (!connectionManager.send(
+                CodexClientMessages.historySyncAck(
+                    syncId = context.syncId,
+                    conversationId = context.key.conversationId,
+                    targetRoot = targetRoot,
+                    sequence = sequence,
+                    pageIndex = pageIndex,
+                    selectionGeneration = context.selectionGeneration,
+                    purpose = TERMINAL_RECONCILE_PURPOSE,
+                    terminalEpoch = context.key.terminalEpoch
+                )
+            )
+        ) {
+            settleTerminalReconcile(context, "failed", "terminal_reconcile_ack_send_failed")
+        }
+    }
+
+    private fun handleTerminalReconcileDelta(wire: CodexHistoryDeltaWire) {
+        val delta = wire.page
+        val context = terminalReconcileContext(
+            syncId = delta.syncId,
+            conversationId = delta.conversationId,
+            terminalEpoch = wire.terminalEpoch,
+            clientSelectionGeneration = delta.selectionGeneration
+        ) ?: return
+        if (CodexHistoryPageHasher.pageHash(delta) != delta.pageHash
+        ) {
+            settleTerminalReconcile(context, "failed", "terminal_reconcile_delta_invalid")
+            return
+        }
+        pendingTerminalReconcilePages[historyPageKey(delta.syncId, delta.pageIndex)] = delta
+        viewModelScope.launch(Dispatchers.IO) {
+            if (!isTerminalReconcileContextCurrent(context)) return@launch
+            val result = runCatching {
+                historyApplyMutex.withLock {
+                    if (isTerminalReconcileContextCurrent(context)) {
+                        historyCacheStore.applyDeltaPage(context.key.endpointId, delta)
+                    } else {
+                        CodexConversationCacheStore.PageApplyResult.REJECTED
+                    }
+                }
+            }.getOrDefault(CodexConversationCacheStore.PageApplyResult.REJECTED)
+            PersistentDiagnosticLog.event(
+                "codex",
+                "android.codex.history.terminal_reconcile.delta_applied",
+                mapOf(
+                    "conversationKey" to PersistentDiagnosticLog.shortHash(delta.conversationId),
+                    "syncId" to PersistentDiagnosticLog.shortHash(delta.syncId),
+                    "pageIndex" to delta.pageIndex,
+                    "pageCount" to delta.pageCount,
+                    "result" to result.name
+                ),
+                level = if (result == CodexConversationCacheStore.PageApplyResult.REJECTED ||
+                    result == CodexConversationCacheStore.PageApplyResult.REJECTED_CONFLICT
+                ) "warn" else "info"
+            )
+            when (result) {
+                CodexConversationCacheStore.PageApplyResult.COMMITTED,
+                CodexConversationCacheStore.PageApplyResult.READY,
+                CodexConversationCacheStore.PageApplyResult.IDEMPOTENT -> {
+                    sendTerminalReconcileAck(context, delta.targetRoot, delta.sequence, delta.pageIndex)
+                    if (result != CodexConversationCacheStore.PageApplyResult.READY) {
+                        pendingTerminalReconcilePages.remove(historyPageKey(delta.syncId, delta.pageIndex))
+                    }
+                }
+                CodexConversationCacheStore.PageApplyResult.STAGED -> Unit
+                else -> settleTerminalReconcile(context, "failed", "terminal_reconcile_delta_apply_failed")
+            }
+        }
+    }
+
+    private fun handleTerminalReconcilePayloadChunk(wire: CodexHistoryPayloadChunkWire) {
+        val chunk = wire.chunk
+        val context = terminalReconcileContext(
+            syncId = chunk.syncId,
+            conversationId = chunk.conversationId,
+            terminalEpoch = wire.terminalEpoch,
+            clientSelectionGeneration = chunk.selectionGeneration
+        ) ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            if (!isTerminalReconcileContextCurrent(context)) return@launch
+            val result = runCatching {
+                historyApplyMutex.withLock {
+                    if (isTerminalReconcileContextCurrent(context)) {
+                        historyCacheStore.applyPayloadChunk(context.key.endpointId, chunk)
+                    } else {
+                        CodexConversationCacheStore.PageApplyResult.REJECTED
+                    }
+                }
+            }.getOrDefault(CodexConversationCacheStore.PageApplyResult.REJECTED)
+            when (result) {
+                CodexConversationCacheStore.PageApplyResult.COMMITTED,
+                CodexConversationCacheStore.PageApplyResult.READY,
+                CodexConversationCacheStore.PageApplyResult.IDEMPOTENT -> {
+                    val page = pendingTerminalReconcilePages[historyPageKey(chunk.syncId, chunk.pageIndex)]
+                    sendTerminalReconcileAck(
+                        context = context,
+                        targetRoot = page?.targetRoot?.ifBlank { chunk.targetRoot } ?: chunk.targetRoot,
+                        sequence = chunk.sequence,
+                        pageIndex = chunk.pageIndex
+                    )
+                    if (result != CodexConversationCacheStore.PageApplyResult.READY) {
+                        pendingTerminalReconcilePages.remove(historyPageKey(chunk.syncId, chunk.pageIndex))
+                    }
+                }
+                CodexConversationCacheStore.PageApplyResult.STAGED -> Unit
+                else -> settleTerminalReconcile(context, "failed", "terminal_reconcile_payload_apply_failed")
+            }
+        }
+    }
+
+    private fun handleTerminalReconcileState(syncState: CodexHistorySyncStateMessage) {
+        val context = terminalReconcileContext(
+            syncId = syncState.syncId,
+            conversationId = syncState.conversationId,
+            terminalEpoch = syncState.terminalEpoch,
+            clientSelectionGeneration = syncState.clientSelectionGeneration
+        ) ?: return
+        settleTerminalReconcile(
+            context = context,
+            state = syncState.state,
+            detailCode = syncState.detailCode
+        )
+    }
 
     private fun clearCanonicalTailValidationState() {
         tailValidationDispatchJob?.cancel()
@@ -7435,6 +8101,10 @@ class CodexViewModel(
             )
         )
         maybeRequestCanonicalTailValidation(conversationId, "metadata_response")
+        maybeScheduleTerminalReconcile(
+            _uiState.value.ipcSurfaceSnapshot,
+            "metadata_response"
+        )
     }
 
     private fun handleCanonicalTailValidationState(syncState: CodexHistorySyncStateMessage) {
@@ -7524,9 +8194,34 @@ class CodexViewModel(
     private fun maybeRequestHistorySync(conversationId: String?) {
         val normalizedConversationId = conversationId?.trim()?.takeIf { it.isNotEmpty() } ?: return
         val profile = currentProfile ?: return
-        if (historyRecoveryInFlightConversationId == normalizedConversationId) return
         val requestGeneration = historySelectionGeneration
         if (shouldWaitForActiveConversationSubscription(normalizedConversationId, requestGeneration)) {
+            return
+        }
+        val selectedSurface = _uiState.value.ipcSurfaceSnapshot?.takeIf { surface ->
+            normalizeCodexThreadId(surface.conversationId) == normalizedConversationId
+        }
+        if (deferOrdinaryHistoryLaneForCompleteLocalCache(
+                conversationId = normalizedConversationId,
+                generation = requestGeneration,
+                surfaceStatus = selectedSurface?.status,
+                surfaceDesynced = selectedSurface?.desynced == true || matchingIpcSurfaceDesynced,
+                reason = "selection_or_surface"
+            )
+        ) {
+            maybeRequestCanonicalTailValidation(
+                normalizedConversationId,
+                "complete_local_cache"
+            )
+            return
+        }
+        if (historyRecoveryInFlightConversationId == normalizedConversationId) return
+        if (deferOrdinaryHistoryLaneForTerminalReconcile(
+                conversationId = normalizedConversationId,
+                generation = requestGeneration,
+                reason = "selection_or_surface"
+            )
+        ) {
             return
         }
         if (hasCompleteServerSnapshotCache(normalizedConversationId, requestGeneration)) {
@@ -8421,6 +9116,10 @@ class CodexViewModel(
                     )
                 }
                 maybeRequestModelList()
+                maybeScheduleTerminalReconcile(
+                    _uiState.value.ipcSurfaceSnapshot,
+                    "capabilities_received"
+                )
                 // Do not enqueue the optional rate-limit RPC during the
                 // initial connection.  Codex app-server serializes some
                 // requests; a slow rate-limit read can otherwise hold the
@@ -8473,7 +9172,17 @@ class CodexViewModel(
                     ipcAuthorityModeEnteredAtElapsed = SystemClock.elapsedRealtime()
                     runForegroundRecoveryTick(SystemClock.elapsedRealtime())
                 }
-                if (status.online) maybeRequestHistorySync(_uiState.value.activeConversationId)
+                if (status.online) {
+                    // A replayed completed surface can precede the additive
+                    // history capability on reconnect. Re-evaluate the same
+                    // guarded terminal gate once the capability is known;
+                    // it still requires matching healthy surface + metadata.
+                    maybeScheduleTerminalReconcile(
+                        _uiState.value.ipcSurfaceSnapshot,
+                        "ipc_status_capability"
+                    )
+                    maybeRequestHistorySync(_uiState.value.activeConversationId)
+                }
                 Log.i(TAG, "[ipc][status] " +
                     "online=${status.online} " +
                     "hadObservedStatus=$hadObservedStatus " +
@@ -8593,6 +9302,10 @@ class CodexViewModel(
 
             "conversation_history_manifest_required" -> {
                 val required = CodexHistoryManifestRequired.from(json) ?: return
+                if (isTerminalReconcileSyncPurpose(required.purpose)) {
+                    sendTerminalReconcileManifest(required)
+                    return
+                }
                 if (required.conversationId != _uiState.value.activeConversationId ||
                     !acceptsHistoryClientSelection(required.clientSelectionGeneration) ||
                     !acceptsActiveHistorySyncId(historySyncInFlightSyncId, required.syncId)
@@ -8717,6 +9430,13 @@ class CodexViewModel(
                     // UI state, cache rows, or SQLite.  It is only the private
                     // Step 3 freshness observation for this selection.
                     handleCanonicalTailValidationState(syncState)
+                    return
+                }
+                if (isTerminalReconcileSyncPurpose(syncState.purpose)) {
+                    // P0-C settles only its private durable context. It must
+                    // not affect active UI selection, recovery, or history
+                    // network state (which may now belong to B).
+                    handleTerminalReconcileState(syncState)
                     return
                 }
                 if (syncState.conversationId == _uiState.value.activeConversationId &&
@@ -9128,7 +9848,7 @@ class CodexViewModel(
             }
 
             "conversation_history_delta" -> {
-                val delta = CodexHistoryDeltaWire.from(json)?.page ?: run {
+                val deltaWire = CodexHistoryDeltaWire.from(json) ?: run {
                     PersistentDiagnosticLog.event(
                         "codex",
                         "android.codex.history.delta_parse_failed",
@@ -9137,6 +9857,11 @@ class CodexViewModel(
                     )
                     return
                 }
+                if (isTerminalReconcileSyncPurpose(deltaWire.purpose)) {
+                    handleTerminalReconcileDelta(deltaWire)
+                    return
+                }
+                val delta = deltaWire.page
                 val activeConversationId = _uiState.value.activeConversationId
                 val endpointId = currentProfile?.id
                 if (endpointId == null || delta.conversationId != activeConversationId ||
@@ -9342,7 +10067,12 @@ class CodexViewModel(
             }
 
             "conversation_history_payload_chunk" -> {
-                val chunk = CodexHistoryPayloadChunkWire.from(json)?.chunk ?: return
+                val chunkWire = CodexHistoryPayloadChunkWire.from(json) ?: return
+                if (isTerminalReconcileSyncPurpose(chunkWire.purpose)) {
+                    handleTerminalReconcilePayloadChunk(chunkWire)
+                    return
+                }
+                val chunk = chunkWire.chunk
                 val endpointId = currentProfile?.id
                 if (endpointId == null || chunk.conversationId != _uiState.value.activeConversationId ||
                     !acceptsHistoryClientSelection(chunk.selectionGeneration) ||
@@ -9564,6 +10294,7 @@ class CodexViewModel(
                             threadHistoryEntries = mergeGoalHistoryEntries(updated.threadHistoryEntries)
                         )
                     }
+                    invalidateSupersededTerminalReconcile(snap)
                     if (!snap.desynced && currentSelectionMatches) {
                         // A matching healthy surface is the only IPC state
                         // allowed to unlock the Step 3 read-only probe.  The
@@ -9572,6 +10303,10 @@ class CodexViewModel(
                         maybeRequestCanonicalTailValidation(
                             convId,
                             "healthy_surface"
+                        )
+                        maybeScheduleTerminalReconcile(
+                            snap,
+                            "healthy_completed_surface"
                         )
                     }
                     val surfaceRequestsHistorySync = shouldRequestHistorySyncAfterSurface(
@@ -11316,6 +12051,15 @@ class CodexViewModel(
                         ),
                         historyCacheState = snapshot.uiState
                     )
+                }
+            }
+            if (snapshot.uiState.complete && isCurrentHistorySelection(key)) {
+                // Discovery/metadata paths can start the ordinary lane before
+                // this asynchronous cache read finishes. Re-run the same
+                // complete-cache fence so an in-flight stale snapshot is
+                // quarantined as soon as the durable baseline is known.
+                withContext(Dispatchers.Main.immediate) {
+                    maybeRequestHistorySync(conversationId)
                 }
             }
             scheduleMediaPrefetch(snapshot.messages, generation)

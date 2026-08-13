@@ -118,6 +118,25 @@ class CodexHistoryWireTest {
     }
 
     @Test
+    fun capabilityReadsTerminalReconcileIndependentlyFromTailValidation() {
+        val status = JSONObject().put(
+            "capabilities",
+            JSONObject().put(
+                "historySync",
+                JSONObject()
+                    .put("version", 1)
+                    .put("terminalReconcile", JSONObject()
+                        .put("enabled", true)
+                        .put("version", 1))
+            )
+        )
+        val capability = CodexHistoryCapability.from(status)
+        assertTrue(capability?.terminalReconcile?.enabled == true)
+        assertEquals(1, capability?.terminalReconcile?.version)
+        assertNull(capability?.tailValidation)
+    }
+
+    @Test
     fun manifestPageCarriesClientSelectionGenerationEvenWhenEmpty() {
         val message = JSONObject(
             CodexClientMessages.historyManifestPage(
@@ -246,6 +265,29 @@ class CodexHistoryWireTest {
     }
 
     @Test
+    fun terminalReconcileRequestIsExplicitAndCarriesOnlyDurableContext() {
+        val message = JSONObject(
+            CodexClientMessages.historyTerminalReconcileRequest(
+                CodexHistoryTerminalReconcileRequest(
+                    syncId = "terminal-sync",
+                    conversationId = "conversation",
+                    checkpoint = CodexHistorySyncCheckpoint("root", 9, true),
+                    selectionGeneration = 7,
+                    terminalEpoch = "source-epoch#42",
+                    terminalReconcile = CodexHistoryTerminalReconcileCapability(true, 1),
+                    cacheSchemaVersion = 2
+                )
+            )
+        )
+        assertEquals("conversation_history_terminal_reconcile_request", message.getString("type"))
+        assertEquals("source-epoch#42", message.getString("terminalEpoch"))
+        assertEquals(2, message.getInt("cacheSchemaVersion"))
+        assertTrue(message.getJSONObject("terminalReconcile").getBoolean("enabled"))
+        assertFalse(message.has("rangeSegments"))
+        assertFalse(message.has("serverSnapshotSegments"))
+    }
+
+    @Test
     fun syncStateDefaultsToHistorySyncPurposeAndParsesTailValidationPurpose() {
         val normal = CodexHistorySyncStateMessage.from(
             JSONObject()
@@ -262,6 +304,41 @@ class CodexHistoryWireTest {
         )
         assertEquals("history_sync", normal.purpose)
         assertEquals("tail_validation", validation.purpose)
+    }
+
+    @Test
+    fun terminalReconcilePurposeAndEpochRemainOutsidePageHashInputs() {
+        val state = CodexHistorySyncStateMessage.from(
+            JSONObject()
+                .put("syncId", "terminal")
+                .put("conversationId", "conversation")
+                .put("state", "synced")
+                .put("purpose", "terminal_reconcile")
+                .put("terminalEpoch", "epoch#4")
+        )
+        val delta = CodexHistoryDeltaWire.from(
+            JSONObject()
+                .put("syncId", "terminal")
+                .put("conversationId", "conversation")
+                .put("sequence", 1)
+                .put("pageIndex", 0)
+                .put("pageCount", 1)
+                .put("pageHash", "hash")
+                .put("targetRoot", "root")
+                .put("baselineComplete", true)
+                .put("fullOrderIncluded", false)
+                .put("upserts", JSONArray())
+                .put("deletes", JSONArray())
+                .put("selectionGeneration", 1)
+                .put("clientSelectionGeneration", 31)
+                .put("purpose", "terminal_reconcile")
+                .put("terminalEpoch", "epoch#4")
+        )!!
+        assertEquals("terminal_reconcile", state.purpose)
+        assertEquals("epoch#4", state.terminalEpoch)
+        assertEquals("terminal_reconcile", delta.purpose)
+        assertEquals("epoch#4", delta.terminalEpoch)
+        assertEquals(31L, delta.page.selectionGeneration)
     }
 
     @Test

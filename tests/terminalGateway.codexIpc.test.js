@@ -285,6 +285,35 @@ function loadGateway() {
     return require(gatewayPath);
 }
 
+test('completed terminal epoch remains stable across IPC surface revisions of the same turn', () => {
+    const registerTerminalGateway = loadGateway();
+    const firstRevision = registerTerminalGateway.buildTerminalReconcileEpoch({
+        sourceEpoch: 'source-terminal',
+        latestTurnId: 'turn-terminal',
+        revision: 9,
+        status: 'completed',
+        desynced: false
+    });
+    const replayedRevision = registerTerminalGateway.buildTerminalReconcileEpoch({
+        sourceEpoch: 'source-terminal',
+        latestTurnId: 'turn-terminal',
+        revision: 10,
+        status: 'completed',
+        desynced: false
+    });
+    const nextTurn = registerTerminalGateway.buildTerminalReconcileEpoch({
+        sourceEpoch: 'source-terminal',
+        latestTurnId: 'turn-next',
+        revision: 11,
+        status: 'completed',
+        desynced: false
+    });
+
+    assert.equal(firstRevision, 'source-terminal#turn-terminal');
+    assert.equal(replayedRevision, firstRevision);
+    assert.notEqual(nextTurn, firstRevision);
+});
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function createFakeSessionManager() {
@@ -341,6 +370,7 @@ async function setupGateway(opts = {}) {
         historyRangeSegmentsEnabled: opts.historyRangeSegmentsEnabled === true,
         historySnapshotSegmentsEnabled: opts.historySnapshotSegmentsEnabled === true,
         historyTailValidationEnabled: opts.historyTailValidationEnabled !== false,
+        historyTerminalReconcileEnabled: opts.historyTerminalReconcileEnabled !== false,
         historySnapshotStore: opts.historySnapshotStore ?? null
     });
 
@@ -406,6 +436,15 @@ async function waitForMessage(messages, predicate, timeoutMs = 1_000) {
         await delay(10);
     }
     return messages.find(predicate) || null;
+}
+
+async function waitForCondition(predicate, timeoutMs = 1_000) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        if (predicate()) return true;
+        await delay(10);
+    }
+    return Boolean(predicate());
 }
 
 // ── tests ────────────────────────────────────────────────────────────────────
@@ -1246,6 +1285,288 @@ test('tail validation fails without current metadata and drops a late A→B resu
         message.syncId === '123e4567-e89b-12d3-a456-426614174304'
     ), false);
     assert.equal(g.codexService.requests.filter((entry) => entry.method === 'thread/read' && entry.params.includeTurns === true).length, 0);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('legacy completed reconciliation survives A→B after start and uses only the durable manifest/delta lane', async () => {
+    const registrationId = 'android-terminal-reconcile';
+    let releaseFullRead;
+    const fullReadBlocked = new Promise((resolve) => { releaseFullRead = resolve; });
+    const g = await setupGateway({
+        registrationManager: {
+            isActive: (id) => id === registrationId,
+            get: (id) => id === registrationId ? { clientType: 'android' } : null
+        }
+    });
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && params.includeTurns === false) {
+            return { thread: { id: params.threadId, historyMode: 'legacy' } };
+        }
+        if (method === 'thread/read' && params.includeTurns === true) {
+            await fullReadBlocked;
+            return {
+                thread: {
+                    id: params.threadId,
+                    historyMode: 'legacy',
+                    turns: [{
+                        id: 'turn-terminal',
+                        status: 'completed',
+                        items: [{ id: 'item-terminal', type: 'agentMessage', text: 'durable final tail' }]
+                    }]
+                }
+            };
+        }
+        throw new Error(`unexpected canonical source call: ${method}`);
+    };
+    const sess = await g.sm.createSession({ name: 'terminal-reconcile' });
+    const { ws, messages } = await connectWs(g.port, sess.id, registrationId);
+    await delay(60);
+    ws.send(JSON.stringify({
+        type: 'set_active_conversation',
+        conversationId: 'conv-terminal-a',
+        selectionGeneration: 31
+    }));
+    await delay(25);
+    g.ipcFeed.pushSnapshot('conv-terminal-a', {
+        conversationId: 'conv-terminal-a',
+        revision: 9,
+        sourceEpoch: 'source-terminal-a',
+        status: 'completed',
+        latestTurnId: 'turn-terminal',
+        items: []
+    });
+    ws.send(JSON.stringify({
+        type: 'codex_request',
+        requestId: 'terminal-reconcile-metadata',
+        method: 'thread/resume',
+        params: { threadId: 'conv-terminal-a' },
+        historyMode: 'metadata',
+        selectionGeneration: 31
+    }));
+    await waitForMessage(messages, (message) =>
+        message.type === 'codex_response' && message.requestId === 'terminal-reconcile-metadata'
+    );
+    const syncId = '123e4567-e89b-12d3-a456-426614174401';
+    ws.send(JSON.stringify({
+        type: 'conversation_history_terminal_reconcile_request',
+        syncId,
+        conversationId: 'conv-terminal-a',
+        selectionGeneration: 31,
+        terminalEpoch: 'source-terminal-a#turn-terminal',
+        cacheSchemaVersion: 2,
+        terminalReconcile: { enabled: true, version: 1 },
+        checkpoint: { rootHash: null, itemCount: 0, complete: false }
+    }));
+    assert.equal(await waitForCondition(() => g.codexService.requests.some((entry) =>
+        entry.method === 'thread/read' && entry.params.threadId === 'conv-terminal-a' && entry.params.includeTurns === true
+    )), true, 'legacy terminal reconciliation should start exactly one full canonical read');
+
+    // The durable source read has started for A. A later selection of B must
+    // not redirect or cancel A's cache transaction.
+    ws.send(JSON.stringify({
+        type: 'set_active_conversation',
+        conversationId: 'conv-terminal-b',
+        selectionGeneration: 32
+    }));
+    await delay(25);
+    releaseFullRead();
+
+    const manifestRequired = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_manifest_required' &&
+        message.purpose === 'terminal_reconcile' &&
+        message.syncId === syncId
+    );
+    assert.ok(manifestRequired);
+    assert.equal(manifestRequired.conversationId, 'conv-terminal-a');
+    // Gateway's per-socket generation starts at one, while Android's durable
+    // cache fence is its independently advertised generation. The wire must
+    // preserve both and Android must use the latter for P0-C.
+    assert.equal(manifestRequired.selectionGeneration, 1);
+    assert.equal(manifestRequired.clientSelectionGeneration, 31);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_manifest_page',
+        purpose: 'terminal_reconcile',
+        terminalEpoch: 'source-terminal-a#turn-terminal',
+        syncId,
+        conversationId: 'conv-terminal-a',
+        clientSelectionGeneration: 31,
+        pageIndex: 0,
+        lastPage: true,
+        items: []
+    }));
+    const delta = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_delta' &&
+        message.purpose === 'terminal_reconcile' &&
+        message.syncId === syncId
+    );
+    assert.ok(delta);
+    assert.equal(delta.conversationId, 'conv-terminal-a');
+    assert.equal(delta.baselineComplete, true);
+    assert.equal(delta.selectionGeneration, 1);
+    assert.equal(delta.clientSelectionGeneration, 31);
+    ws.send(JSON.stringify({
+        type: 'conversation_history_sync_ack',
+        purpose: 'terminal_reconcile',
+        terminalEpoch: 'source-terminal-a#turn-terminal',
+        syncId,
+        conversationId: 'conv-terminal-a',
+        targetRoot: delta.targetRoot,
+        sequence: delta.sequence,
+        pageIndex: delta.pageIndex,
+        clientSelectionGeneration: 31
+    }));
+    const settled = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_sync_state' &&
+        message.purpose === 'terminal_reconcile' &&
+        message.syncId === syncId
+    );
+    assert.equal(settled?.state, 'synced');
+    assert.equal(g.codexService.requests.filter((entry) =>
+        entry.method === 'thread/read' && entry.params.threadId === 'conv-terminal-a' && entry.params.includeTurns === true
+    ).length, 1);
+    assert.equal(g.codexService.requests.filter((entry) => entry.method === 'thread/turns/list').length, 0);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('terminal reconciliation fails closed when the completed source epoch changes during the full read', async () => {
+    const registrationId = 'android-terminal-reconcile-stale';
+    let releaseFullRead;
+    const fullReadBlocked = new Promise((resolve) => { releaseFullRead = resolve; });
+    const g = await setupGateway({
+        registrationManager: {
+            isActive: (id) => id === registrationId,
+            get: (id) => id === registrationId ? { clientType: 'android' } : null
+        }
+    });
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && params.includeTurns === false) {
+            return { thread: { id: params.threadId, historyMode: 'legacy' } };
+        }
+        if (method === 'thread/read' && params.includeTurns === true) {
+            await fullReadBlocked;
+            return { thread: { id: params.threadId, historyMode: 'legacy', turns: [] } };
+        }
+        throw new Error(`unexpected canonical source call: ${method}`);
+    };
+    const sess = await g.sm.createSession({ name: 'terminal-reconcile-stale' });
+    const { ws, messages } = await connectWs(g.port, sess.id, registrationId);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-terminal-stale', selectionGeneration: 41 }));
+    await delay(25);
+    g.ipcFeed.pushSnapshot('conv-terminal-stale', {
+        conversationId: 'conv-terminal-stale', revision: 3, sourceEpoch: 'source-stale', status: 'completed',
+        latestTurnId: 'turn-stale', items: []
+    });
+    ws.send(JSON.stringify({
+        type: 'codex_request', requestId: 'terminal-reconcile-stale-metadata', method: 'thread/resume',
+        params: { threadId: 'conv-terminal-stale' }, historyMode: 'metadata', selectionGeneration: 41
+    }));
+    await waitForMessage(messages, (message) => message.type === 'codex_response' && message.requestId === 'terminal-reconcile-stale-metadata');
+    const syncId = '123e4567-e89b-12d3-a456-426614174402';
+    ws.send(JSON.stringify({
+        type: 'conversation_history_terminal_reconcile_request', syncId,
+        conversationId: 'conv-terminal-stale', selectionGeneration: 41,
+        terminalEpoch: 'source-stale#turn-stale', terminalReconcile: { enabled: true, version: 1 },
+        checkpoint: { rootHash: null, itemCount: 0, complete: false }
+    }));
+    assert.equal(await waitForCondition(() => g.codexService.requests.some((entry) =>
+        entry.method === 'thread/read' && entry.params.includeTurns === true
+    )), true, 'legacy terminal reconciliation should start before the source epoch changes');
+    g.ipcFeed.pushSnapshot('conv-terminal-stale', {
+        conversationId: 'conv-terminal-stale', revision: 4, sourceEpoch: 'source-stale', status: 'running', items: []
+    });
+    releaseFullRead();
+    const settled = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_sync_state' && message.purpose === 'terminal_reconcile' && message.syncId === syncId
+    );
+    assert.equal(settled?.state, 'failed');
+    assert.equal(settled?.detailCode, 'terminal_reconcile_epoch_stale');
+    assert.equal(messages.some((message) =>
+        message.type === 'conversation_history_manifest_required' && message.syncId === syncId
+    ), false);
+    ws.close();
+    await stopGateway(g);
+});
+
+test('terminal reconciliation stops immediately when the source leaves its completed epoch after manifest start', async () => {
+    const registrationId = 'android-terminal-reconcile-live-stale';
+    const g = await setupGateway({
+        registrationManager: {
+            isActive: (id) => id === registrationId,
+            get: (id) => id === registrationId ? { clientType: 'android' } : null
+        }
+    });
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && params.includeTurns === false) {
+            return { thread: { id: params.threadId, historyMode: 'legacy' } };
+        }
+        if (method === 'thread/read' && params.includeTurns === true) {
+            return {
+                thread: {
+                    id: params.threadId,
+                    historyMode: 'legacy',
+                    turns: [{
+                        id: 'turn-terminal-live-stale',
+                        status: 'completed',
+                        items: [{ id: 'item-terminal-live-stale', type: 'agentMessage', text: 'final body' }]
+                    }]
+                }
+            };
+        }
+        throw new Error(`unexpected canonical source call: ${method}`);
+    };
+    const sess = await g.sm.createSession({ name: 'terminal-reconcile-live-stale' });
+    const { ws, messages } = await connectWs(g.port, sess.id, registrationId);
+    await delay(60);
+    ws.send(JSON.stringify({ type: 'set_active_conversation', conversationId: 'conv-terminal-live-stale', selectionGeneration: 51 }));
+    await delay(25);
+    g.ipcFeed.pushSnapshot('conv-terminal-live-stale', {
+        conversationId: 'conv-terminal-live-stale', revision: 8, sourceEpoch: 'source-live-stale', status: 'completed',
+        latestTurnId: 'turn-terminal-live-stale', items: []
+    });
+    ws.send(JSON.stringify({
+        type: 'codex_request', requestId: 'terminal-reconcile-live-stale-metadata', method: 'thread/resume',
+        params: { threadId: 'conv-terminal-live-stale' }, historyMode: 'metadata', selectionGeneration: 51
+    }));
+    await waitForMessage(messages, (message) =>
+        message.type === 'codex_response' && message.requestId === 'terminal-reconcile-live-stale-metadata'
+    );
+    const syncId = '123e4567-e89b-12d3-a456-426614174403';
+    ws.send(JSON.stringify({
+        type: 'conversation_history_terminal_reconcile_request', syncId,
+        conversationId: 'conv-terminal-live-stale', selectionGeneration: 51,
+        terminalEpoch: 'source-live-stale#turn-terminal-live-stale', terminalReconcile: { enabled: true, version: 1 },
+        checkpoint: { rootHash: null, itemCount: 0, complete: false }
+    }));
+    const manifest = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_manifest_required' &&
+        message.purpose === 'terminal_reconcile' &&
+        message.syncId === syncId
+    );
+    assert.ok(manifest);
+
+    g.ipcFeed.pushSnapshot('conv-terminal-live-stale', {
+        conversationId: 'conv-terminal-live-stale', revision: 9, sourceEpoch: 'source-live-stale', status: 'running', items: []
+    });
+    const settled = await waitForMessage(messages, (message) =>
+        message.type === 'conversation_history_sync_state' &&
+        message.purpose === 'terminal_reconcile' &&
+        message.syncId === syncId
+    );
+    assert.equal(settled?.state, 'failed');
+    assert.equal(settled?.detailCode, 'terminal_reconcile_epoch_stale');
+    ws.send(JSON.stringify({
+        type: 'conversation_history_manifest_page', purpose: 'terminal_reconcile',
+        terminalEpoch: 'source-live-stale#turn-terminal-live-stale', syncId,
+        conversationId: 'conv-terminal-live-stale', clientSelectionGeneration: 51,
+        pageIndex: 0, lastPage: true, items: []
+    }));
+    await delay(60);
+    assert.equal(messages.some((message) =>
+        message.type === 'conversation_history_delta' && message.purpose === 'terminal_reconcile' && message.syncId === syncId
+    ), false);
     ws.close();
     await stopGateway(g);
 });

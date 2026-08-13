@@ -1479,6 +1479,26 @@ Implementation Plan（2026-08-02，Android 快速模式）：
     `compileDebugAndroidTestKotlin` 与 `:app:assembleDebug` 通过。
   - Handoff：review-implementation
 
+- Finding ID：P0-C-TERMINAL-STATUS-F001
+  - Severity：P1 / major
+  - Source：`review-diff`（第 4 步工作区相对 `HEAD`，含 untracked instrumentation test）
+  - Status：resolved
+  - File / symbol：`CodexViewModel.kt::resolveSurfaceCurrentTurnId`
+  - Failure scenario：Gateway 与第 4 步契约均把 `complete` 视作可协调的终态，但 Android resolver 未将 `complete` 清为 `null`；若前一帧仍有 turn，稳定 completed gate 会持续看到旧 `currentTurnId`，不会启动一次性 reconciliation。
+  - Minimal fix direction：只把 `complete` 加入既有 terminal status 清空集合，不改变其它 status、surface authority 或 selection 行为。
+  - Required test：JVM 断言 `complete` + 既有 turnId 返回 `null`；`CodexViewModelThreadReadyTest` 定向回归已通过，第 4 步完整 JVM 回归将重跑。
+  - Handoff：implement-current-step
+
+- Finding ID：P0-C-CAPABILITY-ORDER-F002
+  - Severity：P1 / major
+  - Source：`review-implementation`（第 4 步工作区相对 `HEAD`，含 untracked instrumentation test）
+  - Status：resolved
+  - File / symbol：`CodexViewModel.kt::handleServerMessage(codex_ipc_status)`
+  - Failure scenario：matching completed surface 先于 `codex_ipc_status` 到达时，surface handler 因 `historyCapability=null` 不调度；该 capability 随后只在 status 分支赋值，现有代码没有再评估相同 terminal surface。
+  - Minimal fix direction：在 `historyCapability` 更新后重新调用既有 `maybeScheduleTerminalReconcile()`；其 active/healthy/metadata/epoch gate 保持全部生效。
+  - Required test：JDK 21 全量 JVM 回归 `378/378` 已通过；真机 completed→A→B→A 日志仍须出现一次 terminal-reconcile request，且 non-terminal / 无 metadata 不得产生 full read。
+  - Handoff：implement-current-step
+
 ## 传播治理记录
 
 - Direct consumers：Android Codex ViewModel/UI、Desktop/VS Code Codex IPC host、TermLink stdio app-server。
@@ -2403,3 +2423,51 @@ Implementation Plan（2026-08-12，Android cached desynced surface 投影可达�
 - 2026-08-12（第 2 步 provisional hydrate 保留回归修复：自动实现完成，等待人工门槛）：先新增 reducer 失败回归 `cacheHydrationRetainsBlankFileChangeAlreadyProjectedByMatchingProvisionalSurface`，修复前它在 `hydrate` 后按预期失败；另有负边界回归 `cacheHydrationDoesNotPreserveBlankFileChangeWithoutMatchingProvisionalSurface`，确保不把空 operation 的全局 local-tail 规则放宽。实现仅在 `mergeCachedHistoryIntoLiveMessagesForUi()` 已确认 active/thread 匹配后，检测当前 `ipcSurfaceSnapshot` 为同 conversation 的 `desynced` snapshot；既有 canonical/local-tail merge 完成后，用同一 snapshot 的 items 重投影到 display-only messages。该分支不改 state 的 authority/cache/status/operation/current-turn 字段，也不改 SQLite、Gateway 或第 3 步。定向两条回归、JDK 21 全量 `:app:testDebugUnitTest --rerun-tasks`、debug APK build 和 `git diff --check` 已通过；最新 APK 已以保留数据方式安装并启动至 `da34332c`，本地服务健康且未重启。现在等待用户以 `019ff186-bdc6-75a0-8862-257bbf781cbc` 连续做三次 A→B→A；完成后采集日志，验收目标为 matching provisional `17→38` 后 hydrate 保持 `38`，healthy 只建立/收敛 authority，不再以 `37→38` 补回 `TOOL:file_change`。第 3 步 legacy `UNSUPPORTED`、零 canonical source read/recovery/SQLite write 的门槛必须同时保持。
 
 - 2026-08-12（第 2 步 provisional hydrate 保留回归修复：人工门槛通过）：用户已在 `da34332c` 对 `019ff186-bdc6-75a0-8862-257bbf781cbc` 完成回归，采集目录为 `output/diagnostics/20260812-204034`。安装后 Android run `06dcc800-5029-4d77-8a19-db01735d0f8c` 的回到 A generation 3/5/7/9 均先恢复 cache `17`，matching `desynced=true` surface 将正文 `17→41`，随后 healthy surface 均保持 `41→41`；对该 run 的所有 before/after active 均为 A 的 writer trace 扫描，正文下降次数为 `0`，旧的 `hydrateCachedConversation 38→37→healthy 37→38` 链不再出现。server run `7d9a2447-0462-4de1-bf3b-4e61a4bbff6c` 对 generation 3/5/7/9 各一次 `tail_validation.requested → settled(UNSUPPORTED/history_tail_validation_legacy_unsupported)`，当前窗口零 `history.source_read`、零 `history.recovery`；仍可见的 `thread/resume → thread/read` 均带 `metadataHistoryResumeRead=true`，属于允许的 metadata 读取。该修复因此满足第 2 步 display continuity 边界，且不改变第 3 步隔离。cache 仍为 `17`、surface 仍有 `itemsTruncated=true`，故完成态 durable tail 持久化/第 4 步问题仍未解决，不能把本结果表述为永久历史丢失已修复。
+
+### 第 4 步 P0-C：legacy terminal durable reconciliation scope lock（2026-08-12）
+
+- **授权与目标**：用户已明确授权：仅在 legacy conversation 收到 matching、healthy（`desynced=false`）的 `completed` / `complete` surface，且 `currentTurnId=null`、最后一个 terminal revision 在 1,500ms stable window 内未再变化时，至多启动一次 canonical full reconciliation。它是完成态后台 durability lane，不得在每次 A→B→A、running、desynced、failed/cancelled 或普通 selection 时读取完整历史。
+- **Safety mode / dangerous surfaces**：`guarded`。危险面为 canonical full source read、WebSocket 历史传输与 Android SQLite 原子提交；本轮不执行 destructive DB 命令、不做 schema/DAO migration、不清空 cache、不重写 Git history。
+- **Allowed Files**：`docs/workflow/CURRENT_TASK.md`；`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`（仅通过本轮已确认架构例外同步）；`docs/codex/codex-a-b-a-live-tail-recovery-sequence.md`；`src/ws/terminalGateway.js`、`src/services/codexHistoryBaselineProvider.js`、`src/services/codexHistorySyncService.js`；`android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`、`android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt`、`android/app/src/main/java/com/termlink/app/codex/data/CodexConversationCacheStore.kt`；以及这些文件对应的 Node / Android JVM tests（必要时新增仅覆盖该 cache-store transaction 的 test 文件）。
+- **Required behavior**：以 `(endpoint/profile, conversationId, terminalEpoch)` 为 durable single-flight key；重复 terminal surface 合并，新的 running/new terminal revision 使旧 epoch 失效。Gateway 仅在 start-time 证明 A 为 matching terminal selection 后开始 job；job 开始后 A→B 不得使其写入 B，也不得取消 A 的 durable commit。UI fence 仍是 selection generation；durable fence 必须独立为 endpoint + conversation + terminal epoch。Gateway 必须直达 canonical source，legacy 只允许一次 `thread/read(includeTurns=true)`，30s timeout、70MiB source response limit、既有 256KiB/128KiB history envelope limits；不得命中 `CodexHistorySnapshotStore`，不得把 IPC surface 当数据库 payload。canonical id / complete result / hash/checkpoint 验证通过后，Android 必须用 staging + 单事务提交 A 分区；失败、超时、超限、id mismatch、断线或 stale epoch 只保留旧 A cache 并记录可重试失败，绝不删除或降级为 IPC data write。
+- **Protocol / propagation**：允许 additive dedicated terminal-reconcile request、state 与 history segment/delta `purpose`，以区分普通 selection history sync；旧客户端忽略 additive 字段并保持原路径。涉及 terminalGateway、provider、history sync、Android wire/ViewModel/cache-store，必须声明 canonical id、binding、owner fallback、A/B UI isolation 均不改变；Node Gateway/provider、Android wire/ViewModel/cache-store JVM 回归及 A→completed→B→A 真机 smoke 均为强制门槛。
+- **Forbidden Files / 行为**：禁止 `src/services/codexIpcClient.js`、`codexIpcFeed.js`、`codexIpcThreadStream.js`、`codexOwnerSurfaceTracker.js`、`codexMobileSurfaceProjector.js`、`codexHistorySnapshotStore.js`、任何 session/HTTP route、Android Activity/UI/Screen、SQLite schema/DAO、`docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md`；禁止改 follower acquire/release、desired subscription/reconnect replay、healthy IPC authority、A→B active UI slot 清空、P0-B range/delete/order semantics、192KiB limit，或把 terminal reconciliation 提升为 realtime authority。
+- **Conditional / stop conditions**：若实现需要新 SQLite table/schema、snapshot-store freshness 改造、IPC feed/owner 改动、UI 文案/状态、不同 Codex method、或无法复用现有 staging transaction，则立即停止并重新 lock scope；不得以普通 history sync 的 active-selection gate 偷渡 background commit。External Documentation Gate：不触发；本步只使用当前项目内已封装的 Codex app-server history reader 与已验证的 protocol wrapper，不新增第三方 API/SDK/CLI 用法。
+- **Rollback / validation**：关闭 additive terminal-reconcile capability 即停止新 job；已成功写入的 canonical A cache 保留。自动门槛：legacy terminal 只 full-read 一次、非 terminal/desynced 不读、A→B 后结果只写 A、B UI 不变、新 turn/stale epoch/timeout/oversize/id mismatch 不提交、SQLite failure 保留旧 cache；随后运行 provider/Gateway Node 定向回归、Android JVM、JDK 21 APK build、`git diff --check`。人工门槛：在目标会话完成后尽快 A→B→A，采集日志必须证明 A cache 的 newest tail 已 durable、B 无正文/缓存写入、没有每次回选 full read，且第 2 步 provisional continuity 保持。
+
+### 第 4 步 P0-C 自动实施记录（2026-08-12，人工门槛待执行）
+
+- **实现完成**：已新增独立的 `conversation_history_terminal_reconcile_request` 与 `purpose=terminal_reconcile` 传输 lane。仅 matching healthy `completed` / `complete` surface、`currentTurnId=null` 且 terminal revision 在 1,500ms 内稳定时，才按 `(endpoint/profile, conversationId, terminalEpoch)` 发起一次 legacy full reconciliation。该 lane 不进入普通 selection history sync，不更新 `_uiState`，不把 IPC surface 写入 SQLite；完成结果沿用既有 staging + per-conversation atomic commit，只写 A 的 canonical cache partition。
+- **Gateway / provider 保护**：legacy job 仅直达一次 canonical `thread/read(includeTurns=true)`，外层 30s timeout、来源 70MiB 限制、history envelope 256KiB/128KiB 限制、dedicated provider single-flight；不读取 `CodexHistorySnapshotStore`。source terminal epoch 改变或离开 completed 会 fail-closed，且不得再发送 delta。A→B 在 job 已开始后不会改写 B UI 或 B cache；A 的独立 durable commit 仍可完成。
+- **审查修正**：`P0-C-TERMINAL-STATUS-F001` 已修复：`complete` 现在与 `completed` 一样清除 surface current turn，避免永远不进入 terminal gate。`P0-C-CAPABILITY-ORDER-F002` 已修复：若 completed surface 先到、`codex_ipc_status` 后才携带 capability，status 更新后会重新评估该 surface，避免漏调度。
+- **自动验证**：Node provider/Gateway 定向回归 `140/140`；JDK 21 Android JVM 全量 `378/378`；新真实 SQLite instrumentation `1/1`（`da34332c`）；`node --check` 与 `git diff --check` 通过。debug APK 已保留数据安装并启动到 `da34332c`。`npm run android:check-release-config` 仅因当前本地开发配置 `server.cleartext` / `server.androidScheme` 不符合 release 配置而失败；该配置为本地开发环境且超出本 scope，未修改。
+- **人工门槛 / 暂停点**：等待用户在 `da34332c` 使用 `019fef71-d5c9-78c0-ac8f-1d570566e6c2` 完成 completed→A→B→A。随后采集日志，必须同时证明：本 terminal epoch 恰一次 full read、A durable cache 出现 canonical newest tail、B 的 UI/cache 未被写入、随后 A→B→A 不再新增 full read，以及第 2 步 provisional 显示连续性未退化。旧的 `docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md` 为既有用户工作区修改，继续排除在本步之外、未修改也未提交。
+- **最终实现审查**：以 `working tree vs HEAD` 审查本步 allowed files 与 untracked SQLite instrumentation，排除上述既有用户工作区计划文档；在修正 F001/F002 后未发现新的未解决 scope、A/B durable partition、terminal-epoch stale fence 或 normal-history-lane 混入问题。当前唯一未完成的是人工日志门槛，不应在此之前提交或进入第 5/6 步。
+
+- 2026-08-12（第 4 步人工门槛失败：重复 A→B→A 触发旧历史降级）：用户在目标会话完成 A→B→A 后再次执行 A→B→A，观察到又重新同步。采集目录为 `output/diagnostics/20260812-230841`，目标会话 hash 为 `c1608cf7b1d732de`。日志显示 generation 11、13 各自再次启动 `terminal_reconcile.sync_started`，同一完成任务的 terminal epoch 分别因 surface revision 变化而不同；同时普通 selection/foreground history lane 命中陈旧的 17 项 snapshot，随后 Android 普通 history writer 将刚完成终态协调的 A cache 从 796 降回 17，而 messages/live 仍为 799，之后 terminal lane 再补回 796。证据见 `timeline.jsonl:8528`、`:8554`、`:8649`、`:8684`、`:8691`。这不是 B 正文串入，也不是第 2 步 provisional reducer 退化；是第 4 步内部 terminal epoch 键和普通 history lane 隔离不足。
+- **第 4 步返修范围（已锁定，未扩大 scope）**：Gateway 与 Android 终态 epoch 改为稳定的 `sourceEpoch + latestTurnId`，不再使用会随 IPC replay/surface 更新变化的 revision；缺少任一稳定身份时不启动终态协调。matching terminal context 存在时，Android 普通 selection history/recovery lane 被清除并隔离，迟到普通 snapshot/delta 以既有 sync-id fence 拒绝，不得覆盖终态 A cache；terminal lane 仍只写 A 专属 durable partition，不改变 A→B UI 清空、IPC authority、第 2 步 provisional 语义或第 3 步 legacy `UNSUPPORTED`。
+- **返修自动验证**：新增 Gateway 稳定 epoch 回归；Node provider/Gateway 定向回归 `141/141`，JDK 21 Android `:app:testDebugUnitTest --rerun-tasks`、debug APK 构建与 `git diff --check` 已通过。新 APK 已以保留应用数据方式安装并启动到 `da34332c`，本地服务 health `200`。在人工日志确认“同一 terminal epoch 只一次 full read、普通旧 snapshot 不再把 A cache 从终态结果降级、重复 A→B→A 不再新增同步”之前，不提交、不进入第 5/6 步。旧的 `docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md` 继续保持用户工作区原状并排除在本返修之外。
+
+### 第 4 步终态缓存返修：普通 snapshot 降级与 hydrate 身份保持 scope lock（2026-08-13）
+
+- **授权与目标**：用户授权修复两条已由 `output/diagnostics/20260812-234808` 证实的第 4 步残留：已存在完整本地 A cache 时，陈旧普通 history snapshot 不得在 terminal reconciliation 建立前覆盖/降级该 cache；hydrate/merge 不得删减当前同 conversation、`itemsTruncated=true` surface 已经显示的 message identity。暂不修改 provisional/desynced 标记、文案或 authority 语义。
+- **Allowed Files**：`android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`、`android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt`、`docs/workflow/CURRENT_TASK.md`。
+- **最小实现边界**：普通 history lane 只在当前 selection 的本地 cache 已 READY/complete 且 conversation/generation 身份匹配、尚未获得可用终态 surface 时被延后/隔离；不得把该 cache 的 complete 位改写成 tail-fresh 证明，不得新增 full read。对 matching、截断的 healthy 或 provisional surface，hydrate 只允许补齐缺失的 canonical base，并重新投影/保留已经显示的 surface item identity；不得改变 surface 的 `desynced` 值、live authority、status、current turn、operation authority 或 durable cache。
+- **Forbidden Files / 行为**：禁止修改 Gateway、provider、IPC feed/owner/client、wire/UI/Activity、`CodexConversationCacheStore.kt`、SQLite schema/DAO、snapshot store、`CONTRACTS.md`、`DECISIONS.md` 与旧历史恢复计划；禁止修改 provisional 标记、A→B 清空、`shouldPreserveCodexTailMessage()` 全局规则、192 KiB 限制或把 IPC surface 写入 SQLite。
+- **回归门槛**：先新增失败 JVM 回归，覆盖 complete local cache 在无/terminal surface 时不启动陈旧普通 lane、running surface 仍保留原普通路径、hydrate 后 matching truncated surface 的已显示 command/file-change/message identity 不减少且不重复；随后运行 Android JVM、JDK 21 APK、`git diff --check`，安装后由用户继续真机 A→B→A 验收。
+
+### 第 0 步 P0-C 收口执行记录（2026-08-13，真机门槛阻塞）
+
+- 当前工作区的 P0-C terminal reconciliation 代码已存在；Node provider/Gateway 定向回归 `187/187` 通过，`node --check src/ws/terminalGateway.js` 通过。
+- 使用 JDK 21 执行 `android\gradlew.bat :app:testDebugUnitTest --rerun-tasks` 成功；当前工作区 `:app:assembleDebug` 成功，APK 已构建但尚未安装到设备。
+- 真机门槛暂未执行：`adb devices -l` 没有在线设备；项目本地服务按既有固定端口 3010 启动失败，Windows 当前 TCP 排除范围 `2995–3094` 覆盖 3010，错误为 `listen EACCES`。本次未换端口、未修改系统端口保留、未终止非 TermLink 进程。
+- 因缺少在线设备和可用本地服务，尚无本次 P0-C 的 completed→A→B→A 日志证据，不能标记第 0 步完成，也不能进行最终提交。恢复条件：设备 `da34332c` 在线且服务能在既有 3010 端口监听；随后采集日志确认同一 terminal epoch 只一次完整读取、A 最新尾部已写入 SQLite、陈旧 snapshot 不降级、hydrate 不删减、重复 A→B→A 不新增完整读取。
+- 2026-08-13 设备 `da34332c` 已恢复在线，当前工作区 APK 已保留数据安装并启动；应用进程正常，但 `192.168.50.12:3010` 仍因本机端口排除范围不可达。按照本地服务规则未换端口、未修改系统端口保留；真机验收继续暂停，待 3010 可监听后再执行。
+
+### 第 0 步 P0-C 收口：completed→A→B→A 人工门槛通过（2026-08-13）
+
+- 用户已在目标会话 `019ff186-bdc6-75a0-8862-257bbf781cbc` 完成 completed→A→B→A 及后续多轮 A/B 切换；采集目录为 `output/diagnostics/20260813-231016`。目标短 key 为 `c1608cf7b1d732de`，本次 Android run 为 `96e6ed52-6585-4ac7-86ac-eec8877d0cd4`，server run 为 `bd03fa31-2985-4fbd-9305-c8d467d08ea1`。
+- 任务完成后的终态固化只发生一次：server 在 `termlink-diagnostics.jsonl:18413` 记录一次 `terminal_reconcile.requested`，在 `:18416` 记录一次 source read，取得 canonical `itemCount=1023`、`sourceResponseBytes=1239735`，随后 Android 在 `:1771` 提交并在 `:1772` settle 为 `COMMITTED`。这证明完成后的最新可恢复历史已经进入 A 专属 SQLite，而不是只停留在 IPC surface。
+- 后续 A→B→A 没有重复终态完整读取：Android generation 6、8、10、12、14、16 每次回到 A 都从本地 cache 恢复 `1023` 条（分别见 `:1793`、`:1826`、`:1859`、`:1892`、`:1927`、`:1960`）；server 当前 run 中目标 A 除上述一次 `terminal_reconcile` 外没有第二次 `terminal_reconcile.sync_started` 或目标 A 的 canonical full history snapshot read。
+- 第 2 步显示连续性保持：每次回到 A 后，matching provisional surface 将当前正文从 `1023→1033`，随后 healthy surface 保持 `1033→1033`；最后一次对应 Android `:1964` 与 `:1969`。本次没有出现 provisional 已显示后由 hydrate 把正文从 1033 降回旧数量。A→B 时 `1033→0` 是既定的 active-slot 跨任务清空，不是终态 A cache 被删除。
+- 结果：P0-C 的人工门槛通过——完成态一次性 canonical reconciliation、A 专属原子缓存提交、重复 A-B-A 不再重复完整读取、A/B UI 隔离均成立。第 0 步可以收口并提交；后续“每次回切仍有实时订阅等待/临时快照提示”属于历史首屏与 IPC 接入解耦的新步骤，不在本次 P0-C 提交中解决。

@@ -591,3 +591,35 @@ test('baseline provider externalizes embedded image data before canonical hashin
     assert.equal(baseline.items[0].payloadJson.includes('data:image'), false);
     assert.match(baseline.items[0].payloadJson, /\/api\/codex\/media\/[0-9a-f]{64}/);
 });
+
+test('completed legacy scan can reuse an already scoped metadata observation without a second probe', async () => {
+    let probes = 0;
+    let fullReads = 0;
+    const provider = new CodexHistoryBaselineProvider({
+        probeThread: async () => {
+            probes += 1;
+            return { thread: { id: 'conv', historyMode: 'legacy' } };
+        },
+        readLegacyThread: async () => {
+            fullReads += 1;
+            return {
+                thread: {
+                    id: 'conv',
+                    historyMode: 'legacy',
+                    turns: [{ id: 'turn', status: 'completed', items: [{ id: 'item', type: 'agentMessage', text: 'done' }] }]
+                }
+            };
+        }
+    });
+
+    const result = await provider.scanComplete('conv', {
+        historyMode: 'legacy',
+        knownProbe: { mode: 'legacy', thread: null, probed: false }
+    });
+
+    assert.equal(probes, 0);
+    assert.equal(fullReads, 1);
+    assert.equal(result.complete, true);
+    assert.equal(result.coverageComplete, true);
+    assert.equal(result.measurement.sourceMethod, 'thread/read');
+});
