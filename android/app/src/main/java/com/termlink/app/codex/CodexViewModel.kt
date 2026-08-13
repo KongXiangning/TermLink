@@ -640,7 +640,58 @@ internal enum class IpcAuthorityMode {
     IPC_AUTHORITATIVE,
     AWAITING_IPC_SURFACE,
     IPC_DESYNCED,
-    IPC_OFFLINE
+    IPC_OFFLINE,
+    IPC_CATALOG_UNKNOWN,
+    IPC_NO_ACTIVE_CONVERSATION
+}
+
+/**
+ * The conversation catalog is activity metadata, not a second content
+ * authority.  Completed/failed snapshots may remain in the catalog for
+ * replay, but they must not make a historical selection wait for a fresh
+ * realtime surface.
+ */
+internal fun isIpcConversationRealtimeActive(
+    summary: CodexIpcConversationSummary?
+): Boolean {
+    if (summary == null) return false
+    val status = summary.status.trim().lowercase(Locale.ROOT)
+    return status in setOf(
+        "active",
+        "running",
+        "inprogress",
+        "in_progress",
+        "waiting",
+        "waiting_for_approval",
+        "pending_approval",
+        "awaiting_approval",
+        "awaiting_input",
+        "pending_user_input",
+        "plan",
+        "planning"
+    ) || summary.hasActiveGoal ||
+        summary.hasPendingApproval ||
+        summary.hasPendingPlanAction ||
+        summary.hasPendingUserInputAction
+}
+
+internal fun shouldSkipDuplicateHistoryCacheHydration(
+    committedCacheKey: CodexHistorySelectionKey?,
+    requestedCacheKey: CodexHistorySelectionKey
+): Boolean = committedCacheKey == requestedCacheKey
+
+internal fun shouldSendIpcConversationSubscription(
+    catalogKnown: Boolean,
+    activeConversationIds: Set<String>,
+    targetConversationId: String?,
+    currentSubscriptionId: String?,
+    currentSubscriptionGeneration: Long,
+    selectionGeneration: Long
+): Boolean {
+    val target = normalizeCodexThreadId(targetConversationId) ?: return false
+    if (!catalogKnown || target !in activeConversationIds) return false
+    return normalizeCodexThreadId(currentSubscriptionId) != target ||
+        currentSubscriptionGeneration != selectionGeneration
 }
 
 internal fun resolveIpcAuthorityMode(
@@ -1187,7 +1238,9 @@ internal fun shouldUseCanonicalThreadReadFallback(
     return when (authorityMode) {
         IpcAuthorityMode.IPC_AUTHORITATIVE -> false
         IpcAuthorityMode.IPC_OFFLINE,
-        IpcAuthorityMode.IPC_DESYNCED -> true
+        IpcAuthorityMode.IPC_DESYNCED,
+        IpcAuthorityMode.IPC_NO_ACTIVE_CONVERSATION -> true
+        IpcAuthorityMode.IPC_CATALOG_UNKNOWN -> false
         IpcAuthorityMode.AWAITING_IPC_SURFACE ->
             millisSinceAuthorityModeEntered >= surfaceWaitGraceMillis
     }
@@ -1212,7 +1265,9 @@ internal fun shouldStartForegroundHistoryRecovery(
     if (!historyNeedsFullRecovery || activeSubscriptionSettling) return false
     return when (authorityMode) {
         IpcAuthorityMode.IPC_OFFLINE,
-        IpcAuthorityMode.IPC_DESYNCED -> true
+        IpcAuthorityMode.IPC_DESYNCED,
+        IpcAuthorityMode.IPC_NO_ACTIVE_CONVERSATION -> true
+        IpcAuthorityMode.IPC_CATALOG_UNKNOWN -> false
         IpcAuthorityMode.AWAITING_IPC_SURFACE -> historySyncSettled
         IpcAuthorityMode.IPC_AUTHORITATIVE -> false
     }
@@ -1658,7 +1713,11 @@ internal fun shouldEscalateHistoryRecovery(
     // not an IPC surface.  While still awaiting that surface, avoid reopening
     // canonical history recovery; explicit offline/desynced paths retain their
     // existing bounded recovery behavior.
-    if (completeServerSnapshotCache && authorityMode == IpcAuthorityMode.AWAITING_IPC_SURFACE) {
+    if (completeServerSnapshotCache && authorityMode in setOf(
+            IpcAuthorityMode.AWAITING_IPC_SURFACE,
+            IpcAuthorityMode.IPC_CATALOG_UNKNOWN,
+            IpcAuthorityMode.IPC_NO_ACTIVE_CONVERSATION
+        )) {
         return false
     }
     return !cacheReady ||
@@ -1671,7 +1730,8 @@ internal fun shouldEscalateHistoryRecovery(
             CodexHistoryNetworkSyncState.UNSUPPORTED
         ) || authorityMode in setOf(
             IpcAuthorityMode.IPC_OFFLINE,
-            IpcAuthorityMode.IPC_DESYNCED
+            IpcAuthorityMode.IPC_DESYNCED,
+            IpcAuthorityMode.IPC_NO_ACTIVE_CONVERSATION
     )
 }
 
@@ -3866,6 +3926,14 @@ class CodexViewModel(
     private var activeConversationSubscriptionId: String? = null
     private var activeConversationSubscriptionGeneration: Long = -1L
     private var activeConversationSubscriptionSentAtElapsed: Long = 0L
+    /**
+     * Activity metadata announced by Gateway.  This is intentionally kept
+     * separate from the IPC surface and never supplies message content.
+     */
+    private var ipcConversationCatalogKnown: Boolean = false
+    private var ipcActiveConversationCatalogIds: Set<String> = emptySet()
+    /** Cache-first selection commit already performed this exact hydrate. */
+    private var lastCommittedHistoryCacheKey: CodexHistorySelectionKey? = null
     private var foregroundFollowJob: Job? = null
     private var foregroundHostVisible: Boolean = false
     private var ipcStatusObserved: Boolean = false
@@ -3942,6 +4010,9 @@ class CodexViewModel(
         pinnedIpcConversationId = launchConversationId
         pendingHistoryResumeHydrationThreadId = null
         ipcStatusObserved = false
+        ipcConversationCatalogKnown = false
+        ipcActiveConversationCatalogIds = emptySet()
+        lastCommittedHistoryCacheKey = null
         awaitingFreshIpcSurface = false
         matchingIpcSurfaceDesynced = false
         ipcAuthorityModeEnteredAtElapsed = 0L
@@ -4094,6 +4165,8 @@ class CodexViewModel(
         threadListRequestProfileId = null
         threadListRequestCwd = null
         ipcStatusObserved = false
+        resetIpcConversationCatalog()
+        clearIpcSurfaceWait("disconnect")
         connectionManager.disconnect()
     }
 
@@ -4403,12 +4476,10 @@ class CodexViewModel(
         val now = SystemClock.elapsedRealtime()
         if (!ipcStatusObserved) {
             ipcAuthorityModeEnteredAtElapsed = now
-        } else if (_uiState.value.ipcOnline) {
-            beginAwaitingFreshIpcSurface(now)
         } else {
             ipcAuthorityModeEnteredAtElapsed = now
         }
-        subscribeActiveConversationIfNeeded()
+        reconcileIpcSelectionForCurrentConversation("host-visible")
         runForegroundRecoveryTick(now)
         if (foregroundFollowJob?.isActive == true) return
         foregroundFollowJob = viewModelScope.launch {
@@ -4440,6 +4511,64 @@ class CodexViewModel(
         ipcAuthorityModeEnteredAtElapsed = if (snap.desynced) nowElapsed else 0L
     }
 
+    private fun resetIpcConversationCatalog() {
+        ipcConversationCatalogKnown = false
+        ipcActiveConversationCatalogIds = emptySet()
+    }
+
+    private fun clearIpcSurfaceWait(reason: String) {
+        awaitingFreshIpcSurface = false
+        matchingIpcSurfaceDesynced = false
+        ipcAuthorityModeEnteredAtElapsed = 0L
+        Log.i(TAG, "[ipc][surface-wait-ended] reason=$reason")
+    }
+
+    /**
+     * Reconciles only the realtime lane for the selected conversation.  A
+     * cache-first history selection is already visible and is not made to
+     * wait for this function.  The catalog is consulted only to decide
+     * whether the selected task is currently active in IPC.
+     */
+    private fun reconcileIpcSelectionForCurrentConversation(reason: String) {
+        val state = _uiState.value
+        val target = normalizeThreadId(state.activeConversationId)
+        if (target == null) {
+            clearIpcSurfaceWait("$reason:no-target")
+            return
+        }
+        if (!_uiState.value.ipcOnline) {
+            clearIpcSurfaceWait("$reason:ipc-offline")
+            return
+        }
+
+        val surface = state.ipcSurfaceSnapshot
+        val matchingSurface = surface != null &&
+            normalizeThreadId(surface.conversationId) == target
+        if (!ipcConversationCatalogKnown) {
+            // The server has not announced activity for this transport yet.
+            // Do not invent a wait; a matching surface that is already here
+            // remains usable, otherwise history stays cache-first.
+            if (matchingSurface) {
+                noteMatchingIpcSurface(surface!!)
+            } else {
+                clearIpcSurfaceWait("$reason:catalog-unknown")
+            }
+            return
+        }
+
+        if (target !in ipcActiveConversationCatalogIds) {
+            clearIpcSurfaceWait("$reason:no-active-ipc")
+            return
+        }
+
+        if (matchingSurface) {
+            noteMatchingIpcSurface(surface!!)
+        } else if (!awaitingFreshIpcSurface) {
+            beginAwaitingFreshIpcSurface()
+        }
+        subscribeActiveConversationIfNeeded()
+    }
+
     private fun authorityModeForState(
         state: CodexUiState,
         targetThreadId: String? = state.threadId
@@ -4448,13 +4577,20 @@ class CodexViewModel(
         val target = normalizeThreadId(targetThreadId)
         val matchingSurface = target != null &&
             normalizeThreadId(state.ipcSurfaceSnapshot?.conversationId) == target
-        return resolveIpcAuthorityMode(
+        val resolved = resolveIpcAuthorityMode(
             ipcOnline = state.ipcOnline,
             matchingSurfaceAvailable = matchingSurface,
             surfaceDesynced = matchingSurface &&
                 (state.ipcSurfaceSnapshot?.desynced == true || matchingIpcSurfaceDesynced),
             awaitingFreshSurface = awaitingFreshIpcSurface
         )
+        if (!state.ipcOnline || matchingSurface) return resolved
+        if (!ipcConversationCatalogKnown) return IpcAuthorityMode.IPC_CATALOG_UNKNOWN
+        return if (target == null || target !in ipcActiveConversationCatalogIds) {
+            IpcAuthorityMode.IPC_NO_ACTIVE_CONVERSATION
+        } else {
+            resolved
+        }
     }
 
     private fun runForegroundRecoveryTick(nowElapsed: Long) {
@@ -4523,11 +4659,6 @@ class CodexViewModel(
                 targetThreadId,
                 "foreground-ipc-recovery:${authorityMode.name.lowercase()}"
             )
-        }
-        if (state.ipcOnline &&
-            nowElapsed - lastRecoverySubscribeAtElapsed >= IPC_RECOVERY_RESUBSCRIBE_MILLIS) {
-            subscribeActiveConversationIfNeeded()
-            lastRecoverySubscribeAtElapsed = nowElapsed
         }
     }
 
@@ -5600,8 +5731,7 @@ class CodexViewModel(
         ) { key ->
             if (!isCurrentHistorySelection(key)) return@applyCachedHistorySelection
             if (key.generation != selectionGeneration) return@applyCachedHistorySelection
-            beginAwaitingFreshIpcSurface()
-            subscribeActiveConversationIfNeeded()
+            reconcileIpcSelectionForCurrentConversation("cache-selected")
             // Do not make detail hydration depend on thread/resume.  A stale
             // or expired Desktop/VS Code owner can leave that RPC queued
             // forever; the bounded history channel is independent and has
@@ -5783,6 +5913,9 @@ class CodexViewModel(
                 }
             }
             if (committed) {
+                withContext(Dispatchers.Main.immediate) {
+                    lastCommittedHistoryCacheKey = key
+                }
                 PersistentDiagnosticLog.event(
                     "codex",
                     "android.codex.thread.resume.cache_selected",
@@ -6982,21 +7115,20 @@ class CodexViewModel(
                     when (event) {
                         is WsEvent.Opened -> {
                             connectionManager.onConnected()
-                            if (_uiState.value.ipcOnline) {
-                                beginAwaitingFreshIpcSurface()
-                            }
-                            subscribeActiveConversationIfNeeded()
+                            resetIpcConversationCatalog()
+                            reconcileIpcSelectionForCurrentConversation("websocket-opened")
                         }
                         is WsEvent.Message -> {
                             if (shouldPromoteConnectionStateFromWebSocketMessage(
                                     connectionState = _uiState.value.connectionState
                                 )) {
                                 connectionManager.onConnected()
-                                subscribeActiveConversationIfNeeded()
+                                reconcileIpcSelectionForCurrentConversation("websocket-message")
                             }
                             handleEnvelope(event.envelope)
                         }
                         is WsEvent.Closed -> {
+                            resetIpcConversationCatalog()
                             resetHistoryRecoveryAfterTransportLoss("websocket-closed:${event.code}")
                             markPendingThreadResyncIfNeeded(_uiState.value)
                             val registrationSessionMismatch = event.code == 4403 && (
@@ -7025,6 +7157,7 @@ class CodexViewModel(
                         }
                         is WsEvent.Closing -> { /* handled by Closed */ }
                         is WsEvent.Failure -> {
+                            resetIpcConversationCatalog()
                             resetHistoryRecoveryAfterTransportLoss("websocket-failure:${event.code}")
                             markPendingThreadResyncIfNeeded(_uiState.value)
                             val message = event.throwable.message ?: "WebSocket failure"
@@ -7075,6 +7208,26 @@ class CodexViewModel(
     private fun subscribeActiveConversationIfNeeded() {
         val conversationId = _uiState.value.activeConversationId?.trim().orEmpty()
         if (conversationId.isEmpty()) return
+        if (!shouldSendIpcConversationSubscription(
+                catalogKnown = ipcConversationCatalogKnown,
+                activeConversationIds = ipcActiveConversationCatalogIds,
+                targetConversationId = conversationId,
+                currentSubscriptionId = activeConversationSubscriptionId,
+                currentSubscriptionGeneration = activeConversationSubscriptionGeneration,
+                selectionGeneration = historySelectionGeneration
+        )) {
+            val alreadySubscribed = activeConversationSubscriptionId == conversationId &&
+                activeConversationSubscriptionGeneration == historySelectionGeneration
+            Log.i(
+                TAG,
+                "[ipc][subscribe-active-conversation][skipped] " +
+                    "conversationId=$conversationId " +
+                    "catalogKnown=$ipcConversationCatalogKnown " +
+                    "catalogActive=${conversationId in ipcActiveConversationCatalogIds} " +
+                    "alreadySubscribed=$alreadySubscribed"
+            )
+            return
+        }
         Log.i(TAG, "[ipc][subscribe-active-conversation] subscribing to conversationId=$conversationId")
         val sent = connectionManager.send(
             CodexClientMessages.setActiveConversation(conversationId, historySelectionGeneration)
@@ -7196,6 +7349,9 @@ class CodexViewModel(
         val interruptedEndpointId = currentProfile?.id
         val interruptedSelectionGeneration = historySelectionGeneration
         historySelectionGeneration = (historySelectionGeneration + 1L).coerceAtLeast(1L)
+        awaitingFreshIpcSurface = false
+        matchingIpcSurfaceDesynced = false
+        ipcAuthorityModeEnteredAtElapsed = 0L
         pendingHistorySelectionKey = null
         historySyncInFlightConversationId = null
         historySyncInFlightSyncId = null
@@ -9041,7 +9197,6 @@ class CodexViewModel(
         when (envelope.type) {
             "session_info" -> {
                 val info = SessionInfo.from(json)
-                var conversationToSubscribe: String? = null
                 val previousThreadId = _uiState.value.threadId.orEmpty()
                 val previousActiveConvId = _uiState.value.activeConversationId.orEmpty()
                 val boundThreadId = normalizeThreadId(info.lastCodexThreadId)
@@ -9058,9 +9213,6 @@ class CodexViewModel(
                     "→ shouldAdopt=$shouldAdoptBoundThread " +
                     "previousThreadId=$previousThreadId previousActiveConv=$previousActiveConvId")
                 _uiState.update {
-                    if (shouldAdoptBoundThread) {
-                        conversationToSubscribe = boundThreadId
-                    }
                     syncExecutionWatch(
                         it.copy(
                             sessionId = info.sessionId,
@@ -9084,10 +9236,8 @@ class CodexViewModel(
                 if (cwdChanged) {
                     refreshThreadHistory()
                 }
-                conversationToSubscribe?.let { conversationId ->
-                    connectionManager.send(
-                        CodexClientMessages.setActiveConversation(conversationId, historySelectionGeneration)
-                    )
+                if (shouldAdoptBoundThread) {
+                    reconcileIpcSelectionForCurrentConversation("session-info")
                 }
                 val didAdopt = shouldAdoptBoundThread
                 Log.i(TAG, "[session-info] sessionReady: " +
@@ -9160,15 +9310,14 @@ class CodexViewModel(
                 }
                 if (status.online && (!hadObservedStatus || !wasOnline)) {
                     clearHistorySyncSettlement()
-                    // Reconnect starts a fresh bounded sync, but the full
-                    // recovery quota remains selection-generation scoped.
-                    // This prevents a reconnect from issuing a second full
-                    // provider read for the same selection.
-                    beginAwaitingFreshIpcSurface()
-                    subscribeActiveConversationIfNeeded()
+                    // A status transition invalidates the previous catalog;
+                    // wait for the server's explicit conversation list rather
+                    // than repeatedly guessing which task is active.
+                    resetIpcConversationCatalog()
+                    clearIpcSurfaceWait("ipc-online-awaiting-catalog")
                 } else if (!status.online && (!hadObservedStatus || wasOnline)) {
-                    awaitingFreshIpcSurface = false
-                    matchingIpcSurfaceDesynced = false
+                    resetIpcConversationCatalog()
+                    clearIpcSurfaceWait("ipc-offline")
                     ipcAuthorityModeEnteredAtElapsed = SystemClock.elapsedRealtime()
                     runForegroundRecoveryTick(SystemClock.elapsedRealtime())
                 }
@@ -9193,7 +9342,11 @@ class CodexViewModel(
 
             "codex_ipc_conversations" -> {
                 val conversations = CodexIpcConversationSummary.listFrom(json)
-                var conversationToSubscribe: String? = null
+                ipcConversationCatalogKnown = true
+                ipcActiveConversationCatalogIds = conversations
+                    .filter(::isIpcConversationRealtimeActive)
+                    .mapNotNull { normalizeThreadId(it.conversationId) }
+                    .toSet()
                 val previousConversationId = _uiState.value.activeConversationId?.trim().orEmpty()
                 val currentThreadId = _uiState.value.threadId?.trim().orEmpty()
                 val currentCwd = _uiState.value.cwd
@@ -9236,9 +9389,6 @@ class CodexViewModel(
                     val preferred = selected
                     if (preferred == null) {
                         if (current.awaitingNewThreadIpcSurface || requiresExactSelection) {
-                            conversationToSubscribe = current.activeConversationId?.trim()
-                                ?.takeIf { it.isNotEmpty() }
-                                ?: current.threadId?.trim()?.takeIf { it.isNotEmpty() }
                             current
                         } else {
                             clearIpcConversationSelectionFromUiState(current)
@@ -9249,7 +9399,6 @@ class CodexViewModel(
                     ) {
                         applyIpcConversationSelectionWithRememberedConfig(current, preferred)
                     } else {
-                        conversationToSubscribe = preferred.conversationId
                         applyIpcConversationSelectionWithRememberedConfig(current, preferred)
                     }
                 }
@@ -9258,7 +9407,6 @@ class CodexViewModel(
                 if (targetChanged) advanceHistorySelectionGeneration("ipc-selection:$newConversationId")
                 val switched = previousConversationId.isNotEmpty() && targetChanged
                 if (targetChanged) {
-                    beginAwaitingFreshIpcSurface()
                     // IPC conversation discovery can select the restored/default task
                     // without going through thread/resume. Hydrate its endpoint-scoped
                     // cache immediately so a bounded live surface never hides the
@@ -9272,7 +9420,8 @@ class CodexViewModel(
                     "previousId=$previousConversationId " +
                     "matchReason=$matchReason " +
                     "switched=$switched " +
-                    "willSubscribe=${conversationToSubscribe != null}")
+                    "catalogKnown=$ipcConversationCatalogKnown " +
+                    "activeCatalog=${newConversationId in ipcActiveConversationCatalogIds}")
                 if (!switched && previousConversationId.isEmpty() && newConversationId.isEmpty()) {
                     Log.w(TAG, "[ipc][conversations-received][no-selection] no conversation selected: " +
                         "available=${conversations.size} " +
@@ -9280,12 +9429,7 @@ class CodexViewModel(
                         "cwd=$currentCwd " +
                         "anyHasActiveGoal=${conversations.any { it.hasActiveGoal }}")
                 }
-                conversationToSubscribe?.let { conversationId ->
-                    Log.i(TAG, "[ipc][subscribe] sending set_active_conversation: $conversationId")
-                    connectionManager.send(
-                        CodexClientMessages.setActiveConversation(conversationId, historySelectionGeneration)
-                    )
-                }
+                reconcileIpcSelectionForCurrentConversation("conversation-catalog")
                 if (targetChanged) {
                     // IPC conversation discovery can select a task without a
                     // thread/resume response.  Request its bounded detail
@@ -9525,7 +9669,7 @@ class CodexViewModel(
                         // exactly once after the settle window.
                         historyActivationRetryGeneration = syncState.clientSelectionGeneration
                         clearHistorySyncSettlement()
-                        subscribeActiveConversationIfNeeded()
+                        reconcileIpcSelectionForCurrentConversation("history-activation-retry")
                         PersistentDiagnosticLog.event(
                             "codex",
                             "android.codex.history.sync_activation_retry",
@@ -10623,10 +10767,7 @@ class CodexViewModel(
                             bindingDecision.shouldSendActiveConversationSelection &&
                             normalizeThreadId(previousConversationId) != conversationId
                         ) {
-                            if (_uiState.value.ipcOnline) {
-                                beginAwaitingFreshIpcSurface()
-                            }
-                            subscribeActiveConversationIfNeeded()
+                            reconcileIpcSelectionForCurrentConversation("session-thread-bound")
                         }
                     }
                     Log.i(TAG, "[ipc][session-thread-bound] " +
@@ -10799,10 +10940,9 @@ class CodexViewModel(
                     cancelHistoryResumeProtection()
                 }
                 if (threadChanged) {
-                    beginAwaitingFreshIpcSurface()
                     Log.i(TAG, "[ipc][codex-state][thread-changed] re-subscribing: " +
                         "from=$previousThreadId to=${serverThreadId.orEmpty()}")
-                    subscribeActiveConversationIfNeeded()
+                    reconcileIpcSelectionForCurrentConversation("codex-state-thread-changed")
                 }
                 maybeRequestPendingThreadResync(
                     threadId = _uiState.value.threadId,
@@ -11816,13 +11956,6 @@ class CodexViewModel(
         clearPendingThreadResync()
         if (resumedThreadId.isNotEmpty()) {
             pinnedIpcConversationId = resumedThreadId
-            if (_uiState.value.ipcOnline) {
-                beginAwaitingFreshIpcSurface()
-            } else {
-                awaitingFreshIpcSurface = false
-                matchingIpcSurfaceDesynced = false
-                ipcAuthorityModeEnteredAtElapsed = SystemClock.elapsedRealtime()
-            }
             lastRecoverySubscribeAtElapsed = 0L
         }
         _uiState.update { state ->
@@ -11865,7 +11998,7 @@ class CodexViewModel(
         }
         if (resumedThreadId.isNotEmpty()) {
             hydrateCachedConversation(resumedThreadId, historySelectionGeneration)
-            subscribeActiveConversationIfNeeded()
+            reconcileIpcSelectionForCurrentConversation("thread-resume-response")
             // Start detail hydration after thread/resume has established the
             // selected upstream thread.  The list response is metadata-only;
             // it must not be mistaken for the conversation正文.
@@ -12009,6 +12142,14 @@ class CodexViewModel(
     private fun hydrateCachedConversation(conversationId: String, generation: Long) {
         val profileId = currentProfile?.id ?: return
         val key = historySelectionKeyOrNull(conversationId, generation) ?: return
+        if (shouldSkipDuplicateHistoryCacheHydration(lastCommittedHistoryCacheKey, key)) {
+            Log.i(
+                TAG,
+                "[history][cache-hydrate][skipped] already committed for " +
+                    "conversationId=${key.conversationId} generation=${key.generation}"
+            )
+            return
+        }
         _uiState.update { state ->
             if (state.activeConversationId?.trim() != key.conversationId ||
                 state.historyCacheState.generation > key.generation

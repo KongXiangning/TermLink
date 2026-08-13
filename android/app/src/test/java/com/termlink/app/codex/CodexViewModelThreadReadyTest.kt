@@ -64,6 +64,133 @@ private class FakeAutomaticOlderPumpScheduler {
 
 class CodexViewModelThreadReadyTest {
     @Test
+    fun completedConversationCatalogEntryDoesNotCreateRealtimeWait() {
+        val completed = CodexIpcConversationSummary(
+            conversationId = "conv-completed",
+            status = "completed",
+            updatedAt = 1L,
+            title = "done",
+            cwd = null,
+            ownerKind = null,
+            latestTurnId = "turn-1",
+            itemCount = 10,
+            hasActiveGoal = false,
+            hasPendingApproval = false,
+            hasPendingPlanAction = false,
+            hasPendingUserInputAction = false
+        )
+        val running = completed.copy(
+            conversationId = "conv-running",
+            status = "running"
+        )
+        val approval = completed.copy(
+            conversationId = "conv-approval",
+            hasPendingApproval = true
+        )
+
+        assertFalse(isIpcConversationRealtimeActive(completed))
+        assertTrue(isIpcConversationRealtimeActive(running))
+        assertTrue(isIpcConversationRealtimeActive(approval))
+    }
+
+    @Test
+    fun subscriptionRequiresKnownActiveCatalogAndIsSingleShotPerSelection() {
+        assertFalse(
+            shouldSendIpcConversationSubscription(
+                catalogKnown = false,
+                activeConversationIds = setOf("conv-a"),
+                targetConversationId = "conv-a",
+                currentSubscriptionId = null,
+                currentSubscriptionGeneration = -1L,
+                selectionGeneration = 1L
+            )
+        )
+        assertFalse(
+            shouldSendIpcConversationSubscription(
+                catalogKnown = true,
+                activeConversationIds = emptySet(),
+                targetConversationId = "conv-a",
+                currentSubscriptionId = null,
+                currentSubscriptionGeneration = -1L,
+                selectionGeneration = 1L
+            )
+        )
+        assertTrue(
+            shouldSendIpcConversationSubscription(
+                catalogKnown = true,
+                activeConversationIds = setOf("conv-a"),
+                targetConversationId = "conv-a",
+                currentSubscriptionId = null,
+                currentSubscriptionGeneration = -1L,
+                selectionGeneration = 1L
+            )
+        )
+        assertFalse(
+            shouldSendIpcConversationSubscription(
+                catalogKnown = true,
+                activeConversationIds = setOf("conv-a"),
+                targetConversationId = "conv-a",
+                currentSubscriptionId = "conv-a",
+                currentSubscriptionGeneration = 1L,
+                selectionGeneration = 1L
+            )
+        )
+        assertTrue(
+            shouldSendIpcConversationSubscription(
+                catalogKnown = true,
+                activeConversationIds = setOf("conv-a"),
+                targetConversationId = "conv-a",
+                currentSubscriptionId = "conv-a",
+                currentSubscriptionGeneration = 1L,
+                selectionGeneration = 2L
+            )
+        )
+    }
+
+    @Test
+    fun metadataResumeDoesNotRepeatACompletedCacheFirstHydrate() {
+        val first = CodexHistorySelectionKey("endpoint", "conv-a", 7L)
+        assertTrue(shouldSkipDuplicateHistoryCacheHydration(first, first))
+        assertFalse(
+            shouldSkipDuplicateHistoryCacheHydration(
+                first,
+                first.copy(generation = 8L)
+            )
+        )
+    }
+
+    @Test
+    fun noActiveIpcConversationEndsWaitWithoutReopeningACompleteCache() {
+        assertFalse(
+            shouldUseCanonicalThreadReadFallback(
+                threadId = "conv-a",
+                activeConversationId = "conv-a",
+                authorityMode = IpcAuthorityMode.IPC_CATALOG_UNKNOWN,
+                millisSinceAuthorityModeEntered = Long.MAX_VALUE,
+                surfaceWaitGraceMillis = 5_000L
+            )
+        )
+        assertTrue(
+            shouldUseCanonicalThreadReadFallback(
+                threadId = "conv-a",
+                activeConversationId = "conv-a",
+                authorityMode = IpcAuthorityMode.IPC_NO_ACTIVE_CONVERSATION,
+                millisSinceAuthorityModeEntered = 0L,
+                surfaceWaitGraceMillis = 5_000L
+            )
+        )
+        assertFalse(
+            shouldEscalateHistoryRecovery(
+                cacheReady = true,
+                cacheComplete = true,
+                networkState = CodexHistoryNetworkSyncState.CACHE_ONLY,
+                authorityMode = IpcAuthorityMode.IPC_NO_ACTIVE_CONVERSATION,
+                completeServerSnapshotCache = true
+            )
+        )
+    }
+
+    @Test
     fun threadHistoryEntriesAreScopedToTheCurrentWorkspace() {
         val entries = listOf(
             CodexThreadHistoryEntry("same", "same", cwd = "E:\\coding\\TermLink\\"),

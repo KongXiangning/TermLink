@@ -1229,7 +1229,7 @@ function registerTerminalGateway(wss, {
     const _ipcConversationSubscriptionCycles = new Map();
     /** @type {Map<string, Set<{ finish: (surface: object | null) => void }>>} */
     const _ipcSurfaceWaiters = new Map();
-    /** @type {WeakMap<import('ws').WebSocket, { conversationId: string, selectionGeneration: number, startedAt: number, deadlineAt: number, deadlineTimer: NodeJS.Timeout | null, subscriptionGeneration: number | null, surfaceReceivedAt: number | null, recoveryInFlight: boolean, fullRecoveryAttempted: boolean, recoveryState: string, activeRecoverySyncId: string | null, deadlineReached: boolean }>} */
+    /** @type {WeakMap<import('ws').WebSocket, { conversationId: string, selectionGeneration: number, clientSelectionGeneration: number | null, historyOnly: boolean, startedAt: number, deadlineAt: number, deadlineTimer: NodeJS.Timeout | null, subscriptionGeneration: number | null, surfaceReceivedAt: number | null, recoveryInFlight: boolean, fullRecoveryAttempted: boolean, recoveryState: string, activeRecoverySyncId: string | null, deadlineReached: boolean }>} */
     const _ipcHistorySelectionCycles = new WeakMap();
     /** @type {WeakMap<import('ws').WebSocket, { syncId: string | null, conversationId: string, selectionGeneration: number, clientSelectionGeneration: number }>} */
     const _ipcHistorySyncContexts = new WeakMap();
@@ -1670,7 +1670,10 @@ function registerTerminalGateway(wss, {
     };
     const historySyncService = new CodexHistorySyncService({
         isStillActive: (ws, conversationId, selectionGeneration) => (
-            _ipcActiveConversations.get(ws) === conversationId &&
+            (
+                _getHistorySelectionCycle(ws)?.historyOnly === true ||
+                _ipcActiveConversations.get(ws) === conversationId
+            ) &&
             (_ipcSelectionGenerations.get(ws) || 0) === selectionGeneration
         ),
         canSendHistory: (ws) => snapshotScheduler.canSendHistory(ws),
@@ -1783,13 +1786,14 @@ function registerTerminalGateway(wss, {
 
     const _isCurrentHistorySelectionCycle = (ws, conversationId, selectionGeneration) => {
         const cycle = _getHistorySelectionCycle(ws);
-        return Boolean(
+        const current = Boolean(
             cycle &&
             cycle.conversationId === conversationId &&
             cycle.selectionGeneration === selectionGeneration &&
-            _ipcActiveConversations.get(ws) === conversationId &&
+            (cycle.historyOnly === true || _ipcActiveConversations.get(ws) === conversationId) &&
             (_ipcSelectionGenerations.get(ws) || 0) === selectionGeneration
         );
+        return current;
     };
 
     const _clientSelectionGenerationMatches = (
@@ -2022,13 +2026,22 @@ function registerTerminalGateway(wss, {
         }, 'warn');
     };
 
-    const _beginHistorySelectionCycle = (ws, conversationId, selectionGeneration) => {
+    const _beginHistorySelectionCycle = (
+        ws,
+        conversationId,
+        selectionGeneration,
+        { historyOnly = false, clientSelectionGeneration = null } = {}
+    ) => {
         _cancelHistorySelectionCycle(ws, 'new-selection');
         const subscriptionCycle = _ipcConversationSubscriptionCycles.get(conversationId);
         const startedAt = Date.now();
         const cycle = {
             conversationId,
             selectionGeneration,
+            clientSelectionGeneration: Number.isSafeInteger(clientSelectionGeneration)
+                ? clientSelectionGeneration
+                : null,
+            historyOnly: historyOnly === true,
             startedAt,
             deadlineAt: startedAt + normalizedHistorySelectionDeadlineMs,
             deadlineTimer: null,
@@ -2048,6 +2061,8 @@ function registerTerminalGateway(wss, {
         diagnosticLog.event('server', 'server.codex.history.selection_cycle.started', {
             conversationKey: diagnosticKey(conversationId),
             selectionGeneration,
+            clientSelectionGeneration: cycle.clientSelectionGeneration,
+            historyOnly: cycle.historyOnly,
             subscriptionGeneration: cycle.subscriptionGeneration,
             graceMs: ipcSurfaceWaitGraceMs,
             deadlineMs: normalizedHistorySelectionDeadlineMs,
@@ -2911,18 +2926,18 @@ function registerTerminalGateway(wss, {
                 clientId: status.clientId || null,
                 sentToClients: sentCount
             }));
-            // When IPC comes online (new IPC-ID from desktop Codex), push fresh
-            // conversation list so the app can re-evaluate which conversation to follow.
-            if (status.online) {
-                const conversations = _buildConversations();
-                const convSent = _broadcastConversationsToAll(conversations);
-                if (convSent > 0) {
-                    console.warn('[gateway][ipc][status-online-conversations]', JSON.stringify({
-                        conversationCount: conversations.length,
-                        conversationIds: conversations.map(c => c.conversationId),
-                        sentToClients: convSent
-                    }));
-                }
+            // Always publish the catalog, including an empty list.  Android
+            // must be able to distinguish "IPC is online but no task is
+            // active" from "the catalog has not arrived yet".
+            const conversations = _buildConversations();
+            const convSent = _broadcastConversationsToAll(conversations, true);
+            if (convSent > 0) {
+                console.warn('[gateway][ipc][status-conversations]', JSON.stringify({
+                    conversationCount: conversations.length,
+                    conversationIds: conversations.map(c => c.conversationId),
+                    sentToClients: convSent,
+                    online: status.online === true
+                }));
             }
         });
 
@@ -3063,8 +3078,8 @@ function registerTerminalGateway(wss, {
         }));
     };
 
-    const _broadcastConversationsToAll = (conversations) => {
-        if (!conversations || conversations.length === 0) return 0;
+    const _broadcastConversationsToAll = (conversations, force = false) => {
+        conversations = Array.isArray(conversations) ? conversations : [];
         const nextFingerprints = new Map(conversations.map((conversation) => [
             conversation.conversationId,
             JSON.stringify({
@@ -3079,7 +3094,8 @@ function registerTerminalGateway(wss, {
                 hasPendingUserInputAction: conversation.hasPendingUserInputAction
             })
         ]));
-        const changed = nextFingerprints.size !== _conversationCatalogFingerprints.size ||
+        const changed = force ||
+            nextFingerprints.size !== _conversationCatalogFingerprints.size ||
             Array.from(nextFingerprints.entries()).some(([id, fingerprint]) => _conversationCatalogFingerprints.get(id) !== fingerprint);
         if (!changed) return 0;
         _conversationCatalogFingerprints.clear();
@@ -3107,9 +3123,9 @@ function registerTerminalGateway(wss, {
             status: _getIpcStatus()
         });
         const conversations = _buildConversations();
-        if (conversations.length > 0) {
-            sendWsEnvelope(ws, { type: 'codex_ipc_conversations', conversations });
-        }
+        // Send an explicit empty catalog as well; the client must not keep
+        // waiting for a surface when the server has no active conversation.
+        sendWsEnvelope(ws, { type: 'codex_ipc_conversations', conversations });
         console.warn('[gateway][ipc][broadcast-ipc-status]', JSON.stringify({
             conversationCount: conversations.length,
             conversationIds: conversations.map(c => c.conversationId),
@@ -3266,6 +3282,96 @@ function registerTerminalGateway(wss, {
         _sendFollowerMode(ws);
     };
     const _getActiveConversationId = (ws) => _ipcActiveConversations.get(ws) || null;
+
+    /**
+     * History reads are allowed to have a server-side selection fence without
+     * becoming an IPC selection.  This is the cache-miss path used by a
+     * historical task that is not currently running: it may use the canonical
+     * snapshot/provider, but it must not acquire a follower or wait for a live
+     * surface.
+     */
+    const _ensureHistoryOnlySelectionCycle = (
+        ws,
+        conversationId,
+        clientSelectionGeneration = null
+    ) => {
+        if (!isNonEmptyString(conversationId)) return { cycle: null, stale: false };
+        const normalizedConversationId = conversationId.trim();
+        if (_getActiveConversationId(ws)) return { cycle: null, stale: true };
+
+        const hasClientSelectionGeneration = Number.isSafeInteger(clientSelectionGeneration) &&
+            clientSelectionGeneration >= 0;
+        const currentCycle = _getHistorySelectionCycle(ws);
+        const expectedClientSelectionGeneration = _ipcClientSelectionGenerations.get(ws);
+        const knownClientSelectionGeneration = currentCycle?.historyOnly === true
+            ? currentCycle.clientSelectionGeneration
+            : expectedClientSelectionGeneration;
+
+        if (
+            currentCycle?.historyOnly === true &&
+            currentCycle.conversationId === normalizedConversationId &&
+            (!hasClientSelectionGeneration ||
+                currentCycle.clientSelectionGeneration === clientSelectionGeneration)
+        ) {
+            return { cycle: currentCycle, stale: false };
+        }
+
+        if (
+            hasClientSelectionGeneration &&
+            Number.isSafeInteger(knownClientSelectionGeneration) &&
+            clientSelectionGeneration < knownClientSelectionGeneration
+        ) {
+            return { cycle: null, stale: true };
+        }
+
+        const nextSelectionGeneration = (_ipcSelectionGenerations.get(ws) || 0) + 1;
+        _ipcSelectionGenerations.set(ws, nextSelectionGeneration);
+        if (hasClientSelectionGeneration) {
+            _ipcClientSelectionGenerations.set(ws, clientSelectionGeneration);
+        } else {
+            _ipcClientSelectionGenerations.delete(ws);
+        }
+        return {
+            cycle: _beginHistorySelectionCycle(
+                ws,
+                normalizedConversationId,
+                nextSelectionGeneration,
+                {
+                    historyOnly: true,
+                    clientSelectionGeneration: hasClientSelectionGeneration
+                        ? clientSelectionGeneration
+                        : null
+                }
+            ),
+            stale: false
+        };
+    };
+
+    const _prepareHistorySelectionRequest = (
+        ws,
+        conversationId,
+        clientSelectionGeneration = null,
+        hasClientSelectionGeneration = false
+    ) => {
+        const currentSelectionGeneration = _ipcSelectionGenerations.get(ws) || 0;
+        if (!conversationId || _getActiveConversationId(ws) === conversationId) {
+            return {
+                selectionGeneration: currentSelectionGeneration,
+                historyOnly: false,
+                stale: false
+            };
+        }
+        const prepared = _ensureHistoryOnlySelectionCycle(
+            ws,
+            conversationId,
+            hasClientSelectionGeneration ? clientSelectionGeneration : null
+        );
+        return {
+            selectionGeneration: prepared.cycle?.selectionGeneration ?? currentSelectionGeneration,
+            historyOnly: Boolean(prepared.cycle),
+            stale: prepared.stale === true
+        };
+    };
 
     const _shouldUseOwnerRuntime = (conversationId) => ownerSurfaceTracker.hasConversation(conversationId);
 
@@ -6056,22 +6162,35 @@ function registerTerminalGateway(wss, {
                         _handleSetActiveConversation(ws, session, envelope.conversationId, clientSelectionGeneration);
                     } else if (type === 'conversation_history_recovery_request') {
                         const conversationId = isNonEmptyString(envelope.conversationId) ? envelope.conversationId.trim() : '';
-                        const currentSelectionGeneration = _ipcSelectionGenerations.get(ws) || 0;
                         const hasClientSelectionGeneration = Object.prototype.hasOwnProperty.call(envelope, 'selectionGeneration');
-                        const clientSelectionGeneration = Number.isSafeInteger(envelope.selectionGeneration) && envelope.selectionGeneration >= 0
+                        const requestedClientSelectionGeneration = Number.isSafeInteger(envelope.selectionGeneration) && envelope.selectionGeneration >= 0
                             ? envelope.selectionGeneration
+                            : null;
+                        const historySelection = _prepareHistorySelectionRequest(
+                            ws,
+                            conversationId,
+                            requestedClientSelectionGeneration,
+                            hasClientSelectionGeneration
+                        );
+                        const currentSelectionGeneration = historySelection.selectionGeneration;
+                        const clientSelectionGeneration = hasClientSelectionGeneration &&
+                            Number.isSafeInteger(requestedClientSelectionGeneration)
+                            ? requestedClientSelectionGeneration
                             : currentSelectionGeneration;
                         const syncId = isNonEmptyString(envelope.syncId) ? envelope.syncId.trim() : null;
                         const rangeSegments = normalizeHistoryRangeCapability(
                             envelope.rangeSegments,
                             historyRangeSegmentsEnabled === true
                         );
-                        if (!conversationId || _getActiveConversationId(ws) !== conversationId) {
+                        const activeSelection = Boolean(
+                            conversationId && _getActiveConversationId(ws) === conversationId
+                        );
+                        if (!conversationId || historySelection.stale || (!activeSelection && !historySelection.historyOnly)) {
                             _sendHistoryRecoveryState(ws, {
                                 syncId,
                                 conversationId,
                                 state: 'failed',
-                                detailCode: 'conversation_not_active',
+                                detailCode: historySelection.stale ? 'stale_selection' : 'conversation_not_active',
                                 selectionGeneration: currentSelectionGeneration,
                                 clientSelectionGeneration
                             });
@@ -6156,7 +6275,7 @@ function registerTerminalGateway(wss, {
                                 let currentSurface = _getCurrentCycleIpcSnapshot(conversationId);
                                 const subscriptionCycle = _ipcConversationSubscriptionCycles.get(conversationId);
                                 const surfaceInvalidated = subscriptionCycle?.surfaceInvalidatedReason === 'desynced';
-                                if (!currentSurface && _isIpcOnline() && !surfaceInvalidated) {
+                                if (!currentSurface && !cycle.historyOnly && _isIpcOnline() && !surfaceInvalidated) {
                                     currentSurface = await _waitForCurrentCycleIpcSnapshot(
                                         ws,
                                         conversationId,
@@ -6690,10 +6809,20 @@ function registerTerminalGateway(wss, {
                         }
                     } else if (type === 'conversation_history_sync_request') {
                         const conversationId = isNonEmptyString(envelope.conversationId) ? envelope.conversationId.trim() : '';
-                        const currentSelectionGeneration = _ipcSelectionGenerations.get(ws) || 0;
                         const hasClientSelectionGeneration = Object.prototype.hasOwnProperty.call(envelope, 'selectionGeneration');
-                        const clientSelectionGeneration = Number.isSafeInteger(envelope.selectionGeneration) && envelope.selectionGeneration >= 0
+                        const requestedClientSelectionGeneration = Number.isSafeInteger(envelope.selectionGeneration) && envelope.selectionGeneration >= 0
                             ? envelope.selectionGeneration
+                            : null;
+                        const historySelection = _prepareHistorySelectionRequest(
+                            ws,
+                            conversationId,
+                            requestedClientSelectionGeneration,
+                            hasClientSelectionGeneration
+                        );
+                        const currentSelectionGeneration = historySelection.selectionGeneration;
+                        const clientSelectionGeneration = hasClientSelectionGeneration &&
+                            Number.isSafeInteger(requestedClientSelectionGeneration)
+                            ? requestedClientSelectionGeneration
                             : currentSelectionGeneration;
                         const syncId = isNonEmptyString(envelope.syncId) ? envelope.syncId.trim() : null;
                         const rangeSegments = normalizeHistoryRangeCapability(
@@ -6712,19 +6841,23 @@ function registerTerminalGateway(wss, {
                             conversationKey: diagnosticKey(conversationId),
                             syncId,
                             active: Boolean(conversationId && _getActiveConversationId(ws) === conversationId),
+                            historyOnly: historySelection.historyOnly,
                             selectionGeneration: currentSelectionGeneration,
                             clientSelectionGeneration,
                             cacheSchemaVersion: envelope.cacheSchemaVersion || 1,
                             rangeSegments: rangeSegments.enabled,
                             serverSnapshotSegments: snapshotSegments.enabled
                         }, 'info');
-                        if (!conversationId || _getActiveConversationId(ws) !== conversationId) {
+                        const activeSelection = Boolean(
+                            conversationId && _getActiveConversationId(ws) === conversationId
+                        );
+                        if (!conversationId || historySelection.stale || (!activeSelection && !historySelection.historyOnly)) {
                             _sendHistorySyncFailure(ws, {
                                 syncId,
                                 conversationId,
                                 selectionGeneration: currentSelectionGeneration,
                                 clientSelectionGeneration
-                            }, 'conversation_not_active');
+                            }, historySelection.stale ? 'stale_selection' : 'conversation_not_active');
                         } else if (!_clientSelectionGenerationMatches(
                             ws,
                             hasClientSelectionGeneration,

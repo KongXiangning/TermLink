@@ -601,6 +601,192 @@ test('snapshot history bypasses an unavailable Desktop IPC surface and commits t
     await stopGateway(g);
 });
 
+test('history-only snapshot recovery works without an active IPC conversation', async () => {
+    const persisted = [];
+    const g = await setupGateway({
+        historySnapshotSegmentsEnabled: true,
+        historySnapshotStore: {
+            async init() {},
+            async write(scope, snapshot) {
+                persisted.push({ scope, snapshot });
+                return { byteSize: 1 };
+            }
+        },
+        historySelectionDeadlineMs: 60
+    });
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && params.includeTurns === false) {
+            return { thread: { id: params.threadId, historyMode: 'legacy' } };
+        }
+        if (method === 'thread/read' && params.includeTurns === true) {
+            return {
+                thread: {
+                    id: params.threadId,
+                    historyMode: 'legacy',
+                    turns: [{
+                        id: 'turn-history-only',
+                        status: 'completed',
+                        items: [{ id: 'item-history-only', type: 'agentMessage', text: 'history-only recovery' }]
+                    }]
+                }
+            };
+        }
+        throw new Error(`unexpected ${method}`);
+    };
+    const sess = await g.sm.createSession({ name: 'history-only-snapshot' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    try {
+        await delay(50);
+
+        // This is deliberately not preceded by set_active_conversation.  A
+        // historical read must not create an IPC follower just to obtain SQLite
+        // history.
+        ws.send(JSON.stringify({
+            type: 'conversation_history_sync_request',
+            syncId: '123e4567-e89b-12d3-a456-426614174250',
+            conversationId: 'conv-history-only',
+            selectionGeneration: 1,
+            cacheSchemaVersion: 3,
+            profileId: 'profile-history-only',
+            checkpoint: { rootHash: null, itemCount: 0, complete: false },
+            serverSnapshotSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 }
+        }));
+
+        const start = await waitForMessage(messages, (message) =>
+            message.type === 'conversation_history_segment_start' &&
+            message.syncId === '123e4567-e89b-12d3-a456-426614174250', 1_000);
+        assert.ok(start, 'history-only request should enter the server snapshot lane');
+        const commit = await waitForMessage(messages, (message) =>
+            message.type === 'conversation_history_segment_commit' &&
+            message.syncId === start.syncId, 1_000);
+        assert.ok(commit);
+        ws.send(JSON.stringify({
+            type: 'conversation_history_segment_ack',
+            syncId: start.syncId,
+            conversationId: start.conversationId,
+            sequence: start.sequence,
+            pageIndex: start.pageIndex,
+            segmentId: start.range.segmentId,
+            pageHash: start.pageHash,
+            targetRoot: start.targetRoot,
+            clientSelectionGeneration: 1
+        }));
+        const settled = await waitForMessage(messages, (message) =>
+            message.type === 'conversation_history_sync_state' &&
+            message.syncId === start.syncId, 1_000);
+        assert.equal(settled?.state, 'synced');
+        assert.equal(g.ipcFeed.followCalls.length, 0, 'history-only recovery must not follow IPC');
+        assert.equal(g.ipcFeed.unfollowCalls.length, 0, 'history-only recovery must not release IPC');
+        assert.equal(persisted.length, 1);
+        assert.deepEqual(persisted[0].scope, {
+            profileKey: 'profile-history-only',
+            conversationId: 'conv-history-only'
+        });
+    } finally {
+        ws.close();
+        await stopGateway(g);
+    }
+});
+
+test('history-only recovery drops a late A result after a newer B selection', async () => {
+    let fullReadCount = 0;
+    let releaseFirstRead;
+    let resolveFirstReadStarted;
+    const firstReadStarted = new Promise((resolve) => {
+        resolveFirstReadStarted = resolve;
+    });
+    const persisted = [];
+    const g = await setupGateway({
+        historySnapshotSegmentsEnabled: true,
+        historySnapshotStore: {
+            async init() {},
+            async read() { return null; },
+            async write(scope, snapshot) {
+                persisted.push({ scope, snapshot });
+                return { byteSize: 1 };
+            }
+        },
+        historySelectionDeadlineMs: 60
+    });
+    g.codexService.requestHandler = async (method, params) => {
+        if (method === 'thread/read' && params.includeTurns === false) {
+            return { thread: { id: params.threadId, historyMode: 'legacy' } };
+        }
+        if (method === 'thread/read' && params.includeTurns === true) {
+            fullReadCount += 1;
+            if (fullReadCount === 1) {
+                resolveFirstReadStarted();
+                await new Promise((resolve) => {
+                    releaseFirstRead = () => resolve();
+                });
+            }
+            return {
+                thread: {
+                    id: params.threadId,
+                    historyMode: 'legacy',
+                    turns: [{
+                        id: `turn-${params.threadId}`,
+                        status: 'completed',
+                        items: [{
+                            id: `item-${params.threadId}`,
+                            type: 'agentMessage',
+                            text: params.threadId
+                        }]
+                    }]
+                }
+            };
+        }
+        throw new Error(`unexpected ${method}`);
+    };
+    const sess = await g.sm.createSession({ name: 'history-only-generation' });
+    const { ws, messages } = await connectWs(g.port, sess.id);
+    try {
+        await delay(50);
+        ws.send(JSON.stringify({
+            type: 'conversation_history_sync_request',
+            syncId: '123e4567-e89b-12d3-a456-426614174251',
+            conversationId: 'conv-history-a',
+            selectionGeneration: 1,
+            cacheSchemaVersion: 3,
+            profileId: 'profile-history-generation',
+            checkpoint: { rootHash: null, itemCount: 0, complete: false },
+            serverSnapshotSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 }
+        }));
+        await firstReadStarted;
+
+        ws.send(JSON.stringify({
+            type: 'conversation_history_sync_request',
+            syncId: '123e4567-e89b-12d3-a456-426614174252',
+            conversationId: 'conv-history-b',
+            selectionGeneration: 2,
+            cacheSchemaVersion: 3,
+            profileId: 'profile-history-generation',
+            checkpoint: { rootHash: null, itemCount: 0, complete: false },
+            serverSnapshotSegments: { enabled: true, version: 1, cacheSchemaVersion: 3 }
+        }));
+        await waitForCondition(() => g.codexService.requests.some((request) =>
+            request.method === 'thread/read' && request.params.threadId === 'conv-history-b' && request.params.includeTurns === false
+        ), 1_000);
+        releaseFirstRead?.();
+        const bStart = await waitForMessage(messages, (message) =>
+            message.type === 'conversation_history_segment_start' &&
+            message.syncId === '123e4567-e89b-12d3-a456-426614174252', 1_000);
+        assert.ok(bStart);
+        assert.equal(messages.some((message) =>
+            message.type === 'conversation_history_segment_start' &&
+            message.syncId === '123e4567-e89b-12d3-a456-426614174251'
+        ), false, 'late A source must not publish after B replaces the history fence');
+        assert.equal(g.ipcFeed.followCalls.length, 0);
+        assert.ok(fullReadCount >= 2);
+        assert.equal(persisted.some((entry) => entry.scope.conversationId === 'conv-history-a'), false);
+    } finally {
+        resolveFirstReadStarted?.();
+        releaseFirstRead?.();
+        ws.close();
+        await stopGateway(g);
+    }
+});
+
 test('server snapshot cache hit streams without another Codex history read', async () => {
     const cachedItems = [{
         itemKey: 'cached-item',
@@ -3582,6 +3768,16 @@ test('IPC status broadcast reaches all connected clients', async () => {
 
     assert.ok(c1.messages.find(m => m.type === 'codex_ipc_status'));
     assert.ok(c2.messages.find(m => m.type === 'codex_ipc_status'));
+    assert.deepEqual(
+        c1.messages.find(m => m.type === 'codex_ipc_conversations')?.conversations,
+        [],
+        'IPC status must explicitly publish an empty conversation catalog'
+    );
+    assert.deepEqual(
+        c2.messages.find(m => m.type === 'codex_ipc_conversations')?.conversations,
+        [],
+        'all clients must receive the empty conversation catalog'
+    );
     c1.ws.close(); c2.ws.close();
     await stopGateway(g);
 });

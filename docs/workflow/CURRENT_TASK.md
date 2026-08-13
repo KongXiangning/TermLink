@@ -2471,3 +2471,38 @@ Implementation Plan（2026-08-12，Android cached desynced surface 投影可达�
 - 后续 A→B→A 没有重复终态完整读取：Android generation 6、8、10、12、14、16 每次回到 A 都从本地 cache 恢复 `1023` 条（分别见 `:1793`、`:1826`、`:1859`、`:1892`、`:1927`、`:1960`）；server 当前 run 中目标 A 除上述一次 `terminal_reconcile` 外没有第二次 `terminal_reconcile.sync_started` 或目标 A 的 canonical full history snapshot read。
 - 第 2 步显示连续性保持：每次回到 A 后，matching provisional surface 将当前正文从 `1023→1033`，随后 healthy surface 保持 `1033→1033`；最后一次对应 Android `:1964` 与 `:1969`。本次没有出现 provisional 已显示后由 hydrate 把正文从 1033 降回旧数量。A→B 时 `1033→0` 是既定的 active-slot 跨任务清空，不是终态 A cache 被删除。
 - 结果：P0-C 的人工门槛通过——完成态一次性 canonical reconciliation、A 专属原子缓存提交、重复 A-B-A 不再重复完整读取、A/B UI 隔离均成立。第 0 步可以收口并提交；后续“每次回切仍有实时订阅等待/临时快照提示”属于历史首屏与 IPC 接入解耦的新步骤，不在本次 P0-C 提交中解决。
+
+### 修复路线图第 1 步：历史首屏与 IPC 接入解耦 scope lock（2026-08-13）
+
+- **授权与目标**：用户已授权开始 `docs/codex/codex-a-b-a-live-tail-recovery-roadmap.md` 的第 1 步。目标是让历史任务先从 Android SQLite 完成一次 cache-first 首屏，再独立处理 IPC；无活动 IPC 或无新数据时不得让历史正文停留在“临时实时快照（待同步确认）”，不得因 IPC 等待重置或重复 hydrate 已显示的历史。
+- **Safety mode**：`guarded`。本步只收敛 Android 当前 selection 的等待/重复写入，以及 Gateway 对空 IPC conversation catalog 的既有消息广播；不改变 healthy IPC authority、A/B active-slot 清空、服务端 retention/replay、P0-C terminal reconciliation 或 canonical history 语义。
+- **Allowed Files**：`android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`、`android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt`、`src/ws/terminalGateway.js`、`tests/terminalGateway.codexIpc.test.js`、`docs/workflow/CURRENT_TASK.md`。
+- **允许的最小行为**：复用现有 `codex_ipc_conversations` wire 消息，用空 `conversations: []` 明确“当前没有活动 IPC 会话”；Android 只把该目录当作活动性元数据，不把它当正文来源。目标 conversation 不在已知目录时结束 fresh-surface 等待并停止重复订阅；目录未知时被动等待目录通知，不以定时重订阅代替通知。对同一 `(endpoint, conversation, selectionGeneration)` 已完成的 cache-first hydrate，匹配的 `thread/resume` 回调不得再次读取并重建相同 SQLite 历史。现有 matching provisional surface、healthy surface、普通 history sync 与 P0-C lane 的既有语义保持不变。
+- **Forbidden Files / 行为**：禁止修改 `src/services/codexIpcFeed.js`、`src/services/codexIpcClient.js`、`src/services/codexIpcThreadStream.js`、`src/services/codexOwnerSurfaceTracker.js`、`src/services/codexMobileSurfaceProjector.js`、`src/services/codexHistorySnapshotStore.js`、`CodexConversationCacheStore.kt`、SQLite schema/DAO、`CodexWireModels.kt`、`CodexScreen.kt`、`CodexActivity.kt`、session/HTTP 路由、历史 provider/snapshot store、`CONTRACTS.md`、`DECISIONS.md`、旧历史恢复计划以及路线图文档。禁止改变 follower acquire/release、desired subscription/reconnect replay、IPC surface authority、provisional/desynced 标记、192 KiB 限制、A→B 清空、P0-C terminal reconciliation 或每次切换触发完整 `thread/read`。
+- **条件停止**：如果解耦历史同步必须改 wire DTO、Gateway history provider/follower gate、SQLite/cache store、UI 文案/状态，或需要改变“无 IPC 时历史恢复”的既有协议，立即停止并重新 lock scope；本轮不以新增协议字段或改动服务端留存来解决后续第 2/3 步问题。
+- **自动验证**：先新增 Android JVM 失败回归，覆盖 cache-first 选择后 metadata 回调不重复 hydrate、已知空/不含目标的 IPC catalog 不进入等待/重订阅、已知活动目标只发送一次 selection subscription；新增 Gateway 回归覆盖 IPC status/catalog 在空列表时仍发送 `codex_ipc_conversations`。随后运行 Gateway 定向 Node 回归、Android JVM 全量、JDK 21 debug APK build、`node --check` 与 `git diff --check`。
+- **人工门槛**：自动回归和 APK 安装后暂停，由用户对无 IPC 历史任务及目标会话执行 A→B→A。日志必须证明历史 cache 首屏先完成、无活动 IPC 不出现长期“待同步确认”、同一 selection 不重复 hydrate/订阅；matching provisional `1023→1033` 或既有 provisional-before-healthy 连续性、P0-C 一次性 durable reconciliation 均不得退化。未通过人工门槛前不进入路线图第 2 步。
+
+### 修复路线图第 1 步回归修复：历史恢复不得依赖实时 IPC scope widening（2026-08-14）
+
+- **触发证据**：真机采集 `output/diagnostics/20260814-002213` 表明无本地历史的会话 `54e204b82e314f1b`、`e2555dda18e55bea` 已从 Android 发出 `conversation_history_sync_request`，Gateway 分别记录 `server.codex.history.sync.request_received` 且 `active=false`，但没有进入 `server_snapshot` 分段或 canonical source 读取，最终 Android 显示“本地暂无历史正文（服务端恢复失败）”。
+- **回归原因**：第 1 步禁止无活动 IPC 任务发送 `set_active_conversation` 后，Gateway 的普通历史同步入口仍把 `active conversation` 当成历史恢复前置条件；历史正文通道因此被错误地绑在实时 follower 上。
+- **本次允许范围**：在原第 1 步 Allowed Files 基础上，允许继续修改 `src/ws/terminalGateway.js`、`tests/terminalGateway.codexIpc.test.js`、`android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`、`android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt` 与本文件。实现只允许增加 history-only selection cycle：为明确的 `conversation_history_sync_request` / `conversation_history_recovery_request` 建立服务端历史请求 fence，允许 server snapshot/canonical provider 运行；不得调用 `_followIpcConversation`、不得创建 realtime subscription cycle、不得发送 surface、不得成为 IPC authority。
+- **不允许改变**：`CodexIpcFeed`/follower acquire/release、desired subscription/reconnect replay、healthy IPC authority、A/B active-slot 清空、provisional/desynced 语义、SQLite/cache store、history provider/source 语义、P0-C terminal reconciliation、wire DTO、UI 文案与 192 KiB 限制。无活动 IPC 的历史请求只能读既有 canonical history/snapshot 通道；不得用“重新订阅 IPC”作为补救。
+- **安全门禁**：history-only cycle 必须使用 `conversationId + clientSelectionGeneration` 识别当前 Android 选择；迟到的旧会话请求 fail-closed；服务端内部 generation 与客户端 generation 可分离，但所有回包、segment、ACK 仍须通过现有 selection/syncId fence。历史请求结束后不得保留 realtime owner/follower。
+- **验证门槛**：新增无 active IPC 的 server-snapshot history sync 回归，证明会进入 segment start/commit；新增旧 generation/A→B 迟到请求回归；既有 active IPC、A/B、healthy/provisional、P0-C 回归必须保持通过。然后运行 Node 定向回归、Android JVM、JDK 21 APK、`node --check` 与 `git diff --check`，安装后再次人工验证两个无历史会话。
+
+### 修复路线图第 1 步回归修复：自动验证与人工门槛（2026-08-14）
+
+- **实现**：Gateway 增加 history-only selection cycle。无活动 IPC 时，明确的普通 history sync/recovery 请求可以独立进入既有 server snapshot/canonical history 通道；不调用 `_followIpcConversation`、不创建实时订阅、不发送 surface。客户端 conversation 与 selection generation 仍通过现有 history/sync fence 校验，旧 A 结果在新 B 选择后被拒绝。
+- **自动验证**：`node --test tests/terminalGateway.codexIpc.test.js` 通过 `119/119`；新增回归覆盖无 active IPC 的 snapshot recovery 和旧 generation 迟到结果；`node --check src/ws/terminalGateway.js`、JDK 21 `:app:testDebugUnitTest --rerun-tasks`、`:app:assembleDebug --rerun-tasks` 与 `git diff --check` 通过。
+- **运行环境**：本地开发服务已按仓库根目录 `E:\coding\TermLink` 重启到固定端口 3010 并通过 `/api/health`；最新 APK 已保留应用数据安装并启动到 `da34332c`。之前的 `output/diagnostics/20260814-002213` 是旧 Gateway 的失败证据，不能用于判断本次修复。
+- **人工门槛**：等待用户重新打开此前无本地历史的两个会话。预期是：即使没有活动 IPC，也能从服务端历史通道恢复并显示正文；不得显示“本地暂无历史正文（服务端恢复失败）”。随后采集新日志，确认服务端进入 snapshot/source history lane、没有创建 IPC follow/subscription，且 A→B 迟到结果不写入 B。人工门槛通过前不进入路线图第 2 步，也不提交本次未提交 diff。
+
+### 修复路线图第 1 步回归修复：人工门槛通过（2026-08-14）
+
+- 用户在设备 `da34332c` 完成复测，日志目录为 `output/diagnostics/20260814-004804`，反馈此前显示“本地暂无历史正文（服务端恢复失败）”的会话已能正常恢复。
+- 目标无本地缓存会话的 Android 事件先记录 `cacheLoadState=MISSING`，随后收到服务端 snapshot 分段并写入正文；例如短 key `54e204b82e314f1b` 在本次 run 中分段依次写入 `81→158→248→…→1176` 条，未依赖实时 surface。另一个目标短 key `2b2167e6d973072e` 从 `0` 条恢复到 `4` 条并完成本地缓存提交。
+- Gateway 对这些请求记录 `active=false`、`historyOnly=true`，进入 `selection_cycle.started → snapshot.started/source_read.completed → recovery.ready → segment ACK`；legacy source 按既有语义读取一次 `thread/read`，然后由 snapshot lane 回传。期间没有为历史恢复调用实时 follower；采集结束时 `desiredFollowingCount=0`。
+- 旧失败证据中的 `active=false` 不再导致 `conversation_not_active`；当前两个无缓存目标均未再显示服务端恢复失败。历史恢复与实时 IPC 已在本回归路径上分开，A/B 实时 authority、selection fence 和既有 cache 写入边界未改变。
+- **结果**：本次回归人工门槛通过；第 1 步已阶段性提交为 `f21dc5b`（`fix: decouple history recovery from IPC selection`）。路线图第 2 步尚未开始；旧的 `docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md` 用户工作区修改未纳入提交。
