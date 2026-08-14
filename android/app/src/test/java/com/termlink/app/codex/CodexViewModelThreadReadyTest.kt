@@ -3,6 +3,7 @@ package com.termlink.app.codex
 import com.termlink.app.codex.data.CodexIpcStatus
 import com.termlink.app.codex.data.CodexCapabilities
 import com.termlink.app.codex.data.CodexConversationCheckpoint
+import com.termlink.app.codex.data.CodexHistoryItem
 import com.termlink.app.codex.data.CodexFollowerMode
 import com.termlink.app.codex.data.CodexEffectiveConfig
 import com.termlink.app.codex.data.CodexIpcConversationSummary
@@ -63,6 +64,24 @@ private class FakeAutomaticOlderPumpScheduler {
 }
 
 class CodexViewModelThreadReadyTest {
+    @Test
+    fun liveReplayTailOnlyAppendsAndNeverDeletesOlderVisibleMessages() {
+        val current = listOf(
+            ChatMessage(id = "item-1", role = ChatMessage.Role.USER, content = "one"),
+            ChatMessage(id = "item-2", role = ChatMessage.Role.ASSISTANT, content = "two")
+        )
+        val merged = mergeCanonicalTailMessagesForUi(
+            currentMessages = current,
+            tailMessages = listOf(
+                ChatMessage(id = "item-2", role = ChatMessage.Role.ASSISTANT, content = "two-updated"),
+                ChatMessage(id = "item-3", role = ChatMessage.Role.ASSISTANT, content = "three")
+            )
+        )
+        assertEquals(listOf("item-1", "item-2", "item-3"), merged.map { it.id })
+        assertEquals("two-updated", merged[1].content)
+        assertEquals("three", merged[2].content)
+    }
+
     @Test
     fun metadataResumeDoesNotRepeatACompletedCacheFirstHydrate() {
         val first = CodexHistorySelectionKey("endpoint", "conv-a", 7L)
@@ -1113,7 +1132,7 @@ class CodexViewModelThreadReadyTest {
                 endpointId = "home",
                 conversationId = "thread-a",
                 rootHash = "stale-root",
-                itemCount = 12,
+                itemCount = 2,
                 complete = true
             ),
             availableDurableItemCount = 0
@@ -1139,6 +1158,45 @@ class CodexViewModelThreadReadyTest {
 
         assertEquals("root", checkpoint.rootHash)
         assertEquals(12, checkpoint.itemCount)
+        assertTrue(checkpoint.complete)
+    }
+
+    @Test
+    fun liveReplayCheckpointDerivesStableTailFromLegacyItemRows() {
+        val checkpoint = normalizeLiveReplayCheckpointForAvailableItems(
+            checkpoint = CodexConversationCheckpoint(
+                endpointId = "home",
+                conversationId = "thread-a",
+                itemCount = 2,
+                complete = true
+            ),
+            durableItems = listOf(
+                CodexHistoryItem(
+                    itemKey = "item-1",
+                    turnId = "turn-1",
+                    position = 0,
+                    itemType = "message",
+                    role = "user",
+                    clientRequestId = null,
+                    payloadJson = "{}",
+                    contentHash = "hash-1"
+                ),
+                CodexHistoryItem(
+                    itemKey = "item-2",
+                    turnId = "turn-1",
+                    position = 1,
+                    itemType = "message",
+                    role = "assistant",
+                    clientRequestId = null,
+                    payloadJson = "{}",
+                    contentHash = "hash-2"
+                )
+            )
+        )
+
+        assertEquals(2, checkpoint.itemCount)
+        assertEquals("item-2", checkpoint.newestAnchorKey)
+        assertEquals("hash-2", checkpoint.newestAnchorHash)
         assertTrue(checkpoint.complete)
     }
 

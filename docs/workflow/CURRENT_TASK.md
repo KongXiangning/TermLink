@@ -2539,3 +2539,57 @@ Implementation Plan（2026-08-12，Android cached desynced surface 投影可达�
 - **本次修改范围**：`CodexViewModel.kt` 及对应 `CodexViewModelThreadReadyTest.kt`；未修改 Gateway、CodexIpcFeed、wire、SQLite 或历史 provider。第 2 步原有服务端 scope 保持不变。
 - **自动验证**：JDK 21 定向 `CodexViewModelThreadReadyTest` 已通过；完整 `:app:testDebugUnitTest` 与 `:app:assembleDebug` 已通过；`git diff --check` 已通过。APK 为 `android/app/build/outputs/apk/debug/app-debug.apk`。
 - **人工门槛（已通过，2026-08-14）**：用户在设备 `da34332c` 对 `019ffbab-8906-7243-af24-cf7a9bf8c997` 与 `019ff186-bdc6-75a0-8862-257bbf781cbc` 完成验证，采集目录为 `output/diagnostics/20260814-024355`。Android 日志记录了目标选择后收到对应会话 surface：A 在 18:42:02 收到 provisional surface、18:42:03 收到 healthy surface；B 在 18:42:05 收到 provisional surface、18:42:06 收到 healthy surface；两次 owner 均与 active conversation 一致。A/B 切换期间没有把另一会话正文写入当前会话；B 后续完成并触发终态 reconciliation。模型目录已加载并应用，权限与思考强度由用户在真机界面确认恢复。该门槛通过。
+
+### 修复路线图第 3 步：A-B-A 回放与缺口判断协议 scope lock（2026-08-14）
+
+- **授权与目标**：用户已授权开始 `docs/codex/codex-a-b-a-live-tail-recovery-roadmap.md` 的第 3 步。目标是让 Android 回到 A 后向 Gateway 提供 A 本地已有历史的最新稳定记录身份，Gateway 明确回答：A 是否已是最新、是否存在服务端可连续回放的数据、是否仍在服务端跟踪、是否只能等待 canonical history、是否存在不可恢复缺口。协议必须能表达原因，不能只发一份没有覆盖范围说明的 surface。
+- **Safety mode**：`guarded`。本步触及 Android/Gateway 公共 wire、服务端 live surface 回放判断和已有 canonical baseline 的只读比较，但不改变 IPC authority、follower 生命周期、SQLite、历史首屏或 P0-C。
+- **本步允许的最小行为**：
+  - 新增 additive、generation-fenced 的 A-B-A replay request/response（或在现有兼容 history wire 中增加等价的 purpose/字段），携带 `conversationId`、`selectionGeneration` 和 Android 已知的最新稳定记录身份/数量；旧客户端继续忽略未知 additive 消息或字段。
+  - Gateway 只使用已经存在的服务端 live surface、已有的服务端 canonical baseline/coverage 信息和稳定记录身份判断缺口；若 live surface 连续覆盖本地缺口，可异步返回有界回放数据；若已有 canonical baseline 能覆盖缺口，可返回有界 canonical 增量；否则明确返回 `UP_TO_DATE`、`REPLAY_AVAILABLE`、`NEEDS_CANONICAL`、`SOURCE_GAP` 或 `FAILED`（最终名称以回归测试和现有 wire 约束定稿）。
+  - Android 在 cache-first 历史首屏之后异步发起一次本 selection 的 replay assessment；回包只允许更新当前 conversation 的回放/同步提示和可回放正文，不得阻塞 SQLite 首屏。任何旧 conversation 或旧 generation 回包必须丢弃。
+  - 直接回放仅限有界、已存在的数据；回放结果不得写 SQLite、不得替代 canonical history、不得成为 healthy IPC authority。healthy IPC 仍是正文运行态的实时权威；第 4 步才负责正常运行期间 canonical 固化和 durable 写入。
+- **Allowed Files**：
+  - `src/ws/terminalGateway.js`
+  - `src/services/codexIpcFeed.js`
+  - `src/services/codexHistorySyncService.js`
+  - `tests/terminalGateway.codexIpc.test.js`
+  - `tests/codexIpcFeed.test.js`
+  - `tests/codexHistorySyncService.test.js`
+  - `android/app/src/main/java/com/termlink/app/codex/CodexViewModel.kt`
+  - `android/app/src/main/java/com/termlink/app/codex/data/CodexWireModels.kt`
+  - `android/app/src/test/java/com/termlink/app/codex/CodexViewModelThreadReadyTest.kt`
+  - `android/app/src/test/java/com/termlink/app/codex/data/CodexHistoryWireTest.kt`
+  - `docs/workflow/CURRENT_TASK.md`
+- **Forbidden Files / 行为**：
+  - 禁止修改 `CodexConversationCacheStore.kt`、任何 SQLite schema/DAO/cache store、`src/services/codexHistorySnapshotStore.js`、`src/services/codexHistoryBaselineProvider.js`、`src/services/codexIpcClient.js`、`src/services/codexIpcThreadStream.js`、`src/services/codexOwnerSurfaceTracker.js`、`src/services/codexMobileSurfaceProjector.js`、`CodexScreen.kt`、`CodexActivity.kt`、session/HTTP 路由、`docs/codex/codex-a-b-a-live-tail-recovery-roadmap.md`、`docs/codex/codex-history-tail-first-gap-recovery-implementation-plan.md`、`docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`。
+  - 禁止因 replay request 触发新的 `thread/read(includeTurns=true)`、`thread/turns/list`、完整历史恢复、P0-C reconciliation、manifest/delta/cache baseline 写入、SQLite 写入、TTL/大小淘汰/重启恢复或大任务分页。没有现成服务端覆盖时必须返回明确的 `NEEDS_CANONICAL`/`SOURCE_GAP`/`FAILED`，不得用一次全量读取伪造回放能力。
+  - 禁止停止或重写 `follower acquire/release`、desired subscription/reconnect replay、healthy/provisional IPC authority、A/B active-slot 清空、第二步 retention、第二步 `1023→1033`/`1284→1290` 显示连续性、192 KiB surface 上限和第 1 步 history-only lane。
+- **Conditional Files / 停止条件**：
+  - `src/services/codexHistoryBaselineProvider.js`：只有自动回归证明现有 `CodexHistorySyncService` 无法读取已有 baseline 的稳定 anchor/coverage，且不需要新 Codex source read 时，才可重新 lock scope 放行只读 helper；若必须改变 provider 的读取方式或引入 canonical source 访问，停止并转为第 4 步/单独授权。
+  - `android/app/src/main/java/com/termlink/app/codex/network/CodexWebSocketClient.kt` 或其他未列出的 wire/host 文件：只有现有 message dispatch 无法承载 additive replay 消息时，先写失败回归、列出旧客户端兼容行为、影响面和回滚方式，再重新生成 scope；不得直接越界。
+  - `docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`：本实现 scope 不直接改写；协议稳定后必须通过对应 workflow sync 追加兼容语义，且不得覆盖 AD-004 或把 replay source 升格为实时权威。
+- **Change Propagation**：影响集合为 Android wire encoder/decoder、当前 selection generation fence、Gateway WebSocket dispatch、CodexIpcFeed 最新 surface 查询、HistorySyncService 已有 baseline 只读查询及 Node/Android 测试 doubles。兼容策略为 additive message/字段、旧客户端忽略、服务端对缺少 replay capability 的客户端 fail-closed；强制回归旧 history sync、tail validation、P0-C terminal reconciliation、A/B selection fence、healthy/provisional surface 和 retention 生命周期。
+- **Dangerous surfaces**：公共 wire/schema、服务端 live surface/缓存读取、跨任务回放身份比较、长任务期间的消息顺序和旧回包污染；本步不做数据库迁移、生产部署、host follower 改造或缓存淘汰策略。
+- **Unlock / widening conditions**：任何需要改 Forbidden 文件、触发新的 Codex source read、写入 SQLite/canonical cache、修改 IPC authority/follower lifecycle、让回放结果覆盖运行态，必须停止；重新列出具体文件、行为风险、回滚方式和自动/真机验证后再 lock scope。当前 scope 不授权扩大到路线图第 4–6 步。
+- **验证门槛**：先新增失败回归，覆盖本地已在 server surface 内/外、server 有无 canonical baseline、无 IPC、旧 generation、A→B 后迟到回包、surface 只能尾部覆盖和明确不可恢复缺口；再运行 Gateway/Feed/HistorySyncService 定向 Node 回归、Android JVM、JDK 21 APK build、`node --check` 与 `git diff --check`。安装后暂停人工 A→B→A，确认历史首屏不等待 replay、服务端说明是否有新数据、可回放内容不跨会话、不写 SQLite，且第二步 provisional/healthy 收敛保持不退化。
+- **External Documentation Gate**：不触发；本步只使用项目内既有 WebSocket JSON、CodexIpcFeed、HistorySyncService 和 Android wire，不引入第三方库或外部 API。
+
+### 修复路线图第 3 步：实现结果（2026-08-14，等待人工门槛）
+
+- **协议实现**：新增 additive `conversation_live_replay_request` / `conversation_live_replay_state`。Android 在 cache-first 历史提交后，针对当前 `(profile, conversationId, selectionGeneration)` 最多发送一次请求；请求携带本地最新稳定记录身份和当前 surface 的 revision/source epoch/最新记录身份。Gateway 只读取已有的服务端 live surface、已有的 `CodexHistorySyncService` baseline 和 retention/following 信息，返回 `replay_available`、`up_to_date`、`needs_canonical`、`source_gap`、`no_live_source`、`unsupported` 或 `failed`，不启动新的 Codex source read。
+- **回放边界**：连续覆盖本地尾部的既有 IPC surface 可以作为 display-only provisional frame 回放；已有 canonical baseline 可以返回有界 canonical tail；只有 IPC surface 的 baseline 永远不能被报告为 canonical。回放正文只更新当前 Android `messages`，不写 SQLite、不修改 `cachedCanonicalMessages`/普通 history sync、不提升 healthy IPC authority；旧 conversation、旧 selection generation、重复请求和迟到结果均丢弃。
+- **Android 保护**：回放请求在历史首屏提交后异步发送，不阻塞 SQLite 首屏；结果按当前 selection 和 syncId 严格隔离。回放尾部只追加/合并，不删除已显示正文；healthy IPC、A/B 清空和第 2 步 provisional/hydrate 保留逻辑未改。
+- **自动验证**：`node --test --test-reporter=dot tests/terminalGateway.codexIpc.test.js` 通过；`node --test --test-reporter=dot tests/codexHistorySyncService.test.js tests/codexHistoryBaselineProvider.test.js tests/terminalGateway.codexIpc.test.js` 通过；新增回归覆盖 canonical tail、IPC-only baseline 不得误报 canonical、连续 surface 回放和 bounded surface 缺口；JDK 21 `:app:testDebugUnitTest --rerun-tasks --no-daemon` 通过；JDK 21 `:app:assembleDebug --rerun-tasks --no-daemon` 通过；`node --check src/ws/terminalGateway.js` 与 `git diff --check` 通过。APK 为 `android/app/build/outputs/apk/debug/app-debug.apk`。
+- **当前状态**：自动门槛通过，尚未提交，尚未完成人工 A→B→A。安装 APK 后需要使用一个已经有本地历史、且服务端可能存在最新 surface 的任务执行 A→B→A。人工日志必须证明：历史正文先显示，不等待 replay；每次 selection 最多一次 replay request/state；有连续 live surface 时只回放 A 自己的尾部；无连续来源时明确 `needs_canonical/source_gap/no_live_source`，不偷偷 full read；回放不写 SQLite、不改变 cache 数量；第 2 步 provisional `1023→1033` / `1284→1290` 类显示连续性不退化。人工门槛通过后再执行 workflow review、contract/decision sync 和阶段性提交。
+
+### 修复路线图第 3 步：人工门槛通过（2026-08-14）
+
+- 用户已在设备 `da34332c` 完成多轮 A↔B↔A 操作，采集目录为 `output/diagnostics/20260814-134335`。本次重点会话为 `019ff186-bdc6-75a0-8862-257bbf781cbc`（短 key `c1608cf7b1d732de`）和 `019ffbab-8906-7243-af24-cf7a9bf8c997`（短 key `54e204b82e314f1b`）。
+- 每次 Android selection 都有恰好一次 `android.codex.history.live_replay.requested` 和一次结果；请求已携带本地最新稳定记录身份（`checkpointNewestKeyPresent=true`），不再是旧日志中的“只有数量、没有最后一条身份”。
+- `54e204b82e314f1b` 第一次回切返回 `replay_available / live_surface_covers_local_tail`，服务端随后发送该会话自己的临时 surface；后续返回 `needs_canonical / live_surface_anchor_outside_bounded_tail`，表示服务端当前实时尾部无法证明覆盖本地旧记录，但仍只把实时画面作为临时显示来源，没有假装已完成完整历史校验。
+- `c1608cf7b1d732de` 返回 `source_gap / canonical_baseline_unavailable`。这表示本次判断时服务端没有可用的已确认历史基线，属于第 3 步按约定报告缺口，不是回放请求卡死，也没有由回放请求偷偷启动完整读取。该会话随后发生的 `terminal_reconcile` 是已完成任务的 P0-C 独立流程，不属于第 3 步回放读取。
+- Android writer trace 证明首屏与回放边界保持：`c1608cf7b1d732de` 每次回切先从 SQLite 恢复 `1041` 条，实时临时 surface 到达后正文增加到约 `1051`；`54e204b82e314f1b` 先恢复 `1418` 条，临时 surface 到达后增加到 `1425`，健康 surface 到达后没有再减少。回切时确实会执行既定的 A→B active-slot 清空，但切回后 hydrate 没有删除已经显示的实时尾部；cache 数量没有被回放流程改写。
+- 服务端 live replay 日志未出现由该请求触发的 Codex `thread/read(includeTurns=true)`、`thread/turns/list` 或完整历史读取；回放只使用已有 surface/基线判断，并在可用时发送有界临时 surface。
+- **只读审查收紧**：审查发现不能用“非 `ipc_surface`”作为 canonical 判断；P0-B 的 `history_older_page` 也是 baseline，但不证明当前尾部连续。现改为显式允许 `history_recovery`、`terminal_reconcile`、`app_server_thread`、`app_server_turns_page`，未知 source kind 默认不具备 canonical 回放资格，并新增 `history_older_page` fail-closed 回归。Gateway 定向回归、`node --check`、`git diff --check` 在该收紧后通过。
+- **结果**：第 3 步自动验证与人工门槛通过。协议已证明“本地是否已有、服务端能否连续回放、是否需要 canonical history”可以被明确区分；`needs_canonical/source_gap` 仍是后续第 4 步的输入，不表示第 3 步已经完成持久化修复。新增边界已同步到 `docs/workflow/CONTRACTS.md` 与 `docs/workflow/DECISIONS.md`；本步尚未提交，下一步执行 report-only review 与阶段性提交准备。

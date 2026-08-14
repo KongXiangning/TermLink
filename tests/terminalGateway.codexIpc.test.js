@@ -321,6 +321,97 @@ test('completed terminal epoch remains stable across IPC surface revisions of th
     assert.notEqual(nextTurn, firstRevision);
 });
 
+test('Route 3 can build a bounded canonical tail without starting a source read', () => {
+    const registerTerminalGateway = loadGateway();
+    const result = registerTerminalGateway.buildReplayCanonicalTail({
+        baseline: {
+            sourceKind: 'history_recovery',
+            complete: true,
+            coverageComplete: true,
+            stale: false,
+            items: [
+                {
+                    itemKey: 'item-1',
+                    position: 0,
+                    itemType: 'message',
+                    role: 'user',
+                    payloadJson: JSON.stringify({ text: 'one' }),
+                    contentHash: 'hash-1'
+                },
+                {
+                    itemKey: 'item-2',
+                    position: 1,
+                    itemType: 'message',
+                    role: 'assistant',
+                    payloadJson: JSON.stringify({ text: 'two' }),
+                    contentHash: 'hash-2'
+                }
+            ]
+        },
+        checkpoint: {
+            itemCount: 1,
+            newestAnchorKey: 'item-1',
+            newestAnchorHash: 'hash-1'
+        },
+        maxItems: 10,
+        maxBytes: 64 * 1024,
+        envelopeContext: {
+            syncId: 'canonical-replay-test',
+            conversationId: 'conv-canonical-replay',
+            selectionGeneration: 1,
+            clientSelectionGeneration: 1
+        }
+    });
+    assert.equal(result.state, 'replay_available');
+    assert.equal(result.source, 'canonical_history');
+    assert.equal(result.replayComplete, true);
+    assert.deepEqual(result.items.map((item) => item.itemKey), ['item-2']);
+
+    const current = registerTerminalGateway.buildReplayCanonicalTail({
+        baseline: {
+            sourceKind: 'history_recovery',
+            stale: false,
+            items: [{ itemKey: 'item-1', contentHash: 'hash-1', payloadJson: '{}' }]
+        },
+        checkpoint: { newestAnchorKey: 'item-1', newestAnchorHash: 'hash-1' },
+        maxItems: 10,
+        maxBytes: 64 * 1024,
+        envelopeContext: {}
+    });
+    assert.equal(current.state, 'up_to_date');
+
+    const liveSurfaceOnly = registerTerminalGateway.buildReplayCanonicalTail({
+        baseline: {
+            sourceKind: 'ipc_surface',
+            complete: true,
+            coverageComplete: true,
+            stale: false,
+            items: [{ itemKey: 'item-1', contentHash: 'hash-1', payloadJson: '{}' }]
+        },
+        checkpoint: { newestAnchorKey: 'item-1', newestAnchorHash: 'hash-1' },
+        maxItems: 10,
+        maxBytes: 64 * 1024,
+        envelopeContext: {}
+    });
+    assert.equal(liveSurfaceOnly.state, 'needs_canonical');
+    assert.equal(liveSurfaceOnly.detailCode, 'canonical_baseline_not_available');
+
+    const olderRangeOnly = registerTerminalGateway.buildReplayCanonicalTail({
+        baseline: {
+            sourceKind: 'history_older_page',
+            coverageComplete: false,
+            stale: false,
+            items: [{ itemKey: 'item-1', contentHash: 'hash-1', payloadJson: '{}' }]
+        },
+        checkpoint: { newestAnchorKey: 'item-1', newestAnchorHash: 'hash-1' },
+        maxItems: 10,
+        maxBytes: 64 * 1024,
+        envelopeContext: {}
+    });
+    assert.equal(olderRangeOnly.state, 'needs_canonical');
+    assert.equal(olderRangeOnly.detailCode, 'canonical_baseline_not_available');
+});
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function createFakeSessionManager() {
@@ -453,6 +544,126 @@ async function waitForCondition(predicate, timeoutMs = 1_000) {
     }
     return Boolean(predicate());
 }
+
+test('Route 3 reports a continuous live-surface replay and keeps it provisional', async () => {
+    const g = await setupGateway();
+    const sess = await g.sm.createSession({ name: 'live-replay' });
+    const conversationId = 'conv-live-replay';
+    g.ipcFeed.pushSnapshot(conversationId, {
+        conversationId,
+        revision: 2,
+        sourceEpoch: 'source-replay',
+        status: 'running',
+        items: [
+            { key: 'surface-1', kind: 'message', role: 'user', text: 'one', turnId: 'turn-1' },
+            { key: 'surface-2', kind: 'message', role: 'assistant', text: 'two', turnId: 'turn-1' }
+        ]
+    });
+    const client = await connectWs(g.port, sess.id);
+    await enableFollowerMode(client.ws);
+    client.ws.send(JSON.stringify({
+        type: 'set_active_conversation',
+        conversationId,
+        selectionGeneration: 7
+    }));
+    await waitForMessage(client.messages, (message) =>
+        message.type === 'conversation_surface_snapshot' &&
+        message.conversationId === conversationId
+    );
+
+    const syncId = 'live-replay-sync-1';
+    client.ws.send(JSON.stringify({
+        type: 'conversation_live_replay_request',
+        syncId,
+        conversationId,
+        selectionGeneration: 7,
+        checkpoint: {
+            itemCount: 1,
+            newestAnchorKey: 'surface-1',
+            newestAnchorHash: 'not-used-by-surface',
+            complete: true
+        },
+        surfaceCheckpoint: {
+            revision: 1,
+            newestItemKey: 'surface-1'
+        },
+        liveReplay: { enabled: true, version: 1, maxItems: 10, maxBytes: 64 * 1024 }
+    }));
+    const result = await waitForMessage(client.messages, (message) =>
+        message.type === 'conversation_live_replay_state' && message.syncId === syncId
+    );
+    assert.ok(result, 'replay result should be sent');
+    assert.equal(result.state, 'replay_available');
+    assert.equal(result.source, 'ipc_surface');
+    assert.equal(result.continuity, 'continuous');
+    assert.equal(result.replayable, true);
+    assert.equal(result.needsCanonical, false);
+    assert.equal(result.surface.newestItemKey, 'surface-2');
+    assert.equal(result.canonical.sourceKind, 'ipc_surface');
+
+    const replaySurface = await waitForMessage(client.messages, (message) =>
+        message.type === 'conversation_surface_snapshot' &&
+        message.conversationId === conversationId &&
+        message.snapshot?.desynced === true
+    );
+    assert.ok(replaySurface, 'cached replay must be delivered as provisional');
+    assert.equal(replaySurface.snapshot.items.at(-1).key, 'surface-2');
+
+    client.ws.close();
+    await stopGateway(g);
+});
+
+test('Route 3 reports an explicit source gap when a bounded surface cannot prove the local anchor', async () => {
+    const g = await setupGateway();
+    const sess = await g.sm.createSession({ name: 'live-replay-gap' });
+    const conversationId = 'conv-live-replay-gap';
+    g.ipcFeed.pushSnapshot(conversationId, {
+        conversationId,
+        revision: 9,
+        sourceEpoch: 'source-gap',
+        status: 'completed',
+        items: [
+            { key: 'surface-900', kind: 'message', role: 'assistant', text: 'tail', turnId: 'turn-9' }
+        ]
+    });
+    const client = await connectWs(g.port, sess.id);
+    await enableFollowerMode(client.ws);
+    client.ws.send(JSON.stringify({
+        type: 'set_active_conversation',
+        conversationId,
+        selectionGeneration: 3
+    }));
+    await waitForMessage(client.messages, (message) =>
+        message.type === 'conversation_surface_snapshot' && message.conversationId === conversationId
+    );
+    const syncId = 'live-replay-gap-1';
+    client.ws.send(JSON.stringify({
+        type: 'conversation_live_replay_request',
+        syncId,
+        conversationId,
+        selectionGeneration: 3,
+        checkpoint: {
+            itemCount: 899,
+            newestAnchorKey: 'surface-100',
+            complete: true
+        },
+        liveReplay: { enabled: true, version: 1 }
+    }));
+    const result = await waitForMessage(client.messages, (message) =>
+        message.type === 'conversation_live_replay_state' && message.syncId === syncId
+    );
+    assert.ok(result, 'gap result should be sent');
+    assert.equal(result.state, 'needs_canonical');
+    assert.equal(result.source, 'ipc_surface');
+    assert.equal(result.continuity, 'unknown');
+    assert.equal(result.replayable, true);
+    assert.equal(result.needsCanonical, true);
+    assert.equal(result.detailCode, 'live_surface_anchor_outside_bounded_tail');
+    assert.equal(result.canonical.sourceKind, 'ipc_surface');
+
+    client.ws.close();
+    await stopGateway(g);
+});
 
 // ── tests ────────────────────────────────────────────────────────────────────
 

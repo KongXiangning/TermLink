@@ -121,6 +121,12 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 
 变更说明（2026-08-12，P0-C legacy terminal durable reconciliation）：用户明确选择不等待上游提供可证明有界的 legacy tail 读取；为修复“任务完成时实时 tail 已显示、切换后却未 durable”的已证实缺口，允许仅在 matching healthy terminal stable 条件下，对每个 `(endpoint/profile, conversationId, terminalEpoch)` 至多一次完整 canonical `thread/read(includeTurns=true)`，并将验证后的 canonical 结果原子写入 A 专属 SQLite。该选择不是每次 A→B→A 全量读取，也不撤销第 3 步 legacy `UNSUPPORTED` 的 validation-only 语义：普通 selection validation 仍零 full read；只有独立的 terminal-reconcile lane 才可 full read。用户同时确认 durable write 与 UI write 必须分轨：A 已切到 B 后，已获准 A job 可提交 A partition，但绝不能影响 B 的 messages/cache/live authority。source 必须绕过未经 freshness 证明的 snapshot store，受 timeout/size/single-flight/identity/terminal-epoch gates 保护；任何失败保留旧 cache，禁止从 IPC bounded surface 直接写库。该决定不能在普通 history/UI bugfix 中扩展到 running、desynced、failed/cancelled、selection/reopen 或新的 Codex method；若需 schema migration、snapshot-store 改造、feed/owner 改动或改变 full-read trigger，必须重新 lock scope 并取得用户确认。
 
+变更说明（2026-08-14，A→B→A live replay assessment）：用户确认第 3 步采用一次性、能力门禁、只读的回放判断协议。Android 先完成本地 cache-first 历史显示，再向 Gateway 提交当前 conversation 的最新稳定记录身份；Gateway 只比较已有 IPC surface、已有 canonical baseline 与 retention/tracking 事实，明确报告是否已是最新、是否可连续回放、是否需要 canonical reconciliation 或是否存在来源缺口。该请求不得触发新的 Codex full read、turns list、SQLite/cache 写入或实时权威切换；可用的 bounded surface 只能作为当前会话的 display-only provisional 补充，healthy IPC 仍是唯一实时权威。旧 conversation、旧 selection generation、重复或迟到回包必须丢弃；`needs_canonical` / `source_gap` 只是后续第 4 步的事实输入，不得在第 3 步自动持久化。
+
+原因：仅显示一份没有覆盖说明的 surface 无法区分“已经最新”和“只能看到尾部”，会继续把 A→B→A 的等待与数据缺口混在一起；但把回放判断直接升级为 full history recovery 又会重新把历史流程绑定到实时流程。该选择保留两条通道的职责边界，并在没有连续来源时显式失败。
+
+约束：后续不得把 live replay assessment 改造成轮询、full read、canonical writer、第二实时权威或跨会话缓存；若需让 `needs_canonical` 自动补数据，必须单独锁定路线图第 4 步并重新取得授权。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径

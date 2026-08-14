@@ -137,6 +137,27 @@ class CodexHistoryWireTest {
     }
 
     @Test
+    fun capabilityReadsAdditiveLiveReplayLimits() {
+        val status = JSONObject().put(
+            "capabilities",
+            JSONObject().put(
+                "historySync",
+                JSONObject()
+                    .put("version", 1)
+                    .put("liveReplay", JSONObject()
+                        .put("enabled", true)
+                        .put("version", 1)
+                        .put("maxItems", 42)
+                        .put("maxBytes", 65536))
+            )
+        )
+        val capability = CodexHistoryCapability.from(status)
+        assertTrue(capability?.liveReplay?.enabled == true)
+        assertEquals(42, capability?.liveReplay?.maxItems)
+        assertEquals(65536, capability?.liveReplay?.maxBytes)
+    }
+
+    @Test
     fun manifestPageCarriesClientSelectionGenerationEvenWhenEmpty() {
         val message = JSONObject(
             CodexClientMessages.historyManifestPage(
@@ -262,6 +283,68 @@ class CodexHistoryWireTest {
         assertTrue(message.getJSONObject("tailValidation").getBoolean("enabled"))
         assertFalse(message.has("rangeSegments"))
         assertFalse(message.has("serverSnapshotSegments"))
+    }
+
+    @Test
+    fun liveReplayRequestCarriesDurableAndSurfaceAnchorsAdditively() {
+        val message = JSONObject(
+            CodexClientMessages.liveReplayRequest(
+                CodexLiveReplayRequest(
+                    syncId = "replay-sync",
+                    conversationId = "conversation",
+                    checkpoint = CodexHistorySyncCheckpoint(
+                        rootHash = "root",
+                        itemCount = 9,
+                        complete = true,
+                        newestAnchorKey = "item-9",
+                        newestAnchorHash = "hash-9"
+                    ),
+                    selectionGeneration = 12,
+                    liveReplay = CodexLiveReplayCapability(true, 1, 50, 65536),
+                    surfaceRevision = 42,
+                    surfaceSourceEpoch = "source-epoch",
+                    surfaceNewestItemKey = "surface-9"
+                )
+            )
+        )
+        assertEquals("conversation_live_replay_request", message.getString("type"))
+        assertEquals(12L, message.getLong("selectionGeneration"))
+        assertEquals("item-9", message.getJSONObject("checkpoint").getString("newestAnchorKey"))
+        assertEquals(42, message.getJSONObject("surfaceCheckpoint").getInt("revision"))
+        assertEquals("surface-9", message.getJSONObject("surfaceCheckpoint").getString("newestItemKey"))
+        assertTrue(message.getJSONObject("liveReplay").getBoolean("enabled"))
+    }
+
+    @Test
+    fun liveReplayStateParsesCanonicalItemsWithoutMakingItAHistoryDelta() {
+        val state = CodexLiveReplayStateMessage.from(
+            JSONObject()
+                .put("type", "conversation_live_replay_state")
+                .put("syncId", "replay-sync")
+                .put("conversationId", "conversation")
+                .put("state", "replay_available")
+                .put("source", "canonical_history")
+                .put("continuity", "continuous")
+                .put("replayable", true)
+                .put("replayComplete", true)
+                .put("needsCanonical", false)
+                .put("selectionGeneration", 3)
+                .put("clientSelectionGeneration", 12)
+                .put("items", JSONArray().put(
+                    JSONObject()
+                        .put("itemKey", "item-10")
+                        .put("position", 9)
+                        .put("itemType", "message")
+                        .put("role", "assistant")
+                        .put("payloadJson", "{\"text\":\"ten\"}")
+                        .put("contentHash", "hash-10")
+                ))
+        )
+        assertEquals("replay_available", state.state)
+        assertEquals("canonical_history", state.source)
+        assertEquals(1, state.items.size)
+        assertEquals("item-10", state.items.single().itemKey)
+        assertEquals(12L, state.clientSelectionGeneration)
     }
 
     @Test

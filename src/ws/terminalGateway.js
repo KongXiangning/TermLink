@@ -19,7 +19,7 @@ const {
     MAX_CONTROL_ENVELOPE_BYTES,
     projectConversationActionPayload
 } = require('../services/codexWsSnapshotScheduler');
-const { CodexHistorySyncService } = require('../services/codexHistorySyncService');
+const { CodexHistorySyncService, toWireItem } = require('../services/codexHistorySyncService');
 const { CodexHistoryBaselineProvider } = require('../services/codexHistoryBaselineProvider');
 const { CodexHistorySnapshotStore } = require('../services/codexHistorySnapshotStore');
 const {
@@ -42,6 +42,11 @@ const CODEX_SNAPSHOT_FLUSH_INTERVAL_MS = 25;
 // projection; the authoritative IPC surface and WebSocket backpressure rules
 // remain unchanged.
 const MOBILE_SURFACE_MAX_VISIBLE_LATENCY_MS = 500;
+// Route 3 replay is intentionally smaller than the generic history envelope.
+// It is a one-shot display/replay hint, not a replacement for the segmented
+// history lane or the completed-only durable reconciliation lane.
+const LIVE_REPLAY_MAX_ITEMS = 100;
+const LIVE_REPLAY_MAX_BYTES = 128 * 1024;
 
 function closeSocket(ws, code, reason) {
     try {
@@ -149,6 +154,153 @@ function normalizeHistoryTerminalReconcileCapability(value, serverEnabled = fals
     return {
         enabled: serverEnabled && source.enabled === true && version === 1,
         version
+    };
+}
+
+function normalizeLiveReplayCapability(value, serverEnabled = false) {
+    const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    const version = Number.isSafeInteger(source.version) ? source.version : 0;
+    const maxItems = Number.isSafeInteger(source.maxItems) && source.maxItems > 0
+        ? Math.min(source.maxItems, LIVE_REPLAY_MAX_ITEMS)
+        : LIVE_REPLAY_MAX_ITEMS;
+    const maxBytes = Number.isSafeInteger(source.maxBytes) && source.maxBytes > 0
+        ? Math.min(source.maxBytes, LIVE_REPLAY_MAX_BYTES)
+        : LIVE_REPLAY_MAX_BYTES;
+    return {
+        enabled: serverEnabled && source.enabled === true && version === 1,
+        version,
+        maxItems,
+        maxBytes
+    };
+}
+
+function replayItemKey(item) {
+    if (!item || typeof item !== 'object') return null;
+    const value = item.itemKey ?? item.key;
+    return isNonEmptyString(value) ? value.trim() : null;
+}
+
+function replayItemHash(item) {
+    if (!item || typeof item !== 'object') return null;
+    const value = item.contentHash ?? item.hash;
+    return isNonEmptyString(value) ? value.trim() : null;
+}
+
+function describeReplaySurface(surface) {
+    const items = Array.isArray(surface?.items) ? surface.items : [];
+    return {
+        revision: Number.isSafeInteger(surface?.revision) ? surface.revision : null,
+        sourceEpoch: isNonEmptyString(surface?.sourceEpoch) ? surface.sourceEpoch.trim() : null,
+        firstItemKey: replayItemKey(items[0]),
+        newestItemKey: replayItemKey(items.at(-1)),
+        itemCount: items.length,
+        // The server-side feed keeps the full surface. The mobile projector
+        // may trim it later, so this is a source-coverage fact, not a client
+        // payload claim.
+        sourceItemCount: items.length,
+        status: isNonEmptyString(surface?.status) ? surface.status.trim() : 'unknown',
+        truncatedAtSource: surface?.itemsTruncated === true
+    };
+}
+
+function describeReplayBaseline(baseline) {
+    const items = Array.isArray(baseline?.items) ? baseline.items : [];
+    const last = items.at(-1);
+    return {
+        available: Boolean(baseline),
+        sourceKind: baseline?.sourceKind || null,
+        itemCount: items.length,
+        newestItemKey: replayItemKey(last),
+        newestItemHash: replayItemHash(last),
+        complete: baseline?.complete === true,
+        coverageComplete: baseline?.coverageComplete === true,
+        stale: baseline?.stale === true,
+        sourceEpoch: baseline?.sourceEpoch || null
+    };
+}
+
+function isCanonicalReplayBaseline(baseline) {
+    // The live IPC surface and an older range page are intentionally
+    // registered as baselines by compatibility lanes, but neither proves the
+    // current canonical tail. Keep this allow-list fail-closed: a new source
+    // kind must opt in explicitly instead of becoming canonical by accident.
+    const canonicalSourceKinds = new Set([
+        'history_recovery',
+        'terminal_reconcile',
+        'app_server_thread',
+        'app_server_turns_page'
+    ]);
+    return Boolean(
+        baseline &&
+        canonicalSourceKinds.has(baseline.sourceKind)
+    );
+}
+
+function buildReplayCanonicalTail({ baseline, checkpoint, maxItems, maxBytes, envelopeContext }) {
+    const items = Array.isArray(baseline?.items) ? baseline.items : [];
+    const localKey = replayItemKey(checkpoint?.newestAnchorKey ? { itemKey: checkpoint.newestAnchorKey } : null);
+    const localHash = replayItemHash(checkpoint?.newestAnchorHash ? { contentHash: checkpoint.newestAnchorHash } : null);
+    if (!baseline || !localKey) {
+        return { state: 'needs_canonical', detailCode: !baseline ? 'canonical_baseline_unavailable' : 'local_newest_anchor_missing' };
+    }
+    if (!isCanonicalReplayBaseline(baseline)) {
+        return { state: 'needs_canonical', detailCode: 'canonical_baseline_not_available' };
+    }
+    if (baseline.stale === true) {
+        return { state: 'needs_canonical', detailCode: 'canonical_baseline_stale' };
+    }
+    const localIndex = items.findIndex((item) => replayItemKey(item) === localKey);
+    if (localIndex < 0) {
+        return {
+            state: 'needs_canonical',
+            detailCode: baseline.coverageComplete === true || baseline.complete === true
+                ? 'local_anchor_not_in_canonical_baseline'
+                : 'canonical_baseline_does_not_prove_continuity'
+        };
+    }
+    const anchor = items[localIndex];
+    if (localHash && replayItemHash(anchor) && localHash !== replayItemHash(anchor)) {
+        return { state: 'needs_canonical', detailCode: 'local_anchor_hash_mismatch' };
+    }
+    const tail = items.slice(localIndex + 1);
+    if (tail.length === 0) {
+        return {
+            state: 'up_to_date',
+            detailCode: 'canonical_newest_anchor_matches',
+            source: 'canonical_history',
+            replayComplete: true,
+            items: []
+        };
+    }
+    const selected = [];
+    for (const item of tail.slice(0, Math.max(1, maxItems))) {
+        let wire;
+        try {
+            wire = toWireItem(item);
+        } catch (error) {
+            return { state: 'failed', detailCode: error?.code || 'canonical_replay_item_invalid' };
+        }
+        const candidate = [...selected, wire];
+        const envelope = {
+            type: 'conversation_live_replay_state',
+            ...envelopeContext,
+            state: 'replay_available',
+            source: 'canonical_history',
+            items: candidate
+        };
+        if (Buffer.byteLength(JSON.stringify(envelope), 'utf8') > maxBytes) break;
+        selected.push(wire);
+    }
+    if (selected.length === 0) {
+        return { state: 'failed', detailCode: 'canonical_replay_payload_too_large' };
+    }
+    return {
+        state: 'replay_available',
+        source: 'canonical_history',
+        items: selected,
+        replayComplete: selected.length === tail.length,
+        needsCanonical: selected.length < tail.length,
+        detailCode: selected.length < tail.length ? 'canonical_replay_bounded' : 'canonical_tail_replayed'
     };
 }
 
@@ -1201,6 +1353,9 @@ function registerTerminalGateway(wss, {
     // P0-C is a completed-only durable lane for legacy conversations. It is
     // independently negotiated and never runs as part of A→B selection.
     historyTerminalReconcileEnabled = true,
+    // Route 3 is an additive, one-shot replay/gap assessment. It may reuse
+    // already cached server data but never starts a new canonical source read.
+    historyLiveReplayEnabled = true,
     historySnapshotStore = null
 }) {
     const isElevated = privilegeConfig && privilegeConfig.isElevated;
@@ -1247,6 +1402,8 @@ function registerTerminalGateway(wss, {
     const _ipcTailValidationMetadata = new WeakMap();
     /** @type {WeakMap<import('ws').WebSocket, { syncId: string | null, conversationId: string, selectionGeneration: number }>} */
     const _ipcTailValidationRequests = new WeakMap();
+    /** @type {WeakMap<import('ws').WebSocket, { syncId: string | null, conversationId: string, selectionGeneration: number, clientSelectionGeneration: number }>} */
+    const _ipcLiveReplayRequests = new WeakMap();
     /**
      * Metadata is retained per observed selection only for the completed
      * durable exception. Unlike Step 3's current-selection probe, P0-C may
@@ -1951,6 +2108,215 @@ function registerTerminalGateway(wss, {
         return sent;
     };
 
+    const _sendLiveReplayState = (ws, context, result) => {
+        if (!context || !result) return false;
+        const envelope = {
+            type: 'conversation_live_replay_state',
+            syncId: context.syncId || null,
+            conversationId: context.conversationId,
+            state: result.state || 'failed',
+            ...(result.detailCode ? { detailCode: result.detailCode } : {}),
+            selectionGeneration: context.selectionGeneration,
+            clientSelectionGeneration: context.clientSelectionGeneration,
+            source: result.source || 'none',
+            continuity: result.continuity || 'unknown',
+            replayable: result.replayable === true,
+            replayComplete: result.replayComplete === true,
+            needsCanonical: result.needsCanonical === true,
+            evicted: result.evicted ?? null,
+            tracking: result.tracking || 'unknown',
+            local: result.local || {},
+            surface: result.surface || null,
+            canonical: result.canonical || null,
+            ...(Array.isArray(result.items) && result.items.length > 0 ? { items: result.items } : {})
+        };
+        const sent = snapshotScheduler.sendControl(ws, envelope);
+        diagnosticLog.event('server', 'server.codex.history.live_replay.settled', {
+            conversationKey: diagnosticKey(context.conversationId),
+            syncId: context.syncId || null,
+            selectionGeneration: context.selectionGeneration,
+            clientSelectionGeneration: context.clientSelectionGeneration,
+            state: envelope.state,
+            detailCode: envelope.detailCode || null,
+            source: envelope.source,
+            continuity: envelope.continuity,
+            replayable: envelope.replayable,
+            replayItemCount: Array.isArray(envelope.items) ? envelope.items.length : 0,
+            surfaceRevision: envelope.surface?.revision ?? null,
+            canonicalNewestItemKeyPresent: Boolean(envelope.canonical?.newestItemKey),
+            tracking: envelope.tracking,
+            sent
+        }, envelope.state === 'failed' || envelope.state === 'source_gap' ? 'warn' : 'info');
+        return sent;
+    };
+
+    const _assessLiveReplay = (ws, envelope, context, capability) => {
+        const conversationId = context.conversationId;
+        const checkpoint = envelope.checkpoint && typeof envelope.checkpoint === 'object'
+            ? envelope.checkpoint
+            : {};
+        const surfaceCheckpoint = envelope.surfaceCheckpoint && typeof envelope.surfaceCheckpoint === 'object'
+            ? envelope.surfaceCheckpoint
+            : {};
+        const localNewestItemKey = isNonEmptyString(checkpoint.newestAnchorKey)
+            ? checkpoint.newestAnchorKey.trim()
+            : null;
+        const localNewestItemHash = isNonEmptyString(checkpoint.newestAnchorHash)
+            ? checkpoint.newestAnchorHash.trim()
+            : null;
+        const localSurfaceNewestItemKey = isNonEmptyString(surfaceCheckpoint.newestItemKey)
+            ? surfaceCheckpoint.newestItemKey.trim()
+            : null;
+        const localSurfaceRevision = Number.isSafeInteger(surfaceCheckpoint.revision)
+            ? surfaceCheckpoint.revision
+            : null;
+        const surface = _getLatestIpcSnapshot(conversationId);
+        const baseline = historySyncService.getBaseline(conversationId);
+        const following = typeof ipcFeed?.getFollowingState === 'function'
+            ? ipcFeed.getFollowingState(conversationId, 'local')
+            : null;
+        const tracking = following && (following.followerRefCount > 0 || following.retentionRefCount > 0)
+            ? (following.retentionRefCount > 0 && following.followerRefCount <= 0 ? 'retained' : 'tracked')
+            : _ipcRetainedConversations.has(conversationId)
+                ? 'retained'
+                : 'not_tracked';
+        const surfaceInfo = describeReplaySurface(surface);
+        const canonicalInfo = describeReplayBaseline(baseline);
+        const localInfo = {
+            itemCount: Number.isSafeInteger(checkpoint.itemCount) ? checkpoint.itemCount : 0,
+            newestItemKey: localNewestItemKey,
+            newestItemHash: localNewestItemHash,
+            surfaceRevision: localSurfaceRevision,
+            surfaceNewestItemKey: localSurfaceNewestItemKey
+        };
+        const base = {
+            local: localInfo,
+            surface: surface ? surfaceInfo : null,
+            canonical: canonicalInfo,
+            tracking,
+            evicted: null
+        };
+
+        let surfaceDecision = null;
+        if (surface && Array.isArray(surface.items) && surface.items.length > 0) {
+            const surfaceKeys = surface.items.map(replayItemKey);
+            const anchorCandidates = [localSurfaceNewestItemKey, localNewestItemKey].filter(Boolean);
+            const anchorKey = anchorCandidates.find((candidate) => surfaceKeys.includes(candidate)) || null;
+            const anchorIndex = anchorKey ? surfaceKeys.lastIndexOf(anchorKey) : -1;
+            if (anchorIndex >= 0 && anchorIndex < surface.items.length - 1) {
+                surfaceDecision = {
+                    source: 'ipc_surface',
+                    state: 'replay_available',
+                    continuity: 'continuous',
+                    replayable: true,
+                    replayComplete: true,
+                    needsCanonical: false,
+                    detailCode: 'live_surface_covers_local_tail'
+                };
+            } else if (anchorIndex >= 0 && localSurfaceRevision !== null &&
+                surfaceInfo.revision !== null && surfaceInfo.revision > localSurfaceRevision) {
+                surfaceDecision = {
+                    source: 'ipc_surface',
+                    state: 'replay_available',
+                    continuity: 'same_anchor_revision_advanced',
+                    replayable: true,
+                    replayComplete: true,
+                    needsCanonical: false,
+                    detailCode: 'live_surface_revision_advanced'
+                };
+            } else if (anchorIndex < 0) {
+                // The surface is a bounded tail and cannot prove what lies
+                // before its first item. It may still be shown as a fast
+                // provisional frame, but only canonical history can settle
+                // the missing range.
+                surfaceDecision = {
+                    source: 'ipc_surface',
+                    state: 'needs_canonical',
+                    continuity: 'unknown',
+                    replayable: true,
+                    replayComplete: false,
+                    needsCanonical: true,
+                    detailCode: 'live_surface_anchor_outside_bounded_tail'
+                };
+            }
+        }
+
+        const canonicalEnvelopeContext = {
+            syncId: context.syncId || null,
+            conversationId,
+            selectionGeneration: context.selectionGeneration,
+            clientSelectionGeneration: context.clientSelectionGeneration
+        };
+        const canonicalDecision = buildReplayCanonicalTail({
+            baseline,
+            checkpoint,
+            maxItems: capability.maxItems,
+            maxBytes: capability.maxBytes,
+            envelopeContext: canonicalEnvelopeContext
+        });
+
+        // A current IPC surface is the fastest source. It is returned as a
+        // provisional frame below, never as a new authority. If its bounded
+        // tail cannot prove continuity, keep the explicit NEEDS_CANONICAL
+        // result even when it is useful for immediate display.
+        if (surfaceDecision) {
+            return {
+                ...base,
+                ...surfaceDecision,
+                surface: surfaceInfo,
+                replaySurface: surfaceDecision.replayable ? surface : null,
+                canonical: canonicalInfo
+            };
+        }
+        if (canonicalDecision.state === 'replay_available') {
+            return {
+                ...base,
+                ...canonicalDecision,
+                continuity: 'continuous',
+                canonical: canonicalInfo
+            };
+        }
+        if (canonicalDecision.state === 'up_to_date') {
+            return {
+                ...base,
+                state: 'up_to_date',
+                source: 'canonical_history',
+                continuity: 'continuous',
+                replayable: false,
+                replayComplete: true,
+                needsCanonical: false,
+                detailCode: canonicalDecision.detailCode,
+                canonical: canonicalInfo
+            };
+        }
+        if (baseline && canonicalDecision.state === 'needs_canonical') {
+            return {
+                ...base,
+                state: 'needs_canonical',
+                source: isCanonicalReplayBaseline(baseline) ? 'canonical_history' : 'none',
+                continuity: 'unknown',
+                replayable: false,
+                replayComplete: false,
+                needsCanonical: true,
+                detailCode: canonicalDecision.detailCode,
+                canonical: canonicalInfo
+            };
+        }
+        return {
+            ...base,
+            state: tracking === 'not_tracked' && !baseline ? 'no_live_source' : 'source_gap',
+            source: 'none',
+            continuity: 'unknown',
+            replayable: false,
+            replayComplete: false,
+            needsCanonical: true,
+            detailCode: tracking === 'not_tracked' && !baseline
+                ? 'no_server_surface_or_canonical_baseline'
+                : canonicalDecision.detailCode || 'replay_source_gap',
+            canonical: canonicalInfo
+        };
+    };
+
     const _handleHistorySelectionDeadline = (ws, cycle) => {
         if (_getHistorySelectionCycle(ws) !== cycle || cycle.cancelled || cycle.deadlineReached) return;
         const recoveryStateBeforeDeadline = cycle.recoveryState;
@@ -2197,6 +2563,12 @@ function registerTerminalGateway(wss, {
                     terminalReconcile: {
                         enabled: historyTerminalReconcileEnabled === true,
                         version: 1
+                    },
+                    liveReplay: {
+                        enabled: historyLiveReplayEnabled === true,
+                        version: 1,
+                        maxItems: LIVE_REPLAY_MAX_ITEMS,
+                        maxBytes: LIVE_REPLAY_MAX_BYTES
                     }
                 },
                 codexMedia: { version: 1, maxBytes: 25 * 1024 * 1024 }
@@ -6631,6 +7003,144 @@ function registerTerminalGateway(wss, {
                                 }
                             }
                         }
+                    } else if (type === 'conversation_live_replay_request') {
+                        const conversationId = isNonEmptyString(envelope.conversationId) ? envelope.conversationId.trim() : '';
+                        const currentSelectionGeneration = _ipcSelectionGenerations.get(ws) || 0;
+                        const hasClientSelectionGeneration = Object.prototype.hasOwnProperty.call(envelope, 'selectionGeneration');
+                        const clientSelectionGeneration = Number.isSafeInteger(envelope.selectionGeneration) && envelope.selectionGeneration >= 0
+                            ? envelope.selectionGeneration
+                            : currentSelectionGeneration;
+                        const syncId = isNonEmptyString(envelope.syncId) ? envelope.syncId.trim() : null;
+                        const capability = normalizeLiveReplayCapability(
+                            envelope.liveReplay,
+                            historyLiveReplayEnabled === true
+                        );
+                        const context = {
+                            syncId,
+                            conversationId,
+                            selectionGeneration: currentSelectionGeneration,
+                            clientSelectionGeneration
+                        };
+                        const cycle = _getHistorySelectionCycle(ws);
+                        diagnosticLog.event('server', 'server.codex.history.live_replay.requested', {
+                            conversationKey: diagnosticKey(conversationId),
+                            syncId,
+                            selectionGeneration: currentSelectionGeneration,
+                            clientSelectionGeneration,
+                            active: Boolean(conversationId && _getActiveConversationId(ws) === conversationId),
+                            historyOnly: cycle?.historyOnly === true,
+                            capabilityEnabled: capability.enabled,
+                            capabilityVersion: capability.version
+                        }, 'info');
+                        if (!conversationId || !cycle || !_isCurrentHistorySelectionCycle(
+                            ws,
+                            conversationId,
+                            currentSelectionGeneration
+                        )) {
+                            _sendLiveReplayState(ws, context, {
+                                state: 'failed',
+                                detailCode: 'stale_selection',
+                                tracking: 'unknown',
+                                needsCanonical: true
+                            });
+                        } else if (!_clientSelectionGenerationMatches(
+                            ws,
+                            hasClientSelectionGeneration,
+                            clientSelectionGeneration,
+                            currentSelectionGeneration
+                        )) {
+                            _sendLiveReplayState(ws, context, {
+                                state: 'failed',
+                                detailCode: 'stale_selection',
+                                tracking: 'unknown',
+                                needsCanonical: true
+                            });
+                        } else if (!capability.enabled) {
+                            _sendLiveReplayState(ws, context, {
+                                state: 'unsupported',
+                                detailCode: 'live_replay_capability_unsupported',
+                                tracking: 'unknown',
+                                needsCanonical: true
+                            });
+                        } else {
+                            const previous = _ipcLiveReplayRequests.get(ws);
+                            if (
+                                previous &&
+                                previous.conversationId === conversationId &&
+                                previous.selectionGeneration === currentSelectionGeneration &&
+                                previous.clientSelectionGeneration === clientSelectionGeneration
+                            ) {
+                                diagnosticLog.event('server', 'server.codex.history.live_replay.duplicate_ignored', {
+                                    conversationKey: diagnosticKey(conversationId),
+                                    syncId,
+                                    selectionGeneration: currentSelectionGeneration
+                                }, 'warn');
+                                return;
+                            }
+                            _ipcLiveReplayRequests.set(ws, {
+                                syncId,
+                                conversationId,
+                                selectionGeneration: currentSelectionGeneration,
+                                clientSelectionGeneration
+                            });
+                            let result;
+                            try {
+                                result = _assessLiveReplay(ws, envelope, context, capability);
+                            } catch (error) {
+                                result = {
+                                    state: 'failed',
+                                    detailCode: error?.code || 'live_replay_assessment_failed',
+                                    tracking: 'unknown',
+                                    needsCanonical: true
+                                };
+                            }
+                            const pending = _ipcLiveReplayRequests.get(ws);
+                            if (
+                                !pending ||
+                                pending.syncId !== syncId ||
+                                !_isCurrentHistorySelectionCycle(ws, conversationId, currentSelectionGeneration) ||
+                                !_clientSelectionGenerationMatches(
+                                    ws,
+                                    true,
+                                    clientSelectionGeneration,
+                                    currentSelectionGeneration
+                                )
+                            ) {
+                                diagnosticLog.event('server', 'server.codex.history.live_replay.stale_result_dropped', {
+                                    conversationKey: diagnosticKey(conversationId),
+                                    syncId,
+                                    selectionGeneration: currentSelectionGeneration
+                                }, 'info');
+                                return;
+                            }
+                            _sendLiveReplayState(ws, context, result);
+                            if (
+                                result.replaySurface &&
+                                _getActiveConversationId(ws) === conversationId &&
+                                result.replaySurface.desynced !== true
+                            ) {
+                                _offerSurfaceSnapshot(
+                                    ws,
+                                    conversationId,
+                                    { ...result.replaySurface, desynced: true },
+                                    {
+                                        priority: 'terminal',
+                                        selectionGeneration: currentSelectionGeneration,
+                                        provisional: true
+                                    }
+                                );
+                                diagnosticLog.event('server', 'server.codex.history.live_replay.surface_sent', {
+                                    conversationKey: diagnosticKey(conversationId),
+                                    syncId,
+                                    selectionGeneration: currentSelectionGeneration,
+                                    revision: result.replaySurface.revision,
+                                    itemCount: Array.isArray(result.replaySurface.items)
+                                        ? result.replaySurface.items.length
+                                        : 0,
+                                    continuity: result.continuity
+                                }, 'info');
+                            }
+                        }
                     } else if (type === 'conversation_history_tail_validation_request') {
                         const conversationId = isNonEmptyString(envelope.conversationId) ? envelope.conversationId.trim() : '';
                         const currentSelectionGeneration = _ipcSelectionGenerations.get(ws) || 0;
@@ -8319,5 +8829,7 @@ module.exports.createLatestOnlyAsyncQueue = createLatestOnlyAsyncQueue;
 module.exports.normalizeHistoryRangeCapability = normalizeHistoryRangeCapability;
 module.exports.normalizeHistorySnapshotSegmentsCapability = normalizeHistorySnapshotSegmentsCapability;
 module.exports.normalizeHistoryTerminalReconcileCapability = normalizeHistoryTerminalReconcileCapability;
+module.exports.normalizeLiveReplayCapability = normalizeLiveReplayCapability;
+module.exports.buildReplayCanonicalTail = buildReplayCanonicalTail;
 module.exports.buildTerminalReconcileEpoch = buildTerminalReconcileEpoch;
 module.exports.isHealthyCompletedTerminalSurface = isHealthyCompletedTerminalSurface;

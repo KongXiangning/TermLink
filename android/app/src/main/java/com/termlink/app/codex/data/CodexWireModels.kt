@@ -147,7 +147,8 @@ data class CodexHistoryCapability(
     val rangeSegments: CodexHistoryRangeCapability? = null,
     val serverSnapshotSegments: CodexHistorySnapshotSegmentsCapability? = null,
     val tailValidation: CodexHistoryTailValidationCapability? = null,
-    val terminalReconcile: CodexHistoryTerminalReconcileCapability? = null
+    val terminalReconcile: CodexHistoryTerminalReconcileCapability? = null,
+    val liveReplay: CodexLiveReplayCapability? = null
 ) {
     companion object {
         fun from(status: JSONObject?): CodexHistoryCapability? {
@@ -172,7 +173,8 @@ data class CodexHistoryCapability(
                 tailValidation = CodexHistoryTailValidationCapability.from(json.optJSONObject("tailValidation")),
                 terminalReconcile = CodexHistoryTerminalReconcileCapability.from(
                     json.optJSONObject("terminalReconcile")
-                )
+                ),
+                liveReplay = CodexLiveReplayCapability.from(json.optJSONObject("liveReplay"))
             )
         }
     }
@@ -248,6 +250,29 @@ data class CodexHistoryTerminalReconcileCapability(
             return CodexHistoryTerminalReconcileCapability(
                 enabled = json.optBoolean("enabled", false),
                 version = json.optInt("version", 0)
+            )
+        }
+    }
+}
+
+/**
+ * Route 3 one-shot A-B-A replay/gap assessment. This is additive and does
+ * not authorize a history write or a new Codex source read.
+ */
+data class CodexLiveReplayCapability(
+    val enabled: Boolean,
+    val version: Int,
+    val maxItems: Int = 100,
+    val maxBytes: Int = 128 * 1024
+) {
+    companion object {
+        fun from(json: JSONObject?): CodexLiveReplayCapability? {
+            if (json == null) return null
+            return CodexLiveReplayCapability(
+                enabled = json.optBoolean("enabled", false),
+                version = json.optInt("version", 0),
+                maxItems = json.optInt("maxItems", 100).coerceIn(1, 100),
+                maxBytes = json.optInt("maxBytes", 128 * 1024).coerceIn(16 * 1024, 128 * 1024)
             )
         }
     }
@@ -385,6 +410,40 @@ data class CodexHistoryTailValidationRequest(
 }
 
 /**
+ * Route 3 request. The checkpoint describes the newest durable local item;
+ * surfaceCheckpoint is only a delivery hint and never a durable authority.
+ */
+data class CodexLiveReplayRequest(
+    val syncId: String,
+    val conversationId: String,
+    val checkpoint: CodexHistorySyncCheckpoint,
+    val selectionGeneration: Long,
+    val liveReplay: CodexLiveReplayCapability,
+    val surfaceRevision: Int? = null,
+    val surfaceSourceEpoch: String? = null,
+    val surfaceNewestItemKey: String? = null
+) {
+    fun toJson(): JSONObject = JSONObject().apply {
+        put("type", "conversation_live_replay_request")
+        put("syncId", syncId)
+        put("conversationId", conversationId)
+        put("checkpoint", checkpoint.toJson())
+        put("selectionGeneration", selectionGeneration.coerceAtLeast(0L))
+        put("liveReplay", JSONObject().apply {
+            put("enabled", true)
+            put("version", liveReplay.version)
+            put("maxItems", liveReplay.maxItems)
+            put("maxBytes", liveReplay.maxBytes)
+        })
+        put("surfaceCheckpoint", JSONObject().apply {
+            surfaceRevision?.let { put("revision", it) }
+            surfaceSourceEpoch?.trim()?.takeIf { it.isNotEmpty() }?.let { put("sourceEpoch", it) }
+            surfaceNewestItemKey?.trim()?.takeIf { it.isNotEmpty() }?.let { put("newestItemKey", it) }
+        })
+    }
+}
+
+/**
  * Completed-only P0-C request. The captured selection generation is a
  * durable-cache fence, not a request to mutate that selection's UI state.
  */
@@ -468,6 +527,83 @@ data class CodexHistorySyncStateMessage(
             purpose = json.optString("purpose", "history_sync"),
             terminalEpoch = json.optStringOrNull("terminalEpoch")
         )
+    }
+}
+
+data class CodexLiveReplayStateMessage(
+    val syncId: String,
+    val conversationId: String,
+    val state: String,
+    val detailCode: String?,
+    val selectionGeneration: Long,
+    val clientSelectionGeneration: Long,
+    val source: String,
+    val continuity: String,
+    val replayable: Boolean,
+    val replayComplete: Boolean,
+    val needsCanonical: Boolean,
+    val evicted: Boolean?,
+    val tracking: String,
+    val localNewestItemKey: String? = null,
+    val surfaceRevision: Int? = null,
+    val surfaceSourceEpoch: String? = null,
+    val surfaceNewestItemKey: String? = null,
+    val canonicalNewestItemKey: String? = null,
+    val replayItemCount: Int = 0,
+    val items: List<CodexHistoryItem> = emptyList()
+) {
+    companion object {
+        fun from(json: JSONObject): CodexLiveReplayStateMessage = CodexLiveReplayStateMessage(
+            syncId = json.optString("syncId", ""),
+            conversationId = json.optString("conversationId", ""),
+            state = json.optString("state", "failed"),
+            detailCode = json.optStringOrNull("detailCode"),
+            selectionGeneration = json.optLong("selectionGeneration", 0L),
+            clientSelectionGeneration = json.optLong("clientSelectionGeneration", 0L),
+            source = json.optString("source", "none"),
+            continuity = json.optString("continuity", "unknown"),
+            replayable = json.optBoolean("replayable", false),
+            replayComplete = json.optBoolean("replayComplete", false),
+            needsCanonical = json.optBoolean("needsCanonical", false),
+            evicted = if (!json.has("evicted") || json.isNull("evicted")) null else json.optBoolean("evicted"),
+            tracking = json.optString("tracking", "unknown"),
+            localNewestItemKey = json.optJSONObject("local")?.optStringOrNull("newestItemKey"),
+            surfaceRevision = json.optJSONObject("surface")?.let { surface ->
+                if (surface.has("revision") && !surface.isNull("revision")) surface.optInt("revision") else null
+            },
+            surfaceSourceEpoch = json.optJSONObject("surface")?.optStringOrNull("sourceEpoch"),
+            surfaceNewestItemKey = json.optJSONObject("surface")?.optStringOrNull("newestItemKey"),
+            canonicalNewestItemKey = json.optJSONObject("canonical")?.optStringOrNull("newestItemKey"),
+            replayItemCount = json.optJSONArray("items")?.length() ?: 0,
+            items = parseItems(json.optJSONArray("items"))
+        )
+
+        private fun parseItems(array: JSONArray?): List<CodexHistoryItem> {
+            if (array == null) return emptyList()
+            return buildList {
+                for (index in 0 until array.length()) {
+                    val item = array.optJSONObject(index) ?: continue
+                    val itemKey = item.optStringOrNull("itemKey") ?: continue
+                    add(
+                        CodexHistoryItem(
+                            itemKey = itemKey,
+                            turnId = item.optStringOrNull("turnId"),
+                            position = item.optInt("position", 0),
+                            itemType = item.optString("itemType", "message"),
+                            role = item.optStringOrNull("role"),
+                            clientRequestId = item.optStringOrNull("clientRequestId"),
+                            payloadJson = item.optString("payloadJson", ""),
+                            contentHash = item.optString("contentHash", ""),
+                            payloadHash = item.optStringOrNull("payloadHash"),
+                            payloadBytes = if (item.has("payloadBytes") && !item.isNull("payloadBytes")) {
+                                item.optInt("payloadBytes")
+                            } else null,
+                            payloadChunkCount = item.optInt("payloadChunkCount", 0)
+                        )
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -1422,6 +1558,9 @@ object CodexClientMessages {
     fun historySyncRequest(request: CodexHistorySyncRequest): String = request.toJson().toString()
 
     fun historyTailValidationRequest(request: CodexHistoryTailValidationRequest): String =
+        request.toJson().toString()
+
+    fun liveReplayRequest(request: CodexLiveReplayRequest): String =
         request.toJson().toString()
 
     fun historyTerminalReconcileRequest(request: CodexHistoryTerminalReconcileRequest): String =

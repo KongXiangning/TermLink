@@ -1129,6 +1129,33 @@ internal fun normalizeHistoryCheckpointForAvailableItems(
     }
 }
 
+/**
+ * Route 3 must still be able to identify the local tail when an older cache
+ * row predates the stored anchor columns.  The item rows already contain the
+ * same stable key/hash, so derive only the display/replay checkpoint here;
+ * this does not modify the durable checkpoint or ordinary history-sync lane.
+ */
+internal fun normalizeLiveReplayCheckpointForAvailableItems(
+    checkpoint: CodexConversationCheckpoint?,
+    durableItems: List<CodexHistoryItem>
+): CodexHistorySyncCheckpoint {
+    val durable = durableItems.filterNot { it.provisional }
+    val normalized = normalizeHistoryCheckpointForAvailableItems(
+        checkpoint = checkpoint,
+        availableDurableItemCount = durable.size
+    )
+    val newest = durable.maxByOrNull { it.position } ?: return normalized
+    val anchorItem = normalized.newestAnchorKey
+        ?.let { key -> durable.firstOrNull { it.itemKey == key } }
+    return normalized.copy(
+        itemCount = maxOf(normalized.itemCount, durable.size),
+        newestAnchorKey = normalized.newestAnchorKey ?: newest.itemKey,
+        newestAnchorHash = normalized.newestAnchorHash
+            ?: anchorItem?.contentHash
+            ?: newest.contentHash
+    )
+}
+
 internal data class SessionThreadBindingDecision(
     val appliesToCurrentSession: Boolean,
     val shouldSendActiveConversationSelection: Boolean
@@ -3674,6 +3701,34 @@ internal fun mergeCanonicalMessagesForUi(
     return merged
 }
 
+/**
+ * Append a verified canonical tail without rebuilding the older cache. Route
+ * 3 is display-only, so it must never delete a local/live item when the
+ * server returns only a suffix.
+ */
+internal fun mergeCanonicalTailMessagesForUi(
+    currentMessages: List<ChatMessage>,
+    tailMessages: List<ChatMessage>
+): List<ChatMessage> {
+    if (tailMessages.isEmpty()) return currentMessages
+    val merged = currentMessages.toMutableList()
+    for (incoming in tailMessages) {
+        val exactIndex = merged.indexOfFirst { it.id == incoming.id }
+        if (exactIndex >= 0) {
+            merged[exactIndex] = mergeCanonicalUserMessageMetadataForUi(
+                canonical = incoming,
+                local = merged[exactIndex]
+            )
+            continue
+        }
+        if (merged.any { existing -> messagesEquivalentForConvergenceForUi(existing, incoming) }) {
+            continue
+        }
+        merged += incoming
+    }
+    return deduplicateChatMessagesByIdForUi(merged)
+}
+
 internal fun buildThreadReadMergeTransition(
     incomingThreadId: String?,
     canonicalMessages: List<ChatMessage>,
@@ -3810,6 +3865,11 @@ class CodexViewModel(
     private var tailValidationDetailCode: String? = null
     private var tailValidationDispatchJob: Job? = null
     private var tailValidationWatchdogJob: Job? = null
+    /** Route 3 replay is a private, one-shot selection observation. */
+    private var liveReplayRequestedKey: CodexHistorySelectionKey? = null
+    private var liveReplayInFlightSyncId: String? = null
+    private var liveReplayOutcome: String? = null
+    private var liveReplayDetailCode: String? = null
     /**
      * P0-C is a background durable lane. These contexts are keyed by the
      * target cache partition and terminal epoch rather than by active UI
@@ -3942,6 +4002,10 @@ class CodexViewModel(
         pendingHistorySnapshotSegments.clear()
         historyCapability = null
         completeServerSnapshotCacheSelectionKey = null
+        liveReplayRequestedKey = null
+        liveReplayInFlightSyncId = null
+        liveReplayOutcome = null
+        liveReplayDetailCode = null
         threadListRequestProfileId = null
         threadListRequestGeneration = historySelectionGeneration
         threadListRequestCwd = null
@@ -5605,7 +5669,7 @@ class CodexViewModel(
         applyCachedHistorySelection(
             conversationId = normalizedThreadId,
             generation = selectionGeneration
-        ) { key ->
+        ) { key, checkpoint ->
             if (!isCurrentHistorySelection(key)) return@applyCachedHistorySelection
             if (key.generation != selectionGeneration) return@applyCachedHistorySelection
             beginAwaitingFreshIpcSurface()
@@ -5615,6 +5679,11 @@ class CodexViewModel(
             // forever; the bounded history channel is independent and has
             // already been started by this callback.
             maybeRequestHistorySync(normalizedThreadId)
+            maybeRequestLiveReplay(
+                conversationId = normalizedThreadId,
+                generation = selectionGeneration,
+                checkpoint = checkpoint
+            )
             val sent = connectionManager.send(
                 CodexClientMessages.codexRequest(
                     action = "thread/resume",
@@ -5670,7 +5739,7 @@ class CodexViewModel(
     private fun applyCachedHistorySelection(
         conversationId: String,
         generation: Long,
-        onCommitted: (CodexHistorySelectionKey) -> Unit
+        onCommitted: (CodexHistorySelectionKey, CodexHistorySyncCheckpoint) -> Unit
     ) {
         val normalizedConversationId = normalizeThreadId(conversationId) ?: return
         val profileId = currentProfile?.id?.trim()?.takeIf { it.isNotEmpty() } ?: return
@@ -5712,6 +5781,11 @@ class CodexViewModel(
                 key = key,
                 cached = cachedResult.getOrNull(),
                 readError = cachedResult.exceptionOrNull()
+            )
+            val cached = cachedResult.getOrNull()
+            val checkpoint = normalizeLiveReplayCheckpointForAvailableItems(
+                checkpoint = cached?.checkpoint,
+                durableItems = cached?.items.orEmpty()
             )
             var completeServerSnapshotCache = false
             val committed = withContext(Dispatchers.Main.immediate) {
@@ -5808,7 +5882,7 @@ class CodexViewModel(
                     )
                 )
                 withContext(Dispatchers.Main.immediate) {
-                    onCommitted(key)
+                    onCommitted(key, checkpoint)
                     if (completeServerSnapshotCache) {
                         maybeRequestCanonicalTailValidation(
                             normalizedConversationId,
@@ -7202,6 +7276,63 @@ class CodexViewModel(
         return true
     }
 
+    /**
+     * Ask the Gateway once for a bounded A-B-A replay assessment after the
+     * cache-first selection has committed. This is deliberately independent
+     * from ordinary history sync and never blocks the already-visible cache.
+     */
+    private fun maybeRequestLiveReplay(
+        conversationId: String,
+        generation: Long,
+        checkpoint: CodexHistorySyncCheckpoint
+    ) {
+        val normalizedConversationId = conversationId.trim().takeIf { it.isNotEmpty() } ?: return
+        val profile = currentProfile ?: return
+        val key = CodexHistorySelectionKey(profile.id, normalizedConversationId, generation)
+        if (!isCurrentHistorySelection(key) || liveReplayRequestedKey == key) return
+        val capability = historyCapability?.liveReplay?.takeIf {
+            it.enabled && it.version == 1
+        } ?: return
+        liveReplayRequestedKey = key
+        val syncId = UUID.randomUUID().toString()
+        liveReplayInFlightSyncId = syncId
+        val surface = _uiState.value.ipcSurfaceSnapshot?.takeIf {
+            normalizeCodexThreadId(it.conversationId) == normalizedConversationId
+        }
+        val surfaceNewestItemKey = surface?.items?.lastOrNull()?.key?.trim()?.takeIf { it.isNotEmpty() }
+        val request = CodexLiveReplayRequest(
+            syncId = syncId,
+            conversationId = normalizedConversationId,
+            checkpoint = checkpoint,
+            selectionGeneration = generation,
+            liveReplay = capability,
+            surfaceRevision = surface?.revision,
+            surfaceSourceEpoch = surface?.sourceEpoch,
+            surfaceNewestItemKey = surfaceNewestItemKey
+        )
+        val sent = connectionManager.send(CodexClientMessages.liveReplayRequest(request))
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.history.live_replay.requested",
+            mapOf(
+                "conversationKey" to PersistentDiagnosticLog.shortHash(normalizedConversationId),
+                "syncId" to PersistentDiagnosticLog.shortHash(syncId),
+                "generation" to generation,
+                "checkpointItemCount" to checkpoint.itemCount,
+                "checkpointNewestKeyPresent" to !checkpoint.newestAnchorKey.isNullOrBlank(),
+                "surfaceRevision" to surface?.revision,
+                "surfaceNewestKeyPresent" to !surfaceNewestItemKey.isNullOrBlank(),
+                "sent" to sent
+            ),
+            level = if (sent) "info" else "warn"
+        )
+        if (!sent && liveReplayInFlightSyncId == syncId) {
+            liveReplayInFlightSyncId = null
+            liveReplayOutcome = "failed"
+            liveReplayDetailCode = "live_replay_send_failed"
+        }
+    }
+
     private fun advanceHistorySelectionGeneration(reason: String) {
         val interruptedConversationId = historySyncInFlightConversationId
         val interruptedEndpointId = currentProfile?.id
@@ -7225,6 +7356,10 @@ class CodexViewModel(
         pendingHistorySnapshotSegments.clear()
         completeServerSnapshotCacheSelectionKey = null
         clearCanonicalTailValidationState()
+        liveReplayRequestedKey = null
+        liveReplayInFlightSyncId = null
+        liveReplayOutcome = null
+        liveReplayDetailCode = null
         if (!interruptedEndpointId.isNullOrBlank() && !interruptedConversationId.isNullOrBlank()) {
             viewModelScope.launch(Dispatchers.IO) {
                 runCatching {
@@ -8148,6 +8283,79 @@ class CodexViewModel(
             syncId = syncState.syncId,
             outcome = canonicalTailValidationOutcomeFromWire(syncState.state),
             detailCode = syncState.detailCode ?: "history_tail_validation_state_invalid"
+        )
+    }
+
+    private fun handleLiveReplayState(replay: CodexLiveReplayStateMessage) {
+        val key = historySelectionKeyOrNull(
+            replay.conversationId,
+            replay.clientSelectionGeneration
+        )
+        if (key == null ||
+            !isCurrentHistorySelection(key) ||
+            replay.clientSelectionGeneration != historySelectionGeneration ||
+            liveReplayInFlightSyncId != replay.syncId
+        ) {
+            PersistentDiagnosticLog.event(
+                "codex",
+                "android.codex.history.live_replay.stale_state_ignored",
+                mapOf(
+                    "conversationKey" to PersistentDiagnosticLog.shortHash(replay.conversationId),
+                    "syncId" to PersistentDiagnosticLog.shortHash(replay.syncId),
+                    "generation" to replay.clientSelectionGeneration,
+                    "state" to replay.state,
+                    "detailCode" to replay.detailCode
+                ),
+                level = "warn"
+            )
+            return
+        }
+        liveReplayInFlightSyncId = null
+        liveReplayOutcome = replay.state
+        liveReplayDetailCode = replay.detailCode
+        val replayMessages = replay.items
+            .sortedBy { it.position }
+            .mapNotNull(::decodeCachedHistoryItem)
+        var beforeCount = 0
+        var afterCount = 0
+        if (replayMessages.isNotEmpty()) {
+            _uiState.update { state ->
+                if (!isCurrentHistorySelection(key)) return@update state
+                beforeCount = state.messages.size
+                val merged = mergeCanonicalTailMessagesForUi(
+                    currentMessages = state.messages,
+                    tailMessages = replayMessages
+                )
+                afterCount = merged.size
+                // This is intentionally messages-only. The replay is not a
+                // history-sync delta and must not mutate cachedCanonicalMessages,
+                // cache state, SQLite, or the realtime authority.
+                state.copy(messages = merged)
+            }
+        }
+        PersistentDiagnosticLog.event(
+            "codex",
+            "android.codex.history.live_replay.result",
+            mapOf(
+                "conversationKey" to PersistentDiagnosticLog.shortHash(replay.conversationId),
+                "syncId" to PersistentDiagnosticLog.shortHash(replay.syncId),
+                "generation" to replay.clientSelectionGeneration,
+                "state" to replay.state,
+                "detailCode" to replay.detailCode,
+                "source" to replay.source,
+                "continuity" to replay.continuity,
+                "replayable" to replay.replayable,
+                "needsCanonical" to replay.needsCanonical,
+                "tracking" to replay.tracking,
+                "replayItemCount" to replayMessages.size,
+                "messageCountBefore" to beforeCount,
+                "messageCountAfter" to afterCount,
+                "surfaceRevision" to replay.surfaceRevision,
+                "canonicalNewestKeyPresent" to !replay.canonicalNewestItemKey.isNullOrBlank()
+            ),
+            level = if (replay.state.equals("failed", ignoreCase = true) ||
+                replay.state.equals("source_gap", ignoreCase = true)
+            ) "warn" else "info"
         )
     }
 
@@ -9431,6 +9639,10 @@ class CodexViewModel(
                         }
                     }
                 }
+            }
+
+            "conversation_live_replay_state" -> {
+                handleLiveReplayState(CodexLiveReplayStateMessage.from(json))
             }
 
             "conversation_history_sync_state" -> {
