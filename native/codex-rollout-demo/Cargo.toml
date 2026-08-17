@@ -2,7 +2,7 @@
 name = "codex-rollout-demo"
 version = "0.1.0"
 edition = "2024"
-description = "TermLink independent Rust demo: read-only Codex rollout JSONL parsing, official thread/read comparison, and history-schema:4 projection."
+description = "TermLink independent Rust demo: read-only Codex rollout JSONL parsing, official thread/read comparison, and history-schema:5 projection."
 license = "Apache-2.0"
 
 [dependencies]

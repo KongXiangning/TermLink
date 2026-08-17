@@ -67,6 +67,8 @@ pub struct SelfApiVerificationReport {
     pub item_count_match: bool,
     pub detail_count_match: bool,
     pub detail_round_trip_match: bool,
+    pub session_fields_round_trip: bool,
+    pub structured_fields_round_trip: bool,
     pub duplicate_import_is_idempotent: bool,
     pub checks: BTreeMap<String, bool>,
 }
@@ -306,6 +308,10 @@ pub fn verify_to_files(
     let turn_count_match = projection.turns.len() == history_response.projection.turns.len();
     let item_count_match = original_item_count == retrieved_item_count;
     let detail_count_match = details.len() == history_response.detail_refs.len();
+    let session_fields_round_trip = serde_json::to_value(&projection.conversation).ok()
+        == serde_json::to_value(&history_response.projection.conversation).ok();
+    let structured_fields_round_trip = serde_json::to_value(&projection.turns).ok()
+        == serde_json::to_value(&history_response.projection.turns).ok();
     let duplicate_import_is_idempotent = duplicate_response.status == "duplicate"
         && duplicate_response.content_hash == content_hash
         && duplicate_response.detail_count == details.len() as u64;
@@ -348,6 +354,14 @@ pub fn verify_to_files(
     checks.insert("item_count_match".to_string(), item_count_match);
     checks.insert("detail_count_match".to_string(), detail_count_match);
     checks.insert(
+        "session_fields_round_trip".to_string(),
+        session_fields_round_trip,
+    );
+    checks.insert(
+        "structured_fields_round_trip".to_string(),
+        structured_fields_round_trip,
+    );
+    checks.insert(
         "detail_round_trip_match".to_string(),
         detail_round_trip_match,
     );
@@ -384,6 +398,8 @@ pub fn verify_to_files(
         item_count_match,
         detail_count_match,
         detail_round_trip_match,
+        session_fields_round_trip,
+        structured_fields_round_trip,
         duplicate_import_is_idempotent,
         checks,
     };
@@ -471,9 +487,11 @@ fn write_json<T: Serialize>(path: PathBuf, value: &T) -> Result<()> {
 mod tests {
     use super::*;
     use crate::dto::{
-        ConversationDto, HistoryItemDto, HistoryProjection, PlanAnswerDto, PlanQuestionDto,
-        PlanQuestionOptionDto, TaskOutcomeDto, TaskOutcomeMetricsDto, ToolItemDto, TurnDto,
-        UsageDto,
+        ApprovalDto, ArtifactDto, AttachmentDto, ConversationDto, FileChangeDto, HistoryItemDto,
+        HistoryProjection, ParseProgressDto, PlanActionDto, PlanAnswerDto, PlanQuestionDto,
+        PlanQuestionOptionDto, PlanSnapshotDto, PlanStepDto, SessionSettingsDto,
+        SettingsSnapshotDto, TaskOutcomeDto, TaskOutcomeMetricsDto, ToolItemDto, TurnDto, UsageDto,
+        WebSearchDto, WebSearchResultDto,
     };
 
     fn fixture_projection() -> HistoryProjection {
@@ -494,9 +512,57 @@ mod tests {
                 history_base: None,
                 subagent_history_start_ordinal: None,
                 cwd: None,
+                project_path: Some("E:\\project".to_string()),
                 git_info: None,
-                model: None,
-                model_provider: None,
+                model: Some("gpt-test".to_string()),
+                model_provider: Some("openai".to_string()),
+                endpoint: Some("responses".to_string()),
+                profile: Some("default".to_string()),
+                settings: Some(SessionSettingsDto {
+                    model: Some("gpt-test".to_string()),
+                    model_provider: Some("openai".to_string()),
+                    cwd: Some("E:\\project".to_string()),
+                    service_tier: Some("priority".to_string()),
+                    endpoint: Some("responses".to_string()),
+                    profile: Some("default".to_string()),
+                    collaboration_mode: Some(serde_json::json!({"mode": "plan"})),
+                    plan_mode: Some("plan".to_string()),
+                    reasoning_effort: Some("high".to_string()),
+                    approval_policy: Some(serde_json::json!("on-request")),
+                    approvals_reviewer: Some(serde_json::json!("user")),
+                    sandbox_policy: Some(serde_json::json!({"type": "workspace-write"})),
+                    permission_profile: Some(serde_json::json!("default")),
+                    active_permission_profile: Some(serde_json::json!("default")),
+                    settings_hash: Some("settings-hash".to_string()),
+                }),
+                settings_history: vec![SettingsSnapshotDto {
+                    content_hash: "settings-hash".to_string(),
+                    captured_at: Some("2026-08-17T00:00:00.000Z".to_string()),
+                    source: "test".to_string(),
+                    settings: SessionSettingsDto {
+                        model: Some("gpt-test".to_string()),
+                        ..Default::default()
+                    },
+                }],
+                usage_total: Some(UsageDto {
+                    input_tokens: 100,
+                    total_tokens: 120,
+                    ..Default::default()
+                }),
+                latest_rate_limit: Some(serde_json::json!({"used_percent": 10.0})),
+                latest_context_window: Some(258400),
+                parse_progress: Some(ParseProgressDto {
+                    status: "complete".to_string(),
+                    source_bytes: 10,
+                    decoded_bytes: 10,
+                    budget_bytes: 100,
+                    line_count: 1,
+                    valid_records: 1,
+                    parse_errors: 0,
+                    first_parse_error: None,
+                    last_source_ordinal: Some(1),
+                    unmapped_types: BTreeMap::new(),
+                }),
                 redaction_policy: None,
                 availability: None,
                 created_at: None,
@@ -530,7 +596,7 @@ mod tests {
     #[test]
     fn new_projection_fields_survive_json_api_round_trip() {
         let mut projection = fixture_projection();
-        projection.schema_version = 4;
+        projection.schema_version = 5;
         projection.turns = vec![TurnDto {
             turn_id: "turn-1".to_string(),
             sequence: 1,
@@ -552,11 +618,54 @@ mod tests {
                 item_key: "tool:1".to_string(),
                 turn_id: "turn-1".to_string(),
                 sequence: 1,
+                timestamp: Some("2026-08-17T00:00:00.000Z".to_string()),
                 kind: "custom_tool".to_string(),
                 presentation_kind: Some("tool".to_string()),
+                phase: Some("commentary".to_string()),
+                plan_state: Some("executing".to_string()),
+                plan: Some(PlanSnapshotDto {
+                    state: "executing".to_string(),
+                    explanation: Some("test plan".to_string()),
+                    version: 1,
+                    steps: vec![PlanStepDto {
+                        step: "run tests".to_string(),
+                        status: "in_progress".to_string(),
+                    }],
+                }),
+                plan_action: Some(PlanActionDto {
+                    action: "confirm".to_string(),
+                    source: "user_message".to_string(),
+                    value: Some("执行".to_string()),
+                    related_item_key: Some("plan:1".to_string()),
+                }),
+                attachments: vec![AttachmentDto {
+                    kind: "image".to_string(),
+                    reference: "file:///tmp/a.png".to_string(),
+                    detail: None,
+                    content_hash: Some("attachment-hash".to_string()),
+                    size_bytes: Some(12),
+                    mime_type: Some("image/png".to_string()),
+                    availability: "present".to_string(),
+                }],
+                approval: Some(ApprovalDto {
+                    request_id: Some("approval-1".to_string()),
+                    call_id: Some("tool-1".to_string()),
+                    approval_kind: "exec".to_string(),
+                    command: Some(vec!["cargo".to_string(), "test".to_string()]),
+                    cwd: Some("E:\\proj".to_string()),
+                    reason: Some("test".to_string()),
+                    available_decisions: vec!["allow".to_string(), "deny".to_string()],
+                    decision: Some("allow".to_string()),
+                    result_status: Some("success".to_string()),
+                    requested_at_ms: Some(1),
+                    resolved_at_ms: Some(2),
+                    availability: "present".to_string(),
+                    details: Some(serde_json::json!({"source": "fixture"})),
+                }),
                 visible: false,
                 tool: Some(ToolItemDto {
                     tool_kind: "custom_tool".to_string(),
+                    call_id: Some("tool-1".to_string()),
                     tool_name: Some("shell_command".to_string()),
                     command: None,
                     commands: Some(vec!["cargo test".to_string()]),
@@ -567,8 +676,39 @@ mod tests {
                     exit_code: Some(0),
                     duration_ms: Some(100),
                     approval: None,
+                    execution_status: Some("success".to_string()),
+                    succeeded: Some(true),
+                    approval_details: None,
                     output_bytes: Some(10),
                     output_sha256: Some("hash".to_string()),
+                    file_changes: vec![FileChangeDto {
+                        path: "E:\\proj\\a.txt".to_string(),
+                        change_type: "modify".to_string(),
+                        move_path: None,
+                        diff: Some("@@".to_string()),
+                        status: Some("applied".to_string()),
+                    }],
+                    artifact: Some(ArtifactDto {
+                        kind: "image".to_string(),
+                        reference: Some("E:\\proj\\a.png".to_string()),
+                        content: None,
+                        content_hash: Some("artifact-hash".to_string()),
+                        size_bytes: Some(20),
+                        mime_type: Some("image/png".to_string()),
+                        availability: "present".to_string(),
+                    }),
+                    web_search: Some(WebSearchDto {
+                        query: Some("rust".to_string()),
+                        action: Some(serde_json::json!({"type": "search"})),
+                        results: vec![WebSearchResultDto {
+                            url: Some("https://example.com".to_string()),
+                            title: Some("Example".to_string()),
+                            snippet: Some("result".to_string()),
+                            domain: Some("example.com".to_string()),
+                            ref_id: Some("ref-1".to_string()),
+                            metadata: None,
+                        }],
+                    }),
                 }),
                 ..Default::default()
             }],
@@ -579,8 +719,21 @@ mod tests {
             conclusion: Some("done".to_string()),
             error: None,
             source_item_keys: vec!["tool:1".to_string()],
-            modified_files: Vec::new(),
+            modified_files: vec!["E:\\proj\\a.txt".to_string()],
+            modified_file_changes: vec![FileChangeDto {
+                path: "E:\\proj\\a.txt".to_string(),
+                change_type: "modify".to_string(),
+                move_path: None,
+                diff: Some("@@".to_string()),
+                status: Some("applied".to_string()),
+            }],
+            tool_item_keys: vec!["tool:1".to_string()],
+            file_change_item_keys: Vec::new(),
             validation_item_keys: vec!["tool:1".to_string()],
+            risks: Vec::new(),
+            unfinished_items: Vec::new(),
+            follow_up_suggestions: Vec::new(),
+            plan_state: Some("executing".to_string()),
             availability: "present".to_string(),
             provisional: false,
             final_metrics: Some(TaskOutcomeMetricsDto {
@@ -606,6 +759,10 @@ mod tests {
         let item = &history.projection.turns[0].items[0];
         assert_eq!(item.presentation_kind.as_deref(), Some("tool"));
         assert_eq!(
+            item.tool.as_ref().and_then(|tool| tool.call_id.as_deref()),
+            Some("tool-1")
+        );
+        assert_eq!(
             item.tool
                 .as_ref()
                 .and_then(|tool| tool.display_command.as_deref()),
@@ -626,7 +783,7 @@ mod tests {
     #[test]
     fn plan_question_and_answer_items_survive_json_api_round_trip() {
         let mut projection = fixture_projection();
-        projection.schema_version = 4;
+        projection.schema_version = 5;
         projection.turns = vec![TurnDto {
             turn_id: "turn-1".to_string(),
             sequence: 1,
@@ -676,6 +833,7 @@ mod tests {
                     content: Some("A".to_string()),
                     answer: Some(PlanAnswerDto {
                         answers: vec!["A".to_string()],
+                        action: Some("submit".to_string()),
                     }),
                     ..Default::default()
                 },

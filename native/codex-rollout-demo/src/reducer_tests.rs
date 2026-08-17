@@ -96,9 +96,18 @@ fn reduce_lines_for_target(
         history_base: None,
         subagent_history_start_ordinal: None,
         cwd: None,
+        project_path: None,
         git_info: None,
         model: None,
         model_provider: None,
+        endpoint: None,
+        profile: None,
+        settings: None,
+        settings_history: Vec::new(),
+        usage_total: None,
+        latest_rate_limit: None,
+        latest_context_window: None,
+        parse_progress: None,
         redaction_policy: Some("none".to_string()),
         availability: None,
         created_at: None,
@@ -359,6 +368,13 @@ fn per_turn_usage_uses_last_snapshot_not_session_total() {
         projection.turns[1].usage.as_ref().unwrap().total_tokens,
         210
     );
+    let session_usage = projection
+        .conversation
+        .usage_total
+        .as_ref()
+        .expect("session usage");
+    assert_eq!(session_usage.total_tokens, 1010);
+    assert_eq!(session_usage.input_tokens, 1000);
 }
 
 #[test]
@@ -693,7 +709,7 @@ fn abort_is_turn_state_not_a_history_item() {
 }
 
 #[test]
-fn rejected_approval_is_dropped_but_interrupted_turn_is_retained() {
+fn unresolved_approval_request_and_interrupted_turn_are_retained() {
     let (projection, details, stats) = reduce(vec![
         event(turn_started("turn-1")),
         event(exec_approval_request("exec-rejected")),
@@ -713,11 +729,16 @@ fn rejected_approval_is_dropped_but_interrupted_turn_is_retained() {
         projection.task_outcome.as_ref().unwrap().status,
         "interrupted"
     );
-    assert!(turn.items.iter().all(|item| item.kind != "approval"));
+    let approval = turn
+        .items
+        .iter()
+        .find(|item| item.kind == "approval_request")
+        .expect("approval request item");
+    assert_eq!(approval.approval.as_ref().unwrap().result_status, None);
     assert!(turn.items.iter().all(|item| item.kind != "command"));
     assert!(details.is_empty());
     assert_eq!(stats.approvals_seen, 1);
-    assert_eq!(stats.dropped_by_kind.get("approval_request"), Some(&1));
+    assert_eq!(stats.dropped_by_kind.get("approval_request"), None);
 }
 
 #[test]
@@ -766,7 +787,12 @@ fn command_begin_end_is_one_item_with_external_detail() {
     let tool = item.tool.as_ref().expect("tool metadata");
     assert_eq!(tool.exit_code, Some(0));
     assert_eq!(tool.duration_ms, Some(800));
-    assert_eq!(tool.approval, None);
+    assert_eq!(
+        tool.approval_details
+            .as_ref()
+            .and_then(|approval| approval.result_status.as_deref()),
+        Some("success")
+    );
     assert!(tool.output_bytes.unwrap_or(0) > 0);
     assert!(tool.output_sha256.is_some());
     assert!(item.detail_ref.is_some());
@@ -777,8 +803,15 @@ fn command_begin_end_is_one_item_with_external_detail() {
             .flat_map(|turn| turn.items.iter())
             .all(|item| item.kind != "approval")
     );
+    assert!(
+        projection
+            .turns
+            .iter()
+            .flat_map(|turn| turn.items.iter())
+            .any(|item| item.kind == "approval_request")
+    );
     assert_eq!(stats.approvals_seen, 1);
-    assert_eq!(stats.dropped_by_kind.get("approval_request"), Some(&1));
+    assert_eq!(stats.dropped_by_kind.get("approval_request"), None);
     assert_eq!(details.len(), 1);
     assert_eq!(details[0].canonical_output.as_deref(), Some("pass"));
     assert_eq!(details[0].stdout, None);
@@ -801,7 +834,7 @@ fn command_begin_end_is_one_item_with_external_detail() {
         projection
             .field_availability
             .get(&format!("turns[0].items[{command_index}].tool.approval")),
-        Some(&AvailabilityStatus::NotRecoverableFromRollout)
+        None
     );
     assert!(
         projection
@@ -1017,6 +1050,9 @@ fn tool_items_share_presentation_kind_and_exec_exposes_only_real_commands() {
     assert_eq!(exec_item.presentation_kind.as_deref(), Some("tool"));
     let exec_tool = exec_item.tool.as_ref().expect("exec tool");
     assert_eq!(exec_tool.tool_name.as_deref(), Some("shell_command"));
+    assert_eq!(exec_tool.cwd.as_deref(), Some("E:\\proj"));
+    assert_eq!(exec_tool.succeeded, Some(true));
+    assert_eq!(exec_tool.execution_status.as_deref(), Some("success"));
     assert_eq!(
         exec_tool.commands.as_deref(),
         Some(["Get-Content src/main.rs".to_string()].as_slice())
@@ -1031,6 +1067,34 @@ fn tool_items_share_presentation_kind_and_exec_exposes_only_real_commands() {
             .as_deref()
             .unwrap_or_default()
             .contains("tools.shell_command")
+    );
+}
+
+#[test]
+fn shell_wrapper_output_without_begin_is_still_normalized() {
+    let output =
+        RolloutItem::ResponseItem(codex_protocol::models::ResponseItem::CustomToolCallOutput {
+            id: None,
+            call_id: "exec-output-only".to_string(),
+            name: Some("exec_command".to_string()),
+            output: codex_protocol::models::FunctionCallOutputPayload::from_text(
+                "Script completed\nOutput:\nok".to_string(),
+            ),
+            internal_chat_message_metadata_passthrough: None,
+        });
+    let (projection, _, _) = reduce(vec![event(turn_started("turn-1")), output]);
+    let item = first_item(&projection, "custom_tool");
+    assert_eq!(
+        item.tool
+            .as_ref()
+            .and_then(|tool| tool.tool_name.as_deref()),
+        Some("shell_command")
+    );
+    assert_ne!(
+        item.tool
+            .as_ref()
+            .and_then(|tool| tool.tool_name.as_deref()),
+        Some("exec_command")
     );
 }
 
@@ -1070,9 +1134,11 @@ fn questions_and_answers_are_structured() {
     let (projection, _, stats) = reduce(vec![event(turn_started("turn-1")), request, answer]);
     let question = first_item(&projection, "plan_question");
     assert_eq!(question.question.as_ref().unwrap().options[0].label, "A");
+    assert_eq!(question.plan_state.as_deref(), Some("answered"));
     assert!(question.answer.is_none());
     let answer_item = first_item(&projection, "plan_answer");
     assert_eq!(answer_item.answer.as_ref().unwrap().answers, vec!["A"]);
+    assert_eq!(answer_item.plan_state.as_deref(), Some("executing"));
     assert_eq!(
         answer_item.related_item_key.as_deref(),
         Some(question.item_key.as_str())

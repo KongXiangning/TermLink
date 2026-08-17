@@ -1,4 +1,4 @@
-//! Read-only Codex rollout history projection v4 demo.
+//! Read-only Codex rollout history projection v5 demo.
 //!
 //! The binary is intentionally standalone. It reads one explicit rollout,
 //! writes optional projection/detail/comparison files, and never touches the
@@ -22,7 +22,7 @@ use anyhow::{Context, Result};
 use codex_protocol::protocol::RolloutItem;
 use serde_json::Value;
 
-use crate::dto::{ConversationDto, DetailPayloadDto, HistoryProjection};
+use crate::dto::{ConversationDto, DetailPayloadDto, HistoryProjection, ParseProgressDto};
 use crate::report::{DemoReport, DeterminismStats};
 
 const DEFAULT_MAX_INPUT_BYTES: u64 = 70 * 1024 * 1024;
@@ -161,12 +161,40 @@ async fn run_once(args: &Args) -> Result<RunOutputs> {
         availability: None,
         created_at: None,
         updated_at: None,
+        project_path: None,
+        endpoint: None,
+        profile: None,
+        settings: None,
+        settings_history: Vec::new(),
+        usage_total: None,
+        latest_rate_limit: None,
+        latest_context_window: None,
+        parse_progress: None,
     };
     let mut reducer = reducer::HistoryReducer::new(conversation, target_session_id);
     reducer.set_read_quality(
         read_stats.parse_errors > 0,
         !read_stats.unmapped_types.is_empty(),
     );
+    let parse_status = if read_stats.parse_errors > 0 {
+        "partial"
+    } else if !read_stats.unmapped_types.is_empty() {
+        "unsupported_schema"
+    } else {
+        "complete"
+    };
+    reducer.set_parse_progress(ParseProgressDto {
+        status: parse_status.to_string(),
+        source_bytes: read_stats.bytes,
+        decoded_bytes: read_stats.decoded_bytes,
+        budget_bytes: read_stats.budget_bytes,
+        line_count: read_stats.line_count,
+        valid_records: lines.len() as u64,
+        parse_errors: read_stats.parse_errors,
+        first_parse_error: read_stats.first_parse_error.clone(),
+        last_source_ordinal: lines.last().map(|line| line.source_ordinal),
+        unmapped_types: read_stats.unmapped_types.clone(),
+    });
     for line in &lines {
         reducer.reduce(line);
     }

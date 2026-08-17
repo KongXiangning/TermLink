@@ -10,7 +10,7 @@ codex-rollout-core            # 从 demo 抽取、可复用、无本机绝对路
   RolloutReader               # 全量读取
   RolloutTailReader           # 增量读取（cursor）
   HistoryReducer              # 事件归约（turn 状态机）
-  HistoryProjector            # history-schema:4 投影
+  HistoryProjector            # history-schema:5 投影
   CanonicalHasher             # 确定性 hash（item/root）
 
 termlink-rust-server          # 未来独立服务（另行立项）
@@ -116,18 +116,22 @@ thread/read(true) → 有界校正、格式兼容、fallback（不成为工具�
 
 | 验收项 | 状态 |
 |---|---|
-| 读取 68.5 MiB rollout | ✅ 18,623 行 0 错误，约 867ms 核心耗时（30s 时限内） |
+| 读取真实 rollout（`01a00ea0-154a-7831-801a-0c2d8b8c5c7c`） | ✅ 32,190,064 bytes（约 30.70 MiB）、11,242 行、0 错误，核心耗时约 495ms |
 | 不修改原始日志 | ✅ 只读打开 |
 | 无静默丢字段；未识别事件有统计 | ✅ `dropped_by_kind` 全覆盖 |
-| 工具详情 retention policy | ✅ 599 个高价值完整 detail / 3,986,609 bytes；1,991 个成功读取/检查调用仅保留摘要 |
-| 真实命令归一化与结果去重 | ✅ 1,543 个 exec 命令；2,677 个等价 result 字段去重；exec 包装未写入 DTO |
-| wait/轮询筛选 | ✅ 322 个 wait item 不进入历史，最终 wait 输出合并到原始 exec |
-| 排除 hidden reasoning/compaction/streaming delta | ✅ 8,239 reasoning dropped |
-| 生成最终 outcome | ✅ 结构化 `task_outcome`，含结论、状态、文件和验证关联；缺失结论标记 `not_recoverable_from_rollout` |
-| 每 turn token 聚合 | ✅ 106/106，使用 `last_token_usage`；会话累计 `total_token_usage` 不冒充 turn 用量 |
+| 工具详情 retention policy | ✅ 655 个完整 detail / 2,766,001 bytes；成功读取/检查类调用只保留摘要 |
+| 真实命令归一化与结果去重 | ✅ 1,012 个 shell 命令；1,446 个等价 result 字段去重；exec 包装未写入 DTO |
+| wait/轮询筛选 | ✅ 133 个 wait item、93 个 wait detail 按策略丢弃或合并 |
+| 排除 hidden reasoning/compaction/streaming delta | ✅ 5,527 条 reasoning 丢弃，42 个 compaction 丢弃 |
+| 生成最终 outcome | ✅ 结构化 `task_outcome`，含结论、状态、文件、验证、风险和来源关联；临时快照标记 `provisional` |
+| 每 turn 与会话 token 聚合 | ✅ 67/67 turn 使用 `last_token_usage`；会话总量使用最新累计 `total_token_usage` |
+| Plan 状态、问答和确认动作 | ✅ 5 个 Plan、8 个问题、8 个回答、2 个确认/继续动作独立持久化 |
+| 文件变更和搜索结果 | ✅ 189 个文件变更、11 个搜索、97 条搜索结果结构化 |
+| 会话 settings / parse progress | ✅ 75 个去重 settings snapshot；解析状态、字节数、行数、错误和 native ordinal 均保存 |
 | 原生 ordinal/继承边界 | ✅ 保存 native ordinal；按 `history_base`/`subagent_history_start_ordinal` 最大边界过滤继承前缀 |
-| 重复运行完全一致 | ✅ root hash/projection/details/official 逐字节一致 |
-| 体积目标 | ✅ history/details response 合计 10,115,761 bytes（约 9.65 MiB），落在约 9–13 MiB |
+| 重复运行完全一致 | ✅ content/snapshot hash、projection/details/official 逐字节一致 |
+| 体积目标 | ✅ projection 6,127,123 + details 2,766,656 = 8,893,779 bytes（约 8.48 MiB）；未保存 raw JSONL |
+| self-API 持久化边界 | ✅ 658 请求/响应；首次导入、重复导入、详情和会话/结构化字段 round-trip 均通过 |
 | 不改动 IPC/gateway/Android/App/Node 存储 | ✅ 仅新增 native/ + docs |
 
 ## 7. 后续立项顺序（未开始，需用户确认）

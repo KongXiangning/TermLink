@@ -80,6 +80,11 @@ pub struct ReductionStats {
     pub plan_answers_seen: u64,
     pub unresolved_tools: u64,
     pub unresolved_questions: u64,
+    pub attachments_seen: u64,
+    pub artifacts_seen: u64,
+    pub file_changes_seen: u64,
+    pub search_results_seen: u64,
+    pub plan_actions_seen: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -199,6 +204,11 @@ pub fn count_retained(projection: &HistoryProjection) -> ReductionStats {
         plan_answers_seen: 0,
         unresolved_tools: 0,
         unresolved_questions: 0,
+        attachments_seen: 0,
+        artifacts_seen: 0,
+        file_changes_seen: 0,
+        search_results_seen: 0,
+        plan_actions_seen: 0,
     }
 }
 
@@ -226,6 +236,11 @@ pub fn reduction_stats_from(
     base.plan_answers_seen = reduce.plan_answers_seen;
     base.unresolved_tools = reduce.unresolved_tools;
     base.unresolved_questions = reduce.unresolved_questions;
+    base.attachments_seen = reduce.attachments_seen;
+    base.artifacts_seen = reduce.artifacts_seen;
+    base.file_changes_seen = reduce.file_changes_seen;
+    base.search_results_seen = reduce.search_results_seen;
+    base.plan_actions_seen = reduce.plan_actions_seen;
     base
 }
 
@@ -294,6 +309,11 @@ mod tests {
                 plan_answers_seen: 0,
                 unresolved_tools: 0,
                 unresolved_questions: 0,
+                attachments_seen: 0,
+                artifacts_seen: 0,
+                file_changes_seen: 0,
+                search_results_seen: 0,
+                plan_actions_seen: 0,
             },
             ComparisonStats {
                 official_built: true,

@@ -77,3 +77,6 @@ data/design-picture/*.jpeg
 data/design-picture/*.gif
 data/design-picture/*.webp
 data/design-picture/*.svg
+
+native/parse-probe/target/
+native/smoke/
