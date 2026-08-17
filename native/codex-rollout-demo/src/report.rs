@@ -142,11 +142,13 @@ pub fn build_report(
     determinism: DeterminismStats,
     self_api_verification: Option<SelfApiVerificationReport>,
     timing: TimingStats,
+    outcome_provisional: bool,
 ) -> DemoReport {
     let partial = input.parse_errors > 0
         || !input.unmapped_types.is_empty()
         || reduction.unresolved_tools > 0
-        || reduction.unresolved_questions > 0;
+        || reduction.unresolved_questions > 0
+        || outcome_provisional;
     DemoReport {
         schema: "codex-rollout-demo-report".to_string(),
         schema_version: 3,
@@ -246,4 +248,92 @@ pub fn official_item_kinds(official: &Value) -> BTreeMap<String, u64> {
         }
     }
     counts
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn provisional_outcome_marks_demo_report_partial() {
+        let report = build_report(
+            "test",
+            InputStats {
+                rollout_path: "fixture".to_string(),
+                bytes: 0,
+                decoded_bytes: 0,
+                budget_bytes: 0,
+                line_count: 0,
+                valid_records: 0,
+                parse_errors: 0,
+                first_parse_error: None,
+                item_kinds: BTreeMap::new(),
+                event_payload_types: BTreeMap::new(),
+                unmapped_types: BTreeMap::new(),
+            },
+            ReductionStats {
+                conversations: 1,
+                turns: 1,
+                retained_items: 1,
+                retained_by_kind: BTreeMap::new(),
+                dropped_total: 0,
+                dropped_by_kind: BTreeMap::new(),
+                detail_payloads: 0,
+                detail_bytes: 0,
+                detail_full_retained: 0,
+                detail_summary_only: 0,
+                detail_dropped_by_policy: 0,
+                result_fields_deduplicated: 0,
+                commands_normalized: 0,
+                approvals_seen: 0,
+                compactions_seen: 0,
+                rollbacks_seen: 0,
+                hidden_reasoning_dropped: 0,
+                delta_dropped: 0,
+                plan_questions_seen: 0,
+                plan_answers_seen: 0,
+                unresolved_tools: 0,
+                unresolved_questions: 0,
+            },
+            ComparisonStats {
+                official_built: true,
+                official_turn_count: 1,
+                projection_turn_count: 1,
+                official_item_count: 0,
+                projection_item_count: 1,
+                official_item_kinds: BTreeMap::new(),
+                official_missing_but_projection_has: Vec::new(),
+            },
+            OutputStats {
+                report_path: String::new(),
+                projection_path: String::new(),
+                details_path: None,
+                official_path: None,
+                projection_bytes: 0,
+                details_bytes: 0,
+                official_bytes: 0,
+                content_hash: "content".to_string(),
+                snapshot_hash: "snapshot".to_string(),
+            },
+            DeterminismStats {
+                run_index: 1,
+                same_keys: true,
+                same_hashes: true,
+                same_report: true,
+                first_run_content_hash: Some("content".to_string()),
+                second_run_content_hash: None,
+                timing_excluded: true,
+            },
+            None,
+            TimingStats {
+                read_ms: 0,
+                reduce_ms: 0,
+                project_ms: 0,
+                total_ms: 0,
+                peak_memory_mb: 0,
+            },
+            true,
+        );
+        assert!(report.partial);
+    }
 }

@@ -1,4 +1,4 @@
-//! Read-only Codex rollout history projection v2 demo.
+//! Read-only Codex rollout history projection v4 demo.
 //!
 //! The binary is intentionally standalone. It reads one explicit rollout,
 //! writes optional projection/detail/comparison files, and never touches the
@@ -420,6 +420,10 @@ fn build_demo_report(
             "usage".to_string(),
             "plan_question/answer".to_string(),
             "task_outcome".to_string(),
+            "presentation_kind".to_string(),
+            "display_command".to_string(),
+            "task_outcome.final_metrics".to_string(),
+            "task_outcome.provisional".to_string(),
             "source_ref/source_ordinal".to_string(),
         ],
     };
@@ -449,6 +453,10 @@ fn build_demo_report(
         total_ms: started.elapsed().as_millis() as u64,
         peak_memory_mb: peak_memory_mb(),
     };
+    let outcome_provisional =
+        run.projection.task_outcome.as_ref().is_some_and(|outcome| {
+            outcome.provisional || outcome.availability == "partial_rollout"
+        });
     Ok(report::build_report(
         CODEX_REVISION,
         report::InputStats {
@@ -470,6 +478,7 @@ fn build_demo_report(
         determinism.clone(),
         api_verification.cloned(),
         timing,
+        outcome_provisional,
     ))
 }
 

@@ -1,4 +1,4 @@
-# Codex Rollout 历史读取 Demo 设计与验证报告（history projection v2）
+# Codex Rollout 历史读取 Demo 设计与验证报告（history projection v4）
 
 > 2026-08-16 implementation note: the original draft's `history-schema: 1`
 > reducer was replaced by a clean v2 reducer in
@@ -15,7 +15,7 @@
 独立 Rust Demo，只读解析 Codex `rollout*.jsonl`，生成：
 
 1. 官方 `thread/read(true)` 风格规范化结果（`codex-app-server-protocol::build_turns_from_rollout_items`）作为对照基线；
-2. TermLink 自定义持久化投影（`history-schema: 2`）；
+2. TermLink 自定义持久化投影（`history-schema: 4`）；
 3. 按 retention policy 筛选的高价值完整工具详情 payload（独立 JSONL，`detailRef` 关联）；
 4. 确定性汇总报告（root hash、各 item hash、统计、耗时、峰值内存）。
 
@@ -37,7 +37,7 @@ native/codex-rollout-demo/
     main.rs                # CLI 入口、官方对照、确定性校验、峰值内存
     reader.rs              # RolloutReader：读取/解压(.zst)/解析/统计
     reducer.rs             # HistoryReducer：事件归约（turn 状态机、工具配对、usage/rate-limit/settings）
-    dto.rs                 # history-schema:2 稳定 DTO + root hash
+    dto.rs                 # history-schema:4 稳定 DTO + root hash
     canonical.rs           # 官方 build_turns_from_rollout_items 对照
     report.rs              # 确定性报告结构
     reducer_tests.rs       # 10 个单元测试（离线 fixture）
@@ -74,7 +74,8 @@ codex-rollout-demo.exe \
 | `EventMsg::UserMessage` | `user_message` | 优先 `client_id` 为 itemKey，缺失时 `turnId:user_message:ordinal` |
 | `EventMsg::AgentMessage` | `assistant_message` | 可见助手消息；空文本丢弃 |
 | `EventMsg::PlanUpdate` / `ItemCompleted(Plan)` | `plan` | 最终 Plan 内容 |
-| `EventMsg::RequestUserInput` | `plan_question` | 问题文本；选项存在于 payload（question.options） |
+| `EventMsg::RequestUserInput` / `ResponseItem::FunctionCall(request_user_input)` | `plan_question` | 问题文本和选项；raw function-call 参数按 request_user_input 结构解析 |
+| `ResponseItem::FunctionCallOutput`（request_user_input） | `plan_answer` | 用户回答独立成 item；通过 `correlationId` / `relatedItemKey` 与问题关联 |
 | `ExecCommandBegin/End` | `tool_call` + detail | command、cwd、exitCode、durationMs、stdout/stderr→detail |
 | `McpToolCallBegin/End` | `tool_call` + detail | server.tool、arguments、status、duration、result→detail |
 | `DynamicToolCallRequest/Response` | `tool_call` + detail | namespace.tool、arguments、content_items→detail |
@@ -113,7 +114,7 @@ codex-rollout-demo.exe \
 - Abort 不独立成 item；`TurnAborted` 将对应 turn 置为 `status=interrupted`、`outcome=interrupted`。
 - 缺失信息不伪造：DTO 字段为 `null`/`None`（对应方案的 `availability: not_recoverable_from_rollout` 语义，由字段缺失表达）。
 
-## 5. 稳定数据模型（history-schema: 2）
+## 5. 稳定数据模型（history-schema: 4）
 
 见 `src/dto.rs`。顶层：
 
@@ -121,9 +122,10 @@ codex-rollout-demo.exe \
 HistoryProjection { schema, schemaVersion, hashAlgorithm, conversation, turns[], taskOutcome? }
 ConversationDto  { conversationId, source, rolloutPath, cliVersion, codexRevision, threadId, forkedFromId, parentThreadId, historyMode, historyBase, subagentHistoryStartOrdinal, cwd, gitInfo, model, modelProvider, createdAt, updatedAt }
 TurnDto          { turnId, sequence, startedAt, completedAt, durationMs, timeToFirstTokenMs, contextWindow, status, outcome, error, usage, rateLimit, items[] }
-HistoryItemDto   { itemKey, turnId, sequence, timestamp, kind, visible, content, summary, sourceRef, contentHash, detailRef, question, answer, tool? }
-TaskOutcomeDto   { status, finalTurnId, conclusion, error, sourceItemKeys, modifiedFiles, validationItemKeys, availability }
-ToolItemDto      { toolKind, toolName, command, commands, arguments, cwd, status, exitCode, durationMs, approval, outputBytes, outputSha256 }
+HistoryItemDto   { itemKey, turnId, sequence, timestamp, kind, presentationKind, correlationId, relatedItemKey, visible, content, summary, sourceRef, contentHash, detailRef, question, answer, tool? }
+TaskOutcomeDto   { status, finalTurnId, conclusion, error, sourceItemKeys, modifiedFiles, validationItemKeys, availability, provisional, finalMetrics? }
+TaskOutcomeMetricsDto { usage, rateLimit, contextWindow, durationMs, timeToFirstTokenMs }
+ToolItemDto      { toolKind, toolName, command, commands, displayCommand, arguments, cwd, status, exitCode, durationMs, approval, outputBytes, outputSha256 }
 DetailPayloadDto { detailRef, toolKind, toolName, stdout, stderr, aggregatedOutput, formattedOutput, result, raw }
 SourceRefDto     { sourceOrdinal, rolloutIndex, eventType, payloadType }
 UsageDto         { inputTokens, cachedInputTokens, cacheWriteInputTokens, outputTokens, reasoningOutputTokens, totalTokens }
@@ -138,9 +140,12 @@ UsageDto         { inputTokens, cachedInputTokens, cacheWriteInputTokens, output
 伪装成原生逻辑 ordinal。paginated/subagent rollout 按 `history_base` 与
 `subagent_history_start_ordinal` 的最大值过滤继承前缀，并保留 lineage 元数据。
 
-`task_outcome` 只从最后一个投影 turn 生成：状态、最后可见助手结论、该 turn 的文件变更
-和验证工具通过 `sourceItemKeys` 关联；没有可见结论时保留 turn 状态，但将
-`availability` 标为 `not_recoverable_from_rollout`，不推断任务成功。
+`task_outcome` 只从最后一个投影 turn 生成：状态、最后可见助手结论、该 turn 的文件变更、
+验证工具和最终指标通过 `sourceItemKeys` / `finalMetrics` 关联；`finalMetrics` 始终从
+`finalTurnId` 对应 turn 复制，turn 自身的 usage/rateLimit 仍保留。最后一个 turn 未完成、
+存在解析缺口或结论来自未完成 turn 时，`provisional=true` 且 `availability=partial_rollout`；
+即使有助手文字也不能推断任务已完成。明确 `completed`、`failed`、`interrupted` 的终态不因
+状态本身标记 provisional。旧 history-schema:2/3 快照可读取，新生成快照写版本 4。v4 不在 `plan_question` 中重复嵌入 answer，新客户端直接渲染独立的 `plan_answer` item。
 
 `rootHash`：使用 `termlink-rollout-projection-v2-sha256` 对规范化 JSON 投影计算；对象键递归排序，运行耗时不参与确定性校验。
 
@@ -204,7 +209,7 @@ peak memory     = 67 MiB
 
 ### retention policy 修复后的真实验证与确定性
 
-当前 history projection v2 对会话 `019ffbab-8906-7243-af24-cf7a9bf8c997` 的结果：
+当前 history projection v4 对会话 `019ffbab-8906-7243-af24-cf7a9bf8c997` 的结果：
 
 ```text
 source bytes     = 71,816,297 (68.49 MiB)
@@ -241,11 +246,11 @@ rollout JSONL 仍未进入持久化请求。
 - 超过 70 MiB 的 rollout（如 93.9 MiB 会话）以明确错误退出，不静默截断。
 - 源文件只读；实测文件 mtime 未变。
 
-## 8. v2 已知限制与后续事项
+## 8. v4 已知限制与后续事项
 
 1. **未识别事件均有统计**：typed rollout 无法解析的记录默认使 CLI 失败；已识别但按策略丢弃的 EventMsg/ResponseItem 进入 `dropped_by_kind`。
 2. **审批事件**：当前单用户策略不持久化审批请求/决定关联；如果拒绝导致 turn 中断，保留中断状态，若实际工具已经执行则保留其真实结果。
-3. **Plan 问题/选项**：`RequestUserInput` 的问题、选项和可获得的 `FunctionCallOutput` 答案结构化保存；若 rollout 没有回答记录则只保留问题，不伪造答案。
+3. **Plan 问题/选项**：`EventMsg::RequestUserInput` 和 raw `ResponseItem::FunctionCall(request_user_input)` 的问题、选项都生成独立 `plan_question`；匹配的 `FunctionCallOutput` 生成独立 `plan_answer`。两者共享 `correlationId` 并通过双向 `relatedItemKey` 关联；若 rollout 没有回答记录则只保留问题，不伪造答案。
 4. **脱敏**：单用户 Demo 未脱敏；`redactionPolicy` 字段已预留于设计（DTO 层未强制，正式服务必须加）。
 5. **本机绝对路径依赖**：`Cargo.toml` 使用 `E:/coding/github/codex/...` path deps；正式服务必须改为 vendor/发布固定 commit 的独立依赖（保留 Apache-2.0 与 NOTICE）。
 6. **`detail_ref` 内容哈希**：正文 item 的 `outputSha256` 对输出字段计算 hash；detail 文件本身没有独立 `detailSha256`，后续若需要跨会话去重可再加。

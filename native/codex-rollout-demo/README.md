@@ -1,7 +1,7 @@
 # codex-rollout-demo
 
 TermLink 独立 Rust Demo：只读解析 Codex `rollout*.jsonl`，生成官方
-`thread/read(true)` 风格规范化对照、干净的 `history-schema: 2` 持久化投影与独立工具详情。
+`thread/read(true)` 风格规范化对照、干净的 `history-schema: 4` 持久化投影与独立工具详情。
 
 > 独立实验与验证任务（`TASKS/inbox/INBOX-20260815-001`），不是当前 P0-B 的一部分；
 > 不修改 Node 服务、IPC 实时链路、Android、数据库或 App。
@@ -35,7 +35,8 @@ cargo test
 
 ## 输出
 
-- `history-schema: 2`：conversation / turn / historyItem（含 rollout 原始 `timestamp`）/ tool / detail / sourceRef / usage / plan question-answer。
+- `history-schema: 4`：conversation / turn / historyItem（含 rollout 原始 `timestamp`）/ tool / detail / sourceRef / usage / 独立 `plan_question` 与 `plan_answer`；问答通过 `correlationId` 和双向 `relatedItemKey` 关联，不在问题 item 中重复嵌入 answer。工具 item 统一带 `presentationKind=tool`，命令工具提供 `displayCommand`。
+- `taskOutcome` 包含 `provisional` 和从最终 turn 复制的 `finalMetrics`；活动或有解析缺口的 rollout 会标记 `partialRollout`，不能当作最终结论展示。
 - 每个 item 有确定性 `contentHash`；报告含 content/snapshot hash、统计、耗时与峰值内存。
 - 工具详情按价值分层：构建、测试、Lint、部署、失败诊断、文件变更和最终验证保留详情；成功读取/搜索/普通检查只保留命令摘要、输出大小/hash、文件/行号和关键错误摘要。等价的 `result` 与 `canonicalOutput` 去重。
 - `exec` 的 JavaScript 包装只用于解析，历史中保存提取出的真实 shell 命令；无法安全提取时不保存包装源码。`wait`/轮询不进入历史，最终结果合并到原始长任务。

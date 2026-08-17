@@ -285,6 +285,16 @@ fn lifecycle_preserves_visible_messages_and_final_usage() {
             .as_deref(),
         Some("hi there")
     );
+    let outcome = projection.task_outcome.as_ref().unwrap();
+    assert!(!outcome.provisional);
+    assert_eq!(
+        outcome
+            .final_metrics
+            .as_ref()
+            .and_then(|metrics| metrics.usage.as_ref())
+            .map(|usage| usage.total_tokens),
+        Some(110)
+    );
     assert!(turn.items.iter().any(|item| item.kind == "task_outcome"));
     assert!(details.is_empty());
     assert_eq!(stats.retained_by_kind.get("user_message"), Some(&1));
@@ -348,6 +358,84 @@ fn per_turn_usage_uses_last_snapshot_not_session_total() {
     assert_eq!(
         projection.turns[1].usage.as_ref().unwrap().total_tokens,
         210
+    );
+}
+
+#[test]
+fn task_outcome_copies_the_final_turn_metrics_without_overwriting_each_turn() {
+    let (projection, _, _) = reduce(vec![
+        event(turn_started("turn-1")),
+        event(user_message(Some("client-1"), "first")),
+        event(EventMsg::AgentMessage(
+            codex_protocol::protocol::AgentMessageEvent {
+                message: "first answer".to_string(),
+                phase: Some(codex_protocol::models::MessagePhase::FinalAnswer),
+                memory_citation: None,
+            },
+        )),
+        event(token_count(100, 100)),
+        event(turn_complete("turn-1")),
+        event(turn_started("turn-2")),
+        event(user_message(Some("client-2"), "second")),
+        event(EventMsg::AgentMessage(
+            codex_protocol::protocol::AgentMessageEvent {
+                message: "second answer".to_string(),
+                phase: Some(codex_protocol::models::MessagePhase::FinalAnswer),
+                memory_citation: None,
+            },
+        )),
+        event(token_count(1000, 200)),
+        event(turn_complete("turn-2")),
+    ]);
+    assert_eq!(
+        projection.turns[0].usage.as_ref().unwrap().total_tokens,
+        110
+    );
+    assert_eq!(
+        projection.turns[1].usage.as_ref().unwrap().total_tokens,
+        210
+    );
+    let outcome = projection.task_outcome.as_ref().unwrap();
+    assert_eq!(outcome.final_turn_id.as_deref(), Some("turn-2"));
+    assert!(!outcome.provisional);
+    let metrics = outcome.final_metrics.as_ref().expect("final metrics");
+    assert_eq!(
+        metrics.usage.as_ref().map(|usage| usage.total_tokens),
+        Some(210)
+    );
+    assert_eq!(metrics.context_window, Some(258400));
+    assert_eq!(metrics.duration_ms, Some(1000));
+    assert_eq!(metrics.time_to_first_token_ms, Some(25));
+}
+
+#[test]
+fn unfinished_final_turn_creates_a_provisional_outcome_even_with_visible_text() {
+    let (projection, _, _) = reduce(vec![
+        event(turn_started("turn-1")),
+        event(user_message(Some("client-1"), "keep working")),
+        event(EventMsg::AgentMessage(
+            codex_protocol::protocol::AgentMessageEvent {
+                message: "progress update".to_string(),
+                phase: Some(codex_protocol::models::MessagePhase::Commentary),
+                memory_citation: None,
+            },
+        )),
+        event(token_count(100, 100)),
+    ]);
+    let outcome = projection.task_outcome.as_ref().unwrap();
+    assert_eq!(outcome.status, "incomplete");
+    assert!(outcome.provisional);
+    assert_eq!(outcome.availability, "partial_rollout");
+    let outcome_item = first_item(&projection, "task_outcome");
+    assert_eq!(
+        outcome_item.availability.as_deref(),
+        Some("partial_rollout")
+    );
+    assert!(
+        outcome_item
+            .summary
+            .as_deref()
+            .is_some_and(|summary| summary.contains("provisional=true"))
     );
 }
 
@@ -878,6 +966,75 @@ fn custom_tool_output_and_patch_end_are_persisted() {
 }
 
 #[test]
+fn tool_items_share_presentation_kind_and_exec_exposes_only_real_commands() {
+    let function_call =
+        RolloutItem::ResponseItem(codex_protocol::models::ResponseItem::FunctionCall {
+            id: None,
+            name: "lookup".to_string(),
+            namespace: Some("demo".to_string()),
+            arguments: r#"{"query":"value"}"#.to_string(),
+            call_id: "function-1".to_string(),
+            internal_chat_message_metadata_passthrough: None,
+        });
+    let exec_call = RolloutItem::ResponseItem(
+        codex_protocol::models::ResponseItem::CustomToolCall {
+            id: None,
+            status: Some("in_progress".to_string()),
+            call_id: "exec-1".to_string(),
+            name: "exec".to_string(),
+            input: r#"const r = await tools.shell_command({command:"Get-Content src/main.rs",workdir:"E:\\proj"}); text(r);"#
+                .to_string(),
+            namespace: None,
+            internal_chat_message_metadata_passthrough: None,
+        },
+    );
+    let exec_output =
+        RolloutItem::ResponseItem(codex_protocol::models::ResponseItem::CustomToolCallOutput {
+            id: None,
+            call_id: "exec-1".to_string(),
+            name: Some("shell_command".to_string()),
+            output: codex_protocol::models::FunctionCallOutputPayload::from_text(
+                "main.rs contents".to_string(),
+            ),
+            internal_chat_message_metadata_passthrough: None,
+        });
+    let (projection, _, _) = reduce(vec![
+        event(turn_started("turn-1")),
+        function_call,
+        exec_call,
+        exec_output,
+    ]);
+    let function_item = first_item(&projection, "function_call");
+    assert_eq!(function_item.presentation_kind.as_deref(), Some("tool"));
+    assert_eq!(
+        function_item
+            .tool
+            .as_ref()
+            .map(|tool| tool.tool_kind.as_str()),
+        Some("function_call")
+    );
+    let exec_item = first_item(&projection, "custom_tool");
+    assert_eq!(exec_item.presentation_kind.as_deref(), Some("tool"));
+    let exec_tool = exec_item.tool.as_ref().expect("exec tool");
+    assert_eq!(exec_tool.tool_name.as_deref(), Some("shell_command"));
+    assert_eq!(
+        exec_tool.commands.as_deref(),
+        Some(["Get-Content src/main.rs".to_string()].as_slice())
+    );
+    assert_eq!(
+        exec_tool.display_command.as_deref(),
+        Some("Get-Content src/main.rs")
+    );
+    assert!(
+        !exec_tool
+            .display_command
+            .as_deref()
+            .unwrap_or_default()
+            .contains("tools.shell_command")
+    );
+}
+
+#[test]
 fn questions_and_answers_are_structured() {
     let request = event(EventMsg::RequestUserInput(
         codex_protocol::request_user_input::RequestUserInputEvent {
@@ -913,9 +1070,89 @@ fn questions_and_answers_are_structured() {
     let (projection, _, stats) = reduce(vec![event(turn_started("turn-1")), request, answer]);
     let question = first_item(&projection, "plan_question");
     assert_eq!(question.question.as_ref().unwrap().options[0].label, "A");
-    assert_eq!(question.answer.as_ref().unwrap().answers, vec!["A"]);
+    assert!(question.answer.is_none());
+    let answer_item = first_item(&projection, "plan_answer");
+    assert_eq!(answer_item.answer.as_ref().unwrap().answers, vec!["A"]);
+    assert_eq!(
+        answer_item.related_item_key.as_deref(),
+        Some(question.item_key.as_str())
+    );
+    assert_eq!(
+        question.related_item_key.as_deref(),
+        Some(answer_item.item_key.as_str())
+    );
+    assert_eq!(answer_item.correlation_id.as_deref(), Some("question-call"));
     assert_eq!(stats.plan_questions_seen, 1);
     assert_eq!(stats.plan_answers_seen, 1);
+}
+
+#[test]
+fn response_item_request_user_input_becomes_independent_question_and_answer_items() {
+    let request_arguments = serde_json::json!({
+        "questions": [{
+            "id": "choice",
+            "header": "Pick",
+            "question": "Which one?",
+            "options": [{"label": "A", "description": "Option A"}],
+            "isOther": false,
+            "isSecret": false
+        }]
+    })
+    .to_string();
+    let request = RolloutItem::ResponseItem(codex_protocol::models::ResponseItem::FunctionCall {
+        id: None,
+        name: "request_user_input".to_string(),
+        namespace: None,
+        arguments: request_arguments,
+        call_id: "response-question-call".to_string(),
+        internal_chat_message_metadata_passthrough: None,
+    });
+    let answer =
+        RolloutItem::ResponseItem(codex_protocol::models::ResponseItem::FunctionCallOutput {
+            id: None,
+            call_id: "response-question-call".to_string(),
+            output: codex_protocol::models::FunctionCallOutputPayload::from_text(
+                r#"{"answers":{"choice":{"answers":["A"]}}}"#.to_string(),
+            ),
+            internal_chat_message_metadata_passthrough: None,
+        });
+    let (projection, details, stats) = reduce(vec![event(turn_started("turn-1")), request, answer]);
+
+    let question = first_item(&projection, "plan_question");
+    let answer_item = first_item(&projection, "plan_answer");
+    assert_eq!(question.question.as_ref().unwrap().id, "choice");
+    assert_eq!(question.question.as_ref().unwrap().options[0].label, "A");
+    assert_eq!(answer_item.answer.as_ref().unwrap().answers, vec!["A"]);
+    assert_eq!(
+        answer_item.related_item_key.as_deref(),
+        Some(question.item_key.as_str())
+    );
+    assert_eq!(
+        question.related_item_key.as_deref(),
+        Some(answer_item.item_key.as_str())
+    );
+    assert_eq!(
+        question.correlation_id.as_deref(),
+        Some("response-question-call")
+    );
+    assert_eq!(
+        answer_item.correlation_id.as_deref(),
+        Some("response-question-call")
+    );
+
+    let function_item = first_item(&projection, "function_call");
+    assert_eq!(
+        function_item
+            .tool
+            .as_ref()
+            .and_then(|tool| tool.status.as_deref()),
+        Some("completed")
+    );
+    assert_eq!(stats.plan_questions_seen, 1);
+    assert_eq!(stats.plan_answers_seen, 1);
+    assert_eq!(stats.unresolved_tools, 0);
+    assert_eq!(stats.unresolved_questions, 0);
+    assert!(details.is_empty());
 }
 
 #[test]
@@ -947,8 +1184,9 @@ fn compaction_reasoning_and_deltas_are_dropped() {
     );
     assert_eq!(
         projection.task_outcome.as_ref().unwrap().availability,
-        "not_recoverable_from_rollout"
+        "partial_rollout"
     );
+    assert!(projection.task_outcome.as_ref().unwrap().provisional);
     assert_eq!(stats.hidden_reasoning_dropped, 1);
     assert_eq!(stats.compactions_seen, 1);
     assert_eq!(stats.delta_dropped, 1);

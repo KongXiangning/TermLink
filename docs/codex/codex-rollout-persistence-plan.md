@@ -10,7 +10,7 @@ codex-rollout-core            # 从 demo 抽取、可复用、无本机绝对路
   RolloutReader               # 全量读取
   RolloutTailReader           # 增量读取（cursor）
   HistoryReducer              # 事件归约（turn 状态机）
-  HistoryProjector            # history-schema:2 投影
+  HistoryProjector            # history-schema:4 投影
   CanonicalHasher             # 确定性 hash（item/root）
 
 termlink-rust-server          # 未来独立服务（另行立项）

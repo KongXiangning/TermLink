@@ -1,4 +1,4 @@
-//! History projection v2.
+//! History projection v4.
 //!
 //! The reducer intentionally consumes the typed rollout records instead of
 //! trying to imitate app-server's public response shape.  It keeps the
@@ -24,7 +24,7 @@ use sha2::Digest;
 use crate::dto::{
     AvailabilityStatus, ConversationDto, DetailPayloadDto, HistoryBaseDto, HistoryItemDto,
     HistoryProjection, PlanAnswerDto, PlanQuestionDto, PlanQuestionOptionDto, SourceRefDto,
-    TaskOutcomeDto, ToolItemDto, TurnDto, UsageDto,
+    TaskOutcomeDto, TaskOutcomeMetricsDto, ToolItemDto, TurnDto, UsageDto,
 };
 use crate::reader::ParsedRolloutLine;
 
@@ -464,6 +464,18 @@ impl HistoryReducer {
                 );
                 self.mark_optional(
                     &mut fields,
+                    format!("{item_path}.correlation_id"),
+                    &item.correlation_id,
+                    turn_partial,
+                );
+                self.mark_optional(
+                    &mut fields,
+                    format!("{item_path}.related_item_key"),
+                    &item.related_item_key,
+                    turn_partial,
+                );
+                self.mark_optional(
+                    &mut fields,
                     format!("{item_path}.question"),
                     &item.question,
                     turn_partial,
@@ -567,6 +579,43 @@ impl HistoryReducer {
                     &outcome.error,
                     outcome_partial,
                 );
+                if let Some(metrics) = &outcome.final_metrics {
+                    self.mark_optional(
+                        &mut fields,
+                        "task_outcome.final_metrics.usage",
+                        &metrics.usage,
+                        outcome_partial,
+                    );
+                    self.mark_optional(
+                        &mut fields,
+                        "task_outcome.final_metrics.rate_limit",
+                        &metrics.rate_limit,
+                        outcome_partial,
+                    );
+                    self.mark_optional(
+                        &mut fields,
+                        "task_outcome.final_metrics.context_window",
+                        &metrics.context_window,
+                        outcome_partial,
+                    );
+                    self.mark_optional(
+                        &mut fields,
+                        "task_outcome.final_metrics.duration_ms",
+                        &metrics.duration_ms,
+                        outcome_partial,
+                    );
+                    self.mark_optional(
+                        &mut fields,
+                        "task_outcome.final_metrics.time_to_first_token_ms",
+                        &metrics.time_to_first_token_ms,
+                        outcome_partial,
+                    );
+                } else {
+                    fields.insert(
+                        "task_outcome.final_metrics".to_string(),
+                        self.field_status(false, outcome_partial),
+                    );
+                }
             }
             None => {
                 fields.insert(
@@ -668,6 +717,12 @@ impl HistoryReducer {
     fn build_task_outcome(&self) -> TaskOutcomeDto {
         let final_turn = self.projection.turns.last();
         let final_turn_id = final_turn.map(|turn| turn.turn_id.clone());
+        let final_turn_is_partial = final_turn.is_some_and(|turn| {
+            turn.status == "in_progress"
+                || turn.status == "incomplete"
+                || turn.availability.as_deref() == Some("partial_rollout")
+        });
+        let provisional = self.partial_rollout || final_turn_is_partial;
         let conclusion_item = final_turn.and_then(|turn| {
             turn.items.iter().rev().find(|item| {
                 item.kind == "assistant_message"
@@ -707,11 +762,20 @@ impl HistoryReducer {
                 )
             })
             .unwrap_or_else(|| ("unknown".to_string(), None));
-        let availability = if final_turn.is_some() && conclusion.is_some() {
+        let availability = if provisional {
+            "partial_rollout"
+        } else if final_turn.is_some() && conclusion.is_some() {
             "present"
         } else {
             "not_recoverable_from_rollout"
         };
+        let final_metrics = final_turn.map(|turn| TaskOutcomeMetricsDto {
+            usage: turn.usage.clone(),
+            rate_limit: turn.rate_limit.clone(),
+            context_window: turn.context_window,
+            duration_ms: turn.duration_ms,
+            time_to_first_token_ms: turn.time_to_first_token_ms,
+        });
         TaskOutcomeDto {
             status,
             final_turn_id,
@@ -721,6 +785,8 @@ impl HistoryReducer {
             modified_files,
             validation_item_keys,
             availability: availability.to_string(),
+            provisional,
+            final_metrics,
         }
     }
 
@@ -771,7 +837,11 @@ impl HistoryReducer {
                 kind: "task_outcome".to_string(),
                 visible: true,
                 content: outcome.conclusion.clone(),
-                summary: Some(format!("status={}", outcome.status)),
+                summary: Some(if outcome.provisional {
+                    format!("status={}, provisional=true", outcome.status)
+                } else {
+                    format!("status={}", outcome.status)
+                }),
                 availability: Some(outcome.availability.clone()),
                 source_ref,
                 ..Default::default()
@@ -914,18 +984,43 @@ impl HistoryReducer {
                 let arguments = serde_json::from_str(arguments)
                     .unwrap_or_else(|_| Value::String(arguments.clone()));
                 let turn_id = self.response_turn_id(item, ordinal);
+                let effective_call_id = if call_id.is_empty() {
+                    format!("anonymous:{ordinal}")
+                } else {
+                    call_id.clone()
+                };
                 self.upsert_tool(
-                    turn_id,
-                    call_id,
+                    turn_id.clone(),
+                    &effective_call_id,
                     "function_call",
-                    Some(name),
+                    Some(name.clone()),
                     None,
-                    Some(arguments),
+                    Some(arguments.clone()),
                     None,
                     None,
                     None,
                     ordinal,
                 );
+                if is_request_user_input_name(&name) {
+                    match parse_response_plan_questions(&arguments) {
+                        Some(questions) if !questions.is_empty() => {
+                            self.apply_plan_questions(
+                                &effective_call_id,
+                                turn_id,
+                                questions,
+                                ordinal,
+                                "function_call",
+                            );
+                        }
+                        _ => {
+                            // Keep the original function_call for provenance,
+                            // but do not pretend that an unsupported payload
+                            // is a structured Plan question.
+                            self.unsupported_schema = true;
+                            self.drop_kind("request_user_input_unparsed");
+                        }
+                    }
+                }
             }
             R::LocalShellCall {
                 id,
@@ -966,7 +1061,7 @@ impl HistoryReducer {
                 call_id, output, ..
             } => {
                 let output_text = output.body.to_text().unwrap_or_default();
-                if self.apply_plan_answer(call_id, &output_text) {
+                if self.apply_plan_answer(call_id, &output_text, ordinal) {
                     return;
                 }
                 self.complete_tool(
@@ -1015,10 +1110,14 @@ impl HistoryReducer {
                     return;
                 }
                 let normalized_commands = normalized.commands.clone();
-                let tool_name = normalized
-                    .tool_name
-                    .clone()
-                    .or_else(|| Some(qualified_name(namespace.as_deref(), name)));
+                let tool_name = match normalized.tool_name.clone() {
+                    Some(tool_name) if tool_name == "exec" && normalized.commands.is_some() => {
+                        Some("shell_command".to_string())
+                    }
+                    Some(tool_name) => Some(tool_name),
+                    None if normalized.commands.is_some() => Some("shell_command".to_string()),
+                    None => Some(qualified_name(namespace.as_deref(), name)),
+                };
                 self.upsert_tool(
                     turn_id,
                     call_id,
@@ -1044,7 +1143,13 @@ impl HistoryReducer {
                 call_id,
                 None,
                 "custom_tool",
-                name.clone(),
+                name.clone().map(|name| {
+                    if name == "exec" {
+                        "shell_command".to_string()
+                    } else {
+                        name
+                    }
+                }),
                 DetailInput {
                     aggregated_output: output.body.to_text(),
                     result: serde_json::to_value(output).ok(),
@@ -1821,10 +1926,10 @@ impl HistoryReducer {
         ordinal: u64,
     ) {
         let turn_id = self.target_turn(Some(&payload.turn_id), ordinal);
-        let mut item_keys = Vec::new();
-        for question in &payload.questions {
-            let key = format!("question:{}:{}", payload.call_id, question.id);
-            let question_dto = PlanQuestionDto {
+        let questions = payload
+            .questions
+            .iter()
+            .map(|question| PlanQuestionDto {
                 id: question.id.clone(),
                 header: question.header.clone(),
                 question: question.question.clone(),
@@ -1840,7 +1945,28 @@ impl HistoryReducer {
                         description: option.description,
                     })
                     .collect(),
-            };
+            })
+            .collect();
+        self.apply_plan_questions(
+            &payload.call_id,
+            turn_id,
+            questions,
+            ordinal,
+            "request_user_input",
+        );
+    }
+
+    fn apply_plan_questions(
+        &mut self,
+        call_id: &str,
+        turn_id: String,
+        questions: Vec<PlanQuestionDto>,
+        ordinal: u64,
+        payload_type: &str,
+    ) {
+        let mut item_keys = Vec::new();
+        for question in questions {
+            let key = format!("question:{call_id}:{}", question.id);
             self.upsert_item(
                 turn_id.clone(),
                 HistoryItemDto {
@@ -1850,61 +1976,107 @@ impl HistoryReducer {
                     visible: true,
                     content: Some(question.question.clone()),
                     summary: Some(question.header.clone()),
-                    question: Some(question_dto),
-                    source_ref: Some(self.source_ref(ordinal, "request_user_input")),
+                    correlation_id: Some(call_id.to_string()),
+                    question: Some(question),
+                    source_ref: Some(self.source_ref(ordinal, payload_type)),
                     ..Default::default()
                 },
             );
             item_keys.push(key);
         }
         if !item_keys.is_empty() {
-            self.pending_questions.insert(
-                payload.call_id.clone(),
-                PendingQuestion { turn_id, item_keys },
-            );
-            self.stats.plan_questions_seen += payload.questions.len() as u64;
+            self.pending_questions
+                .insert(call_id.to_string(), PendingQuestion { turn_id, item_keys });
+            self.stats.plan_questions_seen += self
+                .pending_questions
+                .get(call_id)
+                .map_or(0, |pending| pending.item_keys.len() as u64);
         }
     }
 
-    fn apply_plan_answer(&mut self, call_id: &str, text: &str) -> bool {
+    fn apply_plan_answer(&mut self, call_id: &str, text: &str, ordinal: u64) -> bool {
         let Some(pending) = self.pending_questions.get(call_id).cloned() else {
             return false;
         };
-        let parsed = serde_json::from_str::<Value>(text).ok();
-        let answer_map = parsed
-            .as_ref()
-            .and_then(|value| value.get("answers"))
-            .and_then(Value::as_object);
-        let mut answered = false;
+        let answer_map = parse_plan_answers(text);
+        let mut answered = 0u64;
         for item_key in &pending.item_keys {
-            if let Some(item) = self.find_item_mut(&pending.turn_id, item_key) {
-                let question_id = item
-                    .question
-                    .as_ref()
-                    .map(|question| question.id.clone())
-                    .unwrap_or_default();
-                let answers = answer_map
-                    .and_then(|map| map.get(&question_id))
-                    .and_then(|value| value.get("answers"))
-                    .and_then(Value::as_array)
-                    .map(|answers| {
-                        answers
-                            .iter()
-                            .filter_map(Value::as_str)
-                            .map(str::to_string)
-                            .collect()
-                    })
-                    .or_else(|| (!text.trim().is_empty()).then(|| vec![text.to_string()]));
-                if let Some(answers) = answers {
-                    item.answer = Some(PlanAnswerDto { answers });
-                    recompute_hash(item);
-                    answered = true;
-                }
+            let question_id = self
+                .find_item(&pending.turn_id, item_key)
+                .and_then(|item| item.question.as_ref())
+                .map(|question| question.id.clone())
+                .unwrap_or_default();
+            let answers = answer_map
+                .as_ref()
+                .and_then(|map| map.get(&question_id).cloned())
+                .or_else(|| {
+                    (answer_map.is_none()
+                        && pending.item_keys.len() == 1
+                        && !text.trim().is_empty())
+                    .then(|| vec![text.to_string()])
+                });
+            if let Some(answers) = answers {
+                self.attach_plan_answer(call_id, &pending.turn_id, item_key, answers, ordinal);
+                answered += 1;
             }
         }
         self.pending_questions.remove(call_id);
-        self.stats.plan_answers_seen += u64::from(answered);
-        answered
+        // A request_user_input function call is a transport representation of
+        // the Plan question, not an independent executable tool. Mark that
+        // wrapper complete and remove its pending tool state once its output
+        // has been projected as plan_answer items.
+        self.update_tool(call_id, |tool| tool.status = Some("completed".to_string()));
+        self.pending_tools.remove(call_id);
+        self.stats.plan_answers_seen += answered;
+        true
+    }
+
+    fn attach_plan_answer(
+        &mut self,
+        call_id: &str,
+        turn_id: &str,
+        question_item_key: &str,
+        answers: Vec<String>,
+        ordinal: u64,
+    ) {
+        let Some(question_id) = self
+            .find_item(turn_id, question_item_key)
+            .and_then(|item| item.question.as_ref())
+            .map(|question| question.id.clone())
+        else {
+            return;
+        };
+        let answer_key = format!("answer:{call_id}:{question_id}");
+        let answer_dto = PlanAnswerDto {
+            answers: answers.clone(),
+        };
+        self.upsert_item(
+            turn_id.to_string(),
+            HistoryItemDto {
+                item_key: answer_key.clone(),
+                turn_id: turn_id.to_string(),
+                kind: "plan_answer".to_string(),
+                visible: true,
+                content: Some(answers.join("\n")),
+                summary: Some("user answer".to_string()),
+                correlation_id: Some(call_id.to_string()),
+                related_item_key: Some(question_item_key.to_string()),
+                answer: Some(answer_dto.clone()),
+                source_ref: Some(self.source_ref(ordinal, "function_call_output")),
+                ..Default::default()
+            },
+        );
+        if let Some(item) = self.find_item_mut(turn_id, question_item_key) {
+            // In schema v4 the answer is intentionally not duplicated on the
+            // question item. The independent plan_answer item is canonical;
+            // older v3 snapshots remain readable through serde defaults.
+            item.related_item_key = Some(answer_key.clone());
+            recompute_hash(item);
+        }
+        if let Some(item) = self.find_item_mut(turn_id, &answer_key) {
+            item.related_item_key = Some(question_item_key.to_string());
+            recompute_hash(item);
+        }
     }
 
     fn complete_turn(
@@ -1980,6 +2152,7 @@ impl HistoryReducer {
                 self.drop_kind("wait");
             }
         } else {
+            let display_command = command_display(command.as_deref(), None);
             self.upsert_item(
                 turn_id.clone(),
                 HistoryItemDto {
@@ -1995,6 +2168,7 @@ impl HistoryReducer {
                         tool_name,
                         command,
                         commands: None,
+                        display_command,
                         arguments,
                         cwd,
                         status,
@@ -2325,6 +2499,8 @@ impl HistoryReducer {
         if let Some(item) = self.find_tool_item_mut(call_id) {
             if let Some(tool) = item.tool.as_mut() {
                 tool.commands = Some(commands);
+                tool.display_command =
+                    command_display(tool.command.as_deref(), tool.commands.as_deref());
             }
             recompute_hash(item);
             self.stats.commands_normalized += 1;
@@ -2333,6 +2509,9 @@ impl HistoryReducer {
 
     fn upsert_item(&mut self, turn_id: String, mut item: HistoryItemDto) {
         item.turn_id = turn_id.clone();
+        if item.tool.is_some() && item.presentation_kind.is_none() {
+            item.presentation_kind = Some("tool".to_string());
+        }
         if item.timestamp.is_none() {
             item.timestamp = self.current_timestamp.clone();
         }
@@ -2511,6 +2690,96 @@ struct NormalizedToolInvocation {
     /// another tool. This prevents the durable item from being mislabeled as
     /// `exec` and lets retention rules recognize `wait`.
     tool_name: Option<String>,
+}
+
+fn is_request_user_input_name(name: &str) -> bool {
+    name.rsplit('.').next() == Some("request_user_input")
+}
+
+/// `ResponseItem::FunctionCall` stores request_user_input arguments as an
+/// opaque JSON string rather than the typed EventMsg payload. Decode only the
+/// stable fields needed by the history contract and fail closed when the
+/// question id/text is absent.
+fn parse_response_plan_questions(arguments: &Value) -> Option<Vec<PlanQuestionDto>> {
+    let questions = arguments.get("questions")?.as_array()?;
+    let mut parsed = Vec::with_capacity(questions.len());
+    for question in questions {
+        let object = question.as_object()?;
+        let id = object.get("id").and_then(Value::as_str)?.to_string();
+        let header = object
+            .get("header")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let text = object.get("question").and_then(Value::as_str)?.to_string();
+        let is_other = object
+            .get("isOther")
+            .or_else(|| object.get("is_other"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let is_secret = object
+            .get("isSecret")
+            .or_else(|| object.get("is_secret"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let options = object
+            .get("options")
+            .and_then(Value::as_array)
+            .map(|options| {
+                options
+                    .iter()
+                    .filter_map(|option| {
+                        let option = option.as_object()?;
+                        Some(PlanQuestionOptionDto {
+                            label: option
+                                .get("label")
+                                .and_then(Value::as_str)
+                                .unwrap_or_default()
+                                .to_string(),
+                            description: option
+                                .get("description")
+                                .and_then(Value::as_str)
+                                .unwrap_or_default()
+                                .to_string(),
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        parsed.push(PlanQuestionDto {
+            id,
+            header,
+            question: text,
+            is_other,
+            is_secret,
+            options,
+        });
+    }
+    Some(parsed)
+}
+
+fn parse_plan_answers(text: &str) -> Option<BTreeMap<String, Vec<String>>> {
+    let value = serde_json::from_str::<Value>(text).ok()?;
+    let answers = value.get("answers")?.as_object()?;
+    Some(
+        answers
+            .iter()
+            .map(|(question_id, value)| {
+                let values = value
+                    .get("answers")
+                    .and_then(Value::as_array)
+                    .map(|answers| {
+                        answers
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .map(str::to_string)
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                (question_id.clone(), values)
+            })
+            .collect(),
+    )
 }
 
 fn normalize_custom_tool_invocation(name: &str, input: &str) -> NormalizedToolInvocation {
@@ -3577,11 +3846,20 @@ fn merge_item(existing: &mut HistoryItemDto, incoming: HistoryItemDto) {
         existing.kind = incoming.kind.clone();
     }
     existing.visible |= incoming.visible;
+    if incoming.presentation_kind.is_some() {
+        existing.presentation_kind = incoming.presentation_kind;
+    }
     if incoming.content.is_some() {
         existing.content = incoming.content;
     }
     if incoming.summary.is_some() {
         existing.summary = incoming.summary;
+    }
+    if incoming.correlation_id.is_some() {
+        existing.correlation_id = incoming.correlation_id;
+    }
+    if incoming.related_item_key.is_some() {
+        existing.related_item_key = incoming.related_item_key;
     }
     if existing.source_ref.is_none() {
         existing.source_ref = incoming.source_ref;
@@ -3611,6 +3889,8 @@ fn merge_item(existing: &mut HistoryItemDto, incoming: HistoryItemDto) {
 }
 
 fn merge_tool(existing: &mut ToolItemDto, incoming: ToolItemDto) {
+    let command_changed = incoming.command.is_some();
+    let commands_changed = incoming.commands.is_some();
     if incoming.tool_kind != "function_call" {
         existing.tool_kind = incoming.tool_kind;
     }
@@ -3625,11 +3905,17 @@ fn merge_tool(existing: &mut ToolItemDto, incoming: ToolItemDto) {
             existing.tool_name = Some(incoming_name);
         }
     }
-    if incoming.command.is_some() {
-        existing.command = incoming.command;
+    if let Some(incoming_command) = incoming.command {
+        existing.command = Some(incoming_command);
     }
-    if incoming.commands.is_some() {
-        existing.commands = incoming.commands;
+    if let Some(incoming_commands) = incoming.commands {
+        existing.commands = Some(incoming_commands);
+    }
+    if let Some(incoming_display_command) = incoming.display_command {
+        existing.display_command = Some(incoming_display_command);
+    } else if command_changed || commands_changed {
+        existing.display_command =
+            command_display(existing.command.as_deref(), existing.commands.as_deref());
     }
     if incoming.arguments.is_some() {
         existing.arguments = incoming.arguments;
@@ -3662,6 +3948,18 @@ fn merge_tool(existing: &mut ToolItemDto, incoming: ToolItemDto) {
     if incoming.output_sha256.is_some() {
         existing.output_sha256 = incoming.output_sha256;
     }
+}
+
+fn command_display(command: Option<&[String]>, commands: Option<&[String]>) -> Option<String> {
+    let parts = commands
+        .filter(|commands| !commands.is_empty())
+        .map(|commands| commands.join("\n"))
+        .or_else(|| {
+            command
+                .filter(|command| !command.is_empty())
+                .map(|command| command.join(" "))
+        });
+    parts.filter(|text| !text.trim().is_empty())
 }
 
 fn recompute_hash(item: &mut HistoryItemDto) {

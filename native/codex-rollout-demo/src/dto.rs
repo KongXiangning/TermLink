@@ -11,7 +11,7 @@ use sha2::Digest;
 use std::collections::BTreeMap;
 
 pub const HISTORY_SCHEMA_NAME: &str = "history-schema";
-pub const HISTORY_SCHEMA_VERSION: u64 = 2;
+pub const HISTORY_SCHEMA_VERSION: u64 = 4;
 pub const HISTORY_HASH_ALGORITHM: &str = "termlink-rollout-projection-v2-sha256";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -100,6 +100,22 @@ pub struct TaskOutcomeDto {
     pub modified_files: Vec<String>,
     pub validation_item_keys: Vec<String>,
     pub availability: String,
+    /// A provisional outcome is a readable snapshot, not a terminal task
+    /// conclusion. It must not be rendered as the final result by clients.
+    #[serde(default)]
+    pub provisional: bool,
+    /// Metrics copied from the final projected turn so clients do not need to
+    /// resolve `final_turn_id` before rendering the outcome card.
+    pub final_metrics: Option<TaskOutcomeMetricsDto>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskOutcomeMetricsDto {
+    pub usage: Option<UsageDto>,
+    pub rate_limit: Option<Value>,
+    pub context_window: Option<i64>,
+    pub duration_ms: Option<i64>,
+    pub time_to_first_token_ms: Option<i64>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -123,6 +139,18 @@ pub struct HistoryItemDto {
     /// epoch value.
     pub timestamp: Option<String>,
     pub kind: String,
+    /// Common UI presentation category. Source-specific `kind` remains
+    /// available for compatibility and diagnostics.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub presentation_kind: Option<String>,
+    /// Stable call-level grouping for Plan questions and answers. For
+    /// request_user_input this is the originating call_id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub correlation_id: Option<String>,
+    /// The paired Plan item key. A plan_question points to its
+    /// plan_answer, and a plan_answer points back to its question.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub related_item_key: Option<String>,
     pub visible: bool,
     pub content: Option<String>,
     pub summary: Option<String>,
@@ -175,6 +203,10 @@ pub struct ToolItemDto {
     /// shell invocation, while direct command events use argv-like parts.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub commands: Option<Vec<String>>,
+    /// UI-friendly command text derived only from recoverable command data;
+    /// wrapper JavaScript is never placed here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_command: Option<String>,
     pub arguments: Option<Value>,
     pub cwd: Option<String>,
     pub status: Option<String>,

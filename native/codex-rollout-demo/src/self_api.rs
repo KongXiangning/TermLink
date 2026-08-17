@@ -309,6 +309,23 @@ pub fn verify_to_files(
     let duplicate_import_is_idempotent = duplicate_response.status == "duplicate"
         && duplicate_response.content_hash == content_hash
         && duplicate_response.detail_count == details.len() as u64;
+    let presentation_kind_round_trip =
+        projection_item_field_map(projection, |item| item.presentation_kind.clone())
+            == projection_item_field_map(&history_response.projection, |item| {
+                item.presentation_kind.clone()
+            });
+    let display_command_round_trip =
+        projection_item_field_map(projection, |item| {
+            item.tool
+                .as_ref()
+                .and_then(|tool| tool.display_command.clone())
+        }) == projection_item_field_map(&history_response.projection, |item| {
+            item.tool
+                .as_ref()
+                .and_then(|tool| tool.display_command.clone())
+        });
+    let outcome_fields_round_trip = serde_json::to_value(&projection.task_outcome).ok()
+        == serde_json::to_value(&history_response.projection.task_outcome).ok();
     let mut checks = BTreeMap::new();
     checks.insert(
         "initial_import_stored".to_string(),
@@ -337,6 +354,18 @@ pub fn verify_to_files(
     checks.insert(
         "duplicate_import_is_idempotent".to_string(),
         duplicate_import_is_idempotent,
+    );
+    checks.insert(
+        "presentation_kind_round_trip".to_string(),
+        presentation_kind_round_trip,
+    );
+    checks.insert(
+        "display_command_round_trip".to_string(),
+        display_command_round_trip,
+    );
+    checks.insert(
+        "outcome_fields_round_trip".to_string(),
+        outcome_fields_round_trip,
     );
     let success = checks.values().all(|passed| *passed);
     let report = SelfApiVerificationReport {
@@ -405,6 +434,18 @@ fn item_count(projection: &HistoryProjection) -> u64 {
         .sum()
 }
 
+fn projection_item_field_map(
+    projection: &HistoryProjection,
+    field: impl Fn(&crate::dto::HistoryItemDto) -> Option<String>,
+) -> BTreeMap<String, Option<String>> {
+    projection
+        .turns
+        .iter()
+        .flat_map(|turn| turn.items.iter())
+        .map(|item| (item.item_key.clone(), field(item)))
+        .collect()
+}
+
 fn path_segments(path: &str) -> Result<Vec<&str>> {
     let segments = path.trim_matches('/').split('/').collect::<Vec<_>>();
     if segments.iter().any(|segment| segment.is_empty()) {
@@ -429,7 +470,11 @@ fn write_json<T: Serialize>(path: PathBuf, value: &T) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dto::{ConversationDto, HistoryProjection};
+    use crate::dto::{
+        ConversationDto, HistoryItemDto, HistoryProjection, PlanAnswerDto, PlanQuestionDto,
+        PlanQuestionOptionDto, TaskOutcomeDto, TaskOutcomeMetricsDto, ToolItemDto, TurnDto,
+        UsageDto,
+    };
 
     fn fixture_projection() -> HistoryProjection {
         HistoryProjection {
@@ -480,6 +525,190 @@ mod tests {
         assert_eq!(history.projection.content_hash(), projection.content_hash());
         let second = client.import_history(&request).unwrap();
         assert_eq!(second.status, "duplicate");
+    }
+
+    #[test]
+    fn new_projection_fields_survive_json_api_round_trip() {
+        let mut projection = fixture_projection();
+        projection.schema_version = 4;
+        projection.turns = vec![TurnDto {
+            turn_id: "turn-1".to_string(),
+            sequence: 1,
+            started_at: Some(1000),
+            completed_at: Some(2000),
+            duration_ms: Some(1000),
+            time_to_first_token_ms: Some(25),
+            context_window: Some(258400),
+            status: "completed".to_string(),
+            outcome: Some("completed".to_string()),
+            error: None,
+            availability: Some("present".to_string()),
+            usage: Some(UsageDto {
+                total_tokens: 42,
+                ..Default::default()
+            }),
+            rate_limit: Some(serde_json::json!({"used_percent": 5})),
+            items: vec![HistoryItemDto {
+                item_key: "tool:1".to_string(),
+                turn_id: "turn-1".to_string(),
+                sequence: 1,
+                kind: "custom_tool".to_string(),
+                presentation_kind: Some("tool".to_string()),
+                visible: false,
+                tool: Some(ToolItemDto {
+                    tool_kind: "custom_tool".to_string(),
+                    tool_name: Some("shell_command".to_string()),
+                    command: None,
+                    commands: Some(vec!["cargo test".to_string()]),
+                    display_command: Some("cargo test".to_string()),
+                    arguments: None,
+                    cwd: Some("E:\\proj".to_string()),
+                    status: Some("completed".to_string()),
+                    exit_code: Some(0),
+                    duration_ms: Some(100),
+                    approval: None,
+                    output_bytes: Some(10),
+                    output_sha256: Some("hash".to_string()),
+                }),
+                ..Default::default()
+            }],
+        }];
+        projection.task_outcome = Some(TaskOutcomeDto {
+            status: "completed".to_string(),
+            final_turn_id: Some("turn-1".to_string()),
+            conclusion: Some("done".to_string()),
+            error: None,
+            source_item_keys: vec!["tool:1".to_string()],
+            modified_files: Vec::new(),
+            validation_item_keys: vec!["tool:1".to_string()],
+            availability: "present".to_string(),
+            provisional: false,
+            final_metrics: Some(TaskOutcomeMetricsDto {
+                usage: Some(UsageDto {
+                    total_tokens: 42,
+                    ..Default::default()
+                }),
+                rate_limit: Some(serde_json::json!({"used_percent": 5})),
+                context_window: Some(258400),
+                duration_ms: Some(1000),
+                time_to_first_token_ms: Some(25),
+            }),
+        });
+        let request = ImportHistoryRequest {
+            conversation_id: "test-conversation".to_string(),
+            projection,
+            details: Vec::new(),
+        };
+        let mut server = SelfApiServer::default();
+        let mut client = SelfApiClient::new(&mut server);
+        client.import_history(&request).unwrap();
+        let history = client.get_history("test-conversation").unwrap();
+        let item = &history.projection.turns[0].items[0];
+        assert_eq!(item.presentation_kind.as_deref(), Some("tool"));
+        assert_eq!(
+            item.tool
+                .as_ref()
+                .and_then(|tool| tool.display_command.as_deref()),
+            Some("cargo test")
+        );
+        let outcome = history.projection.task_outcome.as_ref().unwrap();
+        assert!(!outcome.provisional);
+        assert_eq!(
+            outcome
+                .final_metrics
+                .as_ref()
+                .and_then(|metrics| metrics.usage.as_ref())
+                .map(|usage| usage.total_tokens),
+            Some(42)
+        );
+    }
+
+    #[test]
+    fn plan_question_and_answer_items_survive_json_api_round_trip() {
+        let mut projection = fixture_projection();
+        projection.schema_version = 4;
+        projection.turns = vec![TurnDto {
+            turn_id: "turn-1".to_string(),
+            sequence: 1,
+            started_at: None,
+            completed_at: Some(2000),
+            duration_ms: None,
+            time_to_first_token_ms: None,
+            context_window: None,
+            status: "completed".to_string(),
+            outcome: Some("completed".to_string()),
+            error: None,
+            availability: Some("present".to_string()),
+            usage: None,
+            rate_limit: None,
+            items: vec![
+                HistoryItemDto {
+                    item_key: "question:call-1:choice".to_string(),
+                    turn_id: "turn-1".to_string(),
+                    sequence: 1,
+                    kind: "plan_question".to_string(),
+                    correlation_id: Some("call-1".to_string()),
+                    related_item_key: Some("answer:call-1:choice".to_string()),
+                    visible: true,
+                    content: Some("Which one?".to_string()),
+                    summary: Some("Pick".to_string()),
+                    question: Some(PlanQuestionDto {
+                        id: "choice".to_string(),
+                        header: "Pick".to_string(),
+                        question: "Which one?".to_string(),
+                        is_other: false,
+                        is_secret: false,
+                        options: vec![PlanQuestionOptionDto {
+                            label: "A".to_string(),
+                            description: "Option A".to_string(),
+                        }],
+                    }),
+                    ..Default::default()
+                },
+                HistoryItemDto {
+                    item_key: "answer:call-1:choice".to_string(),
+                    turn_id: "turn-1".to_string(),
+                    sequence: 2,
+                    kind: "plan_answer".to_string(),
+                    correlation_id: Some("call-1".to_string()),
+                    related_item_key: Some("question:call-1:choice".to_string()),
+                    visible: true,
+                    content: Some("A".to_string()),
+                    answer: Some(PlanAnswerDto {
+                        answers: vec!["A".to_string()],
+                    }),
+                    ..Default::default()
+                },
+            ],
+        }];
+        let request = ImportHistoryRequest {
+            conversation_id: "test-conversation".to_string(),
+            projection,
+            details: Vec::new(),
+        };
+        let mut server = SelfApiServer::default();
+        let mut client = SelfApiClient::new(&mut server);
+        client.import_history(&request).unwrap();
+        let history = client.get_history("test-conversation").unwrap();
+        let items = &history.projection.turns[0].items;
+        let question = items
+            .iter()
+            .find(|item| item.kind == "plan_question")
+            .unwrap();
+        let answer = items
+            .iter()
+            .find(|item| item.kind == "plan_answer")
+            .unwrap();
+        assert!(question.answer.is_none());
+        assert_eq!(
+            question.related_item_key.as_deref(),
+            Some(answer.item_key.as_str())
+        );
+        assert_eq!(
+            answer.related_item_key.as_deref(),
+            Some(question.item_key.as_str())
+        );
+        assert_eq!(answer.answer.as_ref().unwrap().answers, vec!["A"]);
     }
 
     #[test]
