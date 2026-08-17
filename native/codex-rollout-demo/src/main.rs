@@ -5,6 +5,7 @@
 //! TermLink server, IPC state, database, or the source rollout.
 
 mod canonical;
+mod checkpoint;
 mod detail_store;
 mod dto;
 mod reader;
@@ -37,6 +38,7 @@ struct Args {
     report: Option<PathBuf>,
     details: Option<PathBuf>,
     self_api_dir: Option<PathBuf>,
+    checkpoint: Option<PathBuf>,
     verify_determinism: bool,
     full_oracle: bool,
     forward_stream: bool,
@@ -50,6 +52,7 @@ fn parse_args() -> Result<Args> {
     let mut report = None;
     let mut details = None;
     let mut self_api_dir = None;
+    let mut checkpoint = None;
     let mut verify_determinism = false;
     let mut full_oracle = false;
     let mut forward_stream = false;
@@ -77,6 +80,11 @@ fn parse_args() -> Result<Args> {
             "--self-api-dir" => {
                 self_api_dir = Some(PathBuf::from(
                     args.next().context("--self-api-dir requires a value")?,
+                ))
+            }
+            "--checkpoint" => {
+                checkpoint = Some(PathBuf::from(
+                    args.next().context("--checkpoint requires a value")?,
                 ))
             }
             "--verify-determinism" => verify_determinism = true,
@@ -117,11 +125,18 @@ fn parse_args() -> Result<Args> {
         }
     }
     let rollout = rollout.context("--rollout is required (no automatic session scanning)")?;
+    if checkpoint.is_some() && (full_oracle || forward_stream) {
+        anyhow::bail!("--checkpoint cannot be combined with --full-oracle or --forward-stream");
+    }
+    if checkpoint.is_some() && verify_determinism {
+        anyhow::bail!("--checkpoint cannot be combined with --verify-determinism");
+    }
     Ok(Args {
         rollout,
         report,
         details,
         self_api_dir,
+        checkpoint,
         verify_determinism,
         full_oracle,
         forward_stream,
@@ -140,6 +155,7 @@ fn print_usage() {
          --report   write report plus .projection.json and .official.json sidecars\n  \
          --details  write retained full tool details as JSONL\n  \
          --self-api-dir  call the demo's in-process JSON API and persist request/response files\n  \
+         --checkpoint  persist reducer state and resume from appended JSONL records\n  \
          --verify-determinism  run the projection twice and compare deterministic payloads\n  \
          --full-oracle  use the legacy all-records-in-memory reader and build the official comparison\n  \
          --forward-stream  use the bounded forward reader instead of tail-first/backfill\n  \
@@ -171,10 +187,24 @@ struct RunOutputs {
     tail_segment_start: Option<u64>,
     tail_segment_end: Option<u64>,
     backfill_segments: u64,
+    checkpoint: CheckpointRunInfo,
+}
+
+#[derive(Debug, Clone, Default)]
+struct CheckpointRunInfo {
+    path: Option<String>,
+    loaded: bool,
+    source_offset: Option<u64>,
+    scanned_end_offset: Option<u64>,
+    complete_end_offset: Option<u64>,
+    pending_tail_bytes: u64,
+    source_grew_during_read: bool,
 }
 
 async fn run_once(args: &Args) -> Result<RunOutputs> {
-    if args.full_oracle {
+    if args.checkpoint.is_some() {
+        run_once_incremental_checkpoint(args).await
+    } else if args.full_oracle {
         run_once_full(args).await
     } else if args.forward_stream {
         run_once_streaming(args, "forward_streaming").await
@@ -290,6 +320,7 @@ async fn run_once_full(args: &Args) -> Result<RunOutputs> {
         tail_segment_start: None,
         tail_segment_end: None,
         backfill_segments: 0,
+        checkpoint: CheckpointRunInfo::default(),
     })
 }
 
@@ -433,6 +464,7 @@ async fn run_once_streaming(args: &Args, read_mode: &str) -> Result<RunOutputs> 
         tail_segment_start: None,
         tail_segment_end: None,
         backfill_segments: 0,
+        checkpoint: CheckpointRunInfo::default(),
     })
 }
 
@@ -595,7 +627,327 @@ async fn run_once_tail_first(args: &Args) -> Result<RunOutputs> {
         tail_segment_start: Some(tail_segment_start),
         tail_segment_end: Some(tail_segment_end),
         backfill_segments,
+        checkpoint: CheckpointRunInfo::default(),
     })
+}
+
+/// Resume a reducer from a complete-line checkpoint and consume only the
+/// append range. The first checkpointed run also emits the regular tail
+/// preview, but uses one bounded forward pass for the durable fold instead of
+/// scanning the old prefix backward and then replaying it again.
+async fn run_once_incremental_checkpoint(args: &Args) -> Result<RunOutputs> {
+    let checkpoint_path = args
+        .checkpoint
+        .as_deref()
+        .context("--checkpoint path is missing")?;
+    if checkpoint_path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("zst"))
+    {
+        anyhow::bail!("--checkpoint supports plain .jsonl rollouts only");
+    }
+    let target_session_id = target_session_id_from_rollout_path(&args.rollout)?;
+    let normalized_source = normalized_path(&args.rollout)?;
+    let details_path = checkpoint_details_path(args)?;
+    let normalized_details = normalized_path(&details_path)?;
+    let loaded_checkpoint = if checkpoint_path.exists() {
+        let checkpoint = checkpoint::load(checkpoint_path)?;
+        if checkpoint.schema != checkpoint::CHECKPOINT_SCHEMA
+            || checkpoint.schema_version != checkpoint::CHECKPOINT_VERSION
+        {
+            anyhow::bail!(
+                "unsupported checkpoint schema {} v{}",
+                checkpoint.schema,
+                checkpoint.schema_version
+            );
+        }
+        if checkpoint.conversation_id != target_session_id {
+            anyhow::bail!(
+                "checkpoint conversation {} does not match rollout target {}",
+                checkpoint.conversation_id,
+                target_session_id
+            );
+        }
+        if !same_path(Path::new(&checkpoint.source_path), &normalized_source) {
+            anyhow::bail!(
+                "checkpoint source {} does not match rollout {}",
+                checkpoint.source_path,
+                normalized_source.display()
+            );
+        }
+        if !same_path(Path::new(&checkpoint.details_path), &normalized_details) {
+            anyhow::bail!(
+                "checkpoint details {} does not match {}",
+                checkpoint.details_path,
+                normalized_details.display()
+            );
+        }
+        checkpoint::validate_source(&args.rollout, &checkpoint)?;
+        if !details_path.exists() {
+            anyhow::bail!(
+                "checkpoint detail store is missing: {}; refusing to resume",
+                details_path.display()
+            );
+        }
+        Some(checkpoint)
+    } else {
+        None
+    };
+    let loaded = loaded_checkpoint.is_some();
+
+    let mut tail_preview_json = String::new();
+    let mut tail_segment_start = None;
+    let mut tail_segment_end = None;
+    let current_size = std::fs::metadata(&args.rollout)
+        .with_context(|| format!("metadata for {}", args.rollout.display()))?
+        .len();
+    let should_refresh_tail = loaded_checkpoint.as_ref().is_none_or(|checkpoint| {
+        current_size > checkpoint.source_offset || checkpoint.pending_tail_bytes > 0
+    });
+    if should_refresh_tail {
+        if let Some(tail_read) =
+            reader::read_tail_segment(&args.rollout, args.max_input_bytes, args.segment_bytes)
+                .await?
+        {
+            tail_segment_start = Some(tail_read.segment.start_offset);
+            tail_segment_end = Some(tail_read.segment.end_offset);
+            tail_preview_json = build_tail_preview(
+                args,
+                &target_session_id,
+                &tail_read.segment,
+                &tail_read.stats,
+            )?;
+            if let Some(report_path) = &args.report {
+                write_atomic(
+                    &report_path.with_extension("tail.json"),
+                    tail_preview_json.as_bytes(),
+                )?;
+            }
+        }
+    }
+
+    let detail_store: Box<dyn detail_store::DetailStore> = if loaded {
+        Box::new(
+            JsonlDetailStore::open_existing(&details_path)
+                .with_context(|| format!("resume detail store {}", details_path.display()))?,
+        )
+    } else {
+        Box::new(
+            JsonlDetailStore::create(&details_path)
+                .with_context(|| format!("create detail store {}", details_path.display()))?,
+        )
+    };
+    let mut reducer = if let Some(checkpoint) = loaded_checkpoint.as_ref() {
+        reducer::HistoryReducer::from_checkpoint(
+            checkpoint.reducer.clone(),
+            target_session_id.clone(),
+            Some(detail_store),
+        )?
+    } else {
+        reducer::HistoryReducer::with_detail_store(
+            new_conversation(args, &target_session_id),
+            target_session_id.clone(),
+            detail_store,
+        )
+    };
+
+    let previous_progress = reducer.projection.conversation.parse_progress.clone();
+    let start_offset = loaded_checkpoint
+        .as_ref()
+        .map_or(0, |checkpoint| checkpoint.source_offset);
+    let start_source_ordinal = loaded_checkpoint
+        .as_ref()
+        .map_or(0, |checkpoint| checkpoint.source_ordinal);
+    let read_start = Instant::now();
+    let append = reader::read_append_range(
+        &args.rollout,
+        start_offset,
+        start_source_ordinal,
+        args.max_input_bytes,
+        args.segment_bytes,
+        |segment| {
+            for line in segment.lines {
+                reducer.reduce(&line);
+            }
+            Ok(())
+        },
+    )
+    .await?;
+    let read_elapsed = read_start.elapsed();
+    let source_size_after_read = std::fs::metadata(&args.rollout)
+        .with_context(|| format!("metadata after checkpoint read {}", args.rollout.display()))?
+        .len();
+    let mut read_stats = append.stats.clone();
+    read_stats.bytes = source_size_after_read;
+
+    reducer.set_read_quality(
+        read_stats.parse_errors > 0,
+        !read_stats.unmapped_types.is_empty(),
+    );
+    let snapshot_provisional = append.source_grew_during_read || append.pending_tail_bytes > 0;
+    reducer.set_parse_progress(merge_checkpoint_progress(
+        previous_progress,
+        &read_stats,
+        source_size_after_read,
+        args.max_input_bytes,
+        append.last_source_ordinal,
+        snapshot_provisional,
+    ));
+
+    // Capture the resumable state before finish() derives task_outcome and
+    // changes an in-progress turn into an incomplete display snapshot.
+    let reducer_checkpoint = reducer.checkpoint();
+    let reduce_start = Instant::now();
+    let (projection, mut details, reduce_stats) =
+        reducer.finish_with_snapshot_status(snapshot_provisional);
+    let reduce_elapsed = reduce_start.elapsed();
+    if reduce_stats.detail_store_errors > 0 {
+        anyhow::bail!(
+            "checkpoint detail store failed {} time(s)",
+            reduce_stats.detail_store_errors
+        );
+    }
+
+    let project_start = Instant::now();
+    let projection_json =
+        serde_json::to_string_pretty(&projection).context("serialize checkpoint projection")?;
+    let content_hash = projection.content_hash();
+    let snapshot_hash = projection.snapshot_hash();
+    let details_bytes = std::fs::metadata(&details_path)
+        .with_context(|| format!("metadata for details {}", details_path.display()))?
+        .len();
+    let details_fingerprint = fingerprint_file(&details_path)?;
+
+    if args.self_api_dir.is_some() {
+        details = read_details_jsonl(&details_path)
+            .with_context(|| format!("read checkpoint details {}", details_path.display()))?;
+    }
+
+    if read_stats.parse_errors == 0 || args.allow_partial {
+        let anchors = checkpoint::anchors_for_file(
+            &args.rollout,
+            append.complete_end_offset,
+            append.scanned_end_offset,
+        )?;
+        let checkpoint_document = checkpoint::IncrementalCheckpoint::new(
+            target_session_id,
+            normalized_source.display().to_string(),
+            append.scanned_end_offset,
+            append.complete_end_offset,
+            append.last_source_ordinal,
+            append.last_rollout_ordinal.or_else(|| {
+                loaded_checkpoint
+                    .as_ref()
+                    .and_then(|value| value.rollout_ordinal)
+            }),
+            reducer_checkpoint.current_timestamp.clone(),
+            normalized_details.display().to_string(),
+            append.pending_tail_bytes,
+            append.source_grew_during_read,
+            content_hash.clone(),
+            snapshot_hash.clone(),
+            reducer_checkpoint,
+            anchors,
+        );
+        let checkpoint_json =
+            serde_json::to_vec_pretty(&checkpoint_document).context("serialize checkpoint")?;
+        write_atomic(checkpoint_path, &checkpoint_json)?;
+    }
+
+    let project_elapsed = project_start.elapsed();
+    Ok(RunOutputs {
+        projection,
+        details,
+        projection_json,
+        details_json: String::new(),
+        details_bytes,
+        details_fingerprint,
+        details_persisted: true,
+        official_json: String::new(),
+        official_built: false,
+        content_hash,
+        snapshot_hash,
+        reduce_stats,
+        read_stats,
+        read_elapsed,
+        reduce_elapsed,
+        project_elapsed,
+        read_mode: if loaded {
+            "incremental_checkpoint_append".to_string()
+        } else {
+            "incremental_checkpoint_initial".to_string()
+        },
+        tail_preview_json,
+        tail_segment_start,
+        tail_segment_end,
+        backfill_segments: 0,
+        checkpoint: CheckpointRunInfo {
+            path: Some(checkpoint_path.display().to_string()),
+            loaded,
+            source_offset: Some(start_offset),
+            scanned_end_offset: Some(append.scanned_end_offset),
+            complete_end_offset: Some(append.complete_end_offset),
+            pending_tail_bytes: append.pending_tail_bytes,
+            source_grew_during_read: append.source_grew_during_read,
+        },
+    })
+}
+
+fn checkpoint_details_path(args: &Args) -> Result<PathBuf> {
+    if let Some(details) = &args.details {
+        return Ok(details.clone());
+    }
+    let checkpoint = args
+        .checkpoint
+        .as_deref()
+        .context("checkpoint path is required for derived details path")?;
+    Ok(checkpoint.with_extension("details.jsonl"))
+}
+
+fn merge_checkpoint_progress(
+    previous: Option<ParseProgressDto>,
+    current: &reader::ReadStats,
+    source_bytes: u64,
+    budget_bytes: u64,
+    last_source_ordinal: u64,
+    snapshot_provisional: bool,
+) -> ParseProgressDto {
+    let previous = previous.unwrap_or_default();
+    let mut unmapped_types = previous.unmapped_types;
+    merge_counts(&mut unmapped_types, &current.unmapped_types);
+    let status = if current.parse_errors > 0 || snapshot_provisional {
+        "partial"
+    } else if !unmapped_types.is_empty() {
+        "unsupported_schema"
+    } else {
+        "complete"
+    };
+    ParseProgressDto {
+        status: status.to_string(),
+        source_bytes,
+        decoded_bytes: previous.decoded_bytes.saturating_add(current.decoded_bytes),
+        budget_bytes,
+        line_count: previous.line_count.saturating_add(current.line_count),
+        valid_records: previous.valid_records.saturating_add(current.valid_records),
+        parse_errors: previous.parse_errors.saturating_add(current.parse_errors),
+        first_parse_error: previous
+            .first_parse_error
+            .or_else(|| current.first_parse_error.clone()),
+        last_source_ordinal: (last_source_ordinal > 0)
+            .then_some(last_source_ordinal)
+            .or(previous.last_source_ordinal),
+        unmapped_types,
+    }
+}
+
+fn merge_counts(
+    target: &mut std::collections::BTreeMap<String, u64>,
+    source: &std::collections::BTreeMap<String, u64>,
+) {
+    for (key, value) in source {
+        *target.entry(key.clone()).or_insert(0) += value;
+    }
 }
 
 fn build_tail_preview(
@@ -936,6 +1288,13 @@ fn build_demo_report(
             "source_ref/source_ordinal".to_string(),
         ],
     };
+    let details_output_path = if args.details.is_some() {
+        args.details.clone()
+    } else if args.checkpoint.is_some() {
+        Some(checkpoint_details_path(args)?)
+    } else {
+        None
+    };
     let output = report::OutputStats {
         report_path: args
             .report
@@ -944,7 +1303,7 @@ fn build_demo_report(
         projection_path: args.report.as_ref().map_or_else(String::new, |path| {
             path.with_extension("projection.json").display().to_string()
         }),
-        details_path: args.details.as_ref().map(|path| path.display().to_string()),
+        details_path: details_output_path.map(|path| path.display().to_string()),
         tail_preview_path: if run.tail_preview_json.is_empty() {
             None
         } else {
@@ -996,6 +1355,13 @@ fn build_demo_report(
             item_kinds: run.read_stats.item_kinds.clone(),
             event_payload_types: run.read_stats.event_payload_types.clone(),
             unmapped_types: run.read_stats.unmapped_types.clone(),
+            checkpoint_path: run.checkpoint.path.clone(),
+            checkpoint_loaded: run.checkpoint.loaded,
+            checkpoint_source_offset: run.checkpoint.source_offset,
+            checkpoint_scanned_end_offset: run.checkpoint.scanned_end_offset,
+            checkpoint_complete_end_offset: run.checkpoint.complete_end_offset,
+            checkpoint_pending_tail_bytes: run.checkpoint.pending_tail_bytes,
+            checkpoint_source_grew_during_read: run.checkpoint.source_grew_during_read,
         },
         reduction,
         comparison,
@@ -1022,6 +1388,20 @@ fn validate_output_paths(args: &Args) -> Result<()> {
     }
     if let Some(details) = &args.details {
         outputs.push(details.clone());
+    }
+    if args.checkpoint.is_some() {
+        let checkpoint = args
+            .checkpoint
+            .as_ref()
+            .context("checkpoint path is missing")?;
+        outputs.push(checkpoint.clone());
+        let checkpoint_details = checkpoint_details_path(args)?;
+        if !outputs
+            .iter()
+            .any(|path| same_path(path, &checkpoint_details))
+        {
+            outputs.push(checkpoint_details);
+        }
     }
     let mut normalized_outputs = Vec::new();
     for output in outputs {

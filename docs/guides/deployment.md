@@ -2,9 +2,9 @@
 title: 部署指南
 status: active
 owner: @maintainer
-last_updated: 2026-05-14
+last_updated: 2026-08-18
 source_of_truth: ops
-related_code: [src/server.js, ecosystem.config.js, scripts/install, scripts/certs, scripts/release]
+related_code: [src/server.js, scripts/release/windows-release.js, tools/windows, scripts/install/linux, scripts/certs]
 related_docs: [README.md, README.zh-CN.md, docs/ops/ops-checklist.md]
 ---
 
@@ -12,19 +12,20 @@ related_docs: [README.md, README.zh-CN.md, docs/ops/ops-checklist.md]
 
 ## 正式 release 路径概览
 
-本任务当前的正式交付路径是：
+当前正式交付路径按平台分别为：
 
 1. 在源码仓库执行 `npm run release:build`
-2. 取用 `dist/release-layout/termlink-win-v1.0.0` 或 `dist/release-layout/termlink-linux-v1.0.0`
-3. 复制并编辑 `scripts/install/termlink-install.config.example.json`
-4. 按目标平台运行 `scripts/install/windows/**` 或 `scripts/install/linux/**`
-5. 按所选 TLS / mTLS 模式补齐证书材料与健康检查
+2. Windows 使用 `dist/windows-release/artifacts/` 下的自包含 Setup EXE 或 Portable ZIP
+3. Linux 使用 `dist/release-layout/termlink-linux-v1.0.0` 及其 `systemd` 安装入口
+4. 按所选 TLS / mTLS 模式补齐证书材料与健康检查
+
+Windows 的新发布路径不依赖目标机预装的 Node.js、npm 或 PM2；配置和服务控制通过随包提供的 CLI/WinForms 配置工具完成。
 
 ## 平台支持矩阵
 
 | 目标 | 安装入口 | 自启支持 | 状态 |
 |------|----------|----------|------|
-| Windows | `powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\install-service.ps1 -ConfigPath .\termlink-install.config.json` | 支持 | 正式 release 路径 |
+| Windows | `TermLink-Setup-win-x64-v*.exe` 或 Portable ZIP 内的 `TermLink-Config.cmd` | 支持 | 自包含 Node runtime + 配置窗口 |
 | Linux（`systemd`） | `bash ./scripts/install/linux/install-service.sh --config ./termlink-install.config.json` | 支持 | 正式 release 路径 |
 | Linux（无 `systemd`） | `bash ./scripts/install/linux/start.sh --foreground --config ./termlink-install.config.json` | 不支持 | 明确的手动 fallback |
 
@@ -39,18 +40,21 @@ npm run release:build
 
 产物目录：
 
-- `dist/release-layout/termlink-win-v1.0.0`
+- `dist/windows-release/artifacts/TermLink-Setup-win-x64-v<version>.exe`
+- `dist/windows-release/artifacts/TermLink-Portable-win-x64-v<version>.zip`
 - `dist/release-layout/termlink-linux-v1.0.0`
 
-每个平台目录都包含：
+Windows 产物包含 `runtime/node.exe`、`app/`、生产依赖和 `tools/windows/`；Linux 产物包含：
 
 - `release-manifest.json`
 - `release-contents.txt`
-- `scripts/install/**`
+- `scripts/install/linux/**`
 - `scripts/certs/**`
 - `scripts/install/termlink-install.config.example.json`
 
 ## 安装配置文件
+
+Linux 安装器使用下面的配置文件；Windows 新发布路径使用配置窗口生成的 `persistent/config/termlink.json`，不需要复制该文件。
 
 复制并编辑：
 
@@ -71,7 +75,7 @@ cp ./scripts/install/termlink-install.config.example.json ./termlink-install.con
 | 字段 | 允许值 | 作用 |
 |------|--------|------|
 | `installDir` | 空字符串或绝对路径 | 覆盖安装根目录 |
-| `serviceName` | 字母、数字、`.`、`_`、`@`、`-` | 服务 / pm2 / systemd 名称 |
+| `serviceName` | 字母、数字、`.`、`_`、`@`、`-` | Linux systemd 服务名称 |
 | `autoStart` | `true` / `false` | 安装时是否启用自启 |
 | `port` | 整数 | 服务端口 |
 | `auth.enabled` | `true` / `false` | BasicAuth 开关 |
@@ -83,39 +87,49 @@ cp ./scripts/install/termlink-install.config.example.json ./termlink-install.con
 
 生产环境不要继续使用默认 `auth.user=admin` / `auth.pass=admin`。
 
-## Windows release 安装
+## Windows release 安装（当前正式路径）
 
-安装：
+构建 Windows 产物：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\install-service.ps1 -ConfigPath .\termlink-install.config.json
+npm run release:build:win
 ```
 
-健康检查：
+生成的文件位于 `dist/windows-release/artifacts/`：
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\test-health.ps1 -ConfigPath .\termlink-install.config.json
+```text
+TermLink-Setup-win-x64-v<version>.exe
+TermLink-Portable-win-x64-v<version>.zip
 ```
 
-安装后开启 / 关闭自启：
+运行 Setup 安装，或解压 Portable ZIP 后使用：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\enable-autostart.ps1 -ConfigPath .\termlink-install.config.json
-powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\disable-autostart.ps1 -ConfigPath .\termlink-install.config.json
+.\TermLink-Config.cmd
+.\Start-TermLink.cmd
+.\Stop-TermLink.cmd
+.\TermLink-CLI.cmd status
 ```
 
-卸载：
+配置窗口负责端口、认证、服务启停、健康检查、自启动和 mTLS 操作。配置文件和运行时数据位于：
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\uninstall-service.ps1 -ConfigPath .\termlink-install.config.json
+```text
+persistent/config/termlink.json
+persistent/runtime/.env
+persistent/data/
+persistent/logs/
+persistent/run/termlink.pid.json
 ```
 
 Windows 路径的要点：
 
-- 保持 `ecosystem.config.js` 的 `fork` 基线
-- 缺少 `pm2` 时会自动全局安装
-- `autoStart=true` 时通过计划任务启用自启
-- 安装摘要会输出 Health URL、日志命令和 direct-server mTLS 产物位置
+- 服务由 `runtime/node.exe app/src/server.js` 直接运行；
+- 目标机不需要预装 Node.js、npm 或 PM2；
+- 配置窗口使用当前用户计划任务自启动，失败时使用当前用户 Run 注册表回退；
+- `history-worker` 等后续本地 worker 由 Node 作为子进程管理，不单独注册系统服务；
+- 安装摘要和配置窗口会输出 Health URL、日志位置和 direct-server mTLS 产物位置。
+
+`scripts/install/windows/**`、`ecosystem.config.js` 和 `scripts/install/HOST_VALIDATION_GUIDE.md` 保留为旧 PM2 兼容/历史验证路径，不作为新 Windows release 或 Rust history worker 的集成基线。
 
 ## Linux release 安装
 
@@ -250,5 +264,6 @@ proxy_set_header X-TermLink-Proxy-Tls-Secret <same-random-secret>;
 ## 其他路径说明
 
 - `setup-service.sh` 仍保留为 Linux 兼容入口，但正式文档以 `scripts/install/linux/**` 为准。
+- Windows 旧 PM2 路径仍保留用于兼容和历史验证；新部署不得再以 PM2 作为前置依赖。
 - Docker / `docker-compose.yml` 不是本轮 release-readiness 的正式验证路径。
 

@@ -59,6 +59,20 @@ pub struct InputStats {
     pub item_kinds: BTreeMap<String, u64>,
     pub event_payload_types: BTreeMap<String, u64>,
     pub unmapped_types: BTreeMap<String, u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checkpoint_path: Option<String>,
+    #[serde(default)]
+    pub checkpoint_loaded: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checkpoint_source_offset: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checkpoint_scanned_end_offset: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub checkpoint_complete_end_offset: Option<u64>,
+    #[serde(default)]
+    pub checkpoint_pending_tail_bytes: u64,
+    #[serde(default)]
+    pub checkpoint_source_grew_during_read: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -296,6 +310,13 @@ mod tests {
                 item_kinds: BTreeMap::new(),
                 event_payload_types: BTreeMap::new(),
                 unmapped_types: BTreeMap::new(),
+                checkpoint_path: None,
+                checkpoint_loaded: false,
+                checkpoint_source_offset: None,
+                checkpoint_scanned_end_offset: None,
+                checkpoint_complete_end_offset: None,
+                checkpoint_pending_tail_bytes: 0,
+                checkpoint_source_grew_during_read: false,
             },
             ReductionStats {
                 conversations: 1,

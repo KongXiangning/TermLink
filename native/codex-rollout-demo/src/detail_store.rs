@@ -94,6 +94,27 @@ impl JsonlDetailStore {
         })
     }
 
+    /// Resume an existing finalized detail file. The new journal lets the
+    /// reducer apply replacements/removals without keeping detail bodies in
+    /// memory; finalization atomically rewrites the compact latest-only file.
+    pub fn open_existing(output_path: &Path) -> io::Result<Self> {
+        if !output_path.exists() {
+            return Self::create(output_path);
+        }
+        let mut store = Self::create(output_path)?;
+        let file = File::open(output_path)?;
+        let reader = BufReader::new(file);
+        for line in reader.lines() {
+            let line = line?;
+            if line.trim().is_empty() {
+                continue;
+            }
+            let detail: DetailPayloadDto = serde_json::from_str(&line).map_err(json_error_to_io)?;
+            store.upsert(&detail)?;
+        }
+        Ok(store)
+    }
+
     fn read_indexed(&mut self, index: DetailIndex) -> io::Result<DetailPayloadDto> {
         self.journal.seek(SeekFrom::Start(index.offset))?;
         let mut bytes = vec![0_u8; index.length as usize];

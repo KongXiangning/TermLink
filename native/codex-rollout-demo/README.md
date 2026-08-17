@@ -22,12 +22,15 @@ cargo test
 ```text
   codex-rollout-demo.exe \
   --rollout <rollout-jsonl-path> \
-  [--report <base-path>] [--details <details-jsonl-path>] [--self-api-dir <directory>] [--verify-determinism] [--allow-partial]
+  [--report <base-path>] [--details <details-jsonl-path>] [--checkpoint <checkpoint-json-path>] [--self-api-dir <directory>] [--verify-determinism] [--allow-partial]
 ```
 
 - `--rollout` 必填；默认 70 MiB 输入上限；不自动扫描最新会话。对于明确需要处理的大 rollout，可显式传入 `--max-input-mib 256` 等更高预算；不改变默认 fail-closed 行为。
 - `--report` 写入指定报告文件，并在同目录生成把最后扩展名替换为 `.projection.json` / `.official.json` 的两个 sidecar。
 - `--details` 输出按 retention policy 筛选后仍需保留的完整工具详情 JSONL（不进终端）；读取/搜索类成功调用不会写入详情。
+- `--checkpoint` 启用增量采集：首次运行保存 reducer 状态、最后完整 JSONL 行的字节偏移、源文件锚点和详情文件位置；后续运行只读取该偏移之后的新增记录。未指定 `--details` 时，详情写入同名的 `.details.jsonl`。
+- 增量读取以开始时的文件长度为本次快照边界；文件在读取期间继续增长时，只提交边界前的完整换行记录，checkpoint 保留在最后完整行，报告标记 `checkpointSourceGrewDuringRead` 或 `checkpointPendingTailBytes`，下次继续读取。
+- checkpoint 会拒绝源文件截断、旧前缀锚点变化、会话 ID 或详情路径不匹配；普通 `.jsonl` 支持增量恢复，`.zst` 暂不支持字节级 checkpoint。
 - `--self-api-dir` 在 demo 内调用 API 形状的 JSON 接口，并把请求、响应、详情和校验报告写入指定目录；不连接 TermLink 服务端。
 - `--verify-determinism` 双跑校验 projection/details/official/content hash 一致，运行耗时不参与比较。
 - 默认解析有缺口时失败；`--allow-partial` 只用于明确接受不完整导入的场景。
@@ -40,6 +43,7 @@ cargo test
 - 用户附件、文件变更、图片/生成产物、Web 搜索结果和审批请求/实际结果使用结构化 DTO；旧 v2/v3/v4 快照中的缺失新增字段按默认值读取。
 - `taskOutcome` 包含 `provisional` 和从最终 turn 复制的 `finalMetrics`；活动或有解析缺口的 rollout 会标记 `partialRollout`，不能当作最终结论展示。
 - 每个 item 有确定性 `contentHash`；报告含 content/snapshot hash、统计、耗时与峰值内存。
+- 增量报告的 `input` 会记录 `checkpointSourceOffset`、`checkpointCompleteEndOffset`、新增读取量和源文件增长状态；`contentHash` 可与整文件正序重放结果对照。
 - 工具详情按价值分层：构建、测试、Lint、部署、失败诊断、文件变更和最终验证保留详情；成功读取/搜索/普通检查只保留命令摘要、输出大小/hash、文件/行号和关键错误摘要。等价的 `result` 与 `canonicalOutput` 去重。
 - `exec` 的 JavaScript 包装只用于解析，历史中保存提取出的真实 shell 命令；无法安全提取时不保存包装源码。`wait`/轮询不进入历史，最终结果合并到原始长任务。
 - 大段 stdout/stderr/result 不进入历史正文，由 `detailRef` 指向独立 JSONL；正文保留命令、参数、cwd、状态、退出码、耗时、输出大小/hash 和审批信息。

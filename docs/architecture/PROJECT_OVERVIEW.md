@@ -203,7 +203,10 @@ TermLink/
 ├── capacitor.config.json         # Capacitor 配置
 ├── Dockerfile                    # Docker 部署
 ├── docker-compose.yml            # Docker Compose
-└── ecosystem.config.js           # PM2 配置
+├── scripts/release/
+│   └── windows-release.js        # Windows 自包含 runtime/Setup 构建
+├── tools/windows/                # Windows CLI、配置窗口与服务控制
+└── ecosystem.config.js           # 旧 PM2 兼容路径，不是当前 Windows release 基线
 ```
 
 ---

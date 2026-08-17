@@ -17,8 +17,10 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Read;
 
+use anyhow::Result;
 use codex_protocol::models::{self, ContentItem, ResponseItem};
 use codex_protocol::protocol::{EventMsg, RolloutItem};
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::Digest;
 
@@ -34,7 +36,7 @@ use crate::reader::ParsedRolloutLine;
 
 pub type KindCounts = BTreeMap<String, u64>;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ReduceStats {
     pub dropped_total: u64,
     pub dropped_by_kind: BTreeMap<String, u64>,
@@ -63,8 +65,8 @@ pub struct ReduceStats {
     pub plan_actions_seen: u64,
 }
 
-#[derive(Debug, Clone)]
-struct PendingTool {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PendingTool {
     turn_id: String,
     item_key: String,
     detail_ref: Option<String>,
@@ -72,8 +74,8 @@ struct PendingTool {
     wait_cell_id: Option<String>,
 }
 
-#[derive(Debug, Clone)]
-struct PendingQuestion {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PendingQuestion {
     turn_id: String,
     item_keys: Vec<String>,
 }
@@ -107,6 +109,39 @@ pub struct HistoryReducer {
     current_plan_state: Option<String>,
     plan_version: u64,
     last_plan_item_key: Option<String>,
+}
+
+/// Serializable reducer state used by the append-only rollout checkpoint.
+///
+/// The detail bodies are normally outside this object in the JSONL detail
+/// store. They are retained here only for callers that use a reducer without
+/// an external detail store.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReducerCheckpoint {
+    pub projection: HistoryProjection,
+    #[serde(default)]
+    pub details: Vec<DetailPayloadDto>,
+    pub stats: ReduceStats,
+    pub pending_tools: BTreeMap<String, PendingTool>,
+    pub pending_questions: BTreeMap<String, PendingQuestion>,
+    pub pending_approvals: BTreeMap<String, ApprovalDto>,
+    pub detail_sizes: BTreeMap<String, u64>,
+    pub running_cells: BTreeMap<String, String>,
+    pub settings_hashes: Vec<String>,
+    pub latest_total_usage: Option<UsageDto>,
+    pub current_turn_id: Option<String>,
+    pub target_metadata_seen: bool,
+    pub partial_rollout: bool,
+    pub unsupported_schema: bool,
+    pub history_start_ordinal: Option<u64>,
+    pub current_source_ordinal: u64,
+    pub current_rollout_ordinal: Option<u64>,
+    pub current_timestamp: Option<String>,
+    pub next_turn_sequence: u64,
+    pub next_detail_sequence: u64,
+    pub current_plan_state: Option<String>,
+    pub plan_version: u64,
+    pub last_plan_item_key: Option<String>,
 }
 
 impl HistoryReducer {
@@ -170,6 +205,117 @@ impl HistoryReducer {
         let mut reducer = Self::new(conversation, target_session_id);
         reducer.detail_store = Some(detail_store);
         reducer
+    }
+
+    /// Capture the fold state before `finish()` adds the derived task outcome
+    /// and marks an active turn incomplete. This is the durable resume point.
+    pub fn checkpoint(&self) -> ReducerCheckpoint {
+        let mut settings_hashes = self.settings_hashes.iter().cloned().collect::<Vec<_>>();
+        settings_hashes.sort();
+        ReducerCheckpoint {
+            projection: self.projection.clone(),
+            details: if self.detail_store.is_some() {
+                Vec::new()
+            } else {
+                self.details.clone()
+            },
+            stats: self.stats.clone(),
+            pending_tools: self
+                .pending_tools
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect(),
+            pending_questions: self
+                .pending_questions
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect(),
+            pending_approvals: self
+                .pending_approvals
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect(),
+            detail_sizes: self
+                .detail_sizes
+                .iter()
+                .map(|(key, value)| (key.clone(), *value))
+                .collect(),
+            running_cells: self
+                .running_cells
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect(),
+            settings_hashes,
+            latest_total_usage: self.latest_total_usage.clone(),
+            current_turn_id: self.current_turn_id.clone(),
+            target_metadata_seen: self.target_metadata_seen,
+            partial_rollout: self.partial_rollout,
+            unsupported_schema: self.unsupported_schema,
+            history_start_ordinal: self.history_start_ordinal,
+            current_source_ordinal: self.current_source_ordinal,
+            current_rollout_ordinal: self.current_rollout_ordinal,
+            current_timestamp: self.current_timestamp.clone(),
+            next_turn_sequence: self.next_turn_sequence,
+            next_detail_sequence: self.next_detail_sequence,
+            current_plan_state: self.current_plan_state.clone(),
+            plan_version: self.plan_version,
+            last_plan_item_key: self.last_plan_item_key.clone(),
+        }
+    }
+
+    /// Restore a reducer at the last complete JSONL record.
+    pub fn from_checkpoint(
+        checkpoint: ReducerCheckpoint,
+        target_session_id: String,
+        detail_store: Option<Box<dyn DetailStore>>,
+    ) -> Result<Self> {
+        let target_session_id = target_session_id.trim().to_string();
+        if target_session_id.is_empty() {
+            anyhow::bail!("HistoryReducer checkpoint restore requires a target session id");
+        }
+        if checkpoint.projection.conversation.conversation_id != target_session_id {
+            anyhow::bail!(
+                "checkpoint conversation {} does not match target {}",
+                checkpoint.projection.conversation.conversation_id,
+                target_session_id
+            );
+        }
+        if checkpoint.projection.task_outcome.is_some() {
+            anyhow::bail!("checkpoint contains a derived task outcome; refusing to resume it");
+        }
+        let pending_tools = checkpoint.pending_tools.into_iter().collect();
+        let pending_questions = checkpoint.pending_questions.into_iter().collect();
+        let pending_approvals = checkpoint.pending_approvals.into_iter().collect();
+        let detail_sizes = checkpoint.detail_sizes.into_iter().collect();
+        let running_cells = checkpoint.running_cells.into_iter().collect();
+        let settings_hashes = checkpoint.settings_hashes.into_iter().collect();
+        Ok(Self {
+            projection: checkpoint.projection,
+            details: checkpoint.details,
+            stats: checkpoint.stats,
+            pending_tools,
+            pending_questions,
+            pending_approvals,
+            detail_store,
+            detail_sizes,
+            running_cells,
+            settings_hashes,
+            latest_total_usage: checkpoint.latest_total_usage,
+            current_turn_id: checkpoint.current_turn_id,
+            target_session_id,
+            target_metadata_seen: checkpoint.target_metadata_seen,
+            partial_rollout: checkpoint.partial_rollout,
+            unsupported_schema: checkpoint.unsupported_schema,
+            history_start_ordinal: checkpoint.history_start_ordinal,
+            current_source_ordinal: checkpoint.current_source_ordinal,
+            current_rollout_ordinal: checkpoint.current_rollout_ordinal,
+            current_timestamp: checkpoint.current_timestamp,
+            next_turn_sequence: checkpoint.next_turn_sequence,
+            next_detail_sequence: checkpoint.next_detail_sequence,
+            current_plan_state: checkpoint.current_plan_state,
+            plan_version: checkpoint.plan_version,
+            last_plan_item_key: checkpoint.last_plan_item_key,
+        })
     }
 
     /// Pass reader-level quality information into the projection. A parse gap
@@ -252,7 +398,18 @@ impl HistoryReducer {
         }
     }
 
-    pub fn finish(mut self) -> (HistoryProjection, Vec<DetailPayloadDto>, ReduceStats) {
+    pub fn finish(self) -> (HistoryProjection, Vec<DetailPayloadDto>, ReduceStats) {
+        self.finish_with_snapshot_status(false)
+    }
+
+    /// Finish a projection and optionally mark this snapshot provisional
+    /// because the source grew or ended with an incomplete record while it was
+    /// being read. The flag is intentionally not written into reducer state,
+    /// so a later checkpoint can become complete after the next append.
+    pub fn finish_with_snapshot_status(
+        mut self,
+        snapshot_provisional: bool,
+    ) -> (HistoryProjection, Vec<DetailPayloadDto>, ReduceStats) {
         for turn in &mut self.projection.turns {
             if turn.status == "in_progress" {
                 turn.status = "incomplete".to_string();
@@ -273,7 +430,16 @@ impl HistoryReducer {
             .count() as u64;
         self.stats.unresolved_questions = self.pending_questions.len() as u64;
         self.aggregate_session_usage();
-        let task_outcome = self.build_task_outcome();
+        let mut task_outcome = self.build_task_outcome();
+        if snapshot_provisional {
+            task_outcome.provisional = true;
+            task_outcome.availability = "partial_rollout".to_string();
+            self.projection.conversation.availability = Some("partial_rollout".to_string());
+            self.projection.field_availability.insert(
+                "rollout.snapshot".to_string(),
+                AvailabilityStatus::PartialRollout,
+            );
+        }
         self.projection.task_outcome = Some(task_outcome.clone());
         self.add_task_outcome_item(&task_outcome);
 

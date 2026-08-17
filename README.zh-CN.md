@@ -78,10 +78,10 @@ Workspace 通过独立 `WorkspaceActivity` 承载，面向 Codex 会话提供固
 - Node.js 18+
 - npm
 - OpenSSL（direct-server 或 nginx-side mTLS 产物生成时需要）
-- Windows release 安装：PowerShell 5.1+（启用 auto-start 或 elevated 时需管理员 PowerShell）
+- Windows release 安装：使用自包含 Setup EXE 或 Portable ZIP，目标机不需要预装 Node.js、npm 或 PM2
 - Linux release 安装：`bash`、`sudo`，以及用于正式自启路径的 `systemd`
 
-Docker 仍可用于开发或其他运维场景，但**不是**本轮 Windows 正式 release 路径。Windows 安装器继续沿用 `pm2` `fork` 基线，以保持 `node-pty` 的原生 ConPTY 能力。
+Docker 仍可用于开发或其他运维场景，但**不是**当前 Windows 正式 release 路径。当前 Windows release 内置 `runtime/node.exe`、生产依赖和 WinForms 配置工具，直接启动服务，不依赖 PM2。
 
 ### 1. 从源码构建 release 产物
 
@@ -94,16 +94,17 @@ npm run release:build
 
 当前会生成：
 
-- `dist/release-layout/termlink-win-v1.0.0`
+- `dist/windows-release/artifacts/TermLink-Setup-win-x64-v<version>.exe`
+- `dist/windows-release/artifacts/TermLink-Portable-win-x64-v<version>.zip`
 - `dist/release-layout/termlink-linux-v1.0.0`
 
-每个平台目录下都包含 `release-manifest.json`、`release-contents.txt`，以及正式安装入口 `scripts/install/**` 与证书工具 `scripts/certs/**`。
+Windows 产物包含 `runtime/node.exe`、`app/`、生产 `node_modules` 和 `tools/windows/`；Linux 产物包含 `systemd` 安装入口和共享证书工具。
 
 ### 2. 平台支持矩阵
 
 | 目标 | 安装入口 | 自启状态 | 说明 |
 | --- | --- | --- | --- |
-| Windows | `powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\install-service.ps1 -ConfigPath .\termlink-install.config.json` | 正式支持 | 保持既有 `pm2` `fork` 基线 |
+| Windows | `TermLink-Setup-win-x64-v<version>.exe` 或 Portable ZIP | 正式支持 | 自包含 Node runtime 和配置窗口，不需要 PM2 |
 | Debian/Ubuntu（`systemd`，`amd64`/`arm64`） | `./install.sh` | 正式支持 | 交互安装、自动依赖与 systemd 服务 |
 | 其他 Linux 或无 `systemd` 环境 | — | 不支持 | Release 安装器会明确报出兼容性错误 |
 
@@ -129,7 +130,7 @@ cp ./scripts/install/termlink-install.config.example.json ./termlink-install.con
 | --- | --- | --- |
 | `installDir` / `configDir` / `dataDir` | 绝对路径 | 应用、配置和持久数据根目录 |
 | `runUser` | 已存在的本地用户 | systemd 服务身份，默认使用安装发起用户 |
-| `serviceName` | 字母、数字、`.`、`_`、`@`、`-` | 服务 / pm2 名称 |
+| `serviceName` | 字母、数字、`.`、`_`、`@`、`-` | Linux systemd 服务名称 |
 | `autoStart` | `true` / `false` | 安装时是否启用自启 |
 | `port` | 整数 | 服务端口 |
 | `auth.enabled` | `true` / `false` | BasicAuth 开关 |
@@ -145,39 +146,41 @@ cp ./scripts/install/termlink-install.config.example.json ./termlink-install.con
 
 ### 4. Windows release 安装生命周期
 
-从 GitHub Releases 下载 `termlink-linux-v*.tar.gz` 和 `SHA256SUMS`，校验并解压后执行：
+使用下面的命令构建 Windows 产物：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\install-service.ps1 -ConfigPath .\termlink-install.config.json
+npm run release:build:win
 ```
 
-健康检查：
+运行 `TermLink-Setup-win-x64-v<version>.exe`，或解压 Portable ZIP。安装包提供：
+
+```text
+runtime/node.exe
+app/src/server.js
+app/node_modules/
+tools/windows/
+persistent/
+```
+
+在安装根目录使用：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\test-health.ps1 -ConfigPath .\termlink-install.config.json
+.\TermLink-Config.cmd
+.\Start-TermLink.cmd
+.\Stop-TermLink.cmd
+.\TermLink-CLI.cmd status
 ```
 
-安装后单独开启 / 关闭自启：
+配置窗口负责端口、认证、服务启停、健康检查、自启动和 mTLS。运行时配置与数据都在 `persistent/` 下，包括 `persistent/config/termlink.json` 和 `persistent/runtime/.env`。
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\enable-autostart.ps1 -ConfigPath .\termlink-install.config.json
-powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\disable-autostart.ps1 -ConfigPath .\termlink-install.config.json
-```
+当前 Windows runtime：
 
-卸载：
+- 直接运行 `runtime/node.exe app/src/server.js`；
+- 目标机不需要 Node.js、npm 或 PM2；
+- 使用当前用户计划任务自启动，失败时回退到当前用户 Run 注册表；
+- 未来 Rust history worker 由 Node 作为子进程管理，不单独注册 PM2 或 Windows 服务。
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\uninstall-service.ps1 -ConfigPath .\termlink-install.config.json
-```
-
-Windows 安装器会：
-
-- 根据 JSON 安装配置写出 `.env`
-- 保持 `ecosystem.config.js` 的 `fork` 模式
-- 在缺少 `pm2` 时自动全局安装
-- 仅在 `autoStart=true` 时配置计划任务自启
-- 执行健康检查并输出 Health URL
-- 在 direct-server mTLS 模式下输出 server cert、client import、P12 password 路径
+旧的 `scripts/install/windows/**`、`ecosystem.config.js` 和 `scripts/install/HOST_VALIDATION_GUIDE.md` 仅保留用于兼容与历史验证，不作为新 Windows release 或 Rust history worker 的实现基线。
 
 ### 5. Linux release 安装生命周期
 

@@ -19,10 +19,10 @@ TermLink is a mobile-first AI terminal workspace. It combines remote terminal ac
 - Node.js 18+
 - npm
 - OpenSSL when generating direct-server or nginx-side mTLS materials
-- Windows release install: PowerShell 5.1+ (Administrator PowerShell only when you enable auto-start or elevated mode)
+- Windows release install: use the self-contained Setup EXE or Portable ZIP; the target machine does not need Node.js, npm, or PM2
 - Linux release install: `bash`, `sudo`, and `systemd` for the supported auto-start path
 
-Docker is still available for developer workflows, but it is **not** the formal Windows release path. The Windows installer keeps the existing `pm2` `fork` baseline because `node-pty` needs native Windows ConPTY access.
+Docker is still available for developer workflows, but it is **not** the formal Windows release path. The current Windows release embeds `runtime/node.exe`, production dependencies, and the WinForms configuration tool; it starts the server directly and does not require PM2.
 
 ### 1. Build release artifacts from source
 
@@ -35,16 +35,17 @@ npm run release:build
 
 This generates:
 
-- `dist/release-layout/termlink-win-v1.0.0`
+- `dist/windows-release/artifacts/TermLink-Setup-win-x64-v<version>.exe`
+- `dist/windows-release/artifacts/TermLink-Portable-win-x64-v<version>.zip`
 - `dist/release-layout/termlink-linux-v1.0.0`
 
-Each layout includes `release-manifest.json` and `release-contents.txt`, plus the formal installer and certificate-tool entrypoints under `scripts/install/**` and `scripts/certs/**`.
+The Windows artifacts contain `runtime/node.exe`, `app/`, production `node_modules`, and `tools/windows/`. The Linux layout contains the `systemd` installer and shared certificate tooling.
 
 ### 2. Supported release-install paths
 
 | Target | Install entry | Auto-start status | Notes |
 | --- | --- | --- | --- |
-| Windows | `powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\install-service.ps1 -ConfigPath .\termlink-install.config.json` | Supported | Keeps the existing `pm2` `fork` baseline |
+| Windows | `TermLink-Setup-win-x64-v<version>.exe` or Portable ZIP | Supported | Self-contained Node runtime and configuration window; PM2 is not required |
 | Debian/Ubuntu with `systemd` (`amd64`/`arm64`) | `./install.sh` | Supported | Interactive installer, dependency bootstrap, and systemd service |
 | Other Linux or non-systemd hosts | — | Unsupported | The Release installer stops with a compatibility error |
 
@@ -70,7 +71,7 @@ Key fields:
 | --- | --- | --- |
 | `installDir` / `configDir` / `dataDir` | absolute paths | Application, configuration, and persistent-data roots |
 | `runUser` | existing local user | systemd service identity; defaults to the invoking user |
-| `serviceName` | letters, numbers, `.`, `_`, `@`, `-` | Service / pm2 name |
+| `serviceName` | letters, numbers, `.`, `_`, `@`, `-` | Linux systemd service name |
 | `autoStart` | `true` / `false` | Enables or disables auto-start during install |
 | `port` | integer | Server port |
 | `auth.enabled` | `true` / `false` | BasicAuth gate |
@@ -86,39 +87,41 @@ Keep `AUTH_USER` / `AUTH_PASS` off their defaults before exposing the service be
 
 ### 4. Windows release install lifecycle
 
-Download `termlink-linux-v*.tar.gz` and `SHA256SUMS` from GitHub Releases, verify and extract the archive, then run:
+Build the Windows artifacts with:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\install-service.ps1 -ConfigPath .\termlink-install.config.json
+npm run release:build:win
 ```
 
-Health check:
+Run `TermLink-Setup-win-x64-v<version>.exe`, or extract the Portable ZIP. The package provides:
+
+```text
+runtime/node.exe
+app/src/server.js
+app/node_modules/
+tools/windows/
+persistent/
+```
+
+From the install root, use:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\test-health.ps1 -ConfigPath .\termlink-install.config.json
+.\TermLink-Config.cmd
+.\Start-TermLink.cmd
+.\Stop-TermLink.cmd
+.\TermLink-CLI.cmd status
 ```
 
-Enable / disable auto-start after install:
+The configuration window manages port, authentication, service lifecycle, health checks, auto-start, and mTLS. Runtime configuration and data are stored under `persistent/`, including `persistent/config/termlink.json` and `persistent/runtime/.env`.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\enable-autostart.ps1 -ConfigPath .\termlink-install.config.json
-powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\disable-autostart.ps1 -ConfigPath .\termlink-install.config.json
-```
+The current Windows runtime:
 
-Uninstall:
+- starts `runtime/node.exe app/src/server.js` directly;
+- does not require Node.js, npm, or PM2 on the target machine;
+- uses a current-user scheduled task for auto-start, with a current-user Run registry fallback;
+- will run the future Rust history worker as a Node-owned child process rather than as a separate PM2 or Windows service entry.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install\windows\uninstall-service.ps1 -ConfigPath .\termlink-install.config.json
-```
-
-The Windows installer:
-
-- writes `.env` from the JSON install config
-- keeps `ecosystem.config.js` in `fork` mode
-- installs `pm2` globally if needed
-- enables scheduled-task auto-start only when `autoStart=true`
-- runs the installer health check and prints the health URL
-- prints direct-server mTLS artifact locations when that mode is enabled
+The older `scripts/install/windows/**`, `ecosystem.config.js`, and `scripts/install/HOST_VALIDATION_GUIDE.md` path remains available for compatibility and historical validation only. It is not the baseline for new Windows releases or Rust history-worker integration.
 
 ### 5. Linux release install lifecycle
 

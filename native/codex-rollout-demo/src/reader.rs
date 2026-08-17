@@ -49,6 +49,23 @@ pub struct TailSegment {
     pub stats: ReadStats,
 }
 
+/// Result of reading the append-only portion of a plain JSONL rollout.
+///
+/// The reader takes a file-size snapshot at the beginning and never reads
+/// beyond that snapshot. A final unterminated line is deliberately left out:
+/// Codex may still be writing it, so the next invocation must retry it from
+/// `complete_end_offset`.
+#[derive(Debug, Clone, Default)]
+pub struct AppendReadResult {
+    pub stats: ReadStats,
+    pub scanned_end_offset: u64,
+    pub complete_end_offset: u64,
+    pub pending_tail_bytes: u64,
+    pub last_source_ordinal: u64,
+    pub last_rollout_ordinal: Option<u64>,
+    pub source_grew_during_read: bool,
+}
+
 impl ParsedRolloutLine {
     pub fn effective_ordinal(&self) -> u64 {
         self.rollout_ordinal.unwrap_or(self.source_ordinal)
@@ -389,6 +406,167 @@ where
         &mut segment_lines,
     )?;
     Ok(stats)
+}
+
+/// Read only the append range after a durable checkpoint.
+///
+/// This path is intentionally byte-bounded rather than using a buffered
+/// `read_line`: a rollout can grow while it is being read, and a buffered
+/// reader could otherwise consume bytes appended after the initial snapshot.
+/// Only newline-terminated JSONL records are emitted. The last unterminated
+/// record remains pending and is retried on the next invocation.
+pub async fn read_append_range<F>(
+    path: &Path,
+    start_offset: u64,
+    start_source_ordinal: u64,
+    max_decoded_bytes: u64,
+    segment_bytes: u64,
+    mut visit: F,
+) -> Result<AppendReadResult>
+where
+    F: FnMut(ParsedRolloutSegment) -> Result<()>,
+{
+    let metadata = validate_source(path, max_decoded_bytes)?;
+    if is_compressed_rollout(path) {
+        anyhow::bail!("incremental checkpoint requires a plain JSONL rollout")
+    }
+    if segment_bytes == 0 {
+        anyhow::bail!("append segment size must be greater than zero");
+    }
+    let snapshot_end = metadata.len();
+    if start_offset > snapshot_end {
+        anyhow::bail!(
+            "checkpoint offset {} exceeds source size {}",
+            start_offset,
+            snapshot_end
+        );
+    }
+
+    let mut stats = ReadStats {
+        bytes: snapshot_end,
+        budget_bytes: max_decoded_bytes,
+        ..ReadStats::default()
+    };
+    let mut file = tokio::fs::File::open(path)
+        .await
+        .with_context(|| format!("open append range {}", path.display()))?;
+    file.seek(std::io::SeekFrom::Start(start_offset)).await?;
+
+    let mut buffer = vec![0_u8; IO_CHUNK_BYTES];
+    let mut offset = start_offset;
+    let mut line_start = start_offset;
+    let mut source_ordinal = start_source_ordinal;
+    let mut last_rollout_ordinal = None;
+    let mut line_buffer = Vec::new();
+    let mut segment_start = start_offset;
+    let mut segment_decoded_bytes = 0_u64;
+    let mut segment_lines = Vec::new();
+
+    while offset < snapshot_end {
+        let requested = (snapshot_end - offset).min(buffer.len() as u64) as usize;
+        let read = file.read(&mut buffer[..requested]).await?;
+        if read == 0 {
+            anyhow::bail!(
+                "source was truncated while reading append range at byte {}",
+                offset
+            );
+        }
+        for byte in &buffer[..read] {
+            offset += 1;
+            if *byte != b'\n' {
+                line_buffer.push(*byte);
+                continue;
+            }
+
+            source_ordinal += 1;
+            stats.line_count += 1;
+            stats.last_source_ordinal = Some(source_ordinal);
+            let line_bytes = offset - line_start;
+            segment_decoded_bytes = segment_decoded_bytes.saturating_add(line_bytes);
+            line_start = offset;
+
+            let raw_bytes = trim_line_ending_bytes(&line_buffer);
+            // Match read_streaming's decoded-byte accounting: one logical
+            // newline is counted for every complete line. Pending bytes are
+            // intentionally not counted until the line is completed.
+            stats.decoded_bytes = stats
+                .decoded_bytes
+                .saturating_add(raw_bytes.len() as u64)
+                .saturating_add(1);
+            if stats.decoded_bytes > max_decoded_bytes {
+                anyhow::bail!(
+                    "decoded append range for {} exceeds the {} byte limit",
+                    path.display(),
+                    max_decoded_bytes
+                );
+            }
+            if !raw_bytes.is_empty() && !raw_bytes.iter().all(u8::is_ascii_whitespace) {
+                match std::str::from_utf8(raw_bytes) {
+                    Ok(raw) => {
+                        if let Some(line) = parse_line_with_stats(raw, source_ordinal, &mut stats) {
+                            if line.rollout_ordinal.is_some() {
+                                last_rollout_ordinal = line.rollout_ordinal;
+                            }
+                            segment_lines.push(line);
+                        }
+                    }
+                    Err(error) => {
+                        stats.parse_errors += 1;
+                        remember_first_error(
+                            &mut stats,
+                            format!(
+                                "line {source_ordinal}: invalid UTF-8: {}",
+                                truncate(&error.to_string(), 300)
+                            ),
+                        );
+                    }
+                }
+            }
+            line_buffer.clear();
+
+            if segment_decoded_bytes >= segment_bytes {
+                emit_segment(
+                    &mut stats,
+                    &mut visit,
+                    segment_start,
+                    offset,
+                    &mut segment_lines,
+                )?;
+                segment_start = offset;
+                segment_decoded_bytes = 0;
+            }
+        }
+    }
+
+    let complete_end_offset = snapshot_end.saturating_sub(line_buffer.len() as u64);
+    emit_segment(
+        &mut stats,
+        &mut visit,
+        segment_start,
+        complete_end_offset,
+        &mut segment_lines,
+    )?;
+
+    let actual_end = std::fs::metadata(path)
+        .with_context(|| format!("metadata after append range {}", path.display()))?
+        .len();
+    if actual_end < snapshot_end {
+        anyhow::bail!(
+            "source was truncated during append read: snapshot {}, actual {}",
+            snapshot_end,
+            actual_end
+        );
+    }
+
+    Ok(AppendReadResult {
+        stats,
+        scanned_end_offset: snapshot_end,
+        complete_end_offset,
+        pending_tail_bytes: line_buffer.len() as u64,
+        last_source_ordinal: source_ordinal,
+        last_rollout_ordinal,
+        source_grew_during_read: actual_end > snapshot_end,
+    })
 }
 
 fn emit_segment<F>(
@@ -807,6 +985,86 @@ mod tests {
                 .map(|line| line.source_ordinal)
                 .collect::<Vec<_>>(),
             vec![1, 2, 3, 4, 5]
+        );
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[tokio::test]
+    async fn append_reader_retries_an_unterminated_tail_after_the_file_grows() {
+        let path = std::env::temp_dir().join(format!(
+            "codex-rollout-demo-append-{}-{}.jsonl",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let make_line = |ordinal: u64| RolloutLine {
+            timestamp: format!("2026-08-15T00:00:0{ordinal}.000Z"),
+            ordinal: Some(ordinal),
+            item: RolloutItem::Compacted(CompactedItem {
+                message: format!("window {ordinal}"),
+                replacement_history: None,
+                window_number: Some(ordinal),
+                first_window_id: None,
+                previous_window_id: None,
+                window_id: None,
+            }),
+        };
+        let first = format!("{}\n", serde_json::to_string(&make_line(1)).unwrap());
+        let second = format!("{}\n", serde_json::to_string(&make_line(2)).unwrap());
+        let third = serde_json::to_string(&make_line(3)).unwrap();
+        let fourth = format!("{}\n", serde_json::to_string(&make_line(4)).unwrap());
+        let mut file = std::fs::File::create(&path).unwrap();
+        file.write_all(first.as_bytes()).unwrap();
+        file.write_all(second.as_bytes()).unwrap();
+        file.write_all(third.as_bytes()).unwrap();
+        file.sync_all().unwrap();
+
+        let mut first_lines = Vec::new();
+        let first_read = read_append_range(&path, 0, 0, 1024 * 1024, 1, |segment| {
+            first_lines.extend(segment.lines);
+            Ok(())
+        })
+        .await
+        .unwrap();
+        assert_eq!(first_lines.len(), 2);
+        assert_eq!(first_read.last_source_ordinal, 2);
+        assert_eq!(first_read.pending_tail_bytes, third.len() as u64);
+        assert_eq!(
+            first_read.complete_end_offset,
+            (first.len() + second.len()) as u64
+        );
+
+        let mut append = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&path)
+            .unwrap();
+        append.write_all(b"\n").unwrap();
+        append.write_all(fourth.as_bytes()).unwrap();
+        append.sync_all().unwrap();
+
+        let mut appended_lines = Vec::new();
+        let second_read = read_append_range(
+            &path,
+            first_read.complete_end_offset,
+            first_read.last_source_ordinal,
+            1024 * 1024,
+            1,
+            |segment| {
+                appended_lines.extend(segment.lines);
+                Ok(())
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(appended_lines.len(), 2);
+        assert_eq!(appended_lines[0].source_ordinal, 3);
+        assert_eq!(appended_lines[1].source_ordinal, 4);
+        assert_eq!(second_read.pending_tail_bytes, 0);
+        assert_eq!(
+            second_read.complete_end_offset,
+            fourth.len() as u64 + third.len() as u64 + 1 + (first.len() + second.len()) as u64
         );
         std::fs::remove_file(path).unwrap();
     }
