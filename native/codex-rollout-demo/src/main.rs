@@ -29,6 +29,7 @@ use crate::dto::{ConversationDto, DetailPayloadDto, HistoryProjection, ParseProg
 use crate::report::{DemoReport, DeterminismStats};
 
 const DEFAULT_MAX_INPUT_BYTES: u64 = 70 * 1024 * 1024;
+const DEFAULT_SEGMENT_BYTES: u64 = 2 * 1024 * 1024;
 pub const CODEX_REVISION: &str = "bd2de422aa287b97b06ca6425a10935bcf1b3731";
 
 struct Args {
@@ -38,8 +39,10 @@ struct Args {
     self_api_dir: Option<PathBuf>,
     verify_determinism: bool,
     full_oracle: bool,
+    forward_stream: bool,
     allow_partial: bool,
     max_input_bytes: u64,
+    segment_bytes: u64,
 }
 
 fn parse_args() -> Result<Args> {
@@ -49,8 +52,10 @@ fn parse_args() -> Result<Args> {
     let mut self_api_dir = None;
     let mut verify_determinism = false;
     let mut full_oracle = false;
+    let mut forward_stream = false;
     let mut allow_partial = false;
     let mut max_input_bytes = DEFAULT_MAX_INPUT_BYTES;
+    let mut segment_bytes = DEFAULT_SEGMENT_BYTES;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -76,6 +81,7 @@ fn parse_args() -> Result<Args> {
             }
             "--verify-determinism" => verify_determinism = true,
             "--full-oracle" => full_oracle = true,
+            "--forward-stream" => forward_stream = true,
             "--allow-partial" => allow_partial = true,
             "--max-input-mib" => {
                 let mib = args
@@ -89,6 +95,19 @@ fn parse_args() -> Result<Args> {
                 max_input_bytes = mib
                     .checked_mul(1024 * 1024)
                     .context("--max-input-mib is too large")?;
+            }
+            "--segment-mib" => {
+                let mib = args
+                    .next()
+                    .context("--segment-mib requires a positive integer")?
+                    .parse::<u64>()
+                    .context("--segment-mib must be a positive integer")?;
+                if mib == 0 {
+                    anyhow::bail!("--segment-mib must be greater than zero");
+                }
+                segment_bytes = mib
+                    .checked_mul(1024 * 1024)
+                    .context("--segment-mib is too large")?;
             }
             "--help" | "-h" => {
                 print_usage();
@@ -105,8 +124,10 @@ fn parse_args() -> Result<Args> {
         self_api_dir,
         verify_determinism,
         full_oracle,
+        forward_stream,
         allow_partial,
         max_input_bytes,
+        segment_bytes,
     })
 }
 
@@ -121,6 +142,8 @@ fn print_usage() {
          --self-api-dir  call the demo's in-process JSON API and persist request/response files\n  \
          --verify-determinism  run the projection twice and compare deterministic payloads\n  \
          --full-oracle  use the legacy all-records-in-memory reader and build the official comparison\n  \
+         --forward-stream  use the bounded forward reader instead of tail-first/backfill\n  \
+         --segment-mib  tail/backfill segment size (default 2 MiB)\n  \
          --allow-partial  permit parse gaps; the report remains marked partial\n  \
          --max-input-mib  explicitly raise the default 70 MiB input budget\n"
     );
@@ -143,13 +166,20 @@ struct RunOutputs {
     read_elapsed: Duration,
     reduce_elapsed: Duration,
     project_elapsed: Duration,
+    read_mode: String,
+    tail_preview_json: String,
+    tail_segment_start: Option<u64>,
+    tail_segment_end: Option<u64>,
+    backfill_segments: u64,
 }
 
 async fn run_once(args: &Args) -> Result<RunOutputs> {
     if args.full_oracle {
         run_once_full(args).await
+    } else if args.forward_stream {
+        run_once_streaming(args, "forward_streaming").await
     } else {
-        run_once_streaming(args).await
+        run_once_tail_first(args).await
     }
 }
 
@@ -255,10 +285,15 @@ async fn run_once_full(args: &Args) -> Result<RunOutputs> {
         read_elapsed,
         reduce_elapsed,
         project_elapsed,
+        read_mode: "full_oracle".to_string(),
+        tail_preview_json: String::new(),
+        tail_segment_start: None,
+        tail_segment_end: None,
+        backfill_segments: 0,
     })
 }
 
-async fn run_once_streaming(args: &Args) -> Result<RunOutputs> {
+async fn run_once_streaming(args: &Args, read_mode: &str) -> Result<RunOutputs> {
     let target_session_id = target_session_id_from_rollout_path(&args.rollout)?;
     let detail_path = args.details.clone().or_else(|| {
         args.self_api_dir
@@ -393,7 +428,252 @@ async fn run_once_streaming(args: &Args) -> Result<RunOutputs> {
         read_elapsed,
         reduce_elapsed,
         project_elapsed,
+        read_mode: read_mode.to_string(),
+        tail_preview_json: String::new(),
+        tail_segment_start: None,
+        tail_segment_end: None,
+        backfill_segments: 0,
     })
+}
+
+/// Tail-first mode reads one newest complete segment before it reads older
+/// segments backward. The final reducer still receives every record in source
+/// order; only the provisional preview is reduced from the tail.
+async fn run_once_tail_first(args: &Args) -> Result<RunOutputs> {
+    let target_session_id = target_session_id_from_rollout_path(&args.rollout)?;
+    let read_start = Instant::now();
+    let Some(tail_read) =
+        reader::read_tail_segment(&args.rollout, args.max_input_bytes, args.segment_bytes).await?
+    else {
+        return run_once_streaming(args, "forward_streaming_compressed_fallback").await;
+    };
+    let tail_segment_start = tail_read.segment.start_offset;
+    let tail_segment_end = tail_read.segment.end_offset;
+    let tail_stats = tail_read.stats.clone();
+    ensure_source_length(&args.rollout, tail_segment_end)?;
+
+    let tail_preview_json =
+        build_tail_preview(args, &target_session_id, &tail_read.segment, &tail_stats)?;
+    if let Some(report_path) = &args.report {
+        write_atomic(
+            &report_path.with_extension("tail.json"),
+            tail_preview_json.as_bytes(),
+        )?;
+    }
+
+    let backfill_stats = reader::read_backward_range(
+        &args.rollout,
+        tail_segment_start,
+        args.max_input_bytes,
+        args.segment_bytes,
+        |_| Ok(()),
+    )
+    .await?
+    .context("plain rollout unexpectedly became unavailable for backward backfill")?;
+    let backfill_segments = backfill_stats.segments;
+    ensure_source_length(&args.rollout, tail_segment_end)?;
+
+    let detail_path = args.details.clone().or_else(|| {
+        args.self_api_dir
+            .as_ref()
+            .map(|directory| directory.join("streaming-details.input.jsonl"))
+    });
+    let temporary_detail_path = args.details.is_none() && detail_path.is_some();
+    let detail_store: Box<dyn detail_store::DetailStore> = match detail_path.as_deref() {
+        Some(path) => Box::new(
+            JsonlDetailStore::create(path)
+                .with_context(|| format!("create streaming detail store {}", path.display()))?,
+        ),
+        None => Box::new(DiscardDetailStore),
+    };
+    let mut reducer = reducer::HistoryReducer::with_detail_store(
+        new_conversation(args, &target_session_id),
+        target_session_id,
+        detail_store,
+    );
+
+    // The reducer is intentionally replayed in source order. The backward
+    // scan above is the acquisition path for tail/older segments; replaying
+    // source-order segments here avoids applying begin/end events backwards.
+    let read_stats = reader::read_forward_range(
+        &args.rollout,
+        tail_segment_end,
+        args.max_input_bytes,
+        args.segment_bytes,
+        |segment| {
+            for line in segment.lines {
+                reducer.reduce(&line);
+            }
+            Ok(())
+        },
+    )
+    .await?;
+    ensure_source_length(&args.rollout, tail_segment_end)?;
+    let read_elapsed = read_start.elapsed();
+
+    reducer.set_read_quality(
+        read_stats.parse_errors > 0,
+        !read_stats.unmapped_types.is_empty(),
+    );
+    let parse_status = if read_stats.parse_errors > 0 {
+        "partial"
+    } else if !read_stats.unmapped_types.is_empty() {
+        "unsupported_schema"
+    } else {
+        "complete"
+    };
+    reducer.set_parse_progress(ParseProgressDto {
+        status: parse_status.to_string(),
+        source_bytes: read_stats.bytes,
+        decoded_bytes: read_stats.decoded_bytes,
+        budget_bytes: read_stats.budget_bytes,
+        line_count: read_stats.line_count,
+        valid_records: read_stats.valid_records,
+        parse_errors: read_stats.parse_errors,
+        first_parse_error: read_stats.first_parse_error.clone(),
+        last_source_ordinal: read_stats.last_source_ordinal,
+        unmapped_types: read_stats.unmapped_types.clone(),
+    });
+
+    let reduce_start = Instant::now();
+    let (projection, mut details, reduce_stats) = reducer.finish();
+    let reduce_elapsed = reduce_start.elapsed();
+    if reduce_stats.detail_store_errors > 0 {
+        anyhow::bail!(
+            "streaming detail store failed {} time(s)",
+            reduce_stats.detail_store_errors
+        );
+    }
+
+    let project_start = Instant::now();
+    let projection_json =
+        serde_json::to_string_pretty(&projection).context("serialize projection")?;
+    let content_hash = projection.content_hash();
+    let snapshot_hash = projection.snapshot_hash();
+    let details_bytes = detail_path
+        .as_deref()
+        .and_then(|path| std::fs::metadata(path).ok())
+        .map_or(0, |metadata| metadata.len());
+    let details_fingerprint = detail_path
+        .as_deref()
+        .map(fingerprint_file)
+        .transpose()
+        .context("fingerprint streaming details")?
+        .unwrap_or_default();
+
+    if args.self_api_dir.is_some() {
+        if let Some(path) = detail_path.as_deref() {
+            details = read_details_jsonl(path)
+                .with_context(|| format!("read streaming details {}", path.display()))?;
+        }
+    }
+    if temporary_detail_path {
+        if let Some(path) = detail_path.as_deref() {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+    let project_elapsed = project_start.elapsed();
+    Ok(RunOutputs {
+        projection,
+        details,
+        projection_json,
+        details_json: String::new(),
+        details_bytes,
+        details_fingerprint,
+        details_persisted: args.details.is_some(),
+        official_json: String::new(),
+        official_built: false,
+        content_hash,
+        snapshot_hash,
+        reduce_stats,
+        read_stats,
+        read_elapsed,
+        reduce_elapsed,
+        project_elapsed,
+        read_mode: "tail_first_backward_backfill".to_string(),
+        tail_preview_json,
+        tail_segment_start: Some(tail_segment_start),
+        tail_segment_end: Some(tail_segment_end),
+        backfill_segments,
+    })
+}
+
+fn build_tail_preview(
+    args: &Args,
+    target_session_id: &str,
+    segment: &reader::ParsedRolloutSegment,
+    stats: &reader::ReadStats,
+) -> Result<String> {
+    let mut reducer = reducer::HistoryReducer::with_detail_store(
+        new_conversation(args, target_session_id),
+        target_session_id.to_string(),
+        Box::new(DiscardDetailStore),
+    );
+    reducer.set_read_quality(true, !stats.unmapped_types.is_empty());
+    reducer.set_parse_progress(ParseProgressDto {
+        status: "partial".to_string(),
+        source_bytes: stats.bytes,
+        decoded_bytes: stats.decoded_bytes,
+        budget_bytes: stats.budget_bytes,
+        line_count: stats.line_count,
+        valid_records: stats.valid_records,
+        parse_errors: stats.parse_errors,
+        first_parse_error: stats.first_parse_error.clone(),
+        last_source_ordinal: stats.last_source_ordinal,
+        unmapped_types: stats.unmapped_types.clone(),
+    });
+    for line in &segment.lines {
+        reducer.reduce(line);
+    }
+    let (projection, _, _) = reducer.finish();
+    serde_json::to_string_pretty(&projection).context("serialize tail preview")
+}
+
+fn new_conversation(args: &Args, target_session_id: &str) -> ConversationDto {
+    ConversationDto {
+        conversation_id: target_session_id.to_string(),
+        source: "codex_rollout".to_string(),
+        rollout_path: args.rollout.to_string_lossy().to_string(),
+        cli_version: None,
+        codex_revision: Some(CODEX_REVISION.to_string()),
+        thread_id: None,
+        forked_from_id: None,
+        parent_thread_id: None,
+        history_mode: None,
+        history_base: None,
+        subagent_history_start_ordinal: None,
+        cwd: None,
+        git_info: None,
+        model: None,
+        model_provider: None,
+        redaction_policy: Some("none".to_string()),
+        availability: None,
+        created_at: None,
+        updated_at: None,
+        project_path: None,
+        endpoint: None,
+        profile: None,
+        settings: None,
+        settings_history: Vec::new(),
+        usage_total: None,
+        latest_rate_limit: None,
+        latest_context_window: None,
+        parse_progress: None,
+    }
+}
+
+fn ensure_source_length(path: &Path, expected_bytes: u64) -> Result<()> {
+    let actual_bytes = std::fs::metadata(path)
+        .with_context(|| format!("metadata for source consistency check {}", path.display()))?
+        .len();
+    if actual_bytes != expected_bytes {
+        anyhow::bail!(
+            "rollout changed during tail-first read: expected {} bytes, found {}; retry the import",
+            expected_bytes,
+            actual_bytes
+        );
+    }
+    Ok(())
 }
 
 /// The standalone demo's caller derives the target binding from the rollout
@@ -545,7 +825,12 @@ async fn main() -> Result<()> {
             && first.official_built == second.official_built
             && first.official_json == second.official_json
             && first.content_hash == second.content_hash
-            && first.snapshot_hash == second.snapshot_hash;
+            && first.snapshot_hash == second.snapshot_hash
+            && first.read_mode == second.read_mode
+            && first.tail_preview_json == second.tail_preview_json
+            && first.tail_segment_start == second.tail_segment_start
+            && first.tail_segment_end == second.tail_segment_end
+            && first.backfill_segments == second.backfill_segments;
         determinism.second_run_content_hash = Some(second.content_hash);
         determinism.run_index = 2;
         if !(determinism.same_keys && determinism.same_hashes && determinism.same_report) {
@@ -660,6 +945,13 @@ fn build_demo_report(
             path.with_extension("projection.json").display().to_string()
         }),
         details_path: args.details.as_ref().map(|path| path.display().to_string()),
+        tail_preview_path: if run.tail_preview_json.is_empty() {
+            None
+        } else {
+            args.report
+                .as_ref()
+                .map(|path| path.with_extension("tail.json").display().to_string())
+        },
         official_path: if run.official_built {
             args.report
                 .as_ref()
@@ -688,6 +980,12 @@ fn build_demo_report(
         CODEX_REVISION,
         report::InputStats {
             rollout_path: args.rollout.display().to_string(),
+            read_mode: run.read_mode.clone(),
+            segment_bytes: (!args.full_oracle && !args.forward_stream)
+                .then_some(args.segment_bytes),
+            tail_segment_start: run.tail_segment_start,
+            tail_segment_end: run.tail_segment_end,
+            backfill_segments: run.backfill_segments,
             bytes: run.read_stats.bytes,
             decoded_bytes: run.read_stats.decoded_bytes,
             budget_bytes: run.read_stats.budget_bytes,
@@ -715,6 +1013,9 @@ fn validate_output_paths(args: &Args) -> Result<()> {
     if let Some(report) = &args.report {
         outputs.push(report.clone());
         outputs.push(report.with_extension("projection.json"));
+        if !args.full_oracle && !args.forward_stream {
+            outputs.push(report.with_extension("tail.json"));
+        }
         if args.full_oracle {
             outputs.push(report.with_extension("official.json"));
         }
