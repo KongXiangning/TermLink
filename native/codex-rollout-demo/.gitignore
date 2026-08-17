@@ -1,0 +1,11 @@
+# Rust build artifacts
+target/
+Cargo.lock.orig
+
+# Demo outputs (never commit real-session projections)
+out-*/
+*.projection.json
+*.official.json
+*.report.json
+det*-details.jsonl
+details.jsonl
