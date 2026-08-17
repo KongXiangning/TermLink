@@ -5,6 +5,7 @@
 //! TermLink server, IPC state, database, or the source rollout.
 
 mod canonical;
+mod detail_store;
 mod dto;
 mod reader;
 mod reducer;
@@ -14,14 +15,16 @@ mod self_api;
 #[cfg(test)]
 mod reducer_tests;
 
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use codex_protocol::protocol::RolloutItem;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
+use crate::detail_store::{DiscardDetailStore, JsonlDetailStore, read_details_jsonl};
 use crate::dto::{ConversationDto, DetailPayloadDto, HistoryProjection, ParseProgressDto};
 use crate::report::{DemoReport, DeterminismStats};
 
@@ -34,6 +37,7 @@ struct Args {
     details: Option<PathBuf>,
     self_api_dir: Option<PathBuf>,
     verify_determinism: bool,
+    full_oracle: bool,
     allow_partial: bool,
     max_input_bytes: u64,
 }
@@ -44,6 +48,7 @@ fn parse_args() -> Result<Args> {
     let mut details = None;
     let mut self_api_dir = None;
     let mut verify_determinism = false;
+    let mut full_oracle = false;
     let mut allow_partial = false;
     let mut max_input_bytes = DEFAULT_MAX_INPUT_BYTES;
     let mut args = std::env::args().skip(1);
@@ -70,6 +75,7 @@ fn parse_args() -> Result<Args> {
                 ))
             }
             "--verify-determinism" => verify_determinism = true,
+            "--full-oracle" => full_oracle = true,
             "--allow-partial" => allow_partial = true,
             "--max-input-mib" => {
                 let mib = args
@@ -98,6 +104,7 @@ fn parse_args() -> Result<Args> {
         details,
         self_api_dir,
         verify_determinism,
+        full_oracle,
         allow_partial,
         max_input_bytes,
     })
@@ -113,6 +120,7 @@ fn print_usage() {
          --details  write retained full tool details as JSONL\n  \
          --self-api-dir  call the demo's in-process JSON API and persist request/response files\n  \
          --verify-determinism  run the projection twice and compare deterministic payloads\n  \
+         --full-oracle  use the legacy all-records-in-memory reader and build the official comparison\n  \
          --allow-partial  permit parse gaps; the report remains marked partial\n  \
          --max-input-mib  explicitly raise the default 70 MiB input budget\n"
     );
@@ -123,18 +131,29 @@ struct RunOutputs {
     details: Vec<DetailPayloadDto>,
     projection_json: String,
     details_json: String,
+    details_bytes: u64,
+    details_fingerprint: String,
+    details_persisted: bool,
     official_json: String,
+    official_built: bool,
     content_hash: String,
     snapshot_hash: String,
     reduce_stats: reducer::ReduceStats,
     read_stats: reader::ReadStats,
-    lines: usize,
     read_elapsed: Duration,
     reduce_elapsed: Duration,
     project_elapsed: Duration,
 }
 
 async fn run_once(args: &Args) -> Result<RunOutputs> {
+    if args.full_oracle {
+        run_once_full(args).await
+    } else {
+        run_once_streaming(args).await
+    }
+}
+
+async fn run_once_full(args: &Args) -> Result<RunOutputs> {
     let target_session_id = target_session_id_from_rollout_path(&args.rollout)?;
     let read_start = Instant::now();
     let (lines, read_stats) = reader::read_full(&args.rollout, args.max_input_bytes).await?;
@@ -215,6 +234,8 @@ async fn run_once(args: &Args) -> Result<RunOutputs> {
         details_json.push_str(&serde_json::to_string(detail).context("serialize detail")?);
         details_json.push('\n');
     }
+    let details_bytes = details_json.len() as u64;
+    let details_fingerprint = fingerprint_bytes(details_json.as_bytes());
     let project_elapsed = project_start.elapsed();
 
     Ok(RunOutputs {
@@ -222,12 +243,153 @@ async fn run_once(args: &Args) -> Result<RunOutputs> {
         details,
         projection_json,
         details_json,
+        details_bytes,
+        details_fingerprint,
+        details_persisted: false,
         official_json,
+        official_built: true,
         content_hash,
         snapshot_hash,
         reduce_stats,
         read_stats,
-        lines: lines.len(),
+        read_elapsed,
+        reduce_elapsed,
+        project_elapsed,
+    })
+}
+
+async fn run_once_streaming(args: &Args) -> Result<RunOutputs> {
+    let target_session_id = target_session_id_from_rollout_path(&args.rollout)?;
+    let detail_path = args.details.clone().or_else(|| {
+        args.self_api_dir
+            .as_ref()
+            .map(|directory| directory.join("streaming-details.input.jsonl"))
+    });
+    let temporary_detail_path = args.details.is_none() && detail_path.is_some();
+    let detail_store: Box<dyn detail_store::DetailStore> = match detail_path.as_deref() {
+        Some(path) => Box::new(
+            JsonlDetailStore::create(path)
+                .with_context(|| format!("create streaming detail store {}", path.display()))?,
+        ),
+        None => Box::new(DiscardDetailStore),
+    };
+    let conversation = ConversationDto {
+        conversation_id: target_session_id.clone(),
+        source: "codex_rollout".to_string(),
+        rollout_path: args.rollout.to_string_lossy().to_string(),
+        cli_version: None,
+        codex_revision: Some(CODEX_REVISION.to_string()),
+        thread_id: None,
+        forked_from_id: None,
+        parent_thread_id: None,
+        history_mode: None,
+        history_base: None,
+        subagent_history_start_ordinal: None,
+        cwd: None,
+        git_info: None,
+        model: None,
+        model_provider: None,
+        redaction_policy: Some("none".to_string()),
+        availability: None,
+        created_at: None,
+        updated_at: None,
+        project_path: None,
+        endpoint: None,
+        profile: None,
+        settings: None,
+        settings_history: Vec::new(),
+        usage_total: None,
+        latest_rate_limit: None,
+        latest_context_window: None,
+        parse_progress: None,
+    };
+    let mut reducer =
+        reducer::HistoryReducer::with_detail_store(conversation, target_session_id, detail_store);
+
+    let read_start = Instant::now();
+    let read_stats = reader::read_streaming(&args.rollout, args.max_input_bytes, |line| {
+        reducer.reduce(&line);
+        Ok(())
+    })
+    .await?;
+    let read_elapsed = read_start.elapsed();
+
+    reducer.set_read_quality(
+        read_stats.parse_errors > 0,
+        !read_stats.unmapped_types.is_empty(),
+    );
+    let parse_status = if read_stats.parse_errors > 0 {
+        "partial"
+    } else if !read_stats.unmapped_types.is_empty() {
+        "unsupported_schema"
+    } else {
+        "complete"
+    };
+    reducer.set_parse_progress(ParseProgressDto {
+        status: parse_status.to_string(),
+        source_bytes: read_stats.bytes,
+        decoded_bytes: read_stats.decoded_bytes,
+        budget_bytes: read_stats.budget_bytes,
+        line_count: read_stats.line_count,
+        valid_records: read_stats.valid_records,
+        parse_errors: read_stats.parse_errors,
+        first_parse_error: read_stats.first_parse_error.clone(),
+        last_source_ordinal: read_stats.last_source_ordinal,
+        unmapped_types: read_stats.unmapped_types.clone(),
+    });
+
+    let reduce_start = Instant::now();
+    let (projection, mut details, reduce_stats) = reducer.finish();
+    let reduce_elapsed = reduce_start.elapsed();
+    if reduce_stats.detail_store_errors > 0 {
+        anyhow::bail!(
+            "streaming detail store failed {} time(s)",
+            reduce_stats.detail_store_errors
+        );
+    }
+
+    let project_start = Instant::now();
+    let projection_json =
+        serde_json::to_string_pretty(&projection).context("serialize projection")?;
+    let content_hash = projection.content_hash();
+    let snapshot_hash = projection.snapshot_hash();
+    let details_bytes = detail_path
+        .as_deref()
+        .and_then(|path| std::fs::metadata(path).ok())
+        .map_or(0, |metadata| metadata.len());
+    let details_fingerprint = detail_path
+        .as_deref()
+        .map(fingerprint_file)
+        .transpose()
+        .context("fingerprint streaming details")?
+        .unwrap_or_default();
+
+    if args.self_api_dir.is_some() {
+        if let Some(path) = detail_path.as_deref() {
+            details = read_details_jsonl(path)
+                .with_context(|| format!("read streaming details {}", path.display()))?;
+        }
+    }
+    if temporary_detail_path {
+        if let Some(path) = detail_path.as_deref() {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+    let project_elapsed = project_start.elapsed();
+    Ok(RunOutputs {
+        projection,
+        details,
+        projection_json,
+        details_json: String::new(),
+        details_bytes,
+        details_fingerprint,
+        details_persisted: args.details.is_some(),
+        official_json: String::new(),
+        official_built: false,
+        content_hash,
+        snapshot_hash,
+        reduce_stats,
+        read_stats,
         read_elapsed,
         reduce_elapsed,
         project_elapsed,
@@ -269,6 +431,27 @@ fn is_uuid(value: &str) -> bool {
             part.len() == length && part.chars().all(|character| character.is_ascii_hexdigit())
         })
     }) && parts.next().is_none()
+}
+
+fn fingerprint_bytes(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    crate::dto::hex::encode(&hasher.finalize())
+}
+
+fn fingerprint_file(path: &Path) -> Result<String> {
+    let mut file = std::fs::File::open(path)
+        .with_context(|| format!("open file for fingerprint {}", path.display()))?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        let read = file.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    Ok(crate::dto::hex::encode(&hasher.finalize()))
 }
 
 #[cfg(test)]
@@ -358,6 +541,8 @@ async fn main() -> Result<()> {
         determinism.same_hashes = hashes(&first) == hashes(&second);
         determinism.same_report = first.projection_json == second.projection_json
             && first.details_json == second.details_json
+            && first.details_fingerprint == second.details_fingerprint
+            && first.official_built == second.official_built
             && first.official_json == second.official_json
             && first.content_hash == second.content_hash
             && first.snapshot_hash == second.snapshot_hash;
@@ -388,7 +573,13 @@ async fn main() -> Result<()> {
     let report_json = serde_json::to_string_pretty(&report_doc).context("serialize demo report")?;
 
     if let Some(details_path) = &args.details {
-        write_atomic(details_path, first.details_json.as_bytes())?;
+        if first.details_persisted {
+            // The streaming detail store already finalized this path while
+            // the reducer was running. Avoid materializing the full JSONL in
+            // memory or rewriting it here.
+        } else {
+            write_atomic(details_path, first.details_json.as_bytes())?;
+        }
     }
     if let Some(report_path) = &args.report {
         let projection_json = serde_json::to_string_pretty(&first.projection)
@@ -398,10 +589,12 @@ async fn main() -> Result<()> {
             &report_path.with_extension("projection.json"),
             projection_json.as_bytes(),
         )?;
-        write_atomic(
-            &report_path.with_extension("official.json"),
-            first.official_json.as_bytes(),
-        )?;
+        if first.official_built {
+            write_atomic(
+                &report_path.with_extension("official.json"),
+                first.official_json.as_bytes(),
+            )?;
+        }
     }
 
     println!("{report_json}");
@@ -416,8 +609,11 @@ fn build_demo_report(
     started: Instant,
 ) -> Result<DemoReport> {
     let reduction = report::reduction_stats_from(&run.reduce_stats, &run.projection);
-    let official: Value =
-        serde_json::from_str(&run.official_json).context("parse official view")?;
+    let official: Value = if run.official_built {
+        serde_json::from_str(&run.official_json).context("parse official view")?
+    } else {
+        Value::Null
+    };
     let official_turns = official.get("turns").and_then(Value::as_array);
     let official_turn_count = official_turns.map_or(0, |turns| turns.len() as u64);
     let official_item_count = official_turns
@@ -433,7 +629,7 @@ fn build_demo_report(
         })
         .unwrap_or(0);
     let comparison = report::ComparisonStats {
-        official_built: true,
+        official_built: run.official_built,
         official_turn_count,
         projection_turn_count: run.projection.turns.len() as u64,
         official_item_count,
@@ -464,12 +660,15 @@ fn build_demo_report(
             path.with_extension("projection.json").display().to_string()
         }),
         details_path: args.details.as_ref().map(|path| path.display().to_string()),
-        official_path: args
-            .report
-            .as_ref()
-            .map(|path| path.with_extension("official.json").display().to_string()),
+        official_path: if run.official_built {
+            args.report
+                .as_ref()
+                .map(|path| path.with_extension("official.json").display().to_string())
+        } else {
+            None
+        },
         projection_bytes: run.projection_json.len() as u64,
-        details_bytes: run.details_json.len() as u64,
+        details_bytes: run.details_bytes,
         official_bytes: run.official_json.len() as u64,
         content_hash: run.content_hash.clone(),
         snapshot_hash: run.snapshot_hash.clone(),
@@ -493,7 +692,7 @@ fn build_demo_report(
             decoded_bytes: run.read_stats.decoded_bytes,
             budget_bytes: run.read_stats.budget_bytes,
             line_count: run.read_stats.line_count,
-            valid_records: run.lines as u64,
+            valid_records: run.read_stats.valid_records,
             parse_errors: run.read_stats.parse_errors,
             first_parse_error: run.read_stats.first_parse_error.clone(),
             item_kinds: run.read_stats.item_kinds.clone(),
@@ -516,7 +715,9 @@ fn validate_output_paths(args: &Args) -> Result<()> {
     if let Some(report) = &args.report {
         outputs.push(report.clone());
         outputs.push(report.with_extension("projection.json"));
-        outputs.push(report.with_extension("official.json"));
+        if args.full_oracle {
+            outputs.push(report.with_extension("official.json"));
+        }
     }
     if let Some(details) = &args.details {
         outputs.push(details.clone());

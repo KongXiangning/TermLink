@@ -22,6 +22,7 @@ use codex_protocol::protocol::{EventMsg, RolloutItem};
 use serde_json::{Value, json};
 use sha2::Digest;
 
+use crate::detail_store::DetailStore;
 use crate::dto::{
     ApprovalDto, ArtifactDto, AttachmentDto, AvailabilityStatus, ConversationDto, DetailPayloadDto,
     FileChangeDto, HistoryBaseDto, HistoryItemDto, HistoryProjection, ParseProgressDto,
@@ -43,6 +44,7 @@ pub struct ReduceStats {
     pub detail_full_retained: u64,
     pub detail_summary_only: u64,
     pub detail_dropped_by_policy: u64,
+    pub detail_store_errors: u64,
     pub result_fields_deduplicated: u64,
     pub commands_normalized: u64,
     pub rollbacks_seen: u64,
@@ -83,6 +85,8 @@ pub struct HistoryReducer {
     pending_tools: HashMap<String, PendingTool>,
     pending_questions: HashMap<String, PendingQuestion>,
     pending_approvals: HashMap<String, ApprovalDto>,
+    detail_store: Option<Box<dyn DetailStore>>,
+    detail_sizes: HashMap<String, u64>,
     /// Maps a host-side async cell id from an `exec` result to the original
     /// tool call. Later `wait` results are folded into that call instead of
     /// becoming independent durable details.
@@ -134,6 +138,8 @@ impl HistoryReducer {
             pending_tools: HashMap::new(),
             pending_questions: HashMap::new(),
             pending_approvals: HashMap::new(),
+            detail_store: None,
+            detail_sizes: HashMap::new(),
             running_cells: HashMap::new(),
             settings_hashes: HashSet::new(),
             latest_total_usage: None,
@@ -152,6 +158,18 @@ impl HistoryReducer {
             plan_version: 0,
             last_plan_item_key: None,
         }
+    }
+
+    /// Create a reducer whose retained detail bodies are written to an
+    /// external store instead of being kept in `details`.
+    pub fn with_detail_store(
+        conversation: ConversationDto,
+        target_session_id: String,
+        detail_store: Box<dyn DetailStore>,
+    ) -> Self {
+        let mut reducer = Self::new(conversation, target_session_id);
+        reducer.detail_store = Some(detail_store);
+        reducer
     }
 
     /// Pass reader-level quality information into the projection. A parse gap
@@ -258,9 +276,28 @@ impl HistoryReducer {
         let task_outcome = self.build_task_outcome();
         self.projection.task_outcome = Some(task_outcome.clone());
         self.add_task_outcome_item(&task_outcome);
+
+        let using_detail_store = self.detail_store.is_some();
+        if let Some(mut detail_store) = self.detail_store.take() {
+            if let Err(error) = detail_store.finalize() {
+                self.stats.detail_store_errors += 1;
+                self.partial_rollout = true;
+                self.projection.conversation.availability = Some("partial_rollout".to_string());
+                self.projection.field_availability.insert(
+                    "details.store".to_string(),
+                    AvailabilityStatus::PartialRollout,
+                );
+                eprintln!("failed to finalize detail store: {error}");
+            }
+        }
         self.populate_field_availability();
         let stats = std::mem::take(&mut self.stats);
-        (self.projection, self.details, stats)
+        let details = if using_detail_store {
+            Vec::new()
+        } else {
+            self.details
+        };
+        (self.projection, details, stats)
     }
 
     fn populate_field_availability(&mut self) {
@@ -883,16 +920,20 @@ impl HistoryReducer {
         self.projection.conversation.latest_context_window = latest_context_window;
     }
 
-    fn build_task_outcome(&self) -> TaskOutcomeDto {
-        let final_turn = self.projection.turns.last();
-        let final_turn_id = final_turn.map(|turn| turn.turn_id.clone());
-        let final_turn_is_partial = final_turn.is_some_and(|turn| {
+    fn build_task_outcome(&mut self) -> TaskOutcomeDto {
+        let final_turn_id = self
+            .projection
+            .turns
+            .last()
+            .map(|turn| turn.turn_id.clone());
+        let final_turn_exists = final_turn_id.is_some();
+        let final_turn_is_partial = self.projection.turns.last().is_some_and(|turn| {
             turn.status == "in_progress"
                 || turn.status == "incomplete"
                 || turn.availability.as_deref() == Some("partial_rollout")
         });
         let provisional = self.partial_rollout || final_turn_is_partial;
-        let conclusion_item = final_turn.and_then(|turn| {
+        let conclusion_item = self.projection.turns.last().and_then(|turn| {
             turn.items.iter().rev().find(|item| {
                 item.kind == "assistant_message"
                     && item.visible
@@ -902,10 +943,33 @@ impl HistoryReducer {
                         .is_some_and(|text| !text.trim().is_empty())
             })
         });
+        let conclusion_item_key = conclusion_item.map(|item| item.item_key.clone());
         let conclusion = conclusion_item.and_then(|item| item.content.clone());
+        let (status, error) = self
+            .projection
+            .turns
+            .last()
+            .map(|turn| {
+                (
+                    turn.outcome.clone().unwrap_or_else(|| turn.status.clone()),
+                    turn.error.clone(),
+                )
+            })
+            .unwrap_or_else(|| ("unknown".to_string(), None));
+        let final_metrics = self
+            .projection
+            .turns
+            .last()
+            .map(|turn| TaskOutcomeMetricsDto {
+                usage: turn.usage.clone(),
+                rate_limit: turn.rate_limit.clone(),
+                context_window: turn.context_window,
+                duration_ms: turn.duration_ms,
+                time_to_first_token_ms: turn.time_to_first_token_ms,
+            });
         let mut source_item_keys = Vec::new();
-        if let Some(item) = conclusion_item {
-            push_unique(&mut source_item_keys, item.item_key.clone());
+        if let Some(item_key) = conclusion_item_key {
+            push_unique(&mut source_item_keys, item_key);
         }
         let mut modified_files = Vec::new();
         let mut modified_file_changes = Vec::new();
@@ -914,6 +978,7 @@ impl HistoryReducer {
         let mut validation_item_keys = Vec::new();
         let mut risks = Vec::new();
         let mut unfinished_items = Vec::new();
+        let mut file_change_items = Vec::new();
         for turn in &self.projection.turns {
             for item in &turn.items {
                 if item.tool.is_some() {
@@ -932,9 +997,7 @@ impl HistoryReducer {
                             }
                         }
                     }
-                    for path in self.modified_files_for_item(item) {
-                        push_unique(&mut modified_files, path);
-                    }
+                    file_change_items.push(item.clone());
                 }
                 if is_validation_item(item) {
                     push_unique(&mut source_item_keys, item.item_key.clone());
@@ -962,6 +1025,11 @@ impl HistoryReducer {
                 }
             }
         }
+        for item in file_change_items {
+            for path in self.modified_files_for_item(&item) {
+                push_unique(&mut modified_files, path);
+            }
+        }
         for turn in &self.projection.turns {
             if turn.status == "incomplete" {
                 push_unique(&mut unfinished_items, turn.turn_id.clone());
@@ -970,28 +1038,13 @@ impl HistoryReducer {
                 push_unique(&mut risks, error.clone());
             }
         }
-        let (status, error) = final_turn
-            .map(|turn| {
-                (
-                    turn.outcome.clone().unwrap_or_else(|| turn.status.clone()),
-                    turn.error.clone(),
-                )
-            })
-            .unwrap_or_else(|| ("unknown".to_string(), None));
         let availability = if provisional {
             "partial_rollout"
-        } else if final_turn.is_some() && conclusion.is_some() {
+        } else if final_turn_exists && conclusion.is_some() {
             "present"
         } else {
             "not_recoverable_from_rollout"
         };
-        let final_metrics = final_turn.map(|turn| TaskOutcomeMetricsDto {
-            usage: turn.usage.clone(),
-            rate_limit: turn.rate_limit.clone(),
-            context_window: turn.context_window,
-            duration_ms: turn.duration_ms,
-            time_to_first_token_ms: turn.time_to_first_token_ms,
-        });
         let follow_up_suggestions = conclusion
             .as_deref()
             .map(extract_follow_up_suggestions)
@@ -1017,13 +1070,17 @@ impl HistoryReducer {
         }
     }
 
-    fn modified_files_for_item(&self, item: &HistoryItemDto) -> Vec<String> {
+    fn modified_files_for_item(&mut self, item: &HistoryItemDto) -> Vec<String> {
         if let Some(detail_ref) = &item.detail_ref {
-            if let Some(detail) = self
-                .details
-                .iter()
-                .find(|detail| &detail.detail_ref == detail_ref)
-            {
+            let detail = if self.detail_store.is_some() {
+                self.load_detail(detail_ref)
+            } else {
+                self.details
+                    .iter()
+                    .find(|detail| &detail.detail_ref == detail_ref)
+                    .cloned()
+            };
+            if let Some(detail) = detail {
                 if let Some(result) = &detail.result {
                     if let Some(object) = result.as_object() {
                         return object.keys().cloned().collect();
@@ -1038,6 +1095,23 @@ impl HistoryReducer {
             .and_then(Value::as_object)
             .map(|changes| changes.keys().cloned().collect())
             .unwrap_or_default()
+    }
+
+    fn load_detail(&mut self, detail_ref: &str) -> Option<DetailPayloadDto> {
+        let result = self
+            .detail_store
+            .as_mut()
+            .map(|store| store.get(detail_ref));
+        match result {
+            Some(Ok(detail)) => detail,
+            Some(Err(error)) => {
+                self.stats.detail_store_errors += 1;
+                self.partial_rollout = true;
+                eprintln!("failed to read detail {detail_ref}: {error}");
+                None
+            }
+            None => None,
+        }
     }
 
     fn add_task_outcome_item(&mut self, outcome: &TaskOutcomeDto) {
@@ -3176,25 +3250,34 @@ impl HistoryReducer {
         let serialized_bytes = serde_json::to_vec(&detail)
             .map(|bytes| bytes.len() as u64)
             .unwrap_or(0);
-        if let Some(index) = self
-            .details
-            .iter()
-            .position(|item| item.detail_ref == detail_ref)
-        {
-            let previous_bytes = serde_json::to_vec(&self.details[index])
-                .map(|bytes| bytes.len() as u64)
-                .unwrap_or(0);
-            self.details[index] = detail;
-            self.stats.detail_bytes = self
-                .stats
-                .detail_bytes
-                .saturating_sub(previous_bytes)
-                .saturating_add(serialized_bytes);
+        let previous_bytes = self
+            .detail_sizes
+            .insert(detail_ref.clone(), serialized_bytes);
+        if let Some(store) = self.detail_store.as_mut() {
+            if let Err(error) = store.upsert(&detail) {
+                self.stats.detail_store_errors += 1;
+                self.partial_rollout = true;
+                eprintln!("failed to persist detail {detail_ref}: {error}");
+            }
         } else {
-            self.details.push(detail);
-            self.stats.detail_payloads += 1;
-            self.stats.detail_bytes = self.stats.detail_bytes.saturating_add(serialized_bytes);
+            if let Some(index) = self
+                .details
+                .iter()
+                .position(|item| item.detail_ref == detail_ref)
+            {
+                self.details[index] = detail;
+            } else {
+                self.details.push(detail);
+            }
         }
+        if previous_bytes.is_none() {
+            self.stats.detail_payloads += 1;
+        }
+        self.stats.detail_bytes = self
+            .stats
+            .detail_bytes
+            .saturating_sub(previous_bytes.unwrap_or(0))
+            .saturating_add(serialized_bytes);
         if let Some(pending) = self.pending_tools.get_mut(call_id) {
             pending.detail_ref = Some(detail_ref.clone());
         }
@@ -3229,17 +3312,22 @@ impl HistoryReducer {
             .get(call_id)
             .and_then(|pending| pending.detail_ref.clone());
         if let Some(detail_ref) = detail_ref {
-            if let Some(index) = self
+            if let Some(previous_bytes) = self.detail_sizes.remove(&detail_ref) {
+                self.stats.detail_payloads = self.stats.detail_payloads.saturating_sub(1);
+                self.stats.detail_bytes = self.stats.detail_bytes.saturating_sub(previous_bytes);
+            }
+            if let Some(store) = self.detail_store.as_mut() {
+                if let Err(error) = store.remove(&detail_ref) {
+                    self.stats.detail_store_errors += 1;
+                    self.partial_rollout = true;
+                    eprintln!("failed to remove detail {detail_ref}: {error}");
+                }
+            } else if let Some(index) = self
                 .details
                 .iter()
                 .position(|detail| detail.detail_ref == detail_ref)
             {
-                let previous_bytes = serde_json::to_vec(&self.details[index])
-                    .map(|bytes| bytes.len() as u64)
-                    .unwrap_or(0);
                 self.details.remove(index);
-                self.stats.detail_payloads = self.stats.detail_payloads.saturating_sub(1);
-                self.stats.detail_bytes = self.stats.detail_bytes.saturating_sub(previous_bytes);
             }
             if let Some(pending) = self.pending_tools.get_mut(call_id) {
                 pending.detail_ref = None;

@@ -29,6 +29,8 @@ pub struct ReadStats {
     pub decoded_bytes: u64,
     pub budget_bytes: u64,
     pub line_count: u64,
+    pub valid_records: u64,
+    pub last_source_ordinal: Option<u64>,
     pub parse_errors: u64,
     pub unmapped_types: BTreeMap<String, u64>,
     pub item_kinds: BTreeMap<String, u64>,
@@ -36,13 +38,38 @@ pub struct ReadStats {
     pub first_parse_error: Option<String>,
 }
 
-/// Parse the complete source. Parse failures are reported in `ReadStats`; the
-/// caller decides whether `--allow-partial` is acceptable. The default CLI
-/// path fails closed rather than silently producing an incomplete projection.
+/// Parse the complete source into memory.
+///
+/// This is intentionally kept as a correctness oracle for tests and
+/// comparison runs. The production path must use [`read_streaming`] instead.
 pub async fn read_full(
     path: &Path,
     max_decoded_bytes: u64,
 ) -> Result<(Vec<ParsedRolloutLine>, ReadStats)> {
+    let mut lines = Vec::new();
+    let stats = read_streaming(path, max_decoded_bytes, |line| {
+        lines.push(line);
+        Ok(())
+    })
+    .await?;
+    Ok((lines, stats))
+}
+
+/// Parse a rollout one complete JSONL record at a time.
+///
+/// The callback is invoked immediately after a record is parsed. Once it
+/// returns, the parsed record can be released, so memory use is independent of
+/// the total rollout size (apart from state retained by the callback/reducer).
+/// Parse failures are reported in `ReadStats`; the caller decides whether
+/// `--allow-partial` is acceptable.
+pub async fn read_streaming<F>(
+    path: &Path,
+    max_decoded_bytes: u64,
+    mut visit: F,
+) -> Result<ReadStats>
+where
+    F: FnMut(ParsedRolloutLine) -> Result<()>,
+{
     let mut stats = ReadStats {
         budget_bytes: max_decoded_bytes,
         ..ReadStats::default()
@@ -66,7 +93,6 @@ pub async fn read_full(
         .await
         .with_context(|| format!("open rollout {}", path.display()))?;
 
-    let mut lines = Vec::new();
     let mut ordinal = 0_u64;
     loop {
         let raw = match reader.next_line().await {
@@ -80,6 +106,7 @@ pub async fn read_full(
         };
         ordinal += 1;
         stats.line_count += 1;
+        stats.last_source_ordinal = Some(ordinal);
         stats.decoded_bytes = stats
             .decoded_bytes
             .saturating_add(raw.len() as u64)
@@ -97,11 +124,12 @@ pub async fn read_full(
         match parse_rollout_line(&raw) {
             Ok(line) => {
                 record_item_kinds(&mut stats, &line.item);
-                lines.push(ParsedRolloutLine {
+                stats.valid_records += 1;
+                visit(ParsedRolloutLine {
                     source_ordinal: ordinal,
                     rollout_ordinal: line.ordinal,
                     line,
-                });
+                })?;
             }
             Err(error) => {
                 stats.parse_errors += 1;
@@ -115,7 +143,7 @@ pub async fn read_full(
             }
         }
     }
-    Ok((lines, stats))
+    Ok(stats)
 }
 
 pub fn parse_rollout_line(raw: &str) -> Result<RolloutLine> {
@@ -169,5 +197,56 @@ fn truncate(value: &str, max: usize) -> String {
         value.to_string()
     } else {
         format!("{}…", &value[..max])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use codex_protocol::protocol::{CompactedItem, RolloutItem, RolloutLine};
+    use std::io::Write;
+
+    #[tokio::test]
+    async fn streaming_reader_matches_full_reader_without_collecting_source_lines() {
+        let path = std::env::temp_dir().join(format!(
+            "codex-rollout-demo-reader-{}-{}.jsonl",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut file = std::fs::File::create(&path).unwrap();
+        for ordinal in 1..=3_u64 {
+            let line = RolloutLine {
+                timestamp: format!("2026-08-15T00:00:0{ordinal}.000Z"),
+                ordinal: Some(ordinal),
+                item: RolloutItem::Compacted(CompactedItem {
+                    message: format!("window {ordinal}"),
+                    replacement_history: None,
+                    window_number: Some(ordinal),
+                    first_window_id: None,
+                    previous_window_id: None,
+                    window_id: None,
+                }),
+            };
+            writeln!(file, "{}", serde_json::to_string(&line).unwrap()).unwrap();
+        }
+        file.sync_all().unwrap();
+
+        let (full_lines, full_stats) = read_full(&path, 1024 * 1024).await.unwrap();
+        let mut streamed_lines = Vec::new();
+        let streaming_stats = read_streaming(&path, 1024 * 1024, |line| {
+            streamed_lines.push(line);
+            Ok(())
+        })
+        .await
+        .unwrap();
+        assert_eq!(streamed_lines.len(), full_lines.len());
+        assert_eq!(streaming_stats.valid_records, full_stats.valid_records);
+        assert_eq!(streaming_stats.line_count, full_stats.line_count);
+        assert_eq!(streaming_stats.item_kinds, full_stats.item_kinds);
+        assert_eq!(streamed_lines[2].effective_ordinal(), 3);
+        std::fs::remove_file(path).unwrap();
     }
 }
