@@ -49,16 +49,20 @@ E:/coding/github/codex/codex-rs/protocol
 E:/coding/github/codex/codex-rs/app-server-protocol
 ```
 
-本 Spike 当前直接使用以下 path dependencies，因此仍明确依赖本机 Codex checkout：
+本 Spike 不再依赖本机 Codex checkout。`Cargo.toml` 只引用目录内的：
 
 ```text
-E:/coding/github/codex/codex-rs/history
-E:/coding/github/codex/codex-rs/protocol
+vendor/codex/history
+vendor/codex/protocol
 ```
 
+这些目录保留了 Codex 原始 crate 名称和模块结构，并包含编译这两个 crate
+所需的最小 Codex path-dependency closure。这样 Spike 仍然直接使用 Codex
+原始解析类型，同时可以在没有 Codex checkout 的机器上 clean build。
+
 没有引入完整 `codex-rollout` crate，避免把 Git、网络、遥测和 PTY 运行时依赖
-带入 parser-only Spike。这是本轮验证“直接使用 Codex 原始解析类型”的方式，
-不是正式发布时的独立依赖方案。
+带入 parser-only Spike。Codex 兼容源码的来源、覆盖更新方式和当前 revision
+记录在 [`vendor/codex/README.md`](vendor/codex/README.md)。
 
 ## 输出
 
@@ -100,5 +104,6 @@ cargo run --release -- \
 --mode append --start-offset <offset> --start-ordinal <ordinal>
 ```
 
-如果没有本机 Codex checkout，当前 Spike 会像 Demo 一样无法构建；这是刻意
-保留的直接源码依赖，后续正式项目再决定如何 vendoring Codex 兼容代码。
+Spike 的 Codex 兼容源码已经随目录提交；没有本机 Codex checkout 也可以构建。
+升级 Codex 时只需要按 `vendor/codex/README.md` 覆盖对应源码目录，并重新执行
+测试和 Demo/Spike A/B 回归。

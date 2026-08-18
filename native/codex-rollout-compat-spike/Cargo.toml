@@ -2,13 +2,13 @@
 name = "codex-rollout-compat-spike"
 version = "0.2.0"
 edition = "2024"
-description = "Parser-only Spike using the Demo rollout reader and Codex rollout types"
+description = "Parser-only Spike using the Demo rollout reader and vendored Codex rollout types"
 license = "Apache-2.0"
 
 [dependencies]
 anyhow = "1"
-codex-history = { path = "E:/coding/github/codex/codex-rs/history" }
-codex-protocol = { path = "E:/coding/github/codex/codex-rs/protocol" }
+codex-history = { path = "vendor/codex/history" }
+codex-protocol = { path = "vendor/codex/protocol" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["fs", "io-util", "macros", "rt-multi-thread", "time"] }
