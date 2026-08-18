@@ -46,6 +46,7 @@ related_docs: [docs/product/PRODUCT_REQUIREMENTS.md, docs/architecture/CURRENT_S
 - 能力实施计划：`docs/codex/codex-capability-implementation-plan.md`
 - VSCode 插件移植：`docs/codex/codex-vscode-port-to-app.md`
 - Codex 集成架构：`docs/codex/codex-integration-architecture.md`
+- Codex Rollout 正式解析采集器架构：`docs/codex/codex-rollout-collector-architecture.md`
 
 ### Guides
 
