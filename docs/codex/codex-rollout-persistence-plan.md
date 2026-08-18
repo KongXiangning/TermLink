@@ -1,7 +1,10 @@
-# 未来 Rust 服务端持久化接口与 Source Checkpoint 设计（Demo 验收后立项）
+# 【已废止】Demo 持久化接口与 Source Checkpoint 草案
 
-> 本文是 `native/codex-rollout-demo`（INBOX-20260815-001）验证通过后的服务端集成设计。
-> 状态：**设计草案，待 Demo 验收通过后冻结**。不改变当前 IPC 实时链路、Android 或 App。
+> 本文仅记录 `native/codex-rollout-demo` 的历史实验和自调用 API 验证结果。
+> 状态：**已废止，不作为正式 Rust History Analyzer 或服务端实现依据**。
+> 正式 Rust History Analyzer 不负责数据库、文件或 SQLite 持久化，只通过 `AnalysisBatch`
+> 向 Node/服务端输出分析结果；本文中的 `HistoryStore`、`HistoryPersistence` 和旧的
+> `RolloutSource` 接口均不再冻结、不应直接实现。
 
 ## 1. 分层
 
@@ -20,8 +23,10 @@ termlink-rust-server          # 未来独立服务（另行立项）
   IPC gateway                 # 与现有 Node gateway 的外围适配（不改变 IPC authority）
 ```
 
-Demo 中的 `reader.rs`/`reducer.rs`/`dto.rs`/`canonical.rs` 即 `RolloutReader`/`HistoryReducer`/
-`HistoryProjector`/`CanonicalHasher` 的原型；正式化时需：
+Demo 中的 `reader.rs`/`reducer.rs`/`dto.rs`/`canonical.rs` 仅用于说明 Demo 的验证边界，
+不代表正式模块接口。正式化时应以
+`docs/codex/codex-rollout-collector-architecture.md` 为准，而不是继续扩展本文的旧接口。
+本文曾经提出的集成方向包括：
 
 - 移除 `E:/coding/github/codex/...` path deps，改为固定 commit 的 vendor/发布依赖（保留 Apache-2.0 + NOTICE）；
 - 增加 `redactionPolicy` 配置层（单用户阶段可 no-op，多用户/云端前必须实现）；
