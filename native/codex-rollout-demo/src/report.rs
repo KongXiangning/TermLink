@@ -44,6 +44,8 @@ pub struct TimingStats {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InputStats {
     pub rollout_path: String,
+    #[serde(default = "default_parser_backend")]
+    pub parser_backend: String,
     pub read_mode: String,
     pub segment_bytes: Option<u64>,
     pub tail_segment_start: Option<u64>,
@@ -73,6 +75,10 @@ pub struct InputStats {
     pub checkpoint_pending_tail_bytes: u64,
     #[serde(default)]
     pub checkpoint_source_grew_during_read: bool,
+}
+
+fn default_parser_backend() -> String {
+    "demo".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -295,6 +301,7 @@ mod tests {
             "test",
             InputStats {
                 rollout_path: "fixture".to_string(),
+                parser_backend: "demo".to_string(),
                 read_mode: "test".to_string(),
                 segment_bytes: None,
                 tail_segment_start: None,

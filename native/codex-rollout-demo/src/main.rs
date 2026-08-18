@@ -8,6 +8,7 @@ mod canonical;
 mod checkpoint;
 mod detail_store;
 mod dto;
+mod parser_adapter;
 mod reader;
 mod reducer;
 mod report;
@@ -27,6 +28,7 @@ use sha2::{Digest, Sha256};
 
 use crate::detail_store::{DiscardDetailStore, JsonlDetailStore, read_details_jsonl};
 use crate::dto::{ConversationDto, DetailPayloadDto, HistoryProjection, ParseProgressDto};
+use crate::parser_adapter::{ParserBackend, ParserConfig};
 use crate::report::{DemoReport, DeterminismStats};
 
 const DEFAULT_MAX_INPUT_BYTES: u64 = 70 * 1024 * 1024;
@@ -45,6 +47,7 @@ struct Args {
     allow_partial: bool,
     max_input_bytes: u64,
     segment_bytes: u64,
+    parser: ParserConfig,
 }
 
 fn parse_args() -> Result<Args> {
@@ -59,6 +62,8 @@ fn parse_args() -> Result<Args> {
     let mut allow_partial = false;
     let mut max_input_bytes = DEFAULT_MAX_INPUT_BYTES;
     let mut segment_bytes = DEFAULT_SEGMENT_BYTES;
+    let mut parser_backend = ParserBackend::Demo;
+    let mut spike_binary = None;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -91,6 +96,15 @@ fn parse_args() -> Result<Args> {
             "--full-oracle" => full_oracle = true,
             "--forward-stream" => forward_stream = true,
             "--allow-partial" => allow_partial = true,
+            "--parser" => {
+                parser_backend =
+                    ParserBackend::parse(&args.next().context("--parser requires demo or spike")?)?;
+            }
+            "--spike-bin" => {
+                spike_binary = Some(PathBuf::from(
+                    args.next().context("--spike-bin requires a path")?,
+                ));
+            }
             "--max-input-mib" => {
                 let mib = args
                     .next()
@@ -143,6 +157,10 @@ fn parse_args() -> Result<Args> {
         allow_partial,
         max_input_bytes,
         segment_bytes,
+        parser: ParserConfig {
+            backend: parser_backend,
+            spike_binary,
+        },
     })
 }
 
@@ -159,6 +177,8 @@ fn print_usage() {
          --verify-determinism  run the projection twice and compare deterministic payloads\n  \
          --full-oracle  use the legacy all-records-in-memory reader and build the official comparison\n  \
          --forward-stream  use the bounded forward reader instead of tail-first/backfill\n  \
+         --parser <demo|spike>  select the Demo reader or the Codex parser Spike (default: demo)\n  \
+         --spike-bin <path>  Spike executable; otherwise use CODEX_ROLLOUT_SPIKE_BIN or the default target path\n  \
          --segment-mib  tail/backfill segment size (default 2 MiB)\n  \
          --allow-partial  permit parse gaps; the report remains marked partial\n  \
          --max-input-mib  explicitly raise the default 70 MiB input budget\n"
@@ -216,7 +236,8 @@ async fn run_once(args: &Args) -> Result<RunOutputs> {
 async fn run_once_full(args: &Args) -> Result<RunOutputs> {
     let target_session_id = target_session_id_from_rollout_path(&args.rollout)?;
     let read_start = Instant::now();
-    let (lines, read_stats) = reader::read_full(&args.rollout, args.max_input_bytes).await?;
+    let (lines, read_stats) =
+        parser_adapter::read_full(&args.parser, &args.rollout, args.max_input_bytes).await?;
     let read_elapsed = read_start.elapsed();
 
     let reduce_start = Instant::now();
@@ -373,11 +394,12 @@ async fn run_once_streaming(args: &Args, read_mode: &str) -> Result<RunOutputs> 
         reducer::HistoryReducer::with_detail_store(conversation, target_session_id, detail_store);
 
     let read_start = Instant::now();
-    let read_stats = reader::read_streaming(&args.rollout, args.max_input_bytes, |line| {
-        reducer.reduce(&line);
-        Ok(())
-    })
-    .await?;
+    let read_stats =
+        parser_adapter::read_streaming(&args.parser, &args.rollout, args.max_input_bytes, |line| {
+            reducer.reduce(&line);
+            Ok(())
+        })
+        .await?;
     let read_elapsed = read_start.elapsed();
 
     reducer.set_read_quality(
@@ -474,8 +496,13 @@ async fn run_once_streaming(args: &Args, read_mode: &str) -> Result<RunOutputs> 
 async fn run_once_tail_first(args: &Args) -> Result<RunOutputs> {
     let target_session_id = target_session_id_from_rollout_path(&args.rollout)?;
     let read_start = Instant::now();
-    let Some(tail_read) =
-        reader::read_tail_segment(&args.rollout, args.max_input_bytes, args.segment_bytes).await?
+    let Some(tail_read) = parser_adapter::read_tail_segment(
+        &args.parser,
+        &args.rollout,
+        args.max_input_bytes,
+        args.segment_bytes,
+    )
+    .await?
     else {
         return run_once_streaming(args, "forward_streaming_compressed_fallback").await;
     };
@@ -493,7 +520,8 @@ async fn run_once_tail_first(args: &Args) -> Result<RunOutputs> {
         )?;
     }
 
-    let backfill_stats = reader::read_backward_range(
+    let backfill_stats = parser_adapter::read_backward_range(
+        &args.parser,
         &args.rollout,
         tail_segment_start,
         args.max_input_bytes,
@@ -527,7 +555,8 @@ async fn run_once_tail_first(args: &Args) -> Result<RunOutputs> {
     // The reducer is intentionally replayed in source order. The backward
     // scan above is the acquisition path for tail/older segments; replaying
     // source-order segments here avoids applying begin/end events backwards.
-    let read_stats = reader::read_forward_range(
+    let read_stats = parser_adapter::read_forward_range(
+        &args.parser,
         &args.rollout,
         tail_segment_end,
         args.max_input_bytes,
@@ -706,9 +735,13 @@ async fn run_once_incremental_checkpoint(args: &Args) -> Result<RunOutputs> {
         current_size > checkpoint.source_offset || checkpoint.pending_tail_bytes > 0
     });
     if should_refresh_tail {
-        if let Some(tail_read) =
-            reader::read_tail_segment(&args.rollout, args.max_input_bytes, args.segment_bytes)
-                .await?
+        if let Some(tail_read) = parser_adapter::read_tail_segment(
+            &args.parser,
+            &args.rollout,
+            args.max_input_bytes,
+            args.segment_bytes,
+        )
+        .await?
         {
             tail_segment_start = Some(tail_read.segment.start_offset);
             tail_segment_end = Some(tail_read.segment.end_offset);
@@ -760,7 +793,8 @@ async fn run_once_incremental_checkpoint(args: &Args) -> Result<RunOutputs> {
         .as_ref()
         .map_or(0, |checkpoint| checkpoint.source_ordinal);
     let read_start = Instant::now();
-    let append = reader::read_append_range(
+    let append = parser_adapter::read_append_range(
+        &args.parser,
         &args.rollout,
         start_offset,
         start_source_ordinal,
@@ -1339,6 +1373,7 @@ fn build_demo_report(
         CODEX_REVISION,
         report::InputStats {
             rollout_path: args.rollout.display().to_string(),
+            parser_backend: args.parser.backend.as_str().to_string(),
             read_mode: run.read_mode.clone(),
             segment_bytes: (!args.full_oracle && !args.forward_stream)
                 .then_some(args.segment_bytes),
@@ -1443,11 +1478,19 @@ fn validate_output_paths(args: &Args) -> Result<()> {
 
 fn same_path(left: &Path, right: &Path) -> bool {
     if cfg!(windows) {
-        left.to_string_lossy()
-            .eq_ignore_ascii_case(&right.to_string_lossy())
+        windows_path_key(left).eq_ignore_ascii_case(&windows_path_key(right))
     } else {
         left == right
     }
+}
+
+fn windows_path_key(path: &Path) -> String {
+    let value = path.to_string_lossy().replace('/', "\\");
+    let value = value
+        .strip_prefix("\\\\?\\")
+        .or_else(|| value.strip_prefix("\\\\.\\"))
+        .unwrap_or(&value);
+    value.trim_end_matches('\\').to_string()
 }
 
 fn normalized_path(path: &Path) -> Result<PathBuf> {

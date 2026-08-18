@@ -32,6 +32,7 @@ cargo test
 - 增量读取以开始时的文件长度为本次快照边界；文件在读取期间继续增长时，只提交边界前的完整换行记录，checkpoint 保留在最后完整行，报告标记 `checkpointSourceGrewDuringRead` 或 `checkpointPendingTailBytes`，下次继续读取。
 - checkpoint 会拒绝源文件截断、旧前缀锚点变化、会话 ID 或详情路径不匹配；普通 `.jsonl` 支持增量恢复，`.zst` 暂不支持字节级 checkpoint。
 - `--self-api-dir` 在 demo 内调用 API 形状的 JSON 接口，并把请求、响应、详情和校验报告写入指定目录；不连接 TermLink 服务端。
+- `--parser demo|spike` 选择当前 Demo reader 或 parser-only Codex Spike；选择 `spike` 时可用 `--spike-bin` 指定 Spike 可执行文件。报告的 `input.parser_backend` 会记录实际路径。
 - `--verify-determinism` 双跑校验 projection/details/official/content hash 一致，运行耗时不参与比较。
 - 默认解析有缺口时失败；`--allow-partial` 只用于明确接受不完整导入的场景。
 - 输入上限同时作用于源文件和 `.zst` 解压后的字节数；输出路径不能覆盖输入 rollout。

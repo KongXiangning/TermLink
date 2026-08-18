@@ -6,15 +6,15 @@ description = "TermLink independent Rust demo: read-only Codex rollout JSONL par
 license = "Apache-2.0"
 
 [dependencies]
-codex-rollout = { path = "E:/coding/github/codex/codex-rs/rollout" }
-codex-app-server-protocol = { path = "E:/coding/github/codex/codex-rs/app-server-protocol" }
-codex-protocol = { path = "E:/coding/github/codex/codex-rs/protocol" }
+codex-rollout = { path = "E:/coding/github/codex-old/codex-rs/rollout" }
+codex-app-server-protocol = { path = "E:/coding/github/codex-old/codex-rs/app-server-protocol" }
+codex-protocol = { path = "E:/coding/github/codex-old/codex-rs/protocol" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["fs", "io-util", "macros", "rt-multi-thread", "time"] }
 sha2 = "0.10"
 anyhow = "1"
-codex-utils-path-uri = { path = "E:/coding/github/codex/codex-rs/utils/path-uri" }
+codex-utils-path-uri = { path = "E:/coding/github/codex-old/codex-rs/utils/path-uri" }
 
 # Pin the rama family to the prerelease used by the pinned Codex workspace
 # (its Cargo.lock locks 0.3.0-alpha.4; stable 0.3.0 requires rustc 1.96).
@@ -25,7 +25,7 @@ rama-utils = "=0.3.0-alpha.4"
 [profile.release]
 opt-level = 2
 
-# Mirror the Codex workspace's crates-io patches: codex-otel requires
+# Mirror the pinned Codex workspace's crates-io patches: codex-otel requires
 # tokio-tungstenite's `proxy` feature, which only exists in the OpenAI fork.
 # Fixed to the same revisions as the pinned Codex workspace (bd2de422).
 [patch.crates-io]
