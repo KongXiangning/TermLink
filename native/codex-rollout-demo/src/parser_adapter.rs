@@ -15,7 +15,6 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use anyhow::{Context, Result};
-use codex_protocol::protocol::RolloutLine;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -467,7 +466,7 @@ where
         })?;
         let physical_ordinal = record.source.physical_ordinal;
         let rollout_ordinal = record.source.rollout_ordinal;
-        match serde_json::from_value::<RolloutLine>(record.rollout) {
+        match crate::wire::parse_rollout_line(record.rollout) {
             Ok(line) => {
                 stats.valid_records += 1;
                 if rollout_ordinal.is_some() {
@@ -494,7 +493,7 @@ where
                 remember_first_error(
                     &mut stats,
                     format!(
-                        "Spike record {} cannot adapt to Demo Codex wire type: {}",
+                        "Spike record {} cannot adapt to TermLink wire model: {}",
                         physical_ordinal,
                         truncate(&error.to_string(), 300)
                     ),

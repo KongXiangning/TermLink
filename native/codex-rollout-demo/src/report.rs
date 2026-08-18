@@ -114,7 +114,8 @@ pub struct ReductionStats {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComparisonStats {
-    /// Whether the official `thread/read(true)`-style turns were built.
+    /// Compatibility field retained for report-schema stability. The current
+    /// standalone Demo does not build an official Codex view.
     pub official_built: bool,
     /// Number of official turns produced by `build_turns_from_rollout_items`.
     pub official_turn_count: u64,

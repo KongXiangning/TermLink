@@ -487,13 +487,6 @@ impl HistoryProjection {
         let value = serde_json::to_value(self).unwrap_or(Value::Null);
         hash_value(value, "snapshot")
     }
-
-    /// Compatibility alias for callers that still use the old root hash name.
-    /// New persistence code should use `content_hash` or `snapshot_hash`
-    /// explicitly.
-    pub fn root_hash(&self) -> String {
-        self.content_hash()
-    }
 }
 
 fn hash_value(value: Value, scope: &str) -> String {

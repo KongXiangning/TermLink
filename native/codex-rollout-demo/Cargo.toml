@@ -2,32 +2,16 @@
 name = "codex-rollout-demo"
 version = "0.1.0"
 edition = "2024"
-description = "TermLink independent Rust demo: read-only Codex rollout JSONL parsing, official thread/read comparison, and history-schema:5 projection."
+description = "TermLink independent Rust demo: native rollout reading, structured history projection, and parser Spike comparison."
 license = "Apache-2.0"
 
 [dependencies]
-codex-rollout = { path = "E:/coding/github/codex-old/codex-rs/rollout" }
-codex-app-server-protocol = { path = "E:/coding/github/codex-old/codex-rs/app-server-protocol" }
-codex-protocol = { path = "E:/coding/github/codex-old/codex-rs/protocol" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["fs", "io-util", "macros", "rt-multi-thread", "time"] }
 sha2 = "0.10"
 anyhow = "1"
-codex-utils-path-uri = { path = "E:/coding/github/codex-old/codex-rs/utils/path-uri" }
-
-# Pin the rama family to the prerelease used by the pinned Codex workspace
-# (its Cargo.lock locks 0.3.0-alpha.4; stable 0.3.0 requires rustc 1.96).
-rama-error = "=0.3.0-alpha.4"
-rama-macros = "=0.3.0-alpha.4"
-rama-utils = "=0.3.0-alpha.4"
+zstd = "0.13"
 
 [profile.release]
 opt-level = 2
-
-# Mirror the pinned Codex workspace's crates-io patches: codex-otel requires
-# tokio-tungstenite's `proxy` feature, which only exists in the OpenAI fork.
-# Fixed to the same revisions as the pinned Codex workspace (bd2de422).
-[patch.crates-io]
-tokio-tungstenite = { git = "https://github.com/openai-oss-forks/tokio-tungstenite", rev = "0e5b2d73aa18dd9f0a50ee9ff199d5aef7594186" }
-tungstenite = { git = "https://github.com/openai-oss-forks/tungstenite-rs", rev = "4fffad30fe373adbdcffab9545e9e9bf4f2fc19f" }

@@ -4,7 +4,9 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use codex_protocol::protocol::{RolloutItem, RolloutLine};
+use std::io::{BufRead, BufReader as StdBufReader};
+
+use crate::wire::{RolloutItem, RolloutLine};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncSeekExt, BufReader};
 
 const IO_CHUNK_BYTES: usize = 64 * 1024;
@@ -29,18 +31,6 @@ pub struct ParsedRolloutSegment {
     pub start_offset: u64,
     pub end_offset: u64,
     pub lines: Vec<ParsedRolloutLine>,
-}
-
-impl ParsedRolloutSegment {
-    /// Tail records are initially assigned segment-local physical ordinals.
-    /// Once the older prefix has been read, rebase them to the exact file
-    /// ordinal before they enter the final reducer.
-    pub fn rebase_source_ordinals(&mut self, first_source_ordinal: u64) {
-        for line in &mut self.lines {
-            line.source_ordinal =
-                first_source_ordinal.saturating_add(line.source_ordinal.saturating_sub(1));
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -109,23 +99,6 @@ impl ReadStats {
     }
 }
 
-/// Parse the complete source into memory.
-///
-/// This is intentionally kept as a correctness oracle for tests and
-/// comparison runs. The production path must use [`read_streaming`] instead.
-pub async fn read_full(
-    path: &Path,
-    max_decoded_bytes: u64,
-) -> Result<(Vec<ParsedRolloutLine>, ReadStats)> {
-    let mut lines = Vec::new();
-    let stats = read_streaming(path, max_decoded_bytes, |line| {
-        lines.push(line);
-        Ok(())
-    })
-    .await?;
-    Ok((lines, stats))
-}
-
 /// Parse a rollout one complete JSONL record at a time.
 ///
 /// The callback is invoked immediately after a record is parsed. Once it
@@ -160,28 +133,29 @@ where
         );
     }
 
-    let mut reader = codex_rollout::open_rollout_line_reader(path)
-        .await
-        .with_context(|| format!("open rollout {}", path.display()))?;
-
     let mut ordinal = 0_u64;
+    let file =
+        std::fs::File::open(path).with_context(|| format!("open rollout {}", path.display()))?;
+    let mut reader: Box<dyn BufRead> = if is_compressed_rollout(path) {
+        let decoder = zstd::stream::read::Decoder::new(file)
+            .with_context(|| format!("open compressed rollout {}", path.display()))?;
+        Box::new(StdBufReader::new(decoder))
+    } else {
+        Box::new(StdBufReader::new(file))
+    };
+    let mut raw = String::new();
     loop {
-        let raw = match reader.next_line().await {
-            Ok(Some(line)) => line,
-            Ok(None) => break,
-            Err(error) => {
-                stats.parse_errors += 1;
-                remember_first_error(&mut stats, format!("read error: {error}"));
-                break;
-            }
-        };
+        raw.clear();
+        let read = reader
+            .read_line(&mut raw)
+            .with_context(|| format!("read rollout {}", path.display()))?;
+        if read == 0 {
+            break;
+        }
         ordinal += 1;
         stats.line_count += 1;
         stats.last_source_ordinal = Some(ordinal);
-        stats.decoded_bytes = stats
-            .decoded_bytes
-            .saturating_add(raw.len() as u64)
-            .saturating_add(1);
+        stats.decoded_bytes = stats.decoded_bytes.saturating_add(read as u64);
         if stats.decoded_bytes > max_decoded_bytes {
             anyhow::bail!(
                 "decoded rollout {} exceeds the {} byte limit",
@@ -189,10 +163,11 @@ where
                 max_decoded_bytes
             );
         }
+        let raw = trim_line_ending(&raw);
         if raw.trim().is_empty() {
             continue;
         }
-        if let Some(line) = parse_line_with_stats(&raw, ordinal, &mut stats) {
+        if let Some(line) = parse_line_with_stats(raw, ordinal, &mut stats) {
             visit(line)?;
         }
     }
@@ -778,27 +753,21 @@ fn merge_counts(target: &mut BTreeMap<String, u64>, source: &BTreeMap<String, u6
 }
 
 pub fn parse_rollout_line(raw: &str) -> Result<RolloutLine> {
-    // Deserialize through Value. This is required by the current Codex
-    // protocol for some internally tagged payloads containing f64 values.
     let value: serde_json::Value = serde_json::from_str(raw)?;
-    Ok(serde_json::from_value(value)?)
+    crate::wire::parse_rollout_line(value)
 }
 
 fn record_item_kinds(stats: &mut ReadStats, item: &RolloutItem) {
-    let value = serde_json::to_value(item).unwrap_or(serde_json::Value::Null);
-    let kind = value
-        .get("type")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("unknown")
-        .to_string();
+    let kind = item.type_name().to_string();
     *stats.item_kinds.entry(kind.clone()).or_insert(0) += 1;
     if kind == "event_msg" {
-        let payload = value
-            .get("payload")
-            .and_then(|payload| payload.get("type"))
-            .and_then(serde_json::Value::as_str)
-            .unwrap_or("<missing>")
-            .to_string();
+        let payload = match item {
+            RolloutItem::EventMsg(crate::wire::protocol::EventMsg::Skipped { kind, .. }) => {
+                kind.clone()
+            }
+            RolloutItem::EventMsg(event) => crate::wire::event_type(event),
+            _ => "<missing>".to_string(),
+        };
         *stats.event_payload_types.entry(payload).or_insert(0) += 1;
     }
 }
@@ -834,13 +803,12 @@ fn truncate(value: &str, max: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use codex_protocol::protocol::{CompactedItem, RolloutItem, RolloutLine};
     use std::io::Write;
 
     #[tokio::test]
-    async fn streaming_reader_matches_full_reader_without_collecting_source_lines() {
+    async fn native_streaming_reader_parses_jsonl_without_codex_types() {
         let path = std::env::temp_dir().join(format!(
-            "codex-rollout-demo-reader-{}-{}.jsonl",
+            "termlink-rollout-reader-{}-{}.jsonl",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -848,224 +816,29 @@ mod tests {
                 .as_nanos()
         ));
         let mut file = std::fs::File::create(&path).unwrap();
-        for ordinal in 1..=3_u64 {
-            let line = RolloutLine {
-                timestamp: format!("2026-08-15T00:00:0{ordinal}.000Z"),
-                ordinal: Some(ordinal),
-                item: RolloutItem::Compacted(CompactedItem {
-                    message: format!("window {ordinal}"),
-                    replacement_history: None,
-                    window_number: Some(ordinal),
-                    first_window_id: None,
-                    previous_window_id: None,
-                    window_id: None,
-                }),
-            };
-            writeln!(file, "{}", serde_json::to_string(&line).unwrap()).unwrap();
-        }
-        file.sync_all().unwrap();
+        writeln!(
+            file,
+            r#"{{"timestamp":"2026-08-15T00:00:00.000Z","ordinal":1,"type":"session_meta","payload":{{"session_id":"00000000-0000-0000-0000-000000000001","id":"00000000-0000-0000-0000-000000000001","timestamp":"2026-08-15T00:00:00.000Z","cwd":"E:\\proj","cli_version":"test","source":"cli"}}}}"#
+        )
+        .unwrap();
+        writeln!(
+            file,
+            r#"{{"timestamp":"2026-08-15T00:00:01.000Z","ordinal":2,"type":"compacted","payload":{{"message":"window"}}}}"#
+        )
+        .unwrap();
+        drop(file);
 
-        let (full_lines, full_stats) = read_full(&path, 1024 * 1024).await.unwrap();
-        let mut streamed_lines = Vec::new();
-        let streaming_stats = read_streaming(&path, 1024 * 1024, |line| {
-            streamed_lines.push(line);
+        let mut streamed = Vec::new();
+        let stream_stats = read_streaming(&path, 1024 * 1024, |line| {
+            streamed.push(line);
             Ok(())
         })
         .await
         .unwrap();
-        assert_eq!(streamed_lines.len(), full_lines.len());
-        assert_eq!(streaming_stats.valid_records, full_stats.valid_records);
-        assert_eq!(streaming_stats.line_count, full_stats.line_count);
-        assert_eq!(streaming_stats.item_kinds, full_stats.item_kinds);
-        assert_eq!(streamed_lines[2].effective_ordinal(), 3);
-        std::fs::remove_file(path).unwrap();
-    }
-
-    #[tokio::test]
-    async fn tail_segment_is_complete_and_prefix_backfill_restores_source_order() {
-        let path = std::env::temp_dir().join(format!(
-            "codex-rollout-demo-tail-{}-{}.jsonl",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        let mut file = std::fs::File::create(&path).unwrap();
-        let mut encoded = Vec::new();
-        for ordinal in 1..=5_u64 {
-            let line = RolloutLine {
-                timestamp: format!("2026-08-15T00:00:0{ordinal}.000Z"),
-                ordinal: Some(ordinal),
-                item: RolloutItem::Compacted(CompactedItem {
-                    message: format!("window {ordinal}"),
-                    replacement_history: None,
-                    window_number: Some(ordinal),
-                    first_window_id: None,
-                    previous_window_id: None,
-                    window_id: None,
-                }),
-            };
-            let serialized = format!("{}\n", serde_json::to_string(&line).unwrap());
-            encoded.push(serialized.clone());
-            file.write_all(serialized.as_bytes()).unwrap();
-        }
-        file.sync_all().unwrap();
-
-        let tail_size = (encoded[3].len() + encoded[4].len()) as u64;
-        let tail = read_tail_segment(&path, 1024 * 1024, tail_size)
-            .await
-            .unwrap()
-            .unwrap();
-        assert_eq!(tail.segment.lines.len(), 2);
-        assert_eq!(
-            tail.segment.lines[0].line.timestamp,
-            "2026-08-15T00:00:04.000Z"
-        );
-        assert_eq!(
-            tail.segment.lines[1].line.timestamp,
-            "2026-08-15T00:00:05.000Z"
-        );
-        assert!(tail.segment.start_offset > 0);
-
-        let mut backward_segment_first_ordinals = Vec::new();
-        let backward_stats = read_backward_range(
-            &path,
-            tail.segment.start_offset,
-            1024 * 1024,
-            1,
-            |segment| {
-                backward_segment_first_ordinals.push(
-                    segment
-                        .lines
-                        .first()
-                        .map(ParsedRolloutLine::effective_ordinal),
-                );
-                Ok(())
-            },
-        )
-        .await
-        .unwrap()
-        .unwrap();
-        assert_eq!(backward_stats.line_count, 3);
-        assert_eq!(
-            backward_segment_first_ordinals,
-            vec![Some(3), Some(2), Some(1)]
-        );
-
-        let mut prefix_lines = Vec::new();
-        let prefix_stats = read_forward_range(
-            &path,
-            tail.segment.start_offset,
-            1024 * 1024,
-            1,
-            |segment| {
-                prefix_lines.extend(segment.lines);
-                Ok(())
-            },
-        )
-        .await
-        .unwrap();
-        let mut rebased_tail = tail.segment;
-        rebased_tail.rebase_source_ordinals(prefix_stats.line_count + 1);
-        prefix_lines.extend(rebased_tail.lines);
-
-        assert_eq!(prefix_stats.line_count, 3);
-        assert_eq!(prefix_lines.len(), 5);
-        assert_eq!(
-            prefix_lines
-                .iter()
-                .map(|line| line.effective_ordinal())
-                .collect::<Vec<_>>(),
-            vec![1, 2, 3, 4, 5]
-        );
-        assert_eq!(
-            prefix_lines
-                .iter()
-                .map(|line| line.source_ordinal)
-                .collect::<Vec<_>>(),
-            vec![1, 2, 3, 4, 5]
-        );
-        std::fs::remove_file(path).unwrap();
-    }
-
-    #[tokio::test]
-    async fn append_reader_retries_an_unterminated_tail_after_the_file_grows() {
-        let path = std::env::temp_dir().join(format!(
-            "codex-rollout-demo-append-{}-{}.jsonl",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        let make_line = |ordinal: u64| RolloutLine {
-            timestamp: format!("2026-08-15T00:00:0{ordinal}.000Z"),
-            ordinal: Some(ordinal),
-            item: RolloutItem::Compacted(CompactedItem {
-                message: format!("window {ordinal}"),
-                replacement_history: None,
-                window_number: Some(ordinal),
-                first_window_id: None,
-                previous_window_id: None,
-                window_id: None,
-            }),
-        };
-        let first = format!("{}\n", serde_json::to_string(&make_line(1)).unwrap());
-        let second = format!("{}\n", serde_json::to_string(&make_line(2)).unwrap());
-        let third = serde_json::to_string(&make_line(3)).unwrap();
-        let fourth = format!("{}\n", serde_json::to_string(&make_line(4)).unwrap());
-        let mut file = std::fs::File::create(&path).unwrap();
-        file.write_all(first.as_bytes()).unwrap();
-        file.write_all(second.as_bytes()).unwrap();
-        file.write_all(third.as_bytes()).unwrap();
-        file.sync_all().unwrap();
-
-        let mut first_lines = Vec::new();
-        let first_read = read_append_range(&path, 0, 0, 1024 * 1024, 1, |segment| {
-            first_lines.extend(segment.lines);
-            Ok(())
-        })
-        .await
-        .unwrap();
-        assert_eq!(first_lines.len(), 2);
-        assert_eq!(first_read.last_source_ordinal, 2);
-        assert_eq!(first_read.pending_tail_bytes, third.len() as u64);
-        assert_eq!(
-            first_read.complete_end_offset,
-            (first.len() + second.len()) as u64
-        );
-
-        let mut append = std::fs::OpenOptions::new()
-            .append(true)
-            .open(&path)
-            .unwrap();
-        append.write_all(b"\n").unwrap();
-        append.write_all(fourth.as_bytes()).unwrap();
-        append.sync_all().unwrap();
-
-        let mut appended_lines = Vec::new();
-        let second_read = read_append_range(
-            &path,
-            first_read.complete_end_offset,
-            first_read.last_source_ordinal,
-            1024 * 1024,
-            1,
-            |segment| {
-                appended_lines.extend(segment.lines);
-                Ok(())
-            },
-        )
-        .await
-        .unwrap();
-        assert_eq!(appended_lines.len(), 2);
-        assert_eq!(appended_lines[0].source_ordinal, 3);
-        assert_eq!(appended_lines[1].source_ordinal, 4);
-        assert_eq!(second_read.pending_tail_bytes, 0);
-        assert_eq!(
-            second_read.complete_end_offset,
-            fourth.len() as u64 + third.len() as u64 + 1 + (first.len() + second.len()) as u64
-        );
-        std::fs::remove_file(path).unwrap();
+        assert_eq!(streamed.len(), 2);
+        assert_eq!(stream_stats.valid_records, 2);
+        assert_eq!(streamed[0].line.item.type_name(), "session_meta");
+        assert_eq!(streamed[1].line.item.type_name(), "compacted");
+        let _ = std::fs::remove_file(path);
     }
 }

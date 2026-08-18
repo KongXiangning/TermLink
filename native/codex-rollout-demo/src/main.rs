@@ -4,7 +4,6 @@
 //! writes optional projection/detail/comparison files, and never touches the
 //! TermLink server, IPC state, database, or the source rollout.
 
-mod canonical;
 mod checkpoint;
 mod detail_store;
 mod dto;
@@ -13,6 +12,7 @@ mod reader;
 mod reducer;
 mod report;
 mod self_api;
+mod wire;
 
 #[cfg(test)]
 mod reducer_tests;
@@ -22,7 +22,6 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
-use codex_protocol::protocol::RolloutItem;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -170,12 +169,12 @@ fn print_usage() {
          Usage:\n  codex-rollout-demo --rollout <rollout-jsonl-path> [--report <report-json-path>] [--details <details-jsonl-path>] [--self-api-dir <directory>] [--verify-determinism] [--allow-partial]\n\n\
          Options:\n  \
          --rollout  path to one Codex rollout*.jsonl or rollout*.jsonl.zst file (required)\n  \
-         --report   write report plus .projection.json and .official.json sidecars\n  \
+         --report   write report plus the .projection.json sidecar\n  \
          --details  write retained full tool details as JSONL\n  \
          --self-api-dir  call the demo's in-process JSON API and persist request/response files\n  \
          --checkpoint  persist reducer state and resume from appended JSONL records\n  \
          --verify-determinism  run the projection twice and compare deterministic payloads\n  \
-         --full-oracle  use the legacy all-records-in-memory reader and build the official comparison\n  \
+         --full-oracle  use the all-records-in-memory native reader as a correctness oracle\n  \
          --forward-stream  use the bounded forward reader instead of tail-first/backfill\n  \
          --parser <demo|spike>  select the Demo reader or the Codex parser Spike (default: demo)\n  \
          --spike-bin <path>  Spike executable; otherwise use CODEX_ROLLOUT_SPIKE_BIN or the default target path\n  \
@@ -302,10 +301,10 @@ async fn run_once_full(args: &Args) -> Result<RunOutputs> {
     let reduce_elapsed = reduce_start.elapsed();
 
     let project_start = Instant::now();
-    let items: Vec<RolloutItem> = lines.iter().map(|line| line.line.item.clone()).collect();
-    let official = canonical::build_official_turns(&items);
-    let official_json =
-        serde_json::to_string_pretty(&official).context("serialize official turns")?;
+    // The full mode is now the native in-memory correctness oracle.  The
+    // official Codex thread/read comparison lived behind the removed Codex
+    // dependency and is intentionally not part of the Demo projection path.
+    let official_json = String::new();
     let projection_json =
         serde_json::to_string_pretty(&projection).context("serialize projection")?;
     let content_hash = projection.content_hash();
@@ -328,7 +327,7 @@ async fn run_once_full(args: &Args) -> Result<RunOutputs> {
         details_fingerprint,
         details_persisted: false,
         official_json,
-        official_built: true,
+        official_built: false,
         content_hash,
         snapshot_hash,
         reduce_stats,
@@ -1417,9 +1416,6 @@ fn validate_output_paths(args: &Args) -> Result<()> {
         if !args.full_oracle && !args.forward_stream {
             outputs.push(report.with_extension("tail.json"));
         }
-        if args.full_oracle {
-            outputs.push(report.with_extension("official.json"));
-        }
     }
     if let Some(details) = &args.details {
         outputs.push(details.clone());
@@ -1576,6 +1572,7 @@ fn peak_memory_mb() -> u64 {
             pagefile_usage: usize,
             peak_pagefile_usage: usize,
         }
+        #[link(name = "psapi")]
         unsafe extern "system" {
             fn GetCurrentProcess() -> *mut c_void;
             fn GetProcessMemoryInfo(

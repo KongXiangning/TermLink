@@ -17,9 +17,10 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Read;
 
+use crate::wire::RolloutItem;
+use crate::wire::models::{self, ContentItem, ResponseItem};
+use crate::wire::protocol::EventMsg;
 use anyhow::Result;
-use codex_protocol::models::{self, ContentItem, ResponseItem};
-use codex_protocol::protocol::{EventMsg, RolloutItem};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::Digest;
@@ -395,6 +396,7 @@ impl HistoryReducer {
                 self.drop_kind("compacted");
             }
             RolloutItem::WorldState(_) => self.drop_kind("world_state"),
+            RolloutItem::Unsupported { kind, .. } => self.drop_kind(&format!("unsupported:{kind}")),
         }
     }
 
@@ -995,7 +997,7 @@ impl HistoryReducer {
         }
     }
 
-    fn apply_session_meta(&mut self, meta: &codex_protocol::protocol::SessionMetaLine) -> bool {
+    fn apply_session_meta(&mut self, meta: &crate::wire::protocol::SessionMetaLine) -> bool {
         let session_id = meta.meta.session_id.to_string();
         let thread_id = meta.meta.id.to_string();
         if self.target_session_id != session_id {
@@ -1005,6 +1007,7 @@ impl HistoryReducer {
         let metadata_boundary = [
             meta.meta
                 .history_base
+                .as_ref()
                 .map(|base| base.end_ordinal_exclusive),
             meta.meta.subagent_history_start_ordinal,
         ]
@@ -1020,11 +1023,11 @@ impl HistoryReducer {
         let conversation = &mut self.projection.conversation;
         conversation.conversation_id = session_id;
         conversation.thread_id = Some(thread_id);
-        conversation.forked_from_id = meta.meta.forked_from_id.map(|id| id.to_string());
-        conversation.parent_thread_id = meta.meta.parent_thread_id.map(|id| id.to_string());
+        conversation.forked_from_id = meta.meta.forked_from_id.clone();
+        conversation.parent_thread_id = meta.meta.parent_thread_id.clone();
         conversation.cli_version = non_empty(Some(meta.meta.cli_version.clone()));
         conversation.history_mode = Some(meta.meta.history_mode.as_str().to_string());
-        if let Some(base) = meta.meta.history_base {
+        if let Some(base) = &meta.meta.history_base {
             conversation.history_base = Some(HistoryBaseDto {
                 thread_id: base.thread_id.to_string(),
                 end_ordinal_exclusive: base.end_ordinal_exclusive,
@@ -1034,7 +1037,7 @@ impl HistoryReducer {
         if let Some(start_ordinal) = meta.meta.subagent_history_start_ordinal {
             conversation.subagent_history_start_ordinal = Some(start_ordinal);
         }
-        conversation.cwd = non_empty(Some(meta.meta.cwd.to_string_lossy().to_string()));
+        conversation.cwd = non_empty(Some(meta.meta.cwd.clone()));
         conversation.git_info = meta
             .git
             .as_ref()
@@ -1319,11 +1322,11 @@ impl HistoryReducer {
 
     fn apply_turn_context(
         &mut self,
-        context: &codex_protocol::protocol::TurnContextItem,
+        context: &crate::wire::protocol::TurnContextItem,
         ordinal: u64,
     ) {
         let turn_id = self.target_turn(context.turn_id.as_deref(), ordinal);
-        self.projection.conversation.cwd = Some(context.cwd.display().to_string());
+        self.projection.conversation.cwd = Some(context.cwd.clone());
         self.projection.conversation.model = Some(context.model.clone());
         let snapshot = serde_json::to_value(context).unwrap_or(Value::Null);
         self.upsert_settings_snapshot(
@@ -1543,6 +1546,7 @@ impl HistoryReducer {
                     models::LocalShellAction::Exec(exec) => {
                         (Some(exec.command.clone()), exec.working_directory.clone())
                     }
+                    models::LocalShellAction::Other(_) => (None, None),
                 };
                 let call_id = call_id
                     .clone()
@@ -1876,20 +1880,16 @@ impl HistoryReducer {
                     );
                 }
             }
-            EventMsg::AgentReasoning(_)
-            | EventMsg::AgentReasoningRawContent(_)
-            | EventMsg::AgentReasoningSectionBreak(_) => {
-                self.stats.hidden_reasoning_dropped += 1;
-                self.drop_kind("reasoning");
-            }
-            EventMsg::AgentMessageContentDelta(_)
-            | EventMsg::PlanDelta(_)
-            | EventMsg::ReasoningContentDelta(_)
-            | EventMsg::ReasoningRawContentDelta(_)
-            | EventMsg::ExecCommandOutputDelta(_)
-            | EventMsg::TerminalInteraction(_) => {
-                self.stats.delta_dropped += 1;
-                self.drop_kind("streaming_or_terminal_delta");
+            EventMsg::Skipped { kind, .. } => {
+                if kind.contains("reasoning") {
+                    self.stats.hidden_reasoning_dropped += 1;
+                    self.drop_kind("reasoning");
+                } else if kind.contains("delta") || kind.contains("interaction") {
+                    self.stats.delta_dropped += 1;
+                    self.drop_kind("streaming_or_terminal_delta");
+                } else {
+                    self.apply_generic_or_approval_event(event);
+                }
             }
             EventMsg::ExecCommandBegin(payload) => {
                 self.upsert_tool(
@@ -1924,7 +1924,7 @@ impl HistoryReducer {
                     ordinal,
                 );
                 self.update_tool(&payload.call_id, |tool| {
-                    tool.duration_ms = Some(payload.duration.as_millis() as i64)
+                    tool.duration_ms = Some(payload.duration_ms)
                 });
             }
             EventMsg::McpToolCallBegin(payload) => {
@@ -2030,7 +2030,7 @@ impl HistoryReducer {
                     ),
                 );
             }
-            EventMsg::PatchApplyUpdated(_) => self.drop_kind("patch_apply_updated"),
+            EventMsg::PatchApplyUpdated => self.drop_kind("patch_apply_updated"),
             EventMsg::PatchApplyEnd(payload) => {
                 let status = format!("{:?}", payload.status).to_lowercase();
                 self.complete_tool(
@@ -2139,10 +2139,7 @@ impl HistoryReducer {
                     &payload.call_id,
                     ArtifactDto {
                         kind: "image_generation".to_string(),
-                        reference: payload
-                            .saved_path
-                            .as_ref()
-                            .map(|path| path.display().to_string()),
+                        reference: payload.saved_path.as_ref().map(|path| path.clone()),
                         content: Some(payload.result.clone()),
                         content_hash: Some(sha256_hex(payload.result.as_bytes())),
                         size_bytes: Some(payload.result.len() as u64),
@@ -2315,47 +2312,9 @@ impl HistoryReducer {
                     self.drop_kind("rollback_without_turn");
                 }
             }
-            EventMsg::ContextCompacted(_) => {
+            EventMsg::ContextCompacted => {
                 self.stats.compactions_seen += 1;
                 self.drop_kind("context_compacted");
-            }
-            EventMsg::ShutdownComplete
-            | EventMsg::Warning(_)
-            | EventMsg::GuardianWarning(_)
-            | EventMsg::EnvironmentConnected(_)
-            | EventMsg::EnvironmentDisconnected(_)
-            | EventMsg::ThreadGoalUpdated(_)
-            | EventMsg::McpStartupUpdate(_)
-            | EventMsg::McpStartupComplete(_)
-            | EventMsg::ModelReroute(_)
-            | EventMsg::ModelVerification(_)
-            | EventMsg::TurnModerationMetadata(_)
-            | EventMsg::SafetyBuffering(_)
-            | EventMsg::StreamError(_)
-            | EventMsg::DeprecationNotice(_)
-            | EventMsg::TurnDiff(_)
-            | EventMsg::EnteredReviewMode(_)
-            | EventMsg::ExitedReviewMode(_)
-            | EventMsg::HookStarted(_)
-            | EventMsg::HookCompleted(_)
-            | EventMsg::RawResponseItem(_)
-            | EventMsg::CollabAgentSpawnBegin(_)
-            | EventMsg::CollabAgentSpawnEnd(_)
-            | EventMsg::CollabAgentInteractionBegin(_)
-            | EventMsg::CollabAgentInteractionEnd(_)
-            | EventMsg::CollabWaitingBegin(_)
-            | EventMsg::CollabWaitingEnd(_)
-            | EventMsg::CollabCloseBegin(_)
-            | EventMsg::CollabCloseEnd(_)
-            | EventMsg::CollabResumeBegin(_)
-            | EventMsg::CollabResumeEnd(_)
-            | EventMsg::SubAgentActivity(_)
-            | EventMsg::RealtimeConversationStarted(_)
-            | EventMsg::RealtimeConversationRealtime(_)
-            | EventMsg::RealtimeConversationClosed(_)
-            | EventMsg::RealtimeConversationSdp(_)
-            | EventMsg::RealtimeConversationListVoicesResponse(_) => {
-                self.apply_generic_or_approval_event(event)
             }
         }
     }
@@ -2369,7 +2328,7 @@ impl HistoryReducer {
 
     fn apply_exec_approval(
         &mut self,
-        payload: &codex_protocol::protocol::ExecApprovalRequestEvent,
+        payload: &crate::wire::protocol::ExecApprovalRequestEvent,
         ordinal: u64,
     ) {
         let approval = ApprovalDto {
@@ -2377,12 +2336,12 @@ impl HistoryReducer {
             call_id: Some(payload.call_id.clone()),
             approval_kind: "exec".to_string(),
             command: Some(payload.command.clone()),
-            cwd: Some(payload.cwd.display().to_string()),
+            cwd: Some(payload.cwd.clone()),
             reason: payload.reason.clone(),
             available_decisions: payload
                 .effective_available_decisions()
                 .iter()
-                .map(|decision| decision.to_opaque_string().to_string())
+                .map(ToString::to_string)
                 .collect(),
             decision: None,
             result_status: None,
@@ -2401,7 +2360,7 @@ impl HistoryReducer {
 
     fn apply_patch_approval(
         &mut self,
-        payload: &codex_protocol::protocol::ApplyPatchApprovalRequestEvent,
+        payload: &crate::wire::protocol::ApplyPatchApprovalRequestEvent,
         ordinal: u64,
     ) {
         let approval = ApprovalDto {
@@ -2429,7 +2388,7 @@ impl HistoryReducer {
 
     fn apply_permissions_approval(
         &mut self,
-        payload: &codex_protocol::request_permissions::RequestPermissionsEvent,
+        payload: &crate::wire::request_permissions::RequestPermissionsEvent,
         ordinal: u64,
     ) {
         let approval = ApprovalDto {
@@ -2437,7 +2396,7 @@ impl HistoryReducer {
             call_id: Some(payload.call_id.clone()),
             approval_kind: "permissions".to_string(),
             command: None,
-            cwd: payload.cwd.as_ref().map(|cwd| cwd.display().to_string()),
+            cwd: payload.cwd.clone(),
             reason: payload.reason.clone(),
             available_decisions: vec!["approved".to_string(), "abort".to_string()],
             decision: None,
@@ -2457,7 +2416,7 @@ impl HistoryReducer {
 
     fn apply_guardian_assessment(
         &mut self,
-        payload: &codex_protocol::protocol::GuardianAssessmentEvent,
+        payload: &crate::wire::protocol::GuardianAssessmentEvent,
         ordinal: u64,
     ) {
         let status = format!("{:?}", payload.status).to_lowercase();
@@ -2567,7 +2526,7 @@ impl HistoryReducer {
     fn apply_turn_item(
         &mut self,
         turn_id: &str,
-        item: &codex_protocol::items::TurnItem,
+        item: &crate::wire::items::TurnItem,
         ordinal: u64,
     ) {
         let value = serde_json::to_value(item).unwrap_or(Value::Null);
@@ -2869,7 +2828,7 @@ impl HistoryReducer {
 
     fn apply_user_questions(
         &mut self,
-        payload: &codex_protocol::request_user_input::RequestUserInputEvent,
+        payload: &crate::wire::request_user_input::RequestUserInputEvent,
         ordinal: u64,
     ) {
         let turn_id = self.target_turn(Some(&payload.turn_id), ordinal);
@@ -3120,11 +3079,7 @@ impl HistoryReducer {
         }
     }
 
-    fn complete_turn(
-        &mut self,
-        payload: &codex_protocol::protocol::TurnCompleteEvent,
-        ordinal: u64,
-    ) {
+    fn complete_turn(&mut self, payload: &crate::wire::protocol::TurnCompleteEvent, ordinal: u64) {
         let turn_id = self.target_turn(Some(&payload.turn_id), ordinal);
         let turn = self.ensure_turn(&turn_id);
         turn.started_at = payload.started_at.or(turn.started_at);
@@ -5239,7 +5194,7 @@ fn recompute_hash(item: &mut HistoryItemDto) {
     item.content_hash = Some(sha256_hex(&bytes));
 }
 
-fn usage_from_token_usage(usage: &codex_protocol::protocol::TokenUsage) -> UsageDto {
+fn usage_from_token_usage(usage: &crate::wire::protocol::TokenUsage) -> UsageDto {
     UsageDto {
         input_tokens: usage.input_tokens,
         cached_input_tokens: usage.cached_input_tokens,
@@ -5259,6 +5214,10 @@ fn content_items_to_text(items: &[ContentItem]) -> String {
             }
             ContentItem::InputImage { image_url, .. } => Some(format!("[image: {image_url}]")),
             ContentItem::InputAudio { audio_url } => Some(format!("[audio: {audio_url}]")),
+            ContentItem::Raw(value) => value
+                .get("text")
+                .and_then(Value::as_str)
+                .map(str::to_string),
         })
         .collect::<Vec<_>>()
         .join("\n")
@@ -5498,7 +5457,7 @@ fn session_settings_from_value(value: &Value) -> SessionSettingsDto {
 }
 
 fn attachments_from_user_event(
-    payload: &codex_protocol::protocol::UserMessageEvent,
+    payload: &crate::wire::protocol::UserMessageEvent,
 ) -> Vec<AttachmentDto> {
     let mut attachments = Vec::new();
     if let Some(images) = &payload.images {
@@ -5517,7 +5476,7 @@ fn attachments_from_user_event(
     for (index, path) in payload.local_images.iter().enumerate() {
         attachments.push(attachment_from_path(
             "image",
-            path,
+            std::path::Path::new(path),
             payload
                 .local_image_details
                 .get(index)
@@ -5531,7 +5490,11 @@ fn attachments_from_user_event(
         }
     }
     for path in &payload.local_audio {
-        attachments.push(attachment_from_path("audio", path, None));
+        attachments.push(attachment_from_path(
+            "audio",
+            std::path::Path::new(path),
+            None,
+        ));
     }
     attachments
 }
@@ -6035,30 +5998,23 @@ fn web_search_action_text(action: &models::WebSearchAction) -> Option<String> {
     match action {
         models::WebSearchAction::Search { query, queries } => query
             .clone()
-            .or_else(|| queries.as_ref().map(|queries| queries.join("; "))),
-        models::WebSearchAction::OpenPage { url } => url.clone(),
+            .or_else(|| (!queries.is_empty()).then(|| queries.join("; "))),
+        models::WebSearchAction::OpenPage { url } => Some(url.clone()),
         models::WebSearchAction::FindInPage { url, pattern } => Some(format!(
             "{}{}",
-            url.as_deref().unwrap_or(""),
-            pattern
-                .as_deref()
-                .map(|pattern| format!("#{pattern}"))
-                .unwrap_or_default()
+            url,
+            if pattern.is_empty() {
+                String::new()
+            } else {
+                format!("#{pattern}")
+            }
         )),
-        models::WebSearchAction::Other => None,
+        models::WebSearchAction::Other(_) => None,
     }
 }
 
 fn event_type(event: &EventMsg) -> String {
-    serde_json::to_value(event)
-        .ok()
-        .and_then(|value| {
-            value
-                .get("type")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-        })
-        .unwrap_or_else(|| "event_unknown".to_string())
+    crate::wire::event_type(event)
 }
 
 fn non_empty(value: Option<String>) -> Option<String> {
