@@ -18,6 +18,7 @@
 - [x] BasicAuth 默认开启与 Android release config 校验入口
 - [x] workflow-system install 与 host-local skill 文档迁移
 - [x] legacy inventory 与 adopt-existing-project 首版治理基线
+- [x] Codex Rollout Collector P0-RC.1 正式包隔离基础：任务 `20260819-001` 的 Step 1-4 已完成，正式 package 在 clean checkout 下通过 fmt、metadata、check、build、test 与 tree；9 项 unit、27 项 conformance、0 项 doc test，metadata 为 539 packages、0 Git sources、0 runfiles。Demo/Spike/formal collector 使用同一 fixture 完成双 oracle、determinism、alias 及 `UnknownEvent`/`ParseGap` 对照，source-boundary 与 `target/**` ignore 也已核验。稳定声明仅覆盖该正式 package 的 P0-RC.1 隔离边界，不代表 P0-C、P0-B.4R、完整 analyzer 或 Node/Android/IPC/数据库集成已完成。
 - [x] Codex 多 skill 内联 token、附件摘要历史展示与 Web/Android 回看能力：任务 `20260508-001` 已完成 Web/Android 手动 smoke、Node/Android 回归和 session/thread 关联风险 smoke，确认 skill / file / image 上下文在发送前、流式中、完成后与跨 session/cwd 切换时都不再出现本轮已知回归
 - [x] 开源 release 安装 / 打包 / mTLS 工具交付面：任务 `20260513-001` 已完成跨平台 release 构建、Windows / Linux 安装脚本、direct server-side mTLS 安装期自动生成、nginx-side mTLS 独立工具、中英文部署文档收口，以及 Windows PM2 / Linux `systemd` host smoke 确认；`npm run android:check-release-config` 仍作为任务外已知失败保留
 - [x] Codex 原生会话绑定、Android App IPC 与 owner fallback 架构基线：IPC conversation id 回写、App active conversation follower subscription、feed 重连重放、normalized surface、Android IPC authority、A/B session 隔离和 external owner 缺失时的 TermLink owner fallback 已锁定；canonical `thread/read` 仅为异常恢复，不得作为实时同步。稳定边界见 `CONTRACTS.md` 的“Codex 原生会话实时同步核心”。Desktop healthy owner 的实时增量与重连已验证；VS Code 长任务和长离线恢复仍在 `20260722-002` Step 17 作为交叉宿主验收限制，不改变固定架构声明。
@@ -31,6 +32,7 @@
 - [x] Android Codex Header / composer 布局回归 follow-up：任务 `20260722-001` 已完成。恢复左侧会话管理 drawer 入口，移除无实际系统 inset 时强制产生的 36dp composer 底部空白，并在不改变 composer 外框高度的前提下把提示、光标和首行改为顶部起笔。Android JVM 163/163、owner/gateway targeted 45/45、debug APK、360/412dp Huawei 真机 drawer/IME/视觉 smoke 通过；三键导航非零 inset 由单测覆盖，未切换系统导航模式补人工截图。
 ## 🔨 正在开发
 
+- [ ] `20260819-001` Codex Rollout Collector 正式模块初始化与兼容层落地：P0-RC.1 Step 1-4、F-001～F-003、F-005～F-024、review/contract/regression 与最终同 fixture conformance 均已完成；F-004 按用户指令忽略。正式 collector 已在“已完成且稳定”中登记，但当前任务包仍保持 active，仅待 workflow closeout；稳定边界不扩展到 P0-C、P0-B.4R、完整 analyzer 或 Node/Android/IPC/数据库集成。
 - [ ] Codex 单权威路由与 TermLink Owner 控制面修复：任务 `20260727-002` 已完成服务端 authority router、完整 follower input、显式新任务 Owner 广播、Owner incoming control proxy、turn authority ledger、禁止静默换线程，以及 Android route-state / recovery confirmation 的实现；本轮 Owner re-entry/history continuity 最小修复也已验证（Node 172/172、Android focused JVM 81/81、JDK 21 APK 构建安装启动、真机 A→B→A smoke）。仍需 Windows Desktop / VS Code 双宿主写入式 smoke 与完整 Goal 长任务验收，当前继续记为 in-development / observing，未合并 Main；旧任务 `20260727-001` 已 superseded。
 - [ ] Android Codex 大历史/离线缓存/媒体分层修复（`2026-08-03` 事故 follow-up）：15a–15f 实现与自动化记录完成，15g 实现完成但最终 home 域名+mTLS、local 局域网 IP/port、离线/重启/A→B→A、媒体进度和存储清理仍交由用户手动验收；WireGuard 不纳入矩阵。既有 Node/JDK/APK、direct runner 和 debug-only `CodexScreen` fixture 记录仅作实施期辅助证据，不替代手动结论。生产缓存未删除，agent 不再继续设备/网络验证；整体任务和本模块保持 observing（未发布/未合并 Main），事故 Goal 完整终态不是本轮门禁。
 - 2026-08-04：修复 history sync 最后一页 ACK 后残留 inactivity timer 的误报：最终 ACK 和 root/checkpoint 快路径现在
@@ -79,6 +81,7 @@
 - `20260715-001` Windows x64 Setup/Portable/配置工具本地实现已完成，但仍缺 clean Windows x64 host 的最终外部验收；任务被当前 Web UX 目标 supersede 后，该证据保持独立未完成，不得误写为 stable 或在 Web 任务中顺手修改。
 - `20260715-002` 已获得 Edge 150 authenticated-browser 与三档 viewport 证据，本任务无剩余产品阻断。已知的 `codexClient.shell` 缺历史按钮和 `codexSecondaryPanel.integration` quick-sandbox 断言在 task base 已存在且本轮未改动对应行为，继续作为 scope-external baseline failures 管理；Node full-suite 既有挂起面仍按 TD-004 窄门禁处理。
 - `src/ws/terminalGateway.js` 责任过重，是高回归风险区域
+- `20260819-001` 的 P0-RC.1 Step 1-4 已完成：正式 `native/codex-rollout-collector` package/vendor closure、clean-checkout build/test、Demo/Spike/formal 同 fixture conformance、manifest/LICENSE/NOTICE、source-boundary/target-ignore 检查均通过；正式 package 为 9 项 unit、27 项 conformance、0 项 doc test，metadata 为 539 packages、0 Git sources、0 runfiles。legacy/current alias 与 `UnknownEvent`/`ParseGap` 对照已实测，F-001～F-003、F-005～F-024 已收口，F-004 按用户指令忽略。当前仅保留 workflow closeout 状态，未发生 Node/Android/IPC/数据库集成，也没有把该结果扩展为完整 analyzer 或 release readiness。
 - Codex session / thread / task 链路中，已绑定 conversation 的实时同步、A/B 切换隔离与同一任务重入已完成真机验证；仍需观察尚未绑定 conversation 的跨 cwd 历史候选策略，以及真实 owner pending action 的端到端表现。
 - 后续新需求若触碰 Codex session / thread / task 状态逻辑，必须按 `CONTRACTS.md` 的实时同步核心回归门验证；不得以 cwd/latest 或历史 task id 替换已绑定 conversation，也不得将授权提权、PLAN 或 Goal 控制视为已验收。
 - 外部 consumer 是否依赖现有 API 仍是 unknown
@@ -101,6 +104,7 @@
 
 ## 🔜 下一检查点
 
+- [ ] 完成 `20260819-001` workflow closeout：按下一 handoff 执行 `sync-contracts`，随后准备交付摘要/归档；保持 P0-RC.1 稳定声明在正式 package 隔离边界内，不扩展到 P0-C、P0-B.4R、完整 analyzer 或产品集成
 - [ ] 按新需求执行 `/create-current-task`，为下一轮建立新的任务包
 - [ ] 如需进一步补强开源 release 证据，可单独补正式 install 路径下的 `/api/health` 端到端验证
 - [ ] 拆分 deferred fix 任务：修复 `tests\sessionManager.codexConfig.test.js`、`tests\terminalGateway.codex.test.js`、`tests\terminalGateway.sessionid.test.js` 的挂起问题，恢复 full suite 可运行性
@@ -110,6 +114,9 @@
 
 ## 最近更新记录
 
+- 2026-08-19：同步 `20260819-001` Step 4 状态。P0-RC.1 正式 package 已通过 clean-checkout 与 Demo/Spike/formal 同 fixture 最终回归，formal package 为 9 项 unit、27 项 conformance、0 项 doc test，metadata 为 539 packages、0 Git sources、0 runfiles；alias、`UnknownEvent`/`ParseGap`、source-boundary 与 `target/**` ignore 证据齐全。正式 package 的稳定边界已登记，但任务包仍 active 以完成 workflow closeout；不改变 P0-C/P0-B.4R、完整 analyzer、Node/Android/IPC/数据库及 release readiness 状态。F-004 按用户指令忽略，下一 handoff 为 `sync-contracts`。
+- 2026-08-19：同步 `20260819-001` 当前状态。Step 3 formal vertical slice、legacy/current alias fixture/Adapter/`UnknownEvent`/`ParseGap` 对照及 F-023/F-024 收口已完成；`review-diff`、`review-implementation`、`verify-contracts` 与 diff-aware regression 通过。正式 package 当前为 9 项 unit、27 项 conformance、0 项 doc test，metadata 为 539 packages、0 Git sources、0 runfiles。F-001 clean-checkout build/test 与 Demo/Spike/formal 同 fixture conformance 仍待 Step 4，故任务继续列为 in-development，未新增稳定模块；F-004 按用户指令忽略。
+- 2026-08-19：同步 `20260819-001`。P0-RC.1 Step 2 正式 Rust package/vendor promotion 已完成；`review-diff`、`review-implementation`、`verify-contracts` 与 diff-aware regression 通过。正式 package 的 fmt/metadata/tree/check/build/test 均通过（scaffold 0 tests），vendor closure 197/197 无差异，metadata 实际 Git source 为 0，IPC/Android/Node/database 无 diff。Step 3 vertical slice、alias/UnknownEvent/ParseGap 实测、Demo/Spike/formal 同 fixture conformance 与 Step 4 clean-checkout build/test 仍待完成，故继续列为 in-development，不写入稳定区。
 - 2026-08-04：继续修复 Android 历史任务“已同步但正文为空、随后其他任务也无法打开”的 stale owner 场景。
   历史选择现在在 cache-first `set_active_conversation` 排队后立即启动 bounded history sync，不再等待可能长期
   无响应的 metadata-only `thread/resume`；`partial`/`history_unavailable` 每个 selection generation 最多触发一次

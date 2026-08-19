@@ -122,7 +122,63 @@
 - **应对**: embedded mode 脚本必须先从 URL `?sessionId=` 或 `localStorage.lastSessionId` 读取上下文；仅在 standalone 页面或已获得有效 sessionId 时才允许 `connectWs()`；无 context 时不能抢跑建连
 - **Source**: `20260618-001`
 
+### L-007: 兼容 alias 必须由 fixture 和测试名显式锚定
+
+- **场景**: legacy/current 输入使用不同字段 alias 时，通用 fixture 可能仍全部通过，但 Adapter 实际会把兼容输入映射成错误事件或 `UnknownEvent`。
+- **结论**: `field_mapping` 文档不能替代可执行覆盖；每组 legacy/current alias 都必须有独立 fixture、明确包含 alias 语义的 Adapter 测试名，以及未知/缺失 alias 的 `UnknownEvent`/`ParseGap` fail-closed 对照。
+- **触发信号**: 兼容文档列出了 alias，但正式 fixture 表没有 alias 样本，或测试只验证最终批次通过而没有断言字段映射和诊断路径。
+- **应对动作**: 在正式 crate 内保存 legacy/current alias fixture，测试直接断言目标 `AnalysisEvent` 字段和来源信息；对不支持 alias 断言诊断而不是猜测映射，并在 review 中逐项核对 fixture→测试映射。
+- **Source**: `20260819-001` / review-implementation F-002
+
+### L-008: vendor promotion 必须按实际依赖闭包验收
+
+- **场景**: 只复制两个直接 Codex crate 可能在本机工作，但正式 package 仍隐含 workspace/path 依赖、未预期 source 或许可证文件缺口。
+- **结论**: vendor promotion 的证据必须来自正式 root 的 lockfile、`cargo metadata`、`cargo tree` 和 source closure 对照，而不是目录看起来完整或本地一次 build 成功；依赖来源策略应按受保护上游定义，而不是按 Git URL 类型一刀切：普通 Rust registry/Git 仍可使用，Codex history/protocol 必须保持仓库内 vendor closure。
+- **触发信号**: Spike 能构建、正式目录刚复制完成，或 vendor workspace 中存在未被当前图选中的额外 git/path 声明。
+- **应对动作**: 先离线生成并审查 lockfile/metadata/tree，确认实际 Cargo graph 无开发者绝对路径和 Git source；再比较 formal/Spike 文件清单与 hash，并检查 manifest、LICENSE、NOTICE 和 source-boundary。未进入 lock graph 的声明不应被误报为正式依赖，但仍需保留审计说明。
+- **Source**: `20260819-001` / Step 2 vendor promotion 与 F-003 验证
+
 ## 测试与回归
+
+### L-009: Cargo 基础门禁通过不等于正式 package 已具备语义证据
+
+- **场景**: 新 crate 的 `cargo check`、`cargo build`、`cargo test`、`cargo tree` 均通过，但测试仍是 scaffold 的 `0 passed / 0 failed`，且没有 vertical slice 或 clean-checkout 证据。
+- **结论**: 构建/依赖证据与语义完成证据必须分开记录；空测试通过不能关闭兼容、provenance、确定性或 clean-checkout 门禁。
+- **触发信号**: 测试计数为 0，正式 crate 尚无 fixture/Adapter 断言，或本地 build 通过但尚未在 clean checkout 验证。
+- **应对动作**: 保持任务 in-progress，优先补 SourceBackend → wire → Adapter → AnalysisEvent → AnalysisBatch vertical slice、alias/UnknownEvent/ParseGap、ParserProvenance 和 determinism fixture/test，再分别执行 clean-checkout build/test；状态文档中同时记录 test count 和未完成门禁。
+- **Source**: `20260819-001` / P0-RC.1 Step 2
+
+### L-010: Rust 链接失败先区分宿主工具链问题与源码问题
+
+- **场景**: Rust 依赖已编译，但 GNU 链接阶段因宿主缺少 `dlltool.exe` 或 self-contained `libpthread.a` 不提供所需符号（如 `nanosleep64`）而失败；源码、manifest 和 lockfile 没有变化。
+- **结论**: 链接阶段失败不能直接归因于代码或 vendor closure；应先保留默认环境失败证据，再验证是否是 PATH/系统库差异，并把临时环境修复与正式源码变更严格分开。
+- **触发信号**: `cargo metadata/tree` 正常、失败集中在最终 link、同一源码在已知 MinGW 工具链路径下可重现通过，或错误只涉及宿主库/工具缺失。
+- **应对动作**: 记录完整 linker 错误，先用 metadata/tree 和源码/依赖 diff 排除代码漂移；如需验证，使用一次性 PATH/RUSTFLAGS 指向仓库或宿主已有工具，不把绝对路径写入 manifest、源码或 lockfile，并在最终结论中分别标注默认环境与显式工具链环境的结果。
+- **Source**: `20260819-001` / F-001 build investigation
+
+### L-011: 生成的 Cargo target 必须在 crate 边界忽略
+
+- **场景**: 正式 crate 的本地构建生成大量 `target/**` 未跟踪产物；如果整体暂存 package，二进制、fingerprint 和编译缓存可能被误纳入交付。
+- **结论**: 生成目录的忽略规则应放在实际 crate 的边界内，不能依赖人工筛选或扩大 root ignore；忽略规则本身也要纳入 scope/review 证据。
+- **触发信号**: `git status` 出现大量 `native/<crate>/target/**`，而 task Allowed Files 只允许源码、fixture 和 package 元数据。
+- **应对动作**: 在明确允许的 crate-local `.gitignore` 中使用根相对 `/target/`，不删除现有构建产物；随后用 `git check-ignore`、`git ls-files --others --exclude-standard` 和 `git diff --check` 验证 target 不会进入交付。
+- **Source**: `20260819-001` / formal package target-ignore finding
+
+### L-012: 跨 oracle 回归必须使用同一份 fixture
+
+- **场景**: Demo、Spike 和正式 collector 各自使用不同输入时，即使三边测试都通过，也无法证明兼容映射、诊断和 determinism 的差异来自实现而不是样本。
+- **结论**: 对新增解析器或兼容层，至少选择一份可追溯的相同原始 fixture，在各 oracle 和正式目标中以临时副本运行，并记录 size/hash；允许存在的 partial/unknown 差异必须被明确解释。
+- **触发信号**: 回归报告只有“Demo pass / Spike pass / formal pass”，却没有共同输入、fixture hash 或跨实现结果对照。
+- **应对动作**: 先记录同一 fixture 的字节大小与 SHA-256，再分别执行 Demo full-oracle/determinism、Spike wire parser 和 formal targeted conformance；临时注入只发生在隔离目录，不改写工作树中的正式 fixture。
+- **Source**: `20260819-001` / Step 4 final regression
+
+### L-013: 模块稳定边界不等于任务或产品完成
+
+- **场景**: 独立 package 的构建、语义 fixture 和 clean-checkout 门禁已通过，但下游 Node/Android/IPC/数据库集成、完整 analyzer 或 release/canary 仍未实施或验收。
+- **结论**: 状态同步必须把“已验证的隔离模块边界”和“任务包 closeout / 产品发布状态”分开记录；不能因为局部 gate 全绿就把更大阶段标成完成。
+- **触发信号**: 测试计数和 clean-checkout 证据完整，但 STATUS/交付摘要开始使用“完整 analyzer 已稳定”或“可发布”等超出证据范围的表述。
+- **应对动作**: 在 STATUS、CONTRACTS 和 DECISIONS 中明确稳定边界、排除项和下一 handoff；只有对应消费者、集成和 release 门禁另行完成后，才扩大稳定声明。
+- **Source**: `20260819-001` / Step 4 status-contract-decision sync
 
 - 场景：`node --test` full suite 报告"挂起"，但旧结论只是泛化地描述"full suite 会在后段挂起"，没有具体文件、测试名或执行阶段边界，导致 gate 状态长期停留在"知道有问题但无法行动"。
   - 结论：对挂起的 test suite，必须用文件级和测试名级拆分把挂起面收敛到可复述的最小单元，再区分"修复任务"和"gate 策略调整"。不能直接用旧结论跳过排查，也不能在边界未收敛时就调整 blocker gate。

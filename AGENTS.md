@@ -13,6 +13,7 @@
   - `docs/workflow/CONTRACTS.md`
   - `docs/workflow/STATUS.md`
   - `docs/workflow/DECISIONS.md`
+  - `docs/workflow/BASELINES.md`
 - 当前项目按**老项目接入**处理，不要把 adoption 阶段当成重写架构的机会。
 - 变更项目级 AI 协作规则、宿主说明或共享 workflow 命令后，执行 `/sync-host-guidance`。
 - 变更 workflow 模板或治理文档骨架后，执行：
@@ -32,6 +33,13 @@
 - 默认不得重构、替换、删除或绕过 follower acquire/release、desired subscription、reconnect replay、normalized surface、canonical id/binding、owner fallback、Android IPC authority 与 A/B 隔离。宿主协议演进时只允许保持上述数据流和权威语义的最小兼容适配。
 - 若需求确实需要改变上述架构，必须停止实现并取得用户明确确认，然后先执行 `/lock-scope`，同步 `DECISIONS.md` 与 `CONTRACTS.md`，并把 follower lifecycle、authority arbitration、A/B 隔离、长任务和重连真机回归列为强制门禁；不得在普通 bugfix、UI 修改或“简化代码”中顺手改变。
 - 重点受保护文件包括：`src/services/codexIpcClient.js`、`src/services/codexIpcFeed.js`、`src/services/codexIpcThreadStream.js`、`src/services/codexOwnerSurfaceTracker.js`、`src/ws/terminalGateway.js`，以及 Android Codex 的 wire、selection、ViewModel、Activity 和 Sessions 入口链路。
+
+## Codex Rollout Collector 边界
+
+- `native/codex-rollout-collector` 是 P0-RC.1 的隔离 Rust 基础层，稳定声明只覆盖 `SourceBackend → codex_wire → CodexEventAdapter → AnalysisEvent → AnalysisBatch` 与 `ParserProvenance`，不代表完整 analyzer、P0-C、P0-B.4R 或产品集成已完成。
+- Codex history/protocol 只能通过仓库内 `native/codex-rollout-collector/vendor/codex` 的相对 path closure；禁止开发者本机 Codex path、外部 Codex path/Git/workspace、未登记 workspace member 和默认构建时 Codex 网络下载。普通 Rust registry/Git 依赖仍允许，不得把所有外部 Git URL 一概视为禁项。
+- Codex 原生类型只能停留在 `codex_wire` facade 与 Adapter 输入边界；下游使用 TermLink 自有模型。legacy/current alias 必须有 fixture 与 Adapter 测试证据，未知或缺失 variant/alias 必须保持 `UnknownEvent` 或 `ParseGap`/诊断。
+- 不得在没有独立任务、范围锁定和用户确认的情况下把该基础层扩展到 Node、Android、IPC、数据库、服务端持久化、完整 reducer/runtime 或既有 Demo/Spike 路径。
 
 ## Scope
 

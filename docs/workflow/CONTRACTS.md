@@ -97,6 +97,16 @@
   - 不可破坏项：`sessions[]` 的关键字段不可无迁移直接删改
   - 备注：当前未见数据库替代层
 
+- 名称：P0-RC.1 Codex Rollout Collector batch interface（内部）
+  - 路径 / 符号：`native/codex-rollout-collector`；`SourceBackend`、`codex_wire::decode_rollout_line`、`CodexEventAdapter`、`AnalysisEvent`、`AnalysisBatch`
+  - 当前语义：正式 Rust collector 将有界 rollout source 解析为 TermLink 自有 `AnalysisEvent`，并以带 `ParserProvenance` 的 `AnalysisBatch` 输出；该接口当前只服务正式 crate 自身的 fixture/conformance，不是现有 Node/Android 公共入口。
+  - 不可破坏项：
+    - 每个 `AnalysisBatch` 都必须序列化 `parser_backend`、`wire_source_revision`、`compatibility_profile`；P0-RC.1 的 parser backend 固定为 `analyzer`，wire source revision 固定为 `5ee6baee2fcc0b6ffd413d9611f5538dad40d0f2`，profile 只能反映实际的 `legacy`、`current` 或受限 `future-compatible` 解析结果。
+    - Codex 原生类型只能停留在 `codex_wire` facade 与 Adapter 输入边界；进入 model/protocol/未来 consumer 的只能是 TermLink 自有 `AnalysisEvent`、`AnalysisBatch` 和 `ParserProvenance`。
+    - legacy/current alias 必须按已验证 fixture 映射；未知、缺失或不可恢复 alias/variant 必须保持 `UnknownEvent` 或 `ParseGap`/诊断，不能伪造成功、完成、审批、用户确认或完整历史。
+    - 同一 source、profile 和输入边界重复分析必须产生稳定的 batch/provenance 结果；具体新增 variant 只有在 fixture 与映射证据齐全后才能 additive 扩展。
+  - 备注：这是 P0-RC.1 的隔离内部边界；Node DTO 接入、持久化、完整 reducer/runtime 及 P0-C/P0-B.4R 能力不由本契约授权。
+
 ### 🟡 可扩展不可破坏
 
 - `codexConfig` 可以扩展字段，但不能破坏已有 `approvalPolicy` / `sandboxMode` 语义
@@ -132,6 +142,14 @@
 - WebSocket 连接 -> `terminalGateway` -> `sessionManager` / `ptyService` / `codexAppServerService`
 - workspace 请求 -> `resolveWorkspaceAccess()` -> workspace services -> Git 状态 / diff
 - 文档工作区 UI -> `public/workspace.*` 共享只读状态机 -> Workspace HTTP API；Android `WorkspaceActivity` 仅承担原生顶栏、返回栈、认证/mTLS 文件下载和只读系统打开
+
+### 🔒 Codex Rollout Collector P0-RC.1 隔离边界
+
+- `native/codex-rollout-collector` 是新增的独立 Rust package，不替换现有入口；固定数据流为 `SourceBackend → codex_wire::decode_rollout_line → CodexEventAdapter → AnalysisEvent → AnalysisBatch`。
+- `SourceBackend` 只负责 source 定位、JSONL/必要 zstd 的有界读取、完整行边界与 source provenance；不复制 Codex rollout reader/runtime。`codex_wire` 是唯一接触 vendored `codex-history` / `codex-protocol` 的 facade/decode 边界，Adapter 是唯一的 Codex 语义转换入口。
+- 正式 package 对 Codex history/protocol 只能解析到仓库内 `native/codex-rollout-collector/vendor/codex` 的相对 path closure；不得使用开发者本机 Codex path、外部 Codex path/Git/workspace、未登记 workspace member 或默认构建时 Codex 网络下载。普通 Rust registry/Git 依赖不因来源类型被禁止，是否生效以 formal root 的 `cargo metadata` / `cargo tree` 依赖图为准。
+- `AnalysisBatch` 及其 provenance 是向未来 Rust→Node consumer 的 additive 内部边界；P0-RC.1 不向 Node、Android、IPC、数据库、服务端持久化或既有 Demo/Spike 传播，也不声明完整 analyzer、P0-C 或 P0-B.4R 已完成。
+- 稳定证据门槛包括 formal package clean-checkout 构建/测试、Demo/Spike/formal 同 fixture 对照、legacy/current alias 映射、`UnknownEvent`/`ParseGap` fail-closed 诊断、source-boundary 与 Cargo graph 检查；未满足这些证据时不得扩大本边界。
 
 ### 🔒 Codex 原生会话实时同步核心
 

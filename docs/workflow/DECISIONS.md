@@ -127,6 +127,35 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 
 约束：后续不得把 live replay assessment 改造成轮询、full read、canonical writer、第二实时权威或跨会话缓存；若需让 `needs_canonical` 自动补数据，必须单独锁定路线图第 4 步并重新取得授权。
 
+### AD-005: 正式 Codex Rollout Collector 只约束 Codex 来源，不屏蔽 Rust 通用依赖能力
+
+- 状态：accepted
+- 背景：正式 `native/codex-rollout-collector` 必须脱离开发者本机 Codex checkout，并使用仓库内 vendored Codex history/protocol 闭包；但 vendor workspace 内可能保留未进入 formal graph 的非 Codex `runfiles` Git 声明。用户在本轮明确澄清，屏蔽目标是本地 Codex 源码引用，不是 Rust 的正常依赖能力。
+- 决策：禁止开发者本机绝对路径、外部 Codex path/Git/workspace、默认构建时的 Codex 网络下载和未登记 workspace member；普通 Rust registry/Git 依赖允许按 Cargo 正常使用。是否构成正式依赖边界，以 formal root 的 `Cargo.toml`、`Cargo.lock`、`cargo metadata` 和 `cargo tree` 实际解析图为准；不为证明该能力而任意新增外部依赖。
+- 原因：把“外部 Git URL”泛化为禁项会误报正常 Rust 依赖，并把 vendor 内未进入正式依赖图的非 Codex 声明错误当成 Codex 来源越界；按实际 Codex source boundary 检查可以同时保留 Cargo 能力和本机 Codex 隔离门禁。
+- 约束：
+  - source-boundary 检查必须针对开发者本机 Codex 路径、Codex path/Git/workspace 和默认 Codex 网络下载，不得扩大为禁止所有 Git URL。
+  - vendor 内未被 formal root 解析的非 Codex manifest 声明不得单独改变正式 package 的依赖结论；正式 package 仍必须通过 locked/offline metadata/tree 和 source scan 证明 Codex 只来自仓库内 vendor closure。
+  - AI 不得静默放宽 Codex 来源隔离，也不得把该决策重新扩大为禁止普通 Rust registry/Git 依赖；若需改变 Codex vendor、workspace、网络或依赖解析边界，必须重新 lock scope 并取得用户确认。
+- 影响范围：`native/codex-rollout-collector/Cargo.toml`、`Cargo.lock`、`vendor/codex`、source-boundary 验收命令及相关 workflow 技术细节文档。
+- 替代方案：禁止所有外部 Git 依赖；当前因会误伤 Rust 正常能力且超出用户确认的屏蔽目标而不采用。
+- 验证方式：formal root `cargo metadata --locked --offline` 显示 539 packages、0 Git sources、0 runfiles；`cargo tree --locked --offline` 显示 Codex package 均来自 `native/codex-rollout-collector/vendor/codex`；source-boundary scan、formal package tests、clean-checkout build/test 和 `git diff --check` 均通过。该证据只验证 Codex 来源隔离，不改变本条决策的范围。
+
+### AD-006: P0-RC.1 正式 collector 仅在隔离基础层边界内进入稳定
+
+- 状态：accepted
+- 背景：任务 `20260819-001` 的 P0-RC.1 Step 1-4 已完成，正式 package 在 clean checkout 下通过构建与测试，并通过 Demo/Spike/formal 同 fixture 对照、alias 映射、`UnknownEvent`/`ParseGap` fail-closed、source-boundary 和 Cargo graph 检查；但本任务明确不实现完整 analyzer、P0-C/P0-B.4R 或产品集成。
+- 决策：将 `native/codex-rollout-collector` 的 `SourceBackend → codex_wire → CodexEventAdapter → AnalysisEvent → AnalysisBatch` 及 `ParserProvenance` 视为 P0-RC.1 隔离基础层的稳定架构边界；该稳定声明不向 Node、Android、IPC、数据库、服务端持久化或现有 Demo/Spike 传播。
+- 原因：当前验收证据已经足以证明正式 package 的构建、来源闭包、兼容映射和 fail-closed 行为，同时继续把后续集成和完整 analyzer 留在独立阶段，避免把基础层验收误写成产品能力完成。
+- 约束：
+  - Codex 原生类型只能停留在 `codex_wire` facade 与 Adapter 输入边界；下游只接受 TermLink 自有 `AnalysisEvent`、`AnalysisBatch` 和 `ParserProvenance`。
+  - legacy/current alias 必须由 fixture 和 Adapter 测试证明；未知、缺失或不可恢复 variant/alias 继续输出 `UnknownEvent` 或 `ParseGap`/诊断，不得猜测成功。
+  - 新增 variant、profile 或字段只能以 additive 方式扩展，并同时补齐 fixture、映射和确定性/诊断证据；不得把 future-compatible 诊断升级为完整支持。
+  - 普通 Rust registry/Git 依赖继续遵守 AD-005；Codex history/protocol 仍只能来自仓库内 vendor closure。AI 不得静默扩大到 Node/Android/IPC/数据库、完整 reducer/runtime、P0-C 或 P0-B.4R；如需改变边界，必须重新锁定范围并取得用户确认。
+- 影响范围：`native/codex-rollout-collector/**` 的内部接口、vendor/source-boundary/fixture 验收，以及 `docs/workflow/CONTRACTS.md`、`STATUS.md` 的稳定边界记录；当前无既有 consumer 迁移。
+- 替代方案：继续把正式 package 记为 in-development，直到 Node 或 Android 集成完成；当前不采用，因为这会把已验证的隔离基础层与后续产品集成错误耦合。
+- 验证方式：正式 package 为 9 项 unit、27 项 conformance、0 项 doc test；metadata 为 539 packages、0 Git sources、0 runfiles；同一 fixture 通过 Demo full-oracle/determinism、Spike wire parser 和 formal targeted conformance；legacy/current alias、未知 alias、source-boundary、target-ignore、clean-checkout 与 `git diff --check` 均通过。未执行、也未宣称 release/canary/benchmark 或 Node/Android/IPC/数据库集成。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径

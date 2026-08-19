@@ -1,0 +1,2 @@
+{"timestamp":"2026-08-19T02:01:00.000Z","ordinal":1,"type":"event_msg","payload":{"type":"turn_started","turn_id":"current-alias-turn","model_context_window":258400,"collaboration_mode_kind":"pair_programming"}}
+{"timestamp":"2026-08-19T02:01:01.000Z","ordinal":2,"type":"event_msg","payload":{"type":"turn_complete","turn_id":"current-alias-turn","last_agent_message":"alias complete","duration_ms":1000}}
