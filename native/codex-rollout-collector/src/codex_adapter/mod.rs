@@ -1203,6 +1203,17 @@ pub fn adapt_record(
     CodexEventAdapter::new(profile).adapt(record, decoded)
 }
 
+/// Adapt one record through a caller-owned adapter.  Unlike the legacy
+/// `adapt_record` helper, this preserves pending Plan and active-turn state
+/// across calls and is the only supported primitive for segmented analysis.
+pub fn adapt_record_with_adapter(
+    adapter: &CodexEventAdapter,
+    record: &SourceRecord,
+    decoded: DecodedRecord,
+) -> Vec<AnalysisEvent> {
+    adapter.adapt(record, decoded)
+}
+
 fn metadata(
     record: &SourceRecord,
     event_type: &str,

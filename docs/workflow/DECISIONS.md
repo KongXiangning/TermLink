@@ -156,6 +156,35 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：继续把正式 package 记为 in-development，直到 Node 或 Android 集成完成；当前不采用，因为这会把已验证的隔离基础层与后续产品集成错误耦合。
 - 验证方式：正式 package 为 9 项 unit、27 项 conformance、0 项 doc test；metadata 为 539 packages、0 Git sources、0 runfiles；同一 fixture 通过 Demo full-oracle/determinism、Spike wire parser 和 formal targeted conformance；legacy/current alias、未知 alias、source-boundary、target-ignore、clean-checkout 与 `git diff --check` 均通过。未执行、也未宣称 release/canary/benchmark 或 Node/Android/IPC/数据库集成。
 
+### AD-007: 阶段 3 只在 formal collector 内稳定 Adapter identity、conformance reducer 与 source promotion
+
+- 状态：accepted
+- 背景：用户明确要求完成阶段 3 的完整 Adapter 映射、事件 identity、Tool/Plan/Turn/Usage 关联、reducer/projection conformance、Demo golden 对照和 partial/unknown/alias 语义，同时要求 Demo/Spike 继续作为只读验证 oracle；阶段 2 归档复核还要求补齐 tail/backfill 到 append 的安全 promotion 证据。
+- 决策：在 `native/codex-rollout-collector` 内稳定 `EventMetadata` 的物理 `event_id` 与逻辑 `item_key` 分离、native ID 优先且 source-position fallback 的 identity、显式 conversation binding 优先、TermLink-owned `AnalysisReducer`/`AnalysisProjection` 的幂等关联语义，以及 `SegmentAssembly::promote_to_forward_append` 的 fail-closed 连续前缀证明。Demo/Spike 只提供 golden/reference 输出，不成为正式实现依赖；projection 中的会话级 usage aggregate 仅为 conformance 对照，不进入产品 DTO。
+- 原因：这些边界已经由 60 项 unit、28 项 Adapter conformance、2 项 stage 2 integration、5 项 stage 3 conformance、Demo full-oracle/determinism 和 promotion/append/restart/mutation 测试共同验证；把它们与 Node/Android/IPC/数据库或完整 analyzer/runtime 同时锁定会扩大 P0-RC.1 范围。
+- 约束：
+  - Codex native types 仍只能停留在 `codex_wire` facade 和 Adapter 输入边界；任何新 alias/variant 都必须 additive 并补 fixture、映射、diagnostic 和确定性证据。
+  - `item_key` 不得使用文件名、读取顺序、segment ID、随机值或 content hash；没有安全 identity 时必须保持 partial/diagnostic/fail-closed。
+  - `TailPreviewCursor`、`BackfillCursor` 不得直接升级为 append；promotion 必须拒绝 pending tail、gap、partial、parse diagnostic、source mutation/truncation/replacement 和不一致 fingerprint/anchor。
+  - AI 不得静默把该 conformance slice 接入 Node、Android、IPC、数据库、服务端持久化或既有 Demo/Spike，也不得把 Demo/Spike 改造成正式实现。
+- 影响范围：`native/codex-rollout-collector/**` 内部 model/adapter/analysis/source/tests，以及本文件和 `CONTRACTS.md`、`STATUS.md` 的 additive 状态记录；当前无既有 consumer 迁移。
+- 替代方案：直接复制 Demo reducer/DTO、用读取顺序生成 identity，或把 tail/backfill cursor 强制转成 append cursor；这些方案分别破坏 source-of-truth、replay/upsert 稳定性或 R-009 fail-closed 约束，不采用。
+- 验证方式：阶段 3 targeted suite 通过（60 unit、28 conformance、5 stage3 conformance），阶段 2 `stage2_input` 2 项与 doc tests 0 项通过；Demo CLI full-oracle/determinism 只读运行并产出 golden surface；formal source boundary、metadata/tree、fmt/check 和默认新 PowerShell cargo test 通过。该决策不声明产品 integration、release、canary 或 benchmark 完成。
+
+### AD-008: 阶段 4 只新增隔离 Rust↔Node analyzer runtime，不进入产品集成
+
+- 状态：accepted
+- 背景：用户明确要求完成架构阶段 4，并同时修复阶段 3 的实际 Demo/Spike 双路径、真实分段归约和 partial→canonical 缺口；该授权只覆盖隔离 analyzer 进程、Node process/import/store 边界，不覆盖既有 IPC、Android、server routes 或数据库。
+- 决策：在 `native/codex-rollout-collector` 内稳定 stdio JSONL analyzer protocol、ACK/backpressure、cancel/timeout/error、checkpoint；在 `src/services/codexRolloutCollector/**` 内稳定 Node process manager、request tracker、batch importer、原子文件 checkpoint/run store 与可注入 store。Demo/Spike 由 conformance 测试实际启动并生成本轮输出，但仍只作为只读 oracle；静态 golden 仅作辅助回归。
+- 原因：该边界使阶段 4 的生命周期、恢复和幂等行为可以独立验证，同时不把 P0-RC.1 基础层误写成产品服务能力，也不把 Demo/Spike 变成正式实现依赖。实际分段测试证明同一 stateful Adapter 下 item identity、Plan 关联和 full replay 等价；Rust reducer 与 Node importer 都明确支持 provisional/partial 到 canonical 的提升并阻止反向降级。
+- 约束：
+  - ACK 只能表示 Node 已完成协议校验和派生数据落地；checkpoint 必须晚于 derived data 写入，Rust 只有收到匹配且持久化成功的 ACK 才能发送 `complete`。
+  - `item_key`、source epoch、cursor、complete range 和 source mutation 语义继续遵守阶段 2/3 fail-closed 契约；不得用文件名、读序、segment boundary、随机值或 content hash 冒充 identity。
+  - 不得修改 `src/services/codexIpc*`、`src/ws/terminalGateway.js`、Android Codex 链路、既有 server/DB schema、Demo/Spike 源码或 vendor closure；要做产品集成必须另建任务并重新确认范围。
+  - 阶段 4 的默认文件 store 是隔离 artifact 的恢复/测试实现，不是现有产品历史数据库或 raw rollout 持久化方案。
+- 替代方案：继续只消费静态 golden、用重复完整 batch 模拟 segment、或把阶段 4 直接接入既有 gateway/DB；这些方案分别不能证明原始 conformance 要求或会突破 AD-006/本任务边界，不采用。
+- 验证方式：Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、3 stage4 protocol tests 全部通过；Node collector 7/7 定向测试通过，覆盖 actual subprocess ACK、timeout/cancel、file-store restart、overlap idempotence 与 late incomplete non-downgrade。未执行、也未宣称 release/canary/benchmark 或产品 IPC/Android/DB 集成。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径

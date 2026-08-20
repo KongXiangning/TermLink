@@ -2,7 +2,7 @@
 title: Codex Rollout 正式解析采集器架构
 status: active
 owner: "@maintainer"
-last_updated: 2026-08-19
+last_updated: 2026-08-20
 source_of_truth: codex-rollout-collector
 related_code: [native/codex-rollout-demo, native/codex-rollout-compat-spike]
 related_docs: [docs/codex/codex-rollout-demo-design.md, docs/codex/codex-rollout-collector-codex-compatibility.md, docs/workflow/CONTRACTS.md, docs/workflow/DECISIONS.md]
@@ -1496,12 +1496,16 @@ future-compatible
 - 保持旧 reducer 结果不变；
 - 用双路径 golden test 对照旧 reducer 和新 Adapter+Reducer。
 
-### 阶段 4：正式化分析器进程
+### 阶段 4：正式化分析器进程（隔离 runtime/conformance 已完成）
 
 - 实现 `AnalyzeRequest`、`AnalysisBatch`、ACK、checkpoint 和错误协议；
 - Node 按需启动 Rust analyzer；
-- 服务端分批写入 projection、details、usage、outcome 和 checkpoint；
-- 完成基于 checkpoint 的崩溃重启恢复、取消、超时、重叠采集和幂等导入测试。
+- 隔离 Node importer 以可注入 store 和默认原子文件 store 分批写入 projection、details、usage、outcome、run/error 和 checkpoint；产品服务端 DB wiring 留在阶段 5；
+- 完成基于 checkpoint 的重放恢复、取消、超时、重叠采集和幂等导入测试；
+- 阶段 3 的 strict conformance 已由测试实际启动 Demo reducer 和 Spike parser，在临时目录生成本次运行的 report/projection/output；静态 `demo-oracle-stage3.json` 仅保留为辅助回归 fixture；
+- 分段测试使用同一有状态 `CodexEventAdapter`，验证 tail/backfill 的稳定 `item_key`、Plan question/answer 跨段关联、overlap 去重和 segmented/full replay projection 一致；
+- `AnalysisReducer` 与 Node importer 均实现 partial/provisional → canonical promotion，并拒绝 late incomplete overlap 降级已提交 canonical projection；
+- 当前证据：Rust full suite 66 unit + 28 conformance + 3 stage2 integration + 5 stage3 conformance + 2 stage4 protocol tests 通过；Node collector 定向 suite 6/6 通过；未修改 IPC、Android、既有服务端 DB、Demo 或 Spike 源码。
 
 ### 阶段 5：服务端集成验收
 

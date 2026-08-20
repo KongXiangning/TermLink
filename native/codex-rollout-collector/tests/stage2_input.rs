@@ -4,12 +4,13 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use codex_rollout_collector::codex_adapter::CodexEventAdapter;
 use codex_rollout_collector::model::AnalysisEvent;
 use codex_rollout_collector::{
-    CompatibilityProfile, JsonlSourceBackend, SegmentAssembler, SegmentCompleteness,
-    SegmentDescriptor, SnapshotBoundary, SourceBackend, SourceByteRange, SourceFixtureHash,
-    SourceReadMode, SourceRecord, SourceRecordOracleResult, SourceSegment, SourceSpec,
-    analyze_source, compare_source_records,
+    AnalysisReducer, BatchCompleteness, CompatibilityProfile, JsonlSourceBackend, SegmentAssembler,
+    SegmentCompleteness, SegmentDescriptor, SnapshotBoundary, SourceBackend, SourceByteRange,
+    SourceFixtureHash, SourceReadMode, SourceRecord, SourceRecordOracleResult, SourceSegment,
+    SourceSpec, analyze_records_with_adapter, analyze_source, compare_source_records,
 };
 
 const COMMON_FIXTURE: &[u8] = b"{\"ordinal\":1,\"value\":\"one\"}\nnot-json\n{\"ordinal\":3,\"value\":\"three\"}\n{\"ordinal\":4,\"value\":\"four\"}\n";
@@ -213,4 +214,121 @@ fn existing_adapter_batch_entrypoint_keeps_profiles_unknowns_and_determinism() {
         )
         .expect("serialize repeated legacy")
     );
+}
+
+#[test]
+fn segmented_adapter_projection_and_plan_association_match_full_replay() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("current")
+        .join("plan-question-answer.jsonl");
+    let backend = JsonlSourceBackend;
+    let spec = SourceSpec::bind("conversation-plan", "plan-source", &path)
+        .expect("source binding")
+        .with_source_epoch("plan-epoch")
+        .expect("source epoch");
+
+    let mut full_records = Vec::new();
+    backend
+        .read(&spec, &mut |record| {
+            full_records.push(record);
+            Ok(())
+        })
+        .expect("full plan source read");
+    let full_batch = analyze_records_with_adapter(
+        &CodexEventAdapter::new_with_conversation_id(
+            CompatibilityProfile::Current,
+            Some("conversation-plan".to_string()),
+        ),
+        full_records.clone(),
+        CompatibilityProfile::Current,
+        BatchCompleteness::Canonical,
+    );
+    let full_projection = AnalysisReducer::reduce_batch(&full_batch);
+
+    let source_bytes = fs::metadata(&path).expect("plan fixture metadata").len();
+    let tail_plan = backend
+        .plan_tail(&spec, (source_bytes / 2).max(1))
+        .expect("tail plan");
+    let tail_start = tail_plan.byte_range().start();
+    let mut tail_records = Vec::new();
+    tail_plan
+        .read(&backend, &mut |record| {
+            tail_records.push(record);
+            Ok(())
+        })
+        .expect("tail plan read");
+    let backfill_plan = backend
+        .plan_range(
+            &spec,
+            SourceReadMode::BackwardRange,
+            SourceByteRange::new(0, tail_start).expect("backfill range"),
+        )
+        .expect("backfill plan");
+    let mut backfill_records = Vec::new();
+    backfill_plan
+        .read(&backend, &mut |record| {
+            backfill_records.push(record);
+            Ok(())
+        })
+        .expect("backfill plan read");
+
+    let adapter = CodexEventAdapter::new_with_conversation_id(
+        CompatibilityProfile::Current,
+        Some("conversation-plan".to_string()),
+    );
+    let backfill_batch = analyze_records_with_adapter(
+        &adapter,
+        backfill_records,
+        CompatibilityProfile::Current,
+        BatchCompleteness::Provisional,
+    );
+    let tail_batch = analyze_records_with_adapter(
+        &adapter,
+        tail_records.clone(),
+        CompatibilityProfile::Current,
+        BatchCompleteness::Canonical,
+    );
+
+    let question_key = backfill_batch
+        .items
+        .iter()
+        .find_map(|event| match event {
+            AnalysisEvent::PlanQuestion { metadata, .. } => Some(metadata.item_key.clone()),
+            _ => None,
+        })
+        .expect("question is in backfill");
+    let answer = tail_batch
+        .items
+        .iter()
+        .find_map(|event| match event {
+            AnalysisEvent::PlanAnswer { metadata, .. } => Some(metadata),
+            _ => None,
+        })
+        .expect("answer is in tail");
+    assert_eq!(
+        answer.related_item_key.as_deref(),
+        Some(question_key.as_str())
+    );
+
+    let mut segmented_reducer = AnalysisReducer::new(Some("conversation-plan".to_string()));
+    segmented_reducer.apply_batch(&backfill_batch);
+    segmented_reducer.apply_batch(&tail_batch);
+    segmented_reducer.apply_batch(&tail_batch);
+    let segmented_projection = segmented_reducer.finish();
+    assert_eq!(segmented_projection, full_projection);
+
+    let full_keys: std::collections::BTreeSet<_> = full_batch
+        .items
+        .iter()
+        .map(|event| event.metadata().item_key.clone())
+        .collect();
+    let segmented_keys: std::collections::BTreeSet<_> = backfill_batch
+        .items
+        .iter()
+        .chain(tail_batch.items.iter())
+        .map(|event| event.metadata().item_key.clone())
+        .collect();
+    assert_eq!(segmented_keys, full_keys);
 }

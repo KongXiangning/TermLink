@@ -21,6 +21,10 @@ pub struct AnalysisProjection {
     pub conversation_id: Option<String>,
     pub source: Option<String>,
     pub complete: bool,
+    /// True while the projection is based on a tail/partial segment whose
+    /// coverage has not yet been promoted by a complete backfill.
+    #[serde(default)]
+    pub provisional: bool,
     pub availability: Availability,
     pub turns: Vec<AnalysisTurn>,
     pub diagnostics: Vec<AnalysisDiagnostic>,
@@ -155,6 +159,8 @@ pub struct AnalysisReducer {
     current_plan_key: Option<String>,
     pending_questions: BTreeMap<String, Vec<String>>,
     seen_event_ids: BTreeSet<String>,
+    provisional_diagnostic_keys: BTreeSet<String>,
+    canonical_committed: bool,
 }
 
 impl AnalysisReducer {
@@ -166,6 +172,7 @@ impl AnalysisReducer {
                 conversation_id,
                 source: None,
                 complete: true,
+                provisional: false,
                 availability: Availability::Present,
                 turns: Vec::new(),
                 diagnostics: Vec::new(),
@@ -175,6 +182,8 @@ impl AnalysisReducer {
             current_plan_key: None,
             pending_questions: BTreeMap::new(),
             seen_event_ids: BTreeSet::new(),
+            provisional_diagnostic_keys: BTreeSet::new(),
+            canonical_committed: false,
         }
     }
 
@@ -189,7 +198,49 @@ impl AnalysisReducer {
     }
 
     pub fn apply_batch(&mut self, batch: &AnalysisBatch) {
-        self.projection.complete &= batch.complete;
+        let completeness = match batch.completeness {
+            crate::protocol::BatchCompleteness::Unknown => {
+                if batch.complete {
+                    crate::protocol::BatchCompleteness::Canonical
+                } else {
+                    crate::protocol::BatchCompleteness::Partial
+                }
+            }
+            value => value,
+        };
+        self.apply_batch_with_completeness(batch, completeness);
+    }
+
+    /// Apply one batch while preserving the lifecycle distinction between
+    /// provisional segment evidence and a complete canonical range.  A later
+    /// incomplete overlap can never downgrade a canonical projection.
+    pub fn apply_batch_with_completeness(
+        &mut self,
+        batch: &AnalysisBatch,
+        completeness: crate::protocol::BatchCompleteness,
+    ) {
+        let is_canonical = completeness == crate::protocol::BatchCompleteness::Canonical;
+        if !is_canonical && self.canonical_committed {
+            // A late tail/retry overlap is observationally stale once a
+            // complete range has committed.  It must not reopen provisional
+            // state or worsen availability.
+            return;
+        }
+        if is_canonical {
+            self.projection.provisional = false;
+            self.projection.complete = batch.complete;
+            if batch.complete {
+                self.projection.diagnostics.clear();
+            } else {
+                self.projection
+                    .diagnostics
+                    .retain(|item| !self.provisional_diagnostic_keys.contains(&item.item_key));
+            }
+            self.provisional_diagnostic_keys.clear();
+        } else {
+            self.projection.provisional = true;
+            self.projection.complete = false;
+        }
         for diagnostic in &batch.diagnostics {
             self.merge_availability(diagnostic.availability);
             if diagnostic.availability != Availability::Present {
@@ -197,7 +248,18 @@ impl AnalysisReducer {
             }
         }
         for event in &batch.items {
+            if !is_canonical
+                && (event.is_diagnostic() || event.availability() != Availability::Present)
+            {
+                self.provisional_diagnostic_keys
+                    .insert(event.metadata().item_key.clone());
+            }
             self.apply(event);
+        }
+        if is_canonical && batch.complete && self.projection.diagnostics.is_empty() {
+            self.projection.complete = true;
+            self.projection.availability = Availability::Present;
+            self.canonical_committed = true;
         }
     }
 
@@ -881,8 +943,44 @@ mod tests {
         let projection =
             AnalysisReducer::reduce_batch(&AnalysisBatch::empty(CompatibilityProfile::Current));
         assert!(projection.complete);
+        assert!(!projection.provisional);
         assert!(projection.turns.is_empty());
         assert!(projection.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn provisional_tail_promotes_after_complete_backfill() {
+        let mut reducer = AnalysisReducer::new(Some("conversation-1".to_string()));
+        let mut tail = AnalysisBatch::empty(CompatibilityProfile::Current);
+        tail.completeness = crate::protocol::BatchCompleteness::Provisional;
+        reducer.apply_batch(&tail);
+        let provisional = reducer.clone().finish();
+        assert!(provisional.provisional);
+        assert!(!provisional.complete);
+
+        let mut backfill = AnalysisBatch::empty(CompatibilityProfile::Current);
+        backfill.completeness = crate::protocol::BatchCompleteness::Canonical;
+        reducer.apply_batch(&backfill);
+        let promoted = reducer.finish();
+        assert!(!promoted.provisional);
+        assert!(promoted.complete);
+        assert_eq!(promoted.availability, Availability::Present);
+    }
+
+    #[test]
+    fn late_incomplete_overlap_cannot_downgrade_canonical_projection() {
+        let mut reducer = AnalysisReducer::new(Some("conversation-1".to_string()));
+        let canonical = AnalysisBatch::empty(CompatibilityProfile::Current);
+        reducer.apply_batch(&canonical);
+
+        let mut overlap = AnalysisBatch::empty(CompatibilityProfile::Current);
+        overlap.completeness = crate::protocol::BatchCompleteness::Partial;
+        overlap.complete = false;
+        reducer.apply_batch(&overlap);
+        let projection = reducer.finish();
+        assert!(projection.complete);
+        assert!(!projection.provisional);
+        assert_eq!(projection.availability, Availability::Present);
     }
 
     #[test]

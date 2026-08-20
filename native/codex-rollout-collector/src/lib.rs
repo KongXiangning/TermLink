@@ -26,7 +26,11 @@ pub use analysis::{
     AnalysisUsage,
 };
 pub use codex_wire::CompatibilityProfile;
-pub use protocol::{AnalysisBatch, ParserProvenance, analyze_source};
+pub use protocol::{
+    ANALYZER_CHECKPOINT_SCHEMA_VERSION, ANALYZER_PROTOCOL_VERSION, ANALYZER_VERSION, AnalysisBatch,
+    AnalyzerCheckpoint, AnalyzerProtocolError, BatchCompleteness, BatchMessage, ParserProvenance,
+    analyze_records_with_adapter, analyze_request, analyze_source, analyze_source_with_cancel,
+};
 pub use source::{
     AppendError, AppendReadReport, BackfillCursor, CURSOR_READER_BACKEND, CURSOR_READER_VERSION,
     CURSOR_SCHEMA_VERSION, CompleteLineAnchor, CursorError, CursorMetadata, ForwardAppendCursor,
@@ -41,4 +45,4 @@ pub use source::{
 };
 
 /// Implementation stage represented by this package.
-pub const PACKAGE_STAGE: &str = "P0-RC.1-step3-vertical-slice";
+pub const PACKAGE_STAGE: &str = "P0-RC.1-step4-analyzer-runtime";

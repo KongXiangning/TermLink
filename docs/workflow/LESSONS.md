@@ -43,6 +43,14 @@
 - **应对**: 关键配置直接硬编码在 `server.js` 中作为 dev 默认值（`if (!process.env.VAR) process.env.VAR = '1'`），或写入 `.env` 文件由 `dotenv` 加载
 - **Source**: `20260615-002` B1 env var debugging
 
+### L-014: 架构阶段名必须先映射到 workflow 步骤
+
+- **场景**: 任务同时使用架构文档的“阶段 2”和 `CURRENT_TASK.md` 的 step 编号；如果直接把“阶段 2”理解为 `step2`，会漏掉该阶段后续拆出的输入读取、cursor、segment、append 和回归验收。
+- **结论**: 实施前要把用户/架构文档中的阶段、当前任务包和 workflow step 建立显式映射；阶段是架构范围，step 是本轮执行顺序，二者不能按编号直接等同。
+- **触发信号**: architecture 文档有独立阶段定义，而 `CURRENT_TASK.md` 另有 step 清单；状态描述出现“阶段已完成”但仍有对应 step 未验收。
+- **应对动作**: 在 review 和 plan 中记录“架构阶段 → task steps → 验收证据”的映射，并以架构阶段范围校验任务是否漏项，再按当前 step 实施。
+- **Source**: `20260820-001` / 阶段 2范围复核与 task-step mapping
+
 ### Lesson 模板
 
 - 场景：
@@ -179,6 +187,54 @@
 - **触发信号**: 测试计数和 clean-checkout 证据完整，但 STATUS/交付摘要开始使用“完整 analyzer 已稳定”或“可发布”等超出证据范围的表述。
 - **应对动作**: 在 STATUS、CONTRACTS 和 DECISIONS 中明确稳定边界、排除项和下一 handoff；只有对应消费者、集成和 release 门禁另行完成后，才扩大稳定声明。
 - **Source**: `20260819-001` / Step 4 status-contract-decision sync
+
+### L-015: 分段结果必须按稳定键组装，不能依赖采集顺序
+
+- **场景**: 多个 segment 的读取或异步采集顺序发生变化时，如果直接按返回顺序拼接，重叠消除和最终事件顺序会随调度变化，导致同一输入出现不同结果。
+- **结论**: segment 组装必须先按稳定的逻辑/物理排序键排序，再执行 overlap dedupe、gap 诊断和最终拼接；采集顺序只能影响性能，不能影响语义结果。
+- **触发信号**: 测试只覆盖顺序返回的 segment，或 review 发现结果直接消费 iterator/任务完成顺序；同一 fixture 在不同读取顺序下的输出尚未比较。
+- **应对动作**: 为排序键、重叠边界和 partial gap 建立专门 fixture，反转或扰乱 segment 获取顺序后断言输出、诊断和 provenance 完全一致。
+- **Source**: `20260820-001` / Step 4 review finding 与 determinism regression
+
+### L-016: append 必须完成两阶段稳定性校验后才发布 cursor
+
+- **场景**: append 读取期间源文件可能继续增长、被截断或被替换；如果读到数据后立即回调并推进 cursor，调用方可能收到不完整或来自不同源版本的记录。
+- **结论**: append 应先校验 cursor 与 source identity/epoch/fingerprint/anchor，再捕获增长边界并读取；发布前重新验证前缀与增长摘要，只提交完整换行记录。pending tail 不推进 cursor，任何截断、替换或校验不一致都必须 fail closed。
+- **触发信号**: append 测试只验证“追加后能读到新行”，没有覆盖不完整尾行、同长度替换、truncate、rename 或读取过程中的源变更。
+- **应对动作**: 把“校验—读取—复核—提交”作为一个原子语义测试矩阵，分别断言成功时的 next cursor、pending tail 和失败时无新 cursor/无部分回调；对允许的 rename continuation 单独保留正例。
+- **Source**: `20260820-001` / Stage 2 Step 5–6 append recovery tests
+
+### L-017: 任务收尾必须逐项核对 acceptance，而不只看 step 状态
+
+- **场景**: 实现步骤和回归已经完成，但 `CURRENT_TASK.md` 中早期写入的兼容性 acceptance checkbox 仍未同步，导致任务状态看起来比实际实现落后。
+- **结论**: final sync 不能只更新当前 step 或测试摘要，必须把每一条 acceptance 与最终 diff、契约审查和回归证据逐项对照；没有证据的条目保持未完成，有证据的条目及时勾选并注明来源。
+- **触发信号**: step 状态已全部通过，但 acceptance 列表仍有旧的未勾选项；或者同一事实在 STATUS、CURRENT_TASK 和测试报告中的完成状态不一致。
+- **应对动作**: 在回归后建立 acceptance-to-evidence 对照，检查兼容调用、fail-closed、测试计数和范围边界，再执行 CURRENT_TASK/STATUS/CONTRACTS 的同步；不要用“整体通过”替代逐项证据。
+- **Source**: `20260820-001` / final acceptance sync
+
+### L-018: source cursor promotion 必须由连续安全前缀证明驱动
+
+- **场景**: tail/backfill/segment assembly 已能读取记录，但没有从完成结果安全生成 `ForwardAppendCursor` 的端到端生产路径；测试如果用 helper 手工构造初始 cursor，会掩盖 promotion 生命周期缺口。
+- **结论**: `TailPreviewCursor`/`BackfillCursor` 不能直接升级为 append cursor。promotion 必须同时证明 plain JSONL 能力、source identity/epoch、snapshot boundary、fingerprint/prefix anchor、完整行/ordinal/record continuity，以及无 pending tail、gap、partial 或 parse diagnostic；promotion 后还必须覆盖 cursor 序列化重启、append 和重复读取。任一 truncation、replacement、prefix mutation 或校验不一致都必须 fail-closed 且不发布新 cursor。
+- **触发信号**: append 测试通过，但生命周期仍依赖手工 cursor；promotion 没有检查连续完整前缀、源文件当前 digest 或重启后的 cursor 恢复；partial/gap 输入仍能产生 forward cursor。
+- **应对动作**: 把 `continuous safe prefix → promotion → append → restart/replay` 固定为同一 plain JSONL fixture 的测试链；为 pending tail、gap、partial、mutation、truncation、replacement 分别断言“不产生 `ForwardAppendCursor`”，并保留 full/replay oracle 对照。
+- **Source**: `20260820-002` / R-009 / stage3 source lifecycle conformance
+
+### L-019: Demo/Spike oracle 只能提供稳定 golden surface，不能成为 formal 实现依赖
+
+- **场景**: Demo 或 Spike 往往已经有较完整的 reducer、DTO 或报告，直接复用看似能快速补齐 formal collector，但会把实验实现和私有字段带入正式边界。
+- **结论**: Demo/Spike 只负责只读 reference/golden 输出；formal reducer 必须消费 TermLink-owned `AnalysisEvent`，golden 只固定经过筛选的稳定等价字段。Demo 的 partial、unknown、alias、usage aggregate 或私有 DTO 不得被默认为产品 API；差异必须显式保留为 diagnostic/incomplete，而不是改 oracle 迎合 formal 结果。
+- **触发信号**: 为了通过 golden 而修改 Demo/Spike、复制其 reducer/DTO，或把 oracle 的 conversation-level aggregate 直接暴露为正式 consumer 接口。
+- **应对动作**: 使用同一原始 fixture 做 Demo full-oracle/determinism 与 formal conformance；先锁定最小 stable surface，再独立实现 formal projection，并在回归后检查 Demo/Spike 工作树无变更。
+- **Source**: `20260820-002` / stage3 Demo golden and reducer conformance
+
+### L-020: 任务外 dirty/untracked 工作树必须先确认归属再做 closeout
+
+- **场景**: 当前任务工作树同时包含其他任务的 workflow 修改、paused 包、诊断工具或安装产物；把整棵工作树当作本任务交付会造成误提交、误回滚或误删除。
+- **结论**: 实现完成、任务 closeout 和整树清理是三个不同状态。未确认 owner 前，必须保留任务外 dirty/untracked 内容；只允许对已锁定的 formal path 做 path-scoped diff/staging review，不得 `reset`、`checkout`、整树 `clean`、批量移动或删除。
+- **触发信号**: `git status` 出现任务外 `AGENTS.md`、其他 inbox/paused 包、未跟踪工具目录或压缩/安装产物，且当前任务没有明确授权其归属和处理方式。
+- **应对动作**: 在 CURRENT_TASK 中单独登记 closeout finding，列出外部路径与 owner 状态；把 formal 代码交付和任务外风险分开同步到 STATUS；等待用户确认后再决定 path-scoped staging/commit 或另立清理任务，禁止用“代码测试通过”替代归属确认。
+- **Source**: `20260820-002` / R-010 / final path-scoped review
 
 - 场景：`node --test` full suite 报告"挂起"，但旧结论只是泛化地描述"full suite 会在后段挂起"，没有具体文件、测试名或执行阶段边界，导致 gate 状态长期停留在"知道有问题但无法行动"。
   - 结论：对挂起的 test suite，必须用文件级和测试名级拆分把挂起面收敛到可复述的最小单元，再区分"修复任务"和"gate 策略调整"。不能直接用旧结论跳过排查，也不能在边界未收敛时就调整 blocker gate。
