@@ -21,7 +21,18 @@ pub mod version;
 
 pub use codex_wire::CompatibilityProfile;
 pub use protocol::{AnalysisBatch, ParserProvenance, analyze_source};
-pub use source::{JsonlSourceBackend, SourceBackend, SourceLocator, SourceRecord, SourceSpec};
+pub use source::{
+    AppendError, AppendReadReport, BackfillCursor, CURSOR_READER_BACKEND, CURSOR_READER_VERSION,
+    CURSOR_SCHEMA_VERSION, CompleteLineAnchor, CursorError, CursorMetadata, ForwardAppendCursor,
+    JsonlSourceBackend, PlannedReadReport, ReadPlanResult, SegmentAssembler, SegmentAssembly,
+    SegmentAssemblyLimits, SegmentCarrier, SegmentCarrierKind, SegmentCompleteness,
+    SegmentDescriptor, SegmentError, SegmentGap, SnapshotBoundary, SourceBackend,
+    SourceBindingError, SourceByteRange, SourceCandidate, SourceCapabilities, SourceCapability,
+    SourceCompression, SourceCursorKind, SourceFingerprint, SourceFixtureHash, SourceKind,
+    SourceLocator, SourceOracleError, SourcePrefixAnchor, SourceReadMode, SourceReadPlan,
+    SourceReadPlanError, SourceRecord, SourceRecordMismatch, SourceRecordOracleResult,
+    SourceSegment, SourceSpec, TailPreviewCursor, compare_source_records,
+};
 
 /// Implementation stage represented by this package.
 pub const PACKAGE_STAGE: &str = "P0-RC.1-step3-vertical-slice";

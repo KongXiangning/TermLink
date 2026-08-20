@@ -1,9 +1,36 @@
 //! Explicit, bounded JSONL/.zst source input.
 
+mod append;
+mod cursor;
+mod digest;
 mod jsonl;
+mod oracle;
+mod read_plan;
 mod record;
+mod segment;
 mod zstd;
 
+pub use append::{AppendError, AppendReadReport};
+pub use cursor::{
+    BackfillCursor, CURSOR_READER_BACKEND, CURSOR_READER_VERSION, CURSOR_SCHEMA_VERSION,
+    CompleteLineAnchor, CursorError, CursorMetadata, ForwardAppendCursor, SourceCursorKind,
+    TailPreviewCursor,
+};
 pub use jsonl::{JsonlSourceBackend, SourceBackend};
+pub use oracle::{
+    SourceFixtureHash, SourceOracleError, SourceRecordMismatch, SourceRecordOracleResult,
+    compare_source_records,
+};
+pub use read_plan::{
+    PlannedReadReport, ReadPlanResult, SourceByteRange, SourceCapabilities, SourceCapability,
+    SourceReadMode, SourceReadPlan, SourceReadPlanError,
+};
 pub(crate) use record::safe_source_identity;
-pub use record::{SourceLocator, SourceReadReport, SourceRecord, SourceSpec};
+pub use record::{
+    SnapshotBoundary, SourceBindingError, SourceCandidate, SourceCompression, SourceFingerprint,
+    SourceKind, SourceLocator, SourcePrefixAnchor, SourceReadReport, SourceRecord, SourceSpec,
+};
+pub use segment::{
+    SegmentAssembler, SegmentAssembly, SegmentAssemblyLimits, SegmentCarrier, SegmentCarrierKind,
+    SegmentCompleteness, SegmentDescriptor, SegmentError, SegmentGap, SourceSegment,
+};

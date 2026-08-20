@@ -153,9 +153,13 @@ impl SourceBackend for JsonlSourceBackend {
                 .with_context(|| format!("decode compressed rollout {}", spec.path().display()))?;
             self.read_reader(BufReader::new(decoder), spec, initial_report, visit)
         } else {
-            if metadata.len() > spec.max_decoded_bytes() {
-                // Plain JSONL has a cheap preflight, but still emit a bounded
-                // diagnostic through the same callback shape as .zst.
+            if metadata.len() > spec.max_decoded_bytes()
+                && spec.max_decoded_bytes() != spec.max_line_bytes() as u64
+            {
+                // Keep the existing zero-range preflight when the decoded
+                // source budget is the distinct binding limit. At the exact
+                // line/source boundary, let read_reader apply the same
+                // effective-line-limit classification as the planned reader.
                 let record = SourceRecord {
                     source_identity: spec.source_identity().to_string(),
                     byte_start: 0,
