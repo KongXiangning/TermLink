@@ -58,7 +58,10 @@ pub fn analyze_source<B: SourceBackend>(
     profile: CompatibilityProfile,
 ) -> anyhow::Result<AnalysisBatch> {
     let mut batch = AnalysisBatch::empty(profile);
-    let adapter = CodexEventAdapter::new(profile);
+    let adapter = CodexEventAdapter::new_with_conversation_id(
+        profile,
+        spec.target_conversation_id().map(ToOwned::to_owned),
+    );
     let mut next_sequence = 0_u64;
     let mut visit = |record| {
         let decoded = decode_source_record(&record, profile);

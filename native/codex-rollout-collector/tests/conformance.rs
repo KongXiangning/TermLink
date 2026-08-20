@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use codex_rollout_collector::model::{AnalysisEvent, Availability, TurnStatus};
+use codex_rollout_collector::model::{AnalysisEvent, Availability, IdentityOrigin, TurnStatus};
 use codex_rollout_collector::{
     CompatibilityProfile, JsonlSourceBackend, SourceSpec, analyze_source,
 };
@@ -201,6 +201,89 @@ fn current_alias_fields_map_to_analysis_events() {
 }
 
 #[test]
+fn adapter_identity_is_logical_and_explicit_conversation_binding_wins() {
+    let path = fixture("current/minimal-rollout.jsonl");
+    let backend = JsonlSourceBackend;
+    let spec = SourceSpec::bind("caller-conversation", "stable-rollout", &path)
+        .expect("source binding")
+        .with_source_epoch("fixture-epoch")
+        .expect("source epoch");
+    let batch = analyze_source(&backend, &spec, CompatibilityProfile::Current)
+        .expect("bound fixture analyzes");
+
+    assert!(batch.items.iter().all(|event| {
+        event.metadata().conversation_id.as_deref() == Some("caller-conversation")
+            && !event.item_key().is_empty()
+            && event.event_id().contains("stable-rollout")
+    }));
+
+    let turn_keys: Vec<_> = batch
+        .items
+        .iter()
+        .filter_map(|event| match event {
+            AnalysisEvent::TurnStarted { .. } | AnalysisEvent::TurnCompleted { .. } => {
+                Some(event.item_key())
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(turn_keys.len(), 2);
+    assert_eq!(turn_keys[0], turn_keys[1]);
+    assert_eq!(turn_keys[0], "turn:turn-1");
+
+    let tool_keys: Vec<_> = batch
+        .items
+        .iter()
+        .filter_map(|event| match event {
+            AnalysisEvent::ToolStarted { call_id, .. }
+            | AnalysisEvent::ToolCompleted { call_id, .. } => {
+                if !matches!(call_id.as_str(), "call-1" | "call-2") {
+                    return None;
+                }
+                Some(event.item_key())
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        tool_keys,
+        ["tool:call-1", "tool:call-1", "tool:call-2", "tool:call-2"]
+    );
+
+    let plan_path = fixture("current/plan-question-answer.jsonl");
+    let plan_spec = SourceSpec::bind("caller-conversation", "stable-rollout", &plan_path)
+        .expect("plan source binding")
+        .with_source_epoch("fixture-epoch")
+        .expect("plan source epoch");
+    let plan_batch = analyze_source(&backend, &plan_spec, CompatibilityProfile::Current)
+        .expect("plan fixture analyzes");
+    let question_key = plan_batch
+        .items
+        .iter()
+        .find_map(|event| match event {
+            AnalysisEvent::PlanQuestion { .. } => Some(event.item_key().to_string()),
+            _ => None,
+        })
+        .expect("plan question key");
+    let answer = plan_batch
+        .items
+        .iter()
+        .find_map(|event| match event {
+            AnalysisEvent::PlanAnswer { .. } => Some(event),
+            _ => None,
+        })
+        .expect("plan answer");
+    assert_eq!(
+        answer.metadata().related_item_key.as_deref(),
+        Some(question_key.as_str())
+    );
+    assert_eq!(
+        answer.metadata().identity_origin,
+        IdentityOrigin::SourcePosition
+    );
+}
+
+#[test]
 fn unknown_alias_is_diagnostic() {
     let batch = analyze("current/unknown-alias.jsonl", CompatibilityProfile::Current);
     assert!(!batch.complete);
@@ -382,18 +465,24 @@ fn plan_question_answer_action_identity() {
     assert!(batch.items.iter().any(|event| matches!(
         event,
         AnalysisEvent::PlanAnswer {
+            metadata,
             call_id,
             question_id,
             answer,
             ..
-        } if call_id == "call-question-1" && question_id == "q-1" && answer == "continue"
+        } if call_id == "call-question-1"
+            && question_id == "q-1"
+            && answer == "continue"
+            && metadata.related_item_key.as_deref() == Some("question:q-1")
     )));
     assert!(batch.items.iter().any(|event| matches!(
         event,
         AnalysisEvent::PlanAction {
+            metadata,
             action,
             ..
         } if action == "continue"
+            && metadata.related_item_key.as_deref() == Some("question:q-1")
     )));
 }
 

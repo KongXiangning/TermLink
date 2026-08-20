@@ -2,16 +2,46 @@ use serde::{Deserialize, Serialize};
 
 use super::{Availability, SourceRef};
 
+/// How the logical item identity was obtained.
+///
+/// Native IDs are preferred.  A source-position fallback is still replayable
+/// when a rollout does not expose a native ID; it must never depend on batch
+/// order, segment boundaries, or a random value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IdentityOrigin {
+    NativeStableId,
+    SourcePosition,
+}
+
+impl Default for IdentityOrigin {
+    fn default() -> Self {
+        Self::SourcePosition
+    }
+}
+
 /// Common identity and source metadata for all TermLink events.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EventMetadata {
+    /// Physical event identity. This identifies one source event occurrence;
+    /// `item_key` identifies the logical history object that may be updated by
+    /// a later event (for example a tool begin/end pair).
     pub event_id: String,
+    /// Stable logical history item identity.
+    #[serde(default)]
+    pub item_key: String,
     pub correlation_id: Option<String>,
+    /// Optional logical item paired with this event (for example a plan answer
+    /// points back to its question).
+    #[serde(default)]
+    pub related_item_key: Option<String>,
     pub conversation_id: Option<String>,
     pub turn_id: Option<String>,
     pub timestamp: Option<String>,
     pub sequence: u64,
     pub availability: Availability,
+    #[serde(default)]
+    pub identity_origin: IdentityOrigin,
     pub source_ref: SourceRef,
 }
 
@@ -220,6 +250,14 @@ impl AnalysisEvent {
 
     pub fn event_id(&self) -> &str {
         &self.metadata().event_id
+    }
+
+    pub fn item_key(&self) -> &str {
+        &self.metadata().item_key
+    }
+
+    pub fn related_item_key(&self) -> Option<&str> {
+        self.metadata().related_item_key.as_deref()
     }
 
     pub fn availability(&self) -> Availability {

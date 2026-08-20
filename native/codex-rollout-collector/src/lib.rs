@@ -11,6 +11,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod analysis;
 pub mod codex_adapter;
 pub mod codex_wire;
 pub mod error;
@@ -19,6 +20,11 @@ pub mod protocol;
 pub mod source;
 pub mod version;
 
+pub use analysis::{
+    AnalysisDiagnostic, AnalysisItem, AnalysisPlan, AnalysisProjection, AnalysisQuestion,
+    AnalysisRateLimit, AnalysisReducer, AnalysisTool, AnalysisTurn, AnalysisTurnStatus,
+    AnalysisUsage,
+};
 pub use codex_wire::CompatibilityProfile;
 pub use protocol::{AnalysisBatch, ParserProvenance, analyze_source};
 pub use source::{

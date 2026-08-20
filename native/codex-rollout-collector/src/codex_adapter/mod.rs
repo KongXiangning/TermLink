@@ -14,32 +14,52 @@ use crate::codex_wire::{
 };
 use crate::error::CollectorErrorKind;
 use crate::model::{
-    AnalysisEvent, Availability, EventMetadata, PlanOption, PlanStep, SourceRef, TurnStatus,
+    AnalysisEvent, Availability, EventMetadata, IdentityOrigin, PlanOption, PlanStep, SourceRef,
+    TurnStatus,
 };
 use crate::source::{SourceRecord, safe_source_identity};
 
 #[derive(Debug, Clone)]
 pub struct CodexEventAdapter {
     profile: CompatibilityProfile,
+    configured_conversation_id: Option<String>,
     state: RefCell<AdapterState>,
 }
 
 #[derive(Debug, Clone, Default)]
 struct AdapterState {
     pending_plans: VecDeque<PendingPlan>,
+    active_turn_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
 struct PendingPlan {
     call_id: String,
+    turn_id: Option<String>,
     question_ids: BTreeSet<String>,
     answered: bool,
 }
 
 impl CodexEventAdapter {
     pub fn new(profile: CompatibilityProfile) -> Self {
+        Self::new_with_conversation_id(profile, None)
+    }
+
+    /// Create an adapter bound to an explicit caller-selected conversation.
+    ///
+    /// The explicit binding always wins over a session metadata ID.  When no
+    /// binding is supplied, the first session metadata record provides a
+    /// recoverable native fallback for the rest of this adapter stream.
+    pub fn new_with_conversation_id(
+        profile: CompatibilityProfile,
+        conversation_id: Option<String>,
+    ) -> Self {
+        let configured_conversation_id = conversation_id
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
         Self {
             profile,
+            configured_conversation_id,
             state: RefCell::new(AdapterState::default()),
         }
     }
@@ -49,9 +69,40 @@ impl CodexEventAdapter {
     }
 
     pub fn adapt(&self, record: &SourceRecord, decoded: DecodedRecord) -> Vec<AnalysisEvent> {
-        match decoded {
+        let mut events = match decoded {
             DecodedRecord::Known(known) => self.adapt_known(record, &known.line.item),
             DecodedRecord::Unknown(unknown) => vec![self.adapt_unknown(record, unknown)],
+        };
+        self.finalize_events(&mut events);
+        events
+    }
+
+    fn finalize_events(&self, events: &mut [AnalysisEvent]) {
+        let active_turn_id = self.state.borrow().active_turn_id.clone();
+        let conversation_id = self.configured_conversation_id.clone();
+
+        for (index, event) in events.iter_mut().enumerate() {
+            let event_type = event.event_type();
+            let is_session = matches!(event, AnalysisEvent::SessionContext { .. });
+            let (item_key, identity_origin, related_item_key) = logical_identity(event, index);
+            let metadata = event.metadata_mut();
+            if metadata.conversation_id.is_none() {
+                metadata.conversation_id = conversation_id.clone();
+            }
+            if metadata.turn_id.is_none() && !is_session {
+                metadata.turn_id = active_turn_id.clone();
+            }
+            metadata.item_key = item_key;
+            metadata.identity_origin = identity_origin;
+            metadata.related_item_key = related_item_key;
+            metadata.event_id = event_identity(metadata, event_type, index);
+        }
+
+        if events
+            .iter()
+            .any(|event| matches!(event, AnalysisEvent::TurnCompleted { .. }))
+        {
+            self.state.borrow_mut().active_turn_id = None;
         }
     }
 
@@ -408,6 +459,7 @@ impl CodexEventAdapter {
             Some(items) => compact_sanitized_json(items),
             None => sanitize_tool_input(&output.body.to_text().unwrap_or_default()),
         };
+        let pending_turn_id = self.pending_plan_turn_id(call_id);
         if let Some(answers) = parse_plan_answers(&output_text)
             && self.accept_pending_plan_answers(call_id, &answers)
         {
@@ -420,7 +472,7 @@ impl CodexEventAdapter {
                         "plan_answer",
                         index as u64,
                         Some(call_id.to_string()),
-                        None,
+                        pending_turn_id.clone(),
                         Availability::Present,
                     ),
                     call_id: call_id.to_string(),
@@ -710,19 +762,21 @@ impl CodexEventAdapter {
             text: payload.message.clone(),
         }];
         if let Some(action) = classify_plan_action(&payload.message)
-            && self.consume_pending_plan_action()
+            && let Some((pending_turn_id, question_key)) = self.consume_pending_plan_action()
         {
-            events.push(AnalysisEvent::PlanAction {
+            let mut event = AnalysisEvent::PlanAction {
                 metadata: metadata(
                     record,
                     "plan_action",
                     1,
                     payload.client_id.clone(),
-                    None,
+                    pending_turn_id,
                     Availability::Present,
                 ),
                 action: action.to_string(),
-            });
+            };
+            event.metadata_mut().related_item_key = question_key;
+            events.push(event);
         }
         events
     }
@@ -751,6 +805,7 @@ impl CodexEventAdapter {
         payload: &protocol::TurnStartedEvent,
     ) -> Vec<AnalysisEvent> {
         self.clear_pending_plans();
+        self.state.borrow_mut().active_turn_id = Some(payload.turn_id.clone());
         vec![AnalysisEvent::TurnStarted {
             metadata: metadata(
                 record,
@@ -898,6 +953,7 @@ impl CodexEventAdapter {
         if !payload.questions.is_empty() {
             let pending = PendingPlan {
                 call_id: payload.call_id.clone(),
+                turn_id: non_empty(payload.turn_id.clone()),
                 question_ids: payload
                     .questions
                     .iter()
@@ -992,7 +1048,16 @@ impl CodexEventAdapter {
         }
     }
 
-    fn consume_pending_plan_action(&self) -> bool {
+    fn pending_plan_turn_id(&self, call_id: &str) -> Option<String> {
+        self.state
+            .borrow()
+            .pending_plans
+            .iter()
+            .find(|pending| pending.call_id == call_id)
+            .and_then(|pending| pending.turn_id.clone())
+    }
+
+    fn consume_pending_plan_action(&self) -> Option<(Option<String>, Option<String>)> {
         let mut state = self.state.borrow_mut();
         let Some(index) = state.pending_plans.iter().position(|pending| {
             // A direct user action is valid while a question is pending, and
@@ -1000,10 +1065,16 @@ impl CodexEventAdapter {
             // retained to make the bounded state explicit for future carriers.
             !pending.question_ids.is_empty() || pending.answered
         }) else {
-            return false;
+            return None;
         };
-        state.pending_plans.remove(index);
-        true
+        state.pending_plans.remove(index).map(|pending| {
+            let question_key = pending
+                .question_ids
+                .iter()
+                .find(|question_id| !question_id.trim().is_empty())
+                .map(|question_id| format!("question:{}", question_id.trim()));
+            (pending.turn_id, question_key)
+        })
     }
 
     fn clear_pending_plans(&self) {
@@ -1151,7 +1222,9 @@ fn metadata(
             safe_source_identity(&record.source_identity),
             record.physical_line_ordinal
         ),
+        item_key: String::new(),
         correlation_id,
+        related_item_key: None,
         conversation_id: None,
         turn_id,
         timestamp: record.timestamp.clone(),
@@ -1160,8 +1233,151 @@ fn metadata(
             .saturating_mul(100)
             .saturating_add(index),
         availability,
+        identity_origin: IdentityOrigin::SourcePosition,
         source_ref: SourceRef::from(record),
     }
+}
+
+fn logical_identity(
+    event: &AnalysisEvent,
+    index: usize,
+) -> (String, IdentityOrigin, Option<String>) {
+    let metadata = event.metadata();
+    let position = source_position(metadata);
+    let source_key = |prefix: &str| {
+        (
+            format!("{prefix}:{position}:{index}"),
+            IdentityOrigin::SourcePosition,
+        )
+    };
+    let native_key = |prefix: &str, value: &str| {
+        if value.trim().is_empty() {
+            source_key(prefix)
+        } else {
+            (
+                format!("{prefix}:{}", value.trim()),
+                IdentityOrigin::NativeStableId,
+            )
+        }
+    };
+
+    match event {
+        AnalysisEvent::SessionContext { session_id, .. } => {
+            let key = session_id
+                .as_deref()
+                .map(|value| native_key("session", value))
+                .unwrap_or_else(|| source_key("session"));
+            no_relation(key)
+        }
+        AnalysisEvent::TurnStarted { .. } | AnalysisEvent::TurnCompleted { .. } => {
+            let key = metadata
+                .turn_id
+                .as_deref()
+                .map(|value| native_key("turn", value))
+                .unwrap_or_else(|| source_key("turn"));
+            no_relation(key)
+        }
+        AnalysisEvent::UserMessage { .. } => {
+            let key = metadata
+                .correlation_id
+                .as_deref()
+                .map(|value| native_key("message", value))
+                .unwrap_or_else(|| source_key("message"));
+            no_relation(key)
+        }
+        AnalysisEvent::AssistantMessage { .. } => {
+            let key = metadata
+                .correlation_id
+                .as_deref()
+                .map(|value| native_key("message", value))
+                .unwrap_or_else(|| source_key("assistant"));
+            no_relation(key)
+        }
+        AnalysisEvent::ToolStarted { call_id, .. }
+        | AnalysisEvent::ToolCompleted { call_id, .. } => no_relation(native_key("tool", call_id)),
+        AnalysisEvent::PlanUpdated { .. } => no_relation(source_key("plan")),
+        AnalysisEvent::PlanQuestion { question_id, .. } => {
+            no_relation(native_key("question", question_id))
+        }
+        AnalysisEvent::PlanAnswer { question_id, .. } => (
+            format!("answer:{question_id}:{position}:{index}"),
+            IdentityOrigin::SourcePosition,
+            Some(format!("question:{question_id}")),
+        ),
+        AnalysisEvent::PlanAction { .. } => {
+            let key = source_key("plan-action");
+            (key.0, key.1, metadata.related_item_key.clone())
+        }
+        AnalysisEvent::FileChanged { .. } => no_relation(source_key("file")),
+        AnalysisEvent::WebSearchFound { .. } => {
+            let key = metadata
+                .correlation_id
+                .as_deref()
+                .map(|value| native_key("search", value))
+                .unwrap_or_else(|| source_key("search"));
+            no_relation(key)
+        }
+        AnalysisEvent::AttachmentFound { .. } => {
+            let key = metadata
+                .correlation_id
+                .as_deref()
+                .map(|value| native_key("attachment", value))
+                .unwrap_or_else(|| source_key("attachment"));
+            no_relation(key)
+        }
+        AnalysisEvent::ArtifactFound { artifact_id, .. } => {
+            let key = artifact_id
+                .as_deref()
+                .map(|value| native_key("artifact", value))
+                .unwrap_or_else(|| source_key("artifact"));
+            no_relation(key)
+        }
+        AnalysisEvent::UsageUpdated { .. } => {
+            let key = metadata
+                .turn_id
+                .as_deref()
+                .map(|value| native_key("usage", value))
+                .unwrap_or_else(|| source_key("usage"));
+            no_relation(key)
+        }
+        AnalysisEvent::RateLimitUpdated { .. } => {
+            let key = metadata
+                .turn_id
+                .as_deref()
+                .map(|value| native_key("rate-limit", value))
+                .unwrap_or_else(|| source_key("rate-limit"));
+            no_relation(key)
+        }
+        AnalysisEvent::Compaction { .. } => no_relation(source_key("compaction")),
+        AnalysisEvent::Diagnostic { .. }
+        | AnalysisEvent::ParseGap { .. }
+        | AnalysisEvent::UnknownEvent { .. } => no_relation(source_key("diagnostic")),
+    }
+}
+
+fn no_relation(value: (String, IdentityOrigin)) -> (String, IdentityOrigin, Option<String>) {
+    (value.0, value.1, None)
+}
+
+fn source_position(metadata: &EventMetadata) -> String {
+    if let Some(rollout_ordinal) = metadata.source_ref.rollout_ordinal {
+        format!("ordinal-{rollout_ordinal}")
+    } else {
+        format!(
+            "line-{}-byte-{}",
+            metadata.source_ref.physical_line_ordinal, metadata.source_ref.byte_start
+        )
+    }
+}
+
+fn event_identity(metadata: &EventMetadata, event_type: &str, index: usize) -> String {
+    format!(
+        "{}:{}:{}:{}",
+        safe_source_identity(&metadata.source_ref.source_identity),
+        source_position(metadata),
+        event_type,
+        index
+    )
 }
 
 fn map_availability(value: WireAvailability) -> Availability {
