@@ -25,7 +25,10 @@ const {
     FileAnalysisRunStore,
     MemoryAnalysisRunStore
 } = require('../src/services/codexRolloutCollector/analysisRunStore');
-const { CodexRolloutCollector } = require('../src/services/codexRolloutCollector');
+const {
+    CodexRolloutCollector,
+    requestScope
+} = require('../src/services/codexRolloutCollector');
 
 function batch({ requestId = 'request-1', batchId = 'batch-1', completeness = 'partial', replacePrevious = false, text = 'one', sourceEpoch = 'epoch-1', itemKey = 'item-1' } = {}) {
     const canonical = completeness === 'canonical';
@@ -86,15 +89,56 @@ function batch({ requestId = 'request-1', batchId = 'batch-1', completeness = 'p
     };
 }
 
-function checkpoint(completeness = 'canonical') {
+function checkpoint(completeness = 'canonical', sourceEpoch = 'epoch-1', requestId = 'request-1') {
     return {
         schema_version: 1,
-        request_id: 'request-1',
+        request_id: requestId,
         conversation_id: 'conversation-1',
-        source: { source_id: 'rollout.jsonl', source_epoch: 'epoch-1' },
+        source: {
+            source_id: 'rollout.jsonl',
+            source_epoch: sourceEpoch,
+            fingerprint: { algorithm: 'sha256-v1', digest: 'checkpoint-source', covered_bytes: 10 },
+            prefix_anchor: { algorithm: 'sha256-v1', digest: 'checkpoint-prefix', end_offset: 10 }
+        },
         reader: { backend: 'test', version: '1', source_kind: 'rollout', compression: 'plain_jsonl' },
-        segment: {},
+        wire_profile: {
+            parser_backend: 'test',
+            wire_source_revision: 'test',
+            compatibility_profile: 'current'
+        },
+        cursor_kind: null,
+        cursor: null,
+        segment: { source_range: { start: 0, end: 10 } },
+        reducer_state: { schema_version: 1, adapter: {}, reducer: {} },
+        projection_watermark: 'checkpoint-batch',
         completeness
+    };
+}
+
+function upsertItemMutation({
+    itemKey = 'item-1',
+    sourceEpoch = 'epoch-1',
+    completeness = 'canonical',
+    revision = 1,
+    byteStart = 0,
+    byteEnd = 10
+} = {}) {
+    return {
+        mutation: 'upsert_item',
+        item: {
+            item_key: itemKey,
+            content_hash: `item-content-${revision}`,
+            source_epoch: sourceEpoch,
+            completeness,
+            revision,
+            source_ref: {
+                source_identity: 'rollout.jsonl',
+                byte_start: byteStart,
+                byte_end: byteEnd,
+                physical_line_ordinal: 1,
+                rollout_ordinal: null
+            }
+        }
     };
 }
 
@@ -167,6 +211,290 @@ test('malformed canonical batches fail closed before importer state changes', as
     assert.equal(state.canonical, false);
 });
 
+test('complete and checkpoint claims fail closed without recovery evidence', async () => {
+    assert.throws(
+        () => parseLine(JSON.stringify({
+            protocol_version: PROTOCOL_VERSION,
+            message_type: 'complete',
+            request_id: 'request-1'
+        })),
+        (error) => error instanceof AnalyzerProtocolError && error.code === 'missing_field'
+    );
+
+    const forgedComplete = {
+        protocol_version: PROTOCOL_VERSION,
+        message_type: 'complete',
+        request_id: 'request-1',
+        status: 'completed',
+        completeness: 'canonical',
+        next_cursor: null,
+        checkpoint: {
+            schema_version: 1,
+            request_id: 'request-1',
+            conversation_id: 'conversation-1',
+            source: { source_id: 'rollout.jsonl', source_epoch: 'epoch-1' }
+        }
+    };
+    assert.throws(
+        () => parseLine(JSON.stringify(forgedComplete)),
+        (error) => error instanceof AnalyzerProtocolError && error.code === 'invalid_field'
+    );
+
+    const checkpointStore = new MemoryCheckpointStore();
+    await assert.rejects(
+        () => checkpointStore.save(
+            { conversationId: 'conversation-1', sourceId: 'rollout.jsonl', sourceEpoch: 'epoch-1' },
+            forgedComplete.checkpoint
+        ),
+        (error) => /checkpoint\.|source\.(fingerprint|prefix_anchor)/.test(error.message)
+    );
+});
+
+test('complete cannot commit unless the same request imported a batch', async () => {
+    const store = new MemoryAnalysisStore();
+    const importer = await new AnalysisBatchImporter({ store }).init();
+    const complete = {
+        protocol_version: PROTOCOL_VERSION,
+        message_type: 'complete',
+        request_id: 'empty-complete-request',
+        status: 'completed',
+        completeness: 'canonical',
+        next_cursor: null,
+        checkpoint: checkpoint('canonical', 'epoch-1', 'empty-complete-request')
+    };
+
+    await assert.rejects(
+        () => importer.commitComplete(complete, {
+            scope: {
+                conversationId: 'conversation-1',
+                sourceId: 'rollout.jsonl',
+                sourceEpoch: 'epoch-1'
+            }
+        }),
+        (error) => error.code === 'ANALYSIS_COMPLETE_WITHOUT_BATCH'
+    );
+    assert.deepEqual((await store.snapshot({
+        conversationId: 'conversation-1', sourceId: 'rollout.jsonl', sourceEpoch: 'epoch-1'
+    })).batches, []);
+
+    await importer.importBatch(batch({
+        requestId: 'prior-request',
+        batchId: 'prior-request-batch',
+        completeness: 'canonical'
+    }));
+    await assert.rejects(
+        () => importer.commitComplete(complete, {
+            scope: {
+                conversationId: 'conversation-1',
+                sourceId: 'rollout.jsonl',
+                sourceEpoch: 'epoch-1'
+            }
+        }),
+        (error) => error.code === 'ANALYSIS_COMPLETE_WITHOUT_BATCH'
+    );
+
+    await importer.importBatch(batch({
+        requestId: 'empty-complete-request',
+        batchId: 'empty-complete-batch',
+        completeness: 'canonical'
+    }));
+    const state = await importer.commitComplete(complete, {
+        scope: {
+            conversationId: 'conversation-1',
+            sourceId: 'rollout.jsonl',
+            sourceEpoch: 'epoch-1'
+        }
+    });
+    assert.deepEqual(state.batches, ['prior-request-batch', 'empty-complete-batch']);
+    assert.equal(state.canonical, true);
+});
+
+test('mutation evidence is complete before importer state can be touched', async () => {
+    const importer = await new AnalysisBatchImporter({ store: new MemoryAnalysisStore() }).init();
+    const missingMetadata = batch({ completeness: 'canonical' });
+    missingMetadata.mutations = [{
+        mutation: 'upsert_item',
+        item: {
+            item_key: 'item-1',
+            content_hash: 'hash-1',
+            source_epoch: 'epoch-1'
+        }
+    }];
+    await assert.rejects(
+        () => importer.importBatch(missingMetadata),
+        (error) => error instanceof AnalyzerProtocolError && error.code === 'missing_field'
+    );
+
+    const missingRange = batch({ completeness: 'canonical' });
+    missingRange.mutations = [{ mutation: 'complete_range' }];
+    await assert.rejects(
+        () => importer.importBatch(missingRange),
+        (error) => error instanceof AnalyzerProtocolError && error.code === 'missing_field'
+    );
+});
+
+test('invalid replacement is preflighted before old epoch data is retired', async () => {
+    const store = new MemoryAnalysisStore();
+    const importer = await new AnalysisBatchImporter({ store }).init();
+    await importer.importBatch(batch({
+        batchId: 'replacement-preflight-old',
+        completeness: 'canonical',
+        itemKey: 'old-item'
+    }));
+
+    const invalidReplacement = batch({
+        batchId: 'replacement-preflight-invalid',
+        completeness: 'canonical',
+        replacePrevious: true,
+        sourceEpoch: 'epoch-2',
+        itemKey: 'new-item'
+    });
+    invalidReplacement.history_items = [{ event_type: 'UserMessage', payload: { text: 'missing key' } }];
+    await assert.rejects(
+        () => importer.importBatch(invalidReplacement),
+        (error) => error instanceof AnalyzerProtocolError && error.code === 'invalid_field'
+    );
+
+    const oldState = await store.snapshot({
+        conversationId: 'conversation-1', sourceId: 'rollout.jsonl', sourceEpoch: 'epoch-1'
+    });
+    assert.equal(oldState.retired, false);
+    assert.deepEqual(oldState.items.map((item) => item.item_key), ['old-item']);
+    assert.equal((await store.snapshot({
+        conversationId: 'conversation-1', sourceId: 'rollout.jsonl', sourceEpoch: 'epoch-2'
+    })).batches.length, 0);
+});
+
+test('same-completeness lower revision cannot overwrite canonical data or cursor', async () => {
+    const store = new MemoryAnalysisStore();
+    const importer = await new AnalysisBatchImporter({ store }).init();
+    const newest = batch({ batchId: 'revision-100', completeness: 'canonical', text: 'newest' });
+    newest.source_range.end = 100;
+    newest.progress.bytes_scanned = 100;
+    await importer.importBatch(newest);
+
+    const stale = batch({ batchId: 'revision-50', completeness: 'canonical', text: 'older' });
+    stale.source_range.end = 50;
+    stale.progress.bytes_scanned = 50;
+    await importer.importBatch(stale);
+
+    const state = await store.snapshot({
+        conversationId: 'conversation-1', sourceId: 'rollout.jsonl', sourceEpoch: 'epoch-1'
+    });
+    assert.equal(state.items[0].event.payload.text, 'newest');
+    assert.equal(state.last_batch_id, 'revision-100');
+    assert.equal(state.last_cursor, null);
+    assert.deepEqual(state.batches, ['revision-100', 'revision-50']);
+});
+
+test('history item revision follows its matching mutation, not batch coverage', async () => {
+    const importer = await new AnalysisBatchImporter({ store: new MemoryAnalysisStore() }).init();
+    const oldBatch = batch({
+        batchId: 'item-revision-old',
+        completeness: 'canonical',
+        text: 'old item'
+    });
+    oldBatch.source_range.end = 10000;
+    oldBatch.progress.bytes_scanned = 10000;
+    oldBatch.mutations = [
+        upsertItemMutation({ revision: 5, byteEnd: 10000 }),
+        { mutation: 'complete_range', source_range: { start: 0, end: 10000 } }
+    ];
+    await importer.importBatch(oldBatch);
+
+    const overlapBatch = batch({
+        batchId: 'item-revision-overlap',
+        completeness: 'canonical',
+        text: 'new item'
+    });
+    overlapBatch.source_range.end = 100;
+    overlapBatch.progress.bytes_scanned = 100;
+    overlapBatch.mutations = [
+        upsertItemMutation({ revision: 6, byteEnd: 100 }),
+        { mutation: 'complete_range', source_range: { start: 0, end: 100 } }
+    ];
+    await importer.importBatch(overlapBatch);
+
+    const state = await importer.store.snapshot({
+        conversationId: 'conversation-1', sourceId: 'rollout.jsonl', sourceEpoch: 'epoch-1'
+    });
+    assert.equal(state.items[0].event.payload.text, 'new item');
+    assert.equal(state.items[0].revision, 6);
+});
+
+test('source identity is explicit and never inferred from path', () => {
+    assert.throws(
+        () => createAnalyzeRequest({
+            requestId: 'path-only',
+            conversationId: 'conversation-1',
+            sourceSpec: { path: 'rollout.jsonl' },
+            mode: 'replay'
+        }),
+        (error) => error instanceof AnalyzerProtocolError && error.code === 'missing_field'
+    );
+    assert.throws(
+        () => requestScope({
+            conversation_id: 'conversation-1',
+            source_spec: { path: 'rollout.jsonl' }
+        }),
+        /scope is incomplete/
+    );
+});
+
+test('retired source epochs cannot resurrect after replacement or restart', async (t) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-epoch-fence-'));
+    t.after(() => fs.promises.rm(root, { recursive: true, force: true }));
+    const createImporter = async () => new AnalysisBatchImporter({
+        store: await new FileAnalysisStore({ rootDir: root }).init()
+    }).init();
+    let importer = await createImporter();
+    await importer.importBatch(batch({
+        batchId: 'fence-epoch-1', completeness: 'canonical', itemKey: 'old-item'
+    }));
+    await importer.importBatch(batch({
+        batchId: 'fence-epoch-2', completeness: 'canonical', replacePrevious: true,
+        sourceEpoch: 'epoch-2', itemKey: 'new-item', text: 'replacement'
+    }));
+
+    importer = await createImporter();
+    await assert.rejects(
+        () => importer.importBatch(batch({
+            batchId: 'fence-late-old', completeness: 'canonical', itemKey: 'late-old'
+        })),
+        (error) => error.code === 'ANALYSIS_SOURCE_EPOCH_RETIRED'
+    );
+    await assert.rejects(
+        () => importer.importBatch(batch({
+            batchId: 'fence-late-replace', completeness: 'canonical', replacePrevious: true,
+            itemKey: 'late-replacement'
+        })),
+        (error) => error.code === 'ANALYSIS_SOURCE_EPOCH_RETIRED'
+    );
+    await assert.rejects(
+        () => importer.commitComplete({
+            protocol_version: PROTOCOL_VERSION,
+            message_type: 'complete',
+            request_id: 'request-1',
+            status: 'completed',
+            completeness: 'canonical',
+            next_cursor: null,
+            checkpoint: checkpoint('canonical', 'epoch-1')
+        }, {
+            scope: {
+                conversationId: 'conversation-1',
+                sourceId: 'rollout.jsonl',
+                sourceEpoch: 'epoch-1'
+            }
+        }),
+        (error) => error.code === 'ANALYSIS_SOURCE_EPOCH_RETIRED'
+    );
+    const current = await importer.store.snapshot({
+        conversationId: 'conversation-1', sourceId: 'rollout.jsonl', sourceEpoch: 'epoch-2'
+    });
+    assert.equal(current.retired, false);
+    assert.deepEqual(current.items.map((item) => item.item_key), ['new-item']);
+});
+
 test('importer deduplicates overlap and promotes provisional data before checkpoint commit', async () => {
     const store = new MemoryAnalysisStore();
     const order = [];
@@ -231,10 +559,7 @@ test('replace_previous removes prior source epoch state for the same conversatio
         sourceEpoch: 'epoch-2',
         itemKey: 'new-item',
         text: 'replacement'
-    }), { checkpoint: {
-        ...checkpoint('canonical'),
-        source: { source_id: 'rollout.jsonl', source_epoch: 'epoch-2' }
-    } });
+    }), { checkpoint: checkpoint('canonical', 'epoch-2') });
 
     const current = await store.snapshot({
         conversationId: 'conversation-1', sourceId: 'rollout.jsonl', sourceEpoch: 'epoch-2'
@@ -378,6 +703,43 @@ test('file checkpoint store replaces one validated scope atomically', async (t) 
     await store.save(scope, checkpoint('canonical'));
     assert.equal((await store.load(scope)).completeness, 'canonical');
     assert.equal((await fs.promises.readdir(root)).filter((name) => name.endsWith('.json')).length, 1);
+});
+
+test('memory and file checkpoint stores only advance monotonically', async (t) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-checkpoint-monotonic-'));
+    t.after(() => fs.promises.rm(root, { recursive: true, force: true }));
+    const stores = [
+        new MemoryCheckpointStore(),
+        await new FileCheckpointStore({ rootDir: root }).init()
+    ];
+    const scope = {
+        conversationId: 'conversation-1', sourceId: 'rollout.jsonl', sourceEpoch: 'epoch-1'
+    };
+
+    for (const store of stores) {
+        const canonical = checkpoint('canonical');
+        canonical.segment.source_range.end = 100;
+        canonical.source.fingerprint.covered_bytes = 100;
+        canonical.source.prefix_anchor.end_offset = 100;
+        await store.save(scope, canonical);
+
+        const latePartial = checkpoint('partial');
+        latePartial.segment.source_range.end = 200;
+        latePartial.source.fingerprint.covered_bytes = 200;
+        latePartial.source.prefix_anchor.end_offset = 200;
+        await store.save(scope, latePartial);
+
+        const lowerCanonical = checkpoint('canonical');
+        lowerCanonical.segment.source_range.end = 50;
+        lowerCanonical.source.fingerprint.covered_bytes = 50;
+        lowerCanonical.source.prefix_anchor.end_offset = 50;
+        await store.save(scope, lowerCanonical);
+
+        const saved = await store.load(scope);
+        assert.equal(saved.completeness, 'canonical');
+        assert.equal(saved.segment.source_range.end, 100);
+        assert.equal(saved.source.fingerprint.covered_bytes, 100);
+    }
 });
 
 test('collector starts an isolated analyzer process, ACKs imported batches, and persists completion checkpoint', async (t) => {

@@ -203,6 +203,26 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 原因：这些约束把“来源未证实”“结果形状不完整”“请求超时未生效”和“进程重启后重复写入”统一收口为可审计的 fail-closed/幂等语义，既保证恢复安全，又不把隔离 artifact 扩展成产品 runtime。
 - 约束：资源超时、source mutation、malformed canonical、同 epoch 新 replacement 或超出重试预算都必须返回失败；不得无限重试、静默回显旧 cursor、仅凭 `complete=true` 宣称 canonical，或把既有 IPC/Android/DB 接入本任务。
 
+### AD-011: 阶段 4 checkpoint、revision 与 source epoch 采用严格证据和持久化 tombstone
+
+- 状态：accepted
+- 分类：架构 / 协议契约（mechanical 收口）
+- 背景：复审发现空 `complete`、仅含 source identity 的 checkpoint、缺 mutation 元数据、低 revision 覆盖高 revision，以及旧 epoch 在 replacement 后迟到复活都会绕过阶段 4 的 fail-closed 目标。
+- 决策：Node/Rust 只接受具备 source fingerprint、prefix anchor、reader/provenance、segment/cursor、completeness、projection watermark 和 reducer state 的完整 checkpoint；`complete` 必须与 checkpoint 的 request/cursor/completeness 一致。upsert mutation 必须带匹配 batch 的 completeness/source_epoch、非负 revision 和 source_ref；同一 completeness 只允许更高 revision 更新正文、派生数据和 cursor。replacement 在清理前完成全部 preflight，并把旧 scope 写成持久化 retired tombstone/current-epoch fence；迟到旧 epoch 的 batch、complete 或 replacement 一律拒绝。source_id/source_epoch 必须显式提供，不得用 filename 或 `unbound` 补全。
+- 原因：严格把“结果已完成”“来源可恢复”“替换已生效”和“新版本覆盖旧版本”绑定到可验证证据，避免故障注入通过空对象、低 revision 或迟到消息改变已提交状态；tombstone 在进程重启后仍能提供 epoch fence。
+- 约束：该决策只适用于隔离 `native/codex-rollout-collector` ↔ `src/services/codexRolloutCollector` artifact；不扩展到既有 server/DB、IPC、Android、Demo/Spike 或产品 DTO。checkpoint schema、mutation 字段或 epoch fence 语义发生破坏性变化时必须另行决策并迁移 fixture。
+- 证据：Node collector 定向测试 19/19，覆盖 forged complete/checkpoint、mutation 缺字段、非法 replacement 原子性、revision 回退、path-only identity、File store 重启后的 stale epoch resurrection；Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、8 stage4 protocol 全部通过。
+
+### AD-012: 阶段 4 完成提交、checkpoint 与 item revision 必须单调且按对象绑定
+
+- 状态：accepted
+- 分类：架构 / 协议契约（mechanical 收口）
+- 背景：后续故障注入发现空 state 可以提交 canonical complete，后来的 partial/低 progress checkpoint 可以覆盖已保存 canonical，以及 batch coverage/其他 mutation revision 被错误复用给所有 history item。
+- 决策：`commitComplete()` 必须确认当前 `request_id` 至少成功导入一个 batch；Memory/File checkpoint store 按 completeness rank 与 source progress 单调推进；history item revision 优先取同 `item_key` 的 `upsert_item` mutation revision，batch coverage 只作为明确的兼容 fallback，不得聚合其他 mutation revision。
+- 原因：完成、恢复位置和对象覆盖版本分别绑定到真实可验证证据，避免空结果伪造成功、checkpoint 回退和合法 overlap 因无关的大 byte watermark 被拒绝。
+- 约束：只适用于隔离 `native/codex-rollout-collector` ↔ `src/services/codexRolloutCollector` artifact；不扩展到既有 server/DB、IPC、Android、Demo/Spike 或产品 DTO。checkpoint schema 或 revision 语义发生破坏性变化时必须另行决策并迁移 fixture。
+- 证据：Node 定向测试 22/22 覆盖空 complete、跨 request 拒绝、Memory/File checkpoint canonical→partial/低 progress 防覆盖，以及高 batch coverage 下 revision 6 overlap 覆盖 revision 5；Rust 全量回归复用既有 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、8 stage4 protocol 门禁。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径

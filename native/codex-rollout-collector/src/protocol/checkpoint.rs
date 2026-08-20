@@ -72,7 +72,9 @@ pub struct AnalyzerCheckpoint {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CheckpointError {
     InvalidSchemaVersion { expected: u16, actual: u16 },
+    MissingField(&'static str),
     EmptyField(&'static str),
+    InvalidState(&'static str),
     InvalidRange,
     CursorKindMissingPayload,
 }
@@ -86,7 +88,9 @@ impl std::fmt::Display for CheckpointError {
                     "checkpoint schema {actual} is unsupported; expected {expected}"
                 )
             }
+            Self::MissingField(field) => write!(formatter, "checkpoint field {field} is required"),
             Self::EmptyField(field) => write!(formatter, "checkpoint field {field} is empty"),
+            Self::InvalidState(field) => write!(formatter, "checkpoint field {field} is invalid"),
             Self::InvalidRange => write!(formatter, "checkpoint source range is invalid"),
             Self::CursorKindMissingPayload => {
                 write!(
@@ -163,11 +167,64 @@ impl AnalyzerCheckpoint {
         if self.source.source_epoch.trim().is_empty() {
             return Err(CheckpointError::EmptyField("source.source_epoch"));
         }
+        if self.source.source_epoch.trim() == "unbound" {
+            return Err(CheckpointError::InvalidState("source.source_epoch"));
+        }
+        let fingerprint = self
+            .source
+            .fingerprint
+            .as_ref()
+            .ok_or(CheckpointError::MissingField("source.fingerprint"))?;
+        if fingerprint.algorithm().trim().is_empty() {
+            return Err(CheckpointError::EmptyField("source.fingerprint.algorithm"));
+        }
+        if fingerprint.digest().trim().is_empty() {
+            return Err(CheckpointError::EmptyField("source.fingerprint.digest"));
+        }
+        let prefix_anchor = self
+            .source
+            .prefix_anchor
+            .as_ref()
+            .ok_or(CheckpointError::MissingField("source.prefix_anchor"))?;
+        if prefix_anchor.algorithm().trim().is_empty() {
+            return Err(CheckpointError::EmptyField(
+                "source.prefix_anchor.algorithm",
+            ));
+        }
+        if prefix_anchor.digest().trim().is_empty() {
+            return Err(CheckpointError::EmptyField("source.prefix_anchor.digest"));
+        }
         if self.reader.backend.trim().is_empty() {
             return Err(CheckpointError::EmptyField("reader.backend"));
         }
         if self.reader.version.trim().is_empty() {
             return Err(CheckpointError::EmptyField("reader.version"));
+        }
+        let wire_profile = self
+            .wire_profile
+            .as_ref()
+            .ok_or(CheckpointError::MissingField("wire_profile"))?;
+        if wire_profile.parser_backend.trim().is_empty() {
+            return Err(CheckpointError::EmptyField("wire_profile.parser_backend"));
+        }
+        if wire_profile.wire_source_revision.trim().is_empty() {
+            return Err(CheckpointError::EmptyField(
+                "wire_profile.wire_source_revision",
+            ));
+        }
+        if self
+            .reducer_state
+            .as_ref()
+            .is_none_or(|value| !value.is_object())
+        {
+            return Err(CheckpointError::InvalidState("reducer_state"));
+        }
+        if self
+            .projection_watermark
+            .as_deref()
+            .map_or(true, |value| value.trim().is_empty())
+        {
+            return Err(CheckpointError::MissingField("projection_watermark"));
         }
         if let Some(range) = self.segment.source_range
             && range.start() > range.end()
@@ -175,6 +232,9 @@ impl AnalyzerCheckpoint {
             return Err(CheckpointError::InvalidRange);
         }
         if self.cursor_kind.is_some() && self.cursor.is_none() {
+            return Err(CheckpointError::CursorKindMissingPayload);
+        }
+        if self.cursor_kind.is_none() && self.cursor.is_some() {
             return Err(CheckpointError::CursorKindMissingPayload);
         }
         Ok(())
@@ -208,8 +268,14 @@ mod tests {
             source: super::CheckpointSource {
                 source_id: "rollout.jsonl".to_string(),
                 source_epoch: "epoch-1".to_string(),
-                fingerprint: None,
-                prefix_anchor: None,
+                fingerprint: Some(
+                    crate::source::SourceFingerprint::new("sha256-v1", "source", 10)
+                        .expect("fingerprint"),
+                ),
+                prefix_anchor: Some(
+                    crate::source::SourcePrefixAnchor::new("sha256-v1", "prefix", 10)
+                        .expect("prefix anchor"),
+                ),
             },
             reader: super::CheckpointReader {
                 backend: super::CHECKPOINT_READER_BACKEND.to_string(),
@@ -217,7 +283,9 @@ mod tests {
                 source_kind: crate::source::SourceKind::Rollout,
                 compression: crate::source::SourceCompression::PlainJsonl,
             },
-            wire_profile: None,
+            wire_profile: Some(crate::protocol::ParserProvenance::for_profile(
+                crate::CompatibilityProfile::Current,
+            )),
             cursor_kind: None,
             cursor: None,
             segment: super::CheckpointSegment {

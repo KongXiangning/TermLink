@@ -72,7 +72,11 @@ fn analyzer_emits_batch_checkpoint_and_complete_only_after_ack() {
         "message_type": "analyze",
         "request_id": "req-stage4",
         "conversation_id": "conversation-stage4",
-        "source_spec": { "path": fixture_path("minimal.jsonl") },
+        "source_spec": {
+            "path": fixture_path("minimal.jsonl"),
+            "source_id": "minimal.jsonl",
+            "source_epoch": "stage4-epoch-1"
+        },
         "mode": "replay",
         "resource_limits": {
             "max_decoded_bytes": 33554432,
@@ -142,13 +146,40 @@ fn malformed_json_is_reported_without_using_stdout_for_diagnostics() {
 }
 
 #[test]
+fn path_only_source_request_is_rejected_without_identity_inference() {
+    let request = serde_json::json!({
+        "protocol_version": 1,
+        "message_type": "analyze",
+        "request_id": "req-path-only",
+        "conversation_id": "conversation-stage4",
+        "source_spec": { "path": fixture_path("minimal.jsonl") },
+        "mode": "replay"
+    });
+    let messages = run_protocol(&[request]);
+    let error = messages
+        .iter()
+        .find(|message| message["message_type"] == "error")
+        .expect("path-only request error");
+    assert_eq!(error["code"], "analysis_failed");
+    assert!(
+        error["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("source_spec.source_id"))
+    );
+}
+
+#[test]
 fn cancel_stops_an_active_request_without_emitting_complete() {
     let request = serde_json::json!({
         "protocol_version": 1,
         "message_type": "analyze",
         "request_id": "req-cancel-stage4",
         "conversation_id": "conversation-stage4",
-        "source_spec": { "path": fixture_path("minimal.jsonl") },
+        "source_spec": {
+            "path": fixture_path("minimal.jsonl"),
+            "source_id": "minimal.jsonl",
+            "source_epoch": "stage4-cancel-epoch-1"
+        },
         "mode": "preview"
     });
     let cancel = serde_json::json!({

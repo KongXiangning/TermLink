@@ -7,7 +7,7 @@
 - 任务 slug：codex-rollout-collector-stage-4-runtime-and-conformance
 - 任务来源：`docs/codex/codex-rollout-collector-architecture.md` 阶段 4、`TASKS/inbox/INBOX-20260818-001-codex-rollout-collector.md`，以及用户对阶段 3 conformance 缺口的明确修复要求
 - 当前状态：completed-ready-for-closeout
-- 生命周期状态：active
+- 生命周期状态：completed-ready-for-closeout
 - 恢复需审查：false
 - 恢复审查原因：[]
 - 任务基线：`1b37d812a879046bca8f89c3b180149199056e39`
@@ -114,6 +114,18 @@ Rust vendor Codex 仍只能使用仓库内相对路径；Demo 和 Spike 只作�
 
 ### Technical approach
 
+本轮复审增量方案（R-015～R-022）：
+
+1. 在 Node protocol 层验证 `complete` 的 status、completeness、next_cursor 和完整 checkpoint；checkpoint 必须具备 source identity、fingerprint、prefix anchor、reader/segment、projection watermark、completeness 和 reducer state，且 complete/checkpoint 的 completeness 与作用域一致。
+2. 在 importer/store 入口先完成 history item、mutation、checkpoint 和 replacement transition 的全部 preflight，再执行任何清理；upsert 按 completeness 优先、同 completeness 更高 revision 更新，低 revision 只记录 batch 不改变已提交正文/cursor。
+3. 给 Memory/File analysis store 保存 conversation 级 current epoch 与 retired epoch tombstone；replacement 将旧数据清空为 tombstone 并与新 state 同步持久化，旧 epoch 的普通 batch/replacement/complete 均 fail-closed。
+4. Node analyze 与 Rust `SourceSpecRequest` 都要求调用方显式提供非空 source_id/source_epoch，删除 filename 与 `unbound` fallback；checkpoint 恢复只能复用已验证的显式 identity。
+5. `complete` 提交必须证明同一 `request_id` 已成功导入至少一个 batch；空 state 或仅有其他 request 的历史 batch 一律 fail-closed。
+6. Memory/File checkpoint store 按 completeness rank 与 source progress 单调推进；canonical 或更高 progress 已保存后，较弱/较旧 checkpoint 只能保留现值，不能覆盖。
+7. history item 的 revision 优先来自同 item_key 的 `upsert_item` mutation；batch source coverage 只作为无 per-item revision 证据时的 fallback，不得混入其他 mutation revision。
+
+本轮只涉及项目内协议/状态逻辑，不涉及第三方 current behavior，因此 External Documentation Gate 不触发。
+
 1. 为协议消息定义 serde 类型、JSONL framing、request validation、ACK/complete/error 状态机，并让 Rust `main` 以单请求可取消的 bounded worker 输出 batch。
 2. 为 checkpoint 记录 source epoch、fingerprint/anchor、cursor、segment、reducer/projection watermark 和 completeness；恢复只重发 checkpoint 之后的有界请求，来源不一致 fail-closed。
 3. 给 reducer 增加显式 provisional/canonical 生命周期和可验证的 complete-range promotion；incomplete batch 只能保持或降低当前证据，不能覆盖 canonical 数据。
@@ -164,6 +176,14 @@ Rust vendor Codex 仍只能使用仓库内相对路径；Demo 和 Spike 只作�
 - R-012：已解决（`resource_limits.timeout_ms` 贯穿 Rust source read、Adapter/Reducer、metadata/cursor 构造和 ACK 等待预算，超时返回 `resource_timeout`；不再只依赖外部 Node timeout）。
 - R-013：已解决（replay 不携带 cursor 时仍依据 persisted checkpoint 的 source epoch/fingerprint/prefix anchor 校验当前 source；同长度替换也 fail-closed）。
 - R-014：已解决（analyzer 在 batch 前或 batch 后退出时，Node 按一次有限重试预算重启并重发同一请求；batch/importer idempotence 防止已落地 batch 重复写入，并有 file-store 回归）。
+- R-015：已解决（Node/Rust 均校验 complete status、completeness、request/cursor 一致性和完整 checkpoint；checkpoint 强制 source fingerprint、prefix anchor、reader/provenance、segment/cursor、reducer state、projection watermark，伪 checkpoint fail-closed）。
+- R-016：已解决（upsert mutation 强制 completeness/revision/source_epoch/source_ref，`complete_range` 强制 source_range 且只允许 canonical；importer 在 replacement 清理前完成完整 preflight，非法 replacement 不改变旧数据）。
+- R-017：已解决（history/detail/outcome/usage/projection 和 last cursor 使用 completeness 优先、同级更高 revision fence；低 revision 只能记录 batch，不能覆盖已提交内容或回退 cursor）。
+- R-018：已解决（Node analyze/request scope 与 Rust SourceSpecRequest 均要求显式非空 source_id/source_epoch，拒绝 path filename 和 `unbound` fallback）。
+- R-019：已解决（Memory/File store replacement 将旧 scope 持久化为 retired tombstone/current-epoch fence；重启后旧 epoch 的 batch、complete、replacement 均 fail-closed，不能复活或清空新 epoch）。
+- R-020：已解决（`commitComplete()` 绑定当前 request 的已成功 batch；空 state 和仅有其他 request 历史 batch 的 complete 均 fail-closed，并保留同 request 重放可提交语义）。
+- R-021：已解决（Memory/File checkpoint store 按 completeness rank 与 source progress 单调保存；canonical 后的 partial/provisional 和低 progress checkpoint 不再覆盖已保存值）。
+- R-022：已解决（history item revision 优先取同 item_key 的 `upsert_item` mutation revision；batch coverage 不再混入其他 mutation revision，合法高 revision overlap 可覆盖旧 item）。
 
 ### 剩余风险与明确延期
 
@@ -188,6 +208,8 @@ Rust vendor Codex 仍只能使用仓库内相对路径；Demo 和 Spike 只作�
 7. [x] review-implementation/review-diff/verify-contracts：修复 R-006～R-014 阶段 4 Major 验收缺口，并完成 path-scoped 契约复核。
 8. [x] run-regression：完成 Rust/Node 定向、正式 binary 集成和 native collector 全量回归。
 9. [x] sync architecture/workflow：按 R-006～R-014 的实际证据更新架构、`CONTRACTS.md`、`DECISIONS.md`、`STATUS.md`；不自动归档未获用户要求的任务。
+10. [x] follow-up implementation/review/regression：修复 R-015～R-019 的 complete/checkpoint fail-closed、mutation preflight/原子 replacement、revision fence、显式 source identity 和 epoch tombstone；完成 path-scoped review 与全量目标回归。
+11. [x] follow-up implementation/review/regression：修复 R-020～R-022 的当前 request batch 门禁、checkpoint 单调性和 per-item revision；补充 Memory/File 与 overlap 故障注入，并完成 Rust/Node 全量目标回归。
 
 ## 回归检查项
 
@@ -200,9 +222,11 @@ Rust vendor Codex 仍只能使用仓库内相对路径；Demo 和 Spike 只作�
 - [x] git diff 未触及 IPC、Android、产品 server/DB 和 Demo/Spike 源码禁区。
 - [x] cursor/checkpoint 恢复链路覆盖 preview/backfill/append 推进、fingerprint/prefix anchor、截断/替换拒绝和跨请求 reducer state 恢复。
 - [x] 正式 Rust analyzer → Node importer 集成测试保存 tool details、usage、task outcomes 和 mutations。
-- [x] source epoch replacement 清理同 conversation 的旧 epoch scope，并由测试证明旧数据不可见。
+- [x] source epoch replacement 清理同 conversation 的旧 epoch 可见数据，并持久化 retired tombstone/current-epoch fence；测试证明重启后旧数据不可见且迟到消息不可写。
 - [x] Node → Rust hello 握手方向与架构文档一致，且 fake/formal analyzer 测试均覆盖。
 - [x] malformed canonical batch、协议级 `resource_limits.timeout_ms`、无 cursor replay 的 persisted checkpoint 校验，以及 analyzer batch 前后异常退出重启重放均有回归证据。
+- [x] complete/checkpoint 伪造、mutation 缺字段、非法 replacement 原子性、revision 回退、path-only identity 和 stale epoch resurrection 均有 fail-closed 回归证据。
+- [x] 空 complete、其他 request 历史 batch 冒充当前 request、canonical→partial/低 progress checkpoint 覆盖，以及高 batch coverage/低 item revision overlap 均有回归证据。
 
 ## 发布后验证
 
@@ -242,3 +266,14 @@ Rust vendor Codex 仍只能使用仓库内相对路径；Demo 和 Spike 只作�
 | 2026-08-20 | implement-current-step | 修复 R-010～R-014：replacement batch-id 去重门禁、canonical schema/provenance/mutation fail-closed、Rust timeout budget、无 cursor persisted source 校验、异常重启有限重放 | 新增 Node 13/13 与 Rust stage4 7/7 覆盖；正式 Rust binary、file store 和协议恢复路径全部参与验证 |
 | 2026-08-20 | run-regression | 重新构建正式 Rust binary 并运行 Node/Rust 回归、fmt/check/diff-check | Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、7 stage4 protocol、Node 13/13 全部通过 |
 | 2026-08-20 | sync architecture/workflow | 同步阶段 4 架构、`CONTRACTS.md`、`DECISIONS.md` AD-010、`STATUS.md` 与本任务 R-010～R-014 | 5 项复审问题关闭；任务保持 active，仅待 path-scoped 交付摘要/closeout，不自动归档或处理任务外 dirty/untracked |
+| 2026-08-20 | user-review/investigate-root-cause | 用户指出 R-015～R-019 五项 Major；完成项目内故障注入与调用链确认 | empty complete、incomplete checkpoint、非法 replacement 先清理、revision 50 覆盖 100、path-only identity、stale epoch resurrection 均复现；归属 `current_task_owned`，不触发 External Documentation Gate |
+| 2026-08-20 | plan-implementation | 形成 R-015～R-019 最小修复方案 | 先协议/checkpoint/mutation preflight，再 store revision/epoch fence，最后 Rust/Node identity 收紧与回归；不扩大隔离 scope |
+| 2026-08-20 | implement-current-step | 完成 R-015～R-019 实现 | Node/Rust 严格 complete/checkpoint 与 mutation 校验、replacement preflight、completeness/revision fence、显式 source identity、Memory/File retired epoch tombstone/current-epoch fence；fake/formal checkpoint fixture 同步升级 |
+| 2026-08-20 | review-implementation/verify-contracts | path-scoped review 与契约复核 | 未触及 IPC、Android、既有 server/DB、Demo/Spike/vendor；AD-011 收口严格证据、revision 和 stale epoch 语义 |
+| 2026-08-20 | run-regression | 运行 Rust/Node 完整目标回归 | Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、8 stage4 protocol、Node 19/19 通过；`cargo fmt`、`cargo build --locked --offline`、`git diff --check` 通过（当前 Windows 使用显式 MinGW linker workaround） |
+| 2026-08-20 | sync architecture/workflow | 同步 R-015～R-019 的架构、契约、决策、状态和任务记录 | 阶段 4 隔离 artifact 达到 completed-ready-for-closeout；未自动归档或处理任务外 dirty/untracked |
+| 2026-08-20 | user-review/investigate-root-cause | 用户指出 R-020～R-022：空 complete、checkpoint 回退、per-item revision；完成项目内故障注入并确认均属当前隔离任务范围 | 三项均可复现；不涉及第三方 current behavior，不触发 External Documentation Gate |
+| 2026-08-20 | implement-current-step | 修复 R-020～R-022：记录 batch→request 绑定并在 complete 提交前校验；Memory/File checkpoint 按 completeness/source progress 单调保存；history/detail/outcome/usage 使用对象绑定 mutation revision | 空 complete、跨 request complete、canonical→partial/低 progress checkpoint、revision 6 overlap 覆盖 revision 5 均有新增测试 |
+| 2026-08-20 | review-implementation/verify-contracts | path-scoped review 与契约复核 | 未触及 IPC、Android、既有 server/DB、Demo/Spike/vendor；新增语义同步至架构、CONTRACTS、AD-012 和 STATUS |
+| 2026-08-20 | run-regression | 重新运行 Node/Rust 全量目标回归与故障注入 | Node 22/22（含原 19/19 + 3 个新 Major 用例）；Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、8 stage4 protocol；`cargo fmt --check`、Node syntax check、`git diff --check` 通过；Rust build/test 使用显式 MinGW PATH/linker workaround |
+| 2026-08-20 | sync architecture/workflow | 收口 R-020～R-022 的实际证据 | 阶段 4 隔离 artifact 达到 completed-ready-for-closeout；未自动归档或处理任务外 dirty/untracked |

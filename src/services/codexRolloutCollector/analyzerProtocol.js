@@ -1,5 +1,7 @@
 'use strict';
 
+const { normalizeCheckpoint } = require('./analysisCheckpointStore');
+
 const PROTOCOL_VERSION = 1;
 const MESSAGE_TYPES = Object.freeze([
     'hello',
@@ -107,7 +109,36 @@ function validateDigestAnchor(value, field, offsetField) {
     }
 }
 
-function validateMutation(mutation, index) {
+function validateSourceRef(value, field) {
+    requireObject({ [field]: value }, field);
+    requireString(value, 'source_identity');
+    for (const name of ['byte_start', 'byte_end', 'physical_line_ordinal']) {
+        if (!Number.isSafeInteger(value[name]) || value[name] < 0) {
+            throw new AnalyzerProtocolError(
+                'invalid_field',
+                `${field}.${name} must be a non-negative integer`,
+                { field: `${field}.${name}` }
+            );
+        }
+    }
+    if (value.byte_end < value.byte_start) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            `${field}.byte_end must be greater than or equal to byte_start`,
+            { field: `${field}.byte_end` }
+        );
+    }
+    if (value.rollout_ordinal !== undefined && value.rollout_ordinal !== null
+        && (!Number.isSafeInteger(value.rollout_ordinal) || value.rollout_ordinal < 0)) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            `${field}.rollout_ordinal must be a non-negative integer or null`,
+            { field: `${field}.rollout_ordinal` }
+        );
+    }
+}
+
+function validateMutation(mutation, index, batch) {
     if (!isObject(mutation) || !isNonEmptyString(mutation.mutation)) {
         throw new AnalyzerProtocolError(
             'invalid_field',
@@ -120,9 +151,64 @@ function validateMutation(mutation, index) {
         requireString(mutation.item, 'item_key');
         requireString(mutation.item, 'content_hash');
         requireString(mutation.item, 'source_epoch');
+        requireString(mutation.item, 'completeness');
+        if (!['unknown', 'partial', 'provisional', 'canonical'].includes(mutation.item.completeness)) {
+            throw new AnalyzerProtocolError(
+                'invalid_field',
+                `mutations[${index}].item.completeness is unsupported`,
+                { field: `mutations[${index}].item.completeness` }
+            );
+        }
+        if (batch && mutation.item.completeness !== batch.completeness) {
+            throw new AnalyzerProtocolError(
+                'invalid_field',
+                `mutations[${index}].item.completeness must match batch completeness`,
+                { field: `mutations[${index}].item.completeness` }
+            );
+        }
+        if (batch && mutation.item.source_epoch !== batch.source_epoch) {
+            throw new AnalyzerProtocolError(
+                'invalid_field',
+                `mutations[${index}].item.source_epoch must match batch source_epoch`,
+                { field: `mutations[${index}].item.source_epoch` }
+            );
+        }
+        if (!Number.isSafeInteger(mutation.item.revision) || mutation.item.revision < 0) {
+            throw new AnalyzerProtocolError(
+                'invalid_field',
+                `mutations[${index}].item.revision must be a non-negative integer`,
+                { field: `mutations[${index}].item.revision` }
+            );
+        }
+        validateSourceRef(mutation.item.source_ref, `mutations[${index}].item.source_ref`);
         return;
     }
-    if (mutation.mutation === 'complete_range' || mutation.mutation === 'mark_partial') {
+    if (mutation.mutation === 'complete_range') {
+        if (batch && batch.completeness !== 'canonical') {
+            throw new AnalyzerProtocolError(
+                'invalid_field',
+                `mutations[${index}].complete_range requires canonical batch`,
+                { field: `mutations[${index}].mutation` }
+            );
+        }
+        if (mutation.source_range === undefined || mutation.source_range === null) {
+            throw new AnalyzerProtocolError(
+                'missing_field',
+                `mutations[${index}].source_range is required`,
+                { field: `mutations[${index}].source_range` }
+            );
+        }
+        validateSourceRange(mutation.source_range, `mutations[${index}].source_range`);
+        return;
+    }
+    if (mutation.mutation === 'mark_partial') {
+        if (batch && batch.completeness === 'canonical') {
+            throw new AnalyzerProtocolError(
+                'invalid_field',
+                `mutations[${index}].mark_partial cannot appear in canonical batch`,
+                { field: `mutations[${index}].mutation` }
+            );
+        }
         validateSourceRange(mutation.source_range, `mutations[${index}].source_range`);
         return;
     }
@@ -138,6 +224,11 @@ function validateBatchMessage(message) {
     requireString(message, 'conversation_id');
     requireString(message, 'source_id');
     requireString(message, 'source_epoch');
+    if (message.source_epoch.trim() === 'unbound') {
+        throw new AnalyzerProtocolError('invalid_field', 'source_epoch must be bound', {
+            field: 'source_epoch'
+        });
+    }
     requireBoolean(message, 'replace_previous');
     requireArray(message, 'history_items');
     requireArray(message, 'diagnostics');
@@ -164,7 +255,18 @@ function validateBatchMessage(message) {
         requireString(message.next_cursor, 'cursor_kind');
     }
     requireArray(message, 'mutations');
-    message.mutations.forEach(validateMutation);
+    for (const [index, item] of message.history_items.entries()) {
+        if (!isNonEmptyString(item?.item_key)
+            && !isNonEmptyString(item?.metadata?.item_key)
+            && !isNonEmptyString(item?.payload?.metadata?.item_key)) {
+            throw new AnalyzerProtocolError(
+                'invalid_field',
+                `history_items[${index}] is missing stable item_key`,
+                { field: `history_items[${index}].item_key` }
+            );
+        }
+    }
+    message.mutations.forEach((mutation, index) => validateMutation(mutation, index, message));
     validateSourceRange(message.source_range, 'source_range');
 
     const hasCompleteRange = message.mutations.some(
@@ -239,6 +341,15 @@ function validateMessage(message, { allowUnknownMessageType = false } = {}) {
                 });
             }
             requireString(message.source_spec, 'path');
+            requireString(message.source_spec, 'source_id');
+            requireString(message.source_spec, 'source_epoch');
+            if (message.source_spec.source_epoch.trim() === 'unbound') {
+                throw new AnalyzerProtocolError(
+                    'invalid_field',
+                    'source_spec.source_epoch must be bound',
+                    { field: 'source_spec.source_epoch' }
+                );
+            }
             requireString(message, 'mode');
             if (message.resource_limits !== undefined) {
                 requireObject(message, 'resource_limits');
@@ -264,6 +375,7 @@ function validateMessage(message, { allowUnknownMessageType = false } = {}) {
             requireBoolean(message, 'persisted');
             break;
         case 'complete':
+            validateCompleteMessage(message);
             break;
         case 'error':
             requireString(message, 'code');
@@ -278,6 +390,70 @@ function validateMessage(message, { allowUnknownMessageType = false } = {}) {
             break;
     }
     return message;
+}
+
+function validateCompleteMessage(message) {
+    requireString(message, 'status');
+    if (!['ok', 'completed', 'partial'].includes(message.status)) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            `unsupported complete status ${message.status}`,
+            { field: 'status' }
+        );
+    }
+    requireString(message, 'completeness');
+    if (!['unknown', 'partial', 'provisional', 'canonical'].includes(message.completeness)) {
+        throw new AnalyzerProtocolError('invalid_field', 'unsupported complete completeness', {
+            field: 'completeness'
+        });
+    }
+    if (message.status === 'partial' && message.completeness === 'canonical') {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            'partial complete status cannot claim canonical completeness',
+            { field: 'completeness' }
+        );
+    }
+    requirePresent(message, 'next_cursor');
+    if (message.next_cursor !== null) {
+        requireObject(message, 'next_cursor');
+        requireString(message.next_cursor, 'cursor_kind');
+        if (!['tail_preview', 'backfill', 'forward_append'].includes(message.next_cursor.cursor_kind)) {
+            throw new AnalyzerProtocolError('invalid_field', 'unsupported complete cursor kind', {
+                field: 'next_cursor.cursor_kind'
+            });
+        }
+    }
+    requireObject(message, 'checkpoint');
+    let normalized;
+    try {
+        normalized = normalizeCheckpoint(message.checkpoint);
+    } catch (error) {
+        throw new AnalyzerProtocolError('invalid_field', error.message, {
+            field: 'checkpoint'
+        });
+    }
+    if (normalized.checkpoint.completeness !== message.completeness) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            'complete and checkpoint completeness disagree',
+            { field: 'checkpoint.completeness' }
+        );
+    }
+    if (normalized.checkpoint.request_id !== message.request_id) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            'complete and checkpoint request_id disagree',
+            { field: 'checkpoint.request_id' }
+        );
+    }
+    if (JSON.stringify(normalized.checkpoint.cursor) !== JSON.stringify(message.next_cursor)) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            'complete and checkpoint cursor disagree',
+            { field: 'checkpoint.cursor' }
+        );
+    }
 }
 
 function encodeMessage(message) {

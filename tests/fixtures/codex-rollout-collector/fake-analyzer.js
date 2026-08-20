@@ -1,6 +1,5 @@
 'use strict';
 
-const path = require('node:path');
 const fs = require('node:fs');
 const readline = require('node:readline');
 
@@ -76,9 +75,23 @@ input.on('line', (line) => {
                 schema_version: 1,
                 request_id: message.request_id,
                 conversation_id: pending.conversation_id,
-                source: { source_id: pending.source_id, source_epoch: pending.source_epoch },
                 reader: { backend: 'fake', version: '1', source_kind: 'rollout', compression: 'plain_jsonl' },
-                segment: {},
+                wire_profile: {
+                    parser_backend: 'fake',
+                    wire_source_revision: 'fake',
+                    compatibility_profile: 'current'
+                },
+                cursor_kind: null,
+                cursor: null,
+                segment: { source_range: pending.source_range },
+                reducer_state: pending.reducer_state,
+                projection_watermark: pending.batch_id,
+                source: {
+                    source_id: pending.source_id,
+                    source_epoch: pending.source_epoch,
+                    fingerprint: pending.source_fingerprint,
+                    prefix_anchor: pending.source_prefix_anchor
+                },
                 completeness: pending.completeness
             }
         });
@@ -91,8 +104,8 @@ input.on('line', (line) => {
         process.exit(71);
     }
 
-    const sourceId = message.source_spec.source_id || path.basename(message.source_spec.path);
-    const sourceEpoch = message.source_spec.source_epoch || 'unbound';
+    const sourceId = message.source_spec.source_id;
+    const sourceEpoch = message.source_spec.source_epoch;
     const canonical = message.mode !== 'preview';
     const batchId = `${message.request_id}:batch-0`;
     const itemKey = 'event:1';
@@ -155,7 +168,12 @@ input.on('line', (line) => {
         conversation_id: message.conversation_id,
         source_id: sourceId,
         source_epoch: sourceEpoch,
-        completeness: batch.completeness
+        completeness: batch.completeness,
+        batch_id: batch.batch_id,
+        source_range: batch.source_range,
+        source_fingerprint: batch.source_fingerprint,
+        source_prefix_anchor: batch.source_prefix_anchor,
+        reducer_state: batch.reducer_state
     });
     if (crashOnce('after_batch')) {
         writeAndExit(batch, 72);

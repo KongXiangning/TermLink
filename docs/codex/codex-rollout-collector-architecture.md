@@ -1113,8 +1113,11 @@ source_ref
   checkpoint 当成新文件的 append 起点。文件正常增长和仅改名时保持不变；文件被替换、
   截断或前缀 anchor 不匹配时递增。它不是历史存储的命名空间，服务端不为同一会话长期
   保留多个并行 epoch；
-- `revision` 表示同一 source epoch 内的来源覆盖进度，优先比较最后完整的
-  `rollout_ordinal`，其次比较 `byte_end`，不能使用 wall clock 或 batch ID；
+- `revision` 表示同一 source epoch 内单个逻辑对象的来源覆盖进度，优先比较最后完整的
+  `rollout_ordinal`，其次比较该对象的 `source_ref.byte_end`，不能使用 wall clock 或 batch ID；
+  Node 导入 history item 时必须优先使用同 `item_key` 的 `upsert_item` mutation revision，
+  不得把 batch 的 source range、bytes scanned 或其他 mutation revision 聚合后赋给所有 item；
+  只有缺少 per-item revision 的兼容输入才允许使用明确的 batch coverage fallback；
 - `completeness=provisional` 表示尾部预览、缺口或未完成上下文；`canonical` 只能由完整
   有序覆盖到安全 snapshot boundary 的 `complete_range` 推进。
 
@@ -1133,8 +1136,9 @@ source_ref
 8. source epoch 变化时必须报告 `source_replaced`/`source_gap`，服务端将新来源视为当前
    会话的新版本，直接替换旧投影，不把两个文件版本按相同 item key 混合合并。
 
-source replacement 的正式处理只有以下最小流程，不引入 shadow epoch、旧版本保留或
-`promote_epoch`：
+source replacement 的正式处理只有以下最小流程，不引入可查询的 shadow epoch、旧版本正文
+或 `promote_epoch`；实现可以保留不可写的 retired tombstone/current-epoch fence 以拒绝迟到
+消息，但不把它作为历史版本暴露：
 
 ```text
 detect source_replaced/source_gap
@@ -1227,7 +1231,16 @@ AnalyzerCheckpoint
 3. 前缀锚点 hash 不匹配时回退到安全边界重扫；
 4. schema/profile/reader 不兼容时停止写入并报告；
 5. checkpoint 缺失或失效时可以从头分段重放；
-6. checkpoint 不保存完整 raw rollout 和工具详情。
+6. checkpoint 必须同时具备 source identity、fingerprint、prefix anchor、reader/provenance、
+   segment/cursor、completeness、projection watermark 和版本化 reducer state；缺一项即拒绝保存；
+7. `complete` 的 status、request_id、completeness、next_cursor 必须分别通过枚举和与 checkpoint
+   的一致性校验，不能仅凭空的 `complete` 消息提升为 canonical；
+8. checkpoint 不保存完整 raw rollout 和工具详情；
+9. `complete` 只有在当前 `request_id` 已成功导入至少一个 batch 后才能提交；空 state 或仅有
+   其他 request 的历史 batch 不能伪造本次 canonical 完成；
+10. checkpoint store 按 completeness rank 和 source progress 单调推进；已保存的 canonical 或
+    更高 progress checkpoint 不能被后来的 partial/provisional 或低 progress checkpoint 覆盖，
+    Memory/File store 必须保持同一语义。
 
 Checkpoint 的读取状态和 Reducer 状态必须一起版本化，不能只保存字节偏移而忽略未闭合
 turn、tool、Plan 或 usage 状态。`cursor_kind` 必须阻止把 `TailPreviewCursor` 或
@@ -1242,7 +1255,7 @@ Rust 不直接写数据库，输出分批的 TermLink 自有协议：
 AnalyzeRequest
 ├─ request_id
 ├─ conversation_id
-├─ source_spec
+├─ source_spec (path + explicit source_id/source_epoch)
 ├─ mode: preview / backfill / append / replay
 ├─ cursor
 ├─ persisted_anchor
@@ -1296,6 +1309,12 @@ error              Rust → Node，本次 request 失败
 表示数据库、历史投影或记忆已经持久化。Node 必须先成功写入 batch 中的派生数据，再保存
 该 batch 返回的 checkpoint/coverage，不能先保存 checkpoint 再写数据。
 
+`batch` 和 `complete` 都是 fail-closed 输入边界：每个 upsert mutation 必须带与 batch 一致的
+`completeness`、`source_epoch`、非负 `revision` 和完整 `source_ref`；`complete_range` 必须带
+`source_range` 且只能出现在 canonical batch。`complete` 必须带合法 status、completeness、
+`next_cursor` 和完整 checkpoint，且 checkpoint 的 request/cursor/completeness 必须与消息一致。
+Node 在任何 replacement 清理前先完成这些校验。
+
 Rust 不需要持久化未 ACK 的 batch，也不需要在重启后按 `batch_id` 重发。正式 checkpoint
 必须同时保存 source fingerprint/prefix anchor、projection watermark 和版本化 reducer state。
 Rust 进程内仍可以有界缓存以下信息用于快速处理和诊断：
@@ -1345,17 +1364,26 @@ complete_range
 ```
 
 `replace_previous` 是 `AnalysisBatch` 的批次级控制字段，不是普通 mutation。它只允许在检测到
-新 source epoch 后的第一批出现；服务端收到后，删除当前 conversation 的旧派生投影，并在
-同一原子操作中写入该批次的新数据。后续批次必须为 `false`，不得重复替换。
+新 source epoch 后的第一批出现；服务端收到后，删除当前 conversation 的旧可见派生投影，并在
+同一原子操作中写入该批次的新数据。旧 scope 不能物理重新变成可写数据，而要保留 retired
+tombstone/current-epoch fence，阻止迟到 batch、complete 或 replacement 复活旧 epoch。后续
+批次必须为 `false`，不得重复替换。
 
 阶段 4 隔离 Node store 对 replacement 按 conversation 处理：同一 conversation 的旧 source
-epoch analysis state 和 checkpoint 一并清除，只保留新 epoch scope；同 epoch 再次发送
-`replace_previous=true` 会 fail-closed。Rust 初始 `replay` 不自动设置该字段，只有调用方显式
-声明 source replacement 才允许触发替换。
+epoch 可见 analysis state 和 checkpoint 一并清除，但旧 scope 的不可写 tombstone/current-epoch
+fence 必须持久化，只保留新 epoch 的可见 scope；同 epoch 再次发送 `replace_previous=true` 会
+fail-closed。Rust 初始 `replay` 不自动设置该字段，只有调用方显式声明 source replacement
+才允许触发替换。`source_id`/`source_epoch` 缺失或为 `unbound` 时不得从 filename 或默认值
+降级补全。
 
 每个 `upsert_item`、`upsert_detail`、`upsert_usage` 和 `upsert_outcome` 都必须携带稳定
 `item_key`/所属 key、`content_hash`、`completeness`、`source_epoch`、`revision` 和
 `source_ref`；这些是服务端幂等合并元数据，不进入 App 展示正文。
+
+同一 `(conversation_id, item_key)` 或同一派生 key 在同一 source epoch 内，completeness 相同
+时只允许更高 revision 更新；较低或相等 revision 只能作为已观察 batch 记录，不能覆盖正文、
+usage、projection 或 last cursor。更高 completeness 可以提升，反向 provisional/partial 不能
+降级已提交 canonical。
 
 普通 `complete_range` 表示 `backfill` 已经从安全起点连续覆盖到指定 snapshot boundary，
 服务端可以把该范围从 provisional 推进为 canonical；它不是删除并重建整个会话的命令。
@@ -1513,10 +1541,10 @@ future-compatible
 - 阶段 3 的 strict conformance 已由测试实际启动 Demo reducer 和 Spike parser，在临时目录生成本次运行的 report/projection/output；静态 `demo-oracle-stage3.json` 仅保留为辅助回归 fixture；
 - 分段测试使用同一有状态 `CodexEventAdapter`，验证 tail/backfill 的稳定 `item_key`、Plan question/answer 跨段关联、overlap 去重和 segmented/full replay projection 一致；
 - `AnalysisReducer` 与 Node importer 均实现 partial/provisional → canonical promotion，并拒绝 late incomplete overlap 降级已提交 canonical projection；
-- analyzer 运行态复用同一个 Adapter + Reducer，checkpoint 保存 source fingerprint/prefix anchor、projection watermark 和可恢复的 Plan/turn/reducer state；preview/backfill/append/replay 都从当前 snapshot 生成新 cursor，append cursor 会随完整新行推进，内容替换/截断/前缀变化 fail-closed；无 cursor 的 replay 也必须校验持久化 source anchor，不能绕过 checkpoint 的来源绑定；
-- 正式 Rust analyzer 的 `tool_details`、`usage`、`task_outcomes` 和 `mutations` 已由 Node 集成测试实际导入并持久化；Node 对 canonical batch 执行完整 schema/provenance/mutation 校验，缺字段或不一致时 fail-closed；source epoch replacement 会清除同 conversation 的旧 epoch state/checkpoint，同 epoch 的新 replacement 只允许首次提交而同一 batch id 的重放保持幂等；hello 已统一为 Node → Rust 请求、Rust analyzer hello 响应；
+- analyzer 运行态复用同一个 Adapter + Reducer，checkpoint 保存 source fingerprint/prefix anchor、projection watermark 和可恢复的 Plan/turn/reducer state；preview/backfill/append/replay 都从当前 snapshot 生成新 cursor，append cursor 会随完整新行推进，内容替换/截断/前缀变化 fail-closed；无 cursor 的 replay 也必须校验持久化 source anchor，不能绕过 checkpoint 的来源绑定；complete 只有在 status、request/cursor/completeness 与完整 checkpoint 一致时才可提交；
+- 正式 Rust analyzer 的 `tool_details`、`usage`、`task_outcomes` 和 `mutations` 已由 Node 集成测试实际导入并持久化；Node 对 canonical batch 执行完整 schema/provenance/mutation 校验，upsert mutation 强制 completeness/revision/source_ref，缺字段或不一致时 fail-closed；source epoch replacement 会清除同 conversation 的旧 epoch 可见 state/checkpoint，并保留 retired tombstone/current-epoch fence，同 epoch 的新 replacement 只允许首次提交而同一 batch id 的重放保持幂等；source_id/source_epoch 必须显式提供，hello 已统一为 Node → Rust 请求、Rust analyzer hello 响应；
 - `resource_limits.timeout_ms` 贯穿 Rust source read、Adapter/Reducer、metadata/cursor 构造和 ACK 等待预算；analyzer 在 batch 前后异常退出时，Node 最多按受限重试预算重启并重放同一请求，依靠 batch id/importer 幂等避免重复落库；
-- 当前证据：Rust full suite 66 unit + 28 conformance + 3 stage2 integration + 5 stage3 conformance + 7 stage4 protocol tests 通过；Node collector 定向 suite 13/13 通过；未修改 IPC、Android、既有服务端 DB、Demo 或 Spike 源码。
+- 当前证据：Rust full suite 66 unit + 28 conformance + 3 stage2 integration + 5 stage3 conformance + 8 stage4 protocol tests 通过；Node collector 定向 suite 19/19 通过，覆盖 forged complete/checkpoint、非法 replacement 原子性、revision 回退、path-only identity 和重启后 stale epoch fence；未修改 IPC、Android、既有服务端 DB、Demo 或 Spike 源码。
 
 ### 阶段 5：服务端集成验收
 

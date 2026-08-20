@@ -252,24 +252,30 @@ impl SourceSpecRequest {
             ));
         }
 
-        let path = std::path::PathBuf::from(&self.path);
         let source_id = self
             .source_id
-            .clone()
-            .or_else(|| {
-                path.file_name()
-                    .and_then(|name| name.to_str())
-                    .map(ToOwned::to_owned)
-            })
+            .as_deref()
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| "rollout-source".to_string());
+            .ok_or(AnalyzerProtocolError::MissingField("source_spec.source_id"))?;
+        let source_epoch = self
+            .source_epoch
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or(AnalyzerProtocolError::MissingField(
+                "source_spec.source_epoch",
+            ))?;
+        if source_epoch.trim() == "unbound" {
+            return Err(AnalyzerProtocolError::InvalidRequest(
+                "source_spec.source_epoch must be bound".to_string(),
+            ));
+        }
+
+        let path = std::path::PathBuf::from(&self.path);
         let mut spec = SourceSpec::bind(conversation_id, source_id, path)
             .map_err(|error| AnalyzerProtocolError::InvalidRequest(error.to_string()))?;
-        if let Some(source_epoch) = self.source_epoch.clone() {
-            spec = spec
-                .with_source_epoch(source_epoch)
-                .map_err(|error| AnalyzerProtocolError::InvalidRequest(error.to_string()))?;
-        }
+        spec = spec
+            .with_source_epoch(source_epoch)
+            .map_err(|error| AnalyzerProtocolError::InvalidRequest(error.to_string()))?;
         if let Some(fingerprint) = self.fingerprint.clone() {
             spec = spec.with_fingerprint(fingerprint);
         }
@@ -1019,7 +1025,7 @@ impl AnalyzerRuntimeState {
                     .and_then(|source| source.get("source_epoch"))
                     .and_then(Value::as_str)
             })
-            .unwrap_or("unbound");
+            .ok_or_else(|| anyhow::anyhow!("source_epoch must be explicitly bound"))?;
         let identity_changed = self.conversation_id.as_deref() != Some(&request.conversation_id)
             || self.source_epoch.as_deref() != Some(source_epoch);
         if request.replace_previous && self.conversation_id.is_some() && !identity_changed {
@@ -1114,15 +1120,7 @@ pub fn analyze_request_with_state(
         spec = enrich_spec_from_persisted_anchor(spec, anchor)?;
     }
     if spec.source_epoch().is_none() {
-        spec = spec
-            .with_source_epoch(
-                request
-                    .source_spec
-                    .source_epoch
-                    .as_deref()
-                    .unwrap_or("unbound"),
-            )
-            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+        anyhow::bail!("source_epoch must be explicitly bound");
     }
     if spec.max_decoded_bytes() != request.resource_limits.max_decoded_bytes
         || spec.max_line_bytes() != request.resource_limits.max_line_bytes
@@ -1287,11 +1285,14 @@ pub fn analyze_request_with_state(
     let projection = runtime.projection();
     let completeness = batch.completeness;
     let batch_complete = batch.complete;
+    let source_epoch = spec
+        .source_epoch()
+        .ok_or_else(|| anyhow::anyhow!("source_epoch must be explicitly bound"))?;
     let mut message = BatchMessage::from_analysis(
         request,
         format!("{}:batch-0", request.header.request_id),
         spec.source_id().to_string(),
-        spec.source_epoch().unwrap_or("unbound").to_string(),
+        source_epoch.to_string(),
         source_range,
         completeness,
         batch,
@@ -1813,7 +1814,7 @@ mod tests {
     }
 
     #[test]
-    fn analyze_request_requires_explicit_conversation_binding() {
+    fn analyze_request_requires_explicit_source_identity() {
         let request = AnalyzeRequest {
             header: ProtocolHeader::new(MessageType::Analyze, "req-1"),
             conversation_id: "conversation-1".to_string(),
@@ -1830,7 +1831,7 @@ mod tests {
             request
                 .source_spec
                 .into_source_spec("conversation-1")
-                .is_ok()
+                .is_err()
         );
     }
 

@@ -1,6 +1,5 @@
 'use strict';
 
-const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const { AnalyzerProcessManager } = require('./analyzerProcessManager');
 const {
@@ -143,8 +142,8 @@ function requestScope(request) {
     const source = request?.source_spec || {};
     return normalizeScope({
         conversation_id: request?.conversation_id,
-        source_id: source.source_id || path.basename(source.path || 'rollout-source'),
-        source_epoch: source.source_epoch || 'unbound'
+        source_id: source.source_id,
+        source_epoch: source.source_epoch
     });
 }
 
@@ -154,8 +153,6 @@ function resumeFromCheckpoint(request, checkpoint) {
     const checkpointSource = checkpoint.source || {};
     const sourceSpec = {
         ...source,
-        source_id: source.source_id || checkpointSource.source_id,
-        source_epoch: source.source_epoch || checkpointSource.source_epoch,
         ...(source.fingerprint || !checkpointSource.fingerprint
             ? {}
             : { fingerprint: checkpointSource.fingerprint }),
