@@ -7,7 +7,8 @@ const {
     encodeMessage,
     parseLine,
     createAck,
-    createCancel
+    createCancel,
+    createHello
 } = require('./analyzerProtocol');
 const { AnalyzerRequestTracker } = require('./analyzerRequestTracker');
 
@@ -34,10 +35,12 @@ class AnalyzerProcessManager extends EventEmitter {
         this.stdoutBuffer = '';
         this.requests = new Map();
         this.startPromise = null;
+        this.handshake = null;
         this.stopping = false;
     }
 
     async start() {
+        if (this.child && this.startPromise) return this.startPromise;
         if (this.child) return this;
         if (this.startPromise) return this.startPromise;
 
@@ -69,7 +72,19 @@ class AnalyzerProcessManager extends EventEmitter {
                 this.startPromise = null;
                 reject(error);
             };
-            child.once('spawn', resolveOnce);
+            child.once('spawn', () => {
+                const requestId = `node-hello-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+                this.handshake = {
+                    requestId,
+                    resolve: resolveOnce,
+                    reject: rejectOnce
+                };
+                try {
+                    this.send(createHello(requestId));
+                } catch (error) {
+                    rejectOnce(error);
+                }
+            });
             child.once('error', (error) => {
                 this._handleProcessFailure(error);
                 rejectOnce(error);
@@ -87,6 +102,12 @@ class AnalyzerProcessManager extends EventEmitter {
                     });
                 this.child = null;
                 this.startPromise = null;
+                if (this.handshake) {
+                    this.handshake.reject(error || Object.assign(new Error('analyzer exited during hello handshake'), {
+                        code: 'ANALYZER_HELLO_FAILED'
+                    }));
+                    this.handshake = null;
+                }
                 if (error) this._handleProcessFailure(error);
                 this.emit('exit', { code, signal, expected: this.stopping });
                 if (error) rejectOnce(error);
@@ -194,6 +215,11 @@ class AnalyzerProcessManager extends EventEmitter {
     _handleMessage(message) {
         this.emit('message', message);
         if (message.message_type === 'hello') {
+            if (this.handshake && message.request_id === this.handshake.requestId) {
+                const handshake = this.handshake;
+                this.handshake = null;
+                handshake.resolve();
+            }
             this.emit('hello', message);
             return;
         }
@@ -259,6 +285,10 @@ class AnalyzerProcessManager extends EventEmitter {
 
     _handleProcessFailure(error) {
         this.requests.clear();
+        if (this.handshake) {
+            this.handshake.reject(error);
+            this.handshake = null;
+        }
         this.tracker.rejectAll(error);
         this.emit('failure', error);
     }

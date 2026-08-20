@@ -36,9 +36,15 @@
 
 ## Codex Rollout Collector 边界
 
-- `native/codex-rollout-collector` 是 P0-RC.1 的隔离 Rust 基础层，稳定声明只覆盖 `SourceBackend → codex_wire → CodexEventAdapter → AnalysisEvent → AnalysisBatch` 与 `ParserProvenance`，不代表完整 analyzer、P0-C、P0-B.4R 或产品集成已完成。
+- `native/codex-rollout-collector` 是 P0-RC.1 的隔离 Rust 基础层，稳定声明只覆盖 `SourceBackend → codex_wire → CodexEventAdapter → AnalysisEvent → AnalysisBatch`、`ParserProvenance` 以及 formal crate 内的阶段 3 conformance artifacts，不代表完整 analyzer、P0-C、P0-B.4R 或产品集成已完成。
 - Codex history/protocol 只能通过仓库内 `native/codex-rollout-collector/vendor/codex` 的相对 path closure；禁止开发者本机 Codex path、外部 Codex path/Git/workspace、未登记 workspace member 和默认构建时 Codex 网络下载。普通 Rust registry/Git 依赖仍允许，不得把所有外部 Git URL 一概视为禁项。
 - Codex 原生类型只能停留在 `codex_wire` facade 与 Adapter 输入边界；下游使用 TermLink 自有模型。legacy/current alias 必须有 fixture 与 Adapter 测试证据，未知或缺失 variant/alias 必须保持 `UnknownEvent` 或 `ParseGap`/诊断。
+- 阶段 2 输入层稳定边界：调用方显式提供的 target conversation id 优先于文件名或 metadata；`SourceLocator`/`SourceSpec` 的 source identity、source epoch、fingerprint/anchor 与 snapshot boundary 必须可被安全恢复消费。旧 `SourceBackend` full-read、`analyze_source`、`AnalysisBatch`/`ParserProvenance` 语义保持 backward-compatible，新 source metadata、read plan、cursor、segment 和 append 能力只能 additive。
+- plain JSONL 才承诺完整行 snapshot、tail preview、backward/range segment 和 append；`TailPreviewCursor`、`BackfillCursor`、`ForwardAppendCursor` 不可混用，非法 cursor、截断、替换、前缀变化或不一致来源必须 fail-closed。普通无 seek/index `.zst` 只承诺 forward stream，不得伪造 seek 或 append byte cursor。
+- segment overlap 必须幂等去重，无法确认的 gap 或输入诊断保持 partial，append 只提交稳定的完整新行并在 mutation 时不发布新 cursor；这些规则只约束 formal native crate，不构成 Node/Android/IPC/数据库公共接口。
+- 阶段 3 formal identity 必须区分物理 `event_id` 与可跨 tail/backfill/append/replay/重启复用的逻辑 `item_key`；优先 native stable ID，其次稳定 source position；显式 target conversation id 优先。不得使用文件名、读取顺序、segment boundary、随机值、content hash 或 SessionMeta 推断 canonical conversation id。
+- `CodexEventAdapter` 是唯一建立 conversation/turn/tool/plan/usage 关联的入口；`AnalysisReducer`/`AnalysisProjection` 只消费 TermLink-owned `AnalysisEvent`，tool/Plan/usage 归约必须保持 replay/overlap 幂等和 partial/unknown/alias 的诊断、不完整语义。Demo/Spike 只能作为只读 golden/reference oracle，不得成为正式实现依赖或产品 DTO 来源。
+- `SegmentAssembly::promote_to_forward_append` 是 formal source promotion 的唯一安全路径；`TailPreviewCursor`/`BackfillCursor` 不得直接转换为 `ForwardAppendCursor`。pending tail、gap、partial、parse diagnostic、source mutation/truncation/replacement 或 fingerprint/anchor 不一致时必须 fail-closed。
 - 不得在没有独立任务、范围锁定和用户确认的情况下把该基础层扩展到 Node、Android、IPC、数据库、服务端持久化、完整 reducer/runtime 或既有 Demo/Spike 路径。
 
 ## Scope

@@ -1,15 +1,15 @@
 //! Stdio JSONL entry point for the isolated stage 4 analyzer.
 
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use codex_rollout_collector::protocol::{
-    AckMessage, AnalyzeRequest, AnalyzerProtocolError, CancelMessage, CompleteMessage,
-    ErrorMessage, HelloMessage, MessageType, ProtocolMessage, analyze_request,
+    AckMessage, AnalyzeRequest, AnalyzerProtocolError, AnalyzerRuntimeState, CancelMessage,
+    CompleteMessage, ErrorMessage, HelloMessage, MessageType, ProtocolMessage,
 };
 
 enum InputCommand {
@@ -42,18 +42,25 @@ fn run() -> anyhow::Result<()> {
     let (worker_tx, worker_rx) = mpsc::channel();
     let stdout = io::stdout();
     let mut output = BufWriter::new(stdout.lock());
-    write_message(
-        &mut output,
-        ProtocolMessage::Hello(HelloMessage::new("startup")),
-    )?;
 
     let mut active: Option<ActiveRequest> = None;
+    let mut hello_received = false;
+    let runtime_state = Arc::new(Mutex::new(AnalyzerRuntimeState::new(
+        codex_rollout_collector::codex_wire::CompatibilityProfile::Current,
+    )));
     let mut input_closed = false;
     loop {
         if !input_closed {
             match input_rx.recv_timeout(Duration::from_millis(20)) {
                 Ok(InputCommand::Line(line)) => {
-                    handle_input_line(line, &worker_tx, &mut active, &mut output)?;
+                    handle_input_line(
+                        line,
+                        &worker_tx,
+                        &mut active,
+                        &mut output,
+                        &runtime_state,
+                        &mut hello_received,
+                    )?;
                 }
                 Ok(InputCommand::Eof) | Err(mpsc::RecvTimeoutError::Disconnected) => {
                     input_closed = true;
@@ -117,6 +124,8 @@ fn handle_input_line(
     worker_tx: &Sender<WorkerEvent>,
     active: &mut Option<ActiveRequest>,
     output: &mut impl Write,
+    runtime_state: &Arc<Mutex<AnalyzerRuntimeState>>,
+    hello_received: &mut bool,
 ) -> anyhow::Result<()> {
     let message = match ProtocolMessage::parse_line(&line) {
         Ok(message) => message,
@@ -141,8 +150,39 @@ fn handle_input_line(
     }
 
     match message {
+        ProtocolMessage::Hello(hello) => {
+            if hello.role.as_deref().is_some_and(|role| role != "node") {
+                write_message(
+                    output,
+                    ProtocolMessage::Error(ErrorMessage::for_request(
+                        hello.header.request_id,
+                        "invalid_hello_role",
+                        "Node hello role must be node",
+                        false,
+                        true,
+                    )),
+                )?;
+            } else {
+                *hello_received = true;
+                write_message(
+                    output,
+                    ProtocolMessage::Hello(HelloMessage::new(hello.header.request_id)),
+                )?;
+            }
+        }
         ProtocolMessage::Analyze(request) => {
-            if active.is_some() {
+            if !*hello_received {
+                write_message(
+                    output,
+                    ProtocolMessage::Error(ErrorMessage::for_request(
+                        request.header.request_id,
+                        "handshake_required",
+                        "Node hello must be accepted before analyze",
+                        false,
+                        false,
+                    )),
+                )?;
+            } else if active.is_some() {
                 write_message(
                     output,
                     ProtocolMessage::Error(ErrorMessage::for_request(
@@ -154,7 +194,7 @@ fn handle_input_line(
                     )),
                 )?;
             } else {
-                start_request(request, worker_tx.clone(), active);
+                start_request(request, worker_tx.clone(), active, runtime_state.clone());
             }
         }
         ProtocolMessage::Cancel(cancel) => {
@@ -178,10 +218,7 @@ fn handle_input_line(
                 }
             }
         }
-        ProtocolMessage::Hello(_)
-        | ProtocolMessage::Batch(_)
-        | ProtocolMessage::Complete(_)
-        | ProtocolMessage::Error(_) => {
+        ProtocolMessage::Batch(_) | ProtocolMessage::Complete(_) | ProtocolMessage::Error(_) => {
             write_message(
                 output,
                 ProtocolMessage::Error(ErrorMessage::for_request(
@@ -204,6 +241,7 @@ fn start_request(
     request: AnalyzeRequest,
     worker_tx: Sender<WorkerEvent>,
     active: &mut Option<ActiveRequest>,
+    runtime_state: Arc<Mutex<AnalyzerRuntimeState>>,
 ) {
     let request_id = request.header.request_id.clone();
     let cancelled = Arc::new(AtomicBool::new(false));
@@ -211,20 +249,84 @@ fn start_request(
     let worker_cancelled = Arc::clone(&cancelled);
     let worker_request_id = request_id.clone();
     thread::spawn(move || {
-        let result = analyze_request(&request, &worker_cancelled);
+        let request_started = Instant::now();
+        let mut candidate = match runtime_state
+            .lock()
+            .map(|runtime| runtime.clone())
+            .map_err(|_| anyhow::anyhow!("analyzer runtime state lock poisoned"))
+        {
+            Ok(candidate) => candidate,
+            Err(error) => {
+                let _ = worker_tx.send(WorkerEvent::Message(ProtocolMessage::Error(
+                    ErrorMessage::for_request(
+                        worker_request_id.clone(),
+                        "runtime_state_failed",
+                        error.to_string(),
+                        true,
+                        false,
+                    ),
+                )));
+                let _ = worker_tx.send(WorkerEvent::Finished(worker_request_id));
+                return;
+            }
+        };
+        let result = codex_rollout_collector::protocol::analyze_request_with_state(
+            &request,
+            &worker_cancelled,
+            &mut candidate,
+        );
         match result {
             Ok(batch) => {
                 let batch_id = batch.batch_id.clone();
                 let completeness = batch.completeness;
                 let next_cursor = batch.next_cursor.clone();
                 let checkpoint =
-                    codex_rollout_collector::protocol::checkpoint_for_batch(&request, &batch).ok();
+                    match codex_rollout_collector::protocol::checkpoint_for_batch(&request, &batch)
+                    {
+                        Ok(checkpoint) => checkpoint,
+                        Err(error) => {
+                            let _ = worker_tx.send(WorkerEvent::Message(ProtocolMessage::Error(
+                                ErrorMessage::for_request(
+                                    worker_request_id.clone(),
+                                    "checkpoint_failed",
+                                    error.to_string(),
+                                    true,
+                                    false,
+                                ),
+                            )));
+                            let _ = worker_tx.send(WorkerEvent::Finished(worker_request_id));
+                            return;
+                        }
+                    };
                 if worker_tx
                     .send(WorkerEvent::Message(ProtocolMessage::Batch(batch)))
                     .is_ok()
                 {
-                    match wait_for_ack(&ack_rx, &worker_cancelled, &batch_id) {
+                    let timeout = Duration::from_millis(request.resource_limits.timeout_ms)
+                        .saturating_sub(request_started.elapsed());
+                    match wait_for_ack(&ack_rx, &worker_cancelled, &batch_id, timeout) {
                         Ok(()) => {
+                            let commit_result = runtime_state
+                                .lock()
+                                .map(|mut runtime| {
+                                    *runtime = candidate;
+                                })
+                                .map_err(|_| {
+                                    anyhow::anyhow!("analyzer runtime state lock poisoned")
+                                });
+                            if let Err(error) = commit_result {
+                                let _ = worker_tx.send(WorkerEvent::Message(
+                                    ProtocolMessage::Error(ErrorMessage::for_request(
+                                        worker_request_id.clone(),
+                                        "runtime_state_commit_failed",
+                                        error.to_string(),
+                                        true,
+                                        false,
+                                    )),
+                                ));
+                                let _ = worker_tx.send(WorkerEvent::Finished(worker_request_id));
+                                return;
+                            }
                             let complete = CompleteMessage {
                                 header: codex_rollout_collector::protocol::ProtocolHeader::new(
                                     MessageType::Complete,
@@ -233,7 +335,7 @@ fn start_request(
                                 status: "ok".to_string(),
                                 completeness,
                                 next_cursor,
-                                checkpoint,
+                                checkpoint: Some(checkpoint),
                             };
                             let _ = worker_tx
                                 .send(WorkerEvent::Message(ProtocolMessage::Complete(complete)));
@@ -255,11 +357,14 @@ fn start_request(
             Err(error) => {
                 let cancelled = worker_cancelled.load(Ordering::Acquire)
                     || error.to_string().contains("cancelled");
+                let timed_out = error.to_string().contains("resource timeout");
                 let _ = worker_tx.send(WorkerEvent::Message(ProtocolMessage::Error(
                     ErrorMessage::for_request(
                         worker_request_id.clone(),
                         if cancelled {
                             "cancelled"
+                        } else if timed_out {
+                            "resource_timeout"
                         } else {
                             "analysis_failed"
                         },
@@ -283,8 +388,9 @@ fn wait_for_ack(
     receiver: &Receiver<AckMessage>,
     cancelled: &AtomicBool,
     expected_batch_id: &str,
+    timeout: Duration,
 ) -> Result<(), (&'static str, String, bool)> {
-    let deadline = Instant::now() + Duration::from_secs(30);
+    let deadline = Instant::now() + timeout;
     loop {
         if cancelled.load(Ordering::Acquire) {
             return Err((
@@ -295,8 +401,8 @@ fn wait_for_ack(
         }
         if Instant::now() >= deadline {
             return Err((
-                "ack_timeout",
-                "Node did not ACK the analyzer batch within 30 seconds".to_string(),
+                "resource_timeout",
+                "Node did not ACK the analyzer batch within the request timeout budget".to_string(),
                 true,
             ));
         }

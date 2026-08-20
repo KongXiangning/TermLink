@@ -23,7 +23,8 @@ class CodexRolloutCollector {
         store = null,
         checkpointStore = null,
         runStore = null,
-        requestTimeoutMs = 120000
+        requestTimeoutMs = 120000,
+        processRestartRetries = 1
     } = {}) {
         this.store = store || new FileAnalysisStore();
         this.checkpointStore = checkpointStore || new FileCheckpointStore();
@@ -39,6 +40,10 @@ class CodexRolloutCollector {
             env: analyzerEnv,
             requestTimeoutMs
         });
+        this.processRestartRetries = Number.isSafeInteger(processRestartRetries)
+            && processRestartRetries >= 0
+            ? processRestartRetries
+            : 1;
         this.initialized = false;
     }
 
@@ -60,33 +65,57 @@ class CodexRolloutCollector {
             message_type: 'analyze'
         };
         const scope = requestScope(normalizedRequest);
+        const persistedCheckpoint = !normalizedRequest.replace_previous
+            ? await this.checkpointStore.load(scope)
+            : null;
+        const resumedRequest = resumeFromCheckpoint(normalizedRequest, persistedCheckpoint);
         await this.runStore.begin({
             run_id: requestId,
             conversation_id: scope.conversationId,
             source_id: scope.sourceId,
             source_epoch: scope.sourceEpoch,
-            mode: normalizedRequest.mode
+            mode: resumedRequest.mode
         });
         try {
-            const complete = await this.processManager.request(normalizedRequest, {
-                timeoutMs,
-                onBatch: async (batch) => {
-                    const imported = await this.importer.importBatch(batch);
-                    await this.runStore.update(requestId, {
-                        batches: (await this.runStore.get(requestId)).batches + (imported.duplicate ? 0 : 1),
-                        last_batch_id: batch.batch_id,
-                        source_id: batch.source_id,
-                        source_epoch: batch.source_epoch
+            const totalTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0
+                ? timeoutMs
+                : (this.processManager.requestTimeoutMs || 120000);
+            const deadline = Date.now() + totalTimeoutMs;
+            let restartAttempts = 0;
+            let complete;
+            while (true) {
+                const remainingTimeoutMs = Math.max(1, deadline - Date.now());
+                try {
+                    complete = await this.processManager.request(resumedRequest, {
+                        timeoutMs: remainingTimeoutMs,
+                        onBatch: async (batch) => {
+                            const imported = await this.importer.importBatch(batch);
+                            await this.runStore.update(requestId, {
+                                batches: (await this.runStore.get(requestId)).batches
+                                    + (imported.duplicate ? 0 : 1),
+                                last_batch_id: batch.batch_id,
+                                source_id: batch.source_id,
+                                source_epoch: batch.source_epoch
+                            });
+                            return imported;
+                        },
+                        onComplete: async (message) => {
+                            await this.importer.commitComplete(message, {
+                                scope,
+                                checkpoint: message.checkpoint || null
+                            });
+                        }
                     });
-                    return imported;
-                },
-                onComplete: async (message) => {
-                    await this.importer.commitComplete(message, {
-                        scope,
-                        checkpoint: message.checkpoint || null
-                    });
+                    break;
+                } catch (error) {
+                    const canRestart = error?.code === 'ANALYZER_PROCESS_EXIT'
+                        && restartAttempts < this.processRestartRetries
+                        && Date.now() < deadline;
+                    if (!canRestart) throw error;
+                    restartAttempts += 1;
+                    await this.processManager.start();
                 }
-            });
+            }
             const state = await this.store.snapshot(scope);
             await this.runStore.complete(requestId, {
                 status: complete.status,
@@ -119,6 +148,35 @@ function requestScope(request) {
     });
 }
 
+function resumeFromCheckpoint(request, checkpoint) {
+    if (!checkpoint || request.replace_previous) return request;
+    const source = request.source_spec || {};
+    const checkpointSource = checkpoint.source || {};
+    const sourceSpec = {
+        ...source,
+        source_id: source.source_id || checkpointSource.source_id,
+        source_epoch: source.source_epoch || checkpointSource.source_epoch,
+        ...(source.fingerprint || !checkpointSource.fingerprint
+            ? {}
+            : { fingerprint: checkpointSource.fingerprint }),
+        ...(source.prefix_anchor || !checkpointSource.prefix_anchor
+            ? {}
+            : { prefix_anchor: checkpointSource.prefix_anchor })
+    };
+    const resumed = {
+        ...request,
+        source_spec: sourceSpec,
+        persisted_anchor: request.persisted_anchor || checkpoint
+    };
+    if (!resumed.cursor
+        && resumed.mode === 'append'
+        && checkpoint.cursor
+        && checkpoint.cursor.cursor_kind === 'forward_append') {
+        resumed.cursor = checkpoint.cursor;
+    }
+    return resumed;
+}
+
 module.exports = {
     CodexRolloutCollector,
     AnalyzerProcessManager,
@@ -129,5 +187,6 @@ module.exports = {
     MemoryCheckpointStore,
     FileAnalysisRunStore,
     MemoryAnalysisRunStore,
-    requestScope
+    requestScope,
+    resumeFromCheckpoint
 };

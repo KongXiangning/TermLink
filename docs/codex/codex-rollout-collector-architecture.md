@@ -1203,7 +1203,9 @@ AnalyzerCheckpoint
 ├─ schema_version
 ├─ target_conversation_id
 ├─ source_id
+├─ source_epoch
 ├─ source_fingerprint
+├─ source_prefix_anchor
 ├─ reader_backend / reader_version
 ├─ codex_wire_profile
 ├─ cursor_kind
@@ -1281,7 +1283,7 @@ request_id
 消息类型的最小集合为：
 
 ```text
-hello              Node → Rust，能力和协议协商
+hello              Node → Rust，能力和协议协商；Rust 回同 request_id 的 analyzer hello
 analyze            Node → Rust，发起一次 preview/backfill/append/replay
 cancel             Node → Rust，取消当前 request_id
 batch              Rust → Node，返回一个 AnalysisBatch
@@ -1294,8 +1296,9 @@ error              Rust → Node，本次 request 失败
 表示数据库、历史投影或记忆已经持久化。Node 必须先成功写入 batch 中的派生数据，再保存
 该 batch 返回的 checkpoint/coverage，不能先保存 checkpoint 再写数据。
 
-Rust 不需要持久化未 ACK 的 batch，也不需要在重启后按 `batch_id` 重发。Rust 可以在进程
-内有界缓存以下信息用于快速处理和诊断：
+Rust 不需要持久化未 ACK 的 batch，也不需要在重启后按 `batch_id` 重发。正式 checkpoint
+必须同时保存 source fingerprint/prefix anchor、projection watermark 和版本化 reducer state。
+Rust 进程内仍可以有界缓存以下信息用于快速处理和诊断：
 
 ```text
 request_id
@@ -1344,6 +1347,11 @@ complete_range
 `replace_previous` 是 `AnalysisBatch` 的批次级控制字段，不是普通 mutation。它只允许在检测到
 新 source epoch 后的第一批出现；服务端收到后，删除当前 conversation 的旧派生投影，并在
 同一原子操作中写入该批次的新数据。后续批次必须为 `false`，不得重复替换。
+
+阶段 4 隔离 Node store 对 replacement 按 conversation 处理：同一 conversation 的旧 source
+epoch analysis state 和 checkpoint 一并清除，只保留新 epoch scope；同 epoch 再次发送
+`replace_previous=true` 会 fail-closed。Rust 初始 `replay` 不自动设置该字段，只有调用方显式
+声明 source replacement 才允许触发替换。
 
 每个 `upsert_item`、`upsert_detail`、`upsert_usage` 和 `upsert_outcome` 都必须携带稳定
 `item_key`/所属 key、`content_hash`、`completeness`、`source_epoch`、`revision` 和
@@ -1505,7 +1513,10 @@ future-compatible
 - 阶段 3 的 strict conformance 已由测试实际启动 Demo reducer 和 Spike parser，在临时目录生成本次运行的 report/projection/output；静态 `demo-oracle-stage3.json` 仅保留为辅助回归 fixture；
 - 分段测试使用同一有状态 `CodexEventAdapter`，验证 tail/backfill 的稳定 `item_key`、Plan question/answer 跨段关联、overlap 去重和 segmented/full replay projection 一致；
 - `AnalysisReducer` 与 Node importer 均实现 partial/provisional → canonical promotion，并拒绝 late incomplete overlap 降级已提交 canonical projection；
-- 当前证据：Rust full suite 66 unit + 28 conformance + 3 stage2 integration + 5 stage3 conformance + 2 stage4 protocol tests 通过；Node collector 定向 suite 6/6 通过；未修改 IPC、Android、既有服务端 DB、Demo 或 Spike 源码。
+- analyzer 运行态复用同一个 Adapter + Reducer，checkpoint 保存 source fingerprint/prefix anchor、projection watermark 和可恢复的 Plan/turn/reducer state；preview/backfill/append/replay 都从当前 snapshot 生成新 cursor，append cursor 会随完整新行推进，内容替换/截断/前缀变化 fail-closed；无 cursor 的 replay 也必须校验持久化 source anchor，不能绕过 checkpoint 的来源绑定；
+- 正式 Rust analyzer 的 `tool_details`、`usage`、`task_outcomes` 和 `mutations` 已由 Node 集成测试实际导入并持久化；Node 对 canonical batch 执行完整 schema/provenance/mutation 校验，缺字段或不一致时 fail-closed；source epoch replacement 会清除同 conversation 的旧 epoch state/checkpoint，同 epoch 的新 replacement 只允许首次提交而同一 batch id 的重放保持幂等；hello 已统一为 Node → Rust 请求、Rust analyzer hello 响应；
+- `resource_limits.timeout_ms` 贯穿 Rust source read、Adapter/Reducer、metadata/cursor 构造和 ACK 等待预算；analyzer 在 batch 前后异常退出时，Node 最多按受限重试预算重启并重放同一请求，依靠 batch id/importer 幂等避免重复落库；
+- 当前证据：Rust full suite 66 unit + 28 conformance + 3 stage2 integration + 5 stage3 conformance + 7 stage4 protocol tests 通过；Node collector 定向 suite 13/13 通过；未修改 IPC、Android、既有服务端 DB、Demo 或 Spike 源码。
 
 ### 阶段 5：服务端集成验收
 

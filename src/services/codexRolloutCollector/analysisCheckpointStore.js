@@ -121,6 +121,29 @@ class FileCheckpointStore {
             throw error;
         }
     }
+
+    async replaceConversation(conversationId, scope) {
+        const normalized = normalizeScope(scope);
+        if (!normalized) throw new Error('checkpoint scope is incomplete');
+        const keepHash = scopeHash(normalized);
+        await fs.promises.mkdir(this.rootDir, { recursive: true });
+        for (const name of await fs.promises.readdir(this.rootDir)) {
+            if (!name.endsWith('.json')) continue;
+            const filePath = path.join(this.rootDir, name);
+            let value;
+            try {
+                value = JSON.parse((await fs.promises.readFile(filePath)).toString('utf8'));
+            } catch (_) {
+                continue;
+            }
+            const candidate = normalizeScope(value);
+            if (candidate
+                && candidate.conversationId === String(conversationId || '').trim()
+                && scopeHash(candidate) !== keepHash) {
+                await fs.promises.unlink(filePath);
+            }
+        }
+    }
 }
 
 class MemoryCheckpointStore {
@@ -150,6 +173,21 @@ class MemoryCheckpointStore {
     async remove(scope) {
         const normalized = normalizeScope(scope);
         return normalized ? this.values.delete(scopeHash(normalized)) : false;
+    }
+
+    async replaceConversation(conversationId, scope) {
+        const normalized = normalizeScope(scope);
+        if (!normalized) throw new Error('checkpoint scope is incomplete');
+        const keepHash = scopeHash(normalized);
+        const conversation = String(conversationId || '').trim();
+        for (const [key, value] of this.values) {
+            const candidate = normalizeScope(value);
+            if (candidate
+                && candidate.conversationId === conversation
+                && key !== keepHash) {
+                this.values.delete(key);
+            }
+        }
     }
 }
 

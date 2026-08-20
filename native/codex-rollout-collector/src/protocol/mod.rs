@@ -13,8 +13,8 @@ pub use checkpoint::{
 };
 pub use stage4::{
     ANALYZER_PROTOCOL_VERSION, ANALYZER_VERSION, AckMessage, AnalyzeMode, AnalyzeRequest,
-    AnalyzerProtocolError, BatchMessage, BatchMutation, BatchProgress, CancelMessage,
-    CompleteMessage, ErrorMessage, HelloMessage, MessageType, ProtocolHeader, ProtocolMessage,
-    ResourceLimits, SourceSpecRequest, TaskOutcome, ToolDetail, analyze_request,
-    checkpoint_for_batch,
+    AnalyzerProtocolError, AnalyzerRuntimeState, BatchMessage, BatchMutation, BatchProgress,
+    CancelMessage, CompleteMessage, ErrorMessage, HelloMessage, MessageType, ProtocolHeader,
+    ProtocolMessage, ResourceLimits, SourceSpecRequest, TaskOutcome, ToolDetail, analyze_request,
+    analyze_request_with_state, checkpoint_for_batch,
 };

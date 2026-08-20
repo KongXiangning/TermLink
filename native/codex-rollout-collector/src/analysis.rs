@@ -152,7 +152,7 @@ pub struct AnalysisDiagnostic {
     pub source_ref: SourceRef,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalysisReducer {
     projection: AnalysisProjection,
     active_turn_id: Option<String>,
@@ -195,6 +195,13 @@ impl AnalysisReducer {
         let mut reducer = Self::new(conversation_id);
         reducer.apply_batch(batch);
         reducer.finish()
+    }
+
+    /// Return a non-consuming projection snapshot for a long-lived analyzer
+    /// runtime.  The existing consuming `finish` API remains available for
+    /// stage 1–3 callers.
+    pub fn snapshot(&self) -> AnalysisProjection {
+        self.clone().finish()
     }
 
     pub fn apply_batch(&mut self, batch: &AnalysisBatch) {

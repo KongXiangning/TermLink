@@ -155,6 +155,15 @@ Rust vendor Codex 仍只能使用仓库内相对路径；Demo 和 Spike 只作�
 - R-003：已解决（Rust `AnalysisReducer` 与 Node importer 均拒绝 late incomplete overlap 降级 canonical，partial/provisional→canonical 测试通过）。
 - R-004：已解决（Rust ACK 后 complete、Node derived-before-checkpoint、timeout/cancel、file-store restart/replay、batch/item 幂等测试通过）。
 - R-005：已解决（Node additive unknown-field protocol test、Rust malformed protocol、legacy/current/unknown/ParseGap conformance 全部通过）。
+- R-006：已解决（preview/backfill/append/replay 都基于当前 snapshot 生成 cursor；append cursor 在完整新行后推进；checkpoint 现在保存 source epoch、fingerprint、prefix anchor、projection watermark 和 reducer state；同长度替换、截断、前缀变化均有 fail-closed 测试）。
+- R-007：已解决（正式 Rust analyzer 已从 AnalysisEvent 派生 `tool_details`、`usage`、`task_outcomes`、`mutations`；Node 测试直接启动正式 Rust binary 并断言四类数据已保存，且 checkpoint 带恢复 state）。
+- R-008：已解决（`replace_previous` 改为 AnalyzeRequest 显式字段，普通 replay 默认 false；Memory/File analysis store 和 Memory/File checkpoint store 按 conversation 清理旧 source epoch；同 epoch 的新 replacement fail-closed，但同一 `batch_id` 的重放保持幂等 duplicate，并有 Node 测试）。
+- R-009：已解决（Rust 不再启动主动发送 startup hello；Node 先发 `hello(role=node)`，Rust 回同 request_id 的 `hello(role=analyzer)`，未握手不接受 analyze；Rust/Node/fake/formal 路径均有回归）。
+- R-010：已解决（MemoryAnalysisStore 先按 `batch_id` 去重，再拒绝同 epoch 的新 `replace_previous`；第一次 replacement 后第二个不同 batch 不再被接受，异常重放仍可幂等完成）。
+- R-011：已解决（Node 在 importer 前强制校验 canonical batch 的 parser provenance、completeness、mutations、`next_cursor`、usage、source anchors、reducer state、digest anchor 形状和 complete range；缺字段或仅凭 `complete=true` 的 malformed batch fail-closed）。
+- R-012：已解决（`resource_limits.timeout_ms` 贯穿 Rust source read、Adapter/Reducer、metadata/cursor 构造和 ACK 等待预算，超时返回 `resource_timeout`；不再只依赖外部 Node timeout）。
+- R-013：已解决（replay 不携带 cursor 时仍依据 persisted checkpoint 的 source epoch/fingerprint/prefix anchor 校验当前 source；同长度替换也 fail-closed）。
+- R-014：已解决（analyzer 在 batch 前或 batch 后退出时，Node 按一次有限重试预算重启并重发同一请求；batch/importer idempotence 防止已落地 batch 重复写入，并有 file-store 回归）。
 
 ### 剩余风险与明确延期
 
@@ -176,9 +185,9 @@ Rust vendor Codex 仍只能使用仓库内相对路径；Demo 和 Spike 只作�
 4. [x] reducer/adapter lifecycle：实现 stateful segment helper、partial→canonical promotion 和 Rust 单测。
 5. [x] actual conformance：启动真实 Demo/Spike，补双路径、跨 segment、overlap、完整 replay 测试。
 6. [x] Node isolated runtime：实现 manager/tracker/importer/checkpoint/run store 和可重复的 Node 测试。
-7. [x] review-implementation/review-diff/verify-contracts：完成 path-scoped 实现/范围/契约复核，修复本任务内 canonical non-downgrade finding。
-8. [x] run-regression：完成 Rust/Node 定向与 native collector 全量回归，记录命令、结果和剩余风险。
-9. [x] sync architecture/workflow：按实际证据更新架构和 workflow live docs；不自动归档未获用户要求的任务。
+7. [x] review-implementation/review-diff/verify-contracts：修复 R-006～R-014 阶段 4 Major 验收缺口，并完成 path-scoped 契约复核。
+8. [x] run-regression：完成 Rust/Node 定向、正式 binary 集成和 native collector 全量回归。
+9. [x] sync architecture/workflow：按 R-006～R-014 的实际证据更新架构、`CONTRACTS.md`、`DECISIONS.md`、`STATUS.md`；不自动归档未获用户要求的任务。
 
 ## 回归检查项
 
@@ -189,6 +198,11 @@ Rust vendor Codex 仍只能使用仓库内相对路径；Demo 和 Spike 只作�
 - [x] partial tail → complete backfill 后 canonical/provisional 状态正确，反向 incomplete 不降级。
 - [x] Node 进程启动、ACK 顺序、超时、取消、异常重启/重放、导入幂等和 checkpoint 恢复通过。
 - [x] git diff 未触及 IPC、Android、产品 server/DB 和 Demo/Spike 源码禁区。
+- [x] cursor/checkpoint 恢复链路覆盖 preview/backfill/append 推进、fingerprint/prefix anchor、截断/替换拒绝和跨请求 reducer state 恢复。
+- [x] 正式 Rust analyzer → Node importer 集成测试保存 tool details、usage、task outcomes 和 mutations。
+- [x] source epoch replacement 清理同 conversation 的旧 epoch scope，并由测试证明旧数据不可见。
+- [x] Node → Rust hello 握手方向与架构文档一致，且 fake/formal analyzer 测试均覆盖。
+- [x] malformed canonical batch、协议级 `resource_limits.timeout_ms`、无 cursor replay 的 persisted checkpoint 校验，以及 analyzer batch 前后异常退出重启重放均有回归证据。
 
 ## 发布后验证
 
@@ -218,3 +232,13 @@ Rust vendor Codex 仍只能使用仓库内相对路径；Demo 和 Spike 只作�
 | 2026-08-20 | verify-contracts | 核对阶段 2/3 source/identity/fail-closed、阶段 4 ACK/checkpoint 与 IPC/Android 冻结区 | 通过；未触及 forbidden IPC/Android/product DB/Demo/Spike/vendor 路径 |
 | 2026-08-20 | run-regression | 运行 Rust full `cargo test --locked`（offline + 显式 MinGW linker workaround）、stage4 定向和 Node 定向测试 | 全部通过；plain cargo 的既有 `nanosleep64` linker 环境差异已记录，不阻塞本任务结果 |
 | 2026-08-20 | sync architecture/workflow | 更新架构阶段 4、`CONTRACTS.md`、`DECISIONS.md` AD-008、`STATUS.md` | 隔离 runtime/conformance 稳定边界已记录；产品 server/DB、IPC、Android、release 仍延期；任务进入 completed-ready-for-closeout |
+| 2026-08-20 | user-review | 用户指出 R-006～R-009 四项阶段 4 Major 缺口，否定当前 closeout 状态 | 任务恢复为 in-progress；按当前隔离 scope 补齐恢复链路、正式 analyzer 派生输出、source epoch replacement 与 Node → Rust hello |
+| 2026-08-20 | implement-current-step | 修复 R-006～R-009：runtime stateful Adapter/Reducer、推进式 cursor、source metadata/reducer checkpoint、正式派生字段/mutations、conversation-scoped epoch replacement、Node→Rust hello | 代码与测试完成；普通 replay 不再自动 replace，checkpoint failure 不再伪造成功 complete |
+| 2026-08-20 | run-regression | 运行 native collector full suite、stage4 recovery tests、Node collector suite | Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、5 stage4 protocol、Node 9/9 全部通过；显式 MinGW linker workaround 仅用于当前 Windows 环境，未宣称跨机器 toolchain/release |
+| 2026-08-20 | review-implementation | 复核 ACK 失败路径并改为 runtime clone-on-write：只有成功 ACK 后才提交 Adapter/Reducer 状态，超时、拒绝或发送失败丢弃候选状态 | 重新运行 Rust full suite、stage4 protocol、Node 9/9；全部通过，避免未确认 batch 污染后续跨请求恢复 |
+| 2026-08-20 | review-implementation | 补强恢复请求的 source epoch 解析：未显式重复提供 epoch 时从 cursor 或 persisted checkpoint 回填，避免跨请求状态被误重置 | 重新 build formal binary；Rust full suite、stage4 protocol、Node 9/9、fmt/check/diff-check 全部通过 |
+| 2026-08-20 | sync architecture/workflow | 同步架构 checkpoint/hello/replacement/derived-field 语义，追加 `AD-009`，更新 contracts/status | 四项 Major 有代码和测试证据；产品 server/DB、IPC、Android、release/deploy/canary/benchmark 仍延期 |
+| 2026-08-20 | user-review | 用户指出同 epoch replacement 可重复接受、Node malformed canonical fail-open、协议级 timeout 未生效、无 cursor replay 绕过 checkpoint source 校验，以及 analyzer 异常退出无自动恢复 | 5 项复审问题均确认存在；任务在原隔离 scope 内补开修复，不扩大到 IPC、Android、产品 server/DB、Demo/Spike/vendor |
+| 2026-08-20 | implement-current-step | 修复 R-010～R-014：replacement batch-id 去重门禁、canonical schema/provenance/mutation fail-closed、Rust timeout budget、无 cursor persisted source 校验、异常重启有限重放 | 新增 Node 13/13 与 Rust stage4 7/7 覆盖；正式 Rust binary、file store 和协议恢复路径全部参与验证 |
+| 2026-08-20 | run-regression | 重新构建正式 Rust binary 并运行 Node/Rust 回归、fmt/check/diff-check | Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、7 stage4 protocol、Node 13/13 全部通过 |
+| 2026-08-20 | sync architecture/workflow | 同步阶段 4 架构、`CONTRACTS.md`、`DECISIONS.md` AD-010、`STATUS.md` 与本任务 R-010～R-014 | 5 项复审问题关闭；任务保持 active，仅待 path-scoped 交付摘要/closeout，不自动归档或处理任务外 dirty/untracked |

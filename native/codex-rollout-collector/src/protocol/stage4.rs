@@ -4,19 +4,24 @@
 //! the existing `AnalysisBatch` contract intact while adding the process
 //! envelope required by the Rust analyzer/Node importer boundary.
 
+use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
 use crate::analysis::{AnalysisProjection, AnalysisReducer, AnalysisUsage};
+use crate::codex_adapter::CodexEventAdapter;
 use crate::codex_wire::CompatibilityProfile;
-use crate::model::{AnalysisEvent, SourceRef};
-use crate::protocol::batch::{AnalysisBatch, BatchDiagnostic, analyze_source_with_cancel};
+use crate::model::{AnalysisEvent, SourceRef, TurnStatus};
+use crate::protocol::batch::{AnalysisBatch, BatchDiagnostic};
 use crate::protocol::checkpoint::AnalyzerCheckpoint;
 use crate::source::{
-    BackfillCursor, ForwardAppendCursor, JsonlSourceBackend, PlannedReadReport, SnapshotBoundary,
-    SourceByteRange, SourceReadMode, SourceReadPlan, SourceSpec, TailPreviewCursor,
+    BackfillCursor, CompleteLineAnchor, ForwardAppendCursor, JsonlSourceBackend, PlannedReadReport,
+    SnapshotBoundary, SourceByteRange, SourceCompression, SourceFingerprint, SourceFixtureHash,
+    SourcePrefixAnchor, SourceReadMode, SourceReadPlan, SourceRecord, SourceSpec,
+    TailPreviewCursor,
 };
 use crate::version::{COMPATIBILITY_LAYER_VERSION, PARSER_BACKEND};
 
@@ -138,9 +143,15 @@ impl std::error::Error for AnalyzerProtocolError {}
 pub struct HelloMessage {
     #[serde(flatten)]
     pub header: ProtocolHeader,
+    #[serde(default)]
+    pub role: Option<String>,
+    #[serde(default)]
     pub analyzer_version: String,
+    #[serde(default)]
     pub capabilities: Vec<String>,
+    #[serde(default)]
     pub parser_backend: String,
+    #[serde(default)]
     pub compatibility_layer_version: String,
 }
 
@@ -148,6 +159,7 @@ impl HelloMessage {
     pub fn new(request_id: impl Into<String>) -> Self {
         Self {
             header: ProtocolHeader::new(MessageType::Hello, request_id),
+            role: Some("analyzer".to_string()),
             analyzer_version: ANALYZER_VERSION.to_string(),
             capabilities: vec![
                 "replay".to_string(),
@@ -344,6 +356,8 @@ pub struct AnalyzeRequest {
     #[serde(default)]
     pub retention_profile: Option<String>,
     #[serde(default)]
+    pub replace_previous: bool,
+    #[serde(default)]
     pub resource_limits: ResourceLimits,
 }
 
@@ -363,6 +377,7 @@ impl AnalyzeRequest {
             persisted_anchor: None,
             known_complete_range: None,
             retention_profile: None,
+            replace_previous: false,
             resource_limits: ResourceLimits::default(),
         }
     }
@@ -488,6 +503,15 @@ pub struct BatchMessage {
     #[serde(default)]
     pub next_cursor: Option<Value>,
     pub mutations: Vec<BatchMutation>,
+    #[serde(default)]
+    pub source_fingerprint: Option<SourceFingerprint>,
+    #[serde(default)]
+    pub source_prefix_anchor: Option<SourcePrefixAnchor>,
+    /// Versioned opaque state owned by the formal analyzer runtime.  It is
+    /// deliberately JSON so Node can persist/replay it without importing
+    /// Rust or Codex types.
+    #[serde(default)]
+    pub reducer_state: Option<Value>,
 }
 
 impl BatchMessage {
@@ -502,12 +526,28 @@ impl BatchMessage {
         projection: AnalysisProjection,
         progress: BatchProgress,
     ) -> Self {
+        let batch_id = batch_id.into();
+        let source_id = source_id.into();
+        let source_epoch = source_epoch.into();
+        let tool_details = derive_tool_details(&batch.items, &source_epoch, completeness);
+        let usage = projection.usage_total.clone();
+        let task_outcomes = derive_task_outcomes(&batch.items, &source_epoch, completeness);
+        let mutations = derive_mutations(
+            &batch.items,
+            &tool_details,
+            usage.as_ref(),
+            &task_outcomes,
+            source_range,
+            batch.complete,
+            &source_epoch,
+            completeness,
+        );
         Self {
             header: ProtocolHeader::new(MessageType::Batch, request.header.request_id.clone()),
-            batch_id: batch_id.into(),
+            batch_id,
             conversation_id: request.conversation_id.clone(),
-            source_id: source_id.into(),
-            source_epoch: source_epoch.into(),
+            source_id,
+            source_epoch,
             replace_previous: false,
             source_range,
             history_items: batch.items,
@@ -516,12 +556,15 @@ impl BatchMessage {
             complete: batch.complete,
             completeness,
             projection,
-            tool_details: Vec::new(),
-            usage: None,
-            task_outcomes: Vec::new(),
+            tool_details,
+            usage,
+            task_outcomes,
             progress,
             next_cursor: None,
-            mutations: Vec::new(),
+            mutations,
+            source_fingerprint: None,
+            source_prefix_anchor: None,
+            reducer_state: None,
         }
     }
 
@@ -534,6 +577,234 @@ impl BatchMessage {
             completeness: self.completeness,
         }
     }
+}
+
+fn derive_tool_details(
+    events: &[AnalysisEvent],
+    source_epoch: &str,
+    completeness: BatchCompleteness,
+) -> Vec<ToolDetail> {
+    let mut details = BTreeMap::<String, ToolDetail>::new();
+    for event in events {
+        match event {
+            AnalysisEvent::ToolStarted {
+                metadata,
+                tool_kind,
+                call_id,
+                input,
+                ..
+            } => {
+                let detail = details
+                    .entry(call_id.clone())
+                    .or_insert_with(|| ToolDetail {
+                        item_key: metadata.item_key.clone(),
+                        call_id: call_id.clone(),
+                        tool_kind: tool_kind.clone(),
+                        input: None,
+                        output: None,
+                        completeness,
+                        source_epoch: source_epoch.to_string(),
+                        revision: metadata.sequence,
+                    });
+                detail.item_key = metadata.item_key.clone();
+                detail.tool_kind = tool_kind.clone();
+                detail.input = input.clone();
+                detail.revision = detail.revision.max(metadata.sequence);
+            }
+            AnalysisEvent::ToolCompleted {
+                metadata,
+                tool_kind,
+                call_id,
+                output,
+            } => {
+                let detail = details
+                    .entry(call_id.clone())
+                    .or_insert_with(|| ToolDetail {
+                        item_key: metadata.item_key.clone(),
+                        call_id: call_id.clone(),
+                        tool_kind: tool_kind.clone(),
+                        input: None,
+                        output: None,
+                        completeness,
+                        source_epoch: source_epoch.to_string(),
+                        revision: metadata.sequence,
+                    });
+                detail.item_key = metadata.item_key.clone();
+                detail.tool_kind = tool_kind.clone();
+                detail.output = output.clone();
+                detail.revision = detail.revision.max(metadata.sequence);
+            }
+            _ => {}
+        }
+    }
+    details.into_values().collect()
+}
+
+fn derive_task_outcomes(
+    events: &[AnalysisEvent],
+    source_epoch: &str,
+    completeness: BatchCompleteness,
+) -> Vec<TaskOutcome> {
+    events
+        .iter()
+        .filter_map(|event| {
+            let AnalysisEvent::TurnCompleted {
+                metadata,
+                status,
+                message,
+                ..
+            } = event
+            else {
+                return None;
+            };
+            let status = match status {
+                TurnStatus::Completed => "completed",
+                TurnStatus::Interrupted => "interrupted",
+                TurnStatus::Partial => "partial",
+            };
+            Some(TaskOutcome {
+                item_key: metadata.item_key.clone(),
+                status: status.to_string(),
+                message: message.clone(),
+                completeness,
+                source_epoch: source_epoch.to_string(),
+                revision: metadata.sequence,
+            })
+        })
+        .collect()
+}
+
+fn source_ref_for_call(events: &[AnalysisEvent], call_id: &str) -> Option<SourceRef> {
+    events.iter().find_map(|event| match event {
+        AnalysisEvent::ToolStarted {
+            metadata,
+            call_id: event_call_id,
+            ..
+        }
+        | AnalysisEvent::ToolCompleted {
+            metadata,
+            call_id: event_call_id,
+            ..
+        } if event_call_id == call_id => Some(metadata.source_ref.clone()),
+        _ => None,
+    })
+}
+
+fn source_ref_for_item(events: &[AnalysisEvent], item_key: &str) -> Option<SourceRef> {
+    events
+        .iter()
+        .find(|event| event.metadata().item_key == item_key)
+        .map(|event| event.metadata().source_ref.clone())
+}
+
+fn source_ref_for_usage(events: &[AnalysisEvent]) -> Option<SourceRef> {
+    events.iter().find_map(|event| match event {
+        AnalysisEvent::UsageUpdated { metadata, .. } => Some(metadata.source_ref.clone()),
+        _ => None,
+    })
+}
+
+fn source_ref_for_outcome(events: &[AnalysisEvent], item_key: &str) -> Option<SourceRef> {
+    source_ref_for_item(events, item_key)
+}
+
+fn content_hash<T: Serialize>(value: &T) -> String {
+    let encoded = serde_json::to_vec(value).unwrap_or_default();
+    SourceFixtureHash::from_bytes(&encoded).digest().to_string()
+}
+
+fn batch_source_ref(
+    item_key: String,
+    value: &impl Serialize,
+    source_ref: SourceRef,
+    source_epoch: &str,
+    completeness: BatchCompleteness,
+    revision: u64,
+) -> BatchSourceRef {
+    BatchSourceRef {
+        item_key,
+        content_hash: content_hash(value),
+        completeness,
+        source_epoch: source_epoch.to_string(),
+        revision,
+        source_ref,
+    }
+}
+
+fn derive_mutations(
+    events: &[AnalysisEvent],
+    tool_details: &[ToolDetail],
+    usage: Option<&AnalysisUsage>,
+    task_outcomes: &[TaskOutcome],
+    source_range: Option<SourceByteRange>,
+    complete: bool,
+    source_epoch: &str,
+    completeness: BatchCompleteness,
+) -> Vec<BatchMutation> {
+    let mut mutations = Vec::new();
+    for event in events {
+        mutations.push(BatchMutation::UpsertItem {
+            item: batch_source_ref(
+                event.metadata().item_key.clone(),
+                event,
+                event.metadata().source_ref.clone(),
+                source_epoch,
+                completeness,
+                event.metadata().sequence,
+            ),
+        });
+    }
+    for detail in tool_details {
+        if let Some(source_ref) = source_ref_for_call(events, &detail.call_id) {
+            mutations.push(BatchMutation::UpsertDetail {
+                item: batch_source_ref(
+                    detail.item_key.clone(),
+                    detail,
+                    source_ref,
+                    source_epoch,
+                    completeness,
+                    detail.revision,
+                ),
+            });
+        }
+    }
+    if let Some(usage) = usage
+        && let Some(source_ref) = source_ref_for_usage(events)
+    {
+        mutations.push(BatchMutation::UpsertUsage {
+            item: batch_source_ref(
+                format!("usage:{source_epoch}"),
+                usage,
+                source_ref,
+                source_epoch,
+                completeness,
+                0,
+            ),
+        });
+    }
+    for outcome in task_outcomes {
+        if let Some(source_ref) = source_ref_for_outcome(events, &outcome.item_key) {
+            mutations.push(BatchMutation::UpsertOutcome {
+                item: batch_source_ref(
+                    outcome.item_key.clone(),
+                    outcome,
+                    source_ref,
+                    source_epoch,
+                    completeness,
+                    outcome.revision,
+                ),
+            });
+        }
+    }
+    if completeness == BatchCompleteness::Canonical
+        && complete
+        && let Some(source_range) = source_range
+    {
+        mutations.push(BatchMutation::CompleteRange { source_range });
+    } else {
+        mutations.push(BatchMutation::MarkPartial { source_range });
+    }
+    mutations
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -695,12 +966,124 @@ impl<'de> Deserialize<'de> for ProtocolMessage {
     }
 }
 
-/// Run one request without allowing a caller to discover sources implicitly.
-/// The request path is explicit and all source reading stays inside the
-/// existing bounded `SourceBackend` contract.
+/// Long-lived formal analyzer state.  The adapter and reducer are kept
+/// together so a tail/backfill boundary cannot lose pending Plan answers,
+/// active turns, or deduplication state.
+#[derive(Clone)]
+pub struct AnalyzerRuntimeState {
+    profile: CompatibilityProfile,
+    conversation_id: Option<String>,
+    source_epoch: Option<String>,
+    adapter: CodexEventAdapter,
+    reducer: AnalysisReducer,
+}
+
+impl AnalyzerRuntimeState {
+    pub fn new(profile: CompatibilityProfile) -> Self {
+        Self {
+            profile,
+            conversation_id: None,
+            source_epoch: None,
+            adapter: CodexEventAdapter::new(profile),
+            reducer: AnalysisReducer::new(None),
+        }
+    }
+
+    fn reset(&mut self, conversation_id: &str, source_epoch: &str) {
+        self.conversation_id = Some(conversation_id.to_string());
+        self.source_epoch = Some(source_epoch.to_string());
+        self.adapter = CodexEventAdapter::new_with_conversation_id(
+            self.profile,
+            Some(conversation_id.to_string()),
+        );
+        self.reducer = AnalysisReducer::new(Some(conversation_id.to_string()));
+    }
+
+    fn prepare_request(&mut self, request: &AnalyzeRequest) -> anyhow::Result<()> {
+        let source_epoch = request
+            .source_spec
+            .source_epoch
+            .as_deref()
+            .or_else(|| {
+                request
+                    .cursor
+                    .as_ref()
+                    .and_then(|cursor| cursor.get("source_epoch"))
+                    .and_then(Value::as_str)
+            })
+            .or_else(|| {
+                request
+                    .persisted_anchor
+                    .as_ref()
+                    .and_then(|anchor| anchor.get("source"))
+                    .and_then(|source| source.get("source_epoch"))
+                    .and_then(Value::as_str)
+            })
+            .unwrap_or("unbound");
+        let identity_changed = self.conversation_id.as_deref() != Some(&request.conversation_id)
+            || self.source_epoch.as_deref() != Some(source_epoch);
+        if request.replace_previous && self.conversation_id.is_some() && !identity_changed {
+            anyhow::bail!("replace_previous requires a new source epoch for the conversation");
+        }
+        if request.replace_previous || identity_changed {
+            self.reset(&request.conversation_id, source_epoch);
+        }
+
+        if !request.replace_previous
+            && let Some(anchor) = request.persisted_anchor.as_ref()
+            && let Some(state) = anchor.get("reducer_state").or(Some(anchor))
+            && state.get("adapter").is_some()
+        {
+            self.restore_checkpoint_state(state)?;
+        }
+        Ok(())
+    }
+
+    fn restore_checkpoint_state(&mut self, state: &Value) -> anyhow::Result<()> {
+        if let Some(adapter_state) = state.get("adapter") {
+            self.adapter.restore_checkpoint_state(adapter_state)?;
+        }
+        if let Some(reducer_state) = state.get("reducer") {
+            self.reducer = serde_json::from_value(reducer_state.clone())
+                .map_err(|error| anyhow::anyhow!("invalid reducer checkpoint state: {error}"))?;
+        }
+        Ok(())
+    }
+
+    fn checkpoint_state(&self) -> Value {
+        serde_json::json!({
+            "schema_version": 1,
+            "adapter": self.adapter.checkpoint_state(),
+            "reducer": self.reducer,
+        })
+    }
+
+    fn apply(&mut self, batch: &AnalysisBatch) {
+        self.reducer.apply_batch(batch);
+    }
+
+    fn projection(&self) -> AnalysisProjection {
+        self.reducer.snapshot()
+    }
+}
+
+/// Run one request with an isolated, request-local runtime.  This keeps the
+/// original public helper backward-compatible for stage 1–3 callers.
 pub fn analyze_request(
     request: &AnalyzeRequest,
     cancelled: &AtomicBool,
+) -> anyhow::Result<BatchMessage> {
+    let mut runtime = AnalyzerRuntimeState::new(CompatibilityProfile::Current);
+    analyze_request_with_state(request, cancelled, &mut runtime)
+}
+
+/// Run one request against a caller-owned runtime.  The process entry point
+/// uses this path for cross-request Plan/tool/turn continuity and checkpoint
+/// restoration.
+pub fn analyze_request_with_state(
+    request: &AnalyzeRequest,
+    cancelled: &AtomicBool,
+    runtime: &mut AnalyzerRuntimeState,
 ) -> anyhow::Result<BatchMessage> {
     request
         .header
@@ -712,133 +1095,198 @@ pub fn analyze_request(
     if cancelled.load(Ordering::Acquire) {
         anyhow::bail!("cancelled before source read");
     }
+    let deadline = Instant::now()
+        .checked_add(Duration::from_millis(request.resource_limits.timeout_ms))
+        .ok_or_else(|| anyhow::anyhow!("resource timeout deadline overflowed"))?;
+    check_deadline(cancelled, deadline)?;
 
     let mut source_request = request.source_spec.clone();
     source_request.max_decoded_bytes = Some(request.resource_limits.max_decoded_bytes);
     source_request.max_line_bytes = Some(request.resource_limits.max_line_bytes);
     source_request.max_segment_bytes = Some(request.resource_limits.max_segment_bytes);
-    let spec = source_request
+    let mut spec = source_request
         .into_source_spec(&request.conversation_id)
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    if let Some(cursor) = request.cursor.as_ref() {
+        spec = enrich_spec_from_cursor(spec, cursor)?;
+    }
+    if let Some(anchor) = request.persisted_anchor.as_ref() {
+        spec = enrich_spec_from_persisted_anchor(spec, anchor)?;
+    }
+    if spec.source_epoch().is_none() {
+        spec = spec
+            .with_source_epoch(
+                request
+                    .source_spec
+                    .source_epoch
+                    .as_deref()
+                    .unwrap_or("unbound"),
+            )
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    }
     if spec.max_decoded_bytes() != request.resource_limits.max_decoded_bytes
         || spec.max_line_bytes() != request.resource_limits.max_line_bytes
         || spec.max_segment_bytes() != request.resource_limits.max_segment_bytes
     {
         anyhow::bail!("source limits do not match resource_limits");
     }
+    if let Some(cursor) = request.cursor.as_ref() {
+        let current_length = std::fs::metadata(spec.path())?.len();
+        validate_cursor_payload(
+            cursor,
+            &spec,
+            request.mode,
+            SnapshotBoundary::new(current_length),
+        )?;
+        // Cursor metadata describes the previous committed snapshot.  Once
+        // it has passed prefix/fingerprint validation, the read plan must be
+        // bound to the newly observed (possibly grown) snapshot.
+        spec = spec.with_snapshot_boundary(SnapshotBoundary::new(current_length));
+    } else if request
+        .persisted_anchor
+        .as_ref()
+        .is_some_and(|anchor| anchor.get("source").is_some())
+        || spec.fingerprint().is_some()
+        || spec.prefix_anchor().is_some()
+    {
+        validate_persisted_source_metadata(&spec)?;
+    }
 
-    let profile = CompatibilityProfile::Current;
+    runtime.prepare_request(request)?;
+    check_deadline(cancelled, deadline)?;
+    let profile = runtime.profile;
     let backend = JsonlSourceBackend;
-    let (batch, source_range, progress) = match request.mode {
-        AnalyzeMode::Replay => {
-            let batch = analyze_source_with_cancel(&backend, &spec, profile, cancelled)?;
-            let source_bytes = std::fs::metadata(spec.path())?.len();
-            (
-                batch,
-                SourceByteRange::new(0, source_bytes).ok(),
-                BatchProgress {
-                    records_seen: 0,
-                    records_emitted: 0,
-                    bytes_scanned: source_bytes,
-                    has_more: false,
-                },
-            )
-        }
-        AnalyzeMode::Preview => {
-            let plan = if let Some(cursor) = request.cursor.as_ref() {
-                let range = cursor_range(cursor, SourceCursorMode::TailPreview)?;
-                backend.plan_range(&spec, SourceReadMode::BackwardRange, range)?
-            } else {
-                backend.plan_tail(&spec, request.resource_limits.tail_bytes)?
-            };
-            let (batch, report) = analyze_planned_request(
-                &backend,
-                &plan,
-                &request.conversation_id,
-                profile,
-                cancelled,
-                BatchCompleteness::Provisional,
-            )?;
-            let source_range = report.complete_range().or(Some(report.scanned_range()));
-            let progress = progress_from_report(&report, batch.items.len());
-            (batch, source_range, progress)
-        }
-        AnalyzeMode::Backfill => {
-            let range = request
-                .known_complete_range
-                .or_else(|| request.cursor.as_ref().and_then(cursor_range_for_backfill))
-                .unwrap_or_else(|| {
-                    let source_bytes = std::fs::metadata(spec.path())
-                        .map(|metadata| metadata.len())
-                        .unwrap_or_default();
-                    SourceByteRange::new(0, source_bytes).expect("file range is ordered")
-                });
-            let plan = backend.plan_range(&spec, SourceReadMode::BackwardRange, range)?;
-            let completeness =
-                if range.start() == 0 && range.end() == plan.snapshot_boundary().byte_length() {
-                    BatchCompleteness::Canonical
-                } else {
-                    BatchCompleteness::Provisional
-                };
-            let (batch, report) = analyze_planned_request(
-                &backend,
-                &plan,
-                &request.conversation_id,
-                profile,
-                cancelled,
-                completeness,
-            )?;
-            let source_range = report.complete_range().or(Some(report.scanned_range()));
-            let progress = progress_from_report(&report, batch.items.len());
-            (batch, source_range, progress)
-        }
-        AnalyzeMode::Append => {
-            if let Some(cursor) = request.cursor.as_ref() {
-                let append_cursor =
-                    serde_json::from_value::<ForwardAppendCursor>(cursor.clone())
-                        .map_err(|error| AnalyzerProtocolError::InvalidCursor(error.to_string()))?;
-                let current_length = std::fs::metadata(spec.path())?.len();
-                append_cursor
-                    .validate_against(&spec, SnapshotBoundary::new(current_length))
-                    .map_err(|error| AnalyzerProtocolError::InvalidCursor(error.to_string()))?;
-                let range = SourceByteRange::new(
-                    append_cursor.metadata().snapshot_boundary().byte_length(),
-                    current_length,
-                )
-                .map_err(|error| AnalyzerProtocolError::InvalidCursor(error.to_string()))?;
-                let plan = backend.plan_range(&spec, SourceReadMode::ForwardRange, range)?;
-                let (batch, report) = analyze_planned_request(
+    let (batch, source_range, progress, report, records, append_last_line, append_last_ordinal) =
+        match request.mode {
+            AnalyzeMode::Replay => {
+                let plan = backend.plan_full(&spec)?;
+                let (batch, report, records) = analyze_planned_request(
                     &backend,
                     &plan,
-                    &request.conversation_id,
+                    &runtime.adapter,
                     profile,
                     cancelled,
+                    deadline,
                     BatchCompleteness::Canonical,
                 )?;
                 let source_range = report.complete_range().or(Some(report.scanned_range()));
                 let progress = progress_from_report(&report, batch.items.len());
-                (batch, source_range, progress)
-            } else {
-                let batch = analyze_source_with_cancel(&backend, &spec, profile, cancelled)?;
-                let source_bytes = std::fs::metadata(spec.path())?.len();
-                (
-                    batch,
-                    SourceByteRange::new(0, source_bytes).ok(),
-                    BatchProgress {
-                        records_seen: 0,
-                        records_emitted: 0,
-                        bytes_scanned: source_bytes,
-                        has_more: false,
-                    },
-                )
+                (batch, source_range, progress, report, records, None, None)
             }
-        }
-    };
-    if cancelled.load(Ordering::Acquire) {
-        anyhow::bail!("cancelled during source read");
-    }
-    let projection = AnalysisReducer::reduce_batch(&batch);
+            AnalyzeMode::Preview => {
+                let plan = if let Some(cursor) = request.cursor.as_ref() {
+                    let range = cursor_range(cursor, SourceCursorMode::TailPreview)?;
+                    backend.plan_range(&spec, SourceReadMode::BackwardRange, range)?
+                } else {
+                    backend.plan_tail(&spec, request.resource_limits.tail_bytes)?
+                };
+                let (batch, report, records) = analyze_planned_request(
+                    &backend,
+                    &plan,
+                    &runtime.adapter,
+                    profile,
+                    cancelled,
+                    deadline,
+                    BatchCompleteness::Provisional,
+                )?;
+                let source_range = report.complete_range().or(Some(report.scanned_range()));
+                let progress = progress_from_report(&report, batch.items.len());
+                (batch, source_range, progress, report, records, None, None)
+            }
+            AnalyzeMode::Backfill => {
+                let range = request
+                    .known_complete_range
+                    .or_else(|| request.cursor.as_ref().and_then(cursor_range_for_backfill))
+                    .unwrap_or_else(|| {
+                        let source_bytes = std::fs::metadata(spec.path())
+                            .map(|metadata| metadata.len())
+                            .unwrap_or_default();
+                        SourceByteRange::new(0, source_bytes).expect("file range is ordered")
+                    });
+                let plan = backend.plan_range(&spec, SourceReadMode::BackwardRange, range)?;
+                let completeness = if range.start() == 0
+                    && range.end() == plan.snapshot_boundary().byte_length()
+                {
+                    BatchCompleteness::Canonical
+                } else {
+                    BatchCompleteness::Provisional
+                };
+                let (batch, report, records) = analyze_planned_request(
+                    &backend,
+                    &plan,
+                    &runtime.adapter,
+                    profile,
+                    cancelled,
+                    deadline,
+                    completeness,
+                )?;
+                let source_range = report.complete_range().or(Some(report.scanned_range()));
+                let progress = progress_from_report(&report, batch.items.len());
+                (batch, source_range, progress, report, records, None, None)
+            }
+            AnalyzeMode::Append => {
+                if let Some(cursor) = request.cursor.as_ref() {
+                    let append_cursor = serde_json::from_value::<ForwardAppendCursor>(
+                        cursor.clone(),
+                    )
+                    .map_err(|error| AnalyzerProtocolError::InvalidCursor(error.to_string()))?;
+                    let current_length = std::fs::metadata(spec.path())?.len();
+                    let range = SourceByteRange::new(
+                        append_cursor.metadata().snapshot_boundary().byte_length(),
+                        current_length,
+                    )
+                    .map_err(|error| AnalyzerProtocolError::InvalidCursor(error.to_string()))?;
+                    let plan = backend.plan_range(&spec, SourceReadMode::ForwardRange, range)?;
+                    let (batch, report, records) = analyze_planned_request(
+                        &backend,
+                        &plan,
+                        &runtime.adapter,
+                        profile,
+                        cancelled,
+                        deadline,
+                        BatchCompleteness::Canonical,
+                    )?;
+                    let source_range = report.complete_range().or(Some(report.scanned_range()));
+                    let progress = progress_from_report(&report, batch.items.len());
+                    let last_line = serde_json::from_value::<ForwardAppendCursor>(cursor.clone())
+                        .ok()
+                        .and_then(|cursor| cursor.metadata().last_complete_line().cloned());
+                    let last_ordinal =
+                        serde_json::from_value::<ForwardAppendCursor>(cursor.clone())
+                            .ok()
+                            .and_then(|cursor| cursor.metadata().last_rollout_ordinal());
+                    (
+                        batch,
+                        source_range,
+                        progress,
+                        report,
+                        records,
+                        last_line,
+                        last_ordinal,
+                    )
+                } else {
+                    let plan = backend.plan_full(&spec)?;
+                    let (batch, report, records) = analyze_planned_request(
+                        &backend,
+                        &plan,
+                        &runtime.adapter,
+                        profile,
+                        cancelled,
+                        deadline,
+                        BatchCompleteness::Canonical,
+                    )?;
+                    let source_range = report.complete_range().or(Some(report.scanned_range()));
+                    let progress = progress_from_report(&report, batch.items.len());
+                    (batch, source_range, progress, report, records, None, None)
+                }
+            }
+        };
+    check_deadline(cancelled, deadline)?;
+    runtime.apply(&batch);
+    check_deadline(cancelled, deadline)?;
+    let projection = runtime.projection();
     let completeness = batch.completeness;
+    let batch_complete = batch.complete;
     let mut message = BatchMessage::from_analysis(
         request,
         format!("{}:batch-0", request.header.request_id),
@@ -850,17 +1298,35 @@ pub fn analyze_request(
         projection,
         progress,
     );
-    message.replace_previous = matches!(request.mode, AnalyzeMode::Replay);
-    if let Some(cursor) = request.cursor.clone() {
-        let current_length = std::fs::metadata(spec.path())?.len();
-        validate_cursor_payload(
-            &cursor,
+    message.replace_previous = request.replace_previous;
+    message.reducer_state = Some(runtime.checkpoint_state());
+    check_deadline(cancelled, deadline)?;
+    let prefix_end = source_range.map(|range| range.end()).unwrap_or(0);
+    let (fingerprint, prefix_anchor) =
+        observed_source_metadata(&spec, report.snapshot_boundary(), prefix_end)?;
+    message.source_fingerprint = Some(fingerprint.clone());
+    message.source_prefix_anchor = Some(prefix_anchor.clone());
+    if batch_complete
+        && completeness != BatchCompleteness::Partial
+        && !report.source_grew_during_read()
+        && !report.source_shrank_during_read()
+        && report.pending_tail_bytes() == 0
+        && !report.source().budget_exceeded
+    {
+        if let Some((cursor, cursor_fingerprint, cursor_prefix_anchor)) = build_next_cursor(
             &spec,
             request.mode,
-            SnapshotBoundary::new(current_length),
-        )?;
-        message.next_cursor = Some(cursor);
+            &report,
+            &records,
+            append_last_line,
+            append_last_ordinal,
+        )? {
+            message.next_cursor = Some(cursor);
+            message.source_fingerprint = Some(cursor_fingerprint);
+            message.source_prefix_anchor = Some(cursor_prefix_anchor);
+        }
     }
+    check_deadline(cancelled, deadline)?;
     Ok(message)
 }
 
@@ -909,32 +1375,289 @@ fn cursor_range(
     Ok(range)
 }
 
+fn enrich_spec_from_cursor(mut spec: SourceSpec, cursor: &Value) -> anyhow::Result<SourceSpec> {
+    let kind = cursor
+        .get("cursor_kind")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow::anyhow!("cursor_kind is required"))?;
+    let (source_epoch, fingerprint, prefix_anchor, snapshot_boundary) = match kind {
+        "tail_preview" => {
+            let cursor = serde_json::from_value::<TailPreviewCursor>(cursor.clone())?;
+            (
+                cursor.metadata().source_epoch().to_string(),
+                cursor.metadata().fingerprint().clone(),
+                cursor.metadata().prefix_anchor().clone(),
+                cursor.metadata().snapshot_boundary(),
+            )
+        }
+        "backfill" => {
+            let cursor = serde_json::from_value::<BackfillCursor>(cursor.clone())?;
+            (
+                cursor.metadata().source_epoch().to_string(),
+                cursor.metadata().fingerprint().clone(),
+                cursor.metadata().prefix_anchor().clone(),
+                cursor.metadata().snapshot_boundary(),
+            )
+        }
+        "forward_append" => {
+            let cursor = serde_json::from_value::<ForwardAppendCursor>(cursor.clone())?;
+            (
+                cursor.metadata().source_epoch().to_string(),
+                cursor.metadata().fingerprint().clone(),
+                cursor.metadata().prefix_anchor().clone(),
+                cursor.metadata().snapshot_boundary(),
+            )
+        }
+        other => return Err(anyhow::anyhow!("unknown cursor kind {other}")),
+    };
+    if spec.source_epoch().is_none() {
+        spec = spec
+            .with_source_epoch(source_epoch)
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    }
+    if spec.fingerprint().is_none() {
+        spec = spec.with_fingerprint(fingerprint);
+    }
+    if spec.prefix_anchor().is_none() {
+        spec = spec.with_prefix_anchor(prefix_anchor);
+    }
+    if spec.snapshot_boundary().is_none() {
+        spec = spec.with_snapshot_boundary(snapshot_boundary);
+    }
+    Ok(spec)
+}
+
+fn enrich_spec_from_persisted_anchor(
+    mut spec: SourceSpec,
+    anchor: &Value,
+) -> anyhow::Result<SourceSpec> {
+    let Some(source) = anchor.get("source") else {
+        return Ok(spec);
+    };
+    let source_object = source
+        .as_object()
+        .ok_or_else(|| anyhow::anyhow!("persisted checkpoint source must be an object"))?;
+    if let Some(source_id) = source_object.get("source_id").and_then(Value::as_str)
+        && spec.source_id() != source_id
+    {
+        anyhow::bail!(
+            "checkpoint source_id {} does not match request source_id {}",
+            source_id,
+            spec.source_id()
+        );
+    }
+    if let Some(source_epoch) = source_object.get("source_epoch").and_then(Value::as_str) {
+        if let Some(current) = spec.source_epoch()
+            && current != source_epoch
+        {
+            anyhow::bail!(
+                "checkpoint source_epoch {source_epoch} does not match request source_epoch {current}"
+            );
+        }
+        if spec.source_epoch().is_none() {
+            spec = spec
+                .with_source_epoch(source_epoch)
+                .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+        }
+    }
+    if let Some(value) = source_object.get("fingerprint") {
+        let fingerprint: SourceFingerprint = serde_json::from_value(value.clone())?;
+        if let Some(current) = spec.fingerprint()
+            && current != &fingerprint
+        {
+            anyhow::bail!("checkpoint source fingerprint does not match request metadata");
+        }
+        if spec.fingerprint().is_none() {
+            spec = spec.with_fingerprint(fingerprint);
+        }
+    }
+    if let Some(value) = source_object.get("prefix_anchor") {
+        let prefix_anchor: SourcePrefixAnchor = serde_json::from_value(value.clone())?;
+        if let Some(current) = spec.prefix_anchor()
+            && current != &prefix_anchor
+        {
+            anyhow::bail!("checkpoint source prefix anchor does not match request metadata");
+        }
+        if spec.prefix_anchor().is_none() {
+            spec = spec.with_prefix_anchor(prefix_anchor);
+        }
+    }
+    Ok(spec)
+}
+
+fn validate_persisted_source_metadata(spec: &SourceSpec) -> anyhow::Result<()> {
+    let fingerprint = spec.fingerprint();
+    let prefix_anchor = spec.prefix_anchor();
+    if fingerprint.is_none() && prefix_anchor.is_none() {
+        anyhow::bail!("persisted checkpoint is missing source fingerprint/prefix anchor");
+    }
+    let current_length = std::fs::metadata(spec.path())?.len();
+    let fingerprint_end = fingerprint.map_or(0, SourceFingerprint::covered_bytes);
+    let prefix_end = prefix_anchor.map_or(0, SourcePrefixAnchor::end_offset);
+    let required_length = fingerprint_end.max(prefix_end);
+    if current_length < required_length {
+        anyhow::bail!(
+            "source snapshot is shorter than persisted checkpoint: current={current_length}, required={required_length}"
+        );
+    }
+
+    if let Some(expected) = fingerprint {
+        let hash = SourceFixtureHash::from_file(spec.path(), 0, expected.covered_bytes())
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+        let observed =
+            SourceFingerprint::new(hash.algorithm(), hash.digest(), expected.covered_bytes())
+                .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+        if &observed != expected {
+            anyhow::bail!("source fingerprint changed at the persisted checkpoint boundary");
+        }
+    }
+    if let Some(expected) = prefix_anchor {
+        let hash = SourceFixtureHash::from_file(spec.path(), 0, expected.end_offset())
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+        let observed =
+            SourcePrefixAnchor::new(hash.algorithm(), hash.digest(), expected.end_offset())
+                .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+        if &observed != expected {
+            anyhow::bail!("source prefix anchor changed at the persisted checkpoint boundary");
+        }
+    }
+    Ok(())
+}
+
+fn observed_source_metadata(
+    spec: &SourceSpec,
+    snapshot: SnapshotBoundary,
+    prefix_end: u64,
+) -> anyhow::Result<(SourceFingerprint, SourcePrefixAnchor)> {
+    let snapshot_end = snapshot.byte_length();
+    let prefix_end = prefix_end.min(snapshot_end);
+    let fingerprint_hash = SourceFixtureHash::from_file(spec.path(), 0, snapshot_end)
+        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    let prefix_hash = SourceFixtureHash::from_file(spec.path(), 0, prefix_end)
+        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    let fingerprint = SourceFingerprint::new(
+        fingerprint_hash.algorithm(),
+        fingerprint_hash.digest(),
+        snapshot_end,
+    )
+    .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    let prefix_anchor =
+        SourcePrefixAnchor::new(prefix_hash.algorithm(), prefix_hash.digest(), prefix_end)
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    Ok((fingerprint, prefix_anchor))
+}
+
+fn line_anchor_for_record(
+    spec: &SourceSpec,
+    record: &SourceRecord,
+) -> anyhow::Result<CompleteLineAnchor> {
+    let hash = SourceFixtureHash::from_file(spec.path(), record.byte_start, record.byte_end)
+        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    CompleteLineAnchor::new(
+        hash.algorithm(),
+        hash.digest(),
+        record.physical_line_ordinal,
+        record.byte_start,
+        record.byte_end,
+    )
+    .map_err(|error| anyhow::anyhow!(error.to_string()))
+}
+
+fn build_next_cursor(
+    spec: &SourceSpec,
+    mode: AnalyzeMode,
+    report: &PlannedReadReport,
+    records: &[SourceRecord],
+    append_last_line: Option<CompleteLineAnchor>,
+    append_last_ordinal: Option<u64>,
+) -> anyhow::Result<Option<(Value, SourceFingerprint, SourcePrefixAnchor)>> {
+    if spec.compression() != SourceCompression::PlainJsonl {
+        // A zstd stream is forward-only in the formal source contract; it
+        // must not receive a fabricated byte cursor.
+        return Ok(None);
+    }
+    let Some(complete_range) = report.complete_range() else {
+        return Ok(None);
+    };
+    let cursor_range = if matches!(mode, AnalyzeMode::Append | AnalyzeMode::Replay) {
+        SourceByteRange::new(0, report.snapshot_boundary().byte_length())?
+    } else {
+        complete_range
+    };
+    let last_record = records
+        .iter()
+        .rev()
+        .find(|record| record.byte_end == cursor_range.end());
+    let last_line = if cursor_range.is_empty() {
+        None
+    } else if let Some(record) = last_record {
+        Some(line_anchor_for_record(spec, record)?)
+    } else {
+        append_last_line
+    };
+    if !cursor_range.is_empty() && last_line.is_none() {
+        return Ok(None);
+    }
+    let last_ordinal = last_record
+        .and_then(|record| record.rollout_ordinal)
+        .or(append_last_ordinal);
+    let (fingerprint, prefix_anchor) =
+        observed_source_metadata(spec, report.snapshot_boundary(), cursor_range.end())?;
+    let cursor_spec = spec
+        .clone()
+        .with_fingerprint(fingerprint.clone())
+        .with_prefix_anchor(prefix_anchor.clone());
+    let cursor = match mode {
+        AnalyzeMode::Preview => serde_json::to_value(TailPreviewCursor::from_source(
+            &cursor_spec,
+            report.snapshot_boundary(),
+            cursor_range,
+            last_line,
+            last_ordinal,
+        )?)?,
+        AnalyzeMode::Backfill => serde_json::to_value(BackfillCursor::from_source(
+            &cursor_spec,
+            report.snapshot_boundary(),
+            cursor_range,
+            last_line,
+            last_ordinal,
+        )?)?,
+        AnalyzeMode::Append | AnalyzeMode::Replay => {
+            serde_json::to_value(ForwardAppendCursor::from_source(
+                &cursor_spec,
+                report.snapshot_boundary(),
+                cursor_range,
+                last_line,
+                last_ordinal,
+            )?)?
+        }
+    };
+    Ok(Some((cursor, fingerprint, prefix_anchor)))
+}
+
 fn analyze_planned_request(
     backend: &JsonlSourceBackend,
     plan: &SourceReadPlan,
-    conversation_id: &str,
+    adapter: &CodexEventAdapter,
     profile: CompatibilityProfile,
     cancelled: &AtomicBool,
+    deadline: Instant,
     completeness: BatchCompleteness,
-) -> anyhow::Result<(AnalysisBatch, PlannedReadReport)> {
+) -> anyhow::Result<(AnalysisBatch, PlannedReadReport, Vec<SourceRecord>)> {
     let mut records = Vec::new();
     let report = plan.read(backend, &mut |record| {
-        if cancelled.load(Ordering::Acquire) {
-            anyhow::bail!("source analysis cancelled");
-        }
+        check_deadline(cancelled, deadline)?;
         records.push(record);
         Ok(())
     })?;
-    let adapter = crate::codex_adapter::CodexEventAdapter::new_with_conversation_id(
-        profile,
-        Some(conversation_id.to_string()),
-    );
+    check_deadline(cancelled, deadline)?;
     let mut batch = crate::protocol::batch::analyze_records_with_adapter(
-        &adapter,
-        records,
+        adapter,
+        records.clone(),
         profile,
         completeness,
     );
+    check_deadline(cancelled, deadline)?;
     if report.pending_tail_bytes() > 0
         || report.source_grew_during_read()
         || report.source_shrank_during_read()
@@ -955,7 +1678,17 @@ fn analyze_planned_request(
             availability: crate::model::Availability::PartialRollout,
         });
     }
-    Ok((batch, report))
+    Ok((batch, report, records))
+}
+
+fn check_deadline(cancelled: &AtomicBool, deadline: Instant) -> anyhow::Result<()> {
+    if cancelled.load(Ordering::Acquire) {
+        anyhow::bail!("source analysis cancelled");
+    }
+    if Instant::now() >= deadline {
+        anyhow::bail!("resource timeout exceeded");
+    }
+    Ok(())
 }
 
 fn progress_from_report(report: &PlannedReadReport, records_emitted: usize) -> BatchProgress {
@@ -994,6 +1727,51 @@ fn validate_cursor_payload(
     result
         .map_err(|error| AnalyzerProtocolError::InvalidCursor(error.to_string()))?
         .map_err(|error| AnalyzerProtocolError::InvalidCursor(error.to_string()))?;
+    let (cursor_fingerprint, cursor_prefix_anchor, cursor_snapshot) = match kind {
+        "tail_preview" => {
+            let cursor = serde_json::from_value::<TailPreviewCursor>(cursor.clone())
+                .map_err(|error| AnalyzerProtocolError::InvalidCursor(error.to_string()))?;
+            (
+                cursor.metadata().fingerprint().clone(),
+                cursor.metadata().prefix_anchor().clone(),
+                cursor.metadata().snapshot_boundary(),
+            )
+        }
+        "backfill" => {
+            let cursor = serde_json::from_value::<BackfillCursor>(cursor.clone())
+                .map_err(|error| AnalyzerProtocolError::InvalidCursor(error.to_string()))?;
+            (
+                cursor.metadata().fingerprint().clone(),
+                cursor.metadata().prefix_anchor().clone(),
+                cursor.metadata().snapshot_boundary(),
+            )
+        }
+        "forward_append" => {
+            let cursor = serde_json::from_value::<ForwardAppendCursor>(cursor.clone())
+                .map_err(|error| AnalyzerProtocolError::InvalidCursor(error.to_string()))?;
+            (
+                cursor.metadata().fingerprint().clone(),
+                cursor.metadata().prefix_anchor().clone(),
+                cursor.metadata().snapshot_boundary(),
+            )
+        }
+        _ => unreachable!("cursor kind validated above"),
+    };
+    let (observed_fingerprint, observed_prefix_anchor) =
+        observed_source_metadata(spec, observed_snapshot, cursor_prefix_anchor.end_offset())
+            .map_err(|error| AnalyzerProtocolError::InvalidCursor(error.to_string()))?;
+    if observed_snapshot.byte_length() == cursor_snapshot.byte_length()
+        && observed_fingerprint != cursor_fingerprint
+    {
+        return Err(AnalyzerProtocolError::InvalidCursor(
+            "source fingerprint changed at the checkpoint boundary".to_string(),
+        ));
+    }
+    if observed_prefix_anchor != cursor_prefix_anchor {
+        return Err(AnalyzerProtocolError::InvalidCursor(
+            "source prefix anchor changed at the checkpoint boundary".to_string(),
+        ));
+    }
     let expected = match mode {
         AnalyzeMode::Preview => "tail_preview",
         AnalyzeMode::Backfill => "backfill",
@@ -1045,6 +1823,7 @@ mod tests {
             persisted_anchor: None,
             known_complete_range: None,
             retention_profile: None,
+            replace_previous: false,
             resource_limits: Default::default(),
         };
         assert!(

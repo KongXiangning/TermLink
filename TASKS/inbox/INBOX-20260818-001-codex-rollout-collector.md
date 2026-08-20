@@ -9,23 +9,25 @@ relation_to_current_task: unrelated
 current_task_id: 20260727-002
 description: |
   基于更新后的 docs/codex/codex-rollout-collector-architecture.md 与配套 Codex 兼容清单，
-  重新规划正式 codex-rollout-collector 的项目目录。正式组件采用随 TermLink 源码交付的
-  最小 codex_wire、独立 codex_adapter、流式 SourceBackend、AnalysisEvent/Reducer、
-  checkpoint、stdio AnalysisBatch 协议和后续 Node adapter；本轮只更新目录设计，不创建
-  实现 crate、不接入数据库、不修改 IPC/Android/App。
+  重新规划正式 codex-rollout-collector 的项目目录。正式组件采用仓库内固定版本的
+  vendored Codex history/protocol 源码闭包，由 TermLink 自己维护 SourceBackend、
+  codex_wire facade、CodexEventAdapter、AnalysisEvent/Reducer、checkpoint、stdio
+  AnalysisBatch 协议和后续 Node adapter；本轮只更新目录设计，不创建实现 crate、不接入
+  数据库、不修改 IPC/Android/App。
 evidence: |
-  更新后的正式架构把 codex_wire 明确为必须进入 TermLink 版本控制、默认构建和默认测试的
-  wire-compatible 解码层；默认 Cargo 依赖图不得引入 Codex workspace 的 path/git/crates.io
-  依赖，不要求下载 Codex 源码或访问 Codex Git。新增的
-  docs/codex/codex-rollout-collector-codex-compatibility.md 冻结了 wire variant、profile、
-  fixture、round-trip 和 conformance 边界；旧的 codex-rollout-persistence-plan.md 已废止，
-  不再作为正式 Analyzer 接口依据。现有 INBOX-20260815-001 只覆盖 Demo 验证，目标、目录
-  和验收边界不同，不视为重复事项。
+  更新后的正式架构把 vendor/codex 固定源码闭包、src/codex_wire facade 和 Adapter
+  之间的边界冻结为正式实现依据：正式 Cargo 只通过仓库内相对 path 引用 vendored
+  codex-history/codex-protocol 及必要闭包，不引用开发者本机 Codex checkout，也不在
+  src/codex_wire 中复制第二套同名 typed-lite wire model。新增的
+  docs/codex/codex-rollout-collector-codex-compatibility.md 还冻结了 Spike → 正式 Analyzer
+  的 vendor promotion、vendor-manifest.toml、revision、fixture、round-trip 和 conformance
+  边界；旧的 codex-rollout-persistence-plan.md 已废止，不再作为正式 Analyzer 接口依据。
+  现有 INBOX-20260815-001 只覆盖 Demo 验证，目标、目录和验收边界不同，不视为重复事项。
 suggested_next_action: create_current_task_after_active_task_closes
 status: captured
 ---
 
-# Directory Design Review（2026-08-18）
+# Directory Design Review（2026-08-19）
 
 本轮仍把“插件”解释为 TermLink 内部可独立构建的 rollout collector 组件，而不是 Codex
 Marketplace 插件。更新后的架构和兼容清单都把正式实现定义为 Rust History Analyzer；没有
@@ -35,20 +37,37 @@ Marketplace 插件。更新后的架构和兼容清单都把正式实现定义�
 文档中的 `rust-history-analyzer/` 是逻辑 crate 示例；本仓库物理目录采用
 `native/codex-rollout-collector/`，以保持与正式组件名称、Demo 路径和发布产物一致。
 
+本轮必须区分三层目录，而不是把 Codex 源码与 TermLink 业务代码混成一个兼容 crate：
+
+- `native/codex-rollout-demo/`：无 Codex 依赖的独立正确性 oracle；其 `src/wire.rs` 只服务
+  Demo，不进入正式 Analyzer。
+- `native/codex-rollout-compat-spike/`：解析 Spike 和 vendored 源码 staging 目录；当前
+  `vendor/codex/` 是正式目录建立前的 staging source of truth。
+- `native/codex-rollout-collector/`：正式生产 Analyzer；建立后复制并冻结通过 conformance
+  的 Spike vendor 闭包，正式目录中的副本成为发布 source of truth。
+
 ```text
 native/codex-rollout-collector/
-├─ Cargo.toml                         # crate 清单；默认依赖不得引入 Codex workspace
+├─ Cargo.toml                         # crate 清单；Codex 仅允许仓库内相对 path 依赖
 ├─ Cargo.lock                         # 默认构建的精确依赖锁定
 ├─ rust-toolchain.toml                # 正式支持的 Rust channel
 ├─ README.md                          # 构建、stdio 协议、fixture、发布和兼容边界
-├─ LICENSES/                          # 只有移植/复用上游代码时才放许可证与 NOTICE
-├─ NOTICE                              # 上游版权/许可证声明（如确有移植代码）
+├─ vendor/
+│  └─ codex/
+│     ├─ Cargo.toml                   # vendored 闭包自己的 path dependency workspace
+│     ├─ vendor-manifest.toml         # upstream revision/闭包/patch/许可证清单
+│     ├─ README.md                     # 来源、裁剪范围、升级和构建说明
+│     ├─ LICENSE                       # 上游许可证
+│     ├─ NOTICE                        # 上游版权/NOTICE
+│     ├─ history/                      # 实际复制的 Codex history crate
+│     ├─ protocol/                     # 实际复制的 Codex protocol crate
+│     └─ ...                           # 仅保留编译上述两 crate 必需的 path 闭包
 ├─ src/
 │  ├─ main.rs                         # analyzer 进程入口；stdout 仅协议，stderr 仅诊断
 │  ├─ lib.rs                          # 模块装配；不向下游暴露 Codex 原生类型
 │  ├─ cli.rs                          # replay/diagnostic CLI 参数
 │  ├─ error.rs                        # fail-closed 错误分类与错误码
-│  ├─ version.rs                      # analyzer/protocol/history schema 版本
+│  ├─ version.rs                      # 编译时版本常量、history schema 和 wire revision
 │  ├─ source/
 │  │  ├─ mod.rs
 │  │  ├─ locator.rs                   # SourceLocator / SourceSpec
@@ -61,19 +80,11 @@ native/codex-rollout-collector/
 │  │  ├─ cursor.rs                    # TailPreview/Backfill/ForwardAppend cursor
 │  │  └─ fingerprint.rs               # 文件身份、前缀锚点、替换/截断检测
 │  ├─ codex_wire/
-│  │  ├─ mod.rs
-│  │  ├─ envelope.rs                  # timestamp/ordinal/flattened envelope
-│  │  ├─ rollout_line.rs              # RolloutLine wire 语义
-│  │  ├─ rollout_item.rs              # 必要 RolloutItem variant 与 wire tag
-│  │  ├─ response_item.rs             # ResponseItem / ContentItem wire 形状
-│  │  ├─ event_msg.rs                 # EventMsg 及 payload
-│  │  ├─ session.rs                   # SessionMeta/TurnContext/HistoryPosition
-│  │  ├─ usage.rs                     # TokenUsage/TokenCount/RateLimit
-│  │  ├─ tool.rs                      # command/MCP/dynamic/patch/search/artifact
-│  │  ├─ plan.rs                      # question/option/answer/action
-│  │  ├─ profiles.rs                  # legacy/current/future-compatible
-│  │  └─ unknown.rs                   # 受限原始 Value 与未知类型诊断
-│  ├─ codex_adapter/
+│  │  ├─ mod.rs                       # 对 vendor/codex 的唯一稳定 facade/re-export
+│  │  ├─ profile.rs                   # legacy/current/future-compatible
+│  │  ├─ decode.rs                    # Spike 已验证的顶层 envelope workaround
+│  │  └─ unknown.rs                   # UnknownRecord 与受限原始 Value 诊断
+│  ├─ codex_adapter/                  # 只通过 crate::codex_wire 使用上游类型
 │  │  ├─ mod.rs
 │  │  ├─ event_msg.rs                 # EventMsg → AnalysisEvent
 │  │  ├─ response_item.rs             # ResponseItem/ContentItem → AnalysisEvent
@@ -108,7 +119,7 @@ native/codex-rollout-collector/
 │  ├─ protocol/
 │  │  ├─ mod.rs
 │  │  ├─ request.rs                   # AnalyzeRequest
-│  │  ├─ batch.rs                     # AnalysisBatch
+│  │  ├─ batch.rs                     # AnalysisBatch + ParserProvenance 输出元数据
 │  │  ├─ progress.rs                  # Progress/Capability
 │  │  ├─ ack.rs                       # ACK、request_id/batch_id、幂等语义
 │  │  ├─ error.rs                     # 协议级错误
@@ -128,7 +139,7 @@ native/codex-rollout-collector/
 │  │  ├─ partial/                     # 半行、增长、截断、替换
 │  │  ├─ source-boundaries/           # tail/backfill/append 分段边界
 │  │  └─ golden/                      # projection/detail/checkpoint golden
-│  ├─ codex_wire_compatibility.rs     # wire decode、alias、unknown、round-trip
+│  ├─ codex_wire_compatibility.rs     # facade decode、alias、unknown、round-trip
 │  ├─ adapter_projection.rs           # Adapter → AnalysisEvent → Projection
 │  ├─ stream_replay.rs                # tail/backfill/append/replay 一致性
 │  ├─ protocol_stdio.rs               # request/batch/ACK/cancel/restart
@@ -162,13 +173,14 @@ native/codex-rollout-conformance/     # 可选独立对照工具，不是默认 
 
 ## Boundary decisions for the next task
 
-- Rust crate 是正式采集器核心；`codex_wire/` 必须进入 TermLink 源码、版本控制、默认构建
-  和默认测试。Node 只负责进程管理、协议、ACK/幂等和服务端接入，不把 Codex 原生类型
-  扩散到 Node/Android。
+- Rust crate 是正式采集器核心；`vendor/codex/` 是随 TermLink 交付的 Codex 源码闭包，
+  `codex_wire/` 是隔离它的唯一 facade。Node 只负责进程管理、协议、ACK/幂等和服务端
+  接入，不把 Codex 原生类型扩散到 Node/Android。
 - `source/` → `codex_wire/` → `codex_adapter/` → `model/` → `analysis/` → `checkpoint/` /
   `protocol/` → `runtime/` 是目标边界；Reducer 只能消费 `AnalysisEvent`。
-- Demo 保留为 correctness oracle；正式 crate 不复制完整 Codex，不依赖本机 Codex workspace，
-  不把 Codex 的 path/git/crates.io workspace 依赖放进默认 Cargo 依赖图。
+- Demo 保留为 correctness oracle；Spike 和正式 Analyzer 使用通过 conformance 的同一份
+  vendored wire 闭包。正式 crate 不复制完整 Codex，不依赖本机 Codex workspace；默认 Cargo
+  只允许仓库内相对 path 引用 `vendor/codex` 及其已登记闭包。
 - `native/codex-rollout-conformance/` 仅用于独立官方对照，默认构建不需要 Codex 源码、Git
   访问或 upstream decoder。
 - `src/services/codexRolloutCollector/` 先只设计目录，不在本轮接入 `terminalGateway`、
@@ -210,17 +222,22 @@ native/codex-rollout-conformance/     # 可选独立对照工具，不是默认 
 - `android/**`、`public/**`、App UI 与本地数据库结构
 - Codex host rollout 写入逻辑、Codex CLI/app-server 实现
 - `native/codex-rollout-demo/**` 的验证基线（只读对照，除非另行授权）
-- 默认 Cargo 依赖中的完整 Codex workspace、Codex path/git dependency、upstream app-server/IPC/runtime
+- 默认 Cargo 依赖中的完整 Codex workspace、仓库外 Codex path/git dependency、upstream
+  app-server/IPC/runtime；正式 `vendor/codex` 只允许最小 history/protocol 编译闭包
 - `C:\Users\kongx\.codex\sessions\**` 真实 rollout 源文件（只读输入）
 
 ## Open decisions
 
 - 物理目录建议固定为 `native/codex-rollout-collector/`，文档中的
   `rust-history-analyzer/` 作为逻辑角色名；Cargo package/binary 是否同名，在正式任务中锁定。
-- `codex_wire` 的 typed-lite 范围、legacy/current profile 和 fixture 清单以兼容文档为准；
-  任何新增 variant 先进入 wire/Adapter，不直接扩展 Reducer。
+- 正式 `codex_wire` 不定义 typed-lite 的同名 Codex 类型；它只维护 facade、profile、decode
+  workaround、UnknownRecord 和诊断。任何新增 variant 先更新 Spike/vendor conformance，再
+  通过 facade/Adapter 进入 `AnalysisEvent`，不直接扩展 Reducer。
+- Spike → 正式 Analyzer 的 vendor promotion 必须复制完整通过 conformance 的闭包，并保持
+  `vendor-manifest.toml` 的 revision、path closure、patch 集合和许可证一致；正式目录建立后
+  不允许两个 vendor 根目录独立演进。
 - `native/codex-rollout-conformance/` 是否首期创建仍待正式任务确认；它必须与默认 crate
   解耦，不能成为默认依赖。
-- 正式 Rust toolchain、Cargo 依赖、上游 wire baseline、许可证/NOTICE 和 clean checkout
-  验证需要在正式任务中锁定。
+- 正式 Rust toolchain、Cargo 依赖、`analyzer_wire_source_revision`、许可证/NOTICE、vendor
+  manifest 和 clean checkout 验证需要在正式任务中锁定。
 - 本事项是否额外需要 Codex Marketplace 包装层尚未确认；未确认前不创建 `.codex-plugin`。

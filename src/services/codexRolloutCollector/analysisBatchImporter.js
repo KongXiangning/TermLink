@@ -75,7 +75,8 @@ function emptyState(scope) {
         canonical: false,
         replaceApplied: false,
         lastBatchId: null,
-        lastCursor: null
+        lastCursor: null,
+        mutations: []
     };
 }
 
@@ -94,7 +95,8 @@ function stateToJson(state) {
         canonical: state.canonical,
         replace_applied: state.replaceApplied,
         last_batch_id: state.lastBatchId,
-        last_cursor: clone(state.lastCursor)
+        last_cursor: clone(state.lastCursor),
+        mutations: clone(state.mutations)
     };
 }
 
@@ -120,6 +122,7 @@ function stateFromJson(value, scope) {
     state.replaceApplied = Boolean(value?.replace_applied);
     state.lastBatchId = value?.last_batch_id || null;
     state.lastCursor = value?.last_cursor || null;
+    state.mutations = Array.isArray(value?.mutations) ? value.mutations : [];
     return state;
 }
 
@@ -147,21 +150,40 @@ class MemoryAnalysisStore {
         return state;
     }
 
+    async replaceConversation(conversationId, scope) {
+        const normalizedConversationId = String(conversationId || '').trim();
+        const newKey = scopeKey(scope);
+        for (const [key, state] of this.states) {
+            if (key !== newKey && state.scope.conversationId === normalizedConversationId) {
+                this.states.delete(key);
+            }
+        }
+        this.operations.push(['replace_conversation', normalizedConversationId, newKey]);
+        return this.replaceScope(scope);
+    }
+
     async applyBatch(batch) {
         const scope = normalizeScope(batch);
         let state = await this._state(scope);
-        if (batch.replace_previous && state.batches.length > 0 && !state.replaceApplied) {
+        // A retry of the exact same batch after a process crash is idempotent,
+        // including when that batch was the first replacement batch.  Check
+        // the durable batch id before the source-epoch replacement guard so
+        // the retry path does not turn into a false same-epoch replacement.
+        if (state.batches.includes(batch.batch_id)) {
+            return { state, duplicate: true };
+        }
+        if (batch.replace_previous && (state.replaceApplied || state.batches.length > 0)) {
             const error = new Error('replace_previous requires a new source epoch scope');
             error.code = 'ANALYSIS_SOURCE_EPOCH_REQUIRED';
             throw error;
         }
         if (batch.replace_previous && !state.replaceApplied) {
-            state = await this.replaceScope(scope);
+            if (typeof this.replaceConversation === 'function') {
+                state = await this.replaceConversation(scope.conversationId, scope);
+            } else {
+                state = await this.replaceScope(scope);
+            }
         }
-        if (state.batches.includes(batch.batch_id)) {
-            return { state, duplicate: true };
-        }
-
         const batchCompleteness = completenessOf(batch.completeness || (batch.complete ? 'canonical' : 'partial'));
         const batchRank = completenessRank(batchCompleteness);
         const revision = Number.isSafeInteger(batch?.source_range?.end)
@@ -221,6 +243,12 @@ class MemoryAnalysisStore {
             const marker = JSON.stringify(diagnostic);
             if (!state.diagnostics.some((entry) => JSON.stringify(entry) === marker)) {
                 state.diagnostics.push(clone(diagnostic));
+            }
+        }
+        for (const mutation of Array.isArray(batch.mutations) ? batch.mutations : []) {
+            const marker = contentHash(mutation);
+            if (!state.mutations.some((entry) => entry.content_hash === marker)) {
+                state.mutations.push({ content_hash: marker, mutation: clone(mutation) });
             }
         }
 
@@ -295,6 +323,29 @@ class FileAnalysisStore extends MemoryAnalysisStore {
         return state;
     }
 
+    async replaceConversation(conversationId, scope) {
+        const normalizedConversationId = String(conversationId || '').trim();
+        const newKey = scopeKey(scope);
+        await fs.promises.mkdir(this.rootDir, { recursive: true });
+        for (const name of await fs.promises.readdir(this.rootDir)) {
+            if (!name.endsWith('.json')) continue;
+            const filePath = path.join(this.rootDir, name);
+            let value;
+            try {
+                value = JSON.parse((await fs.promises.readFile(filePath)).toString('utf8'));
+            } catch (_) {
+                continue;
+            }
+            const fileScope = value?.scope;
+            if (fileScope?.conversationId === normalizedConversationId
+                && scopeKey(fileScope) !== newKey) {
+                await fs.promises.unlink(filePath);
+                this.states.delete(scopeKey(fileScope));
+            }
+        }
+        return super.replaceConversation(normalizedConversationId, scope);
+    }
+
     async applyBatch(batch) {
         const result = await super.applyBatch(batch);
         if (!result.duplicate) await this._persist(result.state);
@@ -316,8 +367,11 @@ class AnalysisBatchImporter {
 
     async importBatch(batch, { checkpoint = null } = {}) {
         validateMessage(batch);
-        const result = await this.store.applyBatch(batch);
         const scope = normalizeScope(batch);
+        const result = await this.store.applyBatch(batch);
+        if (batch.replace_previous && !result.duplicate && this.checkpointStore?.replaceConversation) {
+            await this.checkpointStore.replaceConversation(batch.conversation_id, scope);
+        }
         if (checkpoint && this.checkpointStore) {
             await this.checkpointStore.save(scope, checkpoint);
         }

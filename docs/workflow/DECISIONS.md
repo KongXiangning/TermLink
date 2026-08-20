@@ -183,7 +183,25 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
   - 不得修改 `src/services/codexIpc*`、`src/ws/terminalGateway.js`、Android Codex 链路、既有 server/DB schema、Demo/Spike 源码或 vendor closure；要做产品集成必须另建任务并重新确认范围。
   - 阶段 4 的默认文件 store 是隔离 artifact 的恢复/测试实现，不是现有产品历史数据库或 raw rollout 持久化方案。
 - 替代方案：继续只消费静态 golden、用重复完整 batch 模拟 segment、或把阶段 4 直接接入既有 gateway/DB；这些方案分别不能证明原始 conformance 要求或会突破 AD-006/本任务边界，不采用。
-- 验证方式：Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、3 stage4 protocol tests 全部通过；Node collector 7/7 定向测试通过，覆盖 actual subprocess ACK、timeout/cancel、file-store restart、overlap idempotence 与 late incomplete non-downgrade。未执行、也未宣称 release/canary/benchmark 或产品 IPC/Android/DB 集成。
+
+### AD-009: 阶段 4 采用 Node 发起 hello、Rust 回应 hello，并以显式 source epoch 驱动替换
+
+- 分类：架构 / 协议契约（user-challenge 收口）
+- 背景：用户指出当前实现由 Rust 启动主动发送 hello、拒绝 Node hello，与架构定义的 Node → Rust 方向漂移；同时 `mode=replay` 自动设置 `replace_previous` 会把普通重放误当成来源替换。
+- 决策：Node 进程启动后先发送 `hello(role=node)`，Rust 只在握手成功后回同 `request_id` 的 `hello(role=analyzer)` 并接受 analyze；`replace_previous` 只由调用方在新 `source_epoch` 首批显式声明，Rust 初始 replay 默认 false，Node replacement 按 conversation 清理旧 epoch 的 analysis state 与 checkpoint。
+- 原因：握手方向与架构文档统一，避免双方各自假设启动方；将普通 replay、跨 epoch replacement 和同 epoch 重试分离，才能保持恢复与幂等语义可审计。
+- 约束：未完成 hello 不得处理 analyze；同 epoch 重复 replacement 必须 fail-closed；cursor/checkpoint 仍需 fingerprint、prefix anchor、snapshot 和 reducer state 证明；后续不得静默改变握手方向或 replacement 作用域。
+- 证据：任务 `20260820-003` 的 Rust stage4 protocol 7/7、Node collector 13/13（含正式 Rust binary、source epoch replacement、无 cursor checkpoint 校验和异常重启重放）通过。
+- 验证方式：Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、7 stage4 protocol tests 全部通过；Node collector 13/13 定向测试通过，覆盖正式 Rust binary 派生字段、malformed canonical fail-closed、source epoch replacement、actual subprocess ACK、协议级 timeout/cancel、无 cursor source checkpoint 校验、batch 前后进程异常重启、file-store restart、overlap idempotence 与 late incomplete non-downgrade。未执行、也未宣称 release/canary/benchmark 或产品 IPC/Android/DB 集成。
+
+### AD-010: 阶段 4 恢复与 canonical 导入采用 fail-closed、有限重放语义
+
+- 状态：accepted
+- 分类：架构 / 协议契约（mechanical 收口）
+- 背景：阶段 4 复审发现同 epoch replacement 可重复接受、malformed canonical batch 可凭 `complete=true` 被提升、协议内 `timeout_ms` 未约束 Rust 全链路、无 cursor replay 可绕过 source checkpoint 校验，以及 analyzer 异常退出后没有恢复请求。
+- 决策：Node 必须在 importer 之前校验 canonical batch 的 provenance、completeness、mutations、`next_cursor`、source anchors 和 reducer state；Rust 必须让 `resource_limits.timeout_ms` 覆盖 source read 到 ACK wait 的预算；无 cursor replay 仍须核对持久化 fingerprint/prefix anchor；同 epoch 只允许首次新 replacement，但相同 `batch_id` 的重放保留幂等 duplicate；analyzer 进程退出时 Node 只按固定有限次数重启并重发原请求。
+- 原因：这些约束把“来源未证实”“结果形状不完整”“请求超时未生效”和“进程重启后重复写入”统一收口为可审计的 fail-closed/幂等语义，既保证恢复安全，又不把隔离 artifact 扩展成产品 runtime。
+- 约束：资源超时、source mutation、malformed canonical、同 epoch 新 replacement 或超出重试预算都必须返回失败；不得无限重试、静默回显旧 cursor、仅凭 `complete=true` 宣称 canonical，或把既有 IPC/Android/DB 接入本任务。
 
 ## 🎨 口味决策
 

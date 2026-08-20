@@ -113,8 +113,8 @@ impl AnalyzerCheckpoint {
             source: CheckpointSource {
                 source_id: batch.source_id.clone(),
                 source_epoch: batch.source_epoch.clone(),
-                fingerprint: None,
-                prefix_anchor: None,
+                fingerprint: batch.source_fingerprint.clone(),
+                prefix_anchor: batch.source_prefix_anchor.clone(),
             },
             reader: CheckpointReader {
                 backend: CHECKPOINT_READER_BACKEND.to_string(),
@@ -136,7 +136,7 @@ impl AnalyzerCheckpoint {
                 physical_line_end: None,
                 rollout_ordinal: None,
             },
-            reducer_state: None,
+            reducer_state: batch.reducer_state.clone(),
             projection_watermark: Some(batch.batch_id.clone()),
             completeness: batch.completeness,
         };

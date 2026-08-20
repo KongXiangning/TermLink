@@ -5,7 +5,7 @@ use std::collections::{BTreeSet, HashMap, VecDeque};
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::codex_wire::{
@@ -26,13 +26,13 @@ pub struct CodexEventAdapter {
     state: RefCell<AdapterState>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 struct AdapterState {
     pending_plans: VecDeque<PendingPlan>,
     active_turn_id: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct PendingPlan {
     call_id: String,
     turn_id: Option<String>,
@@ -66,6 +66,24 @@ impl CodexEventAdapter {
 
     pub fn profile(&self) -> CompatibilityProfile {
         self.profile
+    }
+
+    /// Serialize only the small TermLink-owned adapter state that is needed
+    /// to continue a segmented stream.  Native Codex values never cross this
+    /// checkpoint boundary.
+    pub fn checkpoint_state(&self) -> Value {
+        serde_json::to_value(self.state.borrow().clone())
+            .expect("adapter checkpoint state is serializable")
+    }
+
+    /// Restore pending Plan questions and active-turn context after an
+    /// analyzer process restart.  Invalid state is rejected instead of being
+    /// silently treated as an empty adapter.
+    pub fn restore_checkpoint_state(&self, value: &Value) -> anyhow::Result<()> {
+        let restored: AdapterState = serde_json::from_value(value.clone())
+            .map_err(|error| anyhow::anyhow!("invalid adapter checkpoint state: {error}"))?;
+        *self.state.borrow_mut() = restored;
+        Ok(())
     }
 
     pub fn adapt(&self, record: &SourceRecord, decoded: DecodedRecord) -> Vec<AnalysisEvent> {
