@@ -236,6 +236,22 @@
 - **应对动作**: 在 CURRENT_TASK 中单独登记 closeout finding，列出外部路径与 owner 状态；把 formal 代码交付和任务外风险分开同步到 STATUS；等待用户确认后再决定 path-scoped staging/commit 或另立清理任务，禁止用“代码测试通过”替代归属确认。
 - **Source**: `20260820-002` / R-010 / final path-scoped review
 
+### L-021: complete、checkpoint 与对象 revision 必须绑定同一证据链
+
+- **场景**: 隔离 analyzer 的协议状态、checkpoint 和 history item 都能单独表现为“完成”或“更新”，但空 complete、其他 request 的历史 batch、低进度 checkpoint 或无关 mutation revision 都可能伪造成功、回退恢复位置或覆盖合法对象。
+- **结论**: 完成提交必须证明同一 request 已成功导入 batch；checkpoint 必须按 completeness 与 source progress 单调推进；对象正文和派生数据的 revision 必须优先绑定同一 `item_key` 的 mutation，不能把 batch coverage 或其他对象的 revision 混入。
+- **触发信号**: `complete` 只检查内存非空、checkpoint 只按最后写入覆盖，或 upsert 使用 batch 级最大 revision；故障注入能让 canonical 降级、空结果完成或高 revision 的无关对象改变当前 item。
+- **应对动作**: 在 importer/store 入口建立“request batch 证据 → completeness/source progress fence → per-item revision”三层门禁，并分别用 Memory/File、重启、跨 request、overlap 和低版本回归验证；缺少任一证据时 fail-closed，不以 `complete=true` 或整体 batch revision 补全。
+- **Source**: `20260820-003` / R-020～R-022 / final fault-injection regression
+
+### L-022: closeout health 失败要区分治理入口缺失与任务实现回归
+
+- **场景**: 任务代码和目标回归已完成，但 closeout 期间运行 `bun run workflow:health` 在导入 `scripts/workflow-runtime.ts` 前置模块时失败，缺失的是仓库治理 runtime helper，而不是本任务实现路径。
+- **结论**: 收尾必须记录 health 命令的真实退出点，不能把“工具入口未启动”写成治理文档通过，也不能把该失败误归因到当前业务任务；修复应另立 workflow runtime 任务并保持当前 scope 不变。
+- **触发信号**: CLI 在 validation/freshness/host 检查前即抛出 missing-module、module-resolution 或 runtime bootstrap 错误。
+- **应对动作**: 保留原始命令和缺失模块路径，分别报告业务回归与治理 health 结果；对当前任务只做文档/归档记录，不在 closeout 中顺手修改 `scripts/` 或生成替代 helper。
+- **Source**: `20260820-003` / 2026-08-21 closeout verification
+
 - 场景：`node --test` full suite 报告"挂起"，但旧结论只是泛化地描述"full suite 会在后段挂起"，没有具体文件、测试名或执行阶段边界，导致 gate 状态长期停留在"知道有问题但无法行动"。
   - 结论：对挂起的 test suite，必须用文件级和测试名级拆分把挂起面收敛到可复述的最小单元，再区分"修复任务"和"gate 策略调整"。不能直接用旧结论跳过排查，也不能在边界未收敛时就调整 blocker gate。
   - 触发信号：full suite 超时未退出但没有具体失败测试名；旧文档中只有"suite 会挂"的泛化描述；验证矩阵中某 gate 长期无法执行但身份仍是 `blocks-merge`。

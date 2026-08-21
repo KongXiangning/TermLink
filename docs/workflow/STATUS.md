@@ -13,6 +13,7 @@
 
 - [x] Codex Rollout Collector 阶段 4 follow-up（任务 `20260820-003`）：在原隔离 Rust↔Node scope 内补齐 malformed canonical fail-closed、协议级 `resource_limits.timeout_ms`、无 cursor replay 的 persisted checkpoint source 校验、同 epoch replacement 单次门禁与 analyzer 异常重启有限重放；证据为 Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、7 stage4 protocol、Node 13/13。该 follow-up 不扩展到既有 server/DB、IPC、Android 或 release 集成。
 - [x] Codex Rollout Collector 阶段 4 fail-closed follow-up（任务 `20260820-003`）：补齐 complete/checkpoint 严格证据、mutation 元数据和 replacement preflight、同级 revision fence、显式 source identity，以及持久化 retired epoch tombstone/current-epoch fence；证据为 Node 19/19 与 Rust 全量目标 suite 通过。该 follow-up 不扩展到既有 server/DB、IPC、Android 或 release 集成。
+- [x] Codex Rollout Collector 阶段 4 completion follow-up（任务 `20260820-003`）：补齐当前 request batch 门禁、checkpoint completeness/source progress 单调性和按 `item_key` 绑定的 mutation revision；Node 22/22 与 Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、8 stage4 protocol 通过。任务已于 2026-08-21 归档至 `TASKS/TASK-20260820-003-codex-rollout-collector-stage-4-runtime-and-conformance.md`；稳定边界仍只覆盖隔离 Rust↔Node artifact，不扩展到既有 server/DB、IPC、Android 或 release 集成。
 
 - [x] Session 基础管理 API：list / create / rename / delete
 - [x] Session 元数据 JSON 持久化与 idle 保留
@@ -39,7 +40,6 @@
 
 - [ ] `20260820-001` Codex Rollout Collector 阶段 2 输入层与兼容层：实现、review/contract/regression 和最终兼容验收均已完成；当前任务包仍保持 active，仅待 `sync-contracts`、交付摘要与 closeout/归档。该状态不表示仍有实现缺口；稳定边界不扩展到 P0-C、P0-B.4R、完整 analyzer 或 Node/Android/IPC/数据库集成。
 - [ ] `20260820-002` Codex Rollout Collector 阶段 3：实现、review、contract、regression 与 R-009/R-003 验收均已完成；当前任务仍保持 active 仅待 path-scoped workflow closeout，R-010 任务外 dirty/untracked owner 需用户后续处理，不阻塞 formal 代码交付。稳定边界不扩展到完整 analyzer、Node/Android/IPC/数据库或 release。
-- [ ] `20260820-003` Codex Rollout Collector 阶段 4：R-006～R-022 均已有代码、故障注入和回归证据；当前任务保持 active 仅待 path-scoped 交付摘要/closeout，稳定边界仍只覆盖隔离 Rust↔Node analyzer artifact，不扩展到既有 server/DB、IPC、Android 或 release。
 - [ ] Codex 单权威路由与 TermLink Owner 控制面修复：任务 `20260727-002` 已完成服务端 authority router、完整 follower input、显式新任务 Owner 广播、Owner incoming control proxy、turn authority ledger、禁止静默换线程，以及 Android route-state / recovery confirmation 的实现；本轮 Owner re-entry/history continuity 最小修复也已验证（Node 172/172、Android focused JVM 81/81、JDK 21 APK 构建安装启动、真机 A→B→A smoke）。仍需 Windows Desktop / VS Code 双宿主写入式 smoke 与完整 Goal 长任务验收，当前继续记为 in-development / observing，未合并 Main；旧任务 `20260727-001` 已 superseded。
 - [ ] Android Codex 大历史/离线缓存/媒体分层修复（`2026-08-03` 事故 follow-up）：15a–15f 实现与自动化记录完成，15g 实现完成但最终 home 域名+mTLS、local 局域网 IP/port、离线/重启/A→B→A、媒体进度和存储清理仍交由用户手动验收；WireGuard 不纳入矩阵。既有 Node/JDK/APK、direct runner 和 debug-only `CodexScreen` fixture 记录仅作实施期辅助证据，不替代手动结论。生产缓存未删除，agent 不再继续设备/网络验证；整体任务和本模块保持 observing（未发布/未合并 Main），事故 Goal 完整终态不是本轮门禁。
 - 2026-08-04：修复 history sync 最后一页 ACK 后残留 inactivity timer 的误报：最终 ACK 和 root/checkpoint 快路径现在
@@ -96,6 +96,8 @@
 - 外部 consumer 是否依赖现有 API 仍是 unknown
 - `.codex/skills/` 在本仓库带有本地忽略语义，需持续注意 host guidance 漂移
 - workflow validation matrix 已明确绑定 Node tests、Android JVM unit 和 Android release config；integration / e2e / deploy 仍待补
+- `bun run workflow:health` 当前在健康检查启动前因 `scripts/workflow-runtime.ts` 引用缺失的 `./guard-target-root` 模块而失败；本轮未修改 `scripts/`，需独立 workflow runtime 修复任务处理，不将该命令误写为通过
+- `bun run validate:protocol` 的 workflow skills/docs/registry 通过，但既有任务外 `TASKS/paused/TASK-20260615-001-app-codex-ipc-realtime-sync.md` 缺 `task_id`、`TASKS/inbox/INBOX-20260807-001-codex-history-sync-banner-ux.md` 不符合 inbox 命名契约；本任务不修改这些 artifact，整体治理 blocker 另立任务处理
 - README 默认端口与代码默认值仍有冲突，说明 active docs 仍需持续对齐代码事实
 - `node --test` 当前在 `20260511-001` 中已确认不是单点挂起：`tests\sessionManager.codexConfig.test.js`、`tests\terminalGateway.codex.test.js` 与 `tests\terminalGateway.sessionid.test.js` 各自单独运行都会在 90 秒窗口内未退出；Step 3 已基于这 3 个独立 hanging surface 形成 gate split 决策（TD-004）：6 文件 passing subset 作为 confirmed narrow gate（`blocks-merge`），3 hanging 文件拆出为 deferred fix follow-up 任务。3 个 hanging 文件全部集中在 terminalGateway / sessionManager codex config 路径，与已知高风险区域重叠；在 follow-up 修复前，终端网关和 session codex 配置相关回归无法被自动化 gate 捕获
 - `npm run android:check-release-config` 当前对 checked-in 配置报错：release 要求 `server.cleartext=false` 且 `server.androidScheme=https`
@@ -115,7 +117,6 @@
 
 - [ ] 完成 `20260820-001` workflow closeout：按下一 handoff 执行 `sync-contracts`，随后准备交付摘要/归档；保持阶段 2 稳定声明在 native formal package 输入/兼容边界内，不扩展到 P0-C、P0-B.4R、完整 analyzer 或产品集成
 - [ ] 完成 `20260820-002` path-scoped closeout：用户确认 R-010 任务外 dirty/untracked 内容的 owner，或明确授权仅对指定任务路径执行 staging/commit；确认前不清理、移动、回滚、归档或提交任务外文件
-- [ ] 完成 `20260820-003` path-scoped closeout：准备交付摘要并确认任务外 dirty/untracked owner；确认前不清理、移动、回滚、归档或提交任务外文件
 - [ ] 按新需求执行 `/create-current-task`，为下一轮建立新的任务包
 - [ ] 如需进一步补强开源 release 证据，可单独补正式 install 路径下的 `/api/health` 端到端验证
 - [ ] 拆分 deferred fix 任务：修复 `tests\sessionManager.codexConfig.test.js`、`tests\terminalGateway.codex.test.js`、`tests\terminalGateway.sessionid.test.js` 的挂起问题，恢复 full suite 可运行性
@@ -212,3 +213,5 @@
 - 2026-08-20：同步 `20260820-003` 五项 Major 复审修复。Node canonical batch schema/provenance/mutation fail-closed、同 epoch replacement 单次门禁、Rust 协议级 `resource_limits.timeout_ms`、无 cursor replay 的 persisted checkpoint source 校验，以及 analyzer batch 前后异常重启有限重放均已补齐；正式 Rust analyzer 派生字段/mutations 仍由 Node 集成回归保存，stage3 conformance 继续实际启动 Demo/Spike 并生成临时输出，静态 golden 仅为辅助。证据为 Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、7 stage4 protocol、Node 13/13；未修改 IPC、Android、既有 server/DB、Demo/Spike 或 vendor，未发生 release/deploy/canary/benchmark 状态变化。
 - 2026-08-20：同步 `20260820-003` R-015～R-019 收口。complete/checkpoint 严格一致性、mutation completeness/revision/source_ref、replacement preflight 原子性、同级 revision fence、path-only identity fail-closed，以及 File store 重启后的 retired epoch tombstone/current-epoch fence 均已补齐；证据为 Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、8 stage4 protocol、Node 19/19；未修改 IPC、Android、既有 server/DB、Demo/Spike 或 vendor，未发生 release/deploy/canary/benchmark 状态变化。
 - 2026-08-20：同步 `20260820-003` R-020～R-022 收口。`commitComplete()` 现在要求当前 request 已导入 batch，Memory/File checkpoint 按 completeness/source progress 单调保存，history item revision 按同 item_key mutation 绑定；Node 22/22 与 Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、8 stage4 protocol 通过。未修改 IPC、Android、既有 server/DB、Demo/Spike 或 vendor，未发生 release/deploy/canary/benchmark 状态变化。
+- 2026-08-21：归档 `20260820-003`。R-006～R-022 的隔离 Rust↔Node analyzer runtime/conformance 实现、审查、契约同步和回归均已完成；Windows cargo workaround、跨机器/clean-host toolchain 证据、产品 server/DB、IPC、Android、release/deploy/canary/benchmark 继续作为明确观察点或延期项。任务外 dirty/untracked 内容保持原样，未执行整树清理或提交。
+- 2026-08-21：closeout 校验记录：`bun run workflow:health` 因缺失 `scripts/guard-target-root` 未启动；`bun run validate:protocol` 的 workflow skills/docs/registry 通过，但既有 paused/inbox artifact 校验失败。两项均归类为任务外治理基线观察，不修改、不移动、不删除相关路径。

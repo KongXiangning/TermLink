@@ -2,10 +2,10 @@
 title: Codex Rollout 正式解析采集器架构
 status: active
 owner: "@maintainer"
-last_updated: 2026-08-20
+last_updated: 2026-08-21
 source_of_truth: codex-rollout-collector
 related_code: [native/codex-rollout-demo, native/codex-rollout-compat-spike]
-related_docs: [docs/codex/codex-rollout-demo-design.md, docs/codex/codex-rollout-collector-codex-compatibility.md, docs/workflow/CONTRACTS.md, docs/workflow/DECISIONS.md]
+related_docs: [docs/codex/codex-rollout-demo-design.md, docs/codex/codex-rollout-collector-codex-compatibility.md, docs/codex/codex-rollout-recorder-source-technical-reference.md, docs/codex/codex-history-sync-design-principles.md, docs/codex/codex-sync-app-history-ipc-consistency.md, docs/workflow/CONTRACTS.md, docs/workflow/DECISIONS.md]
 ---
 
 # Codex Rollout 正式解析采集器架构
@@ -1581,6 +1581,13 @@ Rust History Analyzer 只通过 Node/服务端分析传输协议接入正式系�
   历史验证资料，不作为正式 Rust History Analyzer 的接口依据；
 - `docs/codex/codex-rollout-collector-codex-compatibility.md`：Codex wire 类型、参考源码、
   TermLink 映射、排除范围和 conformance fixture 的详细清单；
+- `docs/codex/codex-rollout-recorder-source-technical-reference.md`：上游 Codex rollout
+  recorder 的源码事实，包括 JSONL append 写入、`flush`/`persist`、`.zst` materialize 和
+  Codex 自己的 SQLite 历史投影；只作为 Codex 写入行为的技术参考，不扩展 Rust Analyzer
+  或服务端职责；
+- `docs/codex/codex-sync-app-history-ipc-consistency.md`：App live projection 与 canonical
+  history sync、reconciliation 触发和服务端 read-model revision 的同步策略；它消费本文
+  定义的 canonical source/AnalysisBatch 边界，不改变 Rust Analyzer 的职责；
 - 本文：正式 rollout 解析采集器的目标架构和 Codex 兼容边界；
 - `docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`：IPC 实时 authority 的冻结契约。
 
