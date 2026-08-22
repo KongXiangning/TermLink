@@ -2,16 +2,200 @@
 
 ## 任务信息
 
-- 任务 ID：20260822-001
-- 任务标题：实施 Codex 最后一个 turn 编辑重发的 Rust Collector 兼容改造
-- 任务 slug：codex-last-turn-replacement-rust-collector
-- 当前状态：active
-- 创建时间：2026-08-22
-- 创建来源：用户明确要求实施 `docs/codex/codex-last-turn-replacement-rust-collector-change-plan.md`
-- 任务类型：Rust collector additive compatibility change
-- 任务目标：在不扩大到产品数据库、Node 产品持久化、IPC 或 Android 的前提下，让正式 Rust collector 能识别并验证 Codex 当前“最后一个已终止用户 turn 编辑重发”产生的父子 rollout 关系，输出可供阶段 4 隔离协议消费的一对一替换证据，并保持既有读取、解析、归约和阶段 4 兼容性。
+- 任务 ID：20260823-001
+- 任务标题：重订 Codex Rollout Collector 会话 lineage 发现与读取设计
+- 任务 slug：codex-rollout-collector-session-lineage-replan
+- 当前状态：in_progress
+- 生命周期状态：active
+- 当前 handoff：review-implementation
+- 创建时间：2026-08-23
+- 创建来源：真实 rollout 验证发现原 Rust Collector 任务只覆盖 replacement 子能力，未覆盖会话级文件发现、完整 lineage 重建和 lineage 读取模式
+- 任务类型：Rust collector implementation
+- Supersedes：`20260822-001` / `codex-last-turn-replacement-rust-collector`
+- 恢复需审查：false
+- 恢复审查原因：
+- Task start base：`7e9f552`
+- Last reviewed checkpoint：`7e9f552`
+- Current diff review target：`7e9f552..working-tree`
+- 任务目标：实现 Rust Collector 的完整会话级业务链路：按有界日期目录发现同一 conversation 的 rollout 文件，读取并验证文件名/SessionMeta/history_base 关系，重建 root→active head 的完整历史（保留被替换 turn），支持 full、tail/backward、backfill、same-file append 和 child transition，并输出 coverage、provenance、checkpoint 与 replacement evidence；不进入产品数据库、App ADTO、IPC 或 Android。
 
-## 背景与上下文
+## 本轮范围修订
+
+用户已明确将本任务从“只形成设计”推进为“按方案实施”。因此原先“禁止修改 Rust source/tests”
+的设计阶段限制由本节覆盖；Node 产品持久化、服务端数据库、IPC、Android 和 vendor 仍保持禁止。
+Rust protocol 的新增字段只属于隔离 Collector↔Node artifact，不是最终产品 DTO/ADTO 契约。
+
+## Supersede 记录
+
+- 旧任务状态：`superseded`
+- 旧任务标题：实施 Codex 最后一个 turn 编辑重发的 Rust Collector 兼容改造。
+- 失效原因：旧任务把“显式 active rollout → 父 rollout 校验 → `ReplaceLastTurn`”当作 Rust Collector 的完整目标；真实业务还要求 Collector 自己在有界日期目录内发现同一会话的新 rollout，关联所有有效 lineage 文件，重建包含被抛弃 turn 的完整历史，并在会话级支持 full/tail/backward/append 读取。
+- 范围失效：旧任务允许的 `RolloutCatalog` 只覆盖单目录/已知 active source，无法安全覆盖跨日期发现、session-level lineage cursor 和 active head 选择；继续按旧范围实现会把“替换识别器”误当成“历史采集器”。
+- 验收失效：旧验收标准只验证已知 active source 下的父链和 replacement evidence，没有要求发现最新文件、跨日期恢复、全历史输出或 lineage 级读取模式。
+- Partial diff ownership：提交 `7e9f552` 及其之前的 Rust/Node 隔离实现继续保留，作为新设计的 replacement evidence、stage4 capability、coverage、重启 replay 和 fixture 基础；本任务不回滚、不扩散其代码变更，也不把它宣称为完整 session lineage collector。
+- 旧任务 findings：REV-001 至 REV-010 的修复结果、真实 parent/child/stopped fixtures、A→B→C、partial coverage 和隔离协议证据均保留在本文件下方的旧任务执行记录中，后续设计必须继续兼容这些结果。
+- 旧任务未完成项：真实会话最新 rollout 的跨日期发现、所有关联文件的完整重建、文件名候选发现与 `history_base` 权威关系的边界、lineage 级 full/tail/backward/incremental 读取尚未形成设计和验收闭环。
+
+## 新任务背景与目标
+
+Codex 普通 rollout 文件仍是 append-only；用户编辑最后一个已终止问题后，Codex 新建 child rollout，并在 `history_base` 中记录父 rollout ID 和 cut。真实会话表明 child 文件可能落在父文件日期目录之后，不能只扫描当前目录。
+
+本任务把 Collector 的职责明确为：
+
+```text
+sessionsRoot + conversationId + 可选已知 rollout hint
+    ↓
+有界日期目录发现同会话候选文件
+    ↓
+文件名提取 conversation/rollout/time 候选信息
+    ↓
+读取 SessionMeta/history_base 建立权威父子关系
+    ↓
+确定 active head，root → head 重建完整历史
+    ↓
+支持 full / tail-backward / backfill / same-file append / child transition
+    ↓
+输出历史记录、coverage、source provenance 和 replacement evidence
+```
+
+文件名只能用于候选发现和顺序提示；精确父子关系、cut 和会话绑定必须由 rollout 内容和 `history_base` 验证。现有 replacement evidence 是该链路的派生输出，不是 Collector 的全部目标。
+
+## 验收标准
+
+1. 设计明确 Collector 的输入：sessions root、稳定 conversation ID、日期扫描边界、可选已知 source/head hint；不要求全局递归扫描，也不使用 mtime 单独决定 active head。
+2. 设计明确同一会话跨日期目录的有界发现算法，能够发现父文件日期之后产生的 child rollout，并对候选文件提取 rollout ID、稳定 conversation ID、文件时间和路径证据。
+3. 设计明确文件名候选关系与 `history_base` 权威关系的分工；文件名不能单独证明父子关系，缺失 parent、候选歧义、会话不一致或父链循环必须 fail-closed。
+4. 设计明确从 root 到 active head 的完整 lineage 重建：所有有效关联文件的历史记录都进入逻辑历史，被替换的旧 turn 保留，并向 Node/服务端输出可验证的 source lineage 和 replacement facts。
+5. 设计明确四类读取语义：单文件 full/tail/backward/append 的既有能力保持不变；新增 session-lineage full replay、tail/backward lineage recovery、同文件 append 和 child rollout transition 的组合规则。
+6. 设计明确 cursor/checkpoint 不得跨 child rollout 复用；lineage cursor 至少绑定 active rollout、物理 source fingerprint/anchor、父链身份和各文件安全边界。
+7. 设计保留当前最后一个已终止用户 turn 的一对一 replacement invariant、completed/stopped/interrupted、A→B→C、旧 turn 保留和 `ReplaceLastTurn` 隔离协议语义。
+8. 设计明确未知事件、未完成尾行、读取期间 mutation、partial lineage 和未知 schema 的 coverage/diagnostic/fail-closed 表达，不得静默宣称完整 canonical 历史。
+9. 相关文档之间职责一致：Collector 设计、Codex 兼容说明、recorder 技术参考和阶段 4.5 server-sync 草案不再互相假设不同的 active rollout 所有者；本轮不冻结产品 DB、WebSocket、App ADTO 或 IPC 契约。
+10. 本轮实施必须用 fixture、发现矩阵、读取矩阵、重启恢复矩阵和真实会话 smoke 验证；下游
+    阶段 4.5 只消费 Rust lineage batch，不在 Node 侧重新扫描 raw rollout 或猜测关系。
+
+## 允许修改范围
+
+### Allowed Files
+
+- `docs/codex/codex-last-turn-replacement-rust-collector-change-plan.md`
+- `docs/codex/codex-rollout-collector-architecture.md`
+- `docs/codex/codex-rollout-collector-codex-compatibility.md`
+- `docs/codex/codex-rollout-recorder-source-technical-reference.md`
+- `docs/codex/codex-last-turn-replacement-server-sync-design.md`（仅修正其对 Rust lineage 输入和 active source discovery 的依赖说明）
+- `docs/workflow/CURRENT_TASK.md`
+- `native/codex-rollout-collector/src/source/**`
+- `native/codex-rollout-collector/src/protocol/**`
+- `native/codex-rollout-collector/src/lib.rs`
+- `native/codex-rollout-collector/src/protocol/checkpoint.rs`
+- `native/codex-rollout-collector/tests/stage4_protocol.rs`
+
+### Conditional Files
+
+- `docs/codex/codex-history-sync-design-principles.md`：只有新的 Collector 输出边界改变阶段 4.5 的上游输入假设时，才补充依赖说明；不得在本任务冻结 DTO/ADTO 字段。
+- `docs/codex/codex-history-sync-wire-contract-draft.md`、`docs/codex/codex-history-sync-identity-revision-contract-draft.md`、`docs/codex/codex-history-sync-dto-contract-draft.md`：本轮默认不修改；若发现与新的 lineage source/provenance 语义直接冲突，先记录冲突并停止，不直接改成最终契约。
+
+## 禁止修改范围
+
+- `src/**`、`android/**`、产品侧 `tests/**`、`scripts/**`：不在本轮实施范围。
+- `native/codex-rollout-collector/vendor/**`：不得修改 vendor Codex 源码。
+- 产品 history provider、正式数据库 schema/migration、服务端路由、WebSocket/IPC runtime、Android SQLite/UI、Demo/Spike。
+- `docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/STATUS.md`、`docs/workflow/BASELINES.md`、`docs/workflow/LESSONS.md`：本轮不冻结新的长期契约或治理决策。
+- 任何删除、覆盖或重置任务外未跟踪文件的操作。
+
+## 已确认决策
+
+- Rust Collector 的一级目标是会话 lineage 发现、关联、完整重建和多读取模式；replacement evidence 是派生输出。
+- 稳定 conversation ID 必须由调用方显式提供或由已验证的会话绑定提供，不能由文件名单独推断 canonical identity。
+- 文件名用于有界候选发现、rollout ID 提取和时间/顺序提示；`history_base` 和 rollout 内容负责权威父子关系与 cut 校验。
+- 既有单文件 SourceBackend/full/tail/backward/append 语义保持 backward-compatible；lineage 读取只能 additive 扩展。
+- 正常 append、child rollout transition 和物理 source replacement 继续是三种不同语义，不能混用 `ForwardAppendCursor` 或 `replace_previous`。
+- 当前业务仍只支持最后一个已终止用户 turn 的一对一编辑替换，不扩展为通用 suffix、multi-turn 或 branch graph。
+- 本任务已实施 Rust Collector；服务端数据库、App ADTO、WebSocket 和 IPC 仍待后续独立任务。
+
+## 已解决的实施问题
+
+- 最小 discovery 输入固定为 `sessions_root + conversation_id`；可选 active rollout/path hint 只用于
+  缩小或验证候选，不能替代 header/history_base 校验。
+- active head 优先沿 hint 的唯一 descendant 解析；无 hint 时选择唯一有效 connected leaf，root-like
+  stale candidate 只保留 provenance，多 head/缺 parent/循环 fail-closed。
+- 同物理文件继续使用原 cursor；child transition 通过 lineage checkpoint 绑定 active head、
+  chain、日期边界和 source evidence，绝不把旧 append cursor 当作新 child cursor。
+- child 尚未形成 canonical projection 时返回 provisional/partial lineage window，不输出
+  replacement mutation；验证通过的 replacement evidence 仍可随 canonical source batch 输出。
+
+## 文档修订方案
+
+- 先修订 Rust Collector change plan，补齐发现、关联、完整重建和 lineage read modes。
+- 再修订 architecture、Codex compatibility 和 recorder reference，统一 SourceLocator、vendor 语义和普通 append/child transition 边界。
+- 最后修订 server-sync 草案的上游依赖说明，使其消费 Rust 交付的 lineage batch，而不是假定 Node 先自行找到唯一 active path。
+- CONTRACTS/DECISIONS/STATUS 不在本任务内修改；等新设计 review、scope lock 和 implementation plan 通过后，再按实际稳定接口同步。
+
+## 传播治理记录
+
+- Design mode: architecture/design replan → implementation
+- Release mode: none
+- 当前 handoff：`review-implementation`
+- 仅冻结隔离 Rust Collector protocol 的 additive 字段；未冻结产品 DTO、数据库、WebSocket、IPC 或 Android 契约。
+
+## 实施步骤
+
+1. **supersede narrow replacement task** — completed：保留 `20260822-001` 的 findings、执行记录和 `7e9f552` partial diff ownership，建立新的文档重订任务包。
+2. **revise collector plan** — completed：补齐会话文件发现、lineage 关联、完整历史重建和 session-level read modes。
+3. **implement collector** — completed：新增跨日期 discovery、active-head 选择、root→head replay、tail/backfill lineage window、child transition 和 lineage protocol/checkpoint evidence。
+4. **review and handoff** — completed：Rust 全量回归、真实目录四模式 smoke、旧 source 身份重启恢复和目标审查均完成；交付边界仍停留在 Rust Collector，不进入 Node 产品持久化或 App/IPC。
+
+## 回滚点
+
+- Task start base：`7e9f552`
+- Last reviewed checkpoint：`7e9f552`
+- Current diff review target：`7e9f552..working-tree`
+- 回滚策略：保留既有阶段 1–4 实现；若本轮新增 discovery 语义被否决，只回退本轮 Rust source/protocol/test 与对应设计文档变更，不触碰 vendor、产品 Node/DB、IPC、Android 和任务外未跟踪文件。
+
+## 新任务执行记录
+
+### 2026-08-23 — scope invalidation and replan
+
+- 真实会话验证确认：同一 conversation 的 rollout 文件可能跨 `2026/08/22` 与 `2026/08/23` 日期目录继续产生；当前代码默认只扫描 active source 所在目录，无法自动发现跨日期 parent/child。
+- 当前 `7e9f552` 已完成显式 source 下的 replacement evidence、A→B→C、stopped/interrupted 和阶段 4 隔离协议；这些变更继续作为新任务的可复用基础，不宣称完整 session lineage collector 已完成。
+- vendor `HistoryPosition`/`RolloutId` 语义确认 rollout ID 与稳定 conversation/thread ID 分离；vendor snapshot 未提供 TermLink 所需的跨日期 session 文件发现器。
+
+### 2026-08-23 — session lineage collector implementation
+
+- 新增 `source::discover_session` 与 filename/header evidence：按有界 `YYYY/MM/DD` 目录发现
+  同会话候选，校验 `SessionMeta.id`，用 `history_base.thread_id` 建立父链；root-like stale
+  候选保留在 provenance，不强行成为 active head；歧义、缺 parent、冲突和无完整 header
+  均 fail-closed。
+- stage4 接入 conversation-only discovery：缺省 source path/source id/source epoch 可由
+  active head 安全补全；full replay、preview/tail parent-suffix recovery、backfill、same-file
+  append 和 child transition 分别保持既有 cursor 语义，child 不复用旧 rollout append cursor。
+- `BatchMessage` 与 `AnalyzerCheckpoint` additive 输出 `discovered_sources`、
+  `lineage_transitions`、`lineage_coverage` 和 `lineage_checkpoint`；replacement evidence 仍
+  与 projection coverage 分离，partial/unknown 不生成 canonical replacement mutation。
+- 新增跨日期、conversation-only、重启后跳过中间 rollout、preview parent suffix、child
+  transition append 和 checkpoint evidence 测试；未修改 Node 产品持久化、数据库、IPC、Android、
+  vendor 或任务外未跟踪产物。
+- 验证：`cargo fmt --all -- --check` 通过；`cargo test --all-targets --no-default-features`
+  通过（73 unit、31 conformance、3 stage2、5 stage3、15 stage4）；另以真实目录协议 smoke
+  验证 Replay/Preview/Backfill/Append，当前 active head 为
+  `01a02a58-18b4-73b3-919b-c11773eb5dcd`，发现 6 个候选、4 条 transition，Replay 输出
+  109 个历史事件和 4 条 replacement evidence；Preview 返回 provisional/tail cursor，
+  Backfill/Append 返回相应 cursor。真实样本因 unknown/partial 保持
+  `coverage_complete=false`，未错误发布 canonical mutation。
+- 追加验证重启时携带旧 `source_id/source_epoch/path/cursor/anchor` 的恢复路径：旧身份被当作
+  hint，Collector 切换到 child head 并生成新的 lineage epoch；对应 stage4 回归通过。
+- `cargo clippy --all-targets --no-default-features` 可完成但保留既有 warning；`-D warnings`
+  不能作为本轮门禁，因为当前 crate 已存在重复 `forbid(unsafe_code)`、手工 Default、enum
+  大小和参数数量等历史 warning，本轮未扩大到全 crate 清理。
+- 当前剩余风险：真实 Codex 文件名/`history_base` compatibility invariant 仍需随着 vendor/UI
+  演进维护 fixture；Node/服务端正式持久化和 App ADTO 尚未实施，属于后续阶段 4.5 范围。
+- 本轮修改了 Rust Collector source/protocol/test 与对应设计文档；未修改
+  `CONTRACTS.md`、`DECISIONS.md`、`STATUS.md`、Node 产品持久化、数据库、IPC、Android、vendor
+  或任务外未跟踪产物。
+
+## 旧任务原始包（保留历史，不再作为当前范围）
+
+### 原任务背景与上下文
 
 Codex 在编辑当前会话最后一个已终止用户问题后，不修改父 rollout 文件，而是创建带 `history_base` 的新 rollout 文件。TermLink 当前业务冻结为：仅允许最后一个用户发起且已终止的 turn 被一对一替换；不把该行为泛化为任意逻辑后缀、多 turn 替换或通用分支图。
 

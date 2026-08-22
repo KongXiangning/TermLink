@@ -209,7 +209,7 @@ impl RolloutCatalog {
     }
 }
 
-fn is_rollout_path(path: &Path) -> bool {
+pub(super) fn is_rollout_path(path: &Path) -> bool {
     let name = path.to_string_lossy().to_ascii_lowercase();
     name.ends_with(".jsonl") || name.ends_with(".jsonl.zst")
 }
@@ -260,15 +260,68 @@ pub enum LineageError {
     EmptyParentRolloutId,
     EmptyRolloutId,
     EmptySourcePath,
-    ParentRolloutMissing { rollout_id: String },
-    AmbiguousRollout { rollout_id: String },
-    SourceNotFile { path: String },
-    CutBeyondParent { cut: u64, parent_bytes: u64 },
+    ParentRolloutMissing {
+        rollout_id: String,
+    },
+    AmbiguousRollout {
+        rollout_id: String,
+    },
+    SourceNotFile {
+        path: String,
+    },
+    CutBeyondParent {
+        cut: u64,
+        parent_bytes: u64,
+    },
     InvalidCut(String),
     InvalidBinding(String),
-    Io { operation: String, message: String },
-    ParentChainCycle { rollout_id: String },
-    ParentChainDepthExceeded { max_depth: usize },
+    Io {
+        operation: String,
+        message: String,
+    },
+    ParentChainCycle {
+        rollout_id: String,
+    },
+    ParentChainDepthExceeded {
+        max_depth: usize,
+    },
+    InvalidDiscoveryRequest(String),
+    InvalidDate(String),
+    InvalidDateRange {
+        start: String,
+        end: String,
+    },
+    DatePartitionLimitExceeded {
+        limit: usize,
+    },
+    DiscoveryLimitExceeded {
+        limit: usize,
+    },
+    ConversationRolloutMissing {
+        conversation_id: String,
+    },
+    CandidateHeaderInvalid {
+        path: String,
+        message: String,
+    },
+    FilenameHeaderMismatch {
+        path: String,
+        filename_conversation_id: String,
+        header_conversation_id: String,
+    },
+    InvalidHistoryBase {
+        rollout_id: String,
+        message: String,
+    },
+    ActiveRolloutNotDiscovered {
+        rollout_id: String,
+    },
+    ActivePathNotDiscovered {
+        path: String,
+    },
+    AmbiguousActiveHead {
+        candidates: Vec<String>,
+    },
 }
 
 impl fmt::Display for LineageError {
@@ -313,6 +366,64 @@ impl fmt::Display for LineageError {
                     "parent rollout chain exceeds maximum depth {max_depth}"
                 )
             }
+            Self::InvalidDiscoveryRequest(message) => {
+                write!(formatter, "invalid session discovery request: {message}")
+            }
+            Self::InvalidDate(value) => {
+                write!(formatter, "invalid rollout date partition: {value}")
+            }
+            Self::InvalidDateRange { start, end } => {
+                write!(formatter, "rollout date range is reversed: {start} > {end}")
+            }
+            Self::DatePartitionLimitExceeded { limit } => write!(
+                formatter,
+                "rollout discovery date range exceeds maximum partition count {limit}"
+            ),
+            Self::DiscoveryLimitExceeded { limit } => {
+                write!(
+                    formatter,
+                    "rollout discovery exceeds candidate limit {limit}"
+                )
+            }
+            Self::ConversationRolloutMissing { conversation_id } => write!(
+                formatter,
+                "no rollout candidate was discovered for conversation {conversation_id}"
+            ),
+            Self::CandidateHeaderInvalid { path, message } => {
+                write!(formatter, "invalid rollout header {path}: {message}")
+            }
+            Self::FilenameHeaderMismatch {
+                path,
+                filename_conversation_id,
+                header_conversation_id,
+            } => write!(
+                formatter,
+                "rollout filename/header conversation mismatch for {path}: filename={filename_conversation_id}, header={header_conversation_id}"
+            ),
+            Self::InvalidHistoryBase {
+                rollout_id,
+                message,
+            } => {
+                write!(
+                    formatter,
+                    "invalid history_base in rollout {rollout_id}: {message}"
+                )
+            }
+            Self::ActiveRolloutNotDiscovered { rollout_id } => write!(
+                formatter,
+                "requested active rollout was not discovered: {rollout_id}"
+            ),
+            Self::ActivePathNotDiscovered { path } => {
+                write!(
+                    formatter,
+                    "requested active rollout path was not discovered: {path}"
+                )
+            }
+            Self::AmbiguousActiveHead { candidates } => write!(
+                formatter,
+                "session has ambiguous active rollout heads: {}",
+                candidates.join(", ")
+            ),
         }
     }
 }

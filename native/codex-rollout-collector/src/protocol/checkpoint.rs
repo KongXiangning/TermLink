@@ -67,6 +67,11 @@ pub struct AnalyzerCheckpoint {
     #[serde(default)]
     pub projection_watermark: Option<String>,
     pub completeness: BatchCompleteness,
+    /// Optional session-lineage recovery evidence. Older checkpoints omit
+    /// this field and remain valid because the source layer can rediscover the
+    /// bounded catalog from `sessions_root`.
+    #[serde(default)]
+    pub lineage_checkpoint: Option<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -143,6 +148,7 @@ impl AnalyzerCheckpoint {
             reducer_state: batch.reducer_state.clone(),
             projection_watermark: Some(batch.batch_id.clone()),
             completeness: batch.completeness,
+            lineage_checkpoint: batch.lineage_checkpoint.clone(),
         };
         checkpoint.validate()?;
         Ok(checkpoint)
@@ -297,6 +303,7 @@ mod tests {
             reducer_state: Some(serde_json::json!({"seen": 2})),
             projection_watermark: Some("batch-1".to_string()),
             completeness: BatchCompleteness::Provisional,
+            lineage_checkpoint: None,
         };
         checkpoint.validate().expect("checkpoint valid");
         let encoded = serde_json::to_string(&checkpoint).expect("checkpoint serializes");

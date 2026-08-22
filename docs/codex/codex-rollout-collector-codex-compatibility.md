@@ -4,7 +4,8 @@ status: active
 owner: "@maintainer"
 last_updated: 2026-08-19
 source_of_truth: codex-rollout-collector-codex-compatibility
-related_docs: [docs/codex/codex-rollout-collector-architecture.md, docs/codex/codex-rollout-demo-design.md]
+last_updated: 2026-08-23
+related_docs: [docs/codex/codex-rollout-collector-architecture.md, docs/codex/codex-last-turn-replacement-rust-collector-change-plan.md, docs/codex/codex-rollout-recorder-source-technical-reference.md, docs/codex/codex-rollout-demo-design.md]
 ---
 
 # Codex Rollout 采集器 Codex 兼容层与引用边界
@@ -270,6 +271,28 @@ manifest 还要列出 path dependency 闭包和本地补丁。默认不允许只
 vendored 源码；确需补丁时，先在 Spike 验证，再以相同 patch 应用到正式 Analyzer，并同步
 manifest。两个 manifest 的 revision、闭包或 patch 集合不一致时，构建/发布检查必须失败，
 不能依赖人工确认。
+
+### 3.5 会话 rollout 发现和 lineage 关系
+
+Codex vendor 提供 rollout wire/history 类型和 `history_base` 的语义，但不替 TermLink 实现
+“从会话 ID 找到跨日期的最新 rollout”这一层。正式 Collector 需要自有的
+`SessionLineageLocator`：
+
+- 输入为受限 `sessionsRoot`、稳定 `conversationId`、日期起点/上界和可选已知 head hint；
+- 从父或最早已知 rollout 所在日期分区开始，向后检查到明确边界；child 位于下一日期目录
+  时仍可被发现，但不做整个 sessions 根的无界递归扫描；
+- 文件名解析只产生 `conversationId`、`rolloutId`、时间/日期和排序候选，不能单独确认
+  parent 或 active head；
+- 最小 header/`SessionMeta` 负责会话绑定和 rollout 身份，`history_base.thread_id` 负责
+  parent rollout 与 `end_ordinal_exclusive`/`end_byte_offset` cut；
+- 文件名候选与内容证据冲突、多个有效 head、parent 缺失、循环或超出资源边界时，返回诊断
+  的 partial 或 fail-closed，不用 mtime 最大文件冒充最新历史。
+
+仓库内 vendor 的 `protocol/src/protocol.rs` `HistoryPosition` 注释和
+`protocol/src/thread_id.rs` 的命名规则只能作为上述语义的兼容依据；它们没有提供完整的
+跨日期目录扫描器。TermLink 的目录发现、候选去重、lineage checkpoint 和 root → head
+恢复计划必须由自有 source 层维护，不能把开发者机器上的 Codex checkout 或其私有路径
+实现当作生产依赖。
 
 ## 4. 必须在 TermLink 内维护的 `codex_wire`
 
@@ -800,6 +823,10 @@ AnalysisBatch
 8. 一个文件变更、搜索或产物 fixture；
 9. 一个 compaction、abort 或 partial rollout fixture；
 10. 一个未知 event、字段缺失和 alias fixture。
+11. 一个真实会话的多文件 lineage fixture：父/child rollout 跨日期目录，child 首行包含
+    `history_base`，并能证明最后一个已终止 turn 的编辑重发；
+12. 一个文件名候选与 `SessionMeta/history_base` 冲突的 fixture，以及 parent 缺失、多个 head、
+    中间 rollout 被跳过后的恢复 fixture。
 
 必须验证：
 
@@ -811,6 +838,11 @@ AnalysisBatch
 - 不可恢复字段不会被伪造成成功、完成、审批或用户确认；
 - FunctionCall/CustomTool output 的文本和结构化形态都能 round-trip；
 - 普通 JSONL、`.zst` 能力边界和 cursor 语义符合主架构文档；
+- 仅给定 `sessionsRoot + conversationId` 时，能够在有界日期范围内发现跨日期 child，按
+  root → active head 重建完整历史，并保留被替换的旧 turn；
+- lineage 级 full、tail/backward、同源 append 和 child transition 使用不同 cursor/证据，
+  不把 child transition 误判为物理 append；
+- 文件名只作为候选，`history_base`/SessionMeta 才是 parent、cut 和会话绑定的验证事实；
 - 上游源码不可访问时，默认构建和默认测试仍然通过。
 
 ## 9. Codex 变化时的维护流程

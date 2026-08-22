@@ -29,21 +29,25 @@ pub use codex_wire::CompatibilityProfile;
 pub use model::LastTurnReplacement;
 pub use protocol::{
     ANALYZER_CHECKPOINT_SCHEMA_VERSION, ANALYZER_PROTOCOL_VERSION, ANALYZER_VERSION, AnalysisBatch,
-    AnalyzerCheckpoint, AnalyzerProtocolError, BatchCompleteness, BatchMessage, ParserProvenance,
-    analyze_records_with_adapter, analyze_request, analyze_source, analyze_source_with_cancel,
+    AnalyzerCheckpoint, AnalyzerProtocolError, BatchCompleteness, BatchMessage,
+    LineageCoverageMessage, LineageSourceMessage, LineageTransitionMessage, ParserProvenance,
+    RolloutDiscoveryRequest, SESSION_LINEAGE_CAPABILITY, analyze_records_with_adapter,
+    analyze_request, analyze_source, analyze_source_with_cancel,
 };
 pub use source::{
     AppendError, AppendReadReport, BackfillCursor, CURSOR_READER_BACKEND, CURSOR_READER_VERSION,
-    CURSOR_SCHEMA_VERSION, CompleteLineAnchor, CursorError, CursorMetadata, ForwardAppendCursor,
-    HistoryBaseRef, JsonlSourceBackend, LineageError, PlannedReadReport, ReadPlanResult,
-    RolloutCatalog, RolloutSource, SegmentAssembler, SegmentAssembly, SegmentAssemblyLimits,
+    CURSOR_SCHEMA_VERSION, CompleteLineAnchor, CursorError, CursorMetadata, DiscoveredLineageEdge,
+    DiscoveredRollout, ForwardAppendCursor, HistoryBaseRef, JsonlSourceBackend, LineageError,
+    PlannedReadReport, ReadPlanResult, RolloutCatalog, RolloutFilenameCandidate,
+    RolloutHeaderEvidence, RolloutSource, SegmentAssembler, SegmentAssembly, SegmentAssemblyLimits,
     SegmentCarrier, SegmentCarrierKind, SegmentCompleteness, SegmentDescriptor, SegmentError,
-    SegmentGap, SnapshotBoundary, SourceBackend, SourceBindingError, SourceByteRange,
-    SourceCandidate, SourceCapabilities, SourceCapability, SourceCompression, SourceCursorKind,
-    SourceFingerprint, SourceFixtureHash, SourceKind, SourceLocator, SourceOracleError,
-    SourcePrefixAnchor, SourceReadMode, SourceReadPlan, SourceReadPlanError, SourceRecord,
-    SourceRecordMismatch, SourceRecordOracleResult, SourceSegment, SourceSpec, TailPreviewCursor,
-    compare_source_records, rollout_id_from_filename,
+    SegmentGap, SessionDiscoveryRequest, SessionLineage, SnapshotBoundary, SourceBackend,
+    SourceBindingError, SourceByteRange, SourceCandidate, SourceCapabilities, SourceCapability,
+    SourceCompression, SourceCursorKind, SourceFingerprint, SourceFixtureHash, SourceKind,
+    SourceLocator, SourceOracleError, SourcePrefixAnchor, SourceReadMode, SourceReadPlan,
+    SourceReadPlanError, SourceRecord, SourceRecordMismatch, SourceRecordOracleResult,
+    SourceSegment, SourceSpec, TailPreviewCursor, compare_source_records, discover_session,
+    parse_rollout_filename, rollout_id_from_filename,
 };
 
 /// Implementation stage represented by this package.

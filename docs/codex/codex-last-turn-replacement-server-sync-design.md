@@ -2,7 +2,7 @@
 title: Codex 最后一个 turn 编辑重发：Node 持久化与 App 同步设计
 status: draft
 phase: 4.5 design
-last_updated: 2026-08-22
+last_updated: 2026-08-23
 source_of_truth: draft-design-only
 related_docs:
   - docs/codex/codex-last-turn-replacement-rust-collector-change-plan.md
@@ -24,13 +24,14 @@ related_code:
 
 ## 0. 文档目的和状态
 
-本文设计 Rust collector 已确认的“一对一最后 turn 替换”事实如何进入产品 Node 服务端、
-canonical read model、history WebSocket ADTO 和 App SQLite。
+本文设计 Rust Collector 交付的“完整会话 lineage + 已验证的一对一最后 turn 替换事实”如何
+进入产品 Node 服务端、canonical read model、history WebSocket ADTO 和 App SQLite。
 
 本文是阶段 4.5 草案，不实施正式数据库 migration、history provider、WebSocket handler 或
 Android 代码，也不把字段直接冻结为最终公共契约。它消费
 [Rust Collector 改造方案](codex-last-turn-replacement-rust-collector-change-plan.md) 定义的
-`ReplaceLastTurn` 交接语义，不重复解析 raw rollout。
+`LineageReadResult`/`AnalysisBatch` 交接语义，不重复解析 raw rollout；其中
+`ReplaceLastTurn` 只是完整 lineage 读取结果中的派生事实。
 
 ## 1. 产品业务模型
 
@@ -60,10 +61,10 @@ oldTurnId → newTurnId
 ## 2. 层级和职责
 
 ```text
-Codex active rollout locator
-    ↓ explicit active rollout path / rollout ID
-Rust collector
-    ↓ ReplaceLastTurn + new projection + provenance
+Node source scope / optional head hint
+    ↓ sessionsRoot + conversationId + bounded date range
+Rust SessionLineageLocator + collector
+    ↓ complete lineage + old/new turns + derived ReplaceLastTurn
 Node analyzer import staging
     ↓ validated replacement command
 产品数据库事务
@@ -74,24 +75,29 @@ App SQLite 原子提交
     ↓ ACK + UI refresh
 ```
 
-### 2.1 ActiveRolloutLocator
+### 2.1 Node source scope 与可选 head hint
 
-Node 负责从 Codex 当前 thread/session 状态取得 active `rollout_path` 或等价权威指针，并把
-显式 active source binding 交给 Rust。
+Node 负责提供允许读取的 `sessionsRoot`、稳定 `conversationId`、日期扫描起点/上界和可选的
+已知 `rollout_path`/head hint。Node 不再承担“必须先找出唯一最新文件”的业务职责；Rust 的
+会话级 locator 在有界范围内发现并验证 active head。
 
 约束：
 
 - 目录扫描、mtime 和文件名时间只发现候选，不能决定 active head；
-- Codex runtime/session event、持久化 thread state 或版本化 adapter 可以提供 active path；
+- Codex runtime/session event、持久化 thread state 或版本化 adapter 可以提供 head hint，但
+  Rust 必须验证其会话绑定、parent chain 和是否存在更新的有效 descendant；
 - 若直接读取 Codex SQLite，必须封装在兼容 adapter 中，不能让表结构扩散到 collector、DTO
   或 App；
-- 找不到唯一 active head 时停止本次 canonical 更新，不能选择“最新文件”；
+- Rust 在有界范围内找不到唯一 active head 时停止本次 canonical 更新，不能选择“最新文件”；
+- parent 与 child 跨日期目录时，Node 只扩大允许的日期边界，不自行重复扫描 raw rollout；
 - 这只是 canonical history source 定位，不改变 Android IPC realtime authority。
 
 ### 2.2 Rust collector
 
-Rust 负责验证 parent、cut、old turn terminal、new turn 和一对一关系。Node 不读取
-`history_base`，也不通过数据库 source spans 重新猜 old turn ID。
+Rust 负责在有界日期范围内发现候选，使用文件名生成候选信息，使用 `SessionMeta/history_base`
+验证 parent/cut，建立 root → active head lineage，并输出完整历史（包括被替换的旧 turn）。
+在此基础上 Rust 再验证 old turn terminal、new turn 和一对一关系，产生派生
+`ReplaceLastTurn`。Node 不读取 `history_base`，也不通过数据库 source spans 重新猜 old turn ID。
 
 ### 2.3 产品 Node
 
@@ -105,7 +111,26 @@ Node 负责：
 
 ## 3. Rust 输入契约
 
-Node 产品 importer 只消费已通过阶段 4 schema validation 的：
+Node 产品 importer 只消费 Rust 已通过阶段 4 schema validation 的 lineage result；它不读取
+raw rollout，也不通过服务端数据库推导 lineage。概念上至少包含：
+
+```text
+LineageReadResult
+  conversationId
+  rootRolloutId
+  activeHeadRolloutId
+  discoveredSources / lineageTransitions
+  historyItems                 # 包括仍保留的旧 turn
+  coverage / completeness / diagnostics
+  source identity / checkpoint / cursor
+  derived replacements[]
+```
+
+其中 `full`、`tail/backward`、同源 `append` 和 child transition 是 Rust 的读取/编排模式，
+不是本层的 HTTP 分页。Node 只根据结果的 coverage、checkpoint、provenance 和 mutation
+执行事务；跨日期发现、父子关系和读取游标的安全校验留在 Collector。
+
+lineage result 中的 replacement 派生事实为：
 
 ```text
 ReplaceLastTurn
@@ -119,7 +144,7 @@ ReplaceLastTurn
   replacementCut
   source evidence
 
-以及：
+以及同一 lineage batch 中的：
   new turn / items / details / usage / outcome
   parser provenance
   source identity / checkpoint / completeness

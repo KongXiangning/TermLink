@@ -7,6 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::io::Read;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
@@ -24,9 +25,10 @@ use crate::protocol::batch::{AnalysisBatch, BatchDiagnostic};
 use crate::protocol::checkpoint::AnalyzerCheckpoint;
 use crate::source::{
     BackfillCursor, CompleteLineAnchor, ForwardAppendCursor, HistoryBaseRef, JsonlSourceBackend,
-    LineageError, PlannedReadReport, RolloutCatalog, RolloutSource, SnapshotBoundary,
-    SourceByteRange, SourceCompression, SourceFingerprint, SourceFixtureHash, SourcePrefixAnchor,
-    SourceReadMode, SourceReadPlan, SourceRecord, SourceSpec, TailPreviewCursor,
+    LineageError, PlannedReadReport, RolloutCatalog, RolloutSource, SessionDiscoveryRequest,
+    SessionLineage, SnapshotBoundary, SourceByteRange, SourceCompression, SourceFingerprint,
+    SourceFixtureHash, SourcePrefixAnchor, SourceReadMode, SourceReadPlan, SourceRecord,
+    SourceSpec, TailPreviewCursor, discover_session,
 };
 use crate::version::{COMPATIBILITY_LAYER_VERSION, PARSER_BACKEND};
 
@@ -35,6 +37,7 @@ pub use crate::protocol::batch::BatchCompleteness;
 pub const ANALYZER_PROTOCOL_VERSION: u16 = 1;
 pub const ANALYZER_VERSION: &str = "termlink-codex-rollout-collector/0.1";
 pub const LAST_TURN_REPLACEMENT_CAPABILITY: &str = "last_turn_replacement_v1";
+pub const SESSION_LINEAGE_CAPABILITY: &str = "session_lineage_v1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -175,6 +178,7 @@ impl HelloMessage {
                 "ack".to_string(),
                 "checkpoint".to_string(),
                 LAST_TURN_REPLACEMENT_CAPABILITY.to_string(),
+                SESSION_LINEAGE_CAPABILITY.to_string(),
             ],
             parser_backend: PARSER_BACKEND.to_string(),
             compatibility_layer_version: COMPATIBILITY_LAYER_VERSION.to_string(),
@@ -372,6 +376,11 @@ pub struct AnalyzeRequest {
     pub replace_previous: bool,
     #[serde(default)]
     pub lineage: Option<RolloutLineageRequest>,
+    /// Optional session-level discovery.  When present, `source_spec.path`
+    /// may be empty and the collector resolves the active rollout from the
+    /// bounded date catalog before constructing the physical read plan.
+    #[serde(default)]
+    pub discovery: Option<RolloutDiscoveryRequest>,
     /// Capabilities offered by the Node peer during the in-process hello.
     /// This is transport state and is never serialized into the request JSON.
     #[serde(skip)]
@@ -398,6 +407,7 @@ impl AnalyzeRequest {
             retention_profile: None,
             replace_previous: false,
             lineage: None,
+            discovery: None,
             peer_capabilities: Vec::new(),
             resource_limits: ResourceLimits::default(),
         }
@@ -405,6 +415,11 @@ impl AnalyzeRequest {
 
     pub fn with_lineage(mut self, lineage: RolloutLineageRequest) -> Self {
         self.lineage = Some(lineage);
+        self
+    }
+
+    pub fn with_discovery(mut self, discovery: RolloutDiscoveryRequest) -> Self {
+        self.discovery = Some(discovery);
         self
     }
 
@@ -431,6 +446,66 @@ pub struct RolloutLineageRequest {
     pub candidates: Vec<RolloutCatalogCandidateRequest>,
     #[serde(default = "default_lineage_max_depth")]
     pub max_depth: usize,
+}
+
+/// Protocol-facing wrapper around the source-layer bounded discovery input.
+///
+/// Dates are partition boundaries, not a physical-read paging abstraction.
+/// The source reader still exposes full/tail/backward/forward modes and their
+/// independent cursors after this discovery step has selected the active
+/// rollout.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RolloutDiscoveryRequest {
+    pub sessions_root: String,
+    pub conversation_id: String,
+    #[serde(default)]
+    pub start_date: Option<String>,
+    #[serde(default)]
+    pub end_date: Option<String>,
+    #[serde(default)]
+    pub active_rollout_id: Option<String>,
+    #[serde(default)]
+    pub active_path: Option<String>,
+    #[serde(default = "default_discovery_max_candidates")]
+    pub max_candidates: usize,
+    #[serde(default = "default_discovery_max_date_partitions")]
+    pub max_date_partitions: usize,
+}
+
+impl RolloutDiscoveryRequest {
+    pub fn new(sessions_root: impl Into<String>, conversation_id: impl Into<String>) -> Self {
+        Self {
+            sessions_root: sessions_root.into(),
+            conversation_id: conversation_id.into(),
+            start_date: None,
+            end_date: None,
+            active_rollout_id: None,
+            active_path: None,
+            max_candidates: default_discovery_max_candidates(),
+            max_date_partitions: default_discovery_max_date_partitions(),
+        }
+    }
+
+    fn to_source_request(&self) -> SessionDiscoveryRequest {
+        SessionDiscoveryRequest {
+            sessions_root: PathBuf::from(&self.sessions_root),
+            conversation_id: self.conversation_id.clone(),
+            start_date: self.start_date.clone(),
+            end_date: self.end_date.clone(),
+            active_rollout_id: self.active_rollout_id.clone(),
+            active_path: self.active_path.as_deref().map(PathBuf::from),
+            max_candidates: self.max_candidates,
+            max_date_partitions: self.max_date_partitions,
+        }
+    }
+}
+
+fn default_discovery_max_candidates() -> usize {
+    4096
+}
+
+fn default_discovery_max_date_partitions() -> usize {
+    366
 }
 
 impl Default for RolloutLineageRequest {
@@ -545,6 +620,42 @@ pub struct TaskOutcome {
     pub revision: u64,
 }
 
+/// Provenance for a rollout file discovered while resolving one session.
+/// This is additive protocol evidence; it is not an App DTO or a database
+/// persistence instruction.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LineageSourceMessage {
+    pub rollout_id: String,
+    pub path: String,
+    pub timestamp: String,
+    pub date_partition: String,
+    pub file_size: u64,
+    #[serde(default)]
+    pub header_end_byte: u64,
+    pub header_verified: bool,
+    #[serde(default)]
+    pub history_base: Option<HistoryBaseRef>,
+    #[serde(default)]
+    pub fingerprint: Option<SourceFingerprint>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LineageTransitionMessage {
+    pub parent_rollout_id: String,
+    pub child_rollout_id: String,
+    pub history_base: HistoryBaseRef,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LineageCoverageMessage {
+    pub root_rollout_id: String,
+    pub active_head_rollout_id: String,
+    pub chain_rollout_ids: Vec<String>,
+    pub discovered_source_count: usize,
+    pub covered_source_count: usize,
+    pub complete: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BatchMessage {
     #[serde(flatten)]
@@ -583,6 +694,14 @@ pub struct BatchMessage {
     /// Rust or Codex types.
     #[serde(default)]
     pub reducer_state: Option<Value>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub discovered_sources: Vec<LineageSourceMessage>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub lineage_transitions: Vec<LineageTransitionMessage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lineage_coverage: Option<LineageCoverageMessage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lineage_checkpoint: Option<Value>,
 }
 
 impl BatchMessage {
@@ -641,6 +760,10 @@ impl BatchMessage {
             source_fingerprint: None,
             source_prefix_anchor: None,
             reducer_state: None,
+            discovered_sources: Vec::new(),
+            lineage_transitions: Vec::new(),
+            lineage_coverage: None,
+            lineage_checkpoint: None,
         }
     }
 
@@ -1194,17 +1317,102 @@ pub fn analyze_request_with_state(
         .ok_or_else(|| anyhow::anyhow!("resource timeout deadline overflowed"))?;
     check_deadline(cancelled, deadline)?;
 
+    let mut effective_lineage = request.lineage.clone();
+    let mut discovered_lineage = None;
     let mut source_request = request.source_spec.clone();
+    if let Some(discovery) = request.discovery.as_ref() {
+        if discovery.conversation_id != request.conversation_id {
+            anyhow::bail!("discovery conversation_id does not match analyze conversation_id");
+        }
+        if !request
+            .peer_capabilities
+            .iter()
+            .any(|capability| capability == SESSION_LINEAGE_CAPABILITY)
+        {
+            anyhow::bail!(
+                "unsupported capability: Node must offer {SESSION_LINEAGE_CAPABILITY} before session discovery"
+            );
+        }
+        let mut discovery_request = discovery.to_source_request();
+        // A restarted caller may still hold the previous active rollout in
+        // source_spec.  Treat it as a bounded discovery hint so a newer
+        // descendant can be selected instead of rejecting a valid restart.
+        if discovery_request.active_rollout_id.is_none() {
+            discovery_request.active_rollout_id = source_request
+                .source_id
+                .as_deref()
+                .filter(|source_id| !source_id.trim().is_empty())
+                .map(ToOwned::to_owned);
+        }
+        if discovery_request.active_path.is_none() && !source_request.path.trim().is_empty() {
+            discovery_request.active_path = Some(PathBuf::from(&source_request.path));
+        }
+        let session = discover_session(&discovery_request)
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+        let active = session.active_source();
+        if let Some(source_id) = source_request
+            .source_id
+            .as_deref()
+            .filter(|source_id| !source_id.trim().is_empty())
+            && source_id != active.rollout_id
+            && !session
+                .candidates
+                .iter()
+                .any(|candidate| candidate.source.rollout_id == source_id)
+        {
+            anyhow::bail!(
+                "source_spec.source_id {} is not a discovered rollout for conversation {}",
+                source_id,
+                request.conversation_id
+            );
+        }
+        // Discovery is authoritative for the physical active source.  This
+        // also guarantees that a child rollout receives a new epoch even when
+        // the restarted caller persisted the parent's epoch.
+        source_request.path = active.path.to_string_lossy().to_string();
+        source_request.source_id = Some(active.rollout_id.clone());
+        source_request.source_epoch = Some(session.source_epoch());
+        if effective_lineage.is_none() {
+            effective_lineage = Some(RolloutLineageRequest::default());
+        }
+        discovered_lineage = Some(session);
+    }
     source_request.max_decoded_bytes = Some(request.resource_limits.max_decoded_bytes);
     source_request.max_line_bytes = Some(request.resource_limits.max_line_bytes);
     source_request.max_segment_bytes = Some(request.resource_limits.max_segment_bytes);
     let mut spec = source_request
         .into_source_spec(&request.conversation_id)
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-    if let Some(cursor) = request.cursor.as_ref() {
+    let cursor_is_for_new_active_head = discovered_lineage.as_ref().is_some_and(|lineage| {
+        request.cursor.as_ref().is_some_and(|cursor| {
+            source_metadata_is_stale(
+                cursor,
+                &lineage.source_epoch(),
+                &lineage.active_head_rollout_id,
+            )
+        })
+    });
+    let persisted_anchor_is_for_new_active_head =
+        discovered_lineage.as_ref().is_some_and(|lineage| {
+            request.persisted_anchor.as_ref().is_some_and(|anchor| {
+                source_metadata_is_stale(
+                    anchor,
+                    &lineage.source_epoch(),
+                    &lineage.active_head_rollout_id,
+                )
+            })
+        });
+    let cursor_for_source = (!cursor_is_for_new_active_head)
+        .then_some(request.cursor.as_ref())
+        .flatten();
+    if let Some(cursor) = cursor_for_source {
         spec = enrich_spec_from_cursor(spec, cursor)?;
     }
-    if let Some(anchor) = request.persisted_anchor.as_ref() {
+    let persisted_anchor_for_source = (!(cursor_is_for_new_active_head
+        || persisted_anchor_is_for_new_active_head))
+        .then_some(request.persisted_anchor.as_ref())
+        .flatten();
+    if let Some(anchor) = persisted_anchor_for_source {
         spec = enrich_spec_from_persisted_anchor(spec, anchor)?;
     }
     if spec.source_epoch().is_none() {
@@ -1216,12 +1424,12 @@ pub fn analyze_request_with_state(
     {
         anyhow::bail!("source limits do not match resource_limits");
     }
-    let lineage_source_guard = if request.lineage.is_some() {
+    let lineage_source_guard = if effective_lineage.is_some() {
         Some(capture_source_guard(spec.path())?)
     } else {
         None
     };
-    if let Some(cursor) = request.cursor.as_ref() {
+    if let Some(cursor) = cursor_for_source {
         let current_length = std::fs::metadata(spec.path())?.len();
         validate_cursor_payload(
             cursor,
@@ -1233,8 +1441,7 @@ pub fn analyze_request_with_state(
         // it has passed prefix/fingerprint validation, the read plan must be
         // bound to the newly observed (possibly grown) snapshot.
         spec = spec.with_snapshot_boundary(SnapshotBoundary::new(current_length));
-    } else if request
-        .persisted_anchor
+    } else if persisted_anchor_for_source
         .as_ref()
         .is_some_and(|anchor| anchor.get("source").is_some())
         || spec.fingerprint().is_some()
@@ -1243,7 +1450,11 @@ pub fn analyze_request_with_state(
         validate_persisted_source_metadata(&spec)?;
     }
 
-    runtime.prepare_request(request)?;
+    let mut runtime_request = request.clone();
+    runtime_request.source_spec = source_request;
+    runtime_request.cursor = cursor_for_source.cloned();
+    runtime_request.persisted_anchor = persisted_anchor_for_source.cloned();
+    runtime.prepare_request(&runtime_request)?;
     check_deadline(cancelled, deadline)?;
     let profile = runtime.profile;
     let backend = JsonlSourceBackend;
@@ -1272,7 +1483,7 @@ pub fn analyze_request_with_state(
             (batch, source_range, progress, report, records, None, None)
         }
         AnalyzeMode::Preview => {
-            let plan = if let Some(cursor) = request.cursor.as_ref() {
+            let plan = if let Some(cursor) = cursor_for_source {
                 let range = cursor_range(cursor, SourceCursorMode::TailPreview)?;
                 backend.plan_range(&spec, SourceReadMode::BackwardRange, range)?
             } else {
@@ -1294,7 +1505,7 @@ pub fn analyze_request_with_state(
         AnalyzeMode::Backfill => {
             let range = request
                 .known_complete_range
-                .or_else(|| request.cursor.as_ref().and_then(cursor_range_for_backfill))
+                .or_else(|| cursor_for_source.and_then(cursor_range_for_backfill))
                 .unwrap_or_else(|| {
                     let source_bytes = std::fs::metadata(spec.path())
                         .map(|metadata| metadata.len())
@@ -1322,7 +1533,7 @@ pub fn analyze_request_with_state(
             (batch, source_range, progress, report, records, None, None)
         }
         AnalyzeMode::Append => {
-            if let Some(cursor) = request.cursor.as_ref() {
+            if let Some(cursor) = cursor_for_source {
                 let append_cursor =
                     serde_json::from_value::<ForwardAppendCursor>(cursor.clone())
                         .map_err(|error| AnalyzerProtocolError::InvalidCursor(error.to_string()))?;
@@ -1386,12 +1597,41 @@ pub fn analyze_request_with_state(
             anyhow::bail!("active rollout changed while lineage analysis was reading it");
         }
     }
-    let mut lineage_coverage = None;
-    if let Some(lineage) = request.lineage.as_ref()
-        && batch.complete
-        && batch.completeness == BatchCompleteness::Canonical
+    if batch.history_base.is_none()
+        && let Some(discovered_lineage) = discovered_lineage.as_ref()
     {
-        let replay = collect_lineage_replay(&spec, &batch, lineage, profile, cancelled, deadline)?;
+        batch.history_base = discovered_lineage.active_history_base();
+    }
+    let mut lineage_coverage = None;
+    if let Some(lineage) = effective_lineage.as_ref()
+        && (batch.complete && batch.completeness == BatchCompleteness::Canonical
+            || discovered_lineage.is_some())
+    {
+        let replay = if batch.complete && batch.completeness == BatchCompleteness::Canonical {
+            collect_lineage_replay(
+                &spec,
+                &batch,
+                lineage,
+                profile,
+                cancelled,
+                deadline,
+                discovered_lineage.as_ref(),
+            )?
+        } else if let Some(discovered_lineage) = discovered_lineage.as_ref() {
+            collect_lineage_window(
+                &spec,
+                &batch,
+                lineage,
+                discovered_lineage,
+                profile,
+                cancelled,
+                deadline,
+            )?
+        } else {
+            return Err(anyhow::anyhow!(
+                "incomplete lineage replay requires session discovery"
+            ));
+        };
         // A lineage request is a cold-start capable replay, not only a
         // relationship lookup.  Send the ordered parent history together
         // with the active child so Node can rebuild the same projection even
@@ -1441,6 +1681,9 @@ pub fn analyze_request_with_state(
     );
     message.replace_previous = request.replace_previous;
     message.reducer_state = Some(runtime.checkpoint_state());
+    if let Some(discovered_lineage) = discovered_lineage.as_ref() {
+        apply_lineage_metadata(&mut message, discovered_lineage, lineage_coverage);
+    }
     check_deadline(cancelled, deadline)?;
     let prefix_end = source_range.map(|range| range.end()).unwrap_or(0);
     let (fingerprint, prefix_anchor) =
@@ -1471,15 +1714,161 @@ pub fn analyze_request_with_state(
     Ok(message)
 }
 
+fn source_metadata_is_stale(value: &Value, active_epoch: &str, active_source_id: &str) -> bool {
+    let source = value.get("source").unwrap_or(value);
+    source
+        .get("source_id")
+        .and_then(Value::as_str)
+        .is_some_and(|source_id| source_id != active_source_id)
+        || source
+            .get("source_epoch")
+            .and_then(Value::as_str)
+            .is_some_and(|source_epoch| source_epoch != active_epoch)
+}
+
 struct LineageReplay {
     history_items: Vec<AnalysisEvent>,
     replacements: Vec<LastTurnReplacement>,
     coverage: ProjectionCoverage,
 }
 
+fn apply_lineage_metadata(
+    message: &mut BatchMessage,
+    session: &SessionLineage,
+    coverage: Option<ProjectionCoverage>,
+) {
+    message.discovered_sources = session
+        .candidates
+        .iter()
+        .map(|candidate| LineageSourceMessage {
+            rollout_id: candidate.source.rollout_id.clone(),
+            path: candidate.source.path.to_string_lossy().to_string(),
+            timestamp: candidate.filename.timestamp.clone(),
+            date_partition: candidate.filename.date_partition.clone(),
+            file_size: candidate.file_size,
+            header_end_byte: candidate.header.header_end_byte,
+            header_verified: true,
+            history_base: candidate.header.history_base.clone(),
+            fingerprint: candidate.fingerprint.clone(),
+        })
+        .collect();
+    message.lineage_transitions = session
+        .transitions
+        .iter()
+        .map(|transition| LineageTransitionMessage {
+            parent_rollout_id: transition.parent_rollout_id.clone(),
+            child_rollout_id: transition.child_rollout_id.clone(),
+            history_base: transition.history_base.clone(),
+        })
+        .collect();
+    let coverage = coverage.unwrap_or(ProjectionCoverage::Unknown);
+    message.lineage_coverage = Some(LineageCoverageMessage {
+        root_rollout_id: session.root_rollout_id.clone(),
+        active_head_rollout_id: session.active_head_rollout_id.clone(),
+        chain_rollout_ids: session
+            .chain
+            .iter()
+            .map(|candidate| candidate.source.rollout_id.clone())
+            .collect(),
+        discovered_source_count: session.candidates.len(),
+        // A source is physically covered when its planned segment/full read
+        // completed.  This is intentionally separate from `complete`, which
+        // also requires a complete known-event projection.
+        covered_source_count: session.chain.len(),
+        complete: coverage.is_complete(),
+    });
+    message.lineage_checkpoint = Some(serde_json::json!({
+        "schema_version": 1,
+        "conversation_id": session.conversation_id,
+        "root_rollout_id": session.root_rollout_id,
+        "active_head_rollout_id": session.active_head_rollout_id,
+        "start_date": session.start_date,
+        "end_date": session.end_date,
+        "chain_rollout_ids": session
+            .chain
+            .iter()
+            .map(|candidate| candidate.source.rollout_id.clone())
+            .collect::<Vec<_>>(),
+        "discovered_sources": &message.discovered_sources,
+        "lineage_transitions": &message.lineage_transitions,
+        "coverage": coverage,
+    }));
+}
+
 struct LineageParentRead {
     validation_batch: AnalysisBatch,
     history_batch: AnalysisBatch,
+}
+
+/// Assemble a provisional logical window for preview/backfill requests.
+///
+/// The active source is read using its requested physical mode first.  When
+/// the window crosses a child boundary, the collector reads only the bounded
+/// parent suffix selected by `history_base`; it does not pretend that this is
+/// a complete canonical replay and therefore emits no replacement mutation.
+fn collect_lineage_window(
+    active_spec: &SourceSpec,
+    active_batch: &AnalysisBatch,
+    request: &RolloutLineageRequest,
+    session: &SessionLineage,
+    profile: CompatibilityProfile,
+    cancelled: &AtomicBool,
+    deadline: Instant,
+) -> anyhow::Result<LineageReplay> {
+    if request.max_depth == 0 {
+        anyhow::bail!("lineage max_depth must be greater than zero");
+    }
+    let catalog = build_rollout_catalog(active_spec, request, Some(session))?;
+    let mut current_source = RolloutSource::new(
+        active_spec.source_id().to_string(),
+        active_spec.path().to_path_buf(),
+    )
+    .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    let mut current_batch = active_batch.clone();
+    let mut lineage_batches = vec![active_batch.clone()];
+    let mut visited = BTreeSet::new();
+    let mut coverage = projection_coverage_of(active_batch).min(ProjectionCoverage::Partial);
+    for depth in 0..request.max_depth {
+        check_deadline(cancelled, deadline)?;
+        if !visited.insert(current_source.rollout_id.clone()) {
+            return Err(anyhow::anyhow!(LineageError::ParentChainCycle {
+                rollout_id: current_source.rollout_id,
+            }));
+        }
+        let Some(history_base) = current_batch.history_base.clone() else {
+            break;
+        };
+        let parent_source = catalog
+            .resolve(&history_base.parent_rollout_id)
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+        let parent_batch = read_lineage_suffix_batch(
+            &parent_source,
+            active_spec,
+            &history_base,
+            profile,
+            cancelled,
+            deadline,
+        )?;
+        coverage = coverage.min(projection_coverage_of(&parent_batch));
+        lineage_batches.push(parent_batch.clone());
+        current_source = parent_source;
+        current_batch = parent_batch;
+        if depth + 1 == request.max_depth && current_batch.history_base.is_some() {
+            return Err(anyhow::anyhow!(LineageError::ParentChainDepthExceeded {
+                max_depth: request.max_depth,
+            }));
+        }
+    }
+    lineage_batches.reverse();
+    let mut history_items = Vec::new();
+    for batch in lineage_batches {
+        merge_lineage_history_items(&mut history_items, &batch.items);
+    }
+    Ok(LineageReplay {
+        history_items,
+        replacements: Vec::new(),
+        coverage,
+    })
 }
 
 fn collect_lineage_replay(
@@ -1489,6 +1878,7 @@ fn collect_lineage_replay(
     profile: CompatibilityProfile,
     cancelled: &AtomicBool,
     deadline: Instant,
+    discovered_lineage: Option<&SessionLineage>,
 ) -> anyhow::Result<LineageReplay> {
     if request.max_depth == 0 {
         anyhow::bail!("lineage max_depth must be greater than zero");
@@ -1507,7 +1897,7 @@ fn collect_lineage_replay(
     // source directory is the bounded default discovery root.  An explicit
     // catalog_root remains authoritative when the caller has a wider (or
     // otherwise different) approved source directory.
-    let catalog = build_rollout_catalog(active_spec, request)?;
+    let catalog = build_rollout_catalog(active_spec, request, discovered_lineage)?;
     let child_rollout_id = active_spec.source_id().to_string();
     let mut current_source = RolloutSource::new(child_rollout_id, active_spec.path().to_path_buf())
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
@@ -1580,8 +1970,18 @@ fn projection_coverage_of(batch: &AnalysisBatch) -> ProjectionCoverage {
 fn build_rollout_catalog(
     active_spec: &SourceSpec,
     request: &RolloutLineageRequest,
+    discovered_lineage: Option<&SessionLineage>,
 ) -> anyhow::Result<RolloutCatalog> {
-    let mut catalog = if let Some(root) = request.catalog_root.as_deref() {
+    let mut catalog = if let Some(discovered_lineage) = discovered_lineage {
+        if discovered_lineage.active_head_rollout_id != active_spec.source_id() {
+            anyhow::bail!(
+                "discovered active rollout {} does not match source {}",
+                discovered_lineage.active_head_rollout_id,
+                active_spec.source_id()
+            );
+        }
+        discovered_lineage.catalog.clone()
+    } else if let Some(root) = request.catalog_root.as_deref() {
         RolloutCatalog::from_directory(root).map_err(|error| anyhow::anyhow!(error.to_string()))?
     } else if let Some(root) = active_spec
         .path()
@@ -1601,6 +2001,77 @@ fn build_rollout_catalog(
         anyhow::bail!("lineage catalog has no parent rollout candidates");
     }
     Ok(catalog)
+}
+
+fn read_lineage_suffix_batch(
+    source: &RolloutSource,
+    active_spec: &SourceSpec,
+    history_base: &HistoryBaseRef,
+    profile: CompatibilityProfile,
+    cancelled: &AtomicBool,
+    deadline: Instant,
+) -> anyhow::Result<AnalysisBatch> {
+    check_deadline(cancelled, deadline)?;
+    let target_conversation_id = active_spec
+        .target_conversation_id()
+        .ok_or_else(|| anyhow::anyhow!("lineage target conversation ID is required"))?;
+    let spec = SourceSpec::bind(
+        target_conversation_id,
+        source.rollout_id.clone(),
+        source.path.clone(),
+    )
+    .map_err(|error| anyhow::anyhow!(error.to_string()))?
+    .with_limits(
+        active_spec.max_decoded_bytes(),
+        active_spec.max_line_bytes(),
+    )
+    .with_segment_limit(active_spec.max_segment_bytes());
+    if spec.compression() != SourceCompression::PlainJsonl {
+        anyhow::bail!(
+            "lineage tail/backfill recovery requires a seekable plain JSONL parent source"
+        );
+    }
+    let snapshot_length = std::fs::metadata(&source.path)?.len();
+    if history_base.end_byte_offset > snapshot_length {
+        return Err(anyhow::anyhow!(LineageError::CutBeyondParent {
+            cut: history_base.end_byte_offset,
+            parent_bytes: snapshot_length,
+        }));
+    }
+    let header_end = first_line_end(&source.path, spec.max_line_bytes())?;
+    let header_range = SourceByteRange::new(0, header_end)?;
+    let suffix_range = SourceByteRange::new(history_base.end_byte_offset, snapshot_length)?;
+    let source_guard = capture_lineage_source_guard(&source.path, &[header_range, suffix_range])?;
+    let spec = spec.with_snapshot_boundary(SnapshotBoundary::new(snapshot_length));
+    let backend = JsonlSourceBackend;
+    let header_plan = backend
+        .plan_range(&spec, SourceReadMode::ForwardRange, header_range)
+        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    let suffix_plan = backend
+        .plan_range(&spec, SourceReadMode::ForwardRange, suffix_range)
+        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    let (header_report, mut records) =
+        read_lineage_segment(&header_plan, &backend, cancelled, deadline)?;
+    ensure_lineage_segment_complete("parent header", header_range, &header_report)?;
+    let (suffix_report, suffix_records) =
+        read_lineage_segment(&suffix_plan, &backend, cancelled, deadline)?;
+    ensure_lineage_segment_complete("parent lineage suffix", suffix_range, &suffix_report)?;
+    records.extend(suffix_records);
+    let adapter = CodexEventAdapter::new_with_conversation_id(
+        profile,
+        Some(target_conversation_id.to_string()),
+    );
+    let mut batch = crate::protocol::analyze_records_with_adapter(
+        &adapter,
+        records,
+        profile,
+        BatchCompleteness::Provisional,
+    );
+    batch.source_id = Some(source.rollout_id.clone());
+    if !lineage_source_guard_matches(&source.path, &source_guard)? {
+        anyhow::bail!("parent rollout changed during bounded lineage suffix read");
+    }
+    Ok(batch)
 }
 
 fn read_lineage_batch(
@@ -2349,6 +2820,7 @@ mod tests {
             retention_profile: None,
             replace_previous: false,
             lineage: None,
+            discovery: None,
             peer_capabilities: Vec::new(),
             resource_limits: Default::default(),
         };

@@ -7,8 +7,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use codex_rollout_collector::model::{AnalysisEvent, TurnStatus};
 use codex_rollout_collector::protocol::{
     AnalyzeMode, AnalyzeRequest, AnalyzerRuntimeState, LAST_TURN_REPLACEMENT_CAPABILITY,
-    RolloutCatalogCandidateRequest, RolloutLineageRequest, SourceSpecRequest, analyze_request,
-    analyze_request_with_state,
+    RolloutCatalogCandidateRequest, RolloutDiscoveryRequest, RolloutLineageRequest,
+    SESSION_LINEAGE_CAPABILITY, SourceSpecRequest, analyze_request, analyze_request_with_state,
+    checkpoint_for_batch,
 };
 use codex_rollout_collector::{CompatibilityProfile, ProjectionCoverage, SourceByteRange};
 use serde_json::Value;
@@ -422,6 +423,273 @@ fn encoded_lines(lines: &[Value]) -> Vec<u8> {
 
 fn line_start_after(lines: &[Value], count: usize) -> u64 {
     encoded_lines(&lines[..count]).len() as u64
+}
+
+#[test]
+fn session_discovery_resolves_cross_date_chain_from_conversation_id_only() {
+    let conversation_id = "01a02530-9975-7df2-a3b3-6bb214ad47ed";
+    let rollout_root = conversation_id;
+    let rollout_a = "01a02531-9f57-76d0-89f7-9b5e12d04911";
+    let rollout_b = "01a02532-e386-7892-8258-23dbea585370";
+    let turn_root = "01a02530-a0c4-7b50-8246-95f2ef990000";
+    let turn_a = "01a02531-a0c4-7b50-8246-95f2ef990001";
+    let turn_b = "01a02532-a0c4-7b50-8246-95f2ef990002";
+
+    let root_lines = vec![
+        session_line(conversation_id, None),
+        task_started_line(1, turn_root),
+        user_item_completed_line(2, conversation_id, turn_root),
+        task_complete_line(3, turn_root),
+    ];
+    let root_cut = line_start_after(&root_lines, 1);
+    let a_lines = vec![
+        session_line(
+            conversation_id,
+            Some(serde_json::json!({
+                "thread_id": rollout_root,
+                "end_ordinal_exclusive": 1,
+                "end_byte_offset": root_cut
+            })),
+        ),
+        task_started_line(1, turn_a),
+        user_item_completed_line(2, conversation_id, turn_a),
+        task_complete_line(3, turn_a),
+    ];
+    let a_cut = line_start_after(&a_lines, 1);
+    let b_lines = vec![
+        session_line(
+            conversation_id,
+            Some(serde_json::json!({
+                "thread_id": rollout_a,
+                "end_ordinal_exclusive": 1,
+                "end_byte_offset": a_cut
+            })),
+        ),
+        task_started_line(1, turn_b),
+        user_item_completed_line(2, conversation_id, turn_b),
+        task_complete_line(3, turn_b),
+    ];
+
+    let sessions_root = temp_fixture_path("session-discovery").with_extension("sessions");
+    let date_22 = sessions_root.join("2026").join("08").join("22");
+    let date_23 = sessions_root.join("2026").join("08").join("23");
+    fs::create_dir_all(&date_22).expect("date 22 creates");
+    fs::create_dir_all(&date_23).expect("date 23 creates");
+    let root_path = date_22.join(format!(
+        "rollout-2026-08-22T00-38-57-{conversation_id}.jsonl"
+    ));
+    let a_path = date_22.join(format!(
+        "rollout-2026-08-22T00-40-04-{conversation_id}_{rollout_a}.jsonl"
+    ));
+    let b_path = date_23.join(format!(
+        "rollout-2026-08-23T00-41-27-{conversation_id}_{rollout_b}.jsonl"
+    ));
+    fs::write(&root_path, encoded_lines(&root_lines)).expect("root rollout writes");
+    fs::write(&a_path, encoded_lines(&a_lines)).expect("A rollout writes");
+    fs::write(&b_path, encoded_lines(&b_lines)).expect("B rollout writes");
+
+    let request = AnalyzeRequest::new(
+        "session-discovery-cross-date",
+        conversation_id,
+        SourceSpecRequest::new(""),
+        AnalyzeMode::Replay,
+    )
+    .with_lineage(RolloutLineageRequest::default())
+    .with_discovery(RolloutDiscoveryRequest {
+        sessions_root: sessions_root.to_string_lossy().to_string(),
+        conversation_id: conversation_id.to_string(),
+        start_date: Some("2026-08-22".to_string()),
+        end_date: Some("2026-08-23".to_string()),
+        active_rollout_id: None,
+        active_path: None,
+        max_candidates: 16,
+        max_date_partitions: 8,
+    })
+    .with_peer_capabilities([LAST_TURN_REPLACEMENT_CAPABILITY, SESSION_LINEAGE_CAPABILITY]);
+
+    let batch = analyze_request(&request, &AtomicBool::new(false))
+        .expect("conversation-only discovery resolves the active cross-date chain");
+    assert_eq!(batch.source_id, rollout_b);
+    assert_eq!(batch.discovered_sources.len(), 3);
+    assert_eq!(batch.lineage_transitions.len(), 2);
+    assert_eq!(
+        batch
+            .lineage_coverage
+            .as_ref()
+            .expect("lineage coverage")
+            .chain_rollout_ids,
+        vec![
+            rollout_root.to_string(),
+            rollout_a.to_string(),
+            rollout_b.to_string()
+        ]
+    );
+    assert!(
+        batch
+            .lineage_coverage
+            .as_ref()
+            .expect("lineage coverage")
+            .complete
+    );
+    assert_eq!(batch.replacements.len(), 2);
+    let checkpoint = checkpoint_for_batch(&request, &batch).expect("lineage checkpoint");
+    assert!(checkpoint.lineage_checkpoint.is_some());
+    let lineage_checkpoint = checkpoint
+        .lineage_checkpoint
+        .as_ref()
+        .expect("lineage checkpoint payload");
+    assert_eq!(
+        lineage_checkpoint["discovered_sources"]
+            .as_array()
+            .expect("discovered source evidence"),
+        &batch
+            .discovered_sources
+            .iter()
+            .map(|source| serde_json::to_value(source).expect("source evidence serializes"))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        lineage_checkpoint["lineage_transitions"]
+            .as_array()
+            .expect("transition evidence")
+            .len(),
+        2
+    );
+    let user_turns: Vec<_> = batch
+        .history_items
+        .iter()
+        .filter_map(|item| match item {
+            AnalysisEvent::UserMessage { metadata, .. } => metadata.turn_id.clone(),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        user_turns,
+        vec![
+            turn_root.to_string(),
+            turn_a.to_string(),
+            turn_b.to_string()
+        ]
+    );
+
+    let mut preview = request.clone();
+    preview.header.request_id = "session-discovery-preview".to_string();
+    preview.mode = AnalyzeMode::Preview;
+    preview.resource_limits.tail_bytes = 128;
+    let preview_batch = analyze_request(&preview, &AtomicBool::new(false))
+        .expect("preview crosses the parent suffix boundary");
+    assert_eq!(preview_batch.source_id, rollout_b);
+    assert_eq!(preview_batch.replacements.len(), 0);
+    assert!(
+        !preview_batch
+            .lineage_coverage
+            .as_ref()
+            .expect("preview lineage coverage")
+            .complete
+    );
+
+    let _ = fs::remove_dir_all(sessions_root);
+}
+
+#[test]
+fn session_discovery_treats_a_new_child_as_an_append_transition_after_restart() {
+    let conversation_id = "01a02530-9975-7df2-a3b3-6bb214ad47ef";
+    let rollout_root = conversation_id;
+    let rollout_child = "01a02531-9f57-76d0-89f7-9b5e12d04910";
+    let turn_root = "01a02530-a0c4-7b50-8246-95f2ef990010";
+    let turn_child = "01a02531-a0c4-7b50-8246-95f2ef990011";
+    let root_lines = vec![
+        session_line(conversation_id, None),
+        task_started_line(1, turn_root),
+        user_item_completed_line(2, conversation_id, turn_root),
+        task_complete_line(3, turn_root),
+    ];
+    let root_cut = line_start_after(&root_lines, 1);
+    let child_lines = vec![
+        session_line(
+            conversation_id,
+            Some(serde_json::json!({
+                "thread_id": rollout_root,
+                "end_ordinal_exclusive": 1,
+                "end_byte_offset": root_cut
+            })),
+        ),
+        task_started_line(1, turn_child),
+        user_item_completed_line(2, conversation_id, turn_child),
+        task_complete_line(3, turn_child),
+    ];
+    let sessions_root = temp_fixture_path("session-discovery-append").with_extension("sessions");
+    let date = sessions_root.join("2026").join("08").join("22");
+    fs::create_dir_all(&date).expect("append discovery date creates");
+    let root_path = date.join(format!(
+        "rollout-2026-08-22T00-38-57-{conversation_id}.jsonl"
+    ));
+    let child_path = date.join(format!(
+        "rollout-2026-08-22T00-40-04-{conversation_id}_{rollout_child}.jsonl"
+    ));
+    fs::write(&root_path, encoded_lines(&root_lines)).expect("append root writes");
+
+    let request = AnalyzeRequest::new(
+        "session-discovery-append-initial",
+        conversation_id,
+        SourceSpecRequest::new(""),
+        AnalyzeMode::Replay,
+    )
+    .with_lineage(RolloutLineageRequest::default())
+    .with_discovery(RolloutDiscoveryRequest {
+        sessions_root: sessions_root.to_string_lossy().to_string(),
+        conversation_id: conversation_id.to_string(),
+        start_date: Some("2026-08-22".to_string()),
+        end_date: Some("2026-08-22".to_string()),
+        active_rollout_id: None,
+        active_path: None,
+        max_candidates: 8,
+        max_date_partitions: 4,
+    })
+    .with_peer_capabilities([LAST_TURN_REPLACEMENT_CAPABILITY, SESSION_LINEAGE_CAPABILITY]);
+    let initial = analyze_request(&request, &AtomicBool::new(false)).expect("initial root replay");
+    let cursor = initial.next_cursor.clone().expect("root append cursor");
+    assert_eq!(initial.source_id, rollout_root);
+
+    fs::write(&child_path, encoded_lines(&child_lines)).expect("append child writes");
+    let mut transition = request.clone();
+    transition.header.request_id = "session-discovery-append-child".to_string();
+    transition.mode = AnalyzeMode::Append;
+    // Simulate a restarted service whose persisted source identity still
+    // points at the parent rollout.  Discovery must treat it as a hint and
+    // promote the request to the newly discovered child head.
+    transition.source_spec = SourceSpecRequest {
+        path: root_path.to_string_lossy().to_string(),
+        source_id: Some(rollout_root.to_string()),
+        target_conversation_id: None,
+        source_epoch: Some(initial.source_epoch.clone()),
+        fingerprint: None,
+        prefix_anchor: None,
+        snapshot_boundary: None,
+        max_decoded_bytes: None,
+        max_line_bytes: None,
+        max_segment_bytes: None,
+    };
+    transition.persisted_anchor = Some(serde_json::json!({
+        "source": {
+            "source_id": rollout_root,
+            "source_epoch": initial.source_epoch.clone(),
+        }
+    }));
+    transition.cursor = Some(cursor);
+    let child = analyze_request(&transition, &AtomicBool::new(false))
+        .expect("new child is recovered as a lineage append transition");
+    assert_eq!(child.source_id, rollout_child);
+    assert_ne!(child.source_epoch, initial.source_epoch);
+    assert_eq!(child.replacements.len(), 1);
+    assert_eq!(child.replacements[0].replaced_turn_id, turn_root);
+    assert_eq!(child.replacements[0].replacement_turn_id, turn_child);
+    assert_eq!(
+        child.next_cursor.expect("child append cursor")["cursor_kind"],
+        "forward_append"
+    );
+
+    let _ = fs::remove_dir_all(sessions_root);
 }
 
 #[test]
