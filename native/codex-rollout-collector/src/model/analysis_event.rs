@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::{Availability, SourceRef};
+use crate::source::HistoryBaseRef;
 
 /// How the logical item identity was obtained.
 ///
@@ -76,6 +77,8 @@ pub enum AnalysisEvent {
         cwd: Option<String>,
         source: Option<String>,
         model_provider: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        history_base: Option<HistoryBaseRef>,
     },
     TurnStarted {
         metadata: EventMetadata,

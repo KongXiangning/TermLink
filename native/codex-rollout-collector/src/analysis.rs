@@ -8,11 +8,424 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
-use crate::model::{AnalysisEvent, Availability, PlanOption, PlanStep, SourceRef, TurnStatus};
+use crate::model::{
+    AnalysisEvent, Availability, LastTurnReplacement, PlanOption, PlanStep, SourceRef, TurnStatus,
+};
 use crate::protocol::AnalysisBatch;
+use crate::source::HistoryBaseRef;
 
 pub const ANALYSIS_PROJECTION_SCHEMA: &str = "termlink-analysis-projection";
 pub const ANALYSIS_PROJECTION_VERSION: u16 = 1;
+
+/// Validate the TermLink compatibility invariant for one parent/child
+/// rollout transition.
+pub fn validate_last_turn_replacement(
+    conversation_id: &str,
+    parent_rollout_id: &str,
+    child_rollout_id: &str,
+    history_base: &HistoryBaseRef,
+    parent: &AnalysisBatch,
+    child: &AnalysisBatch,
+) -> Result<LastTurnReplacement, LineageValidationError> {
+    if conversation_id.trim().is_empty() {
+        return Err(LineageValidationError::EmptyConversationId);
+    }
+    if parent_rollout_id.trim().is_empty() || child_rollout_id.trim().is_empty() {
+        return Err(LineageValidationError::EmptyRolloutId);
+    }
+    if parent_rollout_id == child_rollout_id {
+        return Err(LineageValidationError::SameParentAndChild);
+    }
+    if history_base.parent_rollout_id != parent_rollout_id {
+        return Err(LineageValidationError::ParentRolloutMismatch {
+            expected: parent_rollout_id.to_string(),
+            actual: history_base.parent_rollout_id.clone(),
+        });
+    }
+    if child.history_base.as_ref() != Some(history_base) {
+        return Err(LineageValidationError::ChildHistoryBaseMissingOrMismatch);
+    }
+    if !parent.complete {
+        return Err(LineageValidationError::IncompleteParentBatch);
+    }
+    if !child.complete {
+        return Err(LineageValidationError::IncompleteChildBatch);
+    }
+    if let Some(source_id) = parent.source_id.as_deref()
+        && source_id != parent_rollout_id
+    {
+        return Err(LineageValidationError::SourceIdMismatch {
+            side: "parent",
+            expected: parent_rollout_id.to_string(),
+            actual: source_id.to_string(),
+        });
+    }
+    if let Some(source_id) = child.source_id.as_deref()
+        && source_id != child_rollout_id
+    {
+        return Err(LineageValidationError::SourceIdMismatch {
+            side: "child",
+            expected: child_rollout_id.to_string(),
+            actual: source_id.to_string(),
+        });
+    }
+    validate_event_conversation(parent, conversation_id, "parent")?;
+    validate_event_conversation(child, conversation_id, "child")?;
+    let parent_session_id = session_id(parent)?;
+    let child_session_id = session_id(child)?;
+    if parent_session_id != child_session_id {
+        return Err(LineageValidationError::SessionIdentityMismatch {
+            parent: parent_session_id,
+            child: child_session_id,
+        });
+    }
+
+    let parent_turns = collect_turns(parent)?;
+    let parent_user_turns = parent_turns
+        .values()
+        .filter(|turn| turn.has_user_message)
+        .collect::<Vec<_>>();
+    if parent_user_turns.is_empty() {
+        return Err(LineageValidationError::ParentHasNoUserTurn);
+    }
+    let parent_turn = parent_user_turns
+        .into_iter()
+        .filter_map(|turn| {
+            turn.start
+                .as_ref()
+                .map(|start| (source_sort_key(start), turn))
+        })
+        .max_by_key(|(key, _)| *key)
+        .map(|(_, turn)| turn)
+        .ok_or(LineageValidationError::ParentTurnStartMissing)?;
+    let parent_start = parent_turn
+        .start
+        .clone()
+        .ok_or(LineageValidationError::ParentTurnStartMissing)?;
+    if parent_start.rollout_ordinal != Some(history_base.end_ordinal_exclusive)
+        || parent_start.byte_start != history_base.end_byte_offset
+    {
+        return Err(LineageValidationError::CutDoesNotMatchLastTurnStart {
+            cut_ordinal: history_base.end_ordinal_exclusive,
+            cut_byte: history_base.end_byte_offset,
+            start_ordinal: parent_start.rollout_ordinal,
+            start_byte: parent_start.byte_start,
+        });
+    }
+    if parent_start.source_identity != parent_rollout_id {
+        return Err(LineageValidationError::SourceRefMismatch {
+            side: "parent turn start",
+            expected: parent_rollout_id.to_string(),
+            actual: parent_start.source_identity.clone(),
+        });
+    }
+    let (parent_terminal_status, parent_terminal_ref) = parent_turn
+        .terminal
+        .clone()
+        .ok_or(LineageValidationError::ParentTurnNotTerminal)?;
+    if source_sort_key(&parent_terminal_ref) < source_sort_key(&parent_start) {
+        return Err(LineageValidationError::TerminalBeforeTurnStart);
+    }
+
+    let child_turns = collect_turns(child)?;
+    let child_user_turns = child_turns
+        .values()
+        .filter(|turn| turn.has_user_message)
+        .collect::<Vec<_>>();
+    if child_user_turns.len() != 1 {
+        return Err(LineageValidationError::ChildUserTurnCount {
+            count: child_user_turns.len(),
+        });
+    }
+    let child_turn = child_user_turns[0];
+    let child_start = child_turn
+        .start
+        .clone()
+        .ok_or(LineageValidationError::ChildTurnStartMissing)?;
+    let replacement_turn_id = child_turn.turn_id.clone();
+    if replacement_turn_id == parent_turn.turn_id {
+        return Err(LineageValidationError::TurnIdUnchanged {
+            turn_id: replacement_turn_id,
+        });
+    }
+    if child_start.source_identity != child_rollout_id {
+        return Err(LineageValidationError::SourceRefMismatch {
+            side: "child turn start",
+            expected: child_rollout_id.to_string(),
+            actual: child_start.source_identity.clone(),
+        });
+    }
+
+    Ok(LastTurnReplacement::new(
+        conversation_id,
+        parent_rollout_id,
+        child_rollout_id,
+        parent_turn.turn_id.clone(),
+        replacement_turn_id,
+        parent_terminal_status,
+        history_base.clone(),
+        parent_start,
+        parent_terminal_ref,
+        child_start,
+    ))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LineageValidationError {
+    EmptyConversationId,
+    EmptyRolloutId,
+    SameParentAndChild,
+    ParentRolloutMismatch {
+        expected: String,
+        actual: String,
+    },
+    ChildHistoryBaseMissingOrMismatch,
+    IncompleteParentBatch,
+    IncompleteChildBatch,
+    SourceIdMismatch {
+        side: &'static str,
+        expected: String,
+        actual: String,
+    },
+    EventConversationMismatch {
+        side: &'static str,
+        expected: String,
+        actual: String,
+    },
+    SessionMetadataMissing {
+        side: &'static str,
+    },
+    SessionIdentityMismatch {
+        parent: String,
+        child: String,
+    },
+    ParentHasNoUserTurn,
+    ParentTurnStartMissing,
+    ChildTurnStartMissing,
+    CutDoesNotMatchLastTurnStart {
+        cut_ordinal: u64,
+        cut_byte: u64,
+        start_ordinal: Option<u64>,
+        start_byte: u64,
+    },
+    SourceRefMismatch {
+        side: &'static str,
+        expected: String,
+        actual: String,
+    },
+    ParentTurnNotTerminal,
+    TerminalBeforeTurnStart,
+    ChildUserTurnCount {
+        count: usize,
+    },
+    TurnIdUnchanged {
+        turn_id: String,
+    },
+    TurnIdMissing {
+        side: &'static str,
+    },
+}
+
+impl std::fmt::Display for LineageValidationError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::EmptyConversationId => write!(formatter, "conversation ID must not be empty"),
+            Self::EmptyRolloutId => write!(formatter, "parent and child rollout IDs are required"),
+            Self::SameParentAndChild => {
+                write!(formatter, "parent and child rollout IDs must differ")
+            }
+            Self::ParentRolloutMismatch { expected, actual } => {
+                write!(
+                    formatter,
+                    "history_base parent mismatch: expected {expected}, got {actual}"
+                )
+            }
+            Self::ChildHistoryBaseMissingOrMismatch => {
+                write!(
+                    formatter,
+                    "child batch history_base is missing or mismatched"
+                )
+            }
+            Self::IncompleteParentBatch => write!(formatter, "parent batch is incomplete"),
+            Self::IncompleteChildBatch => write!(formatter, "child batch is incomplete"),
+            Self::SourceIdMismatch {
+                side,
+                expected,
+                actual,
+            } => {
+                write!(
+                    formatter,
+                    "{side} source ID mismatch: expected {expected}, got {actual}"
+                )
+            }
+            Self::EventConversationMismatch {
+                side,
+                expected,
+                actual,
+            } => write!(
+                formatter,
+                "{side} event conversation mismatch: expected {expected}, got {actual}"
+            ),
+            Self::SessionMetadataMissing { side } => {
+                write!(formatter, "{side} session metadata is missing")
+            }
+            Self::SessionIdentityMismatch { parent, child } => {
+                write!(
+                    formatter,
+                    "parent/child session identity mismatch: {parent} vs {child}"
+                )
+            }
+            Self::ParentHasNoUserTurn => write!(formatter, "parent has no user turn"),
+            Self::ParentTurnStartMissing => write!(formatter, "parent user turn start is missing"),
+            Self::ChildTurnStartMissing => write!(formatter, "child user turn start is missing"),
+            Self::CutDoesNotMatchLastTurnStart {
+                cut_ordinal,
+                cut_byte,
+                start_ordinal,
+                start_byte,
+            } => write!(
+                formatter,
+                "history cut {cut_ordinal}/{cut_byte} does not match last turn start {start_ordinal:?}/{start_byte}"
+            ),
+            Self::SourceRefMismatch {
+                side,
+                expected,
+                actual,
+            } => {
+                write!(
+                    formatter,
+                    "{side} source ref mismatch: expected {expected}, got {actual}"
+                )
+            }
+            Self::ParentTurnNotTerminal => {
+                write!(formatter, "parent last user turn is not terminal")
+            }
+            Self::TerminalBeforeTurnStart => write!(formatter, "turn terminal precedes turn start"),
+            Self::ChildUserTurnCount { count } => {
+                write!(
+                    formatter,
+                    "child must contain exactly one user turn, found {count}"
+                )
+            }
+            Self::TurnIdUnchanged { turn_id } => {
+                write!(formatter, "replacement turn ID is unchanged: {turn_id}")
+            }
+            Self::TurnIdMissing { side } => write!(formatter, "{side} event is missing turn ID"),
+        }
+    }
+}
+
+impl std::error::Error for LineageValidationError {}
+
+#[derive(Debug, Clone, Default)]
+struct TurnEvidence {
+    turn_id: String,
+    start: Option<SourceRef>,
+    terminal: Option<(TurnStatus, SourceRef)>,
+    has_user_message: bool,
+}
+
+fn collect_turns(
+    batch: &AnalysisBatch,
+) -> Result<BTreeMap<String, TurnEvidence>, LineageValidationError> {
+    let mut turns = BTreeMap::new();
+    for event in &batch.items {
+        match event {
+            AnalysisEvent::TurnStarted { metadata, .. } => {
+                let turn_id = metadata
+                    .turn_id
+                    .clone()
+                    .ok_or(LineageValidationError::TurnIdMissing { side: "turn start" })?;
+                turns
+                    .entry(turn_id.clone())
+                    .or_insert_with(|| TurnEvidence {
+                        turn_id,
+                        ..TurnEvidence::default()
+                    })
+                    .start = Some(metadata.source_ref.clone());
+            }
+            AnalysisEvent::UserMessage { metadata, .. } => {
+                let turn_id =
+                    metadata
+                        .turn_id
+                        .clone()
+                        .ok_or(LineageValidationError::TurnIdMissing {
+                            side: "user message",
+                        })?;
+                turns
+                    .entry(turn_id.clone())
+                    .or_insert_with(|| TurnEvidence {
+                        turn_id,
+                        ..TurnEvidence::default()
+                    })
+                    .has_user_message = true;
+            }
+            AnalysisEvent::TurnCompleted {
+                metadata, status, ..
+            } => {
+                let turn_id =
+                    metadata
+                        .turn_id
+                        .clone()
+                        .ok_or(LineageValidationError::TurnIdMissing {
+                            side: "turn terminal",
+                        })?;
+                turns
+                    .entry(turn_id.clone())
+                    .or_insert_with(|| TurnEvidence {
+                        turn_id,
+                        ..TurnEvidence::default()
+                    })
+                    .terminal = Some((*status, metadata.source_ref.clone()));
+            }
+            _ => {}
+        }
+    }
+    Ok(turns)
+}
+
+fn session_id(batch: &AnalysisBatch) -> Result<String, LineageValidationError> {
+    batch
+        .items
+        .iter()
+        .find_map(|event| match event {
+            AnalysisEvent::SessionContext {
+                session_id: Some(session_id),
+                ..
+            } if !session_id.trim().is_empty() => Some(session_id.clone()),
+            _ => None,
+        })
+        .ok_or(LineageValidationError::SessionMetadataMissing { side: "lineage" })
+}
+
+fn validate_event_conversation(
+    batch: &AnalysisBatch,
+    conversation_id: &str,
+    side: &'static str,
+) -> Result<(), LineageValidationError> {
+    for event in &batch.items {
+        if let Some(actual) = event.metadata().conversation_id.as_deref()
+            && actual != conversation_id
+        {
+            return Err(LineageValidationError::EventConversationMismatch {
+                side,
+                expected: conversation_id.to_string(),
+                actual: actual.to_string(),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn source_sort_key(source_ref: &SourceRef) -> (u64, u64, u64) {
+    (
+        source_ref
+            .rollout_ordinal
+            .unwrap_or(source_ref.physical_line_ordinal),
+        source_ref.physical_line_ordinal,
+        source_ref.byte_start,
+    )
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AnalysisProjection {
@@ -887,9 +1300,12 @@ fn availability_rank(value: Availability) -> u8 {
 
 #[cfg(test)]
 mod tests {
-    use super::{AnalysisReducer, AnalysisTurnStatus};
+    use super::{
+        AnalysisReducer, AnalysisTurnStatus, LineageValidationError, validate_last_turn_replacement,
+    };
     use crate::model::{AnalysisEvent, Availability, EventMetadata, SourceRef, TurnStatus};
     use crate::protocol::AnalysisBatch;
+    use crate::source::HistoryBaseRef;
     use crate::{CompatibilityProfile, JsonlSourceBackend, SourceSpec, analyze_source};
 
     #[test]
@@ -1027,5 +1443,232 @@ mod tests {
             Availability::PartialRollout
         );
         assert!(!projection.complete);
+    }
+
+    fn test_source_ref(source: &str, ordinal: u64, byte_start: u64, item_type: &str) -> SourceRef {
+        SourceRef {
+            source_identity: source.to_string(),
+            byte_start,
+            byte_end: byte_start + 10,
+            physical_line_ordinal: ordinal + 1,
+            rollout_ordinal: Some(ordinal),
+            timestamp: None,
+            item_type: Some(item_type.to_string()),
+        }
+    }
+
+    fn test_metadata(
+        event_id: &str,
+        source: &str,
+        conversation_id: &str,
+        turn_id: Option<&str>,
+        ordinal: u64,
+        byte_start: u64,
+        item_type: &str,
+    ) -> EventMetadata {
+        EventMetadata {
+            event_id: event_id.to_string(),
+            item_key: event_id.to_string(),
+            correlation_id: turn_id.map(ToOwned::to_owned),
+            related_item_key: None,
+            conversation_id: Some(conversation_id.to_string()),
+            turn_id: turn_id.map(ToOwned::to_owned),
+            timestamp: None,
+            sequence: ordinal,
+            availability: Availability::Present,
+            identity_origin: crate::model::IdentityOrigin::NativeStableId,
+            source_ref: test_source_ref(source, ordinal, byte_start, item_type),
+        }
+    }
+
+    fn session_event(
+        source: &str,
+        conversation_id: &str,
+        history_base: Option<HistoryBaseRef>,
+    ) -> AnalysisEvent {
+        AnalysisEvent::SessionContext {
+            metadata: test_metadata(
+                "session",
+                source,
+                conversation_id,
+                None,
+                0,
+                0,
+                "session_meta",
+            ),
+            session_id: Some(conversation_id.to_string()),
+            cwd: None,
+            source: None,
+            model_provider: None,
+            history_base,
+        }
+    }
+
+    fn replacement_fixture(
+        parent_terminal: bool,
+        child_user_turns: &[&str],
+        cut_ordinal: u64,
+        cut_byte: u64,
+    ) -> (AnalysisBatch, AnalysisBatch, HistoryBaseRef) {
+        let conversation_id = "conversation-1";
+        let parent_id = "parent-rollout";
+        let child_id = "child-rollout";
+        let parent_turn_id = "old-turn";
+        let parent_ref = HistoryBaseRef::new(parent_id, cut_ordinal, cut_byte).unwrap();
+        let mut parent = AnalysisBatch::empty(CompatibilityProfile::Current);
+        parent.source_id = Some(parent_id.to_string());
+        parent.items = vec![
+            session_event(parent_id, conversation_id, None),
+            AnalysisEvent::TurnStarted {
+                metadata: test_metadata(
+                    "parent-start",
+                    parent_id,
+                    conversation_id,
+                    Some(parent_turn_id),
+                    14,
+                    128,
+                    "task_started",
+                ),
+                model_context_window: None,
+                collaboration_mode_kind: None,
+            },
+            AnalysisEvent::UserMessage {
+                metadata: test_metadata(
+                    "parent-user",
+                    parent_id,
+                    conversation_id,
+                    Some(parent_turn_id),
+                    15,
+                    256,
+                    "user_message",
+                ),
+                text: "old question".to_string(),
+            },
+        ];
+        if parent_terminal {
+            parent.items.push(AnalysisEvent::TurnCompleted {
+                metadata: test_metadata(
+                    "parent-terminal",
+                    parent_id,
+                    conversation_id,
+                    Some(parent_turn_id),
+                    20,
+                    512,
+                    "task_complete",
+                ),
+                status: TurnStatus::Interrupted,
+                message: None,
+                duration_ms: None,
+            });
+        }
+
+        let child_base = Some(parent_ref.clone());
+        let mut child = AnalysisBatch::empty(CompatibilityProfile::Current);
+        child.source_id = Some(child_id.to_string());
+        child.history_base = child_base.clone();
+        child
+            .items
+            .push(session_event(child_id, conversation_id, child_base));
+        for (index, turn_id) in child_user_turns.iter().enumerate() {
+            let ordinal = 18 + index as u64 * 3;
+            child.items.push(AnalysisEvent::TurnStarted {
+                metadata: test_metadata(
+                    &format!("child-start-{index}"),
+                    child_id,
+                    conversation_id,
+                    Some(turn_id),
+                    ordinal,
+                    700 + index as u64 * 100,
+                    "task_started",
+                ),
+                model_context_window: None,
+                collaboration_mode_kind: None,
+            });
+            child.items.push(AnalysisEvent::UserMessage {
+                metadata: test_metadata(
+                    &format!("child-user-{index}"),
+                    child_id,
+                    conversation_id,
+                    Some(turn_id),
+                    ordinal + 1,
+                    710 + index as u64 * 100,
+                    "user_message",
+                ),
+                text: format!("new question {index}"),
+            });
+        }
+        (parent, child, parent_ref)
+    }
+
+    #[test]
+    fn validates_completed_or_interrupted_parent_to_one_child_turn() {
+        let (parent, child, history_base) = replacement_fixture(true, &["new-turn"], 14, 128);
+        let replacement = validate_last_turn_replacement(
+            "conversation-1",
+            "parent-rollout",
+            "child-rollout",
+            &history_base,
+            &parent,
+            &child,
+        )
+        .expect("replacement is valid");
+        assert_eq!(replacement.replaced_turn_id, "old-turn");
+        assert_eq!(replacement.replacement_turn_id, "new-turn");
+        assert_eq!(
+            replacement.replaced_turn_terminal_status,
+            TurnStatus::Interrupted
+        );
+        assert_eq!(
+            replacement.replacement_key,
+            "replacement:conversation-1:parent-rollout:child-rollout:old-turn:new-turn"
+        );
+    }
+
+    #[test]
+    fn rejects_non_terminal_parent_and_multiple_child_user_turns() {
+        let (parent, child, history_base) = replacement_fixture(false, &["new-turn"], 14, 128);
+        assert_eq!(
+            validate_last_turn_replacement(
+                "conversation-1",
+                "parent-rollout",
+                "child-rollout",
+                &history_base,
+                &parent,
+                &child,
+            )
+            .unwrap_err(),
+            LineageValidationError::ParentTurnNotTerminal
+        );
+
+        let (parent, child, history_base) =
+            replacement_fixture(true, &["new-turn", "second-turn"], 14, 128);
+        assert_eq!(
+            validate_last_turn_replacement(
+                "conversation-1",
+                "parent-rollout",
+                "child-rollout",
+                &history_base,
+                &parent,
+                &child,
+            )
+            .unwrap_err(),
+            LineageValidationError::ChildUserTurnCount { count: 2 }
+        );
+    }
+
+    #[test]
+    fn rejects_cut_that_does_not_match_parent_last_turn_start() {
+        let (parent, child, history_base) = replacement_fixture(true, &["new-turn"], 13, 120);
+        assert!(matches!(
+            validate_last_turn_replacement(
+                "conversation-1",
+                "parent-rollout",
+                "child-rollout",
+                &history_base,
+                &parent,
+                &child,
+            ),
+            Err(LineageValidationError::CutDoesNotMatchLastTurnStart { .. })
+        ));
     }
 }

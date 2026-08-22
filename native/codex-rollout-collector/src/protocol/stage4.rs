@@ -4,24 +4,28 @@
 //! the existing `AnalysisBatch` contract intact while adding the process
 //! envelope required by the Rust analyzer/Node importer boundary.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::fs::File;
+use std::io::Read;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-use crate::analysis::{AnalysisProjection, AnalysisReducer, AnalysisUsage};
+use crate::analysis::{
+    AnalysisProjection, AnalysisReducer, AnalysisUsage, validate_last_turn_replacement,
+};
 use crate::codex_adapter::CodexEventAdapter;
 use crate::codex_wire::CompatibilityProfile;
-use crate::model::{AnalysisEvent, SourceRef, TurnStatus};
+use crate::model::{AnalysisEvent, LastTurnReplacement, SourceRef, TurnStatus};
 use crate::protocol::batch::{AnalysisBatch, BatchDiagnostic};
 use crate::protocol::checkpoint::AnalyzerCheckpoint;
 use crate::source::{
-    BackfillCursor, CompleteLineAnchor, ForwardAppendCursor, JsonlSourceBackend, PlannedReadReport,
-    SnapshotBoundary, SourceByteRange, SourceCompression, SourceFingerprint, SourceFixtureHash,
-    SourcePrefixAnchor, SourceReadMode, SourceReadPlan, SourceRecord, SourceSpec,
-    TailPreviewCursor,
+    BackfillCursor, CompleteLineAnchor, ForwardAppendCursor, HistoryBaseRef, JsonlSourceBackend,
+    LineageError, PlannedReadReport, RolloutCatalog, RolloutSource, SnapshotBoundary,
+    SourceByteRange, SourceCompression, SourceFingerprint, SourceFixtureHash, SourcePrefixAnchor,
+    SourceReadMode, SourceReadPlan, SourceRecord, SourceSpec, TailPreviewCursor,
 };
 use crate::version::{COMPATIBILITY_LAYER_VERSION, PARSER_BACKEND};
 
@@ -29,6 +33,7 @@ pub use crate::protocol::batch::BatchCompleteness;
 
 pub const ANALYZER_PROTOCOL_VERSION: u16 = 1;
 pub const ANALYZER_VERSION: &str = "termlink-codex-rollout-collector/0.1";
+pub const LAST_TURN_REPLACEMENT_CAPABILITY: &str = "last_turn_replacement_v1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -168,6 +173,7 @@ impl HelloMessage {
                 "cancel".to_string(),
                 "ack".to_string(),
                 "checkpoint".to_string(),
+                LAST_TURN_REPLACEMENT_CAPABILITY.to_string(),
             ],
             parser_backend: PARSER_BACKEND.to_string(),
             compatibility_layer_version: COMPATIBILITY_LAYER_VERSION.to_string(),
@@ -364,6 +370,12 @@ pub struct AnalyzeRequest {
     #[serde(default)]
     pub replace_previous: bool,
     #[serde(default)]
+    pub lineage: Option<RolloutLineageRequest>,
+    /// Capabilities offered by the Node peer during the in-process hello.
+    /// This is transport state and is never serialized into the request JSON.
+    #[serde(skip)]
+    pub peer_capabilities: Vec<String>,
+    #[serde(default)]
     pub resource_limits: ResourceLimits,
 }
 
@@ -384,9 +396,54 @@ impl AnalyzeRequest {
             known_complete_range: None,
             retention_profile: None,
             replace_previous: false,
+            lineage: None,
+            peer_capabilities: Vec::new(),
             resource_limits: ResourceLimits::default(),
         }
     }
+
+    pub fn with_lineage(mut self, lineage: RolloutLineageRequest) -> Self {
+        self.lineage = Some(lineage);
+        self
+    }
+
+    pub fn with_peer_capabilities(
+        mut self,
+        capabilities: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        self.peer_capabilities = capabilities.into_iter().map(Into::into).collect();
+        self
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RolloutCatalogCandidateRequest {
+    pub rollout_id: String,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RolloutLineageRequest {
+    #[serde(default)]
+    pub catalog_root: Option<String>,
+    #[serde(default)]
+    pub candidates: Vec<RolloutCatalogCandidateRequest>,
+    #[serde(default = "default_lineage_max_depth")]
+    pub max_depth: usize,
+}
+
+impl Default for RolloutLineageRequest {
+    fn default() -> Self {
+        Self {
+            catalog_root: None,
+            candidates: Vec::new(),
+            max_depth: default_lineage_max_depth(),
+        }
+    }
+}
+
+fn default_lineage_max_depth() -> usize {
+    8
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -451,6 +508,9 @@ pub enum BatchMutation {
     UpsertOutcome {
         item: BatchSourceRef,
     },
+    ReplaceLastTurn {
+        replacement: LastTurnReplacement,
+    },
     MarkPartial {
         source_range: Option<SourceByteRange>,
     },
@@ -509,6 +569,10 @@ pub struct BatchMessage {
     #[serde(default)]
     pub next_cursor: Option<Value>,
     pub mutations: Vec<BatchMutation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history_base: Option<HistoryBaseRef>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub replacements: Vec<LastTurnReplacement>,
     #[serde(default)]
     pub source_fingerprint: Option<SourceFingerprint>,
     #[serde(default)]
@@ -543,6 +607,7 @@ impl BatchMessage {
             &tool_details,
             usage.as_ref(),
             &task_outcomes,
+            &batch.replacements,
             source_range,
             batch.complete,
             &source_epoch,
@@ -568,6 +633,8 @@ impl BatchMessage {
             progress,
             next_cursor: None,
             mutations,
+            history_base: batch.history_base.clone(),
+            replacements: batch.replacements.clone(),
             source_fingerprint: None,
             source_prefix_anchor: None,
             reducer_state: None,
@@ -581,6 +648,9 @@ impl BatchMessage {
             diagnostics: self.diagnostics.clone(),
             complete: self.complete,
             completeness: self.completeness,
+            source_id: Some(self.source_id.clone()),
+            history_base: self.history_base.clone(),
+            replacements: self.replacements.clone(),
         }
     }
 }
@@ -742,6 +812,7 @@ fn derive_mutations(
     tool_details: &[ToolDetail],
     usage: Option<&AnalysisUsage>,
     task_outcomes: &[TaskOutcome],
+    replacements: &[LastTurnReplacement],
     source_range: Option<SourceByteRange>,
     complete: bool,
     source_epoch: &str,
@@ -799,6 +870,13 @@ fn derive_mutations(
                     completeness,
                     outcome.revision,
                 ),
+            });
+        }
+    }
+    if completeness == BatchCompleteness::Canonical && complete {
+        for replacement in replacements {
+            mutations.push(BatchMutation::ReplaceLastTurn {
+                replacement: replacement.clone(),
             });
         }
     }
@@ -1128,6 +1206,11 @@ pub fn analyze_request_with_state(
     {
         anyhow::bail!("source limits do not match resource_limits");
     }
+    let lineage_source_guard = if request.lineage.is_some() {
+        Some(capture_source_guard(spec.path())?)
+    } else {
+        None
+    };
     if let Some(cursor) = request.cursor.as_ref() {
         let current_length = std::fs::metadata(spec.path())?.len();
         validate_cursor_payload(
@@ -1154,9 +1237,119 @@ pub fn analyze_request_with_state(
     check_deadline(cancelled, deadline)?;
     let profile = runtime.profile;
     let backend = JsonlSourceBackend;
-    let (batch, source_range, progress, report, records, append_last_line, append_last_ordinal) =
-        match request.mode {
-            AnalyzeMode::Replay => {
+    let (
+        mut batch,
+        source_range,
+        mut progress,
+        report,
+        records,
+        append_last_line,
+        append_last_ordinal,
+    ) = match request.mode {
+        AnalyzeMode::Replay => {
+            let plan = backend.plan_full(&spec)?;
+            let (batch, report, records) = analyze_planned_request(
+                &backend,
+                &plan,
+                &runtime.adapter,
+                profile,
+                cancelled,
+                deadline,
+                BatchCompleteness::Canonical,
+            )?;
+            let source_range = report.complete_range().or(Some(report.scanned_range()));
+            let progress = progress_from_report(&report, batch.items.len());
+            (batch, source_range, progress, report, records, None, None)
+        }
+        AnalyzeMode::Preview => {
+            let plan = if let Some(cursor) = request.cursor.as_ref() {
+                let range = cursor_range(cursor, SourceCursorMode::TailPreview)?;
+                backend.plan_range(&spec, SourceReadMode::BackwardRange, range)?
+            } else {
+                backend.plan_tail(&spec, request.resource_limits.tail_bytes)?
+            };
+            let (batch, report, records) = analyze_planned_request(
+                &backend,
+                &plan,
+                &runtime.adapter,
+                profile,
+                cancelled,
+                deadline,
+                BatchCompleteness::Provisional,
+            )?;
+            let source_range = report.complete_range().or(Some(report.scanned_range()));
+            let progress = progress_from_report(&report, batch.items.len());
+            (batch, source_range, progress, report, records, None, None)
+        }
+        AnalyzeMode::Backfill => {
+            let range = request
+                .known_complete_range
+                .or_else(|| request.cursor.as_ref().and_then(cursor_range_for_backfill))
+                .unwrap_or_else(|| {
+                    let source_bytes = std::fs::metadata(spec.path())
+                        .map(|metadata| metadata.len())
+                        .unwrap_or_default();
+                    SourceByteRange::new(0, source_bytes).expect("file range is ordered")
+                });
+            let plan = backend.plan_range(&spec, SourceReadMode::BackwardRange, range)?;
+            let completeness =
+                if range.start() == 0 && range.end() == plan.snapshot_boundary().byte_length() {
+                    BatchCompleteness::Canonical
+                } else {
+                    BatchCompleteness::Provisional
+                };
+            let (batch, report, records) = analyze_planned_request(
+                &backend,
+                &plan,
+                &runtime.adapter,
+                profile,
+                cancelled,
+                deadline,
+                completeness,
+            )?;
+            let source_range = report.complete_range().or(Some(report.scanned_range()));
+            let progress = progress_from_report(&report, batch.items.len());
+            (batch, source_range, progress, report, records, None, None)
+        }
+        AnalyzeMode::Append => {
+            if let Some(cursor) = request.cursor.as_ref() {
+                let append_cursor =
+                    serde_json::from_value::<ForwardAppendCursor>(cursor.clone())
+                        .map_err(|error| AnalyzerProtocolError::InvalidCursor(error.to_string()))?;
+                let current_length = std::fs::metadata(spec.path())?.len();
+                let range = SourceByteRange::new(
+                    append_cursor.metadata().snapshot_boundary().byte_length(),
+                    current_length,
+                )
+                .map_err(|error| AnalyzerProtocolError::InvalidCursor(error.to_string()))?;
+                let plan = backend.plan_range(&spec, SourceReadMode::ForwardRange, range)?;
+                let (batch, report, records) = analyze_planned_request(
+                    &backend,
+                    &plan,
+                    &runtime.adapter,
+                    profile,
+                    cancelled,
+                    deadline,
+                    BatchCompleteness::Canonical,
+                )?;
+                let source_range = report.complete_range().or(Some(report.scanned_range()));
+                let progress = progress_from_report(&report, batch.items.len());
+                let last_line = serde_json::from_value::<ForwardAppendCursor>(cursor.clone())
+                    .ok()
+                    .and_then(|cursor| cursor.metadata().last_complete_line().cloned());
+                let last_ordinal = serde_json::from_value::<ForwardAppendCursor>(cursor.clone())
+                    .ok()
+                    .and_then(|cursor| cursor.metadata().last_rollout_ordinal());
+                (
+                    batch,
+                    source_range,
+                    progress,
+                    report,
+                    records,
+                    last_line,
+                    last_ordinal,
+                )
+            } else {
                 let plan = backend.plan_full(&spec)?;
                 let (batch, report, records) = analyze_planned_request(
                     &backend,
@@ -1171,115 +1364,41 @@ pub fn analyze_request_with_state(
                 let progress = progress_from_report(&report, batch.items.len());
                 (batch, source_range, progress, report, records, None, None)
             }
-            AnalyzeMode::Preview => {
-                let plan = if let Some(cursor) = request.cursor.as_ref() {
-                    let range = cursor_range(cursor, SourceCursorMode::TailPreview)?;
-                    backend.plan_range(&spec, SourceReadMode::BackwardRange, range)?
-                } else {
-                    backend.plan_tail(&spec, request.resource_limits.tail_bytes)?
-                };
-                let (batch, report, records) = analyze_planned_request(
-                    &backend,
-                    &plan,
-                    &runtime.adapter,
-                    profile,
-                    cancelled,
-                    deadline,
-                    BatchCompleteness::Provisional,
-                )?;
-                let source_range = report.complete_range().or(Some(report.scanned_range()));
-                let progress = progress_from_report(&report, batch.items.len());
-                (batch, source_range, progress, report, records, None, None)
-            }
-            AnalyzeMode::Backfill => {
-                let range = request
-                    .known_complete_range
-                    .or_else(|| request.cursor.as_ref().and_then(cursor_range_for_backfill))
-                    .unwrap_or_else(|| {
-                        let source_bytes = std::fs::metadata(spec.path())
-                            .map(|metadata| metadata.len())
-                            .unwrap_or_default();
-                        SourceByteRange::new(0, source_bytes).expect("file range is ordered")
-                    });
-                let plan = backend.plan_range(&spec, SourceReadMode::BackwardRange, range)?;
-                let completeness = if range.start() == 0
-                    && range.end() == plan.snapshot_boundary().byte_length()
-                {
-                    BatchCompleteness::Canonical
-                } else {
-                    BatchCompleteness::Provisional
-                };
-                let (batch, report, records) = analyze_planned_request(
-                    &backend,
-                    &plan,
-                    &runtime.adapter,
-                    profile,
-                    cancelled,
-                    deadline,
-                    completeness,
-                )?;
-                let source_range = report.complete_range().or(Some(report.scanned_range()));
-                let progress = progress_from_report(&report, batch.items.len());
-                (batch, source_range, progress, report, records, None, None)
-            }
-            AnalyzeMode::Append => {
-                if let Some(cursor) = request.cursor.as_ref() {
-                    let append_cursor = serde_json::from_value::<ForwardAppendCursor>(
-                        cursor.clone(),
-                    )
-                    .map_err(|error| AnalyzerProtocolError::InvalidCursor(error.to_string()))?;
-                    let current_length = std::fs::metadata(spec.path())?.len();
-                    let range = SourceByteRange::new(
-                        append_cursor.metadata().snapshot_boundary().byte_length(),
-                        current_length,
-                    )
-                    .map_err(|error| AnalyzerProtocolError::InvalidCursor(error.to_string()))?;
-                    let plan = backend.plan_range(&spec, SourceReadMode::ForwardRange, range)?;
-                    let (batch, report, records) = analyze_planned_request(
-                        &backend,
-                        &plan,
-                        &runtime.adapter,
-                        profile,
-                        cancelled,
-                        deadline,
-                        BatchCompleteness::Canonical,
-                    )?;
-                    let source_range = report.complete_range().or(Some(report.scanned_range()));
-                    let progress = progress_from_report(&report, batch.items.len());
-                    let last_line = serde_json::from_value::<ForwardAppendCursor>(cursor.clone())
-                        .ok()
-                        .and_then(|cursor| cursor.metadata().last_complete_line().cloned());
-                    let last_ordinal =
-                        serde_json::from_value::<ForwardAppendCursor>(cursor.clone())
-                            .ok()
-                            .and_then(|cursor| cursor.metadata().last_rollout_ordinal());
-                    (
-                        batch,
-                        source_range,
-                        progress,
-                        report,
-                        records,
-                        last_line,
-                        last_ordinal,
-                    )
-                } else {
-                    let plan = backend.plan_full(&spec)?;
-                    let (batch, report, records) = analyze_planned_request(
-                        &backend,
-                        &plan,
-                        &runtime.adapter,
-                        profile,
-                        cancelled,
-                        deadline,
-                        BatchCompleteness::Canonical,
-                    )?;
-                    let source_range = report.complete_range().or(Some(report.scanned_range()));
-                    let progress = progress_from_report(&report, batch.items.len());
-                    (batch, source_range, progress, report, records, None, None)
-                }
-            }
-        };
+        }
+    };
     check_deadline(cancelled, deadline)?;
+    if let Some(guard) = lineage_source_guard.as_ref() {
+        let active_source_changed = !source_guard_matches(spec.path(), guard)?;
+        if report.source_grew_during_read()
+            || report.source_shrank_during_read()
+            || active_source_changed
+        {
+            anyhow::bail!("active rollout changed while lineage analysis was reading it");
+        }
+    }
+    if let Some(lineage) = request.lineage.as_ref()
+        && batch.complete
+        && batch.completeness == BatchCompleteness::Canonical
+    {
+        let replay = collect_lineage_replay(&spec, &batch, lineage, profile, cancelled, deadline)?;
+        // A lineage request is a cold-start capable replay, not only a
+        // relationship lookup.  Send the ordered parent history together
+        // with the active child so Node can rebuild the same projection even
+        // when no parent scope has been imported yet.
+        batch.items = replay.history_items;
+        batch.replacements = replay.replacements;
+        progress.records_emitted = batch.items.len() as u64;
+        if !batch.replacements.is_empty()
+            && !request
+                .peer_capabilities
+                .iter()
+                .any(|capability| capability == LAST_TURN_REPLACEMENT_CAPABILITY)
+        {
+            anyhow::bail!(
+                "unsupported capability: Node must offer {LAST_TURN_REPLACEMENT_CAPABILITY} before a last-turn replacement can be emitted"
+            );
+        }
+    }
     runtime.apply(&batch);
     check_deadline(cancelled, deadline)?;
     let projection = runtime.projection();
@@ -1329,6 +1448,358 @@ pub fn analyze_request_with_state(
     }
     check_deadline(cancelled, deadline)?;
     Ok(message)
+}
+
+struct LineageReplay {
+    history_items: Vec<AnalysisEvent>,
+    replacements: Vec<LastTurnReplacement>,
+}
+
+struct LineageParentRead {
+    validation_batch: AnalysisBatch,
+    history_batch: AnalysisBatch,
+}
+
+fn collect_lineage_replay(
+    active_spec: &SourceSpec,
+    active_batch: &AnalysisBatch,
+    request: &RolloutLineageRequest,
+    profile: CompatibilityProfile,
+    cancelled: &AtomicBool,
+    deadline: Instant,
+) -> anyhow::Result<LineageReplay> {
+    if request.max_depth == 0 {
+        anyhow::bail!("lineage max_depth must be greater than zero");
+    }
+    let catalog = build_rollout_catalog(request)?;
+    let child_rollout_id = active_spec.source_id().to_string();
+    let mut current_source = RolloutSource::new(child_rollout_id, active_spec.path().to_path_buf())
+        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    let mut current_batch = active_batch.clone();
+    let mut lineage_batches = vec![active_batch.clone()];
+    let mut visited = BTreeSet::new();
+    let mut replacements = Vec::new();
+
+    for depth in 0..request.max_depth {
+        check_deadline(cancelled, deadline)?;
+        if !visited.insert(current_source.rollout_id.clone()) {
+            return Err(anyhow::anyhow!(LineageError::ParentChainCycle {
+                rollout_id: current_source.rollout_id,
+            }));
+        }
+        let Some(history_base) = current_batch.history_base.clone() else {
+            break;
+        };
+        let parent_source = catalog
+            .resolve(&history_base.parent_rollout_id)
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+        let parent_read = read_lineage_batch(
+            &parent_source,
+            active_spec,
+            &history_base,
+            profile,
+            cancelled,
+            deadline,
+        )?;
+        let replacement = validate_last_turn_replacement(
+            active_spec
+                .target_conversation_id()
+                .ok_or_else(|| anyhow::anyhow!("lineage target conversation ID is required"))?,
+            &parent_source.rollout_id,
+            &current_source.rollout_id,
+            &history_base,
+            &parent_read.validation_batch,
+            &current_batch,
+        )
+        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+        replacements.push(replacement);
+        lineage_batches.push(parent_read.history_batch);
+        current_source = parent_source;
+        current_batch = parent_read.validation_batch;
+        if depth + 1 == request.max_depth && current_batch.history_base.is_some() {
+            return Err(anyhow::anyhow!(LineageError::ParentChainDepthExceeded {
+                max_depth: request.max_depth,
+            }));
+        }
+    }
+    replacements.reverse();
+    lineage_batches.reverse();
+    let history_items = lineage_batches
+        .into_iter()
+        .flat_map(|batch| batch.items)
+        .collect();
+    Ok(LineageReplay {
+        history_items,
+        replacements,
+    })
+}
+
+fn build_rollout_catalog(request: &RolloutLineageRequest) -> anyhow::Result<RolloutCatalog> {
+    let mut catalog = if let Some(root) = request.catalog_root.as_deref() {
+        RolloutCatalog::from_directory(root).map_err(|error| anyhow::anyhow!(error.to_string()))?
+    } else {
+        RolloutCatalog::new()
+    };
+    for candidate in &request.candidates {
+        catalog
+            .insert(candidate.rollout_id.clone(), candidate.path.clone())
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    }
+    if catalog.is_empty() {
+        anyhow::bail!("lineage catalog has no parent rollout candidates");
+    }
+    Ok(catalog)
+}
+
+fn read_lineage_batch(
+    source: &RolloutSource,
+    active_spec: &SourceSpec,
+    history_base: &HistoryBaseRef,
+    profile: CompatibilityProfile,
+    cancelled: &AtomicBool,
+    deadline: Instant,
+) -> anyhow::Result<LineageParentRead> {
+    check_deadline(cancelled, deadline)?;
+    let target_conversation_id = active_spec
+        .target_conversation_id()
+        .ok_or_else(|| anyhow::anyhow!("lineage target conversation ID is required"))?;
+    let spec = SourceSpec::bind(
+        target_conversation_id,
+        source.rollout_id.clone(),
+        source.path.clone(),
+    )
+    .map_err(|error| anyhow::anyhow!(error.to_string()))?
+    .with_limits(
+        active_spec.max_decoded_bytes(),
+        active_spec.max_line_bytes(),
+    )
+    .with_segment_limit(active_spec.max_segment_bytes());
+    if spec.compression() != SourceCompression::PlainJsonl {
+        anyhow::bail!(
+            "lineage replacement validation requires a seekable plain JSONL parent source"
+        );
+    }
+
+    let snapshot_length = std::fs::metadata(&source.path)?.len();
+    let header_end = first_line_end(&source.path, spec.max_line_bytes())?;
+    let header_range = SourceByteRange::new(0, header_end)?;
+    let suffix_range = SourceByteRange::new(history_base.end_byte_offset, snapshot_length)?;
+    let source_guard = capture_lineage_source_guard(&source.path, &[header_range, suffix_range])?;
+    let spec = spec.with_snapshot_boundary(SnapshotBoundary::new(snapshot_length));
+    let backend = JsonlSourceBackend;
+    let header_plan = backend
+        .plan_range(&spec, SourceReadMode::ForwardRange, header_range)
+        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    let suffix_plan = backend
+        .plan_range(&spec, SourceReadMode::ForwardRange, suffix_range)
+        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    let (header_report, mut records) =
+        read_lineage_segment(&header_plan, &backend, cancelled, deadline)?;
+    ensure_lineage_segment_complete("parent header", header_range, &header_report)?;
+    let (suffix_report, suffix_records) =
+        read_lineage_segment(&suffix_plan, &backend, cancelled, deadline)?;
+    ensure_lineage_segment_complete("parent replacement suffix", suffix_range, &suffix_report)?;
+    records.extend(suffix_records);
+    let adapter = CodexEventAdapter::new_with_conversation_id(
+        profile,
+        Some(target_conversation_id.to_string()),
+    );
+    let mut validation_batch = crate::protocol::analyze_records_with_adapter(
+        &adapter,
+        records,
+        profile,
+        BatchCompleteness::Canonical,
+    );
+    validation_batch.source_id = Some(source.rollout_id.clone());
+    if !validation_batch.complete {
+        anyhow::bail!("parent replacement suffix contains incomplete or unsupported evidence");
+    }
+    let mut history_batch =
+        read_lineage_history_batch(&spec, source, profile, cancelled, deadline)?;
+    merge_lineage_history_items(&mut history_batch.items, &validation_batch.items);
+    if !lineage_source_guard_matches(&source.path, &source_guard)? {
+        anyhow::bail!("parent rollout changed during bounded lineage read");
+    }
+    Ok(LineageParentRead {
+        validation_batch,
+        history_batch,
+    })
+}
+
+fn read_lineage_history_batch(
+    spec: &SourceSpec,
+    source: &RolloutSource,
+    profile: CompatibilityProfile,
+    cancelled: &AtomicBool,
+    deadline: Instant,
+) -> anyhow::Result<AnalysisBatch> {
+    let backend = JsonlSourceBackend;
+    let plan = backend
+        .plan_full(spec)
+        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    let adapter = CodexEventAdapter::new_with_conversation_id(
+        profile,
+        spec.target_conversation_id().map(ToOwned::to_owned),
+    );
+    let (mut batch, _report, _records) = analyze_planned_request(
+        &backend,
+        &plan,
+        &adapter,
+        profile,
+        cancelled,
+        deadline,
+        BatchCompleteness::Canonical,
+    )?;
+    // This batch is only the best-effort historical payload.  Its completeness
+    // must not decide whether the independently bounded replacement suffix is
+    // valid; unknown prefix events and the decoded budget are intentionally
+    // allowed to make this auxiliary batch partial.
+    batch.source_id = Some(source.rollout_id.clone());
+    Ok(batch)
+}
+
+fn read_lineage_segment(
+    plan: &SourceReadPlan,
+    backend: &JsonlSourceBackend,
+    cancelled: &AtomicBool,
+    deadline: Instant,
+) -> anyhow::Result<(PlannedReadReport, Vec<SourceRecord>)> {
+    let mut records = Vec::new();
+    let report = plan.read(backend, &mut |record| {
+        check_deadline(cancelled, deadline)?;
+        records.push(record);
+        Ok(())
+    })?;
+    check_deadline(cancelled, deadline)?;
+    Ok((report, records))
+}
+
+fn ensure_lineage_segment_complete(
+    label: &str,
+    expected_range: SourceByteRange,
+    report: &PlannedReadReport,
+) -> anyhow::Result<()> {
+    if report.source_grew_during_read()
+        || report.source_shrank_during_read()
+        || report.pending_tail_bytes() != 0
+        || report.source().budget_exceeded
+        || report.complete_range() != Some(expected_range)
+    {
+        anyhow::bail!("{label} was changed or incomplete during lineage read");
+    }
+    Ok(())
+}
+
+fn merge_lineage_history_items(
+    history_items: &mut Vec<AnalysisEvent>,
+    suffix_items: &[AnalysisEvent],
+) {
+    let mut seen = BTreeSet::new();
+    for event in history_items.iter() {
+        seen.insert(lineage_event_key(event));
+    }
+    for event in suffix_items {
+        if seen.insert(lineage_event_key(event)) {
+            history_items.push(event.clone());
+        }
+    }
+}
+
+fn lineage_event_key(event: &AnalysisEvent) -> (String, u64, u64, String) {
+    (
+        event.metadata().source_ref.source_identity.clone(),
+        event.metadata().source_ref.byte_start,
+        event.metadata().sequence,
+        event.event_id().to_string(),
+    )
+}
+
+fn first_line_end(path: &std::path::Path, max_line_bytes: usize) -> anyhow::Result<u64> {
+    if max_line_bytes == 0 {
+        anyhow::bail!("max_line_bytes must be greater than zero");
+    }
+    let max_line_bytes = u64::try_from(max_line_bytes).unwrap_or(u64::MAX);
+    let mut file = File::open(path)?;
+    let mut consumed = 0_u64;
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        let read = file.read(&mut buffer)?;
+        if read == 0 {
+            anyhow::bail!("parent rollout has no complete session header line");
+        }
+        if let Some(index) = buffer[..read].iter().position(|byte| *byte == b'\n') {
+            let end = consumed.saturating_add(index as u64 + 1);
+            if end > max_line_bytes {
+                anyhow::bail!("parent session header exceeds max_line_bytes");
+            }
+            return Ok(end);
+        }
+        consumed = consumed.saturating_add(read as u64);
+        if consumed >= max_line_bytes {
+            anyhow::bail!("parent session header exceeds max_line_bytes");
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct LineageSourceGuard {
+    byte_length: u64,
+    ranges: Vec<(SourceByteRange, SourceFixtureHash)>,
+}
+
+fn capture_lineage_source_guard(
+    path: &std::path::Path,
+    ranges: &[SourceByteRange],
+) -> anyhow::Result<LineageSourceGuard> {
+    let byte_length = std::fs::metadata(path)?.len();
+    let mut guarded_ranges = Vec::with_capacity(ranges.len());
+    for range in ranges {
+        if range.end() > byte_length {
+            anyhow::bail!("lineage guard range exceeds parent rollout snapshot");
+        }
+        let fingerprint = SourceFixtureHash::from_file(path, range.start(), range.end())
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+        guarded_ranges.push((*range, fingerprint));
+    }
+    Ok(LineageSourceGuard {
+        byte_length,
+        ranges: guarded_ranges,
+    })
+}
+
+fn lineage_source_guard_matches(
+    path: &std::path::Path,
+    guard: &LineageSourceGuard,
+) -> anyhow::Result<bool> {
+    let byte_length = std::fs::metadata(path)?.len();
+    if byte_length != guard.byte_length {
+        return Ok(false);
+    }
+    for (range, expected) in &guard.ranges {
+        let actual = SourceFixtureHash::from_file(path, range.start(), range.end())
+            .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+        if &actual != expected {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+fn capture_source_guard(path: &std::path::Path) -> anyhow::Result<(u64, String)> {
+    let byte_length = std::fs::metadata(path)?.len();
+    let fingerprint = SourceFixtureHash::from_file(path, 0, byte_length)
+        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    Ok((byte_length, fingerprint.digest().to_string()))
+}
+
+fn source_guard_matches(path: &std::path::Path, guard: &(u64, String)) -> anyhow::Result<bool> {
+    let byte_length = std::fs::metadata(path)?.len();
+    if byte_length != guard.0 {
+        return Ok(false);
+    }
+    let fingerprint = SourceFixtureHash::from_file(path, 0, byte_length)
+        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    Ok(fingerprint.digest() == guard.1)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1825,6 +2296,8 @@ mod tests {
             known_complete_range: None,
             retention_profile: None,
             replace_previous: false,
+            lineage: None,
+            peer_capabilities: Vec::new(),
             resource_limits: Default::default(),
         };
         assert!(

@@ -14,7 +14,8 @@ pub use checkpoint::{
 pub use stage4::{
     ANALYZER_PROTOCOL_VERSION, ANALYZER_VERSION, AckMessage, AnalyzeMode, AnalyzeRequest,
     AnalyzerProtocolError, AnalyzerRuntimeState, BatchMessage, BatchMutation, BatchProgress,
-    CancelMessage, CompleteMessage, ErrorMessage, HelloMessage, MessageType, ProtocolHeader,
-    ProtocolMessage, ResourceLimits, SourceSpecRequest, TaskOutcome, ToolDetail, analyze_request,
+    CancelMessage, CompleteMessage, ErrorMessage, HelloMessage, LAST_TURN_REPLACEMENT_CAPABILITY,
+    MessageType, ProtocolHeader, ProtocolMessage, ResourceLimits, RolloutCatalogCandidateRequest,
+    RolloutLineageRequest, SourceSpecRequest, TaskOutcome, ToolDetail, analyze_request,
     analyze_request_with_state, checkpoint_for_batch,
 };

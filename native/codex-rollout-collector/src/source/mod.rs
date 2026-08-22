@@ -4,6 +4,7 @@ mod append;
 mod cursor;
 mod digest;
 mod jsonl;
+mod lineage;
 mod oracle;
 mod read_plan;
 mod record;
@@ -17,6 +18,9 @@ pub use cursor::{
     TailPreviewCursor,
 };
 pub use jsonl::{JsonlSourceBackend, SourceBackend};
+pub use lineage::{
+    HistoryBaseRef, LineageError, RolloutCatalog, RolloutSource, rollout_id_from_filename,
+};
 pub use oracle::{
     SourceFixtureHash, SourceOracleError, SourceRecordMismatch, SourceRecordOracleResult,
     compare_source_records,

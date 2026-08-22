@@ -138,6 +138,217 @@ function validateSourceRef(value, field) {
     }
 }
 
+function validateHistoryBase(value, field) {
+    requireObject({ [field]: value }, field);
+    requireString(value, 'parent_rollout_id');
+    for (const name of ['end_ordinal_exclusive', 'end_byte_offset']) {
+        if (!Number.isSafeInteger(value[name]) || value[name] < 0) {
+            throw new AnalyzerProtocolError(
+                'invalid_field',
+                `${field}.${name} must be a non-negative integer`,
+                { field: `${field}.${name}` }
+            );
+        }
+    }
+}
+
+function validateReplacementSourceEvidence(value, field) {
+    const parentStartField = `${field}.parent_turn_start_source_ref`;
+    const parentTerminalField = `${field}.parent_turn_terminal_source_ref`;
+    const childStartField = `${field}.child_turn_start_source_ref`;
+    const parentStart = value.parent_turn_start_source_ref;
+    const parentTerminal = value.parent_turn_terminal_source_ref;
+    const childStart = value.child_turn_start_source_ref;
+
+    for (const [sourceRef, sourceRefField, expectedIdentity] of [
+        [parentStart, parentStartField, value.parent_rollout_id],
+        [parentTerminal, parentTerminalField, value.parent_rollout_id],
+        [childStart, childStartField, value.child_rollout_id]
+    ]) {
+        if (sourceRef.source_identity !== expectedIdentity) {
+            throw new AnalyzerProtocolError(
+                'invalid_field',
+                `${sourceRefField}.source_identity must match its rollout identity`,
+                { field: `${sourceRefField}.source_identity` }
+            );
+        }
+    }
+
+    if (!Number.isSafeInteger(parentStart.rollout_ordinal) || parentStart.rollout_ordinal < 0) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            `${parentStartField}.rollout_ordinal is required for cut validation`,
+            { field: `${parentStartField}.rollout_ordinal` }
+        );
+    }
+    if (parentStart.rollout_ordinal !== value.cut.end_ordinal_exclusive) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            `${parentStartField}.rollout_ordinal must equal cut.end_ordinal_exclusive`,
+            { field: `${parentStartField}.rollout_ordinal` }
+        );
+    }
+    if (parentStart.byte_start !== value.cut.end_byte_offset) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            `${parentStartField}.byte_start must equal cut.end_byte_offset`,
+            { field: `${parentStartField}.byte_start` }
+        );
+    }
+    if (parentTerminal.byte_start < parentStart.byte_start) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            `${parentTerminalField} cannot precede parent turn start`,
+            { field: `${parentTerminalField}.byte_start` }
+        );
+    }
+    if (Number.isSafeInteger(parentTerminal.rollout_ordinal)
+        && parentTerminal.rollout_ordinal < parentStart.rollout_ordinal) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            `${parentTerminalField}.rollout_ordinal cannot precede parent turn start`,
+            { field: `${parentTerminalField}.rollout_ordinal` }
+        );
+    }
+}
+
+function validateReplacementBatchCut(value, field, batch) {
+    if (!batch || value.child_rollout_id !== batch.source_id) return;
+    const historyBase = batch.history_base;
+    if (!isObject(historyBase)
+        || historyBase.parent_rollout_id !== value.cut.parent_rollout_id
+        || historyBase.end_ordinal_exclusive !== value.cut.end_ordinal_exclusive
+        || historyBase.end_byte_offset !== value.cut.end_byte_offset) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            `${field}.cut must match batch history_base for the current child rollout`,
+            { field: `${field}.cut` }
+        );
+    }
+}
+
+function validateLastTurnReplacement(value, field, batch, { requireCurrentChild = true } = {}) {
+    requireObject({ [field]: value }, field);
+    for (const name of [
+        'replacement_key',
+        'conversation_id',
+        'parent_rollout_id',
+        'child_rollout_id',
+        'replaced_turn_id',
+        'replacement_turn_id'
+    ]) {
+        requireString(value, name);
+    }
+    if (value.replacement_key !== [
+        'replacement',
+        value.conversation_id,
+        value.parent_rollout_id,
+        value.child_rollout_id,
+        value.replaced_turn_id,
+        value.replacement_turn_id
+    ].join(':')) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            `${field}.replacement_key is not stable for the replacement identity`,
+            { field: `${field}.replacement_key` }
+        );
+    }
+    if (!['completed', 'interrupted', 'partial'].includes(value.replaced_turn_terminal_status)) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            `${field}.replaced_turn_terminal_status is unsupported`,
+            { field: `${field}.replaced_turn_terminal_status` }
+        );
+    }
+    if (value.parent_rollout_id === value.child_rollout_id
+        || value.replaced_turn_id === value.replacement_turn_id) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            `${field} must identify distinct parent/child and old/new turns`,
+            { field }
+        );
+    }
+    if (batch && value.conversation_id !== batch.conversation_id) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            `${field}.conversation_id must match batch conversation_id`,
+            { field: `${field}.conversation_id` }
+        );
+    }
+    if (batch && requireCurrentChild && value.child_rollout_id !== batch.source_id) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            `${field}.child_rollout_id must match batch source_id`,
+            { field: `${field}.child_rollout_id` }
+        );
+    }
+    validateHistoryBase(value.cut, `${field}.cut`);
+    if (value.cut.parent_rollout_id !== value.parent_rollout_id) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            `${field}.cut.parent_rollout_id must match parent_rollout_id`,
+            { field: `${field}.cut.parent_rollout_id` }
+        );
+    }
+    validateSourceRef(value.parent_turn_start_source_ref, `${field}.parent_turn_start_source_ref`);
+    validateSourceRef(value.parent_turn_terminal_source_ref, `${field}.parent_turn_terminal_source_ref`);
+    validateSourceRef(value.child_turn_start_source_ref, `${field}.child_turn_start_source_ref`);
+    validateReplacementSourceEvidence(value, field);
+    validateReplacementBatchCut(value, field, batch);
+}
+
+function validateReplacementChain(message) {
+    const candidates = [
+        ...(Array.isArray(message.replacements) ? message.replacements : []),
+        ...(Array.isArray(message.mutations)
+            ? message.mutations
+                .filter((mutation) => mutation?.mutation === 'replace_last_turn')
+                .map((mutation) => mutation.replacement)
+            : [])
+    ];
+    const unique = new Map();
+    for (const replacement of candidates) {
+        if (replacement?.replacement_key && !unique.has(replacement.replacement_key)) {
+            unique.set(replacement.replacement_key, replacement);
+        }
+    }
+    if (!unique.size) return;
+
+    const byChildRollout = new Map();
+    for (const replacement of unique.values()) {
+        const existing = byChildRollout.get(replacement.child_rollout_id);
+        if (existing && existing.replacement_key !== replacement.replacement_key) {
+            throw new AnalyzerProtocolError(
+                'invalid_field',
+                'replacement facts must contain at most one parent transition per child rollout',
+                { field: 'replacements' }
+            );
+        }
+        byChildRollout.set(replacement.child_rollout_id, replacement);
+    }
+
+    const usedChildren = new Set();
+    let expectedChildRollout = message.source_id;
+    while (byChildRollout.has(expectedChildRollout)) {
+        if (usedChildren.has(expectedChildRollout)) {
+            throw new AnalyzerProtocolError(
+                'invalid_field',
+                'replacement facts contain a parent-chain cycle',
+                { field: 'replacements' }
+            );
+        }
+        usedChildren.add(expectedChildRollout);
+        expectedChildRollout = byChildRollout.get(expectedChildRollout).parent_rollout_id;
+    }
+    if (usedChildren.size !== unique.size) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            'replacement facts must form a contiguous parent chain ending at batch source_id',
+            { field: 'replacements' }
+        );
+    }
+}
+
 function validateMutation(mutation, index, batch) {
     if (!isObject(mutation) || !isNonEmptyString(mutation.mutation)) {
         throw new AnalyzerProtocolError(
@@ -212,6 +423,22 @@ function validateMutation(mutation, index, batch) {
         validateSourceRange(mutation.source_range, `mutations[${index}].source_range`);
         return;
     }
+    if (mutation.mutation === 'replace_last_turn') {
+        if (batch && batch.completeness !== 'canonical') {
+            throw new AnalyzerProtocolError(
+                'invalid_field',
+                `mutations[${index}].replace_last_turn requires canonical batch`,
+                { field: `mutations[${index}].mutation` }
+            );
+        }
+        validateLastTurnReplacement(
+            mutation.replacement,
+            `mutations[${index}].replacement`,
+            batch,
+            { requireCurrentChild: false }
+        );
+        return;
+    }
     throw new AnalyzerProtocolError(
         'invalid_field',
         `unsupported mutation ${mutation.mutation}`,
@@ -255,6 +482,27 @@ function validateBatchMessage(message) {
         requireString(message.next_cursor, 'cursor_kind');
     }
     requireArray(message, 'mutations');
+    if (message.history_base !== undefined && message.history_base !== null) {
+        validateHistoryBase(message.history_base, 'history_base');
+    }
+    if (message.replacements !== undefined && message.replacements !== null) {
+        requireArray(message, 'replacements');
+        if (message.replacements.length > 0 && message.completeness !== 'canonical') {
+            throw new AnalyzerProtocolError(
+                'invalid_field',
+                'top-level replacements require canonical batch',
+                { field: 'replacements' }
+            );
+        }
+        message.replacements.forEach((replacement, index) => {
+            validateLastTurnReplacement(
+                replacement,
+                `replacements[${index}]`,
+                message,
+                { requireCurrentChild: false }
+            );
+        });
+    }
     for (const [index, item] of message.history_items.entries()) {
         if (!isNonEmptyString(item?.item_key)
             && !isNonEmptyString(item?.metadata?.item_key)
@@ -267,6 +515,7 @@ function validateBatchMessage(message) {
         }
     }
     message.mutations.forEach((mutation, index) => validateMutation(mutation, index, message));
+    validateReplacementChain(message);
     validateSourceRange(message.source_range, 'source_range');
 
     const hasCompleteRange = message.mutations.some(
@@ -501,7 +750,16 @@ function createHello(requestId = `node-hello-${Date.now()}`) {
     return validateMessage({
         ...header('hello', requestId),
         role: 'node',
-        capabilities: ['analyze', 'preview', 'backfill', 'append', 'cancel', 'checkpoint', 'ack']
+        capabilities: [
+            'analyze',
+            'preview',
+            'backfill',
+            'append',
+            'cancel',
+            'checkpoint',
+            'ack',
+            'last_turn_replacement_v1'
+        ]
     });
 }
 

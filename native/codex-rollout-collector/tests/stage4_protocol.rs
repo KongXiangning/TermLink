@@ -4,8 +4,10 @@ use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicBool;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use codex_rollout_collector::model::AnalysisEvent;
 use codex_rollout_collector::protocol::{
-    AnalyzeMode, AnalyzeRequest, AnalyzerRuntimeState, SourceSpecRequest, analyze_request,
+    AnalyzeMode, AnalyzeRequest, AnalyzerRuntimeState, LAST_TURN_REPLACEMENT_CAPABILITY,
+    RolloutCatalogCandidateRequest, RolloutLineageRequest, SourceSpecRequest, analyze_request,
     analyze_request_with_state,
 };
 use codex_rollout_collector::{CompatibilityProfile, SourceByteRange};
@@ -331,6 +333,306 @@ fn request_resource_timeout_is_enforced_before_source_read() {
     let error = analyze_request(&request, &AtomicBool::new(false))
         .expect_err("zero request timeout must fail closed");
     assert!(error.to_string().contains("resource timeout"));
+}
+
+fn rollout_line(ordinal: u64, payload_type: &str, payload: Value) -> Value {
+    let mut value = serde_json::json!({
+        "timestamp": format!("2026-08-22T00:00:{ordinal:02}Z"),
+        "ordinal": ordinal,
+        "type": payload_type
+    });
+    value["payload"] = payload;
+    value
+}
+
+fn session_line(conversation_id: &str, history_base: Option<Value>) -> Value {
+    let mut payload = serde_json::json!({
+        "id": conversation_id,
+        "timestamp": "2026-08-22T00:00:00Z",
+        "cwd": "E:\\coding\\TermLink",
+        "originator": "codex_cli",
+        "cli_version": "0.148.0",
+        "source": "cli",
+        "model_provider": "openai",
+        "git": {}
+    });
+    if let Some(history_base) = history_base {
+        payload["history_mode"] = Value::String("paginated".to_string());
+        payload["history_base"] = history_base;
+    }
+    rollout_line(0, "session_meta", payload)
+}
+
+fn task_started_line(ordinal: u64, turn_id: &str) -> Value {
+    rollout_line(
+        ordinal,
+        "event_msg",
+        serde_json::json!({
+            "type": "task_started",
+            "turn_id": turn_id,
+            "model_context_window": 258400,
+            "collaboration_mode_kind": "default"
+        }),
+    )
+}
+
+fn user_item_completed_line(ordinal: u64, conversation_id: &str, turn_id: &str) -> Value {
+    rollout_line(
+        ordinal,
+        "event_msg",
+        serde_json::json!({
+            "type": "item_completed",
+            "thread_id": conversation_id,
+            "turn_id": turn_id,
+            "item": {
+                "type": "UserMessage",
+                "id": format!("user-item-{turn_id}"),
+                "content": [{"type": "text", "text": format!("question-{turn_id}")}]
+            },
+            "completed_at_ms": 1
+        }),
+    )
+}
+
+fn task_complete_line(ordinal: u64, turn_id: &str) -> Value {
+    rollout_line(
+        ordinal,
+        "event_msg",
+        serde_json::json!({
+            "type": "task_complete",
+            "turn_id": turn_id,
+            "last_agent_message": "done",
+            "duration_ms": 1
+        }),
+    )
+}
+
+fn encoded_lines(lines: &[Value]) -> Vec<u8> {
+    lines
+        .iter()
+        .map(|line| {
+            let mut encoded = serde_json::to_vec(line).expect("rollout line serializes");
+            encoded.push(b'\n');
+            encoded
+        })
+        .flatten()
+        .collect()
+}
+
+fn line_start_after(lines: &[Value], count: usize) -> u64 {
+    encoded_lines(&lines[..count]).len() as u64
+}
+
+#[test]
+fn lineage_replay_emits_a_linear_a_to_b_to_c_replacement_chain() {
+    let conversation_id = "01a02530-9975-7df2-a3b3-6bb214ad47ed";
+    let rollout_a = "01a02531-9f57-76d0-89f7-9b5e12d04911";
+    let rollout_b = "01a02532-e386-7892-8258-23dbea585370";
+    let rollout_c = "01a0254c-9bc1-7a72-bba0-5c5ff17c5987";
+    let turn_a = "01a02531-a0c4-7b50-8246-95f2ef990ece";
+    let turn_b = "01a02532-e4ce-7981-9d1c-2616d218617f";
+    let turn_c = "01a0254c-9cf8-7a30-b17e-a42c467473b9";
+
+    let parent_a_lines = vec![
+        session_line(conversation_id, None),
+        task_started_line(1, turn_a),
+        user_item_completed_line(2, conversation_id, turn_a),
+        task_complete_line(3, turn_a),
+    ];
+    let cut_a = line_start_after(&parent_a_lines, 1);
+    let parent_b_lines = vec![
+        session_line(
+            conversation_id,
+            Some(serde_json::json!({
+                "thread_id": rollout_a,
+                "end_ordinal_exclusive": 1,
+                "end_byte_offset": cut_a
+            })),
+        ),
+        task_started_line(3, turn_b),
+        user_item_completed_line(4, conversation_id, turn_b),
+        task_complete_line(5, turn_b),
+    ];
+    let cut_b = line_start_after(&parent_b_lines, 1);
+    let child_c_lines = vec![
+        session_line(
+            conversation_id,
+            Some(serde_json::json!({
+                "thread_id": rollout_b,
+                "end_ordinal_exclusive": 3,
+                "end_byte_offset": cut_b
+            })),
+        ),
+        task_started_line(5, turn_c),
+        user_item_completed_line(6, conversation_id, turn_c),
+        task_complete_line(7, turn_c),
+    ];
+
+    let path_a = temp_fixture_path("lineage-a");
+    let path_b = temp_fixture_path("lineage-b");
+    let path_c = temp_fixture_path("lineage-c");
+    fs::write(&path_a, encoded_lines(&parent_a_lines)).expect("parent A writes");
+    fs::write(&path_b, encoded_lines(&parent_b_lines)).expect("parent B writes");
+    fs::write(&path_c, encoded_lines(&child_c_lines)).expect("child C writes");
+
+    let mut source_spec = SourceSpecRequest::new(path_c.to_string_lossy());
+    source_spec.source_id = Some(rollout_c.to_string());
+    source_spec.source_epoch = Some("lineage-epoch-c".to_string());
+    let request = AnalyzeRequest::new(
+        "lineage-a-b-c",
+        conversation_id,
+        source_spec,
+        AnalyzeMode::Replay,
+    )
+    .with_lineage(RolloutLineageRequest {
+        catalog_root: None,
+        candidates: vec![
+            RolloutCatalogCandidateRequest {
+                rollout_id: rollout_a.to_string(),
+                path: path_a.to_string_lossy().to_string(),
+            },
+            RolloutCatalogCandidateRequest {
+                rollout_id: rollout_b.to_string(),
+                path: path_b.to_string_lossy().to_string(),
+            },
+        ],
+        max_depth: 8,
+    })
+    .with_peer_capabilities([LAST_TURN_REPLACEMENT_CAPABILITY]);
+
+    let batch =
+        analyze_request(&request, &AtomicBool::new(false)).expect("linear lineage analyzes");
+    assert_eq!(
+        batch.completeness,
+        codex_rollout_collector::protocol::BatchCompleteness::Canonical
+    );
+    assert_eq!(batch.replacements.len(), 2);
+    assert_eq!(batch.replacements[0].parent_rollout_id, rollout_a);
+    assert_eq!(batch.replacements[0].child_rollout_id, rollout_b);
+    assert_eq!(batch.replacements[0].replaced_turn_id, turn_a);
+    assert_eq!(batch.replacements[0].replacement_turn_id, turn_b);
+    assert_eq!(batch.replacements[1].parent_rollout_id, rollout_b);
+    assert_eq!(batch.replacements[1].child_rollout_id, rollout_c);
+    assert_eq!(batch.replacements[1].replaced_turn_id, turn_b);
+    assert_eq!(batch.replacements[1].replacement_turn_id, turn_c);
+    let replayed_user_turns: Vec<_> = batch
+        .history_items
+        .iter()
+        .filter_map(|event| match event {
+            AnalysisEvent::UserMessage { metadata, .. } => metadata.turn_id.clone(),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        replayed_user_turns,
+        vec![turn_a.to_string(), turn_b.to_string(), turn_c.to_string()]
+    );
+    assert_eq!(
+        batch
+            .mutations
+            .iter()
+            .filter(|mutation| matches!(
+                mutation,
+                codex_rollout_collector::protocol::BatchMutation::ReplaceLastTurn { .. }
+            ))
+            .count(),
+        2
+    );
+
+    let mut unsupported = request.clone();
+    unsupported.peer_capabilities.clear();
+    let error = analyze_request(&unsupported, &AtomicBool::new(false))
+        .expect_err("replacement capability is required");
+    assert!(error.to_string().contains("unsupported capability"));
+
+    let _ = fs::remove_file(path_a);
+    let _ = fs::remove_file(path_b);
+    let _ = fs::remove_file(path_c);
+}
+
+#[test]
+fn lineage_replay_keeps_valid_replacement_when_parent_prefix_is_unknown_and_budgeted() {
+    let conversation_id = "01a02530-9975-7df2-a3b3-6bb214ad47ed";
+    let rollout_parent = "01a02531-9f57-76d0-89f7-9b5e12d04911";
+    let rollout_child = "01a02532-e386-7892-8258-23dbea585370";
+    let turn_parent = "01a02531-a0c4-7b50-8246-95f2ef990ece";
+    let turn_child = "01a02532-e4ce-7981-9d1c-2616d218617f";
+
+    let mut parent_lines = vec![session_line(conversation_id, None)];
+    let opaque_payload = "x".repeat(500);
+    for ordinal in 1..=8 {
+        parent_lines.push(rollout_line(
+            ordinal,
+            "future_event",
+            serde_json::json!({"opaque": opaque_payload}),
+        ));
+    }
+    let cut = line_start_after(&parent_lines, parent_lines.len());
+    parent_lines.push(task_started_line(100, turn_parent));
+    parent_lines.push(user_item_completed_line(101, conversation_id, turn_parent));
+    parent_lines.push(task_complete_line(102, turn_parent));
+
+    let child_lines = vec![
+        session_line(
+            conversation_id,
+            Some(serde_json::json!({
+                "thread_id": rollout_parent,
+                "end_ordinal_exclusive": 100,
+                "end_byte_offset": cut
+            })),
+        ),
+        task_started_line(200, turn_child),
+        user_item_completed_line(201, conversation_id, turn_child),
+        task_complete_line(202, turn_child),
+    ];
+
+    let parent_path = temp_fixture_path("lineage-budgeted-parent");
+    let child_path = temp_fixture_path("lineage-budgeted-child");
+    fs::write(&parent_path, encoded_lines(&parent_lines)).expect("budgeted parent writes");
+    fs::write(&child_path, encoded_lines(&child_lines)).expect("budgeted child writes");
+
+    let mut source_spec = SourceSpecRequest::new(child_path.to_string_lossy());
+    source_spec.source_id = Some(rollout_child.to_string());
+    source_spec.source_epoch = Some("lineage-budgeted-epoch".to_string());
+    let mut request = AnalyzeRequest::new(
+        "lineage-budgeted-prefix",
+        conversation_id,
+        source_spec,
+        AnalyzeMode::Replay,
+    )
+    .with_lineage(RolloutLineageRequest {
+        catalog_root: None,
+        candidates: vec![RolloutCatalogCandidateRequest {
+            rollout_id: rollout_parent.to_string(),
+            path: parent_path.to_string_lossy().to_string(),
+        }],
+        max_depth: 1,
+    })
+    .with_peer_capabilities([LAST_TURN_REPLACEMENT_CAPABILITY]);
+    request.resource_limits.max_decoded_bytes = 2048;
+
+    let batch = analyze_request(&request, &AtomicBool::new(false))
+        .expect("unknown parent prefix must not block valid replacement");
+    assert_eq!(batch.replacements.len(), 1);
+    assert_eq!(batch.replacements[0].parent_rollout_id, rollout_parent);
+    assert_eq!(batch.replacements[0].child_rollout_id, rollout_child);
+    assert_eq!(batch.replacements[0].replaced_turn_id, turn_parent);
+    assert_eq!(batch.replacements[0].replacement_turn_id, turn_child);
+    let replayed_user_turns: Vec<_> = batch
+        .history_items
+        .iter()
+        .filter_map(|event| match event {
+            AnalysisEvent::UserMessage { metadata, .. } => metadata.turn_id.clone(),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        replayed_user_turns,
+        vec![turn_parent.to_string(), turn_child.to_string()]
+    );
+
+    let _ = fs::remove_file(parent_path);
+    let _ = fs::remove_file(child_path);
 }
 
 #[test]

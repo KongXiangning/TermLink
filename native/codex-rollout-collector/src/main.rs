@@ -45,6 +45,7 @@ fn run() -> anyhow::Result<()> {
 
     let mut active: Option<ActiveRequest> = None;
     let mut hello_received = false;
+    let mut peer_capabilities = Vec::new();
     let runtime_state = Arc::new(Mutex::new(AnalyzerRuntimeState::new(
         codex_rollout_collector::codex_wire::CompatibilityProfile::Current,
     )));
@@ -60,6 +61,7 @@ fn run() -> anyhow::Result<()> {
                         &mut output,
                         &runtime_state,
                         &mut hello_received,
+                        &mut peer_capabilities,
                     )?;
                 }
                 Ok(InputCommand::Eof) | Err(mpsc::RecvTimeoutError::Disconnected) => {
@@ -126,6 +128,7 @@ fn handle_input_line(
     output: &mut impl Write,
     runtime_state: &Arc<Mutex<AnalyzerRuntimeState>>,
     hello_received: &mut bool,
+    peer_capabilities: &mut Vec<String>,
 ) -> anyhow::Result<()> {
     let message = match ProtocolMessage::parse_line(&line) {
         Ok(message) => message,
@@ -164,13 +167,14 @@ fn handle_input_line(
                 )?;
             } else {
                 *hello_received = true;
+                *peer_capabilities = hello.capabilities;
                 write_message(
                     output,
                     ProtocolMessage::Hello(HelloMessage::new(hello.header.request_id)),
                 )?;
             }
         }
-        ProtocolMessage::Analyze(request) => {
+        ProtocolMessage::Analyze(mut request) => {
             if !*hello_received {
                 write_message(
                     output,
@@ -194,6 +198,7 @@ fn handle_input_line(
                     )),
                 )?;
             } else {
+                request.peer_capabilities = peer_capabilities.clone();
                 start_request(request, worker_tx.clone(), active, runtime_state.clone());
             }
         }
@@ -357,7 +362,9 @@ fn start_request(
             Err(error) => {
                 let cancelled = worker_cancelled.load(Ordering::Acquire)
                     || error.to_string().contains("cancelled");
-                let timed_out = error.to_string().contains("resource timeout");
+                let error_text = error.to_string();
+                let timed_out = error_text.contains("resource timeout");
+                let unsupported_capability = error_text.contains("unsupported capability");
                 let _ = worker_tx.send(WorkerEvent::Message(ProtocolMessage::Error(
                     ErrorMessage::for_request(
                         worker_request_id.clone(),
@@ -365,11 +372,13 @@ fn start_request(
                             "cancelled"
                         } else if timed_out {
                             "resource_timeout"
+                        } else if unsupported_capability {
+                            "unsupported_capability"
                         } else {
                             "analysis_failed"
                         },
-                        error.to_string(),
-                        !cancelled,
+                        error_text,
+                        !cancelled && !unsupported_capability,
                         false,
                     ),
                 )));
