@@ -29,7 +29,8 @@ const {
 } = require('../src/services/codexRolloutCollector/analysisRunStore');
 const {
     CodexRolloutCollector,
-    requestScope
+    requestScope,
+    ensureReplayLineageRecovery
 } = require('../src/services/codexRolloutCollector');
 
 function batch({ requestId = 'request-1', batchId = 'batch-1', completeness = 'partial', replacePrevious = false, text = 'one', sourceEpoch = 'epoch-1', itemKey = 'item-1', sourceId = 'rollout.jsonl', conversationId = 'conversation-1' } = {}) {
@@ -64,6 +65,7 @@ function batch({ requestId = 'request-1', batchId = 'batch-1', completeness = 'p
             conversation_id: conversationId,
             complete: canonical,
             provisional: !canonical,
+            coverage: canonical ? 'complete' : (completeness === 'unknown' ? 'unknown' : 'partial'),
             availability: 'present',
             turns: [],
             diagnostics: [],
@@ -221,6 +223,37 @@ test('analyzer protocol is flat JSONL and ignores additive fields', () => {
     assert.throws(
         () => parseLine('{not-json'),
         (error) => error instanceof AnalyzerProtocolError && error.code === 'malformed_protocol'
+    );
+});
+
+test('replay requests opt into cold lineage recovery when the service has no checkpoint', () => {
+    const request = createAnalyzeRequest({
+        requestId: 'restart-lineage-request',
+        conversationId: 'conversation-1',
+        sourceSpec: {
+            path: 'rollout-child.jsonl',
+            source_id: 'rollout-child',
+            source_epoch: 'restart-epoch-1'
+        },
+        mode: 'replay'
+    });
+    const recovered = ensureReplayLineageRecovery(request);
+    assert.deepEqual(recovered.lineage, {});
+
+    const explicit = ensureReplayLineageRecovery({
+        ...request,
+        lineage: {
+            catalog_root: 'C:/codex/sessions/2026/08/22',
+            max_depth: 4
+        }
+    });
+    assert.deepEqual(explicit.lineage, {
+        catalog_root: 'C:/codex/sessions/2026/08/22',
+        max_depth: 4
+    });
+    assert.equal(
+        ensureReplayLineageRecovery({ ...request, lineage: null }).lineage,
+        null
     );
 });
 
@@ -443,6 +476,90 @@ test('partial and provisional top-level replacements fail closed before import',
             assert.deepEqual(store.operations, operationsBefore);
         }
     }
+});
+
+test('replacement evidence can be staged while projection coverage is partial', async () => {
+    const importer = await new AnalysisBatchImporter({
+        store: new MemoryAnalysisStore()
+    }).init();
+    const fact = replacement({
+        parentRolloutId: 'parent-rollout',
+        childRolloutId: 'child-rollout',
+        replacedTurnId: 'old-turn',
+        replacementTurnId: 'new-turn'
+    });
+    const parentBatch = batch({
+        batchId: 'coverage-parent',
+        sourceId: 'parent-rollout',
+        sourceEpoch: 'parent-epoch',
+        itemKey: 'old-item',
+        completeness: 'canonical'
+    });
+    const stagedBatch = batch({
+        requestId: 'coverage-child-request',
+        batchId: 'coverage-child-staged',
+        sourceId: 'child-rollout',
+        sourceEpoch: 'child-epoch',
+        itemKey: 'new-item',
+        completeness: 'canonical',
+        text: 'edited turn'
+    });
+    stagedBatch.history_base = structuredClone(fact.cut);
+    stagedBatch.replacements = [fact];
+    stagedBatch.projection.coverage = 'partial';
+    stagedBatch.projection.complete = false;
+    stagedBatch.projection.provisional = false;
+
+    assert.equal(validateMessage(stagedBatch), stagedBatch);
+    const invalidMutation = structuredClone(stagedBatch);
+    invalidMutation.mutations.push({
+        mutation: 'replace_last_turn',
+        replacement: structuredClone(fact)
+    });
+    assert.throws(
+        () => validateMessage(invalidMutation),
+        (error) => error instanceof AnalyzerProtocolError
+            && error.details?.field === 'mutations[1].mutation'
+    );
+    await importer.importBatch(parentBatch);
+    const staged = await importer.importBatch(stagedBatch);
+    assert.equal(staged.state.pending_replacement, true);
+    assert.equal(staged.state.active_head, false);
+    assert.equal(staged.state.canonical, false);
+    assert.equal(staged.state.complete, false);
+    assert.equal(staged.state.projection_coverage, 'partial');
+    assert.equal(staged.state.replacements.length, 1);
+
+    const parent = await importer.store.snapshot({
+        conversationId: 'conversation-1',
+        sourceId: 'parent-rollout',
+        sourceEpoch: 'parent-epoch'
+    });
+    assert.equal(parent.active_head, true);
+
+    const committedBatch = structuredClone(stagedBatch);
+    committedBatch.batch_id = 'coverage-child-committed';
+    committedBatch.projection.coverage = 'complete';
+    committedBatch.projection.complete = true;
+    committedBatch.mutations = [
+        { mutation: 'complete_range', source_range: { start: 0, end: 10 } },
+        { mutation: 'replace_last_turn', replacement: structuredClone(fact) }
+    ];
+    assert.equal(validateMessage(committedBatch), committedBatch);
+    const committed = await importer.importBatch(committedBatch);
+    assert.equal(committed.state.pending_replacement, false);
+    assert.equal(committed.state.active_head, true);
+    assert.equal(committed.state.canonical, true);
+    assert.equal(committed.state.complete, true);
+    assert.equal(committed.state.projection_coverage, 'complete');
+    assert.equal(committed.state.replacements.length, 1);
+
+    const committedParent = await importer.store.snapshot({
+        conversationId: 'conversation-1',
+        sourceId: 'parent-rollout',
+        sourceEpoch: 'parent-epoch'
+    });
+    assert.equal(committedParent.active_head, false);
 });
 
 test('online last-turn replacement retains the parent history and commits the child head', async (t) => {

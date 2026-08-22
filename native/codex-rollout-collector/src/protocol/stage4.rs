@@ -14,7 +14,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
 use crate::analysis::{
-    AnalysisProjection, AnalysisReducer, AnalysisUsage, validate_last_turn_replacement,
+    AnalysisProjection, AnalysisReducer, AnalysisUsage, ProjectionCoverage,
+    validate_last_turn_replacement,
 };
 use crate::codex_adapter::CodexEventAdapter;
 use crate::codex_wire::CompatibilityProfile;
@@ -599,6 +600,7 @@ impl BatchMessage {
         let batch_id = batch_id.into();
         let source_id = source_id.into();
         let source_epoch = source_epoch.into();
+        let projection_coverage = projection.coverage;
         let tool_details = derive_tool_details(&batch.items, &source_epoch, completeness);
         let usage = projection.usage_total.clone();
         let task_outcomes = derive_task_outcomes(&batch.items, &source_epoch, completeness);
@@ -612,6 +614,7 @@ impl BatchMessage {
             batch.complete,
             &source_epoch,
             completeness,
+            projection_coverage,
         );
         Self {
             header: ProtocolHeader::new(MessageType::Batch, request.header.request_id.clone()),
@@ -817,6 +820,7 @@ fn derive_mutations(
     complete: bool,
     source_epoch: &str,
     completeness: BatchCompleteness,
+    projection_coverage: ProjectionCoverage,
 ) -> Vec<BatchMutation> {
     let mut mutations = Vec::new();
     for event in events {
@@ -873,7 +877,13 @@ fn derive_mutations(
             });
         }
     }
-    if completeness == BatchCompleteness::Canonical && complete {
+    // `replacements` are validated lineage evidence.  The mutation is a
+    // separate instruction to change the active projection and is emitted
+    // only when that projection has complete logical coverage.  A source can
+    // be fully read while its historical projection is still partial (for
+    // example when an older parent contains an unsupported event).
+    if completeness == BatchCompleteness::Canonical && complete && projection_coverage.is_complete()
+    {
         for replacement in replacements {
             mutations.push(BatchMutation::ReplaceLastTurn {
                 replacement: replacement.clone(),
@@ -1376,6 +1386,7 @@ pub fn analyze_request_with_state(
             anyhow::bail!("active rollout changed while lineage analysis was reading it");
         }
     }
+    let mut lineage_coverage = None;
     if let Some(lineage) = request.lineage.as_ref()
         && batch.complete
         && batch.completeness == BatchCompleteness::Canonical
@@ -1387,6 +1398,7 @@ pub fn analyze_request_with_state(
         // when no parent scope has been imported yet.
         batch.items = replay.history_items;
         batch.replacements = replay.replacements;
+        lineage_coverage = Some(replay.coverage);
         progress.records_emitted = batch.items.len() as u64;
         if !batch.replacements.is_empty()
             && !request
@@ -1401,7 +1413,16 @@ pub fn analyze_request_with_state(
     }
     runtime.apply(&batch);
     check_deadline(cancelled, deadline)?;
-    let projection = runtime.projection();
+    let mut projection = runtime.projection();
+    if let Some(lineage_coverage) = lineage_coverage {
+        projection.coverage = projection.coverage.min(lineage_coverage);
+        if !projection.coverage.is_complete() {
+            // `complete` remains the legacy content-availability flag.  A
+            // partial lineage coverage must nevertheless prevent a canonical
+            // projection mutation from being emitted or imported.
+            projection.complete = false;
+        }
+    }
     let completeness = batch.completeness;
     let batch_complete = batch.complete;
     let source_epoch = spec
@@ -1453,6 +1474,7 @@ pub fn analyze_request_with_state(
 struct LineageReplay {
     history_items: Vec<AnalysisEvent>,
     replacements: Vec<LastTurnReplacement>,
+    coverage: ProjectionCoverage,
 }
 
 struct LineageParentRead {
@@ -1471,7 +1493,21 @@ fn collect_lineage_replay(
     if request.max_depth == 0 {
         anyhow::bail!("lineage max_depth must be greater than zero");
     }
-    let catalog = build_rollout_catalog(request)?;
+    if active_batch.history_base.is_none() {
+        return Ok(LineageReplay {
+            history_items: active_batch.items.clone(),
+            replacements: Vec::new(),
+            coverage: projection_coverage_of(active_batch),
+        });
+    }
+    // A replay request may arrive after the service has restarted.  In that
+    // case the caller can know only the current active rollout and still ask
+    // for lineage recovery with an empty catalog request.  A rollout's
+    // sibling parent files are stored beside it by Codex, so the active
+    // source directory is the bounded default discovery root.  An explicit
+    // catalog_root remains authoritative when the caller has a wider (or
+    // otherwise different) approved source directory.
+    let catalog = build_rollout_catalog(active_spec, request)?;
     let child_rollout_id = active_spec.source_id().to_string();
     let mut current_source = RolloutSource::new(child_rollout_id, active_spec.path().to_path_buf())
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
@@ -1479,6 +1515,7 @@ fn collect_lineage_replay(
     let mut lineage_batches = vec![active_batch.clone()];
     let mut visited = BTreeSet::new();
     let mut replacements = Vec::new();
+    let mut coverage = projection_coverage_of(active_batch);
 
     for depth in 0..request.max_depth {
         check_deadline(cancelled, deadline)?;
@@ -1513,6 +1550,7 @@ fn collect_lineage_replay(
         )
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
         replacements.push(replacement);
+        coverage = coverage.min(projection_coverage_of(&parent_read.history_batch));
         lineage_batches.push(parent_read.history_batch);
         current_source = parent_source;
         current_batch = parent_read.validation_batch;
@@ -1531,11 +1569,25 @@ fn collect_lineage_replay(
     Ok(LineageReplay {
         history_items,
         replacements,
+        coverage,
     })
 }
 
-fn build_rollout_catalog(request: &RolloutLineageRequest) -> anyhow::Result<RolloutCatalog> {
+fn projection_coverage_of(batch: &AnalysisBatch) -> ProjectionCoverage {
+    AnalysisReducer::reduce_batch(batch).coverage
+}
+
+fn build_rollout_catalog(
+    active_spec: &SourceSpec,
+    request: &RolloutLineageRequest,
+) -> anyhow::Result<RolloutCatalog> {
     let mut catalog = if let Some(root) = request.catalog_root.as_deref() {
+        RolloutCatalog::from_directory(root).map_err(|error| anyhow::anyhow!(error.to_string()))?
+    } else if let Some(root) = active_spec
+        .path()
+        .parent()
+        .filter(|root| !root.as_os_str().is_empty())
+    {
         RolloutCatalog::from_directory(root).map_err(|error| anyhow::anyhow!(error.to_string()))?
     } else {
         RolloutCatalog::new()

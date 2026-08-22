@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::codex_adapter::CodexEventAdapter;
 use crate::codex_wire::{CompatibilityProfile, decode_source_record};
 use crate::error::CollectorErrorKind;
-use crate::model::{AnalysisEvent, Availability, LastTurnReplacement, SourceRef};
+use crate::model::{AnalysisEvent, Availability, LastTurnReplacement, SourceRef, TerminalEvidence};
 use crate::source::HistoryBaseRef;
 use crate::source::{JsonlSourceBackend, SourceBackend, SourceRecord, SourceSpec};
 use crate::version::{PARSER_BACKEND, WIRE_SOURCE_REVISION};
@@ -203,7 +203,15 @@ fn append_record(
             .physical_line_ordinal
             .saturating_mul(1_000_000)
             .saturating_add(index as u64);
-        if event.is_diagnostic() || event.availability() != Availability::Present {
+        // An explicit abort is still partial turn content, so its event
+        // keeps PartialRollout for projection.  It is nevertheless a known
+        // terminal fact and must not make an otherwise fully read source
+        // ineligible for last-turn replacement validation.
+        let explicit_terminal =
+            event.metadata().terminal_evidence == Some(TerminalEvidence::ExplicitAbort);
+        if event.is_diagnostic()
+            || (event.availability() != Availability::Present && !explicit_terminal)
+        {
             batch.complete = false;
             batch.diagnostics.push(diagnostic_for(event));
         }

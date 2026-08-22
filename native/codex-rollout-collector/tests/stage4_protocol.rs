@@ -4,13 +4,13 @@ use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicBool;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use codex_rollout_collector::model::AnalysisEvent;
+use codex_rollout_collector::model::{AnalysisEvent, TurnStatus};
 use codex_rollout_collector::protocol::{
     AnalyzeMode, AnalyzeRequest, AnalyzerRuntimeState, LAST_TURN_REPLACEMENT_CAPABILITY,
     RolloutCatalogCandidateRequest, RolloutLineageRequest, SourceSpecRequest, analyze_request,
     analyze_request_with_state,
 };
-use codex_rollout_collector::{CompatibilityProfile, SourceByteRange};
+use codex_rollout_collector::{CompatibilityProfile, ProjectionCoverage, SourceByteRange};
 use serde_json::Value;
 
 fn fixture_path(name: &str) -> String {
@@ -116,6 +116,7 @@ fn analyzer_emits_batch_checkpoint_and_complete_only_after_ack() {
             .is_some_and(|items| !items.is_empty())
     );
     assert_eq!(batch["completeness"], "canonical");
+    assert_eq!(batch["projection"]["coverage"], "complete");
     assert_eq!(batch["replace_previous"], false);
 
     let complete = messages
@@ -506,6 +507,7 @@ fn lineage_replay_emits_a_linear_a_to_b_to_c_replacement_chain() {
         batch.completeness,
         codex_rollout_collector::protocol::BatchCompleteness::Canonical
     );
+    assert_eq!(batch.projection.coverage, ProjectionCoverage::Complete);
     assert_eq!(batch.replacements.len(), 2);
     assert_eq!(batch.replacements[0].parent_rollout_id, rollout_a);
     assert_eq!(batch.replacements[0].child_rollout_id, rollout_b);
@@ -548,6 +550,111 @@ fn lineage_replay_emits_a_linear_a_to_b_to_c_replacement_chain() {
     let _ = fs::remove_file(path_a);
     let _ = fs::remove_file(path_b);
     let _ = fs::remove_file(path_c);
+}
+
+#[test]
+fn lineage_replay_recovers_latest_rollout_after_restart_without_intermediate_candidates() {
+    let conversation_id = "01a02530-9975-7df2-a3b3-6bb214ad47ed";
+    let rollout_a = "01a02531-9f57-76d0-89f7-9b5e12d04911";
+    let rollout_b = "01a02532-e386-7892-8258-23dbea585370";
+    let rollout_c = "01a0254c-9bc1-7a72-bba0-5c5ff17c5987";
+    let turn_a = "01a02531-a0c4-7b50-8246-95f2ef990ece";
+    let turn_b = "01a02532-e4ce-7981-9d1c-2616d218617f";
+    let turn_c = "01a0254c-9cf8-7a30-b17e-a42c467473b9";
+
+    let parent_a_lines = vec![
+        session_line(conversation_id, None),
+        task_started_line(1, turn_a),
+        user_item_completed_line(2, conversation_id, turn_a),
+        task_complete_line(3, turn_a),
+    ];
+    let cut_a = line_start_after(&parent_a_lines, 1);
+    let parent_b_lines = vec![
+        session_line(
+            conversation_id,
+            Some(serde_json::json!({
+                "thread_id": rollout_a,
+                "end_ordinal_exclusive": 1,
+                "end_byte_offset": cut_a
+            })),
+        ),
+        task_started_line(3, turn_b),
+        user_item_completed_line(4, conversation_id, turn_b),
+        task_complete_line(5, turn_b),
+    ];
+    let cut_b = line_start_after(&parent_b_lines, 1);
+    let child_c_lines = vec![
+        session_line(
+            conversation_id,
+            Some(serde_json::json!({
+                "thread_id": rollout_b,
+                "end_ordinal_exclusive": 3,
+                "end_byte_offset": cut_b
+            })),
+        ),
+        task_started_line(5, turn_c),
+        user_item_completed_line(6, conversation_id, turn_c),
+        task_complete_line(7, turn_c),
+    ];
+
+    let root = temp_fixture_path("lineage-restart-catalog").with_extension("catalog");
+    fs::create_dir_all(&root).expect("restart catalog creates");
+    let path_a = root.join(
+        "rollout-2026-08-22T00-00-00-01a02530-9975-7df2-a3b3-6bb214ad47ed_01a02531-9f57-76d0-89f7-9b5e12d04911.jsonl",
+    );
+    let path_b = root.join(
+        "rollout-2026-08-22T00-01-00-01a02530-9975-7df2-a3b3-6bb214ad47ed_01a02532-e386-7892-8258-23dbea585370.jsonl",
+    );
+    let path_c = root.join(
+        "rollout-2026-08-22T00-02-00-01a02530-9975-7df2-a3b3-6bb214ad47ed_01a0254c-9bc1-7a72-bba0-5c5ff17c5987.jsonl",
+    );
+    fs::write(&path_a, encoded_lines(&parent_a_lines)).expect("restart parent A writes");
+    fs::write(&path_b, encoded_lines(&parent_b_lines)).expect("restart parent B writes");
+    fs::write(&path_c, encoded_lines(&child_c_lines)).expect("restart child C writes");
+
+    let mut source_spec = SourceSpecRequest::new(path_c.to_string_lossy());
+    source_spec.source_id = Some(rollout_c.to_string());
+    source_spec.source_epoch = Some("lineage-restart-epoch-c".to_string());
+    let request = AnalyzeRequest::new(
+        "lineage-restart-latest-only",
+        conversation_id,
+        source_spec,
+        AnalyzeMode::Replay,
+    )
+    .with_lineage(RolloutLineageRequest {
+        // An empty lineage request represents a restarted service that only
+        // rediscovered the active child.  The collector must discover A/B
+        // beside that active source rather than relying on in-memory
+        // intermediate rollout state.
+        catalog_root: None,
+        candidates: Vec::new(),
+        max_depth: 8,
+    })
+    .with_peer_capabilities([LAST_TURN_REPLACEMENT_CAPABILITY]);
+
+    let mut restarted_runtime = AnalyzerRuntimeState::new(CompatibilityProfile::Current);
+    let batch =
+        analyze_request_with_state(&request, &AtomicBool::new(false), &mut restarted_runtime)
+            .expect("latest-only restart replay resolves the parent chain");
+    assert_eq!(batch.replacements.len(), 2);
+    assert_eq!(batch.replacements[0].parent_rollout_id, rollout_a);
+    assert_eq!(batch.replacements[0].child_rollout_id, rollout_b);
+    assert_eq!(batch.replacements[1].parent_rollout_id, rollout_b);
+    assert_eq!(batch.replacements[1].child_rollout_id, rollout_c);
+    let replayed_user_turns: Vec<_> = batch
+        .history_items
+        .iter()
+        .filter_map(|event| match event {
+            AnalysisEvent::UserMessage { metadata, .. } => metadata.turn_id.clone(),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        replayed_user_turns,
+        vec![turn_a.to_string(), turn_b.to_string(), turn_c.to_string()]
+    );
+
+    let _ = fs::remove_dir_all(root);
 }
 
 #[test]
@@ -618,6 +725,12 @@ fn lineage_replay_keeps_valid_replacement_when_parent_prefix_is_unknown_and_budg
     assert_eq!(batch.replacements[0].child_rollout_id, rollout_child);
     assert_eq!(batch.replacements[0].replaced_turn_id, turn_parent);
     assert_eq!(batch.replacements[0].replacement_turn_id, turn_child);
+    assert_eq!(batch.projection.coverage, ProjectionCoverage::Partial);
+    assert!(!batch.projection.complete);
+    assert!(!batch.mutations.iter().any(|mutation| matches!(
+        mutation,
+        codex_rollout_collector::protocol::BatchMutation::ReplaceLastTurn { .. }
+    )));
     let replayed_user_turns: Vec<_> = batch
         .history_items
         .iter()
@@ -633,6 +746,102 @@ fn lineage_replay_keeps_valid_replacement_when_parent_prefix_is_unknown_and_budg
 
     let _ = fs::remove_file(parent_path);
     let _ = fs::remove_file(child_path);
+}
+
+#[test]
+fn lineage_replay_emits_replacement_for_real_rollout_event_shapes() {
+    let conversation_id = "01a02530-9975-7df2-a3b3-6bb214ad47ed";
+    let rollout_parent = "01a02531-9f57-76d0-89f7-9b5e12d04911";
+    let rollout_child = "01a02532-e386-7892-8258-23dbea585370";
+    let turn_parent = "01a02531-a0c4-7b50-8246-95f2ef990ece";
+    let turn_child = "01a02532-e4ce-7981-9d1c-2616d218617f";
+
+    let mut source_spec =
+        SourceSpecRequest::new(fixture_path("last-turn-replacement-real-child.jsonl"));
+    source_spec.source_id = Some(rollout_child.to_string());
+    source_spec.source_epoch = Some("real-rollout-shape-epoch".to_string());
+    let request = AnalyzeRequest::new(
+        "real-rollout-shape-replacement",
+        conversation_id,
+        source_spec,
+        AnalyzeMode::Replay,
+    )
+    .with_lineage(RolloutLineageRequest {
+        catalog_root: None,
+        candidates: vec![RolloutCatalogCandidateRequest {
+            rollout_id: rollout_parent.to_string(),
+            path: fixture_path("last-turn-replacement-real-parent.jsonl"),
+        }],
+        max_depth: 1,
+    })
+    .with_peer_capabilities([LAST_TURN_REPLACEMENT_CAPABILITY]);
+
+    let batch = analyze_request(&request, &AtomicBool::new(false))
+        .expect("real rollout event shapes should analyze");
+    assert!(batch.complete);
+    assert_eq!(
+        batch.completeness,
+        codex_rollout_collector::protocol::BatchCompleteness::Canonical
+    );
+    assert_eq!(batch.projection.coverage, ProjectionCoverage::Complete);
+    assert_eq!(batch.replacements.len(), 1);
+    assert_eq!(batch.replacements[0].parent_rollout_id, rollout_parent);
+    assert_eq!(batch.replacements[0].child_rollout_id, rollout_child);
+    assert_eq!(batch.replacements[0].replaced_turn_id, turn_parent);
+    assert_eq!(batch.replacements[0].replacement_turn_id, turn_child);
+    assert!(batch.mutations.iter().any(|mutation| matches!(
+        mutation,
+        codex_rollout_collector::protocol::BatchMutation::ReplaceLastTurn { replacement }
+            if replacement.replaced_turn_id == turn_parent
+                && replacement.replacement_turn_id == turn_child
+    )));
+}
+
+#[test]
+fn lineage_replay_accepts_explicit_interrupted_parent_terminal() {
+    let conversation_id = "01a02530-9975-7df2-a3b3-6bb214ad47ed";
+    let rollout_parent = "01a02531-9f57-76d0-89f7-9b5e12d04912";
+    let rollout_child = "01a02532-e386-7892-8258-23dbea585371";
+    let turn_parent = "01a02531-a0c4-7b50-8246-95f2ef990ed0";
+    let turn_child = "01a02532-e4ce-7981-9d1c-2616d2186180";
+
+    let mut source_spec =
+        SourceSpecRequest::new(fixture_path("last-turn-replacement-stopped-child.jsonl"));
+    source_spec.source_id = Some(rollout_child.to_string());
+    source_spec.source_epoch = Some("stopped-rollout-shape-epoch".to_string());
+    let request = AnalyzeRequest::new(
+        "stopped-rollout-shape-replacement",
+        conversation_id,
+        source_spec,
+        AnalyzeMode::Replay,
+    )
+    .with_lineage(RolloutLineageRequest {
+        catalog_root: None,
+        candidates: vec![RolloutCatalogCandidateRequest {
+            rollout_id: rollout_parent.to_string(),
+            path: fixture_path("last-turn-replacement-stopped-parent.jsonl"),
+        }],
+        max_depth: 1,
+    })
+    .with_peer_capabilities([LAST_TURN_REPLACEMENT_CAPABILITY]);
+
+    let batch = analyze_request(&request, &AtomicBool::new(false))
+        .expect("explicit interrupted parent should analyze");
+    assert!(batch.complete);
+    assert_eq!(batch.replacements.len(), 1);
+    assert_eq!(batch.replacements[0].replaced_turn_id, turn_parent);
+    assert_eq!(batch.replacements[0].replacement_turn_id, turn_child);
+    assert_eq!(
+        batch.replacements[0].replaced_turn_terminal_status,
+        TurnStatus::Interrupted
+    );
+    assert_eq!(batch.projection.coverage, ProjectionCoverage::Complete);
+    assert!(batch.mutations.iter().any(|mutation| matches!(
+        mutation,
+        codex_rollout_collector::protocol::BatchMutation::ReplaceLastTurn { replacement }
+            if replacement.replaced_turn_id == turn_parent
+                && replacement.replacement_turn_id == turn_child
+    )));
 }
 
 #[test]

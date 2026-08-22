@@ -23,7 +23,7 @@ pub mod version;
 pub use analysis::{
     AnalysisDiagnostic, AnalysisItem, AnalysisPlan, AnalysisProjection, AnalysisQuestion,
     AnalysisRateLimit, AnalysisReducer, AnalysisTool, AnalysisTurn, AnalysisTurnStatus,
-    AnalysisUsage, LineageValidationError, validate_last_turn_replacement,
+    AnalysisUsage, LineageValidationError, ProjectionCoverage, validate_last_turn_replacement,
 };
 pub use codex_wire::CompatibilityProfile;
 pub use model::LastTurnReplacement;

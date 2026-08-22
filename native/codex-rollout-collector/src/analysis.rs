@@ -438,12 +438,57 @@ pub struct AnalysisProjection {
     /// coverage has not yet been promoted by a complete backfill.
     #[serde(default)]
     pub provisional: bool,
+    /// Logical history coverage of this collector projection.
+    ///
+    /// This is deliberately separate from `complete`: an explicitly aborted
+    /// turn can have partial content availability while all source records in
+    /// the requested history range are present.  It is also separate from
+    /// `AnalysisBatch.completeness`, which describes the analyzed source
+    /// range, and from a product-level history manifest/coverage DTO.
+    #[serde(default)]
+    pub coverage: ProjectionCoverage,
     pub availability: Availability,
     pub turns: Vec<AnalysisTurn>,
     pub diagnostics: Vec<AnalysisDiagnostic>,
     /// Conformance-only aggregate used to compare the formal reducer with the
     /// Demo oracle. It is not a product conversation-level DTO field.
     pub usage_total: Option<AnalysisUsage>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProjectionCoverage {
+    Unknown,
+    Partial,
+    Complete,
+}
+
+impl Default for ProjectionCoverage {
+    fn default() -> Self {
+        Self::Unknown
+    }
+}
+
+impl ProjectionCoverage {
+    pub const fn is_complete(self) -> bool {
+        matches!(self, Self::Complete)
+    }
+
+    pub const fn min(self, other: Self) -> Self {
+        if self.rank() <= other.rank() {
+            self
+        } else {
+            other
+        }
+    }
+
+    const fn rank(self) -> u8 {
+        match self {
+            Self::Unknown => 0,
+            Self::Partial => 1,
+            Self::Complete => 2,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -586,6 +631,7 @@ impl AnalysisReducer {
                 source: None,
                 complete: true,
                 provisional: false,
+                coverage: ProjectionCoverage::Unknown,
                 availability: Availability::Present,
                 turns: Vec::new(),
                 diagnostics: Vec::new(),
@@ -620,10 +666,12 @@ impl AnalysisReducer {
     pub fn apply_batch(&mut self, batch: &AnalysisBatch) {
         let completeness = match batch.completeness {
             crate::protocol::BatchCompleteness::Unknown => {
-                if batch.complete {
-                    crate::protocol::BatchCompleteness::Canonical
-                } else {
+                if !batch.complete {
                     crate::protocol::BatchCompleteness::Partial
+                } else if batch.items.is_empty() && batch.diagnostics.is_empty() {
+                    crate::protocol::BatchCompleteness::Unknown
+                } else {
+                    crate::protocol::BatchCompleteness::Canonical
                 }
             }
             value => value,
@@ -646,25 +694,41 @@ impl AnalysisReducer {
             // state or worsen availability.
             return;
         }
-        if is_canonical {
-            self.projection.provisional = false;
-            self.projection.complete = batch.complete;
-            if batch.complete {
-                self.projection.diagnostics.clear();
-            } else {
-                self.projection
-                    .diagnostics
-                    .retain(|item| !self.provisional_diagnostic_keys.contains(&item.item_key));
+        match completeness {
+            crate::protocol::BatchCompleteness::Canonical => {
+                self.projection.provisional = false;
+                self.projection.complete = batch.complete;
+                self.projection.coverage = if batch.complete {
+                    ProjectionCoverage::Complete
+                } else {
+                    ProjectionCoverage::Partial
+                };
+                if batch.complete {
+                    self.projection.diagnostics.clear();
+                } else {
+                    self.projection
+                        .diagnostics
+                        .retain(|item| !self.provisional_diagnostic_keys.contains(&item.item_key));
+                }
+                self.provisional_diagnostic_keys.clear();
             }
-            self.provisional_diagnostic_keys.clear();
-        } else {
-            self.projection.provisional = true;
-            self.projection.complete = false;
+            crate::protocol::BatchCompleteness::Partial
+            | crate::protocol::BatchCompleteness::Provisional => {
+                self.projection.provisional = true;
+                self.projection.complete = false;
+                self.projection.coverage = ProjectionCoverage::Partial;
+            }
+            crate::protocol::BatchCompleteness::Unknown => {
+                self.projection.provisional = false;
+                self.projection.complete = batch.complete;
+                self.projection.coverage = ProjectionCoverage::Unknown;
+            }
         }
         for diagnostic in &batch.diagnostics {
             self.merge_availability(diagnostic.availability);
             if diagnostic.availability != Availability::Present {
                 self.projection.complete = false;
+                self.projection.coverage = ProjectionCoverage::Partial;
             }
         }
         for event in &batch.items {
@@ -676,9 +740,12 @@ impl AnalysisReducer {
             }
             self.apply(event);
         }
-        if is_canonical && batch.complete && self.projection.diagnostics.is_empty() {
+        if is_canonical
+            && batch.complete
+            && self.projection.diagnostics.is_empty()
+            && self.projection.availability == Availability::Present
+        {
             self.projection.complete = true;
-            self.projection.availability = Availability::Present;
             self.canonical_committed = true;
         }
     }
@@ -692,8 +759,9 @@ impl AnalysisReducer {
         let metadata = event.metadata().clone();
         self.projection.source = Some(metadata.source_ref.source_identity.clone());
         self.merge_availability(metadata.availability);
-        if metadata.availability != Availability::Present {
+        if metadata.availability != Availability::Present && metadata.terminal_evidence.is_none() {
             self.projection.complete = false;
+            self.projection.coverage = ProjectionCoverage::Partial;
         }
         if self.projection.conversation_id.is_none() {
             self.projection.conversation_id = metadata.conversation_id.clone();
@@ -1301,7 +1369,8 @@ fn availability_rank(value: Availability) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::{
-        AnalysisReducer, AnalysisTurnStatus, LineageValidationError, validate_last_turn_replacement,
+        AnalysisReducer, AnalysisTurnStatus, LineageValidationError, ProjectionCoverage,
+        validate_last_turn_replacement,
     };
     use crate::model::{AnalysisEvent, Availability, EventMetadata, SourceRef, TurnStatus};
     use crate::protocol::AnalysisBatch;
@@ -1357,6 +1426,7 @@ mod tests {
         .expect("fixture analyzes");
         let projection = AnalysisReducer::reduce_batch(&batch);
         assert!(!projection.complete);
+        assert_eq!(projection.coverage, ProjectionCoverage::Partial);
         assert!(!projection.diagnostics.is_empty());
         assert_eq!(projection.turns[0].status, AnalysisTurnStatus::Interrupted);
     }
@@ -1367,6 +1437,7 @@ mod tests {
             AnalysisReducer::reduce_batch(&AnalysisBatch::empty(CompatibilityProfile::Current));
         assert!(projection.complete);
         assert!(!projection.provisional);
+        assert_eq!(projection.coverage, ProjectionCoverage::Unknown);
         assert!(projection.turns.is_empty());
         assert!(projection.diagnostics.is_empty());
     }
@@ -1387,13 +1458,15 @@ mod tests {
         let promoted = reducer.finish();
         assert!(!promoted.provisional);
         assert!(promoted.complete);
+        assert_eq!(promoted.coverage, ProjectionCoverage::Complete);
         assert_eq!(promoted.availability, Availability::Present);
     }
 
     #[test]
     fn late_incomplete_overlap_cannot_downgrade_canonical_projection() {
         let mut reducer = AnalysisReducer::new(Some("conversation-1".to_string()));
-        let canonical = AnalysisBatch::empty(CompatibilityProfile::Current);
+        let mut canonical = AnalysisBatch::empty(CompatibilityProfile::Current);
+        canonical.completeness = crate::protocol::BatchCompleteness::Canonical;
         reducer.apply_batch(&canonical);
 
         let mut overlap = AnalysisBatch::empty(CompatibilityProfile::Current);
@@ -1403,6 +1476,7 @@ mod tests {
         let projection = reducer.finish();
         assert!(projection.complete);
         assert!(!projection.provisional);
+        assert_eq!(projection.coverage, ProjectionCoverage::Complete);
         assert_eq!(projection.availability, Availability::Present);
     }
 
@@ -1419,6 +1493,7 @@ mod tests {
                 timestamp: None,
                 sequence: 1,
                 availability: Availability::PartialRollout,
+                terminal_evidence: None,
                 identity_origin: crate::model::IdentityOrigin::NativeStableId,
                 source_ref: SourceRef {
                     source_identity: "source".to_string(),
@@ -1443,6 +1518,7 @@ mod tests {
             Availability::PartialRollout
         );
         assert!(!projection.complete);
+        assert_eq!(projection.coverage, ProjectionCoverage::Partial);
     }
 
     fn test_source_ref(source: &str, ordinal: u64, byte_start: u64, item_type: &str) -> SourceRef {
@@ -1476,6 +1552,7 @@ mod tests {
             timestamp: None,
             sequence: ordinal,
             availability: Availability::Present,
+            terminal_evidence: None,
             identity_origin: crate::model::IdentityOrigin::NativeStableId,
             source_ref: test_source_ref(source, ordinal, byte_start, item_type),
         }

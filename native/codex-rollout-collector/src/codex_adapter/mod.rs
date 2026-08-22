@@ -15,7 +15,7 @@ use crate::codex_wire::{
 use crate::error::CollectorErrorKind;
 use crate::model::{
     AnalysisEvent, Availability, EventMetadata, IdentityOrigin, PlanOption, PlanStep, SourceRef,
-    TurnStatus,
+    TerminalEvidence, TurnStatus,
 };
 use crate::source::{HistoryBaseRef, SourceRecord, safe_source_identity};
 
@@ -220,6 +220,12 @@ impl CodexEventAdapter {
             models::ResponseItem::Message {
                 id, role, content, ..
             } => self.adapt_message(record, id.as_ref(), role, content),
+            models::ResponseItem::Reasoning { .. } => vec![self.diagnostic(
+                record,
+                "reasoning_item",
+                Some("recognized reasoning item is not a canonical projection"),
+                0,
+            )],
             models::ResponseItem::AgentMessage { id, content, .. } => {
                 let Some(text) = models::plaintext_agent_message_content(content) else {
                     return vec![self.unknown_event(
@@ -466,6 +472,12 @@ impl CodexEventAdapter {
                 ),
                 text,
             }],
+            "user" => vec![self.diagnostic(
+                record,
+                "response_user_message_carrier",
+                Some("response_item user message is represented by item_completed"),
+                0,
+            )],
             _ => vec![self.unknown_event(
                 record,
                 format!("response_item/message/role:{role}"),
@@ -536,6 +548,12 @@ impl CodexEventAdapter {
                 self.adapt_event_agent_message(record, payload)
             }
             protocol::EventMsg::TurnStarted(payload) => self.adapt_turn_started(record, payload),
+            protocol::EventMsg::ThreadSettingsApplied(_) => vec![self.diagnostic(
+                record,
+                "thread_settings_applied",
+                Some("recognized session settings metadata"),
+                0,
+            )],
             protocol::EventMsg::TurnComplete(payload) => self.adapt_turn_complete(record, payload),
             protocol::EventMsg::TurnAborted(payload) => self.adapt_turn_aborted(record, payload),
             protocol::EventMsg::ItemCompleted(payload) => {
@@ -794,16 +812,12 @@ impl CodexEventAdapter {
         payload: &protocol::ItemCompletedEvent,
     ) -> Vec<AnalysisEvent> {
         let TurnItem::UserMessage(item) = &payload.item else {
-            return vec![
-                self.unknown_event(
-                    record,
-                    record
-                        .type_name()
-                        .unwrap_or_else(|| "event_msg/item_completed".to_string()),
-                    "known_wire_event_not_projected",
-                    0,
-                ),
-            ];
+            return vec![self.diagnostic(
+                record,
+                "item_completed_non_user",
+                Some("recognized completion metadata is not a canonical history item"),
+                0,
+            )];
         };
         self.adapt_user_message(
             record,
@@ -933,15 +947,17 @@ impl CodexEventAdapter {
         payload: &protocol::TurnAbortedEvent,
     ) -> Vec<AnalysisEvent> {
         self.clear_pending_plans();
+        let mut metadata = metadata(
+            record,
+            "turn_completed",
+            0,
+            payload.turn_id.clone(),
+            payload.turn_id.clone(),
+            Availability::PartialRollout,
+        );
+        metadata.terminal_evidence = Some(TerminalEvidence::ExplicitAbort);
         vec![AnalysisEvent::TurnCompleted {
-            metadata: metadata(
-                record,
-                "turn_completed",
-                0,
-                payload.turn_id.clone(),
-                payload.turn_id.clone(),
-                Availability::PartialRollout,
-            ),
+            metadata,
             status: TurnStatus::Interrupted,
             message: Some(debug_name(&payload.reason)),
             duration_ms: payload.duration_ms,
@@ -1314,6 +1330,7 @@ fn metadata(
             .saturating_mul(100)
             .saturating_add(index),
         availability,
+        terminal_evidence: None,
         identity_origin: IdentityOrigin::SourcePosition,
         source_ref: SourceRef::from(record),
     }

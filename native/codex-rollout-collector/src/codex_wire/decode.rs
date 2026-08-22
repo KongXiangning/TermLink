@@ -307,6 +307,7 @@ fn is_known_event_msg_type(value: &str) -> bool {
             | "thread_rolled_back"
             | "task_started"
             | "turn_started"
+            | "thread_settings_applied"
             | "task_complete"
             | "turn_complete"
             | "token_count"

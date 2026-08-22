@@ -122,7 +122,11 @@ Codex 在编辑当前会话最后一个已终止用户问题后，不修改父 r
 2. **turn replacement reduction** — completed：增加父最后终止用户 turn 与 child 新用户 turn 的一对一验证、replacement evidence 和 A→B→C 测试。
 3. **stage4 isolated protocol** — completed：增加 capability-gated mutation 的 Rust/Node 隔离协议支持和幂等验证。
 4. **regression and handoff** — completed：完成相关回归、范围审查并记录交付证据。
-5. **review finding remediation** — completed：REV-001 至 REV-006 已完成；REV-006 增加 replacement evidence 一致性和 `history_mode` 兼容性门禁。
+5. **review finding remediation** — completed：REV-001 至 REV-010 已完成；REV-006 增加 replacement evidence 一致性和 `history_mode` 兼容性门禁，REV-010 分离 replacement evidence 与 projection coverage。
+6. **真实 rollout 兼容修复 1** — completed：以真实 Codex 事件形状建立 parent/child fixture，并使真实样本输出 canonical replacement 与 `replace_last_turn` mutation。
+7. **stopped/interrupted 终止语义修复** — completed：保留 `turn_aborted` 的 partial 内容语义，同时增加明确终止证据，使已停止的最后 turn 可以进入一对一 replacement；其他 partial/unknown 证据继续 fail-closed。
+8. **服务重启跳过中间 rollout 恢复** — completed：replay 冷启动自动请求 lineage；Rust 在未给出 candidates/catalog_root 时从 active rollout 同目录恢复缺失的父链，并保持 A→B→C 有序重放。
+9. **replacement validation 与 projection coverage 语义分离** — completed：Rust 输出独立的 `ProjectionCoverage`；replacement evidence 由 source batch completeness 验证，只有 complete logical coverage 才生成 active `replace_last_turn` mutation；partial coverage 只允许阶段 4 隔离层暂存证据，不切换 active head。
 
 ## 审查问题队列
 
@@ -200,6 +204,55 @@ Codex 在编辑当前会话最后一个已终止用户问题后，不修改父 r
 - Required test result：新增 Node 伪造 source identity、cut ordinal/byte、父终止顺序、child history base 测试，以及 Rust legacy/missing/paginated history mode conformance 测试。
 - Handoff：review-current-diff
 
+### REV-007
+
+- Severity：critical
+- Source：再次 `review-implementation` 的真实 rollout smoke
+- Status：resolved
+- File / symbol：`codex_wire::is_known_event_msg_type`、`CodexEventAdapter::adapt_response_item`、`adapt_message`、`adapt_event_msg`、`adapt_item_completed`
+- Failure scenario：真实 Codex parent/child rollout 包含 `thread_settings_applied`、`response_item/message(role=user)`、`response_item/reasoning` 以及 `item_completed` 的 Reasoning/Extension/AgentMessage；这些已知当前事件被当作 UnknownEvent，导致 child batch 为 partial，无法产生 `ReplaceLastTurn`。
+- Minimal fix direction：仅将已确认的当前 vendor 事件形状标记为已知；用户回显、Reasoning 和非用户 item completion 只生成 Present diagnostic，不生成额外用户 turn；未知角色/未知 variant 继续 fail-closed。
+- Resolution：新增真实结构 parent/child fixture；完成上述已知事件适配；阶段 3 golden 更新已知诊断码；stage4 增加真实 fixture 的 replacement mutation 断言。
+- Required test result：Rust conformance 30 项、stage3 5 项、stage4 11 项、全量单元 73 项通过；真实目录 smoke 输出 `canonical=true`、1 条 replacement、1 条 `replace_last_turn`、`complete=ok`；Node 隔离测试 28 项通过。
+- Handoff：review-current-diff
+
+### REV-008
+
+- Severity：major
+- Source：本轮 stopped/interrupted 语义复核与真实 `turn_aborted` 样本验证
+- Status：resolved
+- File / symbol：`CodexEventAdapter::adapt_turn_aborted`、`AnalysisBatch` 的 source completeness 判定、`EventMetadata::terminal_evidence`
+- Failure scenario：Codex 已明确写出 `turn_aborted(reason=interrupted)`，但 adapter 将该事件作为 `PartialRollout` 后，父 batch 在 lineage validator 之前被判为 incomplete，导致“最后一个主动停止 turn 编辑重发”无法产生 replacement。
+- Minimal fix direction：把“已知终止事实”和“turn 内容是否完整”分开；显式 abort 保留 `PartialRollout`，新增 TermLink-owned `ExplicitAbort` evidence；只有该 evidence 不阻断 batch completeness，普通 partial/unknown 仍阻断。
+- Resolution：`turn_aborted` 输出 `TurnStatus::Interrupted` + `TerminalEvidence::ExplicitAbort`；batch completeness 只豁免该明确终止证据；新增 stopped parent/child 真实事件形状 fixture 和阶段 4 replacement mutation 测试。
+- Required test result：Rust 全量 73 unit、31 conformance、3 stage2、5 stage3、12 stage4 通过；Node isolated 28 项通过；真实用户 rollout 第 2054 行 `turn_aborted` 输出 `interrupted / partial_rollout / explicit_abort`，整体 partial 仍被保留。
+- Handoff：review-current-diff
+
+### REV-009
+
+- Severity：critical
+- Source：再次 `review-implementation` 的服务重启/冷启动路径复核
+- Status：resolved
+- File / symbol：`CodexRolloutCollector.analyze` 的 replay request 恢复、`stage4.rs::build_rollout_catalog` 与 `collect_lineage_replay`
+- Failure scenario：服务重启后只重新发现最新 active rollout C；B 没有在内存中处理，Rust 请求也没有 candidates/catalog_root，父链解析直接得到空 catalog 或 `ParentRolloutMissing`，无法恢复 A→B→C。
+- Minimal fix direction：把 replay 作为冷启动可恢复入口；空 lineage request 使用 active source 所在目录作为受限 catalog 根，沿每个 `history_base.parent_rollout_id` 递归解析，仍保留显式 `catalog_root` 优先级、最大深度和 fail-closed。
+- Resolution：Node collector 对未显式提供 lineage 的 replay 自动补 `{}`；Rust 以 active source parent directory 发现同目录 Codex rollout，空 `history_base` 普通 replay 直接保持兼容；不依赖中间 rollout checkpoint 或内存状态。
+- Required test result：新增真实 Codex 文件名规则的 A→B→C latest-only/restarted-runtime 测试；Rust stage4 13 项、全量 Rust targets 73/31/3/5/13 通过；Node isolated 29 项通过。
+- Note：真实用户目录 raw Rust smoke 已输出两条 B/C replacement；其中原始样本另含未支持的 developer message，Node canonical projection 门禁按既有 fail-closed 规则拒绝该样本，不作为本修复的成功凭据。
+- Handoff：review-current-diff
+
+### REV-010
+
+- Severity：major
+- Source：本轮对真实 rollout partial projection 与 replacement evidence 边界的复核
+- Status：resolved
+- File / symbol：`AnalysisProjection::complete`、`AnalysisBatch::completeness`、阶段 4 `replacements` / `replace_last_turn`
+- Failure scenario：父链或当前 rollout 含已知但暂不完整的历史投影事件时，source 文件本身仍可完整读取且 replacement cut 已通过验证；旧逻辑把 projection `complete=false` 直接当成 replacement evidence 无效，或者为了接受 evidence 过早切换 active head。
+- Minimal fix direction：分离三层语义：`AnalysisBatch::completeness` 描述本次 source range，`AnalysisProjection::coverage` 描述逻辑历史投影覆盖，top-level `replacements` 描述已验证事实；只有 complete coverage 才允许 `replace_last_turn` 作为 active projection mutation。
+- Resolution：Rust `AnalysisProjection` 增加 `ProjectionCoverage::{unknown,partial,complete}`；lineage replay 汇总 parent/child coverage，但不丢弃已验证 replacements。Node 阶段 4 validator/importer 允许 canonical source batch 携带 partial projection 的 replacement evidence，将无 mutation 的 evidence-only child 持久化为 `pending_replacement`，待 complete coverage 的 `replace_last_turn` 到达后再原子切换 active head；显式 interrupted terminal 保持 `coverage=complete`、内容 `complete=false` 的可表达性。
+- Required test result：Rust 全量目标测试 73 unit、31 conformance、3 stage2、5 stage3、13 stage4 通过；Node isolated validator/importer 30 项通过；新增 partial coverage evidence staging、complete mutation commit、禁止 partial coverage mutation 断言。
+- Handoff：review-current-diff
+
 ## 回归检查项
 
 - `cargo fmt --check`
@@ -207,13 +260,14 @@ Codex 在编辑当前会话最后一个已终止用户问题后，不修改父 r
 - 阶段 4 Rust protocol tests
 - `tests/codexRolloutCollector.test.js` 中既有 Node isolated tests
 - 新增 duplicate/replay/restart/ACK 和非法输入断言
+- 新增 latest-only parent-chain replay、active source 同目录 catalog discovery 和 replay request lineage 默认恢复断言
 - `git diff --check`、`git status --short`，确认任务外未跟踪产物未被修改
 
 ## 回滚点
 
 - Task start base：`cb1ce2a`
-- Last reviewed checkpoint：本任务未提交 diff（Rust/Node 隔离实现与测试已完成）
-- Current diff review target：本任务全部未提交 diff；不得触碰任务外未跟踪产物。
+- Last reviewed checkpoint：`55b583d`（上一轮 Rust/Node 隔离实现提交）
+- Current diff review target：相对 `55b583d` 的本轮真实 rollout 兼容修复工作树变更，包含 real parent/child 与 stopped parent/child 四个新增 Rust fixture，以及 TermLink-owned terminal evidence / batch completeness 变更；不得触碰任务外未跟踪产物。
 
 ## 执行记录
 
@@ -349,3 +403,50 @@ Codex 在编辑当前会话最后一个已终止用户问题后，不修改父 r
 - `cargo test --all-targets`：通过，73 个单元测试、29 个 conformance、3 个 stage2、5 个 stage3、10 个 stage4 protocol 测试通过。
 - `node --test tests/codexRolloutCollector.test.js`：通过，28 项通过。
 - `git diff --check`：通过；未修改 vendor、产品数据库/历史 provider、IPC、Android 及任务外未跟踪产物。
+
+### 2026-08-22 — 真实 rollout 兼容修复 1
+
+- 本轮只处理真实 rollout 事件形状导致的 canonical replacement 不可达问题；允许修改 `native/codex-rollout-collector/src/codex_wire/decode.rs`、`native/codex-rollout-collector/src/codex_adapter/mod.rs`、Rust conformance/stage3/stage4 tests、Rust fixture/golden 和本任务记录。
+- `thread_settings_applied` 现在按 vendor 已知 event 解码并作为 Present diagnostic；`response_item/message(role=user)` 保留为非 canonical 回显；Reasoning、Extension、AgentMessage 的 `item_completed` 保留为非用户 completion metadata；真正未知角色/variant 继续 UnknownEvent/fail-closed。
+- 新增 `last-turn-replacement-real-parent.jsonl` 与 `last-turn-replacement-real-child.jsonl`，child cut `end_byte_offset=1027` 与 parent 最后一个 turn 起点一致，并覆盖真实样本中的事件组合。
+- `cargo fmt --all -- --check`：通过。
+- `cargo test --all-targets --offline`：通过，73 个单元测试、30 个 conformance、3 个 stage2、5 个 stage3、11 个 stage4 protocol 测试通过。
+- `node --check src/services/codexRolloutCollector/analyzerProtocol.js`、`node --check tests/codexRolloutCollector.test.js`：通过；`node --test tests/codexRolloutCollector.test.js`：28 项通过。
+- 真实目录 smoke（`C:\Users\kongx\.codex\sessions\2026\08\22`）：batch `canonical`、`complete=true`、1 条 replacement、1 条 `replace_last_turn` mutation、complete `status=ok`；输出的 parent/child rollout、旧/新 turn ID 和 cut 与真实样本一致。
+- `git diff --check`：通过；未修改 vendor、产品数据库/历史 provider、IPC、Android 及任务外未跟踪产物。
+- Context7/current external documentation gate：not applicable；本轮未新增第三方 API/SDK/CLI 用法，仅基于仓库 vendored Codex snapshot、TermLink-owned adapter 和真实 fixture。
+
+### 2026-08-22 — stopped/interrupted 终止语义修复
+
+- 本轮只处理显式 `turn_aborted` 的最后 turn 终止语义；未扩展到 Node 产品持久化、数据库、IPC、Android 或通用分支模型。
+- `TurnStatus::Interrupted` 保留；事件 metadata 保留 `PartialRollout`，并新增 `TerminalEvidence::ExplicitAbort`，避免把停止时可能不完整的内容冒充完整成功结果。
+- `AnalysisBatch` 在完整性判定时只忽略该明确终止证据；仍有 compaction、parse gap、unknown 或其他 partial 记录时，batch/projection 继续 partial，原有 `abort-compaction` 语义不变。
+- 新增真实 Codex event shape 的 stopped parent/child fixture；阶段 4 验证 old turn → replacement turn，并断言保留 `TurnStatus::Interrupted`。
+- `cargo fmt --all -- --check`：通过。
+- `cargo test --all-targets --offline`：通过，73 个单元测试、31 个 conformance、3 个 stage2、5 个 stage3、12 个 stage4 protocol 测试通过。
+- `node --check src/services/codexRolloutCollector/analyzerProtocol.js`、`node --check src/services/codexRolloutCollector/analysisBatchImporter.js`：通过；`node --test tests/codexRolloutCollector.test.js`：28 项通过。
+- 真实用户样本 smoke（`C:\Users\kongx\.codex\sessions\2026\08\22\rollout-2026-08-22T02-10-38-01a02584-8a23-7e41-8a80-2c4e52260195.jsonl`）：第 2054 行输出 `status=interrupted`、`availability=partial_rollout`、`terminal_evidence=explicit_abort`；整体因其他未知历史事件保持 partial，未错误升级为 canonical。
+- `git diff --check`：通过；任务外的 `native/parse-probe/`、`native/rustup-init.exe`、`native/winlibs.zip` 未修改。
+- Context7/current external documentation gate：not applicable；本轮只使用仓库内 vendored Codex snapshot、TermLink-owned model/adapter 和本地真实 rollout，不新增第三方 API/SDK/CLI 用法。
+
+### 2026-08-22 — 服务重启跳过中间 rollout 恢复
+
+- 本轮只处理最新 active rollout 冷启动时缺失中间 rollout candidates 的恢复路径；未扩展到产品数据库、history provider、IPC、Android、vendor 或通用分支模型。
+- Rust `collect_lineage_replay` 在 active batch 没有 `history_base` 时保持普通 replay；存在父指针且未指定 `catalog_root` 时，以 active source 的 parent directory 建立受限 `RolloutCatalog`，显式 `catalog_root` 仍优先，候选冲突继续 fail-closed。
+- Node `CodexRolloutCollector` 对未显式提供 lineage 的 `replay` 请求自动补空 lineage 对象，使服务重启/冷启动不依赖中间 rollout 的内存 checkpoint；显式 lineage（包括 `null`）保持调用方语义。
+- 新增 stage4 latest-only/restarted-runtime 测试，使用真实 Codex rollout 文件名后缀验证目录 catalog 能找到 A/B；Node 增加 replay lineage 恢复测试。
+- `cargo fmt --all -- --check`：通过；`cargo test --test stage4_protocol --offline`：13 项通过；`cargo test --all-targets --offline`：73 unit、31 conformance、3 stage2、5 stage3、13 stage4 通过。
+- `node --check src/services/codexRolloutCollector/index.js`、`node --check tests/codexRolloutCollector.test.js`：通过；`node --test tests/codexRolloutCollector.test.js`：29 项通过；`git diff --check`：通过（仅保留既有 CRLF warning）。
+- 真实用户目录 raw analyzer smoke（仅提供 01a0254c 最新 child 路径）输出 2 条 replacement：01a02531→01a02532、01a02532→01a0254c；该真实样本同时含未支持的 developer message，Node canonical projection 门禁拒绝持久化，属于既有 fail-closed 兼容问题，不在本轮扩大修复。
+- 任务外未跟踪的 `native/parse-probe/`、`native/rustup-init.exe`、`native/winlibs.zip` 未修改。
+- Context7/current external documentation gate：not applicable；本轮只调整 TermLink 自有 Rust↔Node 隔离 collector 恢复逻辑，不新增第三方 API/SDK/CLI 用法。
+
+### 2026-08-22 — replacement validation 与 projection coverage 语义分离
+
+- 本轮只处理当前 Rust Collector 任务的第 4 项；未扩展到服务端正式 history provider、产品数据库、WebSocket/IPC、Android 或 App ADTO。
+- Rust `AnalysisProjection` 新增 `projection.coverage`：`unknown` 表示尚未证明逻辑历史覆盖，`partial` 表示存在缺口/未知事件/不完整 lineage，`complete` 表示当前 collector 负责的逻辑历史范围已完整覆盖。该字段不等同于旧 `projection.complete`，也不等同于 `AnalysisBatch.completeness` 或产品层 history coverage DTO。
+- top-level `replacements` 现在明确作为已经通过 parent/child/cut 校验的 replacement evidence；只要 source batch `completeness=canonical` 就可被阶段 4 隔离层接收，即使 projection coverage 为 `partial`。`replace_last_turn` 是改变 active projection 的独立 mutation，仅在 `coverage=complete` 时生成/接受。
+- 对 partial coverage 的 evidence-only child，Node 阶段 4 importer 只保存 items、projection 和 evidence，并标记 `pending_replacement=true`、`active_head=false`；收到 complete coverage 的同一 child mutation 后才标记旧 parent inactive、child active，并保持重复导入/重启幂等。partial coverage + mutation 会 fail-closed。
+- 明确保留 stopped/interrupted turn 的双重语义：显式 abort 可使逻辑 coverage complete，但因内容可用性仍为 partial 而保持 `projection.complete=false`；因此 replacement validation 不会错误丢失，同时不会把不完整内容伪装成完整内容。
+- `cargo fmt --all` 与 `cargo fmt --all -- --check`：通过；`cargo test --all-targets --offline`：73 unit、31 conformance、3 stage2、5 stage3、13 stage4 全部通过；`node --check`（协议/importer/测试文件）：通过；`node --test tests/codexRolloutCollector.test.js`：30 项通过；`git diff --check`：通过（仅既有 CRLF warning）。
+- 任务外未跟踪的 `native/parse-probe/`、`native/rustup-init.exe`、`native/winlibs.zip` 未修改；本轮仍未进行提交。

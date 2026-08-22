@@ -13,6 +13,7 @@ const MESSAGE_TYPES = Object.freeze([
     'error'
 ]);
 const MESSAGE_TYPE_SET = new Set(MESSAGE_TYPES);
+const PROJECTION_COVERAGES = new Set(['unknown', 'partial', 'complete']);
 
 class AnalyzerProtocolError extends Error {
     constructor(code, message, details = undefined) {
@@ -150,6 +151,48 @@ function validateHistoryBase(value, field) {
             );
         }
     }
+}
+
+/**
+ * `projection.coverage` describes logical history coverage.  It is not the
+ * same value as batch `completeness`, and it is not inferred from a source
+ * byte range.  Older stage-4 messages did not carry the field, so their
+ * complete/provisional pair remains a compatible fallback.
+ */
+function projectionCoverageOf(value, field = 'projection') {
+    requireObject({ [field]: value }, field);
+    if (value.coverage !== undefined && value.coverage !== null) {
+        if (!PROJECTION_COVERAGES.has(value.coverage)) {
+            throw new AnalyzerProtocolError(
+                'invalid_field',
+                `${field}.coverage is unsupported`,
+                { field: `${field}.coverage` }
+            );
+        }
+        return value.coverage;
+    }
+    if (value.complete === true && value.provisional !== true) return 'complete';
+    if (value.provisional === true || value.complete === false) return 'partial';
+    return 'unknown';
+}
+
+function validateProjectionCoverage(value, field = 'projection') {
+    const coverage = projectionCoverageOf(value, field);
+    if (coverage === 'complete' && value.provisional === true) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            `${field}.complete coverage cannot be provisional`,
+            { field: `${field}.coverage` }
+        );
+    }
+    if (coverage === 'partial' && value.complete === true) {
+        throw new AnalyzerProtocolError(
+            'invalid_field',
+            `${field}.partial coverage cannot claim complete projection content`,
+            { field: `${field}.coverage` }
+        );
+    }
+    return coverage;
 }
 
 function validateReplacementSourceEvidence(value, field) {
@@ -431,6 +474,13 @@ function validateMutation(mutation, index, batch) {
                 { field: `mutations[${index}].mutation` }
             );
         }
+        if (batch && projectionCoverageOf(batch.projection) !== 'complete') {
+            throw new AnalyzerProtocolError(
+                'invalid_field',
+                `mutations[${index}].replace_last_turn requires complete projection coverage`,
+                { field: `mutations[${index}].mutation` }
+            );
+        }
         validateLastTurnReplacement(
             mutation.replacement,
             `mutations[${index}].replacement`,
@@ -471,6 +521,7 @@ function validateBatchMessage(message) {
         });
     }
     requireObject(message, 'projection');
+    const projectionCoverage = validateProjectionCoverage(message.projection);
     requireArray(message, 'tool_details');
     requirePresent(message, 'usage');
     if (message.usage !== null) requireObject(message, 'usage');
@@ -487,6 +538,9 @@ function validateBatchMessage(message) {
     }
     if (message.replacements !== undefined && message.replacements !== null) {
         requireArray(message, 'replacements');
+        // These are validated replacement facts.  They are independent from
+        // the logical projection coverage below, but a source batch must still
+        // be canonical before the facts can cross this isolated boundary.
         if (message.replacements.length > 0 && message.completeness !== 'canonical') {
             throw new AnalyzerProtocolError(
                 'invalid_field',
@@ -544,11 +598,11 @@ function validateBatchMessage(message) {
         requireObject(message, 'source_prefix_anchor');
         validateDigestAnchor(message.source_prefix_anchor, 'source_prefix_anchor', 'end_offset');
         requireObject(message, 'reducer_state');
-        if (message.projection.complete !== true || message.projection.provisional === true) {
+        if (projectionCoverage === 'unknown') {
             throw new AnalyzerProtocolError(
                 'invalid_field',
-                'canonical projection must be complete and non-provisional',
-                { field: 'projection' }
+                'canonical batch must declare projection coverage',
+                { field: 'projection.coverage' }
             );
         }
     } else if (!hasPartialMarker) {
@@ -820,5 +874,6 @@ module.exports = {
     isBatchMessage,
     isCompleteMessage,
     isCanonicalBatch,
+    projectionCoverageOf,
     isNonEmptyString
 };

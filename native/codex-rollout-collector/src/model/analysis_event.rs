@@ -21,6 +21,14 @@ impl Default for IdentityOrigin {
     }
 }
 
+/// Why a terminal event is safe to use as replacement evidence even when the
+/// interrupted turn does not contain a complete successful result.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TerminalEvidence {
+    ExplicitAbort,
+}
+
 /// Common identity and source metadata for all TermLink events.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EventMetadata {
@@ -41,6 +49,8 @@ pub struct EventMetadata {
     pub timestamp: Option<String>,
     pub sequence: u64,
     pub availability: Availability,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal_evidence: Option<TerminalEvidence>,
     #[serde(default)]
     pub identity_origin: IdentityOrigin,
     pub source_ref: SourceRef,

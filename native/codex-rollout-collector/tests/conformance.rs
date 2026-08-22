@@ -1,7 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use codex_rollout_collector::codex_wire::{DecodedRecord, UnknownReason, decode_value};
-use codex_rollout_collector::model::{AnalysisEvent, Availability, IdentityOrigin, TurnStatus};
+use codex_rollout_collector::model::{
+    AnalysisEvent, Availability, IdentityOrigin, TerminalEvidence, TurnStatus,
+};
 use codex_rollout_collector::{
     CompatibilityProfile, JsonlSourceBackend, SourceSpec, analyze_source,
 };
@@ -53,6 +55,25 @@ fn current_profile_decode_and_adapter_projection() {
             status: TurnStatus::Completed,
             ..
         }
+    )));
+}
+
+#[test]
+fn explicit_turn_aborted_is_interrupted_terminal_evidence() {
+    let batch = analyze(
+        "current/last-turn-replacement-stopped-parent.jsonl",
+        CompatibilityProfile::Current,
+    );
+
+    assert!(batch.complete);
+    assert!(batch.items.iter().any(|event| matches!(
+        event,
+        AnalysisEvent::TurnCompleted {
+            metadata,
+            status: TurnStatus::Interrupted,
+            ..
+        } if metadata.availability == Availability::PartialRollout
+            && metadata.terminal_evidence == Some(TerminalEvidence::ExplicitAbort)
     )));
 }
 
@@ -592,15 +613,27 @@ fn response_item_non_ui_roles_are_not_user_messages() {
         AnalysisEvent::UnknownEvent {
             raw_type: Some(raw_type),
             ..
-        } if raw_type == "response_item/message/role:user"
+        } if raw_type == "response_item/message/role:developer"
     )));
     assert!(batch.items.iter().any(|event| matches!(
         event,
-        AnalysisEvent::UnknownEvent {
-            raw_type: Some(raw_type),
-            ..
-        } if raw_type == "response_item/message/role:developer"
+        AnalysisEvent::Diagnostic { code, .. } if code == "response_user_message_carrier"
     )));
+}
+
+#[test]
+fn real_last_turn_replacement_fixture_projects_known_non_history_items() {
+    for fixture_name in [
+        "current/last-turn-replacement-real-parent.jsonl",
+        "current/last-turn-replacement-real-child.jsonl",
+    ] {
+        let batch = analyze(fixture_name, CompatibilityProfile::Current);
+        assert!(batch.complete, "{fixture_name} should remain canonical");
+        assert!(!batch.items.iter().any(|event| matches!(
+            event,
+            AnalysisEvent::UnknownEvent { .. } | AnalysisEvent::ParseGap { .. }
+        )));
+    }
 }
 
 #[test]
