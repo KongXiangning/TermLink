@@ -113,6 +113,10 @@ child 文件的首行会带有类似以下语义：
 - 同一 rollout 文件继续增长：仍然使用本文前面定义的 append/flush 语义；
 - 编辑重发产生 child：这是一个新的物理文件和新的 lineage edge，父文件保持只读历史来源，
   child 通过 `history_base` 声明从父 rollout 的哪个 cut 继承。
+- TermLink 将已被验证为 lineage parent 的 rollout 视为 immutable source；用户或非 Codex
+  软件对 rollout 文件的 in-place modification 不属于 Collector correctness contract。
+  因此 parent auxiliary full-history read 不要求通过整文件 before/after fingerprint 检测
+  这类 unsupported mutation，但不改变正常 append、cursor 或完整行读取语义。
 
 真实实验还表明 child 可能落在父文件日期目录之后。因此，目录扫描和“当前 active rollout”
 发现属于 TermLink Collector 的会话级职责：从父/最早文件所在日期开始，在有界日期范围内发现

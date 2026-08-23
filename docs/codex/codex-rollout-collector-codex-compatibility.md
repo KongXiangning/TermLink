@@ -287,6 +287,10 @@ Codex vendor 提供 rollout wire/history 类型和 `history_base` 的语义，�
   parent rollout 与 `end_ordinal_exclusive`/`end_byte_offset` cut；
 - 文件名候选与内容证据冲突、多个有效 head、parent 缺失、循环或超出资源边界时，返回诊断
   的 partial 或 fail-closed，不用 mtime 最大文件冒充最新历史。
+- Codex rollout source model 是 active append-only、既有 byte range immutable；superseding/
+  resend 的 terminal user turn 创建新的 child 并通过 `history_base` 引用 parent。被验证为
+  parent 后，TermLink 按 immutable source 使用；外部 in-place modification 不受支持，且
+  parent auxiliary full-history read 不要求整文件 before/after fingerprint mutation detection。
 
 仓库内 vendor 的 `protocol/src/protocol.rs` `HistoryPosition` 注释和
 `protocol/src/thread_id.rs` 的命名规则只能作为上述语义的兼容依据；它们没有提供完整的

@@ -25,6 +25,31 @@
 的设计阶段限制由本节覆盖；Node 产品持久化、服务端数据库、IPC、Android 和 vendor 仍保持禁止。
 Rust protocol 的新增字段只属于隔离 Collector↔Node artifact，不是最终产品 DTO/ADTO 契约。
 
+## 本轮范围锁定（2026-08-24）
+
+用户确认调整 Codex rollout source model：active rollout 只追加、既有 byte range 不变；
+superseding/resend turn 创建带 `history_base` 的新 child，不回写 parent；被验证为
+lineage parent 的 rollout 视为不可变；外部原地修改 Codex rollout 文件不属于 Collector
+correctness contract。由此删除 parent auxiliary full-history read 的整文件
+before/after fingerprint mutation guard；保留 `history_base`/cut、source identity、cursor/
+prefix anchor、读取完整性和 replacement validation。
+
+- Safety mode：`frozen-scope`
+- Scope widening：允许新增修改 `docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`，
+  原因是本次用户确认改变了长期 source-model 契约；风险限定为 parent full-read 的外部
+  mutation 不再由整文件 fingerprint fail-closed，验证方式为 Rust stage4 定向/全量回归、
+  格式检查和变更范围审查。
+- Allowed change set：`native/codex-rollout-collector/src/protocol/stage4.rs`、相关
+  `native/codex-rollout-collector/tests/stage4_protocol.rs` 测试命名/证据、现有
+  `docs/codex/**` rollout source 文档、`docs/workflow/CONTRACTS.md`、
+  `docs/workflow/DECISIONS.md`、本文件。
+- Forbidden：Node 产品持久化、数据库、IPC、Android、vendor、`docs/workflow/STATUS.md`、
+  `BASELINES.md`、`LESSONS.md`、任务外未跟踪文件及任何 destructive cleanup。
+- Dangerous surfaces：无生产、数据库、部署、权限、迁移或 destructive 操作；本轮不执行
+  删除文件、重置历史或整树清理。
+- Unlock condition：若实现需要删除 active-source guard、修改 cursor/source identity 语义、
+  修改公共 protocol/Node consumer，必须停止并重新取得用户确认。
+
 ## Supersede 记录
 
 - 旧任务状态：`superseded`
@@ -69,7 +94,10 @@ sessionsRoot + conversationId + 可选已知 rollout hint
 5. 设计明确四类读取语义：单文件 full/tail/backward/append 的既有能力保持不变；新增 session-lineage full replay、tail/backward lineage recovery、同文件 append 和 child rollout transition 的组合规则。
 6. 设计明确 cursor/checkpoint 不得跨 child rollout 复用；lineage cursor 至少绑定 active rollout、物理 source fingerprint/anchor、父链身份和各文件安全边界。
 7. 设计保留当前最后一个已终止用户 turn 的一对一 replacement invariant、completed/stopped/interrupted、A→B→C、旧 turn 保留和 `ReplaceLastTurn` 隔离协议语义。
-8. 设计明确未知事件、未完成尾行、读取期间 mutation、partial lineage 和未知 schema 的 coverage/diagnostic/fail-closed 表达，不得静默宣称完整 canonical 历史。
+8. 设计明确未知事件、未完成尾行、partial lineage 和未知 schema 的 coverage/diagnostic/
+   fail-closed 表达，不得静默宣称完整 canonical 历史；外部原地修改 Codex rollout 文件
+   不受 Collector correctness contract 支持，Collector 不要求通过 parent full-file
+   fingerprint 检测该行为。
 9. 相关文档之间职责一致：Collector 设计、Codex 兼容说明、recorder 技术参考和阶段 4.5 server-sync 草案不再互相假设不同的 active rollout 所有者；本轮不冻结产品 DB、WebSocket、App ADTO 或 IPC 契约。
 10. 本轮实施必须用 fixture、发现矩阵、读取矩阵、重启恢复矩阵和真实会话 smoke 验证；下游
     阶段 4.5 只消费 Rust lineage batch，不在 Node 侧重新扫描 raw rollout 或猜测关系。
@@ -100,7 +128,7 @@ sessionsRoot + conversationId + 可选已知 rollout hint
 - `src/**`、`android/**`、产品侧 `tests/**`、`scripts/**`：不在本轮实施范围。
 - `native/codex-rollout-collector/vendor/**`：不得修改 vendor Codex 源码。
 - 产品 history provider、正式数据库 schema/migration、服务端路由、WebSocket/IPC runtime、Android SQLite/UI、Demo/Spike。
-- `docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`、`docs/workflow/STATUS.md`、`docs/workflow/BASELINES.md`、`docs/workflow/LESSONS.md`：本轮不冻结新的长期契约或治理决策。
+- `docs/workflow/STATUS.md`、`docs/workflow/BASELINES.md`、`docs/workflow/LESSONS.md`：本轮不修改。
 - 任何删除、覆盖或重置任务外未跟踪文件的操作。
 
 ## 已确认决策
@@ -112,6 +140,12 @@ sessionsRoot + conversationId + 可选已知 rollout hint
 - 正常 append、child rollout transition 和物理 source replacement 继续是三种不同语义，不能混用 `ForwardAppendCursor` 或 `replace_previous`。
 - 当前业务仍只支持最后一个已终止用户 turn 的一对一编辑替换，不扩展为通用 suffix、multi-turn 或 branch graph。
 - 本任务已实施 Rust Collector；服务端数据库、App ADTO、WebSocket 和 IPC 仍待后续独立任务。
+- Codex rollout source model：active rollout append-only 且既有 byte range immutable；superseding/
+  resend 的 terminal user turn 创建新 child 并通过 `history_base` 引用 parent；验证为 parent
+  后 TermLink 按 immutable source 使用；外部原地修改属于 unsupported input，不是 Collector
+  correctness contract。
+- parent auxiliary full-history read 不再依赖整文件 before/after fingerprint mutation guard；
+  该删除不改变 `history_base`、cut、source identity、cursor、读取完整性或 replacement validation。
 
 ## 已解决的实施问题
 
@@ -137,7 +171,8 @@ sessionsRoot + conversationId + 可选已知 rollout hint
 - 先修订 Rust Collector change plan，补齐发现、关联、完整重建和 lineage read modes。
 - 再修订 architecture、Codex compatibility 和 recorder reference，统一 SourceLocator、vendor 语义和普通 append/child transition 边界。
 - 最后修订 server-sync 草案的上游依赖说明，使其消费 Rust 交付的 lineage batch，而不是假定 Node 先自行找到唯一 active path。
-- CONTRACTS/DECISIONS/STATUS 不在本任务内修改；等新设计 review、scope lock 和 implementation plan 通过后，再按实际稳定接口同步。
+- 本轮用户确认了 Codex rollout source model 契约变化；先锁定 scope，再同步 CONTRACTS/DECISIONS，
+  不修改 STATUS/BASELINES/LESSONS，也不扩展到产品 DTO、数据库、IPC 或 Android。
 
 ## 传播治理记录
 
@@ -153,6 +188,7 @@ sessionsRoot + conversationId + 可选已知 rollout hint
 3. **implement collector** — completed：新增跨日期 discovery、active-head 选择、root→head replay、tail/backfill lineage window、child transition 和 lineage protocol/checkpoint evidence。
 4. **review and handoff** — completed：Rust 全量回归、真实目录四模式 smoke、旧 source 身份重启恢复和目标审查均完成；交付边界仍停留在 Rust Collector，不进入 Node 产品持久化或 App/IPC。
 5. **补充审查回归与五文件 synthetic/sanitized fixture** — completed：加入可复用的五文件合成跨日期 fixture，覆盖 full Replay、Preview、Backfill、最新路径重启恢复和 stale root-like provenance；复核同文件 Append/full lineage、父文件 mutation guard、active-head 歧义、transition validation state 与 `.zst` parent fail-closed 回归均在 Rust 测试中有证据。
+6. **调整 parent full-read mutation guard 契约** — completed：删除 parent auxiliary full-history read 的整文件 before/after fingerprint 校验，同步 Codex rollout source model 契约并完成 Rust 回归。
 
 ## 回滚点
 
@@ -225,6 +261,26 @@ sessionsRoot + conversationId + 可选已知 rollout hint
 - 本步没有把审查中另列的 discovery 读取预算/目录枚举取消与 deadline 问题伪装成已解决；该项未进入前述五个修复步骤，仍需独立实现任务和回归门禁。
 - 验证：`cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --test stage4_protocol --no-default-features sanitized_five_file_fixture -- --nocapture` 通过（4 项）；随后执行全量 Rust 目标测试、格式检查和 `git diff --check`。
 - External Documentation Gate：not applicable；本步只使用仓库内 Rust Collector、fixture 和真实本地 rollout 样本，不涉及第三方 API/SDK/CLI。
+
+### 2026-08-24 — parent full-read guard contract adjustment
+
+- 用户确认 Codex rollout source model：active rollout append-only、既有 byte range immutable；
+  terminal user turn 的 superseding/resend 创建带 `history_base` 的新 child；已验证为 parent
+  的 rollout 按 immutable source 使用；外部 in-place modification 不属于 Collector correctness
+  contract。
+- 删除 `read_lineage_batch()` 中 parent auxiliary full-history read 的整文件 before/after
+  fingerprint mutation guard；保留 bounded parent header/suffix guard、`history_base`/cut、
+  source identity、cursor/prefix anchor、完整行/pending tail 和 replacement validation。
+- 将 source model 同步到 `CONTRACTS.md`、`DECISIONS.md`、Collector change plan、architecture、
+  Codex compatibility 和 recorder technical reference；未修改 Node 产品持久化、数据库、IPC、
+  Android、vendor 或任务外未跟踪文件。
+- 验证：`cargo fmt --manifest-path native/codex-rollout-collector/Cargo.toml -- --check` 通过；
+  stage4 定向测试 22/22 通过；Rust `--all-targets --no-default-features` 通过（89 unit、
+  31 conformance、3 stage2、5 stage3、22 stage4）；`git diff --check` 通过。
+- External Documentation Gate：not applicable；本轮只调整项目内 Rust source contract 和既有
+  Collector 读取逻辑，不新增或改变第三方 API/SDK/CLI 用法。
+- 当前 handoff：`review-diff`；保留任务外未跟踪 `native/parse-probe/`、`native/rustup-init.exe`、
+  `native/winlibs.zip`，未执行清理或提交。
 
 ## 旧任务原始包（保留历史，不再作为当前范围）
 

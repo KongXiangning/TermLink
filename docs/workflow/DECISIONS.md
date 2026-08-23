@@ -223,6 +223,16 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 约束：只适用于隔离 `native/codex-rollout-collector` ↔ `src/services/codexRolloutCollector` artifact；不扩展到既有 server/DB、IPC、Android、Demo/Spike 或产品 DTO。checkpoint schema 或 revision 语义发生破坏性变化时必须另行决策并迁移 fixture。
 - 证据：Node 定向测试 22/22 覆盖空 complete、跨 request 拒绝、Memory/File checkpoint canonical→partial/低 progress 防覆盖，以及高 batch coverage 下 revision 6 overlap 覆盖 revision 5；Rust 全量回归复用既有 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、8 stage4 protocol 门禁。
 
+### AD-013: Codex rollout parent 以不可变 source contract 为准，不保留辅助 full-read 整文件 mutation guard
+
+- 状态：accepted
+- 分类：架构 / source contract（user-confirmed）
+- 背景：parent replacement validation 的 bounded header/suffix 证据足以验证 `history_base`、cut、会话绑定和最后一个 terminal user turn 的一对一 replacement；此前为防范外部等长度修改，在 parent auxiliary full-history read 前后增加整文件 fingerprint。该修改只可能来自用户或非 Codex 软件，不属于正常 Codex rollout 业务。
+- 决策：Codex rollout source model 固定为：active rollout append-only，已写入 byte range immutable；superseding/resend 的 terminal user turn 创建新 child，并通过 `history_base` 引用 parent；一旦 parent 关系经内容证据验证，TermLink 按 immutable lineage source 使用。删除 parent auxiliary full-history read 的整文件 before/after fingerprint mutation guard；外部 in-place modification 属于 unsupported input，不在 Collector correctness contract 内。
+- 原因：把个人项目的正常 Codex 业务模型与外部文件篡改防御分开，避免为不属于支持范围的事件增加 parent full-read 的额外整文件 I/O、预算和取消复杂度；同时保留真正的业务验证与恢复安全边界。
+- 约束：本决策不删除 `history_base`/cut、conversation/source identity、source epoch、cursor/prefix anchor、完整行/pending tail、append recovery、bounded parent header/suffix guard 或 replacement validation；不改变 Rust↔Node 隔离协议和普通单文件读取语义。后续不得把 active-source guard、cursor/source identity 语义或该 unsupported 输入重新扩大为公共产品契约而不重新取得用户确认。
+- 证据：实现删除 `read_lineage_batch()` 中 parent auxiliary full-history read 的整文件 before/after guard；现有 stage4 source guard 回归保留，后续以 Rust stage4 定向/全量测试、fmt 和 diff 范围检查确认。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径

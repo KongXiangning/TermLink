@@ -62,8 +62,10 @@ sessionsRoot + conversationId + 可选已知 rollout/head hint
 
 1. 稳定 `conversationId` 是会话身份；每一个 JSONL 文件有独立 `rolloutId`。`SessionMeta.id`
    不能被误当成 child rollout ID。
-2. 普通 rollout 文件的正常写入是 append-only；编辑最后一个已终止用户问题时，Codex 新建
-   child rollout，不回写父文件前缀，并在 child 首行 `history_base` 中记录父 rollout ID 和 cut。
+2. 普通 rollout 文件的正常写入是 append-only，已写入 byte range 不被 Codex 原地改写；编辑
+   最后一个已终止用户问题时，Codex 新建 child rollout，不回写父文件前缀，并在 child 首行
+   `history_base` 中记录父 rollout ID 和 cut。被验证为 lineage parent 后，TermLink 按 immutable
+   source 使用；外部 in-place modification 不属于 Collector correctness contract。
 3. child 文件可能位于父文件日期目录之后；发现算法必须能够从父/最早文件所在日期开始，
    在明确的日期上界内继续发现，而不是只扫描当前文件夹或全局递归扫描。
 4. 文件名可用于候选发现、rollout ID 提取、会话过滤和时间/顺序提示，但不能单独证明父子关系。
@@ -314,7 +316,9 @@ active lineage head。
 - 从 active child 沿 `history_base` 向前解析 parent，检测缺失、循环、深度/资源上限和多候选；
 - 任何合法 replacement 仍只验证最后一个已终止用户 turn 到一个新用户 turn 的一对一关系；
   不把 lineage graph 泛化为任意 branch model；
-- parent/child 文件读取期间分别检查 snapshot、fingerprint、完整行边界和目标会话绑定；
+- parent bounded header/suffix 读取期间检查 snapshot、fingerprint、完整行边界和目标会话绑定；
+  parent auxiliary full-history payload 不要求额外的整文件 before/after fingerprint mutation
+  guard，外部原地修改属于 unsupported input；
 - lineage graph 的 source identity、日期扫描边界和 head 选择证据进入 checkpoint，但不成为
   产品 DB schema。
 
@@ -416,7 +420,9 @@ hello/analyze/batch/ACK/checkpoint conformance。
 - 文件名候选无法解析 rollout ID，或文件名与 header/SessionMeta identity 不一致；
 - active hint 不属于目标会话/lineage，或有多个无法消解的 active head；
 - `history_base` parent 缺失、parent/child conversation 不一致、父链循环或超出资源预算；
-- ordinal cut 与 byte cut 不一致、不在完整 JSONL 行边界或读取期间 source mutation；
+- ordinal cut 与 byte cut 不一致、不在完整 JSONL 行边界，或 bounded parent validation 读取不完整；
+  parent auxiliary full-history read 的外部 in-place mutation 不作为 Collector correctness
+  failure condition；
 - parent/child 的 replacement invariant 不成立：父最后用户 turn 未终止、child 无新用户 turn、
   child 多用户 turn、turn ID/terminal evidence 不匹配；
 - 读取存在 pending tail、未知 schema、无法确认 gap 或 partial source coverage；
@@ -505,8 +511,9 @@ path 重启恢复。该五文件样本中的 synthetic unknown developer-role �
   checkpoint 语义，且不得跨物理 source 混用；
 - 一条合法编辑只产生一个 old/new turn replacement；completed/stopped/interrupted 和 A→B→C
   均有真实结构 fixture；
-- 非最后 turn、非终止 turn、cut mismatch、parent 缺失、候选歧义、跨日期缺失和读取 mutation
-  全部 fail-closed；
+- 非最后 turn、非终止 turn、cut mismatch、parent 缺失、候选歧义、跨日期缺失和 bounded
+  validation/读取完整性错误全部 fail-closed；parent auxiliary full-history read 的外部
+  in-place mutation 属于 unsupported input，不要求由 full-file fingerprint 检测；
 - 阶段 4 capability、mutation、ACK、checkpoint 和重放幂等通过；
 - 既有阶段 1–4 API 与普通单文件读取行为没有破坏性变化；
 - 未接入产品 DB、WebSocket、IPC 或 Android；

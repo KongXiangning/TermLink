@@ -2240,13 +2240,6 @@ fn read_lineage_batch(
     )
     .with_segment_limit(active_spec.max_segment_bytes());
     ensure_lineage_parent_source_supported(&source.rollout_id, &spec, "replacement_validation")?;
-    // Replacement validation still uses the bounded header/suffix guard
-    // below, but the auxiliary full-history read must be tied to the same
-    // whole-file snapshot.  Otherwise an equal-length mutation before the
-    // cut can produce a mixed validation/history result while leaving the
-    // local guard ranges unchanged.
-    let full_snapshot_guard = capture_source_guard(&source.path)?;
-
     let snapshot_length = std::fs::metadata(&source.path)?.len();
     let header_end = first_line_end(&source.path, spec.max_line_bytes())?;
     let header_range = SourceByteRange::new(0, header_end)?;
@@ -2284,9 +2277,6 @@ fn read_lineage_batch(
     let mut history_batch =
         read_lineage_history_batch(&spec, source, profile, cancelled, deadline)?;
     merge_lineage_history_items(&mut history_batch.items, &validation_batch.items);
-    if !source_guard_matches(&source.path, &full_snapshot_guard)? {
-        anyhow::bail!("parent rollout changed during full lineage read");
-    }
     if !lineage_source_guard_matches(&source.path, &source_guard)? {
         anyhow::bail!("parent rollout changed during bounded lineage read");
     }
@@ -3035,13 +3025,13 @@ mod tests {
     }
 
     #[test]
-    fn full_lineage_snapshot_guard_rejects_equal_length_prefix_mutation() {
+    fn full_source_snapshot_guard_rejects_equal_length_prefix_mutation() {
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("clock is after epoch")
             .as_nanos();
         let path = std::env::temp_dir().join(format!(
-            "termlink-stage4-full-lineage-guard-{}-{stamp}.jsonl",
+            "termlink-stage4-full-source-guard-{}-{stamp}.jsonl",
             std::process::id()
         ));
         let original = [

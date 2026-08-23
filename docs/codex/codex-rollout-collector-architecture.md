@@ -1617,6 +1617,13 @@ future-compatible
   本次进程内先被读取；
 - 在单文件 full/tail/backward/append primitive 之上实现会话级 full replay、tail/backward
   补全、同源 append 和 child transition；区分各类 cursor，不能把 child transition 当 append；
+- Codex rollout source model 固定为 active append-only、既有 byte range immutable；superseding/
+  resend 的 terminal user turn 创建带 `history_base` 的新 child，不回写 parent。被验证为
+  lineage parent 后，TermLink 按 immutable source 使用；外部 in-place modification 不属于
+  Collector correctness contract；
+- parent auxiliary full-history read 不要求整文件 before/after fingerprint mutation guard；
+  `history_base`/cut、conversation/source identity、cursor/prefix anchor、完整行边界和
+  bounded parent header/suffix validation 仍保持原有安全语义；
 - 用跨日期真实 fixture 验证“全量历史包含旧 turn、增量/尾部/向前读取可收敛到同一结果”；
   五文件 fixture 还必须验证 conversation-only discovery、stale root-like provenance 和最新
   active path 的重启恢复。
