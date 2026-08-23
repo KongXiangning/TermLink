@@ -19,8 +19,9 @@ pub use cursor::{
     TailPreviewCursor,
 };
 pub use discovery::{
-    DiscoveredLineageEdge, DiscoveredRollout, RolloutFilenameCandidate, RolloutHeaderEvidence,
-    SessionDiscoveryRequest, SessionLineage, discover_session, parse_rollout_filename,
+    DiscoveredLineageEdge, DiscoveredRollout, DiscoveryBudget, DiscoveryControl,
+    RolloutFilenameCandidate, RolloutHeaderEvidence, SessionDiscoveryRequest, SessionLineage,
+    discover_session, discover_session_with_control, parse_rollout_filename,
 };
 pub use jsonl::{JsonlSourceBackend, SourceBackend};
 pub use lineage::{

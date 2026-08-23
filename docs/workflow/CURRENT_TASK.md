@@ -7,7 +7,7 @@
 - 任务 slug：codex-rollout-collector-session-lineage-replan
 - 当前状态：in_progress
 - 生命周期状态：active
-- 当前 handoff：review-implementation
+- 当前 handoff：review-diff
 - 创建时间：2026-08-23
 - 创建来源：真实 rollout 验证发现原 Rust Collector 任务只覆盖 replacement 子能力，未覆盖会话级文件发现、完整 lineage 重建和 lineage 读取模式
 - 任务类型：Rust collector implementation
@@ -117,12 +117,20 @@ sessionsRoot + conversationId + 可选已知 rollout hint
 
 - 最小 discovery 输入固定为 `sessions_root + conversation_id`；可选 active rollout/path hint 只用于
   缩小或验证候选，不能替代 header/history_base 校验。
-- active head 优先沿 hint 的唯一 descendant 解析；无 hint 时选择唯一有效 connected leaf，root-like
-  stale candidate 只保留 provenance，多 head/缺 parent/循环 fail-closed。
+- active head 优先沿 hint 的唯一 descendant 解析；无 hint 时选择唯一有效 connected leaf；root-like
+  stale candidate 只有在文件名时间戳严格早于当前连接链根节点时才只保留 provenance，时间相同、更新或
+  无法排序的候选与多 head/缺 parent/循环一起 fail-closed。
+- 每个 `lineage_transition` 都携带逐跳 `validation_state`：完整稳定 parent/child 证据通过一对一
+  replacement 校验时为 `validated`；Preview、部分 Backfill 或 coverage 不足时为
+  `validation_unavailable`；只有发现/关联完成而尚未进入验证时为 `discovered`。明确校验失败仍
+  fail-closed，不伪造 `rejected` 成功 batch。
 - 同物理文件继续使用原 cursor；child transition 通过 lineage checkpoint 绑定 active head、
   chain、日期边界和 source evidence，绝不把旧 append cursor 当作新 child cursor。
 - child 尚未形成 canonical projection 时返回 provisional/partial lineage window，不输出
   replacement mutation；验证通过的 replacement evidence 仍可随 canonical source batch 输出。
+- 普通无 seek/index `.zst` 只提供 forward stream：作为 active/root source 可做 forward full
+  Replay，但作为 parent 参与 suffix/backfill、replacement validation 或 parent full-history
+  replay 时类型化 fail-closed，不伪造 seek/backward/append byte cursor。
 
 ## 文档修订方案
 
@@ -135,7 +143,7 @@ sessionsRoot + conversationId + 可选已知 rollout hint
 
 - Design mode: architecture/design replan → implementation
 - Release mode: none
-- 当前 handoff：`review-implementation`
+- 当前 handoff：`review-diff`
 - 仅冻结隔离 Rust Collector protocol 的 additive 字段；未冻结产品 DTO、数据库、WebSocket、IPC 或 Android 契约。
 
 ## 实施步骤
@@ -144,6 +152,7 @@ sessionsRoot + conversationId + 可选已知 rollout hint
 2. **revise collector plan** — completed：补齐会话文件发现、lineage 关联、完整历史重建和 session-level read modes。
 3. **implement collector** — completed：新增跨日期 discovery、active-head 选择、root→head replay、tail/backfill lineage window、child transition 和 lineage protocol/checkpoint evidence。
 4. **review and handoff** — completed：Rust 全量回归、真实目录四模式 smoke、旧 source 身份重启恢复和目标审查均完成；交付边界仍停留在 Rust Collector，不进入 Node 产品持久化或 App/IPC。
+5. **补充审查回归与五文件 synthetic/sanitized fixture** — completed：加入可复用的五文件合成跨日期 fixture，覆盖 full Replay、Preview、Backfill、最新路径重启恢复和 stale root-like provenance；复核同文件 Append/full lineage、父文件 mutation guard、active-head 歧义、transition validation state 与 `.zst` parent fail-closed 回归均在 Rust 测试中有证据。
 
 ## 回滚点
 
@@ -192,6 +201,30 @@ sessionsRoot + conversationId + 可选已知 rollout hint
 - 本轮修改了 Rust Collector source/protocol/test 与对应设计文档；未修改
   `CONTRACTS.md`、`DECISIONS.md`、`STATUS.md`、Node 产品持久化、数据库、IPC、Android、vendor
   或任务外未跟踪产物。
+
+### 2026-08-23 — `.zst` parent lineage strategy freeze
+
+- 确认并冻结普通无 seek/index `.zst` 的 parent lineage 策略：它只能正序 forward stream；
+  作为 parent 需要 cut/suffix/full-history 定位时，Collector 返回
+  `LineageError::UnsupportedParentSourceCompression`，不发布 lineage batch、replacement
+  evidence、cursor、checkpoint 或 mutation。
+- active/root `.zst` 的 forward full Replay 保持可用；Preview、Backfill、Append 仍服从
+  source capability，不把解压后的逻辑 offset 当作可恢复物理 byte cursor。
+- 已同步 change plan、architecture、Codex compatibility 与旧任务 REV-015 记录；seekable/
+  indexed/materialized plain JSONL 支持保留为后续独立能力任务。
+- 验证：stage4 protocol 17 项通过；Rust 全量目标测试通过（82 unit、31 conformance、3 stage2、5 stage3、17 stage4）；`cargo fmt --check` 与 `git diff --check` 通过。
+- External Documentation Gate：not applicable；本步依据仓库内 SourceBackend/read-plan/cursor/
+  stage4 lineage 实现与已有 Codex compatibility 文档，不新增第三方 API/SDK/CLI 用法。
+
+### 2026-08-23 — reusable five-file synthetic fixture and regression coverage
+
+- 新增 `native/codex-rollout-collector/tests/fixtures/sanitized-session-5/`：TermLink-owned synthetic/sanitized 五文件 JSONL，覆盖 `2026/08/22` 与 `2026/08/23` 两个日期分区；fixture 内包含一个 stale root-like candidate，以及 `6a1b2c30 → 1a2b3c40 → 2b3c4d50 → 3c4d5e60` 的四级有效 lineage。
+- `stage4_protocol` 新增 sanitized fixture 回归：conversation-only 跨日期发现、完整 Replay、Preview、Backfill、仅提供最新 active path 的重启恢复；断言五个候选均进入 provenance、有效四文件链正确重建、synthetic unknown developer-role 事件保持 partial/`validation_unavailable`，不生成 `replace_last_turn` mutation。
+- fixture README 固定五个文件的相对路径、字节长度、SHA-256 和三条 cut，并明确其事件由人工构造；小型 complete replacement fixture 仍独立覆盖 active replacement mutation。
+- 已有 Rust 回归继续覆盖本轮审查修复：同文件 Append 与完整 lineage 等价、重启后跳过中间 rollout、父 rollout 等长 mutation guard、root-like active-head fail-closed、transition validation state additive/backward-compatible 以及普通 `.zst` parent 类型化拒绝。
+- 本步没有把审查中另列的 discovery 读取预算/目录枚举取消与 deadline 问题伪装成已解决；该项未进入前述五个修复步骤，仍需独立实现任务和回归门禁。
+- 验证：`cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --test stage4_protocol --no-default-features sanitized_five_file_fixture -- --nocapture` 通过（4 项）；随后执行全量 Rust 目标测试、格式检查和 `git diff --check`。
+- External Documentation Gate：not applicable；本步只使用仓库内 Rust Collector、fixture 和真实本地 rollout 样本，不涉及第三方 API/SDK/CLI。
 
 ## 旧任务原始包（保留历史，不再作为当前范围）
 
@@ -311,6 +344,11 @@ Codex 在编辑当前会话最后一个已终止用户问题后，不修改父 r
 7. **stopped/interrupted 终止语义修复** — completed：保留 `turn_aborted` 的 partial 内容语义，同时增加明确终止证据，使已停止的最后 turn 可以进入一对一 replacement；其他 partial/unknown 证据继续 fail-closed。
 8. **服务重启跳过中间 rollout 恢复** — completed：replay 冷启动自动请求 lineage；Rust 在未给出 candidates/catalog_root 时从 active rollout 同目录恢复缺失的父链，并保持 A→B→C 有序重放。
 9. **replacement validation 与 projection coverage 语义分离** — completed：Rust 输出独立的 `ProjectionCoverage`；replacement evidence 由 source batch completeness 验证，只有 complete logical coverage 才生成 active `replace_last_turn` mutation；partial coverage 只允许阶段 4 隔离层暂存证据，不切换 active head。
+10. **修复 append delta 与完整 lineage 混用** — completed：普通 append 继续只读取 cursor 之后的增量；session lineage append 另用隔离 adapter 对当前 active rollout 做完整快照，完整快照才参与 lineage 拼接和 replacement validation，并覆盖连续追加、重启恢复与重复请求幂等。
+11. **修复父 rollout 完整快照 mutation guard** — completed：父 replacement validation 继续使用 header/suffix 局部证据，同时父历史辅助 full read 增加整文件读取前后 fingerprint 校验，等长 cut 前 mutation fail-closed。
+12. **修复 active head/root-like 歧义处理** — completed：连接链旁的 root-like 候选只有在可排序且严格早于连接链根节点时才允许忽略；更新、同时间或不可排序候选返回 `AmbiguousActiveHead`，显式 active hint 也执行同一安全校验；新增旧、新、同时间、不可排序、多 root-like 和 hint 绕过回归。
+13. **补齐 transition validation state** — completed：为每个 `LineageTransitionMessage` 增加 additive 的 `validation_state`，完整 Replay/完整 Append lineage 输出 `validated`，Preview/部分 Backfill/coverage 不足输出 `validation_unavailable`，旧 payload 缺失字段默认 `discovered`；明确验证失败仍按请求错误处理。
+14. **确认并冻结 `.zst` 父 lineage 策略** — completed：普通无索引 `.zst` 只支持 forward stream；作为 parent 参与 tail/backfill、replacement validation 或 parent full-history replay 时返回类型化 `UnsupportedParentSourceCompression` 并 fail-closed，不发布 lineage/replacement/cursor/checkpoint；ordinary `.zst` active/root 的完整 Replay 仍保持正序读取能力。
 
 ## 审查问题队列
 
@@ -437,6 +475,107 @@ Codex 在编辑当前会话最后一个已终止用户问题后，不修改父 r
 - Required test result：Rust 全量目标测试 73 unit、31 conformance、3 stage2、5 stage3、13 stage4 通过；Node isolated validator/importer 30 项通过；新增 partial coverage evidence staging、complete mutation commit、禁止 partial coverage mutation 断言。
 - Handoff：review-current-diff
 
+### REV-011
+
+- Severity：major
+- Source：再次 `review-implementation` 的 append/lineage 语义复核
+- Status：resolved
+- File / symbol：`native/codex-rollout-collector/src/protocol/stage4.rs` 的 `AnalyzeMode::Append` 与 `collect_lineage_replay`
+- Failure scenario：同一 active child 在已有 forward append cursor 后继续追加；物理读取只返回新 suffix，却被当作完整 child batch 参与 lineage 拼接和 replacement validation，导致历史前缀丢失或因缺少 child 初始 user turn 误报 replacement 校验失败。
+- Minimal fix direction：严格分离物理 append delta 与 lineage full snapshot；保留 delta 的 source range/progress/cursor 语义，完整 lineage 只消费独立的完整 active snapshot。
+- Resolution：`AnalyzeMode::Append` 保持原有 delta 读取和 cursor 推进；当同时存在 session discovery 与同源 cursor 时，collector 使用隔离 `CodexEventAdapter` 完整重读当前 active rollout，并仅将该快照交给 lineage replay/replacement validator。完整快照不完整时 fail-closed，不发布错误的完整 lineage。
+- Required test result：新增同一 child 文件连续追加 assistant item、再追加 terminal 的真实 rollout fixture；两次 Append 均使用前一批 cursor 和 reducer checkpoint 模拟服务重启，断言旧/新 turn 均保留、replacement 不误报、第二次结果与完整 Replay 等价，并验证重复 Append 请求幂等。Rust `cargo test --all-targets --no-default-features`：73 unit、31 conformance、3 stage2、5 stage3、16 stage4 全部通过；`cargo fmt --check` 与 `git diff --check` 通过。
+- Handoff：review-diff
+
+### REV-012
+
+- Severity：major
+- Source：再次 `review-implementation` 的父 rollout full-read mutation guard 复核
+- Status：resolved
+- File / symbol：`native/codex-rollout-collector/src/protocol/stage4.rs::read_lineage_history_batch`
+- Failure scenario：父 rollout 的 cut 前内容发生等长修改；header 和 cut 后 suffix 未变时，原有局部 guard 仍通过，辅助 full history read 可能生成混合快照。
+- Minimal fix direction：父 rollout 完整读取必须从读取前到读取后校验整个物理文件 fingerprint；局部 header/suffix guard 继续保留给 replacement validation。
+- Resolution：`read_lineage_batch` 在父 header/suffix validation 与 full history read 之前捕获整文件长度/SHA-256，并在完整 lineage 读取完成后复核；不通过则 fail-closed，不返回混合 parent history batch。
+- Required test result：新增等长 cut 前内容 mutation 测试，验证 full snapshot guard 拒绝 header/suffix 未覆盖的中间修改；stage4 protocol、Rust 全量目标测试和格式检查通过。
+- Handoff：review-diff
+
+### REV-013
+
+- Severity：major
+- Source：再次 `review-implementation` 的 active head/root-like 歧义复核
+- Status：resolved
+- File / symbol：`native/codex-rollout-collector/src/source/discovery.rs::choose_active_head`
+- Failure scenario：已有 `A → B` 连接链时，另一个没有 `history_base` 的 root-like rollout `C` 被静默忽略；如果 `C` 是更新候选、与连接链根节点同时间或无法可靠排序，Collector 可能选择错误的 active head。
+- Minimal fix direction：只有能证明 root-like 候选严格早于当前连接链根节点时才允许保留为 provenance；其余候选必须返回 `AmbiguousActiveHead`，并让显式 active hint 经过同样校验。
+- Resolution：`choose_active_head` 在唯一 connected leaf、唯一 root-like leaf 和 hint-descendant 三条路径统一调用 root-like safety guard；guard 沿候选 active head 的 `history_base` 计算连接链根节点，仅对可排序且严格更早的 root-like 文件放行，更新/同时间/不可排序候选返回确定性排序后的歧义候选列表。
+- Required test result：新增旧 root-like 选择 B、新 root-like 歧义、同时间歧义、不可排序歧义、多 root-like 完整诊断，以及 active hint 不能隐藏新 root-like 的测试；Rust 全量目标测试 80 unit、31 conformance、3 stage2、5 stage3、16 stage4 通过。
+- Handoff：review-diff
+
+### REV-014
+
+- Severity：major
+- Source：再次 `review-implementation` 的 transition DTO 逐跳验证状态复核
+- Status：resolved
+- File / symbol：`native/codex-rollout-collector/src/protocol/stage4.rs::LineageTransitionMessage`、`collect_lineage_replay`、`collect_lineage_window`
+- Failure scenario：transition 只有 parent、child 和 `history_base`，下游无法区分“仅由 discovery 发现”“已通过 replacement validation”以及“当前 Preview/部分 Backfill/coverage 不足而暂不可验证”。
+- Minimal fix direction：以 additive 字段加入 `discovered`、`validated`、`validation_unavailable`；明确失败仍是请求错误，不引入可成功返回的 `rejected`。
+- Resolution：新增 `LineageTransitionValidationState` 与 `validation_state` 字段；完整稳定 lineage replay 按逐跳 validator 成功结果输出 `validated`，lineage window 对未获得完整证据的每一跳输出 `validation_unavailable`；旧 transition 缺失字段默认 `discovered`；状态数量与 discovered transitions 不一致时 fail-closed。
+- Required test result：新增旧 payload 反序列化/新字段序列化测试；跨日期完整 Replay 断言全部 `validated`；Preview 和部分 Backfill/coverage 不足断言全部 `validation_unavailable`；stage4 16 项通过。
+- Handoff：review-diff
+
+### REV-015
+
+- Severity：conditional
+- Source：再次 `review-implementation` 的 `.zst` 父 lineage 策略复核
+- Status：resolved
+- File / symbol：`native/codex-rollout-collector/src/protocol/stage4.rs` 的 parent lineage read、`native/codex-rollout-collector/src/source/lineage.rs::LineageError`
+- Failure scenario：普通无 seek/index `.zst` 作为 parent rollout 时，若把解压顺序或解压后的逻辑 offset 当作可 seek 的 parent byte cursor，tail/backward/replacement/full-history 可能产生不可恢复或混合的 lineage 结果。
+- Minimal fix direction：先冻结普通 `.zst` 的 forward-only 能力边界；parent lineage 所需的 cut/suffix/full-history 读取没有 seekable/indexed 证据时明确 fail-closed，并提供稳定的类型化错误和回归 fixture。
+- Resolution：普通 `.zst` 作为 active/root source 仍可做 forward full Replay；作为 parent 进入 `tail_backfill_recovery`、`replacement_validation` 或 parent full-history replay 时统一返回 `UnsupportedParentSourceCompression`，不发布 lineage batch、replacement、cursor、checkpoint 或 mutation；seekable/indexed/materialized 支持另开能力任务。
+- Required test result：新增 plain child + compressed `.jsonl.zst` parent 的 stage4 回归，断言类型化错误包含 operation、compression 和 fail-closed 语义；已有 source read-plan/cursor 测试继续锁定 `.zst` 不提供 tail/backward/append；stage4 17 项、全量 Rust 82/31/3/5/17、fmt 和 `git diff --check` 均通过。
+- External Documentation Gate：not applicable；本步依据仓库内 SourceBackend、read-plan、cursor、stage4 lineage 实现与既有 Codex compatibility 文档，不新增或改变第三方 API/SDK/CLI 用法。
+- Handoff：review-diff
+
+### REV-016
+
+- Severity：major
+- Source：再次 `review-implementation` 的 discovery 资源边界复核
+- Status：resolved
+- File / symbol：`native/codex-rollout-collector/src/protocol/stage4.rs::analyze_request_with_state`、`native/codex-rollout-collector/src/source/discovery.rs::{discover_session,bounded_search_directories,scan_candidates,read_first_line}`
+- Failure scenario：Preview、Backfill 或 Append 请求命中 session discovery 时，Collector 在正式 source read 前枚举目录、读取候选 header，并为每个候选计算完整文件 SHA-256；大量目录项、大文件、超长首行、请求取消或 deadline 到期时，这部分 I/O 仍可继续运行并绕过 `resource_limits`。
+- Why current implementation fails：`discover_session` 不接收 cancellation/deadline/总读取预算；`max_candidates` 和 `max_date_partitions` 在对应目录项已经枚举后才检查；`read_first_line` 使用可增长 `String`；`scan_candidates` 对全部匹配候选执行无聚合字节上限的 full-file hash。stage4 只在 `discover_session` 返回后再次执行 `check_deadline`。
+- Minimal fix direction：保持现有 `discover_session` 入口 backward-compatible，新增受控 discovery 调用或等价内部 control/budget；由 stage4 传入 cancellation、deadline、header/目录项/总 fingerprint 字节上限，并在目录枚举、候选 header 和分块 fingerprint 循环内 fail-closed。完整 fingerprint 只为实际需要的候选计算，或受明确聚合预算约束；失败时不发布 batch、cursor 或 lineage checkpoint。
+- Required test：覆盖预取消、discovery 过程中 timeout、超长 header、大量非匹配目录项、候选总 fingerprint 字节超限和正常跨日期 discovery；断言资源失败发生在 source batch 发布前且无 cursor/checkpoint，并运行 Rust 全量 target、fmt 与 `git diff --check`。
+- Resolution：保留旧 `discover_session` API；新增 `DiscoveryBudget`/`DiscoveryControl` 与 stage4 受控入口。受控 discovery 在目录项遍历、候选 header 分块读取、候选数量和 fingerprint 分块读取中检查取消/deadline 并消费聚合预算；所有已验证候选继续计算完整 fingerprint，但不再允许无聚合上限的全量 hash。资源失败在分析前返回，不发布 batch、cursor 或 checkpoint。
+- Required test result：新增 discovery unit tests 覆盖预取消、已过期 deadline、首个 header chunk 后取消、header 字节预算、包含大量非匹配目录项的扫描预算、fingerprint 总字节预算和跨日期 chain；stage4 增加 fingerprint budget 在 batch/checkpoint 前 fail-closed 回归。`cargo fmt --all -- --check`、`cargo test --all-targets --no-default-features`（89 unit、31 conformance、3 stage2、5 stage3、22 stage4）及 `git diff --check` 均通过。
+- External Documentation Gate：not applicable；本步只修改仓库自有 Rust discovery、stage4 resource limits 与测试，不新增第三方 API/SDK/CLI 用法。
+- Ownership assessment：`current_task_owned`
+- Ownership evidence：当前任务目标与验收明确要求有界跨日期 discovery、资源预算和 fail-closed；定位文件均位于当前 Allowed Files，且不涉及产品 Node、数据库、IPC、Android、vendor 或长期契约变更。
+- Recommended route：`queued_fixable_findings`
+- Handoff：review-diff
+
+### REV-017
+
+- Severity：major (P1)
+- Source：用户要求的 fixture 脱敏复核与范围审查
+- Status：resolved
+- File / symbol：`native/codex-rollout-collector/tests/fixtures/sanitized-session-5/**`、`tests/stage4_protocol.rs` 及三份 Collector 设计/兼容文档
+- Failure scenario：原五文件 fixture 含真实会话正文、真实 ID、真实本机路径及逐字节样本，不能作为仓库内稳定的 TermLink-owned 测试资产；测试和文档也把该 raw 目录当作公共证据。
+- Minimal fix direction：将 raw fixture 移出工作树保留可恢复备份，重新合成最小 JSONL；只保留两个日期、5 个候选、stale root-like、root→head 四文件链、3 条 `history_base` 边、synthetic developer-role unknown 事件及 Replay/Preview/Backfill/latest-path restart 语义；按最终 bytes 重算 manifest/cut。
+- Resolution：新增 `sanitized-session-5` synthetic/sanitized fixture，README 明确其为 TermLink-owned 且事件由人工构造；所有 IDs、消息、命令、cwd/path、时间均为专用测试数据。stage4 manifest 固定 5 个长度/hash，三条 cut 为 `1/331`、`1/474`、`1/474`；文档改为引用合成 fixture，不再把真实样本当作仓库证据。
+- Required test result：四项 sanitized fixture stage4 tests、stage4 全部 22 项、Rust 全量目标测试（89 unit、31 conformance、3 stage2、5 stage3、22 stage4）和 Node isolated collector（30 项）均通过；`cargo fmt --all -- --check`、`git diff --check`、UTF-8/LF、scoped sensitive/old-ID/path scan 均通过。
+- External Documentation Gate：not applicable；本步仅修改仓库自有 synthetic fixture、Rust test 与 Collector 文档，不依赖第三方 current behavior。
+- Ownership assessment：`current_task_owned`
+- Handoff：review-diff
+
+### 2026-08-23 — REV-017 synthetic fixture replacement
+
+- raw `real-session-5` 未跟踪目录已移出工作树并保留为本地可恢复临时备份；仓库只保留 `sanitized-session-5` 五文件 synthetic fixture。
+- 合成 fixture 固定 5 candidates：stale root-like conversation rollout、root rollout、3 个 paginated child；日期为 `2026/08/22` 与 `2026/08/23`；root→head chain 为 `6a1b2c30 → 1a2b3c40 → 2b3c4d50 → 3c4d5e60`，3 条 cut 为 `1/331`、`1/474`、`1/474`。
+- 最终 bytes manifest：`1115 / 6947576cbf145e033ebd7980e9841ece7f822888eab9173b291e6a46b5db2777`、`1115 / 69a592fed3aa103532b74a6c63fe97d564ec253afe64eb8a071995f26d33619e`、`1258 / 81fad02d157560bf6504290a752c2a65639e97a4391869884fc18da017e641b3`、`1258 / 65cedc06cde291249805532e0441e372f055beb837337bda70fe61b8904696bb`、`1492 / f030e72d36a8b079a889be12476583a7a6e8c405e686000787ef81ababbe901e`。
+- synthetic active head 的 developer-role message 保持 `unknown_event`，因此 Replay/Preview/Backfill 的 transition 继续为 `validation_unavailable`，不发布 replacement mutation；latest-path restart 仍恢复全部 5 个 provenance candidates。
+- External Documentation Gate：not applicable；本步无第三方文档依赖。
+
 ## 回归检查项
 
 - `cargo fmt --check`
@@ -445,6 +584,11 @@ Codex 在编辑当前会话最后一个已终止用户问题后，不修改父 r
 - `tests/codexRolloutCollector.test.js` 中既有 Node isolated tests
 - 新增 duplicate/replay/restart/ACK 和非法输入断言
 - 新增 latest-only parent-chain replay、active source 同目录 catalog discovery 和 replay request lineage 默认恢复断言
+- 新增同一 active child 的连续 append/restart/full-lineage 等价与重复请求幂等断言
+- 新增父 rollout 等长 cut 前 mutation 的完整快照 guard 断言
+- 新增 active head/root-like 旧、新、同时间、不可排序、多候选和 hint 安全校验断言
+- 新增 transition validation state 的旧 payload 兼容、完整 Replay、Preview 和部分 Backfill 断言
+- 新增普通 `.zst` parent lineage 类型化 fail-closed 断言，并保留 `.zst` forward-only read-plan/cursor 约束
 - `git diff --check`、`git status --short`，确认任务外未跟踪产物未被修改
 
 ## 回滚点
@@ -452,6 +596,41 @@ Codex 在编辑当前会话最后一个已终止用户问题后，不修改父 r
 - Task start base：`cb1ce2a`
 - Last reviewed checkpoint：`55b583d`（上一轮 Rust/Node 隔离实现提交）
 - Current diff review target：相对 `55b583d` 的本轮真实 rollout 兼容修复工作树变更，包含 real parent/child 与 stopped parent/child 四个新增 Rust fixture，以及 TermLink-owned terminal evidence / batch completeness 变更；不得触碰任务外未跟踪产物。
+
+### 2026-08-23 — REV-011 append/lineage 修复
+
+- 本轮只处理 REV-011；修改范围为 Rust stage4 lineage 逻辑、stage4 protocol 回归和本任务记录；未修改 discovery 预算、root-like active head、父文件 mutation guard、transition DTO、`.zst` 策略、Node/数据库/App/IPC/Android/vendor。
+- `Append` 的物理 delta 与完整 lineage replay 已分离：原 append batch 继续负责增量 source range、progress 和 forward cursor；同源 session-lineage append 通过隔离 adapter 完整读取 active child，避免以 suffix 重建 child 历史。
+- 完整 active snapshot 若不满足 canonical/full-range/稳定边界，直接 fail-closed，不把不完整快照发布为完整 lineage；正常单文件 append 路径保持不变。
+- 新增连续两次 append、每次重启恢复、full replay 等价、replacement evidence 与重复请求幂等测试。
+- 验证：`cargo fmt --manifest-path native/codex-rollout-collector/Cargo.toml -- --check` 通过；`cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --all-targets --no-default-features` 通过（73 unit、31 conformance、3 stage2、5 stage3、16 stage4）；`git diff --check` 通过。
+- 当前 handoff：`review-diff`；未执行提交；任务外未跟踪 `native/parse-probe/`、`native/rustup-init.exe`、`native/winlibs.zip` 未修改。
+
+### 2026-08-23 — REV-012 父 rollout full-read mutation guard 修复
+
+- 本轮只处理 REV-012；修改范围为 Rust stage4 full-history guard、stage4 protocol 单元测试和本任务记录；未处理 discovery 预算、root-like active head、transition DTO、`.zst` 策略、Node/数据库/App/IPC/Android/vendor。
+- 父 replacement validation 的 header/suffix guard 保持不变；整个 parent lineage read 现在由整文件 snapshot guard 覆盖，读取前后校验 file length 与 SHA-256，等长 cut 前修改也会 fail-closed。
+- 验证：guard 定向测试通过；`cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --test stage4_protocol --no-default-features` 通过（16 项）；全量 `--all-targets --no-default-features` 通过（74 unit、31 conformance、3 stage2、5 stage3、16 stage4）；`cargo fmt --manifest-path native/codex-rollout-collector/Cargo.toml -- --check` 和 `git diff --check` 通过。
+- External Documentation Gate：not applicable；本步只调整项目内 Rust source guard 业务逻辑，不新增或改变第三方 API/SDK/CLI 用法。
+- 当前 handoff：`review-diff`；未执行提交；任务外未跟踪文件未修改。
+
+### 2026-08-23 — REV-013 active head/root-like 歧义修复
+
+- 本轮只处理 REV-013；修改范围为 Rust discovery active-head 选择、discovery 单元测试和本任务记录；未处理 discovery 资源预算、transition DTO、`.zst` 策略、Node/数据库/App/IPC/Android/vendor。
+- 连接链旁的 root-like 候选现在按连接链根节点做保守时间比较：严格更早才可视为旧 provenance；更新、同时间、时间戳不可排序或无法证明顺序时 fail-closed，错误保留涉及 active head 的确定性候选列表。
+- 显式 active rollout/path hint 仍可缩小候选并沿唯一 descendant 解析，但不会跳过 root-like 安全校验。
+- 验证：`cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --lib --no-default-features` 通过（80 项）；随后 `cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --all-targets --no-default-features` 通过（80 unit、31 conformance、3 stage2、5 stage3、16 stage4），并通过 `cargo fmt --check`、`git diff --check`。
+- External Documentation Gate：not applicable；本步只调整项目内 Rust discovery 业务逻辑，不新增或改变第三方 API/SDK/CLI 用法。
+- 当前 handoff：`review-diff`；未执行提交；任务外未跟踪文件未修改。
+
+### 2026-08-23 — REV-014 transition validation state 修复
+
+- 本轮只处理 REV-014；修改范围为 Rust stage4 transition DTO/lineage replay-window 状态传播、stage4 protocol 回归、collector change plan 与本任务记录；未处理 discovery 资源预算、`.zst` 策略、Node/数据库/App/IPC/Android/vendor。
+- `LineageTransitionMessage.validation_state` 为 additive 字段：`discovered` 表示仅完成发现关联，`validated` 表示完整稳定 parent/child replacement validation 通过，`validation_unavailable` 表示 Preview/部分 Backfill/coverage 不足未具备验证条件；当前明确校验失败仍 fail-closed，不输出 `rejected` batch。
+- 完整 Replay 与完整 Append lineage 逐跳输出 `validated`；Preview 和部分 Backfill lineage window 逐跳输出 `validation_unavailable`；旧 transition JSON 缺少字段时默认 `discovered`，状态数量不匹配时拒绝发布 metadata。
+- 验证：`cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --test stage4_protocol --no-default-features` 通过（16 项）；随后全量 `cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --all-targets --no-default-features` 通过（81 unit、31 conformance、3 stage2、5 stage3、16 stage4），并通过 `cargo fmt --check`、`git diff --check`。
+- External Documentation Gate：not applicable；本步只扩展 TermLink 自有 Rust 协议字段和既有业务逻辑，不新增或改变第三方 API/SDK/CLI 用法。
+- 当前 handoff：`review-diff`；未执行提交；任务外未跟踪文件未修改。
 
 ## 执行记录
 
@@ -596,7 +775,7 @@ Codex 在编辑当前会话最后一个已终止用户问题后，不修改父 r
 - `cargo fmt --all -- --check`：通过。
 - `cargo test --all-targets --offline`：通过，73 个单元测试、30 个 conformance、3 个 stage2、5 个 stage3、11 个 stage4 protocol 测试通过。
 - `node --check src/services/codexRolloutCollector/analyzerProtocol.js`、`node --check tests/codexRolloutCollector.test.js`：通过；`node --test tests/codexRolloutCollector.test.js`：28 项通过。
-- 真实目录 smoke（`C:\Users\kongx\.codex\sessions\2026\08\22`）：batch `canonical`、`complete=true`、1 条 replacement、1 条 `replace_last_turn` mutation、complete `status=ok`；输出的 parent/child rollout、旧/新 turn ID 和 cut 与真实样本一致。
+- 本地 smoke（不记录本机路径或真实会话标识）：batch `canonical`、`complete=true`、1 条 replacement、1 条 `replace_last_turn` mutation、complete `status=ok`；输出的 parent/child rollout、旧/新 turn ID 和 cut 与 fixture 证据一致。
 - `git diff --check`：通过；未修改 vendor、产品数据库/历史 provider、IPC、Android 及任务外未跟踪产物。
 - Context7/current external documentation gate：not applicable；本轮未新增第三方 API/SDK/CLI 用法，仅基于仓库 vendored Codex snapshot、TermLink-owned adapter 和真实 fixture。
 
@@ -609,7 +788,7 @@ Codex 在编辑当前会话最后一个已终止用户问题后，不修改父 r
 - `cargo fmt --all -- --check`：通过。
 - `cargo test --all-targets --offline`：通过，73 个单元测试、31 个 conformance、3 个 stage2、5 个 stage3、12 个 stage4 protocol 测试通过。
 - `node --check src/services/codexRolloutCollector/analyzerProtocol.js`、`node --check src/services/codexRolloutCollector/analysisBatchImporter.js`：通过；`node --test tests/codexRolloutCollector.test.js`：28 项通过。
-- 真实用户样本 smoke（`C:\Users\kongx\.codex\sessions\2026\08\22\rollout-2026-08-22T02-10-38-01a02584-8a23-7e41-8a80-2c4e52260195.jsonl`）：第 2054 行输出 `status=interrupted`、`availability=partial_rollout`、`terminal_evidence=explicit_abort`；整体因其他未知历史事件保持 partial，未错误升级为 canonical。
+- 本地 smoke（不记录本机路径或真实 rollout ID）：中途事件输出 `status=interrupted`、`availability=partial_rollout`、`terminal_evidence=explicit_abort`；整体因其他未知历史事件保持 partial，未错误升级为 canonical。
 - `git diff --check`：通过；任务外的 `native/parse-probe/`、`native/rustup-init.exe`、`native/winlibs.zip` 未修改。
 - Context7/current external documentation gate：not applicable；本轮只使用仓库内 vendored Codex snapshot、TermLink-owned model/adapter 和本地真实 rollout，不新增第三方 API/SDK/CLI 用法。
 
@@ -621,7 +800,7 @@ Codex 在编辑当前会话最后一个已终止用户问题后，不修改父 r
 - 新增 stage4 latest-only/restarted-runtime 测试，使用真实 Codex rollout 文件名后缀验证目录 catalog 能找到 A/B；Node 增加 replay lineage 恢复测试。
 - `cargo fmt --all -- --check`：通过；`cargo test --test stage4_protocol --offline`：13 项通过；`cargo test --all-targets --offline`：73 unit、31 conformance、3 stage2、5 stage3、13 stage4 通过。
 - `node --check src/services/codexRolloutCollector/index.js`、`node --check tests/codexRolloutCollector.test.js`：通过；`node --test tests/codexRolloutCollector.test.js`：29 项通过；`git diff --check`：通过（仅保留既有 CRLF warning）。
-- 真实用户目录 raw analyzer smoke（仅提供 01a0254c 最新 child 路径）输出 2 条 replacement：01a02531→01a02532、01a02532→01a0254c；该真实样本同时含未支持的 developer message，Node canonical projection 门禁拒绝持久化，属于既有 fail-closed 兼容问题，不在本轮扩大修复。
+- 本地 raw analyzer smoke（仅提供最新 child 路径）输出 2 条 replacement；该样本同时含未支持的 developer message，Node canonical projection 门禁拒绝持久化，属于既有 fail-closed 兼容问题，不在本轮扩大修复。
 - 任务外未跟踪的 `native/parse-probe/`、`native/rustup-init.exe`、`native/winlibs.zip` 未修改。
 - Context7/current external documentation gate：not applicable；本轮只调整 TermLink 自有 Rust↔Node 隔离 collector 恢复逻辑，不新增第三方 API/SDK/CLI 用法。
 

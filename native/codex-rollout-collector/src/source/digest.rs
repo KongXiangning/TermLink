@@ -42,6 +42,55 @@ pub(crate) fn digest_file_range(path: &Path, start: u64, end: u64) -> io::Result
     Ok(digest.finalize_hex())
 }
 
+/// Hash a file range while allowing the caller to enforce an external
+/// resource budget before each physical read.  The callback is deliberately
+/// invoked with the requested chunk size, so callers can reserve the read
+/// against an aggregate byte budget before touching the file.
+pub(crate) enum DigestFileRangeError<E> {
+    Io(io::Error),
+    Callback(E),
+}
+
+pub(crate) fn digest_file_range_with_callback<E, F>(
+    path: &Path,
+    start: u64,
+    end: u64,
+    mut before_read: F,
+) -> Result<String, DigestFileRangeError<E>>
+where
+    F: FnMut(u64) -> Result<(), E>,
+{
+    if start > end {
+        return Err(DigestFileRangeError::Io(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("invalid digest range {start}..{end}"),
+        )));
+    }
+
+    let mut file = File::open(path).map_err(DigestFileRangeError::Io)?;
+    file.seek(SeekFrom::Start(start))
+        .map_err(DigestFileRangeError::Io)?;
+    let mut remaining = end - start;
+    let mut buffer = [0_u8; 64 * 1024];
+    let mut digest = Sha256::new();
+    while remaining > 0 {
+        let requested = remaining.min(buffer.len() as u64);
+        before_read(requested).map_err(DigestFileRangeError::Callback)?;
+        let read = file
+            .read(&mut buffer[..requested as usize])
+            .map_err(DigestFileRangeError::Io)?;
+        if read == 0 {
+            return Err(DigestFileRangeError::Io(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                format!("source ended while hashing range {start}..{end}"),
+            )));
+        }
+        digest.update(&buffer[..read]);
+        remaining -= read as u64;
+    }
+    Ok(digest.finalize_hex())
+}
+
 /// Small dependency-free SHA-256 implementation for source identity checks.
 /// It is intentionally private to the source layer; callers persist only the
 /// algorithm label and hexadecimal digest through SourceFingerprint.

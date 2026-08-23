@@ -77,22 +77,22 @@ sessionsRoot + conversationId + 可选已知 rollout/head hint
 8. 关系、来源或读取证据不完整时必须保留可诊断的 partial/unknown 结果，禁止宣称完整
    canonical 历史或发布 active projection mutation。
 
-### 1.3 真实会话样本给出的发现约束
+### 1.3 合成 fixture 固定的发现约束
 
-对会话 `01a02530-9975-7df2-a3b3-6bb214ad47ed` 的真实目录观察到：同一稳定会话 ID 的 rollout
-分布在 `2026/08/22` 和 `2026/08/23` 两个日期目录。文件名包含稳定会话 ID，并在后续文件中
-带有 rollout ID 后缀；可由文件名形成候选顺序，但首行内容仍是关系验证依据。已观察到的
-可验证 parent chain 为：
+TermLink-owned 的 `sanitized-session-5` 合成 fixture 将发现契约固定为：同一稳定会话 ID 的
+rollout 分布在 `2026/08/22` 和 `2026/08/23` 两个日期目录。文件名包含稳定会话 ID，并在
+后续文件中带有 rollout ID 后缀；可由文件名形成候选顺序，但首行内容仍是关系验证依据。
+fixture 中的可验证 parent chain 为：
 
 ```text
-01a02531-9f57-76d0-89f7-9b5e12d04911
-  → 01a02532-e386-7892-8258-23dbea585370  cut=14/179138
-  → 01a0254c-9bc1-7a72-bba0-5c5ff17c5987  cut=16/51393
-  → 01a02a36-adff-7f03-8f01-c4d19aeec3de  cut=18/51392
-  → 01a02a58-18b4-73b3-919b-c11773eb5dcd  cut=38/110575
+6a1b2c30-4d5e-4f6a-8b7c-9d0e1f2a3b40
+  → 1a2b3c40-5d6e-4f7a-8b9c-0d1e2f3a4b50  cut=1/331
+  → 2b3c4d50-6e7f-4a8b-9c0d-1e2f3a4b5c60  cut=1/474
+  → 3c4d5e60-7f8a-4b9c-0d1e-2f3a4b5c6d70  cut=1/474
 ```
 
-同一目录中还存在没有 `history_base` 的 root-like 文件。它们必须进入候选目录和诊断，不能
+同一日期范围中还存在一个更早、没有 `history_base` 的 stale root-like 文件。它必须进入候选
+目录和 provenance，不能
 仅凭文件名被强行拼入上述链；但 Collector 也不能因为 active child 已经位于下一日期目录，
 就停止在父文件日期目录。该样本因此同时锁定三条要求：跨日期发现、候选与权威 edge 分离、
 服务重启后能够从最新 head 沿已保存 parent chain 恢复。
@@ -218,6 +218,27 @@ LineageReadResult
 `discoveredSources`、物理 path 和 source evidence 只供 Node preflight、诊断和恢复使用，不暴露
 给 App。`historyItems` 必须包含有效 active lineage 中的旧 turn；不把 old turn 物理删除交给
 Rust。
+
+`lineageTransitions[].validationState` 是逐跳的 TermLink-owned 状态，固定为：
+
+```text
+discovered
+  已通过候选文件、SessionMeta 和 history_base 的发现/关联校验；本次读取尚未完成
+  该 parent -> child 边的 replacement validation。
+
+validated
+  本次读取获得了 replacement validator 所需的完整且稳定 parent/child 证据，并通过当前
+  最后一个已终止 turn 的一对一 replacement validation。它可以与 projection coverage
+  为 partial 同时存在；是否允许 `ReplaceLastTurn` mutation 仍由独立 coverage 门禁决定。
+
+validation_unavailable
+  parent -> child 关系已经发现，但 Preview、部分 Backfill、或当前读取边界没有提供
+  replacement validator 所需的足够证据；不能据此宣称 replacement 已验证。
+```
+
+当前阶段不输出 `rejected` 状态：replacement validation 明确失败仍按请求错误
+fail-closed；把失败边转换为 partial batch 属于后续独立协议决策。该字段为 additive：旧
+消费者忽略未知字段；新消费者读取没有该字段的旧 transition 时按 `discovered` 处理。
 
 ### 5.2 `LastTurnReplacement`
 
@@ -352,6 +373,22 @@ child 未完成时不得发布 canonical `ReplaceLastTurn` mutation。
 普通无 seek/index `.zst` 只承诺 forward stream，不伪造 tail/backward/append byte cursor。
 跨文件 lineage 恢复必须按每个物理 source 的 capability 分别规划。
 
+本阶段冻结的父 lineage 策略如下：
+
+- 普通 `.zst` 作为 active/root source 时，只允许正序完整读取；它不提供 tail、backward
+  或 append cursor。active `.zst` 若有 plain JSONL parent，只有在完整 Replay 能满足其他
+  lineage/replacement 证据时才允许继续；Preview/Backfill 仍受 active source capability
+  限制。
+- 普通 `.zst` 作为 parent rollout 时，`tail_backfill_recovery`、
+  `replacement_validation` 以及 parent full-history replay 一律 fail-closed，返回类型化的
+  `LineageError::UnsupportedParentSourceCompression`；不返回 lineage batch，不发布
+  replacement evidence、lineage cursor、checkpoint 或 `ReplaceLastTurn` mutation。
+- 不把解压后的逻辑位置当作可复用的物理 byte cursor，也不在本阶段通过顺序解压偷偷实现
+  parent cut 的随机读取。这样 plain child → ordinary `.zst` parent 的 lineage 会明确拒绝，
+  而不会产生未经验证的混合历史。
+- seekable/indexed `.zst` 或先物化为 plain JSONL 的 parent 支持属于后续独立能力扩展，必须
+  新增 backend capability、cursor/快照证据和 fixture 后再改变本策略。
+
 ### 6.5 阶段 4：隔离 analyzer protocol
 
 目标：在不接入产品 DB 的前提下，把 lineage batch、coverage 和 replacement facts 纳入现有
@@ -432,6 +469,8 @@ partial coverage，但必须明确不可作为 canonical 完整历史提交。
 | 同文件 append | 只推进 `ForwardAppendCursor`，不重复、不提交尾部半行 |
 | child transition incremental | 新建 lineage cursor，不复用 parent append cursor |
 | 普通 `.zst` | 只提供 forward stream，不伪造 seek/append |
+| plain child + ordinary `.zst` parent | parent lineage 类型化 fail-closed；不发布 lineage/replacement/cursor/checkpoint |
+| ordinary `.zst` active/root full Replay | 允许正序读取；不提供 tail/backward/append cursor |
 | 父最后 turn completed，child 合法重发 | 输出一条稳定 replacement |
 | 父最后 turn stopped/interrupted，child 合法重发 | 输出 replacement，保留 terminal status |
 | 连续 A→B→C | 输出有序两条 replacement，最终 C active |
@@ -444,9 +483,13 @@ partial coverage，但必须明确不可作为 canonical 完整历史提交。
 回归已覆盖阶段 1–4 suite、full-vs-segmented oracle、append promotion/restart、Demo/Spike
 同 fixture reference、Cargo source boundary、fmt/check 和 session-level fixture。新增的跨日期
 fixture 验证了 conversation-only discovery、preview parent-suffix recovery、child transition
-append、checkpoint lineage evidence；并以真实 `01a02530-9975-7df2-a3b3-6bb214ad47ed` 会话目录
-完成了 full/preview/backfill/append smoke。真实样本中的 unknown/partial 事件使 coverage
-保持非 canonical，但不阻止完整历史记录和 replacement evidence 输出。
+append、checkpoint lineage evidence；并加入可复用的
+`native/codex-rollout-collector/tests/fixtures/sanitized-session-5/` 五文件 synthetic/sanitized
+fixture，覆盖
+`2026/08/22` → `2026/08/23`、stale root-like provenance、full/preview/backfill 和最新 active
+path 重启恢复。该五文件样本中的 synthetic unknown developer-role 事件按当前兼容边界保持 partial、逐跳
+`validation_unavailable` 且不生成 `replace_last_turn` mutation；complete replacement 仍由
+独立的小型合成 parent/child fixture 覆盖。README 说明该 fixture 完全由人工构造的最小事件组成。
 
 ## 10. Rust Collector 方案完成条件
 

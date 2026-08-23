@@ -24,11 +24,11 @@ use crate::model::{AnalysisEvent, LastTurnReplacement, SourceRef, TurnStatus};
 use crate::protocol::batch::{AnalysisBatch, BatchDiagnostic};
 use crate::protocol::checkpoint::AnalyzerCheckpoint;
 use crate::source::{
-    BackfillCursor, CompleteLineAnchor, ForwardAppendCursor, HistoryBaseRef, JsonlSourceBackend,
-    LineageError, PlannedReadReport, RolloutCatalog, RolloutSource, SessionDiscoveryRequest,
-    SessionLineage, SnapshotBoundary, SourceByteRange, SourceCompression, SourceFingerprint,
-    SourceFixtureHash, SourcePrefixAnchor, SourceReadMode, SourceReadPlan, SourceRecord,
-    SourceSpec, TailPreviewCursor, discover_session,
+    BackfillCursor, CompleteLineAnchor, DiscoveryBudget, DiscoveryControl, ForwardAppendCursor,
+    HistoryBaseRef, JsonlSourceBackend, LineageError, PlannedReadReport, RolloutCatalog,
+    RolloutSource, SessionDiscoveryRequest, SessionLineage, SnapshotBoundary, SourceByteRange,
+    SourceCompression, SourceFingerprint, SourceFixtureHash, SourcePrefixAnchor, SourceReadMode,
+    SourceReadPlan, SourceRecord, SourceSpec, TailPreviewCursor, discover_session_with_control,
 };
 use crate::version::{COMPATIBILITY_LAYER_VERSION, PARSER_BACKEND};
 
@@ -323,6 +323,12 @@ pub struct ResourceLimits {
     pub tail_bytes: u64,
     #[serde(default = "default_timeout_ms")]
     pub timeout_ms: u64,
+    #[serde(default = "default_discovery_max_directory_entries")]
+    pub max_discovery_directory_entries: u64,
+    #[serde(default = "default_discovery_max_header_bytes")]
+    pub max_discovery_header_bytes: u64,
+    #[serde(default = "default_discovery_max_fingerprint_bytes")]
+    pub max_discovery_fingerprint_bytes: u64,
 }
 
 impl Default for ResourceLimits {
@@ -333,6 +339,9 @@ impl Default for ResourceLimits {
             max_segment_bytes: default_max_segment_bytes(),
             tail_bytes: default_tail_bytes(),
             timeout_ms: default_timeout_ms(),
+            max_discovery_directory_entries: default_discovery_max_directory_entries(),
+            max_discovery_header_bytes: default_discovery_max_header_bytes(),
+            max_discovery_fingerprint_bytes: default_discovery_max_fingerprint_bytes(),
         }
     }
 }
@@ -355,6 +364,18 @@ fn default_tail_bytes() -> u64 {
 
 fn default_timeout_ms() -> u64 {
     30_000
+}
+
+fn default_discovery_max_directory_entries() -> u64 {
+    65_536
+}
+
+fn default_discovery_max_header_bytes() -> u64 {
+    4 * 1024 * 1024
+}
+
+fn default_discovery_max_fingerprint_bytes() -> u64 {
+    64 * 1024 * 1024
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -644,6 +665,25 @@ pub struct LineageTransitionMessage {
     pub parent_rollout_id: String,
     pub child_rollout_id: String,
     pub history_base: HistoryBaseRef,
+    /// Validation evidence for this single parent -> child edge.  The
+    /// default keeps older transition payloads readable while making the
+    /// newly emitted field additive for existing consumers.
+    #[serde(default)]
+    pub validation_state: LineageTransitionValidationState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LineageTransitionValidationState {
+    /// Discovery verified the source/header relationship, but no transition
+    /// replacement validation has been performed for this read.
+    #[default]
+    Discovered,
+    /// The full parent/child evidence for this edge passed validation.
+    Validated,
+    /// The edge is known, but the selected read mode or coverage did not
+    /// provide enough evidence to attempt replacement validation.
+    ValidationUnavailable,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1347,7 +1387,13 @@ pub fn analyze_request_with_state(
         if discovery_request.active_path.is_none() && !source_request.path.trim().is_empty() {
             discovery_request.active_path = Some(PathBuf::from(&source_request.path));
         }
-        let session = discover_session(&discovery_request)
+        let budget = DiscoveryBudget::new(
+            request.resource_limits.max_discovery_directory_entries,
+            request.resource_limits.max_discovery_header_bytes,
+            request.resource_limits.max_discovery_fingerprint_bytes,
+        );
+        let mut discovery_control = DiscoveryControl::new(cancelled, deadline, budget);
+        let session = discover_session_with_control(&discovery_request, &mut discovery_control)
             .map_err(|error| anyhow::anyhow!(error.to_string()))?;
         let active = session.active_source();
         if let Some(source_id) = source_request
@@ -1597,20 +1643,47 @@ pub fn analyze_request_with_state(
             anyhow::bail!("active rollout changed while lineage analysis was reading it");
         }
     }
+    // An append cursor deliberately makes the physical read a delta.  That
+    // delta is sufficient for the ordinary single-source append path, but it
+    // is not a complete active rollout for lineage replay or replacement
+    // validation.  Keep the append batch (and its range/cursor evidence) for
+    // progress, while using an isolated full snapshot for the lineage path.
+    // This preserves the existing append contract without allowing a
+    // post-checkpoint suffix to masquerade as the whole child rollout.
+    let full_active_lineage_batch = if request.mode == AnalyzeMode::Append
+        && cursor_for_source.is_some()
+        && discovered_lineage.is_some()
+    {
+        let full_batch =
+            read_full_lineage_active_batch(&backend, &spec, profile, cancelled, deadline)?;
+        if let Some(guard) = lineage_source_guard.as_ref()
+            && !source_guard_matches(spec.path(), guard)?
+        {
+            anyhow::bail!("active rollout changed while rebuilding lineage snapshot");
+        }
+        Some(full_batch)
+    } else {
+        None
+    };
     if batch.history_base.is_none()
         && let Some(discovered_lineage) = discovered_lineage.as_ref()
     {
         batch.history_base = discovered_lineage.active_history_base();
     }
+    let lineage_active_batch = full_active_lineage_batch.as_ref().unwrap_or(&batch);
     let mut lineage_coverage = None;
+    let mut transition_validation_states = Vec::new();
     if let Some(lineage) = effective_lineage.as_ref()
-        && (batch.complete && batch.completeness == BatchCompleteness::Canonical
+        && (lineage_active_batch.complete
+            && lineage_active_batch.completeness == BatchCompleteness::Canonical
             || discovered_lineage.is_some())
     {
-        let replay = if batch.complete && batch.completeness == BatchCompleteness::Canonical {
+        let replay = if lineage_active_batch.complete
+            && lineage_active_batch.completeness == BatchCompleteness::Canonical
+        {
             collect_lineage_replay(
                 &spec,
-                &batch,
+                lineage_active_batch,
                 lineage,
                 profile,
                 cancelled,
@@ -1620,7 +1693,7 @@ pub fn analyze_request_with_state(
         } else if let Some(discovered_lineage) = discovered_lineage.as_ref() {
             collect_lineage_window(
                 &spec,
-                &batch,
+                lineage_active_batch,
                 lineage,
                 discovered_lineage,
                 profile,
@@ -1639,6 +1712,7 @@ pub fn analyze_request_with_state(
         batch.items = replay.history_items;
         batch.replacements = replay.replacements;
         lineage_coverage = Some(replay.coverage);
+        transition_validation_states = replay.transition_validation_states;
         progress.records_emitted = batch.items.len() as u64;
         if !batch.replacements.is_empty()
             && !request
@@ -1682,7 +1756,12 @@ pub fn analyze_request_with_state(
     message.replace_previous = request.replace_previous;
     message.reducer_state = Some(runtime.checkpoint_state());
     if let Some(discovered_lineage) = discovered_lineage.as_ref() {
-        apply_lineage_metadata(&mut message, discovered_lineage, lineage_coverage);
+        apply_lineage_metadata(
+            &mut message,
+            discovered_lineage,
+            lineage_coverage,
+            &transition_validation_states,
+        )?;
     }
     check_deadline(cancelled, deadline)?;
     let prefix_end = source_range.map(|range| range.end()).unwrap_or(0);
@@ -1730,13 +1809,22 @@ struct LineageReplay {
     history_items: Vec<AnalysisEvent>,
     replacements: Vec<LastTurnReplacement>,
     coverage: ProjectionCoverage,
+    transition_validation_states: Vec<LineageTransitionValidationState>,
 }
 
 fn apply_lineage_metadata(
     message: &mut BatchMessage,
     session: &SessionLineage,
     coverage: Option<ProjectionCoverage>,
-) {
+    transition_validation_states: &[LineageTransitionValidationState],
+) -> anyhow::Result<()> {
+    if transition_validation_states.len() != session.transitions.len() {
+        anyhow::bail!(
+            "lineage transition validation state count {} does not match transition count {}",
+            transition_validation_states.len(),
+            session.transitions.len()
+        );
+    }
     message.discovered_sources = session
         .candidates
         .iter()
@@ -1755,10 +1843,12 @@ fn apply_lineage_metadata(
     message.lineage_transitions = session
         .transitions
         .iter()
-        .map(|transition| LineageTransitionMessage {
+        .zip(transition_validation_states.iter().copied())
+        .map(|(transition, validation_state)| LineageTransitionMessage {
             parent_rollout_id: transition.parent_rollout_id.clone(),
             child_rollout_id: transition.child_rollout_id.clone(),
             history_base: transition.history_base.clone(),
+            validation_state,
         })
         .collect();
     let coverage = coverage.unwrap_or(ProjectionCoverage::Unknown);
@@ -1793,6 +1883,53 @@ fn apply_lineage_metadata(
         "lineage_transitions": &message.lineage_transitions,
         "coverage": coverage,
     }));
+    Ok(())
+}
+
+/// Re-read the active rollout as a complete snapshot for lineage assembly.
+///
+/// An `Append` request with a valid forward cursor intentionally analyzes only
+/// the bytes after the checkpoint.  That result must never be passed to
+/// `collect_lineage_replay`, because replacement validation needs the child
+/// user turn and lineage assembly needs the already-committed child prefix.
+/// The isolated adapter keeps this recovery read from changing the stateful
+/// adapter that analyzed the physical append delta.
+fn read_full_lineage_active_batch(
+    backend: &JsonlSourceBackend,
+    spec: &SourceSpec,
+    profile: CompatibilityProfile,
+    cancelled: &AtomicBool,
+    deadline: Instant,
+) -> anyhow::Result<AnalysisBatch> {
+    check_deadline(cancelled, deadline)?;
+    let plan = backend.plan_full(spec)?;
+    let adapter = CodexEventAdapter::new_with_conversation_id(
+        profile,
+        spec.target_conversation_id().map(ToOwned::to_owned),
+    );
+    let (batch, report, _) = analyze_planned_request(
+        backend,
+        &plan,
+        &adapter,
+        profile,
+        cancelled,
+        deadline,
+        BatchCompleteness::Canonical,
+    )?;
+    let expected_range = SourceByteRange::new(0, plan.snapshot_boundary().byte_length())?;
+    if !batch.complete
+        || batch.completeness != BatchCompleteness::Canonical
+        || report.complete_range() != Some(expected_range)
+        || report.pending_tail_bytes() > 0
+        || report.source_grew_during_read()
+        || report.source_shrank_during_read()
+        || report.source().budget_exceeded
+    {
+        anyhow::bail!(
+            "active rollout full snapshot is incomplete; append delta cannot be used for lineage replay"
+        );
+    }
+    Ok(batch)
 }
 
 struct LineageParentRead {
@@ -1827,6 +1964,7 @@ fn collect_lineage_window(
     let mut current_batch = active_batch.clone();
     let mut lineage_batches = vec![active_batch.clone()];
     let mut visited = BTreeSet::new();
+    let mut transition_validation_states = Vec::new();
     let mut coverage = projection_coverage_of(active_batch).min(ProjectionCoverage::Partial);
     for depth in 0..request.max_depth {
         check_deadline(cancelled, deadline)?;
@@ -1849,6 +1987,7 @@ fn collect_lineage_window(
             cancelled,
             deadline,
         )?;
+        transition_validation_states.push(LineageTransitionValidationState::ValidationUnavailable);
         coverage = coverage.min(projection_coverage_of(&parent_batch));
         lineage_batches.push(parent_batch.clone());
         current_source = parent_source;
@@ -1860,6 +1999,7 @@ fn collect_lineage_window(
         }
     }
     lineage_batches.reverse();
+    transition_validation_states.reverse();
     let mut history_items = Vec::new();
     for batch in lineage_batches {
         merge_lineage_history_items(&mut history_items, &batch.items);
@@ -1868,6 +2008,7 @@ fn collect_lineage_window(
         history_items,
         replacements: Vec::new(),
         coverage,
+        transition_validation_states,
     })
 }
 
@@ -1888,6 +2029,7 @@ fn collect_lineage_replay(
             history_items: active_batch.items.clone(),
             replacements: Vec::new(),
             coverage: projection_coverage_of(active_batch),
+            transition_validation_states: Vec::new(),
         });
     }
     // A replay request may arrive after the service has restarted.  In that
@@ -1905,6 +2047,7 @@ fn collect_lineage_replay(
     let mut lineage_batches = vec![active_batch.clone()];
     let mut visited = BTreeSet::new();
     let mut replacements = Vec::new();
+    let mut transition_validation_states = Vec::new();
     let mut coverage = projection_coverage_of(active_batch);
 
     for depth in 0..request.max_depth {
@@ -1940,6 +2083,7 @@ fn collect_lineage_replay(
         )
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
         replacements.push(replacement);
+        transition_validation_states.push(LineageTransitionValidationState::Validated);
         coverage = coverage.min(projection_coverage_of(&parent_read.history_batch));
         lineage_batches.push(parent_read.history_batch);
         current_source = parent_source;
@@ -1951,6 +2095,7 @@ fn collect_lineage_replay(
         }
     }
     replacements.reverse();
+    transition_validation_states.reverse();
     lineage_batches.reverse();
     let history_items = lineage_batches
         .into_iter()
@@ -1960,6 +2105,7 @@ fn collect_lineage_replay(
         history_items,
         replacements,
         coverage,
+        transition_validation_states,
     })
 }
 
@@ -2026,11 +2172,7 @@ fn read_lineage_suffix_batch(
         active_spec.max_line_bytes(),
     )
     .with_segment_limit(active_spec.max_segment_bytes());
-    if spec.compression() != SourceCompression::PlainJsonl {
-        anyhow::bail!(
-            "lineage tail/backfill recovery requires a seekable plain JSONL parent source"
-        );
-    }
+    ensure_lineage_parent_source_supported(&source.rollout_id, &spec, "tail_backfill_recovery")?;
     let snapshot_length = std::fs::metadata(&source.path)?.len();
     if history_base.end_byte_offset > snapshot_length {
         return Err(anyhow::anyhow!(LineageError::CutBeyondParent {
@@ -2097,11 +2239,13 @@ fn read_lineage_batch(
         active_spec.max_line_bytes(),
     )
     .with_segment_limit(active_spec.max_segment_bytes());
-    if spec.compression() != SourceCompression::PlainJsonl {
-        anyhow::bail!(
-            "lineage replacement validation requires a seekable plain JSONL parent source"
-        );
-    }
+    ensure_lineage_parent_source_supported(&source.rollout_id, &spec, "replacement_validation")?;
+    // Replacement validation still uses the bounded header/suffix guard
+    // below, but the auxiliary full-history read must be tied to the same
+    // whole-file snapshot.  Otherwise an equal-length mutation before the
+    // cut can produce a mixed validation/history result while leaving the
+    // local guard ranges unchanged.
+    let full_snapshot_guard = capture_source_guard(&source.path)?;
 
     let snapshot_length = std::fs::metadata(&source.path)?.len();
     let header_end = first_line_end(&source.path, spec.max_line_bytes())?;
@@ -2140,6 +2284,9 @@ fn read_lineage_batch(
     let mut history_batch =
         read_lineage_history_batch(&spec, source, profile, cancelled, deadline)?;
     merge_lineage_history_items(&mut history_batch.items, &validation_batch.items);
+    if !source_guard_matches(&source.path, &full_snapshot_guard)? {
+        anyhow::bail!("parent rollout changed during full lineage read");
+    }
     if !lineage_source_guard_matches(&source.path, &source_guard)? {
         anyhow::bail!("parent rollout changed during bounded lineage read");
     }
@@ -2147,6 +2294,23 @@ fn read_lineage_batch(
         validation_batch,
         history_batch,
     })
+}
+
+fn ensure_lineage_parent_source_supported(
+    rollout_id: &str,
+    spec: &SourceSpec,
+    operation: &str,
+) -> anyhow::Result<()> {
+    if spec.compression() != SourceCompression::PlainJsonl {
+        return Err(anyhow::anyhow!(
+            LineageError::UnsupportedParentSourceCompression {
+                rollout_id: rollout_id.to_string(),
+                compression: spec.compression().as_str().to_string(),
+                operation: operation.to_string(),
+            }
+        ));
+    }
+    Ok(())
 }
 
 fn read_lineage_history_batch(
@@ -2792,10 +2956,15 @@ pub fn checkpoint_for_batch(
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     use super::{
-        AnalyzeMode, AnalyzeRequest, BatchCompleteness, HelloMessage, MessageType, ProtocolHeader,
-        ProtocolMessage, SourceSpecRequest,
+        AnalyzeMode, AnalyzeRequest, BatchCompleteness, HelloMessage, LineageTransitionMessage,
+        LineageTransitionValidationState, MessageType, ProtocolHeader, ProtocolMessage,
+        SourceSpecRequest, capture_source_guard, source_guard_matches,
     };
+    use crate::source::HistoryBaseRef;
 
     #[test]
     fn protocol_messages_are_flat_jsonl_and_ignore_unknown_fields() {
@@ -2836,5 +3005,70 @@ mod tests {
     fn completeness_serializes_as_stable_snake_case() {
         let encoded = serde_json::to_string(&BatchCompleteness::Canonical).expect("serializes");
         assert_eq!(encoded, "\"canonical\"");
+    }
+
+    #[test]
+    fn transition_validation_state_is_additive_and_backward_compatible() {
+        let history_base =
+            HistoryBaseRef::new("parent-rollout", 14, 128).expect("test history base is valid");
+        let old_payload = serde_json::json!({
+            "parent_rollout_id": "parent-rollout",
+            "child_rollout_id": "child-rollout",
+            "history_base": history_base,
+        });
+        let parsed_old: LineageTransitionMessage =
+            serde_json::from_value(old_payload).expect("old transition payload parses");
+        assert_eq!(
+            parsed_old.validation_state,
+            LineageTransitionValidationState::Discovered
+        );
+
+        let current = LineageTransitionMessage {
+            parent_rollout_id: "parent-rollout".to_string(),
+            child_rollout_id: "child-rollout".to_string(),
+            history_base: HistoryBaseRef::new("parent-rollout", 14, 128)
+                .expect("test history base is valid"),
+            validation_state: LineageTransitionValidationState::Validated,
+        };
+        let encoded = serde_json::to_value(current).expect("current transition serializes");
+        assert_eq!(encoded["validation_state"], "validated");
+    }
+
+    #[test]
+    fn full_lineage_snapshot_guard_rejects_equal_length_prefix_mutation() {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock is after epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "termlink-stage4-full-lineage-guard-{}-{stamp}.jsonl",
+            std::process::id()
+        ));
+        let original = [
+            r#"{"session":true}"#,
+            r#"{"prefix":"stable"}"#,
+            r#"{"cut":"after-prefix"}"#,
+            r#"{"suffix":"stable"}"#,
+        ]
+        .join("\n")
+        .into_bytes();
+        fs::write(&path, &original).expect("guard fixture writes");
+
+        let full_snapshot_guard = capture_source_guard(&path).expect("full snapshot guard");
+        // Simulate an equal-length mutation while the full read is in
+        // progress.  The changed byte is before the logical cut, while the
+        // header and replacement suffix remain unchanged.
+        let mut mutated = original.clone();
+        let offset = mutated
+            .windows(b"stable".len())
+            .position(|window| window == b"stable")
+            .expect("prefix marker")
+            + 1;
+        mutated[offset] = b'X';
+        assert_eq!(mutated.len(), original.len());
+        fs::write(&path, mutated).expect("equal-length mutation writes");
+        assert!(!source_guard_matches(&path, &full_snapshot_guard).expect("guard compares"));
+
+        let _ = fs::remove_file(path);
     }
 }

@@ -705,6 +705,19 @@ Reader 只提供行为参考和 conformance 对照，不进入默认 Cargo 依�
 如果未来要验证 Codex 新 Reader，只能作为独立 backend/Spike 接入同一个 `SourceRecord`
 接口；它必须与原生 reader 对照，不能改变 Adapter、Reducer 或传输协议。
 
+#### 5.1.1 普通 `.zst` 父 lineage 冻结
+
+正式 Collector 不把上游 `.zst` 的顺序解压能力扩展成父 lineage 的随机读取能力。普通
+`.zst` 作为 active/root source 时仅支持 forward full Replay；当它作为 parent rollout
+参与 suffix/backfill、replacement validation 或 parent full-history replay 时，统一返回
+`LineageError::UnsupportedParentSourceCompression` 并 fail-closed，不发布 lineage
+batch、replacement evidence、cursor 或 checkpoint。解压后的逻辑 offset 不得伪装成压缩
+文件的可恢复 byte cursor。
+
+该边界是 TermLink 当前 compatibility invariant，不由上游 Reader 是否未来增加索引而自动
+改变。seekable/indexed `.zst` 或 materialized plain JSONL 必须作为新的 SourceBackend
+capability 单独验证，并同步更新 cursor、mutation guard、fixture 和协议文档后才能启用。
+
 ### 5.2 官方 `thread/read` 对照实现
 
 参考：
@@ -823,8 +836,13 @@ AnalysisBatch
 8. 一个文件变更、搜索或产物 fixture；
 9. 一个 compaction、abort 或 partial rollout fixture；
 10. 一个未知 event、字段缺失和 alias fixture。
-11. 一个真实会话的多文件 lineage fixture：父/child rollout 跨日期目录，child 首行包含
-    `history_base`，并能证明最后一个已终止 turn 的编辑重发；
+11. 一个 synthetic/sanitized 的多文件 lineage fixture：父/child rollout 跨日期目录，child 首行包含
+    `history_base`，并能验证跨日期发现、完整 lineage 和 replacement 证据边界；当前可复用样本为
+    `native/codex-rollout-collector/tests/fixtures/sanitized-session-5/`，其五个文件还固定了
+    stale root-like provenance、full/preview/backfill 和最新 active path 重启恢复的预期；
+    因其中存在当前 adapter 未承诺的 synthetic developer-role 事件，该 fixture 的预期是 partial、
+    `validation_unavailable` 和无 replacement mutation，complete replacement 由独立小型合成
+    parent/child fixture 覆盖；README 与 manifest 不包含真实正文、旧 ID 或本机路径；
 12. 一个文件名候选与 `SessionMeta/history_base` 冲突的 fixture，以及 parent 缺失、多个 head、
     中间 rollout 被跳过后的恢复 fixture。
 

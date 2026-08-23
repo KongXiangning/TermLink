@@ -1066,6 +1066,14 @@ SourceCapabilities
 普通 `.zst` 在没有 seek/index 时只能走正序解压，或者先物化为临时 plain JSONL。不得把
 解压后偏移伪装成可直接用于下一次打开的压缩文件字节偏移。
 
+本阶段 Rust Collector 对父 lineage 进一步冻结为 fail-closed：普通 `.zst` 可以作为
+active/root source 做正序完整 Replay，但不能作为需要 cut 定位的 parent source。只要
+`.zst` parent 参与 tail/backward lineage recovery、replacement validation 或 parent
+full-history replay，就返回类型化的 `UnsupportedParentSourceCompression`，不产生 lineage
+batch、replacement、cursor、checkpoint 或 active-projection mutation。顺序解压不等于随机
+读取；因此不得用解压位置冒充可恢复的 parent byte cursor。seekable/indexed `.zst` 或
+materialized plain JSONL 的支持留给独立能力扩展。
+
 #### 5.4.6 正常 APP 生命周期与 MCP 完整 replay
 
 两种调用目的必须分开：
@@ -1578,7 +1586,11 @@ future-compatible
 
 ### 阶段 1：冻结验证依据
 
-- 固定真实 rollout fixture 和小型合成 fixture；
+- 固定 synthetic/sanitized rollout fixture 和小型合成 fixture；
+- 当前可复用的五文件 synthetic session fixture 位于
+  `native/codex-rollout-collector/tests/fixtures/sanitized-session-5/`，固定两个日期分区、一个
+  stale root-like candidate 和四级有效 parent/child chain；其 synthetic unknown developer-role 事件
+  预期保持 partial/`validation_unavailable`，不生成 active replacement mutation；
 - 固定 history-schema:5、AnalysisBatch 和 availability 语义；
 - 保留 Demo 全量正序模式作为正确性 oracle；
 - 增加“全量结果 vs 流式结果”确定性对照。
@@ -1605,7 +1617,9 @@ future-compatible
   本次进程内先被读取；
 - 在单文件 full/tail/backward/append primitive 之上实现会话级 full replay、tail/backward
   补全、同源 append 和 child transition；区分各类 cursor，不能把 child transition 当 append；
-- 用跨日期真实 fixture 验证“全量历史包含旧 turn、增量/尾部/向前读取可收敛到同一结果”。
+- 用跨日期真实 fixture 验证“全量历史包含旧 turn、增量/尾部/向前读取可收敛到同一结果”；
+  五文件 fixture 还必须验证 conversation-only discovery、stale root-like provenance 和最新
+  active path 的重启恢复。
 
 ### 阶段 3：抽取 Adapter 和内部事件
 

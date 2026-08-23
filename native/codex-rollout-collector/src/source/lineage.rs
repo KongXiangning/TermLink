@@ -7,7 +7,10 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use super::{JsonlSourceBackend, SourceByteRange, SourceReadMode, SourceReadPlan, SourceSpec};
+use super::{
+    JsonlSourceBackend, SourceByteRange, SourceCompression, SourceReadMode, SourceReadPlan,
+    SourceSpec,
+};
 
 /// The TermLink-owned representation of Codex's `history_base`.
 ///
@@ -184,6 +187,13 @@ impl RolloutCatalog {
         .map_err(|error| LineageError::InvalidBinding(error.to_string()))?
         .with_limits(max_decoded_bytes, max_line_bytes)
         .with_segment_limit(max_segment_bytes);
+        if spec.compression() != SourceCompression::PlainJsonl {
+            return Err(LineageError::UnsupportedParentSourceCompression {
+                rollout_id: parent.rollout_id.clone(),
+                compression: spec.compression().as_str().to_string(),
+                operation: "parent_suffix_plan".to_string(),
+            });
+        }
 
         let metadata = fs::metadata(&parent.path).map_err(|error| LineageError::Io {
             operation: format!("metadata for parent rollout {}", parent.path.display()),
@@ -275,6 +285,11 @@ pub enum LineageError {
     },
     InvalidCut(String),
     InvalidBinding(String),
+    UnsupportedParentSourceCompression {
+        rollout_id: String,
+        compression: String,
+        operation: String,
+    },
     Io {
         operation: String,
         message: String,
@@ -297,6 +312,12 @@ pub enum LineageError {
     DiscoveryLimitExceeded {
         limit: usize,
     },
+    DiscoveryBudgetExceeded {
+        resource: String,
+        limit: u64,
+    },
+    DiscoveryCancelled,
+    DiscoveryTimeout,
     ConversationRolloutMissing {
         conversation_id: String,
     },
@@ -353,6 +374,14 @@ impl fmt::Display for LineageError {
             Self::InvalidBinding(message) => {
                 write!(formatter, "invalid lineage binding: {message}")
             }
+            Self::UnsupportedParentSourceCompression {
+                rollout_id,
+                compression,
+                operation,
+            } => write!(
+                formatter,
+                "unsupported parent source compression for {operation}: rollout={rollout_id}, compression={compression}; ordinary .zst parent lineage is fail-closed and requires a seekable plain JSONL source"
+            ),
             Self::Io { operation, message } => write!(formatter, "{operation}: {message}"),
             Self::ParentChainCycle { rollout_id } => {
                 write!(
@@ -385,6 +414,12 @@ impl fmt::Display for LineageError {
                     "rollout discovery exceeds candidate limit {limit}"
                 )
             }
+            Self::DiscoveryBudgetExceeded { resource, limit } => write!(
+                formatter,
+                "rollout discovery {resource} budget exceeded (limit {limit})"
+            ),
+            Self::DiscoveryCancelled => write!(formatter, "source analysis cancelled"),
+            Self::DiscoveryTimeout => write!(formatter, "resource timeout exceeded"),
             Self::ConversationRolloutMissing { conversation_id } => write!(
                 formatter,
                 "no rollout candidate was discovered for conversation {conversation_id}"
@@ -434,7 +469,7 @@ impl std::error::Error for LineageError {}
 mod tests {
     use std::fs;
 
-    use super::{HistoryBaseRef, RolloutCatalog, rollout_id_from_filename};
+    use super::{HistoryBaseRef, LineageError, RolloutCatalog, rollout_id_from_filename};
 
     #[test]
     fn history_base_keeps_parent_rollout_and_cut_separate() {
@@ -455,6 +490,34 @@ mod tests {
             .insert("parent", "parent.jsonl")
             .expect("same binding is idempotent");
         assert!(catalog.insert("parent", "other.jsonl").is_err());
+    }
+
+    #[test]
+    fn parent_suffix_plan_rejects_ordinary_zstd_with_typed_error() {
+        let path = std::env::temp_dir().join(format!(
+            "termlink-lineage-parent-{}.jsonl.zst",
+            std::process::id()
+        ));
+        fs::write(&path, b"compressed placeholder\n").expect("compressed parent writes");
+
+        let mut catalog = RolloutCatalog::new();
+        catalog
+            .insert("parent", &path)
+            .expect("compressed parent inserts");
+        let history_base = HistoryBaseRef::new("parent", 0, 0).expect("history base creates");
+        let error = catalog
+            .plan_parent_suffix(&history_base, "conversation", 1024, 1024, 1024)
+            .expect_err("ordinary zstd parent suffix must fail closed");
+        assert_eq!(
+            error,
+            LineageError::UnsupportedParentSourceCompression {
+                rollout_id: "parent".to_string(),
+                compression: "zstd".to_string(),
+                operation: "parent_suffix_plan".to_string(),
+            }
+        );
+
+        let _ = fs::remove_file(path);
     }
 
     #[test]
