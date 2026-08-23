@@ -8,6 +8,8 @@ related_docs:
   - docs/codex/codex-rollout-collector-architecture.md
   - docs/codex/codex-rollout-collector-codex-compatibility.md
   - docs/codex/codex-last-turn-replacement-server-sync-design.md
+  - docs/codex/codex-history-sync-head-transition-source-replacement-contract-draft.md
+  - docs/codex/codex-history-sync-sequence-test-vectors-contract-draft.md
   - docs/workflow/CONTRACTS.md
   - docs/workflow/DECISIONS.md
 related_code:
@@ -120,7 +122,9 @@ LastTurnReplacement
 约束：
 
 - `replacementKey` 必须由稳定 conversation、parent rollout、child rollout 和 old/new turn
-  identity 确定，不能使用 batch 顺序、mtime、随机值或文件内容 hash；
+  identity 确定，不能使用 batch 顺序、mtime、随机值或文件内容 hash；Node 对外序列化为
+  `turn_replaced.operationId`，两者必须是同一个逐字节稳定 identity，不得重新 hash、加前缀、
+  生成数据库 ID 或按重试重新生成；
 - `childRolloutId` 取自调用方显式 source binding，不能把稳定的 `SessionMeta.id` 当成
   reverted rollout ID；
 - `parentRolloutId` 取自 `history_base.thread_id`；
@@ -135,8 +139,17 @@ LastTurnReplacement
 BatchMutation::ReplaceLastTurn { replacement: LastTurnReplacement }
 ```
 
-`superseded` 是服务端持久化状态，不应成为 Rust source mutation 的名字。Rust 报告的是
-“已验证的一对一替换事实”，Node 再据此把旧 turn 标记为 superseded。
+`ReplaceLastTurn` 是可交给 Node canonical writer 的 **publishable mutation**，不是“发现
+child 文件”或“child 已产生 user turn”的进度事件。Rust 只有在 child turn 已明确 terminal
+（completed/interrupted；stopped 按 TermLink-owned terminal alias 处理）、读取快照完整稳定且 canonical completeness 通过时，才
+输出该 mutation；`in_progress`、`partial`、pending tail、gap 或 source mutation 只能输出
+普通分析/progress/diagnostic，不能触发 old/new replacement publication。Node 仍需重复执行
+产品层 preflight，不能仅凭 Rust mutation 名称跳过校验。
+
+`superseded` 是服务端/DTO 的 `projectionState` 关系值，不应成为 Rust source mutation 的
+名字。Rust 报告的是“已验证的一对一替换事实”及 `replacementKey`；Node 再据此以同值
+`operationId` 持久化 relation，并把旧 turn 的 `projectionState` 从 `active` 改为
+`superseded`。Rust 不写 `executionStatus` 的替换状态，也不负责决定 App old row 是否存在。
 
 ## 6. 按已完成阶段进行 additive 改造
 
@@ -284,6 +297,7 @@ conformance。
 | 父最后 turn 仍 in-progress | fail-closed |
 | cut 后有两个用户 turn | fail-closed |
 | child 尚无新用户 turn | provisional/no canonical replacement |
+| child 有 terminal record 但 read partial/pending tail/gap | provisional/no canonical replacement |
 | parent 缺失、错 conversation、父链环 | fail-closed |
 | active head 读取期间变化 | 不提交、不推进 cursor |
 | Node 未声明 capability | 明确 unsupported，不伪造 canonical |
@@ -301,6 +315,8 @@ Demo/Spike 同 fixture reference、Cargo source boundary、fmt/check 和 clean-c
 - completed 和 stopped/interrupted old turn 均有 fixture；
 - A→B→C 冷启动 replay 与增量 replay 结果一致；
 - 非最后 turn、非终止 turn、cut mismatch 和 parent 缺失全部 fail-closed；
+- child `in_progress`、partial、pending tail/gap 和 source mutation 不产生 publishable
+  `ReplaceLastTurn`；只有 terminal + canonical read gate 才能交接；
 - 阶段 4 capability、mutation、ACK、checkpoint 和重放幂等通过；
 - 既有阶段 1–4 API 和测试没有破坏性变化；
 - 未接入产品 DB、WebSocket、IPC 或 Android。

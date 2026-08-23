@@ -5,7 +5,7 @@ owner: "@maintainer"
 last_updated: 2026-08-21
 source_of_truth: codex-rollout-collector
 related_code: [native/codex-rollout-demo, native/codex-rollout-compat-spike]
-related_docs: [docs/codex/codex-rollout-demo-design.md, docs/codex/codex-rollout-collector-codex-compatibility.md, docs/codex/codex-rollout-recorder-source-technical-reference.md, docs/codex/codex-history-sync-design-principles.md, docs/codex/codex-sync-app-history-ipc-consistency.md, docs/workflow/CONTRACTS.md, docs/workflow/DECISIONS.md]
+related_docs: [docs/codex/codex-rollout-demo-design.md, docs/codex/codex-rollout-collector-codex-compatibility.md, docs/codex/codex-rollout-recorder-source-technical-reference.md, docs/codex/codex-history-sync-design-principles.md, docs/codex/codex-history-sync-head-transition-source-replacement-contract-draft.md, docs/codex/codex-history-sync-sequence-test-vectors-contract-draft.md, docs/codex/codex-sync-app-history-ipc-consistency.md, docs/workflow/CONTRACTS.md, docs/workflow/DECISIONS.md]
 ---
 
 # Codex Rollout 正式解析采集器架构

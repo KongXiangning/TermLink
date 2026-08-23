@@ -370,7 +370,13 @@ App history sync（App 在线时）
 
 Node DB transaction 不等待 App ACK；App ACK 只确认 App 本地已经提交。A→B、WebSocket 断开或 App 重启时，只能取消/隔离 A 的 App-facing sync、旧 generation、page/chunk 和 UI 投递，不能取消已经创建的 Node durable job。
 
-该 job 必须以 conversation + terminal epoch single-flight，成功后发布 canonical revision；失败、超时、超限、source mutation、identity mismatch 或不完整结果时保留旧 canonical 数据并进入 `partial`/`failed`，等待后续 scheduler retry。普通 A→B→A 不因此变成一次新的完整历史读取。
+该 job 必须以 conversation + terminal epoch single-flight，成功后再进入
+`conversationCommitKey=(authenticated revisionScope, conversationId)` 的 Node canonical
+commit lane。前者只负责 scheduler 去重和恢复，不能替代后者的 durable row lock/CAS；不同
+terminal epoch 或不同触发原因形成的 candidate 即使并行构建，也只能在 commit lane 内按
+base/head/source fence 重新校验后发布。失败、超时、超限、source mutation、identity
+mismatch 或不完整结果时保留旧 canonical 数据并进入 `partial`/`failed`，等待后续 scheduler
+retry。普通 A→B→A 不因此变成一次新的完整历史读取。
 
 ### 5.6 A→B→A、断线和 App 重启
 
@@ -547,6 +553,18 @@ TaskOutcomeDto
 
 表名是逻辑要求，不在本文冻结具体数据库产品、ORM 或字段迁移实现。正式实现必须通过 migration、repository 和可测试事务承载这些语义，不能继续把 `data/codex-rollout-*` 当产品库。
 
+Node canonical writer 的提交 scope 固定为：
+
+```text
+conversationCommitKey = (authenticated profile/endpoint/tenant partition, conversationId)
+```
+
+每个 scope 必须有可持久化恢复的 `commitFence`/row version 和 operation ledger。普通
+canonical upsert、last-turn replacement、coverage/completeness publication 与 product source
+replacement 共享同一 conversation commit lane；Rust 读取/解析和 candidate staging 可以并行，
+不同 conversation 可以并行，但同一 conversation 的 canonical transaction 不能并发提交。
+`commitFence` 不下发 App，也不能被 `syncId`、`clientSelectionGeneration` 或 App ACK 替代。
+
 ### 7.2 Node 导入事务顺序
 
 阶段 5C 的 DB adapter 应保持阶段 4 已验证的提交顺序：
@@ -564,10 +582,17 @@ TaskOutcomeDto
 必须满足：
 
 - `itemKey`、`batchId` 和 mutation 幂等；
+- Node 在进入上述写入序列前捕获 conversation 的 base fence；真正 transaction 内必须通过
+  行锁或 CAS 重检 active head、source fence、server revision 和 operation identity；
+- 同一 `(authenticated scope, conversationId)` 只有一个 canonical promotion transaction
+  可以 COMMIT；内存 single-flight 只能优化争用，不能作为 Node 重启或多 worker 的正确性依据；
 - 同一 completeness 只有更高 revision 才能更新正文、派生字段或 cursor；
 - canonical partial/不完整结果不能覆盖已完成的 canonical history；IPC live projection 不进入此事务；
 - 新 source epoch 的 replacement 必须先完成完整 preflight，再清理旧可见 scope，并持久化 retired tombstone/current-epoch fence；
 - checkpoint 必须晚于 derived data 写入；
+- Node 不得持有 conversation 写锁等待 Rust I/O、source backfill、WebSocket 或 App ACK；
+- COMMIT 前失败按事务回滚，COMMIT 后响应丢失按 operation 幂等重放；stale base 只能重新
+  preflight 或 fail-closed，不得覆盖新 head/source；
 - Node 重启或 analyzer 重启后可以依据 checkpoint 有界重放；
 - 任何不完整 provenance、source anchor、cursor 或 completeness 证据都 fail-closed。
 
@@ -737,7 +762,8 @@ Rust Analyzer 不负责：
 - stable item/batch/mutation 幂等约束和事务；
 - manifest、delta、older page、detail ref 的查询 repository；
 - server revision、coverage、anchor 和 completeness 的 read model；
-- DB 重启、重复写入、并发 single-flight 和失败保留旧数据测试。
+- conversation 级 durable commit fence、operation ledger、DB 重启、重复写入、并发
+  single-flight/提交冲突和失败保留旧数据测试。
 
 阶段 5A 完成前，不能把阶段 4 File Store 直接称为正式产品持久化。
 
@@ -809,6 +835,9 @@ Rust Analyzer 不负责：
 11. history envelope 不超过 256 KiB，payload chunk 不超过 128 KiB；
 12. `liveCoverage` 与 `canonicalCompleteness` 必须分开；T0/T1/T2 中的 T1 live gap 允许存在，不能用 IPC 重连或 history sync 完成替代 canonical completeness；
 13. 没有实际 durable buffer/event log 证据时，不得宣称 IPC 事件跨崩溃、跨 Node 重启无损恢复；canonical source reconciliation 失败或未稳定时必须保持 `canonical_pending`/`partial`。
+14. Node 同一 `(revisionScope, conversationId)` 的 canonical publication 必须通过持久化
+    conversation commit lane；相同 operation 只能产生一次 revision，stale base/迟到
+    candidate 不能覆盖更新 head/source，不同 conversation 才允许并行提交。
 
 ## 13. 依据和关联文档
 

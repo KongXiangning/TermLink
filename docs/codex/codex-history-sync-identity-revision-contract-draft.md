@@ -3,11 +3,16 @@ title: TermLink Codex history identity and revision contract (phase 4.5, item 2)
 status: draft
 phase: 4.5
 item: serverRevision, rootHash, coverageRoot, anchor and cursor
-last_updated: 2026-08-21
+last_updated: 2026-08-22
 source_of_truth: draft-design-only
 related_docs:
   - docs/codex/codex-history-sync-design-principles.md
   - docs/codex/codex-history-sync-wire-contract-draft.md
+  - docs/codex/codex-history-sync-turn-dto-mapping-contract-draft.md
+  - docs/codex/codex-history-sync-head-transition-source-replacement-contract-draft.md
+  - docs/codex/codex-history-sync-capability-compatibility-size-contract-draft.md
+  - docs/codex/codex-history-sync-sequence-test-vectors-contract-draft.md
+  - docs/codex/codex-last-turn-replacement-server-sync-design.md
   - docs/codex/codex-sync-app-history-ipc-consistency.md
   - docs/codex/codex-rollout-collector-architecture.md
   - docs/workflow/CONTRACTS.md
@@ -31,7 +36,7 @@ related_code:
 - `docs/codex/codex-rollout-collector-architecture.md` 中的 source epoch、item revision、
   analyzer checkpoint 和 cursor safety。
 
-本文只收敛以下身份和版本语义：
+本文在第 4–10 项完成后，统一回填以下身份和版本语义：
 
 1. `serverRevision` 的 scope、单调性、提交和 source replacement 规则；
 2. `rootHash` 的覆盖域和 v1 字节算法；
@@ -43,13 +48,33 @@ related_code:
 本文不开始正式 history provider、数据库 migration、Node importer 接入或 Android
 SQLite 实现。它也不改变 IPC healthy surface 是实时正文唯一权威的既有结论。
 
+### 0.1 第 4–10 项统一回填基线
+
+Codex “最后一个已终止 turn 编辑后重发”的业务约束，当前以
+[最后一个 turn 替换的服务端同步设计](codex-last-turn-replacement-server-sync-design.md)
+作为跨文档设计输入。第 4–10 项已经完成设计收敛，本文件现在把下列规则作为同一 identity/
+revision 基线：
+
+- `serverRevision` 是认证分区 + conversation 的已提交 canonical snapshot publication 水位；
+- `rootHash`、`coverageRoot`、itemCount、anchor 和 older cursor 只针对 active canonical
+  projection，retained superseded rows 不进入 hash/order/coverage；
+- 合法 last-turn replacement 是一次 active head transition：old turn 退出 active projection、
+  new turn 进入 active projection、replacement relation 一并提交，并发布一个新 revision；
+- `canonicalSnapshot` 与 `reconciliation` 分层；后台失败保留最后一个成功 snapshot/revision；
+- App-facing `sourceEpoch` 是已发布 product source fence；正常 parent→child head transition
+  不改变它，Rust physical source epoch 不直接冒充 App epoch；
+- `turn_replaced`、turn DTO、ACK、旧 App fallback 和 pageHash v2 的边界由相关第 4–10 项草案
+  共同约束。
+
+本文仍是 draft，剩余差异属于实现、数据库、validator 和回归测试，不再保留旧的混合状态定义。
+
 ## 1. 冻结候选总表
 
 | 字段 | 所属事实 | 冻结候选语义 | 不能替代 |
 |---|---|---|---|
 | `serverRevision` | Node canonical read model | 认证分区 + conversation 内的已提交发布水位 | analyzer `revision`、source epoch、IPC surface revision、sync sequence |
-| `rootHash` | 当前 materialized history projection | 当前 checkpoint 所代表的有序 item 集合的内容/顺序根 | serverRevision、完整性状态、source identity |
-| `coverageRoot` | 一段已声明 coverage 的 item 集合 | 该 range/segment 的有序 item 集合根 | 全历史 root、无缺口证明、cursor 本身 |
+| `rootHash` | 当前 active canonical projection | 当前 checkpoint 所代表的 active 有序 item 集合的内容/顺序根 | serverRevision、完整性状态、source identity |
+| `coverageRoot` | active projection 的一段已声明 coverage | 该 range/segment 的 active 有序 item 集合根 | 全历史 root、无缺口证明、cursor 本身 |
 | `newestAnchor` | range 边界 | range 中最后一个 item 的 `(itemKey, contentHash)` | 时间戳、文件名、读取顺序 |
 | `oldestAnchor` | range 边界 | range 中第一个 item 的 `(itemKey, contentHash)` | analyzer persisted anchor、全局 cursor |
 | `nextOlderCursor` | server read-model 分页 | 针对当前 scope、source epoch、range 和 oldest anchor 的不透明续页句柄 | Rust cursor、page index、syncId、rootHash |
@@ -104,12 +129,14 @@ revisionScope = authenticated profile/endpoint/tenant partition + conversationId
 以下变更在同一 scope 的一次成功事务中应共同发布一个新 revision：
 
 - `history_items` 的新增、删除、正文/contentHash、canonical order 或可见 DTO 字段变化；
+- 合法 last-turn active head transition：old terminal turn 从 active projection 退出、new
+  turn 进入 active projection、replacement relation 和关联 DTO 一起提交；
 - `tool_details`、`usage`、`task_outcomes` 等已暴露给 App 的派生字段变化；
-- source epoch replacement、current-epoch fence 或 source provenance 的可见变化；
+- 成功接受的 product source replacement、published source fence 或 source provenance 的可见变化；
 - `coverageRoot`、anchor、older cursor、`coverageComplete`、`hasMoreBefore` 等同步
   read-model 元数据变化；
-- `canonicalStatus` 从 `live_incomplete`、`canonical_pending`、`partial`、`failed`、
-  `canonical_complete` 中的一种转为另一种，且该状态被持久化并对 App 可见。
+- `canonicalSnapshot.state` 从 `none`、`partial`、`complete` 中的一种转为另一种，且该
+  快照状态随 publication 对 App 可见。
 
 以下行为不得产生新 revision：
 
@@ -117,13 +144,24 @@ revisionScope = authenticated profile/endpoint/tenant partition + conversationId
 - WebSocket frame、App ACK、selection generation 或 sync sequence 变化；
 - IPC live surface、follower acquire/release、owner snapshot 或 reconnect replay；
 - source flush/scan 没有形成可见 read-model 变化；
+- 只发现 child rollout、只更新 `reconciliation.state`/attempt/diagnostic，或 reconciliation
+  失败而未发布新 snapshot；
 - 相同 batch、相同 item upsert、相同 source checkpoint 的幂等重放；
 - 失败并回滚的数据库事务；内部 retry counter、日志和诊断字段未进入 read model 时也
   不产生 revision。
 
-如果 canonical status 本身没有持久化为可查询 read-model 字段，则内部 job 状态变化不
-应伪造新的 `serverRevision`；对外只报告已有 revision 加上 `canonical_pending`/`failed`
-诊断。反之，一旦状态被持久化并由 manifest 暴露，它就是 revisionable state。
+`reconciliation.state` 即使持久化并由 manifest 暴露，也不自动成为 publication revision；
+它只能回显当前尝试。只有 `canonicalSnapshot` 的已发布状态、内容、coverage 或 product
+source fence 改变时，才产生新的 `serverRevision`。
+
+对 last-turn replacement，child turn 的“进入 canonical”有单独门槛：child 必须已经是
+明确 terminal（`completed` 或 `interrupted`；产品 `stopped` 按现有映射归入 terminal），并且 child rollout 读取、
+解析、source checkpoint 和 canonical completeness 均通过校验。child 仍为
+`in_progress`、`partial`、解析失败或 source 不稳定时，只能留在 reconciliation/staging；
+parent snapshot/head 不变，不能发布 `turn_replaced`，也不能产生 `serverRevision`。
+只有 Node 的 old-state + new-turn + relation + active-root/checkpoint 整体 COMMIT 成功后，
+才同时产生 child canonical publication 和一个新的 `serverRevision`。Node 事务前的
+Rust 结果、App frame、App ACK 都不构成 publication。
 
 ### 2.4 事务和 snapshot pinning
 
@@ -132,11 +170,15 @@ revisionScope = authenticated profile/endpoint/tenant partition + conversationId
 ```text
 校验 source/provenance/mutation/completeness
     → 写 history_items / tool_details / usage / task_outcomes
-    → 写 source epoch、coverage、anchors、cursor、canonicalStatus
+    → 写 active projection、published source epoch、coverage、anchors、cursor、canonicalSnapshot
     → 分配本 scope 的下一个 serverRevision
     → 在同一事务提交 read model + revision metadata
     → 对外提供该 revision 的 immutable read snapshot
 ```
+
+`reconciliation` 的 queued/running/failed/cancelled 状态可以由后台作业单独持久化，但不能
+覆盖正在对外提供的 canonical snapshot；若尝试成功并且产生了可见 publication，则与新的
+snapshot/revision 一起记录 succeeded 结果。
 
 要求：
 
@@ -149,10 +191,57 @@ revisionScope = authenticated profile/endpoint/tenant partition + conversationId
 - Node durable lane 不等待 App ACK。App ACK 只证明该 revision 的对应 page/segment 已
   在 App SQLite 原子提交。
 
-同一个事务如果同时改变 item、coverage 和 canonical status，只增加一次 revision。
+### 2.4.1 Node conversation 级提交 fence
+
+Node canonical publication 的提交 scope 与 revision scope 相同：
+
+```text
+conversationCommitKey = (authenticated revisionScope, conversationId)
+```
+
+同一 key 下，普通 canonical upsert、last-turn replacement、coverage/completeness 发布和
+product source replacement 必须进入同一条 Node 提交线；不同 conversation 可以并行。Rust
+读取/解析、candidate staging、只读 manifest/page 查询可以并行，但它们不能绕过提交线修改
+`activeRolloutId`、root、checkpoint 或 `serverRevision`。
+
+Node state 至少要有一个内部、持久化的 `commitFence`/row version。每个 candidate 在提交前
+记录 `baseCommitFence`、`baseServerRevision`、`baseActiveRolloutId`、published
+`sourceEpoch` 和 operation identity；真正 transaction 内必须重新读取 state 并通过行锁或
+CAS 重检这些值。内存 mutex 只是优化，不是多 worker 或 Node 重启后的正确性依据。
+
+重检通过后，canonical rows、active head、root/coverage/checkpoint、change log、
+`serverRevision + 1` 和 `commitFence + 1` 一起提交；冲突、回滚、死锁重试或 stale
+candidate 不产生公开 revision。相同 operation 的重放由 operation ledger 返回原
+`committedRevision`；不同 operation 不能把旧 base 与新 head/source epoch 盲目合并，必须
+重新 preflight 或 fail-closed。`commitFence` 不下发 App，也不与 `clientSelectionGeneration`、
+`syncId`、App checkpoint fence 或 Rust `sourceEpoch` 混用。
+
+Node 不持有 conversation 写锁等待 Rust I/O、WebSocket 或 App ACK；App ACK 只确认 App
+SQLite 的本地提交，不参与 Node canonical commit 的互斥和顺序。
+
+同一个事务如果同时改变 item、coverage 和 `canonicalSnapshot`，只增加一次 revision。
 同一 batch 的重放若没有新的有效变化，必须返回第一次提交的 revision，不得再次递增。
 
-### 2.5 Source replacement 和 revision rollback
+### 2.5 Active head transition、source replacement 和 revision rollback
+
+合法的最后 turn 编辑重发不是 product source replacement：
+
+```text
+已发布 E1/R41/head=A
+    → 发现 child rollout，验证 cut=parent 最后一个已终止 turn
+    → old A-turn superseded + new B-turn active
+    → 发布 E1/R42/head=B
+```
+
+因此 active head 变化会推动 `serverRevision`，但 App-facing product `sourceEpoch` 仍为
+`E1`；parent/child rollout id、Rust source epoch 和 cut 作为 Node/Rust provenance/fence 保存，
+不能被 App 当作新的 product epoch。
+
+replacement identity 也遵守同一条分层：Rust 输出的 `replacementKey` 是 source fact，Node
+校验通过后逐字节复用为唯一的 wire/DB/App `operationId`。`operationId` 相同且 old/new
+identity/evidence 相同才是幂等 replay；同一 old turn 被不同 operation 替换，或同一 operation
+内容冲突，必须 fail-closed。它不参与 `rootHash`，也不生成新的 `serverRevision`，只有对应
+replacement transaction 成功发布时才随该 publication 一起出现。
 
 source replacement 的处理是：
 
@@ -163,7 +252,20 @@ source replacement 的处理是：
     → 原子发布 revision R+N（N >= 1）
 ```
 
-- 新 epoch 的每-item `revision` 可以重新从 source progress 开始；它不影响 server
+这里的“新 source epoch”是 **已接受并发布的 product source epoch**。仅有 Rust candidate
+epoch、物理文件变化、child 发现、解析失败或 partial gap，都不能提前覆盖当前 epoch：
+
+```text
+E1/R41 + 尝试 E2 失败
+    → canonicalSnapshot 仍指向 E1/R41
+    → reconciliation=failed(target=E2)
+    → serverRevision 不增加，旧 cursor/anchor/cache 仍有效
+```
+
+只有 E2 通过 source/provenance/completeness 校验并成功提交新 baseline 后，才发布 E2 和新
+revision；不存在把已发布 revision 回退到 E1 之前或把失败 candidate 直接发送给 App 的路径。
+
+- 新 product epoch 的每-item `revision` 可以重新从 source progress 开始；它不影响 server
   revision 的单调序列；
 - 即使新 epoch 偶然产生相同的 rootHash，也必须因 `sourceEpoch` 不同而要求 App 做
   replacement/recovery，不能按普通 overlap 合并；
@@ -238,16 +340,19 @@ itemRootV1(items) = SHA-256(
 
 ### 4.1 覆盖域
 
-`rootHash` 是 **当前 checkpoint/materialized projection 所代表的有序 item 集合** 的
-itemRootV1。它不是一个在所有状态下都自动代表完整 conversation 的全局 hash。
+`rootHash` 是 **当前 checkpoint 所代表的 active canonical projection 有序 item 集合**
+的 itemRootV1。服务端可以物理保留 superseded turn/old item 作为审计或 provenance，但这些
+retained rows 不属于 root 的输入，也不属于正常 active order。
 
 - `complete=true` 且 `coverageComplete=true` 时，root 的 item 集合必须是该 scope 的
   全部 canonical history；此时它是 full conversation root；
 - `complete=false` 或 coverage 不完整时，root 只表示当前已提交/已返回的 item 集合，
   不能推出缺少的旧 item 不存在；
+- active head transition 后，old turn 的 items 从 active root/order 中退出，new turn 的
+  items 进入；old rows 不通过 `deletes` 伪装成物理删除；
 - App 合并 tail、older page 或 overlap 后，其 checkpoint `rootHash` 重新覆盖当前
-  materialized item 集合；它可能与某一个单独 page 的 `coverageRoot` 相同，也可能不同；
-- server manifest 的 `rootHash` 是该 manifest snapshot 的目标 materialized root；
+  active materialized item 集合；它可能与某一个单独 page 的 `coverageRoot` 相同，也可能不同；
+- server manifest 的 `rootHash` 是该 manifest snapshot 的目标 active materialized root；
   App 只有在所有 page/segment 提交后才能把它写入 checkpoint。
 
 因此以下判断是强制的：
@@ -256,15 +361,16 @@ itemRootV1。它不是一个在所有状态下都自动代表完整 conversation
 rootHash 相等
     ≠ 证明 coverage 相等
     ≠ 证明 source epoch 相等
-    ≠ 证明 canonicalStatus=canonical_complete
+    ≠ 证明 canonicalSnapshot.state=complete
 ```
 
-这些结论必须分别由 coverage metadata、sourceEpoch/serverRevision 和 canonicalStatus
+这些结论必须分别由 coverage metadata、sourceEpoch/serverRevision 和
+`canonicalSnapshot`/`reconciliation`
 提供。
 
 ### 4.2 Legacy partial root
 
-现有 v1 provider/service 在 partial tail 或 older page 中可能把该页 item 集合的
+现有 v1 provider/service 在 partial tail 或 older page 中可能把该页 active item 集合的
 `buildConversationRoot(items)` 放入 `rootHash`。这属于兼容 wire 的 scoped partial root：
 
 - 接收方必须结合 `complete=false`、`coverageComplete`、range 和 anchors 解读；
@@ -278,8 +384,8 @@ rootHash 相等
 
 ### 5.1 它是 range item root，不是“无缺口证明”
 
-`coverageRoot` 是当前 `range`/segment 声明覆盖的 **该段有序 item 集合** 的
-`itemRootV1(itemsInRange)`。
+`coverageRoot` 是当前 `range`/segment 声明覆盖的 **active projection 该段有序 item 集合**
+的 `itemRootV1(itemsInRange)`。
 
 - range items 必须先规范化为 oldest → newest 再计算；
 - `coverageRoot` 可以与 `rootHash` 相同，但二者相同只说明两个输入 item 集合相同；
@@ -301,9 +407,9 @@ coverage root，这与本节 v1 语义一致；它没有因此获得 source cont
 | 情况 | `rootHash` | `coverageRoot` | 可推出的结论 |
 |---|---|---|---|
 | full canonical snapshot | full item root | 可等于 rootHash | 在 `complete=true` 且 `coverageComplete=true` 时可声明完整 |
-| tail range | 当前 materialized/tail root | tail item root | 只证明该 tail 集合和它的 range metadata |
-| older page | 合并后的 App/materialized root | 当前 older page item root | 只证明该 page，可继续向前分页 |
-| 无 coverage 证据 | materialized root 或 null | null | 不能声明 range continuity |
+| tail range | 当前 active materialized/tail root | tail active item root | 只证明该 tail 集合和它的 range metadata |
+| older page | 合并后的 App active materialized root | 当前 older page active item root | 只证明该 page，可继续向前分页 |
+| 无 coverage 证据 | active materialized root 或 null | null | 不能声明 range continuity |
 | 已证明空 full history | empty itemRootV1 | empty itemRootV1 或 null（按 DTO 是否表达 range） | 空历史已被证明；与未知历史不同 |
 
 ## 6. Anchor
@@ -420,34 +526,43 @@ read-model binding，不能把 Rust cursor 原样暴露为公共 App DTO。普�
 
 ### 8.1 Canonical read-model capability
 
-建议以 additive capability 暴露本轮字段：
+本轮字段通过既有 `codex_capabilities` advertisement、请求中的 `capabilityOffer` 和
+`conversation_history_capability_ack` 的 additive handshake 暴露：
 
 ```json
 {
-  "canonicalReadModel": {
-    "enabled": true,
-    "version": 1
+  "capabilities": {
+    "canonicalReadModel": {
+      "enabled": true,
+      "version": 1,
+      "cacheSchemaVersion": 3
+    }
   }
 }
 ```
 
-它是 read-model metadata capability，只要求 `enabled/version`，不重复声明
-`cacheSchemaVersion`。旧 App 未声明该 capability 时，Node 继续提供第 1 项草案的
+它是 read-model metadata capability；实现中的 capability block 仍回显 `enabled/version`
+和所依赖的 `cacheSchemaVersion`，不把 Rust parser 版本混入其中。旧 App 未声明该 capability 时，Node 继续提供第 1 项草案的
 legacy root/checkpoint path；不得让 `serverRevision`、source epoch 或 coverage metadata
 成为旧 App 的隐含 required 字段。
 
 当 `canonicalReadModel.version=1` 开启时：
 
 - `ConversationHistoryManifest.serverRevision` 必填；
-- manifest 的 `rootHash`、`coverageRoot`、anchors、cursor、`canonicalStatus` 必须属于
+- manifest 的 `rootHash`、`coverageRoot`、anchors、cursor、`canonicalSnapshot` 和
+  `reconciliation` 必须属于
   同一个 pinned revision snapshot；
 - 携带 canonical item 的 delta/segment page 必须回显该 `serverRevision`，并在 page 内
   保持一致；payload chunk/segment fragment 必须继承同一 page revision，不能跨 revision
   拼装；
 - App staging 的提交条件是 `serverRevision + targetRoot + coverage metadata + generation`
   全部匹配，不能只看 `targetRoot`；
+- App `checkpoint` 必须把 `serverRevision` 和已发布 product `sourceEpoch` 作为一对 fence
+  原子保存；canonical lane 中缺少任一项都不能进入正文提交；
 - `serverRevision` 由 Node 发送，App request/ACK 不能创建、递增或回退它；ACK 可以在
   后续版本作为诊断回显，但不是 revision authority。
+- `history_turn_replacement_v1` 还必须协商成功；它要求 `cacheSchemaVersion>=3`、turn-level
+  atomic staging 和 `pageHashVersion=2`。未协商时只能走 active snapshot fallback。
 
 第 1 项现有 `historySync.version=1` 的 `pageHash` 输入没有 `serverRevision`。为保持旧
 Android golden hash，canonicalReadModel v1 将 revision 作为独立的 page/snapshot fence：
@@ -458,12 +573,27 @@ Node 必须先 pin snapshot，App 必须校验 revision；不能把它静默塞�
 
 | 载体 | revision/root/coverage 关系 |
 |---|---|
-| `ConversationHistoryManifest` | 给出该 snapshot 的 `serverRevision`、materialized `rootHash`、coverageRoot、anchors、cursor、status |
+| `ConversationHistoryManifest` | 给出该 snapshot 的 `serverRevision`、active `rootHash`、coverageRoot、anchors、cursor、`canonicalSnapshot`/`reconciliation` |
 | `conversation_history_delta` | page target 的 `serverRevision`、baseRoot、targetRoot、pageHash；range page 还带 range metadata |
 | `conversation_history_payload_chunk` | 只补属于同一 `(serverRevision, sequence, pageIndex, itemKey, payloadHash)` 的 payload，不独立改变 root |
 | `conversation_history_segment_start/fragment/commit` | segment start/commit 必须绑定同一 serverRevision、range、coverageRoot、pageHash；fragment 不得跨 segment 重用 |
-| `conversation_history_sync_state` | `manifest` 或 canonicalStatus 可说明当前 revision；`synced` 只表示 transport settled，不等于 complete |
-| App `checkpoint` | 原子保存已提交 materialized root、coverage root、anchors、cursor、complete/status 和最后观察到的 serverRevision |
+| `conversation_history_sync_state` | `manifest` 或 canonicalSnapshot/reconciliation 可说明当前 revision；`synced` 只表示 transport settled，不等于 complete |
+| App `checkpoint` | 原子保存已提交 active root、coverage root、anchors、cursor、canonicalSnapshot state、`serverRevision` 和 product `sourceEpoch` |
+
+App checkpoint 的 canonical fence 固定为：
+
+```text
+(serverRevision, sourceEpoch, rootHash, coverageRoot, anchors, nextOlderCursor, complete)
+```
+
+其中 `serverRevision/sourceEpoch` 要么同时为有效值，要么同时为 `null`。请求、manifest、
+delta、segment 或 ACK 只要发现该 pair 不一致、revision 回退、root/coverage 与 revision
+不一致，必须停止当前 staging，保留旧 checkpoint，并进入 bounded recovery；不能通过
+重新计算 rootHash 修补缺失的 revision/source fence。
+
+`clientSelectionGeneration` 是另一条独立的 App selection fence：它随每次 App selection
+变化递增，并与 `syncId`、conversationId、服务端 `selectionGeneration` 一起校验；它不
+进入 root/page hash，也不能替代 checkpoint 的 serverRevision/sourceEpoch。
 
 ### 8.3 Page/snapshot 混用门禁
 
@@ -482,9 +612,10 @@ Node 必须先 pin snapshot，App 必须校验 revision；不能把它静默塞�
 | 情况 | serverRevision | root/coverage | App 行为 |
 |---|---|---|---|
 | 新 canonical item 正常发布 | 严格增加 | root 通常变化 | staging delta，校验后提交 |
+| 合法 last-turn active head transition | 严格增加一次 | old turn 退出 active root，new turn 进入 | `turn_replaced` + old/new turn upsert 同一 sequence 原子提交 |
 | 只发布 coverage/status 变化 | 严格增加 | root 可不变，coverage/status 可变 | 更新 checkpoint metadata；不凭 root 相等跳过 revision |
 | 同 batch 幂等重放 | 不增加 | 全部保持 | 返回原 revision，禁止重复写入 |
-| source epoch replacement | 严格增加且不重置 | 即使 root 偶合相同也按新 epoch 处理 | 丢弃旧 cursor/anchor，执行 replacement/recovery |
+| product source replacement | 严格增加且不重置 | 即使 root 偶合相同也按新 product epoch 处理 | 丢弃旧 cursor/anchor，执行 replacement/recovery |
 | revision 回退 | 不允许对外出现 | 不可作为正常 delta | fail-closed，保留本地 cache |
 | partial → canonical complete | 严格增加 | coverage/root 可能变化 | 原子替换/升级，才可标记 complete |
 | canonical complete → partial/provisional | 普通 upsert 不允许 | 不得降级覆盖 | 保留已完成 canonical，报告失败/冲突 |
@@ -526,14 +657,26 @@ R=7, batch B 已提交，root=A
 
 ```text
 R=7, root=A, coverageRoot=C
-canonicalStatus partial → canonical_complete
+canonicalSnapshot partial → complete
 item set 不变
 ```
 
-结果：发布 `R=8`；root 可以仍为 A，coverage/status 必须取 R=8 的 snapshot。App 不能
+结果：发布 `R=8`；root 可以仍为 A，coverage/state 必须取 R=8 的 snapshot。App 不能
 只因 root=A 就跳过 R=8。
 
-### V5：source replacement
+### V5：last-turn active head transition
+
+```text
+published E1/R41/head=A
+child rollout passes cut validation; old turn is completed
+new turn B is terminal and its canonical read is complete/stable
+```
+
+结果：Node 原子提交 old `projectionState=superseded`、new active turn、replacement relation
+和 active root/checkpoint，发布 E1/R42。`sourceEpoch` 仍为 E1；old execution status 保持
+completed/interrupted 等原值。
+
+### V6：source replacement
 
 ```text
 old epoch E1, R=9, root=A, cursor=cursor-1
@@ -543,7 +686,17 @@ new epoch E2, new item set 偶然也得到 root=A
 结果：新 publication revision > 9；旧 cursor/anchor 必须失效；App 不能按 overlap 直接
 合并，因为 `sourceEpoch` 不同。
 
-### V6：older overlap
+### V7：failed candidate source
+
+```text
+published E1/R41
+candidate E2 parse/reconciliation fails
+```
+
+结果：保持 E1/R41/root/cursor；只记录 `reconciliation=failed(target=E2)`，不增加 revision，
+不清空 App cache，也不发送只含 E2 半成品的 delta。
+
+### V8：older overlap
 
 ```text
 oldestAnchor=(k2,h2)
@@ -553,7 +706,7 @@ older page 返回 k1, k2, k0
 结果：同 `(k2,h2)` 的 overlap 只保留一份；若 k2 的 hash 变成 h3，必须 fail-closed；
 新 checkpoint 的 oldestAnchor 变为 k0，且 cursor 与新边界一起原子提交。
 
-### V7：cursor binding mismatch
+### V9：cursor binding mismatch
 
 ```text
 cursor.sourceEpoch=E1
@@ -563,7 +716,7 @@ current server sourceEpoch=E2
 结果：拒绝 older page，返回 source replacement/recovery；不得尝试把 cursor 当成普通
 offset 继续读。
 
-### V8：revision rollback
+### V10：revision rollback
 
 ```text
 client checkpoint.serverRevision=12
@@ -592,9 +745,6 @@ server failure 诊断。
 - 当前 Android/Node checkpoint 仍主要消费 legacy root、coverage、anchor、cursor 字段，
   不能在没有 capability 和 DB snapshot 的情况下宣称本契约已经落地。
 
-下一项应在本文件定义的 scope、revision 和 hash/coverage 语义之上，冻结：
-
-1. `ConversationHistoryManifest`、`HistoryItemDto`、`ToolDetailDto`、`UsageDto`、
-   `TaskOutcomeDto` 的逐字段映射；
-2. `canonicalStatus`、partial/failed 和 server revision 在 DTO 中的确切表达；
-3. canonical read-model capability 与旧 App 的协商/降级矩阵。
+DTO、wire、ACK、turn/source、capability 和时序条目的设计已经统一回填；剩余工作是 Node
+canonical DB、provider、Android storage、schema validator、hash fixture 和第 10 项向量的
+实现回归，不在本文件中另造 revision 或 identity 语义。
