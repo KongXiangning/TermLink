@@ -14,6 +14,7 @@
 - [x] Codex Rollout Collector 阶段 4 follow-up（任务 `20260820-003`）：在原隔离 Rust↔Node scope 内补齐 malformed canonical fail-closed、协议级 `resource_limits.timeout_ms`、无 cursor replay 的 persisted checkpoint source 校验、同 epoch replacement 单次门禁与 analyzer 异常重启有限重放；证据为 Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、7 stage4 protocol、Node 13/13。该 follow-up 不扩展到既有 server/DB、IPC、Android 或 release 集成。
 - [x] Codex Rollout Collector 阶段 4 fail-closed follow-up（任务 `20260820-003`）：补齐 complete/checkpoint 严格证据、mutation 元数据和 replacement preflight、同级 revision fence、显式 source identity，以及持久化 retired epoch tombstone/current-epoch fence；证据为 Node 19/19 与 Rust 全量目标 suite 通过。该 follow-up 不扩展到既有 server/DB、IPC、Android 或 release 集成。
 - [x] Codex Rollout Collector 阶段 4 completion follow-up（任务 `20260820-003`）：补齐当前 request batch 门禁、checkpoint completeness/source progress 单调性和按 `item_key` 绑定的 mutation revision；Node 22/22 与 Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、8 stage4 protocol 通过。任务已于 2026-08-21 归档至 `TASKS/TASK-20260820-003-codex-rollout-collector-stage-4-runtime-and-conformance.md`；稳定边界仍只覆盖隔离 Rust↔Node artifact，不扩展到既有 server/DB、IPC、Android 或 release 集成。
+- [x] Codex Rollout Collector 会话级 discovery / lineage read（任务 `20260823-001`）：已完成有界日期目录发现、文件名/SessionMeta/`history_base` 关联、root→active head 完整历史重建（保留被替换 turn），以及 full Replay、tail/backward、backfill、同文件 append 和 child transition；同时输出 coverage、provenance、checkpoint 与 replacement evidence，并按 Codex sibling 规则实现同目录同名 plain `.jsonl` 优先。证据为 Rust 96 unit、31 conformance、3 stage2、5 stage3、22 stage4，另有 fmt、diff check、敏感信息扫描和提交前检查通过。稳定声明只覆盖隔离 Rust Collector 的 source/lineage/protocol 能力；普通无索引 `.zst` 仍为 forward-only，Node/服务端数据库、App ADTO、IPC、Android、release/deploy/canary/benchmark 均不在本项范围。
 
 - [x] Session 基础管理 API：list / create / rename / delete
 - [x] Session 元数据 JSON 持久化与 idle 保留
@@ -38,6 +39,7 @@
 - [x] Android Codex Header / composer 布局回归 follow-up：任务 `20260722-001` 已完成。恢复左侧会话管理 drawer 入口，移除无实际系统 inset 时强制产生的 36dp composer 底部空白，并在不改变 composer 外框高度的前提下把提示、光标和首行改为顶部起笔。Android JVM 163/163、owner/gateway targeted 45/45、debug APK、360/412dp Huawei 真机 drawer/IME/视觉 smoke 通过；三键导航非零 inset 由单测覆盖，未切换系统导航模式补人工截图。
 ## 🔨 正在开发
 
+- [ ] `20260823-001` Codex Rollout Collector 会话级 discovery / lineage read：实现、最终审查与关键回归已完成，当前任务进入 `completed_ready_for_closeout`，仅待 path-scoped workflow closeout；该状态不表示 Rust 实现仍有已知阻断缺口。Codex 文件名与 `history_base` 兼容性仍需随 vendor/上游变化维护 fixture，稳定边界不扩展到 Node/服务端数据库、App ADTO、IPC、Android 或 release 集成。
 - [ ] `20260820-001` Codex Rollout Collector 阶段 2 输入层与兼容层：实现、review/contract/regression 和最终兼容验收均已完成；当前任务包仍保持 active，仅待 `sync-contracts`、交付摘要与 closeout/归档。该状态不表示仍有实现缺口；稳定边界不扩展到 P0-C、P0-B.4R、完整 analyzer 或 Node/Android/IPC/数据库集成。
 - [ ] `20260820-002` Codex Rollout Collector 阶段 3：实现、review、contract、regression 与 R-009/R-003 验收均已完成；当前任务仍保持 active 仅待 path-scoped workflow closeout，R-010 任务外 dirty/untracked owner 需用户后续处理，不阻塞 formal 代码交付。稳定边界不扩展到完整 analyzer、Node/Android/IPC/数据库或 release。
 - [ ] Codex 单权威路由与 TermLink Owner 控制面修复：任务 `20260727-002` 已完成服务端 authority router、完整 follower input、显式新任务 Owner 广播、Owner incoming control proxy、turn authority ledger、禁止静默换线程，以及 Android route-state / recovery confirmation 的实现；本轮 Owner re-entry/history continuity 最小修复也已验证（Node 172/172、Android focused JVM 81/81、JDK 21 APK 构建安装启动、真机 A→B→A smoke）。仍需 Windows Desktop / VS Code 双宿主写入式 smoke 与完整 Goal 长任务验收，当前继续记为 in-development / observing，未合并 Main；旧任务 `20260727-001` 已 superseded。
@@ -115,6 +117,7 @@
 
 ## 🔜 下一检查点
 
+- [ ] 完成 `20260823-001` workflow closeout：按下一 handoff 执行 `sync-contracts`，随后准备交付摘要/归档；保持会话级 discovery/lineage 能力在隔离 Rust Collector 边界内，不扩展到产品持久化、App ADTO、IPC、Android 或 release。
 - [ ] 完成 `20260820-001` workflow closeout：按下一 handoff 执行 `sync-contracts`，随后准备交付摘要/归档；保持阶段 2 稳定声明在 native formal package 输入/兼容边界内，不扩展到 P0-C、P0-B.4R、完整 analyzer 或产品集成
 - [ ] 完成 `20260820-002` path-scoped closeout：用户确认 R-010 任务外 dirty/untracked 内容的 owner，或明确授权仅对指定任务路径执行 staging/commit；确认前不清理、移动、回滚、归档或提交任务外文件
 - [ ] 按新需求执行 `/create-current-task`，为下一轮建立新的任务包
@@ -126,6 +129,7 @@
 
 ## 最近更新记录
 
+- 2026-08-24：同步 `20260823-001` 会话级 Rust Collector 状态。跨日期 discovery、文件 lineage 关联、root→head 完整 Replay、tail/backward、backfill、同文件 append、child transition、coverage/provenance/checkpoint/replacement evidence，以及 plain-over-compressed sibling canonicalization 均已实现并通过 Rust 全量目标回归（96 unit、31 conformance、3 stage2、5 stage3、22 stage4）、fmt、diff check、敏感信息扫描和提交前检查；最新实现提交为 `a94dcbc`。该状态只进入隔离 native Rust Collector 稳定边界，未改变产品 Node/DB、App ADTO、IPC、Android 或 release/deploy/canary/benchmark 状态；当前任务仍待 `sync-contracts` 后 closeout。
 - 2026-08-19：同步 `20260819-001` Step 4 状态。P0-RC.1 正式 package 已通过 clean-checkout 与 Demo/Spike/formal 同 fixture 最终回归，formal package 为 9 项 unit、27 项 conformance、0 项 doc test，metadata 为 539 packages、0 Git sources、0 runfiles；alias、`UnknownEvent`/`ParseGap`、source-boundary 与 `target/**` ignore 证据齐全。正式 package 的稳定边界已登记，但任务包仍 active 以完成 workflow closeout；不改变 P0-C/P0-B.4R、完整 analyzer、Node/Android/IPC/数据库及 release readiness 状态。F-004 按用户指令忽略，下一 handoff 为 `sync-contracts`。
 - 2026-08-19：同步 `20260819-001` 当前状态。Step 3 formal vertical slice、legacy/current alias fixture/Adapter/`UnknownEvent`/`ParseGap` 对照及 F-023/F-024 收口已完成；`review-diff`、`review-implementation`、`verify-contracts` 与 diff-aware regression 通过。正式 package 当前为 9 项 unit、27 项 conformance、0 项 doc test，metadata 为 539 packages、0 Git sources、0 runfiles。F-001 clean-checkout build/test 与 Demo/Spike/formal 同 fixture conformance 仍待 Step 4，故任务继续列为 in-development，未新增稳定模块；F-004 按用户指令忽略。
 - 2026-08-19：同步 `20260819-001`。P0-RC.1 Step 2 正式 Rust package/vendor promotion 已完成；`review-diff`、`review-implementation`、`verify-contracts` 与 diff-aware regression 通过。正式 package 的 fmt/metadata/tree/check/build/test 均通过（scaffold 0 tests），vendor closure 197/197 无差异，metadata 实际 Git source 为 0，IPC/Android/Node/database 无 diff。Step 3 vertical slice、alias/UnknownEvent/ParseGap 实测、Demo/Spike/formal 同 fixture conformance 与 Step 4 clean-checkout build/test 仍待完成，故继续列为 in-development，不写入稳定区。

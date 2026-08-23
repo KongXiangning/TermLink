@@ -252,6 +252,46 @@
 - **应对动作**: 保留原始命令和缺失模块路径，分别报告业务回归与治理 health 结果；对当前任务只做文档/归档记录，不在 closeout 中顺手修改 `scripts/` 或生成替代 helper。
 - **Source**: `20260820-003` / 2026-08-21 closeout verification
 
+### L-023: 文件名只能发现候选，`history_base` 才能建立 session lineage
+
+- **场景**: Codex 的最后一次用户任务可以编辑重发，重发后会生成带 `history_base` 的子 rollout；子文件可能位于父文件之后的日期目录，服务重启后也可能只发现最新文件而跳过中间 rollout。仅按当前目录、文件名、mtime 或内存 checkpoint 选父子关系，会漏掉完整历史或误选 active head。
+- **结论**: session discovery 必须以显式 `sessions_root + conversation_id` 为入口，在受控日期范围内发现候选；文件名只用于候选和排序线索。必须用 `SessionMeta.id` 校验 rollout 身份，用 `history_base.thread_id`、ordinal/byte cut 建立父子证据，并沿唯一链回放到 active head；缺父、环、多头或无法排除的 root-like 候选必须 fail-closed。
+- **触发信号**: 实现从“当前日期目录”或文件名直接决定最新文件/父文件，未验证 `history_base`，或重启恢复只处理当前 head、没有中间链回放测试。
+- **应对动作**: 使用可复用的跨日期、多文件真实 fixture，分别验证候选 provenance、root→head 完整 replay、被替换 turn 保留、重启后跳过中间 rollout 的恢复，以及多头/缺父/环的拒绝路径。
+- **Source**: `20260823-001` / AD-014 / 真实 rollout session-lineage 验证
+
+### L-024: 发现范围、物理读取模式和 lineage 深度必须分开
+
+- **场景**: 曾把 `max_date_partitions` 这类发现范围参数混用为 lineage 深度限制，并把增量查询、向前查询描述成 rollout.jsonl 的“分页”。这会在长会话或多次重发后无故截断合法历史，也会让不同读取模式的 cursor 互相误用。
+- **结论**: rollout.jsonl 的物理读取不是分页。日期目录、候选数量和 discovery budget 只限制发现；不设置 `max_lineage_depth`，而由 cycle detection、取消、deadline、字节/段预算控制异常和资源。Full Replay 必须完整完成或明确失败/partial，不能静默按深度截断；tail、backward、append 使用彼此独立的读取语义和 cursor。
+- **触发信号**: 参数名称把日期分区、窗口或 lineage 层数混为一谈；一个 cursor 被多个读取模式复用；Full Replay 达到固定深度后仍返回看似成功的结果。
+- **应对动作**: 对深 lineage、单日期目录、环、取消/超时和不同 cursor 交叉使用建立回归；检查完整 replay 与分段/append 结果等价，并确认限制只落在实际 discovery/read 资源上。
+- **Source**: `20260823-001` / AD-015 / 方案 A 评审结论
+
+### L-025: lineage 证据不能直接充当 projection completeness
+
+- **场景**: 父子关系和 replacement cut 可能已经验证，但新文件仍可能存在未知事件、解析缺口或 stopped/interrupted 的不完整内容。若用一个 `status` 同时表示 lineage 验证、投影覆盖和任务执行状态，服务端或 App 可能过早替换旧历史，或把后台失败误报为当前历史失败。
+- **结论**: 必须分开表达 transition validation、lineage coverage、projection coverage、batch completeness 和 replacement mutation。只有覆盖完整且验证通过，才允许执行 `replace_last_turn` 的历史投影变更；partial/evidence-only 只能保留证据，不得提交替换。终止状态可以保留 replacement 证据，但不能因此伪造内容完整。
+- **触发信号**: 裸 `replacedTurnId` 被直接接受、`canonicalStatus`/`failed`/`complete` 覆盖多个层次，或 partial/stopped/interrupted 输入仍能发布完整替换结果。
+- **应对动作**: 用 evidence-only、partial、complete replacement 以及 stopped/interrupted fixture 验证状态分离；重复请求和服务重启后检查旧投影保留、替换原子性与幂等性。
+- **Source**: AD-017 / `20260823-001` replacement validation 与 coverage 设计
+
+### L-026: plain/compressed sibling 必须在 catalog 冲突前 canonicalize
+
+- **场景**: Codex 压缩转换期间，同一目录下可能同时出现同一 rollout 的 `.jsonl` 与 `.jsonl.zst`。若 discovery 直接把两条物理路径作为两个候选，会把正常的压缩过渡误判为 `AmbiguousRollout`。
+- **结论**: 仅对同目录、同 stem 的 sibling 做路径级 canonicalization：同时存在时 plain `.jsonl` 优先；只有 `.zst` 时保留它。不得跨目录按 rollout ID 合并，不得用 mtime/content hash 选择，不得在 plain 读取失败后静默回退 `.zst`。`.zst` parent 需要随机/后向/切点读取时必须按冻结策略 typed fail-closed。
+- **触发信号**: catalog 出现同目录同 stem 的 plain/compressed 双候选，或实现为 sibling 增加内容比较、时间比较、跨目录合并或失败回退。
+- **应对动作**: 固定 plain 优先、zst-only 保留、非 sibling 同 ID 仍歧义、zst parent fail-closed 四类回归，并以 Codex compression 源码行为作为兼容性依据。
+- **Source**: AD-016 / `a94dcbc` / Codex `compression.rs` 兼容性核对
+
+### L-027: host guidance 必须成对同步，并显式处理被忽略的文件
+
+- **场景**: workflow host sync 过程中，`AGENTS.md` 已存在并更新，但 `CLAUDE.md` 缺失；同时 `.gitignore` 可能忽略 `CLAUDE.md`，导致文件虽然已在工作树中生成，却不会出现在普通 `git status` 里。
+- **结论**: 项目治理规则变更后必须比较 AGENTS/CLAUDE 两侧内容，除标题外保持一致；缺失的一侧应从已确认规则生成。技能范围内不应顺手修改 `.gitignore`，但必须在 closeout 中报告“文件存在但被忽略”的持久化风险，避免把未显示在 Git 状态误认为未创建或已提交。
+- **触发信号**: 只有一侧 host guidance 更新、另一侧不存在/内容过期，或 `git status` 看不到预期文件而 `git check-ignore` 命中。
+- **应对动作**: 做双文件存在性、标题差异、内容等价和 `git check-ignore` 检查；保持本轮 scope 不扩展到 ignore 规则，另立治理任务处理是否纳入版本控制。
+- **Source**: 2026-08-24 `sync-host-guidance` closeout / 当前 TermLink workflow 收口
+
 - 场景：`node --test` full suite 报告"挂起"，但旧结论只是泛化地描述"full suite 会在后段挂起"，没有具体文件、测试名或执行阶段边界，导致 gate 状态长期停留在"知道有问题但无法行动"。
   - 结论：对挂起的 test suite，必须用文件级和测试名级拆分把挂起面收敛到可复述的最小单元，再区分"修复任务"和"gate 策略调整"。不能直接用旧结论跳过排查，也不能在边界未收敛时就调整 blocker gate。
   - 触发信号：full suite 超时未退出但没有具体失败测试名；旧文档中只有"suite 会挂"的泛化描述；验证矩阵中某 gate 长期无法执行但身份仍是 `blocks-merge`。
