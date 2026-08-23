@@ -39,9 +39,23 @@ prefix anchor、读取完整性和 replacement validation。
   原因是本次用户确认改变了长期 source-model 契约；风险限定为 parent full-read 的外部
   mutation 不再由整文件 fingerprint fail-closed，验证方式为 Rust stage4 定向/全量回归、
   格式检查和变更范围审查。
+- Scope widening（2026-08-24）：用户确认实施 Codex plain sibling 优先方案，允许新增修改
+  `native/codex-rollout-collector/src/source/discovery.rs` 与
+  `native/codex-rollout-collector/src/source/lineage.rs`。原因是 plain/压缩 sibling 的
+  canonicalization 位于 source discovery/catalog 层，无法仅由 stage4 protocol 完成；风险
+  限定为同名物理 rollout 候选的选择变化，不改变 `.zst` 读取能力、cursor、lineage 或产品
+  协议语义；验证方式为 source/catalog/discovery 回归、Rust 全量测试、格式检查和范围审查。
+- Scope widening（2026-08-24，文档同步）：最新实施方案明确要求同步
+  `docs/workflow/TECHNICAL_DETAILS-codex-rollout-collector.md`，用于记录上游 compression
+  sibling 证据和本地 source discovery 边界。该变更仅影响任务技术说明，不改变 workflow
+  契约、代码、产品协议或运行时行为；验证方式为文档差异审查、`git diff --check` 和 Rust
+  Collector 回归结果。
 - Allowed change set：`native/codex-rollout-collector/src/protocol/stage4.rs`、相关
   `native/codex-rollout-collector/tests/stage4_protocol.rs` 测试命名/证据、现有
-  `docs/codex/**` rollout source 文档、`docs/workflow/CONTRACTS.md`、
+  `native/codex-rollout-collector/src/source/discovery.rs`、
+  `native/codex-rollout-collector/src/source/lineage.rs`、
+  `docs/codex/**` rollout source 文档、`docs/workflow/TECHNICAL_DETAILS-codex-rollout-collector.md`、
+  `docs/workflow/CONTRACTS.md`、
   `docs/workflow/DECISIONS.md`、本文件。
 - Forbidden：Node 产品持久化、数据库、IPC、Android、vendor、`docs/workflow/STATUS.md`、
   `BASELINES.md`、`LESSONS.md`、任务外未跟踪文件及任何 destructive cleanup。
@@ -146,6 +160,8 @@ sessionsRoot + conversationId + 可选已知 rollout hint
   correctness contract。
 - parent auxiliary full-history read 不再依赖整文件 before/after fingerprint mutation guard；
   该删除不改变 `history_base`、cut、source identity、cursor、读取完整性或 replacement validation。
+- lineage 沿 `history_base` 一直解析到 root，不设置 `max_lineage_depth`；循环由 visited
+  检测，目录范围、候选数、读取字节、取消和 deadline 分别承担资源边界。
 
 ## 已解决的实施问题
 
@@ -189,6 +205,7 @@ sessionsRoot + conversationId + 可选已知 rollout hint
 4. **review and handoff** — completed：Rust 全量回归、真实目录四模式 smoke、旧 source 身份重启恢复和目标审查均完成；交付边界仍停留在 Rust Collector，不进入 Node 产品持久化或 App/IPC。
 5. **补充审查回归与五文件 synthetic/sanitized fixture** — completed：加入可复用的五文件合成跨日期 fixture，覆盖 full Replay、Preview、Backfill、最新路径重启恢复和 stale root-like provenance；复核同文件 Append/full lineage、父文件 mutation guard、active-head 歧义、transition validation state 与 `.zst` parent fail-closed 回归均在 Rust 测试中有证据。
 6. **调整 parent full-read mutation guard 契约** — completed：删除 parent auxiliary full-history read 的整文件 before/after fingerprint 校验，同步 Codex rollout source model 契约并完成 Rust 回归。
+7. **plain/compressed sibling canonicalization** — completed：按 Codex 同名 sibling 规则在物理候选发现和目录 catalog 阶段隐藏 `.jsonl.zst`，仅保留同目录同名 `.jsonl`；保持不同路径冲突、`.zst` forward-only 和显式候选绑定语义不变，并补充发现/catalog 回归。
 
 ## 回滚点
 
@@ -279,6 +296,28 @@ sessionsRoot + conversationId + 可选已知 rollout hint
   31 conformance、3 stage2、5 stage3、22 stage4）；`git diff --check` 通过。
 - External Documentation Gate：not applicable；本轮只调整项目内 Rust source contract 和既有
   Collector 读取逻辑，不新增或改变第三方 API/SDK/CLI 用法。
+- 当前 handoff：`review-diff`；保留任务外未跟踪 `native/parse-probe/`、`native/rustup-init.exe`、
+  `native/winlibs.zip`，未执行清理或提交。
+
+### 2026-08-24 — Codex plain/compressed sibling canonicalization
+
+- 用户确认实施最新方案：同目录同名 `.jsonl` 与 `.jsonl.zst` 并存时，按 Codex
+  `should_skip_compressed_sibling` 规则只保留 plain；不按 rollout ID 跨目录合并，不比较
+  mtime/内容，不对 plain 失败做 `.zst` fallback。
+- 修改 `source/lineage.rs` 的共享 sibling 判断和 `RolloutCatalog::from_directory`，以及
+  `source/discovery.rs` 的物理候选枚举；`RolloutCatalog::insert/from_candidates` 的显式
+  候选冲突语义保持不变。没有改变 ordinary `.zst` forward-only 或 parent compression
+  fail-closed 边界。
+- 新增 source/catalog/discovery 回归：plain 优先、zst-only 保留、非 sibling 相同 ID 仍
+  `AmbiguousRollout`；跨日期 discovery 也覆盖 sibling 被过滤后候选数量和链路不变。
+- 同步 architecture、Codex compatibility、recorder technical reference、Collector
+  technical details 和 change plan；未修改 Node、数据库、IPC、Android、vendor 或产品 DTO。
+- 验证：Rust library 96/96、stage4 protocol 22/22 通过；全量
+  `cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --all-targets --no-default-features`
+  通过（96 unit、31 conformance、3 stage2、5 stage3、22 stage4）；`cargo fmt --check` 与
+  `git diff --check` 通过。
+- External Documentation Gate：not applicable；本步只依据本地 `E:/coding/github/codex`
+  源码中的 compression sibling 规则，不新增或改变第三方 API/SDK/CLI 用法。
 - 当前 handoff：`review-diff`；保留任务外未跟踪 `native/parse-probe/`、`native/rustup-init.exe`、
   `native/winlibs.zip`，未执行清理或提交。
 
@@ -513,7 +552,7 @@ Codex 在编辑当前会话最后一个已终止用户问题后，不修改父 r
 - Status：resolved
 - File / symbol：`CodexRolloutCollector.analyze` 的 replay request 恢复、`stage4.rs::build_rollout_catalog` 与 `collect_lineage_replay`
 - Failure scenario：服务重启后只重新发现最新 active rollout C；B 没有在内存中处理，Rust 请求也没有 candidates/catalog_root，父链解析直接得到空 catalog 或 `ParentRolloutMissing`，无法恢复 A→B→C。
-- Minimal fix direction：把 replay 作为冷启动可恢复入口；空 lineage request 使用 active source 所在目录作为受限 catalog 根，沿每个 `history_base.parent_rollout_id` 递归解析，仍保留显式 `catalog_root` 优先级、最大深度和 fail-closed。
+- Minimal fix direction：把 replay 作为冷启动可恢复入口；空 lineage request 使用 active source 所在目录作为受限 catalog 根，沿每个 `history_base.parent_rollout_id` 递归解析，仍保留显式 `catalog_root` 优先级、循环/资源边界和 fail-closed，不用固定 lineage 深度截断合法历史。
 - Resolution：Node collector 对未显式提供 lineage 的 replay 自动补 `{}`；Rust 以 active source parent directory 发现同目录 Codex rollout，空 `history_base` 普通 replay 直接保持兼容；不依赖中间 rollout checkpoint 或内存状态。
 - Required test result：新增真实 Codex 文件名规则的 A→B→C latest-only/restarted-runtime 测试；Rust stage4 13 项、全量 Rust targets 73/31/3/5/13 通过；Node isolated 29 项通过。
 - Note：真实用户目录 raw Rust smoke 已输出两条 B/C replacement；其中原始样本另含未支持的 developer message，Node canonical projection 门禁按既有 fail-closed 规则拒绝该样本，不作为本修复的成功凭据。
@@ -869,3 +908,19 @@ Codex 在编辑当前会话最后一个已终止用户问题后，不修改父 r
 - 明确保留 stopped/interrupted turn 的双重语义：显式 abort 可使逻辑 coverage complete，但因内容可用性仍为 partial 而保持 `projection.complete=false`；因此 replacement validation 不会错误丢失，同时不会把不完整内容伪装成完整内容。
 - `cargo fmt --all` 与 `cargo fmt --all -- --check`：通过；`cargo test --all-targets --offline`：73 unit、31 conformance、3 stage2、5 stage3、13 stage4 全部通过；`node --check`（协议/importer/测试文件）：通过；`node --test tests/codexRolloutCollector.test.js`：30 项通过；`git diff --check`：通过（仅既有 CRLF warning）。
 - 任务外未跟踪的 `native/parse-probe/`、`native/rustup-init.exe`、`native/winlibs.zip` 未修改；本轮仍未进行提交。
+
+### 2026-08-24 — 方案 A 删除 lineage depth limit
+
+- 本轮按用户确认的方案 A 实施：删除 `RolloutLineageRequest.max_depth`、`default_lineage_max_depth`
+  和 `ParentChainDepthExceeded`；discovery 不再把 `max_date_partitions` 传给 lineage chain。
+- discovery、Preview/Backfill lineage window 和完整 Replay 均沿 `history_base` 解析到 root；保留
+  visited cycle detection，以及 discovery/read budget、取消和 deadline。日期分区参数只限制目录
+  发现范围，不限制同一日期内的 lineage 层数。
+- 新增“超过旧默认深度仍完整解析并在环上 fail-closed”以及“日期分区限制为 1 仍解析同日深 lineage”
+  回归；未修改 Node 产品持久化、数据库、IPC、Android、vendor 或任务外未跟踪文件。
+- 验证：`cargo fmt --manifest-path native/codex-rollout-collector/Cargo.toml --all -- --check` 通过；
+  `cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --all-targets --no-default-features`
+  通过（91 unit、31 conformance、3 stage2、5 stage3、22 stage4）；`git diff --check` 待最终范围检查。
+- External Documentation Gate：not applicable；本轮仅调整 TermLink 自有 Rust Collector lineage
+  边界和测试，不新增第三方 API/SDK/CLI 用法。
+- 当前 handoff：`review-diff`；未执行提交。

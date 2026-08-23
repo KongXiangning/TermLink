@@ -134,7 +134,7 @@ impl RolloutCatalog {
                 message: error.to_string(),
             })?;
             let path = entry.path();
-            if !path.is_file() || !is_rollout_path(&path) {
+            if !path.is_file() || !is_rollout_path(&path) || should_skip_compressed_sibling(&path) {
                 continue;
             }
             let Some(rollout_id) = rollout_id_from_filename(&path) else {
@@ -224,6 +224,24 @@ pub(super) fn is_rollout_path(path: &Path) -> bool {
     name.ends_with(".jsonl") || name.ends_with(".jsonl.zst")
 }
 
+/// Return whether a compressed rollout is shadowed by Codex's plain sibling.
+///
+/// Codex treats `rollout-...jsonl` as the canonical physical source whenever
+/// the same-directory `rollout-...jsonl.zst` sibling is present.  This check is
+/// intentionally path-based rather than rollout-ID-based: two unrelated paths
+/// that happen to expose the same lookup ID must remain ambiguous.
+pub(super) fn should_skip_compressed_sibling(path: &Path) -> bool {
+    let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    let lower_name = file_name.to_ascii_lowercase();
+    if !lower_name.ends_with(".jsonl.zst") {
+        return false;
+    }
+    let plain_name = &file_name[..file_name.len() - ".zst".len()];
+    path.with_file_name(plain_name).exists()
+}
+
 /// Extract the lookup key used by the Codex rollout filename conventions.
 ///
 /// This helper is intentionally scoped to catalog lookup.  Callers must not
@@ -296,9 +314,6 @@ pub enum LineageError {
     },
     ParentChainCycle {
         rollout_id: String,
-    },
-    ParentChainDepthExceeded {
-        max_depth: usize,
     },
     InvalidDiscoveryRequest(String),
     InvalidDate(String),
@@ -389,12 +404,6 @@ impl fmt::Display for LineageError {
                     "parent rollout chain contains a cycle at {rollout_id}"
                 )
             }
-            Self::ParentChainDepthExceeded { max_depth } => {
-                write!(
-                    formatter,
-                    "parent rollout chain exceeds maximum depth {max_depth}"
-                )
-            }
             Self::InvalidDiscoveryRequest(message) => {
                 write!(formatter, "invalid session discovery request: {message}")
             }
@@ -469,7 +478,10 @@ impl std::error::Error for LineageError {}
 mod tests {
     use std::fs;
 
-    use super::{HistoryBaseRef, LineageError, RolloutCatalog, rollout_id_from_filename};
+    use super::{
+        HistoryBaseRef, LineageError, RolloutCatalog, rollout_id_from_filename,
+        should_skip_compressed_sibling,
+    };
 
     #[test]
     fn history_base_keeps_parent_rollout_and_cut_separate() {
@@ -542,5 +554,47 @@ mod tests {
         );
         let _ = fs::remove_file(path);
         let _ = fs::remove_dir(root);
+    }
+
+    #[test]
+    fn directory_catalog_prefers_plain_rollout_over_compressed_sibling() {
+        let root = std::env::temp_dir().join(format!(
+            "termlink-lineage-plain-sibling-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&root).expect("catalog directory creates");
+        let plain = root.join("rollout-2026-08-22T00-00-00_parent-rollout.jsonl");
+        let compressed =
+            plain.with_file_name("rollout-2026-08-22T00-00-00_parent-rollout.jsonl.zst");
+        fs::write(&plain, b"plain\n").expect("plain rollout writes");
+        fs::write(&compressed, b"compressed\n").expect("compressed sibling writes");
+
+        assert!(should_skip_compressed_sibling(&compressed));
+        let catalog = RolloutCatalog::from_directory(&root).expect("directory catalog builds");
+        assert_eq!(catalog.len(), 1);
+        assert_eq!(
+            catalog.get("parent-rollout").map(|source| &source.path),
+            Some(&plain)
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn compressed_rollout_without_plain_sibling_is_not_hidden() {
+        let root =
+            std::env::temp_dir().join(format!("termlink-lineage-zstd-only-{}", std::process::id()));
+        fs::create_dir_all(&root).expect("catalog directory creates");
+        let compressed = root.join("rollout-2026-08-22T00-00-00_parent-rollout.jsonl.zst");
+        fs::write(&compressed, b"compressed\n").expect("compressed rollout writes");
+
+        assert!(!should_skip_compressed_sibling(&compressed));
+        let catalog = RolloutCatalog::from_directory(&root).expect("directory catalog builds");
+        assert_eq!(
+            catalog.get("parent-rollout").map(|source| &source.path),
+            Some(&compressed)
+        );
+
+        let _ = fs::remove_dir_all(root);
     }
 }

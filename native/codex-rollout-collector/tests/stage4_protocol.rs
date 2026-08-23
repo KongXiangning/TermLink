@@ -1248,7 +1248,6 @@ fn lineage_replay_emits_a_linear_a_to_b_to_c_replacement_chain() {
                 path: path_b.to_string_lossy().to_string(),
             },
         ],
-        max_depth: 8,
     })
     .with_peer_capabilities([LAST_TURN_REPLACEMENT_CAPABILITY]);
 
@@ -1379,7 +1378,6 @@ fn lineage_replay_recovers_latest_rollout_after_restart_without_intermediate_can
         // intermediate rollout state.
         catalog_root: None,
         candidates: Vec::new(),
-        max_depth: 8,
     })
     .with_peer_capabilities([LAST_TURN_REPLACEMENT_CAPABILITY]);
 
@@ -1464,7 +1462,6 @@ fn lineage_replay_keeps_valid_replacement_when_parent_prefix_is_unknown_and_budg
             rollout_id: rollout_parent.to_string(),
             path: parent_path.to_string_lossy().to_string(),
         }],
-        max_depth: 1,
     })
     .with_peer_capabilities([LAST_TURN_REPLACEMENT_CAPABILITY]);
     request.resource_limits.max_decoded_bytes = 2048;
@@ -1524,7 +1521,6 @@ fn lineage_replay_emits_replacement_for_real_rollout_event_shapes() {
             rollout_id: rollout_parent.to_string(),
             path: parent_path,
         }],
-        max_depth: 1,
     })
     .with_peer_capabilities([LAST_TURN_REPLACEMENT_CAPABILITY]);
 
@@ -1577,7 +1573,6 @@ fn lineage_replay_rejects_zstd_parent_with_explicit_compression_error() {
             rollout_id: rollout_parent.to_string(),
             path: parent_path.to_string_lossy().to_string(),
         }],
-        max_depth: 1,
     })
     .with_peer_capabilities([LAST_TURN_REPLACEMENT_CAPABILITY]);
 
@@ -1617,7 +1612,6 @@ fn lineage_replay_accepts_explicit_interrupted_parent_terminal() {
             rollout_id: rollout_parent.to_string(),
             path: parent_path,
         }],
-        max_depth: 1,
     })
     .with_peer_capabilities([LAST_TURN_REPLACEMENT_CAPABILITY]);
 

@@ -258,6 +258,22 @@ JSONL 前缀仍不是“刷新重写”语义。
 - [recorder.rs append 打开路径](E:/coding/github/codex/codex-rs/rollout/src/recorder.rs:1631)
 - [compression.rs `materialize_rollout_for_append_blocking()`](E:/coding/github/codex/codex-rs/rollout/src/compression.rs:64)
 
+Codex 还存在独立的 cold rollout compression worker。它可以扫描 active 与 archived session
+目录，把冷的 plain rollout 写成同目录 `.jsonl.zst` sibling；压缩结果完成校验后才删除
+plain 文件。因此 Collector 的目录发现必须兼容短暂的双文件窗口。上游
+`RolloutFile::from_path()` 在发现阶段调用 `should_skip_compressed_sibling()`：当
+`plain_rollout_path(path).exists()` 时，压缩 sibling 不作为候选返回。
+
+这不是 archive 语义，也不是新的 rollout ID。TermLink 只在物理候选发现层复现该 exact-path
+优先级：同名 `.jsonl` 保留，只有 `.zst` 才进入压缩源读取路径；不按 ID 跨目录合并，也不
+把 `.zst` 解压偏移伪装成可恢复的 seek/append cursor。
+
+证据：
+
+- [compression.rs `RolloutFile::from_path`](E:/coding/github/codex/codex-rs/rollout/src/compression.rs:156)
+- [compression.rs `should_skip_compressed_sibling`](E:/coding/github/codex/codex-rs/rollout/src/compression.rs:986)
+- [compression.rs compressed sibling persistence/removal](E:/coding/github/codex/codex-rs/rollout/src/compression.rs:632)
+
 ### 5.1 上游源码提供的读取和解析技术
 
 Codex 源码中与 TermLink Collector 最相关的读取路径有四类。

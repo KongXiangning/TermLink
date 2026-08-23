@@ -465,8 +465,6 @@ pub struct RolloutLineageRequest {
     pub catalog_root: Option<String>,
     #[serde(default)]
     pub candidates: Vec<RolloutCatalogCandidateRequest>,
-    #[serde(default = "default_lineage_max_depth")]
-    pub max_depth: usize,
 }
 
 /// Protocol-facing wrapper around the source-layer bounded discovery input.
@@ -534,13 +532,8 @@ impl Default for RolloutLineageRequest {
         Self {
             catalog_root: None,
             candidates: Vec::new(),
-            max_depth: default_lineage_max_depth(),
         }
     }
-}
-
-fn default_lineage_max_depth() -> usize {
-    8
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1952,9 +1945,6 @@ fn collect_lineage_window(
     cancelled: &AtomicBool,
     deadline: Instant,
 ) -> anyhow::Result<LineageReplay> {
-    if request.max_depth == 0 {
-        anyhow::bail!("lineage max_depth must be greater than zero");
-    }
     let catalog = build_rollout_catalog(active_spec, request, Some(session))?;
     let mut current_source = RolloutSource::new(
         active_spec.source_id().to_string(),
@@ -1966,7 +1956,7 @@ fn collect_lineage_window(
     let mut visited = BTreeSet::new();
     let mut transition_validation_states = Vec::new();
     let mut coverage = projection_coverage_of(active_batch).min(ProjectionCoverage::Partial);
-    for depth in 0..request.max_depth {
+    loop {
         check_deadline(cancelled, deadline)?;
         if !visited.insert(current_source.rollout_id.clone()) {
             return Err(anyhow::anyhow!(LineageError::ParentChainCycle {
@@ -1992,11 +1982,6 @@ fn collect_lineage_window(
         lineage_batches.push(parent_batch.clone());
         current_source = parent_source;
         current_batch = parent_batch;
-        if depth + 1 == request.max_depth && current_batch.history_base.is_some() {
-            return Err(anyhow::anyhow!(LineageError::ParentChainDepthExceeded {
-                max_depth: request.max_depth,
-            }));
-        }
     }
     lineage_batches.reverse();
     transition_validation_states.reverse();
@@ -2021,9 +2006,6 @@ fn collect_lineage_replay(
     deadline: Instant,
     discovered_lineage: Option<&SessionLineage>,
 ) -> anyhow::Result<LineageReplay> {
-    if request.max_depth == 0 {
-        anyhow::bail!("lineage max_depth must be greater than zero");
-    }
     if active_batch.history_base.is_none() {
         return Ok(LineageReplay {
             history_items: active_batch.items.clone(),
@@ -2050,7 +2032,7 @@ fn collect_lineage_replay(
     let mut transition_validation_states = Vec::new();
     let mut coverage = projection_coverage_of(active_batch);
 
-    for depth in 0..request.max_depth {
+    loop {
         check_deadline(cancelled, deadline)?;
         if !visited.insert(current_source.rollout_id.clone()) {
             return Err(anyhow::anyhow!(LineageError::ParentChainCycle {
@@ -2088,11 +2070,6 @@ fn collect_lineage_replay(
         lineage_batches.push(parent_read.history_batch);
         current_source = parent_source;
         current_batch = parent_read.validation_batch;
-        if depth + 1 == request.max_depth && current_batch.history_base.is_some() {
-            return Err(anyhow::anyhow!(LineageError::ParentChainDepthExceeded {
-                max_depth: request.max_depth,
-            }));
-        }
     }
     replacements.reverse();
     transition_validation_states.reverse();

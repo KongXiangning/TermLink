@@ -2,7 +2,7 @@
 title: Codex Rollout 采集器 Codex 兼容层与引用边界
 status: active
 owner: "@maintainer"
-last_updated: 2026-08-19
+last_updated: 2026-08-24
 source_of_truth: codex-rollout-collector-codex-compatibility
 last_updated: 2026-08-23
 related_docs: [docs/codex/codex-rollout-collector-architecture.md, docs/codex/codex-last-turn-replacement-rust-collector-change-plan.md, docs/codex/codex-rollout-recorder-source-technical-reference.md, docs/codex/codex-rollout-demo-design.md]
@@ -291,6 +291,23 @@ Codex vendor 提供 rollout wire/history 类型和 `history_base` 的语义，�
   resend 的 terminal user turn 创建新的 child 并通过 `history_base` 引用 parent。被验证为
   parent 后，TermLink 按 immutable source 使用；外部 in-place modification 不受支持，且
   parent auxiliary full-history read 不要求整文件 before/after fingerprint mutation detection。
+
+#### Codex plain/compressed sibling 优先级
+
+Codex 的压缩 worker 会先把压缩结果以 `.jsonl.zst` sibling 写入并完成校验，随后才删除原始
+`.jsonl`；因此转换窗口内两种物理表示可能同时存在。Codex 的 `RolloutFile::from_path`
+和 `should_skip_compressed_sibling` 明确规定：只要同目录同名 `.jsonl` 存在，就隐藏
+`.jsonl.zst`，而不是把两份文件当成两个 rollout。
+
+TermLink 在自己的 source discovery/catalog 层复现这一兼容规则：
+
+- 同目录同名 plain 存在：选择 `.jsonl`；
+- 只有 `.zst`：保留 `.zst`，继续 forward-only；
+- 不同路径的相同 rollout lookup ID：仍然 fail-closed 为歧义；
+- plain 存在但读取/校验失败：不回退到 `.zst`，避免绕过 Codex 的 canonical physical source。
+
+TermLink 不依赖 Codex compression crate，也不解压或比较 sibling 内容；该规则由本地自有
+helper、fixture 和 discovery/catalog 回归锁定。
 
 仓库内 vendor 的 `protocol/src/protocol.rs` `HistoryPosition` 注释和
 `protocol/src/thread_id.rs` 的命名规则只能作为上述语义的兼容依据；它们没有提供完整的

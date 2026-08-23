@@ -2,7 +2,7 @@
 title: Codex Rollout 正式解析采集器架构
 status: active
 owner: "@maintainer"
-last_updated: 2026-08-23
+last_updated: 2026-08-24
 source_of_truth: codex-rollout-collector
 related_code: [native/codex-rollout-demo, native/codex-rollout-compat-spike]
 related_docs: [docs/codex/codex-rollout-demo-design.md, docs/codex/codex-rollout-collector-codex-compatibility.md, docs/codex/codex-rollout-recorder-source-technical-reference.md, docs/codex/codex-last-turn-replacement-rust-collector-change-plan.md, docs/codex/codex-history-sync-design-principles.md, docs/codex/codex-sync-app-history-ipc-consistency.md, docs/workflow/CONTRACTS.md, docs/workflow/DECISIONS.md]
@@ -247,6 +247,13 @@ rollout 原样复制到服务端。因此采集器必须区分：
   `SourceSpec`，校验 fingerprint、压缩格式、snapshot boundary 和读取能力；
 - 两者都不把文件名或 mtime 当成 canonical identity。调用方显式提供的
   `target_conversation_id` 仍然优先，`SessionMeta` 与 `history_base` 用来验证来源和关系。
+
+物理候选发现还必须遵循 Codex 的同名压缩 sibling 优先级：同一目录中存在
+`B.jsonl` 时，`B.jsonl.zst` 只视为同一 rollout 的被隐藏物理表示，不进入候选 catalog。
+该判断按 `.jsonl.zst` 去掉 `.zst` 后得到的精确 sibling path 执行，不按 `rolloutId` 跨目录
+合并；不同路径即使得到相同 lookup ID，仍然保持 `AmbiguousRollout`。只有 `.zst` 的来源继续
+遵循普通压缩流的 forward-only 能力边界，plain sibling canonicalization 不等于扩展 `.zst`
+读取能力。
 
 会话级 locator 的输入至少包括允许的 `sessionsRoot`、稳定会话 ID、日期扫描边界，以及可选的
 已知 head hint。它必须支持父 rollout 在前一个日期目录、child rollout 在后一个日期目录的

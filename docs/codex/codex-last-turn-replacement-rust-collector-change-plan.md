@@ -2,7 +2,7 @@
 title: Codex Rollout 会话 lineage 发现、完整重建与最后 turn 编辑重发：Rust Collector 改造方案
 status: implementation-backed
 phase: P0-RC.1 additive compatibility and lineage extension
-last_updated: 2026-08-23
+last_updated: 2026-08-24
 source_of_truth: implementation-backed-design
 related_docs:
   - docs/codex/codex-rollout-collector-architecture.md
@@ -76,7 +76,10 @@ sessionsRoot + conversationId + 可选已知 rollout/head hint
    投影语义由下游持久化层处理，Rust 不删除旧 turn。
 7. 同一物理 JSONL 的 append、child rollout transition、原路径截断/替换是三种不同语义，
    不能混用 `ForwardAppendCursor`、lineage transition cursor 和 `replace_previous`。
-8. 关系、来源或读取证据不完整时必须保留可诊断的 partial/unknown 结果，禁止宣称完整
+8. lineage 沿 `history_base` 一直解析到没有 parent 的 root，不设置独立的
+   `max_lineage_depth`；循环由 visited 集合 fail-closed，资源、取消和 deadline 由各自的
+   discovery/read budget 控制，不能用 lineage 层数代替资源边界。
+9. 关系、来源或读取证据不完整时必须保留可诊断的 partial/unknown 结果，禁止宣称完整
    canonical 历史或发布 active projection mutation。
 
 ### 1.3 合成 fixture 固定的发现约束
@@ -277,6 +280,9 @@ active lineage head。
 - 从 `sessionsRoot` 下的日期分区起点开始，只枚举到显式日期上界/当前恢复边界；禁止对整个
   sessions 根做无界递归扫描；
 - 按文件名筛选稳定 conversation ID 候选，解析 rollout ID、文件时间、日期目录和路径；
+- 在进入 header 读取和 lineage catalog 前执行 Codex-compatible sibling canonicalization：
+  同目录同名 `.jsonl` 存在时隐藏 `.jsonl.zst`；只有 `.zst` 时保留压缩源；不按 rollout ID
+  跨目录合并，不通过 mtime、内容比较或 fallback 选择物理文件；
 - 为每个候选生成文件名关系记录：稳定会话 ID、可选 rollout ID、文件时间、日期分区和相邻
   顺序候选；无 rollout 后缀的文件进入 root-like 候选，有 rollout 后缀的文件进入可验证的
   child/head 候选；该记录用于缩小 parent 搜索和恢复顺序，不直接提交 parent edge；
@@ -313,7 +319,8 @@ active lineage head。
 - `RolloutCatalog` 扩展为跨日期、可恢复的候选目录；单目录 `from_directory` 只能作为一个
   分区扫描 primitive，不能作为完整 session discovery API；
 - 每个 edge 同时保存 parent/child rollout ID、child history_base、cut、header/source guard；
-- 从 active child 沿 `history_base` 向前解析 parent，检测缺失、循环、深度/资源上限和多候选；
+- 从 active child 沿 `history_base` 向前解析 parent 直到 root，检测缺失、循环、资源上限和
+  多候选；不以 lineage 层数截断合法历史；
 - 任何合法 replacement 仍只验证最后一个已终止用户 turn 到一个新用户 turn 的一对一关系；
   不把 lineage graph 泛化为任意 branch model；
 - parent bounded header/suffix 读取期间检查 snapshot、fingerprint、完整行边界和目标会话绑定；
@@ -475,6 +482,9 @@ partial coverage，但必须明确不可作为 canonical 完整历史提交。
 | 同文件 append | 只推进 `ForwardAppendCursor`，不重复、不提交尾部半行 |
 | child transition incremental | 新建 lineage cursor，不复用 parent append cursor |
 | 普通 `.zst` | 只提供 forward stream，不伪造 seek/append |
+| 同目录同名 `.jsonl` + `.jsonl.zst` | 只保留 plain `.jsonl`；压缩 sibling 不进入候选 catalog |
+| 只有 `.jsonl.zst` | 保留 `.zst`，继续遵循 ordinary `.zst` forward-only 边界 |
+| 不同路径的相同 rollout lookup ID | 仍返回 `AmbiguousRollout`，不按 ID 跨目录合并 |
 | plain child + ordinary `.zst` parent | parent lineage 类型化 fail-closed；不发布 lineage/replacement/cursor/checkpoint |
 | ordinary `.zst` active/root full Replay | 允许正序读取；不提供 tail/backward/append cursor |
 | 父最后 turn completed，child 合法重发 | 输出一条稳定 replacement |
@@ -496,6 +506,8 @@ fixture，覆盖
 path 重启恢复。该五文件样本中的 synthetic unknown developer-role 事件按当前兼容边界保持 partial、逐跳
 `validation_unavailable` 且不生成 `replace_last_turn` mutation；complete replacement 仍由
 独立的小型合成 parent/child fixture 覆盖。README 说明该 fixture 完全由人工构造的最小事件组成。
+另有 plain/compressed sibling 回归，覆盖 discovery 与目录 catalog 的 plain 优先、zst-only
+保留和非 sibling 相同 ID 歧义保持。
 
 ## 10. Rust Collector 方案完成条件
 

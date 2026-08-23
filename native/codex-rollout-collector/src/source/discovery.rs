@@ -429,7 +429,7 @@ fn discover_session_internal(
     }
 
     let active_rollout_id = choose_active_head(request, &by_id, &children)?;
-    let chain = build_chain(&by_id, &active_rollout_id, request.max_date_partitions)?;
+    let chain = build_chain(&by_id, &active_rollout_id)?;
     if let Some(control) = control.as_deref_mut() {
         // Keep fingerprint evidence on every verified candidate so the
         // discovery provenance remains compatible with the legacy API.  The
@@ -710,12 +710,11 @@ fn follow_unique_descendant(
 fn build_chain(
     by_id: &BTreeMap<String, DiscoveredRollout>,
     active_rollout_id: &str,
-    max_depth: usize,
 ) -> Result<Vec<DiscoveredRollout>, LineageError> {
     let mut chain = Vec::new();
     let mut current = active_rollout_id.to_string();
     let mut visited = BTreeSet::new();
-    for _ in 0..=max_depth {
+    loop {
         if !visited.insert(current.clone()) {
             return Err(LineageError::ParentChainCycle {
                 rollout_id: current,
@@ -743,7 +742,6 @@ fn build_chain(
         }
         current = parent;
     }
-    Err(LineageError::ParentChainDepthExceeded { max_depth })
 }
 
 fn scan_candidates(
@@ -772,6 +770,7 @@ fn scan_candidates(
             let path = entry.path();
             if path.is_file()
                 && super::lineage::is_rollout_path(&path)
+                && !super::lineage::should_skip_compressed_sibling(&path)
                 && parse_rollout_filename(&path)
                     .is_some_and(|candidate| candidate.conversation_id == conversation_id)
             {
@@ -1162,7 +1161,7 @@ mod tests {
     use super::{
         DiscoveredRollout, DiscoveryBudget, DiscoveryControl, HistoryBaseRef, LineageError,
         RolloutFilenameCandidate, RolloutHeaderEvidence, RolloutSource, SessionDiscoveryRequest,
-        choose_active_head, discover_session_with_control,
+        build_chain, choose_active_head, discover_session_with_control,
     };
 
     fn temp_discovery_root(label: &str) -> PathBuf {
@@ -1402,6 +1401,51 @@ mod tests {
     }
 
     #[test]
+    fn lineage_chain_has_no_depth_limit_but_rejects_cycles() {
+        let mut by_id = BTreeMap::new();
+        for index in 0..10 {
+            let parent = (index > 0).then(|| {
+                HistoryBaseRef::new(
+                    format!("R{index_minus_one}", index_minus_one = index - 1),
+                    index,
+                    index,
+                )
+                .expect("test history base is valid")
+            });
+            by_id.insert(
+                format!("R{index}"),
+                rollout(
+                    &format!("R{index}"),
+                    &format!("2026-08-22T00-{index:02}-00"),
+                    parent,
+                ),
+            );
+        }
+
+        let chain = build_chain(&by_id, "R9").expect("lineage is not limited by depth");
+        assert_eq!(chain.len(), 10);
+        assert_eq!(
+            chain
+                .iter()
+                .map(|candidate| candidate.source.rollout_id.clone())
+                .collect::<Vec<_>>(),
+            (0..10).map(|index| format!("R{index}")).collect::<Vec<_>>()
+        );
+
+        by_id
+            .get_mut("R0")
+            .expect("root candidate exists")
+            .header
+            .history_base = Some(HistoryBaseRef::new("R9", 10, 10).expect("cycle base"));
+        assert_eq!(
+            build_chain(&by_id, "R9").expect_err("cycle must fail closed"),
+            LineageError::ParentChainCycle {
+                rollout_id: "R9".to_string(),
+            }
+        );
+    }
+
+    #[test]
     fn controlled_discovery_fails_before_io_when_cancelled() {
         let cancelled = AtomicBool::new(true);
         let mut control = control(
@@ -1564,6 +1608,13 @@ mod tests {
             "rollout-2026-08-22T00-00-00-01a02530-9975-7df2-a3b3-6bb214ad47ed.jsonl",
             session_header(conversation, None, 0),
         );
+        fs::write(
+            parent_path.with_file_name(
+                "rollout-2026-08-22T00-00-00-01a02530-9975-7df2-a3b3-6bb214ad47ed.jsonl.zst",
+            ),
+            b"compressed sibling placeholder\n",
+        )
+        .expect("compressed sibling writes");
         let stale_path = write_rollout(
             &root,
             "2026/08/21",
@@ -1582,11 +1633,9 @@ mod tests {
             Instant::now() + Duration::from_secs(30),
             DiscoveryBudget::new(32, 4096, 1024 * 1024),
         );
-        let lineage = discover_session_with_control(
-            &SessionDiscoveryRequest::new(&root, conversation),
-            &mut control,
-        )
-        .expect("cross-date discovery succeeds within budget");
+        let request = SessionDiscoveryRequest::new(&root, conversation).with_limits(3, 16);
+        let lineage = discover_session_with_control(&request, &mut control)
+            .expect("cross-date discovery succeeds within budget");
         assert_eq!(
             lineage.active_head_rollout_id,
             "01a02531-9f57-76d0-89f7-9b5e12d04911"
@@ -1613,6 +1662,169 @@ mod tests {
         );
         assert_eq!(lineage.active_source().path, child_path);
         assert_eq!(lineage.chain[0].source.path, parent_path);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn controlled_discovery_keeps_zstd_only_rollout_as_forward_source() {
+        let root = temp_discovery_root("zstd-only");
+        let conversation = "01a02530-9975-7df2-a3b3-6bb214ad47ed";
+        let path = root.join("2026/08/22").join(format!(
+            "rollout-2026-08-22T00-00-00-{conversation}.jsonl.zst"
+        ));
+        fs::create_dir_all(path.parent().expect("zstd rollout directory"))
+            .expect("directory creates");
+        let compressed =
+            zstd::stream::encode_all(session_header(conversation, None, 0).as_slice(), 0)
+                .expect("session header compresses");
+        fs::write(&path, compressed).expect("zstd rollout writes");
+
+        let cancelled = AtomicBool::new(false);
+        let mut control = control(
+            &cancelled,
+            Instant::now() + Duration::from_secs(30),
+            DiscoveryBudget::new(16, 4096, 1024 * 1024),
+        );
+        let lineage = discover_session_with_control(
+            &SessionDiscoveryRequest::new(&root, conversation),
+            &mut control,
+        )
+        .expect("zstd-only rollout remains discoverable");
+        assert_eq!(lineage.candidates.len(), 1);
+        assert_eq!(lineage.active_source().path, path);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn controlled_discovery_does_not_fallback_to_compressed_sibling_when_plain_is_invalid() {
+        let root = temp_discovery_root("plain-invalid-no-fallback");
+        let conversation = "01a02530-9975-7df2-a3b3-6bb214ad47ed";
+        let plain = write_rollout(
+            &root,
+            "2026/08/22",
+            &format!("rollout-2026-08-22T00-00-00-{conversation}_same-rollout.jsonl"),
+            b"not a session header\n".to_vec(),
+        );
+        let compressed =
+            zstd::stream::encode_all(session_header(conversation, None, 0).as_slice(), 0)
+                .expect("valid sibling header compresses");
+        fs::write(
+            plain.with_file_name("rollout-2026-08-22T00-00-00-01a02530-9975-7df2-a3b3-6bb214ad47ed_same-rollout.jsonl.zst"),
+            compressed,
+        )
+        .expect("compressed sibling writes");
+
+        let cancelled = AtomicBool::new(false);
+        let mut control = control(
+            &cancelled,
+            Instant::now() + Duration::from_secs(30),
+            DiscoveryBudget::new(16, 4096, 1024 * 1024),
+        );
+        let error = discover_session_with_control(
+            &SessionDiscoveryRequest::new(&root, conversation),
+            &mut control,
+        )
+        .expect_err("invalid plain canonical source must fail closed");
+        match error {
+            LineageError::CandidateHeaderInvalid { path, .. } => {
+                assert_eq!(
+                    fs::canonicalize(path).expect("reported plain path resolves"),
+                    fs::canonicalize(&plain).expect("fixture plain path resolves")
+                );
+            }
+            other => panic!("expected plain header error, got {other:?}"),
+        }
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn controlled_discovery_keeps_same_rollout_id_at_different_paths_ambiguous() {
+        let root = temp_discovery_root("non-sibling-ambiguity");
+        let conversation = "01a02530-9975-7df2-a3b3-6bb214ad47ed";
+        let filename = format!("rollout-2026-08-22T00-00-00-{conversation}_same-rollout.jsonl");
+        write_rollout(
+            &root,
+            "2026/08/22",
+            &filename,
+            session_header(conversation, None, 0),
+        );
+        write_rollout(
+            &root,
+            "2026/08/23",
+            &filename,
+            session_header(conversation, None, 0),
+        );
+
+        let cancelled = AtomicBool::new(false);
+        let mut control = control(
+            &cancelled,
+            Instant::now() + Duration::from_secs(30),
+            DiscoveryBudget::new(32, 4096, 1024 * 1024),
+        );
+        let error = discover_session_with_control(
+            &SessionDiscoveryRequest::new(&root, conversation),
+            &mut control,
+        )
+        .expect_err("same rollout ID at unrelated paths must remain ambiguous");
+        assert_eq!(
+            error,
+            LineageError::AmbiguousRollout {
+                rollout_id: "same-rollout".to_string()
+            }
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn controlled_discovery_allows_lineage_deeper_than_date_partition_limit() {
+        let root = temp_discovery_root("same-date-deep-lineage");
+        let conversation = "7d9f2f20-3d1a-4f9a-8b1c-2e7a4f60a101";
+        let rollout_ids = [
+            conversation,
+            "1a2b3c40-5d6e-4f7a-8b9c-0d1e2f3a4b50",
+            "2b3c4d50-6e7f-4a8b-9c0d-1e2f3a4b5c60",
+            "3c4d5e60-7f8a-4b9c-0d1e-2f3a4b5c6d70",
+        ];
+        for (index, rollout_id) in rollout_ids.iter().enumerate() {
+            let filename = if index == 0 {
+                format!("rollout-2026-08-22T00-{index:02}-00-{conversation}.jsonl")
+            } else {
+                format!("rollout-2026-08-22T00-{index:02}-00-{conversation}_{rollout_id}.jsonl")
+            };
+            let history_base =
+                (index > 0).then(|| (rollout_ids[index - 1], index as u64, index as u64));
+            write_rollout(
+                &root,
+                "2026/08/22",
+                &filename,
+                session_header(conversation, history_base, 0),
+            );
+        }
+
+        let cancelled = AtomicBool::new(false);
+        let mut control = control(
+            &cancelled,
+            Instant::now() + Duration::from_secs(30),
+            DiscoveryBudget::new(64, 4096, 1024 * 1024),
+        );
+        let request = SessionDiscoveryRequest::new(&root, conversation)
+            .with_date_range(Some("2026-08-22"), Some("2026-08-22"))
+            .with_limits(16, 1);
+        let lineage = discover_session_with_control(&request, &mut control)
+            .expect("date partition limit must not limit same-date lineage depth");
+        assert_eq!(lineage.chain.len(), rollout_ids.len());
+        assert_eq!(
+            lineage
+                .chain
+                .iter()
+                .map(|candidate| candidate.source.rollout_id.as_str())
+                .collect::<Vec<_>>(),
+            rollout_ids
+        );
+
         let _ = fs::remove_dir_all(root);
     }
 }

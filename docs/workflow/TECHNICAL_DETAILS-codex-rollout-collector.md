@@ -2,7 +2,7 @@
 title: Codex Rollout Collector 任务专用技术细节
 status: active
 owner: "@maintainer"
-last_updated: 2026-08-19
+last_updated: 2026-08-24
 source_of_truth: task-technical-details-codex-rollout-collector
 related_docs: [docs/codex/codex-rollout-collector-architecture.md, docs/codex/codex-rollout-collector-codex-compatibility.md, docs/codex/codex-rollout-demo-design.md]
 related_code: [native/codex-rollout-demo, native/codex-rollout-compat-spike, native/codex-rollout-collector]
@@ -22,6 +22,17 @@ related_code: [native/codex-rollout-demo, native/codex-rollout-compat-spike, nat
 - docs/workflow/CONTRACTS.md：TermLink 现有接口和 Codex IPC 实时权威契约。
 
 本文不新增长期架构决策，不修改 Node、Android、IPC、数据库或 Codex host 行为。若本文与上述基线冲突，应停止实施并回问用户，不能在代码中自行选边。
+
+## 本轮 source discovery 兼容补充
+
+物理候选枚举遵循 Codex 的 plain sibling 优先级：对于同目录同名的
+`rollout-*.jsonl` 与 `rollout-*.jsonl.zst`，只把 plain JSONL 放入 Collector 的候选集合。
+判断依据是精确 sibling path，而不是 rollout ID、mtime 或跨目录文件名相似度；因此不同路径
+的同 ID 文件仍然保持歧义。只有 `.zst` 时才使用现有 forward-only 压缩源能力，不能由该
+canonicalization 推导出 tail/backward/append 能力。
+
+该规则属于 `source/discovery.rs` 与 `source/lineage.rs` 的物理发现层，不改变
+`SourceBackend`、cursor、lineage transition、AnalysisBatch 或后续 Node/App 协议。
 
 ## 2. P0-RC.1 的目标与边界
 
