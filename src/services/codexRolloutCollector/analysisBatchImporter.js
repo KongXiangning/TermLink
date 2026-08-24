@@ -3,7 +3,7 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
-const { validateMessage } = require('./analyzerProtocol');
+const { projectionCoverageOf, validateMessage } = require('./analyzerProtocol');
 const { atomicWriteJson } = require('./analysisRunStore');
 const { normalizeCheckpoint } = require('./analysisCheckpointStore');
 
@@ -52,6 +52,16 @@ function completenessRank(value) {
     return COMPLETENESS_RANK[completenessOf(value)];
 }
 
+const PROJECTION_COVERAGE_RANK = Object.freeze({
+    unknown: 0,
+    partial: 1,
+    complete: 2
+});
+
+function projectionCoverageRank(value) {
+    return PROJECTION_COVERAGE_RANK[value] ?? 0;
+}
+
 function itemKeyOf(item) {
     return item?.item_key || item?.payload?.metadata?.item_key || item?.metadata?.item_key || null;
 }
@@ -68,6 +78,7 @@ function emptyState(scope) {
     return {
         scope: { ...scope },
         retired: false,
+        activeHead: true,
         items: new Map(),
         toolDetails: new Map(),
         taskOutcomes: new Map(),
@@ -78,6 +89,7 @@ function emptyState(scope) {
         complete: false,
         provisional: true,
         canonical: false,
+        pendingReplacement: false,
         replaceApplied: false,
         replacementBatchId: null,
         lastBatchId: null,
@@ -89,8 +101,10 @@ function emptyState(scope) {
         usageSourceEpoch: null,
         projectionRevision: 0,
         projectionCompleteness: 'unknown',
+        projectionCoverage: 'unknown',
         projectionSourceEpoch: null,
         mutations: [],
+        replacements: [],
         batchRequestIds: new Map()
     };
 }
@@ -98,6 +112,7 @@ function emptyState(scope) {
 function retiredState(scope) {
     const state = emptyState(scope);
     state.retired = true;
+    state.activeHead = false;
     return state;
 }
 
@@ -105,6 +120,7 @@ function stateToJson(state) {
     return {
         scope: clone(state.scope),
         retired: state.retired,
+        active_head: state.activeHead,
         items: [...state.items.values()].map(clone),
         tool_details: [...state.toolDetails.values()].map(clone),
         task_outcomes: [...state.taskOutcomes.values()].map(clone),
@@ -115,6 +131,7 @@ function stateToJson(state) {
         complete: state.complete,
         provisional: state.provisional,
         canonical: state.canonical,
+        pending_replacement: state.pendingReplacement,
         replace_applied: state.replaceApplied,
         replacement_batch_id: state.replacementBatchId,
         last_batch_id: state.lastBatchId,
@@ -127,14 +144,19 @@ function stateToJson(state) {
         usage_source_epoch: state.usageSourceEpoch,
         projection_revision: state.projectionRevision,
         projection_completeness: state.projectionCompleteness,
+        projection_coverage: state.projectionCoverage,
         projection_source_epoch: state.projectionSourceEpoch,
-        mutations: clone(state.mutations)
+        mutations: clone(state.mutations),
+        replacements: clone(state.replacements)
     };
 }
 
 function stateFromJson(value, scope) {
     const state = emptyState(scope);
     state.retired = Boolean(value?.retired);
+    // Old state files predate the active-head marker and represent the
+    // current source epoch, so they remain active by default.
+    state.activeHead = value?.active_head !== false;
     for (const item of Array.isArray(value?.items) ? value.items : []) {
         if (item?.item_key) state.items.set(item.item_key, item);
     }
@@ -164,6 +186,7 @@ function stateFromJson(value, scope) {
     state.complete = Boolean(value?.complete);
     state.provisional = value?.provisional !== false;
     state.canonical = Boolean(value?.canonical);
+    state.pendingReplacement = Boolean(value?.pending_replacement);
     state.replaceApplied = Boolean(value?.replace_applied);
     state.replacementBatchId = value?.replacement_batch_id || null;
     state.lastBatchId = value?.last_batch_id || null;
@@ -179,9 +202,13 @@ function stateFromJson(value, scope) {
         ? value.projection_revision
         : 0;
     state.projectionCompleteness = completenessOf(value?.projection_completeness);
+    state.projectionCoverage = value?.projection_coverage
+        || projectionCoverageOf(state.projection || {});
     state.projectionSourceEpoch = value?.projection_source_epoch || null;
     state.mutations = Array.isArray(value?.mutations) ? value.mutations : [];
+    state.replacements = Array.isArray(value?.replacements) ? value.replacements : [];
     if (state.retired) {
+        state.activeHead = false;
         state.items.clear();
         state.toolDetails.clear();
         state.taskOutcomes.clear();
@@ -192,6 +219,7 @@ function stateFromJson(value, scope) {
         state.complete = false;
         state.provisional = true;
         state.canonical = false;
+        state.pendingReplacement = false;
         state.replaceApplied = false;
         state.replacementBatchId = null;
         state.lastBatchId = null;
@@ -203,8 +231,10 @@ function stateFromJson(value, scope) {
         state.usageSourceEpoch = null;
         state.projectionRevision = 0;
         state.projectionCompleteness = 'unknown';
+        state.projectionCoverage = 'unknown';
         state.projectionSourceEpoch = null;
         state.mutations = [];
+        state.replacements = [];
         state.batchRequestIds.clear();
     }
     return state;
@@ -219,6 +249,14 @@ function canReplace(existing, incoming) {
         && existing.source_epoch !== incoming.source_epoch) return false;
     return Number.isSafeInteger(incoming?.revision)
         && incoming.revision > (Number.isSafeInteger(existing?.revision) ? existing.revision : 0);
+}
+
+function canReplaceProjection(existing, incoming) {
+    if (!existing) return true;
+    const incomingCoverage = projectionCoverageRank(incoming?.coverage);
+    const existingCoverage = projectionCoverageRank(existing?.coverage);
+    if (incomingCoverage !== existingCoverage) return incomingCoverage > existingCoverage;
+    return canReplace(existing, incoming);
 }
 
 function batchRevision(batch) {
@@ -266,16 +304,115 @@ function sameScope(left, right) {
         && left.sourceEpoch === right.sourceEpoch;
 }
 
+function replacementFactsOf(batch) {
+    const candidates = [
+        ...(Array.isArray(batch?.replacements) ? batch.replacements : []),
+        ...(Array.isArray(batch?.mutations)
+            ? batch.mutations
+                .filter((mutation) => mutation?.mutation === 'replace_last_turn')
+                .map((mutation) => mutation.replacement)
+            : [])
+    ];
+    const unique = new Map();
+    for (const replacement of candidates) {
+        if (!replacement?.replacement_key) continue;
+        const existing = unique.get(replacement.replacement_key);
+        if (existing) {
+            if (JSON.stringify(existing) !== JSON.stringify(replacement)) {
+                const error = new Error('replacement key was reused with different evidence');
+                error.code = 'ANALYSIS_REPLACEMENT_CONFLICT';
+                throw error;
+            }
+            continue;
+        }
+        unique.set(replacement.replacement_key, replacement);
+    }
+    return [...unique.values()];
+}
+
+function replacementMutationFactsOf(batch) {
+    return Array.isArray(batch?.mutations)
+        ? batch.mutations
+            .filter((mutation) => mutation?.mutation === 'replace_last_turn')
+            .map((mutation) => mutation.replacement)
+            .filter(Boolean)
+        : [];
+}
+
+function resolveLastTurnReplacementFact(batch, facts) {
+    if (batch?.replace_previous || batch?.completeness !== 'canonical') return null;
+    if (!facts.length) return null;
+
+    const byChildRollout = new Map();
+    for (const replacement of facts) {
+        if (replacement.conversation_id !== batch.conversation_id) return null;
+        const existing = byChildRollout.get(replacement.child_rollout_id);
+        if (existing && existing.replacement_key !== replacement.replacement_key) {
+            return null;
+        }
+        byChildRollout.set(replacement.child_rollout_id, replacement);
+    }
+
+    const visited = new Set();
+    let expectedChildRollout = batch.source_id;
+    let immediateReplacement = null;
+    while (byChildRollout.has(expectedChildRollout)) {
+        if (visited.has(expectedChildRollout)) return null;
+        visited.add(expectedChildRollout);
+        const replacement = byChildRollout.get(expectedChildRollout);
+        immediateReplacement ||= replacement;
+        expectedChildRollout = replacement.parent_rollout_id;
+    }
+    if (visited.size !== facts.length) return null;
+    return immediateReplacement;
+}
+
+function assertReplacementFactsCompatible(state, replacementFacts) {
+    for (const replacement of replacementFacts) {
+        const existing = state.replacements.find(
+            (candidate) => candidate.replacement_key === replacement.replacement_key
+        );
+        if (existing && JSON.stringify(existing) !== JSON.stringify(replacement)) {
+            const error = new Error('replacement key was reused with different evidence');
+            error.code = 'ANALYSIS_REPLACEMENT_CONFLICT';
+            throw error;
+        }
+    }
+}
+
+function assertCanonicalReplacementBatch(batch, replacementFacts) {
+    if (replacementFacts.length > 0 && batch.completeness !== 'canonical') {
+        const error = new Error('replacement evidence requires canonical batch');
+        error.code = 'ANALYSIS_REPLACEMENT_REQUIRES_CANONICAL';
+        throw error;
+    }
+}
+
+function lastTurnReplacementFactOf(batch) {
+    return resolveLastTurnReplacementFact(batch, replacementMutationFactsOf(batch));
+}
+
+function pendingLastTurnReplacementFactOf(batch) {
+    const evidence = resolveLastTurnReplacementFact(batch, replacementFactsOf(batch));
+    if (!evidence || replacementMutationFactsOf(batch).length > 0) return null;
+    return evidence;
+}
+
 function sourceEpochError(code, message) {
     const error = new Error(message);
     error.code = code;
     return error;
 }
 
-function requireWritableState(state) {
+function requireWritableState(state, { allowPendingReplacement = false } = {}) {
     if (state?.retired) {
         const error = new Error('source epoch is retired');
         error.code = 'ANALYSIS_SOURCE_EPOCH_RETIRED';
+        throw error;
+    }
+    if (state?.activeHead === false && !(allowPendingReplacement && state.pendingReplacement)) {
+        const error = new Error('source epoch is no longer the active conversation head');
+        error.code = 'ANALYSIS_SOURCE_EPOCH_INACTIVE';
         throw error;
     }
 }
@@ -330,9 +467,28 @@ class MemoryAnalysisStore {
         );
         if (retiredEpoch) requireWritableState(retiredEpoch);
 
+        const replacementFacts = replacementFactsOf(batch);
+        if (batch.replace_previous && replacementFacts.length > 0) {
+            throw sourceEpochError(
+                'ANALYSIS_REPLACEMENT_REQUIRES_SEPARATE_SOURCE_TRANSITION',
+                'last-turn replacement must not use replace_previous'
+            );
+        }
+        const transitionReplacement = lastTurnReplacementFactOf(batch);
+        const pendingReplacement = pendingLastTurnReplacementFactOf(batch);
+        assertCanonicalReplacementBatch(batch, replacementFacts);
+
+        // A retry of the exact same batch after a process crash is idempotent.
+        // Check the durable batch id before source-head arbitration so a
+        // duplicate child batch is not mistaken for a second active epoch.
+        if (existing?.batches.includes(batch.batch_id)) {
+            return { state: existing, duplicate: true };
+        }
+
         const activeStates = [...this.states.values()].filter(
             (candidate) => candidate.scope.conversationId === scope.conversationId
                 && !candidate.retired
+                && candidate.activeHead !== false
         );
         if (activeStates.length > 1) {
             throw sourceEpochError(
@@ -342,13 +498,28 @@ class MemoryAnalysisStore {
         }
         const active = activeStates[0] || null;
         const sameActiveScope = active ? sameScope(active.scope, scope) : false;
+        const transitionParent = transitionReplacement
+            && active
+            && !sameActiveScope
+            && active.scope.sourceId === transitionReplacement.parent_rollout_id
+            ? active
+            : null;
+        const pendingParent = pendingReplacement
+            && active
+            && !sameActiveScope
+            && active.scope.sourceId === pendingReplacement.parent_rollout_id
+            ? active
+            : null;
         if (active && active.scope.sourceEpoch === scope.sourceEpoch && !sameActiveScope) {
-            throw sourceEpochError(
-                'ANALYSIS_SOURCE_EPOCH_REQUIRED',
-                'source epoch is already bound to another source identity'
-            );
+            if (!transitionParent && !pendingParent) {
+                throw sourceEpochError(
+                    'ANALYSIS_SOURCE_EPOCH_REQUIRED',
+                    'source epoch is already bound to another source identity'
+                );
+            }
         }
-        if (active && !sameActiveScope && !batch.replace_previous) {
+        if (active && !sameActiveScope && !batch.replace_previous
+            && !transitionParent && !pendingParent) {
             throw sourceEpochError(
                 'ANALYSIS_SOURCE_EPOCH_REQUIRED',
                 'a new source epoch requires replace_previous'
@@ -356,13 +527,6 @@ class MemoryAnalysisStore {
         }
 
         let state = existing;
-        // A retry of the exact same batch after a process crash is idempotent,
-        // including when that batch was the first replacement batch.  Check
-        // the durable batch id before the source-epoch replacement guard so
-        // the retry path does not turn into a false same-epoch replacement.
-        if (state?.batches.includes(batch.batch_id)) {
-            return { state, duplicate: true };
-        }
         const pendingReplacementRetry = Boolean(
             batch.replace_previous
             && state?.replaceApplied
@@ -394,11 +558,16 @@ class MemoryAnalysisStore {
                 state = await this.replaceScope(scope, batch.batch_id);
             }
         } else {
-            requireWritableState(state);
+            requireWritableState(state, { allowPendingReplacement: true });
         }
+        // Replacement evidence is the conflict-sensitive part of the batch.
+        // Preflight it before any item, projection, mutation, or head state is
+        // changed so Memory and File stores fail atomically for this error.
+        assertReplacementFactsCompatible(state, replacementFacts);
         const batchCompleteness = completenessOf(batch.completeness || (batch.complete ? 'canonical' : 'partial'));
         const batchRank = completenessRank(batchCompleteness);
         const revision = batchRevision(batch);
+        const projectionCoverage = projectionCoverageOf(batch.projection);
 
         for (const item of batch.history_items) {
             const itemKey = itemKeyOf(item);
@@ -479,13 +648,15 @@ class MemoryAnalysisStore {
         const projectionIncoming = batch.projection
             ? {
                 ...clone(batch.projection),
+                coverage: projectionCoverage,
                 completeness: batchCompleteness,
                 source_epoch: batch.source_epoch,
                 revision
             }
             : null;
-        if (projectionIncoming && canReplace(
+        if (projectionIncoming && canReplaceProjection(
             state.projection && {
+                coverage: state.projectionCoverage,
                 completeness: state.projectionCompleteness,
                 source_epoch: state.projectionSourceEpoch,
                 revision: state.projectionRevision
@@ -495,6 +666,7 @@ class MemoryAnalysisStore {
             state.projection = projectionIncoming;
             state.projectionRevision = revision;
             state.projectionCompleteness = batchCompleteness;
+            state.projectionCoverage = projectionCoverage;
             state.projectionSourceEpoch = batch.source_epoch;
         }
         for (const diagnostic of Array.isArray(batch.diagnostics) ? batch.diagnostics : []) {
@@ -509,24 +681,57 @@ class MemoryAnalysisStore {
                 state.mutations.push({ content_hash: marker, mutation: clone(mutation) });
             }
         }
+        for (const replacement of replacementFacts) {
+            if (!replacement?.replacement_key) continue;
+            const existing = state.replacements.find(
+                (candidate) => candidate.replacement_key === replacement.replacement_key
+            );
+            if (existing) {
+                continue;
+            }
+            state.replacements.push(clone(replacement));
+        }
+
+        let transitionParentKey = null;
+        if (transitionParent) {
+            transitionParent.activeHead = false;
+            transitionParentKey = scopeKey(transitionParent.scope);
+            state.activeHead = true;
+            state.pendingReplacement = false;
+        } else if (pendingParent) {
+            // Validated evidence can arrive before the historical projection
+            // is complete.  Keep the child as a durable staging scope, but do
+            // not make it the active conversation head until the collector
+            // emits the complete-coverage replace_last_turn mutation.
+            state.activeHead = false;
+            state.pendingReplacement = true;
+        }
 
         const completeRange = Array.isArray(batch.mutations) && batch.mutations.some(
             (mutation) => mutation?.mutation === 'complete_range'
         );
-        const staleIncompleteOverlap = state.canonical && batchRank < 3 && !completeRange;
-        if (batchCompleteness === 'canonical' || completeRange) {
+        const staleIncompleteOverlap = state.canonical
+            && (batchRank < 3 || state.projectionCoverage !== 'complete')
+            && !completeRange;
+        if (state.projectionCoverage === 'complete'
+            && (batchCompleteness === 'canonical' || completeRange)) {
             state.canonical = true;
             state.complete = true;
             state.provisional = false;
             if (state.projection && typeof state.projection === 'object') {
-                state.projection.complete = true;
                 state.projection.provisional = false;
             }
         } else if (!staleIncompleteOverlap) {
+            state.canonical = false;
+            state.complete = false;
             state.provisional = true;
             if (state.projection && typeof state.projection === 'object') {
-                state.projection.complete = false;
-                state.projection.provisional = true;
+                state.projection.complete = state.projectionCoverage === 'complete'
+                    ? state.projection.complete === true
+                    : false;
+                if (batchCompleteness !== 'canonical') {
+                    state.projection.provisional = true;
+                }
             }
         }
         state.batches.push(batch.batch_id);
@@ -539,17 +744,19 @@ class MemoryAnalysisStore {
             state.lastCompleteness = batchCompleteness;
         }
         this.operations.push(['apply', batch.batch_id]);
-        return { state, duplicate: false };
+        return { state, duplicate: false, transitionParentKey };
     }
 
     async assertScopeWritable(scope) {
         const normalized = normalizeScope(scope);
         const state = await this._state(normalized);
-        requireWritableState(state);
+        requireWritableState(state, { allowPendingReplacement: true });
         const activeStates = [...this.states.values()].filter(
             (candidate) => candidate.scope.conversationId === normalized.conversationId
                 && !candidate.retired
+                && candidate.activeHead !== false
         );
+        if (state.pendingReplacement) return state;
         if (activeStates.some((candidate) => !sameScope(candidate.scope, normalized))) {
             throw sourceEpochError(
                 'ANALYSIS_SOURCE_EPOCH_REQUIRED',
@@ -664,7 +871,16 @@ class FileAnalysisStore extends MemoryAnalysisStore {
     async applyBatch(batch) {
         await this._loadConversation(batch.conversation_id);
         const result = await super.applyBatch(batch);
-        if (!result.duplicate) await this._persist(result.state);
+        if (!result.duplicate) {
+            // Persist the parent head first.  If the process stops between
+            // these writes, retrying the child is still safe: the parent is
+            // retained but no longer writable, and the child can be rebuilt.
+            if (result.transitionParentKey) {
+                const transitionParent = this.states.get(result.transitionParentKey);
+                if (transitionParent) await this._persist(transitionParent);
+            }
+            await this._persist(result.state);
+        }
         return result;
     }
 

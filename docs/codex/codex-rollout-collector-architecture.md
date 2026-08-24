@@ -2,10 +2,10 @@
 title: Codex Rollout 正式解析采集器架构
 status: active
 owner: "@maintainer"
-last_updated: 2026-08-21
+last_updated: 2026-08-24
 source_of_truth: codex-rollout-collector
 related_code: [native/codex-rollout-demo, native/codex-rollout-compat-spike]
-related_docs: [docs/codex/codex-rollout-demo-design.md, docs/codex/codex-rollout-collector-codex-compatibility.md, docs/codex/codex-rollout-recorder-source-technical-reference.md, docs/codex/codex-history-sync-design-principles.md, docs/codex/codex-history-sync-head-transition-source-replacement-contract-draft.md, docs/codex/codex-history-sync-sequence-test-vectors-contract-draft.md, docs/codex/codex-sync-app-history-ipc-consistency.md, docs/workflow/CONTRACTS.md, docs/workflow/DECISIONS.md]
+related_docs: [docs/codex/codex-rollout-demo-design.md, docs/codex/codex-rollout-collector-codex-compatibility.md, docs/codex/codex-rollout-recorder-source-technical-reference.md, docs/codex/codex-last-turn-replacement-rust-collector-change-plan.md, docs/codex/codex-history-sync-design-principles.md, docs/codex/codex-history-sync-head-transition-source-replacement-contract-draft.md, docs/codex/codex-history-sync-sequence-test-vectors-contract-draft.md, docs/codex/codex-sync-app-history-ipc-consistency.md, docs/workflow/CONTRACTS.md, docs/workflow/DECISIONS.md]
 ---
 
 # Codex Rollout 正式解析采集器架构
@@ -167,8 +167,13 @@ rollout 原样复制到服务端。因此采集器必须区分：
 ┌──────────────────────────────────────────────────────────────┐
 │ [ADAPTER] TermLink Rust Source + Codex Compatibility Layer    │
 │                                                              │
+│ SessionLineageLocator                                        │
+│ ├─ 按日期分区做有界会话文件发现                               │
+│ ├─ 文件名候选解析 + SessionMeta/history_base 校验             │
+│ └─ root → active head lineage 与恢复计划                     │
+│                                                              │
 │ SourceLocator                                                │
-│ ├─ 文件发现、命名兼容、conversation 显式绑定                 │
+│ ├─ 物理 source 绑定、命名兼容、conversation 显式绑定          │
 │ └─ 文件身份、压缩格式、segment 范围                          │
 │                                                              │
 │ SourceBackend                                                │
@@ -231,9 +236,42 @@ rollout 原样复制到服务端。因此采集器必须区分：
 
 ## 4. 模块职责和稳定边界
 
-### 4.1 `SourceLocator`：只负责找到来源
+### 4.1 `SessionLineageLocator` 和 `SourceLocator`：分开会话发现与物理绑定
 
-`SourceLocator` 不解析历史语义，只把调用方提供的会话 ID和来源配置解析成 `SourceSpec`。
+两层职责不能混为一个“找到最新文件”的函数：
+
+- `SessionLineageLocator` 处理会话级发现和父子关联：在受限日期范围内找候选文件，解析文件名
+  候选，读取最小 `SessionMeta`/header，验证 `history_base`，建立 root → active head lineage，
+  并生成可恢复的 lineage checkpoint；
+- `SourceLocator` 处理单个物理来源绑定：把调用方提供或 lineage locator 选定的路径绑定为
+  `SourceSpec`，校验 fingerprint、压缩格式、snapshot boundary 和读取能力；
+- 两者都不把文件名或 mtime 当成 canonical identity。调用方显式提供的
+  `target_conversation_id` 仍然优先，`SessionMeta` 与 `history_base` 用来验证来源和关系。
+
+物理候选发现还必须遵循 Codex 的同名压缩 sibling 优先级：同一目录中存在
+`B.jsonl` 时，`B.jsonl.zst` 只视为同一 rollout 的被隐藏物理表示，不进入候选 catalog。
+该判断按 `.jsonl.zst` 去掉 `.zst` 后得到的精确 sibling path 执行，不按 `rolloutId` 跨目录
+合并；不同路径即使得到相同 lookup ID，仍然保持 `AmbiguousRollout`。只有 `.zst` 的来源继续
+遵循普通压缩流的 forward-only 能力边界，plain sibling canonicalization 不等于扩展 `.zst`
+读取能力。
+
+会话级 locator 的输入至少包括允许的 `sessionsRoot`、稳定会话 ID、日期扫描边界，以及可选的
+已知 head hint。它必须支持父 rollout 在前一个日期目录、child rollout 在后一个日期目录的
+情况，但不得对整个 sessions 根做无界递归扫描。
+
+文件名只能生成候选信息：
+
+```text
+conversationId candidate
+rolloutId candidate
+filename timestamp/date partition
+candidate ordering key
+```
+
+精确 parent rollout、cut 和会话绑定必须由文件内容中的 `SessionMeta/history_base` 验证。
+文件名解析与内容验证冲突时，结果为诊断/partial 或 fail-closed，不选择 mtime 最大文件。
+
+`SourceLocator` 不解析历史语义，只把已通过会话发现/验证的物理来源解析成 `SourceSpec`。
 
 ```text
 SourceSpec
@@ -246,11 +284,8 @@ SourceSpec
 └─ snapshot_boundary
 ```
 
-它应支持旧、新 rollout 命名方式、manifest/index、多个候选文件和 `.zst` 文件。
-
-文件名不是会话身份的可靠来源。`SessionMeta` 的第一条或最后一条也不能覆盖调用方传入的
-目标会话 ID。父历史、继承前缀或其他会话 metadata 只作为来源范围和 lineage 观察，不改变
-当前分析身份。
+它应支持旧、新 rollout 命名方式、manifest/index、多个候选文件和 `.zst` 文件。父历史、
+继承前缀或其他会话 metadata 只作为来源范围和 lineage 观察，不改变当前分析身份。
 
 ### 4.2 `SourceBackend`：负责读取，不负责业务归约
 
@@ -817,6 +852,46 @@ outcome 的关联，不能因为输出被降级为摘要而丢失工具的命令
 
 ## 5. 读取模式和顺序保证
 
+### 5.0 会话 lineage 级读取与单文件读取的关系
+
+现有 `SourceBackend` 的 full-read、tail preview、backward/range 和 forward append 是**单个
+物理 rollout 文件**的读取能力；它们不等于会话级读取。会话级 `SessionLineageLocator` 在
+这些 primitive 之上增加四种编排语义：
+
+本 Collector 的权威读取模型只有 source read mode 和 source continuation checkpoint：
+
+- `cursor` 只表示 source 的可恢复位置和来源证据，例如 source、segment、byte、ordinal、
+  完整行边界、fingerprint 和 snapshot boundary；它不是记录分页游标；
+- `AnalysisBatch` 是进程传输中的受限消息块，不是历史页，也不定义页大小、页边界或页结束
+  条件；
+- Rust Collector、`SourceBackend` 和 `AnalysisBatch` 契约不得引入 `page`、`page_size`、
+  `next_page` 或其他分页语义；
+- 如果未来 Node 或 App 需要对已经持久化的历史投影分段读取，那属于独立的服务端/App 读取
+  契约，不得反向改变 Rust Collector 的 source 读取模型。
+
+本文后续使用的 `cursor` 均按上述 source continuation cursor 理解；需要明确表示下一次
+source 读取位置时使用 `next_source_cursor`，不使用带有分页含义的命名。
+
+```text
+full lineage replay
+  root rollout → parent/child chain → active head
+
+tail/backward lineage read
+  active head 尾部预览 → 沿 lineage 向前补全父文件/更早分段
+
+same-source incremental read
+  同一 rollout 的 ForwardAppendCursor → 新增完整行
+
+child transition read
+  parent cursor/checkpoint → history_base cut 校验 → child 从安全边界读取
+```
+
+child transition 不是 append，不能把父文件的 append cursor 当作 child 的 byte cursor。
+lineage cursor/checkpoint 至少绑定 conversation ID、root/head/parent chain、各 source 的
+fingerprint/anchor、读取模式和 snapshot boundary；服务重启后可以只从最新 head 沿
+`history_base` 向前恢复，缺少父文件或发现歧义时返回 partial/fail-closed。所有模式都保留
+稳定 source position 和 overlap 幂等语义。
+
 ### 5.1 尾部预览
 
 首次打开历史时可以先读取文件尾部：
@@ -997,6 +1072,14 @@ SourceCapabilities
 
 普通 `.zst` 在没有 seek/index 时只能走正序解压，或者先物化为临时 plain JSONL。不得把
 解压后偏移伪装成可直接用于下一次打开的压缩文件字节偏移。
+
+本阶段 Rust Collector 对父 lineage 进一步冻结为 fail-closed：普通 `.zst` 可以作为
+active/root source 做正序完整 Replay，但不能作为需要 cut 定位的 parent source。只要
+`.zst` parent 参与 tail/backward lineage recovery、replacement validation 或 parent
+full-history replay，就返回类型化的 `UnsupportedParentSourceCompression`，不产生 lineage
+batch、replacement、cursor、checkpoint 或 active-projection mutation。顺序解压不等于随机
+读取；因此不得用解压位置冒充可恢复的 parent byte cursor。seekable/indexed `.zst` 或
+materialized plain JSONL 的支持留给独立能力扩展。
 
 #### 5.4.6 正常 APP 生命周期与 MCP 完整 replay
 
@@ -1233,7 +1316,7 @@ AnalyzerCheckpoint
 5. checkpoint 缺失或失效时可以从头分段重放；
 6. checkpoint 必须同时具备 source identity、fingerprint、prefix anchor、reader/provenance、
    segment/cursor、completeness、projection watermark 和版本化 reducer state；缺一项即拒绝保存；
-7. `complete` 的 status、request_id、completeness、next_cursor 必须分别通过枚举和与 checkpoint
+7. `complete` 的 status、request_id、completeness、next_source_cursor 必须分别通过枚举和与 checkpoint
    的一致性校验，不能仅凭空的 `complete` 消息提升为 canonical；
 8. checkpoint 不保存完整 raw rollout 和工具详情；
 9. `complete` 只有在当前 `request_id` 已成功导入至少一个 batch 后才能提交；空 state 或仅有
@@ -1277,7 +1360,7 @@ AnalysisBatch
 ├─ task_outcomes
 ├─ progress
 ├─ completeness
-├─ next_cursor
+├─ next_source_cursor
 └─ mutations
 ```
 
@@ -1312,7 +1395,7 @@ error              Rust → Node，本次 request 失败
 `batch` 和 `complete` 都是 fail-closed 输入边界：每个 upsert mutation 必须带与 batch 一致的
 `completeness`、`source_epoch`、非负 `revision` 和完整 `source_ref`；`complete_range` 必须带
 `source_range` 且只能出现在 canonical batch。`complete` 必须带合法 status、completeness、
-`next_cursor` 和完整 checkpoint，且 checkpoint 的 request/cursor/completeness 必须与消息一致。
+`next_source_cursor` 和完整 checkpoint，且 checkpoint 的 request/source_cursor/completeness 必须与消息一致。
 Node 在任何 replacement 清理前先完成这些校验。
 
 Rust 不需要持久化未 ACK 的 batch，也不需要在重启后按 `batch_id` 重发。正式 checkpoint
@@ -1510,7 +1593,11 @@ future-compatible
 
 ### 阶段 1：冻结验证依据
 
-- 固定真实 rollout fixture 和小型合成 fixture；
+- 固定 synthetic/sanitized rollout fixture 和小型合成 fixture；
+- 当前可复用的五文件 synthetic session fixture 位于
+  `native/codex-rollout-collector/tests/fixtures/sanitized-session-5/`，固定两个日期分区、一个
+  stale root-like candidate 和四级有效 parent/child chain；其 synthetic unknown developer-role 事件
+  预期保持 partial/`validation_unavailable`，不生成 active replacement mutation；
 - 固定 history-schema:5、AnalysisBatch 和 availability 语义；
 - 保留 Demo 全量正序模式作为正确性 oracle；
 - 增加“全量结果 vs 流式结果”确定性对照。
@@ -1524,6 +1611,29 @@ future-compatible
 - 将 Codex Adapter 改为依赖仓库内的 vendored 兼容层，而不是本机 Codex workspace；
 - 移除正式构建对 Codex 本机绝对路径和 Codex 源码下载的依赖；
 - 对 legacy/current fixture 做 wire decode 回归。
+
+### 阶段 2.5：会话级发现和 lineage 编排（本次新增设计重点）
+
+- 在 `SourceLocator` 之上增加 `SessionLineageLocator`，输入为受限 `sessionsRoot`、稳定
+  `conversationId`、日期边界和可选 head hint；
+- 从父/最早 rollout 所在日期开始向后扫描到明确边界，覆盖 child 位于后续日期目录的情况，
+  不做整个 sessions 根的无界查找；
+- 文件名解析只产生候选，`SessionMeta/history_base` 负责确认会话绑定、rollout ID、parent
+  edge 和 cut；冲突、缺 parent、多个 head 或循环必须诊断并 fail-closed；
+- 通过 lineage checkpoint 支持服务重启后从最新 head 沿父链恢复，不要求中间 rollout 必须在
+  本次进程内先被读取；
+- 在单文件 full/tail/backward/append primitive 之上实现会话级 full replay、tail/backward
+  补全、同源 append 和 child transition；区分各类 cursor，不能把 child transition 当 append；
+- Codex rollout source model 固定为 active append-only、既有 byte range immutable；superseding/
+  resend 的 terminal user turn 创建带 `history_base` 的新 child，不回写 parent。被验证为
+  lineage parent 后，TermLink 按 immutable source 使用；外部 in-place modification 不属于
+  Collector correctness contract；
+- parent auxiliary full-history read 不要求整文件 before/after fingerprint mutation guard；
+  `history_base`/cut、conversation/source identity、cursor/prefix anchor、完整行边界和
+  bounded parent header/suffix validation 仍保持原有安全语义；
+- 用跨日期真实 fixture 验证“全量历史包含旧 turn、增量/尾部/向前读取可收敛到同一结果”；
+  五文件 fixture 还必须验证 conversation-only discovery、stale root-like provenance 和最新
+  active path 的重启恢复。
 
 ### 阶段 3：抽取 Adapter 和内部事件
 
@@ -1585,6 +1695,8 @@ Rust History Analyzer 只通过 Node/服务端分析传输协议接入正式系�
   recorder 的源码事实，包括 JSONL append 写入、`flush`/`persist`、`.zst` materialize 和
   Codex 自己的 SQLite 历史投影；只作为 Codex 写入行为的技术参考，不扩展 Rust Analyzer
   或服务端职责；
+- `docs/codex/codex-last-turn-replacement-rust-collector-change-plan.md`：会话级有界发现、
+  跨日期 lineage、完整历史重建、读取模式和最后 turn replacement 派生事实的当前改造方案；
 - `docs/codex/codex-sync-app-history-ipc-consistency.md`：App live projection 与 canonical
   history sync、reconciliation 触发和服务端 read-model revision 的同步策略；它消费本文
   定义的 canonical source/AnalysisBatch 边界，不改变 Rust Analyzer 的职责；

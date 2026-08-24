@@ -9,15 +9,15 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::codex_wire::{
-    CompatibilityProfile, DecodedRecord, RolloutItem, UnknownRecord, WireAvailability, models,
-    plan_tool, protocol, request_user_input,
+    CompatibilityProfile, DecodedRecord, RolloutItem, TurnItem, UnknownRecord, WireAvailability,
+    models, plan_tool, protocol, request_user_input,
 };
 use crate::error::CollectorErrorKind;
 use crate::model::{
     AnalysisEvent, Availability, EventMetadata, IdentityOrigin, PlanOption, PlanStep, SourceRef,
-    TurnStatus,
+    TerminalEvidence, TurnStatus,
 };
-use crate::source::{SourceRecord, safe_source_identity};
+use crate::source::{HistoryBaseRef, SourceRecord, safe_source_identity};
 
 #[derive(Debug, Clone)]
 pub struct CodexEventAdapter {
@@ -88,7 +88,9 @@ impl CodexEventAdapter {
 
     pub fn adapt(&self, record: &SourceRecord, decoded: DecodedRecord) -> Vec<AnalysisEvent> {
         let mut events = match decoded {
-            DecodedRecord::Known(known) => self.adapt_known(record, &known.line.item),
+            DecodedRecord::Known(known) => {
+                self.adapt_known(record, &known.line.item, known.history_base.as_ref())
+            }
             DecodedRecord::Unknown(unknown) => vec![self.adapt_unknown(record, unknown)],
         };
         self.finalize_events(&mut events);
@@ -150,9 +152,14 @@ impl CodexEventAdapter {
         }
     }
 
-    fn adapt_known(&self, record: &SourceRecord, item: &RolloutItem) -> Vec<AnalysisEvent> {
+    fn adapt_known(
+        &self,
+        record: &SourceRecord,
+        item: &RolloutItem,
+        history_base: Option<&HistoryBaseRef>,
+    ) -> Vec<AnalysisEvent> {
         match item {
-            RolloutItem::SessionMeta(payload) => self.adapt_session(record, payload),
+            RolloutItem::SessionMeta(payload) => self.adapt_session(record, payload, history_base),
             RolloutItem::ResponseItem(payload) => self.adapt_response_item(record, &payload.item),
             RolloutItem::EventMsg(payload) => self.adapt_event_msg(record, payload),
             RolloutItem::Compacted(payload) => self.single_compaction(record, &payload.message),
@@ -184,6 +191,7 @@ impl CodexEventAdapter {
         &self,
         record: &SourceRecord,
         payload: &protocol::SessionMetaLine,
+        history_base: Option<&HistoryBaseRef>,
     ) -> Vec<AnalysisEvent> {
         let session_id = payload.meta.id.to_string();
         vec![AnalysisEvent::SessionContext {
@@ -199,6 +207,7 @@ impl CodexEventAdapter {
             cwd: Some(safe_path_display(&payload.meta.cwd)),
             source: Some(debug_name(&payload.meta.source)),
             model_provider: payload.meta.model_provider.clone(),
+            history_base: history_base.cloned(),
         }]
     }
 
@@ -211,6 +220,12 @@ impl CodexEventAdapter {
             models::ResponseItem::Message {
                 id, role, content, ..
             } => self.adapt_message(record, id.as_ref(), role, content),
+            models::ResponseItem::Reasoning { .. } => vec![self.diagnostic(
+                record,
+                "reasoning_item",
+                Some("recognized reasoning item is not a canonical projection"),
+                0,
+            )],
             models::ResponseItem::AgentMessage { id, content, .. } => {
                 let Some(text) = models::plaintext_agent_message_content(content) else {
                     return vec![self.unknown_event(
@@ -457,6 +472,12 @@ impl CodexEventAdapter {
                 ),
                 text,
             }],
+            "user" => vec![self.diagnostic(
+                record,
+                "response_user_message_carrier",
+                Some("response_item user message is represented by item_completed"),
+                0,
+            )],
             _ => vec![self.unknown_event(
                 record,
                 format!("response_item/message/role:{role}"),
@@ -527,8 +548,17 @@ impl CodexEventAdapter {
                 self.adapt_event_agent_message(record, payload)
             }
             protocol::EventMsg::TurnStarted(payload) => self.adapt_turn_started(record, payload),
+            protocol::EventMsg::ThreadSettingsApplied(_) => vec![self.diagnostic(
+                record,
+                "thread_settings_applied",
+                Some("recognized session settings metadata"),
+                0,
+            )],
             protocol::EventMsg::TurnComplete(payload) => self.adapt_turn_complete(record, payload),
             protocol::EventMsg::TurnAborted(payload) => self.adapt_turn_aborted(record, payload),
+            protocol::EventMsg::ItemCompleted(payload) => {
+                self.adapt_item_completed(record, payload)
+            }
             protocol::EventMsg::TokenCount(payload) => self.adapt_token_count(record, payload),
             protocol::EventMsg::RequestUserInput(payload) => self.adapt_questions(record, payload),
             protocol::EventMsg::PlanUpdate(payload) => self.adapt_plan(record, payload),
@@ -768,18 +798,54 @@ impl CodexEventAdapter {
         record: &SourceRecord,
         payload: &protocol::UserMessageEvent,
     ) -> Vec<AnalysisEvent> {
+        self.adapt_user_message(
+            record,
+            payload.client_id.clone(),
+            payload.message.clone(),
+            None,
+        )
+    }
+
+    fn adapt_item_completed(
+        &self,
+        record: &SourceRecord,
+        payload: &protocol::ItemCompletedEvent,
+    ) -> Vec<AnalysisEvent> {
+        let TurnItem::UserMessage(item) = &payload.item else {
+            return vec![self.diagnostic(
+                record,
+                "item_completed_non_user",
+                Some("recognized completion metadata is not a canonical history item"),
+                0,
+            )];
+        };
+        self.adapt_user_message(
+            record,
+            item.client_id.clone().or_else(|| Some(item.id.clone())),
+            item.message(),
+            Some(payload.turn_id.clone()),
+        )
+    }
+
+    fn adapt_user_message(
+        &self,
+        record: &SourceRecord,
+        client_id: Option<String>,
+        message: String,
+        turn_id: Option<String>,
+    ) -> Vec<AnalysisEvent> {
         let mut events = vec![AnalysisEvent::UserMessage {
             metadata: metadata(
                 record,
                 "user_message",
                 0,
-                payload.client_id.clone(),
-                None,
+                client_id.clone(),
+                turn_id.clone(),
                 Availability::Present,
             ),
-            text: payload.message.clone(),
+            text: message.clone(),
         }];
-        if let Some(action) = classify_plan_action(&payload.message)
+        if let Some(action) = classify_plan_action(&message)
             && let Some((pending_turn_id, question_key)) = self.consume_pending_plan_action()
         {
             let mut event = AnalysisEvent::PlanAction {
@@ -787,8 +853,8 @@ impl CodexEventAdapter {
                     record,
                     "plan_action",
                     1,
-                    payload.client_id.clone(),
-                    pending_turn_id,
+                    client_id,
+                    pending_turn_id.or(turn_id),
                     Availability::Present,
                 ),
                 action: action.to_string(),
@@ -881,15 +947,17 @@ impl CodexEventAdapter {
         payload: &protocol::TurnAbortedEvent,
     ) -> Vec<AnalysisEvent> {
         self.clear_pending_plans();
+        let mut metadata = metadata(
+            record,
+            "turn_completed",
+            0,
+            payload.turn_id.clone(),
+            payload.turn_id.clone(),
+            Availability::PartialRollout,
+        );
+        metadata.terminal_evidence = Some(TerminalEvidence::ExplicitAbort);
         vec![AnalysisEvent::TurnCompleted {
-            metadata: metadata(
-                record,
-                "turn_completed",
-                0,
-                payload.turn_id.clone(),
-                payload.turn_id.clone(),
-                Availability::PartialRollout,
-            ),
+            metadata,
             status: TurnStatus::Interrupted,
             message: Some(debug_name(&payload.reason)),
             duration_ms: payload.duration_ms,
@@ -1262,6 +1330,7 @@ fn metadata(
             .saturating_mul(100)
             .saturating_add(index),
         availability,
+        terminal_evidence: None,
         identity_origin: IdentityOrigin::SourcePosition,
         source_ref: SourceRef::from(record),
     }
@@ -1607,7 +1676,10 @@ fn bounded_text(output: String) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{compact_json, safe_path_display, sanitize_tool_input};
+    use super::{CodexEventAdapter, compact_json, safe_path_display, sanitize_tool_input};
+    use crate::codex_wire::{CompatibilityProfile, DecodedRecord, decode_value};
+    use crate::model::AnalysisEvent;
+    use crate::source::SourceRecord;
     use serde_json::json;
     use std::path::Path;
 
@@ -1641,5 +1713,44 @@ mod tests {
         assert!(!output.contains("E:\\coding\\TermLink"));
         assert!(!output.contains("/tmp/private"));
         assert!(output.contains("src/lib.rs"));
+    }
+
+    #[test]
+    fn item_completed_user_message_keeps_the_completed_turn_id() {
+        let raw = json!({
+            "timestamp": "2026-08-22T00:00:00Z",
+            "ordinal": 18,
+            "type": "event_msg",
+            "payload": {
+                "type": "item_completed",
+                "thread_id": "01a02530-9975-7df2-a3b3-6bb214ad47ed",
+                "turn_id": "turn-1",
+                "item": {
+                    "type": "UserMessage",
+                    "id": "user-item-1",
+                    "content": [{"type": "text", "text": "edited question"}]
+                },
+                "completed_at_ms": 1
+            }
+        });
+        let record = SourceRecord {
+            source_identity: "child-rollout".to_string(),
+            byte_start: 100,
+            byte_end: 200,
+            physical_line_ordinal: 5,
+            rollout_ordinal: Some(18),
+            timestamp: Some("2026-08-22T00:00:00Z".to_string()),
+            raw: Some(raw.clone()),
+            parse_error: None,
+        };
+        let decoded = decode_value(raw, CompatibilityProfile::Current);
+        assert!(matches!(decoded, DecodedRecord::Known(_)));
+        let events = CodexEventAdapter::new(CompatibilityProfile::Current).adapt(&record, decoded);
+        assert!(matches!(
+            events.as_slice(),
+            [AnalysisEvent::UserMessage { metadata, text }]
+                if metadata.turn_id.as_deref() == Some("turn-1")
+                    && text == "edited question"
+        ));
     }
 }

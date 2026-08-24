@@ -1,6 +1,9 @@
 use std::path::{Path, PathBuf};
 
-use codex_rollout_collector::model::{AnalysisEvent, Availability, IdentityOrigin, TurnStatus};
+use codex_rollout_collector::codex_wire::{DecodedRecord, UnknownReason, decode_value};
+use codex_rollout_collector::model::{
+    AnalysisEvent, Availability, IdentityOrigin, TerminalEvidence, TurnStatus,
+};
 use codex_rollout_collector::{
     CompatibilityProfile, JsonlSourceBackend, SourceSpec, analyze_source,
 };
@@ -52,6 +55,25 @@ fn current_profile_decode_and_adapter_projection() {
             status: TurnStatus::Completed,
             ..
         }
+    )));
+}
+
+#[test]
+fn explicit_turn_aborted_is_interrupted_terminal_evidence() {
+    let batch = analyze(
+        "current/last-turn-replacement-stopped-parent.jsonl",
+        CompatibilityProfile::Current,
+    );
+
+    assert!(batch.complete);
+    assert!(batch.items.iter().any(|event| matches!(
+        event,
+        AnalysisEvent::TurnCompleted {
+            metadata,
+            status: TurnStatus::Interrupted,
+            ..
+        } if metadata.availability == Availability::PartialRollout
+            && metadata.terminal_evidence == Some(TerminalEvidence::ExplicitAbort)
     )));
 }
 
@@ -141,6 +163,69 @@ fn codex_wire_minimal_envelope_and_provenance() {
         "only the explicit event_msg user carrier may become a UI UserMessage"
     );
     assert!(!batch.items.is_empty());
+}
+
+#[test]
+fn history_base_requires_paginated_history_mode() {
+    let session_id = "01a02530-9975-7df2-a3b3-6bb214ad47ed";
+    let parent_rollout_id = "01a02531-9f57-76d0-89f7-9b5e12d04911";
+    let make_session = |history_mode: Option<&str>| {
+        let mut payload = json!({
+            "id": session_id,
+            "timestamp": "2026-08-22T00:00:00Z",
+            "cwd": "E:\\coding\\TermLink",
+            "originator": "codex_cli",
+            "cli_version": "0.148.0",
+            "source": "cli",
+            "model_provider": "openai",
+            "history_base": {
+                "thread_id": parent_rollout_id,
+                "end_ordinal_exclusive": 14,
+                "end_byte_offset": 179138
+            },
+            "git": {}
+        });
+        if let Some(history_mode) = history_mode {
+            payload["history_mode"] = json!(history_mode);
+        }
+        json!({
+            "timestamp": "2026-08-22T00:00:00Z",
+            "ordinal": 0,
+            "type": "session_meta",
+            "payload": payload
+        })
+    };
+
+    for history_mode in [None, Some("legacy")] {
+        let decoded = decode_value(make_session(history_mode), CompatibilityProfile::Current);
+        match decoded {
+            DecodedRecord::Unknown(record) => {
+                assert_eq!(record.reason, UnknownReason::UnsupportedSchema);
+            }
+            DecodedRecord::Known(_) => {
+                panic!("history_base without paginated history_mode must fail closed")
+            }
+        }
+    }
+
+    let decoded = decode_value(
+        make_session(Some("paginated")),
+        CompatibilityProfile::Current,
+    );
+    match decoded {
+        DecodedRecord::Known(record) => {
+            assert_eq!(
+                record.history_base,
+                Some(
+                    codex_rollout_collector::HistoryBaseRef::new(parent_rollout_id, 14, 179138)
+                        .expect("history base fixture")
+                )
+            );
+        }
+        DecodedRecord::Unknown(_) => {
+            panic!("paginated history_base must remain a known record")
+        }
+    }
 }
 
 #[test]
@@ -528,15 +613,27 @@ fn response_item_non_ui_roles_are_not_user_messages() {
         AnalysisEvent::UnknownEvent {
             raw_type: Some(raw_type),
             ..
-        } if raw_type == "response_item/message/role:user"
+        } if raw_type == "response_item/message/role:developer"
     )));
     assert!(batch.items.iter().any(|event| matches!(
         event,
-        AnalysisEvent::UnknownEvent {
-            raw_type: Some(raw_type),
-            ..
-        } if raw_type == "response_item/message/role:developer"
+        AnalysisEvent::Diagnostic { code, .. } if code == "response_user_message_carrier"
     )));
+}
+
+#[test]
+fn real_last_turn_replacement_fixture_projects_known_non_history_items() {
+    for fixture_name in [
+        "current/last-turn-replacement-real-parent.jsonl",
+        "current/last-turn-replacement-real-child.jsonl",
+    ] {
+        let batch = analyze(fixture_name, CompatibilityProfile::Current);
+        assert!(batch.complete, "{fixture_name} should remain canonical");
+        assert!(!batch.items.iter().any(|event| matches!(
+            event,
+            AnalysisEvent::UnknownEvent { .. } | AnalysisEvent::ParseGap { .. }
+        )));
+    }
 }
 
 #[test]

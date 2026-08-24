@@ -2,9 +2,10 @@
 title: Codex Rollout 采集器 Codex 兼容层与引用边界
 status: active
 owner: "@maintainer"
-last_updated: 2026-08-19
+last_updated: 2026-08-24
 source_of_truth: codex-rollout-collector-codex-compatibility
-related_docs: [docs/codex/codex-rollout-collector-architecture.md, docs/codex/codex-rollout-demo-design.md]
+last_updated: 2026-08-23
+related_docs: [docs/codex/codex-rollout-collector-architecture.md, docs/codex/codex-last-turn-replacement-rust-collector-change-plan.md, docs/codex/codex-rollout-recorder-source-technical-reference.md, docs/codex/codex-rollout-demo-design.md]
 ---
 
 # Codex Rollout 采集器 Codex 兼容层与引用边界
@@ -270,6 +271,49 @@ manifest 还要列出 path dependency 闭包和本地补丁。默认不允许只
 vendored 源码；确需补丁时，先在 Spike 验证，再以相同 patch 应用到正式 Analyzer，并同步
 manifest。两个 manifest 的 revision、闭包或 patch 集合不一致时，构建/发布检查必须失败，
 不能依赖人工确认。
+
+### 3.5 会话 rollout 发现和 lineage 关系
+
+Codex vendor 提供 rollout wire/history 类型和 `history_base` 的语义，但不替 TermLink 实现
+“从会话 ID 找到跨日期的最新 rollout”这一层。正式 Collector 需要自有的
+`SessionLineageLocator`：
+
+- 输入为受限 `sessionsRoot`、稳定 `conversationId`、日期起点/上界和可选已知 head hint；
+- 从父或最早已知 rollout 所在日期分区开始，向后检查到明确边界；child 位于下一日期目录
+  时仍可被发现，但不做整个 sessions 根的无界递归扫描；
+- 文件名解析只产生 `conversationId`、`rolloutId`、时间/日期和排序候选，不能单独确认
+  parent 或 active head；
+- 最小 header/`SessionMeta` 负责会话绑定和 rollout 身份，`history_base.thread_id` 负责
+  parent rollout 与 `end_ordinal_exclusive`/`end_byte_offset` cut；
+- 文件名候选与内容证据冲突、多个有效 head、parent 缺失、循环或超出资源边界时，返回诊断
+  的 partial 或 fail-closed，不用 mtime 最大文件冒充最新历史。
+- Codex rollout source model 是 active append-only、既有 byte range immutable；superseding/
+  resend 的 terminal user turn 创建新的 child 并通过 `history_base` 引用 parent。被验证为
+  parent 后，TermLink 按 immutable source 使用；外部 in-place modification 不受支持，且
+  parent auxiliary full-history read 不要求整文件 before/after fingerprint mutation detection。
+
+#### Codex plain/compressed sibling 优先级
+
+Codex 的压缩 worker 会先把压缩结果以 `.jsonl.zst` sibling 写入并完成校验，随后才删除原始
+`.jsonl`；因此转换窗口内两种物理表示可能同时存在。Codex 的 `RolloutFile::from_path`
+和 `should_skip_compressed_sibling` 明确规定：只要同目录同名 `.jsonl` 存在，就隐藏
+`.jsonl.zst`，而不是把两份文件当成两个 rollout。
+
+TermLink 在自己的 source discovery/catalog 层复现这一兼容规则：
+
+- 同目录同名 plain 存在：选择 `.jsonl`；
+- 只有 `.zst`：保留 `.zst`，继续 forward-only；
+- 不同路径的相同 rollout lookup ID：仍然 fail-closed 为歧义；
+- plain 存在但读取/校验失败：不回退到 `.zst`，避免绕过 Codex 的 canonical physical source。
+
+TermLink 不依赖 Codex compression crate，也不解压或比较 sibling 内容；该规则由本地自有
+helper、fixture 和 discovery/catalog 回归锁定。
+
+仓库内 vendor 的 `protocol/src/protocol.rs` `HistoryPosition` 注释和
+`protocol/src/thread_id.rs` 的命名规则只能作为上述语义的兼容依据；它们没有提供完整的
+跨日期目录扫描器。TermLink 的目录发现、候选去重、lineage checkpoint 和 root → head
+恢复计划必须由自有 source 层维护，不能把开发者机器上的 Codex checkout 或其私有路径
+实现当作生产依赖。
 
 ## 4. 必须在 TermLink 内维护的 `codex_wire`
 
@@ -682,6 +726,19 @@ Reader 只提供行为参考和 conformance 对照，不进入默认 Cargo 依�
 如果未来要验证 Codex 新 Reader，只能作为独立 backend/Spike 接入同一个 `SourceRecord`
 接口；它必须与原生 reader 对照，不能改变 Adapter、Reducer 或传输协议。
 
+#### 5.1.1 普通 `.zst` 父 lineage 冻结
+
+正式 Collector 不把上游 `.zst` 的顺序解压能力扩展成父 lineage 的随机读取能力。普通
+`.zst` 作为 active/root source 时仅支持 forward full Replay；当它作为 parent rollout
+参与 suffix/backfill、replacement validation 或 parent full-history replay 时，统一返回
+`LineageError::UnsupportedParentSourceCompression` 并 fail-closed，不发布 lineage
+batch、replacement evidence、cursor 或 checkpoint。解压后的逻辑 offset 不得伪装成压缩
+文件的可恢复 byte cursor。
+
+该边界是 TermLink 当前 compatibility invariant，不由上游 Reader 是否未来增加索引而自动
+改变。seekable/indexed `.zst` 或 materialized plain JSONL 必须作为新的 SourceBackend
+capability 单独验证，并同步更新 cursor、mutation guard、fixture 和协议文档后才能启用。
+
 ### 5.2 官方 `thread/read` 对照实现
 
 参考：
@@ -800,6 +857,15 @@ AnalysisBatch
 8. 一个文件变更、搜索或产物 fixture；
 9. 一个 compaction、abort 或 partial rollout fixture；
 10. 一个未知 event、字段缺失和 alias fixture。
+11. 一个 synthetic/sanitized 的多文件 lineage fixture：父/child rollout 跨日期目录，child 首行包含
+    `history_base`，并能验证跨日期发现、完整 lineage 和 replacement 证据边界；当前可复用样本为
+    `native/codex-rollout-collector/tests/fixtures/sanitized-session-5/`，其五个文件还固定了
+    stale root-like provenance、full/preview/backfill 和最新 active path 重启恢复的预期；
+    因其中存在当前 adapter 未承诺的 synthetic developer-role 事件，该 fixture 的预期是 partial、
+    `validation_unavailable` 和无 replacement mutation，complete replacement 由独立小型合成
+    parent/child fixture 覆盖；README 与 manifest 不包含真实正文、旧 ID 或本机路径；
+12. 一个文件名候选与 `SessionMeta/history_base` 冲突的 fixture，以及 parent 缺失、多个 head、
+    中间 rollout 被跳过后的恢复 fixture。
 
 必须验证：
 
@@ -811,6 +877,11 @@ AnalysisBatch
 - 不可恢复字段不会被伪造成成功、完成、审批或用户确认；
 - FunctionCall/CustomTool output 的文本和结构化形态都能 round-trip；
 - 普通 JSONL、`.zst` 能力边界和 cursor 语义符合主架构文档；
+- 仅给定 `sessionsRoot + conversationId` 时，能够在有界日期范围内发现跨日期 child，按
+  root → active head 重建完整历史，并保留被替换的旧 turn；
+- lineage 级 full、tail/backward、同源 append 和 child transition 使用不同 cursor/证据，
+  不把 child transition 误判为物理 append；
+- 文件名只作为候选，`history_base`/SessionMeta 才是 parent、cut 和会话绑定的验证事实；
 - 上游源码不可访问时，默认构建和默认测试仍然通过。
 
 ## 9. Codex 变化时的维护流程

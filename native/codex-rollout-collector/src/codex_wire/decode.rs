@@ -1,8 +1,9 @@
-use codex_history::RolloutLine;
+use codex_history::{RolloutItem, RolloutLine};
+use codex_protocol::protocol::ThreadHistoryMode;
 use serde::de::Error as _;
 use serde_json::Value;
 
-use crate::source::SourceRecord;
+use crate::source::{HistoryBaseRef, SourceRecord};
 
 use super::profile::CompatibilityProfile;
 use super::unknown::{UnknownReason, UnknownRecord, WireAvailability, bounded_payload};
@@ -14,6 +15,8 @@ pub struct KnownRecord {
     pub ordinal: Option<u64>,
     pub line: RolloutLine,
     pub raw: Value,
+    /// TermLink-owned lineage evidence extracted at the wire boundary.
+    pub history_base: Option<HistoryBaseRef>,
 }
 
 #[derive(Clone)]
@@ -88,12 +91,24 @@ pub fn decode_value(value: Value, _profile: CompatibilityProfile) -> DecodedReco
     }
 
     match decode_rollout_line(value.clone()) {
-        Ok(line) if known_nested_variant(&value) => DecodedRecord::Known(KnownRecord {
-            timestamp: line.timestamp.clone(),
-            ordinal: line.ordinal,
-            line,
-            raw: value,
-        }),
+        Ok(line) if known_nested_variant(&value) => {
+            if has_incompatible_history_base_mode(&line.item) {
+                return unknown(
+                    timestamp,
+                    ordinal,
+                    type_name,
+                    &value,
+                    UnknownReason::UnsupportedSchema,
+                );
+            }
+            DecodedRecord::Known(KnownRecord {
+                timestamp: line.timestamp.clone(),
+                ordinal: line.ordinal,
+                history_base: history_base_from_item(&line.item),
+                line,
+                raw: value,
+            })
+        }
         Ok(_) => unknown(
             timestamp,
             ordinal,
@@ -111,6 +126,27 @@ pub fn decode_value(value: Value, _profile: CompatibilityProfile) -> DecodedReco
             unknown(timestamp, ordinal, type_name, &value, reason)
         }
     }
+}
+
+fn history_base_from_item(item: &RolloutItem) -> Option<HistoryBaseRef> {
+    let RolloutItem::SessionMeta(session_meta) = item else {
+        return None;
+    };
+    let history_base = session_meta.meta.history_base.as_ref()?;
+    HistoryBaseRef::new(
+        history_base.thread_id.to_string(),
+        history_base.end_ordinal_exclusive,
+        history_base.end_byte_offset,
+    )
+    .ok()
+}
+
+fn has_incompatible_history_base_mode(item: &RolloutItem) -> bool {
+    let RolloutItem::SessionMeta(session_meta) = item else {
+        return false;
+    };
+    session_meta.meta.history_base.is_some()
+        && session_meta.meta.history_mode != ThreadHistoryMode::Paginated
 }
 
 fn unknown(
@@ -271,6 +307,7 @@ fn is_known_event_msg_type(value: &str) -> bool {
             | "thread_rolled_back"
             | "task_started"
             | "turn_started"
+            | "thread_settings_applied"
             | "task_complete"
             | "turn_complete"
             | "token_count"

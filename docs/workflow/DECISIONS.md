@@ -223,6 +223,78 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 约束：只适用于隔离 `native/codex-rollout-collector` ↔ `src/services/codexRolloutCollector` artifact；不扩展到既有 server/DB、IPC、Android、Demo/Spike 或产品 DTO。checkpoint schema 或 revision 语义发生破坏性变化时必须另行决策并迁移 fixture。
 - 证据：Node 定向测试 22/22 覆盖空 complete、跨 request 拒绝、Memory/File checkpoint canonical→partial/低 progress 防覆盖，以及高 batch coverage 下 revision 6 overlap 覆盖 revision 5；Rust 全量回归复用既有 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、8 stage4 protocol 门禁。
 
+### AD-013: Codex rollout parent 以不可变 source contract 为准，不保留辅助 full-read 整文件 mutation guard
+
+- 状态：accepted
+- 分类：架构 / source contract（user-confirmed）
+- 背景：parent replacement validation 的 bounded header/suffix 证据足以验证 `history_base`、cut、会话绑定和最后一个 terminal user turn 的一对一 replacement；此前为防范外部等长度修改，在 parent auxiliary full-history read 前后增加整文件 fingerprint。该修改只可能来自用户或非 Codex 软件，不属于正常 Codex rollout 业务。
+- 决策：Codex rollout source model 固定为：active rollout append-only，已写入 byte range immutable；superseding/resend 的 terminal user turn 创建新 child，并通过 `history_base` 引用 parent；一旦 parent 关系经内容证据验证，TermLink 按 immutable lineage source 使用。删除 parent auxiliary full-history read 的整文件 before/after fingerprint mutation guard；外部 in-place modification 属于 unsupported input，不在 Collector correctness contract 内。
+- 原因：把个人项目的正常 Codex 业务模型与外部文件篡改防御分开，避免为不属于支持范围的事件增加 parent full-read 的额外整文件 I/O、预算和取消复杂度；同时保留真正的业务验证与恢复安全边界。
+- 约束：本决策不删除 `history_base`/cut、conversation/source identity、source epoch、cursor/prefix anchor、完整行/pending tail、append recovery、bounded parent header/suffix guard 或 replacement validation；不改变 Rust↔Node 隔离协议和普通单文件读取语义。后续不得把 active-source guard、cursor/source identity 语义或该 unsupported 输入重新扩大为公共产品契约而不重新取得用户确认。
+- 证据：实现删除 `read_lineage_batch()` 中 parent auxiliary full-history read 的整文件 before/after guard；现有 stage4 source guard 回归保留，后续以 Rust stage4 定向/全量测试、fmt 和 diff 范围检查确认。
+
+### AD-014: Rust Collector 以会话级 lineage discovery/replay 为一级目标
+
+- 状态：accepted
+- 分类：架构 / source contract（user-confirmed）
+- 背景：真实 Codex 会话中，用户编辑最后一个已终止问题后会创建带 `history_base` 的 child rollout；child 可能位于 parent 日期目录之后。原先仅处理已知 active source 的 replacement 逻辑，无法保证发现最新文件、跨日期关联、服务重启后跳过中间 rollout，或输出保留旧 turn 的完整会话历史。
+- 决策：Rust Collector 的一级目标固定为 `sessions_root + conversation_id` 下的有界会话 discovery、lineage 关联、root→active head replay 和 full/tail/backward/backfill/append/child transition 读取。文件名只用于候选索引、rollout ID 提取和时间/顺序提示；`SessionMeta.id` 验证目标 conversation，`history_base.thread_id` 及 ordinal/byte cut 负责权威 parent→child 关系。active head 必须由可验证的唯一有效链确定；旧 root-like 候选只在可证明早于当前链时保留为 provenance，否则歧义 fail-closed。
+- 原因：上游的 child rollout 文件关系由文件内容和 `history_base` 定义，不能依赖当前目录、文件名、mtime 或进程内 checkpoint；会话级发现和 lineage replay 才能覆盖真实跨日期、冷启动和旧 turn 保留的业务目标。
+- 约束：
+  - 稳定 conversation ID 必须由调用方显式提供或由已验证绑定提供，不能由文件名推断；缺 parent、多 head、循环、无法排序或会话不一致必须 fail-closed。
+  - 当前业务仍只支持最后一个已终止用户 turn 的一对一编辑替换，不把该能力扩展为任意 suffix、multi-turn replacement 或通用 branch graph。
+  - `discovered_sources` 等 lineage 输出只属于隔离 Rust Collector↔Node artifact；不得据此静默接入产品数据库、App ADTO、WebSocket、IPC 或 Android。
+  - AI 不得把文件名或 mtime 单独提升为父子关系、active head 或 canonical conversation authority；若需支持不同的 Codex lineage 行为，必须新增真实 fixture、兼容验证并重新确认范围。
+- 影响范围：`native/codex-rollout-collector` 的 discovery、lineage、stage4 protocol、fixture 与恢复测试，以及对应 architecture/compatibility/technical docs；不改变既有产品同步链路。
+- 替代方案：只读取当前目录、只接受调用方传入的 active 文件，或让 Node 自行猜测唯一 active path；这些方案无法满足跨日期发现、重启恢复和完整历史重建，不采用。
+- 验证方式：跨日期与五文件 synthetic/sanitized fixture、真实 rollout 目录 Replay/Preview/Backfill/Append smoke、最新路径重启恢复、root-like 歧义和 lineage 全量 Rust 目标回归通过（96 unit、31 conformance、3 stage2、5 stage3、22 stage4）。
+
+### AD-015: lineage 读取不是 rollout.jsonl 物理分页，且不设置 lineage depth 上限
+
+- 状态：accepted
+- 分类：架构 / read contract（user-confirmed）
+- 背景：`rollout.jsonl` 的读取由 Collector 自己按完整、尾部、向后分段和同文件 append 语义实现；日期目录发现、增量读取和向前恢复不是同一个概念。将 `max_date_partitions` 误作 lineage 深度或用固定 `max_lineage_depth` 限制长期会话，会在不真正解决内存/IO 风险的情况下截断合法历史。
+- 决策：日期分区和候选数只限制 discovery 搜索范围，绝不表示 rollout.jsonl 物理读取分页；`Preview`、`Backfill`、`Replay` 和 `Append` 使用各自独立的读取/窗口/cursor 语义。lineage 沿已验证 `history_base` 一直解析到 root，不保留或重新引入 `max_lineage_depth`，异常环由 visited 检测；目录项、候选、header/fingerprint、decoded/segment bytes、取消和 deadline 负责资源边界。
+- 原因：lineage 深度不等于一次内存占用，分段读取和 cursor 才是控制读取成本的机制；Full Replay 既然允许耗时更长，就必须要么沿合法链完整完成，要么明确 fail-closed，而不能静默返回截断历史。
+- 约束：
+  - `TailPreviewCursor`、`BackfillCursor`、`ForwardAppendCursor` 不可混用；同一物理文件续写才沿用 append cursor，child transition 必须建立新的 lineage epoch/checkpoint。
+  - session discovery + Append 不能把 append delta 直接当作完整 lineage；需要完整历史时必须恢复/重读 active snapshot，覆盖不足只能保持 partial/provisional，不得发布错误 canonical replacement mutation。
+  - 资源保护必须使用实际读取/发现预算、取消和 deadline；不得以新增 lineage depth 参数替代这些边界，也不得把窗口结果描述成完整历史。
+  - AI 不得因会话 lineage 较深而自行截断 Full Replay；若遇资源不足、循环或不一致输入，应返回明确失败/partial 证据并保留可恢复状态。
+- 影响范围：Rust source discovery/read plan、lineage replay、stage4 request/checkpoint 与相关 cursor/fixture；不改变既有单文件 backward-compatible full/tail/backward/append API。
+- 替代方案：把 `max_date_partitions` 传递为 lineage depth、增加固定 `max_lineage_depth`，或把每个物理读取窗口统称为分页；这些方案混淆发现范围与读取语义并损害完整历史目标，不采用。
+- 验证方式：超过旧默认深度仍完整解析、同日深 lineage 在单日期分区限制下仍可解析、环 fail-closed、同文件 append/full lineage 等价及重启恢复测试通过；Rust 全量目标回归与格式检查通过。
+
+### AD-016: Codex rollout 的 plain sibling 优先，普通 `.zst` parent lineage fail-closed
+
+- 状态：accepted
+- 分类：架构 / source compatibility（user-confirmed）
+- 背景：Codex 的 `.jsonl.zst` 是 plain rollout 的压缩物理表示；压缩转换期间同目录同名 plain 与 compressed sibling 可能同时出现。若 Collector 把它们当成两个 rollout，会把正常来源误判为歧义；但普通无索引 `.zst` 又不能伪造随机 seek、backward 或 append byte cursor。
+- 决策：在 physical discovery/catalog 阶段，同目录同名 `.jsonl` 与 `.jsonl.zst` 并存时按 Codex plain 优先规则只保留 `.jsonl`；规则按 sibling 路径判断，不跨目录按 rollout ID 合并，不比较 mtime/内容，plain 失败不 fallback 到 `.zst`。只有 `.zst` 时，active/root forward full Replay 仍可用；作为 parent 需要 suffix/backward、replacement validation 或 parent full-history replay 时返回类型化 `UnsupportedParentSourceCompression` 并 fail-closed。
+- 原因：plain sibling 选择是 Codex 当前 reader/compression 语义的一部分，而 parent lineage 定位需要可验证的物理范围；分别处理两种情况可以兼容正常压缩转换，又不会把解压逻辑 offset 当作可恢复 source cursor。
+- 约束：
+  - plain sibling canonicalization 不得扩展为跨目录同 ID 去重；不同物理路径的同 rollout ID 仍按候选冲突处理并 fail-closed。
+  - `.zst` 不能作为 parent 生成 seek/backward/append cursor，也不能因读取失败自动降级为其他 sibling。
+  - AI 不得把 archive、compression、plain sibling 或 seekable/indexed compression 混为同一能力；若要支持 seekable/indexed/materialized parent，必须另立能力任务和协议决策。
+- 影响范围：Rust discovery/catalog/source capability、stage4 lineage error、fixture 与 Codex compatibility 文档；不改变 vendor 或产品持久化。
+- 替代方案：同时保留两个 sibling、按 mtime 选择、plain 失败时尝试 `.zst`，或伪造解压后的 byte cursor；这些方案分别引入歧义、非确定性或错误恢复，不采用。
+- 验证方式：plain 优先、zst-only 保留、非 sibling 相同 ID 仍歧义、跨日期候选链不变及 `.zst` parent 类型化拒绝回归通过；Rust 全量目标测试、fmt、diff check 和提交前扫描通过。
+
+### AD-017: lineage evidence、projection coverage 与 replacement mutation 必须分层
+
+- 状态：accepted
+- 分类：架构 / protocol semantics（user-confirmed）
+- 背景：会话 discovery 可能已经确认 parent→child 关系和 replacement evidence，但历史内容仍可能因 unknown event、partial lineage 或 stopped/interrupted 可用性而不完整。若把这些状态合并为一个 `complete/failed` 字段，Node 或未来 consumer 会错误删除旧历史或把不完整内容发布为 canonical。
+- 决策：`discovered_sources`、逐跳 `lineage_transitions.validation_state`（`discovered` / `validated` / `validation_unavailable`）、`lineage_coverage` 与 `lineage_checkpoint` 只表达 lineage 证据和覆盖；它们必须与 `AnalysisProjection.coverage`、旧 `projection.complete`、`AnalysisBatch.completeness` 及 replacement mutation 分开。replacement evidence 可以在 canonical source batch 中独立输出；只有 coverage 完整时才允许生成/接受改变 active projection 的 `replace_last_turn` mutation，partial/provisional child 只能保留 evidence/items 并等待后续完整结果。
+- 原因：replacement 是否成立与当前内容是否完整是两个业务问题；分层可以保留被替换旧 turn、支持 stopped/interrupted 终止语义和重试，同时避免把后台处理失败误报为用户历史失败。
+- 约束：
+  - 明确验证失败仍请求 fail-closed，不新增可成功返回的 `rejected` transition 状态；旧 transition 缺少新增字段时按 additive 默认值读取。
+  - `lineage_coverage.complete`、`projection.coverage=complete` 和 `projection.complete=true` 不得互相推断；未来 DTO 映射必须重新定义字段语义，不能直接复用这些 Rust 内部字段。
+  - AI 不得因 evidence 已存在就自动产生 canonical replacement，也不得因一次后台解析失败就覆盖或删除仍有效的旧 projection。
+- 影响范围：Rust `BatchMessage`/`AnalyzerCheckpoint` additive metadata、stage4 replacement gate、Rust↔Node 隔离 artifact 与回归 fixture；不冻结服务端数据库表、App ADTO 或 WebSocket history 状态。
+- 替代方案：用一个 `canonicalStatus` 覆盖所有状态，或让服务端仅依据裸 `replacedTurnId`/`failed` 做提交；这些方案无法表达 partial/retry/旧历史保留语义，不采用。
+- 验证方式：transition validation state 向后兼容、partial/evidence-only child、complete replacement、stopped/interrupted 和 coverage/mutation 分离测试通过；Rust 全量目标回归（96 unit、31 conformance、3 stage2、5 stage3、22 stage4）通过。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径

@@ -12,4 +12,6 @@ pub use unknown::{UnknownReason, UnknownRecord, WireAvailability};
 
 // These are re-exports of the vendored source of truth, not TermLink models.
 pub use codex_history::{ResponseItemEnvelope, RolloutItem, RolloutLine};
-pub use codex_protocol::{ResponseItemId, models, plan_tool, protocol, request_user_input};
+pub use codex_protocol::{
+    ResponseItemId, items::TurnItem, models, plan_tool, protocol, request_user_input,
+};

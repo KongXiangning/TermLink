@@ -67,7 +67,9 @@ class CodexRolloutCollector {
         const persistedCheckpoint = !normalizedRequest.replace_previous
             ? await this.checkpointStore.load(scope)
             : null;
-        const resumedRequest = resumeFromCheckpoint(normalizedRequest, persistedCheckpoint);
+        const resumedRequest = ensureReplayLineageRecovery(
+            resumeFromCheckpoint(normalizedRequest, persistedCheckpoint)
+        );
         await this.runStore.begin({
             run_id: requestId,
             conversation_id: scope.conversationId,
@@ -174,6 +176,23 @@ function resumeFromCheckpoint(request, checkpoint) {
     return resumed;
 }
 
+function ensureReplayLineageRecovery(request) {
+    if (!request
+        || request.mode !== 'replay'
+        || Object.prototype.hasOwnProperty.call(request, 'lineage')) {
+        return request;
+    }
+    // Replay is the service restart/cold-start path.  The Rust collector
+    // resolves the parent chain from the active source directory when this
+    // additive request object is empty; callers may still provide an
+    // explicit lineage object (or null to opt out) when a different catalog
+    // policy is required.
+    return {
+        ...request,
+        lineage: {}
+    };
+}
+
 module.exports = {
     CodexRolloutCollector,
     AnalyzerProcessManager,
@@ -185,5 +204,6 @@ module.exports = {
     FileAnalysisRunStore,
     MemoryAnalysisRunStore,
     requestScope,
-    resumeFromCheckpoint
+    resumeFromCheckpoint,
+    ensureReplayLineageRecovery
 };

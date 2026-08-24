@@ -39,7 +39,7 @@
   ],
   "plan_state": "in_progress",
   "diagnostic_codes": [
-    "unknown_event",
+    "response_user_message_carrier",
     "unknown_event"
   ]
 }

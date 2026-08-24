@@ -10,7 +10,9 @@ const {
     AnalyzerProtocolError,
     parseLine,
     encodeMessage,
-    createAnalyzeRequest
+    createAnalyzeRequest,
+    createHello,
+    validateMessage
 } = require('../src/services/codexRolloutCollector/analyzerProtocol');
 const {
     AnalysisBatchImporter,
@@ -27,18 +29,19 @@ const {
 } = require('../src/services/codexRolloutCollector/analysisRunStore');
 const {
     CodexRolloutCollector,
-    requestScope
+    requestScope,
+    ensureReplayLineageRecovery
 } = require('../src/services/codexRolloutCollector');
 
-function batch({ requestId = 'request-1', batchId = 'batch-1', completeness = 'partial', replacePrevious = false, text = 'one', sourceEpoch = 'epoch-1', itemKey = 'item-1' } = {}) {
+function batch({ requestId = 'request-1', batchId = 'batch-1', completeness = 'partial', replacePrevious = false, text = 'one', sourceEpoch = 'epoch-1', itemKey = 'item-1', sourceId = 'rollout.jsonl', conversationId = 'conversation-1' } = {}) {
     const canonical = completeness === 'canonical';
     return {
         protocol_version: PROTOCOL_VERSION,
         message_type: 'batch',
         request_id: requestId,
         batch_id: batchId,
-        conversation_id: 'conversation-1',
-        source_id: 'rollout.jsonl',
+        conversation_id: conversationId,
+        source_id: sourceId,
         source_epoch: sourceEpoch,
         replace_previous: replacePrevious,
         source_range: { start: 0, end: 10 },
@@ -59,9 +62,10 @@ function batch({ requestId = 'request-1', batchId = 'batch-1', completeness = 'p
         projection: {
             schema: 'test-projection',
             schema_version: 1,
-            conversation_id: 'conversation-1',
+            conversation_id: conversationId,
             complete: canonical,
             provisional: !canonical,
+            coverage: canonical ? 'complete' : (completeness === 'unknown' ? 'unknown' : 'partial'),
             availability: 'present',
             turns: [],
             diagnostics: [],
@@ -87,6 +91,65 @@ function batch({ requestId = 'request-1', batchId = 'batch-1', completeness = 'p
             ? [{ mutation: 'complete_range', source_range: { start: 0, end: 10 } }]
             : [{ mutation: 'mark_partial', source_range: { start: 0, end: 10 } }]
     };
+}
+
+function replacement({
+    conversationId = 'conversation-1',
+    parentRolloutId = 'parent-rollout',
+    childRolloutId = 'child-rollout',
+    replacedTurnId = 'old-turn',
+    replacementTurnId = 'new-turn',
+    terminalStatus = 'interrupted',
+    cutOrdinal = 14,
+    cutByte = 179138
+} = {}) {
+    return {
+        replacement_key: [
+            'replacement',
+            conversationId,
+            parentRolloutId,
+            childRolloutId,
+            replacedTurnId,
+            replacementTurnId
+        ].join(':'),
+        conversation_id: conversationId,
+        parent_rollout_id: parentRolloutId,
+        child_rollout_id: childRolloutId,
+        replaced_turn_id: replacedTurnId,
+        replacement_turn_id: replacementTurnId,
+        replaced_turn_terminal_status: terminalStatus,
+        cut: {
+            parent_rollout_id: parentRolloutId,
+            end_ordinal_exclusive: cutOrdinal,
+            end_byte_offset: cutByte
+        },
+        parent_turn_start_source_ref: {
+            source_identity: parentRolloutId,
+            byte_start: cutByte,
+            byte_end: cutByte + 10,
+            physical_line_ordinal: 14,
+            rollout_ordinal: cutOrdinal
+        },
+        parent_turn_terminal_source_ref: {
+            source_identity: parentRolloutId,
+            byte_start: cutByte + 100,
+            byte_end: cutByte + 110,
+            physical_line_ordinal: 20,
+            rollout_ordinal: cutOrdinal + 6
+        },
+        child_turn_start_source_ref: {
+            source_identity: childRolloutId,
+            byte_start: 200,
+            byte_end: 210,
+            physical_line_ordinal: 2,
+            rollout_ordinal: cutOrdinal + 2
+        }
+    };
+}
+
+function shiftReplacementCut(fact, delta = 1) {
+    fact.cut.end_byte_offset += delta;
+    fact.parent_turn_start_source_ref.byte_start += delta;
 }
 
 function checkpoint(completeness = 'canonical', sourceEpoch = 'epoch-1', requestId = 'request-1') {
@@ -161,6 +224,527 @@ test('analyzer protocol is flat JSONL and ignores additive fields', () => {
         () => parseLine('{not-json'),
         (error) => error instanceof AnalyzerProtocolError && error.code === 'malformed_protocol'
     );
+});
+
+test('replay requests opt into cold lineage recovery when the service has no checkpoint', () => {
+    const request = createAnalyzeRequest({
+        requestId: 'restart-lineage-request',
+        conversationId: 'conversation-1',
+        sourceSpec: {
+            path: 'rollout-child.jsonl',
+            source_id: 'rollout-child',
+            source_epoch: 'restart-epoch-1'
+        },
+        mode: 'replay'
+    });
+    const recovered = ensureReplayLineageRecovery(request);
+    assert.deepEqual(recovered.lineage, {});
+
+    const explicit = ensureReplayLineageRecovery({
+        ...request,
+        lineage: {
+            catalog_root: 'C:/codex/sessions/2026/08/22',
+            max_depth: 4
+        }
+    });
+    assert.deepEqual(explicit.lineage, {
+        catalog_root: 'C:/codex/sessions/2026/08/22',
+        max_depth: 4
+    });
+    assert.equal(
+        ensureReplayLineageRecovery({ ...request, lineage: null }).lineage,
+        null
+    );
+});
+
+test('last-turn replacement is capability-advertised, validated, and idempotently imported', async () => {
+    const childBatch = batch({
+        batchId: 'replacement-batch',
+        completeness: 'canonical',
+        sourceId: 'child-rollout'
+    });
+    const fact = replacement();
+    childBatch.history_base = fact.cut;
+    childBatch.replacements = [fact];
+    childBatch.mutations.push({ mutation: 'replace_last_turn', replacement: fact });
+
+    const hello = createHello('hello-replacement');
+    assert.ok(hello.capabilities.includes('last_turn_replacement_v1'));
+    assert.equal(validateMessage(childBatch), childBatch);
+    assert.equal(parseLine(encodeMessage(childBatch)).replacements[0].replacement_key, fact.replacement_key);
+
+    const store = new MemoryAnalysisStore();
+    const importer = await new AnalysisBatchImporter({ store }).init();
+    await importer.importBatch(childBatch);
+    await importer.importBatch(childBatch);
+    let state = await store.snapshot({
+        conversationId: 'conversation-1',
+        sourceId: 'child-rollout',
+        sourceEpoch: 'epoch-1'
+    });
+    assert.equal(state.replacements.length, 1);
+    assert.equal(state.replacements[0].replacement_key, fact.replacement_key);
+
+    const conflicting = structuredClone(childBatch);
+    conflicting.batch_id = 'replacement-conflict';
+    shiftReplacementCut(conflicting.replacements[0]);
+    shiftReplacementCut(conflicting.mutations[conflicting.mutations.length - 1].replacement);
+    await assert.rejects(
+        () => importer.importBatch(conflicting),
+        (error) => error.code === 'ANALYSIS_REPLACEMENT_CONFLICT'
+    );
+    state = await store.snapshot({
+        conversationId: 'conversation-1',
+        sourceId: 'child-rollout',
+        sourceEpoch: 'epoch-1'
+    });
+    assert.equal(state.replacements.length, 1);
+    assert.equal(state.replacements[0].cut.end_byte_offset, 179138);
+});
+
+test('replacement evidence binds source identities, cut positions, and child history base', () => {
+    const fact = replacement({
+        parentRolloutId: 'parent-rollout',
+        childRolloutId: 'child-rollout'
+    });
+    const valid = batch({
+        batchId: 'replacement-evidence-valid',
+        completeness: 'canonical',
+        sourceId: 'child-rollout'
+    });
+    valid.history_base = structuredClone(fact.cut);
+    valid.replacements = [fact];
+    valid.mutations.push({ mutation: 'replace_last_turn', replacement: structuredClone(fact) });
+    assert.equal(validateMessage(valid), valid);
+
+    const invalidCases = [
+        {
+            name: 'parent start source identity',
+            mutate: (_message, value) => { value.parent_turn_start_source_ref.source_identity = 'other-parent'; }
+        },
+        {
+            name: 'parent terminal source identity',
+            mutate: (_message, value) => { value.parent_turn_terminal_source_ref.source_identity = 'other-parent'; }
+        },
+        {
+            name: 'child start source identity',
+            mutate: (_message, value) => { value.child_turn_start_source_ref.source_identity = 'other-child'; }
+        },
+        {
+            name: 'cut byte position',
+            mutate: (_message, value) => { value.parent_turn_start_source_ref.byte_start += 1; }
+        },
+        {
+            name: 'cut ordinal position',
+            mutate: (_message, value) => { value.parent_turn_start_source_ref.rollout_ordinal += 1; }
+        },
+        {
+            name: 'parent terminal ordering',
+            mutate: (_message, value) => {
+                value.parent_turn_terminal_source_ref.byte_start = value.cut.end_byte_offset - 1;
+            }
+        },
+        {
+            name: 'current child history base',
+            mutate: (message) => { message.history_base.end_byte_offset += 1; }
+        }
+    ];
+
+    for (const { name, mutate } of invalidCases) {
+        for (const mutationOnly of [false, true]) {
+            const invalid = structuredClone(valid);
+            if (mutationOnly) invalid.replacements = [];
+            const value = mutationOnly
+                ? invalid.mutations[invalid.mutations.length - 1].replacement
+                : invalid.replacements[0];
+            mutate(invalid, value);
+            assert.throws(
+                () => validateMessage(invalid),
+                (error) => error instanceof AnalyzerProtocolError && error.code === 'invalid_field',
+                `${name} must fail closed (${mutationOnly ? 'mutation' : 'top-level'})`
+            );
+        }
+    }
+});
+
+test('replacement evidence conflicts are rejected before Memory/File state mutation', async (t) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-replacement-conflict-'));
+    t.after(() => fs.promises.rm(root, { recursive: true, force: true }));
+
+    const fact = replacement({
+        parentRolloutId: 'parent-rollout',
+        childRolloutId: 'child-rollout'
+    });
+    const original = batch({
+        batchId: 'replacement-conflict-original',
+        completeness: 'canonical',
+        sourceId: 'child-rollout'
+    });
+    original.history_base = fact.cut;
+    original.replacements = [fact];
+    original.mutations.push({ mutation: 'replace_last_turn', replacement: fact });
+
+    const conflicting = structuredClone(original);
+    conflicting.batch_id = 'replacement-conflict-different-evidence';
+    conflicting.history_items[0].payload.text = 'mutated item must not persist';
+    conflicting.source_range.end = 20;
+    conflicting.progress.bytes_scanned = 20;
+    conflicting.mutations[0].source_range.end = 20;
+    shiftReplacementCut(conflicting.replacements[0]);
+    shiftReplacementCut(conflicting.mutations[conflicting.mutations.length - 1].replacement);
+
+    const stores = [
+        new MemoryAnalysisStore(),
+        await new FileAnalysisStore({ rootDir: root }).init()
+    ];
+    for (const store of stores) {
+        const importer = await new AnalysisBatchImporter({ store }).init();
+        await importer.importBatch(original);
+        const scope = {
+            conversationId: 'conversation-1',
+            sourceId: 'child-rollout',
+            sourceEpoch: 'epoch-1'
+        };
+        const before = await store.snapshot(scope);
+        const operationsBefore = structuredClone(store.operations);
+
+        await assert.rejects(
+            () => importer.importBatch(conflicting),
+            (error) => error.code === 'ANALYSIS_REPLACEMENT_CONFLICT'
+        );
+
+        assert.deepEqual(await store.snapshot(scope), before);
+        assert.deepEqual(store.operations, operationsBefore);
+    }
+
+    const restartedStore = await new FileAnalysisStore({ rootDir: root }).init();
+    assert.deepEqual(await restartedStore.snapshot({
+        conversationId: 'conversation-1',
+        sourceId: 'child-rollout',
+        sourceEpoch: 'epoch-1'
+    }), await stores[1].snapshot({
+        conversationId: 'conversation-1',
+        sourceId: 'child-rollout',
+        sourceEpoch: 'epoch-1'
+    }));
+});
+
+test('partial and provisional top-level replacements fail closed before import', async (t) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-noncanonical-replacement-'));
+    t.after(() => fs.promises.rm(root, { recursive: true, force: true }));
+
+    for (const completeness of ['partial', 'provisional']) {
+        const fact = replacement({
+            parentRolloutId: 'parent-rollout',
+            childRolloutId: 'child-rollout'
+        });
+        const invalid = batch({
+            batchId: `noncanonical-replacement-${completeness}`,
+            completeness,
+            sourceId: 'child-rollout'
+        });
+        invalid.history_base = fact.cut;
+        invalid.replacements = [fact];
+
+        const stores = [
+            new MemoryAnalysisStore(),
+            await new FileAnalysisStore({ rootDir: root }).init()
+        ];
+        for (const store of stores) {
+            const importer = await new AnalysisBatchImporter({ store }).init();
+            const scope = {
+                conversationId: 'conversation-1',
+                sourceId: 'child-rollout',
+                sourceEpoch: 'epoch-1'
+            };
+            const before = await store.snapshot(scope);
+            const operationsBefore = structuredClone(store.operations);
+
+            assert.throws(
+                () => validateMessage(invalid),
+                (error) => error instanceof AnalyzerProtocolError
+                    && error.code === 'invalid_field'
+                    && error.details?.field === 'replacements'
+            );
+            await assert.rejects(
+                () => importer.importBatch(invalid),
+                (error) => error instanceof AnalyzerProtocolError
+                    && error.code === 'invalid_field'
+            );
+
+            assert.deepEqual(await store.snapshot(scope), before);
+            assert.deepEqual(store.operations, operationsBefore);
+        }
+    }
+});
+
+test('replacement evidence can be staged while projection coverage is partial', async () => {
+    const importer = await new AnalysisBatchImporter({
+        store: new MemoryAnalysisStore()
+    }).init();
+    const fact = replacement({
+        parentRolloutId: 'parent-rollout',
+        childRolloutId: 'child-rollout',
+        replacedTurnId: 'old-turn',
+        replacementTurnId: 'new-turn'
+    });
+    const parentBatch = batch({
+        batchId: 'coverage-parent',
+        sourceId: 'parent-rollout',
+        sourceEpoch: 'parent-epoch',
+        itemKey: 'old-item',
+        completeness: 'canonical'
+    });
+    const stagedBatch = batch({
+        requestId: 'coverage-child-request',
+        batchId: 'coverage-child-staged',
+        sourceId: 'child-rollout',
+        sourceEpoch: 'child-epoch',
+        itemKey: 'new-item',
+        completeness: 'canonical',
+        text: 'edited turn'
+    });
+    stagedBatch.history_base = structuredClone(fact.cut);
+    stagedBatch.replacements = [fact];
+    stagedBatch.projection.coverage = 'partial';
+    stagedBatch.projection.complete = false;
+    stagedBatch.projection.provisional = false;
+
+    assert.equal(validateMessage(stagedBatch), stagedBatch);
+    const invalidMutation = structuredClone(stagedBatch);
+    invalidMutation.mutations.push({
+        mutation: 'replace_last_turn',
+        replacement: structuredClone(fact)
+    });
+    assert.throws(
+        () => validateMessage(invalidMutation),
+        (error) => error instanceof AnalyzerProtocolError
+            && error.details?.field === 'mutations[1].mutation'
+    );
+    await importer.importBatch(parentBatch);
+    const staged = await importer.importBatch(stagedBatch);
+    assert.equal(staged.state.pending_replacement, true);
+    assert.equal(staged.state.active_head, false);
+    assert.equal(staged.state.canonical, false);
+    assert.equal(staged.state.complete, false);
+    assert.equal(staged.state.projection_coverage, 'partial');
+    assert.equal(staged.state.replacements.length, 1);
+
+    const parent = await importer.store.snapshot({
+        conversationId: 'conversation-1',
+        sourceId: 'parent-rollout',
+        sourceEpoch: 'parent-epoch'
+    });
+    assert.equal(parent.active_head, true);
+
+    const committedBatch = structuredClone(stagedBatch);
+    committedBatch.batch_id = 'coverage-child-committed';
+    committedBatch.projection.coverage = 'complete';
+    committedBatch.projection.complete = true;
+    committedBatch.mutations = [
+        { mutation: 'complete_range', source_range: { start: 0, end: 10 } },
+        { mutation: 'replace_last_turn', replacement: structuredClone(fact) }
+    ];
+    assert.equal(validateMessage(committedBatch), committedBatch);
+    const committed = await importer.importBatch(committedBatch);
+    assert.equal(committed.state.pending_replacement, false);
+    assert.equal(committed.state.active_head, true);
+    assert.equal(committed.state.canonical, true);
+    assert.equal(committed.state.complete, true);
+    assert.equal(committed.state.projection_coverage, 'complete');
+    assert.equal(committed.state.replacements.length, 1);
+
+    const committedParent = await importer.store.snapshot({
+        conversationId: 'conversation-1',
+        sourceId: 'parent-rollout',
+        sourceEpoch: 'parent-epoch'
+    });
+    assert.equal(committedParent.active_head, false);
+});
+
+test('online last-turn replacement retains the parent history and commits the child head', async (t) => {
+    const root = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'termlink-last-turn-transition-'));
+    t.after(() => fs.promises.rm(root, { recursive: true, force: true }));
+
+    const fact = replacement({
+        parentRolloutId: 'parent-rollout',
+        childRolloutId: 'child-rollout'
+    });
+    const parentBatch = batch({
+        requestId: 'parent-request',
+        batchId: 'parent-batch',
+        completeness: 'canonical',
+        sourceId: 'parent-rollout',
+        sourceEpoch: 'parent-epoch',
+        itemKey: 'old-item',
+        text: 'old turn'
+    });
+    const childBatch = batch({
+        requestId: 'child-request',
+        batchId: 'child-batch',
+        completeness: 'canonical',
+        sourceId: 'child-rollout',
+        sourceEpoch: 'child-epoch',
+        itemKey: 'new-item',
+        text: 'edited turn'
+    });
+    childBatch.history_base = fact.cut;
+    childBatch.replacements = [fact];
+    childBatch.mutations.push({ mutation: 'replace_last_turn', replacement: fact });
+
+    const complete = {
+        protocol_version: PROTOCOL_VERSION,
+        message_type: 'complete',
+        request_id: 'child-request',
+        status: 'completed',
+        completeness: 'canonical',
+        next_cursor: null,
+        checkpoint: checkpoint('canonical', 'child-epoch', 'child-request')
+    };
+    complete.checkpoint.source.source_id = 'child-rollout';
+
+    const stores = [
+        new MemoryAnalysisStore(),
+        await new FileAnalysisStore({ rootDir: root }).init()
+    ];
+    for (const store of stores) {
+        const importer = await new AnalysisBatchImporter({ store }).init();
+        await importer.importBatch(parentBatch);
+        await importer.importBatch(childBatch);
+        const child = await importer.commitComplete(complete, {
+            scope: {
+                conversationId: 'conversation-1',
+                sourceId: 'child-rollout',
+                sourceEpoch: 'child-epoch'
+            }
+        });
+        const parent = await store.snapshot({
+            conversationId: 'conversation-1',
+            sourceId: 'parent-rollout',
+            sourceEpoch: 'parent-epoch'
+        });
+
+        assert.equal(parent.retired, false);
+        assert.equal(parent.active_head, false);
+        assert.deepEqual(parent.items.map((item) => item.item_key), ['old-item']);
+        assert.equal(child.active_head, true);
+        assert.equal(child.complete, true);
+        assert.deepEqual(child.items.map((item) => item.item_key), ['new-item']);
+        assert.equal(child.replacements.length, 1);
+        assert.equal(child.replacements[0].replacement_key, fact.replacement_key);
+    }
+
+    const restartedStore = await new FileAnalysisStore({ rootDir: root }).init();
+    const restartedImporter = await new AnalysisBatchImporter({ store: restartedStore }).init();
+    const duplicate = await restartedImporter.importBatch(childBatch);
+    assert.equal(duplicate.duplicate, true);
+    const restartedParent = await restartedStore.snapshot({
+        conversationId: 'conversation-1',
+        sourceId: 'parent-rollout',
+        sourceEpoch: 'parent-epoch'
+    });
+    const restartedChild = await restartedStore.snapshot({
+        conversationId: 'conversation-1',
+        sourceId: 'child-rollout',
+        sourceEpoch: 'child-epoch'
+    });
+    assert.equal(restartedParent.active_head, false);
+    assert.deepEqual(restartedParent.items.map((item) => item.item_key), ['old-item']);
+    assert.deepEqual(restartedChild.items.map((item) => item.item_key), ['new-item']);
+    assert.equal(restartedChild.replacements.length, 1);
+});
+
+test('cold-start lineage replay restores the same child projection as warm parent replay', async () => {
+    const factAB = replacement({
+        parentRolloutId: 'rollout-a',
+        childRolloutId: 'rollout-b',
+        replacedTurnId: 'turn-a',
+        replacementTurnId: 'turn-b',
+        cutOrdinal: 2,
+        cutByte: 20
+    });
+    const factBC = replacement({
+        parentRolloutId: 'rollout-b',
+        childRolloutId: 'rollout-c',
+        replacedTurnId: 'turn-b',
+        replacementTurnId: 'turn-c',
+        cutOrdinal: 4,
+        cutByte: 40
+    });
+    const parentBatch = batch({
+        requestId: 'request-a',
+        batchId: 'batch-a',
+        completeness: 'canonical',
+        sourceId: 'rollout-a',
+        sourceEpoch: 'epoch-a',
+        itemKey: 'item-a',
+        text: 'turn a'
+    });
+    const middleBatch = batch({
+        requestId: 'request-b',
+        batchId: 'batch-b',
+        completeness: 'canonical',
+        sourceId: 'rollout-b',
+        sourceEpoch: 'epoch-b',
+        itemKey: 'item-b',
+        text: 'turn b'
+    });
+    middleBatch.history_base = factAB.cut;
+    middleBatch.replacements = [factAB];
+    middleBatch.mutations.push({ mutation: 'replace_last_turn', replacement: factAB });
+
+    const childBatch = batch({
+        requestId: 'request-c',
+        batchId: 'batch-c',
+        completeness: 'canonical',
+        sourceId: 'rollout-c',
+        sourceEpoch: 'epoch-c',
+        itemKey: 'item-c',
+        text: 'turn c'
+    });
+    childBatch.history_base = factBC.cut;
+    childBatch.history_items = [
+        ...parentBatch.history_items,
+        ...middleBatch.history_items,
+        ...childBatch.history_items
+    ];
+    childBatch.replacements = [factAB, factBC];
+    childBatch.mutations.push(
+        { mutation: 'replace_last_turn', replacement: factAB },
+        { mutation: 'replace_last_turn', replacement: factBC }
+    );
+    assert.equal(validateMessage(childBatch), childBatch);
+
+    const coldImporter = await new AnalysisBatchImporter({
+        store: new MemoryAnalysisStore()
+    }).init();
+    await coldImporter.importBatch(childBatch);
+    const coldState = await coldImporter.store.snapshot({
+        conversationId: 'conversation-1',
+        sourceId: 'rollout-c',
+        sourceEpoch: 'epoch-c'
+    });
+
+    const warmImporter = await new AnalysisBatchImporter({
+        store: new MemoryAnalysisStore()
+    }).init();
+    await warmImporter.importBatch(parentBatch);
+    await warmImporter.importBatch(middleBatch);
+    await warmImporter.importBatch(childBatch);
+    const warmState = await warmImporter.store.snapshot({
+        conversationId: 'conversation-1',
+        sourceId: 'rollout-c',
+        sourceEpoch: 'epoch-c'
+    });
+
+    assert.deepEqual(coldState.items, warmState.items);
+    assert.deepEqual(coldState.items.map((item) => item.item_key), [
+        'item-a',
+        'item-b',
+        'item-c'
+    ]);
+    assert.deepEqual(coldState.replacements, warmState.replacements);
+    assert.equal(coldState.replacements.length, 2);
 });
 
 test('malformed canonical batches fail closed before importer state changes', async () => {

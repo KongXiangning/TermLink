@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::{Availability, SourceRef};
+use crate::source::HistoryBaseRef;
 
 /// How the logical item identity was obtained.
 ///
@@ -18,6 +19,14 @@ impl Default for IdentityOrigin {
     fn default() -> Self {
         Self::SourcePosition
     }
+}
+
+/// Why a terminal event is safe to use as replacement evidence even when the
+/// interrupted turn does not contain a complete successful result.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TerminalEvidence {
+    ExplicitAbort,
 }
 
 /// Common identity and source metadata for all TermLink events.
@@ -40,6 +49,8 @@ pub struct EventMetadata {
     pub timestamp: Option<String>,
     pub sequence: u64,
     pub availability: Availability,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal_evidence: Option<TerminalEvidence>,
     #[serde(default)]
     pub identity_origin: IdentityOrigin,
     pub source_ref: SourceRef,
@@ -76,6 +87,8 @@ pub enum AnalysisEvent {
         cwd: Option<String>,
         source: Option<String>,
         model_provider: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        history_base: Option<HistoryBaseRef>,
     },
     TurnStarted {
         metadata: EventMetadata,

@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 use crate::codex_adapter::CodexEventAdapter;
 use crate::codex_wire::{CompatibilityProfile, decode_source_record};
 use crate::error::CollectorErrorKind;
-use crate::model::{AnalysisEvent, Availability, SourceRef};
+use crate::model::{AnalysisEvent, Availability, LastTurnReplacement, SourceRef, TerminalEvidence};
+use crate::source::HistoryBaseRef;
 use crate::source::{JsonlSourceBackend, SourceBackend, SourceRecord, SourceSpec};
 use crate::version::{PARSER_BACKEND, WIRE_SOURCE_REVISION};
 
@@ -54,6 +55,12 @@ pub struct AnalysisBatch {
     pub complete: bool,
     #[serde(default)]
     pub completeness: BatchCompleteness,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history_base: Option<HistoryBaseRef>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub replacements: Vec<LastTurnReplacement>,
 }
 
 impl AnalysisBatch {
@@ -66,6 +73,9 @@ impl AnalysisBatch {
             // Keep the constructor backward-compatible with stage 1–3
             // fixtures; a full source pass assigns Canonical before return.
             completeness: BatchCompleteness::Unknown,
+            source_id: None,
+            history_base: None,
+            replacements: Vec::new(),
         }
     }
 }
@@ -164,6 +174,25 @@ fn append_record(
     profile: CompatibilityProfile,
 ) {
     let decoded = decode_source_record(&record, profile);
+    let history_base = match &decoded {
+        crate::codex_wire::DecodedRecord::Known(known) => known.history_base.clone(),
+        crate::codex_wire::DecodedRecord::Unknown(_) => None,
+    };
+    if let Some(history_base) = history_base {
+        if let Some(existing) = batch.history_base.as_ref()
+            && existing != &history_base
+        {
+            batch.complete = false;
+            batch.diagnostics.push(BatchDiagnostic {
+                code: "history_base_conflict".to_string(),
+                message: Some("source contains conflicting history_base metadata".to_string()),
+                source_ref: Some(SourceRef::from(&record)),
+                availability: Availability::NotRecoverableFromRollout,
+            });
+        } else {
+            batch.history_base = Some(history_base);
+        }
+    }
     let mut events = adapter.adapt(&record, decoded);
     for (index, event) in events.iter_mut().enumerate() {
         // A segment-local counter would make the same event acquire a
@@ -174,7 +203,15 @@ fn append_record(
             .physical_line_ordinal
             .saturating_mul(1_000_000)
             .saturating_add(index as u64);
-        if event.is_diagnostic() || event.availability() != Availability::Present {
+        // An explicit abort is still partial turn content, so its event
+        // keeps PartialRollout for projection.  It is nevertheless a known
+        // terminal fact and must not make an otherwise fully read source
+        // ineligible for last-turn replacement validation.
+        let explicit_terminal =
+            event.metadata().terminal_evidence == Some(TerminalEvidence::ExplicitAbort);
+        if event.is_diagnostic()
+            || (event.availability() != Availability::Present && !explicit_terminal)
+        {
             batch.complete = false;
             batch.diagnostics.push(diagnostic_for(event));
         }

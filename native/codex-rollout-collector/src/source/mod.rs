@@ -3,7 +3,9 @@
 mod append;
 mod cursor;
 mod digest;
+mod discovery;
 mod jsonl;
+mod lineage;
 mod oracle;
 mod read_plan;
 mod record;
@@ -16,7 +18,15 @@ pub use cursor::{
     CompleteLineAnchor, CursorError, CursorMetadata, ForwardAppendCursor, SourceCursorKind,
     TailPreviewCursor,
 };
+pub use discovery::{
+    DiscoveredLineageEdge, DiscoveredRollout, DiscoveryBudget, DiscoveryControl,
+    RolloutFilenameCandidate, RolloutHeaderEvidence, SessionDiscoveryRequest, SessionLineage,
+    discover_session, discover_session_with_control, parse_rollout_filename,
+};
 pub use jsonl::{JsonlSourceBackend, SourceBackend};
+pub use lineage::{
+    HistoryBaseRef, LineageError, RolloutCatalog, RolloutSource, rollout_id_from_filename,
+};
 pub use oracle::{
     SourceFixtureHash, SourceOracleError, SourceRecordMismatch, SourceRecordOracleResult,
     compare_source_records,
