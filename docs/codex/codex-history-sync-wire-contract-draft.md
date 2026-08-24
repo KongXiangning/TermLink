@@ -60,8 +60,9 @@ wire 契约：
   projection，保留但 superseded 的 rows 不进入这些集合；
 - `canonicalSnapshot` 描述已发布快照，`reconciliation` 描述后台尝试；旧的
   `canonicalStatus` 只保留为 legacy alias，不再承载新语义；
-- 合法 active head transition 保持已发布 product `sourceEpoch`，物理 source replacement
-  才建立新的 product source fence；Rust 的 source epoch 不直接暴露给 App；
+- 合法 active head transition 只更新 active projection 和 `serverRevision`；Rust 的 source
+  epoch 只属于内部 source evidence/checkpoint，不直接暴露给 App；source mutation 不产生
+  source mutation/recovery；
 - replacement-capable App 必须以 `sequence_persisted` ACK 证明 old 状态更新、new upsert、
   replacement relation 和 root/checkpoint 在同一 SQLite transaction 中提交；不具备能力的
   旧 App 走当前 active projection 的完整 snapshot fallback。
@@ -71,8 +72,8 @@ wire 契约：
 - `clientSelectionGeneration` 是 App 请求和 Node 所有 history 响应/ACK 的 selection fence；
   `syncId + conversationId + selectionGeneration + clientSelectionGeneration` 共同决定一次
   可提交的 App history selection。
-- App `checkpoint` 保存已提交快照的 `(serverRevision, sourceEpoch, rootHash, coverage)`；
-  `serverRevision` 与 `sourceEpoch` 必须成对出现，不能用 rootHash 单独冒充 read-model fence。
+- App `checkpoint` 保存已提交快照的 `(serverRevision, rootHash, coverage)`；不能用 rootHash
+  单独冒充 read-model fence。
 
 本文仍是 draft，表示实现、JSON validator、golden fixture 和跨端测试尚未完成；但以下字段
 和状态关系不再以“待后续条目收敛”为由保留旧语义。
@@ -223,7 +224,6 @@ message。`history_turn_replacement_v1` 至少依赖 `canonicalReadModel v1`、
 
 - `provisional: boolean`；
 - `completeness: "provisional" | "canonical"`；
-- `sourceEpoch: non-empty string`；
 - `revision: non-negative integer`；
 - `detailRef: object`。
 
@@ -261,7 +261,6 @@ turn state 是独立于 `HistoryItemWire` 的产品记录。canonicalReadModel v
   "itemCount": 8,
   "availability": "present",
   "completeness": "canonical",
-  "sourceEpoch": "product-source-epoch",
   "revision": 42
 }
 ```
@@ -276,8 +275,7 @@ turn state 是独立于 `HistoryItemWire` 的产品记录。canonicalReadModel v
 替换后仍保留原执行状态，只将 projection 标为 `superseded`，并建立 old → new relation。
 wire 不定义独立 boolean `superseded`；`replacement.state` 是由
 `projectionState` 派生的关系状态，不能作为第二个 old-row 权威字段。
-`sourceEpoch` 表示 Node 已接受发布的 product epoch，不是 Rust candidate epoch、文件名
-或 source path。
+内部 Rust source epoch、文件名和 source path 都不进入 `TurnWire`。
 
 目标 `TurnWire` schema 明确拒绝旧的顶层 `superseded`/`supersededByTurnId` 字段；未知
 additive 字段通常可忽略，但这两个旧状态字段会造成双重权威，必须 fail-closed。旧 App
@@ -326,7 +324,6 @@ identity 是 no-op；不同 operation 替换同一 old row，或同一 operation
   "itemCount": 1284,
   "complete": false,
   "serverRevision": 41,
-  "sourceEpoch": "product-source-epoch",
   "providerMode": "paginated",
   "providerIdentityHash": "sha256-hex",
   "rangeId": "opaque-range-id",
@@ -342,9 +339,8 @@ identity 是 no-op；不同 operation 替换同一 old row，或同一 operation
 }
 ```
 
-`rootHash`、`itemCount`、`complete`、`serverRevision`、`sourceEpoch` 是 target history
-request 的必填字段。`serverRevision` 和 `sourceEpoch` 必须同时为有效值，或同时为
-`null`（尚未有可用 canonical snapshot/legacy baseline）；只出现其中一个是非法 fence。
+`rootHash`、`itemCount`、`complete`、`serverRevision` 是 target history request 的必填
+字段。`serverRevision` 必须来自已提交 canonical snapshot；不能用内部 source epoch 补齐。
 在 canonicalReadModel effective lane 中二者必须为有效值，并且必须来自同一个已提交
 snapshot。其他字段只在 range/snapshot capability 下发送；旧 App 的 pre-handshake
 legacy parser 可以省略 canonical fence，但该请求不能进入 canonical/turn-replacement
@@ -399,8 +395,7 @@ canonical read-model v1 把“当前已发布历史”和“后台最近一次�
     "coverageRoot": "sha256-hex",
     "itemCount": 1284,
     "complete": true,
-    "coverageComplete": true,
-    "sourceEpoch": "product-source-epoch"
+    "coverageComplete": true
   },
   "reconciliation": {
     "state": "succeeded",
@@ -420,7 +415,6 @@ canonical read-model v1 把“当前已发布历史”和“后台最近一次�
     "nextOlderCursor": null,
     "coverageComplete": true,
     "serverRevision": 18,
-    "sourceEpoch": "product-source-epoch",
     "canonicalSnapshot": {
       "state": "complete",
       "serverRevision": 18,
@@ -428,8 +422,7 @@ canonical read-model v1 把“当前已发布历史”和“后台最近一次�
       "coverageRoot": "sha256-hex",
       "itemCount": 1284,
       "complete": true,
-      "coverageComplete": true,
-      "sourceEpoch": "product-source-epoch"
+      "coverageComplete": true
     },
     "reconciliation": {
       "state": "succeeded",
@@ -448,7 +441,7 @@ canonical read-model v1 把“当前已发布历史”和“后台最近一次�
 `conversation_history_sync_state.state` 仍然是第三个、独立的维度。
 
 主 schema 对状态对象进一步施加条件：`none` 必须把 snapshot fence 和 completeness
-字段置为 `null/false`；`partial` 必须有已发布 `serverRevision + sourceEpoch` 且
+字段置为 `null/false`；`partial` 必须有已发布 `serverRevision` 且
 `complete=false`；`complete` 必须有非空 revision/source/root/coverage/itemCount，且
 `complete=true、coverageComplete=true`。`reconciliation=idle` 不得携带 active attempt；
 `queued/running` 必须有 attempt 和 target；`succeeded` 必须有 last success revision；
@@ -457,15 +450,15 @@ revision/source，但不改变它只是兼容 alias 的地位。
 
 在 canonicalReadModel v1 中：
 
-- `canonicalSnapshot` 是已发布快照的权威状态；其 `serverRevision`、root、coverage、
-  completeness 和 product `sourceEpoch` 必须彼此来自同一 immutable snapshot；
+- `canonicalSnapshot` 是已发布快照的权威状态；其 `serverRevision`、root、coverage 和
+  completeness 必须彼此来自同一 immutable snapshot；
 - `reconciliation` 只描述后台尝试。`failed` 或 `cancelled` 不覆盖旧 snapshot，也不把
-  `serverRevision`、root、sourceEpoch 改成目标尝试的值；
-- manifest 顶层的 `serverRevision`、`rootHash`、`coverageRoot`、`itemCount`、`complete`、
-  `coverageComplete` 和 `sourceEpoch` 是 wire 兼容投影，若同时出现必须与
+  `serverRevision`、root 改成目标尝试的值；
+- manifest 顶层的 `serverRevision`、`rootHash`、`coverageRoot`、`itemCount`、`complete` 和
+  `coverageComplete` 是 wire 兼容投影，若同时出现必须与
   `canonicalSnapshot` 完全一致；
-- 合法 last-turn active head transition 发布一个新 snapshot/revision，但不改变已发布
-  product `sourceEpoch`；只有成功接受的 product source replacement 才改变它；
+- 合法 last-turn active head transition 发布一个新 snapshot/revision；source mutation 或
+  source mutation 不属于 App-facing wire 状态，失败时保留旧 snapshot；
 - 旧 `canonicalStatus` 只作为 legacy alias。canonicalReadModel v1 不用它承载新状态，也
   不要求旧 App 依据 `serverRevision` 才能提交页面。
 
@@ -604,7 +597,6 @@ Schema。
           "type": "string",
           "enum": ["provisional", "canonical"]
         },
-        "sourceEpoch": { "$ref": "#/$defs/NonEmptyString" },
         "revision": { "$ref": "#/$defs/NonNegativeInt" },
         "detailRef": { "type": "object" },
         "payloadHash": { "$ref": "#/$defs/Hash" },
@@ -661,7 +653,7 @@ Schema。
       "required": [
         "dtoVersion", "turnId", "turnOrdinal", "executionStatus",
         "projectionState", "replacement", "userMessageItemKey", "outcomeItemKey",
-        "itemCount", "availability", "completeness", "sourceEpoch", "revision"
+        "itemCount", "availability", "completeness", "revision"
       ],
       "properties": {
         "dtoVersion": { "type": "integer", "const": 1 },
@@ -689,7 +681,6 @@ Schema。
           "type": "string",
           "enum": ["unknown", "provisional", "partial", "canonical"]
         },
-        "sourceEpoch": { "$ref": "#/$defs/NonEmptyString" },
         "revision": { "$ref": "#/$defs/NonNegativeInt" }
       },
       "allOf": [
@@ -754,7 +745,7 @@ Schema。
     },
     "Checkpoint": {
       "type": "object",
-      "required": ["rootHash", "itemCount", "complete", "serverRevision", "sourceEpoch"],
+      "required": ["rootHash", "itemCount", "complete", "serverRevision"],
       "properties": {
         "rootHash": {
           "anyOf": [{ "$ref": "#/$defs/Hash" }, { "type": "null" }]
@@ -764,7 +755,6 @@ Schema。
         "serverRevision": {
           "anyOf": [{ "$ref": "#/$defs/Generation" }, { "type": "null" }]
         },
-        "sourceEpoch": { "$ref": "#/$defs/NullableString" },
         "providerMode": { "$ref": "#/$defs/NonEmptyString" },
         "providerIdentityHash": { "$ref": "#/$defs/Hash" },
         "rangeId": { "$ref": "#/$defs/NonEmptyString" },
@@ -785,14 +775,12 @@ Schema。
       "oneOf": [
         {
           "properties": {
-            "serverRevision": { "type": "null" },
-            "sourceEpoch": { "type": "null" }
+            "serverRevision": { "type": "null" }
           }
         },
         {
           "properties": {
-            "serverRevision": { "$ref": "#/$defs/Generation" },
-            "sourceEpoch": { "$ref": "#/$defs/NonEmptyString" }
+            "serverRevision": { "$ref": "#/$defs/Generation" }
           }
         }
       ],
@@ -1096,7 +1084,6 @@ Schema。
             "failed", "canonical_complete"
           ]
         },
-        "sourceEpoch": { "$ref": "#/$defs/NonEmptyString" },
         "serverRevision": { "$ref": "#/$defs/NonNegativeInt" },
         "reason": { "$ref": "#/$defs/NonEmptyString" }
       },
@@ -1107,10 +1094,9 @@ Schema。
             "required": ["state"]
           },
           "then": {
-            "required": ["serverRevision", "sourceEpoch"],
+            "required": ["serverRevision"],
             "properties": {
-              "serverRevision": { "$ref": "#/$defs/NonNegativeInt" },
-              "sourceEpoch": { "$ref": "#/$defs/NonEmptyString" }
+              "serverRevision": { "$ref": "#/$defs/NonNegativeInt" }
             }
           }
         }
@@ -1121,7 +1107,7 @@ Schema。
       "type": "object",
       "required": [
         "state", "serverRevision", "rootHash", "coverageRoot", "itemCount",
-        "complete", "coverageComplete", "sourceEpoch"
+        "complete", "coverageComplete"
       ],
       "properties": {
         "state": {
@@ -1141,8 +1127,7 @@ Schema。
           "anyOf": [{ "$ref": "#/$defs/NonNegativeInt" }, { "type": "null" }]
         },
         "complete": { "type": "boolean" },
-        "coverageComplete": { "type": "boolean" },
-        "sourceEpoch": { "$ref": "#/$defs/NullableString" }
+        "coverageComplete": { "type": "boolean" }
       },
       "allOf": [
         {
@@ -1157,8 +1142,7 @@ Schema。
               "coverageRoot": { "type": "null" },
               "itemCount": { "type": "null" },
               "complete": { "const": false },
-              "coverageComplete": { "const": false },
-              "sourceEpoch": { "type": "null" }
+              "coverageComplete": { "const": false }
             }
           }
         },
@@ -1168,10 +1152,9 @@ Schema。
             "required": ["state"]
           },
           "then": {
-            "required": ["serverRevision", "sourceEpoch"],
+            "required": ["serverRevision"],
             "properties": {
               "serverRevision": { "$ref": "#/$defs/Generation" },
-              "sourceEpoch": { "$ref": "#/$defs/NonEmptyString" },
               "complete": { "const": false }
             }
           }
@@ -1184,7 +1167,7 @@ Schema。
           "then": {
             "required": [
               "serverRevision", "rootHash", "coverageRoot", "itemCount",
-              "complete", "coverageComplete", "sourceEpoch"
+              "complete", "coverageComplete"
             ],
             "properties": {
               "serverRevision": { "$ref": "#/$defs/Generation" },
@@ -1192,8 +1175,7 @@ Schema。
               "coverageRoot": { "$ref": "#/$defs/Hash" },
               "itemCount": { "$ref": "#/$defs/NonNegativeInt" },
               "complete": { "const": true },
-              "coverageComplete": { "const": true },
-              "sourceEpoch": { "$ref": "#/$defs/NonEmptyString" }
+              "coverageComplete": { "const": true }
             }
           }
         }
@@ -1326,7 +1308,6 @@ Schema。
         "hasMoreBefore": { "type": "boolean" },
         "nextOlderCursor": { "$ref": "#/$defs/NullableString" },
         "coverageComplete": { "type": "boolean" },
-        "sourceEpoch": { "$ref": "#/$defs/NonEmptyString" },
         "serverRevision": { "$ref": "#/$defs/NonNegativeInt" },
         "canonicalSnapshot": { "$ref": "#/$defs/CanonicalSnapshot" },
         "reconciliation": { "$ref": "#/$defs/Reconciliation" },
@@ -1339,15 +1320,7 @@ Schema。
       "allOf": [
         {
           "if": { "required": ["canonicalSnapshot"] },
-          "then": { "required": ["reconciliation", "serverRevision", "sourceEpoch"] }
-        },
-        {
-          "if": { "required": ["serverRevision"] },
-          "then": { "required": ["sourceEpoch"] }
-        },
-        {
-          "if": { "required": ["sourceEpoch"] },
-          "then": { "required": ["serverRevision"] }
+          "then": { "required": ["reconciliation", "serverRevision"] }
         },
         {
           "if": {
@@ -1444,7 +1417,6 @@ Schema。
         "pageHashVersion": { "type": "integer", "enum": [1, 2] },
         "pageHash": { "$ref": "#/$defs/Hash" },
         "serverRevision": { "$ref": "#/$defs/NonNegativeInt" },
-        "sourceEpoch": { "$ref": "#/$defs/NonEmptyString" },
         "baseRoot": {
           "anyOf": [{ "$ref": "#/$defs/Hash" }, { "type": "null" }]
         },
@@ -1475,14 +1447,6 @@ Schema。
       },
       "allOf": [
         {
-          "if": { "required": ["serverRevision"] },
-          "then": { "required": ["sourceEpoch"] }
-        },
-        {
-          "if": { "required": ["sourceEpoch"] },
-          "then": { "required": ["serverRevision"] }
-        },
-        {
           "if": {
             "anyOf": [
               { "required": ["operations"] },
@@ -1490,7 +1454,7 @@ Schema。
             ]
           },
           "then": {
-            "required": ["pageHashVersion", "serverRevision", "sourceEpoch"],
+            "required": ["pageHashVersion", "serverRevision"],
             "properties": { "pageHashVersion": { "const": 2 } }
           }
         }
@@ -1749,7 +1713,6 @@ Schema。
         },
         "pageHash": { "$ref": "#/$defs/Hash" },
         "serverRevision": { "$ref": "#/$defs/NonNegativeInt" },
-        "sourceEpoch": { "$ref": "#/$defs/NonEmptyString" },
         "clientSelectionGeneration": { "$ref": "#/$defs/Generation" },
         "purpose": { "$ref": "#/$defs/Purpose" },
         "terminalEpoch": { "$ref": "#/$defs/NonEmptyString" }
@@ -1761,7 +1724,7 @@ Schema。
             "properties": { "ackKind": { "const": "sequence_persisted" } }
           },
           "then": {
-            "required": ["pageHash", "serverRevision", "sourceEpoch"],
+            "required": ["pageHash", "serverRevision"],
             "properties": {
               "pageIndex": { "$ref": "#/$defs/NonNegativeInt" }
             }
@@ -1808,14 +1771,6 @@ Schema。
               "purpose": { "const": "terminal_reconcile" }
             }
           }
-        },
-        {
-          "if": { "required": ["serverRevision"] },
-          "then": { "required": ["sourceEpoch"] }
-        },
-        {
-          "if": { "required": ["sourceEpoch"] },
-          "then": { "required": ["serverRevision"] }
         }
       ],
       "additionalProperties": true
@@ -1824,7 +1779,7 @@ Schema。
       "type": "object",
       "required": [
         "type", "syncId", "conversationId", "targetRoot", "sequence",
-        "pageIndex", "segmentId", "pageHash", "serverRevision", "sourceEpoch",
+        "pageIndex", "segmentId", "pageHash", "serverRevision",
         "clientSelectionGeneration"
       ],
       "properties": {
@@ -1837,7 +1792,6 @@ Schema。
         "segmentId": { "$ref": "#/$defs/NonEmptyString" },
         "pageHash": { "$ref": "#/$defs/Hash" },
         "serverRevision": { "$ref": "#/$defs/NonNegativeInt" },
-        "sourceEpoch": { "$ref": "#/$defs/NonEmptyString" },
         "clientSelectionGeneration": { "$ref": "#/$defs/Generation" }
       },
       "additionalProperties": true
@@ -1974,7 +1928,6 @@ Schema。
         "pageIndex": { "$ref": "#/$defs/NonNegativeInt" },
         "targetRoot": { "$ref": "#/$defs/Hash" },
         "serverRevision": { "$ref": "#/$defs/NonNegativeInt" },
-        "sourceEpoch": { "$ref": "#/$defs/NonEmptyString" },
         "baselineComplete": { "type": "boolean" },
         "itemKey": { "$ref": "#/$defs/NonEmptyString" },
         "chunkIndex": { "$ref": "#/$defs/NonNegativeInt" },
@@ -1984,14 +1937,6 @@ Schema。
         "data": { "type": "string" }
       },
       "allOf": [
-        {
-          "if": { "required": ["serverRevision"] },
-          "then": { "required": ["sourceEpoch"] }
-        },
-        {
-          "if": { "required": ["sourceEpoch"] },
-          "then": { "required": ["serverRevision"] }
-        }
       ],
       "additionalProperties": true
     },
@@ -2038,7 +1983,7 @@ Schema。
         {
           "type": "object",
           "required": [
-            "type", "range", "serverRevision", "sourceEpoch",
+            "type", "range", "serverRevision",
             "selectionGeneration", "clientSelectionGeneration"
           ],
           "properties": {
@@ -2080,7 +2025,7 @@ Schema。
           "type": "object",
           "required": [
             "type", "sequence", "pageIndex", "segmentId", "pageHash", "targetRoot",
-            "serverRevision", "sourceEpoch"
+            "serverRevision"
           ],
           "properties": {
             "type": { "const": "conversation_history_segment_commit" },
@@ -2089,8 +2034,7 @@ Schema。
             "segmentId": { "$ref": "#/$defs/NonEmptyString" },
             "pageHash": { "$ref": "#/$defs/Hash" },
             "targetRoot": { "$ref": "#/$defs/Hash" },
-            "serverRevision": { "$ref": "#/$defs/NonNegativeInt" },
-            "sourceEpoch": { "$ref": "#/$defs/NonEmptyString" }
+            "serverRevision": { "$ref": "#/$defs/NonNegativeInt" }
           },
           "additionalProperties": true
         }
@@ -2144,7 +2088,7 @@ Schema。
 - Node 收齐且校验所有页后，才计算 diff；缺页、重复 index 的不同内容、超限或 hash
   形状错误必须失败，不能按已收到的前缀继续。
 - canonicalReadModel v1 的 manifest page 可以携带 `turns`；这些 turn records 与 page
-  所属 snapshot 同 revision/source fence。manifest/snapshot 只表达当前 active projection，
+  所属 snapshot 同 revision/snapshot fence。manifest/snapshot 只表达当前 active projection，
   不因为 retained superseded turn 仍在服务端数据库中就把它放入 active item count/order。
 
 ### 5.2 delta page
@@ -2159,7 +2103,7 @@ Schema。
   range metadata 都受完整性保护。
 - 只要 page 出现 `operations` 或 `turnUpserts` 字段（包括显式空数组作为同一 typed
   sequence 的页），就必须是 `pageHashVersion=2`；v2 replacement lane 必须同时携带
-  `serverRevision` 和已发布 product `sourceEpoch`。
+  `serverRevision`。
 - `fullOrderIncluded=true` 时才有 `canonicalOrder`；range/snapshot lane 不得借
   `canonicalOrder` 或 delete 获得全局重排/删除权。
 - `turn_replaced` 只在 ordinary delta 的 page 0 出现一次；同一 sequence 的
@@ -2200,7 +2144,7 @@ Schema。
 
 对象 key 递归按字典序排序，数组保留语义顺序，`null` 显式保留；payload chunk 的 raw
 `data` 不进 pageHash，但 chunk metadata 进入 item/upsert hash。`serverRevision`、
-`sourceEpoch`、selection/generation、purpose 和 ACK 是独立 fence，不进入 v2 pageHash。
+selection/generation、purpose 和 ACK 是独立 fence，不进入 v2 pageHash。
 v1 页面继续使用旧输入；任何 page 边界、turn record、operation、item、order 或 range
 metadata 变化都必须产生新的 pageHash。
 
@@ -2212,8 +2156,8 @@ metadata 变化都必须产生新的 pageHash。
 - chunk 可以重复到达，但同一位置若内容不同，必须丢弃当前 staging 并 fail-closed。
 - 未收齐 chunk 时不得发送 page/segment ACK；收到重复且内容相同的 chunk 不产生第二次
   SQLite 写入。
-- canonical payload chunk/segment 必须继承所属 page 的 `serverRevision` 与 `sourceEpoch`；
-  两者不能只携带一个，也不能跨 checkpoint fence 重组。
+- canonical payload chunk/segment 必须继承所属 page 的 `serverRevision`，不能跨 checkpoint
+  fence 重组。
 
 ### 5.4 ACK 提交语义
 
@@ -2222,7 +2166,7 @@ ACK 表示 **App 已校验并完成对应本地原子提交**，不是“已收�
 
 主 schema 的 ACK 条件为：未声明 `ackKind` 时只能是 `pageIndex=-1` 的 legacy final ACK；
 `page_staged` 必须携带非负 page index 和 pageHash；`sequence_persisted` 必须携带非负
-page index、最后页 pageHash 以及成对的 `serverRevision/sourceEpoch`。`pageCount`、当前
+page index、最后页 pageHash 以及 `serverRevision`。`pageCount`、当前
 sequence 的最后页关系、targetRoot 与服务端 pinned sequence 是否一致，属于跨 message
 和服务端状态校验，Schema 不替代这些检查。`purpose=terminal_reconcile` 与
 `terminalEpoch` 也必须成对。
@@ -2235,7 +2179,7 @@ sequence 的最后页关系、targetRoot 与服务端 pinned sequence 是否一�
 - `conversation_history_segment_ack`：对应 segment start + fragments + commit 已经
   校验并完成一个 segment transaction；
 - `sequence_persisted` 必须回显最后一页的 `pageHash`，并在 canonicalReadModel v1 下回显
-  同一 pinned `serverRevision` 与 product `sourceEpoch`；它是 old state update、new upsert、
+  同一 pinned `serverRevision`；它是 old state update、new upsert、
   replacement relation 和 root/checkpoint 同事务提交的唯一客户端证明；
 - ACK 的幂等 key 是 `(ackKind, purpose, terminalEpoch, syncId, clientSelectionGeneration,
   sequence, pageIndex, targetRoot[, segmentId, pageHash])`；`page_staged` 与
@@ -2269,7 +2213,7 @@ sequence 的最后页关系、targetRoot 与服务端 pinned sequence 是否一�
 - `complete`：已发布并满足完整性证明的 active projection。
 
 `reconciliation.state` 是后台尝试：`idle | queued | running | succeeded | failed |
-cancelled`。尝试失败只保留旧 `canonicalSnapshot`、root、sourceEpoch 和 revision；不把
+cancelled`。尝试失败只保留旧 `canonicalSnapshot`、root 和 revision；不把
 旧历史改成 failed，也不产生失败 publication。`synced` 不能推出 `complete`；IPC reconnect、
 history sync 结束和收到 transport 终态也不能推出 `canonicalSnapshot.state=complete`。
 legacy `canonicalStatus` 只在旧 capability lane 使用，并按 DTO 草案的兼容映射解释。
@@ -2301,22 +2245,22 @@ legacy `canonicalStatus` 只在旧 capability lane 使用，并按 DTO 草案的
 canonical lane 的 checkpoint 是以下不可拆分的观察点：
 
 ```text
-(serverRevision, sourceEpoch, rootHash, coverageRoot, anchors, cursor, complete)
+(serverRevision, rootHash, coverageRoot, anchors, cursor, complete)
 ```
 
-Node 处理请求时必须同时比较 revision 和 source fence：
+Node 处理请求时必须比较 pinned revision 和 read-model fence：
 
-- `sourceEpoch` 不同：不能做普通 delta；进入 source replacement/recovery；
-- `sourceEpoch` 相同且 `serverRevision` 相同：再比较 root、coverage、anchor 和 cursor，
+- `serverRevision` 不同：不能继续当前 pinned delta；进入 revision recovery；
+- `serverRevision` 相同：再比较 root、coverage、anchor 和 cursor，
   只有全部一致才能返回 up-to-date；
 - `serverRevision` 小于当前值：可在 change-log 覆盖时生成 delta，否则使用 bounded snapshot；
 - `serverRevision` 大于当前值、revision 与 root/coverage 矛盾，或只收到一半 fence：
   fail-closed，保留 App 原有 cache，不能把服务端较旧/错 scope 的结果写入 SQLite；
 - App 只有在所有 page/segment 与 checkpoint fence 一致且事务 COMMIT 成功后，才更新本地
-  `serverRevision`、`sourceEpoch` 和 root/coverage。
+  `serverRevision` 和 root/coverage。
 
-legacy lane 可以使用 `serverRevision/sourceEpoch = null` 的 checkpoint，但不得把它与
-canonical checkpoint 混合，也不得借 legacy rootHash 猜测 canonical revision。
+legacy lane 可以缺失 `serverRevision` 的 checkpoint，但不得把它与 canonical checkpoint
+混合，也不得借 legacy rootHash 猜测 canonical revision。
 
 ### 6.1 旧 App ↔ 新 Node
 
@@ -2334,7 +2278,7 @@ canonical checkpoint 混合，也不得借 legacy rootHash 猜测 canonical revi
    `reconciliation`；对当前 active projection 使用完整 snapshot/full-order fallback。
    fallback 只保证旧 App 得到当前可见历史，不保证旧 App 本地保留 superseded old turn
    的审计状态。
-6. 新的 `canonicalSnapshot`、`reconciliation`、`serverRevision`、product `sourceEpoch`
+6. 新的 `canonicalSnapshot`、`reconciliation`、`serverRevision`
    等字段只能在对应 capability 协商后承担提交语义；旧 App 走 legacy 字段或完整
    active snapshot，不能把 unknown state-changing operation 当作可忽略字段。
 
@@ -2376,7 +2320,7 @@ canonical checkpoint 混合，也不得借 legacy rootHash 猜测 canonical revi
 - 当前 `rootHash` 使用 `buildConversationRoot(items, schemaVersion=1)` 的扁平 SHA-256
   规则；正式实现必须把输入限制为 active canonical projection，并对 superseded retained
   rows 排除、非法 hash 和重复 position 做 fail-closed 校验。`serverRevision`、coverage
-  和 product source fence 的目标关系已在第 2 项统一回填，但 Node DB 尚未实现。
+  和 source mutation fail-closed 的目标关系已在第 2 项统一回填，但 Node DB 尚未实现。
 
 identity/revision、DTO、ACK、turn、source、兼容和时序条目的设计输入已经统一回填；
 剩余工作属于实现、validator、golden fixture、Android schema migration 和端到端回归，

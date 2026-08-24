@@ -295,6 +295,27 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：用一个 `canonicalStatus` 覆盖所有状态，或让服务端仅依据裸 `replacedTurnId`/`failed` 做提交；这些方案无法表达 partial/retry/旧历史保留语义，不采用。
 - 验证方式：transition validation state 向后兼容、partial/evidence-only child、complete replacement、stopped/interrupted 和 coverage/mutation 分离测试通过；Rust 全量目标回归（96 unit、31 conformance、3 stage2、5 stage3、22 stage4）通过。
 
+### AD-018: Codex rollout 由外部 app-server 管理，单会话 Collector 保持单例协调
+
+- 状态：accepted
+- 分类：架构 / source ownership 与 collector coordination（user-confirmed）
+- 背景：此前的草案把通用分布式系统中的多 worker 竞争、product source replacement 和提交栅栏带入了产品历史主流程。但 `rollout*.jsonl` 的写入和分支由 TermLink 无法控制的 Codex app-server 负责，当前真实行为比这些假设简单且边界更明确。
+- 决策：
+  - Codex app-server 是 `rollout*.jsonl` 的唯一写入和生命周期管理者；TermLink 只读、解析和分析，不控制写入、重命名、turn 重发或分支。
+  - 正常 active rollout 按 append-only 处理；turn 重发生成新的 child rollout（如 `rollout-a-b.jsonl`），parent `rollout-a.jsonl` 不再回写。只有经过 `history_base` 和 conversation 绑定验证的证据，才能建立 parent → child 关系。
+  - Branch in new chat 生成新的 rollout / conversation（如 `rollout-c.jsonl`）。即使内容复制旧历史，也不凭文件名、相似内容、mtime 或顺序推断 parent → child 依赖；没有明确 lineage 证据时按独立来源处理。
+  - source binding 在正常 Codex 写入下预期完整；用户直接中断或 source 尚未形成稳定边界时保持 `partial` / `provisional` / `pending`，不得自动制造 product source replacement。
+  - Rust 只负责读取、解析和分析。针对一个 conversation 的日志读取分析只允许一条 Node → Rust 采集链和一个 in-flight analyzer request；其他 worker、历史查询和 App-facing 路径不得直接请求 Rust，只能读取 Node 已持久化的历史投影或 IPC 通道的实时缓存。
+  - `source_epoch` 只保留为隔离 Rust 协议中的 source identity / checkpoint 兼容和 fail-closed 标记，不升级为产品 `productSource`、`publishedSourceEpoch`、产品历史命名空间或正常 resend/Branch 状态。在当前单例协调边界下，不引入产品级 `commitFence`、多写者 canonical 提交线或跨设备 replacement 仲裁。
+- 原因：尊重外部 app-server 的事实权威和最简单可靠的 rollout source model，避免 TermLink 根据无法控制的日志写入行为臆造业务状态，也避免把不存在的并发竞争扩展成阶段 5 数据库模型。
+- 约束：
+  - 任何涉及 rollout、lineage、Rust Collector、history sync、阶段 5 DB 或 source/checkpoint 语义的设计、规划和修改，必须先完整阅读 `docs/codex/codex-rollout-collector-architecture.md`，再阅读相关 Codex 文档以及 `docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`。
+  - AI 不得静默改变 app-server 的外部写入边界、单会话单例采集链、Branch 语义，也不得把隔离协议字段提升为产品字段；若未来确实出现第二个 canonical writer，必须另立架构任务、锁定范围并取得明确确认。
+  - 本决策不否定 AD-009～AD-012 中隔离 Rust↔Node artifact 的兼容字段、checkpoint 或 replacement 测试；它只明确这些字段不构成既有服务端/阶段 5 产品 DB 的业务语义。
+- 影响范围：`docs/codex/codex-rollout-collector-architecture.md`、`docs/workflow/CONTRACTS.md`、`AGENTS.md`、`CLAUDE.md`，以及后续 Node 持久化、历史同步和 App 数据读取设计；本轮不授权代码或产品数据库实现。
+- 替代方案：把 `source_epoch`、product source replacement、`commitFence` 和多 worker canonical writer 作为阶段 5 默认模型；该方案与已确认的 app-server ownership 和单例 Collector 事实不符，暂不采用。
+- 验证方式：架构文档、契约、决策和两侧 host guidance 已同步；本轮仅修改文档，未改变 Rust、Node、Android、IPC 或数据库代码。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径

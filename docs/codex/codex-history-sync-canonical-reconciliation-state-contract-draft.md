@@ -140,7 +140,6 @@ canonicalSnapshot {
   rootHash: hash | null
   coverageRoot: hash | null
   itemCount: non-negative integer | null
-  sourceEpoch: published product source epoch | null
 }
 ```
 
@@ -148,11 +147,11 @@ canonicalSnapshot {
 
 1. `serverRevision` 只属于已经成功发布的 snapshot。`none` 状态显式使用 `null`；wire/DTO
    canonical lane 的字段规则见第 1–3 项统一回修。
-2. `rootHash`、`coverageRoot` 和 `sourceEpoch` 必须描述同一个已提交 snapshot；不得把失败
-   尝试的目标来源混进旧快照元数据。Rust source ref/epoch 只保留在 Node 内部 evidence。
+2. `rootHash`、`coverageRoot` 和 `serverRevision` 必须描述同一个已提交 snapshot；不得把
+   失败尝试的目标来源混进旧快照元数据。Rust source ref/epoch 只保留在 Node 内部 evidence。
 3. `itemCount=0` 只有在完整空历史已被证明时才可以和 `complete` 一起发布。
 4. `partial` 只能表示“已知范围内可读但不完整”，不能表示解析器随便返回的未验证结果。
-5. 具体 `sourceEpoch`、anchor、cursor、coverage 证明和 root 构造继续遵守第 2 项草案，本文不重新定义。
+5. 具体 anchor、cursor、coverage 证明和 root 构造继续遵守第 2 项草案，本文不重新定义。
 
 ### 3.2 Reconciliation state
 
@@ -174,8 +173,7 @@ reconciliation {
 
 1. `attemptId` 识别一次尝试，不是 `serverRevision`，不能用于伪造或替换 revision。
 2. `baseServerRevision` 表示该尝试读取/比较时所依据的已发布快照；它不是提交结果。
-3. `targetSourceRef` 只表示本次尝试的目标来源摘要；它不能覆盖
-   `canonicalSnapshot.sourceEpoch`。
+3. `targetSourceRef` 只表示本次尝试的 source evidence 摘要；它不能覆盖已发布 snapshot。
 4. `lastSuccessRevision` 只回指最近一次成功发布（或已确认 no-op 的基准）；失败时仍可以指向旧 revision。
 5. `error` 只能包含稳定 machine code 和必要的 retryability，不携带本地路径、完整 raw rollout、stack trace 或敏感诊断。
 6. `reconciliation` 在 manifest、sync/recovery state 中作为 additive canonicalReadModel
@@ -216,7 +214,6 @@ serverRevision = 已发布 canonical snapshot 的提交版本
 ```text
 旧 canonical rows
 旧 root/coverage
-旧 published source
 旧 serverRevision
 ```
 
@@ -324,17 +321,16 @@ Node 是两个状态的持久化协调者，但两者落在不同的逻辑边界
 - Node 不等待 App ACK 才提交 canonical publication；
 - Node 重启后必须能够区分“最后成功 snapshot”和“未完成/失败 attempt”。
 
-Node 对每个 `(authenticated revisionScope, conversationId)` 只允许一个 canonical
-promotion transaction 同时提交。多个 attempt 可以并行读取、解析和构建 candidate，但只能
-进入 staging；真正改变 active projection、root/coverage/checkpoint、head、source fence 或
-`serverRevision` 时，必须通过同一 conversation commit lane 和持久化 `commitFence`/row
-version。内存 single-flight 只能优化本地争用，不能代替数据库行锁或 CAS。
+Node 对每个 `(authenticated revisionScope, conversationId)` 只允许一个 coordinator、一个
+in-flight Rust request 和一个 canonical promotion transaction。其他 history request 只能
+读取持久化 projection/IPC cache，或向 coordinator 排队；不能直接请求 Rust。Node 重启后
+依据持久化 job/checkpoint 恢复同一 job，不建立多 worker candidate、first-commit-wins、
+worker lease 或产品级 `commitFence`。
 
-每个 attempt 的 `baseServerRevision` 还必须配套记录 Node 内部 `baseCommitFence`、当时的
-active head 和 published source fence。提交 transaction 内重新读取并重检；旧 fence 失效时，
-attempt 只能变为 stale/`cancelled`（或重新基于新 fence 排队），不能覆盖当前 snapshot。
-公开的 `reconciliation.attemptId/state` 也要按 current-attempt CAS 更新：迟到 attempt 可以
-保留自己的诊断，但不能把较新的 attempt 或已成功 publication 的状态改写为 failed。
+每次 transaction 重新检查 `baseServerRevision`、active head、conversation scope 和
+operation identity；source mutation、lineage 不完整或 operation 冲突时保留当前 snapshot，
+不覆盖已提交内容。公开的 `reconciliation.attemptId/state` 也不能让迟到结果把较新的
+publication 改写为 failed。
 
 具体表名和是否合并 metadata 表，暂不冻结；必须保留上述逻辑可分离性。
 
@@ -353,7 +349,7 @@ history transport 传输的是 canonical snapshot 的 manifest/delta/page/chunk�
 App 的历史提交只依据 canonical snapshot 的一致性 fence：
 
 ```text
-conversation + generation + source/revision fence
+conversation + generation + revision fence
     + root/coverage/cursor/pageHash
     + 全部 page/chunk 已校验
     → SQLite 原子提交
@@ -392,9 +388,9 @@ conversation + generation + source/revision fence
 - reconciliation 最终状态仍可以是 `succeeded`；
 - App 不因重复状态通知重复提交同一 page/sequence。
 
-相同 conversation 的重复 promotion 必须先经过 Node commit lane；不能因为两个 worker
-同时看到同一个 candidate 就各自分配 revision。operation ledger 或等价唯一约束决定谁是
-首次提交，后到者读取并返回同一提交结果。
+相同 conversation 的重复 promotion 必须先经过同一个 Node coordinator；不能由请求处理器
+或其他路径绕过 coordinator 直接写 canonical rows。coordinator 以 `operationId` 做幂等判定：
+已提交的 operation 直接返回原提交结果，未提交的 operation 继续走同一条 promotion transaction。
 
 ### 8.2 迟到或过期 attempt
 
@@ -404,9 +400,10 @@ conversation + generation + source/revision fence
 - A 不能覆盖 B 已提交的 snapshot；
 - A 不能把 `serverRevision` 回退；
 - A 不能改变当前 active head、old/new replacement 关系或 App 当前 selection；
-- 判断过期至少需要 attempt identity、base snapshot/revision fence 和 Node 的
-  `baseCommitFence`；sourceEpoch/head transition 遵守第 8 项三层语义，不能把 candidate
-  epoch 当成 published epoch；A 不能把旧 base 与 B 的新 head/source epoch 盲目合并。
+- 判断过期至少需要 attempt identity、`baseServerRevision`、当时的 active head 以及
+  内部 collector checkpoint/source evidence；A 不能把旧 base 与 B 的新 head 或已变化的
+  source evidence 盲目合并。Rust `source_epoch` 只用于 collector 的来源一致性校验，不能
+  成为 App 或 canonical DB 的 product fence。
 
 ### 8.3 Node 重启恢复
 
@@ -418,7 +415,7 @@ lastPublishedServerRevision
 unfinishedOrLastReconciliationAttempt
 ```
 
-若无法证明某个 attempt 已经完成 canonical publication，应保持旧 snapshot，按 `queued`/`running` 恢复或标记 `failed(retryable=true)`；不得根据半写入 rows 推断新的 snapshot 已发布。重启后内存锁、队列和 worker lease 都视为失效，恢复以 durable `commitFence`、operation ledger、active head 和 checkpoint 为准；COMMIT 前崩溃按回滚处理，COMMIT 后但响应丢失按同 operation 幂等重放处理。
+若无法证明某个 attempt 已经完成 canonical publication，应保持旧 snapshot，按 `queued`/`running` 恢复或标记 `failed(retryable=true)`；不得根据半写入 rows 推断新的 snapshot 已发布。重启后内存队列和进行中的请求都视为失效，恢复以 durable job、operation ledger、active head、`serverRevision` 和内部 checkpoint 为准；COMMIT 前崩溃按回滚处理，COMMIT 后但响应丢失按同 operation 幂等重放处理。
 
 ## 9. 与统一回修后的其他条目的关系
 
@@ -441,8 +438,9 @@ unfinishedOrLastReconciliationAttempt
 
 - 第 7 项 DTO 映射和第 1–3 项回修：分别承载 snapshot metadata、reconciliation metadata
   和 turn state；不能再用一个字段承载两者。
-- 第 8 项 source replacement/head transition：定义 target source、已发布 source fence 和
-  active head 的分离、替换及过期判断；不改变本条目的两层状态边界。
+- 第 8 项 active head/source mutation：定义 parent/child head transition、内部 source
+  evidence 和来源不稳定时的 fail-closed 处理；不把 source mutation 变成产品 source fence，
+  也不改变本条目的两层状态边界。
 - 第 9 项旧 App compatibility：旧 App 看不到 reconciliation 时走 legacy/active snapshot
   fallback；不得把失败降级成空历史。
 - 第 10 项时序测试：至少覆盖“已有 complete + 后台失败”“无 snapshot + 空历史证明”、

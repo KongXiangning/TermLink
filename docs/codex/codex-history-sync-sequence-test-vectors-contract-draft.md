@@ -44,14 +44,14 @@ related_code:
 - Node 在事务前/后重启；
 - App 在 staging/SQLite commit 前后重启；
 - A→B→A selection generation 隔离；
-- 旧 App fallback、未知 state operation、超限和 source replacement；
+- 旧 App fallback、未知 state operation、超限和 source mutation recovery；
 - history lane 与 healthy IPC authority 的边界。
 
 本文冻结的是：
 
 1. 每个时序向量的初始条件、事件顺序、最终服务端状态和最终 App 状态；
 2. 哪些步骤可以重放、哪些步骤必须 fail-closed；
-3. `serverRevision`、source fence、generation、ACK 和 SQLite transaction 的不变量。
+3. `serverRevision`、snapshot fence、内部 source evidence、generation、ACK 和 SQLite transaction 的不变量。
 
 本文不是测试代码，也不授权阶段 5B history provider、阶段 5C 数据库接入或 Android schema migration。正式实现时，Rust conformance、Node canonical writer、history WebSocket 和 Android SQLite 可以各自实现测试，但必须能用同一逻辑 fixture 对照本文件的结果。
 
@@ -63,11 +63,10 @@ related_code:
 
 ```text
 scope = authenticated profile + conversation-1
-publishedSourceEpoch = E1
 serverRevision = R41
 activeHead = rollout-A
 active turns = [A]
-App committed checkpoint = R41 / root-A / E1
+App committed checkpoint = R41 / root-A
 App selectionGeneration = g1
 App clientSelectionGeneration = cg7
 ```
@@ -109,7 +108,7 @@ T_BC = rollout-B, oldTurn=B → rollout-C, newTurn=C
 
 ```text
 Node durable state
-  activeHead / old-new relation / publishedSourceEpoch / serverRevision
+  activeHead / old-new relation / serverRevision / internal source evidence
 
 App staging state
   pages / chunks / operations / targetRoot / generation
@@ -134,23 +133,23 @@ ACK state
 6. Rust `replacementKey` 经 Node 校验后逐字节复用为 `operationId`；同一
    replacement/page/chunk/ACK 的完全相同重放必须幂等，内容冲突必须 fail-closed；不同
    operation 不得替换同一个 old turn。
-7. stale `syncId`、selection generation、source epoch 或 target root 的结果不能写当前 App selection。
+7. stale `syncId`、selection generation、serverRevision 或 target root 的结果不能写当前 App selection。
 8. partial、failed、超时、缺页、未知状态和超限都保留最后一个 committed cache，不得用空结果覆盖。
-9. active head transition 不自动改变已发布 product sourceEpoch；source replacement 必须单独满足第 8、9 项规则。
+9. active head transition 只改变已验证的产品 head/projection；Rust source evidence 变化必须 fail-closed，不能升级为 App source fence。
 10. history sync 不改变 healthy IPC surface 的正文、operation、当前 turn 和运行态 authority。
 
 11. 每个新 `syncId` 先完成 `codex_capabilities` → `capabilityOffer` →
     `conversation_history_capability_ack` handshake；未得到 `accepted` 的 effective
     capability 不得发送 canonical/turn-replacement data plane。
-12. canonical checkpoint 的 `serverRevision` 与 `sourceEpoch` 必须成对存在，并与
-    root/coverage/anchor/cursor 同一事务提交；只出现一个或 revision 回退时保留旧 cache。
+12. canonical checkpoint 的 `serverRevision` 必须与 root/coverage/anchor/cursor/complete
+    同一事务提交；checkpoint 不携带 product source epoch，revision 回退时保留旧 cache。
 
 ### 2.1：Capability handshake 和 checkpoint fence
 
 ```text
 1. Node → App: codex_capabilities(historySync.advertisementId=cap-1)
 2. App → Node: sync request(syncId=S1, selectionGeneration=g1,
-   clientSelectionGeneration=cg7, checkpoint=R41/root-A/E1,
+   clientSelectionGeneration=cg7, checkpoint=R41/root-A,
    capabilityOffer(advertisementId=cap-1, canonical=v1, replacement=v1))
 3. Node → App: conversation_history_capability_ack(S1, g1, cg7,
    status=accepted, effective cacheSchemaVersion=3)
@@ -162,7 +161,7 @@ ACK state
 - 同一 `syncId` 的 effective capability、大小限制、`selectionGeneration` 和
   `clientSelectionGeneration` 固定不变；
 - capability ack 重复投递可以幂等接受，但 offer/advertisement 不同必须新建 `syncId`；
-- `checkpoint.serverRevision/sourceEpoch`、root/coverage 不一致时不能返回 up-to-date，
+- `checkpoint.serverRevision`、root/coverage/anchor 不一致时不能返回 up-to-date，
   必须进入 delta、snapshot 或 bounded recovery；
 - 旧 App 不发送 `capabilityOffer` 时只能走 legacy fallback，不得发送
   `turn_replaced` 或要求 canonical fence 的数据面。
@@ -249,7 +248,6 @@ App : 保留已有 committed cache，不提交半页、不伪造 empty history
 Turn(A, executionStatus=completed, projectionState=active)
 old outcome=A-outcome
 activeHead=rollout-A
-publishedSourceEpoch=E1
 ```
 
 时序：
@@ -260,24 +258,24 @@ publishedSourceEpoch=E1
 3. Rust 输出 T_AB + new turn/items/details/usage/outcome
 4. Node preflight 确认 activeHead=A 且 `operationId` 未占用（Rust `replacementKey` 已逐字节归一化）
 5. Node 原子提交：保留 A，A.projectionState=superseded，写 A→B，upsert B，head=B
-6. Node 发布 R42；publishedSourceEpoch 仍为 E1
+6. Node 发布 R42；内部 source evidence 只作为本次校验依据，不进入 App payload
 7. Node 发送同一 R42 的 turn_replaced + B upsert sequence
 8. App 在一个 SQLite transaction 中标记 A、写入 B、更新 root/checkpoint=
-   R42/root-B/E1，并保持 clientSelectionGeneration=cg7
-9. App 提交后发送 ACKs(seq=7,page=last,targetRoot=root-B,serverRevision=R42,sourceEpoch=E1,
+   R42/root-B，并保持 clientSelectionGeneration=cg7
+9. App 提交后发送 ACKs(seq=7,page=last,targetRoot=root-B,serverRevision=R42,
    clientSelectionGeneration=cg7)
 ```
 
 **最终状态**：
 
 ```text
-Node: R42, head=B, E1
+Node: R42, head=B
 A   : executionStatus=completed, projectionState=superseded, outcome 保留
 B   : projectionState=active
 App : 同样只有 B 属于 active projection
 ```
 
-不得删除 A、把 A 的 completed 改成 failed、或因为编辑重发改变 E1。
+不得删除 A、把 A 的 completed 改成 failed、或把 Rust 内部 source evidence 当成 App 状态。
 
 ### V06：stopped/interrupted old turn 编辑重发
 
@@ -395,7 +393,7 @@ A、B 都保留各自 executionStatus/outcome，但 A、B 不能同时出现在 
 6. App 发送对应 ACKs
 ```
 
-**预期**：App 最终为 R43；旧 cache 在新 snapshot 完整提交前仍可读；任何缺页、超限或 source fence 失配都保留旧 cache并进入 recovery/failed。
+**预期**：App 最终为 R43；旧 cache 在新 snapshot 完整提交前仍可读；任何缺页、超限或 snapshot fence 失配都保留旧 cache并进入 recovery/failed。
 
 ### V13：旧 App 无 replacement capability
 
@@ -409,7 +407,7 @@ A、B 都保留各自 executionStatus/outcome，但 A、B 不能同时出现在 
 5. App 按旧 root/order/ACK 语义完成本地替换
 ```
 
-**预期**：旧 App 最终展示 B，不需要知道 sourceEpoch 或 superseded 状态。若 legacy lane 不能原子删除/替换 A，则 Node 返回 unsupported/cache_only，不发送“只有 B 的半增量”。
+**预期**：旧 App 最终展示 B，不需要知道 Rust source evidence 或 superseded 状态。若 legacy lane 不能原子删除/替换 A，则 Node 返回 unsupported/cache_only，不发送“只有 B 的半增量”。
 
 ## 7. ACK、断线和重复投递向量
 
@@ -440,8 +438,8 @@ A、B 都保留各自 executionStatus/outcome，但 A、B 不能同时出现在 
 ### V16：重复的 sequence_persisted ACK
 
 ```text
-1. App 已提交 R42/root-B/E1，并发送 ACKs(seq=7,targetRoot=root-B,serverRevision=R42,
-   sourceEpoch=E1,clientSelectionGeneration=cg7)
+1. App 已提交 R42/root-B，并发送 ACKs(seq=7,targetRoot=root-B,serverRevision=R42,
+   clientSelectionGeneration=cg7)
 2. WebSocket 在 Node 回复前断开
 3. App 重连或 ACK 重发，发送同一 ACKs
 ```
@@ -454,7 +452,7 @@ A、B 都保留各自 executionStatus/outcome，但 A、B 不能同时出现在 
 
 - 相同 sequence/page 但不同 pageHash；
 - 相同 replacement sequence 但不同 targetRoot；
-- 相同 ACK key 但不同 conversation/generation/source fence；
+- 相同 ACK key 但不同 conversation/generation/snapshot fence；
 - 将 `page_staged` 改成不匹配的 page/target。
 
 **预期**：
@@ -567,31 +565,31 @@ Revision: 不增加
 **预期**：A1 因旧 `syncId`/generation pair 被丢弃，不能写当前 A2 staging、SQLite 或 UI；
 A2 可以正常提交。即使 conversationId 相同，也不能只凭 conversationId 接受 A1。
 
-## 11. Source replacement、未知操作和大小向量
+## 11. Source mutation、未知操作和大小向量
 
-### V25：product source replacement 失败与成功
+### V25：source mutation 失败与受控 recovery
 
 **失败分支**：
 
 ```text
-1. 已发布 R42/E1
-2. Rust 明确提供候选 E2，但解析/coverage/completeness 不达发布门槛
-3. Node 记录 reconciliation failed/partial
+1. Node 已发布 R42/root-B
+2. Rust 发现 fingerprint/prefix/cursor/checkpoint 与内部 source evidence 不一致
+3. Node 停止使用旧 cursor，记录 source mutation，reconciliation=failed(retryable)
 ```
 
-预期：Node 仍为 `R42/E1`，App 仍可读取 E1；不能把 E2 作为当前 sourceEpoch、不能清空旧 cache。
+预期：Node 仍为 `R42/root-B`，App 仍可读取旧 snapshot；不能把不完整读取结果当作新
+delta，不能清空旧 cache，也不能把内部 source epoch发送给 App。
 
-**成功分支**：
+**受控 recovery 成功分支**：
 
 ```text
-1. 已发布 R42/E1
-2. E2 完成校验并形成完整可发布 baseline
-3. Node 原子提交 E2 source fence/root/coverage/checkpoint
-4. Node 发布 R43/E2
-5. App 旧 E1 cursor/anchor 被拒绝，使用新的 sync/recovery baseline
+1. 同一个 conversation coordinator 重新发现/重读来源
+2. 新读取通过 lineage、完整性、coverage 和 canonical gate
+3. Node 在一个 canonical transaction 中发布 R43/root-C
+4. App 以 R43 的完整 snapshot 或合法 delta 重新同步
 ```
 
-预期：E1 与 E2 不在同一 App transaction 混合；R43 只产生一次；旧 ACK 不改变 E2。
+预期：旧读取与新读取不在同一 App sequence 混合；R43 只产生一次；旧 ACK 不改变 R43。
 
 ### V26：未知 state-changing operation
 
@@ -661,75 +659,72 @@ A 的 executionStatus/outcome 不变。
 **预期**：不能因为出现 terminal event 就把不完整 B 变成 canonical；后续重试只有重新
 通过完整稳定 gate 后才能按 V29 发布。
 
-## 13. Node conversation 级并发提交向量
+## 13. Node conversation 级单例协调向量
 
-### V31：同一 operation 并发重放
-
-```text
-初始 R41/head=A/E1
-1. worker-1 和 worker-2 同时完成同一 replacement operationId=A→B 的 candidate
-2. 两者都以相同 baseCommitFence 进入 Node commit lane
-3. worker-1 COMMIT old superseded、B active、relation、root/checkpoint，发布 R42
-4. worker-2 获得提交机会后读取 operation ledger
-```
-
-**预期**：只有一个 canonical transaction 成功产生 R42；worker-2 返回同一
-`committedRevision=42` 的幂等结果，不产生 R43，不出现半个 old/new 状态。内存 mutex 是否
-命中不影响结果，数据库 fence/唯一约束必须仍然成立。
-
-### V32：同一 old turn 的两个 sibling candidate
+### V31：同一 operation 的重复投递
 
 ```text
 初始 R41/head=A
-1. candidate A→B 与 A→C 并行解析，均声明 old=A 的最后终止 turn
-2. B 先完成 canonical gate 并提交 R42/head=B
-3. C 随后进入 transaction，仍携带 base=head=A
+1. 同一个 coordinator 收到 operationId=A→B 的首次结果
+2. coordinator 在 transaction 前后分别收到同一 operation 的重复投递
+3. 首次 transaction 提交 old superseded、B active、relation、root/checkpoint，发布 R42
+4. coordinator 读取 operation ledger，返回原 committed result
 ```
 
-**预期**：C 因 active head、old projection 或 `baseCommitFence` 失效而进入 stale/conflict
-或重新协调；不能将 C 发布为第二个 active head，不能产生 R43，也不能把 B 回退为 active。
+**预期**：只有一个 canonical transaction 产生 R42；重复投递返回同一
+`committedRevision=42`，不产生 R43，不出现半个 old/new 状态。
+
+### V32：同一 conversation 的重复触发必须合并
+
+```text
+初始 R41/head=A
+1. history request、source-ready signal 和重连恢复在短时间内同时触发同一 conversation
+2. Node coordinator 将它们合并到同一个 durable job；只建立一个 in-flight Rust request
+3. 其他请求读取已有 projection/IPC cache，或等待该 job 的结果
+4. coordinator 完成一次 canonical publication 或返回同一失败诊断
+```
+
+**预期**：不会为每个请求启动 Rust 读取，不存在第二个 worker 与第一个 worker 仲裁写入；
+可见 revision 最多因真实 canonical publication 增加一次。
 
 ### V33：B→C 先于 A→B 到达
 
 ```text
 初始 R41/head=A
-1. B 与 C 都已完成 Rust 分析；C 的 parent=B，B 的 parent=A
-2. C 先进入 Node commit lane
-3. B 提交 R42/head=B
-4. C 用新的 base fence 重新 preflight 后提交 R43/head=C
+1. B 与 C 的分析事实已到达；C 的 parent=B，B 的 parent=A
+2. coordinator 先收到 C，因 parent=B != current head=A，将 C 留在 durable staging/queued
+3. B 通过 preflight 后提交 R42/head=B
+4. coordinator 用新的 baseServerRevision/head 重新校验并提交 C：R42 → R43/head=C
 ```
 
-**预期**：第 2 步 C 只能留在 staging/queued，不能跳过 B 发布；第 4 步必须重新验证
-`parent=head=B` 后才允许提交。若 B 失败或 source fence 改变，C 不得把旧 candidate 直接
-合并，必须重协调或 fail-closed。
+**预期**：第 2 步不能跳过 B 发布；第 4 步必须重新验证 `parent=head=B`。若 B 失败或
+内部 source evidence 不稳定，C 必须重协调或 fail-closed，不能把旧事实直接合并。
 
-### V34：head transition 与 product source replacement 并发
-
-```text
-初始 R41/head=A/E1
-1. candidate A→B 基于 E1 进入 staging
-2. candidate product source replacement E1→E2 也进入 staging
-3. 两者竞争同一 conversationCommitKey
-```
-
-**预期**：两者不能并行修改 published head/source。先成功提交者推进 commitFence；后者在
-transaction 内重检新的 head/source fence。E1 candidate 不能混入已经发布的 E2 baseline；若
-规则允许继续，必须基于 E2 重新构建，否则保留旧 snapshot 并进入 recovery。每次真实成功
-publication 最多增加一次 revision，失败/过期 candidate 不增加。
-
-### V35：Node 多 worker/重启边界
+### V34：head transition 遇到 source mutation
 
 ```text
 初始 R41/head=A
-1. worker-1 持有或尝试持有 conversation commit row；worker-2 同时提交同一 conversation
-2. worker-1 在 COMMIT 前崩溃，或在 COMMIT 后但响应发送前崩溃
-3. Node 重启，内存锁和 worker lease 全部丢失
-4. 同一 operation 重新导入
+1. coordinator 收到 A→B 的 replacement fact，开始一次 Rust/read evidence 校验
+2. 校验发现 fingerprint、prefix、cursor 或 checkpoint 不一致
+3. coordinator 停止本次 promotion，记录 source mutation/recovery diagnostic
 ```
 
-**预期**：COMMIT 前崩溃时数据库回滚到 R41/head=A；COMMIT 后崩溃时 durable DB 为 R42/head=B，
-重放返回 R42。无论哪一分支，都不能依靠最近文件、旧 worker 顺序或 App ACK 猜测状态，也
-不能产生重复 revision。
+**预期**：Node 保留 R41/head=A，App 保留旧 committed cache；不写 A→B、不推进 head、
+不增加 revision、不向 App 发送内部 source epoch。只有同一 coordinator 后续重新获得完整
+稳定 evidence 并通过 gate，才可按一次新的 canonical publication 提交。
+
+### V35：单例 coordinator 的重启边界
+
+```text
+初始 R41/head=A
+1. coordinator 完成 preflight，在 COMMIT 前或 COMMIT 后但响应发送前发生 Node 重启
+2. 重启后从 durable DB、job、operation ledger、active head、serverRevision 和内部 checkpoint 恢复
+3. 同一 operation 重新投递或由 durable job 继续
+```
+
+**预期**：COMMIT 前崩溃时数据库回滚到 R41/head=A；COMMIT 后崩溃时 durable DB 为
+R42/head=B，重放返回 R42。内存队列和 in-flight 请求丢失不影响判断，也不能依靠最近文件、
+App ACK 或内存执行顺序猜测状态，更不能产生重复 revision。
 
 ## 14. 向量执行层级和验收结果
 
@@ -738,7 +733,7 @@ publication 最多增加一次 revision，失败/过期 candidate 不增加。
 | 层级 | 关注点 | 必须覆盖的向量 |
 |---|---|---|
 | Rust collector/conformance | history_base、terminal old turn、parent/child/cut、replacement fact、source evidence、child canonical gate | V05–V10、V25、V28–V30 |
-| Node canonical writer | preflight、child publication gate、old/new/relation/root/checkpoint transaction、revision、staging/replay、conversation commit fence 和冲突恢复 | V05–V10、V18–V20、V25、V28–V35 |
+| Node canonical writer | preflight、child publication gate、old/new/relation/root/checkpoint transaction、revision、staging/replay、single-flight coordinator 和冲突恢复 | V05–V10、V18–V20、V25、V28–V35 |
 | history WebSocket | capability、page/chunk/hash、generation、fallback、ACK | V02–V04、V11–V17、V24、V26–V27 |
 | Android/App persistence | staging 与 SQLite atomic commit、restart、duplicate、selection、child 未发布时保留旧 cache | V05–V06、V11–V17、V21–V24、V26–V30 |
 | IPC boundary regression | healthy surface authority 和 A/B 隔离 | V24、V28 |
@@ -748,7 +743,7 @@ publication 最多增加一次 revision，失败/过期 candidate 不增加。
 ```text
 最终 Node durable state 正确
 ∧ 最终 App committed SQLite state 正确
-∧ serverRevision/sourceEpoch/generation 不越界
+∧ serverRevision/snapshot-fence/generation 不越界
 ∧ ACK 语义与提交时机正确
 ∧ 失败路径保留旧 cache
 ```
@@ -761,8 +756,8 @@ publication 最多增加一次 revision，失败/过期 candidate 不增加。
 - A→B→C 必须按 lineage 顺序应用，乱序先 durable stage，不得覆盖当前 head；
 - Node/App 离线、重启、ACK 丢失和重复投递都必须依靠 durable state 与幂等收敛；
 - `page_staged` 与 `sequence_persisted` 的时序和重复 ACK 行为明确；
-- App selection generation、source epoch 和 target root 是独立 stale fence；
-- source replacement 失败保留旧 snapshot，成功才发布新 epoch；
+- App selection generation、snapshot fence 和 target root 是独立 stale fence；
+- source mutation 失败保留旧 snapshot，受控 recovery 成功后才发布新的 canonical revision；
 - unknown state operation 和超限 payload 都不能产生部分提交；
 - child turn 只有 terminal + canonical source gate 通过并由 Node transaction COMMIT 后才发布；
   running/partial/gap child 保留 parent snapshot，V28–V30 固定该行为；

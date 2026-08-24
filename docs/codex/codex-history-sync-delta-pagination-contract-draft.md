@@ -38,7 +38,7 @@ related_code:
 3. 支持 replacement operation 时的 `pageHash v2` 输入和版本边界。
 
 本文不替代阶段 4.5 第 1–3 项草案；第 1–3 项在第 4–10 项完成后已统一回填。本文只保留
-分页/operation/hash 的详细定义，turn DTO、canonicalSnapshot/reconciliation、source fence、
+分页/operation/hash 的详细定义，turn DTO、canonicalSnapshot/reconciliation、来源诊断、
 ACK 和旧 App fallback 分别以对应草案和统一回修后的第 1–3 项为准。
 
 ## 1. 结论先行
@@ -338,7 +338,7 @@ active projection 和 change log 已属于同一 committed revision 时才发送
 ```
 
 任何 page 缺失、operation 不完整、new turn 不存在、hash 冲突、cursor 不推进、generation
-失配或 `serverRevision/sourceEpoch` checkpoint fence 不一致，都保留旧 committed cache，
+失配或 `serverRevision` 与 root/coverage/anchor/cursor checkpoint 不一致，都保留旧 committed cache，
 不把半个 replacement 展示给用户。
 
 old-row apply 规则固定为：同一 `operationId`、相同 old/new identity 的再次到达是 no-op；

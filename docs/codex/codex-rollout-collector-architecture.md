@@ -2,10 +2,10 @@
 title: Codex Rollout 正式解析采集器架构
 status: active
 owner: "@maintainer"
-last_updated: 2026-08-24
+last_updated: 2026-08-25
 source_of_truth: codex-rollout-collector
 related_code: [native/codex-rollout-demo, native/codex-rollout-compat-spike]
-related_docs: [docs/codex/codex-rollout-demo-design.md, docs/codex/codex-rollout-collector-codex-compatibility.md, docs/codex/codex-rollout-recorder-source-technical-reference.md, docs/codex/codex-last-turn-replacement-rust-collector-change-plan.md, docs/codex/codex-history-sync-design-principles.md, docs/codex/codex-history-sync-head-transition-source-replacement-contract-draft.md, docs/codex/codex-history-sync-sequence-test-vectors-contract-draft.md, docs/codex/codex-sync-app-history-ipc-consistency.md, docs/workflow/CONTRACTS.md, docs/workflow/DECISIONS.md]
+related_docs: [docs/codex/codex-rollout-demo-design.md, docs/codex/codex-rollout-collector-codex-compatibility.md, docs/codex/codex-rollout-recorder-source-technical-reference.md, docs/codex/codex-last-turn-replacement-rust-collector-change-plan.md, docs/codex/codex-history-sync-design-principles.md, docs/codex/codex-history-sync-head-transition-source-replacement-contract-draft.md, docs/codex/codex-history-sync-sequence-test-vectors-contract-draft.md, docs/codex/codex-history-sync-node-rust-interface-contract-draft.md, docs/codex/codex-sync-app-history-ipc-consistency.md, docs/workflow/CONTRACTS.md, docs/workflow/DECISIONS.md]
 ---
 
 # Codex Rollout 正式解析采集器架构
@@ -98,6 +98,102 @@ rollout 分析用于：
 - 服务端历史持久化和后续记忆提取。
 
 rollout 分析不能替代健康 IPC，也不能通过轮询 rollout 改变 IPC authority。
+
+### 2.1.1 Codex app-server 现实与采集协调边界（强约束）
+
+`rollout*.jsonl` 由外部 Codex app-server 负责创建和管理，TermLink 只有读取和分析权，不能
+控制其写入、重命名、分支或 turn 重发行为。当前应以 Codex 已验证的简单 source model 为产品
+事实：
+
+- 同一 rollout 在正常运行时按 append-only 写入；已写入的 byte range 不由 TermLink 原地改写；
+- 用户重发 turn 时，Codex 生成新的 child rollout（例如 `rollout-a-b.jsonl`），parent
+  `rollout-a.jsonl` 不再回写；已验证的 `history_base` 才能建立 parent → child 关系；
+- Branch in new chat 生成新的 rollout / conversation（例如 `rollout-c.jsonl`）。即使它复制了
+  旧历史，也不能仅凭文件名、内容相似、mtime 或顺序把它推断为 parent/child lineage；没有
+  明确的 `history_base` 和 conversation 绑定就按独立来源处理；
+- source binding 在正常 Codex 写入下应当是完整的。用户直接中断或 source 尚未形成稳定边界时，
+  结果应保持 `partial`/`provisional`/`pending`，不能凭空制造 product source replacement；
+- 一个 conversation 的 rollout 读取分析只允许一条 Node → Rust 采集链和一个 in-flight
+  analyzer request。Rust 只负责读取、解析和分析；其他 Node worker、历史查询或 App-facing
+  路径不得直接请求 Rust，只能查询 Node 已持久化的历史投影或使用 IPC 通道的实时缓存。需要
+  改变该单例协调规则时，必须先单独锁定范围并确认 Rust/Node 调度协议。
+- 在该单例协调边界下，阶段 5 不得为了假想的多 worker 竞争引入产品级 `commitFence`、多写者
+  提交线或跨设备 replacement 仲裁；单一 Node writer、显式队列、数据库事务和 `serverRevision`
+  已覆盖当前业务。未来若真的出现第二个 canonical writer，必须作为新的架构任务重新确认，不能
+  从通用分布式系统模板推导出来。
+
+正式隔离协议中保留的 `source_epoch` 只能解释为 source identity / checkpoint 的内部兼容和
+fail-closed 标记，不能在阶段 5 被升级成 `productSource`、`publishedSourceEpoch`、产品历史
+命名空间或常规 resend/Branch 业务状态。产品历史以 `conversationId`、`activeRolloutId`、
+已验证 lineage、checkpoint 和 completeness 为准。
+
+本节是本架构文档的优先约束。相关 4.5 / Stage 5 草案中若仍出现 product source replacement、
+`publishedSourceEpoch`、`commitFence` 或多 worker canonical writer 的描述，在完成单独的契约
+重审前只能视为旧的设计假设，不得据此直接实现产品 DB 或 Node/App 同步。
+
+### 2.1.2 Node 与 Rust 的解耦和独立模块硬约束（后续设计、开发、审查必须遵守）
+
+Node TermLink Server 与 Rust History Analyzer 是两个独立、可分别设计、开发、测试、升级和替换的
+模块。解耦是架构边界，不是当前实现的便利选项；任何“先直接调用内部实现、以后再抽接口”的做法都不属于
+本文允许的实施路径。
+
+#### 唯一交互面
+
+Node 与 Rust 之间唯一允许的业务交互面是本文第 7 节定义的版本化 analyzer process protocol：
+
+```text
+Node → Rust：hello / analyze / cancel / ack
+Rust → Node：hello / batch / complete / error
+```
+
+当前协议的 7 个消息类型和 JSONL framing 以
+`docs/codex/codex-history-sync-node-rust-interface-contract-draft.md` 为接口依据。除该协议外，
+禁止增加未登记的私有消息、隐藏字段、共享可变内存、共享数据库、共享 Node/Rust 内部文件、私有 socket
+或直接函数调用。必要的进程启动参数、环境配置和 capability 必须作为显式、可审查的模块启动接口或协议
+契约定义，不能通过读取另一模块的内存、目录约定或内部状态来传递。
+
+Codex app-server 管理的 rollout 文件是 Rust 的外部只读输入，不是 Node 与 Rust 之间的共享状态或隐式
+通信通道。Node 不读取 raw rollout 来补 Rust 的职责；Rust 不把 Node 的数据库、App/IPC 状态或历史
+查询实现当作输入。
+
+#### 两侧职责不可越界
+
+```text
+Node 模块
+├─ coordinator：按 conversation 单例调度和 single-flight
+├─ Rust 进程生命周期：spawn / cancel / timeout / retry / backpressure
+├─ batch 校验、ACK、Node 侧 durable staging/checkpoint
+├─ 产品历史 DB、canonical publication、App/IPC/API 读取边界
+└─ 只通过协议发送 read intent，并消费 Rust 返回的证据和派生结果
+
+Rust 模块
+├─ rollout source read 与内部 source index / lineage 处理
+├─ Codex wire 兼容、Adapter、Reducer 和 projection 生成
+├─ source cursor、coverage、completeness、checkpoint evidence 的生成
+└─ 只通过协议返回 batch / complete / error，不写 Node DB、不触碰 App/IPC
+```
+
+因此：
+
+- Node 不得 import、调用或读取 Rust 的 `SourceBackend`、source index、Adapter、Reducer、内部线程或
+  内部 checkpoint 状态；Node 只依赖协议 DTO 和已登记的消息语义；
+- Rust 不得 import Node 的 JavaScript 模块、数据库 schema、History/Memory persistence、App/IPC DTO
+  或 gateway 状态；Rust 内部模型可以演进，但不能把 Node 实现细节变成 Rust 的依赖；
+- Node 持久化的 checkpoint、staging、canonical history 与 Rust 进程内 reducer/source state 分属两侧，
+  只能通过协议 payload 建立恢复关系；Rust 进程退出后不能要求 Node 访问其内存恢复；
+- `discovery`、source index lookup/refresh 以及 formal 兼容层可能保留的 fingerprint/anchor 字段，均
+  不能被扩展成 Node 需要编排的内部调用。4.5 的 Node 请求只表达 conversation/read intent、mode、
+  cursor/recovery state 和 resource limits；source 定位与解析留在 Rust 模块内部。
+
+#### 变更和验收门禁
+
+任何新增能力必须先在接口契约中定义消息方向、字段、状态机、错误、超时/重试和兼容策略，再实现 Node
+或 Rust 任一侧；不能用未登记的“临时桥接”绕过接口。Node 与 Rust 的单元测试分别针对各自内部边界，
+跨模块测试必须启动独立进程并只使用协议 fixture；不能通过共享内部类型或直接调用对侧函数来证明集成成功。
+
+后续涉及本采集器的设计、开发、代码审查和接口变更，必须先读取本文以及上述 Node↔Rust 接口契约；若
+旧草案、实现便利或测试 harness 与本节冲突，以本节的解耦边界和已冻结接口为准。违反本节即视为架构审查
+未通过，必须先完成契约变更和范围确认。
 
 ### 2.2 `thread/read(includeTurns=true)` 不是完整持久化来源
 
@@ -238,6 +334,11 @@ rollout 原样复制到服务端。因此采集器必须区分：
 
 ### 4.1 `SessionLineageLocator` 和 `SourceLocator`：分开会话发现与物理绑定
 
+本节描述的组件全部属于 Rust 模块内部实现，不是 Node 可调用的公共对象，也不是 Node→Rust 的额外
+业务接口。Node 不能构造候选 catalog、直接调用 locator，或依据 locator 的内部索引做产品 source
+仲裁；Node 只提交 conversation/read intent，由 Rust 在自己的模块边界内完成必要的 source index
+lookup/refresh 和 lineage 处理。
+
 两层职责不能混为一个“找到最新文件”的函数：
 
 - `SessionLineageLocator` 处理会话级发现和父子关联：在受限日期范围内找候选文件，解析文件名
@@ -247,6 +348,13 @@ rollout 原样复制到服务端。因此采集器必须区分：
   `SourceSpec`，校验 fingerprint、压缩格式、snapshot boundary 和读取能力；
 - 两者都不把文件名或 mtime 当成 canonical identity。调用方显式提供的
   `target_conversation_id` 仍然优先，`SessionMeta` 与 `history_base` 用来验证来源和关系。
+
+当调用方只有 `conversationId` 而没有可靠的 rollout 物理路径时，使用
+`sessionsRoot + conversationId + bounded date range` 进入 `SessionLineageLocator`；Rust
+选定并验证的 `active_source` 才能进入后续 `SourceSpec`。显式 `path/source_id/source_epoch`
+可以作为已知来源的快速绑定或恢复 hint，但不是 active child 的权威来源。当前旧 Node 尚未
+提供物理 rollout path，也尚未在高层 collector 中构造 discovery 请求；这属于下游接入状态，
+不应倒推为 Rust 必须由 Node 先给出 active child。
 
 物理候选发现还必须遵循 Codex 的同名压缩 sibling 优先级：同一目录中存在
 `B.jsonl` 时，`B.jsonl.zst` 只视为同一 rollout 的被隐藏物理表示，不进入候选 catalog。
@@ -1192,10 +1300,12 @@ source_ref
 
 其中：
 
-- `source_epoch` 只是当前采集来源的代数标记，用于诊断、checkpoint 校验和拒绝把旧
-  checkpoint 当成新文件的 append 起点。文件正常增长和仅改名时保持不变；文件被替换、
-  截断或前缀 anchor 不匹配时递增。它不是历史存储的命名空间，服务端不为同一会话长期
-  保留多个并行 epoch；
+- `source_epoch` 在正式隔离 Rust 协议中只是显式 source identity / checkpoint 校验所需的
+  内部兼容标记，用于拒绝把旧 checkpoint 当成不相干来源的 append 起点。它不是产品历史的
+  命名空间，也不是正常 resend、child rollout 或 Branch in new chat 的业务状态；阶段 5 不得
+  把它升级成 `productSource` 或 `publishedSourceEpoch`。source binding 不完整、文件被替换、
+  截断或 prefix anchor 不匹配时，Collector 应 fail-closed 或保持 partial，不能由 filename、
+  mtime 或普通 worker 猜测新的产品来源；
 - `revision` 表示同一 source epoch 内单个逻辑对象的来源覆盖进度，优先比较最后完整的
   `rollout_ordinal`，其次比较该对象的 `source_ref.byte_end`，不能使用 wall clock 或 batch ID；
   Node 导入 history item 时必须优先使用同 `item_key` 的 `upsert_item` mutation revision，
@@ -1216,31 +1326,30 @@ source_ref
 6. `task_outcome` 允许从 provisional 更新为 completed/failed/interrupted/cancelled，但
    终态 outcome 不能被后续 provisional outcome 覆盖；
 7. `complete_range` 只推进当前来源的连续覆盖范围；普通 backfill 不删除并重建整个会话；
-8. source epoch 变化时必须报告 `source_replaced`/`source_gap`，服务端将新来源视为当前
-   会话的新版本，直接替换旧投影，不把两个文件版本按相同 item key 混合合并。
+8. formal Collector 发现 source mutation/gap 时必须报告类型化诊断并 fail-closed 或保持
+   partial；它不自动授权服务端删除旧 canonical 投影、建立 product source replacement，或
+   把两个外部文件按相同 item key 混合合并。若未来确实需要产品级新基线，必须另立任务确认
+   新的 product read-model 语义。
 
-source replacement 的正式处理只有以下最小流程，不引入可查询的 shadow epoch、旧版本正文
-或 `promote_epoch`；实现可以保留不可写的 retired tombstone/current-epoch fence 以拒绝迟到
-消息，但不把它作为历史版本暴露：
+异常 source mutation 的隔离处理只保留以下 formal Rust/Node artifact 语义，不构成阶段 5
+产品主流程，也不引入可查询的 product shadow epoch、旧版本正文或 `promote_epoch`：
 
 ```text
 detect source_replaced/source_gap
         ↓
-new source_epoch + reset checkpoint/complete_range
+fail-closed / partial diagnostic
         ↓
-first new AnalysisBatch: replace_previous = true
+explicitly resolved new source only when a separate caller contract authorizes it
         ↓
-删除该 conversation 当前的 history/tool-detail/usage/outcome/附件派生投影
-并写入该批次的新数据
+不得自动删除当前 product canonical history
         ↓
-后续 batch 按普通同 epoch upsert/backfill 处理
+后续读取必须重新通过 source binding、snapshot boundary 和 checkpoint 校验
 ```
 
-`replace_previous=true` 只用于新来源的第一批数据；服务端应将“删除旧派生投影并写入
-第一批新数据”作为一个原子替换操作，避免新旧记录混在一起。它是一次会话投影替换，
-不是历史版本管理。替换后 App、普通历史查询和记忆 MCP 只看到新 `source_epoch` 的
-结果；旧 epoch 不再作为可查询历史保存。若新来源本身仍未完整读取，新的投影照常用
-`provisional`/`partial_rollout` 表示，不回退到旧来源。
+`replace_previous=true` 仍可作为当前隔离 Rust↔Node artifact 的显式兼容字段和测试边界，
+但不能由普通 `replay`、child rollout、Branch in new chat、Node 重启或某个 worker 自动推导，
+也不能直接定义阶段 5 的数据库删除/替换语义。产品接入若要消费该字段，必须先完成单独的
+需求、范围锁定和跨边界契约审查。
 
 `batch_id` 用于当前请求的关联、诊断和同一进程内的重复保护，不是 Node 重启后的恢复
 checkpoint。Node 重启后不要求 Rust 重发相同 batch；Node 应根据已保存的 source anchor、
@@ -1338,7 +1447,6 @@ Rust 不直接写数据库，输出分批的 TermLink 自有协议：
 AnalyzeRequest
 ├─ request_id
 ├─ conversation_id
-├─ source_spec (path + explicit source_id/source_epoch)
 ├─ mode: preview / backfill / append / replay
 ├─ cursor
 ├─ persisted_anchor
@@ -1346,6 +1454,11 @@ AnalyzeRequest
 ├─ retention_profile
 └─ resource_limits
 ```
+
+上面的 `AnalyzeRequest` 是 Node↔Rust 公共接口的业务视图。旧草案中的 `source_spec`、`discovery` 不是
+4.5 的 Node 业务字段；若 formal v1 为兼容既有 native artifact 暂时接受同名字段，只能按 opaque
+compatibility metadata 处理，不能要求 Node 构造、校验或据此选择 active source。Rust source index、
+lineage lookup 和读取物理来源均属于 Rust 模块内部。
 
 ```text
 AnalysisBatch

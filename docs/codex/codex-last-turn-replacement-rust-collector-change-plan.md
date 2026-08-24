@@ -124,16 +124,23 @@ backward-compatible；lineage 读取只能作为 additive orchestration 层提�
 
 ### 3.1 输入和发现职责
 
-调用方必须至少提供：
+调用方按输入模式提供以下信息：
 
-- 受允许的 `sessionsRoot`；
-- 稳定 `conversationId`；
-- 日期扫描起点/上界或等价的可恢复 discovery checkpoint；
-- 可选的已知 source/head path 作为 hint。
+- **Discovery 模式**：受允许的 `sessionsRoot`、稳定 `conversationId`、日期扫描起点/上界或
+  等价的可恢复 discovery checkpoint，以及可选的已知 source/head path 作为 hint；
+- **显式绑定模式**：稳定 `conversationId` 和已知 `path/source_id/source_epoch`；
+  `sessionsRoot` 与日期边界可以不提供，但 Rust 仍必须验证该 source 属于目标会话和有效
+  lineage。
 
 Rust 不依赖 Codex 私有 SQLite schema，也不要求调用方事先找到唯一最新文件。调用方提供的
 active hint 可以缩小读取范围，但 Rust 必须验证该 hint 是否属于目标会话、是否位于有效 lineage
 上，并检查有界范围内是否存在更新的有效 descendant。
+
+当前旧 Node 只稳定持有 `conversationId/threadId`，并不保证已经取得 rollout 的物理路径。因此
+`sessionsRoot + conversationId` discovery 是没有物理 source binding 时的正式恢复/接入路径；显式
+`path/source_id/source_epoch` 只是已知来源的快速路径或 discovery hint，不授予调用方决定 active
+child 的权利。只有 Rust 完成会话绑定、parent chain 和 descendant 校验后，选定的
+`active_source` 才是本次读取使用的物理来源。
 
 ### 3.2 职责表
 
@@ -274,8 +281,9 @@ LastTurnReplacement
   identity 确定，不能使用 batch 顺序、mtime、随机值或文件内容 hash；Node 对外序列化为
   `turn_replaced.operationId`，两者必须是同一个逐字节稳定 identity，不得重新 hash、加前缀、
   生成数据库 ID 或按重试重新生成；
-- `childRolloutId` 取自调用方显式 source binding，不能把稳定的 `SessionMeta.id` 当成
-  reverted rollout ID；
+- `childRolloutId` 取自 Rust 已验证的 active child source/lineage transition；如果调用方提供了
+  显式 source binding，也只能作为经过 Rust 会话绑定和 lineage 校验后的同一事实。不能把稳定的
+  `SessionMeta.id` 当成 child rollout ID；
 - `parentRolloutId` 取自 `history_base.thread_id`；
 - old/new turn ID 取自实际 Codex turn 事件；
 - 三个 `SourceRef` 用于 Node preflight、诊断和 replay 证据，不暴露给 App；
@@ -439,8 +447,11 @@ hello/analyze/batch/ACK/checkpoint conformance。
 
 方案：
 
-- 增加 additive lineage discovery/read result 和 `last_turn_replacement_v1` capability；
-- Node 声明能力后，Rust 才发送新的 lineage fields/replacement mutation；未知能力 fail-closed；
+- 增加 additive lineage discovery/read result、`session_lineage_v1` 和
+  `last_turn_replacement_v1` capability；
+- Node 声明相应能力后，Rust 才发送新的 lineage fields/replacement mutation；未知能力
+  fail-closed。当前隔离 Node validator/importer 尚未构造 discovery 请求或声明
+  `session_lineage_v1`，这属于阶段 4.5/5 的下游接入缺口，不改变 Rust 对 active source 的发现权；
 - `historyItems`、source lineage、coverage、replacement evidence 和 checkpoint 必须处于同一
   batch evidence chain；
 - 只有 source range、lineage coverage 和 projection coverage 均达到 canonical 条件时，才

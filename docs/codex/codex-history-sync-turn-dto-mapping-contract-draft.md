@@ -49,7 +49,7 @@ related_code:
 - Node 正式 history provider 或产品数据库 migration；
 - WebSocket `DeltaBody` 的实现接线（字段语义已由统一回修后的 wire 草案确定）；
 - Android schema migration 或 UI 改造；
-- sourceEpoch/head transition 的实现接线（公共字段语义由第 8 项草案和统一回修后的 wire/DTO
+- internal source evidence/head transition 的实现接线（公共字段语义由第 8 项草案和统一回修后的 wire/DTO
   草案确定）；
 - 旧 App 的完整兼容实现。
 
@@ -214,7 +214,6 @@ Rust AnalysisEvent / AnalysisProjection
   "itemCount": 8,
   "availability": "present",
   "completeness": "canonical",
-  "sourceEpoch": "epoch-2",
   "revision": 42
 }
 ```
@@ -236,7 +235,6 @@ Rust AnalysisEvent / AnalysisProjection
 | `itemCount` | 当前快照中已证明属于该 turn 的 item 数 | partial 时是已证明数量，不是未经证明的全量估计 |
 | `availability` | turn 事实可恢复/可见程度 | 从 Rust availability 和 Node redaction 映射 |
 | `completeness` | turn 事实是否达到稳定 canonical | 从 batch/projection/diagnostic 归约，不由 App 提升 |
-| `sourceEpoch` | turn 所属、且已被 Node 接受发布的来源代际 | 必须与 canonical read-model scope 一致；Rust candidate epoch 与 product source replacement 的完整规则见第 8 项 |
 | `revision` | 该 turn 行自身的 Node upsert revision | 不等于 Rust sequence、item revision 或 serverRevision |
 
 ### 3.3 replacement 与 execution status 必须分离
@@ -326,7 +324,7 @@ projection 成员”的不变量。
 | `AnalysisEvent::TurnCompleted` + `TurnStatus::Completed` | terminal execution fact | `executionStatus=completed`、可生成 outcome | `message` 只能作为 bounded outcome message，不作为新 item 猜造 |
 | `AnalysisEvent::TurnCompleted` + `Interrupted` | interrupted execution fact | `executionStatus=interrupted` | 可被后续当前业务 replacement 替换，但状态原值保留 |
 | `AnalysisEvent::TurnCompleted` + `Partial` | incomplete execution/projection fact | `executionStatus=partial` 或明确 unknown，completeness 不得 canonical | 不把 partial 当 completed |
-| `AnalysisEvent::UsageUpdated` 且有明确 `turn_id` | per-turn usage | `UsageDto` + turn usage row | 以 identity + sourceEpoch + revision 幂等替换 |
+| `AnalysisEvent::UsageUpdated` 且有明确 `turn_id` | per-turn usage | `UsageDto` + turn usage row | 以 identity + revision 幂等替换，并校验同一内部 source evidence |
 | `AnalysisProjection.usage_total` | conversation aggregate | Node internal aggregate/diagnostic | 无 turn identity 时不发布 `UsageDto` |
 | `AnalysisTurn.rate_limit` | runtime/diagnostic | 不进 canonical turn DTO | 不写 App history SQLite |
 | `AnalysisItem` | normalized history item | `HistoryItemDto` + `history_items` row | `item.turn_id` 必须与 turn identity 一致 |
@@ -340,7 +338,7 @@ Node 接收的 normalized batch 至少需要能重建以下关系：
 
 ```text
 conversationId
-sourceId + sourceEpoch
+sourceRef + internal source evidence/checkpoint
 turnId → history item(s)
 turnId → usage/outcome
 itemKey → tool detail / related item
@@ -411,7 +409,6 @@ outcomeItemKey
 itemCount
 availability
 completeness
-sourceEpoch
 revision
 ```
 
@@ -444,10 +441,10 @@ canonical_snapshot
 
 `projection` JSON 可以作为 analyzer/replay/audit evidence 保留，但产品查询和 ADTO 不应每次重新解析 raw projection 才得到 turn 状态。
 
-`canonical_snapshot` 所属的 `conversation_history_state` 还必须保存 Node 内部
-`commitFence`/row version。它不进入 `TurnDto` 或 `TurnADTO`，只用于保证同一
-`(authenticated revisionScope, conversationId)` 的 turn、items、replacement relation、
-root/coverage/checkpoint 和 `serverRevision` 由同一个 canonical commit lane 串行发布。
+`canonical_snapshot` 所属的 `conversation_history_state` 必须由同一个 Node conversation
+coordinator 写入，并在一个 DB transaction 中提交。`serverRevision`、operation ledger 和
+数据库的普通事务约束足以表达发布结果；不新增产品级 `commitFence`、worker lease 或多写入者
+仲裁字段。
 
 ### 6.3 一次 canonical publication 的最小 DB 事务
 
@@ -460,11 +457,10 @@ replacement relation（若有，含 operationId）
 active projection order
 root / coverage / checkpoint
 serverRevision
-conversation commitFence（Node 内部，不下发 ADTO）
 change log（如采用）
 ```
 
-last-turn replacement 还必须满足第 5 项已定义的 old status update + new upsert + root/checkpoint 同事务边界。事务开始时必须以 candidate 的 base fence 重检当前 conversation state；旧 fence 失效时不能把旧 DTO/turn candidate 直接合并到新 head。
+last-turn replacement 还必须满足第 5 项已定义的 old status update + new upsert + root/checkpoint 同事务边界。事务开始时必须以 `baseServerRevision`、active head、operation identity 和内部 source evidence 重检当前 conversation state；任一基线失效时不能把旧 DTO/turn candidate 直接合并到新 head。
 
 reconciliation 失败只更新 reconciliation state/diagnostic，不提交未验证 turn，也不回退最后一个 canonical publication。
 
@@ -487,14 +483,13 @@ reconciliation 失败只更新 reconciliation state/diagnostic，不提交未验
 | `itemCount` | `itemCount` | partial 时不得解释为全量 count |
 | `availability` | `availability` | Rust availability 经 Node policy 映射 |
 | `completeness` | `completeness` | App 不得自行提升 |
-| published product source epoch | `sourceEpoch` | 作为 product epoch fence；Rust candidate epoch 不直接进入 ADTO |
 | `revision` | `revision` | turn-local revision；不替代 page/server revision |
 | Node raw source/provenance | 不发送 | raw path、byte offset、reducer state、checkpoint cursor 禁止进入 ADTO |
 
 `serverRevision`、`rootHash`、`coverageRoot`、`syncId`、`selectionGeneration`、
 `clientSelectionGeneration`、page/sequence/hash 属于 manifest/page 的 snapshot/transport
 fence，不复制为每个 turn 的业务 revision。App checkpoint 必须另外原子保存
-`serverRevision + sourceEpoch` 这一对 product snapshot fence。
+`serverRevision + rootHash + coverageRoot + anchors + cursor + complete` 这组 snapshot fence。
 
 ### 7.2 ADTO 载体要求
 
@@ -507,10 +502,11 @@ fence，不复制为每个 turn 的业务 revision。App checkpoint 必须另外
   的 `projectionState=superseded` update、new turn upsert 和 operationId relation；
 - older page 可以 upsert turn metadata，但不能因为旧页没有某个 turn 就删除 turn；
 - payload chunk 不携带 turn state，也不能单独改变 turn revision/root；
-- turn records 和关联 items 必须绑定同一 `serverRevision + sourceEpoch + syncId/generation` fence。
+- turn records 和关联 items 必须绑定同一 `serverRevision + syncId/generation` fence；来源
+  provenance 只作为 Node 内部校验/诊断，不下发为 App source epoch。
 
 turn state 不得塞入 `HistoryItemDto.payloadJson` 让 App 猜测；`turnUpserts` 和
-`turn_replaced` 均受 pageHash v2、serverRevision/sourceEpoch/generation fence 保护。
+`turn_replaced` 均受 pageHash v2、serverRevision/generation fence 保护。
 
 ### 7.3 turn 与 item 的一致性
 
@@ -543,7 +539,6 @@ turns
   item_count
   availability
   completeness
-  source_epoch
   revision
 
 turn_replacement_operations
@@ -604,7 +599,7 @@ canonical DB 的 `turn_replacements`：它允许记录一个本地尚未缓存�
 ```text
 接收 TurnADTO + item/detail/usage/outcome
     ↓
-staging 校验 turnId、sourceEpoch、revision、root/coverage/page fence
+staging 校验 turnId、revision、serverRevision/root/coverage/page fence
     ↓
 一个 SQLite transaction
     ├─ upsert turn row
@@ -653,7 +648,7 @@ old-row apply 的统一规则是：本地 old row 存在时只条件更新
 | tool detail | `AnalysisTool` | `tool_details` | `ToolDetailDto` | detail DTO/ref | detail logical record/payload |
 | completeness | batch/projection evidence | canonical metadata + turn row | `completeness` | `completeness` | turn/checkpoint metadata |
 | availability | Rust `Availability` | normalized availability | `availability` | `availability` | turn/item metadata |
-| source provenance | `SourceRef` / checkpoint | internal source evidence | bounded sourceEpoch only | sourceEpoch/fence | sourceEpoch/checkpoint, no local path |
+| source provenance | `SourceRef` / checkpoint | internal source evidence | 不下发来源代际 | 不下发来源代际 | 仅保存必要 checkpoint/provenance，不保存本地路径 |
 | turn-local revision | not Rust sequence | Node-assigned turn revision | `revision` | `revision` | turn revision |
 | snapshot revision | not Rust event count | canonical publication | envelope/manifest `serverRevision` | page/manifest fence | conversation checkpoint |
 
@@ -686,7 +681,7 @@ old-row apply 的统一规则是：本地 old row 存在时只条件更新
 
 - 缺少 `turnId`；
 - replacement old/new identity 不一致；
-- turn 引用的 item 跨 sourceEpoch；
+- turn 引用的 item 混入不同 conversation/source lineage，且 Node 无法证明其属于同一内部 source evidence；
 - unknown `projectionState` 或 replacement relation 不可校验；
 - aggregate usage 没有 turn identity；
 - parser diagnostic 影响 turn 但被标成 canonical；
@@ -722,7 +717,7 @@ healthy IPC surface 仍由既有 IPC 契约独占实时正文、当前 turn 和�
 - Android 当前没有独立 turns storage/staging，也不能持久化 replacement projection state；
 - 旧 App compatibility、turn capability 和 wire field placement 已由统一回修后的第 1–3 项、
   第 9 项冻结，仍需实现；
-- sourceEpoch/head transition 的三层语义由第 8 项冻结，仍需实现接线；
+- internal source evidence/head transition 的语义由第 8 项冻结，仍需实现接线；
 - 完整 mapping fixtures 和时序向量由第 10 项冻结，仍需自动化。
 
 本项不授权直接开始 5B provider、5C DB migration 或 Android 代码实现。

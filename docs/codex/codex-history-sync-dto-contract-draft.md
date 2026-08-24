@@ -44,7 +44,7 @@ related_code:
 2. Rust `AnalysisBatch`/Node canonical read model 到 App DTO 的字段映射；
 3. `canonicalSnapshot.state`、`reconciliation.state` 以及 legacy `canonicalStatus` 的兼容表达；
 4. `canonicalReadModel` capability、旧 App/旧 Node 的降级规则和大小门禁；
-5. DTO 层的 source replacement、失败保留旧快照和 unknown field 处理。
+5. DTO 层的 source mutation recovery、失败保留旧快照和 unknown field 处理。
 
 本文不做以下事情：
 
@@ -71,8 +71,8 @@ Codex “最后一个已终止 turn 编辑后重发”的业务约束，当前�
   relation；old completed/interrupted turn 被 supersede 后不改写执行结果；
 - `rootHash`、`coverageRoot`、itemCount、anchor 和 order 只计算 active projection，
   retained superseded rows 不进入正常历史集合；
-- App `sourceEpoch` 只表示已发布 product source fence；合法 active head transition 不
-  改变它，Rust physical source epoch 不直接暴露；
+- Rust `source_epoch` 只属于内部 source evidence/checkpoint；不进入 App DTO 或 App fence。
+  合法 active head transition 只更新 active projection 和 `serverRevision`；
 - replacement-capable delta 使用 `turn_replaced` + `turnUpserts` + pageHash v2，并由
   `sequence_persisted` ACK 证明 old/new/root/checkpoint 的同事务 SQLite 提交；旧 App 走
   active snapshot fallback。
@@ -119,7 +119,8 @@ Rust AnalysisBatch / AnalysisProjection（内部分析协议和 conformance orac
   `9007199254740991` 的数值。
 - 所有 hash 使用小写 64 位十六进制 SHA-256。接收时可容忍大小写，规范化存储和回传
   必须使用小写。
-- `sourceEpoch`、item `revision` 和 `serverRevision` 的 scope 不同，不能互相填充。
+- item `revision` 和 `serverRevision` 的 scope 不同，不能互相填充；内部 source epoch 不属于
+  产品 DTO。
 - DTO 的 required nullable 字段必须显式发送 `null`；不能用缺失字段让旧字段语义漂移。
 - unknown `itemType` 可以作为不透明字符串保留并由 UI 降级显示；unknown 状态、
   completeness 或分页参与字段不能被“猜测”为成功。
@@ -181,13 +182,13 @@ Rust `Availability` 的映射是：
 - `payloadJson` 是 `HistoryItemDto` 的 canonical JSON 字节串；
 - envelope 的 `itemKey`、`turnId`、`position`、`itemType`、`role`、`clientRequestId` 和
   `contentHash` 必须与 DTO 的同名/对应字段一致；
-- envelope 的 `sourceEpoch`、`revision`、`detailRef` 等 additive 字段若出现，也必须
-  与 DTO 一致；重复字段不允许出现两套不同值；
+- envelope 的 `revision`、`detailRef` 等 additive 字段若出现，也必须与 DTO 一致；重复字段
+  不允许出现两套不同值；
 - 旧 App 仍走第 1 项定义的 legacy payload 语义，不要求解析 DTO 新字段。
 
 因此本契约不要求 Android 旧 cache 表马上增加每个 DTO 列；在数据库 migration 完成前，
 新字段可以作为 `payloadJson` 中的 canonical DTO 保留，但提交 fence 仍必须按第 2 项的
-`serverRevision + root/coverage + sourceEpoch + generation` 校验。
+`serverRevision + root/coverage + generation` 校验。
 
 ## 2. `canonicalSnapshot` 与 `reconciliation`
 
@@ -198,8 +199,8 @@ canonicalSnapshot = 当前已发布、App 可以安全读取的历史快照
 reconciliation    = Node/Rust 最近或正在执行的来源整理/发布尝试
 ```
 
-后台失败只影响 `reconciliation`，不能覆盖旧 snapshot、旧 root、旧 `sourceEpoch` 或旧
-`serverRevision`。transport `conversation_history_sync_state.state` 仍是第三个独立维度。
+后台失败只影响 `reconciliation`，不能覆盖旧 snapshot、旧 root 或旧 `serverRevision`。
+transport `conversation_history_sync_state.state` 仍是第三个独立维度。
 
 ### 2.1 `CanonicalSnapshotDto` 与兼容状态
 
@@ -211,8 +212,7 @@ reconciliation    = Node/Rust 最近或正在执行的来源整理/发布尝试
   "coverageRoot": "cc...64-hex",
   "itemCount": 1284,
   "complete": true,
-  "coverageComplete": true,
-  "sourceEpoch": "product-source-epoch"
+  "coverageComplete": true
 }
 ```
 
@@ -227,7 +227,6 @@ reconciliation    = Node/Rust 最近或正在执行的来源整理/发布尝试
 | `itemCount` | 是 | non-negative integer 或 `null` | active projection 已证明 item 数 |
 | `complete` | 是 | boolean | 当前 active item set 是否完整 |
 | `coverageComplete` | 是 | boolean | coverage 是否有完整性证明 |
-| `sourceEpoch` | 是 | non-empty string 或 `null` | 已发布 product source fence；不是 Rust candidate epoch |
 
 `state=none` 不等于“已证明的空历史”。只有 `state=complete`、`itemCount=0`、empty
 item root 和正数 `serverRevision` 同时成立时，App 才能把它展示为空历史。
@@ -248,13 +247,12 @@ item root 和正数 `serverRevision` 同时成立时，App 才能把它展示为
   `conversation_history_sync_state.state`；`reconciliation` 是后台尝试维度。
 - `reconciliation=failed/cancelled` 不等于 `rootHash=null`，也不等于删除旧 item；失败
   事务没有发布新 revision。
-- pending/failed 若存在旧 snapshot，manifest 的 `serverRevision`、root、active item 和
-  product `sourceEpoch` 仍描述最后一个已提交 snapshot；目标来源只能出现在
-  `reconciliation.targetSourceRef` 等诊断字段。
-- source replacement 后，旧 epoch 的 item 不能与目标 epoch 的 item 在同一个 App commit
-  中混合；必须使用新的 `syncId`/generation 或清晰的 replacement fence。
+- pending/failed 若存在旧 snapshot，manifest 的 `serverRevision`、root 和 active item 仍
+  描述最后一个已提交 snapshot；source mutation 只能出现在 reconciliation 诊断字段。
+- source mutation 或 lineage 不完整时，不清理旧 active item，也不在同一个 App commit 中
+  混入未验证结果。
 - `canonicalSnapshot.state=complete` 必须同时满足 manifest `complete=true`、
-  `coverageComplete=true`、product `sourceEpoch` 非空，且不存在影响可见 DTO 的 unresolved
+  `coverageComplete=true`，且不存在影响可见 DTO 的 unresolved
   diagnostic。
 
 ### 2.2.1 `ReconciliationDto` 形状
@@ -266,15 +264,15 @@ item root 和正数 `serverRevision` 同时成立时，App 才能把它展示为
   "baseServerRevision": 18,
   "targetSourceRef": "opaque-target-ref",
   "lastSuccessRevision": 18,
-  "error": { "code": "source_replacement_failed", "retryable": true }
+  "error": { "code": "source_mutation_failed", "retryable": true }
 }
 ```
 
 字段全部显式出现；`attemptId`、`baseServerRevision`、`targetSourceRef`、
 `lastSuccessRevision` 和 `error` 可以为 `null`，其余规则与 wire 的 `Reconciliation` 相同。
 `error` 只允许稳定 machine code 和 retryability，不携带路径、stack、raw rollout 或敏感
-诊断。旧 snapshot 为 E1/R18、候选 E2 失败时，必须保持
-`canonicalSnapshot=complete/E1/R18`，只把尝试记为 `reconciliation=failed(target=E2)`。
+诊断。旧 snapshot 为 R18、source recovery 失败时，必须保持
+`canonicalSnapshot=complete/R18`，只把尝试记为 `reconciliation=failed(source_mutation)`。
 
 ### 2.3 与 `complete`、`coverageComplete` 的关系
 
@@ -298,7 +296,7 @@ coverageComplete            = 当前 range/provider coverage 是否有完整证�
 | `complete / succeeded` | true | true | 完整历史和 coverage 均已提交 |
 
 `complete=true` 单独不能把状态提升为 `canonicalSnapshot.state=complete`；必须检查
-`coverageComplete`、product source epoch、reconciliation/result 和 revision fence。
+`coverageComplete`、reconciliation/result 和 revision fence。
 
 ## 3. `ConversationHistoryManifest`
 
@@ -318,7 +316,6 @@ coverageComplete            = 当前 range/provider coverage 是否有完整证�
   "nextOlderCursor": null,
   "complete": true,
   "coverageComplete": true,
-  "sourceEpoch": "product-source-epoch",
   "canonicalSnapshot": {
     "state": "complete",
     "serverRevision": 18,
@@ -326,8 +323,7 @@ coverageComplete            = 当前 range/provider coverage 是否有完整证�
     "coverageRoot": "cc...64-hex",
     "itemCount": 1284,
     "complete": true,
-    "coverageComplete": true,
-    "sourceEpoch": "product-source-epoch"
+    "coverageComplete": true
   },
   "reconciliation": {
     "state": "succeeded",
@@ -353,12 +349,11 @@ Canonical capability下的必填字段：
 ```text
 dtoVersion, conversationId, serverRevision, rootHash, itemCount,
 newestAnchor, oldestAnchor, coverageRoot, hasMoreBefore, nextOlderCursor,
-complete, coverageComplete, sourceEpoch, canonicalSnapshot, reconciliation
+complete, coverageComplete, canonicalSnapshot, reconciliation
 ```
 
-`canonicalSnapshot` 是 authority；manifest 顶层的 root/revision/coverage/source fields 是
-wire compatibility projection，若两处同时存在必须完全一致。`sourceEpoch` 在已有 active
-snapshot 时必填；`provenance` 是可选 summary，但 raw source
+`canonicalSnapshot` 是 authority；manifest 顶层的 root/revision/coverage fields 是
+wire compatibility projection，若两处同时存在必须完全一致。`provenance` 是可选 summary，但 raw source
 path、文件名、byte offset、本地用户目录和 parser diagnostic message 不得进入其中。
 
 字段细则：
@@ -411,7 +406,6 @@ path、文件名、byte offset、本地用户目录和 parser diagnostic message
   "nextOlderCursor": null,
   "complete": true,
   "coverageComplete": true,
-  "sourceEpoch": "epoch-1",
   "canonicalSnapshot": {
     "state": "complete",
     "serverRevision": 41,
@@ -419,8 +413,7 @@ path、文件名、byte offset、本地用户目录和 parser diagnostic message
     "coverageRoot": "old-coverage",
     "itemCount": 900,
     "complete": true,
-    "coverageComplete": true,
-    "sourceEpoch": "epoch-1"
+    "coverageComplete": true
   },
   "reconciliation": {
     "state": "failed",
@@ -428,14 +421,13 @@ path、文件名、byte offset、本地用户目录和 parser diagnostic message
     "baseServerRevision": 41,
     "targetSourceRef": "epoch-2-candidate",
     "lastSuccessRevision": 41,
-    "error": { "code": "source_replacement_failed", "retryable": true }
+    "error": { "code": "source_mutation_failed", "retryable": true }
   }
 }
 ```
 
-App 必须保留 epoch-1 的 active item，并把 reconciliation 标记为 stale/failed；不能把
-epoch-2 的半成品追加到 epoch-1，也不能把 `epoch-2-candidate` 写成当前 product
-`sourceEpoch`。
+App 必须保留旧 active item，并把 reconciliation 标记为 stale/failed；不能把未验证的
+半成品追加到旧 snapshot。
 
 ## 4. `HistoryTurnDto` / `TurnDto` / `TurnADTO`
 
@@ -460,7 +452,6 @@ Node canonical DB 查询对象称为 `TurnDto`；App-facing wire/cache 对象称
   "itemCount": 8,
   "availability": "present",
   "completeness": "canonical",
-  "sourceEpoch": "product-source-epoch",
   "revision": 42
 }
 ```
@@ -520,7 +511,6 @@ projection 的完整 snapshot fallback。
   "contentHash": "ee...64-hex",
   "completeness": "canonical",
   "availability": "present",
-  "sourceEpoch": "epoch-2",
   "revision": 73,
   "detailRef": null
 }
@@ -531,7 +521,7 @@ Canonical v1 的 required 字段是：
 ```text
 dtoVersion, itemKey, turnId, position, itemType, role, clientRequestId,
 correlationId, relatedItemKey, content, summary, structured, contentHash,
-completeness, availability, sourceEpoch, revision, detailRef
+completeness, availability, revision, detailRef
 ```
 
 其中 `turnId`、`role`、`clientRequestId`、`correlationId`、`relatedItemKey`、`content`、
@@ -559,12 +549,12 @@ completeness, availability, sourceEpoch, revision, detailRef
 - `detailRef` 指向独立 detail 读取/缓存对象的稳定引用，不是 analyzer cursor，也不是
   IPC operation id。若没有 detail capability，可以为 `null`，同时保留 bounded summary。
 - `contentHash` 是 DTO content projection 的 hash，并且必须等于 wire envelope 的
-  `contentHash`。它不包含 `sourceEpoch`、item `revision`、`serverRevision`、syncId、
-  page sequence 或 selection generation；source replacement 由 epoch fence 另行处理。
+  `contentHash`。它不包含 item `revision`、`serverRevision`、syncId、page sequence 或
+  selection generation；source mutation 不通过产品 epoch 处理。
 - `completeness` 和 `availability` 不能由 App 反推；`partial`/`unknown` 不得 promotion
   为 canonical。
-- `revision` 是同一 source epoch 内该 item 的 Node upsert/replacement revision；它不等于
-  manifest 的 `serverRevision`。App 不用它替代 snapshot fence。
+- `revision` 是该 item 的 Node upsert/replacement revision；它不等于 manifest 的
+  `serverRevision`。App 不用它替代 snapshot fence。
 
 ### 5.2 `itemType` 和 native event 的初始映射
 
@@ -608,8 +598,8 @@ completeness, availability, sourceEpoch, revision, detailRef
 ```
 
 该对象使用 Node 现有 `canonicalize` 的 sorted-key JSON，再以 UTF-8 SHA-256 计算。以下
-字段明确排除：`dtoVersion`、`completeness`、`availability`、`sourceEpoch`、item
-`revision`、`serverRevision`、sync/generation、诊断和传输分页字段。
+字段明确排除：`dtoVersion`、`completeness`、`availability`、item `revision`、
+`serverRevision`、sync/generation、诊断和传输分页字段。
 
 因此：
 
@@ -619,7 +609,7 @@ completeness, availability, sourceEpoch, revision, detailRef
 - 当前 importer 的 raw `content_hash` 只有在字节级证明等于该 content projection hash 时
   才能复用，否则产品映射层必须重算；
 - `rootHash`/`coverageRoot` 仍按第 2 项使用 itemKey + contentHash 的 root 算法，不能把
-  source epoch 或 item revision 临时加入 root。
+  内部 source identity 或 item revision 临时加入 root。
 
 ## 6. `ToolDetailDto`
 
@@ -642,7 +632,6 @@ completeness, availability, sourceEpoch, revision, detailRef
   "outcome": "success",
   "completeness": "canonical",
   "availability": "present",
-  "sourceEpoch": "epoch-2",
   "revision": 74
 }
 ```
@@ -652,7 +641,7 @@ required 字段：
 ```text
 dtoVersion, itemKey, turnId, callId, toolKind, toolName, inputSummary,
 outputSummary, inputRef, outputRef, started, completed, outcome,
-completeness, availability, sourceEpoch, revision
+completeness, availability, revision
 ```
 
 `turnId`、`toolName`、summary、ref 和 `outcome` 可以为 `null`。`callId` 是 tool detail
@@ -708,7 +697,6 @@ detail。History page 的 item ACK 不得隐式确认 detail body；detail body 
   "cost": null,
   "completeness": "canonical",
   "availability": "present",
-  "sourceEpoch": "epoch-2",
   "revision": 75
 }
 ```
@@ -718,7 +706,7 @@ required 字段：
 ```text
 dtoVersion, turnId, itemKey, provider, model, inputTokens,
 cachedInputTokens, outputTokens, reasoningOutputTokens, totalTokens,
-cost, completeness, availability, sourceEpoch, revision
+cost, completeness, availability, revision
 ```
 
 `turnId` 和 `itemKey` 都可以为 `null`，但至少一个必须非空；否则该 usage 只能作为
@@ -742,7 +730,7 @@ cost 数值缺失时使用 `null`，不能用 `0` 猜测“没有消耗”。
   形状；若没有稳定 turn/item identity，不能直接映射到 App DTO。
 - `AnalysisRateLimit` 不并入 v1 `UsageDto`；它属于运行态/诊断信息，不进入 canonical
   history cache，除非后续另有冻结的 DTO。
-- per-turn usage 的更新以 turn/item identity + source epoch + item revision 幂等替换；
+- per-turn usage 的更新以 turn/item identity + item revision 幂等替换；
   App 不在本地把多个 revision 盲目相加。
 
 ## 8. `TaskOutcomeDto`
@@ -760,7 +748,6 @@ cost 数值缺失时使用 `null`，不能用 `0` 猜测“没有消耗”。
   "reasonCode": null,
   "completeness": "canonical",
   "availability": "present",
-  "sourceEpoch": "epoch-2",
   "revision": 76
 }
 ```
@@ -769,7 +756,7 @@ required 字段：
 
 ```text
 dtoVersion, itemKey, turnId, status, message, summary, reasonCode,
-completeness, availability, sourceEpoch, revision
+completeness, availability, revision
 ```
 
 `itemKey` 或 `turnId` 至少一个非空。`message` 是 bounded machine/source message，
@@ -815,7 +802,6 @@ outcome 只进入 `task_outcomes` read model，App 通过关联字段消费。
 | user message association | `userMessageItemKey` | turn column + item row | 必须指向同一 conversation 的 user item |
 | outcome association | `outcomeItemKey` | outcome logical record | 只引用已持久化 outcome/item |
 | Rust/Node completeness and availability | `completeness` / `availability` | turn metadata | App 不得 promotion；parser gap/协调失败不改 executionStatus |
-| published product source epoch | `sourceEpoch` | source fence/checkpoint | 正常 active head transition 不变；Rust candidate epoch 不直接暴露 |
 | Node turn revision | `revision` | turn revision | 不等于 Rust sequence、item revision 或 `serverRevision` |
 
 对 last-turn replacement，Node→ADTO→SQLite 的提交顺序固定为：
@@ -844,7 +830,7 @@ old turn 的执行状态不被 `projectionState=superseded` 覆盖；reconciliat
 | explicit role or safe kind mapping | `role` | 无证据为 `null` |
 | explicit client request id | `clientRequestId` | 不把 correlation id 偷换进来 |
 | explicit correlation id | `correlationId` | 保持独立字段 |
-| `related_item_key` | `relatedItemKey` | 必须能在同一 epoch 内解析/保留 |
+| `related_item_key` | `relatedItemKey` | 必须能在同一 conversation 内解析/保留 |
 | `content` | `content` | bounded、可展示、必要时 redacted |
 | `summary` | `summary` | 无摘要不从 raw JSON 猜造 |
 | plan/question/answer 等已登记结构 | `structured` | 只允许小型 TermLink-owned shape |
@@ -852,7 +838,6 @@ old turn 的执行状态不被 `projectionState=superseded` 覆盖；reconciliat
 | Node canonical content projection | `contentHash` | 不直接信任未经证明的 raw hash |
 | batch/item completeness | `completeness` | 只能提升，不能把 canonical 降级 |
 | native availability + Node redaction | `availability` | 按第 1.3 节映射 |
-| published product source epoch | `sourceEpoch` | 必须与 canonical read-model scope 相符；Rust candidate/source epoch 仅留内部 evidence |
 | `upsert_item` mutation revision | `revision` | 不得填 batch id/sequence/serverRevision |
 
 ### 9.3 Tool detail
@@ -866,7 +851,7 @@ old turn 的执行状态不被 `projectionState=superseded` 覆盖；reconciliat
 | `input`/`output` | summary/ref | raw body 不进入 v1 DTO |
 | started/completed observations | `started`/`completed` | 只允许事实合并，不能用 timeout 补 completed |
 | explicit outcome | `outcome` | 无证据为 `null` |
-| `upsert_detail` metadata | completeness/sourceEpoch/revision | 只接受同 epoch 的更高有效 revision |
+| `upsert_detail` metadata | completeness/revision | 只接受同一 detail identity 的更高有效 revision |
 
 ### 9.4 Usage 和 outcome
 
@@ -879,7 +864,7 @@ old turn 的执行状态不被 `projectionState=superseded` 覆盖；reconciliat
 | `task_outcomes[*].item_key` | `itemKey` | 稳定关联 key |
 | outcome turn relation | `turnId` | 只用显式/已持久化关系 |
 | outcome status/message | status/message/summary | 不由 transport timeout 猜失败 |
-| `upsert_usage`/`upsert_outcome` metadata | completeness/sourceEpoch/revision | 独立于 item revision，但同一 publication 一起 pin |
+| `upsert_usage`/`upsert_outcome` metadata | completeness/revision | 独立于 item revision，但同一 publication 一起 pin |
 
 ### 9.5 不得映射的字段
 
@@ -942,8 +927,8 @@ additive block：
   pageHash v2 和 sequence-persisted ACK。
 
 所有 canonical `TurnADTO`、item/detail/usage/outcome carrier、page 和 ACK 必须回显同一
-`serverRevision + sourceEpoch + selectionGeneration + clientSelectionGeneration` fence；
-App checkpoint 也必须原子保存其中的 server/source pair。`clientSelectionGeneration` 不
+`serverRevision + selectionGeneration + clientSelectionGeneration` fence；App checkpoint
+也必须原子保存 server revision 与 root/coverage。`clientSelectionGeneration` 不
 进入 DTO content hash 或 root hash，只用于 selection/staging/commit 隔离。
 
 ### 10.2 兼容矩阵
@@ -952,7 +937,7 @@ App checkpoint 也必须原子保存其中的 server/source pair。`clientSelect
 |---|---|---|---|
 | 旧 App，无 `canonicalReadModel` | 新 Node | legacy item/checkpoint/page；不要求 canonical fields | 按既有 root/order/ACK 提交；忽略新增 capability |
 | 新 App，声明 canonical v1 但无 `history_turn_replacement_v1` | 新 Node，v1 | canonical manifest/DTO；replacement 使用 active snapshot fallback | 不接收 `turn_replaced`；按完整 active projection 收敛 |
-| 新 App，声明 canonical + replacement v1 | 新 Node，v1 | manifest/DTO/turnUpserts/`turn_replaced`/pageHash v2 | 按 revision+epoch+generation staging，sequence 完成后 old/new/root 同事务提交 |
+| 新 App，声明 canonical + replacement v1 | 新 Node，v1 | manifest/DTO/turnUpserts/`turn_replaced`/pageHash v2 | 按 revision+generation staging，sequence 完成后 old/new/root 同事务提交 |
 | 新 App，声明 v1 | 旧 Node，无 capability | legacy wire | 进入内部 `legacy_unknown`/`cache_only`；不宣称 complete，不猜 revision |
 | 双方有 history 但无 detail refs | 任一 | bounded content/summary；detailRef 可空 | 不等待 detail body；availability 反映缺失/裁剪 |
 | 双方有 DTO 但 usage/outcome feature=false | 新 Node | history item 仍可同步，usage/outcome 不发布为 required | UI 显示 unavailable/unknown，不补 zero/failed |
@@ -992,16 +977,15 @@ payload chunk envelope                      <= 128 KiB
 - 无可用 detail ref 且无法在预算内表达时，发送 bounded summary + partial/redacted
   availability，或 fail-closed 当前 page；不能发送超限 envelope。
 
-## 11. Source replacement、revision rollback 和 cache 行为
+## 11. Source mutation、revision rollback 和 cache 行为
 
 | 情况 | 服务端 DTO | App 行为 |
 |---|---|---|
-| 同 epoch 更高 item revision | 同一 item 新 DTO，publication revision 增加 | 在 pinned sync staging 中替换；不得覆盖更高/equal revision |
-| 合法 last-turn active head transition | old/new `HistoryTurnDto` + `turn_replaced`，product `sourceEpoch` 不变，publication revision +1 | 同一 sequence 收齐后把 old `projectionState` 置为 `superseded`、upsert new、更新 active root/checkpoint |
-| 同 epoch late lower revision | 可记录诊断，不改变 read model | 丢弃该 item update，不降级 canonical |
-| product source replacement 成功 | 新 `canonicalSnapshot.sourceEpoch`；新 publication revision 单调增加 | 清除/替换旧 epoch 的可见 staging，不能跨 epoch merge |
-| candidate source replacement 失败 | 旧 `canonicalSnapshot`/revision/sourceEpoch 保持；`reconciliation=failed` | 保留旧 cache，不把 candidate epoch 混入 |
-| 旧 epoch page/cursor/ACK 迟到 | 识别为 stale scope | 忽略，不能写入当前 SQLite |
+| 更高 item revision | 同一 item 新 DTO，publication revision 增加 | 在 pinned sync staging 中替换；不得覆盖更高/equal revision |
+| 合法 last-turn active head transition | old/new `HistoryTurnDto` + `turn_replaced`，publication revision +1 | 同一 sequence 收齐后把 old `projectionState` 置为 `superseded`、upsert new、更新 active root/checkpoint |
+| lower revision 迟到 | 可记录诊断，不改变 read model | 丢弃该 item update，不降级 canonical |
+| source mutation / prefix mismatch | 保留旧 snapshot；不把内部 source evidence 发布为产品状态 | 保留旧 cache，进入 bounded recovery |
+| source mutation 后的迟到 page/cursor/ACK | 识别为 stale source evidence | 忽略，不能写入当前 SQLite |
 | serverRevision 回退 | 发送 bounded recovery/failed 或拒绝服务 | 保留本地 cache，进入 revision rollback recovery |
 | canonical import 事务失败 | 不发布失败事务的数据/revision；`reconciliation=failed` | 保留 last committed snapshot，不把 snapshot 改成 failed |
 | App 断线重连 | 新 syncId；同一 pinned revision 可重放 | 依靠 page/chunk/idempotent ACK 重复提交，不重复生成 canonical revision |
@@ -1010,10 +994,10 @@ payload chunk envelope                      <= 128 KiB
 
 以下向量在实现第 5B/5C 前必须成为 contract tests；这里只冻结预期，不新增代码。
 
-1. **canonical complete**：manifest revision/root/coverage/epoch 一致；所有 item/detail/
+1. **canonical complete**：manifest revision/root/coverage 一致；所有 item/detail/
    usage/outcome 为 canonical；App commit 后 `canonicalSnapshot.state=complete`。
 2. **pending with last good snapshot**：manifest 仍指向旧 revision，reconciliation 指向
-   queued/running 和目标 source ref；旧 item 不被清空，也不混入目标 epoch。
+   queued/running 和 source mutation evidence；旧 item 不被清空，也不混入未验证结果。
 3. **partial range**：`partial + complete=false`；page 可以 ACK，但 checkpoint 不得写
    complete；继续 older 分页时 cursor/coverage fence 保持一致。
 4. **failed import**：失败事务没有新 revision；App 保留 last good root/items，并报告
@@ -1040,7 +1024,7 @@ payload chunk envelope                      <= 128 KiB
 - `canonicalSnapshot`、`reconciliation` 已与 `complete`、`coverageComplete`、serverRevision
   分层；legacy `canonicalStatus` 只作为兼容 alias；
 - raw analyzer/projection、Node read model、App DTO 的映射边界已写明；
-- 旧 App/旧 Node、unknown、source replacement、失败保留和大小门禁都有处理规则；
+- 旧 App/旧 Node、unknown、source mutation、失败保留和大小门禁都有处理规则；
 - IPC 只作为“不得混入 history DTO”的边界约束，没有引入新的 IPC 协议或 authority。
 
 正式冻结前仍需完成实现级验证：
@@ -1049,7 +1033,7 @@ payload chunk envelope                      <= 128 KiB
 - `detailRef` 的实际读取 lane（若需要）及其权限/ACK 是否独立；
 - 旧 App golden payload、TurnADTO/SQLite schema migration 和跨端大小门禁；
 - 第 10 项 V01–V30 的正常打开、增量、older、completed/stopped edit、child publication gate、A→B→C、离线、
-  Node/App 重启、重复 ACK、source replacement 和 A→B→A 回归。
+  Node/App 重启、重复 ACK、source mutation 和 A→B→A 回归。
 
 在上述内容完成并获得评审确认前，本文件仍是设计草案，不能授权阶段 5B 正式 provider
 或阶段 5C 数据库接入。

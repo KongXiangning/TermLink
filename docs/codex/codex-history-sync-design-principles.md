@@ -103,7 +103,7 @@ AnalysisBatch 是 Rust Analyzer 与 Node importer 之间的进程协议结果。
 
 Node 接收 AnalysisBatch 后负责：
 
-- 校验 schema、provenance、source epoch、mutation、cursor 和 completeness；
+- 校验 schema、provenance、内部 source identity、mutation、cursor 和 completeness；
 - 把内部分析结果映射为产品级 canonical write model；
 - 对 history item、tool detail、usage 和 task outcome 执行幂等 upsert；
 - 更新 source/conversation coverage 和 read-model revision；
@@ -114,11 +114,11 @@ Node 接收 AnalysisBatch 后负责：
 
 Node 不把 IPC live item 直接写入 canonical history。
 
-Node canonical writer 按 `(authenticated revisionScope, conversationId)` 建立一条持久化
-conversation commit lane。Rust 读取/解析、candidate staging 和只读 history 查询可以并行，
-但任何会改变 active projection、head、root/coverage/checkpoint、published source fence 或
-`serverRevision` 的提交都必须在该 lane 内完成；内存 single-flight 不能替代数据库行锁/CAS
-和可恢复的 commit fence。
+同一 conversation 只允许一个 Node coordinator 保持一个 in-flight Rust analyzer 请求，并由
+同一个 canonical writer 完成一次 DB transaction。其他 worker、history provider 和 App-facing
+请求只能读取持久化 projection 或 IPC 实时缓存；cache miss 只能向 coordinator 排队，不能
+直接请求 Rust。Rust 读取/解析与不同 conversation 可以并行，但当前边界不引入多 worker
+candidate、first-commit-wins、worker lease 或产品级 `commitFence`。
 
 ### 3.4 Server read-model layer：服务端历史查询模型
 
@@ -137,8 +137,8 @@ conversation commit lane。Rust 读取/解析、candidate staging 和只读 hist
 - older range 查询；
 - stable item key 的幂等 upsert；
 - tool detail 按需读取；
-- source replacement；
-- source epoch、coverage、completeness 和 serverRevision 查询。
+- source mutation/lineage coverage 的诊断和 fail-closed 状态；
+- coverage、completeness 和 serverRevision 查询。
 
 ### 3.5 App history transport layer：WebSocket 和 ADTO
 
@@ -224,7 +224,7 @@ forward append 是 SourceBackend 读取新增源内容的方式；delta 是 cano
 3. tail preview、backfill 和 forward append 使用不同 cursor；不能通过物理范围猜测 cursor 类型。
 4. TailPreviewCursor 不能直接变成 ForwardAppendCursor；只有经过安全前缀连续证明后才能 promotion。
 5. segment overlap 必须通过稳定 item key 幂等去重。
-6. source replacement、截断、prefix 变化、fingerprint 不一致和不明 cursor 必须 fail-closed。
+6. source mutation、截断、prefix 变化、fingerprint 不一致和不明 cursor 必须 fail-closed。
 7. unknown、parse gap、partial rollout 和 unsupported schema 必须保留诊断或 availability，不能用默认值伪造完整历史。
 8. Codex 字段变化优先只修改 codex_wire、CompatibilityProfile 和 Adapter；不要让上游类型进入 Reducer、Node DTO 或 App。
 9. plain JSONL 可以支持 tail/backward/range/append；普通无 seek/index 的 .zst 只承诺 forward stream。
@@ -255,7 +255,6 @@ ADTO 是产品 DTO 面向 App 的受控投影，额外包含：
 - selectionGeneration；
 - clientSelectionGeneration；
 - serverRevision；
-- sourceEpoch；
 - rootHash / coverageRoot；
 - anchor / cursor；
 - completeness；
@@ -273,20 +272,20 @@ ADTO 不得暴露：
 
 数据库行是持久化实现，不是公共 API。
 
-逻辑实体可以包括 history_items、tool_details、usage、task_outcomes、analysis_checkpoints、analysis_runs、source state 和 read-model metadata，但最终字段和索引由查询需求、事务边界和迁移方案决定。
+逻辑实体可以包括 turns、history_items、tool_details、usage、task_outcomes、turn_replacements、内部 analysis_checkpoints、可选 collector_job 和 read-model metadata，但最终字段和索引由查询需求、事务边界和迁移方案决定。服务端 `history_items` 与 App 本地 `items` 不是同一个表；完整物理 schema 留到阶段 5。
 
 数据库至少要同时具备：
 
 - 当前 canonical materialization，用于 manifest、page 和 detail 查询；
 - revision/change 查询依据，用于 delta 和重连恢复；
-- source epoch 和 retired fence，用于 source replacement；
+- 内部 source identity/checkpoint，用于 source mutation 的 fail-closed 恢复；
 - checkpoint 和 coverage 证据，用于 Node 重启后的有界恢复；
-- conversation 级 canonical state、`commitFence`/row version 和 operation ledger，保证
-  同一 conversation 的并发 promotion 只有一个成功提交者，并能在响应丢失后幂等恢复。
+- conversation 级 canonical state、`serverRevision` 和 batch/operation 幂等键，保证
+  单一 coordinator 在响应丢失后可以恢复，不建立多 writer 仲裁。
 
-App checkpoint 至少持久化已提交快照的 `serverRevision` 与 product `sourceEpoch`，二者和
-root/coverage/anchor/cursor 必须作为同一 fence 读取与更新；不能只保存 rootHash 再猜测
-revision 或 source。
+App checkpoint 至少持久化已提交快照的 `serverRevision`，并与 root/coverage/anchor/cursor
+作为同一 read-model fence 读取与更新；不能只保存 rootHash 再猜测 revision。内部 source
+epoch 不进入 App checkpoint。
 
 ### 6.4 App SQLite
 
@@ -294,7 +293,7 @@ App SQLite 是 ADTO 的本地持久化投影，不是 ADTO JSON 的简单文件�
 
 必须保证：
 
-- conversation、endpoint/profile 和 source epoch 隔离；
+- conversation、endpoint/profile 隔离；
 - staging 与 committed cache 隔离；
 - item upsert 幂等；
 - page/chunk 重放幂等；
@@ -307,7 +306,7 @@ App SQLite 是 ADTO 的本地持久化投影，不是 ADTO JSON 的简单文件�
 
 | 名称 | 作用 |
 |---|---|
-| sourceEpoch | 来源代际和 source replacement fence |
+| sourceEpoch / source_epoch | Rust 内部来源一致性证据；不属于产品或 App fence |
 | item revision | 单个 canonical item 的更新版本 |
 | serverRevision | 一个 conversation read model 的提交版本 |
 
@@ -315,19 +314,14 @@ App SQLite 是 ADTO 的本地持久化投影，不是 ADTO JSON 的简单文件�
 
 只有 canonical read model 的可见内容、顺序、coverage 或 completeness 成功变化时才递增。无变化的重复分析、batch 重放和幂等 upsert 不产生新 revision。
 
-source replacement 不允许复用旧 sourceEpoch，也不应把 revision 重置为较小值。App 必须把新 epoch 当作新的 canonical 基线处理。
+Rust `source_epoch` 发生 mutation 时不能复用旧 cursor/checkpoint，也不能由 Node 自动递增
+或转成产品 source fence。Node 必须保留最后一个已发布 snapshot，并由同一 coordinator 做
+有界 recovery；若 recovery 形成了真实可见变化，才以新的 `serverRevision` 发布 canonical
+projection。详见 `codex-history-sync-head-transition-source-replacement-contract-draft.md`。
 
-`activeHeadTransition`、Rust `sourceEpoch` 和 `productSourceReplacement` 必须分开：last-turn
-编辑重发通常只改变当前 lineage head 和 canonical projection，不自动改变已发布 source epoch；
-Rust source epoch 只约束 source reader/cursor/checkpoint 的连续性；只有新来源通过 Node 的产品发布
-门槛并原子提交后，才构成 product source replacement。详见
-`codex-history-sync-head-transition-source-replacement-contract-draft.md`。
-
-同一 conversation 的 canonical publication 必须使用 durable `commitFence` 做提交前重检：
-candidate 保存 base fence，transaction 内重新读取 active head/source/revision；旧 fence
-失效的 candidate 只能重试、重协调或 fail-closed，不能把旧 base 直接合并到新 head。这个
-Node writer fence 不下发 App，也不与 `clientSelectionGeneration`、`syncId`、App checkpoint
-或 Rust `sourceEpoch` 混用。
+同一 conversation 的 publication 只依赖单一 coordinator、`baseServerRevision`、active
+head、operation ledger 和数据库事务的重检；不引入产品级 `commitFence`、多 worker candidate
+或 worker lease。
 
 canonical snapshot state 与 reconciliation state 必须分开，详见
 `codex-history-sync-canonical-reconciliation-state-contract-draft.md`：
@@ -379,11 +373,10 @@ thread/read 只能是明确、有界的恢复手段，不能变成实时同步�
 
 ### 8.3 Node job 和 App sync 分离
 
-Node canonical reconciliation 不等待 App ACK，也不依赖 App 在线。
-
-Node 内部仍必须按 conversation commit lane 串行化 canonical promotion；这不要求串行化
-Rust 分析或 App 读取。App 的 `clientSelectionGeneration` 只能隔离旧 transport/UI/SQLite
-结果，不能取消已经进入 Node durable writer 的任务。
+Node canonical reconciliation 不等待 App ACK，也不依赖 App 在线。每个 conversation 由单一
+coordinator 顺序执行 collector request 和 canonical transaction；这不要求串行化不同
+conversation 的 Rust 分析或 App 读取。App 的 `clientSelectionGeneration` 只能隔离旧
+transport/UI/SQLite 结果，不能取消已经进入 Node durable job 的任务。
 
 App A→B 时，可以取消或隔离 A 的 history transport、旧 generation、page 和 UI 投递，但不能取消已经创建的 Node durable job。
 
@@ -396,7 +389,8 @@ App A→B 时，可以取消或隔离 A 的 history transport、旧 generation�
 1. fail-closed：证据不足时返回 partial、failed 或 recovery_required。
 2. 幂等：batch、item、page、chunk、ACK、重连重放和 segment overlap 可重复执行。
 3. 原子：派生数据、coverage、revision 和 checkpoint 按规定边界一起提交。
-4. 单调：revision、source epoch、coverage 和 checkpoint 不能无证据回退。
+4. 单调：serverRevision、coverage 和 checkpoint 不能无证据回退；内部 source checkpoint
+   发生 mutation 时必须 fail-closed，不能伪造产品新 epoch。
 5. additive compatibility：旧 App 忽略未知字段；新能力通过 capability 协商启用。
 6. capability intersection：不能只广播服务端能力后假定 App 支持；必须通过
    `codex_capabilities` → request `capabilityOffer` → `conversation_history_capability_ack`
@@ -405,9 +399,9 @@ App A→B 时，可以取消或隔离 A 的 history transport、旧 generation�
 8. 隐私最小化：raw path、完整工具输出、媒体和敏感 provenance 按权限和 detailRef 策略下发。
 9. 失败可见：超时、来源缺口、协议错误和重试耗尽必须进入 App 可识别的失败或 cache-only 状态。
 10. 同一 fixture 验证：Parser、Adapter、Importer、Read Model、Wire 和 App staging 的验证尽量使用同一份可追溯 fixture。
-11. conversation 级并发：同一 `(revisionScope, conversationId)` 的 canonical publication 必须
-    由 durable fence/transaction 串行提交；相同 operation 幂等，旧 base/stale candidate
-    不得覆盖新 head/source，跨 conversation 才允许并行。
+11. conversation 级协调：同一 `(revisionScope, conversationId)` 只有一个 coordinator 和
+    一个 in-flight Rust request；相同 batch/operation 幂等，迟到或不完整结果不得覆盖新
+    active head，跨 conversation 才允许并行。
 
 capability、旧 App fallback、未知状态操作和大小门禁的统一规则见
 `codex-history-sync-capability-compatibility-size-contract-draft.md`：缺失能力不能推断支持，
@@ -446,7 +440,7 @@ fail-closed，history envelope 和 payload chunk 的硬上限由 Node 与 App �
 至少覆盖：
 
 - identity；
-- revision/sourceEpoch；
+- revision 与内部 source identity 的边界；
 - completeness；
 - atomicity/ACK；
 - selection/generation/compatibility。
@@ -457,7 +451,7 @@ fail-closed，history envelope 和 payload chunk 的硬上限由 Node 与 App �
 
 - 缺字段；
 - unknown field/type；
-- source replacement；
+- source mutation/lineage 不完整；
 - partial；
 - duplicate；
 - timeout；
@@ -481,7 +475,7 @@ fail-closed，history envelope 和 payload chunk 的硬上限由 Node 与 App �
 2. history item、tool detail、usage、task outcome 的传输和 App 提交边界明确；
 3. contentHash 只证明内容语义，顺序证明独立处理；
 4. App 与服务端 capability 的协商方向明确。
-5. Node conversation commit lane、base fence、operation replay 和 App ACK 的边界明确。
+5. Node 单协调器、serverRevision、operation replay 和 App ACK 的边界明确。
 
 如果后续实现或新设计会改变这四项之一，应先回到本文和前三项草案修正，不得在专项实现中
 悄悄引入第二种解释。

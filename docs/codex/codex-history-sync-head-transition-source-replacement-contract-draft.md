@@ -1,9 +1,9 @@
 ---
-title: TermLink Codex active head transition、Rust source epoch 与 product source replacement 契约草案
+title: TermLink Codex active head transition 与 Rust source evidence 契约草案
 status: draft
 phase: 4.5
-item: distinguish active head transition, Rust source epoch and product source replacement
-last_updated: 2026-08-22
+item: active head transition and internal source evidence
+last_updated: 2026-08-25
 source_of_truth: draft-design-only
 related_docs:
   - docs/codex/codex-history-sync-design-principles.md
@@ -29,450 +29,302 @@ related_code:
   - src/services/codexHistoryCanonicalizer.js
 ---
 
-# TermLink Codex active head transition、Rust source epoch 与 product source replacement 契约草案
+# TermLink Codex active head transition 与 Rust source evidence 契约草案
 
-## 0. 文档定位和范围
+## 0. 文档定位和当前业务前提
 
-本文是阶段 4.5 第 8 项草案，只收敛三个经常被混用的概念：
+本文是阶段 4.5 第 8 项草案。文件名保留了早期的 `source-replacement` 历史命名，
+但当前契约不再把“product source replacement”作为产品状态、数据库实体或 App 可见事件。
 
-1. `activeHeadTransition`：产品历史的当前 lineage head 发生变化；
-2. Rust `sourceEpoch`：Rust reader、cursor 和 checkpoint 使用的来源一致性代际；
-3. `productSourceReplacement`：Node 正式替换已发布 canonical history 来源的产品事件。
+当前必须遵守的现实是：
 
-本文冻结对象边界、判断方向和提交后果，不做以下工作：
+1. `rollout.jsonl` 由 Codex app-server 创建和维护，TermLink 只有读取、请求 Rust 分析和持久化分析结果的权限；
+2. 同一活动 rollout 追加写入；最后一个已终止 turn 编辑重发时，app-server 生成 child rollout（例如 `rollout-a-b.jsonl`），parent `rollout-a.jsonl` 不再变化；
+3. Branch in new chat 是独立 conversation/rollout（例如 `rollout-c.jsonl`），即使初始内容相同，也不能按文件名、内容或时间推断它依赖 `rollout-a.jsonl`；
+4. 只有显式 `history_base`、明确 conversation binding 和 Rust 校验通过时，才建立 parent→child lineage；中断、缺 parent、缺 cut 或来源不稳定时 fail-closed；
+5. 每个 conversation 的 Node→Rust collector chain 是单例：一个 coordinator、一个 in-flight Rust request、一个 canonical writer。所有其他 worker、history request 和 App-facing path 只能读 Node 持久化 projection/IPC cache，或向 coordinator 排队，不能直接请求 Rust。
 
-- 不逐字段重写已有 WebSocket JSON schema；
-- 不冻结最终 SQL 表名、列名、索引或 migration；
-- 不修改 Rust collector、Node provider、Android SQLite 或 IPC 实现；
-- 不把 `activeRolloutId`、raw rollout path 或 Rust cursor 暴露给 App；
-- 不提前完成旧 App compatibility 和第 10 项完整时序测试向量。
+本文不修改 Rust、Node、Android、IPC 或 SQL migration；只冻结以下事实在阶段 4.5 中怎样表达。
 
-当前业务 invariant 已明确：只有当前会话最后一个、已经终止的用户 turn 可以编辑后重发；一次编辑重发是一个 old turn 到 new turn 的一对一替换。这个业务约束与 Rust `HistoryPosition` 类型本身没有写死的通用能力不同，因此必须通过 fixture 和 fail-closed 校验持续锁定。
+## 1. 只保留两个必要维度
 
-## 1. 三个概念先给结论
-
-| 概念 | 所属层 | 它回答的问题 | 成功后的主要影响 | 它不等于 |
+| 状态 | 所属层 | 回答的问题 | 允许的影响 | 不是什么 |
 |---|---|---|---|---|
-| `activeHeadTransition` | 产品 canonical writer / read model | 当前 conversation 的有效历史 head 是否从 parent 变为 child？ | 更新 active head、old/new turn projection，成功发布时 `serverRevision + 1` | Rust source epoch、文件名变化、产品 source replacement |
-| Rust `sourceEpoch` | Rust SourceBackend / cursor / checkpoint | 这次读取是否仍属于同一份可安全续读的来源代际？ | 约束 fingerprint、prefix anchor、snapshot boundary、cursor 和 checkpoint | parser run 次数、rollout id、`serverRevision`、replacement key |
-| `productSourceReplacement` | Node 产品持久化 / read model | 已发布的 canonical history 是否整体换到另一份来源基线？ | 成功后发布新 source fence，旧 epoch 不再可混合，`serverRevision + 1` | 每次新文件发现、每次 head transition、Rust `replace_previous` |
+| `activeHeadTransition` | Node canonical writer/read model | 当前 conversation 的 active lineage head 是否从 parent 变为 child？ | 成功后在一个 publication transaction 中更新 old/new turn、active head、root/coverage，并增加 `serverRevision` | 不是 Rust source epoch、文件名变化或 App source fence |
+| Rust `source_epoch` / `sourceEpoch` | Rust SourceBackend、cursor、checkpoint | 当前读取是否仍属于同一份可安全续读的物理来源代际？ | 校验 fingerprint、prefix anchor、snapshot boundary、cursor、checkpoint 和 source mutation | 不是产品 epoch、`serverRevision`、rollout id、App 字段或数据库 namespace |
 
-最重要的规则是：
-
-```text
-新的 child rollout 文件
-    ≠ 自动的 Rust source epoch 变化
-    ≠ 自动的 product source replacement
-
-最后一个 turn 编辑重发
-    = active head transition
-    通常不改变已发布的 product sourceEpoch
-```
-
-这里的“通常”不是允许猜测，而是当前业务的明确 compatibility invariant：如果实际来源证据要求变更 Rust epoch 或发布来源基线，必须走对应的 source validation 和 product publication 流程，不能把它伪装成普通 last-turn replacement。
-
-## 2. 三层对象的关系
-
-Rust 先产生带来源证据的候选事实：
+以下概念不在当前产品模型中：
 
 ```text
-(conversationId,
- sourceId,
- sourceEpoch,
- fingerprint,
- prefixAnchor,
- snapshotBoundary,
- checkpoint,
- parent/child/cut evidence)
+productSourceReplacement
+publishedSourceEpoch
+product source fence
+commitFence
+multi-worker candidate arbitration
+worker lease
 ```
 
-Node 再把它分类和校验为产品事件：
+Rust 发现新的内部来源代际，只能影响 collector checkpoint、staging 或 reconciliation
+diagnostic；它不会自动生成一个 App 可见的“新产品来源”，也不会自动清空或替换已发布历史。
+
+## 2. rollout 事实与 head transition
+
+### 2.1 最后 turn 编辑重发
+
+当前唯一冻结的替换业务是：
 
 ```text
-Rust source candidate
-        ↓ provenance / cursor / completeness validation
-Node product classifier
-        ├── no-op / progress only
-        ├── normal canonical publication
-        ├── activeHeadTransition
-        └── productSourceReplacement
+active head = rollout-a
+rollout-a 的最后一个用户 turn 已终止
+        ↓ history_base 明确指向该 turn 的起点
+app-server 生成 rollout-a-b
+rollout-a 不再变化
+rollout-a-b 产生新的用户 turn
+        ↓
+active head transition: a → a-b
 ```
 
-Node 的已发布状态需要分别记录以下逻辑事实；名称是逻辑名，不是最终 SQL：
+它不是把旧文件和新文件混成一份物理 source，也不是要求 App 理解 parent/child 文件名。
+Node 只消费 Rust 已验证的 lineage/replacement fact。
+
+### 2.2 Branch in new chat
 
 ```text
-conversation_history_state
-  activeRolloutId          # 当前 lineage head
-  publishedSourceEpoch     # App 可见的已接受来源代际
-  publishedSourceRef       # 已发布来源摘要/证明
-  serverRevision
-  root / coverage / checkpoint
-
-history_turn_replacements
-  operationId                 # Rust replacementKey 的逐字节归一化值
-  parentRolloutId -> childRolloutId
-  replacedTurnId -> replacementTurnId
-  replacementCut
-  committedRevision
-
-history_source_replacements
-  sourceReplacementId
-  previousPublishedSourceRef
-  newPublishedSourceRef
-  previousEpoch -> newEpoch
-  reason / committedRevision
+rollout-c = 独立 conversation 的新 root/head
 ```
 
-`publishedSourceEpoch` 是 Node 对 Rust 来源事实完成校验后的发布结果。ADTO 中已有的 `sourceEpoch` 若继续保留，表示这个已发布值，而不是某一次 Rust 尝试的 `targetSourceEpoch`。
+复制了旧历史只表示新 conversation 初始可见内容可能相同，不形成 `a → c` 的必须依赖。
+除非未来出现新的、明确冻结的产品关系，否则不得生成 old/new replacement relation，
+也不得让 c 的读取结果覆盖 a 或 a-b 的 canonical projection。
 
-Rust→Node 的 `replacementKey` 只用于输入事实和校验；Node 通过后不另造 identity，wire、
-canonical DB、change log、App relation ledger 统一使用同一个 `operationId`。因此
-`replacementKey` 与 `operationId` 不是两个可独立变化的字段。
+### 2.3 不能凭文件发现发布事件
 
-这不要求 parent 和 child rollout 复用同一个 Rust `sourceId` 或 cursor：父子切换可以使用两个独立的 source binding 和读取范围，且不能把 parent 的 `ForwardAppendCursor` 直接拿去读取 child。这里保持不变的是产品已发布的 source fence，而不是 Rust 物理读取对象或 cursor。
+下面任何事实单独出现都不能提交 head transition：
 
-## 3. `activeHeadTransition`：业务历史 head 的变化
+- 发现了 child 文件；
+- child 文件名包含 parent 后缀；
+- 文件 mtime 较新；
+- parser 又运行了一次；
+- child 只有 partial、pending tail、gap 或未确认 terminal status；
+- App 收到 page、重连或发送 ACK。
 
-### 3.1 当前业务的事实
+必须同时拥有 parent/head 绑定、verified cut、old/new turn identity、child terminal 事实、
+完整稳定的 canonical read evidence，以及 Node publication transaction 的成功 COMMIT。
 
-一次有效的最后 turn 编辑重发至少包含：
+## 3. active head transition 的提交契约
 
-```text
-当前 active head = parentRolloutId
-    ↓
-parent 的最后一个用户 turn 已终止
-    ↓
-history_base cut 命中该最后 turn 的起点
-    ↓
-childRolloutId 产生新的用户 turn
-    ↓
-replacedTurnId -> replacementTurnId
-```
+### 3.1 发布前检查
 
-Rust 负责从 parent/child rollout 和 `history_base` 得到并验证这组事实；Node 不重新读取 raw `history_base`，也不通过数据库 source span 猜测 old turn。
+对 `(authenticated revisionScope, conversationId)` 的一次 promotion，Node coordinator 至少检查：
 
-Node 在产品层仍必须校验：
+- parent 是当前持久化的 `activeRolloutId`；
+- `history_base`/replacement cut 命中 parent 最后一个已终止用户 turn 的起点；
+- old turn 尚未被替换，old/new turn 属于同一 conversation，ID 非空且不同；
+- child 确实产生新的用户 turn；
+- child turn 是明确 terminal（completed/interrupted；stopped 按现有产品映射归入 terminal）；
+- child 的读取证据完整稳定，没有 pending tail、无法解释的 gap 或 source mutation；
+- `operationId` 未被不同 old/new identity 或内容占用；
+- `baseServerRevision`、active head 和内部 source evidence 仍与 promotion 开始时一致。
 
-- parent 是该 conversation 当前已接受的 active head；
-- cut 与父 rollout 最后一个 turn 的起点相符；
-- old turn 是允许编辑的终止状态且尚未被替换；
-- old/new turn 属于同一 conversation，ID 非空且不同；
-- child 确实产生了新的用户 turn；
-- child turn 已明确 terminal（completed/interrupted；stopped 按现有产品映射归入 terminal），且 child source read 已完整、
-  稳定并达到 canonical completeness；running/partial/gap child 只能留在 reconciliation，
-  不能改变 active head；
-- `operationId` 没有被不同内容占用；输入的 `replacementKey` 必须与它逐字节相同。
+child 仍在运行或 source binding 仍可能变化时，只保留 reconciliation/staging 状态；不更新
+active head、canonical rows、root、coverage 或 `serverRevision`。
 
-### 3.2 提交语义
+### 3.2 一个 publication transaction
 
-当前一对一业务下，提交结果是：
-
-只有上述 child publication gate 通过并且 Node transaction COMMIT 成功，以下 head transition
-才成立；child 文件发现、Rust 解析结束、App 收到 page 或 App ACK 都不改变 active head。
+检查通过后，单一 coordinator 在一个数据库事务中提交：
 
 ```text
 保留 old turn
-  → 保留 old executionStatus / outcome
+  → 保留 old executionStatus / outcome / items / details / usage
   → old projectionState = superseded
-  → 写 old -> new replacement relation
-  → 写入 new turn 及其 items/details/usage/outcome
+  → 写 old → new replacement relation（operationId）
+  → 写 new turn 及已验证的 items/details/usage/outcome
   → activeRolloutId = childRolloutId
-  → 重算当前 active root/order/coverage
-  → serverRevision + 1
+  → 重算 active order / root / coverage / checkpoint
+  → serverRevision 单调增加一次
 ```
 
-old turn 的“被替换”是投影状态，不是执行状态改写。`completed`、`interrupted` 等原执行结果仍然保留；old row 不物理删除，也不再进入当前 active root、普通 page 或聚合结果。
+old turn 不物理删除，`superseded` 只改变 projection state，不改写 old 的 execution status。
+App 只有在收到完整 sequence 并在本地 SQLite 同事务提交后，才以 `sequence_persisted` ACK。
 
-### 3.3 与 source epoch 的边界
+## 4. Rust source evidence 的边界
 
-在正常 last-turn replacement 中：
+### 4.1 内部 source epoch 包含什么
 
-- parent/child rollout 关系属于 active head lineage；
-- `activeRolloutId` 变化属于产品 head 状态；
-- 已发布 `publishedSourceEpoch` 保持不变；
-- App 收到同一 epoch 下的 `turn_replaced` 和 new turn upsert；
-- 这不是 source replacement recovery，也不应因为 head 变化而清空整个历史缓存。
+Rust source epoch 是 reader/checkpoint 使用的内部一致性标记，通常和以下证据一起保存：
 
-parent/child 使用不同的物理文件，不代表 Node 可以仅凭文件名、路径或 `sourceId` 变化宣布 product source replacement。是否仍属同一可接受来源代际，必须由 Rust source metadata、连续性证据和 Node 的产品规则共同决定。
-
-### 3.4 顺序、重复和迟到
-
-- child 在 parent/head 状态之前到达：不能直接公开提交；进入有界 lineage reconciliation 或 durable staging；
-- 同一 `(authenticated revisionScope, conversationId)` 只有一条 Node canonical commit lane；
-  A→B 与 B→C 可以并行解析，但只能按当前 active head 依次 COMMIT。B 未提交前，C 的
-  base fence 无效，不能直接发布；
-- 同一 old turn 的两个不同 replacement candidate 不能同时成为 active。一个 operation 成功
-  提交后，另一个必须因 head/old-row/commit fence 失效而进入 stale/conflict；
-- 当前 head 已经是 child 时收到完全相同 replacement：返回原提交结果，幂等 no-op；
-- 当前 head 已经是另一个后继时收到旧 parent 的迟到 transition：拒绝覆盖当前 head；
-- product source replacement 与 active head transition 共享同一 conversation commit lane，
-  不能并行修改 published source/head；后到 candidate 必须在新的 source/head fence 上重新
-  preflight；
-- Node 重启后，应从已持久化的 head state、`commitFence` 和 replacement relation 恢复，而
-  不是从“最近发现的文件”猜 head。内存锁或 worker 顺序丢失不影响已提交事实。
-
-## 4. Rust `sourceEpoch`：读取器的一致性代际
-
-### 4.1 它在 Rust 中是什么
-
-当前 vendor/collector 设计中，`sourceEpoch` 是调用方提供并写入 `SourceCandidate`、`SourceLocator`、`SourceSpec` 和 `AnalyzerCheckpoint` 的来源代际。它与以下证据绑定：
-
-- `sourceId`；
+- source identity/ref；
 - fingerprint；
 - prefix anchor；
 - snapshot boundary；
-- reader/cursor kind；
-- analyzer checkpoint 和 reducer watermark。
+- cursor kind 与 cursor；
+- analyzer checkpoint/reducer watermark；
+- append、child transition 或 replacement cut 的 provenance。
 
-它用于判断某个 cursor/checkpoint 是否还能安全消费，或来源是否已经发生截断、前缀改变、替换和不连续。
+它用于判断 cursor/checkpoint 是否仍能安全消费，或是否发生截断、前缀改变、替换和不连续。
+这些字段可以存在 Rust protocol、Node internal checkpoint 或诊断 artifact 中，但不进入
+TurnDto、HistoryItemDto、ADTO、App canonical checkpoint 或产品 DB 的 active namespace。
 
-### 4.2 不允许的推导
+### 4.2 不允许自动推导新 epoch
 
-Rust 或 Node 不能把以下事实自动当成新 epoch：
+下列事实不自动生成新的 Rust source epoch：
 
-- parser 又运行了一次；
-- 发现了一个更新时间更晚的文件；
-- 文件名包含新的 rollout id；
-- child rollout 是 parent 的后继；
-- App 重连、Node 重启或 WebSocket sequence 变化；
-- `serverRevision` 增加。
+- parser 重试或 Node 重启；
+- 文件名、路径或 mtime 变化；
+- parent→child head transition；
+- Branch in new chat；
+- WebSocket sequence、App generation 或 `serverRevision` 变化。
 
-同样，source epoch 也不能因为 root 内容暂时相同就被忽略。若显式提供的新 epoch 与旧 epoch 不同，它是一个新的 source fence，必须执行相应的 source validation 和 publication/recovery 规则。
+source epoch 由 source resolver/collector 以明确来源证据提供；不能为了继续读而自动递增。
 
-### 4.3 读取失败时的行为
+### 4.3 source mutation 的处理
 
-如果同一 epoch 下出现 fingerprint、prefix anchor、snapshot boundary 或 cursor 不一致：
+若 fingerprint、prefix anchor、snapshot boundary、cursor 或 checkpoint 不一致：
 
 ```text
-拒绝继续使用旧 cursor/checkpoint
-    ↓
-产生 source mutation / recovery diagnostic
-    ↓
-等待明确的 source epoch 或受控 recovery
+停止使用旧 cursor/checkpoint
+        ↓
+记录 source mutation / recovery diagnostic
+        ↓
+保留最后一个已发布 canonical snapshot
+        ↓
+由同一 conversation coordinator 重新发现、重读或排队受控 recovery
 ```
 
-不能为了“继续读”而自动递增 epoch，也不能直接把这个错误转换成 product source replacement。新 epoch 必须由 source resolver/调用方明确声明，并带有新的来源证据。
+不能把 source mutation 伪装成普通 additive delta，不能把内部新 epoch 直接发送给 App，
+也不能自动把它升级成“产品 source replacement”。若 recovery 无法证明完整稳定，继续
+保持旧 snapshot，并把 reconciliation 标成 partial/failed(retryable)。
 
-### 4.4 与 Node collector importer 的关系
+## 5. 单例 collector 与 Node 写入边界
 
-当前 `analysisBatchImporter` 的：
+对每个 conversation 固定如下链路：
 
 ```text
-scopeKey = conversationId + sourceId + sourceEpoch
-replace_previous
+history request / source-ready signal
+        ↓
+Node conversation coordinator
+        ↓ 仅一条队列、一个 in-flight 请求
+Rust collector/analyzer
+        ↓
+normalized batch + internal checkpoint/source evidence
+        ↓
+同一个 Node coordinator/writer
+        ↓ DB transaction → persisted canonical projection
 ```
 
-描述的是 Rust 分析 artifact 的隔离、替换和重放语义。它可以帮助 Node 管理 analyzer staging，但不能直接定义产品 `history_turns` 的 `projectionState`，也不能直接定义 product source replacement。
+约束：
 
-特别是：
+- 只有 coordinator 可以触发该 conversation 的 Rust 读取或提交 canonical promotion；
+- history provider、分页请求、重连恢复和其他 worker 不直接调用 Rust；
+- 同一 conversation 不建立多个 candidate worker 再做 first-commit-wins；
+- 不增加产品级 `commitFence`、worker lease 或第二套 writer arbitration；
+- 同一 `operationId` 重复到达时由 operation ledger/唯一约束返回原提交结果；
+- coordinator 重启后从 durable job、operation ledger、active head、`serverRevision` 和内部 checkpoint 恢复；内存锁、内存队列和 in-flight 请求本身不是真实状态。
 
-- `replace_previous` 是“新 Rust source epoch 的首批 artifact 替换”语义；
-- `activeHeadTransition` 是“old turn → new turn 的产品历史投影”语义；
-- 两者不能使用同一个布尔字段或同一条状态机互相代替。
+## 6. 迟到、重复、失败和重启
 
-## 5. `productSourceReplacement`：已发布 canonical 来源基线的变化
+### 6.1 重复 promotion
 
-### 5.1 定义
+相同 `operationId`、conversation、old/new identity 和内部 source evidence 再次到达时：
 
-`productSourceReplacement` 是 Node 在产品 canonical read model 中正式提交的事件：
+- 已提交：返回同一提交结果，不再增加 `serverRevision`；
+- 未提交：由同一个 coordinator 继续或重新执行一次 transaction；
+- identity/content 冲突：fail-closed，保留旧 snapshot。
+
+### 6.2 迟到 promotion
+
+尝试 A 开始后，B 已经发布新的 active head 时，A 必须重新检查：
 
 ```text
-旧 published source scope/epoch
-    ↓ 经过新来源校验、分析和可发布性检查
-新 published source scope/epoch
+operationId
+baseServerRevision
+activeRolloutId / active head
+old turn projection state
+internal source evidence/checkpoint
 ```
 
-它不是“发现了新来源”的事件，而是“新来源已经成为 App 可读取的 canonical baseline”的事件。
+任一不匹配都不能覆盖 B，最多记录 stale/cancelled/retryable reconciliation 结果。
 
-因此，Rust candidate 的 epoch 变化是必要的来源输入之一，但不是 product source replacement 的充分条件。Node 还必须确认：
+### 6.3 重启
 
-- 新来源身份和 conversation 绑定明确；
-- 新来源的完整性/coverage/completeness 达到允许发布的门槛；
-- 新旧 epoch 不会在同一个 active publication 中混合；
-- root、coverage、checkpoint 和 source state 可以在同一产品事务中提交；
-- 原有 App cursor/anchor/snapshot fence 能通过新的 sync/recovery 方式重建。
+Node 重启后：
 
-### 5.2 成功与失败
+1. 先读取最后一个已提交 canonical snapshot 和 `serverRevision`；
+2. 再读取 active head、replacement relation、durable job 和 internal checkpoint；
+3. 无法证明 COMMIT 已完成时，保留旧 snapshot，按 queued/running/failed(retryable) 恢复；
+4. COMMIT 已完成但响应丢失时，以同一 `operationId` 幂等重放返回原结果；
+5. 不从最近发现的文件、最近 mtime 或内存 worker 顺序猜测新 head。
 
-成功发布 product source replacement：
+## 7. 服务端持久化的最小逻辑边界
 
-- 写入新的 published source ref/epoch；
-- 旧 epoch 从 active read model 退出，但历史行是否保留供审计由存储策略决定；
-- `serverRevision` 单调增加一次；
-- 旧 epoch 的 cursor、anchor 和未提交 staging 不得继续写入新 epoch；
-- App 通过新的 manifest/recovery fence 重新建立本地基线。
-
-新来源解析失败、证据不足或只有 partial 且未达到允许发布门槛时：
-
-- 保留旧 canonical snapshot、旧 published source epoch 和旧 `serverRevision`；
-- 只更新 reconciliation attempt/diagnostic；
-- 不写入半份新 baseline；
-- 不把 `targetSourceEpoch` 冒充成 App 当前 `sourceEpoch`。
-
-### 5.3 与 active head transition 的关系
-
-两个事件是正交的：
+本项只要求以下逻辑事实可被查询；不冻结最终 SQL 表名：
 
 ```text
-activeHeadTransition
-  = 当前产品历史选择哪一个 lineage head
+conversation_history_state
+  conversation scope
+  activeRolloutId
+  serverRevision
+  root / coverage / checkpoint
+  last canonical publication status
 
-productSourceReplacement
-  = 当前产品历史信任哪一个来源代际作为发布基线
+turns
+  turn identity / executionStatus / projectionState / order
+
+history_items
+  canonical item rows, each linked to turn when proven
+
+turn_replacements
+  operationId / oldTurnId / newTurnId / committedRevision
+
+internal_collector_checkpoint
+  source identity/ref / source_epoch / fingerprint / anchor / cursor / completeness
+
+reconciliation_job
+  attempt/job identity / state / retryable diagnostic / operationId
 ```
 
-当前业务下，最后 turn 编辑重发只产生前者。若未来确实出现“新 source epoch 同时包含一次已验证的 last-turn replacement”，必须把两个事实分别记录，在一个明确的 canonical publication transaction 中共同提交；不能因为 source replacement 就丢掉 old turn，也不能因为 head transition 就隐式退休整个旧 epoch。
+`internal_collector_checkpoint` 与 `conversation_history_state` 分离：前者是 Rust 读取证据，
+后者是产品 canonical projection。内部 checkpoint 变化不等于产品 snapshot 已发布。
 
-## 6. 场景判定矩阵
+## 8. App、分页和 IPC 的影响
 
-| 输入事实 | active head transition | Rust source epoch | product source replacement | 发布结果 |
-|---|---:|---:|---:|---|
-| A→B 最后 turn 编辑重发，来源连续性仍属于已发布 epoch E1 | 是 | E1 保持 | 否 | 同一 E1 下 old superseded + new upsert，`serverRevision + 1` |
-| 同一 source 的稳定 forward append，产生新 canonical item | 否 | E1 保持 | 否 | 普通 canonical publication，是否加 revision 由可见变化决定 |
-| 文件路径变化，但 source identity/epoch/anchor 证明连续 | 否 | E1 保持 | 否 | 不因路径变化替换产品来源；按普通 no-op/增量处理 |
-| 同一 epoch 出现 prefix mismatch、截断或 fingerprint 失配 | 未验证 | 不得自动改 epoch | 否 | fail-closed，保留旧 snapshot，等待明确 recovery |
-| 明确声明 E2，且新来源完成校验并达到发布门槛 | 视内容而定 | E2 | 是 | 新 baseline 原子发布，`serverRevision + 1`，旧 epoch 不混入 |
-| E2 解析失败、来源缺口或只达到不可发布的 partial | 未验证 | 候选 E2 不发布 | 否 | reconciliation failed/partial，旧 snapshot 保持不变 |
-| 只发现 child 文件，没有 verified cut 或 new user turn | 否 | 由 source 读取规则决定 | 否 | 不产生 replacement，不增加公开 revision |
-| 完全相同 batch/replacement 重放 | 已提交事实不变 | 不变 | 不变 | 幂等 no-op，返回原提交结果 |
-
-矩阵中的“E1/E2”是来源代际示例，不是 `serverRevision` 或 rollout id 的别名。
-
-## 7. 服务端持久化和 checkpoint 边界
-
-服务端至少要能独立回答四个问题：
-
-1. 当前 active head 是哪个 rollout lineage head？
-2. 当前 App 可消费的 published source epoch/ref 是什么？
-3. 哪些 old/new turn replacement 已成功提交？
-4. 哪个 analyzer checkpoint 属于哪一个 Rust source scope，且是否已经进入产品 publication？
-
-因此建议保持以下逻辑分离：
+App 只能收到：
 
 ```text
-active head state
-  ≠ Rust analyzer source/checkpoint state
-  ≠ published product source replacement history
-  ≠ App sync checkpoint
-```
-
-其中：
-
-- Rust checkpoint 可以处于 running/partial/failed，不能因此改写已发布 head；
-- App sync checkpoint 只确认 ADTO 已提交到 SQLite，不能反向确认 Rust source 已完成；
-- `activeRolloutId` 只用于 lineage/head 校验，不用于 cursor 恢复或 source epoch 计算；
-- `publishedSourceEpoch` 只用于 App/read-model source fence，不用于判断 old turn 是否被 new turn 替换；
-- 同一 conversation 的 canonical publication 使用 Node 内部 `commitFence` 串行化；它只在
-  canonical transaction 成功时推进，不暴露给 App，也不替代 `serverRevision`、App checkpoint
-  或 `clientSelectionGeneration`；
-- replacement relation 的 `committedRevision` 只在 old/new/head/root 一起成功提交后产生。
-
-Node 重启恢复时，顺序应是：
-
-```text
-恢复 durable source/checkpoint 状态
-    ↓
-恢复 published source fence
-    ↓
-恢复 active head 和 replacement relation
-    ↓
-对未完成 reconciliation 做 stale/base fence 校验
-    ↓
-必要时重新生成 canonical publication
-```
-
-不能只恢复某一条最近的 source epoch 或最近文件名，就重建整个产品历史。
-
-## 8. 对 ADTO、App SQLite 和 IPC 的影响
-
-### 8.1 active head transition
-
-App 只需要接收产品投影：
-
-```text
-same published sourceEpoch
-same conversation/sync generation
-new serverRevision
+conversation + sync/generation
+serverRevision
+root / coverage / anchors / cursor / completeness
 turn_replaced(oldTurnId, newTurnId)
-new turn upsert
-root/coverage/checkpoint
+turn/item/detail/usage/outcome DTO
 ```
 
-parent/child rollout id、`history_base` cut、Rust cursor 和本地路径留在服务端 evidence，不进入普通 ADTO。App 在一个 SQLite transaction 中标记 old `projectionState=superseded`、写入 new turn 和关联数据，再 ACK；不会因为 head transition 清空整个 conversation cache。
+App 不收到 `sourceEpoch`、source path、raw rollout id、`history_base` cut、Rust cursor、
+internal checkpoint 或 coordinator 状态。分页、delta、chunk、ACK、重试、重复提交和乱序
+只围绕同一个已发布 `serverRevision`/sequence 处理；source mutation 通过保留旧 snapshot
+和有界 recovery 处理，不通过 App source epoch 混用两套历史。
 
-### 8.2 product source replacement
+healthy IPC surface 仍是正文、operation、当前 turn 和运行态的唯一实时权威；canonical
+history 只服务于已发布终态、cache/offline 和明确的有界恢复，不覆盖 healthy IPC。
 
-App 看到的是新的已发布 source fence，而不是 Rust 的 raw candidate：
+## 9. 判定矩阵
 
-```text
-new published sourceEpoch
-new snapshot/recovery boundary
-old cursor/anchor invalid
-new syncId or generation as required by final compatibility contract
-```
+| 输入事实 | active head transition | Rust source evidence | 产品发布结果 |
+|---|---:|---:|---|
+| A→A-B，parent 最后 turn 已终止，cut/child/完整性均通过 | 是 | 校验通过 | old superseded + new upsert，`serverRevision + 1` |
+| 只发现 A-B 文件，缺 cut、缺 parent 或 child 仍 partial | 否 | pending/partial | 保留旧 snapshot，记录 reconciliation |
+| Branch in new chat 生成 C | 否（对 A 而言） | C 自己的来源 scope | C 作为独立 conversation，不建立 A→C replacement |
+| 同一 source 的稳定追加 | 否 | 同一内部 source evidence | 普通 canonical publication，按可见变化更新 revision |
+| prefix/fingerprint/cursor 不一致 | 未验证 | source mutation | fail-closed，保留旧 snapshot，排队 recovery |
+| 相同 operation 重放 | 已提交事实不变 | checkpoint 可重复校验 | 幂等 no-op，不增加 revision |
+| 旧 parent 结果晚于新 head 到达 | 否 | stale base | 拒绝覆盖当前 head |
 
-旧 epoch 的 staged page、delta、payload 和 checkpoint 不得与新 epoch 混合提交。旧 App 的
-降级方式遵守统一回修后的 capability 条目：使用当前 active projection 的完整 snapshot
-fallback；未知的 state-changing source replacement 不能被静默当成普通 additive field。
+## 10. 本项冻结结论
 
-### 8.3 IPC 边界不变
+1. 当前产品只需要 `activeHeadTransition`；不需要 `productSourceReplacement`、`publishedSourceEpoch` 或 App source fence。
+2. `sourceEpoch/source_epoch` 仍可作为 Rust 内部 source identity/checkpoint/fail-closed 证据，但不能升级为产品状态。
+3. Codex app-server 控制 rollout 文件；TermLink 不假设它会产生未被证实的额外 lineage 场景。
+4. 每个 conversation 只有一个 Node→Rust collector chain 和一个 canonical writer；其他路径只读持久化 projection/IPC cache 或向 coordinator 排队。
+5. `serverRevision`、`operationId`、durable job/checkpoint 和数据库事务足以表达当前写入语义；未来若出现第二写入者，必须另立任务、锁定范围并重新确认架构。
 
-上述三种状态只属于 history source/read-model/recovery lane：
-
-- 不改变 healthy Codex IPC surface 的正文、operation、当前 turn 和运行态 authority；
-- 不用 rollout 解析结果覆盖实时 IPC；
-- 不因 source replacement 或 head transition 改写 follower acquire/release、desired subscription、reconnect replay 或 A/B selection；
-- canonical history 仍只在明确 offline、desynced 或缺少目标 surface 时作为有界恢复来源。
-
-## 9. Revision、ACK 和 fail-closed 规则
-
-### 9.1 Revision
-
-- 只发现 child、开始 Rust 读取、更新 reconciliation progress：不增加 `serverRevision`；
-- active head transition 的 old/new/head/root/checkpoint 一次事务成功：增加一次；
-- product source replacement 的新 baseline/source fence/root/checkpoint 一次事务成功：增加一次；
-- 失败、取消、重复、App 重连和 ACK 重发：不增加；
-- 任意失败尝试都不能让 `serverRevision`、published source epoch 或 active head 回退。
-
-### 9.2 ACK
-
-Node 对 Rust 的 persisted/accepted 语义与 App 对 ADTO 的 `sequence_persisted` ACK 分开：
-
-- Rust ACK 只能确认 analyzer artifact/checkpoint 已被 Node 接受或 durable staging；
-- App ACK 只能确认对应 ADTO sequence 已在 SQLite 原子提交；
-- App ACK 不产生 Node revision，也不能让 Rust source epoch 自动变更；
-- source replacement 或 head transition 的服务端事务边界按第 5 项 ACK/事务草案执行。
-
-### 9.3 必须 fail-closed 的情况
-
-- `sourceEpoch` 缺失、来源 scope 不一致或 checkpoint 绑定不一致；
-- 同一 epoch 的 fingerprint/prefix/snapshot evidence 失配；
-- parent 不是当前 active head；
-- old turn 不是最后一个已终止用户 turn；
-- child 没有新的用户 turn；
-- replacement key、old/new turn 或 source replacement 内容发生冲突；
-- 新 epoch 尚未达到产品发布 completeness；
-- 迟到结果试图覆盖更新的 head、source fence 或 App generation。
-
-fail-closed 的结果是拒绝本次公开 publication、保留最后成功 canonical snapshot，并记录可重试的 reconciliation 诊断；不是猜测关系、删除 old turn 或把候选 epoch 直接发送给 App。
-
-## 10. 本项已经收敛与暂缓内容
-
-本项已经收敛：
-
-- active head transition、Rust source epoch、product source replacement 是三个不同的状态维度；
-- 最后 turn 编辑重发默认只改变 active head，不自动退休整个产品 source epoch；
-- Rust source epoch 由 source reader/checkpoint 证据约束，不能由文件名、重试或 revision 猜测；
-- product source replacement 只有在新来源达到发布门槛并原子提交后才成立；
-- App 只接收已发布 source fence 和产品 turn projection，不接收 raw rollout lineage evidence；
-- IPC authority 和 history recovery 边界不变。
-
-统一回修后的第 1–3 项已经把以下公共表达回填；剩余是实现级工作：
-
-- validator 对三类事件的 JSON required/nullable 和消息位置；
-- `DeltaBody`/manifest 中 source fence 与 head transition 的实现接线；
-- SQL migration、索引和 change-log 保留策略；
-- 第 9 项旧 App capability/降级的实现；
-- 第 10 项时序 fixture 的具体测试代码、重启故障注入和跨 epoch 回归实现。
-
-后续设计不得再把 `activeRolloutId` 当成 source epoch，也不得把 Rust `replace_previous` 直接当成产品 source replacement。若真实 Codex 行为突破“最后一个已终止 turn、一对一替换”的 compatibility invariant，应先让 fixture 失败并进入适配设计，不能静默推广为通用后缀替换。
+后续实现任务可以据此补 validator、migration 和时序自动化，但不得把本文件早期的
+product source replacement、multi-worker candidate 或 commitFence 模型重新带回实现。

@@ -76,7 +76,7 @@ Node 只能发送 effective capability 覆盖的数据面
 四条必须冻结的结论：
 
 1. 缺少 capability 等于“不支持”，不能从偶然出现的字段推断支持；
-2. 旧 App 遇到无法表达的 head transition 或 source replacement 时，使用“当前 active projection 的完整 snapshot fallback”，不能接收半个 state operation；
+2. 旧 App 遇到无法表达的 head transition 或 source mutation recovery 时，使用“当前 active projection 的完整 snapshot fallback”，不能接收半个 state operation；
 3. 未知 field 可以按 additive 规则忽略；未知 state、未知 operation 和未知提交语义不能静默忽略；
 4. 256 KiB 和 128 KiB 是硬上限，不是建议值；超限时拆分、外置、摘要化或 fail-closed，不能提高上限或截断正文后继续沿用旧 hash。
 
@@ -103,7 +103,7 @@ IPC authority；`conversation_history_capability_ack` 只固定本次 `syncId` �
 |---|---|---|---|
 | `historySync.version` | Node history wire family | 既有字段语义、hash、ACK 和 generation 规则的协议族版本 | App SQLite schema 或 Rust parser 版本 |
 | `cacheSchemaVersion` | App 请求 / SQLite | App 能否保存和原子提交某种 transport 形状 | Node 是否已经产生 canonical history |
-| 子 capability `version` | 单个 additive feature | 某个数据面或 control lane 的语义版本 | `serverRevision`、sourceEpoch 或 sync sequence |
+| 子 capability `version` | 单个 additive feature | 某个数据面或 control lane 的语义版本 | `serverRevision`、source evidence 或 sync sequence |
 
 `historySync.version` 当前仍为 `1`。如果改变已有字段的 required 规则、enum 含义、pageHash 输入、ACK 提交语义或 generation fence，必须增加 protocol/capability 分支，不能在 v1 下静默重定义。
 
@@ -117,7 +117,7 @@ IPC authority；`conversation_history_capability_ack` 只固定本次 `syncId` �
 | legacy history | `historySync.version=1`、`cacheSchemaVersion>=1` | legacy manifest/page、普通 delta、legacy final ACK | 使用旧路径 |
 | `perPageAck` | `cacheSchemaVersion>=2` | page-level staging ACK | 使用整次 sync 的 legacy final ACK |
 | `payloadChunks` | `cacheSchemaVersion>=2` | payload chunk 和 chunk 完整性校验 | payload 内联；无法装入则 fallback 或失败 |
-| `canonicalReadModel v1` | 目标 `cacheSchemaVersion>=3` | manifest/status/DTO 的 canonical snapshot、revision/source fence | 只发送 legacy projection，不要求 canonical 字段参与提交 |
+| `canonicalReadModel v1` | 目标 `cacheSchemaVersion>=3` | manifest/status/DTO 的 canonical snapshot、`serverRevision`、root/coverage/anchor/cursor | 只发送 legacy projection，不要求 canonical 字段参与提交 |
 | `rangeSegments v1` | `cacheSchemaVersion>=3` | older range、anchor、cursor、coverage | 不发送 range request/data，使用 legacy 全量/当前支持路径 |
 | `serverSnapshotSegments v1` | `cacheSchemaVersion>=3` | bounded snapshot segment、segment ACK | 使用 legacy page snapshot；无法安全表达时失败 |
 | `history_turn_replacement_v1` | `canonicalReadModel v1` + `cacheSchemaVersion>=3` + turn-level atomic staging | `turn_replaced`、old/new turn 状态和 relation | 使用完整 active snapshot fallback |
@@ -126,10 +126,11 @@ IPC authority；`conversation_history_capability_ack` 只固定本次 `syncId` �
 
 `perPageAck`、`payloadChunks`、`rangeSegments`、`serverSnapshotSegments` 等已有 capability 的实际表示可以继续兼容当前 boolean/block 形状；本表冻结的是依赖和语义，不要求本项马上修改旧 JSON schema。
 
-当前阶段不把 product source replacement 定义成一个必须下发给 App 的独立 delta operation。它通过
-`canonicalReadModel v1` 下的新 published source fence、manifest 或 snapshot/recovery 表达；旧 App
-直接走完整 active snapshot fallback。未来若要增加 `source_replaced` typed operation，必须另立
-capability/version，不能把它塞进 `historySync.version=1` 的未知 operation 兼容路径。
+当前阶段不把 source mutation 定义成一个必须下发给 App 的独立 delta operation。来源不稳定时
+由 Node 保留旧 canonical snapshot，并通过 coordinator 做有界 recovery；若 recovery 形成了
+新的已验证 canonical revision，旧 App 直接走当前 active snapshot fallback。未来若要增加新的
+state-changing operation，必须另立 capability/version，不能把它塞进 `historySync.version=1`
+的未知 operation 兼容路径。
 
 ### 2.3 协商规则
 
@@ -197,7 +198,6 @@ App 在 `conversation_history_sync_request` 中发送 offer：
     "itemCount": 12,
     "complete": true,
     "serverRevision": 41,
-    "sourceEpoch": "product-source-epoch"
   },
   "capabilityOffer": {
     "offerId": "offer-7",
@@ -284,7 +284,7 @@ Node 可以因为 App 不支持 `history_turn_replacement_v1` 而选择 snapshot
 
 - App 未声明 `canonicalReadModel v1`；
 - App 未声明 `history_turn_replacement_v1`，但本次 canonical delta 含 `turn_replaced`；
-- App 不支持 source fence/status 的新提交语义，而本次是 product source replacement；
+- App 不支持本次 active head/source mutation recovery 的提交语义；
 - App 不支持 range/snapshot segment，但服务端需要发送当前 active projection；
 - Node 发现 change log 无法以旧 delta 语义安全表达当前 revision；
 - 新状态操作或新 DTO 不能在旧 App 的 required 字段集合内无损表达。
@@ -307,7 +307,7 @@ fallback snapshot 必须：
 - 排除已经 superseded 的 old turn；
 - 包含 new turn 及其可以在 legacy DTO 中表达的 items；
 - 使用一个 pinned `serverRevision` 生成，不能边读边混入更新版本；
-- 不要求 App 理解 `sourceEpoch`、`canonicalSnapshot`、`reconciliation` 或 `turn_replaced`；
+- 不要求 App 理解 Rust source evidence、`canonicalSnapshot`、`reconciliation` 或 `turn_replaced`；
 - 不把 parent/child rollout、cut、Rust cursor 或 source path 下发给 App。
 
 因此旧 App 看不到“旧 turn 被标记为 superseded”的新状态，但它能看到正确的当前 active 历史。old turn 仍由服务端保留，供审计和未来支持新 capability 的 App 使用。
@@ -320,7 +320,7 @@ fallback 优先复用既有消息族，不新增专门的 legacy message：
 new syncId
     ↓
 conversation_history_manifest_required
-  reason = source_replaced | recovery_required | root_mismatch
+  reason = source_mutation | recovery_required | root_mismatch
     ↓
 legacy manifest/page 或可表达完整 active projection 的 legacy delta
     ↓
@@ -331,17 +331,18 @@ conversation_history_sync_state = synced/partial/failed
 
 如果当前消息族无法表达“替换本地完整 projection”或无法可靠删除旧 item，Node 不得发送一个只包含 new turn 的增量；应返回 bounded `unsupported`/`cache_only` 或 `history_snapshot_fallback_unavailable`，保留 App 原有 cache。
 
-### 3.4 fallback 与 source replacement
+### 3.4 fallback 与 source mutation
 
-对旧 App，新的 product source replacement 不能表现为“旧 epoch page + 新 epoch page 混合”。Node 必须：
+对旧 App，来源恢复不能表现为“两个未经同一 revision 固定的 page 混合”。Node 必须：
 
-1. 先在服务端完成新 source baseline 的 canonical publication；
+1. 先由同一 coordinator 完成新的、已验证的 canonical publication；
 2. 创建新的 history `syncId`；
 3. 发送当前 active projection 的完整 legacy snapshot；
 4. 让旧 App 以其原有 root/order/ACK 语义完成替换；
 5. 如果旧 App 没有安全的 full-replace 能力，进入 cache-only，不清空旧内容。
 
-旧 App 不需要认识 source epoch；服务端通过“完整当前 projection + 旧路径的原子提交边界”实现隔离。
+旧 App 不需要认识 Rust source evidence；服务端通过“完整当前 projection + 固定
+`serverRevision` 的原子提交边界”实现隔离。
 
 ## 4. 未知字段、状态和 operation
 
@@ -387,7 +388,7 @@ conversation_history_sync_state = synced/partial/failed
 - transport sync state；
 - `executionStatus`、`projectionState`；
 - `completeness`、`availability`（当它参与 hash、coverage 或 commit proof 时）；
-- source replacement 或 head transition 的状态/动作枚举。
+- source mutation 或 head transition 的状态/动作枚举。
 
 具体处理：
 
@@ -495,10 +496,10 @@ Node 不得通过 capability 宣布高于硬限制的值来放宽协议。若收
 
 | App 能力 | Node 行为 | 允许的状态语义 | fallback |
 |---|---|---|---|
-| `cacheSchemaVersion=1`，无 canonical/turn replacement | legacy page、legacy final ACK | 只按旧 root/order 语义 | head/source replacement 使用完整 active snapshot |
+| `cacheSchemaVersion=1`，无 canonical/turn replacement | legacy page、legacy final ACK | 只按旧 root/order 语义 | head transition/source recovery 使用完整 active snapshot |
 | `cacheSchemaVersion=2`，支持 per-page/payload chunks，但无 canonicalReadModel | legacy projection + chunks | 不要求 revision/source/status 参与提交 | replacement 仍用完整 active snapshot |
 | `cacheSchemaVersion>=3` + `canonicalReadModel v1`，无 `history_turn_replacement_v1` | 可使用 canonical snapshot，但不能发 `turn_replaced` | replacement 不能走 typed operation | 对 replacement 使用 snapshot fallback |
-| `cacheSchemaVersion>=3` + canonical + `history_turn_replacement_v1` | 使用 delta `turn_replaced`、turn DTO 和 sequence ACK | 可提交 old/new/root/checkpoint 同一事务 | 仅在超限、缺页或 source fence 失配时 recovery |
+| `cacheSchemaVersion>=3` + canonical + `history_turn_replacement_v1` | 使用 delta `turn_replaced`、turn DTO 和 sequence ACK | 可提交 old/new/root/checkpoint 同一事务 | 仅在超限、缺页或 snapshot fence 失配时 recovery |
 | 新 App + 旧 Node，无共同 canonical capability | Node 只发送旧路径 | App 不猜 complete/revision | `legacy_unknown`/`cache_only`，保留本地 cache |
 | 任何组合遇到未知 state operation | 当前 sequence fail-closed | 不提交、不 ACK | 请求 snapshot fallback；不可用则 cache-only |
 
@@ -513,19 +514,20 @@ capability 只决定 App 能否消费某种表达方式，不改变状态本身�
 - 旧 App 无法理解 reconciliation 时，Node 可以省略该诊断，但不能把失败尝试发布为新的 snapshot；
 - unknown state 不能被 capability fallback 转换成 `complete`。
 
-### 7.2 与 active head/source replacement
+### 7.2 与 active head/source mutation
 
 - `history_turn_replacement_v1` 缺失时，active head transition 走完整 active snapshot；
-- product source replacement 缺少新 source fence 能力时，也只能走完整 active snapshot；
-- Rust source epoch、parent/child rollout、cut 和 cursor 永不进入旧 App fallback payload；
+- source mutation recovery 或 active head transition 缺少表达能力时，也只能走完整 active snapshot；
+- Rust source evidence、parent/child rollout、cut 和 cursor 永不进入旧 App fallback payload；
 - fallback 不改变服务端 `serverRevision`，只改变 App 接收该 revision 的传输形状。
 
 ### 7.2.1 与 generation / checkpoint fence
 
 - 每个新 `syncId` 必须绑定 App 产生的 `clientSelectionGeneration`；Node 的所有响应和
   ACK 都回显该值，A→B→A 迟到结果不能因为 `conversationId` 相同而重新进入当前 staging；
-- canonical capability 的 `checkpoint` 必须携带成对的 `serverRevision` 与 `sourceEpoch`，
-  并和 root/coverage/anchor/cursor 一起作为 pinned snapshot fence；
+- canonical capability 的 `checkpoint` 必须携带 `serverRevision`，并和
+  root/coverage/anchor/cursor/complete 一起作为 pinned snapshot fence；Rust source evidence
+  只在 Node 内部校验，不进入 App checkpoint；
 - capability ack、data page、payload chunk、segment 和 `sequence_persisted` ACK 必须
   遵守同一 generation pair 和 checkpoint fence；任何一项不匹配都保留旧 cache；
 - legacy fallback 可以使用 null/缺失 canonical fence，但不得把 legacy root 或缺失
@@ -549,10 +551,10 @@ history capability、snapshot fallback 和 unknown handling 都不能：
   `conversation_history_capability_ack`，effective result 按 `syncId` 固定；
 - `history_turn_replacement_v1` 是 typed `turn_replaced` 的必要门；
 - 旧 App 不能消费新 state operation 时，必须发送完整 active snapshot fallback；
-- fallback 不能混合 source epoch，也不能依赖旧 App 理解 sourceEpoch；
+- fallback 不能混合不同 `serverRevision`，也不能依赖旧 App 理解 Rust source evidence；
 - unknown field、unknown state、unknown operation、unknown message 的处理不同；
-- `clientSelectionGeneration` 是 App selection fence，canonical checkpoint 保存成对的
-  `serverRevision/sourceEpoch`，二者均不能由 rootHash 推断；
+- `clientSelectionGeneration` 是 App selection fence，canonical checkpoint 保存
+  `serverRevision + root/coverage/anchor/cursor/complete`，不能由 rootHash 单独推断；
 - 256 KiB history envelope 和 128 KiB payload/chunk 硬限制由 Node 与 App 双侧执行。
 
 仍需完成的实现/验证工作：
@@ -560,7 +562,7 @@ history capability、snapshot fallback 和 unknown handling 都不能：
 - 当前 Gateway 已有 historySync 基础广播，但 `advertisementId`、嵌套 capability set、
   request `capabilityOffer` 和 `conversation_history_capability_ack` 的实现闭环仍待完成；
 - 当前 Android request model 仍需补 `clientSelectionGeneration`、checkpoint 的
-  `serverRevision/sourceEpoch` pair 和 capability offer；
+  `serverRevision` 与 root/coverage/anchor/cursor 字段和 capability offer；
 - capability block 的 JSON validator 和 legacy full-replace 的旧 App golden payload；
 - 具体 detail code 的完整枚举、重试策略和 UI 文案；
 - 第 10 项 capability、旧 App、未知操作、超限、Node 重启和 A→B→A 的具体测试实现；预期时序已由第 10 项向量草案收敛。

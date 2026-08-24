@@ -37,10 +37,10 @@ related_code:
 1. `turn_replaced` sequence 什么时候才允许发送 persisted ACK；
 2. old turn 状态更新、新 turn upsert、root/checkpoint 更新的同事务边界；
 3. page staging、断线重试、重复 ACK 和 ACK 丢失时的最小规则；
-4. `clientSelectionGeneration`、`serverRevision`、`sourceEpoch` 与 checkpoint 的提交 fence。
+4. `clientSelectionGeneration`、`serverRevision` 与 checkpoint 的提交 fence。
 
 本文不替代第 1–4 项草案；第 1–4 项已经在统一回修中回填 operation、TurnADTO、snapshot/
-reconciliation、source fence、pageHash v2 和旧 App fallback。本项只保留 ACK 两阶段语义
+reconciliation、pageHash v2 和旧 App fallback。本项只保留 ACK 两阶段语义
 和实现级事务边界。
 
 ## 1. 结论先行
@@ -99,7 +99,6 @@ Node 把该 sequence 视为 App 已持久化。
   "pageIndex": 1,
   "pageHash": "final-page-hash",
   "serverRevision": 42,
-  "sourceEpoch": "product-source-epoch",
   "clientSelectionGeneration": 12
 }
 ```
@@ -114,7 +113,7 @@ Node 把该 sequence 视为 App 已持久化。
 - `targetRoot` 必须等于该 sequence 的 target root；`pageHash` 在 v2 lane 中必须是最后一页
   的 pageHash v2；
 - canonical lane 的 `sequence_persisted` ACK 必须回显与 sequence/checkpoint 一致的
-  `serverRevision` 和 product `sourceEpoch`；两者缺一不可，不能由 targetRoot 推导；
+  `serverRevision`；不能由 targetRoot 推导；
 - `syncId`、conversation、client selection generation 必须与当前 pinned sync 完全一致；
 - ACK 不携带 source path、Codex native HistoryPosition、数据库主键或 raw provenance。
 
@@ -146,8 +145,7 @@ App 只有同时满足以下条件，才能开始 replacement commit：
 5. `turn_replaced` operation identity 不冲突，且 new turn 在同一 sequence 内有 upsert；若是
    child replacement，new turn 已通过 terminal + canonical publication gate；
 6. 当前 selection、syncId 和 generation 仍然有效；
-7. `serverRevision` 与 product `sourceEpoch` 均存在且与 sequence/page 一致；二者只允许
-   同时为有效值或同时为 null，canonical lane 不接受 null；
+7. `serverRevision` 存在且与 sequence/page 一致；canonical lane 不接受 null；
 8. target root/coverage/anchor/cursor 与 checkpoint 的 pinned fence 相符；若 checkpoint
    要求 baseRoot，当前本地 committed root 与 baseRoot 相符，或该 sequence 已明确是
    full/recovery baseline。
@@ -176,14 +174,14 @@ BEGIN
   upsert new turn/items/details/usage/outcome with projectionState=active
   record the operationId old → new relation
   update active order/projection metadata
-  update root, coverage, checkpoint.serverRevision and checkpoint.sourceEpoch
+  update root, coverage, checkpoint.serverRevision
   update checkpoint anchors/cursor/complete fields
   update committed sync/sequence marker
 COMMIT
 ```
 
 这里的“更新 root/checkpoint”至少包含本次 sequence 的 target root、coverage/checkpoint
-水位、`serverRevision` 和 product `sourceEpoch`。这两个 fence 必须与 root、coverage、
+水位和 `serverRevision`。这些 fence 必须与 root、coverage、
 anchors/cursor、complete 状态同一事务提交；不能先推进 root 再异步补写 revision/source。
 
 事务失败、进程崩溃或任何校验异常时，整个 transaction 回滚：
@@ -241,13 +239,10 @@ Node 只有在以下条件满足时接受 persisted ACK：
 
 Node 不应只因为收到最后一个 page 的 `page_staged` 就结束 replacement sequence。
 
-ACK 处理不进入 Node 的 `conversationCommitKey` canonical 提交线：它可以与 Rust
-candidate、canonical publication 或其他 App client 的 ACK 并行，但只能更新 transport/receipt
-状态。它不能获取或持有 conversation canonical 写锁，不能推进 `commitFence`/`serverRevision`，
-也不能把一个尚未通过 Node publication gate 的 child 变成 canonical。Node 发生并发
-canonical commit 时，ACK 必须继续绑定自己声明的 `(conversation, syncId/sequence,
-clientSelectionGeneration, serverRevision, sourceEpoch, targetRoot)`；不匹配就按 stale 或
-protocol conflict 处理，不能借 ACK 重排或覆盖 Node 的提交顺序。
+ACK 处理不进入 Node canonical transaction：它只能更新 transport/receipt 状态，不能推进
+`serverRevision`，也不能把一个尚未通过 Node publication gate 的 child 变成 canonical。
+ACK 必须绑定自己声明的 `(conversation, syncId/sequence, clientSelectionGeneration,
+serverRevision, targetRoot)`；不匹配就按 stale 或 protocol conflict 处理。
 
 ## 5. 断线、重试和重复 ACK
 
@@ -306,7 +301,7 @@ canonical change log 在其保留窗口内提供重放，超出窗口则返回 b
 
 - `ackKind` validator、legacy v1 final ACK 与 replacement-capable v2 ACK 的自动化兼容测试；
 - App SQLite 的具体 staging/completion 表结构和 operation relation 表；
-- `serverRevision`/source fence 的存储接线、`clientSelectionGeneration` validator、ACK
+- `serverRevision` 的存储接线、`clientSelectionGeneration` validator、ACK
   golden vectors、故障注入和第 10 项向量的
   跨层实现。
 

@@ -88,6 +88,12 @@ Node 负责提供允许读取的 `sessionsRoot`、稳定 `conversationId`、日�
 已知 `rollout_path`/head hint。Node 不再承担“必须先找出唯一最新文件”的业务职责；Rust 的
 会话级 locator 在有界范围内发现并验证 active head。
 
+这里的 `rollout_path`/head hint 是可选输入，不表示当前旧 Node 已经拥有 rollout 物理路径。
+旧 Node 目前主要持有 `conversationId/threadId`；在没有独立 source provider 提供真实路径时，
+阶段 4.5/5 的接入应使用 `sessionsRoot + conversationId` discovery，由 Rust 返回并验证
+active child source。显式 source binding 只能作为快速路径或恢复 hint，不能绕过 Rust 的
+会话绑定、parent chain 和 descendant 校验。
+
 约束：
 
 - 目录扫描、mtime 和文件名时间只发现候选，不能决定 active head；
@@ -172,7 +178,7 @@ ReplaceLastTurn
 以下是逻辑实体，不是最终 SQL schema。正式阶段 5C migration 需要结合数据库类型、现有表和
 查询计划再冻结列名。
 
-### 4.1 `history_turns`
+### 4.1 `turns`
 
 至少需要表达：
 
@@ -193,13 +199,13 @@ updatedRevision
 - `projectionState=active|superseded` 是 old row 是否属于当前 active history projection 的唯一状态字段；
 - 不再使用独立的 boolean `superseded` 或公开的 `supersededByTurnId` 作为第二套状态来源；
 - `projectionState=superseded` 时，active-order position 必须为 `null`，但 `executionStatus`、outcome、items、details、usage 和 provenance 保持不变；
-- old→new 的关系由 `history_turn_replacements` 保存，不把关系字段反写成另一套权威状态；
+- old→new 的关系由 `turn_replacements` 保存，不把关系字段反写成另一套权威状态；
 - `(scopeKey, conversationId, turnId)` 必须唯一。
 
 如果现有 `task_outcomes` 已可靠保存终止结果，物理表可以使用等价归一化；产品 DTO 仍需能同时
 回答“原任务怎样结束”和“是否已被编辑替换”。
 
-### 4.2 `history_turn_replacements`
+### 4.2 `turn_replacements`
 
 用于保存幂等和来源证据：
 
@@ -233,18 +239,15 @@ sourceEvidence / provenance reference
 scopeKey
 conversationId
 activeRolloutId
-commitFence                # Node 内部 conversation 级写入 fence，不下发 App
-publishedSourceEpoch       # 当前已发布 product source fence
 serverRevision
 rootHash / coverage metadata
-analyzer checkpoint reference
+collector checkpoint reference (internal)
 ```
 
-`activeRolloutId` 表示正常 lineage head；`sourceEpoch` 继续服务于物理 source replacement fence。
-两者不能合并为一个字段。`commitFence` 是 Node 用来串行化 canonical publication 的内部持久化
-版本；它不是 App 的 checkpoint fence、`clientSelectionGeneration`、`syncId` 或 Rust
-`sourceEpoch`。实现可以让它与本 conversation 的 `serverRevision` 共用同一个原子递增值，
-但语义上仍须保留“Node 写入并发 fence”和“App 可见 revision”的区别。
+`activeRolloutId` 表示已验证 lineage head；内部 collector checkpoint 只用于恢复 source
+读取，不是 App 状态。`serverRevision` 是唯一对外的 canonical read-model revision。当前
+单一 Node coordinator 不需要产品级 `commitFence`、published source epoch 或 source
+replacement fence；重复请求由 `operationId/batchId` 幂等处理，source mutation 则 fail-closed。
 
 ### 4.4 `history_change_log`
 
@@ -265,21 +268,22 @@ bounded snapshot/recovery，不伪造空 delta。
 
 ### 5.1 Preflight
 
-Preflight 必须先绑定当前 `conversationCommitKey` 和已发布 state fence，至少记录
-`baseCommitFence`、`baseServerRevision`、`activeRolloutId`、published `sourceEpoch` 以及
-candidate 的 identity。Preflight 结果只是“可以尝试提交”，不授予 candidate 直接写库的
-权利；进入真正 transaction 后仍必须按 5.3.2 重新读取和校验。
+Preflight 必须先绑定当前 `conversationCommitKey` 和已发布 state，至少记录
+`baseServerRevision`、`activeRolloutId` 以及 operation identity。Preflight 结果只是“可以尝试
+提交”，不授予请求直接写库的权利；进入真正 transaction 后仍必须重新读取和校验。
 
 在修改任何公开 read model 前必须确认：
 
 1. Rust batch/provenance/checkpoint 已通过现有阶段 4 校验；
 2. Rust `replacementKey` 已归一化为 `operationId`，且该 operation 未提交，或是内容完全一致的 duplicate；
-3. 当前 `activeRolloutId` 等于 `parentRolloutId`；
+3. 当前已持久化的 `activeRolloutId` 等于 `parentRolloutId`；这里的 active head 是 Node
+   read-model 状态，不是 Node 自行发现的物理文件路径；
 4. `replacedTurnId` 是当前 active history 最后一个用户 turn；
 5. old turn 已是允许编辑的 terminal 状态、`projectionState=active` 且尚未被其他 operation 替换；
 6. child turn 已达到本节定义的 canonical publication gate，且其 projection 与
    `replacementTurnId` 一致；
-7. parent→child transition 与当前 conversation scope 一致。
+7. parent→child transition 与当前 conversation scope 一致；Branch in new chat 不进入该
+   replacement 事务。
 
 ### 5.1.1 Child turn canonical publication gate
 
@@ -297,8 +301,9 @@ last-turn replacement lane 只在以下条件全部满足时允许发布 child t
 4. child turn 的 canonical items、turn metadata 以及明确存在的 usage/outcome 已经可以由
    同一 publication transaction 重建；缺少独立 outcome 只有在 source 明确没有该 outcome
    时才允许，不能把解析缺失当作“没有 outcome”；
-5. Node 当前 active head、source fence、selection-independent conversation scope 和
-   `operationId` preflight 全部有效。
+5. Node 当前已持久化的 active-head、selection-independent conversation scope 和
+   `operationId` preflight 全部有效。物理 active child 必须来自 Rust 已验证的
+   lineage result。
 
 这是证据门槛，不是固定等待时间。满足门槛的瞬间仍由 Node canonical DB transaction 的
 成功 COMMIT 定义为“已发布”；Rust 完成解析、Node 创建 reconciliation attempt、App 收到
@@ -326,147 +331,95 @@ root→active head 的有序 lineage replay，使 old turn 先被正常持久化
 （old row 已在 preflight 中确认存在且可替换）
     → UPDATE old row: projectionState active → superseded，active-order position → null
     → 保留 old executionStatus、outcome、items、details、usage 和 provenance
-    → 写 history_turn_replacements.operationId 与 old → new relation
+    → 写 turn_replacements.operationId 与 old → new relation
     → upsert new turn/items/details/usage/outcome，new projectionState=active
     → activeRolloutId = childRolloutId
     → 重算 active projection 的 root/anchor/coverage
-    → 计算本次 transaction 的下一个 commitFence/serverRevision
+    → 计算本次 transaction 的下一个 serverRevision
     → 写带有该 revision 的 change log
-    → 在 conversation state 上原子推进 commitFence 和 serverRevision
+    → 在 conversation state 上原子推进 serverRevision
     → 原子提交
 ```
 
 任何一步失败都回滚，old turn 继续 active，公开 revision 不增加。
 
-### 5.3 Node conversation 级并发提交
+### 5.3 Node conversation 级单协调器
 
-#### 5.3.1 提交 scope 和允许并行的工作
-
-Node canonical writer 的唯一提交键固定为：
+当前业务不需要同一 conversation 的并发 candidate 仲裁。Node 只建立一个协调键：
 
 ```text
-conversationCommitKey = (revisionScope, conversationId)
+conversationKey = (revisionScope, conversationId)
 revisionScope = authenticated profile/endpoint/tenant partition
 ```
 
-它不能使用裸 `conversationId`，也不能使用 `sessionId`、`syncId`、`attemptId`、
-`clientSelectionGeneration`、rollout 文件名或 App 当前 selection 代替。相同
-`conversationCommitKey` 下，以下所有会改变 canonical read model 的操作共享一条提交线：
+同一 `conversationKey` 固定只有：
 
-- 普通 history item/tool/usage/outcome upsert；
-- last-turn active head transition；
-- product source replacement；
-- coverage、completeness、root、anchor、cursor 或 published source fence 的可见更新。
+1. 一个 queued/running reconciliation job；
+2. 一个 in-flight Rust analyzer request；
+3. 一个 Node canonical writer；
+4. 一个 DB transaction 路径。
 
-以下工作可以并行执行，但只能写入 staging/analyzer 状态，不能直接改变已发布 canonical
-state、active head 或 `serverRevision`：
+不同 conversation 可以并行。App history provider、普通 worker 和 WebSocket 请求不得直接
+请求 Rust；它们只能读取持久化 projection/IPC cache，或向该 coordinator 提交一次幂等的
+ensure/refresh 请求。`page_staged`、`sequence_persisted`、Rust ACK 和 App ACK 不会取得
+canonical writer，也不推进 `serverRevision`。
 
-- rollout 发现、读取、解析、归约和 source backfill；
-- 不同 `attemptId` 的 candidate 构建；
-- manifest/page/delta 的只读查询；查询必须 pin 到一个 immutable revision snapshot；
-- 不同 conversation 的 canonical promotion。
+#### 5.3.1 单一请求和 canonical transaction
 
-`page_staged`、`sequence_persisted`、Rust analyzer ACK 和 App history ACK 都不进入这条
-canonical 提交线，也不能占用或推进 Node 的 conversation writer。
-
-每个 key 最多只能有一个正在执行的 promotion transaction；待提交 candidate 必须有 durable
-staging 或可恢复 job 记录，不能只存在内存队列。相同 operation/source evidence 应合并，
-parent 依赖未满足的 candidate 保持 queued/staging；队列或重试达到有界上限时返回可识别的
-retryable 状态，仍保留最后成功 snapshot，不得为了清空队列而丢弃或半提交 candidate。
-
-#### 5.3.2 Durable fence 和提交前重检
-
-每个可发布 candidate 至少保存以下内部 preflight fence：
+Rust I/O、source discovery、lineage replay、解析和 backfill 都在 Node coordinator 的单一
+请求中完成。结果通过阶段 4 analyzer protocol 返回后，Node 才执行：
 
 ```text
-attemptId
-conversationCommitKey
-baseCommitFence
-baseServerRevision
-baseActiveRolloutId
-basePublishedSourceEpoch
-candidate identity / operationId / provenance
+校验 batch/provenance/lineage/coverage/completeness
+    → 重检 activeRolloutId、conversation scope、old/new turn 和 operationId
+    → transaction 内 upsert turns/history_items/details/usage/outcome
+    → 写 turn_replacements、root/coverage/change log
+    → serverRevision + 1
+    → COMMIT
+    → ACK Rust persisted
 ```
 
-真正提交时，Node 必须在同一数据库 transaction 中对
-`conversation_history_state` 执行行锁（例如 `SELECT ... FOR UPDATE`）或等价的
-compare-and-swap；内存 mutex/single-flight 只能减少争用，不能作为重启、多 worker 或多
-Node 实例下的正确性依据。首次发布时如果 state row 尚不存在，必须通过
-`(scopeKey, conversationId)` 唯一键的 insert-or-conflict/re-read 或数据库等价机制建立
-唯一 state row，不能让两个 worker 各自创建初始 revision。transaction 内必须重新读取并
-确认：
+`serverRevision` 是 App 可见的 canonical revision；`operationId/batchId` 唯一性负责重复
+提交幂等。不存在产品级 `commitFence`、first-commit-wins、worker lease 或多 writer 冲突表。
 
-1. `baseCommitFence` 仍然匹配当前 state；
-2. candidate 的 conversation scope、active head、published source fence 和 parent/cut
-   仍然满足对应业务规则；
-3. old row 仍可替换，或普通 upsert 仍未被更高版本覆盖；
-4. `operationId` 尚未提交，或者数据库中已有的是完全相同的 operation 内容。
+#### 5.3.2 顺序 lineage 与异常输入
 
-只有重检通过，才允许在该 transaction 内写 canonical rows、replacement relation、
-root/coverage/checkpoint、change log 和 reconciliation 成功结果，并将
-`serverRevision` 与 `commitFence` 各推进一次后 COMMIT。revision 不能在 transaction
-外预先分配为已发布值。
+正常 A→B→C 是同一 collector 链顺序解析和顺序发布：B 成功成为 active head 后，才允许
+继续处理 C。若外部请求先报告 C，coordinator 不创建 B/C 并行 candidate，而是重新执行
+同一 conversation 的 lineage discovery/replay；缺 parent、多个 head、source mutation 或
+coverage 不完整时 fail-closed，保留最后 canonical snapshot。
 
-如果 fence、head、source epoch、old-row 状态或 operation identity 不匹配：
+同一 `operationId` 和相同内容重复到达时返回原 committed revision；同一 key 内容冲突时
+拒绝，不覆盖当前 head。Branch in new chat 的 C 使用新的 conversationKey，不进入 A→B→C
+replacement 链。
 
-- transaction 必须回滚，不产生新的 `serverRevision`，也不改变旧 canonical snapshot；
-- exact same operation 已经提交时，返回原 `committedRevision`，视为幂等 no-op；
-- 其他 candidate 必须标记为 stale/需要重新协调，并用新的 state fence 重新 preflight；
-  不得把旧 candidate 的 rows 与新 head 或新 source epoch 盲目合并；
-- 数据库死锁、CAS 失败或 lease 丢失只能使用同一 `operationId` 做有界重试，不能为重试
-  生成新的 operation identity。
+#### 5.3.3 Node 重启和提交结果恢复
 
-Node 不得在持有 conversation 写入锁时执行 Rust I/O、source backfill、WebSocket 发送或
-等待 App ACK。锁只覆盖“读取当前 state → 重检 → canonical DB transaction”；外部工作完成
-后再进入提交线。
+- COMMIT 前崩溃：DB transaction 回滚，旧 head/root/revision 保持不变；重启后恢复同一 job；
+- COMMIT 后、响应或 ACK 前崩溃：已提交的 rows、revision、change log 和 operation identity
+  是唯一事实；重放返回原 revision；
+- 内存 single-flight 丢失后，Node 依据持久化 job/checkpoint 重新排队，不创建第二条并发
+  Rust 链路；
+- App `clientSelectionGeneration` 只隔离 App transport/SQLite 结果，不能取消 Node durable
+  job；App 离线不阻止 canonical publication。
 
-#### 5.3.3 同一 conversation 的顺序和冲突分类
-
-业务顺序由 parent/head fence 决定，不由文件发现时间或异步任务完成时间决定：
-
-| 并发输入 | Node 行为 | `serverRevision` |
-|---|---|---:|
-| 相同 `operationId`、内容完全相同 | 只保留一次提交，其他请求返回原结果 | 只增加一次 |
-| A→B 与 B→C 同时分析，当前 head=A | 先允许 B；C 留在 staging，待 head=B 后重新 preflight | B、C 各一次 |
-| A→B 与 A→C 两个不同 sibling 同时到达 | 第一个通过 transaction 的 candidate 获胜；另一个因 old/head fence 失效进入 stale/conflict，不得双头发布 | 只增加一次 |
-| 旧 parent transition 迟到，当前 head 已是更新后继 | 拒绝覆盖当前 head，保留 attempt 诊断 | 不增加 |
-| head transition 与 product source replacement 同时到达 | 共享同一提交线；先提交者推进 fence，后者按新的 head/source fence 重检，不能混合两个 epoch | 每次成功 publication 一次 |
-| 不同 conversation | 可以并行提交，各自使用自己的 `conversationCommitKey` | 各自递增 |
-
-因此，A→B→C 可以并行“分析”，但不能并行“发布”；C 只有在 B 已经 durable COMMIT
-并成为当前 active head 后，才能以新的 base fence 提交。当前业务不支持从同一个 old turn
-同时产生两个 active replacement；失败 candidate 可以保留用于诊断或重算，但不能进入
-active projection。
-
-#### 5.3.4 重启和提交结果可恢复性
-
-- Node 在 transaction COMMIT 前崩溃：数据库回滚，旧 head/root/revision 保持不变；重启后
-  可按 durable attempt 重新 preflight；
-- Node 在 COMMIT 后、响应或 ACK 前崩溃：已提交的 state、relation、revision、change log
-  和 operation ledger 作为唯一事实；同一 operation 重放返回原 revision，不生成下一版；
-- 内存锁、队列和 worker lease 在重启后都视为失效；恢复依赖 durable `commitFence`、
-  operation ledger、active head 和 checkpoint，不依赖“最近发现的文件”；
-- reconciliation 的候选可以恢复、取消或重试，但任何半写入 rows 都不能被推断为一次
-  成功 publication。
-
-`clientSelectionGeneration` 只约束 App transport/SQLite 写入，不能取消或回滚已经进入
-Node durable commit lane 的工作；App 离线也不能阻止 Node 完成 canonical publication。
+任何半写入 rows、partial lineage 或 source mutation 都不能推断为成功 publication。
 
 ### 5.4 Replay 和顺序
 
 - exact duplicate：返回原 committed revision，不再次增加 revision；
 - A→B→C：必须按 parent chain 顺序应用；
-- C 在 B 前到达：不应用，进入 bounded lineage reconciliation；
+- C 在 B 前被单独报告：不创建独立 candidate；由同一 coordinator 重新执行 bounded lineage replay；
 - 旧 parent 的迟到 transition：不能覆盖当前 head；
-- 冷启动多 edge replay 可以先在 durable staging 中完成，最终只发布一次完整 canonical
-  revision；实时逐次观察到的 A→B、B→C 则各发布一次 revision。
+- 冷启动多 edge replay 在同一 coordinator job 内完成；只有完整 lineage 通过后才发布一次
+  canonical revision；持续运行时 A→B、B→C 按顺序各发布一次 revision。
 
 child 一旦通过 gate 并成功提交，就成为当前 active head。之后同一 child rollout 的合法
 追加/补齐若改变已发布的 item、usage、outcome 或 completeness，按普通 active canonical
 update 发布后续 revision，不再次生成同一 old→new replacement；若追加内容改变 turn identity、
 parent/cut 或 replacement relation，则拒绝并进入 reconciliation，不能回写已提交 relation。
 
-## 6. `serverRevision`、root 和 source epoch
+## 6. `serverRevision`、root 和内部 source evidence
 
 一条 replacement 只有在“new turn 写入 + old `projectionState=superseded` + head/change log 更新”整体提交后，
 才产生一个新的 `serverRevision`。
@@ -480,7 +433,8 @@ parent/cut 或 replacement relation，则拒绝并进入 reconciliation，不能
 - exact duplicate：不增加 revision；
 - replacement 事务成功：增加一次；
 - App ACK/重连：不增加 revision；
-- 正常 last-turn replacement 不改变物理 replacement `sourceEpoch`；
+- 正常 last-turn replacement 不产生或改变产品 source epoch；Rust 内部 source evidence 只用于
+  lineage/cursor/checkpoint 校验；
 - active root、anchors、pages 和 usage 聚合只能包含当前 active projection；
 - retained superseded rows不进入正常 active root、older page、usage 或 outcome 聚合。
 
@@ -603,8 +557,8 @@ UI 的最小行为是：old turn 从当前 active 展示退出，new turn 在同
 | root/coverage/anchor | superseded turn 退出 active root 和分页边界 |
 | ACK | old 状态更新与 new upsert 同 SQLite commit 后才能 persisted ACK |
 | DTO 映射 | 保留 executionStatus，使用 projectionState/replacement relation；operationId 只在 operation/relation ledger 中承载 |
-| source replacement | 明确 last-turn replacement 不改变物理 sourceEpoch |
-| Node conversation 并发 | 同一 `(revisionScope, conversationId)` 通过 durable `commitFence` 串行提交；同 operation 幂等，stale base 不覆盖新 head/source；不同 conversation 可并行 |
+| source mutation | 明确 last-turn replacement 不产生产品 source replacement；异常 source 只 fail-closed |
+| Node conversation 协调 | 同一 `(revisionScope, conversationId)` 只有一个 coordinator 和一个 in-flight Rust request；同 operation 幂等；不同 conversation 可并行 |
 | 旧 App/能力协商 | 未支持 state operation 时强制 snapshot reconciliation |
 | 时序测试 | 增加 completed/stopped edit、A→B→C、离线和重放向量 |
 
@@ -623,10 +577,10 @@ UI 的最小行为是：old turn 从当前 active 展示退出，new turn 在同
 | C 先于 B | 不提交，触发 lineage reconcile | 不收到错误 delta |
 | Node 在事务前/中崩溃 | 无公开半 revision | 无 ACK，无半更新 |
 | Node 提交后 ACK 丢失 | Rust 重放命中 duplicate | 最终一次状态 |
-| 同一 operation 并发提交 | operation ledger/fence 只允许一次 canonical commit | 收到同一 revision，不重复提交 |
-| A→B 与 A→C 并发 | first commit wins，另一 candidate stale/conflict，不产生第二 active head | 不收到第二条错误 replacement |
-| head transition 与 source replacement 并发 | 同一 commit lane 重检新 head/source，禁止混合 epoch | 只接收成功 publication 的一致 snapshot |
-| Node 多 worker/重启 | COMMIT 前回滚，COMMIT 后按 operation 幂等恢复 | 不因响应/ACK 丢失重复写入 |
+| 同一 operation 重复提交 | operationId/batchId 幂等，只允许一次 canonical commit | 收到同一 revision，不重复提交 |
+| A→C 被错误作为同 conversation sibling 报告 | 同一 coordinator 重做 lineage；不采用 first-commit-wins，不产生第二 active head | 不收到第二条 replacement |
+| source mutation 或 lineage 不完整 | 保留旧 snapshot，进入 partial/pending/fail-closed | 不覆盖本地 canonical cache |
+| Node 单进程重启 | COMMIT 前回滚，COMMIT 后按 operation 幂等恢复 | 不因响应/ACK 丢失重复写入 |
 | App 本地有 old turn | delta 更新 old | UI 直接切到 new |
 | App 本地没有 old turn | 不创建 ghost，new 正常同步 | 只显示 new |
 | App 离线错过 replacement | change log delta 或 snapshot recovery | active cache 收敛 |

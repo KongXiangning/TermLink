@@ -38,7 +38,7 @@ related_docs: [docs/workflow/CONTRACTS.md, docs/workflow/DECISIONS.md, docs/code
 | App 本地 cache-first 历史显示 | 已有基础 | Android 有 SQLite conversation/history cache，并按 `endpoint/profile + conversationId` 隔离 |
 | history manifest/page/delta/chunk/ACK 协议 | 已有基础 | Node Gateway 和 Android 已实现 `conversation_history_*` 消息族及 generation/sync fence |
 | Rust rollout 读取、解析、归约和 `AnalysisBatch` | 已有 | 由 `native/codex-rollout-collector` 提供 |
-| 隔离 Node importer、checkpoint、File Store | 已有 | 阶段 4 能验证 conformance、恢复、幂等和 source replacement |
+| 隔离 Node importer、checkpoint、File Store | 已有 | 阶段 4 能验证 conformance、恢复、幂等和 source mutation fail-closed |
 | rollout 结果进入正式服务端 DB | 尚未有 | `src/server.js` 尚未把阶段 4 collector 注册到正式产品持久化路径 |
 | 正式 server history read model 和 App DTO | 尚未有 | 现有 history sync provider 仍主要围绕 snapshot/baseline 和现有上游读取能力 |
 | IPC event log、服务端 durable runtime buffer、跨重启完整 replay | 尚未有，也不是当前阶段目标 | `CodexIpcFeed` 的 snapshot/event retention 是内存能力，不是永久历史库；当前由终态 canonical source 修复 live gap |
@@ -113,10 +113,10 @@ App 可以即时展示 T0 和 T2，但不能据此宣称 T0→T2 之间的 live 
 
 任务进入终态后，canonical reconciliation 以 rollout/canonical source 为准，在可读取的稳定边界上取得 canonical history：
 
-- 如果 analyzer checkpoint、source epoch、prefix anchor 和 append safety 都能证明可安全续读，可以从已验证 checkpoint 继续；
+- 如果 analyzer checkpoint、内部 source evidence、prefix anchor 和 append safety 都能证明可安全续读，可以从已验证 checkpoint 继续；
 - 如果不能证明连续性，则读取所需的完整范围，通常至少覆盖 T0+T1+T2，必要时重放整个 source；
 - canonical source 未达到可读取的稳定边界、读取不完整或导入事务未提交时，只能保持 `canonical_pending`/`partial`，不能把 IPC 当前结果标记为完整历史；
-- `source-ready`/稳定边界不表示 flush 后重新分析已经处理的前缀。Codex flush 只使排队的新增 rollout 记录完成写入；若 source 在上次分析后增长，则通过 checkpoint/cursor 做 append，若未完成尾行后来补全，则在后续读取中提交该完整记录，只有前缀发生变化时才进入 source replacement/new epoch；
+- `source-ready`/稳定边界不表示 flush 后重新分析已经处理的前缀。Codex flush 只使排队的新增 rollout 记录完成写入；若 source 在上次分析后增长，则通过 checkpoint/cursor 做 append，若未完成尾行后来补全，则在后续读取中提交该完整记录；前缀变化只触发内部 source mutation/recovery，不能自动形成产品 source replacement 或 App source epoch；
 - canonical history 完成后，Node 通过正式 history read model 向 App 发送 canonical snapshot/delta；App 丢弃或隐藏对应的 live projection，并以 canonical revision 原子替换当前显示结果。这里不要求、也不默认建立 live item 与 canonical item 的一一映射。
 
 因此需要分开记录两个事实：
@@ -138,13 +138,13 @@ App 可以即时展示 T0 和 T2，但不能据此宣称 T0→T2 之间的 live 
 | `sessionId` | TermLink 会话 | 服务端管理的连接/工作区会话身份 | 否 |
 | `profileId` / endpoint | App 同步分区 | 同一 conversation 在不同服务配置或端点下的缓存隔离维度 | 否 |
 | `sourceId` | analyzer 来源身份 | rollout 或其他 canonical source 的稳定来源身份 | 否，不能从 filename 自动补全 |
-| `sourceEpoch` | analyzer 来源版本 | source 替换、截断或重建后的 epoch；旧 epoch 必须有 retired fence | 否 |
+| `sourceEpoch` / `source_epoch` | Rust/Node analyzer 内部来源一致性证据 | fingerprint、anchor、snapshot boundary、cursor 和 checkpoint 的连续性校验；不进入 App 或产品 source namespace | 否 |
 | `itemKey` | 历史 item 身份 | 跨 tail、backfill、append、replay 和重启复用的逻辑 item 身份 | 否，不能用 segment boundary、随机值或 content hash 代替 |
 | `revision` | item/source 版本 | 同一 item 或 scope 的单调更新版本 | 否 |
 | `syncId` | App 传输事务 | 一次 history sync/recovery 的传输上下文 | 否，不是 canonical history identity |
 | `selectionGeneration` | App 选择 fence | A→B→A 选择窗口的代际隔离；旧选择的异步结果不能写当前 UI 或 DB | 否 |
 | `nextOlderCursor` / source cursor | 历史读取位置 | 服务端 read model 或 analyzer source 的读取进度 | 只在所属 source/provider 内有效 |
-| analyzer checkpoint | Rust/Node importer | source identity、epoch、cursor、provenance、completeness、reducer state 等恢复证据 | 不能直接暴露为 App DTO |
+| analyzer checkpoint | Rust/Node importer | source identity、内部 source evidence、cursor、provenance、completeness、reducer state 等恢复证据 | 不能直接暴露为 App DTO |
 | App history checkpoint | App/Node 同步 | root、item count、newest/oldest anchor、coverage 和 older cursor 等客户端覆盖证明 | 不能替代 analyzer checkpoint |
 
 服务端不得用一个全局 conversation cursor 代表所有 App。canonical 历史按 conversation/source scope 保存；每个 App/client 的 `syncId`、selection generation 和本地 checkpoint 只用于该客户端的传输、重试和覆盖判断。
@@ -172,9 +172,9 @@ canonical_complete
 | `canonicalItemKey` | canonical history | 服务端历史中的稳定 item 身份 | 只用于 canonical↔canonical 的幂等 upsert、重放和去重 |
 | `sourceRef` | canonical provenance | rollout 中的物理来源引用或位置证明 | 用于追溯和恢复，不是 IPC item 的映射键 |
 | `ipcEpoch` | IPC live | IPC 连接/订阅代际 | 用于丢弃旧连接的迟到数据 |
-| `analysisEpoch` | canonical history | rollout source 的版本代际 | 用于 source replacement 和旧分析结果隔离 |
+| `sourceEvidence` | canonical history internal | rollout source 的 fingerprint/anchor/checkpoint 证明 | 只用于 Node 内部校验和 fail-closed recovery，不是 App 字段 |
 
-不得默认 `surfaceKey == canonicalItemKey`，也不要求阶段 5 建立 `surfaceKey → canonicalItemKey` 的持久化 identity bridge。若未来为了减少 UI 替换时的闪烁而增加关联提示，它只能是非权威、非持久化的展示优化，不能参与数据库幂等、canonical completeness 或恢复判断。当前阶段使用 `conversationId + analysisEpoch + serverRevision` 作为 canonical 替换范围和版本门禁即可。
+不得默认 `surfaceKey == canonicalItemKey`，也不要求阶段 5 建立 `surfaceKey → canonicalItemKey` 的持久化 identity bridge。若未来为了减少 UI 替换时的闪烁而增加关联提示，它只能是非权威、非持久化的展示优化，不能参与数据库幂等、canonical completeness 或恢复判断。当前阶段使用 `conversationId + serverRevision` 作为 canonical publication/read 范围和版本门禁；source evidence 只在 Node 内部校验。
 
 ## 4. 当前 App ↔ Node 实际数据流
 
@@ -311,7 +311,7 @@ App 先显示已提交的最新部分，然后从本地 checkpoint 的 `newestAn
 - 只补新尾部；
 - 只补旧分页；
 - 新旧范围重叠时按 `itemKey` 幂等去重；
-- 发现 source replacement 或 anchor 不一致时 fail-closed，并要求新的完整基线；
+- 发现 source mutation 或 anchor 不一致时 fail-closed，并由 coordinator 执行有界 recovery；
 - 不用空结果或 partial 结果覆盖已有 canonical cache。
 
 ### 5.4 正在运行的任务
@@ -326,7 +326,7 @@ live projection     → 临时显示（内存/展示态，不持久化）
 canonical history   → 终态可恢复历史和最终一致性
 ```
 
-当 canonical 数据到达时，不把 live item 写入 canonical 表，也不通过 `surfaceKey` 与 `canonicalItemKey` 做跨 lane merge；App 以 `conversationId + analysisEpoch + serverRevision` 为范围和版本门禁，丢弃/隐藏对应 live projection，再原子替换为 canonical projection。canonical reconciliation 失败或 source 尚未稳定时，保留 `live_incomplete`/`canonical_pending`，不得伪造连续历史。
+当 canonical 数据到达时，不把 live item 写入 canonical 表，也不通过 `surfaceKey` 与 `canonicalItemKey` 做跨 lane merge；App 以 `conversationId + serverRevision` 为 canonical 范围，并用 `selectionGeneration/syncId` 做传输门禁，丢弃/隐藏对应 live projection，再原子替换为 canonical projection。canonical reconciliation 失败或 source 尚未稳定时，保留 `live_incomplete`/`canonical_pending`，不得伪造连续历史。
 
 ### 5.5 任务完成后的协调：Node-owned reconciliation trigger
 
@@ -334,7 +334,7 @@ canonical history   → 终态可恢复历史和最终一致性
 
 - matching healthy、`desynced=false` 的 `completed` / `complete` surface；
 - `currentTurnId=null`；
-- terminal/source epoch 已确定，且通过稳定窗口或等价的 source-ready 证明。
+- terminal 状态已确定，且通过稳定窗口或等价的 source-ready 证明。
 
 它不适用于 `running`、`desynced`、`failed`、`cancelled`、普通历史打开、普通 A→B→A 选择，或仅有 `tail_validation` / `liveReplay` 诊断结果的情况。后续若要扩展终态范围，必须另立契约，不得由 Node scheduler 静默扩大。
 
@@ -347,12 +347,12 @@ Node 重启                         恢复 pending/running job，重新检查 so
 App 打开 A 或 A→B→A               lazy ensure/sync，只读取或唤醒既有 job
 ```
 
-1. **Node source-ready scheduler 是主触发。** Node 必须在 source identity、source epoch、可读取的稳定边界和终态 completeness 可验证时，为 `(endpoint/profile, conversationId, terminalEpoch)` 创建或恢复一个幂等 job。source 尚未达到可读取的稳定边界、终态边界不明或证据不足时，只保持 `canonical_pending`，不能伪造完成。该触发表示 source 已可按安全边界读取，不表示 flush 会重新分析已经提交的前缀。
+1. **Node source-ready scheduler 是主触发。** Node 必须在 source identity、可读取的稳定边界和终态 completeness 可验证时，为 `(endpoint/profile, conversationId)` 创建或恢复一个幂等 job。source 尚未达到可读取的稳定边界、终态边界不明或证据不足时，只保持 `canonical_pending`，不能伪造完成。该触发表示 source 已可按安全边界读取，不表示 flush 会重新分析已经提交的前缀。
 2. **matching healthy terminal surface 是快速触发。** 它可以减少等待，但不能成为唯一触发点；即使 T1 包含终态 IPC、该 surface 没有到达，Node 仍应依靠 source-ready scheduler 发现并处理该 job。
-3. **Node 重启必须恢复 reconciliation job。** 已持久化的 pending/running 状态、terminal epoch 和 checkpoint 在重启后重新进入 scheduler；重试使用 single-flight、有限预算和退避，不能因为重启创建重复 full job。
+3. **Node 重启必须恢复 reconciliation job。** 已持久化的 pending/running 状态、terminal/source-ready 事实和 checkpoint 在重启后重新进入 scheduler；重试使用 single-flight、有限预算和退避，不能因为重启创建重复 full job。
 4. **App 打开任务只做 lazy ensure。** App 重新打开 A 或执行 A→B→A 时，先 cache-first，再请求服务端检查 canonical revision/同步状态。App 可以唤醒尚未运行的 job，但不能取消 Node durable writer，也不能成为 reconciliation 成功的前置条件。
 
-`needs_canonical`、`source_gap`、`tail_validation` 和 `liveReplay` 是诊断或判断事实，不是直接写库触发器。只有当 Node scheduler 同时确认当前 conversation 属于允许的 terminal epoch 且 source-ready 条件满足时，才可把它们转化为 reconciliation job；否则保持 `canonical_pending`/`partial`。
+`needs_canonical`、`source_gap`、`tail_validation` 和 `liveReplay` 是诊断或判断事实，不是直接写库触发器。只有当 Node scheduler 同时确认当前 conversation 属于允许的 terminal 状态且 source-ready 条件满足时，才可把它们转化为 reconciliation job；否则保持 `canonical_pending`/`partial`。
 
 #### 5.5.2 durable job 与 App history sync 分离
 
@@ -370,13 +370,12 @@ App history sync（App 在线时）
 
 Node DB transaction 不等待 App ACK；App ACK 只确认 App 本地已经提交。A→B、WebSocket 断开或 App 重启时，只能取消/隔离 A 的 App-facing sync、旧 generation、page/chunk 和 UI 投递，不能取消已经创建的 Node durable job。
 
-该 job 必须以 conversation + terminal epoch single-flight，成功后再进入
-`conversationCommitKey=(authenticated revisionScope, conversationId)` 的 Node canonical
-commit lane。前者只负责 scheduler 去重和恢复，不能替代后者的 durable row lock/CAS；不同
-terminal epoch 或不同触发原因形成的 candidate 即使并行构建，也只能在 commit lane 内按
-base/head/source fence 重新校验后发布。失败、超时、超限、source mutation、identity
-mismatch 或不完整结果时保留旧 canonical 数据并进入 `partial`/`failed`，等待后续 scheduler
-retry。普通 A→B→A 不因此变成一次新的完整历史读取。
+该 job 必须以 conversation single-flight，且同一 conversation 同时只有一个 Node→Rust
+analyzer 请求。Rust 返回后由同一个 Node canonical writer 执行一次 DB transaction；不建立
+多 worker candidate、first-commit-wins、worker lease 或产品级 `commitFence`。其他历史查询
+只能读取已持久化 projection；缺少范围时只能向这个协调器排队，不能直接请求 Rust。失败、
+超时、超限、source mutation、identity mismatch 或不完整结果时保留旧 canonical 数据并进入
+`partial`/`failed`，等待同一 job 后续 retry。普通 A→B→A 不因此变成一次新的完整历史读取。
 
 ### 5.6 A→B→A、断线和 App 重启
 
@@ -445,7 +444,7 @@ A→B→A 的正确顺序是：
 | `older_available` | 当前范围之前仍有历史 | 可继续 older page |
 | `partial` | 只完成尾部/部分范围，覆盖不完整 | 只能按 partial 规则追加，不能宣称 complete |
 | `recovery_required` | checkpoint/source/anchor 无法直接连续恢复 | 需要新的有界 recovery |
-| `source_replaced` | source epoch 已替换 | 旧 scope 不能复活，应建立新 epoch 基线 |
+| `source_mutation` | 内部 source evidence 不一致或需要 recovery | 保留旧 snapshot，排队有界 recovery；不把内部 epoch 发送给 App |
 | `no_live_source` | 没有可回放的实时 retention | 不代表历史不存在，也不应卡住 cache-first |
 | `cache_only` | 服务端暂时不能继续同步，但本地历史可用 | 保留旧 cache，结束当前 watchdog |
 | `failed` | 超时、超限、协议错误或来源缺口 | 不得以空结果覆盖旧 cache |
@@ -479,7 +478,6 @@ ConversationHistoryManifest
   hasMoreBefore
   nextOlderCursor
   completeness
-  sourceEpoch / provenance summary
 
 HistoryItemDto
   itemKey
@@ -490,7 +488,6 @@ HistoryItemDto
   content / summary
   contentHash
   completeness
-  sourceEpoch
   revision
   detailRef?
 
@@ -500,7 +497,6 @@ ToolDetailDto
   input / output summary
   detailRef?
   completeness
-  sourceEpoch
   revision
 
 UsageDto
@@ -515,7 +511,6 @@ TaskOutcomeDto
   status
   message / summary
   completeness
-  sourceEpoch
   revision
 ```
 
@@ -538,17 +533,19 @@ TaskOutcomeDto
 
 阶段 5 的服务端数据库不是 Rust Analyzer 的内部缓存，也不是 App SQLite 的远端镜像。它应保存 Node 校验后的产品历史投影和恢复元数据，供 App history sync 查询。
 
-至少需要覆盖以下逻辑实体：
+至少需要覆盖以下逻辑实体。下面只是阶段 4.5 的逻辑边界，不冻结阶段 5 的物理 schema：
 
 | 逻辑实体 | 最低职责 |
 |---|---|
-| `history_items` | 稳定 canonical item、turn、顺序、角色、正文/摘要、hash、canonical completeness、source epoch、revision、provenance/detail ref；不接收 IPC live item |
+| `turns` | 独立的 turn 状态、顺序、execution/projection status 和 replacement 关系入口；不接收 IPC live item |
+| `history_items` | 稳定 canonical item、turn、顺序、角色、正文/摘要、hash、canonical completeness、revision、provenance/detail ref；不接收 IPC live item |
 | `tool_details` | 工具调用的结构化输入/输出摘要、call id、详情引用、完整性和 revision |
 | `usage` | turn/item 级 usage，避免把 conformance 聚合值误当成产品总计 |
 | `task_outcomes` | 任务/turn 的终态、失败/取消/完成摘要及完整性 |
-| `analysis_checkpoints` | source identity、source epoch、fingerprint、prefix anchor、reader/provenance、segment、cursor、completeness、projection watermark、reducer state 等恢复证据 |
-| `analysis_runs` / `analysis_errors` | running/completed/failed、request、错误、重试和结果状态 |
-| source/conversation state | 当前 source、retired epoch、current epoch fence、root/newest/oldest anchor、coverage 和 server revision |
+| `turn_replacements` | 仅记录已验证的 last-turn old→new 关系；Branch in new chat 不写入该关系 |
+| `analysis_checkpoints`（内部） | source identity、内部 `source_epoch`、fingerprint、prefix anchor、reader/provenance、segment、cursor、completeness、projection watermark、reducer state 等恢复证据；不进入 App DTO |
+| `collector_job`（可选内部控制） | 单 conversation 的 queued/running/retry/pending 状态和最近 checkpoint；不是产品历史或永久运行日志 |
+| conversation state | active head、root/newest/oldest anchor、coverage、canonical completeness 和 server revision；不保存产品 source epoch/retired source fence |
 | sync/read-model metadata | App manifest、coverage root、older cursor、server revision 和增量查询所需索引 |
 
 表名是逻辑要求，不在本文冻结具体数据库产品、ORM 或字段迁移实现。正式实现必须通过 migration、repository 和可测试事务承载这些语义，不能继续把 `data/codex-rollout-*` 当产品库。
@@ -559,11 +556,11 @@ Node canonical writer 的提交 scope 固定为：
 conversationCommitKey = (authenticated profile/endpoint/tenant partition, conversationId)
 ```
 
-每个 scope 必须有可持久化恢复的 `commitFence`/row version 和 operation ledger。普通
-canonical upsert、last-turn replacement、coverage/completeness publication 与 product source
-replacement 共享同一 conversation commit lane；Rust 读取/解析和 candidate staging 可以并行，
-不同 conversation 可以并行，但同一 conversation 的 canonical transaction 不能并发提交。
-`commitFence` 不下发 App，也不能被 `syncId`、`clientSelectionGeneration` 或 App ACK 替代。
+每个 scope 只需要由单一 Node coordinator 顺序执行 canonical transaction；`serverRevision`
+是对外的 read-model revision，`batchId/operationId` 负责重复提交幂等。不同 conversation
+可以并行，但同一 conversation 不存在多个 canonical writer；不引入产品级 `commitFence`、
+candidate arbitration 或 worker lease。App 的 `syncId`、`clientSelectionGeneration` 和 ACK
+只属于 App transport，不参与 Node canonical commit。
 
 ### 7.2 Node 导入事务顺序
 
@@ -572,9 +569,8 @@ replacement 共享同一 conversation commit lane；Rust 读取/解析和 candid
 ```text
 校验 AnalysisBatch schema/provenance/completeness/mutations/source safety
     → upsert history_items、tool_details、usage、task_outcomes
-    → 更新 conversation/source coverage、revision 和 source epoch 状态
+    → 更新 conversation coverage、canonical completeness 和 server revision
     → 原子写 analysis_checkpoints
-    → 写 analysis_runs / error 状态
     → 事务提交
     → 向 Rust ACK accepted=true,persisted=true
 ```
@@ -582,13 +578,12 @@ replacement 共享同一 conversation commit lane；Rust 读取/解析和 candid
 必须满足：
 
 - `itemKey`、`batchId` 和 mutation 幂等；
-- Node 在进入上述写入序列前捕获 conversation 的 base fence；真正 transaction 内必须通过
-  行锁或 CAS 重检 active head、source fence、server revision 和 operation identity；
-- 同一 `(authenticated scope, conversationId)` 只有一个 canonical promotion transaction
-  可以 COMMIT；内存 single-flight 只能优化争用，不能作为 Node 重启或多 worker 的正确性依据；
+- Node 只允许单一 coordinator 进入上述写入序列；transaction 内重检 active head、server
+  revision 和 operation identity；
+- 同一 `(authenticated scope, conversationId)` 的重复请求必须通过 `batchId/operationId`
+  幂等处理，Node 重启后依据持久化 job/checkpoint 恢复，不创建第二条 Rust 链路；
 - 同一 completeness 只有更高 revision 才能更新正文、派生字段或 cursor；
 - canonical partial/不完整结果不能覆盖已完成的 canonical history；IPC live projection 不进入此事务；
-- 新 source epoch 的 replacement 必须先完成完整 preflight，再清理旧可见 scope，并持久化 retired tombstone/current-epoch fence；
 - checkpoint 必须晚于 derived data 写入；
 - Node 不得持有 conversation 写锁等待 Rust I/O、source backfill、WebSocket 或 App ACK；
 - COMMIT 前失败按事务回滚，COMMIT 后响应丢失按 operation 幂等重放；stale base 只能重新
@@ -605,8 +600,9 @@ replacement 共享同一 conversation commit lane；Rust 读取/解析和 candid
 3. 按 newest/oldest anchor 和 cursor 查询有序历史；
 4. 按 stable item key 返回重叠安全的 upsert delta；
 5. 按 `detailRef` 读取大工具详情或媒体引用；
-6. 返回 source epoch、server revision、coverage 和 completeness，供 App 形成新的 history checkpoint；
-7. 为每个同步上下文执行 bounded single-flight，避免同一 conversation 的重复 full read 和重复 DB 扫描。
+6. 返回 server revision、coverage 和 completeness，供 App 形成新的 history checkpoint；
+7. 为每个同步上下文执行 bounded single-flight；cache miss 只能排队给 Node conversation
+   coordinator，不能由 history provider 直接请求 Rust。
 
 这一步完成后，Node history sync service 才有稳定的产品数据源；阶段 4 importer 只是另一个写入方，不应反向定义 App DTO。
 
@@ -619,8 +615,8 @@ replacement 共享同一 conversation commit lane；Rust 读取/解析和 candid
 - Rust 读取安全的 rollout source，经过 `codex_wire`、`CodexEventAdapter` 和 TermLink 自有 `AnalysisEvent`；
 - Rust 输出 `AnalysisBatch`、`ParserProvenance`、source cursor、source fingerprint、prefix anchor、completeness、projection 和 mutations；
 - Node analyzer protocol 支持 hello、analyze、cancel、batch、ack、complete、error；
-- Node importer 对 batch、provenance、source epoch、mutation、revision、cursor 和 completeness 做 fail-closed 校验；
-- `MemoryAnalysisStore` 和默认 `FileAnalysisStore` 支持 history items、tool details、usage、task outcomes、projection、diagnostics、run/error、checkpoint 和幂等重放；
+- Node importer 对 batch、provenance、内部 source identity、mutation、revision、cursor 和 completeness 做 fail-closed 校验；
+- `MemoryAnalysisStore` 和默认 `FileAnalysisStore` 支持 history items、tool details、usage、task outcomes、projection、diagnostics、collector job/checkpoint 和幂等重放；
 - plain JSONL 才承诺安全的 tail/backfill/append cursor；普通无 seek/index 的 `.zst` 只承诺 forward stream；
 - 当前 Node 测试 `tests/codexRolloutCollector.test.js` 为 22/22 通过；Rust `stage4_protocol` 集成为 8/8 通过。
 
@@ -643,7 +639,7 @@ data/codex-rollout-runs/
 | `data/sessions.json` | TermLink session metadata | `history_items`、source checkpoint 和 App history read model |
 | `data/client-registrations.json` | client registration 生命周期信息 | App 历史正文和增量游标 |
 | `data/codex-media/` | content-addressed media/blob | 历史 item、tool detail、usage 和 outcome |
-| `data/codex-history-snapshots/`（可选） | 现有 history snapshot artifact | 正式 DB transaction、revision、source epoch 和多客户端同步 read model |
+| `data/codex-history-snapshots/`（可选） | 现有 history snapshot artifact | 正式 DB transaction、revision 和多客户端同步 read model |
 | `data/codex-rollout-*` | 阶段 4 analyzer artifact | 产品历史查询、App DTO 和实时 IPC replay |
 
 当前 Node 侧没有面向这些产品历史实体的关系型 schema、migration、正式 repository 和统一事务边界。因此，阶段 5A 的数据库工作不是把某个已有历史库“接上 importer”，而是先建立这套正式持久化和查询契约。
@@ -683,10 +679,10 @@ Rust Analyzer 不负责：
 | 实时 IPC 与历史同步分成两条 lane | 合理 | healthy surface 负责实时；canonical history 负责恢复和最终一致性 |
 | App 本地 SQLite cache-first | 合理 | 先显示本地已提交历史，再后台 bounded sync |
 | 最新尾部优先，旧历史后台补全 | 合理 | newest delta 优先，older page 使用独立 cursor |
-| canonical partial → canonical complete | 合理 | 通过 canonical item key/hash/epoch/revision 幂等升级，不允许反向降级；不表示 live item 与 canonical item 合并 |
+| canonical partial → canonical complete | 合理 | 通过 canonical item key/hash/revision 和 source evidence 校验幂等升级，不允许反向降级；不表示 live item 与 canonical item 合并 |
 | 每个 App/client 使用独立同步上下文 | 合理 | `syncId + selectionGeneration + local checkpoint` 按客户端隔离 |
 | 大工具输出按需加载 | 合理 | 正文保留摘要和 `detailRef`，payload chunk 受大小门禁 |
-| 任务完成后做一次静默 reconciliation | 合理 | terminal/source epoch single-flight、失败保留旧 cache |
+| 任务完成后做一次静默 reconciliation | 合理 | terminal/source-ready single-flight、失败保留旧 cache |
 | history sync 使用 manifest/delta/page/ACK | 合理 | 与当前 Gateway/Android 协议对齐，支持重试和恢复 |
 
 ### 9.2 不能按原文字面直接实现的部分
@@ -708,7 +704,7 @@ Rust Analyzer 不负责：
 2. 把“同步是否结束”和“历史是否完整”分开：`historySyncSettled` 只表示本次网络同步有界结束；`coverageComplete`/`complete` 表示覆盖证明，不能互相替代。
 3. 把“发现需要 canonical reconciliation”和“执行 reconciliation”分开。`needs_canonical`、`source_gap`、`tail validation` 本身不应静默写库。
 4. 先定义服务端 DB 的稳定 read model，再让 Node history sync 直接面向 App 输出；不要把 analyzer checkpoint 或 Rust conformance projection 暴露给 App。
-5. 给服务端和 App 增加可观测字段：conversation、source epoch、server revision、sync id、selection generation、checkpoint root、coverage、failure reason 和 commit latency。
+5. 给服务端和 App 增加可观测字段：conversation、server revision、sync id、selection generation、checkpoint root、coverage、failure reason 和 commit latency；内部 source identity 只留在诊断/恢复记录。
 6. 将 durable runtime buffer、IPC event log/replay、owner transfer、rollout background scheduler 作为阶段 5 之后的独立能力；当前阶段不把“运行中跨重启无损恢复”列为验收条件。
 7. 将 T0/T1/T2 和 `live_incomplete → canonical_pending → canonical_complete` 写入 E2E 验收，避免把“IPC 已重连”误判为“历史已完整”。
 
@@ -720,7 +716,7 @@ Rust Analyzer 不负责：
 
 - 隔离 Rust analyzer protocol；
 - Node importer；
-- `AnalysisBatch` 校验、幂等和 source epoch replacement；
+- `AnalysisBatch` 校验、幂等和 source mutation fail-closed/recovery；
 - checkpoint、run/error 状态；
 - 默认原子 File Store 和可注入 Memory Store；
 - conformance、恢复、重复 batch、重启重放测试。
@@ -738,7 +734,7 @@ Rust Analyzer 不负责：
 需要冻结并写出可测试契约：
 
 - App cache-first 生命周期和新任务/运行中/完成/A→B→A/重启状态机；
-- `conversationId`、profile、source identity/epoch、syncId、selectionGeneration 的分层语义；
+- `conversationId`、profile、内部 source identity、syncId、selectionGeneration 的分层语义；App 不接收 source epoch；
 - manifest、delta、older page、segment、payload chunk、ACK 和终态 DTO；
 - App history checkpoint 与 analyzer checkpoint 的分离；
 - canonical partial/complete 的提升和降级规则，以及 live projection 被 canonical projection 替换的规则；
@@ -758,12 +754,12 @@ Rust Analyzer 不负责：
 
 - 数据库技术选择、migration 和启动/升级策略；
 - `history_items`、`tool_details`、`usage`、`task_outcomes`、`analysis_checkpoints`、run/error、source/conversation state 和 sync metadata；
-- source epoch、retired tombstone、current epoch fence；
+- internal collector checkpoint 与 source mutation fail-closed 状态；不建立产品 source replacement、retired tombstone 或 current epoch fence；
 - stable item/batch/mutation 幂等约束和事务；
 - manifest、delta、older page、detail ref 的查询 repository；
 - server revision、coverage、anchor 和 completeness 的 read model；
-- conversation 级 durable commit fence、operation ledger、DB 重启、重复写入、并发
-  single-flight/提交冲突和失败保留旧数据测试。
+- 单 conversation coordinator、`batchId/operationId` 幂等、DB 重启、重复写入、队列恢复和
+  失败保留旧数据测试。
 
 阶段 5A 完成前，不能把阶段 4 File Store 直接称为正式产品持久化。
 
@@ -785,7 +781,7 @@ Rust Analyzer 不负责：
 - Rust 进程仍只输出 `AnalysisBatch`；
 - Node 负责 batch 校验、产品映射、事务和 checkpoint；
 - ACK 只在 DB transaction 和 checkpoint 成功后发送；
-- importer 的失败、重启、重复 batch、source replacement 和 partial→canonical 必须能在正式 DB 重放；
+- importer 的失败、重启、重复 batch、source mutation recovery 和 partial→canonical 必须能在正式 DB 重放；
 - 不把原始 rollout 或 analyzer checkpoint作为 App 公共历史 DTO 直接暴露。
 
 ### 阶段 5D：App 端到端验收
@@ -800,7 +796,7 @@ Rust Analyzer 不负责：
 - source 未 flush/stable、analyzer partial 或导入事务失败时保持 `canonical_pending`/`partial`，不得提前发布 `canonical_complete`；
 - A→B→A 和迟到旧 generation 结果；
 - duplicate page/chunk、重复 analyzer batch、Node 重试；
-- source replacement、epoch fence、canonical partial 到 canonical complete 的提升；
+- source mutation fail-closed、canonical partial 到 canonical complete 的提升；
 - Node 不持久化 IPC live item，canonical snapshot/delta 原子替换 App live projection，且不依赖 `surfaceKey → canonicalItemKey` 映射；
 - 大工具详情按需加载、256/128 KiB 大小门禁；
 - 多 App/client 使用独立 sync context；
@@ -829,15 +825,15 @@ Rust Analyzer 不负责：
 5. A→B→A 的旧异步结果必须经过 `conversationId + selectionGeneration + syncId` 门禁；
 6. `itemKey`、`batchId`、mutation、page、chunk 和 ACK 必须可幂等重放；
 7. canonical partial 不能降级或覆盖已完成 canonical；IPC live projection 不得写入 canonical history，只能在 canonical 完成后被替换；
-8. source replacement 必须按 source epoch fail-closed，并保留旧 epoch 的 retired/current fence；
+8. source mutation、binding 不完整或 lineage 证据不足必须 fail-closed；保留旧 canonical snapshot，Branch 使用新的 conversation；
 9. 空结果、超时、超限、source gap 或 provenance 不完整不得清空已有历史；
 10. analyzer checkpoint 与 App history checkpoint 必须分层，不能直接互相冒充；
 11. history envelope 不超过 256 KiB，payload chunk 不超过 128 KiB；
 12. `liveCoverage` 与 `canonicalCompleteness` 必须分开；T0/T1/T2 中的 T1 live gap 允许存在，不能用 IPC 重连或 history sync 完成替代 canonical completeness；
 13. 没有实际 durable buffer/event log 证据时，不得宣称 IPC 事件跨崩溃、跨 Node 重启无损恢复；canonical source reconciliation 失败或未稳定时必须保持 `canonical_pending`/`partial`。
-14. Node 同一 `(revisionScope, conversationId)` 的 canonical publication 必须通过持久化
-    conversation commit lane；相同 operation 只能产生一次 revision，stale base/迟到
-    candidate 不能覆盖更新 head/source，不同 conversation 才允许并行提交。
+14. Node 同一 `(revisionScope, conversationId)` 只有一个 coordinator 和一个 in-flight Rust
+    request；相同 `batchId/operationId` 只能产生一次 revision，迟到或不完整结果不能覆盖
+    更新 head；不同 conversation 才允许并行。
 
 ## 13. 依据和关联文档
 
