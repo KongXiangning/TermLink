@@ -11,6 +11,27 @@ related_docs:
 
 # Node Server → Rust Rollout Collector Analyzer 启动接口契约
 
+## 当前实现状态（非规范；以本契约正文及概念状态登记表为准）
+
+本节只记录实现差距，不是规范内容；不修改、不降低、不重新解释本文任何正文条款。
+概念归属与实现状态维度以 [codex-concept-layer-status-registry](./codex-concept-layer-status-registry.md)（AD-020）为准。
+
+当前实现仍生成阶段 4 旧协议；目标 4.5 公共协议尚未接入。迁移期间保留旧协议运行路径，
+但不宣称旧协议与目标协议双向兼容。下表为整组 Node↔Rust 接口的共同实现差距（详见 wire/data
+契约与登记表），其中与本启动契约直接相关的部分是：`sessions_root` 等启动参数的实际进程接线
+尚未按本文核验，仍属迁移任务边界。
+
+| 维度 | 目标契约（本文正文） | 当前实现（阶段 4 旧协议运行态） |
+|---|---|---|
+| analyze 参数 | 不含 `source_spec`，仅 job_id + conversation/read intent/cursor/recovery/resource limits | Node 与 Rust 仍要求并传递 `source_spec.path/source_id/source_epoch` |
+| analyze mode | 仅 `preview / backfill / append` | 双方仍含 `replay`，Node 默认使用 `replay` |
+| batch 外层信封 | 外层 `job_id + segment_id + batch_id` 并做一致性校验 | 无外层 `job_id/segment_id` 的旧批次结构 |
+| 能力协商 | `analyze_v1` 能力交集，缺失即 fail-closed | 旧 capability 集合（含 `replay`），未实现协商校验 |
+| fingerprint/prefix anchor | opaque legacy evidence，非业务 gate | canonical batch 仍强制参与校验/恢复 |
+
+上述每一项差异都是后续独立协议迁移任务的任务边界；迁移任务建立并完成前，不得引用本文
+正文断言当前进程的实际行为。代码迁移必须另立任务，不在文档收口轮顺带修改。
+
 本文只定义 **Node 如何启动一个独立 Rust analyzer 模块**。不定义 JSONL 业务消息、Rust
 `AnalysisBatch` 内容、Node coordinator 状态或阶段 5 数据库。
 

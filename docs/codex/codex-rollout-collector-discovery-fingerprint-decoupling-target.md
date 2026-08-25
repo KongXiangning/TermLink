@@ -58,7 +58,10 @@ Node importer / checkpoint store
 - Node 的业务视图只表达：`conversation_id`、读取模式、cursor/recovery state、已知完整范围和资源/超时限制。
 - Node 不构造候选 catalog，不读取 raw rollout，不判断“当前是否需要 discovery”，不依据文件名或 mtime 选择 active source。
 - Rust 内部的 source index、lineage locator、source backend、adapter、reducer 和 checkpoint runtime 不暴露给 Node。
-- 现有 formal v1 如果在兼容窗口内仍接受旧的 `source_spec`、`discovery` 或 legacy evidence 字段，只能由 Rust compatibility adapter 消费或忽略；Node 不构造、不校验、不据此选择来源。物理删除旧 wire 字段另立协议迁移任务。
+- 迁移期间现有 formal v1 可能仍接受旧的 `source_spec`、`discovery` 或 legacy evidence 字段：
+  这属于旧协议运行态的过渡事实，不代表旧协议与目标 4.5 协议双向兼容。旧字段只能由 Rust
+  compatibility adapter 消费或忽略；Node 不构造、不校验、不据此选择来源。物理删除旧 wire
+  字段另立协议迁移任务。
 - 7 个既有 analyzer message type 和 JSONL framing 不因本目标增加新的业务消息。
 
 ### 3.2 Rust 内部 source index
