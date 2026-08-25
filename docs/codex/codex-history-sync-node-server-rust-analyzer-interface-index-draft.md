@@ -14,10 +14,35 @@ related_docs:
 
 # TermLink Codex History Sync：Node Server ↔ Rust Rollout Collector Analyzer 接口契约索引
 
+## 当前实现状态（非规范；以本契约正文及概念状态登记表为准）
+
+本节只记录实现差距，不是规范内容；不修改、不降低、不重新解释本文任何正文条款。
+概念归属与实现状态维度以 [codex-concept-layer-status-registry](./codex-concept-layer-status-registry.md)（AD-020）为准。
+
+当前实现仍生成阶段 4 旧协议；目标 4.5 公共协议尚未接入。迁移期间保留旧协议运行路径，
+但不宣称旧协议与目标协议双向兼容。
+
+| 维度 | 目标契约（本文正文） | 当前实现（阶段 4 旧协议运行态） |
+|---|---|---|
+| analyze 参数 | 不含 `source_spec`，仅 job_id + conversation/read intent/cursor/recovery/resource limits | Node 与 Rust 仍要求并传递 `source_spec.path/source_id/source_epoch` |
+| analyze mode | 仅 `preview / backfill / append` | 双方仍含 `replay`，Node 默认使用 `replay` |
+| batch 外层信封 | 外层 `job_id + segment_id + batch_id` 并做一致性校验 | 无外层 `job_id/segment_id` 的旧批次结构 |
+| 能力协商 | `analyze_v1` 能力交集，缺失即 fail-closed | 旧 capability 集合（含 `replay`），未实现协商校验 |
+| fingerprint/prefix anchor | opaque legacy evidence，非业务 gate | canonical batch 仍强制参与校验/恢复 |
+
+上述每一项差异都是后续独立协议迁移任务的任务边界；迁移任务建立并完成前，不得引用本文
+正文断言当前进程的实际行为。代码迁移必须另立任务，不在文档收口轮顺带修改。
+
 本文现在是**接口总入口和边界索引**，不再把启动配置、JSONL wire、Rust 分析数据和 Node
 coordinator 规则写在同一个契约中。四份拆分文档才是对应领域的具体接口定义。
 
-> [!NOTE] 现行产品持久化边界：Node 每个 conversation 只持久化一份 canonical 记录；本组接口不定义多版本 projection、产品 revision counter 或 revision fence。
+> [!NOTE] 现行产品持久化边界：Node 每个 conversation 只持久化一份 canonical 记录；当前阶段不做任何持久化版本管理，不定义多版本 projection、版本水位或提交 fence。
+
+`item_key`、`content_hash`、`completeness`、`source_ref` 和必要的内部 source identity 只用于
+幂等、完整性与来源证据，不形成 item 或 conversation 版本。旧 formal producer 可能携带的
+item/source `revision` 仅是待迁移的兼容残留，不能进入 4.5 公共数据形状、Node 持久化或
+Coordinator 返回结果；parser/wire 的 `wire_source_revision` 仍只表示上游源码 provenance，
+与产品记录无关。
 
 拆分的目的不是增加接口，而是保持 Node 与 Rust 的独立模块边界：
 
@@ -106,6 +131,8 @@ COMMIT → 该 conversation 的唯一 canonical record publication
 14. `preview`、`backfill`、`append` 都是一次长生命周期的流式 `analyze` request；Node 异步
     等待多个 batch 及最终 `complete/error`，但不阻塞 event loop，Rust active slot 在终态前保持占用；
 15. App/WebSocket、Android SQLite、Codex IPC 和阶段 5 DB 不属于 Node↔Rust analyzer wire。
+16. Node 当前只维护每个 conversation 的一份 canonical 记录，不保存或返回 item/source
+    revision；相同内容按稳定 key 幂等，冲突或不完整 source evidence fail-closed/partial。
 
 ## 5. 变更规则
 

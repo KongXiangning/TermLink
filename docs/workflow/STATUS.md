@@ -87,6 +87,7 @@
 
 ## ⚠️ 已知风险 / 观察点
 
+- `20260825-003` 接口文档收敛后的遗留边界：formal native crate 中 fingerprint/prefix anchor、`retention_profile`、item/source `revision` 等兼容字段仅登记为 legacy / migration-required，物理删除需另立协议迁移任务；`CONTRACTS.md`/`DECISIONS.md` 中 AD-011/AD-012 的阶段 4 formal revision 表述本轮未改，完全去除旧术语需另立范围锁定任务。该批文档改动尚未提交，混在 R-010 任务外 dirty 工作树中，提交时必须 path-scoped，不得整树提交。
 - `20260715-001` Windows x64 Setup/Portable/配置工具本地实现已完成，但仍缺 clean Windows x64 host 的最终外部验收；任务被当前 Web UX 目标 supersede 后，该证据保持独立未完成，不得误写为 stable 或在 Web 任务中顺手修改。
 - `20260715-002` 已获得 Edge 150 authenticated-browser 与三档 viewport 证据，本任务无剩余产品阻断。已知的 `codexClient.shell` 缺历史按钮和 `codexSecondaryPanel.integration` quick-sandbox 断言在 task base 已存在且本轮未改动对应行为，继续作为 scope-external baseline failures 管理；Node full-suite 既有挂起面仍按 TD-004 窄门禁处理。
 - `src/ws/terminalGateway.js` 责任过重，是高回归风险区域
@@ -117,6 +118,7 @@
 
 ## 🔜 下一检查点
 
+- [ ] 为 formal native crate 的 fingerprint/prefix anchor、`retention_profile`、item/source `revision` 兼容字段物理删除另立协议迁移任务；如需同步清理 `CONTRACTS.md`/`DECISIONS.md` 中 AD-011/AD-012 的旧 formal revision 术语，一并单独锁范围并取得用户确认
 - [ ] 完成 `20260823-001` workflow closeout：按下一 handoff 执行 `sync-contracts`，随后准备交付摘要/归档；保持会话级 discovery/lineage 能力在隔离 Rust Collector 边界内，不扩展到产品持久化、App ADTO、IPC、Android 或 release。
 - [ ] 完成 `20260820-001` workflow closeout：按下一 handoff 执行 `sync-contracts`，随后准备交付摘要/归档；保持阶段 2 稳定声明在 native formal package 输入/兼容边界内，不扩展到 P0-C、P0-B.4R、完整 analyzer 或产品集成
 - [ ] 完成 `20260820-002` path-scoped closeout：用户确认 R-010 任务外 dirty/untracked 内容的 owner，或明确授权仅对指定任务路径执行 staging/commit；确认前不清理、移动、回滚、归档或提交任务外文件
@@ -129,6 +131,7 @@
 
 ## 最近更新记录
 
+- 2026-08-26：完成并收口 `20260825-003`「收敛 Node↔Rust 接口文档」：4.5 公共 `analyze` 只保留 conversation/read intent、mode、cursor/恢复状态和资源预算，discovery/fingerprint 退出业务接口；`serverRevision`、泛化 item/source `revision` 和公共 `retention_profile` 从现行来源移除，旧 collector change plan 标注为 L1 formal-only implementation background。验证为 scoped `git diff --check` 通过（CRLF 归一口径）与 collector 回归（宿主侧 30/30；本日 WSL 复跑 28/30，2 例失败均为 WSL 会话无法运行 Windows 构建的正式 Rust `.exe`，属环境限制）。formal native crate 兼容字段物理删除与治理文档旧 formal 术语清理分别留待独立协议迁移 / 范围锁定任务。
 - 2026-08-24：同步 `20260823-001` 会话级 Rust Collector 状态。跨日期 discovery、文件 lineage 关联、root→head 完整读取重建、tail/backward、backfill、同文件 append、child transition、coverage/provenance/checkpoint/replacement evidence，以及 plain-over-compressed sibling canonicalization 均已实现并通过 Rust 全量目标回归（96 unit、31 conformance、3 stage2、5 stage3、22 stage4）、fmt、diff check、敏感信息扫描和提交前检查；最新实现提交为 `a94dcbc`。该状态只进入隔离 native Rust Collector 稳定边界，未改变产品 Node/DB、App ADTO、IPC、Android 或 release/deploy/canary/benchmark 状态；当前任务仍待 `sync-contracts` 后 closeout。
 - 2026-08-19：同步 `20260819-001` Step 4 状态。P0-RC.1 正式 package 已通过 clean-checkout 与 Demo/Spike/formal 同 fixture 最终回归，formal package 为 9 项 unit、27 项 conformance、0 项 doc test，metadata 为 539 packages、0 Git sources、0 runfiles；alias、`UnknownEvent`/`ParseGap`、source-boundary 与 `target/**` ignore 证据齐全。正式 package 的稳定边界已登记，但任务包仍 active 以完成 workflow closeout；不改变 P0-C/P0-B.4R、完整 analyzer、Node/Android/IPC/数据库及 release readiness 状态。F-004 按用户指令忽略，下一 handoff 为 `sync-contracts`。
 - 2026-08-19：同步 `20260819-001` 当前状态。Step 3 formal vertical slice、legacy/current alias fixture/Adapter/`UnknownEvent`/`ParseGap` 对照及 F-023/F-024 收口已完成；`review-diff`、`review-implementation`、`verify-contracts` 与 diff-aware regression 通过。正式 package 当前为 9 项 unit、27 项 conformance、0 项 doc test，metadata 为 539 packages、0 Git sources、0 runfiles。F-001 clean-checkout build/test 与 Demo/Spike/formal 同 fixture conformance 仍待 Step 4，故任务继续列为 in-development，未新增稳定模块；F-004 按用户指令忽略。

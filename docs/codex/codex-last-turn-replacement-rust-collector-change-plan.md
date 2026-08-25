@@ -2,8 +2,9 @@
 title: Codex Rollout 会话 lineage 定位、完整读取与最后 turn 编辑重发：Rust Collector 改造方案
 status: implementation-backed
 phase: P0-RC.1 additive compatibility and lineage extension
-last_updated: 2026-08-24
+last_updated: 2026-08-26
 source_of_truth: implementation-backed-design
+contract_scope: "L1 formal-only; not the current L2 Node↔Rust 4.5 public contract"
 related_docs:
   - docs/codex/codex-rollout-collector-architecture.md
   - docs/codex/codex-rollout-collector-codex-compatibility.md
@@ -21,6 +22,19 @@ related_code:
   - native/codex-rollout-collector/src/protocol
   - src/services/codexRolloutCollector
 ---
+
+> [!WARNING]
+> **来源层级与公共契约边界（2026-08-26）**
+>
+> 本文保留为 **L1 Rust formal-only implementation background**：记录 Rust Collector 的
+> source locating、lineage、读取和隔离 formal artifact 实现背景；它不是当前 L2
+> Node↔Rust 4.5 公共契约，也不是 Node 应发送或校验的公共字段清单。公共接口以现行
+> startup / wire / data / coordinator 契约及概念分层登记表为准。
+>
+> 本文原有 `lineageTransitions[].validationState` 三态描述属于历史 formal artifact / 旧
+> payload 兼容语义。现行公共 Data Contract 只有 `validated | validation_unavailable`；
+> `discovered` 仅作为缺失字段时的 serde 反序列化默认值保留，不能解释为当前生产路径主动
+> 输出或 4.5 公共接口要求。本文正文历史内容不删除，但必须按本警示阅读。
 
 # Codex Rollout 会话 lineage 定位、完整读取与最后 turn 编辑重发：Rust Collector 改造方案
 
@@ -227,7 +241,12 @@ LineageReadResult
 给 App。`historyItems` 必须包含有效 active lineage 中的旧 turn；不把 old turn 物理删除交给
 Rust。
 
-`lineageTransitions[].validationState` 是逐跳的 TermLink-owned 状态，固定为：
+> [!WARNING]
+> 以下三态是本文保留的 L1 formal/历史方案表达，不是当前 L2 Node↔Rust 公共输出定义。
+> 当前公共 Data Contract 只接受 `validated | validation_unavailable`；`discovered` 只保留为
+> 旧 payload 缺失字段时的兼容反序列化默认值。不要把下列“固定为”理解为当前公共生产者会主动输出三态。
+
+`lineageTransitions[].validationState` 是本文历史 formal 方案记录的逐跳状态，原文固定为：
 
 ```text
 discovered

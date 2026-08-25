@@ -13,6 +13,25 @@ related_docs:
 
 # Node Server ↔ Rust Rollout Collector Analyzer JSONL Wire 接口契约
 
+## 当前实现状态（非规范；以本契约正文及概念状态登记表为准）
+
+本节只记录实现差距，不是规范内容；不修改、不降低、不重新解释本文任何正文条款。
+概念归属与实现状态维度以 [codex-concept-layer-status-registry](./codex-concept-layer-status-registry.md)（AD-020）为准。
+
+当前实现仍生成阶段 4 旧协议；目标 4.5 公共协议尚未接入。迁移期间保留旧协议运行路径，
+但不宣称旧协议与目标协议双向兼容。
+
+| 维度 | 目标契约（本文正文） | 当前实现（阶段 4 旧协议运行态） |
+|---|---|---|
+| analyze 参数 | 不含 `source_spec`，仅 job_id + conversation/read intent/cursor/recovery/resource limits | Node 与 Rust 仍要求并传递 `source_spec.path/source_id/source_epoch` |
+| analyze mode | 仅 `preview / backfill / append` | 双方仍含 `replay`，Node 默认使用 `replay` |
+| batch 外层信封 | 外层 `job_id + segment_id + batch_id` 并做一致性校验 | 无外层 `job_id/segment_id` 的旧批次结构 |
+| 能力协商 | `analyze_v1` 能力交集，缺失即 fail-closed | 旧 capability 集合（含 `replay`），未实现协商校验 |
+| fingerprint/prefix anchor | opaque legacy evidence，非业务 gate | canonical batch 仍强制参与校验/恢复 |
+
+上述每一项差异都是后续独立协议迁移任务的任务边界；迁移任务建立并完成前，不得引用本文
+正文断言当前进程的实际行为。代码迁移必须另立任务，不在文档收口轮顺带修改。
+
 本文只定义两个独立进程之间的 JSONL 协议。它不定义 Node 如何排队、写产品 DB，也不定义
 Rust 内部如何发现 rollout、解析 Codex wire 或归约 projection。
 
@@ -35,7 +54,7 @@ Node Server 启动 Rust Collector Analyzer 的参数属于[启动契约](codex-r
 | `message_type` | string | 是 | `hello`、`analyze`、`cancel`、`batch`、`ack`、`complete`、`error` |
 | `request_id` | non-empty string | 是 | 一次握手或 analyze 生命周期的传输关联 ID |
 
-`request_id` 只表示当前传输 attempt，不是业务 job identity、`batch_id` 或产品 revision。
+`request_id` 只表示当前传输 attempt，不是业务 job identity、`batch_id` 或 canonical 记录身份。
 `job_id` 只出现在 analyze 生命周期相关消息中；它由 Node 分配，并在同一业务意图的重试、
 Node/Rust 进程重启期间保持不变。
 
@@ -172,7 +191,6 @@ Node 与 Rust 的 hello 都可以来自旧 formal producer，因此握手时先�
     batch_id: string
   } | null,
   known_complete_range?: SourceByteRange | null,
-  retention_profile?: string | null,
   resource_limits?: ResourceLimits
 }
 ```
@@ -202,6 +220,10 @@ Node 与 Rust 的 hello 都可以来自旧 formal producer，因此握手时先�
   才允许产生新的 identity；
 - `known_complete_range` 是本次 request 已知的 `SourceByteRange`，不是 App older-page
   range，也不是 Node 自己猜出的 source range；
+- `retention_profile` 不属于 4.5 Node→Rust 公共请求。formal v1 若仍因既有 native
+  artifact 暂时反序列化该可选字段，只能视为无行为的 legacy compatibility metadata；Node
+  不得发送、校验或解释它，当前 analyzer 也不以它选择保留策略。本文不为它定义公共 owner、
+  consumer、默认值或 profile 枚举；物理移除 formal 字段另立协议迁移任务；
 - `resource_limits` 是读取/超时预算；
 - `source_spec`、`discovery`、候选 path、catalog、`sessionsRoot` 和旧
   `replace_previous` 不属于 4.5 Node 业务请求。formal v1 若仍接收这些旧字段，只能由兼容层
@@ -480,7 +502,7 @@ canonical checkpoint。
 | `complete.status` | `complete.completeness` | 语义 | Node 处理 |
 |---|---|---|---|
 | `completed` | `canonical` | 本次 request 已完成，结果通过 Rust 侧完整性声明 | 继续执行 Node canonical gate；通过后才提交产品 DB transaction |
-| `partial` | `partial` 或 `provisional` | 本次 request 终止于安全但不完整的结果 | 只保存 recovery evidence，保留旧 canonical，不发布产品 revision |
+| `partial` | `partial` 或 `provisional` | 本次 request 终止于安全但不完整的结果 | 只保存 recovery evidence，保留旧 canonical，不发布新的 canonical 记录 |
 | `ok` | `canonical` | 旧 formal producer 对 `completed` 的兼容别名 | Node 先归一化为 `completed`，Rust 4.5 不主动发送 `ok` |
 
 以下组合非法并必须 fail-closed：
@@ -515,7 +537,7 @@ Rust 应发送 `error`，而不是发送 `complete(status=partial, completeness=
 采用保守 fail-closed 策略，不能默认可重试。
 
 `error` 是本次 request 的终止结果：Rust 不再发送成功 `complete`，error 本身不推进 cursor、
-checkpoint、canonical 或产品 revision。
+checkpoint，也不改变 canonical 记录。
 
 当 `code=batch_rejected` 时，`details` 必须是 object，并包含
 `rejection_code: "batch_validation_failed" | "batch_scope_conflict" | "staging_unavailable"`；

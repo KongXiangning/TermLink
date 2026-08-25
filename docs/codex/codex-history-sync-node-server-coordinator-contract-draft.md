@@ -13,12 +13,33 @@ related_docs:
 
 # Node Server Coordinator 契约
 
+## 当前实现状态（非规范；以本契约正文及概念状态登记表为准）
+
+本节只记录实现差距，不是规范内容；不修改、不降低、不重新解释本文任何正文条款。
+概念归属与实现状态维度以 [codex-concept-layer-status-registry](./codex-concept-layer-status-registry.md)（AD-020）为准。
+
+当前实现仍生成阶段 4 旧协议；目标 4.5 公共协议尚未接入。迁移期间保留旧协议运行路径，
+但不宣称旧协议与目标协议双向兼容。单例采集链/single-flight 调度本身已实现
+（implemented）；未实现的是消息层面的 `job_id/recovery_delivery(segment_id/batch_id)` 等
+恢复身份字段——见下表。
+
+| 维度 | 目标契约（本文正文） | 当前实现（阶段 4 旧协议运行态） |
+|---|---|---|
+| analyze 参数 | 不含 `source_spec`，仅 job_id + conversation/read intent/cursor/recovery/resource limits | Node 与 Rust 仍要求并传递 `source_spec.path/source_id/source_epoch` |
+| analyze mode | 仅 `preview / backfill / append` | 双方仍含 `replay`，Node 默认使用 `replay` |
+| batch 外层信封 | 外层 `job_id + segment_id + batch_id` 并做一致性校验 | 无外层 `job_id/segment_id` 的旧批次结构 |
+| 能力协商 | `analyze_v1` 能力交集，缺失即 fail-closed | 旧 capability 集合（含 `replay`），未实现协商校验 |
+| fingerprint/prefix anchor | opaque legacy evidence，非业务 gate | canonical batch 仍强制参与校验/恢复 |
+
+上述每一项差异都是后续独立协议迁移任务的任务边界；迁移任务建立并完成前，不得引用本文
+正文断言当前进程的实际行为。代码迁移必须另立任务，不在文档收口轮顺带修改。
+
 本文定义 Node 如何使用 Rust analyzer protocol。它是 **Node-owned orchestration contract**，
 也是 Node 队列、优先级、取消、重试和恢复规则的唯一具体契约；它不是 Rust 的内部实现接口，
 Rust 模块不需要读取本文的产品 DB、App、IPC 或队列规则。架构文档负责冻结进程拓扑和 single-flight
 架构不变量，wire/data/startup 契约只保留各自必要的协议约束，不在其他文档中重新定义 Node 调度策略。
 
-> [!NOTE] 现行产品持久化边界：Node 每个 conversation 只持久化一份 canonical 记录；本文不定义产品版本水位、revision fence 或同一会话的多版本 projection。
+> [!NOTE] 现行产品持久化边界：Node 每个 conversation 只持久化一份 canonical 记录；当前阶段不做任何持久化版本管理，不定义版本水位、提交 fence 或同一会话的多版本 projection。
 
 ## 1. 进程级 single-flight 边界
 
@@ -225,7 +246,7 @@ ACK 丢失按“持久化事实已知、Rust 是否收到未知”处理：
 |---|---|---|
 | batch 尚未 durable | 不发送 `persisted=true` | 从旧 checkpoint 重试；不推进任何 cursor |
 | batch 已 durable，正 ACK 发送但无 `complete` | 保留 durable receipt；当前 request 内有限重发同一 ACK | Rust 未确认前不发送成功 complete；旧 canonical 不变 |
-| Rust 重发相同 batch | 按 `job_id + segment_id + batch_id + scope + content` 幂等命中，重新发送同一正 ACK | 不重复 staging，不增加 revision |
+| Rust 重发相同 batch | 按 `job_id + segment_id + batch_id + scope + content` 幂等命中，重新发送同一正 ACK | 不重复 staging，不重复 canonical publication，也不创建新的 canonical 记录 |
 | 相同逻辑 delivery scope 内容/scope 冲突 | 拒绝并记录协议错误 | 不覆盖 receipt，不推进 checkpoint |
 | Rust 进程在 ACK 前重启 | 不要求 Rust 传输层保存 batch；Node 从最近 checkpoint 及 `recovery_delivery` 重新发起同一 job | 已物化 batch 沿用原 segment/batch ID；没有已物化 receipt 时，同一 validated source scope 仍复现原 identity，只有新 scope 才产生新 identity，重叠内容由 `item_key` 去重 |
 | Node 进程在 ACK 后重启 | 从 durable receipt 恢复 ACK-pending 状态；新 request 到达时按 receipt 幂等 ACK | 不因重启重复写入或发布 |
@@ -274,7 +295,7 @@ ACK 丢失和 `complete` 丢失必须分开记录：两者都使用 batch/checkp
 - Rust 退出：当前 active request 丢失；Node 按 retry budget 重启唯一 Rust 进程并恢复，其他
   conversation 保持 queued；
 - cancel/timeout 后到达的旧 batch/complete/error：按 request scope 丢弃或仅记诊断；不得改变旧 canonical；
-- COMMIT 前失败：本次产品事务回滚；COMMIT 后重复投递：返回已有 revision，不重复 publication。
+- COMMIT 前失败：本次产品事务回滚；COMMIT 后重复投递：按已有 durable receipt/canonical state 幂等成功，不重复 publication，也不创建新的 canonical 记录。
 
 每次启动当前 Rust process generation 时，Node 生成新的 hello `request_id=h`。Rust analyzer
 hello 必须原样回显 `h`；Node 只接受当前 generation 且 request id 完全匹配的响应。缺失、错配

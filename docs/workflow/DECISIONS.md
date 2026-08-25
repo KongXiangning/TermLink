@@ -350,6 +350,27 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 替代方案：直接删除旧草案中的 serverRevision/revisionScope 章节（拒绝——丢失设计演变记录且不可审计）；只在对话中维护清单（拒绝——不可审计、必然再次漂移）。
 - 验证方式：全仓检索确认各草案顶部标注存在、4.5 三份 split contract 未把 unadopted 概念列为必填字段、Rust 生产路径仍不构造 `Discovered`；`git diff --check` 通过。
 
+### AD-021: 4.5 公共 Node↔Rust 接口收敛——discovery/fingerprint 废止，`retention_profile` 与泛化 revision 非公共语义
+
+- 状态：accepted
+- 分类：架构 / 进程协议文档收敛（user-confirmed）
+- 背景：任务 `20260825-003` 中，用户依据 Codex app-server 对 rollout 的 append-only / parent-immutable 管理现实，以及“当前阶段 Node 每个 conversation 只持久化一份 canonical 记录、不做任何持久化版本管理”的产品事实，分轮确认了接口文档的收敛方向（2026-08-25～08-26）。
+- 决策：
+  - `discovery` 不再是 Node→Rust `analyze` 的业务字段或接入步骤；Rust 内部 source index lookup/refresh 是内部实现职责，不对 Node 暴露（与 AD-014/AD-019 一致并收口为公共契约表述）。
+  - fingerprint/prefix anchor 不作为 4.5 正常 append、active head 选择或 parent-child 验证的业务前置条件；formal schema 兼容字段仅作为 opaque legacy compatibility metadata 暂留。
+  - `retention_profile` 从 4.5 公共 `AnalyzeRequest` 删除；formal native 同名可选字段是无行为 legacy compatibility metadata，Node 不发送、不校验、不解释，物理删除另立协议迁移任务。
+  - 泛化 item/source `revision` 不再定义为公共字段、返回值、持久化版本或高低值覆盖条件；覆盖证据改由稳定 `item_key`、内容、`completeness`、`source_ref`/`complete_range` 和内部 source identity 表达。旧 Node/Rust 实现残留登记为 legacy-generated / migration-required；上游 `wire_source_revision` 属于 parser/wire provenance，不在该收口范围内。
+  - `codex-last-turn-replacement-rust-collector-change-plan.md` 只作为 L1 formal-only implementation background，其 `discovered` 三态不得被解释为 4.5 公共 Data Contract 或当前公共输出要求（呼应 AD-017 后续标注与 AD-020 登记表）。
+  - AD-011/AD-012 的阶段 4 checkpoint/revision 单调性条款只描述隔离 Rust↔Node artifact，不作为 4.5 公共接口依据。
+- 原因：rollout 写入完全由外部 app-server 控制，Node 不应承担 discovery 构造或 fingerprint 防线；产品“单一 canonical 记录、无版本管理”的事实使 `serverRevision`/revision 类机制没有现行载体，保留正向语义只会让旧草案反复伪装成现行契约。
+- 约束：
+  - 本条是文档语义收口，不代表 Rust schema 已完成字段删除；formal native crate 中 fingerprint/anchor、`retention_profile`、item/source `revision` 的物理删除必须另立协议迁移任务。
+  - 清理 `CONTRACTS.md`/`DECISIONS.md` 等治理文档中的旧 formal revision 术语必须另立范围锁定任务并取得用户确认。
+  - 后续不得把 `discovery`、fingerprint gate、`retention_profile` 或泛化 revision 以改名方式重新引入 4.5 公共接口；概念状态以 `docs/codex/codex-concept-layer-status-registry.md` 为准。
+- 影响范围：`docs/codex/` 下 interface index、coordinator contract、data/wire contract、architecture、concept registry、旧 collector change plan 共 7 份现行来源文档；不修改 Rust、Node runtime、schema、测试或数据库。
+- 替代方案：把 discovery 改名后继续暴露（拒绝——Node 仍错误承担 Rust 内部 source 定位职责）；把旧 watermark 改名 `item_revision` 延续为产品机制（拒绝——在无版本管理事实下伪装成现行机制）；本轮顺带删除 formal 字段（拒绝——超出文档修订范围，属协议迁移任务）。
+- 验证方式：对现行来源执行 discovery/fingerprint/`serverRevision`/`retention_profile`/revision 正向语义检索通过；宿主侧 `node --test tests/codexRolloutCollector.test.js` 30/30 与 scoped `git diff --check` 通过；2026-08-26 WSL 复跑 28/30，2 例失败均为 WSL 无法运行 Windows 构建正式 `.exe` 的环境限制。
+
 ## 🎨 口味决策
 
 ### TD-001: host guidance 使用各自宿主的本地 skill 路径

@@ -12,6 +12,26 @@ related_docs:
 
 # Rust Rollout Collector Analyzer → Node Server 分析数据契约
 
+## 当前实现状态（非规范；以本契约正文及概念状态登记表为准）
+
+本节只记录实现差距，不是规范内容；不修改、不降低、不重新解释本文任何正文条款。
+概念归属与实现状态维度以 [codex-concept-layer-status-registry](./codex-concept-layer-status-registry.md)（AD-020）为准。
+
+当前实现仍生成阶段 4 旧协议；目标 4.5 公共协议尚未接入。迁移期间保留旧协议运行路径，
+但不宣称旧协议与目标协议双向兼容。
+
+| 维度 | 目标契约（本文正文） | 当前实现（阶段 4 旧协议运行态） |
+|---|---|---|
+| analyze 参数 | 不含 `source_spec`，仅 job_id + conversation/read intent/cursor/recovery/resource limits | Node 与 Rust 仍要求并传递 `source_spec.path/source_id/source_epoch` |
+| analyze mode | 仅 `preview / backfill / append` | 双方仍含 `replay`，Node 默认使用 `replay` |
+| batch 外层信封 | 外层 `job_id + segment_id + batch_id` 并做一致性校验 | 无外层 `job_id/segment_id` 的旧批次结构 |
+| 能力协商 | `analyze_v1` 能力交集，缺失即 fail-closed | 旧 capability 集合（含 `replay`），未实现协商校验 |
+| fingerprint/prefix anchor | opaque legacy evidence，非业务 gate | canonical batch 仍强制参与校验/恢复 |
+| item/source revision | 目标契约不定义；覆盖依据是 `item_key`、内容和 source evidence，不做版本比较 | 阶段 4 旧运行态仍携带并消费该字段；属于待迁移旧协议残留，不是当前公共持久化原则 |
+
+上述每一项差异都是后续独立协议迁移任务的任务边界；迁移任务建立并完成前，不得引用本文
+正文断言当前进程的实际行为。代码迁移必须另立任务，不在文档收口轮顺带修改。
+
 本文定义 Rust analyzer 交付给 Node 的分析数据形状和语义。Rust 负责生成这些数据；Node
 负责校验、暂存、ACK，并在自己的产品事务中决定是否发布。Rust 不知道 Node 的数据库表、
 App DTO 或 IPC 状态。
@@ -170,6 +190,7 @@ formal v1 可能附带以下 legacy 字段；它们不是 4.5 Node 业务必填�
 | `source_prefix_anchor` | object 或 `null` | 只作 opaque compatibility/diagnostic evidence；不作为 Node canonical gate |
 | `replace_previous` | boolean 或 `null` | 旧 artifact 兼容字段；4.5 不发送、不要求、不据此执行删除/替换或改变产品状态 |
 | `discovered_sources` | object[] | 不作为 Node source catalog，不用于 active source 选择 |
+| `revision` | integer 或 `null` | 旧 item/source coverage 字段；4.5 不发送、不要求、不返回、不持久化、不参与覆盖比较；仅可作为迁移期间的 opaque 诊断证据保留 |
 
 ### 2.2 顶层字段的组合规则
 
@@ -312,7 +333,6 @@ BatchSourceRef {
   content_hash: string,
   completeness: unknown | partial | provisional | canonical,
   source_epoch: string,
-  revision: integer,
   source_ref: SourceRef
 }
 
@@ -326,6 +346,12 @@ SourceRef {
   item_type?: string
 }
 ```
+
+当前 4.5 公共数据形状不包含 item/source `revision`。Node 对每个 conversation 只维护一份
+canonical 记录，不建立对象版本、版本水位或按高低版本覆盖的持久化机制；重复内容按稳定
+`item_key`/`content_hash` 幂等处理，来源冲突或不完整证据按 fail-closed/partial 处理。
+旧 formal producer 仍可能附带 `revision`，但它是迁移前的兼容残留，不能被解释为当前公共
+字段或产品版本管理要求。
 
 ## 7. Last-turn replacement evidence
 
@@ -510,7 +536,7 @@ LineageCheckpoint {
 确认完整的物理范围，不能跨过 pending tail、gap 或 source mutation。
 
 `ProjectionWatermark.segment_id/batch_id` 只表示 analyzer 本次交付到哪里；它们不是产品
-history segment、产品 revision，也不是下次 `analyze` 必须从哪个线程或物理分段继续的指令。
+history segment、产品记录版本，也不是下次 `analyze` 必须从哪个线程或物理分段继续的指令。
 
 4.5 当前契约不定义 `source_fingerprint`、`source_prefix_anchor` 或
 `discovered_sources` 为 `AnalyzerCheckpoint` 字段。formal v1 旧 producer 若以 additive

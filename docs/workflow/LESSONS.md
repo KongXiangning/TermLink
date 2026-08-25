@@ -292,6 +292,14 @@
 - **应对动作**: 做双文件存在性、标题差异、内容等价和 `git check-ignore` 检查；保持本轮 scope 不扩展到 ignore 规则，另立治理任务处理是否纳入版本控制。
 - **Source**: 2026-08-24 `sync-host-guidance` closeout / 当前 TermLink workflow 收口
 
+### L-028: 在 WSL 侧复核 Windows 宿主验证结论时必须先换算宿主口径
+
+- **场景**: closeout 复核在 WSL 中重跑任务声明过的 `git diff --check` 与 collector 回归：前者对 CRLF 工作树报出海量“trailing whitespace”（实为 `\r`），后者 30 项中 2 个依赖正式 Rust `.exe` 的用例立即失败（analyzer exited before completion）。两者都与宿主侧“检查通过 / 30/30”的历史记录矛盾。
+- **结论**: 本仓库是 Windows 宿主优先开发（工作树大量 CRLF、formal Rust binary 为 MinGW `.exe`），WSL 侧 git 未设 `core.autocrlf`、也无法可靠运行 PE 二进制。直接用 WSL 口径复核会产出假阳性/环境性失败；应先归一口径再比较，失败项要逐个归因到环境还是回归。
+- **触发信号**: 同一命令在历史记录为 pass、当前会话却大面积报 whitespace 或“二进制存在但启动即退出”；被标记行以 `od -c` 检查可见 `\r`；`target/debug/` 下只有 `.exe` 而无 Linux 二进制。
+- **应对动作**: diff 检查用 `git -c core.autocrlf=input diff --check -- <scoped paths>` 复现宿主过滤行为，并把未归一口径的告警解释为既有 CRLF 编码而非新增问题；涉及正式 `.exe` 的用例在 WSL 会话标注为 environment-blocked，引用最近一次宿主侧全量通过记录作为权威证据，不在收尾中顺手转换行尾或交叉编译。
+- **Source**: `20260825-003` / 2026-08-26 closeout 复核
+
 - 场景：`node --test` full suite 报告"挂起"，但旧结论只是泛化地描述"full suite 会在后段挂起"，没有具体文件、测试名或执行阶段边界，导致 gate 状态长期停留在"知道有问题但无法行动"。
   - 结论：对挂起的 test suite，必须用文件级和测试名级拆分把挂起面收敛到可复述的最小单元，再区分"修复任务"和"gate 策略调整"。不能直接用旧结论跳过排查，也不能在边界未收敛时就调整 blocker gate。
   - 触发信号：full suite 超时未退出但没有具体失败测试名；旧文档中只有"suite 会挂"的泛化描述；验证矩阵中某 gate 长期无法执行但身份仍是 `blocks-merge`。

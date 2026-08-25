@@ -67,6 +67,11 @@ Demo backend 的 `wire_source_revision` 应为 `null`/`validation_oracle`，Spik
 才填写实际的 vendored source revision。通用字段 `codex_revision` 只有在明确注明其语义时才可
 保留，不能同时表示 Demo 标签和正式 wire 来源。
 
+上述 `*_source_revision` 只表示 parser/wire 的上游源码或验证标签，不是 Node 持久化字段，
+也不表示 conversation 或 history item 的版本。当前阶段 Node 对每个 conversation 只维护一份
+canonical 记录，不做任何持久化版本管理；下文若出现旧 item/source `revision`，只能按迁移前
+formal artifact 残留阅读，不得作为当前产品或 4.5 公共接口依据。
+
 ## 2. 设计依据
 
 ### 2.1 历史来源和实时来源是两条不同链路
@@ -941,10 +946,10 @@ Spike 不负责：
 
 ```text
 独立 Codex checkout（临时输入）
-        ↓ 复制最小源码闭包并更新 revision/manifest
+        ↓ 复制最小源码闭包并更新 upstream source revision/manifest
 Spike vendor
         ↓ cargo build/test + Demo/Spike 同一 rollout A/B
-通过后，将相同文件闭包和相同 revision 原样复制/提升
+通过后，将相同文件闭包和相同 upstream source revision 原样复制/提升
         ↓ 更新正式 Analyzer vendor + facade profile
 正式 conformance/golden tests
 ```
@@ -1091,8 +1096,9 @@ detail_max_bytes
 summary_max_chars
 ```
 
-具体数值由 retention profile 配置，但正式 profile 必须提供有限值，不能默认为无限制。超过
-`detail_max_bytes` 时保留前后关键片段、`output_hash`、原始输出大小并设置 `truncated=true`；
+目标架构中的具体数值由 Rust 内部 `RetentionPolicy` 配置，但正式 profile 必须提供有限值，不能
+默认为无限制；这不是 Node 通过 `AnalyzeRequest` 选择 profile 的公共接口。超过 `detail_max_bytes`
+时保留前后关键片段、`output_hash`、原始输出大小并设置 `truncated=true`；
 超过 `summary_max_chars` 时截断摘要并保留摘要 hash。完整输出不因为“详情模式”而无限增长。
 
 摘要只使用确定性字段和规则生成，不调用 LLM。至少可以提取：
@@ -1452,7 +1458,6 @@ item_key
 content_hash
 completeness       provisional | canonical
 source_epoch
-revision           source coverage watermark
 source_ref
 ```
 
@@ -1464,11 +1469,10 @@ source_ref
   把它升级成 `productSource` 或 `publishedSourceEpoch`。source binding 不完整、文件被替换、
   截断或 snapshot/完整行边界不一致时，Collector 应 fail-closed 或保持 partial，不能由 filename、
   mtime 或普通 worker 猜测新的产品来源；
-- `revision` 表示同一 source epoch 内单个逻辑对象的来源覆盖进度，优先比较最后完整的
-  `rollout_ordinal`，其次比较该对象的 `source_ref.byte_end`，不能使用 wall clock 或 batch ID；
-  Node 导入 history item 时必须优先使用同 `item_key` 的 `upsert_item` mutation revision，
-  不得把 batch 的 source range、bytes scanned 或其他 mutation revision 聚合后赋给所有 item；
-  只有缺少 per-item revision 的兼容输入才允许使用明确的 batch coverage fallback；
+- 当前 4.5 不定义 item/source `revision`、source coverage watermark 或对象版本字段。来源覆盖
+  证据直接由 `source_ref`、`complete_range`、`completeness` 和稳定 `item_key` 表达；Node
+  不保存、返回或比较“更高/更低 revision”。旧 formal payload 可能仍携带该字段，只能作为
+  迁移期间的 opaque 诊断证据，不能进入当前产品持久化语义；
 - `completeness=provisional` 表示尾部预览、缺口或未完成上下文；`canonical` 只能由完整
   有序覆盖到安全 snapshot boundary 的 `complete_range` 推进。
 
@@ -1476,11 +1480,12 @@ source_ref
 
 1. 不存在时插入；存在且 `content_hash` 相同时直接幂等成功，不新增对象；
 2. `canonical` 可以替换 `provisional`，并清除该对象的 provisional 标记；
-3. 同一 completeness 下，只有同一 `source_epoch` 的更高 `revision` 才能更新内容；
-4. 低 revision、过期请求或 `canonical → provisional` 的降级写入不得覆盖当前正文，最多
-   记录诊断；
-5. 工具详情、usage、Plan 和 outcome 使用与所属对象相同的 key/epoch 规则；详情只能由
-   更高 retention 或更高 completeness 替换，不能因为重试再次追加一份相同详情；
+3. 同一 completeness 下，内容冲突、source evidence 不一致或来源范围无法证明时拒绝/保持
+   partial，并记录诊断，不按任何对象版本顺序覆盖；
+4. 迟到请求、重复请求或 `canonical → provisional` 的降级写入不得覆盖当前正文，最多记录
+   诊断；canonical promotion 只由完整性与覆盖证据决定；
+5. 工具详情、usage、Plan 和 outcome 使用与所属对象相同的 key/epoch 规则；已验证的详情
+   可以补齐已有对象，但不能因为重试再次追加一份相同详情；
 6. `task_outcome` 允许从 provisional 更新为 completed/failed/interrupted/cancelled，但
    终态 outcome 不能被后续 provisional outcome 覆盖；
 7. `complete_range` 只推进当前来源的连续覆盖范围；普通 backfill 不删除并重建整个会话；
@@ -1531,7 +1536,7 @@ source snapshot/range 形成新 scope 时才生成新 identity，重叠记录仍
 4. 文件仅改名且 source epoch 未变化时不产生重复历史；
 5. 文件被替换、截断或前缀 anchor 变化时报告 source mutation/gap，保留旧会话 canonical
    投影，不产生新旧混合记录；只有另行确认产品 read-model 语义后才能定义新的基线；
-6. canonical item、终态 outcome 和完整 detail 不会被旧 revision 或 provisional 结果降级覆盖；
+6. canonical item、终态 outcome 和完整 detail 不会被迟到、冲突或 provisional 结果降级覆盖；
 7. 缺少 Codex 原生 ID 时，使用 rollout ordinal/byte position 的 fallback 仍能在分段重读中
    生成相同 key；无法生成稳定身份时必须 fail-closed。
 ```
@@ -1564,7 +1569,7 @@ AnalyzerCheckpoint
 ├─ schema_version / job_id / request_id / conversation_id
 ├─ source { source_id / source_epoch / range / snapshot boundary }
 ├─ reader { backend / version / source kind / compression }
-├─ wire_profile { parser / wire revision / compatibility profile }
+├─ wire_profile { parser / wire source revision / compatibility profile }
 ├─ cursor_kind / cursor
 ├─ segment { source range / physical line / rollout ordinal }
 ├─ reducer_state
@@ -1621,7 +1626,6 @@ AnalyzeRequest
 ├─ persisted_anchor
 ├─ recovery: segment_id + batch_id | null
 ├─ known_complete_range
-├─ retention_profile
 └─ resource_limits
 ```
 
@@ -1631,6 +1635,11 @@ compatibility metadata 处理，不能要求 Node 构造、校验或据此选择
 lineage lookup 和读取物理来源均属于 Rust 模块内部。`resource_limits` 的字段、默认值和边界以
 [`Rust Collector Analyzer Wire 契约`](codex-rollout-collector-rust-analyzer-wire-contract-draft.md)
 的 §4.2.1 为准；它不是 discovery 或 source selection 参数。
+
+`RetentionPolicy` 是 Rust 内部的输出保留策略概念，负责工具详情、摘要和输出上限；它不是
+Node 可传入的 `AnalyzeRequest` profile selector。当前 4.5 公共协议不定义 `retention_profile`
+字段、profile 枚举、默认值或 Node consumer；formal native artifact 中同名可选字段若暂留，
+只能按 wire 契约 §4.2 的 legacy compatibility 说明处理，不产生实际策略行为。
 
 ```text
 batch message
@@ -1758,7 +1767,7 @@ Node 已发送正 ACK 但 Rust 是否收到未知，继续按 transport uncertai
 `retryable=false` 不得对同一 binary/config 形成重启循环。
 
 `batch` 和 `complete` 都是 fail-closed 输入边界：每个 upsert mutation 必须带与 batch 一致的
-`completeness`、`source_epoch`、非负 `revision` 和完整 `source_ref`；`complete_range` 必须带
+`completeness`、`source_epoch` 和完整 `source_ref`；`complete_range` 必须带
 `source_range` 且只能出现在 canonical batch。`complete` 必须带合法 status、completeness、
 `next_cursor` 和完整 checkpoint，且 checkpoint 的 job/request/source_cursor/completeness 必须
 与消息一致；projection watermark 的 segment/batch 必须属于本次 job 已 ACK 的最后一个逻辑
@@ -1829,13 +1838,14 @@ new chat、Node 重启和 worker 都不能自动推导该字段；无法解释�
 `source_id`/`source_epoch` 缺失或为 `unbound` 时不得从 filename 或默认值降级补全。
 
 每个 `upsert_item`、`upsert_detail`、`upsert_usage` 和 `upsert_outcome` 都必须携带稳定
-`item_key`/所属 key、`content_hash`、`completeness`、`source_epoch`、`revision` 和
-`source_ref`；这些是服务端幂等合并元数据，不进入 App 展示正文。
+`item_key`/所属 key、`content_hash`、`completeness`、`source_epoch` 和 `source_ref`；这些是
+服务端幂等合并元数据，不进入 App 展示正文。旧 formal `revision` 若随 payload 到达，只能
+作为 opaque 兼容诊断，不能成为必填项、持久化字段或覆盖条件。
 
-同一 `(conversation_id, item_key)` 或同一派生 key 在同一 source epoch 内，completeness 相同
-时只允许更高 revision 更新；较低或相等 revision 只能作为已观察 batch 记录，不能覆盖正文、
-usage、projection 或 last cursor。更高 completeness 可以提升，反向 provisional/partial 不能
-降级已提交 canonical。
+同一 `(conversation_id, item_key)` 或同一派生 key 在同一 source epoch 内，内容相同则幂等
+成功；内容或 source evidence 冲突时 fail-closed/记录诊断，不能覆盖正文、usage、projection
+或 last cursor。更高 completeness 可以提升，反向 provisional/partial 不能降级已提交
+canonical；上述规则不引入对象版本或持久化版本管理。
 
 普通 `complete_range` 表示 `backfill` 已经从安全起点连续覆盖到指定 snapshot boundary，
 服务端可以把该范围从 provisional 推进为 canonical；它不是删除并重建整个会话的命令。
@@ -2056,9 +2066,9 @@ child 尚未 terminal 或 child 读取仍 partial 属于“replacement 尚未具
 - 分段测试使用同一有状态 `CodexEventAdapter`，验证 tail/backfill 的稳定 `item_key`、Plan question/answer 跨段关联、overlap 去重和 segmented/full scan projection 一致；
 - `AnalysisReducer` 与 Node importer 均实现 partial/provisional → canonical promotion，并拒绝 late incomplete overlap 降级已提交 canonical projection；
 - analyzer 运行态复用同一个 Adapter + Reducer，checkpoint 保存 source identity/epoch、snapshot boundary、projection watermark 和可恢复的 Plan/turn/reducer state；preview/backfill/append 都从当前 snapshot 生成新 cursor，Node 对已有 conversation 的增量统一发送 `mode=append`，Rust 在该 mode 内处理同源新增或 parent→child transition；内容替换/截断/前缀变化 fail-closed；无 cursor 的首次 preview 也必须校验持久化 source identity/epoch/snapshot，不能绕过 checkpoint 的来源绑定；complete 只有在 status、job/request/cursor/completeness 与完整 checkpoint 一致时才可提交；
-- 正式 Rust analyzer 的 `tool_details`、`usage`、`task_outcomes` 和 `mutations` 已由 Node 集成测试实际导入并持久化；Node 对 canonical batch 执行完整 schema/provenance/mutation 校验，upsert mutation 强制 completeness/revision/source_ref，缺字段或不一致时 fail-closed；source mutation/gap 不会清除同 conversation 的旧 canonical state，也不建立产品 epoch/tombstone/commit fence，迟到或不完整 evidence 只能被拒绝或保留为 recovery 诊断；source_id/source_epoch 如出现在 formal payload 中只属于内部 source evidence，hello 已统一为 Node → Rust 请求、Rust analyzer hello 响应；
+- 正式 Rust analyzer 的 `tool_details`、`usage`、`task_outcomes` 和 `mutations` 已由 Node 集成测试实际导入并持久化；阶段 4 旧运行态的 Node importer 仍强制 `completeness/revision/source_ref`，其中 `revision` 属于待迁移的旧协议残留，不能反向定义当前 4.5 公共持久化原则；source mutation/gap 不会清除同 conversation 的旧 canonical state，也不建立产品 epoch/tombstone/commit fence，迟到或不完整 evidence 只能被拒绝或保留为 recovery 诊断；source_id/source_epoch 如出现在 formal payload 中只属于内部 source evidence，hello 已统一为 Node → Rust 请求、Rust analyzer hello 响应；
 - `resource_limits.timeout_ms` 贯穿 Rust source read、Adapter/Reducer、metadata/cursor 构造和 ACK 等待预算；analyzer 在 batch 前后异常退出时，Node 最多按受限重试预算重启并以同一 job/待重新交付 segment identity 恢复，依靠稳定 batch delivery identity 与 importer 幂等避免重复落库；
-- 当前证据：Rust full suite 66 unit + 28 conformance + 3 stage2 integration + 5 stage3 conformance + 8 stage4 protocol tests 通过；Node collector 定向 suite 19/19 通过，覆盖 forged complete/checkpoint、非法 replacement 原子性、revision 回退、path-only identity 和重启后 stale source evidence；未修改 IPC、Android、既有服务端 DB、Demo 或 Spike 源码。
+- 当前证据：Rust full suite 66 unit + 28 conformance + 3 stage2 integration + 5 stage3 conformance + 8 stage4 protocol tests 通过；Node collector 定向 suite 19/19 通过，覆盖 forged complete/checkpoint、非法 replacement 原子性、旧协议对象覆盖顺序回退、path-only identity 和重启后 stale source evidence；这些旧运行态测试证据不构成当前公共版本管理要求；未修改 IPC、Android、既有服务端 DB、Demo 或 Spike 源码。
 
 ### 阶段 5：服务端集成验收
 
@@ -2101,9 +2111,11 @@ Rust History Analyzer 只通过 Node/服务端分析传输协议接入正式系�
   Codex 自己的 SQLite 历史投影；只作为 Codex 写入行为的技术参考，不扩展 Rust Analyzer
   或服务端职责；
 - `docs/codex/codex-last-turn-replacement-rust-collector-change-plan.md`：会话级有界发现、
-  跨日期 lineage、完整历史重建、读取模式和最后 turn replacement 派生事实的当前改造方案；
+  跨日期 lineage、完整历史重建、读取模式和最后 turn replacement 派生事实的**实现背景方案**；
+  已落地部分以本文与 stage4 协议为准，其中 product source replacement、discovery 业务接口等
+  未采纳目标不再是当前改造依据（见 AD-018/AD-019 与概念状态登记表）；
 - `docs/codex/codex-sync-app-history-ipc-consistency.md`：App live projection 与 canonical
-  history sync、reconciliation 触发和服务端 read-model revision 的同步策略；它消费本文
+  history sync、reconciliation 触发和服务端 read-model 的同步策略；它消费本文
   定义的 canonical source/AnalysisBatch 边界，不改变 Rust Analyzer 的职责；
 - 本文：正式 rollout 解析采集器的目标架构和 Codex 兼容边界；
 - `docs/workflow/CONTRACTS.md`、`docs/workflow/DECISIONS.md`：IPC 实时 authority 的冻结契约。
