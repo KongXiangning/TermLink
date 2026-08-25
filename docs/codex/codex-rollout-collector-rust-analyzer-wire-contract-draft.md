@@ -82,7 +82,7 @@ Node spawn Rust
 ```
 
 `complete` 表示 Rust 在收到合格 ACK 后完成本次 analyzer request；不表示 App 已收到历史，
-也不自动产生产品 `serverRevision`。
+也不自动产生产品 canonical record。
 
 `analyze` 是一个长生命周期的流式 request：Node 发送一次 `analyze` 后，Rust 可以返回零个或
 多个 `batch`；Node 必须逐个处理并返回 ACK，Rust 最后以一个 `complete` 或 `error` 终止该
@@ -319,7 +319,7 @@ ACK 的状态组合固定为：
 业务拒绝。两种错误都不允许发送成功 `complete`。
 
 该 ACK 只确认 Node 的 batch staging/receipt/recovery-evidence 边界已经提交；它不表示产品
-`history_items`、coverage、change log、`serverRevision` 或最终 analyzer checkpoint 已提交。
+`history_items`、coverage、change log 或最终 analyzer checkpoint 已提交。
 Node 必须等待 Rust 在收到本 request 的全部 batch ACK 后发送 `complete(checkpoint)`，再执行
 产品 canonical DB transaction；产品 transaction 的 COMMIT 才是 canonical history 的发布点。
 
@@ -379,7 +379,7 @@ Rust: 未收到 ACK，不发送成功 complete
 
 1. Node 只能在 durable staging/import 成功后发送正 ACK；ACK 发送失败或疑似丢失时，已经
    成功写入的 staging 不回滚，也不因此推进 canonical checkpoint、canonical projection 或
-   产品 `serverRevision`；
+   产品 canonical record；
 2. 同一 request 仍然 active 且尚未收到 `complete` 时，Node 可以在有限 retry budget 内重发
    完全相同的正 ACK；Rust 也可以在进程内有限重发完全相同的 batch。重发必须保持同一
    `request_id`、`job_id`、`segment_id`、`batch_id`、scope 和 payload；不能生成第二个业务
@@ -492,7 +492,7 @@ canonical checkpoint。
 `completeness=unknown` 不能出现在成功的 `complete` 消息中。它只能出现在非终态 batch 或
 checkpoint/recovery evidence；如果本次 request 无法形成 `partial`/`provisional` 安全结果，
 Rust 应发送 `error`，而不是发送 `complete(status=partial, completeness=unknown)`。Node 收到
-非法组合时不得发送产品 DB transaction、推进 canonical checkpoint 或发布 `serverRevision`；
+非法组合时不得发送产品 DB transaction、推进 canonical checkpoint 或发布 canonical record；
 该 attempt 按 Coordinator 的协议错误/重试规则收口。
 
 ### 5.4 `error`
@@ -573,7 +573,7 @@ slot。若 `retryable=true` 且 job 仍有预算，Node 再用新的 `request_id
 
 - App history WebSocket 的 manifest/page/delta/chunk/ACK；
 - Android SQLite `items`；
-- Node 产品 DB、change log、`serverRevision`；
+- Node 产品 DB、change log、canonical record；
 - Codex IPC realtime surface；
 - Rust `SessionLineageLocator`、source index、Adapter、Reducer 的内部调用；
 - `source_epoch` 的产品化或多 worker commit fence。

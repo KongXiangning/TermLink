@@ -18,6 +18,8 @@ related_docs:
 Rust 模块不需要读取本文的产品 DB、App、IPC 或队列规则。架构文档负责冻结进程拓扑和 single-flight
 架构不变量，wire/data/startup 契约只保留各自必要的协议约束，不在其他文档中重新定义 Node 调度策略。
 
+> [!NOTE] 现行产品持久化边界：Node 每个 conversation 只持久化一份 canonical 记录；本文不定义产品版本水位、revision fence 或同一会话的多版本 projection。
+
 ## 1. 进程级 single-flight 边界
 
 4.5 的部署范围是一个 Node Server 实例及其固定的 `sessionsRoot`。该实例只管理一个 Rust
@@ -38,8 +40,8 @@ one Node Server instance
 
 1. **进程级**：一个 Rust 进程同时最多执行一个 `analyze(request_id)`。不同 conversation 也只能
    进入 Node 全局队列，不能在同一 Rust 进程中并行；Node 不把第二个请求发送给 busy 的 Rust。
-2. **conversation 级**：一个 `(revisionScope, conversationId)` 只有一个 coordinator，最多一个
-   running request 加一个可恢复 pending intent。相同 conversation 的重复或相容请求合并/串行，
+2. **conversation 级**：一个 `conversation_id` 只有一个 coordinator，最多一个
+   running request 加一个可恢复 pending intent。（`revisionScope` 未采纳：当前实现零引用，见 AD-020 与概念分层状态清单；若未来确需认证分区隔离，必须改名并重定义后另立任务确认。）相同 conversation 的重复或相容请求合并/串行，
    不创建第二条采集链；其 canonical writer 不并发写同一 conversation。不同 conversation 的
    产品 DB 事务是否并行由 Node/DB 契约决定，但不能据此绕过 Node Server Coordinator 的
    Rust active slot。
@@ -164,7 +166,6 @@ receive batch
         upsert history_items / tool_details / usage / task_outcomes
         update canonical coverage / completeness
         write change log
-        serverRevision + 1（仅在 canonical read model 实际变化时）
         save final AnalyzerCheckpoint
     → COMMIT product transaction
     → publish canonical history
@@ -175,14 +176,14 @@ transaction SQL 由产品 DB 契约另行定义。
 
 上面是 `complete` 通过 canonical completeness gate 的成功路径。每个 batch 的 ACK 只确认该
 batch 已进入 Node 的 durable staging/receipt 边界；在收到并验证 `complete` 之前，Node 不得写入
-公开的 `history_items` read model、change log、产品 `serverRevision` 或最终 analyzer checkpoint。
+公开的 `history_items` read model、change log 或最终 analyzer checkpoint。
 若最终 product DB transaction 失败，已提交的 batch staging/receipt 保留为 recovery evidence，旧
-canonical history 和 `serverRevision` 不变，Node 按同一 job/operation 幂等重试产品提交，不要求
+canonical record 不变，Node 按同一 job/operation 幂等重试产品提交，不要求
 重新定义或等待另一种 Rust ACK。
 
 Node 如需跨重启恢复，可把已校验的 `complete` 消息和 checkpoint 作为“待产品发布”的 recovery
-evidence 保存；这不是最终 analyzer checkpoint，也不能单独推进 coverage、`serverRevision` 或
-公开 canonical history。这样不会形成“Node 等产品 COMMIT 才 ACK、Rust 等 ACK 才 complete”的循环。
+evidence 保存；这不是最终 analyzer checkpoint，也不能单独推进 coverage，更不能单独发布
+canonical record 或 canonical history。这样不会形成“Node 等产品 COMMIT 才 ACK、Rust 等 ACK 才 complete”的循环。
 
 一个 job 对应一个 `analyze(job_id, request_id)`。Rust 可以在该 request 内交付多个逻辑
 segment batch，Node 对每个 batch 做 staging/ACK，直到收到同一 request 的一个 `complete` 或
@@ -206,8 +207,8 @@ segment batch，Node 对每个 batch 做 staging/ACK，直到收到同一 reques
 - 负 ACK 的 `error` 只能使用 Wire 契约定义的稳定 rejection code。Rust 返回
   `error(code=batch_rejected, fatal=false)` 后，当前 request 才算终止；在此之前 Node 不得
   发起下一次 analyze；
-- 相同 `job_id + segment_id + batch_id`、相同 scope、相同内容：幂等 ACK，不重复增加
-  `serverRevision`；
+- 相同 `job_id + segment_id + batch_id`、相同 scope、相同内容：幂等 ACK，不重复发布
+  canonical record；
 - 同一 logical delivery scope 的内容或 scope 冲突：拒绝，保留旧 canonical，fail-closed；
 - `recovery_delivery` 存在时，返回的 `segment_id`、`batch_id` 和 normalized scope 必须与其
   一致；不一致视为 stale/forged delivery，不能用新 ID 覆盖旧 receipt；
@@ -240,7 +241,7 @@ ACK 丢失按“持久化事实已知、Rust 是否收到未知”处理：
 3. 如果旧 request 已被新的 retry attempt 取代，旧 request 的迟到 batch/complete/error 只能
    丢弃或记诊断；新 attempt 依据持久化 checkpoint 恢复；
 4. ACK 只确认 Rust 可以提交该 batch 的 analyzer runtime state，不等于产品 canonical
-   publication，也不增加产品 `serverRevision`。
+   publication，也不发布新的 canonical record。
 
 ACK 丢失和 `complete` 丢失必须分开记录：两者都使用 batch/checkpoint 幂等恢复，但不能把
 “Node 已发 ACK”解释成“Node 已收到 complete”，也不能把 staging receipt 直接当作 canonical。
@@ -318,7 +319,7 @@ code、`batch_rejected`、`ack_rejected` 和 `fatal` 的处理已经由 Wire 契
 canonical complete
     → 每个 batch 先 staging/receipt COMMIT，再 ACK
     → 收到 `complete(status=completed, completeness=canonical)` 后执行 product DB transaction
-    → COMMIT 后发布 canonical history / serverRevision
+    → COMMIT 后发布该 conversation 的唯一 canonical record
 
 partial/provisional request result
     → 每个 batch 先 staging/receipt COMMIT，再 ACK
@@ -365,7 +366,7 @@ Node 可以在 analyzer staging/recovery evidence 中保存 source id/epoch、cu
 - 产品 active head 的公开身份；
 - 产品 source replacement 状态；
 - 多 worker 竞争提交；
-- 替代 `serverRevision` 或 App `clientSelectionGeneration`。
+- 作为产品持久化版本或 App `clientSelectionGeneration`。
 
 ## 8. App、IPC 和 DB 的边界
 
@@ -373,8 +374,8 @@ Node 可以在 analyzer staging/recovery evidence 中保存 source id/epoch、cu
 - App 离线不影响 Node→Rust 分析和 Node canonical publication；App 重连使用自己的
   manifest/snapshot/delta recovery；App ACK 不回传 Rust；
 - App A→B→A 只影响 App selection generation 和迟到响应丢弃，不取消已提交 Node durable job；
-- Node canonical publication 可以更新产品 `serverRevision` 和 change log，但这些不属于 Rust wire
-  或 Rust data contract。
+- Node canonical publication 只更新该 conversation 的唯一 canonical record；该产品持久化动作不属于
+  Rust wire 或 Rust data contract。
 
 ## 9. 4.5 完成条件
 

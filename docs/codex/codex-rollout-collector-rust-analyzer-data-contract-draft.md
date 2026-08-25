@@ -255,7 +255,7 @@ Progress {
 }
 ```
 
-它是 Rust 读取进度，不是 App page index，也不表示 Node 已产生 `serverRevision`。
+它是 Rust 读取进度，不是 App page index，也不表示 Node 已发布该 conversation 的 canonical record。
 
 ### 4.3 `parser_provenance`
 
@@ -292,7 +292,7 @@ partial/recovery cursor，但不能覆盖旧 canonical checkpoint。
 
 它们首先作为本批次的 analyzer staging/recovery evidence 被 Node durable 保存，以便在 ACK
 丢失、Node/Rust 重启或重复读取时幂等恢复；Node 不得在收到单个 batch 时把这些 facts 直接当成
-已发布的产品 `history_items`、coverage、change log 或 `serverRevision`。收到并验证同一 request
+已发布的产品 `history_items`、coverage 或 canonical record。收到并验证同一 request
 的 `complete(checkpoint)` 后，Node 才把通过 canonical gate 的 mutations 映射到一个产品 DB
 transaction，并在该 transaction COMMIT 后发布 canonical history。
 
@@ -348,7 +348,7 @@ turn、source read complete、transition/projection coverage 全部通过后，�
 Node 仍需做产品层 preflight。
 
 `replace_last_turn` 的产品落点由 Node 决定：旧 turn 标为 `superseded`、插入/更新新 turn、
-更新 read model，并在一个产品事务中最多增加一次 `serverRevision`。Rust 不访问产品表。
+更新该 conversation 的唯一 canonical record。Rust 不访问产品表。
 
 ## 8. Lineage evidence
 
@@ -553,7 +553,7 @@ history segment、产品 revision，也不是下次 `analyze` 必须从哪个线
    `segment_id`、`job_id` 三者必须属于同一 logical delivery scope。
    `source_epoch` 必须与 checkpoint source 一致，`source_id` 非 null 时也必须一致；
    `complete_source_end` 非 null 时必须等于已确认的 source complete range end；
-   `logical_item_count` 只能是非负计数，不能解释成产品 `serverRevision`；
+   `logical_item_count` 只能是非负计数，不能解释成产品持久化状态或提交结果；
 10. `lineage_checkpoint` 为非 null 时，必须满足其 schema、conversation、root/head/chain
     和日期格式，并与 batch 的已验证 lineage transition/coverage 一致；没有已验证 lineage
     时必须显式为 null；

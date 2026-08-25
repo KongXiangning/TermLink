@@ -5,7 +5,7 @@
 - 任务 ID：20260825-003
 - 任务标题：收敛 Node↔Rust 接口文档，移除 discovery/fingerprint 业务接口语义
 - 任务 slug：codex-node-rust-interface-contract-convergence
-- 当前状态：completed
+- 当前状态：active
 - 创建时间：2026-08-25
 - 创建来源：用户确认“Rust 那边 discovery、fingerprint 废止，接口文档需要更改”及其附带收敛依据
 - 任务类型：架构/进程协议文档修订
@@ -24,6 +24,12 @@
 - 旧 rollout 被等长度原地修改不是当前 Collector correctness contract；不为该非业务场景设计完整 fingerprint 防线。
 
 本任务只修订接口文档和任务记录，不修改 Rust formal crate、Node runtime、测试、数据库或长期治理契约。formal native crate 为兼容现有 schema 暂留的 fingerprint/anchor 字段，不在本任务中删除；文档必须明确它们不再是 4.5 业务接口要求。
+
+## 本轮追加修订：问题 2（2026-08-25）
+
+用户进一步确认：Node 每个 conversation 只持久化一份 canonical 记录，不维护同一会话的多版本历史投影。因此 `serverRevision` 不是现行产品状态、Node↔Rust 字段、提交 fence 或恢复身份。
+
+本轮只修订被视为现行来源的 4.5 Node↔Rust split contract 与 active collector architecture：删除其 `serverRevision` 的正向产品语义和字段性引用，统一改为“该 conversation 的唯一 canonical 记录”语义；历史 design-only / 已加 AD-020 标注的草案不在本轮重写。
 
 ## 验收标准
 
@@ -45,10 +51,15 @@
 
 - `docs/workflow/CURRENT_TASK.md`
 - `docs/codex/codex-history-sync-node-server-rust-analyzer-interface-index-draft.md`
+- `docs/codex/codex-history-sync-node-server-coordinator-contract-draft.md`
+- `docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md`
+- `docs/codex/codex-rollout-collector-rust-analyzer-wire-contract-draft.md`
+- `docs/codex/codex-rollout-collector-architecture.md`
+- `docs/codex/codex-concept-layer-status-registry.md`
 
 ### Conditional Files
 
-- 无。若发现 formal native crate 或总体架构文档需要同步修改，只记录为后续独立任务，不在本轮扩大范围。
+- 无。上述追加文件范围仅覆盖问题 2 的现行来源清理；formal native crate、Node runtime、测试、数据库和历史 design-only 草案仍不在本轮范围内。
 
 ## 禁止修改范围
 
@@ -63,6 +74,7 @@
 - Node `analyzerProtocol.js` 与 Rust stage4 process protocol 的 `analyze` 参数说明。
 - 4.5 Node coordinator 与 Rust 内部 source index 的职责边界。
 - source cursor/checkpoint 的业务解释：保留恢复位置和稳定行边界，移除完整 fingerprint 作为正常业务安全门槛的解释。
+- 产品持久化语义：每个 conversation 一份 canonical 记录；不引入或依赖 `serverRevision` 多版本投影。
 
 ## 已确认决策
 
@@ -114,14 +126,15 @@ Node importer/coordinator
 - 7 个 message type 和 JSONL framing 不变。
 - 既有 formal native artifact 的 fingerprint/anchor 字段暂保持可读；Node 不能将它们解释为 4.5 的正常必填业务参数。
 - cursor 仍按 `tail_preview`/`backfill`/`forward_append` 分离；cursor identity 依赖 source id、conversation、读模式、稳定完整行位置和 snapshot length，不依赖全文 hash。
-- App page/delta/chunk/ACK、serverRevision、clientSelectionGeneration 和 DB schema 不属于本次修改。
+- App page/delta/chunk/ACK、clientSelectionGeneration 和 DB schema 不属于本次修改；`serverRevision` 只在
+  registry/历史标注中保留为未采纳概念，不属于现行来源。
 
 ### Risks and rollback
 
 - 风险：把“discovery 不再是接口字段”误写成“Rust 不得内部扫描”；用 source index lookup/refresh 文字明确区分。
 - 风险：把“业务 fingerprint 废止”误写成“formal schema 已删除”；保留兼容字段说明。
 - 风险：过度删除 lineage；保留 `history_base`、child transition 和内部完整读取恢复路径。
-- 回滚：仅回滚本任务两个 Allowed Files，不使用整树 reset/checkout/clean。
+- 回滚：仅回滚本轮新增/修改的 Allowed Files，不使用整树 reset/checkout/clean。
 
 ### Validation strategy
 
@@ -136,6 +149,7 @@ Node importer/coordinator
 1. [completed] 读取用户附带收敛依据、项目治理基线、整体架构和当前 Node↔Rust 接口文档。
 2. [completed] 修订 Node↔Rust 接口文档的 discovery/fingerprint 参数和职责边界。
 3. [completed] 执行字段检索、回归测试、diff 检查并同步任务记录。
+4. [completed] 清理现行来源中的 `serverRevision` 正向产品语义，保留历史草案的 AD-020 边界标注。
 
 ## 回归检查项
 
@@ -146,6 +160,8 @@ Node importer/coordinator
 - [x] single-flight、普通 append 增量、child transition、内部完整读取恢复语义仍保留。
 - [x] formal compatibility 字段暂留与业务废止边界明确。
 - [x] Node 回归测试和 `git diff --check` 通过。
+- [x] 问题 2：现行来源不再把 `serverRevision` 作为字段、版本水位、提交 fence 或多版本 projection；只保留单一 canonical record 语义。
+- [x] 问题 2：旧 design-only / 已标注草案未被重写，registry 明确其不属于现行来源。
 
 ## 回滚点
 
@@ -159,3 +175,4 @@ Node importer/coordinator
 - 2026-08-25：读取用户附带的收敛依据，确认 discovery 应从 Node→Rust 业务请求消失，Rust 内部保留 source index lookup/refresh；确认 fingerprint 业务语义废止但 formal native 字段暂不迁移删除。
 - 2026-08-25：完成接口文档收敛；`analyze` 仅保留 conversation/read intent、mode、cursor/恢复状态和资源预算，Rust source index/有限刷新改为内部职责；formal v1 的旧 discovery/fingerprint 字段明确为 legacy/opaque compatibility metadata。
 - 2026-08-25：验证通过：`node --test tests/codexRolloutCollector.test.js`（30/30），`git diff --check`（通过），并完成 discovery/fingerprint 正向必填与 gate 残留检索。
+- 2026-08-25：完成问题 2 修订；6 份现行来源不再出现 `serverRevision` 字段性/正向语义，产品落点统一为每个 conversation 一份 canonical record；registry 同步登记现行来源集合。

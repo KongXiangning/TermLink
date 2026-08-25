@@ -17,6 +17,8 @@ related_docs:
 本文现在是**接口总入口和边界索引**，不再把启动配置、JSONL wire、Rust 分析数据和 Node
 coordinator 规则写在同一个契约中。四份拆分文档才是对应领域的具体接口定义。
 
+> [!NOTE] 现行产品持久化边界：Node 每个 conversation 只持久化一份 canonical 记录；本组接口不定义多版本 projection、产品 revision counter 或 revision fence。
+
 拆分的目的不是增加接口，而是保持 Node 与 Rust 的独立模块边界：
 
 - Node 可以只阅读启动契约、wire 契约和 coordinator 契约，不依赖 Rust locator/reducer 内部实现；
@@ -64,14 +66,14 @@ Rust Collector Analyzer → Node Server complete/checkpoint
     ↓
 Node Server 校验 complete 后执行 product DB transaction
     ↓
-COMMIT → canonical publication / serverRevision
+COMMIT → 该 conversation 的唯一 canonical record publication
 ```
 
 `sessionsRoot` 是进程启动级配置，不在 `analyze` 中传入。Rust 内部负责 source index、lineage、
 物理读取、Adapter 和 Reducer；Node 负责进程生命周期、coordinator、batch 校验/ACK、持久化和
 产品 publication。`ack(persisted=true)` 只表示 batch staging/receipt/recovery evidence 已提交，
-不表示产品 `history_items`、change log、`serverRevision` 或最终 checkpoint 已提交；只有
-`complete` 校验通过后的 product DB transaction COMMIT 才发布 canonical history。一个 Node Server 实例只管理一个 Rust analyzer process；所有 conversation
+不表示该 conversation 的唯一 canonical record 或最终 checkpoint 已提交；只有 `complete` 校验
+通过后的 product DB transaction COMMIT 才发布 canonical history。一个 Node Server 实例只管理一个 Rust analyzer process；所有 conversation
 由 Node 全局 Scheduler 排队，Rust 同时只执行一个 active request。
 
 ## 4. 已冻结的共同事实

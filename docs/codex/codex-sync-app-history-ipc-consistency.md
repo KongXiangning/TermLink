@@ -8,6 +8,9 @@ related_code: [src/ws/terminalGateway.js, src/services/codexIpcFeed.js, src/serv
 related_docs: [docs/workflow/CONTRACTS.md, docs/workflow/DECISIONS.md, docs/codex/codex-history-sync-design-principles.md, docs/codex/codex-rollout-collector-architecture.md, docs/codex/codex-a-b-a-live-tail-recovery-roadmap.md]
 ---
 
+> [!WARNING]
+> **状态标注（2026-08-25，AD-020）**：本文中的 `serverRevision`（canonical 发布水位）与 `revisionScope` 属于**未采纳设计概念**：当前产品事实是 Node 每个 conversation 只持久化一份 canonical 记录，不维护同一会话的多版本历史投影；实现与测试中不存在这两个字段。本文其余内容的有效性不受本标注影响，但任何依赖上述概念的段落不得作为现行实现或接口依据。完整“概念 × 层级 × 当前状态”清单见 [codex-concept-layer-status-registry](./codex-concept-layer-status-registry.md)。
+
 # Codex App 历史同步与 IPC 一致性基线
 
 ## 1. 文档定位

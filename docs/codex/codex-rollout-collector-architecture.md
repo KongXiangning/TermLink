@@ -120,8 +120,8 @@ rollout 分析不能替代健康 IPC，也不能通过轮询 rollout 改变 IPC 
   App-facing 路径不得直接请求 Rust，只能查询 Node 已持久化的历史投影或使用 IPC 通道的实时缓存。
   需要改变该进程级单例规则时，必须先单独锁定范围并确认 Rust/Node 调度协议。
 - 在该单例协调边界下，阶段 5 不得为了假想的多 worker 竞争引入产品级 `commitFence`、多写者
-  提交线或跨设备 replacement 仲裁；单一 Node writer、显式队列、数据库事务和 `serverRevision`
-  已覆盖当前业务。未来若真的出现第二个 canonical writer，必须作为新的架构任务重新确认，不能
+  提交线或跨设备 replacement 仲裁；单一 Node writer、显式队列、数据库事务和单一 canonical
+  record 已覆盖当前业务。未来若真的出现第二个 canonical writer，必须作为新的架构任务重新确认，不能
   从通用分布式系统模板推导出来。
 
 正式隔离协议中保留的 `source_epoch` 只能解释为 source identity / checkpoint 的内部兼容和
@@ -494,6 +494,11 @@ lookup/refresh 和 lineage 处理。
   `SourceSpec`，校验 fingerprint、压缩格式、snapshot boundary 和读取能力；
 - 两者都不把文件名或 mtime 当成 canonical identity。调用方显式提供的
   `target_conversation_id` 仍然优先，`SessionMeta` 与 `history_base` 用来验证来源和关系。
+
+以上 fingerprint / source_epoch 校验只属于 Rust formal 内部 source binding/checkpoint 的 opaque
+兼容语义：它们不是 Node↔Rust 4.5 业务 gate，也不是 parent/child 关系证据——关系证据只有
+`SessionMeta.id`、`history_base.thread_id` 和 ordinal/byte cut。概念层级状态见
+`codex-concept-layer-status-registry.md`（AD-020）。
 
 当调用方只有 `conversationId` 而没有可靠的 rollout 物理路径时，使用
 `sessionsRoot + conversationId + bounded date range` 进入 `SessionLineageLocator`；Rust
@@ -1148,7 +1153,9 @@ cursor 切换、`history_base` cut 校验和 child 安全边界读取全部由 R
 lineage cursor/checkpoint 至少绑定 conversation ID、root/head/parent chain、各 source 的
 fingerprint/anchor、读取模式和 snapshot boundary；服务重启后可以只从最新 head 沿
 `history_base` 向前恢复，缺少父文件或发现歧义时返回 partial/fail-closed。所有模式都保留
-稳定 source position 和 overlap 幂等语义。
+稳定 source position 和 overlap 幂等语义。此处绑定的 fingerprint/anchor 是 Rust 内部 lineage
+checkpoint 的 opaque 兼容元数据：不是 Node↔Rust 4.5 业务 gate，也不参与 parent/child 关系
+确认（见 `codex-concept-layer-status-registry.md`，AD-020）。
 
 ### 5.1 尾部预览
 
@@ -1714,17 +1721,16 @@ Rust 收到本次 request 的全部 batch ACK
          upsert history_items / tool_details / usage / task_outcomes
          update canonical coverage / completeness
          write change log
-         serverRevision + 1（仅在 canonical read model 实际变化时）
          save final AnalyzerCheckpoint
     ↓ COMMIT product transaction
     ↓ publish canonical history
 ```
 
 因此，batch ACK 与产品 DB 提交不是同一个时点：ACK 前必须完成 staging COMMIT，但产品
-`history_items`、coverage、change log、`serverRevision` 和最终 checkpoint 必须等到
+`history_items`、coverage、change log 和最终 checkpoint 必须等到
 `complete` 校验通过后，在同一个 product DB transaction 中提交。`complete` 不通过 canonical
 gate、产品 transaction 失败或 request 以 error 终止时，保留 staging/recovery evidence 和旧
-canonical，不发布新的 product revision。
+canonical，不发布替换后的 canonical record。
 
 `analyze` request 是流式异步等待：Node 发出一次 `preview`、`backfill` 或 `append` 后，Rust
 可以返回多个 batch，Node 逐批 ACK，直到 `complete/error`。Node Coordinator 不阻塞 event loop，
@@ -1732,7 +1738,7 @@ canonical，不发布新的 product revision。
 不单独创建 Rust request。
 
 ACK 丢失单独按 transport uncertainty 处理：Node 已 durable 的 batch receipt 不回滚，也不能
-仅凭该 receipt 推进 canonical checkpoint、发布 projection 或增加 `serverRevision`。同一 active
+仅凭该 receipt 推进 canonical checkpoint、发布 projection 或再次写入 canonical record。同一 active
 request 在 retry budget 内可以重发完全相同的
 `ack(request_id,job_id,segment_id,batch_id,accepted=true,persisted=true)`；相同逻辑 batch
 重传时按 job/segment/batch、scope 和内容幂等命中并再次 ACK。Rust 进程重启不由传输层恢复未
@@ -1961,7 +1967,7 @@ future-compatible
 状态转换：
 
 1. `error` 是终止结果：本次 request 不再成功 `complete`，不带可提交 cursor/checkpoint；Node 保留旧
-   canonical，不发布 projection replacement 或新的 `serverRevision`。
+   canonical，不发布 projection replacement 或新的 canonical record。
 2. `partial batch` 必须带 `partial|provisional` completeness 和 `mark_partial`；只有安全完整前缀可以
    进入 batch。cursor 只能到问题边界之前，不能跨 pending tail、gap、未验证 parent 或未完成 transition。
 3. partial/recovery checkpoint 与旧 canonical checkpoint 分开保存；前者不能覆盖后者。

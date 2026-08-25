@@ -294,6 +294,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 影响范围：Rust `BatchMessage`/`AnalyzerCheckpoint` additive metadata、stage4 replacement gate、Rust↔Node 隔离 artifact 与回归 fixture；不冻结服务端数据库表、App ADTO 或 WebSocket history 状态。
 - 替代方案：用一个 `canonicalStatus` 覆盖所有状态，或让服务端仅依据裸 `replacedTurnId`/`failed` 做提交；这些方案无法表达 partial/retry/旧历史保留语义，不采用。
 - 验证方式：transition validation state 向后兼容、partial/evidence-only child、complete replacement、stopped/interrupted 和 coverage/mutation 分离测试通过；Rust 全量目标回归（96 unit、31 conformance、3 stage2、5 stage3、22 stage4）通过。
+- 后续标注（2026-08-25，AD-020）：本条三状态描述属于隔离 formal artifact 的兼容语义。现行生产代码不主动构造 `discovered`，它仅作为旧 payload 缺失字段时的 serde 反序列化默认值保留；4.5 Node↔Rust 公共 Data Contract 的 `LineageTransition.validation_state` 只有 `validated | validation_unavailable`。不得把本条三状态表述当作 4.5 公共输出要求。
 
 ### AD-018: Codex rollout 由外部 app-server 管理，单会话 Collector 保持单例协调
 
@@ -326,6 +327,28 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 约束：`request_id` 只标识当前 wire attempt；相同 validated source scope 的 `segment_id/batch_id` 必须稳定，重复交付必须幂等，内容冲突必须 fail-closed。该决策不改变 IPC 体系中已有的 `reconnect replay` 或独立 `conversation_live_replay` 诊断 lane，它们不属于 Rust analyzer `analyze` mode。
 - 影响范围：Rust analyzer architecture/data/wire/startup contract、Node coordinator/interface index、history sync cross-reference docs；不修改 Rust/Node/Android/IPC/DB 代码。
 - 验证方式：相关文档检索不存在额外全量分析 mode、Rust analyzer 独立恢复 capability 或“重启后 Rust 内部恢复状态”作为现行语义；保留 IPC reconnect/live replay 的独立定义。
+
+### AD-020: 概念按“层级 × 当前状态”登记，历史设计不得自动升级为现行契约
+
+- 状态：accepted
+- 分类：治理 / 文档概念分层与废止识别（user-confirmed）
+- 背景：接口文档对齐审查中多次把旧草案概念误判为当前契约：AD-017 的 `discovered` 被当成当前公共输出要求、`serverRevision`/`revisionScope` 被当成产品必需机制、外部 app-server 的稳定写入被表述成“不可控写”。根因是文档缺少统一的“概念 × 层级 × 当前状态”登记，审查者无法区分 formal artifact 兼容语义、未采纳草案与现行契约。
+- 决策：
+  - 建立 `docs/codex/codex-concept-layer-status-registry.md` 作为唯一登记表；状态枚举为 current / scoped-retained（限定保留）/ unadopted（未采纳）/ superseded（已废止或被替代）/ forbidden（禁止），且必须按 L0-L4 层级逐层标注。
+  - 本轮确认的关键判定：
+    - `validation_state = discovered`：L1 formal 枚举仅作为旧 payload 反序列化默认值保留（serde default），现行生产代码不构造；4.5 公共 Data Contract 只有 `validated | validation_unavailable`。
+    - `serverRevision`：unadopted。用户确认当前产品事实是 Node 每个 conversation 只持久化一份 canonical 记录，不维护同一会话的多版本历史投影，无实现无需求；不得成为 Rust 字段或 Node↔Rust 公共字段。
+    - `revisionScope`：unadopted 的概念命名，实现零引用；coordinator 契约改为裸 `conversation_id` 表述。若未来确需认证分区隔离，必须改名并重新定义后另立任务确认。
+    - `source_epoch`、fingerprint/prefix anchor、lineage evidence 维持既有 scoped-retained 判定，以 AGENTS.md 与 CONTRACTS.md 对应条目为准。
+  - 审查规则：报告接口不一致前必须同时确认“当前生产者会发出”且“当前消费者契约要求接收”；否则标记为 legacy / unadopted / superseded，不算接口不一致。
+- 原因：防止 Git 历史、旧草案和决策历史反复伪装成现行依据；让废止识别可审计，而不是依赖对话记忆或关键词删除。
+- 约束：
+  - 不得静默删除历史文档正文；废止通过登记表加文档顶部/原位标注生效。
+  - 把 unadopted / superseded 概念升级为现行契约必须另立任务、更新本登记表与 DECISIONS.md，并取得用户明确确认。
+  - 登记表与具体文档标注冲突时以更严格的层边界为准，并修复漂移文档。
+- 影响范围：CONTRACTS.md 会话级输出语义备注、本文件 AD-017 后续标注、coordinator contract scope 表述、架构文档 fingerprint 表述收口、12 份 history-sync 草案顶部标注；不修改任何代码、schema 或测试。
+- 替代方案：直接删除旧草案中的 serverRevision/revisionScope 章节（拒绝——丢失设计演变记录且不可审计）；只在对话中维护清单（拒绝——不可审计、必然再次漂移）。
+- 验证方式：全仓检索确认各草案顶部标注存在、4.5 三份 split contract 未把 unadopted 概念列为必填字段、Rust 生产路径仍不构造 `Discovered`；`git diff --check` 通过。
 
 ## 🎨 口味决策
 
