@@ -48,7 +48,7 @@
 - 同 logical source 改名可续读；截断、替换、prefix mismatch 和不安全 cursor 必须 fail-closed。
 - TailPreviewCursor、BackfillCursor、ForwardAppendCursor 严格分离。
 - plain JSONL 是 append 主路径；普通无 seek/index .zst 保持 forward-only，不伪造可 seek decompressed offset。
-- full replay 是正确性 oracle；segment 获取顺序不能影响最终逻辑顺序、去重和诊断。
+- 完整 source read 是正确性 oracle；segment 获取顺序不能影响最终逻辑顺序、去重和诊断。
 - 新能力保持 source-layer additive，不向 Node/Android/IPC/数据库传播。
 
 ## 实际改动摘要
@@ -179,7 +179,7 @@
 - File / symbol：`native/codex-rollout-collector/src/source/cursor.rs:811`、`:871`、`:897`；`native/codex-rollout-collector/src/source/append.rs:121`、`:678`；`native/codex-rollout-collector/tests/stage2_input.rs:77`。
 - Failure scenario：`TailPreviewCursor::try_into_forward_append` 与 `BackfillCursor::try_into_forward_append` 当前均 fail-closed；`ForwardAppendCursor::from_source` 虽存在，但没有从完成的 tail/backfill/`SegmentAssembly` 结果产生安全 forward cursor 的端到端生产路径。`read_append` 只消费已有 `ForwardAppendCursor`，现有 append tests 通过 helper 手工构造初始 cursor，因此“tail → backfill → 安全完整前缀 → ForwardAppendCursor → append”的生命周期证据尚未闭合。
 - Minimal fix direction：不把 tail/backfill cursor 直接转换为 append cursor。后续 analyzer/checkpoint/coordinator 任务需要定义受连续完整前缀、无 pending tail、无 gap/partial、source identity/fingerprint/anchor 和 snapshot boundary 约束的 promotion；promotion 后再接 append，并保留跨进程 cursor 重建语义。本归档不扩大到被原任务明确禁止的 runtime、Node 或 durable checkpoint 实现。
-- Required test：同一 plain JSONL fixture 覆盖 tail acquisition、backfill/segment assembly、连续完整前缀证明、promotion、append、重启反序列化和重复 append；pending tail、gap/partial、mutation/truncation/replacement 任一存在时不得产生 `ForwardAppendCursor`，并与 full/replay oracle 对照。
+- Required test：同一 plain JSONL fixture 覆盖 tail acquisition、backfill/segment assembly、连续完整前缀证明、promotion、append、重启反序列化和重复 append；pending tail、gap/partial、mutation/truncation/replacement 任一存在时不得产生 `ForwardAppendCursor`，并与完整读取 oracle 对照。
 - Recommended route：后续阶段 4/5 生命周期任务开始前重新执行 `/create-current-task`、`/lock-scope` 和 contract review；不能把“source primitive 已实现”写成“完整架构恢复链路已完成”。
 
 ### R-010：工作树包含任务外变更，需在收尾时隔离

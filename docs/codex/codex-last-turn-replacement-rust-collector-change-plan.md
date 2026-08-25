@@ -1,5 +1,5 @@
 ---
-title: Codex Rollout 会话 lineage 发现、完整重建与最后 turn 编辑重发：Rust Collector 改造方案
+title: Codex Rollout 会话 lineage 定位、完整读取与最后 turn 编辑重发：Rust Collector 改造方案
 status: implementation-backed
 phase: P0-RC.1 additive compatibility and lineage extension
 last_updated: 2026-08-24
@@ -22,17 +22,18 @@ related_code:
   - src/services/codexRolloutCollector
 ---
 
-# Codex Rollout 会话 lineage 发现、完整重建与最后 turn 编辑重发：Rust Collector 改造方案
+# Codex Rollout 会话 lineage 定位、完整读取与最后 turn 编辑重发：Rust Collector 改造方案
 
 ## 0. 文档目的和状态
 
 本文修订原“最后一个 turn replacement”方案。Rust Collector 的一级目标不是只识别一条
-`oldTurnId → newTurnId` 关系，而是：在有界来源范围内发现同一会话的 rollout 文件，建立
-权威 lineage，重建当前 active head 的完整逻辑历史，并支持全量、尾部/向前补全和增量读取。
+`oldTurnId → newTurnId` 关系，而是：在 Rust 启动配置确定的 source root 内部定位同一会话的
+rollout 文件，建立权威 lineage，重建当前 active head 的完整逻辑历史，并支持完整、尾部/向前
+补全和增量读取。
 最后一个 turn replacement 是完整 lineage 读取后产生的一个派生事实。
 
-本方案已经按 additive 兼容边界落地到 Rust Collector。新增的是会话级 source discovery、
-跨日期 lineage、读取模式组合和协议证据；既有单文件 SourceBackend、cursor、adapter、
+本方案已经按 additive 兼容边界落地到 Rust Collector。新增的是 Rust 内部 source index/lineage
+定位、跨日期 lineage、读取模式组合和协议证据；既有单文件 SourceBackend、cursor、adapter、
 reducer 与 replacement validator 保持兼容。这里冻结的是 Rust Collector 的实现边界和
 隔离 protocol 语义，不把它扩展成产品数据库、App ADTO 或 IPC 契约。
 
@@ -45,9 +46,9 @@ reducer 与 replacement validator 保持兼容。这里冻结的是 Rust Collect
 ### 1.1 Collector 的完整业务链路
 
 ```text
-sessionsRoot + conversationId + 可选已知 rollout/head hint
+Rust 启动时配置的 sessionsRoot + Node analyze(conversationId + read intent)
     ↓
-按日期分区做有界候选发现，不做全局递归扫描
+Rust 内部按日期分区做有界 source 定位，不做全局递归扫描
     ↓
 从文件名提取 conversation/rollout/time 候选信息
     ↓
@@ -68,7 +69,7 @@ sessionsRoot + conversationId + 可选已知 rollout/head hint
    最后一个已终止用户问题时，Codex 新建 child rollout，不回写父文件前缀，并在 child 首行
    `history_base` 中记录父 rollout ID 和 cut。被验证为 lineage parent 后，TermLink 按 immutable
    source 使用；外部 in-place modification 不属于 Collector correctness contract。
-3. child 文件可能位于父文件日期目录之后；发现算法必须能够从父/最早文件所在日期开始，
+3. child 文件可能位于父文件日期目录之后；Rust 内部定位必须能够从父/最早文件所在日期开始，
    在明确的日期上界内继续发现，而不是只扫描当前文件夹或全局递归扫描。
 4. 文件名可用于候选发现、rollout ID 提取、会话过滤和时间/顺序提示，但不能单独证明父子关系。
    精确父子关系、cut 和会话绑定必须由 rollout 内容与 `history_base` 验证。
@@ -77,10 +78,11 @@ sessionsRoot + conversationId + 可选已知 rollout/head hint
 6. root 到 active head 的 lineage 历史必须包含被替换的旧 turn；旧 turn 的 active/inactive
    投影语义由下游持久化层处理，Rust 不删除旧 turn。
 7. 同一物理 JSONL 的 append、child rollout transition、原路径截断/替换是三种不同语义，
-   不能混用 `ForwardAppendCursor`、lineage transition cursor 和 `replace_previous`。
+   不能混用 `ForwardAppendCursor`、lineage transition cursor 和旧 artifact 的
+   `replace_previous` 兼容字段。
 8. lineage 沿 `history_base` 一直解析到没有 parent 的 root，不设置独立的
    `max_lineage_depth`；循环由 visited 集合 fail-closed，资源、取消和 deadline 由各自的
-   discovery/read budget 控制，不能用 lineage 层数代替资源边界。
+   locator/read budget 控制，不能用 lineage 层数代替资源边界。
 9. 关系、来源或读取证据不完整时必须保留可诊断的 partial/unknown 结果，禁止宣称完整
    canonical 历史或发布 active projection mutation。
 
@@ -109,9 +111,9 @@ fixture 中的可验证 parent chain 为：
 | 情况 | 业务语义 | 读取/提交机制 |
 |---|---|---|
 | 同一活动 JSONL 继续增长 | 同一物理 source append | `ForwardAppendCursor` |
-| 编辑最后一个终止 turn 生成 child rollout | 合法 history transition | lineage discovery + `history_base` cut + child read |
-| 原文件截断、同路径内容替换、前缀变化 | 异常物理来源替换 | `replace_previous` / `sourceEpoch` |
-| 同一会话跨日期目录出现新 rollout | 来源发现范围扩展 | bounded date discovery + lineage catalog |
+| 编辑最后一个终止 turn 生成 child rollout | 合法 history transition | Rust 内部 lineage locator + `history_base` cut + child read |
+| 原文件截断、同路径内容替换、前缀变化 | 异常 source mutation | source identity/checkpoint 校验；fail-closed，不触发产品 source replacement |
+| 同一会话跨日期目录出现新 rollout | Rust 内部定位范围扩展 | bounded source-index refresh + lineage evidence |
 
 父子切换不能复用父文件的 `ForwardAppendCursor` 读取 child。旧单文件
 `SourceSpec`、full-read、tail、backward/range、backfill、append 和 cursor API 必须保持
@@ -122,35 +124,26 @@ backward-compatible；lineage 读取只能作为 additive orchestration 层提�
 
 ## 3. 职责切点
 
-### 3.1 输入和发现职责
+### 3.1 输入和内部定位职责
 
-调用方按输入模式提供以下信息：
+4.5 的 Node 业务请求只提供稳定 `conversationId`、`preview`/`backfill`/`append` read intent、
+cursor/checkpoint/recovery state 和资源限制。`sessionsRoot` 由启动契约注入 Rust；Node 不发送
+`discovery` mode、日期扫描参数、物理 path、source catalog 或 active head hint。
 
-- **Discovery 模式**：受允许的 `sessionsRoot`、稳定 `conversationId`、日期扫描起点/上界或
-  等价的可恢复 discovery checkpoint，以及可选的已知 source/head path 作为 hint；
-- **显式绑定模式**：稳定 `conversationId` 和已知 `path/source_id/source_epoch`；
-  `sessionsRoot` 与日期边界可以不提供，但 Rust 仍必须验证该 source 属于目标会话和有效
-  lineage。
-
-Rust 不依赖 Codex 私有 SQLite schema，也不要求调用方事先找到唯一最新文件。调用方提供的
-active hint 可以缩小读取范围，但 Rust 必须验证该 hint 是否属于目标会话、是否位于有效 lineage
-上，并检查有界范围内是否存在更新的有效 descendant。
-
-当前旧 Node 只稳定持有 `conversationId/threadId`，并不保证已经取得 rollout 的物理路径。因此
-`sessionsRoot + conversationId` discovery 是没有物理 source binding 时的正式恢复/接入路径；显式
-`path/source_id/source_epoch` 只是已知来源的快速路径或 discovery hint，不授予调用方决定 active
-child 的权利。只有 Rust 完成会话绑定、parent chain 和 descendant 校验后，选定的
-`active_source` 才是本次读取使用的物理来源。
+Rust 不依赖 Codex 私有 SQLite schema，也不要求 Node 事先找到唯一最新文件。Rust 在自己的
+source index/lineage locator 中按已冻结的资源预算和内部恢复证据定位候选，并验证候选属于目标会话、
+位于有效 lineage 上且存在唯一 active head。source path、source identity、lineage edge 和内部
+checkpoint 不成为 Node 的 source selection API。
 
 ### 3.2 职责表
 
 | 职责 | Rust Collector 设计 | Node/同步设计 |
 |---|---|---|
-| 提供允许的 sessions root 和 conversation ID | 消费并验证 | 负责配置/授权来源范围 |
-| 跨日期发现同会话 rollout 候选 | 负责 | 不重复扫描 raw rollout |
+| 提供允许的 sessions root 和 conversation ID | 消费启动级 root 并验证 conversation ID | Node 只负责启动配置和业务目标 |
+| 跨日期定位同会话 rollout 候选 | Rust 内部负责 | Node 不扫描 raw rollout |
 | 解析文件名候选信息 | 负责 | 不把文件名当 canonical identity |
 | 解析 `history_base` 和建立父子边 | 负责 | 不解析 Codex wire |
-| 确定 active head / 处理歧义 | 负责验证并 fail-closed；可消费显式 hint | 可提供 hint，但不得自行猜 old turn |
+| 确定 active head / 处理歧义 | Rust 内部验证并 fail-closed | Node 不提供 hint、不自行猜 old turn |
 | root → head 完整历史重建 | 负责 | 消费 `AnalysisBatch` |
 | full/tail/backward/backfill/append 的 lineage 编排 | 负责 | 选择任务用途和恢复时机 |
 | 输出旧 turn、new turn、source lineage 和 replacement facts | 负责 | 事务级 preflight 和持久化 |
@@ -177,23 +170,24 @@ rollout ID，而不是稳定 `SessionMeta.id`。
 现有 `7e9f552` 已完成以下可复用子能力：
 
 - `HistoryBaseRef`、显式 source 下的 parent suffix 验证和 replacement validator；
-- completed/stopped/interrupted、A→B→C、source guard 和重启后已知 lineage replay；
+- completed/stopped/interrupted、A→B→C、source guard 和重启后已知 lineage 重建；
 - `ReplaceLastTurn`、capability、ACK、coverage/evidence 分离和隔离 Node importer。
 
 本文目标已经由以下实现覆盖：
 
-1. `source::discover_session` 在显式日期边界或默认有界日期目录窗口内扫描候选，不做全局递归；
-   可从 `sessionsRoot + conversationId` 自动选 active head，也可验证 rollout/path hint。
+1. `source::discover_session` 在启动级 `sessionsRoot` 下按 Rust 内部有界日期目录窗口扫描候选，
+   不做全局递归；可从 Node 提供的 `conversationId` 自动选 active head，不接受 Node 的
+   rollout/path hint。
 2. 文件名解析出稳定 conversation candidate、rollout ID、时间和日期分区；首行
    `SessionMeta` 再验证会话身份，`history_base` 建立权威父子关系；root-like stale candidate
-   作为发现证据保留，不强行加入 active chain。
-3. `SessionLineage` 交付 root→head chain、所有候选、transition、fingerprint 和 catalog，
-   支持服务重启后只带会话 ID、日期根和 active hint 恢复，缺 parent/歧义/冲突 fail-closed。
-4. stage4 discovery 接入 Replay、Preview、Backfill、Append：同文件 append 继续使用原
-   `ForwardAppendCursor`；child transition 不复用父 cursor，而是重新读 child 并重建 lineage。
-   服务重启时残留的旧 `source_id/source_epoch/path/cursor/anchor` 只作为发现提示；一旦发现
-   新 active child，Collector 会切换到 child path/id/epoch，丢弃旧物理 cursor/anchor，并以
-   child 的完整读取重新建立 lineage recovery 边界。
+   作为 Rust 内部定位证据保留，不强行加入 active chain。
+3. `SessionLineage` 交付 root→head chain、候选 provenance、transition 和内部 source evidence，
+   支持服务重启后只带会话 ID 和持久化恢复证据重新定位，缺 parent/歧义/冲突 fail-closed。
+4. stage4 internal source locating 接入完整读取、Preview、Backfill、Append：同文件 append
+   继续使用原 `ForwardAppendCursor`；child transition 不复用父 cursor，而是重新读 child 并
+   重建 lineage。服务重启时残留的旧 `source_id/source_epoch/path/cursor/anchor` 只作为
+   内部恢复证据；一旦发现新 active child，Collector 会切换到 child path/id/epoch，丢弃旧物理
+   cursor/anchor，并以 child 的完整读取重新建立 lineage recovery 边界。
 5. `BatchMessage`/`AnalyzerCheckpoint` additive 交付 `discovered_sources`、
    `lineage_transitions`、`lineage_coverage`、`lineage_checkpoint` 和已验证 replacement；
    未知事件仍只降低 coverage，不伪造 canonical mutation。
@@ -216,7 +210,7 @@ LineageReadResult
     rolloutId
     path/provenance
     filename time/date evidence
-    source fingerprint/anchor
+    opaque selected-source snapshot evidence
   lineageTransitions[]
     parentRolloutId
     childRolloutId
@@ -286,7 +280,7 @@ LastTurnReplacement
   `SessionMeta.id` 当成 child rollout ID；
 - `parentRolloutId` 取自 `history_base.thread_id`；
 - old/new turn ID 取自实际 Codex turn 事件；
-- 三个 `SourceRef` 用于 Node preflight、诊断和 replay 证据，不暴露给 App；
+- 三个 `SourceRef` 用于 Node preflight、诊断和读取证据，不暴露给 App；
 - 一个 transition 只能有一个 old turn 和一个 new turn；重复编辑通过有序的
   `Vec<LastTurnReplacement>` 表达，不引入通用分支图。
 
@@ -310,15 +304,15 @@ child 文件”或“child 已产生 user turn”的进度事件。Rust 只有�
 
 ## 6. Additive 改造设计
 
-### 6.1 阶段 0：bounded session rollout discovery
+### 6.1 阶段 0：bounded session rollout source 定位
 
-目标：从已知会话和有限日期范围发现所有可能属于该会话的 rollout 候选，并确定可验证的
-active lineage head。
+目标：Rust 从启动级 `sessionsRoot` 和 Node 提供的会话 ID 出发，在内部有限资源范围内定位可能
+属于该会话的 rollout 候选，并确定可验证的 active lineage head。
 
 方案：
 
-- 从 `sessionsRoot` 下的日期分区起点开始，只枚举到显式日期上界/当前恢复边界；禁止对整个
-  sessions 根做无界递归扫描；
+- 从 `sessionsRoot` 下的日期分区开始，只枚举到 Rust 内部 locator/read budget 和当前恢复边界；
+  禁止对整个 sessions 根做无界递归扫描；
 - 按文件名筛选稳定 conversation ID 候选，解析 rollout ID、文件时间、日期目录和路径；
 - 在进入 header 读取和 lineage catalog 前执行 Codex-compatible sibling canonicalization：
   同目录同名 `.jsonl` 存在时隐藏 `.jsonl.zst`；只有 `.zst` 时保留压缩源；不按 rollout ID
@@ -329,13 +323,15 @@ active lineage head。
 - 对候选文件读取最小 SessionMeta/header，验证稳定会话 ID、`history_mode`、rollout ID 和
   `history_base`；
 - 用 `history_base.parent_rollout_id` 建立权威 parent edge；文件名时间/UUIDv7 只作为候选排序
-  和发现游标，不作为唯一关系证明；
+  和内部定位线索，不作为唯一关系证明；
 - 支持 parent 文件在前一日期目录、child 文件在后一日期目录；跨日期 catalog 必须可恢复，
   不依赖进程内中间 checkpoint；
-- 由显式 active hint 优先缩小目标，或在候选中选择唯一有效 descendant；多个互相冲突的
-  active head、无法验证的候选和 parent 缺失必须 fail-closed，不选择“mtime 最大文件”；
-- discovery 结果保留 source path、file fingerprint、header evidence 和扫描边界，供后续
-  lineage cursor/checkpoint 复用。
+- 由 Rust 内部已知 source/checkpoint 证据优先缩小目标，或在候选中选择唯一有效 descendant；
+  多个互相冲突的 active head、无法验证的候选和 parent 缺失必须 fail-closed，不选择“mtime 最大
+  文件”；
+- 内部定位结果保留 source path、header/binding evidence 和扫描边界；候选全文件 fingerprint
+  不作为候选选择证据。选定 source 的 formal fingerprint 若因兼容需要进入 checkpoint，只能是
+  opaque source evidence。
 
 ### 6.2 阶段 1：wire decode 和 TermLink-owned metadata
 
@@ -351,13 +347,13 @@ active lineage head。
 
 ### 6.3 阶段 2：lineage graph 和恢复计划
 
-目标：从 discovered candidates 和 `history_base` 建立 root → active head 的线性 lineage，
+目标：从 Rust 内部定位出的 candidates 和 `history_base` 建立 root → active head 的线性 lineage，
 并支持服务重启后跳过中间 rollout 的恢复。
 
 方案：
 
-- `RolloutCatalog` 扩展为跨日期、可恢复的候选目录；单目录 `from_directory` 只能作为一个
-  分区扫描 primitive，不能作为完整 session discovery API；
+- `RolloutCatalog` 扩展为跨日期、可恢复的内部 source index；单目录 `from_directory` 只能作为
+  一个分区扫描 primitive，不能作为 Node 可调用的 session discovery API；
 - 每个 edge 同时保存 parent/child rollout ID、child history_base、cut、header/source guard；
 - 从 active child 沿 `history_base` 向前解析 parent 直到 root，检测缺失、循环、资源上限和
   多候选；不以 lineage 层数截断合法历史；
@@ -366,14 +362,14 @@ active lineage head。
 - parent bounded header/suffix 读取期间检查 snapshot、fingerprint、完整行边界和目标会话绑定；
   parent auxiliary full-history payload 不要求额外的整文件 before/after fingerprint mutation
   guard，外部原地修改属于 unsupported input；
-- lineage graph 的 source identity、日期扫描边界和 head 选择证据进入 checkpoint，但不成为
-  产品 DB schema。
+- lineage graph 的 source identity、内部日期扫描边界和 head 选择证据进入 checkpoint，但不成为
+  Node source selection API 或产品 DB schema。
 
 ### 6.4 阶段 3：session-lineage 读取模式
 
 目标：把已有物理文件读取能力编排为会话级读取，而不把“分页”误解为 HTTP 分页。
 
-#### 6.4.1 Full lineage replay
+#### 6.4.1 Full lineage read
 
 ```text
 发现候选文件
@@ -412,8 +408,8 @@ conversationId
 activeRolloutId
 parentRolloutId / childRolloutId
 historyBase cut
-每个 source 的 fingerprint / prefix anchor / snapshot boundary
-日期发现边界和 lineage chain identity
+选定 source 的 opaque snapshot/prefix evidence / snapshot boundary
+内部定位边界和 lineage chain identity
 ```
 
 child 自有区段读取成功后，再把 replacement evidence 和新的 active head 状态交给阶段 4；
@@ -427,11 +423,11 @@ child 未完成时不得发布 canonical `ReplaceLastTurn` mutation。
 本阶段冻结的父 lineage 策略如下：
 
 - 普通 `.zst` 作为 active/root source 时，只允许正序完整读取；它不提供 tail、backward
-  或 append cursor。active `.zst` 若有 plain JSONL parent，只有在完整 Replay 能满足其他
+  或 append cursor。active `.zst` 若有 plain JSONL parent，只有在完整读取能满足其他
   lineage/replacement 证据时才允许继续；Preview/Backfill 仍受 active source capability
   限制。
 - 普通 `.zst` 作为 parent rollout 时，`tail_backfill_recovery`、
-  `replacement_validation` 以及 parent full-history replay 一律 fail-closed，返回类型化的
+  `replacement_validation` 以及 parent full-history read 一律 fail-closed，返回类型化的
   `LineageError::UnsupportedParentSourceCompression`；不返回 lineage batch，不发布
   replacement evidence、lineage cursor、checkpoint 或 `ReplaceLastTurn` mutation。
 - 不把解压后的逻辑位置当作可复用的物理 byte cursor，也不在本阶段通过顺序解压偷偷实现
@@ -447,16 +443,15 @@ hello/analyze/batch/ACK/checkpoint conformance。
 
 方案：
 
-- 增加 additive lineage discovery/read result、`session_lineage_v1` 和
-  `last_turn_replacement_v1` capability；
-- Node 声明相应能力后，Rust 才发送新的 lineage fields/replacement mutation；未知能力
-  fail-closed。当前隔离 Node validator/importer 尚未构造 discovery 请求或声明
-  `session_lineage_v1`，这属于阶段 4.5/5 的下游接入缺口，不改变 Rust 对 active source 的发现权；
+- 增加 additive lineage/read result、`session_lineage_v1` 和 `last_turn_replacement_v1` 的
+  兼容证据；Node 只按 wire contract 协商基础 `analyze_v1` 和可选 replacement capability，
+  不构造 discovery 请求。未知能力按 wire contract fail-closed，不改变 Rust 对 active source 的
+  内部定位权；
 - `historyItems`、source lineage、coverage、replacement evidence 和 checkpoint 必须处于同一
   batch evidence chain；
 - 只有 source range、lineage coverage 和 projection coverage 均达到 canonical 条件时，才
   生成改变 active projection 的 `ReplaceLastTurn` mutation；evidence-only partial 仍可诊断/暂存；
-- Rust 继续等待匹配 `accepted=true,persisted=true` ACK；相同 lineage/replacement replay 必须
+- Rust 继续等待匹配 `accepted=true,persisted=true` ACK；相同 lineage/replacement 结果的重试交付必须
   通过稳定 key、batch/checkpoint fence 幂等；
 - 该 Node 目录仍只是隔离 validator/importer/store，不接入产品 history provider、gateway、
   Android 或 App WebSocket。
@@ -465,10 +460,10 @@ hello/analyze/batch/ACK/checkpoint conformance。
 
 以下任一条件成立时，不得宣称完整 canonical lineage：
 
-- sessions root、conversation ID、日期边界或 source binding 缺失/越权；
-- 候选文件跨越允许日期范围，或发现扫描无界；
+- Rust 启动级 sessions root、conversation ID、内部定位边界或 source binding 缺失/越权；
+- 候选文件跨越 Rust 允许的内部定位范围，或 source-index 扫描无界；
 - 文件名候选无法解析 rollout ID，或文件名与 header/SessionMeta identity 不一致；
-- active hint 不属于目标会话/lineage，或有多个无法消解的 active head；
+- Rust 内部已知 hint 不属于目标会话/lineage，或有多个无法消解的 active head；
 - `history_base` parent 缺失、parent/child conversation 不一致、父链循环或超出资源预算；
 - ordinal cut 与 byte cut 不一致、不在完整 JSONL 行边界，或 bounded parent validation 读取不完整；
   parent auxiliary full-history read 的外部 in-place mutation 不作为 Collector correctness
@@ -480,7 +475,7 @@ hello/analyze/batch/ACK/checkpoint conformance。
 - Node 未协商所需 lineage/replacement capability。
 
 失败时不得推进受影响 source/lineage cursor，不得回显旧安全 cursor，不得把 child 降级为普通
-append，不得触发现有 `replace_previous` 清理。可以返回已确认 records、diagnostics 和
+append，不得触发任何旧 source-replacement 清理。可以返回已确认 records、diagnostics 和
 partial coverage，但必须明确不可作为 canonical 完整历史提交。
 
 ## 8. 实施范围
@@ -514,13 +509,13 @@ partial coverage，但必须明确不可作为 canonical 完整历史提交。
 
 | 场景 | 预期 |
 |---|---|
-| root 与 child 在同一日期目录 | 发现、关联、完整 replay |
-| parent 在旧日期、child 在后续日期 | 有界扫描发现 child，不能只依赖当前目录 |
+| root 与 child 在同一日期目录 | 内部定位、关联、完整 lineage read |
+| parent 在旧日期、child 在后续日期 | 内部 source-index 有界定位 child，不能只依赖当前目录 |
 | 同会话多个 root-like/兄弟候选 | 文件名只作候选；无法唯一确认 active head 时 fail-closed |
 | 文件名 rollout ID 与 SessionMeta/history_base 冲突 | fail-closed |
-| 只提供 conversation ID + sessions root | 可在日期边界内发现候选并建立有效 lineage |
-| 只提供最新 active 文件、服务已重启、缺中间候选 | 从允许目录恢复完整父链 |
-| full lineage replay | root→head 历史顺序稳定，旧 turn 保留 |
+| Node 只提供 conversation ID，Rust 已按启动契约获得 sessions root | 可在内部预算内定位候选并建立有效 lineage |
+| 服务已重启、缺中间候选 | 从启动 root、持久化 checkpoint 和可验证 parent chain 恢复 |
+| full lineage read | root→head 历史顺序稳定，旧 turn 保留 |
 | tail/backward lineage recovery | 从 head 尾部向 parent cut 回溯，逻辑归约仍正序 |
 | 同文件 append | 只推进 `ForwardAppendCursor`，不重复、不提交尾部半行 |
 | child transition incremental | 新建 lineage cursor，不复用 parent append cursor |
@@ -529,11 +524,11 @@ partial coverage，但必须明确不可作为 canonical 完整历史提交。
 | 只有 `.jsonl.zst` | 保留 `.zst`，继续遵循 ordinary `.zst` forward-only 边界 |
 | 不同路径的相同 rollout lookup ID | 仍返回 `AmbiguousRollout`，不按 ID 跨目录合并 |
 | plain child + ordinary `.zst` parent | parent lineage 类型化 fail-closed；不发布 lineage/replacement/cursor/checkpoint |
-| ordinary `.zst` active/root full Replay | 允许正序读取；不提供 tail/backward/append cursor |
+| ordinary `.zst` active/root full read | 允许正序读取；不提供 tail/backward/append cursor |
 | 父最后 turn completed，child 合法重发 | 输出一条稳定 replacement |
 | 父最后 turn 主动停止/中断，child 合法重发 | 输出一条 replacement，保留 terminal status |
 | 连续 A→B→C | 按顺序输出两条一对一 replacement，最终 C active |
-| 同一请求/restart/replay/ACK | replacement key、lineage key、item key、batch/checkpoint 结果稳定幂等 |
+| 同一请求/restart/重试交付/ACK | replacement key、lineage key、item key、batch/checkpoint 结果稳定幂等 |
 | 未知事件、gap、partial parent | 保留 diagnostics/partial coverage，不宣称 canonical |
 | cut ordinal 不等于最后 turn 起点 | fail-closed |
 | cut byte 不在对应完整行边界 | fail-closed |
@@ -544,12 +539,12 @@ partial coverage，但必须明确不可作为 canonical 完整历史提交。
 | parent 缺失、错 conversation、父链环 | fail-closed |
 | active head 读取期间变化 | 不提交、不推进 cursor |
 | cut mismatch、父缺失、父链环、多个 child user turn | fail-closed，不推进 cursor |
-| Node 未声明 capability | 明确 unsupported，不伪造 canonical |
-| 无 `history_base` 的旧 fixture | 既有普通 source/replay 行为保持不变 |
+| Node 未声明 optional replacement capability | 明确 unsupported，不伪造 canonical replacement |
+| 无 `history_base` 的旧 fixture | 既有普通 source 读取行为保持不变 |
 
 回归已覆盖阶段 1–4 suite、full-vs-segmented oracle、append promotion/restart、Demo/Spike
 同 fixture reference、Cargo source boundary、fmt/check 和 session-level fixture。新增的跨日期
-fixture 验证了 conversation-only discovery、preview parent-suffix recovery、child transition
+fixture 验证了 conversation-only internal source locating、preview parent-suffix recovery、child transition
 append、checkpoint lineage evidence；并加入可复用的
 `native/codex-rollout-collector/tests/fixtures/sanitized-session-5/` 五文件 synthetic/sanitized
 fixture，覆盖
@@ -557,15 +552,15 @@ fixture，覆盖
 path 重启恢复。该五文件样本中的 synthetic unknown developer-role 事件按当前兼容边界保持 partial、逐跳
 `validation_unavailable` 且不生成 `replace_last_turn` mutation；complete replacement 仍由
 独立的小型合成 parent/child fixture 覆盖。README 说明该 fixture 完全由人工构造的最小事件组成。
-另有 plain/compressed sibling 回归，覆盖 discovery 与目录 catalog 的 plain 优先、zst-only
+另有 plain/compressed sibling 回归，覆盖内部 source index 的 plain 优先、zst-only
 保留和非 sibling 相同 ID 歧义保持。
 
 ## 10. Rust Collector 方案完成条件
 
 本次 Rust Collector 改造交付满足以下条件，阶段 4.5/Node 可以开始消费其上游结果：
 
-- 正式 collector 能从显式 active rollout 或 `sessionsRoot + conversationId` 的有界输入发现、
-  解析和验证 parent lineage，并确定唯一有效 active lineage head，或对歧义 fail-closed；
+- 正式 collector 能从启动级 `sessionsRoot` 和 `conversationId` 在内部有界定位、解析和验证
+  parent lineage，并确定唯一有效 active lineage head，或对歧义 fail-closed；
 - 能通过 header/SessionMeta/history_base 建立并验证 parent/child rollout 关系，文件名只作
   候选信息；
 - 能按 root → active head 重建完整逻辑历史，保留被替换旧 turn，并交付 source lineage、
@@ -574,14 +569,14 @@ path 重启恢复。该五文件样本中的 synthetic unknown developer-role �
   checkpoint 语义，且不得跨物理 source 混用；
 - 一条合法编辑只产生一个 old/new turn replacement；
 - completed 和 stopped/interrupted old turn 均有 fixture；
-- A→B→C 冷启动 replay 与增量 replay 结果一致；
+- A→B→C 冷启动读取与增量读取结果一致；
 - 非最后 turn、非终止 turn、cut mismatch、parent 缺失、候选歧义、跨日期缺失和 bounded
   validation/读取完整性错误全部 fail-closed；
 - child `in_progress`、partial、pending tail/gap 和 source mutation 不产生 publishable
   `ReplaceLastTurn`；只有 terminal + canonical coverage/read gate 通过后才能交接；
 - parent auxiliary full-history read 的外部 in-place mutation 属于 unsupported input，不要求由
   full-file fingerprint 检测；
-- 阶段 4 capability、mutation、ACK、checkpoint 和重放幂等通过；
+- 阶段 4 capability、mutation、ACK、checkpoint 和重试交付幂等通过；
 - 既有阶段 1–4 API 与普通单文件读取行为没有破坏性变化；
 - 未接入产品 DB、WebSocket、IPC 或 Android；
 - 文档、fixture 和验证矩阵足以让下一实施任务直接建立可审计的代码范围。

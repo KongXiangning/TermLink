@@ -39,7 +39,7 @@ related_code:
 - completed/stopped(interrupted) old turn 编辑重发；
 - A→B→C 线性 replacement 和乱序到达；
 - 正常打开、增量同步、older 分页和 cache-first；
-- App 离线、change log 可重放和 snapshot recovery；
+- App 离线、change log 恢复和 snapshot recovery；
 - 重复 ACK、冲突 ACK 和 ACK 丢失；
 - Node 在事务前/后重启；
 - App 在 staging/SQLite commit 前后重启；
@@ -50,7 +50,7 @@ related_code:
 本文冻结的是：
 
 1. 每个时序向量的初始条件、事件顺序、最终服务端状态和最终 App 状态；
-2. 哪些步骤可以重放、哪些步骤必须 fail-closed；
+2. 哪些步骤可以重试/重复提交、哪些步骤必须 fail-closed；
 3. `serverRevision`、snapshot fence、内部 source evidence、generation、ACK 和 SQLite transaction 的不变量。
 
 本文不是测试代码，也不授权阶段 5B history provider、阶段 5C 数据库接入或 Android schema migration。正式实现时，Rust conformance、Node canonical writer、history WebSocket 和 Android SQLite 可以各自实现测试，但必须能用同一逻辑 fixture 对照本文件的结果。
@@ -91,7 +91,7 @@ T_BC = rollout-B, oldTurn=B → rollout-C, newTurn=C
 | 记号 | 含义 |
 |---|---|
 | `N.publish(R42)` | Node canonical publication transaction 成功，公开 revision 变为 R42 |
-| `N.stage(x)` | Node durable staging，尚未改变公开 read model |
+| `N.stage(x)` | Node 对 analyzer batch 做 durable staging/receipt/recovery-evidence COMMIT；在 Rust ACK 前完成，尚未改变公开 read model |
 | `N.reject(x)` | Node 拒绝本次输入，不改变公开 revision |
 | `W.send(seq)` | Node 向 App 发送一个 pinned history sequence |
 | `A.stage(seq)` | App 校验后写入 staging，尚未写 committed SQLite |
@@ -123,7 +123,7 @@ ACK state
 ## 2. 所有向量共用的不变量
 
 1. Node canonical publication 不等待 App 在线或 App ACK。
-2. `serverRevision` 只在 Node canonical publication 成功后增加；App ACK、重连、重放和重启不增加 revision。
+2. `serverRevision` 只在 Node canonical publication 成功后增加；App ACK、重连、重试和重启不增加 revision。
 3. old turn 不物理删除；编辑重发后保留原 `executionStatus`、outcome 和 provenance，只改变
    `projectionState=active → superseded`；不使用独立 boolean `superseded`。
 4. old turn 存在时，old state update、new upsert、含 `operationId` 的 replacement relation、
@@ -131,7 +131,7 @@ ACK state
    ghost row。
 5. 没有 `ACKs`，不能声称 App 已完成 replacement 的 SQLite 提交。
 6. Rust `replacementKey` 经 Node 校验后逐字节复用为 `operationId`；同一
-   replacement/page/chunk/ACK 的完全相同重放必须幂等，内容冲突必须 fail-closed；不同
+   replacement/page/chunk/ACK 的完全相同重复提交必须幂等，内容冲突必须 fail-closed；不同
    operation 不得替换同一个 old turn。
 7. stale `syncId`、selection generation、serverRevision 或 target root 的结果不能写当前 App selection。
 8. partial、failed、超时、缺页、未知状态和超限都保留最后一个 committed cache，不得用空结果覆盖。
@@ -143,6 +143,10 @@ ACK state
     capability 不得发送 canonical/turn-replacement data plane。
 12. canonical checkpoint 的 `serverRevision` 必须与 root/coverage/anchor/cursor/complete
     同一事务提交；checkpoint 不携带 product source epoch，revision 回退时保留旧 cache。
+
+13. analyzer batch ACK 只确认 `N.stage(x)` 已提交；`serverRevision`、change log、产品 canonical
+     rows 和最终 analyzer checkpoint 只能在 Rust `complete` 通过校验后由一次 Node product DB
+     transaction 提交，COMMIT 后才算 canonical publication。
 
 ### 2.1：Capability handshake 和 checkpoint fence
 
@@ -347,7 +351,7 @@ A、B 都保留各自 executionStatus/outcome，但 A、B 不能同时出现在 
 2. N.stage(T_BC)，不公开提交，不增加 revision
 3. B 的 T_AB 到达
 4. Node 提交 T_AB：R41 → R42，head=B
-5. Node 从 durable staging/reconciliation 重放 T_BC
+5. Node 从 durable staging/reconciliation 重试提交 T_BC
 6. Node 提交 T_BC：R42 → R43，head=C
 ```
 
@@ -358,13 +362,13 @@ A、B 都保留各自 executionStatus/outcome，但 A、B 不能同时出现在 
 当 Node 从未公开 A、B、C 的中间 transition 时：
 
 ```text
-1. Rust 按 root → A → B → C 线性 replay
+1. Rust 按 root → A → B → C 线性 lineage 重建
 2. Node 在 durable staging 中形成 A→B、B→C 两条 relation
 3. Node 一次 canonical publication 提交最终 active projection=C
 4. 对外只发布一个新 revision R42（相对于最后已发布 revision）
 ```
 
-**预期**：数据库中两条 replacement relation 都存在，最终 root 只含当前 active projection；不能因为内部 replay 两条 edge 就伪造 R42、R43 两个公开 revision。
+**预期**：数据库中两条 replacement relation 都存在，最终 root 只含当前 active projection；不能因为内部 lineage 重建两条 edge 就伪造 R42、R43 两个公开 revision。
 
 ## 6. App 离线和 cache recovery 向量
 
@@ -489,7 +493,7 @@ Revision: 不增加
 2. Node 尚未收到或尚未持久化 App ACK
 3. X(Node)
 4. Node 重启从 durable DB 恢复 R42/head=B
-5. App 重连请求 R41 checkpoint，或重放同一 replacement
+5. App 重连请求 R41 checkpoint，或重试提交同一 replacement
 6. Node 返回 R42 delta；重复 replacement 被识别为 duplicate
 7. App commit/重发 ACKs
 ```
@@ -506,7 +510,7 @@ Revision: 不增加
 5. 无变化则 no-op；有合法变化则只发布一次新 revision
 ```
 
-**预期**：Rust batch 重放不等于 canonical revision 重放；重复 artifact 不产生重复 turn、重复 relation 或重复 serverRevision。
+**预期**：Rust batch 重试交付不等于 canonical revision 重试；重复 artifact 不产生重复 turn、重复 relation 或重复 serverRevision。
 
 ## 9. App 重启向量
 
@@ -532,7 +536,7 @@ Revision: 不增加
 2. ACKs 尚未发送或发送丢失
 3. X(App)
 4. 重启读取 durable checkpoint=R42/root-B
-5. App 发起新 sync；Node 发现已是 up-to-date，或重放可幂等 sequence
+5. App 发起新 sync；Node 发现已是 up-to-date，或重试同一 sequence 并保持幂等
 6. App 需要时重发 ACKs
 ```
 
@@ -723,7 +727,7 @@ A 的 executionStatus/outcome 不变。
 ```
 
 **预期**：COMMIT 前崩溃时数据库回滚到 R41/head=A；COMMIT 后崩溃时 durable DB 为
-R42/head=B，重放返回 R42。内存队列和 in-flight 请求丢失不影响判断，也不能依靠最近文件、
+R42/head=B，重试返回 R42。内存队列和 in-flight 请求丢失不影响判断，也不能依靠最近文件、
 App ACK 或内存执行顺序猜测状态，更不能产生重复 revision。
 
 ## 14. 向量执行层级和验收结果
@@ -733,7 +737,7 @@ App ACK 或内存执行顺序猜测状态，更不能产生重复 revision。
 | 层级 | 关注点 | 必须覆盖的向量 |
 |---|---|---|
 | Rust collector/conformance | history_base、terminal old turn、parent/child/cut、replacement fact、source evidence、child canonical gate | V05–V10、V25、V28–V30 |
-| Node canonical writer | preflight、child publication gate、old/new/relation/root/checkpoint transaction、revision、staging/replay、single-flight coordinator 和冲突恢复 | V05–V10、V18–V20、V25、V28–V35 |
+| Node canonical writer | preflight、child publication gate、old/new/relation/root/checkpoint transaction、revision、staging/retry、single-flight coordinator 和冲突恢复 | V05–V10、V18–V20、V25、V28–V35 |
 | history WebSocket | capability、page/chunk/hash、generation、fallback、ACK | V02–V04、V11–V17、V24、V26–V27 |
 | Android/App persistence | staging 与 SQLite atomic commit、restart、duplicate、selection、child 未发布时保留旧 cache | V05–V06、V11–V17、V21–V24、V26–V30 |
 | IPC boundary regression | healthy surface authority 和 A/B 隔离 | V24、V28 |

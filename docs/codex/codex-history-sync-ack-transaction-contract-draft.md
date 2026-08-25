@@ -78,7 +78,7 @@ sequence_persisted ACK
 | ack kind | 表示什么 | 是否表示 old/new/root 已提交 | 用途 |
 |---|---|---:|---|
 | `page_staged` | 当前 page 和其 payload chunks 已校验并 durable staging | 否 | Node 流控，允许发送下一页 |
-| `sequence_persisted` | 整个 sequence 已完成 SQLite 原子提交 | 是 | 最终提交确认和重放收敛 |
+| `sequence_persisted` | 整个 sequence 已完成 SQLite 原子提交 | 是 | 最终提交确认和重试收敛 |
 
 `page_staged` 是传输回执，不是业务意义上的最终 ACK。只有 `sequence_persisted` 才能让
 Node 把该 sequence 视为 App 已持久化。
@@ -198,7 +198,7 @@ anchors/cursor、complete 状态同一事务提交；不能先推进 root 再异
 
 - 不创建 ghost old row；
 - 仍在同一 transaction 中 upsert new turn 和 root/checkpoint；
-- 可在 App operation ledger 记录 `operationId` relation reference，避免后续 replay 重复产生状态变化；
+- 可在 App operation ledger 记录 `operationId` relation reference，避免后续重试重复产生状态变化；
 - persisted ACK 表示本地 active projection 已收敛，不声称 App 曾经持有 old row。
 
 如果 old row 存在，则只能把 `projectionState=active` 条件更新为 `superseded`，并且必须和
@@ -216,7 +216,7 @@ Node 收到并验证 `page_staged` 后：
 - 只推进当前 transport page 的发送窗口；
 - 不把 canonical revision 标记为 App 已提交；
 - 不发送 `conversation_history_sync_state.state=synced`；
-- 不清理仍需要重放的 sequence 证据；
+- 不清理仍需要重试的 sequence 证据；
 - ACK 重复且字段相同视为幂等，不重复推进 page；字段冲突则 fail-closed。
 - `page_staged` 和 `sequence_persisted` 必须按 `ackKind` 分开记录；同一最后页的
   persisted ACK 不能被先到的 staged ACK 当作重复 ACK 吞掉。
@@ -250,14 +250,14 @@ serverRevision, targetRoot)`；不匹配就按 stale 或 protocol conflict 处�
 |---|---|---|---|
 | page hash/chunk 校验失败 | 不变 | 丢弃本次 staging | 不接受 persisted ACK |
 | 已 page staging，未收齐 sequence | 不变 | 可发送 `page_staged`，等待/重连 | 继续流控，不结算 sync |
-| 收齐 page，但 transaction 尚未 commit | 不变 | 不发送 persisted ACK | 保留 canonical change/replay 依据 |
-| transaction 失败或 App 崩溃 | 不变 | 重连后用 durable checkpoint 新建 sync | 重放同一 canonical revision |
-| transaction 已 commit，ACK 丢失 | 已更新 | 重放后发送同内容 persisted ACK | 按 targetRoot/operation 幂等接受 |
+| 收齐 page，但 transaction 尚未 commit | 不变 | 不发送 persisted ACK | 保留 canonical change 依据 |
+| transaction 失败或 App 崩溃 | 不变 | 重连后用 durable checkpoint 新建 sync | 重试同一 canonical revision |
+| transaction 已 commit，ACK 丢失 | 已更新 | 重试后发送同内容 persisted ACK | 按 targetRoot/operation 幂等接受 |
 | A→B 或 generation 变化 | 当前 B cache 不变 | 丢弃 A 的 staging/ACK | 忽略 stale ACK，不影响 B |
 | persisted ACK 内容冲突 | 不变 | 进入协议失败/重同步 | fail-closed，不覆盖已确认结果 |
 
 断线重试可以使用新的 `syncId`；新的 sync 不得复用旧 sync 的 generation fence。Node 的
-canonical change log 在其保留窗口内提供重放，超出窗口则返回 bounded snapshot/recovery，
+canonical change log 在其保留窗口内提供增量恢复，超出窗口则返回 bounded snapshot/recovery，
 不能伪造一个空 delta。
 
 ## 6. 与其他 ACK lane 的边界

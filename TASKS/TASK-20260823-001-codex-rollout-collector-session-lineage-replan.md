@@ -1,4 +1,4 @@
-# TASK-20260823-001：重订 Codex Rollout Collector 会话 lineage 发现与读取设计
+# TASK-20260823-001：重订 Codex Rollout Collector 会话 lineage 定位与读取设计
 
 ## 任务元数据
 
@@ -11,7 +11,7 @@
 - 最终状态：archived
 - 任务开始基线：`7e9f552`
 - 主要实现提交：`a94dcbc`（`fix(collector): canonicalize rollout siblings`）
-- 归档结论：Rust Collector 会话级 discovery、lineage replay、读取模式和 replacement evidence 已完成并通过目标回归；不宣称 Node 产品持久化、服务端数据库、App ADTO、IPC、Android 或产品 release 已完成。
+- 归档结论：Rust Collector 会话级内部 source 定位、lineage 重建、读取模式和 replacement evidence 已完成并通过目标回归；不宣称 Node 产品持久化、服务端数据库、App ADTO、IPC、Android 或产品 release 已完成。
 
 ## 原始任务包快照
 
@@ -20,13 +20,13 @@
 实现 Rust Collector 的完整会话级业务链路：
 
 ```text
-sessions root + conversation id
+Rust 启动级 sessions root + Node conversation id
     ↓
-有界日期目录发现候选 rollout
+Rust 内部有界定位候选 rollout
     ↓
 SessionMeta / history_base 权威关联
     ↓
-root → active head 完整 lineage replay
+root → active head 完整 lineage read
     ↓
 full / tail-backward / backfill / same-file append / child transition
     ↓
@@ -37,7 +37,8 @@ coverage、provenance、checkpoint、replacement evidence
 
 ### 验收与边界
 
-- 显式 `sessions_root + conversation_id` 是发现入口；文件名只能提供候选和顺序线索。
+- Rust 启动级 `sessions_root` 与 Node 的 `conversation_id` 是内部定位入口；Node 不发送 discovery
+  请求，文件名只能提供候选和顺序线索。
 - `SessionMeta.id`、`history_base.thread_id`、ordinal/byte cut 负责会话绑定与父子关系验证。
 - 跨日期候选、缺父、多头、循环、会话不一致和无法消除的 active-head 歧义必须 fail-closed。
 - 保持最后一个已终止用户 turn 的一对一编辑替换 invariant、completed/stopped/interrupted、A→B→C 和旧 turn 保留语义。
@@ -50,9 +51,9 @@ coverage、provenance、checkpoint、replacement evidence
 
 ### Rust Collector
 
-- 新增 session discovery、候选 provenance、日期范围遍历、active-head 选择和 lineage chain 解析。
+- 新增 Rust 内部 source 定位、候选 provenance、日期范围遍历、active-head 选择和 lineage chain 解析。
 - 以 `history_base` 建立跨日期 parent/child 关系，沿 root→head 重建完整历史并保留被替换 turn。
-- 接入 lineage full replay、tail/backward recovery、backfill、同文件 append 和 child transition。
+- 接入 lineage full read、tail/backward recovery、backfill、同文件 append 和 child transition。
 - 输出 additive 的 discovered sources、lineage transitions、coverage、checkpoint 和 replacement evidence。
 - 增加 transition validation state：`discovered`、`validated`、`validation_unavailable`。
 - 将物理 append delta 与完整 lineage snapshot 分离；重启后可恢复最新 active head，不把 delta 当完整历史。
@@ -62,7 +63,7 @@ coverage、provenance、checkpoint、replacement evidence
 ### Fixture 与测试
 
 - 新增 `native/codex-rollout-collector/tests/fixtures/sanitized-session-5/` 五文件跨日期 synthetic/sanitized fixture。
-- 覆盖 full Replay、Preview、Backfill、latest-path restart recovery、stale root-like provenance、same-file append、active-head ambiguity、transition validation、`.zst` parent fail-closed 和 plain sibling priority。
+- 覆盖 full read、Preview、Backfill、latest-path restart recovery、stale root-like provenance、same-file append、active-head ambiguity、transition validation、`.zst` parent fail-closed 和 plain sibling priority。
 
 ### 文档与治理
 
@@ -75,12 +76,12 @@ coverage、provenance、checkpoint、replacement evidence
 ### 已稳定并同步
 
 - 文件名不是 canonical conversation identity，也不能单独证明父子关系；`history_base` 是 lineage 关联证据。
-- rollout.jsonl 的物理读取不是分页；日期分区、候选数和 discovery budget 与 full/tail/backward/append 读取模式分离。
+- rollout.jsonl 的物理读取不是分页；日期分区、候选数和内部 locator budget 与 full/tail/backward/append 读取模式分离。
 - 删除 `max_lineage_depth`；循环由 visited 检测，资源边界由 discovery/read budget、取消和 deadline 负责。
 - lineage evidence、lineage coverage、projection coverage、batch completeness 和 replacement mutation 分开表达。
 - 只有验证与 coverage 满足条件时才允许替换投影；partial/evidence-only 不提交 replacement mutation。
 - 同目录 `.jsonl` / `.jsonl.zst` sibling 遵循 plain 优先；不同路径相同 rollout ID 仍保持冲突语义，不跨目录合并。
-- 普通无索引 `.zst` 作为 active/root 可 forward replay；作为 parent 需要随机/后向/切点读取时 fail-closed。
+- 普通无索引 `.zst` 作为 active/root 可 forward full read；作为 parent 需要随机/后向/切点读取时 fail-closed。
 
 ### 保持不变的关键边界
 
@@ -96,7 +97,7 @@ coverage、provenance、checkpoint、replacement evidence
 - Rust library：96/96 通过。
 - Rust 全量：`cargo test --manifest-path native/codex-rollout-collector/Cargo.toml --all-targets --no-default-features` 通过：96 unit、31 conformance、3 stage2、5 stage3、22 stage4。
 - `cargo fmt --check`、`git diff --check`、提交前敏感信息扫描和版本检查通过。
-- 真实 rollout 目录 smoke 已验证 Replay、Preview、Backfill、Append；五文件 fixture 已覆盖跨日期 lineage 与重启恢复矩阵。
+- 真实 rollout 目录 smoke 已验证 full read、Preview、Backfill、Append；五文件 fixture 已覆盖跨日期 lineage 与重启恢复矩阵。
 - 最终范围审查 `7e9f552..working-tree` 未发现阻断性缺陷或越界改动。
 
 ### Release evidence

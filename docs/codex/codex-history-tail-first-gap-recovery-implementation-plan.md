@@ -43,16 +43,16 @@ TermLink 内存 baseline 和 Android SQLite 只负责静态历史、离线首屏
 | history mode | `thread/turns/list` | 服务端是否真 tail-first | App 是否可尾部优先 | 完整恢复能力 |
 |---|---|---:|---:|---|
 | paginated | 支持 cursor 分页 | 是 | 是 | 分页走到历史起点后可证明完整 |
-| legacy | 支持，但每次先全量重放 rollout 再切页 | 否 | 是，仅网络/客户端尾部优先 | 一次有界 full read 成功后才可能完整 |
+| legacy | 支持，但每次先全量读取 rollout 再切页 | 否 | 是，仅网络/客户端尾部优先 | 一次有界 full read 成功后才可能完整 |
 | ephemeral | history list/full read 不可用 | 否 | 只能用现有手机缓存和 IPC live | 不可 canonical 完整恢复 |
 | unknown | 不能安全假设为 legacy 或 complete | 未知 | 仅允许有界 partial 探测 | 默认 partial，禁止 delete/order |
 
 因此：
 
 - “legacy 还需要验证是否支持 `thread/turns/list`”已经过时；它支持该方法。
-- “legacy 可通过 `thread/turns/list` 真正远端 tail-first”是错误的；每次请求仍会全量重放 rollout。
+- “legacy 可通过 `thread/turns/list` 真正远端 tail-first”是错误的；每次请求仍会全量读取 rollout。
 - “legacy App 只接收尾部约 200 items”是正确的，但只优化 TermLink 到 App 的响应体和 Android 首次写入成本，不能消除 Codex
-  内部首次全量重放的延迟/内存成本。
+  内部首次全量读取的延迟/内存成本。
 - paginated 才能同时做到 Codex store seek、TermLink 分页传输和 Android 分段落库意义上的真 tail-first。
 - 对部署版本行为不确定时，兼容策略不是猜测版本，而是按实际方法能力和响应完整性 fail-closed。
 
@@ -63,14 +63,14 @@ TermLink 内存 baseline 和 Android SQLite 只负责静态历史、离线首屏
 
 legacy 的正确路径统一为按目标分支（与 §7.3 同一决策表，避免“先 tail 再 full”的旧双重放顺序）：
 
-| 目标 | 动作 | 全量重放次数 |
+| 目标 | 动作 | 全量读取次数 |
 |---|---|---|
 | FULL_REQUIRED（需要完整恢复） | 5 秒后直接一次 `thread/read(includeTurns=true)`；整组 delta 原子提交，不承诺 tail-first 可见（tail 独立提交/显示与 older 持久化回填属 P0-B） | 1 |
 | TAIL_PARTIAL_ONLY（只需快速尾部） | 只一次 `thread/turns/list(desc, full)`，标记 partial，本 generation 不升级 full | 1 |
 | FULL_FAILED_EARLY（full 很早失败且预算充足） | 允许同 generation fallback 一次 tail list，保证 App 至少拿到尾部 | 至多 2 |
 | FULL_TIMEOUT（full 接近/达到剩余预算上限） | 进入 `CACHE_ONLY`/`FAILED`，不 fallback；后续新 recovery cycle 只能重试 manifest/tail，不再 full | 1 |
 
-- 不用 cursor 连续请求很多 legacy older pages；每一页都会再次全量重放，复杂度接近 `页数 × 全历史`。
+- 不用 cursor 连续请求很多 legacy older pages；每一页都会再次全量读取，复杂度接近 `页数 × 全历史`。
 - full read 若在时限和 envelope/内存护栏内成功，并严格证明完整，TermLink 才把它注册为短期内存 baseline；之后的尾部首包和
    older backfill 都从这份 baseline 切片（更旧段持久化属 P0-B segment/order 模型），不再重复回源 Codex。
 - full read 超时、过大、失败或无法证明完整时，保留 partial tail/cache，禁止 delete/order，并在 35 秒硬截止前进入
@@ -99,7 +99,7 @@ selection generation 不产生无界重复 full read。
 
 源码证据：
 
-- [legacy/paginated turns list 分发及 legacy 全量重放说明](https://github.com/openai/codex/blob/bd2de422aa287b97b06ca6425a10935bcf1b3731/codex-rs/app-server/src/request_processors/thread_processor.rs#L2463-L2517)
+- [legacy/paginated turns list 分发及 legacy 全量读取说明](https://github.com/openai/codex/blob/bd2de422aa287b97b06ca6425a10935bcf1b3731/codex-rs/app-server/src/request_processors/thread_processor.rs#L2463-L2517)
 - [pinned 版本 paginated thread/read 拒绝路径](https://github.com/openai/codex/blob/bd2de422aa287b97b06ca6425a10935bcf1b3731/codex-rs/app-server/src/request_processors/thread_processor.rs#L2341-L2355)
 - [paginated turns cursor/list items 路径](https://github.com/openai/codex/blob/bd2de422aa287b97b06ca6425a10935bcf1b3731/codex-rs/app-server/src/request_processors/thread_processor.rs#L2608-L2715)
 - [thread store 的 paginated read 校验](https://github.com/openai/codex/blob/bd2de422aa287b97b06ca6425a10935bcf1b3731/codex-rs/thread-store/src/local/thread_history/read.rs#L141-L168)
@@ -343,22 +343,22 @@ desc 结果必须先归一化为时间正序再 canonicalize：`projectCanonical
 
 ### 7.3 legacy：按目标分支的 tail/full 恢复
 
-legacy 的 `thread/turns/list` 与 `thread/read(includeTurns=true)` 在服务端都会全量重放 rollout，因此本小节所有路径共用同一个
-conversation recovery lane：同一时刻不得并行发起 tail list 与 full read，否则同周期发生两次全量重放。按恢复目标分支：
+legacy 的 `thread/turns/list` 与 `thread/read(includeTurns=true)` 在服务端都会全量读取 rollout，因此本小节所有路径共用同一个
+conversation recovery lane：同一时刻不得并行发起 tail list 与 full read，否则同周期发生两次全量读取。按恢复目标分支：
 
 - 明确需要完整恢复（无 surface、无内存 baseline、需要 older 完整历史）：IPC 明确 offline 或 surface 明确 `desynced=true` 时
   **立即**执行（不等 5 秒）；仅“当前订阅周期缺 surface”情形才等 5 秒 grace。直接执行一次
-  `thread/read(includeTurns=true)`，本周期只重放一次；成功后以现有整组 delta 原子提交（Android 等全部 pages 到齐才
+  `thread/read(includeTurns=true)`，本周期只读取一次；成功后以现有整组 delta 原子提交（Android 等全部 pages 到齐才
   `commitStaging`，见 `CodexConversationCacheStore.kt`），**不承诺 tail-first 可见**；完整结果注册为短期内存 baseline，P0-A 只按需
   从内存提供更旧页。tail 独立提交/立即显示与 older 持久化回填属 P0-B segment/order 模型。
 - 只需要快速尾部且允许 partial：只执行一次 `thread/turns/list(sortDirection="desc", itemsView="full")`，只 canonicalize/传输尾部
   目标范围，返回 `complete=false`、`hasMoreBefore=true/unknown`；本 generation 不自动升级 full read。不连续翻 older cursor 做
-  静默全量回填，因为每页都触发 full rollout replay。
+  静默全量回填，因为每页都触发 full rollout read。
 - full read 很早失败且 35 秒总预算仍充足：允许同 generation fallback 一次 tail list，保证 App 至少拿到尾部。
 - full read 已接近或达到剩余预算上限（见 §6.2 `providerTimeout`）：不得同 generation 再 fallback tail（预算不足），直接进入
   `CACHE_ONLY`/`FAILED`，由后续显式或新的 recovery cycle 重试（仅 manifest/tail，不再 full，见配额模型）。
 
-grace 内时序闭合（无内存 baseline 的 legacy）：为避免“t=0 tail list、t=5 再 full read”的顺序双重全量重放，t=0 不做任何 legacy
+grace 内时序闭合（无内存 baseline 的 legacy）：为避免“t=0 tail list、t=5 再 full read”的顺序双重全量读取，t=0 不做任何 legacy
 上游读取，只做 cache/manifest/mode probe（识别 historyMode，复用现有 manifest/page/delta/ACK 传输）；IPC 明确 offline 或 surface
 明确 `desynced=true` 时立即执行一次 full read（不受 5 秒约束）；仅“当前订阅周期缺 surface”情形才在 5 秒 grace 到期仍无 healthy
 surface 时直接执行一次 full read（不先 tail list）；5 秒内收到 healthy surface 时，若静态尾部仍需要（Android cache 缺尾部），只执行
@@ -625,7 +625,7 @@ request {
 
 无法在现有架构下完全避免：
 
-- TermLink 重启且 Android 无可用 tail/cache 时，legacy 第一次 canonical recovery 仍需 Codex 全量重放。
+- TermLink 重启且 Android 无可用 tail/cache 时，legacy 第一次 canonical recovery 仍需 Codex 全量读取。
 - 没有服务端持久 payload/index 时，metadata-only index 只能说明缺什么，不能在重启后直接提供最新正文 payload。
 
 ## 10. 实时缺口与 durable history 缺口恢复
@@ -931,7 +931,7 @@ provider/source identity
 ```
 
 它可以快速判断 Android 缺哪些范围，减少 manifest/coverage 计算，但 TermLink 重启后仍没有正文 payload。对 legacy 来说，Codex 没有
-随机 item read，最终提供最新正文仍可能触发 full rollout replay。
+随机 item read，最终提供最新正文仍可能触发 full rollout read。
 
 ### 17.2 真正让 legacy 重启后也 tail-first 的选择
 
@@ -1105,7 +1105,7 @@ selection、syncId 与 Gateway cancel。只有真实测试证据证明不足时�
 ### 20.1 capability 与 provider 自动回归（A：AI 必须）
 
 - legacy -> 按目标分支：FULL_REQUIRED 仅一次 full；TAIL_PARTIAL_ONLY 仅一次 tail；FULL_FAILED_EARLY 可选一次 tail fallback；
-  FULL_TIMEOUT 直接 `CACHE_ONLY`/`FAILED`；禁止多页 full replay loop。
+  FULL_TIMEOUT 直接 `CACHE_ONLY`/`FAILED`；禁止多页 full-read loop。
 - paginated -> items/list 或 turns/list cursor path；禁止 full thread/read。
 - ephemeral -> unsupported partial；只保留 cache/live。
 - unknown/method-not-found -> partial；禁 delete/order。
@@ -1157,7 +1157,7 @@ selection、syncId 与 Gateway cancel。只有真实测试证据证明不足时�
 这是 C 层高成本验证，不作为每个实现步骤的默认门禁。优先使用可重复的合成 fixture；真实大型任务和 server restart 只在阶段出口/发布候选执行。用真实或合成大型 paginated/legacy thread 记录：
 
 - time-to-cache-render、time-to-first-tail、time-to-full-backfill；
-- Codex full rollout replay 次数；
+- Codex full rollout read 次数；
 - Codex/TermLink RSS 与 heap 峰值；
 - TermLink -> Android 首包/总传输字节；
 - WebSocket bufferedAmount、history pause 次数、live frame latency；
@@ -1204,7 +1204,7 @@ home（域名+mTLS）和 local（LAN）两条路径各验证：
 - cursor 是否存在，不记录 cursor 原文；
 - anchor/root/segment 的短 hash；
 - pages/items/bytes/elapsed/status；
-- full replay/escalation/singleflight/TTL/eviction 计数；
+- full-read/escalation/singleflight/TTL/eviction 计数；
 - gap/reconcile/timeout/cancel 原因。
 
 不得记录 prompt、回答正文、命令、路径、URL、附件内容、data URL、mTLS/Basic 凭据或完整 canonical ID。
@@ -1234,7 +1234,7 @@ home（域名+mTLS）和 local（LAN）两条路径各验证：
 - 不新增第二实时权威或第二 owner。
 - 不改变 IPC authority arbitration、follower acquire/release、desired subscription 或 reconnect replay。
 - 不以定时 `thread/read`、snapshot 静默超时、cwd/title 猜测或 `codex_state=idle` 作为实时数据源。
-- 不对 legacy cursor 连续分页制造 `N × full rollout replay`。
+- 不对 legacy cursor 连续分页制造 `N × full rollout read`。
 - 不把 terminal turns、小响应或 RPC 成功误当完整证明。
 - 不在手机缓存设置最大空间或自动 LRU；继续按服务/任务手动清理。
 - 不在本 P0 持久保存 TermLink 第三份完整正文。

@@ -116,7 +116,7 @@ source resolution 规则：
 |---|---|---|
 | 同一 rollout 文件继续 append | 复用已验证 source index/path 和 append cursor，只读新增稳定完整行 | Node 先请求 discovery；Rust 扫描所有候选或 hash 所有候选 |
 | resend 生成 child | 通过内部 index refresh 找到候选，读取 header，验证 `history_base` 和 cut，再建立 child transition | 通过文件名、mtime、全文 fingerprint 或“最新文件”认 parent |
-| 服务重启 | 重建 Rust 内部 index；没有可用 checkpoint 时按 replay/recovery 规则恢复 | 要求 Node 保存或维护 Rust catalog；把目录索引变成产品 DB |
+| 服务重启 | 重建 Rust 内部 index；没有可用 checkpoint 时按正常读取/恢复规则重新读取 | 要求 Node 保存或维护 Rust catalog；把目录索引变成产品 DB |
 | Branch in new chat | 由 conversation binding 排除 | 因复制历史而创建 parent/child 关系 |
 | 缺 parent/多 head/关系歧义 | 返回 partial/diagnostic 或 fail-closed，不能发布 replacement | 用 fingerprint、mtime 或顺序猜测关系 |
 
@@ -126,7 +126,7 @@ child transition 仍然可以触发 Rust 内部有限 index refresh；这不改�
 
 ### 保持不变
 
-- `SourceBackend` full/tail/backward/append/replay 能力；
+- `SourceBackend` full/tail/backward/append 读取能力；
 - `history_base`、lineage transition、replacement evidence 和 coverage 分层；
 - plain JSONL 与 `.zst` 的能力边界及 sibling 优先级；
 - source identity、source epoch、prefix anchor、完整行边界、cursor kind 和 checkpoint 的 fail-closed 语义；
@@ -158,7 +158,7 @@ Rust 实现应按内部模块分层：
 1. `SourceIndex`：保存候选 metadata/header/binding，提供 conversation、rollout 和 parent lookup；
 2. `SourceResolution`：根据 read intent、已知 active source 和 index 状态决定命中、刷新或 fail-closed；
 3. `LineageValidation`：只消费 `SessionMeta/history_base` 和 cut 证据；
-4. `SourceRead`：对已选 source 执行 full/tail/backward/append/replay；
+4. `SourceRead`：对已选 source 执行 full/tail/backward/append；完整读取是内部读取能力，不是公共 analyze mode；
 5. `SourceEvidence`：生成正式 cursor/checkpoint 所需的 active source evidence，包括兼容保留的 fingerprint/anchor。
 
 这些模块之间的依赖方向必须是：
@@ -199,8 +199,8 @@ Node 不新增 source index service、rollout directory scanner、candidate cata
 - Branch in new chat 的复制历史不建立 lineage；
 - 缺 parent、多 head、循环和关系歧义 fail-closed；
 - 旧 checkpoint 中仍存在 formal fingerprint 时可以继续恢复；
-- 正常 append、child transition、replay 和 Node restart 不要求 Node 判断是否 discovery；
-- 完整 lineage replay 仍然保留旧 turn，但不把候选 fingerprint 当作关系证据。
+- 正常 append、child transition、读取重试和 Node restart 不要求 Node 判断是否 discovery；
+- 完整 lineage 重建仍然保留旧 turn，但不把候选 fingerprint 当作关系证据。
 
 ### 资源验收
 

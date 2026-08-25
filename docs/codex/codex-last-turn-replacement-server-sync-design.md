@@ -68,11 +68,14 @@ oldTurnId → newTurnId
 ## 2. 层级和职责
 
 ```text
-Node source scope / optional head hint
-    ↓ sessionsRoot + conversationId + bounded date range
+Node analyzer coordinator
+    ↓ process startup: CODEX_HOME → CODEX_HOME/sessions = sessionsRoot
+    ↓ analyze(conversationId, read intent, cursor/recovery)
 Rust SessionLineageLocator + collector
     ↓ complete lineage + old/new turns + derived ReplaceLastTurn
 Node analyzer import staging
+    ↓ per-batch receipt/ACK
+Rust complete(checkpoint)
     ↓ validated replacement command
 产品数据库事务
     ↓ canonical read-model revision + change log
@@ -82,17 +85,17 @@ App SQLite 原子提交
     ↓ ACK + UI refresh
 ```
 
-### 2.1 Node source scope 与可选 head hint
+### 2.1 Rust analyzer 启动 source scope 与内部 head hint
 
-Node 负责提供允许读取的 `sessionsRoot`、稳定 `conversationId`、日期扫描起点/上界和可选的
-已知 `rollout_path`/head hint。Node 不再承担“必须先找出唯一最新文件”的业务职责；Rust 的
-会话级 locator 在有界范围内发现并验证 active head。
+`sessionsRoot` 是 Rust analyzer 的模块启动配置，不是 Node 在 `analyze` 请求中发送的 discovery
+参数。Node 每次启动 Rust 时解析 `CODEX_HOME`（未设置时使用运行用户 home 下的 `.codex`），并把
+`CODEX_HOME/sessions` 作为版本化启动参数传给 Rust。具体启动参数、版本和路径边界以
+[`Node Server ↔ Rust Collector Analyzer 启动契约`](codex-rollout-collector-rust-analyzer-startup-contract-draft.md)为准。
 
-这里的 `rollout_path`/head hint 是可选输入，不表示当前旧 Node 已经拥有 rollout 物理路径。
-旧 Node 目前主要持有 `conversationId/threadId`；在没有独立 source provider 提供真实路径时，
-阶段 4.5/5 的接入应使用 `sessionsRoot + conversationId` discovery，由 Rust 返回并验证
-active child source。显式 source binding 只能作为快速路径或恢复 hint，不能绕过 Rust 的
-会话绑定、parent chain 和 descendant 校验。
+Node 的业务请求只提供稳定 `conversationId`、读取 mode 和 cursor/recovery state。Rust 使用
+`sessionsRoot + conversationId` 在内部完成有界 source index/lineage 查询；日期扫描起止点、内部
+active head hint 和 lineage checkpoint 来自 Rust 自己的 index/checkpoint 与资源预算，不通过
+Node 的 discovery/path/catalog 消息传入。Node 不需要、也不允许持有 rollout 物理路径。
 
 约束：
 
@@ -102,7 +105,8 @@ active child source。显式 source binding 只能作为快速路径或恢复 hi
 - 若直接读取 Codex SQLite，必须封装在兼容 adapter 中，不能让表结构扩散到 collector、DTO
   或 App；
 - Rust 在有界范围内找不到唯一 active head 时停止本次 canonical 更新，不能选择“最新文件”；
-- parent 与 child 跨日期目录时，Node 只扩大允许的日期边界，不自行重复扫描 raw rollout；
+- parent 与 child 跨日期目录时，由 Rust 在固定 `sessionsRoot` 下扩大内部有界日期扫描，不由 Node
+  重复扫描 raw rollout 或修改请求 path；
 - 这只是 canonical history source 定位，不改变 Android IPC realtime authority。
 
 ### 2.2 Rust collector
@@ -229,7 +233,7 @@ sourceEvidence / provenance reference
   `operationId`，不生成第二个 hash、数据库 ID 或随机 ID；
 - 当前业务下同一个 `replacedTurnId` 只能有一个已提交的 replacement；
 - 同一个 `replacementTurnId` 不能替换两个 old turns；
-- exact duplicate 视为幂等重放；同 key 不同内容视为契约损坏。
+- exact duplicate 视为幂等重试/重复交付；同 key 不同内容视为契约损坏。
 
 ### 4.3 `conversation_history_state`
 
@@ -318,7 +322,7 @@ frame 或 App ACK 都不是 child canonical publication 时机。
   sync 不得把 provisional child 伪装成 canonical history。
 
 如果服务端冷启动且尚无 old turn，不能创建只有 ID 的 ghost old row；应要求 Rust 执行
-root→active head 的有序 lineage replay，使 old turn 先被正常持久化，再应用 replacement。
+root→active head 的有序 lineage 重建，使 old turn 先被正常持久化，再应用 replacement。
 这是 Node canonical DB 的硬前置条件：Node old row 缺失时不能像 App 局部缓存缺失那样直接
 只写 new turn；必须先恢复 parent lineage，或拒绝本次 publication。App 的 old row 缺失
 是允许的局部缓存情况，规则只在第 8 节适用。
@@ -359,34 +363,47 @@ revisionScope = authenticated profile/endpoint/tenant partition
 3. 一个 Node canonical writer；
 4. 一个 DB transaction 路径。
 
-不同 conversation 可以并行。App history provider、普通 worker 和 WebSocket 请求不得直接
-请求 Rust；它们只能读取持久化 projection/IPC cache，或向该 coordinator 提交一次幂等的
-ensure/refresh 请求。`page_staged`、`sequence_persisted`、Rust ACK 和 App ACK 不会取得
+不同 conversation 的 App/DB 读取可以独立进行，但一个 Node Server 实例的 Rust analyzer 请求
+必须进入全局 Scheduler，由唯一 Rust process 串行执行。App history provider、普通 worker 和
+WebSocket 请求不得直接请求 Rust；它们只能读取持久化 projection/IPC cache，或向该 coordinator
+提交一次幂等的 ensure/refresh 请求。`page_staged`、`sequence_persisted`、Rust ACK 和 App ACK 不会取得
 canonical writer，也不推进 `serverRevision`。
 
 #### 5.3.1 单一请求和 canonical transaction
 
-Rust I/O、source discovery、lineage replay、解析和 backfill 都在 Node coordinator 的单一
-请求中完成。结果通过阶段 4 analyzer protocol 返回后，Node 才执行：
+Rust I/O、内部 source 定位、lineage 读取、解析和 backfill 由 Rust 的单一 analyzer request
+完成，并由 Node coordinator 串行调度。结果通过阶段 4 analyzer protocol 返回后，Node 才执行：
 
 ```text
-校验 batch/provenance/lineage/coverage/completeness
+Rust → Node: batch-1 / batch-2 / ...
+    → 校验 batch/provenance/lineage/coverage/completeness
+    → transaction: durable analyzer staging / batch receipt / recovery evidence
+    → COMMIT staging transaction
+    → Node → Rust: ACK persisted=true
+
+Rust 收到本次 request 的全部 batch ACK
+    → Rust → Node: complete(checkpoint)
+    → 校验 complete / coverage / checkpoint
     → 重检 activeRolloutId、conversation scope、old/new turn 和 operationId
-    → transaction 内 upsert turns/history_items/details/usage/outcome
-    → 写 turn_replacements、root/coverage/change log
-    → serverRevision + 1
-    → COMMIT
-    → ACK Rust persisted
+    → product DB transaction:
+        upsert turns/history_items/details/usage/outcome
+        写 turn_replacements、root/coverage/change log
+        serverRevision + 1（仅在 canonical read model 实际变化时）
+        保存最终 analyzer checkpoint
+    → COMMIT product transaction
+    → publish canonical history
 ```
 
 `serverRevision` 是 App 可见的 canonical revision；`operationId/batchId` 唯一性负责重复
-提交幂等。不存在产品级 `commitFence`、first-commit-wins、worker lease 或多 writer 冲突表。
+提交幂等。每批 `ACK persisted=true` 只确认 Node staging 已提交，不推进 `serverRevision`；
+只有 `complete` 校验通过且 product DB transaction COMMIT 后才发布 canonical history。不存在
+产品级 `commitFence`、first-commit-wins、worker lease 或多 writer 冲突表。
 
 #### 5.3.2 顺序 lineage 与异常输入
 
 正常 A→B→C 是同一 collector 链顺序解析和顺序发布：B 成功成为 active head 后，才允许
 继续处理 C。若外部请求先报告 C，coordinator 不创建 B/C 并行 candidate，而是重新执行
-同一 conversation 的 lineage discovery/replay；缺 parent、多个 head、source mutation 或
+同一 conversation 的内部 lineage 定位/重建；缺 parent、多个 head、source mutation 或
 coverage 不完整时 fail-closed，保留最后 canonical snapshot。
 
 同一 `operationId` 和相同内容重复到达时返回原 committed revision；同一 key 内容冲突时
@@ -397,7 +414,7 @@ replacement 链。
 
 - COMMIT 前崩溃：DB transaction 回滚，旧 head/root/revision 保持不变；重启后恢复同一 job；
 - COMMIT 后、响应或 ACK 前崩溃：已提交的 rows、revision、change log 和 operation identity
-  是唯一事实；重放返回原 revision；
+  是唯一事实；重试返回原 revision；
 - 内存 single-flight 丢失后，Node 依据持久化 job/checkpoint 重新排队，不创建第二条并发
   Rust 链路；
 - App `clientSelectionGeneration` 只隔离 App transport/SQLite 结果，不能取消 Node durable
@@ -405,13 +422,13 @@ replacement 链。
 
 任何半写入 rows、partial lineage 或 source mutation 都不能推断为成功 publication。
 
-### 5.4 Replay 和顺序
+### 5.4 重试交付和顺序
 
 - exact duplicate：返回原 committed revision，不再次增加 revision；
 - A→B→C：必须按 parent chain 顺序应用；
-- C 在 B 前被单独报告：不创建独立 candidate；由同一 coordinator 重新执行 bounded lineage replay；
+- C 在 B 前被单独报告：不创建独立 candidate；由同一 coordinator 重新执行 bounded lineage 重建；
 - 旧 parent 的迟到 transition：不能覆盖当前 head；
-- 冷启动多 edge replay 在同一 coordinator job 内完成；只有完整 lineage 通过后才发布一次
+- 冷启动多 edge lineage 重建在同一 coordinator job 内完成；只有完整 lineage 通过后才发布一次
   canonical revision；持续运行时 A→B、B→C 按顺序各发布一次 revision。
 
 child 一旦通过 gate 并成功提交，就成为当前 active head。之后同一 child rollout 的合法
@@ -558,9 +575,9 @@ UI 的最小行为是：old turn 从当前 active 展示退出，new turn 在同
 | ACK | old 状态更新与 new upsert 同 SQLite commit 后才能 persisted ACK |
 | DTO 映射 | 保留 executionStatus，使用 projectionState/replacement relation；operationId 只在 operation/relation ledger 中承载 |
 | source mutation | 明确 last-turn replacement 不产生产品 source replacement；异常 source 只 fail-closed |
-| Node conversation 协调 | 同一 `(revisionScope, conversationId)` 只有一个 coordinator 和一个 in-flight Rust request；同 operation 幂等；不同 conversation 可并行 |
+| Node conversation 协调 | 同一 `(revisionScope, conversationId)` 只有一个 coordinator 和一个 in-flight Rust request；所有 Rust request 进入 Node 全局 Scheduler 和唯一 Rust process；同 operation 幂等 |
 | 旧 App/能力协商 | 未支持 state operation 时强制 snapshot reconciliation |
-| 时序测试 | 增加 completed/stopped edit、A→B→C、离线和重放向量 |
+| 时序测试 | 增加 completed/stopped edit、A→B→C、离线和重试向量 |
 
 因此本文应先于最终冻结第 4–10 项，但不要求现在提前写完这些项的全部 JSON schema。
 
@@ -572,11 +589,11 @@ UI 的最小行为是：old turn 从当前 active 展示退出，new turn 在同
 | stopped/interrupted old turn → new turn | 保留原 terminal outcome | old 状态保留且 superseded |
 | child in_progress/partial/不稳定读取 | 保留 parent snapshot/head，不发布 replacement | 保留旧 committed cache；live child 继续走 IPC |
 | child terminal 且 canonical gate 通过 | old/new/relation/root 同事务提交，revision+1 | 收齐 sequence 后原子提交并 ACK |
-| exact batch/replacement replay | 返回原 revision | duplicate no-op |
+| exact batch/replacement retry | 返回原 revision | duplicate no-op |
 | A→B→C 顺序实时到达 | 两次合法 commit | 最终仅 C active |
 | C 先于 B | 不提交，触发 lineage reconcile | 不收到错误 delta |
 | Node 在事务前/中崩溃 | 无公开半 revision | 无 ACK，无半更新 |
-| Node 提交后 ACK 丢失 | Rust 重放命中 duplicate | 最终一次状态 |
+| Node 提交后 ACK 丢失 | Rust 重新交付命中 duplicate | 最终一次状态 |
 | 同一 operation 重复提交 | operationId/batchId 幂等，只允许一次 canonical commit | 收到同一 revision，不重复提交 |
 | A→C 被错误作为同 conversation sibling 报告 | 同一 coordinator 重做 lineage；不采用 first-commit-wins，不产生第二 active head | 不收到第二条 replacement |
 | source mutation 或 lineage 不完整 | 保留旧 snapshot，进入 partial/pending/fail-closed | 不覆盖本地 canonical cache |
@@ -593,11 +610,11 @@ UI 的最小行为是：old turn 从当前 active 展示退出，new turn 在同
 Node/App 侧应在 Rust 交接契约稳定后再分任务实施：
 
 1. 冻结产品 importer 接收的 `ReplaceLastTurn` schema 和 capability；
-2. 设计并评审数据库 migration、索引、事务和 cold lineage replay；
+2. 设计并评审数据库 migration、索引、事务和 cold lineage 重建；
 3. 实现 canonical read-model replacement commit 和 change log；
 4. 把 `turn_replaced` 纳入 manifest/delta/snapshot 与旧 App fallback；
 5. 实现 App staging/SQLite 原子更新和 ACK；
-6. 完成离线、重放、重启、A→B→A 和 IPC/current-turn 交叉回归。
+6. 完成离线、重试、重启、A→B→A 和 IPC/current-turn 交叉回归。
 
 阶段 5B 正式 provider 或阶段 5C 数据库接入开始前，至少要冻结：
 

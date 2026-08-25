@@ -217,7 +217,7 @@
 - **场景**: tail/backfill/segment assembly 已能读取记录，但没有从完成结果安全生成 `ForwardAppendCursor` 的端到端生产路径；测试如果用 helper 手工构造初始 cursor，会掩盖 promotion 生命周期缺口。
 - **结论**: `TailPreviewCursor`/`BackfillCursor` 不能直接升级为 append cursor。promotion 必须同时证明 plain JSONL 能力、source identity/epoch、snapshot boundary、fingerprint/prefix anchor、完整行/ordinal/record continuity，以及无 pending tail、gap、partial 或 parse diagnostic；promotion 后还必须覆盖 cursor 序列化重启、append 和重复读取。任一 truncation、replacement、prefix mutation 或校验不一致都必须 fail-closed 且不发布新 cursor。
 - **触发信号**: append 测试通过，但生命周期仍依赖手工 cursor；promotion 没有检查连续完整前缀、源文件当前 digest 或重启后的 cursor 恢复；partial/gap 输入仍能产生 forward cursor。
-- **应对动作**: 把 `continuous safe prefix → promotion → append → restart/replay` 固定为同一 plain JSONL fixture 的测试链；为 pending tail、gap、partial、mutation、truncation、replacement 分别断言“不产生 `ForwardAppendCursor`”，并保留 full/replay oracle 对照。
+- **应对动作**: 把 `continuous safe prefix → promotion → append → restart/retry delivery` 固定为同一 plain JSONL fixture 的测试链；为 pending tail、gap、partial、mutation、truncation、replacement 分别断言“不产生 `ForwardAppendCursor`”，并保留完整读取 oracle 对照。
 - **Source**: `20260820-002` / R-009 / stage3 source lifecycle conformance
 
 ### L-019: Demo/Spike oracle 只能提供稳定 golden surface，不能成为 formal 实现依赖
@@ -255,17 +255,17 @@
 ### L-023: 文件名只能发现候选，`history_base` 才能建立 session lineage
 
 - **场景**: Codex 的最后一次用户任务可以编辑重发，重发后会生成带 `history_base` 的子 rollout；子文件可能位于父文件之后的日期目录，服务重启后也可能只发现最新文件而跳过中间 rollout。仅按当前目录、文件名、mtime 或内存 checkpoint 选父子关系，会漏掉完整历史或误选 active head。
-- **结论**: session discovery 必须以显式 `sessions_root + conversation_id` 为入口，在受控日期范围内发现候选；文件名只用于候选和排序线索。必须用 `SessionMeta.id` 校验 rollout 身份，用 `history_base.thread_id`、ordinal/byte cut 建立父子证据，并沿唯一链回放到 active head；缺父、环、多头或无法排除的 root-like 候选必须 fail-closed。
-- **触发信号**: 实现从“当前日期目录”或文件名直接决定最新文件/父文件，未验证 `history_base`，或重启恢复只处理当前 head、没有中间链回放测试。
-- **应对动作**: 使用可复用的跨日期、多文件真实 fixture，分别验证候选 provenance、root→head 完整 replay、被替换 turn 保留、重启后跳过中间 rollout 的恢复，以及多头/缺父/环的拒绝路径。
+- **结论**: Node↔Rust 不定义 `discovery` 请求；Rust 以固定 `sessions_root + conversation_id` 在内部定位候选。文件名只用于候选和排序线索，必须用 `SessionMeta.id` 校验 rollout 身份，用 `history_base.thread_id`、ordinal/byte cut 建立父子证据，并沿唯一链重建到 active head；缺父、环、多头或无法排除的 root-like 候选必须 fail-closed。
+- **触发信号**: 实现从“当前日期目录”或文件名直接决定最新文件/父文件，未验证 `history_base`，或重启恢复只处理当前 head、没有中间链 lineage 重建测试。
+- **应对动作**: 使用可复用的跨日期、多文件真实 fixture，分别验证候选 provenance、root→head 完整 lineage 重建、被替换 turn 保留、重启后跳过中间 rollout 的恢复，以及多头/缺父/环的拒绝路径。
 - **Source**: `20260823-001` / AD-014 / 真实 rollout session-lineage 验证
 
 ### L-024: 发现范围、物理读取模式和 lineage 深度必须分开
 
 - **场景**: 曾把 `max_date_partitions` 这类发现范围参数混用为 lineage 深度限制，并把增量查询、向前查询描述成 rollout.jsonl 的“分页”。这会在长会话或多次重发后无故截断合法历史，也会让不同读取模式的 cursor 互相误用。
-- **结论**: rollout.jsonl 的物理读取不是分页。日期目录、候选数量和 discovery budget 只限制发现；不设置 `max_lineage_depth`，而由 cycle detection、取消、deadline、字节/段预算控制异常和资源。Full Replay 必须完整完成或明确失败/partial，不能静默按深度截断；tail、backward、append 使用彼此独立的读取语义和 cursor。
-- **触发信号**: 参数名称把日期分区、窗口或 lineage 层数混为一谈；一个 cursor 被多个读取模式复用；Full Replay 达到固定深度后仍返回看似成功的结果。
-- **应对动作**: 对深 lineage、单日期目录、环、取消/超时和不同 cursor 交叉使用建立回归；检查完整 replay 与分段/append 结果等价，并确认限制只落在实际 discovery/read 资源上。
+- **结论**: rollout.jsonl 的物理读取不是分页。日期目录、候选数量和内部定位预算只限制 source 定位；不设置 `max_lineage_depth`，而由 cycle detection、取消、deadline、字节/段预算控制异常和资源。完整 lineage 读取必须完整完成或明确失败/partial，不能静默按深度截断；tail、backward、append 使用彼此独立的读取语义和 cursor。
+- **触发信号**: 参数名称把日期分区、窗口或 lineage 层数混为一谈；一个 cursor 被多个读取模式复用；完整 lineage 读取达到固定深度后仍返回看似成功的结果。
+- **应对动作**: 对深 lineage、单日期目录、环、取消/超时和不同 cursor 交叉使用建立回归；检查完整读取与分段/append 结果等价，并确认限制只落在实际 source 定位/读取资源上。
 - **Source**: `20260823-001` / AD-015 / 方案 A 评审结论
 
 ### L-025: lineage 证据不能直接充当 projection completeness

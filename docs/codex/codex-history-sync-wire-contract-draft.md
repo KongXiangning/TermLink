@@ -146,7 +146,7 @@ manifest / delta / segment / payload data plane
 - `unsupported`：不能安全选择共同协议，保留已有 cache，不发送正文数据面。
 
 `effectiveCapabilities`、effective `cacheSchemaVersion`、effective limits 和
-`advertisementId` 在一个 `syncId` 内固定不变。capability ack 丢失时可以用同一 offer 重放；
+`advertisementId` 在一个 `syncId` 内固定不变。capability ack 丢失时可以用同一 offer 重试；
 内容相同的结果幂等，offer 或 advertisement 不同必须开启新的 `syncId`。旧 App 不发送
 `capabilityOffer` 时，Node 只能进入 legacy fallback，不能因为它偶然携带未知字段就推断
 支持 canonical read model 或 turn replacement。
@@ -297,7 +297,7 @@ additive 字段通常可忽略，但这两个旧状态字段会造成双重权�
 identity：Node 校验通过后必须逐字节复用，不得重新 hash、加前缀、生成数据库 ID 或按消息
 重新生成。canonical relation、change log、App staging/operation ledger 均只保存
 `operationId`；`replacementKey` 仅是 Rust→Node source fact 的输入别名。
-`operationId` 跨重连和新 `syncId` 稳定复用；内容相同的重放幂等，内容冲突必须 fail-closed。
+`operationId` 跨重连和新 `syncId` 稳定复用；内容相同的重试幂等，内容冲突必须 fail-closed。
 `turn_replaced` 只能承载已经通过 child canonical publication gate 的 terminal new turn；
 它不能表达 `in_progress`、`partial` 或尚未稳定读取的 child。此类 candidate 只在 Node
 reconciliation/staging 内部存在，不进入 history data plane，也不产生 App ACK 对应的

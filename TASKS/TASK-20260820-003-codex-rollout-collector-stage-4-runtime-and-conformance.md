@@ -22,13 +22,13 @@
 1. 建立 Rust analyzer 的 stdio JSONL 协议、握手、取消、预算、错误和 checkpoint 语义。
 2. 建立 Node 隔离 process manager、request tracker、batch importer、Memory/File store、ACK 顺序和有限重启恢复。
 3. 补足真实 Demo/Spike 双路径 conformance、跨 segment Plan Q/A 关联、overlap 幂等和 partial→canonical promotion。
-4. 关闭 R-006～R-022 的 cursor/checkpoint、source epoch、canonical batch、replacement、revision 和恢复边界问题。
+4. 关闭 R-006～R-022 的 cursor/checkpoint、source identity、canonical batch、replacement、revision 和恢复边界问题。
 
 ### 验收与边界
 
 - 所有协议消息具备 `protocol_version`、`message_type`、`request_id`；未知字段兼容忽略，缺失或不确定的 source identity、cursor、mutation 和 checkpoint 证据 fail-closed。
 - Rust 输出完整 `AnalysisBatch`；Node 仅在 derived data、batch 和 checkpoint 成功落地后发送 ACK。
-- 重复 batch、重叠 item、异常重启重放、partial tail 到 complete backfill 和 source epoch replacement 均保持幂等或 fail-closed。
+- 重复 batch、重叠 item、异常重启后的 retry delivery、partial tail 到 complete backfill 和 source mutation 均保持幂等或 fail-closed。
 - conformance 测试实际启动仓库内 Demo/Spike；静态 golden 只作辅助 fixture。
 - 不修改 Codex IPC/Android authority、`terminalGateway`、既有 server routes/DB schema、产品 DTO/wiring、Demo/Spike 源码或 vendor closure。
 
@@ -46,7 +46,7 @@
 - `native/codex-rollout-collector/tests/stage3_conformance.rs`
 - `native/codex-rollout-collector/tests/stage4_protocol.rs`
 
-实现了 Node→Rust `hello` 握手、stdio JSONL 状态机、cancel/timeout/error、协议级资源预算、stateful Adapter/Reducer、推进式 cursor、source fingerprint/prefix anchor、reducer state checkpoint、derived tool/usage/outcome/mutation 输出，以及 source epoch/replacement 和 ACK 后状态提交语义。
+实现了 Node→Rust `hello` 握手、stdio JSONL 状态机、cancel/timeout/error、协议级资源预算、stateful Adapter/Reducer、推进式 cursor、source evidence、reducer state checkpoint、derived tool/usage/outcome/mutation 输出，以及 source mutation fail-closed 和 ACK 后状态提交语义。
 
 ### Node 隔离运行时
 
@@ -60,7 +60,7 @@
 - `tests/codexRolloutCollector.test.js`
 - `tests/fixtures/codex-rollout-collector/fake-analyzer.js`
 
-实现了可注入 store 与默认原子 File store、batch/item/restart 幂等、完整 canonical batch 校验、replacement preflight、retired epoch tombstone/current-epoch fence、有限异常重启、当前 request batch 提交门禁、checkpoint completeness/source-progress 单调 fence，以及按同一 `item_key` mutation 绑定的 per-item revision。
+实现了可注入 store 与默认原子 File store、batch/item/restart 幂等、完整 canonical batch 校验、replacement preflight、stale source evidence fail-closed、有限异常重启、当前 request batch 提交门禁、checkpoint completeness/source-progress 单调校验，以及按同一 `item_key` mutation 绑定的 per-item revision。
 
 ### 文档与治理
 
@@ -80,7 +80,7 @@
 - checkpoint 按 completeness 与 source progress 单调推进；canonical 结果不得被较弱或较旧结果覆盖。
 - history item 的 revision 优先来自同一 `item_key` 的 mutation；batch coverage 不能聚合无关 mutation revision。
 - source identity 必须由调用方显式提供；禁止 filename、`unbound` 或 session metadata 推断 canonical identity。
-- source replacement 在清理前完成全部 preflight；旧 epoch 持久化 tombstone/current-epoch fence，迟到旧 epoch 不得复活数据。
+- source mutation 在任何产品清理语义之前完成全部 preflight；迟到或不完整的旧 source evidence 必须拒绝，不能复活数据，也不建立产品 epoch/tombstone/fence。
 
 ### 明确保持不变
 
@@ -100,8 +100,8 @@
 ### 关键语义证据
 
 - 实际启动 Demo reducer 和 Spike parser，并在临时目录生成输出参与双路径比较。
-- 同一 Plan fixture 覆盖完整读取、tail、backfill、overlap 和 replay；Plan question/answer 跨 segment 关联稳定，segmented projection 与完整 replay 等价。
-- 覆盖 partial tail→complete backfill promotion、late incomplete 不降级 canonical、ACK 失败 clone-on-write、timeout/cancel、异常重启有限重放、无 cursor replay 的 persisted checkpoint 校验。
+- 同一 Plan fixture 覆盖完整读取、tail、backfill、overlap 和 retry delivery；Plan question/answer 跨 segment 关联稳定，segmented projection 与完整读取等价。
+- 覆盖 partial tail→complete backfill promotion、late incomplete 不降级 canonical、ACK 失败 clone-on-write、timeout/cancel、异常重启有限重试交付、无 cursor 恢复请求的 persisted checkpoint 校验。
 - 覆盖 malformed canonical/checkpoint、空 complete、跨 request complete、非法 replacement 原子性、path-only identity、stale epoch resurrection、checkpoint 回退和 per-item revision 故障注入。
 - `review-implementation`、`review-diff`、`verify-contracts` 均无未解决的 critical/major finding；未触及禁区。
 

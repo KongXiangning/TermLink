@@ -33,7 +33,7 @@
 4. 文档保留 `history_base`、source_id/rollout identity、稳定完整行 byte offset、snapshot length、partial/pending 和 cursor 的必要语义。
 5. `analyze` 接口收敛为 conversation/read intent、mode、cursor/恢复状态和资源预算；Node 不负责构造 discovery catalog。
 6. 文档区分“4.5 业务接口废止”与“formal native crate 兼容字段暂留”，不把本次文档修订误写成 Rust schema 已完成删除。
-7. 文档保留单 conversation single-flight、普通 append 增量读取、child transition/replacement、full replay 仅用于首次/重启/无 checkpoint/明确全量请求等规则。
+7. 文档保留单 conversation single-flight、普通 append 增量读取、child transition/replacement、完整 lineage read 作为内部读取能力，以及首次/重启/无 checkpoint 时按普通 mode 重试恢复的规则。
 8. `git diff --check`、接口字段检索和既有 `tests/codexRolloutCollector.test.js` 回归通过；不修改任务外 dirty/untracked 文件。
 
 ## 允许修改范围
@@ -44,7 +44,7 @@
 ### Allowed Files
 
 - `docs/workflow/CURRENT_TASK.md`
-- `docs/codex/codex-history-sync-node-rust-interface-contract-draft.md`
+- `docs/codex/codex-history-sync-node-server-rust-analyzer-interface-index-draft.md`
 
 ### Conditional Files
 
@@ -88,7 +88,7 @@ Node coordinator
 Rust analyzer
     → 内部 source index lookup/refresh
     → 按需检查 history_base/child
-    → append delta / child transition / full replay
+    → append delta / child transition / internal full lineage read
 Node importer/coordinator
     → staging/evidence/产品 canonical transaction
 ```
@@ -101,7 +101,7 @@ Node importer/coordinator
 2. 将 source 定位改写为 Rust 内部 source index：Node 只提供 conversation/read intent；普通 append 直接消费同一 active source 的 cursor 后新增完整行。
 3. 删除 fingerprint/prefix anchor 作为 active head、parent-child、append、checkpoint 正常 gate 的说明；保留稳定 source identity、byte range、snapshot length、history_base 和 cursor kind。
 4. 将 source fingerprint 相关 formal 字段改成“兼容层可能暂存/透传的 opaque 字段，不得成为 4.5 业务判断”。
-5. 保留 full replay 的恢复用途、child transition 的一次校验、partial/pending fail-closed 和 single-flight 约束。
+5. 保留内部完整 lineage read、child transition 的一次校验、partial/pending fail-closed 和 single-flight 约束；不把它定义为 Node 可请求的 analyze mode。
 
 ### Alternatives and tradeoffs
 
@@ -120,14 +120,14 @@ Node importer/coordinator
 
 - 风险：把“discovery 不再是接口字段”误写成“Rust 不得内部扫描”；用 source index lookup/refresh 文字明确区分。
 - 风险：把“业务 fingerprint 废止”误写成“formal schema 已删除”；保留兼容字段说明。
-- 风险：过度删除 lineage；保留 `history_base`、child transition 和 full replay 恢复路径。
+- 风险：过度删除 lineage；保留 `history_base`、child transition 和内部完整读取恢复路径。
 - 回滚：仅回滚本任务两个 Allowed Files，不使用整树 reset/checkout/clean。
 
 ### Validation strategy
 
 - 检查接口文档中 `discovery` 不再出现在 Node→Rust 参数/4.5 implementation checklist；只允许作为“已废止/内部实现边界”的说明。
 - 检查 fingerprint/prefix anchor 不再被描述为普通 append、active head、parent-child 或 canonical gate 的业务前置条件。
-- 检查文档仍保留 `history_base`、cursor、byte offset、snapshot length、partial/pending、single-flight 和 full replay 恢复语义。
+- 检查文档仍保留 `history_base`、cursor、byte offset、snapshot length、partial/pending、single-flight 和内部完整读取恢复语义。
 - 运行 Node collector 回归测试和 `git diff --check`。
 - External Documentation Gate：no-op；本任务只依据用户确认、项目架构和仓库内现有实现，不涉及第三方 current behavior。
 
@@ -143,7 +143,7 @@ Node importer/coordinator
 - [x] Rust 内部 source index lookup/refresh 与 Node wire interface 已分开。
 - [x] fingerprint/prefix anchor 不再是 4.5 正常 append、head 或 lineage gate。
 - [x] `history_base`、cursor、byte offset、snapshot length 和 partial/pending 仍保留。
-- [x] single-flight、普通 append 增量、child transition、full replay 恢复语义仍保留。
+- [x] single-flight、普通 append 增量、child transition、内部完整读取恢复语义仍保留。
 - [x] formal compatibility 字段暂留与业务废止边界明确。
 - [x] Node 回归测试和 `git diff --check` 通过。
 

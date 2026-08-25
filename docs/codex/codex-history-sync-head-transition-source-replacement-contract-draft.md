@@ -252,7 +252,7 @@ Node 重启后：
 1. 先读取最后一个已提交 canonical snapshot 和 `serverRevision`；
 2. 再读取 active head、replacement relation、durable job 和 internal checkpoint；
 3. 无法证明 COMMIT 已完成时，保留旧 snapshot，按 queued/running/failed(retryable) 恢复；
-4. COMMIT 已完成但响应丢失时，以同一 `operationId` 幂等重放返回原结果；
+4. COMMIT 已完成但响应丢失时，以同一 `operationId` 幂等重试返回原结果；
 5. 不从最近发现的文件、最近 mtime 或内存 worker 顺序猜测新 head。
 
 ## 7. 服务端持久化的最小逻辑边界
@@ -315,7 +315,7 @@ history 只服务于已发布终态、cache/offline 和明确的有界恢复，�
 | Branch in new chat 生成 C | 否（对 A 而言） | C 自己的来源 scope | C 作为独立 conversation，不建立 A→C replacement |
 | 同一 source 的稳定追加 | 否 | 同一内部 source evidence | 普通 canonical publication，按可见变化更新 revision |
 | prefix/fingerprint/cursor 不一致 | 未验证 | source mutation | fail-closed，保留旧 snapshot，排队 recovery |
-| 相同 operation 重放 | 已提交事实不变 | checkpoint 可重复校验 | 幂等 no-op，不增加 revision |
+| 相同 operation 重试/重复提交 | 已提交事实不变 | checkpoint 可重复校验 | 幂等 no-op，不增加 revision |
 | 旧 parent 结果晚于新 head 到达 | 否 | stale base | 拒绝覆盖当前 head |
 
 ## 10. 本项冻结结论

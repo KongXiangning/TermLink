@@ -889,7 +889,7 @@ Implementation Plan（2026-08-07，P0-B tail-first range/segment）：
   4. paginated item-level method 依赖当前捆绑 app-server 的运行时证据；证据缺失时使用现有 turns/list，保持 partial/fail-closed。
 - Alternatives considered：不先实现自动 pump（当前 history 与 live 是独立 scheduler，可能抢占带宽）；不一次增加 P0-C dirty、事件时间、
   恒 false authoritative proof 或 cancel/recovery-cycle 字段；不使用旧 APK 作为 DB v4 回滚；不为 legacy 连续调用 turns/list 制造多次
-  rollout full replay。
+  rollout full read。
 - Data / state flow：`select G -> cache v2/v3 read -> follower acquire + bounded tail bootstrap -> atomic tail segment commit -> live-last`；
   `near top -> one older request -> validate cursor/anchor/syncId/G -> atomic segment+cursor commit`；B.4 后才允许
   `idle bandwidth -> next older page`。A→B 时 detach/cancel A waiter，旧 frame 在 staging/DB/UI 前拒绝。
@@ -2633,4 +2633,3 @@ Implementation Plan（2026-08-12，Android cached desynced surface 投影可达�
 - 服务端 live replay 日志未出现由该请求触发的 Codex `thread/read(includeTurns=true)`、`thread/turns/list` 或完整历史读取；回放只使用已有 surface/基线判断，并在可用时发送有界临时 surface。
 - **只读审查收紧**：审查发现不能用“非 `ipc_surface`”作为 canonical 判断；P0-B 的 `history_older_page` 也是 baseline，但不证明当前尾部连续。现改为显式允许 `history_recovery`、`terminal_reconcile`、`app_server_thread`、`app_server_turns_page`，未知 source kind 默认不具备 canonical 回放资格，并新增 `history_older_page` fail-closed 回归。Gateway 定向回归、`node --check`、`git diff --check` 在该收紧后通过。
 - **结果**：第 3 步自动验证与人工门槛通过。协议已证明“本地是否已有、服务端能否连续回放、是否需要 canonical history”可以被明确区分；`needs_canonical/source_gap` 仍是后续第 4 步的输入，不表示第 3 步已经完成持久化修复。新增边界已同步到 `docs/workflow/CONTRACTS.md` 与 `docs/workflow/DECISIONS.md`；本步尚未提交，下一步执行 report-only review 与阶段性提交准备。
-

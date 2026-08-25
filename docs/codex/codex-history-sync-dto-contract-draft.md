@@ -920,7 +920,7 @@ additive block：
   `capabilityOffer` 中声明本端支持，Node 用 `conversation_history_capability_ack` 返回
   effective result；该 block 不进入 Codex IPC hello，也不改变 Rust analyzer 的 capabilities；
 - canonicalReadModel v1 与 `cacheSchemaVersion>=3`、range/snapshot coverage 组合时，
-  App 才能把 `serverRevision` 加入 page/segment commit fence。仅支持 legacy cache 的
+  App 才能把 `serverRevision` 加入 page/segment revision-consistency check。仅支持 legacy cache 的
   App 不能被强迫升级。
 - `history_turn_replacement_v1` 只有在 canonicalReadModel v1、cacheSchemaVersion>=3 和
   turn-level atomic staging 同时成立时才有效；它开启 `turn_replaced`、`turnUpserts`、
@@ -988,7 +988,7 @@ payload chunk envelope                      <= 128 KiB
 | source mutation 后的迟到 page/cursor/ACK | 识别为 stale source evidence | 忽略，不能写入当前 SQLite |
 | serverRevision 回退 | 发送 bounded recovery/failed 或拒绝服务 | 保留本地 cache，进入 revision rollback recovery |
 | canonical import 事务失败 | 不发布失败事务的数据/revision；`reconciliation=failed` | 保留 last committed snapshot，不把 snapshot 改成 failed |
-| App 断线重连 | 新 syncId；同一 pinned revision 可重放 | 依靠 page/chunk/idempotent ACK 重复提交，不重复生成 canonical revision |
+| App 断线重连 | 新 syncId；同一 pinned revision 可重试请求 | 依靠 page/chunk/idempotent ACK 重复提交，不重复生成 canonical revision |
 
 ## 12. DTO 层验证向量
 

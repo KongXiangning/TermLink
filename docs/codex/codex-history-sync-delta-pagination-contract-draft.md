@@ -87,7 +87,7 @@ payload chunk 只补正文，`turn_replaced` 则是必须和 canonical revision 
 - 空 delta 仍发送一个 `pageIndex=0,pageCount=1` 的空 page，允许 App 完成 ACK/提交；
 - 同一 `sequence` 的所有 page 必须拥有相同的 `syncId`、conversation、root、
   `baselineComplete`、pageHash version 和 range metadata；
-- page 可以乱序到达，也可以重复到达；相同 pageHash 是幂等重放，不同 pageHash 是
+- page 可以乱序到达，也可以重复到达；相同 pageHash 是幂等重复提交，不同 pageHash 是
   契约冲突，必须丢弃该 sequence 的 staging；
 - 只有全部 page 和每个 page 所需的 payload chunks 完成校验后，sequence 才能进入
   SQLite 原子提交。
@@ -132,7 +132,7 @@ snapshot segment 使用既有 `segment_start → fragment(s) → segment_commit`
 
 - `segment_commit` 是当前 segment 的提交终点，不代表整个历史已经读完；
 - `range.hasMoreBefore` 和 `nextOlderCursor` 决定是否还有后续 older range；
-- snapshot page 只表达当前 active projection，不重放 replacement 事件；
+- snapshot page 只表达当前 active projection，不重新执行 replacement 事件；
 - 如果 replacement 无法从 change log 生成 delta，服务端走 snapshot/recovery，不能伪造一个
   缺少新 turn 完整数据的 `turn_replaced`。
 
@@ -164,7 +164,7 @@ chunk 完成只解除对应 page 的等待，不改变 pageCount，也不产生�
 
 字段语义：
 
-- `operationId` 是跨重连、重放和新 syncId 复用的稳定 replacement identity；它不是数据库
+- `operationId` 是跨重连、重试和新 syncId 复用的稳定 replacement identity；它不是数据库
   自增主键，也不是随机的单次 WebSocket message id；
 - Rust→Node 输入中的 `replacementKey` 经过 Node 校验后逐字节复用为此 `operationId`；
   不得重新 hash、加前缀或按传输重试生成新的值；
@@ -196,7 +196,7 @@ canonical state transition”。它有三个好处：
 - 同一 sequence 内，`replacementTurnId` 至少要有一个对应 `upsert.turnId`；
 - old turn 对应的 item keys 不得同时出现在普通 `deletes` 中；`deletes` 会删除本地 item，
   不能代替 superseded 标记；
-- `operationId` 相同且内容相同的重放必须幂等，内容不同必须拒绝；
+- `operationId` 相同且内容相同的重试必须幂等，内容不同必须拒绝；
 - old turn 不在 App 本地时，不创建 ghost old row；new turn 仍可正常 upsert；
 - sequence 未完整收齐时，App 只能 staging，不能提前把 old 从 UI 移除，也不能把 new
   标记为已提交。

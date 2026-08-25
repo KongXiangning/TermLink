@@ -293,7 +293,7 @@ canonicalSnapshot、active head 和 serverRevision 保持不变。这里不使�
 这里的 old projection 更新固定为 `projectionState=active → superseded`，不是独立 boolean
 字段。Rust 提供的 `replacementKey` 经 Node 校验后逐字节复用为 `operationId`；Node 的
 canonical relation、wire operation 和 App relation ledger 不再各自生成 replacement ID。
-Node canonical row 缺失时必须先做 lineage replay，不能发布只有 ID 的 ghost old row；App
+Node canonical row 缺失时必须先做 lineage 重建，不能发布只有 ID 的 ghost old row；App
 本地 row 缺失则不补 ghost，只在有效 sequence 的同一 SQLite transaction 中记录
 `operationId` reference 并写入 new active row。
 
@@ -415,7 +415,7 @@ lastPublishedServerRevision
 unfinishedOrLastReconciliationAttempt
 ```
 
-若无法证明某个 attempt 已经完成 canonical publication，应保持旧 snapshot，按 `queued`/`running` 恢复或标记 `failed(retryable=true)`；不得根据半写入 rows 推断新的 snapshot 已发布。重启后内存队列和进行中的请求都视为失效，恢复以 durable job、operation ledger、active head、`serverRevision` 和内部 checkpoint 为准；COMMIT 前崩溃按回滚处理，COMMIT 后但响应丢失按同 operation 幂等重放处理。
+若无法证明某个 attempt 已经完成 canonical publication，应保持旧 snapshot，按 `queued`/`running` 恢复或标记 `failed(retryable=true)`；不得根据半写入 rows 推断新的 snapshot 已发布。重启后内存队列和进行中的请求都视为失效，恢复以 durable job、operation ledger、active head、`serverRevision` 和内部 checkpoint 为准；COMMIT 前崩溃按回滚处理，COMMIT 后但响应丢失按同 operation 幂等重试处理。
 
 ## 9. 与统一回修后的其他条目的关系
 

@@ -168,7 +168,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
   - `TailPreviewCursor`、`BackfillCursor` 不得直接升级为 append；promotion 必须拒绝 pending tail、gap、partial、parse diagnostic、source mutation/truncation/replacement 和不一致 fingerprint/anchor。
   - AI 不得静默把该 conformance slice 接入 Node、Android、IPC、数据库、服务端持久化或既有 Demo/Spike，也不得把 Demo/Spike 改造成正式实现。
 - 影响范围：`native/codex-rollout-collector/**` 内部 model/adapter/analysis/source/tests，以及本文件和 `CONTRACTS.md`、`STATUS.md` 的 additive 状态记录；当前无既有 consumer 迁移。
-- 替代方案：直接复制 Demo reducer/DTO、用读取顺序生成 identity，或把 tail/backfill cursor 强制转成 append cursor；这些方案分别破坏 source-of-truth、replay/upsert 稳定性或 R-009 fail-closed 约束，不采用。
+- 替代方案：直接复制 Demo reducer/DTO、用读取顺序生成 identity，或把 tail/backfill cursor 强制转成 append cursor；这些方案分别破坏 source-of-truth、重试交付/upsert 稳定性或 R-009 fail-closed 约束，不采用。
 - 验证方式：阶段 3 targeted suite 通过（60 unit、28 conformance、5 stage3 conformance），阶段 2 `stage2_input` 2 项与 doc tests 0 项通过；Demo CLI full-oracle/determinism 只读运行并产出 golden surface；formal source boundary、metadata/tree、fmt/check 和默认新 PowerShell cargo test 通过。该决策不声明产品 integration、release、canary 或 benchmark 完成。
 
 ### AD-008: 阶段 4 只新增隔离 Rust↔Node analyzer runtime，不进入产品集成
@@ -176,7 +176,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 状态：accepted
 - 背景：用户明确要求完成架构阶段 4，并同时修复阶段 3 的实际 Demo/Spike 双路径、真实分段归约和 partial→canonical 缺口；该授权只覆盖隔离 analyzer 进程、Node process/import/store 边界，不覆盖既有 IPC、Android、server routes 或数据库。
 - 决策：在 `native/codex-rollout-collector` 内稳定 stdio JSONL analyzer protocol、ACK/backpressure、cancel/timeout/error、checkpoint；在 `src/services/codexRolloutCollector/**` 内稳定 Node process manager、request tracker、batch importer、原子文件 checkpoint/run store 与可注入 store。Demo/Spike 由 conformance 测试实际启动并生成本轮输出，但仍只作为只读 oracle；静态 golden 仅作辅助回归。
-- 原因：该边界使阶段 4 的生命周期、恢复和幂等行为可以独立验证，同时不把 P0-RC.1 基础层误写成产品服务能力，也不把 Demo/Spike 变成正式实现依赖。实际分段测试证明同一 stateful Adapter 下 item identity、Plan 关联和 full replay 等价；Rust reducer 与 Node importer 都明确支持 provisional/partial 到 canonical 的提升并阻止反向降级。
+- 原因：该边界使阶段 4 的生命周期、恢复和幂等行为可以独立验证，同时不把 P0-RC.1 基础层误写成产品服务能力，也不把 Demo/Spike 变成正式实现依赖。实际分段测试证明同一 stateful Adapter 下 item identity、Plan 关联和完整读取结果等价；Rust reducer 与 Node importer 都明确支持 provisional/partial 到 canonical 的提升并阻止反向降级。
 - 约束：
   - ACK 只能表示 Node 已完成协议校验和派生数据落地；checkpoint 必须晚于 derived data 写入，Rust 只有收到匹配且持久化成功的 ACK 才能发送 `complete`。
   - `item_key`、source epoch、cursor、complete range 和 source mutation 语义继续遵守阶段 2/3 fail-closed 契约；不得用文件名、读序、segment boundary、随机值或 content hash 冒充 identity。
@@ -184,34 +184,34 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
   - 阶段 4 的默认文件 store 是隔离 artifact 的恢复/测试实现，不是现有产品历史数据库或 raw rollout 持久化方案。
 - 替代方案：继续只消费静态 golden、用重复完整 batch 模拟 segment、或把阶段 4 直接接入既有 gateway/DB；这些方案分别不能证明原始 conformance 要求或会突破 AD-006/本任务边界，不采用。
 
-### AD-009: 阶段 4 采用 Node 发起 hello、Rust 回应 hello，并以显式 source epoch 驱动替换
+### AD-009: 阶段 4 采用 Node 发起 hello、Rust 回应 hello，并对 source evidence fail-closed
 
 - 分类：架构 / 协议契约（user-challenge 收口）
-- 背景：用户指出当前实现由 Rust 启动主动发送 hello、拒绝 Node hello，与架构定义的 Node → Rust 方向漂移；同时 `mode=replay` 自动设置 `replace_previous` 会把普通重放误当成来源替换。
-- 决策：Node 进程启动后先发送 `hello(role=node)`，Rust 只在握手成功后回同 `request_id` 的 `hello(role=analyzer)` 并接受 analyze；`replace_previous` 只由调用方在新 `source_epoch` 首批显式声明，Rust 初始 replay 默认 false，Node replacement 按 conversation 清理旧 epoch 的 analysis state 与 checkpoint。
-- 原因：握手方向与架构文档统一，避免双方各自假设启动方；将普通 replay、跨 epoch replacement 和同 epoch 重试分离，才能保持恢复与幂等语义可审计。
-- 约束：未完成 hello 不得处理 analyze；同 epoch 重复 replacement 必须 fail-closed；cursor/checkpoint 仍需 fingerprint、prefix anchor、snapshot 和 reducer state 证明；后续不得静默改变握手方向或 replacement 作用域。
-- 证据：任务 `20260820-003` 的 Rust stage4 protocol 7/7、Node collector 13/13（含正式 Rust binary、source epoch replacement、无 cursor checkpoint 校验和异常重启重放）通过。
-- 验证方式：Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、7 stage4 protocol tests 全部通过；Node collector 13/13 定向测试通过，覆盖正式 Rust binary 派生字段、malformed canonical fail-closed、source epoch replacement、actual subprocess ACK、协议级 timeout/cancel、无 cursor source checkpoint 校验、batch 前后进程异常重启、file-store restart、overlap idempotence 与 late incomplete non-downgrade。未执行、也未宣称 release/canary/benchmark 或产品 IPC/Android/DB 集成。
+- 背景：用户指出当前实现由 Rust 启动主动发送 hello、拒绝 Node hello，与架构定义的 Node → Rust 方向漂移；同时旧草案把读取重试误写成来源替换。
+- 决策：Node 进程启动后先发送 `hello(role=node)`，Rust 只在握手成功后回同 `request_id` 的 `hello(role=analyzer)` 并接受 analyze；4.5 不定义 `replace_previous` 或 product source replacement，`source_epoch` 只作为隔离 Rust source identity/checkpoint 的兼容和 fail-closed 标记。Node 依据稳定 `job_id`、source scope 和 checkpoint 重新发起 `preview`/`backfill`/`append`，不把重新读取推导成来源替换。
+- 原因：握手方向与架构文档统一，避免双方各自假设启动方；将正常读取、重试交付和真正需要另立协议的来源替换分离，才能保持恢复与幂等语义可审计。
+- 约束：未完成 hello 不得处理 analyze；source identity、cursor、snapshot boundary 和 reducer state 仍需通过协议校验；fingerprint/anchor 如仍存在于 formal schema，只能作为 opaque compatibility metadata，不能成为 4.5 业务 gate；后续不得静默改变握手方向或把 replacement 语义带回当前 analyze。
+- 证据：任务 `20260820-003` 的 Rust stage4 protocol 7/7、Node collector 13/13（含正式 Rust binary、协议校验、异常重启和重复交付幂等）通过。
+- 验证方式：Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、7 stage4 protocol tests 全部通过；Node collector 13/13 定向测试通过，覆盖正式 Rust binary 派生字段、malformed canonical fail-closed、source mutation fail-closed、actual subprocess ACK、协议级 timeout/cancel、无 cursor source checkpoint 校验、batch 前后进程异常重启、file-store restart、overlap idempotence 与 late incomplete non-downgrade。未执行、也未宣称 release/canary/benchmark 或产品 IPC/Android/DB 集成。
 
-### AD-010: 阶段 4 恢复与 canonical 导入采用 fail-closed、有限重放语义
+### AD-010: 阶段 4 恢复与 canonical 导入采用 fail-closed、有限重试交付语义
 
 - 状态：accepted
 - 分类：架构 / 协议契约（mechanical 收口）
-- 背景：阶段 4 复审发现同 epoch replacement 可重复接受、malformed canonical batch 可凭 `complete=true` 被提升、协议内 `timeout_ms` 未约束 Rust 全链路、无 cursor replay 可绕过 source checkpoint 校验，以及 analyzer 异常退出后没有恢复请求。
-- 决策：Node 必须在 importer 之前校验 canonical batch 的 provenance、completeness、mutations、`next_cursor`、source anchors 和 reducer state；Rust 必须让 `resource_limits.timeout_ms` 覆盖 source read 到 ACK wait 的预算；无 cursor replay 仍须核对持久化 fingerprint/prefix anchor；同 epoch 只允许首次新 replacement，但相同 `batch_id` 的重放保留幂等 duplicate；analyzer 进程退出时 Node 只按固定有限次数重启并重发原请求。
+- 背景：阶段 4 复审发现 malformed canonical batch 可凭 `complete=true` 被提升、协议内 `timeout_ms` 未约束 Rust 全链路，以及 analyzer 异常退出后没有明确的恢复请求。
+- 决策：Node 必须在 importer 之前校验 canonical batch 的 provenance、completeness、mutations、`next_cursor`、source identity、snapshot boundary 和 reducer state；Rust 必须让 `resource_limits.timeout_ms` 覆盖 source read 到 ACK wait 的预算；无 checkpoint 或 checkpoint 不可用时，Node 以同一 `job_id` 和 source scope 重新发起普通 `preview`/`backfill`/`append`；相同 `batch_id` 的重复交付保留幂等 duplicate；analyzer 进程退出时 Node 只按固定有限次数重启。
 - 原因：这些约束把“来源未证实”“结果形状不完整”“请求超时未生效”和“进程重启后重复写入”统一收口为可审计的 fail-closed/幂等语义，既保证恢复安全，又不把隔离 artifact 扩展成产品 runtime。
-- 约束：资源超时、source mutation、malformed canonical、同 epoch 新 replacement 或超出重试预算都必须返回失败；不得无限重试、静默回显旧 cursor、仅凭 `complete=true` 宣称 canonical，或把既有 IPC/Android/DB 接入本任务。
+- 约束：资源超时、source mutation、malformed canonical 或超出重试预算都必须返回失败；不得无限重试、静默回显旧 cursor、仅凭 `complete=true` 宣称 canonical，或把既有 IPC/Android/DB 接入本任务。
 
-### AD-011: 阶段 4 checkpoint、revision 与 source epoch 采用严格证据和持久化 tombstone
+### AD-011: 阶段 4 checkpoint、revision 与 source evidence 采用严格证据
 
 - 状态：accepted
 - 分类：架构 / 协议契约（mechanical 收口）
-- 背景：复审发现空 `complete`、仅含 source identity 的 checkpoint、缺 mutation 元数据、低 revision 覆盖高 revision，以及旧 epoch 在 replacement 后迟到复活都会绕过阶段 4 的 fail-closed 目标。
-- 决策：Node/Rust 只接受具备 source fingerprint、prefix anchor、reader/provenance、segment/cursor、completeness、projection watermark 和 reducer state 的完整 checkpoint；`complete` 必须与 checkpoint 的 request/cursor/completeness 一致。upsert mutation 必须带匹配 batch 的 completeness/source_epoch、非负 revision 和 source_ref；同一 completeness 只允许更高 revision 更新正文、派生数据和 cursor。replacement 在清理前完成全部 preflight，并把旧 scope 写成持久化 retired tombstone/current-epoch fence；迟到旧 epoch 的 batch、complete 或 replacement 一律拒绝。source_id/source_epoch 必须显式提供，不得用 filename 或 `unbound` 补全。
-- 原因：严格把“结果已完成”“来源可恢复”“替换已生效”和“新版本覆盖旧版本”绑定到可验证证据，避免故障注入通过空对象、低 revision 或迟到消息改变已提交状态；tombstone 在进程重启后仍能提供 epoch fence。
-- 约束：该决策只适用于隔离 `native/codex-rollout-collector` ↔ `src/services/codexRolloutCollector` artifact；不扩展到既有 server/DB、IPC、Android、Demo/Spike 或产品 DTO。checkpoint schema、mutation 字段或 epoch fence 语义发生破坏性变化时必须另行决策并迁移 fixture。
-- 证据：Node collector 定向测试 19/19，覆盖 forged complete/checkpoint、mutation 缺字段、非法 replacement 原子性、revision 回退、path-only identity、File store 重启后的 stale epoch resurrection；Rust 66 unit、28 conformance、3 stage2 integration、5 stage3 conformance、8 stage4 protocol 全部通过。
+- 背景：复审发现空 `complete`、仅含 source identity 的 checkpoint、缺 mutation 元数据和低 revision 覆盖高 revision都会绕过阶段 4 的 fail-closed 目标。
+- 决策：Node/Rust 只接受具备 source identity、reader/provenance、segment/cursor、completeness、projection watermark 和 reducer state 的完整 checkpoint；若 formal schema 仍带 fingerprint/prefix anchor，只作为 opaque compatibility metadata，不作为 4.5 正常业务 gate。`complete` 必须与 checkpoint 的 request/cursor/completeness 一致。upsert mutation 必须带匹配 batch 的 completeness/source_epoch、非负 revision 和 source_ref；同一 completeness 只允许更高 revision 更新正文、派生数据和 cursor。`source_id/source_epoch` 必须显式提供，不得用 filename 或 `unbound` 补全；迟到旧 source evidence 只能被隔离拒绝，不产生产品 epoch/tombstone/fence。
+- 原因：严格把“结果已完成”“来源可恢复”和“新版本覆盖旧版本”绑定到可验证证据，避免故障注入通过空对象、低 revision 或迟到消息改变已提交状态；同时不把兼容 source metadata 升级为产品来源替换模型。
+- 约束：该决策只适用于隔离 `native/codex-rollout-collector` ↔ `src/services/codexRolloutCollector` artifact；不扩展到既有 server/DB、IPC、Android、Demo/Spike 或产品 DTO。checkpoint schema、mutation 字段或 source evidence 语义发生破坏性变化时必须另行决策并迁移 fixture。
+- 证据：Node collector 定向测试覆盖 forged complete/checkpoint、mutation 缺字段、revision 回退、path-only identity 和 File store restart；Rust stage4 protocol 回归通过。
 
 ### AD-012: 阶段 4 完成提交、checkpoint 与 item revision 必须单调且按对象绑定
 
@@ -233,35 +233,35 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 约束：本决策不删除 `history_base`/cut、conversation/source identity、source epoch、cursor/prefix anchor、完整行/pending tail、append recovery、bounded parent header/suffix guard 或 replacement validation；不改变 Rust↔Node 隔离协议和普通单文件读取语义。后续不得把 active-source guard、cursor/source identity 语义或该 unsupported 输入重新扩大为公共产品契约而不重新取得用户确认。
 - 证据：实现删除 `read_lineage_batch()` 中 parent auxiliary full-history read 的整文件 before/after guard；现有 stage4 source guard 回归保留，后续以 Rust stage4 定向/全量测试、fmt 和 diff 范围检查确认。
 
-### AD-014: Rust Collector 以会话级 lineage discovery/replay 为一级目标
+### AD-014: Rust Collector 以会话级 lineage 定位/重建为一级目标
 
 - 状态：accepted
 - 分类：架构 / source contract（user-confirmed）
 - 背景：真实 Codex 会话中，用户编辑最后一个已终止问题后会创建带 `history_base` 的 child rollout；child 可能位于 parent 日期目录之后。原先仅处理已知 active source 的 replacement 逻辑，无法保证发现最新文件、跨日期关联、服务重启后跳过中间 rollout，或输出保留旧 turn 的完整会话历史。
-- 决策：Rust Collector 的一级目标固定为 `sessions_root + conversation_id` 下的有界会话 discovery、lineage 关联、root→active head replay 和 full/tail/backward/backfill/append/child transition 读取。文件名只用于候选索引、rollout ID 提取和时间/顺序提示；`SessionMeta.id` 验证目标 conversation，`history_base.thread_id` 及 ordinal/byte cut 负责权威 parent→child 关系。active head 必须由可验证的唯一有效链确定；旧 root-like 候选只在可证明早于当前链时保留为 provenance，否则歧义 fail-closed。
-- 原因：上游的 child rollout 文件关系由文件内容和 `history_base` 定义，不能依赖当前目录、文件名、mtime 或进程内 checkpoint；会话级发现和 lineage replay 才能覆盖真实跨日期、冷启动和旧 turn 保留的业务目标。
+- 决策：Rust Collector 的一级目标固定为启动级 `sessions_root` 与 `conversation_id` 下的内部 source 定位、lineage 关联、root→active head 重建和 full/tail/backward/backfill/append/child transition 读取。Node 不发送 discovery/path/catalog 请求。文件名只用于候选索引、rollout ID 提取和时间/顺序提示；`SessionMeta.id` 验证目标 conversation，`history_base.thread_id` 及 ordinal/byte cut 负责权威 parent→child 关系。active head 必须由可验证的唯一有效链确定；旧 root-like 候选只在可证明早于当前链时保留为 provenance，否则歧义 fail-closed。完整读取属于 Rust 内部读取能力，不是 Node 可请求的额外 analyze mode。
+- 原因：上游的 child rollout 文件关系由文件内容和 `history_base` 定义，不能依赖当前目录、文件名、mtime 或进程内 checkpoint；会话级发现和 lineage 重建才能覆盖真实跨日期、冷启动和旧 turn 保留的业务目标。
 - 约束：
   - 稳定 conversation ID 必须由调用方显式提供或由已验证绑定提供，不能由文件名推断；缺 parent、多 head、循环、无法排序或会话不一致必须 fail-closed。
   - 当前业务仍只支持最后一个已终止用户 turn 的一对一编辑替换，不把该能力扩展为任意 suffix、multi-turn replacement 或通用 branch graph。
   - `discovered_sources` 等 lineage 输出只属于隔离 Rust Collector↔Node artifact；不得据此静默接入产品数据库、App ADTO、WebSocket、IPC 或 Android。
   - AI 不得把文件名或 mtime 单独提升为父子关系、active head 或 canonical conversation authority；若需支持不同的 Codex lineage 行为，必须新增真实 fixture、兼容验证并重新确认范围。
-- 影响范围：`native/codex-rollout-collector` 的 discovery、lineage、stage4 protocol、fixture 与恢复测试，以及对应 architecture/compatibility/technical docs；不改变既有产品同步链路。
+- 影响范围：`native/codex-rollout-collector` 的 source locating、lineage、stage4 protocol、fixture 与恢复测试，以及对应 architecture/compatibility/technical docs；不改变既有产品同步链路。
 - 替代方案：只读取当前目录、只接受调用方传入的 active 文件，或让 Node 自行猜测唯一 active path；这些方案无法满足跨日期发现、重启恢复和完整历史重建，不采用。
-- 验证方式：跨日期与五文件 synthetic/sanitized fixture、真实 rollout 目录 Replay/Preview/Backfill/Append smoke、最新路径重启恢复、root-like 歧义和 lineage 全量 Rust 目标回归通过（96 unit、31 conformance、3 stage2、5 stage3、22 stage4）。
+- 验证方式：跨日期与五文件 synthetic/sanitized fixture、真实 rollout 目录完整读取/Preview/Backfill/Append smoke、最新路径重启恢复、root-like 歧义和 lineage 全量 Rust 目标回归通过（96 unit、31 conformance、3 stage2、5 stage3、22 stage4）。
 
 ### AD-015: lineage 读取不是 rollout.jsonl 物理分页，且不设置 lineage depth 上限
 
 - 状态：accepted
 - 分类：架构 / read contract（user-confirmed）
 - 背景：`rollout.jsonl` 的读取由 Collector 自己按完整、尾部、向后分段和同文件 append 语义实现；日期目录发现、增量读取和向前恢复不是同一个概念。将 `max_date_partitions` 误作 lineage 深度或用固定 `max_lineage_depth` 限制长期会话，会在不真正解决内存/IO 风险的情况下截断合法历史。
-- 决策：日期分区和候选数只限制 discovery 搜索范围，绝不表示 rollout.jsonl 物理读取分页；`Preview`、`Backfill`、`Replay` 和 `Append` 使用各自独立的读取/窗口/cursor 语义。lineage 沿已验证 `history_base` 一直解析到 root，不保留或重新引入 `max_lineage_depth`，异常环由 visited 检测；目录项、候选、header/fingerprint、decoded/segment bytes、取消和 deadline 负责资源边界。
-- 原因：lineage 深度不等于一次内存占用，分段读取和 cursor 才是控制读取成本的机制；Full Replay 既然允许耗时更长，就必须要么沿合法链完整完成，要么明确 fail-closed，而不能静默返回截断历史。
+- 决策：日期分区和候选数只限制 Rust 内部 source 定位范围，绝不表示 rollout.jsonl 物理读取分页；`Preview`、`Backfill` 和 `Append` 使用各自独立的读取/窗口/cursor 语义，完整读取只属于 Rust 内部读取能力。lineage 沿已验证 `history_base` 一直解析到 root，不保留或重新引入 `max_lineage_depth`，异常环由 visited 检测；目录项、候选、header、decoded/segment bytes、取消和 deadline 负责资源边界。
+- 原因：lineage 深度不等于一次内存占用，分段读取和 cursor 才是控制读取成本的机制；完整读取既然允许耗时更长，就必须要么沿合法链完整完成，要么明确 fail-closed，而不能静默返回截断历史。
 - 约束：
   - `TailPreviewCursor`、`BackfillCursor`、`ForwardAppendCursor` 不可混用；同一物理文件续写才沿用 append cursor，child transition 必须建立新的 lineage epoch/checkpoint。
-  - session discovery + Append 不能把 append delta 直接当作完整 lineage；需要完整历史时必须恢复/重读 active snapshot，覆盖不足只能保持 partial/provisional，不得发布错误 canonical replacement mutation。
+  - Rust 内部 source locating + Append 不能把 append delta 直接当作完整 lineage；需要完整历史时必须恢复/重读 active snapshot，覆盖不足只能保持 partial/provisional，不得发布错误 canonical replacement mutation。
   - 资源保护必须使用实际读取/发现预算、取消和 deadline；不得以新增 lineage depth 参数替代这些边界，也不得把窗口结果描述成完整历史。
-  - AI 不得因会话 lineage 较深而自行截断 Full Replay；若遇资源不足、循环或不一致输入，应返回明确失败/partial 证据并保留可恢复状态。
-- 影响范围：Rust source discovery/read plan、lineage replay、stage4 request/checkpoint 与相关 cursor/fixture；不改变既有单文件 backward-compatible full/tail/backward/append API。
+  - AI 不得因会话 lineage 较深而自行截断完整读取；若遇资源不足、循环或不一致输入，应返回明确失败/partial 证据并保留可恢复状态。
+- 影响范围：Rust source locating/read plan、lineage 重建、stage4 request/checkpoint 与相关 cursor/fixture；不改变既有单文件 backward-compatible full/tail/backward/append API。
 - 替代方案：把 `max_date_partitions` 传递为 lineage depth、增加固定 `max_lineage_depth`，或把每个物理读取窗口统称为分页；这些方案混淆发现范围与读取语义并损害完整历史目标，不采用。
 - 验证方式：超过旧默认深度仍完整解析、同日深 lineage 在单日期分区限制下仍可解析、环 fail-closed、同文件 append/full lineage 等价及重启恢复测试通过；Rust 全量目标回归与格式检查通过。
 
@@ -270,7 +270,7 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 状态：accepted
 - 分类：架构 / source compatibility（user-confirmed）
 - 背景：Codex 的 `.jsonl.zst` 是 plain rollout 的压缩物理表示；压缩转换期间同目录同名 plain 与 compressed sibling 可能同时出现。若 Collector 把它们当成两个 rollout，会把正常来源误判为歧义；但普通无索引 `.zst` 又不能伪造随机 seek、backward 或 append byte cursor。
-- 决策：在 physical discovery/catalog 阶段，同目录同名 `.jsonl` 与 `.jsonl.zst` 并存时按 Codex plain 优先规则只保留 `.jsonl`；规则按 sibling 路径判断，不跨目录按 rollout ID 合并，不比较 mtime/内容，plain 失败不 fallback 到 `.zst`。只有 `.zst` 时，active/root forward full Replay 仍可用；作为 parent 需要 suffix/backward、replacement validation 或 parent full-history replay 时返回类型化 `UnsupportedParentSourceCompression` 并 fail-closed。
+- 决策：在 Rust 内部 source index/catalog 阶段，同目录同名 `.jsonl` 与 `.jsonl.zst` 并存时按 Codex plain 优先规则只保留 `.jsonl`；规则按 sibling 路径判断，不跨目录按 rollout ID 合并，不比较 mtime/内容，plain 失败不 fallback 到 `.zst`。只有 `.zst` 时，active/root forward full read 仍可用；作为 parent 需要 suffix/backward、replacement validation 或 parent full-history read 时返回类型化 `UnsupportedParentSourceCompression` 并 fail-closed。
 - 原因：plain sibling 选择是 Codex 当前 reader/compression 语义的一部分，而 parent lineage 定位需要可验证的物理范围；分别处理两种情况可以兼容正常压缩转换，又不会把解压逻辑 offset 当作可恢复 source cursor。
 - 约束：
   - plain sibling canonicalization 不得扩展为跨目录同 ID 去重；不同物理路径的同 rollout ID 仍按候选冲突处理并 fail-closed。
@@ -315,6 +315,17 @@ fail-closed：旧缓存继续可读、旧 position/v2 reader 继续可用，但�
 - 影响范围：`docs/codex/codex-rollout-collector-architecture.md`、`docs/workflow/CONTRACTS.md`、`AGENTS.md`、`CLAUDE.md`，以及后续 Node 持久化、历史同步和 App 数据读取设计；本轮不授权代码或产品数据库实现。
 - 替代方案：把 `source_epoch`、product source replacement、`commitFence` 和多 worker canonical writer 作为阶段 5 默认模型；该方案与已确认的 app-server ownership 和单例 Collector 事实不符，暂不采用。
 - 验证方式：架构文档、契约、决策和两侧 host guidance 已同步；本轮仅修改文档，未改变 Rust、Node、Android、IPC 或数据库代码。
+
+### AD-019: Rust analyzer 只定义三种普通读取 mode，恢复采用普通读取请求的重试交付
+
+- 状态：accepted
+- 分类：架构 / Node↔Rust analyzer recovery semantics（user-confirmed）
+- 背景：此前文档把“Rust 进程重启后重新读取”描述成新的 `analyze` mode、独立 capability 或 Rust 进程内事件恢复；这不符合当前采集器职责和单例链路。
+- 决策：4.5 的公共 `analyze` mode 只有 `preview`、`backfill`、`append`，不提供额外的全量分析或恢复 capability。ACK 丢失、Node/Rust 进程重启或 checkpoint 不可用时，Node 保留 `job_id`、source scope、checkpoint 和待重新交付的 `segment_id/batch_id`，用新的 `request_id` 重新发起同一普通读取请求；Rust 不保存进程内恢复状态。完整 source/lineage read 只是 Rust 内部读取能力；未来若需要维护性全量扫描，必须另立版本化接口。
+- 原因：恢复依赖 Node 持久化事实和稳定交付 identity，而不是 Rust 进程内状态或一个与业务 mode 混淆的独立恢复机制；这样与单 conversation single-flight、ACK 顺序和解耦边界一致。
+- 约束：`request_id` 只标识当前 wire attempt；相同 validated source scope 的 `segment_id/batch_id` 必须稳定，重复交付必须幂等，内容冲突必须 fail-closed。该决策不改变 IPC 体系中已有的 `reconnect replay` 或独立 `conversation_live_replay` 诊断 lane，它们不属于 Rust analyzer `analyze` mode。
+- 影响范围：Rust analyzer architecture/data/wire/startup contract、Node coordinator/interface index、history sync cross-reference docs；不修改 Rust/Node/Android/IPC/DB 代码。
+- 验证方式：相关文档检索不存在额外全量分析 mode、Rust analyzer 独立恢复 capability 或“重启后 Rust 内部恢复状态”作为现行语义；保留 IPC reconnect/live replay 的独立定义。
 
 ## 🎨 口味决策
 

@@ -104,20 +104,27 @@ AnalysisBatch 是 Rust Analyzer 与 Node importer 之间的进程协议结果。
 Node 接收 AnalysisBatch 后负责：
 
 - 校验 schema、provenance、内部 source identity、mutation、cursor 和 completeness；
-- 把内部分析结果映射为产品级 canonical write model；
-- 对 history item、tool detail、usage 和 task outcome 执行幂等 upsert；
-- 更新 source/conversation coverage 和 read-model revision；
-- 在 analyzer importer 边界同一事务中更新 analyzer checkpoint 和运行状态；
-- 只有该 artifact/checkpoint 事务成功后才确认 Rust analyzer 的 persisted ACK；这不等于
-  product canonical DB publication，也不等于 App 的 `sequence_persisted` ACK，后两者各自
-  由对应层的事务和 fence 证明。
+- 对本批次写入 durable analyzer staging、batch receipt 和 recovery evidence，并先提交该
+  staging transaction；
+- 只有 staging transaction `COMMIT` 后才确认 Rust analyzer 的
+  `ACK(accepted=true,persisted=true)`；该 ACK 不表示产品 `history_items`、coverage、change log、
+  `serverRevision` 或最终 analyzer checkpoint 已提交；
+- 收到同一 request 的 `complete` 后，才把已校验的分析结果映射为产品 canonical write model，
+  在一个 product DB transaction 中幂等 upsert history item、tool detail、usage、task outcome，
+  更新 coverage，写 change log、推进 `serverRevision` 并保存最终 checkpoint；
+- 只有该 product DB transaction `COMMIT` 后才发布 canonical history；这仍不等于 App 的
+  `sequence_persisted` ACK，后者由 App 自己的 SQLite transaction 证明。
 
 Node 不把 IPC live item 直接写入 canonical history。
 
 同一 conversation 只允许一个 Node coordinator 保持一个 in-flight Rust analyzer 请求，并由
-同一个 canonical writer 完成一次 DB transaction。其他 worker、history provider 和 App-facing
+同一个 canonical writer 完成一次 product publication transaction。其他 worker、history provider 和 App-facing
 请求只能读取持久化 projection 或 IPC 实时缓存；cache miss 只能向 coordinator 排队，不能
-直接请求 Rust。Rust 读取/解析与不同 conversation 可以并行，但当前边界不引入多 worker
+直接请求 Rust。一个 Node Server 实例只管理一个 Rust analyzer process，所有 conversation 的
+读取/解析请求由 Node Server Coordinator 所属的 global scheduler 排队，Rust 同时只执行一个
+active request；具体队列、优先级、抢占、取消、重试和恢复规则以 Node Server Coordinator
+契约为准；服务端只读
+projection/query 仍可按各自 DB/缓存语义并行，但不等于并行请求 Rust。当前边界不引入多 worker
 candidate、first-commit-wins、worker lease 或产品级 `commitFence`。
 
 ### 3.4 Server read-model layer：服务端历史查询模型
@@ -189,7 +196,10 @@ History page 是服务端向 App 返回的一组 canonical items 或一组 delta
 
 它受 App query、顺序、ACK 和 256 KiB envelope 限制。
 
-它可以由数据库直接查询，也可以由 Node 先执行 source backfill 后生成。它不要求和 Source segment 一一对应。
+它可以由数据库直接查询；如果该范围尚未持久化，Node 只能向 Node coordinator 排队一次
+`backfill` analyzer 请求，由 Rust analyzer 完成 source backfill 后再生成。Node 不直接执行
+`SourceBackend`，也不把 Source segment 暴露为 Node 内部调用对象。它不要求和 Source segment
+一一对应。
 
 ### 4.4 Payload chunk
 
@@ -213,7 +223,8 @@ older 查询是：
 → 服务端查询更早的 canonical range
 → 返回 older page。
 
-如果服务端尚未持久化该范围，Node 可以先启动 SourceBackend backfill，再提交 canonical read model，最后返回 older page。
+如果服务端尚未持久化该范围，Node 先向 coordinator 提交 `backfill` read intent；Rust analyzer
+通过既有 Node↔Rust 协议读取并返回分析结果，Node 再提交 canonical read model，最后返回 older page。
 
 forward append 是 SourceBackend 读取新增源内容的方式；delta 是 canonical read model 提交后对 App 的同步结果。两者不是同一对象。
 
@@ -296,7 +307,7 @@ App SQLite 是 ADTO 的本地持久化投影，不是 ADTO JSON 的简单文件�
 - conversation、endpoint/profile 隔离；
 - staging 与 committed cache 隔离；
 - item upsert 幂等；
-- page/chunk 重放幂等；
+- page/chunk 重试交付幂等；
 - ACK 晚于 SQLite 原子提交；
 - 旧 generation、旧 sync、旧 conversation 的结果不能写入当前 selection。
 
@@ -312,7 +323,7 @@ App SQLite 是 ADTO 的本地持久化投影，不是 ADTO JSON 的简单文件�
 
 默认设计方向是：serverRevision 按 endpoint/profile/tenant 与 conversationId 组成的 read-model scope 递增，而不是全局递增，也不是每个 item 单独递增。
 
-只有 canonical read model 的可见内容、顺序、coverage 或 completeness 成功变化时才递增。无变化的重复分析、batch 重放和幂等 upsert 不产生新 revision。
+只有 canonical read model 的可见内容、顺序、coverage 或 completeness 成功变化时才递增。无变化的重复分析、batch 重试交付和幂等 upsert 不产生新 revision。
 
 Rust `source_epoch` 发生 mutation 时不能复用旧 cursor/checkpoint，也不能由 Node 自动递增
 或转成产品 source fence。Node 必须保留最后一个已发布 snapshot，并由同一 coordinator 做
@@ -387,7 +398,7 @@ App A→B 时，可以取消或隔离 A 的 history transport、旧 generation�
 所有跨层协议必须遵守：
 
 1. fail-closed：证据不足时返回 partial、failed 或 recovery_required。
-2. 幂等：batch、item、page、chunk、ACK、重连重放和 segment overlap 可重复执行。
+2. 幂等：batch、item、page、chunk、ACK、重连重试和 segment overlap 可重复执行。
 3. 原子：派生数据、coverage、revision 和 checkpoint 按规定边界一起提交。
 4. 单调：serverRevision、coverage 和 checkpoint 不能无证据回退；内部 source checkpoint
    发生 mutation 时必须 fail-closed，不能伪造产品新 epoch。
@@ -399,9 +410,11 @@ App A→B 时，可以取消或隔离 A 的 history transport、旧 generation�
 8. 隐私最小化：raw path、完整工具输出、媒体和敏感 provenance 按权限和 detailRef 策略下发。
 9. 失败可见：超时、来源缺口、协议错误和重试耗尽必须进入 App 可识别的失败或 cache-only 状态。
 10. 同一 fixture 验证：Parser、Adapter、Importer、Read Model、Wire 和 App staging 的验证尽量使用同一份可追溯 fixture。
-11. conversation 级协调：同一 `(revisionScope, conversationId)` 只有一个 coordinator 和
-    一个 in-flight Rust request；相同 batch/operation 幂等，迟到或不完整结果不得覆盖新
-    active head，跨 conversation 才允许并行。
+11. conversation 级协调：一个 Node Server 实例只有一个 Rust analyzer process 和一个 global
+    scheduler；Rust 同时只有一个 in-flight request。每个 `(revisionScope, conversationId)` 只有
+    一个 coordinator，最多一个 running request 和一个 pending intent；相同 batch/operation 幂等，
+    迟到或不完整结果不得覆盖新 active head。不同 conversation 的 App/DB 查询可以独立进行，
+    但 Rust analyzer 请求必须进入全局队列。
 
 capability、旧 App fallback、未知状态操作和大小门禁的统一规则见
 `codex-history-sync-capability-compatibility-size-contract-draft.md`：缺失能力不能推断支持，
@@ -475,7 +488,7 @@ fail-closed，history envelope 和 payload chunk 的硬上限由 Node 与 App �
 2. history item、tool detail、usage、task outcome 的传输和 App 提交边界明确；
 3. contentHash 只证明内容语义，顺序证明独立处理；
 4. App 与服务端 capability 的协商方向明确。
-5. Node 单协调器、serverRevision、operation replay 和 App ACK 的边界明确。
+5. Node 单协调器、serverRevision、operation 重试和 App ACK 的边界明确。
 
 如果后续实现或新设计会改变这四项之一，应先回到本文和前三项草案修正，不得在专项实现中
 悄悄引入第二种解释。

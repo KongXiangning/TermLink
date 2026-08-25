@@ -148,7 +148,7 @@ revisionScope = authenticated profile/endpoint/tenant partition + conversationId
 - source flush/scan 没有形成可见 read-model 变化；
 - 只发现 child rollout、只更新 `reconciliation.state`/attempt/diagnostic，或 reconciliation
   失败而未发布新 snapshot；
-- 相同 batch、相同 item upsert、相同 source checkpoint 的幂等重放；
+- 相同 batch、相同 item upsert、相同 source checkpoint 的幂等重试/重复交付；
 - 失败并回滚的数据库事务；内部 retry counter、日志和诊断字段未进入 read model 时也
   不产生 revision。
 
@@ -203,8 +203,10 @@ conversationCommitKey = (authenticated revisionScope, conversationId)
 
 同一 key 下只有一个 Node coordinator 和一个 in-flight Rust analyzer request；普通 canonical
 upsert、last-turn replacement、coverage/completeness 发布都由它进入同一 DB transaction。
-不同 conversation 可以并行。Rust 读取/解析和只读 manifest/page 查询不直接改变 canonical
-state；history provider cache miss 只能排队给 coordinator，不能直接请求 Rust。
+一个 Node Server 实例的所有 Rust analyzer request 还必须经过同一个 global scheduler 和唯一
+Rust process 串行执行；不同 conversation 的只读 manifest/page 查询或已完成的 DB 事务可按产品
+数据库语义独立进行，但不能因此并行请求 Rust。Rust 读取/解析不直接改变 canonical state；
+history provider cache miss 只能排队给 coordinator，不能直接请求 Rust。
 
 `serverRevision` 是唯一对外的 canonical revision；`batchId/operationId` 唯一性负责重复
 提交幂等。不引入产品级 `commitFence`、多 worker candidate、first-commit-wins 或 worker
@@ -214,7 +216,7 @@ Node 不持有 conversation 写锁等待 Rust I/O、WebSocket 或 App ACK；App 
 SQLite 的本地提交，不参与 Node canonical commit 的互斥和顺序。
 
 同一个事务如果同时改变 item、coverage 和 `canonicalSnapshot`，只增加一次 revision。
-同一 batch 的重放若没有新的有效变化，必须返回第一次提交的 revision，不得再次递增。
+同一 batch 的重试若没有新的有效变化，必须返回第一次提交的 revision，不得再次递增。
 
 ### 2.5 Active head transition、source mutation 和 revision rollback
 
@@ -232,7 +234,7 @@ SQLite 的本地提交，不参与 Node canonical commit 的互斥和顺序。
 
 replacement identity 也遵守同一条分层：Rust 输出的 `replacementKey` 是 source fact，Node
 校验通过后逐字节复用为唯一的 wire/DB/App `operationId`。`operationId` 相同且 old/new
-identity/evidence 相同才是幂等 replay；同一 old turn 被不同 operation 替换，或同一 operation
+identity/evidence 相同才是幂等重试；同一 old turn 被不同 operation 替换，或同一 operation
 内容冲突，必须 fail-closed。它不参与 `rootHash`，也不生成新的 `serverRevision`，只有对应
 replacement transaction 成功发布时才随该 publication 一起出现。
 
@@ -602,7 +604,7 @@ App checkpoint 的 canonical fence 固定为：
 | 新 canonical item 正常发布 | 严格增加 | root 通常变化 | staging delta，校验后提交 |
 | 合法 last-turn active head transition | 严格增加一次 | old turn 退出 active root，new turn 进入 | `turn_replaced` + old/new turn upsert 同一 sequence 原子提交 |
 | 只发布 coverage/status 变化 | 严格增加 | root 可不变，coverage/status 可变 | 更新 checkpoint metadata；不凭 root 相等跳过 revision |
-| 同 batch 幂等重放 | 不增加 | 全部保持 | 返回原 revision，禁止重复写入 |
+| 同 batch 幂等重试/重复交付 | 不增加 | 全部保持 | 返回原 revision，禁止重复写入 |
 | source mutation / prefix mismatch | 不增加 | 保留旧 root/coverage | 保留旧 cursor/anchor，进入 source mutation recovery；不建立 product source epoch |
 | revision 回退 | 不允许对外出现 | 不可作为正常 delta | fail-closed，保留本地 cache |
 | partial → canonical complete | 严格增加 | coverage/root 可能变化 | 原子替换/升级，才可标记 complete |
@@ -632,7 +634,7 @@ commit verified empty full history
 结果：发布 `serverRevision=1`，`rootHash=empty itemRootV1`，`complete=true`，而不是
 `rootHash=null`。`rootHash=null` 只表示没有证明。
 
-### V3：幂等 replay
+### V3：幂等重试
 
 ```text
 R=7, batch B 已提交，root=A

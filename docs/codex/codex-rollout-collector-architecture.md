@@ -5,7 +5,7 @@ owner: "@maintainer"
 last_updated: 2026-08-25
 source_of_truth: codex-rollout-collector
 related_code: [native/codex-rollout-demo, native/codex-rollout-compat-spike]
-related_docs: [docs/codex/codex-rollout-demo-design.md, docs/codex/codex-rollout-collector-codex-compatibility.md, docs/codex/codex-rollout-recorder-source-technical-reference.md, docs/codex/codex-last-turn-replacement-rust-collector-change-plan.md, docs/codex/codex-history-sync-design-principles.md, docs/codex/codex-history-sync-head-transition-source-replacement-contract-draft.md, docs/codex/codex-history-sync-sequence-test-vectors-contract-draft.md, docs/codex/codex-history-sync-node-rust-interface-contract-draft.md, docs/codex/codex-sync-app-history-ipc-consistency.md, docs/workflow/CONTRACTS.md, docs/workflow/DECISIONS.md]
+related_docs: [docs/codex/codex-rollout-demo-design.md, docs/codex/codex-rollout-collector-codex-compatibility.md, docs/codex/codex-rollout-recorder-source-technical-reference.md, docs/codex/codex-last-turn-replacement-rust-collector-change-plan.md, docs/codex/codex-history-sync-design-principles.md, docs/codex/codex-history-sync-head-transition-source-replacement-contract-draft.md, docs/codex/codex-history-sync-sequence-test-vectors-contract-draft.md, docs/codex/codex-history-sync-node-server-rust-analyzer-interface-index-draft.md, docs/codex/codex-rollout-collector-rust-analyzer-startup-contract-draft.md, docs/codex/codex-rollout-collector-rust-analyzer-wire-contract-draft.md, docs/codex/codex-rollout-collector-rust-analyzer-data-contract-draft.md, docs/codex/codex-history-sync-node-server-coordinator-contract-draft.md, docs/codex/codex-sync-app-history-ipc-consistency.md, docs/workflow/CONTRACTS.md, docs/workflow/DECISIONS.md]
 ---
 
 # Codex Rollout 正式解析采集器架构
@@ -113,10 +113,12 @@ rollout 分析不能替代健康 IPC，也不能通过轮询 rollout 改变 IPC 
   明确的 `history_base` 和 conversation 绑定就按独立来源处理；
 - source binding 在正常 Codex 写入下应当是完整的。用户直接中断或 source 尚未形成稳定边界时，
   结果应保持 `partial`/`provisional`/`pending`，不能凭空制造 product source replacement；
-- 一个 conversation 的 rollout 读取分析只允许一条 Node → Rust 采集链和一个 in-flight
-  analyzer request。Rust 只负责读取、解析和分析；其他 Node worker、历史查询或 App-facing
-  路径不得直接请求 Rust，只能查询 Node 已持久化的历史投影或使用 IPC 通道的实时缓存。需要
-  改变该单例协调规则时，必须先单独锁定范围并确认 Rust/Node 调度协议。
+- 一个 Node Server 实例只管理一个 Rust analyzer process；该进程同时最多一个 in-flight
+  analyzer request。所有 conversation 由 Node Server Coordinator 所属的 global Analyzer Scheduler
+  排队；每个 conversation 仍只允许
+  一条 Node → Rust 采集链。Rust 只负责读取、解析和分析；其他 Node worker、历史查询或
+  App-facing 路径不得直接请求 Rust，只能查询 Node 已持久化的历史投影或使用 IPC 通道的实时缓存。
+  需要改变该进程级单例规则时，必须先单独锁定范围并确认 Rust/Node 调度协议。
 - 在该单例协调边界下，阶段 5 不得为了假想的多 worker 竞争引入产品级 `commitFence`、多写者
   提交线或跨设备 replacement 仲裁；单一 Node writer、显式队列、数据库事务和 `serverRevision`
   已覆盖当前业务。未来若真的出现第二个 canonical writer，必须作为新的架构任务重新确认，不能
@@ -146,8 +148,10 @@ Node → Rust：hello / analyze / cancel / ack
 Rust → Node：hello / batch / complete / error
 ```
 
-当前协议的 7 个消息类型和 JSONL framing 以
-`docs/codex/codex-history-sync-node-rust-interface-contract-draft.md` 为接口依据。除该协议外，
+当前协议的 7 个消息类型、启动边界、分析数据和 Node 调度语义，以
+[`Node Server ↔ Rust Collector Analyzer 接口索引`](codex-history-sync-node-server-rust-analyzer-interface-index-draft.md)及其四份拆分契约为接口依据：
+[`启动契约`](codex-rollout-collector-rust-analyzer-startup-contract-draft.md)、[`analyzer wire 契约`](codex-rollout-collector-rust-analyzer-wire-contract-draft.md)、
+[`分析数据契约`](codex-rollout-collector-rust-analyzer-data-contract-draft.md)和[`Node Server coordinator 契约`](codex-history-sync-node-server-coordinator-contract-draft.md)。除这些契约外，
 禁止增加未登记的私有消息、隐藏字段、共享可变内存、共享数据库、共享 Node/Rust 内部文件、私有 socket
 或直接函数调用。必要的进程启动参数、环境配置和 capability 必须作为显式、可审查的模块启动接口或协议
 契约定义，不能通过读取另一模块的内存、目录约定或内部状态来传递。
@@ -160,9 +164,10 @@ Codex app-server 管理的 rollout 文件是 Rust 的外部只读输入，不是
 
 ```text
 Node 模块
+├─ global scheduler：在单 Rust process 上按优先级调度所有 conversation
 ├─ coordinator：按 conversation 单例调度和 single-flight
 ├─ Rust 进程生命周期：spawn / cancel / timeout / retry / backpressure
-├─ batch 校验、ACK、Node 侧 durable staging/checkpoint
+├─ batch 校验、ACK、Node 侧 durable staging/recovery evidence 和最终 checkpoint
 ├─ 产品历史 DB、canonical publication、App/IPC/API 读取边界
 └─ 只通过协议发送 read intent，并消费 Rust 返回的证据和派生结果
 
@@ -191,9 +196,51 @@ Rust 模块
 或 Rust 任一侧；不能用未登记的“临时桥接”绕过接口。Node 与 Rust 的单元测试分别针对各自内部边界，
 跨模块测试必须启动独立进程并只使用协议 fixture；不能通过共享内部类型或直接调用对侧函数来证明集成成功。
 
-后续涉及本采集器的设计、开发、代码审查和接口变更，必须先读取本文以及上述 Node↔Rust 接口契约；若
+后续涉及本采集器的设计、开发、代码审查和接口变更，必须先读取本文以及上述 Node↔Rust 接口契约索引和四份拆分契约；若
 旧草案、实现便利或测试 harness 与本节冲突，以本节的解耦边界和已冻结接口为准。违反本节即视为架构审查
 未通过，必须先完成契约变更和范围确认。
+
+### 2.1.3 Rust analyzer 模块启动接口：`sessionsRoot` 的来源和范围
+
+`sessionsRoot` 不是 Node 在每次 `analyze` 中发送的 discovery/path/catalog 参数，而是 Rust analyzer
+进程的启动级配置。4.5 采用“Node 解析，Rust 接收并验证”的单一来源：
+
+```text
+Node process startup
+    │
+    ├─ resolve CODEX_HOME
+    │     └─ CODEX_HOME/sessions = sessionsRoot
+    │
+    └─ spawn Rust
+          --startup-config-version 1
+          --sessions-root <absolute-normalized-path>
+```
+
+配置解析规则固定为：
+
+1. 每次启动 analyzer 时重新解析，不在安装阶段固化具体用户名或具体机器路径；
+2. 若存在非空 `CODEX_HOME`，使用该目录，并要求它存在且为目录；
+3. 未设置时使用运行 Node 的操作系统用户 home 下的 `.codex`：Windows 为
+   `%USERPROFILE%\.codex`，Linux/Unix 为 `$HOME/.codex`；
+4. 传给 Rust 的 `sessionsRoot` 是 `CODEX_HOME/sessions`，不是 `CODEX_HOME` 本身。日期分区和 rollout
+   文件位于该目录下，例如 `sessions/YYYY/MM/DD/*.jsonl` 或 `*.jsonl.zst`；
+5. Rust 不从当前工作目录、另一个环境变量或某个 conversation 的请求字段静默推导备用 root。需要
+   使用另一个 Codex home 时，Node 启动另一个配置实例/进程。
+
+这里的 `startup-config-version=1` 是启动接口版本，与 JSONL `protocol_version=1` 分开。Rust 对不支持
+的启动配置版本、非绝对路径、无法规范化的路径或已存在但不是目录的 path fail-closed；首次安装时
+`CODEX_HOME/sessions` 尚不存在可以允许进程启动，但具体分析应返回 source 缺失/不可用，不创建目录也不
+回退到其他 root。
+
+路径权限范围也在启动时冻结：Rust 只能读取 `sessionsRoot` 及其 canonical 子路径，拒绝 `..` 越界、越界
+symlink、root 外的 active path 或跨 root source binding。Node 的 `analyze` 只发送
+`conversation_id + read intent + cursor/recovery state`；日期扫描范围、active head hint、内部 catalog
+和 lineage 查询由 Rust 从自己的 index/checkpoint 与资源预算决定，不通过 discovery 消息传入。
+
+因此，`sessionsRoot` 的真实来源不是“Rust 固定写死”，也不是每个业务请求由 Node 临时传入，而是一个
+版本化的 Node→Rust **模块启动接口**；其字段、版本和路径约束见
+[`Node Server ↔ Rust Collector Analyzer 启动契约`](codex-rollout-collector-rust-analyzer-startup-contract-draft.md)。部署为服务账号运行时，必须显式设置与 Codex app-server 相同的
+`CODEX_HOME`，否则默认 home 会属于服务账号而不是交互用户。
 
 ### 2.2 `thread/read(includeTurns=true)` 不是完整持久化来源
 
@@ -223,7 +270,7 @@ Rust 模块
 - 详情直接进入批次或临时 spool，不构造全量详情 Vec；
 - reducer 状态保持紧凑；
 - 支持文件尾部优先和向前分段补全；
-- 全量正序重放仍保留为正确性对照路径，而不是生产默认路径。
+- 全量正序扫描仍保留为正确性对照路径，而不是生产默认路径。
 
 ### 2.4 持久化筛选有明确业务目标
 
@@ -330,6 +377,100 @@ rollout 原样复制到服务端。因此采集器必须区分：
 └──────────────────────────────────────────────────────────────┘
 ```
 
+### 3.1 4.5 进程并发与调度边界（冻结）
+
+4.5 的部署单元是**一个 Node Server 实例、一个 Node Server Coordinator（含一个全局
+Analyzer Scheduler）和一个 Rust History Analyzer 进程**。本节的“全局”指该 Node Server
+实例及其固定的 `sessionsRoot`，不指
+未来可能存在的多实例集群；多 Node 实例之间的 owner/lease 不属于 4.5 契约。
+
+```text
+Node Server instance
+├─ Node Server Coordinator
+│  └─ Analyzer Scheduler（全局唯一）
+│     ├─ conversation A job
+│     ├─ conversation B job
+│     └─ conversation C job
+│
+└─ one Rust History Analyzer process
+   └─ active_request = 0 or 1
+```
+
+固定规则：
+
+1. 一个 Rust 进程同时最多执行一个 `analyze` request。不同 conversation 也不能在该进程中
+   并行；Node 必须先排队，Rust 返回的 `busy` 只是防御性协议错误，不是正常调度路径。
+2. 每个 conversation 仍保持 single-flight：最多一个正在执行的 request，加一个可恢复的
+   pending intent。相同 conversation 的重复请求合并或串行排队，不创建第二条采集链；其
+   canonical writer 也不并发写同一 conversation。不同 conversation 的产品 DB 事务是否并行
+   由 Node/DB 契约决定，但不能据此绕过 Node Server Coordinator 的 Rust active slot。
+3. Node Server Coordinator 负责所有 conversation 的全局队列、优先级、抢占、取消和 active
+   slot 释放；具体任务优先级、合并、取消宽限期、重试和恢复规则以
+   [Node Server Coordinator 契约](codex-history-sync-node-server-coordinator-contract-draft.md)
+   为唯一具体定义。4.5 不引入 Rust worker pool 或 conversation→worker 固定绑定。
+4. Rust request 内的 `RequestContext`、decoder、reducer 和文件句柄都是临时进程内状态。Rust
+   可以为单个 request 使用实现内部的辅助线程，但不得把它们暴露为并发业务 worker，也不得让
+   Node 依赖其线程身份或内存状态。
+
+一次 `analyze` request 可以在 Rust 内部读取多个有界 segment，并通过多个 `batch` 交付，直到
+一个 `complete/error` 终止；Node 不为每个 segment 单独调用 Rust。首次 `preview → backfill`
+是两个串行的业务 request，不能把它误写成“preview 的每个分段都发一个 request”。
+
+#### 3.1.1 快速切换、取消和强制恢复
+
+以 `conversation A → conversation B` 为例：
+
+```text
+A backfill running
+    ↓  B preview arrives
+Node queues B with higher priority
+    ↓
+Node → Rust: cancel(A.request_id)
+    ↓
+Rust: stop at a safe cancellation point, release transient state
+    ↓
+Rust → Node: error(code=cancelled)
+    ↓
+Node dispatches B
+```
+
+取消不承诺保存当前正在读取的物理 offset，也不承诺为取消中的 segment 生成 checkpoint。
+Node 只保留最近一个已验证、已持久化的 checkpoint；未完成的 segment、decoder 缓冲和 reducer
+临时状态全部丢弃，下一次从该安全 checkpoint 重读，依靠稳定 `item_key` 和 Node 侧幂等导入
+消除重叠。
+
+Rust 必须在 Node 配置的有限 `cancel_grace_ms` 取消宽限期内返回取消终态；该配置属于 Node
+进程管理，不是 Rust wire 字段。若 Rust 没有在宽限期内返回，Node 终止并重启该 Rust 进程，
+递增本地 `processGeneration`，等待新的 hello 后再调度下一个 request。旧进程
+或旧 request 的迟到消息只能丢弃或记诊断，不能写入新 attempt 的状态。
+
+#### 3.1.2 Node 持有恢复状态，Rust 只执行
+
+Node 对每个 job 至少持有以下可恢复信息：
+
+```text
+ConversationJobState
+├─ job_id                       # 重试期间保持不变
+├─ conversation_id
+├─ request_id                   # 当前 attempt；每次新 attempt 可变化
+├─ mode / priority / enqueue_sequence
+├─ status / attempt / retry_budget
+├─ canonical_checkpoint
+├─ partial_recovery_checkpoint  # 若存在，不能覆盖 canonical
+├─ recovery_delivery             # 若存在：segment_id + batch_id，作为待重新交付批次身份
+├─ cancel_requested_at / deadline
+├─ process_generation
+└─ last_error
+```
+
+Rust 进程退出、取消或重启后，Node 只根据这些持久化状态重新生成同一业务意图：没有可用
+checkpoint 的首次读取走 `preview → backfill`；已有 conversation 的新增或 child transition
+走 `append`；正在做历史补全的 job 继续 `backfill`。4.5 的公共分析 mode 只有 `preview`、
+`backfill` 和 `append`；需要全量维护扫描时必须另立维护接口，不得把它塞入正常 analyzer mode。
+`job_id` 在该业务意图的重试/
+重启期间保持不变；`request_id` 仅代表当前 Rust attempt，可以变化；若存在未结算的逻辑
+segment，Node 还必须持久化并回传同一 `segment_id`/`batch_id`，使批次重试身份闭合。
+
 ## 4. 模块职责和稳定边界
 
 ### 4.1 `SessionLineageLocator` 和 `SourceLocator`：分开会话发现与物理绑定
@@ -338,6 +479,11 @@ rollout 原样复制到服务端。因此采集器必须区分：
 业务接口。Node 不能构造候选 catalog、直接调用 locator，或依据 locator 的内部索引做产品 source
 仲裁；Node 只提交 conversation/read intent，由 Rust 在自己的模块边界内完成必要的 source index
 lookup/refresh 和 lineage 处理。
+
+`SessionLineageLocator` 使用的 `sessionsRoot` 来自 Rust analyzer 的启动接口（见 §2.1.3）：Node
+启动进程时根据 `CODEX_HOME` 和平台默认值解析 `CODEX_HOME/sessions`，以版本化启动参数传入一次。
+因此，下面的 `sessionsRoot` 是 Rust 进程级固定配置，不是 Node 在 `analyze` 消息中发送的路径，也不是
+每个 conversation 可以改变的业务参数。
 
 两层职责不能混为一个“找到最新文件”的函数：
 
@@ -363,9 +509,10 @@ lookup/refresh 和 lineage 处理。
 遵循普通压缩流的 forward-only 能力边界，plain sibling canonicalization 不等于扩展 `.zst`
 读取能力。
 
-会话级 locator 的输入至少包括允许的 `sessionsRoot`、稳定会话 ID、日期扫描边界，以及可选的
-已知 head hint。它必须支持父 rollout 在前一个日期目录、child rollout 在后一个日期目录的
-情况，但不得对整个 sessions 根做无界递归扫描。
+会话级 locator 的内部输入至少包括进程级固定的 `sessionsRoot`、稳定会话 ID、日期扫描边界，以及可选的
+已知 head hint。会话 ID 来自 Node 的 `analyze`；日期边界和 head hint 由 Rust 根据内部 index、checkpoint
+和资源预算形成，不通过 discovery/path/catalog 消息从 Node 传入。它必须支持父 rollout 在前一个日期
+目录、child rollout 在后一个日期目录的情况，但不得对整个 sessions 根做无界递归扫描。
 
 文件名只能生成候选信息：
 
@@ -978,10 +1125,10 @@ outcome 的关联，不能因为输出被降级为摘要而丢失工具的命令
   契约，不得反向改变 Rust Collector 的 source 读取模型。
 
 本文后续使用的 `cursor` 均按上述 source continuation cursor 理解；需要明确表示下一次
-source 读取位置时使用 `next_source_cursor`，不使用带有分页含义的命名。
+source 读取位置时使用 `next_cursor`，不使用带有分页含义的命名。
 
 ```text
-full lineage replay
+full lineage scan（Rust 内部读取算法/正确性对照，不是 Node 公共 mode）
   root rollout → parent/child chain → active head
 
 tail/backward lineage read
@@ -991,10 +1138,13 @@ same-source incremental read
   同一 rollout 的 ForwardAppendCursor → 新增完整行
 
 child transition read
-  parent cursor/checkpoint → history_base cut 校验 → child 从安全边界读取
+  public Node mode=append → Rust 内部 parent cursor/checkpoint → history_base cut 校验 → child 从安全边界读取
 ```
 
-child transition 不是 append，不能把父文件的 append cursor 当作 child 的 byte cursor。
+child transition 不是**同一物理文件上的 byte append**，但对 Node 的公共接口仍属于已有
+conversation 的增量请求：Node 始终使用 `mode=append`，不感知 child，也不因 child 重新发起
+另一种 mode。Rust 不能把父文件的 append cursor 直接当作 child 的 byte cursor；物理
+cursor 切换、`history_base` cut 校验和 child 安全边界读取全部由 Rust 内部完成。
 lineage cursor/checkpoint 至少绑定 conversation ID、root/head/parent chain、各 source 的
 fingerprint/anchor、读取模式和 snapshot boundary；服务重启后可以只从最新 head 沿
 `history_base` 向前恢复，缺少父文件或发现歧义时返回 partial/fail-closed。所有模式都保留
@@ -1026,8 +1176,8 @@ partial/provisional projection
 `SegmentAssembler` 负责分段范围、ordinal 和顺序。必要时使用临时磁盘 spool 或紧凑状态，
 不能把整个 rollout 和完整详情同时放进内存。
 
-后台补全是尾部预览之后的正常历史补齐流程，不是要求 App 再发起一次完整 replay。
-实现内部为了保证 reducer 顺序，可能需要对已读取分段进行有限范围的正序重放；这属于
+后台补全是尾部预览之后的正常历史补齐流程，不是要求 App 再发起一次全量读取请求。
+实现内部为了保证 reducer 顺序，可能需要对已读取分段进行有限范围的正序重新归约；这属于
 采集器内部算法，不改变对外的 `backfill` 模式语义。
 
 ### 5.3 append 增量
@@ -1052,7 +1202,7 @@ BackfillCursor
 推进到可追加状态并生成 `ForwardAppendCursor`。尾部预览和尚未完成的后台补全都不能直接
 作为 append 的起点。
 
-### 5.4 P1-2 正式读取与重放算法
+### 5.4 P1-2 正式读取与分段归约算法
 
 尾部优先是采集顺序优化，不是 Reducer 的逆序归约算法。正式实现必须把“物理读取顺序”
 和“逻辑分析顺序”分离。
@@ -1070,6 +1220,11 @@ SegmentDescriptor
 ├─ acquisition_sequence
 └─ completeness
 ```
+
+上面的 `SegmentDescriptor.segment_id` 是 Rust 内部读取描述；它不自动等同于跨进程 `batch`
+消息外层的 `segment_id`。跨进程字段是 opaque logical-delivery identity，只有在 wire/data
+契约中才需要稳定复用；Rust 可以在内部建立映射，不能把物理分段序号、acquisition sequence
+或线程标识直接下发为协议身份。
 
 #### 5.4.1 尾部预览
 
@@ -1123,21 +1278,23 @@ rollout、完整详情和全部中间 projection 同时放入内存。临时 spo
 
 #### 5.4.3 append 增量
 
-append 只允许从有效的 `ForwardAppendCursor` 继续：
+Rust 内部的同源物理 append 只允许从有效的 `ForwardAppendCursor` 继续；对 Node 而言，
+`mode=append` 表示已有 conversation 的增量读取意图，child transition 也在这个公共 mode
+下由 Rust 内部处理：
 
 ```text
-1. 校验 source fingerprint 和前缀 anchor
+1. 校验 source identity/epoch、snapshot boundary 和完整行边界
 2. 捕获本次 snapshot_boundary
 3. 从 cursor 的完整行边界读取到 boundary
 4. 跳过未完成尾行
 5. 恢复 reducer 的未闭合 turn/tool/plan/usage 状态
-6. 顺序归约新增 SourceRecord
-7. 输出新的 projection mutations 和 ForwardAppendCursor
+6. 顺序归约新增 SourceRecord；若 source index 发现 child，则先完成内部 transition 校验并从 child 安全边界读取
+7. 输出新的 projection mutations 和对应的 source/lineage cursor
 ```
 
 如果已有的 cursor 只是尾部预览或反向补全 cursor，不能直接进入 append 模式，必须先完成
 从安全起点到当前 snapshot boundary 的有序补全，并生成 `ForwardAppendCursor`。这里的
-“有序补全”是正常 `backfill` 流程，不要求客户端额外调用 `replay` 接口。
+“有序补全”是正常 `backfill` 流程，不要求客户端额外调用全量读取接口。
 
 #### 5.4.4 分段顺序和缺口规则
 
@@ -1182,14 +1339,14 @@ SourceCapabilities
 解压后偏移伪装成可直接用于下一次打开的压缩文件字节偏移。
 
 本阶段 Rust Collector 对父 lineage 进一步冻结为 fail-closed：普通 `.zst` 可以作为
-active/root source 做正序完整 Replay，但不能作为需要 cut 定位的 parent source。只要
+active/root source 做正序完整扫描，但不能作为需要 cut 定位的 parent source。只要
 `.zst` parent 参与 tail/backward lineage recovery、replacement validation 或 parent
-full-history replay，就返回类型化的 `UnsupportedParentSourceCompression`，不产生 lineage
+full-history scan，就返回类型化的 `UnsupportedParentSourceCompression`，不产生 lineage
 batch、replacement、cursor、checkpoint 或 active-projection mutation。顺序解压不等于随机
 读取；因此不得用解压位置冒充可恢复的 parent byte cursor。seekable/indexed `.zst` 或
 materialized plain JSONL 的支持留给独立能力扩展。
 
-#### 5.4.6 正常 APP 生命周期与 MCP 完整 replay
+#### 5.4.6 正常 APP 生命周期与全量维护边界
 
 两种调用目的必须分开：
 
@@ -1197,8 +1354,8 @@ materialized plain JSONL 的支持留给独立能力扩展。
 APP 正常历史路径：
 tail preview → backfill → ForwardAppendCursor → append
 
-记忆 MCP / 缺失历史恢复路径：
-replay（从安全起点完整有序读取到 snapshot boundary）
+未来的全量维护/记忆分析路径（不属于 4.5 analyzer mode）：
+独立维护接口（从安全起点完整有序读取到 snapshot boundary）
 ```
 
 正常 APP 路径的合并规则如下：
@@ -1212,27 +1369,21 @@ replay（从安全起点完整有序读取到 snapshot boundary）
    对应的 provisional 状态；
 5. 服务端只在收到有效的 `ForwardAppendCursor` 后，接受后续 append。
 
-因此，正常路径不需要删除并重建整个会话，也不需要把完整 replay 作为 APP 的中间步骤。
+因此，正常路径不需要删除并重建整个会话，也不需要把全量扫描作为 APP 的中间步骤。
 预览结果通过稳定 item identity、幂等 upsert 和范围完成标记逐步收敛为完整历史。
 
-`mode=replay` 是独立的按需接口，主要供记忆 MCP 使用：当某个会话尚未被 APP 打开、服务端
-没有可用历史投影，或 MCP 明确要求完整上下文时，从安全起点读取到 snapshot boundary，返回
-完整有序 projection、tool details、usage 和 task outcome。它也可以作为 Demo 与正式采集器
-之间的正确性 oracle，但不是每个 APP 会话都必须执行的生命周期阶段。
+如果已有 conversation 的增量过程中出现新的 child rollout，Node 仍保持同一个
+`analyze(mode=append)` 请求语义；Rust 内部负责 source index 刷新、`history_base` 验证、
+parent→child 读取和 replacement evidence 输出。Node 不重新发起另一种 mode。
 
-MCP replay 的调用和持久化职责明确属于 Node：Node 的 MCP handler 启动 Analyzer 的
-`mode=replay`，接收完整结果，再由 Node 的 History/Memory persistence 按 MCP 业务规则
-写入或更新记忆。Rust Analyzer 只返回本次 replay 的分析结果，不直接写数据库、不直接写
-记忆，也不维护 replay 专用缓存表；是否需要复用 Node 已有投影、写入记忆或仅返回查询结果，
-由 Node MCP 层决定，不是 Rust Analyzer 的协议分支。
-
-`replay` 不使用 `TailPreviewCursor` 或 `BackfillCursor` 作为隐式前缀；它必须从明确的安全
-起点开始，并根据调用方传入的目标会话 ID 和 source boundary 返回完整性结果。
+4.5 的公共分析 mode 只有 `preview`、`backfill` 和 `append`，不把全量维护/记忆分析伪装成
+普通历史读取。未来若 MCP 或运维确实需要全量扫描，必须另立版本化维护接口，并重新定义其
+优先级、资源预算、持久化和取消语义；它不能通过当前 `analyze_v1` 的 mode 值隐式增加。
 
 #### 5.4.7 稳定 item identity 与合并规则
 
 `item_key` 表示会话中的**逻辑历史对象身份**，不是某次读取得到的物理记录身份。它必须
-在 tail preview、backfill、append、replay、进程重启和同一文件改名后保持不变。服务端使用
+在 tail preview、backfill、append、进程重启和同一文件改名后保持不变。服务端使用
 `(conversation_id, item_key)` 作为历史对象的唯一键；`conversation_id` 必须由调用方显式
 传入，不能由 `SessionMeta`、文件名或读取范围推断。
 
@@ -1304,7 +1455,7 @@ source_ref
   内部兼容标记，用于拒绝把旧 checkpoint 当成不相干来源的 append 起点。它不是产品历史的
   命名空间，也不是正常 resend、child rollout 或 Branch in new chat 的业务状态；阶段 5 不得
   把它升级成 `productSource` 或 `publishedSourceEpoch`。source binding 不完整、文件被替换、
-  截断或 prefix anchor 不匹配时，Collector 应 fail-closed 或保持 partial，不能由 filename、
+  截断或 snapshot/完整行边界不一致时，Collector 应 fail-closed 或保持 partial，不能由 filename、
   mtime 或普通 worker 猜测新的产品来源；
 - `revision` 表示同一 source epoch 内单个逻辑对象的来源覆盖进度，优先比较最后完整的
   `rollout_ordinal`，其次比较该对象的 `source_ref.byte_end`，不能使用 wall clock 或 batch ID；
@@ -1346,28 +1497,33 @@ explicitly resolved new source only when a separate caller contract authorizes i
 后续读取必须重新通过 source binding、snapshot boundary 和 checkpoint 校验
 ```
 
-`replace_previous=true` 仍可作为当前隔离 Rust↔Node artifact 的显式兼容字段和测试边界，
-但不能由普通 `replay`、child rollout、Branch in new chat、Node 重启或某个 worker 自动推导，
-也不能直接定义阶段 5 的数据库删除/替换语义。产品接入若要消费该字段，必须先完成单独的
-需求、范围锁定和跨边界契约审查。
+旧 formal Rust↔Node artifact 可能携带 `replace_previous=true`，但它不是 4.5 公共接口字段，
+Node 不构造、不要求，也不能由 child rollout、Branch in new chat、Node 重启或某个 worker 自动
+推导。兼容层最多将其作为 opaque diagnostic metadata 记录，不能直接定义阶段 5 的数据库
+删除/替换语义；产品接入若要消费该旧字段，必须先完成单独的需求、范围锁定和跨边界契约审查。
 
-`batch_id` 用于当前请求的关联、诊断和同一进程内的重复保护，不是 Node 重启后的恢复
-checkpoint。Node 重启后不要求 Rust 重发相同 batch；Node 应根据已保存的 source anchor、
-cursor 和覆盖范围重新发起 `append`、`backfill` 或 `replay` 请求。重新采集得到的重叠
-记录通过稳定 `item_key` 和上述 upsert 规则去重。
+`batch_id` 不是只限于 Rust 当前进程的临时重复保护，也不是 recovery checkpoint。它是同一
+`job_id + segment_id + source scope` 的逻辑交付批次身份；相同逻辑 batch 在 ACK 丢失、Node
+重启或 Rust 重启后重试交付时必须保持不变。`request_id` 只代表当前 attempt，可以变化。Node
+不要求 Rust 保存进程内未 ACK 状态，而是把持久化的 job 和待重新交付
+`recovery_delivery={segment_id,batch_id}` 带回新的 `analyze`；即使旧 request 在 Node 观察到
+batch 之前失败，只要 validated source scope 未变，Rust 也必须复现相同的 identity；只有
+source snapshot/range 形成新 scope 时才生成新 identity，重叠记录仍通过稳定 `item_key` 和
+上述 upsert 规则去重。4.5 的公共分析 mode 只有 `preview`、`backfill` 和 `append`；若需要
+全量维护扫描，必须走未来独立维护接口。
 
 #### 5.4.9 P1-1 验收用例
 
 正式实现至少验证：
 
 ```text
-1. 同一记录分别由 tail preview、backfill 和 replay 读取时，item_key 完全一致；
+1. 同一记录分别由 tail preview、backfill 和 append 的重叠读取时，item_key 完全一致；
 2. tail preview 的 provisional item 被 backfill 的 canonical item 原位替换，不产生重复项；
 3. Node 在 batch 尚未持久化时重启，依据已保存 checkpoint 重新发起采集；重叠读取不增加
    item/detail/usage/outcome 数量；
 4. 文件仅改名且 source epoch 未变化时不产生重复历史；
-5. 文件被替换、截断或前缀 anchor 变化时报告 source replacement/gap，并用新来源直接
-   替换旧会话投影，不产生新旧混合记录；
+5. 文件被替换、截断或前缀 anchor 变化时报告 source mutation/gap，保留旧会话 canonical
+   投影，不产生新旧混合记录；只有另行确认产品 read-model 语义后才能定义新的基线；
 6. canonical item、终态 outcome 和完整 detail 不会被旧 revision 或 provisional 结果降级覆盖；
 7. 缺少 Codex 原生 ID 时，使用 rollout ordinal/byte position 的 fallback 仍能在分段重读中
    生成相同 key；无法生成稳定身份时必须 fail-closed。
@@ -1382,7 +1538,7 @@ cursor 和覆盖范围重新发起 `append`、`backfill` 或 `replay` 请求。�
 2. 源文件在读取期间增长时，boundary 和 pending tail 正确；
 3. begin/end 位于不同分段时，工具只生成一个完整关联；
 4. Plan question/answer 位于不同分段时，关联不丢失；
-5. reverse segment 的输出与完整正序 replay oracle 的 projection 完全一致；
+5. reverse segment 的输出与完整正序 scan oracle 的 projection 完全一致；
 6. 尾部预览 cursor 不能被当作 append cursor；
 7. 文件截断、替换、前缀 anchor 变化时拒绝错误续读；
 8. 普通 `.zst` 正确报告不支持的 tail/append capability；
@@ -1392,44 +1548,40 @@ cursor 和覆盖范围重新发起 `append`、`backfill` 或 `replay` 请求。�
 
 ## 6. Checkpoint 设计
 
-Checkpoint 由 Rust 生成、由服务端保存、下次分析时传回：
+Checkpoint 由 Rust 生成、由 Node Server 保存、下次分析时传回。Node↔Rust 的公共字段和嵌套
+约束以[`Rust Collector Analyzer Data 契约`](codex-rollout-collector-rust-analyzer-data-contract-draft.md)
+第 9 节为准；下面只保留架构层摘要，不另定义第二套 wire schema：
 
 ```text
 AnalyzerCheckpoint
-├─ schema_version
-├─ target_conversation_id
-├─ source_id
-├─ source_epoch
-├─ source_fingerprint
-├─ source_prefix_anchor
-├─ reader_backend / reader_version
-├─ codex_wire_profile
-├─ cursor_kind
-├─ byte_offset（plain JSONL 可用时）
-├─ decompressed_offset（仅作为顺序恢复信息）
-├─ segment_range
-├─ physical_line
-├─ last_rollout_ordinal
-├─ last_complete_line_hash
+├─ schema_version / job_id / request_id / conversation_id
+├─ source { source_id / source_epoch / range / snapshot boundary }
+├─ reader { backend / version / source kind / compression }
+├─ wire_profile { parser / wire revision / compatibility profile }
+├─ cursor_kind / cursor
+├─ segment { source range / physical line / rollout ordinal }
 ├─ reducer_state
-├─ projection_watermark
-└─ completeness
+├─ projection_watermark / completeness
+└─ lineage_checkpoint
 ```
 
 校验规则：
 
 1. 未完成尾行不处理；
 2. 文件被截断、替换或身份变化时拒绝直接续读；
-3. 前缀锚点 hash 不匹配时回退到安全边界重扫；
+3. source、reader、cursor 或 snapshot boundary 不一致时拒绝直接续读；legacy fingerprint/
+   prefix anchor 如果存在只按兼容 metadata 处理，不升级成 Node 产品 gate；
 4. schema/profile/reader 不兼容时停止写入并报告；
-5. checkpoint 缺失或失效时可以从头分段重放；
-6. checkpoint 必须同时具备 source identity、fingerprint、prefix anchor、reader/provenance、
-   segment/cursor、completeness、projection watermark 和版本化 reducer state；缺一项即拒绝保存；
-7. `complete` 的 status、request_id、completeness、next_source_cursor 必须分别通过枚举和与 checkpoint
-   的一致性校验，不能仅凭空的 `complete` 消息提升为 canonical；
+5. checkpoint 缺失或失效时可以从安全起点重新分段读取；
+6. checkpoint 必须具备 source identity、reader/provenance、segment/cursor、completeness、
+   projection watermark 和版本化 reducer state；缺一项即拒绝保存；fingerprint/prefix anchor
+   不是 4.5 Node 必填字段；
+7. `complete` 的 status、job_id、request_id、completeness、next_cursor 必须分别通过枚举和
+   §5.3.1 的 status/completeness 映射及 checkpoint 一致性校验，不能仅凭空的 `complete` 消息
+   提升为 canonical；
 8. checkpoint 不保存完整 raw rollout 和工具详情；
-9. `complete` 只有在当前 `request_id` 已成功导入至少一个 batch 后才能提交；空 state 或仅有
-   其他 request 的历史 batch 不能伪造本次 canonical 完成；
+9. `complete` 只有在当前 `job_id/request_id` 已成功导入至少一个属于本次 job 的 batch 后才能
+   提交；空 state 或仅有其他 job/request 的历史 batch 不能伪造本次 canonical 完成；
 10. checkpoint store 按 completeness rank 和 source progress 单调推进；已保存的 canonical 或
     更高 progress checkpoint 不能被后来的 partial/provisional 或低 progress checkpoint 覆盖，
     Memory/File store 必须保持同一语义。
@@ -1439,17 +1591,28 @@ turn、tool、Plan 或 usage 状态。`cursor_kind` 必须阻止把 `TailPreview
 `BackfillCursor` 当作 `ForwardAppendCursor` 使用；普通 `.zst` 的
 `decompressed_offset` 不能单独作为可 seek 的恢复位置。
 
+这里必须区分两条持久化语义：
+
+- **canonical checkpoint** 是当前已经证明完整的恢复基线；失败或 partial 结果不能覆盖它；
+- **partial/recovery evidence** 只记录已经确认的安全前缀、诊断和下一次尝试所需的信息，必要时可以单独保存，
+  但不能被当成 canonical checkpoint，也不能让产品层误以为历史已经完成。
+
+因此，pending tail 或 source gap 前的安全前缀即使产生了 cursor，也只能推进 partial/recovery 状态；cursor
+不得跨越问题边界。
+
 ## 7. Projection 和传输协议
 
 Rust 不直接写数据库，输出分批的 TermLink 自有协议：
 
 ```text
 AnalyzeRequest
+├─ job_id                       # Node 业务意图；重试/重启保持不变
 ├─ request_id
 ├─ conversation_id
-├─ mode: preview / backfill / append / replay
+├─ mode: preview / backfill / append
 ├─ cursor
 ├─ persisted_anchor
+├─ recovery: segment_id + batch_id | null
 ├─ known_complete_range
 ├─ retention_profile
 └─ resource_limits
@@ -1458,14 +1621,20 @@ AnalyzeRequest
 上面的 `AnalyzeRequest` 是 Node↔Rust 公共接口的业务视图。旧草案中的 `source_spec`、`discovery` 不是
 4.5 的 Node 业务字段；若 formal v1 为兼容既有 native artifact 暂时接受同名字段，只能按 opaque
 compatibility metadata 处理，不能要求 Node 构造、校验或据此选择 active source。Rust source index、
-lineage lookup 和读取物理来源均属于 Rust 模块内部。
+lineage lookup 和读取物理来源均属于 Rust 模块内部。`resource_limits` 的字段、默认值和边界以
+[`Rust Collector Analyzer Wire 契约`](codex-rollout-collector-rust-analyzer-wire-contract-draft.md)
+的 §4.2.1 为准；它不是 discovery 或 source selection 参数。
 
 ```text
-AnalysisBatch
-├─ batch_id
+batch message
+├─ job_id                 # outer delivery identity
+├─ segment_id             # outer delivery identity
+├─ batch_id               # outer delivery identity
+└─ payload: AnalysisBatch
+
+AnalysisBatch payload
 ├─ conversation_id
 ├─ source_epoch
-├─ replace_previous: bool
 ├─ source_range
 ├─ history_items
 ├─ tool_details
@@ -1473,7 +1642,7 @@ AnalysisBatch
 ├─ task_outcomes
 ├─ progress
 ├─ completeness
-├─ next_source_cursor
+├─ next_cursor
 └─ mutations
 ```
 
@@ -1492,8 +1661,8 @@ request_id
 消息类型的最小集合为：
 
 ```text
-hello              Node → Rust，能力和协议协商；Rust 回同 request_id 的 analyzer hello
-analyze            Node → Rust，发起一次 preview/backfill/append/replay
+hello              Node → Rust，能力和协议协商；Rust 必须回显同一个 request_id 的 analyzer hello；不新增 handshake_id
+analyze            Node → Rust，发起一次 preview/backfill/append
 cancel             Node → Rust，取消当前 request_id
 batch              Rust → Node，返回一个 AnalysisBatch
 ack                Node → Rust，确认已接收并校验 batch
@@ -1501,22 +1670,104 @@ complete           Rust → Node，本次 request 正常完成或以 partial 状
 error              Rust → Node，本次 request 失败
 ```
 
-`ack` 的语义固定为 **Node 已接收并通过协议校验**，用于流控和当前进程内状态推进；它不
-表示数据库、历史投影或记忆已经持久化。Node 必须先成功写入 batch 中的派生数据，再保存
-该 batch 返回的 checkpoint/coverage，不能先保存 checkpoint 再写数据。
+`hello` 的 `request_id` 是当前 Rust process generation 的握手关联值：Node 每次启动进程生成新值，
+Rust analyzer hello 必须原样回显；缺失、错配或旧 generation 的响应不能建立 session，Node 在
+握手成功前不得发送 `analyze`。能力不足以满足 4.5 必需集合时按 `unsupported_capability`
+握手失败处理；同一 binary/config/capability 集合不得盲目重启循环。这里不新增独立
+`handshake_id`，也不把 hello request id 提升为 job、batch 或产品数据库身份。
+
+`complete.status` 与 `complete.completeness` 的 request-level 映射统一为：
+`completed + canonical` 表示可进入 canonical gate；`partial + partial|provisional` 表示只保留
+recovery evidence；旧 producer 的 `ok + canonical` 只作为 `completed` 的兼容别名；
+`completeness=unknown` 不得出现在 request-level `complete` 中。具体合法组合和 fail-closed
+规则以 [Rust Analyzer Wire 契约 §5.3.1](codex-rollout-collector-rust-analyzer-wire-contract-draft.md)
+为唯一依据。
+
+`ack` 的两个布尔字段必须分开解释：`accepted=true` 表示 Node 已接收并通过协议校验，
+`persisted=true` 表示本次 batch evidence 已写入 Node 当前要求的 durable staging/import 边界；
+两者都为 true 才能推进 Rust 当前 request。它不表示产品 canonical publication 或 App 已收到
+历史。Node 必须先成功写入 batch 中的派生数据/evidence，再在收到并校验 `complete` 后保存
+对应的 checkpoint/coverage，不能先保存 checkpoint 再写数据。这里的 checkpoint 以 Rust 的
+`complete.checkpoint` 为准；ACK 阶段只保存 batch receipt/staging evidence，不保存或推进
+本次 analyzer checkpoint。
+
+如果 Node 已确定 batch 校验失败或 staging 失败，不能静默不发 ACK；必须发送
+`accepted=false,persisted=false,error=<stable rejection code>` 的负 ACK。Rust 对格式合法且
+identity 匹配的负 ACK 返回 `error(code=batch_rejected,fatal=false)` 并终止当前 request，不发送
+成功 `complete`。只有 ACK identity/字段组合非法时才使用 `ack_rejected`。负 ACK 后是否重试由
+rejection code 和 Node retry budget 决定：重试使用同一业务 `job_id`/read intent、已确定的
+`segment_id/batch_id`，但更换 `request_id`；永久校验或 scope 冲突保留旧 canonical，不循环重试。
+
+阶段 5 产品数据库的提交顺序固定为以下成功路径：
+
+```text
+Rust → Node: batch-1 / batch-2 / ...
+    ↓ Node 校验 batch
+    ↓ Node transaction: durable staging / receipt / recovery evidence
+    ↓ COMMIT staging transaction
+Node → Rust: ACK(persisted=true)
+
+Rust 收到本次 request 的全部 batch ACK
+    ↓ Rust → Node: complete(checkpoint)
+    ↓ Node 校验 complete、coverage、checkpoint
+    ↓ Node product DB transaction:
+         upsert history_items / tool_details / usage / task_outcomes
+         update canonical coverage / completeness
+         write change log
+         serverRevision + 1（仅在 canonical read model 实际变化时）
+         save final AnalyzerCheckpoint
+    ↓ COMMIT product transaction
+    ↓ publish canonical history
+```
+
+因此，batch ACK 与产品 DB 提交不是同一个时点：ACK 前必须完成 staging COMMIT，但产品
+`history_items`、coverage、change log、`serverRevision` 和最终 checkpoint 必须等到
+`complete` 校验通过后，在同一个 product DB transaction 中提交。`complete` 不通过 canonical
+gate、产品 transaction 失败或 request 以 error 终止时，保留 staging/recovery evidence 和旧
+canonical，不发布新的 product revision。
+
+`analyze` request 是流式异步等待：Node 发出一次 `preview`、`backfill` 或 `append` 后，Rust
+可以返回多个 batch，Node 逐批 ACK，直到 `complete/error`。Node Coordinator 不阻塞 event loop，
+但当前 request 在终态前持续占用 Rust active slot；其他 conversation 排队。每个物理 segment
+不单独创建 Rust request。
+
+ACK 丢失单独按 transport uncertainty 处理：Node 已 durable 的 batch receipt 不回滚，也不能
+仅凭该 receipt 推进 canonical checkpoint、发布 projection 或增加 `serverRevision`。同一 active
+request 在 retry budget 内可以重发完全相同的
+`ack(request_id,job_id,segment_id,batch_id,accepted=true,persisted=true)`；相同逻辑 batch
+重传时按 job/segment/batch、scope 和内容幂等命中并再次 ACK。Rust 进程重启不由传输层恢复未
+ACK batch，而由 Node 从最近持久化 checkpoint 和待重新交付 delivery identity 重新发起同一
+conversation job；Node 重启则从持久化 receipt 恢复 ACK-pending。超时、重复、冲突和旧
+request 迟到消息均不能推进 cursor/checkpoint 或制造第二次 canonical publication。完整规则见
+[Node Server Coordinator 契约](codex-history-sync-node-server-coordinator-contract-draft.md)
+的“ACK 丢失”小节。
+
+ACK 的已知业务拒绝与 ACK 丢失不同：前者必须发送负 ACK 并等待 `batch_rejected` 终态；后者是
+Node 已发送正 ACK 但 Rust 是否收到未知，继续按 transport uncertainty 恢复。Node 完全不发 ACK
+不能作为已知 batch 校验失败的正常分支。
+
+`error.fatal=true` 是 Rust process 级故障信号：Node 必须封存当前 process generation，停止
+发送新的 `analyze`，终止/重启唯一 Rust process，递增 generation，并等待新的 hello 完成后才
+恢复调度。只有同时 `retryable=true` 且 job budget 允许时才恢复原 job；`fatal=true`、
+`retryable=false` 不得对同一 binary/config 形成重启循环。
 
 `batch` 和 `complete` 都是 fail-closed 输入边界：每个 upsert mutation 必须带与 batch 一致的
 `completeness`、`source_epoch`、非负 `revision` 和完整 `source_ref`；`complete_range` 必须带
 `source_range` 且只能出现在 canonical batch。`complete` 必须带合法 status、completeness、
-`next_source_cursor` 和完整 checkpoint，且 checkpoint 的 request/source_cursor/completeness 必须与消息一致。
-Node 在任何 replacement 清理前先完成这些校验。
+`next_cursor` 和完整 checkpoint，且 checkpoint 的 job/request/source_cursor/completeness 必须
+与消息一致；projection watermark 的 segment/batch 必须属于本次 job 已 ACK 的最后一个逻辑
+delivery。
+Node 在任何产品 mutation/publication 前先完成这些校验。
 
-Rust 不需要持久化未 ACK 的 batch，也不需要在重启后按 `batch_id` 重发。正式 checkpoint
-必须同时保存 source fingerprint/prefix anchor、projection watermark 和版本化 reducer state。
+Rust 不需要持久化未 ACK 的 batch，也不需要在重启后自行按 `batch_id` 重发；Node 通过
+`analyze.recovery` 明确要求重新交付哪个逻辑 delivery。正式 checkpoint
+必须同时保存 source identity/epoch、snapshot boundary、projection watermark 和版本化
+reducer state；具体字段以数据契约第 9 节为准。
 Rust 进程内仍可以有界缓存以下信息用于快速处理和诊断：
 
 ```text
-request_id
+job_id / request_id
+recovery_delivery: segment_id / batch_id
 mode
 cursor / persisted_anchor
 source_range
@@ -1531,9 +1782,10 @@ source_range
 2. 在当前 rollout 中验证 last persisted anchor 的 ordinal/hash；
 3. anchor 仍存在且匹配，且文件在其后增长：发送 mode=append；
 4. anchor 匹配但历史前缀尚未完整：发送 mode=backfill；
-5. anchor 不存在、内容不匹配、文件被替换或截断：建立新 source_epoch，按 source
-   replacement 规则让新结果直接替换旧投影；
-6. 没有可用 checkpoint 时：发送 mode=replay 或从头分段读取。
+5. anchor 不存在、内容不匹配、文件被替换或截断：报告 source mutation/gap，保持旧
+   canonical，按 fail-closed/partial 规则等待恢复；不能自动建立产品 source replacement；
+6. 没有可用 checkpoint 时：首次按 `preview → backfill` 建立历史。4.5 不发送
+   明确的维护/MCP 全量请求必须走未来独立维护接口，不能混入当前分析请求。
 ```
 
 这里的“最新记录”指 Node 最近持久化的最后一条记录，不是 rollout 当前物理文件的最后一条
@@ -1545,8 +1797,12 @@ Node 不要求 Rust 恢复上一次未完成的请求。Rust 返回 `complete` �
 重新发起请求，并将本次未完成结果视为未提交。已写入但尚未保存 checkpoint 的重叠结果，
 由稳定 item key 和服务端 upsert 消除重复。
 
-`batch_id` 可以用于日志、指标和同一进程内的重复防护，但不能代替 `persisted_anchor`、
-`cursor` 或 `complete_range`。协议的恢复模型是“Node 重新请求采集”，不是“Rust 重发批次”。
+`batch_id` 不能代替 `persisted_anchor`、`cursor` 或 `complete_range`，但它也不再只是同一
+进程内的临时重复标记：同一 `job_id + segment_id + source scope` 的逻辑 batch 在重试交付时必须
+复用原 `batch_id`。协议的恢复模型仍然是“Node 重新请求采集”，不是“Rust 从进程内状态
+恢复批次”；Node 通过 `analyze.recovery` 把待重新交付的 segment/batch identity 明确交给新的
+Rust attempt。没有已物化的旧 batch 时，也必须先按相同 validated source scope 复现原
+identity；只有新的 source scope 才允许生成新 identity，并由 `item_key` 处理重叠。
 
 `mutations` 至少支持：
 
@@ -1559,18 +1815,12 @@ mark_partial
 complete_range
 ```
 
-`replace_previous` 是 `AnalysisBatch` 的批次级控制字段，不是普通 mutation。它只允许在检测到
-新 source epoch 后的第一批出现；服务端收到后，删除当前 conversation 的旧可见派生投影，并在
-同一原子操作中写入该批次的新数据。旧 scope 不能物理重新变成可写数据，而要保留 retired
-tombstone/current-epoch fence，阻止迟到 batch、complete 或 replacement 复活旧 epoch。后续
-批次必须为 `false`，不得重复替换。
-
-阶段 4 隔离 Node store 对 replacement 按 conversation 处理：同一 conversation 的旧 source
-epoch 可见 analysis state 和 checkpoint 一并清除，但旧 scope 的不可写 tombstone/current-epoch
-fence 必须持久化，只保留新 epoch 的可见 scope；同 epoch 再次发送 `replace_previous=true` 会
-fail-closed。Rust 初始 `replay` 不自动设置该字段，只有调用方显式声明 source replacement
-才允许触发替换。`source_id`/`source_epoch` 缺失或为 `unbound` 时不得从 filename 或默认值
-降级补全。
+旧 formal artifact 的 `replace_previous` 不是普通 mutation，也不是产品删除/替换命令。4.5 Node
+不构造、不要求、不把它作为 Rust source-state/recovery 的业务输入；兼容层最多将其作为 opaque
+diagnostic metadata 暂存，不得据此删除当前 conversation 的 canonical 投影、建立 retired
+tombstone/current-epoch fence，或把它升级为产品 source replacement。child rollout、Branch in
+new chat、Node 重启和 worker 都不能自动推导该字段；无法解释旧字段时 fail-closed。
+`source_id`/`source_epoch` 缺失或为 `unbound` 时不得从 filename 或默认值降级补全。
 
 每个 `upsert_item`、`upsert_detail`、`upsert_usage` 和 `upsert_outcome` 都必须携带稳定
 `item_key`/所属 key、`content_hash`、`completeness`、`source_epoch`、`revision` 和
@@ -1583,14 +1833,14 @@ usage、projection 或 last cursor。更高 completeness 可以提升，反向 p
 
 普通 `complete_range` 表示 `backfill` 已经从安全起点连续覆盖到指定 snapshot boundary，
 服务端可以把该范围从 provisional 推进为 canonical；它不是删除并重建整个会话的命令。
-只有 source replacement 使用上面的 `replace_previous` 例外。`replay` 返回完整 projection
-时，Node MCP 层可以直接消费、写入记忆或更新已有服务端投影；这些持久化动作由 Node 完成，
-不要求 Rust Analyzer 提供或执行另一套导入流程。若 Node 选择更新已有投影且来源发生变化，
-按同一 replacement 规则处理。
+不存在自动 source replacement 的例外。未来独立维护接口返回完整 projection 时，Node MCP 层可以
+直接消费、写入记忆或在同一 conversation 语义下更新已有服务端投影；这些持久化动作由 Node 完成，
+不要求 Rust Analyzer 提供或执行另一套产品导入流程。若来源变化、关系不完整或 source evidence
+无法验证，则保留旧 canonical 并按 fail-closed/partial 处理。
 
 Node 通过标准输入输出启动 Rust 子进程。stdout 只传协议，stderr 只传诊断。协议必须支持
-request_id、batch_id、ACK、幂等导入、超时、取消、背压和能力协商；进程重启恢复由 Node
-根据持久化 checkpoint 重新发起采集请求，不由 Rust 传输层恢复未完成 batch。
+job_id、request_id、segment_id、batch_id、ACK、幂等导入、超时、取消、背压和能力协商；进程重启恢复由 Node
+根据持久化 job/checkpoint/recovery delivery 重新发起采集请求，不由 Rust 传输层恢复未完成 batch。
 
 服务端负责把结果持久化为：
 
@@ -1702,6 +1952,40 @@ future-compatible
 - 失败请求可以由 Node 根据已保存 checkpoint 重新发起；重叠读取必须通过稳定 item key
   和 upsert 保持幂等，不要求 Rust 重发旧 batch。
 
+### 10.1 阶段 4.5 必须冻结的失败结果语义（source 错误码细化后置）
+
+阶段 4.5 先冻结“出现异常后能不能提交什么、恢复到哪里、是否重试”，不要求现在就为每个原因
+建立 source 业务错误的最终独立错误码。ACK rejection code、`batch_rejected`、`ack_rejected`
+以及 `fatal` 的进程处理规则已经由 Wire/Coordinator 契约固定；Rust 对其他 source 业务错误可以
+暂时使用通用 `analysis_failed` 和受限诊断，后续增加更细的错误码只能补充可观测性，不能改变以下
+状态转换：
+
+1. `error` 是终止结果：本次 request 不再成功 `complete`，不带可提交 cursor/checkpoint；Node 保留旧
+   canonical，不发布 projection replacement 或新的 `serverRevision`。
+2. `partial batch` 必须带 `partial|provisional` completeness 和 `mark_partial`；只有安全完整前缀可以
+   进入 batch。cursor 只能到问题边界之前，不能跨 pending tail、gap、未验证 parent 或未完成 transition。
+3. partial/recovery checkpoint 与旧 canonical checkpoint 分开保存；前者不能覆盖后者。
+4. `retryable` 只表示同一业务意图的有界重试仍可能取得进展；确定性关系错误不能无限自动重试。
+
+| 异常 | 结果形态 | cursor / checkpoint | 重试 |
+|---|---|---|---|
+| `history_base` parent 缺失 | `error`；不能把 child 单独当完整历史 | 不返回可提交 cursor；保留旧 canonical checkpoint | index/source 可能尚未完整时可有界 retry；确认缺失后停止 |
+| 父链循环 | `error`、fail-closed；不生成 lineage/replacement | 不返回 cursor；保留旧 canonical checkpoint | source 关系改变前不自动 retry |
+| 多 active head / 关系歧义 | `error`；不按 mtime 或“最新文件”猜选 | 不返回 cursor；保留旧 canonical checkpoint | 歧义消除前不自动 retry |
+| 普通 `.zst` parent 需要 cut 定位 | `error`；不生成 lineage batch、replacement 或 mutation | 不返回 cursor/checkpoint；保留旧 canonical checkpoint | 当前能力下停止；改用 plain/seekable/indexed source 后再试 |
+| pending tail | 有安全前缀时 `partial batch` + `mark_partial`；否则 `error` | cursor 只能到最后完整行；旧 canonical 不变，安全前缀可另存 recovery checkpoint | 等待文件继续写入后有界 retry |
+| source gap | 有 gap 前安全前缀时 `partial batch`；无安全前缀或顺序不可判定时 `error` | cursor 不得跨 gap；旧 canonical 不变 | 可能由 source/index 尚未补齐时 retry；确认永久缺失后停止 |
+| source 不可读/读取失败/不可恢复截断 | 本次 request 以 `error` 终止；已发出的 partial 只能保留 staging/diagnostic | 不返回本次可提交 cursor；保留旧 canonical checkpoint | 由 I/O/进程恢复可能性决定 `retryable` |
+| Node 已 durable staging 但 Node→Rust ACK 丢失 | 不回滚 batch receipt，不把 receipt 当 canonical | Rust 未确认前不发送/接受成功 `complete`；不推进 canonical cursor/checkpoint | 当前 request 内有限重发同一 ACK；Rust 重启后从最近 checkpoint 和待重新交付 `segment_id/batch_id` 恢复同一 job，按稳定 delivery identity 幂等 |
+| Node batch 校验/staging 失败 | 负 ACK；Rust 返回 `error(code=batch_rejected)`，不发送 complete | 不推进本次 cursor/checkpoint | 保留旧 canonical；按 rejection code 决定是否用新 request_id 有界重试 |
+| Rust 返回任意 `fatal=true` | 当前 process generation 失效并重启 | 不采纳旧进程内存位置 | 新 hello 成功后仅在 `retryable=true` 且有预算时恢复原 job |
+
+child 尚未 terminal 或 child 读取仍 partial 属于“replacement 尚未具备发布条件”，不是删除旧 turn 的命令：
+可以保存安全 partial evidence，但不得生成 `replace_last_turn`，不得推进产品 canonical replacement。
+
+这套最小语义已经覆盖 4.5 的异常处理；source-specific 错误码、额外 `details` 字段、metrics
+和用户可见文案留到 4.5 完成后的增量设计，不新增 message type 或 analyze mode。
+
 ## 11. 实施顺序
 
 ### 阶段 1：冻结验证依据
@@ -1735,14 +2019,15 @@ future-compatible
   edge 和 cut；冲突、缺 parent、多个 head 或循环必须诊断并 fail-closed；
 - 通过 lineage checkpoint 支持服务重启后从最新 head 沿父链恢复，不要求中间 rollout 必须在
   本次进程内先被读取；
-- 在单文件 full/tail/backward/append primitive 之上实现会话级 full replay、tail/backward
-  补全、同源 append 和 child transition；区分各类 cursor，不能把 child transition 当 append；
+- 在单文件 full/tail/backward/append primitive 之上实现会话级 full scan、tail/backward
+  补全、同源 append 和 child transition；Node 对已有 conversation 的增量统一使用
+  `mode=append`，但 Rust 仍须区分物理 cursor，不能把 child 的 byte 读取伪装成 parent 的同源 append；
 - Codex rollout source model 固定为 active append-only、既有 byte range immutable；superseding/
   resend 的 terminal user turn 创建带 `history_base` 的新 child，不回写 parent。被验证为
   lineage parent 后，TermLink 按 immutable source 使用；外部 in-place modification 不属于
   Collector correctness contract；
 - parent auxiliary full-history read 不要求整文件 before/after fingerprint mutation guard；
-  `history_base`/cut、conversation/source identity、cursor/prefix anchor、完整行边界和
+  `history_base`/cut、conversation/source identity、cursor/完整行边界和
   bounded parent header/suffix validation 仍保持原有安全语义；
 - 用跨日期真实 fixture 验证“全量历史包含旧 turn、增量/尾部/向前读取可收敛到同一结果”；
   五文件 fixture 还必须验证 conversation-only discovery、stale root-like provenance 和最新
@@ -1759,15 +2044,15 @@ future-compatible
 
 - 实现 `AnalyzeRequest`、`AnalysisBatch`、ACK、checkpoint 和错误协议；
 - Node 按需启动 Rust analyzer；
-- 隔离 Node importer 以可注入 store 和默认原子文件 store 分批写入 projection、details、usage、outcome、run/error 和 checkpoint；产品服务端 DB wiring 留在阶段 5；
-- 完成基于 checkpoint 的重放恢复、取消、超时、重叠采集和幂等导入测试；
+- 隔离 Node importer 以可注入 store 和默认原子文件 store 分批写入 analyzer staging/projection、details、usage、outcome、run/error 和 recovery evidence；产品 canonical DB wiring 和 `complete` 后的产品事务留在阶段 5；
+- 完成基于 checkpoint 的重启恢复、取消、超时、重叠采集和幂等导入测试；
 - 阶段 3 的 strict conformance 已由测试实际启动 Demo reducer 和 Spike parser，在临时目录生成本次运行的 report/projection/output；静态 `demo-oracle-stage3.json` 仅保留为辅助回归 fixture；
-- 分段测试使用同一有状态 `CodexEventAdapter`，验证 tail/backfill 的稳定 `item_key`、Plan question/answer 跨段关联、overlap 去重和 segmented/full replay projection 一致；
+- 分段测试使用同一有状态 `CodexEventAdapter`，验证 tail/backfill 的稳定 `item_key`、Plan question/answer 跨段关联、overlap 去重和 segmented/full scan projection 一致；
 - `AnalysisReducer` 与 Node importer 均实现 partial/provisional → canonical promotion，并拒绝 late incomplete overlap 降级已提交 canonical projection；
-- analyzer 运行态复用同一个 Adapter + Reducer，checkpoint 保存 source fingerprint/prefix anchor、projection watermark 和可恢复的 Plan/turn/reducer state；preview/backfill/append/replay 都从当前 snapshot 生成新 cursor，append cursor 会随完整新行推进，内容替换/截断/前缀变化 fail-closed；无 cursor 的 replay 也必须校验持久化 source anchor，不能绕过 checkpoint 的来源绑定；complete 只有在 status、request/cursor/completeness 与完整 checkpoint 一致时才可提交；
-- 正式 Rust analyzer 的 `tool_details`、`usage`、`task_outcomes` 和 `mutations` 已由 Node 集成测试实际导入并持久化；Node 对 canonical batch 执行完整 schema/provenance/mutation 校验，upsert mutation 强制 completeness/revision/source_ref，缺字段或不一致时 fail-closed；source epoch replacement 会清除同 conversation 的旧 epoch 可见 state/checkpoint，并保留 retired tombstone/current-epoch fence，同 epoch 的新 replacement 只允许首次提交而同一 batch id 的重放保持幂等；source_id/source_epoch 必须显式提供，hello 已统一为 Node → Rust 请求、Rust analyzer hello 响应；
-- `resource_limits.timeout_ms` 贯穿 Rust source read、Adapter/Reducer、metadata/cursor 构造和 ACK 等待预算；analyzer 在 batch 前后异常退出时，Node 最多按受限重试预算重启并重放同一请求，依靠 batch id/importer 幂等避免重复落库；
-- 当前证据：Rust full suite 66 unit + 28 conformance + 3 stage2 integration + 5 stage3 conformance + 8 stage4 protocol tests 通过；Node collector 定向 suite 19/19 通过，覆盖 forged complete/checkpoint、非法 replacement 原子性、revision 回退、path-only identity 和重启后 stale epoch fence；未修改 IPC、Android、既有服务端 DB、Demo 或 Spike 源码。
+- analyzer 运行态复用同一个 Adapter + Reducer，checkpoint 保存 source identity/epoch、snapshot boundary、projection watermark 和可恢复的 Plan/turn/reducer state；preview/backfill/append 都从当前 snapshot 生成新 cursor，Node 对已有 conversation 的增量统一发送 `mode=append`，Rust 在该 mode 内处理同源新增或 parent→child transition；内容替换/截断/前缀变化 fail-closed；无 cursor 的首次 preview 也必须校验持久化 source identity/epoch/snapshot，不能绕过 checkpoint 的来源绑定；complete 只有在 status、job/request/cursor/completeness 与完整 checkpoint 一致时才可提交；
+- 正式 Rust analyzer 的 `tool_details`、`usage`、`task_outcomes` 和 `mutations` 已由 Node 集成测试实际导入并持久化；Node 对 canonical batch 执行完整 schema/provenance/mutation 校验，upsert mutation 强制 completeness/revision/source_ref，缺字段或不一致时 fail-closed；source mutation/gap 不会清除同 conversation 的旧 canonical state，也不建立产品 epoch/tombstone/commit fence，迟到或不完整 evidence 只能被拒绝或保留为 recovery 诊断；source_id/source_epoch 如出现在 formal payload 中只属于内部 source evidence，hello 已统一为 Node → Rust 请求、Rust analyzer hello 响应；
+- `resource_limits.timeout_ms` 贯穿 Rust source read、Adapter/Reducer、metadata/cursor 构造和 ACK 等待预算；analyzer 在 batch 前后异常退出时，Node 最多按受限重试预算重启并以同一 job/待重新交付 segment identity 恢复，依靠稳定 batch delivery identity 与 importer 幂等避免重复落库；
+- 当前证据：Rust full suite 66 unit + 28 conformance + 3 stage2 integration + 5 stage3 conformance + 8 stage4 protocol tests 通过；Node collector 定向 suite 19/19 通过，覆盖 forged complete/checkpoint、非法 replacement 原子性、revision 回退、path-only identity 和重启后 stale source evidence；未修改 IPC、Android、既有服务端 DB、Demo 或 Spike 源码。
 
 ### 阶段 5：服务端集成验收
 
@@ -1777,7 +2062,7 @@ future-compatible
 - Windows 和 Linux 运行相同分析逻辑；
 - 真实大文件峰值内存受限；
 - tail preview → backfill → `ForwardAppendCursor` → append 顺序正确；
-- append 结果与 `replay` oracle 的结果一致；
+- append 结果与完整正序 scan oracle 的结果一致；
 - 文件增长、截断、替换和未完成尾行行为正确；
 - App 只需消费服务端 DTO，不需要理解 rollout 或 Codex 原生类型。
 
@@ -1795,7 +2080,8 @@ future-compatible
 - App 端 UI 和本地数据库结构；
 - Codex CLI 或 Codex app-server 的实现。
 
-Rust History Analyzer 只通过 Node/服务端分析传输协议接入正式系统。
+Rust History Analyzer 只通过 Node/服务端分析传输协议接入正式系统；4.5 的公共分析 mode 只有
+`preview`、`backfill` 和 `append`，全量维护扫描若需要必须另立接口。
 
 ## 13. 与现有文档的关系
 
@@ -1819,5 +2105,5 @@ Rust History Analyzer 只通过 Node/服务端分析传输协议接入正式系�
 当 Demo 文档或已废止的 Demo 持久化草案与正式实现目标存在差异时，它们只用于说明历史
 验证事实；正式项目按本文的模块边界、最小 Codex 兼容层、内部 `AnalysisEvent` 架构和
 `AnalysisBatch` 输出协议实施。Rust History Analyzer 不负责数据库、文件或 SQLite 持久化，
-只向 Node/服务端输出分析批次；历史投影、MCP replay 结果和记忆持久化均由 Node/服务端
+只向 Node/服务端输出分析批次；历史投影、未来维护扫描结果和记忆持久化均由 Node/服务端
 负责，不能反向要求 Rust Analyzer 增加持久化实现。

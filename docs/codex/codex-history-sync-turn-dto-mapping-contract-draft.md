@@ -439,7 +439,7 @@ canonical_snapshot
   pins active turns/items + root/coverage/checkpoint + serverRevision
 ```
 
-`projection` JSON 可以作为 analyzer/replay/audit evidence 保留，但产品查询和 ADTO 不应每次重新解析 raw projection 才得到 turn 状态。
+`projection` JSON 可以作为 analyzer/audit evidence 保留，但产品查询和 ADTO 不应每次重新解析 raw projection 才得到 turn 状态。
 
 `canonical_snapshot` 所属的 `conversation_history_state` 必须由同一个 Node conversation
 coordinator 写入，并在一个 DB transaction 中提交。`serverRevision`、operation ledger 和

@@ -299,7 +299,7 @@ Codex 的压缩 worker 会先把压缩结果以 `.jsonl.zst` sibling 写入并�
 和 `should_skip_compressed_sibling` 明确规定：只要同目录同名 `.jsonl` 存在，就隐藏
 `.jsonl.zst`，而不是把两份文件当成两个 rollout。
 
-TermLink 在自己的 source discovery/catalog 层复现这一兼容规则：
+TermLink 在 Rust 自己的 source index/catalog 层复现这一兼容规则：
 
 - 同目录同名 plain 存在：选择 `.jsonl`；
 - 只有 `.zst`：保留 `.zst`，继续 forward-only；
@@ -307,7 +307,7 @@ TermLink 在自己的 source discovery/catalog 层复现这一兼容规则：
 - plain 存在但读取/校验失败：不回退到 `.zst`，避免绕过 Codex 的 canonical physical source。
 
 TermLink 不依赖 Codex compression crate，也不解压或比较 sibling 内容；该规则由本地自有
-helper、fixture 和 discovery/catalog 回归锁定。
+helper、fixture 和 source-index/catalog 回归锁定。
 
 仓库内 vendor 的 `protocol/src/protocol.rs` `HistoryPosition` 注释和
 `protocol/src/thread_id.rs` 的命名规则只能作为上述语义的兼容依据；它们没有提供完整的
@@ -729,8 +729,8 @@ Reader 只提供行为参考和 conformance 对照，不进入默认 Cargo 依�
 #### 5.1.1 普通 `.zst` 父 lineage 冻结
 
 正式 Collector 不把上游 `.zst` 的顺序解压能力扩展成父 lineage 的随机读取能力。普通
-`.zst` 作为 active/root source 时仅支持 forward full Replay；当它作为 parent rollout
-参与 suffix/backfill、replacement validation 或 parent full-history replay 时，统一返回
+`.zst` 作为 active/root source 时仅支持 forward full read；当它作为 parent rollout
+参与 suffix/backfill、replacement validation 或 parent full-history read 时，统一返回
 `LineageError::UnsupportedParentSourceCompression` 并 fail-closed，不发布 lineage
 batch、replacement evidence、cursor 或 checkpoint。解压后的逻辑 offset 不得伪装成压缩
 文件的可恢复 byte cursor。
