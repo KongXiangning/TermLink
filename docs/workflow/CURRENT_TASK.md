@@ -18,7 +18,7 @@
 
 ## 待处理交接项
 
-1. 本任务 12 个文件改动尚未提交；工作树含 R-010 任务外 dirty/untracked 内容，只能 path-scoped staging/commit，禁止整树操作。
+1. 本任务 13 个文件（含归档包）已按 path-scoped 提交为 `bef0274`；工作树仍有 R-010 任务外 dirty/untracked 内容，保持原样，后续只能继续 path-scoped 处理，禁止整树操作。
 2. formal native crate 兼容字段（fingerprint/prefix anchor、`retention_profile`、item/source `revision`）物理删除需另立协议迁移任务。
 3. 如需清理 `CONTRACTS.md`/`DECISIONS.md` 中 AD-011/AD-012 旧 formal revision 表述，另立范围锁定任务并取得用户确认。
 

@@ -10,7 +10,7 @@
 - 归档日期：2026-08-26
 - 最终状态：archived
 - 任务开始基线：`eaa3019`
-- 主要实现提交：无（本任务全部改动保留在工作树，HEAD 为 `f3400a8`；提交需按 path-scoped 方式单独执行，不得整树提交）
+- 主要实现提交：`bef0274`（docs(codex): retire discovery/fingerprint public semantics, close task 20260825-003；path-scoped 提交，仅含本任务 13 个文件，未触碰任务外 dirty/untracked 内容）
 - Safety mode：frozen-scope；Release mode：none
 - 归档结论：4.5 Node↔Rust 公共接口的 discovery/fingerprint 业务语义、`serverRevision`、泛化 item/source `revision` 与公共 `retention_profile` 已从现行来源文档收口；formal native crate 兼容字段物理删除与治理文档旧 formal 术语清理分别留待独立任务。纯文档修订，不宣称任何代码、schema 或产品行为变化。
 
@@ -96,5 +96,5 @@ closeout 阶段治理回写（phase-7/8 编排授权）：
 
 - 协议迁移任务（待立项）：物理删除 formal native crate 中 fingerprint/prefix anchor、`retention_profile`、item/source `revision` 兼容字段；需独立范围锁定与 fixture 迁移证据。
 - 治理术语对齐任务（可选，待用户确认）：清理 `CONTRACTS.md`/`DECISIONS.md` 中 AD-011/AD-012 的旧 formal revision 表述。
-- 提交事项：本任务 8 个实现文件 + 4 个 closeout 治理文件尚未提交；工作树仍含 R-010 任务外 dirty/untracked 内容，必须 path-scoped staging/commit，等待归属口径确认。
+- 提交事项：已完成——实现 8 文件 + closeout 治理 4 文件 + 本归档包共 13 个文件已按 path-scoped 提交为 `bef0274`；工作树仍含 R-010 任务外 dirty/untracked 内容，保持原样，后续处理必须继续 path-scoped，禁止整树操作。
 - 相关决策与登记表：AD-009/AD-013/AD-014/AD-017/AD-019/AD-020/AD-021；`docs/codex/codex-concept-layer-status-registry.md`。
