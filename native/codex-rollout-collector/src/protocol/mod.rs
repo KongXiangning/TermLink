@@ -5,6 +5,7 @@ pub mod stage4;
 pub mod startup;
 pub mod target;
 pub mod target_data;
+mod target_identity;
 pub mod target_mapping;
 pub mod target_runtime;
 pub mod target_source;

@@ -44,8 +44,10 @@ use super::target_data::{
     TargetCursorCapabilities, TargetCursorKind, TargetLineageCheckpoint, TargetLineageCoverage,
     TargetLineageTransition, TargetLineageValidationState, TargetMutation, TargetProgress,
     TargetProjectionWatermark, TargetReducerCheckpointState, TargetSourceByteRange,
-    TargetSourceCompression, TargetSourceKind, TargetTaskOutcome, TargetToolDetail,
+    TargetSourceCompression, TargetSourceKind, TargetSourceScope, TargetTaskOutcome,
+    TargetToolDetail,
 };
+use super::target_identity::{derive_batch_id, derive_segment_id};
 use super::target_source::{TargetSourceRead, TargetSourceReadError, TargetSourceSegmentEvidence};
 
 const TARGET_REDUCER_VERSION: &str = "target-v1";
@@ -297,7 +299,19 @@ fn map_target_source_read_inner(
     let payload = TargetAnalysisBatch::from_analysis_batch(legacy_batch, context)
         .map_err(|error| mapping_error(error.to_string()))?;
 
-    let (segment_id, batch_id) = delivery_ids(request, source, source_range);
+    let delivery_scope = delivery_scope(
+        request,
+        source,
+        active_segment,
+        &active_records,
+        source_range,
+        cursor.as_ref(),
+    );
+    delivery_scope
+        .validate()
+        .map_err(|error| mapping_error(error.to_string()))?;
+    let segment_id = derive_segment_id(&request.job_id, &delivery_scope);
+    let batch_id = derive_batch_id(&segment_id, source_range, 0);
     let batch = TargetBatchMessage::new(
         request.header.request_id.clone(),
         request.job_id.clone(),
@@ -1383,23 +1397,48 @@ fn checkpoint_state(
         .map_err(|error| mapping_error(error.to_string()))
 }
 
-fn delivery_ids(
+fn delivery_scope(
     request: &TargetAnalyzeRequest,
     source: &TargetSourceRead,
+    active_segment: &TargetSourceSegmentEvidence,
+    active_records: &[SourceRecord],
     source_range: Option<TargetSourceByteRange>,
-) -> (String, String) {
-    let range = source_range
-        .map(|range| format!("{}-{}", range.start, range.end))
-        .unwrap_or_else(|| "unbounded".to_string());
-    let segment_id = format!(
-        "target:{}:{}:{}:{}",
-        request.mode.as_str(),
-        source.source_id,
-        source.source_epoch,
-        range
-    );
-    let batch_id = format!("{segment_id}:batch");
-    (segment_id, batch_id)
+    cursor: Option<&TargetAnalyzerCursor>,
+) -> TargetSourceScope {
+    let cursor_kind = Some(match request.mode {
+        TargetAnalyzeMode::Preview => TargetCursorKind::TailPreview,
+        TargetAnalyzeMode::Backfill => TargetCursorKind::Backfill,
+        TargetAnalyzeMode::Append => TargetCursorKind::ForwardAppend,
+    });
+    let safe_boundary = cursor_boundary_is_safe(source, active_segment);
+    let last_complete_line = cursor
+        .and_then(|cursor| cursor.last_complete_line.clone())
+        .or_else(|| {
+            source_range
+                .filter(|_| safe_boundary)
+                .and_then(|range| last_complete_line(active_records, range.end))
+        });
+    let last_rollout_ordinal = cursor
+        .and_then(|cursor| cursor.last_rollout_ordinal)
+        .or_else(|| {
+            source_range.filter(|_| safe_boundary).and_then(|_| {
+                active_records
+                    .iter()
+                    .filter_map(|record| record.rollout_ordinal)
+                    .max()
+            })
+        });
+
+    TargetSourceScope {
+        conversation_id: source.conversation_id.clone(),
+        source_id: source.source_id.clone(),
+        source_epoch: source.source_epoch.clone(),
+        cursor_kind,
+        source_range,
+        snapshot_boundary: active_segment.snapshot_boundary,
+        last_complete_line,
+        last_rollout_ordinal,
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
